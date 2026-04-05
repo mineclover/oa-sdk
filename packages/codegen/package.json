@@ -1,0 +1,56 @@
+{
+  "name": "@oa-sdk/codegen",
+  "version": "0.1.0",
+  "description": "Drizzle/TS ↔ OpenAPI bidirectional code generation bridge",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "oa-gen": "./dist/cli/index.js"
+  },
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./drizzle": {
+      "import": "./dist/drizzle/index.js",
+      "types": "./dist/drizzle/index.d.ts"
+    },
+    "./typegen": {
+      "import": "./dist/typegen/index.js",
+      "types": "./dist/typegen/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsup src/index.ts src/cli/index.ts src/drizzle/index.ts src/typegen/index.ts --format esm --dts",
+    "dev": "tsup src/index.ts --format esm --dts --watch",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@oa-sdk/client": "workspace:*",
+    "@oa-sdk/core": "workspace:*",
+    "@oa-sdk/parser": "workspace:*",
+    "@oa-sdk/router": "workspace:*",
+    "yaml": "^2.5.0",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@oa-sdk/schemas": "workspace:*",
+    "@types/node": "^20.0.0",
+    "drizzle-orm": "1.0.0-beta.20",
+    "tsup": "^8.0.0",
+    "typescript": "^5.6.0",
+    "vitest": "^2.0.0"
+  },
+  "peerDependencies": {
+    "drizzle-orm": ">=1.0.0-beta.20",
+    "zod": ">=4.0.0"
+  },
+  "peerDependenciesMeta": {
+    "drizzle-orm": {
+      "optional": true
+    }
+  }
+}
