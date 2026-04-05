@@ -9,72 +9,103 @@ git clone <repo> && cd oa-sdk
 pnpm install
 ```
 
-## 2. 스키마 확인
+## 2. 스키마 병합 + 검증
 
 ```bash
 pnpm --filter @oa-sdk/schemas run merge
-# → 4개 경로, 17개 컴포넌트
+oa-gen validate --spec packages/schemas/src/.merged.yaml
 ```
 
-## 3. 린트
-
-```bash
-oa-gen lint --spec packages/schemas/src/.merged.yaml
-# → 0 errors, 0 warnings
+```
+━━━ Step 1: 파싱 + 구조 검증 ━━━
+✅ Valid — 0 warnings, 0 infos
+━━━ Step 2: 3.1 호환성 ━━━
+  3.2 전용 필드 사용: dataValue 20회, itemSchema 1회 ...
 ```
 
-## 4. TypeScript 타입 생성
+## 3. TypeScript 타입 생성
 
 ```bash
-oa-gen typegen --spec packages/schemas/src/.merged.yaml -o types.ts
+oa-gen typegen --spec packages/schemas/src/.merged.yaml
 ```
 
 ```typescript
-// 생성 결과 (types.ts)
 /** 사용자 정보 */
 export type User = {
   id: string
+  /** 이메일 주소 */
   email: string
   name: string
   role: 'admin' | 'user' | 'guest'
-  createdAt: string
 }
+
+export type ListUsersResponse = { items: User[]; total: number }
+export type CreateUserBody = CreateUserRequest
+export type CreateUserResponse = User
+export type CreateUserOp = { method: 'post'; path: '/users'; body: CreateUserBody; response: CreateUserResponse }
 ```
 
-## 5. 라우터 스텁 생성
+## 4. 라우터 + 클라이언트 생성
 
 ```bash
-oa-gen router --spec packages/schemas/src/.merged.yaml --types-import './types' -o router.ts
+oa-gen router --spec .merged.yaml --types-import './types' -o router.ts
+oa-gen client --spec .merged.yaml --types-import './types' -o client.ts
 ```
 
-## 6. 클라이언트 SDK 생성
+## 5. Mock 서버 테스트
 
-```bash
-oa-gen client --spec packages/schemas/src/.merged.yaml --types-import './types' -o client.ts
+```typescript
+import { createNodeMockServer } from '@oa-sdk/mock-server/adapters/node-http'
+import { createTestClient } from '@oa-sdk/mock-server'
+
+const server = createNodeMockServer(spec, { port: 0 })
+await server.start()
+const client = createTestClient(server)
+
+// 유효 요청 → 201
+const res = await client.post('/users',
+  { name: 'Alice', email: 'a@b.com', password: 'secure1234' },
+  { headers: { authorization: 'Bearer token' } }
+)
+expect(res.status).toBe(201)
+
+// 검증 실패 → 422 + 에러 상세
+const bad = await client.post('/users', {})
+// → [MISSING_REQUIRED_FIELD] /body/email: 필수 필드 누락
 ```
 
-## 7. 데모 (Mock 서버 + 전체 흐름)
+## 6. API 탐색
+
+```typescript
+import { parseDocument, describeApi } from '@oa-sdk/parser'
+
+console.log(describeApi(parseDocument(spec)))
+```
+
+```
+OA SDK API v0.1.0
+[health] GET /health — 서버 상태 확인
+[users]  GET /users — 사용자 목록 조회
+         POST /users — 사용자 생성
+```
+
+## 7. 데모
 
 ```bash
 pnpm demo
 ```
 
-```
-━━━ API 구조 ━━━
-OA SDK API v0.1.0 — 7개 오퍼레이션, 6개 스키마
-━━━ Mock Server ━━━
-GET  /health        → 200 {"status":"ok"}
-POST /users (유효)  → 201
-━━━ 커버리지 ━━━
-86% (6/7)
+## 8. 3.1 호환 (Swagger UI)
+
+```bash
+pnpm --filter @oa-sdk/schemas run downgrade:3.1
+# → .merged.3.1.yaml (순수 3.1) + .merged.3.1.meta.json (사이드카)
 ```
 
 ## 다음 단계
 
-| 하고 싶은 것 | 가이드 |
-|------------|--------|
-| Mock 서버로 테스트 작성 | → [Mock 테스팅](./use-cases/mock-testing.md) |
-| Drizzle에서 스키마 자동 생성 | → [코드젠 워크플로](./use-cases/codegen-workflow.md) |
-| 테스트 커버리지 추적 | → [테스트 피드백](./use-cases/test-feedback.md) |
-| CLI 전체 명령어 | → [CLI 세팅](./cli-setup.md) |
-| API 상세 | → [API 인덱스](../internal/api-index.md) (SSOT) |
+→ [Mock 테스팅](./use-cases/mock-testing.md) — 테스트 패턴 + 커버리지 추적
+→ [코드젠 워크플로](./use-cases/codegen-workflow.md) — 전체 파이프라인
+→ [테스트 피드백](./use-cases/test-feedback.md) — 에러 분석 + API 탐색
+→ [CLI 세팅](./cli-setup.md) — 전 커맨드 상세
+→ [API 인덱스](../internal/api-index.md) — 타입·함수 SSOT
