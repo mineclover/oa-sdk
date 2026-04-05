@@ -1,0 +1,34 @@
+{
+  "name": "@oa-sdk/playground",
+  "version": "0.1.0",
+  "description": "Integration testing playground — validates schema pipeline and mock server end-to-end",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "demo": "tsx scripts/demo.ts",
+    "dev": "tsx src/index.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "schema:validate": "pnpm --filter @oa-sdk/schemas run validate",
+    "schema:preview": "pnpm --filter @oa-sdk/schemas run preview",
+    "mock:start": "pnpm --filter @oa-sdk/mock-server run start",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist coverage"
+  },
+  "dependencies": {
+    "@oa-sdk/client": "workspace:*",
+    "@oa-sdk/codegen": "workspace:*",
+    "@oa-sdk/mock-server": "workspace:*",
+    "@oa-sdk/parser": "workspace:*",
+    "@oa-sdk/router": "workspace:*",
+    "@oa-sdk/schemas": "workspace:*",
+    "yaml": "^2.5.0",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "tsx": "^4.0.0",
+    "typescript": "^5.6.0",
+    "vitest": "^2.0.0"
+  }
+}
