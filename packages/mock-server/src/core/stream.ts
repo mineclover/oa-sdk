@@ -1,4 +1,4 @@
-import type { OasSchema } from '@oa-sdk/parser'
+import type { OasSchema, OasMediaType } from '@oa-sdk/parser'
 import { generator, type GenerateFolder } from './generate.js'
 
 export type StreamOptions = {
@@ -33,13 +33,13 @@ export class StreamFolder {
    * @param schema 이벤트 스키마 (또는 itemSchema 를 포함한 컨테이너 스키마)
    */
   async *generate(
-    schema: OasSchema,
+    schema: OasSchema | OasMediaType,
     options: StreamOptions = {},
   ): AsyncGenerator<unknown> {
     const { count = 3, includeTerminator = true } = options
 
     // OAS 3.2 itemSchema — 스트림 내 각 아이템의 스키마
-    const itemSchema = (schema as Record<string, unknown>)['itemSchema'] as OasSchema | undefined
+    const itemSchema = 'itemSchema' in schema ? schema.itemSchema : undefined
     const eventSchema = itemSchema ?? schema
 
     for (let i = 0; i < count; i++) {

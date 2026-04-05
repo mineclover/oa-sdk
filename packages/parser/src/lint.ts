@@ -13,7 +13,11 @@
  *   - style: description 존재, operationId 규칙
  */
 
-import type { OasDocument, OasPathItem, OasOperation, OasParameter, OasComponents } from './oas32-types.js'
+import type { OasDocument, OasPathItem, OasOperation, OasParameter, OasComponents, Referenceable } from './oas32-types.js'
+
+function isRef(node: unknown): node is { $ref: string } {
+  return typeof node === 'object' && node !== null && '$ref' in node
+}
 
 export type LintSeverity = 'error' | 'warning' | 'info'
 
@@ -79,7 +83,7 @@ function lintOperations(spec: OasDocument, results: LintResult[]) {
   const operationIds = new Set<string>()
 
   for (const [path, rawItem] of Object.entries(spec.paths ?? {})) {
-    if ('$ref' in (rawItem as Record<string, unknown>)) continue
+    if (isRef(rawItem)) continue
     const item = rawItem as OasPathItem
 
     for (const method of ['get', 'post', 'put', 'patch', 'delete', 'options', 'head', 'trace', 'query'] as const) {
@@ -108,7 +112,7 @@ const VALID_IN = new Set(['path', 'query', 'header', 'cookie'])
 
 function lintParameters(spec: OasDocument, results: LintResult[]) {
   for (const [path, rawItem] of Object.entries(spec.paths ?? {})) {
-    if ('$ref' in (rawItem as Record<string, unknown>)) continue
+    if (isRef(rawItem)) continue
     const item = rawItem as OasPathItem
 
     // path에서 {param} 추출
@@ -212,7 +216,7 @@ function lintSecurity(spec: OasDocument, results: LintResult[]) {
 
   // operation-level security
   for (const [path, rawItem] of Object.entries(spec.paths ?? {})) {
-    if ('$ref' in (rawItem as Record<string, unknown>)) continue
+    if (isRef(rawItem)) continue
     const item = rawItem as OasPathItem
     for (const method of ['get', 'post', 'put', 'patch', 'delete', 'options', 'head', 'trace', 'query'] as const) {
       const op = item[method] as OasOperation | undefined
@@ -232,7 +236,7 @@ function lintSecurity(spec: OasDocument, results: LintResult[]) {
 
 function lintStyle(spec: OasDocument, results: LintResult[]) {
   for (const [path, rawItem] of Object.entries(spec.paths ?? {})) {
-    if ('$ref' in (rawItem as Record<string, unknown>)) continue
+    if (isRef(rawItem)) continue
     const item = rawItem as OasPathItem
     for (const method of ['get', 'post', 'put', 'patch', 'delete', 'options', 'head', 'trace', 'query'] as const) {
       const op = item[method] as OasOperation | undefined
