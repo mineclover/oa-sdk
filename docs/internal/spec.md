@@ -73,8 +73,8 @@ Spectral  (3.1 다운그레이드): 0 에러, 1 힌트
 | core | 3 | 32 |
 | parser | 11 | 119 |
 | codegen | 10 | 193 |
-| mock-server | 21 | 417 |
+| mock-server | 23 | 431 |
 | router | 1 | 9 |
 | client | 2 | 14 |
 | playground | 4 | 35 |
-| **합계** | **52** | **819** |
+| **합계** | **53** | **833** |

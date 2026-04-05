@@ -46,8 +46,9 @@
 | `parseDocument()` | `parse.ts` | OAS 문서 → ParsedDocument IR (정식 진입점) |
 | `loadSchema()` | `schema-loader.ts` | OAS 문서 → RouteIndex (레거시 호환) |
 | `matchRoute()` | `schema-loader.ts` | RouteIndex에서 경로+메서드 매칭 |
-| ~~`toMswPath()`~~ | 삭제됨 | → `toColonPath()` from `@oa-sdk/core` |
 | `runPipeline()` | `pipeline.ts` | SpecPass[] 순차 실행 |
+| `resolveServerUrl()` | `query.ts` | Server variables URL 치환 |
+| `validateDocument()` | `validate.ts` | 종합 검증 (파싱+린트) |
 | `derefSpec()` | `deref.ts` | $ref 인라인 전개 |
 | `foldSchema()` | `fold.ts` | SchemaAlgebra 기반 스키마 순회 |
 
@@ -79,6 +80,18 @@
 
 ---
 
+## 함수 (`@oa-sdk/mock-server`)
+
+| 함수 | 파일 | 용도 |
+|------|------|------|
+| `handleRequest()` | `core/handler.ts` | 공통 요청 검증 + 응답 선택 (어댑터 공유) |
+| `validateRequest()` | `core/request-validator.ts` | AJV 기반 요청 검증 |
+| `pickResponse()` | `core/response-picker.ts` | 응답 선택 (6단계 폴백) |
+| `createTestClient()` | `testing.ts` | 테스트용 typed fetch wrapper |
+| `createCoverageTracker()` | `testing.ts` | operationId 커버리지 추적 |
+
+---
+
 ## 함수 (`@oa-sdk/router`)
 
 | 함수 | 파일 | 용도 |
@@ -102,7 +115,9 @@
 | `pascalCase()` | `strings.ts` | snake_case/kebab-case → PascalCase |
 | `escapeKey()` | `strings.ts` | 비식별자 키 → 따옴표 이스케이프 |
 | `toColonPath()` | `strings.ts` | `/users/{id}` → `/users/:id` |
-| `collectTypeNames()` | `codegen-utils.ts` | operations → typegen 타입 이름 수집 |
+| `collectTypeNames()` | `codegen-utils.ts` | operations → typegen 타입 이름 수집 (ResponseHeaders 포함) |
+| `formatGeneratedTs()` | `format.ts` | 생성 코드 자동 들여쓰기 |
+| `pickDefaultStatus()` | `response-utils.ts` | OAS responses → 기본 상태 코드 (범위/default 지원) |
 
 ---
 
