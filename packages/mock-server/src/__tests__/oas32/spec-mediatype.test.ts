@@ -126,7 +126,7 @@ describe('MediaType — JSON body', () => {
   it('필수 필드 누락 → 422', async () => {
     const res = await client.post('/items', { count: 5 })
     expect(res.status).toBe(422)
-    expect(res.json?.error?.details?.some((d: any) => d.code === 'MISSING_REQUIRED_FIELD')).toBe(true)
+    expect((res.json as any)?.error?.details?.some((d: any) => d.code === 'MISSING_REQUIRED_FIELD')).toBe(true)
   })
 
   it('타입 불일치 → 422', async () => {
@@ -137,7 +137,7 @@ describe('MediaType — JSON body', () => {
   it('잘못된 Content-Type → 422', async () => {
     const res = await client.post('/items', undefined, { headers: { 'content-type': 'text/plain' } })
     expect(res.status).toBe(422)
-    expect(res.json?.error?.details?.some((d: any) => d.code === 'PROTOCOL_MISMATCH')).toBe(true)
+    expect((res.json as any)?.error?.details?.some((d: any) => d.code === 'PROTOCOL_MISMATCH')).toBe(true)
   })
 })
 
