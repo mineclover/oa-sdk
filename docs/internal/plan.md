@@ -38,9 +38,9 @@ OAS 3.2 spec (YAML/JSON)
      │
      ▼ Generate (Backend별)
   MockServerBackend                ← @oa-sdk/mock-server  ✅
-  TypeScriptTypesBackend           ← @oa-sdk/codegen      Phase 4 ⬜
-  ServerRouterBackend              ← @oa-sdk/router       Phase 5 ⬜
-  ClientSdkBackend                 ← @oa-sdk/client       Phase 6 ⬜
+  TypeScriptTypesBackend           ← @oa-sdk/codegen      ✅
+  ServerRouterBackend              ← @oa-sdk/router       ✅
+  ClientSdkBackend                 ← @oa-sdk/client       ✅
 ```
 
 SWC에서 참조하는 패턴:

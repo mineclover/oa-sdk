@@ -50,5 +50,5 @@ pnpm demo
 |------|-|
 | [Quick Start](./docs/guides/quick-start.md) | 5분 안에 전 파이프라인 체험 |
 | [전체 문서](./docs/README.md) | 유저 가이드 + 프로젝트 관리 SSOT |
-| [구현 현황](./docs/internal/spec.md) | 패키지별 기능, 테스트 770개 |
+| [구현 현황](./docs/internal/spec.md) | 7패키지, 819 테스트 |
 | [API 인덱스](./docs/internal/api-index.md) | 타입·함수 단일 소스 |
