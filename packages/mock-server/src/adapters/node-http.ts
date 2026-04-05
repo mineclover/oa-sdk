@@ -177,6 +177,23 @@ async function readBody(req: IncomingMessage): Promise<unknown> {
     try { return JSON.parse(raw) } catch { return undefined }
   }
 
+  // multipart/form-data — boundary 기반 간단 파싱 (외부 패키지 없이)
+  if (ct === 'multipart/form-data') {
+    const boundary = (req.headers['content-type'] ?? '').match(/boundary=([^\s;]+)/)?.[1]
+    if (!boundary) return undefined
+    const parts = raw.split(`--${boundary}`).slice(1, -1) // 첫/마지막 빈 파트 제거
+    const result: Record<string, string> = {}
+    for (const part of parts) {
+      const headerEnd = part.indexOf('\r\n\r\n')
+      if (headerEnd === -1) continue
+      const header = part.slice(0, headerEnd)
+      const value = part.slice(headerEnd + 4).replace(/\r\n$/, '')
+      const nameMatch = header.match(/name="([^"]+)"/)
+      if (nameMatch) result[nameMatch[1]!] = value
+    }
+    return result
+  }
+
   if (ct === 'application/x-www-form-urlencoded') {
     const params = new URLSearchParams(raw)
     const result: Record<string, string | string[]> = {}

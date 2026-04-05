@@ -24,7 +24,14 @@ export function collectTypeNames(operations: ReadonlyArray<{
     if (op.parameters.some(p => p.in === 'query')) names.push(`${base}QueryParams`)
     if (op.requestBody) names.push(`${base}Body`)
     const has2xx = Object.keys(op.responses).some(k => /^2\d{2}$/.test(k))
-    if (has2xx) names.push(`${base}Response`)
+    if (has2xx) {
+      names.push(`${base}Response`)
+      // Response headers 존재 여부 확인
+      const resp2xx = Object.entries(op.responses).find(([k]) => /^2\d{2}$/.test(k))?.[1]
+      if (resp2xx && typeof resp2xx === 'object' && 'headers' in resp2xx) {
+        names.push(`${base}ResponseHeaders`)
+      }
+    }
   }
   return names
 }

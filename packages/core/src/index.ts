@@ -13,3 +13,6 @@ export { collectTypeNames } from './codegen-utils.js'
 
 // 코드 포매팅
 export { formatGeneratedTs } from './format.js'
+
+// 응답 유틸
+export { pickDefaultStatus } from './response-utils.js'

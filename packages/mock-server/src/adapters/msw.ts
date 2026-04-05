@@ -105,7 +105,7 @@ export function createMswHandlers(
           })
           return new HttpResponse(readable, {
             status: picked.status,
-            headers: { 'Content-Type': picked.contentType, 'Cache-Control': 'no-cache' },
+            headers: { ...picked.headers, 'Content-Type': picked.contentType, 'Cache-Control': 'no-cache', 'Connection': 'keep-alive' },
           })
         }
 

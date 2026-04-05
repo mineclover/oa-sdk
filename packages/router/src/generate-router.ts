@@ -5,9 +5,9 @@
  * typegen 타입을 import하여 타입 안전 라우터를 생성합니다.
  */
 
-import type { OasDocument } from '@oa-sdk/parser'
+import type { OasDocument, ParsedDocument } from '@oa-sdk/parser'
 import { parseDocument } from '@oa-sdk/parser'
-import { toColonPath, pascalCase, collectTypeNames, formatGeneratedTs } from '@oa-sdk/core'
+import { toColonPath, pascalCase, collectTypeNames, formatGeneratedTs, pickDefaultStatus } from '@oa-sdk/core'
 
 export type RouterTarget = 'hono' | 'express'
 
@@ -21,10 +21,10 @@ export type RouterOptions = {
 }
 
 /**
- * OAS 원본 문서에서 서버 라우터 스텁을 생성합니다.
+ * OAS 원본 문서 또는 ParsedDocument IR에서 서버 라우터 스텁을 생성합니다.
  */
-export function generateRouter(spec: OasDocument, options: RouterOptions = {}): string {
-  const doc = parseDocument(spec, []) // deref 없이 — $ref 이름 참조 유지
+export function generateRouter(spec: OasDocument | ParsedDocument, options: RouterOptions = {}): string {
+  const doc: ParsedDocument = 'openapi' in spec ? parseDocument(spec as OasDocument, []) : spec
   const { target = 'hono', typesImport, banner = true } = options
   const lines: string[] = []
 
@@ -106,7 +106,7 @@ export function generateRouter(spec: OasDocument, options: RouterOptions = {}): 
     }
 
     // response stub
-    const status = pickResponseStatus(op.responses)
+    const status = pickDefaultStatus(op.responses)
     lines.push(`  // TODO: implement ${op.operationId}`)
     if (target === 'hono') {
       if (status === 204) {
@@ -139,7 +139,3 @@ export function generateRouter(spec: OasDocument, options: RouterOptions = {}): 
 
 // ─── 헬퍼 ──────────────────────────────────────────────────────────────────
 
-function pickResponseStatus(responses: Record<string, unknown>): number {
-  const codes = Object.keys(responses).filter(k => /^\d{3}$/.test(k)).map(Number).sort()
-  return codes.find(c => c >= 200 && c < 300) ?? codes[0] ?? 200
-}

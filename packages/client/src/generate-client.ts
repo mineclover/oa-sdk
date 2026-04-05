@@ -4,7 +4,7 @@
  * typegen 타입을 import하여 타입 안전 API 클라이언트를 생성합니다.
  */
 
-import type { OasDocument } from '@oa-sdk/parser'
+import type { OasDocument, ParsedDocument } from '@oa-sdk/parser'
 import { parseDocument } from '@oa-sdk/parser'
 import { pascalCase, collectTypeNames, formatGeneratedTs } from '@oa-sdk/core'
 
@@ -18,8 +18,8 @@ export type ClientOptions = {
 /**
  * OAS 원본 문서에서 fetch 클라이언트 SDK를 생성합니다.
  */
-export function generateClient(spec: OasDocument, options: ClientOptions = {}): string {
-  const doc = parseDocument(spec, []) // deref 없이 — $ref 이름 참조 유지
+export function generateClient(spec: OasDocument | ParsedDocument, options: ClientOptions = {}): string {
+  const doc: ParsedDocument = 'openapi' in spec ? parseDocument(spec as OasDocument, []) : spec
   const { typesImport, banner = true } = options
   const lines: string[] = []
 
