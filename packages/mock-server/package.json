@@ -1,0 +1,51 @@
+{
+  "name": "@oa-sdk/mock-server",
+  "version": "0.1.0",
+  "description": "OpenAPI-native mock engine with detailed validation errors. Supports MSW and Node HTTP adapters.",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./adapters/msw": {
+      "import": "./dist/adapters/msw.js",
+      "types": "./dist/adapters/msw.d.ts"
+    },
+    "./adapters/node-http": {
+      "import": "./dist/adapters/node-http.js",
+      "types": "./dist/adapters/node-http.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "start": "node dist/cli/index.js",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@oa-sdk/core": "workspace:*",
+    "@oa-sdk/parser": "workspace:*",
+    "ajv": "^8.17.0",
+    "ajv-formats": "^3.0.1"
+  },
+  "devDependencies": {
+    "@oa-sdk/schemas": "workspace:*",
+    "@types/node": "^20.0.0",
+    "msw": "^2.0.0",
+    "tsup": "^8.0.0",
+    "typescript": "^5.6.0",
+    "vitest": "^2.0.0"
+  },
+  "peerDependencies": {
+    "msw": ">=2.0.0"
+  },
+  "peerDependenciesMeta": {
+    "msw": {
+      "optional": true
+    }
+  }
+}
