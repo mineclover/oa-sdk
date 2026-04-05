@@ -1,0 +1,88 @@
+# health 도메인
+# 병합 위치: paths, components.schemas
+
+tags:
+  - name: health
+    description: 서버 상태 확인
+
+paths:
+  /health:
+    get:
+      operationId: getHealth
+      summary: 서버 상태 확인
+      description: 서버가 정상 동작 중인지 확인하는 헬스체크 엔드포인트
+      tags:
+        - health
+      security: []
+      responses:
+        "200":
+          description: 서버 정상
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+              # 3.2: dataValue(구조화된 데이터) + serializedValue(실제 전송 포맷) 분리
+              examples:
+                ok:
+                  summary: 정상 응답
+                  dataValue:
+                    status: ok
+                    timestamp: "2026-04-04T00:00:00.000Z"
+                  serializedValue: '{"status":"ok","timestamp":"2026-04-04T00:00:00.000Z"}'
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+
+  /health/stream:
+    get:
+      operationId: streamHealthEvents
+      summary: 서버 상태 실시간 스트림
+      description: SSE로 서버 상태 변화를 실시간으로 구독
+      tags:
+        - health
+      security: []
+      responses:
+        "200":
+          description: SSE 이벤트 스트림
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+          content:
+            text/event-stream:
+              # 3.2: itemSchema — 스트림의 각 개별 이벤트 타입 정의
+              itemSchema:
+                type: object
+                required:
+                  - type
+                  - timestamp
+                properties:
+                  type:
+                    type: string
+                    enum: [status_change, degraded, recovered]
+                  status:
+                    type: string
+                    enum: [ok, degraded, unavailable]
+                  timestamp:
+                    type: string
+                    format: date-time
+                  message:
+                    type: string
+
+components:
+  schemas:
+    HealthStatus:
+      type: object
+      required:
+        - status
+        - timestamp
+      properties:
+        status:
+          type: string
+          enum: [ok]
+        timestamp:
+          type: string
+          format: date-time
+      examples:
+        ok:
+          dataValue:
+            status: ok
+            timestamp: "2026-04-04T00:00:00.000Z"
+          serializedValue: '{"status":"ok","timestamp":"2026-04-04T00:00:00.000Z"}'

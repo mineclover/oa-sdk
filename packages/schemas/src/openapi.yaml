@@ -1,0 +1,19 @@
+openapi: 3.2.0
+info:
+  title: OA SDK API
+  description: OpenAPI 3.2 기반 API 관리 인프라
+  version: 0.1.0
+  license:
+    name: MIT
+    identifier: MIT
+
+# servers는 merge 스크립트가 profiles/ 에서 주입합니다.
+# pnpm merge              → local 프로필 (기본값)
+# pnpm merge:staging      → staging 프로필
+# pnpm merge:production   → production 프로필
+
+tags:
+  - name: health
+    description: 서버 상태 확인
+  - name: users
+    description: 사용자 관리

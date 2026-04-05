@@ -1,0 +1,210 @@
+# common 도메인 — 경로 없음, 공유 컴포넌트만
+# 병합 위치: components.schemas / responses / parameters / securitySchemes
+
+components:
+  schemas:
+    Error:
+      type: object
+      description: 표준 에러 응답 스키마
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: string
+          description: 머신 리더블 에러 코드
+          example: NOT_FOUND
+        message:
+          type: string
+          description: 사람이 읽을 수 있는 에러 설명
+          example: 요청한 리소스를 찾을 수 없습니다
+        details:
+          type: array
+          items:
+            $ref: "#/components/schemas/ValidationError"
+        _meta:
+          type: object
+          properties:
+            operationId:
+              type: string
+            requestId:
+              type: string
+              format: uuid
+      # 3.2: dataValue/serializedValue 분리
+      examples:
+        notFound:
+          dataValue:
+            code: NOT_FOUND
+            message: 요청한 리소스를 찾을 수 없습니다
+          serializedValue: '{"code":"NOT_FOUND","message":"요청한 리소스를 찾을 수 없습니다"}'
+
+    ValidationError:
+      type: object
+      description: 필드 수준 유효성 검사 에러
+      required:
+        - path
+        - message
+      properties:
+        path:
+          type: string
+          example: /body/email
+        message:
+          type: string
+          example: "must match format 'email'"
+        received:
+          description: 실제 수신된 값
+          example: not-an-email
+        expected:
+          type: string
+          example: "string with format 'email'"
+
+  responses:
+    BadRequest:
+      description: "잘못된 요청 — 요청 형식 또는 파라미터 오류"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          examples:
+            default:
+              dataValue:
+                code: BAD_REQUEST
+                message: 요청 형식이 올바르지 않습니다
+              serializedValue: '{"code":"BAD_REQUEST","message":"요청 형식이 올바르지 않습니다"}'
+
+    Unauthorized:
+      description: "인증 실패 — 토큰 없음 또는 만료"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          examples:
+            default:
+              dataValue:
+                code: UNAUTHORIZED
+                message: 인증이 필요합니다
+              serializedValue: '{"code":"UNAUTHORIZED","message":"인증이 필요합니다"}'
+
+    Forbidden:
+      description: "권한 없음 — 접근 거부"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          examples:
+            default:
+              dataValue:
+                code: FORBIDDEN
+                message: 이 리소스에 접근할 권한이 없습니다
+              serializedValue: '{"code":"FORBIDDEN","message":"이 리소스에 접근할 권한이 없습니다"}'
+
+    NotFound:
+      description: 리소스를 찾을 수 없음
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          examples:
+            default:
+              dataValue:
+                code: NOT_FOUND
+                message: 요청한 리소스를 찾을 수 없습니다
+              serializedValue: '{"code":"NOT_FOUND","message":"요청한 리소스를 찾을 수 없습니다"}'
+
+    UnprocessableEntity:
+      description: 스키마 유효성 검사 실패
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          examples:
+            default:
+              dataValue:
+                code: SCHEMA_VALIDATION_FAILED
+                message: 요청 본문이 스키마 유효성 검사를 통과하지 못했습니다
+              serializedValue: '{"code":"SCHEMA_VALIDATION_FAILED","message":"요청 본문이 스키마 유효성 검사를 통과하지 못했습니다"}'
+
+    InternalServerError:
+      description: 서버 내부 오류
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          examples:
+            default:
+              dataValue:
+                code: INTERNAL_SERVER_ERROR
+                message: 서버 내부 오류가 발생했습니다
+              serializedValue: '{"code":"INTERNAL_SERVER_ERROR","message":"서버 내부 오류가 발생했습니다"}'
+
+    ServiceUnavailable:
+      description: 서비스 사용 불가
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          examples:
+            default:
+              dataValue:
+                code: SERVICE_UNAVAILABLE
+                message: 서비스가 일시적으로 사용 불가합니다
+              serializedValue: '{"code":"SERVICE_UNAVAILABLE","message":"서비스가 일시적으로 사용 불가합니다"}'
+
+  parameters:
+    Page:
+      name: page
+      in: query
+      description: 페이지 번호 (1-based)
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+      examples:
+        default:
+          dataValue: 1
+          serializedValue: "page=1"
+
+    Limit:
+      name: limit
+      in: query
+      description: 페이지당 항목 수
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+      examples:
+        default:
+          dataValue: 20
+          serializedValue: "limit=20"
+
+  # 3.2: OAuth 2.0 인증 규격
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT Bearer 토큰 인증
+
+    oauth2:
+      type: oauth2
+      description: OAuth 2.0 인증 (Authorization Code + Device Authorization 지원)
+      flows:
+        authorizationCode:
+          authorizationUrl: https://auth.example.com/authorize
+          tokenUrl: https://auth.example.com/token
+          refreshUrl: https://auth.example.com/token
+          # 3.2: RFC 8414 메타데이터 URL — 클라이언트 자동 발견(auto-discovery)
+          oauth2MetadataUrl: https://auth.example.com/.well-known/oauth-authorization-server
+          scopes:
+            read: 읽기 권한
+            write: 쓰기 권한
+            admin: 관리자 권한
+        # 3.2: Device Authorization Flow (RFC 8628) — TV, 키오스크 등 제한 입력 환경
+        deviceAuthorization:
+          deviceAuthorizationUrl: https://auth.example.com/device/code
+          tokenUrl: https://auth.example.com/token
+          oauth2MetadataUrl: https://auth.example.com/.well-known/oauth-authorization-server
+          scopes:
+            read: 읽기 권한
+            write: 쓰기 권한

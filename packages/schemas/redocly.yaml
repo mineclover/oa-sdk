@@ -1,0 +1,12 @@
+apis:
+  main@latest:
+    root: src/.merged.yaml
+
+rules:
+  operation-2xx-response: error
+  operation-operationId: error
+  operation-summary: warn
+  no-unused-components: warn
+  spec-components-invalid-map-name: error
+  no-http-verbs-in-paths: warn
+  path-parameters-defined: error

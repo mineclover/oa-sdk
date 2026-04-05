@@ -1,0 +1,43 @@
+extends:
+  - spectral:oas
+
+rules:
+  # --- 스키마 구조 검증은 Redocly CLI가 담당 ---
+  # Spectral은 $ref 해석 전 소스 파일을 검사하므로 path item $ref를 거부함.
+  # Redocly는 $ref를 resolve한 뒤 검증하므로 구조 오류를 더 정확히 잡음.
+  oas3-schema: off
+
+  # --- OpenAPI 3.2 미지원 규칙 비활성화 ---
+  # Spectral은 아직 OpenAPI 3.2를 지원하지 않음 (2026-04 기준).
+  # 3.2의 dataValue / serializedValue 를 3.1의 value 부재로 오탐.
+  # 스키마 예제 검증은 Redocly가 담당.
+  oas3-valid-media-example: off
+  oas3-valid-schema-example: off
+  # 3.2의 dataValue/serializedValue 를 value 부재로 오탐
+  oas3-examples-value-or-externalValue: off
+
+  # --- 스타일 및 컨벤션 규칙 ---
+  oas3-api-servers: warn
+  operation-tags: warn
+  info-contact: off
+  info-license: off
+  operation-operationId: error
+
+  # operationId camelCase 컨벤션
+  operation-id-camel-case:
+    description: "operationId must be camelCase"
+    given: "$.paths[*][*].operationId"
+    severity: warn
+    then:
+      function: pattern
+      functionOptions:
+        match: "^[a-z][a-zA-Z0-9]*$"
+
+  # Prism mock 생성을 위한 examples 권장 (hint만)
+  response-example-recommended:
+    description: "Response schemas should have examples for Prism mock generation"
+    given: "$.paths[*][*].responses[*].content[*].schema"
+    severity: hint
+    then:
+      field: "example"
+      function: truthy

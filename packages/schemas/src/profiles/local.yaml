@@ -1,0 +1,5 @@
+servers:
+  - url: http://localhost:4010
+    description: Mock server (@oa-sdk/mock-server)
+  - url: http://localhost:3000
+    description: Local dev server
