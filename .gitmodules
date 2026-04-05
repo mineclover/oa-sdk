@@ -1,0 +1,9 @@
+[submodule "references/msw-auto-mock"]
+	path = references/msw-auto-mock
+	url = https://github.com/4jades/msw-auto-mock
+[submodule "references/OpenAPI-Specification"]
+	path = references/OpenAPI-Specification
+	url = https://github.com/OAI/OpenAPI-Specification
+[submodule "references/swc"]
+	path = references/swc
+	url = https://github.com/kdy1/swc

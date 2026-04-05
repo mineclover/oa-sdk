@@ -1,0 +1,59 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ci:
+    name: Build, Typecheck & Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: false
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build (parser → codegen → mock-server)
+        run: |
+          pnpm --filter @oa-sdk/parser run build
+          pnpm --filter @oa-sdk/codegen run build
+          pnpm --filter @oa-sdk/mock-server run build
+
+      - name: Type check
+        run: |
+          pnpm --filter @oa-sdk/parser run typecheck
+          pnpm --filter @oa-sdk/codegen run typecheck
+          pnpm --filter @oa-sdk/mock-server run typecheck
+
+      - name: Test
+        run: |
+          pnpm --filter @oa-sdk/parser run test
+          pnpm --filter @oa-sdk/codegen run test
+          pnpm --filter @oa-sdk/mock-server run test
+          pnpm --filter playground run test
+
+      # schemas는 Redocly의 OAS 3.2 미지원으로 bundle 불가 (merge만 검증)
+      - name: Schemas merge + Spectral (non-blocking)
+        run: |
+          pnpm --filter @oa-sdk/schemas run merge
+          pnpm --filter @oa-sdk/schemas exec spectral lint src/.merged.yaml --ruleset .spectral.yaml || true
+        continue-on-error: true
