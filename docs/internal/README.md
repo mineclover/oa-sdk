@@ -1,0 +1,45 @@
+# 프로젝트 관리 SSOT
+
+> 이 디렉터리의 문서가 단일 진실 소스(SSOT)입니다.
+> 유저 가이드(`../guides/`)는 이 문서를 참조하며, 상세 정보를 직접 기술하지 않습니다.
+
+## 문서 관계
+
+```
+spec.md (구현 현황 — 무엇이 작동하는가)
+  ├─ 패키지별 기능 목록 + 테스트 수
+  ├─ → api-index.md (각 함수/타입 상세)
+  ├─ → oas32-coverage.md (OAS 기능별 커버리지)
+  └─ → traceability.md (스펙↔코드 매핑)
+
+plan.md (로드맵 — 어디를 향하는가)
+  ├─ Phase 1~6 현황
+  └─ → goals/ (목표별 상세)
+
+architecture/ (설계 결정)
+  ├─ packages.md (패키지 구조 + 파일별 역할)
+  └─ ADR 001~005
+```
+
+## 문서별 역할
+
+| 문서 | 역할 | 업데이트 시점 |
+|------|------|-------------|
+| [spec.md](./spec.md) | 작동하는 기능 목록 | 기능 추가/제거 시 |
+| [api-index.md](./api-index.md) | 타입·함수 단일 소스 + 재구현 금지 | 함수/타입 추가 시 |
+| [oas32-coverage.md](./oas32-coverage.md) | OAS 3.2 기능별 지원 매트릭스 | 새 기능 구현 시 |
+| [traceability.md](./traceability.md) | 공식 스펙 § → 타입 → 코드 매핑 | 파일 추가/이동 시 |
+| [plan.md](./plan.md) | 로드맵 + 아키텍처 | Phase 완료/추가 시 |
+| [architecture/packages.md](./architecture/packages.md) | 패키지 구조 + 파일 역할 | 패키지/파일 변경 시 |
+| [goals/](./goals/) | 목표별 상세 스펙 | 목표 상태 변경 시 |
+
+## 유저 가이드에서 참조하는 방법
+
+```markdown
+<!-- 유저 가이드에서 -->
+→ [API 상세](../../internal/api-index.md)
+→ [에러 코드 목록](../../internal/spec.md)
+→ [OAS 커버리지](../../internal/oas32-coverage.md)
+```
+
+SSOT에 상세가 있으므로 유저 가이드에서 동일 정보를 반복하지 않습니다.
