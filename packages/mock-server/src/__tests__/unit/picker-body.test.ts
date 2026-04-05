@@ -124,3 +124,23 @@ describe('contentType 선택', () => {
     expect(r?.body).toEqual({ event: 'update' })
   })
 })
+
+// ─── dataValue: null + schema default 조합 ──────────────────────────────────
+
+describe('dataValue: null은 schema default보다 우선', () => {
+  it('dataValue: null이면 schema default 무시', () => {
+    const responses = {
+      '200': {
+        description: 'OK',
+        content: {
+          'application/json': {
+            examples: { d: { dataValue: null } },
+            schema: { type: 'string', default: 'fallback' },
+          },
+        },
+      },
+    }
+    const picked = pickResponse(responses as any)
+    expect(picked?.body).toBe(null)
+  })
+})

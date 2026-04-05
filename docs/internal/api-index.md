@@ -46,7 +46,7 @@
 | `parseDocument()` | `parse.ts` | OAS 문서 → ParsedDocument IR (정식 진입점) |
 | `loadSchema()` | `schema-loader.ts` | OAS 문서 → RouteIndex (레거시 호환) |
 | `matchRoute()` | `schema-loader.ts` | RouteIndex에서 경로+메서드 매칭 |
-| `toMswPath()` | `schema-loader.ts` | `/users/{id}` → `/users/:id` |
+| ~~`toMswPath()`~~ | 삭제됨 | → `toColonPath()` from `@oa-sdk/core` |
 | `runPipeline()` | `pipeline.ts` | SpecPass[] 순차 실행 |
 | `derefSpec()` | `deref.ts` | $ref 인라인 전개 |
 | `foldSchema()` | `fold.ts` | SchemaAlgebra 기반 스키마 순회 |

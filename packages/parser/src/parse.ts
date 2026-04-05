@@ -43,8 +43,7 @@ export function parseDocument(
   doc: OasDocument,
   passes: SpecPass[] = DEFAULT_PASSES,
 ): ParsedDocument {
-  // openapi3-ts OpenAPIObject 호환을 위한 캐스트
-  const resolved = runPipeline(doc as never, passes) as unknown as OasDocument
+  const resolved = runPipeline(doc, passes) as OasDocument
 
   const operations: OperationEntry[] = []
   const routes: RouteIndex = new Map()

@@ -23,32 +23,19 @@ export type ValidationResult = {
 /**
  * OAS 3.2 문서를 종합 검증합니다.
  *
- * @param input YAML/JSON 문자열 또는 파싱된 객체
+ * @param input JSON 문자열 또는 파싱된 객체. YAML은 파싱 후 전달하세요.
  */
 export function validateDocument(input: string | Record<string, unknown>): ValidationResult {
   const results: LintResult[] = []
 
-  // Step 1: YAML/JSON 파싱
+  // Step 1: 파싱
   let doc: unknown
   if (typeof input === 'string') {
     try {
-      // JSON 먼저 시도
       doc = JSON.parse(input)
     } catch {
-      // YAML 시도 (동적 import 불가하므로 간단 검증)
-      try {
-        // yaml 패키지 없이 기본 검증: 첫 줄이 openapi로 시작하는지
-        if (!input.trim().startsWith('{') && !input.includes('openapi')) {
-          results.push({ path: '/', severity: 'error', rule: 'parse/yaml', message: 'YAML 파싱 불가: openapi 필드를 찾을 수 없습니다' })
-          return buildResult(results)
-        }
-        // 런타임에서는 이미 파싱된 객체를 받을 것으로 기대
-        results.push({ path: '/', severity: 'error', rule: 'parse/format', message: '문자열 입력은 JSON만 지원합니다. YAML은 파싱 후 객체를 전달하세요.' })
-        return buildResult(results)
-      } catch {
-        results.push({ path: '/', severity: 'error', rule: 'parse/format', message: '입력을 파싱할 수 없습니다' })
-        return buildResult(results)
-      }
+      results.push({ path: '/', severity: 'error', rule: 'parse/format', message: 'JSON 파싱 실패. YAML은 파싱 후 객체를 전달하세요.' })
+      return buildResult(results)
     }
   } else {
     doc = input
