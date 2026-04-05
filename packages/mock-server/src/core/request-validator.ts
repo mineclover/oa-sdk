@@ -192,6 +192,17 @@ function validateBody(
   requestBody: OasRequestBody,
 ): MockErrorDetail[] {
   const normalized = contentType?.split(';')[0]?.trim() ?? 'application/json'
+
+  // multipart/form-data — 스키마 기반 검증 (개별 필드 encoding은 미지원)
+  // body가 이미 파싱된 객체일 때만 검증
+  if (normalized === 'multipart/form-data') {
+    const raw = requestBody.content?.['multipart/form-data']
+    if (!raw || '$ref' in raw) return []
+    const mediaType = raw as { schema?: OasSchema }
+    if (!mediaType.schema) return []
+    return runAjv(body, mediaType.schema, '/body')
+  }
+
   const raw = requestBody.content?.[normalized]
   if (!raw || '$ref' in raw) return []
   const mediaType = raw as { schema?: OasSchema }

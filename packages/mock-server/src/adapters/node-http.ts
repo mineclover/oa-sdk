@@ -8,6 +8,10 @@ import type { MockErrorResponse } from '../errors/types.js'
 export type NodeMockServerOptions = {
   port?: number
   host?: string
+  /** servers 배열에서 사용할 서버 인덱스 (기본: 0) */
+  serverIndex?: number
+  /** server variables 오버라이드 */
+  serverVariables?: Record<string, string>
 }
 
 export type NodeMockServer = {
@@ -33,7 +37,7 @@ export function createNodeMockServer(
   spec: OasDocument | Record<string, unknown>,
   options: NodeMockServerOptions = {},
 ): NodeMockServer {
-  const { port = 4010, host = '127.0.0.1' } = options
+  const { port = 4010, host = '127.0.0.1', serverIndex = 0, serverVariables } = options
   const parsed = parseDocument(spec as OasDocument)
   const index = parsed.routes
   let httpServer: Server | null = null

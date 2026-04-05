@@ -1,5 +1,5 @@
 import { http, HttpResponse, type RequestHandler } from 'msw'
-import { parseDocument, HTTP_METHODS, type OasDocument } from '@oa-sdk/parser'
+import { parseDocument, HTTP_METHODS, resolveServerUrl, type OasDocument } from '@oa-sdk/parser'
 import { toColonPath } from '@oa-sdk/core'
 import { validateRequest } from '../core/request-validator.js'
 import { pickResponse } from '../core/response-picker.js'
@@ -27,7 +27,8 @@ export function createMswHandlers(
 ): RequestHandler[] {
   const parsed = parseDocument(spec as OasDocument)
   const index = parsed.routes
-  const baseUrl = extractBaseUrl(spec as Record<string, unknown>)
+  const server = parsed.servers[0]
+  const baseUrl = server ? extractPathname(resolveServerUrl(server)) : ''
   const handlers: RequestHandler[] = []
 
   for (const [openApiPath, methodMap] of index) {
@@ -195,13 +196,10 @@ function formDataToObject(formData: FormData): Record<string, string | string[]>
 
 // ─── base URL 추출 ────────────────────────────────────────────────────────────
 
-function extractBaseUrl(spec: Record<string, unknown>): string {
-  const servers = spec['servers'] as Array<{ url?: string }> | undefined
-  const first = servers?.[0]?.url ?? ''
+function extractPathname(url: string): string {
   try {
-    const u = new URL(first)
-    return u.pathname.replace(/\/$/, '')
+    return new URL(url).pathname.replace(/\/$/, '')
   } catch {
-    return first.replace(/\/$/, '')
+    return url.replace(/\/$/, '')
   }
 }

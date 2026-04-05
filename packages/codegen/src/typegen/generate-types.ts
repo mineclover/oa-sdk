@@ -24,7 +24,7 @@ export type TypegenOptions = {
 }
 
 /** ParsedDocument IR 기반 (deref 후). $ref가 해결된 상태. */
-export function generateTypes(doc: { schemas: Record<string, OasSchema>; operations: Array<{ operationId?: string; parameters: OasParameter[]; requestBody?: OasRequestBody; responses: Record<string, OasResponse> }> }, options: TypegenOptions = {}): string {
+export function generateTypes(doc: { schemas: Record<string, OasSchema>; operations: Array<{ operationId?: string; method: string; openApiPath: string; parameters: OasParameter[]; requestBody?: OasRequestBody; responses: Record<string, OasResponse>; summary?: string; description?: string }> }, options: TypegenOptions = {}): string {
   const { banner = true, style = 'type' } = options
   const lines: string[] = []
 
@@ -88,6 +88,18 @@ export function generateTypes(doc: { schemas: Record<string, OasSchema>; operati
       lines.push(`export type ${baseName}ResponseHeaders = ${headersType}`)
       lines.push('')
     }
+
+    // Operation 묶음 타입
+    const bundleFields: string[] = []
+    bundleFields.push(`  method: '${op.method}'`)
+    bundleFields.push(`  path: '${op.openApiPath}'`)
+    if (pathParams.length > 0) bundleFields.push(`  params: ${baseName}PathParams`)
+    if (queryParams.length > 0) bundleFields.push(`  query: ${baseName}QueryParams`)
+    if (op.requestBody) bundleFields.push(`  body: ${baseName}Body`)
+    if (responseType) bundleFields.push(`  response: ${baseName}Response`)
+    if (headersType) bundleFields.push(`  responseHeaders: ${baseName}ResponseHeaders`)
+    lines.push(`export type ${baseName}Op = {\n${bundleFields.join('\n')}\n}`)
+    lines.push('')
   }
 
   return formatGeneratedTs(lines.join('\n'))

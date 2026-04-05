@@ -112,7 +112,7 @@ export function generateRouter(spec: OasDocument, options: RouterOptions = {}): 
       if (status === 204) {
         lines.push(`  return c.body(null, 204)`)
       } else {
-        lines.push(`  return c.json({} as any, ${status}) // ${baseName}Response`)
+        lines.push(`  return c.json({} as any, ${status}) // ${baseName}Response (headers: ${baseName}ResponseHeaders)`)
       }
     } else {
       if (status === 204) {
