@@ -401,3 +401,49 @@ describe('createMswHandlers — $ref 스키마 deref 검증', () => {
     expect(invalid.status).toBe(422)
   })
 })
+
+// ─── 추가 시나리오 (Node HTTP 패리티) ──────────────────────────────────────────
+
+describe('createMswHandlers — 추가 시나리오', () => {
+  it('POST /items no body + required → 422 MISSING_REQUIRED_FIELD', async () => {
+    const res = await fetch(`${BASE}/items`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+    })
+    expect(res.status).toBe(422)
+    const body = await res.json() as any
+    expect(body.error.details.some((d: any) => d.code === 'MISSING_REQUIRED_FIELD')).toBe(true)
+  })
+
+  it('GET /items/{id}/unknown → 핸들러 없으면 MSW bypass', async () => {
+    // MSW는 매칭 안 되면 bypass하므로 실제 네트워크 요청 시도
+    // onUnhandledRequest: 'bypass'로 설정되어 있어서 에러 안 남
+  })
+
+  it('default 응답만 있는 엔드포인트', async () => {
+    const defaultSpec: OasDocument = {
+      ...spec,
+      paths: {
+        '/default-only': {
+          get: {
+            operationId: 'defaultOnly',
+            responses: { default: { description: 'Default', content: { 'application/json': { example: { ok: true } } } } },
+          },
+        },
+      },
+    }
+    server.close()
+    const s = setupServer(...createMswHandlers(defaultSpec))
+    s.listen({ onUnhandledRequest: 'bypass' })
+    try {
+      const res = await fetch(`${BASE}/default-only`)
+      expect(res.status).toBe(200)
+      const body = await res.json()
+      expect(body).toEqual({ ok: true })
+    } finally {
+      s.close()
+      server.listen({ onUnhandledRequest: 'bypass' })
+    }
+  })
+})

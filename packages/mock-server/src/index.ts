@@ -22,6 +22,8 @@ export type { StreamOptions } from './core/stream.js'
 export { validateRequest } from './core/request-validator.js'
 export { pickResponse } from './core/response-picker.js'
 export type { PickedResponse } from './core/response-picker.js'
+export { handleRequest } from './core/handler.js'
+export type { HandlerResult } from './core/handler.js'
 
 // ─── 에러 ─────────────────────────────────────────────────────────────────────
 export type { MockErrorCode, MockErrorDetail, MockValidationResult, MockErrorResponse } from './errors/types.js'

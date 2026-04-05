@@ -1,10 +1,8 @@
 import { http, HttpResponse, type RequestHandler } from 'msw'
 import { parseDocument, HTTP_METHODS, resolveServerUrl, type OasDocument } from '@oa-sdk/parser'
 import { toColonPath } from '@oa-sdk/core'
-import { validateRequest } from '../core/request-validator.js'
-import { pickResponse } from '../core/response-picker.js'
+import { handleRequest } from '../core/handler.js'
 import { streamer, formatSseChunk, formatNdjsonLine, isStreamingContentType } from '../core/stream.js'
-import type { MockErrorResponse } from '../errors/types.js'
 
 export type MswHandlerOptions = {
   /** 요청 수신 시 호출되는 관찰 훅 (로깅/추적용) */
@@ -74,32 +72,15 @@ export function createMswHandlers(
         const contentType = request.headers.get('content-type') ?? undefined
         const body = request.body ? await parseBody(request, contentType) : undefined
 
-        const result = validateRequest(
+        const hr = handleRequest(
           { pathParams, queryParams, headers, body, contentType },
-          entry.parameters,
-          entry.requestBody,
-          { requirements: entry.security, schemes: parsed.securitySchemes },
+          { ...entry, openApiPath },
+          parsed.securitySchemes,
         )
 
-        if (!result.valid) {
-          const errorBody: MockErrorResponse = {
-            error: {
-              code: 'CONSTRAINT_VIOLATION',
-              message: '요청 검증 실패',
-              details: result.errors,
-              _meta: { ...(entry.operationId !== undefined && { operationId: entry.operationId }), method, path: openApiPath },
-            },
-          }
-          return HttpResponse.json(errorBody, { status: 422 })
-        }
-
-        const picked = pickResponse(entry.responses)
-        if (!picked) {
-          return HttpResponse.json(
-            { error: { code: 'NOT_FOUND', message: '응답 스키마가 정의되지 않았습니다', details: [] } },
-            { status: 500 },
-          )
-        }
+        if (hr.type === 'validation-error') return HttpResponse.json(hr.body, { status: hr.status })
+        if (hr.type === 'no-response') return HttpResponse.json(hr.body, { status: hr.status })
+        const picked = hr.picked
 
         // 스트리밍 응답 (text/event-stream 등) — ReadableStream으로 전달
         if (isStreamingContentType(picked.contentType)) {

@@ -1,9 +1,7 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http'
 import { parseDocument, matchRoute, type HttpMethod, type MatchResult, type OasDocument } from '@oa-sdk/parser'
-import { validateRequest } from '../core/request-validator.js'
-import { pickResponse } from '../core/response-picker.js'
+import { handleRequest } from '../core/handler.js'
 import { streamer, formatSseChunk, formatNdjsonLine, isStreamingContentType } from '../core/stream.js'
-import type { MockErrorResponse } from '../errors/types.js'
 
 export type NodeMockServerOptions = {
   port?: number
@@ -88,31 +86,15 @@ export function createNodeMockServer(
     const contentType = headers['content-type']
     const body = await readBody(req)
 
-    const result = validateRequest(
+    const hr = handleRequest(
       { pathParams, queryParams, headers, body, contentType },
-      entry.parameters,
-      entry.requestBody,
-      { requirements: entry.security, schemes: parsed.securitySchemes },
+      entry,
+      parsed.securitySchemes,
     )
 
-    if (!result.valid) {
-      const errorBody: MockErrorResponse = {
-        error: {
-          code: 'CONSTRAINT_VIOLATION',
-          message: '요청 검증 실패',
-          details: result.errors,
-          _meta: { ...(entry.operationId !== undefined && { operationId: entry.operationId }), method, path: entry.openApiPath },
-        },
-      }
-      writeJson(res, 422, errorBody)
-      return
-    }
-
-    const picked = pickResponse(entry.responses)
-    if (!picked) {
-      writeJson(res, 500, { error: { code: 'NOT_FOUND', message: '응답 스키마가 정의되지 않았습니다', details: [] } })
-      return
-    }
+    if (hr.type === 'validation-error') { writeJson(res, hr.status, hr.body); return }
+    if (hr.type === 'no-response') { writeJson(res, hr.status, hr.body); return }
+    const picked = hr.picked
 
     // 스트리밍 응답 — SSE는 data:\n\n 포맷, NDJSON/JSONL은 <json>\n 포맷
     if (isStreamingContentType(picked.contentType)) {
