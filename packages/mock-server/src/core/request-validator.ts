@@ -4,7 +4,7 @@ import type { OasParameter, OasRequestBody, OasSchema, OasSecurityScheme, OasSec
 import { classifyAjvErrors } from '../errors/classifier.js'
 import type { MockErrorDetail, MockValidationResult } from '../errors/types.js'
 
-const ajv = new Ajv({ allErrors: true, strict: false, verbose: true })
+const ajv = new Ajv({ allErrors: true, strict: false, verbose: true, discriminator: true })
 addFormats(ajv)
 
 // 스키마 객체 참조 → 컴파일된 validate 함수 캐시 (매 요청마다 재컴파일 방지)

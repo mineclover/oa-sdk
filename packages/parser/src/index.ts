@@ -40,7 +40,7 @@ export { SchemaFolder } from './folder.js'
 export { DerefFolder, derefSpec } from './deref.js'
 
 // ─── Query API ────────────────────────────────────────────────────────────
-export { findOperation, findByTag, findByPath, getSchema, getTag, groupByTag, describeApi } from './query.js'
+export { findOperation, findByTag, findByPath, getSchema, getTag, groupByTag, describeApi, resolveServerUrl } from './query.js'
 
 // ─── Lint ─────────────────────────────────────────────────────────────────
 export { lintDocument } from './lint.js'

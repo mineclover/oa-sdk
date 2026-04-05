@@ -81,6 +81,13 @@ export function generateTypes(doc: { schemas: Record<string, OasSchema>; operati
       lines.push(`export type ${baseName}Response = ${responseType}`)
       lines.push('')
     }
+
+    // Response headers 타입
+    const headersType = responseHeadersToTs(op.responses)
+    if (headersType) {
+      lines.push(`export type ${baseName}ResponseHeaders = ${headersType}`)
+      lines.push('')
+    }
   }
 
   return formatGeneratedTs(lines.join('\n'))
@@ -131,3 +138,20 @@ function responseToTs(responses: Record<string, OasResponse>): string | null {
   return schemaToTs(mediaType.schema)
 }
 
+
+function responseHeadersToTs(responses: Record<string, OasResponse>): string | null {
+  const codes = Object.keys(responses).filter(k => /^2\d{2}$/.test(k)).sort()
+  const key = codes[0] ?? 'default'
+  const response = responses[key]
+  if (!response?.headers) return null
+  const entries = Object.entries(response.headers)
+    .filter(([, h]) => !('$ref' in h))
+    .map(([name, h]) => {
+      const header = h as { schema?: OasSchema; required?: boolean }
+      const type = header.schema ? schemaToTs(header.schema) : 'string'
+      const opt = header.required ? '' : '?'
+      return `  '${name}'${opt}: ${type}`
+    })
+  if (entries.length === 0) return null
+  return `{\n${entries.join('\n')}\n}`
+}

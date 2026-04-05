@@ -5,7 +5,7 @@
  * AI/사용자에게 API 메타데이터를 제공하고 테스트에서 활용.
  */
 
-import type { ParsedDocument, OperationEntry, OasSchema, OasTag } from './types.js'
+import type { ParsedDocument, OperationEntry, OasSchema, OasTag, OasServer } from './types.js'
 
 /**
  * operationId로 오퍼레이션 검색
@@ -78,17 +78,68 @@ export function describeApi(doc: ParsedDocument): string {
   lines.push(`스키마: ${Object.keys(doc.schemas).length}개`)
   lines.push(`오퍼레이션: ${doc.operations.length}개`)
 
+  // 태그 계층 구축 (parent/kind)
+  const rootTags: string[] = []
+  const childTags = new Map<string, string[]>() // parent → children
+  for (const [name, tag] of doc.tags) {
+    if (tag.parent) {
+      const siblings = childTags.get(tag.parent) ?? []
+      siblings.push(name)
+      childTags.set(tag.parent, siblings)
+    } else {
+      rootTags.push(name)
+    }
+  }
+  // groupByTag에 있지만 tags 정의에 없는 것도 포함
   const tagged = groupByTag(doc)
-  for (const [tag, ops] of tagged) {
-    const tagInfo = doc.tags.get(tag)
-    const desc = tagInfo?.description ? ` — ${tagInfo.description}` : ''
-    lines.push('')
-    lines.push(`[${tag}]${desc}`)
-    for (const op of ops) {
-      const deprecated = op.deprecated ? ' (deprecated)' : ''
-      lines.push(`  ${op.method.toUpperCase()} ${op.openApiPath} — ${op.summary ?? op.operationId ?? ''}${deprecated}`)
+  for (const tag of tagged.keys()) {
+    if (!rootTags.includes(tag) && !Array.from(childTags.values()).flat().includes(tag)) {
+      rootTags.push(tag)
     }
   }
 
+  function renderTag(tag: string, indent: string) {
+    const tagInfo = doc.tags.get(tag)
+    const desc = tagInfo?.description ? ` — ${tagInfo.description}` : ''
+    const kind = tagInfo?.kind ? ` [${tagInfo.kind}]` : ''
+    lines.push(`${indent}[${tag}]${kind}${desc}`)
+    const ops = tagged.get(tag) ?? []
+    for (const op of ops) {
+      const deprecated = op.deprecated ? ' (deprecated)' : ''
+      lines.push(`${indent}  ${op.method.toUpperCase()} ${op.openApiPath} — ${op.summary ?? op.operationId ?? ''}${deprecated}`)
+    }
+    // 자식 태그 재귀
+    for (const child of childTags.get(tag) ?? []) {
+      renderTag(child, indent + '  ')
+    }
+  }
+
+  for (const tag of rootTags) {
+    lines.push('')
+    renderTag(tag, '')
+  }
+
   return lines.join('\n')
+}
+
+/**
+ * Server URL의 variables를 치환합니다.
+ *
+ * @param server OAS Server 객체
+ * @param overrides 변수 오버라이드 (없으면 default 사용)
+ * @returns 치환된 URL
+ *
+ * @example
+ * resolveServerUrl({ url: 'https://{env}.api.com/v{version}', variables: { env: { default: 'prod' }, version: { default: '2' } } })
+ * // → 'https://prod.api.com/v2'
+ */
+export function resolveServerUrl(server: OasServer, overrides: Record<string, string> = {}): string {
+  let url = server.url
+  if (server.variables) {
+    for (const [name, variable] of Object.entries(server.variables)) {
+      const value = overrides[name] ?? variable.default
+      url = url.replace(`{${name}}`, value)
+    }
+  }
+  return url
 }
