@@ -1,56 +1,57 @@
 # Todo — 이행 대기 태스크
 
-> 완료된 구현은 [spec.md](./spec.md), 중장기 방향은 [plan.md](./plan.md)를 참조하세요.
+> 완료된 구현은 [spec.md](./spec.md), API 상세는 [api-index.md](./api-index.md)를 참조.
 
 ---
 
-## 우선 (파싱됨 → 런타임 연결)
+## 우선 (런타임 연결 확장)
 
-### [ ] Tags 계층 (parent/kind) — describeApi 계층 표현
-파싱+인덱싱은 완료. describeApi에서 parent 관계 트리 출력 필요.
-AI/사용자에게 API 구조를 계층적으로 제공하는 핵심 기능.
+### [ ] codegen: operation 묶음 타입 생성
+현재 PathParams/QueryParams/Body/Response/ResponseHeaders 개별 생성.
+묶음 타입 (`type ListUsersOp = { params, query, body, response, headers }`) →
+router/client 제네릭 활용 기반.
 
-### [ ] Server variables URL 치환
-파싱은 되지만 mock-server에서 고정 포트 사용. `{version}` → default 치환.
-parseDocument → servers[].variables 사용. mock-server에서 동적 baseUrl 지원.
+### [ ] mock-server: Server variables 적용
+`resolveServerUrl()` 존재하나 어댑터 미연결.
+`createNodeMockServer(spec, { serverIndex: 0 })` → 동적 baseUrl.
 
-### [ ] Response headers — parser IR 추출
-mock-server response-picker가 직접 처리 중. ParsedDocument IR에 정식 추출하여
-typegen에서 응답 헤더 타입 생성, client에서 헤더 접근 지원.
-
-### [ ] Discriminator — mock-server 검증
-codegen에서 생성됨. mock-server AJV에서 discriminator 기반 다형성 검증.
-현재 oneOf로 대체 동작하지만, discriminator.propertyName으로 빠른 분기 가능.
+### [ ] router/client: ResponseHeaders 활용
+typegen `XxxResponseHeaders` 생성됨. router에서 `c.header()` 자동 삽입,
+client에서 `res.headers` 타입 안전 접근.
 
 ---
 
-## 단기 (의도적 미구현 → 필요 시 구현)
+## 단기 (미구현 스펙)
 
-### [ ] Encoding (multipart 필드별 인코딩)
-타입 정의 완료. multipart/form-data 요청에서 필드별 contentType/style 지원.
-현재 JSON/form-urlencoded/text만 처리.
+### [ ] Encoding — multipart 필드별 인코딩
+타입 완료. request-validator multipart 파싱 + contentType/style.
 
-### [ ] Links (HATEOAS 응답 관계)
-타입+파싱 완료. mock-server 응답에 Link 헤더 또는 _links 필드 포함.
-typegen에서 Link 타입 생성.
+### [ ] Links — 응답 관계 정보
+타입+파싱 완료. mock 응답에 Link 포함. typegen Link 타입.
 
-### [ ] Callbacks (아웃바운드 웹훅)
-타입+파싱 완료. mock-server에서 callback URL로 요청 발송 시뮬레이션.
+### [ ] Callbacks — 아웃바운드 웹훅
+타입+파싱 완료. mock에서 callback URL POST 시뮬레이션.
 
-### [ ] Webhooks (인바운드 웹훅 핸들러)
-타입+파싱 완료. router에서 webhook 핸들러 스텁 생성.
+### [ ] Webhooks — 인바운드 핸들러
+타입+파싱 완료. router에서 webhook 스텁.
 
 ### [ ] XML 직렬화
-타입 정의 완료. JSON 전용 시스템에서 XML content-type 지원.
-우선순위 가장 낮음.
+타입 완료. application/xml content-type. 최하 우선순위.
 
 ---
 
 ## 완료 항목
 
 <details>
-<summary>접기 (60+개)</summary>
+<summary>접기 (65+개)</summary>
 
-(이전 60+개 생략)
+- [x] Phase 1~6 전체 구현 (schemas/parser/mock-server/codegen/router/client)
+- [x] Tags 계층 describeApi + resolveServerUrl + ResponseHeaders typegen + Discriminator AJV
+- [x] Security 검증 (bearer/apiKey/oauth2/oidc/mTLS/AND/OR)
+- [x] 자체 린터 + validateDocument + 3.2↔3.1 변환 (사이드카)
+- [x] createTestClient + createCoverageTracker + Query API
+- [x] @oa-sdk/core + 중복 함수 통합 + 타입 캐스트 정리
+- [x] dataValue: null 버그 수정 + 문서 drift 수정
+- [x] 819 테스트 + 16 커밋 + 문서 SSOT/가이드 분리 + traceability
 
 </details>
