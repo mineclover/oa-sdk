@@ -1,0 +1,101 @@
+import type { OasSchema as SchemaObject } from './oas32-types.js'
+
+/**
+ * SchemaAlgebra<T> — 스키마 시맨틱 해석기 인터페이스.
+ *
+ * foldSchema()가 순회를 담당하고,
+ * SchemaAlgebra가 각 노드에서 T를 만드는 방법을 정의.
+ *
+ * 용도에 따라 T를 교체:
+ *   SchemaAlgebra<unknown>      → 값 생성 (GenerateFolder)
+ *   SchemaAlgebra<SchemaObject> → 스키마 변환
+ *   SchemaAlgebra<string>       → 문서화, 직렬화 등
+ */
+export type SchemaAlgebra<T> = {
+  // ─── 리프 타입 ────────────────────────────────────────────────────────────
+  string(schema: SchemaObject): T
+  integer(schema: SchemaObject): T
+  number(schema: SchemaObject): T
+  boolean(schema: SchemaObject): T
+  null(schema: SchemaObject): T
+
+  // ─── 복합 타입 (자식이 미리 fold됨) ──────────────────────────────────────
+  object(schema: SchemaObject, properties: Record<string, T>): T
+  array(schema: SchemaObject, items: T | null): T
+
+  // ─── 조합 스키마 (모든 브랜치를 fold하여 배열로 전달) ────────────────────
+  allOf(schema: SchemaObject, branches: T[]): T
+  oneOf(schema: SchemaObject, branches: T[]): T
+  anyOf(schema: SchemaObject, branches: T[]): T
+
+  // ─── 특수 노드 ────────────────────────────────────────────────────────────
+  /** $ref 노드 — algebra가 자체적으로 해석하거나 무시 */
+  ref(ref: string): T
+  /** schema.example 값이 존재할 때 — 타입 해석보다 우선 */
+  example(value: unknown): T
+  /** schema.default 값이 존재할 때 — example 없을 때 사용 */
+  default_(value: unknown): T
+  /** 알 수 없는 노드 (null, 배열, 비객체 입력 등) */
+  fallback(node: unknown): T
+}
+
+/**
+ * foldSchema — 스키마 노드를 순회하여 T를 생성.
+ *
+ * 순회(traversal)와 의미(semantics) 분리:
+ *   - foldSchema: 타입 분기·자식 재귀 전담
+ *   - algebra:    각 노드에서 T를 만드는 방법 전담
+ *
+ * 동일한 algebra 객체를 재사용할 수 있어,
+ * 파일 시스템 트리·AST 등 다른 구조에도 동일 패턴 적용 가능.
+ */
+export function foldSchema<T>(node: unknown, algebra: SchemaAlgebra<T>): T {
+  if (node === null || typeof node !== 'object' || Array.isArray(node)) {
+    return algebra.fallback(node)
+  }
+
+  const schema = node as SchemaObject & Record<string, unknown>
+
+  // $ref 노드 — algebra가 해석 책임
+  if (typeof schema['$ref'] === 'string') {
+    return algebra.ref(schema['$ref'])
+  }
+
+  // example / default 우선
+  if (schema.example !== undefined) return algebra.example(schema.example)
+  if (schema.default !== undefined) return algebra.default_(schema.default)
+
+  // 조합 스키마 — 첫 번째 브랜치 fold 후 전달
+  if (schema.allOf?.length) {
+    return algebra.allOf(schema, schema.allOf.map(s => foldSchema(s, algebra)))
+  }
+  if (schema.oneOf?.length) {
+    return algebra.oneOf(schema, schema.oneOf.map(s => foldSchema(s, algebra)))
+  }
+  if (schema.anyOf?.length) {
+    return algebra.anyOf(schema, schema.anyOf.map(s => foldSchema(s, algebra)))
+  }
+
+  const type = Array.isArray(schema.type) ? schema.type[0] : schema.type
+
+  switch (type) {
+    case 'object': {
+      const props = (schema.properties ?? {}) as Record<string, SchemaObject>
+      const foldedProps: Record<string, T> = {}
+      for (const [k, v] of Object.entries(props)) {
+        foldedProps[k] = foldSchema(v, algebra)
+      }
+      return algebra.object(schema, foldedProps)
+    }
+    case 'array': {
+      const items = schema.items ? foldSchema(schema.items as SchemaObject, algebra) : null
+      return algebra.array(schema, items)
+    }
+    case 'string':  return algebra.string(schema)
+    case 'integer': return algebra.integer(schema)
+    case 'number':  return algebra.number(schema)
+    case 'boolean': return algebra.boolean(schema)
+    case 'null':    return algebra.null(schema)
+    default:        return algebra.fallback(node)
+  }
+}
