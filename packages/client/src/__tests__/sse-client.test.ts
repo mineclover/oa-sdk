@@ -7,7 +7,7 @@ function doc(overrides: Partial<OasDocument> = {}): OasDocument {
 }
 
 describe('SSE streaming client', () => {
-  it('text/event-stream → async generator', () => {
+  it('text/event-stream → async generator using streamSse', () => {
     const code = generateClient(doc({
       paths: {
         '/events': {
@@ -25,10 +25,10 @@ describe('SSE streaming client', () => {
     }))
     expect(code).toContain('async *streamEvents')
     expect(code).toContain('AsyncGenerator')
-    expect(code).toContain("yield* stream('GET'")
+    expect(code).toContain("yield* streamSse('GET'")
   })
 
-  it('application/x-ndjson → async generator', () => {
+  it('application/x-ndjson → async generator using streamNdjson', () => {
     const code = generateClient(doc({
       paths: {
         '/logs': {
@@ -45,6 +45,27 @@ describe('SSE streaming client', () => {
       },
     }))
     expect(code).toContain('async *streamLogs')
+    expect(code).toContain("yield* streamNdjson('GET'")
+  })
+
+  it('application/jsonl → async generator using streamNdjson', () => {
+    const code = generateClient(doc({
+      paths: {
+        '/logs': {
+          get: {
+            operationId: 'streamLogs',
+            responses: {
+              '200': {
+                description: 'JSONL',
+                content: { 'application/jsonl': { schema: { type: 'object' } } },
+              },
+            },
+          },
+        },
+      },
+    }))
+    expect(code).toContain('async *streamLogs')
+    expect(code).toContain("yield* streamNdjson('GET'")
   })
 
   it('일반 JSON → async (generator 아님)', () => {
@@ -67,20 +88,55 @@ describe('SSE streaming client', () => {
     expect(code).not.toContain('async *listUsers')
   })
 
-  it('stream 헬퍼 함수 포함', () => {
+  it('streamSse helper emitted for SSE ops', () => {
     const code = generateClient(doc({
       paths: {
         '/events': {
           get: {
-            operationId: 'stream',
+            operationId: 'streamEvents',
             responses: { '200': { description: 'SSE', content: { 'text/event-stream': {} } } },
           },
         },
       },
     }))
-    expect(code).toContain('async function* stream<T>')
+    expect(code).toContain('async function* streamSse<T>')
     expect(code).toContain('getReader()')
     expect(code).toContain('[DONE]')
+    expect(code).toContain("split('\\n\\n')")
+  })
+
+  it('streamNdjson helper emitted for NDJSON ops', () => {
+    const code = generateClient(doc({
+      paths: {
+        '/logs': {
+          get: {
+            operationId: 'streamLogs',
+            responses: { '200': { description: 'NDJSON', content: { 'application/x-ndjson': {} } } },
+          },
+        },
+      },
+    }))
+    expect(code).toContain('async function* streamNdjson<T>')
+    expect(code).toContain('getReader()')
+    expect(code).not.toContain('[DONE]')
+    expect(code).not.toContain('data: ')
+    expect(code).toContain("split('\\n')")
+  })
+
+  it('no stream helper when no streaming ops', () => {
+    const code = generateClient(doc({
+      paths: {
+        '/users': {
+          get: {
+            operationId: 'listUsers',
+            responses: { '200': { description: 'OK' } },
+          },
+        },
+      },
+    }))
+    expect(code).not.toContain('streamSse')
+    expect(code).not.toContain('streamNdjson')
+    expect(code).not.toContain('getReader()')
   })
 
   it('SSE + types import', () => {

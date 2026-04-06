@@ -76,6 +76,14 @@ export function foldSchema<T>(node: unknown, algebra: SchemaAlgebra<T>): T {
     return algebra.anyOf(schema, schema.anyOf.map(s => foldSchema(s, algebra)))
   }
 
+  // if/then/else — 조건 스키마를 anyOf로 매핑
+  if (schema.then || schema.else) {
+    const branches: T[] = []
+    if (schema.then) branches.push(foldSchema(schema.then, algebra))
+    if (schema.else) branches.push(foldSchema(schema.else, algebra))
+    if (branches.length > 0) return algebra.anyOf(schema, branches)
+  }
+
   const type = Array.isArray(schema.type) ? schema.type[0] : schema.type
 
   switch (type) {

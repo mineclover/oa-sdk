@@ -1,5 +1,8 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import { derefSpec } from '../deref.js'
+import { writeFileSync, mkdirSync, rmSync } from 'node:fs'
+import { join } from 'node:path'
+import { tmpdir } from 'node:os'
 
 function spec(overrides?: Record<string, unknown>) {
   return { openapi: '3.2.0', info: { title: 'T', version: '0' }, paths: {}, ...overrides }
@@ -100,5 +103,71 @@ describe('derefSpec', () => {
 
     const result = derefSpec(input) as Record<string, unknown>
     expect((result.paths as Record<string, unknown>)['/esc']).toEqual({ value: 42 })
+  })
+})
+
+describe('derefSpec — external file $ref', () => {
+  const tmpDir = join(tmpdir(), `oa-sdk-deref-test-${Date.now()}`)
+  const mainFile = join(tmpDir, 'main.json')
+  const commonFile = join(tmpDir, 'common.json')
+
+  beforeAll(() => {
+    mkdirSync(tmpDir, { recursive: true })
+    writeFileSync(commonFile, JSON.stringify({
+      schemas: {
+        Shared: { type: 'string', description: 'shared type' },
+      },
+    }))
+  })
+
+  afterAll(() => {
+    rmSync(tmpDir, { recursive: true, force: true })
+  })
+
+  it('외부 파일 $ref 해결 (상대 경로)', () => {
+    const input = spec({
+      paths: {
+        '/ext': { $ref: './common.json#/schemas/Shared' },
+      },
+    })
+
+    const result = derefSpec(input, { basePath: mainFile }) as Record<string, unknown>
+    expect((result.paths as Record<string, unknown>)['/ext']).toEqual({
+      type: 'string',
+      description: 'shared type',
+    })
+  })
+
+  it('basePath 미지정 시 외부 ref 원본 유지', () => {
+    const input = spec({
+      paths: { '/ext': { $ref: './common.json#/schemas/Shared' } },
+    })
+
+    const result = derefSpec(input) as Record<string, unknown>
+    expect((result.paths as Record<string, unknown>)['/ext']).toEqual({
+      $ref: './common.json#/schemas/Shared',
+    })
+  })
+
+  it('존재하지 않는 외부 파일 → 원본 유지', () => {
+    const input = spec({
+      paths: { '/ext': { $ref: './nonexistent.json#/schemas/Foo' } },
+    })
+
+    const result = derefSpec(input, { basePath: mainFile }) as Record<string, unknown>
+    expect((result.paths as Record<string, unknown>)['/ext']).toEqual({
+      $ref: './nonexistent.json#/schemas/Foo',
+    })
+  })
+
+  it('외부 파일 내 존재하지 않는 포인터 → 원본 유지', () => {
+    const input = spec({
+      paths: { '/ext': { $ref: './common.json#/schemas/Missing' } },
+    })
+
+    const result = derefSpec(input, { basePath: mainFile }) as Record<string, unknown>
+    expect((result.paths as Record<string, unknown>)['/ext']).toEqual({
+      $ref: './common.json#/schemas/Missing',
+    })
   })
 })

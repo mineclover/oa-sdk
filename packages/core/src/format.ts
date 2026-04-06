@@ -14,8 +14,11 @@ export function formatGeneratedTs(code: string, indent = '  '): string {
     const trimmed = raw.trim()
     if (!trimmed) { result.push(''); continue }
 
+    const opens = (trimmed.match(/\{/g) ?? []).length + (trimmed.match(/\(/g) ?? []).length
+    const closes = (trimmed.match(/\}/g) ?? []).length + (trimmed.match(/\)/g) ?? []).length
+
     // } 로 시작하면 레벨 감소 먼저
-    if (trimmed.startsWith('}') || trimmed.startsWith(']')) {
+    if (trimmed.startsWith('}') || trimmed.startsWith(']') || trimmed.startsWith(')')) {
       level = Math.max(0, level - 1)
     }
 
@@ -26,11 +29,13 @@ export function formatGeneratedTs(code: string, indent = '  '): string {
       result.push(indent.repeat(level) + trimmed)
     }
 
-    // { 로 끝나면 다음 줄 레벨 증가
-    if (trimmed.endsWith('{') || trimmed.endsWith('(') && !trimmed.includes(')')) {
-      level++
+    // Net brace/paren delta 로 다음 줄 레벨 조정
+    const delta = opens - closes
+    if (delta > 0) {
+      level += delta
+    } else if (delta < 0 && !(trimmed.startsWith('}') || trimmed.startsWith(']') || trimmed.startsWith(')'))) {
+      level = Math.max(0, level + delta)
     }
-    // JSDoc /** */ 한 줄은 무시
   }
 
   return result.join('\n')

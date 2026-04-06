@@ -6,14 +6,12 @@
 
 ## 우선 (런타임 연결 확장)
 
-### [ ] codegen: operation 묶음 타입 생성
-현재 PathParams/QueryParams/Body/Response/ResponseHeaders 개별 생성.
-묶음 타입 (`type ListUsersOp = { params, query, body, response, headers }`) →
-router/client 제네릭 활용 기반.
+### [x] codegen: operation 묶음 타입 생성
+`typegen/generate-types.ts`에서 Operation 묶음 타입 생성 완료.
+`type XxxOp = { method, path, params, query, body, response, headers }`.
 
-### [ ] mock-server: Server variables 적용
-`resolveServerUrl()` 존재하나 어댑터 미연결.
-`createNodeMockServer(spec, { serverIndex: 0 })` → 동적 baseUrl.
+### [x] mock-server: Server variables 적용
+`resolveServerUrl()` client에서 연결 완료. 서버 변수 해소로 동적 baseUrl 지원.
 
 ### [ ] router/client: ResponseHeaders 활용
 typegen `XxxResponseHeaders` 생성됨. router에서 `c.header()` 자동 삽입,
@@ -53,5 +51,11 @@ client에서 `res.headers` 타입 안전 접근.
 - [x] @oa-sdk/core + 중복 함수 통합 + 타입 캐스트 정리
 - [x] dataValue: null 버그 수정 + 문서 drift 수정
 - [x] 819 테스트 + 16 커밋 + 문서 SSOT/가이드 분리 + traceability
+- [x] Operation 묶음 타입 (codegen typegen)
+- [x] Server variables 해소 (client resolveServerUrl 연결)
+- [x] RouteFilter (mock-server filterRouteIndex)
+- [x] Content-type aware router 스텁 + security requirement hints
+- [x] NDJSON vs SSE 스트림 분리 (client)
+- [x] 899 테스트 (parser 120, codegen 197, mock-server 508, playground 38, router 18, client 18)
 
 </details>

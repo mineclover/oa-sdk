@@ -309,6 +309,17 @@ describe('zodToSchema — Zod v4 types', () => {
     expect(zodToSchema(schema)).toEqual({})
   })
 
+  it('ZodLazy → $ref (재귀 스키마)', () => {
+    const Category: z.ZodType<any> = z.object({
+      name: z.string(),
+      children: z.lazy(() => z.array(Category)),
+    })
+    const refs = new Map<z.ZodTypeAny, string>([[Category, 'Category']])
+    const result = zodToSchema(Category, { refs })
+    // children should be { type: 'array', items: { $ref: '#/components/schemas/Category' } }
+    expect(result.properties!.children.items).toEqual({ $ref: '#/components/schemas/Category' })
+  })
+
   it('default → 내부 스키마 + default 값', () => {
     const schema = z.string().default('hello')
     expect(zodToSchema(schema)).toEqual({ type: 'string', default: 'hello' })

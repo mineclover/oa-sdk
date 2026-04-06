@@ -46,24 +46,35 @@
 | `parseDocument()` | `parse.ts` | OAS 문서 → ParsedDocument IR (정식 진입점) |
 | `loadSchema()` | `schema-loader.ts` | OAS 문서 → RouteIndex (레거시 호환) |
 | `matchRoute()` | `schema-loader.ts` | RouteIndex에서 경로+메서드 매칭 |
+| `HTTP_METHODS` | `schema-loader.ts` | HTTP 메서드 상수 배열 |
 | `runPipeline()` | `pipeline.ts` | SpecPass[] 순차 실행 |
-| `resolveServerUrl()` | `query.ts` | Server variables URL 치환 |
-| `validateDocument()` | `validate.ts` | 종합 검증 (파싱+린트) |
-| `derefSpec()` | `deref.ts` | $ref 인라인 전개 |
+| `derefPass` | `pipeline.ts` | $ref 해소 기본 패스 |
+| `DEFAULT_PASSES` | `pipeline.ts` | 기본 파이프라인 패스 배열 |
 | `foldSchema()` | `fold.ts` | SchemaAlgebra 기반 스키마 순회 |
+| `SchemaFolder` | `folder.ts` | SchemaAlgebra 클래스 기반 순회 |
+| `DerefFolder` | `deref.ts` | $ref 해소 Folder |
+| `derefSpec()` | `deref.ts` | $ref 인라인 전개 |
+| `findOperation()` | `query.ts` | operationId로 오퍼레이션 검색 |
+| `findByTag()` | `query.ts` | 태그로 오퍼레이션 필터 |
+| `findByPath()` | `query.ts` | 경로로 오퍼레이션 필터 |
+| `getSchema()` | `query.ts` | 스키마 이름으로 조회 |
+| `getTag()` | `query.ts` | 태그 이름으로 조회 |
+| `groupByTag()` | `query.ts` | 태그별 오퍼레이션 그룹핑 |
+| `describeApi()` | `query.ts` | API 구조 텍스트 설명 |
+| `resolveServerUrl()` | `query.ts` | Server variables URL 치환 |
+| `lintDocument()` | `lint.ts` | 7카테고리 17규칙 린트 |
+| `validateDocument()` | `validate.ts` | 종합 검증 (파싱+린트) |
 
----
+### 타입 (`@oa-sdk/parser` — 함수/파이프라인)
 
-## 타입 (`@oa-sdk/codegen`)
-
-| 타입 | 정의 | 용도 |
+| 타입 | 파일 | 용도 |
 |------|------|------|
-| `OutputOptions` | `codegen/src/types.ts` | YAML 출력 옵션 (output, grouping, merge) |
-| `NamedSchema` | `codegen/src/types.ts` | `{ name, schema }` — writer 입력 |
-| `CodegenResult` | `codegen/src/types.ts` | `{ components, files, warnings }` |
-| `CodegenConfig` | `codegen/src/config.ts` | `OutputOptions & { schemas }` |
-| `DrizzleCodegenOptions` | `codegen/src/drizzle/index.ts` | `OutputOptions & { schemaPath, ... }` |
-| `OasSchema` | **`@oa-sdk/parser` re-export** | codegen이 parser 정식 타입 사용 |
+| `SpecPass` | `pipeline.ts` | 파이프라인 패스 함수 타입 |
+| `SchemaAlgebra` | `fold.ts` | fold 패턴 대수 인터페이스 |
+| `LintResult` | `lint.ts` | 린트 결과 |
+| `LintSeverity` | `lint.ts` | 린트 심각도 |
+| `LintOptions` | `lint.ts` | 린트 옵션 |
+| `ValidationResult` | `validate.ts` | 검증 결과 |
 
 ---
 
@@ -73,38 +84,111 @@
 |------|------|------|
 | `zodToSchema()` | `zod-to-schema.ts` | Zod 4 → OAS 3.2 Schema |
 | `generateComponents()` | `generator.ts` | Zod 맵 → YAML (writeSchemas 위임) |
-| `generateFromDrizzle()` | `drizzle/index.ts` | Drizzle 파일 → YAML |
-| `writeSchemas()` | `writer.ts` | NamedSchema[] → YAML 파일 |
-| `mergeIntoSpec()` | `spec-merge.ts` | spec.yaml에 schemas 병합 |
 | `defineConfig()` | `config.ts` | 타입 안전 config 헬퍼 |
 
----
+### 타입 (`@oa-sdk/codegen`)
 
-## 함수 (`@oa-sdk/mock-server`)
+| 타입 | 파일 | 용도 |
+|------|------|------|
+| `OutputOptions` | `types.ts` | YAML 출력 옵션 (output, grouping, merge) |
+| `NamedSchema` | `types.ts` | `{ name, schema }` — writer 입력 |
+| `CodegenResult` | `types.ts` | `{ components, files, warnings }` |
+| `CodegenConfig` | `config.ts` | `OutputOptions & { schemas }` |
+| `DrizzleCodegenOptions` | `drizzle/index.ts` | `OutputOptions & { schemaPath, ... }` |
+| `OasSchema` | **`@oa-sdk/parser` re-export** | codegen이 parser 정식 타입 사용 |
+
+### 내부 함수 (`@oa-sdk/codegen` — index 미노출)
 
 | 함수 | 파일 | 용도 |
 |------|------|------|
+| `generateFromDrizzle()` | `drizzle/index.ts` | Drizzle 파일 → YAML |
+| `writeSchemas()` | `writer.ts` | NamedSchema[] → YAML 파일 |
+| `mergeIntoSpec()` | `spec-merge.ts` | spec.yaml에 schemas 병합 |
+
+---
+
+## 어댑터 (`@oa-sdk/mock-server`)
+
+| 함수/타입 | 파일 | 용도 |
+|-----------|------|------|
+| `createMswHandlers()` | `adapters/msw.ts` | MSW 2.x 핸들러 배열 생성 |
+| `MswHandlerOptions` | `adapters/msw.ts` | MSW 옵션 타입 |
+| `createNodeMockServer()` | `adapters/node-http.ts` | Node HTTP 목 서버 생성 |
+| `NodeMockServer` | `adapters/node-http.ts` | Node 서버 인스턴스 타입 |
+| `NodeMockServerOptions` | `adapters/node-http.ts` | Node 서버 옵션 타입 |
+
+## parser re-exports (`@oa-sdk/mock-server`)
+
+| 함수/타입 | 원본 | 용도 |
+|-----------|------|------|
+| `foldSchema` | `@oa-sdk/parser` | 스키마 재귀 순회 |
+| `SchemaAlgebra` | `@oa-sdk/parser` | fold 대수 인터페이스 |
+| `SchemaFolder` | `@oa-sdk/parser` | 클래스 기반 순회 |
+| `DerefFolder`, `derefSpec` | `@oa-sdk/parser` | $ref 해소 |
+| `runPipeline`, `derefPass`, `DEFAULT_PASSES` | `@oa-sdk/parser` | 파이프라인 |
+| `SpecPass` | `@oa-sdk/parser` | 패스 타입 |
+| `loadSchema`, `matchRoute` | `@oa-sdk/parser` | 레거시 라우트 로더 |
+
+## 함수 (`@oa-sdk/mock-server` — 고유)
+
+| 함수/타입 | 파일 | 용도 |
+|-----------|------|------|
+| `GenerateFolder` | `core/generate.ts` | 응답 데이터 생성 Folder |
+| `generator` | `core/generate.ts` | 생성 인스턴스 |
+| `generateAlgebra` | `core/generate.ts` | 생성 대수 |
+| `StreamFolder` | `core/stream.ts` | 스트림 응답 Folder |
+| `streamer` | `core/stream.ts` | 스트림 인스턴스 |
+| `SSE_DONE` | `core/stream.ts` | SSE 종료 상수 |
+| `formatSseChunk()` | `core/stream.ts` | SSE 청크 포맷 |
+| `formatNdjsonLine()` | `core/stream.ts` | NDJSON 라인 포맷 |
+| `isStreamingContentType()` | `core/stream.ts` | 스트림 content-type 판별 |
+| `StreamOptions` | `core/stream.ts` | 스트림 옵션 타입 |
+| `filterRouteIndex()` | `core/route-filter.ts` | RouteIndex 필터링 |
+| `RouteFilter` | `core/route-filter.ts` | 필터 조건 타입 |
 | `handleRequest()` | `core/handler.ts` | 공통 요청 검증 + 응답 선택 (어댑터 공유) |
+| `HandlerResult` | `core/handler.ts` | 핸들러 결과 타입 |
 | `validateRequest()` | `core/request-validator.ts` | AJV 기반 요청 검증 |
 | `pickResponse()` | `core/response-picker.ts` | 응답 선택 (6단계 폴백) |
+| `PickedResponse` | `core/response-picker.ts` | 선택된 응답 타입 |
+
+## 에러 (`@oa-sdk/mock-server`)
+
+| 함수/타입 | 파일 | 용도 |
+|-----------|------|------|
+| `MockErrorCode` | `errors/types.ts` | 에러 코드 유니온 |
+| `MockErrorDetail` | `errors/types.ts` | 에러 상세 타입 |
+| `MockValidationResult` | `errors/types.ts` | 검증 결과 타입 |
+| `MockErrorResponse` | `errors/types.ts` | 에러 응답 타입 |
+| `classifyAjvErrors()` | `errors/classifier.ts` | AJV 에러 분류 |
+
+## 테스트 헬퍼 (`@oa-sdk/mock-server`)
+
+| 함수/타입 | 파일 | 용도 |
+|-----------|------|------|
 | `createTestClient()` | `testing.ts` | 테스트용 typed fetch wrapper |
 | `createCoverageTracker()` | `testing.ts` | operationId 커버리지 추적 |
+| `TestClient` | `testing.ts` | 테스트 클라이언트 타입 |
+| `TestResponse` | `testing.ts` | 테스트 응답 타입 |
+| `CoverageTracker` | `testing.ts` | 커버리지 추적기 타입 |
 
 ---
 
 ## 함수 (`@oa-sdk/router`)
 
-| 함수 | 파일 | 용도 |
-|------|------|------|
+| 함수/타입 | 파일 | 용도 |
+|-----------|------|------|
 | `generateRouter()` | `generate-router.ts` | OAS spec → Hono/Express 라우터 스텁 코드 |
+| `RouterTarget` | `generate-router.ts` | 대상 프레임워크 타입 (`'hono' \| 'express'`) |
+| `RouterOptions` | `generate-router.ts` | 라우터 생성 옵션 타입 |
 
 ---
 
 ## 함수 (`@oa-sdk/client`)
 
-| 함수 | 파일 | 용도 |
-|------|------|------|
+| 함수/타입 | 파일 | 용도 |
+|-----------|------|------|
 | `generateClient()` | `generate-client.ts` | OAS spec → fetch 기반 createClient() 코드 |
+| `ClientOptions` | `generate-client.ts` | 클라이언트 생성 옵션 타입 |
 
 ---
 

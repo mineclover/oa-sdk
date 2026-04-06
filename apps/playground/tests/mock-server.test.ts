@@ -10,7 +10,7 @@ import type { NodeMockServer } from '@oa-sdk/mock-server/adapters/node-http'
 
 // 테스트용 인라인 OpenAPI 3.1 스펙
 const spec = {
-  openapi: '3.1.0',
+  openapi: '3.2.0',
   info: { title: 'Playground Test', version: '1.0.0' },
   paths: {
     '/users': {

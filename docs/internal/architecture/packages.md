@@ -76,6 +76,7 @@ schemas      ← 독립
 | `src/core/response-picker.ts` | 응답 선택 + headers 전달 |
 | `src/core/generate.ts` | 최소 값 생성 (Faker 미사용) |
 | `src/core/stream.ts` | SSE/NDJSON 스트리밍 |
+| `src/core/route-filter.ts` | 라우트 필터 (paths/operations/tags/custom) |
 | `src/adapters/msw.ts` | MSW 어댑터 |
 | `src/adapters/node-http.ts` | Node HTTP 어댑터 |
 | `src/testing.ts` | createTestClient + createCoverageTracker |

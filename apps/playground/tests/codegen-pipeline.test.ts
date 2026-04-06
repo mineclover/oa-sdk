@@ -16,30 +16,28 @@ import type { OasDocument } from '@oa-sdk/parser'
 const root = resolve(__dirname, '../../..')
 const specPath = join(root, 'packages/schemas/src/.merged.yaml')
 const tmpDir = join(__dirname, '../.tmp-pipeline-test')
+const specExists = existsSync(specPath)
 
 let spec: OasDocument
 
-beforeAll(() => {
-  if (!existsSync(specPath)) return
-  const raw = readFileSync(specPath, 'utf8')
-  spec = parseYaml(raw) as OasDocument
-  mkdirSync(tmpDir, { recursive: true })
-})
+describe.skipIf(!specExists)('풀 파이프라인: typegen → router → client', () => {
+  beforeAll(() => {
+    const raw = readFileSync(specPath, 'utf8')
+    spec = parseYaml(raw) as OasDocument
+    mkdirSync(tmpDir, { recursive: true })
+  })
 
-afterAll(() => {
-  if (existsSync(tmpDir)) rmSync(tmpDir, { recursive: true })
-})
+  afterAll(() => {
+    if (existsSync(tmpDir)) rmSync(tmpDir, { recursive: true })
+  })
 
-describe('풀 파이프라인: typegen → router → client', () => {
   it('typegen 출력 생성', () => {
-    if (!spec) return
     const ts = generateTypesFromSpec(spec)
     expect(ts).toContain('export type')
     writeFileSync(join(tmpDir, 'types.ts'), ts, 'utf8')
   })
 
   it('router 출력이 types를 import', () => {
-    if (!spec) return
     const code = generateRouter(spec, { target: 'hono', typesImport: './types' })
     expect(code).toContain("from './types'")
     expect(code).toContain("import { Hono } from 'hono'")
@@ -47,7 +45,6 @@ describe('풀 파이프라인: typegen → router → client', () => {
   })
 
   it('client 출력이 types를 import', () => {
-    if (!spec) return
     const code = generateClient(spec, { typesImport: './types' })
     expect(code).toContain("from './types'")
     expect(code).toContain('createClient')
@@ -55,7 +52,7 @@ describe('풀 파이프라인: typegen → router → client', () => {
   })
 
   it('types.ts가 tsc strict 통과', () => {
-    if (!spec || !existsSync(join(tmpDir, 'types.ts'))) return
+    if (!existsSync(join(tmpDir, 'types.ts'))) return
 
     writeFileSync(join(tmpDir, 'tsconfig.json'), JSON.stringify({
       compilerOptions: {

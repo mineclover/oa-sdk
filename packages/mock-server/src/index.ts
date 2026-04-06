@@ -3,7 +3,7 @@ export { createMswHandlers } from './adapters/msw.js'
 export type { MswHandlerOptions } from './adapters/msw.js'
 
 export { createNodeMockServer } from './adapters/node-http.js'
-export type { NodeMockServer, NodeMockServerOptions } from './adapters/node-http.js'
+export type { NodeMockServer, NodeMockServerOptions, OverrideResponse } from './adapters/node-http.js'
 
 // ─── 스키마 해석 (@oa-sdk/parser re-export) ──────────────────────────────────
 export { foldSchema } from '@oa-sdk/parser'
@@ -18,6 +18,9 @@ export { loadSchema, matchRoute } from '@oa-sdk/parser'
 export { GenerateFolder, generator, generateAlgebra } from './core/generate.js'
 export { StreamFolder, streamer, SSE_DONE, formatSseChunk, formatNdjsonLine, isStreamingContentType } from './core/stream.js'
 export type { StreamOptions } from './core/stream.js'
+
+export { filterRouteIndex } from './core/route-filter.js'
+export type { RouteFilter } from './core/route-filter.js'
 
 export { validateRequest } from './core/request-validator.js'
 export { pickResponse } from './core/response-picker.js'

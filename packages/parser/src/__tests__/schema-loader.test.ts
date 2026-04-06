@@ -126,6 +126,27 @@ describe('matchRoute', () => {
   })
 })
 
+describe('matchRoute cache', () => {
+  it('matchRoute 캐시 — 1000회 호출 성능', () => {
+    // Build a RouteIndex with 50 routes
+    const paths: Record<string, unknown> = {}
+    for (let i = 0; i < 50; i++) {
+      paths[`/api/v1/resource${i}/{id}`] = {
+        get: { responses: { '200': { description: 'OK' } } },
+      }
+    }
+    const index = loadSchema(doc({ paths }))
+
+    const start = performance.now()
+    for (let i = 0; i < 1000; i++) {
+      matchRoute(index, 'get', `/api/v1/resource${i % 50}/abc`)
+    }
+    const elapsed = performance.now() - start
+
+    expect(elapsed).toBeLessThan(50)
+  })
+})
+
 describe('toColonPath', () => {
   it('/users/{id} → /users/:id', () => {
     expect(toColonPath('/users/{id}')).toBe('/users/:id')

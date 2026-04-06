@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { parseDocument } from '../parse.js'
+import { resolveServerUrl } from '../query.js'
 import type { OasDocument } from '../oas32-types.js'
 
 function doc(overrides: Partial<OasDocument> = {}): OasDocument {
@@ -112,5 +113,10 @@ describe('Server Object', () => {
   it('no servers → empty array', () => {
     const result = parseDocument(doc())
     expect(result.servers).toEqual([])
+  })
+
+  it('같은 변수가 URL에 2번 이상 쓰일 때 모두 치환', () => {
+    const server = { url: 'https://{env}.example.com/{env}/v1', variables: { env: { default: 'staging' } } }
+    expect(resolveServerUrl(server)).toBe('https://staging.example.com/staging/v1')
   })
 })

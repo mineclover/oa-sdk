@@ -3,7 +3,7 @@
 ## MSW 어댑터 (브라우저 / Vitest)
 
 ```ts
-import { createMswHandlers } from '@oa-sdk/mock-server/msw'
+import { createMswHandlers } from '@oa-sdk/mock-server/adapters/msw'
 import spec from '@oa-sdk/schemas/openapi.json'
 import { setupServer } from 'msw/node'
 
@@ -18,7 +18,7 @@ afterAll(() => server.close())
 ## Node HTTP 어댑터 (통합 테스트)
 
 ```ts
-import { createNodeMockServer } from '@oa-sdk/mock-server/node'
+import { createNodeMockServer } from '@oa-sdk/mock-server/adapters/node-http'
 import spec from '@oa-sdk/schemas/openapi.json'
 
 let mockServer: Awaited<ReturnType<typeof createNodeMockServer>>

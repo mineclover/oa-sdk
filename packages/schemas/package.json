@@ -14,21 +14,25 @@
     "merge": "tsx scripts/merge.ts",
     "merge:staging": "PROFILE=staging tsx scripts/merge.ts",
     "merge:production": "PROFILE=production tsx scripts/merge.ts",
-    "validate": "pnpm merge && spectral lint src/.merged.yaml --ruleset .spectral.yaml && redocly lint src/.merged.yaml",
-    "bundle": "pnpm merge && redocly bundle src/.merged.yaml --output dist/openapi.yaml && redocly bundle src/.merged.yaml --output dist/openapi.json",
-    "preview": "pnpm merge && redocly preview-docs src/.merged.yaml",
-    "build": "pnpm merge",
+    "downgrade:3.1": "tsx scripts/downgrade-3.1.ts",
+    "validate:spectral": "spectral lint src/.merged.yaml --ruleset .spectral.yaml",
+    "validate:redocly": "redocly lint",
+    "validate": "pnpm merge && pnpm downgrade:3.1 && pnpm validate:spectral && pnpm validate:redocly",
+    "bundle": "pnpm merge && pnpm downgrade:3.1 && redocly bundle src/.merged.3.1.yaml --output dist/openapi.yaml && redocly bundle src/.merged.3.1.yaml --output dist/openapi.json",
+    "preview": "pnpm merge && pnpm downgrade:3.1 && redocly preview-docs src/.merged.3.1.yaml",
+    "build": "pnpm merge && pnpm downgrade:3.1",
     "build:full": "pnpm validate && pnpm bundle",
-    "downgrade:3.1": "pnpm merge && tsx scripts/downgrade-3.1.ts",
     "upgrade:3.2": "tsx scripts/upgrade-3.2.ts",
     "dev": "nodemon --watch src --ext yaml --ignore src/.merged.yaml --exec 'pnpm bundle'",
-    "clean": "rm -rf dist src/.merged.yaml"
+    "test": "vitest run",
+    "clean": "rm -rf dist src/.merged.yaml src/.merged.3.1.yaml src/.merged.3.1.meta.json"
   },
   "devDependencies": {
     "@redocly/cli": "^1.34.0",
     "@stoplight/spectral-cli": "^6.14.0",
     "nodemon": "^3.1.0",
     "tsx": "^4.0.0",
+    "vitest": "^2.0.0",
     "yaml": "^2.5.0"
   }
 }

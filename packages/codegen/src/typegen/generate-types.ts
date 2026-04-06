@@ -67,12 +67,10 @@ export function generateTypes(doc: { schemas: Record<string, OasSchema>; operati
       lines.push('')
     }
 
-    if (op.requestBody) {
-      const bodyType = requestBodyToTs(op.requestBody)
-      if (bodyType) {
-        lines.push(`export type ${baseName}Body = ${bodyType}`)
-        lines.push('')
-      }
+    const bodyType = op.requestBody ? requestBodyToTs(op.requestBody) : null
+    if (bodyType) {
+      lines.push(`export type ${baseName}Body = ${bodyType}`)
+      lines.push('')
     }
 
     const responseType = responseToTs(op.responses)
@@ -89,15 +87,23 @@ export function generateTypes(doc: { schemas: Record<string, OasSchema>; operati
       lines.push('')
     }
 
+    // Error response 타입 (4xx/5xx/default)
+    const errorType = errorResponseToTs(op.responses)
+    if (errorType) {
+      lines.push(`export type ${baseName}Error = ${errorType}`)
+      lines.push('')
+    }
+
     // Operation 묶음 타입
     const bundleFields: string[] = []
     bundleFields.push(`  method: '${op.method}'`)
     bundleFields.push(`  path: '${op.openApiPath}'`)
     if (pathParams.length > 0) bundleFields.push(`  params: ${baseName}PathParams`)
     if (queryParams.length > 0) bundleFields.push(`  query: ${baseName}QueryParams`)
-    if (op.requestBody) bundleFields.push(`  body: ${baseName}Body`)
+    if (bodyType) bundleFields.push(`  body: ${baseName}Body`)
     if (responseType) bundleFields.push(`  response: ${baseName}Response`)
     if (headersType) bundleFields.push(`  responseHeaders: ${baseName}ResponseHeaders`)
+    if (errorType) bundleFields.push(`  error?: ${baseName}Error`)
     lines.push(`export type ${baseName}Op = {\n${bundleFields.join('\n')}\n}`)
     lines.push('')
   }
@@ -150,6 +156,24 @@ function responseToTs(responses: Record<string, OasResponse>): string | null {
   return schemaToTs(mediaType.schema)
 }
 
+
+function errorResponseToTs(responses: Record<string, OasResponse>): string | null {
+  // Find the first 4xx or 5xx response with a JSON schema, or fall back to 'default'
+  const errorCodes = Object.keys(responses)
+    .filter(k => /^[45]\d{2}$/.test(k))
+    .sort()
+  const candidates = [...errorCodes, 'default']
+  for (const key of candidates) {
+    const response = responses[key]
+    if (!response?.content) continue
+    const jsonContent = response.content['application/json']
+    if (!jsonContent || '$ref' in jsonContent) continue
+    const mediaType = jsonContent as { schema?: OasSchema }
+    if (!mediaType.schema) continue
+    return schemaToTs(mediaType.schema)
+  }
+  return null
+}
 
 function responseHeadersToTs(responses: Record<string, OasResponse>): string | null {
   const codes = Object.keys(responses).filter(k => /^2\d{2}$/.test(k)).sort()

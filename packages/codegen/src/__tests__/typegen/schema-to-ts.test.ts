@@ -35,6 +35,22 @@ describe('schemaToTs — enum / const', () => {
   it('string type + enum', () => {
     expect(schemaToTs({ type: 'string', enum: ['admin', 'user'] })).toBe("'admin' | 'user'")
   })
+
+  it('integer enum → 리터럴 유니온', () => {
+    expect(schemaToTs({ type: 'integer', enum: [0, 1, 2] })).toBe('0 | 1 | 2')
+  })
+
+  it('number enum → 리터럴 유니온', () => {
+    expect(schemaToTs({ type: 'number', enum: [1.5, 2.5] })).toBe('1.5 | 2.5')
+  })
+
+  it('중첩된 integer enum → 리터럴 유니온', () => {
+    const result = schemaToTs({
+      type: 'object',
+      properties: { status: { type: 'integer', enum: [0, 1, 2] } },
+    })
+    expect(result).toContain('status?: 0 | 1 | 2')
+  })
 })
 
 describe('schemaToTs — object', () => {
@@ -158,6 +174,17 @@ describe('schemaToTs — example/default는 타입에 영향 없음', () => {
     expect(result).toContain('count: number')
     expect(result).not.toContain('unknown')
   })
+
+  it('prefixItems 내 example이 있어도 타입 정보로 변환', () => {
+    const result = schemaToTs({
+      type: 'array',
+      prefixItems: [
+        { type: 'string', example: 'hello' },
+        { type: 'integer', example: 42 },
+      ],
+    })
+    expect(result).toBe('[string, number]')
+  })
 })
 
 describe('schemaToTs — special keys', () => {
@@ -168,5 +195,87 @@ describe('schemaToTs — special keys', () => {
       required: ['content-type'],
     })
     expect(result).toContain("'content-type': string")
+  })
+})
+
+describe('schemaToTs — discriminated union (oneOf + discriminator)', () => {
+  it('oneOf + discriminator → TypeScript union', () => {
+    const schema: OasSchema = {
+      oneOf: [
+        { type: 'object', required: ['type', 'name'], properties: { type: { type: 'string', const: 'dog' }, name: { type: 'string' } } },
+        { type: 'object', required: ['type', 'lives'], properties: { type: { type: 'string', const: 'cat' }, lives: { type: 'integer' } } },
+      ],
+      discriminator: { propertyName: 'type' },
+    }
+    const result = schemaToTs(schema)
+    // Should produce union of the two object types
+    expect(result).toContain("type: 'dog'")
+    expect(result).toContain("type: 'cat'")
+    expect(result).toContain('|')
+  })
+
+  it('oneOf + discriminator with three variants', () => {
+    const schema: OasSchema = {
+      oneOf: [
+        { type: 'object', required: ['kind'], properties: { kind: { type: 'string', const: 'circle' }, radius: { type: 'number' } } },
+        { type: 'object', required: ['kind'], properties: { kind: { type: 'string', const: 'square' }, side: { type: 'number' } } },
+        { type: 'object', required: ['kind'], properties: { kind: { type: 'string', const: 'triangle' }, base: { type: 'number' }, height: { type: 'number' } } },
+      ],
+      discriminator: { propertyName: 'kind' },
+    }
+    const result = schemaToTs(schema)
+    expect(result).toContain("kind: 'circle'")
+    expect(result).toContain("kind: 'square'")
+    expect(result).toContain("kind: 'triangle'")
+    expect(result).toContain('|')
+  })
+})
+
+describe('schemaToTs — if/then/else', () => {
+  it('if/then/else → union 타입', () => {
+    const result = schemaToTs({
+      if: { properties: { kind: { const: 'text' } } },
+      then: { type: 'object', properties: { content: { type: 'string' } } },
+      else: { type: 'object', properties: { content: { type: 'integer' } } },
+    })
+    expect(result).toContain('|')  // union of then and else
+  })
+
+  it('then만 → 단일 타입', () => {
+    const result = schemaToTs({
+      if: { properties: { kind: { const: 'text' } } },
+      then: { type: 'string' },
+    })
+    expect(result).toBe('string')
+  })
+})
+
+describe('schemaToTs — allOf 3개 이상 스키마 합성', () => {
+  it('allOf 3개 이상 스키마 합성 → intersection', () => {
+    const schema: OasSchema = {
+      allOf: [
+        { type: 'object', properties: { id: { type: 'integer' } } },
+        { type: 'object', properties: { name: { type: 'string' } } },
+        { type: 'object', properties: { email: { type: 'string' } } },
+      ],
+    }
+    const result = schemaToTs(schema)
+    expect(result).toContain('&')
+    expect(result).toContain('id')
+    expect(result).toContain('name')
+    expect(result).toContain('email')
+  })
+
+  it('allOf with $ref and inline schema', () => {
+    const schema: OasSchema = {
+      allOf: [
+        { $ref: '#/components/schemas/Base' },
+        { type: 'object', properties: { extra: { type: 'string' } }, required: ['extra'] },
+      ],
+    }
+    const result = schemaToTs(schema)
+    expect(result).toContain('Base')
+    expect(result).toContain('&')
+    expect(result).toContain('extra: string')
   })
 })

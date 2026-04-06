@@ -81,8 +81,8 @@ export function parseDocument(
   // security schemes
   const securitySchemes: Record<string, OasSecurityScheme> = {}
   for (const [name, scheme] of Object.entries(components.securitySchemes ?? {})) {
-    const resolved = deref(scheme)
-    if (resolved) securitySchemes[name] = resolved
+    const resolvedScheme = deref(scheme)
+    if (resolvedScheme) securitySchemes[name] = resolvedScheme
   }
 
   return {

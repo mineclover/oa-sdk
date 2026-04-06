@@ -279,6 +279,31 @@ const processedSpec = runPipeline(spec, [...DEFAULT_PASSES, injectExamples])
 const server = createNodeMockServer(processedSpec)
 ```
 
+### Route filtering — `include` option
+
+Both adapters support the `include` option to generate handlers for a subset of routes:
+
+```typescript
+// path prefix — /users 하위만 모킹
+const handlers = createMswHandlers(spec, { include: { paths: ['/users'] } })
+
+// 특정 operationId만
+const handlers = createMswHandlers(spec, { include: { operations: ['listUsers', 'getUser'] } })
+
+// 태그 기반
+const handlers = createMswHandlers(spec, { include: { tags: ['projects'] } })
+
+// 커스텀 predicate
+const handlers = createMswHandlers(spec, {
+  include: { filter: (_path, _method, entry) => !entry.deprecated },
+})
+
+// Node HTTP도 동일
+const server = createNodeMockServer(spec, { port: 0, include: { paths: ['/users'] } })
+```
+
+Multiple conditions use OR semantics — if any condition matches, the route is included.
+
 ## API Reference
 
 ### Adapters
@@ -290,6 +315,8 @@ const server = createNodeMockServer(processedSpec)
 | `createNodeMockServer(spec, options?)` | Create a Node HTTP mock server |
 | `NodeMockServer` | `{ start(), stop(), url }` — server lifecycle interface |
 | `NodeMockServerOptions` | `{ port?, host? }` — defaults to `4010` / `127.0.0.1` |
+| `RouteFilter` | 라우트 필터 조건 (paths/operations/tags/custom predicate) |
+| `HandlerResult` | `handleRequest` 반환 타입 (`success` \| `validation-error` \| `no-response`) |
 
 ### Schema Algebra
 
@@ -327,6 +354,7 @@ const server = createNodeMockServer(processedSpec)
 | `loadSchema(spec, passes?)` | Parse a spec into a `RouteIndex` after running the pipeline |
 | `matchRoute(index, method, path)` | Look up a route; returns `found`, `method_not_allowed`, or `not_found` |
 | `toMswPath(openApiPath)` | Convert `{param}` syntax to `:param` for MSW |
+| `filterRouteIndex(index, filter)` | `RouteIndex`에서 조건에 맞는 라우트만 추출 |
 | `validateRequest(input, parameters, requestBody?)` | Validate path/query/header/body against OAS parameter definitions |
 | `pickResponse(responses)` | Select a `PickedResponse` from an operation's responses map |
 | `PickedResponse` | `{ status, contentType, body, stream? }` |

@@ -120,6 +120,150 @@ describe('generateRouter — express', () => {
   })
 })
 
+describe('generateRouter — content-type aware body parsing', () => {
+  it('multipart/form-data → c.req.formData() (hono)', () => {
+    const code = generateRouter(doc({
+      paths: {
+        '/upload': {
+          post: {
+            operationId: 'uploadFile',
+            requestBody: { content: { 'multipart/form-data': { schema: { type: 'object' } } } },
+            responses: { '200': { description: 'OK' } },
+          },
+        },
+      },
+    }))
+    expect(code).toContain('await c.req.formData()')
+    expect(code).toContain('UploadFileBody')
+    expect(code).not.toContain('c.req.json()')
+  })
+
+  it('multipart/form-data → req.body with multer hint (express)', () => {
+    const code = generateRouter(doc({
+      paths: {
+        '/upload': {
+          post: {
+            operationId: 'uploadFile',
+            requestBody: { content: { 'multipart/form-data': { schema: { type: 'object' } } } },
+            responses: { '200': { description: 'OK' } },
+          },
+        },
+      },
+    }), { target: 'express' })
+    expect(code).toContain('req.body')
+    expect(code).toContain('multer')
+  })
+
+  it('application/x-www-form-urlencoded → c.req.parseBody() (hono)', () => {
+    const code = generateRouter(doc({
+      paths: {
+        '/submit': {
+          post: {
+            operationId: 'submitForm',
+            requestBody: { content: { 'application/x-www-form-urlencoded': { schema: { type: 'object' } } } },
+            responses: { '200': { description: 'OK' } },
+          },
+        },
+      },
+    }))
+    expect(code).toContain('await c.req.parseBody()')
+    expect(code).toContain('SubmitFormBody')
+  })
+
+  it('text/plain → c.req.text() (hono)', () => {
+    const code = generateRouter(doc({
+      paths: {
+        '/log': {
+          post: {
+            operationId: 'postLog',
+            requestBody: { content: { 'text/plain': { schema: { type: 'string' } } } },
+            responses: { '200': { description: 'OK' } },
+          },
+        },
+      },
+    }))
+    expect(code).toContain('await c.req.text()')
+    expect(code).toContain('PostLogBody')
+  })
+
+  it('application/json still uses c.req.json() (hono)', () => {
+    const code = generateRouter(doc({
+      paths: {
+        '/users': {
+          post: {
+            operationId: 'createUser',
+            requestBody: { content: { 'application/json': { schema: { type: 'object' } } } },
+            responses: { '201': { description: 'Created' } },
+          },
+        },
+      },
+    }))
+    expect(code).toContain('await c.req.json()')
+    expect(code).toContain('CreateUserBody')
+  })
+})
+
+describe('generateRouter — security hints', () => {
+  it('adds security requirement comment', () => {
+    const code = generateRouter(doc({
+      paths: {
+        '/users': {
+          get: {
+            operationId: 'listUsers',
+            security: [{ bearerAuth: [] }],
+            responses: { '200': { description: 'OK' } },
+          },
+        },
+      },
+    }))
+    expect(code).toContain('// Requires: bearerAuth')
+  })
+
+  it('lists multiple security schemes', () => {
+    const code = generateRouter(doc({
+      paths: {
+        '/admin': {
+          get: {
+            operationId: 'adminDashboard',
+            security: [{ bearerAuth: [] }, { apiKey: [] }],
+            responses: { '200': { description: 'OK' } },
+          },
+        },
+      },
+    }))
+    expect(code).toContain('// Requires: bearerAuth, apiKey')
+  })
+
+  it('no security comment when security is empty', () => {
+    const code = generateRouter(doc({
+      paths: {
+        '/public': {
+          get: {
+            operationId: 'publicEndpoint',
+            responses: { '200': { description: 'OK' } },
+          },
+        },
+      },
+    }))
+    expect(code).not.toContain('Requires:')
+  })
+
+  it('inherits global security', () => {
+    const code = generateRouter(doc({
+      security: [{ bearerAuth: [] }],
+      paths: {
+        '/users': {
+          get: {
+            operationId: 'listUsers',
+            responses: { '200': { description: 'OK' } },
+          },
+        },
+      },
+    }))
+    expect(code).toContain('// Requires: bearerAuth')
+  })
+})
+
 describe('generateRouter — banner', () => {
   it('banner 비활성화', () => {
     const code = generateRouter(doc({ paths: {} }), { banner: false })

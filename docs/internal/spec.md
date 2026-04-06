@@ -53,6 +53,7 @@ schemas      ← 독립. OAS 소스 + merge + 3.1↔3.2 변환
 | 어댑터 | MSW 2.x + Node HTTP (Connection: keep-alive 패리티) |
 | `createTestClient` | get/post/put/patch/delete + query + json 자동파싱 |
 | `createCoverageTracker` | operationId별 호출 추적 + 커버리지 비율 |
+| `filterRouteIndex` / `RouteFilter` | 태그/경로/메서드 기반 RouteIndex 필터링 |
 | 부하 | 100 동시 요청 <200ms |
 
 ## `@oa-sdk/codegen` ✅
@@ -67,10 +68,12 @@ schemas      ← 독립. OAS 소스 + merge + 3.1↔3.2 변환
 ## `@oa-sdk/router` ✅
 
 Hono/Express 스텁. `OasDocument | ParsedDocument` 입력. typegen 타입 import, JSDoc, 204.
+Content-type aware 스텁 + security requirement hints.
 
 ## `@oa-sdk/client` ✅
 
 fetch `createClient()` + SSE `async *` generator. `OasDocument | ParsedDocument` 입력. baseUrl from servers.
+NDJSON vs SSE 스트림 분리 + `resolveServerUrl` 서버 변수 해소.
 
 ## `@oa-sdk/schemas` ✅
 
@@ -142,13 +145,12 @@ pnpm demo  # API 구조 + Mock 12시나리오 + 커버리지
 
 ## 테스트
 
-| 패키지 | 파일 | 케이스 |
-|--------|------|--------|
-| core | 3 | 32 |
-| parser | 11 | 119 |
-| codegen | 10 | 193 |
-| mock-server | 23 | 431 |
-| router | 1 | 9 |
-| client | 2 | 14 |
-| playground | 4 | 35 |
-| **합계** | **54** | **833** |
+| 패키지 | 케이스 |
+|--------|--------|
+| parser | 120 |
+| codegen | 197 |
+| mock-server | 508 |
+| playground | 38 |
+| router | 18 |
+| client | 18 |
+| **합계** | **899** |

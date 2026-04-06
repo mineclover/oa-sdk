@@ -2,6 +2,7 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import { parseDocument, matchRoute, type HttpMethod, type MatchResult, type OasDocument } from '@oa-sdk/parser'
 import { handleRequest } from '../core/handler.js'
 import { streamer, formatSseChunk, formatNdjsonLine, isStreamingContentType } from '../core/stream.js'
+import { filterRouteIndex, type RouteFilter } from '../core/route-filter.js'
 
 export type NodeMockServerOptions = {
   port?: number
@@ -10,12 +11,23 @@ export type NodeMockServerOptions = {
   serverIndex?: number
   /** server variables 오버라이드 */
   serverVariables?: Record<string, string>
+  /** 라우트 필터 — 조건에 맞는 라우트만 서빙 */
+  include?: RouteFilter
+}
+
+export type OverrideResponse = {
+  status: number
+  body?: unknown
+  headers?: Record<string, string>
 }
 
 export type NodeMockServer = {
   start(): Promise<void>
   stop(): Promise<void>
   readonly url: string
+  override(operationId: string, response: OverrideResponse): void
+  clearOverride(operationId: string): void
+  clearOverrides(): void
 }
 
 /**
@@ -35,11 +47,12 @@ export function createNodeMockServer(
   spec: OasDocument | Record<string, unknown>,
   options: NodeMockServerOptions = {},
 ): NodeMockServer {
-  const { port = 4010, host = '127.0.0.1', serverIndex = 0, serverVariables } = options
+  const { port = 4010, host = '127.0.0.1', serverIndex = 0, serverVariables, include } = options
   const parsed = parseDocument(spec as OasDocument)
-  const index = parsed.routes
+  const index = filterRouteIndex(parsed.routes, include)
   let httpServer: Server | null = null
   let actualPort = port  // port: 0이면 listen 후 실제 포트로 갱신
+  const overrides = new Map<string, OverrideResponse>()
 
   const handler = async (req: IncomingMessage, res: ServerResponse): Promise<void> => {
     const method = (req.method ?? 'GET').toLowerCase() as HttpMethod
@@ -64,6 +77,19 @@ export function createNodeMockServer(
     }
 
     const { entry, pathParams } = matched
+
+    // override 체크 — 해당 operationId에 오버라이드가 있으면 바로 반환
+    const ov = entry.operationId ? overrides.get(entry.operationId) : undefined
+    if (ov) {
+      const ovHeaders = ov.headers ?? {}
+      if (ov.body === undefined) {
+        res.writeHead(ov.status, { ...ovHeaders, 'Content-Length': '0' })
+        res.end()
+      } else {
+        writeBody(res, ov.status, ovHeaders['Content-Type'] ?? ovHeaders['content-type'] ?? 'application/json', ov.body, ovHeaders)
+      }
+      return
+    }
 
     // query params
     const queryParams: Record<string, string | string[]> = {}
@@ -149,6 +175,18 @@ export function createNodeMockServer(
         srv.closeAllConnections()
         srv.close(err => err ? reject(err) : resolve())
       })
+    },
+
+    override(operationId: string, response: OverrideResponse): void {
+      overrides.set(operationId, response)
+    },
+
+    clearOverride(operationId: string): void {
+      overrides.delete(operationId)
+    },
+
+    clearOverrides(): void {
+      overrides.clear()
     },
   }
 }

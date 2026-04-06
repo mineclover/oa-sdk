@@ -18,40 +18,69 @@ function def(schema: z.ZodTypeAny): Def {
   return schema._def as unknown as Def
 }
 
-export function zodToSchema(schema: z.ZodTypeAny): OasSchema {
-  const result = convertType(schema)
+export type ZodToSchemaContext = {
+  /** Map from Zod schema instance → registered component name (for $ref resolution) */
+  refs?: Map<z.ZodTypeAny, string>
+  /** Schemas currently being converted (to detect recursion and emit $ref instead) */
+  _converting?: Set<z.ZodTypeAny>
+}
+
+export function zodToSchema(schema: z.ZodTypeAny, context?: ZodToSchemaContext): OasSchema {
+  const result = convertType(schema, context)
   if (schema.description) result.description = schema.description
   return result
 }
 
 // eslint-disable-next-line complexity
-function convertType(schema: z.ZodTypeAny): OasSchema {
+function convertType(schema: z.ZodTypeAny, context?: ZodToSchemaContext): OasSchema {
   const d = def(schema)
+
+  // --- $ref resolution for recursive schemas ---
+  // If the schema is registered in refs AND is already being converted (recursive visit),
+  // emit a $ref instead of expanding it again (which would cause infinite recursion).
+  if (context?.refs) {
+    const refName = context.refs.get(schema)
+    if (refName) {
+      const converting = context._converting ?? (context._converting = new Set())
+      if (converting.has(schema)) {
+        return { $ref: `#/components/schemas/${refName}` }
+      }
+      converting.add(schema)
+    }
+  }
 
   // --- wrappers ---
   if (schema instanceof z.ZodOptional) {
-    return zodToSchema(d['innerType'] as z.ZodTypeAny)
+    return zodToSchema(d['innerType'] as z.ZodTypeAny, context)
   }
   if (schema instanceof z.ZodNullable) {
-    const inner = zodToSchema(d['innerType'] as z.ZodTypeAny)
+    const inner = zodToSchema(d['innerType'] as z.ZodTypeAny, context)
     return { anyOf: [inner, { type: 'null' }] }
   }
   if (schema instanceof z.ZodDefault) {
-    const inner = zodToSchema(d['innerType'] as z.ZodTypeAny)
+    const inner = zodToSchema(d['innerType'] as z.ZodTypeAny, context)
     return { ...inner, default: d['defaultValue'] }
   }
   if (schema instanceof z.ZodCatch) {
-    return zodToSchema(d['innerType'] as z.ZodTypeAny)
+    return zodToSchema(d['innerType'] as z.ZodTypeAny, context)
   }
   // ZodPipe covers both .transform() and .pipe() in Zod v4
   if (schema instanceof z.ZodPipe) {
-    return zodToSchema(d['in'] as z.ZodTypeAny)
+    return zodToSchema(d['in'] as z.ZodTypeAny, context)
   }
   if (schema instanceof z.ZodReadonly) {
-    return zodToSchema(d['innerType'] as z.ZodTypeAny)
+    return zodToSchema(d['innerType'] as z.ZodTypeAny, context)
   }
   if (schema instanceof z.ZodLazy) {
-    return {} // 재귀 스키마는 $ref로 수동 처리 필요
+    // 재귀 스키마: getter를 실행하여 내부 스키마를 얻고 context와 함께 재귀 변환
+    if (context?.refs) {
+      const getter = d['getter'] as (() => z.ZodTypeAny) | undefined
+      if (getter) {
+        const innerSchema = getter()
+        return zodToSchema(innerSchema, context)
+      }
+    }
+    return {} // refs 없으면 빈 스키마 폴백
   }
 
   // --- primitives ---
@@ -69,31 +98,31 @@ function convertType(schema: z.ZodTypeAny): OasSchema {
   if (schema instanceof z.ZodEnum) return convertEnum(schema as unknown as z.ZodTypeAny)
 
   // --- complex ---
-  if (schema instanceof z.ZodArray) return convertArray(schema as unknown as z.ZodTypeAny)
-  if (schema instanceof z.ZodTuple) return convertTuple(schema as unknown as z.ZodTypeAny)
-  if (schema instanceof z.ZodObject) return convertObject(schema as unknown as z.ZodTypeAny)
+  if (schema instanceof z.ZodArray) return convertArray(schema as unknown as z.ZodTypeAny, context)
+  if (schema instanceof z.ZodTuple) return convertTuple(schema as unknown as z.ZodTypeAny, context)
+  if (schema instanceof z.ZodObject) return convertObject(schema as unknown as z.ZodTypeAny, context)
   if (schema instanceof z.ZodRecord) {
-    return { type: 'object', additionalProperties: zodToSchema(d['valueType'] as z.ZodTypeAny) }
+    return { type: 'object', additionalProperties: zodToSchema(d['valueType'] as z.ZodTypeAny, context) }
   }
   if (schema instanceof z.ZodMap) {
-    return { type: 'object', additionalProperties: zodToSchema(d['valueType'] as z.ZodTypeAny) }
+    return { type: 'object', additionalProperties: zodToSchema(d['valueType'] as z.ZodTypeAny, context) }
   }
   if (schema instanceof z.ZodSet) {
-    return { type: 'array', items: zodToSchema(d['valueType'] as z.ZodTypeAny), uniqueItems: true }
+    return { type: 'array', items: zodToSchema(d['valueType'] as z.ZodTypeAny, context), uniqueItems: true }
   }
   if (schema instanceof z.ZodDiscriminatedUnion) {
     const options = d['options'] as z.ZodTypeAny[]
     const discriminator = d['discriminator'] as string | undefined
-    const result: OasSchema = { oneOf: options.map(zodToSchema) }
+    const result: OasSchema = { oneOf: options.map(o => zodToSchema(o, context)) }
     if (discriminator) result.discriminator = { propertyName: discriminator }
     return result
   }
   if (schema instanceof z.ZodUnion) {
     const options = d['options'] as z.ZodTypeAny[]
-    return { oneOf: options.map(zodToSchema) }
+    return { oneOf: options.map(o => zodToSchema(o, context)) }
   }
   if (schema instanceof z.ZodIntersection) {
-    return { allOf: [zodToSchema(d['left'] as z.ZodTypeAny), zodToSchema(d['right'] as z.ZodTypeAny)] }
+    return { allOf: [zodToSchema(d['left'] as z.ZodTypeAny, context), zodToSchema(d['right'] as z.ZodTypeAny, context)] }
   }
 
   return {}
@@ -205,18 +234,33 @@ function convertLiteral(schema: z.ZodTypeAny): OasSchema {
 
 function convertEnum(schema: z.ZodTypeAny): OasSchema {
   // Zod v4: both z.enum() and z.nativeEnum() produce ZodEnum with _def.entries
-  // TypeScript numeric enums have reverse mappings (number keys), filter those out
+  // TypeScript numeric enums have reverse mappings: e.g. { Foo: 0, 0: 'Foo' }
+  // Filter out reverse-mapping entries (string values that are keys pointing to a number)
   const entries = def(schema)['entries'] as Record<string, unknown>
   const allValues = Object.values(entries)
   const hasNumeric = allValues.some(v => typeof v === 'number')
-  const values = hasNumeric ? allValues.filter(v => typeof v === 'number') : allValues
-  return { type: hasNumeric ? 'integer' : 'string', enum: values }
+
+  let values: unknown[]
+  if (hasNumeric) {
+    // Filter out reverse-mapping values: a string value V is a reverse mapping
+    // if entries[V] is a number (i.e., V is a key name whose value is numeric)
+    values = allValues.filter(v => {
+      if (typeof v === 'string' && typeof entries[v] === 'number') return false
+      return true
+    })
+  } else {
+    values = allValues
+  }
+
+  const hasString = values.some(v => typeof v === 'string')
+  const type = hasString && hasNumeric ? 'string' : hasNumeric ? 'integer' : 'string'
+  return { type, enum: values }
 }
 
-function convertArray(schema: z.ZodTypeAny): OasSchema {
+function convertArray(schema: z.ZodTypeAny, context?: ZodToSchemaContext): OasSchema {
   // Zod v4: element type in _def.element, length constraints in _def.checks
   const d = def(schema)
-  const result: OasSchema = { type: 'array', items: zodToSchema(d['element'] as z.ZodTypeAny) }
+  const result: OasSchema = { type: 'array', items: zodToSchema(d['element'] as z.ZodTypeAny, context) }
   for (const check of (d['checks'] as unknown[]) ?? []) {
     const cd = getCheckDef(check)
     if (!cd) continue
@@ -233,21 +277,21 @@ function convertArray(schema: z.ZodTypeAny): OasSchema {
   return result
 }
 
-function convertTuple(schema: z.ZodTypeAny): OasSchema {
+function convertTuple(schema: z.ZodTypeAny, context?: ZodToSchemaContext): OasSchema {
   const d = def(schema)
-  const items = (d['items'] as z.ZodTypeAny[]).map(zodToSchema)
+  const items = (d['items'] as z.ZodTypeAny[]).map(i => zodToSchema(i, context))
   const rest = d['rest'] as z.ZodTypeAny | null | undefined
 
   if (items.length === 0 && rest == null) return { type: 'array', maxItems: 0 }
-  if (items.length === 0 && rest != null) return { type: 'array', items: zodToSchema(rest) }
+  if (items.length === 0 && rest != null) return { type: 'array', items: zodToSchema(rest, context) }
 
   const result: OasSchema = { type: 'array', prefixItems: items }
-  if (rest != null) result.items = zodToSchema(rest)
+  if (rest != null) result.items = zodToSchema(rest, context)
   else result.maxItems = items.length
   return result
 }
 
-function convertObject(schema: z.ZodTypeAny): OasSchema {
+function convertObject(schema: z.ZodTypeAny, context?: ZodToSchemaContext): OasSchema {
   // Zod v4: shape is a plain object (not a getter function)
   const shape = def(schema)['shape'] as Record<string, z.ZodTypeAny>
   const result: OasSchema = { type: 'object' }
@@ -255,7 +299,7 @@ function convertObject(schema: z.ZodTypeAny): OasSchema {
   const required: string[] = []
 
   for (const [key, value] of Object.entries(shape)) {
-    properties[key] = zodToSchema(value)
+    properties[key] = zodToSchema(value, context)
     if (!isOptionalType(value)) required.push(key)
   }
 
@@ -273,7 +317,7 @@ function convertObject(schema: z.ZodTypeAny): OasSchema {
     !(catchall instanceof z.ZodUnknown) &&
     !(catchall instanceof z.ZodAny)
   ) {
-    result.additionalProperties = zodToSchema(catchall)
+    result.additionalProperties = zodToSchema(catchall, context)
   }
 
   return result

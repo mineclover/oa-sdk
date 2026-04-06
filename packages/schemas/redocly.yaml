@@ -1,6 +1,6 @@
 apis:
   main@latest:
-    root: src/.merged.yaml
+    root: src/.merged.3.1.yaml
 
 rules:
   operation-2xx-response: error

@@ -20,8 +20,12 @@ import { escapeKey } from '@oa-sdk/core'
 
 export const typescriptAlgebra: SchemaAlgebra<string> = {
   string:  (s) => withNullable(s, resolveStringType(s)),
-  integer: (s) => withNullable(s, 'number'),
-  number:  (s) => withNullable(s, 'number'),
+  integer: (s) => withNullable(s, s.enum
+    ? s.enum.map(v => String(v)).join(' | ')
+    : 'number'),
+  number:  (s) => withNullable(s, s.enum
+    ? s.enum.map(v => String(v)).join(' | ')
+    : 'number'),
   boolean: (s) => withNullable(s, 'boolean'),
   null:    () => 'null',
 
@@ -126,9 +130,13 @@ function stripExamples(schema: OasSchema): OasSchema {
     result.properties = cleaned
   }
   if (result.items) result.items = stripExamples(result.items)
+  if (result.prefixItems) result.prefixItems = result.prefixItems.map(stripExamples)
   if (result.allOf) result.allOf = result.allOf.map(stripExamples)
   if (result.oneOf) result.oneOf = result.oneOf.map(stripExamples)
   if (result.anyOf) result.anyOf = result.anyOf.map(stripExamples)
+  if (result.then) result.then = stripExamples(result.then)
+  if (result.else) result.else = stripExamples(result.else)
+  if (result.if) result.if = stripExamples(result.if)
 
   return result
 }

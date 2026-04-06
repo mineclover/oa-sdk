@@ -99,6 +99,16 @@ describe('generateClient', () => {
     expect(code).toContain("'https://api.example.com'")
   })
 
+  it('servers with variables → interpolated baseUrl', () => {
+    const code = generateClient(doc({
+      servers: [{ url: 'https://{env}.api.example.com/v{version}', variables: { env: { default: 'prod' }, version: { default: '2' } } }],
+      paths: {},
+    }))
+    expect(code).toContain("'https://prod.api.example.com/v2'")
+    expect(code).not.toContain('{env}')
+    expect(code).not.toContain('{version}')
+  })
+
   it('summary → JSDoc', () => {
     const code = generateClient(doc({
       paths: {

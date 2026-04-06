@@ -6,7 +6,7 @@
  */
 
 import type { OasDocument, ParsedDocument } from '@oa-sdk/parser'
-import { parseDocument } from '@oa-sdk/parser'
+import { parseDocument, DEFAULT_PASSES } from '@oa-sdk/parser'
 import { toColonPath, pascalCase, collectTypeNames, formatGeneratedTs, pickDefaultStatus } from '@oa-sdk/core'
 
 export type RouterTarget = 'hono' | 'express'
@@ -24,7 +24,7 @@ export type RouterOptions = {
  * OAS 원본 문서 또는 ParsedDocument IR에서 서버 라우터 스텁을 생성합니다.
  */
 export function generateRouter(spec: OasDocument | ParsedDocument, options: RouterOptions = {}): string {
-  const doc: ParsedDocument = 'openapi' in spec ? parseDocument(spec as OasDocument, []) : spec
+  const doc: ParsedDocument = 'openapi' in spec ? parseDocument(spec as OasDocument, DEFAULT_PASSES) : spec
   const { target = 'hono', typesImport, banner = true } = options
   const lines: string[] = []
 
@@ -65,6 +65,12 @@ export function generateRouter(spec: OasDocument | ParsedDocument, options: Rout
     const method = op.method
     const path = target === 'hono' ? toColonPath(op.openApiPath) : toColonPath(op.openApiPath)
 
+    // security hint
+    if (op.security.length > 0) {
+      const schemeNames = [...new Set(op.security.flatMap(req => Object.keys(req)))]
+      lines.push(`// Requires: ${schemeNames.join(', ')}`)
+    }
+
     // JSDoc
     if (op.summary || op.description) {
       lines.push(`/** ${op.summary ?? op.description} */`)
@@ -98,11 +104,9 @@ export function generateRouter(spec: OasDocument | ParsedDocument, options: Rout
 
     // request body
     if (op.requestBody) {
-      if (target === 'hono') {
-        lines.push(`  const body = await c.req.json() // ${baseName}Body`)
-      } else {
-        lines.push(`  const body = req.body // ${baseName}Body`)
-      }
+      const contentTypes = op.requestBody.content ? Object.keys(op.requestBody.content) : []
+      const bodyParseLine = buildBodyParseLine(target, contentTypes, baseName)
+      lines.push(bodyParseLine)
     }
 
     // response stub
@@ -138,4 +142,33 @@ export function generateRouter(spec: OasDocument | ParsedDocument, options: Rout
 
 
 // ─── 헬퍼 ──────────────────────────────────────────────────────────────────
+
+/**
+ * Determine the body-parsing expression based on the request content type(s).
+ */
+function buildBodyParseLine(target: RouterTarget, contentTypes: string[], typeName: string): string {
+  const primary = contentTypes[0] ?? 'application/json'
+
+  if (target === 'hono') {
+    if (primary === 'application/json') {
+      return `  const body = await c.req.json() // ${typeName}Body`
+    }
+    if (primary === 'multipart/form-data') {
+      return `  const body = await c.req.formData() // ${typeName}Body`
+    }
+    if (primary === 'application/x-www-form-urlencoded') {
+      return `  const body = await c.req.parseBody() // ${typeName}Body`
+    }
+    return `  const body = await c.req.text() // ${typeName}Body`
+  }
+
+  // express — body is already parsed by middleware
+  if (primary === 'multipart/form-data') {
+    return `  const body = req.body // ${typeName}Body (use multer middleware)`
+  }
+  if (primary === 'application/x-www-form-urlencoded') {
+    return `  const body = req.body // ${typeName}Body (use express.urlencoded() middleware)`
+  }
+  return `  const body = req.body // ${typeName}Body`
+}
 

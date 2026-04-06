@@ -17,9 +17,16 @@ export function generateComponents(
   schemas: Record<string, z.ZodTypeAny>,
   options: OutputOptions,
 ): CodegenResult {
+  // Build refs map for $ref resolution (ZodLazy recursive schemas)
+  const refs = new Map<z.ZodTypeAny, string>()
+  for (const [name, schema] of Object.entries(schemas)) {
+    refs.set(schema, name)
+  }
+  const context = { refs }
+
   const components = Object.entries(schemas).map(([name, schema]) => ({
     name,
-    schema: zodToSchema(schema) as Record<string, unknown>,
+    schema: zodToSchema(schema, context) as Record<string, unknown>,
   }))
 
   const warnings: string[] = []

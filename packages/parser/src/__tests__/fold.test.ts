@@ -100,4 +100,34 @@ describe('foldSchema', () => {
     const schema = { type: ['string', 'null'] }
     expect(foldSchema(schema, labelAlgebra)).toBe('string')
   })
+
+  describe('if/then/else', () => {
+    it('if/then/else → then 브랜치 fold', () => {
+      const schema = {
+        if: { properties: { type: { const: 'a' } } },
+        then: { type: 'object', properties: { value: { type: 'string' } } },
+        else: { type: 'object', properties: { value: { type: 'integer' } } },
+      }
+      const result = foldSchema(schema, labelAlgebra)
+      // Should produce anyOf result with then and else branches
+      expect(result).toBe('anyOf(object{value:string},object{value:integer})')
+    })
+
+    it('then만 있는 경우', () => {
+      const schema = {
+        if: { properties: { type: { const: 'a' } } },
+        then: { type: 'string' },
+      }
+      const result = foldSchema(schema, labelAlgebra)
+      expect(result).toBe('anyOf(string)')
+    })
+
+    it('else만 있는 경우', () => {
+      const schema = {
+        else: { type: 'number' },
+      }
+      const result = foldSchema(schema, labelAlgebra)
+      expect(result).toBe('anyOf(number)')
+    })
+  })
 })

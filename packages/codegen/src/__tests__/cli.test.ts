@@ -52,6 +52,12 @@ describe('oa-gen CLI', () => {
     expect(output).toContain('--drizzle-schema')
   })
 
+  it('--help에 dev 커맨드가 표시된다', () => {
+    const output = runCli('--help')
+    expect(output).toContain('dev')
+    expect(output).toContain('Watch mode')
+  })
+
   it('커맨드 없이 실행 → 오류', () => {
     const stderr = runCliFail('')
     expect(stderr).toContain('알 수 없는 커맨드')

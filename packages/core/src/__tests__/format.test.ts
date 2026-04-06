@@ -39,4 +39,13 @@ describe('formatGeneratedTs', () => {
     const code = formatGeneratedTs('// Auto-generated\nexport type X = string')
     expect(code.startsWith('//')).toBe(true)
   })
+
+  it('같은 줄 { } 쌍 이후 indent 유지', () => {
+    const input = 'export type X = {\nfoo: { bar: string }\nbaz: number\n}'
+    const result = formatGeneratedTs(input)
+    const lines = result.split('\n')
+    // foo and baz should have same indent level
+    expect(lines[1]).toMatch(/^\s{2}foo/)
+    expect(lines[2]).toMatch(/^\s{2}baz/)
+  })
 })

@@ -8,8 +8,8 @@
  */
 
 import { parseArgs } from 'node:util'
-import { resolve } from 'node:path'
-import { readFileSync, writeFileSync, existsSync } from 'node:fs'
+import { resolve, join } from 'node:path'
+import { readFileSync, writeFileSync, existsSync, mkdirSync, watch } from 'node:fs'
 import { parse as parseYaml } from 'yaml'
 import { generateComponents } from '../generator.js'
 import type { CodegenConfig } from '../config.js'
@@ -24,6 +24,7 @@ Commands:
   oa-gen typegen  --spec <path> --output <path>          OAS spec → TypeScript 타입
   oa-gen router   --spec <path> --output <path>          OAS spec → 라우터 스텁
   oa-gen client   --spec <path> --output <path>          OAS spec → 클라이언트 SDK
+  oa-gen dev      --spec <path> --output <dir>           Watch mode — spec 변경 시 자동 재생성
   oa-gen lint     --spec <path>                          OAS 3.2 스펙 린트
   oa-gen validate --spec <path>                          종합 검증 (파싱 + 린트 + 3.1 호환)
   oa-gen --help                                          도움말
@@ -88,6 +89,8 @@ if (command === 'validate') {
   await runCodegenMode('router')
 } else if (command === 'client') {
   await runCodegenMode('client')
+} else if (command === 'dev') {
+  await runDevMode()
 } else if (command === 'generate') {
   const drizzleSchemaPath = values['drizzle-schema']
   if (drizzleSchemaPath) {
@@ -345,4 +348,64 @@ async function runValidateMode(): Promise<void> {
     console.error(`validate 오류: ${err instanceof Error ? err.message : String(err)}`)
     process.exit(1)
   }
+}
+
+async function runDevMode(): Promise<void> {
+  const specPath = values.spec
+  if (!specPath) {
+    console.error('오류: --spec 옵션이 필요합니다')
+    process.exit(1)
+  }
+
+  const output = values.output ?? './generated'
+  const resolvedSpec = resolve(process.cwd(), specPath)
+  const resolvedOutput = resolve(process.cwd(), output)
+  const typesImport = values['types-import'] ?? './types'
+
+  if (!existsSync(resolvedSpec)) {
+    console.error(`오류: 스펙 파일을 찾을 수 없습니다: ${resolvedSpec}`)
+    process.exit(1)
+  }
+
+  const generate = async () => {
+    try {
+      const raw = readFileSync(resolvedSpec, 'utf8')
+      const doc = specPath.endsWith('.json') ? JSON.parse(raw) : parseYaml(raw)
+
+      mkdirSync(resolvedOutput, { recursive: true })
+
+      // typegen
+      const { generateTypesFromSpec } = await import('../typegen/generate-types.js')
+      const style = (values.style === 'interface' ? 'interface' : 'type') as 'type' | 'interface'
+      const types = generateTypesFromSpec(doc, { style })
+      writeFileSync(join(resolvedOutput, 'types.ts'), types, 'utf8')
+
+      // router
+      const { generateRouter } = await import('@oa-sdk/router')
+      const target = (values.target === 'express' ? 'express' : 'hono') as 'hono' | 'express'
+      const router = generateRouter(doc, { target, typesImport })
+      writeFileSync(join(resolvedOutput, 'router.ts'), router, 'utf8')
+
+      // client
+      const { generateClient } = await import('@oa-sdk/client')
+      const client = generateClient(doc, { typesImport })
+      writeFileSync(join(resolvedOutput, 'client.ts'), client, 'utf8')
+
+      console.log(`[oa-gen] generated → ${resolvedOutput}/`)
+    } catch (e) {
+      console.error('[oa-gen] error:', e)
+    }
+  }
+
+  await generate()
+
+  console.log(`[oa-gen] watching ${resolvedSpec}...`)
+  const watcher = watch(resolvedSpec, { persistent: true }, async (eventType) => {
+    if (eventType === 'change') {
+      console.log('[oa-gen] spec changed, regenerating...')
+      await generate()
+    }
+  })
+
+  process.on('SIGINT', () => { watcher.close(); process.exit(0) })
 }

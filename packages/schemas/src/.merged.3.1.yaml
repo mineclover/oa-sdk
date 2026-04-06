@@ -48,8 +48,6 @@ paths:
           description: SSE 이벤트 스트림
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
-          content:
-            text/event-stream: {}
   /users:
     get:
       tags:

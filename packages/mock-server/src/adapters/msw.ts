@@ -3,10 +3,13 @@ import { parseDocument, HTTP_METHODS, resolveServerUrl, type OasDocument } from 
 import { toColonPath } from '@oa-sdk/core'
 import { handleRequest } from '../core/handler.js'
 import { streamer, formatSseChunk, formatNdjsonLine, isStreamingContentType } from '../core/stream.js'
+import { filterRouteIndex, type RouteFilter } from '../core/route-filter.js'
 
 export type MswHandlerOptions = {
   /** 요청 수신 시 호출되는 관찰 훅 (로깅/추적용) */
   onRequest?: (info: { method: string; path: string; operationId?: string }) => void
+  /** 라우트 필터 — 조건에 맞는 라우트만 핸들러 생성 */
+  include?: RouteFilter
 }
 
 /**
@@ -24,7 +27,7 @@ export function createMswHandlers(
   options: MswHandlerOptions = {},
 ): RequestHandler[] {
   const parsed = parseDocument(spec as OasDocument)
-  const index = parsed.routes
+  const index = filterRouteIndex(parsed.routes, options.include)
   const server = parsed.servers[0]
   const baseUrl = server ? extractPathname(resolveServerUrl(server)) : ''
   const handlers: RequestHandler[] = []

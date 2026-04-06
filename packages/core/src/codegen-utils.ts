@@ -26,11 +26,11 @@ export function collectTypeNames(operations: ReadonlyArray<{
     const has2xx = Object.keys(op.responses).some(k => /^2\d{2}$/.test(k))
     if (has2xx) {
       names.push(`${base}Response`)
-      // Response headers 존재 여부 확인
-      const resp2xx = Object.entries(op.responses).find(([k]) => /^2\d{2}$/.test(k))?.[1]
-      if (resp2xx && typeof resp2xx === 'object' && 'headers' in resp2xx) {
-        names.push(`${base}ResponseHeaders`)
-      }
+      // Response headers 존재 여부 확인 (모든 2xx 응답 검사)
+      const hasResponseHeaders = Object.entries(op.responses).some(([k, v]) =>
+        /^2\d{2}$/.test(k) && v !== null && typeof v === 'object' && 'headers' in v
+      )
+      if (hasResponseHeaders) names.push(`${base}ResponseHeaders`)
     }
   }
   return names

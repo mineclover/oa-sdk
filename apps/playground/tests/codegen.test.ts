@@ -35,7 +35,7 @@ const userOasSchema = zodToSchema(UserSchema)
 const createUserOasSchema = zodToSchema(CreateUserSchema)
 
 const spec = {
-  openapi: '3.1.0',
+  openapi: '3.2.0',
   info: { title: 'Codegen Integration Test', version: '1.0.0' },
   components: {
     schemas: {

@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { foldSchema, type SchemaAlgebra } from '@oa-sdk/parser'
+import { generateAlgebra } from '../../core/generate.js'
 
 // 테스트용 algebra: 스키마 구조를 문자열로 직렬화
 const labelAlgebra: SchemaAlgebra<string> = {
@@ -173,5 +174,19 @@ describe('foldSchema — 커스텀 algebra로 값 생성', () => {
 
   it('example 우선', () => {
     expect(foldSchema({ type: 'string', example: 'alice' }, minValueAlgebra)).toBe('alice')
+  })
+})
+
+describe('generateAlgebra — array reference independence', () => {
+  it('minItems object array — 각 아이템이 독립적인 참조', () => {
+    const schema = {
+      type: 'array',
+      minItems: 2,
+      items: { type: 'object', required: ['id'], properties: { id: { type: 'integer' } } },
+    }
+    const result = foldSchema(schema, generateAlgebra) as any[]
+    expect(result).toHaveLength(2)
+    expect(result[0]).toEqual({ id: 0 })
+    expect(result[0]).not.toBe(result[1])  // different references
   })
 })

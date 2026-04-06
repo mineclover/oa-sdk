@@ -54,6 +54,7 @@ afterAll(async () => { await server.stop() })
 describe('createTestClient', () => {
   it('GET → TestResponse', async () => {
     const res = await client.get('/users')
+    tracker.onRequest({ operationId: 'listUsers' })
     expect(res.status).toBe(200)
     expect(res.ok).toBe(true)
     expect(res.json).toBeDefined()
@@ -61,6 +62,7 @@ describe('createTestClient', () => {
 
   it('POST with body', async () => {
     const res = await client.post('/users', { name: 'Alice' })
+    tracker.onRequest({ operationId: 'createUser' })
     expect(res.status).toBe(201)
   })
 
@@ -101,5 +103,26 @@ describe('describeApi + query', () => {
     const doc = parseDocument(spec)
     const ops = findByTag(doc, 'users')
     expect(ops).toHaveLength(2)
+  })
+})
+
+describe('createCoverageTracker', () => {
+  const ALL_OPS = ['listUsers', 'createUser']
+
+  it('onRequest로 호출된 operationId를 추적', () => {
+    expect(tracker.called.has('listUsers')).toBe(true)
+    expect(tracker.called.has('createUser')).toBe(true)
+  })
+
+  it('coverage가 올바르게 계산됨', () => {
+    expect(tracker.coverage(ALL_OPS)).toBe(1)
+    expect(tracker.uncalled(ALL_OPS)).toEqual([])
+  })
+
+  it('reset 후 추적 상태가 초기화됨', () => {
+    tracker.reset()
+    expect(tracker.called.size).toBe(0)
+    expect(tracker.coverage(ALL_OPS)).toBe(0)
+    expect(tracker.uncalled(ALL_OPS)).toEqual(ALL_OPS)
   })
 })

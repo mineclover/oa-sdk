@@ -53,7 +53,9 @@ export const generateAlgebra: SchemaAlgebra<unknown> = {
   array: (schema, items) => {
     const min = schema.minItems ?? 0
     if (min === 0) return []
-    return Array.from({ length: min }, () => items)
+    return Array.from({ length: min }, () =>
+      typeof items === 'object' && items !== null ? structuredClone(items) : items
+    )
   },
 
   allOf:    (_, branches) => branches[0] ?? null,

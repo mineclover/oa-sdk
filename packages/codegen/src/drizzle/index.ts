@@ -59,6 +59,8 @@ export async function generateFromDrizzle(options: DrizzleCodegenOptions): Promi
   const outputOptions: OutputOptions = {
     output: resolve(process.cwd(), options.output),
   }
+  if (options.grouping !== undefined) outputOptions.grouping = options.grouping
+  if (options.filename !== undefined) outputOptions.filename = options.filename
   if (options.mergeIntoSpec !== undefined) outputOptions.mergeIntoSpec = options.mergeIntoSpec
   if (options.specPath !== undefined) outputOptions.specPath = resolve(process.cwd(), options.specPath)
 

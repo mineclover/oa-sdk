@@ -20,6 +20,9 @@ describe('escapeKey', () => {
   it('contains dot', () => expect(escapeKey('foo.bar')).toBe("'foo.bar'"))
   it('starts with number', () => expect(escapeKey('2xx')).toBe("'2xx'"))
   it('contains space', () => expect(escapeKey('my key')).toBe("'my key'"))
+  it("single quote가 포함된 키 이스케이프", () => {
+    expect(escapeKey("it's")).toBe("'it\\'s'")
+  })
 })
 
 describe('toColonPath', () => {

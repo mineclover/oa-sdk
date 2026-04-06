@@ -1,0 +1,541 @@
+openapi: 3.2.0
+info:
+  title: OA SDK API
+  description: OpenAPI 3.2 기반 API 관리 인프라
+  version: 0.1.0
+  license:
+    name: MIT
+    identifier: MIT
+tags:
+  - name: health
+    description: 서버 상태 확인
+  - name: users
+    description: 사용자 관리
+paths:
+  /health:
+    get:
+      operationId: getHealth
+      summary: 서버 상태 확인
+      description: 서버가 정상 동작 중인지 확인하는 헬스체크 엔드포인트
+      tags:
+        - health
+      security: []
+      responses:
+        "200":
+          description: 서버 정상
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+              examples:
+                ok:
+                  summary: 정상 응답
+                  dataValue:
+                    status: ok
+                    timestamp: 2026-04-04T00:00:00.000Z
+                  serializedValue: '{"status":"ok","timestamp":"2026-04-04T00:00:00.000Z"}'
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+  /health/stream:
+    get:
+      operationId: streamHealthEvents
+      summary: 서버 상태 실시간 스트림
+      description: SSE로 서버 상태 변화를 실시간으로 구독
+      tags:
+        - health
+      security: []
+      responses:
+        "200":
+          description: SSE 이벤트 스트림
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+  /users:
+    get:
+      tags:
+        - users
+      operationId: listUsers
+      summary: 사용자 목록 조회
+      description: 페이지네이션과 역할 필터를 지원하는 사용자 목록 API
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Limit"
+        - name: role
+          in: query
+          description: 역할 필터
+          schema:
+            type: string
+            enum:
+              - admin
+              - user
+              - guest
+      responses:
+        "200":
+          description: 사용자 목록
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - items
+                  - total
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/User"
+                  total:
+                    type: integer
+                    minimum: 0
+              examples:
+                default:
+                  dataValue:
+                    items:
+                      - id: 00000000-0000-0000-0000-000000000001
+                        email: alice@example.com
+                        name: Alice
+                        role: user
+                        createdAt: 2024-01-01T00:00:00.000Z
+                    total: 1
+                  serializedValue: '{"items":[{"id":"00000000-0000-0000-0000-000000000001","email":"alice@example.com","name":"Alice","role":"user","createdAt":"2024-01-01T00:00:00.000Z"}],"total":1}'
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      tags:
+        - users
+      operationId: createUser
+      summary: 사용자 생성
+      description: 이메일, 이름, 비밀번호를 받아 새 사용자를 생성합니다
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateUserRequest"
+            examples:
+              default:
+                dataValue:
+                  email: bob@example.com
+                  name: Bob
+                  password: secure1234
+                serializedValue: '{"email":"bob@example.com","name":"Bob","password":"secure1234"}'
+      responses:
+        "201":
+          description: 사용자 생성 완료
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+              examples:
+                default:
+                  dataValue:
+                    id: 00000000-0000-0000-0000-000000000002
+                    email: bob@example.com
+                    name: Bob
+                    role: user
+                    createdAt: 2024-01-01T00:00:00.000Z
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+  /users/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: 사용자 UUID
+        schema:
+          type: string
+          format: uuid
+        examples:
+          default:
+            dataValue: 00000000-0000-0000-0000-000000000001
+            serializedValue: 00000000-0000-0000-0000-000000000001
+    get:
+      tags:
+        - users
+      operationId: getUserById
+      summary: 사용자 단건 조회
+      description: UUID로 특정 사용자의 상세 정보를 조회합니다
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: 사용자 정보
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+              examples:
+                default:
+                  dataValue:
+                    id: 00000000-0000-0000-0000-000000000001
+                    email: alice@example.com
+                    name: Alice
+                    role: user
+                    createdAt: 2024-01-01T00:00:00.000Z
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    patch:
+      tags:
+        - users
+      operationId: updateUser
+      summary: 사용자 수정 (부분 업데이트)
+      description: 이름, 역할 등 사용자 정보를 부분적으로 수정합니다
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateUserRequest"
+            examples:
+              default:
+                dataValue:
+                  name: Alice Updated
+                serializedValue: '{"name":"Alice Updated"}'
+      responses:
+        "200":
+          description: 수정된 사용자 정보
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+              examples:
+                default:
+                  dataValue:
+                    id: 00000000-0000-0000-0000-000000000001
+                    email: alice@example.com
+                    name: Alice Updated
+                    role: user
+                    createdAt: 2024-01-01T00:00:00.000Z
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+    delete:
+      tags:
+        - users
+      operationId: deleteUser
+      summary: 사용자 삭제
+      description: UUID로 특정 사용자를 삭제합니다. 복구 불가.
+      security:
+        - bearerAuth: []
+      responses:
+        "204":
+          description: 삭제 완료 (본문 없음)
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+components:
+  schemas:
+    Error:
+      type: object
+      description: 표준 에러 응답 스키마
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: string
+          description: 머신 리더블 에러 코드
+          examples:
+            default:
+              dataValue: NOT_FOUND
+        message:
+          type: string
+          description: 사람이 읽을 수 있는 에러 설명
+          examples:
+            default:
+              dataValue: 요청한 리소스를 찾을 수 없습니다
+        details:
+          type: array
+          items:
+            $ref: "#/components/schemas/ValidationError"
+        _meta:
+          type: object
+          properties:
+            operationId:
+              type: string
+            requestId:
+              type: string
+              format: uuid
+      examples:
+        notFound:
+          dataValue:
+            code: NOT_FOUND
+            message: 요청한 리소스를 찾을 수 없습니다
+          serializedValue: '{"code":"NOT_FOUND","message":"요청한 리소스를 찾을 수 없습니다"}'
+    ValidationError:
+      type: object
+      description: 필드 수준 유효성 검사 에러
+      required:
+        - path
+        - message
+      properties:
+        path:
+          type: string
+          examples:
+            default:
+              dataValue: /body/email
+        message:
+          type: string
+          examples:
+            default:
+              dataValue: must match format 'email'
+        received:
+          description: 실제 수신된 값
+          example: not-an-email
+        expected:
+          type: string
+          examples:
+            default:
+              dataValue: string with format 'email'
+    HealthStatus:
+      type: object
+      required:
+        - status
+        - timestamp
+      properties:
+        status:
+          type: string
+          enum:
+            - ok
+        timestamp:
+          type: string
+          format: date-time
+      examples:
+        ok:
+          dataValue:
+            status: ok
+            timestamp: 2026-04-04T00:00:00.000Z
+          serializedValue: '{"status":"ok","timestamp":"2026-04-04T00:00:00.000Z"}'
+    User:
+      type: object
+      description: 사용자 정보
+      required:
+        - id
+        - email
+        - name
+        - role
+        - createdAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        role:
+          type: string
+          enum:
+            - admin
+            - user
+            - guest
+        createdAt:
+          type: string
+          format: date-time
+      examples:
+        alice:
+          dataValue:
+            id: 00000000-0000-0000-0000-000000000001
+            email: alice@example.com
+            name: Alice
+            role: user
+            createdAt: 2024-01-01T00:00:00.000Z
+    CreateUserRequest:
+      type: object
+      description: 사용자 생성 요청
+      required:
+        - email
+        - name
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        password:
+          type: string
+          minLength: 8
+          description: 최소 8자 이상
+    UpdateUserRequest:
+      type: object
+      description: 사용자 수정 요청 (부분 업데이트 — 모든 필드 optional)
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        role:
+          type: string
+          enum:
+            - admin
+            - user
+            - guest
+  responses:
+    BadRequest:
+      description: 잘못된 요청 — 요청 형식 또는 파라미터 오류
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          examples:
+            default:
+              dataValue:
+                code: BAD_REQUEST
+                message: 요청 형식이 올바르지 않습니다
+              serializedValue: '{"code":"BAD_REQUEST","message":"요청 형식이 올바르지 않습니다"}'
+    Unauthorized:
+      description: 인증 실패 — 토큰 없음 또는 만료
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          examples:
+            default:
+              dataValue:
+                code: UNAUTHORIZED
+                message: 인증이 필요합니다
+              serializedValue: '{"code":"UNAUTHORIZED","message":"인증이 필요합니다"}'
+    Forbidden:
+      description: 권한 없음 — 접근 거부
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          examples:
+            default:
+              dataValue:
+                code: FORBIDDEN
+                message: 이 리소스에 접근할 권한이 없습니다
+              serializedValue: '{"code":"FORBIDDEN","message":"이 리소스에 접근할 권한이 없습니다"}'
+    NotFound:
+      description: 리소스를 찾을 수 없음
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          examples:
+            default:
+              dataValue:
+                code: NOT_FOUND
+                message: 요청한 리소스를 찾을 수 없습니다
+              serializedValue: '{"code":"NOT_FOUND","message":"요청한 리소스를 찾을 수 없습니다"}'
+    UnprocessableEntity:
+      description: 스키마 유효성 검사 실패
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          examples:
+            default:
+              dataValue:
+                code: SCHEMA_VALIDATION_FAILED
+                message: 요청 본문이 스키마 유효성 검사를 통과하지 못했습니다
+              serializedValue: '{"code":"SCHEMA_VALIDATION_FAILED","message":"요청 본문이 스키마 유효성 검사를 통과하지 못했습니다"}'
+    InternalServerError:
+      description: 서버 내부 오류
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          examples:
+            default:
+              dataValue:
+                code: INTERNAL_SERVER_ERROR
+                message: 서버 내부 오류가 발생했습니다
+              serializedValue: '{"code":"INTERNAL_SERVER_ERROR","message":"서버 내부 오류가 발생했습니다"}'
+    ServiceUnavailable:
+      description: 서비스 사용 불가
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          examples:
+            default:
+              dataValue:
+                code: SERVICE_UNAVAILABLE
+                message: 서비스가 일시적으로 사용 불가합니다
+              serializedValue: '{"code":"SERVICE_UNAVAILABLE","message":"서비스가 일시적으로 사용 불가합니다"}'
+  parameters:
+    Page:
+      name: page
+      in: query
+      description: 페이지 번호 (1-based)
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+      examples:
+        default:
+          dataValue: 1
+          serializedValue: page=1
+    Limit:
+      name: limit
+      in: query
+      description: 페이지당 항목 수
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+      examples:
+        default:
+          dataValue: 20
+          serializedValue: limit=20
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT Bearer 토큰 인증
+    oauth2:
+      type: oauth2
+      description: OAuth 2.0 인증 (Authorization Code + Device Authorization 지원)
+      flows:
+        authorizationCode:
+          authorizationUrl: https://auth.example.com/authorize
+          tokenUrl: https://auth.example.com/token
+          refreshUrl: https://auth.example.com/token
+          scopes:
+            read: 읽기 권한
+            write: 쓰기 권한
+            admin: 관리자 권한
+          oauth2MetadataUrl: https://auth.example.com/.well-known/oauth-authorization-server
+        deviceAuthorization:
+          deviceAuthorizationUrl: https://auth.example.com/device/code
+          tokenUrl: https://auth.example.com/token
+          oauth2MetadataUrl: https://auth.example.com/.well-known/oauth-authorization-server
+          scopes:
+            read: 읽기 권한
+            write: 쓰기 권한
+servers:
+  - url: http://localhost:4010
+    description: Mock server (@oa-sdk/mock-server)
+  - url: http://localhost:3000
+    description: Local dev server

@@ -5,7 +5,7 @@
  */
 
 import type { OasDocument, ParsedDocument } from '@oa-sdk/parser'
-import { parseDocument } from '@oa-sdk/parser'
+import { parseDocument, resolveServerUrl, DEFAULT_PASSES } from '@oa-sdk/parser'
 import { pascalCase, collectTypeNames, formatGeneratedTs } from '@oa-sdk/core'
 
 export type ClientOptions = {
@@ -19,7 +19,7 @@ export type ClientOptions = {
  * OAS 원본 문서에서 fetch 클라이언트 SDK를 생성합니다.
  */
 export function generateClient(spec: OasDocument | ParsedDocument, options: ClientOptions = {}): string {
-  const doc: ParsedDocument = 'openapi' in spec ? parseDocument(spec as OasDocument, []) : spec
+  const doc: ParsedDocument = 'openapi' in spec ? parseDocument(spec as OasDocument, DEFAULT_PASSES) : spec
   const { typesImport, banner = true } = options
   const lines: string[] = []
 
@@ -39,7 +39,7 @@ export function generateClient(spec: OasDocument | ParsedDocument, options: Clie
   }
 
   // base URL helper
-  const defaultServer = doc.servers[0]?.url ?? ''
+  const defaultServer = doc.servers[0] ? resolveServerUrl(doc.servers[0]) : ''
   lines.push(`export type ClientConfig = { baseUrl?: string; headers?: Record<string, string> }`)
   lines.push('')
   lines.push(`export function createClient(config: ClientConfig = {}) {`)
@@ -66,37 +66,77 @@ export function generateClient(spec: OasDocument | ParsedDocument, options: Clie
   lines.push(`  }`)
   lines.push('')
 
-  // SSE stream helper
-  lines.push(`  async function* stream<T>(method: string, path: string, options?: { query?: Record<string, unknown>; headers?: Record<string, string> }): AsyncGenerator<T> {`)
-  lines.push(`    const url = new URL(path, baseUrl)`)
-  lines.push(`    if (options?.query) {`)
-  lines.push(`      for (const [k, v] of Object.entries(options.query)) {`)
-  lines.push(`        if (v !== undefined) url.searchParams.set(k, String(v))`)
-  lines.push(`      }`)
-  lines.push(`    }`)
-  lines.push(`    const res = await fetch(url.toString(), {`)
-  lines.push(`      method,`)
-  lines.push(`      headers: { Accept: 'text/event-stream', ...defaultHeaders, ...options?.headers },`)
-  lines.push(`    })`)
-  lines.push(`    if (!res.ok) throw new Error(\`\${res.status} \${res.statusText}\`)`)
-  lines.push(`    if (!res.body) return`)
-  lines.push(`    const reader = res.body.getReader()`)
-  lines.push(`    const decoder = new TextDecoder()`)
-  lines.push(`    let buffer = ''`)
-  lines.push(`    while (true) {`)
-  lines.push(`      const { done, value } = await reader.read()`)
-  lines.push(`      if (done) break`)
-  lines.push(`      buffer += decoder.decode(value, { stream: true })`)
-  lines.push(`      const parts = buffer.split('\\n\\n')`)
-  lines.push(`      buffer = parts.pop() ?? ''`)
-  lines.push(`      for (const part of parts) {`)
-  lines.push(`        const line = part.replace(/^data: /, '').trim()`)
-  lines.push(`        if (!line || line === '[DONE]') continue`)
-  lines.push(`        try { yield JSON.parse(line) as T } catch { /* skip non-JSON */ }`)
-  lines.push(`      }`)
-  lines.push(`    }`)
-  lines.push(`  }`)
-  lines.push('')
+  // Detect which streaming formats are needed
+  const needsSse = doc.operations.some(op => op.operationId && getStreamingFormat(op.responses) === 'sse')
+  const needsNdjson = doc.operations.some(op => op.operationId && getStreamingFormat(op.responses) === 'ndjson')
+
+  // SSE stream helper (only if needed)
+  if (needsSse) {
+    lines.push(`  async function* streamSse<T>(method: string, path: string, options?: { query?: Record<string, unknown>; headers?: Record<string, string> }): AsyncGenerator<T> {`)
+    lines.push(`    const url = new URL(path, baseUrl)`)
+    lines.push(`    if (options?.query) {`)
+    lines.push(`      for (const [k, v] of Object.entries(options.query)) {`)
+    lines.push(`        if (v !== undefined) url.searchParams.set(k, String(v))`)
+    lines.push(`      }`)
+    lines.push(`    }`)
+    lines.push(`    const res = await fetch(url.toString(), {`)
+    lines.push(`      method,`)
+    lines.push(`      headers: { Accept: 'text/event-stream', ...defaultHeaders, ...options?.headers },`)
+    lines.push(`    })`)
+    lines.push(`    if (!res.ok) throw new Error(\`\${res.status} \${res.statusText}\`)`)
+    lines.push(`    if (!res.body) return`)
+    lines.push(`    const reader = res.body.getReader()`)
+    lines.push(`    const decoder = new TextDecoder()`)
+    lines.push(`    let buffer = ''`)
+    lines.push(`    while (true) {`)
+    lines.push(`      const { done, value } = await reader.read()`)
+    lines.push(`      if (done) break`)
+    lines.push(`      buffer += decoder.decode(value, { stream: true })`)
+    lines.push(`      const parts = buffer.split('\\n\\n')`)
+    lines.push(`      buffer = parts.pop() ?? ''`)
+    lines.push(`      for (const part of parts) {`)
+    lines.push(`        const line = part.replace(/^data: /, '').trim()`)
+    lines.push(`        if (!line || line === '[DONE]') continue`)
+    lines.push(`        try { yield JSON.parse(line) as T } catch { /* skip non-JSON */ }`)
+    lines.push(`      }`)
+    lines.push(`    }`)
+    lines.push(`  }`)
+    lines.push('')
+  }
+
+  // NDJSON stream helper (only if needed)
+  if (needsNdjson) {
+    lines.push(`  async function* streamNdjson<T>(method: string, path: string, options?: { query?: Record<string, unknown>; headers?: Record<string, string> }): AsyncGenerator<T> {`)
+    lines.push(`    const url = new URL(path, baseUrl)`)
+    lines.push(`    if (options?.query) {`)
+    lines.push(`      for (const [k, v] of Object.entries(options.query)) {`)
+    lines.push(`        if (v !== undefined) url.searchParams.set(k, String(v))`)
+    lines.push(`      }`)
+    lines.push(`    }`)
+    lines.push(`    const res = await fetch(url.toString(), {`)
+    lines.push(`      method,`)
+    lines.push(`      headers: { Accept: 'application/x-ndjson', ...defaultHeaders, ...options?.headers },`)
+    lines.push(`    })`)
+    lines.push(`    if (!res.ok) throw new Error(\`\${res.status} \${res.statusText}\`)`)
+    lines.push(`    if (!res.body) return`)
+    lines.push(`    const reader = res.body.getReader()`)
+    lines.push(`    const decoder = new TextDecoder()`)
+    lines.push(`    let buffer = ''`)
+    lines.push(`    while (true) {`)
+    lines.push(`      const { done, value } = await reader.read()`)
+    lines.push(`      if (done) break`)
+    lines.push(`      buffer += decoder.decode(value, { stream: true })`)
+    lines.push(`      const parts = buffer.split('\\n')`)
+    lines.push(`      buffer = parts.pop() ?? ''`)
+    lines.push(`      for (const part of parts) {`)
+    lines.push(`        const line = part.trim()`)
+    lines.push(`        if (!line) continue`)
+    lines.push(`        try { yield JSON.parse(line) as T } catch { /* skip non-JSON */ }`)
+    lines.push(`      }`)
+    lines.push(`    }`)
+    lines.push(`  }`)
+    lines.push('')
+  }
 
   // API methods
   lines.push('  return {')
@@ -124,9 +164,9 @@ export function generateClient(spec: OasDocument | ParsedDocument, options: Clie
     const responseType = typesImport ? `${baseName}Response` : 'unknown'
     const hasResponse = Object.keys(op.responses).some(k => /^2\d{2}$/.test(k) && k !== '204')
 
-    // SSE streaming 감지
-    const isStreaming = isStreamingOp(op.responses)
-    const returnType = isStreaming
+    // streaming format detection
+    const streamFormat = getStreamingFormat(op.responses)
+    const returnType = streamFormat
       ? `AsyncGenerator<${responseType}>`
       : hasResponse ? `Promise<${responseType}>` : 'Promise<void>'
 
@@ -138,10 +178,11 @@ export function generateClient(spec: OasDocument | ParsedDocument, options: Clie
       pathExpr = `'${op.openApiPath}'`
     }
 
-    if (isStreaming) {
+    if (streamFormat) {
+      const helperName = streamFormat === 'sse' ? 'streamSse' : 'streamNdjson'
       lines.push(`    async *${op.operationId}(${params.join(', ')}): ${returnType} {`)
       const streamOpts = queryParams.length > 0 ? `, { query: query as Record<string, unknown> }` : ''
-      lines.push(`      yield* stream('${method}', ${pathExpr}${streamOpts})`)
+      lines.push(`      yield* ${helperName}('${method}', ${pathExpr}${streamOpts})`)
       lines.push(`    },`)
     } else {
       lines.push(`    async ${op.operationId}(${params.join(', ')}): ${returnType} {`)
@@ -160,16 +201,16 @@ export function generateClient(spec: OasDocument | ParsedDocument, options: Clie
   return formatGeneratedTs(lines.join('\n'))
 }
 
-function isStreamingOp(responses: Record<string, unknown>): boolean {
+/** Returns the streaming format of the operation, or null if not streaming */
+function getStreamingFormat(responses: Record<string, unknown>): 'sse' | 'ndjson' | null {
   for (const res of Object.values(responses)) {
     if (!res || typeof res !== 'object') continue
     const content = (res as Record<string, unknown>)['content'] as Record<string, unknown> | undefined
     if (!content) continue
     for (const ct of Object.keys(content)) {
-      if (ct === 'text/event-stream' || ct === 'application/x-ndjson' || ct === 'application/jsonl') {
-        return true
-      }
+      if (ct === 'text/event-stream') return 'sse'
+      if (ct === 'application/x-ndjson' || ct === 'application/jsonl') return 'ndjson'
     }
   }
-  return false
+  return null
 }

@@ -56,11 +56,12 @@ export function groupByTag(doc: ParsedDocument): Map<string, OperationEntry[]> {
       const list = groups.get('untagged') ?? []
       list.push(op)
       groups.set('untagged', list)
-    }
-    for (const tag of op.tags) {
-      const list = groups.get(tag) ?? []
-      list.push(op)
-      groups.set(tag, list)
+    } else {
+      for (const tag of op.tags) {
+        const list = groups.get(tag) ?? []
+        list.push(op)
+        groups.set(tag, list)
+      }
     }
   }
   return groups
@@ -138,7 +139,7 @@ export function resolveServerUrl(server: OasServer, overrides: Record<string, st
   if (server.variables) {
     for (const [name, variable] of Object.entries(server.variables)) {
       const value = overrides[name] ?? variable.default
-      url = url.replace(`{${name}}`, value)
+      url = url.replaceAll(`{${name}}`, value)
     }
   }
   return url

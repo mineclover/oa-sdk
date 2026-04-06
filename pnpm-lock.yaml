@@ -54,6 +54,9 @@ importers:
       '@types/node':
         specifier: ^20.0.0
         version: 20.19.39
+      hono:
+        specifier: ^4.0.0
+        version: 4.12.11
       tsx:
         specifier: ^4.0.0
         version: 4.21.0
@@ -227,6 +230,9 @@ importers:
       tsx:
         specifier: ^4.0.0
         version: 4.21.0
+      vitest:
+        specifier: ^2.0.0
+        version: 2.1.9(@types/node@20.19.39)(msw@2.12.14(@types/node@20.19.39)(typescript@5.9.3))
       yaml:
         specifier: ^2.5.0
         version: 2.8.3
@@ -2056,6 +2062,10 @@ packages:
 
   headers-polyfill@4.0.3:
     resolution: {integrity: sha512-IScLbePpkvO846sIwOtOTDjutRMWdXdJmXdMvk6gCBHxFO8d+QKOQedyZSxFTTFYRSmlgSTDtXqqq4pcenBXLQ==}
+
+  hono@4.12.11:
+    resolution: {integrity: sha512-r4xbIa3mGGGoH9nN4A14DOg2wx7y2oQyJEb5O57C/xzETG/qx4c7CVDQ5WMeKHZ7ORk2W0hZ/sQKXTav3cmYBA==}
+    engines: {node: '>=16.9.0'}
 
   hpagent@1.2.0:
     resolution: {integrity: sha512-A91dYTeIB6NoXG+PxTQpCCDDnfHsW9kc06Lvpu1TEe9gnd6ZFeiBoRO9JvzEv6xK7EX97/dUE8g/vBMTqTS3CA==}
@@ -5484,6 +5494,8 @@ snapshots:
       function-bind: 1.1.2
 
   headers-polyfill@4.0.3: {}
+
+  hono@4.12.11: {}
 
   hpagent@1.2.0: {}
 
