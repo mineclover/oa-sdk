@@ -2,7 +2,7 @@ import { http, HttpResponse, type RequestHandler } from 'msw'
 import { parseDocument, HTTP_METHODS, resolveServerUrl, type OasDocument, type OperationEntry, type RouteIndex } from '@oa-sdk/parser'
 import { toColonPath } from '@oa-sdk/core'
 import { handleRequest } from '../core/handler.js'
-import { streamer, formatSseChunk, formatNdjsonLine, isStreamingContentType } from '../core/stream.js'
+import { isStreamingContentType, generateStreamChunks } from '../core/stream.js'
 import { filterRouteIndex, type RouteFilter } from '../core/route-filter.js'
 import type { OverrideResponse } from './node-http.js'
 
@@ -145,7 +145,7 @@ function buildMswHandlers(
           }
         }
 
-        // headers
+        // headers — MSW uses Fetch API Headers (forEach), unlike Node's IncomingMessage.headers (object)
         const headers: Record<string, string> = {}
         request.headers.forEach((v: string, k: string) => { headers[k] = v })
 
@@ -165,21 +165,11 @@ function buildMswHandlers(
 
         // 스트리밍 응답 (text/event-stream 등) — ReadableStream으로 전달
         if (isStreamingContentType(picked.contentType)) {
-          const schema = picked.stream
-          const body = picked.body
-          const isSse = picked.contentType === 'text/event-stream'
-          const formatChunk = isSse ? formatSseChunk : formatNdjsonLine
           const readable = new ReadableStream({
             async start(controller) {
               const enc = new TextEncoder()
-              if (schema) {
-                // 스키마 기반 → StreamFolder로 다수 이벤트 생성
-                for await (const item of streamer.generate(schema, { includeTerminator: isSse })) {
-                  controller.enqueue(enc.encode(formatChunk(item)))
-                }
-              } else {
-                // example body → 단일 이벤트
-                controller.enqueue(enc.encode(formatChunk(body)))
+              for await (const chunk of generateStreamChunks(picked)) {
+                controller.enqueue(enc.encode(chunk))
               }
               controller.close()
             },

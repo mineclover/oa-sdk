@@ -6,35 +6,9 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import { createNodeMockServer } from '../../adapters/node-http.js'
 import { createTestClient } from '../../testing.js'
-import type { OasDocument } from '@oa-sdk/parser'
+import { createSimpleItemsSpec } from '../fixtures/specs.js'
 
-const spec: OasDocument = {
-  openapi: '3.2.0',
-  info: { title: 'Stress', version: '1.0.0' },
-  paths: {
-    '/items': {
-      get: {
-        operationId: 'listItems',
-        responses: { '200': { description: 'OK', content: { 'application/json': { example: { items: [] } } } } },
-      },
-      post: {
-        operationId: 'createItem',
-        requestBody: {
-          required: true,
-          content: { 'application/json': { schema: { type: 'object', required: ['name'], properties: { name: { type: 'string' } } } } },
-        },
-        responses: { '201': { description: 'Created', content: { 'application/json': { example: { id: 1 } } } } },
-      },
-    },
-    '/items/{id}': {
-      get: {
-        operationId: 'getItem',
-        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
-        responses: { '200': { description: 'OK', content: { 'application/json': { example: { id: 1, name: 'test' } } } } },
-      },
-    },
-  },
-} as OasDocument
+const spec = createSimpleItemsSpec()
 
 let server: ReturnType<typeof createNodeMockServer>
 let client: ReturnType<typeof createTestClient>

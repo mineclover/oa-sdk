@@ -6,6 +6,7 @@ import { describe, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import { setupServer } from 'msw/node'
 import { createMswHandlers } from '../../adapters/msw.js'
 import type { OasDocument } from '@oa-sdk/parser'
+import { createWebhookSpec } from '../fixtures/specs.js'
 
 // ─── 공통 스펙 ────────────────────────────────────────────────────────────────
 
@@ -382,34 +383,7 @@ describe('createMswHandlers — onRequest 훅', () => {
 // ─── 웹훅 ─────────────────────────────────────────────────────────────────────
 
 describe('createMswHandlers — webhooks', () => {
-  const webhookSpec: OasDocument = {
-    openapi: '3.2.0',
-    info: { title: 'Webhook MSW Test', version: '1.0.0' },
-    webhooks: {
-      orderCreated: {
-        post: {
-          operationId: 'orderCreatedWebhook',
-          requestBody: {
-            required: true,
-            content: {
-              'application/json': {
-                schema: { type: 'object', required: ['orderId'], properties: { orderId: { type: 'string' } } }
-              }
-            }
-          },
-          responses: { '200': { description: 'Acknowledged' } }
-        }
-      }
-    },
-    paths: {
-      '/orders': {
-        get: {
-          operationId: 'listOrders',
-          responses: { '200': { description: 'OK', content: { 'application/json': { example: [] } } } }
-        }
-      }
-    }
-  }
+  const webhookSpec = createWebhookSpec()
 
   it('POST /webhooks/orderCreated — valid payload → 200', async () => {
     server.close()

@@ -1,7 +1,7 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http'
 import { parseDocument, matchRoute, type HttpMethod, type MatchResult, type OasDocument, type OperationEntry, type RouteIndex } from '@oa-sdk/parser'
 import { handleRequest } from '../core/handler.js'
-import { streamer, formatSseChunk, formatNdjsonLine, isStreamingContentType } from '../core/stream.js'
+import { isStreamingContentType, generateStreamChunks } from '../core/stream.js'
 import { filterRouteIndex, type RouteFilter } from '../core/route-filter.js'
 
 export type NodeMockServerOptions = {
@@ -103,7 +103,7 @@ export function createNodeMockServer(
       }
     }
 
-    // headers
+    // headers — Node uses IncomingMessage.headers (object with string|string[]), unlike MSW's Fetch Headers
     const headers: Record<string, string> = {}
     for (const [k, v] of Object.entries(req.headers)) {
       if (typeof v === 'string') headers[k] = v
@@ -125,22 +125,14 @@ export function createNodeMockServer(
 
     // 스트리밍 응답 — SSE는 data:\n\n 포맷, NDJSON/JSONL은 <json>\n 포맷
     if (isStreamingContentType(picked.contentType)) {
-      const isSse = picked.contentType === 'text/event-stream'
-      const formatChunk = isSse ? formatSseChunk : formatNdjsonLine
       res.writeHead(picked.status, {
         ...picked.headers,
         'Content-Type': picked.contentType,
         'Cache-Control': 'no-cache',
         'Connection': 'keep-alive',
       })
-      if (picked.stream) {
-        // 스키마 기반 → StreamFolder로 다수 이벤트 생성
-        for await (const item of streamer.generate(picked.stream, { includeTerminator: isSse })) {
-          res.write(formatChunk(item))
-        }
-      } else {
-        // example body → 단일 이벤트
-        res.write(formatChunk(picked.body))
+      for await (const chunk of generateStreamChunks(picked)) {
+        res.write(chunk)
       }
       res.end()
       return

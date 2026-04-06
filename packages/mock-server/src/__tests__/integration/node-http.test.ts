@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import { createNodeMockServer, type NodeMockServer } from '../../adapters/node-http.js'
 import type { OasDocument } from '@oa-sdk/parser'
+import { createWebhookSpec } from '../fixtures/specs.js'
 
 // ─── $ref 사용 스펙 (deref 검증용) ───────────────────────────────────────────
 
@@ -555,34 +556,7 @@ describe('createNodeMockServer — 통합 테스트', () => {
 
 // ─── 웹훅 통합 테스트 ────────────────────────────────────────────────────────
 
-const webhookSpec: OasDocument = {
-  openapi: '3.2.0',
-  info: { title: 'Webhook Test', version: '1.0.0' },
-  webhooks: {
-    orderCreated: {
-      post: {
-        operationId: 'orderCreatedWebhook',
-        requestBody: {
-          required: true,
-          content: {
-            'application/json': {
-              schema: { type: 'object', required: ['orderId'], properties: { orderId: { type: 'string' } } }
-            }
-          }
-        },
-        responses: { '200': { description: 'Acknowledged' } }
-      }
-    }
-  },
-  paths: {
-    '/orders': {
-      get: {
-        operationId: 'listOrders',
-        responses: { '200': { description: 'OK', content: { 'application/json': { example: [] } } } }
-      }
-    }
-  }
-}
+const webhookSpec = createWebhookSpec()
 
 describe('createNodeMockServer — webhooks', () => {
   let webhookServer: NodeMockServer

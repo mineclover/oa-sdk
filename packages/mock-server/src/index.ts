@@ -16,7 +16,7 @@ export { loadSchema, matchRoute } from '@oa-sdk/parser'
 
 // ─── mock-server 고유 ─────────────────────────────────────────────────────────
 export { GenerateFolder, generator, generateAlgebra } from './core/generate.js'
-export { StreamFolder, streamer, SSE_DONE, formatSseChunk, formatNdjsonLine, isStreamingContentType } from './core/stream.js'
+export { StreamFolder, streamer, SSE_DONE, formatSseChunk, formatNdjsonLine, isStreamingContentType, generateStreamChunks } from './core/stream.js'
 export type { StreamOptions } from './core/stream.js'
 
 export { filterRouteIndex } from './core/route-filter.js'

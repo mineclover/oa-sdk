@@ -53,6 +53,29 @@ export class StreamFolder {
 /** StreamFolder 싱글턴 */
 export const streamer = new StreamFolder()
 
+// ─── 공유 스트리밍 청크 생성기 ──────────────────────────────────────────────
+
+/**
+ * 스트리밍 응답의 청크들을 생성.
+ * 어댑터는 이 결과를 자신의 방식으로 전송 (ReadableStream vs res.write).
+ *
+ * @param picked 응답 선택 결과 — stream 스키마 또는 body를 포함
+ */
+export async function* generateStreamChunks(
+  picked: { contentType: string; body: unknown; stream?: OasSchema },
+): AsyncGenerator<string> {
+  const isSse = picked.contentType === 'text/event-stream'
+  const formatChunk = isSse ? formatSseChunk : formatNdjsonLine
+
+  if (picked.stream) {
+    for await (const item of streamer.generate(picked.stream, { includeTerminator: isSse })) {
+      yield formatChunk(item)
+    }
+  } else {
+    yield formatChunk(picked.body)
+  }
+}
+
 // ─── 포맷 헬퍼 ───────────────────────────────────────────────────────────────
 
 /**

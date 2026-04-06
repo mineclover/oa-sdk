@@ -1,65 +1,8 @@
 import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest'
 import { createNodeMockServer, type NodeMockServer } from '../../adapters/node-http.js'
-import type { OasDocument } from '@oa-sdk/parser'
+import { createOverrideSpec } from '../fixtures/specs.js'
 
-const spec: OasDocument = {
-  openapi: '3.2.0',
-  info: { title: 'Override Test', version: '0.0.0' },
-  paths: {
-    '/users': {
-      get: {
-        operationId: 'listUsers',
-        responses: {
-          '200': {
-            description: 'OK',
-            content: {
-              'application/json': {
-                examples: { default: { dataValue: { items: [], total: 0 } } },
-              },
-            },
-          },
-        },
-      },
-    },
-    '/users/{id}': {
-      parameters: [
-        { name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
-      ],
-      get: {
-        operationId: 'getUserById',
-        responses: {
-          '200': {
-            description: 'OK',
-            content: {
-              'application/json': {
-                examples: {
-                  default: {
-                    dataValue: { id: '123e4567-e89b-12d3-a456-426614174000', name: 'Test' },
-                  },
-                },
-              },
-            },
-          },
-        },
-      },
-    },
-    '/health': {
-      get: {
-        operationId: 'healthCheck',
-        responses: {
-          '200': {
-            description: 'OK',
-            content: {
-              'application/json': {
-                examples: { default: { dataValue: { status: 'ok' } } },
-              },
-            },
-          },
-        },
-      },
-    },
-  },
-}
+const spec = createOverrideSpec()
 
 describe('NodeMockServer override API', () => {
   let server: NodeMockServer
