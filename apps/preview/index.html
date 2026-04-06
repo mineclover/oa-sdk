@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>oa-sdk Preview</title>
+  <link rel="stylesheet" href="/src/style.css">
+</head>
+<body>
+  <div id="app">
+    <header>
+      <h1>oa-sdk Preview</h1>
+      <p>OpenAPI 3.2 spec -> TypeScript types, router, client, mock server</p>
+    </header>
+
+    <div class="layout">
+      <section class="editor-panel">
+        <h2>OpenAPI Spec</h2>
+        <div class="toolbar">
+          <button id="btn-load-example">Load Example</button>
+          <button id="btn-generate">Generate</button>
+        </div>
+        <textarea id="spec-input" spellcheck="false" placeholder="Paste OpenAPI 3.2 YAML or JSON here..."></textarea>
+      </section>
+
+      <section class="output-panel">
+        <div class="tabs">
+          <button class="tab active" data-tab="types">Types</button>
+          <button class="tab" data-tab="router">Router</button>
+          <button class="tab" data-tab="client">Client</button>
+          <button class="tab" data-tab="mock">Mock Test</button>
+        </div>
+
+        <div class="tab-content" id="tab-types">
+          <pre><code id="output-types"></code></pre>
+        </div>
+        <div class="tab-content hidden" id="tab-router">
+          <pre><code id="output-router"></code></pre>
+        </div>
+        <div class="tab-content hidden" id="tab-client">
+          <pre><code id="output-client"></code></pre>
+        </div>
+        <div class="tab-content hidden" id="tab-mock">
+          <div class="mock-panel">
+            <div class="mock-controls">
+              <button id="btn-start-mock">Start Mock Server</button>
+              <button id="btn-stop-mock" disabled>Stop</button>
+              <span id="mock-status">Stopped</span>
+            </div>
+            <div class="mock-request">
+              <select id="mock-method">
+                <option>GET</option><option>POST</option><option>PUT</option><option>PATCH</option><option>DELETE</option>
+              </select>
+              <input id="mock-url" type="text" placeholder="/users" />
+              <button id="btn-send">Send</button>
+            </div>
+            <div class="mock-body-section">
+              <h3>Request Body (JSON)</h3>
+              <textarea id="mock-body" rows="4" placeholder='{ "name": "Alice" }'></textarea>
+              <h3>Headers</h3>
+              <textarea id="mock-headers" rows="2" placeholder='{ "Authorization": "Bearer token" }'></textarea>
+            </div>
+            <div class="mock-response">
+              <h3>Response</h3>
+              <div id="mock-response-status"></div>
+              <pre><code id="mock-response-body"></code></pre>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>

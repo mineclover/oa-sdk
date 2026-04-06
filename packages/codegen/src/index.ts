@@ -13,6 +13,8 @@
 export { zodToSchema } from './zod-to-schema.js'
 export { generateComponents } from './generator.js'
 export { defineConfig } from './config.js'
+export { generateTypes, generateTypesFromSpec } from './typegen/generate-types.js'
+export { schemaToTs } from './typegen/schema-to-ts.js'
 
 export type { OasSchema } from './zod-to-schema.js'
 export type { CodegenConfig } from './config.js'
