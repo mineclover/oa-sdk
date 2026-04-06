@@ -12,6 +12,7 @@
 | [Mock 서버](./guides/mock-server-usage.md) | MSW / Node HTTP |
 | [스키마 작성](./guides/schema-authoring.md) | 도메인 분리 spec.yaml |
 | [SchemaAlgebra](./guides/schema-algebra.md) | fold 패턴 확장 |
+| [Preview App](../apps/preview/) | 브라우저에서 스펙 → 코드 생성 + SW mock 테스트 |
 
 ## 프로젝트 관리 (SSOT)
 

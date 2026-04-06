@@ -12,6 +12,7 @@ oa-sdk/
     client/        @oa-sdk/client       OAS → fetch 클라이언트 SDK
   apps/
     playground/    통합 테스트 + 데모
+    preview/       @oa-sdk/preview  Vite 프리뷰 웹앱 (SW mock + 코드 생성)
   docs/
     guides/        유저 가이드 (use-cases 포함)
     internal/      프로젝트 관리 SSOT
@@ -77,8 +78,9 @@ schemas      ← 독립
 | `src/core/generate.ts` | 최소 값 생성 (Faker 미사용) |
 | `src/core/stream.ts` | SSE/NDJSON 스트리밍 |
 | `src/core/route-filter.ts` | 라우트 필터 (paths/operations/tags/custom) |
-| `src/adapters/msw.ts` | MSW 어댑터 |
-| `src/adapters/node-http.ts` | Node HTTP 어댑터 |
+| `src/adapters/msw.ts` | MSW 어댑터 + createMswMockServer (override 지원) |
+| `src/adapters/node-http.ts` | Node HTTP 어댑터 + response override |
+| `src/browser.ts` | 브라우저용 엔트리 (Node.js 의존성 없음) |
 | `src/testing.ts` | createTestClient + createCoverageTracker |
 
 ### @oa-sdk/codegen
@@ -90,7 +92,7 @@ schemas      ← 독립
 | `src/typegen/generate-types.ts` | ParsedDocument → TS 파일 |
 | `src/drizzle/extractor.ts` | Drizzle 테이블 감지 |
 | `src/drizzle/converter.ts` | Drizzle → Zod 변환 |
-| `src/cli/index.ts` | oa-gen CLI (6개 커맨드) |
+| `src/cli/index.ts` | oa-gen CLI (7개 커맨드: generate/typegen/router/client/lint/validate/dev) |
 
 ### @oa-sdk/router
 

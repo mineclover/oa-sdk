@@ -30,9 +30,6 @@ client에서 `res.headers` 타입 안전 접근.
 ### [ ] Callbacks — 아웃바운드 웹훅
 타입+파싱 완료. mock에서 callback URL POST 시뮬레이션.
 
-### [ ] Webhooks — 인바운드 핸들러
-타입+파싱 완료. router에서 webhook 스텁.
-
 ### [ ] XML 직렬화
 타입 완료. application/xml content-type. 최하 우선순위.
 
@@ -57,5 +54,22 @@ client에서 `res.headers` 타입 안전 접근.
 - [x] Content-type aware router 스텁 + security requirement hints
 - [x] NDJSON vs SSE 스트림 분리 (client)
 - [x] 899 테스트 (parser 120, codegen 197, mock-server 508, playground 38, router 18, client 18)
+- [x] Webhooks — router/client/mock-server 웹훅 핸들러 스텁/타입/라우트 병합
+- [x] additionalProperties → Record<string, T> + index signature (typegen)
+- [x] Hono 타입드 라우터 — 응답/바디 타입 캐스팅 (as any 제거)
+- [x] MSW override — createMswMockServer() + override/clearOverride/clearOverrides
+- [x] Client middleware — onRequest/onResponse/onError 인터셉터
+- [x] ZodLazy → $ref 재귀 스키마
+- [x] Error body 타입 (4xx/5xx → ${baseName}Error + Op 번들 포함)
+- [x] CLI dev watch 모드
+- [x] External $ref 기본 지원 (상대 파일 경로)
+- [x] matchRoute regex 캐시 (WeakMap)
+- [x] if/then/else 스키마 (anyOf 시맨틱)
+- [x] 브라우저 번들 (@oa-sdk/mock-server/browser)
+- [x] 프리뷰 웹앱 (apps/preview) — Service Worker 기반 mock 서버 + 코드 생성 미리보기
+- [x] 어댑터 중복 제거 (generateStreamChunks, mergeWebhookRoutes, parseQueryParams 공유화)
+- [x] 테스트 픽스처 공유 (specs.ts)
+- [x] schemas 스크립트 테스트 (merge/downgrade/upgrade)
+- [x] 1141 테스트 (parser 128, codegen 218, mock-server 553, playground 114, router 28, client 27, schemas 73)
 
 </details>

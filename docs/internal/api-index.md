@@ -82,9 +82,12 @@
 
 | 함수 | 파일 | 용도 |
 |------|------|------|
-| `zodToSchema()` | `zod-to-schema.ts` | Zod 4 → OAS 3.2 Schema |
+| `zodToSchema()` | `zod-to-schema.ts` | Zod 4 → OAS 3.2 Schema (refs 컨텍스트 지원) |
 | `generateComponents()` | `generator.ts` | Zod 맵 → YAML (writeSchemas 위임) |
 | `defineConfig()` | `config.ts` | 타입 안전 config 헬퍼 |
+| `generateTypes()` | `typegen/generate-types.ts` | ParsedDocument → TS 타입 문자열 |
+| `generateTypesFromSpec()` | `typegen/generate-types.ts` | OAS spec → TS 타입 (parseDocument 포함) |
+| `schemaToTs()` | `typegen/schema-to-ts.ts` | 단일 OAS Schema → TS 타입 문자열 |
 
 ### 타입 (`@oa-sdk/codegen`)
 
@@ -112,10 +115,13 @@
 | 함수/타입 | 파일 | 용도 |
 |-----------|------|------|
 | `createMswHandlers()` | `adapters/msw.ts` | MSW 2.x 핸들러 배열 생성 |
+| `createMswMockServer()` | `adapters/msw.ts` | MSW 핸들러 + override API 통합 |
 | `MswHandlerOptions` | `adapters/msw.ts` | MSW 옵션 타입 |
+| `MswMockServer` | `adapters/msw.ts` | MSW mock 서버 타입 (handlers + override) |
 | `createNodeMockServer()` | `adapters/node-http.ts` | Node HTTP 목 서버 생성 |
-| `NodeMockServer` | `adapters/node-http.ts` | Node 서버 인스턴스 타입 |
+| `NodeMockServer` | `adapters/node-http.ts` | Node 서버 인스턴스 타입 (override 포함) |
 | `NodeMockServerOptions` | `adapters/node-http.ts` | Node 서버 옵션 타입 |
+| `OverrideResponse` | `adapters/node-http.ts` | override 응답 타입 |
 
 ## parser re-exports (`@oa-sdk/mock-server`)
 
@@ -142,7 +148,9 @@
 | `formatSseChunk()` | `core/stream.ts` | SSE 청크 포맷 |
 | `formatNdjsonLine()` | `core/stream.ts` | NDJSON 라인 포맷 |
 | `isStreamingContentType()` | `core/stream.ts` | 스트림 content-type 판별 |
+| `generateStreamChunks()` | `core/stream.ts` | 스트리밍 응답 청크 생성 (어댑터 공유) |
 | `StreamOptions` | `core/stream.ts` | 스트림 옵션 타입 |
+| `mergeWebhookRoutes()` | `core/route-filter.ts` | webhooks → RouteIndex 병합 |
 | `filterRouteIndex()` | `core/route-filter.ts` | RouteIndex 필터링 |
 | `RouteFilter` | `core/route-filter.ts` | 필터 조건 타입 |
 | `handleRequest()` | `core/handler.ts` | 공통 요청 검증 + 응답 선택 (어댑터 공유) |

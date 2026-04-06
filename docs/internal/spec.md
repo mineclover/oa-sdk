@@ -49,11 +49,15 @@ schemas      ← 독립. OAS 소스 + merge + 3.1↔3.2 변환
 | Parameters | style/explode 역직렬화 (form/simple/label/matrix/pipe/space) |
 | Response headers | OAS headers → HTTP 헤더 전달 |
 | Body 파싱 | JSON, form-urlencoded, multipart/form-data, text/plain |
-| 스트리밍 | SSE (data: + [DONE]) + NDJSON (bare JSON lines) |
+| 스트리밍 | SSE (data: + [DONE]) + NDJSON (bare JSON lines), `generateStreamChunks()` 공유 |
 | 어댑터 | MSW 2.x + Node HTTP (Connection: keep-alive 패리티) |
+| Response override | `server.override(operationId, response)` — 테스트별 응답 오버라이드 |
+| `createMswMockServer()` | MSW 어댑터 + override API 통합 |
 | `createTestClient` | get/post/put/patch/delete + query + json 자동파싱 |
 | `createCoverageTracker` | operationId별 호출 추적 + 커버리지 비율 |
 | `filterRouteIndex` / `RouteFilter` | 태그/경로/메서드 기반 RouteIndex 필터링 |
+| Webhooks | ParsedDocument.webhooks → RouteIndex 자동 병합 |
+| 브라우저 번들 | `@oa-sdk/mock-server/browser` — Node.js 의존성 없는 브라우저용 엔트리 |
 | 부하 | 100 동시 요청 <200ms |
 
 ## `@oa-sdk/codegen` ✅
@@ -61,19 +65,23 @@ schemas      ← 독립. OAS 소스 + merge + 3.1↔3.2 변환
 | 기능 | 상세 |
 |------|------|
 | Zod 4 → OAS | discriminator, nullable, enum, 전 타입 커버리지 |
+| ZodLazy → $ref | 재귀 스키마 지원 (refs 컨텍스트 기반) |
 | Drizzle → Zod → OAS | pgTable/mysqlTable/sqliteTable, select/insert/update |
-| typegen | OAS → TS ($ref 참조, JSDoc, ResponseHeaders, Op 묶음 타입, tsc 검증) |
-| CLI | `generate`/`typegen`/`router`/`client`/`lint`/`validate`/`--help` |
+| typegen | OAS → TS ($ref 참조, JSDoc, ResponseHeaders, Op 묶음 타입, Error 타입, tsc 검증) |
+| additionalProperties | `Record<string, T>` + index signature 타입 생성 |
+| CLI | `generate`/`typegen`/`router`/`client`/`lint`/`validate`/`dev`/`--help` |
 
 ## `@oa-sdk/router` ✅
 
 Hono/Express 스텁. `OasDocument | ParsedDocument` 입력. typegen 타입 import, JSDoc, 204.
-Content-type aware 스텁 + security requirement hints.
+Content-type aware 스텁 + security requirement hints. Hono 타입드 라우터 (응답/바디 타입 캐스팅).
+Webhook 핸들러 스텁 생성.
 
 ## `@oa-sdk/client` ✅
 
 fetch `createClient()` + SSE `async *` generator. `OasDocument | ParsedDocument` 입력. baseUrl from servers.
 NDJSON vs SSE 스트림 분리 + `resolveServerUrl` 서버 변수 해소.
+ClientMiddleware (`onRequest`/`onResponse`/`onError`) 인터셉터. Webhook 페이로드 타입 생성.
 
 ## `@oa-sdk/schemas` ✅
 
@@ -147,10 +155,11 @@ pnpm demo  # API 구조 + Mock 12시나리오 + 커버리지
 
 | 패키지 | 케이스 |
 |--------|--------|
-| parser | 120 |
-| codegen | 197 |
-| mock-server | 508 |
-| playground | 38 |
-| router | 18 |
-| client | 18 |
-| **합계** | **899** |
+| parser | 128 |
+| codegen | 218 |
+| mock-server | 553 |
+| playground | 114 |
+| router | 28 |
+| client | 27 |
+| schemas | 73 |
+| **합계** | **1141** |
