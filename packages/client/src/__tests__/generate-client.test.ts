@@ -124,4 +124,107 @@ describe('generateClient', () => {
     const code = generateClient(doc({ paths: {} }), { banner: false })
     expect(code).not.toContain('Auto-generated')
   })
+
+  it('middleware 타입 정의 생성', () => {
+    const code = generateClient(doc({
+      paths: {
+        '/users': { get: { operationId: 'listUsers', responses: { '200': { description: 'OK' } } } },
+      },
+    }))
+    expect(code).toContain('ClientMiddleware')
+    expect(code).toContain('onRequest')
+    expect(code).toContain('onResponse')
+    expect(code).toContain('onError')
+  })
+
+  it('request 함수에 middleware 적용 로직', () => {
+    const code = generateClient(doc({
+      paths: {
+        '/users': { get: { operationId: 'listUsers', responses: { '200': { description: 'OK' } } } },
+      },
+    }))
+    expect(code).toContain('config.middleware')
+    expect(code).toContain('mw.onRequest')
+    expect(code).toContain('mw.onResponse')
+    expect(code).toContain('mw.onError')
+  })
+
+  it('ClientConfig에 middleware 필드 포함', () => {
+    const code = generateClient(doc({ paths: {} }))
+    expect(code).toContain('middleware?: ClientMiddleware[]')
+  })
+})
+
+describe('generateClient — webhooks', () => {
+  const webhookSpec = doc({
+    webhooks: {
+      orderCreated: {
+        post: {
+          operationId: 'orderCreatedWebhook',
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: { type: 'object', required: ['orderId'], properties: { orderId: { type: 'string' } } }
+              }
+            }
+          },
+          responses: { '200': { description: 'Acknowledged' } }
+        }
+      }
+    },
+    paths: {
+      '/orders': {
+        get: {
+          operationId: 'listOrders',
+          responses: { '200': { description: 'OK', content: { 'application/json': { example: [] } } } }
+        }
+      }
+    }
+  })
+
+  it('generates webhook type definitions', () => {
+    const code = generateClient(webhookSpec)
+    expect(code).toContain('Webhook Types')
+    expect(code).toContain('OrderCreatedWebhookWebhook')
+    expect(code).toContain('orderId: string')
+  })
+
+  it('webhook type with required field is not optional', () => {
+    const code = generateClient(webhookSpec)
+    // orderId is required, so no ? mark
+    expect(code).toContain('orderId: string')
+    expect(code).not.toContain('orderId?: string')
+  })
+
+  it('does not generate API methods for webhooks', () => {
+    const code = generateClient(webhookSpec)
+    expect(code).not.toContain('async orderCreatedWebhook(')
+  })
+
+  it('still generates API methods for path operations', () => {
+    const code = generateClient(webhookSpec)
+    expect(code).toContain('async listOrders(')
+  })
+
+  it('no webhook section when spec has no webhooks', () => {
+    const code = generateClient(doc({
+      paths: { '/users': { get: { operationId: 'listUsers', responses: { '200': { description: 'OK' } } } } }
+    }))
+    expect(code).not.toContain('Webhook Types')
+  })
+
+  it('webhook without request body schema generates unknown type', () => {
+    const code = generateClient(doc({
+      webhooks: {
+        simpleHook: {
+          post: {
+            operationId: 'simpleHook',
+            responses: { '200': { description: 'OK' } }
+          }
+        }
+      }
+    }))
+    expect(code).toContain('SimpleHookWebhook = unknown')
+  })
 })

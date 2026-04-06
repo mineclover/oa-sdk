@@ -1,15 +1,23 @@
 import { http, HttpResponse, type RequestHandler } from 'msw'
-import { parseDocument, HTTP_METHODS, resolveServerUrl, type OasDocument } from '@oa-sdk/parser'
+import { parseDocument, HTTP_METHODS, resolveServerUrl, type OasDocument, type OperationEntry, type RouteIndex } from '@oa-sdk/parser'
 import { toColonPath } from '@oa-sdk/core'
 import { handleRequest } from '../core/handler.js'
 import { streamer, formatSseChunk, formatNdjsonLine, isStreamingContentType } from '../core/stream.js'
 import { filterRouteIndex, type RouteFilter } from '../core/route-filter.js'
+import type { OverrideResponse } from './node-http.js'
 
 export type MswHandlerOptions = {
   /** 요청 수신 시 호출되는 관찰 훅 (로깅/추적용) */
   onRequest?: (info: { method: string; path: string; operationId?: string }) => void
   /** 라우트 필터 — 조건에 맞는 라우트만 핸들러 생성 */
   include?: RouteFilter
+}
+
+export type MswMockServer = {
+  handlers: RequestHandler[]
+  override(operationId: string, response: OverrideResponse): void
+  clearOverride(operationId: string): void
+  clearOverrides(): void
 }
 
 /**
@@ -26,8 +34,55 @@ export function createMswHandlers(
   spec: OasDocument | Record<string, unknown>,
   options: MswHandlerOptions = {},
 ): RequestHandler[] {
+  return buildMswHandlers(spec, options, new Map())
+}
+
+/**
+ * OpenAPI 스펙 기반 MSW mock 서버 생성 (override 지원).
+ *
+ * @example
+ * import spec from '@oa-sdk/schemas'
+ * import { createMswMockServer } from '@oa-sdk/mock-server/adapters/msw'
+ * import { setupServer } from 'msw/node'
+ *
+ * const mock = createMswMockServer(spec)
+ * const server = setupServer(...mock.handlers)
+ * server.listen()
+ *
+ * mock.override('listUsers', { status: 200, body: { overridden: true } })
+ * // ... tests ...
+ * mock.clearOverrides()
+ */
+export function createMswMockServer(
+  spec: OasDocument | Record<string, unknown>,
+  options: MswHandlerOptions = {},
+): MswMockServer {
+  const overrides = new Map<string, OverrideResponse>()
+  const handlers = buildMswHandlers(spec, options, overrides)
+
+  return {
+    handlers,
+    override(operationId: string, response: OverrideResponse): void {
+      overrides.set(operationId, response)
+    },
+    clearOverride(operationId: string): void {
+      overrides.delete(operationId)
+    },
+    clearOverrides(): void {
+      overrides.clear()
+    },
+  }
+}
+
+/** 내부: 핸들러 목록 생성 (overrides Map 공유) */
+function buildMswHandlers(
+  spec: OasDocument | Record<string, unknown>,
+  options: MswHandlerOptions,
+  overrides: Map<string, OverrideResponse>,
+): RequestHandler[] {
   const parsed = parseDocument(spec as OasDocument)
-  const index = filterRouteIndex(parsed.routes, options.include)
+  const mergedRoutes = mergeWebhookRoutes(parsed.routes, parsed.webhooks)
+  const index = filterRouteIndex(mergedRoutes, options.include)
   const server = parsed.servers[0]
   const baseUrl = server ? extractPathname(resolveServerUrl(server)) : ''
   const handlers: RequestHandler[] = []
@@ -48,6 +103,29 @@ export function createMswHandlers(
           path: openApiPath,
           ...(entry.operationId !== undefined && { operationId: entry.operationId }),
         })
+
+        // override 체크 — 해당 operationId에 오버라이드가 있으면 바로 반환
+        const ov = entry.operationId ? overrides.get(entry.operationId) : undefined
+        if (ov) {
+          const ovHeaders = ov.headers ?? {}
+          if (ov.body === undefined) {
+            return new HttpResponse(null, {
+              status: ov.status,
+              headers: ovHeaders,
+            })
+          }
+          const ct = ovHeaders['Content-Type'] ?? ovHeaders['content-type'] ?? 'application/json'
+          if (ct.includes('application/json')) {
+            return HttpResponse.json(ov.body as Record<string, unknown>, {
+              status: ov.status,
+              headers: ovHeaders,
+            })
+          }
+          return new HttpResponse(
+            typeof ov.body === 'string' ? ov.body : JSON.stringify(ov.body),
+            { status: ov.status, headers: { ...ovHeaders, 'Content-Type': ct } },
+          )
+        }
 
         // path params (MSW가 이미 파싱)
         const pathParams: Record<string, string> = {}
@@ -186,4 +264,19 @@ function extractPathname(url: string): string {
   } catch {
     return url.replace(/\/$/, '')
   }
+}
+
+/** Merge webhook OperationEntries into an existing RouteIndex (non-mutating) */
+function mergeWebhookRoutes(routes: RouteIndex, webhooks: OperationEntry[]): RouteIndex {
+  if (webhooks.length === 0) return routes
+  const merged: RouteIndex = new Map(routes)
+  for (const op of webhooks) {
+    let methodMap = merged.get(op.openApiPath)
+    if (!methodMap) {
+      methodMap = new Map()
+      merged.set(op.openApiPath, methodMap)
+    }
+    methodMap.set(op.method, op)
+  }
+  return merged
 }

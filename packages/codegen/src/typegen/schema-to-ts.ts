@@ -38,6 +38,18 @@ export const typescriptAlgebra: SchemaAlgebra<string> = {
       const comment = desc ? `  /** ${desc} */\n` : ''
       return `${comment}  ${escapeKey(key)}${opt}: ${type}`
     })
+
+    // additionalProperties handling
+    const addProps = s.additionalProperties
+    if (addProps === true) {
+      if (fields.length === 0) return 'Record<string, unknown>'
+      fields.push('  [key: string]: unknown')
+    } else if (addProps && typeof addProps === 'object') {
+      const addType = foldSchema(addProps as OasSchema, typescriptAlgebra)
+      if (fields.length === 0) return `Record<string, ${addType}>`
+      fields.push(`  [key: string]: ${addType}`)
+    }
+
     if (fields.length === 0) return 'Record<string, unknown>'
     return `{\n${fields.join('\n')}\n}`
   },
@@ -134,6 +146,9 @@ function stripExamples(schema: OasSchema): OasSchema {
   if (result.allOf) result.allOf = result.allOf.map(stripExamples)
   if (result.oneOf) result.oneOf = result.oneOf.map(stripExamples)
   if (result.anyOf) result.anyOf = result.anyOf.map(stripExamples)
+  if (result.additionalProperties && typeof result.additionalProperties === 'object') {
+    result.additionalProperties = stripExamples(result.additionalProperties)
+  }
   if (result.then) result.then = stripExamples(result.then)
   if (result.else) result.else = stripExamples(result.else)
   if (result.if) result.if = stripExamples(result.if)

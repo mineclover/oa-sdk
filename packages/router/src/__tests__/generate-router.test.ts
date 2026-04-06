@@ -49,8 +49,7 @@ describe('generateRouter — hono', () => {
       },
     }), { typesImport: './types' })
     expect(code).toContain("'/users/:id'")
-    expect(code).toContain('c.req.param()')
-    expect(code).toContain('GetUserPathParams')
+    expect(code).toContain('c.req.param() as unknown as GetUserPathParams')
   })
 
   it('query params', () => {
@@ -65,8 +64,7 @@ describe('generateRouter — hono', () => {
         },
       },
     }), { typesImport: './types' })
-    expect(code).toContain('c.req.query()')
-    expect(code).toContain('ListUsersQueryParams')
+    expect(code).toContain('c.req.query() as unknown as ListUsersQueryParams')
   })
 
   it('204 No Content', () => {
@@ -104,6 +102,68 @@ describe('generateRouter — hono', () => {
     }), { typesImport: './api-types' })
     expect(code).toContain("from './api-types'")
     expect(code).toContain('ListUsersResponse')
+  })
+})
+
+describe('generateRouter — typed router (typesImport)', () => {
+  it('typesImport 시 응답 타입 캐스팅', () => {
+    const code = generateRouter(doc({
+      paths: {
+        '/users': {
+          get: {
+            operationId: 'listUsers',
+            responses: { '200': { description: 'OK' } },
+          },
+        },
+      },
+    }), { typesImport: './types' })
+    expect(code).toContain('as ListUsersResponse')
+    expect(code).not.toContain('as any')
+  })
+
+  it('typesImport 시 body 제네릭', () => {
+    const code = generateRouter(doc({
+      paths: {
+        '/users': {
+          post: {
+            operationId: 'createUser',
+            requestBody: { content: { 'application/json': { schema: { type: 'object' } } } },
+            responses: { '201': { description: 'Created' } },
+          },
+        },
+      },
+    }), { typesImport: './types' })
+    expect(code).toContain('c.req.json<CreateUserBody>()')
+  })
+
+  it('typesImport 없으면 as any 유지', () => {
+    const code = generateRouter(doc({
+      paths: {
+        '/users': {
+          get: {
+            operationId: 'listUsers',
+            responses: { '200': { description: 'OK' } },
+          },
+        },
+      },
+    }))
+    expect(code).toContain('as any')
+  })
+
+  it('typesImport 시 express body 캐스팅', () => {
+    const code = generateRouter(doc({
+      paths: {
+        '/users': {
+          post: {
+            operationId: 'createUser',
+            requestBody: { content: { 'application/json': { schema: { type: 'object' } } } },
+            responses: { '201': { description: 'Created' } },
+          },
+        },
+      },
+    }), { target: 'express', typesImport: './types' })
+    expect(code).toContain('as CreateUserBody')
+    expect(code).toContain('as CreateUserResponse')
   })
 })
 
@@ -261,6 +321,74 @@ describe('generateRouter — security hints', () => {
       },
     }))
     expect(code).toContain('// Requires: bearerAuth')
+  })
+})
+
+describe('generateRouter — webhooks', () => {
+  const webhookSpec = doc({
+    webhooks: {
+      orderCreated: {
+        post: {
+          operationId: 'orderCreatedWebhook',
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: { type: 'object', required: ['orderId'], properties: { orderId: { type: 'string' } } }
+              }
+            }
+          },
+          responses: { '200': { description: 'Acknowledged' } }
+        }
+      }
+    },
+    paths: {
+      '/orders': {
+        get: {
+          operationId: 'listOrders',
+          responses: { '200': { description: 'OK', content: { 'application/json': { example: [] } } } }
+        }
+      }
+    }
+  })
+
+  it('generates webhook handler stubs (hono)', () => {
+    const code = generateRouter(webhookSpec)
+    expect(code).toContain('Webhooks')
+    expect(code).toContain("app.post('/webhooks/orderCreated'")
+    expect(code).toContain('incoming webhook')
+    expect(code).toContain('implement orderCreatedWebhook webhook handler')
+    expect(code).toContain("c.json({ received: true }, 200)")
+  })
+
+  it('generates webhook handler stubs (express)', () => {
+    const code = generateRouter(webhookSpec, { target: 'express' })
+    expect(code).toContain("router.post('/webhooks/orderCreated'")
+    expect(code).toContain("res.status(200).json({ received: true })")
+  })
+
+  it('webhook body parsing', () => {
+    const code = generateRouter(webhookSpec)
+    expect(code).toContain('await c.req.json()')
+    expect(code).toContain('OrderCreatedWebhookBody')
+  })
+
+  it('includes both paths and webhook routes', () => {
+    const code = generateRouter(webhookSpec)
+    expect(code).toContain("app.get('/orders'")
+    expect(code).toContain("app.post('/webhooks/orderCreated'")
+  })
+
+  it('webhook types included in typesImport', () => {
+    const code = generateRouter(webhookSpec, { typesImport: './types' })
+    expect(code).toContain('OrderCreatedWebhookBody')
+  })
+
+  it('no webhooks section when spec has none', () => {
+    const code = generateRouter(doc({
+      paths: { '/users': { get: { operationId: 'listUsers', responses: { '200': { description: 'OK' } } } } }
+    }))
+    expect(code).not.toContain('Webhooks')
   })
 })
 

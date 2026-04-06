@@ -1,5 +1,5 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http'
-import { parseDocument, matchRoute, type HttpMethod, type MatchResult, type OasDocument } from '@oa-sdk/parser'
+import { parseDocument, matchRoute, type HttpMethod, type MatchResult, type OasDocument, type OperationEntry, type RouteIndex } from '@oa-sdk/parser'
 import { handleRequest } from '../core/handler.js'
 import { streamer, formatSseChunk, formatNdjsonLine, isStreamingContentType } from '../core/stream.js'
 import { filterRouteIndex, type RouteFilter } from '../core/route-filter.js'
@@ -49,7 +49,8 @@ export function createNodeMockServer(
 ): NodeMockServer {
   const { port = 4010, host = '127.0.0.1', serverIndex = 0, serverVariables, include } = options
   const parsed = parseDocument(spec as OasDocument)
-  const index = filterRouteIndex(parsed.routes, include)
+  const mergedRoutes = mergeWebhookRoutes(parsed.routes, parsed.webhooks)
+  const index = filterRouteIndex(mergedRoutes, include)
   let httpServer: Server | null = null
   let actualPort = port  // port: 0이면 listen 후 실제 포트로 갱신
   const overrides = new Map<string, OverrideResponse>()
@@ -257,4 +258,19 @@ function readRaw(req: IncomingMessage): Promise<string> {
     req.on('end', () => resolve(raw))
     req.on('error', reject)
   })
+}
+
+/** Merge webhook OperationEntries into an existing RouteIndex (non-mutating) */
+function mergeWebhookRoutes(routes: RouteIndex, webhooks: OperationEntry[]): RouteIndex {
+  if (webhooks.length === 0) return routes
+  const merged: RouteIndex = new Map(routes)
+  for (const op of webhooks) {
+    let methodMap = merged.get(op.openApiPath)
+    if (!methodMap) {
+      methodMap = new Map()
+      merged.set(op.openApiPath, methodMap)
+    }
+    methodMap.set(op.method, op)
+  }
+  return merged
 }

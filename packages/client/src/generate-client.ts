@@ -38,9 +38,17 @@ export function generateClient(spec: OasDocument | ParsedDocument, options: Clie
     }
   }
 
+  // middleware type
+  lines.push(`export type ClientMiddleware = {`)
+  lines.push(`  onRequest?: (url: string, init: RequestInit) => RequestInit | Promise<RequestInit>`)
+  lines.push(`  onResponse?: (response: Response) => Response | Promise<Response>`)
+  lines.push(`  onError?: (error: Error) => void`)
+  lines.push(`}`)
+  lines.push('')
+
   // base URL helper
   const defaultServer = doc.servers[0] ? resolveServerUrl(doc.servers[0]) : ''
-  lines.push(`export type ClientConfig = { baseUrl?: string; headers?: Record<string, string> }`)
+  lines.push(`export type ClientConfig = { baseUrl?: string; headers?: Record<string, string>; middleware?: ClientMiddleware[] }`)
   lines.push('')
   lines.push(`export function createClient(config: ClientConfig = {}) {`)
   lines.push(`  const baseUrl = config.baseUrl ?? '${defaultServer}'`)
@@ -55,12 +63,25 @@ export function generateClient(spec: OasDocument | ParsedDocument, options: Clie
   lines.push(`        if (v !== undefined) url.searchParams.set(k, String(v))`)
   lines.push(`      }`)
   lines.push(`    }`)
-  lines.push(`    const res = await fetch(url.toString(), {`)
+  lines.push(`    let init: RequestInit = {`)
   lines.push(`      method,`)
   lines.push(`      headers: { 'Content-Type': 'application/json', ...defaultHeaders, ...options?.headers },`)
   lines.push(`      body: options?.body !== undefined ? JSON.stringify(options.body) : undefined,`)
-  lines.push(`    })`)
-  lines.push(`    if (!res.ok) throw new Error(\`\${res.status} \${res.statusText}\`)`)
+  lines.push(`    }`)
+  lines.push(`    for (const mw of config.middleware ?? []) {`)
+  lines.push(`      if (mw.onRequest) init = await mw.onRequest(url.toString(), init)`)
+  lines.push(`    }`)
+  lines.push(`    let res = await fetch(url.toString(), init)`)
+  lines.push(`    for (const mw of config.middleware ?? []) {`)
+  lines.push(`      if (mw.onResponse) res = await mw.onResponse(res)`)
+  lines.push(`    }`)
+  lines.push(`    if (!res.ok) {`)
+  lines.push(`      const err = new Error(\`\${res.status} \${res.statusText}\`)`)
+  lines.push(`      for (const mw of config.middleware ?? []) {`)
+  lines.push(`        if (mw.onError) mw.onError(err)`)
+  lines.push(`      }`)
+  lines.push(`      throw err`)
+  lines.push(`    }`)
   lines.push(`    if (res.status === 204) return undefined as T`)
   lines.push(`    return res.json() as Promise<T>`)
   lines.push(`  }`)
@@ -79,11 +100,24 @@ export function generateClient(spec: OasDocument | ParsedDocument, options: Clie
     lines.push(`        if (v !== undefined) url.searchParams.set(k, String(v))`)
     lines.push(`      }`)
     lines.push(`    }`)
-    lines.push(`    const res = await fetch(url.toString(), {`)
+    lines.push(`    let init: RequestInit = {`)
     lines.push(`      method,`)
     lines.push(`      headers: { Accept: 'text/event-stream', ...defaultHeaders, ...options?.headers },`)
-    lines.push(`    })`)
-    lines.push(`    if (!res.ok) throw new Error(\`\${res.status} \${res.statusText}\`)`)
+    lines.push(`    }`)
+    lines.push(`    for (const mw of config.middleware ?? []) {`)
+    lines.push(`      if (mw.onRequest) init = await mw.onRequest(url.toString(), init)`)
+    lines.push(`    }`)
+    lines.push(`    let res = await fetch(url.toString(), init)`)
+    lines.push(`    for (const mw of config.middleware ?? []) {`)
+    lines.push(`      if (mw.onResponse) res = await mw.onResponse(res)`)
+    lines.push(`    }`)
+    lines.push(`    if (!res.ok) {`)
+    lines.push(`      const err = new Error(\`\${res.status} \${res.statusText}\`)`)
+    lines.push(`      for (const mw of config.middleware ?? []) {`)
+    lines.push(`        if (mw.onError) mw.onError(err)`)
+    lines.push(`      }`)
+    lines.push(`      throw err`)
+    lines.push(`    }`)
     lines.push(`    if (!res.body) return`)
     lines.push(`    const reader = res.body.getReader()`)
     lines.push(`    const decoder = new TextDecoder()`)
@@ -113,11 +147,24 @@ export function generateClient(spec: OasDocument | ParsedDocument, options: Clie
     lines.push(`        if (v !== undefined) url.searchParams.set(k, String(v))`)
     lines.push(`      }`)
     lines.push(`    }`)
-    lines.push(`    const res = await fetch(url.toString(), {`)
+    lines.push(`    let init: RequestInit = {`)
     lines.push(`      method,`)
     lines.push(`      headers: { Accept: 'application/x-ndjson', ...defaultHeaders, ...options?.headers },`)
-    lines.push(`    })`)
-    lines.push(`    if (!res.ok) throw new Error(\`\${res.status} \${res.statusText}\`)`)
+    lines.push(`    }`)
+    lines.push(`    for (const mw of config.middleware ?? []) {`)
+    lines.push(`      if (mw.onRequest) init = await mw.onRequest(url.toString(), init)`)
+    lines.push(`    }`)
+    lines.push(`    let res = await fetch(url.toString(), init)`)
+    lines.push(`    for (const mw of config.middleware ?? []) {`)
+    lines.push(`      if (mw.onResponse) res = await mw.onResponse(res)`)
+    lines.push(`    }`)
+    lines.push(`    if (!res.ok) {`)
+    lines.push(`      const err = new Error(\`\${res.status} \${res.statusText}\`)`)
+    lines.push(`      for (const mw of config.middleware ?? []) {`)
+    lines.push(`        if (mw.onError) mw.onError(err)`)
+    lines.push(`      }`)
+    lines.push(`      throw err`)
+    lines.push(`    }`)
     lines.push(`    if (!res.body) return`)
     lines.push(`    const reader = res.body.getReader()`)
     lines.push(`    const decoder = new TextDecoder()`)
@@ -198,7 +245,58 @@ export function generateClient(spec: OasDocument | ParsedDocument, options: Clie
   lines.push('  }')
   lines.push('}')
 
+  // ─── Webhook Types ─────────────────────────────────────────────
+  if (doc.webhooks.length > 0) {
+    lines.push('')
+    lines.push('// ─── Webhook Types ─────────────────────────────────────────────')
+    for (const op of doc.webhooks) {
+      if (!op.operationId) continue
+      const baseName = pascalCase(op.operationId)
+      const typeName = `${baseName}Webhook`
+
+      // JSDoc
+      if (op.summary || op.description) {
+        lines.push(`/** ${op.summary ?? op.description} */`)
+      }
+
+      // Extract request body schema properties for the type
+      const bodyContent = op.requestBody?.content
+      const jsonMedia = bodyContent?.['application/json']
+      const schema = jsonMedia?.schema as Record<string, unknown> | undefined
+
+      if (schema && schema.type === 'object' && schema.properties) {
+        const props = schema.properties as Record<string, Record<string, unknown>>
+        const required = (schema.required ?? []) as string[]
+        const fields: string[] = []
+        for (const [propName, propSchema] of Object.entries(props)) {
+          const tsType = oasTypeToTs(propSchema.type as string | undefined)
+          const opt = required.includes(propName) ? '' : '?'
+          fields.push(`  ${propName}${opt}: ${tsType}`)
+        }
+        lines.push(`export type ${typeName} = {`)
+        for (const field of fields) lines.push(field)
+        lines.push('}')
+      } else {
+        lines.push(`export type ${typeName} = unknown`)
+      }
+      lines.push('')
+    }
+  }
+
   return formatGeneratedTs(lines.join('\n'))
+}
+
+/** Maps OAS primitive type to TypeScript type */
+function oasTypeToTs(type: string | undefined): string {
+  switch (type) {
+    case 'string': return 'string'
+    case 'integer':
+    case 'number': return 'number'
+    case 'boolean': return 'boolean'
+    case 'array': return 'unknown[]'
+    case 'object': return 'Record<string, unknown>'
+    default: return 'unknown'
+  }
 }
 
 /** Returns the streaming format of the operation, or null if not streaming */

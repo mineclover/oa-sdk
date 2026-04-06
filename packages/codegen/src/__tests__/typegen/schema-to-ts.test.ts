@@ -250,6 +250,53 @@ describe('schemaToTs — if/then/else', () => {
   })
 })
 
+describe('schemaToTs — additionalProperties', () => {
+  it('additionalProperties: true (no fixed props) → Record<string, unknown>', () => {
+    const result = schemaToTs({ type: 'object', additionalProperties: true })
+    expect(result).toBe('Record<string, unknown>')
+  })
+
+  it('additionalProperties schema (no fixed props) → Record<string, T>', () => {
+    const result = schemaToTs({ type: 'object', additionalProperties: { type: 'string' } })
+    expect(result).toBe('Record<string, string>')
+  })
+
+  it('additionalProperties: { type: "number" } → Record<string, number>', () => {
+    const result = schemaToTs({ type: 'object', additionalProperties: { type: 'number' } })
+    expect(result).toBe('Record<string, number>')
+  })
+
+  it('properties + additionalProperties → mixed object with index signature', () => {
+    const result = schemaToTs({
+      type: 'object',
+      properties: { id: { type: 'integer' } },
+      additionalProperties: { type: 'string' },
+    })
+    expect(result).toContain('id')
+    expect(result).toContain('[key: string]: string')
+  })
+
+  it('properties + additionalProperties: true → index signature unknown', () => {
+    const result = schemaToTs({
+      type: 'object',
+      properties: { name: { type: 'string' } },
+      additionalProperties: true,
+    })
+    expect(result).toContain('name')
+    expect(result).toContain('[key: string]: unknown')
+  })
+
+  it('additionalProperties: false → no index signature', () => {
+    const result = schemaToTs({
+      type: 'object',
+      properties: { id: { type: 'integer' } },
+      additionalProperties: false,
+    })
+    expect(result).toContain('id')
+    expect(result).not.toContain('[key: string]')
+  })
+})
+
 describe('schemaToTs — allOf 3개 이상 스키마 합성', () => {
   it('allOf 3개 이상 스키마 합성 → intersection', () => {
     const schema: OasSchema = {

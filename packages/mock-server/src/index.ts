@@ -1,6 +1,6 @@
 // ─── 어댑터 ───────────────────────────────────────────────────────────────────
-export { createMswHandlers } from './adapters/msw.js'
-export type { MswHandlerOptions } from './adapters/msw.js'
+export { createMswHandlers, createMswMockServer } from './adapters/msw.js'
+export type { MswHandlerOptions, MswMockServer } from './adapters/msw.js'
 
 export { createNodeMockServer } from './adapters/node-http.js'
 export type { NodeMockServer, NodeMockServerOptions, OverrideResponse } from './adapters/node-http.js'

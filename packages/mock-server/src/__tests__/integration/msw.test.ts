@@ -379,6 +379,90 @@ describe('createMswHandlers — onRequest 훅', () => {
   })
 })
 
+// ─── 웹훅 ─────────────────────────────────────────────────────────────────────
+
+describe('createMswHandlers — webhooks', () => {
+  const webhookSpec: OasDocument = {
+    openapi: '3.2.0',
+    info: { title: 'Webhook MSW Test', version: '1.0.0' },
+    webhooks: {
+      orderCreated: {
+        post: {
+          operationId: 'orderCreatedWebhook',
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: { type: 'object', required: ['orderId'], properties: { orderId: { type: 'string' } } }
+              }
+            }
+          },
+          responses: { '200': { description: 'Acknowledged' } }
+        }
+      }
+    },
+    paths: {
+      '/orders': {
+        get: {
+          operationId: 'listOrders',
+          responses: { '200': { description: 'OK', content: { 'application/json': { example: [] } } } }
+        }
+      }
+    }
+  }
+
+  it('POST /webhooks/orderCreated — valid payload → 200', async () => {
+    server.close()
+    const whServer = setupServer(...createMswHandlers(webhookSpec))
+    whServer.listen({ onUnhandledRequest: 'bypass' })
+    try {
+      const res = await fetch(`${BASE}/webhooks/orderCreated`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderId: 'ord-456' }),
+      })
+      expect(res.status).toBe(200)
+    } finally {
+      whServer.close()
+      server.listen({ onUnhandledRequest: 'bypass' })
+    }
+  })
+
+  it('POST /webhooks/orderCreated — missing required → 422', async () => {
+    server.close()
+    const whServer = setupServer(...createMswHandlers(webhookSpec))
+    whServer.listen({ onUnhandledRequest: 'bypass' })
+    try {
+      const res = await fetch(`${BASE}/webhooks/orderCreated`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      })
+      expect(res.status).toBe(422)
+      const body = await res.json() as Record<string, any>
+      expect(body.error.details[0].code).toBe('MISSING_REQUIRED_FIELD')
+    } finally {
+      whServer.close()
+      server.listen({ onUnhandledRequest: 'bypass' })
+    }
+  })
+
+  it('GET /orders works alongside webhook routes', async () => {
+    server.close()
+    const whServer = setupServer(...createMswHandlers(webhookSpec))
+    whServer.listen({ onUnhandledRequest: 'bypass' })
+    try {
+      const res = await fetch(`${BASE}/orders`)
+      expect(res.status).toBe(200)
+      const body = await res.json()
+      expect(body).toEqual([])
+    } finally {
+      whServer.close()
+      server.listen({ onUnhandledRequest: 'bypass' })
+    }
+  })
+})
+
 // ─── $ref 스키마 통합 ──────────────────────────────────────────────────────────
 
 describe('createMswHandlers — $ref 스키마 deref 검증', () => {

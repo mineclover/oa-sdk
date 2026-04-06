@@ -552,3 +552,76 @@ describe('createNodeMockServer — 통합 테스트', () => {
     await expect(fetch(`${s.url}/users`)).rejects.toThrow()
   })
 })
+
+// ─── 웹훅 통합 테스트 ────────────────────────────────────────────────────────
+
+const webhookSpec: OasDocument = {
+  openapi: '3.2.0',
+  info: { title: 'Webhook Test', version: '1.0.0' },
+  webhooks: {
+    orderCreated: {
+      post: {
+        operationId: 'orderCreatedWebhook',
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: { type: 'object', required: ['orderId'], properties: { orderId: { type: 'string' } } }
+            }
+          }
+        },
+        responses: { '200': { description: 'Acknowledged' } }
+      }
+    }
+  },
+  paths: {
+    '/orders': {
+      get: {
+        operationId: 'listOrders',
+        responses: { '200': { description: 'OK', content: { 'application/json': { example: [] } } } }
+      }
+    }
+  }
+}
+
+describe('createNodeMockServer — webhooks', () => {
+  let webhookServer: NodeMockServer
+
+  beforeAll(async () => {
+    webhookServer = createNodeMockServer(webhookSpec, { port: 0 })
+    await webhookServer.start()
+  })
+
+  afterAll(async () => { await webhookServer.stop() })
+
+  it('GET /orders still works with webhook spec', async () => {
+    const res = await fetch(`${webhookServer.url}/orders`)
+    expect(res.status).toBe(200)
+  })
+
+  it('POST /webhooks/orderCreated — valid webhook payload → 200', async () => {
+    const res = await fetch(`${webhookServer.url}/webhooks/orderCreated`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ orderId: 'ord-123' }),
+    })
+    expect(res.status).toBe(200)
+  })
+
+  it('POST /webhooks/orderCreated — missing required field → 422', async () => {
+    const res = await fetch(`${webhookServer.url}/webhooks/orderCreated`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+    })
+    expect(res.status).toBe(422)
+    const body = await res.json() as Record<string, any>
+    expect(body.error.details[0].code).toBe('MISSING_REQUIRED_FIELD')
+    expect(body.error.details[0].path).toBe('/body/orderId')
+  })
+
+  it('GET /webhooks/orderCreated — method not allowed → 405', async () => {
+    const res = await fetch(`${webhookServer.url}/webhooks/orderCreated`)
+    expect(res.status).toBe(405)
+  })
+})

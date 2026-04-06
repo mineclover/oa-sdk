@@ -42,7 +42,7 @@ export function generateRouter(spec: OasDocument | ParsedDocument, options: Rout
   }
 
   if (typesImport) {
-    const typeNames = collectTypeNames(doc.operations)
+    const typeNames = collectTypeNames([...doc.operations, ...doc.webhooks])
     if (typeNames.length > 0) {
       lines.push(`import type { ${typeNames.join(', ')} } from '${typesImport}'`)
     }
@@ -86,9 +86,9 @@ export function generateRouter(spec: OasDocument | ParsedDocument, options: Rout
     const pathParams = op.parameters.filter(p => p.in === 'path')
     if (pathParams.length > 0 && typesImport) {
       if (target === 'hono') {
-        lines.push(`  const params = c.req.param() // ${baseName}PathParams`)
+        lines.push(`  const params = c.req.param() as unknown as ${baseName}PathParams`)
       } else {
-        lines.push(`  const params = req.params // ${baseName}PathParams`)
+        lines.push(`  const params = req.params as unknown as ${baseName}PathParams`)
       }
     }
 
@@ -96,16 +96,16 @@ export function generateRouter(spec: OasDocument | ParsedDocument, options: Rout
     const queryParams = op.parameters.filter(p => p.in === 'query')
     if (queryParams.length > 0 && typesImport) {
       if (target === 'hono') {
-        lines.push(`  const query = c.req.query() // ${baseName}QueryParams`)
+        lines.push(`  const query = c.req.query() as unknown as ${baseName}QueryParams`)
       } else {
-        lines.push(`  const query = req.query // ${baseName}QueryParams`)
+        lines.push(`  const query = req.query as unknown as ${baseName}QueryParams`)
       }
     }
 
     // request body
     if (op.requestBody) {
       const contentTypes = op.requestBody.content ? Object.keys(op.requestBody.content) : []
-      const bodyParseLine = buildBodyParseLine(target, contentTypes, baseName)
+      const bodyParseLine = buildBodyParseLine(target, contentTypes, baseName, !!typesImport)
       lines.push(bodyParseLine)
     }
 
@@ -115,12 +115,16 @@ export function generateRouter(spec: OasDocument | ParsedDocument, options: Rout
     if (target === 'hono') {
       if (status === 204) {
         lines.push(`  return c.body(null, 204)`)
+      } else if (typesImport) {
+        lines.push(`  return c.json({} as ${baseName}Response, ${status})`)
       } else {
         lines.push(`  return c.json({} as any, ${status}) // ${baseName}Response (headers: ${baseName}ResponseHeaders)`)
       }
     } else {
       if (status === 204) {
         lines.push(`  return res.status(204).end()`)
+      } else if (typesImport) {
+        lines.push(`  return res.status(${status}).json({} as ${baseName}Response)`)
       } else {
         lines.push(`  return res.status(${status}).json({}) // ${baseName}Response`)
       }
@@ -128,6 +132,49 @@ export function generateRouter(spec: OasDocument | ParsedDocument, options: Rout
 
     lines.push('})')
     lines.push('')
+  }
+
+  // ─── Webhooks ─────────────────────────────────────────────────
+  if (doc.webhooks.length > 0) {
+    lines.push('// ─── Webhooks ─────────────────────────────────────────────────')
+    lines.push('')
+    for (const op of doc.webhooks) {
+      if (!op.operationId) continue
+      const baseName = pascalCase(op.operationId)
+      const method = op.method
+      const path = target === 'hono' ? toColonPath(op.openApiPath) : toColonPath(op.openApiPath)
+
+      lines.push(`// ${method.toUpperCase()} ${op.openApiPath} — incoming webhook`)
+
+      // JSDoc
+      if (op.summary || op.description) {
+        lines.push(`/** ${op.summary ?? op.description} */`)
+      }
+
+      if (target === 'hono') {
+        lines.push(`app.${method}('${path}', async (c) => {`)
+      } else {
+        lines.push(`router.${method}('${path}', async (req, res) => {`)
+      }
+
+      // request body
+      if (op.requestBody) {
+        const contentTypes = op.requestBody.content ? Object.keys(op.requestBody.content) : []
+        const bodyParseLine = buildBodyParseLine(target, contentTypes, baseName, !!typesImport)
+        lines.push(bodyParseLine)
+      }
+
+      // response stub
+      lines.push(`  // TODO: implement ${op.operationId} webhook handler`)
+      if (target === 'hono') {
+        lines.push(`  return c.json({ received: true }, 200)`)
+      } else {
+        lines.push(`  return res.status(200).json({ received: true })`)
+      }
+
+      lines.push('})')
+      lines.push('')
+    }
   }
 
   // export
@@ -146,12 +193,14 @@ export function generateRouter(spec: OasDocument | ParsedDocument, options: Rout
 /**
  * Determine the body-parsing expression based on the request content type(s).
  */
-function buildBodyParseLine(target: RouterTarget, contentTypes: string[], typeName: string): string {
+function buildBodyParseLine(target: RouterTarget, contentTypes: string[], typeName: string, typed: boolean): string {
   const primary = contentTypes[0] ?? 'application/json'
 
   if (target === 'hono') {
     if (primary === 'application/json') {
-      return `  const body = await c.req.json() // ${typeName}Body`
+      return typed
+        ? `  const body = await c.req.json<${typeName}Body>()`
+        : `  const body = await c.req.json() // ${typeName}Body`
     }
     if (primary === 'multipart/form-data') {
       return `  const body = await c.req.formData() // ${typeName}Body`
@@ -168,6 +217,9 @@ function buildBodyParseLine(target: RouterTarget, contentTypes: string[], typeNa
   }
   if (primary === 'application/x-www-form-urlencoded') {
     return `  const body = req.body // ${typeName}Body (use express.urlencoded() middleware)`
+  }
+  if (typed) {
+    return `  const body = req.body as ${typeName}Body`
   }
   return `  const body = req.body // ${typeName}Body`
 }
