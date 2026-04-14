@@ -369,7 +369,7 @@ describe('존재하지 않는 $ref 경로', () => {
 // ─── $ref와 형제 속성 ────────────────────────────────────────────────────────
 
 describe('$ref와 형제 속성', () => {
-  it('$ref가 있으면 형제 속성(description)은 무시되고 $ref만 해석됨', () => {
+  it('$ref 형제 속성(description)은 구조 정보로 보존됨', () => {
     const s = spec({
       components: {
         schemas: {
@@ -401,7 +401,7 @@ describe('$ref와 형제 속성', () => {
     // $ref 대상이 해석됨
     expect(schema.type).toBe('string')
     expect(schema.minLength).toBe(1)
-    // OAS 표준에 따라 형제 description은 보존되지 않아야 함
-    expect(schema).not.toHaveProperty('description')
+    // API 스키마의 구조/문서화 정보 손실 방지를 위해 sibling 필드 보존
+    expect(schema.description).toBe('override')
   })
 })

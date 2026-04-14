@@ -41,6 +41,66 @@ describe('derefSpec', () => {
     expect(props.name).toEqual({ type: 'string' })
   })
 
+  it('$ref sibling 필드를 보존한다', () => {
+    const input = spec({
+      components: {
+        schemas: {
+          Id: { type: 'string', format: 'uuid' },
+          User: {
+            type: 'object',
+            required: ['id'],
+            properties: {
+              id: {
+                $ref: '#/components/schemas/Id',
+                readOnly: true,
+                description: '사용자 ID',
+                annotations: { owner: 'identity' },
+              },
+            },
+          },
+        },
+      },
+    })
+
+    const result = derefSpec(input) as any
+    expect(result.components.schemas.User.properties.id).toEqual({
+      type: 'string',
+      format: 'uuid',
+      readOnly: true,
+      description: '사용자 ID',
+      annotations: { owner: 'identity' },
+    })
+  })
+
+  it('$ref sibling의 properties와 required를 구조적으로 병합한다', () => {
+    const input = spec({
+      components: {
+        schemas: {
+          Base: {
+            type: 'object',
+            required: ['id'],
+            properties: { id: { type: 'string' } },
+          },
+          Extended: {
+            $ref: '#/components/schemas/Base',
+            required: ['name'],
+            properties: { name: { type: 'string' } },
+          },
+        },
+      },
+    })
+
+    const result = derefSpec(input) as any
+    expect(result.components.schemas.Extended).toEqual({
+      type: 'object',
+      required: ['id', 'name'],
+      properties: {
+        id: { type: 'string' },
+        name: { type: 'string' },
+      },
+    })
+  })
+
   it('chain ref (A→B→C)', () => {
     const input = spec({
       components: {

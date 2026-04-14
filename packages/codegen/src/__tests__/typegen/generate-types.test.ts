@@ -60,6 +60,31 @@ describe('generateTypes — schemas', () => {
     expect(ts).toContain('export type Post =')
   })
 
+  it('$ref sibling의 구조 정보가 타입 생성에 반영된다', () => {
+    const parsed = parseDocument(doc({
+      components: {
+        schemas: {
+          Id: { type: 'string', format: 'uuid' },
+          User: {
+            type: 'object',
+            required: ['id'],
+            properties: {
+              id: {
+                $ref: '#/components/schemas/Id',
+                readOnly: true,
+                description: '사용자 ID',
+              },
+            },
+          },
+        },
+      },
+    }))
+    const ts = generateTypes(parsed)
+    expect(ts).toContain('* 사용자 ID')
+    expect(ts).toContain('* @format uuid')
+    expect(ts).toContain('readonly id: string')
+  })
+
   it('nullable 필드', () => {
     const parsed = parseDocument(doc({
       components: {

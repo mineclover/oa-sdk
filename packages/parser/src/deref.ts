@@ -9,7 +9,7 @@ import { parse as parseYaml } from 'yaml'
  *
  * - 외부 참조 (./file.yaml, ../file.json): basePath 옵션이 있으면 상대 경로 해결
  * - 순환 참조는 cycle stack으로 감지하여 빈 스키마({})로 대체
- * - $ref 와 함께 있는 다른 필드는 OAS 3.2 스펙에 따라 무시됨
+ * - $ref sibling 필드는 해소된 대상에 병합하여 구조 정보를 보존
  */
 export class DerefFolder extends SchemaFolder {
   private readonly stack: string[] = []
@@ -25,14 +25,14 @@ export class DerefFolder extends SchemaFolder {
   protected override foldRef(ref: string, node: Record<string, unknown>): unknown {
     // Internal ref
     if (ref.startsWith('#/')) {
-      if (this.stack.includes(ref)) return {}
+      if (this.stack.includes(ref)) return mergeRefSiblings({}, this.foldSiblingFields(node))
 
       const target = resolvePointer(ref, this.root)
       if (target === undefined) return node
 
       this.stack.push(ref)
       try {
-        return this.fold(target)
+        return mergeRefSiblings(this.fold(target), this.foldSiblingFields(node))
       } finally {
         this.stack.pop()
       }
@@ -47,7 +47,7 @@ export class DerefFolder extends SchemaFolder {
 
       // 순환 감지: 파일경로 + 포인터 조합
       const externalKey = `${fullPath}#${pointer}`
-      if (this.stack.includes(externalKey)) return {}
+      if (this.stack.includes(externalKey)) return mergeRefSiblings({}, this.foldSiblingFields(node))
 
       let fileContent = this.fileCache?.get(fullPath)
       if (!fileContent) {
@@ -64,13 +64,22 @@ export class DerefFolder extends SchemaFolder {
 
       this.stack.push(externalKey)
       try {
-        return this.fold(target)
+        return mergeRefSiblings(this.fold(target), this.foldSiblingFields(node))
       } finally {
         this.stack.pop()
       }
     }
 
     return node // 지원하지 않는 ref 타입 — 원본 유지
+  }
+
+  private foldSiblingFields(node: Record<string, unknown>): Record<string, unknown> {
+    const siblings: Record<string, unknown> = {}
+    for (const [key, value] of Object.entries(node)) {
+      if (key === '$ref') continue
+      siblings[key] = this.fold(value)
+    }
+    return siblings
   }
 }
 
@@ -109,4 +118,36 @@ function parseExternalRefFile(path: string): unknown {
   const raw = readFileSync(path, 'utf-8')
   if (path.endsWith('.json')) return JSON.parse(raw)
   return parseYaml(raw)
+}
+
+function mergeRefSiblings(resolved: unknown, siblings: Record<string, unknown>): unknown {
+  if (Object.keys(siblings).length === 0) return resolved
+  if (!resolved || typeof resolved !== 'object' || Array.isArray(resolved)) return siblings
+
+  const base = resolved as Record<string, unknown>
+  return mergeSchemaLikeObjects(base, siblings)
+}
+
+function mergeSchemaLikeObjects(
+  base: Record<string, unknown>,
+  overlay: Record<string, unknown>,
+): Record<string, unknown> {
+  const result: Record<string, unknown> = { ...base, ...overlay }
+
+  for (const key of ['properties', 'patternProperties', 'dependentSchemas', 'dependentRequired', '$defs']) {
+    const baseMap = asRecord(base[key])
+    const overlayMap = asRecord(overlay[key])
+    if (baseMap && overlayMap) result[key] = { ...baseMap, ...overlayMap }
+  }
+
+  if (Array.isArray(base['required']) && Array.isArray(overlay['required'])) {
+    result['required'] = [...new Set([...base['required'], ...overlay['required']])]
+  }
+
+  return result
+}
+
+function asRecord(value: unknown): Record<string, unknown> | undefined {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined
+  return value as Record<string, unknown>
 }
