@@ -3,7 +3,7 @@ export { createMswHandlers, createMswMockServer } from './adapters/msw.js'
 export type { MswHandlerOptions, MswMockServer } from './adapters/msw.js'
 
 // ─── 코어 (Node 의존성 없음) ──────────────────────────────────────────────────
-export { validateRequest } from './core/request-validator.js'
+export { validateRequest, validateRequestSchemas, assertValidRequestSchemas } from './core/request-validator.js'
 export { pickResponse } from './core/response-picker.js'
 export type { PickedResponse } from './core/response-picker.js'
 export { handleRequest } from './core/handler.js'

@@ -4,6 +4,7 @@ import { toColonPath } from '@oa-sdk/core'
 import { handleRequest } from '../core/handler.js'
 import { isStreamingContentType, generateStreamChunks } from '../core/stream.js'
 import { filterRouteIndex, type RouteFilter } from '../core/route-filter.js'
+import { assertValidRequestSchemas } from '../core/request-validator.js'
 import type { OverrideResponse } from './node-http.js'
 
 export type MswHandlerOptions = {
@@ -11,6 +12,8 @@ export type MswHandlerOptions = {
   onRequest?: (info: { method: string; path: string; operationId?: string }) => void
   /** 라우트 필터 — 조건에 맞는 라우트만 핸들러 생성 */
   include?: RouteFilter
+  /** 요청 body/parameter 스키마를 핸들러 생성 시점에 미리 컴파일 (기본: true) */
+  validateRequestSchemas?: boolean
 }
 
 export type MswMockServer = {
@@ -83,6 +86,7 @@ function buildMswHandlers(
   const parsed = parseDocument(spec as OasDocument)
   const mergedRoutes = mergeWebhookRoutes(parsed.routes, parsed.webhooks)
   const index = filterRouteIndex(mergedRoutes, options.include)
+  if (options.validateRequestSchemas !== false) assertValidRequestSchemas(index)
   const server = parsed.servers[0]
   const baseUrl = server ? extractPathname(resolveServerUrl(server)) : ''
   const handlers: RequestHandler[] = []

@@ -3,6 +3,7 @@ import { parseDocument, matchRoute, type HttpMethod, type MatchResult, type OasD
 import { handleRequest } from '../core/handler.js'
 import { isStreamingContentType, generateStreamChunks } from '../core/stream.js'
 import { filterRouteIndex, type RouteFilter } from '../core/route-filter.js'
+import { assertValidRequestSchemas } from '../core/request-validator.js'
 
 export type NodeMockServerOptions = {
   port?: number
@@ -13,6 +14,8 @@ export type NodeMockServerOptions = {
   serverVariables?: Record<string, string>
   /** 라우트 필터 — 조건에 맞는 라우트만 서빙 */
   include?: RouteFilter
+  /** 요청 body/parameter 스키마를 서버 생성 시점에 미리 컴파일 (기본: true) */
+  validateRequestSchemas?: boolean
 }
 
 export type OverrideResponse = {
@@ -47,10 +50,18 @@ export function createNodeMockServer(
   spec: OasDocument | Record<string, unknown>,
   options: NodeMockServerOptions = {},
 ): NodeMockServer {
-  const { port = 4010, host = '127.0.0.1', serverIndex = 0, serverVariables, include } = options
+  const {
+    port = 4010,
+    host = '127.0.0.1',
+    serverIndex = 0,
+    serverVariables,
+    include,
+    validateRequestSchemas: shouldValidateRequestSchemas = true,
+  } = options
   const parsed = parseDocument(spec as OasDocument)
   const mergedRoutes = mergeWebhookRoutes(parsed.routes, parsed.webhooks)
   const index = filterRouteIndex(mergedRoutes, include)
+  if (shouldValidateRequestSchemas) assertValidRequestSchemas(index)
   let httpServer: Server | null = null
   let actualPort = port  // port: 0이면 listen 후 실제 포트로 갱신
   const overrides = new Map<string, OverrideResponse>()

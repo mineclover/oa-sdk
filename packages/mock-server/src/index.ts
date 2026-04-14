@@ -22,7 +22,7 @@ export type { StreamOptions } from './core/stream.js'
 export { filterRouteIndex } from './core/route-filter.js'
 export type { RouteFilter } from './core/route-filter.js'
 
-export { validateRequest } from './core/request-validator.js'
+export { validateRequest, validateRequestSchemas, assertValidRequestSchemas } from './core/request-validator.js'
 export { pickResponse } from './core/response-picker.js'
 export type { PickedResponse } from './core/response-picker.js'
 export { handleRequest } from './core/handler.js'

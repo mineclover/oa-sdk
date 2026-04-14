@@ -1,6 +1,6 @@
 import Ajv from 'ajv'
 import addFormats from 'ajv-formats'
-import type { OasParameter, OasRequestBody, OasSchema, OasSecurityScheme, OasSecurityRequirement } from '@oa-sdk/parser'
+import type { OasParameter, OasRequestBody, OasSchema, OasSecurityScheme, OasSecurityRequirement, RouteIndex } from '@oa-sdk/parser'
 import { classifyAjvErrors } from '../errors/classifier.js'
 import type { MockErrorDetail, MockValidationResult } from '../errors/types.js'
 
@@ -64,6 +64,62 @@ export function validateRequest(
 
   if (errors.length === 0) return { valid: true }
   return { valid: false, errors }
+}
+
+/**
+ * RouteIndex에 포함된 요청 검증 스키마를 미리 컴파일합니다.
+ *
+ * Mock 서버 생성 시점에 호출하면 깨진 request body/parameter 스키마가
+ * 첫 요청까지 숨어 있지 않고 즉시 드러납니다.
+ */
+export function validateRequestSchemas(index: RouteIndex): MockValidationResult {
+  const errors: MockErrorDetail[] = []
+
+  for (const [openApiPath, methodMap] of index) {
+    for (const [method, entry] of methodMap) {
+      const operationPath = `/routes/${escapePointer(openApiPath)}/${method}`
+
+      entry.parameters.forEach((param, index) => {
+        const schema = param.schema as OasSchema | undefined
+        if (!schema) return
+        const compiled = compileSchema(schema, `${operationPath}/parameters/${index}/schema`)
+        if (!compiled.ok) errors.push(compiled.error)
+      })
+
+      if (!entry.requestBody) continue
+      for (const [contentType, rawMediaType] of Object.entries(entry.requestBody.content ?? {})) {
+        if ('$ref' in rawMediaType) {
+          errors.push(schemaCompileError(
+            `${operationPath}/requestBody/content/${escapePointer(contentType)}`,
+            `미해결 Media Type $ref: ${rawMediaType.$ref}`,
+          ))
+          continue
+        }
+
+        const mediaType = rawMediaType as { schema?: OasSchema }
+        if (!mediaType.schema) continue
+        const compiled = compileSchema(
+          mediaType.schema,
+          `${operationPath}/requestBody/content/${escapePointer(contentType)}/schema`,
+        )
+        if (!compiled.ok) errors.push(compiled.error)
+      }
+    }
+  }
+
+  if (errors.length === 0) return { valid: true }
+  return { valid: false, errors }
+}
+
+export function assertValidRequestSchemas(index: RouteIndex): void {
+  const result = validateRequestSchemas(index)
+  if (result.valid) return
+
+  const lines = result.errors.slice(0, 10).map(error =>
+    `  - ${error.path}: ${error.expected ?? error.message}`,
+  )
+  const suffix = result.errors.length > 10 ? `\n  ...and ${result.errors.length - 10} more` : ''
+  throw new Error(`Mock request schema preflight failed (${result.errors.length} errors)\n${lines.join('\n')}${suffix}`)
 }
 
 // ─── Content-Type ───────────────────────────────────────────────────────────
@@ -216,21 +272,10 @@ function validateBody(
 // ─── AJV runner ─────────────────────────────────────────────────────────────
 
 function runAjv(data: unknown, schema: OasSchema, basePath: string): MockErrorDetail[] {
-  let validate = validatorCache.get(schema)
-  if (!validate) {
-    try {
-      validate = ajv.compile(schema)
-    } catch (err) {
-      return [{
-        path: basePath,
-        code: 'SCHEMA_COMPILE_ERROR',
-        message: '요청 검증 스키마를 컴파일할 수 없습니다',
-        expected: err instanceof Error ? err.message : String(err),
-        stage: 'validate',
-      }]
-    }
-    validatorCache.set(schema, validate)
-  }
+  const compiled = compileSchema(schema, basePath)
+  if (!compiled.ok) return [compiled.error]
+
+  const validate = compiled.validator
   const valid = validate(data)
   if (valid) return []
 
@@ -238,6 +283,36 @@ function runAjv(data: unknown, schema: OasSchema, basePath: string): MockErrorDe
     ...e,
     path: e.path === '/' ? basePath : `${basePath}${e.path}`,
   }))
+}
+
+type CompileResult =
+  | { ok: true; validator: ReturnType<typeof ajv.compile> }
+  | { ok: false; error: MockErrorDetail }
+
+function compileSchema(schema: OasSchema, basePath: string): CompileResult {
+  const cached = validatorCache.get(schema)
+  if (cached) return { ok: true, validator: cached }
+
+  try {
+    const validate = ajv.compile(schema)
+    validatorCache.set(schema, validate)
+    return { ok: true, validator: validate }
+  } catch (err) {
+    return {
+      ok: false,
+      error: schemaCompileError(basePath, err instanceof Error ? err.message : String(err)),
+    }
+  }
+}
+
+function schemaCompileError(path: string, expected: string): MockErrorDetail {
+  return {
+    path,
+    code: 'SCHEMA_COMPILE_ERROR',
+    message: '요청 검증 스키마를 컴파일할 수 없습니다',
+    expected,
+    stage: 'validate',
+  }
 }
 
 // ─── Type coercion ──────────────────────────────────────────────────────────
@@ -332,4 +407,8 @@ function coerce(value: unknown, schema: OasSchema): unknown {
     case 'boolean': return value === 'true' ? true : value === 'false' ? false : value
     default: return value
   }
+}
+
+function escapePointer(segment: string): string {
+  return segment.replace(/~/g, '~0').replace(/\//g, '~1')
 }
