@@ -95,7 +95,10 @@ export function mergeSpecs(
         base.components![section] ??= {}
         for (const [key, val] of Object.entries(items)) {
           if (base.components![section]![key] !== undefined) {
-            warnings.push(`중복 컴포넌트: ${section}.${key} (도메인: ${name}, 덮어씀)`)
+            warnings.push(
+              `중복 컴포넌트: ${section}.${key} (도메인: ${name}, 기존 정의를 덮어씀). ` +
+              `스키마 이름 충돌 방지를 위해 도메인 접두사 또는 공통 컴포넌트 소유권을 확인하세요.`,
+            )
           }
           base.components![section]![key] = val
           componentCount++

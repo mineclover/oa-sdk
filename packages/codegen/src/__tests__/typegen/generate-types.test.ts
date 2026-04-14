@@ -1,6 +1,9 @@
 import { describe, it, expect } from 'vitest'
 import { parseDocument, type OasDocument } from '@oa-sdk/parser'
-import { generateTypes } from '../../typegen/generate-types.js'
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { join } from 'node:path'
+import { tmpdir } from 'node:os'
+import { analyzeExternalSchemaRefs, generateTypes } from '../../typegen/generate-types.js'
 
 function doc(overrides: Partial<OasDocument> = {}): OasDocument {
   return {
@@ -110,6 +113,30 @@ describe('generateTypes — schemas', () => {
     }))
     const ts = generateTypes(parsed)
     expect(ts).toContain("'active' | 'inactive'")
+  })
+})
+
+describe('analyzeExternalSchemaRefs', () => {
+  it('외부 schema 이름 충돌을 조회한다', () => {
+    const tmp = mkdtempSync(join(tmpdir(), 'oa-sdk-typegen-'))
+    const basePath = join(tmp, 'api.yaml')
+    writeFileSync(join(tmp, 'a.yaml'), 'components:\n  schemas:\n    User:\n      type: string\n')
+    writeFileSync(join(tmp, 'b.yaml'), 'components:\n  schemas:\n    User:\n      type: number\n')
+
+    try {
+      const result = analyzeExternalSchemaRefs(doc({
+        paths: {
+          '/a': { get: { responses: { '200': { description: 'A', content: { 'application/json': { schema: { $ref: './a.yaml#/components/schemas/User' } } } } } } },
+          '/b': { get: { responses: { '200': { description: 'B', content: { 'application/json': { schema: { $ref: './b.yaml#/components/schemas/User' } } } } } } },
+        },
+      }), basePath)
+
+      expect(result.diagnostics.some(d => d.code === 'external-schema-name-collision')).toBe(true)
+      expect(result.refNameOverrides['./a.yaml#/components/schemas/User']).toBe('AUser')
+      expect(result.refNameOverrides['./b.yaml#/components/schemas/User']).toBe('BUser')
+    } finally {
+      rmSync(tmp, { recursive: true, force: true })
+    }
   })
 })
 

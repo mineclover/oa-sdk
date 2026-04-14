@@ -36,7 +36,9 @@ export const dev: Command = {
         mkdirSync(resolvedOutput, { recursive: true })
 
         const { generateTypesFromSpec } = await import('../../typegen/generate-types.js')
-        writeFileSync(join(resolvedOutput, 'types.ts'), generateTypesFromSpec(doc, { style, basePath: resolvedSpec }), 'utf8')
+        const warnings: string[] = []
+        writeFileSync(join(resolvedOutput, 'types.ts'), generateTypesFromSpec(doc, { style, basePath: resolvedSpec, warnings }), 'utf8')
+        for (const warning of warnings) console.warn(`⚠️  ${warning}`)
 
         const { generateRouter } = await tryImport('@oa-sdk/router')
         writeFileSync(join(resolvedOutput, 'router.ts'), generateRouter(doc, { target, typesImport, basePath: resolvedSpec }), 'utf8')

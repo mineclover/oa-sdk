@@ -88,6 +88,8 @@ export const typescriptAlgebra: SchemaAlgebra<string> = {
   },
 
   ref(r) {
+    const override = _options.refNameOverrides?.[r]
+    if (override) return override
     // #/components/schemas/User → User
     const name = r.split('/').pop()
     return name ?? 'unknown'
@@ -107,6 +109,8 @@ export const typescriptAlgebra: SchemaAlgebra<string> = {
 export type SchemaToTsOptions = {
   /** annotations 필드를 JSDoc에 포함 (기본: false) */
   includeAnnotations?: boolean
+  /** $ref 문자열 → 생성된 타입 이름 override */
+  refNameOverrides?: Record<string, string>
 }
 
 /** 현재 변환 옵션 — createTypescriptAlgebra에서 설정 */
@@ -223,4 +227,3 @@ function buildPropJSDoc(ps: (OasSchema & Record<string, unknown>) | undefined): 
   if (tags.length === 1) return `  /** ${tags[0]} */\n`
   return `  /**\n${tags.map(t => `   * ${t}`).join('\n')}\n   */\n`
 }
-

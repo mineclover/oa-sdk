@@ -7,7 +7,7 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import { mkdirSync, rmSync, writeFileSync, readFileSync, existsSync } from 'node:fs'
 import { join, resolve } from 'node:path'
-import { execSync, type ExecSyncOptionsWithStringEncoding } from 'node:child_process'
+import { execSync, spawnSync, type ExecSyncOptionsWithStringEncoding } from 'node:child_process'
 import { stringify as yamlStringify } from 'yaml'
 
 const pkgDir = resolve(__dirname, '../..')
@@ -68,6 +68,7 @@ let specPath: string
 let invalidSpecPath: string
 let externalSpecPath: string
 let sharedSpecPath: string
+let collisionSpecPath: string
 
 const execOpts: ExecSyncOptionsWithStringEncoding = { cwd: pkgDir, encoding: 'utf8', timeout: 15_000 }
 
@@ -85,12 +86,26 @@ function cliFail(args: string): { stdout: string; stderr: string } {
   }
 }
 
+function cliCapture(args: string): { stdout: string; stderr: string; status: number | null } {
+  const result = spawnSync(process.execPath, [cliPath, ...args.split(' ')], {
+    cwd: pkgDir,
+    encoding: 'utf8',
+    timeout: 15_000,
+  })
+  return {
+    stdout: result.stdout ?? '',
+    stderr: result.stderr ?? '',
+    status: result.status,
+  }
+}
+
 beforeAll(() => {
   mkdirSync(tmpDir, { recursive: true })
   specPath = join(tmpDir, 'api.yaml')
   invalidSpecPath = join(tmpDir, 'bad.yaml')
   externalSpecPath = join(tmpDir, 'external-api.yaml')
   sharedSpecPath = join(tmpDir, 'shared.yaml')
+  collisionSpecPath = join(tmpDir, 'collision-api.yaml')
   writeFileSync(specPath, yamlStringify(VALID_SPEC), 'utf8')
   writeFileSync(invalidSpecPath, yamlStringify(INVALID_SPEC), 'utf8')
   writeFileSync(sharedSpecPath, yamlStringify({
@@ -119,6 +134,48 @@ beforeAll(() => {
                   schema: { $ref: './shared.yaml#/components/schemas/ExternalUser' },
                 },
               },
+            },
+          },
+        },
+      },
+    },
+  }), 'utf8')
+  writeFileSync(join(tmpDir, 'shared-a.yaml'), yamlStringify({
+    components: {
+      schemas: {
+        User: { type: 'object', required: ['a'], properties: { a: { type: 'string' } } },
+      },
+    },
+  }), 'utf8')
+  writeFileSync(join(tmpDir, 'shared-b.yaml'), yamlStringify({
+    components: {
+      schemas: {
+        User: { type: 'object', required: ['b'], properties: { b: { type: 'number' } } },
+      },
+    },
+  }), 'utf8')
+  writeFileSync(collisionSpecPath, yamlStringify({
+    openapi: '3.2.0',
+    info: { title: 'Collision API', version: '1.0.0' },
+    paths: {
+      '/a': {
+        get: {
+          operationId: 'getA',
+          responses: {
+            '200': {
+              description: 'A',
+              content: { 'application/json': { schema: { $ref: './shared-a.yaml#/components/schemas/User' } } },
+            },
+          },
+        },
+      },
+      '/b': {
+        get: {
+          operationId: 'getB',
+          responses: {
+            '200': {
+              description: 'B',
+              content: { 'application/json': { schema: { $ref: './shared-b.yaml#/components/schemas/User' } } },
             },
           },
         },
@@ -164,6 +221,16 @@ describe('typegen', () => {
     const out = cli(`typegen -s ${externalSpecPath}`)
     expect(out).toContain('export type ExternalUser =')
     expect(out).toContain('export type ListExternalUsersResponse = ExternalUser')
+  })
+
+  it('외부 schema 이름 충돌 시 파일명 기반 타입명과 경고를 생성', () => {
+    const { stdout, stderr, status } = cliCapture(`typegen -s ${collisionSpecPath}`)
+    expect(status).toBe(0)
+    expect(stderr).toContain('외부 스키마 이름 충돌')
+    expect(stdout).toContain('export type SharedAUser =')
+    expect(stdout).toContain('export type SharedBUser =')
+    expect(stdout).toContain('export type GetAResponse = SharedAUser')
+    expect(stdout).toContain('export type GetBResponse = SharedBUser')
   })
 })
 

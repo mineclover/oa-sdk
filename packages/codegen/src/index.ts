@@ -13,10 +13,11 @@
 export { zodToSchema } from './zod-to-schema.js'
 export { generateComponents } from './generator.js'
 export { defineConfig } from './config.js'
-export { generateTypes, generateTypesFromSpec } from './typegen/generate-types.js'
+export { analyzeExternalSchemaRefs, generateTypes, generateTypesFromSpec } from './typegen/generate-types.js'
 export { schemaToTs } from './typegen/schema-to-ts.js'
 
 export type { OasSchema } from './zod-to-schema.js'
 export type { CodegenConfig } from './config.js'
+export type { ExternalSchemaRefAnalysis, ExternalSchemaRefDiagnostic, ExternalSchemaRefDiagnosticCode, TypegenOptions } from './typegen/generate-types.js'
 export type { OutputOptions, NamedSchema, CodegenResult } from './types.js'
 export type { DrizzleCodegenOptions } from './drizzle/index.js'

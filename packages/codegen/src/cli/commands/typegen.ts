@@ -15,7 +15,9 @@ export const typegen: Command = {
     const { generateTypesFromSpec } = await import('../../typegen/generate-types.js')
     const { document: doc, path: resolvedSpecPath } = loadSpecWithPath(str(args, 'spec'))
     const style: 'interface' | 'type' = optStr(args, 'style') === 'interface' ? 'interface' : 'type'
-    const ts = generateTypesFromSpec(doc, { style, basePath: resolvedSpecPath })
+    const warnings: string[] = []
+    const ts = generateTypesFromSpec(doc, { style, basePath: resolvedSpecPath, warnings })
+    for (const warning of warnings) console.warn(`⚠️  ${warning}`)
     writeOutput(optStr(args, 'output'), ts, 'TypeScript 타입 생성')
   },
 }

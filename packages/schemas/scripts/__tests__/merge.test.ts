@@ -139,6 +139,7 @@ describe('mergeSpecs', () => {
     })
     expect(result.warnings).toHaveLength(1)
     expect(result.warnings[0]).toMatch(/중복 컴포넌트.*schemas\.Shared.*billing/)
+    expect(result.warnings[0]).toContain('스키마 이름 충돌 방지')
   })
 
   it('skips duplicate tags', () => {

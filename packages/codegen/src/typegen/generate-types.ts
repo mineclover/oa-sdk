@@ -13,8 +13,9 @@ import type {
   OasResponse,
 } from '@oa-sdk/parser'
 import { derefSpec, parseDocument } from '@oa-sdk/parser'
-import { schemaToTs } from './schema-to-ts.js'
+import { schemaToTs, type SchemaToTsOptions } from './schema-to-ts.js'
 import { pascalCase, formatGeneratedTs } from '@oa-sdk/core'
+import { basename, extname } from 'node:path'
 
 export type TypegenOptions = {
   /** 헤더 주석 포함 여부 (기본: true) */
@@ -25,12 +26,37 @@ export type TypegenOptions = {
   includeAnnotations?: boolean
   /** OAS 파일 경로. 상대 외부 $ref 타입 생성을 위해 사용 */
   basePath?: string
+  /** 생성 중 발견한 경고를 수집할 배열 */
+  warnings?: string[]
+  /** 내부 사용: $ref 문자열 → 타입 이름 override */
+  refNameOverrides?: Record<string, string>
+}
+
+export type ExternalSchemaRefDiagnosticCode =
+  | 'external-schema-name-collision'
+  | 'external-schema-shadows-local'
+  | 'external-schema-unresolved'
+
+export type ExternalSchemaRefDiagnostic = {
+  code: ExternalSchemaRefDiagnosticCode
+  message: string
+  name?: string
+  ref?: string
+  refs?: string[]
+  generatedName?: string
+}
+
+export type ExternalSchemaRefAnalysis = {
+  schemas: Record<string, OasSchema>
+  refNameOverrides: Record<string, string>
+  diagnostics: ExternalSchemaRefDiagnostic[]
 }
 
 /** ParsedDocument IR 기반 (deref 후). $ref가 해결된 상태. */
 export function generateTypes(doc: { schemas: Record<string, OasSchema>; operations: Array<{ operationId?: string; method: string; openApiPath: string; parameters: OasParameter[]; requestBody?: OasRequestBody; responses: Record<string, OasResponse>; summary?: string; description?: string }> }, options: TypegenOptions = {}): string {
   const { banner = true, style = 'type', includeAnnotations = false } = options
-  const schemaOpts = { includeAnnotations }
+  const schemaOpts: SchemaToTsOptions = { includeAnnotations }
+  if (options.refNameOverrides !== undefined) schemaOpts.refNameOverrides = options.refNameOverrides
   const lines: string[] = []
 
   if (banner) {
@@ -65,23 +91,23 @@ export function generateTypes(doc: { schemas: Record<string, OasSchema>; operati
 
     const pathParams = op.parameters.filter(p => p.in === 'path')
     if (pathParams.length > 0 && !schemaNames.has(`${baseName}PathParams`)) {
-      lines.push(`export type ${baseName}PathParams = ${paramsToTs(pathParams)}`)
+      lines.push(`export type ${baseName}PathParams = ${paramsToTs(pathParams, schemaOpts)}`)
       lines.push('')
     }
 
     const queryParams = op.parameters.filter(p => p.in === 'query')
     if (queryParams.length > 0 && !schemaNames.has(`${baseName}QueryParams`)) {
-      lines.push(`export type ${baseName}QueryParams = ${paramsToTs(queryParams)}`)
+      lines.push(`export type ${baseName}QueryParams = ${paramsToTs(queryParams, schemaOpts)}`)
       lines.push('')
     }
 
-    const bodyType = op.requestBody ? requestBodyToTs(op.requestBody) : null
+    const bodyType = op.requestBody ? requestBodyToTs(op.requestBody, schemaOpts) : null
     if (bodyType && !schemaNames.has(`${baseName}Body`)) {
       lines.push(`export type ${baseName}Body = ${bodyType}`)
       lines.push('')
     }
 
-    const responseType = responseToTs(op.responses)
+    const responseType = responseToTs(op.responses, schemaOpts)
     if (responseType && !schemaNames.has(`${baseName}Response`)) {
       if (opComment) lines.push(`/** ${opComment} */`)
       lines.push(`export type ${baseName}Response = ${responseType}`)
@@ -89,14 +115,14 @@ export function generateTypes(doc: { schemas: Record<string, OasSchema>; operati
     }
 
     // Response headers 타입
-    const headersType = responseHeadersToTs(op.responses)
+    const headersType = responseHeadersToTs(op.responses, schemaOpts)
     if (headersType && !schemaNames.has(`${baseName}ResponseHeaders`)) {
       lines.push(`export type ${baseName}ResponseHeaders = ${headersType}`)
       lines.push('')
     }
 
     // Error response 타입 (4xx/5xx/default)
-    const errorType = errorResponseToTs(op.responses)
+    const errorType = errorResponseToTs(op.responses, schemaOpts)
     if (errorType && !schemaNames.has(`${baseName}Error`)) {
       lines.push(`export type ${baseName}Error = ${errorType}`)
       lines.push('')
@@ -125,18 +151,21 @@ export function generateTypes(doc: { schemas: Record<string, OasSchema>; operati
  */
 export function generateTypesFromSpec(spec: OasDocument, options: TypegenOptions = {}): string {
   const doc = parseDocument(spec, []) // deref 없이 파싱
-  const externalSchemas = options.basePath ? collectExternalSchemas(spec, options.basePath) : {}
+  const externalAnalysis = options.basePath
+    ? analyzeExternalSchemaRefs(spec, options.basePath)
+    : emptyExternalSchemaAnalysis()
+  options.warnings?.push(...externalAnalysis.diagnostics.map(d => d.message))
   return generateTypes({
     ...doc,
-    schemas: { ...externalSchemas, ...doc.schemas },
-  }, options)
+    schemas: { ...externalAnalysis.schemas, ...doc.schemas },
+  }, { ...options, refNameOverrides: externalAnalysis.refNameOverrides })
 }
 
 // ─── 헬퍼 ──────────────────────────────────────────────────────────────────
 
-function paramsToTs(params: OasParameter[]): string {
+function paramsToTs(params: OasParameter[], schemaOpts: SchemaToTsOptions): string {
   const fields = params.map(p => {
-    const type = p.schema ? schemaToTs(p.schema) : 'string'
+    const type = p.schema ? schemaToTs(p.schema, schemaOpts) : 'string'
     const opt = p.required ? '' : '?'
     const desc = p.description
     const comment = desc ? `  /** ${desc} */\n` : ''
@@ -145,15 +174,15 @@ function paramsToTs(params: OasParameter[]): string {
   return `{\n${fields.join('\n')}\n}`
 }
 
-function requestBodyToTs(body: OasRequestBody): string | null {
+function requestBodyToTs(body: OasRequestBody, schemaOpts: SchemaToTsOptions): string | null {
   const jsonContent = body.content['application/json']
   if (!jsonContent || '$ref' in jsonContent) return null
   const mediaType = jsonContent as { schema?: OasSchema }
   if (!mediaType.schema) return null
-  return schemaToTs(mediaType.schema)
+  return schemaToTs(mediaType.schema, schemaOpts)
 }
 
-function responseToTs(responses: Record<string, OasResponse>): string | null {
+function responseToTs(responses: Record<string, OasResponse>, schemaOpts: SchemaToTsOptions): string | null {
   const codes = Object.keys(responses)
     .filter(k => /^2\d{2}$/.test(k))
     .sort()
@@ -165,11 +194,11 @@ function responseToTs(responses: Record<string, OasResponse>): string | null {
   if (!jsonContent || '$ref' in jsonContent) return null
   const mediaType = jsonContent as { schema?: OasSchema }
   if (!mediaType.schema) return null
-  return schemaToTs(mediaType.schema)
+  return schemaToTs(mediaType.schema, schemaOpts)
 }
 
 
-function errorResponseToTs(responses: Record<string, OasResponse>): string | null {
+function errorResponseToTs(responses: Record<string, OasResponse>, schemaOpts: SchemaToTsOptions): string | null {
   // Find the first 4xx or 5xx response with a JSON schema, or fall back to 'default'
   const errorCodes = Object.keys(responses)
     .filter(k => /^[45]\d{2}$/.test(k))
@@ -182,12 +211,12 @@ function errorResponseToTs(responses: Record<string, OasResponse>): string | nul
     if (!jsonContent || '$ref' in jsonContent) continue
     const mediaType = jsonContent as { schema?: OasSchema }
     if (!mediaType.schema) continue
-    return schemaToTs(mediaType.schema)
+    return schemaToTs(mediaType.schema, schemaOpts)
   }
   return null
 }
 
-function responseHeadersToTs(responses: Record<string, OasResponse>): string | null {
+function responseHeadersToTs(responses: Record<string, OasResponse>, schemaOpts: SchemaToTsOptions): string | null {
   const codes = Object.keys(responses).filter(k => /^2\d{2}$/.test(k)).sort()
   const key = codes[0] ?? 'default'
   const response = responses[key]
@@ -196,7 +225,7 @@ function responseHeadersToTs(responses: Record<string, OasResponse>): string | n
     .filter(([, h]) => !('$ref' in h))
     .map(([name, h]) => {
       const header = h as { schema?: OasSchema; required?: boolean }
-      const type = header.schema ? schemaToTs(header.schema) : 'string'
+      const type = header.schema ? schemaToTs(header.schema, schemaOpts) : 'string'
       const opt = header.required ? '' : '?'
       return `  '${name}'${opt}: ${type}`
     })
@@ -204,20 +233,69 @@ function responseHeadersToTs(responses: Record<string, OasResponse>): string | n
   return `{\n${entries.join('\n')}\n}`
 }
 
-function collectExternalSchemas(spec: OasDocument, basePath: string): Record<string, OasSchema> {
+export function analyzeExternalSchemaRefs(spec: OasDocument, basePath: string): ExternalSchemaRefAnalysis {
   const refs = new Set<string>()
   collectExternalRefs(spec, refs)
 
+  const refList = [...refs].sort()
+  const diagnostics: ExternalSchemaRefDiagnostic[] = []
   const schemas: Record<string, OasSchema> = {}
-  for (const ref of refs) {
-    const name = schemaNameFromRef(ref)
-    if (!name || schemas[name] || spec.components?.schemas?.[name]) continue
+  const refNameOverrides: Record<string, string> = {}
+  const localNames = new Set(Object.keys(spec.components?.schemas ?? {}))
+  const usedNames = new Set(localNames)
+  const refsByName = groupRefsBySchemaName(refList)
 
-    const resolved = derefSpec({ $ref: ref }, { basePath }) as unknown
-    if (isSchemaObject(resolved)) schemas[name] = resolved as OasSchema
+  for (const [name, groupRefs] of refsByName) {
+    if (groupRefs.length <= 1) continue
+    diagnostics.push({
+      code: 'external-schema-name-collision',
+      name,
+      refs: groupRefs,
+      message: `외부 스키마 이름 충돌: ${name} (${groupRefs.join(', ')}). 파일명 기반 타입명으로 생성합니다.`,
+    })
   }
 
-  return schemas
+  for (const ref of refList) {
+    const baseName = schemaNameFromRef(ref)
+    if (!baseName) continue
+
+    const collidesWithExternal = (refsByName.get(baseName)?.length ?? 0) > 1
+    const shadowsLocal = localNames.has(baseName)
+    const preferredName = collidesWithExternal || shadowsLocal
+      ? `${pascalCase(fileStemFromRef(ref))}${baseName}`
+      : baseName
+    const generatedName = uniqueTypeName(preferredName, usedNames)
+    usedNames.add(generatedName)
+
+    if (shadowsLocal) {
+      diagnostics.push({
+        code: 'external-schema-shadows-local',
+        name: baseName,
+        ref,
+        generatedName,
+        message: `외부 스키마 이름이 로컬 component와 충돌: ${baseName} (${ref}). ${generatedName} 타입명으로 생성합니다.`,
+      })
+    }
+
+    const resolved = derefSpec({ $ref: ref }, { basePath }) as unknown
+    if (isSchemaObject(resolved)) {
+      schemas[generatedName] = resolved as OasSchema
+      refNameOverrides[ref] = generatedName
+    } else {
+      diagnostics.push({
+        code: 'external-schema-unresolved',
+        name: baseName,
+        ref,
+        message: `외부 스키마를 해소할 수 없습니다: ${ref}`,
+      })
+    }
+  }
+
+  return { schemas, refNameOverrides, diagnostics }
+}
+
+function emptyExternalSchemaAnalysis(): ExternalSchemaRefAnalysis {
+  return { schemas: {}, refNameOverrides: {}, diagnostics: [] }
 }
 
 function collectExternalRefs(node: unknown, refs: Set<string>): void {
@@ -239,6 +317,32 @@ function collectExternalRefs(node: unknown, refs: Set<string>): void {
 
 function schemaNameFromRef(ref: string): string | undefined {
   return ref.split('/').pop()
+}
+
+function groupRefsBySchemaName(refs: string[]): Map<string, string[]> {
+  const groups = new Map<string, string[]>()
+  for (const ref of refs) {
+    const name = schemaNameFromRef(ref)
+    if (!name) continue
+    const list = groups.get(name) ?? []
+    list.push(ref)
+    groups.set(name, list)
+  }
+  return groups
+}
+
+function fileStemFromRef(ref: string): string {
+  const [filePart] = ref.split('#')
+  if (!filePart) return 'External'
+  const fileName = basename(filePart)
+  return fileName.slice(0, fileName.length - extname(fileName).length) || 'External'
+}
+
+function uniqueTypeName(preferredName: string, usedNames: Set<string>): string {
+  if (!usedNames.has(preferredName)) return preferredName
+  let suffix = 2
+  while (usedNames.has(`${preferredName}${suffix}`)) suffix++
+  return `${preferredName}${suffix}`
 }
 
 function isSchemaObject(value: unknown): boolean {

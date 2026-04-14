@@ -93,6 +93,7 @@
 | `defineConfig()` | `config.ts` | 타입 안전 config 헬퍼 |
 | `generateTypes()` | `typegen/generate-types.ts` | ParsedDocument → TS 타입 문자열 |
 | `generateTypesFromSpec()` | `typegen/generate-types.ts` | OAS spec → TS 타입 (parseDocument 포함) |
+| `analyzeExternalSchemaRefs()` | `typegen/generate-types.ts` | 외부 `$ref` 스키마 타입명/충돌 diagnostic 조회 |
 | `schemaToTs()` | `typegen/schema-to-ts.ts` | 단일 OAS Schema → TS 타입 문자열 (SchemaToTsOptions 지원) |
 
 ### 타입 (`@oa-sdk/codegen`)
@@ -105,6 +106,10 @@
 | `CodegenConfig` | `config.ts` | `OutputOptions & { schemas }` |
 | `DrizzleCodegenOptions` | `drizzle/index.ts` | `OutputOptions & { schemaPath, ... }` |
 | `OasSchema` | **`@oa-sdk/parser` re-export** | codegen이 parser 정식 타입 사용 |
+| `TypegenOptions` | `typegen/generate-types.ts` | typegen 옵션 (style, annotations, external ref warnings 등) |
+| `ExternalSchemaRefAnalysis` | `typegen/generate-types.ts` | 외부 `$ref` 분석 결과 |
+| `ExternalSchemaRefDiagnostic` | `typegen/generate-types.ts` | 외부 `$ref` 이름 충돌/해소 실패 diagnostic |
+| `ExternalSchemaRefDiagnosticCode` | `typegen/generate-types.ts` | 외부 `$ref` diagnostic 코드 |
 
 ### 내부 함수 (`@oa-sdk/codegen` — index 미노출)
 
