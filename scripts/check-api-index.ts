@@ -193,7 +193,9 @@ function main() {
     // mock-server의 parser re-exports는 제외 (parser 섹션에서 이미 문서화됨)
     const parserReExports = new Set([
       'foldSchema', 'SchemaFolder', 'SchemaAlgebra', 'DerefFolder', 'derefSpec',
-      'runPipeline', 'derefPass', 'DEFAULT_PASSES', 'SpecPass',
+      'derefSpecWithDiagnostics', 'DerefDiagnostic', 'DerefDiagnosticCode', 'DerefOptions',
+      'runPipeline', 'derefPass', 'createDerefPass', 'DEFAULT_PASSES', 'SpecPass',
+      'ParseDocumentOptions',
       'loadSchema', 'matchRoute',
     ])
 

@@ -15,7 +15,7 @@ export { filterRouteIndex } from './core/route-filter.js'
 export type { RouteFilter } from './core/route-filter.js'
 
 // ─── 에러 ─────────────────────────────────────────────────────────────────────
-export type { MockErrorCode, MockErrorDetail, MockValidationResult, MockErrorResponse } from './errors/types.js'
+export type { MockErrorCode, MockValidationStage, MockErrorDetail, MockValidationResult, MockErrorResponse } from './errors/types.js'
 export { classifyAjvErrors } from './errors/classifier.js'
 
 // ─── parser re-exports ────────────────────────────────────────────────────────

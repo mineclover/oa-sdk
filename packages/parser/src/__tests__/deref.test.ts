@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
-import { derefSpec } from '../deref.js'
+import { derefSpec, derefSpecWithDiagnostics } from '../deref.js'
 import { writeFileSync, mkdirSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
@@ -153,6 +153,20 @@ describe('derefSpec', () => {
     expect((result.paths as Record<string, unknown>)['/miss']).toEqual({
       $ref: '#/components/schemas/Missing',
     })
+  })
+
+  it('해석 실패 diagnostic을 수집한다', () => {
+    const input = spec({
+      paths: { '/miss': { $ref: '#/components/schemas/Missing' } },
+    })
+
+    const { diagnostics } = derefSpecWithDiagnostics(input)
+    expect(diagnostics).toEqual([
+      expect.objectContaining({
+        code: 'ref-not-found',
+        ref: '#/components/schemas/Missing',
+      }),
+    ])
   })
 
   it('RFC 6901 escape (~1 → /)', () => {

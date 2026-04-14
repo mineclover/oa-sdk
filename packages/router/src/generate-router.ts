@@ -16,6 +16,8 @@ export type RouterOptions = {
   target?: RouterTarget
   /** typegen 타입 import 경로 (예: './types') */
   typesImport?: string
+  /** OAS 파일 경로. 상대 외부 $ref 해소에 사용 */
+  basePath?: string
   /** 헤더 주석 */
   banner?: boolean
 }
@@ -24,7 +26,9 @@ export type RouterOptions = {
  * OAS 원본 문서 또는 ParsedDocument IR에서 서버 라우터 스텁을 생성합니다.
  */
 export function generateRouter(spec: OasDocument | ParsedDocument, options: RouterOptions = {}): string {
-  const doc: ParsedDocument = 'openapi' in spec ? parseDocument(spec as OasDocument, DEFAULT_PASSES) : spec
+  const doc: ParsedDocument = 'openapi' in spec
+    ? parseDocument(spec as OasDocument, options.basePath ? { basePath: options.basePath } : DEFAULT_PASSES)
+    : spec
   const { target = 'hono', typesImport, banner = true } = options
   const lines: string[] = []
 
@@ -247,4 +251,3 @@ function buildBodyParseLine(target: RouterTarget, contentTypes: string[], typeNa
   }
   return `  const body = req.body // ${typeName}Body`
 }
-

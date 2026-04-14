@@ -1,4 +1,7 @@
 import { describe, it, expect } from 'vitest'
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { join } from 'node:path'
+import { tmpdir } from 'node:os'
 import { parseDocument } from '../parse.js'
 import type { OasDocument } from '../oas32-types.js'
 
@@ -206,6 +209,49 @@ describe('parseDocument', () => {
     // $ref가 해결되어 실제 스키마가 인라인됨
     expect(schema['type']).toBe('object')
     expect((schema['properties'] as Record<string, unknown>)['name']).toEqual({ type: 'string' })
+  })
+
+  it('basePath 옵션으로 외부 YAML $ref를 해소한다', () => {
+    const tmp = mkdtempSync(join(tmpdir(), 'oa-sdk-parse-'))
+    const mainFile = join(tmp, 'api.yaml')
+    const sharedFile = join(tmp, 'shared.yaml')
+    writeFileSync(sharedFile, [
+      'components:',
+      '  schemas:',
+      '    User:',
+      '      type: object',
+      '      properties:',
+      '        id:',
+      '          type: string',
+      '',
+    ].join('\n'))
+
+    try {
+      const result = parseDocument(doc({
+        paths: {
+          '/users': {
+            get: {
+              responses: {
+                '200': {
+                  description: 'OK',
+                  content: {
+                    'application/json': { schema: { $ref: './shared.yaml#/components/schemas/User' } },
+                  },
+                },
+              },
+            },
+          },
+        },
+      }), { basePath: mainFile })
+
+      const response = result.operations[0]!.responses['200']!
+      const content = response.content!['application/json'] as Record<string, unknown>
+      const schema = content['schema'] as Record<string, unknown>
+      expect(schema['type']).toBe('object')
+      expect((schema['properties'] as Record<string, unknown>)['id']).toEqual({ type: 'string' })
+    } finally {
+      rmSync(tmp, { recursive: true, force: true })
+    }
   })
 
   it('raw 원본 문서 보존', () => {

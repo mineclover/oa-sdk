@@ -23,12 +23,13 @@ export type {
 
 // ─── 풀 문서 파서 ─────────────────────────────────────────────────────────
 export { parseDocument } from './parse.js'
+export type { ParseDocumentOptions } from './parse.js'
 
 // ─── 레거시 호환: 라우트 중심 로더 ────────────────────────────────────────
 export { loadSchema, matchRoute, HTTP_METHODS } from './schema-loader.js'
 
 // ─── 파이프라인 (SpecPass[]) ──────────────────────────────────────────────
-export { runPipeline, derefPass, DEFAULT_PASSES } from './pipeline.js'
+export { runPipeline, derefPass, createDerefPass, DEFAULT_PASSES } from './pipeline.js'
 export type { SpecPass } from './pipeline.js'
 
 // ─── Fold 패턴 (SchemaAlgebra) ────────────────────────────────────────────
@@ -37,7 +38,8 @@ export type { SchemaAlgebra } from './fold.js'
 
 // ─── Folder 패턴 (SchemaFolder / DerefFolder) ────────────────────────────
 export { SchemaFolder } from './folder.js'
-export { DerefFolder, derefSpec } from './deref.js'
+export { DerefFolder, derefSpec, derefSpecWithDiagnostics } from './deref.js'
+export type { DerefDiagnostic, DerefDiagnosticCode, DerefOptions } from './deref.js'
 
 // ─── Query API ────────────────────────────────────────────────────────────
 export { findOperation, findByTag, findByPath, getSchema, getTag, groupByTag, describeApi, resolveServerUrl } from './query.js'
@@ -49,4 +51,3 @@ export type { LintResult, LintSeverity, LintOptions } from './lint.js'
 // ─── Validate ─────────────────────────────────────────────────────────────
 export { validateDocument } from './validate.js'
 export type { ValidationResult } from './validate.js'
-

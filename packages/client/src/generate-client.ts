@@ -11,6 +11,8 @@ import { pascalCase, collectTypeNames, formatGeneratedTs } from '@oa-sdk/core'
 export type ClientOptions = {
   /** typegen 타입 import 경로 (예: './types') */
   typesImport?: string
+  /** OAS 파일 경로. 상대 외부 $ref 해소에 사용 */
+  basePath?: string
   /** 헤더 주석 */
   banner?: boolean
 }
@@ -19,7 +21,9 @@ export type ClientOptions = {
  * OAS 원본 문서에서 fetch 클라이언트 SDK를 생성합니다.
  */
 export function generateClient(spec: OasDocument | ParsedDocument, options: ClientOptions = {}): string {
-  const doc: ParsedDocument = 'openapi' in spec ? parseDocument(spec as OasDocument, DEFAULT_PASSES) : spec
+  const doc: ParsedDocument = 'openapi' in spec
+    ? parseDocument(spec as OasDocument, options.basePath ? { basePath: options.basePath } : DEFAULT_PASSES)
+    : spec
   const { typesImport, banner = true } = options
   const lines: string[] = []
 

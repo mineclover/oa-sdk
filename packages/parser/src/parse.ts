@@ -27,22 +27,31 @@ import type {
   Referenceable,
 } from './oas32-types.js'
 import type { HttpMethod, OperationEntry, RouteIndex, ParsedDocument } from './types.js'
-import { runPipeline, DEFAULT_PASSES, type SpecPass } from './pipeline.js'
+import { runPipeline, DEFAULT_PASSES, createDerefPass, type SpecPass } from './pipeline.js'
+import type { DerefDiagnostic, DerefOptions } from './deref.js'
 
 const STANDARD_METHODS: HttpMethod[] = [
   'get', 'post', 'put', 'patch', 'delete', 'head', 'options', 'trace', 'query',
 ]
 
+export type ParseDocumentOptions = {
+  passes?: SpecPass[]
+  basePath?: string
+  derefDiagnostics?: DerefDiagnostic[]
+  onDerefDiagnostic?: (diagnostic: DerefDiagnostic) => void
+}
+
 /**
  * OAS 3.2 원본 문서를 구조화된 ParsedDocument IR로 파싱합니다.
  *
  * @param doc 원본 OAS 3.2 문서 (JSON/YAML 파싱 후 객체)
- * @param passes SpecPass 파이프라인 (기본: [derefPass])
+ * @param passesOrOptions SpecPass 파이프라인 또는 파싱 옵션
  */
 export function parseDocument(
   doc: OasDocument,
-  passes: SpecPass[] = DEFAULT_PASSES,
+  passesOrOptions: SpecPass[] | ParseDocumentOptions = DEFAULT_PASSES,
 ): ParsedDocument {
+  const passes = resolvePasses(passesOrOptions)
   const resolved = runPipeline(doc, passes) as OasDocument
 
   const operations: OperationEntry[] = []
@@ -109,6 +118,27 @@ export function parseDocument(
     webhooks,
     raw: doc,
   }
+}
+
+function resolvePasses(passesOrOptions: SpecPass[] | ParseDocumentOptions): SpecPass[] {
+  if (Array.isArray(passesOrOptions)) return passesOrOptions
+
+  const {
+    passes,
+    basePath,
+    derefDiagnostics,
+    onDerefDiagnostic,
+  } = passesOrOptions
+
+  if (passes) return passes
+  if (basePath || derefDiagnostics || onDerefDiagnostic) {
+    const derefOptions: DerefOptions = {}
+    if (basePath !== undefined) derefOptions.basePath = basePath
+    if (derefDiagnostics !== undefined) derefOptions.diagnostics = derefDiagnostics
+    if (onDerefDiagnostic !== undefined) derefOptions.onDiagnostic = onDerefDiagnostic
+    return [createDerefPass(derefOptions)]
+  }
+  return DEFAULT_PASSES
 }
 
 // ─── 내부 헬퍼 ─────────────────────────────────────────────────────────────

@@ -10,6 +10,7 @@
 
 import { lintDocument, type LintResult } from './lint.js'
 import { validateSchemaObjects } from './schema-validator.js'
+import { derefSpecWithDiagnostics, type DerefDiagnostic, type DerefOptions } from './deref.js'
 
 export type ValidationLevel = 'error' | 'warning' | 'info'
 
@@ -21,12 +22,19 @@ export type ValidationResult = {
   summary: string
 }
 
+export type ValidateDocumentOptions = {
+  basePath?: string
+}
+
 /**
  * OAS 3.2 문서를 종합 검증합니다.
  *
  * @param input JSON 문자열 또는 파싱된 객체. YAML은 파싱 후 전달하세요.
  */
-export function validateDocument(input: string | Record<string, unknown>): ValidationResult {
+export function validateDocument(
+  input: string | Record<string, unknown>,
+  options: ValidateDocumentOptions = {},
+): ValidationResult {
   const results: LintResult[] = []
 
   // Step 1: 파싱
@@ -74,7 +82,31 @@ export function validateDocument(input: string | Record<string, unknown>): Valid
   // Step 5: JSON Schema 2020-12 메타 검증
   results.push(...validateSchemaObjects(obj))
 
+  // Step 6: $ref 해소 진단 (외부 ref, 순환 ref 등)
+  results.push(...collectDerefLintResults(obj, options))
+
   return buildResult(results)
+}
+
+function collectDerefLintResults(
+  doc: Record<string, unknown>,
+  options: ValidateDocumentOptions,
+): LintResult[] {
+  const derefOptions: Omit<DerefOptions, 'diagnostics'> = {}
+  if (options.basePath !== undefined) derefOptions.basePath = options.basePath
+  const { diagnostics } = derefSpecWithDiagnostics(doc, derefOptions)
+  return diagnostics
+    .filter(d => !(d.code === 'ref-not-found' && d.ref.startsWith('#/')))
+    .map(diagnosticToLintResult)
+}
+
+function diagnosticToLintResult(diagnostic: DerefDiagnostic): LintResult {
+  return {
+    path: diagnostic.pointer ?? diagnostic.ref,
+    severity: 'error',
+    rule: diagnostic.code === 'ref-cycle' ? 'refs/cycle' : 'refs/valid-ref',
+    message: diagnostic.message,
+  }
 }
 
 function buildResult(results: LintResult[]): ValidationResult {

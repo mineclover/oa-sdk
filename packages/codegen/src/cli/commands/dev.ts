@@ -39,10 +39,10 @@ export const dev: Command = {
         writeFileSync(join(resolvedOutput, 'types.ts'), generateTypesFromSpec(doc, { style }), 'utf8')
 
         const { generateRouter } = await tryImport('@oa-sdk/router')
-        writeFileSync(join(resolvedOutput, 'router.ts'), generateRouter(doc, { target, typesImport }), 'utf8')
+        writeFileSync(join(resolvedOutput, 'router.ts'), generateRouter(doc, { target, typesImport, basePath: resolvedSpec }), 'utf8')
 
         const { generateClient } = await tryImport('@oa-sdk/client')
-        writeFileSync(join(resolvedOutput, 'client.ts'), generateClient(doc, { typesImport }), 'utf8')
+        writeFileSync(join(resolvedOutput, 'client.ts'), generateClient(doc, { typesImport, basePath: resolvedSpec }), 'utf8')
 
         console.log(`[oa-gen] generated → ${resolvedOutput}/`)
       } catch (e) {

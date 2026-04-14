@@ -1,4 +1,4 @@
-import { derefSpec } from './deref.js'
+import { derefSpec, type DerefOptions } from './deref.js'
 
 /**
  * OpenAPI 스펙에 적용되는 단일 변환 단계.
@@ -24,9 +24,15 @@ export function runPipeline<T>(spec: T, passes: SpecPass[]): T {
 /**
  * internal $ref 인라인 전개 Pass.
  */
-export const derefPass: SpecPass = {
-  name: 'deref',
-  run: derefSpec,
+export function createDerefPass(options: DerefOptions = {}): SpecPass {
+  return {
+    name: 'deref',
+    run<T>(spec: T): T {
+      return derefSpec(spec, options)
+    },
+  }
 }
+
+export const derefPass: SpecPass = createDerefPass()
 
 export const DEFAULT_PASSES: SpecPass[] = [derefPass]

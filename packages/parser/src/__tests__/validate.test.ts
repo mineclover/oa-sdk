@@ -1,4 +1,7 @@
 import { describe, it, expect } from 'vitest'
+import { mkdtempSync, rmSync } from 'node:fs'
+import { join } from 'node:path'
+import { tmpdir } from 'node:os'
 import { validateDocument } from '../validate.js'
 
 describe('validateDocument', () => {
@@ -123,5 +126,39 @@ describe('validateDocument', () => {
     })
     expect(result.valid).toBe(false)
     expect(result.errors.some(e => e.rule === 'schema/meta-valid' && e.path === '/components/schemas/Age/minimum')).toBe(true)
+  })
+
+  it('외부 $ref 파일 읽기 실패를 refs/valid-ref 에러로 보고한다', () => {
+    const tmp = mkdtempSync(join(tmpdir(), 'oa-sdk-validate-'))
+    const basePath = join(tmp, 'api.yaml')
+
+    try {
+      const result = validateDocument({
+        openapi: '3.2.0',
+        info: { title: 'T', version: '0' },
+        paths: {
+          '/a': {
+            get: {
+              responses: {
+                '200': {
+                  description: 'OK',
+                  content: {
+                    'application/json': { schema: { $ref: './missing.yaml#/components/schemas/User' } },
+                  },
+                },
+              },
+            },
+          },
+        },
+      }, { basePath })
+
+      expect(result.valid).toBe(false)
+      expect(result.errors.some(e =>
+        e.rule === 'refs/valid-ref' &&
+        e.message.includes('missing.yaml'),
+      )).toBe(true)
+    } finally {
+      rmSync(tmp, { recursive: true, force: true })
+    }
   })
 })

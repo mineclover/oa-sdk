@@ -49,11 +49,13 @@
 | `HTTP_METHODS` | `schema-loader.ts` | HTTP 메서드 상수 배열 |
 | `runPipeline()` | `pipeline.ts` | SpecPass[] 순차 실행 |
 | `derefPass` | `pipeline.ts` | $ref 해소 기본 패스 |
+| `createDerefPass()` | `pipeline.ts` | basePath/diagnostic 옵션을 가진 $ref 해소 Pass 생성 |
 | `DEFAULT_PASSES` | `pipeline.ts` | 기본 파이프라인 패스 배열 |
 | `foldSchema()` | `fold.ts` | SchemaAlgebra 기반 스키마 순회 |
 | `SchemaFolder` | `folder.ts` | SchemaAlgebra 클래스 기반 순회 |
 | `DerefFolder` | `deref.ts` | $ref 해소 Folder |
 | `derefSpec()` | `deref.ts` | $ref 인라인 전개 |
+| `derefSpecWithDiagnostics()` | `deref.ts` | $ref 인라인 전개 + 순환/외부 ref diagnostic 수집 |
 | `findOperation()` | `query.ts` | operationId로 오퍼레이션 검색 |
 | `findByTag()` | `query.ts` | 태그로 오퍼레이션 필터 |
 | `findByPath()` | `query.ts` | 경로로 오퍼레이션 필터 |
@@ -70,7 +72,11 @@
 | 타입 | 파일 | 용도 |
 |------|------|------|
 | `SpecPass` | `pipeline.ts` | 파이프라인 패스 함수 타입 |
+| `ParseDocumentOptions` | `parse.ts` | `parseDocument()` basePath/deref diagnostic 옵션 |
 | `SchemaAlgebra` | `fold.ts` | fold 패턴 대수 인터페이스 |
+| `DerefOptions` | `deref.ts` | deref basePath/diagnostic 옵션 |
+| `DerefDiagnostic` | `deref.ts` | $ref 해소 diagnostic 항목 |
+| `DerefDiagnosticCode` | `deref.ts` | $ref 해소 diagnostic 코드 |
 | `LintResult` | `lint.ts` | 린트 결과 |
 | `LintSeverity` | `lint.ts` | 린트 심각도 |
 | `LintOptions` | `lint.ts` | 린트 옵션 |
@@ -155,6 +161,8 @@
 | `handleRequest()` | `core/handler.ts` | 공통 요청 검증 + 응답 선택 (어댑터 공유) |
 | `HandlerResult` | `core/handler.ts` | 핸들러 결과 타입 |
 | `validateRequest()` | `core/request-validator.ts` | AJV 기반 요청 검증 |
+| `validateRequestSchemas()` | `core/request-validator.ts` | RouteIndex 요청 스키마 preflight 컴파일 검증 |
+| `assertValidRequestSchemas()` | `core/request-validator.ts` | preflight 실패 시 예외 발생 |
 | `pickResponse()` | `core/response-picker.ts` | 응답 선택 (6단계 폴백) |
 | `PickedResponse` | `core/response-picker.ts` | 선택된 응답 타입 |
 

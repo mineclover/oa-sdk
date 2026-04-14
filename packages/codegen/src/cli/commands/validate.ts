@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import type { Command } from '../lib/types.js'
-import { loadSpec } from '../lib/load-spec.js'
+import { loadSpecWithPath } from '../lib/load-spec.js'
 import { str } from '../lib/args.js'
 
 export const validate: Command = {
@@ -13,10 +13,10 @@ export const validate: Command = {
   async run(args) {
     const { validateDocument } = await import('@oa-sdk/parser')
     const specPath = str(args, 'spec')
-    const doc = loadSpec(specPath)
+    const { document: doc, path: resolvedSpecPath } = loadSpecWithPath(specPath)
 
     console.log('━━━ Step 1: 파싱 + 구조 검증 ━━━')
-    const result = validateDocument(doc)
+    const result = validateDocument(doc, { basePath: resolvedSpecPath })
 
     for (const r of [...result.errors, ...result.warnings, ...result.infos]) {
       const icon = r.severity === 'error' ? '❌' : r.severity === 'warning' ? '⚠️' : 'ℹ️'

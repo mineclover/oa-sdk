@@ -1,5 +1,5 @@
 import type { Command } from '../lib/types.js'
-import { loadSpec } from '../lib/load-spec.js'
+import { loadSpecWithPath } from '../lib/load-spec.js'
 import { writeOutput } from '../lib/output.js'
 import { tryImport } from '../lib/try-import.js'
 import { str, optStr } from '../lib/args.js'
@@ -15,10 +15,10 @@ export const router: Command = {
   },
   async run(args) {
     const { generateRouter } = await tryImport('@oa-sdk/router')
-    const doc = loadSpec(str(args, 'spec'))
+    const { document: doc, path: resolvedSpecPath } = loadSpecWithPath(str(args, 'spec'))
     const target: 'express' | 'hono' = optStr(args, 'target') === 'express' ? 'express' : 'hono'
     const typesImport = optStr(args, 'types-import')
-    const opts: { target: 'express' | 'hono'; typesImport?: string } = { target }
+    const opts: { target: 'express' | 'hono'; typesImport?: string; basePath: string } = { target, basePath: resolvedSpecPath }
     if (typesImport) opts.typesImport = typesImport
     writeOutput(optStr(args, 'output'), generateRouter(doc, opts), 'router 코드 생성')
   },

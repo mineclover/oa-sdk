@@ -1,5 +1,5 @@
 import type { Command } from '../lib/types.js'
-import { loadSpec } from '../lib/load-spec.js'
+import { loadSpecWithPath } from '../lib/load-spec.js'
 import { writeOutput } from '../lib/output.js'
 import { tryImport } from '../lib/try-import.js'
 import { str, optStr } from '../lib/args.js'
@@ -14,9 +14,9 @@ export const client: Command = {
   },
   async run(args) {
     const { generateClient } = await tryImport('@oa-sdk/client')
-    const doc = loadSpec(str(args, 'spec'))
+    const { document: doc, path: resolvedSpecPath } = loadSpecWithPath(str(args, 'spec'))
     const typesImport = optStr(args, 'types-import')
-    const opts: { typesImport?: string } = {}
+    const opts: { typesImport?: string; basePath: string } = { basePath: resolvedSpecPath }
     if (typesImport) opts.typesImport = typesImport
     writeOutput(optStr(args, 'output'), generateClient(doc, opts), 'client 코드 생성')
   },

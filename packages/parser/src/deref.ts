@@ -4,6 +4,27 @@ import { readFileSync } from 'node:fs'
 import { resolve, dirname } from 'node:path'
 import { parse as parseYaml } from 'yaml'
 
+export type DerefDiagnosticCode =
+  | 'ref-cycle'
+  | 'ref-not-found'
+  | 'external-ref-read-failed'
+  | 'external-ref-pointer-not-found'
+  | 'unsupported-ref'
+
+export type DerefDiagnostic = {
+  code: DerefDiagnosticCode
+  ref: string
+  message: string
+  filePath?: string
+  pointer?: string
+}
+
+export type DerefOptions = {
+  basePath?: string
+  diagnostics?: DerefDiagnostic[]
+  onDiagnostic?: (diagnostic: DerefDiagnostic) => void
+}
+
 /**
  * Internal $ref (#/...) 인라인 전개 Folder.
  *
@@ -16,7 +37,7 @@ export class DerefFolder extends SchemaFolder {
 
   constructor(
     private readonly root: unknown,
-    private readonly basePath?: string,
+    private readonly options: DerefOptions = {},
     private readonly fileCache?: Map<string, unknown>,
   ) {
     super()
@@ -25,10 +46,26 @@ export class DerefFolder extends SchemaFolder {
   protected override foldRef(ref: string, node: Record<string, unknown>): unknown {
     // Internal ref
     if (ref.startsWith('#/')) {
-      if (this.stack.includes(ref)) return mergeRefSiblings({}, this.foldSiblingFields(node))
+      if (this.stack.includes(ref)) {
+        this.emitDiagnostic({
+          code: 'ref-cycle',
+          ref,
+          message: `순환 $ref 감지: ${ref}`,
+          pointer: ref,
+        })
+        return mergeRefSiblings({}, this.foldSiblingFields(node))
+      }
 
       const target = resolvePointer(ref, this.root)
-      if (target === undefined) return node
+      if (target === undefined) {
+        this.emitDiagnostic({
+          code: 'ref-not-found',
+          ref,
+          message: `참조 대상을 찾을 수 없습니다: ${ref}`,
+          pointer: ref,
+        })
+        return node
+      }
 
       this.stack.push(ref)
       try {
@@ -39,28 +76,60 @@ export class DerefFolder extends SchemaFolder {
     }
 
     // External file ref (상대 경로)
-    if (this.basePath && (ref.startsWith('./') || ref.startsWith('../'))) {
+    if (this.options.basePath && (ref.startsWith('./') || ref.startsWith('../'))) {
       const [filePart, pointer] = ref.split('#')
-      if (!filePart || !pointer) return node
+      if (!filePart || !pointer) {
+        this.emitDiagnostic({
+          code: 'unsupported-ref',
+          ref,
+          message: `지원하지 않는 외부 $ref 형식: ${ref}`,
+        })
+        return node
+      }
 
-      const fullPath = resolve(dirname(this.basePath), filePart)
+      const fullPath = resolve(dirname(this.options.basePath), filePart)
 
       // 순환 감지: 파일경로 + 포인터 조합
       const externalKey = `${fullPath}#${pointer}`
-      if (this.stack.includes(externalKey)) return mergeRefSiblings({}, this.foldSiblingFields(node))
+      if (this.stack.includes(externalKey)) {
+        this.emitDiagnostic({
+          code: 'ref-cycle',
+          ref,
+          filePath: fullPath,
+          pointer: `#${pointer}`,
+          message: `순환 외부 $ref 감지: ${ref}`,
+        })
+        return mergeRefSiblings({}, this.foldSiblingFields(node))
+      }
 
       let fileContent = this.fileCache?.get(fullPath)
       if (!fileContent) {
         try {
           fileContent = parseExternalRefFile(fullPath)
           this.fileCache?.set(fullPath, fileContent)
-        } catch {
+        } catch (err) {
+          this.emitDiagnostic({
+            code: 'external-ref-read-failed',
+            ref,
+            filePath: fullPath,
+            pointer: `#${pointer}`,
+            message: err instanceof Error ? err.message : String(err),
+          })
           return node // 파일 읽기 실패 — 원본 유지
         }
       }
 
       const target = resolvePointer('#' + pointer, fileContent)
-      if (target === undefined) return node
+      if (target === undefined) {
+        this.emitDiagnostic({
+          code: 'external-ref-pointer-not-found',
+          ref,
+          filePath: fullPath,
+          pointer: `#${pointer}`,
+          message: `외부 파일에서 참조 대상을 찾을 수 없습니다: ${ref}`,
+        })
+        return node
+      }
 
       this.stack.push(externalKey)
       try {
@@ -68,6 +137,14 @@ export class DerefFolder extends SchemaFolder {
       } finally {
         this.stack.pop()
       }
+    }
+
+    if (!ref.startsWith('#/')) {
+      this.emitDiagnostic({
+        code: 'unsupported-ref',
+        ref,
+        message: `지원하지 않는 $ref 형식: ${ref}`,
+      })
     }
 
     return node // 지원하지 않는 ref 타입 — 원본 유지
@@ -80,6 +157,11 @@ export class DerefFolder extends SchemaFolder {
       siblings[key] = this.fold(value)
     }
     return siblings
+  }
+
+  private emitDiagnostic(diagnostic: DerefDiagnostic): void {
+    this.options.diagnostics?.push(diagnostic)
+    this.options.onDiagnostic?.(diagnostic)
   }
 }
 
@@ -109,9 +191,18 @@ function resolvePointer(ref: string, root: unknown): unknown | undefined {
  * options.basePath 지정 시 상대 경로 외부 $ref도 해결.
  * basePath 미지정 시 외부 ref는 원본 유지 (기존 동작과 동일).
  */
-export function derefSpec<T = OasDocument>(spec: T, options?: { basePath?: string }): T {
+export function derefSpec<T = OasDocument>(spec: T, options: DerefOptions = {}): T {
   const cache = new Map<string, unknown>()
-  return new DerefFolder(spec, options?.basePath, cache).fold(spec) as T
+  return new DerefFolder(spec, options, cache).fold(spec) as T
+}
+
+export function derefSpecWithDiagnostics<T = OasDocument>(
+  spec: T,
+  options: Omit<DerefOptions, 'diagnostics'> = {},
+): { document: T; diagnostics: DerefDiagnostic[] } {
+  const diagnostics: DerefDiagnostic[] = []
+  const document = derefSpec(spec, { ...options, diagnostics })
+  return { document, diagnostics }
 }
 
 function parseExternalRefFile(path: string): unknown {
