@@ -27,6 +27,10 @@ export type LintResult = {
   severity: LintSeverity
   rule: string
   message: string
+  source?: {
+    filePath?: string
+    pointer?: string
+  }
 }
 
 export type LintOptions = {
@@ -75,12 +79,18 @@ function lintDerefDiagnostics(spec: OasDocument, results: LintResult[], options:
 }
 
 function diagnosticToLintResult(diagnostic: DerefDiagnostic): LintResult {
-  return {
+  const result: LintResult = {
     path: diagnostic.pointer ?? diagnostic.ref,
     severity: 'error',
     rule: diagnostic.code === 'ref-cycle' ? 'refs/cycle' : 'refs/valid-ref',
     message: diagnostic.message,
   }
+  if (diagnostic.filePath || diagnostic.pointer) {
+    result.source = {}
+    if (diagnostic.filePath) result.source.filePath = diagnostic.filePath
+    if (diagnostic.pointer) result.source.pointer = diagnostic.pointer
+  }
+  return result
 }
 
 // ─── structure ──────────────────────────────────────────────────────────────

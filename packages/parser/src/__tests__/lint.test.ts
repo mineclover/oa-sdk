@@ -1,4 +1,7 @@
 import { describe, it, expect } from 'vitest'
+import { mkdtempSync, rmSync } from 'node:fs'
+import { join } from 'node:path'
+import { tmpdir } from 'node:os'
 import { lintDocument } from '../lint.js'
 
 function doc(overrides: Record<string, unknown> = {}) {
@@ -105,6 +108,24 @@ describe('lint — refs', () => {
       },
     }), { categories: ['refs'] })
     expect(results.filter(r => r.severity === 'error')).toHaveLength(0)
+  })
+
+  it('외부 $ref diagnostic에 source 정보를 포함', () => {
+    const tmp = mkdtempSync(join(tmpdir(), 'oa-sdk-lint-'))
+    const basePath = join(tmp, 'api.yaml')
+    try {
+      const results = lintDocument(doc({
+        paths: {
+          '/a': { get: { responses: { '200': { content: { 'application/json': { schema: { $ref: './missing.yaml#/components/schemas/User' } } } } } } },
+        },
+      }), { categories: ['refs'], basePath })
+
+      const refError = results.find(r => r.rule === 'refs/valid-ref')
+      expect(refError?.source?.filePath?.endsWith('missing.yaml')).toBe(true)
+      expect(refError?.source?.pointer).toBe('#/components/schemas/User')
+    } finally {
+      rmSync(tmp, { recursive: true, force: true })
+    }
   })
 })
 

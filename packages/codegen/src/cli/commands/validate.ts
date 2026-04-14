@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import type { Command } from '../lib/types.js'
 import { loadSpecWithPath } from '../lib/load-spec.js'
+import { formatLintLocation } from '../lib/diagnostics.js'
 import { str } from '../lib/args.js'
 
 export const validate: Command = {
@@ -21,6 +22,7 @@ export const validate: Command = {
     for (const r of [...result.errors, ...result.warnings, ...result.infos]) {
       const icon = r.severity === 'error' ? '❌' : r.severity === 'warning' ? '⚠️' : 'ℹ️'
       console.log(`  ${icon} [${r.rule}] ${r.message}`)
+      console.log(`    at ${formatLintLocation(r)}`)
     }
     console.log(result.summary)
 

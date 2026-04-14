@@ -155,7 +155,9 @@ describe('validateDocument', () => {
       expect(result.valid).toBe(false)
       expect(result.errors.some(e =>
         e.rule === 'refs/valid-ref' &&
-        e.message.includes('missing.yaml'),
+        e.message.includes('missing.yaml') &&
+        e.source?.filePath?.endsWith('missing.yaml') &&
+        e.source?.pointer === '#/components/schemas/User',
       )).toBe(true)
     } finally {
       rmSync(tmp, { recursive: true, force: true })

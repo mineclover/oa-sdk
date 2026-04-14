@@ -69,6 +69,7 @@ let invalidSpecPath: string
 let externalSpecPath: string
 let sharedSpecPath: string
 let collisionSpecPath: string
+let missingExternalSpecPath: string
 
 const execOpts: ExecSyncOptionsWithStringEncoding = { cwd: pkgDir, encoding: 'utf8', timeout: 15_000 }
 
@@ -106,6 +107,7 @@ beforeAll(() => {
   externalSpecPath = join(tmpDir, 'external-api.yaml')
   sharedSpecPath = join(tmpDir, 'shared.yaml')
   collisionSpecPath = join(tmpDir, 'collision-api.yaml')
+  missingExternalSpecPath = join(tmpDir, 'missing-external-api.yaml')
   writeFileSync(specPath, yamlStringify(VALID_SPEC), 'utf8')
   writeFileSync(invalidSpecPath, yamlStringify(INVALID_SPEC), 'utf8')
   writeFileSync(sharedSpecPath, yamlStringify({
@@ -176,6 +178,23 @@ beforeAll(() => {
             '200': {
               description: 'B',
               content: { 'application/json': { schema: { $ref: './shared-b.yaml#/components/schemas/User' } } },
+            },
+          },
+        },
+      },
+    },
+  }), 'utf8')
+  writeFileSync(missingExternalSpecPath, yamlStringify({
+    openapi: '3.2.0',
+    info: { title: 'Missing External API', version: '1.0.0' },
+    paths: {
+      '/missing': {
+        get: {
+          operationId: 'getMissing',
+          responses: {
+            '200': {
+              description: 'Missing',
+              content: { 'application/json': { schema: { $ref: './missing.yaml#/components/schemas/User' } } },
             },
           },
         },
@@ -290,6 +309,12 @@ describe('lint', () => {
     expect(out).toContain('0 errors')
   })
 
+  it('외부 $ref 실패 시 source 파일과 pointer를 출력', () => {
+    const { stdout, stderr } = cliFail(`lint -s ${missingExternalSpecPath}`)
+    const combined = stdout + stderr
+    expect(combined).toContain('missing.yaml#/components/schemas/User')
+  })
+
   it('구조 에러 스펙 → lint 에러 + exit 1', () => {
     const { stdout, stderr } = cliFail(`lint -s ${invalidSpecPath}`)
     // lint 결과는 stdout으로, 에러 메시지는 stderr로 출력될 수 있음
@@ -310,6 +335,12 @@ describe('validate', () => {
   it('외부 YAML $ref 스펙 → Valid', () => {
     const out = cli(`validate -s ${externalSpecPath}`)
     expect(out).toContain('Valid')
+  })
+
+  it('외부 $ref 실패 시 validate도 source 파일과 pointer를 출력', () => {
+    const { stdout, stderr } = cliFail(`validate -s ${missingExternalSpecPath}`)
+    const combined = stdout + stderr
+    expect(combined).toContain('missing.yaml#/components/schemas/User')
   })
 
   it('잘못된 스펙 → exit 1', () => {

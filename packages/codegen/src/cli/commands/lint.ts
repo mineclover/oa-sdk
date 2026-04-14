@@ -1,5 +1,6 @@
 import type { Command } from '../lib/types.js'
 import { loadSpecWithPath } from '../lib/load-spec.js'
+import { formatLintLocation } from '../lib/diagnostics.js'
 import { str } from '../lib/args.js'
 
 export const lint: Command = {
@@ -16,7 +17,7 @@ export const lint: Command = {
     for (const r of results) {
       const icon = r.severity === 'error' ? '❌' : r.severity === 'warning' ? '⚠️' : 'ℹ️'
       console.log(`  ${icon} [${r.rule}] ${r.message}`)
-      console.log(`    at ${r.path}`)
+      console.log(`    at ${formatLintLocation(r)}`)
     }
 
     const errors = results.filter(r => r.severity === 'error')
