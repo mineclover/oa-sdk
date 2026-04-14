@@ -10,7 +10,6 @@
 
 import { lintDocument, type LintResult } from './lint.js'
 import { validateSchemaObjects } from './schema-validator.js'
-import { derefSpecWithDiagnostics, type DerefDiagnostic, type DerefOptions } from './deref.js'
 
 export type ValidationLevel = 'error' | 'warning' | 'info'
 
@@ -76,37 +75,15 @@ export function validateDocument(
   }
 
   // Step 4: 자체 린터 실행
-  const lintResults = lintDocument(doc)
+  const lintOptions: { basePath?: string } = {}
+  if (options.basePath !== undefined) lintOptions.basePath = options.basePath
+  const lintResults = lintDocument(doc, lintOptions)
   results.push(...lintResults)
 
   // Step 5: JSON Schema 2020-12 메타 검증
   results.push(...validateSchemaObjects(obj))
 
-  // Step 6: $ref 해소 진단 (외부 ref, 순환 ref 등)
-  results.push(...collectDerefLintResults(obj, options))
-
   return buildResult(results)
-}
-
-function collectDerefLintResults(
-  doc: Record<string, unknown>,
-  options: ValidateDocumentOptions,
-): LintResult[] {
-  const derefOptions: Omit<DerefOptions, 'diagnostics'> = {}
-  if (options.basePath !== undefined) derefOptions.basePath = options.basePath
-  const { diagnostics } = derefSpecWithDiagnostics(doc, derefOptions)
-  return diagnostics
-    .filter(d => !(d.code === 'ref-not-found' && d.ref.startsWith('#/')))
-    .map(diagnosticToLintResult)
-}
-
-function diagnosticToLintResult(diagnostic: DerefDiagnostic): LintResult {
-  return {
-    path: diagnostic.pointer ?? diagnostic.ref,
-    severity: 'error',
-    rule: diagnostic.code === 'ref-cycle' ? 'refs/cycle' : 'refs/valid-ref',
-    message: diagnostic.message,
-  }
 }
 
 function buildResult(results: LintResult[]): ValidationResult {

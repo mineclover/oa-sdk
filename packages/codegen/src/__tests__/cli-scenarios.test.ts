@@ -66,6 +66,8 @@ const INVALID_SPEC = {
 
 let specPath: string
 let invalidSpecPath: string
+let externalSpecPath: string
+let sharedSpecPath: string
 
 const execOpts: ExecSyncOptionsWithStringEncoding = { cwd: pkgDir, encoding: 'utf8', timeout: 15_000 }
 
@@ -87,8 +89,42 @@ beforeAll(() => {
   mkdirSync(tmpDir, { recursive: true })
   specPath = join(tmpDir, 'api.yaml')
   invalidSpecPath = join(tmpDir, 'bad.yaml')
+  externalSpecPath = join(tmpDir, 'external-api.yaml')
+  sharedSpecPath = join(tmpDir, 'shared.yaml')
   writeFileSync(specPath, yamlStringify(VALID_SPEC), 'utf8')
   writeFileSync(invalidSpecPath, yamlStringify(INVALID_SPEC), 'utf8')
+  writeFileSync(sharedSpecPath, yamlStringify({
+    components: {
+      schemas: {
+        ExternalUser: {
+          type: 'object',
+          required: ['id'],
+          properties: { id: { type: 'string' } },
+        },
+      },
+    },
+  }), 'utf8')
+  writeFileSync(externalSpecPath, yamlStringify({
+    openapi: '3.2.0',
+    info: { title: 'External Ref API', version: '1.0.0' },
+    paths: {
+      '/external-users': {
+        get: {
+          operationId: 'listExternalUsers',
+          responses: {
+            '200': {
+              description: 'OK',
+              content: {
+                'application/json': {
+                  schema: { $ref: './shared.yaml#/components/schemas/ExternalUser' },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+  }), 'utf8')
 })
 
 afterAll(() => {
@@ -122,6 +158,12 @@ describe('typegen', () => {
     expect(out).toContain('ListUsersOp')
     expect(out).toContain('CreateUserOp')
     expect(out).toContain('GetUserOp')
+  })
+
+  it('외부 YAML $ref schema 타입을 생성', () => {
+    const out = cli(`typegen -s ${externalSpecPath}`)
+    expect(out).toContain('export type ExternalUser =')
+    expect(out).toContain('export type ListExternalUsersResponse = ExternalUser')
   })
 })
 
@@ -176,6 +218,11 @@ describe('lint', () => {
     expect(out).toContain('0 errors')
   })
 
+  it('외부 YAML $ref 스펙 → 0 errors', () => {
+    const out = cli(`lint -s ${externalSpecPath}`)
+    expect(out).toContain('0 errors')
+  })
+
   it('구조 에러 스펙 → lint 에러 + exit 1', () => {
     const { stdout, stderr } = cliFail(`lint -s ${invalidSpecPath}`)
     // lint 결과는 stdout으로, 에러 메시지는 stderr로 출력될 수 있음
@@ -191,6 +238,11 @@ describe('validate', () => {
     const out = cli(`validate -s ${specPath}`)
     expect(out).toContain('Valid')
     expect(out).toContain('3.1 호환')
+  })
+
+  it('외부 YAML $ref 스펙 → Valid', () => {
+    const out = cli(`validate -s ${externalSpecPath}`)
+    expect(out).toContain('Valid')
   })
 
   it('잘못된 스펙 → exit 1', () => {
@@ -254,5 +306,22 @@ describe('typegen → router → client 파이프라인', () => {
         expect(types).toContain(`export type ${name}`)
       }
     }
+  })
+
+  it('외부 YAML $ref 스펙으로 세 파일 생성', () => {
+    const outDir = join(tmpDir, 'external-pipeline')
+    mkdirSync(outDir, { recursive: true })
+
+    cli(`typegen -s ${externalSpecPath} -o ${join(outDir, 'types.ts')}`)
+    cli(`router -s ${externalSpecPath} -o ${join(outDir, 'router.ts')} --types-import './types'`)
+    cli(`client -s ${externalSpecPath} -o ${join(outDir, 'client.ts')} --types-import './types'`)
+
+    const types = readFileSync(join(outDir, 'types.ts'), 'utf8')
+    const router = readFileSync(join(outDir, 'router.ts'), 'utf8')
+    const client = readFileSync(join(outDir, 'client.ts'), 'utf8')
+
+    expect(types).toContain('export type ExternalUser')
+    expect(router).toContain('listExternalUsers')
+    expect(client).toContain('listExternalUsers')
   })
 })

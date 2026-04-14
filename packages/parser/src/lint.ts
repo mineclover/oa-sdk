@@ -14,6 +14,7 @@
  */
 
 import type { OasDocument, OasPathItem, OasOperation, OasParameter, OasComponents, Referenceable } from './oas32-types.js'
+import { derefSpecWithDiagnostics, type DerefDiagnostic, type DerefOptions } from './deref.js'
 
 function isRef(node: unknown): node is { $ref: string } {
   return typeof node === 'object' && node !== null && '$ref' in node
@@ -31,6 +32,8 @@ export type LintResult = {
 export type LintOptions = {
   /** 실행할 규칙 카테고리 (기본: 전체) */
   categories?: Array<'structure' | 'operations' | 'parameters' | 'refs' | 'security' | 'style' | 'components'>
+  /** OAS 파일 경로. 상대 외부 $ref 해소 진단에 사용 */
+  basePath?: string
 }
 
 /**
@@ -48,12 +51,36 @@ export function lintDocument(doc: unknown, options: LintOptions = {}): LintResul
   if (categories.has('structure')) lintStructure(spec, results)
   if (categories.has('operations')) lintOperations(spec, results)
   if (categories.has('parameters')) lintParameters(spec, results)
-  if (categories.has('refs')) lintRefs(spec, results)
+  if (categories.has('refs')) {
+    lintRefs(spec, results)
+    lintDerefDiagnostics(spec, results, options)
+  }
   if (categories.has('security')) lintSecurity(spec, results)
   if (categories.has('style')) lintStyle(spec, results)
   if (categories.has('components')) lintComponents(spec, results)
 
   return results
+}
+
+function lintDerefDiagnostics(spec: OasDocument, results: LintResult[], options: LintOptions) {
+  const derefOptions: Omit<DerefOptions, 'diagnostics'> = {}
+  if (options.basePath !== undefined) derefOptions.basePath = options.basePath
+
+  const { diagnostics } = derefSpecWithDiagnostics(spec, derefOptions)
+  for (const diagnostic of diagnostics) {
+    if (diagnostic.code === 'ref-not-found' && diagnostic.ref.startsWith('#/')) continue
+    if (diagnostic.code === 'unsupported-ref' && !options.basePath) continue
+    results.push(diagnosticToLintResult(diagnostic))
+  }
+}
+
+function diagnosticToLintResult(diagnostic: DerefDiagnostic): LintResult {
+  return {
+    path: diagnostic.pointer ?? diagnostic.ref,
+    severity: 'error',
+    rule: diagnostic.code === 'ref-cycle' ? 'refs/cycle' : 'refs/valid-ref',
+    message: diagnostic.message,
+  }
 }
 
 // ─── structure ──────────────────────────────────────────────────────────────

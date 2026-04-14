@@ -1,5 +1,5 @@
 import type { Command } from '../lib/types.js'
-import { loadSpec } from '../lib/load-spec.js'
+import { loadSpecWithPath } from '../lib/load-spec.js'
 import { writeOutput } from '../lib/output.js'
 import { str, optStr } from '../lib/args.js'
 
@@ -13,9 +13,9 @@ export const typegen: Command = {
   },
   async run(args) {
     const { generateTypesFromSpec } = await import('../../typegen/generate-types.js')
-    const doc = loadSpec(str(args, 'spec'))
+    const { document: doc, path: resolvedSpecPath } = loadSpecWithPath(str(args, 'spec'))
     const style: 'interface' | 'type' = optStr(args, 'style') === 'interface' ? 'interface' : 'type'
-    const ts = generateTypesFromSpec(doc, { style })
+    const ts = generateTypesFromSpec(doc, { style, basePath: resolvedSpecPath })
     writeOutput(optStr(args, 'output'), ts, 'TypeScript 타입 생성')
   },
 }

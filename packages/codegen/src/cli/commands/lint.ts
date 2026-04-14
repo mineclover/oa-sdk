@@ -1,5 +1,5 @@
 import type { Command } from '../lib/types.js'
-import { loadSpec } from '../lib/load-spec.js'
+import { loadSpecWithPath } from '../lib/load-spec.js'
 import { str } from '../lib/args.js'
 
 export const lint: Command = {
@@ -10,8 +10,8 @@ export const lint: Command = {
   },
   async run(args) {
     const { lintDocument } = await import('@oa-sdk/parser')
-    const doc = loadSpec(str(args, 'spec'))
-    const results = lintDocument(doc)
+    const { document: doc, path: resolvedSpecPath } = loadSpecWithPath(str(args, 'spec'))
+    const results = lintDocument(doc, { basePath: resolvedSpecPath })
 
     for (const r of results) {
       const icon = r.severity === 'error' ? '❌' : r.severity === 'warning' ? '⚠️' : 'ℹ️'

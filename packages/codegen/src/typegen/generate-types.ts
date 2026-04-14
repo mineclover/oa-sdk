@@ -12,7 +12,7 @@ import type {
   OasRequestBody,
   OasResponse,
 } from '@oa-sdk/parser'
-import { parseDocument } from '@oa-sdk/parser'
+import { derefSpec, parseDocument } from '@oa-sdk/parser'
 import { schemaToTs } from './schema-to-ts.js'
 import { pascalCase, formatGeneratedTs } from '@oa-sdk/core'
 
@@ -23,6 +23,8 @@ export type TypegenOptions = {
   style?: 'type' | 'interface'
   /** annotations 필드를 JSDoc에 포함 (기본: false) */
   includeAnnotations?: boolean
+  /** OAS 파일 경로. 상대 외부 $ref 타입 생성을 위해 사용 */
+  basePath?: string
 }
 
 /** ParsedDocument IR 기반 (deref 후). $ref가 해결된 상태. */
@@ -123,7 +125,11 @@ export function generateTypes(doc: { schemas: Record<string, OasSchema>; operati
  */
 export function generateTypesFromSpec(spec: OasDocument, options: TypegenOptions = {}): string {
   const doc = parseDocument(spec, []) // deref 없이 파싱
-  return generateTypes(doc, options)
+  const externalSchemas = options.basePath ? collectExternalSchemas(spec, options.basePath) : {}
+  return generateTypes({
+    ...doc,
+    schemas: { ...externalSchemas, ...doc.schemas },
+  }, options)
 }
 
 // ─── 헬퍼 ──────────────────────────────────────────────────────────────────
@@ -196,4 +202,45 @@ function responseHeadersToTs(responses: Record<string, OasResponse>): string | n
     })
   if (entries.length === 0) return null
   return `{\n${entries.join('\n')}\n}`
+}
+
+function collectExternalSchemas(spec: OasDocument, basePath: string): Record<string, OasSchema> {
+  const refs = new Set<string>()
+  collectExternalRefs(spec, refs)
+
+  const schemas: Record<string, OasSchema> = {}
+  for (const ref of refs) {
+    const name = schemaNameFromRef(ref)
+    if (!name || schemas[name] || spec.components?.schemas?.[name]) continue
+
+    const resolved = derefSpec({ $ref: ref }, { basePath }) as unknown
+    if (isSchemaObject(resolved)) schemas[name] = resolved as OasSchema
+  }
+
+  return schemas
+}
+
+function collectExternalRefs(node: unknown, refs: Set<string>): void {
+  if (!node || typeof node !== 'object') return
+  if (Array.isArray(node)) {
+    for (const item of node) collectExternalRefs(item, refs)
+    return
+  }
+
+  const obj = node as Record<string, unknown>
+  if (typeof obj['$ref'] === 'string') {
+    const ref = obj['$ref']
+    if ((ref.startsWith('./') || ref.startsWith('../')) && ref.includes('#/')) refs.add(ref)
+    return
+  }
+
+  for (const value of Object.values(obj)) collectExternalRefs(value, refs)
+}
+
+function schemaNameFromRef(ref: string): string | undefined {
+  return ref.split('/').pop()
+}
+
+function isSchemaObject(value: unknown): boolean {
+  return !!value && typeof value === 'object' && !Array.isArray(value) && !('$ref' in value)
 }
