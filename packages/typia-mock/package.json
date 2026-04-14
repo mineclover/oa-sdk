@@ -1,0 +1,38 @@
+{
+  "name": "@oa-sdk/typia-mock",
+  "version": "0.1.0",
+  "description": "Mock validation server for LLM function calls using typia's ILlmApplication pipeline",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@oa-sdk/core": "workspace:*",
+    "@oa-sdk/parser": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "tsup": "^8.0.0",
+    "typescript": "^5.6.0",
+    "vitest": "^2.0.0"
+  },
+  "peerDependencies": {
+    "typia": ">=7.0.0"
+  },
+  "peerDependenciesMeta": {
+    "typia": {
+      "optional": true
+    }
+  }
+}

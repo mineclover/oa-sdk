@@ -78,17 +78,19 @@ export function generateRouter(spec: OasDocument | ParsedDocument, options: Rout
 
     if (target === 'hono') {
       lines.push(`app.${method}('${path}', async (c) => {`)
+      lines.push(`  try {`)
     } else {
       lines.push(`router.${method}('${path}', async (req, res) => {`)
+      lines.push(`  try {`)
     }
 
     // path params
     const pathParams = op.parameters.filter(p => p.in === 'path')
     if (pathParams.length > 0 && typesImport) {
       if (target === 'hono') {
-        lines.push(`  const params = c.req.param() as unknown as ${baseName}PathParams`)
+        lines.push(`    const params = c.req.param() as unknown as ${baseName}PathParams`)
       } else {
-        lines.push(`  const params = req.params as unknown as ${baseName}PathParams`)
+        lines.push(`    const params = req.params as unknown as ${baseName}PathParams`)
       }
     }
 
@@ -96,9 +98,9 @@ export function generateRouter(spec: OasDocument | ParsedDocument, options: Rout
     const queryParams = op.parameters.filter(p => p.in === 'query')
     if (queryParams.length > 0 && typesImport) {
       if (target === 'hono') {
-        lines.push(`  const query = c.req.query() as unknown as ${baseName}QueryParams`)
+        lines.push(`    const query = c.req.query() as unknown as ${baseName}QueryParams`)
       } else {
-        lines.push(`  const query = req.query as unknown as ${baseName}QueryParams`)
+        lines.push(`    const query = req.query as unknown as ${baseName}QueryParams`)
       }
     }
 
@@ -106,29 +108,39 @@ export function generateRouter(spec: OasDocument | ParsedDocument, options: Rout
     if (op.requestBody) {
       const contentTypes = op.requestBody.content ? Object.keys(op.requestBody.content) : []
       const bodyParseLine = buildBodyParseLine(target, contentTypes, baseName, !!typesImport)
-      lines.push(bodyParseLine)
+      lines.push(`  ${bodyParseLine}`)
     }
 
     // response stub
     const status = pickDefaultStatus(op.responses)
-    lines.push(`  // TODO: implement ${op.operationId}`)
+    lines.push(`    // TODO: implement ${op.operationId}`)
     if (target === 'hono') {
       if (status === 204) {
-        lines.push(`  return c.body(null, 204)`)
+        lines.push(`    return c.body(null, 204)`)
       } else if (typesImport) {
-        lines.push(`  return c.json({} as ${baseName}Response, ${status})`)
+        lines.push(`    return c.json({} as ${baseName}Response, ${status})`)
       } else {
-        lines.push(`  return c.json({} as any, ${status}) // ${baseName}Response (headers: ${baseName}ResponseHeaders)`)
+        lines.push(`    return c.json({} as any, ${status}) // ${baseName}Response (headers: ${baseName}ResponseHeaders)`)
       }
     } else {
       if (status === 204) {
-        lines.push(`  return res.status(204).end()`)
+        lines.push(`    return res.status(204).end()`)
       } else if (typesImport) {
-        lines.push(`  return res.status(${status}).json({} as ${baseName}Response)`)
+        lines.push(`    return res.status(${status}).json({} as ${baseName}Response)`)
       } else {
-        lines.push(`  return res.status(${status}).json({}) // ${baseName}Response`)
+        lines.push(`    return res.status(${status}).json({}) // ${baseName}Response`)
       }
     }
+
+    // catch block
+    lines.push(`  } catch (err) {`)
+    lines.push(`    const message = err instanceof Error ? err.message : String(err)`)
+    if (target === 'hono') {
+      lines.push(`    return c.json({ error: { code: 'INTERNAL_ERROR', message, details: [] } }, 500)`)
+    } else {
+      lines.push(`    return res.status(500).json({ error: { code: 'INTERNAL_ERROR', message, details: [] } })`)
+    }
+    lines.push(`  }`)
 
     lines.push('})')
     lines.push('')
@@ -153,24 +165,36 @@ export function generateRouter(spec: OasDocument | ParsedDocument, options: Rout
 
       if (target === 'hono') {
         lines.push(`app.${method}('${path}', async (c) => {`)
+        lines.push(`  try {`)
       } else {
         lines.push(`router.${method}('${path}', async (req, res) => {`)
+        lines.push(`  try {`)
       }
 
       // request body
       if (op.requestBody) {
         const contentTypes = op.requestBody.content ? Object.keys(op.requestBody.content) : []
         const bodyParseLine = buildBodyParseLine(target, contentTypes, baseName, !!typesImport)
-        lines.push(bodyParseLine)
+        lines.push(`  ${bodyParseLine}`)
       }
 
       // response stub
-      lines.push(`  // TODO: implement ${op.operationId} webhook handler`)
+      lines.push(`    // TODO: implement ${op.operationId} webhook handler`)
       if (target === 'hono') {
-        lines.push(`  return c.json({ received: true }, 200)`)
+        lines.push(`    return c.json({ received: true }, 200)`)
       } else {
-        lines.push(`  return res.status(200).json({ received: true })`)
+        lines.push(`    return res.status(200).json({ received: true })`)
       }
+
+      // catch block
+      lines.push(`  } catch (err) {`)
+      lines.push(`    const message = err instanceof Error ? err.message : String(err)`)
+      if (target === 'hono') {
+        lines.push(`    return c.json({ error: { code: 'INTERNAL_ERROR', message, details: [] } }, 500)`)
+      } else {
+        lines.push(`    return res.status(500).json({ error: { code: 'INTERNAL_ERROR', message, details: [] } })`)
+      }
+      lines.push(`  }`)
 
       lines.push('})')
       lines.push('')

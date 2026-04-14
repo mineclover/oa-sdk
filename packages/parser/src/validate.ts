@@ -9,6 +9,7 @@
  */
 
 import { lintDocument, type LintResult } from './lint.js'
+import { validateSchemaObjects } from './schema-validator.js'
 
 export type ValidationLevel = 'error' | 'warning' | 'info'
 
@@ -69,6 +70,9 @@ export function validateDocument(input: string | Record<string, unknown>): Valid
   // Step 4: 자체 린터 실행
   const lintResults = lintDocument(doc)
   results.push(...lintResults)
+
+  // Step 5: JSON Schema 2020-12 메타 검증
+  results.push(...validateSchemaObjects(obj))
 
   return buildResult(results)
 }

@@ -41,7 +41,7 @@ components:
 
 ## OAS 3.2 문법 규칙
 
-### examples — dataValue / serializedValue 사용
+### Example Object examples — dataValue / serializedValue 사용
 
 ```yaml
 # ✅ OAS 3.2 방식
@@ -57,6 +57,21 @@ examples:
   default:
     value:
       id: "..."
+```
+
+### Schema Object examples — JSON Schema 배열 사용
+
+Schema Object의 `examples`는 JSON Schema 2020-12 키워드이므로 배열로 작성합니다.
+`dataValue` / `serializedValue`는 Media Type, Parameter, Response Header 등의 Example Object에서 사용합니다.
+
+```yaml
+components:
+  schemas:
+    User:
+      type: object
+      examples:
+        - id: "123e4567-e89b-12d3-a456-426614174000"
+          name: "예시 이름"
 ```
 
 ### SSE 엔드포인트

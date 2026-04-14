@@ -46,16 +46,103 @@ export function generateClient(spec: OasDocument | ParsedDocument, options: Clie
   lines.push(`}`)
   lines.push('')
 
+  // auth middleware factories (from securitySchemes)
+  for (const [name, scheme] of Object.entries(doc.securitySchemes)) {
+    const fnName = name.toLowerCase().endsWith('auth') ? name : `${name}Auth`
+
+    if (scheme.type === 'http' && scheme.scheme === 'bearer') {
+      lines.push(`/** Auth middleware — ${name} (http/bearer) */`)
+      lines.push(`export function ${fnName}(token: string): ClientMiddleware {`)
+      lines.push(`  return {`)
+      lines.push(`    onRequest: (_url, init) => {`)
+      lines.push(`      const headers = new Headers(init.headers)`)
+      lines.push(`      headers.set('Authorization', \`Bearer \${token}\`)`)
+      lines.push(`      return { ...init, headers }`)
+      lines.push(`    }`)
+      lines.push(`  }`)
+      lines.push(`}`)
+      lines.push('')
+    } else if (scheme.type === 'http' && scheme.scheme === 'basic') {
+      lines.push(`/** Auth middleware — ${name} (http/basic) */`)
+      lines.push(`export function ${fnName}(username: string, password: string): ClientMiddleware {`)
+      lines.push(`  return {`)
+      lines.push(`    onRequest: (_url, init) => {`)
+      lines.push(`      const headers = new Headers(init.headers)`)
+      lines.push(`      headers.set('Authorization', \`Basic \${btoa(\`\${username}:\${password}\`)}\`)`)
+      lines.push(`      return { ...init, headers }`)
+      lines.push(`    }`)
+      lines.push(`  }`)
+      lines.push(`}`)
+      lines.push('')
+    } else if (scheme.type === 'apiKey' && scheme.name) {
+      if (scheme.in === 'header') {
+        lines.push(`/** Auth middleware — ${name} (apiKey in header) */`)
+        lines.push(`export function ${fnName}(key: string): ClientMiddleware {`)
+        lines.push(`  return {`)
+        lines.push(`    onRequest: (_url, init) => {`)
+        lines.push(`      const headers = new Headers(init.headers)`)
+        lines.push(`      headers.set('${scheme.name}', key)`)
+        lines.push(`      return { ...init, headers }`)
+        lines.push(`    }`)
+        lines.push(`  }`)
+        lines.push(`}`)
+        lines.push('')
+      } else if (scheme.in === 'cookie') {
+        lines.push(`/** Auth middleware — ${name} (apiKey in cookie) */`)
+        lines.push(`export function ${fnName}(key: string): ClientMiddleware {`)
+        lines.push(`  return {`)
+        lines.push(`    onRequest: (_url, init) => {`)
+        lines.push(`      const headers = new Headers(init.headers)`)
+        lines.push(`      const existing = headers.get('Cookie') ?? ''`)
+        lines.push(`      headers.set('Cookie', existing ? \`\${existing}; ${scheme.name}=\${key}\` : \`${scheme.name}=\${key}\`)`)
+        lines.push(`      return { ...init, headers }`)
+        lines.push(`    }`)
+        lines.push(`  }`)
+        lines.push(`}`)
+        lines.push('')
+      } else if (scheme.in === 'query') {
+        lines.push(`// Auth — ${name} (apiKey in query): pass '${scheme.name}' as a query parameter per-request`)
+        lines.push('')
+      }
+    } else if (scheme.type === 'oauth2' || scheme.type === 'openIdConnect') {
+      lines.push(`/** Auth middleware — ${name} (${scheme.type}) */`)
+      lines.push(`export function ${fnName}(token: string): ClientMiddleware {`)
+      lines.push(`  return {`)
+      lines.push(`    onRequest: (_url, init) => {`)
+      lines.push(`      const headers = new Headers(init.headers)`)
+      lines.push(`      headers.set('Authorization', \`Bearer \${token}\`)`)
+      lines.push(`      return { ...init, headers }`)
+      lines.push(`    }`)
+      lines.push(`  }`)
+      lines.push(`}`)
+      lines.push('')
+    }
+  }
+
   // base URL helper
   const defaultServer = doc.servers[0] ? resolveServerUrl(doc.servers[0]) : ''
-  lines.push(`export type ClientConfig = { baseUrl?: string; headers?: Record<string, string>; middleware?: ClientMiddleware[] }`)
+  lines.push(`export type ClientConfig = { baseUrl?: string; headers?: Record<string, string>; middleware?: ClientMiddleware[]; timeout?: number; retry?: { maxRetries?: number; baseDelay?: number }; validate?: boolean }`)
   lines.push('')
   lines.push(`export function createClient(config: ClientConfig = {}) {`)
   lines.push(`  const baseUrl = config.baseUrl ?? '${defaultServer}'`)
   lines.push(`  const defaultHeaders = config.headers ?? {}`)
   lines.push('')
 
-  // fetch helper
+  // retry helper
+  lines.push(`  const maxRetries = config.retry?.maxRetries ?? 0`)
+  lines.push(`  const baseDelay = config.retry?.baseDelay ?? 1000`)
+  lines.push(`  const timeoutMs = config.timeout`)
+  lines.push('')
+  lines.push(`  function parseRetryAfter(value: string): number {`)
+  lines.push(`    const seconds = Number(value)`)
+  lines.push(`    if (!isNaN(seconds)) return seconds * 1000`)
+  lines.push(`    const date = Date.parse(value)`)
+  lines.push(`    if (!isNaN(date)) return Math.max(0, date - Date.now())`)
+  lines.push(`    return 1000`)
+  lines.push(`  }`)
+  lines.push('')
+
+  // fetch helper with retry + timeout
   lines.push(`  async function request<T>(method: string, path: string, options?: { body?: unknown; query?: Record<string, unknown>; headers?: Record<string, string> }): Promise<T> {`)
   lines.push(`    const url = new URL(path, baseUrl)`)
   lines.push(`    if (options?.query) {`)
@@ -71,19 +158,41 @@ export function generateClient(spec: OasDocument | ParsedDocument, options: Clie
   lines.push(`    for (const mw of config.middleware ?? []) {`)
   lines.push(`      if (mw.onRequest) init = await mw.onRequest(url.toString(), init)`)
   lines.push(`    }`)
-  lines.push(`    let res = await fetch(url.toString(), init)`)
-  lines.push(`    for (const mw of config.middleware ?? []) {`)
-  lines.push(`      if (mw.onResponse) res = await mw.onResponse(res)`)
-  lines.push(`    }`)
-  lines.push(`    if (!res.ok) {`)
-  lines.push(`      const err = new Error(\`\${res.status} \${res.statusText}\`)`)
-  lines.push(`      for (const mw of config.middleware ?? []) {`)
-  lines.push(`        if (mw.onError) mw.onError(err)`)
+  lines.push(`    let lastError: Error | undefined`)
+  lines.push(`    for (let attempt = 0; attempt <= maxRetries; attempt++) {`)
+  lines.push(`      try {`)
+  lines.push(`        const controller = timeoutMs ? new AbortController() : undefined`)
+  lines.push(`        const timer = controller ? setTimeout(() => controller.abort(), timeoutMs) : undefined`)
+  lines.push(`        const fetchInit = controller ? { ...init, signal: controller.signal } : init`)
+  lines.push(`        let res = await fetch(url.toString(), fetchInit)`)
+  lines.push(`        if (timer) clearTimeout(timer)`)
+  lines.push(`        for (const mw of config.middleware ?? []) {`)
+  lines.push(`          if (mw.onResponse) res = await mw.onResponse(res)`)
+  lines.push(`        }`)
+  lines.push(`        if (!res.ok) {`)
+  lines.push(`          if (res.status >= 500 && attempt < maxRetries) {`)
+  lines.push(`            const retryAfter = res.headers.get('Retry-After')`)
+  lines.push(`            const delay = retryAfter ? parseRetryAfter(retryAfter) : baseDelay * 2 ** attempt`)
+  lines.push(`            await new Promise(r => setTimeout(r, delay))`)
+  lines.push(`            continue`)
+  lines.push(`          }`)
+  lines.push(`          const err = new Error(\`\${res.status} \${res.statusText}\`)`)
+  lines.push(`          for (const mw of config.middleware ?? []) {`)
+  lines.push(`            if (mw.onError) mw.onError(err)`)
+  lines.push(`          }`)
+  lines.push(`          throw err`)
+  lines.push(`        }`)
+  lines.push(`        if (res.status === 204) return undefined as T`)
+  lines.push(`        return res.json() as Promise<T>`)
+  lines.push(`      } catch (err) {`)
+  lines.push(`        lastError = err instanceof Error ? err : new Error(String(err))`)
+  lines.push(`        if (attempt < maxRetries) {`)
+  lines.push(`          await new Promise(r => setTimeout(r, baseDelay * 2 ** attempt))`)
+  lines.push(`          continue`)
+  lines.push(`        }`)
   lines.push(`      }`)
-  lines.push(`      throw err`)
   lines.push(`    }`)
-  lines.push(`    if (res.status === 204) return undefined as T`)
-  lines.push(`    return res.json() as Promise<T>`)
+  lines.push(`    throw lastError ?? new Error('Request failed')`)
   lines.push(`  }`)
   lines.push('')
 
@@ -107,7 +216,11 @@ export function generateClient(spec: OasDocument | ParsedDocument, options: Clie
     lines.push(`    for (const mw of config.middleware ?? []) {`)
     lines.push(`      if (mw.onRequest) init = await mw.onRequest(url.toString(), init)`)
     lines.push(`    }`)
-    lines.push(`    let res = await fetch(url.toString(), init)`)
+    lines.push(`    const controller = timeoutMs ? new AbortController() : undefined`)
+    lines.push(`    const timer = controller ? setTimeout(() => controller.abort(), timeoutMs) : undefined`)
+    lines.push(`    const fetchInit = controller ? { ...init, signal: controller.signal } : init`)
+    lines.push(`    let res = await fetch(url.toString(), fetchInit)`)
+    lines.push(`    if (timer) clearTimeout(timer)`)
     lines.push(`    for (const mw of config.middleware ?? []) {`)
     lines.push(`      if (mw.onResponse) res = await mw.onResponse(res)`)
     lines.push(`    }`)
@@ -154,7 +267,11 @@ export function generateClient(spec: OasDocument | ParsedDocument, options: Clie
     lines.push(`    for (const mw of config.middleware ?? []) {`)
     lines.push(`      if (mw.onRequest) init = await mw.onRequest(url.toString(), init)`)
     lines.push(`    }`)
-    lines.push(`    let res = await fetch(url.toString(), init)`)
+    lines.push(`    const controller = timeoutMs ? new AbortController() : undefined`)
+    lines.push(`    const timer = controller ? setTimeout(() => controller.abort(), timeoutMs) : undefined`)
+    lines.push(`    const fetchInit = controller ? { ...init, signal: controller.signal } : init`)
+    lines.push(`    let res = await fetch(url.toString(), fetchInit)`)
+    lines.push(`    if (timer) clearTimeout(timer)`)
     lines.push(`    for (const mw of config.middleware ?? []) {`)
     lines.push(`      if (mw.onResponse) res = await mw.onResponse(res)`)
     lines.push(`    }`)
@@ -225,14 +342,38 @@ export function generateClient(spec: OasDocument | ParsedDocument, options: Clie
       pathExpr = `'${op.openApiPath}'`
     }
 
+    // validation block (path params + required body)
+    const bodyRequired = hasBody && (op.requestBody as Record<string, unknown>)?.required === true
+    const needsValidation = pathParams.length > 0 || bodyRequired
+
     if (streamFormat) {
       const helperName = streamFormat === 'sse' ? 'streamSse' : 'streamNdjson'
       lines.push(`    async *${op.operationId}(${params.join(', ')}): ${returnType} {`)
+      if (needsValidation) {
+        lines.push(`      if (config.validate) {`)
+        for (const p of pathParams) {
+          lines.push(`        if (params.${p.name} === undefined) throw new Error('Missing required path parameter: ${p.name}')`)
+        }
+        if (bodyRequired) {
+          lines.push(`        if (body === undefined) throw new Error('Missing required request body')`)
+        }
+        lines.push(`      }`)
+      }
       const streamOpts = queryParams.length > 0 ? `, { query: query as Record<string, unknown> }` : ''
       lines.push(`      yield* ${helperName}('${method}', ${pathExpr}${streamOpts})`)
       lines.push(`    },`)
     } else {
       lines.push(`    async ${op.operationId}(${params.join(', ')}): ${returnType} {`)
+      if (needsValidation) {
+        lines.push(`      if (config.validate) {`)
+        for (const p of pathParams) {
+          lines.push(`        if (params.${p.name} === undefined) throw new Error('Missing required path parameter: ${p.name}')`)
+        }
+        if (bodyRequired) {
+          lines.push(`        if (body === undefined) throw new Error('Missing required request body')`)
+        }
+        lines.push(`      }`)
+      }
       const fetchOpts: string[] = []
       if (hasBody) fetchOpts.push('body')
       if (queryParams.length > 0) fetchOpts.push('query: query as Record<string, unknown>')
@@ -261,7 +402,8 @@ export function generateClient(spec: OasDocument | ParsedDocument, options: Clie
 
       // Extract request body schema properties for the type
       const bodyContent = op.requestBody?.content
-      const jsonMedia = bodyContent?.['application/json']
+      const jsonMediaRaw = bodyContent?.['application/json']
+      const jsonMedia = jsonMediaRaw && !('$ref' in jsonMediaRaw) ? jsonMediaRaw : undefined
       const schema = jsonMedia?.schema as Record<string, unknown> | undefined
 
       if (schema && schema.type === 'object' && schema.properties) {

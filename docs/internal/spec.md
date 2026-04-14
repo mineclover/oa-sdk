@@ -7,12 +7,13 @@
 ## 패키지 구조
 
 ```
-core         ← 공유 유틸 (문자열, 코드젠, 포맷, 응답 상태)
+core         ← 공유 유틸 (문자열, 코드젠, 포맷, 응답 상태, HTTP 서버)
 parser       ← core. OAS 3.2 파서 + IR + fold + lint + validate + query
-codegen      ← core + parser + router + client. CLI 7커맨드
+codegen      ← core + parser (+ router, client: optional peer). CLI 7커맨드
 mock-server  ← core + parser. AJV 검증 + 어댑터 + 테스트 헬퍼
 router       ← core + parser. Hono/Express 스텁
 client       ← core + parser. fetch SDK + SSE
+typia-mock   ← core + parser (+ typia: peer). LLM 함수 호출 검증 서버
 schemas      ← 독립. OAS 소스 + merge + 3.1↔3.2 변환
 ```
 
@@ -43,6 +44,7 @@ schemas      ← 독립. OAS 소스 + merge + 3.1↔3.2 변환
 
 | 기능 | 상세 |
 |------|------|
+| allOf merge | `generateAlgebra`의 allOf — 모든 branch object merge (intersection 정합) |
 | `handleRequest()` | 공통 핸들러 (validateRequest → pickResponse). MSW/Node HTTP 공유 |
 | AJV 검증 | 8 에러코드 + discriminator 네이티브 지원 |
 | Security | bearer/apiKey(header/query/cookie)/oauth2/oidc/mTLS, OR/AND, 빈 security |
@@ -68,8 +70,14 @@ schemas      ← 독립. OAS 소스 + merge + 3.1↔3.2 변환
 | ZodLazy → $ref | 재귀 스키마 지원 (refs 컨텍스트 기반) |
 | Drizzle → Zod → OAS | pgTable/mysqlTable/sqliteTable, select/insert/update |
 | typegen | OAS → TS ($ref 참조, JSDoc, ResponseHeaders, Op 묶음 타입, Error 타입, tsc 검증) |
+| typegen 제약 JSDoc | format/min/max/pattern → `@format`/`@minimum` 등 JSDoc 태그 |
+| typegen readOnly | `readOnly: true` → `readonly` 수식어 |
+| typegen deprecated | `deprecated: true` → `@deprecated` JSDoc |
+| typegen annotations | `annotations` 객체 → `includeAnnotations` 옵션으로 `@note`/`@see` JSDoc |
+| typegen 중복 방지 | schema 이름과 Op 타입 이름 충돌 시 schema 우선, 중복 생성 방지 |
+| typegen const 중첩 | 중첩 프로퍼티의 `const` → 리터럴 타입 정규화 |
 | additionalProperties | `Record<string, T>` + index signature 타입 생성 |
-| CLI | `generate`/`typegen`/`router`/`client`/`lint`/`validate`/`dev`/`--help` |
+| CLI | 커맨드 모듈 구조. `generate`/`typegen`/`router`/`client`/`lint`/`validate`/`dev`/`--help` |
 
 ## `@oa-sdk/router` ✅
 
@@ -82,6 +90,16 @@ Webhook 핸들러 스텁 생성.
 fetch `createClient()` + SSE `async *` generator. `OasDocument | ParsedDocument` 입력. baseUrl from servers.
 NDJSON vs SSE 스트림 분리 + `resolveServerUrl` 서버 변수 해소.
 ClientMiddleware (`onRequest`/`onResponse`/`onError`) 인터셉터. Webhook 페이로드 타입 생성.
+
+## `@oa-sdk/typia-mock` ✅
+
+| 기능 | 상세 |
+|------|------|
+| 검증 파이프라인 | parse → coerce → validate (typia ILlmFunction 위임) |
+| 에러 분류 | 5 TypiaValidationCode (TYPE_ERROR, CONSTRAINT_VIOLATION, FORMAT_MISMATCH, PATTERN_MISMATCH, UNKNOWN) |
+| Mock 생성 | `typiaGenerateAlgebra` — allOf 전체 merge, SchemaAlgebra 공유 |
+| HTTP 서버 | GET /functions, POST /validate/:fn, POST /call/:fn |
+| 함수 레지스트리 | ILlmApplication 함수 목록/조회 |
 
 ## `@oa-sdk/schemas` ✅
 
@@ -149,17 +167,31 @@ pnpm demo  # API 구조 + Mock 12시나리오 + 커버리지
 | Spectral | 3.1 변환 | 0 에러, 1 힌트 |
 | 부하 | 100 동시 요청 | <200ms |
 
+## CI 자동화
+
+| Step | 대상 | 동작 |
+|------|------|------|
+| Build | 7 패키지 + CI 스크립트 | tsup ESM 빌드 |
+| Typecheck | 6 패키지 | tsc --noEmit strict |
+| Test | 7 패키지 + playground | vitest 1487 케이스 |
+| Schema merge + test | schemas | 도메인 병합 + 검증 |
+| Spec lint | merged spec | oa-gen validate |
+| Freshness check | 산출물 | git diff --exit-code |
+| API index | docs ↔ code | export 정합성 검증 |
+| Spec diff (PR) | base ↔ head | endpoint 변경 요약 |
+
 ---
 
 ## 테스트
 
 | 패키지 | 케이스 |
 |--------|--------|
-| parser | 128 |
-| codegen | 218 |
+| core | 51 |
+| parser | 171 |
+| codegen | 454 |
 | mock-server | 553 |
 | playground | 114 |
-| router | 28 |
-| client | 27 |
+| router | 35 |
+| client | 36 |
 | schemas | 73 |
-| **합계** | **1141** |
+| **합계** | **1487** |

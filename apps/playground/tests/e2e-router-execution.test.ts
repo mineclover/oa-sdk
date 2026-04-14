@@ -224,8 +224,8 @@ describe('Content type body parsing', () => {
   })
 
   it('application/json → c.req.json()', () => {
-    // createUser uses application/json
-    expect(routerCode).toContain('c.req.json()')
+    // createUser uses application/json — typed router uses json<Body>()
+    expect(routerCode).toContain('c.req.json')
   })
 })
 

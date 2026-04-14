@@ -104,6 +104,17 @@ export function foldSchema<T>(node: unknown, algebra: SchemaAlgebra<T>): T {
     case 'number':  return algebra.number(schema)
     case 'boolean': return algebra.boolean(schema)
     case 'null':    return algebra.null(schema)
-    default:        return algebra.fallback(node)
+    default: {
+      // type 미지정이지만 properties 존재 → object로 취급
+      if (schema.properties && typeof schema.properties === 'object') {
+        const props = schema.properties as Record<string, SchemaObject>
+        const foldedProps: Record<string, T> = {}
+        for (const [k, v] of Object.entries(props)) {
+          foldedProps[k] = foldSchema(v, algebra)
+        }
+        return algebra.object(schema, foldedProps)
+      }
+      return algebra.fallback(node)
+    }
   }
 }

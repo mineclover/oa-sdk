@@ -21,11 +21,14 @@ export type TypegenOptions = {
   banner?: boolean
   /** export style: 'type' = type alias, 'interface' = interface (기본: 'type') */
   style?: 'type' | 'interface'
+  /** annotations 필드를 JSDoc에 포함 (기본: false) */
+  includeAnnotations?: boolean
 }
 
 /** ParsedDocument IR 기반 (deref 후). $ref가 해결된 상태. */
 export function generateTypes(doc: { schemas: Record<string, OasSchema>; operations: Array<{ operationId?: string; method: string; openApiPath: string; parameters: OasParameter[]; requestBody?: OasRequestBody; responses: Record<string, OasResponse>; summary?: string; description?: string }> }, options: TypegenOptions = {}): string {
-  const { banner = true, style = 'type' } = options
+  const { banner = true, style = 'type', includeAnnotations = false } = options
+  const schemaOpts = { includeAnnotations }
   const lines: string[] = []
 
   if (banner) {
@@ -34,9 +37,12 @@ export function generateTypes(doc: { schemas: Record<string, OasSchema>; operati
     lines.push('')
   }
 
+  // schema 이름 수집 — operation 타입과 중복 방지용
+  const schemaNames = new Set(Object.keys(doc.schemas))
+
   // 1. components/schemas → 타입 선언
   for (const [name, schema] of Object.entries(doc.schemas)) {
-    const tsType = schemaToTs(schema)
+    const tsType = schemaToTs(schema, schemaOpts)
     if (schema.description) lines.push(`/** ${schema.description} */`)
     if (style === 'interface' && tsType.startsWith('{')) {
       lines.push(`export interface ${name} ${tsType}`)
@@ -56,25 +62,25 @@ export function generateTypes(doc: { schemas: Record<string, OasSchema>; operati
     const opComment = opDoc.summary ?? opDoc.description
 
     const pathParams = op.parameters.filter(p => p.in === 'path')
-    if (pathParams.length > 0) {
+    if (pathParams.length > 0 && !schemaNames.has(`${baseName}PathParams`)) {
       lines.push(`export type ${baseName}PathParams = ${paramsToTs(pathParams)}`)
       lines.push('')
     }
 
     const queryParams = op.parameters.filter(p => p.in === 'query')
-    if (queryParams.length > 0) {
+    if (queryParams.length > 0 && !schemaNames.has(`${baseName}QueryParams`)) {
       lines.push(`export type ${baseName}QueryParams = ${paramsToTs(queryParams)}`)
       lines.push('')
     }
 
     const bodyType = op.requestBody ? requestBodyToTs(op.requestBody) : null
-    if (bodyType) {
+    if (bodyType && !schemaNames.has(`${baseName}Body`)) {
       lines.push(`export type ${baseName}Body = ${bodyType}`)
       lines.push('')
     }
 
     const responseType = responseToTs(op.responses)
-    if (responseType) {
+    if (responseType && !schemaNames.has(`${baseName}Response`)) {
       if (opComment) lines.push(`/** ${opComment} */`)
       lines.push(`export type ${baseName}Response = ${responseType}`)
       lines.push('')
@@ -82,14 +88,14 @@ export function generateTypes(doc: { schemas: Record<string, OasSchema>; operati
 
     // Response headers 타입
     const headersType = responseHeadersToTs(op.responses)
-    if (headersType) {
+    if (headersType && !schemaNames.has(`${baseName}ResponseHeaders`)) {
       lines.push(`export type ${baseName}ResponseHeaders = ${headersType}`)
       lines.push('')
     }
 
     // Error response 타입 (4xx/5xx/default)
     const errorType = errorResponseToTs(op.responses)
-    if (errorType) {
+    if (errorType && !schemaNames.has(`${baseName}Error`)) {
       lines.push(`export type ${baseName}Error = ${errorType}`)
       lines.push('')
     }

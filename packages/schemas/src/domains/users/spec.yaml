@@ -219,13 +219,11 @@ components:
           type: string
           format: date-time
       examples:
-        alice:
-          dataValue:
-            id: "00000000-0000-0000-0000-000000000001"
-            email: "alice@example.com"
-            name: "Alice"
-            role: user
-            createdAt: "2024-01-01T00:00:00.000Z"
+        - id: "00000000-0000-0000-0000-000000000001"
+          email: "alice@example.com"
+          name: "Alice"
+          role: user
+          createdAt: "2024-01-01T00:00:00.000Z"
 
     CreateUserRequest:
       type: object

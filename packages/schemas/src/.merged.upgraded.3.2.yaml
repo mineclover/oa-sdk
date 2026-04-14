@@ -278,11 +278,8 @@ components:
               type: string
               format: uuid
       examples:
-        notFound:
-          dataValue:
-            code: NOT_FOUND
-            message: 요청한 리소스를 찾을 수 없습니다
-          serializedValue: '{"code":"NOT_FOUND","message":"요청한 리소스를 찾을 수 없습니다"}'
+        - code: NOT_FOUND
+          message: 요청한 리소스를 찾을 수 없습니다
     ValidationError:
       type: object
       description: 필드 수준 유효성 검사 에러
@@ -322,11 +319,8 @@ components:
           type: string
           format: date-time
       examples:
-        ok:
-          dataValue:
-            status: ok
-            timestamp: 2026-04-04T00:00:00.000Z
-          serializedValue: '{"status":"ok","timestamp":"2026-04-04T00:00:00.000Z"}'
+        - status: ok
+          timestamp: 2026-04-04T00:00:00.000Z
     User:
       type: object
       description: 사용자 정보
@@ -357,13 +351,11 @@ components:
           type: string
           format: date-time
       examples:
-        alice:
-          dataValue:
-            id: 00000000-0000-0000-0000-000000000001
-            email: alice@example.com
-            name: Alice
-            role: user
-            createdAt: 2024-01-01T00:00:00.000Z
+        - id: 00000000-0000-0000-0000-000000000001
+          email: alice@example.com
+          name: Alice
+          role: user
+          createdAt: 2024-01-01T00:00:00.000Z
     CreateUserRequest:
       type: object
       description: 사용자 생성 요청

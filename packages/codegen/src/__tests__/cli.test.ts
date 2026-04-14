@@ -58,9 +58,10 @@ describe('oa-gen CLI', () => {
     expect(output).toContain('Watch mode')
   })
 
-  it('커맨드 없이 실행 → 오류', () => {
-    const stderr = runCliFail('')
-    expect(stderr).toContain('알 수 없는 커맨드')
+  it('커맨드 없이 실행 → help 표시', () => {
+    const stdout = runCli('')
+    expect(stdout).toContain('oa-gen')
+    expect(stdout).toContain('Commands:')
   })
 
   it('존재하지 않는 config → 오류', () => {

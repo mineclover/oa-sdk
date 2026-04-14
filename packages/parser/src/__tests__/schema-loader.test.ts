@@ -135,7 +135,7 @@ describe('matchRoute cache', () => {
         get: { responses: { '200': { description: 'OK' } } },
       }
     }
-    const index = loadSchema(doc({ paths }))
+    const index = loadSchema(doc({ paths } as any))
 
     const start = performance.now()
     for (let i = 0; i < 1000; i++) {

@@ -9,7 +9,8 @@ oa-sdk/
     mock-server/   @oa-sdk/mock-server  AJV Mock 서버 (MSW + Node HTTP) + 테스트 헬퍼
     codegen/       @oa-sdk/codegen      Zod/Drizzle → OAS + typegen + CLI
     router/        @oa-sdk/router       OAS → Hono/Express 라우터 스텁
-    client/        @oa-sdk/client       OAS → fetch 클라이언트 SDK
+    client/        @oa-sdk/client       OAS → fetch 클라이언트 SDK + 인증 + 재시도
+    typia-mock/    @oa-sdk/typia-mock   typia ILlmApplication 검증 서버
   apps/
     playground/    통합 테스트 + 데모
     preview/       @oa-sdk/preview  Vite 프리뷰 웹앱 (SW mock + 코드 생성)
@@ -26,10 +27,11 @@ core (0 의존)
   ↓
 parser ← core
   ↓
-codegen      ← core + parser + router + client
+codegen      ← core + parser (+ router, client: optional peer — CLI 전용)
 mock-server  ← core + parser
 router       ← core + parser
 client       ← core + parser
+typia-mock   ← core + parser (+ typia: peer)
 schemas      ← 독립
 ```
 
@@ -44,6 +46,8 @@ schemas      ← 독립
 | `src/strings.ts` | pascalCase, escapeKey, toColonPath |
 | `src/codegen-utils.ts` | collectTypeNames |
 | `src/format.ts` | formatGeneratedTs (코드 자동 정렬) |
+| `src/response-utils.ts` | pickDefaultStatus |
+| `src/http.ts` | createHttpServer, writeJson, readRaw, readJsonBody, ApiError, ApiErrorDetail |
 
 ### @oa-sdk/parser
 
@@ -88,11 +92,13 @@ schemas      ← 독립
 | 파일 | 역할 |
 |------|------|
 | `src/zod-to-schema.ts` | Zod 4 → OAS Schema |
-| `src/typegen/schema-to-ts.ts` | OAS → TypeScript 타입 |
-| `src/typegen/generate-types.ts` | ParsedDocument → TS 파일 |
+| `src/typegen/schema-to-ts.ts` | OAS → TypeScript 타입 (JSDoc 제약, readonly, deprecated, annotations) |
+| `src/typegen/generate-types.ts` | ParsedDocument → TS 파일 (schema/Op 중복 방지) |
 | `src/drizzle/extractor.ts` | Drizzle 테이블 감지 |
 | `src/drizzle/converter.ts` | Drizzle → Zod 변환 |
-| `src/cli/index.ts` | oa-gen CLI (7개 커맨드: generate/typegen/router/client/lint/validate/dev) |
+| `src/cli/index.ts` | oa-gen CLI 디스패치 (커맨드 모듈 기반) |
+| `src/cli/commands/*.ts` | 7개 커맨드 모듈 (generate/typegen/router/client/lint/validate/dev) |
+| `src/cli/lib/*.ts` | CLI 공유 유틸 (types, args, load-spec, output, help, run, try-import) |
 
 ### @oa-sdk/router
 
@@ -104,4 +110,14 @@ schemas      ← 독립
 
 | 파일 | 역할 |
 |------|------|
-| `src/generate-client.ts` | OAS → fetch createClient() + SSE stream |
+| `src/generate-client.ts` | OAS → fetch createClient() + SSE + 인증 미들웨어 + retry/timeout + validate |
+
+### @oa-sdk/typia-mock
+
+| 파일 | 역할 |
+|------|------|
+| `src/types.ts` | ILlmApplication/ILlmFunction 호환 타입 + ValidationResult |
+| `src/core/validator.ts` | 3단계 파이프라인 (parse → coerce → validate) |
+| `src/core/generate.ts` | typiaGenerateAlgebra + foldSchema 기반 mock 데이터 생성 |
+| `src/core/function-registry.ts` | ILlmApplication 함수 조회 |
+| `src/server/node-http.ts` | HTTP 검증 서버 (GET /functions, POST /validate, POST /call) |

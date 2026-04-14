@@ -17,7 +17,8 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@oa-sdk/core": "workspace:*"
+    "@oa-sdk/core": "workspace:*",
+    "ajv": "^8.17.0"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",

@@ -16,3 +16,7 @@ export { formatGeneratedTs } from './format.js'
 
 // 응답 유틸
 export { pickDefaultStatus } from './response-utils.js'
+
+// HTTP 서버 유틸
+export { createHttpServer, writeJson, readRaw, readJsonBody } from './http.js'
+export type { HttpServerOptions, HttpServerHandle, HttpHandler, ErrorEnvelope, ApiError, ApiErrorDetail } from './http.js'

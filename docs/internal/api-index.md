@@ -23,7 +23,7 @@
 | `types/headers-tags.ts` | §11 | `OasHeader`, `OasTag` |
 | `types/schema.ts` | §12 | `OasSchema`, `OasDiscriminator` |
 | `types/xml.ts` | §13 | `OasXml`, `OasXmlNodeType` |
-| `types/security.ts` | §14 | `OasSecurityScheme`, `OasOAuthFlows`, `OasSecurityRequirement` |
+| `types/security.ts` | §14 | `OasSecuritySchemeType`, `OasSecurityScheme`, `OasOAuthFlows`, `OasOAuthFlow`, `OasSecurityRequirement` |
 
 ---
 
@@ -87,7 +87,7 @@
 | `defineConfig()` | `config.ts` | 타입 안전 config 헬퍼 |
 | `generateTypes()` | `typegen/generate-types.ts` | ParsedDocument → TS 타입 문자열 |
 | `generateTypesFromSpec()` | `typegen/generate-types.ts` | OAS spec → TS 타입 (parseDocument 포함) |
-| `schemaToTs()` | `typegen/schema-to-ts.ts` | 단일 OAS Schema → TS 타입 문자열 |
+| `schemaToTs()` | `typegen/schema-to-ts.ts` | 단일 OAS Schema → TS 타입 문자열 (SchemaToTsOptions 지원) |
 
 ### 타입 (`@oa-sdk/codegen`)
 
@@ -150,7 +150,6 @@
 | `isStreamingContentType()` | `core/stream.ts` | 스트림 content-type 판별 |
 | `generateStreamChunks()` | `core/stream.ts` | 스트리밍 응답 청크 생성 (어댑터 공유) |
 | `StreamOptions` | `core/stream.ts` | 스트림 옵션 타입 |
-| `mergeWebhookRoutes()` | `core/route-filter.ts` | webhooks → RouteIndex 병합 |
 | `filterRouteIndex()` | `core/route-filter.ts` | RouteIndex 필터링 |
 | `RouteFilter` | `core/route-filter.ts` | 필터 조건 타입 |
 | `handleRequest()` | `core/handler.ts` | 공통 요청 검증 + 응답 선택 (어댑터 공유) |
@@ -164,9 +163,10 @@
 | 함수/타입 | 파일 | 용도 |
 |-----------|------|------|
 | `MockErrorCode` | `errors/types.ts` | 에러 코드 유니온 |
-| `MockErrorDetail` | `errors/types.ts` | 에러 상세 타입 |
+| `MockValidationStage` | `errors/types.ts` | 검증 단계 ('parse' \| 'coerce' \| 'validate') |
+| `MockErrorDetail` | `errors/types.ts` | 에러 상세 타입 (path, code, message, received, value, expected, constraint, stage) |
 | `MockValidationResult` | `errors/types.ts` | 검증 결과 타입 |
-| `MockErrorResponse` | `errors/types.ts` | 에러 응답 타입 |
+| `MockErrorResponse` | `errors/types.ts` | 에러 응답 타입 (ApiError 구조 호환) |
 | `classifyAjvErrors()` | `errors/classifier.ts` | AJV 에러 분류 |
 
 ## 테스트 헬퍼 (`@oa-sdk/mock-server`)
@@ -210,6 +210,46 @@
 | `collectTypeNames()` | `codegen-utils.ts` | operations → typegen 타입 이름 수집 (ResponseHeaders 포함) |
 | `formatGeneratedTs()` | `format.ts` | 생성 코드 자동 들여쓰기 |
 | `pickDefaultStatus()` | `response-utils.ts` | OAS responses → 기본 상태 코드 (범위/default 지원) |
+| `createHttpServer()` | `http.ts` | 범용 Node HTTP 서버 생성 (handler → HttpServerHandle) |
+| `writeJson()` | `http.ts` | HTTP 응답 JSON 기록 |
+| `readRaw()` | `http.ts` | HTTP 요청 body raw string 읽기 |
+| `readJsonBody()` | `http.ts` | HTTP 요청 body JSON 파싱 |
+| `HttpServerOptions` | `http.ts` | 서버 옵션 타입 (port, host) |
+| `HttpServerHandle` | `http.ts` | 서버 인스턴스 타입 (start, stop, url) |
+| `HttpHandler` | `http.ts` | 요청 핸들러 타입 |
+| `ErrorEnvelope` | `http.ts` | 에러 응답 공통 래퍼 타입 |
+| `ApiError` | `http.ts` | API 에러 상세 타입 |
+| `ApiErrorDetail` | `http.ts` | 에러 필드 상세 타입 |
+
+---
+
+## 함수 (`@oa-sdk/typia-mock`)
+
+| 함수/타입 | 파일 | 용도 |
+|-----------|------|------|
+| `validateRawArgs()` | `core/validator.ts` | 전체 3단계 파이프라인 (parse→coerce→validate) |
+| `validateParsedArgs()` | `core/validator.ts` | coerce→validate 파이프라인 (파싱 완료 입력) |
+| `generateFromSchema()` | `core/generate.ts` | JSON Schema → 최솟값 생성 (typiaGenerateAlgebra) |
+| `typiaGenerateAlgebra` | `core/generate.ts` | typia 특화 SchemaAlgebra (allOf merge) |
+| `listFunctions()` | `core/function-registry.ts` | ILlmApplication 함수 목록 조회 |
+| `getFunction()` | `core/function-registry.ts` | 이름으로 함수 조회 |
+| `createTypiaMockServer()` | `server/node-http.ts` | typia 검증 목 서버 생성 |
+
+### 타입 (`@oa-sdk/typia-mock`)
+
+| 타입 | 파일 | 용도 |
+|------|------|------|
+| `ILlmFunction` | `types.ts` | typia ILlmFunction 호환 최소 인터페이스 |
+| `ILlmApplication` | `types.ts` | typia ILlmApplication 호환 최소 인터페이스 |
+| `ValidationResult` | `types.ts` | 3단계 검증 결과 (판별 유니온) |
+| `ValidationStage` | `types.ts` | 실패 단계 ('parse' \| 'coerce' \| 'validate') |
+| `TypiaErrorDetail` | `types.ts` | 검증 에러 상세 (path, expected, value — typia 원문) |
+| `TypiaErrorCode` | `types.ts` | HTTP 에러 코드 (PARSE_ERROR 등) |
+| `TypiaErrorResponse` | `types.ts` | ApiError\<TypiaErrorCode\> (공통 에러 envelope) |
+| `TypiaSuccessResponse` | `types.ts` | HTTP 성공 응답 타입 |
+| `FunctionInfo` | `types.ts` | GET /functions 응답용 함수 정보 |
+| `TypiaMockServer` | `types.ts` | 서버 인스턴스 타입 (start, stop, url) |
+| `TypiaMockServerOptions` | `types.ts` | 서버 옵션 (port, host) |
 
 ---
 
@@ -229,4 +269,9 @@
 | OAS → TS 타입 | `schemaToTs()` / `generateTypes()` | 별도 TS 생성기 만들지 말 것 |
 | 라우터 스텁 | `generateRouter()` | 별도 코드젠 만들지 말 것 |
 | 클라이언트 SDK | `generateClient()` | 별도 fetch 래퍼 만들지 말 것 |
+| HTTP 서버 생성 | `createHttpServer()` from core | 직접 http.createServer 하지 말 것 |
+| HTTP 응답 기록 | `writeJson()` from core | 직접 res.end(JSON.stringify) 하지 말 것 |
+| 에러 응답 타입 | `ApiError<Code>` from core | 패키지별 에러 envelope 재정의 금지 |
+| typia LLM 검증 | `@oa-sdk/typia-mock` | 별도 typia 검증 서버 만들지 말 것 |
+| mock 데이터 생성 | `foldSchema()` + algebra | 직접 JSON Schema 재귀 순회 금지 |
 | pascalCase 변환 | 공유 필요 (현재 중복 가능성 있음) | 패키지별 별도 정의 금지 |

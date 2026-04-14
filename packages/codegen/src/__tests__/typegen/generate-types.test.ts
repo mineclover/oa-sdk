@@ -385,3 +385,96 @@ describe('generateTypes — Response headers', () => {
     expect(ts).toContain('responseHeaders: ListUsersResponseHeaders')
   })
 })
+
+describe('generateTypes — schema/operation 이름 충돌 방지', () => {
+  it('스키마 이름이 Op Body 이름과 충돌하면 중복 생성 안 함', () => {
+    const parsed = parseDocument(doc({
+      paths: {
+        '/users': {
+          post: {
+            operationId: 'createUser',
+            requestBody: {
+              content: {
+                'application/json': {
+                  schema: { $ref: '#/components/schemas/CreateUserBody' },
+                },
+              },
+            },
+            responses: { '201': { description: 'Created' } },
+          },
+        },
+      },
+      components: {
+        schemas: {
+          CreateUserBody: {
+            type: 'object',
+            required: ['name'],
+            properties: { name: { type: 'string' } },
+          },
+        },
+      },
+    }))
+    const ts = generateTypes(parsed)
+    // CreateUserBody는 schema에서 1번만 정의
+    const matches = ts.match(/export type CreateUserBody/g)
+    expect(matches).toHaveLength(1)
+    // 자기참조 없음
+    expect(ts).not.toContain('export type CreateUserBody = CreateUserBody')
+  })
+
+  it('스키마 이름이 Op Response 이름과 충돌하면 중복 생성 안 함', () => {
+    const parsed = parseDocument(doc({
+      paths: {
+        '/users': {
+          get: {
+            operationId: 'listUsers',
+            responses: {
+              '200': {
+                description: 'OK',
+                content: {
+                  'application/json': {
+                    schema: { $ref: '#/components/schemas/ListUsersResponse' },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      components: {
+        schemas: {
+          ListUsersResponse: {
+            type: 'array',
+            items: { type: 'object', properties: { id: { type: 'string' } } },
+          },
+        },
+      },
+    }))
+    const ts = generateTypes(parsed)
+    const matches = ts.match(/export type ListUsersResponse/g)
+    expect(matches).toHaveLength(1)
+  })
+
+  it('충돌 없는 경우 정상 생성', () => {
+    const parsed = parseDocument(doc({
+      paths: {
+        '/users': {
+          post: {
+            operationId: 'createUser',
+            requestBody: {
+              content: {
+                'application/json': {
+                  schema: { type: 'object', properties: { name: { type: 'string' } } },
+                },
+              },
+            },
+            responses: { '201': { description: 'Created' } },
+          },
+        },
+      },
+    }))
+    const ts = generateTypes(parsed)
+    expect(ts).toContain('export type CreateUserBody =')
+    expect(ts).toContain('export type CreateUserOp =')
+  })
+})

@@ -9,12 +9,12 @@
   },
   "packageManager": "pnpm@9.15.0",
   "scripts": {
-    "build": "pnpm --filter @oa-sdk/parser build && pnpm --filter @oa-sdk/codegen build && pnpm --filter @oa-sdk/mock-server build",
+    "build": "pnpm --filter @oa-sdk/parser build && pnpm --filter @oa-sdk/codegen build && pnpm --filter @oa-sdk/mock-server build && pnpm --filter @oa-sdk/typia-mock build",
     "build:all": "turbo run build",
     "dev": "turbo run dev --parallel",
-    "test": "pnpm --filter @oa-sdk/parser test && pnpm --filter @oa-sdk/codegen test && pnpm --filter @oa-sdk/mock-server test && pnpm --filter playground test",
+    "test": "pnpm --filter @oa-sdk/core test && pnpm --filter @oa-sdk/parser test && pnpm --filter @oa-sdk/router test && pnpm --filter @oa-sdk/client test && pnpm --filter @oa-sdk/codegen test && pnpm --filter @oa-sdk/mock-server test && pnpm --filter @oa-sdk/typia-mock test && pnpm --filter playground test",
     "test:all": "turbo run test",
-    "typecheck": "pnpm --filter @oa-sdk/parser typecheck && pnpm --filter @oa-sdk/codegen typecheck && pnpm --filter @oa-sdk/mock-server typecheck",
+    "typecheck": "pnpm --filter @oa-sdk/parser typecheck && pnpm --filter @oa-sdk/codegen typecheck && pnpm --filter @oa-sdk/mock-server typecheck && pnpm --filter @oa-sdk/typia-mock typecheck",
     "typecheck:all": "turbo run typecheck",
     "clean": "turbo run clean && rm -rf node_modules",
     "changeset": "changeset",
@@ -25,13 +25,20 @@
     "schema:preview": "pnpm --filter @oa-sdk/schemas run preview",
     "mock:start": "pnpm --filter @oa-sdk/mock-server run start",
     "mock:dev": "pnpm --filter @oa-sdk/mock-server run dev",
-    "demo": "pnpm --filter playground run demo"
+    "demo": "pnpm --filter playground run demo",
+    "build:scripts": "tsup scripts/spec-diff.ts scripts/check-api-index.ts --format esm --outDir scripts/dist --clean --platform node --external execa --external yaml",
+    "check:api-index": "node scripts/dist/check-api-index.mjs",
+    "spec:diff": "node scripts/dist/spec-diff.mjs"
   },
   "devDependencies": {
     "@changesets/cli": "^2.27.0",
     "@redocly/cli": "^1.34.0",
     "@stoplight/spectral-cli": "^6.14.0",
+    "execa": "^9.6.1",
+    "tsup": "^8.0.0",
+    "tsx": "^4.0.0",
     "turbo": "^2.3.0",
-    "typescript": "^5.6.0"
+    "typescript": "^5.6.0",
+    "yaml": "^2.8.3"
   }
 }

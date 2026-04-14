@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { parseDocument } from '../parse.js'
-import { findOperation, findByTag, findByPath, getSchema, groupByTag, describeApi } from '../query.js'
-import type { OasDocument } from '../oas32-types.js'
+import { findOperation, findByTag, findByPath, getSchema, getTag, groupByTag, describeApi, resolveServerUrl } from '../query.js'
+import type { OasDocument, OasServer } from '../oas32-types.js'
 
 const spec: OasDocument = {
   openapi: '3.2.0',
@@ -97,5 +97,111 @@ describe('describeApi', () => {
     expect(summary).toContain('(deprecated)')
     expect(summary).toContain('스키마: 2개')
     expect(summary).toContain('오퍼레이션: 4개')
+  })
+})
+
+// ── getTag ───────────────────────────────────────────────────
+
+describe('getTag', () => {
+  it('존재하는 태그 조회', () => {
+    const tag = getTag(doc, 'users')
+    expect(tag).toBeDefined()
+    expect(tag?.description).toBe('사용자 관리')
+  })
+
+  it('없는 태그 → undefined', () => {
+    expect(getTag(doc, 'nonexistent')).toBeUndefined()
+  })
+})
+
+// ── resolveServerUrl ────────────────────────────────────────
+
+describe('resolveServerUrl', () => {
+  it('변수 없는 URL → 그대로 반환', () => {
+    const server: OasServer = { url: 'https://api.example.com' }
+    expect(resolveServerUrl(server)).toBe('https://api.example.com')
+  })
+
+  it('변수 default로 치환', () => {
+    const server: OasServer = {
+      url: 'https://{env}.api.com/v{version}',
+      variables: {
+        env: { default: 'prod' },
+        version: { default: '2' },
+      },
+    }
+    expect(resolveServerUrl(server)).toBe('https://prod.api.com/v2')
+  })
+
+  it('overrides로 변수 오버라이드', () => {
+    const server: OasServer = {
+      url: 'https://{env}.api.com',
+      variables: { env: { default: 'prod' } },
+    }
+    expect(resolveServerUrl(server, { env: 'staging' })).toBe('https://staging.api.com')
+  })
+
+  it('일부 변수만 오버라이드 (나머지 default)', () => {
+    const server: OasServer = {
+      url: 'https://{env}.api.com:{port}',
+      variables: {
+        env: { default: 'prod' },
+        port: { default: '443' },
+      },
+    }
+    expect(resolveServerUrl(server, { env: 'dev' })).toBe('https://dev.api.com:443')
+  })
+
+  it('동일 변수 여러 번 사용', () => {
+    const server: OasServer = {
+      url: 'https://{host}/{host}/api',
+      variables: { host: { default: 'example.com' } },
+    }
+    expect(resolveServerUrl(server)).toBe('https://example.com/example.com/api')
+  })
+})
+
+// ── groupByTag 엣지케이스 ───────────────────────────────────
+
+describe('groupByTag — 엣지케이스', () => {
+  it('태그 없는 operation → "untagged" 그룹', () => {
+    const specWithUntagged = {
+      openapi: '3.2.0',
+      info: { title: 'T', version: '1' },
+      paths: {
+        '/health': {
+          get: { operationId: 'health', responses: { '200': { description: 'OK' } } },
+        },
+      },
+    } as OasDocument
+    const parsed = parseDocument(specWithUntagged)
+    const groups = groupByTag(parsed)
+    expect(groups.get('untagged')).toHaveLength(1)
+    expect(groups.get('untagged')![0]!.operationId).toBe('health')
+  })
+})
+
+// ── describeApi 태그 계층 ───────────────────────────────────
+
+describe('describeApi — 태그 계층', () => {
+  it('parent/kind가 있는 태그 → 계층 렌더링', () => {
+    const hierarchSpec = {
+      openapi: '3.2.0',
+      info: { title: 'Hierarchy', version: '1' },
+      tags: [
+        { name: 'api', description: 'API 루트', kind: 'group' },
+        { name: 'users', description: '사용자', parent: 'api' },
+      ],
+      paths: {
+        '/users': {
+          get: { operationId: 'listUsers', tags: ['users'], summary: '목록', responses: { '200': { description: 'OK' } } },
+        },
+      },
+    } as OasDocument
+    const summary = describeApi(parseDocument(hierarchSpec))
+    expect(summary).toContain('[api]')
+    expect(summary).toContain('[group]')
+    expect(summary).toContain('[users]')
+    expect(summary).toContain('GET /users')
   })
 })

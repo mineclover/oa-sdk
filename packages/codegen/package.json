@@ -29,14 +29,13 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@oa-sdk/client": "workspace:*",
     "@oa-sdk/core": "workspace:*",
     "@oa-sdk/parser": "workspace:*",
-    "@oa-sdk/router": "workspace:*",
     "yaml": "^2.5.0",
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@oa-sdk/mock-server": "workspace:^",
     "@oa-sdk/schemas": "workspace:*",
     "@types/node": "^20.0.0",
     "drizzle-orm": "1.0.0-beta.20",
@@ -45,10 +44,18 @@
     "vitest": "^2.0.0"
   },
   "peerDependencies": {
+    "@oa-sdk/client": "workspace:*",
+    "@oa-sdk/router": "workspace:*",
     "drizzle-orm": ">=1.0.0-beta.20",
     "zod": ">=4.0.0"
   },
   "peerDependenciesMeta": {
+    "@oa-sdk/router": {
+      "optional": true
+    },
+    "@oa-sdk/client": {
+      "optional": true
+    },
     "drizzle-orm": {
       "optional": true
     }

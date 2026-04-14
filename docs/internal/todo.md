@@ -6,12 +6,31 @@
 
 ## 우선 (런타임 연결 확장)
 
+### [x] parser: Schema Object 메타 검증 추가
+`validateDocument()`에서 OpenAPI 문서 내 Schema Object를 수집하고 JSON Schema 2020-12 메타스키마로 검증.
+잘못된 `type`, `minimum`, `items` 등 스키마 키워드 자체의 정합성을 `schema/meta-valid` 에러로 보고.
+
+### [x] mock-server: AJV schema compile 실패를 검증 에러로 노출
+요청 body/parameter 검증 시 미해결 `$ref` 또는 잘못된 Schema Object가 있으면 검증을 건너뛰지 않고
+`SCHEMA_COMPILE_ERROR`로 반환.
+
+### [ ] parser: 손실 없는 $ref 정규화
+JSON Schema 2020-12 기준으로 `$ref` sibling keyword 보존, 외부 YAML/JSON ref 해소, cycle diagnostic,
+source pointer 추적을 포함하는 resolver로 확장.
+
+### [ ] schemas: schema:validate와 oa-gen validate 검증 범위 통합
+로컬 `pnpm schema:validate`와 CI `oa-gen validate`가 같은 canonical pipeline을 타도록 정리.
+
 ### [x] codegen: operation 묶음 타입 생성
 `typegen/generate-types.ts`에서 Operation 묶음 타입 생성 완료.
 `type XxxOp = { method, path, params, query, body, response, headers }`.
 
 ### [x] mock-server: Server variables 적용
 `resolveServerUrl()` client에서 연결 완료. 서버 변수 해소로 동적 baseUrl 지원.
+
+### [ ] codegen: TypegenOptions/SchemaToTsOptions 공개 API 정리
+`TypegenOptions`는 `codegen/typegen` 서브 엔트리에만 export. `SchemaToTsOptions`는 미노출.
+메인 index에서도 export할지, 서브 엔트리로 충분한지 결정 후 api-index 반영.
 
 ### [ ] router/client: ResponseHeaders 활용
 typegen `XxxResponseHeaders` 생성됨. router에서 `c.header()` 자동 삽입,
@@ -71,5 +90,11 @@ client에서 `res.headers` 타입 안전 접근.
 - [x] 테스트 픽스처 공유 (specs.ts)
 - [x] schemas 스크립트 테스트 (merge/downgrade/upgrade)
 - [x] 1141 테스트 (parser 128, codegen 218, mock-server 553, playground 114, router 28, client 27, schemas 73)
+- [x] CI 자동화 (GitHub Actions: build/typecheck/test/validate/freshness/spec-diff/api-index)
+- [x] CLI 커맨드 모듈 분리 (commands/*.ts + lib/ 공유 유틸)
+- [x] typegen 개선 (제약→JSDoc, readOnly→readonly, deprecated→@deprecated, annotations 옵션, const 중첩 수정, schema/Op 중복 방지)
+- [x] mock-server allOf merge 수정 (branches[0] → 전체 merge)
+- [x] schema annotations 컨벤션 ($comment + annotations 객체)
+- [x] 1487 테스트 (core 51, parser 171, codegen 454, mock-server 553, playground 114, router 35, client 36, schemas 73)
 
 </details>

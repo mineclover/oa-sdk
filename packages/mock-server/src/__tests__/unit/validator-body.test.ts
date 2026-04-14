@@ -149,24 +149,39 @@ describe('request body 스키마 검증', () => {
   })
 })
 
-// ─── $ref 스키마 ──────────────────────────────────────────────────────────────
+// ─── 스키마 컴파일 실패 ────────────────────────────────────────────────────────
 
-describe('미해석 $ref 스키마 — 크래시 없이 통과', () => {
-  it('body schema가 $ref이면 검증 건너뜀 (valid)', () => {
+describe('검증 스키마 컴파일 실패', () => {
+  it('body schema가 미해석 $ref이면 SCHEMA_COMPILE_ERROR', () => {
     const refBody: OasRequestBody = {
       required: true,
       content: { 'application/json': { schema: { $ref: '#/components/schemas/User' } } },
     }
-    // ajv.compile 시 throw → catch → 검증 skip → valid: true
-    expect(
-      validateRequest(parts({ body: { anything: true }, contentType: 'application/json' }), [], refBody).valid,
-    ).toBe(true)
+    const r = validateRequest(parts({ body: { anything: true }, contentType: 'application/json' }), [], refBody)
+    expect(r.valid).toBe(false)
+    if (!r.valid) {
+      expect(r.errors[0]?.code).toBe('SCHEMA_COMPILE_ERROR')
+      expect(r.errors[0]?.path).toBe('/body')
+    }
   })
 
-  it('param schema가 $ref이면 검증 건너뜀 (valid)', () => {
+  it('param schema가 미해석 $ref이면 SCHEMA_COMPILE_ERROR', () => {
     const refParam = { name: 'id', in: 'path' as const, required: true, schema: { $ref: '#/components/schemas/Id' } }
-    expect(
-      validateRequest(parts({ pathParams: { id: 'anything' } }), [refParam], undefined).valid,
-    ).toBe(true)
+    const r = validateRequest(parts({ pathParams: { id: 'anything' } }), [refParam], undefined)
+    expect(r.valid).toBe(false)
+    if (!r.valid) {
+      expect(r.errors[0]?.code).toBe('SCHEMA_COMPILE_ERROR')
+      expect(r.errors[0]?.path).toBe('/path/id')
+    }
+  })
+
+  it('유효하지 않은 schema keyword면 SCHEMA_COMPILE_ERROR', () => {
+    const invalidBody: OasRequestBody = {
+      required: true,
+      content: { 'application/json': { schema: { type: 'strng' as any } } },
+    }
+    const r = validateRequest(parts({ body: 'anything', contentType: 'application/json' }), [], invalidBody)
+    expect(r.valid).toBe(false)
+    if (!r.valid) expect(r.errors[0]?.code).toBe('SCHEMA_COMPILE_ERROR')
   })
 })

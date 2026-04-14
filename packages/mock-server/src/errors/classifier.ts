@@ -20,6 +20,7 @@ function classifyOne(err: ErrorObject): MockErrorDetail {
         message: `타입 불일치: ${err.message ?? ''}`,
         received: describeType(err.data),
         expected: (err.params as { type: string }).type,
+        stage: 'validate',
       }
 
     case 'required': {
@@ -28,6 +29,7 @@ function classifyOne(err: ErrorObject): MockErrorDetail {
         path: path ? `${path}/${missing}` : `/${missing}`,
         code: 'MISSING_REQUIRED_FIELD',
         message: `필수 필드 누락: '${missing}'`,
+        stage: 'validate',
       }
     }
 
@@ -39,6 +41,7 @@ function classifyOne(err: ErrorObject): MockErrorDetail {
         message: `허용되지 않는 값입니다`,
         received: err.data,
         expected: allowed.map(String).join(' | '),
+        stage: 'validate',
       }
     }
 
@@ -50,6 +53,7 @@ function classifyOne(err: ErrorObject): MockErrorDetail {
         message: `형식 불일치: '${fmt}' 형식이어야 합니다`,
         received: err.data,
         expected: fmt,
+        stage: 'validate',
       }
     }
 
@@ -61,6 +65,7 @@ function classifyOne(err: ErrorObject): MockErrorDetail {
         message: `패턴 불일치: /${pattern}/ 을 만족해야 합니다`,
         received: err.data,
         expected: `/${pattern}/`,
+        stage: 'validate',
       }
     }
 
@@ -83,6 +88,7 @@ function classifyOne(err: ErrorObject): MockErrorDetail {
         received: summarizeReceived(err.keyword, err.data),
         expected: describeConstraint(err.keyword, params),
         constraint: params,
+        stage: 'validate',
       }
     }
 
@@ -92,6 +98,7 @@ function classifyOne(err: ErrorObject): MockErrorDetail {
         code: 'CONSTRAINT_VIOLATION',
         message: err.message ?? `검증 실패: ${err.keyword}`,
         received: err.data,
+        stage: 'validate',
       }
   }
 }

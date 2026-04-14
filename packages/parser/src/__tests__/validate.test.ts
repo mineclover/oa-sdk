@@ -86,4 +86,42 @@ describe('validateDocument', () => {
     })
     expect(result.errors.some(e => e.rule === 'refs/valid-ref')).toBe(true)
   })
+
+  it('스키마 메타 검증 — 유효하지 않은 type 값은 에러', () => {
+    const result = validateDocument({
+      openapi: '3.2.0',
+      info: { title: 'T', version: '0' },
+      paths: {
+        '/a': {
+          post: {
+            requestBody: {
+              content: {
+                'application/json': {
+                  schema: { type: 'strng' },
+                },
+              },
+            },
+            responses: { '200': { description: 'OK' } },
+          },
+        },
+      },
+    })
+    expect(result.valid).toBe(false)
+    expect(result.errors.some(e => e.rule === 'schema/meta-valid' && e.path.endsWith('/schema/type'))).toBe(true)
+  })
+
+  it('스키마 메타 검증 — 잘못된 constraint 타입은 에러', () => {
+    const result = validateDocument({
+      openapi: '3.2.0',
+      info: { title: 'T', version: '0' },
+      paths: {},
+      components: {
+        schemas: {
+          Age: { type: 'integer', minimum: 'zero' },
+        },
+      },
+    })
+    expect(result.valid).toBe(false)
+    expect(result.errors.some(e => e.rule === 'schema/meta-valid' && e.path === '/components/schemas/Age/minimum')).toBe(true)
+  })
 })

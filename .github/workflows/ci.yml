@@ -19,6 +19,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           submodules: false
+          fetch-depth: 0  # spec diff에 base branch 이력 필요
 
       - uses: pnpm/action-setup@v4
         with:
@@ -32,28 +33,65 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Build (parser → codegen → mock-server)
+      # ── Build ──────────────────────────────────────────────
+      - name: Build packages
         run: |
+          pnpm --filter @oa-sdk/core run build
           pnpm --filter @oa-sdk/parser run build
+          pnpm --filter @oa-sdk/router run build
+          pnpm --filter @oa-sdk/client run build
           pnpm --filter @oa-sdk/codegen run build
           pnpm --filter @oa-sdk/mock-server run build
 
+      - name: Build CI scripts
+        run: pnpm build:scripts
+
+      # ── Typecheck ──────────────────────────────────────────
       - name: Type check
         run: |
+          pnpm --filter @oa-sdk/core run typecheck
           pnpm --filter @oa-sdk/parser run typecheck
+          pnpm --filter @oa-sdk/router run typecheck
+          pnpm --filter @oa-sdk/client run typecheck
           pnpm --filter @oa-sdk/codegen run typecheck
           pnpm --filter @oa-sdk/mock-server run typecheck
 
+      # ── Test ───────────────────────────────────────────────
       - name: Test
         run: |
+          pnpm --filter @oa-sdk/core run test
           pnpm --filter @oa-sdk/parser run test
+          pnpm --filter @oa-sdk/router run test
+          pnpm --filter @oa-sdk/client run test
           pnpm --filter @oa-sdk/codegen run test
           pnpm --filter @oa-sdk/mock-server run test
           pnpm --filter playground run test
 
-      # schemas는 Redocly의 OAS 3.2 미지원으로 bundle 불가 (merge만 검증)
-      - name: Schemas merge + Spectral (non-blocking)
+      # ── Schema validation ──────────────────────────────────
+      - name: Schema merge + validate
         run: |
           pnpm --filter @oa-sdk/schemas run merge
-          pnpm --filter @oa-sdk/schemas exec spectral lint src/.merged.yaml --ruleset .spectral.yaml || true
-        continue-on-error: true
+          pnpm --filter @oa-sdk/schemas run test
+
+      # ── Spec validation (custom OAS 3.2 linter) ────────────
+      - name: Spec lint (oa-gen validate)
+        run: |
+          node packages/codegen/dist/cli/index.js validate --spec packages/schemas/src/.merged.yaml
+
+      # ── Freshness check: generated files up to date? ───────
+      - name: Schema freshness check
+        run: |
+          pnpm --filter @oa-sdk/schemas run build
+          if ! git diff --exit-code packages/schemas/src/.merged.3.1.yaml packages/schemas/src/.merged.3.1.meta.json packages/schemas/src/.merged.upgraded.3.2.yaml; then
+            echo "::error::Schema generated files are stale. Run 'pnpm --filter @oa-sdk/schemas run build' and commit the results."
+            exit 1
+          fi
+
+      # ── API index drift check ────────────────────────────────
+      - name: API index consistency
+        run: node scripts/dist/check-api-index.mjs
+
+      # ── Spec diff (PR only) ────────────────────────────────
+      - name: API spec diff
+        if: github.event_name == 'pull_request'
+        run: node scripts/dist/spec-diff.mjs --git origin/${{ github.base_ref }} >> "$GITHUB_STEP_SUMMARY"

@@ -58,6 +58,7 @@ export function validateRequest(
       path: '/body',
       code: 'MISSING_REQUIRED_FIELD',
       message: '요청 바디가 필요합니다',
+      stage: 'parse',
     })
   }
 
@@ -83,6 +84,7 @@ function validateContentType(
         message: 'Content-Type 불일치',
         received: received ?? '(없음)',
         expected: allowed.join(' | '),
+        stage: 'parse' as const,
       },
     ]
   }
@@ -171,7 +173,7 @@ function validateParameter(param: OasParameter, value: unknown): MockErrorDetail
 
   if (value === undefined || value === null) {
     if (param.required) {
-      return [{ path, code: 'MISSING_REQUIRED_FIELD', message: `필수 파라미터 누락: '${param.name}'` }]
+      return [{ path, code: 'MISSING_REQUIRED_FIELD', message: `필수 파라미터 누락: '${param.name}'`, stage: 'validate' }]
     }
     return []
   }
@@ -218,10 +220,14 @@ function runAjv(data: unknown, schema: OasSchema, basePath: string): MockErrorDe
   if (!validate) {
     try {
       validate = ajv.compile(schema)
-    } catch {
-      // loadSchema를 거치면 $ref는 이미 인라인 전개됨
-      // 직접 호출 등 미해석 $ref가 남아있는 경우 → 검증 건너뜀
-      return []
+    } catch (err) {
+      return [{
+        path: basePath,
+        code: 'SCHEMA_COMPILE_ERROR',
+        message: '요청 검증 스키마를 컴파일할 수 없습니다',
+        expected: err instanceof Error ? err.message : String(err),
+        stage: 'validate',
+      }]
     }
     validatorCache.set(schema, validate)
   }
@@ -282,6 +288,7 @@ function validateSecurity(
     code: 'MISSING_REQUIRED_FIELD',
     message: '인증 자격 증명이 필요합니다',
     expected: requirements.map(r => Object.keys(r).join(' + ')).join(' 또는 '),
+    stage: 'validate' as const,
   }]
 }
 

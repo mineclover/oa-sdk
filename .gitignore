@@ -2,6 +2,7 @@ node_modules/
 dist/
 packages/schemas/src/.merged.yaml
 .turbo/
+.omx/
 coverage/
 *.local
 .env

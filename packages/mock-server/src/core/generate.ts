@@ -58,7 +58,13 @@ export const generateAlgebra: SchemaAlgebra<unknown> = {
     )
   },
 
-  allOf:    (_, branches) => branches[0] ?? null,
+  allOf: (_, branches) => {
+    const merged: Record<string, unknown> = {}
+    for (const b of branches) {
+      if (b && typeof b === 'object' && !Array.isArray(b)) Object.assign(merged, b)
+    }
+    return Object.keys(merged).length > 0 ? merged : (branches[0] ?? null)
+  },
   oneOf:    (_, branches) => branches[0] ?? null,
   anyOf:    (_, branches) => branches[0] ?? null,
   ref:      () => null,

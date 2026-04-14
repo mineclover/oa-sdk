@@ -19,7 +19,8 @@ Zod Schema  ──▶  OpenAPI 3.2 Spec      ──▶ TypeScript 타입
 | `@oa-sdk/mock-server` | AJV Mock 서버 (MSW + Node HTTP) + Security + 테스트 헬퍼 |
 | `@oa-sdk/codegen` | Zod/Drizzle → OAS + OAS → TS 타입 + CLI 7커맨드 |
 | `@oa-sdk/router` | OAS → Hono/Express 라우터 스텁 |
-| `@oa-sdk/client` | OAS → fetch 클라이언트 SDK + SSE |
+| `@oa-sdk/client` | OAS → fetch 클라이언트 SDK + SSE + 인증 미들웨어 + 재시도 |
+| `@oa-sdk/typia-mock` | typia ILlmApplication 기반 LLM 함수 호출 검증 서버 |
 
 ## 사용 방법
 

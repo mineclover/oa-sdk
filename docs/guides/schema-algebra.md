@@ -18,6 +18,36 @@ foldSchema(schema, algebra) → T
 
 ---
 
+## 이론적 배경
+
+`SchemaAlgebra<T>`는 함수형 프로그래밍의 **F-Algebra / Catamorphism** 패턴이다.
+
+- **Catamorphism**: 재귀 데이터 구조를 bottom-up으로 접어서(fold) 하나의 값으로 축약하는 연산
+- **F-Algebra**: 펑터 `F`와 캐리어 타입 `T`에 대해 `F<T> → T` 매핑을 정의하는 구조
+
+이 프로젝트에서:
+- **F** = OpenAPI 스키마 노드의 구조 (string, object, array, allOf, ...)
+- **T** = algebra가 결정하는 결과 타입 (unknown, string, ...)
+- **foldSchema** = 재귀를 담당하는 catamorphism 드라이버
+- **SchemaAlgebra\<T>** = `F<T> → T` 매핑을 정의하는 algebra
+
+TypeScript에는 Higher-Kinded Types가 없으므로, 인터페이스의 메서드 집합으로 algebra를 인코딩한다. 이는 Tagless Final 스타일의 실용적 변형이다.
+
+현재 구현은 순수 catamorphism이 아닌 **paramorphism**에 가깝다. `object(schema, properties)` 처럼 fold된 자식(`properties`)과 원본 노드(`schema`)를 동시에 받아, algebra가 원본 메타데이터(required, description 등)를 참조할 수 있다.
+
+### 대안 패턴과의 비교
+
+| 패턴 | 설명 | 장점 | 이 프로젝트에 부적합한 이유 |
+|---|---|---|---|
+| **Visitor (GoF)** | 노드 타입별 visit 메서드 + accept 이중 디스패치 | OOP에서 익숙함 | 반환값 합성 어려움, 상태 mutation 의존 |
+| **Recursion Schemes** | Fix point로 재귀 구조 자체를 추상화 (cata/ana/hylo) | 이론적으로 가장 강력 | TS에서 Fix 타입 표현에 boilerplate 과다 |
+| **Pattern Matching + ADT** | discriminated union + switch 문 | TS 네이티브, 단순 | 각 소비자가 재귀를 직접 구현해야 함 (순회 중복) |
+| **Tagless Final** | 타입 클래스 + HKT로 의미 해석 인코딩 | 완전한 합성 가능 | TS에 HKT 없음 → **현재 구현이 TS판 tagless final** |
+
+**결론**: `SchemaAlgebra<T>` + `foldSchema`는 TypeScript 타입 시스템 한계 안에서 catamorphism의 가장 실용적인 인코딩이다.
+
+---
+
 ## 두 가지 패턴
 
 스키마/스펙 트리를 해석하는 두 가지 상호보완적 패턴이 있다.
@@ -73,10 +103,13 @@ SWC의 Fold trait에서 영감을 받은 패턴. 전체 스펙 트리를 재귀 
        null    → null(schema)
        object  → object(schema, foldedProperties)
        array   → array(schema, foldedItems)
-       기타    → fallback(node)
+       기타    → properties 존재 시 object(schema, foldedProperties)
+                  없으면 fallback(node)
 ```
 
-**중요**: `example`/`default`가 있으면 `type` 분기를 타지 않음. algebra 구현에서 이를 활용해 예시 값을 직접 반환할 수 있다.
+**중요**:
+- `example`/`default`가 있으면 `type` 분기를 타지 않음. algebra 구현에서 이를 활용해 예시 값을 직접 반환할 수 있다.
+- `type` 미지정이더라도 `properties`가 있으면 `object`로 분기한다. typia 등 type 없이 properties만 있는 스키마를 처리하기 위함.
 
 ---
 
@@ -261,6 +294,94 @@ class CustomFolder extends GenerateFolder { ... }
 
 // 합성: StreamFolder는 GenerateFolder를 has-a로 보유
 const streamer = new StreamFolder(new CustomFolder())
+```
+
+---
+
+## 순환 참조 방지
+
+재귀 구조에서 `$ref`가 자기 자신을 참조하면 무한 루프에 빠진다. 프로젝트 내 두 가지 방지 전략이 있다.
+
+### Stack 기반 (DerefFolder)
+
+`DerefFolder`는 현재 순회 경로를 `stack: string[]`로 추적한다. ref 해소 시 이미 스택에 있는 ref를 만나면 빈 객체 `{}`를 반환하여 재귀를 끊는다.
+
+```
+fold(#/components/schemas/Node)
+  → stack: ["#/components/schemas/Node"]
+  → properties.children.items → $ref: "#/components/schemas/Node"
+  → stack에 이미 있음 → {} 반환 (재귀 중단)
+```
+
+외부 파일 ref(`./file.yaml#/pointer`)도 `filePath#pointer` 조합으로 동일하게 추적한다.
+
+### Set 기반 (zod-to-schema)
+
+`zod-to-schema.ts`의 `convertType()`은 `_converting: Set`으로 현재 변환 중인 Zod 스키마를 추적한다. 이미 변환 중인 스키마를 다시 만나면 `{ $ref }` 참조를 반환한다.
+
+```typescript
+if (context.refs.has(schema) && context._converting.has(schema)) {
+  return { $ref: `#/components/schemas/${refName}` }  // 순환 탈출
+}
+context._converting.add(schema)  // 변환 시작 마킹
+```
+
+---
+
+## 확장 방향
+
+현재 패턴에서 자연스럽게 확장할 수 있는 세 가지 방향이 있다.
+
+### Product Algebra — 한 번 순회로 두 결과
+
+두 algebra를 합성하여 단일 순회에서 두 가지 결과를 동시에 생성한다.
+
+```typescript
+function product<A, B>(
+  a: SchemaAlgebra<A>,
+  b: SchemaAlgebra<B>,
+): SchemaAlgebra<[A, B]> {
+  return {
+    string:  (s) => [a.string(s), b.string(s)],
+    object:  (s, props) => {
+      const aProps: Record<string, A> = {}
+      const bProps: Record<string, B> = {}
+      for (const [k, [av, bv]] of Object.entries(props)) {
+        aProps[k] = av; bProps[k] = bv
+      }
+      return [a.object(s, aProps), b.object(s, bProps)]
+    },
+    // ... 나머지 메서드도 동일 패턴
+  }
+}
+
+// 사용: 타입 생성 + validation 생성을 한 패스로
+const [tsType, zodSchema] = foldSchema(schema, product(tsAlgebra, zodAlgebra))
+```
+
+### Monadic Fold — 비동기/부수효과 순회
+
+외부 파일 로드 등 async 연산이 필요한 경우 algebra 반환 타입을 `Promise<T>`로 확장한다.
+
+```typescript
+type SchemaAlgebraM<T> = {
+  string(schema: OasSchema): Promise<T>
+  object(schema: OasSchema, properties: Record<string, T>): Promise<T>
+  // ...
+}
+```
+
+### Algebra Composition — algebra 합성
+
+기존 algebra를 감싸서 전처리/후처리를 추가한다.
+
+```typescript
+function withLogging<T>(inner: SchemaAlgebra<T>): SchemaAlgebra<T> {
+  return {
+    string: (s) => { console.log('string:', s); return inner.string(s) },
+    // ... 나머지 위임
+  }
+}
 ```
 
 ---
