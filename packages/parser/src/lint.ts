@@ -14,7 +14,7 @@
  */
 
 import type { OasDocument, OasPathItem, OasOperation, OasParameter, OasComponents, Referenceable } from './oas32-types.js'
-import { derefSpecWithDiagnostics, type DerefDiagnostic, type DerefOptions } from './deref.js'
+import { resolveRefGraph, type RefGraphDiagnostic } from './ref-graph.js'
 
 function isRef(node: unknown): node is { $ref: string } {
   return typeof node === 'object' && node !== null && '$ref' in node
@@ -67,10 +67,7 @@ export function lintDocument(doc: unknown, options: LintOptions = {}): LintResul
 }
 
 function lintDerefDiagnostics(spec: OasDocument, results: LintResult[], options: LintOptions) {
-  const derefOptions: Omit<DerefOptions, 'diagnostics'> = {}
-  if (options.basePath !== undefined) derefOptions.basePath = options.basePath
-
-  const { diagnostics } = derefSpecWithDiagnostics(spec, derefOptions)
+  const { diagnostics } = resolveRefGraph(spec, options.basePath ? { basePath: options.basePath } : {})
   for (const diagnostic of diagnostics) {
     if (diagnostic.code === 'ref-not-found' && diagnostic.ref.startsWith('#/')) continue
     if (diagnostic.code === 'unsupported-ref' && !options.basePath) continue
@@ -78,7 +75,7 @@ function lintDerefDiagnostics(spec: OasDocument, results: LintResult[], options:
   }
 }
 
-function diagnosticToLintResult(diagnostic: DerefDiagnostic): LintResult {
+function diagnosticToLintResult(diagnostic: RefGraphDiagnostic): LintResult {
   const result: LintResult = {
     path: diagnostic.pointer ?? diagnostic.ref,
     severity: 'error',

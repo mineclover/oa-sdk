@@ -12,7 +12,7 @@ import type {
   OasRequestBody,
   OasResponse,
 } from '@oa-sdk/parser'
-import { derefSpec, parseDocument } from '@oa-sdk/parser'
+import { derefSpec, isRelativeRef, parseDocument, resolveRefGraph } from '@oa-sdk/parser'
 import { schemaToTs, type SchemaToTsOptions } from './schema-to-ts.js'
 import { pascalCase, formatGeneratedTs } from '@oa-sdk/core'
 import { basename, extname } from 'node:path'
@@ -234,10 +234,12 @@ function responseHeadersToTs(responses: Record<string, OasResponse>, schemaOpts:
 }
 
 export function analyzeExternalSchemaRefs(spec: OasDocument, basePath: string): ExternalSchemaRefAnalysis {
-  const refs = new Set<string>()
-  collectExternalRefs(spec, refs)
-
-  const refList = [...refs].sort()
+  const graph = resolveRefGraph(spec, { basePath })
+  const refList = graph.nodes
+    .filter(node => node.kind === 'external' && isRelativeRef(node.ref) && node.ref.includes('#/'))
+    .map(node => node.ref)
+    .filter((ref, index, refs) => refs.indexOf(ref) === index)
+    .sort()
   const diagnostics: ExternalSchemaRefDiagnostic[] = []
   const schemas: Record<string, OasSchema> = {}
   const refNameOverrides: Record<string, string> = {}
@@ -277,7 +279,8 @@ export function analyzeExternalSchemaRefs(spec: OasDocument, basePath: string): 
       })
     }
 
-    const resolved = derefSpec({ $ref: ref }, { basePath }) as unknown
+    const graphNode = graph.nodes.find(node => node.ref === ref && node.resolved)
+    const resolved = graphNode?.target ?? derefSpec({ $ref: ref }, { basePath }) as unknown
     if (isSchemaObject(resolved)) {
       schemas[generatedName] = resolved as OasSchema
       refNameOverrides[ref] = generatedName
@@ -296,23 +299,6 @@ export function analyzeExternalSchemaRefs(spec: OasDocument, basePath: string): 
 
 function emptyExternalSchemaAnalysis(): ExternalSchemaRefAnalysis {
   return { schemas: {}, refNameOverrides: {}, diagnostics: [] }
-}
-
-function collectExternalRefs(node: unknown, refs: Set<string>): void {
-  if (!node || typeof node !== 'object') return
-  if (Array.isArray(node)) {
-    for (const item of node) collectExternalRefs(item, refs)
-    return
-  }
-
-  const obj = node as Record<string, unknown>
-  if (typeof obj['$ref'] === 'string') {
-    const ref = obj['$ref']
-    if ((ref.startsWith('./') || ref.startsWith('../')) && ref.includes('#/')) refs.add(ref)
-    return
-  }
-
-  for (const value of Object.values(obj)) collectExternalRefs(value, refs)
 }
 
 function schemaNameFromRef(ref: string): string | undefined {

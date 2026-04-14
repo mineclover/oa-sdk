@@ -56,6 +56,10 @@
 | `DerefFolder` | `deref.ts` | $ref 해소 Folder |
 | `derefSpec()` | `deref.ts` | $ref 인라인 전개 |
 | `derefSpecWithDiagnostics()` | `deref.ts` | $ref 인라인 전개 + 순환/외부 ref diagnostic 수집 |
+| `resolveRefGraph()` | `ref-graph.ts` | 내부/외부 `$ref` 그래프 수집과 diagnostic 생성 |
+| `collectRefs()` | `ref-graph.ts` | 문서 트리에서 `$ref` 위치 수집 |
+| `isRelativeRef()` | `ref-graph.ts` | 상대 파일 `$ref` 판별 |
+| `resolvePointer()` | `ref-graph.ts` | JSON Pointer 해소 |
 | `findOperation()` | `query.ts` | operationId로 오퍼레이션 검색 |
 | `findByTag()` | `query.ts` | 태그로 오퍼레이션 필터 |
 | `findByPath()` | `query.ts` | 경로로 오퍼레이션 필터 |
@@ -77,6 +81,12 @@
 | `DerefOptions` | `deref.ts` | deref basePath/diagnostic 옵션 |
 | `DerefDiagnostic` | `deref.ts` | $ref 해소 diagnostic 항목 |
 | `DerefDiagnosticCode` | `deref.ts` | $ref 해소 diagnostic 코드 |
+| `RefGraph` | `ref-graph.ts` | `$ref` 그래프 분석 결과 |
+| `RefGraphNode` | `ref-graph.ts` | 그래프 내 단일 `$ref` 노드 |
+| `RefGraphDiagnostic` | `ref-graph.ts` | ref graph diagnostic 항목 |
+| `RefGraphDiagnosticCode` | `ref-graph.ts` | ref graph diagnostic 코드 |
+| `RefGraphOptions` | `ref-graph.ts` | ref graph basePath 옵션 |
+| `RefKind` | `ref-graph.ts` | internal/external/unsupported ref 분류 |
 | `LintResult` | `lint.ts` | 린트 결과 |
 | `LintSeverity` | `lint.ts` | 린트 심각도 |
 | `LintOptions` | `lint.ts` | 린트 옵션 |

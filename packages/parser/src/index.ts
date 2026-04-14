@@ -44,6 +44,10 @@ export type { DerefDiagnostic, DerefDiagnosticCode, DerefOptions } from './deref
 // ─── Query API ────────────────────────────────────────────────────────────
 export { findOperation, findByTag, findByPath, getSchema, getTag, groupByTag, describeApi, resolveServerUrl } from './query.js'
 
+// ─── Ref Graph ─────────────────────────────────────────────────────────────
+export { collectRefs, isRelativeRef, resolvePointer, resolveRefGraph } from './ref-graph.js'
+export type { RefGraph, RefGraphDiagnostic, RefGraphDiagnosticCode, RefGraphNode, RefGraphOptions, RefKind } from './ref-graph.js'
+
 // ─── Lint ─────────────────────────────────────────────────────────────────
 export { lintDocument } from './lint.js'
 export type { LintResult, LintSeverity, LintOptions } from './lint.js'
