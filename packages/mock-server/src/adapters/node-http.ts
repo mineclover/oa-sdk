@@ -120,6 +120,7 @@ export function createNodeMockServer(
     )
 
     if (hr.type === 'validation-error') { writeJson(res, hr.status, hr.body); return }
+    if (hr.type === 'schema-error') { writeJson(res, hr.status, hr.body); return }
     if (hr.type === 'no-response') { writeJson(res, hr.status, hr.body); return }
     const picked = hr.picked
 

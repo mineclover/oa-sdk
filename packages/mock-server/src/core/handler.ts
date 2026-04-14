@@ -14,6 +14,7 @@ import type { MockErrorResponse } from '../errors/types.js'
 
 export type HandlerResult =
   | { type: 'validation-error'; status: 422; body: MockErrorResponse }
+  | { type: 'schema-error'; status: 500; body: MockErrorResponse }
   | { type: 'no-response'; status: 500; body: MockErrorResponse }
   | { type: 'success'; picked: PickedResponse }
 
@@ -41,6 +42,26 @@ export function handleRequest(
   )
 
   if (!result.valid) {
+    const schemaCompileError = result.errors.find(e => e.code === 'SCHEMA_COMPILE_ERROR')
+    if (schemaCompileError) {
+      return {
+        type: 'schema-error',
+        status: 500,
+        body: {
+          error: {
+            code: 'SCHEMA_COMPILE_ERROR',
+            message: '요청 검증 스키마 컴파일 실패',
+            details: result.errors,
+            _meta: {
+              ...(entry.operationId !== undefined && { operationId: entry.operationId }),
+              method: entry.method,
+              path: entry.openApiPath,
+            },
+          },
+        },
+      }
+    }
+
     return {
       type: 'validation-error',
       status: 422,

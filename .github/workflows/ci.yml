@@ -35,48 +35,24 @@ jobs:
 
       # ── Build ──────────────────────────────────────────────
       - name: Build packages
-        run: |
-          pnpm --filter @oa-sdk/core run build
-          pnpm --filter @oa-sdk/parser run build
-          pnpm --filter @oa-sdk/router run build
-          pnpm --filter @oa-sdk/client run build
-          pnpm --filter @oa-sdk/codegen run build
-          pnpm --filter @oa-sdk/mock-server run build
+        run: pnpm build
 
       - name: Build CI scripts
         run: pnpm build:scripts
 
       # ── Typecheck ──────────────────────────────────────────
       - name: Type check
-        run: |
-          pnpm --filter @oa-sdk/core run typecheck
-          pnpm --filter @oa-sdk/parser run typecheck
-          pnpm --filter @oa-sdk/router run typecheck
-          pnpm --filter @oa-sdk/client run typecheck
-          pnpm --filter @oa-sdk/codegen run typecheck
-          pnpm --filter @oa-sdk/mock-server run typecheck
+        run: pnpm typecheck
 
       # ── Test ───────────────────────────────────────────────
       - name: Test
-        run: |
-          pnpm --filter @oa-sdk/core run test
-          pnpm --filter @oa-sdk/parser run test
-          pnpm --filter @oa-sdk/router run test
-          pnpm --filter @oa-sdk/client run test
-          pnpm --filter @oa-sdk/codegen run test
-          pnpm --filter @oa-sdk/mock-server run test
-          pnpm --filter playground run test
+        run: pnpm test
 
       # ── Schema validation ──────────────────────────────────
-      - name: Schema merge + validate
+      - name: Schema validate
         run: |
-          pnpm --filter @oa-sdk/schemas run merge
+          pnpm schema:validate
           pnpm --filter @oa-sdk/schemas run test
-
-      # ── Spec validation (custom OAS 3.2 linter) ────────────
-      - name: Spec lint (oa-gen validate)
-        run: |
-          node packages/codegen/dist/cli/index.js validate --spec packages/schemas/src/.merged.yaml
 
       # ── Freshness check: generated files up to date? ───────
       - name: Schema freshness check

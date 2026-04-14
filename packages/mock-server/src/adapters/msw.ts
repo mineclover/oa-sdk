@@ -160,6 +160,7 @@ function buildMswHandlers(
         )
 
         if (hr.type === 'validation-error') return HttpResponse.json(hr.body, { status: hr.status })
+        if (hr.type === 'schema-error') return HttpResponse.json(hr.body, { status: hr.status })
         if (hr.type === 'no-response') return HttpResponse.json(hr.body, { status: hr.status })
         const picked = hr.picked
 
