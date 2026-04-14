@@ -110,6 +110,7 @@ describe('derefSpec — external file $ref', () => {
   const tmpDir = join(tmpdir(), `oa-sdk-deref-test-${Date.now()}`)
   const mainFile = join(tmpDir, 'main.json')
   const commonFile = join(tmpDir, 'common.json')
+  const yamlFile = join(tmpDir, 'shared.yaml')
 
   beforeAll(() => {
     mkdirSync(tmpDir, { recursive: true })
@@ -118,6 +119,18 @@ describe('derefSpec — external file $ref', () => {
         Shared: { type: 'string', description: 'shared type' },
       },
     }))
+    writeFileSync(yamlFile, [
+      'components:',
+      '  schemas:',
+      '    SharedYaml:',
+      '      type: object',
+      '      required: [id]',
+      '      properties:',
+      '        id:',
+      '          type: string',
+      '          format: uuid',
+      '',
+    ].join('\n'))
   })
 
   afterAll(() => {
@@ -135,6 +148,21 @@ describe('derefSpec — external file $ref', () => {
     expect((result.paths as Record<string, unknown>)['/ext']).toEqual({
       type: 'string',
       description: 'shared type',
+    })
+  })
+
+  it('외부 YAML 파일 $ref 해결', () => {
+    const input = spec({
+      paths: {
+        '/ext-yaml': { $ref: './shared.yaml#/components/schemas/SharedYaml' },
+      },
+    })
+
+    const result = derefSpec(input, { basePath: mainFile }) as Record<string, unknown>
+    expect((result.paths as Record<string, unknown>)['/ext-yaml']).toEqual({
+      type: 'object',
+      required: ['id'],
+      properties: { id: { type: 'string', format: 'uuid' } },
     })
   })
 

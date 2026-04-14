@@ -2,6 +2,7 @@ import type { OasDocument } from './oas32-types.js'
 import { SchemaFolder } from './folder.js'
 import { readFileSync } from 'node:fs'
 import { resolve, dirname } from 'node:path'
+import { parse as parseYaml } from 'yaml'
 
 /**
  * Internal $ref (#/...) 인라인 전개 Folder.
@@ -51,8 +52,7 @@ export class DerefFolder extends SchemaFolder {
       let fileContent = this.fileCache?.get(fullPath)
       if (!fileContent) {
         try {
-          const raw = readFileSync(fullPath, 'utf-8')
-          fileContent = JSON.parse(raw)
+          fileContent = parseExternalRefFile(fullPath)
           this.fileCache?.set(fullPath, fileContent)
         } catch {
           return node // 파일 읽기 실패 — 원본 유지
@@ -103,4 +103,10 @@ function resolvePointer(ref: string, root: unknown): unknown | undefined {
 export function derefSpec<T = OasDocument>(spec: T, options?: { basePath?: string }): T {
   const cache = new Map<string, unknown>()
   return new DerefFolder(spec, options?.basePath, cache).fold(spec) as T
+}
+
+function parseExternalRefFile(path: string): unknown {
+  const raw = readFileSync(path, 'utf-8')
+  if (path.endsWith('.json')) return JSON.parse(raw)
+  return parseYaml(raw)
 }
