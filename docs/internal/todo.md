@@ -14,12 +14,15 @@
 요청 body/parameter 검증 시 미해결 `$ref` 또는 잘못된 Schema Object가 있으면 검증을 건너뛰지 않고
 `SCHEMA_COMPILE_ERROR`로 반환.
 
-### [ ] parser: 손실 없는 $ref 정규화
+### [x] parser: 손실 없는 $ref 정규화
 JSON Schema 2020-12 기준으로 `$ref` sibling keyword 보존, 외부 YAML/JSON ref 해소, cycle diagnostic,
-source pointer 추적을 포함하는 resolver로 확장.
+source pointer 추적을 포함하는 resolver로 확장. `resolveRefGraph()`와 `cycleStrategy`까지 구현 완료.
 
-### [ ] schemas: schema:validate와 oa-gen validate 검증 범위 통합
+### [x] schemas: schema:validate와 oa-gen validate 검증 범위 통합
 로컬 `pnpm schema:validate`와 CI `oa-gen validate`가 같은 canonical pipeline을 타도록 정리.
+
+### [x] schemas: component overwrite 기본 차단
+도메인 병합 시 중복 component key는 기본 오류. `ALLOW_COMPONENT_OVERRIDES=1` 또는 `ALLOW_COMPONENT_OVERRIDE_KEYS`로 명시 허용.
 
 ### [x] codegen: operation 묶음 타입 생성
 `typegen/generate-types.ts`에서 Operation 묶음 타입 생성 완료.
@@ -35,6 +38,16 @@ source pointer 추적을 포함하는 resolver로 확장.
 ### [ ] router/client: ResponseHeaders 활용
 typegen `XxxResponseHeaders` 생성됨. router에서 `c.header()` 자동 삽입,
 client에서 `res.headers` 타입 안전 접근.
+
+### [ ] parser/codegen: ref resolver 단일화 심화
+`resolveRefGraph()`가 SSOT 역할을 시작했지만 `derefSpec()`는 아직 별도 traversal/cache를 가짐.
+다음 세션에서 공통 `RefResolver`로 외부 문서 로딩/포인터 해소/cache/source를 더 줄일 것.
+
+### [ ] codegen: 외부 `$defs` / 비 components schema alias 정책
+외부 `$ref` type alias는 `#/components/schemas/*` 중심. `$defs` 또는 다른 schema root를 지원할지 정책화 필요.
+
+### [ ] diagnostics: YAML line/column source map
+현재 source는 `filePath#pointer` 수준. 작성자 UX 개선을 위해 YAML AST 기반 line/column 매핑 검토.
 
 ---
 
@@ -96,5 +109,8 @@ client에서 `res.headers` 타입 안전 접근.
 - [x] mock-server allOf merge 수정 (branches[0] → 전체 merge)
 - [x] schema annotations 컨벤션 ($comment + annotations 객체)
 - [x] 1487 테스트 (core 51, parser 171, codegen 454, mock-server 553, playground 114, router 35, client 36, schemas 73)
+- [x] ref graph resolver + 외부 `$ref` source diagnostic + cycleStrategy
+- [x] component overwrite 기본 오류 + external schema name collision warning
+- [x] 1577 테스트 (core 51, parser 190, codegen 464, mock-server 561, playground 114, router 35, client 36, schemas 73, typia-mock 53)
 
 </details>

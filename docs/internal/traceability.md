@@ -58,6 +58,7 @@
 | `parse.ts` | §4.8.1 (Document), §4.8.7 (Components), §4.8.9 (Operations), §4.8.27 (Security) |
 | `schema-loader.ts` | §4.8.8 (Paths), §4.8.9 (PathItem), §4.8.12 (Parameters) |
 | `deref.ts` | §4.8.23 (Reference Object, $ref) |
+| `ref-graph.ts` | §4.8.23 (Reference Object, $ref), §4.8.24 (Schema Object 참조 그래프) |
 | `fold.ts` | §4.8.24 (Schema Object) |
 | `lint.ts` | §4.8.1 (Document), §4.8.10 (Operation), §4.8.12 (Parameters), §4.8.23 ($ref), §4.8.27 (Security) |
 | `query.ts` | §4.8.10 (Operation), §4.8.22 (Tags) |

@@ -125,6 +125,63 @@ parameters:
 | `#/components/securitySchemes/bearerAuth` | JWT Bearer 인증 |
 | `#/components/securitySchemes/oauth2` | OAuth 2.0 인증 |
 
+## `$ref` 작성 규칙
+
+### 내부 `$ref`
+
+내부 참조는 `#/components/...` 형태를 기본으로 사용합니다. 누락된 내부 참조는 `oa-gen lint`와 `oa-gen validate`에서 `refs/valid-ref` 오류로 보고됩니다.
+
+```yaml
+schema:
+  $ref: "#/components/schemas/User"
+```
+
+### 외부 YAML/JSON `$ref`
+
+상대 경로 외부 참조를 사용할 수 있습니다. CLI는 spec 파일 경로를 기준으로 외부 파일을 해소합니다.
+
+```yaml
+schema:
+  $ref: "./shared.yaml#/components/schemas/User"
+```
+
+외부 파일 누락, 포인터 누락, 순환 참조는 `filePath#pointer` 형태의 source와 함께 출력됩니다.
+
+### `$ref` sibling 보존
+
+`description`, `readOnly`, `annotations`, `properties`, `required` 같은 sibling 구조 정보는 `$ref` 해소 후에도 보존됩니다.
+
+```yaml
+id:
+  $ref: "#/components/schemas/Uuid"
+  readOnly: true
+  description: 서버가 발급하는 ID
+```
+
+### 순환 `$ref`
+
+기본 deref 동작은 순환 지점을 빈 스키마로 끊어 기존 mock/typegen 호환성을 유지합니다. 구조 손실을 줄여야 하는 파서 소비자는 `cycleStrategy: preserve-ref`를 사용할 수 있습니다.
+
+### 외부 schema 이름 충돌
+
+외부 파일에서 같은 schema 이름이 들어오면 typegen은 파일명 기반 타입명으로 rename하고 경고를 출력합니다.
+
+```yaml
+# ./billing.yaml#/components/schemas/User → BillingUser
+# ./identity.yaml#/components/schemas/User → IdentityUser
+```
+
+로컬 component와 외부 schema 이름이 충돌해도 외부 schema는 파일명 기반 타입명으로 생성됩니다.
+
+## Component 이름 충돌
+
+도메인 병합 시 같은 `components.<section>.<name>`은 기본 오류입니다. 임시 호환이 필요한 경우에만 명시적으로 허용합니다.
+
+```bash
+ALLOW_COMPONENT_OVERRIDES=1 pnpm --filter @oa-sdk/schemas run merge
+ALLOW_COMPONENT_OVERRIDE_KEYS=schemas.LegacyUser pnpm --filter @oa-sdk/schemas run merge
+```
+
 ## operationId 컨벤션
 
 - 필수 (없으면 Spectral 오류)

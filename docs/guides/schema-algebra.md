@@ -69,6 +69,7 @@ SWC의 Fold trait에서 영감을 받은 패턴. 전체 스펙 트리를 재귀 
 
 현재 구현체:
 - `DerefFolder` -- $ref 인라인 전개
+- `resolveRefGraph` -- 내부/외부 `$ref` 그래프 분석과 diagnostic 수집
 
 ---
 
@@ -79,6 +80,7 @@ SWC의 Fold trait에서 영감을 받은 패턴. 전체 스펙 트리를 재귀 
 | `unknown` | `generateAlgebra` | mock-server | 최소 유효 값 생성 |
 | `string` | `typescriptAlgebra` | codegen | TypeScript 타입 문자열 |
 | `OasSchema` | `DerefFolder` | parser | $ref 인라인 전개 |
+| `RefGraph` | `resolveRefGraph` | parser | `$ref` 그래프 조회, 누락/순환/source diagnostic |
 | -- | `StreamFolder` | mock-server | 스키마 기반 SSE/NDJSON 스트림 |
 
 ---
@@ -131,8 +133,25 @@ abstract class SchemaFolder {
 `DerefFolder`는 `SchemaFolder`를 확장하여 `$ref`를 인라인 전개한다.
 
 - **순환 참조 감지**: stack 기반으로 현재 순회 경로를 추적하여 무한 재귀를 방지
-- **외부 ref 유지**: 같은 문서 내 `$ref`만 전개하고, 외부 ref는 원본 그대로 유지
+- **외부 ref 해소**: `basePath` 옵션이 있으면 상대 YAML/JSON `$ref`를 현재 파일 기준으로 해소
+- **sibling 보존**: `$ref` 옆의 `description`, `readOnly`, `annotations`, `properties`, `required` 등 구조 정보를 병합
+- **cycleStrategy**: 기본은 `empty-schema`, 필요 시 `preserve-ref`로 순환 지점 `$ref` 보존
 - **RFC 6901 JSON Pointer 해석**: `#/components/schemas/User` 형식의 JSON Pointer를 해석하여 대상 스키마를 찾음
+
+---
+
+## RefGraph 패턴
+
+`resolveRefGraph(spec, { basePath })`는 스펙 전체의 `$ref`를 그래프 노드로 수집한다.
+
+- internal / external / unsupported ref 구분
+- 외부 YAML/JSON 파일 재귀 탐색
+- 외부 파일 내부의 상대 `$ref`는 해당 외부 파일 기준으로 해소
+- 누락 파일, 누락 pointer, unsupported ref, 순환 ref를 diagnostic으로 보고
+- diagnostic은 `filePath#pointer` source를 포함할 수 있어 CLI에서 위치를 표시한다
+
+`lintDocument()`와 `validateDocument()`는 ref graph diagnostic을 `refs/valid-ref` 또는 `refs/cycle`로 변환한다.
+`typegen`은 ref graph를 사용해 외부 schema alias를 만들고 이름 충돌을 경고한다.
 
 ---
 

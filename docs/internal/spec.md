@@ -33,10 +33,12 @@ schemas      ← 독립. OAS 소스 + merge + 3.1↔3.2 변환
 | 기능 | 상세 |
 |------|------|
 | OAS 3.2 타입 | 30개 오브젝트, §별 13파일, 자체 관리 (openapi3-ts 없음) |
-| `parseDocument()` | → ParsedDocument IR (operations, routes, schemas, security, tags, webhooks) |
+| `parseDocument()` | → ParsedDocument IR (operations, routes, schemas, security, tags, webhooks), `basePath`/`cycleStrategy` 옵션 |
 | `SchemaAlgebra` fold | 스키마 재귀 순회 — 타입별 의미 해석 |
-| `lintDocument()` | 7카테고리 17규칙 (structure/operations/parameters/refs/security/style/components) |
-| `validateDocument()` | 종합 검증 (파싱 + 린트 + 3.2 전용 필드 감지) |
+| `resolveRefGraph()` | 내부/외부 `$ref` 그래프 수집, nested external ref 추적, 누락/순환 diagnostic |
+| `derefSpec()` | 내부/외부 YAML/JSON `$ref` 인라인 전개, sibling 구조 정보 보존, `cycleStrategy` 지원 |
+| `lintDocument()` | 7카테고리 17규칙 + ref graph diagnostic source 출력 |
+| `validateDocument()` | 종합 검증 (파싱 + 린트 + JSON Schema 2020-12 메타 검증 + ref graph diagnostic) |
 | Query API | `findOperation`, `findByTag`, `describeApi`, `resolveServerUrl`, `groupByTag` |
 | Tags 계층 | parent/kind 트리 — describeApi에서 재귀 렌더링 |
 
@@ -46,7 +48,8 @@ schemas      ← 독립. OAS 소스 + merge + 3.1↔3.2 변환
 |------|------|
 | allOf merge | `generateAlgebra`의 allOf — 모든 branch object merge (intersection 정합) |
 | `handleRequest()` | 공통 핸들러 (validateRequest → pickResponse). MSW/Node HTTP 공유 |
-| AJV 검증 | 8 에러코드 + discriminator 네이티브 지원 |
+| AJV 검증 | 9 에러코드 + discriminator 네이티브 지원 + schema compile 실패 분리 |
+| Request schema preflight | `validateRequestSchemas` / `assertValidRequestSchemas` — mock 생성 시점에 request schema compile 검증 |
 | Security | bearer/apiKey(header/query/cookie)/oauth2/oidc/mTLS, OR/AND, 빈 security |
 | Parameters | style/explode 역직렬화 (form/simple/label/matrix/pipe/space) |
 | Response headers | OAS headers → HTTP 헤더 전달 |
@@ -74,6 +77,7 @@ schemas      ← 독립. OAS 소스 + merge + 3.1↔3.2 변환
 | typegen readOnly | `readOnly: true` → `readonly` 수식어 |
 | typegen deprecated | `deprecated: true` → `@deprecated` JSDoc |
 | typegen annotations | `annotations` 객체 → `includeAnnotations` 옵션으로 `@note`/`@see` JSDoc |
+| typegen external refs | 외부 YAML/JSON `$ref` schema alias 생성, 이름 충돌 시 파일명 기반 deterministic rename + 경고 |
 | typegen 중복 방지 | schema 이름과 Op 타입 이름 충돌 시 schema 우선, 중복 생성 방지 |
 | typegen const 중첩 | 중첩 프로퍼티의 `const` → 리터럴 타입 정규화 |
 | additionalProperties | `Record<string, T>` + index signature 타입 생성 |
@@ -103,7 +107,7 @@ ClientMiddleware (`onRequest`/`onResponse`/`onError`) 인터셉터. Webhook 페�
 
 ## `@oa-sdk/schemas` ✅
 
-도메인 분리 + 환경 프로필 + merge. `downgrade:3.1` (사이드카 무손실) + `upgrade:3.2`.
+도메인 분리 + 환경 프로필 + merge. 중복 path/component 기본 오류. `downgrade:3.1` (사이드카 무손실) + `upgrade:3.2`.
 
 ---
 
@@ -111,7 +115,8 @@ ClientMiddleware (`onRequest`/`onResponse`/`onError`) 인터셉터. Webhook 페�
 
 ### 스펙 관리
 ```bash
-pnpm --filter @oa-sdk/schemas run merge           # 도메인 병합
+pnpm --filter @oa-sdk/schemas run merge            # 도메인 병합
+pnpm schema:validate                               # merge + 3.1 변환 + Spectral/Redocly + oa-gen validate
 oa-gen validate --spec .merged.yaml                # 종합 검증
 oa-gen lint --spec .merged.yaml                    # 린트만
 pnpm --filter @oa-sdk/schemas run downgrade:3.1    # 3.1 변환 (Swagger UI 호환)
@@ -162,7 +167,8 @@ pnpm demo  # API 구조 + Mock 12시나리오 + 커버리지
 
 | 도구 | 대상 | 결과 |
 |------|------|------|
-| 자체 린터 | 3.2 원본 | 0 에러, 0 경고 |
+| 자체 린터 + ref graph | 3.2 원본 | 0 에러, 0 경고 |
+| JSON Schema 메타 검증 | Schema Object | 2020-12 keyword 정합성 |
 | Redocly | 3.1 변환 | valid, 4 경고 (의도적) |
 | Spectral | 3.1 변환 | 0 에러, 1 힌트 |
 | 부하 | 100 동시 요청 | <200ms |
@@ -172,10 +178,9 @@ pnpm demo  # API 구조 + Mock 12시나리오 + 커버리지
 | Step | 대상 | 동작 |
 |------|------|------|
 | Build | 7 패키지 + CI 스크립트 | tsup ESM 빌드 |
-| Typecheck | 6 패키지 | tsc --noEmit strict |
-| Test | 7 패키지 + playground | vitest 1487 케이스 |
-| Schema merge + test | schemas | 도메인 병합 + 검증 |
-| Spec lint | merged spec | oa-gen validate |
+| Typecheck | 7 패키지 + playground | tsc --noEmit strict |
+| Test | 8 패키지 + playground | vitest 1577 케이스 |
+| Schema validate | schemas + oa-gen | 도메인 병합 + 3.1 변환 + Spectral/Redocly + 3.2 자체 검증 |
 | Freshness check | 산출물 | git diff --exit-code |
 | API index | docs ↔ code | export 정합성 검증 |
 | Spec diff (PR) | base ↔ head | endpoint 변경 요약 |
@@ -187,11 +192,12 @@ pnpm demo  # API 구조 + Mock 12시나리오 + 커버리지
 | 패키지 | 케이스 |
 |--------|--------|
 | core | 51 |
-| parser | 171 |
-| codegen | 454 |
-| mock-server | 553 |
+| parser | 190 |
+| codegen | 464 |
+| mock-server | 561 |
 | playground | 114 |
 | router | 35 |
 | client | 36 |
 | schemas | 73 |
-| **합계** | **1487** |
+| typia-mock | 53 |
+| **합계** | **1577** |
