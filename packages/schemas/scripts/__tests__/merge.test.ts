@@ -118,7 +118,7 @@ describe('mergeSpecs', () => {
     expect(result.componentCount).toBe(2)
   })
 
-  it('last domain wins on duplicate component with warning', () => {
+  it('throws on duplicate component by default', () => {
     const domains = [
       {
         name: 'common',
@@ -133,13 +133,51 @@ describe('mergeSpecs', () => {
         } as OpenApiSpec,
       },
     ]
-    const result = mergeSpecs(base, profile, domains)
+    expect(() => mergeSpecs(base, profile, domains)).toThrow(/중복 컴포넌트.*schemas\.Shared.*common.*billing/)
+  })
+
+  it('allows duplicate component with explicit warn policy', () => {
+    const domains = [
+      {
+        name: 'common',
+        spec: {
+          components: { schemas: { Shared: { type: 'string' } } },
+        } as OpenApiSpec,
+      },
+      {
+        name: 'billing',
+        spec: {
+          components: { schemas: { Shared: { type: 'number' } } },
+        } as OpenApiSpec,
+      },
+    ]
+    const result = mergeSpecs(base, profile, domains, { duplicateComponents: 'warn' })
     expect(result.document.components!['schemas']!['Shared']).toEqual({
       type: 'number',
     })
     expect(result.warnings).toHaveLength(1)
     expect(result.warnings[0]).toMatch(/중복 컴포넌트.*schemas\.Shared.*billing/)
     expect(result.warnings[0]).toContain('스키마 이름 충돌 방지')
+  })
+
+  it('allows duplicate component with allow-list', () => {
+    const domains = [
+      {
+        name: 'common',
+        spec: {
+          components: { schemas: { Shared: { type: 'string' } } },
+        } as OpenApiSpec,
+      },
+      {
+        name: 'billing',
+        spec: {
+          components: { schemas: { Shared: { type: 'number' } } },
+        } as OpenApiSpec,
+      },
+    ]
+    const result = mergeSpecs(base, profile, domains, { allowComponentOverrides: ['schemas.Shared'] })
+    expect(result.document.components!['schemas']!['Shared']).toEqual({ type: 'number' })
+    expect(result.warnings[0]).toContain('명시 허용')
   })
 
   it('skips duplicate tags', () => {

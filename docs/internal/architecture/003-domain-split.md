@@ -23,7 +23,7 @@ OAS 3.1에서 `paths` 값으로 `$ref` 허용이 비표준 → Spectral `oas3-sc
 - `common` 도메인 항상 먼저 처리
 - 나머지 알파벳 순
 - 중복 path → 즉시 오류
-- 중복 component → 경고 후 덮어씀
+- 중복 component → 기본 오류. 임시 호환이 필요한 경우에만 명시적 override allow-list 또는 `ALLOW_COMPONENT_OVERRIDES=1` 사용
 
 ## 결과
 

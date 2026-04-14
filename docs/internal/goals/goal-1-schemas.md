@@ -35,7 +35,8 @@ packages/schemas/src/
 4. `src/.merged.yaml` 출력
 
 중복 path → 즉시 오류 종료  
-중복 component key → 경고 후 나중 도메인이 덮어씀
+중복 component key → 기본 오류 종료
+임시 호환이 필요하면 `ALLOW_COMPONENT_OVERRIDES=1` 또는 `ALLOW_COMPONENT_OVERRIDE_KEYS=schemas.LegacyName`로 명시 허용
 
 ### 검증 체계
 

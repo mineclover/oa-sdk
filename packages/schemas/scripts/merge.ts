@@ -14,7 +14,8 @@
  *
  * 병합 규칙:
  *   - paths: 중복 경로 → 오류
- *   - components.*: 중복 키 → 경고 후 나중 도메인이 우선
+ *   - components.*: 중복 키 → 기본 오류
+ *     (ALLOW_COMPONENT_OVERRIDES=1 또는 allow-list에서만 경고 후 덮어씀)
  *   - 도메인 처리 순서: common → 나머지 (알파벳 순)
  */
 
@@ -44,6 +45,13 @@ export type MergeResult = {
   warnings: string[]
 }
 
+export type DuplicateComponentPolicy = 'error' | 'warn'
+
+export type MergeOptions = {
+  duplicateComponents?: DuplicateComponentPolicy
+  allowComponentOverrides?: string[]
+}
+
 /**
  * 도메인별 spec을 하나로 병합하는 핵심 로직 (순수 함수)
  *
@@ -55,6 +63,7 @@ export function mergeSpecs(
   baseSpec: OpenApiSpec,
   profileSpec: { servers: unknown[] },
   domainSpecs: Array<{ name: string; spec: OpenApiSpec }>,
+  options: MergeOptions = {},
 ): MergeResult {
   const base: OpenApiSpec = { ...baseSpec }
   base.paths = {}
@@ -62,6 +71,9 @@ export function mergeSpecs(
   base.servers = profileSpec.servers
 
   const warnings: string[] = []
+  const duplicatePolicy = options.duplicateComponents ?? 'error'
+  const allowOverrides = new Set(options.allowComponentOverrides ?? [])
+  const componentOwners = new Map<string, string>()
   let pathCount = 0
   let componentCount = 0
 
@@ -94,13 +106,16 @@ export function mergeSpecs(
       for (const [section, items] of Object.entries(domain.components)) {
         base.components![section] ??= {}
         for (const [key, val] of Object.entries(items)) {
+          const componentKey = `${section}.${key}`
           if (base.components![section]![key] !== undefined) {
-            warnings.push(
-              `중복 컴포넌트: ${section}.${key} (도메인: ${name}, 기존 정의를 덮어씀). ` +
-              `스키마 이름 충돌 방지를 위해 도메인 접두사 또는 공통 컴포넌트 소유권을 확인하세요.`,
-            )
+            const previousDomain = componentOwners.get(componentKey) ?? '(unknown)'
+            const message = duplicateComponentMessage(componentKey, previousDomain, name)
+            const allowed = duplicatePolicy === 'warn' || allowOverrides.has(componentKey)
+            if (!allowed) throw new Error(message)
+            warnings.push(`${message} ALLOW_COMPONENT_OVERRIDES 또는 allow-list로 명시 허용되어 덮어씁니다.`)
           }
           base.components![section]![key] = val
+          componentOwners.set(componentKey, name)
           componentCount++
         }
       }
@@ -108,6 +123,11 @@ export function mergeSpecs(
   }
 
   return { document: base, pathCount, componentCount, warnings }
+}
+
+function duplicateComponentMessage(componentKey: string, previousDomain: string, currentDomain: string): string {
+  return `중복 컴포넌트: ${componentKey} (기존 도메인: ${previousDomain}, 현재 도메인: ${currentDomain}). ` +
+    `스키마 이름 충돌 방지를 위해 도메인 접두사 또는 공통 컴포넌트 소유권을 확인하세요.`
 }
 
 /**
@@ -157,7 +177,15 @@ function run(): void {
   }
 
   try {
-    const result = mergeSpecs(baseSpec, profileSpec, domainSpecs)
+    const allowOverrideMode = process.env['ALLOW_COMPONENT_OVERRIDES'] === '1'
+    const allowList = (process.env['ALLOW_COMPONENT_OVERRIDE_KEYS'] ?? '')
+      .split(',')
+      .map(s => s.trim())
+      .filter(Boolean)
+    const result = mergeSpecs(baseSpec, profileSpec, domainSpecs, {
+      duplicateComponents: allowOverrideMode ? 'warn' : 'error',
+      allowComponentOverrides: allowList,
+    })
 
     for (const w of result.warnings) {
       console.warn(`⚠️  ${w}`)
