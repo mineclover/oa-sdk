@@ -7,3 +7,6 @@
 [submodule "references/swc"]
 	path = references/swc
 	url = https://github.com/kdy1/swc
+[submodule "references/bun-graph-db"]
+	path = references/bun-graph-db
+	url = https://github.com/mineclover/bun-graph-db
