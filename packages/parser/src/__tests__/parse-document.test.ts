@@ -3,6 +3,7 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { parseDocument } from '../parse.js'
+import type { DerefDiagnostic } from '../deref.js'
 import type { OasDocument } from '../oas32-types.js'
 
 function doc(overrides: Partial<OasDocument> = {}): OasDocument {
@@ -252,6 +253,25 @@ describe('parseDocument', () => {
     } finally {
       rmSync(tmp, { recursive: true, force: true })
     }
+  })
+
+  it('cycleStrategy preserve-ref 옵션을 deref에 전달한다', () => {
+    const diagnostics: DerefDiagnostic[] = []
+    const result = parseDocument(doc({
+      components: {
+        schemas: {
+          Node: {
+            type: 'object',
+            properties: {
+              child: { $ref: '#/components/schemas/Node' },
+            },
+          },
+        },
+      },
+    }), { cycleStrategy: 'preserve-ref', derefDiagnostics: diagnostics })
+
+    expect((result.schemas['Node']?.properties?.['child'] as any).properties.child).toEqual({ $ref: '#/components/schemas/Node' })
+    expect(diagnostics.some(d => d.code === 'ref-cycle')).toBe(true)
   })
 
   it('raw 원본 문서 보존', () => {

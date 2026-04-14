@@ -135,6 +135,30 @@ describe('derefSpec', () => {
     expect(schemas.B).toEqual({})
   })
 
+  it('cycleStrategy preserve-ref preserves cycle ref', () => {
+    const input = spec({
+      components: {
+        schemas: {
+          Node: {
+            type: 'object',
+            properties: {
+              child: {
+                $ref: '#/components/schemas/Node',
+                description: 'recursive child',
+              },
+            },
+          },
+        },
+      },
+    })
+
+    const result = derefSpec(input, { cycleStrategy: 'preserve-ref' }) as any
+    expect(result.components.schemas.Node.properties.child.properties.child).toEqual({
+      $ref: '#/components/schemas/Node',
+      description: 'recursive child',
+    })
+  })
+
   it('external ref (./file.yaml) is preserved unchanged', () => {
     const input = spec({
       paths: { '/ext': { $ref: './file.yaml#/Foo' } },

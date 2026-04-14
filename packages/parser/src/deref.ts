@@ -20,8 +20,11 @@ export type DerefDiagnostic = {
   pointer?: string
 }
 
+export type DerefCycleStrategy = 'empty-schema' | 'preserve-ref'
+
 export type DerefOptions = {
   basePath?: string
+  cycleStrategy?: DerefCycleStrategy
   diagnostics?: DerefDiagnostic[]
   onDiagnostic?: (diagnostic: DerefDiagnostic) => void
 }
@@ -30,7 +33,7 @@ export type DerefOptions = {
  * Internal $ref (#/...) 인라인 전개 Folder.
  *
  * - 외부 참조 (./file.yaml, ../file.json): basePath 옵션이 있으면 상대 경로 해결
- * - 순환 참조는 cycle stack으로 감지하여 빈 스키마({})로 대체
+ * - 순환 참조는 cycle stack으로 감지하며 기본적으로 빈 스키마({})로 대체
  * - $ref sibling 필드는 해소된 대상에 병합하여 구조 정보를 보존
  */
 export class DerefFolder extends SchemaFolder {
@@ -59,7 +62,7 @@ export class DerefFolder extends SchemaFolder {
           message: `순환 $ref 감지: ${ref}`,
           pointer: ref,
         })
-        return mergeRefSiblings({}, this.foldSiblingFields(node))
+        return this.resolveCycle(ref, node)
       }
 
       const target = resolveJsonPointer(ref, this.root)
@@ -105,7 +108,7 @@ export class DerefFolder extends SchemaFolder {
           pointer: `#${pointer}`,
           message: `순환 외부 $ref 감지: ${ref}`,
         })
-        return mergeRefSiblings({}, this.foldSiblingFields(node))
+        return this.resolveCycle(ref, node)
       }
 
       let fileContent = this.fileCache?.get(fullPath)
@@ -168,6 +171,14 @@ export class DerefFolder extends SchemaFolder {
   private emitDiagnostic(diagnostic: DerefDiagnostic): void {
     this.options.diagnostics?.push(diagnostic)
     this.options.onDiagnostic?.(diagnostic)
+  }
+
+  private resolveCycle(ref: string, node: Record<string, unknown>): unknown {
+    const siblings = this.foldSiblingFields(node)
+    if (this.options.cycleStrategy === 'preserve-ref') {
+      return mergeRefSiblings({ $ref: ref }, siblings)
+    }
+    return mergeRefSiblings({}, siblings)
   }
 
   private foldExternalTarget(target: unknown, basePath: string): unknown {

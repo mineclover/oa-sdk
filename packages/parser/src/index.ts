@@ -39,7 +39,7 @@ export type { SchemaAlgebra } from './fold.js'
 // ─── Folder 패턴 (SchemaFolder / DerefFolder) ────────────────────────────
 export { SchemaFolder } from './folder.js'
 export { DerefFolder, derefSpec, derefSpecWithDiagnostics } from './deref.js'
-export type { DerefDiagnostic, DerefDiagnosticCode, DerefOptions } from './deref.js'
+export type { DerefCycleStrategy, DerefDiagnostic, DerefDiagnosticCode, DerefOptions } from './deref.js'
 
 // ─── Query API ────────────────────────────────────────────────────────────
 export { findOperation, findByTag, findByPath, getSchema, getTag, groupByTag, describeApi, resolveServerUrl } from './query.js'

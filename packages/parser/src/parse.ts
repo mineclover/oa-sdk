@@ -28,7 +28,7 @@ import type {
 } from './oas32-types.js'
 import type { HttpMethod, OperationEntry, RouteIndex, ParsedDocument } from './types.js'
 import { runPipeline, DEFAULT_PASSES, createDerefPass, type SpecPass } from './pipeline.js'
-import type { DerefDiagnostic, DerefOptions } from './deref.js'
+import type { DerefCycleStrategy, DerefDiagnostic, DerefOptions } from './deref.js'
 
 const STANDARD_METHODS: HttpMethod[] = [
   'get', 'post', 'put', 'patch', 'delete', 'head', 'options', 'trace', 'query',
@@ -37,6 +37,7 @@ const STANDARD_METHODS: HttpMethod[] = [
 export type ParseDocumentOptions = {
   passes?: SpecPass[]
   basePath?: string
+  cycleStrategy?: DerefCycleStrategy
   derefDiagnostics?: DerefDiagnostic[]
   onDerefDiagnostic?: (diagnostic: DerefDiagnostic) => void
 }
@@ -126,14 +127,16 @@ function resolvePasses(passesOrOptions: SpecPass[] | ParseDocumentOptions): Spec
   const {
     passes,
     basePath,
+    cycleStrategy,
     derefDiagnostics,
     onDerefDiagnostic,
   } = passesOrOptions
 
   if (passes) return passes
-  if (basePath || derefDiagnostics || onDerefDiagnostic) {
+  if (basePath || cycleStrategy || derefDiagnostics || onDerefDiagnostic) {
     const derefOptions: DerefOptions = {}
     if (basePath !== undefined) derefOptions.basePath = basePath
+    if (cycleStrategy !== undefined) derefOptions.cycleStrategy = cycleStrategy
     if (derefDiagnostics !== undefined) derefOptions.diagnostics = derefDiagnostics
     if (onDerefDiagnostic !== undefined) derefOptions.onDiagnostic = onDerefDiagnostic
     return [createDerefPass(derefOptions)]

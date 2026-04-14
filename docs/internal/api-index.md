@@ -79,6 +79,7 @@
 | `ParseDocumentOptions` | `parse.ts` | `parseDocument()` basePath/deref diagnostic 옵션 |
 | `SchemaAlgebra` | `fold.ts` | fold 패턴 대수 인터페이스 |
 | `DerefOptions` | `deref.ts` | deref basePath/diagnostic 옵션 |
+| `DerefCycleStrategy` | `deref.ts` | 순환 `$ref` 처리 전략 (`empty-schema` / `preserve-ref`) |
 | `DerefDiagnostic` | `deref.ts` | $ref 해소 diagnostic 항목 |
 | `DerefDiagnosticCode` | `deref.ts` | $ref 해소 diagnostic 코드 |
 | `RefGraph` | `ref-graph.ts` | `$ref` 그래프 분석 결과 |
