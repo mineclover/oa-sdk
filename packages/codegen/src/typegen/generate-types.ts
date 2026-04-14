@@ -235,17 +235,17 @@ function responseHeadersToTs(responses: Record<string, OasResponse>, schemaOpts:
 
 export function analyzeExternalSchemaRefs(spec: OasDocument, basePath: string): ExternalSchemaRefAnalysis {
   const graph = resolveRefGraph(spec, { basePath })
-  const refList = graph.nodes
-    .filter(node => node.kind === 'external' && isRelativeRef(node.ref) && node.ref.includes('#/'))
-    .map(node => node.ref)
-    .filter((ref, index, refs) => refs.indexOf(ref) === index)
-    .sort()
+  const schemaNodes = graph.nodes
+    .filter(node => isSchemaRefNode(node))
+    .filter((node, index, nodes) => nodes.findIndex(n => refIdentity(n) === refIdentity(node)) === index)
+    .sort((a, b) => refIdentity(a).localeCompare(refIdentity(b)))
+  const refList = schemaNodes.map(node => node.ref)
   const diagnostics: ExternalSchemaRefDiagnostic[] = []
   const schemas: Record<string, OasSchema> = {}
   const refNameOverrides: Record<string, string> = {}
   const localNames = new Set(Object.keys(spec.components?.schemas ?? {}))
   const usedNames = new Set(localNames)
-  const refsByName = groupRefsBySchemaName(refList)
+  const refsByName = groupRefsBySchemaName(schemaNodes)
 
   for (const [name, groupRefs] of refsByName) {
     if (groupRefs.length <= 1) continue
@@ -257,14 +257,15 @@ export function analyzeExternalSchemaRefs(spec: OasDocument, basePath: string): 
     })
   }
 
-  for (const ref of refList) {
+  for (const node of schemaNodes) {
+    const ref = node.ref
     const baseName = schemaNameFromRef(ref)
     if (!baseName) continue
 
     const collidesWithExternal = (refsByName.get(baseName)?.length ?? 0) > 1
     const shadowsLocal = localNames.has(baseName)
     const preferredName = collidesWithExternal || shadowsLocal
-      ? `${pascalCase(fileStemFromRef(ref))}${baseName}`
+      ? `${pascalCase(fileStemFromNode(node))}${baseName}`
       : baseName
     const generatedName = uniqueTypeName(preferredName, usedNames)
     usedNames.add(generatedName)
@@ -279,8 +280,7 @@ export function analyzeExternalSchemaRefs(spec: OasDocument, basePath: string): 
       })
     }
 
-    const graphNode = graph.nodes.find(node => node.ref === ref && node.resolved)
-    const resolved = graphNode?.target ?? derefSpec({ $ref: ref }, { basePath }) as unknown
+    const resolved = node.target ?? derefSpec({ $ref: ref }, { basePath }) as unknown
     if (isSchemaObject(resolved)) {
       schemas[generatedName] = resolved as OasSchema
       refNameOverrides[ref] = generatedName
@@ -297,6 +297,11 @@ export function analyzeExternalSchemaRefs(spec: OasDocument, basePath: string): 
   return { schemas, refNameOverrides, diagnostics }
 }
 
+function isSchemaRefNode(node: { kind: string; ref: string; pointer?: string; filePath?: string }): boolean {
+  if (node.kind === 'external') return isRelativeRef(node.ref) && node.ref.includes('#/components/schemas/')
+  return !!node.filePath && node.ref.startsWith('#/components/schemas/')
+}
+
 function emptyExternalSchemaAnalysis(): ExternalSchemaRefAnalysis {
   return { schemas: {}, refNameOverrides: {}, diagnostics: [] }
 }
@@ -305,23 +310,27 @@ function schemaNameFromRef(ref: string): string | undefined {
   return ref.split('/').pop()
 }
 
-function groupRefsBySchemaName(refs: string[]): Map<string, string[]> {
+function groupRefsBySchemaName(refs: Array<{ ref: string; filePath?: string }>): Map<string, string[]> {
   const groups = new Map<string, string[]>()
-  for (const ref of refs) {
-    const name = schemaNameFromRef(ref)
+  for (const node of refs) {
+    const name = schemaNameFromRef(node.ref)
     if (!name) continue
     const list = groups.get(name) ?? []
-    list.push(ref)
+    list.push(refIdentity(node))
     groups.set(name, list)
   }
   return groups
 }
 
-function fileStemFromRef(ref: string): string {
-  const [filePart] = ref.split('#')
+function fileStemFromNode(node: { ref: string; filePath?: string }): string {
+  const [filePart] = (node.filePath ?? node.ref).split('#')
   if (!filePart) return 'External'
   const fileName = basename(filePart)
   return fileName.slice(0, fileName.length - extname(fileName).length) || 'External'
+}
+
+function refIdentity(node: { ref: string; filePath?: string; pointer?: string }): string {
+  return node.filePath ? `${node.filePath}${node.pointer ?? node.ref}` : node.ref
 }
 
 function uniqueTypeName(preferredName: string, usedNames: Set<string>): string {

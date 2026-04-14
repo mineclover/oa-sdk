@@ -48,6 +48,7 @@ export function resolveRefGraph(spec: OasDocument | Record<string, unknown>, opt
   const nodes: RefGraphNode[] = []
   const diagnostics: RefGraphDiagnostic[] = []
   const fileCache = new Map<string, ExternalDocument>()
+  const entryPath = options.basePath
 
   visitDocument(spec, '#', options.basePath, [], spec)
   return { nodes, diagnostics }
@@ -65,19 +66,20 @@ export function resolveRefGraph(spec: OasDocument | Record<string, unknown>, opt
   }
 
   function resolveRef(ref: string, sourcePointer: string, root: unknown, basePath: string | undefined, stack: string[]): void {
-    if (ref.startsWith('#/')) {
+    if (ref === '#' || ref.startsWith('#/')) {
+      const currentFilePath = basePath && basePath !== entryPath ? basePath : undefined
       const nodeKey = `<root>${ref}`
       if (stack.includes(nodeKey)) {
-        diagnostics.push({ code: 'ref-cycle', ref, pointer: ref, message: `순환 $ref 감지: ${ref}` })
-        nodes.push({ ref, kind: 'internal', sourcePointer, pointer: ref, resolved: false })
+        diagnostics.push({ code: 'ref-cycle', ref, ...(currentFilePath ? { filePath: currentFilePath } : {}), pointer: ref, message: `순환 $ref 감지: ${ref}` })
+        nodes.push({ ref, kind: 'internal', sourcePointer, ...(currentFilePath ? { filePath: currentFilePath } : {}), pointer: ref, resolved: false })
         return
       }
 
       const target = resolvePointer(ref, root)
       const resolved = target !== undefined
-      nodes.push({ ref, kind: 'internal', sourcePointer, pointer: ref, resolved, ...(resolved ? { target } : {}) })
+      nodes.push({ ref, kind: 'internal', sourcePointer, ...(currentFilePath ? { filePath: currentFilePath } : {}), pointer: ref, resolved, ...(resolved ? { target } : {}) })
       if (!resolved) {
-        diagnostics.push({ code: 'ref-not-found', ref, pointer: ref, message: `참조 대상을 찾을 수 없습니다: ${ref}` })
+        diagnostics.push({ code: 'ref-not-found', ref, ...(currentFilePath ? { filePath: currentFilePath } : {}), pointer: ref, message: `참조 대상을 찾을 수 없습니다: ${ref}` })
         return
       }
       visitDocument(target, ref, basePath, [...stack, nodeKey], root)
@@ -145,7 +147,6 @@ export function collectRefs(node: unknown, sourcePointer: string, onRef: (ref: s
   const obj = node as Record<string, unknown>
   if (typeof obj['$ref'] === 'string') {
     onRef(obj['$ref'], `${sourcePointer}/$ref`)
-    return
   }
 
   for (const [key, value] of Object.entries(obj)) {
@@ -158,6 +159,7 @@ export function isRelativeRef(ref: string): boolean {
 }
 
 export function resolvePointer(ref: string, root: unknown): unknown | undefined {
+  if (ref === '#') return root
   const parts = ref
     .slice(2)
     .split('/')

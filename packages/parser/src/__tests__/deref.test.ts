@@ -240,6 +240,45 @@ describe('derefSpec — external file $ref', () => {
     })
   })
 
+  it('외부 YAML 내부의 상대 $ref를 해당 파일 기준으로 해소', () => {
+    writeFileSync(join(tmpDir, 'nested.yaml'), [
+      'components:',
+      '  schemas:',
+      '    User:',
+      '      type: object',
+      '      properties:',
+      '        role:',
+      '          $ref: "./roles.yaml#/components/schemas/Role"',
+      '',
+    ].join('\n'))
+    writeFileSync(join(tmpDir, 'roles.yaml'), [
+      'components:',
+      '  schemas:',
+      '    Role:',
+      '      type: string',
+      '      enum: [admin, user]',
+      '',
+    ].join('\n'))
+
+    const input = spec({
+      paths: {
+        '/nested': { $ref: './nested.yaml#/components/schemas/User' },
+      },
+    })
+
+    const result = derefSpec(input, { basePath: mainFile }) as any
+    expect(result.paths['/nested'].properties.role).toEqual({
+      type: 'string',
+      enum: ['admin', 'user'],
+    })
+  })
+
+  it('root pointer # 해소', () => {
+    const input = { $ref: '#', title: 'Root' }
+    const result = derefSpec(input) as Record<string, unknown>
+    expect(result.title).toBe('Root')
+  })
+
   it('basePath 미지정 시 외부 ref 원본 유지', () => {
     const input = spec({
       paths: { '/ext': { $ref: './common.json#/schemas/Shared' } },

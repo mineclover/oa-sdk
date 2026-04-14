@@ -91,4 +91,43 @@ describe('resolveRefGraph', () => {
 
     expect(graph.diagnostics.some(d => d.code === 'ref-cycle')).toBe(true)
   })
+
+  it('$ref sibling 내부의 $ref도 수집한다', () => {
+    const graph = resolveRefGraph(doc({
+      components: {
+        schemas: {
+          Base: { type: 'object' },
+          Child: { type: 'string' },
+        },
+      },
+      paths: {
+        '/x': {
+          get: {
+            responses: {
+              '200': {
+                content: {
+                  'application/json': {
+                    schema: {
+                      $ref: '#/components/schemas/Base',
+                      properties: {
+                        child: { $ref: '#/components/schemas/Child' },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    }))
+
+    expect(graph.nodes.some(n => n.ref === '#/components/schemas/Base')).toBe(true)
+    expect(graph.nodes.some(n => n.ref === '#/components/schemas/Child')).toBe(true)
+  })
+
+  it('root pointer #를 해소한다', () => {
+    const graph = resolveRefGraph({ $ref: '#', title: 'Root' } as any)
+    expect(graph.nodes.some(n => n.ref === '#' && n.resolved)).toBe(true)
+  })
 })

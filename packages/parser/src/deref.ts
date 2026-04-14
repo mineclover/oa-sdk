@@ -3,6 +3,7 @@ import { SchemaFolder } from './folder.js'
 import { readFileSync } from 'node:fs'
 import { resolve, dirname } from 'node:path'
 import { parse as parseYaml } from 'yaml'
+import { resolvePointer as resolveJsonPointer } from './ref-graph.js'
 
 export type DerefDiagnosticCode =
   | 'ref-cycle'
@@ -34,18 +35,23 @@ export type DerefOptions = {
  */
 export class DerefFolder extends SchemaFolder {
   private readonly stack: string[] = []
+  private readonly root: unknown
+  private readonly currentBasePath: string | undefined
 
   constructor(
-    private readonly root: unknown,
+    root: unknown,
     private readonly options: DerefOptions = {},
     private readonly fileCache?: Map<string, unknown>,
+    currentBasePath?: string,
   ) {
     super()
+    this.root = root
+    this.currentBasePath = currentBasePath ?? options.basePath
   }
 
   protected override foldRef(ref: string, node: Record<string, unknown>): unknown {
     // Internal ref
-    if (ref.startsWith('#/')) {
+    if (ref === '#' || ref.startsWith('#/')) {
       if (this.stack.includes(ref)) {
         this.emitDiagnostic({
           code: 'ref-cycle',
@@ -56,7 +62,7 @@ export class DerefFolder extends SchemaFolder {
         return mergeRefSiblings({}, this.foldSiblingFields(node))
       }
 
-      const target = resolvePointer(ref, this.root)
+      const target = resolveJsonPointer(ref, this.root)
       if (target === undefined) {
         this.emitDiagnostic({
           code: 'ref-not-found',
@@ -76,7 +82,7 @@ export class DerefFolder extends SchemaFolder {
     }
 
     // External file ref (상대 경로)
-    if (this.options.basePath && (ref.startsWith('./') || ref.startsWith('../'))) {
+    if (this.currentBasePath && (ref.startsWith('./') || ref.startsWith('../'))) {
       const [filePart, pointer] = ref.split('#')
       if (!filePart || !pointer) {
         this.emitDiagnostic({
@@ -87,7 +93,7 @@ export class DerefFolder extends SchemaFolder {
         return node
       }
 
-      const fullPath = resolve(dirname(this.options.basePath), filePart)
+      const fullPath = resolve(dirname(this.currentBasePath), filePart)
 
       // 순환 감지: 파일경로 + 포인터 조합
       const externalKey = `${fullPath}#${pointer}`
@@ -119,7 +125,7 @@ export class DerefFolder extends SchemaFolder {
         }
       }
 
-      const target = resolvePointer('#' + pointer, fileContent)
+      const target = resolveJsonPointer('#' + pointer, fileContent)
       if (target === undefined) {
         this.emitDiagnostic({
           code: 'external-ref-pointer-not-found',
@@ -133,7 +139,7 @@ export class DerefFolder extends SchemaFolder {
 
       this.stack.push(externalKey)
       try {
-        return mergeRefSiblings(this.fold(target), this.foldSiblingFields(node))
+        return mergeRefSiblings(this.foldExternalTarget(target, fullPath), this.foldSiblingFields(node))
       } finally {
         this.stack.pop()
       }
@@ -163,26 +169,12 @@ export class DerefFolder extends SchemaFolder {
     this.options.diagnostics?.push(diagnostic)
     this.options.onDiagnostic?.(diagnostic)
   }
-}
 
-/**
- * JSON Pointer (#/a/b/c) 로 root 내 값을 탐색.
- * RFC 6901: ~ → ~0, / → ~1 이스케이프 처리.
- */
-function resolvePointer(ref: string, root: unknown): unknown | undefined {
-  const parts = ref
-    .slice(2) // '#/' 제거
-    .split('/')
-    .map(p => p.replace(/~1/g, '/').replace(/~0/g, '~'))
-
-  let current: unknown = root
-  for (const part of parts) {
-    if (typeof current !== 'object' || current === null) return undefined
-    const obj = current as Record<string, unknown>
-    if (!Object.prototype.hasOwnProperty.call(obj, part)) return undefined
-    current = obj[part]
+  private foldExternalTarget(target: unknown, basePath: string): unknown {
+    const folder = new DerefFolder(this.root, this.options, this.fileCache, basePath)
+    folder.stack.push(...this.stack)
+    return folder.fold(target)
   }
-  return current
 }
 
 /**

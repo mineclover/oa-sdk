@@ -70,6 +70,7 @@ let externalSpecPath: string
 let sharedSpecPath: string
 let collisionSpecPath: string
 let missingExternalSpecPath: string
+let nestedExternalSpecPath: string
 
 const execOpts: ExecSyncOptionsWithStringEncoding = { cwd: pkgDir, encoding: 'utf8', timeout: 15_000 }
 
@@ -108,6 +109,7 @@ beforeAll(() => {
   sharedSpecPath = join(tmpDir, 'shared.yaml')
   collisionSpecPath = join(tmpDir, 'collision-api.yaml')
   missingExternalSpecPath = join(tmpDir, 'missing-external-api.yaml')
+  nestedExternalSpecPath = join(tmpDir, 'nested-external-api.yaml')
   writeFileSync(specPath, yamlStringify(VALID_SPEC), 'utf8')
   writeFileSync(invalidSpecPath, yamlStringify(INVALID_SPEC), 'utf8')
   writeFileSync(sharedSpecPath, yamlStringify({
@@ -201,6 +203,34 @@ beforeAll(() => {
       },
     },
   }), 'utf8')
+  writeFileSync(join(tmpDir, 'nested-user.yaml'), yamlStringify({
+    components: {
+      schemas: {
+        User: {
+          type: 'object',
+          properties: { role: { $ref: '#/components/schemas/Role' } },
+        },
+        Role: { type: 'string', enum: ['admin', 'user'] },
+      },
+    },
+  }), 'utf8')
+  writeFileSync(nestedExternalSpecPath, yamlStringify({
+    openapi: '3.2.0',
+    info: { title: 'Nested External API', version: '1.0.0' },
+    paths: {
+      '/nested-users': {
+        get: {
+          operationId: 'getNestedUser',
+          responses: {
+            '200': {
+              description: 'Nested',
+              content: { 'application/json': { schema: { $ref: './nested-user.yaml#/components/schemas/User' } } },
+            },
+          },
+        },
+      },
+    },
+  }), 'utf8')
 })
 
 afterAll(() => {
@@ -250,6 +280,14 @@ describe('typegen', () => {
     expect(stdout).toContain('export type SharedBUser =')
     expect(stdout).toContain('export type GetAResponse = SharedAUser')
     expect(stdout).toContain('export type GetBResponse = SharedBUser')
+  })
+
+  it('외부 schema 내부 internal $ref 타입도 생성', () => {
+    const out = cli(`typegen -s ${nestedExternalSpecPath}`)
+    expect(out).toContain('export type User =')
+    expect(out).toContain('export type Role =')
+    expect(out).toContain('role?: Role')
+    expect(out).toContain('export type GetNestedUserResponse = User')
   })
 })
 
