@@ -7,7 +7,8 @@ import {
   createCliIncrementalRun,
   recordCliIncrementalIndex,
 } from '../lib/incremental.js'
-import type { WorkspaceDiagnosticRecord } from '../../workspace-index.js'
+import type { WorkspaceDiagnosticRecord, WorkspaceTypeAliasRecord } from '../../workspace-index.js'
+import type { ExternalSchemaTypeAlias } from '../../typegen/generate-types.js'
 
 export const typegen: Command = {
   name: 'typegen',
@@ -20,7 +21,7 @@ export const typegen: Command = {
     'cache-dir':   { type: 'string', description: '증분 workspace index 디렉토리 (기본: ./.oa-cache)' },
   },
   async run(args) {
-    const { generateTypesFromSpec } = await import('../../typegen/generate-types.js')
+    const { analyzeExternalSchemaRefs, generateTypesFromSpec } = await import('../../typegen/generate-types.js')
     const specPath = str(args, 'spec')
     const cacheDir = optStr(args, 'cache-dir')
     const incremental = createCliIncrementalRun({
@@ -32,16 +33,29 @@ export const typegen: Command = {
     const style: 'interface' | 'type' = optStr(args, 'style') === 'interface' ? 'interface' : 'type'
     try {
       const warnings: string[] = []
-      const ts = generateTypesFromSpec(doc, { style, basePath: resolvedSpecPath, warnings })
+      const externalAnalysis = analyzeExternalSchemaRefs(doc, resolvedSpecPath)
+      const ts = generateTypesFromSpec(doc, { style, basePath: resolvedSpecPath, warnings, externalAnalysis })
       for (const warning of warnings) console.warn(`⚠️  ${warning}`)
       writeOutput(optStr(args, 'output'), ts, 'TypeScript 타입 생성')
       await recordCliIncrementalIndex(incremental, doc, {
         diagnostics: warnings.map(warning => toWorkspaceDiagnostic(resolvedSpecPath, warning)),
+        typeAliases: externalAnalysis.typeAliases.map(alias => toWorkspaceTypeAlias(resolvedSpecPath, alias)),
       })
     } finally {
       closeCliIncrementalRun(incremental)
     }
   },
+}
+
+function toWorkspaceTypeAlias(resolvedSpecPath: string, alias: ExternalSchemaTypeAlias): WorkspaceTypeAliasRecord {
+  return {
+    sourceFile: alias.sourceFilePath ?? resolvedSpecPath,
+    sourcePointer: alias.sourcePointer,
+    refText: alias.ref,
+    aliasName: alias.aliasName,
+    contentHash: alias.contentHash,
+    ...(alias.renamedFrom ? { renamedFrom: alias.renamedFrom } : {}),
+  }
 }
 
 function toWorkspaceDiagnostic(resolvedSpecPath: string, warning: string): WorkspaceDiagnosticRecord {

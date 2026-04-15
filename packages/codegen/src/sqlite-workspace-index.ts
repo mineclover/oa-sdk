@@ -33,6 +33,7 @@ export type SQLiteWorkspaceIndexOptions = {
 export interface SQLiteWorkspaceIndex extends WorkspaceIndex {
   readonly mode: 'sqlite'
   readonly dbPath: string
+  readonly driverName?: SqliteDriverName
   readonly fallbackReason?: string
   close(): void
 }
@@ -51,8 +52,11 @@ type SqliteDatabase = {
   prepare(sql: string): SqliteStatement
 }
 
-type SqliteModule = {
-  DatabaseSync: new (path: string) => SqliteDatabase
+export type SqliteDriverName = 'better-sqlite3' | 'node:sqlite'
+
+type SqliteDriver = {
+  name: SqliteDriverName
+  open(path: string): SqliteDatabase
 }
 
 const require = createRequire(import.meta.url)
@@ -64,6 +68,7 @@ export function createSQLiteWorkspaceIndex(options: SQLiteWorkspaceIndexOptions 
 class NodeSQLiteWorkspaceIndex implements SQLiteWorkspaceIndex {
   readonly mode = 'sqlite'
   readonly dbPath: string
+  driverName?: SqliteDriverName
   fallbackReason?: string
 
   private readonly schemaVersion: number
@@ -406,8 +411,9 @@ class NodeSQLiteWorkspaceIndex implements SQLiteWorkspaceIndex {
   private open(): void {
     try {
       mkdirSync(dirname(this.dbPath), { recursive: true })
-      const { DatabaseSync } = loadSqliteModule()
-      this.db = new DatabaseSync(this.dbPath)
+      const driver = loadSqliteDriver()
+      this.driverName = driver.name
+      this.db = driver.open(this.dbPath)
       this.configureDatabase()
       this.initializeSchema()
       this.checkCompatibility()
@@ -528,6 +534,7 @@ class NodeSQLiteWorkspaceIndex implements SQLiteWorkspaceIndex {
   private checkCompatibility(): void {
     const existingSchemaVersion = this.readMeta('schema_version')
     const existingCompatibilityHash = this.readMeta('compatibility_hash')
+    const existingDriverName = this.readMeta('driver_name')
 
     if (existingSchemaVersion === undefined && existingCompatibilityHash === undefined) {
       this.write(() => {
@@ -539,6 +546,7 @@ class NodeSQLiteWorkspaceIndex implements SQLiteWorkspaceIndex {
     if (
       existingSchemaVersion !== String(this.schemaVersion)
       || existingCompatibilityHash !== this.compatibilityHash
+      || (existingDriverName !== undefined && existingDriverName !== this.driverName)
     ) {
       this.write(() => {
         this.clearData()
@@ -557,6 +565,7 @@ class NodeSQLiteWorkspaceIndex implements SQLiteWorkspaceIndex {
     insertMeta.run('schema_version', String(this.schemaVersion))
     insertMeta.run('compatibility_hash', this.compatibilityHash)
     insertMeta.run('compatibility_json', this.compatibilityJson)
+    if (this.driverName) insertMeta.run('driver_name', this.driverName)
   }
 
   private readMeta(key: string): string | undefined {
@@ -632,8 +641,46 @@ class NodeSQLiteWorkspaceIndex implements SQLiteWorkspaceIndex {
   }
 }
 
-function loadSqliteModule(): SqliteModule {
-  return require('node:sqlite') as SqliteModule
+export function loadSqliteDriver(): SqliteDriver {
+  const errors: string[] = []
+
+  try {
+    const betterSqlite = require('better-sqlite3') as BetterSqliteModule
+    return {
+      name: 'better-sqlite3',
+      open(path: string): SqliteDatabase {
+        return betterSqlite(path)
+      },
+    }
+  } catch (error) {
+    errors.push(`better-sqlite3: ${errorMessage(error)}`)
+  }
+
+  try {
+    const sqlite = require('node:sqlite') as NodeSqliteModule
+    return {
+      name: 'node:sqlite',
+      open(path: string): SqliteDatabase {
+        return new sqlite.DatabaseSync(path)
+      },
+    }
+  } catch (error) {
+    errors.push(`node:sqlite: ${errorMessage(error)}`)
+  }
+
+  throw new Error(`No supported SQLite driver found (${errors.join('; ')})`)
+}
+
+type BetterSqliteModule = {
+  (path: string): SqliteDatabase
+}
+
+type NodeSqliteModule = {
+  DatabaseSync: new (path: string) => SqliteDatabase
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error)
 }
 
 function fullRebuildDiff(files: readonly WorkspaceFileRecord[]): WorkspaceIndexDiff {

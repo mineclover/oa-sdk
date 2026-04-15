@@ -134,6 +134,7 @@ Typegen 공개 surface는 root entry(`@oa-sdk/codegen`)와 typegen sub-entry(`@o
 | `TypegenOptions` | `typegen/generate-types.ts` | public typegen 옵션. `@oa-sdk/codegen`과 `@oa-sdk/codegen/typegen`에서 모두 export |
 | `SchemaToTsOptions` | `typegen/schema-to-ts.ts` | public `schemaToTs()` 옵션. `@oa-sdk/codegen`과 `@oa-sdk/codegen/typegen`에서 모두 export |
 | `ExternalSchemaRefAnalysis` | `typegen/generate-types.ts` | 외부 schema-position `$ref` alias 분석 결과 |
+| `ExternalSchemaTypeAlias` | `typegen/generate-types.ts` | 외부 schema alias의 source pointer/ref/type name/content hash metadata |
 | `ExternalSchemaRefDiagnostic` | `typegen/generate-types.ts` | 외부 `$ref` 이름 충돌/operation 타입 충돌/unsupported pointer/해소 실패 diagnostic. sourceFilePath/sourcePointer + filePath/pointer 포함 가능 |
 | `ExternalSchemaRefDiagnosticCode` | `typegen/generate-types.ts` | 외부 `$ref` diagnostic 코드. `external-schema-shadows-operation`, `external-schema-unsupported-pointer`, resolver diagnostic code도 보존 |
 | `WorkspaceIndex` | `workspace-index.ts` | parser 밖의 증분 workspace index 경계. correctness 원천이 아닌 optimization/index layer |
@@ -155,6 +156,7 @@ Typegen 공개 surface는 root entry(`@oa-sdk/codegen`)와 typegen sub-entry(`@o
 | `WorkspaceTypeAliasFilter` | `workspace-index.ts` | type alias metadata 조회 필터 |
 | `SQLiteWorkspaceIndex` | `sqlite-workspace-index.ts` | SQLite-backed WorkspaceIndex with database path, fallback reason, and close method |
 | `SQLiteWorkspaceIndexOptions` | `sqlite-workspace-index.ts` | cacheDir/dbPath/schemaVersion/compatibility/busyTimeoutMs 설정 |
+| `SqliteDriverName` | `sqlite-workspace-index.ts` | persistent index backend 이름 (`better-sqlite3` primary, `node:sqlite` fallback) |
 
 ### 내부 함수 (`@oa-sdk/codegen` — index 미노출)
 

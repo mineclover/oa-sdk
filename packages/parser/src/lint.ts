@@ -183,7 +183,7 @@ function lintOperations(spec: OasDocument, results: LintResult[]) {
       const op = item[method] as OasOperation | undefined
       if (!op) continue
 
-      const opPath = `/paths/${path}/${method}`
+      const opPath = pointerPath('paths', path, method)
 
       if (!op.responses || Object.keys(op.responses).length === 0) {
         results.push({ path: opPath, severity: 'warning', rule: 'operations/responses-required', message: 'responses가 비어있습니다' })
@@ -230,7 +230,7 @@ function lintParameters(spec: OasDocument, results: LintResult[]) {
       }
 
       for (const p of opParams) {
-        const paramPath = `/paths/${path}/${method}/parameters/${p.name}`
+        const paramPath = pointerPath('paths', path, method, 'parameters', p.name)
 
         if (!VALID_IN.has(p.in)) {
           results.push({ path: paramPath, severity: 'error', rule: 'parameters/valid-in', message: `유효하지 않은 in 값: "${p.in}"` })
@@ -245,7 +245,7 @@ function lintParameters(spec: OasDocument, results: LintResult[]) {
       const definedPathParams = new Set(opParams.filter(p => p.in === 'path').map(p => p.name))
       for (const name of pathParamNames) {
         if (!definedPathParams.has(name)) {
-          results.push({ path: `/paths/${path}/${method}`, severity: 'warning', rule: 'parameters/path-defined', message: `경로의 {${name}} 파라미터가 정의되지 않았습니다` })
+          results.push({ path: pointerPath('paths', path, method), severity: 'warning', rule: 'parameters/path-defined', message: `경로의 {${name}} 파라미터가 정의되지 않았습니다` })
         }
       }
     }
@@ -317,7 +317,7 @@ function lintSecurity(spec: OasDocument, results: LintResult[]) {
       for (const req of op.security) {
         for (const name of Object.keys(req)) {
           if (!schemeSet.has(name)) {
-            results.push({ path: `/paths/${path}/${method}/security`, severity: 'error', rule: 'security/scheme-defined', message: `securitySchemes에 "${name}"이 정의되지 않았습니다` })
+                results.push({ path: pointerPath('paths', path, method, 'security'), severity: 'error', rule: 'security/scheme-defined', message: `securitySchemes에 "${name}"이 정의되지 않았습니다` })
           }
         }
       }
@@ -334,7 +334,7 @@ function lintStyle(spec: OasDocument, results: LintResult[]) {
     for (const method of ['get', 'post', 'put', 'patch', 'delete', 'options', 'head', 'trace', 'query'] as const) {
       const op = item[method] as OasOperation | undefined
       if (!op) continue
-      const opPath = `/paths/${path}/${method}`
+      const opPath = pointerPath('paths', path, method)
       if (!op.operationId) {
         results.push({ path: opPath, severity: 'info', rule: 'style/operationId', message: 'operationId 권장' })
       }
@@ -359,8 +359,16 @@ function lintComponents(spec: OasDocument, results: LintResult[]) {
     for (const name of Object.keys(map)) {
       const ref = `#/components/${type}/${name}`
       if (!refSet.has(ref)) {
-        results.push({ path: `/components/${type}/${name}`, severity: 'warning', rule: `components/unused-${type.replace(/ies$/, 'y').replace(/s$/, '')}`, message: `미사용 컴포넌트: ${type}/${name}` })
+        results.push({ path: pointerPath('components', type, name), severity: 'warning', rule: `components/unused-${type.replace(/ies$/, 'y').replace(/s$/, '')}`, message: `미사용 컴포넌트: ${type}/${name}` })
       }
     }
   }
+}
+
+function pointerPath(...segments: string[]): string {
+  return `/${segments.map(escapePointerSegment).join('/')}`
+}
+
+function escapePointerSegment(segment: string): string {
+  return segment.replace(/~/g, '~0').replace(/\//g, '~1')
 }

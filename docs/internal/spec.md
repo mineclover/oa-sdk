@@ -87,7 +87,7 @@ schemas      ← 독립. OAS 소스 + merge + 3.1↔3.2 변환
 | typegen const 중첩 | 중첩 프로퍼티의 `const` → 리터럴 타입 정규화 |
 | additionalProperties | `Record<string, T>` + index signature 타입 생성 |
 | WorkspaceIndex | 파일 hash/component/ref/source/diagnostic/type alias metadata용 index 경계. 기본 noop은 모든 파일을 dirty 처리해 기존 full rebuild 동작 유지 |
-| SQLiteWorkspaceIndex | `.oa-cache/state.sqlite`에 index row를 보존. WAL/foreign key/transaction을 사용하고 schema/options mismatch 또는 DB 오류 시 full rebuild fallback |
+| SQLiteWorkspaceIndex | `.oa-cache/state.sqlite`에 index row를 보존. `better-sqlite3` primary + `node:sqlite` fallback driver를 사용하며 WAL/foreign key/transaction, schema/options mismatch 또는 DB 오류 시 full rebuild fallback |
 | Workspace dirty detection | entry/domain/profile/external ref 파일 scan → new/modified/deleted/unchanged 분류 → refs.to_file 역방향 dirty 전파 → stale row invalidation |
 | CLI | 커맨드 모듈 구조. `generate`/`typegen`/`router`/`client`/`lint`/`validate`/`dev`/`--help`; `validate`/`typegen`은 opt-in `--incremental --cache-dir`, `dev`는 watch mode에서 같은 index path 사용. `lint`/`validate` diagnostic은 YAML source map이 있으면 `file:line:column`을 출력하고 target `file#pointer` fallback을 유지 |
 
@@ -109,7 +109,7 @@ schemas      ← 독립. OAS 소스 + merge + 3.1↔3.2 변환
 | `createNoopWorkspaceIndex()` / `createWorkspaceIndex()` | `packages/codegen/src/workspace-index.ts` | 기본 index는 읽기 결과를 비우고 scan 입력 전체를 changed로 반환해 기존 full rebuild 결과를 정답으로 유지. `mode: 'sqlite'`는 SQLite 구현체를 생성 |
 | `createMemoryWorkspaceIndex()` | `packages/codegen/src/workspace-index.ts` | 테스트와 향후 CLI orchestration용 메모리 구현. 변경 감지와 파일 단위 metadata 교체/무효화를 제공하지만 correctness 판단의 원천은 아님 |
 | `createSQLiteWorkspaceIndex()` | `packages/codegen/src/sqlite-workspace-index.ts` | `.oa-cache/state.sqlite` 기본 경로에 `meta`, `files`, `components`, `refs`, `source_locations`, `diagnostics`, `type_aliases` 테이블 생성. WAL, `busy_timeout`, foreign key, transaction-wrapped write를 사용 |
-| SQLite compatibility meta | `packages/codegen/src/sqlite-workspace-index.ts` | `schema_version`, `compatibility_hash`, `compatibility_json`을 `meta`에 저장. schema/options mismatch는 cache row를 비우고 다음 diff를 full rebuild로 반환 |
+| SQLite compatibility meta | `packages/codegen/src/sqlite-workspace-index.ts` | `schema_version`, `compatibility_hash`, `compatibility_json`, `driver_name`을 `meta`에 저장. schema/options/driver mismatch는 cache row를 비우고 다음 diff를 full rebuild로 반환 |
 | Dirty detection helpers | `packages/codegen/src/workspace-index.ts` | entry/domain/profile/external ref 파일을 absolute path + realpath + size + mtime + sha256으로 scan. index와 비교해 new/modified/deleted/unchanged를 분류하고, changed/deleted target의 `refs.to_file` 역방향 source를 dirty로 전파한 뒤 stale row invalidation 입력을 반환 |
 | CLI incremental orchestration | `packages/codegen/src/cli/lib/incremental.ts` | `validate`/`typegen --incremental`과 `dev`가 동일한 scan → dirty detect → invalidate → full parser/codegen output → index refresh 경로를 사용. cache 실패나 cache miss는 출력 correctness에 영향을 주지 않고 full rebuild 결과가 우선 |
 
@@ -206,8 +206,8 @@ pnpm demo  # API 구조 + Mock 12시나리오 + 커버리지
 | 자체 린터 + ref graph | 3.2 원본 | 0 에러, 0 경고 |
 | JSON Schema 메타 검증 | Schema Object | 2020-12 keyword 정합성 |
 | Mock schema preflight | request body/parameter schema | mock 생성 전 AJV compile 오류 차단 |
-| Redocly | 3.1 변환 | valid, 4 경고 (의도적) |
-| Spectral | 3.1 변환 | 0 에러, 1 힌트 |
+| Redocly | 3.1 변환 | valid |
+| Spectral | 3.2 원본 | 0 에러, 4 힌트 |
 | 부하 | 100 동시 요청 | <200ms |
 
 ## CI 자동화
@@ -216,7 +216,7 @@ pnpm demo  # API 구조 + Mock 12시나리오 + 커버리지
 |------|------|------|
 | Build | 7 패키지 + CI 스크립트 | tsup ESM 빌드 |
 | Typecheck | 7 패키지 + playground | tsc --noEmit strict |
-| Test | 8 패키지 + playground | vitest 1634 케이스 |
+| Test | 8 패키지 + playground | vitest 1646 케이스 |
 | Schema validate | schemas + oa-gen | 도메인 병합 + 3.1 변환 + Spectral/Redocly + 3.2 자체 검증 표준 파이프라인 |
 | Freshness check | 산출물 | git diff --exit-code |
 | API index | docs ↔ code | root export 정합성 + codegen typegen option subpath 검증 |
@@ -229,12 +229,12 @@ pnpm demo  # API 구조 + Mock 12시나리오 + 커버리지
 | 패키지 | 케이스 |
 |--------|--------|
 | core | 52 |
-| parser | 201 |
-| codegen | 492 |
+| parser | 202 |
+| codegen | 495 |
 | mock-server | 580 |
 | playground | 114 |
 | router | 36 |
 | client | 39 |
 | schemas | 75 |
 | typia-mock | 53 |
-| **합계** | **1642** |
+| **합계** | **1646** |

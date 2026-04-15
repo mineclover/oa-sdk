@@ -8,11 +8,48 @@
 
 ## 다음 세션 실행 순서
 
-### 1. [x] router/client: ResponseHeaders 활용
+현재 ralph PRD 기준 US-001~US-022는 모두 완료됨. 실행 대기 중인 blocking todo는 없음.
+
+### [ ] 운영 관찰: SQLite optional native dependency 설치성
+배경: `better-sqlite3`는 증분 WorkspaceIndex의 primary driver지만 native optional dependency라 환경별 설치 실패 가능성이 있음.
+현재 처리: 설치 성공 시 `better-sqlite3` 사용, 실패 시 `node:sqlite`, 둘 다 실패하거나 DB 오류가 나면 full rebuild fallback + CLI warning.
+관찰 기준: CI/개발자 환경에서 optional install 실패가 잦거나 fallback warning이 반복되면 prebuilt 지원 범위 또는 driver 정책을 재검토.
+
+### [ ] 운영 관찰: Spectral response-example 힌트 4건
+배경: `pnpm schema:validate`는 통과하지만 Spectral `response-example-recommended` hint가 4건 남아 있음.
+현재 처리: 0 error / 0 warning / 4 hint로 문서화. schema correctness에는 영향 없음.
+후속 기준: Prism/mock 예제 품질을 더 강화하기로 하면 `paths./users.get.responses[200]`, `components.schemas.Error`, `HealthStatus`, `User` 예제를 보강.
+
+### [ ] 운영 관찰: node:sqlite experimental warning in tests
+배경: 실제 `SQLiteWorkspaceIndex`는 `better-sqlite3`를 primary로 잡지만, 일부 테스트 헬퍼가 DB meta 확인용으로 `node:sqlite`를 직접 열어 warning이 출력됨.
+현재 처리: 기능 실패는 아니며 `better-sqlite3` driver 사용은 수동 검증 완료.
+후속 기준: 테스트 로그 소음을 줄여야 하면 테스트 헬퍼도 selected driver adapter를 재사용하도록 정리.
+
+---
+
+## 완료된 실행 항목
+
+### [x] router/client: ResponseHeaders 활용
 배경: typegen은 `XxxResponseHeaders`를 생성하지만 router/client 런타임 API는 아직 타입을 적극 활용하지 않음.
 진행: router는 문서화된 응답 헤더가 있으면 `Partial<XxxResponseHeaders>` placeholder와 Hono/Express 공용 header setter helper를 생성해 handler stub에서 타입 힌트를 제공함.
 완료: client는 문서화된 응답 헤더가 있는 non-streaming operation에 `withResponse.<operation>()`을 생성해 기존 body 반환 메서드는 유지하고 `{ body, headers, response }` 형태로 typed `XxxResponseHeaders` 접근을 제공함. Header lookup은 Fetch `Headers` 기반 case-insensitive 조회와 fallback 순회를 사용하며, 누락된 optional header는 결과에서 생략됨.
 완료 기준: 생성된 Op 타입의 `headers`가 router/client 사용 예제와 테스트에서 실제로 소비됨.
+
+### [x] 리뷰 보완: lint source pointer escaping
+문제: `paths` 아래 lint path가 JSON Pointer escape 되지 않아 `/bad`가 `#/paths//bad/get`처럼 기록되고 YAML line/column lookup이 실패함.
+완료: lint path 생성에 JSON Pointer escaping helper를 적용해 `#/paths/~1bad/get`로 source lookup되며, CLI validate/lint가 `file:line:column`을 출력함.
+
+### [x] 리뷰 보완: SQLite fallback visibility
+문제: `--incremental` 사용 시 SQLite open 실패가 조용히 full rebuild로 fallback되어 사용자가 persistent cache 사용 여부를 알기 어려움.
+완료: SQLite fallback reason을 CLI warning으로 출력.
+
+### [x] 리뷰 보완: type alias metadata persistence
+문제: `type_aliases` table/schema는 있었지만 CLI typegen 경로에서 external alias metadata를 기록하지 않음.
+완료: `ExternalSchemaTypeAlias` metadata를 `analyzeExternalSchemaRefs()`에서 생성하고, `oa-gen typegen --incremental`이 WorkspaceIndex `type_aliases`에 기록.
+
+### [x] 리뷰 보완: SQLite driver policy
+문제: `node:sqlite`와 `better-sqlite3`가 같은 DB 파일을 번갈아 열 때 cache 안정성 정책이 명시되지 않음.
+완료: `better-sqlite3`를 primary optional driver로 추가하고, `node:sqlite` fallback을 유지. `meta.driver_name`을 저장해 driver 변경 시 index row를 비우고 한 번 full rebuild diff를 강제.
 
 ---
 

@@ -137,6 +137,28 @@ describe('analyzeExternalSchemaRefs', () => {
       expect(warning?.message).toContain(`${join(tmp, 'b.yaml')}#/components/schemas/User -> BUser`)
       expect(result.refNameOverrides['./a.yaml#/components/schemas/User']).toBe('AUser')
       expect(result.refNameOverrides['./b.yaml#/components/schemas/User']).toBe('BUser')
+      expect(result.typeAliases).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          sourceFilePath: basePath,
+          sourcePointer: '#/paths/~1a/get/responses/200/content/application~1json/schema/$ref',
+          ref: './a.yaml#/components/schemas/User',
+          aliasName: 'AUser',
+          renamedFrom: 'User',
+          filePath: join(tmp, 'a.yaml'),
+          pointer: '#/components/schemas/User',
+          contentHash: expect.stringMatching(/^[a-f0-9]{64}$/),
+        }),
+        expect.objectContaining({
+          sourceFilePath: basePath,
+          sourcePointer: '#/paths/~1b/get/responses/200/content/application~1json/schema/$ref',
+          ref: './b.yaml#/components/schemas/User',
+          aliasName: 'BUser',
+          renamedFrom: 'User',
+          filePath: join(tmp, 'b.yaml'),
+          pointer: '#/components/schemas/User',
+          contentHash: expect.stringMatching(/^[a-f0-9]{64}$/),
+        }),
+      ]))
 
       const warnings: string[] = []
       const output = generateTypesFromSpec(input, { basePath, warnings })
@@ -334,6 +356,17 @@ describe('analyzeExternalSchemaRefs', () => {
       expect(userName).toBe('User')
       expect(roleName).toBe('Role')
       expect((analysis.schemas.User as any).properties.role.$ref).toBe(roleRef)
+      expect(analysis.typeAliases).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          ref: './defs.yaml#/$defs/User',
+          aliasName: 'User',
+          pointer: '#/$defs/User',
+        }),
+        expect.objectContaining({
+          aliasName: 'Role',
+          pointer: '#/$defs/Role',
+        }),
+      ]))
 
       const warnings: string[] = []
       const output = generateTypesFromSpec(input, { basePath, warnings })

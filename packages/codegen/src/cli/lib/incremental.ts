@@ -13,6 +13,7 @@ import {
   type WorkspaceIndex,
   type WorkspaceIndexCompatibilityMetadata,
   type WorkspaceRefRecord,
+  type WorkspaceTypeAliasRecord,
 } from '../../workspace-index.js'
 
 const CLI_WORKSPACE_INDEX_VERSION = 'oa-gen-cli-incremental-v1'
@@ -35,6 +36,7 @@ export type CliIncrementalRun = {
 
 export type RecordCliIncrementalIndexOptions = {
   diagnostics?: readonly WorkspaceDiagnosticRecord[]
+  typeAliases?: readonly WorkspaceTypeAliasRecord[]
 }
 
 export function createCliIncrementalRun(options: CliIncrementalRunOptions): CliIncrementalRun {
@@ -45,6 +47,10 @@ export function createCliIncrementalRun(options: CliIncrementalRunOptions): CliI
     ...(options.cacheDir ? { cacheDir: resolve(process.cwd(), options.cacheDir) } : {}),
     ...(options.compatibility ? { compatibility: options.compatibility } : {}),
   } : { mode: 'noop' })
+  const fallbackReason = workspaceIndexFallbackReason(index)
+  if (options.enabled && fallbackReason) {
+    console.warn(`⚠️  SQLite workspace index unavailable; falling back to full rebuild: ${fallbackReason}`)
+  }
   const externalRefFiles = options.enabled ? listWorkspaceExternalRefFiles(index) : []
   const scannedFiles = scanWorkspaceFiles({
     entrySpecs: [resolvedSpecPath],
@@ -109,12 +115,18 @@ export async function recordCliIncrementalIndex(
     if (!discoveredFilePaths.has(ownerFile)) continue
     appendByFile(diagnosticsByOwner, ownerFile, { ...diagnostic })
   }
+  const typeAliasesByOwner = new Map<string, WorkspaceTypeAliasRecord[]>()
+  for (const alias of options.typeAliases ?? []) {
+    if (!discoveredFilePaths.has(alias.sourceFile)) continue
+    appendByFile(typeAliasesByOwner, alias.sourceFile, { ...alias })
+  }
 
   for (const file of discoveredFiles) {
     run.index.replaceFileIndex(file.filePath, {
       refs: refsByFile.get(file.filePath) ?? [],
       sourceLocations: sourceLocations.list(file.filePath),
       diagnostics: diagnosticsByOwner.get(file.filePath) ?? [],
+      typeAliases: typeAliasesByOwner.get(file.filePath) ?? [],
     })
   }
 
@@ -208,4 +220,11 @@ function appendByFile<T extends object>(map: Map<string, T[]>, filePath: string,
 
 function nodeKey(node: { ref: string; sourcePointer: string; sourceFilePath?: string }): string {
   return `${node.sourceFilePath ?? ''}|${node.sourcePointer}|${node.ref}`
+}
+
+function workspaceIndexFallbackReason(index: WorkspaceIndex): string | undefined {
+  const maybeFallback = index as WorkspaceIndex & { fallbackReason?: unknown }
+  return typeof maybeFallback.fallbackReason === 'string' && maybeFallback.fallbackReason
+    ? maybeFallback.fallbackReason
+    : undefined
 }

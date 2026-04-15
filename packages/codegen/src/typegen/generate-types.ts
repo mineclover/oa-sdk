@@ -19,6 +19,7 @@ import type {
 import { isRelativeRef, parseDocument, resolveRefGraph } from '@oa-sdk/parser'
 import { schemaToTs, type SchemaToTsOptions } from './schema-to-ts.js'
 import { pascalCase, formatGeneratedTs } from '@oa-sdk/core'
+import { createHash } from 'node:crypto'
 import { basename, extname } from 'node:path'
 
 export type TypegenOptions = {
@@ -34,6 +35,8 @@ export type TypegenOptions = {
   warnings?: string[]
   /** 내부 사용: $ref 문자열 → 타입 이름 override */
   refNameOverrides?: Record<string, string>
+  /** 내부 사용: 사전 계산된 외부 schema ref 분석 */
+  externalAnalysis?: ExternalSchemaRefAnalysis
 }
 
 export type ExternalSchemaRefDiagnosticCode =
@@ -61,6 +64,18 @@ export type ExternalSchemaRefAnalysis = {
   schemas: Record<string, OasSchema>
   refNameOverrides: Record<string, string>
   diagnostics: ExternalSchemaRefDiagnostic[]
+  typeAliases: ExternalSchemaTypeAlias[]
+}
+
+export type ExternalSchemaTypeAlias = {
+  sourceFilePath?: string
+  sourcePointer: string
+  ref: string
+  aliasName: string
+  contentHash: string
+  renamedFrom?: string
+  filePath?: string
+  pointer?: string
 }
 
 type RefGraphNodeWithSource = RefGraphNode & {
@@ -180,7 +195,7 @@ export function generateTypes(doc: { schemas: Record<string, OasSchema>; operati
 export function generateTypesFromSpec(spec: OasDocument, options: TypegenOptions = {}): string {
   const doc = parseDocument(spec, []) // deref 없이 파싱
   const externalAnalysis = options.basePath
-    ? analyzeExternalSchemaRefs(spec, options.basePath)
+    ? options.externalAnalysis ?? analyzeExternalSchemaRefs(spec, options.basePath)
     : emptyExternalSchemaAnalysis()
   options.warnings?.push(...externalAnalysis.diagnostics.map(d => d.message))
   return generateTypes({
@@ -330,6 +345,7 @@ export function analyzeExternalSchemaRefs(spec: OasDocument, basePath: string): 
   const resolvedNamesByIdentity = new Map<string, string>()
   const fallbackNamesByIdentity = new Map<string, string>()
   const refIdentityBySource = new Map<string, string>()
+  const typeAliases: ExternalSchemaTypeAlias[] = []
 
   for (const node of schemaNodes) {
     refIdentityBySource.set(sourceRefKey(node.sourceFilePath, node.sourcePointer), refIdentity(node))
@@ -410,6 +426,7 @@ export function analyzeExternalSchemaRefs(spec: OasDocument, basePath: string): 
     if (generatedName && isSchemaObject(node.target)) {
       refNameOverrides[refIdentity(node)] = generatedName
       if (node.sourceFilePath === basePath) refNameOverrides[node.ref] = generatedName
+      typeAliases.push(toExternalSchemaTypeAlias(node, generatedName, baseName))
       schemas[generatedName] = rewriteSchemaRefs(
         node.target as OasSchema,
         node.filePath ?? node.sourceFilePath,
@@ -427,7 +444,7 @@ export function analyzeExternalSchemaRefs(spec: OasDocument, basePath: string): 
     ))
   }
 
-  return { schemas, refNameOverrides, diagnostics }
+  return { schemas, refNameOverrides, diagnostics, typeAliases }
 }
 
 function isSchemaRefNode(node: RefGraphNodeWithSource): boolean {
@@ -448,7 +465,7 @@ function isSchemaRefSourcePointer(sourcePointer: string): boolean {
 }
 
 function emptyExternalSchemaAnalysis(): ExternalSchemaRefAnalysis {
-  return { schemas: {}, refNameOverrides: {}, diagnostics: [] }
+  return { schemas: {}, refNameOverrides: {}, diagnostics: [], typeAliases: [] }
 }
 
 const SCHEMA_REF_CONTEXT_SEGMENTS = new Set([
@@ -633,6 +650,39 @@ function toUnsupportedPointerDiagnostic(
     ...(node.pointer ? { pointer: node.pointer } : {}),
     message: `지원하지 않는 외부 스키마 pointer입니다: ${formatExternalTarget(node)}. Schema Object alias 대상은 #/components/schemas/*, #/$defs/*, 또는 top-level custom schema root의 항목이어야 하며 unknown으로 생성합니다.`,
   }
+}
+
+function toExternalSchemaTypeAlias(
+  node: RefGraphNodeWithSource,
+  aliasName: string,
+  baseName: string,
+): ExternalSchemaTypeAlias {
+  return {
+    ...(node.sourceFilePath ? { sourceFilePath: node.sourceFilePath } : {}),
+    sourcePointer: node.sourcePointer,
+    ref: node.ref,
+    aliasName,
+    contentHash: hashJson(node.target),
+    ...(aliasName !== baseName ? { renamedFrom: baseName } : {}),
+    ...(node.filePath ? { filePath: node.filePath } : {}),
+    ...(node.pointer ? { pointer: node.pointer } : {}),
+  }
+}
+
+function hashJson(value: unknown): string {
+  return createHash('sha256').update(JSON.stringify(sortJson(value))).digest('hex')
+}
+
+function sortJson(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(sortJson)
+  if (value && typeof value === 'object') {
+    const sorted: Record<string, unknown> = {}
+    for (const key of Object.keys(value).sort()) {
+      sorted[key] = sortJson((value as Record<string, unknown>)[key])
+    }
+    return sorted
+  }
+  return value
 }
 
 function rewriteSchemaRefs(

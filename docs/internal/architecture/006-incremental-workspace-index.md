@@ -16,11 +16,12 @@ JSON manifest는 dependency query와 무효화가 복잡해지므로 로컬 SQLi
 
 SQLite는 parser correctness 경로에 넣지 않는다.  
 `@oa-sdk/parser`는 Node/browser 양쪽에서 동작하는 메모리 기반 `RefResolver`를 유지하고, SQLite는 `@oa-sdk/codegen` CLI/dev/schema pipeline의 선택적 증분 인덱스 레이어로 둔다.
+SQLite driver는 `better-sqlite3`를 primary optional backend로 사용하고, 사용 불가하면 `node:sqlite`로 fallback한다. 두 driver 모두 사용할 수 없거나 DB open/read/write가 실패하면 full rebuild fallback으로 전환한다.
 
 기본 원칙:
 - 기본 단발 실행은 full scan + 메모리 cache.
 - `--incremental` 또는 `dev` watch mode에서만 `.oa-cache/state.sqlite`를 사용.
-- SQLite cache miss, schema mismatch, DB 손상 시 full rebuild로 fallback.
+- SQLite cache miss, schema/options/driver mismatch, DB 손상 시 full rebuild로 fallback.
 - 중복 component, ref 해소, cycle diagnostic의 최종 판단은 현재 파일 내용 기준으로 재계산 가능해야 한다.
 - DB는 정답 저장소가 아니라 변경 감지와 영향도 계산용 index다.
 
@@ -31,7 +32,7 @@ SQLite는 parser correctness 경로에 넣지 않는다.
 | `RefResolver` | 내부/외부 `$ref` 해소, pointer lookup, per-run cache, cycle stack, source pointer |
 | `SourceMapIndex` | YAML AST 기반 pointer → line/column 매핑. US-013에서 parser `createSourceLocationIndex()`와 CLI diagnostic/source_locations 보강으로 구현 |
 | `WorkspaceIndex` | 파일 hash, component, ref edge, diagnostics, type alias metadata 저장/조회 |
-| `SQLiteWorkspaceIndex` | `.oa-cache/state.sqlite` 구현체, transaction, WAL, invalidation query |
+| `SQLiteWorkspaceIndex` | `.oa-cache/state.sqlite` 구현체, driver fallback, transaction, WAL, invalidation query |
 | CLI orchestration | scan → changed detect → invalidate → dirty re-index → validate/typegen |
 
 ## SQLite 스키마 초안
@@ -123,7 +124,7 @@ create index diagnostics_file_idx on diagnostics(file_path);
 
 2. detect changes
    - `files` 테이블과 비교하여 new/modified/deleted 파일을 찾는다.
-   - cache key에는 `oa-sdk` version, index schema version, resolver options, profile, override config, typegen options를 포함한다.
+   - cache key에는 `oa-sdk` version, index schema version, SQLite driver name, resolver options, profile, override config, typegen options를 포함한다.
 
 3. invalidate
    - changed/deleted file의 `components`, `refs`, `diagnostics`, `source_locations`, `type_aliases`를 삭제한다.
@@ -177,6 +178,17 @@ oa-gen cache clear --cache-dir .oa-cache
 ```
 
 `dev` watch mode는 안정화 후 기본 증분 사용을 검토할 수 있다. 단발 `validate`/`typegen`은 full mode를 기본으로 유지한다.
+
+## SQLite driver 정책
+
+`SQLiteWorkspaceIndex`는 다음 순서로 backend를 선택한다.
+
+1. `better-sqlite3`: optional dependency. 안정적인 Node CLI primary backend.
+2. `node:sqlite`: dependency 없는 fallback. Node 버전에 따라 experimental warning이 발생할 수 있다.
+3. full rebuild fallback: 지원 driver가 없거나 DB open/read/write가 실패할 때 사용.
+
+`better-sqlite3`는 native optional dependency이므로 설치 실패가 전체 package install 실패로 이어지면 안 된다. CLI는 `--incremental` 사용 시 SQLite index가 fallback으로 전환되면 경고를 출력한다.
+driver가 이전 실행과 달라지면 persisted index row를 비우고 한 번 full rebuild diff를 강제한다. SQLite 파일 포맷은 driver 간 호환되지만, cache 안정성을 위해 backend 전환은 compatibility change로 취급한다.
 
 ## SQLite 운영
 

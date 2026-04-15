@@ -198,4 +198,38 @@ describe('lint — style', () => {
     }))
     expect(results.some(r => r.rule === 'style/description')).toBe(true)
   })
+
+  it('path key를 JSON Pointer escape하여 source line/column을 찾는다', () => {
+    const basePath = join(tmpdir(), 'oa-sdk-lint-path-location.yaml')
+    const raw = [
+      'openapi: 3.2.0',
+      'info:',
+      '  title: T',
+      '  version: "0"',
+      'paths:',
+      '  /bad:',
+      '    get:',
+      '      responses:',
+      '        "200":',
+      '          description: OK',
+      '',
+    ].join('\n')
+    const index = createSourceLocationIndex(raw, { filePath: basePath })
+    const results = lintDocument(parseYaml(raw), {
+      categories: ['style'],
+      basePath,
+      lookupSourceLocation: (filePath, pointer) => filePath === basePath ? index.lookup(pointer) : undefined,
+    })
+    const diagnostic = results.find(r => r.rule === 'style/operationId')
+
+    expect(diagnostic).toMatchObject({
+      path: '/paths/~1bad/get',
+      source: {
+        sourceFilePath: basePath,
+        sourcePointer: '#/paths/~1bad/get',
+        line: 7,
+        column: 5,
+      },
+    })
+  })
 })

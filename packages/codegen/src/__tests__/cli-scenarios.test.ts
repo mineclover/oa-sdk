@@ -9,6 +9,7 @@ import { mkdirSync, rmSync, writeFileSync, readFileSync, existsSync } from 'node
 import { join, resolve } from 'node:path'
 import { execSync, spawnSync, type ExecSyncOptionsWithStringEncoding } from 'node:child_process'
 import { stringify as yamlStringify } from 'yaml'
+import { createSQLiteWorkspaceIndex } from '../sqlite-workspace-index.js'
 
 const pkgDir = resolve(__dirname, '../..')
 const cliPath = resolve(pkgDir, 'dist/cli/index.js')
@@ -378,6 +379,20 @@ describe('typegen', () => {
     const incremental = cli(`typegen -s ${apiPath} --incremental --cache-dir ${cacheDir}`)
     expect(incremental).toBe(full)
     expect(existsSync(join(cacheDir, 'state.sqlite'))).toBe(true)
+    const index = createSQLiteWorkspaceIndex({ cacheDir })
+    try {
+      expect(index.listTypeAliases()).toEqual([
+        expect.objectContaining({
+          sourceFile: apiPath,
+          sourcePointer: '#/paths/~1users/get/responses/200/content/application~1json/schema/$ref',
+          refText: './shared.yaml#/components/schemas/ExternalUser',
+          aliasName: 'ExternalUser',
+          contentHash: expect.stringMatching(/^[a-f0-9]{64}$/),
+        }),
+      ])
+    } finally {
+      index.close()
+    }
 
     writeFileSync(sharedPath, yamlStringify({
       components: {
@@ -516,6 +531,18 @@ describe('validate', () => {
     expect(incremental).toBe(full)
     expect(repeated).toBe(full)
     expect(existsSync(join(cacheDir, 'state.sqlite'))).toBe(true)
+  })
+
+  it('증분 SQLite index를 열 수 없으면 fallback 경고를 출력한다', () => {
+    const cacheDir = join(tmpDir, 'incremental-cache-blocked')
+    writeFileSync(cacheDir, 'not a directory', 'utf8')
+
+    const { stdout, stderr, status } = cliCapture(`validate -s ${externalSpecPath} --incremental --cache-dir ${cacheDir}`)
+
+    expect(status).toBe(0)
+    expect(stdout).toContain('Valid')
+    expect(stderr).toContain('SQLite workspace index unavailable')
+    expect(stderr).toContain('falling back to full rebuild')
   })
 })
 

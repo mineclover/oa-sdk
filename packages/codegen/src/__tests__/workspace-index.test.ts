@@ -12,7 +12,7 @@ import {
   type WorkspaceFileRecord,
   type WorkspaceIndex,
 } from '../workspace-index.js'
-import { createSQLiteWorkspaceIndex, SQLITE_WORKSPACE_INDEX_SCHEMA_VERSION } from '../sqlite-workspace-index.js'
+import { createSQLiteWorkspaceIndex, loadSqliteDriver, SQLITE_WORKSPACE_INDEX_SCHEMA_VERSION } from '../sqlite-workspace-index.js'
 
 const require = createRequire(import.meta.url)
 
@@ -328,6 +328,7 @@ describe('WorkspaceIndex', () => {
 
     try {
       expect(index.fallbackReason).toBeUndefined()
+      expect(index.driverName).toMatch(/^(better-sqlite3|node:sqlite)$/)
       expect(index.dbPath).toBe(join(cacheDir, 'state.sqlite'))
       expect(existsSync(index.dbPath)).toBe(true)
 
@@ -392,12 +393,57 @@ describe('WorkspaceIndex', () => {
         ])
         expect(readMeta(db, 'schema_version')).toBe(String(SQLITE_WORKSPACE_INDEX_SCHEMA_VERSION))
         expect(readMeta(db, 'compatibility_json')).toBe('{"command":"validate","parser":"parser-a"}')
+        expect(readMeta(db, 'driver_name')).toBe(index.driverName)
         expect(readJournalMode(db)).toBe('wal')
       } finally {
         db.close()
       }
     } finally {
       index.close()
+      rmSync(tmp, { recursive: true, force: true })
+    }
+  })
+
+  it('loads a supported SQLite driver with better-sqlite3 preferred when available', () => {
+    const driver = loadSqliteDriver()
+    expect(['better-sqlite3', 'node:sqlite']).toContain(driver.name)
+  })
+
+  it('clears SQLite cache and forces one full rebuild when the driver changes', () => {
+    const tmp = mkdtempSync(join(tmpdir(), 'oa-sdk-sqlite-index-'))
+    const cacheDir = join(tmp, '.oa-cache')
+    const seeded = createSQLiteWorkspaceIndex({ cacheDir })
+
+    try {
+      seeded.upsertFile(apiFile)
+      expect(seeded.listFiles()).toHaveLength(1)
+      const db = openSqliteForTest(seeded.dbPath)
+      try {
+        setMeta(db, 'driver_name', seeded.driverName === 'better-sqlite3' ? 'node:sqlite' : 'better-sqlite3')
+      } finally {
+        db.close()
+      }
+    } finally {
+      seeded.close()
+    }
+
+    const current = createSQLiteWorkspaceIndex({ cacheDir })
+    try {
+      expect(current.fallbackReason).toBeUndefined()
+      expect(current.listFiles()).toEqual([])
+      expect(current.detectChanges([apiFile])).toEqual({
+        changed: [apiFile],
+        unchanged: [],
+        deleted: [],
+      })
+      const db = openSqliteForTest(current.dbPath)
+      try {
+        expect(readMeta(db, 'driver_name')).toBe(current.driverName)
+      } finally {
+        db.close()
+      }
+    } finally {
+      current.close()
       rmSync(tmp, { recursive: true, force: true })
     }
   })
@@ -541,6 +587,7 @@ type TestSqliteDatabase = {
   prepare(sql: string): {
     all(...values: unknown[]): Record<string, unknown>[]
     get(...values: unknown[]): Record<string, unknown> | undefined
+    run(...values: unknown[]): unknown
   }
 }
 
@@ -562,6 +609,10 @@ function listTables(db: TestSqliteDatabase): string[] {
 function readMeta(db: TestSqliteDatabase, key: string): string | undefined {
   const row = db.prepare('SELECT value FROM meta WHERE key = ?').get(key)
   return typeof row?.value === 'string' ? row.value : undefined
+}
+
+function setMeta(db: TestSqliteDatabase, key: string, value: string): void {
+  db.prepare('UPDATE meta SET value = ? WHERE key = ?').run(value, key)
 }
 
 function readJournalMode(db: TestSqliteDatabase): string | undefined {
