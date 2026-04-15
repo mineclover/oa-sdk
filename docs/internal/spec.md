@@ -111,6 +111,7 @@ schemas      ← 독립. OAS 소스 + merge + 3.1↔3.2 변환
 | `createSQLiteWorkspaceIndex()` | `packages/codegen/src/sqlite-workspace-index.ts` | `.oa-cache/state.sqlite` 기본 경로에 `meta`, `files`, `components`, `refs`, `source_locations`, `diagnostics`, `type_aliases` 테이블 생성. WAL, `busy_timeout`, foreign key, transaction-wrapped write를 사용 |
 | SQLite compatibility meta | `packages/codegen/src/sqlite-workspace-index.ts` | `schema_version`, `compatibility_hash`, `compatibility_json`, `driver_name`을 `meta`에 저장. schema/options/driver mismatch는 cache row를 비우고 다음 diff를 full rebuild로 반환 |
 | Dirty detection helpers | `packages/codegen/src/workspace-index.ts` | entry/domain/profile/external ref 파일을 absolute path + realpath + size + mtime + sha256으로 scan. index와 비교해 new/modified/deleted/unchanged를 분류하고, changed/deleted target의 `refs.to_file` 역방향 source를 dirty로 전파한 뒤 stale row invalidation 입력을 반환 |
+| Builder index adapter | `packages/codegen/src/builder-index.ts` | definition fragment/target metadata를 기존 WorkspaceIndex `files`/`components`/`refs` row로 기록. fragment 파일 hash/id/content hash/source ref와 target config root dependency를 보존하고 같은 dirty detection primitive로 affected target을 계산 |
 | CLI incremental orchestration | `packages/codegen/src/cli/lib/incremental.ts` | `validate`/`typegen --incremental`과 `dev`가 동일한 scan → dirty detect → invalidate → full parser/codegen output → index refresh 경로를 사용. cache 실패나 cache miss는 출력 correctness에 영향을 주지 않고 full rebuild 결과가 우선 |
 
 `WorkspaceIndex`는 최적화와 영향도 계산을 위한 index layer이며, component 중복, `$ref` 해소, cycle diagnostic, type alias 생성의 최종 correctness는 현재 파일 내용으로 재계산하는 full parser/codegen 경로가 담당한다. SQLite open/read/write 오류는 no-op과 같은 full rebuild fallback으로 전환하고, 실패한 write transaction은 rollback된다.
@@ -291,6 +292,8 @@ Options:
 
 CLI build는 fragment `content` 기준 SHA-256 hash를 생성해 registry에 넘기고 YAML source location index를 연결해 duplicate/ref diagnostics에 source coordinates를 보강한다. Duplicate canonical id, missing/unsupported source ref, target disallowed ref, output name collision, unrewritten ref, emitted document validation error 중 하나라도 `error` severity이면 artifact output은 쓰지 않고 exit code 1로 종료한다. Diagnostics/collision sidecar는 실패한 CI run에서도 분석할 수 있도록 output artifact와 독립적으로 작성한다.
 
+Builder WorkspaceIndex metadata는 SQLite schema를 늘리지 않고 기존 row를 재사용한다. Target config 파일과 fragment 파일은 `files`에 content hash/mtime/realpath로 저장하고, fragment id는 `components.section = definition-fragment`, target bundle은 `components.section = definition-target`으로 기록한다. Fragment source `$ref`는 fragment file → target fragment file `refs` edge가 되고, target config는 direct path root fragment로 향하는 `refs` edge를 기록한다. 기존 `refs.to_file` 역방향 dirty propagation이 schema fragment 변경을 참조 fragment와 target config까지 전파하므로 target bundle은 직접 또는 transitively 포함한 fragment가 바뀔 때 dirty가 된다. Target config 파일 자체가 바뀌면 reverse dependency가 없으므로 해당 target만 dirty가 되며, no-op/SQLite fallback은 ADR-006 원칙대로 scanned target을 full rebuild 대상으로 취급한다.
+
 | 개념 | 계획 |
 |------|------|
 | Canonical identity | `kind:scope/domain/name` 고정 계층. 예: `schema:public/book/Note`, `schema:public/notebook/Note`, `schema:shared/common/Error`. source identity와 output component name을 분리 |
@@ -305,6 +308,7 @@ CLI build는 fragment `content` 기준 SHA-256 hash를 생성해 registry에 넘
 | Target bundle | `name`, `scopes`, `domains`, `servers`, `includePaths`, `namingPolicy.aliases` format으로 선언. `selectDefinitionTarget()`가 exact path match + transitive ref walk + target-local output name allocation을 수행하고 OpenAPI emit에 넘긴다 |
 | OpenAPI emit | `emitDefinitionOpenApiDocument()`가 selected target을 OAS 3.2 document로 materialize하고 rewritten local `$ref`만 허용. Alias metadata는 root extension 또는 result sidecar report로 제공 |
 | Definition builder CLI | `oa-gen build-spec --target ... --output ... --diagnostics ... --collision-report ...`가 target OpenAPI artifact와 machine-readable sidecar를 생성. Duplicate canonical id 또는 unresolved source ref는 non-zero exit |
+| Builder WorkspaceIndex metadata | fragment file/hash/id/ref metadata와 target config → direct path root edge를 기존 `WorkspaceIndex` row로 저장. 변경 감지는 full rebuild correctness를 유지하면서 affected target 계산에만 사용 |
 | Migration | 기존 `packages/schemas/scripts/merge.ts`는 유지하고, builder는 병렬 output으로 검증한 뒤 `.merged.yaml` 대체 여부 결정 |
 
 패키지 책임: `@oa-sdk/schemas`는 fragment layout/target config/fixtures/migration을 소유하고, `@oa-sdk/parser`는 validation/source/ref graph primitive를 제공하며, `@oa-sdk/codegen`은 `oa-gen build-spec` CLI와 WorkspaceIndex 연동을 소유한다.

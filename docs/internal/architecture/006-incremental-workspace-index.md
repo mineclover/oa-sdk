@@ -32,6 +32,7 @@ SQLite driver는 `better-sqlite3`를 primary optional backend로 사용하고, �
 | `RefResolver` | 내부/외부 `$ref` 해소, pointer lookup, per-run cache, cycle stack, source pointer |
 | `SourceMapIndex` | YAML AST 기반 pointer → line/column 매핑. US-013에서 parser `createSourceLocationIndex()`와 CLI diagnostic/source_locations 보강으로 구현 |
 | `WorkspaceIndex` | 파일 hash, component, ref edge, diagnostics, type alias metadata 저장/조회 |
+| Definition builder index adapter | target config와 definition fragment metadata를 기존 WorkspaceIndex row로 기록하고 affected target bundle을 dirty 계산 |
 | `SQLiteWorkspaceIndex` | `.oa-cache/state.sqlite` 구현체, driver fallback, transaction, WAL, invalidation query |
 | CLI orchestration | scan → changed detect → invalidate → dirty re-index → validate/typegen |
 
@@ -115,6 +116,16 @@ create index refs_from_file_idx on refs(from_file);
 create index components_key_idx on components(section, name);
 create index diagnostics_file_idx on diagnostics(file_path);
 ```
+
+## Definition builder metadata
+
+OpenAPI definition builder metadata는 US-013에서 별도 SQLite table 없이 기존 schema에 저장한다.
+
+- `files`: target config file과 fragment file의 realpath/size/mtime/content hash를 저장한다.
+- `components`: fragment id는 `section = definition-fragment`, `name = canonical id`, `pointer = #/content` row로 저장한다. Target bundle은 `section = definition-target`, `name = target.name`, `pointer = #` row로 저장한다.
+- `refs`: fragment source `$ref`는 source fragment file에서 resolved target fragment file로 향하는 edge로 저장한다. Target config file은 direct path root fragment file로 향하는 edge를 저장한다.
+
+따라서 기존 `refs.to_file` reverse lookup만으로 changed schema fragment → referring fragment → target config 순서의 transitive dirty propagation을 계산할 수 있다. Target config file content가 바뀌면 reverse dependency가 없으므로 해당 target만 primary dirty가 된다. 이 metadata는 affected target 계산용 index일 뿐이며, builder correctness는 매 run 현재 fragment/target file을 full parser/builder path로 다시 계산한다. SQLite driver/schema/options mismatch 또는 DB 오류는 기존 ADR 원칙대로 no-op과 같은 full rebuild fallback으로 처리한다.
 
 ## 증분 알고리즘
 
@@ -215,6 +226,7 @@ pragma foreign_keys = on;
 7. `oa-gen validate --incremental` 연결. (US-010 완료)
 8. `oa-gen typegen --incremental` 연결. (US-010 완료)
 9. `oa-gen dev` watch invalidation에 연결. (US-010 완료)
+10. Definition builder fragment/target metadata를 WorkspaceIndex row로 기록하고 target dirty 계산에 연결. (US-013 완료)
 
 ## 결과
 

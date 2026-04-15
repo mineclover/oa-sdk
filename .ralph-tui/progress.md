@@ -6,6 +6,7 @@ after each iteration and it's included in prompts for context.
 ## Codebase Patterns (Study These First)
 
 *Add reusable patterns discovered during development here.*
+- Builder incremental metadata can reuse WorkspaceIndex without schema churn: record target configs as `definition-target` components, fragments as `definition-fragment` components, target configs as refs to direct path roots, and fragment source refs as file-to-file edges so existing reverse `refs.to_file` dirty propagation reaches affected targets transitively.
 - OpenAPI emit should consume `selectDefinitionTarget()` output directly: build a temporary selected registry for target-local ref rewrite, emit path nodes by `metadata.path`, group component-like nodes by kind/output name, and keep alias/collision metadata as sidecar/root extension rather than mutating canonical ids.
 - Builder CLI artifact commands should write diagnostics/collision sidecars independently of the main output artifact so CI failure runs still preserve machine-readable debugging data while invalid OpenAPI YAML is not refreshed.
 - Target selection should stay a pure registry subgraph operation: exact path metadata selects roots, registry ref edges drive recursive inclusion, scope/domain policy gates cross-target leaks, and output name allocation runs only after the selected node set is known.
@@ -285,4 +286,24 @@ after each iteration and it's included in prompts for context.
   - Existing CLI tests execute `dist/cli/index.js`, so new CLI scenarios need parser/codegen build output refreshed before test runs.
   - `emitDefinitionOpenApiDocument()` intentionally does not include registry diagnostics, so CLI-level diagnostics must combine fragment load, registry, target/allocation, and emit diagnostics before deciding exit status.
   - Content hashes for fragment registry loading should hash only the `content` object, not the whole YAML file, so source identity/metadata changes do not hide structural duplicates.
+---
+
+## 2026-04-16 - US-013
+- Implemented builder metadata integration over the existing WorkspaceIndex tables.
+- Added a codegen builder index adapter that scans target/fragment source files, records target bundles and fragment IDs as component rows, records target-root and fragment source-ref edges as WorkspaceIndex refs, and computes affected dirty target paths/names from the existing dirty detection primitive.
+- Wired `buildSpec()` to optionally scan/detect/record builder WorkspaceIndex metadata when a WorkspaceIndex is supplied, while keeping the normal CLI path a full rebuild.
+- Added tests for fragment id/ref/hash metadata persistence, transitive schema fragment invalidation of the dependent target only, target config changes dirtying only that target, and no-op fallback treating scanned targets as full rebuild dirty.
+- Updated internal spec, ADR-006, and todo docs with builder index metadata and completion status.
+- Files changed:
+  - `packages/codegen/src/builder-index.ts`
+  - `packages/codegen/src/cli/lib/build-spec.ts`
+  - `packages/codegen/src/__tests__/builder-index.test.ts`
+  - `docs/internal/spec.md`
+  - `docs/internal/architecture/006-incremental-workspace-index.md`
+  - `docs/internal/todo.md`
+  - `.ralph-tui/progress.md`
+- **Learnings:**
+  - Existing WorkspaceIndex `refs.to_file` reverse traversal is enough for builder target invalidation if target configs depend only on direct path root fragments and fragment refs encode the rest of the graph.
+  - Target config changes should stay primary dirty events with no reverse deps, otherwise a target edit can accidentally invalidate unrelated fragment rows.
+  - Public package exports do not need to widen for builder indexing yet; keeping the adapter internal avoids API index churn while the build remains metadata-only.
 ---

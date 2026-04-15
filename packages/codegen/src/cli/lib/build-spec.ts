@@ -29,6 +29,13 @@ import {
   type SourceLocationIndex,
 } from '@oa-sdk/parser'
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml'
+import {
+  detectBuilderDirtyTargets,
+  recordBuilderWorkspaceIndex,
+  scanBuilderWorkspaceFiles,
+  type BuilderDirtyTargetResult,
+} from '../../builder-index.js'
+import type { WorkspaceIndex } from '../../workspace-index.js'
 
 export type BuildSpecOptions = {
   targetPath: string
@@ -36,6 +43,9 @@ export type BuildSpecOptions = {
   outputPath?: string
   diagnosticsPath?: string
   collisionReportPath?: string
+  workspaceIndex?: WorkspaceIndex
+  parserVersion?: string
+  runId?: string
 }
 
 export type BuildSpecCliDiagnostic = {
@@ -59,6 +69,8 @@ export type BuildSpecSummary = {
   fragmentCount: number
   selectedNodeCount: number
   directPathIds: string[]
+  dirtyTargetPaths?: string[]
+  dirtyTargetNames?: string[]
   outputPath?: string
   diagnosticsPath?: string
   collisionReportPath?: string
@@ -73,12 +85,14 @@ export type BuildSpecResult = {
   diagnostics: BuildSpecDiagnostic[]
   collisionReport: DefinitionOutputNameCollisionReportEntry[]
   summary: BuildSpecSummary
+  dirty?: BuilderDirtyTargetResult
 }
 
 type LoadedFragments = {
   nodes: DefinitionNode[]
   diagnostics: BuildSpecCliDiagnostic[]
   sourceLocations: ReadonlyMap<string, SourceLocationIndex>
+  filePaths: string[]
 }
 
 export function buildSpec(options: BuildSpecOptions): BuildSpecResult {
@@ -89,6 +103,17 @@ export function buildSpec(options: BuildSpecOptions): BuildSpecResult {
   )
   const target = loadTargetConfig(targetPath)
   const fragments = loadDefinitionFragments(fragmentsDir)
+  const scannedFiles = options.workspaceIndex
+    ? scanBuilderWorkspaceFiles({
+      targetPaths: [targetPath],
+      fragmentPaths: fragments.filePaths,
+      ...(options.parserVersion ? { parserVersion: options.parserVersion } : {}),
+      ...(options.runId ? { runId: options.runId } : {}),
+    })
+    : []
+  const dirty = options.workspaceIndex
+    ? detectBuilderDirtyTargets(options.workspaceIndex, scannedFiles, { targetPaths: [targetPath] })
+    : undefined
   const registry = createDefinitionRegistry(fragments.nodes, {
     lookupSourceLocation(sourcePath, sourcePointer) {
       return lookupSourceLocation(fragments.sourceLocations, sourcePath, sourcePointer)
@@ -123,6 +148,10 @@ export function buildSpec(options: BuildSpecOptions): BuildSpecResult {
   if (outputPath !== undefined) summary.outputPath = outputPath
   if (diagnosticsPath !== undefined) summary.diagnosticsPath = diagnosticsPath
   if (collisionReportPath !== undefined) summary.collisionReportPath = collisionReportPath
+  if (dirty !== undefined) {
+    summary.dirtyTargetPaths = dirty.dirtyTargetPaths
+    summary.dirtyTargetNames = dirty.dirtyTargetNames
+  }
 
   if (diagnosticsPath !== undefined) {
     writeJsonFile(diagnosticsPath, {
@@ -145,12 +174,24 @@ export function buildSpec(options: BuildSpecOptions): BuildSpecResult {
     }
   }
 
+  if (options.workspaceIndex !== undefined) {
+    recordBuilderWorkspaceIndex({
+      index: options.workspaceIndex,
+      files: scannedFiles,
+      targetPath,
+      target,
+      registry,
+      selection,
+    })
+  }
+
   return {
     valid,
     document: emitted.document,
     diagnostics,
     collisionReport: emitted.report.collisionReport,
     summary,
+    ...(dirty !== undefined ? { dirty } : {}),
   }
 }
 
@@ -185,8 +226,9 @@ function loadDefinitionFragments(fragmentsDir: string): LoadedFragments {
   const nodes: DefinitionNode[] = []
   const diagnostics: BuildSpecCliDiagnostic[] = []
   const sourceLocations = new Map<string, SourceLocationIndex>()
+  const filePaths = listDefinitionFiles(fragmentsDir)
 
-  for (const filePath of listDefinitionFiles(fragmentsDir)) {
+  for (const filePath of filePaths) {
     const raw = readFileSync(filePath, 'utf8')
     sourceLocations.set(filePath, createSourceLocationIndex(raw, { filePath }))
 
@@ -227,6 +269,7 @@ function loadDefinitionFragments(fragmentsDir: string): LoadedFragments {
     nodes,
     diagnostics,
     sourceLocations,
+    filePaths,
   }
 }
 

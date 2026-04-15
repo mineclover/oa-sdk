@@ -9,7 +9,7 @@
 
 ## 다음 세션 실행 순서
 
-현재 ralph PRD 기준 OpenAPI definition builder의 canonical ID grammar/parser(US-001), fragment definition node model(US-002), registry graph/ref edge collection(US-003), source canonical/file ref resolution(US-004), output `$ref` rewrite(US-005), target-local output naming(US-006), server/domain collision simulation(US-007), path flattening guard simulation(US-008), duplicate/dedupe policy(US-009), target bundle configuration/selection(US-010), selected target OpenAPI 3.2 emit(US-011), CLI artifact build entry(US-012)은 완료되었다. 다음 blocking 목표는 기존 domain merge artifact와 builder artifact를 병렬 비교하고 `.merged.yaml` 대체 여부를 결정하는 migration 단계다.
+현재 ralph PRD 기준 OpenAPI definition builder의 canonical ID grammar/parser(US-001), fragment definition node model(US-002), registry graph/ref edge collection(US-003), source canonical/file ref resolution(US-004), output `$ref` rewrite(US-005), target-local output naming(US-006), server/domain collision simulation(US-007), path flattening guard simulation(US-008), duplicate/dedupe policy(US-009), target bundle configuration/selection(US-010), selected target OpenAPI 3.2 emit(US-011), CLI artifact build entry(US-012), WorkspaceIndex metadata integration(US-013)은 완료되었다. 다음 blocking 목표는 기존 domain merge artifact와 builder artifact를 병렬 비교하고 `.merged.yaml` 대체 여부를 결정하는 migration 단계다.
 
 ### [ ] OpenAPI definition builder: migration comparison plan
 배경: 현재 `packages/schemas/scripts/merge.ts`를 즉시 제거하지 않고 새 builder를 병렬 검증해야 함.
@@ -34,6 +34,11 @@
 ---
 
 ## 완료된 실행 항목
+
+### [x] OpenAPI definition builder: WorkspaceIndex metadata integration
+배경: large spec build에서 fragment-level 변경이 모든 target bundle을 무조건 dirty 처리하지 않도록, builder가 target/fragment dependency metadata를 WorkspaceIndex에 남겨야 함.
+완료: `@oa-sdk/codegen`에 builder index adapter를 추가해 target config와 definition fragment source 파일을 scan하고, fragment id/content hash는 `definition-fragment` component row로, target bundle은 `definition-target` component row로 기록한다. Fragment source `$ref`는 fragment file → target fragment file `refs` edge로 저장하고, target config는 direct path root fragment로 향하는 edge를 저장한다.
+완료 기준: schema fragment 변경이 fragment ref graph를 거쳐 dependent target만 dirty 처리되는 테스트, target config 변경이 해당 target만 dirty 처리되는 테스트, no-op fallback에서 scanned target을 full rebuild 대상으로 취급하는 테스트가 통과함. SQLite schema shape는 변경하지 않아 existing ADR-006 driver fallback/full rebuild 원칙을 유지한다.
 
 ### [x] OpenAPI definition builder: CLI artifact build entry
 배경: target selection과 OpenAPI emit이 parser에 구현되었으므로 로컬/CI에서 target config를 지정해 builder artifact와 sidecar reports를 생성할 entry가 필요함.

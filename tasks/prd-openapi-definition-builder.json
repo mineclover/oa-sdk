@@ -366,11 +366,12 @@
         "pnpm build:scripts && pnpm check:api-index passes."
       ],
       "priority": 13,
-      "passes": false,
+      "passes": true,
       "notes": "This can be metadata-only first. Do not require optimized rebuild to be perfect before builder correctness is proven.",
       "dependsOn": [
         "US-011"
-      ]
+      ],
+      "completionNotes": "Completed by agent"
     },
     {
       "id": "US-014",
@@ -401,6 +402,6 @@
     }
   ],
   "metadata": {
-    "updatedAt": "2026-04-15T21:47:57.660Z"
+    "updatedAt": "2026-04-15T22:06:01.326Z"
   }
 }
