@@ -18,9 +18,10 @@
 
 ## 단기 미구현 스펙
 
-### 7. [ ] Encoding — multipart 필드별 인코딩
+### 7. [x] Encoding — multipart 필드별 인코딩
 배경: 타입은 준비됐지만 request-validator multipart 파싱과 필드별 `contentType`/`style` 처리는 남아 있음.
 작업: multipart part 단위 decoding과 OpenAPI Encoding Object 규칙을 request validation에 연결.
+완료: mock-server multipart 파서가 part별 Content-Type/header metadata를 보존하고, request validator가 Encoding Object의 필드별 `contentType` 검증, JSON part decoding, `form` style `explode=false` 배열/객체와 배열 `explode=true` 처리를 수행함. 지원하지 않는 object style/explode 조합은 `PROTOCOL_MISMATCH` diagnostic으로 명시적으로 실패한다.
 완료 기준: 필드별 content type, style/explode, 잘못된 part encoding 실패 케이스가 테스트됨.
 
 ### 8. [ ] Links — 응답 관계 정보

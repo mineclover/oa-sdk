@@ -1,0 +1,165 @@
+# Iteration 17 Log
+
+## Metadata
+
+- **Task ID**: US-018
+- **Task Title**: Expose typed response headers in client API
+- **Description**: As a client user, I want typed access to documented response headers so that generated clients expose response metadata safely.
+- **Status**: completed
+- **Task Completed**: Yes
+- **Promise Detected**: Yes
+- **Started At**: 2026-04-15T04:20:15.481Z
+- **Ended At**: 2026-04-15T04:32:31.915Z
+- **Duration**: 12m 16s
+- **Input Tokens**: 7255072
+- **Output Tokens**: 29837
+- **Total Tokens**: 7284909
+- **Agent**: codex
+- **Sandbox Mode**: auto
+- **Sandbox Network**: Enabled
+--- RAW OUTPUT ---
+I’ll first read the repo guidance and current Ralph progress, then trace how response types and headers are generated before editing anything.
+[94m[shell][0m $ /bin/zsh -lc 'pwd && rg --files | head -200'
+[94m[shell][0m $ /bin/zsh -lc "rg --files -g 'AGENTS.md' -g '.ralph-tui/progress.md' -g 'docs/internal/spec.md' -g 'd...
+I don’t see a repo-local `AGENTS.md` in the initial file list, so I’m checking hidden project state and the internal docs that the story specifically calls out.
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,240p' .ralph-tui/progress.md"
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,220p' docs/internal/spec.md"
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,220p' docs/internal/api-index.md"
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,220p' docs/internal/todo.md"
+[94m[shell][0m $ /bin/zsh -lc 'cat package.json && cat packages/client/package.json && cat packages/core/package.json...
+[94m[shell][0m $ /bin/zsh -lc 'find .. -name AGENTS.md -print'
+The docs confirm typegen already emits `ResponseHeaders`; the remaining gap is the generated client API. I’m going to inspect the client generator, the shared type-name helper, and existing client/router tests to match current patterns.
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,260p' packages/client/src/generate-client.ts"
+[94m[shell][0m $ /bin/zsh -lc "sed -n '260,620p' packages/client/src/generate-client.ts"
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,260p' packages/client/src/__tests__/generate-client.test.ts"
+[94m[shell][0m $ /bin/zsh -lc "sed -n '260,620p' packages/client/src/__tests__/generate-client.test.ts"
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,240p' packages/core/src/codegen-utils.ts"
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,280p' packages/router/src/generate-router.ts"
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,260p' packages/codegen/src/typegen/generate-types.ts"
+[94m[shell][0m $ /bin/zsh -lc "sed -n '260,620p' packages/codegen/src/typegen/generate-types.ts"
+[94m[shell][0m $ /bin/zsh -lc 'rg "ResponseHeaders|headers" packages/codegen/src packages/core/src packages/client/sr...
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,240p' packages/client/src/__tests__/client-edge-cases.test.ts"
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,260p' packages/playground/tests/e2e-client-execution.test.ts"
+
+[91m[Error: sed: packages/playground/tests/e2e-client-execution.test.ts: No such file or directory
+][0m
+[94m[shell][0m $ /bin/zsh -lc "sed -n '260,340p' packages/router/src/generate-router.ts"
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,260p' apps/playground/tests/e2e-client-execution.test.ts"
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,280p' packages/client/src/__tests__/sse-client.test.ts"
+[94m[shell][0m $ /bin/zsh -lc "sed -n '820,900p' packages/codegen/src/__tests__/typegen/generate-types.test.ts"
+[94m[shell][0m $ /bin/zsh -lc "sed -n '130,175p' packages/router/src/__tests__/generate-router.test.ts"
+[94m[shell][0m $ /bin/zsh -lc "sed -n '260,620p' apps/playground/tests/e2e-client-execution.test.ts"
+[94m[shell][0m $ /bin/zsh -lc "rg \"eval|import\\(|generatedClient|tmpDir|tsc\" apps/playground/tests/e2e-client-exec...
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,180p' packages/client/src/index.ts && sed -n '1,120p' packages/core/src/inde...
+[94m[shell][0m $ /bin/zsh -lc "rg \"createClient\\(|request<|responseHeaders|headers\" -n apps packages/client packag...
+[94m[shell][0m $ /bin/zsh -lc 'rg "@oa-sdk/client|generateClient|ClientOptions|ClientConfig|ClientMiddleware" docs/in...
+[94m[shell][0m $ /bin/zsh -lc "sed -n '240,270p' docs/internal/api-index.md && sed -n '318,338p' docs/internal/api-in...
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,260p' packages/mock-server/src/core/response-picker.ts"
+[94m[shell][0m $ /bin/zsh -lc 'rg "headers" packages/mock-server/src/core packages/mock-server/src/adapters -n'
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,220p' packages/mock-server/src/adapters/node-http.ts"
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,220p' packages/mock-server/src/core/handler.ts"
+[94m[shell][0m $ /bin/zsh -lc 'cat packages/client/tsconfig.json && cat tsconfig.base.json'
+[94m[shell][0m $ /bin/zsh -lc 'rg "writeFileSync|execSync|tmp" packages/*/src/__tests__ apps/playground/tests -n | he...
+[94m[shell][0m $ /bin/zsh -lc 'rg "typescript" packages/*/src/__tests__ -n'
+I’ve got the implementation shape: keep existing body-returning methods intact, and add a generated `withResponse` namespace for operations with documented response headers. Those methods will return `{ body, headers, response }`, with `headers` typed as `XxxResponseHeaders` when `typesImport` is used and parsed via case-insensitive lookup.
+I spotted one generator issue before testing: the shared request helper now references the response/header helper types even for specs with no documented headers. I’m adjusting the generated helper block to be unconditional so ordinary clients still compile.
+[94m[shell][0m $ /bin/zsh -lc "nl -ba packages/client/src/generate-client.ts | sed -n '24,230p'"
+The generator now emits a shared `ClientResponse` and header parser for all generated clients, while only adding the `withResponse` methods when a non-streaming operation actually documents response headers. Next I’m adding focused client tests for the new shape and the header parser behavior.
+[94m[shell][0m $ /bin/zsh -lc 'pnpm --filter @oa-sdk/client typecheck'
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,220p' packages/core/src/format.ts"
+The client tests now cover the generated `withResponse` type surface, a successful response with lowercase HTTP headers, and an omitted optional header. I’m running the focused client suite to catch generator-output issues before touching docs.
+[94m[shell][0m $ /bin/zsh -lc 'pnpm --filter @oa-sdk/client test'
+[94m[shell][0m $ /bin/zsh -lc 'pnpm --filter @oa-sdk/client typecheck'
+The focused tests passed, but while reviewing the helper I found one subtle compatibility issue: awaiting `res.json()` inside the retry `try` would make JSON parse failures retryable. I’m changing the generated helper to return the JSON promise instead, matching the old body behavior.
+[94m[shell][0m $ /bin/zsh -lc 'pnpm --filter @oa-sdk/client test'
+[94m[shell][0m $ /bin/zsh -lc 'tail -180 .ralph-tui/progress.md'
+[94m[shell][0m $ /bin/zsh -lc 'rg "1618|1607|1605|client 36|client 39|vitest" docs/internal/spec.md .ralph-tui/progre...
+[94m[shell][0m $ /bin/zsh -lc 'git diff -- packages/client/src/generate-client.ts packages/client/src/__tests__/gener...
+[94m[shell][0m $ /bin/zsh -lc "sed -n '220,245p' docs/internal/spec.md"
+The focused client suite is green. I’m updating the internal status docs now: client tests increased by three, and the ResponseHeaders todo can be marked complete because both router and client now consume the generated header types.
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,220p' packages/core/src/__tests__/codegen-utils.test.ts"
+One edge case follows from the new client helper: typegen can emit `XxxResponseHeaders` from a `default` response when there is no 2xx response, so the shared type-name collector needs to import that header type too. I’m aligning that small core utility now.
+[94m[shell][0m $ /bin/zsh -lc 'pnpm --filter @oa-sdk/core test'
+The core collector now covers default-response header imports as well, with its own regression test. I’m moving on to the required repo-level checks; based on prior runs in this sandbox, the suites that bind local sockets may still fail with `listen EPERM`, but I’ll run them and report the exact result.
+[94m[shell][0m $ /bin/zsh -lc 'pnpm typecheck'
+[94m[shell][0m $ /bin/zsh -lc 'pnpm test'
+
+[91m[Error: 
+> oa-sdk@0.0.0 test /Users/junwoobang/workflow/oa-sdk
+> pnpm --filter @oa-sdk/core test && pnpm --filter @oa-sdk/parser test && pnpm --filter @oa-sdk/router test && pnpm --filter @oa-sdk/client test && pnpm --filter @oa-sdk/codegen test && pnpm --filter @oa-sdk/mock-server test && pnpm --filter @oa-sdk/typia-mock test && pnpm --filter playground test
+
+
+> @oa-sdk/core@0.1.0 test /Users/junwoobang/workflow/oa-sdk/packages/core
+> vitest run
+
+
+ RUN  v2.1.9 /Users/junwoobang/workflow/oa-sdk/packages][0m
+`pnpm typecheck` passed. `pnpm test` passed core/parser/router/client/codegen, then stopped in mock-server integration suites because this sandbox blocks `127.0.0.1` listeners (`listen EPERM`), matching prior project notes. I’m running schema validation next.
+[94m[shell][0m $ /bin/zsh -lc 'pnpm schema:validate'
+
+[91m[Error: 
+> oa-sdk@0.0.0 schema:validate /Users/junwoobang/workflow/oa-sdk
+> pnpm --filter @oa-sdk/parser build && pnpm --filter @oa-sdk/codegen build && pnpm --filter @oa-sdk/schemas run validate && node packages/codegen/dist/cli/index.js validate --spec packages/schemas/src/.merged.yaml
+
+
+> @oa-sdk/parser@0.1.0 build /Users/junwoobang/workflow/oa-sdk/packages/parser
+> tsup src/index.ts --format esm --dts
+
+CLI Building entry: src/index.ts
+CLI Using tsconfig: tsconfig.json
+CLI tsup v8.5.1
+CLI Target: es2][0m
+`pnpm schema:validate` built parser/codegen successfully, then failed when `tsx` tried to create its IPC pipe under `/var/folders/.../tsx-501/...` with `listen EPERM`. I’m checking the worktree and then I’ll run API/doc validation and whitespace checks.
+[94m[shell][0m $ /bin/zsh -lc 'git status --short'
+[94m[shell][0m $ /bin/zsh -lc 'pnpm build:scripts && pnpm check:api-index'
+[94m[shell][0m $ /bin/zsh -lc 'git diff --check'
+
+[91m[Error: 
+> oa-sdk@0.0.0 build:scripts /Users/junwoobang/workflow/oa-sdk
+> tsup scripts/spec-diff.ts scripts/check-api-index.ts --format esm --outDir scripts/dist --clean --platform node --external execa --external yaml
+
+CLI Building entry: scripts/check-api-index.ts, scripts/spec-diff.ts
+CLI tsup v8.5.1
+CLI Target: node16
+CLI Cleaning output folder
+ESM Build start
+ESM scripts/dist/spec-diff.mjs       5.46 KB
+ESM scripts/dist/check-api-index.mjs 7.30 KB
+ESM ⚡️ Build success in 10ms
+
+> oa-sdk@0.0.0 check:][0m
+[94m[shell][0m $ /bin/zsh -lc 'pnpm check:api-index'
+[94m[shell][0m $ /bin/zsh -lc 'git diff --check'
+[94m[shell][0m $ /bin/zsh -lc 'git status --short'
+[94m[shell][0m $ /bin/zsh -lc 'git diff --stat'
+API index validation is back in sync after avoiding a docs-only generated type name that the export checker treated as a package export. Whitespace checks are clean; I’m rerunning full typecheck after the core collector change.
+[94m[shell][0m $ /bin/zsh -lc 'pnpm typecheck'
+[94m[shell][0m $ /bin/zsh -lc "git diff -- packages/client/src/generate-client.ts | sed -n '1,260p'"
+[94m[shell][0m $ /bin/zsh -lc "git diff -- packages/core/src/codegen-utils.ts packages/core/src/__tests__/codegen-uti...
+[94m[shell][0m $ /bin/zsh -lc "git diff -- docs/internal/spec.md docs/internal/api-index.md docs/internal/todo.md .ra...
+Implemented US-018.
+
+Changed:
+- [generate-client.ts](/Users/junwoobang/workflow/oa-sdk/packages/client/src/generate-client.ts): generated clients now emit `ClientResponse<TBody, THeaders>` and additive `withResponse.<operation>()` helpers for non-streaming operations with documented response headers. Existing body-returning methods remain unchanged.
+- [generate-client.test.ts](/Users/junwoobang/workflow/oa-sdk/packages/client/src/__tests__/generate-client.test.ts): added coverage for typed response headers, case-insensitive header lookup, and missing optional headers.
+- [codegen-utils.ts](/Users/junwoobang/workflow/oa-sdk/packages/core/src/codegen-utils.ts): `collectTypeNames()` now imports default-response header types when no 2xx response exists.
+- [codegen-utils.test.ts](/Users/junwoobang/workflow/oa-sdk/packages/core/src/__tests__/codegen-utils.test.ts): added regression coverage for default response headers.
+- Updated [spec.md](/Users/junwoobang/workflow/oa-sdk/docs/internal/spec.md), [api-index.md](/Users/junwoobang/workflow/oa-sdk/docs/internal/api-index.md), [todo.md](/Users/junwoobang/workflow/oa-sdk/docs/internal/todo.md), and appended US-018 learnings to [progress.md](/Users/junwoobang/workflow/oa-sdk/.ralph-tui/progress.md).
+
+Verification:
+- `pnpm --filter @oa-sdk/core test` passed: 52 tests.
+- `pnpm --filter @oa-sdk/client test` passed: 39 tests.
+- `pnpm typecheck` passed.
+- `pnpm check:api-index` passed.
+- `git diff --check` passed.
+- `pnpm test` passed through core/parser/router/client/codegen, then failed in mock-server integration suites because the sandbox blocks local listeners: `listen EPERM: operation not permitted 127.0.0.1`.
+- `pnpm schema:validate` built parser/codegen, then failed when `tsx` tried to create its IPC pipe: `listen EPERM` under `/var/folders/.../tsx-501/...`.
+
+<promise>COMPLETE</promise>
+
+--- STDERR ---
+2026-04-15T04:20:16.210047Z ERROR rmcp::transport::worker: worker quit with fatal: Transport channel closed, when AuthRequired(AuthRequiredError { www_authenticate_header: "Bearer realm=\"OAuth\", resource_metadata=\"https://mcp.cloudflare.com/.well-known/oauth-protected-resource/mcp\", error=\"invalid_token\", error_description=\"Missing or invalid access token\"" })
+2026-04-15T04:20:16.409735Z ERROR rmcp::transport::worker: worker quit with fatal: Transport channel closed, when AuthRequired(AuthRequiredError { www_authenticate_header: "Bearer error=\"invalid_request\", error_description=\"No access token was provided in this request\", resource_metadata=\"https://mcp.supabase.com/.well-known/oauth-protected-resource/mcp\"" })
+2026-04-15T04:20:16.489910Z ERROR rmcp::transport::worker: worker quit with fatal: Transport channel closed, when AuthRequired(AuthRequiredError { www_authenticate_header: "Bearer resource_metadata=https://mcp.stripe.com/.well-known/oauth-protected-resource" })
+2026-04-15T04:21:01.442428Z ERROR codex_core::tools::router: error=write_stdin failed: stdin is closed for this session; rerun exec_command with tty=true to keep stdin open
+2026-04-15T04:21:13.918586Z ERROR codex_core::tools::router: error=exec_command failed for `/bin/zsh -lc "ps -o pid,ppid,command | rg 'find \\.\\. -name AGENTS\\.md|rg find'"`: CreateProcess { message: "Codex(Sandbox(Denied { output: ExecToolCallOutput { exit_code: 1, stdout: StreamOutput { text: \"\", truncated_after_lines: None }, stderr: StreamOutput { text: \"zsh:1: operation not permitted: ps\\n\", truncated_after_lines: None }, aggregated_output: StreamOutput { text: \"zsh:1: operation not permitted: ps\\n\", truncated_after_lines: None }, duration: 0ns, timed_out: false }, network_policy_decision: None }))" }

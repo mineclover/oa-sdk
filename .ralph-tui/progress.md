@@ -8,6 +8,7 @@ after each iteration and it's included in prompts for context.
 *Add reusable patterns discovered during development here.*
 - Public import path regression tests should combine a consumer-style typecheck fixture with package.json exports assertions; API index validation can then guard the documented source entrypoints and supported subpaths separately.
 - Public option types should be exported from every public entrypoint that exports the function accepting them, while `package.json` exports remain the supported-subpath gate; pair positive type imports with deep-import exclusion checks.
+- Parsed request bodies can carry transport metadata through non-enumerable symbol properties so validators can inspect headers/content types without changing AJV-visible body shape.
 - Typegen external alias allocation must reserve both local component schema names and generated operation type names before assigning aliases; unsupported schema-position refs into non-schema OAS roots should warn and rewrite to `unknown` so generated TS stays compilable.
 - When `derefSpec()` folds an external target, carry both `RefResolution.documentRoot` and the resolved file `basePath`: documentRoot makes `#/...` pointers resolve against the loaded external document, while basePath keeps nested relative file refs source-local.
 - Resolver baseline tests should cover parser graph/deref behavior separately from codegen alias behavior: parser owns ref traversal/deref semantics, while typegen calls `resolveRefGraph()` for external schema aliases and passes `refNameOverrides` into `schemaToTs()`.
@@ -379,4 +380,23 @@ after each iteration and it's included in prompts for context.
   - The generated client can keep backward-compatible body methods by routing them through a richer internal `requestResponse()` helper and returning `.body`.
   - Header parsing must use documented OAS header names for the typed object while relying on `Headers.get()` plus a lower-case fallback scan for case-insensitive runtime lookup.
   - Returning the `res.json().then(...)` promise instead of awaiting inside the retry block preserves the existing behavior where JSON parse failures are not treated as retryable fetch failures.
+---
+
+## 2026-04-15 - US-019
+- Implemented multipart part metadata preservation for MSW and Node HTTP body parsing, including part headers, `Content-Type`, filename, repeated field names, and quoted boundary handling in the Node parser.
+- Added multipart Encoding Object validation in `validateRequest()`: field-level `contentType` media-range matching, JSON part decoding before AJV, `form` style array/object `explode=false`, array `explode=true`, and structured diagnostics for unsupported object style/explode combinations.
+- Added multipart unit coverage for a valid encoded request plus invalid field content type, malformed JSON part, and unsupported style/explode cases; updated mock-server/total test counts and completed the internal todo.
+- Ran checks: `pnpm typecheck` passed; focused `pnpm --filter @oa-sdk/mock-server exec vitest run src/__tests__/unit/validator-body.test.ts` passed with 18 tests; `git diff --check` passed. `pnpm test` still fails at mock-server Node HTTP integration suites because this sandbox blocks `listen EPERM 127.0.0.1`; `pnpm schema:validate` still fails when `tsx` attempts a sandbox-blocked IPC pipe.
+- Files changed:
+  - `packages/mock-server/src/core/request-validator.ts`
+  - `packages/mock-server/src/adapters/msw.ts`
+  - `packages/mock-server/src/adapters/node-http.ts`
+  - `packages/mock-server/src/__tests__/unit/validator-body.test.ts`
+  - `docs/internal/spec.md`
+  - `docs/internal/todo.md`
+  - `.ralph-tui/progress.md`
+- **Learnings:**
+  - Non-enumerable symbol metadata lets adapters preserve multipart transport details while keeping the object shape seen by AJV unchanged.
+  - Encoding Object `contentType` should be ignored when `style`, `explode`, or `allowReserved` is explicitly present; in that style-based path, unsupported object combinations need a parse-stage diagnostic rather than silently falling through to a confusing schema error only.
+  - Encoding-by-name arrays apply the field Encoding Object to each repeated part item, while non-array fields with multiple same-name parts should remain visible to AJV as arrays unless a supported style decoder rewrites them.
 ---

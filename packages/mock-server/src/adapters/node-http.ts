@@ -3,7 +3,7 @@ import { parseDocument, matchRoute, type HttpMethod, type MatchResult, type OasD
 import { handleRequest } from '../core/handler.js'
 import { isStreamingContentType, generateStreamChunks } from '../core/stream.js'
 import { filterRouteIndex, type RouteFilter } from '../core/route-filter.js'
-import { assertValidRequestSchemas } from '../core/request-validator.js'
+import { assertValidRequestSchemas, createMultipartBody, type MultipartPartMetadata } from '../core/request-validator.js'
 
 export type NodeMockServerOptions = {
   port?: number
@@ -222,19 +222,28 @@ async function readBody(req: IncomingMessage): Promise<unknown> {
 
   // multipart/form-data — boundary 기반 간단 파싱 (외부 패키지 없이)
   if (ct === 'multipart/form-data') {
-    const boundary = (req.headers['content-type'] ?? '').match(/boundary=([^\s;]+)/)?.[1]
+    const boundary = parseHeaderParameter(req.headers['content-type'] ?? '', 'boundary')
     if (!boundary) return undefined
     const parts = raw.split(`--${boundary}`).slice(1, -1) // 첫/마지막 빈 파트 제거
-    const result: Record<string, string> = {}
+    const parsedParts: MultipartPartMetadata[] = []
     for (const part of parts) {
       const headerEnd = part.indexOf('\r\n\r\n')
       if (headerEnd === -1) continue
       const header = part.slice(0, headerEnd)
       const value = part.slice(headerEnd + 4).replace(/\r\n$/, '')
-      const nameMatch = header.match(/name="([^"]+)"/)
-      if (nameMatch) result[nameMatch[1]!] = value
+      const headers = parseMultipartHeaders(header)
+      const disposition = headers['content-disposition'] ?? ''
+      const name = parseHeaderParameter(disposition, 'name')
+      if (!name) continue
+
+      const parsedPart: MultipartPartMetadata = { name, value, headers }
+      const contentType = headers['content-type']
+      const filename = parseHeaderParameter(disposition, 'filename')
+      if (contentType !== undefined) parsedPart.contentType = contentType
+      if (filename !== undefined) parsedPart.filename = filename
+      parsedParts.push(parsedPart)
     }
-    return result
+    return createMultipartBody(parsedParts)
   }
 
   if (ct === 'application/x-www-form-urlencoded') {
@@ -253,6 +262,28 @@ async function readBody(req: IncomingMessage): Promise<unknown> {
 
   // text/* 및 알 수 없는 content-type → raw 문자열
   return raw
+}
+
+function parseMultipartHeaders(raw: string): Record<string, string> {
+  const headers: Record<string, string> = {}
+  for (const line of raw.split('\r\n')) {
+    const separator = line.indexOf(':')
+    if (separator === -1) continue
+    const name = line.slice(0, separator).trim().toLowerCase()
+    const value = line.slice(separator + 1).trim()
+    if (name) headers[name] = value
+  }
+  return headers
+}
+
+function parseHeaderParameter(headerValue: string, parameterName: string): string | undefined {
+  const pattern = new RegExp(`(?:^|;)\\s*${escapeRegExp(parameterName)}=(?:"([^"]*)"|([^;]*))`, 'i')
+  const match = headerValue.match(pattern)
+  return match?.[1] ?? match?.[2]?.trim()
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
 
 function readRaw(req: IncomingMessage): Promise<string> {

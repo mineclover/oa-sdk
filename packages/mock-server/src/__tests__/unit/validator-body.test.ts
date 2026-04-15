@@ -3,7 +3,7 @@
  * OAS 3.2.0 §4.8.13 Request Body Object / Media Type Object
  */
 import { describe, it, expect } from 'vitest'
-import { validateRequest } from '../../core/request-validator.js'
+import { createMultipartBody, validateRequest } from '../../core/request-validator.js'
 import type { OasRequestBody } from '@oa-sdk/parser'
 
 const userBody: OasRequestBody = {
@@ -146,6 +146,128 @@ describe('request body 스키마 검증', () => {
       content: { 'application/json': { schema: { type: 'object' } } },
     }
     expect(validateRequest(parts(), [], optBody).valid).toBe(true)
+  })
+})
+
+// ─── multipart encoding validation ──────────────────────────────────────────
+
+describe('multipart/form-data Encoding Object 검증', () => {
+  const multipartBody: OasRequestBody = {
+    required: true,
+    content: {
+      'multipart/form-data': {
+        schema: {
+          type: 'object',
+          required: ['metadata', 'tags', 'labels'],
+          properties: {
+            metadata: {
+              type: 'object',
+              required: ['title'],
+              properties: {
+                title: { type: 'string' },
+              },
+            },
+            image: {},
+            tags: { type: 'array', items: { type: 'string' } },
+            labels: {
+              type: 'object',
+              additionalProperties: { type: 'string' },
+            },
+          },
+        },
+        encoding: {
+          metadata: { contentType: 'application/json' },
+          image: { contentType: 'image/png, image/jpeg' },
+          tags: { style: 'form', explode: false },
+          labels: { style: 'form', explode: false },
+        },
+      },
+    },
+  }
+
+  it('valid: field contentType, JSON part decoding, and form explode=false fields pass', () => {
+    const body = createMultipartBody([
+      { name: 'metadata', value: '{"title":"avatar"}', contentType: 'application/json' },
+      { name: 'image', value: 'PNG bytes', contentType: 'image/png' },
+      { name: 'tags', value: 'red,blue' },
+      { name: 'labels', value: 'env,prod,tier,gold' },
+    ])
+
+    const r = validateRequest(parts({ body, contentType: 'multipart/form-data; boundary=abc' }), [], multipartBody)
+    expect(r.valid).toBe(true)
+  })
+
+  it('invalid: field-level contentType mismatch returns structured error', () => {
+    const body = createMultipartBody([
+      { name: 'metadata', value: '{"title":"avatar"}', contentType: 'application/json' },
+      { name: 'image', value: 'not an image', contentType: 'text/plain' },
+      { name: 'tags', value: 'red,blue' },
+      { name: 'labels', value: 'env,prod' },
+    ])
+
+    const r = validateRequest(parts({ body, contentType: 'multipart/form-data' }), [], multipartBody)
+    expect(r.valid).toBe(false)
+    if (!r.valid) {
+      const e = r.errors.find(error => error.path === '/body/image' && error.code === 'PROTOCOL_MISMATCH')
+      expect(e).toMatchObject({
+        expected: 'image/png, image/jpeg',
+        received: 'text/plain',
+        stage: 'parse',
+      })
+    }
+  })
+
+  it('invalid: JSON field contentType with malformed JSON returns parse error', () => {
+    const body = createMultipartBody([
+      { name: 'metadata', value: '{"title":', contentType: 'application/json' },
+      { name: 'tags', value: 'red,blue' },
+      { name: 'labels', value: 'env,prod' },
+    ])
+
+    const r = validateRequest(parts({ body, contentType: 'multipart/form-data' }), [], multipartBody)
+    expect(r.valid).toBe(false)
+    if (!r.valid) {
+      expect(r.errors).toContainEqual(expect.objectContaining({
+        path: '/body/metadata',
+        code: 'PROTOCOL_MISMATCH',
+        stage: 'parse',
+      }))
+    }
+  })
+
+  it('invalid: unsupported object style/explode combination returns diagnostic', () => {
+    const scopedBody: OasRequestBody = {
+      required: true,
+      content: {
+        'multipart/form-data': {
+          schema: {
+            type: 'object',
+            required: ['labels'],
+            properties: {
+              labels: {
+                type: 'object',
+                additionalProperties: { type: 'string' },
+              },
+            },
+          },
+          encoding: {
+            labels: { style: 'form', explode: true },
+          },
+        },
+      },
+    }
+    const body = createMultipartBody([{ name: 'labels', value: 'env,prod' }])
+
+    const r = validateRequest(parts({ body, contentType: 'multipart/form-data' }), [], scopedBody)
+    expect(r.valid).toBe(false)
+    if (!r.valid) {
+      expect(r.errors).toContainEqual(expect.objectContaining({
+        path: '/body/labels',
+        code: 'PROTOCOL_MISMATCH',
+        expected: 'style=form with explode=false',
+        stage: 'parse',
+      }))
+    }
   })
 })
 

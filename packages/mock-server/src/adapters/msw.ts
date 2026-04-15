@@ -4,7 +4,7 @@ import { toColonPath } from '@oa-sdk/core'
 import { handleRequest } from '../core/handler.js'
 import { isStreamingContentType, generateStreamChunks } from '../core/stream.js'
 import { filterRouteIndex, type RouteFilter } from '../core/route-filter.js'
-import { assertValidRequestSchemas } from '../core/request-validator.js'
+import { assertValidRequestSchemas, createMultipartBody, type MultipartPartMetadata } from '../core/request-validator.js'
 import type { OverrideResponse } from './node-http.js'
 
 export type MswHandlerOptions = {
@@ -221,10 +221,17 @@ async function parseBody(request: Request, contentType: string | undefined): Pro
     try { return await request.json() } catch { return undefined }
   }
 
-  if (ct === 'application/x-www-form-urlencoded' || ct === 'multipart/form-data') {
+  if (ct === 'application/x-www-form-urlencoded') {
     try {
       const formData = await request.formData()
       return formDataToObject(formData)
+    } catch { return undefined }
+  }
+
+  if (ct === 'multipart/form-data') {
+    try {
+      const formData = await request.formData()
+      return formDataToMultipartBody(formData)
     } catch { return undefined }
   }
 
@@ -249,6 +256,29 @@ function formDataToObject(formData: FormData): Record<string, string | string[]>
     }
   }
   return result
+}
+
+async function formDataToMultipartBody(formData: FormData): Promise<Record<string, unknown>> {
+  const parts: MultipartPartMetadata[] = []
+
+  for (const [key, value] of formData.entries()) {
+    if (typeof value === 'string') {
+      parts.push({ name: key, value })
+      continue
+    }
+
+    const blob = value as Blob & { name?: string }
+    const part: MultipartPartMetadata = {
+      name: key,
+      value: await blob.text(),
+      headers: {},
+    }
+    if (blob.type) part.contentType = blob.type
+    if (blob.name) part.filename = blob.name
+    parts.push(part)
+  }
+
+  return createMultipartBody(parts)
 }
 
 // ─── base URL 추출 ────────────────────────────────────────────────────────────
