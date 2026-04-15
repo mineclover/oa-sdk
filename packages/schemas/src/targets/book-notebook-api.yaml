@@ -1,0 +1,15 @@
+name: book-notebook-api
+scopes:
+  - shared
+  - public
+domains:
+  - common
+  - book
+  - notebook
+servers:
+  - url: https://api.example.test
+includePaths:
+  - /books/{bookId}/notes
+  - /notebooks/{notebookId}/notes
+namingPolicy:
+  aliases: {}

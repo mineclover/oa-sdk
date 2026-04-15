@@ -228,7 +228,7 @@ Duplicate policy는 source identity, output symbol, structural hash를 분리한
 
 #### Target bundle config and selection (US-010)
 
-Target config는 OpenAPI emit 전 단계에서 registry node 집합을 고르는 선언이다. `selectDefinitionTarget(registry, config)`는 직접 매칭된 path node에서 시작해 registry `refEdges`를 따라 schema, parameter, response, requestBody, header, link, callback, securityScheme 등 referenced component를 재귀 포함한다. Full OpenAPI document emit은 다음 단계가 담당한다.
+Target config는 OpenAPI emit 전 단계에서 registry node 집합을 고르는 선언이다. `selectDefinitionTarget(registry, config)`는 직접 매칭된 path node에서 시작해 registry `refEdges`를 따라 schema, parameter, response, requestBody, header, link, callback, securityScheme 등 referenced component를 재귀 포함한다. OpenAPI document emit은 이 selected target result를 그대로 소비한다.
 
 ```yaml
 name: public-api
@@ -258,6 +258,18 @@ Format:
 
 Selection은 configured scope/domain 밖의 transitive ref를 자동 포함하지 않고 `definition-target/disallowed-ref` error diagnostic으로 보고한다. `includePaths`가 configured scope/domain 안의 path node와 매칭되지 않으면 `definition-target/path-not-found` error diagnostic이 된다. Selection 결과는 `directPathIds`, selected `nodes`/`nodeById`, selected-source `refEdges`, 그리고 `outputNameAllocation`을 함께 반환하므로 후속 emit 단계가 같은 target-local output name map을 그대로 사용할 수 있다.
 
+#### OpenAPI document emit (US-011)
+
+`emitDefinitionOpenApiDocument(selection, options)`는 `selectDefinitionTarget()` 결과를 OpenAPI 3.2 document artifact로 materialize한다. Root object는 `openapi`(기본 `3.2.0`), `info`(옵션 또는 target name 기반 기본값), target `servers`, selected `paths`, `webhooks`(없어도 `{}`), `components`를 항상 포함한다.
+
+Emit은 selected target의 `outputNameAllocation.outputNames`를 `rewriteDefinitionOutputRefs()`에 주입한 뒤, path definition node는 `metadata.path`/`metadata.openApiPath` 값으로 `paths`에 배치하고 component-like node는 kind별 components section에 배치한다. Emitted document 안의 `$ref`는 local OpenAPI `$ref`만 허용하며, source `oa://...` 또는 non-local ref가 남으면 `definition-openapi-emit/unrewritten-ref` error diagnostic으로 실패한다.
+
+OAS 3.2 content fields는 필터링하지 않고 fragment content를 보존한다. Media Type Object의 `itemSchema`, Example Object의 `dataValue`/`serializedValue` 같은 3.2 전용 필드는 ref rewrite 외에는 그대로 output에 남는다. Emit 결과는 내부에서 `validateDocument()`를 실행해 validation errors를 `definition-openapi-emit/validation-error` diagnostic으로 연결하고, valid output은 `validateDocument()`를 통과해야 한다.
+
+Renamed definitions는 output document root extension `x-oa-sdk-definition-aliases`에 alias metadata로 포함한다. Result sidecar report도 `aliases`, `renamedAliases`, `collisionReport`, `rewrites`를 제공해 source canonical id와 target-local output name을 추적할 수 있다.
+
+Fixture target `packages/schemas/src/targets/book-notebook-api.yaml`은 `/books/{bookId}/notes`와 `/notebooks/{notebookId}/notes`를 함께 include해 `schema:public/book/Note`와 `schema:public/notebook/Note` source-name collision이 emitted components에서 `BookNote`/`NotebookNote`로 분리되는 것을 검증한다. 기존 `.merged.yaml`은 이 story에서 교체하지 않고 기존 merge pipeline과 병렬로 둔다.
+
 | 개념 | 계획 |
 |------|------|
 | Canonical identity | `kind:scope/domain/name` 고정 계층. 예: `schema:public/book/Note`, `schema:public/notebook/Note`, `schema:shared/common/Error`. source identity와 output component name을 분리 |
@@ -267,9 +279,10 @@ Selection은 configured scope/domain 밖의 transitive ref를 자동 포함하�
 | Naming policy | target-local `allocateDefinitionOutputNames()`가 explicit alias, `preserve-if-unique`, `domain-prefix`를 적용. `book.Note`와 `notebook.Note`는 source name을 바꾸지 않고 `BookNote`/`NotebookNote`처럼 출력명만 분리 |
 | Namespace scope | 이름 충돌 해결은 target server의 포함 node 집합 안에서 kind → domain → local name 순서로 처리. 같은 local name이라도 target bundle마다 포함 집합이 다르므로 output name allocation은 target-local임 |
 | Flattening guard | `schema:public/a/Name`, `schema:public/aname/Name`, `schema:public/a-name/Name`, `schema:admin/a/Name`은 flatten 결과가 같을 수 있어도 다른 canonical identity다. builder는 string flattening만으로 동치 추론을 하지 않고 attempted output name과 모든 colliding canonical IDs를 `output-name-collision`으로 보고 |
-| Collision simulation | public/admin target fixture에서 server target → domain → local name 순서의 rename과 target-local report를 검증. flattening output collision은 fail-on-collision diagnostic으로 검증되며, full target fixture emit은 후속 story에서 확장 |
+| Collision simulation | public/admin target fixture에서 server target → domain → local name 순서의 rename과 target-local report를 검증. flattening output collision은 fail-on-collision diagnostic으로 검증되며, book-notebook target fixture emit은 `BookNote`/`NotebookNote` output을 검증 |
 | Dedupe policy | duplicate canonical id는 error. 동일 schema hash는 기본 info diagnostic only. 의미가 다른 정의는 자동 structural dedupe 금지. opt-in semantic dedupe는 `metadata.semanticAliasOf`와 registry `semanticAliases`로만 표현 |
-| Target bundle | `name`, `scopes`, `domains`, `servers`, `includePaths`, `namingPolicy.aliases` format으로 선언. `selectDefinitionTarget()`가 exact path match + transitive ref walk + target-local output name allocation을 수행하고 full OpenAPI emit은 후속 단계가 담당 |
+| Target bundle | `name`, `scopes`, `domains`, `servers`, `includePaths`, `namingPolicy.aliases` format으로 선언. `selectDefinitionTarget()`가 exact path match + transitive ref walk + target-local output name allocation을 수행하고 OpenAPI emit에 넘긴다 |
+| OpenAPI emit | `emitDefinitionOpenApiDocument()`가 selected target을 OAS 3.2 document로 materialize하고 rewritten local `$ref`만 허용. Alias metadata는 root extension 또는 result sidecar report로 제공 |
 | Migration | 기존 `packages/schemas/scripts/merge.ts`는 유지하고, builder는 병렬 output으로 검증한 뒤 `.merged.yaml` 대체 여부 결정 |
 
 패키지 책임: `@oa-sdk/schemas`는 fragment layout/target config/fixtures/migration을 소유하고, `@oa-sdk/parser`는 validation/source/ref graph primitive를 제공하며, `@oa-sdk/codegen`은 `oa-gen build-spec` CLI와 WorkspaceIndex 연동을 소유한다.

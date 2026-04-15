@@ -1,0 +1,21 @@
+id: path:public/notebook/NotebookNotesPath
+metadata:
+  path: /notebooks/{notebookId}/notes
+content:
+  get:
+    summary: List public notebook notes
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: oa://schema/public/notebook/Note
+      default:
+        description: Error
+        content:
+          application/json:
+            schema:
+              $ref: oa://schema/shared/common/Error

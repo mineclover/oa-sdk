@@ -9,13 +9,7 @@
 
 ## 다음 세션 실행 순서
 
-현재 ralph PRD 기준 OpenAPI definition builder의 canonical ID grammar/parser(US-001), fragment definition node model(US-002), registry graph/ref edge collection(US-003), source canonical/file ref resolution(US-004), output `$ref` rewrite(US-005), target-local output naming(US-006), server/domain collision simulation(US-007), path flattening guard simulation(US-008), duplicate/dedupe policy(US-009), target bundle configuration/selection(US-010)은 완료되었고, 다음 blocking 목표는 selected target에서 OpenAPI 3.2 document를 emit하는 단계다.
-
-### [ ] OpenAPI definition builder: OpenAPI document emit
-배경: 여러 서버와 특정 path 하위 조합을 지원하려면 target별 servers/domains/paths include 규칙이 필요함.
-현재 처리: `selectDefinitionTarget()`가 target config의 scopes/domains/includePaths에서 path node를 고르고 transitive refs와 output name allocation을 계산함.
-작업: selected target 결과를 OpenAPI 3.2 `openapi`/`info`/`servers`/`paths`/`components` document로 materialize하고 rewritten `$ref`만 내보냄.
-완료 기준: target output이 `validateDocument()`를 통과하고 기존 schema validate pipeline과 병렬로 실행 가능함.
+현재 ralph PRD 기준 OpenAPI definition builder의 canonical ID grammar/parser(US-001), fragment definition node model(US-002), registry graph/ref edge collection(US-003), source canonical/file ref resolution(US-004), output `$ref` rewrite(US-005), target-local output naming(US-006), server/domain collision simulation(US-007), path flattening guard simulation(US-008), duplicate/dedupe policy(US-009), target bundle configuration/selection(US-010), selected target OpenAPI 3.2 emit(US-011)은 완료되었고, 다음 blocking 목표는 새 emit 결과를 CLI/script artifact로 병렬 검증하는 단계다.
 
 ### [ ] OpenAPI definition builder: CLI and migration plan
 배경: 현재 `packages/schemas/scripts/merge.ts`를 즉시 제거하지 않고 새 builder를 병렬 검증해야 함.
@@ -40,6 +34,11 @@
 ---
 
 ## 완료된 실행 항목
+
+### [x] OpenAPI definition builder: OpenAPI document emit
+배경: target selection 결과를 기존 `.merged.yaml` 교체 없이 병렬 검증 가능한 OpenAPI 3.2 artifact로 만들 수 있어야 함.
+완료: `emitDefinitionOpenApiDocument()`가 selected target result를 받아 root `openapi`/`info`/`servers`/`paths`/`webhooks`/`components` document를 생성함. Emit은 target-local output name allocation을 ref rewrite에 주입하므로 output에는 local OpenAPI `$ref`만 남고, source ref가 남으면 `definition-openapi-emit/unrewritten-ref` error diagnostic으로 실패함. `itemSchema`, `dataValue`, `serializedValue` 같은 OAS 3.2 field는 content filter 없이 보존하며, renamed definition alias metadata는 `x-oa-sdk-definition-aliases` root extension과 result sidecar report에 포함함.
+완료 기준: emitted document가 `validateDocument()`를 통과하는 parser 테스트, book/notebook `Note` source-name collision이 `BookNote`/`NotebookNote`로 materialize되는 테스트, public book+notebook fixture target 검증이 통과함. 기존 `.merged.yaml` 교체는 후속 CLI/migration story로 남김.
 
 ### [x] OpenAPI definition builder: target bundle configuration and selection
 배경: public/admin/internal target별로 선택된 scopes, domains, servers, paths만 후속 OpenAPI emit에 넘길 수 있어야 함.

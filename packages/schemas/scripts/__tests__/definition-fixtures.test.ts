@@ -21,6 +21,7 @@ const FIXTURES = [
 
 const PATH_FIXTURES = [
   ['path:public/book/BookNotesPath', 'path/public/book/BookNotesPath.yaml', '/books/{bookId}/notes'],
+  ['path:public/notebook/NotebookNotesPath', 'path/public/notebook/NotebookNotesPath.yaml', '/notebooks/{notebookId}/notes'],
   ['path:admin/book/BookNotesPath', 'path/admin/book/BookNotesPath.yaml', '/admin/books/{bookId}/notes'],
   ['path:internal/health/HealthPath', 'path/internal/health/HealthPath.yaml', '/internal/health'],
 ] as const
@@ -32,6 +33,13 @@ const TARGET_FIXTURES = [
     scopes: ['shared', 'public'],
     domains: ['common', 'book', 'notebook', 'a', 'aname', 'a-name'],
     includePaths: ['/books/{bookId}/notes'],
+  },
+  {
+    name: 'book-notebook-api',
+    path: 'book-notebook-api.yaml',
+    scopes: ['shared', 'public'],
+    domains: ['common', 'book', 'notebook'],
+    includePaths: ['/books/{bookId}/notes', '/notebooks/{notebookId}/notes'],
   },
   {
     name: 'admin-api',

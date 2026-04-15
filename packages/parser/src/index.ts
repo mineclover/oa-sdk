@@ -131,6 +131,17 @@ export type {
   DefinitionTargetSelectionResult,
 } from './definition-target.js'
 
+// ─── Definition OpenAPI Emit ──────────────────────────────────────────────
+export { emitDefinitionOpenApiDocument } from './definition-openapi-emit.js'
+export type {
+  DefinitionOpenApiEmitDiagnostic,
+  DefinitionOpenApiEmitDiagnosticCode,
+  DefinitionOpenApiEmitOptions,
+  DefinitionOpenApiEmitOwnDiagnostic,
+  DefinitionOpenApiEmitReport,
+  DefinitionOpenApiEmitResult,
+} from './definition-openapi-emit.js'
+
 // ─── Lint ─────────────────────────────────────────────────────────────────
 export { lintDocument } from './lint.js'
 export type { LintResult, LintSeverity, LintOptions } from './lint.js'

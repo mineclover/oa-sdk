@@ -73,6 +73,7 @@
 | `collectDefinitionRefs()` | `definition-registry.ts` | fragment content를 JSON Pointer-aware traversal로 순회해 `$ref` 위치를 DefinitionRef로 수집 |
 | `allocateDefinitionOutputNames()` | `definition-output-names.ts` | 한 target에 포함된 component-like definition node의 output component name을 target-local로 할당하고 alias metadata와 collision report를 생성 |
 | `selectDefinitionTarget()` | `definition-target.ts` | target config의 scopes/domains/includePaths로 직접 path를 고르고 registry ref edge를 재귀 순회해 target-local node set과 output name allocation을 생성 |
+| `emitDefinitionOpenApiDocument()` | `definition-openapi-emit.ts` | selected target result를 OpenAPI 3.2 document로 materialize하고 rewritten local `$ref`, alias metadata, validation diagnostics를 생성 |
 | `rewriteDefinitionOutputRefs()` | `definition-output-refs.ts` | registry target id를 사용해 fragment content/refs의 source `$ref`를 표준 OpenAPI component `$ref`로 rewrite |
 | `toOpenApiComponentRef()` | `definition-output-refs.ts` | component-like definition node와 output name을 OpenAPI component `$ref` 문자열로 변환 |
 | `DEFINITION_OUTPUT_COMPONENT_PATHS` | `definition-output-refs.ts` | definition kind별 OpenAPI component 위치 매핑: schemas/responses/parameters/requestBodies/headers/links/callbacks/securitySchemes |
@@ -144,6 +145,12 @@
 | `DefinitionTargetSelectionResult` | `definition-target.ts` | selected target node set, direct path ids, selected ref edges, target-local allocation, diagnostics |
 | `DefinitionTargetDiagnostic` | `definition-target.ts` | target selection diagnostic for missing include paths and disallowed transitive refs |
 | `DefinitionTargetDiagnosticCode` | `definition-target.ts` | target selection diagnostic code union |
+| `DefinitionOpenApiEmitOptions` | `definition-openapi-emit.ts` | emitted OpenAPI version/info/jsonSchemaDialect/alias metadata inclusion 옵션 |
+| `DefinitionOpenApiEmitResult` | `definition-openapi-emit.ts` | emitted OpenAPI document, sidecar report, validation result, emit diagnostics를 담는 결과 |
+| `DefinitionOpenApiEmitReport` | `definition-openapi-emit.ts` | targetName, alias metadata, renamed aliases, collision report, ref rewrite report를 담는 sidecar |
+| `DefinitionOpenApiEmitDiagnostic` | `definition-openapi-emit.ts` | target/output-name diagnostics와 emit 자체 diagnostics를 합친 union |
+| `DefinitionOpenApiEmitOwnDiagnostic` | `definition-openapi-emit.ts` | missing path, path collision, invalid content, unrewritten ref, validation error diagnostic shape |
+| `DefinitionOpenApiEmitDiagnosticCode` | `definition-openapi-emit.ts` | OpenAPI emit diagnostic code union |
 | `DefinitionOutputRefRewrite` | `definition-output-refs.ts` | source ref, target id, output ref, component path, output name을 담는 rewrite 기록 |
 | `DefinitionOutputRefRewriteOptions` | `definition-output-refs.ts` | output name map 또는 resolver를 받는 output ref rewrite 옵션 |
 | `DefinitionOutputRefRewriteResult` | `definition-output-refs.ts` | rewritten nodes, nodeById, rewrite 기록, registry diagnostics를 담는 결과 |

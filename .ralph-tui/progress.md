@@ -6,6 +6,7 @@ after each iteration and it's included in prompts for context.
 ## Codebase Patterns (Study These First)
 
 *Add reusable patterns discovered during development here.*
+- OpenAPI emit should consume `selectDefinitionTarget()` output directly: build a temporary selected registry for target-local ref rewrite, emit path nodes by `metadata.path`, group component-like nodes by kind/output name, and keep alias/collision metadata as sidecar/root extension rather than mutating canonical ids.
 - Target selection should stay a pure registry subgraph operation: exact path metadata selects roots, registry ref edges drive recursive inclusion, scope/domain policy gates cross-target leaks, and output name allocation runs only after the selected node set is known.
 - Structural duplicate policy belongs in the registry as a non-fatal schema `contentHash` diagnostic while preserving canonical-id keyed nodes; explicit semantic dedupe should be represented separately as `metadata.semanticAliasOf` -> `semanticAliases`.
 - Path-flattening collision tests can simulate a risky attempted naming policy through explicit allocator aliases, then assert registry nodes and `outputNames` stay canonical-id keyed while failure is reported only through output-name collision diagnostics.
@@ -237,4 +238,29 @@ after each iteration and it's included in prompts for context.
   - Path target selection needs a path metadata field (`metadata.path` or `metadata.openApiPath`) because canonical path ids intentionally do not encode the emitted OpenAPI path string.
   - Scope/domain filtering should happen during the recursive ref walk, not only at direct path selection, so public targets cannot silently pull admin/internal components through a valid source ref.
   - Running `allocateDefinitionOutputNames()` inside target selection keeps target-local naming behavior aligned with the selected subgraph and avoids a second caller-side filtering pass.
+---
+
+## 2026-04-16 - US-011
+- Implemented selected target OpenAPI 3.2 document emit in the parser.
+- Added `emitDefinitionOpenApiDocument()` to materialize root `openapi`, `info`, `servers`, `paths`, `webhooks`, and `components` from `selectDefinitionTarget()` output.
+- Wired target-local output names through ref rewrite so emitted `$ref` values are local OpenAPI refs, and added diagnostics for unrewritten source refs, path collisions, invalid content, and validation errors.
+- Preserved OAS 3.2 fields such as `itemSchema`, `dataValue`, and `serializedValue` during emit.
+- Added root alias metadata extension plus sidecar report for renamed definitions.
+- Added book+notebook fixture target with colliding `Note` source names without replacing current `.merged.yaml`.
+- Updated internal spec, API index, and todo docs for emitted output behavior and follow-up CLI/migration status.
+- Files changed:
+  - `packages/parser/src/definition-openapi-emit.ts`
+  - `packages/parser/src/index.ts`
+  - `packages/parser/src/__tests__/definition-openapi-emit.test.ts`
+  - `packages/schemas/src/fragments/path/public/notebook/NotebookNotesPath.yaml`
+  - `packages/schemas/src/targets/book-notebook-api.yaml`
+  - `packages/schemas/scripts/__tests__/definition-fixtures.test.ts`
+  - `docs/internal/spec.md`
+  - `docs/internal/api-index.md`
+  - `docs/internal/todo.md`
+  - `.ralph-tui/progress.md`
+- **Learnings:**
+  - Target emit can stay a parser-layer pure function by reusing the selected target result instead of introducing a separate builder state model.
+  - Ref rewrite should happen before path/component placement so OAS 3.2 fields can be preserved with a single object traversal and no field allowlist.
+  - Alias metadata is safer as output/report metadata than as changes to canonical ids; the emitted artifact can explain `BookNote`/`NotebookNote` while keeping source identity stable.
 ---
