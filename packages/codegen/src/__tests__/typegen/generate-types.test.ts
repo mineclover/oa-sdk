@@ -124,16 +124,25 @@ describe('analyzeExternalSchemaRefs', () => {
     writeFileSync(join(tmp, 'b.yaml'), 'components:\n  schemas:\n    User:\n      type: number\n')
 
     try {
-      const result = analyzeExternalSchemaRefs(doc({
+      const input = doc({
         paths: {
           '/a': { get: { responses: { '200': { description: 'A', content: { 'application/json': { schema: { $ref: './a.yaml#/components/schemas/User' } } } } } } },
           '/b': { get: { responses: { '200': { description: 'B', content: { 'application/json': { schema: { $ref: './b.yaml#/components/schemas/User' } } } } } } },
         },
-      }), basePath)
+      })
+      const result = analyzeExternalSchemaRefs(input, basePath)
 
-      expect(result.diagnostics.some(d => d.code === 'external-schema-name-collision')).toBe(true)
+      const warning = result.diagnostics.find(d => d.code === 'external-schema-name-collision')
+      expect(warning?.message).toContain(`${join(tmp, 'a.yaml')}#/components/schemas/User -> AUser`)
+      expect(warning?.message).toContain(`${join(tmp, 'b.yaml')}#/components/schemas/User -> BUser`)
       expect(result.refNameOverrides['./a.yaml#/components/schemas/User']).toBe('AUser')
       expect(result.refNameOverrides['./b.yaml#/components/schemas/User']).toBe('BUser')
+
+      const warnings: string[] = []
+      const output = generateTypesFromSpec(input, { basePath, warnings })
+      expect(warnings).toEqual([warning?.message])
+      expect(output).toContain('export type AUser = string')
+      expect(output).toContain('export type BUser = number')
     } finally {
       rmSync(tmp, { recursive: true, force: true })
     }

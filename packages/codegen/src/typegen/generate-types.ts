@@ -266,16 +266,6 @@ export function analyzeExternalSchemaRefs(spec: OasDocument, basePath: string): 
   const resolvedNamesByIdentity = new Map<string, string>()
   const refIdentityBySource = new Map<string, string>()
 
-  for (const [name, groupRefs] of refsByName) {
-    if (groupRefs.length <= 1) continue
-    diagnostics.push({
-      code: 'external-schema-name-collision',
-      name,
-      refs: groupRefs,
-      message: `외부 스키마 이름 충돌: ${name} (${groupRefs.join(', ')}). 파일명 기반 타입명으로 생성합니다.`,
-    })
-  }
-
   for (const node of schemaNodes) {
     refIdentityBySource.set(sourceRefKey(node.sourceFilePath, node.sourcePointer), refIdentity(node))
   }
@@ -303,9 +293,23 @@ export function analyzeExternalSchemaRefs(spec: OasDocument, basePath: string): 
         sourcePointer: node.sourcePointer,
         ...(node.filePath ? { filePath: node.filePath } : {}),
         ...(node.pointer ? { pointer: node.pointer } : {}),
-        message: `외부 스키마 이름이 로컬 component와 충돌: ${baseName} (${node.ref}). ${generatedName} 타입명으로 생성합니다.`,
+        message: `외부 스키마 이름이 로컬 component와 충돌: ${baseName} (${formatExternalTarget(node)} -> ${generatedName}). ${generatedName} 타입명으로 생성합니다.`,
       })
     }
+  }
+
+  for (const [name, groupRefs] of refsByName) {
+    if (groupRefs.length <= 1) continue
+    const renamedRefs = resolvedSchemaNodes
+      .filter(node => schemaNameFromRef(node.ref) === name)
+      .map(node => `${formatExternalTarget(node)} -> ${resolvedNamesByIdentity.get(refIdentity(node)) ?? schemaNameFromRef(node.ref)}`)
+      .sort()
+    diagnostics.push({
+      code: 'external-schema-name-collision',
+      name,
+      refs: groupRefs,
+      message: `외부 스키마 이름 충돌: ${name} (${renamedRefs.join(', ')}). 파일명 기반 타입명으로 생성합니다.`,
+    })
   }
 
   for (const node of schemaNodes) {
@@ -461,6 +465,10 @@ function fileStemFromNode(node: { ref: string; filePath?: string }): string {
   if (!filePart) return 'External'
   const fileName = basename(filePart)
   return fileName.slice(0, fileName.length - extname(fileName).length) || 'External'
+}
+
+function formatExternalTarget(node: { ref: string; filePath?: string; pointer?: string }): string {
+  return refIdentity(node)
 }
 
 function refIdentity(node: { ref: string; filePath?: string; pointer?: string }): string {

@@ -77,6 +77,7 @@ US-001/003 baseline 확인: typegen external alias 분석은 외부 YAML/JSON �
 entry 문서 raw ref는 기존 override로 유지하되, 외부 schema 내부 nested ref는 absolute file+pointer identity로 정규화해
 같은 raw relative ref 문자열이 서로 다른 source document에서 다른 파일을 가리키는 경우에도 안정적으로 타입 alias에 연결.
 missing/read/pointer 실패 diagnostic은 resolver code와 sourceFilePath/sourcePointer/filePath/pointer를 유지.
+이름 충돌/로컬 shadow rename warning은 resolved file+pointer와 생성 타입명을 포함.
 
 ### [x] parser/codegen: ref resolver 단일화 심화
 `resolveRefGraph()`와 `derefSpec()`가 parser 내부 `RefResolver` contract를 공유하도록 정리.

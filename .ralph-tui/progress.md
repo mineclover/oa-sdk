@@ -10,6 +10,7 @@ after each iteration and it's included in prompts for context.
 - Resolver baseline tests should cover parser graph/deref behavior separately from codegen alias behavior: parser owns ref traversal/deref semantics, while typegen calls `resolveRefGraph()` for external schema aliases and passes `refNameOverrides` into `schemaToTs()`.
 - Keep low-level `$ref` mechanics in parser-only contracts: `RefResolver` returns a `RefResolution` value object with kind, cache keys, document root, source pointer, pointer/file metadata, and diagnostic, while callers keep traversal/folding behavior local.
 - Typegen external schema aliases need two ref identities: raw `$ref` overrides only for entry-document refs, and canonical absolute file+pointer refs for external schema internals rewritten by sourceFilePath/sourcePointer before `schemaToTs()`.
+- Typegen rename diagnostics should be emitted after deterministic alias names are assigned so warnings can report resolver-normalized `file#pointer -> TypeName` context without changing name allocation.
 
 ---
 
@@ -97,4 +98,21 @@ after each iteration and it's included in prompts for context.
 - **Learnings:**
   - `RefResolution.documentRoot` is required for deref recursion into external documents; using only the target node and resolved file path is insufficient for external document-local pointers.
   - Keeping `basePath` and `documentRoot` separate mirrors `resolveRefGraph()` traversal and avoids duplicating pointer/file resolution logic in `DerefFolder`.
+---
+
+## 2026-04-15 - US-006
+- Aligned typegen rename warnings with resolver-normalized external ref metadata by emitting collision warnings after deterministic alias names are assigned.
+- Preserved existing external `#/components/schemas/*` alias generation and collision rename behavior while adding `resolved file#pointer -> generated type` context to collision and local-shadow warning messages.
+- Expanded existing typegen collision coverage to assert generated aliases, warning propagation through `generateTypesFromSpec()`, and external file/pointer context without changing the codegen test count.
+- Ran required checks: `pnpm typecheck` passed; `pnpm --filter @oa-sdk/codegen test` passed; root `pnpm test` passed core/parser/router/client/codegen and failed in mock-server integration suites on sandbox `listen EPERM`; `pnpm schema:validate` built parser/codegen and failed when `tsx` attempted an IPC pipe with `listen EPERM`.
+- Files changed:
+  - `packages/codegen/src/typegen/generate-types.ts`
+  - `packages/codegen/src/__tests__/typegen/generate-types.test.ts`
+  - `docs/internal/spec.md`
+  - `docs/internal/todo.md`
+  - `.ralph-tui/progress.md`
+- **Learnings:**
+  - Collision warning text needs generated names, so it must be built after the alias assignment loop rather than during name grouping.
+  - `resolveRefGraph()` already provides the target `filePath`/`pointer` needed for rename context; typegen only needs to format that resolver-normalized identity consistently.
+  - Updating an existing test keeps `docs/internal/spec.md` test counts stable while still covering warning propagation after migration.
 ---
