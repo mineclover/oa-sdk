@@ -6,11 +6,32 @@ after each iteration and it's included in prompts for context.
 ## Codebase Patterns (Study These First)
 
 *Add reusable patterns discovered during development here.*
+- Definition ref resolution should run after unique node registration so canonical refs can be checked against the full `nodeById` set and file refs can resolve through a source-path/pointer index.
 - Definition registry graph construction should reuse the parser's JSON Pointer-aware `$ref` traversal and attach source coordinates through an optional lookup callback instead of embedding YAML parsing in registry code.
 - Canonical identity parsing should stay a parser primitive with structured diagnostics; registry/node construction can build on parsed `DefinitionId` without reimplementing grammar checks.
 - Definition builder primitives should keep pure fragment identity/source metadata models separate from registry graph and ref resolution so later stories can add behavior without changing the data contract.
 - One-shot TypeScript schema scripts should use `node --import tsx` instead of the `tsx` CLI wrapper when the environment may block local IPC listeners.
 
+---
+
+## 2026-04-16 - US-004
+- Implemented source ref resolution in the parser definition registry.
+- Canonical source refs like `oa://schema/public/book/Note` now normalize to `schema:public/book/Note`, and missing canonical targets produce `definition-registry/missing-ref` diagnostics.
+- Relative file refs now resolve through registered definition source path/pointer metadata and normalize to canonical target ids when the target is known.
+- Unsupported source refs preserve raw edge data and produce `definition-registry/unsupported-ref` diagnostics with source path/pointer and optional line/column.
+- Added parser tests for canonical ref resolution, relative file ref resolution, missing refs, unsupported refs, and nested/transitive ref resolution.
+- Updated internal spec, API index, and todo docs to document canonical source ref syntax and leave output OpenAPI ref rewrite as follow-up.
+- Files changed:
+  - `packages/parser/src/definition-registry.ts`
+  - `packages/parser/src/__tests__/definition-registry.test.ts`
+  - `docs/internal/spec.md`
+  - `docs/internal/api-index.md`
+  - `docs/internal/todo.md`
+  - `.ralph-tui/progress.md`
+- **Learnings:**
+  - Ref target validation needs the complete unique-node map, so registry construction is cleaner as register nodes first, resolve refs second.
+  - Relative file refs can be normalized without reading files by indexing registered definition nodes by normalized `sourcePath` and `sourcePointer`.
+  - With `exactOptionalPropertyTypes`, diagnostic helper inputs must omit optional fields instead of passing `undefined` through spread/object literals.
 ---
 
 ## 2026-04-16 - US-003

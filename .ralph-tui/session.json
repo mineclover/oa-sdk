@@ -3,10 +3,10 @@
   "sessionId": "bc493007-f3e5-4f3d-9d12-884ba17d48c6",
   "status": "running",
   "startedAt": "2026-04-15T19:54:02.104Z",
-  "updatedAt": "2026-04-15T20:21:05.631Z",
-  "currentIteration": 2,
+  "updatedAt": "2026-04-15T20:30:19.682Z",
+  "currentIteration": 3,
   "maxIterations": 0,
-  "tasksCompleted": 2,
+  "tasksCompleted": 3,
   "isPaused": false,
   "agentPlugin": "codex",
   "trackerState": {
@@ -29,8 +29,8 @@
       {
         "id": "US-003",
         "title": "Build definition registry graph",
-        "status": "open",
-        "completedInSession": false
+        "status": "completed",
+        "completedInSession": true
       },
       {
         "id": "US-004",
@@ -120,6 +120,16 @@
       "durationMs": 373279,
       "startedAt": "2026-04-15T20:06:16.823Z",
       "endedAt": "2026-04-15T20:12:30.102Z"
+    },
+    {
+      "iteration": 3,
+      "status": "completed",
+      "taskId": "US-003",
+      "taskTitle": "Build definition registry graph",
+      "taskCompleted": true,
+      "durationMs": 513703,
+      "startedAt": "2026-04-15T20:12:31.926Z",
+      "endedAt": "2026-04-15T20:21:05.629Z"
     }
   ],
   "skippedTaskIds": [],

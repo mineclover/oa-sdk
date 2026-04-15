@@ -69,7 +69,7 @@
 | `validateDefinitionIds()` | `definition-id.ts` | canonical definition id 목록 검증 + duplicate id diagnostic 생성 |
 | `createDefinitionNode()` | `definition-node.ts` | canonical id에서 kind/scope/domain/localName을 파생하고 fragment source path/pointer/content hash/metadata/refs를 보존 |
 | `createDefinitionRef()` | `definition-node.ts` | fragment content 안 source `$ref`의 raw ref와 source path/pointer, optional target canonical id를 보존 |
-| `createDefinitionRegistry()` | `definition-registry.ts` | DefinitionNode 목록을 registry graph로 등록하고 duplicate canonical id diagnostic과 ref edge를 수집 |
+| `createDefinitionRegistry()` | `definition-registry.ts` | DefinitionNode 목록을 registry graph로 등록하고 canonical/file ref를 canonical id로 정규화하며 duplicate/missing/unsupported diagnostic과 ref edge를 수집 |
 | `collectDefinitionRefs()` | `definition-registry.ts` | fragment content를 JSON Pointer-aware traversal로 순회해 `$ref` 위치를 DefinitionRef로 수집 |
 | `findOperation()` | `query.ts` | operationId로 오퍼레이션 검색 |
 | `findByTag()` | `query.ts` | 태그로 오퍼레이션 필터 |
@@ -119,8 +119,8 @@
 | `DefinitionRegistry` | `definition-registry.ts` | unique node map, ref edge 목록, registry diagnostic을 담는 definition builder graph |
 | `DefinitionRegistryNode` | `definition-registry.ts` | registry에 등록된 DefinitionNode shape |
 | `DefinitionRegistryRefEdge` | `definition-registry.ts` | source definition id에서 raw `$ref` source pointer와 optional target canonical id로 이어지는 edge |
-| `DefinitionRegistryDiagnostic` | `definition-registry.ts` | duplicate canonical id 같은 registry graph diagnostic. source/first source path, pointer, line/column 포함 가능 |
-| `DefinitionRegistryDiagnosticCode` | `definition-registry.ts` | registry graph diagnostic code union |
+| `DefinitionRegistryDiagnostic` | `definition-registry.ts` | duplicate canonical id와 missing/unsupported source ref diagnostic. raw ref, source/target path, pointer, line/column 포함 가능 |
+| `DefinitionRegistryDiagnosticCode` | `definition-registry.ts` | registry graph diagnostic code union (`duplicate-id`, `missing-ref`, `unsupported-ref`) |
 | `DefinitionRegistryDiagnosticSeverity` | `definition-registry.ts` | registry graph diagnostic severity: error, warning, info |
 | `DefinitionRegistryOptions` | `definition-registry.ts` | registry 생성 옵션. source location lookup으로 diagnostic line/column 보강 |
 | `LintResult` | `lint.ts` | 린트 결과. source file/pointer와 YAML line/column metadata 포함 가능 |

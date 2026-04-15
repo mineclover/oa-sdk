@@ -9,12 +9,12 @@
 
 ## 다음 세션 실행 순서
 
-현재 ralph PRD 기준 US-001~US-022는 모두 완료됨. OpenAPI definition builder의 canonical ID grammar/parser(US-001), fragment definition node model(US-002), registry graph/ref edge collection(US-003)은 완료되었고, 다음 blocking 목표는 source ref resolution과 output `$ref` rewrite이다.
+현재 ralph PRD 기준 US-001~US-022는 모두 완료됨. OpenAPI definition builder의 canonical ID grammar/parser(US-001), fragment definition node model(US-002), registry graph/ref edge collection(US-003), source canonical/file ref resolution(US-004)은 완료되었고, 다음 blocking 목표는 output `$ref` rewrite이다.
 
-### [ ] OpenAPI definition builder: source ref resolution + output ref rewrite
-배경: registry graph는 raw/canonical `$ref` edge를 수집하지만, 실제 build output은 canonical id를 target-local OpenAPI `$ref`로 rewrite해야 함.
-작업: `oa://schema/public/book/Note` canonical ref 해소, 상대 file ref canonical id 정규화, missing/unsupported diagnostic, schema ref의 `#/components/schemas/{OutputName}` rewrite 구현.
-완료 기준: canonical ref, relative file ref, missing ref, nested ref rewrite가 테스트되고 diagnostic source path/pointer가 보존됨.
+### [ ] OpenAPI definition builder: output ref rewrite
+배경: registry graph는 source `$ref`를 canonical id로 정규화하지만, 실제 build output은 canonical id를 target-local OpenAPI `$ref`로 rewrite해야 함.
+작업: schema ref의 `#/components/schemas/{OutputName}` rewrite를 시작으로 response/parameter/requestBody/header/link/callback/securityScheme ref를 OpenAPI component location으로 변환.
+완료 기준: emitted document에 `oa://` source ref가 남지 않고 nested ref rewrite가 테스트되며 diagnostic source path/pointer가 보존됨.
 
 ### [ ] OpenAPI definition builder: output naming and collision simulation
 배경: 같은 local name `Note`라도 book note와 notebook note는 의미가 다를 수 있어 source 정의를 바꾸지 않고 output naming으로 충돌을 해결해야 함.
@@ -49,6 +49,11 @@
 ---
 
 ## 완료된 실행 항목
+
+### [x] OpenAPI definition builder: canonical/file source ref resolution
+배경: fragment source는 emitted OpenAPI component name이 아니라 canonical concept identity를 참조해야 함.
+완료: registry가 `oa://{kind}/{scope}/{domain}/{name}` source ref를 `kind:scope/domain/name` canonical id로 정규화하고, registered definition source와 일치하는 상대 file ref도 canonical id로 해소함. Missing target은 `definition-registry/missing-ref`, legacy/internal/invalid canonical ref는 `definition-registry/unsupported-ref` diagnostic으로 보고하며 raw ref와 source path/pointer, optional line/column을 보존함.
+완료 기준: canonical ref, relative file ref, missing ref, unsupported ref, nested transitive ref resolution이 parser 테스트로 검증됨.
 
 ### [x] OpenAPI definition builder: registry graph + ref edge collection
 배경: `$ref`는 구성요소 정의를 연결하는 그래프 edge이므로 build 전에 fragment registry에서 raw source refs와 duplicate id를 분석해야 함.

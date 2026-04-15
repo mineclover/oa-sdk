@@ -106,11 +106,12 @@
         "pnpm build:scripts && pnpm check:api-index passes."
       ],
       "priority": 4,
-      "passes": false,
+      "passes": true,
       "notes": "Reuse existing parser/source/ref traversal primitives where possible.",
       "dependsOn": [
         "US-003"
-      ]
+      ],
+      "completionNotes": "Completed by agent"
     },
     {
       "id": "US-005",
@@ -392,6 +393,6 @@
     }
   ],
   "metadata": {
-    "updatedAt": "2026-04-15T20:21:05.630Z"
+    "updatedAt": "2026-04-15T20:30:19.682Z"
   }
 }

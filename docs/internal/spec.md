@@ -162,13 +162,19 @@ Valid fixture IDs: `schema:public/book/Note`, `schema:public/notebook/Note`, `sc
 
 `DefinitionNode`는 `@oa-sdk/parser`의 public primitive로, fragment source를 registry에 올리기 전 canonical identity와 diagnostics용 source metadata를 함께 운반한다. `createDefinitionNode()`는 canonical id를 `DefinitionId`로 파싱해 `kind`, `scope`, `domain`, `localName`을 채우고, `sourcePath`, `sourcePointer`, `contentHash`, `content`, optional `metadata`, `refs`를 그대로 보존한다.
 
-`DefinitionRef`는 fragment content 안에서 발견한 source ref를 나타낸다. `createDefinitionRef()`는 raw `ref`, `sourcePath`, `sourcePointer`를 보존하고, target canonical id가 이미 알려진 경우 `targetId`로 저장한다. `metadata`는 target server, tags, feature flag, ownership 같은 classification 정보를 위한 optional field이며 canonical id 계층(`kind:scope/domain/name`)에는 포함하지 않는다. Canonical/file ref resolution과 output `$ref` rewrite는 후속 builder 단계가 담당한다.
+`DefinitionRef`는 fragment content 안에서 발견한 source ref를 나타낸다. `createDefinitionRef()`는 raw `ref`, `sourcePath`, `sourcePointer`를 보존하고, target canonical id가 이미 알려진 경우 `targetId`로 저장한다. `metadata`는 target server, tags, feature flag, ownership 같은 classification 정보를 위한 optional field이며 canonical id 계층(`kind:scope/domain/name`)에는 포함하지 않는다. Output `$ref` rewrite는 후속 builder 단계가 담당한다.
 
 #### Definition registry graph (US-003)
 
 `createDefinitionRegistry()`는 `DefinitionNode` 목록을 registry graph로 등록한다. `nodes`와 `nodeById`는 첫 번째 unique canonical id만 보존하고, 같은 canonical id가 다시 들어오면 `definition-registry/duplicate-id` error diagnostic을 만든다. Duplicate diagnostic은 중복 node의 `sourcePath`/`sourcePointer`와 최초 등록 node의 `firstSourcePath`/`firstSourcePointer`를 함께 담고, `lookupSourceLocation`이 제공되면 양쪽 line/column도 보강한다.
 
-Registry ref collection은 `collectDefinitionRefs()`가 담당한다. Fragment `content`를 `#/content/properties/error~1detail/$ref`처럼 JSON Pointer escaping 규칙을 지키며 순회해 `$ref` 문자열을 `DefinitionRef`로 수집하고, registry는 이를 `DefinitionRegistryRefEdge`로 변환한다. `oa://schema/shared/common/Error`처럼 유효한 canonical source ref는 edge/ref의 `targetId`를 `schema:shared/common/Error`로 보존한다. 상대 file ref 해소, missing/unsupported ref diagnostic, output `$ref` rewrite는 다음 builder 단계의 책임이다.
+Registry ref collection은 `collectDefinitionRefs()`가 담당한다. Fragment `content`를 `#/content/properties/error~1detail/$ref`처럼 JSON Pointer escaping 규칙을 지키며 순회해 `$ref` 문자열을 `DefinitionRef`로 수집하고, registry는 이를 `DefinitionRegistryRefEdge`로 변환한다.
+
+#### Source ref resolution (US-004)
+
+Canonical source ref syntax는 `oa://{kind}/{scope}/{domain}/{name}`이며, registry는 `oa://schema/shared/common/Error`를 canonical id `schema:shared/common/Error`로 정규화해 edge/ref의 `targetId`에 보존한다. 상대 file ref는 registered definition source와 일치할 때 canonical id로 정규화한다. 예를 들어 `/workspace/fragments/schema/public/book/Note.yaml#/content` 안의 `./Author.yaml#/content`는 같은 디렉터리의 `Author.yaml`에 등록된 node가 있으면 `schema:public/book/Author`로 해소된다. Pointer가 없는 상대 file ref는 해당 파일에 등록된 definition node가 하나일 때만 해소하고, 같은 파일에 여러 node가 있으면 explicit JSON Pointer가 필요하다.
+
+Registry는 duplicate id 외에도 source ref diagnostic을 만든다. 유효한 canonical ref 또는 file ref가 등록된 target을 찾지 못하면 `definition-registry/missing-ref`, `oa://...` 문법이 canonical id로 정규화되지 않거나 legacy/internal/absolute ref처럼 builder source ref로 지원하지 않는 형식이면 `definition-registry/unsupported-ref`를 보고한다. Ref diagnostic은 raw `ref`, source path/pointer, optional line/column, file target path/pointer 또는 target canonical id를 보존한다. Output `$ref` rewrite는 다음 builder 단계의 책임이다.
 
 | 개념 | 계획 |
 |------|------|
@@ -262,7 +268,7 @@ pnpm demo  # API 구조 + Mock 12시나리오 + 커버리지
 |------|------|------|
 | Build | 7 패키지 + CI 스크립트 | tsup ESM 빌드 |
 | Typecheck | 7 패키지 + playground | tsc --noEmit strict |
-| Test | 8 패키지 + playground | vitest 1655 케이스 |
+| Test | 8 패키지 + playground | vitest 1665 케이스 |
 | Schema validate | schemas + oa-gen | 도메인 병합 + 3.1 변환 + Spectral/Redocly + 3.2 자체 검증 표준 파이프라인 |
 | Freshness check | 산출물 | git diff --exit-code |
 | API index | docs ↔ code | root export 정합성 + codegen typegen option subpath 검증 |
@@ -275,7 +281,7 @@ pnpm demo  # API 구조 + Mock 12시나리오 + 커버리지
 | 패키지 | 케이스 |
 |--------|--------|
 | core | 52 |
-| parser | 210 |
+| parser | 220 |
 | codegen | 495 |
 | mock-server | 580 |
 | playground | 114 |
@@ -283,4 +289,4 @@ pnpm demo  # API 구조 + Mock 12시나리오 + 커버리지
 | client | 39 |
 | schemas | 76 |
 | typia-mock | 53 |
-| **합계** | **1655** |
+| **합계** | **1665** |

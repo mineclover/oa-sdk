@@ -1,0 +1,112 @@
+# Iteration 3 Log
+
+## Metadata
+
+- **Task ID**: US-003
+- **Task Title**: Build definition registry graph
+- **Description**: As a builder, I want to load fragments into a registry graph so that refs, duplicates, and target bundles can be analyzed before OpenAPI emission.
+- **Status**: completed
+- **Task Completed**: Yes
+- **Promise Detected**: Yes
+- **Started At**: 2026-04-15T20:12:31.926Z
+- **Ended At**: 2026-04-15T20:21:05.629Z
+- **Duration**: 8m 33s
+- **Input Tokens**: 4642216
+- **Output Tokens**: 18624
+- **Total Tokens**: 4660840
+- **Agent**: codex
+- **Sandbox Mode**: auto
+- **Sandbox Network**: Enabled
+--- RAW OUTPUT ---
+I’ll start by reading the repo guidance and the existing progress notes, then map where definition fragments and parser/schema tests live before touching code.
+[94m[shell][0m $ /bin/zsh -lc "pwd && rg --files -g 'AGENTS.md' -g '.ralph-tui/progress.md' -g 'docs/internal/spec.md...
+[94m[shell][0m $ /bin/zsh -lc 'find .. -name AGENTS.md -print'
+I found the internal docs but the first file listing did not surface the hidden progress file, so I’m checking the tree directly and reading the applicable guidance next.
+[94m[shell][0m $ fi"
+[94m[shell][0m $ /bin/zsh -lc "ls -la && find . -maxdepth 3 -path '*/AGENTS.md' -o -path './.ralph-tui/progress.md' -...
+[94m[shell][0m $ done'
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,260p' .ralph-tui/progress.md"
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,260p' docs/internal/spec.md"
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,220p' docs/internal/todo.md"
+The progress log says US-001/US-002 added parser-level canonical IDs and node/ref primitives, with registry graph deliberately deferred to this story. I’m now reading those parser files and the PRD section so the registry fits the existing public API style.
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,260p' tasks/prd-openapi-definition-builder.md"
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,260p' packages/parser/src/definition-id.ts"
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,260p' packages/parser/src/definition-node.ts"
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,220p' packages/parser/src/index.ts"
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,260p' packages/parser/src/__tests__/definition-id.test.ts && sed -n '1,260p'...
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,360p' packages/parser/src/ref-graph.ts"
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,280p' packages/parser/src/source-location.ts"
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,260p' docs/internal/api-index.md"
+[94m[shell][0m $ /bin/zsh -lc 'find packages/parser -maxdepth 3 -type f | sort'
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,420p' packages/parser/src/ref-resolver.ts"
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,300p' packages/parser/src/__tests__/ref-graph.test.ts"
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,220p' package.json && sed -n '1,180p' packages/parser/package.json"
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,280p' scripts/check-api-index.ts"
+[94m[shell][0m $ /bin/zsh -lc 'rg "definition" packages/parser/src docs/internal -n'
+[94m[shell][0m $ /bin/zsh -lc 'git status --short'
+[94m[shell][0m $ /bin/zsh -lc 'cat tsconfig.base.json'
+[94m[shell][0m $ /bin/zsh -lc 'cat packages/parser/tsconfig.json'
+I’m going to add a small parser module for the registry graph rather than fold this into the node model. It will keep the US-002 node primitive intact, register unique nodes, collect `$ref` edges from `content` with escaped JSON Pointers, and report duplicate IDs as registry diagnostics.
+The registry module is in place and exported. I’m adding parser tests now, including a pointer-escaping case because that is the easiest place for ref graph bugs to creep in.
+The initial tests cover node registration, pointer-aware `$ref` edge collection, and duplicate rejection with line/column enrichment. I’m running the focused parser test now before updating docs.
+[94m[shell][0m $ /bin/zsh -lc 'pnpm --filter @oa-sdk/parser test -- definition-registry'
+[94m[shell][0m $ /bin/zsh -lc 'pnpm --filter @oa-sdk/parser typecheck'
+The focused parser code is green. I’m updating the internal architecture/API docs and todo now so the public exports and story status stay in sync with the implementation.
+Docs are updated. I’m moving through the required gates now; I’ll start with the API index check because new parser exports make that the most likely drift point.
+[94m[shell][0m $ /bin/zsh -lc 'pnpm build:scripts && pnpm check:api-index'
+
+[91m[Error: 
+> oa-sdk@0.0.0 build:scripts /Users/junwoobang/workflow/oa-sdk
+> tsup scripts/spec-diff.ts scripts/check-api-index.ts --format esm --outDir scripts/dist --clean --platform node --external execa --external yaml
+
+CLI Building entry: scripts/check-api-index.ts, scripts/spec-diff.ts
+CLI tsup v8.5.1
+CLI Target: node16
+CLI Cleaning output folder
+ESM Build start
+ESM scripts/dist/spec-diff.mjs       5.46 KB
+ESM scripts/dist/check-api-index.mjs 7.30 KB
+ESM ⚡️ Build success in 42ms
+
+> oa-sdk@0.0.0 check:][0m
+The API index check caught a documentation parsing issue: the severity row used backticks around literal values, so the checker treated them as exported names. I’m changing that row to plain text and rerunning the check.
+[94m[shell][0m $ /bin/zsh -lc 'pnpm check:api-index'
+The API index is now in sync. I’m running the package test gates next, starting with the full parser suite.
+[94m[shell][0m $ /bin/zsh -lc 'pnpm --filter @oa-sdk/parser test'
+Parser tests passed. I’m running the codegen and schemas package tests now.
+[94m[shell][0m $ /bin/zsh -lc 'pnpm --filter @oa-sdk/codegen test'
+[94m[shell][0m $ /bin/zsh -lc 'pnpm --filter @oa-sdk/schemas test'
+Codegen and schemas tests passed. I’m running the full workspace typecheck next.
+[94m[shell][0m $ /bin/zsh -lc 'pnpm typecheck'
+Typecheck passed. I’m running schema validation now; this also rebuilds parser/codegen dist before validating the merged schema.
+[94m[shell][0m $ /bin/zsh -lc 'pnpm schema:validate'
+Schema validation passed with the existing Spectral hints only. I’m rerunning the combined scripts/API-index gate now that docs are finalized.
+[94m[shell][0m $ /bin/zsh -lc 'pnpm build:scripts && pnpm check:api-index'
+All required gates have passed. I’m doing a final status sweep now to separate my changes from pre-existing workspace noise and make sure there are no lingering processes.
+[94m[shell][0m $ /bin/zsh -lc 'git diff -- packages/parser/src/definition-registry.ts packages/parser/src/index.ts pa...
+[94m[shell][0m $ /bin/zsh -lc 'git status --short'
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,260p' packages/parser/src/definition-registry.ts"
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,260p' packages/parser/src/__tests__/definition-registry.test.ts"
+[94m[shell][0m $ /bin/zsh -lc 'git diff --stat'
+Implemented US-003 registry graph support.
+
+Added a public parser registry in [definition-registry.ts](/Users/junwoobang/workflow/oa-sdk/packages/parser/src/definition-registry.ts) and exported it from [index.ts](/Users/junwoobang/workflow/oa-sdk/packages/parser/src/index.ts). It registers unique definition nodes, builds `nodeById`, collects JSON Pointer-aware `$ref` edges from fragment content, normalizes valid `oa://...` canonical refs into `targetId`, and rejects duplicate canonical IDs with source/first-source diagnostics plus optional line/column coordinates.
+
+Added focused coverage in [definition-registry.test.ts](/Users/junwoobang/workflow/oa-sdk/packages/parser/src/__tests__/definition-registry.test.ts), and updated [spec.md](/Users/junwoobang/workflow/oa-sdk/docs/internal/spec.md), [api-index.md](/Users/junwoobang/workflow/oa-sdk/docs/internal/api-index.md), [todo.md](/Users/junwoobang/workflow/oa-sdk/docs/internal/todo.md), and [progress.md](/Users/junwoobang/workflow/oa-sdk/.ralph-tui/progress.md).
+
+Verification passed:
+- `pnpm typecheck`
+- `pnpm --filter @oa-sdk/parser test`
+- `pnpm --filter @oa-sdk/codegen test`
+- `pnpm --filter @oa-sdk/schemas test`
+- `pnpm schema:validate`
+- `pnpm build:scripts && pnpm check:api-index`
+
+`pnpm schema:validate` still reports the existing 4 Spectral hints, with 0 errors and 0 warnings. No commits were created.
+
+<promise>COMPLETE</promise>
+
+--- STDERR ---
+2026-04-15T20:12:32.180264Z ERROR rmcp::transport::worker: worker quit with fatal: Transport channel closed, when AuthRequired(AuthRequiredError { www_authenticate_header: "Bearer realm=\"OAuth\", resource_metadata=\"https://mcp.cloudflare.com/.well-known/oauth-protected-resource/mcp\", error=\"invalid_token\", error_description=\"Missing or invalid access token\"" })
+2026-04-15T20:13:00.617496Z ERROR codex_core::tools::router: error=write_stdin failed: stdin is closed for this session; rerun exec_command with tty=true to keep stdin open
+2026-04-15T20:20:22.476815Z ERROR codex_core::tools::router: error=exec_command failed for `/bin/zsh -lc "ps -eo pid,ppid,command | rg \"find \\.\\. -name AGENTS\\.md|session ID 9673|oa-sdk\""`: CreateProcess { message: "Codex(Sandbox(Denied { output: ExecToolCallOutput { exit_code: 1, stdout: StreamOutput { text: \"\", truncated_after_lines: None }, stderr: StreamOutput { text: \"zsh:1: operation not permitted: ps\\n\", truncated_after_lines: None }, aggregated_output: StreamOutput { text: \"zsh:1: operation not permitted: ps\\n\", truncated_after_lines: None }, duration: 0ns, timed_out: false }, network_policy_decision: None }))" }
