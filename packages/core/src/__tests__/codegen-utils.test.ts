@@ -59,4 +59,19 @@ describe('collectTypeNames', () => {
     expect(names).toContain('CreateUserBody')
     expect(names).toContain('CreateUserResponse')
   })
+
+  it('2xx가 없으면 default response headers 타입을 포함', () => {
+    const names = collectTypeNames([{
+      operationId: 'fallbackResponse',
+      parameters: [],
+      responses: {
+        default: {
+          headers: {
+            'X-Request-Id': { schema: { type: 'string' } },
+          },
+        },
+      },
+    }])
+    expect(names).toContain('FallbackResponseResponseHeaders')
+  })
 })

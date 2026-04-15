@@ -26,12 +26,15 @@ export function collectTypeNames(operations: ReadonlyArray<{
     const has2xx = Object.keys(op.responses).some(k => /^2\d{2}$/.test(k))
     if (has2xx) {
       names.push(`${base}Response`)
-      // Response headers 존재 여부 확인 (모든 2xx 응답 검사)
-      const hasResponseHeaders = Object.entries(op.responses).some(([k, v]) =>
-        /^2\d{2}$/.test(k) && v !== null && typeof v === 'object' && 'headers' in v
-      )
-      if (hasResponseHeaders) names.push(`${base}ResponseHeaders`)
     }
+    // Response headers 존재 여부 확인 (2xx 우선, 2xx가 없으면 default 응답 검사)
+    const hasResponseHeaders = Object.entries(op.responses).some(([k, v]) =>
+      (has2xx ? /^2\d{2}$/.test(k) : k === 'default')
+      && v !== null
+      && typeof v === 'object'
+      && 'headers' in v
+    )
+    if (hasResponseHeaders) names.push(`${base}ResponseHeaders`)
   }
   return names
 }

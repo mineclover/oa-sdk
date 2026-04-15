@@ -1,9 +1,51 @@
 import { describe, it, expect } from 'vitest'
 import { generateClient } from '../generate-client.js'
 import type { OasDocument } from '@oa-sdk/parser'
+import { ModuleKind, ScriptTarget, transpileModule } from 'typescript'
 
 function doc(overrides: Partial<OasDocument> = {}): OasDocument {
   return { openapi: '3.2.0', info: { title: 'T', version: '0' }, paths: {}, ...overrides } as OasDocument
+}
+
+async function importGeneratedClient(code: string): Promise<{ createClient: (config?: unknown) => Record<string, unknown> }> {
+  const js = transpileModule(code, {
+    compilerOptions: {
+      module: ModuleKind.ES2022,
+      target: ScriptTarget.ES2022,
+      verbatimModuleSyntax: false,
+    },
+  }).outputText
+  const url = `data:text/javascript;base64,${Buffer.from(js).toString('base64')}`
+  return await import(url) as { createClient: (config?: unknown) => Record<string, unknown> }
+}
+
+function headersSpec(): OasDocument {
+  return doc({
+    paths: {
+      '/users': {
+        get: {
+          operationId: 'listUsers',
+          responses: {
+            '200': {
+              description: 'OK',
+              headers: {
+                'X-Rate-Limit': { schema: { type: 'integer' } },
+                'X-Request-Id': { schema: { type: 'string' }, required: true },
+              },
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'array',
+                    items: { type: 'object', properties: { id: { type: 'string' } } },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+  })
 }
 
 describe('generateClient', () => {
@@ -152,6 +194,74 @@ describe('generateClient', () => {
   it('ClientConfig에 middleware 필드 포함', () => {
     const code = generateClient(doc({ paths: {} }))
     expect(code).toContain('middleware?: ClientMiddleware[]')
+  })
+
+  it('typesImport 시 withResponse가 typed response headers를 노출', () => {
+    const code = generateClient(headersSpec(), { typesImport: './types' })
+    expect(code).toContain('export type ClientResponse<TBody, THeaders extends object = Record<string, never>>')
+    expect(code).toContain('async listUsers(): Promise<ListUsersResponse>')
+    expect(code).toContain('withResponse: {')
+    expect(code).toContain('async listUsers(): Promise<ClientResponse<ListUsersResponse, ListUsersResponseHeaders>>')
+    expect(code).toContain('return requestResponse<ListUsersResponse, ListUsersResponseHeaders>')
+    expect(code).toContain('{ name: "X-Rate-Limit", type: "integer" }')
+    expect(code).toContain('{ name: "X-Request-Id", type: "string" }')
+  })
+
+  it('withResponse가 case-insensitive header lookup으로 typed headers를 반환', async () => {
+    const originalFetch = globalThis.fetch
+    globalThis.fetch = (async () => new Response(JSON.stringify([{ id: 'u1' }]), {
+      status: 200,
+      headers: {
+        'content-type': 'application/json',
+        'x-rate-limit': '42',
+        'x-request-id': 'req_1',
+      },
+    })) as typeof fetch
+
+    try {
+      const { createClient } = await importGeneratedClient(generateClient(headersSpec(), { typesImport: './types' }))
+      const client = createClient({ baseUrl: 'https://example.test' }) as {
+        withResponse: {
+          listUsers(): Promise<{
+            body: Array<{ id: string }>
+            headers: { 'X-Rate-Limit'?: number; 'X-Request-Id': string }
+          }>
+        }
+      }
+      const result = await client.withResponse.listUsers()
+      expect(result.body).toEqual([{ id: 'u1' }])
+      expect(result.headers['X-Rate-Limit']).toBe(42)
+      expect(result.headers['X-Request-Id']).toBe('req_1')
+    } finally {
+      globalThis.fetch = originalFetch
+    }
+  })
+
+  it('withResponse에서 누락된 optional response header는 undefined로 남김', async () => {
+    const originalFetch = globalThis.fetch
+    globalThis.fetch = (async () => new Response(JSON.stringify([{ id: 'u2' }]), {
+      status: 200,
+      headers: {
+        'content-type': 'application/json',
+        'x-request-id': 'req_2',
+      },
+    })) as typeof fetch
+
+    try {
+      const { createClient } = await importGeneratedClient(generateClient(headersSpec(), { typesImport: './types' }))
+      const client = createClient({ baseUrl: 'https://example.test' }) as {
+        withResponse: {
+          listUsers(): Promise<{
+            headers: { 'X-Rate-Limit'?: number; 'X-Request-Id': string }
+          }>
+        }
+      }
+      const result = await client.withResponse.listUsers()
+      expect(result.headers['X-Rate-Limit']).toBeUndefined()
+      expect(result.headers['X-Request-Id']).toBe('req_2')
+    } finally {
+      globalThis.fetch = originalFetch
+    }
   })
 })
 

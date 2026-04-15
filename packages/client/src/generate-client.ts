@@ -4,7 +4,7 @@
  * typegen 타입을 import하여 타입 안전 API 클라이언트를 생성합니다.
  */
 
-import type { OasDocument, ParsedDocument } from '@oa-sdk/parser'
+import type { OasDocument, OasResponse, OasSchema, ParsedDocument } from '@oa-sdk/parser'
 import { parseDocument, resolveServerUrl, DEFAULT_PASSES } from '@oa-sdk/parser'
 import { pascalCase, collectTypeNames, formatGeneratedTs } from '@oa-sdk/core'
 
@@ -47,6 +47,19 @@ export function generateClient(spec: OasDocument | ParsedDocument, options: Clie
   lines.push(`  onRequest?: (url: string, init: RequestInit) => RequestInit | Promise<RequestInit>`)
   lines.push(`  onResponse?: (response: Response) => Response | Promise<Response>`)
   lines.push(`  onError?: (error: Error) => void`)
+  lines.push(`}`)
+  lines.push('')
+
+  const responseHeaderOperations = doc.operations.filter(op =>
+    op.operationId
+    && getStreamingFormat(op.responses) === null
+    && hasGeneratedResponseHeaders(op.responses)
+  )
+
+  lines.push(`export type ClientResponse<TBody, THeaders extends object = Record<string, never>> = {`)
+  lines.push(`  body: TBody`)
+  lines.push(`  headers: THeaders`)
+  lines.push(`  response: Response`)
   lines.push(`}`)
   lines.push('')
 
@@ -147,7 +160,51 @@ export function generateClient(spec: OasDocument | ParsedDocument, options: Clie
   lines.push('')
 
   // fetch helper with retry + timeout
-  lines.push(`  async function request<T>(method: string, path: string, options?: { body?: unknown; query?: Record<string, unknown>; headers?: Record<string, string> }): Promise<T> {`)
+  lines.push(`  type __OaHeaderValueType = 'string' | 'number' | 'integer' | 'boolean' | 'array'`)
+  lines.push(`  type __OaHeaderSpec = { name: string; type: __OaHeaderValueType; items?: __OaHeaderValueType }`)
+  lines.push('')
+  lines.push(`  function __readOaResponseHeaders<THeaders extends object>(headers: Headers, specs: readonly __OaHeaderSpec[]): THeaders {`)
+  lines.push(`    const result: Record<string, unknown> = {}`)
+  lines.push(`    for (const spec of specs) {`)
+  lines.push(`      const raw = __getOaResponseHeader(headers, spec.name)`)
+  lines.push(`      if (raw === null) continue`)
+  lines.push(`      const parsed = __parseOaResponseHeader(raw, spec)`)
+  lines.push(`      if (parsed !== undefined) result[spec.name] = parsed`)
+  lines.push(`    }`)
+  lines.push(`    return result as THeaders`)
+  lines.push(`  }`)
+  lines.push('')
+  lines.push(`  function __getOaResponseHeader(headers: Headers, name: string): string | null {`)
+  lines.push(`    const direct = headers.get(name)`)
+  lines.push(`    if (direct !== null) return direct`)
+  lines.push(`    const lowerName = name.toLowerCase()`)
+  lines.push(`    let found: string | null = null`)
+  lines.push(`    headers.forEach((value, headerName) => {`)
+  lines.push(`      if (found === null && headerName.toLowerCase() === lowerName) found = value`)
+  lines.push(`    })`)
+  lines.push(`    return found`)
+  lines.push(`  }`)
+  lines.push('')
+  lines.push(`  function __parseOaResponseHeader(value: string, spec: __OaHeaderSpec): unknown {`)
+  lines.push(`    if (spec.type === 'integer' || spec.type === 'number') {`)
+  lines.push(`      const parsed = Number(value)`)
+  lines.push(`      return Number.isFinite(parsed) ? parsed : undefined`)
+  lines.push(`    }`)
+  lines.push(`    if (spec.type === 'boolean') {`)
+  lines.push(`      const normalized = value.trim().toLowerCase()`)
+  lines.push(`      if (normalized === 'true') return true`)
+  lines.push(`      if (normalized === 'false') return false`)
+  lines.push(`      return undefined`)
+  lines.push(`    }`)
+  lines.push(`    if (spec.type === 'array') {`)
+  lines.push(`      const itemSpec: __OaHeaderSpec = { name: spec.name, type: spec.items ?? 'string' }`)
+  lines.push(`      return value.split(',').map(part => __parseOaResponseHeader(part.trim(), itemSpec)).filter(item => item !== undefined)`)
+  lines.push(`    }`)
+  lines.push(`    return value`)
+  lines.push(`  }`)
+  lines.push('')
+
+  lines.push(`  async function requestResponse<T, THeaders extends object = Record<string, never>>(method: string, path: string, options?: { body?: unknown; query?: Record<string, unknown>; headers?: Record<string, string> }, responseHeaders?: readonly __OaHeaderSpec[]): Promise<ClientResponse<T, THeaders>> {`)
   lines.push(`    const url = new URL(path, baseUrl)`)
   lines.push(`    if (options?.query) {`)
   lines.push(`      for (const [k, v] of Object.entries(options.query)) {`)
@@ -186,8 +243,9 @@ export function generateClient(spec: OasDocument | ParsedDocument, options: Clie
   lines.push(`          }`)
   lines.push(`          throw err`)
   lines.push(`        }`)
-  lines.push(`        if (res.status === 204) return undefined as T`)
-  lines.push(`        return res.json() as Promise<T>`)
+  lines.push(`        const headers = responseHeaders ? __readOaResponseHeaders<THeaders>(res.headers, responseHeaders) : {} as THeaders`)
+  lines.push(`        if (res.status === 204) return { body: undefined as T, headers, response: res }`)
+  lines.push(`        return (res.json() as Promise<T>).then(body => ({ body, headers, response: res }))`)
   lines.push(`      } catch (err) {`)
   lines.push(`        lastError = err instanceof Error ? err : new Error(String(err))`)
   lines.push(`        if (attempt < maxRetries) {`)
@@ -197,6 +255,10 @@ export function generateClient(spec: OasDocument | ParsedDocument, options: Clie
   lines.push(`      }`)
   lines.push(`    }`)
   lines.push(`    throw lastError ?? new Error('Request failed')`)
+  lines.push(`  }`)
+  lines.push('')
+  lines.push(`  async function request<T>(method: string, path: string, options?: { body?: unknown; query?: Record<string, unknown>; headers?: Record<string, string> }): Promise<T> {`)
+  lines.push(`    return (await requestResponse<T>(method, path, options)).body`)
   lines.push(`  }`)
   lines.push('')
 
@@ -387,6 +449,42 @@ export function generateClient(spec: OasDocument | ParsedDocument, options: Clie
     }
     lines.push('')
   }
+  if (responseHeaderOperations.length > 0) {
+    lines.push('    withResponse: {')
+    for (const op of responseHeaderOperations) {
+      if (!op.operationId) continue
+      const baseName = pascalCase(op.operationId)
+      const method = op.method.toUpperCase()
+      const pathParams = op.parameters.filter(p => p.in === 'path')
+      const queryParams = op.parameters.filter(p => p.in === 'query')
+      const hasBody = !!op.requestBody
+      const params: string[] = []
+      if (pathParams.length > 0) params.push(`params: ${typesImport ? `${baseName}PathParams` : 'Record<string, string>'}`)
+      if (queryParams.length > 0) params.push(`query?: ${typesImport ? `${baseName}QueryParams` : 'Record<string, unknown>'}`)
+      if (hasBody) params.push(`body: ${typesImport ? `${baseName}Body` : 'unknown'}`)
+
+      const hasResponse = Object.keys(op.responses).some(k => /^2\d{2}$/.test(k) && k !== '204')
+      const bodyType = typesImport && hasResponse ? `${baseName}Response` : hasResponse ? 'unknown' : 'void'
+      const headersType = typesImport ? `${baseName}ResponseHeaders` : 'Record<string, unknown>'
+      const pathExpr = pathParams.length > 0
+        ? '`' + op.openApiPath.replace(/\{([^}]+)\}/g, '${params.$1}') + '`'
+        : `'${op.openApiPath}'`
+      const fetchOpts: string[] = []
+      if (hasBody) fetchOpts.push('body')
+      if (queryParams.length > 0) fetchOpts.push('query: query as Record<string, unknown>')
+      const optsArg = fetchOpts.length > 0 ? `{ ${fetchOpts.join(', ')} }` : 'undefined'
+      const headerSpecs = formatHeaderSpecs(responseHeadersToReadSpecs(op.responses))
+
+      if (op.summary || op.description) {
+        lines.push(`      /** ${op.summary ?? op.description} */`)
+      }
+      lines.push(`      async ${op.operationId}(${params.join(', ')}): Promise<ClientResponse<${bodyType}, ${headersType}>> {`)
+      lines.push(`        return requestResponse<${bodyType}, ${headersType}>('${method}', ${pathExpr}, ${optsArg}, ${headerSpecs})`)
+      lines.push(`      },`)
+      lines.push('')
+    }
+    lines.push('    },')
+  }
   lines.push('  }')
   lines.push('}')
 
@@ -457,4 +555,62 @@ function getStreamingFormat(responses: Record<string, unknown>): 'sse' | 'ndjson
     }
   }
   return null
+}
+
+type HeaderReadSpec = {
+  name: string
+  type: 'string' | 'number' | 'integer' | 'boolean' | 'array'
+  items?: 'string' | 'number' | 'integer' | 'boolean'
+}
+
+function hasGeneratedResponseHeaders(responses: Record<string, OasResponse>): boolean {
+  return responseHeadersToReadSpecs(responses).length > 0
+}
+
+function responseHeadersToReadSpecs(responses: Record<string, OasResponse>): HeaderReadSpec[] {
+  const response = pickDocumentedHeaderResponse(responses)
+  if (!response?.headers) return []
+  return Object.entries(response.headers)
+    .filter(([, header]) => !('$ref' in header))
+    .map(([name, header]) => {
+      const schema = (header as { schema?: OasSchema }).schema
+      const valueType = headerValueType(schema)
+      return {
+        name,
+        type: valueType.type,
+        ...(valueType.items ? { items: valueType.items } : {}),
+      }
+    })
+}
+
+function pickDocumentedHeaderResponse(responses: Record<string, OasResponse>): OasResponse | undefined {
+  const codes = Object.keys(responses).filter(k => /^2\d{2}$/.test(k)).sort()
+  const key = codes[0] ?? 'default'
+  return responses[key]
+}
+
+function headerValueType(schema: OasSchema | undefined): Omit<HeaderReadSpec, 'name'> {
+  const rawType = schema?.type
+  const type = Array.isArray(rawType) ? rawType.find(t => t !== 'null') : rawType
+  if (type === 'integer' || type === 'number' || type === 'boolean' || type === 'array') {
+    if (type !== 'array') return { type }
+    const itemType = Array.isArray(schema?.items) ? undefined : headerValueType(schema?.items as OasSchema | undefined).type
+    return {
+      type: 'array',
+      ...(itemType && itemType !== 'array' ? { items: itemType } : {}),
+    }
+  }
+  return { type: 'string' }
+}
+
+function formatHeaderSpecs(specs: HeaderReadSpec[]): string {
+  const entries = specs.map(spec => {
+    const fields = [
+      `name: ${JSON.stringify(spec.name)}`,
+      `type: ${JSON.stringify(spec.type)}`,
+      ...(spec.items ? [`items: ${JSON.stringify(spec.items)}`] : []),
+    ]
+    return `{ ${fields.join(', ')} }`
+  })
+  return `[${entries.join(', ')}]`
 }

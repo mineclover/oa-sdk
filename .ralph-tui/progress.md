@@ -21,6 +21,7 @@ after each iteration and it's included in prompts for context.
 - CLI incremental orchestration should keep WorkspaceIndex as a sidecar around the existing full parser/codegen output path: scan, detect dirty files, invalidate stale rows, generate from current files, then refresh the index so cache fallback cannot change stdout or generated files.
 - Source location mapping should stay a sidecar over existing file/pointer diagnostics: enrich parser diagnostic structures plus CLI/index records with YAML line/column when available, while JSON and missing mappings fall back to `file#pointer`.
 - Router stubs should emit typed helpers only when generated routes consume them; use `Partial<XxxResponseHeaders>` placeholders so required documented headers do not make newly generated handler stubs uncompilable.
+- Generated clients should preserve existing body-returning operation methods and add response metadata through additive helpers like `withResponse.<operation>()`; this keeps runtime compatibility while exposing typed headers/body metadata for users who opt in.
 
 ---
 
@@ -358,4 +359,24 @@ after each iteration and it's included in prompts for context.
   - Router already imported `XxxResponseHeaders` through `collectTypeNames()`; the missing piece was a generated consumption point in handler stubs.
   - `Partial<XxxResponseHeaders>` keeps freshly generated stubs compilable even when documented response headers are required, while still enforcing documented header names and value types when users fill the placeholder object.
   - A target-neutral setter callback lets the same helper cover Hono `c.header()` and Express `res.setHeader()` without adding framework-specific type imports or new unsafe casts.
+---
+
+## 2026-04-15 - US-018
+- Added generated client `ClientResponse<TBody, THeaders>` support plus a `withResponse` namespace for non-streaming operations with documented response headers. Existing operation methods still return the response body directly.
+- Implemented generated case-insensitive response header lookup and primitive header parsing for string, number/integer, boolean, and comma-separated array header schemas.
+- Added client tests for typed `XxxResponseHeaders` response shape, successful lowercase HTTP header lookup, and missing optional response headers. Added core coverage so `collectTypeNames()` imports default-response header types when no 2xx response exists.
+- Updated internal spec/API/todo docs and core/client/total test counts.
+- Files changed:
+  - `packages/client/src/generate-client.ts`
+  - `packages/client/src/__tests__/generate-client.test.ts`
+  - `packages/core/src/codegen-utils.ts`
+  - `packages/core/src/__tests__/codegen-utils.test.ts`
+  - `docs/internal/spec.md`
+  - `docs/internal/api-index.md`
+  - `docs/internal/todo.md`
+  - `.ralph-tui/progress.md`
+- **Learnings:**
+  - The generated client can keep backward-compatible body methods by routing them through a richer internal `requestResponse()` helper and returning `.body`.
+  - Header parsing must use documented OAS header names for the typed object while relying on `Headers.get()` plus a lower-case fallback scan for case-insensitive runtime lookup.
+  - Returning the `res.json().then(...)` promise instead of awaiting inside the retry block preserves the existing behavior where JSON parse failures are not treated as retryable fetch failures.
 ---

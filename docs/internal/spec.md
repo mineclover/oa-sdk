@@ -123,7 +123,7 @@ Webhook 핸들러 스텁 생성.
 
 fetch `createClient()` + SSE `async *` generator. `OasDocument | ParsedDocument` 입력. baseUrl from servers.
 NDJSON vs SSE 스트림 분리 + `resolveServerUrl` 서버 변수 해소.
-ClientMiddleware (`onRequest`/`onResponse`/`onError`) 인터셉터. Webhook 페이로드 타입 생성.
+ClientMiddleware (`onRequest`/`onResponse`/`onError`) 인터셉터. 문서화된 응답 헤더가 있으면 기존 body 반환 메서드는 유지하고 `withResponse.<operation>()`에서 `{ body, headers, response }`를 반환하며 `headers`는 `XxxResponseHeaders` 타입과 case-insensitive lookup을 사용. Webhook 페이로드 타입 생성.
 
 ## `@oa-sdk/typia-mock` ✅
 
@@ -213,7 +213,7 @@ pnpm demo  # API 구조 + Mock 12시나리오 + 커버리지
 |------|------|------|
 | Build | 7 패키지 + CI 스크립트 | tsup ESM 빌드 |
 | Typecheck | 7 패키지 + playground | tsc --noEmit strict |
-| Test | 8 패키지 + playground | vitest 1618 케이스 |
+| Test | 8 패키지 + playground | vitest 1622 케이스 |
 | Schema validate | schemas + oa-gen | 도메인 병합 + 3.1 변환 + Spectral/Redocly + 3.2 자체 검증 표준 파이프라인 |
 | Freshness check | 산출물 | git diff --exit-code |
 | API index | docs ↔ code | root export 정합성 + codegen typegen option subpath 검증 |
@@ -225,13 +225,13 @@ pnpm demo  # API 구조 + Mock 12시나리오 + 커버리지
 
 | 패키지 | 케이스 |
 |--------|--------|
-| core | 51 |
+| core | 52 |
 | parser | 201 |
 | codegen | 491 |
 | mock-server | 561 |
 | playground | 114 |
 | router | 36 |
-| client | 36 |
+| client | 39 |
 | schemas | 75 |
 | typia-mock | 53 |
-| **합계** | **1618** |
+| **합계** | **1622** |

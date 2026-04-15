@@ -253,7 +253,7 @@ Typegen 공개 surface는 root entry(`@oa-sdk/codegen`)와 typegen sub-entry(`@o
 
 | 함수/타입 | 파일 | 용도 |
 |-----------|------|------|
-| `generateClient()` | `generate-client.ts` | OAS spec → fetch 기반 createClient() 코드 |
+| `generateClient()` | `generate-client.ts` | OAS spec → fetch 기반 createClient() 코드. 기본 operation 메서드는 body 반환을 유지하고, 문서화된 응답 헤더가 있으면 generated typed response object를 반환하는 `withResponse.<operation>()` helper를 함께 생성 |
 | `ClientOptions` | `generate-client.ts` | 클라이언트 생성 옵션 타입 |
 
 ---
