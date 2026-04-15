@@ -8,28 +8,23 @@
 
 ## 다음 세션 실행 순서
 
-### 1. [ ] codegen CLI: 증분 validate/typegen 연결
-배경: WorkspaceIndex scan/dirty invalidation primitive가 있어도 CLI orchestration이 이를 validate/typegen/dev 실행 경로에 연결해야 증분 효과가 있음.
-작업: `oa-gen validate/typegen --incremental --cache-dir` 옵션을 추가하고, `dev` watch mode에서 같은 invalidation 경로를 재사용.
-완료 기준: 변경된 외부 ref 파일이 이를 참조하는 spec/typegen output을 dirty 처리하고, full rebuild 결과와 증분 결과가 일치함.
-
-### 2. [ ] codegen: 외부 `$defs` / 비 components schema alias 정책
+### 1. [ ] codegen: 외부 `$defs` / 비 components schema alias 정책
 배경: 외부 `$ref` type alias는 현재 `#/components/schemas/*` 중심으로 안정화됨.
 US-001/003 baseline 확인: typegen external alias 분석은 외부 YAML/JSON 및 nested external schema를 지원하지만 alias 대상은 `#/components/schemas/*`로 제한됨. missing/read/pointer 실패는 parser resolver diagnostic code와 source metadata를 보존함.
 작업: `$defs` 또는 다른 schema root를 typegen alias 대상으로 허용할지 결정하고, 허용 시 이름 생성 규칙을 문서화.
 완료 기준: 지원 범위가 명시되고, 지원하는 포인터에는 deterministic type name과 rename warning 테스트가 있음.
 
-### 3. [ ] diagnostics: YAML line/column source map
+### 2. [ ] diagnostics: YAML line/column source map
 배경: 현재 diagnostic source는 `filePath#pointer` 수준이라 큰 YAML에서 작성자 UX가 제한됨.
 작업: YAML AST 기반 line/column 매핑 가능성을 확인하고, parser/ref graph/schema validation diagnostic에 단계적으로 연결.
 완료 기준: 대표 YAML 입력에서 diagnostic이 file, pointer, line, column을 함께 노출하고 JSON 입력 동작은 유지됨.
 
-### 4. [ ] codegen: TypegenOptions/SchemaToTsOptions 공개 API 정리
+### 3. [ ] codegen: TypegenOptions/SchemaToTsOptions 공개 API 정리
 배경: `TypegenOptions`는 `codegen/typegen` 서브 엔트리에만 export되고, `SchemaToTsOptions`는 미노출 상태.
 작업: 메인 index에서 재export할지, 서브 엔트리 전용 API로 유지할지 결정하고 API index를 갱신.
 완료 기준: 공개 surface가 문서와 export 테스트에 반영되고, 내부 옵션 타입이 의도치 않게 노출되지 않음.
 
-### 5. [ ] router/client: ResponseHeaders 활용
+### 4. [ ] router/client: ResponseHeaders 활용
 배경: typegen은 `XxxResponseHeaders`를 생성하지만 router/client 런타임 API는 아직 타입을 적극 활용하지 않음.
 작업: router에서 응답 header 삽입 helper 또는 stub 힌트를 강화하고, client에서 `res.headers` 타입 안전 접근 경로를 제공.
 완료 기준: 생성된 Op 타입의 `headers`가 router/client 사용 예제와 테스트에서 실제로 소비됨.
@@ -61,6 +56,11 @@ US-001/003 baseline 확인: typegen external alias 분석은 외부 YAML/JSON �
 ---
 
 ## 최근 완료
+
+### [x] codegen CLI: 증분 validate/typegen 연결
+`oa-gen validate`와 `oa-gen typegen`에 opt-in `--incremental --cache-dir` 옵션을 추가.
+두 커맨드와 `oa-gen dev` watch mode가 공통 CLI incremental helper를 통해 scan → dirty detect → refs.to_file reverse invalidation → output generation → index refresh 순서를 공유.
+단발 validate/typegen 기본 실행은 SQLite를 사용하지 않는 full rebuild 출력 경로로 유지하며, 증분 CLI 테스트에서 full rebuild 출력과 일치함을 검증.
 
 ### [x] codegen CLI: dirty detection and dependency invalidation primitive
 entry spec, domain spec, profile spec, external ref 파일을 absolute path + realpath + size + mtime + sha256으로 scan하는 helper를 추가.

@@ -84,7 +84,7 @@ schemas      ← 독립. OAS 소스 + merge + 3.1↔3.2 변환
 | WorkspaceIndex | 파일 hash/component/ref/source/diagnostic/type alias metadata용 index 경계. 기본 noop은 모든 파일을 dirty 처리해 기존 full rebuild 동작 유지 |
 | SQLiteWorkspaceIndex | `.oa-cache/state.sqlite`에 index row를 보존. WAL/foreign key/transaction을 사용하고 schema/options mismatch 또는 DB 오류 시 full rebuild fallback |
 | Workspace dirty detection | entry/domain/profile/external ref 파일 scan → new/modified/deleted/unchanged 분류 → refs.to_file 역방향 dirty 전파 → stale row invalidation |
-| CLI | 커맨드 모듈 구조. `generate`/`typegen`/`router`/`client`/`lint`/`validate`/`dev`/`--help` |
+| CLI | 커맨드 모듈 구조. `generate`/`typegen`/`router`/`client`/`lint`/`validate`/`dev`/`--help`; `validate`/`typegen`은 opt-in `--incremental --cache-dir`, `dev`는 watch mode에서 같은 index path 사용 |
 
 ### Resolver baseline (US-001) / Shared contract (US-002) / External cache alignment (US-003)
 
@@ -105,6 +105,7 @@ schemas      ← 독립. OAS 소스 + merge + 3.1↔3.2 변환
 | `createSQLiteWorkspaceIndex()` | `packages/codegen/src/sqlite-workspace-index.ts` | `.oa-cache/state.sqlite` 기본 경로에 `meta`, `files`, `components`, `refs`, `source_locations`, `diagnostics`, `type_aliases` 테이블 생성. WAL, `busy_timeout`, foreign key, transaction-wrapped write를 사용 |
 | SQLite compatibility meta | `packages/codegen/src/sqlite-workspace-index.ts` | `schema_version`, `compatibility_hash`, `compatibility_json`을 `meta`에 저장. schema/options mismatch는 cache row를 비우고 다음 diff를 full rebuild로 반환 |
 | Dirty detection helpers | `packages/codegen/src/workspace-index.ts` | entry/domain/profile/external ref 파일을 absolute path + realpath + size + mtime + sha256으로 scan. index와 비교해 new/modified/deleted/unchanged를 분류하고, changed/deleted target의 `refs.to_file` 역방향 source를 dirty로 전파한 뒤 stale row invalidation 입력을 반환 |
+| CLI incremental orchestration | `packages/codegen/src/cli/lib/incremental.ts` | `validate`/`typegen --incremental`과 `dev`가 동일한 scan → dirty detect → invalidate → full parser/codegen output → index refresh 경로를 사용. cache 실패나 cache miss는 출력 correctness에 영향을 주지 않고 full rebuild 결과가 우선 |
 
 `WorkspaceIndex`는 최적화와 영향도 계산을 위한 index layer이며, component 중복, `$ref` 해소, cycle diagnostic, type alias 생성의 최종 correctness는 현재 파일 내용으로 재계산하는 full parser/codegen 경로가 담당한다. SQLite open/read/write 오류는 no-op과 같은 full rebuild fallback으로 전환하고, 실패한 write transaction은 rollback된다.
 
@@ -143,6 +144,7 @@ ClientMiddleware (`onRequest`/`onResponse`/`onError`) 인터셉터. Webhook 페�
 pnpm --filter @oa-sdk/schemas run merge            # 도메인 병합
 pnpm schema:validate                               # merge + 3.1 변환 + Spectral/Redocly + oa-gen validate
 oa-gen validate --spec .merged.yaml                # 종합 검증
+oa-gen validate --spec .merged.yaml --incremental --cache-dir .oa-cache
 oa-gen lint --spec .merged.yaml                    # 린트만
 pnpm --filter @oa-sdk/schemas run downgrade:3.1    # 3.1 변환 (Swagger UI 호환)
 ```
@@ -150,9 +152,11 @@ pnpm --filter @oa-sdk/schemas run downgrade:3.1    # 3.1 변환 (Swagger UI 호�
 ### 코드 생성
 ```bash
 oa-gen typegen --spec .merged.yaml -o types.ts     # TS 타입
+oa-gen typegen --spec .merged.yaml -o types.ts --incremental --cache-dir .oa-cache
 oa-gen router  --spec .merged.yaml -o router.ts --types-import './types'
 oa-gen client  --spec .merged.yaml -o client.ts --types-import './types'
 oa-gen generate --drizzle-schema ./db/schema.ts --output ./domains/users/
+oa-gen dev --spec .merged.yaml --cache-dir .oa-cache
 ```
 
 ### 테스트
@@ -205,7 +209,7 @@ pnpm demo  # API 구조 + Mock 12시나리오 + 커버리지
 |------|------|------|
 | Build | 7 패키지 + CI 스크립트 | tsup ESM 빌드 |
 | Typecheck | 7 패키지 + playground | tsc --noEmit strict |
-| Test | 8 패키지 + playground | vitest 1601 케이스 |
+| Test | 8 패키지 + playground | vitest 1603 케이스 |
 | Schema validate | schemas + oa-gen | 도메인 병합 + 3.1 변환 + Spectral/Redocly + 3.2 자체 검증 표준 파이프라인 |
 | Freshness check | 산출물 | git diff --exit-code |
 | API index | docs ↔ code | export 정합성 검증 |
@@ -219,11 +223,11 @@ pnpm demo  # API 구조 + Mock 12시나리오 + 커버리지
 |--------|--------|
 | core | 51 |
 | parser | 196 |
-| codegen | 480 |
+| codegen | 482 |
 | mock-server | 561 |
 | playground | 114 |
 | router | 35 |
 | client | 36 |
 | schemas | 75 |
 | typia-mock | 53 |
-| **합계** | **1601** |
+| **합계** | **1603** |

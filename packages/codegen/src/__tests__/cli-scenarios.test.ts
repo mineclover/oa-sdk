@@ -289,6 +289,63 @@ describe('typegen', () => {
     expect(out).toContain('role?: Role')
     expect(out).toContain('export type GetNestedUserResponse = User')
   })
+
+  it('증분 typegen 출력이 full rebuild와 일치하고 외부 ref 변경을 반영한다', () => {
+    const dir = join(tmpDir, 'incremental-typegen')
+    mkdirSync(dir, { recursive: true })
+    const apiPath = join(dir, 'api.yaml')
+    const sharedPath = join(dir, 'shared.yaml')
+    const cacheDir = join(dir, 'cache')
+
+    writeFileSync(sharedPath, yamlStringify({
+      components: {
+        schemas: {
+          ExternalUser: {
+            type: 'object',
+            properties: { id: { type: 'string' } },
+          },
+        },
+      },
+    }), 'utf8')
+    writeFileSync(apiPath, yamlStringify({
+      openapi: '3.2.0',
+      info: { title: 'Incremental API', version: '1.0.0' },
+      paths: {
+        '/users': {
+          get: {
+            operationId: 'listUsers',
+            responses: {
+              '200': {
+                description: 'OK',
+                content: { 'application/json': { schema: { $ref: './shared.yaml#/components/schemas/ExternalUser' } } },
+              },
+            },
+          },
+        },
+      },
+    }), 'utf8')
+
+    const full = cli(`typegen -s ${apiPath}`)
+    const incremental = cli(`typegen -s ${apiPath} --incremental --cache-dir ${cacheDir}`)
+    expect(incremental).toBe(full)
+    expect(existsSync(join(cacheDir, 'state.sqlite'))).toBe(true)
+
+    writeFileSync(sharedPath, yamlStringify({
+      components: {
+        schemas: {
+          ExternalUser: {
+            type: 'object',
+            properties: { id: { type: 'string' }, name: { type: 'string' } },
+          },
+        },
+      },
+    }), 'utf8')
+
+    const updatedFull = cli(`typegen -s ${apiPath}`)
+    const updatedIncremental = cli(`typegen -s ${apiPath} --incremental --cache-dir ${cacheDir}`)
+    expect(updatedIncremental).toBe(updatedFull)
+    expect(updatedIncremental).toContain('name?: string')
+  })
 })
 
 // ── router ──────────────────────────────────────────────────
@@ -385,6 +442,17 @@ describe('validate', () => {
     const { stdout, stderr } = cliFail(`validate -s ${invalidSpecPath}`)
     const combined = stdout + stderr
     expect(combined).toBeTruthy()
+  })
+
+  it('증분 validate 출력이 full rebuild와 일치한다', () => {
+    const cacheDir = join(tmpDir, 'incremental-validate-cache')
+    const full = cli(`validate -s ${externalSpecPath}`)
+    const incremental = cli(`validate -s ${externalSpecPath} --incremental --cache-dir ${cacheDir}`)
+    const repeated = cli(`validate -s ${externalSpecPath} --incremental --cache-dir ${cacheDir}`)
+
+    expect(incremental).toBe(full)
+    expect(repeated).toBe(full)
+    expect(existsSync(join(cacheDir, 'state.sqlite'))).toBe(true)
   })
 })
 

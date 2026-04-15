@@ -1,0 +1,134 @@
+# Iteration 8 Log
+
+## Metadata
+
+- **Task ID**: US-009
+- **Task Title**: Implement dirty detection and dependency invalidation
+- **Description**: As an OA SDK maintainer, I want changed files to invalidate only affected specs and generated artifacts so that repeated validation and typegen can be incremental.
+- **Status**: completed
+- **Task Completed**: Yes
+- **Promise Detected**: Yes
+- **Started At**: 2026-04-15T02:49:07.967Z
+- **Ended At**: 2026-04-15T02:58:33.842Z
+- **Duration**: 9m 25s
+- **Input Tokens**: 6217059
+- **Output Tokens**: 22018
+- **Total Tokens**: 6239077
+- **Agent**: codex
+- **Sandbox Mode**: auto
+- **Sandbox Network**: Enabled
+--- RAW OUTPUT ---
+I’ll inspect the repo guidance, progress notes, and the indexing code paths first so the change lands in the existing architecture rather than inventing a parallel mechanism.
+[94m[shell][0m $ /bin/zsh -lc 'git status --short'
+[94m[shell][0m $ /bin/zsh -lc "rg --files -g 'AGENTS.md' -g '.ralph-tui/progress.md' -g 'package.json' -g 'pnpm-works...
+[94m[shell][0m $ /bin/zsh -lc "pwd && rg -n \"US-008|US-009|dirty|invalidate|workspace index|refs\\.to_file|sha256|di...
+The first broad search hit vendored references, so I’m narrowing the next pass to the actual packages and docs. The repo already has a documented incremental index boundary from US-007/US-008, which is likely where this story belongs.
+[94m[shell][0m $ /bin/zsh -lc "rg --files packages docs apps .ralph-tui | rg 'workspace-index|sqlite-workspace-index|...
+[94m[shell][0m $ /bin/zsh -lc 'find .. -name AGENTS.md -print'
+[94m[shell][0m $ /bin/zsh -lc 'pkill -f "find .. -name AGENTS.md -print" || true'
+There are unrelated modified Ralph session files already present; I’ll leave them alone unless the task specifically requires updating progress. Next I’m reading the project guidance and the US-008 implementation surface.
+[94m[shell][0m $ done'
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,260p' .ralph-tui/progress.md"
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,260p' packages/codegen/src/workspace-index.ts"
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,360p' packages/codegen/src/sqlite-workspace-index.ts"
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,260p' packages/codegen/src/__tests__/workspace-index.test.ts"
+[94m[shell][0m $ /bin/zsh -lc "sed -n '120,360p' packages/codegen/src/workspace-index.ts"
+[94m[shell][0m $ /bin/zsh -lc "sed -n '260,620p' packages/codegen/src/sqlite-workspace-index.ts"
+[94m[shell][0m $ /bin/zsh -lc "sed -n '260,620p' packages/codegen/src/__tests__/workspace-index.test.ts"
+[94m[shell][0m $ /bin/zsh -lc 'rg -n "WorkspaceIndex|createWorkspaceIndex|incremental|cache-dir|detectChanges|replace...
+[94m[shell][0m $ /bin/zsh -lc "sed -n '620,760p' packages/codegen/src/sqlite-workspace-index.ts"
+[94m[shell][0m $ /bin/zsh -lc "sed -n '360,460p' packages/codegen/src/workspace-index.ts"
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,220p' packages/codegen/src/index.ts"
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,260p' docs/internal/architecture/006-incremental-workspace-index.md"
+[94m[shell][0m $ /bin/zsh -lc 'find packages/codegen/src/cli -maxdepth 4 -type f -print | sort'
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,260p' tasks/prd.json"
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,260p' packages/codegen/package.json"
+[94m[shell][0m $ /bin/zsh -lc 'rg -n "US-009|dirty detection|dependency invalidation|US-008|US-010|incremental" tasks...
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,260p' package.json"
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,120p' docs/internal/todo.md"
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,140p' docs/internal/spec.md"
+[94m[shell][0m $ /bin/zsh -lc "sed -n '100,160p' docs/internal/api-index.md"
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,260p' packages/codegen/src/cli/commands/validate.ts"
+[94m[shell][0m $ /bin/zsh -lc "find packages/schemas/src -maxdepth 3 -type f | sort | sed -n '1,160p'"
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,280p' packages/codegen/src/cli/commands/typegen.ts"
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,260p' packages/codegen/src/cli/lib/load-spec.ts"
+[94m[shell][0m $ /bin/zsh -lc "find packages/schemas/src -maxdepth 3 -type f \\( -name '*.yaml' -o -name '*.yml' -o -...
+[94m[shell][0m $ /bin/zsh -lc 'find packages/schemas/scripts -type f -maxdepth 3 -print | sort'
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,320p' packages/schemas/scripts/merge.ts"
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,220p' packages/schemas/src/openapi.yaml"
+[94m[shell][0m $ done'
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,280p' packages/parser/src/ref-graph.ts"
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,260p' packages/parser/src/ref-resolver.ts"
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,220p' packages/parser/src/__tests__/ref-graph.test.ts"
+[94m[shell][0m $ /bin/zsh -lc 'rg -n "테스트|test|codegen.*477|총|tests" docs/internal/spec.md docs/internal/architecture...
+[94m[shell][0m $ /bin/zsh -lc "sed -n '190,235p' docs/internal/spec.md"
+I’ve got the likely scope now: US-009 sits between storage and CLI wiring, so I’m adding the scan/classify/invalidate primitives around `WorkspaceIndex`, not changing the CLI flags yet. The key behavior is to compute hashes from disk, split new vs modified, resolve reverse `$ref` edges before deleting stale rows, then expose the dirty plan for US-010 to consume.
+I’m going to edit the workspace index module and its focused tests now. The implementation will keep the existing `detectChanges()` behavior intact, and layer the richer dirty plan next to it so older callers stay stable.
+The first implementation pass is in place. I’m running the codegen typecheck and the focused workspace-index test now; if the API shape or filesystem assumptions are off, those should fail quickly.
+[94m[shell][0m $ /bin/zsh -lc 'pnpm --filter @oa-sdk/codegen typecheck'
+[94m[shell][0m $ /bin/zsh -lc 'pnpm --filter @oa-sdk/codegen test -- workspace-index.test.ts'
+The focused test passes with 13 workspace-index cases, and codegen typecheck passed. I’m updating the internal status docs and progress log now, including the test count bump because this added three codegen tests.
+[94m[shell][0m $ /bin/zsh -lc 'date +%F'
+Docs and the required Ralph progress entry are updated. I’m moving from the focused check to the package and root quality gates now; based on prior iterations, root test/schema may still hit the sandbox socket limitation, but I’ll run them and capture the exact outcome.
+[94m[shell][0m $ /bin/zsh -lc 'pnpm --filter @oa-sdk/codegen test'
+[94m[shell][0m $ /bin/zsh -lc 'pnpm check:api-index'
+The full codegen suite passed with 480 tests, and the API index check stayed clean. I’m running the required root gates next, starting with `pnpm typecheck`.
+[94m[shell][0m $ /bin/zsh -lc 'pnpm typecheck'
+`pnpm typecheck` passed across all packages. I’m running `pnpm test` now; if it stops at the known local server bind restriction, I’ll still record where it got to.
+[94m[shell][0m $ /bin/zsh -lc 'pnpm test'
+
+[91m[Error: 
+> oa-sdk@0.0.0 test /Users/junwoobang/workflow/oa-sdk
+> pnpm --filter @oa-sdk/core test && pnpm --filter @oa-sdk/parser test && pnpm --filter @oa-sdk/router test && pnpm --filter @oa-sdk/client test && pnpm --filter @oa-sdk/codegen test && pnpm --filter @oa-sdk/mock-server test && pnpm --filter @oa-sdk/typia-mock test && pnpm --filter playground test
+
+
+> @oa-sdk/core@0.1.0 test /Users/junwoobang/workflow/oa-sdk/packages/core
+> vitest run
+
+
+ RUN  v2.1.9 /Users/junwoobang/workflow/oa-sdk/packages][0m
+`pnpm test` passed core/parser/router/client/codegen, then stopped in mock-server integration suites because this sandbox cannot bind `127.0.0.1` (`listen EPERM`). I’m running `pnpm schema:validate` next.
+[94m[shell][0m $ /bin/zsh -lc 'pnpm schema:validate'
+
+[91m[Error: 
+> oa-sdk@0.0.0 schema:validate /Users/junwoobang/workflow/oa-sdk
+> pnpm --filter @oa-sdk/parser build && pnpm --filter @oa-sdk/codegen build && pnpm --filter @oa-sdk/schemas run validate && node packages/codegen/dist/cli/index.js validate --spec packages/schemas/src/.merged.yaml
+
+
+> @oa-sdk/parser@0.1.0 build /Users/junwoobang/workflow/oa-sdk/packages/parser
+> tsup src/index.ts --format esm --dts
+
+CLI Building entry: src/index.ts
+CLI Using tsconfig: tsconfig.json
+CLI tsup v8.5.1
+CLI Target: es2][0m
+[94m[shell][0m $ /bin/zsh -lc 'git status --short'
+[94m[shell][0m $ /bin/zsh -lc 'git diff -- packages/codegen/src/workspace-index.ts packages/codegen/src/sqlite-worksp...
+[94m[shell][0m $ /bin/zsh -lc 'git diff -- docs/internal/spec.md docs/internal/todo.md docs/internal/architecture/006...
+The schema validation command built parser/codegen, then failed when `tsx` tried to create its IPC pipe under `/var/folders/...` with `listen EPERM`, matching the previously documented sandbox issue. I’m doing one final whitespace/status check before wrapping up.
+[94m[shell][0m $ /bin/zsh -lc 'git diff --check'
+[94m[shell][0m $ /bin/zsh -lc 'git status --short'
+Implemented US-009.
+
+Added dirty detection primitives in [workspace-index.ts](/Users/junwoobang/workflow/oa-sdk/packages/codegen/src/workspace-index.ts): scan entry/domain/profile/external ref files with absolute path, realpath, size, mtime, and sha256; classify new/modified/deleted/unchanged; compute reverse dependency dirty sets via `refs.to_file`; and invalidate stale rows before re-indexing. Updated [sqlite-workspace-index.ts](/Users/junwoobang/workflow/oa-sdk/packages/codegen/src/sqlite-workspace-index.ts) so filtered ref lookups use SQL `WHERE to_file = ?`/`WHERE from_file = ?`.
+
+Added coverage in [workspace-index.test.ts](/Users/junwoobang/workflow/oa-sdk/packages/codegen/src/__tests__/workspace-index.test.ts) for scan metadata/classification, external ref changes invalidating the referring spec, and deleted files removing stale diagnostics. Updated [spec.md](/Users/junwoobang/workflow/oa-sdk/docs/internal/spec.md), [todo.md](/Users/junwoobang/workflow/oa-sdk/docs/internal/todo.md), [006-incremental-workspace-index.md](/Users/junwoobang/workflow/oa-sdk/docs/internal/architecture/006-incremental-workspace-index.md), and appended the required US-009 entry to [.ralph-tui/progress.md](/Users/junwoobang/workflow/oa-sdk/.ralph-tui/progress.md).
+
+Verification:
+- `pnpm --filter @oa-sdk/codegen test -- workspace-index.test.ts` passed, 13 tests.
+- `pnpm --filter @oa-sdk/codegen test` passed, 480 tests.
+- `pnpm check:api-index` passed.
+- `pnpm typecheck` passed.
+- `git diff --check` passed.
+- `pnpm test` passed core/parser/router/client/codegen, then failed in mock-server integration suites on sandbox `listen EPERM: operation not permitted 127.0.0.1`.
+- `pnpm schema:validate` built parser/codegen, then failed when `tsx` tried to open its IPC pipe with sandbox `listen EPERM`.
+
+Pre-existing dirty files remain in `.ralph-tui/session*.json`, `tasks/prd.json`, and the US-008 iteration log; I left those untouched.
+
+<promise>COMPLETE</promise>
+
+--- STDERR ---
+2026-04-15T02:49:08.665091Z ERROR rmcp::transport::worker: worker quit with fatal: Transport channel closed, when AuthRequired(AuthRequiredError { www_authenticate_header: "Bearer realm=\"OAuth\", resource_metadata=\"https://mcp.cloudflare.com/.well-known/oauth-protected-resource/mcp\", error=\"invalid_token\", error_description=\"Missing or invalid access token\"" })
+2026-04-15T02:49:08.909649Z ERROR rmcp::transport::worker: worker quit with fatal: Transport channel closed, when AuthRequired(AuthRequiredError { www_authenticate_header: "Bearer error=\"invalid_request\", error_description=\"No access token was provided in this request\", resource_metadata=\"https://mcp.supabase.com/.well-known/oauth-protected-resource/mcp\"" })
+2026-04-15T02:49:08.951493Z ERROR rmcp::transport::worker: worker quit with fatal: Transport channel closed, when AuthRequired(AuthRequiredError { www_authenticate_header: "Bearer resource_metadata=https://mcp.stripe.com/.well-known/oauth-protected-resource" })
+2026-04-15T02:49:43.361893Z ERROR codex_core::tools::router: error=write_stdin failed: stdin is closed for this session; rerun exec_command with tty=true to keep stdin open

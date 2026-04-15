@@ -14,3 +14,8 @@ export function optStr(args: Args, key: string): string | undefined {
   const v = args[key]
   return typeof v === 'string' ? v : undefined
 }
+
+/** boolean 플래그 */
+export function bool(args: Args, key: string): boolean {
+  return args[key] === true
+}

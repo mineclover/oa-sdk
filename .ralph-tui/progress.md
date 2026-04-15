@@ -14,6 +14,7 @@ after each iteration and it's included in prompts for context.
 - Incremental workspace boundaries belong outside parser: keep `WorkspaceIndex` in codegen/CLI layers, and make the default noop index mark every scanned file dirty so full rebuild remains the correctness path.
 - Persistent workspace indexes are disposable optimization state: store schema/options compatibility metadata, wrap writes in transactions, and degrade storage mismatches or DB errors to full rebuild fallback instead of letting cache state affect correctness.
 - Compute reverse dependency dirty sets before invalidating index rows: once source rows are deleted, refs.to_file edge context needed to mark referring specs dirty may be gone.
+- CLI incremental orchestration should keep WorkspaceIndex as a sidecar around the existing full parser/codegen output path: scan, detect dirty files, invalidate stale rows, generate from current files, then refresh the index so cache fallback cannot change stdout or generated files.
 
 ---
 
@@ -177,4 +178,28 @@ after each iteration and it's included in prompts for context.
   - File identity needs both absolute filePath for resolver/index joins and realPath for filesystem alias detection; comparisons should include realPath without replacing the logical key.
   - Dirty dependency expansion must happen before invalidation so existing ref edges can still identify source specs that depend on a changed external target.
   - US-009 is the reusable primitive layer; validate/typegen/dev CLI flags remain the US-010 wiring task.
+---
+
+## 2026-04-15 - US-010
+- Added opt-in `--incremental` and `--cache-dir` options to `oa-gen validate` and `oa-gen typegen`.
+- Added shared CLI incremental orchestration for scan, dirty detection, refs.to_file reverse invalidation, SQLite fallback, and index refresh; `oa-gen dev` watch mode now uses the same path and watches discovered external ref files.
+- Kept validate/typegen stdout and generated output on the existing full rebuild path, with incremental index state maintained as a sidecar.
+- Added CLI scenario coverage proving incremental validate output matches full rebuild output, and incremental typegen output matches full rebuild output before and after an external ref file change.
+- Updated internal docs, ADR status, todo status, and codegen/total test counts.
+- Ran checks: `pnpm typecheck` passed; `pnpm --filter @oa-sdk/codegen test` passed with 482 tests; `pnpm test` passed through codegen then failed in mock-server Node HTTP integration suites on sandbox `listen EPERM`; `pnpm schema:validate` built parser/codegen then failed when `tsx` attempted a sandbox-blocked IPC pipe with `listen EPERM`.
+- Files changed:
+  - `packages/codegen/src/cli/lib/incremental.ts`
+  - `packages/codegen/src/cli/lib/args.ts`
+  - `packages/codegen/src/cli/commands/validate.ts`
+  - `packages/codegen/src/cli/commands/typegen.ts`
+  - `packages/codegen/src/cli/commands/dev.ts`
+  - `packages/codegen/src/__tests__/cli-scenarios.test.ts`
+  - `docs/internal/spec.md`
+  - `docs/internal/todo.md`
+  - `docs/internal/architecture/006-incremental-workspace-index.md`
+  - `.ralph-tui/progress.md`
+- **Learnings:**
+  - Keeping incremental state as a sidecar makes equality tests simple: incremental validate/typegen stdout can match full rebuild output byte-for-byte while still updating SQLite dependency metadata.
+  - The first incremental run must refresh the index with external files discovered from `resolveRefGraph()`, not only files known from the previous cache, so subsequent runs can detect external ref edits.
+  - `dev` watch mode needs to resync watchers after each generation because the external ref file set can grow, shrink, or change after dirty invalidation.
 ---
