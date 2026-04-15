@@ -1,0 +1,21 @@
+id: path:public/book/BookNotesPath
+metadata:
+  path: /books/{bookId}/notes
+content:
+  get:
+    summary: List public book notes
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: oa://schema/public/book/Note
+      default:
+        description: Error
+        content:
+          application/json:
+            schema:
+              $ref: oa://schema/shared/common/Error

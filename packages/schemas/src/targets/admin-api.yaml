@@ -1,8 +1,15 @@
 name: admin-api
+scopes:
+  - shared
+  - admin
+domains:
+  - common
+  - book
+  - notebook
+  - a
 servers:
   - url: https://admin.example.test
-includeDefinitions:
-  - schema:shared/common/Error
-  - schema:admin/book/Note
-  - schema:admin/notebook/Note
-  - schema:admin/a/Name
+includePaths:
+  - /admin/books/{bookId}/notes
+namingPolicy:
+  aliases: {}

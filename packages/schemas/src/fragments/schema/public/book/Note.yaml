@@ -16,6 +16,8 @@ content:
     body:
       type: string
       minLength: 1
+    notebookNote:
+      $ref: oa://schema/public/notebook/Note
     createdAt:
       type: string
       format: date-time

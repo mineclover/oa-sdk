@@ -17,6 +17,8 @@ content:
     body:
       type: string
       minLength: 1
+    notebookNote:
+      $ref: oa://schema/admin/notebook/Note
     moderationState:
       type: string
       enum:

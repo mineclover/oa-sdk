@@ -1,0 +1,13 @@
+name: internal-api
+scopes:
+  - shared
+  - internal
+domains:
+  - common
+  - health
+servers:
+  - url: https://internal.example.test
+includePaths:
+  - /internal/health
+namingPolicy:
+  aliases: {}

@@ -121,6 +121,16 @@ export type {
   DefinitionOutputNameReportSeverity,
 } from './definition-output-names.js'
 
+// ─── Definition Target Selection ──────────────────────────────────────────
+export { selectDefinitionTarget } from './definition-target.js'
+export type {
+  DefinitionTargetConfig,
+  DefinitionTargetDiagnostic,
+  DefinitionTargetDiagnosticCode,
+  DefinitionTargetNamingPolicy,
+  DefinitionTargetSelectionResult,
+} from './definition-target.js'
+
 // ─── Lint ─────────────────────────────────────────────────────────────────
 export { lintDocument } from './lint.js'
 export type { LintResult, LintSeverity, LintOptions } from './lint.js'

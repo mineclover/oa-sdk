@@ -1,0 +1,12 @@
+id: schema:internal/health/HealthStatus
+content:
+  type: object
+  description: Internal health target fixture.
+  required:
+    - status
+  properties:
+    status:
+      type: string
+      enum:
+        - ok
+        - degraded

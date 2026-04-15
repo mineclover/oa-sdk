@@ -1,0 +1,19 @@
+id: path:internal/health/HealthPath
+metadata:
+  path: /internal/health
+content:
+  get:
+    summary: Internal health status
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema:
+              $ref: oa://schema/internal/health/HealthStatus
+      default:
+        description: Error
+        content:
+          application/json:
+            schema:
+              $ref: oa://schema/shared/common/Error

@@ -226,6 +226,38 @@ Duplicate policy는 source identity, output symbol, structural hash를 분리한
 
 동일 schema hash는 자동 dedupe 조건이 아니다. 서로 다른 canonical id가 같은 `contentHash`를 공유하면 registry는 기본 `info` diagnostic으로만 보고하고 두 definition을 그대로 유지한다. Downstream builder가 structural dedupe를 허용하려면 source fragment가 `metadata.semanticAliasOf: 'schema:...'` 또는 `metadata.semanticAliasOf: 'oa://...'`를 명시해야 하며, 이 경우 registry `semanticAliases`가 유일한 opt-in dedupe signal이다. Alias target이 없거나 문법이 invalid면 일반 ref diagnostic처럼 error가 된다.
 
+#### Target bundle config and selection (US-010)
+
+Target config는 OpenAPI emit 전 단계에서 registry node 집합을 고르는 선언이다. `selectDefinitionTarget(registry, config)`는 직접 매칭된 path node에서 시작해 registry `refEdges`를 따라 schema, parameter, response, requestBody, header, link, callback, securityScheme 등 referenced component를 재귀 포함한다. Full OpenAPI document emit은 다음 단계가 담당한다.
+
+```yaml
+name: public-api
+scopes:
+  - shared
+  - public
+domains:
+  - common
+  - book
+  - notebook
+servers:
+  - url: https://api.example.test
+includePaths:
+  - /books/{bookId}/notes
+namingPolicy:
+  aliases:
+    schema:public/book/Note: PublicBookNote
+```
+
+Format:
+- `name`: target-local report와 output name allocation에 쓰는 stable target id.
+- `scopes`: target이 포함할 canonical scope 목록. Public target은 보통 `shared` + `public`, admin target은 `shared` + `admin`, internal target은 `shared` + `internal`을 선언한다.
+- `domains`: target이 포함할 bounded-context 목록. Shared component를 쓰려면 `common` 같은 shared domain도 포함해야 한다.
+- `servers`: emitted OpenAPI document의 `servers`가 될 OAS Server Object 배열.
+- `includePaths`: exact OpenAPI path 문자열 목록. Path definition node는 `metadata.path` 또는 `metadata.openApiPath`로 matching path를 선언한다.
+- `namingPolicy.aliases`: optional target-local canonical id -> output component name override. Alias가 없으면 US-006의 preserve-if-unique/domain-prefix/collision policy가 적용된다.
+
+Selection은 configured scope/domain 밖의 transitive ref를 자동 포함하지 않고 `definition-target/disallowed-ref` error diagnostic으로 보고한다. `includePaths`가 configured scope/domain 안의 path node와 매칭되지 않으면 `definition-target/path-not-found` error diagnostic이 된다. Selection 결과는 `directPathIds`, selected `nodes`/`nodeById`, selected-source `refEdges`, 그리고 `outputNameAllocation`을 함께 반환하므로 후속 emit 단계가 같은 target-local output name map을 그대로 사용할 수 있다.
+
 | 개념 | 계획 |
 |------|------|
 | Canonical identity | `kind:scope/domain/name` 고정 계층. 예: `schema:public/book/Note`, `schema:public/notebook/Note`, `schema:shared/common/Error`. source identity와 output component name을 분리 |
@@ -237,7 +269,7 @@ Duplicate policy는 source identity, output symbol, structural hash를 분리한
 | Flattening guard | `schema:public/a/Name`, `schema:public/aname/Name`, `schema:public/a-name/Name`, `schema:admin/a/Name`은 flatten 결과가 같을 수 있어도 다른 canonical identity다. builder는 string flattening만으로 동치 추론을 하지 않고 attempted output name과 모든 colliding canonical IDs를 `output-name-collision`으로 보고 |
 | Collision simulation | public/admin target fixture에서 server target → domain → local name 순서의 rename과 target-local report를 검증. flattening output collision은 fail-on-collision diagnostic으로 검증되며, full target fixture emit은 후속 story에서 확장 |
 | Dedupe policy | duplicate canonical id는 error. 동일 schema hash는 기본 info diagnostic only. 의미가 다른 정의는 자동 structural dedupe 금지. opt-in semantic dedupe는 `metadata.semanticAliasOf`와 registry `semanticAliases`로만 표현 |
-| Target bundle | public/admin/internal 등 target별 servers, include domains, include paths, naming policy로 필요한 fragment와 transitive refs만 emit |
+| Target bundle | `name`, `scopes`, `domains`, `servers`, `includePaths`, `namingPolicy.aliases` format으로 선언. `selectDefinitionTarget()`가 exact path match + transitive ref walk + target-local output name allocation을 수행하고 full OpenAPI emit은 후속 단계가 담당 |
 | Migration | 기존 `packages/schemas/scripts/merge.ts`는 유지하고, builder는 병렬 output으로 검증한 뒤 `.merged.yaml` 대체 여부 결정 |
 
 패키지 책임: `@oa-sdk/schemas`는 fragment layout/target config/fixtures/migration을 소유하고, `@oa-sdk/parser`는 validation/source/ref graph primitive를 제공하며, `@oa-sdk/codegen`은 `oa-gen build-spec` CLI와 WorkspaceIndex 연동을 소유한다.

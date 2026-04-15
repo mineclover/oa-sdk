@@ -1,10 +1,17 @@
 name: public-api
+scopes:
+  - shared
+  - public
+domains:
+  - common
+  - book
+  - notebook
+  - a
+  - aname
+  - a-name
 servers:
   - url: https://api.example.test
-includeDefinitions:
-  - schema:shared/common/Error
-  - schema:public/book/Note
-  - schema:public/notebook/Note
-  - schema:public/a/Name
-  - schema:public/aname/Name
-  - schema:public/a-name/Name
+includePaths:
+  - /books/{bookId}/notes
+namingPolicy:
+  aliases: {}

@@ -1,0 +1,102 @@
+# Iteration 9 Log
+
+## Metadata
+
+- **Task ID**: US-009
+- **Task Title**: Define duplicate and dedupe policy
+- **Description**: As a maintainer, I want explicit duplicate and dedupe rules so that structural similarity does not collapse semantically different definitions.
+- **Status**: completed
+- **Task Completed**: Yes
+- **Promise Detected**: Yes
+- **Started At**: 2026-04-15T21:03:10.817Z
+- **Ended At**: 2026-04-15T21:11:58.541Z
+- **Duration**: 8m 47s
+- **Input Tokens**: 4056953
+- **Output Tokens**: 19239
+- **Total Tokens**: 4076192
+- **Agent**: codex
+- **Sandbox Mode**: auto
+- **Sandbox Network**: Enabled
+--- RAW OUTPUT ---
+I’ll read the repo guidance and the current story/progress context first, then trace the existing schema/codegen duplicate handling before making edits.
+[94m[shell][0m $ /bin/zsh -lc "pwd && rg --files -g 'AGENTS.md' -g '.ralph-tui/progress.md' -g 'docs/internal/spec.md...
+[94m[shell][0m $ /bin/zsh -lc 'git status --short'
+There are already unrelated working-tree changes from the orchestration files; I’ll leave those alone and only touch files needed for US-009. Next I’m checking scoped instructions and the story log.
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,260p' .ralph-tui/progress.md"
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,260p' docs/internal/spec.md"
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,220p' docs/internal/todo.md"
+[94m[shell][0m $ /bin/zsh -lc "rg --hidden --files -g 'AGENTS.md' -g '.ralph-tui/progress.md'"
+The progress log shows US-007 and US-008 are complete and the existing pattern is parser-level primitives plus fixture-backed tests, with docs updated alongside API surface changes. I’m now reading the PRD and current implementation files around registry, naming, and tests.
+[94m[shell][0m $ done'
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,260p' tasks/prd-openapi-definition-builder.md"
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,260p' packages/parser/src/definition-registry.ts"
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,320p' packages/parser/src/definition-output-names.ts"
+No AGENTS.md exists in this repo’s parent chain, so the prompt instructions are the active repo guidance. The PRD’s duplicate/dedupe story maps cleanly to parser registry policy plus output-name allocation tests.
+[94m[shell][0m $ /bin/zsh -lc "sed -n '260,620p' packages/parser/src/definition-registry.ts"
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,420p' packages/parser/src/__tests__/definition-registry.test.ts"
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,420p' packages/parser/src/__tests__/definition-output-names.test.ts"
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,260p' packages/parser/src/definition-node.ts"
+The current registry already errors on duplicate canonical IDs and keeps nodes keyed by canonical ID. The missing piece is an explicit policy surface for identical content hashes and semantic aliases, so I’m checking exports and nearby docs before adding it.
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,260p' docs/internal/api-index.md"
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,260p' packages/parser/src/index.ts"
+[94m[shell][0m $ /bin/zsh -lc 'rg -n "contentHash|dedupe|semantic|duplicate|alias|DefinitionRegistryDiagnosticCode|De...
+[94m[shell][0m $ /bin/zsh -lc 'rg -n "definition-registry|definition-output-name|DefinitionRegistry|allocateDefinitio...
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,260p' package.json"
+[94m[shell][0m $ /bin/zsh -lc 'rg -n "semanticAlias|semantic alias|structural duplicate|content hash|duplicate" packa...
+[94m[shell][0m $ /bin/zsh -lc "rg -n \"check:api-index|api-index\" package.json packages scripts docs -g '*.ts' -g '*...
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,240p' packages/parser/package.json"
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,320p' scripts/check-api-index.ts"
+[94m[shell][0m $ /bin/zsh -lc "sed -n '420,660p' packages/parser/src/__tests__/definition-registry.test.ts"
+Plan: add registry-level structural duplicate diagnostics keyed by schema `contentHash`, add explicit semantic alias metadata recognition so intentional aliases are the only non-warning path, extend tests around registry and naming behavior, then update spec/todo/progress and run the requested gates.
+[94m[shell][0m $ /bin/zsh -lc "rg -n \"DefinitionRegistry\\s*=|createDefinitionRegistry\\(|registry:\\s*DefinitionReg...
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,240p' packages/parser/src/definition-output-refs.ts"
+I’m going to edit the parser registry so structural duplicates become non-fatal diagnostics and semantic aliases are explicit metadata, without changing canonical-id registration or output-name maps.
+I added the registry behavior. Next I’m adding focused tests for “same hash stays separate” and “only explicit semantic alias suppresses the structural-duplicate info.”
+The tests now pin the new policy: identical schema hashes are informational and do not collapse nodes, while `metadata.semanticAliasOf` is the explicit signal downstream code can use for semantic dedupe. I’m running the parser test suite now to catch type or expectation issues early.
+[94m[shell][0m $ /bin/zsh -lc 'pnpm --filter @oa-sdk/parser test'
+[94m[shell][0m $ /bin/zsh -lc "sed -n '150,245p' docs/internal/spec.md"
+[94m[shell][0m $ /bin/zsh -lc "sed -n '35,80p' docs/internal/todo.md"
+[94m[shell][0m $ /bin/zsh -lc "sed -n '65,145p' docs/internal/api-index.md"
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,36p' .ralph-tui/progress.md"
+I’m updating the internal docs now so the policy is written where future builder work will look first, and adding the new registry type to the API index because it’s public.
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,70p' docs/internal/todo.md"
+[94m[shell][0m $ /bin/zsh -lc 'date +%F'
+[94m[shell][0m $ /bin/zsh -lc 'tail -80 .ralph-tui/progress.md'
+Docs and progress are updated. I’m running the required gates now; I’ll keep them sequential because `schema:validate` builds packages and touches schema artifacts.
+[94m[shell][0m $ /bin/zsh -lc 'pnpm typecheck'
+`pnpm typecheck` passed. I’m re-running the package test gates now, starting with parser then codegen and schemas.
+[94m[shell][0m $ /bin/zsh -lc 'pnpm --filter @oa-sdk/parser test'
+[94m[shell][0m $ /bin/zsh -lc 'pnpm --filter @oa-sdk/codegen test'
+Parser and codegen tests passed. Codegen still emits the existing node:sqlite experimental warning and expected CLI error fixtures, but the suite exits cleanly.
+[94m[shell][0m $ /bin/zsh -lc 'pnpm --filter @oa-sdk/schemas test'
+Schemas tests passed and regenerated the usual merged schema artifacts. I’m running `schema:validate` next.
+[94m[shell][0m $ /bin/zsh -lc 'pnpm schema:validate'
+`schema:validate` passed; it still reports the documented four Spectral hints and Redocly update notice, with zero errors. I’m running the API index build/check gate now.
+[94m[shell][0m $ /bin/zsh -lc 'pnpm build:scripts && pnpm check:api-index'
+All required gates have passed. I’m doing a final working-tree review now so I can separate the intended US-009 changes from pre-existing orchestration/generated noise.
+[94m[shell][0m $ /bin/zsh -lc 'git diff -- packages/parser/src/definition-registry.ts packages/parser/src/index.ts pa...
+[94m[shell][0m $ /bin/zsh -lc 'git diff --stat'
+[94m[shell][0m $ /bin/zsh -lc 'git status --short'
+[94m[shell][0m $ /bin/zsh -lc 'git diff --check'
+Implemented US-009.
+
+What changed:
+- Added registry-level structural duplicate policy in [definition-registry.ts](/Users/junwoobang/workflow/oa-sdk/packages/parser/src/definition-registry.ts): duplicate canonical IDs remain errors, identical schema `contentHash` across different canonical IDs now emits non-fatal `definition-registry/structural-duplicate` info diagnostics by default.
+- Added explicit semantic alias support via `metadata.semanticAliasOf`, exposed as `semanticAliases` on the registry and exported `DefinitionSemanticAlias`.
+- Added tests in [definition-registry.test.ts](/Users/junwoobang/workflow/oa-sdk/packages/parser/src/__tests__/definition-registry.test.ts) covering same-shape/different-meaning definitions remaining separate, and explicit semantic alias as the only dedupe signal.
+- Updated [spec.md](/Users/junwoobang/workflow/oa-sdk/docs/internal/spec.md), [api-index.md](/Users/junwoobang/workflow/oa-sdk/docs/internal/api-index.md), [todo.md](/Users/junwoobang/workflow/oa-sdk/docs/internal/todo.md), and appended US-009 learnings to [progress.md](/Users/junwoobang/workflow/oa-sdk/.ralph-tui/progress.md).
+
+Verification passed:
+- `pnpm typecheck`
+- `pnpm --filter @oa-sdk/parser test`
+- `pnpm --filter @oa-sdk/codegen test`
+- `pnpm --filter @oa-sdk/schemas test`
+- `pnpm schema:validate`
+- `pnpm build:scripts && pnpm check:api-index`
+
+`schema:validate` still reports the existing 4 Spectral hints, but exits successfully with zero errors/warnings.
+
+<promise>COMPLETE</promise>
+
+--- STDERR ---
+2026-04-15T21:03:11.071907Z ERROR rmcp::transport::worker: worker quit with fatal: Transport channel closed, when AuthRequired(AuthRequiredError { www_authenticate_header: "Bearer realm=\"OAuth\", resource_metadata=\"https://mcp.cloudflare.com/.well-known/oauth-protected-resource/mcp\", error=\"invalid_token\", error_description=\"Missing or invalid access token\"" })

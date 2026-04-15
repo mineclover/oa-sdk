@@ -9,11 +9,12 @@
 
 ## 다음 세션 실행 순서
 
-현재 ralph PRD 기준 OpenAPI definition builder의 canonical ID grammar/parser(US-001), fragment definition node model(US-002), registry graph/ref edge collection(US-003), source canonical/file ref resolution(US-004), output `$ref` rewrite(US-005), target-local output naming(US-006), server/domain collision simulation(US-007), path flattening guard simulation(US-008), duplicate/dedupe policy(US-009)는 완료되었고, 다음 blocking 목표는 target bundle emit이다.
+현재 ralph PRD 기준 OpenAPI definition builder의 canonical ID grammar/parser(US-001), fragment definition node model(US-002), registry graph/ref edge collection(US-003), source canonical/file ref resolution(US-004), output `$ref` rewrite(US-005), target-local output naming(US-006), server/domain collision simulation(US-007), path flattening guard simulation(US-008), duplicate/dedupe policy(US-009), target bundle configuration/selection(US-010)은 완료되었고, 다음 blocking 목표는 selected target에서 OpenAPI 3.2 document를 emit하는 단계다.
 
-### [ ] OpenAPI definition builder: target bundle emit
+### [ ] OpenAPI definition builder: OpenAPI document emit
 배경: 여러 서버와 특정 path 하위 조합을 지원하려면 target별 servers/domains/paths include 규칙이 필요함.
-작업: target config format, public/admin/internal fixture, selected paths + recursive refs emit, OpenAPI 3.2 document generation.
+현재 처리: `selectDefinitionTarget()`가 target config의 scopes/domains/includePaths에서 path node를 고르고 transitive refs와 output name allocation을 계산함.
+작업: selected target 결과를 OpenAPI 3.2 `openapi`/`info`/`servers`/`paths`/`components` document로 materialize하고 rewritten `$ref`만 내보냄.
 완료 기준: target output이 `validateDocument()`를 통과하고 기존 schema validate pipeline과 병렬로 실행 가능함.
 
 ### [ ] OpenAPI definition builder: CLI and migration plan
@@ -39,6 +40,11 @@
 ---
 
 ## 완료된 실행 항목
+
+### [x] OpenAPI definition builder: target bundle configuration and selection
+배경: public/admin/internal target별로 선택된 scopes, domains, servers, paths만 후속 OpenAPI emit에 넘길 수 있어야 함.
+완료: `DefinitionTargetConfig` format을 `name`, `scopes`, `domains`, `servers`, `includePaths`, optional `namingPolicy.aliases`로 고정하고, `selectDefinitionTarget()`가 exact path match에서 시작해 registry ref edge를 재귀 순회함. Shared + target-specific scopes를 함께 선언할 수 있으며, configured scope/domain 밖의 recursive ref는 `definition-target/disallowed-ref`, 매칭되지 않는 include path는 `definition-target/path-not-found` error diagnostic으로 보고함. Selection 결과는 selected nodes/refEdges/directPathIds와 target-local `allocateDefinitionOutputNames()` 결과를 함께 제공함.
+완료 기준: public/admin target selection이 각각 직접 매칭된 path와 shared + target-specific schema/parameter/response/requestBody refs를 포함하고 반대 target node를 제외하는 parser 테스트, target-local naming alias가 다른 target으로 새지 않는 parser 테스트, public/admin/internal target fixture shape 검증이 통과함.
 
 ### [x] OpenAPI definition builder: duplicate and dedupe policy
 배경: structural similarity가 semantic identity를 암시하지 않도록 canonical id, output name, schema hash 중복 정책을 명시해야 함.

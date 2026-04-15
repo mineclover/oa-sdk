@@ -72,6 +72,7 @@
 | `createDefinitionRegistry()` | `definition-registry.ts` | DefinitionNode 목록을 registry graph로 등록하고 canonical/file ref를 canonical id로 정규화하며 duplicate/missing/unsupported/structural duplicate diagnostic, semantic alias, ref edge를 수집 |
 | `collectDefinitionRefs()` | `definition-registry.ts` | fragment content를 JSON Pointer-aware traversal로 순회해 `$ref` 위치를 DefinitionRef로 수집 |
 | `allocateDefinitionOutputNames()` | `definition-output-names.ts` | 한 target에 포함된 component-like definition node의 output component name을 target-local로 할당하고 alias metadata와 collision report를 생성 |
+| `selectDefinitionTarget()` | `definition-target.ts` | target config의 scopes/domains/includePaths로 직접 path를 고르고 registry ref edge를 재귀 순회해 target-local node set과 output name allocation을 생성 |
 | `rewriteDefinitionOutputRefs()` | `definition-output-refs.ts` | registry target id를 사용해 fragment content/refs의 source `$ref`를 표준 OpenAPI component `$ref`로 rewrite |
 | `toOpenApiComponentRef()` | `definition-output-refs.ts` | component-like definition node와 output name을 OpenAPI component `$ref` 문자열로 변환 |
 | `DEFINITION_OUTPUT_COMPONENT_PATHS` | `definition-output-refs.ts` | definition kind별 OpenAPI component 위치 매핑: schemas/responses/parameters/requestBodies/headers/links/callbacks/securitySchemes |
@@ -138,6 +139,11 @@
 | `DefinitionOutputNamePolicyReason` | `definition-output-names.ts` | preserve-if-unique/domain-prefix/explicit-alias policy reason |
 | `DefinitionOutputNameReportReason` | `definition-output-names.ts` | naming report reason union. policy reason 또는 output-name-collision |
 | `DefinitionOutputNameReportSeverity` | `definition-output-names.ts` | naming report severity union: info, warning, error |
+| `DefinitionTargetConfig` | `definition-target.ts` | target bundle config format: name, scopes, domains, servers, includePaths, optional namingPolicy |
+| `DefinitionTargetNamingPolicy` | `definition-target.ts` | target-local output naming policy wrapper for explicit aliases |
+| `DefinitionTargetSelectionResult` | `definition-target.ts` | selected target node set, direct path ids, selected ref edges, target-local allocation, diagnostics |
+| `DefinitionTargetDiagnostic` | `definition-target.ts` | target selection diagnostic for missing include paths and disallowed transitive refs |
+| `DefinitionTargetDiagnosticCode` | `definition-target.ts` | target selection diagnostic code union |
 | `DefinitionOutputRefRewrite` | `definition-output-refs.ts` | source ref, target id, output ref, component path, output name을 담는 rewrite 기록 |
 | `DefinitionOutputRefRewriteOptions` | `definition-output-refs.ts` | output name map 또는 resolver를 받는 output ref rewrite 옵션 |
 | `DefinitionOutputRefRewriteResult` | `definition-output-refs.ts` | rewritten nodes, nodeById, rewrite 기록, registry diagnostics를 담는 결과 |

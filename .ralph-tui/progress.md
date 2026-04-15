@@ -6,6 +6,7 @@ after each iteration and it's included in prompts for context.
 ## Codebase Patterns (Study These First)
 
 *Add reusable patterns discovered during development here.*
+- Target selection should stay a pure registry subgraph operation: exact path metadata selects roots, registry ref edges drive recursive inclusion, scope/domain policy gates cross-target leaks, and output name allocation runs only after the selected node set is known.
 - Structural duplicate policy belongs in the registry as a non-fatal schema `contentHash` diagnostic while preserving canonical-id keyed nodes; explicit semantic dedupe should be represented separately as `metadata.semanticAliasOf` -> `semanticAliases`.
 - Path-flattening collision tests can simulate a risky attempted naming policy through explicit allocator aliases, then assert registry nodes and `outputNames` stay canonical-id keyed while failure is reported only through output-name collision diagnostics.
 - Collision/naming reports should be derived from allocator alias metadata plus final diagnostics, rather than widening alias metadata itself; this keeps the target-local output-name map stable while simulation layers add target name, reason, and severity.
@@ -206,4 +207,34 @@ after each iteration and it's included in prompts for context.
   - Registry diagnostics can carry informational policy signals without changing `valid` as long as `valid` continues to mean no error severity diagnostics.
   - Schema hash grouping should be limited to schema nodes and should not rewrite or remove nodes; downstream builder emit can decide whether a recorded semantic alias should share output.
   - Reusing missing/unsupported ref diagnostics for `semanticAliasOf` keeps alias target validation aligned with normal source ref validation.
+---
+
+## 2026-04-16 - US-010
+- Implemented target bundle configuration and target selection in the parser.
+- Added `DefinitionTargetConfig` / `selectDefinitionTarget()` with exact include path matching, scope/domain gates, transitive registry ref traversal, target-local output name allocation, and diagnostics for missing include paths or disallowed recursive refs.
+- Updated public/admin/internal target fixtures to use `scopes`, `domains`, `servers`, `includePaths`, and `namingPolicy.aliases`; added path/internal health fixtures outside the current domain merge pipeline.
+- Added parser tests for public versus admin target selection, shared + target-specific scope inclusion, recursive component inclusion, target-local naming aliases, and cross-scope leak rejection.
+- Updated internal spec, API index, and todo docs for the target config format and completion status.
+- Files changed:
+  - `packages/parser/src/definition-target.ts`
+  - `packages/parser/src/index.ts`
+  - `packages/parser/src/__tests__/definition-target.test.ts`
+  - `packages/schemas/src/targets/public-api.yaml`
+  - `packages/schemas/src/targets/admin-api.yaml`
+  - `packages/schemas/src/targets/internal-api.yaml`
+  - `packages/schemas/src/fragments/schema/public/book/Note.yaml`
+  - `packages/schemas/src/fragments/schema/admin/book/Note.yaml`
+  - `packages/schemas/src/fragments/path/public/book/BookNotesPath.yaml`
+  - `packages/schemas/src/fragments/path/admin/book/BookNotesPath.yaml`
+  - `packages/schemas/src/fragments/path/internal/health/HealthPath.yaml`
+  - `packages/schemas/src/fragments/schema/internal/health/HealthStatus.yaml`
+  - `packages/schemas/scripts/__tests__/definition-fixtures.test.ts`
+  - `docs/internal/spec.md`
+  - `docs/internal/api-index.md`
+  - `docs/internal/todo.md`
+  - `.ralph-tui/progress.md`
+- **Learnings:**
+  - Path target selection needs a path metadata field (`metadata.path` or `metadata.openApiPath`) because canonical path ids intentionally do not encode the emitted OpenAPI path string.
+  - Scope/domain filtering should happen during the recursive ref walk, not only at direct path selection, so public targets cannot silently pull admin/internal components through a valid source ref.
+  - Running `allocateDefinitionOutputNames()` inside target selection keeps target-local naming behavior aligned with the selected subgraph and avoids a second caller-side filtering pass.
 ---
