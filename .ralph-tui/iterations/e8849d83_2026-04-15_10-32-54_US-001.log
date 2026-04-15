@@ -1,0 +1,227 @@
+# Iteration 1 Log
+
+## Metadata
+
+- **Task ID**: US-001
+- **Task Title**: Audit resolver paths and lock baseline behavior
+- **Description**: As an OA SDK maintainer, I want the current resolver behavior mapped and protected by baseline tests so that later refactors do not silently change external ref, sibling, or cycle semantics.
+- **Status**: completed
+- **Task Completed**: Yes
+- **Promise Detected**: Yes
+- **Started At**: 2026-04-15T01:32:54.309Z
+- **Ended At**: 2026-04-15T01:41:38.485Z
+- **Duration**: 8m 44s
+- **Input Tokens**: 6018481
+- **Output Tokens**: 20531
+- **Total Tokens**: 6039012
+- **Agent**: codex
+- **Sandbox Mode**: auto
+- **Sandbox Network**: Enabled
+--- RAW OUTPUT ---
+I’ll first read the repo guidance and existing progress notes, then trace the resolver/typegen paths before making any tests or docs changes.
+[94m[shell][0m $ /bin/zsh -lc 'git status --short'
+[94m[shell][0m $ /bin/zsh -lc "rg -n \"resolveRefGraph|derefSpec|typegen|external ref|external refs|\\"'$ref" . -g '"...
+[94m[shell][0m $ /bin/zsh -lc "pwd && rg --files -g 'AGENTS.md' -g '.ralph-tui/progress.md' -g 'docs/internal/spec.md...
+The initial search shows the parser already has deref and ref graph coverage, while codegen’s `generate-types.ts` is the typegen path that calls both `resolveRefGraph()` and `derefSpec()`. I’m pulling the repo instructions and existing progress file next, including hidden paths.
+[94m[shell][0m $ /bin/zsh -lc "rg --files --hidden -g 'AGENTS.md' -g '.ralph-tui/progress.md' -g 'package.json' -g 'p...
+[94m[shell][0m $ done'
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,240p' .ralph-tui/progress.md"
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,220p' package.json"
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,220p' docs/internal/spec.md"
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,180p' docs/internal/todo.md"
+There’s no repository-local `AGENTS.md` above this workspace, so the prompt and root project files are the governing instructions. The progress log is empty aside from the pattern header, so I’ll add the US-001 learning entry at the end when verification is done.
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,280p' packages/parser/src/ref-graph.ts"
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,380p' packages/parser/src/deref.ts"
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,380p' packages/codegen/src/typegen/generate-types.ts"
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,380p' packages/parser/src/__tests__/ref-graph.test.ts"
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,420p' packages/parser/src/__tests__/deref.test.ts"
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,380p' packages/codegen/src/__tests__/typegen/generate-types.test.ts"
+[94m[shell][0m $ /bin/zsh -lc "sed -n '381,760p' packages/codegen/src/__tests__/typegen/generate-types.test.ts"
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,220p' packages/parser/package.json"
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,220p' packages/codegen/package.json"
+[94m[shell][0m $ /bin/zsh -lc "sed -n '240,320p' packages/codegen/src/__tests__/cli-scenarios.test.ts"
+[94m[shell][0m $ /bin/zsh -lc "rg -n \"externalSpecPath|nestedExternalSpecPath|collisionSpecPath|\\.yaml#/components/...
+[94m[shell][0m $ /bin/zsh -lc "rg -n \"describe\\(|it\\(\" packages/parser/src/__tests__ packages/codegen/src/__tests...
+The implementation split is clear: parser `resolveRefGraph()` has its own traversal/cache, parser `derefSpec()` uses `DerefFolder` plus the ref graph pointer helper, and codegen `generateTypesFromSpec()` calls `analyzeExternalSchemaRefs()` which uses the ref graph and falls back to `derefSpec()` for external schemas. I’m going to add focused baseline tests around those exact boundaries and document the current gaps without changing runtime behavior. 
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,280p' packages/codegen/src/typegen/schema-to-ts.ts"
+I’m making scoped changes now: a parser baseline file for graph and deref semantics, codegen typegen tests for external alias behavior, and internal docs that record the current path split and known resolver gaps.
+The baseline tests are in place. I’m running the new parser and codegen test files first so any behavioral mismatch is caught before I touch the docs and counts.
+[94m[shell][0m $ /bin/zsh -lc 'pnpm --filter @oa-sdk/parser test packages/parser/src/__tests__/resolver-baseline.test...
+[94m[shell][0m $ /bin/zsh -lc 'pnpm --filter @oa-sdk/codegen test packages/codegen/src/__tests__/typegen/generate-typ...
+
+[91m[Error: 
+> @oa-sdk/codegen@0.1.0 test /Users/junwoobang/workflow/oa-sdk/packages/codegen
+> vitest run "packages/codegen/src/__tests__/typegen/generate-types.test.ts"
+
+
+ RUN  v2.1.9 /Users/junwoobang/workflow/oa-sdk/packages/codegen
+
+filter:  packages/codegen/src/__tests__/typegen/generate-types.test.ts
+include: src/**/*.test.ts
+exclude:  **/node_modules/**, **/dist/**, **/cypress/**, **/.{idea,git,cache,output,temp}/**, **/{karma,rollup,webpack,vite,vitest,jest,ava,babel,nyc,cypress,tsup,build,eslint,pr][0m
+
+[91m[Error: 
+> @oa-sdk/parser@0.1.0 test /Users/junwoobang/workflow/oa-sdk/packages/parser
+> vitest run "packages/parser/src/__tests__/resolver-baseline.test.ts"
+
+
+ RUN  v2.1.9 /Users/junwoobang/workflow/oa-sdk/packages/parser
+
+filter:  packages/parser/src/__tests__/resolver-baseline.test.ts
+include: src/**/*.test.ts
+exclude:  **/node_modules/**, **/dist/**, **/cypress/**, **/.{idea,git,cache,output,temp}/**, **/{karma,rollup,webpack,vite,vitest,jest,ava,babel,nyc,cypress,tsup,build,eslint,prettier}.config.][0m
+Those targeted commands used repo-root paths while Vitest was running from each package directory, so no files matched. I’m rerunning with package-relative paths.
+[94m[shell][0m $ /bin/zsh -lc 'pnpm --filter @oa-sdk/parser exec vitest run src/__tests__/resolver-baseline.test.ts'
+[94m[shell][0m $ /bin/zsh -lc 'pnpm --filter @oa-sdk/codegen exec vitest run src/__tests__/typegen/generate-types.tes...
+[94m[shell][0m $ /bin/zsh -lc "sed -n '8,24p' docs/internal/todo.md"
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,80p' docs/internal/todo.md"
+The code and docs are updated. I’m starting the required repo checks now, beginning with `pnpm typecheck`, then full tests and schema validation.
+[94m[shell][0m $ /bin/zsh -lc 'pnpm typecheck'
+`pnpm typecheck` passed across the workspace. I’m running the full test suite next so the updated counts and package coverage are validated by Vitest.
+[94m[shell][0m $ /bin/zsh -lc 'pnpm test'
+The full suite is through parser, router, client, and most of codegen; the new parser count is 193 and the codegen file reports 25 tests as expected. I’m letting the remaining packages finish before starting schema validation.
+
+[91m[Error: 
+> oa-sdk@0.0.0 test /Users/junwoobang/workflow/oa-sdk
+> pnpm --filter @oa-sdk/core test && pnpm --filter @oa-sdk/parser test && pnpm --filter @oa-sdk/router test && pnpm --filter @oa-sdk/client test && pnpm --filter @oa-sdk/codegen test && pnpm --filter @oa-sdk/mock-server test && pnpm --filter @oa-sdk/typia-mock test && pnpm --filter playground test
+
+
+> @oa-sdk/core@0.1.0 test /Users/junwoobang/workflow/oa-sdk/packages/core
+> vitest run
+
+
+ RUN  v2.1.9 /Users/junwoobang/workflow/oa-sdk/packages][0m
+`pnpm test` reached codegen successfully, but mock-server integration suites fail in this sandbox at server startup with `listen EPERM: operation not permitted 127.0.0.1`. I’m checking whether the repo has an intended env flag for skipping network-bound integration tests here; otherwise I’ll report this as an environment block.
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,140p' packages/mock-server/src/__tests__/helpers.ts"
+
+[91m[Error: sed: packages/mock-server/src/__tests__/helpers.ts: No such file or directory
+][0m
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,140p' packages/mock-server/src/__tests__/integration/node-http.test.ts"
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,120p' packages/mock-server/src/__tests__/integration/framework.test.ts"
+[94m[shell][0m $ /bin/zsh -lc "rg -n \"skipIf|describe\\.skip|EPERM|127\\.0\\.0\\.1|process\\.env|MOCK|INTEGRATION|CI...
+[94m[shell][0m $ /bin/zsh -lc "rg -n \"skipIf|skip|beforeAll|createNodeMockServer|process\\.env|CI\" packages/mock-se...
+There isn’t an existing skip flag for the Node HTTP integration suites; they bind to `127.0.0.1` directly, which this sandbox denies. I’m still running `pnpm schema:validate` so the remaining required check is covered.
+[94m[shell][0m $ /bin/zsh -lc 'pnpm schema:validate'
+
+[91m[Error: 
+> oa-sdk@0.0.0 schema:validate /Users/junwoobang/workflow/oa-sdk
+> pnpm --filter @oa-sdk/parser build && pnpm --filter @oa-sdk/codegen build && pnpm --filter @oa-sdk/schemas run validate && node packages/codegen/dist/cli/index.js validate --spec packages/schemas/src/.merged.yaml
+
+
+> @oa-sdk/parser@0.1.0 build /Users/junwoobang/workflow/oa-sdk/packages/parser
+> tsup src/index.ts --format esm --dts
+
+CLI Building entry: src/index.ts
+CLI Using tsconfig: tsconfig.json
+CLI tsup v8.5.1
+CLI Target: es2][0m
+`pnpm schema:validate` also hit the sandbox’s listen restriction, this time from `tsx` trying to open its local IPC pipe during schema merge. I’ll inspect whether `tsx` exposes a no-IPC mode; if not, this is the same environment limitation rather than a project failure.
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,180p' packages/schemas/package.json"
+[94m[shell][0m $ /bin/zsh -lc "rg -n \"TSX_|IPC|ipc|pipe|listen|CACHE|DISABLE|env\" node_modules/.pnpm/tsx@*/node_mod...
+[94m[shell][0m $ /bin/zsh -lc 'git status --short'
+[94m[shell][0m $ /bin/zsh -lc "rg -n \"process\\.env\\.[A-Z_]*TSX|TSX_[A-Z_]+|noCache|ipc\" node_modules/.pnpm/tsx@4....
+The `tsx` CLI always creates an IPC server for regular script execution, so there isn’t a repo-level flag that makes `pnpm schema:validate` compatible with this sandbox. I’m running the packages that full `pnpm test` did not reach after the mock-server bind failure, to separate code health from the environment block.
+[94m[shell][0m $ /bin/zsh -lc 'pnpm --filter @oa-sdk/typia-mock test'
+[94m[shell][0m $ /bin/zsh -lc 'pnpm --filter playground test'
+[94m[shell][0m $ /bin/zsh -lc 'pnpm --filter @oa-sdk/schemas test'
+
+[91m[Error: 
+> @oa-sdk/typia-mock@0.1.0 test /Users/junwoobang/workflow/oa-sdk/packages/typia-mock
+> vitest run
+
+
+ RUN  v2.1.9 /Users/junwoobang/workflow/oa-sdk/packages/typia-mock
+
+ ✓ src/__tests__/unit/function-registry.test.ts (5 tests) 5ms
+ ✓ src/__tests__/unit/validator.test.ts (35 tests) 5ms
+ ❯ src/__tests__/integration/server.test.ts (13 tests | 13 skipped) 11ms
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/__tests__/integration/server.test.ts [ src/__tests__/integration/server.test.ts ]
+Error: listen ][0m
+
+[91m[Error: 
+> @oa-sdk/playground@0.1.0 test /Users/junwoobang/workflow/oa-sdk/apps/playground
+> vitest run
+
+
+ RUN  v2.1.9 /Users/junwoobang/workflow/oa-sdk/apps/playground
+
+ ❯ tests/mock-server.test.ts (14 tests | 14 skipped) 20ms
+ ❯ tests/e2e-pipeline.test.ts (28 tests | 28 skipped) 24ms
+ ❯ tests/e2e-client-execution.test.ts (23 tests | 23 skipped) 29ms
+ ❯ tests/codegen.test.ts (9 tests | 9 skipped) 19ms
+ ❯ tests/test-helpers.test.ts (11 tests | 11 skipped) 22ms
+npm warn Unknown env config "prefer-workspa][0m
+[94m[shell][0m $ /bin/zsh -lc 'git status --short'
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,120p' .ralph-tui/progress.md"
+[94m[shell][0m $ /bin/zsh -lc 'git diff -- packages/codegen/src/__tests__/typegen/generate-types.test.ts packages/par...
+[94m[shell][0m $ /bin/zsh -lc 'git diff --stat'
+[94m[shell][0m $ /bin/zsh -lc "sed -n '184,214p' docs/internal/spec.md"
+[94m[shell][0m $ /bin/zsh -lc "sed -n '76,110p' docs/internal/spec.md"
+[94m[shell][0m $ /bin/zsh -lc "sed -n '10,44p' docs/internal/todo.md"
+[94m[shell][0m $ /bin/zsh -lc "sed -n '44,64p' docs/internal/todo.md"
+[94m[shell][0m $ /bin/zsh -lc 'git status --short'
+The required command itself is blocked, but `tsx` can often be bypassed with Node’s loader form because that avoids the CLI IPC server. I’m going to run the schema validation steps manually in that form to see whether the schema content is clean apart from the sandbox restriction.
+[94m[shell][0m $ /bin/zsh -lc 'node --import tsx/esm scripts/merge.ts'
+
+[91m[Error: node:internal/modules/esm/loader:374
+      throw new ERR_REQUIRE_CYCLE_MODULE(message);
+            ^
+
+Error [ERR_REQUIRE_CYCLE_MODULE]: Cannot require() ES Module /Users/junwoobang/workflow/oa-sdk/packages/schemas/scripts/merge.ts in a cycle. A cycle involving require(esm) is not allowed to maintain invariants mandated by the ECMAScript specification. Try making at least part of the dependency in the graph lazily loaded.
+    at ModuleLoader.importSyncForRequire (node:internal/modules/esm/loader][0m
+[94m[shell][0m $ /bin/zsh -lc 'node --loader tsx scripts/merge.ts'
+
+[91m[Error: 
+node:internal/modules/run_main:107
+    triggerUncaughtException(
+    ^
+Error: tsx must be loaded with --import instead of --loader
+The --loader flag was deprecated in Node v20.6.0 and v18.19.0
+    at initialize (file:///Users/junwoobang/workflow/oa-sdk/node_modules/.pnpm/tsx@4.21.0/node_modules/tsx/dist/esm/index.mjs:1:985)
+    at AsyncLoaderHooksOnLoaderHookWorker.addCustomLoader (node:internal/modules/esm/hooks:212:24)
+    at AsyncLoaderHooksOnLoaderHookWorker.register (node:internal/modules/][0m
+[94m[shell][0m $ /bin/zsh -lc 'node --import tsx scripts/merge.ts'
+`node --import tsx` works for the schema scripts without opening the denied IPC pipe. I’m continuing the schema validation chain manually with that loader, then Spectral/Redocly and the built `oa-gen validate`.
+[94m[shell][0m $ /bin/zsh -lc 'node --import tsx scripts/downgrade-3.1.ts'
+[94m[shell][0m $ /bin/zsh -lc 'pnpm validate:spectral'
+[94m[shell][0m $ /bin/zsh -lc 'pnpm validate:redocly'
+[94m[shell][0m $ /bin/zsh -lc 'node packages/codegen/dist/cli/index.js validate --spec packages/schemas/src/.merged.y...
+[94m[shell][0m $ /bin/zsh -lc 'git status --short'
+Implemented US-001 baseline coverage and docs.
+
+Changes made:
+- Added parser resolver baseline tests in [resolver-baseline.test.ts](/Users/junwoobang/workflow/oa-sdk/packages/parser/src/__tests__/resolver-baseline.test.ts)
+- Added typegen external ref baseline tests in [generate-types.test.ts](/Users/junwoobang/workflow/oa-sdk/packages/codegen/src/__tests__/typegen/generate-types.test.ts)
+- Documented current resolver/typegen paths, baseline behavior, and updated test counts in [spec.md](/Users/junwoobang/workflow/oa-sdk/docs/internal/spec.md)
+- Documented discovered gaps in [todo.md](/Users/junwoobang/workflow/oa-sdk/docs/internal/todo.md)
+- Appended US-001 learnings and a reusable pattern to [progress.md](/Users/junwoobang/workflow/oa-sdk/.ralph-tui/progress.md)
+
+Verification:
+- `pnpm typecheck` passed.
+- Targeted parser baseline test passed: 3 tests.
+- Targeted codegen typegen test passed: 25 tests.
+- Full `pnpm test` was attempted. Core, parser, router, client, and codegen passed before mock-server integration tests failed with sandbox `listen EPERM: operation not permitted 127.0.0.1`.
+- `pnpm schema:validate` was attempted. It failed because `tsx` tried to open a local IPC pipe and the sandbox denied `listen EPERM`.
+- Schema validation steps passed when run without the `tsx` CLI IPC path: merge, downgrade, Spectral, Redocly, and built `oa-gen validate`.
+
+No public API exports changed, so `docs/internal/api-index.md` was not updated.
+
+<promise>COMPLETE</promise>
+
+--- STDERR ---
+2026-04-15T01:32:55.374203Z ERROR rmcp::transport::worker: worker quit with fatal: Transport channel closed, when AuthRequired(AuthRequiredError { www_authenticate_header: "Bearer realm=\"OAuth\", resource_metadata=\"https://mcp.cloudflare.com/.well-known/oauth-protected-resource/mcp\", error=\"invalid_token\", error_description=\"Missing or invalid access token\"" })
+2026-04-15T01:32:55.574772Z ERROR rmcp::transport::worker: worker quit with fatal: Transport channel closed, when AuthRequired(AuthRequiredError { www_authenticate_header: "Bearer error=\"invalid_request\", error_description=\"No access token was provided in this request\", resource_metadata=\"https://mcp.supabase.com/.well-known/oauth-protected-resource/mcp\"" })
+2026-04-15T01:32:55.634281Z ERROR rmcp::transport::worker: worker quit with fatal: Transport channel closed, when AuthRequired(AuthRequiredError { www_authenticate_header: "Bearer resource_metadata=https://mcp.stripe.com/.well-known/oauth-protected-resource" })
+2026-04-15T01:36:54.999454Z ERROR codex_core::tools::router: error=apply_patch verification failed: Failed to find expected lines in /Users/junwoobang/workflow/oa-sdk/docs/internal/todo.md:
+### 1. [ ] parser/codegen: ref resolver 단일화 심화
+배경: `resolveRefGraph()`가 SSOT 역할을 시작했지만 `derefSpec()`는 아직 별도 traversal/cache를 가짐.
+작업: 외부 문서 로딩, JSON Pointer 해소, cache, source pointer 생성 경로를 공통 `RefResolver`로 모으기.
+완료 기준: `resolveRefGraph()`와 `derefSpec()`가 같은 resolver 기반을 사용하고, 기존 외부 `$ref`/순환/누락 diagnostic 테스트가 유지됨.
+
+### 2. [ ] codegen: 외부 `$defs` / 비 components schema alias 정책
+배경: 외부 `$ref` type alias는 현재 `#/components/schemas/*` 중심으로 안정화됨.
+작업: `$defs` 또는 다른 schema root를 typegen alias 대상으로 허용할지 결정하고, 허용 시 이름 생성 규칙을 문서화.
+완료 기준: 지원 범위가 명시되고, 지원하는 포인터에는 deterministic type name과 rename warning 테스트가 있음.

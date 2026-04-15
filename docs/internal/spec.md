@@ -35,8 +35,8 @@ schemas      ← 독립. OAS 소스 + merge + 3.1↔3.2 변환
 | OAS 3.2 타입 | 30개 오브젝트, §별 13파일, 자체 관리 (openapi3-ts 없음) |
 | `parseDocument()` | → ParsedDocument IR (operations, routes, schemas, security, tags, webhooks), `basePath`/`cycleStrategy` 옵션 |
 | `SchemaAlgebra` fold | 스키마 재귀 순회 — 타입별 의미 해석 |
-| `resolveRefGraph()` | 내부/외부 `$ref` 그래프 수집, nested external ref 추적, 누락/순환 diagnostic |
-| `derefSpec()` | 내부/외부 YAML/JSON `$ref` 인라인 전개, sibling 구조 정보 보존, `cycleStrategy` 지원 |
+| `resolveRefGraph()` | 공유 `RefResolver` 기반 내부/외부 `$ref` 그래프 수집, nested external ref 추적, 누락/순환 diagnostic |
+| `derefSpec()` | 공유 `RefResolver` 기반 내부/외부 YAML/JSON `$ref` 인라인 전개, sibling 구조 정보 보존, `cycleStrategy` 지원 |
 | `lintDocument()` | 7카테고리 17규칙 + ref graph diagnostic source 출력 |
 | `validateDocument()` | 종합 검증 (파싱 + 린트 + JSON Schema 2020-12 메타 검증 + ref graph diagnostic) |
 | Query API | `findOperation`, `findByTag`, `describeApi`, `resolveServerUrl`, `groupByTag` |
@@ -83,12 +83,13 @@ schemas      ← 독립. OAS 소스 + merge + 3.1↔3.2 변환
 | additionalProperties | `Record<string, T>` + index signature 타입 생성 |
 | CLI | 커맨드 모듈 구조. `generate`/`typegen`/`router`/`client`/`lint`/`validate`/`dev`/`--help` |
 
-### Resolver baseline (US-001)
+### Resolver baseline (US-001) / Shared contract (US-002)
 
 | Surface | 현재 코드 경로 | 고정한 동작 |
 |---------|----------------|-------------|
-| `resolveRefGraph()` | `packages/parser/src/ref-graph.ts`의 `collectRefs()` traversal → `resolvePointer()` → per-call external file cache | 내부 ref, 외부 YAML/JSON ref, 외부 파일 내부 nested ref를 graph node로 기록. 누락 pointer/read 실패와 순환은 diagnostic으로 기록하며 `$ref` sibling 내부 ref도 계속 수집 |
-| `derefSpec()` | `packages/parser/src/deref.ts`의 `DerefFolder.foldRef()` → `resolvePointer()` 공유 helper → 별도 deref file cache/stack | 내부/외부 YAML/JSON ref를 인라인 전개하고 외부 파일 내부 상대 ref는 해당 파일 기준으로 해소. missing ref는 원본 `$ref` node 유지. 기본 cycle은 `{}`로 절단하고 `cycleStrategy: preserve-ref`는 ref 유지. `$ref` sibling은 해소 결과에 병합 |
+| `RefResolver` | `packages/parser/src/ref-resolver.ts`의 `createRefResolver()` → `resolvePointer()` + external YAML/JSON document cache | parser 내부 contract. internal/external/unsupported kind, JSON Pointer, cache key/document cache key, source pointer, file/pointer metadata, missing/circular/read-failed diagnostic을 단일 결과 객체로 반환. public index에는 export하지 않음 |
+| `resolveRefGraph()` | `packages/parser/src/ref-graph.ts`의 `collectRefs()` traversal → 공유 `RefResolver` | 내부 ref, 외부 YAML/JSON ref, 외부 파일 내부 nested ref를 graph node로 기록. 누락 pointer/read 실패와 순환은 diagnostic으로 기록하며 `$ref` sibling 내부 ref도 계속 수집 |
+| `derefSpec()` | `packages/parser/src/deref.ts`의 `DerefFolder.foldRef()` → 공유 `RefResolver` + deref file cache/stack | 내부/외부 YAML/JSON ref를 인라인 전개하고 외부 파일 내부 상대 ref는 해당 파일 기준으로 해소. missing ref는 원본 `$ref` node 유지. 기본 cycle은 `{}`로 절단하고 `cycleStrategy: preserve-ref`는 ref 유지. `$ref` sibling은 해소 결과에 병합 |
 | typegen external refs | `generateTypesFromSpec()` → `parseDocument()`(deref 없음) → `analyzeExternalSchemaRefs()` → `resolveRefGraph()` → `schemaToTs(refNameOverrides)` | 외부 `#/components/schemas/*` YAML/JSON schema를 generated alias로 추가. nested external schema alias도 생성. 이름 충돌/로컬 shadow는 deterministic rename warning. 해소 실패는 `external-schema-unresolved` diagnostic |
 
 ## `@oa-sdk/router` ✅
@@ -188,7 +189,7 @@ pnpm demo  # API 구조 + Mock 12시나리오 + 커버리지
 |------|------|------|
 | Build | 7 패키지 + CI 스크립트 | tsup ESM 빌드 |
 | Typecheck | 7 패키지 + playground | tsc --noEmit strict |
-| Test | 8 패키지 + playground | vitest 1584 케이스 |
+| Test | 8 패키지 + playground | vitest 1586 케이스 |
 | Schema validate | schemas + oa-gen | 도메인 병합 + 3.1 변환 + Spectral/Redocly + 3.2 자체 검증 표준 파이프라인 |
 | Freshness check | 산출물 | git diff --exit-code |
 | API index | docs ↔ code | export 정합성 검증 |
@@ -201,7 +202,7 @@ pnpm demo  # API 구조 + Mock 12시나리오 + 커버리지
 | 패키지 | 케이스 |
 |--------|--------|
 | core | 51 |
-| parser | 193 |
+| parser | 195 |
 | codegen | 466 |
 | mock-server | 561 |
 | playground | 114 |
@@ -209,4 +210,4 @@ pnpm demo  # API 구조 + Mock 12시나리오 + 커버리지
 | client | 36 |
 | schemas | 75 |
 | typia-mock | 53 |
-| **합계** | **1584** |
+| **합계** | **1586** |

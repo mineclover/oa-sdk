@@ -43,11 +43,12 @@
         "If a todo is completed or materially changed, update docs/internal/todo.md"
       ],
       "priority": 2,
-      "passes": false,
+      "passes": true,
       "notes": "",
       "dependsOn": [
         "US-001"
-      ]
+      ],
+      "completionNotes": "Completed by agent"
     },
     {
       "id": "US-003",
@@ -523,6 +524,6 @@
     }
   ],
   "metadata": {
-    "updatedAt": "2026-04-15T01:41:38.489Z"
+    "updatedAt": "2026-04-15T01:56:23.088Z"
   }
 }

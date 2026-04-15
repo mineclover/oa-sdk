@@ -1,24 +1,16 @@
 import type { OasDocument } from './oas32-types.js'
 import { SchemaFolder } from './folder.js'
-import { readFileSync } from 'node:fs'
-import { resolve, dirname } from 'node:path'
-import { parse as parseYaml } from 'yaml'
-import { resolvePointer as resolveJsonPointer } from './ref-graph.js'
+import {
+  createRefResolver,
+  type RefDocumentCache,
+  type RefResolver,
+  type RefResolverDiagnostic,
+  type RefResolverDiagnosticCode,
+} from './ref-resolver.js'
 
-export type DerefDiagnosticCode =
-  | 'ref-cycle'
-  | 'ref-not-found'
-  | 'external-ref-read-failed'
-  | 'external-ref-pointer-not-found'
-  | 'unsupported-ref'
+export type DerefDiagnosticCode = RefResolverDiagnosticCode
 
-export type DerefDiagnostic = {
-  code: DerefDiagnosticCode
-  ref: string
-  message: string
-  filePath?: string
-  pointer?: string
-}
+export type DerefDiagnostic = RefResolverDiagnostic
 
 export type DerefCycleStrategy = 'empty-schema' | 'preserve-ref'
 
@@ -40,123 +32,49 @@ export class DerefFolder extends SchemaFolder {
   private readonly stack: string[] = []
   private readonly root: unknown
   private readonly currentBasePath: string | undefined
+  private readonly fileCache: RefDocumentCache
+  private readonly resolver: RefResolver
 
   constructor(
     root: unknown,
     private readonly options: DerefOptions = {},
-    private readonly fileCache?: Map<string, unknown>,
+    fileCache?: RefDocumentCache,
     currentBasePath?: string,
   ) {
     super()
     this.root = root
     this.currentBasePath = currentBasePath ?? options.basePath
+    this.fileCache = fileCache ?? new Map<string, unknown>()
+    this.resolver = createRefResolver({
+      ...(options.basePath ? { entryPath: options.basePath } : {}),
+      documentCache: this.fileCache,
+      includeInternalFilePath: false,
+    })
   }
 
   protected override foldRef(ref: string, node: Record<string, unknown>): unknown {
-    // Internal ref
-    if (ref === '#' || ref.startsWith('#/')) {
-      if (this.stack.includes(ref)) {
-        this.emitDiagnostic({
-          code: 'ref-cycle',
-          ref,
-          message: `순환 $ref 감지: ${ref}`,
-          pointer: ref,
-        })
-        return this.resolveCycle(ref, node)
-      }
+    const resolution = this.resolver.resolve({
+      ref,
+      sourcePointer: '#/$ref',
+      root: this.root,
+      ...(this.currentBasePath ? { basePath: this.currentBasePath } : {}),
+      stack: this.stack,
+    })
 
-      const target = resolveJsonPointer(ref, this.root)
-      if (target === undefined) {
-        this.emitDiagnostic({
-          code: 'ref-not-found',
-          ref,
-          message: `참조 대상을 찾을 수 없습니다: ${ref}`,
-          pointer: ref,
-        })
-        return node
-      }
-
-      this.stack.push(ref)
-      try {
-        return mergeRefSiblings(this.fold(target), this.foldSiblingFields(node))
-      } finally {
-        this.stack.pop()
-      }
+    if (resolution.diagnostic) this.emitDiagnostic(resolution.diagnostic)
+    if (!resolution.resolved) {
+      return resolution.diagnostic?.code === 'ref-cycle' ? this.resolveCycle(ref, node) : node
     }
 
-    // External file ref (상대 경로)
-    if (this.currentBasePath && (ref.startsWith('./') || ref.startsWith('../'))) {
-      const [filePart, pointer] = ref.split('#')
-      if (!filePart || !pointer) {
-        this.emitDiagnostic({
-          code: 'unsupported-ref',
-          ref,
-          message: `지원하지 않는 외부 $ref 형식: ${ref}`,
-        })
-        return node
-      }
-
-      const fullPath = resolve(dirname(this.currentBasePath), filePart)
-
-      // 순환 감지: 파일경로 + 포인터 조합
-      const externalKey = `${fullPath}#${pointer}`
-      if (this.stack.includes(externalKey)) {
-        this.emitDiagnostic({
-          code: 'ref-cycle',
-          ref,
-          filePath: fullPath,
-          pointer: `#${pointer}`,
-          message: `순환 외부 $ref 감지: ${ref}`,
-        })
-        return this.resolveCycle(ref, node)
-      }
-
-      let fileContent = this.fileCache?.get(fullPath)
-      if (!fileContent) {
-        try {
-          fileContent = parseExternalRefFile(fullPath)
-          this.fileCache?.set(fullPath, fileContent)
-        } catch (err) {
-          this.emitDiagnostic({
-            code: 'external-ref-read-failed',
-            ref,
-            filePath: fullPath,
-            pointer: `#${pointer}`,
-            message: err instanceof Error ? err.message : String(err),
-          })
-          return node // 파일 읽기 실패 — 원본 유지
-        }
-      }
-
-      const target = resolveJsonPointer('#' + pointer, fileContent)
-      if (target === undefined) {
-        this.emitDiagnostic({
-          code: 'external-ref-pointer-not-found',
-          ref,
-          filePath: fullPath,
-          pointer: `#${pointer}`,
-          message: `외부 파일에서 참조 대상을 찾을 수 없습니다: ${ref}`,
-        })
-        return node
-      }
-
-      this.stack.push(externalKey)
-      try {
-        return mergeRefSiblings(this.foldExternalTarget(target, fullPath), this.foldSiblingFields(node))
-      } finally {
-        this.stack.pop()
-      }
+    this.stack.push(resolution.cacheKey)
+    try {
+      const resolved = resolution.kind === 'external' && resolution.basePath
+        ? this.foldExternalTarget(resolution.target, resolution.basePath)
+        : this.fold(resolution.target)
+      return mergeRefSiblings(resolved, this.foldSiblingFields(node))
+    } finally {
+      this.stack.pop()
     }
-
-    if (!ref.startsWith('#/')) {
-      this.emitDiagnostic({
-        code: 'unsupported-ref',
-        ref,
-        message: `지원하지 않는 $ref 형식: ${ref}`,
-      })
-    }
-
-    return node // 지원하지 않는 ref 타입 — 원본 유지
   }
 
   private foldSiblingFields(node: Record<string, unknown>): Record<string, unknown> {
@@ -206,12 +124,6 @@ export function derefSpecWithDiagnostics<T = OasDocument>(
   const diagnostics: DerefDiagnostic[] = []
   const document = derefSpec(spec, { ...options, diagnostics })
   return { document, diagnostics }
-}
-
-function parseExternalRefFile(path: string): unknown {
-  const raw = readFileSync(path, 'utf-8')
-  if (path.endsWith('.json')) return JSON.parse(raw)
-  return parseYaml(raw)
 }
 
 function mergeRefSiblings(resolved: unknown, siblings: Record<string, unknown>): unknown {
