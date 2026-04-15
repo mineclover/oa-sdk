@@ -71,3 +71,14 @@ after each iteration and it's included in prompts for context.
   - Name collision analysis should only consider resolved external schema targets, otherwise missing refs can reserve type names or produce misleading collision warnings.
   - Full `pnpm test`, typia/playground integration tests, and `pnpm schema:validate` remain blocked in this sandbox by `listen EPERM` on localhost or tsx IPC; root typecheck and parser/codegen suites pass.
 ---
+
+## 2026-04-15 - US-004
+- Verified `resolveRefGraph()` already delegates internal and external lookup through shared `createRefResolver()` and preserves graph traversal ownership locally.
+- Verified existing ref graph coverage includes internal refs, external refs, nested external refs, missing refs, and cycle diagnostics without adding or rebalancing tests.
+- Ran required checks: `pnpm typecheck` passed; `pnpm test` passed through core/parser/router/client/codegen and failed in mock-server integration suites on sandbox `listen EPERM`; `pnpm schema:validate` built parser/codegen and failed when `tsx` attempted an IPC pipe with `listen EPERM`.
+- Files changed:
+  - `.ralph-tui/progress.md`
+- **Learnings:**
+  - `resolveRefGraph()` should keep traversal, node shaping, and recursive descent local while delegating all pointer/file/cache/diagnostic facts to `RefResolver`.
+  - US-002/US-003 had already completed the US-004 runtime and test acceptance criteria, so no source, docs count, API index, or todo changes were needed.
+---
