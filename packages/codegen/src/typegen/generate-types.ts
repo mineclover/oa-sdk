@@ -341,13 +341,45 @@ export function analyzeExternalSchemaRefs(spec: OasDocument, basePath: string): 
 }
 
 function isSchemaRefNode(node: RefGraphNodeWithSource): boolean {
-  if (node.kind === 'external') return isRelativeRef(node.ref) && node.ref.includes('#/components/schemas/')
-  return !!node.filePath && node.ref.startsWith('#/components/schemas/')
+  if (!isSchemaRefSourcePointer(node.sourcePointer)) return false
+  if (node.kind === 'external') return isRelativeRef(node.ref)
+  return !!node.filePath && (node.ref === '#' || node.ref.startsWith('#/'))
+}
+
+function isSchemaRefSourcePointer(sourcePointer: string): boolean {
+  if (!sourcePointer.endsWith('/$ref')) return false
+  const schemaPointer = sourcePointer.slice(0, -'/$ref'.length)
+  const segments = schemaPointer
+    .slice(2)
+    .split('/')
+    .map(segment => segment.replace(/~1/g, '/').replace(/~0/g, '~'))
+
+  return segments.some(segment => SCHEMA_REF_CONTEXT_SEGMENTS.has(segment))
 }
 
 function emptyExternalSchemaAnalysis(): ExternalSchemaRefAnalysis {
   return { schemas: {}, refNameOverrides: {}, diagnostics: [] }
 }
+
+const SCHEMA_REF_CONTEXT_SEGMENTS = new Set([
+  '$defs',
+  'additionalProperties',
+  'allOf',
+  'anyOf',
+  'dependentSchemas',
+  'else',
+  'if',
+  'items',
+  'not',
+  'oneOf',
+  'patternProperties',
+  'prefixItems',
+  'properties',
+  'schema',
+  'schemas',
+  'then',
+  'unevaluatedProperties',
+])
 
 function schemaNameFromRef(ref: string): string | undefined {
   return ref.split('/').pop()

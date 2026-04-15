@@ -11,6 +11,7 @@ after each iteration and it's included in prompts for context.
 - Keep low-level `$ref` mechanics in parser-only contracts: `RefResolver` returns a `RefResolution` value object with kind, cache keys, document root, source pointer, pointer/file metadata, and diagnostic, while callers keep traversal/folding behavior local.
 - Typegen external schema aliases need two ref identities: raw `$ref` overrides only for entry-document refs, and canonical absolute file+pointer refs for external schema internals rewritten by sourceFilePath/sourcePointer before `schemaToTs()`.
 - Typegen rename diagnostics should be emitted after deterministic alias names are assigned so warnings can report resolver-normalized `file#pointer -> TypeName` context without changing name allocation.
+- External typegen alias discovery should be gated by the `$ref` source schema context, then named from the resolved target pointer: this supports `$defs` and custom schema roots without accidentally aliasing response/path-item refs.
 - Incremental workspace boundaries belong outside parser: keep `WorkspaceIndex` in codegen/CLI layers, and make the default noop index mark every scanned file dirty so full rebuild remains the correctness path.
 - Persistent workspace indexes are disposable optimization state: store schema/options compatibility metadata, wrap writes in transactions, and degrade storage mismatches or DB errors to full rebuild fallback instead of letting cache state affect correctness.
 - Compute reverse dependency dirty sets before invalidating index rows: once source rows are deleted, refs.to_file edge context needed to mark referring specs dirty may be gone.
@@ -202,4 +203,23 @@ after each iteration and it's included in prompts for context.
   - Keeping incremental state as a sidecar makes equality tests simple: incremental validate/typegen stdout can match full rebuild output byte-for-byte while still updating SQLite dependency metadata.
   - The first incremental run must refresh the index with external files discovered from `resolveRefGraph()`, not only files known from the previous cache, so subsequent runs can detect external ref edits.
   - `dev` watch mode needs to resync watchers after each generation because the external ref file set can grow, shrink, or change after dirty invalidation.
+---
+
+## 2026-04-15 - US-011
+- Defined and implemented the external alias policy for `$defs` and non-components schema roots: external YAML/JSON refs that appear in schema positions now normalize into generated aliases when they resolve to schema objects.
+- Extended `analyzeExternalSchemaRefs()` beyond `#/components/schemas/*` by gating candidates on source schema context and then reusing resolver-normalized file+pointer identities for direct and nested external refs.
+- Added codegen tests for external `#/$defs/*` aliases and a non-components `#/schemas/*` root with nested `#/models/*` refs; codegen now has 484 tests and the repo total is documented as 1605.
+- Updated internal spec/API/todo docs and marked the completed todo policy item.
+- Ran checks: `pnpm typecheck` passed; `pnpm --filter @oa-sdk/codegen test` passed with 484 tests; `pnpm test` passed core/parser/router/client/codegen then failed in mock-server Node HTTP integration suites on sandbox `listen EPERM`; `pnpm schema:validate` built parser/codegen then failed when `tsx` attempted a sandbox-blocked IPC pipe with `listen EPERM`.
+- Files changed:
+  - `packages/codegen/src/typegen/generate-types.ts`
+  - `packages/codegen/src/__tests__/typegen/generate-types.test.ts`
+  - `docs/internal/spec.md`
+  - `docs/internal/api-index.md`
+  - `docs/internal/todo.md`
+  - `.ralph-tui/progress.md`
+- **Learnings:**
+  - Target pointer shape alone is not enough for alias discovery once arbitrary schema roots are supported; the `$ref` source location must prove the ref is in schema context.
+  - Existing alias naming and collision handling can be reused for `$defs` and custom schema roots because resolved file+pointer identity is already the stable join key.
+  - Nested internal refs inside external `$defs` or custom roots need the same absolute file+pointer rewrite path as nested external component refs.
 ---

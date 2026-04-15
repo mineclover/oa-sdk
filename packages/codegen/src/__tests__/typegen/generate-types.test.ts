@@ -290,6 +290,128 @@ describe('analyzeExternalSchemaRefs', () => {
     }
   })
 
+  it('external $defs schema refs generate aliases', () => {
+    const tmp = mkdtempSync(join(tmpdir(), 'oa-sdk-typegen-'))
+    const basePath = join(tmp, 'api.yaml')
+    writeFileSync(join(tmp, 'defs.yaml'), [
+      '$defs:',
+      '  Role:',
+      '    type: string',
+      '    enum: [admin, user]',
+      '  User:',
+      '    type: object',
+      '    required: [role]',
+      '    properties:',
+      '      role:',
+      '        $ref: "#/$defs/Role"',
+      '',
+    ].join('\n'))
+
+    try {
+      const input = doc({
+        paths: {
+          '/user': {
+            get: {
+              operationId: 'getDefsUser',
+              responses: {
+                '200': {
+                  description: 'OK',
+                  content: { 'application/json': { schema: { $ref: './defs.yaml#/$defs/User' } } },
+                },
+              },
+            },
+          },
+        },
+      })
+
+      const analysis = analyzeExternalSchemaRefs(input, basePath)
+      const userName = analysis.refNameOverrides['./defs.yaml#/$defs/User']
+      const roleEntry = Object.entries(analysis.refNameOverrides)
+        .find(([ref]) => ref.endsWith('/defs.yaml#/$defs/Role'))
+      if (!userName || !roleEntry) throw new Error('expected $defs aliases')
+
+      const [roleRef, roleName] = roleEntry
+      expect(userName).toBe('User')
+      expect(roleName).toBe('Role')
+      expect((analysis.schemas.User as any).properties.role.$ref).toBe(roleRef)
+
+      const warnings: string[] = []
+      const output = generateTypesFromSpec(input, { basePath, warnings })
+      expect(output).toContain('export type Role =')
+      expect(output).toContain("'admin' | 'user'")
+      expect(output).toContain('export type User =')
+      expect(output).toContain('role: Role')
+      expect(output).toContain('export type GetDefsUserResponse = User')
+      expect(warnings).toHaveLength(0)
+    } finally {
+      rmSync(tmp, { recursive: true, force: true })
+    }
+  })
+
+  it('external non-components schema roots generate aliases', () => {
+    const tmp = mkdtempSync(join(tmpdir(), 'oa-sdk-typegen-'))
+    const basePath = join(tmp, 'api.yaml')
+    writeFileSync(join(tmp, 'roots.yaml'), [
+      'models:',
+      '  Item:',
+      '    type: object',
+      '    required: [id]',
+      '    properties:',
+      '      id:',
+      '        type: string',
+      'schemas:',
+      '  Page:',
+      '    type: object',
+      '    required: [items]',
+      '    properties:',
+      '      items:',
+      '        type: array',
+      '        items:',
+      '          $ref: "#/models/Item"',
+      '',
+    ].join('\n'))
+
+    try {
+      const input = doc({
+        paths: {
+          '/items': {
+            get: {
+              operationId: 'listRootItems',
+              responses: {
+                '200': {
+                  description: 'OK',
+                  content: { 'application/json': { schema: { $ref: './roots.yaml#/schemas/Page' } } },
+                },
+              },
+            },
+          },
+        },
+      })
+
+      const analysis = analyzeExternalSchemaRefs(input, basePath)
+      const pageName = analysis.refNameOverrides['./roots.yaml#/schemas/Page']
+      const itemEntry = Object.entries(analysis.refNameOverrides)
+        .find(([ref]) => ref.endsWith('/roots.yaml#/models/Item'))
+      if (!pageName || !itemEntry) throw new Error('expected non-components root aliases')
+
+      const [itemRef, itemName] = itemEntry
+      expect(pageName).toBe('Page')
+      expect(itemName).toBe('Item')
+      expect((analysis.schemas.Page as any).properties.items.items.$ref).toBe(itemRef)
+
+      const warnings: string[] = []
+      const output = generateTypesFromSpec(input, { basePath, warnings })
+      expect(output).toContain('export type Item =')
+      expect(output).toContain('id: string')
+      expect(output).toContain('export type Page =')
+      expect(output).toContain('items: Item[]')
+      expect(output).toContain('export type ListRootItemsResponse = Page')
+      expect(warnings).toHaveLength(0)
+    } finally {
+      rmSync(tmp, { recursive: true, force: true })
+    }
+  })
+
   it('typegen missing external schema refs are reported as unresolved analysis diagnostics', () => {
     const tmp = mkdtempSync(join(tmpdir(), 'oa-sdk-typegen-'))
     const basePath = join(tmp, 'api.yaml')

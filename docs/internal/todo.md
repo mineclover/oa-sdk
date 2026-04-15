@@ -8,23 +8,17 @@
 
 ## 다음 세션 실행 순서
 
-### 1. [ ] codegen: 외부 `$defs` / 비 components schema alias 정책
-배경: 외부 `$ref` type alias는 현재 `#/components/schemas/*` 중심으로 안정화됨.
-US-001/003 baseline 확인: typegen external alias 분석은 외부 YAML/JSON 및 nested external schema를 지원하지만 alias 대상은 `#/components/schemas/*`로 제한됨. missing/read/pointer 실패는 parser resolver diagnostic code와 source metadata를 보존함.
-작업: `$defs` 또는 다른 schema root를 typegen alias 대상으로 허용할지 결정하고, 허용 시 이름 생성 규칙을 문서화.
-완료 기준: 지원 범위가 명시되고, 지원하는 포인터에는 deterministic type name과 rename warning 테스트가 있음.
-
-### 2. [ ] diagnostics: YAML line/column source map
+### 1. [ ] diagnostics: YAML line/column source map
 배경: 현재 diagnostic source는 `filePath#pointer` 수준이라 큰 YAML에서 작성자 UX가 제한됨.
 작업: YAML AST 기반 line/column 매핑 가능성을 확인하고, parser/ref graph/schema validation diagnostic에 단계적으로 연결.
 완료 기준: 대표 YAML 입력에서 diagnostic이 file, pointer, line, column을 함께 노출하고 JSON 입력 동작은 유지됨.
 
-### 3. [ ] codegen: TypegenOptions/SchemaToTsOptions 공개 API 정리
+### 2. [ ] codegen: TypegenOptions/SchemaToTsOptions 공개 API 정리
 배경: `TypegenOptions`는 `codegen/typegen` 서브 엔트리에만 export되고, `SchemaToTsOptions`는 미노출 상태.
 작업: 메인 index에서 재export할지, 서브 엔트리 전용 API로 유지할지 결정하고 API index를 갱신.
 완료 기준: 공개 surface가 문서와 export 테스트에 반영되고, 내부 옵션 타입이 의도치 않게 노출되지 않음.
 
-### 4. [ ] router/client: ResponseHeaders 활용
+### 3. [ ] router/client: ResponseHeaders 활용
 배경: typegen은 `XxxResponseHeaders`를 생성하지만 router/client 런타임 API는 아직 타입을 적극 활용하지 않음.
 작업: router에서 응답 header 삽입 helper 또는 stub 힌트를 강화하고, client에서 `res.headers` 타입 안전 접근 경로를 제공.
 완료 기준: 생성된 Op 타입의 `headers`가 router/client 사용 예제와 테스트에서 실제로 소비됨.
@@ -56,6 +50,12 @@ US-001/003 baseline 확인: typegen external alias 분석은 외부 YAML/JSON �
 ---
 
 ## 최근 완료
+
+### [x] codegen: 외부 `$defs` / 비 components schema alias 정책
+외부 YAML/JSON schema-position `$ref` alias 정책을 components-only에서 schema object target으로 확장.
+`#/components/schemas/*`, `#/$defs/*`, `#/schemas/*`, `#/models/*` 같은 비 components schema root는 generated alias로 정규화한다.
+alias 이름은 JSON Pointer 마지막 segment를 사용하고, 기존 file-stem 기반 deterministic rename과 resolver diagnostic/source metadata 보존 규칙을 유지한다.
+`$defs`와 비 components root의 nested internal ref도 absolute file+pointer identity로 rewrite해 source 외부 문서 기준 alias를 가리키도록 테스트로 고정.
 
 ### [x] codegen CLI: 증분 validate/typegen 연결
 `oa-gen validate`와 `oa-gen typegen`에 opt-in `--incremental --cache-dir` 옵션을 추가.
