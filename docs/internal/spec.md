@@ -182,14 +182,22 @@ Registry는 duplicate id 외에도 source ref diagnostic을 만든다. 유효한
 
 Component-like kind의 output 위치는 고정 매핑이다: `schema -> #/components/schemas`, `response -> #/components/responses`, `parameter -> #/components/parameters`, `requestBody -> #/components/requestBodies`, `header -> #/components/headers`, `link -> #/components/links`, `callback -> #/components/callbacks`, `securityScheme -> #/components/securitySchemes`. 출력명 segment는 JSON Pointer escaping을 적용한다. Missing/unsupported source ref는 registry diagnostic을 그대로 보존하고 rewrite하지 않으므로 build emit 단계는 `valid` registry만 OpenAPI 문서로 내보내야 한다.
 
+#### Target-local output naming (US-006)
+
+`allocateDefinitionOutputNames()`는 target bundle에 포함된 `DefinitionRegistryNode` 목록만 입력으로 받아 output component name을 할당한다. Allocation은 전역 cache나 canonical id별 singleton을 사용하지 않으므로 같은 canonical id가 public/admin/internal target에 동시에 포함되어도 각 target은 독립적으로 `outputNames` map을 갖는다. Canonical ID는 변경하지 않고, build emit/rewrite 단계는 allocation 결과를 `rewriteDefinitionOutputRefs({ outputNames })`에 주입한다.
+
+정책 순서는 target-local이다. Explicit alias map에 canonical id가 있으면 그 이름을 우선 사용하고 alias metadata reason은 `explicit-alias`가 된다. Alias가 없는 component-like definition은 같은 kind 안에서 local name이 unique하면 `localName`을 그대로 보존하고 reason은 `preserve-if-unique`다. Alias가 없는 동일 kind/local name이 target 안에서 둘 이상이면 domain prefix를 붙여 `schema:public/book/Note -> BookNote`, `schema:public/notebook/Note -> NotebookNote`처럼 만들고 reason은 `domain-prefix`다. Explicit alias로 충돌이 해소된 나머지 node는 다시 preserve-if-unique 대상이 될 수 있다.
+
+Allocation 결과는 `outputNames: Map<CanonicalDefinitionId, string>`, `aliases: DefinitionOutputAliasMetadata[]`, `aliasById: Map<CanonicalDefinitionId, DefinitionOutputAliasMetadata>`를 함께 낸다. Alias metadata는 canonical id, kind, scope, domain, localName, outputName, policy reason을 보존해 build report나 downstream generator가 source identity와 output component name을 추적할 수 있게 한다. 최종 output name이 같은 component section 안에서 둘 이상의 canonical id에 매핑되면 자동 병합하지 않고 `definition-output-name/collision` error diagnostic을 만든다.
+
 | 개념 | 계획 |
 |------|------|
 | Canonical identity | `kind:scope/domain/name` 고정 계층. 예: `schema:public/book/Note`, `schema:public/notebook/Note`, `schema:shared/common/Error`. source identity와 output component name을 분리 |
 | Definition registry | fragment를 unique node로 등록하고 JSON Pointer-aware `$ref` edge, content hash, source path/pointer, duplicate id diagnostics를 수집 |
 | Source refs | `oa://schema/public/book/Note` 같은 canonical ref와 상대 file ref를 canonical id로 정규화 |
 | Output refs | registry `targetId`를 build target의 output name과 kind별 component 위치로 변환해 `#/components/schemas/{OutputName}` 같은 표준 OpenAPI ref로 rewrite |
-| Naming policy | `preserve-if-unique`, `domain-prefix`, explicit alias. `book.Note`와 `notebook.Note`는 source name을 바꾸지 않고 `BookNote`/`NotebookNote`처럼 출력명만 분리 |
-| Namespace scope | 이름 충돌 해결은 target server → domain → local name 순서로 처리. 같은 local name이라도 target bundle마다 포함 집합이 다르므로 output name allocation은 target-local이어야 함 |
+| Naming policy | target-local `allocateDefinitionOutputNames()`가 explicit alias, `preserve-if-unique`, `domain-prefix`를 적용. `book.Note`와 `notebook.Note`는 source name을 바꾸지 않고 `BookNote`/`NotebookNote`처럼 출력명만 분리 |
+| Namespace scope | 이름 충돌 해결은 target server의 포함 node 집합 안에서 kind → domain → local name 순서로 처리. 같은 local name이라도 target bundle마다 포함 집합이 다르므로 output name allocation은 target-local임 |
 | Flattening guard | `schema:public/a/Name`과 `schema:public/aname/Name`은 flatten 결과가 같을 수 있어도 다른 canonical identity다. builder는 string flattening만으로 동치 추론을 하지 않고 `output-name-collision`으로 보고 |
 | Collision simulation | public/admin/internal target fixture에서 rename, `schema:public/a/Name` vs `schema:public/aname/Name` output collision, structural duplicate warning, duplicate canonical id error를 machine-readable report로 검증 |
 | Dedupe policy | duplicate canonical id는 error. 동일 구조 hash는 warning/info only. 의미가 다른 정의는 자동 structural dedupe 금지. deeper hierarchy는 canonical path가 아니라 metadata/tag로 표현 |

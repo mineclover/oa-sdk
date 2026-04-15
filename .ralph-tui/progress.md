@@ -6,6 +6,7 @@ after each iteration and it's included in prompts for context.
 ## Codebase Patterns (Study These First)
 
 *Add reusable patterns discovered during development here.*
+- Output name allocation should run per target over that target's included registry nodes, emit a canonical-id keyed `outputNames` map plus alias metadata, and then feed the map into output `$ref` rewriting instead of storing global canonical-id aliases.
 - Output `$ref` rewrite should key off registry ref-edge source path/pointer/raw-ref triples and resolved `targetId`, while keeping output naming injectable through a target-local map/callback for later naming policy work.
 - Definition ref resolution should run after unique node registration so canonical refs can be checked against the full `nodeById` set and file refs can resolve through a source-path/pointer index.
 - Definition registry graph construction should reuse the parser's JSON Pointer-aware `$ref` traversal and attach source coordinates through an optional lookup callback instead of embedding YAML parsing in registry code.
@@ -114,4 +115,24 @@ after each iteration and it's included in prompts for context.
   - The current schema merge pipeline only scans `src/domains`, so definition-builder fixtures can live under `src/fragments` without changing emitted `.merged.yaml`.
   - `tsx scripts/*.ts` opens a local IPC pipe in this environment and fails with `listen EPERM`; `node --import tsx scripts/*.ts` executes the same one-shot scripts without that IPC path.
   - Codegen and schema validation consume built parser/codegen dist in some paths, so public parser export changes should be followed by the normal build/schema validation gates.
+---
+
+## 2026-04-16 - US-006
+- Implemented target-local output name allocation in the parser with preserve-if-unique, domain-prefix, and explicit alias policies.
+- Added alias metadata for each allocated component-like definition, mapping canonical id to output name, source segments, and policy reason through both array and by-id map forms.
+- Added final output name collision diagnostics so colliding canonical ids are reported rather than merged.
+- Added parser tests for unique names, same local name across domains, explicit aliases, same canonical id across different target allocations, and output ref rewrite integration with allocated names.
+- Updated internal spec, API index, and todo docs for US-006 completion and remaining target bundle follow-up.
+- Files changed:
+  - `packages/parser/src/definition-output-names.ts`
+  - `packages/parser/src/__tests__/definition-output-names.test.ts`
+  - `packages/parser/src/index.ts`
+  - `docs/internal/spec.md`
+  - `docs/internal/api-index.md`
+  - `docs/internal/todo.md`
+  - `.ralph-tui/progress.md`
+- **Learnings:**
+  - Target-local allocation is simplest as a pure function over included registry nodes; callers decide the target boundary by choosing the input node set.
+  - Explicit aliases should be applied before preserve/domain-prefix fallback so a manual alias can resolve a local-name collision without forcing every remaining node through domain prefixing.
+  - Final output name collision checks still need to run after all policies because explicit aliases can create component-section collisions.
 ---

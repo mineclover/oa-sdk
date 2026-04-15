@@ -106,6 +106,17 @@ export type {
   DefinitionOutputRefRewriteResult,
 } from './definition-output-refs.js'
 
+// ─── Definition Output Names ──────────────────────────────────────────────
+export { allocateDefinitionOutputNames } from './definition-output-names.js'
+export type {
+  DefinitionOutputAliasMetadata,
+  DefinitionOutputNameAllocationOptions,
+  DefinitionOutputNameAllocationResult,
+  DefinitionOutputNameDiagnostic,
+  DefinitionOutputNameDiagnosticCode,
+  DefinitionOutputNamePolicyReason,
+} from './definition-output-names.js'
+
 // ─── Lint ─────────────────────────────────────────────────────────────────
 export { lintDocument } from './lint.js'
 export type { LintResult, LintSeverity, LintOptions } from './lint.js'

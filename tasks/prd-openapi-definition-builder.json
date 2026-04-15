@@ -164,11 +164,12 @@
         "pnpm build:scripts && pnpm check:api-index passes."
       ],
       "priority": 6,
-      "passes": false,
+      "passes": true,
       "notes": "This is target-local output naming only. It must not change canonical IDs.",
       "dependsOn": [
         "US-003"
-      ]
+      ],
+      "completionNotes": "Completed by agent"
     },
     {
       "id": "US-007",
@@ -394,6 +395,6 @@
     }
   ],
   "metadata": {
-    "updatedAt": "2026-04-15T20:36:48.410Z"
+    "updatedAt": "2026-04-15T20:46:19.629Z"
   }
 }

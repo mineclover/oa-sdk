@@ -3,10 +3,10 @@
   "sessionId": "bc493007-f3e5-4f3d-9d12-884ba17d48c6",
   "status": "running",
   "startedAt": "2026-04-15T19:54:02.104Z",
-  "updatedAt": "2026-04-15T20:36:48.410Z",
-  "currentIteration": 4,
+  "updatedAt": "2026-04-15T20:46:19.629Z",
+  "currentIteration": 5,
   "maxIterations": 0,
-  "tasksCompleted": 4,
+  "tasksCompleted": 5,
   "isPaused": false,
   "agentPlugin": "codex",
   "trackerState": {
@@ -41,8 +41,8 @@
       {
         "id": "US-005",
         "title": "Rewrite output OpenAPI refs",
-        "status": "open",
-        "completedInSession": false
+        "status": "completed",
+        "completedInSession": true
       },
       {
         "id": "US-006",
@@ -140,6 +140,16 @@
       "durationMs": 551510,
       "startedAt": "2026-04-15T20:21:08.171Z",
       "endedAt": "2026-04-15T20:30:19.681Z"
+    },
+    {
+      "iteration": 5,
+      "status": "completed",
+      "taskId": "US-005",
+      "taskTitle": "Rewrite output OpenAPI refs",
+      "taskCompleted": true,
+      "durationMs": 387013,
+      "startedAt": "2026-04-15T20:30:21.395Z",
+      "endedAt": "2026-04-15T20:36:48.408Z"
     }
   ],
   "skippedTaskIds": [],
