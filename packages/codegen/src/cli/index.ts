@@ -15,8 +15,9 @@ import { generate } from './commands/generate.js'
 import { lint } from './commands/lint.js'
 import { validate } from './commands/validate.js'
 import { dev } from './commands/dev.js'
+import { buildSpecCommand } from './commands/build-spec.js'
 
-const commands: Command[] = [generate, typegen, router, client, dev, lint, validate]
+const commands: Command[] = [generate, typegen, router, client, buildSpecCommand, dev, lint, validate]
 const commandMap = new Map(commands.map(c => [c.name, c]))
 
 // ── 디스패치 ────────────────────────────────────────────────

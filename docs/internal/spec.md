@@ -9,7 +9,7 @@
 ```
 core         ← 공유 유틸 (문자열, 코드젠, 포맷, 응답 상태, HTTP 서버)
 parser       ← core. OAS 3.2 파서 + IR + fold + lint + validate + query
-codegen      ← core + parser (+ router, client: optional peer). CLI 7커맨드
+codegen      ← core + parser (+ router, client: optional peer). CLI 8커맨드
 mock-server  ← core + parser. AJV 검증 + 어댑터 + 테스트 헬퍼
 router       ← core + parser. Hono/Express 스텁
 client       ← core + parser. fetch SDK + SSE
@@ -89,7 +89,7 @@ schemas      ← 독립. OAS 소스 + merge + 3.1↔3.2 변환
 | WorkspaceIndex | 파일 hash/component/ref/source/diagnostic/type alias metadata용 index 경계. 기본 noop은 모든 파일을 dirty 처리해 기존 full rebuild 동작 유지 |
 | SQLiteWorkspaceIndex | `.oa-cache/state.sqlite`에 index row를 보존. `better-sqlite3` primary + `node:sqlite` fallback driver를 사용하며 WAL/foreign key/transaction, schema/options mismatch 또는 DB 오류 시 full rebuild fallback |
 | Workspace dirty detection | entry/domain/profile/external ref 파일 scan → new/modified/deleted/unchanged 분류 → refs.to_file 역방향 dirty 전파 → stale row invalidation |
-| CLI | 커맨드 모듈 구조. `generate`/`typegen`/`router`/`client`/`lint`/`validate`/`dev`/`--help`; `validate`/`typegen`은 opt-in `--incremental --cache-dir`, `dev`는 watch mode에서 같은 index path 사용. `lint`/`validate` diagnostic은 YAML source map이 있으면 `file:line:column`을 출력하고 target `file#pointer` fallback을 유지 |
+| CLI | 커맨드 모듈 구조. `generate`/`typegen`/`router`/`client`/`build-spec`/`lint`/`validate`/`dev`/`--help`; `validate`/`typegen`은 opt-in `--incremental --cache-dir`, `dev`는 watch mode에서 같은 index path 사용. `lint`/`validate` diagnostic은 YAML source map이 있으면 `file:line:column`을 출력하고 target `file#pointer` fallback을 유지 |
 
 ### Resolver baseline (US-001) / Shared contract (US-002) / External cache alignment (US-003)
 
@@ -270,6 +270,27 @@ Renamed definitions는 output document root extension `x-oa-sdk-definition-alias
 
 Fixture target `packages/schemas/src/targets/book-notebook-api.yaml`은 `/books/{bookId}/notes`와 `/notebooks/{notebookId}/notes`를 함께 include해 `schema:public/book/Note`와 `schema:public/notebook/Note` source-name collision이 emitted components에서 `BookNote`/`NotebookNote`로 분리되는 것을 검증한다. 기존 `.merged.yaml`은 이 story에서 교체하지 않고 기존 merge pipeline과 병렬로 둔다.
 
+#### Definition builder CLI (US-012)
+
+`oa-gen build-spec`는 target config와 definition fragments를 읽어 selected target OpenAPI 3.2 artifact를 생성한다. CLI는 `@oa-sdk/codegen`에 위치하며 parser의 public builder primitives를 조합한다. 기본 fragment directory는 target file sibling 기준 `../fragments`이고, 필요하면 `--fragments`로 override한다.
+
+```bash
+oa-gen build-spec \
+  --target packages/schemas/src/targets/book-notebook-api.yaml \
+  --output artifacts/book-notebook-api.yaml \
+  --diagnostics artifacts/book-notebook-api.diagnostics.json \
+  --collision-report artifacts/book-notebook-api.collisions.json
+```
+
+Options:
+- `--target, -t`: target config YAML/JSON path. `name`, `scopes`, `domains`, `servers`, `includePaths`, optional `namingPolicy.aliases`를 사용한다.
+- `--fragments`: definition fragments root. 생략하면 target config의 sibling `../fragments`를 사용한다.
+- `--output, -o`: valid build일 때 쓸 OpenAPI YAML artifact path. 생략하면 YAML을 stdout으로 출력한다.
+- `--diagnostics`: registry/target/output-name/emit diagnostics를 담은 JSON sidecar path. 실패해도 기록한다.
+- `--collision-report`: target-local naming collision report JSON path. `canonicalId`, `targetName`, `kind`, `scope`, `domain`, `localName`, `outputName`, `reason`, `severity` row array를 기록한다.
+
+CLI build는 fragment `content` 기준 SHA-256 hash를 생성해 registry에 넘기고 YAML source location index를 연결해 duplicate/ref diagnostics에 source coordinates를 보강한다. Duplicate canonical id, missing/unsupported source ref, target disallowed ref, output name collision, unrewritten ref, emitted document validation error 중 하나라도 `error` severity이면 artifact output은 쓰지 않고 exit code 1로 종료한다. Diagnostics/collision sidecar는 실패한 CI run에서도 분석할 수 있도록 output artifact와 독립적으로 작성한다.
+
 | 개념 | 계획 |
 |------|------|
 | Canonical identity | `kind:scope/domain/name` 고정 계층. 예: `schema:public/book/Note`, `schema:public/notebook/Note`, `schema:shared/common/Error`. source identity와 output component name을 분리 |
@@ -283,6 +304,7 @@ Fixture target `packages/schemas/src/targets/book-notebook-api.yaml`은 `/books/
 | Dedupe policy | duplicate canonical id는 error. 동일 schema hash는 기본 info diagnostic only. 의미가 다른 정의는 자동 structural dedupe 금지. opt-in semantic dedupe는 `metadata.semanticAliasOf`와 registry `semanticAliases`로만 표현 |
 | Target bundle | `name`, `scopes`, `domains`, `servers`, `includePaths`, `namingPolicy.aliases` format으로 선언. `selectDefinitionTarget()`가 exact path match + transitive ref walk + target-local output name allocation을 수행하고 OpenAPI emit에 넘긴다 |
 | OpenAPI emit | `emitDefinitionOpenApiDocument()`가 selected target을 OAS 3.2 document로 materialize하고 rewritten local `$ref`만 허용. Alias metadata는 root extension 또는 result sidecar report로 제공 |
+| Definition builder CLI | `oa-gen build-spec --target ... --output ... --diagnostics ... --collision-report ...`가 target OpenAPI artifact와 machine-readable sidecar를 생성. Duplicate canonical id 또는 unresolved source ref는 non-zero exit |
 | Migration | 기존 `packages/schemas/scripts/merge.ts`는 유지하고, builder는 병렬 output으로 검증한 뒤 `.merged.yaml` 대체 여부 결정 |
 
 패키지 책임: `@oa-sdk/schemas`는 fragment layout/target config/fixtures/migration을 소유하고, `@oa-sdk/parser`는 validation/source/ref graph primitive를 제공하며, `@oa-sdk/codegen`은 `oa-gen build-spec` CLI와 WorkspaceIndex 연동을 소유한다.
@@ -297,6 +319,7 @@ PRD: [tasks/prd-openapi-definition-builder.md](../../tasks/prd-openapi-definitio
 ```bash
 pnpm --filter @oa-sdk/schemas run merge            # 도메인 병합
 pnpm schema:validate                               # merge + 3.1 변환 + Spectral/Redocly + oa-gen validate
+oa-gen build-spec --target packages/schemas/src/targets/book-notebook-api.yaml -o artifacts/book-notebook-api.yaml --diagnostics artifacts/book-notebook-api.diagnostics.json --collision-report artifacts/book-notebook-api.collisions.json
 oa-gen validate --spec .merged.yaml                # 종합 검증
 oa-gen validate --spec .merged.yaml --incremental --cache-dir .oa-cache
 oa-gen lint --spec .merged.yaml                    # 린트만
@@ -363,7 +386,7 @@ pnpm demo  # API 구조 + Mock 12시나리오 + 커버리지
 |------|------|------|
 | Build | 7 패키지 + CI 스크립트 | tsup ESM 빌드 |
 | Typecheck | 7 패키지 + playground | tsc --noEmit strict |
-| Test | 8 패키지 + playground | vitest 1665 케이스 |
+| Test | 8 패키지 + playground | vitest 1688 케이스 |
 | Schema validate | schemas + oa-gen | 도메인 병합 + 3.1 변환 + Spectral/Redocly + 3.2 자체 검증 표준 파이프라인 |
 | Freshness check | 산출물 | git diff --exit-code |
 | API index | docs ↔ code | root export 정합성 + codegen typegen option subpath 검증 |
@@ -376,12 +399,12 @@ pnpm demo  # API 구조 + Mock 12시나리오 + 커버리지
 | 패키지 | 케이스 |
 |--------|--------|
 | core | 52 |
-| parser | 230 |
-| codegen | 495 |
+| parser | 237 |
+| codegen | 499 |
 | mock-server | 580 |
 | playground | 114 |
 | router | 36 |
 | client | 39 |
-| schemas | 77 |
+| schemas | 78 |
 | typia-mock | 53 |
-| **합계** | **1676** |
+| **합계** | **1688** |

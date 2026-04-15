@@ -7,6 +7,7 @@ after each iteration and it's included in prompts for context.
 
 *Add reusable patterns discovered during development here.*
 - OpenAPI emit should consume `selectDefinitionTarget()` output directly: build a temporary selected registry for target-local ref rewrite, emit path nodes by `metadata.path`, group component-like nodes by kind/output name, and keep alias/collision metadata as sidecar/root extension rather than mutating canonical ids.
+- Builder CLI artifact commands should write diagnostics/collision sidecars independently of the main output artifact so CI failure runs still preserve machine-readable debugging data while invalid OpenAPI YAML is not refreshed.
 - Target selection should stay a pure registry subgraph operation: exact path metadata selects roots, registry ref edges drive recursive inclusion, scope/domain policy gates cross-target leaks, and output name allocation runs only after the selected node set is known.
 - Structural duplicate policy belongs in the registry as a non-fatal schema `contentHash` diagnostic while preserving canonical-id keyed nodes; explicit semantic dedupe should be represented separately as `metadata.semanticAliasOf` -> `semanticAliases`.
 - Path-flattening collision tests can simulate a risky attempted naming policy through explicit allocator aliases, then assert registry nodes and `outputNames` stay canonical-id keyed while failure is reported only through output-name collision diagnostics.
@@ -263,4 +264,25 @@ after each iteration and it's included in prompts for context.
   - Target emit can stay a parser-layer pure function by reusing the selected target result instead of introducing a separate builder state model.
   - Ref rewrite should happen before path/component placement so OAS 3.2 fields can be preserved with a single object traversal and no field allowlist.
   - Alias metadata is safer as output/report metadata than as changes to canonical ids; the emitted artifact can explain `BookNote`/`NotebookNote` while keeping source identity stable.
+---
+
+## 2026-04-16 - US-012
+- Implemented `oa-gen build-spec --target ...` in `@oa-sdk/codegen`.
+- Added target config + fragment loading, target sibling `../fragments` default discovery, optional `--fragments`, OpenAPI YAML `--output`, JSON `--diagnostics`, and JSON `--collision-report`.
+- Made the CLI exit non-zero when builder diagnostics include duplicate canonical IDs, unresolved source refs, target selection errors, output name collisions, unrewritten refs, or emitted document validation errors.
+- Added CLI tests for help coverage, successful artifact/report generation, duplicate canonical ID failure, and unresolved required ref failure.
+- Updated internal spec/todo docs for CLI usage, sidecar output behavior, story completion, and migration follow-up.
+- Files changed:
+  - `packages/codegen/src/cli/lib/build-spec.ts`
+  - `packages/codegen/src/cli/commands/build-spec.ts`
+  - `packages/codegen/src/cli/index.ts`
+  - `packages/codegen/src/cli/lib/help.ts`
+  - `packages/codegen/src/__tests__/cli-build-spec.test.ts`
+  - `docs/internal/spec.md`
+  - `docs/internal/todo.md`
+  - `.ralph-tui/progress.md`
+- **Learnings:**
+  - Existing CLI tests execute `dist/cli/index.js`, so new CLI scenarios need parser/codegen build output refreshed before test runs.
+  - `emitDefinitionOpenApiDocument()` intentionally does not include registry diagnostics, so CLI-level diagnostics must combine fragment load, registry, target/allocation, and emit diagnostics before deciding exit status.
+  - Content hashes for fragment registry loading should hash only the `content` object, not the whole YAML file, so source identity/metadata changes do not hide structural duplicates.
 ---

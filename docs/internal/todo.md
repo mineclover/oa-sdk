@@ -9,12 +9,12 @@
 
 ## 다음 세션 실행 순서
 
-현재 ralph PRD 기준 OpenAPI definition builder의 canonical ID grammar/parser(US-001), fragment definition node model(US-002), registry graph/ref edge collection(US-003), source canonical/file ref resolution(US-004), output `$ref` rewrite(US-005), target-local output naming(US-006), server/domain collision simulation(US-007), path flattening guard simulation(US-008), duplicate/dedupe policy(US-009), target bundle configuration/selection(US-010), selected target OpenAPI 3.2 emit(US-011)은 완료되었고, 다음 blocking 목표는 새 emit 결과를 CLI/script artifact로 병렬 검증하는 단계다.
+현재 ralph PRD 기준 OpenAPI definition builder의 canonical ID grammar/parser(US-001), fragment definition node model(US-002), registry graph/ref edge collection(US-003), source canonical/file ref resolution(US-004), output `$ref` rewrite(US-005), target-local output naming(US-006), server/domain collision simulation(US-007), path flattening guard simulation(US-008), duplicate/dedupe policy(US-009), target bundle configuration/selection(US-010), selected target OpenAPI 3.2 emit(US-011), CLI artifact build entry(US-012)은 완료되었다. 다음 blocking 목표는 기존 domain merge artifact와 builder artifact를 병렬 비교하고 `.merged.yaml` 대체 여부를 결정하는 migration 단계다.
 
-### [ ] OpenAPI definition builder: CLI and migration plan
+### [ ] OpenAPI definition builder: migration comparison plan
 배경: 현재 `packages/schemas/scripts/merge.ts`를 즉시 제거하지 않고 새 builder를 병렬 검증해야 함.
-작업: `oa-gen build-spec --target ...` 또는 동등 script 추가, diagnostics/output path 지원, 현재 domain merge에서 fragment builder로 가는 migration 문서화.
-완료 기준: 기존 `.merged.yaml` path는 유지하면서 builder output을 별도 artifact로 검증 가능함.
+작업: 기존 `.merged.yaml` domain merge output과 `oa-gen build-spec --target ...` output을 target별로 비교하고, CI에서 어느 artifact를 source of truth로 검증할지 migration 기준을 문서화.
+완료 기준: 기존 `.merged.yaml` path는 유지하면서 builder output을 별도 artifact로 검증하고, 차이/대체 조건/rollback 조건이 명확함.
 
 ### [ ] 운영 관찰: SQLite optional native dependency 설치성
 배경: `better-sqlite3`는 증분 WorkspaceIndex의 primary driver지만 native optional dependency라 환경별 설치 실패 가능성이 있음.
@@ -34,6 +34,11 @@
 ---
 
 ## 완료된 실행 항목
+
+### [x] OpenAPI definition builder: CLI artifact build entry
+배경: target selection과 OpenAPI emit이 parser에 구현되었으므로 로컬/CI에서 target config를 지정해 builder artifact와 sidecar reports를 생성할 entry가 필요함.
+완료: `@oa-sdk/codegen` CLI에 `oa-gen build-spec --target ...` 커맨드를 추가함. Target config sibling `../fragments`를 기본 fragment root로 사용하고 `--fragments`로 override할 수 있으며, valid build는 `--output` OpenAPI YAML artifact 또는 stdout으로 출력한다. `--diagnostics`는 registry/target/output-name/emit diagnostics JSON을 실패 시에도 기록하고, `--collision-report`는 target-local naming collision report row array를 machine-readable JSON으로 기록한다.
+완료 기준: duplicate canonical id, missing/unsupported source ref, target disallowed ref, output name collision, unrewritten ref, emitted document validation error가 있으면 output artifact를 쓰지 않고 exit code 1로 종료함. CLI tests가 success artifact/report 생성, duplicate canonical ID failure, unresolved required ref failure를 검증함. Public package exports는 변경하지 않아 `docs/internal/api-index.md` 업데이트는 불필요함.
 
 ### [x] OpenAPI definition builder: OpenAPI document emit
 배경: target selection 결과를 기존 `.merged.yaml` 교체 없이 병렬 검증 가능한 OpenAPI 3.2 artifact로 만들 수 있어야 함.

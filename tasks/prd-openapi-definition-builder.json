@@ -337,11 +337,12 @@
         "pnpm build:scripts && pnpm check:api-index passes."
       ],
       "priority": 12,
-      "passes": false,
+      "passes": true,
       "notes": "CLI likely belongs in @oa-sdk/codegen while fixtures/layout remain in @oa-sdk/schemas.",
       "dependsOn": [
         "US-011"
-      ]
+      ],
+      "completionNotes": "Completed by agent"
     },
     {
       "id": "US-013",
@@ -400,6 +401,6 @@
     }
   ],
   "metadata": {
-    "updatedAt": "2026-04-15T21:34:39.448Z"
+    "updatedAt": "2026-04-15T21:47:57.660Z"
   }
 }

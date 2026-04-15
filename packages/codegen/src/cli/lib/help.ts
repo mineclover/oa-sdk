@@ -21,17 +21,35 @@ export function generateHelp(commands: Command[]): string {
   lines.push('')
   lines.push('Option details:')
 
-  // 커맨드별 옵션 모아서 중복 제거
-  const seen = new Map<string, string>()
+  // 커맨드별 옵션을 모으되, 같은 flag가 다른 의미로 쓰이면 커맨드 scope를 표시한다.
+  const seen = new Map<string, {
+    flag: string
+    descriptions: Map<string, string[]>
+  }>()
   for (const cmd of commands) {
     for (const [key, opt] of Object.entries(cmd.options)) {
-      if (!seen.has(key)) {
-        const flag = opt.short ? `--${key}, -${opt.short}` : `--${key}`
-        seen.set(key, `  ${flag.padEnd(24)} ${opt.description}`)
+      const flag = opt.short ? `--${key}, -${opt.short}` : `--${key}`
+      const entry = seen.get(key) ?? { flag, descriptions: new Map<string, string[]>() }
+      const commandsForDescription = entry.descriptions.get(opt.description)
+      if (commandsForDescription) {
+        commandsForDescription.push(cmd.name)
+      } else {
+        entry.descriptions.set(opt.description, [cmd.name])
       }
+      seen.set(key, entry)
     }
   }
-  for (const line of seen.values()) lines.push(line)
+  for (const entry of seen.values()) {
+    if (entry.descriptions.size === 1) {
+      const [description] = entry.descriptions.keys()
+      lines.push(`  ${entry.flag.padEnd(24)} ${description}`)
+      continue
+    }
+
+    for (const [description, commandNames] of entry.descriptions) {
+      lines.push(`  ${entry.flag.padEnd(24)} [${commandNames.join(', ')}] ${description}`)
+    }
+  }
 
   lines.push('')
   return lines.join('\n')

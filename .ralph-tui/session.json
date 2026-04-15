@@ -3,10 +3,10 @@
   "sessionId": "bc493007-f3e5-4f3d-9d12-884ba17d48c6",
   "status": "running",
   "startedAt": "2026-04-15T19:54:02.104Z",
-  "updatedAt": "2026-04-15T21:34:39.448Z",
-  "currentIteration": 10,
+  "updatedAt": "2026-04-15T21:47:57.660Z",
+  "currentIteration": 11,
   "maxIterations": 0,
-  "tasksCompleted": 10,
+  "tasksCompleted": 11,
   "isPaused": false,
   "agentPlugin": "codex",
   "trackerState": {
@@ -77,8 +77,8 @@
       {
         "id": "US-011",
         "title": "Emit OpenAPI 3.2 document from registry",
-        "status": "open",
-        "completedInSession": false
+        "status": "completed",
+        "completedInSession": true
       },
       {
         "id": "US-012",
@@ -200,6 +200,16 @@
       "durationMs": 662936,
       "startedAt": "2026-04-15T21:12:00.188Z",
       "endedAt": "2026-04-15T21:23:03.124Z"
+    },
+    {
+      "iteration": 11,
+      "status": "completed",
+      "taskId": "US-011",
+      "taskTitle": "Emit OpenAPI 3.2 document from registry",
+      "taskCompleted": true,
+      "durationMs": 694577,
+      "startedAt": "2026-04-15T21:23:04.870Z",
+      "endedAt": "2026-04-15T21:34:39.447Z"
     }
   ],
   "skippedTaskIds": [],
