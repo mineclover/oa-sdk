@@ -8,6 +8,7 @@ after each iteration and it's included in prompts for context.
 *Add reusable patterns discovered during development here.*
 - Resolver baseline tests should cover parser graph/deref behavior separately from codegen alias behavior: parser owns ref traversal/deref semantics, while typegen calls `resolveRefGraph()` for external schema aliases and passes `refNameOverrides` into `schemaToTs()`.
 - Keep low-level `$ref` mechanics in parser-only contracts: `RefResolver` returns a `RefResolution` value object with kind, cache keys, document root, source pointer, pointer/file metadata, and diagnostic, while callers keep traversal/folding behavior local.
+- Typegen external schema aliases need two ref identities: raw `$ref` overrides only for entry-document refs, and canonical absolute file+pointer refs for external schema internals rewritten by sourceFilePath/sourcePointer before `schemaToTs()`.
 
 ---
 
@@ -44,4 +45,29 @@ after each iteration and it's included in prompts for context.
   - `resolveRefGraph()` owns graph traversal and node shaping; the shared resolver should only return resolution facts and diagnostics.
   - `derefSpec()` owns sibling merge and cycle strategy; the shared resolver supplies the same cache key and diagnostic vocabulary used by the graph path.
   - Full `pnpm test` and `pnpm schema:validate` are blocked in this sandbox by `listen EPERM` for local sockets/tsx IPC, while parser-focused checks and full typecheck pass.
+---
+
+## 2026-04-15 - US-003
+- Centralized codegen external schema loading on the shared `resolveRefGraph()` path by removing the `derefSpec()` fallback in `analyzeExternalSchemaRefs()`.
+- Added source-file metadata to resolver diagnostics and ref graph nodes, and made external-document internal ref cache keys file-qualified.
+- Rewrote nested external schema refs to canonical absolute file+pointer identities so identical raw relative refs from different source documents resolve deterministically.
+- Preserved resolver diagnostic codes/source metadata in typegen external schema diagnostics and added coverage for cache reuse, source metadata, nested source-relative refs, and missing file/pointer failures.
+- Files changed:
+  - `packages/parser/src/ref-resolver.ts`
+  - `packages/parser/src/ref-graph.ts`
+  - `packages/parser/src/lint.ts`
+  - `packages/parser/src/__tests__/ref-resolver-contract.test.ts`
+  - `packages/parser/src/__tests__/ref-graph.test.ts`
+  - `packages/parser/src/__tests__/lint.test.ts`
+  - `packages/codegen/src/typegen/generate-types.ts`
+  - `packages/codegen/src/__tests__/typegen/generate-types.test.ts`
+  - `docs/internal/spec.md`
+  - `docs/internal/api-index.md`
+  - `docs/internal/todo.md`
+  - `.ralph-tui/progress.md`
+- **Learnings:**
+  - Codegen imports `@oa-sdk/parser` through the built package entry during tests, so parser dist must be rebuilt after parser public type/runtime changes before running codegen checks.
+  - Raw relative `$ref` strings are not globally unique once traversal enters external documents; sourceFilePath/sourcePointer is needed to attach each nested ref to its resolved file identity.
+  - Name collision analysis should only consider resolved external schema targets, otherwise missing refs can reserve type names or produce misleading collision warnings.
+  - Full `pnpm test`, typia/playground integration tests, and `pnpm schema:validate` remain blocked in this sandbox by `listen EPERM` on localhost or tsx IPC; root typecheck and parser/codegen suites pass.
 ---

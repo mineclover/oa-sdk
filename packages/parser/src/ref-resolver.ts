@@ -15,6 +15,8 @@ export type RefResolverDiagnostic = {
   code: RefResolverDiagnosticCode
   ref: string
   message: string
+  sourcePointer?: string
+  sourceFilePath?: string
   filePath?: string
   pointer?: string
 }
@@ -43,6 +45,7 @@ export type RefResolution = {
   cacheKey: string
   documentCacheKey?: string
   basePath?: string
+  sourceFilePath?: string
   filePath?: string
   pointer?: string
   target?: unknown
@@ -86,19 +89,26 @@ export function createRefResolver(options: RefResolverOptions = {}): RefResolver
 
   function resolveInternalRef(request: ResolveRefRequest, stack: readonly string[]): RefResolution {
     const pointer = request.ref
-    const cacheKey = `<root>${pointer}`
+    const sourceFilePath = request.basePath
     const filePath = includeInternalFilePath && request.basePath && request.basePath !== options.entryPath
       ? request.basePath
       : undefined
+    const cacheKey = filePath ? `${filePath}${pointer}` : `<root>${pointer}`
+    const baseDetails = {
+      cacheKey,
+      pointer,
+      ...(sourceFilePath ? { sourceFilePath } : {}),
+      ...(filePath ? { filePath, documentCacheKey: filePath } : {}),
+    }
 
     if (stack.includes(cacheKey)) {
       return unresolved(request, 'internal', {
         code: 'ref-cycle',
         ref: request.ref,
         message: `순환 $ref 감지: ${request.ref}`,
-        ...(filePath ? { filePath } : {}),
         pointer,
-      }, { cacheKey, pointer, ...(filePath ? { filePath } : {}) })
+        ...(filePath ? { filePath } : {}),
+      }, baseDetails)
     }
 
     const target = resolvePointer(pointer, request.root)
@@ -107,9 +117,9 @@ export function createRefResolver(options: RefResolverOptions = {}): RefResolver
         code: 'ref-not-found',
         ref: request.ref,
         message: `참조 대상을 찾을 수 없습니다: ${request.ref}`,
-        ...(filePath ? { filePath } : {}),
         pointer,
-      }, { cacheKey, pointer, ...(filePath ? { filePath } : {}) })
+        ...(filePath ? { filePath } : {}),
+      }, baseDetails)
     }
 
     return {
@@ -117,12 +127,10 @@ export function createRefResolver(options: RefResolverOptions = {}): RefResolver
       kind: 'internal',
       sourcePointer: request.sourcePointer,
       resolved: true,
-      cacheKey,
-      pointer,
+      ...baseDetails,
       target,
       documentRoot: request.root,
       ...(request.basePath ? { basePath: request.basePath } : {}),
-      ...(filePath ? { filePath } : {}),
     }
   }
 
@@ -148,7 +156,14 @@ export function createRefResolver(options: RefResolverOptions = {}): RefResolver
     const filePath = resolve(dirname(basePath), filePart)
     const pointer = `#${rawPointer}`
     const cacheKey = `${filePath}${pointer}`
-    const baseDetails = { cacheKey, documentCacheKey: filePath, basePath: filePath, filePath, pointer }
+    const baseDetails = {
+      cacheKey,
+      documentCacheKey: filePath,
+      basePath: filePath,
+      sourceFilePath: basePath,
+      filePath,
+      pointer,
+    }
 
     if (stack.includes(cacheKey)) {
       return unresolved(request, 'external', {
@@ -207,6 +222,13 @@ function unresolved(
   diagnostic: RefResolverDiagnostic,
   details: Partial<Omit<RefResolution, 'ref' | 'kind' | 'sourcePointer' | 'resolved' | 'diagnostic'>> = {},
 ): RefResolution {
+  const enrichedDiagnostic = {
+    ...diagnostic,
+    sourcePointer: diagnostic.sourcePointer ?? request.sourcePointer,
+    ...(diagnostic.sourceFilePath !== undefined
+      ? { sourceFilePath: diagnostic.sourceFilePath }
+      : request.basePath ? { sourceFilePath: request.basePath } : {}),
+  }
   return {
     ref: request.ref,
     kind,
@@ -214,7 +236,7 @@ function unresolved(
     resolved: false,
     cacheKey: `unsupported:${request.ref}`,
     ...details,
-    diagnostic,
+    diagnostic: enrichedDiagnostic,
   }
 }
 

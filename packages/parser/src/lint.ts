@@ -28,6 +28,8 @@ export type LintResult = {
   rule: string
   message: string
   source?: {
+    sourceFilePath?: string
+    sourcePointer?: string
     filePath?: string
     pointer?: string
   }
@@ -82,8 +84,10 @@ function diagnosticToLintResult(diagnostic: RefGraphDiagnostic): LintResult {
     rule: diagnostic.code === 'ref-cycle' ? 'refs/cycle' : 'refs/valid-ref',
     message: diagnostic.message,
   }
-  if (diagnostic.filePath || diagnostic.pointer) {
+  if (diagnostic.sourceFilePath || diagnostic.sourcePointer || diagnostic.filePath || diagnostic.pointer) {
     result.source = {}
+    if (diagnostic.sourceFilePath) result.source.sourceFilePath = diagnostic.sourceFilePath
+    if (diagnostic.sourcePointer) result.source.sourcePointer = diagnostic.sourcePointer
     if (diagnostic.filePath) result.source.filePath = diagnostic.filePath
     if (diagnostic.pointer) result.source.pointer = diagnostic.pointer
   }

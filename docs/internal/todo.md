@@ -25,7 +25,7 @@
 
 ### 4. [ ] codegen: 외부 `$defs` / 비 components schema alias 정책
 배경: 외부 `$ref` type alias는 현재 `#/components/schemas/*` 중심으로 안정화됨.
-US-001 baseline 확인: typegen external alias 분석은 외부 YAML/JSON 및 nested external schema를 지원하지만 alias 대상은 `#/components/schemas/*`로 제한되고, low-level resolver 실패 원인은 `external-schema-unresolved`로 축약됨.
+US-001/003 baseline 확인: typegen external alias 분석은 외부 YAML/JSON 및 nested external schema를 지원하지만 alias 대상은 `#/components/schemas/*`로 제한됨. missing/read/pointer 실패는 parser resolver diagnostic code와 source metadata를 보존함.
 작업: `$defs` 또는 다른 schema root를 typegen alias 대상으로 허용할지 결정하고, 허용 시 이름 생성 규칙을 문서화.
 완료 기준: 지원 범위가 명시되고, 지원하는 포인터에는 deterministic type name과 rename warning 테스트가 있음.
 
@@ -71,6 +71,12 @@ US-001 baseline 확인: typegen external alias 분석은 외부 YAML/JSON 및 ne
 ---
 
 ## 최근 완료
+
+### [x] codegen: external ref source identity 정규화
+`analyzeExternalSchemaRefs()`가 shared `resolveRefGraph()` 결과만 사용하고 별도 `derefSpec()` fallback을 제거.
+entry 문서 raw ref는 기존 override로 유지하되, 외부 schema 내부 nested ref는 absolute file+pointer identity로 정규화해
+같은 raw relative ref 문자열이 서로 다른 source document에서 다른 파일을 가리키는 경우에도 안정적으로 타입 alias에 연결.
+missing/read/pointer 실패 diagnostic은 resolver code와 sourceFilePath/sourcePointer/filePath/pointer를 유지.
 
 ### [x] parser/codegen: ref resolver 단일화 심화
 `resolveRefGraph()`와 `derefSpec()`가 parser 내부 `RefResolver` contract를 공유하도록 정리.

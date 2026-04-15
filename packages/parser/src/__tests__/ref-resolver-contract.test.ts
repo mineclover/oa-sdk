@@ -70,6 +70,8 @@ describe('RefResolver contract', () => {
       '      properties:',
       '        id:',
       '          type: string',
+      '    UserId:',
+      '      type: string',
       '',
     ].join('\n'))
     writeFileSync(jsonPath, JSON.stringify({
@@ -106,6 +108,15 @@ describe('RefResolver contract', () => {
         },
       })
       expect(documentCache.has(yamlPath)).toBe(true)
+      expect(documentCache.get(yamlPath)).toBe(yaml.documentRoot)
+
+      const yamlAgain = resolver.resolve({
+        ref: './shared.yaml#/components/schemas/UserId',
+        sourcePointer: '#/paths/~1users/get/responses/200/$ref',
+        root: {},
+        basePath,
+      })
+      expect(yamlAgain.documentRoot).toBe(yaml.documentRoot)
 
       const json = resolver.resolve({
         ref: './role.json#/components/schemas/Role',
@@ -133,7 +144,11 @@ describe('RefResolver contract', () => {
         filePath: yamlPath,
         pointer: '#/components/schemas/Missing',
         resolved: false,
-        diagnostic: { code: 'external-ref-pointer-not-found' },
+        diagnostic: {
+          code: 'external-ref-pointer-not-found',
+          sourceFilePath: basePath,
+          sourcePointer: '#/paths/~1missing/get/responses/200/$ref',
+        },
       })
 
       const circular = resolver.resolve({

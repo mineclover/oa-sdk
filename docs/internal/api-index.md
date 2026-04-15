@@ -119,8 +119,8 @@
 | `OasSchema` | **`@oa-sdk/parser` re-export** | codegen이 parser 정식 타입 사용 |
 | `TypegenOptions` | `typegen/generate-types.ts` | typegen 옵션 (style, annotations, external ref warnings 등) |
 | `ExternalSchemaRefAnalysis` | `typegen/generate-types.ts` | 외부 `$ref` 분석 결과 |
-| `ExternalSchemaRefDiagnostic` | `typegen/generate-types.ts` | 외부 `$ref` 이름 충돌/해소 실패 diagnostic |
-| `ExternalSchemaRefDiagnosticCode` | `typegen/generate-types.ts` | 외부 `$ref` diagnostic 코드 |
+| `ExternalSchemaRefDiagnostic` | `typegen/generate-types.ts` | 외부 `$ref` 이름 충돌/해소 실패 diagnostic. sourceFilePath/sourcePointer + filePath/pointer 포함 가능 |
+| `ExternalSchemaRefDiagnosticCode` | `typegen/generate-types.ts` | 외부 `$ref` diagnostic 코드. resolver diagnostic code도 보존 |
 
 ### 내부 함수 (`@oa-sdk/codegen` — index 미노출)
 

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { parseDocument, type OasDocument } from '@oa-sdk/parser'
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { analyzeExternalSchemaRefs, generateTypes, generateTypesFromSpec } from '../../typegen/generate-types.js'
@@ -202,6 +202,85 @@ describe('analyzeExternalSchemaRefs', () => {
     }
   })
 
+  it('nested external refs resolve relative to the source external document', () => {
+    const tmp = mkdtempSync(join(tmpdir(), 'oa-sdk-typegen-'))
+    const basePath = join(tmp, 'api.yaml')
+    const nestedDir = join(tmp, 'nested')
+    mkdirSync(nestedDir)
+    writeFileSync(join(tmp, 'role.json'), JSON.stringify({
+      components: {
+        schemas: {
+          Role: { type: 'string', enum: ['root'] },
+        },
+      },
+    }))
+    writeFileSync(join(nestedDir, 'shared.yaml'), [
+      'components:',
+      '  schemas:',
+      '    User:',
+      '      type: object',
+      '      required: [role]',
+      '      properties:',
+      '        role:',
+      '          $ref: "./role.json#/components/schemas/Role"',
+      '',
+    ].join('\n'))
+    writeFileSync(join(nestedDir, 'role.json'), JSON.stringify({
+      components: {
+        schemas: {
+          Role: { type: 'string', enum: ['nested'] },
+        },
+      },
+    }))
+
+    try {
+      const input = doc({
+        paths: {
+          '/root-role': {
+            get: {
+              operationId: 'getRootRole',
+              responses: {
+                '200': {
+                  description: 'OK',
+                  content: { 'application/json': { schema: { $ref: './role.json#/components/schemas/Role' } } },
+                },
+              },
+            },
+          },
+          '/user': {
+            get: {
+              operationId: 'getExternalUser',
+              responses: {
+                '200': {
+                  description: 'OK',
+                  content: { 'application/json': { schema: { $ref: './nested/shared.yaml#/components/schemas/User' } } },
+                },
+              },
+            },
+          },
+        },
+      })
+
+      const analysis = analyzeExternalSchemaRefs(input, basePath)
+      const rootRoleName = analysis.refNameOverrides['./role.json#/components/schemas/Role']
+      const userName = analysis.refNameOverrides['./nested/shared.yaml#/components/schemas/User']
+      const nestedRoleEntry = Object.entries(analysis.refNameOverrides)
+        .find(([ref]) => ref.endsWith('/nested/role.json#/components/schemas/Role'))
+      if (!rootRoleName || !userName || !nestedRoleEntry) throw new Error('expected external alias names')
+
+      const [nestedRoleRef, nestedRoleName] = nestedRoleEntry
+      expect(nestedRoleName).not.toBe(rootRoleName)
+      expect((analysis.schemas[userName] as any).properties.role.$ref).toBe(nestedRoleRef)
+
+      const output = generateTypesFromSpec(input, { basePath })
+      expect(output).toContain(`role: ${nestedRoleName}`)
+      expect(output).toContain(`export type GetRootRoleResponse = ${rootRoleName}`)
+      expect(output).toContain(`export type GetExternalUserResponse = ${userName}`)
+    } finally {
+      rmSync(tmp, { recursive: true, force: true })
+    }
+  })
+
   it('typegen missing external schema refs are reported as unresolved analysis diagnostics', () => {
     const tmp = mkdtempSync(join(tmpdir(), 'oa-sdk-typegen-'))
     const basePath = join(tmp, 'api.yaml')
@@ -210,7 +289,18 @@ describe('analyzeExternalSchemaRefs', () => {
     try {
       const result = analyzeExternalSchemaRefs(doc({
         paths: {
-          '/missing': {
+          '/missing-file': {
+            get: {
+              operationId: 'getMissingFile',
+              responses: {
+                '200': {
+                  description: 'OK',
+                  content: { 'application/json': { schema: { $ref: './missing.yaml#/components/schemas/User' } } },
+                },
+              },
+            },
+          },
+          '/missing-pointer': {
             get: {
               operationId: 'getMissing',
               responses: {
@@ -226,12 +316,22 @@ describe('analyzeExternalSchemaRefs', () => {
 
       expect(result.schemas).toEqual({})
       expect(result.refNameOverrides).toEqual({})
-      expect(result.diagnostics).toEqual([
+      expect(result.diagnostics).toEqual(expect.arrayContaining([
         expect.objectContaining({
-          code: 'external-schema-unresolved',
-          ref: './empty.yaml#/components/schemas/User',
+          code: 'external-ref-read-failed',
+          ref: './missing.yaml#/components/schemas/User',
+          sourceFilePath: basePath,
+          sourcePointer: '#/paths/~1missing-file/get/responses/200/content/application~1json/schema/$ref',
+          pointer: '#/components/schemas/User',
         }),
-      ])
+        expect.objectContaining({
+          code: 'external-ref-pointer-not-found',
+          ref: './empty.yaml#/components/schemas/User',
+          sourceFilePath: basePath,
+          sourcePointer: '#/paths/~1missing-pointer/get/responses/200/content/application~1json/schema/$ref',
+          pointer: '#/components/schemas/User',
+        }),
+      ]))
     } finally {
       rmSync(tmp, { recursive: true, force: true })
     }

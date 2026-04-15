@@ -19,6 +19,7 @@ export type RefGraphNode = {
   ref: string
   kind: RefKind
   sourcePointer: string
+  sourceFilePath?: string
   resolved: boolean
   filePath?: string
   pointer?: string
@@ -96,6 +97,7 @@ function toGraphNode(resolution: RefResolution): RefGraphNode {
     ref: resolution.ref,
     kind: resolution.kind,
     sourcePointer: resolution.sourcePointer,
+    ...(resolution.sourceFilePath ? { sourceFilePath: resolution.sourceFilePath } : {}),
     resolved: resolution.resolved,
     ...(resolution.filePath ? { filePath: resolution.filePath } : {}),
     ...(resolution.pointer ? { pointer: resolution.pointer } : {}),

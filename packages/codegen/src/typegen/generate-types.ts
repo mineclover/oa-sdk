@@ -11,8 +11,11 @@ import type {
   OasParameter,
   OasRequestBody,
   OasResponse,
+  RefGraphDiagnostic,
+  RefGraphDiagnosticCode,
+  RefGraphNode,
 } from '@oa-sdk/parser'
-import { derefSpec, isRelativeRef, parseDocument, resolveRefGraph } from '@oa-sdk/parser'
+import { isRelativeRef, parseDocument, resolveRefGraph } from '@oa-sdk/parser'
 import { schemaToTs, type SchemaToTsOptions } from './schema-to-ts.js'
 import { pascalCase, formatGeneratedTs } from '@oa-sdk/core'
 import { basename, extname } from 'node:path'
@@ -36,6 +39,7 @@ export type ExternalSchemaRefDiagnosticCode =
   | 'external-schema-name-collision'
   | 'external-schema-shadows-local'
   | 'external-schema-unresolved'
+  | RefGraphDiagnosticCode
 
 export type ExternalSchemaRefDiagnostic = {
   code: ExternalSchemaRefDiagnosticCode
@@ -44,12 +48,25 @@ export type ExternalSchemaRefDiagnostic = {
   ref?: string
   refs?: string[]
   generatedName?: string
+  sourceFilePath?: string
+  sourcePointer?: string
+  filePath?: string
+  pointer?: string
 }
 
 export type ExternalSchemaRefAnalysis = {
   schemas: Record<string, OasSchema>
   refNameOverrides: Record<string, string>
   diagnostics: ExternalSchemaRefDiagnostic[]
+}
+
+type RefGraphNodeWithSource = RefGraphNode & {
+  sourceFilePath?: string
+}
+
+type RefGraphDiagnosticWithSource = RefGraphDiagnostic & {
+  sourceFilePath?: string
+  sourcePointer?: string
 }
 
 /** ParsedDocument IR 기반 (deref 후). $ref가 해결된 상태. */
@@ -238,14 +255,16 @@ export function analyzeExternalSchemaRefs(spec: OasDocument, basePath: string): 
   const schemaNodes = graph.nodes
     .filter(node => isSchemaRefNode(node))
     .filter((node, index, nodes) => nodes.findIndex(n => refIdentity(n) === refIdentity(node)) === index)
-    .sort((a, b) => refIdentity(a).localeCompare(refIdentity(b)))
-  const refList = schemaNodes.map(node => node.ref)
+    .sort((a, b) => refIdentity(a).localeCompare(refIdentity(b))) as RefGraphNodeWithSource[]
   const diagnostics: ExternalSchemaRefDiagnostic[] = []
   const schemas: Record<string, OasSchema> = {}
   const refNameOverrides: Record<string, string> = {}
   const localNames = new Set(Object.keys(spec.components?.schemas ?? {}))
   const usedNames = new Set(localNames)
-  const refsByName = groupRefsBySchemaName(schemaNodes)
+  const resolvedSchemaNodes = schemaNodes.filter(node => isSchemaObject(node.target))
+  const refsByName = groupRefsBySchemaName(resolvedSchemaNodes)
+  const resolvedNamesByIdentity = new Map<string, string>()
+  const refIdentityBySource = new Map<string, string>()
 
   for (const [name, groupRefs] of refsByName) {
     if (groupRefs.length <= 1) continue
@@ -258,8 +277,11 @@ export function analyzeExternalSchemaRefs(spec: OasDocument, basePath: string): 
   }
 
   for (const node of schemaNodes) {
-    const ref = node.ref
-    const baseName = schemaNameFromRef(ref)
+    refIdentityBySource.set(sourceRefKey(node.sourceFilePath, node.sourcePointer), refIdentity(node))
+  }
+
+  for (const node of resolvedSchemaNodes) {
+    const baseName = schemaNameFromRef(node.ref)
     if (!baseName) continue
 
     const collidesWithExternal = (refsByName.get(baseName)?.length ?? 0) > 1
@@ -269,35 +291,52 @@ export function analyzeExternalSchemaRefs(spec: OasDocument, basePath: string): 
       : baseName
     const generatedName = uniqueTypeName(preferredName, usedNames)
     usedNames.add(generatedName)
+    resolvedNamesByIdentity.set(refIdentity(node), generatedName)
 
     if (shadowsLocal) {
       diagnostics.push({
         code: 'external-schema-shadows-local',
         name: baseName,
-        ref,
+        ref: node.ref,
         generatedName,
-        message: `외부 스키마 이름이 로컬 component와 충돌: ${baseName} (${ref}). ${generatedName} 타입명으로 생성합니다.`,
+        ...(node.sourceFilePath ? { sourceFilePath: node.sourceFilePath } : {}),
+        sourcePointer: node.sourcePointer,
+        ...(node.filePath ? { filePath: node.filePath } : {}),
+        ...(node.pointer ? { pointer: node.pointer } : {}),
+        message: `외부 스키마 이름이 로컬 component와 충돌: ${baseName} (${node.ref}). ${generatedName} 타입명으로 생성합니다.`,
       })
+    }
+  }
+
+  for (const node of schemaNodes) {
+    const baseName = schemaNameFromRef(node.ref)
+    const generatedName = resolvedNamesByIdentity.get(refIdentity(node))
+    if (!baseName) continue
+
+    if (generatedName && isSchemaObject(node.target)) {
+      refNameOverrides[refIdentity(node)] = generatedName
+      if (node.sourceFilePath === basePath) refNameOverrides[node.ref] = generatedName
+      schemas[generatedName] = rewriteSchemaRefs(
+        node.target as OasSchema,
+        node.filePath ?? node.sourceFilePath,
+        node.pointer,
+        refIdentityBySource,
+        resolvedNamesByIdentity,
+      )
+      continue
     }
 
-    const resolved = node.target ?? derefSpec({ $ref: ref }, { basePath }) as unknown
-    if (isSchemaObject(resolved)) {
-      schemas[generatedName] = resolved as OasSchema
-      refNameOverrides[ref] = generatedName
-    } else {
-      diagnostics.push({
-        code: 'external-schema-unresolved',
-        name: baseName,
-        ref,
-        message: `외부 스키마를 해소할 수 없습니다: ${ref}`,
-      })
-    }
+    diagnostics.push(toExternalSchemaDiagnostic(
+      node,
+      baseName,
+      findDiagnosticForNode(graph.diagnostics, node),
+    ))
   }
 
   return { schemas, refNameOverrides, diagnostics }
 }
 
-function isSchemaRefNode(node: { kind: string; ref: string; pointer?: string; filePath?: string }): boolean {
+function isSchemaRefNode(node: RefGraphNodeWithSource): boolean {
   if (node.kind === 'external') return isRelativeRef(node.ref) && node.ref.includes('#/components/schemas/')
   return !!node.filePath && node.ref.startsWith('#/components/schemas/')
 }
@@ -308,6 +347,101 @@ function emptyExternalSchemaAnalysis(): ExternalSchemaRefAnalysis {
 
 function schemaNameFromRef(ref: string): string | undefined {
   return ref.split('/').pop()
+}
+
+function findDiagnosticForNode(
+  diagnostics: RefGraphDiagnostic[],
+  node: RefGraphNodeWithSource,
+): RefGraphDiagnosticWithSource | undefined {
+  const identity = refIdentity(node)
+  return (diagnostics as RefGraphDiagnosticWithSource[]).find(diagnostic =>
+    refIdentity(diagnostic) === identity
+    && (diagnostic.sourcePointer ?? node.sourcePointer) === node.sourcePointer
+  )
+}
+
+function toExternalSchemaDiagnostic(
+  node: RefGraphNodeWithSource,
+  baseName: string,
+  resolverDiagnostic?: RefGraphDiagnosticWithSource,
+): ExternalSchemaRefDiagnostic {
+  const sourceFilePath = resolverDiagnostic?.sourceFilePath ?? node.sourceFilePath
+  const sourcePointer = resolverDiagnostic?.sourcePointer ?? node.sourcePointer
+  const filePath = resolverDiagnostic?.filePath ?? node.filePath
+  const pointer = resolverDiagnostic?.pointer ?? node.pointer
+
+  return {
+    code: resolverDiagnostic?.code ?? 'external-schema-unresolved',
+    name: baseName,
+    ref: node.ref,
+    message: resolverDiagnostic?.message ?? `외부 스키마를 해소할 수 없습니다: ${node.ref}`,
+    ...(sourceFilePath ? { sourceFilePath } : {}),
+    sourcePointer,
+    ...(filePath ? { filePath } : {}),
+    ...(pointer ? { pointer } : {}),
+  }
+}
+
+function rewriteSchemaRefs(
+  schema: OasSchema,
+  sourceFilePath: string | undefined,
+  rootPointer: string | undefined,
+  refIdentityBySource: Map<string, string>,
+  resolvedNamesByIdentity: Map<string, string>,
+): OasSchema {
+  return rewriteRefsAt(
+    schema,
+    sourceFilePath,
+    rootPointer ?? '#',
+    refIdentityBySource,
+    resolvedNamesByIdentity,
+  ) as OasSchema
+}
+
+function rewriteRefsAt(
+  value: unknown,
+  sourceFilePath: string | undefined,
+  currentPointer: string,
+  refIdentityBySource: Map<string, string>,
+  resolvedNamesByIdentity: Map<string, string>,
+): unknown {
+  if (Array.isArray(value)) {
+    return value.map((item, index) => rewriteRefsAt(
+      item,
+      sourceFilePath,
+      `${currentPointer}/${index}`,
+      refIdentityBySource,
+      resolvedNamesByIdentity,
+    ))
+  }
+
+  if (!value || typeof value !== 'object') return value
+
+  const result: Record<string, unknown> = {}
+  for (const [key, child] of Object.entries(value)) {
+    const childPointer = `${currentPointer}/${escapePointerSegment(key)}`
+    if (key === '$ref' && typeof child === 'string') {
+      const identity = refIdentityBySource.get(sourceRefKey(sourceFilePath, childPointer))
+      result[key] = identity && resolvedNamesByIdentity.has(identity) ? identity : child
+      continue
+    }
+    result[key] = rewriteRefsAt(
+      child,
+      sourceFilePath,
+      childPointer,
+      refIdentityBySource,
+      resolvedNamesByIdentity,
+    )
+  }
+  return result
+}
+
+function sourceRefKey(sourceFilePath: string | undefined, sourcePointer: string): string {
+  return `${sourceFilePath ?? '<entry>'}|${sourcePointer}`
+}
+
+function escapePointerSegment(segment: string): string {
+  return segment.replace(/~/g, '~0').replace(/\//g, '~1')
 }
 
 function groupRefsBySchemaName(refs: Array<{ ref: string; filePath?: string }>): Map<string, string[]> {

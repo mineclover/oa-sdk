@@ -121,6 +121,8 @@ describe('lint — refs', () => {
       }), { categories: ['refs'], basePath })
 
       const refError = results.find(r => r.rule === 'refs/valid-ref')
+      expect(refError?.source?.sourceFilePath).toBe(basePath)
+      expect(refError?.source?.sourcePointer).toBe('#/paths/~1a/get/responses/200/content/application~1json/schema/$ref')
       expect(refError?.source?.filePath?.endsWith('missing.yaml')).toBe(true)
       expect(refError?.source?.pointer).toBe('#/components/schemas/User')
     } finally {

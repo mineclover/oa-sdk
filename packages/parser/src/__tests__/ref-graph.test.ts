@@ -74,6 +74,11 @@ describe('resolveRefGraph', () => {
 
       expect(graph.diagnostics.some(d => d.code === 'external-ref-read-failed' && d.filePath?.endsWith('missing.yaml'))).toBe(true)
       expect(graph.diagnostics.some(d => d.code === 'external-ref-pointer-not-found' && d.pointer === '#/components/schemas/User')).toBe(true)
+      expect(graph.diagnostics.some(d =>
+        d.code === 'external-ref-read-failed'
+        && d.sourceFilePath === basePath
+        && d.sourcePointer === '#/paths/~1file/get/responses/200/content/application~1json/schema/$ref'
+      )).toBe(true)
     } finally {
       rmSync(tmp, { recursive: true, force: true })
     }

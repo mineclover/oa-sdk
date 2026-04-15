@@ -77,20 +77,20 @@ schemas      ← 독립. OAS 소스 + merge + 3.1↔3.2 변환
 | typegen readOnly | `readOnly: true` → `readonly` 수식어 |
 | typegen deprecated | `deprecated: true` → `@deprecated` JSDoc |
 | typegen annotations | `annotations` 객체 → `includeAnnotations` 옵션으로 `@note`/`@see` JSDoc |
-| typegen external refs | 외부 YAML/JSON `$ref` schema alias 생성, 이름 충돌 시 파일명 기반 deterministic rename + 경고 |
+| typegen external refs | 외부 YAML/JSON `$ref` schema alias 생성, nested relative ref source 기준 해소, 이름 충돌 시 파일명 기반 deterministic rename + 경고 |
 | typegen 중복 방지 | schema 이름과 Op 타입 이름 충돌 시 schema 우선, 중복 생성 방지 |
 | typegen const 중첩 | 중첩 프로퍼티의 `const` → 리터럴 타입 정규화 |
 | additionalProperties | `Record<string, T>` + index signature 타입 생성 |
 | CLI | 커맨드 모듈 구조. `generate`/`typegen`/`router`/`client`/`lint`/`validate`/`dev`/`--help` |
 
-### Resolver baseline (US-001) / Shared contract (US-002)
+### Resolver baseline (US-001) / Shared contract (US-002) / External cache alignment (US-003)
 
 | Surface | 현재 코드 경로 | 고정한 동작 |
 |---------|----------------|-------------|
-| `RefResolver` | `packages/parser/src/ref-resolver.ts`의 `createRefResolver()` → `resolvePointer()` + external YAML/JSON document cache | parser 내부 contract. internal/external/unsupported kind, JSON Pointer, cache key/document cache key, source pointer, file/pointer metadata, missing/circular/read-failed diagnostic을 단일 결과 객체로 반환. public index에는 export하지 않음 |
+| `RefResolver` | `packages/parser/src/ref-resolver.ts`의 `createRefResolver()` → `resolvePointer()` + external YAML/JSON document cache | parser 내부 contract. internal/external/unsupported kind, JSON Pointer, cache key/document cache key, source file/pointer, target file/pointer metadata, missing/circular/read-failed diagnostic을 단일 결과 객체로 반환. public index에는 export하지 않음 |
 | `resolveRefGraph()` | `packages/parser/src/ref-graph.ts`의 `collectRefs()` traversal → 공유 `RefResolver` | 내부 ref, 외부 YAML/JSON ref, 외부 파일 내부 nested ref를 graph node로 기록. 누락 pointer/read 실패와 순환은 diagnostic으로 기록하며 `$ref` sibling 내부 ref도 계속 수집 |
 | `derefSpec()` | `packages/parser/src/deref.ts`의 `DerefFolder.foldRef()` → 공유 `RefResolver` + deref file cache/stack | 내부/외부 YAML/JSON ref를 인라인 전개하고 외부 파일 내부 상대 ref는 해당 파일 기준으로 해소. missing ref는 원본 `$ref` node 유지. 기본 cycle은 `{}`로 절단하고 `cycleStrategy: preserve-ref`는 ref 유지. `$ref` sibling은 해소 결과에 병합 |
-| typegen external refs | `generateTypesFromSpec()` → `parseDocument()`(deref 없음) → `analyzeExternalSchemaRefs()` → `resolveRefGraph()` → `schemaToTs(refNameOverrides)` | 외부 `#/components/schemas/*` YAML/JSON schema를 generated alias로 추가. nested external schema alias도 생성. 이름 충돌/로컬 shadow는 deterministic rename warning. 해소 실패는 `external-schema-unresolved` diagnostic |
+| typegen external refs | `generateTypesFromSpec()` → `parseDocument()`(deref 없음) → `analyzeExternalSchemaRefs()` → `resolveRefGraph()` → `schemaToTs(refNameOverrides)` | 외부 `#/components/schemas/*` YAML/JSON schema를 generated alias로 추가. nested external schema alias도 생성. raw ref override는 entry 문서 ref에만 쓰고, 외부 schema 내부 ref는 absolute file+pointer identity로 정규화해 source 문서 기준 상대 경로를 보존. 이름 충돌/로컬 shadow는 deterministic rename warning. missing/read/pointer 실패는 resolver diagnostic code와 source metadata를 유지 |
 
 ## `@oa-sdk/router` ✅
 
@@ -189,7 +189,7 @@ pnpm demo  # API 구조 + Mock 12시나리오 + 커버리지
 |------|------|------|
 | Build | 7 패키지 + CI 스크립트 | tsup ESM 빌드 |
 | Typecheck | 7 패키지 + playground | tsc --noEmit strict |
-| Test | 8 패키지 + playground | vitest 1586 케이스 |
+| Test | 8 패키지 + playground | vitest 1587 케이스 |
 | Schema validate | schemas + oa-gen | 도메인 병합 + 3.1 변환 + Spectral/Redocly + 3.2 자체 검증 표준 파이프라인 |
 | Freshness check | 산출물 | git diff --exit-code |
 | API index | docs ↔ code | export 정합성 검증 |
@@ -203,11 +203,11 @@ pnpm demo  # API 구조 + Mock 12시나리오 + 커버리지
 |--------|--------|
 | core | 51 |
 | parser | 195 |
-| codegen | 466 |
+| codegen | 467 |
 | mock-server | 561 |
 | playground | 114 |
 | router | 35 |
 | client | 36 |
 | schemas | 75 |
 | typia-mock | 53 |
-| **합계** | **1586** |
+| **합계** | **1587** |
