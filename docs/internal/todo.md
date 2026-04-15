@@ -9,12 +9,12 @@
 
 ## 다음 세션 실행 순서
 
-현재 ralph PRD 기준 US-001~US-022는 모두 완료됨. OpenAPI definition builder의 canonical ID grammar/parser(US-001)와 fragment definition node model(US-002)은 완료되었고, 다음 blocking 목표는 registry graph와 ref edge collection이다.
+현재 ralph PRD 기준 US-001~US-022는 모두 완료됨. OpenAPI definition builder의 canonical ID grammar/parser(US-001), fragment definition node model(US-002), registry graph/ref edge collection(US-003)은 완료되었고, 다음 blocking 목표는 source ref resolution과 output `$ref` rewrite이다.
 
-### [ ] OpenAPI definition builder: registry graph + ref resolver
-배경: `$ref`는 구성요소 정의를 연결하는 그래프 edge이므로 build 전에 canonical ref graph를 수집해야 함.
-작업: fragment registry, ref edge collection, `oa://schema/public/book/Note` canonical ref 지원, 상대 file ref 정규화, missing/unsupported diagnostic 구현.
-완료 기준: registry graph가 transitive refs를 수집하고 source path/pointer를 보존함.
+### [ ] OpenAPI definition builder: source ref resolution + output ref rewrite
+배경: registry graph는 raw/canonical `$ref` edge를 수집하지만, 실제 build output은 canonical id를 target-local OpenAPI `$ref`로 rewrite해야 함.
+작업: `oa://schema/public/book/Note` canonical ref 해소, 상대 file ref canonical id 정규화, missing/unsupported diagnostic, schema ref의 `#/components/schemas/{OutputName}` rewrite 구현.
+완료 기준: canonical ref, relative file ref, missing ref, nested ref rewrite가 테스트되고 diagnostic source path/pointer가 보존됨.
 
 ### [ ] OpenAPI definition builder: output naming and collision simulation
 배경: 같은 local name `Note`라도 book note와 notebook note는 의미가 다를 수 있어 source 정의를 바꾸지 않고 output naming으로 충돌을 해결해야 함.
@@ -49,6 +49,11 @@
 ---
 
 ## 완료된 실행 항목
+
+### [x] OpenAPI definition builder: registry graph + ref edge collection
+배경: `$ref`는 구성요소 정의를 연결하는 그래프 edge이므로 build 전에 fragment registry에서 raw source refs와 duplicate id를 분석해야 함.
+완료: `@oa-sdk/parser`에 public `DefinitionRegistry`, `DefinitionRegistryRefEdge`, `DefinitionRegistryDiagnostic` 모델과 `createDefinitionRegistry()` / `collectDefinitionRefs()`를 추가함. Registry는 unique canonical id node map을 만들고 duplicate canonical id를 error diagnostic으로 보고하며, fragment content를 JSON Pointer-aware traversal로 순회해 `$ref` edge와 canonical `oa://...` target id를 수집함.
+완료 기준: node registration, ref edge collection, duplicate canonical id rejection이 parser 테스트로 검증됨.
 
 ### [x] OpenAPI definition builder: fragment definition node model
 배경: Canonical ID가 확정되었으므로 각 fragment가 source metadata, refs, content hash, classification metadata를 운반할 node 모델이 필요함.

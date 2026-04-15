@@ -162,12 +162,18 @@ Valid fixture IDs: `schema:public/book/Note`, `schema:public/notebook/Note`, `sc
 
 `DefinitionNode`는 `@oa-sdk/parser`의 public primitive로, fragment source를 registry에 올리기 전 canonical identity와 diagnostics용 source metadata를 함께 운반한다. `createDefinitionNode()`는 canonical id를 `DefinitionId`로 파싱해 `kind`, `scope`, `domain`, `localName`을 채우고, `sourcePath`, `sourcePointer`, `contentHash`, `content`, optional `metadata`, `refs`를 그대로 보존한다.
 
-`DefinitionRef`는 fragment content 안에서 발견한 source ref를 나타낸다. `createDefinitionRef()`는 raw `ref`, `sourcePath`, `sourcePointer`를 보존하고, target canonical id가 이미 알려진 경우 `targetId`로 저장한다. `metadata`는 target server, tags, feature flag, ownership 같은 classification 정보를 위한 optional field이며 canonical id 계층(`kind:scope/domain/name`)에는 포함하지 않는다. 실제 ref 수집, duplicate 검사, canonical/file ref resolution은 후속 registry graph 단계가 담당한다.
+`DefinitionRef`는 fragment content 안에서 발견한 source ref를 나타낸다. `createDefinitionRef()`는 raw `ref`, `sourcePath`, `sourcePointer`를 보존하고, target canonical id가 이미 알려진 경우 `targetId`로 저장한다. `metadata`는 target server, tags, feature flag, ownership 같은 classification 정보를 위한 optional field이며 canonical id 계층(`kind:scope/domain/name`)에는 포함하지 않는다. Canonical/file ref resolution과 output `$ref` rewrite는 후속 builder 단계가 담당한다.
+
+#### Definition registry graph (US-003)
+
+`createDefinitionRegistry()`는 `DefinitionNode` 목록을 registry graph로 등록한다. `nodes`와 `nodeById`는 첫 번째 unique canonical id만 보존하고, 같은 canonical id가 다시 들어오면 `definition-registry/duplicate-id` error diagnostic을 만든다. Duplicate diagnostic은 중복 node의 `sourcePath`/`sourcePointer`와 최초 등록 node의 `firstSourcePath`/`firstSourcePointer`를 함께 담고, `lookupSourceLocation`이 제공되면 양쪽 line/column도 보강한다.
+
+Registry ref collection은 `collectDefinitionRefs()`가 담당한다. Fragment `content`를 `#/content/properties/error~1detail/$ref`처럼 JSON Pointer escaping 규칙을 지키며 순회해 `$ref` 문자열을 `DefinitionRef`로 수집하고, registry는 이를 `DefinitionRegistryRefEdge`로 변환한다. `oa://schema/shared/common/Error`처럼 유효한 canonical source ref는 edge/ref의 `targetId`를 `schema:shared/common/Error`로 보존한다. 상대 file ref 해소, missing/unsupported ref diagnostic, output `$ref` rewrite는 다음 builder 단계의 책임이다.
 
 | 개념 | 계획 |
 |------|------|
 | Canonical identity | `kind:scope/domain/name` 고정 계층. 예: `schema:public/book/Note`, `schema:public/notebook/Note`, `schema:shared/common/Error`. source identity와 output component name을 분리 |
-| Definition registry | fragment를 node로 등록하고 `$ref` edge, content hash, source path/pointer, diagnostics를 수집 |
+| Definition registry | fragment를 unique node로 등록하고 JSON Pointer-aware `$ref` edge, content hash, source path/pointer, duplicate id diagnostics를 수집 |
 | Source refs | `oa://schema/public/book/Note` 같은 canonical ref와 상대 file ref를 canonical id로 정규화 |
 | Output refs | build target에서 `#/components/schemas/{OutputName}` 같은 표준 OpenAPI ref로 rewrite |
 | Naming policy | `preserve-if-unique`, `domain-prefix`, explicit alias. `book.Note`와 `notebook.Note`는 source name을 바꾸지 않고 `BookNote`/`NotebookNote`처럼 출력명만 분리 |

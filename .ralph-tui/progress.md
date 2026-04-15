@@ -6,10 +6,30 @@ after each iteration and it's included in prompts for context.
 ## Codebase Patterns (Study These First)
 
 *Add reusable patterns discovered during development here.*
+- Definition registry graph construction should reuse the parser's JSON Pointer-aware `$ref` traversal and attach source coordinates through an optional lookup callback instead of embedding YAML parsing in registry code.
 - Canonical identity parsing should stay a parser primitive with structured diagnostics; registry/node construction can build on parsed `DefinitionId` without reimplementing grammar checks.
 - Definition builder primitives should keep pure fragment identity/source metadata models separate from registry graph and ref resolution so later stories can add behavior without changing the data contract.
 - One-shot TypeScript schema scripts should use `node --import tsx` instead of the `tsx` CLI wrapper when the environment may block local IPC listeners.
 
+---
+
+## 2026-04-16 - US-003
+- Implemented a public parser definition registry graph with unique node registration, canonical id node lookup, ref edge collection, and registry diagnostics.
+- Added JSON Pointer-aware `$ref` collection from fragment `content`, including escaped object keys, array indexes, and valid `oa://...` canonical refs normalized into `targetId`.
+- Added duplicate canonical id rejection with diagnostics that preserve duplicate and first-source path/pointer plus optional line/column coordinates.
+- Updated internal spec, API index, and todo docs to mark registry graph/ref edge collection complete and leave source ref resolution/output rewrite as the next step.
+- Files changed:
+  - `packages/parser/src/definition-registry.ts`
+  - `packages/parser/src/index.ts`
+  - `packages/parser/src/__tests__/definition-registry.test.ts`
+  - `docs/internal/spec.md`
+  - `docs/internal/api-index.md`
+  - `docs/internal/todo.md`
+  - `.ralph-tui/progress.md`
+- **Learnings:**
+  - `collectRefs()` already provides the JSON Pointer escaping behavior the registry needs, so registry code can stay focused on graph data and diagnostics.
+  - Keeping duplicate-id detection in the registry layer lets `DefinitionNode` remain a reusable fragment primitive while registry construction rejects ambiguous graph state.
+  - `DefinitionRegistryDiagnostic` should carry both duplicate and first-source coordinates because the actionable fix often requires comparing two fragment files.
 ---
 
 ## 2026-04-16 - US-002

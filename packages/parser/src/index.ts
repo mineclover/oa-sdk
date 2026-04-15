@@ -81,6 +81,18 @@ export type {
   DefinitionRef,
 } from './definition-node.js'
 
+// ─── Definition Registry ──────────────────────────────────────────────────
+export { collectDefinitionRefs, createDefinitionRegistry } from './definition-registry.js'
+export type {
+  DefinitionRegistry,
+  DefinitionRegistryDiagnostic,
+  DefinitionRegistryDiagnosticCode,
+  DefinitionRegistryDiagnosticSeverity,
+  DefinitionRegistryNode,
+  DefinitionRegistryOptions,
+  DefinitionRegistryRefEdge,
+} from './definition-registry.js'
+
 // ─── Lint ─────────────────────────────────────────────────────────────────
 export { lintDocument } from './lint.js'
 export type { LintResult, LintSeverity, LintOptions } from './lint.js'
