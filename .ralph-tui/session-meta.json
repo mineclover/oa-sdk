@@ -1,0 +1,14 @@
+{
+  "id": "e8849d83-1320-49c1-ae10-67ec6dcb0ba9",
+  "status": "running",
+  "startedAt": "2026-04-14T23:31:02.577Z",
+  "updatedAt": "2026-04-14T23:31:02.577Z",
+  "agentPlugin": "codex",
+  "trackerPlugin": "json",
+  "prdPath": "./tasks/prd.json",
+  "currentIteration": 0,
+  "maxIterations": 0,
+  "totalTasks": 0,
+  "tasksCompleted": 0,
+  "cwd": "/Users/junwoobang/workflow/oa-sdk"
+}

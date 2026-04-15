@@ -3,7 +3,7 @@ import { parseDocument, type OasDocument } from '@oa-sdk/parser'
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
-import { analyzeExternalSchemaRefs, generateTypes } from '../../typegen/generate-types.js'
+import { analyzeExternalSchemaRefs, generateTypes, generateTypesFromSpec } from '../../typegen/generate-types.js'
 
 function doc(overrides: Partial<OasDocument> = {}): OasDocument {
   return {
@@ -134,6 +134,104 @@ describe('analyzeExternalSchemaRefs', () => {
       expect(result.diagnostics.some(d => d.code === 'external-schema-name-collision')).toBe(true)
       expect(result.refNameOverrides['./a.yaml#/components/schemas/User']).toBe('AUser')
       expect(result.refNameOverrides['./b.yaml#/components/schemas/User']).toBe('BUser')
+    } finally {
+      rmSync(tmp, { recursive: true, force: true })
+    }
+  })
+
+  it('typegen 외부 YAML/JSON 및 nested external schema alias 동작을 고정한다', () => {
+    const tmp = mkdtempSync(join(tmpdir(), 'oa-sdk-typegen-'))
+    const basePath = join(tmp, 'api.yaml')
+    writeFileSync(join(tmp, 'shared.yaml'), [
+      'components:',
+      '  schemas:',
+      '    User:',
+      '      type: object',
+      '      required: [role]',
+      '      properties:',
+      '        role:',
+      '          $ref: "./role.json#/components/schemas/Role"',
+      '',
+    ].join('\n'))
+    writeFileSync(join(tmp, 'role.json'), JSON.stringify({
+      components: {
+        schemas: {
+          Role: { type: 'string', enum: ['admin', 'user'] },
+        },
+      },
+    }))
+
+    try {
+      const warnings: string[] = []
+      const output = generateTypesFromSpec(doc({
+        paths: {
+          '/user': {
+            get: {
+              operationId: 'getExternalUser',
+              responses: {
+                '200': {
+                  description: 'OK',
+                  content: { 'application/json': { schema: { $ref: './shared.yaml#/components/schemas/User' } } },
+                },
+              },
+            },
+          },
+          '/role': {
+            get: {
+              operationId: 'getExternalRole',
+              responses: {
+                '200': {
+                  description: 'OK',
+                  content: { 'application/json': { schema: { $ref: './role.json#/components/schemas/Role' } } },
+                },
+              },
+            },
+          },
+        },
+      }), { basePath, warnings })
+
+      expect(output).toContain('export type Role =')
+      expect(output).toContain("'admin' | 'user'")
+      expect(output).toContain('export type User =')
+      expect(output).toContain('role: Role')
+      expect(output).toContain('export type GetExternalUserResponse = User')
+      expect(output).toContain('export type GetExternalRoleResponse = Role')
+      expect(warnings).toHaveLength(0)
+    } finally {
+      rmSync(tmp, { recursive: true, force: true })
+    }
+  })
+
+  it('typegen missing external schema refs are reported as unresolved analysis diagnostics', () => {
+    const tmp = mkdtempSync(join(tmpdir(), 'oa-sdk-typegen-'))
+    const basePath = join(tmp, 'api.yaml')
+    writeFileSync(join(tmp, 'empty.yaml'), 'components:\n  schemas: {}\n')
+
+    try {
+      const result = analyzeExternalSchemaRefs(doc({
+        paths: {
+          '/missing': {
+            get: {
+              operationId: 'getMissing',
+              responses: {
+                '200': {
+                  description: 'OK',
+                  content: { 'application/json': { schema: { $ref: './empty.yaml#/components/schemas/User' } } },
+                },
+              },
+            },
+          },
+        },
+      }), basePath)
+
+      expect(result.schemas).toEqual({})
+      expect(result.refNameOverrides).toEqual({})
+      expect(result.diagnostics).toEqual([
+        expect.objectContaining({
+          code: 'external-schema-unresolved',
+          ref: './empty.yaml#/components/schemas/User',
+        }),
+      ])
     } finally {
       rmSync(tmp, { recursive: true, force: true })
     }

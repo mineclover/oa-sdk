@@ -1,0 +1,132 @@
+{
+  "version": 1,
+  "sessionId": "e8849d83-1320-49c1-ae10-67ec6dcb0ba9",
+  "status": "running",
+  "startedAt": "2026-04-14T23:31:02.637Z",
+  "updatedAt": "2026-04-15T01:41:38.490Z",
+  "currentIteration": 0,
+  "maxIterations": 0,
+  "tasksCompleted": 0,
+  "isPaused": false,
+  "agentPlugin": "codex",
+  "trackerState": {
+    "plugin": "json",
+    "prdPath": "./tasks/prd.json",
+    "totalTasks": 18,
+    "tasks": [
+      {
+        "id": "US-001",
+        "title": "Audit resolver paths and lock baseline behavior",
+        "status": "open",
+        "completedInSession": false
+      },
+      {
+        "id": "US-002",
+        "title": "Define shared RefResolver contract",
+        "status": "open",
+        "completedInSession": false
+      },
+      {
+        "id": "US-003",
+        "title": "Centralize external document loading and cache",
+        "status": "open",
+        "completedInSession": false
+      },
+      {
+        "id": "US-004",
+        "title": "Migrate resolveRefGraph to shared resolver",
+        "status": "open",
+        "completedInSession": false
+      },
+      {
+        "id": "US-005",
+        "title": "Migrate derefSpec to shared resolver",
+        "status": "open",
+        "completedInSession": false
+      },
+      {
+        "id": "US-006",
+        "title": "Align typegen external refs with shared resolver",
+        "status": "open",
+        "completedInSession": false
+      },
+      {
+        "id": "US-007",
+        "title": "Define external $defs alias policy",
+        "status": "open",
+        "completedInSession": false
+      },
+      {
+        "id": "US-008",
+        "title": "Implement deterministic aliases for supported non-component refs",
+        "status": "open",
+        "completedInSession": false
+      },
+      {
+        "id": "US-009",
+        "title": "Build YAML source location index",
+        "status": "open",
+        "completedInSession": false
+      },
+      {
+        "id": "US-010",
+        "title": "Attach line and column to diagnostics",
+        "status": "open",
+        "completedInSession": false
+      },
+      {
+        "id": "US-011",
+        "title": "Decide public export surface for typegen options",
+        "status": "open",
+        "completedInSession": false
+      },
+      {
+        "id": "US-012",
+        "title": "Add codegen export regression coverage",
+        "status": "open",
+        "completedInSession": false
+      },
+      {
+        "id": "US-013",
+        "title": "Use response header types in router generation",
+        "status": "open",
+        "completedInSession": false
+      },
+      {
+        "id": "US-014",
+        "title": "Expose typed response headers in client API",
+        "status": "open",
+        "completedInSession": false
+      },
+      {
+        "id": "US-015",
+        "title": "Implement multipart encoding validation",
+        "status": "open",
+        "completedInSession": false
+      },
+      {
+        "id": "US-016",
+        "title": "Implement Links metadata and typegen support",
+        "status": "open",
+        "completedInSession": false
+      },
+      {
+        "id": "US-017",
+        "title": "Implement callback URL evaluation and mock outbound simulation",
+        "status": "open",
+        "completedInSession": false
+      },
+      {
+        "id": "US-018",
+        "title": "Add minimal XML request and response support",
+        "status": "open",
+        "completedInSession": false
+      }
+    ]
+  },
+  "iterations": [],
+  "skippedTaskIds": [],
+  "cwd": "/Users/junwoobang/workflow/oa-sdk",
+  "activeTaskIds": [],
+  "subagentPanelVisible": false
+}

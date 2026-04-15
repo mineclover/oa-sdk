@@ -1,0 +1,528 @@
+{
+  "name": "OA SDK Todo Execution Plan",
+  "description": "Execute the pending docs/internal/todo.md work as ralph-tui user stories, including the adopted SQLite incremental Workspace Index design for change detection and dependency invalidation.",
+  "branchName": "ralph/oa-sdk-todo-execution",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Audit resolver paths and lock baseline behavior",
+      "description": "As an OA SDK maintainer, I want the current resolver behavior mapped and protected by baseline tests so that later refactors do not silently change external ref, sibling, or cycle semantics.",
+      "acceptanceCriteria": [
+        "Identify the current code paths used by resolveRefGraph(), derefSpec(), and typegen external ref handling",
+        "Record the current behavior for internal refs, external YAML refs, external JSON refs, nested external refs, missing refs, circular refs, and $ref sibling preservation",
+        "Add or identify focused baseline tests that fail if existing supported behavior regresses",
+        "Document any discovered behavior gaps in docs/internal/todo.md instead of expanding this story scope",
+        "pnpm typecheck passes",
+        "pnpm test passes",
+        "pnpm schema:validate passes",
+        "If tests are added, removed, or rebalanced by package, update docs/internal/spec.md test counts and relevant status notes",
+        "If public API exports change, update docs/internal/api-index.md",
+        "If a todo is completed or materially changed, update docs/internal/todo.md"
+      ],
+      "priority": 1,
+      "passes": true,
+      "notes": "",
+      "dependsOn": [],
+      "completionNotes": "Completed by agent"
+    },
+    {
+      "id": "US-002",
+      "title": "Define shared RefResolver contract",
+      "description": "As an OA SDK maintainer, I want a shared ref resolver contract so that parser and codegen can use one consistent source of truth for document loading, pointer resolution, caching, and source metadata.",
+      "acceptanceCriteria": [
+        "Define a shared RefResolver interface or equivalent internal abstraction in the parser layer",
+        "The contract covers internal refs, external YAML refs, external JSON refs, JSON Pointer lookup, cache keys, source pointer metadata, missing refs, and circular refs",
+        "The contract does not require public API changes unless explicitly documented",
+        "Existing public behavior of resolveRefGraph() and derefSpec() is unchanged after introducing the contract",
+        "Contract-level tests cover at least one internal ref and one external ref",
+        "pnpm typecheck passes",
+        "pnpm test passes",
+        "pnpm schema:validate passes",
+        "If tests are added, removed, or rebalanced by package, update docs/internal/spec.md test counts and relevant status notes",
+        "If public API exports change, update docs/internal/api-index.md",
+        "If a todo is completed or materially changed, update docs/internal/todo.md"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": "",
+      "dependsOn": [
+        "US-001"
+      ]
+    },
+    {
+      "id": "US-003",
+      "title": "Centralize external document loading and cache",
+      "description": "As an OA SDK maintainer, I want external document loading and caching centralized so that nested external refs are resolved consistently across parser and codegen.",
+      "acceptanceCriteria": [
+        "External YAML and JSON document loading is handled by the shared resolver path",
+        "Relative file refs are resolved deterministically from the source document location",
+        "Repeated refs to the same external document reuse cached parsed content",
+        "Missing external files and invalid external pointers produce diagnostics with stable codes and source metadata",
+        "Tests verify nested external refs and cache reuse or equivalent observable behavior",
+        "pnpm typecheck passes",
+        "pnpm test passes",
+        "pnpm schema:validate passes",
+        "If tests are added, removed, or rebalanced by package, update docs/internal/spec.md test counts and relevant status notes",
+        "If public API exports change, update docs/internal/api-index.md",
+        "If a todo is completed or materially changed, update docs/internal/todo.md"
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": "",
+      "dependsOn": [
+        "US-002"
+      ]
+    },
+    {
+      "id": "US-004",
+      "title": "Migrate resolveRefGraph to shared resolver",
+      "description": "As an OA SDK maintainer, I want resolveRefGraph() to use the shared resolver so that ref graph diagnostics are generated from the same resolution rules as dereferencing and typegen.",
+      "acceptanceCriteria": [
+        "resolveRefGraph() delegates internal and external pointer lookup to the shared resolver",
+        "Ref graph output still includes internal refs, external refs, nested external refs, missing refs, and cycle diagnostics",
+        "Diagnostic source output remains compatible with current tests",
+        "Cycle detection behavior remains compatible with current cycleStrategy semantics",
+        "Tests cover at least one nested external ref graph and one cycle diagnostic",
+        "pnpm typecheck passes",
+        "pnpm test passes",
+        "pnpm schema:validate passes",
+        "If tests are added, removed, or rebalanced by package, update docs/internal/spec.md test counts and relevant status notes",
+        "If public API exports change, update docs/internal/api-index.md",
+        "If a todo is completed or materially changed, update docs/internal/todo.md"
+      ],
+      "priority": 4,
+      "passes": false,
+      "notes": "",
+      "dependsOn": [
+        "US-003"
+      ]
+    },
+    {
+      "id": "US-005",
+      "title": "Migrate derefSpec to shared resolver",
+      "description": "As an OA SDK maintainer, I want derefSpec() to use the shared resolver so that dereferencing preserves $ref sibling semantics and cycle behavior while reducing duplicated traversal logic.",
+      "acceptanceCriteria": [
+        "derefSpec() uses the shared resolver for internal and external pointer resolution",
+        "JSON Schema 2020-12 $ref sibling keywords are preserved exactly as current behavior expects",
+        "Existing cycleStrategy modes continue to behave as documented",
+        "Circular refs do not cause unbounded recursion",
+        "Tests cover sibling preservation, external YAML deref, external JSON deref, and circular refs",
+        "pnpm typecheck passes",
+        "pnpm test passes",
+        "pnpm schema:validate passes",
+        "If tests are added, removed, or rebalanced by package, update docs/internal/spec.md test counts and relevant status notes",
+        "If public API exports change, update docs/internal/api-index.md",
+        "If a todo is completed or materially changed, update docs/internal/todo.md"
+      ],
+      "priority": 5,
+      "passes": false,
+      "notes": "",
+      "dependsOn": [
+        "US-003"
+      ]
+    },
+    {
+      "id": "US-006",
+      "title": "Align typegen external refs with shared resolver",
+      "description": "As an OA SDK maintainer, I want typegen external $ref handling to align with the shared resolver so that generated aliases and warnings match parser resolution behavior.",
+      "acceptanceCriteria": [
+        "Typegen uses the shared resolver directly or consumes resolver-normalized metadata from parser output",
+        "Existing external schema alias generation still works for #/components/schemas/*",
+        "Existing deterministic rename behavior for external schema name collisions is preserved",
+        "Warnings for renamed external types include enough source context to identify the external file and pointer",
+        "Tests cover external alias generation and name collision warnings after migration",
+        "pnpm typecheck passes",
+        "pnpm test passes",
+        "pnpm schema:validate passes",
+        "If tests are added, removed, or rebalanced by package, update docs/internal/spec.md test counts and relevant status notes",
+        "If public API exports change, update docs/internal/api-index.md",
+        "If a todo is completed or materially changed, update docs/internal/todo.md"
+      ],
+      "priority": 6,
+      "passes": false,
+      "notes": "",
+      "dependsOn": [
+        "US-003"
+      ]
+    },
+    {
+      "id": "US-007",
+      "title": "Define WorkspaceIndex boundary and in-memory implementation",
+      "description": "As an OA SDK maintainer, I want an index abstraction outside the parser package so that incremental mode can track workspace state without putting SQLite in parser correctness paths.",
+      "acceptanceCriteria": [
+        "Define a WorkspaceIndex interface for files, components, refs, source locations, diagnostics, and type alias metadata",
+        "Add a noop or in-memory implementation that preserves current full rebuild behavior",
+        "Ensure @oa-sdk/parser has no SQLite dependency and remains usable in browser/mock-server bundles",
+        "Document that WorkspaceIndex is an optimization/index layer, not the source of correctness",
+        "Tests or type checks cover the interface shape and default no-op behavior",
+        "pnpm typecheck passes",
+        "pnpm test passes",
+        "pnpm schema:validate passes",
+        "If tests are added, removed, or rebalanced by package, update docs/internal/spec.md test counts and relevant status notes",
+        "If public API exports change, update docs/internal/api-index.md",
+        "If a todo is completed or materially changed, update docs/internal/todo.md"
+      ],
+      "priority": 7,
+      "passes": false,
+      "notes": "",
+      "dependsOn": [
+        "US-003"
+      ]
+    },
+    {
+      "id": "US-008",
+      "title": "Implement SQLiteWorkspaceIndex storage layer",
+      "description": "As an OA SDK maintainer, I want a SQLite-backed workspace index so that file hashes, ref edges, component ownership, diagnostics, and type aliases persist across CLI runs.",
+      "acceptanceCriteria": [
+        "Create .oa-cache/state.sqlite with meta, files, components, refs, source_locations, diagnostics, and type_aliases tables",
+        "Enable WAL mode, busy timeout, foreign keys, and transaction-wrapped writes",
+        "Store schema version and option compatibility metadata so incompatible caches trigger full rebuild",
+        "Implement cache clear and DB error fallback behavior",
+        "Tests cover schema initialization, version mismatch, transaction rollback, and fallback to full rebuild",
+        "pnpm typecheck passes",
+        "pnpm test passes",
+        "pnpm schema:validate passes",
+        "If tests are added, removed, or rebalanced by package, update docs/internal/spec.md test counts and relevant status notes",
+        "If public API exports change, update docs/internal/api-index.md",
+        "If a todo is completed or materially changed, update docs/internal/todo.md"
+      ],
+      "priority": 8,
+      "passes": false,
+      "notes": "",
+      "dependsOn": [
+        "US-007"
+      ]
+    },
+    {
+      "id": "US-009",
+      "title": "Implement dirty detection and dependency invalidation",
+      "description": "As an OA SDK maintainer, I want changed files to invalidate only affected specs and generated artifacts so that repeated validation and typegen can be incremental.",
+      "acceptanceCriteria": [
+        "Scan entry specs, domain specs, profile specs, and external ref files with realpath, size, mtime, and sha256 content hash",
+        "Classify files as new, modified, deleted, or unchanged by comparing against the workspace index",
+        "Delete stale index rows for changed and deleted files before re-indexing",
+        "Use refs.to_file reverse lookup to mark dependent source files dirty",
+        "Tests cover external ref file changes invalidating a referring spec and deleted files removing stale diagnostics",
+        "pnpm typecheck passes",
+        "pnpm test passes",
+        "pnpm schema:validate passes",
+        "If tests are added, removed, or rebalanced by package, update docs/internal/spec.md test counts and relevant status notes",
+        "If public API exports change, update docs/internal/api-index.md",
+        "If a todo is completed or materially changed, update docs/internal/todo.md"
+      ],
+      "priority": 9,
+      "passes": false,
+      "notes": "",
+      "dependsOn": [
+        "US-008"
+      ]
+    },
+    {
+      "id": "US-010",
+      "title": "Wire incremental validate typegen and dev mode",
+      "description": "As an OA SDK user, I want opt-in incremental validate and typegen commands so that repeated CLI runs and dev watch mode reuse the workspace index safely.",
+      "acceptanceCriteria": [
+        "Add --incremental and --cache-dir options to oa-gen validate and oa-gen typegen",
+        "Reuse the same scan, dirty detection, invalidation, and fallback path in oa-gen dev watch mode",
+        "Keep single-run validate/typegen full rebuild as the default behavior",
+        "Verify incremental output matches full rebuild output for representative specs",
+        "Document the opt-in commands in docs/internal/spec.md or the relevant internal architecture doc",
+        "pnpm typecheck passes",
+        "pnpm test passes",
+        "pnpm schema:validate passes",
+        "If tests are added, removed, or rebalanced by package, update docs/internal/spec.md test counts and relevant status notes",
+        "If public API exports change, update docs/internal/api-index.md",
+        "If a todo is completed or materially changed, update docs/internal/todo.md"
+      ],
+      "priority": 10,
+      "passes": false,
+      "notes": "",
+      "dependsOn": [
+        "US-004",
+        "US-005",
+        "US-006",
+        "US-009"
+      ]
+    },
+    {
+      "id": "US-011",
+      "title": "Define external $defs alias policy",
+      "description": "As an OA SDK maintainer, I want a documented policy for external refs outside #/components/schemas/* so that typegen behavior is explicit and predictable.",
+      "acceptanceCriteria": [
+        "Decide whether external $defs refs are supported, rejected with diagnostics, or normalized into generated aliases",
+        "Decide whether non-components schema roots are supported, rejected with diagnostics, or normalized into generated aliases",
+        "Document the selected policy in docs/internal/spec.md or another relevant internal doc",
+        "Add tests that lock the selected behavior for $defs",
+        "Add tests that lock the selected behavior for at least one non-components schema root",
+        "pnpm typecheck passes",
+        "pnpm test passes",
+        "pnpm schema:validate passes",
+        "If tests are added, removed, or rebalanced by package, update docs/internal/spec.md test counts and relevant status notes",
+        "If public API exports change, update docs/internal/api-index.md",
+        "If a todo is completed or materially changed, update docs/internal/todo.md"
+      ],
+      "priority": 11,
+      "passes": false,
+      "notes": "",
+      "dependsOn": [
+        "US-006"
+      ]
+    },
+    {
+      "id": "US-012",
+      "title": "Implement deterministic aliases for supported non-component refs",
+      "description": "As an OA SDK maintainer, I want supported external non-component refs to receive stable TypeScript names so that typegen output remains deterministic.",
+      "acceptanceCriteria": [
+        "Supported $defs or non-components refs generate deterministic type aliases according to the policy from US-007",
+        "Alias names avoid collisions with local schemas and operation bundle types",
+        "Collision handling reuses the existing deterministic rename approach where applicable",
+        "Unsupported external pointer shapes produce clear diagnostics or warnings according to the policy from US-007",
+        "Generated TypeScript passes existing typegen tsc validation",
+        "pnpm typecheck passes",
+        "pnpm test passes",
+        "pnpm schema:validate passes",
+        "If tests are added, removed, or rebalanced by package, update docs/internal/spec.md test counts and relevant status notes",
+        "If public API exports change, update docs/internal/api-index.md",
+        "If a todo is completed or materially changed, update docs/internal/todo.md"
+      ],
+      "priority": 12,
+      "passes": false,
+      "notes": "",
+      "dependsOn": [
+        "US-011"
+      ]
+    },
+    {
+      "id": "US-013",
+      "title": "Build YAML source location index",
+      "description": "As an OA SDK maintainer, I want YAML documents indexed by JSON Pointer to line and column positions so that diagnostics can point authors to the exact source location.",
+      "acceptanceCriteria": [
+        "Add or reuse YAML AST parsing that can map JSON Pointers to line and column positions",
+        "The mapping supports object keys, array indices, nested schemas, and external YAML documents",
+        "JSON documents continue to work without requiring YAML-only metadata",
+        "Missing mappings fall back to the existing filePath#pointer source format",
+        "Tests cover line and column mapping for at least one root field, one nested schema, and one array item",
+        "pnpm typecheck passes",
+        "pnpm test passes",
+        "pnpm schema:validate passes",
+        "If tests are added, removed, or rebalanced by package, update docs/internal/spec.md test counts and relevant status notes",
+        "If public API exports change, update docs/internal/api-index.md",
+        "If a todo is completed or materially changed, update docs/internal/todo.md"
+      ],
+      "priority": 13,
+      "passes": false,
+      "notes": "",
+      "dependsOn": [
+        "US-003"
+      ]
+    },
+    {
+      "id": "US-014",
+      "title": "Attach line and column to diagnostics",
+      "description": "As an API spec author, I want parser, ref graph, and schema validation diagnostics to include line and column metadata so that fixing YAML specs is faster.",
+      "acceptanceCriteria": [
+        "Ref graph diagnostics include file, pointer, line, and column when YAML mapping is available",
+        "Schema meta validation diagnostics include file, pointer, line, and column when YAML mapping is available",
+        "Lint diagnostics retain current codes and messages while adding source location metadata",
+        "CLI output remains readable and does not break existing machine-readable diagnostic structures",
+        "Tests cover diagnostics from local YAML and external YAML refs",
+        "pnpm typecheck passes",
+        "pnpm test passes",
+        "pnpm schema:validate passes",
+        "If tests are added, removed, or rebalanced by package, update docs/internal/spec.md test counts and relevant status notes",
+        "If public API exports change, update docs/internal/api-index.md",
+        "If a todo is completed or materially changed, update docs/internal/todo.md"
+      ],
+      "priority": 14,
+      "passes": false,
+      "notes": "",
+      "dependsOn": [
+        "US-004",
+        "US-013"
+      ]
+    },
+    {
+      "id": "US-015",
+      "title": "Decide public export surface for typegen options",
+      "description": "As an OA SDK consumer, I want the public typegen option types to be exported intentionally so that package imports are stable.",
+      "acceptanceCriteria": [
+        "Decide whether TypegenOptions remains exported only from codegen/typegen or is also exported from the main codegen entry",
+        "Decide whether SchemaToTsOptions stays internal or becomes public",
+        "Export decisions are reflected in package entrypoints and API index docs",
+        "Tests or type-level checks confirm supported imports compile",
+        "Unsupported imports are not accidentally exposed",
+        "pnpm typecheck passes",
+        "pnpm test passes",
+        "pnpm schema:validate passes",
+        "If tests are added, removed, or rebalanced by package, update docs/internal/spec.md test counts and relevant status notes",
+        "If public API exports change, update docs/internal/api-index.md",
+        "If a todo is completed or materially changed, update docs/internal/todo.md"
+      ],
+      "priority": 15,
+      "passes": false,
+      "notes": "",
+      "dependsOn": []
+    },
+    {
+      "id": "US-016",
+      "title": "Add codegen export regression coverage",
+      "description": "As an OA SDK maintainer, I want export regression tests for codegen option types so that accidental public API drift is caught.",
+      "acceptanceCriteria": [
+        "Add a focused test or typecheck fixture for supported TypegenOptions imports",
+        "Add coverage for the chosen SchemaToTsOptions visibility policy",
+        "API index generation or validation catches mismatches between docs and exports",
+        "Existing codegen tests remain passing",
+        "The test or fixture fails if the documented import path is removed",
+        "pnpm typecheck passes",
+        "pnpm test passes",
+        "pnpm schema:validate passes",
+        "If tests are added, removed, or rebalanced by package, update docs/internal/spec.md test counts and relevant status notes",
+        "If public API exports change, update docs/internal/api-index.md",
+        "If a todo is completed or materially changed, update docs/internal/todo.md"
+      ],
+      "priority": 16,
+      "passes": false,
+      "notes": "",
+      "dependsOn": [
+        "US-015"
+      ]
+    },
+    {
+      "id": "US-017",
+      "title": "Use response header types in router generation",
+      "description": "As a router user, I want generated router stubs or helpers to reflect response header types so that handlers can set documented headers safely.",
+      "acceptanceCriteria": [
+        "Router generation can reference generated XxxResponseHeaders types",
+        "Generated stubs include clear header-setting hints or a typed helper for documented response headers",
+        "Existing Hono and Express generation tests remain passing",
+        "Tests cover at least one operation with typed response headers",
+        "Generated code avoids unsafe casts beyond established local patterns",
+        "pnpm typecheck passes",
+        "pnpm test passes",
+        "pnpm schema:validate passes",
+        "If tests are added, removed, or rebalanced by package, update docs/internal/spec.md test counts and relevant status notes",
+        "If public API exports change, update docs/internal/api-index.md",
+        "If a todo is completed or materially changed, update docs/internal/todo.md"
+      ],
+      "priority": 17,
+      "passes": false,
+      "notes": "",
+      "dependsOn": []
+    },
+    {
+      "id": "US-018",
+      "title": "Expose typed response headers in client API",
+      "description": "As a client user, I want typed access to documented response headers so that generated clients expose response metadata safely.",
+      "acceptanceCriteria": [
+        "Client response shape exposes documented headers using generated XxxResponseHeaders or operation bundle header types",
+        "Header lookup handles case-insensitive HTTP header names",
+        "Existing client response and body behavior remains backward compatible or has a documented migration path",
+        "Tests cover a successful response with typed headers",
+        "Tests cover a missing optional response header",
+        "pnpm typecheck passes",
+        "pnpm test passes",
+        "pnpm schema:validate passes",
+        "If tests are added, removed, or rebalanced by package, update docs/internal/spec.md test counts and relevant status notes",
+        "If public API exports change, update docs/internal/api-index.md",
+        "If a todo is completed or materially changed, update docs/internal/todo.md"
+      ],
+      "priority": 18,
+      "passes": false,
+      "notes": "",
+      "dependsOn": []
+    },
+    {
+      "id": "US-019",
+      "title": "Implement multipart encoding validation",
+      "description": "As a mock-server user, I want multipart request fields validated according to OpenAPI Encoding Object rules so that mocks catch incorrect multipart payloads.",
+      "acceptanceCriteria": [
+        "Request validator reads multipart part metadata needed for field-level encoding",
+        "Field-level contentType is validated when specified",
+        "Relevant style and explode behavior is implemented or explicitly scoped with diagnostics",
+        "Invalid multipart field encoding returns a structured validation error",
+        "Tests cover valid multipart encoding and at least two invalid encoding cases",
+        "pnpm typecheck passes",
+        "pnpm test passes",
+        "pnpm schema:validate passes",
+        "If tests are added, removed, or rebalanced by package, update docs/internal/spec.md test counts and relevant status notes",
+        "If public API exports change, update docs/internal/api-index.md",
+        "If a todo is completed or materially changed, update docs/internal/todo.md"
+      ],
+      "priority": 19,
+      "passes": false,
+      "notes": "",
+      "dependsOn": []
+    },
+    {
+      "id": "US-020",
+      "title": "Implement Links metadata and typegen support",
+      "description": "As an OA SDK user, I want OpenAPI Links information represented in generated types and mock response metadata so that response relationships are inspectable.",
+      "acceptanceCriteria": [
+        "Parsed Link Objects are available to the relevant mock and codegen paths",
+        "Typegen emits Link-related types or operation metadata according to existing naming patterns",
+        "Mock responses can expose link metadata without changing body payload semantics unexpectedly",
+        "Tests cover a response with an operation link",
+        "Tests cover a response link with parameters or request body expressions if supported",
+        "pnpm typecheck passes",
+        "pnpm test passes",
+        "pnpm schema:validate passes",
+        "If tests are added, removed, or rebalanced by package, update docs/internal/spec.md test counts and relevant status notes",
+        "If public API exports change, update docs/internal/api-index.md",
+        "If a todo is completed or materially changed, update docs/internal/todo.md"
+      ],
+      "priority": 20,
+      "passes": false,
+      "notes": "",
+      "dependsOn": []
+    },
+    {
+      "id": "US-021",
+      "title": "Implement callback URL evaluation and mock outbound simulation",
+      "description": "As a mock-server user, I want callback definitions to be simulated so that outbound webhook behavior can be tested locally.",
+      "acceptanceCriteria": [
+        "Callback URL expressions are evaluated from request data for supported expression forms",
+        "Mock-server exposes a test helper or hook for observing outbound callback POST attempts",
+        "Callback payload generation follows existing mock response generation patterns where applicable",
+        "Tests cover successful callback simulation",
+        "Tests cover invalid or unresolvable callback URL expressions",
+        "The feature does not interfere with existing inbound webhook route support",
+        "pnpm typecheck passes",
+        "pnpm test passes",
+        "pnpm schema:validate passes",
+        "If tests are added, removed, or rebalanced by package, update docs/internal/spec.md test counts and relevant status notes",
+        "If public API exports change, update docs/internal/api-index.md",
+        "If a todo is completed or materially changed, update docs/internal/todo.md"
+      ],
+      "priority": 21,
+      "passes": false,
+      "notes": "",
+      "dependsOn": []
+    },
+    {
+      "id": "US-022",
+      "title": "Add minimal XML request and response support",
+      "description": "As an OA SDK user, I want minimal XML support for application/xml operations so that specs using XML can be parsed and mocked at a basic level.",
+      "acceptanceCriteria": [
+        "Define the supported XML scope before implementation: object, array, primitive, attributes, namespaces, or explicit exclusions",
+        "Request body parsing supports the agreed minimal XML scope",
+        "Response serialization supports the agreed minimal XML scope",
+        "Content-type negotiation recognizes application/xml",
+        "Tests cover XML request parsing and XML response serialization",
+        "Unsupported XML Object features fail clearly or remain documented non-goals",
+        "pnpm typecheck passes",
+        "pnpm test passes",
+        "pnpm schema:validate passes",
+        "If tests are added, removed, or rebalanced by package, update docs/internal/spec.md test counts and relevant status notes",
+        "If public API exports change, update docs/internal/api-index.md",
+        "If a todo is completed or materially changed, update docs/internal/todo.md"
+      ],
+      "priority": 22,
+      "passes": false,
+      "notes": "",
+      "dependsOn": []
+    }
+  ],
+  "metadata": {
+    "updatedAt": "2026-04-15T01:41:38.489Z"
+  }
+}

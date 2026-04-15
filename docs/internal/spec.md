@@ -83,6 +83,14 @@ schemas      ← 독립. OAS 소스 + merge + 3.1↔3.2 변환
 | additionalProperties | `Record<string, T>` + index signature 타입 생성 |
 | CLI | 커맨드 모듈 구조. `generate`/`typegen`/`router`/`client`/`lint`/`validate`/`dev`/`--help` |
 
+### Resolver baseline (US-001)
+
+| Surface | 현재 코드 경로 | 고정한 동작 |
+|---------|----------------|-------------|
+| `resolveRefGraph()` | `packages/parser/src/ref-graph.ts`의 `collectRefs()` traversal → `resolvePointer()` → per-call external file cache | 내부 ref, 외부 YAML/JSON ref, 외부 파일 내부 nested ref를 graph node로 기록. 누락 pointer/read 실패와 순환은 diagnostic으로 기록하며 `$ref` sibling 내부 ref도 계속 수집 |
+| `derefSpec()` | `packages/parser/src/deref.ts`의 `DerefFolder.foldRef()` → `resolvePointer()` 공유 helper → 별도 deref file cache/stack | 내부/외부 YAML/JSON ref를 인라인 전개하고 외부 파일 내부 상대 ref는 해당 파일 기준으로 해소. missing ref는 원본 `$ref` node 유지. 기본 cycle은 `{}`로 절단하고 `cycleStrategy: preserve-ref`는 ref 유지. `$ref` sibling은 해소 결과에 병합 |
+| typegen external refs | `generateTypesFromSpec()` → `parseDocument()`(deref 없음) → `analyzeExternalSchemaRefs()` → `resolveRefGraph()` → `schemaToTs(refNameOverrides)` | 외부 `#/components/schemas/*` YAML/JSON schema를 generated alias로 추가. nested external schema alias도 생성. 이름 충돌/로컬 shadow는 deterministic rename warning. 해소 실패는 `external-schema-unresolved` diagnostic |
+
 ## `@oa-sdk/router` ✅
 
 Hono/Express 스텁. `OasDocument | ParsedDocument` 입력. typegen 타입 import, JSDoc, 204.
@@ -169,6 +177,7 @@ pnpm demo  # API 구조 + Mock 12시나리오 + 커버리지
 |------|------|------|
 | 자체 린터 + ref graph | 3.2 원본 | 0 에러, 0 경고 |
 | JSON Schema 메타 검증 | Schema Object | 2020-12 keyword 정합성 |
+| Mock schema preflight | request body/parameter schema | mock 생성 전 AJV compile 오류 차단 |
 | Redocly | 3.1 변환 | valid, 4 경고 (의도적) |
 | Spectral | 3.1 변환 | 0 에러, 1 힌트 |
 | 부하 | 100 동시 요청 | <200ms |
@@ -179,8 +188,8 @@ pnpm demo  # API 구조 + Mock 12시나리오 + 커버리지
 |------|------|------|
 | Build | 7 패키지 + CI 스크립트 | tsup ESM 빌드 |
 | Typecheck | 7 패키지 + playground | tsc --noEmit strict |
-| Test | 8 패키지 + playground | vitest 1577 케이스 |
-| Schema validate | schemas + oa-gen | 도메인 병합 + 3.1 변환 + Spectral/Redocly + 3.2 자체 검증 |
+| Test | 8 패키지 + playground | vitest 1584 케이스 |
+| Schema validate | schemas + oa-gen | 도메인 병합 + 3.1 변환 + Spectral/Redocly + 3.2 자체 검증 표준 파이프라인 |
 | Freshness check | 산출물 | git diff --exit-code |
 | API index | docs ↔ code | export 정합성 검증 |
 | Spec diff (PR) | base ↔ head | endpoint 변경 요약 |
@@ -192,12 +201,12 @@ pnpm demo  # API 구조 + Mock 12시나리오 + 커버리지
 | 패키지 | 케이스 |
 |--------|--------|
 | core | 51 |
-| parser | 190 |
-| codegen | 464 |
+| parser | 193 |
+| codegen | 466 |
 | mock-server | 561 |
 | playground | 114 |
 | router | 35 |
 | client | 36 |
-| schemas | 73 |
+| schemas | 75 |
 | typia-mock | 53 |
-| **합계** | **1577** |
+| **합계** | **1584** |

@@ -1,10 +1,82 @@
 # Todo — 이행 대기 태스크
 
 > 완료된 구현은 [spec.md](./spec.md), API 상세는 [api-index.md](./api-index.md)를 참조.
+> 정렬 기준: ref correctness → 증분 workspace index → 코드 생성 정책 → 진단 UX → 공개 API → 런타임 활용 → 남은 OAS 스펙 순.
+> 증분 설계: [ADR-006 — SQLite 기반 증분 Workspace Index](./architecture/006-incremental-workspace-index.md)
 
 ---
 
-## 우선 (런타임 연결 확장)
+## 다음 세션 실행 순서
+
+### 1. [ ] parser/codegen: ref resolver 단일화 심화
+배경: `resolveRefGraph()`가 SSOT 역할을 시작했지만 `derefSpec()`는 아직 별도 traversal/cache를 가짐.
+US-001 baseline 확인: `resolveRefGraph()`와 `derefSpec()`는 같은 pointer helper를 공유하지만 외부 파일 cache, stack, diagnostic 생성 경로는 아직 분리되어 있음.
+작업: 외부 문서 로딩, JSON Pointer 해소, cache, source pointer 생성 경로를 공통 `RefResolver`로 모으기.
+완료 기준: `resolveRefGraph()`와 `derefSpec()`가 같은 resolver 기반을 사용하고, 기존 외부 `$ref`/순환/누락 diagnostic 테스트가 유지됨.
+
+### 2. [ ] codegen CLI: WorkspaceIndex 인터페이스 도입
+배경: 변경 감지 기반 증분 validate/typegen을 하려면 parser correctness와 분리된 persistent index 경계가 필요함.
+작업: `WorkspaceIndex` 인터페이스와 noop/memory 구현을 추가하고, 파일 hash/component/ref/source/diagnostic/type alias metadata 모델을 정의.
+완료 기준: SQLite 없이도 full rebuild와 동일한 결과를 내는 index 경계가 생기고, parser 패키지는 DB 의존성을 갖지 않음.
+
+### 3. [ ] codegen CLI: SQLiteWorkspaceIndex 구현
+배경: watch mode와 반복 CLI 실행에서는 이전 실행의 dependency graph를 보존해야 변경분만 재계산할 수 있음.
+작업: `.oa-cache/state.sqlite` schema, WAL 설정, transaction, schema version check, cache clear/fallback 경로 구현.
+완료 기준: 파일 hash 변경 감지, component/ref/source/diagnostic/type alias row 갱신, DB 오류 시 full rebuild fallback 테스트가 있음.
+
+### 4. [ ] codegen CLI: 증분 validate/typegen 연결
+배경: SQLite index가 있어도 CLI orchestration이 scan → dirty detect → invalidate → re-index → output 재생성을 수행해야 증분 효과가 있음.
+작업: `oa-gen validate/typegen --incremental --cache-dir` 옵션을 추가하고, `dev` watch mode에서 같은 invalidation 경로를 재사용.
+완료 기준: 변경된 외부 ref 파일이 이를 참조하는 spec/typegen output을 dirty 처리하고, full rebuild 결과와 증분 결과가 일치함.
+
+### 5. [ ] codegen: 외부 `$defs` / 비 components schema alias 정책
+배경: 외부 `$ref` type alias는 현재 `#/components/schemas/*` 중심으로 안정화됨.
+US-001 baseline 확인: typegen external alias 분석은 외부 YAML/JSON 및 nested external schema를 지원하지만 alias 대상은 `#/components/schemas/*`로 제한되고, low-level resolver 실패 원인은 `external-schema-unresolved`로 축약됨.
+작업: `$defs` 또는 다른 schema root를 typegen alias 대상으로 허용할지 결정하고, 허용 시 이름 생성 규칙을 문서화.
+완료 기준: 지원 범위가 명시되고, 지원하는 포인터에는 deterministic type name과 rename warning 테스트가 있음.
+
+### 6. [ ] diagnostics: YAML line/column source map
+배경: 현재 diagnostic source는 `filePath#pointer` 수준이라 큰 YAML에서 작성자 UX가 제한됨.
+작업: YAML AST 기반 line/column 매핑 가능성을 확인하고, parser/ref graph/schema validation diagnostic에 단계적으로 연결.
+완료 기준: 대표 YAML 입력에서 diagnostic이 file, pointer, line, column을 함께 노출하고 JSON 입력 동작은 유지됨.
+
+### 7. [ ] codegen: TypegenOptions/SchemaToTsOptions 공개 API 정리
+배경: `TypegenOptions`는 `codegen/typegen` 서브 엔트리에만 export되고, `SchemaToTsOptions`는 미노출 상태.
+작업: 메인 index에서 재export할지, 서브 엔트리 전용 API로 유지할지 결정하고 API index를 갱신.
+완료 기준: 공개 surface가 문서와 export 테스트에 반영되고, 내부 옵션 타입이 의도치 않게 노출되지 않음.
+
+### 8. [ ] router/client: ResponseHeaders 활용
+배경: typegen은 `XxxResponseHeaders`를 생성하지만 router/client 런타임 API는 아직 타입을 적극 활용하지 않음.
+작업: router에서 응답 header 삽입 helper 또는 stub 힌트를 강화하고, client에서 `res.headers` 타입 안전 접근 경로를 제공.
+완료 기준: 생성된 Op 타입의 `headers`가 router/client 사용 예제와 테스트에서 실제로 소비됨.
+
+---
+
+## 단기 미구현 스펙
+
+### 9. [ ] Encoding — multipart 필드별 인코딩
+배경: 타입은 준비됐지만 request-validator multipart 파싱과 필드별 `contentType`/`style` 처리는 남아 있음.
+작업: multipart part 단위 decoding과 OpenAPI Encoding Object 규칙을 request validation에 연결.
+완료 기준: 필드별 content type, style/explode, 잘못된 part encoding 실패 케이스가 테스트됨.
+
+### 10. [ ] Links — 응답 관계 정보
+배경: Links는 타입과 파싱은 완료됐지만 mock 응답과 typegen 소비는 아직 얕음.
+작업: Operation Object의 Link 정보를 mock 응답 메타데이터와 typegen Link 타입으로 연결.
+완료 기준: 응답에서 다음 operation 관계를 추적할 수 있고, Link 타입 생성 테스트가 있음.
+
+### 11. [ ] Callbacks — 아웃바운드 웹훅
+배경: Callbacks는 타입과 파싱은 완료됐지만 mock-server에서 outbound 호출 시뮬레이션이 없음.
+작업: callback URL expression 평가와 mock outbound POST 흐름을 설계하고 테스트 헬퍼로 노출.
+완료 기준: 요청 처리 후 callback route로 payload를 보내는 성공/실패 시나리오가 테스트됨.
+
+### 12. [ ] XML 직렬화
+배경: XML 타입은 준비됐지만 `application/xml` body parsing/serialization은 미지원.
+작업: XML Object 규칙, request body parsing, response serialization 범위를 최소 지원부터 정함.
+완료 기준: 기본 object/array XML 직렬화와 content-type negotiation 테스트가 있음.
+
+---
+
+## 최근 완료
 
 ### [x] parser: Schema Object 메타 검증 추가
 `validateDocument()`에서 OpenAPI 문서 내 Schema Object를 수집하고 JSON Schema 2020-12 메타스키마로 검증.
@@ -19,7 +91,7 @@ JSON Schema 2020-12 기준으로 `$ref` sibling keyword 보존, 외부 YAML/JSON
 source pointer 추적을 포함하는 resolver로 확장. `resolveRefGraph()`와 `cycleStrategy`까지 구현 완료.
 
 ### [x] schemas: schema:validate와 oa-gen validate 검증 범위 통합
-로컬 `pnpm schema:validate`와 CI `oa-gen validate`가 같은 canonical pipeline을 타도록 정리.
+로컬 `pnpm schema:validate`와 CI `oa-gen validate`가 같은 표준 파이프라인을 타도록 정리.
 
 ### [x] schemas: component overwrite 기본 차단
 도메인 병합 시 중복 component key는 기본 오류. `ALLOW_COMPONENT_OVERRIDES=1` 또는 `ALLOW_COMPONENT_OVERRIDE_KEYS`로 명시 허용.
@@ -30,40 +102,6 @@ source pointer 추적을 포함하는 resolver로 확장. `resolveRefGraph()`와
 
 ### [x] mock-server: Server variables 적용
 `resolveServerUrl()` client에서 연결 완료. 서버 변수 해소로 동적 baseUrl 지원.
-
-### [ ] codegen: TypegenOptions/SchemaToTsOptions 공개 API 정리
-`TypegenOptions`는 `codegen/typegen` 서브 엔트리에만 export. `SchemaToTsOptions`는 미노출.
-메인 index에서도 export할지, 서브 엔트리로 충분한지 결정 후 api-index 반영.
-
-### [ ] router/client: ResponseHeaders 활용
-typegen `XxxResponseHeaders` 생성됨. router에서 `c.header()` 자동 삽입,
-client에서 `res.headers` 타입 안전 접근.
-
-### [ ] parser/codegen: ref resolver 단일화 심화
-`resolveRefGraph()`가 SSOT 역할을 시작했지만 `derefSpec()`는 아직 별도 traversal/cache를 가짐.
-다음 세션에서 공통 `RefResolver`로 외부 문서 로딩/포인터 해소/cache/source를 더 줄일 것.
-
-### [ ] codegen: 외부 `$defs` / 비 components schema alias 정책
-외부 `$ref` type alias는 `#/components/schemas/*` 중심. `$defs` 또는 다른 schema root를 지원할지 정책화 필요.
-
-### [ ] diagnostics: YAML line/column source map
-현재 source는 `filePath#pointer` 수준. 작성자 UX 개선을 위해 YAML AST 기반 line/column 매핑 검토.
-
----
-
-## 단기 (미구현 스펙)
-
-### [ ] Encoding — multipart 필드별 인코딩
-타입 완료. request-validator multipart 파싱 + contentType/style.
-
-### [ ] Links — 응답 관계 정보
-타입+파싱 완료. mock 응답에 Link 포함. typegen Link 타입.
-
-### [ ] Callbacks — 아웃바운드 웹훅
-타입+파싱 완료. mock에서 callback URL POST 시뮬레이션.
-
-### [ ] XML 직렬화
-타입 완료. application/xml content-type. 최하 우선순위.
 
 ---
 

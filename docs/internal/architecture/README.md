@@ -13,3 +13,4 @@
 | [003-domain-split.md](./003-domain-split.md) | 도메인 단위 spec 분리 + merge.ts |
 | [004-oas32-first.md](./004-oas32-first.md) | OAS 3.2 단독 — 3.1 하위 호환 없음 |
 | [005-spectral-redocly-split.md](./005-spectral-redocly-split.md) | Spectral(스타일) / Redocly(구조) 역할 분리 |
+| [006-incremental-workspace-index.md](./006-incremental-workspace-index.md) | SQLite 기반 증분 Workspace Index |
