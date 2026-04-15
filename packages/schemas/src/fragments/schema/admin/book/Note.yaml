@@ -1,0 +1,25 @@
+id: schema:admin/book/Note
+content:
+  type: object
+  description: An admin note attached to a book.
+  required:
+    - id
+    - bookId
+    - body
+    - moderationState
+  properties:
+    id:
+      type: string
+      format: uuid
+    bookId:
+      type: string
+      format: uuid
+    body:
+      type: string
+      minLength: 1
+    moderationState:
+      type: string
+      enum:
+        - pending
+        - approved
+        - rejected

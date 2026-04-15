@@ -190,6 +190,28 @@ Component-like kind의 output 위치는 고정 매핑이다: `schema -> #/compon
 
 Allocation 결과는 `outputNames: Map<CanonicalDefinitionId, string>`, `aliases: DefinitionOutputAliasMetadata[]`, `aliasById: Map<CanonicalDefinitionId, DefinitionOutputAliasMetadata>`를 함께 낸다. Alias metadata는 canonical id, kind, scope, domain, localName, outputName, policy reason을 보존해 build report나 downstream generator가 source identity와 output component name을 추적할 수 있게 한다. 최종 output name이 같은 component section 안에서 둘 이상의 canonical id에 매핑되면 자동 병합하지 않고 `definition-output-name/collision` error diagnostic을 만든다.
 
+#### Server/domain collision simulation (US-007)
+
+`allocateDefinitionOutputNames(nodes, { targetName })`는 naming 결과와 final collision을 기계가 읽을 수 있는 `collisionReport` 배열로도 반환한다. Report row는 target server scope에서 output component name이 왜 보존/변경/실패했는지 추적하기 위한 stable shape이다.
+
+```ts
+{
+  canonicalId: 'schema:public/book/Note',
+  targetName: 'public-api',
+  kind: 'schema',
+  scope: 'public',
+  domain: 'book',
+  localName: 'Note',
+  outputName: 'BookNote',
+  reason: 'domain-prefix',
+  severity: 'warning',
+}
+```
+
+Report severity는 `preserve-if-unique`면 `info`, domain prefix rename이면 `warning`, explicit alias rename이면 `warning`, 최종 output name collision이면 `error`다. Error row는 `reason: 'output-name-collision'`을 사용하고, 세부 colliding canonical id 목록은 기존 `definition-output-name/collision` diagnostic의 `ids`에서 확인한다.
+
+Fixture target은 `packages/schemas/src/targets/public-api.yaml`과 `packages/schemas/src/targets/admin-api.yaml`에 둔다. `public-api`는 `schema:public/book/Note`와 `schema:public/notebook/Note`를 함께 포함해 `BookNote`/`NotebookNote` rename을 검증하고, `admin-api`는 `schema:admin/book/Note`와 `schema:admin/notebook/Note`를 함께 포함해 같은 local name이 target-local report 안에서 독립적으로 처리됨을 검증한다. 두 target 모두 `schema:shared/common/Error`를 포함할 수 있지만 각 target allocation은 별도 `outputNames`/`collisionReport`를 갖는다.
+
 | 개념 | 계획 |
 |------|------|
 | Canonical identity | `kind:scope/domain/name` 고정 계층. 예: `schema:public/book/Note`, `schema:public/notebook/Note`, `schema:shared/common/Error`. source identity와 output component name을 분리 |
@@ -199,7 +221,7 @@ Allocation 결과는 `outputNames: Map<CanonicalDefinitionId, string>`, `aliases
 | Naming policy | target-local `allocateDefinitionOutputNames()`가 explicit alias, `preserve-if-unique`, `domain-prefix`를 적용. `book.Note`와 `notebook.Note`는 source name을 바꾸지 않고 `BookNote`/`NotebookNote`처럼 출력명만 분리 |
 | Namespace scope | 이름 충돌 해결은 target server의 포함 node 집합 안에서 kind → domain → local name 순서로 처리. 같은 local name이라도 target bundle마다 포함 집합이 다르므로 output name allocation은 target-local임 |
 | Flattening guard | `schema:public/a/Name`과 `schema:public/aname/Name`은 flatten 결과가 같을 수 있어도 다른 canonical identity다. builder는 string flattening만으로 동치 추론을 하지 않고 `output-name-collision`으로 보고 |
-| Collision simulation | public/admin/internal target fixture에서 rename, `schema:public/a/Name` vs `schema:public/aname/Name` output collision, structural duplicate warning, duplicate canonical id error를 machine-readable report로 검증 |
+| Collision simulation | public/admin target fixture에서 server target → domain → local name 순서의 rename과 target-local report를 검증. flattening output collision, structural duplicate warning, duplicate canonical id error는 후속 story에서 machine-readable report를 확장 |
 | Dedupe policy | duplicate canonical id는 error. 동일 구조 hash는 warning/info only. 의미가 다른 정의는 자동 structural dedupe 금지. deeper hierarchy는 canonical path가 아니라 metadata/tag로 표현 |
 | Target bundle | public/admin/internal 등 target별 servers, include domains, include paths, naming policy로 필요한 fragment와 transitive refs만 emit |
 | Migration | 기존 `packages/schemas/scripts/merge.ts`는 유지하고, builder는 병렬 output으로 검증한 뒤 `.merged.yaml` 대체 여부 결정 |

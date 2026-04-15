@@ -192,11 +192,12 @@
         "pnpm build:scripts && pnpm check:api-index passes."
       ],
       "priority": 7,
-      "passes": false,
+      "passes": true,
       "notes": "PRD review addition: simulate target server > domain > local name behavior explicitly.",
       "dependsOn": [
         "US-006"
-      ]
+      ],
+      "completionNotes": "Completed by agent"
     },
     {
       "id": "US-008",
@@ -395,6 +396,6 @@
     }
   ],
   "metadata": {
-    "updatedAt": "2026-04-15T20:46:19.629Z"
+    "updatedAt": "2026-04-15T20:55:00.627Z"
   }
 }

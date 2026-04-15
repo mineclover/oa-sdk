@@ -9,7 +9,7 @@
 
 ## 다음 세션 실행 순서
 
-현재 ralph PRD 기준 US-001~US-022는 모두 완료됨. OpenAPI definition builder의 canonical ID grammar/parser(US-001), fragment definition node model(US-002), registry graph/ref edge collection(US-003), source canonical/file ref resolution(US-004), output `$ref` rewrite(US-005), target-local output naming(US-006)은 완료되었고, 다음 blocking 목표는 target bundle emit이다.
+현재 ralph PRD 기준 OpenAPI definition builder의 canonical ID grammar/parser(US-001), fragment definition node model(US-002), registry graph/ref edge collection(US-003), source canonical/file ref resolution(US-004), output `$ref` rewrite(US-005), target-local output naming(US-006), server/domain collision simulation(US-007)은 완료되었고, 다음 blocking 목표는 target bundle emit이다.
 
 ### [ ] OpenAPI definition builder: target bundle emit
 배경: 여러 서버와 특정 path 하위 조합을 지원하려면 target별 servers/domains/paths include 규칙이 필요함.
@@ -42,8 +42,8 @@
 
 ### [x] OpenAPI definition builder: output naming and collision simulation
 배경: 같은 local name `Note`라도 book note와 notebook note는 의미가 다를 수 있어 source 정의를 바꾸지 않고 output naming으로 충돌을 해결해야 함.
-완료: `allocateDefinitionOutputNames()`가 target에 포함된 component-like registry node 집합 안에서 output name을 할당함. Explicit alias가 있으면 우선 적용하고, alias가 없는 unique local name은 preserve-if-unique로 보존하며, 같은 kind/local name이 target 안에서 충돌하면 domain-prefix로 `BookNote`/`NotebookNote`처럼 분리함. 결과는 canonical id → output name map과 canonical id → policy reason 포함 alias metadata map을 제공하고, 최종 output name collision은 자동 병합하지 않고 `definition-output-name/collision` error diagnostic으로 보고함.
-완료 기준: unique name preserve, cross-domain local name collision, explicit alias, 같은 canonical id의 cross-target 독립 allocation, output ref rewrite 연동이 parser 테스트로 검증됨. Structural duplicate warning/info report와 full target fixture emit은 다음 target bundle emit 단계에서 다룸.
+완료: `allocateDefinitionOutputNames()`가 target에 포함된 component-like registry node 집합 안에서 output name을 할당함. Explicit alias가 있으면 우선 적용하고, alias가 없는 unique local name은 preserve-if-unique로 보존하며, 같은 kind/local name이 target 안에서 충돌하면 domain-prefix로 `BookNote`/`NotebookNote`처럼 분리함. 결과는 canonical id → output name map, canonical id → policy reason 포함 alias metadata map, target name/scope/domain/localName/outputName/reason/severity를 담은 machine-readable collision report를 제공하고, 최종 output name collision은 자동 병합하지 않고 `definition-output-name/collision` error diagnostic으로 보고함.
+완료 기준: unique name preserve, cross-domain local name collision, explicit alias, public/admin target fixture 기반 target-local report, output ref rewrite 연동이 parser/schemas 테스트로 검증됨. Structural duplicate warning/info report와 full target fixture emit은 다음 target bundle emit 단계에서 다룸.
 
 ### [x] OpenAPI definition builder: output ref rewrite
 배경: registry graph는 source `$ref`를 canonical id로 정규화하지만, 실제 build output은 canonical id를 target-local OpenAPI `$ref`로 rewrite해야 함.

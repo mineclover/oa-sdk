@@ -1,0 +1,7 @@
+name: public-api
+servers:
+  - url: https://api.example.test
+includeDefinitions:
+  - schema:shared/common/Error
+  - schema:public/book/Note
+  - schema:public/notebook/Note

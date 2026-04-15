@@ -3,10 +3,10 @@
   "sessionId": "bc493007-f3e5-4f3d-9d12-884ba17d48c6",
   "status": "running",
   "startedAt": "2026-04-15T19:54:02.104Z",
-  "updatedAt": "2026-04-15T20:46:19.629Z",
-  "currentIteration": 5,
+  "updatedAt": "2026-04-15T20:55:00.627Z",
+  "currentIteration": 6,
   "maxIterations": 0,
-  "tasksCompleted": 5,
+  "tasksCompleted": 6,
   "isPaused": false,
   "agentPlugin": "codex",
   "trackerState": {
@@ -47,8 +47,8 @@
       {
         "id": "US-006",
         "title": "Implement target-local naming policies",
-        "status": "open",
-        "completedInSession": false
+        "status": "completed",
+        "completedInSession": true
       },
       {
         "id": "US-007",
@@ -150,6 +150,16 @@
       "durationMs": 387013,
       "startedAt": "2026-04-15T20:30:21.395Z",
       "endedAt": "2026-04-15T20:36:48.408Z"
+    },
+    {
+      "iteration": 6,
+      "status": "completed",
+      "taskId": "US-006",
+      "taskTitle": "Implement target-local naming policies",
+      "taskCompleted": true,
+      "durationMs": 569507,
+      "startedAt": "2026-04-15T20:36:50.120Z",
+      "endedAt": "2026-04-15T20:46:19.627Z"
     }
   ],
   "skippedTaskIds": [],

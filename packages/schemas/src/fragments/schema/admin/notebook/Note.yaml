@@ -1,0 +1,23 @@
+id: schema:admin/notebook/Note
+content:
+  type: object
+  description: An admin note stored inside a notebook.
+  required:
+    - id
+    - notebookId
+    - body
+    - auditTrail
+  properties:
+    id:
+      type: string
+      format: uuid
+    notebookId:
+      type: string
+      format: uuid
+    body:
+      type: string
+      minLength: 1
+    auditTrail:
+      type: array
+      items:
+        type: string

@@ -110,11 +110,14 @@ export type {
 export { allocateDefinitionOutputNames } from './definition-output-names.js'
 export type {
   DefinitionOutputAliasMetadata,
+  DefinitionOutputNameCollisionReportEntry,
   DefinitionOutputNameAllocationOptions,
   DefinitionOutputNameAllocationResult,
   DefinitionOutputNameDiagnostic,
   DefinitionOutputNameDiagnosticCode,
   DefinitionOutputNamePolicyReason,
+  DefinitionOutputNameReportReason,
+  DefinitionOutputNameReportSeverity,
 } from './definition-output-names.js'
 
 // ─── Lint ─────────────────────────────────────────────────────────────────

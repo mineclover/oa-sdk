@@ -22,6 +22,24 @@ export type DefinitionOutputAliasMetadata = {
   reason: DefinitionOutputNamePolicyReason
 }
 
+export type DefinitionOutputNameReportReason =
+  | DefinitionOutputNamePolicyReason
+  | 'output-name-collision'
+
+export type DefinitionOutputNameReportSeverity = 'info' | 'warning' | 'error'
+
+export type DefinitionOutputNameCollisionReportEntry = {
+  canonicalId: CanonicalDefinitionId
+  targetName: string
+  kind: ComponentLikeDefinitionKind
+  scope: string
+  domain: string
+  localName: string
+  outputName: string
+  reason: DefinitionOutputNameReportReason
+  severity: DefinitionOutputNameReportSeverity
+}
+
 export type DefinitionOutputNameDiagnosticCode = 'definition-output-name/collision'
 
 export type DefinitionOutputNameDiagnostic = {
@@ -35,6 +53,7 @@ export type DefinitionOutputNameDiagnostic = {
 
 export type DefinitionOutputNameAllocationOptions = {
   aliases?: DefinitionOutputNameMap
+  targetName?: string
 }
 
 export type DefinitionOutputNameAllocationResult = {
@@ -42,6 +61,7 @@ export type DefinitionOutputNameAllocationResult = {
   outputNames: ReadonlyMap<CanonicalDefinitionId, string>
   aliases: DefinitionOutputAliasMetadata[]
   aliasById: ReadonlyMap<CanonicalDefinitionId, DefinitionOutputAliasMetadata>
+  collisionReport: DefinitionOutputNameCollisionReportEntry[]
   diagnostics: DefinitionOutputNameDiagnostic[]
 }
 
@@ -53,6 +73,7 @@ export function allocateDefinitionOutputNames(
   nodes: readonly OutputNameNode[],
   options: DefinitionOutputNameAllocationOptions = {},
 ): DefinitionOutputNameAllocationResult {
+  const targetName = options.targetName ?? 'default'
   const targetNodes = nodes.filter(isComponentLikeNode)
   const unaliasedGroups = groupUnaliasedNodesByLocalName(targetNodes, options.aliases)
   const outputNames = new Map<CanonicalDefinitionId, string>()
@@ -86,12 +107,14 @@ export function allocateDefinitionOutputNames(
   }
 
   const diagnostics = collectOutputNameCollisions(aliases)
+  const collisionReport = createCollisionReport(aliases, diagnostics, targetName)
 
   return {
     valid: diagnostics.length === 0,
     outputNames,
     aliases,
     aliasById,
+    collisionReport,
     diagnostics,
   }
 }
@@ -150,6 +173,36 @@ function collectOutputNameCollisions(
   }
 
   return diagnostics
+}
+
+function createCollisionReport(
+  aliases: readonly DefinitionOutputAliasMetadata[],
+  diagnostics: readonly DefinitionOutputNameDiagnostic[],
+  targetName: string,
+): DefinitionOutputNameCollisionReportEntry[] {
+  const collisionIds = new Set(diagnostics.flatMap(diagnostic => diagnostic.ids))
+
+  return aliases.map(alias => {
+    const collides = collisionIds.has(alias.id)
+
+    return {
+      canonicalId: alias.id,
+      targetName,
+      kind: alias.kind,
+      scope: alias.scope,
+      domain: alias.domain,
+      localName: alias.localName,
+      outputName: alias.outputName,
+      reason: collides ? 'output-name-collision' : alias.reason,
+      severity: collides ? 'error' : severityForAlias(alias),
+    }
+  })
+}
+
+function severityForAlias(alias: DefinitionOutputAliasMetadata): DefinitionOutputNameReportSeverity {
+  if (alias.reason === 'domain-prefix') return 'warning'
+  if (alias.reason === 'explicit-alias' && alias.outputName !== alias.localName) return 'warning'
+  return 'info'
 }
 
 function localNameKey(node: Pick<OutputNameNode, 'kind' | 'localName'>): string {

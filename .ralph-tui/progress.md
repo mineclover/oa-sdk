@@ -6,6 +6,7 @@ after each iteration and it's included in prompts for context.
 ## Codebase Patterns (Study These First)
 
 *Add reusable patterns discovered during development here.*
+- Collision/naming reports should be derived from allocator alias metadata plus final diagnostics, rather than widening alias metadata itself; this keeps the target-local output-name map stable while simulation layers add target name, reason, and severity.
 - Output name allocation should run per target over that target's included registry nodes, emit a canonical-id keyed `outputNames` map plus alias metadata, and then feed the map into output `$ref` rewriting instead of storing global canonical-id aliases.
 - Output `$ref` rewrite should key off registry ref-edge source path/pointer/raw-ref triples and resolved `targetId`, while keeping output naming injectable through a target-local map/callback for later naming policy work.
 - Definition ref resolution should run after unique node registration so canonical refs can be checked against the full `nodeById` set and file refs can resolve through a source-path/pointer index.
@@ -135,4 +136,28 @@ after each iteration and it's included in prompts for context.
   - Target-local allocation is simplest as a pure function over included registry nodes; callers decide the target boundary by choosing the input node set.
   - Explicit aliases should be applied before preserve/domain-prefix fallback so a manual alias can resolve a local-name collision without forcing every remaining node through domain prefixing.
   - Final output name collision checks still need to run after all policies because explicit aliases can create component-section collisions.
+---
+
+## 2026-04-16 - US-007
+- Implemented server/domain collision simulation support by adding target-aware `collisionReport` rows to `allocateDefinitionOutputNames()`.
+- Added public/admin target fixtures and admin `Note` schema fragments so same-local-name collisions can be simulated independently per server target.
+- Extended parser and schemas tests to cover no collision, domain-prefix rename collision, target-local naming, target fixture shape, and output-name collision report errors.
+- Documented the collision report shape and updated internal todo status for US-007 completion.
+- Files changed:
+  - `packages/parser/src/definition-output-names.ts`
+  - `packages/parser/src/index.ts`
+  - `packages/parser/src/__tests__/definition-output-names.test.ts`
+  - `packages/schemas/src/fragments/schema/admin/book/Note.yaml`
+  - `packages/schemas/src/fragments/schema/admin/notebook/Note.yaml`
+  - `packages/schemas/src/targets/public-api.yaml`
+  - `packages/schemas/src/targets/admin-api.yaml`
+  - `packages/schemas/scripts/__tests__/definition-fixtures.test.ts`
+  - `docs/internal/spec.md`
+  - `docs/internal/todo.md`
+  - `docs/internal/api-index.md`
+  - `.ralph-tui/progress.md`
+- **Learnings:**
+  - Target simulation can stay pure by passing only the target's included nodes plus `targetName` into the allocator; future target config loading does not need to change naming policy semantics.
+  - `collisionReport` is more useful as a per-definition row stream than as grouped diagnostics because downstream tooling can join rows by canonical id, target, domain, or severity.
+  - Keeping fixture targets under `packages/schemas/src/targets` avoids changing the current domain merge pipeline while still giving the builder PRD stable server-level fixtures.
 ---
