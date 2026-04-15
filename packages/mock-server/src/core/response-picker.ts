@@ -7,6 +7,8 @@ export type PickedResponse = {
   status: number
   contentType: string
   body: unknown
+  /** 선택된 Media Type schema. XML serialization처럼 wire-format이 schema를 필요로 할 때 사용. */
+  schema?: OasSchema
   /** OAS Response.headers에서 추출된 헤더 (이름 → 값) */
   headers: Record<string, string>
   /** OAS Response.links에서 추출된 관계 메타데이터 (이름 → Link Object) */
@@ -53,7 +55,10 @@ export function pickResponse(responses: Record<string, OasResponse>): PickedResp
     return result
   }
 
-  return { status: entry.status, contentType, body: resolveMediaTypeBody(mediaType), headers, links }
+  const schema = mediaType?.schema as OasSchema | undefined
+  const result: PickedResponse = { status: entry.status, contentType, body: resolveMediaTypeBody(mediaType), headers, links }
+  if (schema !== undefined) result.schema = schema
+  return result
 }
 
 // ─── 상태 코드 선택 ──────────────────────────────────────────────────────────

@@ -12,6 +12,13 @@ import type {
 } from '@oa-sdk/parser'
 import { classifyAjvErrors } from '../errors/classifier.js'
 import type { MockErrorDetail, MockValidationResult } from '../errors/types.js'
+import {
+  collectUnsupportedXmlFeatures,
+  isXmlMediaType,
+  parseXmlBody,
+  XML_SUPPORTED_SCOPE,
+  type XmlUnsupportedFeature,
+} from './xml.js'
 
 const ajv = new Ajv({ allErrors: true, strict: false, verbose: true, discriminator: true })
 addFormats(ajv)
@@ -148,6 +155,9 @@ export function validateRequestSchemas(index: RouteIndex): MockValidationResult 
 
         const mediaType = rawMediaType as { schema?: OasSchema }
         if (!mediaType.schema) continue
+        if (isXmlMediaType(contentType)) {
+          errors.push(...xmlScopeErrors(mediaType.schema, `${operationPath}/requestBody/content/${escapePointer(contentType)}/schema`))
+        }
         const compiled = compileSchema(
           mediaType.schema,
           `${operationPath}/requestBody/content/${escapePointer(contentType)}/schema`,
@@ -313,12 +323,63 @@ function validateBody(
     ]
   }
 
+  if (isXmlMediaType(normalized)) {
+    const raw = requestBody.content?.[normalized]
+    if (!raw || '$ref' in raw) return []
+    const mediaType = raw as { schema?: OasSchema }
+    if (!mediaType.schema) return []
+    const prepared = prepareXmlBody(body, mediaType.schema)
+    if (prepared.errors.length > 0) return prepared.errors
+    return runAjv(prepared.body, mediaType.schema, '/body')
+  }
+
   const raw = requestBody.content?.[normalized]
   if (!raw || '$ref' in raw) return []
   const mediaType = raw as { schema?: OasSchema }
   if (!mediaType.schema) return []
 
   return runAjv(body, mediaType.schema, '/body')
+}
+
+// ─── XML body support ───────────────────────────────────────────────────────
+
+function prepareXmlBody(
+  body: unknown,
+  schema: OasSchema,
+): { body: unknown; errors: MockErrorDetail[] } {
+  const scopeErrors = xmlScopeErrors(schema, '/body')
+  if (scopeErrors.length > 0) return { body, errors: scopeErrors }
+  if (typeof body !== 'string') return { body, errors: [] }
+
+  const parsed = parseXmlBody(body, schema)
+  if (parsed.ok) return { body: parsed.value, errors: [] }
+
+  return {
+    body,
+    errors: [{
+      path: '/body',
+      code: 'PROTOCOL_MISMATCH',
+      message: 'XML 요청 바디를 파싱할 수 없습니다',
+      expected: parsed.expected ?? XML_SUPPORTED_SCOPE,
+      received: parsed.received ?? parsed.message,
+      stage: 'parse',
+    }],
+  }
+}
+
+function xmlScopeErrors(schema: OasSchema, basePath: string): MockErrorDetail[] {
+  return collectUnsupportedXmlFeatures(schema, basePath).map(xmlUnsupportedFeatureError)
+}
+
+function xmlUnsupportedFeatureError(feature: XmlUnsupportedFeature): MockErrorDetail {
+  return {
+    path: feature.path,
+    code: 'PROTOCOL_MISMATCH',
+    message: `지원하지 않는 XML Object 기능: ${feature.message}`,
+    expected: XML_SUPPORTED_SCOPE,
+    received: feature.feature,
+    stage: 'parse',
+  }
 }
 
 // ─── Multipart encoding ────────────────────────────────────────────────────

@@ -1,9 +1,11 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http'
-import { parseDocument, matchRoute, type HttpMethod, type MatchResult, type OasDocument, type OperationEntry, type RouteIndex } from '@oa-sdk/parser'
+import { parseDocument, matchRoute, type HttpMethod, type MatchResult, type OasDocument, type OasSchema, type OperationEntry, type RouteIndex } from '@oa-sdk/parser'
 import { handleRequest } from '../core/handler.js'
 import { isStreamingContentType, generateStreamChunks } from '../core/stream.js'
 import { filterRouteIndex, type RouteFilter } from '../core/route-filter.js'
 import { assertValidRequestSchemas, createMultipartBody, type MultipartPartMetadata } from '../core/request-validator.js'
+import { serializeResponseBody } from '../core/body-serialization.js'
+import { isXmlMediaType } from '../core/xml.js'
 import type { CallbackObserver, CallbackPostAttempt } from '../core/callbacks.js'
 
 export type NodeMockServerOptions = {
@@ -156,7 +158,7 @@ export function createNodeMockServer(
       return
     }
 
-    writeBody(res, picked.status, picked.contentType, picked.body, picked.headers)
+    writeBody(res, picked.status, picked.contentType, picked.body, picked.headers, picked.schema)
   }
 
   return {
@@ -208,10 +210,15 @@ function writeJson(res: ServerResponse, status: number, body: unknown): void {
   writeBody(res, status, 'application/json', body)
 }
 
-function writeBody(res: ServerResponse, status: number, contentType: string, body: unknown, extraHeaders: Record<string, string> = {}): void {
-  const payload = contentType.includes('application/json') || typeof body !== 'string'
-    ? JSON.stringify(body)
-    : body
+function writeBody(
+  res: ServerResponse,
+  status: number,
+  contentType: string,
+  body: unknown,
+  extraHeaders: Record<string, string> = {},
+  schema?: OasSchema,
+): void {
+  const payload = serializeResponseBody(contentType, body, schema)
   res.writeHead(status, { ...extraHeaders, 'Content-Type': contentType, 'Content-Length': Buffer.byteLength(payload) })
   res.end(payload)
 }
@@ -270,6 +277,8 @@ async function readBody(req: IncomingMessage): Promise<unknown> {
     }
     return result
   }
+
+  if (isXmlMediaType(ct)) return raw
 
   // text/* 및 알 수 없는 content-type → raw 문자열
   return raw

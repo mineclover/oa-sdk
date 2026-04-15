@@ -5,6 +5,8 @@ import { handleRequest } from '../core/handler.js'
 import { isStreamingContentType, generateStreamChunks } from '../core/stream.js'
 import { filterRouteIndex, type RouteFilter } from '../core/route-filter.js'
 import { assertValidRequestSchemas, createMultipartBody, type MultipartPartMetadata } from '../core/request-validator.js'
+import { serializeResponseBody } from '../core/body-serialization.js'
+import { isXmlMediaType } from '../core/xml.js'
 import type { OverrideResponse } from './node-http.js'
 import type { CallbackObserver, CallbackPostAttempt } from '../core/callbacks.js'
 
@@ -129,7 +131,7 @@ function buildMswHandlers(
             })
           }
           return new HttpResponse(
-            typeof ov.body === 'string' ? ov.body : JSON.stringify(ov.body),
+            serializeResponseBody(ct, ov.body),
             { status: ov.status, headers: { ...ovHeaders, 'Content-Type': ct } },
           )
         }
@@ -196,7 +198,7 @@ function buildMswHandlers(
           })
         }
         return new HttpResponse(
-          typeof picked.body === 'string' ? picked.body : JSON.stringify(picked.body),
+          serializeResponseBody(picked.contentType, picked.body, picked.schema),
           { status: picked.status, headers: { ...picked.headers, 'Content-Type': picked.contentType } },
         )
       })
@@ -237,6 +239,10 @@ async function parseBody(request: Request, contentType: string | undefined): Pro
       const formData = await request.formData()
       return formDataToMultipartBody(formData)
     } catch { return undefined }
+  }
+
+  if (isXmlMediaType(ct)) {
+    try { return await request.text() } catch { return undefined }
   }
 
   if (ct.startsWith('text/')) {

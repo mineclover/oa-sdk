@@ -149,6 +149,76 @@ describe('request body 스키마 검증', () => {
   })
 })
 
+// ─── application/xml request body parsing ───────────────────────────────────
+
+describe('application/xml 요청 바디 검증', () => {
+  const xmlBody: OasRequestBody = {
+    required: true,
+    content: {
+      'application/xml': {
+        schema: {
+          type: 'object',
+          xml: { name: 'pet' },
+          required: ['id', 'active', 'name', 'tags'],
+          properties: {
+            id: { type: 'integer' },
+            active: { type: 'boolean' },
+            name: { type: 'string', xml: { name: 'petName' } },
+            tags: { type: 'array', items: { type: 'string' } },
+          },
+        },
+      },
+    },
+  }
+
+  it('valid: element-only object, primitive coercion, and repeated array elements pass', () => {
+    const body = '<pet><id>42</id><active>true</active><petName>Rex</petName><tags>friendly</tags><tags>small</tags></pet>'
+    const r = validateRequest(parts({ body, contentType: 'application/xml; charset=utf-8' }), [], xmlBody)
+    expect(r.valid).toBe(true)
+  })
+
+  it('invalid: malformed XML returns a parse-stage protocol diagnostic', () => {
+    const r = validateRequest(parts({ body: '<pet><id>42</pet>', contentType: 'application/xml' }), [], xmlBody)
+    expect(r.valid).toBe(false)
+    if (!r.valid) {
+      expect(r.errors).toContainEqual(expect.objectContaining({
+        path: '/body',
+        code: 'PROTOCOL_MISMATCH',
+        expected: expect.stringContaining('element-only'),
+        stage: 'parse',
+      }))
+    }
+  })
+
+  it('invalid: unsupported XML Object attributes fail clearly', () => {
+    const attributeBody: OasRequestBody = {
+      required: true,
+      content: {
+        'application/xml': {
+          schema: {
+            type: 'object',
+            properties: {
+              id: { type: 'string', xml: { nodeType: 'attribute' } },
+            },
+          },
+        },
+      },
+    }
+
+    const r = validateRequest(parts({ body: '<pet><id>42</id></pet>', contentType: 'application/xml' }), [], attributeBody)
+    expect(r.valid).toBe(false)
+    if (!r.valid) {
+      expect(r.errors).toContainEqual(expect.objectContaining({
+        path: '/body/properties/id/xml/nodeType',
+        code: 'PROTOCOL_MISMATCH',
+        expected: expect.stringContaining('element-only'),
+        received: 'nodeType=attribute',
+        stage: 'parse',
+      }))
+    }
+  })
+})
+
 // ─── multipart encoding validation ──────────────────────────────────────────
 
 describe('multipart/form-data Encoding Object 검증', () => {

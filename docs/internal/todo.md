@@ -36,9 +36,10 @@
 완료: mock-server 성공 응답에서 Operation callbacks를 읽어 지원 runtime expression(`$url`, `$method`, `$statusCode`, `$request.path/query/header/body`, `$response.header/body`)을 평가하고, callback Path Item의 `post` requestBody를 기존 mock body 생성 우선순위로 payload화해 simulated outbound POST attempt로 노출한다. MSW/Node 옵션의 `onCallback` hook과 `createCallbackTracker()` 테스트 헬퍼로 성공/실패 attempt를 관찰할 수 있으며, URL 미해결/invalid 표현은 inbound 응답을 실패시키지 않고 attempt error metadata로 기록한다.
 완료 기준: 요청 처리 후 callback route로 payload를 보내는 성공/실패 시나리오가 테스트됨.
 
-### 10. [ ] XML 직렬화
+### 10. [x] XML 직렬화
 배경: XML 타입은 준비됐지만 `application/xml` body parsing/serialization은 미지원.
 작업: XML Object 규칙, request body parsing, response serialization 범위를 최소 지원부터 정함.
+완료: mock-server가 `application/xml` 요청을 element-only XML로 파싱하고 schema-aware primitive coercion/object/array 검증을 수행한다. 응답은 같은 최소 범위로 XML 문자열을 직렬화하며 MSW/Node adapters의 content-type별 응답 serialization에 연결했다. 지원 범위는 object child elements, repeated element arrays, primitive text, `xml.name` element rename이며 attributes, namespaces/prefixes, CDATA/text node modeling, non-element `nodeType`, wrapped array semantics는 non-goal로 두고 request validation/preflight에서 명확한 diagnostic을 반환한다.
 완료 기준: 기본 object/array XML 직렬화와 content-type negotiation 테스트가 있음.
 
 ---

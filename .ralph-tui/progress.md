@@ -6,6 +6,7 @@ after each iteration and it's included in prompts for context.
 ## Codebase Patterns (Study These First)
 
 *Add reusable patterns discovered during development here.*
+- Wire-format support should be split between schema-aware core helpers and thin adapter hooks: parse/prepare bodies in validation where schemas are available, keep response serialization in a shared helper, and let MSW/Node adapters only choose by content type.
 - Response relationship metadata should stay out-of-band: expose it beside the selected mock body (for example `PickedResponse.links`) and in generated Op metadata (for example `XxxResponseLinks` / `responseLinks`) without injecting it into HTTP payload bodies.
 - Mock outbound behavior should stay observable metadata by default: build deterministic attempt records and expose adapter/test hooks instead of performing network I/O, so local tests can assert behavior without new transport flakiness.
 - Public import path regression tests should combine a consumer-style typecheck fixture with package.json exports assertions; API index validation can then guard the documented source entrypoints and supported subpaths separately.
@@ -452,4 +453,30 @@ after each iteration and it's included in prompts for context.
   - Callback simulation fits the same out-of-band metadata pattern as response links: preserve inbound HTTP body semantics and expose outbound behavior through deterministic metadata/hook records.
   - Sharing media body resolution keeps response body selection and callback payload generation aligned for `examples.dataValue`, `example`, schema example/default, and minimal schema generation.
   - URL expression failures should be recorded per callback attempt rather than converted into inbound request failures; this keeps local mocks useful for both happy-path and bad callback URL tests.
+---
+
+## 2026-04-15 - US-022
+- Defined the minimal XML scope for mock-server as `application/xml` element-only support: object child elements, repeated element arrays, primitive text values, and `xml.name` element rename. Attributes, namespaces/prefixes, CDATA/text node modeling, non-element `nodeType`, and wrapped-array XML Object semantics are explicit non-goals with request validation diagnostics.
+- Implemented schema-aware XML request parsing/preparation in request validation and preflight scope checks, plus shared XML response serialization wired into MSW and Node HTTP adapters.
+- Added focused XML tests for request parsing/content-type charset negotiation, malformed XML diagnostics, unsupported XML Object attribute diagnostics, object/array response serialization, and XML escaping.
+- Ran checks: `pnpm typecheck` passed; focused XML/body validator tests passed with 26 cases; `pnpm build:scripts`, `pnpm check:api-index`, and `git diff --check` passed. `pnpm test` passed core/parser/router/client/codegen and failed in mock-server Node HTTP suites on sandbox `listen EPERM 127.0.0.1`; `pnpm schema:validate` built parser/codegen and failed when `tsx` attempted a sandbox-blocked IPC pipe.
+- Files changed:
+  - `packages/mock-server/src/core/xml.ts`
+  - `packages/mock-server/src/core/body-serialization.ts`
+  - `packages/mock-server/src/core/request-validator.ts`
+  - `packages/mock-server/src/core/response-picker.ts`
+  - `packages/mock-server/src/adapters/msw.ts`
+  - `packages/mock-server/src/adapters/node-http.ts`
+  - `packages/mock-server/src/__tests__/unit/xml.test.ts`
+  - `packages/mock-server/src/__tests__/unit/validator-body.test.ts`
+  - `docs/internal/spec.md`
+  - `docs/internal/todo.md`
+  - `docs/internal/api-index.md`
+  - `docs/internal/oas32-coverage.md`
+  - `docs/internal/traceability.md`
+  - `.ralph-tui/progress.md`
+- **Learnings:**
+  - XML parsing needs schema context for primitive coercion and `xml.name` property mapping, so the raw XML string should be prepared inside request validation rather than fully decoded in adapters.
+  - Response XML serialization needs the selected media schema; adding `PickedResponse.schema` keeps adapter serialization schema-aware without changing response body semantics.
+  - Unsupported XML Object features are clearer as parse-stage diagnostics tied to schema paths, while the implemented XML wire scope stays intentionally element-only.
 ---

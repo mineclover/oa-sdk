@@ -56,7 +56,8 @@ schemas      ← 독립. OAS 소스 + merge + 3.1↔3.2 변환
 | Response headers | OAS headers → HTTP 헤더 전달 |
 | Response links | OAS links → `PickedResponse.links` 관계 메타데이터 노출. HTTP body payload에는 주입하지 않음 |
 | Callbacks | Operation callbacks → URL runtime expression 평가 + simulated outbound POST attempt 메타데이터. `onCallback` hook / `createCallbackTracker()`로 테스트 관찰 |
-| Body 파싱 | JSON, form-urlencoded, multipart/form-data(part metadata + Encoding Object `contentType`/JSON decode/form style diagnostics), text/plain |
+| Body 파싱 | JSON, form-urlencoded, multipart/form-data(part metadata + Encoding Object `contentType`/JSON decode/form style diagnostics), text/plain, application/xml(element-only object/array/primitive) |
+| XML scope | `application/xml` 최소 지원: object child element, repeated element array, primitive text, `xml.name` element rename. Attribute, namespace/prefix, CDATA/text node modeling, `nodeType` non-element, wrapped array semantics는 명시적 non-goal이며 request validation에서 diagnostic 처리 |
 | 스트리밍 | SSE (data: + [DONE]) + NDJSON (bare JSON lines), `generateStreamChunks()` 공유 |
 | 어댑터 | MSW 2.x + Node HTTP (Connection: keep-alive 패리티) |
 | Response override | `server.override(operationId, response)` — 테스트별 응답 오버라이드 |
@@ -230,10 +231,10 @@ pnpm demo  # API 구조 + Mock 12시나리오 + 커버리지
 | core | 52 |
 | parser | 201 |
 | codegen | 492 |
-| mock-server | 572 |
+| mock-server | 580 |
 | playground | 114 |
 | router | 36 |
 | client | 39 |
 | schemas | 75 |
 | typia-mock | 53 |
-| **합계** | **1634** |
+| **합계** | **1642** |

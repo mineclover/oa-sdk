@@ -214,7 +214,7 @@ Typegen 공개 surface는 root entry(`@oa-sdk/codegen`)와 typegen sub-entry(`@o
 | `validateRequestSchemas()` | `core/request-validator.ts` | RouteIndex 요청 스키마 preflight 컴파일 검증 |
 | `assertValidRequestSchemas()` | `core/request-validator.ts` | preflight 실패 시 예외 발생 |
 | `pickResponse()` | `core/response-picker.ts` | 응답 선택 (6단계 폴백) + Link metadata 추출 |
-| `PickedResponse` | `core/response-picker.ts` | 선택된 응답 타입 (status/body/headers/links/stream) |
+| `PickedResponse` | `core/response-picker.ts` | 선택된 응답 타입 (status/body/schema/headers/links/stream) |
 | `CallbackObserver` | `core/callbacks.ts` | simulated outbound callback POST attempt 관찰 hook 타입 |
 | `CallbackPostAttempt` | `core/callbacks.ts` | callbackName/expression/url/body/error를 포함한 simulated POST attempt metadata |
 | `CallbackSimulationError` | `core/callbacks.ts` | callback URL expression 평가 실패 metadata |

@@ -45,7 +45,7 @@
 | `types/headers-tags.ts` | `parser/parse.ts`, `mock-server/response-picker.ts`, `parser/types.ts` |
 | `types/common.ts` | 모든 타입 파일 (Referenceable\<T>) |
 | `types/schema.ts` | `parser/fold.ts`, `mock-server/generate.ts`, `mock-server/stream.ts`, `codegen/zod-to-schema.ts`, `codegen/typegen/schema-to-ts.ts` |
-| `types/xml.ts` | `types/schema.ts` (Schema.xml 필드 타입, 구현 파일에서 직접 사용 없음 — XML 미지원) |
+| `types/xml.ts` | `types/schema.ts`, `mock-server/core/xml.ts` (application/xml 최소 element-only parse/serialize scope) |
 | `types/security.ts` | `parser/parse.ts`, `mock-server/request-validator.ts`, `parser/lint.ts` |
 
 ---

@@ -71,7 +71,7 @@
 | Callbacks | ✅ | ✅ (추출) | ✅ (POST simulation) | — | — | — |
 | Webhooks | ✅ | ✅ (추출) | — | — | — | — |
 | Encoding | ✅ | — | — | — | — | — |
-| XML | ✅ | — | — | — | — | — |
+| XML | ✅ | — | ✅ (`application/xml` element-only parse/serialize) | — | — | — |
 | Extensions (x-*) | ✅ | ✅ (보존) | — | — | — | — |
 
 ### 범례
