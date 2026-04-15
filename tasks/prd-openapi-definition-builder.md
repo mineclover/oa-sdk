@@ -48,6 +48,8 @@ If a story changes schema fixtures, docs, or test counts:
 
 ## User Stories
 
+Execution note: the active Ralph implementation split the original PRD work into narrower stories after the initial draft. In the current sequence, target configuration/selection is US-010, OpenAPI document emit is US-011, CLI artifact build is US-012, WorkspaceIndex metadata integration is US-013, and this migration plan is tracked as US-014.
+
 ### US-001: Define Canonical Identity Model
 **Description:** As a spec author, I want each OpenAPI fragment to have canonical identity separate from output component name so that local names can stay natural inside each domain.
 
@@ -169,7 +171,7 @@ If a story changes schema fixtures, docs, or test counts:
 - [ ] Driver fallback and full rebuild principles match ADR-006.
 - [ ] Tests cover changed schema fragment invalidating dependent target.
 
-### US-012: Document Migration From Current Domain Merge
+### US-014: Document Migration From Current Domain Merge
 **Description:** As a maintainer, I want a migration plan from current domain-level `merge.ts` to the definition builder so that current schemas remain stable during transition.
 
 **Acceptance Criteria:**
@@ -177,7 +179,9 @@ If a story changes schema fixtures, docs, or test counts:
 - [ ] Define which current files become fragments.
 - [ ] Define compatibility requirements for `.merged.yaml` and `.merged.3.1.yaml`.
 - [ ] Include rollback plan: current merge remains available until builder output matches expected validation.
+- [ ] Document when builder output can replace `.merged.yaml`.
 - [ ] Update `docs/internal/todo.md` with implementation order.
+- [ ] Update this PRD if the migration story or numbering changes during implementation.
 
 ## Functional Requirements
 
@@ -229,4 +233,4 @@ If a story changes schema fixtures, docs, or test counts:
 - Should target configs live under `packages/schemas/src/targets`?
 - Should `oa://schema/public/book/Note` be public syntax or internal only?
 - Should semantic aliasing be represented as a separate fragment type?
-- Should builder output replace `.merged.yaml` or generate parallel artifacts first?
+- Answered by US-014: builder output generates parallel artifacts first and replaces `.merged.yaml` only after full current-domain fragment coverage, zero-error diagnostics, `.merged.yaml`/`.merged.3.1.yaml` validation compatibility, accepted normalized diff, and maintainer approval.

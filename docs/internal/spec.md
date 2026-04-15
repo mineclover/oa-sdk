@@ -294,6 +294,52 @@ CLI build는 fragment `content` 기준 SHA-256 hash를 생성해 registry에 넘
 
 Builder WorkspaceIndex metadata는 SQLite schema를 늘리지 않고 기존 row를 재사용한다. Target config 파일과 fragment 파일은 `files`에 content hash/mtime/realpath로 저장하고, fragment id는 `components.section = definition-fragment`, target bundle은 `components.section = definition-target`으로 기록한다. Fragment source `$ref`는 fragment file → target fragment file `refs` edge가 되고, target config는 direct path root fragment로 향하는 `refs` edge를 기록한다. 기존 `refs.to_file` 역방향 dirty propagation이 schema fragment 변경을 참조 fragment와 target config까지 전파하므로 target bundle은 직접 또는 transitively 포함한 fragment가 바뀔 때 dirty가 된다. Target config 파일 자체가 바뀌면 reverse dependency가 없으므로 해당 target만 dirty가 되며, no-op/SQLite fallback은 ADR-006 원칙대로 scanned target을 full rebuild 대상으로 취급한다.
 
+#### Migration from domain merge (US-014)
+
+현재 schema pipeline은 definition builder가 기존 artifact와 동등함을 입증할 때까지 유지한다. Builder output은 병렬 artifact로만 생성하고, `packages/schemas/scripts/merge.ts`와 `pnpm --filter @oa-sdk/schemas run merge`는 rollback 가능한 source-of-truth path로 남긴다.
+
+| 단계 | 현재 domain merge path | 새 definition builder path |
+|------|------------------------|----------------------------|
+| Source layout | `packages/schemas/src/openapi.yaml`, `src/profiles/{local,staging,production}.yaml`, `src/domains/{common,health,users}/spec.yaml` | `packages/schemas/src/fragments/**/{Name}.yaml` plus `packages/schemas/src/targets/{target}.yaml` |
+| Composition command | `pnpm --filter @oa-sdk/schemas run merge` runs `packages/schemas/scripts/merge.ts` | `oa-gen build-spec --target packages/schemas/src/targets/{target}.yaml --output {parallel-artifact}.yaml --diagnostics {target}.diagnostics.json --collision-report {target}.collisions.json` |
+| Merge boundary | Domain `spec.yaml` files are merged whole-file: `common` first, remaining domains alphabetically | Target config selects exact path fragments, then registry refs recursively include schema/parameter/response/requestBody/security fragments |
+| Servers | `merge.ts` injects one profile file into root `servers` | Target config owns emitted `servers`; current profiles migrate to profile-specific target configs or target variants |
+| Refs | Domain specs use OpenAPI-local refs such as `#/components/schemas/Error` | Source fragments use canonical refs such as `oa://schema/shared/common/Error`; emit rewrites them back to local OpenAPI refs |
+| Collision behavior | Duplicate paths and duplicate component keys fail unless component override env vars explicitly allow them | Duplicate canonical ids, unresolved refs, target leaks, output-name collisions, unrewritten refs, and validation errors fail the build; target-local alias/collision reports explain renames |
+| Artifact ownership | `src/.merged.yaml` is the checked validation input; `src/.merged.3.1.yaml` and `src/.merged.3.1.meta.json` are generated from it | Builder artifacts are generated beside, not over, `.merged.yaml` until parity is approved |
+
+Current files migrate to fragments in this order:
+
+| Current file/section | Fragment target |
+|----------------------|-----------------|
+| `src/openapi.yaml` root `info` and global `tags` | Target-level emitted metadata or `tag` fragments once tag emit is wired; keep existing root metadata in `.merged.yaml` until parity target supports it |
+| `src/profiles/local.yaml`, `src/profiles/staging.yaml`, `src/profiles/production.yaml` | Target config `servers` in profile-specific targets, for example `local-api`, `staging-api`, and `production-api` |
+| `src/domains/common/spec.yaml#/components/schemas/*` | `src/fragments/schema/shared/common/{SchemaName}.yaml` |
+| `src/domains/common/spec.yaml#/components/responses/*` | `src/fragments/response/shared/common/{ResponseName}.yaml` |
+| `src/domains/common/spec.yaml#/components/parameters/*` | `src/fragments/parameter/shared/common/{ParameterName}.yaml` |
+| `src/domains/common/spec.yaml#/components/securitySchemes/*` | `src/fragments/securityScheme/shared/common/{SchemeName}.yaml` |
+| `src/domains/health/spec.yaml#/paths/~1health` and `#/paths/~1health~1stream` | `src/fragments/path/public/health/HealthPath.yaml` and `src/fragments/path/public/health/HealthStreamPath.yaml` with `metadata.path` |
+| `src/domains/health/spec.yaml#/components/schemas/HealthStatus` | `src/fragments/schema/public/health/HealthStatus.yaml` unless the target is intentionally internal-only |
+| `src/domains/users/spec.yaml#/paths/~1users` and `#/paths/~1users~1{id}` | `src/fragments/path/public/users/UsersPath.yaml` and `src/fragments/path/public/users/UserByIdPath.yaml` with `metadata.path` |
+| `src/domains/users/spec.yaml#/components/schemas/{User,CreateUserRequest,UpdateUserRequest}` | `src/fragments/schema/public/users/{User,CreateUserRequest,UpdateUserRequest}.yaml` |
+| Domain-local `tags` sections | `tag` fragments or target metadata; they must preserve existing tag names/descriptions before replacement |
+| `src/.merged.yaml`, `src/.merged.3.1.yaml`, `src/.merged.3.1.meta.json` | Generated artifacts only; do not migrate them to source fragments |
+
+Compatibility requirements:
+
+- `.merged.yaml` remains the canonical OpenAPI 3.2 validation input until replacement. The builder parity artifact must preserve the same root `openapi`, `info`, `servers`, `tags`, `paths`, `components`, operation ids, security requirements, examples, and OAS 3.2 fields that downstream parser/codegen/mock/router/client flows consume.
+- Builder output must contain only local OpenAPI `$ref` values after emit. No `oa://...` refs, relative fragment refs, unresolved target diagnostics, or output-name collision diagnostics are allowed in the replacement candidate.
+- `.merged.3.1.yaml` must continue to be derived from the 3.2 artifact through `packages/schemas/scripts/downgrade-3.1.ts` or an equivalent transform that preserves the same `.merged.3.1.meta.json` sidecar contract. Redocly bundle/preview continues to consume the 3.1 artifact.
+- The replacement candidate must pass `pnpm schema:validate`, `pnpm --filter @oa-sdk/schemas test`, parser/codegen tests, and `pnpm build:scripts && pnpm check:api-index` with the same or intentionally reviewed Spectral hint profile.
+- A normalized diff between current `.merged.yaml` and the builder parity artifact must show only reviewed, documented differences. Component output renames are allowed only when target-local alias metadata maps every renamed output back to its canonical id and downstream codegen diffs are accepted.
+
+Rollback and replacement rule:
+
+- Rollback is the current default: keep `packages/schemas/scripts/merge.ts`, keep schema package scripts pointed at `pnpm merge && pnpm downgrade:3.1`, and generate builder artifacts under a parallel path such as `packages/schemas/src/.builder/{target}.yaml` or an ignored CI artifact directory.
+- If builder validation, normalized diff, codegen output diff, or 3.1 downgrade compatibility fails, delete the parallel builder artifact or ignore its CI job output; no source-of-truth artifact changes are needed because `.merged.yaml` is still produced by `merge.ts`.
+- Builder output can replace `.merged.yaml` only after all current domain source sections listed above have fragment equivalents, a parity target covers the same profile/path/component surface as the current local merge, builder diagnostics have zero errors, `.merged.yaml` and `.merged.3.1.yaml` compatibility gates pass, and maintainers approve the normalized diff plus downstream generated type/API diff.
+- The replacement change should be a separate implementation story that changes schema package scripts atomically. `merge.ts` remains available for at least one release cycle after replacement so rollback can restore the old command path without reconstructing the script.
+
 | 개념 | 계획 |
 |------|------|
 | Canonical identity | `kind:scope/domain/name` 고정 계층. 예: `schema:public/book/Note`, `schema:public/notebook/Note`, `schema:shared/common/Error`. source identity와 output component name을 분리 |

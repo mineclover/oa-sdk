@@ -1,0 +1,137 @@
+# Iteration 13 Log
+
+## Metadata
+
+- **Task ID**: US-013
+- **Task Title**: Integrate builder metadata with WorkspaceIndex
+- **Description**: As a user of large specs, I want fragment-level changes to dirty only affected target bundles so that multi-server schema builds can become incremental.
+- **Status**: completed
+- **Task Completed**: Yes
+- **Promise Detected**: Yes
+- **Started At**: 2026-04-15T21:47:59.333Z
+- **Ended At**: 2026-04-15T22:06:01.324Z
+- **Duration**: 18m 1s
+- **Input Tokens**: 8467357
+- **Output Tokens**: 29804
+- **Total Tokens**: 8497161
+- **Agent**: codex
+- **Sandbox Mode**: auto
+- **Sandbox Network**: Enabled
+--- RAW OUTPUT ---
+I’ll first load the repo guidance and story context, then trace the WorkspaceIndex and builder code paths before making changes. After that I’ll patch the narrowest surface and run the required package checks.
+[94m[shell][0m $ /bin/zsh -lc "pwd && rg --files -g 'AGENTS.md' -g '.ralph-tui/progress.md' -g 'docs/internal/archite...
+[94m[shell][0m $ /bin/zsh -lc 'git status --short'
+[94m[shell][0m $ /bin/zsh -lc "rg -n \"WorkspaceIndex|workspace index|builder index|fragment|target config|ADR-006|in...
+The first search shows the builder story and current docs are present, but the broad search hit vendored references. I’m narrowing the read set to package sources and the internal docs so the implementation follows the existing boundaries.
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,260p' .ralph-tui/progress.md"
+[94m[shell][0m $ /bin/zsh -lc "sed -n '330,375p' tasks/prd-openapi-definition-builder.json && sed -n '150,180p' tasks...
+[94m[shell][0m $ /bin/zsh -lc "rg -n \"WorkspaceIndex|workspace index|builder index|fragment|target config|incrementa...
+[94m[shell][0m $ /bin/zsh -lc 'find .. -name AGENTS.md -print'
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,260p' docs/internal/architecture/006-incremental-workspace-index.md"
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,220p' packages/codegen/src/workspace-index.ts"
+[94m[shell][0m $ /bin/zsh -lc "sed -n '220,560p' packages/codegen/src/workspace-index.ts"
+[94m[shell][0m $ /bin/zsh -lc "sed -n '260,520p' .ralph-tui/progress.md"
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,420p' packages/codegen/src/cli/lib/build-spec.ts"
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,260p' packages/codegen/src/sqlite-workspace-index.ts"
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,340p' packages/codegen/src/__tests__/cli-build-spec.test.ts"
+[94m[shell][0m $ /bin/zsh -lc "sed -n '260,620p' packages/codegen/src/sqlite-workspace-index.ts"
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,640p' packages/codegen/src/__tests__/workspace-index.test.ts"
+[94m[shell][0m $ done'
+The existing index already tracks file hashes and ref edges for normal specs; this story needs the same idea for builder fragments and target configs. I’ve found the natural place is `@oa-sdk/codegen` because the parser stays pure and ADR-006 keeps SQLite out of correctness paths.
+[94m[shell][0m $ /bin/zsh -lc "sed -n '620,920p' packages/codegen/src/sqlite-workspace-index.ts"
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,220p' packages/parser/src/definition-node.ts && sed -n '1,220p' packages/par...
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,220p' packages/parser/src/definition-registry.ts && sed -n '1,220p' packages...
+[94m[shell][0m $ /bin/zsh -lc 'cat packages/codegen/package.json packages/parser/package.json packages/schemas/packag...
+[94m[shell][0m $ /bin/zsh -lc "rg -n \"buildSpec\\(|loadDefinitionFragments|createDefinitionNode|selectDefinitionTarg...
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,220p' docs/internal/api-index.md"
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,140p' packages/codegen/src/index.ts"
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,180p' docs/internal/todo.md && sed -n '260,320p' docs/internal/spec.md"
+[94m[shell][0m $ /bin/zsh -lc 'rg -n "build-spec|BuildSpec|workspace-index|WorkspaceIndex|Builder" docs/internal/api-...
+[94m[shell][0m $ /bin/zsh -lc "cat package.json && rg --files scripts packages | rg 'api|index|validate'"
+[94m[shell][0m $ /bin/zsh -lc "rg -n \"function .*api|API Index|api-index\" scripts packages -S --glob '"'!**/node_mo...
+[94m[shell][0m $ /bin/zsh -lc "rg -n \"api-index|check:api-index|docs/internal/api-index\" -S package.json packages s...
+[94m[shell][0m $ /bin/zsh -lc "sed -n '60,150p' packages/parser/src/index.ts"
+I’m going to add a small builder-index adapter in `@oa-sdk/codegen` that records definition fragments as `components` and dependency edges as `refs` in the existing WorkspaceIndex. That keeps the SQLite schema stable while giving dirty detection enough graph data to mark affected target configs.
+I noticed one edge-writing mistake in the first pass: target dependency refs must originate from the target config file, not from the path fragment. I’m correcting that before wiring it into `build-spec`.
+[94m[shell][0m $ /bin/zsh -lc "sed -n '60,250p' packages/codegen/src/cli/lib/build-spec.ts"
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,130p' packages/codegen/src/cli/lib/build-spec.ts"
+Next I’m adding focused tests around the builder index adapter: one for stored metadata, one for transitive fragment invalidation, and one for target config invalidation staying local to that target.
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,220p' packages/codegen/src/__tests__/builder-index.test.ts"
+[94m[shell][0m $ /bin/zsh -lc "sed -n '220,520p' packages/codegen/src/__tests__/builder-index.test.ts"
+The code and tests are in place, so I’m running the focused codegen test file first. If that exposes type or ordering issues, I’ll fix those before the full gates.
+[94m[shell][0m $ /bin/zsh -lc 'pnpm --filter @oa-sdk/codegen test -- builder-index.test.ts'
+[94m[shell][0m $ /bin/zsh -lc 'pnpm --filter @oa-sdk/codegen typecheck'
+
+[91m[Error: 
+> @oa-sdk/codegen@0.1.0 typecheck /Users/junwoobang/workflow/oa-sdk/packages/codegen
+> tsc --noEmit
+
+src/__tests__/builder-index.test.ts(27,9): error TS2322: Type 'WorkspaceFileRecord | undefined' is not assignable to type 'WorkspaceFileRecord'.
+  Type 'undefined' is not assignable to type 'WorkspaceFileRecord'.
+src/__tests__/builder-index.test.ts(28,9): error TS2322: Type 'WorkspaceFileRecord | undefined' is not assignable to type 'WorkspaceFileRecord'.
+  Type 'undefined' is not assignable to ][0m
+The focused test passed at runtime, but typecheck is stricter because the fixture used `Record<string, ...>`, so keyed lookups are treated as possibly undefined. I’m tightening that fixture type instead of adding non-null assertions throughout.
+[94m[shell][0m $ /bin/zsh -lc 'pnpm --filter @oa-sdk/codegen typecheck'
+[94m[shell][0m $ /bin/zsh -lc 'pnpm --filter @oa-sdk/codegen test -- builder-index.test.ts'
+[94m[shell][0m $ /bin/zsh -lc "sed -n '104,120p' docs/internal/spec.md && sed -n '292,312p' docs/internal/spec.md"
+[94m[shell][0m $ /bin/zsh -lc 'git diff -- packages/codegen/src/builder-index.ts packages/codegen/src/cli/lib/build-s...
+[94m[shell][0m $ /bin/zsh -lc "sed -n '40,75p' docs/internal/todo.md && sed -n '1,120p' docs/internal/architecture/00...
+I’m updating the internal docs to describe the metadata shape and fallback semantics. Since the WorkspaceIndex interface and SQLite tables are unchanged, this is a documentation update rather than a schema-version bump.
+I’m adding the required progress-log entry now, plus one reusable pattern at the top because the target-root plus fragment-ref graph mapping is likely to matter for later incremental build work.
+Implementation and docs are patched. I’m going into the required gates now; because codegen CLI tests execute `dist/cli/index.js`, I’ll refresh parser/codegen builds before running the package test suite.
+[94m[shell][0m $ /bin/zsh -lc 'pnpm --filter @oa-sdk/parser build && pnpm --filter @oa-sdk/codegen build'
+[94m[shell][0m $ /bin/zsh -lc 'pnpm typecheck'
+`pnpm typecheck` passed. I’m running the three required package test suites next, starting with parser and then codegen/schemas.
+[94m[shell][0m $ /bin/zsh -lc 'pnpm --filter @oa-sdk/parser test'
+[94m[shell][0m $ /bin/zsh -lc 'pnpm --filter @oa-sdk/codegen test'
+Parser and codegen tests passed. The codegen run still emits the existing `node:sqlite` experimental warning from the test helper, which is already documented as an operational note.
+[94m[shell][0m $ /bin/zsh -lc 'pnpm --filter @oa-sdk/schemas test'
+The three package test suites are green. I’m running `schema:validate` now; it rebuilds parser/codegen and regenerates schema artifacts as part of the validation path.
+[94m[shell][0m $ /bin/zsh -lc 'pnpm schema:validate'
+`schema:validate` passed with the pre-existing four Spectral hints. I’m running the script build and API index check next.
+[94m[shell][0m $ /bin/zsh -lc 'pnpm build:scripts && pnpm check:api-index'
+[94m[shell][0m $ /bin/zsh -lc "git diff -- docs/internal/spec.md docs/internal/todo.md docs/internal/architecture/006...
+[94m[shell][0m $ /bin/zsh -lc 'git status --short'
+[94m[shell][0m $ /bin/zsh -lc 'git diff --stat'
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,240p' packages/codegen/src/cli/lib/build-spec.ts"
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,260p' packages/codegen/src/builder-index.ts"
+[94m[shell][0m $ /bin/zsh -lc "sed -n '240,340p' packages/codegen/src/cli/lib/build-spec.ts"
+[94m[shell][0m $ /bin/zsh -lc 'git diff --check'
+Implemented US-013.
+
+Added builder WorkspaceIndex metadata support in [builder-index.ts](/Users/junwoobang/workflow/oa-sdk/packages/codegen/src/builder-index.ts): fragments are recorded as `definition-fragment` component rows, target configs as `definition-target` rows, fragment refs as file-to-file `refs`, and target configs as refs to direct path roots. Existing reverse `refs.to_file` dirty propagation now marks affected target bundles when a directly or transitively included fragment changes, while target config edits dirty only that target.
+
+Wired optional builder-index scan/detect/record support into [build-spec.ts](/Users/junwoobang/workflow/oa-sdk/packages/codegen/src/cli/lib/build-spec.ts), keeping the normal CLI path as full rebuild unless a `WorkspaceIndex` is supplied. Added coverage in [builder-index.test.ts](/Users/junwoobang/workflow/oa-sdk/packages/codegen/src/__tests__/builder-index.test.ts).
+
+Updated docs in [spec.md](/Users/junwoobang/workflow/oa-sdk/docs/internal/spec.md), [006-incremental-workspace-index.md](/Users/junwoobang/workflow/oa-sdk/docs/internal/architecture/006-incremental-workspace-index.md), [todo.md](/Users/junwoobang/workflow/oa-sdk/docs/internal/todo.md), and appended the required US-013 entry plus a reusable pattern in [progress.md](/Users/junwoobang/workflow/oa-sdk/.ralph-tui/progress.md).
+
+Verification passed:
+- `pnpm typecheck`
+- `pnpm --filter @oa-sdk/parser test`
+- `pnpm --filter @oa-sdk/codegen test`
+- `pnpm --filter @oa-sdk/schemas test`
+- `pnpm schema:validate`
+- `pnpm build:scripts && pnpm check:api-index`
+
+`schema:validate` passed with the existing 4 Spectral hints. No commits were created.
+
+Note: `git status` also shows pre-existing changes in `.ralph-tui/session*.json`, `tasks/prd-openapi-definition-builder.json`, `.ralph-tui/iterations/...US-012.log`, and `references/bun-graph-db`; I left those untouched.
+
+<promise>COMPLETE</promise>
+
+--- STDERR ---
+2026-04-15T21:47:59.599877Z ERROR rmcp::transport::worker: worker quit with fatal: Transport channel closed, when AuthRequired(AuthRequiredError { www_authenticate_header: "Bearer realm=\"OAuth\", resource_metadata=\"https://mcp.cloudflare.com/.well-known/oauth-protected-resource/mcp\", error=\"invalid_token\", error_description=\"Missing or invalid access token\"" })
+2026-04-15T21:48:36.259187Z ERROR codex_core::tools::router: error=write_stdin failed: stdin is closed for this session; rerun exec_command with tty=true to keep stdin open
+2026-04-15T21:49:43.581168Z ERROR codex_core::tools::router: error=write_stdin failed: stdin is closed for this session; rerun exec_command with tty=true to keep stdin open
+2026-04-15T21:49:49.289068Z ERROR codex_core::tools::router: error=exec_command failed for `/bin/zsh -lc "ps -axo pid,command | rg \"find \\.\\. -name AGENTS\\.md|AGENTS\\.md -print\""`: CreateProcess { message: "Codex(Sandbox(Denied { output: ExecToolCallOutput { exit_code: 1, stdout: StreamOutput { text: \"\", truncated_after_lines: None }, stderr: StreamOutput { text: \"zsh:1: operation not permitted: ps\\n\", truncated_after_lines: None }, aggregated_output: StreamOutput { text: \"zsh:1: operation not permitted: ps\\n\", truncated_after_lines: None }, duration: 0ns, timed_out: false }, network_policy_decision: None }))" }
+2026-04-15T21:56:56.697131Z ERROR codex_core::tools::router: error=apply_patch verification failed: Failed to find expected lines in /Users/junwoobang/workflow/oa-sdk/packages/codegen/src/cli/lib/build-spec.ts:
+type LoadedFragments = {
+  nodes: DefinitionNode[]
+  diagnostics: BuildSpecCliDiagnostic[]
+  sourceLocations: ReadonlyMap<string, SourceLocationIndex>
+}
+2026-04-15T22:00:09.177714Z ERROR codex_core::tools::router: error=apply_patch verification failed: Failed to find expected lines in /Users/junwoobang/workflow/oa-sdk/packages/codegen/src/__tests__/builder-index.test.ts:
+import {
+  createMemoryWorkspaceIndex,
+  type WorkspaceFileRecord,
+} from '../workspace-index.js'

@@ -393,15 +393,16 @@
         "pnpm build:scripts && pnpm check:api-index passes."
       ],
       "priority": 14,
-      "passes": false,
+      "passes": true,
       "notes": "Final documentation and migration story. Keep current packages/schemas/scripts/merge.ts available.",
       "dependsOn": [
         "US-012",
         "US-013"
-      ]
+      ],
+      "completionNotes": "Completed by agent"
     }
   ],
   "metadata": {
-    "updatedAt": "2026-04-15T22:06:01.326Z"
+    "updatedAt": "2026-04-15T22:12:01.250Z"
   }
 }

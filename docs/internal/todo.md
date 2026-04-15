@@ -9,12 +9,18 @@
 
 ## 다음 세션 실행 순서
 
-현재 ralph PRD 기준 OpenAPI definition builder의 canonical ID grammar/parser(US-001), fragment definition node model(US-002), registry graph/ref edge collection(US-003), source canonical/file ref resolution(US-004), output `$ref` rewrite(US-005), target-local output naming(US-006), server/domain collision simulation(US-007), path flattening guard simulation(US-008), duplicate/dedupe policy(US-009), target bundle configuration/selection(US-010), selected target OpenAPI 3.2 emit(US-011), CLI artifact build entry(US-012), WorkspaceIndex metadata integration(US-013)은 완료되었다. 다음 blocking 목표는 기존 domain merge artifact와 builder artifact를 병렬 비교하고 `.merged.yaml` 대체 여부를 결정하는 migration 단계다.
+현재 ralph PRD 기준 OpenAPI definition builder의 canonical ID grammar/parser(US-001), fragment definition node model(US-002), registry graph/ref edge collection(US-003), source canonical/file ref resolution(US-004), output `$ref` rewrite(US-005), target-local output naming(US-006), server/domain collision simulation(US-007), path flattening guard simulation(US-008), duplicate/dedupe policy(US-009), target bundle configuration/selection(US-010), selected target OpenAPI 3.2 emit(US-011), CLI artifact build entry(US-012), WorkspaceIndex metadata integration(US-013), migration comparison plan(US-014)은 완료되었다. 다음 blocking 목표는 실제 current domain specs를 fragment equivalents로 backfill하고 current `.merged.yaml`과 builder parity artifact를 병렬 검증하는 단계다.
 
-### [ ] OpenAPI definition builder: migration comparison plan
-배경: 현재 `packages/schemas/scripts/merge.ts`를 즉시 제거하지 않고 새 builder를 병렬 검증해야 함.
-작업: 기존 `.merged.yaml` domain merge output과 `oa-gen build-spec --target ...` output을 target별로 비교하고, CI에서 어느 artifact를 source of truth로 검증할지 migration 기준을 문서화.
-완료 기준: 기존 `.merged.yaml` path는 유지하면서 builder output을 별도 artifact로 검증하고, 차이/대체 조건/rollback 조건이 명확함.
+### [ ] OpenAPI definition builder: current-domain fragment backfill
+배경: migration plan은 확정되었지만 `packages/schemas/src/fragments`는 아직 builder behavior fixture이며 current `src/domains/{common,health,users}/spec.yaml` 전체와 동등한 source가 아니다.
+구현 순서:
+1. `src/profiles/{local,staging,production}.yaml`의 `servers`를 profile별 parity target config로 복제하고, local parity target을 기준 artifact로 먼저 검증한다.
+2. `src/domains/common/spec.yaml`의 schemas/responses/parameters/securitySchemes를 `shared/common` fragments로 분리하고 local refs를 `oa://...` canonical refs로 바꾼다.
+3. `src/domains/health/spec.yaml`의 `/health`, `/health/stream`, `HealthStatus`를 path/schema fragments로 옮기고 shared response refs를 canonical refs로 연결한다.
+4. `src/domains/users/spec.yaml`의 `/users`, `/users/{id}`, `User`, `CreateUserRequest`, `UpdateUserRequest`를 path/schema fragments로 옮긴다.
+5. `oa-gen build-spec`로 parallel artifact와 diagnostics/collision reports를 만들고, current `.merged.yaml`과 normalized diff를 생성한다.
+6. Builder artifact를 기존 `downgrade-3.1.ts`, Redocly, Spectral, `oa-gen validate`, parser/codegen/schema tests에 통과시킨 뒤 차이와 downstream generated diff를 검토한다.
+완료 기준: current `.merged.yaml` path는 유지하면서 builder parity artifact가 zero-error diagnostics, accepted normalized diff, `.merged.3.1.yaml` compatibility, and rollback-safe script boundaries를 갖는다.
 
 ### [ ] 운영 관찰: SQLite optional native dependency 설치성
 배경: `better-sqlite3`는 증분 WorkspaceIndex의 primary driver지만 native optional dependency라 환경별 설치 실패 가능성이 있음.
@@ -34,6 +40,11 @@
 ---
 
 ## 완료된 실행 항목
+
+### [x] OpenAPI definition builder: migration comparison plan
+배경: 현재 `packages/schemas/scripts/merge.ts`를 즉시 제거하지 않고 새 builder를 병렬 검증해야 함.
+완료: `docs/internal/spec.md`에 current domain merge path와 `oa-gen build-spec` builder path를 side-by-side로 문서화하고, current `openapi.yaml`/profile/domain sections가 어떤 fragment/target source로 이동하는지 정의함. `.merged.yaml`은 OpenAPI 3.2 canonical validation input으로, `.merged.3.1.yaml`은 기존 downgrade sidecar contract로 유지해야 한다는 compatibility gate를 명시함.
+완료 기준: rollback은 현재 `merge.ts`/schema scripts를 source-of-truth로 유지하는 방식이며, builder output은 모든 current source section이 fragment equivalent를 갖고 diagnostics/validation/normalized diff/downstream codegen diff가 승인된 뒤에만 `.merged.yaml`을 대체할 수 있음.
 
 ### [x] OpenAPI definition builder: WorkspaceIndex metadata integration
 배경: large spec build에서 fragment-level 변경이 모든 target bundle을 무조건 dirty 처리하지 않도록, builder가 target/fragment dependency metadata를 WorkspaceIndex에 남겨야 함.

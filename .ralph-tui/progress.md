@@ -6,6 +6,7 @@ after each iteration and it's included in prompts for context.
 ## Codebase Patterns (Study These First)
 
 *Add reusable patterns discovered during development here.*
+- Migration plans for generated artifacts should keep the legacy producer as the source-of-truth path until the parallel builder artifact has full source coverage, zero-error diagnostics, 3.2/3.1 validation parity, accepted normalized diff, and a documented rollback script boundary.
 - Builder incremental metadata can reuse WorkspaceIndex without schema churn: record target configs as `definition-target` components, fragments as `definition-fragment` components, target configs as refs to direct path roots, and fragment source refs as file-to-file edges so existing reverse `refs.to_file` dirty propagation reaches affected targets transitively.
 - OpenAPI emit should consume `selectDefinitionTarget()` output directly: build a temporary selected registry for target-local ref rewrite, emit path nodes by `metadata.path`, group component-like nodes by kind/output name, and keep alias/collision metadata as sidecar/root extension rather than mutating canonical ids.
 - Builder CLI artifact commands should write diagnostics/collision sidecars independently of the main output artifact so CI failure runs still preserve machine-readable debugging data while invalid OpenAPI YAML is not refreshed.
@@ -306,4 +307,20 @@ after each iteration and it's included in prompts for context.
   - Existing WorkspaceIndex `refs.to_file` reverse traversal is enough for builder target invalidation if target configs depend only on direct path root fragments and fragment refs encode the rest of the graph.
   - Target config changes should stay primary dirty events with no reverse deps, otherwise a target edit can accidentally invalidate unrelated fragment rows.
   - Public package exports do not need to widen for builder indexing yet; keeping the adapter internal avoids API index churn while the build remains metadata-only.
+---
+
+## 2026-04-16 - US-014
+- Documented the migration plan from current domain-level `packages/schemas/scripts/merge.ts` to the definition builder.
+- Added side-by-side current merge vs `oa-gen build-spec` builder paths, current file/section to fragment mapping, `.merged.yaml` and `.merged.3.1.yaml` compatibility gates, rollback behavior, and replacement criteria.
+- Updated the implementation order in `docs/internal/todo.md` so the next step is current-domain fragment backfill and parallel parity validation.
+- Updated the builder PRD to record the active US-014 migration story and replacement gate.
+- Files changed:
+  - `docs/internal/spec.md`
+  - `docs/internal/todo.md`
+  - `tasks/prd-openapi-definition-builder.md`
+  - `.ralph-tui/progress.md`
+- **Learnings:**
+  - The current `.merged.yaml` remains the safest compatibility boundary because schema validation, downgrade, Redocly, and downstream codegen all still consume that artifact path.
+  - Existing `src/fragments` files are builder behavior fixtures, not yet a full migration of `src/domains/{common,health,users}/spec.yaml`.
+  - Replacement should be a separate script-switch story after fragment coverage and normalized diff parity, not part of the documentation-only migration plan.
 ---
