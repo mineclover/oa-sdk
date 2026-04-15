@@ -10,7 +10,8 @@
 
 ### 1. [ ] router/client: ResponseHeaders 활용
 배경: typegen은 `XxxResponseHeaders`를 생성하지만 router/client 런타임 API는 아직 타입을 적극 활용하지 않음.
-작업: router에서 응답 header 삽입 helper 또는 stub 힌트를 강화하고, client에서 `res.headers` 타입 안전 접근 경로를 제공.
+진행: router는 문서화된 응답 헤더가 있으면 `Partial<XxxResponseHeaders>` placeholder와 Hono/Express 공용 header setter helper를 생성해 handler stub에서 타입 힌트를 제공함.
+남은 작업: client에서 `res.headers` 타입 안전 접근 경로를 제공.
 완료 기준: 생성된 Op 타입의 `headers`가 router/client 사용 예제와 테스트에서 실제로 소비됨.
 
 ---

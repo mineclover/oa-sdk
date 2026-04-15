@@ -136,6 +136,37 @@ describe('generateRouter — typed router (typesImport)', () => {
     expect(code).toContain('c.req.json<CreateUserBody>()')
   })
 
+  it('typesImport 시 ResponseHeaders helper 힌트 생성', () => {
+    const spec = doc({
+      paths: {
+        '/users': {
+          get: {
+            operationId: 'listUsers',
+            responses: {
+              '200': {
+                description: 'OK',
+                headers: {
+                  'X-Rate-Limit': { schema: { type: 'integer' } },
+                  'X-Request-Id': { schema: { type: 'string' }, required: true },
+                },
+              },
+            },
+          },
+        },
+      },
+    })
+
+    const hono = generateRouter(spec, { typesImport: './types' })
+    expect(hono).toContain('ListUsersResponseHeaders')
+    expect(hono).toContain('function __setOaResponseHeaders<THeaders extends object>')
+    expect(hono).toContain('const responseHeaders: Partial<ListUsersResponseHeaders> = {}')
+    expect(hono).toContain('__setOaResponseHeaders<ListUsersResponseHeaders>((name, value) => c.header(name, value), responseHeaders)')
+
+    const express = generateRouter(spec, { target: 'express', typesImport: './types' })
+    expect(express).toContain('const responseHeaders: Partial<ListUsersResponseHeaders> = {}')
+    expect(express).toContain('__setOaResponseHeaders<ListUsersResponseHeaders>((name, value) => res.setHeader(name, value), responseHeaders)')
+  })
+
   it('typesImport 없으면 as any 유지', () => {
     const code = generateRouter(doc({
       paths: {

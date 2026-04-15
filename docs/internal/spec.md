@@ -116,6 +116,7 @@ schemas      ← 독립. OAS 소스 + merge + 3.1↔3.2 변환
 
 Hono/Express 스텁. `OasDocument | ParsedDocument` 입력. typegen 타입 import, JSDoc, 204.
 Content-type aware 스텁 + security requirement hints. Hono 타입드 라우터 (응답/바디 타입 캐스팅).
+문서화된 응답 헤더가 있으면 `Partial<XxxResponseHeaders>` stub과 header setter helper를 생성해 Hono/Express 핸들러에서 타입 힌트를 유지.
 Webhook 핸들러 스텁 생성.
 
 ## `@oa-sdk/client` ✅
@@ -212,7 +213,7 @@ pnpm demo  # API 구조 + Mock 12시나리오 + 커버리지
 |------|------|------|
 | Build | 7 패키지 + CI 스크립트 | tsup ESM 빌드 |
 | Typecheck | 7 패키지 + playground | tsc --noEmit strict |
-| Test | 8 패키지 + playground | vitest 1617 케이스 |
+| Test | 8 패키지 + playground | vitest 1618 케이스 |
 | Schema validate | schemas + oa-gen | 도메인 병합 + 3.1 변환 + Spectral/Redocly + 3.2 자체 검증 표준 파이프라인 |
 | Freshness check | 산출물 | git diff --exit-code |
 | API index | docs ↔ code | root export 정합성 + codegen typegen option subpath 검증 |
@@ -229,8 +230,8 @@ pnpm demo  # API 구조 + Mock 12시나리오 + 커버리지
 | codegen | 491 |
 | mock-server | 561 |
 | playground | 114 |
-| router | 35 |
+| router | 36 |
 | client | 36 |
 | schemas | 75 |
 | typia-mock | 53 |
-| **합계** | **1617** |
+| **합계** | **1618** |

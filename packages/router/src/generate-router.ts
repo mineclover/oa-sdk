@@ -5,7 +5,7 @@
  * typegen 타입을 import하여 타입 안전 라우터를 생성합니다.
  */
 
-import type { OasDocument, ParsedDocument } from '@oa-sdk/parser'
+import type { OasDocument, OasResponse, ParsedDocument } from '@oa-sdk/parser'
 import { parseDocument, DEFAULT_PASSES } from '@oa-sdk/parser'
 import { toColonPath, pascalCase, collectTypeNames, formatGeneratedTs, pickDefaultStatus } from '@oa-sdk/core'
 
@@ -52,6 +52,23 @@ export function generateRouter(spec: OasDocument | ParsedDocument, options: Rout
     }
   }
   lines.push('')
+
+  const needsResponseHeaderHelper = !!typesImport && doc.operations.some(op => hasGeneratedResponseHeaders(op.responses))
+  if (needsResponseHeaderHelper) {
+    lines.push(`function __setOaResponseHeaders<THeaders extends object>(setHeader: (name: string, value: string) => void, headers: Partial<THeaders>): void {`)
+    lines.push(`  for (const [name, value] of Object.entries(headers)) {`)
+    lines.push(`    const serialized = __serializeOaResponseHeader(value)`)
+    lines.push(`    if (serialized !== undefined) setHeader(name, serialized)`)
+    lines.push(`  }`)
+    lines.push(`}`)
+    lines.push('')
+    lines.push(`function __serializeOaResponseHeader(value: unknown): string | undefined {`)
+    lines.push(`  if (value === undefined || value === null) return undefined`)
+    lines.push(`  if (Array.isArray(value)) return value.map(String).join(', ')`)
+    lines.push(`  return String(value)`)
+    lines.push(`}`)
+    lines.push('')
+  }
 
   // router instance
   if (target === 'hono') {
@@ -117,7 +134,17 @@ export function generateRouter(spec: OasDocument | ParsedDocument, options: Rout
 
     // response stub
     const status = pickDefaultStatus(op.responses)
+    const hasTypedResponseHeaders = !!typesImport && hasGeneratedResponseHeaders(op.responses)
     lines.push(`    // TODO: implement ${op.operationId}`)
+    if (hasTypedResponseHeaders) {
+      lines.push(`    // Add documented response headers here.`)
+      lines.push(`    const responseHeaders: Partial<${baseName}ResponseHeaders> = {}`)
+      if (target === 'hono') {
+        lines.push(`    __setOaResponseHeaders<${baseName}ResponseHeaders>((name, value) => c.header(name, value), responseHeaders)`)
+      } else {
+        lines.push(`    __setOaResponseHeaders<${baseName}ResponseHeaders>((name, value) => res.setHeader(name, value), responseHeaders)`)
+      }
+    }
     if (target === 'hono') {
       if (status === 204) {
         lines.push(`    return c.body(null, 204)`)
@@ -250,4 +277,12 @@ function buildBodyParseLine(target: RouterTarget, contentTypes: string[], typeNa
     return `  const body = req.body as ${typeName}Body`
   }
   return `  const body = req.body // ${typeName}Body`
+}
+
+function hasGeneratedResponseHeaders(responses: Record<string, OasResponse>): boolean {
+  const codes = Object.keys(responses).filter(k => /^2\d{2}$/.test(k)).sort()
+  const key = codes[0] ?? 'default'
+  const response = responses[key]
+  if (!response?.headers) return false
+  return Object.values(response.headers).some(header => !('$ref' in header))
 }

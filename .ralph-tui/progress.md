@@ -20,6 +20,7 @@ after each iteration and it's included in prompts for context.
 - Compute reverse dependency dirty sets before invalidating index rows: once source rows are deleted, refs.to_file edge context needed to mark referring specs dirty may be gone.
 - CLI incremental orchestration should keep WorkspaceIndex as a sidecar around the existing full parser/codegen output path: scan, detect dirty files, invalidate stale rows, generate from current files, then refresh the index so cache fallback cannot change stdout or generated files.
 - Source location mapping should stay a sidecar over existing file/pointer diagnostics: enrich parser diagnostic structures plus CLI/index records with YAML line/column when available, while JSON and missing mappings fall back to `file#pointer`.
+- Router stubs should emit typed helpers only when generated routes consume them; use `Partial<XxxResponseHeaders>` placeholders so required documented headers do not make newly generated handler stubs uncompilable.
 
 ---
 
@@ -340,4 +341,21 @@ after each iteration and it's included in prompts for context.
   - A temp consumer fixture needs its own `type: module` package marker and Node type roots because its `tsconfig.json` lives outside the package workspace.
   - Mapping documented package imports to source entrypoints keeps the test independent of ignored `dist/` output while package exports assertions still catch removed public subpaths.
   - API index validation needed an explicit codegen typegen subpath policy because the generic checker only compares root `src/index.ts` files.
+---
+
+## 2026-04-15 - US-017
+- Added router response header stub support for operations with generated `XxxResponseHeaders` types. Hono and Express output now includes a generated `__setOaResponseHeaders()` helper plus a `Partial<XxxResponseHeaders>` placeholder where documented headers can be set.
+- Added router coverage for one operation with typed response headers across Hono and Express output; router tests now pass with 36 cases and docs show 1618 total tests.
+- Updated internal status docs to mark the router side of ResponseHeaders consumption as implemented while leaving the client-side todo open.
+- Ran checks: `pnpm --filter @oa-sdk/router test` passed; `pnpm --filter @oa-sdk/router typecheck` passed; `pnpm typecheck` passed; `git diff --check` passed. Root `pnpm test` passed core/parser/router/client/codegen and failed in mock-server Node HTTP suites on sandbox `listen EPERM 127.0.0.1`; `pnpm schema:validate` built parser/codegen and failed when `tsx` attempted a sandbox-blocked IPC pipe.
+- Files changed:
+  - `packages/router/src/generate-router.ts`
+  - `packages/router/src/__tests__/generate-router.test.ts`
+  - `docs/internal/spec.md`
+  - `docs/internal/todo.md`
+  - `.ralph-tui/progress.md`
+- **Learnings:**
+  - Router already imported `XxxResponseHeaders` through `collectTypeNames()`; the missing piece was a generated consumption point in handler stubs.
+  - `Partial<XxxResponseHeaders>` keeps freshly generated stubs compilable even when documented response headers are required, while still enforcing documented header names and value types when users fill the placeholder object.
+  - A target-neutral setter callback lets the same helper cover Hono `c.header()` and Express `res.setHeader()` without adding framework-specific type imports or new unsafe casts.
 ---
