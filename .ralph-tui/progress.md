@@ -6,6 +6,7 @@ after each iteration and it's included in prompts for context.
 ## Codebase Patterns (Study These First)
 
 *Add reusable patterns discovered during development here.*
+- Path-flattening collision tests can simulate a risky attempted naming policy through explicit allocator aliases, then assert registry nodes and `outputNames` stay canonical-id keyed while failure is reported only through output-name collision diagnostics.
 - Collision/naming reports should be derived from allocator alias metadata plus final diagnostics, rather than widening alias metadata itself; this keeps the target-local output-name map stable while simulation layers add target name, reason, and severity.
 - Output name allocation should run per target over that target's included registry nodes, emit a canonical-id keyed `outputNames` map plus alias metadata, and then feed the map into output `$ref` rewriting instead of storing global canonical-id aliases.
 - Output `$ref` rewrite should key off registry ref-edge source path/pointer/raw-ref triples and resolved `targetId`, while keeping output naming injectable through a target-local map/callback for later naming policy work.
@@ -160,4 +161,28 @@ after each iteration and it's included in prompts for context.
   - Target simulation can stay pure by passing only the target's included nodes plus `targetName` into the allocator; future target config loading does not need to change naming policy semantics.
   - `collisionReport` is more useful as a per-definition row stream than as grouped diagnostics because downstream tooling can join rows by canonical id, target, domain, or severity.
   - Keeping fixture targets under `packages/schemas/src/targets` avoids changing the current domain merge pipeline while still giving the builder PRD stable server-level fixtures.
+---
+
+## 2026-04-16 - US-008
+- Implemented path-flattening collision risk fixtures for `schema:public/a/Name`, `schema:public/aname/Name`, `schema:public/a-name/Name`, and `schema:admin/a/Name`.
+- Extended public/admin target fixtures so builder simulations can include the new path-risk definitions without changing the existing merge output.
+- Added parser tests proving all path-risk canonical IDs remain distinct registry nodes and that a simulated flattened naming policy mapping public fixtures to attempted output name `AName` emits `definition-output-name/collision` plus `output-name-collision` report rows instead of semantic dedupe.
+- Updated internal spec/todo docs with fail-on-collision flattening guard behavior and story completion status.
+- Files changed:
+  - `packages/parser/src/__tests__/definition-id.test.ts`
+  - `packages/parser/src/__tests__/definition-output-names.test.ts`
+  - `packages/schemas/src/fragments/schema/public/a/Name.yaml`
+  - `packages/schemas/src/fragments/schema/public/aname/Name.yaml`
+  - `packages/schemas/src/fragments/schema/public/a-name/Name.yaml`
+  - `packages/schemas/src/fragments/schema/admin/a/Name.yaml`
+  - `packages/schemas/src/targets/public-api.yaml`
+  - `packages/schemas/src/targets/admin-api.yaml`
+  - `packages/schemas/scripts/__tests__/definition-fixtures.test.ts`
+  - `docs/internal/spec.md`
+  - `docs/internal/todo.md`
+  - `.ralph-tui/progress.md`
+- **Learnings:**
+  - Explicit allocator aliases are a clean way to simulate a hypothetical flattened-path naming policy without adding a new source identity rule or target config parser.
+  - `createDefinitionRegistry()` and `allocateDefinitionOutputNames()` both stay keyed by canonical id, so even identical attempted output names do not collapse semantic definitions.
+  - Fragment and target fixtures under `packages/schemas/src/fragments` and `packages/schemas/src/targets` remain outside the current domain merge pipeline, which keeps schema validation output stable while builder behavior is simulated.
 ---

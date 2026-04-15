@@ -156,7 +156,7 @@ Canonical ID는 `@oa-sdk/parser`의 `parseDefinitionId()` / `validateDefinitionI
 - `domain`: `common`, `book`, `notebook`, `auth`, `user`, `health` 같은 bounded context. lower-case segment로 제한한다.
 - `name`: domain-local definition name. component-like kind(`schema`, `response`, `parameter`, `requestBody`, `header`, `link`, `callback`, `securityScheme`)는 PascalCase를 요구한다.
 
-Valid fixture IDs: `schema:public/book/Note`, `schema:public/notebook/Note`, `schema:shared/common/Error`. Duplicate canonical ID는 `validateDefinitionIds()`에서 error로 보고하며, output component name은 후속 naming policy가 target별로 파생한다.
+Valid fixture IDs: `schema:public/book/Note`, `schema:public/notebook/Note`, `schema:shared/common/Error`, plus path-flattening guard fixtures `schema:public/a/Name`, `schema:public/aname/Name`, `schema:public/a-name/Name`, and `schema:admin/a/Name`. Duplicate canonical ID는 `validateDefinitionIds()`에서 error로 보고하며, output component name은 후속 naming policy가 target별로 파생한다.
 
 #### Definition node model (US-002)
 
@@ -210,7 +210,13 @@ Allocation 결과는 `outputNames: Map<CanonicalDefinitionId, string>`, `aliases
 
 Report severity는 `preserve-if-unique`면 `info`, domain prefix rename이면 `warning`, explicit alias rename이면 `warning`, 최종 output name collision이면 `error`다. Error row는 `reason: 'output-name-collision'`을 사용하고, 세부 colliding canonical id 목록은 기존 `definition-output-name/collision` diagnostic의 `ids`에서 확인한다.
 
-Fixture target은 `packages/schemas/src/targets/public-api.yaml`과 `packages/schemas/src/targets/admin-api.yaml`에 둔다. `public-api`는 `schema:public/book/Note`와 `schema:public/notebook/Note`를 함께 포함해 `BookNote`/`NotebookNote` rename을 검증하고, `admin-api`는 `schema:admin/book/Note`와 `schema:admin/notebook/Note`를 함께 포함해 같은 local name이 target-local report 안에서 독립적으로 처리됨을 검증한다. 두 target 모두 `schema:shared/common/Error`를 포함할 수 있지만 각 target allocation은 별도 `outputNames`/`collisionReport`를 갖는다.
+Fixture target은 `packages/schemas/src/targets/public-api.yaml`과 `packages/schemas/src/targets/admin-api.yaml`에 둔다. `public-api`는 `schema:public/book/Note`와 `schema:public/notebook/Note`를 함께 포함해 `BookNote`/`NotebookNote` rename을 검증하고, flattening guard fixture인 `schema:public/a/Name`, `schema:public/aname/Name`, `schema:public/a-name/Name`도 포함한다. `admin-api`는 `schema:admin/book/Note`, `schema:admin/notebook/Note`, `schema:admin/a/Name`을 포함해 같은 local name이 target-local report 안에서 독립적으로 처리됨을 검증한다. 두 target 모두 `schema:shared/common/Error`를 포함할 수 있지만 각 target allocation은 별도 `outputNames`/`collisionReport`를 갖는다.
+
+#### Flattening guard simulation (US-008)
+
+Canonical ID와 output symbol은 서로 다른 축이다. `schema:public/a/Name`, `schema:public/aname/Name`, `schema:public/a-name/Name`, `schema:admin/a/Name`은 모두 distinct canonical identity로 registry에 등록되어야 하며, string flattening 결과가 같아 보인다는 이유로 같은 definition으로 dedupe하면 안 된다.
+
+Flattening risk test는 target-local allocator에 explicit alias map을 넣어 naive flattened naming policy가 세 public fixture를 모두 `AName`으로 내보내려는 상황을 시뮬레이션한다. 이 경우 allocator는 canonical-id keyed `outputNames` map과 alias metadata를 유지하되 `valid: false`를 반환하고, `definition-output-name/collision` diagnostic에 attempted output name `AName`과 colliding canonical IDs 전체를 담는다. `collisionReport` row들은 `reason: 'output-name-collision'`, `severity: 'error'`가 되며, default fail-on-collision policy에서는 자동 semantic merge나 late rename 없이 build가 실패해야 한다.
 
 | 개념 | 계획 |
 |------|------|
@@ -220,8 +226,8 @@ Fixture target은 `packages/schemas/src/targets/public-api.yaml`과 `packages/sc
 | Output refs | registry `targetId`를 build target의 output name과 kind별 component 위치로 변환해 `#/components/schemas/{OutputName}` 같은 표준 OpenAPI ref로 rewrite |
 | Naming policy | target-local `allocateDefinitionOutputNames()`가 explicit alias, `preserve-if-unique`, `domain-prefix`를 적용. `book.Note`와 `notebook.Note`는 source name을 바꾸지 않고 `BookNote`/`NotebookNote`처럼 출력명만 분리 |
 | Namespace scope | 이름 충돌 해결은 target server의 포함 node 집합 안에서 kind → domain → local name 순서로 처리. 같은 local name이라도 target bundle마다 포함 집합이 다르므로 output name allocation은 target-local임 |
-| Flattening guard | `schema:public/a/Name`과 `schema:public/aname/Name`은 flatten 결과가 같을 수 있어도 다른 canonical identity다. builder는 string flattening만으로 동치 추론을 하지 않고 `output-name-collision`으로 보고 |
-| Collision simulation | public/admin target fixture에서 server target → domain → local name 순서의 rename과 target-local report를 검증. flattening output collision, structural duplicate warning, duplicate canonical id error는 후속 story에서 machine-readable report를 확장 |
+| Flattening guard | `schema:public/a/Name`, `schema:public/aname/Name`, `schema:public/a-name/Name`, `schema:admin/a/Name`은 flatten 결과가 같을 수 있어도 다른 canonical identity다. builder는 string flattening만으로 동치 추론을 하지 않고 attempted output name과 모든 colliding canonical IDs를 `output-name-collision`으로 보고 |
+| Collision simulation | public/admin target fixture에서 server target → domain → local name 순서의 rename과 target-local report를 검증. flattening output collision은 fail-on-collision diagnostic으로 검증되며, structural duplicate warning과 full target fixture emit은 후속 story에서 확장 |
 | Dedupe policy | duplicate canonical id는 error. 동일 구조 hash는 warning/info only. 의미가 다른 정의는 자동 structural dedupe 금지. deeper hierarchy는 canonical path가 아니라 metadata/tag로 표현 |
 | Target bundle | public/admin/internal 등 target별 servers, include domains, include paths, naming policy로 필요한 fragment와 transitive refs만 emit |
 | Migration | 기존 `packages/schemas/scripts/merge.ts`는 유지하고, builder는 병렬 output으로 검증한 뒤 `.merged.yaml` 대체 여부 결정 |
@@ -317,12 +323,12 @@ pnpm demo  # API 구조 + Mock 12시나리오 + 커버리지
 | 패키지 | 케이스 |
 |--------|--------|
 | core | 52 |
-| parser | 220 |
+| parser | 230 |
 | codegen | 495 |
 | mock-server | 580 |
 | playground | 114 |
 | router | 36 |
 | client | 39 |
-| schemas | 76 |
+| schemas | 77 |
 | typia-mock | 53 |
-| **합계** | **1665** |
+| **합계** | **1676** |

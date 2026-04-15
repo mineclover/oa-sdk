@@ -1,0 +1,16 @@
+id: schema:public/a-name/Name
+content:
+  type: object
+  description: A public path-flattening fixture for the a-name domain.
+  required:
+    - id
+    - slugCode
+  properties:
+    id:
+      type: string
+      format: uuid
+    slugCode:
+      type: string
+      minLength: 1
+    displayName:
+      type: string

@@ -221,11 +221,12 @@
         "pnpm build:scripts && pnpm check:api-index passes."
       ],
       "priority": 8,
-      "passes": false,
+      "passes": true,
       "notes": "Canonical identity and output symbol equivalence must never be inferred by string flattening.",
       "dependsOn": [
         "US-006"
-      ]
+      ],
+      "completionNotes": "Completed by agent"
     },
     {
       "id": "US-009",
@@ -396,6 +397,6 @@
     }
   ],
   "metadata": {
-    "updatedAt": "2026-04-15T20:55:00.627Z"
+    "updatedAt": "2026-04-15T21:03:09.095Z"
   }
 }

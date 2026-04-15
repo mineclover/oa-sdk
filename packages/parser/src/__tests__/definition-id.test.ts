@@ -88,19 +88,27 @@ describe('canonical definition ids', () => {
 
   it('parses the schema fragment fixtures without duplicate ids', () => {
     const fixtureIds = [
+      readFixtureId('admin/a/Name.yaml'),
+      readFixtureId('public/a/Name.yaml'),
+      readFixtureId('public/aname/Name.yaml'),
+      readFixtureId('public/a-name/Name.yaml'),
       readFixtureId('public/book/Note.yaml'),
       readFixtureId('public/notebook/Note.yaml'),
       readFixtureId('shared/common/Error.yaml'),
     ]
 
     expect(fixtureIds).toEqual([
+      'schema:admin/a/Name',
+      'schema:public/a/Name',
+      'schema:public/aname/Name',
+      'schema:public/a-name/Name',
       'schema:public/book/Note',
       'schema:public/notebook/Note',
       'schema:shared/common/Error',
     ])
     const result = validateDefinitionIds(fixtureIds)
     expect(result.valid).toBe(true)
-    expect(result.ids.map(id => id.domain)).toEqual(['book', 'notebook', 'common'])
+    expect(result.ids.map(id => id.domain)).toEqual(['a', 'a', 'aname', 'a-name', 'book', 'notebook', 'common'])
   })
 })
 

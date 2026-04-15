@@ -7,8 +7,12 @@ import { parse as parseYaml } from 'yaml'
 const __dir = dirname(fileURLToPath(import.meta.url))
 
 const FIXTURES = [
+  ['schema:admin/a/Name', 'schema/admin/a/Name.yaml'],
   ['schema:admin/book/Note', 'schema/admin/book/Note.yaml'],
   ['schema:admin/notebook/Note', 'schema/admin/notebook/Note.yaml'],
+  ['schema:public/a/Name', 'schema/public/a/Name.yaml'],
+  ['schema:public/aname/Name', 'schema/public/aname/Name.yaml'],
+  ['schema:public/a-name/Name', 'schema/public/a-name/Name.yaml'],
   ['schema:public/book/Note', 'schema/public/book/Note.yaml'],
   ['schema:public/notebook/Note', 'schema/public/notebook/Note.yaml'],
   ['schema:shared/common/Error', 'schema/shared/common/Error.yaml'],
@@ -22,6 +26,9 @@ const TARGET_FIXTURES = [
       'schema:shared/common/Error',
       'schema:public/book/Note',
       'schema:public/notebook/Note',
+      'schema:public/a/Name',
+      'schema:public/aname/Name',
+      'schema:public/a-name/Name',
     ],
   },
   {
@@ -31,12 +38,16 @@ const TARGET_FIXTURES = [
       'schema:shared/common/Error',
       'schema:admin/book/Note',
       'schema:admin/notebook/Note',
+      'schema:admin/a/Name',
     ],
   },
 ] as const
 
 describe('definition builder fixtures', () => {
   it('declares the canonical schema identity fixtures', () => {
+    const fixtureIds = FIXTURES.map(([id]) => id)
+    expect(new Set(fixtureIds).size).toBe(FIXTURES.length)
+
     for (const [expectedId, relativePath] of FIXTURES) {
       const fixture = readFixture(relativePath)
       expect(fixture.id).toBe(expectedId)

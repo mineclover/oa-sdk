@@ -1,0 +1,19 @@
+id: schema:public/aname/Name
+content:
+  type: object
+  description: A public path-flattening fixture for the aname domain.
+  required:
+    - id
+    - anameCode
+  properties:
+    id:
+      type: string
+      format: uuid
+    anameCode:
+      type: string
+      minLength: 1
+    status:
+      type: string
+      enum:
+        - active
+        - archived

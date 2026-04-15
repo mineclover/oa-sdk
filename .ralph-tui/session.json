@@ -3,10 +3,10 @@
   "sessionId": "bc493007-f3e5-4f3d-9d12-884ba17d48c6",
   "status": "running",
   "startedAt": "2026-04-15T19:54:02.104Z",
-  "updatedAt": "2026-04-15T20:55:00.627Z",
-  "currentIteration": 6,
+  "updatedAt": "2026-04-15T21:03:09.095Z",
+  "currentIteration": 7,
   "maxIterations": 0,
-  "tasksCompleted": 6,
+  "tasksCompleted": 7,
   "isPaused": false,
   "agentPlugin": "codex",
   "trackerState": {
@@ -53,8 +53,8 @@
       {
         "id": "US-007",
         "title": "Simulate server and domain name collisions",
-        "status": "open",
-        "completedInSession": false
+        "status": "completed",
+        "completedInSession": true
       },
       {
         "id": "US-008",
@@ -160,6 +160,16 @@
       "durationMs": 569507,
       "startedAt": "2026-04-15T20:36:50.120Z",
       "endedAt": "2026-04-15T20:46:19.627Z"
+    },
+    {
+      "iteration": 7,
+      "status": "completed",
+      "taskId": "US-007",
+      "taskTitle": "Simulate server and domain name collisions",
+      "taskCompleted": true,
+      "durationMs": 519316,
+      "startedAt": "2026-04-15T20:46:21.309Z",
+      "endedAt": "2026-04-15T20:55:00.625Z"
     }
   ],
   "skippedTaskIds": [],

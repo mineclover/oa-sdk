@@ -3,6 +3,7 @@ import { createDefinitionNode } from '../definition-node.js'
 import { createDefinitionRegistry } from '../definition-registry.js'
 import { allocateDefinitionOutputNames } from '../definition-output-names.js'
 import { rewriteDefinitionOutputRefs } from '../definition-output-refs.js'
+import { validateDefinitionIds } from '../definition-id.js'
 
 describe('definition output name allocation', () => {
   it('preserves local names when they are unique within one target', () => {
@@ -232,6 +233,93 @@ describe('definition output name allocation', () => {
         domain: 'notebook',
         localName: 'Note',
         outputName: 'Note',
+        reason: 'output-name-collision',
+        severity: 'error',
+      },
+    ])
+  })
+
+  it('fails flattened path output collisions without semantic dedupe', () => {
+    const fixtureIds = [
+      'schema:public/a/Name',
+      'schema:public/aname/Name',
+      'schema:public/a-name/Name',
+      'schema:admin/a/Name',
+    ] as const
+    const registry = createDefinitionRegistry(fixtureIds.map(id => definitionNode(id, {
+      type: 'object',
+      title: id,
+    })))
+
+    expect(validateDefinitionIds(fixtureIds).valid).toBe(true)
+    expect(registry.valid).toBe(true)
+    expect(registry.nodes.map(node => node.id)).toEqual(fixtureIds)
+    expect(registry.nodeById.size).toBe(4)
+
+    const allocation = allocateDefinitionOutputNames([
+      registry.nodeById.get('schema:public/a/Name')!,
+      registry.nodeById.get('schema:public/aname/Name')!,
+      registry.nodeById.get('schema:public/a-name/Name')!,
+    ], {
+      targetName: 'public-api',
+      aliases: {
+        'schema:public/a/Name': 'AName',
+        'schema:public/aname/Name': 'AName',
+        'schema:public/a-name/Name': 'AName',
+      },
+    })
+
+    expect(allocation.valid).toBe(false)
+    expect([...allocation.outputNames.entries()]).toEqual([
+      ['schema:public/a/Name', 'AName'],
+      ['schema:public/aname/Name', 'AName'],
+      ['schema:public/a-name/Name', 'AName'],
+    ])
+    expect(allocation.diagnostics).toEqual([
+      {
+        code: 'definition-output-name/collision',
+        severity: 'error',
+        kind: 'schema',
+        outputName: 'AName',
+        ids: [
+          'schema:public/a/Name',
+          'schema:public/aname/Name',
+          'schema:public/a-name/Name',
+        ],
+        message: 'Output component name "AName" for schema collides between canonical ids: schema:public/a/Name, schema:public/aname/Name, schema:public/a-name/Name.',
+      },
+    ])
+    expect(allocation.collisionReport).toEqual([
+      {
+        canonicalId: 'schema:public/a/Name',
+        targetName: 'public-api',
+        kind: 'schema',
+        scope: 'public',
+        domain: 'a',
+        localName: 'Name',
+        outputName: 'AName',
+        reason: 'output-name-collision',
+        severity: 'error',
+      },
+      {
+        canonicalId: 'schema:public/aname/Name',
+        targetName: 'public-api',
+        kind: 'schema',
+        scope: 'public',
+        domain: 'aname',
+        localName: 'Name',
+        outputName: 'AName',
+        reason: 'output-name-collision',
+        severity: 'error',
+      },
+      {
+        canonicalId: 'schema:public/a-name/Name',
+        targetName: 'public-api',
+        kind: 'schema',
+        scope: 'public',
+        domain: 'a-name',
+        localName: 'Name',
+        outputName: 'AName',
         reason: 'output-name-collision',
         severity: 'error',
       },

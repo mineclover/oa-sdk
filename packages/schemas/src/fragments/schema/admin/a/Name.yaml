@@ -1,0 +1,16 @@
+id: schema:admin/a/Name
+content:
+  type: object
+  description: An admin path-flattening fixture for the a domain.
+  required:
+    - id
+    - adminCode
+  properties:
+    id:
+      type: string
+      format: uuid
+    adminCode:
+      type: string
+      minLength: 1
+    reviewedBy:
+      type: string

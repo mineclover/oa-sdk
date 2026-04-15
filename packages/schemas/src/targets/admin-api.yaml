@@ -5,3 +5,4 @@ includeDefinitions:
   - schema:shared/common/Error
   - schema:admin/book/Note
   - schema:admin/notebook/Note
+  - schema:admin/a/Name

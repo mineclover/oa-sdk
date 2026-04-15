@@ -9,7 +9,7 @@
 
 ## 다음 세션 실행 순서
 
-현재 ralph PRD 기준 OpenAPI definition builder의 canonical ID grammar/parser(US-001), fragment definition node model(US-002), registry graph/ref edge collection(US-003), source canonical/file ref resolution(US-004), output `$ref` rewrite(US-005), target-local output naming(US-006), server/domain collision simulation(US-007)은 완료되었고, 다음 blocking 목표는 target bundle emit이다.
+현재 ralph PRD 기준 OpenAPI definition builder의 canonical ID grammar/parser(US-001), fragment definition node model(US-002), registry graph/ref edge collection(US-003), source canonical/file ref resolution(US-004), output `$ref` rewrite(US-005), target-local output naming(US-006), server/domain collision simulation(US-007), path flattening guard simulation(US-008)은 완료되었고, 다음 blocking 목표는 target bundle emit이다.
 
 ### [ ] OpenAPI definition builder: target bundle emit
 배경: 여러 서버와 특정 path 하위 조합을 지원하려면 target별 servers/domains/paths include 규칙이 필요함.
@@ -39,6 +39,11 @@
 ---
 
 ## 완료된 실행 항목
+
+### [x] OpenAPI definition builder: path flattening guard simulation
+배경: `schema:public/a/Name`과 `schema:public/aname/Name`처럼 canonical path가 다른 정의가 naive flattened output name에서 같아져도 semantic identity가 같다고 추론하면 안 됨.
+완료: `schema:public/a/Name`, `schema:public/aname/Name`, `schema:public/a-name/Name`, `schema:admin/a/Name` fixture를 추가하고 public/admin target fixture에 포함함. Parser 테스트는 네 canonical ID가 registry에서 모두 distinct node로 유지되는 것을 확인한 뒤, 세 public fixture가 모두 attempted output name `AName`으로 매핑되는 flattened naming simulation을 실행해 `definition-output-name/collision` diagnostic과 `collisionReport`의 `output-name-collision` error row를 검증함.
+완료 기준: collision diagnostic은 attempted output name과 모든 colliding canonical IDs를 포함하며, default fail-on-collision policy에서 builder가 semantic dedupe나 임의 rename 없이 실패함.
 
 ### [x] OpenAPI definition builder: output naming and collision simulation
 배경: 같은 local name `Note`라도 book note와 notebook note는 의미가 다를 수 있어 source 정의를 바꾸지 않고 output naming으로 충돌을 해결해야 함.
@@ -260,5 +265,6 @@ source pointer 추적을 포함하는 resolver로 확장. `resolveRefGraph()`와
 - [x] component overwrite 기본 오류 + external schema name collision warning
 - [x] 1577 테스트 (core 51, parser 190, codegen 464, mock-server 561, playground 114, router 35, client 36, schemas 73, typia-mock 53)
 - [x] 1594 테스트 (core 51, parser 196, codegen 473, mock-server 561, playground 114, router 35, client 36, schemas 75, typia-mock 53)
+- [x] 1676 테스트 (core 52, parser 230, codegen 495, mock-server 580, playground 114, router 36, client 39, schemas 77, typia-mock 53)
 
 </details>

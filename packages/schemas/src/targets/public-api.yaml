@@ -5,3 +5,6 @@ includeDefinitions:
   - schema:shared/common/Error
   - schema:public/book/Note
   - schema:public/notebook/Note
+  - schema:public/a/Name
+  - schema:public/aname/Name
+  - schema:public/a-name/Name
