@@ -1,0 +1,141 @@
+# Iteration 14 Log
+
+## Metadata
+
+- **Task ID**: US-015
+- **Task Title**: Decide public export surface for typegen options
+- **Description**: As an OA SDK consumer, I want the public typegen option types to be exported intentionally so that package imports are stable.
+- **Status**: completed
+- **Task Completed**: Yes
+- **Promise Detected**: Yes
+- **Started At**: 2026-04-15T03:54:08.513Z
+- **Ended At**: 2026-04-15T04:02:22.161Z
+- **Duration**: 8m 13s
+- **Input Tokens**: 5001925
+- **Output Tokens**: 13357
+- **Total Tokens**: 5015282
+- **Agent**: codex
+- **Sandbox Mode**: auto
+- **Sandbox Network**: Enabled
+--- RAW OUTPUT ---
+I’ll first read the repo guidance and current story progress, then trace the existing codegen/typegen exports before making the smallest API/doc/test changes needed.
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,220p' AGENTS.md"
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,260p' .ralph-tui/progress.md"
+
+[91m[Error: sed: AGENTS.md: No such file or directory
+][0m
+[94m[shell][0m $ /bin/zsh -lc "pwd && rg --files -g 'AGENTS.md' -g '.ralph-tui/progress.md' -g 'package.json' -g 'pnp...
+The progress log shows this branch has been handling typegen public API and docs tightly, with API index drift checks already in use. I did not find an `AGENTS.md` at the repo root path, so I’m checking parent scopes next and then I’ll inspect the codegen entrypoints.
+[94m[shell][0m $ /bin/zsh -lc "sed -n '260,620p' .ralph-tui/progress.md"
+[94m[shell][0m $ /bin/zsh -lc 'rg "TypegenOptions|SchemaToTsOptions|schemaToTs|typegen" packages/codegen/src docs/int...
+[94m[shell][0m $ /bin/zsh -lc 'find /Users/junwoobang/workflow -name AGENTS.md -print'
+[94m[shell][0m $ /bin/zsh -lc 'pkill -f "find /Users/junwoobang/workflow -name AGENTS.md -print"'
+[94m[shell][0m $ /bin/zsh -lc 'ls -l /Users/junwoobang/AGENTS.md /Users/junwoobang/workflow/AGENTS.md /Users/junwooba...
+
+[91m[Error: ls: /Users/junwoobang/AGENTS.md: No such file or directory
+ls: /Users/junwoobang/workflow/AGENTS.md: No such file or directory
+ls: /Users/junwoobang/workflow/oa-sdk/AGENTS.md: No such file or directory
+][0m
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,220p' packages/codegen/package.json"
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,180p' packages/codegen/src/index.ts"
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,120p' packages/codegen/src/typegen/index.ts"
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,180p' packages/codegen/src/typegen/schema-to-ts.ts"
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,130p' packages/codegen/src/typegen/generate-types.ts"
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,220p' package.json"
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,380p' docs/internal/api-index.md"
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,220p' docs/internal/todo.md"
+[94m[shell][0m $ /bin/zsh -lc 'rg "expectType|@ts-expect-error|tsc|dts|api-index|exports" packages/codegen/src/__test...
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,240p' docs/internal/spec.md"
+Current source already exports `TypegenOptions` from the main codegen index, while `SchemaToTsOptions` exists only in the implementation file. Since `schemaToTs()` is already public from both entrypoints, I’m treating its options type as part of that public contract and will expose it intentionally instead of leaving consumers to infer it.
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,260p' scripts/check-api-index.ts"
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,220p' tsconfig.json"
+
+[91m[Error: sed: tsconfig.json: No such file or directory
+][0m
+[94m[shell][0m $ /bin/zsh -lc "find packages/codegen -maxdepth 3 -name 'tsconfig*.json' -print"
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,220p' packages/codegen/vitest.config.ts"
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,240p' packages/codegen/tsconfig.json"
+[94m[shell][0m $ /bin/zsh -lc "find . -maxdepth 2 -name 'tsconfig*.json' -print"
+[94m[shell][0m $ /bin/zsh -lc "rg \"paths|@oa-sdk/codegen|@oa-sdk/parser\" -g 'tsconfig*.json' -n ."
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,240p' tsconfig.base.json"
+[94m[shell][0m $ /bin/zsh -lc 'ls packages/codegen/dist'
+[94m[shell][0m $ /bin/zsh -lc 'ls -l node_modules/@oa-sdk/codegen'
+
+[91m[Error: ls: node_modules/@oa-sdk/codegen: No such file or directory
+][0m
+[94m[shell][0m $ /bin/zsh -lc 'ls -l packages/codegen/node_modules/@oa-sdk'
+[94m[shell][0m $ /bin/zsh -lc 'git status --short'
+[94m[shell][0m $ /bin/zsh -lc 'git ls-files packages/codegen/dist/index.d.ts packages/codegen/dist/typegen/index.d.ts...
+I’m going to make this a narrow public API change: re-export `SchemaToTsOptions` beside `schemaToTs()` from both supported codegen entrypoints, add entrypoint/type-surface tests, and update the internal API/todo/spec docs plus the progress log.
+[94m[shell][0m $ /bin/zsh -lc 'pnpm --filter @oa-sdk/codegen typecheck'
+The narrow typecheck for `@oa-sdk/codegen` passes with the new test file. I’m running the package tests next before editing the docs/counts so the documented totals match the actual added coverage.
+[94m[shell][0m $ /bin/zsh -lc 'pnpm --filter @oa-sdk/codegen test'
+[94m[shell][0m $ /bin/zsh -lc 'rg "1614|488|TypegenOptions|SchemaToTsOptions|다음 세션 실행 순서|최근 완료" docs/internal/spec.md...
+[94m[shell][0m $ /bin/zsh -lc 'pnpm check:api-index'
+[94m[shell][0m $ /bin/zsh -lc 'tail -80 .ralph-tui/progress.md'
+Docs and progress are updated. I’m moving through the required repo-level checks now; based on prior iterations I expect the mock-server/socket-bound checks may still hit the sandbox’s `listen EPERM`, but I’ll run them and record the actual result.
+[94m[shell][0m $ /bin/zsh -lc 'pnpm typecheck'
+[94m[shell][0m $ /bin/zsh -lc 'pnpm test'
+
+[91m[Error: 
+> oa-sdk@0.0.0 test /Users/junwoobang/workflow/oa-sdk
+> pnpm --filter @oa-sdk/core test && pnpm --filter @oa-sdk/parser test && pnpm --filter @oa-sdk/router test && pnpm --filter @oa-sdk/client test && pnpm --filter @oa-sdk/codegen test && pnpm --filter @oa-sdk/mock-server test && pnpm --filter @oa-sdk/typia-mock test && pnpm --filter playground test
+
+
+> @oa-sdk/core@0.1.0 test /Users/junwoobang/workflow/oa-sdk/packages/core
+> vitest run
+
+
+ RUN  v2.1.9 /Users/junwoobang/workflow/oa-sdk/packages][0m
+`pnpm test` passed through core/parser/router/client/codegen, including the new 490-case codegen suite, then failed in the mock-server Node HTTP integration suites on the sandbox’s `listen EPERM: operation not permitted 127.0.0.1`. I’m running `schema:validate` now to capture its result separately.
+[94m[shell][0m $ /bin/zsh -lc 'pnpm schema:validate'
+
+[91m[Error: 
+> oa-sdk@0.0.0 schema:validate /Users/junwoobang/workflow/oa-sdk
+> pnpm --filter @oa-sdk/parser build && pnpm --filter @oa-sdk/codegen build && pnpm --filter @oa-sdk/schemas run validate && node packages/codegen/dist/cli/index.js validate --spec packages/schemas/src/.merged.yaml
+
+
+> @oa-sdk/parser@0.1.0 build /Users/junwoobang/workflow/oa-sdk/packages/parser
+> tsup src/index.ts --format esm --dts
+
+CLI Building entry: src/index.ts
+CLI Using tsconfig: tsconfig.json
+CLI tsup v8.5.1
+CLI Target: es2][0m
+[94m[shell][0m $ /bin/zsh -lc "git diff -- . ':(exclude)packages/codegen/dist' ':(exclude)packages/parser/dist'"
+[94m[shell][0m $ /bin/zsh -lc 'git status --short'
+[94m[shell][0m $ /bin/zsh -lc 'git diff --stat'
+[94m[shell][0m $ /bin/zsh -lc 'git diff --check'
+[94m[shell][0m $ /bin/zsh -lc 'rg "SchemaToTsOptions" packages/codegen/dist/index.d.ts packages/codegen/dist/typegen/...
+[94m[shell][0m $ /bin/zsh -lc 'git diff --check'
+[94m[shell][0m $ /bin/zsh -lc "nl -ba packages/codegen/src/index.ts | sed -n '12,30p'"
+[94m[shell][0m $ /bin/zsh -lc "nl -ba packages/codegen/src/typegen/index.ts | sed -n '10,20p'"
+[94m[shell][0m $ /bin/zsh -lc "nl -ba packages/codegen/src/__tests__/public-api.test.ts | sed -n '1,120p'"
+[94m[shell][0m $ /bin/zsh -lc "nl -ba docs/internal/api-index.md | sed -n '103,140p'"
+[94m[shell][0m $ /bin/zsh -lc 'nl -ba .ralph-tui/progress.md | tail -45'
+[94m[shell][0m $ 210,236p'"
+[94m[shell][0m $ /bin/zsh -lc "nl -ba docs/internal/todo.md | sed -n '8,58p'"
+Implemented US-015.
+
+Changes:
+- Exported `SchemaToTsOptions` from both supported public entrypoints: [packages/codegen/src/index.ts](/Users/junwoobang/workflow/oa-sdk/packages/codegen/src/index.ts):24 and [packages/codegen/src/typegen/index.ts](/Users/junwoobang/workflow/oa-sdk/packages/codegen/src/typegen/index.ts):16.
+- Kept `TypegenOptions` public from both root and `@oa-sdk/codegen/typegen`.
+- Kept deep typegen implementation imports unsupported by leaving package exports limited to `.`, `./drizzle`, and `./typegen`.
+- Added public API tests for supported option imports and unsupported deep subpaths in [public-api.test.ts](/Users/junwoobang/workflow/oa-sdk/packages/codegen/src/__tests__/public-api.test.ts):18.
+- Updated API docs, spec test counts, todo status, and Ralph progress notes.
+
+Checks:
+- `pnpm typecheck` passed.
+- `pnpm --filter @oa-sdk/codegen test` passed: 490 tests.
+- `pnpm check:api-index` passed.
+- `git diff --check` passed.
+- `pnpm test` passed through core/parser/router/client/codegen, then failed in mock-server Node HTTP integration suites due sandbox `listen EPERM: operation not permitted 127.0.0.1`.
+- `pnpm schema:validate` built parser/codegen, then failed when `tsx` attempted a sandbox-blocked IPC pipe with `listen EPERM`.
+
+<promise>COMPLETE</promise>
+
+--- STDERR ---
+2026-04-15T03:54:09.201238Z ERROR rmcp::transport::worker: worker quit with fatal: Transport channel closed, when AuthRequired(AuthRequiredError { www_authenticate_header: "Bearer realm=\"OAuth\", resource_metadata=\"https://mcp.cloudflare.com/.well-known/oauth-protected-resource/mcp\", error=\"invalid_token\", error_description=\"Missing or invalid access token\"" })
+2026-04-15T03:54:09.417275Z ERROR rmcp::transport::worker: worker quit with fatal: Transport channel closed, when AuthRequired(AuthRequiredError { www_authenticate_header: "Bearer error=\"invalid_request\", error_description=\"No access token was provided in this request\", resource_metadata=\"https://mcp.supabase.com/.well-known/oauth-protected-resource/mcp\"" })
+2026-04-15T03:54:09.455104Z ERROR rmcp::transport::worker: worker quit with fatal: Transport channel closed, when AuthRequired(AuthRequiredError { www_authenticate_header: "Bearer resource_metadata=https://mcp.stripe.com/.well-known/oauth-protected-resource" })
+2026-04-15T03:54:54.339853Z ERROR codex_core::tools::router: error=write_stdin failed: stdin is closed for this session; rerun exec_command with tty=true to keep stdin open

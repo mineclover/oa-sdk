@@ -6,6 +6,7 @@ after each iteration and it's included in prompts for context.
 ## Codebase Patterns (Study These First)
 
 *Add reusable patterns discovered during development here.*
+- Public import path regression tests should combine a consumer-style typecheck fixture with package.json exports assertions; API index validation can then guard the documented source entrypoints and supported subpaths separately.
 - Public option types should be exported from every public entrypoint that exports the function accepting them, while `package.json` exports remain the supported-subpath gate; pair positive type imports with deep-import exclusion checks.
 - Typegen external alias allocation must reserve both local component schema names and generated operation type names before assigning aliases; unsupported schema-position refs into non-schema OAS roots should warn and rewrite to `unknown` so generated TS stays compilable.
 - When `derefSpec()` folds an external target, carry both `RefResolution.documentRoot` and the resolved file `basePath`: documentRoot makes `#/...` pointers resolve against the loaded external document, while basePath keeps nested relative file refs source-local.
@@ -322,4 +323,21 @@ after each iteration and it's included in prompts for context.
   - `schemaToTs()` was already part of the root and typegen public runtime surface, so keeping its option type internal would make the exported function harder to consume safely.
   - Package entrypoint stability is enforced at two layers here: source indexes decide named exports, and `package.json` exports decide which subpaths are valid public imports.
   - API index drift only checks root package indexes, so sub-entrypoint decisions need explicit tests and prose in the API index.
+---
+
+## 2026-04-15 - US-016
+- Added a consumer-style public API typecheck fixture for `TypegenOptions` and `SchemaToTsOptions` imports from `@oa-sdk/codegen` and `@oa-sdk/codegen/typegen`.
+- Extended API index validation to enforce the documented codegen typegen option subpath policy against package exports plus root/typegen source entrypoints.
+- Updated internal spec counts/status notes and todo notes for the new export regression coverage.
+- Ran checks: `pnpm typecheck` passed; `pnpm --filter @oa-sdk/codegen test` passed with 491 tests; `pnpm build:scripts && pnpm check:api-index` passed; `git diff --check` passed. Root `pnpm test` still fails in mock-server Node HTTP suites on sandbox `listen EPERM 127.0.0.1`; `pnpm schema:validate` builds parser/codegen and then fails when `tsx` attempts a sandbox-blocked IPC pipe.
+- Files changed:
+  - `packages/codegen/src/__tests__/public-api.test.ts`
+  - `scripts/check-api-index.ts`
+  - `docs/internal/spec.md`
+  - `docs/internal/todo.md`
+  - `.ralph-tui/progress.md`
+- **Learnings:**
+  - A temp consumer fixture needs its own `type: module` package marker and Node type roots because its `tsconfig.json` lives outside the package workspace.
+  - Mapping documented package imports to source entrypoints keeps the test independent of ignored `dist/` output while package exports assertions still catch removed public subpaths.
+  - API index validation needed an explicit codegen typegen subpath policy because the generic checker only compares root `src/index.ts` files.
 ---

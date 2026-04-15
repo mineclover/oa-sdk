@@ -170,6 +170,39 @@ function extractDocNames(mdPath: string): Map<string, Set<string>> {
 // ── 비교 ────────────────────────────────────────────────────
 
 const PACKAGES = ['core', 'parser', 'codegen', 'mock-server', 'router', 'client'] as const
+const CODEGEN_TYPEGEN_OPTION_EXPORTS = ['TypegenOptions', 'SchemaToTsOptions'] as const
+
+function checkCodegenTypegenOptionPolicy(apiIndexPath: string): string[] {
+  const issues: string[] = []
+  const content = readFileSync(apiIndexPath, 'utf-8')
+  const packageJson = JSON.parse(
+    readFileSync(join(root, 'packages/codegen/package.json'), 'utf-8'),
+  ) as { exports?: Record<string, unknown> }
+  const rootExports = extractExportsFromFile(join(root, 'packages/codegen/src/index.ts')).names
+  const typegenExports = extractExportsFromFile(join(root, 'packages/codegen/src/typegen/index.ts')).names
+
+  if (!content.includes('@oa-sdk/codegen/typegen')) {
+    issues.push('API index must document the supported `@oa-sdk/codegen/typegen` sub-entrypoint')
+  }
+
+  if (!packageJson.exports?.['./typegen']) {
+    issues.push('`@oa-sdk/codegen/typegen` is documented but missing from packages/codegen/package.json exports')
+  }
+
+  for (const name of CODEGEN_TYPEGEN_OPTION_EXPORTS) {
+    if (!content.includes(`\`${name}\``)) {
+      issues.push(`API index must document \`${name}\` for codegen typegen option imports`)
+    }
+    if (!rootExports.has(name)) {
+      issues.push(`packages/codegen/src/index.ts must export \`${name}\``)
+    }
+    if (!typegenExports.has(name)) {
+      issues.push(`packages/codegen/src/typegen/index.ts must export \`${name}\``)
+    }
+  }
+
+  return issues
+}
 
 function main() {
   const apiIndexPath = join(root, 'docs/internal/api-index.md')
@@ -215,6 +248,15 @@ function main() {
       if (orphaned.length) {
         report.push(`  Orphaned in docs:  ${orphaned.map(n => `\`${n}\``).join(', ')}`)
       }
+    }
+  }
+
+  const codegenTypegenIssues = checkCodegenTypegenOptionPolicy(apiIndexPath)
+  if (codegenTypegenIssues.length) {
+    hasIssue = true
+    report.push('\n### @oa-sdk/codegen/typegen')
+    for (const issue of codegenTypegenIssues) {
+      report.push(`  ${issue}`)
     }
   }
 
