@@ -1,0 +1,16 @@
+id: schema:shared/common/Error
+content:
+  type: object
+  description: Shared error response shape.
+  required:
+    - code
+    - message
+  properties:
+    code:
+      type: string
+    message:
+      type: string
+    details:
+      type: array
+      items:
+        type: object

@@ -1,0 +1,395 @@
+{
+  "name": "OpenAPI Definition Builder",
+  "description": "Build an OpenAPI 3.2 definition builder that treats OpenAPI documents as build artifacts generated from canonical definition fragments using kind:scope/domain/name identities, target-local naming, collision reports, and migration from the current domain merge path.",
+  "branchName": "ralph/openapi-definition-builder",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Define canonical ID grammar and parser",
+      "description": "As a schema author, I want every OpenAPI fragment to use a fixed canonical identity so that definitions can be referenced independently from output component names.",
+      "acceptanceCriteria": [
+        "Define canonical ID grammar as kind:scope/domain/name.",
+        "Supported kind values include schema, response, parameter, requestBody, header, link, callback, path, operation, server, tag, and securityScheme.",
+        "Scope represents API exposure or server family such as shared, public, admin, internal, or partner.",
+        "Domain represents bounded context such as common, book, notebook, auth, user, or health.",
+        "Name is the domain-local definition name and should be PascalCase for component-like definitions.",
+        "Reject malformed IDs such as schema:book/Note and schema:Note.",
+        "Reject nested IDs such as schema:public/book/chapter/Note.",
+        "Reject duplicate canonical IDs.",
+        "Add fixtures for schema:public/book/Note, schema:public/notebook/Note, and schema:shared/common/Error.",
+        "Update docs/internal/spec.md with canonical ID grammar and examples.",
+        "Update docs/internal/todo.md with story completion or follow-up status.",
+        "pnpm typecheck passes.",
+        "pnpm --filter @oa-sdk/parser test passes.",
+        "pnpm --filter @oa-sdk/codegen test passes.",
+        "pnpm --filter @oa-sdk/schemas test passes.",
+        "pnpm schema:validate passes.",
+        "pnpm build:scripts && pnpm check:api-index passes."
+      ],
+      "priority": 1,
+      "passes": true,
+      "notes": "This story is the foundation. Keep it small: grammar, parser/validator, fixtures, docs. Do not implement bundle emit here.",
+      "dependsOn": [],
+      "completionNotes": "Completed by agent"
+    },
+    {
+      "id": "US-002",
+      "title": "Add fragment definition model",
+      "description": "As a builder developer, I want a definition node model so that each fragment can carry source metadata, references, and content hash.",
+      "acceptanceCriteria": [
+        "Define DefinitionNode with canonical ID, kind, scope, domain, local name, source path, source pointer, content hash, metadata, and refs.",
+        "Define DefinitionRef for source refs found inside fragment content.",
+        "Preserve source path and pointer for diagnostics.",
+        "Include optional metadata for classification that does not belong in canonical ID hierarchy.",
+        "Tests cover definition node construction and source metadata preservation.",
+        "Update docs/internal/spec.md with the definition node model if the public architecture changes.",
+        "Update docs/internal/todo.md with story completion or follow-up status.",
+        "pnpm typecheck passes.",
+        "pnpm --filter @oa-sdk/parser test passes.",
+        "pnpm --filter @oa-sdk/codegen test passes.",
+        "pnpm --filter @oa-sdk/schemas test passes.",
+        "pnpm schema:validate passes.",
+        "pnpm build:scripts && pnpm check:api-index passes."
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": "Depends on canonical ID grammar. Keep this as data model and tests only.",
+      "dependsOn": [
+        "US-001"
+      ]
+    },
+    {
+      "id": "US-003",
+      "title": "Build definition registry graph",
+      "description": "As a builder, I want to load fragments into a registry graph so that refs, duplicates, and target bundles can be analyzed before OpenAPI emission.",
+      "acceptanceCriteria": [
+        "Add registry data structures for definition nodes and ref edges.",
+        "Collect refs using JSON Pointer-aware traversal.",
+        "Detect duplicate canonical IDs as errors.",
+        "Preserve source coordinates for every diagnostic where possible.",
+        "Tests cover node registration, ref edge collection, and duplicate canonical ID rejection.",
+        "Update docs/internal/spec.md with registry behavior if architecture details change.",
+        "Update docs/internal/todo.md with story completion or follow-up status.",
+        "pnpm typecheck passes.",
+        "pnpm --filter @oa-sdk/parser test passes.",
+        "pnpm --filter @oa-sdk/codegen test passes.",
+        "pnpm --filter @oa-sdk/schemas test passes.",
+        "pnpm schema:validate passes.",
+        "pnpm build:scripts && pnpm check:api-index passes."
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": "Registry graph should not emit OpenAPI yet. It should only model nodes, refs, and diagnostics.",
+      "dependsOn": [
+        "US-002"
+      ]
+    },
+    {
+      "id": "US-004",
+      "title": "Resolve canonical and file refs",
+      "description": "As a schema author, I want source refs to use canonical identity syntax so that fragments can reference concepts rather than emitted OpenAPI names.",
+      "acceptanceCriteria": [
+        "Support canonical refs such as oa://schema/public/book/Note.",
+        "Normalize canonical refs to kind:scope/domain/name.",
+        "Support relative file refs where feasible and normalize them to canonical IDs.",
+        "Preserve unsupported or missing ref diagnostics.",
+        "Tests cover canonical ref, file ref, missing ref, unsupported ref, and nested ref resolution.",
+        "Update docs/internal/spec.md with canonical ref syntax.",
+        "Update docs/internal/todo.md with story completion or follow-up status.",
+        "pnpm typecheck passes.",
+        "pnpm --filter @oa-sdk/parser test passes.",
+        "pnpm --filter @oa-sdk/codegen test passes.",
+        "pnpm --filter @oa-sdk/schemas test passes.",
+        "pnpm schema:validate passes.",
+        "pnpm build:scripts && pnpm check:api-index passes."
+      ],
+      "priority": 4,
+      "passes": false,
+      "notes": "Reuse existing parser/source/ref traversal primitives where possible.",
+      "dependsOn": [
+        "US-003"
+      ]
+    },
+    {
+      "id": "US-005",
+      "title": "Rewrite output OpenAPI refs",
+      "description": "As a CLI user, I want source refs rewritten into valid OpenAPI $ref strings so that emitted documents are standard OpenAPI 3.2.",
+      "acceptanceCriteria": [
+        "Rewrite schema refs to #/components/schemas/{OutputName}.",
+        "Rewrite response refs to #/components/responses/{OutputName}.",
+        "Rewrite parameter refs to #/components/parameters/{OutputName}.",
+        "Rewrite request body, header, link, callback, and security scheme refs to their correct OpenAPI component locations.",
+        "Emit only standard OpenAPI $ref values in final documents.",
+        "Tests verify output refs contain no oa:// refs.",
+        "Update docs/internal/spec.md if ref rewrite behavior changes.",
+        "Update docs/internal/todo.md with story completion or follow-up status.",
+        "pnpm typecheck passes.",
+        "pnpm --filter @oa-sdk/parser test passes.",
+        "pnpm --filter @oa-sdk/codegen test passes.",
+        "pnpm --filter @oa-sdk/schemas test passes.",
+        "pnpm schema:validate passes.",
+        "pnpm build:scripts && pnpm check:api-index passes."
+      ],
+      "priority": 5,
+      "passes": false,
+      "notes": "Can be implemented before full document emit as a pure rewrite helper over registry nodes.",
+      "dependsOn": [
+        "US-004"
+      ]
+    },
+    {
+      "id": "US-006",
+      "title": "Implement target-local naming policies",
+      "description": "As an API owner, I want output component names to be deterministic within each target so that public, admin, and internal bundles can resolve names independently.",
+      "acceptanceCriteria": [
+        "Implement preserve-if-unique naming policy.",
+        "Implement domain-prefix naming policy.",
+        "Implement explicit alias policy.",
+        "Name allocation is target-local.",
+        "Same canonical ID included in different targets may produce the same output name without cross-target leakage.",
+        "If local names collide in one target, output names use domain prefix, such as BookNote and NotebookNote.",
+        "Emit alias metadata mapping canonical ID to output name and policy reason.",
+        "Tests cover unique names, same local name across domains, and same canonical ID across different targets.",
+        "Update docs/internal/spec.md with naming policy details.",
+        "Update docs/internal/todo.md with story completion or follow-up status.",
+        "pnpm typecheck passes.",
+        "pnpm --filter @oa-sdk/parser test passes.",
+        "pnpm --filter @oa-sdk/codegen test passes.",
+        "pnpm --filter @oa-sdk/schemas test passes.",
+        "pnpm schema:validate passes.",
+        "pnpm build:scripts && pnpm check:api-index passes."
+      ],
+      "priority": 6,
+      "passes": false,
+      "notes": "This is target-local output naming only. It must not change canonical IDs.",
+      "dependsOn": [
+        "US-003"
+      ]
+    },
+    {
+      "id": "US-007",
+      "title": "Simulate server and domain name collisions",
+      "description": "As a schema platform maintainer, I want collision behavior simulated across server targets and domains so that naming policy is proven before replacing current merge output.",
+      "acceptanceCriteria": [
+        "Add fixture target public-api including schema:public/book/Note and schema:public/notebook/Note.",
+        "Add fixture target admin-api including schema:admin/book/Note and another colliding local name.",
+        "Verify same local name across domains emits deterministic output names.",
+        "Verify same local name across targets remains target-local.",
+        "Emit a machine-readable collision report with canonical ID, target name, scope, domain, local name, output name, reason, and severity.",
+        "Tests cover no collision, rename collision, and target-local naming.",
+        "Update docs/internal/spec.md with collision report shape.",
+        "Update docs/internal/todo.md with story completion or follow-up status.",
+        "pnpm typecheck passes.",
+        "pnpm --filter @oa-sdk/parser test passes.",
+        "pnpm --filter @oa-sdk/codegen test passes.",
+        "pnpm --filter @oa-sdk/schemas test passes.",
+        "pnpm schema:validate passes.",
+        "pnpm build:scripts && pnpm check:api-index passes."
+      ],
+      "priority": 7,
+      "passes": false,
+      "notes": "PRD review addition: simulate target server > domain > local name behavior explicitly.",
+      "dependsOn": [
+        "US-006"
+      ]
+    },
+    {
+      "id": "US-008",
+      "title": "Simulate path flattening collision risks",
+      "description": "As a schema platform maintainer, I want path-aware canonical identities tested against flattened output names so that schema:public/a/Name and schema:public/aname/Name are not treated as the same definition.",
+      "acceptanceCriteria": [
+        "Add fixtures for schema:public/a/Name, schema:public/aname/Name, schema:public/a-name/Name, and schema:admin/a/Name.",
+        "Verify all fixtures have distinct canonical identities.",
+        "Run naming policy simulation and detect flattened output symbol collisions.",
+        "Emit output-name-collision when multiple canonical IDs map to the same attempted output name.",
+        "Collision diagnostics include all colliding canonical IDs and attempted output name.",
+        "Builder either renames deterministically or fails according to target policy.",
+        "Tests prove no semantic dedupe occurs only because flattened names match.",
+        "Update docs/internal/spec.md with flattening guard behavior.",
+        "Update docs/internal/todo.md with story completion or follow-up status.",
+        "pnpm typecheck passes.",
+        "pnpm --filter @oa-sdk/parser test passes.",
+        "pnpm --filter @oa-sdk/codegen test passes.",
+        "pnpm --filter @oa-sdk/schemas test passes.",
+        "pnpm schema:validate passes.",
+        "pnpm build:scripts && pnpm check:api-index passes."
+      ],
+      "priority": 8,
+      "passes": false,
+      "notes": "Canonical identity and output symbol equivalence must never be inferred by string flattening.",
+      "dependsOn": [
+        "US-006"
+      ]
+    },
+    {
+      "id": "US-009",
+      "title": "Define duplicate and dedupe policy",
+      "description": "As a maintainer, I want explicit duplicate and dedupe rules so that structural similarity does not collapse semantically different definitions.",
+      "acceptanceCriteria": [
+        "Duplicate canonical ID is an error.",
+        "Duplicate output name is handled by naming policy or explicit alias.",
+        "Identical schema hash across different canonical IDs produces warning/info only by default.",
+        "No automatic structural dedupe occurs unless explicit semantic alias/ref is declared.",
+        "Tests cover identical shape but different meaning remaining separate.",
+        "Tests cover explicit semantic alias as the only allowed dedupe path.",
+        "Update docs/internal/spec.md with duplicate and dedupe policy.",
+        "Update docs/internal/todo.md with story completion or follow-up status.",
+        "pnpm typecheck passes.",
+        "pnpm --filter @oa-sdk/parser test passes.",
+        "pnpm --filter @oa-sdk/codegen test passes.",
+        "pnpm --filter @oa-sdk/schemas test passes.",
+        "pnpm schema:validate passes.",
+        "pnpm build:scripts && pnpm check:api-index passes."
+      ],
+      "priority": 9,
+      "passes": false,
+      "notes": "Keep structural dedupe opt-in through explicit semantic aliasing.",
+      "dependsOn": [
+        "US-007",
+        "US-008"
+      ]
+    },
+    {
+      "id": "US-010",
+      "title": "Add target bundle configuration",
+      "description": "As an API owner, I want target configs for public, admin, and internal APIs so that only selected scopes, domains, servers, and paths are emitted.",
+      "acceptanceCriteria": [
+        "Define target config format with name, scopes, domains, servers, include paths, and naming policy.",
+        "Target can include shared plus target-specific scopes.",
+        "Target selection includes directly matched paths.",
+        "Target selection recursively includes referenced schemas, parameters, responses, and other components.",
+        "Tests cover public versus admin target selection.",
+        "Tests cover target-local output name allocation.",
+        "Update docs/internal/spec.md with target config format.",
+        "Update docs/internal/todo.md with story completion or follow-up status.",
+        "pnpm typecheck passes.",
+        "pnpm --filter @oa-sdk/parser test passes.",
+        "pnpm --filter @oa-sdk/codegen test passes.",
+        "pnpm --filter @oa-sdk/schemas test passes.",
+        "pnpm schema:validate passes.",
+        "pnpm build:scripts && pnpm check:api-index passes."
+      ],
+      "priority": 10,
+      "passes": false,
+      "notes": "Target selection should be implemented before full OpenAPI emit.",
+      "dependsOn": [
+        "US-006"
+      ]
+    },
+    {
+      "id": "US-011",
+      "title": "Emit OpenAPI 3.2 document from registry",
+      "description": "As a CLI user, I want the builder to emit a valid OpenAPI 3.2 document from selected fragments so that current merge output can eventually be replaced.",
+      "acceptanceCriteria": [
+        "Emit root openapi, info, servers, paths, webhooks, and components.",
+        "Emit rewritten $ref values only.",
+        "Preserve OAS 3.2 fields such as dataValue, serializedValue, and itemSchema.",
+        "Output passes validateDocument().",
+        "Add fixture target that emits book and notebook APIs with colliding Note source names.",
+        "Output includes alias metadata or sidecar report for renamed definitions.",
+        "Update docs/internal/spec.md with emitted output behavior.",
+        "Update docs/internal/todo.md with story completion or follow-up status.",
+        "pnpm typecheck passes.",
+        "pnpm --filter @oa-sdk/parser test passes.",
+        "pnpm --filter @oa-sdk/codegen test passes.",
+        "pnpm --filter @oa-sdk/schemas test passes.",
+        "pnpm schema:validate passes.",
+        "pnpm build:scripts && pnpm check:api-index passes."
+      ],
+      "priority": 11,
+      "passes": false,
+      "notes": "Do not replace current .merged.yaml in this story.",
+      "dependsOn": [
+        "US-005",
+        "US-009",
+        "US-010"
+      ]
+    },
+    {
+      "id": "US-012",
+      "title": "Add CLI entry for definition builder",
+      "description": "As a CLI user, I want a build command for target OpenAPI documents so that the builder can run locally and in CI.",
+      "acceptanceCriteria": [
+        "Add CLI command or script such as oa-gen build-spec --target ... .",
+        "Support output path.",
+        "Support diagnostics output.",
+        "Support machine-readable collision report output.",
+        "Exit non-zero on duplicate canonical ID or unresolved required refs.",
+        "Tests cover success and failure CLI cases.",
+        "Update docs/internal/api-index.md if public exports change.",
+        "Update docs/internal/spec.md with CLI usage.",
+        "Update docs/internal/todo.md with story completion or follow-up status.",
+        "pnpm typecheck passes.",
+        "pnpm --filter @oa-sdk/parser test passes.",
+        "pnpm --filter @oa-sdk/codegen test passes.",
+        "pnpm --filter @oa-sdk/schemas test passes.",
+        "pnpm schema:validate passes.",
+        "pnpm build:scripts && pnpm check:api-index passes."
+      ],
+      "priority": 12,
+      "passes": false,
+      "notes": "CLI likely belongs in @oa-sdk/codegen while fixtures/layout remain in @oa-sdk/schemas.",
+      "dependsOn": [
+        "US-011"
+      ]
+    },
+    {
+      "id": "US-013",
+      "title": "Integrate builder metadata with WorkspaceIndex",
+      "description": "As a user of large specs, I want fragment-level changes to dirty only affected target bundles so that multi-server schema builds can become incremental.",
+      "acceptanceCriteria": [
+        "Store fragment file/hash/id/ref metadata in WorkspaceIndex or adjacent builder index.",
+        "Changing a schema fragment dirties target bundles that include it directly or transitively.",
+        "Changing target config dirties only that target.",
+        "Driver fallback and full rebuild principles match ADR-006.",
+        "Tests cover changed schema fragment invalidating dependent target.",
+        "Initial implementation may use full rebuild while storing enough metadata for later incremental optimization.",
+        "Update docs/internal/architecture/006-incremental-workspace-index.md if WorkspaceIndex shape changes.",
+        "Update docs/internal/spec.md with builder index metadata.",
+        "Update docs/internal/todo.md with story completion or follow-up status.",
+        "pnpm typecheck passes.",
+        "pnpm --filter @oa-sdk/parser test passes.",
+        "pnpm --filter @oa-sdk/codegen test passes.",
+        "pnpm --filter @oa-sdk/schemas test passes.",
+        "pnpm schema:validate passes.",
+        "pnpm build:scripts && pnpm check:api-index passes."
+      ],
+      "priority": 13,
+      "passes": false,
+      "notes": "This can be metadata-only first. Do not require optimized rebuild to be perfect before builder correctness is proven.",
+      "dependsOn": [
+        "US-011"
+      ]
+    },
+    {
+      "id": "US-014",
+      "title": "Document migration from current domain merge",
+      "description": "As a maintainer, I want a migration plan from current domain-level merge.ts to the definition builder so that current schemas remain stable during transition.",
+      "acceptanceCriteria": [
+        "Document current merge path and new builder path side by side.",
+        "Define which current files become fragments.",
+        "Define compatibility requirements for .merged.yaml and .merged.3.1.yaml.",
+        "Include rollback plan: current merge remains available until builder output matches expected validation.",
+        "Document when builder output can replace .merged.yaml.",
+        "Update docs/internal/todo.md with implementation order.",
+        "Update tasks/prd-openapi-definition-builder.md if migration story changes.",
+        "pnpm typecheck passes.",
+        "pnpm --filter @oa-sdk/parser test passes.",
+        "pnpm --filter @oa-sdk/codegen test passes.",
+        "pnpm --filter @oa-sdk/schemas test passes.",
+        "pnpm schema:validate passes.",
+        "pnpm build:scripts && pnpm check:api-index passes."
+      ],
+      "priority": 14,
+      "passes": false,
+      "notes": "Final documentation and migration story. Keep current packages/schemas/scripts/merge.ts available.",
+      "dependsOn": [
+        "US-012",
+        "US-013"
+      ]
+    }
+  ],
+  "metadata": {
+    "updatedAt": "2026-04-15T20:06:15.004Z"
+  }
+}

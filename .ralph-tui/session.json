@@ -1,355 +1,106 @@
 {
   "version": 1,
-  "sessionId": "44fae87f-7549-4a6c-ada1-e728c67068cf",
+  "sessionId": "bc493007-f3e5-4f3d-9d12-884ba17d48c6",
   "status": "running",
-  "startedAt": "2026-04-15T01:49:56.568Z",
-  "updatedAt": "2026-04-15T05:21:19.540Z",
-  "currentIteration": 20,
+  "startedAt": "2026-04-15T19:54:02.104Z",
+  "updatedAt": "2026-04-15T20:06:15.004Z",
+  "currentIteration": 0,
   "maxIterations": 0,
-  "tasksCompleted": 20,
+  "tasksCompleted": 0,
   "isPaused": false,
   "agentPlugin": "codex",
   "trackerState": {
     "plugin": "json",
-    "prdPath": "./tasks/prd.json",
-    "totalTasks": 22,
+    "prdPath": "./tasks/prd-openapi-definition-builder.json",
+    "totalTasks": 14,
     "tasks": [
       {
         "id": "US-001",
-        "title": "Audit resolver paths and lock baseline behavior",
-        "status": "completed",
+        "title": "Define canonical ID grammar and parser",
+        "status": "open",
         "completedInSession": false
       },
       {
         "id": "US-002",
-        "title": "Define shared RefResolver contract",
-        "status": "completed",
-        "completedInSession": true
+        "title": "Add fragment definition model",
+        "status": "open",
+        "completedInSession": false
       },
       {
         "id": "US-003",
-        "title": "Centralize external document loading and cache",
-        "status": "completed",
-        "completedInSession": true
+        "title": "Build definition registry graph",
+        "status": "open",
+        "completedInSession": false
       },
       {
         "id": "US-004",
-        "title": "Migrate resolveRefGraph to shared resolver",
-        "status": "completed",
-        "completedInSession": true
+        "title": "Resolve canonical and file refs",
+        "status": "open",
+        "completedInSession": false
       },
       {
         "id": "US-005",
-        "title": "Migrate derefSpec to shared resolver",
-        "status": "completed",
-        "completedInSession": true
+        "title": "Rewrite output OpenAPI refs",
+        "status": "open",
+        "completedInSession": false
       },
       {
         "id": "US-006",
-        "title": "Align typegen external refs with shared resolver",
-        "status": "completed",
-        "completedInSession": true
+        "title": "Implement target-local naming policies",
+        "status": "open",
+        "completedInSession": false
       },
       {
         "id": "US-007",
-        "title": "Define WorkspaceIndex boundary and in-memory implementation",
-        "status": "completed",
-        "completedInSession": true
+        "title": "Simulate server and domain name collisions",
+        "status": "open",
+        "completedInSession": false
       },
       {
         "id": "US-008",
-        "title": "Implement SQLiteWorkspaceIndex storage layer",
-        "status": "completed",
-        "completedInSession": true
+        "title": "Simulate path flattening collision risks",
+        "status": "open",
+        "completedInSession": false
       },
       {
         "id": "US-009",
-        "title": "Implement dirty detection and dependency invalidation",
-        "status": "completed",
-        "completedInSession": true
+        "title": "Define duplicate and dedupe policy",
+        "status": "open",
+        "completedInSession": false
       },
       {
         "id": "US-010",
-        "title": "Wire incremental validate typegen and dev mode",
-        "status": "completed",
-        "completedInSession": true
+        "title": "Add target bundle configuration",
+        "status": "open",
+        "completedInSession": false
       },
       {
         "id": "US-011",
-        "title": "Define external $defs alias policy",
-        "status": "completed",
-        "completedInSession": true
+        "title": "Emit OpenAPI 3.2 document from registry",
+        "status": "open",
+        "completedInSession": false
       },
       {
         "id": "US-012",
-        "title": "Implement deterministic aliases for supported non-component refs",
-        "status": "completed",
-        "completedInSession": true
+        "title": "Add CLI entry for definition builder",
+        "status": "open",
+        "completedInSession": false
       },
       {
         "id": "US-013",
-        "title": "Build YAML source location index",
-        "status": "completed",
-        "completedInSession": true
+        "title": "Integrate builder metadata with WorkspaceIndex",
+        "status": "open",
+        "completedInSession": false
       },
       {
         "id": "US-014",
-        "title": "Attach line and column to diagnostics",
-        "status": "completed",
-        "completedInSession": true
-      },
-      {
-        "id": "US-015",
-        "title": "Decide public export surface for typegen options",
-        "status": "completed",
-        "completedInSession": true
-      },
-      {
-        "id": "US-016",
-        "title": "Add codegen export regression coverage",
-        "status": "completed",
-        "completedInSession": true
-      },
-      {
-        "id": "US-017",
-        "title": "Use response header types in router generation",
-        "status": "completed",
-        "completedInSession": true
-      },
-      {
-        "id": "US-018",
-        "title": "Expose typed response headers in client API",
-        "status": "completed",
-        "completedInSession": true
-      },
-      {
-        "id": "US-019",
-        "title": "Implement multipart encoding validation",
-        "status": "completed",
-        "completedInSession": true
-      },
-      {
-        "id": "US-020",
-        "title": "Implement Links metadata and typegen support",
-        "status": "completed",
-        "completedInSession": true
-      },
-      {
-        "id": "US-021",
-        "title": "Implement callback URL evaluation and mock outbound simulation",
-        "status": "completed",
-        "completedInSession": true
-      },
-      {
-        "id": "US-022",
-        "title": "Add minimal XML request and response support",
+        "title": "Document migration from current domain merge",
         "status": "open",
         "completedInSession": false
       }
     ]
   },
-  "iterations": [
-    {
-      "iteration": 1,
-      "status": "completed",
-      "taskId": "US-002",
-      "taskTitle": "Define shared RefResolver contract",
-      "taskCompleted": true,
-      "durationMs": 382033,
-      "startedAt": "2026-04-15T01:50:01.054Z",
-      "endedAt": "2026-04-15T01:56:23.087Z"
-    },
-    {
-      "iteration": 2,
-      "status": "completed",
-      "taskId": "US-003",
-      "taskTitle": "Centralize external document loading and cache",
-      "taskCompleted": true,
-      "durationMs": 895622,
-      "startedAt": "2026-04-15T01:56:24.782Z",
-      "endedAt": "2026-04-15T02:11:20.404Z"
-    },
-    {
-      "iteration": 3,
-      "status": "completed",
-      "taskId": "US-004",
-      "taskTitle": "Migrate resolveRefGraph to shared resolver",
-      "taskCompleted": true,
-      "durationMs": 147540,
-      "startedAt": "2026-04-15T02:11:22.128Z",
-      "endedAt": "2026-04-15T02:13:49.668Z"
-    },
-    {
-      "iteration": 4,
-      "status": "completed",
-      "taskId": "US-005",
-      "taskTitle": "Migrate derefSpec to shared resolver",
-      "taskCompleted": true,
-      "durationMs": 318505,
-      "startedAt": "2026-04-15T02:13:51.322Z",
-      "endedAt": "2026-04-15T02:19:09.827Z"
-    },
-    {
-      "iteration": 5,
-      "status": "completed",
-      "taskId": "US-006",
-      "taskTitle": "Align typegen external refs with shared resolver",
-      "taskCompleted": true,
-      "durationMs": 387186,
-      "startedAt": "2026-04-15T02:19:11.516Z",
-      "endedAt": "2026-04-15T02:25:38.702Z"
-    },
-    {
-      "iteration": 6,
-      "status": "completed",
-      "taskId": "US-007",
-      "taskTitle": "Define WorkspaceIndex boundary and in-memory implementation",
-      "taskCompleted": true,
-      "durationMs": 706958,
-      "startedAt": "2026-04-15T02:25:40.325Z",
-      "endedAt": "2026-04-15T02:37:27.283Z"
-    },
-    {
-      "iteration": 7,
-      "status": "completed",
-      "taskId": "US-008",
-      "taskTitle": "Implement SQLiteWorkspaceIndex storage layer",
-      "taskCompleted": true,
-      "durationMs": 697390,
-      "startedAt": "2026-04-15T02:37:28.977Z",
-      "endedAt": "2026-04-15T02:49:06.367Z"
-    },
-    {
-      "iteration": 8,
-      "status": "completed",
-      "taskId": "US-009",
-      "taskTitle": "Implement dirty detection and dependency invalidation",
-      "taskCompleted": true,
-      "durationMs": 565875,
-      "startedAt": "2026-04-15T02:49:07.967Z",
-      "endedAt": "2026-04-15T02:58:33.842Z"
-    },
-    {
-      "iteration": 9,
-      "status": "completed",
-      "taskId": "US-010",
-      "taskTitle": "Wire incremental validate typegen and dev mode",
-      "taskCompleted": true,
-      "durationMs": 740569,
-      "startedAt": "2026-04-15T02:58:35.462Z",
-      "endedAt": "2026-04-15T03:10:56.031Z"
-    },
-    {
-      "iteration": 10,
-      "status": "completed",
-      "taskId": "US-011",
-      "taskTitle": "Define external $defs alias policy",
-      "taskCompleted": true,
-      "durationMs": 442246,
-      "startedAt": "2026-04-15T03:10:57.712Z",
-      "endedAt": "2026-04-15T03:18:19.958Z"
-    },
-    {
-      "iteration": 11,
-      "status": "completed",
-      "taskId": "US-012",
-      "taskTitle": "Implement deterministic aliases for supported non-component refs",
-      "taskCompleted": true,
-      "durationMs": 674295,
-      "startedAt": "2026-04-15T03:18:21.602Z",
-      "endedAt": "2026-04-15T03:29:35.897Z"
-    },
-    {
-      "iteration": 12,
-      "status": "completed",
-      "taskId": "US-013",
-      "taskTitle": "Build YAML source location index",
-      "taskCompleted": true,
-      "durationMs": 817957,
-      "startedAt": "2026-04-15T03:29:37.531Z",
-      "endedAt": "2026-04-15T03:43:15.488Z"
-    },
-    {
-      "iteration": 13,
-      "status": "completed",
-      "taskId": "US-014",
-      "taskTitle": "Attach line and column to diagnostics",
-      "taskCompleted": true,
-      "durationMs": 649683,
-      "startedAt": "2026-04-15T03:43:17.161Z",
-      "endedAt": "2026-04-15T03:54:06.844Z"
-    },
-    {
-      "iteration": 14,
-      "status": "completed",
-      "taskId": "US-015",
-      "taskTitle": "Decide public export surface for typegen options",
-      "taskCompleted": true,
-      "durationMs": 493648,
-      "startedAt": "2026-04-15T03:54:08.513Z",
-      "endedAt": "2026-04-15T04:02:22.161Z"
-    },
-    {
-      "iteration": 15,
-      "status": "completed",
-      "taskId": "US-016",
-      "taskTitle": "Add codegen export regression coverage",
-      "taskCompleted": true,
-      "durationMs": 538162,
-      "startedAt": "2026-04-15T04:02:23.873Z",
-      "endedAt": "2026-04-15T04:11:22.035Z"
-    },
-    {
-      "iteration": 16,
-      "status": "completed",
-      "taskId": "US-017",
-      "taskTitle": "Use response header types in router generation",
-      "taskCompleted": true,
-      "durationMs": 530156,
-      "startedAt": "2026-04-15T04:11:23.701Z",
-      "endedAt": "2026-04-15T04:20:13.857Z"
-    },
-    {
-      "iteration": 17,
-      "status": "completed",
-      "taskId": "US-018",
-      "taskTitle": "Expose typed response headers in client API",
-      "taskCompleted": true,
-      "durationMs": 736434,
-      "startedAt": "2026-04-15T04:20:15.481Z",
-      "endedAt": "2026-04-15T04:32:31.915Z"
-    },
-    {
-      "iteration": 18,
-      "status": "completed",
-      "taskId": "US-019",
-      "taskTitle": "Implement multipart encoding validation",
-      "taskCompleted": true,
-      "durationMs": 676985,
-      "startedAt": "2026-04-15T04:32:33.580Z",
-      "endedAt": "2026-04-15T04:43:50.565Z"
-    },
-    {
-      "iteration": 19,
-      "status": "completed",
-      "taskId": "US-020",
-      "taskTitle": "Implement Links metadata and typegen support",
-      "taskCompleted": true,
-      "durationMs": 532941,
-      "startedAt": "2026-04-15T04:43:52.210Z",
-      "endedAt": "2026-04-15T04:52:45.151Z"
-    },
-    {
-      "iteration": 20,
-      "status": "completed",
-      "taskId": "US-021",
-      "taskTitle": "Implement callback URL evaluation and mock outbound simulation",
-      "taskCompleted": true,
-      "durationMs": 757020,
-      "startedAt": "2026-04-15T04:52:46.810Z",
-      "endedAt": "2026-04-15T05:05:23.830Z"
-    }
-  ],
+  "iterations": [],
   "skippedTaskIds": [],
   "cwd": "/Users/junwoobang/workflow/oa-sdk",
   "activeTaskIds": [],

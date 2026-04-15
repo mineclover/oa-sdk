@@ -52,6 +52,25 @@ export type { RefGraph, RefGraphDiagnostic, RefGraphDiagnosticCode, RefGraphNode
 export { createSourceLocationIndex, createYamlSourceLocationIndex } from './source-location.js'
 export type { SourceLocation, SourceLocationIndex, SourceLocationIndexOptions, SourceLocationSyntax } from './source-location.js'
 
+// ─── Definition IDs ────────────────────────────────────────────────────────
+export {
+  CANONICAL_DEFINITION_KINDS,
+  COMPONENT_LIKE_DEFINITION_KINDS,
+  parseDefinitionId,
+  validateDefinitionId,
+  validateDefinitionIds,
+} from './definition-id.js'
+export type {
+  CanonicalDefinitionId,
+  ComponentLikeDefinitionKind,
+  DefinitionId,
+  DefinitionIdDiagnostic,
+  DefinitionIdDiagnosticCode,
+  DefinitionIdListValidationResult,
+  DefinitionIdValidationResult,
+  DefinitionKind,
+} from './definition-id.js'
+
 // ─── Lint ─────────────────────────────────────────────────────────────────
 export { lintDocument } from './lint.js'
 export type { LintResult, LintSeverity, LintOptions } from './lint.js'

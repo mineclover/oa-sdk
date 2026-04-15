@@ -142,6 +142,40 @@ ClientMiddleware (`onRequest`/`onResponse`/`onError`) 인터셉터. 문서화된
 
 도메인 분리 + 환경 프로필 + merge. 중복 path/component 기본 오류. `downgrade:3.1` (사이드카 무손실) + `upgrade:3.2`.
 
+### OpenAPI Definition Builder 계획
+
+다음 단계는 OpenAPI 문서를 authoring source가 아니라 build artifact로 다루는 definition builder다.
+개별 schema/path/operation/parameter/response/server fragment는 canonical identity를 갖고, 출력 OpenAPI component name은 target별 naming policy가 결정한다.
+
+#### Canonical ID grammar (US-001)
+
+Canonical ID는 `@oa-sdk/parser`의 `parseDefinitionId()` / `validateDefinitionId()`가 검증하는 source identity다. 문법은 `kind:scope/domain/name`이며 `/`로 구분되는 path segment는 반드시 `scope`, `domain`, `name` 3개여야 한다. `schema:book/Note`, `schema:Note`, `schema:public/book/chapter/Note`는 invalid다.
+
+- `kind`: `schema`, `response`, `parameter`, `requestBody`, `header`, `link`, `callback`, `path`, `operation`, `server`, `tag`, `securityScheme`
+- `scope`: `shared`, `public`, `admin`, `internal`, `partner` 같은 API exposure/server family. lower-case segment로 제한한다.
+- `domain`: `common`, `book`, `notebook`, `auth`, `user`, `health` 같은 bounded context. lower-case segment로 제한한다.
+- `name`: domain-local definition name. component-like kind(`schema`, `response`, `parameter`, `requestBody`, `header`, `link`, `callback`, `securityScheme`)는 PascalCase를 요구한다.
+
+Valid fixture IDs: `schema:public/book/Note`, `schema:public/notebook/Note`, `schema:shared/common/Error`. Duplicate canonical ID는 `validateDefinitionIds()`에서 error로 보고하며, output component name은 후속 naming policy가 target별로 파생한다.
+
+| 개념 | 계획 |
+|------|------|
+| Canonical identity | `kind:scope/domain/name` 고정 계층. 예: `schema:public/book/Note`, `schema:public/notebook/Note`, `schema:shared/common/Error`. source identity와 output component name을 분리 |
+| Definition registry | fragment를 node로 등록하고 `$ref` edge, content hash, source path/pointer, diagnostics를 수집 |
+| Source refs | `oa://schema/public/book/Note` 같은 canonical ref와 상대 file ref를 canonical id로 정규화 |
+| Output refs | build target에서 `#/components/schemas/{OutputName}` 같은 표준 OpenAPI ref로 rewrite |
+| Naming policy | `preserve-if-unique`, `domain-prefix`, explicit alias. `book.Note`와 `notebook.Note`는 source name을 바꾸지 않고 `BookNote`/`NotebookNote`처럼 출력명만 분리 |
+| Namespace scope | 이름 충돌 해결은 target server → domain → local name 순서로 처리. 같은 local name이라도 target bundle마다 포함 집합이 다르므로 output name allocation은 target-local이어야 함 |
+| Flattening guard | `schema:public/a/Name`과 `schema:public/aname/Name`은 flatten 결과가 같을 수 있어도 다른 canonical identity다. builder는 string flattening만으로 동치 추론을 하지 않고 `output-name-collision`으로 보고 |
+| Collision simulation | public/admin/internal target fixture에서 rename, `schema:public/a/Name` vs `schema:public/aname/Name` output collision, structural duplicate warning, duplicate canonical id error를 machine-readable report로 검증 |
+| Dedupe policy | duplicate canonical id는 error. 동일 구조 hash는 warning/info only. 의미가 다른 정의는 자동 structural dedupe 금지. deeper hierarchy는 canonical path가 아니라 metadata/tag로 표현 |
+| Target bundle | public/admin/internal 등 target별 servers, include domains, include paths, naming policy로 필요한 fragment와 transitive refs만 emit |
+| Migration | 기존 `packages/schemas/scripts/merge.ts`는 유지하고, builder는 병렬 output으로 검증한 뒤 `.merged.yaml` 대체 여부 결정 |
+
+패키지 책임: `@oa-sdk/schemas`는 fragment layout/target config/fixtures/migration을 소유하고, `@oa-sdk/parser`는 validation/source/ref graph primitive를 제공하며, `@oa-sdk/codegen`은 `oa-gen build-spec` CLI와 WorkspaceIndex 연동을 소유한다.
+
+PRD: [tasks/prd-openapi-definition-builder.md](../../tasks/prd-openapi-definition-builder.md)
+
 ---
 
 ## 사용 방법
@@ -216,7 +250,7 @@ pnpm demo  # API 구조 + Mock 12시나리오 + 커버리지
 |------|------|------|
 | Build | 7 패키지 + CI 스크립트 | tsup ESM 빌드 |
 | Typecheck | 7 패키지 + playground | tsc --noEmit strict |
-| Test | 8 패키지 + playground | vitest 1646 케이스 |
+| Test | 8 패키지 + playground | vitest 1655 케이스 |
 | Schema validate | schemas + oa-gen | 도메인 병합 + 3.1 변환 + Spectral/Redocly + 3.2 자체 검증 표준 파이프라인 |
 | Freshness check | 산출물 | git diff --exit-code |
 | API index | docs ↔ code | root export 정합성 + codegen typegen option subpath 검증 |
@@ -229,12 +263,12 @@ pnpm demo  # API 구조 + Mock 12시나리오 + 커버리지
 | 패키지 | 케이스 |
 |--------|--------|
 | core | 52 |
-| parser | 202 |
+| parser | 210 |
 | codegen | 495 |
 | mock-server | 580 |
 | playground | 114 |
 | router | 36 |
 | client | 39 |
-| schemas | 75 |
+| schemas | 76 |
 | typia-mock | 53 |
-| **합계** | **1646** |
+| **합계** | **1655** |

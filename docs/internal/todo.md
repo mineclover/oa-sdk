@@ -1,14 +1,40 @@
 # Todo — 이행 대기 태스크
 
 > 완료된 구현은 [spec.md](./spec.md), API 상세는 [api-index.md](./api-index.md)를 참조.
-> 정렬 기준: ref correctness → 증분 workspace index → 코드 생성 정책 → 진단 UX → 공개 API → 런타임 활용 → 남은 OAS 스펙 순.
+> 정렬 기준: definition builder → ref correctness → 증분 workspace index → 코드 생성 정책 → 진단 UX → 공개 API → 런타임 활용 → 남은 OAS 스펙 순.
 > 증분 설계: [ADR-006 — SQLite 기반 증분 Workspace Index](./architecture/006-incremental-workspace-index.md)
+> 다음 PRD: [OpenAPI Definition Builder](../../tasks/prd-openapi-definition-builder.md)
 
 ---
 
 ## 다음 세션 실행 순서
 
-현재 ralph PRD 기준 US-001~US-022는 모두 완료됨. 실행 대기 중인 blocking todo는 없음.
+현재 ralph PRD 기준 US-001~US-022는 모두 완료됨. OpenAPI definition builder의 canonical ID grammar/parser(US-001)는 완료되었고, 다음 blocking 목표는 fragment node/registry 모델이다.
+
+### [ ] OpenAPI definition builder: fragment definition node model
+배경: Canonical ID가 확정되었으므로 각 fragment가 source metadata, refs, content hash, classification metadata를 운반할 node 모델이 필요함.
+작업: `DefinitionNode`와 `DefinitionRef`를 정의하고 canonical id, kind, scope, domain, local name, source path, source pointer, content hash, metadata, refs를 보존.
+완료 기준: definition node construction과 source metadata preservation이 테스트됨.
+
+### [ ] OpenAPI definition builder: registry graph + ref resolver
+배경: `$ref`는 구성요소 정의를 연결하는 그래프 edge이므로 build 전에 canonical ref graph를 수집해야 함.
+작업: fragment registry, ref edge collection, `oa://schema/public/book/Note` canonical ref 지원, 상대 file ref 정규화, missing/unsupported diagnostic 구현.
+완료 기준: registry graph가 transitive refs를 수집하고 source path/pointer를 보존함.
+
+### [ ] OpenAPI definition builder: output naming and collision simulation
+배경: 같은 local name `Note`라도 book note와 notebook note는 의미가 다를 수 있어 source 정의를 바꾸지 않고 output naming으로 충돌을 해결해야 함.
+작업: target server → domain → local name 순서의 namespace allocation, `preserve-if-unique`, `domain-prefix`, explicit alias naming policy, alias metadata, collision report 구현. `schema:public/a/Name`과 `schema:public/aname/Name`처럼 flatten 결과가 같을 수 있는 canonical identity는 동치로 보지 않고 output-name collision으로 보고. structural hash 동일성은 warning/info만 내고 자동 병합하지 않음.
+완료 기준: public/admin target fixture에서 `book.Note`와 `notebook.Note`가 각각 `BookNote`/`NotebookNote`로 deterministic emit되고, `schema:public/a/Name` vs `schema:public/aname/Name` collision이 report되며, duplicate canonical id는 error, structural duplicate는 warning/info report로 검증됨.
+
+### [ ] OpenAPI definition builder: target bundle emit
+배경: 여러 서버와 특정 path 하위 조합을 지원하려면 target별 servers/domains/paths include 규칙이 필요함.
+작업: target config format, public/admin/internal fixture, selected paths + recursive refs emit, OpenAPI 3.2 document generation.
+완료 기준: target output이 `validateDocument()`를 통과하고 기존 schema validate pipeline과 병렬로 실행 가능함.
+
+### [ ] OpenAPI definition builder: CLI and migration plan
+배경: 현재 `packages/schemas/scripts/merge.ts`를 즉시 제거하지 않고 새 builder를 병렬 검증해야 함.
+작업: `oa-gen build-spec --target ...` 또는 동등 script 추가, diagnostics/output path 지원, 현재 domain merge에서 fragment builder로 가는 migration 문서화.
+완료 기준: 기존 `.merged.yaml` path는 유지하면서 builder output을 별도 artifact로 검증 가능함.
 
 ### [ ] 운영 관찰: SQLite optional native dependency 설치성
 배경: `better-sqlite3`는 증분 WorkspaceIndex의 primary driver지만 native optional dependency라 환경별 설치 실패 가능성이 있음.
@@ -28,6 +54,11 @@
 ---
 
 ## 완료된 실행 항목
+
+### [x] OpenAPI definition builder: canonical ID grammar
+배경: OpenAPI fragment source identity를 output component name과 분리하려면 고정 canonical id 문법이 필요함.
+완료: `@oa-sdk/parser`에 `kind:scope/domain/name` parser/validator를 추가하고 supported kind, lower-case scope/domain, component-like PascalCase name, malformed/nested id, duplicate canonical id diagnostic을 테스트함. `@oa-sdk/schemas`에 `schema:public/book/Note`, `schema:public/notebook/Note`, `schema:shared/common/Error` fixture를 추가함.
+완료 기준: source identity와 output component name 분리가 문서화되고 malformed/nested/duplicate canonical id가 error로 검출됨.
 
 ### [x] router/client: ResponseHeaders 활용
 배경: typegen은 `XxxResponseHeaders`를 생성하지만 router/client 런타임 API는 아직 타입을 적극 활용하지 않음.
