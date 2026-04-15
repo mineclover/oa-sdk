@@ -1,6 +1,7 @@
 import type { Command } from '../lib/types.js'
 import { loadSpecWithPath } from '../lib/load-spec.js'
 import { formatLintLocation } from '../lib/diagnostics.js'
+import { createCliSourceLocationResolver } from '../lib/source-locations.js'
 import { str } from '../lib/args.js'
 
 export const lint: Command = {
@@ -11,13 +12,17 @@ export const lint: Command = {
   },
   async run(args) {
     const { lintDocument } = await import('@oa-sdk/parser')
-    const { document: doc, path: resolvedSpecPath } = loadSpecWithPath(str(args, 'spec'))
+    const { document: doc, path: resolvedSpecPath, raw } = loadSpecWithPath(str(args, 'spec'))
+    const sourceLocations = createCliSourceLocationResolver({ filePath: resolvedSpecPath, raw })
     const results = lintDocument(doc, { basePath: resolvedSpecPath })
 
     for (const r of results) {
       const icon = r.severity === 'error' ? '❌' : r.severity === 'warning' ? '⚠️' : 'ℹ️'
       console.log(`  ${icon} [${r.rule}] ${r.message}`)
-      console.log(`    at ${formatLintLocation(r)}`)
+      console.log(`    at ${formatLintLocation(r, {
+        defaultFilePath: resolvedSpecPath,
+        lookupSourceLocation: sourceLocations.lookup,
+      })}`)
     }
 
     const errors = results.filter(r => r.severity === 'error')

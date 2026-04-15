@@ -29,7 +29,7 @@ SQLite는 parser correctness 경로에 넣지 않는다.
 | 레이어 | 책임 |
 |---|---|
 | `RefResolver` | 내부/외부 `$ref` 해소, pointer lookup, per-run cache, cycle stack, source pointer |
-| `SourceMapIndex` | YAML AST 기반 pointer → line/column 매핑 |
+| `SourceMapIndex` | YAML AST 기반 pointer → line/column 매핑. US-013에서 parser `createSourceLocationIndex()`와 CLI diagnostic/source_locations 보강으로 구현 |
 | `WorkspaceIndex` | 파일 hash, component, ref edge, diagnostics, type alias metadata 저장/조회 |
 | `SQLiteWorkspaceIndex` | `.oa-cache/state.sqlite` 구현체, transaction, WAL, invalidation query |
 | CLI orchestration | scan → changed detect → invalidate → dirty re-index → validate/typegen |

@@ -48,6 +48,10 @@ export { findOperation, findByTag, findByPath, getSchema, getTag, groupByTag, de
 export { collectRefs, isRelativeRef, resolvePointer, resolveRefGraph } from './ref-graph.js'
 export type { RefGraph, RefGraphDiagnostic, RefGraphDiagnosticCode, RefGraphNode, RefGraphOptions, RefKind } from './ref-graph.js'
 
+// ─── Source Locations ──────────────────────────────────────────────────────
+export { createSourceLocationIndex, createYamlSourceLocationIndex } from './source-location.js'
+export type { SourceLocation, SourceLocationIndex, SourceLocationIndexOptions, SourceLocationSyntax } from './source-location.js'
+
 // ─── Lint ─────────────────────────────────────────────────────────────────
 export { lintDocument } from './lint.js'
 export type { LintResult, LintSeverity, LintOptions } from './lint.js'

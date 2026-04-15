@@ -60,6 +60,8 @@
 | `collectRefs()` | `ref-graph.ts` | 문서 트리에서 `$ref` 위치 수집 |
 | `isRelativeRef()` | `ref-graph.ts` | 상대 파일 `$ref` 판별 |
 | `resolvePointer()` | `ref-graph.ts` | JSON Pointer 해소 |
+| `createSourceLocationIndex()` | `source-location.ts` | YAML/JSON 원문 → JSON Pointer source location index. YAML은 line/column 매핑, JSON은 빈 index fallback |
+| `createYamlSourceLocationIndex()` | `source-location.ts` | YAML AST range 기반 JSON Pointer → line/column index 생성 |
 | `findOperation()` | `query.ts` | operationId로 오퍼레이션 검색 |
 | `findByTag()` | `query.ts` | 태그로 오퍼레이션 필터 |
 | `findByPath()` | `query.ts` | 경로로 오퍼레이션 필터 |
@@ -88,6 +90,10 @@
 | `RefGraphDiagnosticCode` | `ref-graph.ts` | ref graph diagnostic 코드 |
 | `RefGraphOptions` | `ref-graph.ts` | ref graph basePath 옵션 |
 | `RefKind` | `ref-graph.ts` | internal/external/unsupported ref 분류 |
+| `SourceLocation` | `source-location.ts` | filePath/pointer/line/column source coordinate |
+| `SourceLocationIndex` | `source-location.ts` | pointer lookup과 전체 source location entries 조회 인터페이스 |
+| `SourceLocationIndexOptions` | `source-location.ts` | source location index 생성 옵션 (file path, syntax) |
+| `SourceLocationSyntax` | `source-location.ts` | source location index 입력 syntax (auto/yaml/json) |
 | `LintResult` | `lint.ts` | 린트 결과 |
 | `LintSeverity` | `lint.ts` | 린트 심각도 |
 | `LintOptions` | `lint.ts` | 린트 옵션 |

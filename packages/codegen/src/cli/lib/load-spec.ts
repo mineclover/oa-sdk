@@ -6,6 +6,7 @@ import type { OasDocument } from '@oa-sdk/parser'
 export type LoadedSpec = {
   document: OasDocument
   path: string
+  raw: string
 }
 
 /** spec 파일을 읽어 파싱된 객체 반환. 존재하지 않으면 에러 메시지 후 exit. */
@@ -14,7 +15,7 @@ export function loadSpecWithPath(specPath: string): LoadedSpec {
   try {
     const raw = readFileSync(resolved, 'utf8')
     const document = (specPath.endsWith('.json') ? JSON.parse(raw) : parseYaml(raw)) as OasDocument
-    return { document, path: resolved }
+    return { document, path: resolved, raw }
   } catch (err) {
     console.error(`스펙 파일 읽기 실패: ${resolved}`)
     console.error(err instanceof Error ? err.message : String(err))

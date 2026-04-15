@@ -17,6 +17,7 @@ after each iteration and it's included in prompts for context.
 - Persistent workspace indexes are disposable optimization state: store schema/options compatibility metadata, wrap writes in transactions, and degrade storage mismatches or DB errors to full rebuild fallback instead of letting cache state affect correctness.
 - Compute reverse dependency dirty sets before invalidating index rows: once source rows are deleted, refs.to_file edge context needed to mark referring specs dirty may be gone.
 - CLI incremental orchestration should keep WorkspaceIndex as a sidecar around the existing full parser/codegen output path: scan, detect dirty files, invalidate stale rows, generate from current files, then refresh the index so cache fallback cannot change stdout or generated files.
+- Source location mapping should stay a sidecar over existing file/pointer diagnostics: enrich CLI/index records with YAML line/column when available, while JSON and missing mappings fall back to `file#pointer`.
 
 ---
 
@@ -242,4 +243,31 @@ after each iteration and it's included in prompts for context.
   - `analyzeExternalSchemaRefs()` needs operation-name awareness because external aliases are merged into `doc.schemas` before operation types are emitted.
   - Operation bundle collisions are best handled before `uniqueTypeName()` by seeding `usedNames` with local and operation names, preserving the existing deterministic rename path.
   - Unsupported external pointer roots should be diagnosed before schema alias grouping; otherwise response/path-item objects can look like generic objects and accidentally become aliases.
+---
+
+## 2026-04-15 - US-013
+- Implemented a parser source location index that maps YAML JSON Pointers to line/column positions using YAML AST node ranges and returns an empty index for JSON inputs.
+- Wired `oa-gen lint` and `oa-gen validate` diagnostic formatting to show `file:line:column` when a source mapping exists, while preserving the target `file#pointer` fallback string.
+- Added incremental WorkspaceIndex source location recording and diagnostic line/column enrichment for discovered entry/external YAML files.
+- Added parser coverage for root field, nested schema key, array item, and JSON fallback; added CLI coverage for nested diagnostics in an external YAML document.
+- Files changed:
+  - `packages/parser/src/source-location.ts`
+  - `packages/parser/src/index.ts`
+  - `packages/parser/src/__tests__/source-location.test.ts`
+  - `packages/codegen/src/cli/lib/source-locations.ts`
+  - `packages/codegen/src/cli/lib/diagnostics.ts`
+  - `packages/codegen/src/cli/lib/load-spec.ts`
+  - `packages/codegen/src/cli/lib/incremental.ts`
+  - `packages/codegen/src/cli/commands/lint.ts`
+  - `packages/codegen/src/cli/commands/validate.ts`
+  - `packages/codegen/src/__tests__/cli-scenarios.test.ts`
+  - `docs/internal/spec.md`
+  - `docs/internal/api-index.md`
+  - `docs/internal/todo.md`
+  - `docs/internal/architecture/006-incremental-workspace-index.md`
+  - `.ralph-tui/progress.md`
+- **Learnings:**
+  - YAML pair key ranges are the best diagnostic anchor for object pointers; visiting values after key registration must not overwrite the key location.
+  - External nested diagnostics can be sourced from the external YAML file even when the unresolved target is in a different file, so formatting should separate the precise source coordinate from the target fallback.
+  - Keeping JSON source indexes empty preserves existing parsed JSON behavior and exercises the same `file#pointer` fallback path as missing YAML mappings.
 ---

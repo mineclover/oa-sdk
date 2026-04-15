@@ -71,6 +71,7 @@ let sharedSpecPath: string
 let collisionSpecPath: string
 let missingExternalSpecPath: string
 let nestedExternalSpecPath: string
+let externalSourceLocationSpecPath: string
 
 const execOpts: ExecSyncOptionsWithStringEncoding = { cwd: pkgDir, encoding: 'utf8', timeout: 15_000 }
 
@@ -110,6 +111,7 @@ beforeAll(() => {
   collisionSpecPath = join(tmpDir, 'collision-api.yaml')
   missingExternalSpecPath = join(tmpDir, 'missing-external-api.yaml')
   nestedExternalSpecPath = join(tmpDir, 'nested-external-api.yaml')
+  externalSourceLocationSpecPath = join(tmpDir, 'external-source-location-api.yaml')
   writeFileSync(specPath, yamlStringify(VALID_SPEC), 'utf8')
   writeFileSync(invalidSpecPath, yamlStringify(INVALID_SPEC), 'utf8')
   writeFileSync(sharedSpecPath, yamlStringify({
@@ -231,6 +233,38 @@ beforeAll(() => {
       },
     },
   }), 'utf8')
+  writeFileSync(join(tmpDir, 'source-location-shared.yaml'), [
+    'components:',
+    '  schemas:',
+    '    User:',
+    '      type: object',
+    '      properties:',
+    '        role:',
+    '          $ref: "./source-location-empty.yaml#/components/schemas/Missing"',
+    '',
+  ].join('\n'), 'utf8')
+  writeFileSync(join(tmpDir, 'source-location-empty.yaml'), [
+    'components:',
+    '  schemas: {}',
+    '',
+  ].join('\n'), 'utf8')
+  writeFileSync(externalSourceLocationSpecPath, [
+    'openapi: 3.2.0',
+    'info:',
+    '  title: External Source Location API',
+    '  version: 1.0.0',
+    'paths:',
+    '  /users:',
+    '    get:',
+    '      responses:',
+    '        "200":',
+    '          description: OK',
+    '          content:',
+    '            application/json:',
+    '              schema:',
+    '                $ref: "./source-location-shared.yaml#/components/schemas/User"',
+    '',
+  ].join('\n'), 'utf8')
 })
 
 afterAll(() => {
@@ -408,6 +442,13 @@ describe('lint', () => {
     const { stdout, stderr } = cliFail(`lint -s ${missingExternalSpecPath}`)
     const combined = stdout + stderr
     expect(combined).toContain('missing.yaml#/components/schemas/User')
+  })
+
+  it('외부 YAML 문서의 nested diagnostic에 line/column 위치를 출력', () => {
+    const { stdout, stderr } = cliFail(`lint -s ${externalSourceLocationSpecPath}`)
+    const combined = stdout + stderr
+    expect(combined).toContain('source-location-shared.yaml:7:11')
+    expect(combined).toContain('source-location-empty.yaml#/components/schemas/Missing')
   })
 
   it('구조 에러 스펙 → lint 에러 + exit 1', () => {

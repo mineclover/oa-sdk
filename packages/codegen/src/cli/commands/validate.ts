@@ -3,6 +3,7 @@ import type { Command } from '../lib/types.js'
 import { loadSpecWithPath } from '../lib/load-spec.js'
 import { formatLintLocation } from '../lib/diagnostics.js'
 import { bool, optStr, str } from '../lib/args.js'
+import { createCliSourceLocationResolver, type CliSourceLocationResolver } from '../lib/source-locations.js'
 import {
   closeCliIncrementalRun,
   createCliIncrementalRun,
@@ -27,7 +28,8 @@ export const validate: Command = {
       specPath,
       ...(cacheDir ? { cacheDir } : {}),
     })
-    const { document: doc, path: resolvedSpecPath } = loadSpecWithPath(specPath)
+    const { document: doc, path: resolvedSpecPath, raw } = loadSpecWithPath(specPath)
+    const sourceLocations = createCliSourceLocationResolver({ filePath: resolvedSpecPath, raw })
 
     try {
       console.log('━━━ Step 1: 파싱 + 구조 검증 ━━━')
@@ -36,7 +38,10 @@ export const validate: Command = {
       for (const r of [...result.errors, ...result.warnings, ...result.infos]) {
         const icon = r.severity === 'error' ? '❌' : r.severity === 'warning' ? '⚠️' : 'ℹ️'
         console.log(`  ${icon} [${r.rule}] ${r.message}`)
-        console.log(`    at ${formatLintLocation(r)}`)
+        console.log(`    at ${formatLintLocation(r, {
+          defaultFilePath: resolvedSpecPath,
+          lookupSourceLocation: sourceLocations.lookup,
+        })}`)
       }
       console.log(result.summary)
 
@@ -64,7 +69,11 @@ export const validate: Command = {
       }
 
       await recordCliIncrementalIndex(incremental, doc, {
-        diagnostics: [...result.errors, ...result.warnings, ...result.infos].map(r => toWorkspaceDiagnostic(resolvedSpecPath, r)),
+        diagnostics: [...result.errors, ...result.warnings, ...result.infos].map(r => toWorkspaceDiagnostic(
+          resolvedSpecPath,
+          r,
+          sourceLocations,
+        )),
       })
 
       if (!result.valid) process.exit(1)
@@ -83,14 +92,22 @@ function toWorkspaceDiagnostic(
     path: string
     source?: { sourceFilePath?: string; sourcePointer?: string }
   },
+  sourceLocations: CliSourceLocationResolver,
 ): WorkspaceDiagnosticRecord {
+  const filePath = result.source?.sourceFilePath ?? resolvedSpecPath
+  const pointer = result.source?.sourcePointer ?? result.path
+  const location = sourceLocations.lookup(filePath, pointer)
   const record: WorkspaceDiagnosticRecord = {
     producer: 'validate',
     severity: result.severity,
     code: result.rule,
     message: result.message,
-    filePath: result.source?.sourceFilePath ?? resolvedSpecPath,
-    pointer: result.source?.sourcePointer ?? result.path,
+    filePath,
+    pointer,
+  }
+  if (location) {
+    record.line = location.line
+    record.column = location.column
   }
   return record
 }

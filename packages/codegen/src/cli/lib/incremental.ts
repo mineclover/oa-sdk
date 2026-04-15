@@ -1,5 +1,6 @@
 import { resolve } from 'node:path'
 import type { OasDocument, RefGraphDiagnostic, RefGraphNode } from '@oa-sdk/parser'
+import { createCliSourceLocationResolver, type CliSourceLocationResolver } from './source-locations.js'
 import {
   createWorkspaceIndex,
   detectWorkspaceDirtyFiles,
@@ -80,6 +81,7 @@ export async function recordCliIncrementalIndex(
     runId: run.runId,
   })
   const discoveredFilePaths = new Set(discoveredFiles.map(file => file.filePath))
+  const sourceLocations = createCliSourceLocationResolver()
 
   for (const file of discoveredFiles) run.index.upsertFile(file)
 
@@ -100,7 +102,7 @@ export async function recordCliIncrementalIndex(
   for (const diagnostic of graph.diagnostics) {
     const ownerFile = diagnostic.sourceFilePath ?? run.resolvedSpecPath
     if (!discoveredFilePaths.has(ownerFile)) continue
-    appendByFile(diagnosticsByOwner, ownerFile, toWorkspaceDiagnosticRecord('ref-graph', diagnostic))
+    appendByFile(diagnosticsByOwner, ownerFile, toWorkspaceDiagnosticRecord('ref-graph', diagnostic, sourceLocations))
   }
   for (const diagnostic of options.diagnostics ?? []) {
     const ownerFile = diagnostic.filePath ?? run.resolvedSpecPath
@@ -111,6 +113,7 @@ export async function recordCliIncrementalIndex(
   for (const file of discoveredFiles) {
     run.index.replaceFileIndex(file.filePath, {
       refs: refsByFile.get(file.filePath) ?? [],
+      sourceLocations: sourceLocations.list(file.filePath),
       diagnostics: diagnosticsByOwner.get(file.filePath) ?? [],
     })
   }
@@ -174,6 +177,7 @@ function toWorkspaceRefRecord(
 function toWorkspaceDiagnosticRecord(
   producer: string,
   diagnostic: RefGraphDiagnostic,
+  sourceLocations: CliSourceLocationResolver,
 ): WorkspaceDiagnosticRecord {
   const record: WorkspaceDiagnosticRecord = {
     producer,
@@ -183,6 +187,13 @@ function toWorkspaceDiagnosticRecord(
   }
   if (diagnostic.sourceFilePath) record.filePath = diagnostic.sourceFilePath
   if (diagnostic.sourcePointer) record.pointer = diagnostic.sourcePointer
+  if (diagnostic.sourceFilePath && diagnostic.sourcePointer) {
+    const location = sourceLocations.lookup(diagnostic.sourceFilePath, diagnostic.sourcePointer)
+    if (location) {
+      record.line = location.line
+      record.column = location.column
+    }
+  }
   return record
 }
 
