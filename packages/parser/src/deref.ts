@@ -69,7 +69,11 @@ export class DerefFolder extends SchemaFolder {
     this.stack.push(resolution.cacheKey)
     try {
       const resolved = resolution.kind === 'external' && resolution.basePath
-        ? this.foldExternalTarget(resolution.target, resolution.basePath)
+        ? this.foldExternalTarget(
+            resolution.target,
+            resolution.basePath,
+            resolution.documentRoot ?? resolution.target,
+          )
         : this.fold(resolution.target)
       return mergeRefSiblings(resolved, this.foldSiblingFields(node))
     } finally {
@@ -99,8 +103,8 @@ export class DerefFolder extends SchemaFolder {
     return mergeRefSiblings({}, siblings)
   }
 
-  private foldExternalTarget(target: unknown, basePath: string): unknown {
-    const folder = new DerefFolder(this.root, this.options, this.fileCache, basePath)
+  private foldExternalTarget(target: unknown, basePath: string, documentRoot: unknown): unknown {
+    const folder = new DerefFolder(documentRoot, this.options, this.fileCache, basePath)
     folder.stack.push(...this.stack)
     return folder.fold(target)
   }

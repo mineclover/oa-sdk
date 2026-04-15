@@ -6,6 +6,7 @@ after each iteration and it's included in prompts for context.
 ## Codebase Patterns (Study These First)
 
 *Add reusable patterns discovered during development here.*
+- When `derefSpec()` folds an external target, carry both `RefResolution.documentRoot` and the resolved file `basePath`: documentRoot makes `#/...` pointers resolve against the loaded external document, while basePath keeps nested relative file refs source-local.
 - Resolver baseline tests should cover parser graph/deref behavior separately from codegen alias behavior: parser owns ref traversal/deref semantics, while typegen calls `resolveRefGraph()` for external schema aliases and passes `refNameOverrides` into `schemaToTs()`.
 - Keep low-level `$ref` mechanics in parser-only contracts: `RefResolver` returns a `RefResolution` value object with kind, cache keys, document root, source pointer, pointer/file metadata, and diagnostic, while callers keep traversal/folding behavior local.
 - Typegen external schema aliases need two ref identities: raw `$ref` overrides only for entry-document refs, and canonical absolute file+pointer refs for external schema internals rewritten by sourceFilePath/sourcePointer before `schemaToTs()`.
@@ -81,4 +82,19 @@ after each iteration and it's included in prompts for context.
 - **Learnings:**
   - `resolveRefGraph()` should keep traversal, node shaping, and recursive descent local while delegating all pointer/file/cache/diagnostic facts to `RefResolver`.
   - US-002/US-003 had already completed the US-004 runtime and test acceptance criteria, so no source, docs count, API index, or todo changes were needed.
+---
+
+## 2026-04-15 - US-005
+- Updated `derefSpec()` external target folding to use the shared resolver's `documentRoot` when recursing into external YAML/JSON documents, so document-local `#/...` pointers inside external files resolve against the external document instead of the entry spec.
+- Added deref regression coverage for an external YAML schema containing a document-local sibling `$ref`, while retaining existing sibling merge, external JSON/YAML, and cycle strategy coverage.
+- Updated parser and total test counts in `docs/internal/spec.md`.
+- Ran required checks: `pnpm typecheck` passed; parser deref slice and full parser package tests passed; root `pnpm test` passed core/parser/router/client/codegen and then failed in mock-server integration suites on sandbox `listen EPERM`; direct typia-mock/playground tests failed on the same localhost bind restriction; `pnpm schema:validate` built parser/codegen and failed when `tsx` attempted its IPC pipe with `listen EPERM`.
+- Files changed:
+  - `packages/parser/src/deref.ts`
+  - `packages/parser/src/__tests__/deref.test.ts`
+  - `docs/internal/spec.md`
+  - `.ralph-tui/progress.md`
+- **Learnings:**
+  - `RefResolution.documentRoot` is required for deref recursion into external documents; using only the target node and resolved file path is insufficient for external document-local pointers.
+  - Keeping `basePath` and `documentRoot` separate mirrors `resolveRefGraph()` traversal and avoids duplicating pointer/file resolution logic in `DerefFolder`.
 ---

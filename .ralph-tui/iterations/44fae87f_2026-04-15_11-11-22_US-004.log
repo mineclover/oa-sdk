@@ -1,0 +1,92 @@
+# Iteration 3 Log
+
+## Metadata
+
+- **Task ID**: US-004
+- **Task Title**: Migrate resolveRefGraph to shared resolver
+- **Description**: As an OA SDK maintainer, I want resolveRefGraph() to use the shared resolver so that ref graph diagnostics are generated from the same resolution rules as dereferencing and typegen.
+- **Status**: completed
+- **Task Completed**: Yes
+- **Promise Detected**: Yes
+- **Started At**: 2026-04-15T02:11:22.128Z
+- **Ended At**: 2026-04-15T02:13:49.668Z
+- **Duration**: 2m 27s
+- **Input Tokens**: 1343865
+- **Output Tokens**: 4742
+- **Total Tokens**: 1348607
+- **Agent**: codex
+- **Sandbox Mode**: auto
+- **Sandbox Network**: Enabled
+--- RAW OUTPUT ---
+I’ll start by reading the repo guidance and current ralph progress so the change fits the existing story sequence and local conventions.
+[94m[shell][0m $ /bin/zsh -lc "pwd && rg --files -g 'AGENTS.md' -g '.ralph-tui/progress.md' -g 'package.json' -g 'pnp...
+[94m[shell][0m $ /bin/zsh -lc 'git status --short'
+The worktree already has unrelated ralph session metadata changes; I’ll leave those alone and only touch files needed for this story plus the required progress note.
+[94m[shell][0m $ /bin/zsh -lc 'ls -la'
+[94m[shell][0m $ /bin/zsh -lc "rg --files --hidden -g 'AGENTS.md' -g '.ralph-tui/progress.md' -g 'docs/internal/spec....
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,260p' .ralph-tui/progress.md"
+[94m[shell][0m $ /bin/zsh -lc 'cat package.json'
+[94m[shell][0m $ /bin/zsh -lc "rg -n \"resolveRefGraph|shared resolver|RefGraph|cycleStrategy|resolvePointer|derefere...
+Progress shows US-002/US-003 may already cover much of US-004, so I’m checking the actual resolver boundary and tests before deciding whether this is a no-op verification story or needs a small compatibility patch.
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,260p' packages/parser/src/ref-graph.ts"
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,340p' packages/parser/src/ref-resolver.ts"
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,240p' packages/parser/src/__tests__/ref-graph.test.ts"
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,220p' packages/parser/src/__tests__/resolver-baseline.test.ts"
+The code already routes `resolveRefGraph()` through `createRefResolver()` and existing tests cover nested external traversal plus cycles. I’m going to run the required checks next, then append the US-004 verification note to progress.
+[94m[shell][0m $ /bin/zsh -lc 'pnpm typecheck'
+`pnpm typecheck` passes across all packages. I’m running the full test command now; prior notes mention local socket restrictions can affect integration suites in this sandbox, so I’ll record exact behavior.
+[94m[shell][0m $ /bin/zsh -lc 'pnpm test'
+
+[91m[Error: 
+> oa-sdk@0.0.0 test /Users/junwoobang/workflow/oa-sdk
+> pnpm --filter @oa-sdk/core test && pnpm --filter @oa-sdk/parser test && pnpm --filter @oa-sdk/router test && pnpm --filter @oa-sdk/client test && pnpm --filter @oa-sdk/codegen test && pnpm --filter @oa-sdk/mock-server test && pnpm --filter @oa-sdk/typia-mock test && pnpm --filter playground test
+
+
+> @oa-sdk/core@0.1.0 test /Users/junwoobang/workflow/oa-sdk/packages/core
+> vitest run
+
+
+ RUN  v2.1.9 /Users/junwoobang/workflow/oa-sdk/packages][0m
+`pnpm test` gets through core, parser, router, client, and codegen, then fails in mock-server integration suites because this sandbox cannot bind `127.0.0.1` (`listen EPERM`). I’ll still run `schema:validate` to separate schema health from that environment limit.
+[94m[shell][0m $ /bin/zsh -lc 'pnpm schema:validate'
+
+[91m[Error: 
+> oa-sdk@0.0.0 schema:validate /Users/junwoobang/workflow/oa-sdk
+> pnpm --filter @oa-sdk/parser build && pnpm --filter @oa-sdk/codegen build && pnpm --filter @oa-sdk/schemas run validate && node packages/codegen/dist/cli/index.js validate --spec packages/schemas/src/.merged.yaml
+
+
+> @oa-sdk/parser@0.1.0 build /Users/junwoobang/workflow/oa-sdk/packages/parser
+> tsup src/index.ts --format esm --dts
+
+CLI Building entry: src/index.ts
+CLI Using tsconfig: tsconfig.json
+CLI tsup v8.5.1
+CLI Target: es2][0m
+`schema:validate` builds parser/codegen successfully, then fails when the schemas merge step invokes `tsx`; `tsx` also tries to open an IPC pipe and hits `listen EPERM`. I’m checking the diff now so the final state only contains the required progress note.
+[94m[shell][0m $ /bin/zsh -lc 'git diff -- packages/parser/src/ref-graph.ts packages/parser/src/ref-resolver.ts packa...
+[94m[shell][0m $ /bin/zsh -lc 'git status --short'
+[94m[shell][0m $ /bin/zsh -lc 'git diff --stat'
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,220p' docs/internal/spec.md"
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,220p' docs/internal/todo.md"
+[94m[shell][0m $ /bin/zsh -lc 'rg -n "test count|tests|467|195|resolveRefGraph|RefResolver|US-00|todo|external ref" d...
+The implementation is already present and the documentation counts are current, so I’m only adding the required US-004 progress entry with verification results and the sandbox blockers for the full commands.
+[94m[shell][0m $ /bin/zsh -lc 'git diff -- .ralph-tui/progress.md'
+[94m[shell][0m $ /bin/zsh -lc 'git status --short'
+[94m[shell][0m $ /bin/zsh -lc 'git diff --stat'
+US-004 was already complete in the current tree. I verified [ref-graph.ts](/Users/junwoobang/workflow/oa-sdk/packages/parser/src/ref-graph.ts) delegates resolution to the shared `createRefResolver()` path, and existing tests cover nested external graph traversal plus cycle diagnostics in [ref-graph.test.ts](/Users/junwoobang/workflow/oa-sdk/packages/parser/src/__tests__/ref-graph.test.ts) and [resolver-baseline.test.ts](/Users/junwoobang/workflow/oa-sdk/packages/parser/src/__tests__/resolver-baseline.test.ts).
+
+I made no source/API/test/doc-count changes because the acceptance criteria were already covered. I only appended the required US-004 learning/status entry to [progress.md](/Users/junwoobang/workflow/oa-sdk/.ralph-tui/progress.md).
+
+Verification:
+- `pnpm typecheck` passed.
+- `pnpm test` passed core/parser/router/client/codegen, then failed in mock-server integration suites due sandbox `listen EPERM` on `127.0.0.1`.
+- `pnpm schema:validate` built parser/codegen, then failed when `tsx` tried to open an IPC pipe and hit sandbox `listen EPERM`.
+
+Existing unrelated ralph session/task files were left untouched.
+
+<promise>COMPLETE</promise>
+
+--- STDERR ---
+2026-04-15T02:11:23.546238Z ERROR rmcp::transport::worker: worker quit with fatal: Transport channel closed, when AuthRequired(AuthRequiredError { www_authenticate_header: "Bearer realm=\"OAuth\", resource_metadata=\"https://mcp.cloudflare.com/.well-known/oauth-protected-resource/mcp\", error=\"invalid_token\", error_description=\"Missing or invalid access token\"" })
+2026-04-15T02:11:23.749179Z ERROR rmcp::transport::worker: worker quit with fatal: Transport channel closed, when AuthRequired(AuthRequiredError { www_authenticate_header: "Bearer error=\"invalid_request\", error_description=\"No access token was provided in this request\", resource_metadata=\"https://mcp.supabase.com/.well-known/oauth-protected-resource/mcp\"" })
+2026-04-15T02:11:23.784579Z ERROR rmcp::transport::worker: worker quit with fatal: Transport channel closed, when AuthRequired(AuthRequiredError { www_authenticate_header: "Bearer resource_metadata=https://mcp.stripe.com/.well-known/oauth-protected-resource" })

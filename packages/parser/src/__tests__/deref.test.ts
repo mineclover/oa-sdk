@@ -227,6 +227,11 @@ describe('derefSpec — external file $ref', () => {
       '        id:',
       '          type: string',
       '          format: uuid',
+      '    Wrapper:',
+      '      type: object',
+      '      properties:',
+      '        id:',
+      '          $ref: "#/components/schemas/SharedYaml/properties/id"',
       '',
     ].join('\n'))
   })
@@ -260,6 +265,20 @@ describe('derefSpec — external file $ref', () => {
     expect((result.paths as Record<string, unknown>)['/ext-yaml']).toEqual({
       type: 'object',
       required: ['id'],
+      properties: { id: { type: 'string', format: 'uuid' } },
+    })
+  })
+
+  it('외부 YAML 내부의 문서 로컬 $ref를 해당 파일 root 기준으로 해소', () => {
+    const input = spec({
+      paths: {
+        '/ext-yaml-local': { $ref: './shared.yaml#/components/schemas/Wrapper' },
+      },
+    })
+
+    const result = derefSpec(input, { basePath: mainFile }) as Record<string, unknown>
+    expect((result.paths as Record<string, unknown>)['/ext-yaml-local']).toEqual({
+      type: 'object',
       properties: { id: { type: 'string', format: 'uuid' } },
     })
   })
