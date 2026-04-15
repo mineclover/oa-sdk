@@ -311,14 +311,27 @@ class NodeSQLiteWorkspaceIndex implements SQLiteWorkspaceIndex {
   }
 
   listRefs(filter: WorkspaceRefFilter = {}): WorkspaceRefRecord[] {
-    return this.read(() => this.database()
-      .prepare('SELECT * FROM refs ORDER BY from_file, from_pointer, id')
-      .all()
-      .map(refFromRow)
-      .filter(ref =>
-        matchesOptional(filter.fromFile, ref.fromFile)
-        && matchesOptional(filter.toFile, ref.toFile)
-      ), [])
+    return this.read(() => {
+      const db = this.database()
+      if (filter.fromFile !== undefined && filter.toFile !== undefined) {
+        return db.prepare('SELECT * FROM refs WHERE from_file = ? AND to_file = ? ORDER BY from_file, from_pointer, id')
+          .all(filter.fromFile, filter.toFile)
+          .map(refFromRow)
+      }
+      if (filter.fromFile !== undefined) {
+        return db.prepare('SELECT * FROM refs WHERE from_file = ? ORDER BY from_file, from_pointer, id')
+          .all(filter.fromFile)
+          .map(refFromRow)
+      }
+      if (filter.toFile !== undefined) {
+        return db.prepare('SELECT * FROM refs WHERE to_file = ? ORDER BY from_file, from_pointer, id')
+          .all(filter.toFile)
+          .map(refFromRow)
+      }
+      return db.prepare('SELECT * FROM refs ORDER BY from_file, from_pointer, id')
+        .all()
+        .map(refFromRow)
+    }, [])
   }
 
   listSourceLocations(filePath?: string): WorkspaceSourceLocationRecord[] {

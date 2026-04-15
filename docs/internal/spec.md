@@ -83,6 +83,7 @@ schemas      ← 독립. OAS 소스 + merge + 3.1↔3.2 변환
 | additionalProperties | `Record<string, T>` + index signature 타입 생성 |
 | WorkspaceIndex | 파일 hash/component/ref/source/diagnostic/type alias metadata용 index 경계. 기본 noop은 모든 파일을 dirty 처리해 기존 full rebuild 동작 유지 |
 | SQLiteWorkspaceIndex | `.oa-cache/state.sqlite`에 index row를 보존. WAL/foreign key/transaction을 사용하고 schema/options mismatch 또는 DB 오류 시 full rebuild fallback |
+| Workspace dirty detection | entry/domain/profile/external ref 파일 scan → new/modified/deleted/unchanged 분류 → refs.to_file 역방향 dirty 전파 → stale row invalidation |
 | CLI | 커맨드 모듈 구조. `generate`/`typegen`/`router`/`client`/`lint`/`validate`/`dev`/`--help` |
 
 ### Resolver baseline (US-001) / Shared contract (US-002) / External cache alignment (US-003)
@@ -94,7 +95,7 @@ schemas      ← 독립. OAS 소스 + merge + 3.1↔3.2 변환
 | `derefSpec()` | `packages/parser/src/deref.ts`의 `DerefFolder.foldRef()` → 공유 `RefResolver` + deref file cache/stack | 내부/외부 YAML/JSON ref를 인라인 전개하고 외부 파일 내부 상대 ref는 해당 파일 기준으로 해소. missing ref는 원본 `$ref` node 유지. 기본 cycle은 `{}`로 절단하고 `cycleStrategy: preserve-ref`는 ref 유지. `$ref` sibling은 해소 결과에 병합 |
 | typegen external refs | `generateTypesFromSpec()` → `parseDocument()`(deref 없음) → `analyzeExternalSchemaRefs()` → `resolveRefGraph()` → `schemaToTs(refNameOverrides)` | 외부 `#/components/schemas/*` YAML/JSON schema를 generated alias로 추가. nested external schema alias도 생성. raw ref override는 entry 문서 ref에만 쓰고, 외부 schema 내부 ref는 absolute file+pointer identity로 정규화해 source 문서 기준 상대 경로를 보존. 이름 충돌/로컬 shadow는 deterministic rename warning에 resolved file+pointer와 생성 타입명을 포함. missing/read/pointer 실패는 resolver diagnostic code와 source metadata를 유지 |
 
-### WorkspaceIndex boundary (US-007) / SQLite storage (US-008)
+### WorkspaceIndex boundary (US-007) / SQLite storage (US-008) / Dirty invalidation (US-009)
 
 | Surface | 현재 코드 경로 | 고정한 동작 |
 |---------|----------------|-------------|
@@ -103,6 +104,7 @@ schemas      ← 독립. OAS 소스 + merge + 3.1↔3.2 변환
 | `createMemoryWorkspaceIndex()` | `packages/codegen/src/workspace-index.ts` | 테스트와 향후 CLI orchestration용 메모리 구현. 변경 감지와 파일 단위 metadata 교체/무효화를 제공하지만 correctness 판단의 원천은 아님 |
 | `createSQLiteWorkspaceIndex()` | `packages/codegen/src/sqlite-workspace-index.ts` | `.oa-cache/state.sqlite` 기본 경로에 `meta`, `files`, `components`, `refs`, `source_locations`, `diagnostics`, `type_aliases` 테이블 생성. WAL, `busy_timeout`, foreign key, transaction-wrapped write를 사용 |
 | SQLite compatibility meta | `packages/codegen/src/sqlite-workspace-index.ts` | `schema_version`, `compatibility_hash`, `compatibility_json`을 `meta`에 저장. schema/options mismatch는 cache row를 비우고 다음 diff를 full rebuild로 반환 |
+| Dirty detection helpers | `packages/codegen/src/workspace-index.ts` | entry/domain/profile/external ref 파일을 absolute path + realpath + size + mtime + sha256으로 scan. index와 비교해 new/modified/deleted/unchanged를 분류하고, changed/deleted target의 `refs.to_file` 역방향 source를 dirty로 전파한 뒤 stale row invalidation 입력을 반환 |
 
 `WorkspaceIndex`는 최적화와 영향도 계산을 위한 index layer이며, component 중복, `$ref` 해소, cycle diagnostic, type alias 생성의 최종 correctness는 현재 파일 내용으로 재계산하는 full parser/codegen 경로가 담당한다. SQLite open/read/write 오류는 no-op과 같은 full rebuild fallback으로 전환하고, 실패한 write transaction은 rollback된다.
 
@@ -203,7 +205,7 @@ pnpm demo  # API 구조 + Mock 12시나리오 + 커버리지
 |------|------|------|
 | Build | 7 패키지 + CI 스크립트 | tsup ESM 빌드 |
 | Typecheck | 7 패키지 + playground | tsc --noEmit strict |
-| Test | 8 패키지 + playground | vitest 1598 케이스 |
+| Test | 8 패키지 + playground | vitest 1601 케이스 |
 | Schema validate | schemas + oa-gen | 도메인 병합 + 3.1 변환 + Spectral/Redocly + 3.2 자체 검증 표준 파이프라인 |
 | Freshness check | 산출물 | git diff --exit-code |
 | API index | docs ↔ code | export 정합성 검증 |
@@ -217,11 +219,11 @@ pnpm demo  # API 구조 + Mock 12시나리오 + 커버리지
 |--------|--------|
 | core | 51 |
 | parser | 196 |
-| codegen | 477 |
+| codegen | 480 |
 | mock-server | 561 |
 | playground | 114 |
 | router | 35 |
 | client | 36 |
 | schemas | 75 |
 | typia-mock | 53 |
-| **합계** | **1598** |
+| **합계** | **1601** |

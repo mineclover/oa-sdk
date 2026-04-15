@@ -1,0 +1,158 @@
+# Iteration 7 Log
+
+## Metadata
+
+- **Task ID**: US-008
+- **Task Title**: Implement SQLiteWorkspaceIndex storage layer
+- **Description**: As an OA SDK maintainer, I want a SQLite-backed workspace index so that file hashes, ref edges, component ownership, diagnostics, and type aliases persist across CLI runs.
+- **Status**: completed
+- **Task Completed**: Yes
+- **Promise Detected**: Yes
+- **Started At**: 2026-04-15T02:37:28.977Z
+- **Ended At**: 2026-04-15T02:49:06.367Z
+- **Duration**: 11m 37s
+- **Input Tokens**: 5304242
+- **Output Tokens**: 29762
+- **Total Tokens**: 5334004
+- **Agent**: codex
+- **Sandbox Mode**: auto
+- **Sandbox Network**: Enabled
+--- RAW OUTPUT ---
+I’ll first read the repo guidance and the ralph progress notes, then trace the existing index/cache patterns before editing. After that I’ll implement US-008 and run the requested checks.
+[94m[shell][0m $ /bin/zsh -lc "pwd && rg --files -g 'AGENTS.md' -g '.ralph-tui/progress.md' -g 'package.json' -g 'pnp...
+[94m[shell][0m $ /bin/zsh -lc 'git status --short'
+The worktree already has unrelated ralph session/prd metadata changes, so I’ll leave those alone unless they intersect this story. I didn’t see AGENTS or progress in the first file list, so I’m checking hidden paths and repo guidance explicitly.
+[94m[shell][0m $ /bin/zsh -lc 'ls -la .ralph-tui && ls -la'
+[94m[shell][0m $ /bin/zsh -lc "rg --files --hidden -g 'AGENTS.md' -g '.ralph-tui/progress.md' -g '"'!node_modules'"' ...
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,260p' .ralph-tui/progress.md"
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,220p' package.json"
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,260p' tasks/prd.json"
+US-007 left a clean `WorkspaceIndex` boundary in codegen. I’m going to inspect that interface and the package setup now, then decide whether the SQLite layer can use an existing dependency already present in the workspace.
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,260p' packages/codegen/src/workspace-index.ts"
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,220p' packages/codegen/src/index.ts"
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,280p' packages/codegen/src/__tests__/workspace-index.test.ts"
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,220p' packages/codegen/package.json"
+[94m[shell][0m $ /bin/zsh -lc "rg -n \"sqlite|better-sqlite|node:sqlite|sql.js|workspace index|WorkspaceIndex|createW...
+[94m[shell][0m $ /bin/zsh -lc "sed -n '260,620p' packages/codegen/src/workspace-index.ts"
+[94m[shell][0m $ /bin/zsh -lc 'rg -n "better-sqlite3|sqlite3|libsql|node:sqlite|sql.js|wa-sqlite|sqlite" package.json...
+[94m[shell][0m $ /bin/zsh -lc "ls node_modules | rg 'sqlite|better|libsql' || true && ls node_modules/.pnpm | rg 'sql...
+[94m[shell][0m $ /bin/zsh -lc 'node -v && pnpm -v && sqlite3 --version'
+There isn’t a SQLite npm dependency already installed, but this environment is Node 24, which includes `node:sqlite`. I’m checking its exact API locally so the implementation stays dependency-free and doesn’t put SQLite into parser.
+[94m[shell][0m $ })\""
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,260p' docs/internal/spec.md && printf '\\n--- TODO ---\\n' && sed -n '1,80p'...
+[94m[shell][0m $ })\""
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,220p' packages/codegen/tsconfig.json && sed -n '1,180p' tsconfig.base.json"
+[94m[shell][0m $ /bin/zsh -lc "rg -n \"expect\\(.+\\)\\.toThrow|transaction|rollback|vi\\.spyOn|mockImplementation|no...
+[94m[shell][0m $ /bin/zsh -lc 'rg -n "tmpdir|mkdtemp|rmSync|writeFileSync|mkdirSync|node:fs|node:path|beforeEach|afte...
+[94m[shell][0m $ /bin/zsh -lc "node - <<'NODE' import { DatabaseSync } from 'node:sqlite' const db = new DatabaseSync...
+[94m[shell][0m $ ') console.log(db.prepare('PRAGMA journal_mode').get()) console.log(db.prepare('PRAGMA busy_timeout'...
+The storage layer will live in codegen, not parser: I’ll add a `sqlite` mode and `createSQLiteWorkspaceIndex()`, backed by `.oa-cache/state.sqlite` by default. The implementation will treat SQLite as an optimization cache: schema or option mismatches clear stale rows and force the next diff to a full rebuild; DB open/write/read failures drop into full-rebuild fallback instead of breaking correctness.
+I’m adding the SQLite-backed implementation now. The main edit is a new codegen storage file plus small public factory/type exports from the existing workspace-index boundary.
+I’m extending the existing workspace-index test suite with the storage-specific cases from the acceptance criteria: schema/meta creation, schema/compatibility rebuild, rollback on failed writes, and full-rebuild fallback when SQLite cannot open.
+The implementation and tests are in place. I’m running the focused codegen typecheck/tests first to catch TypeScript and SQLite API issues before touching docs.
+[94m[shell][0m $ /bin/zsh -lc 'pnpm --filter @oa-sdk/codegen typecheck'
+[94m[shell][0m $ /bin/zsh -lc 'pnpm --filter @oa-sdk/codegen test -- workspace-index.test.ts'
+Focused codegen typecheck passed, and the new workspace-index suite passes with 10 tests. I’m checking the diff and generated API index expectations next, then I’ll update the internal docs/counts.
+[94m[shell][0m $ /bin/zsh -lc 'git diff -- packages/codegen/src/workspace-index.ts packages/codegen/src/sqlite-worksp...
+[94m[shell][0m $ /bin/zsh -lc 'pnpm --filter @oa-sdk/codegen test'
+[94m[shell][0m $ /bin/zsh -lc 'pnpm check:api-index'
+
+[91m[Error: 
+> oa-sdk@0.0.0 check:api-index /Users/junwoobang/workflow/oa-sdk
+> node scripts/dist/check-api-index.mjs
+
+## API Index Drift Report
+
+
+### @oa-sdk/codegen
+  Missing from docs: `SQLITE_WORKSPACE_INDEX_SCHEMA_VERSION`, `SQLiteWorkspaceIndex`, `SQLiteWorkspaceIndexOptions`, `WorkspaceIndexCompatibilityMetadata`, `createSQLiteWorkspaceIndex`
+
+
+Update docs/internal/api-index.md to match actual exports.
+ ELIFECYCLE  Command failed with exit code 1.
+][0m
+The full codegen suite now passes at 477 tests. The API index check correctly flagged the new public SQLite exports, so I’m updating the internal API/spec/todo docs and the progress log next.
+[94m[shell][0m $ /bin/zsh -lc "sed -n '120,180p' docs/internal/api-index.md"
+[94m[shell][0m $ /bin/zsh -lc "sed -n '70,125p' docs/internal/spec.md && sed -n '190,225p' docs/internal/spec.md"
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,50p' docs/internal/todo.md"
+[94m[shell][0m $ /bin/zsh -lc 'tail -n 80 .ralph-tui/progress.md'
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,260p' docs/internal/architecture/006-incremental-workspace-index.md"
+Docs now reflect the new public exports, the completed SQLite todo, and the updated codegen test count. I’m rerunning the API index check before the full validation commands.
+[94m[shell][0m $ /bin/zsh -lc 'pnpm check:api-index'
+[94m[shell][0m $ /bin/zsh -lc 'pnpm --filter @oa-sdk/codegen typecheck'
+
+[91m[Error: 
+> oa-sdk@0.0.0 check:api-index /Users/junwoobang/workflow/oa-sdk
+> node scripts/dist/check-api-index.mjs
+
+## API Index Drift Report
+
+
+### @oa-sdk/codegen
+  Orphaned in docs:  `close`, `dbPath`, `fallbackReason`
+
+
+Update docs/internal/api-index.md to match actual exports.
+ ELIFECYCLE  Command failed with exit code 1.
+][0m
+[94m[shell][0m $ /bin/zsh -lc 'pnpm check:api-index'
+API docs are back in sync, and codegen typecheck still passes. I’m running the root checks now; based on prior iterations, the full test/schema commands may still hit this sandbox’s local socket restriction, but I’ll run them and report the exact result.
+[94m[shell][0m $ /bin/zsh -lc 'pnpm typecheck'
+[94m[shell][0m $ /bin/zsh -lc 'pnpm test'
+
+[91m[Error: 
+> oa-sdk@0.0.0 test /Users/junwoobang/workflow/oa-sdk
+> pnpm --filter @oa-sdk/core test && pnpm --filter @oa-sdk/parser test && pnpm --filter @oa-sdk/router test && pnpm --filter @oa-sdk/client test && pnpm --filter @oa-sdk/codegen test && pnpm --filter @oa-sdk/mock-server test && pnpm --filter @oa-sdk/typia-mock test && pnpm --filter playground test
+
+
+> @oa-sdk/core@0.1.0 test /Users/junwoobang/workflow/oa-sdk/packages/core
+> vitest run
+
+
+ RUN  v2.1.9 /Users/junwoobang/workflow/oa-sdk/packages][0m
+Root `pnpm test` reached the mock-server integration package and failed on `listen EPERM: operation not permitted 127.0.0.1`; the earlier packages, including codegen’s 477 tests, passed. I’m running `pnpm schema:validate` now to capture its current result too.
+[94m[shell][0m $ /bin/zsh -lc 'pnpm schema:validate'
+
+[91m[Error: 
+> oa-sdk@0.0.0 schema:validate /Users/junwoobang/workflow/oa-sdk
+> pnpm --filter @oa-sdk/parser build && pnpm --filter @oa-sdk/codegen build && pnpm --filter @oa-sdk/schemas run validate && node packages/codegen/dist/cli/index.js validate --spec packages/schemas/src/.merged.yaml
+
+
+> @oa-sdk/parser@0.1.0 build /Users/junwoobang/workflow/oa-sdk/packages/parser
+> tsup src/index.ts --format esm --dts
+
+CLI Building entry: src/index.ts
+CLI Using tsconfig: tsconfig.json
+CLI tsup v8.5.1
+CLI Target: es2][0m
+[94m[shell][0m $ /bin/zsh -lc "git diff -- packages/codegen/src/sqlite-workspace-index.ts | sed -n '1,260p'"
+[94m[shell][0m $ /bin/zsh -lc 'git diff --stat'
+[94m[shell][0m $ /bin/zsh -lc 'git status --short'
+The root checks are complete: typecheck passed; root test and schema validation hit the same sandbox `listen EPERM` failures documented by prior stories. I’m appending the required US-008 progress entry and adding the reusable fallback pattern to the top of the progress log.
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,40p' .ralph-tui/progress.md && tail -n 60 .ralph-tui/progress.md"
+[94m[shell][0m $ /bin/zsh -lc 'git status --short'
+[94m[shell][0m $ /bin/zsh -lc 'pnpm check:api-index'
+[94m[shell][0m $ /bin/zsh -lc "git diff -- tasks/prd.json .ralph-tui/session.json .ralph-tui/session-meta.json | sed ...
+[94m[shell][0m $ /bin/zsh -lc "git diff -- docs/internal/spec.md docs/internal/api-index.md docs/internal/todo.md doc...
+[94m[shell][0m $ /bin/zsh -lc "git diff -- packages/codegen/src/workspace-index.ts packages/codegen/src/index.ts pack...
+Implemented US-008.
+
+Added a SQLite-backed workspace index in [`packages/codegen/src/sqlite-workspace-index.ts`](/Users/junwoobang/workflow/oa-sdk/packages/codegen/src/sqlite-workspace-index.ts) and wired it through [`packages/codegen/src/workspace-index.ts`](/Users/junwoobang/workflow/oa-sdk/packages/codegen/src/workspace-index.ts) and [`packages/codegen/src/index.ts`](/Users/junwoobang/workflow/oa-sdk/packages/codegen/src/index.ts). It creates `.oa-cache/state.sqlite` by default with the required tables, enables WAL/busy timeout/foreign keys, wraps writes in transactions, stores schema/options compatibility metadata, supports cache clear, and falls back to full rebuild behavior on SQLite errors.
+
+Added coverage in [`packages/codegen/src/__tests__/workspace-index.test.ts`](/Users/junwoobang/workflow/oa-sdk/packages/codegen/src/__tests__/workspace-index.test.ts) for schema initialization, version/options mismatch rebuild, transaction rollback, and DB open fallback. Updated [`docs/internal/spec.md`](/Users/junwoobang/workflow/oa-sdk/docs/internal/spec.md), [`docs/internal/api-index.md`](/Users/junwoobang/workflow/oa-sdk/docs/internal/api-index.md), [`docs/internal/todo.md`](/Users/junwoobang/workflow/oa-sdk/docs/internal/todo.md), [`docs/internal/architecture/006-incremental-workspace-index.md`](/Users/junwoobang/workflow/oa-sdk/docs/internal/architecture/006-incremental-workspace-index.md), and appended the required US-008 notes to [`.ralph-tui/progress.md`](/Users/junwoobang/workflow/oa-sdk/.ralph-tui/progress.md).
+
+Checks:
+- `pnpm typecheck` passed.
+- `pnpm --filter @oa-sdk/codegen test` passed, 477 tests.
+- `pnpm check:api-index` passed.
+- `pnpm test` passed through core/parser/router/client/codegen, then failed in mock-server integration suites on sandbox `listen EPERM: operation not permitted 127.0.0.1`.
+- `pnpm schema:validate` built parser/codegen, then failed when `tsx` attempted an IPC pipe with `listen EPERM`.
+
+I left the pre-existing ralph session/prd metadata changes untouched.
+
+<promise>COMPLETE</promise>
+
+--- STDERR ---
+2026-04-15T02:37:30.713777Z ERROR rmcp::transport::worker: worker quit with fatal: Transport channel closed, when AuthRequired(AuthRequiredError { www_authenticate_header: "Bearer realm=\"OAuth\", resource_metadata=\"https://mcp.cloudflare.com/.well-known/oauth-protected-resource/mcp\", error=\"invalid_token\", error_description=\"Missing or invalid access token\"" })
+2026-04-15T02:37:30.926990Z ERROR rmcp::transport::worker: worker quit with fatal: Transport channel closed, when AuthRequired(AuthRequiredError { www_authenticate_header: "Bearer error=\"invalid_request\", error_description=\"No access token was provided in this request\", resource_metadata=\"https://mcp.supabase.com/.well-known/oauth-protected-resource/mcp\"" })
+2026-04-15T02:37:30.974963Z ERROR rmcp::transport::worker: worker quit with fatal: Transport channel closed, when AuthRequired(AuthRequiredError { www_authenticate_header: "Bearer resource_metadata=https://mcp.stripe.com/.well-known/oauth-protected-resource" })

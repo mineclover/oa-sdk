@@ -1,3 +1,6 @@
+import { createHash } from 'node:crypto'
+import { existsSync, readFileSync, realpathSync, statSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { createSQLiteWorkspaceIndex, type SQLiteWorkspaceIndexOptions } from './sqlite-workspace-index.js'
 
 export type WorkspaceIndexMode = 'noop' | 'memory' | 'sqlite'
@@ -88,6 +91,31 @@ export type WorkspaceIndexDiff = {
   deleted: WorkspaceFileRecord[]
 }
 
+export type WorkspaceFileScanOptions = {
+  baseDir?: string
+  entrySpecs?: readonly string[]
+  domainSpecs?: readonly string[]
+  profileSpecs?: readonly string[]
+  externalRefFiles?: readonly string[]
+  parserVersion?: string
+  runId?: string
+}
+
+export type WorkspaceFileChangeSet = {
+  newFiles: WorkspaceFileRecord[]
+  modified: WorkspaceFileRecord[]
+  changed: WorkspaceFileRecord[]
+  unchanged: WorkspaceFileRecord[]
+  deleted: WorkspaceFileRecord[]
+}
+
+export type WorkspaceDirtyDetectionResult = WorkspaceFileChangeSet & {
+  dependentFilePaths: string[]
+  dirtyFilePaths: string[]
+  dirtyFiles: WorkspaceFileRecord[]
+  invalidatedFilePaths: string[]
+}
+
 export type WorkspaceComponentFilter = {
   filePath?: string
   section?: string
@@ -151,6 +179,109 @@ export function createNoopWorkspaceIndex(): WorkspaceIndex {
 
 export function createMemoryWorkspaceIndex(seed: Partial<WorkspaceIndexSnapshot> = {}): WorkspaceIndex {
   return new MemoryWorkspaceIndex(seed)
+}
+
+export function scanWorkspaceFiles(options: WorkspaceFileScanOptions): WorkspaceFileRecord[] {
+  const baseDir = options.baseDir ?? process.cwd()
+  const seen = new Set<string>()
+  const files: WorkspaceFileRecord[] = []
+
+  for (const filePath of [
+    ...(options.entrySpecs ?? []),
+    ...(options.domainSpecs ?? []),
+    ...(options.profileSpecs ?? []),
+    ...(options.externalRefFiles ?? []),
+  ]) {
+    const resolvedPath = resolve(baseDir, filePath)
+    if (seen.has(resolvedPath) || !existsSync(resolvedPath)) continue
+    seen.add(resolvedPath)
+
+    const stat = statSync(resolvedPath)
+    if (!stat.isFile()) continue
+
+    const content = readFileSync(resolvedPath)
+    files.push({
+      filePath: resolvedPath,
+      realPath: realpathSync.native(resolvedPath),
+      contentHash: createHash('sha256').update(content).digest('hex'),
+      size: stat.size,
+      mtimeMs: stat.mtimeMs,
+      ...(options.parserVersion ? { parserVersion: options.parserVersion } : {}),
+      ...(options.runId ? { lastSeenRun: options.runId } : {}),
+    })
+  }
+
+  return files.sort((a, b) => a.filePath.localeCompare(b.filePath))
+}
+
+export function detectWorkspaceFileChanges(
+  index: WorkspaceIndex,
+  files: readonly WorkspaceFileRecord[],
+): WorkspaceFileChangeSet {
+  const newFiles: WorkspaceFileRecord[] = []
+  const modified: WorkspaceFileRecord[] = []
+  const unchanged: WorkspaceFileRecord[] = []
+  const incoming = new Set<string>()
+
+  for (const file of files) {
+    incoming.add(file.filePath)
+    const previous = index.getFile(file.filePath)
+    if (!previous) {
+      newFiles.push({ ...file })
+    } else if (isSameFileRecord(previous, file)) {
+      unchanged.push({ ...file })
+    } else {
+      modified.push({ ...file })
+    }
+  }
+
+  const deleted = index.listFiles().filter(file => !incoming.has(file.filePath))
+  return {
+    newFiles,
+    modified,
+    changed: [...newFiles, ...modified],
+    unchanged,
+    deleted,
+  }
+}
+
+export function detectWorkspaceDirtyFiles(
+  index: WorkspaceIndex,
+  files: readonly WorkspaceFileRecord[],
+): WorkspaceDirtyDetectionResult {
+  const changes = detectWorkspaceFileChanges(index, files)
+  const scannedByPath = new Map(files.map(file => [file.filePath, file]))
+  const primaryDirtyPaths = new Set([
+    ...changes.changed.map(file => file.filePath),
+    ...changes.deleted.map(file => file.filePath),
+  ])
+  const dependentFilePaths = collectDependentSourceFilePaths(index, primaryDirtyPaths)
+  const dirtyFilePaths = sortedUnique([
+    ...primaryDirtyPaths,
+    ...dependentFilePaths,
+  ])
+  const dirtyFiles = dirtyFilePaths
+    .map(filePath => scannedByPath.get(filePath))
+    .filter((file): file is WorkspaceFileRecord => file !== undefined)
+    .map(file => ({ ...file }))
+
+  return {
+    ...changes,
+    dependentFilePaths,
+    dirtyFilePaths,
+    dirtyFiles,
+    invalidatedFilePaths: dirtyFilePaths,
+  }
+}
+
+export function invalidateWorkspaceDirtyFiles(index: WorkspaceIndex, dirty: WorkspaceDirtyDetectionResult): void {
+  index.invalidateFiles(dirty.invalidatedFilePaths)
+}
+
+export function listWorkspaceExternalRefFiles(index: WorkspaceIndex): string[] {
+  return sortedUnique(index.listRefs()
+    .filter(ref => ref.kind === 'external' && ref.toFile !== undefined)
+    .map(ref => ref.toFile!))
 }
 
 class NoopWorkspaceIndex implements WorkspaceIndex {
@@ -351,6 +482,31 @@ function isSameFileRecord(previous: WorkspaceFileRecord, current: WorkspaceFileR
     && previous.mtimeMs === current.mtimeMs
     && previous.parserVersion === current.parserVersion
     && (previous.realPath ?? previous.filePath) === (current.realPath ?? current.filePath)
+}
+
+function collectDependentSourceFilePaths(index: WorkspaceIndex, dirtyTargets: ReadonlySet<string>): string[] {
+  const originalTargets = new Set(dirtyTargets)
+  const visitedTargets = new Set(dirtyTargets)
+  const queue = [...dirtyTargets]
+  const dependents = new Set<string>()
+
+  for (let cursor = 0; cursor < queue.length; cursor++) {
+    const target = queue[cursor]!
+    for (const ref of index.listRefs({ toFile: target })) {
+      const source = ref.fromFile
+      if (!originalTargets.has(source)) dependents.add(source)
+      if (!visitedTargets.has(source)) {
+        visitedTargets.add(source)
+        queue.push(source)
+      }
+    }
+  }
+
+  return sortedUnique(dependents)
+}
+
+function sortedUnique(values: Iterable<string>): string[] {
+  return [...new Set(values)].sort((a, b) => a.localeCompare(b))
 }
 
 function matchesOptional<T>(expected: T | undefined, actual: T | undefined): boolean {

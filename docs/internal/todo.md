@@ -9,7 +9,7 @@
 ## 다음 세션 실행 순서
 
 ### 1. [ ] codegen CLI: 증분 validate/typegen 연결
-배경: SQLite index가 있어도 CLI orchestration이 scan → dirty detect → invalidate → re-index → output 재생성을 수행해야 증분 효과가 있음.
+배경: WorkspaceIndex scan/dirty invalidation primitive가 있어도 CLI orchestration이 이를 validate/typegen/dev 실행 경로에 연결해야 증분 효과가 있음.
 작업: `oa-gen validate/typegen --incremental --cache-dir` 옵션을 추가하고, `dev` watch mode에서 같은 invalidation 경로를 재사용.
 완료 기준: 변경된 외부 ref 파일이 이를 참조하는 spec/typegen output을 dirty 처리하고, full rebuild 결과와 증분 결과가 일치함.
 
@@ -61,6 +61,11 @@ US-001/003 baseline 확인: typegen external alias 분석은 외부 YAML/JSON �
 ---
 
 ## 최근 완료
+
+### [x] codegen CLI: dirty detection and dependency invalidation primitive
+entry spec, domain spec, profile spec, external ref 파일을 absolute path + realpath + size + mtime + sha256으로 scan하는 helper를 추가.
+WorkspaceIndex와 비교해 new/modified/deleted/unchanged를 분류하고, changed/deleted target의 `refs.to_file` 역방향 source file을 dirty로 전파한 뒤 stale index row invalidation 입력으로 사용.
+외부 ref 파일 변경이 참조 spec을 dirty 처리하는 사례와 deleted file diagnostic 제거 사례를 테스트로 고정.
 
 ### [x] codegen CLI: SQLiteWorkspaceIndex 구현
 `.oa-cache/state.sqlite` 기본 경로에 `meta`, `files`, `components`, `refs`, `source_locations`, `diagnostics`, `type_aliases` 테이블을 생성하는 `SQLiteWorkspaceIndex`를 추가.

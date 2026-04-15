@@ -13,6 +13,7 @@ after each iteration and it's included in prompts for context.
 - Typegen rename diagnostics should be emitted after deterministic alias names are assigned so warnings can report resolver-normalized `file#pointer -> TypeName` context without changing name allocation.
 - Incremental workspace boundaries belong outside parser: keep `WorkspaceIndex` in codegen/CLI layers, and make the default noop index mark every scanned file dirty so full rebuild remains the correctness path.
 - Persistent workspace indexes are disposable optimization state: store schema/options compatibility metadata, wrap writes in transactions, and degrade storage mismatches or DB errors to full rebuild fallback instead of letting cache state affect correctness.
+- Compute reverse dependency dirty sets before invalidating index rows: once source rows are deleted, refs.to_file edge context needed to mark referring specs dirty may be gone.
 
 ---
 
@@ -158,4 +159,22 @@ after each iteration and it's included in prompts for context.
   - `node:sqlite` is available in the current Node 24 environment, but using `createRequire()` keeps TypeScript independent from Node 24-only ambient types.
   - SQLite `PRAGMA foreign_keys` is connection-local, so rollback coverage is better proven through an FK-violating transaction and reopening the DB to verify old rows remain.
   - Compatibility mismatch should clear persisted rows and force exactly one full rebuild diff; subsequent runs can reuse the freshly stamped schema/options metadata.
+---
+
+## 2026-04-15 - US-009
+- Implemented workspace file scanning for entry specs, domain specs, profile specs, and external ref files using absolute path, realpath, size, mtime, and sha256 content hash metadata.
+- Added dirty detection helpers that classify new/modified/deleted/unchanged files, compute refs.to_file reverse dependency closure for affected source specs, and invalidate stale rows for changed/deleted/dependent files before re-indexing.
+- Added tests for external ref file changes invalidating the referring spec and deleted files removing stale diagnostics; updated internal test counts and incremental design notes.
+- Files changed:
+  - `packages/codegen/src/workspace-index.ts`
+  - `packages/codegen/src/sqlite-workspace-index.ts`
+  - `packages/codegen/src/__tests__/workspace-index.test.ts`
+  - `docs/internal/spec.md`
+  - `docs/internal/todo.md`
+  - `docs/internal/architecture/006-incremental-workspace-index.md`
+  - `.ralph-tui/progress.md`
+- **Learnings:**
+  - File identity needs both absolute filePath for resolver/index joins and realPath for filesystem alias detection; comparisons should include realPath without replacing the logical key.
+  - Dirty dependency expansion must happen before invalidation so existing ref edges can still identify source specs that depend on a changed external target.
+  - US-009 is the reusable primitive layer; validate/typegen/dev CLI flags remain the US-010 wiring task.
 ---

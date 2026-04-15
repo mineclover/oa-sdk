@@ -1,11 +1,14 @@
 import { describe, it, expect, expectTypeOf } from 'vitest'
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import {
   createMemoryWorkspaceIndex,
   createWorkspaceIndex,
+  detectWorkspaceDirtyFiles,
+  invalidateWorkspaceDirtyFiles,
+  scanWorkspaceFiles,
   type WorkspaceFileRecord,
   type WorkspaceIndex,
 } from '../workspace-index.js'
@@ -125,6 +128,146 @@ describe('WorkspaceIndex', () => {
     expect(diff.unchanged.map(file => file.filePath)).toEqual(['api.yaml'])
     expect(diff.changed.map(file => file.filePath)).toEqual(['shared.yaml', 'new.yaml'])
     expect(diff.deleted.map(file => file.filePath)).toEqual(['deleted.yaml'])
+  })
+
+  it('scans spec categories with real path metadata and classifies dirty files', () => {
+    const tmp = mkdtempSync(join(tmpdir(), 'oa-sdk-workspace-scan-'))
+    const entryPath = join(tmp, 'openapi.yaml')
+    const domainPath = join(tmp, 'domains', 'users', 'spec.yaml')
+    const profilePath = join(tmp, 'profiles', 'local.yaml')
+    const externalPath = join(tmp, 'shared.yaml')
+    const stalePath = join(tmp, 'deleted.yaml')
+
+    try {
+      mkdirSync(join(tmp, 'domains', 'users'), { recursive: true })
+      mkdirSync(join(tmp, 'profiles'), { recursive: true })
+      writeFileSync(entryPath, 'openapi: 3.2.0\n')
+      writeFileSync(profilePath, 'servers: []\n')
+      writeFileSync(externalPath, 'components: {}\n')
+
+      const initial = scanWorkspaceFiles({
+        baseDir: tmp,
+        entrySpecs: ['openapi.yaml'],
+        profileSpecs: ['profiles/local.yaml'],
+        externalRefFiles: ['shared.yaml'],
+        parserVersion: 'parser-a',
+        runId: 'run-a',
+      })
+      const index = createMemoryWorkspaceIndex({
+        files: [
+          ...initial,
+          { ...initial[0]!, filePath: stalePath, realPath: stalePath, contentHash: 'stale-hash' },
+        ],
+      })
+
+      writeFileSync(domainPath, 'paths: {}\n')
+      writeFileSync(externalPath, 'components:\n  schemas: {}\n')
+
+      const dirty = detectWorkspaceDirtyFiles(index, scanWorkspaceFiles({
+        baseDir: tmp,
+        entrySpecs: ['openapi.yaml'],
+        domainSpecs: ['domains/users/spec.yaml'],
+        profileSpecs: ['profiles/local.yaml'],
+        externalRefFiles: ['shared.yaml'],
+        parserVersion: 'parser-a',
+        runId: 'run-a',
+      }))
+
+      expect(dirty.newFiles.map(file => file.filePath)).toEqual([domainPath])
+      expect(dirty.modified.map(file => file.filePath)).toEqual([externalPath])
+      expect(dirty.unchanged.map(file => file.filePath)).toEqual([entryPath, profilePath])
+      expect(dirty.deleted.map(file => file.filePath)).toEqual([stalePath])
+      expect(dirty.changed.map(file => file.filePath)).toEqual([domainPath, externalPath])
+      expect(dirty.changed[0]).toMatchObject({
+        filePath: domainPath,
+        parserVersion: 'parser-a',
+        lastSeenRun: 'run-a',
+      })
+      expect(dirty.changed[0]!.realPath).toBeTruthy()
+      expect(dirty.changed[0]!.contentHash).toMatch(/^[a-f0-9]{64}$/)
+      expect(dirty.changed[0]!.size).toBeGreaterThan(0)
+      expect(dirty.changed[0]!.mtimeMs).toBeGreaterThan(0)
+    } finally {
+      rmSync(tmp, { recursive: true, force: true })
+    }
+  })
+
+  it('marks specs that reference a changed external ref file dirty before invalidation', () => {
+    const tmp = mkdtempSync(join(tmpdir(), 'oa-sdk-workspace-dirty-'))
+    const apiPath = join(tmp, 'api.yaml')
+    const sharedPath = join(tmp, 'shared.yaml')
+
+    try {
+      writeFileSync(apiPath, 'openapi: 3.2.0\n')
+      writeFileSync(sharedPath, 'components:\n  schemas:\n    User:\n      type: object\n')
+      const [apiRecord, sharedRecord] = scanWorkspaceFiles({
+        entrySpecs: [apiPath],
+        externalRefFiles: [sharedPath],
+      })
+      const index = createMemoryWorkspaceIndex({ files: [apiRecord!, sharedRecord!] })
+      index.replaceFileIndex(apiPath, {
+        refs: [{
+          fromFile: apiPath,
+          fromPointer: '#/paths/~1users/get/responses/200/content/application~1json/schema/$ref',
+          refText: './shared.yaml#/components/schemas/User',
+          kind: 'external',
+          resolved: true,
+          toFile: sharedPath,
+          toPointer: '#/components/schemas/User',
+        }],
+        diagnostics: [{
+          producer: 'ref-graph',
+          severity: 'warning',
+          code: 'old-warning',
+          message: 'old warning',
+          filePath: apiPath,
+        }],
+      })
+
+      writeFileSync(sharedPath, 'components:\n  schemas:\n    User:\n      type: object\n      description: Changed\n')
+      const dirty = detectWorkspaceDirtyFiles(index, scanWorkspaceFiles({
+        entrySpecs: [apiPath],
+        externalRefFiles: [sharedPath],
+      }))
+
+      expect(dirty.modified.map(file => file.filePath)).toEqual([sharedPath])
+      expect(dirty.unchanged.map(file => file.filePath)).toEqual([apiPath])
+      expect(dirty.dependentFilePaths).toEqual([apiPath])
+      expect(dirty.dirtyFilePaths).toEqual([apiPath, sharedPath])
+
+      invalidateWorkspaceDirtyFiles(index, dirty)
+
+      expect(index.listFiles()).toEqual([])
+      expect(index.listRefs()).toEqual([])
+      expect(index.listDiagnostics()).toEqual([])
+    } finally {
+      rmSync(tmp, { recursive: true, force: true })
+    }
+  })
+
+  it('removes stale diagnostics for deleted files', () => {
+    const index = createMemoryWorkspaceIndex({
+      files: [
+        apiFile,
+        { ...apiFile, filePath: 'deleted.yaml', contentHash: 'hash-deleted' },
+      ],
+    })
+    index.replaceFileIndex('deleted.yaml', {
+      diagnostics: [{
+        producer: 'validate',
+        severity: 'error',
+        code: 'stale-diagnostic',
+        message: 'stale diagnostic',
+        filePath: 'deleted.yaml',
+      }],
+    })
+
+    const dirty = detectWorkspaceDirtyFiles(index, [apiFile])
+    invalidateWorkspaceDirtyFiles(index, dirty)
+
+    expect(dirty.deleted.map(file => file.filePath)).toEqual(['deleted.yaml'])
+    expect(index.listFiles()).toEqual([apiFile])
+    expect(index.listDiagnostics({ filePath: 'deleted.yaml' })).toEqual([])
   })
 
   it('invalidates per-file metadata in memory', () => {
