@@ -7,6 +7,7 @@ after each iteration and it's included in prompts for context.
 
 *Add reusable patterns discovered during development here.*
 - Response relationship metadata should stay out-of-band: expose it beside the selected mock body (for example `PickedResponse.links`) and in generated Op metadata (for example `XxxResponseLinks` / `responseLinks`) without injecting it into HTTP payload bodies.
+- Mock outbound behavior should stay observable metadata by default: build deterministic attempt records and expose adapter/test hooks instead of performing network I/O, so local tests can assert behavior without new transport flakiness.
 - Public import path regression tests should combine a consumer-style typecheck fixture with package.json exports assertions; API index validation can then guard the documented source entrypoints and supported subpaths separately.
 - Public option types should be exported from every public entrypoint that exports the function accepting them, while `package.json` exports remain the supported-subpath gate; pair positive type imports with deep-import exclusion checks.
 - Parsed request bodies can carry transport metadata through non-enumerable symbol properties so validators can inspect headers/content types without changing AJV-visible body shape.
@@ -421,4 +422,34 @@ after each iteration and it's included in prompts for context.
   - `parseDocument()` already preserves Response `links`, so codegen and mock-server can consume the parsed `OasResponse` metadata directly.
   - Link metadata should mirror the ResponseHeaders naming pattern but remain value-oriented: generated literal metadata types keep runtime expression strings inspectable without evaluating them.
   - Mock adapters do not need Link-specific transport behavior; keeping links only on `PickedResponse` preserves existing HTTP response body semantics.
+---
+
+## 2026-04-15 - US-021
+- Implemented callback outbound simulation for mock-server success responses: callback URL runtime expressions are evaluated from request/response context and callback `post` request bodies are generated with the shared media body fallback order.
+- Added MSW/Node `onCallback` hooks plus `createCallbackTracker()` for observing simulated outbound callback POST attempts without network I/O.
+- Added unit coverage for successful callback simulation, templated runtime expressions, `$url`, unresolved expressions, invalid URL expressions, and callback tracker behavior.
+- Updated internal docs/API index/OAS coverage/todo status and bumped mock-server/total test counts to 572/1634.
+- Ran checks: `pnpm typecheck`, focused callback tests, `pnpm build:scripts`, `pnpm check:api-index`, and `git diff --check` passed. `pnpm --filter @oa-sdk/mock-server test` and root `pnpm test` still fail only in Node HTTP suites on sandbox `listen EPERM 127.0.0.1`; `pnpm schema:validate` still fails when `tsx` attempts a sandbox-blocked IPC pipe.
+- Files changed:
+  - `packages/mock-server/src/core/callbacks.ts`
+  - `packages/mock-server/src/core/media-body.ts`
+  - `packages/mock-server/src/core/handler.ts`
+  - `packages/mock-server/src/core/request-validator.ts`
+  - `packages/mock-server/src/core/response-picker.ts`
+  - `packages/mock-server/src/adapters/msw.ts`
+  - `packages/mock-server/src/adapters/node-http.ts`
+  - `packages/mock-server/src/testing.ts`
+  - `packages/mock-server/src/index.ts`
+  - `packages/mock-server/src/browser.ts`
+  - `packages/mock-server/src/__tests__/unit/callbacks.test.ts`
+  - `packages/mock-server/src/__tests__/unit/testing.test.ts`
+  - `docs/internal/spec.md`
+  - `docs/internal/api-index.md`
+  - `docs/internal/todo.md`
+  - `docs/internal/oas32-coverage.md`
+  - `.ralph-tui/progress.md`
+- **Learnings:**
+  - Callback simulation fits the same out-of-band metadata pattern as response links: preserve inbound HTTP body semantics and expose outbound behavior through deterministic metadata/hook records.
+  - Sharing media body resolution keeps response body selection and callback payload generation aligned for `examples.dataValue`, `example`, schema example/default, and minimal schema generation.
+  - URL expression failures should be recorded per callback attempt rather than converted into inbound request failures; this keeps local mocks useful for both happy-path and bad callback URL tests.
 ---

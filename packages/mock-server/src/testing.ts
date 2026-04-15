@@ -11,6 +11,7 @@
  */
 
 import type { NodeMockServer } from './adapters/node-http.js'
+import type { CallbackObserver, CallbackPostAttempt } from './core/callbacks.js'
 
 export type TestResponse = {
   status: number
@@ -106,5 +107,24 @@ export function createCoverageTracker(): CoverageTracker {
     coverage(all) { return all.length === 0 ? 1 : called.size / all.length },
     onRequest(info) { if (info.operationId) called.add(info.operationId) },
     reset() { called.clear() },
+  }
+}
+
+/**
+ * Callback POST attempt tracker for tests that assert simulated outbound webhooks.
+ */
+export type CallbackTracker = {
+  readonly attempts: readonly CallbackPostAttempt[]
+  onCallback: CallbackObserver
+  reset(): void
+}
+
+export function createCallbackTracker(): CallbackTracker {
+  const attempts: CallbackPostAttempt[] = []
+
+  return {
+    get attempts() { return attempts },
+    onCallback(attempt) { attempts.push(attempt) },
+    reset() { attempts.length = 0 },
   }
 }

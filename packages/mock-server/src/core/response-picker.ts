@@ -1,6 +1,7 @@
 import type { OasResponse, OasSchema, OasHeader, OasLink, Referenceable } from '@oa-sdk/parser'
 import { generator } from './generate.js'
 import { isStreamingContentType } from './stream.js'
+import { pickFirstMediaType, resolveExampleOnly, resolveMediaTypeBody } from './media-body.js'
 
 export type PickedResponse = {
   status: number
@@ -35,9 +36,7 @@ export function pickResponse(responses: Record<string, OasResponse>): PickedResp
   const response = responses[entry.key]
   if (!response) return null
 
-  const content = (response.content ?? {}) as Record<string, MediaTypeLike>
-  const contentType = Object.keys(content)[0] ?? 'application/json'
-  const mediaType = content[contentType]
+  const { contentType, mediaType } = pickFirstMediaType(response.content)
 
   // 응답 헤더 추출
   const headers = extractHeaders(response.headers)
@@ -54,7 +53,7 @@ export function pickResponse(responses: Record<string, OasResponse>): PickedResp
     return result
   }
 
-  return { status: entry.status, contentType, body: resolveBody(mediaType), headers, links }
+  return { status: entry.status, contentType, body: resolveMediaTypeBody(mediaType), headers, links }
 }
 
 // ─── 상태 코드 선택 ──────────────────────────────────────────────────────────
@@ -134,34 +133,4 @@ function extractLinks(
     result[name] = raw as OasLink
   }
   return result
-}
-
-// ─── 본문 선택 ───────────────────────────────────────────────────────────────
-
-type MediaTypeLike = { example?: unknown; examples?: unknown; schema?: unknown } | undefined
-
-function resolveExampleOnly(mediaType: MediaTypeLike): unknown {
-  if (!mediaType) return null
-  if (mediaType.examples && typeof mediaType.examples === 'object') {
-    const first = Object.values(mediaType.examples)[0] as { value?: unknown; dataValue?: unknown } | undefined
-    const body = first && 'dataValue' in first ? first.dataValue : first?.value
-    if (body !== undefined) return body
-  }
-  if (mediaType.example !== undefined) return mediaType.example
-  return null
-}
-
-function resolveBody(mediaType: MediaTypeLike): unknown {
-  if (!mediaType) return null
-  if (mediaType.examples && typeof mediaType.examples === 'object') {
-    const first = Object.values(mediaType.examples)[0] as { value?: unknown; dataValue?: unknown } | undefined
-    const body = first && 'dataValue' in first ? first.dataValue : first?.value
-    if (body !== undefined) return body
-  }
-  if (mediaType.example !== undefined) return mediaType.example
-  const schema = mediaType.schema as OasSchema | undefined
-  if (!schema) return null
-  if (schema.example !== undefined) return schema.example
-  if (schema.default !== undefined) return schema.default
-  return generator.fold(schema)
 }

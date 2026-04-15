@@ -6,6 +6,7 @@ import { isStreamingContentType, generateStreamChunks } from '../core/stream.js'
 import { filterRouteIndex, type RouteFilter } from '../core/route-filter.js'
 import { assertValidRequestSchemas, createMultipartBody, type MultipartPartMetadata } from '../core/request-validator.js'
 import type { OverrideResponse } from './node-http.js'
+import type { CallbackObserver, CallbackPostAttempt } from '../core/callbacks.js'
 
 export type MswHandlerOptions = {
   /** 요청 수신 시 호출되는 관찰 훅 (로깅/추적용) */
@@ -14,6 +15,8 @@ export type MswHandlerOptions = {
   include?: RouteFilter
   /** 요청 body/parameter 스키마를 핸들러 생성 시점에 미리 컴파일 (기본: true) */
   validateRequestSchemas?: boolean
+  /** 성공 응답 후 simulated outbound callback POST 시도마다 호출되는 관찰 훅 */
+  onCallback?: CallbackObserver
 }
 
 export type MswMockServer = {
@@ -158,7 +161,7 @@ function buildMswHandlers(
         const body = request.body ? await parseBody(request, contentType) : undefined
 
         const hr = handleRequest(
-          { pathParams, queryParams, headers, body, contentType },
+          { pathParams, queryParams, headers, body, contentType, url: request.url },
           { ...entry, openApiPath },
           parsed.securitySchemes,
         )
@@ -167,6 +170,7 @@ function buildMswHandlers(
         if (hr.type === 'schema-error') return HttpResponse.json(hr.body, { status: hr.status })
         if (hr.type === 'no-response') return HttpResponse.json(hr.body, { status: hr.status })
         const picked = hr.picked
+        await notifyCallbackAttempts(hr.callbacks, options.onCallback)
 
         // 스트리밍 응답 (text/event-stream 등) — ReadableStream으로 전달
         if (isStreamingContentType(picked.contentType)) {
@@ -289,6 +293,11 @@ function extractPathname(url: string): string {
   } catch {
     return url.replace(/\/$/, '')
   }
+}
+
+async function notifyCallbackAttempts(attempts: readonly CallbackPostAttempt[], observer: CallbackObserver | undefined): Promise<void> {
+  if (!observer) return
+  for (const attempt of attempts) await observer(attempt)
 }
 
 /** Merge webhook OperationEntries into an existing RouteIndex (non-mutating) */

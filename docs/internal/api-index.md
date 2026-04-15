@@ -172,11 +172,11 @@ Typegen 공개 surface는 root entry(`@oa-sdk/codegen`)와 typegen sub-entry(`@o
 |-----------|------|------|
 | `createMswHandlers()` | `adapters/msw.ts` | MSW 2.x 핸들러 배열 생성 |
 | `createMswMockServer()` | `adapters/msw.ts` | MSW 핸들러 + override API 통합 |
-| `MswHandlerOptions` | `adapters/msw.ts` | MSW 옵션 타입 |
+| `MswHandlerOptions` | `adapters/msw.ts` | MSW 옵션 타입 (request hook, route filter, request schema preflight, callback hook) |
 | `MswMockServer` | `adapters/msw.ts` | MSW mock 서버 타입 (handlers + override) |
 | `createNodeMockServer()` | `adapters/node-http.ts` | Node HTTP 목 서버 생성 |
 | `NodeMockServer` | `adapters/node-http.ts` | Node 서버 인스턴스 타입 (override 포함) |
-| `NodeMockServerOptions` | `adapters/node-http.ts` | Node 서버 옵션 타입 |
+| `NodeMockServerOptions` | `adapters/node-http.ts` | Node 서버 옵션 타입 (port/host, server variables, route filter, request schema preflight, callback hook) |
 | `OverrideResponse` | `adapters/node-http.ts` | override 응답 타입 |
 
 ## parser re-exports (`@oa-sdk/mock-server`)
@@ -215,6 +215,10 @@ Typegen 공개 surface는 root entry(`@oa-sdk/codegen`)와 typegen sub-entry(`@o
 | `assertValidRequestSchemas()` | `core/request-validator.ts` | preflight 실패 시 예외 발생 |
 | `pickResponse()` | `core/response-picker.ts` | 응답 선택 (6단계 폴백) + Link metadata 추출 |
 | `PickedResponse` | `core/response-picker.ts` | 선택된 응답 타입 (status/body/headers/links/stream) |
+| `CallbackObserver` | `core/callbacks.ts` | simulated outbound callback POST attempt 관찰 hook 타입 |
+| `CallbackPostAttempt` | `core/callbacks.ts` | callbackName/expression/url/body/error를 포함한 simulated POST attempt metadata |
+| `CallbackSimulationError` | `core/callbacks.ts` | callback URL expression 평가 실패 metadata |
+| `CallbackSimulationErrorCode` | `core/callbacks.ts` | callback expression unsupported/unresolved/invalid URL 코드 |
 
 ## 에러 (`@oa-sdk/mock-server`)
 
@@ -233,9 +237,11 @@ Typegen 공개 surface는 root entry(`@oa-sdk/codegen`)와 typegen sub-entry(`@o
 |-----------|------|------|
 | `createTestClient()` | `testing.ts` | 테스트용 typed fetch wrapper |
 | `createCoverageTracker()` | `testing.ts` | operationId 커버리지 추적 |
+| `createCallbackTracker()` | `testing.ts` | simulated outbound callback POST attempt 추적 |
 | `TestClient` | `testing.ts` | 테스트 클라이언트 타입 |
 | `TestResponse` | `testing.ts` | 테스트 응답 타입 |
 | `CoverageTracker` | `testing.ts` | 커버리지 추적기 타입 |
+| `CallbackTracker` | `testing.ts` | callback attempt 추적기 타입 |
 
 ---
 

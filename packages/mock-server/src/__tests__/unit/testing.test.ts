@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { createCoverageTracker } from '../../testing.js'
+import { createCallbackTracker, createCoverageTracker } from '../../testing.js'
 
 describe('createCoverageTracker', () => {
   it('onRequest로 operationId 추적', () => {
@@ -47,5 +47,26 @@ describe('createCoverageTracker', () => {
     tracker.onRequest({ operationId: 'a' })
     tracker.onRequest({ operationId: 'a' })
     expect(tracker.called.size).toBe(1)
+  })
+})
+
+describe('createCallbackTracker', () => {
+  it('captures callback attempts and resets them', () => {
+    const tracker = createCallbackTracker()
+    tracker.onCallback({
+      callbackName: 'onData',
+      expression: '{$request.query.callbackUrl}',
+      method: 'post',
+      resolved: true,
+      url: 'https://client.test/hooks',
+      contentType: 'application/json',
+      headers: { 'Content-Type': 'application/json' },
+      body: { ok: true },
+    })
+
+    expect(tracker.attempts).toHaveLength(1)
+    expect(tracker.attempts[0]?.url).toBe('https://client.test/hooks')
+    tracker.reset()
+    expect(tracker.attempts).toHaveLength(0)
   })
 })

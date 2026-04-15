@@ -25,6 +25,7 @@ export type { RouteFilter } from './core/route-filter.js'
 export { validateRequest, validateRequestSchemas, assertValidRequestSchemas } from './core/request-validator.js'
 export { pickResponse } from './core/response-picker.js'
 export type { PickedResponse } from './core/response-picker.js'
+export type { CallbackObserver, CallbackPostAttempt, CallbackSimulationError, CallbackSimulationErrorCode } from './core/callbacks.js'
 export { handleRequest } from './core/handler.js'
 export type { HandlerResult } from './core/handler.js'
 
@@ -33,5 +34,5 @@ export type { MockErrorCode, MockValidationStage, MockErrorDetail, MockValidatio
 export { classifyAjvErrors } from './errors/classifier.js'
 
 // ─── 테스트 헬퍼 ──────────────────────────────────────────────────────────────
-export { createTestClient, createCoverageTracker } from './testing.js'
-export type { TestClient, TestResponse, CoverageTracker } from './testing.js'
+export { createTestClient, createCoverageTracker, createCallbackTracker } from './testing.js'
+export type { TestClient, TestResponse, CoverageTracker, CallbackTracker } from './testing.js'

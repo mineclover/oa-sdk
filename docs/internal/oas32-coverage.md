@@ -68,7 +68,7 @@
 | Security Schemes | ✅ | ✅ (인덱싱) | ✅ (검증) | — | — | — |
 | OAuth2 / deviceAuthorization | ✅ | ✅ | ✅ (bearer 확인) | — | — | — |
 | Links | ✅ | ✅ (추출) | ✅ (응답 메타데이터) | ✅ (typegen) | — | — |
-| Callbacks | ✅ | ✅ (추출) | — | — | — | — |
+| Callbacks | ✅ | ✅ (추출) | ✅ (POST simulation) | — | — | — |
 | Webhooks | ✅ | ✅ (추출) | — | — | — | — |
 | Encoding | ✅ | — | — | — | — | — |
 | XML | ✅ | — | — | — | — | — |

@@ -6,6 +6,7 @@ export type { MswHandlerOptions, MswMockServer } from './adapters/msw.js'
 export { validateRequest, validateRequestSchemas, assertValidRequestSchemas } from './core/request-validator.js'
 export { pickResponse } from './core/response-picker.js'
 export type { PickedResponse } from './core/response-picker.js'
+export type { CallbackObserver, CallbackPostAttempt, CallbackSimulationError, CallbackSimulationErrorCode } from './core/callbacks.js'
 export { handleRequest } from './core/handler.js'
 export type { HandlerResult } from './core/handler.js'
 export { GenerateFolder, generator, generateAlgebra } from './core/generate.js'
@@ -13,6 +14,8 @@ export { StreamFolder, streamer, SSE_DONE, formatSseChunk, formatNdjsonLine, isS
 export type { StreamOptions } from './core/stream.js'
 export { filterRouteIndex } from './core/route-filter.js'
 export type { RouteFilter } from './core/route-filter.js'
+export { createCoverageTracker, createCallbackTracker } from './testing.js'
+export type { CoverageTracker, CallbackTracker } from './testing.js'
 
 // ─── 에러 ─────────────────────────────────────────────────────────────────────
 export type { MockErrorCode, MockValidationStage, MockErrorDetail, MockValidationResult, MockErrorResponse } from './errors/types.js'

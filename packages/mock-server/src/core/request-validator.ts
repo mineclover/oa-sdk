@@ -26,6 +26,8 @@ export type RequestParts = {
   headers: Record<string, string>
   body: unknown
   contentType: string | undefined
+  /** Absolute request URL, used by callback runtime expression evaluation. */
+  url?: string
 }
 
 export type MultipartPartMetadata = {

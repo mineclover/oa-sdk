@@ -30,9 +30,10 @@
 완료: typegen이 성공 응답 Link Object를 `XxxResponseLinks` 타입으로 생성하고 Op bundle에 `responseLinks` 메타데이터 필드를 포함한다. mock-server `pickResponse()`는 선택된 응답의 resolved Link Object를 `PickedResponse.links`로 노출하며, HTTP 어댑터는 link metadata를 body payload에 주입하지 않는다.
 완료 기준: 응답에서 다음 operation 관계를 추적할 수 있고, Link 타입 생성 테스트가 있음.
 
-### 9. [ ] Callbacks — 아웃바운드 웹훅
+### 9. [x] Callbacks — 아웃바운드 웹훅
 배경: Callbacks는 타입과 파싱은 완료됐지만 mock-server에서 outbound 호출 시뮬레이션이 없음.
 작업: callback URL expression 평가와 mock outbound POST 흐름을 설계하고 테스트 헬퍼로 노출.
+완료: mock-server 성공 응답에서 Operation callbacks를 읽어 지원 runtime expression(`$url`, `$method`, `$statusCode`, `$request.path/query/header/body`, `$response.header/body`)을 평가하고, callback Path Item의 `post` requestBody를 기존 mock body 생성 우선순위로 payload화해 simulated outbound POST attempt로 노출한다. MSW/Node 옵션의 `onCallback` hook과 `createCallbackTracker()` 테스트 헬퍼로 성공/실패 attempt를 관찰할 수 있으며, URL 미해결/invalid 표현은 inbound 응답을 실패시키지 않고 attempt error metadata로 기록한다.
 완료 기준: 요청 처리 후 callback route로 payload를 보내는 성공/실패 시나리오가 테스트됨.
 
 ### 10. [ ] XML 직렬화
@@ -48,6 +49,11 @@
 성공 응답의 Link Object를 typegen `XxxResponseLinks` 타입과 Op bundle `responseLinks` 필드로 생성한다.
 `parameters`와 `requestBody` runtime expression 문자열은 literal metadata type으로 보존한다.
 mock-server 응답 선택 결과는 `links` 메타데이터를 노출하되, HTTP 응답 body semantics는 그대로 유지한다.
+
+### [x] Callbacks outbound simulation
+Operation callbacks의 URL runtime expression을 요청/응답 컨텍스트에서 평가하고 callback `post` requestBody를 mock payload로 생성한다.
+실제 네트워크 호출 대신 `CallbackPostAttempt` metadata를 생성하며, `onCallback` hook과 `createCallbackTracker()`로 테스트에서 outbound webhook behavior를 관찰한다.
+미해결 또는 invalid URL expression은 inbound mock response를 유지하면서 attempt error metadata에 기록한다.
 
 ### [x] codegen: TypegenOptions/SchemaToTsOptions 공개 API 정리
 `TypegenOptions`는 `generateTypes*()`가 root entry에서도 공개되어 있으므로 `@oa-sdk/codegen`과 `@oa-sdk/codegen/typegen` 양쪽에서 지원한다.

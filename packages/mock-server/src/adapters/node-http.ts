@@ -4,6 +4,7 @@ import { handleRequest } from '../core/handler.js'
 import { isStreamingContentType, generateStreamChunks } from '../core/stream.js'
 import { filterRouteIndex, type RouteFilter } from '../core/route-filter.js'
 import { assertValidRequestSchemas, createMultipartBody, type MultipartPartMetadata } from '../core/request-validator.js'
+import type { CallbackObserver, CallbackPostAttempt } from '../core/callbacks.js'
 
 export type NodeMockServerOptions = {
   port?: number
@@ -16,6 +17,8 @@ export type NodeMockServerOptions = {
   include?: RouteFilter
   /** 요청 body/parameter 스키마를 서버 생성 시점에 미리 컴파일 (기본: true) */
   validateRequestSchemas?: boolean
+  /** 성공 응답 후 simulated outbound callback POST 시도마다 호출되는 관찰 훅 */
+  onCallback?: CallbackObserver
 }
 
 export type OverrideResponse = {
@@ -57,6 +60,7 @@ export function createNodeMockServer(
     serverVariables,
     include,
     validateRequestSchemas: shouldValidateRequestSchemas = true,
+    onCallback,
   } = options
   const parsed = parseDocument(spec as OasDocument)
   const mergedRoutes = mergeWebhookRoutes(parsed.routes, parsed.webhooks)
@@ -69,7 +73,8 @@ export function createNodeMockServer(
   const handler = async (req: IncomingMessage, res: ServerResponse): Promise<void> => {
     const method = (req.method ?? 'GET').toLowerCase() as HttpMethod
     const rawUrl = req.url ?? '/'
-    const parsedUrl = new URL(rawUrl, `http://${host}:${port}`)
+    const requestOrigin = `http://${host}:${actualPort}`
+    const parsedUrl = new URL(rawUrl, requestOrigin)
     const urlPath = parsedUrl.pathname
 
     const matched: MatchResult = matchRoute(index, method, urlPath)
@@ -125,7 +130,7 @@ export function createNodeMockServer(
     const body = await readBody(req)
 
     const hr = handleRequest(
-      { pathParams, queryParams, headers, body, contentType },
+      { pathParams, queryParams, headers, body, contentType, url: parsedUrl.toString() },
       entry,
       parsed.securitySchemes,
     )
@@ -134,6 +139,7 @@ export function createNodeMockServer(
     if (hr.type === 'schema-error') { writeJson(res, hr.status, hr.body); return }
     if (hr.type === 'no-response') { writeJson(res, hr.status, hr.body); return }
     const picked = hr.picked
+    await notifyCallbackAttempts(hr.callbacks, onCallback)
 
     // 스트리밍 응답 — SSE는 data:\n\n 포맷, NDJSON/JSONL은 <json>\n 포맷
     if (isStreamingContentType(picked.contentType)) {
@@ -208,6 +214,11 @@ function writeBody(res: ServerResponse, status: number, contentType: string, bod
     : body
   res.writeHead(status, { ...extraHeaders, 'Content-Type': contentType, 'Content-Length': Buffer.byteLength(payload) })
   res.end(payload)
+}
+
+async function notifyCallbackAttempts(attempts: readonly CallbackPostAttempt[], observer: CallbackObserver | undefined): Promise<void> {
+  if (!observer) return
+  for (const attempt of attempts) await observer(attempt)
 }
 
 async function readBody(req: IncomingMessage): Promise<unknown> {

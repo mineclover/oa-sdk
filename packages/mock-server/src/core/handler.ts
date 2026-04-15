@@ -7,16 +7,17 @@
  * 어댑터는 HandlerResult를 받아 자신의 응답 포맷(HttpResponse, ServerResponse)으로 변환.
  */
 
-import type { OasParameter, OasRequestBody, OasResponse, OasSecurityScheme, OasSecurityRequirement } from '@oa-sdk/parser'
+import type { OasCallback, OasParameter, OasRequestBody, OasResponse, OasSecurityScheme, OasSecurityRequirement } from '@oa-sdk/parser'
 import { validateRequest, type RequestParts } from './request-validator.js'
 import { pickResponse, type PickedResponse } from './response-picker.js'
+import { simulateCallbackPosts, type CallbackPostAttempt } from './callbacks.js'
 import type { MockErrorResponse } from '../errors/types.js'
 
 export type HandlerResult =
   | { type: 'validation-error'; status: 422; body: MockErrorResponse }
   | { type: 'schema-error'; status: 500; body: MockErrorResponse }
   | { type: 'no-response'; status: 500; body: MockErrorResponse }
-  | { type: 'success'; picked: PickedResponse }
+  | { type: 'success'; picked: PickedResponse; callbacks: CallbackPostAttempt[] }
 
 /**
  * 요청 검증 + 응답 선택 공통 로직
@@ -31,6 +32,7 @@ export function handleRequest(
     requestBody?: OasRequestBody
     responses: Record<string, OasResponse>
     security: OasSecurityRequirement[]
+    callbacks?: Record<string, OasCallback>
   },
   securitySchemes: Record<string, OasSecurityScheme>,
 ): HandlerResult {
@@ -89,5 +91,5 @@ export function handleRequest(
     }
   }
 
-  return { type: 'success', picked }
+  return { type: 'success', picked, callbacks: simulateCallbackPosts(entry, parts, picked) }
 }
