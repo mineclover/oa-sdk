@@ -38,6 +38,8 @@ export type TypegenOptions = {
 export type ExternalSchemaRefDiagnosticCode =
   | 'external-schema-name-collision'
   | 'external-schema-shadows-local'
+  | 'external-schema-shadows-operation'
+  | 'external-schema-unsupported-pointer'
   | 'external-schema-unresolved'
   | RefGraphDiagnosticCode
 
@@ -260,23 +262,40 @@ export function analyzeExternalSchemaRefs(spec: OasDocument, basePath: string): 
   const schemas: Record<string, OasSchema> = {}
   const refNameOverrides: Record<string, string> = {}
   const localNames = new Set(Object.keys(spec.components?.schemas ?? {}))
-  const usedNames = new Set(localNames)
-  const resolvedSchemaNodes = schemaNodes.filter(node => isSchemaObject(node.target))
+  const operationNames = collectGeneratedOperationTypeNames(spec)
+  const usedNames = new Set([...localNames, ...operationNames])
+  const unsupportedPointerNodes = schemaNodes
+    .filter(node => node.resolved)
+    .filter(node => !isSupportedExternalSchemaPointer(node.pointer))
+  const unsupportedPointerIdentities = new Set(unsupportedPointerNodes.map(refIdentity))
+  const resolvedSchemaNodes = schemaNodes
+    .filter(node => !unsupportedPointerIdentities.has(refIdentity(node)))
+    .filter(node => isSchemaObject(node.target))
   const refsByName = groupRefsBySchemaName(resolvedSchemaNodes)
   const resolvedNamesByIdentity = new Map<string, string>()
+  const fallbackNamesByIdentity = new Map<string, string>()
   const refIdentityBySource = new Map<string, string>()
 
   for (const node of schemaNodes) {
     refIdentityBySource.set(sourceRefKey(node.sourceFilePath, node.sourcePointer), refIdentity(node))
   }
 
+  for (const node of unsupportedPointerNodes) {
+    const baseName = schemaNameFromNode(node)
+    fallbackNamesByIdentity.set(refIdentity(node), 'unknown')
+    if (node.sourceFilePath === basePath) refNameOverrides[node.ref] = 'unknown'
+    refNameOverrides[refIdentity(node)] = 'unknown'
+    diagnostics.push(toUnsupportedPointerDiagnostic(node, baseName))
+  }
+
   for (const node of resolvedSchemaNodes) {
-    const baseName = schemaNameFromRef(node.ref)
+    const baseName = schemaNameFromNode(node)
     if (!baseName) continue
 
     const collidesWithExternal = (refsByName.get(baseName)?.length ?? 0) > 1
     const shadowsLocal = localNames.has(baseName)
-    const preferredName = collidesWithExternal || shadowsLocal
+    const shadowsOperation = operationNames.has(baseName)
+    const preferredName = collidesWithExternal || shadowsLocal || shadowsOperation
       ? `${pascalCase(fileStemFromNode(node))}${baseName}`
       : baseName
     const generatedName = uniqueTypeName(preferredName, usedNames)
@@ -296,13 +315,27 @@ export function analyzeExternalSchemaRefs(spec: OasDocument, basePath: string): 
         message: `외부 스키마 이름이 로컬 component와 충돌: ${baseName} (${formatExternalTarget(node)} -> ${generatedName}). ${generatedName} 타입명으로 생성합니다.`,
       })
     }
+
+    if (shadowsOperation) {
+      diagnostics.push({
+        code: 'external-schema-shadows-operation',
+        name: baseName,
+        ref: node.ref,
+        generatedName,
+        ...(node.sourceFilePath ? { sourceFilePath: node.sourceFilePath } : {}),
+        sourcePointer: node.sourcePointer,
+        ...(node.filePath ? { filePath: node.filePath } : {}),
+        ...(node.pointer ? { pointer: node.pointer } : {}),
+        message: `외부 스키마 이름이 operation 생성 타입과 충돌: ${baseName} (${formatExternalTarget(node)} -> ${generatedName}). ${generatedName} 타입명으로 생성합니다.`,
+      })
+    }
   }
 
   for (const [name, groupRefs] of refsByName) {
     if (groupRefs.length <= 1) continue
     const renamedRefs = resolvedSchemaNodes
-      .filter(node => schemaNameFromRef(node.ref) === name)
-      .map(node => `${formatExternalTarget(node)} -> ${resolvedNamesByIdentity.get(refIdentity(node)) ?? schemaNameFromRef(node.ref)}`)
+      .filter(node => schemaNameFromNode(node) === name)
+      .map(node => `${formatExternalTarget(node)} -> ${resolvedNamesByIdentity.get(refIdentity(node)) ?? schemaNameFromNode(node)}`)
       .sort()
     diagnostics.push({
       code: 'external-schema-name-collision',
@@ -312,8 +345,10 @@ export function analyzeExternalSchemaRefs(spec: OasDocument, basePath: string): 
     })
   }
 
+  const refTypesByIdentity = new Map([...resolvedNamesByIdentity, ...fallbackNamesByIdentity])
   for (const node of schemaNodes) {
-    const baseName = schemaNameFromRef(node.ref)
+    if (unsupportedPointerIdentities.has(refIdentity(node))) continue
+    const baseName = schemaNameFromNode(node)
     const generatedName = resolvedNamesByIdentity.get(refIdentity(node))
     if (!baseName) continue
 
@@ -325,7 +360,7 @@ export function analyzeExternalSchemaRefs(spec: OasDocument, basePath: string): 
         node.filePath ?? node.sourceFilePath,
         node.pointer,
         refIdentityBySource,
-        resolvedNamesByIdentity,
+        refTypesByIdentity,
       )
       continue
     }
@@ -381,8 +416,110 @@ const SCHEMA_REF_CONTEXT_SEGMENTS = new Set([
   'unevaluatedProperties',
 ])
 
-function schemaNameFromRef(ref: string): string | undefined {
-  return ref.split('/').pop()
+const NON_SCHEMA_OAS_ROOT_SEGMENTS = new Set([
+  'components',
+  'externalDocs',
+  'info',
+  'jsonSchemaDialect',
+  'openapi',
+  'paths',
+  'security',
+  'servers',
+  'tags',
+  'webhooks',
+])
+
+function collectGeneratedOperationTypeNames(spec: OasDocument): Set<string> {
+  const names = new Set<string>()
+  const doc = parseDocument(spec, [])
+  for (const op of doc.operations) {
+    if (!op.operationId) continue
+    const baseName = pascalCase(op.operationId)
+    const pathParams = op.parameters.filter(p => p.in === 'path')
+    if (pathParams.length > 0) names.add(`${baseName}PathParams`)
+    const queryParams = op.parameters.filter(p => p.in === 'query')
+    if (queryParams.length > 0) names.add(`${baseName}QueryParams`)
+    if (hasJsonRequestBodySchema(op.requestBody)) names.add(`${baseName}Body`)
+    if (hasSuccessJsonResponseSchema(op.responses)) names.add(`${baseName}Response`)
+    if (hasSuccessResponseHeaders(op.responses)) names.add(`${baseName}ResponseHeaders`)
+    if (hasJsonResponseSchema(op.responses, /^[45]\d{2}$/) || hasDefaultJsonResponseSchema(op.responses)) names.add(`${baseName}Error`)
+    names.add(`${baseName}Op`)
+  }
+  return names
+}
+
+function hasJsonRequestBodySchema(body: OasRequestBody | undefined): boolean {
+  if (!body) return false
+  const jsonContent = body.content?.['application/json']
+  return !!jsonContent && !('$ref' in jsonContent) && !!jsonContent.schema
+}
+
+function hasJsonResponseSchema(responses: Record<string, OasResponse>, statusPattern: RegExp): boolean {
+  return Object.entries(responses).some(([status, response]) => {
+    if (!statusPattern.test(status) || !response?.content) return false
+    const jsonContent = response.content['application/json']
+    return !!jsonContent && !('$ref' in jsonContent) && !!jsonContent.schema
+  })
+}
+
+function hasSuccessJsonResponseSchema(responses: Record<string, OasResponse>): boolean {
+  const has2xx = Object.keys(responses).some(status => /^2\d{2}$/.test(status))
+  if (hasJsonResponseSchema(responses, /^2\d{2}$/)) return true
+  return !has2xx && hasDefaultJsonResponseSchema(responses)
+}
+
+function hasDefaultJsonResponseSchema(responses: Record<string, OasResponse>): boolean {
+  const response = responses.default
+  if (!response?.content) return false
+  const jsonContent = response.content['application/json']
+  return !!jsonContent && !('$ref' in jsonContent) && !!jsonContent.schema
+}
+
+function hasSuccessResponseHeaders(responses: Record<string, OasResponse>): boolean {
+  const has2xx = Object.keys(responses).some(status => /^2\d{2}$/.test(status))
+  const headersEntry = Object.entries(responses).find(([status]) => has2xx ? /^2\d{2}$/.test(status) : status === 'default')
+  const response = headersEntry?.[1]
+  return !!response?.headers
+    && Object.values(response.headers).some(header => !('$ref' in header))
+}
+
+function isSupportedExternalSchemaPointer(pointer: string | undefined): boolean {
+  const segments = pointerSegments(pointer)
+  if (segments.length === 0) return false
+  if (segments[0] === 'components') return segments[1] === 'schemas' && segments.length >= 3
+  if (segments[0] === '$defs') return segments.length >= 2
+  if (NON_SCHEMA_OAS_ROOT_SEGMENTS.has(segments[0] ?? '')) return false
+  return segments.length >= 2
+}
+
+function schemaNameFromNode(node: { ref: string; pointer?: string }): string | undefined {
+  return schemaNameFromPointer(node.pointer ?? node.ref)
+}
+
+function schemaNameFromPointer(ref: string): string | undefined {
+  const segments = pointerSegments(ref)
+  const rawName = segments.at(-1)
+  if (!rawName) return undefined
+  return normalizeTypeName(rawName)
+}
+
+function pointerSegments(ref: string | undefined): string[] {
+  if (!ref || ref === '#') return []
+  const pointerStart = ref.indexOf('#/')
+  const pointer = pointerStart >= 0 ? ref.slice(pointerStart + 2) : ref.startsWith('/') ? ref.slice(1) : ''
+  if (!pointer) return []
+  return pointer.split('/').map(decodePointerSegment)
+}
+
+function decodePointerSegment(segment: string): string {
+  return segment.replace(/~1/g, '/').replace(/~0/g, '~')
+}
+
+function normalizeTypeName(segment: string): string | undefined {
+  const pascalName = pascalCase(segment)
+  const identifier = pascalName.replace(/[^A-Za-z0-9_$]/g, '')
+  if (!identifier) return undefined
+  return /^[A-Za-z_$]/.test(identifier) ? identifier : `Schema${identifier}`
 }
 
 function findDiagnosticForNode(
@@ -415,6 +552,22 @@ function toExternalSchemaDiagnostic(
     sourcePointer,
     ...(filePath ? { filePath } : {}),
     ...(pointer ? { pointer } : {}),
+  }
+}
+
+function toUnsupportedPointerDiagnostic(
+  node: RefGraphNodeWithSource,
+  baseName: string | undefined,
+): ExternalSchemaRefDiagnostic {
+  return {
+    code: 'external-schema-unsupported-pointer',
+    ...(baseName ? { name: baseName } : {}),
+    ref: node.ref,
+    ...(node.sourceFilePath ? { sourceFilePath: node.sourceFilePath } : {}),
+    sourcePointer: node.sourcePointer,
+    ...(node.filePath ? { filePath: node.filePath } : {}),
+    ...(node.pointer ? { pointer: node.pointer } : {}),
+    message: `지원하지 않는 외부 스키마 pointer입니다: ${formatExternalTarget(node)}. Schema Object alias 대상은 #/components/schemas/*, #/$defs/*, 또는 top-level custom schema root의 항목이어야 하며 unknown으로 생성합니다.`,
   }
 }
 
@@ -480,10 +633,10 @@ function escapePointerSegment(segment: string): string {
   return segment.replace(/~/g, '~0').replace(/\//g, '~1')
 }
 
-function groupRefsBySchemaName(refs: Array<{ ref: string; filePath?: string }>): Map<string, string[]> {
+function groupRefsBySchemaName(refs: Array<{ ref: string; filePath?: string; pointer?: string }>): Map<string, string[]> {
   const groups = new Map<string, string[]>()
   for (const node of refs) {
-    const name = schemaNameFromRef(node.ref)
+    const name = schemaNameFromNode(node)
     if (!name) continue
     const list = groups.get(name) ?? []
     list.push(refIdentity(node))

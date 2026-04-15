@@ -104,7 +104,7 @@
 | `defineConfig()` | `config.ts` | 타입 안전 config 헬퍼 |
 | `generateTypes()` | `typegen/generate-types.ts` | ParsedDocument → TS 타입 문자열 |
 | `generateTypesFromSpec()` | `typegen/generate-types.ts` | OAS spec → TS 타입 (parseDocument 포함) |
-| `analyzeExternalSchemaRefs()` | `typegen/generate-types.ts` | 외부 schema-position `$ref` 스키마 타입명/충돌 diagnostic 조회 (`#/components/schemas/*`, `#/$defs/*`, 비 components schema root 포함) |
+| `analyzeExternalSchemaRefs()` | `typegen/generate-types.ts` | 외부 schema-position `$ref` 스키마 타입명/충돌 diagnostic 조회 (`#/components/schemas/*`, `#/$defs/*`, 비 components schema root 포함, operation 타입 충돌/unsupported pointer 경고 포함) |
 | `schemaToTs()` | `typegen/schema-to-ts.ts` | 단일 OAS Schema → TS 타입 문자열 (SchemaToTsOptions 지원) |
 | `createWorkspaceIndex()` | `workspace-index.ts` | 기본 noop 또는 memory WorkspaceIndex 생성 |
 | `createNoopWorkspaceIndex()` | `workspace-index.ts` | full rebuild 보존용 no-op WorkspaceIndex 생성 |
@@ -124,8 +124,8 @@
 | `OasSchema` | **`@oa-sdk/parser` re-export** | codegen이 parser 정식 타입 사용 |
 | `TypegenOptions` | `typegen/generate-types.ts` | typegen 옵션 (style, annotations, external ref warnings 등) |
 | `ExternalSchemaRefAnalysis` | `typegen/generate-types.ts` | 외부 schema-position `$ref` alias 분석 결과 |
-| `ExternalSchemaRefDiagnostic` | `typegen/generate-types.ts` | 외부 `$ref` 이름 충돌/해소 실패 diagnostic. sourceFilePath/sourcePointer + filePath/pointer 포함 가능 |
-| `ExternalSchemaRefDiagnosticCode` | `typegen/generate-types.ts` | 외부 `$ref` diagnostic 코드. resolver diagnostic code도 보존 |
+| `ExternalSchemaRefDiagnostic` | `typegen/generate-types.ts` | 외부 `$ref` 이름 충돌/operation 타입 충돌/unsupported pointer/해소 실패 diagnostic. sourceFilePath/sourcePointer + filePath/pointer 포함 가능 |
+| `ExternalSchemaRefDiagnosticCode` | `typegen/generate-types.ts` | 외부 `$ref` diagnostic 코드. `external-schema-shadows-operation`, `external-schema-unsupported-pointer`, resolver diagnostic code도 보존 |
 | `WorkspaceIndex` | `workspace-index.ts` | parser 밖의 증분 workspace index 경계. correctness 원천이 아닌 optimization/index layer |
 | `WorkspaceFileRecord` | `workspace-index.ts` | file path/hash/size/mtime/parser version/run metadata |
 | `WorkspaceComponentRecord` | `workspace-index.ts` | component section/name/pointer/content hash/source location metadata |

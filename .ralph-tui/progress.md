@@ -6,6 +6,7 @@ after each iteration and it's included in prompts for context.
 ## Codebase Patterns (Study These First)
 
 *Add reusable patterns discovered during development here.*
+- Typegen external alias allocation must reserve both local component schema names and generated operation type names before assigning aliases; unsupported schema-position refs into non-schema OAS roots should warn and rewrite to `unknown` so generated TS stays compilable.
 - When `derefSpec()` folds an external target, carry both `RefResolution.documentRoot` and the resolved file `basePath`: documentRoot makes `#/...` pointers resolve against the loaded external document, while basePath keeps nested relative file refs source-local.
 - Resolver baseline tests should cover parser graph/deref behavior separately from codegen alias behavior: parser owns ref traversal/deref semantics, while typegen calls `resolveRefGraph()` for external schema aliases and passes `refNameOverrides` into `schemaToTs()`.
 - Keep low-level `$ref` mechanics in parser-only contracts: `RefResolver` returns a `RefResolution` value object with kind, cache keys, document root, source pointer, pointer/file metadata, and diagnostic, while callers keep traversal/folding behavior local.
@@ -222,4 +223,23 @@ after each iteration and it's included in prompts for context.
   - Target pointer shape alone is not enough for alias discovery once arbitrary schema roots are supported; the `$ref` source location must prove the ref is in schema context.
   - Existing alias naming and collision handling can be reused for `$defs` and custom schema roots because resolved file+pointer identity is already the stable join key.
   - Nested internal refs inside external `$defs` or custom roots need the same absolute file+pointer rewrite path as nested external component refs.
+---
+
+## 2026-04-15 - US-012
+- Implemented deterministic aliases for supported external `$defs` and non-components schema refs by reserving generated operation type names alongside local component schema names before alias assignment.
+- Reused file-stem based deterministic rename behavior for operation type collisions and added warnings that include resolver-normalized file/pointer and generated type context.
+- Added unsupported external pointer diagnostics for schema-position refs into non-schema OAS roots, with `unknown` fallback overrides so generated TypeScript remains compilable instead of emitting dangling aliases.
+- Added codegen typegen regressions for operation bundle name collision and unsupported pointer fallback; codegen test count is now 486 and documented repo total is 1607.
+- Ran checks: `pnpm typecheck` passed; `pnpm --filter @oa-sdk/codegen test` passed; `pnpm check:api-index` passed; `git diff --check` passed. `pnpm test` reached mock-server and failed on sandbox `listen EPERM` for `127.0.0.1`; `pnpm schema:validate` built parser/codegen and failed when `tsx` attempted a sandbox-blocked IPC pipe with `listen EPERM`.
+- Files changed:
+  - `packages/codegen/src/typegen/generate-types.ts`
+  - `packages/codegen/src/__tests__/typegen/generate-types.test.ts`
+  - `docs/internal/spec.md`
+  - `docs/internal/api-index.md`
+  - `docs/internal/todo.md`
+  - `.ralph-tui/progress.md`
+- **Learnings:**
+  - `analyzeExternalSchemaRefs()` needs operation-name awareness because external aliases are merged into `doc.schemas` before operation types are emitted.
+  - Operation bundle collisions are best handled before `uniqueTypeName()` by seeding `usedNames` with local and operation names, preserving the existing deterministic rename path.
+  - Unsupported external pointer roots should be diagnosed before schema alias grouping; otherwise response/path-item objects can look like generic objects and accidentally become aliases.
 ---

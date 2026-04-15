@@ -412,6 +412,113 @@ describe('analyzeExternalSchemaRefs', () => {
     }
   })
 
+  it('external non-components aliases avoid operation bundle type names', () => {
+    const tmp = mkdtempSync(join(tmpdir(), 'oa-sdk-typegen-'))
+    const basePath = join(tmp, 'api.yaml')
+    writeFileSync(join(tmp, 'roots.yaml'), [
+      'schemas:',
+      '  ListRootItemsOp:',
+      '    type: object',
+      '    required: [id]',
+      '    properties:',
+      '      id:',
+      '        type: string',
+      '',
+    ].join('\n'))
+
+    try {
+      const input = doc({
+        paths: {
+          '/items': {
+            get: {
+              operationId: 'listRootItems',
+              responses: {
+                '200': {
+                  description: 'OK',
+                  content: { 'application/json': { schema: { $ref: './roots.yaml#/schemas/ListRootItemsOp' } } },
+                },
+              },
+            },
+          },
+        },
+      })
+
+      const analysis = analyzeExternalSchemaRefs(input, basePath)
+      expect(analysis.refNameOverrides['./roots.yaml#/schemas/ListRootItemsOp']).toBe('RootsListRootItemsOp')
+      expect(analysis.diagnostics).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          code: 'external-schema-shadows-operation',
+          name: 'ListRootItemsOp',
+          generatedName: 'RootsListRootItemsOp',
+          pointer: '#/schemas/ListRootItemsOp',
+        }),
+      ]))
+
+      const warnings: string[] = []
+      const output = generateTypesFromSpec(input, { basePath, warnings })
+      expect(output).toContain('export type RootsListRootItemsOp =')
+      expect(output).toContain('id: string')
+      expect(output).toContain('export type ListRootItemsResponse = RootsListRootItemsOp')
+      expect(output).toContain('export type ListRootItemsOp = {')
+      expect(warnings).toHaveLength(1)
+    } finally {
+      rmSync(tmp, { recursive: true, force: true })
+    }
+  })
+
+  it('unsupported external pointer shapes are reported and emitted as unknown', () => {
+    const tmp = mkdtempSync(join(tmpdir(), 'oa-sdk-typegen-'))
+    const basePath = join(tmp, 'api.yaml')
+    writeFileSync(join(tmp, 'responses.yaml'), [
+      'components:',
+      '  responses:',
+      '    Ok:',
+      '      description: OK',
+      '      content:',
+      '        application/json:',
+      '          schema:',
+      '            type: string',
+      '',
+    ].join('\n'))
+
+    try {
+      const input = doc({
+        paths: {
+          '/unsupported': {
+            get: {
+              operationId: 'getUnsupported',
+              responses: {
+                '200': {
+                  description: 'OK',
+                  content: { 'application/json': { schema: { $ref: './responses.yaml#/components/responses/Ok' } } },
+                },
+              },
+            },
+          },
+        },
+      })
+
+      const analysis = analyzeExternalSchemaRefs(input, basePath)
+      expect(analysis.schemas).toEqual({})
+      expect(analysis.refNameOverrides['./responses.yaml#/components/responses/Ok']).toBe('unknown')
+      expect(analysis.diagnostics).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          code: 'external-schema-unsupported-pointer',
+          name: 'Ok',
+          pointer: '#/components/responses/Ok',
+        }),
+      ]))
+
+      const warnings: string[] = []
+      const output = generateTypesFromSpec(input, { basePath, warnings })
+      expect(output).toContain('export type GetUnsupportedResponse = unknown')
+      expect(output).not.toContain('export type Ok =')
+      expect(warnings).toHaveLength(1)
+    } finally {
+      rmSync(tmp, { recursive: true, force: true })
+    }
+  })
+
   it('typegen missing external schema refs are reported as unresolved analysis diagnostics', () => {
     const tmp = mkdtempSync(join(tmpdir(), 'oa-sdk-typegen-'))
     const basePath = join(tmp, 'api.yaml')
