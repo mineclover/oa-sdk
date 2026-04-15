@@ -12,6 +12,7 @@ after each iteration and it's included in prompts for context.
 - Typegen external schema aliases need two ref identities: raw `$ref` overrides only for entry-document refs, and canonical absolute file+pointer refs for external schema internals rewritten by sourceFilePath/sourcePointer before `schemaToTs()`.
 - Typegen rename diagnostics should be emitted after deterministic alias names are assigned so warnings can report resolver-normalized `file#pointer -> TypeName` context without changing name allocation.
 - Incremental workspace boundaries belong outside parser: keep `WorkspaceIndex` in codegen/CLI layers, and make the default noop index mark every scanned file dirty so full rebuild remains the correctness path.
+- Persistent workspace indexes are disposable optimization state: store schema/options compatibility metadata, wrap writes in transactions, and degrade storage mismatches or DB errors to full rebuild fallback instead of letting cache state affect correctness.
 
 ---
 
@@ -135,4 +136,26 @@ after each iteration and it's included in prompts for context.
   - A no-op incremental index should return empty reads but mark all scanned files dirty, preserving current full rebuild behavior without special CLI branching.
   - Keeping WorkspaceIndex row types independent from parser types avoids pulling parser correctness contracts or future SQLite details into browser/mock-server-safe parser bundles.
   - File-level `replaceFileIndex()` gives future SQLite orchestration the same invalidation unit described in ADR-006 while remaining easy to exercise in memory.
+---
+
+## 2026-04-15 - US-008
+- Implemented `SQLiteWorkspaceIndex` in `@oa-sdk/codegen`, creating `.oa-cache/state.sqlite` by default with `meta`, `files`, `components`, `refs`, `source_locations`, `diagnostics`, and `type_aliases` tables.
+- Enabled WAL mode, busy timeout, foreign keys, schema/options compatibility metadata, transaction-wrapped writes, cache clear, rollback, and full rebuild fallback for DB open/read/write errors.
+- Added SQLite workspace-index tests for schema initialization/persistence, version/options mismatch rebuild, transaction rollback, and DB open fallback; codegen tests now pass with 477 cases.
+- Updated internal spec/test counts, API index, ADR implementation status, and todo completion notes.
+- Ran required checks: `pnpm typecheck` passed; `pnpm --filter @oa-sdk/codegen test` passed with 477 tests; `pnpm check:api-index` passed; `pnpm test` passed core/parser/router/client/codegen then failed in mock-server integration suites on sandbox `listen EPERM`; `pnpm schema:validate` built parser/codegen then failed when `tsx` attempted an IPC pipe with `listen EPERM`.
+- Files changed:
+  - `packages/codegen/src/sqlite-workspace-index.ts`
+  - `packages/codegen/src/workspace-index.ts`
+  - `packages/codegen/src/index.ts`
+  - `packages/codegen/src/__tests__/workspace-index.test.ts`
+  - `docs/internal/spec.md`
+  - `docs/internal/api-index.md`
+  - `docs/internal/todo.md`
+  - `docs/internal/architecture/006-incremental-workspace-index.md`
+  - `.ralph-tui/progress.md`
+- **Learnings:**
+  - `node:sqlite` is available in the current Node 24 environment, but using `createRequire()` keeps TypeScript independent from Node 24-only ambient types.
+  - SQLite `PRAGMA foreign_keys` is connection-local, so rollback coverage is better proven through an FK-violating transaction and reopening the DB to verify old rows remain.
+  - Compatibility mismatch should clear persisted rows and force exactly one full rebuild diff; subsequent runs can reuse the freshly stamped schema/options metadata.
 ---

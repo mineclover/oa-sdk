@@ -1,11 +1,17 @@
 import { describe, it, expect, expectTypeOf } from 'vitest'
-import { readFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import { createRequire } from 'node:module'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import {
   createMemoryWorkspaceIndex,
   createWorkspaceIndex,
   type WorkspaceFileRecord,
   type WorkspaceIndex,
 } from '../workspace-index.js'
+import { createSQLiteWorkspaceIndex, SQLITE_WORKSPACE_INDEX_SCHEMA_VERSION } from '../sqlite-workspace-index.js'
+
+const require = createRequire(import.meta.url)
 
 const apiFile: WorkspaceFileRecord = {
   filePath: 'api.yaml',
@@ -168,4 +174,254 @@ describe('WorkspaceIndex', () => {
 
     expect(dependencyNames.filter(name => name.toLowerCase().includes('sqlite'))).toEqual([])
   })
+
+  it('initializes the SQLite schema and persists workspace metadata', () => {
+    const tmp = mkdtempSync(join(tmpdir(), 'oa-sdk-sqlite-index-'))
+    const cacheDir = join(tmp, '.oa-cache')
+    const index = createSQLiteWorkspaceIndex({
+      cacheDir,
+      compatibility: { command: 'validate', parser: 'parser-a' },
+    })
+
+    try {
+      expect(index.fallbackReason).toBeUndefined()
+      expect(index.dbPath).toBe(join(cacheDir, 'state.sqlite'))
+      expect(existsSync(index.dbPath)).toBe(true)
+
+      index.upsertFile(apiFile)
+      index.replaceFileIndex(apiFile.filePath, {
+        components: [{
+          filePath: apiFile.filePath,
+          section: 'schemas',
+          name: 'User',
+          pointer: '#/components/schemas/User',
+          contentHash: 'component-hash',
+        }],
+        refs: [{
+          fromFile: apiFile.filePath,
+          fromPointer: '#/components/schemas/User/properties/role/$ref',
+          refText: './shared.yaml#/components/schemas/Role',
+          kind: 'external',
+          resolved: true,
+          toFile: 'shared.yaml',
+          toPointer: '#/components/schemas/Role',
+        }],
+        sourceLocations: [{
+          filePath: apiFile.filePath,
+          pointer: '#/components/schemas/User',
+          line: 12,
+          column: 5,
+        }],
+        diagnostics: [{
+          producer: 'ref-graph',
+          severity: 'info',
+          code: 'indexed',
+          message: 'indexed file',
+          filePath: apiFile.filePath,
+          pointer: '#/components/schemas/User',
+        }],
+        typeAliases: [{
+          sourceFile: apiFile.filePath,
+          sourcePointer: '#/components/schemas/User/properties/role/$ref',
+          refText: './shared.yaml#/components/schemas/Role',
+          aliasName: 'SharedRole',
+          contentHash: 'alias-hash',
+        }],
+      })
+
+      expect(index.getFile(apiFile.filePath)).toEqual(apiFile)
+      expect(index.listComponents({ name: 'User' })).toHaveLength(1)
+      expect(index.listRefs({ toFile: 'shared.yaml' })).toHaveLength(1)
+      expect(index.listSourceLocations(apiFile.filePath)).toHaveLength(1)
+      expect(index.listDiagnostics({ producer: 'ref-graph' })).toHaveLength(1)
+      expect(index.listTypeAliases({ aliasName: 'SharedRole' })).toHaveLength(1)
+
+      const db = openSqliteForTest(index.dbPath)
+      try {
+        expect(listTables(db)).toEqual([
+          'components',
+          'diagnostics',
+          'files',
+          'meta',
+          'refs',
+          'source_locations',
+          'type_aliases',
+        ])
+        expect(readMeta(db, 'schema_version')).toBe(String(SQLITE_WORKSPACE_INDEX_SCHEMA_VERSION))
+        expect(readMeta(db, 'compatibility_json')).toBe('{"command":"validate","parser":"parser-a"}')
+        expect(readJournalMode(db)).toBe('wal')
+      } finally {
+        db.close()
+      }
+    } finally {
+      index.close()
+      rmSync(tmp, { recursive: true, force: true })
+    }
+  })
+
+  it('clears incompatible SQLite caches and forces one full rebuild diff', () => {
+    const tmp = mkdtempSync(join(tmpdir(), 'oa-sdk-sqlite-index-'))
+    const cacheDir = join(tmp, '.oa-cache')
+    const stale = createSQLiteWorkspaceIndex({
+      cacheDir,
+      schemaVersion: 0,
+      compatibility: { command: 'validate' },
+    })
+
+    try {
+      stale.upsertFile({ ...apiFile, contentHash: 'stale-hash' })
+      expect(stale.listFiles()).toHaveLength(1)
+    } finally {
+      stale.close()
+    }
+
+    const current = createSQLiteWorkspaceIndex({
+      cacheDir,
+      compatibility: { command: 'typegen' },
+    })
+
+    try {
+      expect(current.fallbackReason).toBeUndefined()
+      expect(current.listFiles()).toEqual([])
+      expect(current.detectChanges([apiFile])).toEqual({
+        changed: [apiFile],
+        unchanged: [],
+        deleted: [],
+      })
+
+      const db = openSqliteForTest(current.dbPath)
+      try {
+        expect(readMeta(db, 'schema_version')).toBe(String(SQLITE_WORKSPACE_INDEX_SCHEMA_VERSION))
+        expect(readMeta(db, 'compatibility_json')).toBe('{"command":"typegen"}')
+      } finally {
+        db.close()
+      }
+    } finally {
+      current.close()
+      rmSync(tmp, { recursive: true, force: true })
+    }
+  })
+
+  it('rolls back failed SQLite writes before falling back', () => {
+    const tmp = mkdtempSync(join(tmpdir(), 'oa-sdk-sqlite-index-'))
+    const cacheDir = join(tmp, '.oa-cache')
+    const index = createSQLiteWorkspaceIndex({ cacheDir })
+
+    try {
+      index.upsertFile(apiFile)
+      index.replaceFileIndex(apiFile.filePath, {
+        components: [{
+          filePath: apiFile.filePath,
+          section: 'schemas',
+          name: 'User',
+          pointer: '#/components/schemas/User',
+          contentHash: 'component-hash',
+        }],
+      })
+
+      index.replaceFileIndex(apiFile.filePath, {
+        components: [
+          {
+            filePath: apiFile.filePath,
+            section: 'schemas',
+            name: 'UserV2',
+            pointer: '#/components/schemas/UserV2',
+            contentHash: 'component-hash-v2',
+          },
+          {
+            filePath: 'missing.yaml',
+            section: 'schemas',
+            name: 'Missing',
+            pointer: '#/components/schemas/Missing',
+            contentHash: 'missing-hash',
+          },
+        ],
+      })
+
+      expect(index.fallbackReason).toBeDefined()
+      index.close()
+
+      const reopened = createSQLiteWorkspaceIndex({ cacheDir })
+      try {
+        expect(reopened.fallbackReason).toBeUndefined()
+        expect(reopened.listComponents()).toEqual([{
+          filePath: apiFile.filePath,
+          section: 'schemas',
+          name: 'User',
+          pointer: '#/components/schemas/User',
+          contentHash: 'component-hash',
+        }])
+      } finally {
+        reopened.close()
+      }
+    } finally {
+      index.close()
+      rmSync(tmp, { recursive: true, force: true })
+    }
+  })
+
+  it('falls back to full rebuild behavior when SQLite cannot open', () => {
+    const tmp = mkdtempSync(join(tmpdir(), 'oa-sdk-sqlite-index-'))
+    const dbPath = join(tmp, '.oa-cache', 'state.sqlite')
+    mkdirSync(dbPath, { recursive: true })
+    const index = createSQLiteWorkspaceIndex({ dbPath })
+
+    try {
+      expect(index.fallbackReason).toBeDefined()
+      index.upsertFile(apiFile)
+      index.replaceFileIndex(apiFile.filePath, {
+        components: [{
+          filePath: apiFile.filePath,
+          section: 'schemas',
+          name: 'User',
+          pointer: '#/components/schemas/User',
+          contentHash: 'component-hash',
+        }],
+      })
+
+      expect(index.getFile(apiFile.filePath)).toBeUndefined()
+      expect(index.listComponents()).toEqual([])
+      expect(index.detectChanges([apiFile])).toEqual({
+        changed: [apiFile],
+        unchanged: [],
+        deleted: [],
+      })
+    } finally {
+      index.close()
+      rmSync(tmp, { recursive: true, force: true })
+    }
+  })
 })
+
+type TestSqliteDatabase = {
+  close(): void
+  prepare(sql: string): {
+    all(...values: unknown[]): Record<string, unknown>[]
+    get(...values: unknown[]): Record<string, unknown> | undefined
+  }
+}
+
+function openSqliteForTest(dbPath: string): TestSqliteDatabase {
+  const sqlite = require('node:sqlite') as { DatabaseSync: new (path: string) => TestSqliteDatabase }
+  return new sqlite.DatabaseSync(dbPath)
+}
+
+function listTables(db: TestSqliteDatabase): string[] {
+  return db.prepare(`
+    SELECT name
+    FROM sqlite_master
+    WHERE type = 'table'
+      AND name NOT LIKE 'sqlite_%'
+    ORDER BY name
+  `).all().map(row => String(row.name))
+}
+
+function readMeta(db: TestSqliteDatabase, key: string): string | undefined {
+  const row = db.prepare('SELECT value FROM meta WHERE key = ?').get(key)
+  return typeof row?.value === 'string' ? row.value : undefined
+}
+
+function readJournalMode(db: TestSqliteDatabase): string | undefined {
+  const row = db.prepare('PRAGMA journal_mode').get()
+  return typeof row?.journal_mode === 'string' ? row.journal_mode : undefined
+}

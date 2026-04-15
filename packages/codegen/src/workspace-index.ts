@@ -1,4 +1,6 @@
-export type WorkspaceIndexMode = 'noop' | 'memory'
+import { createSQLiteWorkspaceIndex, type SQLiteWorkspaceIndexOptions } from './sqlite-workspace-index.js'
+
+export type WorkspaceIndexMode = 'noop' | 'memory' | 'sqlite'
 
 export type WorkspaceFileRecord = {
   filePath: string
@@ -108,10 +110,12 @@ export type WorkspaceTypeAliasFilter = {
   aliasName?: string
 }
 
+export type WorkspaceIndexCompatibilityMetadata = Record<string, string | number | boolean | null>
+
 export type WorkspaceIndexOptions = {
   mode?: WorkspaceIndexMode
   seed?: Partial<WorkspaceIndexSnapshot>
-}
+} & SQLiteWorkspaceIndexOptions
 
 export interface WorkspaceIndex {
   readonly mode: WorkspaceIndexMode
@@ -137,6 +141,7 @@ export interface WorkspaceIndex {
 
 export function createWorkspaceIndex(options: WorkspaceIndexOptions = {}): WorkspaceIndex {
   if (options.mode === 'memory') return createMemoryWorkspaceIndex(options.seed)
+  if (options.mode === 'sqlite') return createSQLiteWorkspaceIndex(options)
   return createNoopWorkspaceIndex()
 }
 

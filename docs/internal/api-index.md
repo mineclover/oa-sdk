@@ -109,6 +109,8 @@
 | `createWorkspaceIndex()` | `workspace-index.ts` | 기본 noop 또는 memory WorkspaceIndex 생성 |
 | `createNoopWorkspaceIndex()` | `workspace-index.ts` | full rebuild 보존용 no-op WorkspaceIndex 생성 |
 | `createMemoryWorkspaceIndex()` | `workspace-index.ts` | 파일 단위 metadata 저장/변경 감지용 in-memory WorkspaceIndex 생성 |
+| `createSQLiteWorkspaceIndex()` | `sqlite-workspace-index.ts` | `.oa-cache/state.sqlite` 기반 persistent WorkspaceIndex 생성 |
+| `SQLITE_WORKSPACE_INDEX_SCHEMA_VERSION` | `sqlite-workspace-index.ts` | SQLite workspace index schema compatibility version |
 
 ### 타입 (`@oa-sdk/codegen`)
 
@@ -132,7 +134,8 @@
 | `WorkspaceDiagnosticRecord` | `workspace-index.ts` | producer/severity/code/message/source metadata |
 | `WorkspaceTypeAliasRecord` | `workspace-index.ts` | external ref type alias name/rename/content hash metadata |
 | `WorkspaceIndexDiff` / `WorkspaceIndexSnapshot` | `workspace-index.ts` | dirty detection and full index snapshot shapes |
-| `WorkspaceIndexMode` / `WorkspaceIndexOptions` | `workspace-index.ts` | noop/memory index factory configuration |
+| `WorkspaceIndexMode` / `WorkspaceIndexOptions` | `workspace-index.ts` | noop/memory/sqlite index factory configuration |
+| `WorkspaceIndexCompatibilityMetadata` | `workspace-index.ts` | SQLite cache compatibility hash input metadata |
 | `WorkspaceFileIndexData` | `workspace-index.ts` | 파일 단위 components/refs/source/diagnostics/typeAliases 교체 입력 |
 | `WorkspaceRefKind` | `workspace-index.ts` | internal/external/unsupported ref edge kind |
 | `WorkspaceDiagnosticSeverity` | `workspace-index.ts` | error/warning/info diagnostic severity |
@@ -140,6 +143,8 @@
 | `WorkspaceRefFilter` | `workspace-index.ts` | ref edge 조회 필터 |
 | `WorkspaceDiagnosticFilter` | `workspace-index.ts` | diagnostic metadata 조회 필터 |
 | `WorkspaceTypeAliasFilter` | `workspace-index.ts` | type alias metadata 조회 필터 |
+| `SQLiteWorkspaceIndex` | `sqlite-workspace-index.ts` | SQLite-backed WorkspaceIndex with database path, fallback reason, and close method |
+| `SQLiteWorkspaceIndexOptions` | `sqlite-workspace-index.ts` | cacheDir/dbPath/schemaVersion/compatibility/busyTimeoutMs 설정 |
 
 ### 내부 함수 (`@oa-sdk/codegen` — index 미노출)
 

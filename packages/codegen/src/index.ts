@@ -16,6 +16,7 @@ export { defineConfig } from './config.js'
 export { analyzeExternalSchemaRefs, generateTypes, generateTypesFromSpec } from './typegen/generate-types.js'
 export { schemaToTs } from './typegen/schema-to-ts.js'
 export { createMemoryWorkspaceIndex, createNoopWorkspaceIndex, createWorkspaceIndex } from './workspace-index.js'
+export { createSQLiteWorkspaceIndex, SQLITE_WORKSPACE_INDEX_SCHEMA_VERSION } from './sqlite-workspace-index.js'
 
 export type { OasSchema } from './zod-to-schema.js'
 export type { CodegenConfig } from './config.js'
@@ -31,6 +32,7 @@ export type {
   WorkspaceFileIndexData,
   WorkspaceFileRecord,
   WorkspaceIndex,
+  WorkspaceIndexCompatibilityMetadata,
   WorkspaceIndexDiff,
   WorkspaceIndexMode,
   WorkspaceIndexOptions,
@@ -42,3 +44,4 @@ export type {
   WorkspaceTypeAliasFilter,
   WorkspaceTypeAliasRecord,
 } from './workspace-index.js'
+export type { SQLiteWorkspaceIndex, SQLiteWorkspaceIndexOptions } from './sqlite-workspace-index.js'
