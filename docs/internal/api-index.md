@@ -71,6 +71,9 @@
 | `createDefinitionRef()` | `definition-node.ts` | fragment content 안 source `$ref`의 raw ref와 source path/pointer, optional target canonical id를 보존 |
 | `createDefinitionRegistry()` | `definition-registry.ts` | DefinitionNode 목록을 registry graph로 등록하고 canonical/file ref를 canonical id로 정규화하며 duplicate/missing/unsupported diagnostic과 ref edge를 수집 |
 | `collectDefinitionRefs()` | `definition-registry.ts` | fragment content를 JSON Pointer-aware traversal로 순회해 `$ref` 위치를 DefinitionRef로 수집 |
+| `rewriteDefinitionOutputRefs()` | `definition-output-refs.ts` | registry target id를 사용해 fragment content/refs의 source `$ref`를 표준 OpenAPI component `$ref`로 rewrite |
+| `toOpenApiComponentRef()` | `definition-output-refs.ts` | component-like definition node와 output name을 OpenAPI component `$ref` 문자열로 변환 |
+| `DEFINITION_OUTPUT_COMPONENT_PATHS` | `definition-output-refs.ts` | definition kind별 OpenAPI component 위치 매핑: schemas/responses/parameters/requestBodies/headers/links/callbacks/securitySchemes |
 | `findOperation()` | `query.ts` | operationId로 오퍼레이션 검색 |
 | `findByTag()` | `query.ts` | 태그로 오퍼레이션 필터 |
 | `findByPath()` | `query.ts` | 경로로 오퍼레이션 필터 |
@@ -123,6 +126,10 @@
 | `DefinitionRegistryDiagnosticCode` | `definition-registry.ts` | registry graph diagnostic code union (`duplicate-id`, `missing-ref`, `unsupported-ref`) |
 | `DefinitionRegistryDiagnosticSeverity` | `definition-registry.ts` | registry graph diagnostic severity: error, warning, info |
 | `DefinitionRegistryOptions` | `definition-registry.ts` | registry 생성 옵션. source location lookup으로 diagnostic line/column 보강 |
+| `DefinitionOutputNameMap` | `definition-output-refs.ts` | target-local canonical id → output component name 매핑 |
+| `DefinitionOutputRefRewrite` | `definition-output-refs.ts` | source ref, target id, output ref, component path, output name을 담는 rewrite 기록 |
+| `DefinitionOutputRefRewriteOptions` | `definition-output-refs.ts` | output name map 또는 resolver를 받는 output ref rewrite 옵션 |
+| `DefinitionOutputRefRewriteResult` | `definition-output-refs.ts` | rewritten nodes, nodeById, rewrite 기록, registry diagnostics를 담는 결과 |
 | `LintResult` | `lint.ts` | 린트 결과. source file/pointer와 YAML line/column metadata 포함 가능 |
 | `LintSeverity` | `lint.ts` | 린트 심각도 |
 | `LintOptions` | `lint.ts` | 린트 옵션. basePath와 optional source location lookup 지원 |

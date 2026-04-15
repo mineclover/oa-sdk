@@ -134,11 +134,12 @@
         "pnpm build:scripts && pnpm check:api-index passes."
       ],
       "priority": 5,
-      "passes": false,
+      "passes": true,
       "notes": "Can be implemented before full document emit as a pure rewrite helper over registry nodes.",
       "dependsOn": [
         "US-004"
-      ]
+      ],
+      "completionNotes": "Completed by agent"
     },
     {
       "id": "US-006",
@@ -393,6 +394,6 @@
     }
   ],
   "metadata": {
-    "updatedAt": "2026-04-15T20:30:19.682Z"
+    "updatedAt": "2026-04-15T20:36:48.410Z"
   }
 }

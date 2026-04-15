@@ -93,6 +93,19 @@ export type {
   DefinitionRegistryRefEdge,
 } from './definition-registry.js'
 
+// ─── Definition Output Refs ────────────────────────────────────────────────
+export {
+  DEFINITION_OUTPUT_COMPONENT_PATHS,
+  rewriteDefinitionOutputRefs,
+  toOpenApiComponentRef,
+} from './definition-output-refs.js'
+export type {
+  DefinitionOutputNameMap,
+  DefinitionOutputRefRewrite,
+  DefinitionOutputRefRewriteOptions,
+  DefinitionOutputRefRewriteResult,
+} from './definition-output-refs.js'
+
 // ─── Lint ─────────────────────────────────────────────────────────────────
 export { lintDocument } from './lint.js'
 export type { LintResult, LintSeverity, LintOptions } from './lint.js'

@@ -1,0 +1,124 @@
+# Iteration 4 Log
+
+## Metadata
+
+- **Task ID**: US-004
+- **Task Title**: Resolve canonical and file refs
+- **Description**: As a schema author, I want source refs to use canonical identity syntax so that fragments can reference concepts rather than emitted OpenAPI names.
+- **Status**: completed
+- **Task Completed**: Yes
+- **Promise Detected**: Yes
+- **Started At**: 2026-04-15T20:21:08.171Z
+- **Ended At**: 2026-04-15T20:30:19.681Z
+- **Duration**: 9m 11s
+- **Input Tokens**: 5058373
+- **Output Tokens**: 23043
+- **Total Tokens**: 5081416
+- **Agent**: codex
+- **Sandbox Mode**: auto
+- **Sandbox Network**: Enabled
+--- RAW OUTPUT ---
+I’ll read the local instructions and the Ralph progress notes first, then trace the existing parser/source ref flow before editing.
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,260p' .ralph-tui/progress.md"
+[94m[shell][0m $ /bin/zsh -lc "rg --files -g 'AGENTS.md' -g '"'!node_modules'"'"
+[94m[shell][0m $ /bin/zsh -lc 'git status --short'
+The progress log shows US-003 already added canonical ID parsing plus registry ref-edge collection, so this story should extend that path rather than introduce a second resolver. I also see unrelated dirty Ralph/session files in the worktree; I’ll leave them alone except for the required progress update.
+[94m[shell][0m $ /bin/zsh -lc "rg --files -uu -g 'AGENTS.md' -g '"'!node_modules'"'"
+[94m[shell][0m $ /bin/zsh -lc "rg \"collectRefs|DefinitionRegistry|DefinitionRef|oa://|\\"'$ref|definition" packages/...
+[94m[shell][0m $ /bin/zsh -lc 'rg --files packages/parser/src packages/codegen/src packages/schemas/src docs/internal...
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,260p' packages/parser/src/definition-id.ts"
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,260p' packages/parser/src/definition-registry.ts"
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,240p' packages/parser/src/definition-node.ts"
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,260p' packages/parser/src/ref-graph.ts"
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,220p' docs/internal/spec.md"
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,280p' packages/parser/src/ref-resolver.ts"
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,280p' packages/parser/src/__tests__/definition-registry.test.ts"
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,180p' docs/internal/todo.md"
+The registry code already normalizes `oa://...` into `kind:scope/domain/name` when the grammar is valid, but it currently stays silent for invalid canonical refs, missing targets, and file refs. I’m going to add those diagnostics and reuse the existing ref traversal instead of touching the general OpenAPI resolver.
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,220p' packages/parser/src/index.ts"
+[94m[shell][0m $ /bin/zsh -lc "sed -n '220,420p' packages/parser/src/ref-resolver.ts"
+[94m[shell][0m $ /bin/zsh -lc 'cat package.json'
+[94m[shell][0m $ /bin/zsh -lc 'cat packages/parser/package.json'
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,260p' tasks/prd-openapi-definition-builder.md"
+[94m[shell][0m $ /bin/zsh -lc "rg -n \"US-004|canonical refs|file refs|source ref|relative file\" tasks docs packages...
+[94m[shell][0m $ /bin/zsh -lc 'cat packages/schemas/package.json'
+[94m[shell][0m $ /bin/zsh -lc 'cat packages/codegen/package.json'
+[94m[shell][0m $ /bin/zsh -lc "sed -n '40,95p' tasks/prd.json"
+[94m[shell][0m $ /bin/zsh -lc "sed -n '70,130p' tasks/prd-openapi-definition-builder.json"
+[94m[shell][0m $ /bin/zsh -lc "rg -n \"definition-registry|DefinitionRegistryDiagnosticCode|collectDefinitionRefs|cre...
+[94m[shell][0m $ /bin/zsh -lc 'cat packages/parser/tsconfig.json'
+[94m[shell][0m $ /bin/zsh -lc 'cat tsconfig.json'
+
+[91m[Error: cat: tsconfig.json: No such file or directory
+][0m
+[94m[shell][0m $ /bin/zsh -lc 'cat tsconfig.base.json'
+I’m going to restructure registry creation into two phases: first register unique nodes, then resolve every collected ref against the complete node/source index. That lets later nodes satisfy earlier refs and keeps missing diagnostics accurate.
+[94m[shell][0m $ /bin/zsh -lc 'pnpm --filter @oa-sdk/parser typecheck'
+
+[91m[Error: 
+> @oa-sdk/parser@0.1.0 typecheck /Users/junwoobang/workflow/oa-sdk/packages/parser
+> tsc --noEmit
+
+src/definition-registry.ts(213,42): error TS2379: Argument of type '{ code: "definition-registry/missing-ref" | "definition-registry/unsupported-ref"; ref: DefinitionRef; options: DefinitionRegistryOptions; message: string; filePath: string; pointer: string | undefined; }' is not assignable to parameter of type '{ code: DefinitionRegistryDiagnosticCode; ref: DefinitionRef; options: DefinitionRegis][0m
+The first typecheck caught the expected `exactOptionalPropertyTypes` edge: diagnostic helpers cannot pass optional fields with `undefined`. I’ll tighten those object constructions before adding broader tests.
+[94m[shell][0m $ /bin/zsh -lc 'pnpm --filter @oa-sdk/parser typecheck'
+I’m adding focused parser tests now: valid canonical normalization, relative file normalization, missing target diagnostics, unsupported ref diagnostics, and a transitive nested ref case across registered fragments.
+[94m[shell][0m $ /bin/zsh -lc 'pnpm --filter @oa-sdk/parser test'
+[94m[shell][0m $ /bin/zsh -lc "sed -n '55,135p' docs/internal/api-index.md"
+The parser tests for the new resolution behavior pass locally. I’m updating the internal spec, API index wording, and todo so the docs match the new boundary: source refs resolve now, output OpenAPI rewrite remains the next story.
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,420p' packages/parser/src/definition-registry.ts"
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,340p' packages/parser/src/__tests__/definition-registry.test.ts"
+[94m[shell][0m $ /bin/zsh -lc 'git diff -- docs/internal/spec.md docs/internal/todo.md docs/internal/api-index.md'
+[94m[shell][0m $ /bin/zsh -lc 'pnpm --filter @oa-sdk/parser typecheck'
+[94m[shell][0m $ /bin/zsh -lc 'pnpm --filter @oa-sdk/parser test'
+[94m[shell][0m $ /bin/zsh -lc 'git diff -- packages/parser/src/definition-registry.ts'
+[94m[shell][0m $ /bin/zsh -lc 'git diff -- packages/parser/src/__tests__/definition-registry.test.ts'
+[94m[shell][0m $ /bin/zsh -lc 'git status --short'
+[94m[shell][0m $ /bin/zsh -lc 'date +%F'
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,80p' .ralph-tui/progress.md"
+I’m recording the required Ralph progress entry and adding one reusable registry-resolution pattern to the top patterns section.
+[94m[shell][0m $ /bin/zsh -lc "sed -n '1,120p' .ralph-tui/progress.md"
+Implementation and focused parser checks are in place. I’m moving through the required repo gates now; the schema validation gate is last because it rebuilds parser/codegen artifacts and writes schema build outputs.
+[94m[shell][0m $ /bin/zsh -lc 'pnpm typecheck'
+[94m[shell][0m $ /bin/zsh -lc 'pnpm --filter @oa-sdk/codegen test'
+[94m[shell][0m $ /bin/zsh -lc 'pnpm --filter @oa-sdk/schemas test'
+`pnpm typecheck`, codegen tests, and schemas tests have passed. I’m running the schema validation pipeline and API-index validation next.
+[94m[shell][0m $ /bin/zsh -lc 'pnpm schema:validate'
+[94m[shell][0m $ /bin/zsh -lc 'pnpm build:scripts && pnpm check:api-index'
+[94m[shell][0m $ /bin/zsh -lc "git diff -- .ralph-tui/progress.md | sed -n '1,220p'"
+[94m[shell][0m $ /bin/zsh -lc 'git diff --stat'
+[94m[shell][0m $ /bin/zsh -lc 'git status --short'
+[94m[shell][0m $ /bin/zsh -lc 'pnpm build:scripts && pnpm check:api-index'
+[94m[shell][0m $ /bin/zsh -lc "git diff -- packages/parser/src/definition-registry.ts | sed -n '1,260p'"
+[94m[shell][0m $ /bin/zsh -lc 'git diff --stat -- .ralph-tui/progress.md docs/internal/api-index.md docs/internal/spe...
+[94m[shell][0m $ /bin/zsh -lc "git diff -- docs/internal/spec.md | sed -n '1,180p'"
+[94m[shell][0m $ /bin/zsh -lc "git diff -- packages/parser/src/definition-registry.ts | sed -n '260,520p'"
+[94m[shell][0m $ /bin/zsh -lc 'rg -n "220|215|Tests|테스트|test count|parser test" docs/internal/spec.md docs/internal/t...
+[94m[shell][0m $ /bin/zsh -lc "sed -n '260,310p' docs/internal/spec.md && sed -n '220,270p' docs/internal/todo.md"
+[94m[shell][0m $ /bin/zsh -lc 'pnpm build:scripts && pnpm check:api-index'
+[94m[shell][0m $ /bin/zsh -lc 'git diff --stat -- .ralph-tui/progress.md docs/internal/api-index.md docs/internal/spe...
+[94m[shell][0m $ /bin/zsh -lc "rg -n \"vitest 1665|parser \\| 220|Source ref resolution|canonical/file source ref res...
+[94m[shell][0m $ /bin/zsh -lc 'git status --short'
+[94m[shell][0m $ /bin/zsh -lc "nl -ba packages/parser/src/definition-registry.ts | sed -n '1,230p'"
+[94m[shell][0m $ /bin/zsh -lc "nl -ba packages/parser/src/__tests__/definition-registry.test.ts | sed -n '1,260p'"
+[94m[shell][0m $ /bin/zsh -lc "nl -ba docs/internal/spec.md | sed -n '160,185p'"
+Implemented US-004.
+
+Source ref resolution now runs after unique registry node registration in [definition-registry.ts](/Users/junwoobang/workflow/oa-sdk/packages/parser/src/definition-registry.ts:57). Canonical `oa://...` refs normalize to `kind:scope/domain/name`, relative file refs resolve through registered `sourcePath`/`sourcePointer`, and missing or unsupported refs now produce registry diagnostics with source metadata.
+
+Added coverage in [definition-registry.test.ts](/Users/junwoobang/workflow/oa-sdk/packages/parser/src/__tests__/definition-registry.test.ts:104) for canonical refs, file refs, missing refs, unsupported refs, and nested/transitive ref resolution. Updated [spec.md](/Users/junwoobang/workflow/oa-sdk/docs/internal/spec.md:173), [todo.md](/Users/junwoobang/workflow/oa-sdk/docs/internal/todo.md:53), [api-index.md](/Users/junwoobang/workflow/oa-sdk/docs/internal/api-index.md:72), and appended the required US-004 progress entry.
+
+Verification passed:
+- `pnpm typecheck`
+- `pnpm --filter @oa-sdk/parser test`
+- `pnpm --filter @oa-sdk/codegen test`
+- `pnpm --filter @oa-sdk/schemas test`
+- `pnpm schema:validate` (passes with the existing 4 Spectral hints)
+- `pnpm build:scripts && pnpm check:api-index`
+
+Unrelated pre-existing dirty Ralph/session/task files are still present and were left untouched.
+
+<promise>COMPLETE</promise>
+
+--- STDERR ---
+2026-04-15T20:21:08.754298Z ERROR rmcp::transport::worker: worker quit with fatal: Transport channel closed, when AuthRequired(AuthRequiredError { www_authenticate_header: "Bearer realm=\"OAuth\", resource_metadata=\"https://mcp.cloudflare.com/.well-known/oauth-protected-resource/mcp\", error=\"invalid_token\", error_description=\"Missing or invalid access token\"" })

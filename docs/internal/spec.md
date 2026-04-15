@@ -176,12 +176,18 @@ Canonical source ref syntax는 `oa://{kind}/{scope}/{domain}/{name}`이며, regi
 
 Registry는 duplicate id 외에도 source ref diagnostic을 만든다. 유효한 canonical ref 또는 file ref가 등록된 target을 찾지 못하면 `definition-registry/missing-ref`, `oa://...` 문법이 canonical id로 정규화되지 않거나 legacy/internal/absolute ref처럼 builder source ref로 지원하지 않는 형식이면 `definition-registry/unsupported-ref`를 보고한다. Ref diagnostic은 raw `ref`, source path/pointer, optional line/column, file target path/pointer 또는 target canonical id를 보존한다. Output `$ref` rewrite는 다음 builder 단계의 책임이다.
 
+#### Output `$ref` rewrite (US-005)
+
+`rewriteDefinitionOutputRefs()`는 registry의 resolved `targetId`와 node source pointer를 사용해 fragment `content`와 `refs` 안의 source `$ref`를 표준 OpenAPI component `$ref`로 변환한다. 기본 output name은 target node의 `localName`이며, target-local naming policy가 준비되면 `outputNames` map 또는 `resolveOutputName` callback으로 `schema:public/notebook/Note -> NotebookNote` 같은 alias를 주입한다.
+
+Component-like kind의 output 위치는 고정 매핑이다: `schema -> #/components/schemas`, `response -> #/components/responses`, `parameter -> #/components/parameters`, `requestBody -> #/components/requestBodies`, `header -> #/components/headers`, `link -> #/components/links`, `callback -> #/components/callbacks`, `securityScheme -> #/components/securitySchemes`. 출력명 segment는 JSON Pointer escaping을 적용한다. Missing/unsupported source ref는 registry diagnostic을 그대로 보존하고 rewrite하지 않으므로 build emit 단계는 `valid` registry만 OpenAPI 문서로 내보내야 한다.
+
 | 개념 | 계획 |
 |------|------|
 | Canonical identity | `kind:scope/domain/name` 고정 계층. 예: `schema:public/book/Note`, `schema:public/notebook/Note`, `schema:shared/common/Error`. source identity와 output component name을 분리 |
 | Definition registry | fragment를 unique node로 등록하고 JSON Pointer-aware `$ref` edge, content hash, source path/pointer, duplicate id diagnostics를 수집 |
 | Source refs | `oa://schema/public/book/Note` 같은 canonical ref와 상대 file ref를 canonical id로 정규화 |
-| Output refs | build target에서 `#/components/schemas/{OutputName}` 같은 표준 OpenAPI ref로 rewrite |
+| Output refs | registry `targetId`를 build target의 output name과 kind별 component 위치로 변환해 `#/components/schemas/{OutputName}` 같은 표준 OpenAPI ref로 rewrite |
 | Naming policy | `preserve-if-unique`, `domain-prefix`, explicit alias. `book.Note`와 `notebook.Note`는 source name을 바꾸지 않고 `BookNote`/`NotebookNote`처럼 출력명만 분리 |
 | Namespace scope | 이름 충돌 해결은 target server → domain → local name 순서로 처리. 같은 local name이라도 target bundle마다 포함 집합이 다르므로 output name allocation은 target-local이어야 함 |
 | Flattening guard | `schema:public/a/Name`과 `schema:public/aname/Name`은 flatten 결과가 같을 수 있어도 다른 canonical identity다. builder는 string flattening만으로 동치 추론을 하지 않고 `output-name-collision`으로 보고 |

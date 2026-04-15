@@ -3,10 +3,10 @@
   "sessionId": "bc493007-f3e5-4f3d-9d12-884ba17d48c6",
   "status": "running",
   "startedAt": "2026-04-15T19:54:02.104Z",
-  "updatedAt": "2026-04-15T20:30:19.682Z",
-  "currentIteration": 3,
+  "updatedAt": "2026-04-15T20:36:48.410Z",
+  "currentIteration": 4,
   "maxIterations": 0,
-  "tasksCompleted": 3,
+  "tasksCompleted": 4,
   "isPaused": false,
   "agentPlugin": "codex",
   "trackerState": {
@@ -35,8 +35,8 @@
       {
         "id": "US-004",
         "title": "Resolve canonical and file refs",
-        "status": "open",
-        "completedInSession": false
+        "status": "completed",
+        "completedInSession": true
       },
       {
         "id": "US-005",
@@ -130,6 +130,16 @@
       "durationMs": 513703,
       "startedAt": "2026-04-15T20:12:31.926Z",
       "endedAt": "2026-04-15T20:21:05.629Z"
+    },
+    {
+      "iteration": 4,
+      "status": "completed",
+      "taskId": "US-004",
+      "taskTitle": "Resolve canonical and file refs",
+      "taskCompleted": true,
+      "durationMs": 551510,
+      "startedAt": "2026-04-15T20:21:08.171Z",
+      "endedAt": "2026-04-15T20:30:19.681Z"
     }
   ],
   "skippedTaskIds": [],

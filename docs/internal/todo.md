@@ -9,12 +9,7 @@
 
 ## 다음 세션 실행 순서
 
-현재 ralph PRD 기준 US-001~US-022는 모두 완료됨. OpenAPI definition builder의 canonical ID grammar/parser(US-001), fragment definition node model(US-002), registry graph/ref edge collection(US-003), source canonical/file ref resolution(US-004)은 완료되었고, 다음 blocking 목표는 output `$ref` rewrite이다.
-
-### [ ] OpenAPI definition builder: output ref rewrite
-배경: registry graph는 source `$ref`를 canonical id로 정규화하지만, 실제 build output은 canonical id를 target-local OpenAPI `$ref`로 rewrite해야 함.
-작업: schema ref의 `#/components/schemas/{OutputName}` rewrite를 시작으로 response/parameter/requestBody/header/link/callback/securityScheme ref를 OpenAPI component location으로 변환.
-완료 기준: emitted document에 `oa://` source ref가 남지 않고 nested ref rewrite가 테스트되며 diagnostic source path/pointer가 보존됨.
+현재 ralph PRD 기준 US-001~US-022는 모두 완료됨. OpenAPI definition builder의 canonical ID grammar/parser(US-001), fragment definition node model(US-002), registry graph/ref edge collection(US-003), source canonical/file ref resolution(US-004), output `$ref` rewrite(US-005)는 완료되었고, 다음 blocking 목표는 output naming/collision simulation이다.
 
 ### [ ] OpenAPI definition builder: output naming and collision simulation
 배경: 같은 local name `Note`라도 book note와 notebook note는 의미가 다를 수 있어 source 정의를 바꾸지 않고 output naming으로 충돌을 해결해야 함.
@@ -49,6 +44,11 @@
 ---
 
 ## 완료된 실행 항목
+
+### [x] OpenAPI definition builder: output ref rewrite
+배경: registry graph는 source `$ref`를 canonical id로 정규화하지만, 실제 build output은 canonical id를 target-local OpenAPI `$ref`로 rewrite해야 함.
+완료: `rewriteDefinitionOutputRefs()`가 registry의 resolved `targetId`를 사용해 nested fragment content와 refs의 source `$ref`를 OpenAPI component `$ref`로 변환함. Schema/response/parameter/requestBody/header/link/callback/securityScheme은 각각 `#/components/schemas`, `#/components/responses`, `#/components/parameters`, `#/components/requestBodies`, `#/components/headers`, `#/components/links`, `#/components/callbacks`, `#/components/securitySchemes`로 매핑하며, output name map/callback으로 target-local alias를 주입할 수 있음.
+완료 기준: nested canonical/file ref rewrite, 모든 component-like kind 위치, `oa://` 미포함 output refs, diagnostic source path/pointer 보존이 parser 테스트로 검증됨.
 
 ### [x] OpenAPI definition builder: canonical/file source ref resolution
 배경: fragment source는 emitted OpenAPI component name이 아니라 canonical concept identity를 참조해야 함.

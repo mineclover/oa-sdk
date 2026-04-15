@@ -6,12 +6,33 @@ after each iteration and it's included in prompts for context.
 ## Codebase Patterns (Study These First)
 
 *Add reusable patterns discovered during development here.*
+- Output `$ref` rewrite should key off registry ref-edge source path/pointer/raw-ref triples and resolved `targetId`, while keeping output naming injectable through a target-local map/callback for later naming policy work.
 - Definition ref resolution should run after unique node registration so canonical refs can be checked against the full `nodeById` set and file refs can resolve through a source-path/pointer index.
 - Definition registry graph construction should reuse the parser's JSON Pointer-aware `$ref` traversal and attach source coordinates through an optional lookup callback instead of embedding YAML parsing in registry code.
 - Canonical identity parsing should stay a parser primitive with structured diagnostics; registry/node construction can build on parsed `DefinitionId` without reimplementing grammar checks.
 - Definition builder primitives should keep pure fragment identity/source metadata models separate from registry graph and ref resolution so later stories can add behavior without changing the data contract.
 - One-shot TypeScript schema scripts should use `node --import tsx` instead of the `tsx` CLI wrapper when the environment may block local IPC listeners.
 
+---
+
+## 2026-04-16 - US-005
+- Implemented parser output `$ref` rewrite over resolved definition registries.
+- Added `rewriteDefinitionOutputRefs()` with kind-specific OpenAPI component locations for schemas, responses, parameters, request bodies, headers, links, callbacks, and security schemes.
+- Added target-local output name injection via map/callback so later naming-policy work can rewrite refs without changing source identities.
+- Added parser tests covering nested canonical/file ref rewrite, all component-like kind locations, no `oa://` refs in rewritten output content, output-name aliases, and diagnostic source path/pointer preservation for missing refs.
+- Updated internal spec, API index, and todo docs to mark output ref rewrite complete and leave output naming/collision simulation as the next blocker.
+- Files changed:
+  - `packages/parser/src/definition-output-refs.ts`
+  - `packages/parser/src/index.ts`
+  - `packages/parser/src/__tests__/definition-registry.test.ts`
+  - `docs/internal/spec.md`
+  - `docs/internal/api-index.md`
+  - `docs/internal/todo.md`
+  - `.ralph-tui/progress.md`
+- **Learnings:**
+  - Registry `refEdges` already carry the exact source path/pointer/raw ref coordinates needed to rewrite content without re-resolving refs.
+  - Output component locations should be centralized by canonical kind so schema/response/parameter/requestBody/header/link/callback/securityScheme rewrites stay consistent.
+  - API index drift checks treat backticked identifiers in documented export tables as candidate symbols, so descriptions should avoid backticks around non-export component section names.
 ---
 
 ## 2026-04-16 - US-004
