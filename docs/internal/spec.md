@@ -78,6 +78,7 @@ schemas      ← 독립. OAS 소스 + merge + 3.1↔3.2 변환
 | typegen readOnly | `readOnly: true` → `readonly` 수식어 |
 | typegen deprecated | `deprecated: true` → `@deprecated` JSDoc |
 | typegen annotations | `annotations` 객체 → `includeAnnotations` 옵션으로 `@note`/`@see` JSDoc |
+| typegen public API | `generateTypes*`, `analyzeExternalSchemaRefs`, `schemaToTs`, `TypegenOptions`, `SchemaToTsOptions`, external ref diagnostic 타입은 root entry와 `@oa-sdk/codegen/typegen`에서 공개. package exports는 `.`, `./drizzle`, `./typegen`만 지원하고 deep typegen implementation import는 비공개 |
 | typegen external refs | 외부 YAML/JSON schema-position `$ref` alias 생성 (`#/components/schemas/*`, `#/$defs/*`, 비 components schema root), nested relative ref source 기준 해소, 이름/operation 타입 충돌 시 파일명 기반 deterministic rename + 경고, unsupported pointer는 `unknown` 경고 |
 | typegen 중복 방지 | schema 이름과 Op 타입 이름 충돌 시 schema 우선, 중복 생성 방지 |
 | typegen const 중첩 | 중첩 프로퍼티의 `const` → 리터럴 타입 정규화 |
@@ -211,7 +212,7 @@ pnpm demo  # API 구조 + Mock 12시나리오 + 커버리지
 |------|------|------|
 | Build | 7 패키지 + CI 스크립트 | tsup ESM 빌드 |
 | Typecheck | 7 패키지 + playground | tsc --noEmit strict |
-| Test | 8 패키지 + playground | vitest 1614 케이스 |
+| Test | 8 패키지 + playground | vitest 1616 케이스 |
 | Schema validate | schemas + oa-gen | 도메인 병합 + 3.1 변환 + Spectral/Redocly + 3.2 자체 검증 표준 파이프라인 |
 | Freshness check | 산출물 | git diff --exit-code |
 | API index | docs ↔ code | export 정합성 검증 |
@@ -225,11 +226,11 @@ pnpm demo  # API 구조 + Mock 12시나리오 + 커버리지
 |--------|--------|
 | core | 51 |
 | parser | 201 |
-| codegen | 488 |
+| codegen | 490 |
 | mock-server | 561 |
 | playground | 114 |
 | router | 35 |
 | client | 36 |
 | schemas | 75 |
 | typia-mock | 53 |
-| **합계** | **1614** |
+| **합계** | **1616** |

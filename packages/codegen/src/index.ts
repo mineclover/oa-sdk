@@ -21,6 +21,7 @@ export { createSQLiteWorkspaceIndex, SQLITE_WORKSPACE_INDEX_SCHEMA_VERSION } fro
 export type { OasSchema } from './zod-to-schema.js'
 export type { CodegenConfig } from './config.js'
 export type { ExternalSchemaRefAnalysis, ExternalSchemaRefDiagnostic, ExternalSchemaRefDiagnosticCode, TypegenOptions } from './typegen/generate-types.js'
+export type { SchemaToTsOptions } from './typegen/schema-to-ts.js'
 export type { OutputOptions, NamedSchema, CodegenResult } from './types.js'
 export type { DrizzleCodegenOptions } from './drizzle/index.js'
 export type {

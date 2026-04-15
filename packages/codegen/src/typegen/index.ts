@@ -13,4 +13,5 @@
 export { analyzeExternalSchemaRefs, generateTypes, generateTypesFromSpec } from './generate-types.js'
 export type { ExternalSchemaRefAnalysis, ExternalSchemaRefDiagnostic, ExternalSchemaRefDiagnosticCode, TypegenOptions } from './generate-types.js'
 export { schemaToTs, typescriptAlgebra } from './schema-to-ts.js'
+export type { SchemaToTsOptions } from './schema-to-ts.js'
 export { pascalCase, escapeKey, collectTypeNames } from '@oa-sdk/core'

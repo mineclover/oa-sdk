@@ -8,12 +8,7 @@
 
 ## 다음 세션 실행 순서
 
-### 1. [ ] codegen: TypegenOptions/SchemaToTsOptions 공개 API 정리
-배경: `TypegenOptions`는 `codegen/typegen` 서브 엔트리에만 export되고, `SchemaToTsOptions`는 미노출 상태.
-작업: 메인 index에서 재export할지, 서브 엔트리 전용 API로 유지할지 결정하고 API index를 갱신.
-완료 기준: 공개 surface가 문서와 export 테스트에 반영되고, 내부 옵션 타입이 의도치 않게 노출되지 않음.
-
-### 2. [ ] router/client: ResponseHeaders 활용
+### 1. [ ] router/client: ResponseHeaders 활용
 배경: typegen은 `XxxResponseHeaders`를 생성하지만 router/client 런타임 API는 아직 타입을 적극 활용하지 않음.
 작업: router에서 응답 header 삽입 helper 또는 stub 힌트를 강화하고, client에서 `res.headers` 타입 안전 접근 경로를 제공.
 완료 기준: 생성된 Op 타입의 `headers`가 router/client 사용 예제와 테스트에서 실제로 소비됨.
@@ -45,6 +40,12 @@
 ---
 
 ## 최근 완료
+
+### [x] codegen: TypegenOptions/SchemaToTsOptions 공개 API 정리
+`TypegenOptions`는 `generateTypes*()`가 root entry에서도 공개되어 있으므로 `@oa-sdk/codegen`과 `@oa-sdk/codegen/typegen` 양쪽에서 지원한다.
+`schemaToTs()`도 양쪽 entry에서 공개된 함수이므로 `SchemaToTsOptions`를 같은 두 entry에서 public type으로 export한다.
+package exports는 `.`, `./drizzle`, `./typegen`만 유지해 `@oa-sdk/codegen/typegen/schema-to-ts` 같은 deep implementation import는 비공개로 둔다.
+공개 옵션 타입 import와 비공개 deep subpath 정책은 codegen public API 테스트와 API index에 반영했다.
 
 ### [x] diagnostics: YAML line/column source map
 YAML AST range와 `LineCounter`를 사용하는 `createSourceLocationIndex()` / `createYamlSourceLocationIndex()`를 parser public API로 추가.

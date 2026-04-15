@@ -3,10 +3,10 @@
   "sessionId": "44fae87f-7549-4a6c-ada1-e728c67068cf",
   "status": "running",
   "startedAt": "2026-04-15T01:49:56.568Z",
-  "updatedAt": "2026-04-15T03:54:06.845Z",
-  "currentIteration": 12,
+  "updatedAt": "2026-04-15T04:02:22.162Z",
+  "currentIteration": 13,
   "maxIterations": 0,
-  "tasksCompleted": 12,
+  "tasksCompleted": 13,
   "isPaused": false,
   "agentPlugin": "codex",
   "trackerState": {
@@ -95,8 +95,8 @@
       {
         "id": "US-014",
         "title": "Attach line and column to diagnostics",
-        "status": "open",
-        "completedInSession": false
+        "status": "completed",
+        "completedInSession": true
       },
       {
         "id": "US-015",
@@ -268,6 +268,16 @@
       "durationMs": 817957,
       "startedAt": "2026-04-15T03:29:37.531Z",
       "endedAt": "2026-04-15T03:43:15.488Z"
+    },
+    {
+      "iteration": 13,
+      "status": "completed",
+      "taskId": "US-014",
+      "taskTitle": "Attach line and column to diagnostics",
+      "taskCompleted": true,
+      "durationMs": 649683,
+      "startedAt": "2026-04-15T03:43:17.161Z",
+      "endedAt": "2026-04-15T03:54:06.844Z"
     }
   ],
   "skippedTaskIds": [],

@@ -6,6 +6,7 @@ after each iteration and it's included in prompts for context.
 ## Codebase Patterns (Study These First)
 
 *Add reusable patterns discovered during development here.*
+- Public option types should be exported from every public entrypoint that exports the function accepting them, while `package.json` exports remain the supported-subpath gate; pair positive type imports with deep-import exclusion checks.
 - Typegen external alias allocation must reserve both local component schema names and generated operation type names before assigning aliases; unsupported schema-position refs into non-schema OAS roots should warn and rewrite to `unknown` so generated TS stays compilable.
 - When `derefSpec()` folds an external target, carry both `RefResolution.documentRoot` and the resolved file `basePath`: documentRoot makes `#/...` pointers resolve against the loaded external document, while basePath keeps nested relative file refs source-local.
 - Resolver baseline tests should cover parser graph/deref behavior separately from codegen alias behavior: parser owns ref traversal/deref semantics, while typegen calls `resolveRefGraph()` for external schema aliases and passes `refNameOverrides` into `schemaToTs()`.
@@ -300,4 +301,25 @@ after each iteration and it's included in prompts for context.
   - Parser-level diagnostics should carry attached coordinates when the caller has a source map, while CLI formatting can keep the same fallback behavior for JSON or missing mappings.
   - Schema meta validation already produces JSON Pointer-like paths, so the same `attachLintSource()` helper can enrich meta validation and regular lint diagnostics without changing rule codes or messages.
   - Codegen typecheck reads `@oa-sdk/parser` from built package declarations, so parser dist must be rebuilt after public parser type shape changes before checking codegen.
+---
+
+## 2026-04-15 - US-015
+- Decided `TypegenOptions` is public from both `@oa-sdk/codegen` and `@oa-sdk/codegen/typegen` because the root entry already exports the typegen generator functions.
+- Decided `SchemaToTsOptions` should be public from both supported typegen entrypoints because `schemaToTs()` itself is public from both.
+- Kept unsupported deep implementation imports private by leaving `package.json` exports limited to `.`, `./drizzle`, and `./typegen`.
+- Added public API tests for supported option type imports and deep typegen subpath exclusion; codegen tests now pass with 490 cases and docs show 1616 total.
+- Updated API index, spec counts/API notes, and todo status for the completed public export surface decision.
+- Ran checks: `pnpm typecheck` passed; `pnpm --filter @oa-sdk/codegen test` passed; `pnpm check:api-index` passed; `git diff --check` passed. `pnpm test` passed through codegen and failed in mock-server Node HTTP integration suites on sandbox `listen EPERM` for `127.0.0.1`; `pnpm schema:validate` built parser/codegen and failed when `tsx` attempted a sandbox-blocked IPC pipe with `listen EPERM`.
+- Files changed:
+  - `packages/codegen/src/index.ts`
+  - `packages/codegen/src/typegen/index.ts`
+  - `packages/codegen/src/__tests__/public-api.test.ts`
+  - `docs/internal/api-index.md`
+  - `docs/internal/spec.md`
+  - `docs/internal/todo.md`
+  - `.ralph-tui/progress.md`
+- **Learnings:**
+  - `schemaToTs()` was already part of the root and typegen public runtime surface, so keeping its option type internal would make the exported function harder to consume safely.
+  - Package entrypoint stability is enforced at two layers here: source indexes decide named exports, and `package.json` exports decide which subpaths are valid public imports.
+  - API index drift only checks root package indexes, so sub-entrypoint decisions need explicit tests and prose in the API index.
 ---
