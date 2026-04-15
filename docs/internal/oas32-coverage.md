@@ -67,7 +67,7 @@
 | Discriminator | ✅ | — | — | ✅ (생성) | — | — |
 | Security Schemes | ✅ | ✅ (인덱싱) | ✅ (검증) | — | — | — |
 | OAuth2 / deviceAuthorization | ✅ | ✅ | ✅ (bearer 확인) | — | — | — |
-| Links | ✅ | ✅ (추출) | — | — | — | — |
+| Links | ✅ | ✅ (추출) | ✅ (응답 메타데이터) | ✅ (typegen) | — | — |
 | Callbacks | ✅ | ✅ (추출) | — | — | — | — |
 | Webhooks | ✅ | ✅ (추출) | — | — | — | — |
 | Encoding | ✅ | — | — | — | — | — |

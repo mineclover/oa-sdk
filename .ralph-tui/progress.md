@@ -6,6 +6,7 @@ after each iteration and it's included in prompts for context.
 ## Codebase Patterns (Study These First)
 
 *Add reusable patterns discovered during development here.*
+- Response relationship metadata should stay out-of-band: expose it beside the selected mock body (for example `PickedResponse.links`) and in generated Op metadata (for example `XxxResponseLinks` / `responseLinks`) without injecting it into HTTP payload bodies.
 - Public import path regression tests should combine a consumer-style typecheck fixture with package.json exports assertions; API index validation can then guard the documented source entrypoints and supported subpaths separately.
 - Public option types should be exported from every public entrypoint that exports the function accepting them, while `package.json` exports remain the supported-subpath gate; pair positive type imports with deep-import exclusion checks.
 - Parsed request bodies can carry transport metadata through non-enumerable symbol properties so validators can inspect headers/content types without changing AJV-visible body shape.
@@ -399,4 +400,25 @@ after each iteration and it's included in prompts for context.
   - Non-enumerable symbol metadata lets adapters preserve multipart transport details while keeping the object shape seen by AJV unchanged.
   - Encoding Object `contentType` should be ignored when `style`, `explode`, or `allowReserved` is explicitly present; in that style-based path, unsupported object combinations need a parse-stage diagnostic rather than silently falling through to a confusing schema error only.
   - Encoding-by-name arrays apply the field Encoding Object to each repeated part item, while non-array fields with multiple same-name parts should remain visible to AJV as arrays unless a supported style decoder rewrites them.
+---
+
+## 2026-04-15 - US-020
+- Implemented Link metadata support for mock response selection: `PickedResponse.links` now exposes resolved Response Link Objects while adapters continue serializing only the selected body and headers.
+- Implemented typegen `XxxResponseLinks` generation and added `responseLinks` to operation bundle metadata, preserving operation link fields plus `parameters` and `requestBody` runtime expressions as literal metadata types.
+- Added focused coverage for typegen response links and mock response links without body mutation; updated internal status docs, OAS coverage, API index notes, todo status, and test counts.
+- Ran checks: `pnpm typecheck` passed; `pnpm --filter @oa-sdk/codegen test` passed with 492 tests; focused mock picker test passed with 16 tests; `pnpm check:api-index` and `git diff --check` passed. `pnpm test` still fails in mock-server Node HTTP integration suites on sandbox `listen EPERM 127.0.0.1`; `pnpm schema:validate` still fails when `tsx` attempts a sandbox-blocked IPC pipe.
+- Files changed:
+  - `packages/codegen/src/typegen/generate-types.ts`
+  - `packages/codegen/src/__tests__/typegen/generate-types.test.ts`
+  - `packages/mock-server/src/core/response-picker.ts`
+  - `packages/mock-server/src/__tests__/unit/picker-body.test.ts`
+  - `docs/internal/spec.md`
+  - `docs/internal/todo.md`
+  - `docs/internal/api-index.md`
+  - `docs/internal/oas32-coverage.md`
+  - `.ralph-tui/progress.md`
+- **Learnings:**
+  - `parseDocument()` already preserves Response `links`, so codegen and mock-server can consume the parsed `OasResponse` metadata directly.
+  - Link metadata should mirror the ResponseHeaders naming pattern but remain value-oriented: generated literal metadata types keep runtime expression strings inspectable without evaluating them.
+  - Mock adapters do not need Link-specific transport behavior; keeping links only on `PickedResponse` preserves existing HTTP response body semantics.
 ---

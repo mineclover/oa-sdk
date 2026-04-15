@@ -1,4 +1,4 @@
-import type { OasResponse, OasSchema, OasHeader, Referenceable } from '@oa-sdk/parser'
+import type { OasResponse, OasSchema, OasHeader, OasLink, Referenceable } from '@oa-sdk/parser'
 import { generator } from './generate.js'
 import { isStreamingContentType } from './stream.js'
 
@@ -8,6 +8,8 @@ export type PickedResponse = {
   body: unknown
   /** OAS Response.headers에서 추출된 헤더 (이름 → 값) */
   headers: Record<string, string>
+  /** OAS Response.links에서 추출된 관계 메타데이터 (이름 → Link Object) */
+  links: Record<string, OasLink>
   /**
    * 스트리밍 content-type에서 example 없을 때만 존재.
    * 어댑터가 StreamFolder로 이벤트를 생성하는 데 사용.
@@ -39,19 +41,20 @@ export function pickResponse(responses: Record<string, OasResponse>): PickedResp
 
   // 응답 헤더 추출
   const headers = extractHeaders(response.headers)
+  const links = extractLinks(response.links)
 
   if (isStreamingContentType(contentType)) {
     const exampleBody = resolveExampleOnly(mediaType)
     if (exampleBody !== null) {
-      return { status: entry.status, contentType, body: exampleBody, headers }
+      return { status: entry.status, contentType, body: exampleBody, headers, links }
     }
     const schema = mediaType?.schema as OasSchema | undefined
-    const result: PickedResponse = { status: entry.status, contentType, body: null, headers }
+    const result: PickedResponse = { status: entry.status, contentType, body: null, headers, links }
     if (schema !== undefined) result.stream = schema
     return result
   }
 
-  return { status: entry.status, contentType, body: resolveBody(mediaType), headers }
+  return { status: entry.status, contentType, body: resolveBody(mediaType), headers, links }
 }
 
 // ─── 상태 코드 선택 ──────────────────────────────────────────────────────────
@@ -117,6 +120,20 @@ function resolveHeaderValue(header: OasHeader): unknown {
     return generator.fold(s)
   }
   return undefined
+}
+
+// ─── 응답 링크 메타데이터 추출 ───────────────────────────────────────────────
+
+function extractLinks(
+  rawLinks: Record<string, Referenceable<OasLink>> | undefined,
+): Record<string, OasLink> {
+  if (!rawLinks) return {}
+  const result: Record<string, OasLink> = {}
+  for (const [name, raw] of Object.entries(rawLinks)) {
+    if ('$ref' in raw) continue
+    result[name] = raw as OasLink
+  }
+  return result
 }
 
 // ─── 본문 선택 ───────────────────────────────────────────────────────────────

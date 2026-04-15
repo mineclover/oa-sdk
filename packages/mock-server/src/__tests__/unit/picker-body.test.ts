@@ -144,3 +144,40 @@ describe('dataValue: null은 schema default보다 우선', () => {
     expect(picked?.body).toBe(null)
   })
 })
+
+describe('response links metadata', () => {
+  it('operation link 메타데이터를 body 변경 없이 노출한다', () => {
+    const picked = pickResponse({
+      '201': {
+        description: 'Created',
+        links: {
+          getOrder: {
+            operationId: 'getOrder',
+            parameters: {
+              orderId: '$response.body#/id',
+              tenantId: '$request.path.tenantId',
+            },
+            requestBody: '$request.body#/sku',
+          },
+        },
+        content: {
+          'application/json': {
+            example: { id: 'ord_123', status: 'created' },
+          },
+        },
+      },
+    })
+
+    expect(picked?.body).toEqual({ id: 'ord_123', status: 'created' })
+    expect(picked?.links).toEqual({
+      getOrder: {
+        operationId: 'getOrder',
+        parameters: {
+          orderId: '$response.body#/id',
+          tenantId: '$request.path.tenantId',
+        },
+        requestBody: '$request.body#/sku',
+      },
+    })
+  })
+})

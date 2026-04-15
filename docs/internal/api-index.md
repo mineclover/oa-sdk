@@ -111,8 +111,8 @@ Typegen 공개 surface는 root entry(`@oa-sdk/codegen`)와 typegen sub-entry(`@o
 | `zodToSchema()` | `zod-to-schema.ts` | Zod 4 → OAS 3.2 Schema (refs 컨텍스트 지원) |
 | `generateComponents()` | `generator.ts` | Zod 맵 → YAML (writeSchemas 위임) |
 | `defineConfig()` | `config.ts` | 타입 안전 config 헬퍼 |
-| `generateTypes()` | `typegen/generate-types.ts` | ParsedDocument → TS 타입 문자열 |
-| `generateTypesFromSpec()` | `typegen/generate-types.ts` | OAS spec → TS 타입 (parseDocument 포함) |
+| `generateTypes()` | `typegen/generate-types.ts` | ParsedDocument → TS 타입 문자열 (ResponseLinks 포함) |
+| `generateTypesFromSpec()` | `typegen/generate-types.ts` | OAS spec → TS 타입 (parseDocument 포함, ResponseLinks 포함) |
 | `analyzeExternalSchemaRefs()` | `typegen/generate-types.ts` | 외부 schema-position `$ref` 스키마 타입명/충돌 diagnostic 조회 (`#/components/schemas/*`, `#/$defs/*`, 비 components schema root 포함, operation 타입 충돌/unsupported pointer 경고 포함) |
 | `schemaToTs()` | `typegen/schema-to-ts.ts` | 단일 OAS Schema → TS 타입 문자열 (SchemaToTsOptions 지원) |
 | `createWorkspaceIndex()` | `workspace-index.ts` | 기본 noop 또는 memory WorkspaceIndex 생성 |
@@ -213,8 +213,8 @@ Typegen 공개 surface는 root entry(`@oa-sdk/codegen`)와 typegen sub-entry(`@o
 | `validateRequest()` | `core/request-validator.ts` | AJV 기반 요청 검증 |
 | `validateRequestSchemas()` | `core/request-validator.ts` | RouteIndex 요청 스키마 preflight 컴파일 검증 |
 | `assertValidRequestSchemas()` | `core/request-validator.ts` | preflight 실패 시 예외 발생 |
-| `pickResponse()` | `core/response-picker.ts` | 응답 선택 (6단계 폴백) |
-| `PickedResponse` | `core/response-picker.ts` | 선택된 응답 타입 |
+| `pickResponse()` | `core/response-picker.ts` | 응답 선택 (6단계 폴백) + Link metadata 추출 |
+| `PickedResponse` | `core/response-picker.ts` | 선택된 응답 타입 (status/body/headers/links/stream) |
 
 ## 에러 (`@oa-sdk/mock-server`)
 

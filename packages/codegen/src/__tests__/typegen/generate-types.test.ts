@@ -874,6 +874,65 @@ describe('generateTypes — Response headers', () => {
   })
 })
 
+describe('generateTypes — Response links', () => {
+  it('응답 링크가 있으면 ResponseLinks 타입과 Op 메타데이터를 생성한다', () => {
+    const parsed = parseDocument(doc({
+      paths: {
+        '/orders': {
+          post: {
+            operationId: 'createOrder',
+            requestBody: {
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: { sku: { type: 'string' } },
+                    required: ['sku'],
+                  },
+                },
+              },
+            },
+            responses: {
+              '201': {
+                description: 'Created',
+                links: {
+                  getOrder: {
+                    operationId: 'getOrder',
+                    parameters: {
+                      orderId: '$response.body#/id',
+                      tenantId: '$request.path.tenantId',
+                    },
+                    requestBody: '$request.body#/sku',
+                    description: 'Fetch the created order',
+                  },
+                },
+                content: {
+                  'application/json': {
+                    schema: {
+                      type: 'object',
+                      properties: { id: { type: 'string' } },
+                      required: ['id'],
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    }))
+
+    const ts = generateTypes(parsed)
+    expect(ts).toContain('export type CreateOrderResponseLinks =')
+    expect(ts).toContain('"getOrder": {')
+    expect(ts).toContain('operationId: "getOrder"')
+    expect(ts).toContain('"orderId": "$response.body#/id"')
+    expect(ts).toContain('"tenantId": "$request.path.tenantId"')
+    expect(ts).toContain('requestBody: "$request.body#/sku"')
+    expect(ts).toContain('responseLinks: CreateOrderResponseLinks')
+  })
+})
+
 describe('generateTypes — schema/operation 이름 충돌 방지', () => {
   it('스키마 이름이 Op Body 이름과 충돌하면 중복 생성 안 함', () => {
     const parsed = parseDocument(doc({

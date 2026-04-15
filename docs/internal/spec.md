@@ -54,6 +54,7 @@ schemas      ← 독립. OAS 소스 + merge + 3.1↔3.2 변환
 | Security | bearer/apiKey(header/query/cookie)/oauth2/oidc/mTLS, OR/AND, 빈 security |
 | Parameters | style/explode 역직렬화 (form/simple/label/matrix/pipe/space) |
 | Response headers | OAS headers → HTTP 헤더 전달 |
+| Response links | OAS links → `PickedResponse.links` 관계 메타데이터 노출. HTTP body payload에는 주입하지 않음 |
 | Body 파싱 | JSON, form-urlencoded, multipart/form-data(part metadata + Encoding Object `contentType`/JSON decode/form style diagnostics), text/plain |
 | 스트리밍 | SSE (data: + [DONE]) + NDJSON (bare JSON lines), `generateStreamChunks()` 공유 |
 | 어댑터 | MSW 2.x + Node HTTP (Connection: keep-alive 패리티) |
@@ -73,7 +74,7 @@ schemas      ← 독립. OAS 소스 + merge + 3.1↔3.2 변환
 | Zod 4 → OAS | discriminator, nullable, enum, 전 타입 커버리지 |
 | ZodLazy → $ref | 재귀 스키마 지원 (refs 컨텍스트 기반) |
 | Drizzle → Zod → OAS | pgTable/mysqlTable/sqliteTable, select/insert/update |
-| typegen | OAS → TS ($ref 참조, JSDoc, ResponseHeaders, Op 묶음 타입, Error 타입, tsc 검증) |
+| typegen | OAS → TS ($ref 참조, JSDoc, ResponseHeaders, ResponseLinks, Op 묶음 타입, Error 타입, tsc 검증) |
 | typegen 제약 JSDoc | format/min/max/pattern → `@format`/`@minimum` 등 JSDoc 태그 |
 | typegen readOnly | `readOnly: true` → `readonly` 수식어 |
 | typegen deprecated | `deprecated: true` → `@deprecated` JSDoc |
@@ -213,7 +214,7 @@ pnpm demo  # API 구조 + Mock 12시나리오 + 커버리지
 |------|------|------|
 | Build | 7 패키지 + CI 스크립트 | tsup ESM 빌드 |
 | Typecheck | 7 패키지 + playground | tsc --noEmit strict |
-| Test | 8 패키지 + playground | vitest 1626 케이스 |
+| Test | 8 패키지 + playground | vitest 1628 케이스 |
 | Schema validate | schemas + oa-gen | 도메인 병합 + 3.1 변환 + Spectral/Redocly + 3.2 자체 검증 표준 파이프라인 |
 | Freshness check | 산출물 | git diff --exit-code |
 | API index | docs ↔ code | root export 정합성 + codegen typegen option subpath 검증 |
@@ -227,11 +228,11 @@ pnpm demo  # API 구조 + Mock 12시나리오 + 커버리지
 |--------|--------|
 | core | 52 |
 | parser | 201 |
-| codegen | 491 |
-| mock-server | 565 |
+| codegen | 492 |
+| mock-server | 566 |
 | playground | 114 |
 | router | 36 |
 | client | 39 |
 | schemas | 75 |
 | typia-mock | 53 |
-| **합계** | **1626** |
+| **합계** | **1628** |

@@ -11,6 +11,7 @@ import type {
   OasParameter,
   OasRequestBody,
   OasResponse,
+  OasLink,
   RefGraphDiagnostic,
   RefGraphDiagnosticCode,
   RefGraphNode,
@@ -140,6 +141,13 @@ export function generateTypes(doc: { schemas: Record<string, OasSchema>; operati
       lines.push('')
     }
 
+    // Response links 타입
+    const linksType = responseLinksToTs(op.responses)
+    if (linksType && !schemaNames.has(`${baseName}ResponseLinks`)) {
+      lines.push(`export type ${baseName}ResponseLinks = ${linksType}`)
+      lines.push('')
+    }
+
     // Error response 타입 (4xx/5xx/default)
     const errorType = errorResponseToTs(op.responses, schemaOpts)
     if (errorType && !schemaNames.has(`${baseName}Error`)) {
@@ -156,6 +164,7 @@ export function generateTypes(doc: { schemas: Record<string, OasSchema>; operati
     if (bodyType) bundleFields.push(`  body: ${baseName}Body`)
     if (responseType) bundleFields.push(`  response: ${baseName}Response`)
     if (headersType) bundleFields.push(`  responseHeaders: ${baseName}ResponseHeaders`)
+    if (linksType) bundleFields.push(`  responseLinks: ${baseName}ResponseLinks`)
     if (errorType) bundleFields.push(`  error?: ${baseName}Error`)
     lines.push(`export type ${baseName}Op = {\n${bundleFields.join('\n')}\n}`)
     lines.push('')
@@ -250,6 +259,52 @@ function responseHeadersToTs(responses: Record<string, OasResponse>, schemaOpts:
     })
   if (entries.length === 0) return null
   return `{\n${entries.join('\n')}\n}`
+}
+
+function responseLinksToTs(responses: Record<string, OasResponse>): string | null {
+  const codes = Object.keys(responses).filter(k => /^2\d{2}$/.test(k)).sort()
+  const key = codes[0] ?? 'default'
+  const response = responses[key]
+  if (!response?.links) return null
+  const entries = Object.entries(response.links)
+    .filter(([, link]) => !('$ref' in link))
+    .map(([name, link]) => `  ${propertyNameToTs(name)}: ${linkToTs(link as OasLink)}`)
+  if (entries.length === 0) return null
+  return `{\n${entries.join('\n')}\n}`
+}
+
+function linkToTs(link: OasLink): string {
+  const fields: string[] = []
+  if (link.operationId !== undefined) fields.push(`  operationId: ${metadataLiteralToTs(link.operationId)}`)
+  if (link.operationRef !== undefined) fields.push(`  operationRef: ${metadataLiteralToTs(link.operationRef)}`)
+  if (link.parameters !== undefined) fields.push(`  parameters: ${metadataLiteralToTs(link.parameters)}`)
+  if (link.requestBody !== undefined) fields.push(`  requestBody: ${metadataLiteralToTs(link.requestBody)}`)
+  if (link.description !== undefined) fields.push(`  description: ${metadataLiteralToTs(link.description)}`)
+  if (link.server !== undefined) fields.push(`  server: ${metadataLiteralToTs(link.server)}`)
+  for (const [name, value] of Object.entries(link)) {
+    if (!name.startsWith('x-') || value === undefined) continue
+    fields.push(`  ${propertyNameToTs(name)}: ${metadataLiteralToTs(value)}`)
+  }
+  return `{\n${fields.join('\n')}\n}`
+}
+
+function metadataLiteralToTs(value: unknown): string {
+  if (value === null) return 'null'
+  if (typeof value === 'string') return JSON.stringify(value)
+  if (typeof value === 'number') return Number.isFinite(value) ? String(value) : 'number'
+  if (typeof value === 'boolean') return value ? 'true' : 'false'
+  if (Array.isArray(value)) return `[${value.map(item => metadataLiteralToTs(item)).join(', ')}]`
+  if (value && typeof value === 'object') {
+    const fields = Object.entries(value as Record<string, unknown>)
+      .filter(([, child]) => child !== undefined)
+      .map(([name, child]) => `  ${propertyNameToTs(name)}: ${metadataLiteralToTs(child)}`)
+    return `{\n${fields.join('\n')}\n}`
+  }
+  return 'unknown'
+}
+
+function propertyNameToTs(name: string): string {
+  return JSON.stringify(name)
 }
 
 export function analyzeExternalSchemaRefs(spec: OasDocument, basePath: string): ExternalSchemaRefAnalysis {
@@ -442,6 +497,7 @@ function collectGeneratedOperationTypeNames(spec: OasDocument): Set<string> {
     if (hasJsonRequestBodySchema(op.requestBody)) names.add(`${baseName}Body`)
     if (hasSuccessJsonResponseSchema(op.responses)) names.add(`${baseName}Response`)
     if (hasSuccessResponseHeaders(op.responses)) names.add(`${baseName}ResponseHeaders`)
+    if (hasSuccessResponseLinks(op.responses)) names.add(`${baseName}ResponseLinks`)
     if (hasJsonResponseSchema(op.responses, /^[45]\d{2}$/) || hasDefaultJsonResponseSchema(op.responses)) names.add(`${baseName}Error`)
     names.add(`${baseName}Op`)
   }
@@ -481,6 +537,14 @@ function hasSuccessResponseHeaders(responses: Record<string, OasResponse>): bool
   const response = headersEntry?.[1]
   return !!response?.headers
     && Object.values(response.headers).some(header => !('$ref' in header))
+}
+
+function hasSuccessResponseLinks(responses: Record<string, OasResponse>): boolean {
+  const has2xx = Object.keys(responses).some(status => /^2\d{2}$/.test(status))
+  const linksEntry = Object.entries(responses).find(([status]) => has2xx ? /^2\d{2}$/.test(status) : status === 'default')
+  const response = linksEntry?.[1]
+  return !!response?.links
+    && Object.values(response.links).some(link => !('$ref' in link))
 }
 
 function isSupportedExternalSchemaPointer(pointer: string | undefined): boolean {

@@ -24,9 +24,10 @@
 완료: mock-server multipart 파서가 part별 Content-Type/header metadata를 보존하고, request validator가 Encoding Object의 필드별 `contentType` 검증, JSON part decoding, `form` style `explode=false` 배열/객체와 배열 `explode=true` 처리를 수행함. 지원하지 않는 object style/explode 조합은 `PROTOCOL_MISMATCH` diagnostic으로 명시적으로 실패한다.
 완료 기준: 필드별 content type, style/explode, 잘못된 part encoding 실패 케이스가 테스트됨.
 
-### 8. [ ] Links — 응답 관계 정보
+### 8. [x] Links — 응답 관계 정보
 배경: Links는 타입과 파싱은 완료됐지만 mock 응답과 typegen 소비는 아직 얕음.
 작업: Operation Object의 Link 정보를 mock 응답 메타데이터와 typegen Link 타입으로 연결.
+완료: typegen이 성공 응답 Link Object를 `XxxResponseLinks` 타입으로 생성하고 Op bundle에 `responseLinks` 메타데이터 필드를 포함한다. mock-server `pickResponse()`는 선택된 응답의 resolved Link Object를 `PickedResponse.links`로 노출하며, HTTP 어댑터는 link metadata를 body payload에 주입하지 않는다.
 완료 기준: 응답에서 다음 operation 관계를 추적할 수 있고, Link 타입 생성 테스트가 있음.
 
 ### 9. [ ] Callbacks — 아웃바운드 웹훅
@@ -42,6 +43,11 @@
 ---
 
 ## 최근 완료
+
+### [x] Links 응답 관계 메타데이터
+성공 응답의 Link Object를 typegen `XxxResponseLinks` 타입과 Op bundle `responseLinks` 필드로 생성한다.
+`parameters`와 `requestBody` runtime expression 문자열은 literal metadata type으로 보존한다.
+mock-server 응답 선택 결과는 `links` 메타데이터를 노출하되, HTTP 응답 body semantics는 그대로 유지한다.
 
 ### [x] codegen: TypegenOptions/SchemaToTsOptions 공개 API 정리
 `TypegenOptions`는 `generateTypes*()`가 root entry에서도 공개되어 있으므로 `@oa-sdk/codegen`과 `@oa-sdk/codegen/typegen` 양쪽에서 지원한다.
