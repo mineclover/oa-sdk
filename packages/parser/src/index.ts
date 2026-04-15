@@ -71,6 +71,16 @@ export type {
   DefinitionKind,
 } from './definition-id.js'
 
+// ─── Definition Nodes ──────────────────────────────────────────────────────
+export { createDefinitionNode, createDefinitionRef } from './definition-node.js'
+export type {
+  CreateDefinitionNodeInput,
+  CreateDefinitionRefInput,
+  DefinitionMetadata,
+  DefinitionNode,
+  DefinitionRef,
+} from './definition-node.js'
+
 // ─── Lint ─────────────────────────────────────────────────────────────────
 export { lintDocument } from './lint.js'
 export type { LintResult, LintSeverity, LintOptions } from './lint.js'

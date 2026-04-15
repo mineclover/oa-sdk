@@ -9,12 +9,7 @@
 
 ## 다음 세션 실행 순서
 
-현재 ralph PRD 기준 US-001~US-022는 모두 완료됨. OpenAPI definition builder의 canonical ID grammar/parser(US-001)는 완료되었고, 다음 blocking 목표는 fragment node/registry 모델이다.
-
-### [ ] OpenAPI definition builder: fragment definition node model
-배경: Canonical ID가 확정되었으므로 각 fragment가 source metadata, refs, content hash, classification metadata를 운반할 node 모델이 필요함.
-작업: `DefinitionNode`와 `DefinitionRef`를 정의하고 canonical id, kind, scope, domain, local name, source path, source pointer, content hash, metadata, refs를 보존.
-완료 기준: definition node construction과 source metadata preservation이 테스트됨.
+현재 ralph PRD 기준 US-001~US-022는 모두 완료됨. OpenAPI definition builder의 canonical ID grammar/parser(US-001)와 fragment definition node model(US-002)은 완료되었고, 다음 blocking 목표는 registry graph와 ref edge collection이다.
 
 ### [ ] OpenAPI definition builder: registry graph + ref resolver
 배경: `$ref`는 구성요소 정의를 연결하는 그래프 edge이므로 build 전에 canonical ref graph를 수집해야 함.
@@ -54,6 +49,11 @@
 ---
 
 ## 완료된 실행 항목
+
+### [x] OpenAPI definition builder: fragment definition node model
+배경: Canonical ID가 확정되었으므로 각 fragment가 source metadata, refs, content hash, classification metadata를 운반할 node 모델이 필요함.
+완료: `@oa-sdk/parser`에 public `DefinitionNode`, `DefinitionRef`, `DefinitionMetadata` 타입과 `createDefinitionNode()` / `createDefinitionRef()` 생성 helper를 추가함. node 생성은 canonical id에서 kind/scope/domain/localName을 파생하고 source path/pointer, content hash, optional metadata, refs를 보존함.
+완료 기준: definition node construction과 source metadata preservation이 parser 테스트로 검증됨.
 
 ### [x] OpenAPI definition builder: canonical ID grammar
 배경: OpenAPI fragment source identity를 output component name과 분리하려면 고정 canonical id 문법이 필요함.

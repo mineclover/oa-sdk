@@ -158,6 +158,12 @@ Canonical ID는 `@oa-sdk/parser`의 `parseDefinitionId()` / `validateDefinitionI
 
 Valid fixture IDs: `schema:public/book/Note`, `schema:public/notebook/Note`, `schema:shared/common/Error`. Duplicate canonical ID는 `validateDefinitionIds()`에서 error로 보고하며, output component name은 후속 naming policy가 target별로 파생한다.
 
+#### Definition node model (US-002)
+
+`DefinitionNode`는 `@oa-sdk/parser`의 public primitive로, fragment source를 registry에 올리기 전 canonical identity와 diagnostics용 source metadata를 함께 운반한다. `createDefinitionNode()`는 canonical id를 `DefinitionId`로 파싱해 `kind`, `scope`, `domain`, `localName`을 채우고, `sourcePath`, `sourcePointer`, `contentHash`, `content`, optional `metadata`, `refs`를 그대로 보존한다.
+
+`DefinitionRef`는 fragment content 안에서 발견한 source ref를 나타낸다. `createDefinitionRef()`는 raw `ref`, `sourcePath`, `sourcePointer`를 보존하고, target canonical id가 이미 알려진 경우 `targetId`로 저장한다. `metadata`는 target server, tags, feature flag, ownership 같은 classification 정보를 위한 optional field이며 canonical id 계층(`kind:scope/domain/name`)에는 포함하지 않는다. 실제 ref 수집, duplicate 검사, canonical/file ref resolution은 후속 registry graph 단계가 담당한다.
+
 | 개념 | 계획 |
 |------|------|
 | Canonical identity | `kind:scope/domain/name` 고정 계층. 예: `schema:public/book/Note`, `schema:public/notebook/Note`, `schema:shared/common/Error`. source identity와 output component name을 분리 |

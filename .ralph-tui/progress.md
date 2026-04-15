@@ -7,8 +7,27 @@ after each iteration and it's included in prompts for context.
 
 *Add reusable patterns discovered during development here.*
 - Canonical identity parsing should stay a parser primitive with structured diagnostics; registry/node construction can build on parsed `DefinitionId` without reimplementing grammar checks.
+- Definition builder primitives should keep pure fragment identity/source metadata models separate from registry graph and ref resolution so later stories can add behavior without changing the data contract.
 - One-shot TypeScript schema scripts should use `node --import tsx` instead of the `tsx` CLI wrapper when the environment may block local IPC listeners.
 
+---
+
+## 2026-04-16 - US-002
+- Implemented the public parser definition node/ref model with `DefinitionNode`, `DefinitionRef`, `DefinitionMetadata`, `createDefinitionNode()`, and `createDefinitionRef()`.
+- Added focused parser tests for canonical identity-derived node construction, optional classification metadata, source path/pointer preservation, ref source metadata, and refs array copying.
+- Updated internal spec, API index, and todo docs to mark the fragment definition node model complete and make registry graph/ref resolution the next blocking step.
+- Files changed:
+  - `packages/parser/src/definition-node.ts`
+  - `packages/parser/src/index.ts`
+  - `packages/parser/src/__tests__/definition-node.test.ts`
+  - `docs/internal/spec.md`
+  - `docs/internal/api-index.md`
+  - `docs/internal/todo.md`
+  - `.ralph-tui/progress.md`
+- **Learnings:**
+  - Parser public exports are checked against `docs/internal/api-index.md`, so adding even small model helpers needs an API index row.
+  - `exactOptionalPropertyTypes` means optional model fields should be omitted unless provided; construction helpers should assign them conditionally.
+  - US-002 in the active PRD is intentionally only the node/ref data model; registry graph, ref collection, and duplicate detection are deferred to US-003.
 ---
 
 ## 2026-04-16 - US-001

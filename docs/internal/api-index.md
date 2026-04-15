@@ -67,6 +67,8 @@
 | `parseDefinitionId()` | `definition-id.ts` | `kind:scope/domain/name` canonical id → DefinitionId 파싱. invalid id는 예외 |
 | `validateDefinitionId()` | `definition-id.ts` | 단일 canonical definition id 문법/segment/kind/name 검증 |
 | `validateDefinitionIds()` | `definition-id.ts` | canonical definition id 목록 검증 + duplicate id diagnostic 생성 |
+| `createDefinitionNode()` | `definition-node.ts` | canonical id에서 kind/scope/domain/localName을 파생하고 fragment source path/pointer/content hash/metadata/refs를 보존 |
+| `createDefinitionRef()` | `definition-node.ts` | fragment content 안 source `$ref`의 raw ref와 source path/pointer, optional target canonical id를 보존 |
 | `findOperation()` | `query.ts` | operationId로 오퍼레이션 검색 |
 | `findByTag()` | `query.ts` | 태그로 오퍼레이션 필터 |
 | `findByPath()` | `query.ts` | 경로로 오퍼레이션 필터 |
@@ -107,6 +109,11 @@
 | `DefinitionIdDiagnosticCode` | `definition-id.ts` | canonical id 검증/중복 diagnostic 코드 |
 | `DefinitionIdValidationResult` | `definition-id.ts` | 단일 canonical id 검증 결과 |
 | `DefinitionIdListValidationResult` | `definition-id.ts` | canonical id 목록 검증 및 duplicate 검출 결과 |
+| `DefinitionNode` | `definition-node.ts` | fragment canonical identity, source path/pointer, content hash, content, metadata, refs를 담는 registry 전 단계 node 모델 |
+| `DefinitionRef` | `definition-node.ts` | fragment content에서 발견한 source ref와 diagnostics용 source 위치, optional target canonical id |
+| `DefinitionMetadata` | `definition-node.ts` | canonical id 계층에 넣지 않는 classification metadata map |
+| `CreateDefinitionNodeInput` | `definition-node.ts` | `createDefinitionNode()` 입력 shape |
+| `CreateDefinitionRefInput` | `definition-node.ts` | `createDefinitionRef()` 입력 shape |
 | `LintResult` | `lint.ts` | 린트 결과. source file/pointer와 YAML line/column metadata 포함 가능 |
 | `LintSeverity` | `lint.ts` | 린트 심각도 |
 | `LintOptions` | `lint.ts` | 린트 옵션. basePath와 optional source location lookup 지원 |
