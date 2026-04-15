@@ -91,6 +91,7 @@ export type {
   DefinitionRegistryNode,
   DefinitionRegistryOptions,
   DefinitionRegistryRefEdge,
+  DefinitionSemanticAlias,
 } from './definition-registry.js'
 
 // ─── Definition Output Refs ────────────────────────────────────────────────

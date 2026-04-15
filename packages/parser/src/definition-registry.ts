@@ -8,6 +8,7 @@ export type DefinitionRegistryDiagnosticSeverity = 'error' | 'warning' | 'info'
 
 export type DefinitionRegistryDiagnosticCode =
   | 'definition-registry/duplicate-id'
+  | 'definition-registry/structural-duplicate'
   | 'definition-registry/missing-ref'
   | 'definition-registry/unsupported-ref'
 
@@ -16,7 +17,9 @@ export type DefinitionRegistryDiagnostic = {
   severity: DefinitionRegistryDiagnosticSeverity
   message: string
   id?: CanonicalDefinitionId
+  ids?: CanonicalDefinitionId[]
   ref?: string
+  contentHash?: string
   sourcePath?: string
   sourcePointer?: string
   line?: number
@@ -39,11 +42,23 @@ export type DefinitionRegistryRefEdge = {
 
 export type DefinitionRegistryNode = DefinitionNode
 
+export type DefinitionSemanticAlias = {
+  sourceId: CanonicalDefinitionId
+  targetId: CanonicalDefinitionId
+  sourcePath: string
+  sourcePointer: string
+  sourceContentHash: string
+  targetSourcePath: string
+  targetSourcePointer: string
+  targetContentHash: string
+}
+
 export type DefinitionRegistry = {
   valid: boolean
   nodes: DefinitionRegistryNode[]
   nodeById: ReadonlyMap<CanonicalDefinitionId, DefinitionRegistryNode>
   refEdges: DefinitionRegistryRefEdge[]
+  semanticAliases: DefinitionSemanticAlias[]
   diagnostics: DefinitionRegistryDiagnostic[]
 }
 
@@ -52,6 +67,7 @@ export type DefinitionRegistryOptions = {
     sourcePath: string,
     sourcePointer: string,
   ) => Pick<SourceLocation, 'line' | 'column'> | undefined
+  structuralDuplicateSeverity?: 'info' | 'warning' | 'off'
 }
 
 export function createDefinitionRegistry(
@@ -95,11 +111,15 @@ export function createDefinitionRegistry(
     }
   }
 
+  const semanticAliases = collectSemanticAliases(resolvedNodes, resolvedNodeById, diagnostics, options)
+  diagnostics.push(...collectStructuralDuplicateDiagnostics(resolvedNodes, semanticAliases, options))
+
   return {
     valid: diagnostics.every(diagnostic => diagnostic.severity !== 'error'),
     nodes: resolvedNodes,
     nodeById: resolvedNodeById,
     refEdges,
+    semanticAliases,
     diagnostics,
   }
 }
@@ -306,6 +326,161 @@ function createDuplicateIdDiagnostic(
   if (firstLocation) {
     diagnostic.firstLine = firstLocation.line
     diagnostic.firstColumn = firstLocation.column
+  }
+
+  return diagnostic
+}
+
+function collectSemanticAliases(
+  nodes: readonly DefinitionRegistryNode[],
+  nodeById: ReadonlyMap<CanonicalDefinitionId, DefinitionRegistryNode>,
+  diagnostics: DefinitionRegistryDiagnostic[],
+  options: DefinitionRegistryOptions,
+): DefinitionSemanticAlias[] {
+  const aliases: DefinitionSemanticAlias[] = []
+
+  for (const node of nodes) {
+    const rawTarget = readSemanticAliasTarget(node.metadata)
+    if (rawTarget === undefined) continue
+
+    const targetId = normalizeSemanticAliasTarget(rawTarget)
+    if (!targetId) {
+      diagnostics.push(createSemanticAliasUnsupportedDiagnostic(node, rawTarget, options))
+      continue
+    }
+
+    const targetNode = nodeById.get(targetId)
+    if (!targetNode) {
+      diagnostics.push(createSemanticAliasMissingDiagnostic(node, targetId, rawTarget, options))
+      continue
+    }
+
+    aliases.push({
+      sourceId: node.id,
+      targetId,
+      sourcePath: node.sourcePath,
+      sourcePointer: node.sourcePointer,
+      sourceContentHash: node.contentHash,
+      targetSourcePath: targetNode.sourcePath,
+      targetSourcePointer: targetNode.sourcePointer,
+      targetContentHash: targetNode.contentHash,
+    })
+  }
+
+  return aliases
+}
+
+function collectStructuralDuplicateDiagnostics(
+  nodes: readonly DefinitionRegistryNode[],
+  semanticAliases: readonly DefinitionSemanticAlias[],
+  options: DefinitionRegistryOptions,
+): DefinitionRegistryDiagnostic[] {
+  const severity = options.structuralDuplicateSeverity ?? 'info'
+  if (severity === 'off') return []
+
+  const groups = new Map<string, DefinitionRegistryNode[]>()
+  for (const node of nodes) {
+    if (node.kind !== 'schema') continue
+
+    const group = groups.get(node.contentHash)
+    if (group) {
+      group.push(node)
+    } else {
+      groups.set(node.contentHash, [node])
+    }
+  }
+
+  const intentionallyAliasedIds = new Set<CanonicalDefinitionId>()
+  for (const group of groups.values()) {
+    const groupIds = new Set(group.map(node => node.id))
+    for (const alias of semanticAliases) {
+      if (groupIds.has(alias.sourceId) && groupIds.has(alias.targetId)) {
+        intentionallyAliasedIds.add(alias.sourceId)
+      }
+    }
+  }
+
+  const diagnostics: DefinitionRegistryDiagnostic[] = []
+  for (const group of groups.values()) {
+    const unaliasedNodes = group.filter(node => !intentionallyAliasedIds.has(node.id))
+    if (unaliasedNodes.length <= 1) continue
+
+    const firstNode = unaliasedNodes[0]
+    if (!firstNode) continue
+    const ids = unaliasedNodes.map(node => node.id)
+    diagnostics.push({
+      code: 'definition-registry/structural-duplicate',
+      severity,
+      ids,
+      contentHash: firstNode.contentHash,
+      sourcePath: firstNode.sourcePath,
+      sourcePointer: firstNode.sourcePointer,
+      message: `Schema content hash "${firstNode.contentHash}" is shared by multiple canonical ids (${ids.join(', ')}); definitions remain separate unless an explicit semantic alias is declared.`,
+    })
+  }
+
+  return diagnostics
+}
+
+function readSemanticAliasTarget(metadata: DefinitionNode['metadata']): unknown {
+  if (!metadata) return undefined
+  return metadata.semanticAliasOf
+}
+
+function normalizeSemanticAliasTarget(target: unknown): CanonicalDefinitionId | undefined {
+  if (typeof target !== 'string') return undefined
+
+  const canonicalRefTarget = normalizeCanonicalRef(target)
+  if (canonicalRefTarget) return canonicalRefTarget
+
+  const result = validateDefinitionId(target)
+  return result.valid ? result.id.id : undefined
+}
+
+function createSemanticAliasUnsupportedDiagnostic(
+  node: DefinitionRegistryNode,
+  rawTarget: unknown,
+  options: DefinitionRegistryOptions,
+): DefinitionRegistryDiagnostic {
+  const location = options.lookupSourceLocation?.(node.sourcePath, node.sourcePointer)
+  const ref = String(rawTarget)
+  const diagnostic: DefinitionRegistryDiagnostic = {
+    code: 'definition-registry/unsupported-ref',
+    severity: 'error',
+    ref,
+    sourcePath: node.sourcePath,
+    sourcePointer: node.sourcePointer,
+    message: `Semantic alias for "${node.id}" must target a valid canonical id or oa:// definition ref.`,
+  }
+
+  if (location) {
+    diagnostic.line = location.line
+    diagnostic.column = location.column
+  }
+
+  return diagnostic
+}
+
+function createSemanticAliasMissingDiagnostic(
+  node: DefinitionRegistryNode,
+  targetId: CanonicalDefinitionId,
+  rawTarget: unknown,
+  options: DefinitionRegistryOptions,
+): DefinitionRegistryDiagnostic {
+  const location = options.lookupSourceLocation?.(node.sourcePath, node.sourcePointer)
+  const diagnostic: DefinitionRegistryDiagnostic = {
+    code: 'definition-registry/missing-ref',
+    severity: 'error',
+    id: targetId,
+    ref: String(rawTarget),
+    sourcePath: node.sourcePath,
+    sourcePointer: node.sourcePointer,
+    message: `Semantic alias for "${node.id}" resolves to missing canonical id "${targetId}".`,
+  }
+
+  if (location) {
+    diagnostic.line = location.line
+    diagnostic.column = location.column
   }
 
   return diagnostic

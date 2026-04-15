@@ -249,12 +249,13 @@
         "pnpm build:scripts && pnpm check:api-index passes."
       ],
       "priority": 9,
-      "passes": false,
+      "passes": true,
       "notes": "Keep structural dedupe opt-in through explicit semantic aliasing.",
       "dependsOn": [
         "US-007",
         "US-008"
-      ]
+      ],
+      "completionNotes": "Completed by agent"
     },
     {
       "id": "US-010",
@@ -397,6 +398,6 @@
     }
   ],
   "metadata": {
-    "updatedAt": "2026-04-15T21:03:09.095Z"
+    "updatedAt": "2026-04-15T21:11:58.542Z"
   }
 }

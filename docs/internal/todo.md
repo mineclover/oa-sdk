@@ -9,7 +9,7 @@
 
 ## 다음 세션 실행 순서
 
-현재 ralph PRD 기준 OpenAPI definition builder의 canonical ID grammar/parser(US-001), fragment definition node model(US-002), registry graph/ref edge collection(US-003), source canonical/file ref resolution(US-004), output `$ref` rewrite(US-005), target-local output naming(US-006), server/domain collision simulation(US-007), path flattening guard simulation(US-008)은 완료되었고, 다음 blocking 목표는 target bundle emit이다.
+현재 ralph PRD 기준 OpenAPI definition builder의 canonical ID grammar/parser(US-001), fragment definition node model(US-002), registry graph/ref edge collection(US-003), source canonical/file ref resolution(US-004), output `$ref` rewrite(US-005), target-local output naming(US-006), server/domain collision simulation(US-007), path flattening guard simulation(US-008), duplicate/dedupe policy(US-009)는 완료되었고, 다음 blocking 목표는 target bundle emit이다.
 
 ### [ ] OpenAPI definition builder: target bundle emit
 배경: 여러 서버와 특정 path 하위 조합을 지원하려면 target별 servers/domains/paths include 규칙이 필요함.
@@ -40,6 +40,11 @@
 
 ## 완료된 실행 항목
 
+### [x] OpenAPI definition builder: duplicate and dedupe policy
+배경: structural similarity가 semantic identity를 암시하지 않도록 canonical id, output name, schema hash 중복 정책을 명시해야 함.
+완료: registry가 duplicate canonical id를 계속 error로 처리하고, 같은 schema content hash가 다른 canonical id에서 발견되면 기본 `info` severity의 `definition-registry/structural-duplicate` diagnostic만 생성하도록 함. `nodes`와 `nodeById`는 canonical id별로 유지되어 동일 shape라도 다른 의미의 정의는 자동 병합되지 않음. 의도적 semantic dedupe는 `metadata.semanticAliasOf`가 등록된 canonical id 또는 `oa://...` ref를 가리킬 때만 `semanticAliases`로 기록됨.
+완료 기준: 동일 shape/different meaning이 별도 registry node로 남고 info diagnostic만 생성되는 테스트, explicit semantic alias metadata만 structural duplicate warning을 suppress하고 alias metadata를 생성하는 테스트, 기존 duplicate output name collision/naming policy 테스트가 통과함.
+
 ### [x] OpenAPI definition builder: path flattening guard simulation
 배경: `schema:public/a/Name`과 `schema:public/aname/Name`처럼 canonical path가 다른 정의가 naive flattened output name에서 같아져도 semantic identity가 같다고 추론하면 안 됨.
 완료: `schema:public/a/Name`, `schema:public/aname/Name`, `schema:public/a-name/Name`, `schema:admin/a/Name` fixture를 추가하고 public/admin target fixture에 포함함. Parser 테스트는 네 canonical ID가 registry에서 모두 distinct node로 유지되는 것을 확인한 뒤, 세 public fixture가 모두 attempted output name `AName`으로 매핑되는 flattened naming simulation을 실행해 `definition-output-name/collision` diagnostic과 `collisionReport`의 `output-name-collision` error row를 검증함.
@@ -48,7 +53,7 @@
 ### [x] OpenAPI definition builder: output naming and collision simulation
 배경: 같은 local name `Note`라도 book note와 notebook note는 의미가 다를 수 있어 source 정의를 바꾸지 않고 output naming으로 충돌을 해결해야 함.
 완료: `allocateDefinitionOutputNames()`가 target에 포함된 component-like registry node 집합 안에서 output name을 할당함. Explicit alias가 있으면 우선 적용하고, alias가 없는 unique local name은 preserve-if-unique로 보존하며, 같은 kind/local name이 target 안에서 충돌하면 domain-prefix로 `BookNote`/`NotebookNote`처럼 분리함. 결과는 canonical id → output name map, canonical id → policy reason 포함 alias metadata map, target name/scope/domain/localName/outputName/reason/severity를 담은 machine-readable collision report를 제공하고, 최종 output name collision은 자동 병합하지 않고 `definition-output-name/collision` error diagnostic으로 보고함.
-완료 기준: unique name preserve, cross-domain local name collision, explicit alias, public/admin target fixture 기반 target-local report, output ref rewrite 연동이 parser/schemas 테스트로 검증됨. Structural duplicate warning/info report와 full target fixture emit은 다음 target bundle emit 단계에서 다룸.
+완료 기준: unique name preserve, cross-domain local name collision, explicit alias, public/admin target fixture 기반 target-local report, output ref rewrite 연동이 parser/schemas 테스트로 검증됨. Full target fixture emit은 다음 target bundle emit 단계에서 다룸.
 
 ### [x] OpenAPI definition builder: output ref rewrite
 배경: registry graph는 source `$ref`를 canonical id로 정규화하지만, 실제 build output은 canonical id를 target-local OpenAPI `$ref`로 rewrite해야 함.

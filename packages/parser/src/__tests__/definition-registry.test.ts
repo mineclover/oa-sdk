@@ -361,6 +361,109 @@ describe('definition registry graph', () => {
       },
     ])
   })
+
+  it('reports identical schema hashes as info without collapsing semantic definitions', () => {
+    const bookNote = createDefinitionNode({
+      id: 'schema:public/book/Note',
+      sourcePath: '/workspace/fragments/schema/public/book/Note.yaml',
+      sourcePointer: '#/content',
+      contentHash: 'sha256:note-shape',
+      content: {
+        type: 'object',
+        properties: {
+          text: { type: 'string' },
+        },
+      },
+    })
+    const notebookNote = createDefinitionNode({
+      id: 'schema:public/notebook/Note',
+      sourcePath: '/workspace/fragments/schema/public/notebook/Note.yaml',
+      sourcePointer: '#/content',
+      contentHash: 'sha256:note-shape',
+      content: {
+        type: 'object',
+        properties: {
+          text: { type: 'string' },
+        },
+      },
+    })
+
+    const registry = createDefinitionRegistry([bookNote, notebookNote])
+
+    expect(registry.valid).toBe(true)
+    expect(registry.nodes.map(node => node.id)).toEqual([
+      'schema:public/book/Note',
+      'schema:public/notebook/Note',
+    ])
+    expect(registry.nodeById.size).toBe(2)
+    expect(registry.semanticAliases).toEqual([])
+    expect(registry.diagnostics).toEqual([
+      {
+        code: 'definition-registry/structural-duplicate',
+        severity: 'info',
+        ids: [
+          'schema:public/book/Note',
+          'schema:public/notebook/Note',
+        ],
+        contentHash: 'sha256:note-shape',
+        sourcePath: '/workspace/fragments/schema/public/book/Note.yaml',
+        sourcePointer: '#/content',
+        message: 'Schema content hash "sha256:note-shape" is shared by multiple canonical ids (schema:public/book/Note, schema:public/notebook/Note); definitions remain separate unless an explicit semantic alias is declared.',
+      },
+    ])
+  })
+
+  it('uses explicit semantic alias metadata as the only structural dedupe signal', () => {
+    const note = createDefinitionNode({
+      id: 'schema:public/book/Note',
+      sourcePath: '/workspace/fragments/schema/public/book/Note.yaml',
+      sourcePointer: '#/content',
+      contentHash: 'sha256:note-shape',
+      content: {
+        type: 'object',
+        properties: {
+          text: { type: 'string' },
+        },
+      },
+    })
+    const annotation = createDefinitionNode({
+      id: 'schema:public/notebook/Annotation',
+      sourcePath: '/workspace/fragments/schema/public/notebook/Annotation.yaml',
+      sourcePointer: '#/content',
+      contentHash: 'sha256:note-shape',
+      content: {
+        type: 'object',
+        properties: {
+          text: { type: 'string' },
+        },
+      },
+      metadata: {
+        semanticAliasOf: 'oa://schema/public/book/Note',
+      },
+    })
+
+    const registry = createDefinitionRegistry([note, annotation])
+
+    expect(registry.valid).toBe(true)
+    expect(registry.nodes.map(node => node.id)).toEqual([
+      'schema:public/book/Note',
+      'schema:public/notebook/Annotation',
+    ])
+    expect(registry.nodeById.size).toBe(2)
+    expect(registry.semanticAliases).toEqual([
+      {
+        sourceId: 'schema:public/notebook/Annotation',
+        targetId: 'schema:public/book/Note',
+        sourcePath: '/workspace/fragments/schema/public/notebook/Annotation.yaml',
+        sourcePointer: '#/content',
+        sourceContentHash: 'sha256:note-shape',
+        targetSourcePath: '/workspace/fragments/schema/public/book/Note.yaml',
+        targetSourcePointer: '#/content',
+        targetContentHash: 'sha256:note-shape',
+      },
+    ])
+    expect(registry.diagnostics).toEqual([])
+  })
 })
 
 describe('definition output ref rewrite', () => {

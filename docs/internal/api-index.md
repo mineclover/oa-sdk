@@ -69,7 +69,7 @@
 | `validateDefinitionIds()` | `definition-id.ts` | canonical definition id 목록 검증 + duplicate id diagnostic 생성 |
 | `createDefinitionNode()` | `definition-node.ts` | canonical id에서 kind/scope/domain/localName을 파생하고 fragment source path/pointer/content hash/metadata/refs를 보존 |
 | `createDefinitionRef()` | `definition-node.ts` | fragment content 안 source `$ref`의 raw ref와 source path/pointer, optional target canonical id를 보존 |
-| `createDefinitionRegistry()` | `definition-registry.ts` | DefinitionNode 목록을 registry graph로 등록하고 canonical/file ref를 canonical id로 정규화하며 duplicate/missing/unsupported diagnostic과 ref edge를 수집 |
+| `createDefinitionRegistry()` | `definition-registry.ts` | DefinitionNode 목록을 registry graph로 등록하고 canonical/file ref를 canonical id로 정규화하며 duplicate/missing/unsupported/structural duplicate diagnostic, semantic alias, ref edge를 수집 |
 | `collectDefinitionRefs()` | `definition-registry.ts` | fragment content를 JSON Pointer-aware traversal로 순회해 `$ref` 위치를 DefinitionRef로 수집 |
 | `allocateDefinitionOutputNames()` | `definition-output-names.ts` | 한 target에 포함된 component-like definition node의 output component name을 target-local로 할당하고 alias metadata와 collision report를 생성 |
 | `rewriteDefinitionOutputRefs()` | `definition-output-refs.ts` | registry target id를 사용해 fragment content/refs의 source `$ref`를 표준 OpenAPI component `$ref`로 rewrite |
@@ -120,13 +120,14 @@
 | `DefinitionMetadata` | `definition-node.ts` | canonical id 계층에 넣지 않는 classification metadata map |
 | `CreateDefinitionNodeInput` | `definition-node.ts` | `createDefinitionNode()` 입력 shape |
 | `CreateDefinitionRefInput` | `definition-node.ts` | `createDefinitionRef()` 입력 shape |
-| `DefinitionRegistry` | `definition-registry.ts` | unique node map, ref edge 목록, registry diagnostic을 담는 definition builder graph |
+| `DefinitionRegistry` | `definition-registry.ts` | unique node map, ref edge 목록, semantic alias 목록, registry diagnostic을 담는 definition builder graph |
 | `DefinitionRegistryNode` | `definition-registry.ts` | registry에 등록된 DefinitionNode shape |
 | `DefinitionRegistryRefEdge` | `definition-registry.ts` | source definition id에서 raw `$ref` source pointer와 optional target canonical id로 이어지는 edge |
-| `DefinitionRegistryDiagnostic` | `definition-registry.ts` | duplicate canonical id와 missing/unsupported source ref diagnostic. raw ref, source/target path, pointer, line/column 포함 가능 |
-| `DefinitionRegistryDiagnosticCode` | `definition-registry.ts` | registry graph diagnostic code union (`duplicate-id`, `missing-ref`, `unsupported-ref`) |
+| `DefinitionSemanticAlias` | `definition-registry.ts` | explicit semantic alias source/target canonical id와 양쪽 source/content hash metadata |
+| `DefinitionRegistryDiagnostic` | `definition-registry.ts` | duplicate canonical id, structural duplicate, missing/unsupported source ref diagnostic. raw ref, source/target path, pointer, line/column 포함 가능 |
+| `DefinitionRegistryDiagnosticCode` | `definition-registry.ts` | registry graph diagnostic code union (`duplicate-id`, `structural-duplicate`, `missing-ref`, `unsupported-ref`) |
 | `DefinitionRegistryDiagnosticSeverity` | `definition-registry.ts` | registry graph diagnostic severity: error, warning, info |
-| `DefinitionRegistryOptions` | `definition-registry.ts` | registry 생성 옵션. source location lookup으로 diagnostic line/column 보강 |
+| `DefinitionRegistryOptions` | `definition-registry.ts` | registry 생성 옵션. source location lookup과 structural duplicate severity 설정 지원 |
 | `DefinitionOutputNameMap` | `definition-output-refs.ts` | target-local canonical id → output component name 매핑 |
 | `DefinitionOutputAliasMetadata` | `definition-output-names.ts` | canonical id, output name, local/source segments, naming policy reason을 담는 alias metadata |
 | `DefinitionOutputNameAllocationOptions` | `definition-output-names.ts` | explicit alias map과 optional targetName을 받는 target-local output name allocation 옵션 |

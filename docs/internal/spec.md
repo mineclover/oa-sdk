@@ -162,13 +162,15 @@ Valid fixture IDs: `schema:public/book/Note`, `schema:public/notebook/Note`, `sc
 
 `DefinitionNode`는 `@oa-sdk/parser`의 public primitive로, fragment source를 registry에 올리기 전 canonical identity와 diagnostics용 source metadata를 함께 운반한다. `createDefinitionNode()`는 canonical id를 `DefinitionId`로 파싱해 `kind`, `scope`, `domain`, `localName`을 채우고, `sourcePath`, `sourcePointer`, `contentHash`, `content`, optional `metadata`, `refs`를 그대로 보존한다.
 
-`DefinitionRef`는 fragment content 안에서 발견한 source ref를 나타낸다. `createDefinitionRef()`는 raw `ref`, `sourcePath`, `sourcePointer`를 보존하고, target canonical id가 이미 알려진 경우 `targetId`로 저장한다. `metadata`는 target server, tags, feature flag, ownership 같은 classification 정보를 위한 optional field이며 canonical id 계층(`kind:scope/domain/name`)에는 포함하지 않는다. Output `$ref` rewrite는 후속 builder 단계가 담당한다.
+`DefinitionRef`는 fragment content 안에서 발견한 source ref를 나타낸다. `createDefinitionRef()`는 raw `ref`, `sourcePath`, `sourcePointer`를 보존하고, target canonical id가 이미 알려진 경우 `targetId`로 저장한다. `metadata`는 target server, tags, feature flag, ownership 같은 classification 정보를 위한 optional field이며 canonical id 계층(`kind:scope/domain/name`)에는 포함하지 않는다. 구조가 같은 다른 canonical id를 의도적으로 같은 의미로 취급해야 할 때만 `metadata.semanticAliasOf`에 canonical id 또는 `oa://...` ref를 선언한다. Output `$ref` rewrite는 후속 builder 단계가 담당한다.
 
 #### Definition registry graph (US-003)
 
 `createDefinitionRegistry()`는 `DefinitionNode` 목록을 registry graph로 등록한다. `nodes`와 `nodeById`는 첫 번째 unique canonical id만 보존하고, 같은 canonical id가 다시 들어오면 `definition-registry/duplicate-id` error diagnostic을 만든다. Duplicate diagnostic은 중복 node의 `sourcePath`/`sourcePointer`와 최초 등록 node의 `firstSourcePath`/`firstSourcePointer`를 함께 담고, `lookupSourceLocation`이 제공되면 양쪽 line/column도 보강한다.
 
 Registry ref collection은 `collectDefinitionRefs()`가 담당한다. Fragment `content`를 `#/content/properties/error~1detail/$ref`처럼 JSON Pointer escaping 규칙을 지키며 순회해 `$ref` 문자열을 `DefinitionRef`로 수집하고, registry는 이를 `DefinitionRegistryRefEdge`로 변환한다.
+
+같은 schema `contentHash`가 서로 다른 canonical id에서 발견되면 registry는 기본 `info` severity의 `definition-registry/structural-duplicate` diagnostic을 만든다. 이 diagnostic은 builder를 실패시키지 않으며 `nodes`와 `nodeById`는 계속 canonical id별로 분리된다. `structuralDuplicateSeverity` 옵션으로 `warning` 또는 `off`를 선택할 수 있지만, 기본 정책은 구조 유사성을 의미 동치로 승격하지 않는 것이다. `metadata.semanticAliasOf`가 등록된 target을 가리키면 registry는 `semanticAliases`에 source/target/content hash metadata를 기록하고 해당 pair를 intentional alias로 취급한다.
 
 #### Source ref resolution (US-004)
 
@@ -218,6 +220,12 @@ Canonical ID와 output symbol은 서로 다른 축이다. `schema:public/a/Name`
 
 Flattening risk test는 target-local allocator에 explicit alias map을 넣어 naive flattened naming policy가 세 public fixture를 모두 `AName`으로 내보내려는 상황을 시뮬레이션한다. 이 경우 allocator는 canonical-id keyed `outputNames` map과 alias metadata를 유지하되 `valid: false`를 반환하고, `definition-output-name/collision` diagnostic에 attempted output name `AName`과 colliding canonical IDs 전체를 담는다. `collisionReport` row들은 `reason: 'output-name-collision'`, `severity: 'error'`가 되며, default fail-on-collision policy에서는 자동 semantic merge나 late rename 없이 build가 실패해야 한다.
 
+#### Duplicate and dedupe policy (US-009)
+
+Duplicate policy는 source identity, output symbol, structural hash를 분리한다. Duplicate canonical id는 항상 error이며 registry는 첫 번째 node만 보존하고 중복 source location을 diagnostic에 담는다. Duplicate output name은 target-local naming policy가 `preserve-if-unique`, `domain-prefix`, explicit alias 순서로 해결하고, 그래도 같은 component section/output name에 여러 canonical id가 남으면 `definition-output-name/collision` error로 실패한다.
+
+동일 schema hash는 자동 dedupe 조건이 아니다. 서로 다른 canonical id가 같은 `contentHash`를 공유하면 registry는 기본 `info` diagnostic으로만 보고하고 두 definition을 그대로 유지한다. Downstream builder가 structural dedupe를 허용하려면 source fragment가 `metadata.semanticAliasOf: 'schema:...'` 또는 `metadata.semanticAliasOf: 'oa://...'`를 명시해야 하며, 이 경우 registry `semanticAliases`가 유일한 opt-in dedupe signal이다. Alias target이 없거나 문법이 invalid면 일반 ref diagnostic처럼 error가 된다.
+
 | 개념 | 계획 |
 |------|------|
 | Canonical identity | `kind:scope/domain/name` 고정 계층. 예: `schema:public/book/Note`, `schema:public/notebook/Note`, `schema:shared/common/Error`. source identity와 output component name을 분리 |
@@ -227,8 +235,8 @@ Flattening risk test는 target-local allocator에 explicit alias map을 넣어 n
 | Naming policy | target-local `allocateDefinitionOutputNames()`가 explicit alias, `preserve-if-unique`, `domain-prefix`를 적용. `book.Note`와 `notebook.Note`는 source name을 바꾸지 않고 `BookNote`/`NotebookNote`처럼 출력명만 분리 |
 | Namespace scope | 이름 충돌 해결은 target server의 포함 node 집합 안에서 kind → domain → local name 순서로 처리. 같은 local name이라도 target bundle마다 포함 집합이 다르므로 output name allocation은 target-local임 |
 | Flattening guard | `schema:public/a/Name`, `schema:public/aname/Name`, `schema:public/a-name/Name`, `schema:admin/a/Name`은 flatten 결과가 같을 수 있어도 다른 canonical identity다. builder는 string flattening만으로 동치 추론을 하지 않고 attempted output name과 모든 colliding canonical IDs를 `output-name-collision`으로 보고 |
-| Collision simulation | public/admin target fixture에서 server target → domain → local name 순서의 rename과 target-local report를 검증. flattening output collision은 fail-on-collision diagnostic으로 검증되며, structural duplicate warning과 full target fixture emit은 후속 story에서 확장 |
-| Dedupe policy | duplicate canonical id는 error. 동일 구조 hash는 warning/info only. 의미가 다른 정의는 자동 structural dedupe 금지. deeper hierarchy는 canonical path가 아니라 metadata/tag로 표현 |
+| Collision simulation | public/admin target fixture에서 server target → domain → local name 순서의 rename과 target-local report를 검증. flattening output collision은 fail-on-collision diagnostic으로 검증되며, full target fixture emit은 후속 story에서 확장 |
+| Dedupe policy | duplicate canonical id는 error. 동일 schema hash는 기본 info diagnostic only. 의미가 다른 정의는 자동 structural dedupe 금지. opt-in semantic dedupe는 `metadata.semanticAliasOf`와 registry `semanticAliases`로만 표현 |
 | Target bundle | public/admin/internal 등 target별 servers, include domains, include paths, naming policy로 필요한 fragment와 transitive refs만 emit |
 | Migration | 기존 `packages/schemas/scripts/merge.ts`는 유지하고, builder는 병렬 output으로 검증한 뒤 `.merged.yaml` 대체 여부 결정 |
 

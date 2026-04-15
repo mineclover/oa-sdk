@@ -6,6 +6,7 @@ after each iteration and it's included in prompts for context.
 ## Codebase Patterns (Study These First)
 
 *Add reusable patterns discovered during development here.*
+- Structural duplicate policy belongs in the registry as a non-fatal schema `contentHash` diagnostic while preserving canonical-id keyed nodes; explicit semantic dedupe should be represented separately as `metadata.semanticAliasOf` -> `semanticAliases`.
 - Path-flattening collision tests can simulate a risky attempted naming policy through explicit allocator aliases, then assert registry nodes and `outputNames` stay canonical-id keyed while failure is reported only through output-name collision diagnostics.
 - Collision/naming reports should be derived from allocator alias metadata plus final diagnostics, rather than widening alias metadata itself; this keeps the target-local output-name map stable while simulation layers add target name, reason, and severity.
 - Output name allocation should run per target over that target's included registry nodes, emit a canonical-id keyed `outputNames` map plus alias metadata, and then feed the map into output `$ref` rewriting instead of storing global canonical-id aliases.
@@ -185,4 +186,24 @@ after each iteration and it's included in prompts for context.
   - Explicit allocator aliases are a clean way to simulate a hypothetical flattened-path naming policy without adding a new source identity rule or target config parser.
   - `createDefinitionRegistry()` and `allocateDefinitionOutputNames()` both stay keyed by canonical id, so even identical attempted output names do not collapse semantic definitions.
   - Fragment and target fixtures under `packages/schemas/src/fragments` and `packages/schemas/src/targets` remain outside the current domain merge pipeline, which keeps schema validation output stable while builder behavior is simulated.
+---
+
+## 2026-04-16 - US-009
+- Implemented explicit duplicate/dedupe policy in the parser definition registry.
+- Added `definition-registry/structural-duplicate` info diagnostics for identical schema `contentHash` values across different canonical IDs while keeping registry nodes and `nodeById` separate.
+- Added `metadata.semanticAliasOf` recognition and `semanticAliases` registry metadata as the explicit semantic dedupe signal; invalid or missing alias targets reuse source ref diagnostics.
+- Added parser tests for identical shape/different meaning staying separate and explicit semantic alias metadata as the only structural dedupe path.
+- Updated internal spec, API index, and todo docs with duplicate canonical ID, duplicate output name, structural duplicate, and semantic alias policy.
+- Files changed:
+  - `packages/parser/src/definition-registry.ts`
+  - `packages/parser/src/index.ts`
+  - `packages/parser/src/__tests__/definition-registry.test.ts`
+  - `docs/internal/spec.md`
+  - `docs/internal/api-index.md`
+  - `docs/internal/todo.md`
+  - `.ralph-tui/progress.md`
+- **Learnings:**
+  - Registry diagnostics can carry informational policy signals without changing `valid` as long as `valid` continues to mean no error severity diagnostics.
+  - Schema hash grouping should be limited to schema nodes and should not rewrite or remove nodes; downstream builder emit can decide whether a recorded semantic alias should share output.
+  - Reusing missing/unsupported ref diagnostics for `semanticAliasOf` keeps alias target validation aligned with normal source ref validation.
 ---
