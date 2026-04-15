@@ -11,6 +11,7 @@ after each iteration and it's included in prompts for context.
 - Keep low-level `$ref` mechanics in parser-only contracts: `RefResolver` returns a `RefResolution` value object with kind, cache keys, document root, source pointer, pointer/file metadata, and diagnostic, while callers keep traversal/folding behavior local.
 - Typegen external schema aliases need two ref identities: raw `$ref` overrides only for entry-document refs, and canonical absolute file+pointer refs for external schema internals rewritten by sourceFilePath/sourcePointer before `schemaToTs()`.
 - Typegen rename diagnostics should be emitted after deterministic alias names are assigned so warnings can report resolver-normalized `file#pointer -> TypeName` context without changing name allocation.
+- Incremental workspace boundaries belong outside parser: keep `WorkspaceIndex` in codegen/CLI layers, and make the default noop index mark every scanned file dirty so full rebuild remains the correctness path.
 
 ---
 
@@ -115,4 +116,23 @@ after each iteration and it's included in prompts for context.
   - Collision warning text needs generated names, so it must be built after the alias assignment loop rather than during name grouping.
   - `resolveRefGraph()` already provides the target `filePath`/`pointer` needed for rename context; typegen only needs to format that resolver-normalized identity consistently.
   - Updating an existing test keeps `docs/internal/spec.md` test counts stable while still covering warning propagation after migration.
+---
+
+## 2026-04-15 - US-007
+- Added a parser-external `WorkspaceIndex` boundary in `@oa-sdk/codegen` covering file hash records, components, ref edges, source locations, diagnostics, and type alias metadata.
+- Implemented `createNoopWorkspaceIndex()` / `createWorkspaceIndex()` default no-op behavior that treats every scanned file as changed, plus `createMemoryWorkspaceIndex()` for in-memory metadata storage, diffing, and file invalidation.
+- Exported the new public codegen API and documented the index as an optimization layer rather than a correctness source; updated test counts and todo status.
+- Ran required checks: `pnpm typecheck` passed; `pnpm --filter @oa-sdk/codegen test` passed with 473 tests; `pnpm check:api-index` passed; `pnpm test` reached mock-server and failed on sandbox `listen EPERM`; `pnpm schema:validate` built parser/codegen and failed when `tsx` attempted an IPC pipe with `listen EPERM`; direct typia-mock/playground tests hit the same localhost bind restriction.
+- Files changed:
+  - `packages/codegen/src/workspace-index.ts`
+  - `packages/codegen/src/index.ts`
+  - `packages/codegen/src/__tests__/workspace-index.test.ts`
+  - `docs/internal/spec.md`
+  - `docs/internal/api-index.md`
+  - `docs/internal/todo.md`
+  - `.ralph-tui/progress.md`
+- **Learnings:**
+  - A no-op incremental index should return empty reads but mark all scanned files dirty, preserving current full rebuild behavior without special CLI branching.
+  - Keeping WorkspaceIndex row types independent from parser types avoids pulling parser correctness contracts or future SQLite details into browser/mock-server-safe parser bundles.
+  - File-level `replaceFileIndex()` gives future SQLite orchestration the same invalidation unit described in ADR-006 while remaining easy to exercise in memory.
 ---

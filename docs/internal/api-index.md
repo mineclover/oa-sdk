@@ -106,6 +106,9 @@
 | `generateTypesFromSpec()` | `typegen/generate-types.ts` | OAS spec → TS 타입 (parseDocument 포함) |
 | `analyzeExternalSchemaRefs()` | `typegen/generate-types.ts` | 외부 `$ref` 스키마 타입명/충돌 diagnostic 조회 |
 | `schemaToTs()` | `typegen/schema-to-ts.ts` | 단일 OAS Schema → TS 타입 문자열 (SchemaToTsOptions 지원) |
+| `createWorkspaceIndex()` | `workspace-index.ts` | 기본 noop 또는 memory WorkspaceIndex 생성 |
+| `createNoopWorkspaceIndex()` | `workspace-index.ts` | full rebuild 보존용 no-op WorkspaceIndex 생성 |
+| `createMemoryWorkspaceIndex()` | `workspace-index.ts` | 파일 단위 metadata 저장/변경 감지용 in-memory WorkspaceIndex 생성 |
 
 ### 타입 (`@oa-sdk/codegen`)
 
@@ -121,6 +124,22 @@
 | `ExternalSchemaRefAnalysis` | `typegen/generate-types.ts` | 외부 `$ref` 분석 결과 |
 | `ExternalSchemaRefDiagnostic` | `typegen/generate-types.ts` | 외부 `$ref` 이름 충돌/해소 실패 diagnostic. sourceFilePath/sourcePointer + filePath/pointer 포함 가능 |
 | `ExternalSchemaRefDiagnosticCode` | `typegen/generate-types.ts` | 외부 `$ref` diagnostic 코드. resolver diagnostic code도 보존 |
+| `WorkspaceIndex` | `workspace-index.ts` | parser 밖의 증분 workspace index 경계. correctness 원천이 아닌 optimization/index layer |
+| `WorkspaceFileRecord` | `workspace-index.ts` | file path/hash/size/mtime/parser version/run metadata |
+| `WorkspaceComponentRecord` | `workspace-index.ts` | component section/name/pointer/content hash/source location metadata |
+| `WorkspaceRefRecord` | `workspace-index.ts` | `$ref` edge source/target/kind/resolution/diagnostic metadata |
+| `WorkspaceSourceLocationRecord` | `workspace-index.ts` | file pointer → line/column metadata |
+| `WorkspaceDiagnosticRecord` | `workspace-index.ts` | producer/severity/code/message/source metadata |
+| `WorkspaceTypeAliasRecord` | `workspace-index.ts` | external ref type alias name/rename/content hash metadata |
+| `WorkspaceIndexDiff` / `WorkspaceIndexSnapshot` | `workspace-index.ts` | dirty detection and full index snapshot shapes |
+| `WorkspaceIndexMode` / `WorkspaceIndexOptions` | `workspace-index.ts` | noop/memory index factory configuration |
+| `WorkspaceFileIndexData` | `workspace-index.ts` | 파일 단위 components/refs/source/diagnostics/typeAliases 교체 입력 |
+| `WorkspaceRefKind` | `workspace-index.ts` | internal/external/unsupported ref edge kind |
+| `WorkspaceDiagnosticSeverity` | `workspace-index.ts` | error/warning/info diagnostic severity |
+| `WorkspaceComponentFilter` | `workspace-index.ts` | component metadata 조회 필터 |
+| `WorkspaceRefFilter` | `workspace-index.ts` | ref edge 조회 필터 |
+| `WorkspaceDiagnosticFilter` | `workspace-index.ts` | diagnostic metadata 조회 필터 |
+| `WorkspaceTypeAliasFilter` | `workspace-index.ts` | type alias metadata 조회 필터 |
 
 ### 내부 함수 (`@oa-sdk/codegen` — index 미노출)
 

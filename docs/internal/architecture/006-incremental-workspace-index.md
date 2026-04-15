@@ -197,7 +197,7 @@ pragma foreign_keys = on;
 1. 메모리 `RefResolver` 인터페이스 도입.
 2. `resolveRefGraph()`를 resolver 기반으로 이전.
 3. `derefSpec()`를 resolver 기반으로 이전.
-4. `WorkspaceIndex` 인터페이스와 noop/memory 구현 도입.
+4. `WorkspaceIndex` 인터페이스와 noop/memory 구현 도입. (US-007 완료)
 5. `SQLiteWorkspaceIndex` 구현.
 6. `oa-gen validate --incremental` 연결.
 7. `oa-gen typegen --incremental` 연결.

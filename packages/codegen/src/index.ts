@@ -15,9 +15,30 @@ export { generateComponents } from './generator.js'
 export { defineConfig } from './config.js'
 export { analyzeExternalSchemaRefs, generateTypes, generateTypesFromSpec } from './typegen/generate-types.js'
 export { schemaToTs } from './typegen/schema-to-ts.js'
+export { createMemoryWorkspaceIndex, createNoopWorkspaceIndex, createWorkspaceIndex } from './workspace-index.js'
 
 export type { OasSchema } from './zod-to-schema.js'
 export type { CodegenConfig } from './config.js'
 export type { ExternalSchemaRefAnalysis, ExternalSchemaRefDiagnostic, ExternalSchemaRefDiagnosticCode, TypegenOptions } from './typegen/generate-types.js'
 export type { OutputOptions, NamedSchema, CodegenResult } from './types.js'
 export type { DrizzleCodegenOptions } from './drizzle/index.js'
+export type {
+  WorkspaceComponentFilter,
+  WorkspaceComponentRecord,
+  WorkspaceDiagnosticFilter,
+  WorkspaceDiagnosticRecord,
+  WorkspaceDiagnosticSeverity,
+  WorkspaceFileIndexData,
+  WorkspaceFileRecord,
+  WorkspaceIndex,
+  WorkspaceIndexDiff,
+  WorkspaceIndexMode,
+  WorkspaceIndexOptions,
+  WorkspaceIndexSnapshot,
+  WorkspaceRefFilter,
+  WorkspaceRefKind,
+  WorkspaceRefRecord,
+  WorkspaceSourceLocationRecord,
+  WorkspaceTypeAliasFilter,
+  WorkspaceTypeAliasRecord,
+} from './workspace-index.js'
