@@ -2,7 +2,9 @@ import { describe, it, expect } from 'vitest'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
+import { parse as parseYaml } from 'yaml'
 import { lintDocument } from '../lint.js'
+import { createSourceLocationIndex } from '../source-location.js'
 
 function doc(overrides: Record<string, unknown> = {}) {
   return { openapi: '3.2.0', info: { title: 'T', version: '0' }, paths: {}, ...overrides }
@@ -137,6 +139,40 @@ describe('lint — security', () => {
       security: [{ nonexistent: [] }],
     }))
     expect(results.some(r => r.rule === 'security/scheme-defined')).toBe(true)
+  })
+
+  it('기존 rule/message를 유지하면서 source line/column을 추가한다', () => {
+    const basePath = join(tmpdir(), 'oa-sdk-lint-location.yaml')
+    const raw = [
+      'openapi: 3.2.0',
+      'info:',
+      '  title: T',
+      '  version: "0"',
+      'paths: {}',
+      'security:',
+      '  - missing: []',
+      '',
+    ].join('\n')
+    const index = createSourceLocationIndex(raw, { filePath: basePath })
+    const results = lintDocument(parseYaml(raw), {
+      categories: ['security'],
+      basePath,
+      lookupSourceLocation: (filePath, pointer) => filePath === basePath ? index.lookup(pointer) : undefined,
+    })
+    const diagnostic = results.find(r => r.rule === 'security/scheme-defined')
+
+    expect(diagnostic).toMatchObject({
+      path: '/security',
+      severity: 'error',
+      rule: 'security/scheme-defined',
+      message: 'securitySchemes에 "missing"이 정의되지 않았습니다',
+      source: {
+        sourceFilePath: basePath,
+        sourcePointer: '#/security',
+        line: 6,
+        column: 1,
+      },
+    })
   })
 
   it('유효한 security 참조', () => {

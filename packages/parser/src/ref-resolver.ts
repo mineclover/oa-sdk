@@ -19,6 +19,8 @@ export type RefResolverDiagnostic = {
   sourceFilePath?: string
   filePath?: string
   pointer?: string
+  line?: number
+  column?: number
 }
 
 export type RefDocumentCache = Map<string, unknown>
@@ -27,6 +29,7 @@ export type RefResolverOptions = {
   entryPath?: string
   documentCache?: RefDocumentCache
   includeInternalFilePath?: boolean
+  lookupSourceLocation?: (filePath: string, pointer: string) => { line: number; column: number } | undefined
 }
 
 export type ResolveRefRequest = {
@@ -72,19 +75,20 @@ export function createRefResolver(options: RefResolverOptions = {}): RefResolver
 
   function resolveRef(request: ResolveRefRequest): RefResolution {
     const stack = request.stack ?? []
+    let resolution: RefResolution
     if (request.ref === '#' || request.ref.startsWith('#/')) {
-      return resolveInternalRef(request, stack)
+      resolution = resolveInternalRef(request, stack)
+    } else if (isRelativeRef(request.ref) && request.basePath) {
+      resolution = resolveExternalRef(request, stack)
+    } else {
+      resolution = unresolved(request, 'unsupported', {
+        code: 'unsupported-ref',
+        ref: request.ref,
+        message: `지원하지 않는 $ref 형식: ${request.ref}`,
+      })
     }
 
-    if (isRelativeRef(request.ref) && request.basePath) {
-      return resolveExternalRef(request, stack)
-    }
-
-    return unresolved(request, 'unsupported', {
-      code: 'unsupported-ref',
-      ref: request.ref,
-      message: `지원하지 않는 $ref 형식: ${request.ref}`,
-    })
+    return enrichResolutionDiagnosticLocation(resolution, options.lookupSourceLocation)
   }
 
   function resolveInternalRef(request: ResolveRefRequest, stack: readonly string[]): RefResolution {
@@ -237,6 +241,35 @@ function unresolved(
     cacheKey: `unsupported:${request.ref}`,
     ...details,
     diagnostic: enrichedDiagnostic,
+  }
+}
+
+function enrichResolutionDiagnosticLocation(
+  resolution: RefResolution,
+  lookupSourceLocation: RefResolverOptions['lookupSourceLocation'],
+): RefResolution {
+  if (!resolution.diagnostic || !lookupSourceLocation) return resolution
+  const diagnostic = enrichDiagnosticLocation(resolution.diagnostic, lookupSourceLocation)
+  if (diagnostic === resolution.diagnostic) return resolution
+  return { ...resolution, diagnostic }
+}
+
+function enrichDiagnosticLocation(
+  diagnostic: RefResolverDiagnostic,
+  lookupSourceLocation: NonNullable<RefResolverOptions['lookupSourceLocation']>,
+): RefResolverDiagnostic {
+  const filePath = diagnostic.sourceFilePath ?? diagnostic.filePath
+  const pointer = diagnostic.sourcePointer ?? diagnostic.pointer
+  if (!filePath || !pointer || (diagnostic.line !== undefined && diagnostic.column !== undefined)) {
+    return diagnostic
+  }
+
+  const location = lookupSourceLocation(filePath, pointer)
+  if (!location) return diagnostic
+  return {
+    ...diagnostic,
+    line: location.line,
+    column: location.column,
   }
 }
 

@@ -8,7 +8,7 @@
  *   4. 3.1 다운그레이드 가능성 확인
  */
 
-import { lintDocument, type LintResult } from './lint.js'
+import { lintDocument, type LintOptions, type LintResult } from './lint.js'
 import { validateSchemaObjects } from './schema-validator.js'
 
 export type ValidationLevel = 'error' | 'warning' | 'info'
@@ -23,6 +23,7 @@ export type ValidationResult = {
 
 export type ValidateDocumentOptions = {
   basePath?: string
+  lookupSourceLocation?: (filePath: string, pointer: string) => { line: number; column: number } | undefined
 }
 
 /**
@@ -75,13 +76,14 @@ export function validateDocument(
   }
 
   // Step 4: 자체 린터 실행
-  const lintOptions: { basePath?: string } = {}
+  const lintOptions: Pick<LintOptions, 'basePath' | 'lookupSourceLocation'> = {}
   if (options.basePath !== undefined) lintOptions.basePath = options.basePath
+  if (options.lookupSourceLocation !== undefined) lintOptions.lookupSourceLocation = options.lookupSourceLocation
   const lintResults = lintDocument(doc, lintOptions)
   results.push(...lintResults)
 
   // Step 5: JSON Schema 2020-12 메타 검증
-  results.push(...validateSchemaObjects(obj))
+  results.push(...validateSchemaObjects(obj, lintOptions))
 
   return buildResult(results)
 }

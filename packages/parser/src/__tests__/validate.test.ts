@@ -2,7 +2,9 @@ import { describe, it, expect } from 'vitest'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
+import { parse as parseYaml } from 'yaml'
 import { validateDocument } from '../validate.js'
+import { createSourceLocationIndex } from '../source-location.js'
 
 describe('validateDocument', () => {
   it('유효한 최소 문서', () => {
@@ -126,6 +128,44 @@ describe('validateDocument', () => {
     })
     expect(result.valid).toBe(false)
     expect(result.errors.some(e => e.rule === 'schema/meta-valid' && e.path === '/components/schemas/Age/minimum')).toBe(true)
+  })
+
+  it('스키마 메타 검증 diagnostic에 local YAML line/column을 포함한다', () => {
+    const basePath = join(tmpdir(), 'oa-sdk-validate-location.yaml')
+    const raw = [
+      'openapi: 3.2.0',
+      'info:',
+      '  title: T',
+      '  version: "0"',
+      'paths: {}',
+      'components:',
+      '  schemas:',
+      '    Age:',
+      '      type: integer',
+      '      minimum: zero',
+      '',
+    ].join('\n')
+    const index = createSourceLocationIndex(raw, { filePath: basePath })
+    const result = validateDocument(parseYaml(raw) as Record<string, unknown>, {
+      basePath,
+      lookupSourceLocation: (filePath, pointer) => filePath === basePath ? index.lookup(pointer) : undefined,
+    })
+    const diagnostic = result.errors.find(e => e.rule === 'schema/meta-valid')
+
+    expect(diagnostic).toMatchObject({
+      path: '/components/schemas/Age/minimum',
+      severity: 'error',
+      rule: 'schema/meta-valid',
+      source: {
+        sourceFilePath: basePath,
+        sourcePointer: '#/components/schemas/Age/minimum',
+        filePath: basePath,
+        pointer: '#/components/schemas/Age/minimum',
+        line: 10,
+        column: 7,
+      },
+    })
+    expect(diagnostic?.message).toContain('유효하지 않은 Schema Object:')
   })
 
   it('외부 $ref 파일 읽기 실패를 refs/valid-ref 에러로 보고한다', () => {

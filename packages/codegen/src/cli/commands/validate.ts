@@ -33,7 +33,10 @@ export const validate: Command = {
 
     try {
       console.log('━━━ Step 1: 파싱 + 구조 검증 ━━━')
-      const result = validateDocument(doc, { basePath: resolvedSpecPath })
+      const result = validateDocument(doc, {
+        basePath: resolvedSpecPath,
+        lookupSourceLocation: sourceLocations.lookup,
+      })
 
       for (const r of [...result.errors, ...result.warnings, ...result.infos]) {
         const icon = r.severity === 'error' ? '❌' : r.severity === 'warning' ? '⚠️' : 'ℹ️'
@@ -90,13 +93,15 @@ function toWorkspaceDiagnostic(
     rule: string
     message: string
     path: string
-    source?: { sourceFilePath?: string; sourcePointer?: string }
+    source?: { sourceFilePath?: string; sourcePointer?: string; line?: number; column?: number }
   },
   sourceLocations: CliSourceLocationResolver,
 ): WorkspaceDiagnosticRecord {
   const filePath = result.source?.sourceFilePath ?? resolvedSpecPath
   const pointer = result.source?.sourcePointer ?? result.path
-  const location = sourceLocations.lookup(filePath, pointer)
+  const location = result.source?.line !== undefined && result.source.column !== undefined
+    ? { line: result.source.line, column: result.source.column }
+    : sourceLocations.lookup(filePath, pointer)
   const record: WorkspaceDiagnosticRecord = {
     producer: 'validate',
     severity: result.severity,

@@ -33,12 +33,16 @@ export type RefGraph = {
 
 export type RefGraphOptions = {
   basePath?: string
+  lookupSourceLocation?: (filePath: string, pointer: string) => { line: number; column: number } | undefined
 }
 
 export function resolveRefGraph(spec: OasDocument | Record<string, unknown>, options: RefGraphOptions = {}): RefGraph {
   const nodes: RefGraphNode[] = []
   const diagnostics: RefGraphDiagnostic[] = []
-  const resolver = createRefResolver({ ...(options.basePath ? { entryPath: options.basePath } : {}) })
+  const resolver = createRefResolver({
+    ...(options.basePath ? { entryPath: options.basePath } : {}),
+    ...(options.lookupSourceLocation ? { lookupSourceLocation: options.lookupSourceLocation } : {}),
+  })
 
   visitDocument(spec, '#', options.basePath, [], spec)
   return { nodes, diagnostics }

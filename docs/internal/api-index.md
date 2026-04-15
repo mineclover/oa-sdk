@@ -86,17 +86,17 @@
 | `DerefDiagnosticCode` | `deref.ts` | $ref 해소 diagnostic 코드 |
 | `RefGraph` | `ref-graph.ts` | `$ref` 그래프 분석 결과 |
 | `RefGraphNode` | `ref-graph.ts` | 그래프 내 단일 `$ref` 노드 |
-| `RefGraphDiagnostic` | `ref-graph.ts` | ref graph diagnostic 항목 |
+| `RefGraphDiagnostic` | `ref-graph.ts` | ref graph diagnostic 항목. source file/pointer와 YAML line/column metadata 포함 가능 |
 | `RefGraphDiagnosticCode` | `ref-graph.ts` | ref graph diagnostic 코드 |
-| `RefGraphOptions` | `ref-graph.ts` | ref graph basePath 옵션 |
+| `RefGraphOptions` | `ref-graph.ts` | ref graph basePath + optional source location lookup 옵션 |
 | `RefKind` | `ref-graph.ts` | internal/external/unsupported ref 분류 |
 | `SourceLocation` | `source-location.ts` | filePath/pointer/line/column source coordinate |
 | `SourceLocationIndex` | `source-location.ts` | pointer lookup과 전체 source location entries 조회 인터페이스 |
 | `SourceLocationIndexOptions` | `source-location.ts` | source location index 생성 옵션 (file path, syntax) |
 | `SourceLocationSyntax` | `source-location.ts` | source location index 입력 syntax (auto/yaml/json) |
-| `LintResult` | `lint.ts` | 린트 결과 |
+| `LintResult` | `lint.ts` | 린트 결과. source file/pointer와 YAML line/column metadata 포함 가능 |
 | `LintSeverity` | `lint.ts` | 린트 심각도 |
-| `LintOptions` | `lint.ts` | 린트 옵션 |
+| `LintOptions` | `lint.ts` | 린트 옵션. basePath와 optional source location lookup 지원 |
 | `ValidationResult` | `validate.ts` | 검증 결과 |
 
 ---

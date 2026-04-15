@@ -17,7 +17,7 @@ after each iteration and it's included in prompts for context.
 - Persistent workspace indexes are disposable optimization state: store schema/options compatibility metadata, wrap writes in transactions, and degrade storage mismatches or DB errors to full rebuild fallback instead of letting cache state affect correctness.
 - Compute reverse dependency dirty sets before invalidating index rows: once source rows are deleted, refs.to_file edge context needed to mark referring specs dirty may be gone.
 - CLI incremental orchestration should keep WorkspaceIndex as a sidecar around the existing full parser/codegen output path: scan, detect dirty files, invalidate stale rows, generate from current files, then refresh the index so cache fallback cannot change stdout or generated files.
-- Source location mapping should stay a sidecar over existing file/pointer diagnostics: enrich CLI/index records with YAML line/column when available, while JSON and missing mappings fall back to `file#pointer`.
+- Source location mapping should stay a sidecar over existing file/pointer diagnostics: enrich parser diagnostic structures plus CLI/index records with YAML line/column when available, while JSON and missing mappings fall back to `file#pointer`.
 
 ---
 
@@ -270,4 +270,34 @@ after each iteration and it's included in prompts for context.
   - YAML pair key ranges are the best diagnostic anchor for object pointers; visiting values after key registration must not overwrite the key location.
   - External nested diagnostics can be sourced from the external YAML file even when the unresolved target is in a different file, so formatting should separate the precise source coordinate from the target fallback.
   - Keeping JSON source indexes empty preserves existing parsed JSON behavior and exercises the same `file#pointer` fallback path as missing YAML mappings.
+---
+
+## 2026-04-15 - US-014
+- Added optional source-location lookup plumbing through ref graph, lint, and validation so diagnostics retain existing codes/messages while carrying source file/pointer plus YAML line/column when mappings exist.
+- Schema meta validation diagnostics now attach local YAML source metadata, and ref graph diagnostics now attach nested external YAML `$ref` source coordinates before CLI formatting.
+- Updated CLI lint/validate to pass the source-location resolver into parser APIs and to prefer attached diagnostic coordinates for output and WorkspaceIndex diagnostic records.
+- Added parser tests for lint metadata preservation, local YAML schema meta validation diagnostics, and external YAML ref graph diagnostics; added CLI coverage for schema meta validation line/column output. Parser tests now pass with 201 cases, codegen with 488, and docs show 1614 total.
+- Ran checks: `pnpm typecheck` passed; `pnpm --filter @oa-sdk/parser test` passed; `pnpm --filter @oa-sdk/codegen test` passed; `pnpm check:api-index` passed; `git diff --check` passed. `pnpm test` passed core/parser/router/client/codegen and failed in mock-server integration suites on sandbox `listen EPERM` for `127.0.0.1`; `pnpm schema:validate` rebuilt parser/codegen and failed when `tsx` attempted a sandbox-blocked IPC pipe with `listen EPERM`.
+- Files changed:
+  - `packages/parser/src/ref-resolver.ts`
+  - `packages/parser/src/ref-graph.ts`
+  - `packages/parser/src/lint.ts`
+  - `packages/parser/src/schema-validator.ts`
+  - `packages/parser/src/validate.ts`
+  - `packages/parser/src/__tests__/ref-graph.test.ts`
+  - `packages/parser/src/__tests__/lint.test.ts`
+  - `packages/parser/src/__tests__/validate.test.ts`
+  - `packages/codegen/src/cli/commands/lint.ts`
+  - `packages/codegen/src/cli/commands/validate.ts`
+  - `packages/codegen/src/cli/lib/diagnostics.ts`
+  - `packages/codegen/src/cli/lib/incremental.ts`
+  - `packages/codegen/src/__tests__/cli-scenarios.test.ts`
+  - `docs/internal/spec.md`
+  - `docs/internal/api-index.md`
+  - `docs/internal/todo.md`
+  - `.ralph-tui/progress.md`
+- **Learnings:**
+  - Parser-level diagnostics should carry attached coordinates when the caller has a source map, while CLI formatting can keep the same fallback behavior for JSON or missing mappings.
+  - Schema meta validation already produces JSON Pointer-like paths, so the same `attachLintSource()` helper can enrich meta validation and regular lint diagnostics without changing rule codes or messages.
+  - Codegen typecheck reads `@oa-sdk/parser` from built package declarations, so parser dist must be rebuilt after public parser type shape changes before checking codegen.
 ---

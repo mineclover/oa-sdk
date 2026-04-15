@@ -94,7 +94,7 @@ schemas      ← 독립. OAS 소스 + merge + 3.1↔3.2 변환
 | `RefResolver` | `packages/parser/src/ref-resolver.ts`의 `createRefResolver()` → `resolvePointer()` + external YAML/JSON document cache | parser 내부 contract. internal/external/unsupported kind, JSON Pointer, cache key/document cache key, source file/pointer, target file/pointer metadata, missing/circular/read-failed diagnostic을 단일 결과 객체로 반환. public index에는 export하지 않음 |
 | `resolveRefGraph()` | `packages/parser/src/ref-graph.ts`의 `collectRefs()` traversal → 공유 `RefResolver` | 내부 ref, 외부 YAML/JSON ref, 외부 파일 내부 nested ref를 graph node로 기록. 누락 pointer/read 실패와 순환은 diagnostic으로 기록하며 `$ref` sibling 내부 ref도 계속 수집 |
 | `derefSpec()` | `packages/parser/src/deref.ts`의 `DerefFolder.foldRef()` → 공유 `RefResolver` + deref file cache/stack | 내부/외부 YAML/JSON ref를 인라인 전개하고 외부 파일 내부 상대 ref는 해당 파일 기준으로 해소. missing ref는 원본 `$ref` node 유지. 기본 cycle은 `{}`로 절단하고 `cycleStrategy: preserve-ref`는 ref 유지. `$ref` sibling은 해소 결과에 병합 |
-| `createSourceLocationIndex()` | `packages/parser/src/source-location.ts` | YAML 문서는 AST node range와 `LineCounter`로 pointer별 line/column을 만들고, JSON 문서는 YAML 전용 metadata 없이 빈 index를 반환한다. CLI diagnostic 출력과 WorkspaceIndex source_locations/diagnostics line/column 보강에 사용하며 매핑이 없으면 기존 `file#pointer` 문자열로 fallback한다 |
+| `createSourceLocationIndex()` | `packages/parser/src/source-location.ts` | YAML 문서는 AST node range와 `LineCounter`로 pointer별 line/column을 만들고, JSON 문서는 YAML 전용 metadata 없이 빈 index를 반환한다. Ref graph/lint/schema validation diagnostic source metadata, CLI diagnostic 출력, WorkspaceIndex source_locations/diagnostics line/column 보강에 사용하며 매핑이 없으면 기존 `file#pointer` 문자열로 fallback한다 |
 | typegen external refs | `generateTypesFromSpec()` → `parseDocument()`(deref 없음) → `analyzeExternalSchemaRefs()` → `resolveRefGraph()` → `schemaToTs(refNameOverrides)` | 외부 YAML/JSON 문서의 schema-position `$ref`는 generated alias로 정규화한다. 지원 target은 `#/components/schemas/*`, `#/$defs/*`, `#/schemas/*`, `#/models/*`처럼 schema object를 가리키는 비 components root를 포함한다. alias 이름은 JSON Pointer 마지막 segment를 TypeScript identifier로 정규화해 사용하고, 이름 충돌/로컬 shadow/operation generated type shadow는 기존처럼 파일명 기반 deterministic rename warning에 resolved file+pointer와 생성 타입명을 포함한다. raw ref override는 entry 문서 ref에만 쓰고, 외부 schema 내부 ref는 absolute file+pointer identity로 정규화해 source 문서 기준 상대 경로를 보존한다. unsupported pointer shape은 warning과 함께 `unknown`으로 생성하고, missing/read/pointer 실패는 resolver diagnostic code와 source metadata를 유지한다 |
 
 ### WorkspaceIndex boundary (US-007) / SQLite storage (US-008) / Dirty invalidation (US-009)
@@ -211,7 +211,7 @@ pnpm demo  # API 구조 + Mock 12시나리오 + 커버리지
 |------|------|------|
 | Build | 7 패키지 + CI 스크립트 | tsup ESM 빌드 |
 | Typecheck | 7 패키지 + playground | tsc --noEmit strict |
-| Test | 8 패키지 + playground | vitest 1610 케이스 |
+| Test | 8 패키지 + playground | vitest 1614 케이스 |
 | Schema validate | schemas + oa-gen | 도메인 병합 + 3.1 변환 + Spectral/Redocly + 3.2 자체 검증 표준 파이프라인 |
 | Freshness check | 산출물 | git diff --exit-code |
 | API index | docs ↔ code | export 정합성 검증 |
@@ -224,12 +224,12 @@ pnpm demo  # API 구조 + Mock 12시나리오 + 커버리지
 | 패키지 | 케이스 |
 |--------|--------|
 | core | 51 |
-| parser | 198 |
-| codegen | 487 |
+| parser | 201 |
+| codegen | 488 |
 | mock-server | 561 |
 | playground | 114 |
 | router | 35 |
 | client | 36 |
 | schemas | 75 |
 | typia-mock | 53 |
-| **합계** | **1610** |
+| **합계** | **1614** |

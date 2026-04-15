@@ -72,6 +72,7 @@ let collisionSpecPath: string
 let missingExternalSpecPath: string
 let nestedExternalSpecPath: string
 let externalSourceLocationSpecPath: string
+let schemaMetaLocationSpecPath: string
 
 const execOpts: ExecSyncOptionsWithStringEncoding = { cwd: pkgDir, encoding: 'utf8', timeout: 15_000 }
 
@@ -112,6 +113,7 @@ beforeAll(() => {
   missingExternalSpecPath = join(tmpDir, 'missing-external-api.yaml')
   nestedExternalSpecPath = join(tmpDir, 'nested-external-api.yaml')
   externalSourceLocationSpecPath = join(tmpDir, 'external-source-location-api.yaml')
+  schemaMetaLocationSpecPath = join(tmpDir, 'schema-meta-location-api.yaml')
   writeFileSync(specPath, yamlStringify(VALID_SPEC), 'utf8')
   writeFileSync(invalidSpecPath, yamlStringify(INVALID_SPEC), 'utf8')
   writeFileSync(sharedSpecPath, yamlStringify({
@@ -263,6 +265,19 @@ beforeAll(() => {
     '            application/json:',
     '              schema:',
     '                $ref: "./source-location-shared.yaml#/components/schemas/User"',
+    '',
+  ].join('\n'), 'utf8')
+  writeFileSync(schemaMetaLocationSpecPath, [
+    'openapi: 3.2.0',
+    'info:',
+    '  title: Schema Meta Location API',
+    '  version: 1.0.0',
+    'paths: {}',
+    'components:',
+    '  schemas:',
+    '    Age:',
+    '      type: integer',
+    '      minimum: zero',
     '',
   ].join('\n'), 'utf8')
 })
@@ -477,6 +492,13 @@ describe('validate', () => {
     const { stdout, stderr } = cliFail(`validate -s ${missingExternalSpecPath}`)
     const combined = stdout + stderr
     expect(combined).toContain('missing.yaml#/components/schemas/User')
+  })
+
+  it('스키마 메타 검증 실패 시 local YAML line/column을 출력한다', () => {
+    const { stdout, stderr } = cliFail(`validate -s ${schemaMetaLocationSpecPath}`)
+    const combined = stdout + stderr
+    expect(combined).toContain('schema-meta-location-api.yaml:10:7')
+    expect(combined).toContain('[schema/meta-valid]')
   })
 
   it('잘못된 스펙 → exit 1', () => {

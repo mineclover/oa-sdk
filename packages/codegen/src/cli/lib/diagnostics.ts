@@ -27,7 +27,9 @@ function formatLintSource(result: LintResult, options: FormatLintLocationOptions
 
   if (!primary) return undefined
 
-  const location = options.lookupSourceLocation?.(primary.filePath, primary.pointer)
+  const location = source?.line !== undefined && source.column !== undefined
+    ? { line: source.line, column: source.column }
+    : options.lookupSourceLocation?.(primary.filePath, primary.pointer)
   const fallbackText = fallback ? formatFilePointer(fallback.filePath, fallback.pointer) : undefined
 
   if (location) {

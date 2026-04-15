@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest'
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
+import { parse as parseYaml } from 'yaml'
 import { resolveRefGraph } from '../ref-graph.js'
+import { createSourceLocationIndex, type SourceLocationIndex } from '../source-location.js'
 
 function doc(overrides: Record<string, unknown> = {}) {
   return { openapi: '3.2.0', info: { title: 'T', version: '0' }, paths: {}, ...overrides }
@@ -79,6 +81,71 @@ describe('resolveRefGraph', () => {
         && d.sourceFilePath === basePath
         && d.sourcePointer === '#/paths/~1file/get/responses/200/content/application~1json/schema/$ref'
       )).toBe(true)
+    } finally {
+      rmSync(tmp, { recursive: true, force: true })
+    }
+  })
+
+  it('external YAML diagnostics include source line and column when mappings are available', () => {
+    const tmp = mkdtempSync(join(tmpdir(), 'oa-sdk-refgraph-'))
+    const basePath = join(tmp, 'api.yaml')
+    const sharedPath = join(tmp, 'shared.yaml')
+    const emptyPath = join(tmp, 'empty.yaml')
+    const apiRaw = [
+      'openapi: 3.2.0',
+      'info:',
+      '  title: T',
+      '  version: "0"',
+      'paths:',
+      '  /users:',
+      '    get:',
+      '      responses:',
+      '        "200":',
+      '          content:',
+      '            application/json:',
+      '              schema:',
+      '                $ref: "./shared.yaml#/components/schemas/User"',
+      '',
+    ].join('\n')
+    const sharedRaw = [
+      'components:',
+      '  schemas:',
+      '    User:',
+      '      type: object',
+      '      properties:',
+      '        role:',
+      '          $ref: "./empty.yaml#/components/schemas/Missing"',
+      '',
+    ].join('\n')
+    const emptyRaw = [
+      'components:',
+      '  schemas: {}',
+      '',
+    ].join('\n')
+    writeFileSync(basePath, apiRaw, 'utf8')
+    writeFileSync(sharedPath, sharedRaw, 'utf8')
+    writeFileSync(emptyPath, emptyRaw, 'utf8')
+
+    try {
+      const indexes = new Map<string, SourceLocationIndex>([
+        [basePath, createSourceLocationIndex(apiRaw, { filePath: basePath })],
+        [sharedPath, createSourceLocationIndex(sharedRaw, { filePath: sharedPath })],
+        [emptyPath, createSourceLocationIndex(emptyRaw, { filePath: emptyPath })],
+      ])
+      const graph = resolveRefGraph(parseYaml(apiRaw) as Record<string, unknown>, {
+        basePath,
+        lookupSourceLocation: (filePath, pointer) => indexes.get(filePath)?.lookup(pointer),
+      })
+      const diagnostic = graph.diagnostics.find(d => d.code === 'external-ref-pointer-not-found')
+
+      expect(diagnostic).toMatchObject({
+        sourceFilePath: sharedPath,
+        sourcePointer: '#/components/schemas/User/properties/role/$ref',
+        filePath: emptyPath,
+        pointer: '#/components/schemas/Missing',
+        line: 7,
+        column: 11,
+      })
     } finally {
       rmSync(tmp, { recursive: true, force: true })
     }

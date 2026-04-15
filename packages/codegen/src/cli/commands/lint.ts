@@ -14,7 +14,10 @@ export const lint: Command = {
     const { lintDocument } = await import('@oa-sdk/parser')
     const { document: doc, path: resolvedSpecPath, raw } = loadSpecWithPath(str(args, 'spec'))
     const sourceLocations = createCliSourceLocationResolver({ filePath: resolvedSpecPath, raw })
-    const results = lintDocument(doc, { basePath: resolvedSpecPath })
+    const results = lintDocument(doc, {
+      basePath: resolvedSpecPath,
+      lookupSourceLocation: sourceLocations.lookup,
+    })
 
     for (const r of results) {
       const icon = r.severity === 'error' ? '❌' : r.severity === 'warning' ? '⚠️' : 'ℹ️'

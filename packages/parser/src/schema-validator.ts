@@ -1,5 +1,5 @@
 import Ajv2020 from 'ajv/dist/2020.js'
-import type { LintResult } from './lint.js'
+import { attachLintSource, type LintOptions, type LintResult } from './lint.js'
 
 type SchemaLocation = {
   path: string
@@ -15,7 +15,10 @@ const schemaAjv = new Ajv2020({ allErrors: true, strict: false })
  * 이 함수는 `type`, `minimum`, `items` 같은 Schema Object 키워드 자체의
  * 정합성을 검증합니다.
  */
-export function validateSchemaObjects(doc: Record<string, unknown>): LintResult[] {
+export function validateSchemaObjects(
+  doc: Record<string, unknown>,
+  options: Pick<LintOptions, 'basePath' | 'lookupSourceLocation'> = {},
+): LintResult[] {
   const locations = collectSchemaLocations(doc)
   const results: LintResult[] = []
 
@@ -24,12 +27,12 @@ export function validateSchemaObjects(doc: Record<string, unknown>): LintResult[
     if (valid) continue
 
     for (const err of schemaAjv.errors ?? []) {
-      results.push({
+      results.push(attachLintSource({
         path: `${path}${err.instancePath}`,
         severity: 'error',
         rule: 'schema/meta-valid',
         message: `유효하지 않은 Schema Object: ${err.message ?? err.keyword}`,
-      })
+      }, options))
     }
   }
 

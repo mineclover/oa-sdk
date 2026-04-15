@@ -187,7 +187,10 @@ function toWorkspaceDiagnosticRecord(
   }
   if (diagnostic.sourceFilePath) record.filePath = diagnostic.sourceFilePath
   if (diagnostic.sourcePointer) record.pointer = diagnostic.sourcePointer
-  if (diagnostic.sourceFilePath && diagnostic.sourcePointer) {
+  if (diagnostic.line !== undefined && diagnostic.column !== undefined) {
+    record.line = diagnostic.line
+    record.column = diagnostic.column
+  } else if (diagnostic.sourceFilePath && diagnostic.sourcePointer) {
     const location = sourceLocations.lookup(diagnostic.sourceFilePath, diagnostic.sourcePointer)
     if (location) {
       record.line = location.line

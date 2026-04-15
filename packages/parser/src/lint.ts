@@ -14,7 +14,7 @@
  */
 
 import type { OasDocument, OasPathItem, OasOperation, OasParameter, OasComponents, Referenceable } from './oas32-types.js'
-import { resolveRefGraph, type RefGraphDiagnostic } from './ref-graph.js'
+import { resolveRefGraph, type RefGraphDiagnostic, type RefGraphOptions } from './ref-graph.js'
 
 function isRef(node: unknown): node is { $ref: string } {
   return typeof node === 'object' && node !== null && '$ref' in node
@@ -32,6 +32,8 @@ export type LintResult = {
     sourcePointer?: string
     filePath?: string
     pointer?: string
+    line?: number
+    column?: number
   }
 }
 
@@ -40,6 +42,8 @@ export type LintOptions = {
   categories?: Array<'structure' | 'operations' | 'parameters' | 'refs' | 'security' | 'style' | 'components'>
   /** OAS 파일 경로. 상대 외부 $ref 해소 진단에 사용 */
   basePath?: string
+  /** file + JSON Pointer를 YAML line/column으로 보강하는 lookup */
+  lookupSourceLocation?: (filePath: string, pointer: string) => { line: number; column: number } | undefined
 }
 
 /**
@@ -65,11 +69,14 @@ export function lintDocument(doc: unknown, options: LintOptions = {}): LintResul
   if (categories.has('style')) lintStyle(spec, results)
   if (categories.has('components')) lintComponents(spec, results)
 
-  return results
+  return results.map(result => attachLintSource(result, options))
 }
 
 function lintDerefDiagnostics(spec: OasDocument, results: LintResult[], options: LintOptions) {
-  const { diagnostics } = resolveRefGraph(spec, options.basePath ? { basePath: options.basePath } : {})
+  const refGraphOptions: RefGraphOptions = {}
+  if (options.basePath) refGraphOptions.basePath = options.basePath
+  if (options.lookupSourceLocation) refGraphOptions.lookupSourceLocation = options.lookupSourceLocation
+  const { diagnostics } = resolveRefGraph(spec, refGraphOptions)
   for (const diagnostic of diagnostics) {
     if (diagnostic.code === 'ref-not-found' && diagnostic.ref.startsWith('#/')) continue
     if (diagnostic.code === 'unsupported-ref' && !options.basePath) continue
@@ -90,8 +97,56 @@ function diagnosticToLintResult(diagnostic: RefGraphDiagnostic): LintResult {
     if (diagnostic.sourcePointer) result.source.sourcePointer = diagnostic.sourcePointer
     if (diagnostic.filePath) result.source.filePath = diagnostic.filePath
     if (diagnostic.pointer) result.source.pointer = diagnostic.pointer
+    if (diagnostic.line !== undefined) result.source.line = diagnostic.line
+    if (diagnostic.column !== undefined) result.source.column = diagnostic.column
   }
   return result
+}
+
+export function attachLintSource(result: LintResult, options: Pick<LintOptions, 'basePath' | 'lookupSourceLocation'>): LintResult {
+  const source = result.source ?? sourceFromResultPath(result.path, options.basePath)
+  if (!source) return result
+
+  const enriched = enrichLintSourceLocation(source, options.lookupSourceLocation)
+  if (enriched === result.source) return result
+  return { ...result, source: enriched }
+}
+
+function sourceFromResultPath(path: string, basePath: string | undefined): NonNullable<LintResult['source']> | undefined {
+  if (!basePath) return undefined
+  const pointer = normalizePointer(path)
+  return {
+    sourceFilePath: basePath,
+    sourcePointer: pointer,
+    filePath: basePath,
+    pointer,
+  }
+}
+
+function enrichLintSourceLocation(
+  source: NonNullable<LintResult['source']>,
+  lookupSourceLocation: LintOptions['lookupSourceLocation'],
+): NonNullable<LintResult['source']> {
+  if (!lookupSourceLocation || (source.line !== undefined && source.column !== undefined)) return source
+
+  const filePath = source.sourceFilePath ?? source.filePath
+  const pointer = source.sourcePointer ?? source.pointer
+  if (!filePath || !pointer) return source
+
+  const location = lookupSourceLocation(filePath, pointer)
+  if (!location) return source
+  return {
+    ...source,
+    line: location.line,
+    column: location.column,
+  }
+}
+
+function normalizePointer(path: string): string {
+  if (path === '' || path === '/' || path === '#') return '#'
+  if (path.startsWith('#/')) return path
+  if (path.startsWith('/')) return `#${path}`
+  return path
 }
 
 // ─── structure ──────────────────────────────────────────────────────────────
