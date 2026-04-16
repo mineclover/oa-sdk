@@ -70,11 +70,12 @@
         "bun run build passes."
       ],
       "priority": 3,
-      "passes": false,
+      "passes": true,
       "notes": "Use existing projection adapters and validator. Do not create MCP-only projection logic.",
       "dependsOn": [
         "US-002"
-      ]
+      ],
+      "completionNotes": "Completed by agent"
     },
     {
       "id": "US-004",
@@ -232,6 +233,6 @@
     }
   ],
   "metadata": {
-    "updatedAt": "2026-04-16T08:45:31.846Z"
+    "updatedAt": "2026-04-16T08:49:55.711Z"
   }
 }
