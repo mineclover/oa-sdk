@@ -12,6 +12,16 @@
 
 The profile names are exported through `OPENAPI_PROJECTION_PROFILES`, runtime profile checks use `isOpenApiProjectionProfile()`, and shape rules are exported through `OPENAPI_PROJECTION_PROFILE_SEMANTICS`.
 
+## Validation
+
+`validateOpenApiProjection(result)` is the shared dependency-light validation entrypoint. It accepts unknown input, returns `SchemaValidateResult`, and reports ordinary invalid projection data as structured diagnostics instead of throwing.
+
+The built-in OpenAPI check is intentionally structural rather than a broad spec engine. It verifies the document object, OpenAPI 3.x version marker, required `info.title` and `info.version`, `paths` shape, operation `responses`, and `components.schemas` shape. Profile-aware rules then require `components.schemas` for `component-bundle`, require at least one operation for `operation-contract`, and require a normal `paths` object for `full-api-document`.
+
+Envelope validation also checks required ref fields, diagnostic severity/code/message fields, supported file or DB source coordinate variants, version hash presence, and optional type target metadata. Any existing projection diagnostic with `severity: "error"` makes the returned validation result invalid.
+
+This validator does not read files, query repositories, open SQLite, construct MCP servers, execute GraphQL, or import OA SDK parser/codegen internals. Callers that need full OpenAPI conformance validation should run their own source-specific validator before or after this shared contract check and map results into `diagnostics`.
+
 ## First Emitters
 
 OA SDK should emit `full-api-document` first because Definition Builder already materializes complete OpenAPI 3.2 documents from file-backed definition fragments.

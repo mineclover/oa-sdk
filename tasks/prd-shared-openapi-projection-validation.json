@@ -94,11 +94,12 @@
         "pnpm build:scripts && pnpm check:api-index passes when public exports change."
       ],
       "priority": 4,
-      "passes": false,
+      "passes": true,
       "notes": "Prefer a small validator over a broad engine. Ordinary invalid inputs should return diagnostics.",
       "dependsOn": [
         "US-003"
-      ]
+      ],
+      "completionNotes": "Completed by agent"
     },
     {
       "id": "US-005",
@@ -329,6 +330,6 @@
     }
   ],
   "metadata": {
-    "updatedAt": "2026-04-16T04:06:47.127Z"
+    "updatedAt": "2026-04-16T04:14:41.291Z"
   }
 }

@@ -52,6 +52,7 @@ OA SDK와 bun-graph-db가 각자의 source loader, repository, CLI, MCP, GraphQL
 | `OPENAPI_PROJECTION_PROFILE_SEMANTICS` | `openapi-projection-contract/src/index.ts` | profile별 empty paths, components.schemas, operation requirement, 일반 OpenAPI validation 규칙 |
 | `isOpenApiProjectionProfile` | `openapi-projection-contract/src/index.ts` | unknown 값을 runtime에서 `OpenApiProjectionProfile`로 좁히는 type guard |
 | `getOpenApiProjectionProfileSemantics` | `openapi-projection-contract/src/index.ts` | 특정 profile의 validation semantics 조회 |
+| `validateOpenApiProjection()` | `openapi-projection-contract/src/index.ts` | OpenAPI projection envelope의 구조, profile 요구사항, refs, diagnostics, sources, version hash를 dependency-light 방식으로 검증 |
 | `SchemaRefEdge` | `openapi-projection-contract/src/index.ts` | projection artifact 안에서 발견된 ref edge와 source coordinate |
 | `SchemaDiagnostic` | `openapi-projection-contract/src/index.ts` | source-aware projection diagnostic |
 | `SchemaSourceCoordinate` | `openapi-projection-contract/src/index.ts` | file 또는 DB 기반 source coordinate |

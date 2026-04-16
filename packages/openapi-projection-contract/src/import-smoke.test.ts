@@ -4,6 +4,7 @@ import {
   isOpenApiProjectionProfile,
   OPENAPI_PROJECTION_PROFILE_SEMANTICS,
   OPENAPI_PROJECTION_PROFILES,
+  validateOpenApiProjection,
 } from '@oa-sdk/openapi-projection-contract'
 import type {
   OpenApiProjectionProfile,
@@ -24,6 +25,7 @@ describe('@oa-sdk/openapi-projection-contract import smoke', () => {
       'OPENAPI_PROJECTION_PROFILE_SEMANTICS',
       'getOpenApiProjectionProfileSemantics',
       'isOpenApiProjectionProfile',
+      'validateOpenApiProjection',
     ].sort())
     expect(Object.prototype.toString.call(imported)).toBe('[object Module]')
   })
@@ -58,9 +60,22 @@ describe('@oa-sdk/openapi-projection-contract import smoke', () => {
       valid: true,
       diagnostics: [],
     }
-    const result: OpenApiProjectionResult = {
+    const result: OpenApiProjectionResult<Record<string, unknown>> = {
       profile,
-      projection: { openapi: '3.2.0' },
+      projection: {
+        openapi: '3.2.0',
+        info: {
+          title: 'Import smoke',
+          version: '1.0.0',
+        },
+        components: {
+          schemas: {
+            Book: {
+              type: 'object',
+            },
+          },
+        },
+      },
       refs: [ref],
       diagnostics: [diagnostic],
       sources: {
@@ -71,6 +86,7 @@ describe('@oa-sdk/openapi-projection-contract import smoke', () => {
     }
 
     expect(validation.valid).toBe(true)
+    expect(validateOpenApiProjection(result).valid).toBe(true)
     expect(result.profile).toBe('component-bundle')
     expect(OPENAPI_PROJECTION_PROFILES).toContain(result.profile)
     expect(isOpenApiProjectionProfile(result.profile)).toBe(true)
