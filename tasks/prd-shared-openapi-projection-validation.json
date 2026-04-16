@@ -273,11 +273,12 @@
         "Focused bun-graph-db projection tests pass when projection/MCP behavior changes."
       ],
       "priority": 11,
-      "passes": false,
+      "passes": true,
       "notes": "This is the highest-risk bun story. Keep compatibility fallback until tests prove parity.",
       "dependsOn": [
         "US-010"
-      ]
+      ],
+      "completionNotes": "Completed by agent"
     },
     {
       "id": "US-012",
@@ -336,6 +337,6 @@
     }
   ],
   "metadata": {
-    "updatedAt": "2026-04-16T05:02:15.406Z"
+    "updatedAt": "2026-04-16T05:12:23.985Z"
   }
 }
