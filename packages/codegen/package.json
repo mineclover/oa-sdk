@@ -30,6 +30,7 @@
   },
   "dependencies": {
     "@oa-sdk/core": "workspace:*",
+    "@oa-sdk/openapi-projection-contract": "workspace:*",
     "@oa-sdk/parser": "workspace:*",
     "yaml": "^2.5.0",
     "zod": "^4.3.6"

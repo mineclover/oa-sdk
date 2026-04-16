@@ -9,6 +9,10 @@ import {
 import { dirname, join, resolve } from 'node:path'
 import { spawnSync } from 'node:child_process'
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml'
+import {
+  validateOpenApiProjection,
+  type OpenApiProjectionResult,
+} from '@oa-sdk/openapi-projection-contract'
 
 const pkgDir = resolve(__dirname, '../..')
 const cliPath = resolve(pkgDir, 'dist/cli/index.js')
@@ -98,6 +102,17 @@ describe('oa-gen build-spec', () => {
     expect(document.paths?.['/books']).toBeDefined()
     expect(document.components?.schemas?.Book).toBeDefined()
     expect(JSON.stringify(document)).not.toContain('oa://')
+    expect(validateOpenApiProjection({
+      profile: 'full-api-document',
+      projection: document,
+      refs: [],
+      diagnostics: [],
+      sources: {},
+      versionHash: 'sha256:cli-build-spec-output',
+    } satisfies OpenApiProjectionResult<Record<string, unknown>>)).toEqual({
+      valid: true,
+      diagnostics: [],
+    })
 
     const diagnostics = readJson(diagnosticsPath) as {
       valid?: boolean

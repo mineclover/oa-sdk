@@ -140,6 +140,9 @@ importers:
       '@oa-sdk/core':
         specifier: workspace:*
         version: link:../core
+      '@oa-sdk/openapi-projection-contract':
+        specifier: workspace:*
+        version: link:../openapi-projection-contract
       '@oa-sdk/parser':
         specifier: workspace:*
         version: link:../parser

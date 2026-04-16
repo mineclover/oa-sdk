@@ -18,8 +18,10 @@ import {
   createSourceLocationIndex,
   emitDefinitionOpenApiDocument,
   selectDefinitionTarget,
+  toDefinitionOpenApiProjectionResult,
   type DefinitionNode,
   type DefinitionOpenApiEmitDiagnostic,
+  type DefinitionOpenApiProjectionResult,
   type DefinitionOutputNameCollisionReportEntry,
   type DefinitionRegistryDiagnostic,
   type DefinitionTargetConfig,
@@ -28,6 +30,7 @@ import {
   type SourceLocation,
   type SourceLocationIndex,
 } from '@oa-sdk/parser'
+import type { SchemaDiagnostic } from '@oa-sdk/openapi-projection-contract'
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml'
 import {
   detectBuilderDirtyTargets,
@@ -82,6 +85,7 @@ export type BuildSpecSummary = {
 export type BuildSpecResult = {
   valid: boolean
   document: OasDocument
+  projection: DefinitionOpenApiProjectionResult
   diagnostics: BuildSpecDiagnostic[]
   collisionReport: DefinitionOutputNameCollisionReportEntry[]
   summary: BuildSpecSummary
@@ -121,6 +125,23 @@ export function buildSpec(options: BuildSpecOptions): BuildSpecResult {
   })
   const selection = selectDefinitionTarget(registry, target)
   const emitted = emitDefinitionOpenApiDocument(selection)
+  const baseProjection = toDefinitionOpenApiProjectionResult({ registry, selection, emitted }, {
+    lookupSourceLocation(sourcePath, sourcePointer) {
+      return lookupSourceLocation(fragments.sourceLocations, sourcePath, sourcePointer)
+    },
+  })
+  const projection: DefinitionOpenApiProjectionResult = fragments.diagnostics.length === 0
+    ? baseProjection
+    : {
+        ...baseProjection,
+        diagnostics: [
+          ...fragments.diagnostics.map(diagnostic => toProjectionDiagnostic(
+            diagnostic,
+            fragments.sourceLocations,
+          )),
+          ...baseProjection.diagnostics,
+        ],
+      }
   const diagnostics: BuildSpecDiagnostic[] = [
     ...fragments.diagnostics,
     ...registry.diagnostics,
@@ -188,10 +209,32 @@ export function buildSpec(options: BuildSpecOptions): BuildSpecResult {
   return {
     valid,
     document: emitted.document,
+    projection,
     diagnostics,
     collisionReport: emitted.report.collisionReport,
     summary,
     ...(dirty !== undefined ? { dirty } : {}),
+  }
+}
+
+function toProjectionDiagnostic(
+  diagnostic: BuildSpecCliDiagnostic,
+  sourceLocations: ReadonlyMap<string, SourceLocationIndex>,
+): SchemaDiagnostic {
+  const pointer = diagnostic.sourcePointer ?? '#'
+  const location = lookupSourceLocation(sourceLocations, diagnostic.sourcePath, pointer)
+
+  return {
+    severity: diagnostic.severity,
+    code: diagnostic.code,
+    message: diagnostic.message,
+    source: {
+      kind: 'file',
+      filePath: diagnostic.sourcePath,
+      pointer,
+      ...(location?.line !== undefined ? { line: location.line } : {}),
+      ...(location?.column !== undefined ? { column: location.column } : {}),
+    },
   }
 }
 
