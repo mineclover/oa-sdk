@@ -90,11 +90,12 @@
         "bun run build passes."
       ],
       "priority": 4,
-      "passes": false,
+      "passes": true,
       "notes": "Keep JSON-RPC protocol schema separate from dynamic tool argument projections.",
       "dependsOn": [
         "US-002"
-      ]
+      ],
+      "completionNotes": "Completed by agent"
     },
     {
       "id": "US-005",
@@ -193,6 +194,6 @@
     }
   ],
   "metadata": {
-    "updatedAt": "2026-04-16T13:37:05.285Z"
+    "updatedAt": "2026-04-16T13:43:25.132Z"
   }
 }
