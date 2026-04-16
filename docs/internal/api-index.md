@@ -39,6 +39,22 @@
 
 ---
 
+## OpenAPI Projection Contract (`@oa-sdk/openapi-projection-contract`)
+
+OA SDK와 bun-graph-db가 각자의 source loader, repository, CLI, MCP, GraphQL, REST, SQLite 구현을 가져오지 않고 공유할 projection 결과 타입.
+
+| 타입 | 정의 | 용도 |
+|------|------|------|
+| `OpenApiProjectionResult` | `openapi-projection-contract/src/index.ts` | OpenAPI projection, profile, refs, diagnostics, sources, version hash, type target metadata를 담는 공유 결과 envelope |
+| `OpenApiProjectionProfile` | `openapi-projection-contract/src/index.ts` | `component-bundle`, `operation-contract`, `full-api-document` projection 종류 |
+| `SchemaRefEdge` | `openapi-projection-contract/src/index.ts` | projection artifact 안에서 발견된 ref edge와 source coordinate |
+| `SchemaDiagnostic` | `openapi-projection-contract/src/index.ts` | source-aware projection diagnostic |
+| `SchemaSourceCoordinate` | `openapi-projection-contract/src/index.ts` | file 또는 DB 기반 source coordinate |
+| `SchemaValidateResult` | `openapi-projection-contract/src/index.ts` | projection/value validation 결과 envelope |
+| `SchemaTypeTarget` | `openapi-projection-contract/src/index.ts` | projected schema/type output target metadata |
+
+---
+
 ## 함수 (`@oa-sdk/parser`)
 
 | 함수 | 파일 | 용도 |

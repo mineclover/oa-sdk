@@ -169,7 +169,7 @@ function extractDocNames(mdPath: string): Map<string, Set<string>> {
 
 // ── 비교 ────────────────────────────────────────────────────
 
-const PACKAGES = ['core', 'parser', 'codegen', 'mock-server', 'router', 'client'] as const
+const PACKAGES = ['core', 'parser', 'codegen', 'mock-server', 'router', 'client', 'openapi-projection-contract'] as const
 const CODEGEN_TYPEGEN_OPTION_EXPORTS = ['TypegenOptions', 'SchemaToTsOptions'] as const
 
 function checkCodegenTypegenOptionPolicy(apiIndexPath: string): string[] {

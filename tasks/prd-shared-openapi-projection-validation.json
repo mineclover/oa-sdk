@@ -44,11 +44,12 @@
         "pnpm build:scripts && pnpm check:api-index passes when public exports change."
       ],
       "priority": 2,
-      "passes": false,
+      "passes": true,
       "notes": "Keep this package contract-first and dependency-light. Do not move projection engines here.",
       "dependsOn": [
         "US-001"
-      ]
+      ],
+      "completionNotes": "Completed by agent"
     },
     {
       "id": "US-003",
@@ -327,6 +328,6 @@
     }
   ],
   "metadata": {
-    "updatedAt": "2026-04-16T03:52:58.469Z"
+    "updatedAt": "2026-04-16T04:02:28.389Z"
   }
 }
