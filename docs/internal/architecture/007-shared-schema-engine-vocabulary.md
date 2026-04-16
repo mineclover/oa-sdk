@@ -25,6 +25,7 @@ The current implementation proves sharing at the projection boundary only:
 - OA SDK adapts Definition Builder output into the `full-api-document` profile while keeping Definition Registry loading, target selection, source-location lookup, CLI output, and builder orchestration local.
 - bun-graph-db adapts `TableSchemaProjection` into `component-bundle` and `operation-contract` OpenAPI 3.2 projections while keeping repositories, domain entity conversion, GraphQL, REST, MCP server construction, table-scoped cache invalidation, and runtime value validation local.
 - bun-graph-db MCP tools/list schema generation now consumes the operation-contract projection first, resolves requestBody component refs into concrete MCP input schemas, and retains the direct `TableSchemaProjection` mapper only as a compatibility fallback.
+- bun-graph-db table-scoped MCP projection export exposes `get-openapi-projection-{tableId}` as another consumer of the same OpenAPI projection adapters and shared `validateOpenApiProjection()` result.
 
 ## To-Be Alignment
 
@@ -39,11 +40,28 @@ The intended future shape is still projection sharing before implementation shar
 
 | Profile | Shape | Intended consumers |
 |---|---|---|
-| `component-bundle` | OpenAPI 3.2 document with empty or absent `paths` and required `components.schemas`. | bun-graph-db table schema component export, source-agnostic component validators, docs/AI metadata, and tools that need reusable schemas without operation contracts. |
-| `operation-contract` | OpenAPI 3.2 document with at least one operation under `paths`; request bodies may reference reusable components. | bun-graph-db table-scoped MCP tools/list schema generation, request payload contract tests, and clients that need create/update operation input shapes without a full public API document. |
+| `component-bundle` | OpenAPI 3.2 document with empty or absent `paths` and required `components.schemas`. | bun-graph-db table schema component export through REST, GraphQL, and table-scoped MCP; source-agnostic component validators; docs/AI metadata; and tools that need reusable schemas without operation contracts. |
+| `operation-contract` | OpenAPI 3.2 document with at least one operation under `paths`; request bodies may reference reusable components. | bun-graph-db table-scoped MCP tools/list schema generation, table-scoped MCP projection export, REST/GraphQL projection export, request payload contract tests, and clients that need create/update operation input shapes without a full public API document. |
 | `full-api-document` | Normal OpenAPI 3.2 API document with API-level paths, operations, components, info, servers, and related fields. | OA SDK Definition Builder validation, `oa-gen build-spec` programmatic consumers, OpenAPI validators, and downstream codegen/router/client/mock flows. |
 
 Profile semantics are based on the emitted OpenAPI projection shape, not on which project produced it.
+
+## Consumer Surfaces
+
+The shared SchemaEngine boundary is the projection envelope and validator, not a
+transport boundary. Current consumer surfaces are:
+
+| Consumer surface | Profiles | Response shape | Boundary rule |
+|---|---|---|---|
+| bun-graph-db REST `GET /api/tables/:tableId/openapi-projection?profile=...` | `component-bundle`, `operation-contract` | `OpenApiProjectionResult` | REST reads from `TableSchemaProjectionService` and the OpenAPI projection adapters; it does not own projection construction. |
+| bun-graph-db GraphQL `tableOpenApiProjection(tableId, identifier, profile)` | `component-bundle`, `operation-contract` | `OpenApiProjectionResult` serialized as `JSON` | GraphQL reads from the same service/adapter path and remains a transport consumer. |
+| bun-graph-db table-scoped MCP `get-openapi-projection-{tableId}` | `component-bundle`, `operation-contract` | `{ projection, validation }`, where `validation` is `validateOpenApiProjection(projection)` | MCP is a consumer for AI tools. It must not become the source of truth, cache a separate projection model, or replace REST/GraphQL export. |
+| bun-graph-db table-scoped MCP `tools/list` schema generation | `operation-contract` | MCP `inputSchema` plus `_meta.tableSchemaProjection` | MCP can derive create/update input schemas from projection output, but invalid projections must remain visible through diagnostics and `usable: false`. |
+| OA SDK Definition Builder outputs | `full-api-document` | `OpenApiProjectionResult` | OA SDK owns file-backed source loading and target emission, then adapts outputs into the shared envelope. |
+
+MCP projection export is intentionally narrower than the shared profile set. It
+does not support `full-api-document` because a table-scoped MCP server exports a
+single table projection, not a whole API document.
 
 ## Vocabulary
 
