@@ -162,11 +162,12 @@
         "bun run build passes."
       ],
       "priority": 7,
-      "passes": false,
+      "passes": true,
       "notes": "Docs should make bun-graph-db an OpenAPI projection producer in the OA SDK workflow.",
       "dependsOn": [
         "US-006"
-      ]
+      ],
+      "completionNotes": "Completed by agent"
     },
     {
       "id": "US-008",
@@ -196,6 +197,6 @@
     }
   ],
   "metadata": {
-    "updatedAt": "2026-04-16T13:57:49.679Z"
+    "updatedAt": "2026-04-16T14:04:33.320Z"
   }
 }

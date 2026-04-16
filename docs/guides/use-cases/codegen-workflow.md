@@ -32,6 +32,12 @@ API 외부 계약: OpenAPI
 클라이언트/테스트: oa-sdk client + mock-server
 ```
 
+bun-graph-db처럼 OpenAPI projection을 외부에서 생산하는 시스템은 같은 소비 파이프라인에
+들어올 수 있다. Stable API surface는 raw `GET /api/openapi` full document로 받고,
+runtime table shape은 REST/GraphQL/MCP table projection snapshot과 `versionHash`를 함께
+저장한 뒤 OA SDK 도구에 넣는다. 자세한 fetch/validate/typegen/client/mock-server 절차는
+[bun-graph-db projection 소비](./bun-graph-db-projections.md)를 따른다.
+
 ## 1. Drizzle → OAS components.yaml
 
 ```bash

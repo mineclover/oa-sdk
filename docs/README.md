@@ -7,6 +7,7 @@
 | [Quick Start](./guides/quick-start.md) | 5분 안에 전 파이프라인 체험 |
 | [Mock 테스팅](./guides/use-cases/mock-testing.md) | 프론트엔드 테스트에서 Mock 서버 활용 |
 | [코드젠 워크플로](./guides/use-cases/codegen-workflow.md) | Drizzle → OAS → TS → 라우터 → 클라이언트 |
+| [bun-graph-db projection 소비](./guides/use-cases/bun-graph-db-projections.md) | bun-graph-db OpenAPI full document/table projection → OA SDK |
 | [테스트 피드백](./guides/use-cases/test-feedback.md) | 커버리지 + 검증 피드백 루프 |
 | [CLI 세팅](./guides/cli-setup.md) | 설치 + CLI 명령어 |
 | [Mock 서버](./guides/mock-server-usage.md) | MSW / Node HTTP |
