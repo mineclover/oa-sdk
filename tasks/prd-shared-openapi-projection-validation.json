@@ -299,12 +299,13 @@
         "bun run lint --max-diagnostics=20 passes."
       ],
       "priority": 12,
-      "passes": false,
+      "passes": true,
       "notes": "Documentation story after both sides prove the adapter shape.",
       "dependsOn": [
         "US-007",
         "US-011"
-      ]
+      ],
+      "completionNotes": "Completed by agent"
     },
     {
       "id": "US-013",
@@ -337,6 +338,6 @@
     }
   ],
   "metadata": {
-    "updatedAt": "2026-04-16T05:12:23.985Z"
+    "updatedAt": "2026-04-16T05:18:12.206Z"
   }
 }

@@ -3,6 +3,7 @@
 ```
 oa-sdk/
   packages/
+    openapi-projection-contract/ @oa-sdk/openapi-projection-contract OAS projection contract + validation
     core/          @oa-sdk/core         공유 유틸 (pascalCase, toColonPath, collectTypeNames)
     parser/        @oa-sdk/parser       OAS 3.2 파서 + IR + fold + lint + query
     schemas/       @oa-sdk/schemas      도메인 분리 OAS 소스 + merge + 검증
@@ -23,11 +24,12 @@ oa-sdk/
 ## 의존 그래프
 
 ```
+openapi-projection-contract (0 의존)
 core (0 의존)
   ↓
-parser ← core
+parser ← core + openapi-projection-contract
   ↓
-codegen      ← core + parser (+ router, client: optional peer — CLI 전용)
+codegen      ← core + parser + openapi-projection-contract (+ router, client: optional peer — CLI 전용)
 mock-server  ← core + parser
 router       ← core + parser
 client       ← core + parser
@@ -48,6 +50,12 @@ schemas      ← 독립
 | `src/format.ts` | formatGeneratedTs (코드 자동 정렬) |
 | `src/response-utils.ts` | pickDefaultStatus |
 | `src/http.ts` | createHttpServer, writeJson, readRaw, readJsonBody, ApiError, ApiErrorDetail |
+
+### @oa-sdk/openapi-projection-contract
+
+| 파일 | 역할 |
+|------|------|
+| `src/index.ts` | OpenApiProjectionResult, projection profile semantics, projection metadata extension constants, dependency-light validation |
 
 ### @oa-sdk/parser
 
