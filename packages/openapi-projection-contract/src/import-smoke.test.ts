@@ -1,12 +1,22 @@
 import { describe, expect, it } from 'vitest'
 import {
+  attachOpenApiProjectionExtensions,
   getOpenApiProjectionProfileSemantics,
   isOpenApiProjectionProfile,
+  OPENAPI_PROJECTION_EXTENSION_NAMES,
+  OPENAPI_PROJECTION_PROFILE_EXTENSION,
   OPENAPI_PROJECTION_PROFILE_SEMANTICS,
   OPENAPI_PROJECTION_PROFILES,
+  OPENAPI_PROJECTION_REFS_EXTENSION,
+  OPENAPI_PROJECTION_SOURCES_EXTENSION,
+  OPENAPI_PROJECTION_VERSION_HASH_EXTENSION,
+  serializeOpenApiProjectionExtensions,
   validateOpenApiProjection,
 } from '@oa-sdk/openapi-projection-contract'
 import type {
+  OpenApiProjectionDocumentWithExtensions,
+  OpenApiProjectionExtensionFields,
+  OpenApiProjectionExtensionName,
   OpenApiProjectionProfile,
   OpenApiProjectionResult,
   SchemaDiagnostic,
@@ -21,10 +31,17 @@ describe('@oa-sdk/openapi-projection-contract import smoke', () => {
     const imported = await import('@oa-sdk/openapi-projection-contract')
 
     expect(Object.keys(imported).sort()).toEqual([
+      'OPENAPI_PROJECTION_EXTENSION_NAMES',
+      'OPENAPI_PROJECTION_PROFILE_EXTENSION',
       'OPENAPI_PROJECTION_PROFILES',
       'OPENAPI_PROJECTION_PROFILE_SEMANTICS',
+      'OPENAPI_PROJECTION_REFS_EXTENSION',
+      'OPENAPI_PROJECTION_SOURCES_EXTENSION',
+      'OPENAPI_PROJECTION_VERSION_HASH_EXTENSION',
+      'attachOpenApiProjectionExtensions',
       'getOpenApiProjectionProfileSemantics',
       'isOpenApiProjectionProfile',
+      'serializeOpenApiProjectionExtensions',
       'validateOpenApiProjection',
     ].sort())
     expect(Object.prototype.toString.call(imported)).toBe('[object Module]')
@@ -84,6 +101,10 @@ describe('@oa-sdk/openapi-projection-contract import smoke', () => {
       versionHash: 'sha256:import-smoke',
       typeTargets: [typeTarget],
     }
+    const extensionName: OpenApiProjectionExtensionName = OPENAPI_PROJECTION_PROFILE_EXTENSION
+    const extensions: OpenApiProjectionExtensionFields = serializeOpenApiProjectionExtensions(result)
+    const documentWithExtensions: OpenApiProjectionDocumentWithExtensions<Record<string, unknown>> =
+      attachOpenApiProjectionExtensions(result)
 
     expect(validation.valid).toBe(true)
     expect(validateOpenApiProjection(result).valid).toBe(true)
@@ -93,6 +114,12 @@ describe('@oa-sdk/openapi-projection-contract import smoke', () => {
     expect(getOpenApiProjectionProfileSemantics(result.profile)).toBe(
       OPENAPI_PROJECTION_PROFILE_SEMANTICS['component-bundle'],
     )
+    expect(OPENAPI_PROJECTION_EXTENSION_NAMES).toContain(extensionName)
+    expect(extensions[OPENAPI_PROJECTION_PROFILE_EXTENSION]).toBe(result.profile)
+    expect(extensions[OPENAPI_PROJECTION_VERSION_HASH_EXTENSION]).toBe(result.versionHash)
+    expect(extensions[OPENAPI_PROJECTION_SOURCES_EXTENSION]).toEqual(result.sources)
+    expect(extensions[OPENAPI_PROJECTION_REFS_EXTENSION]).toEqual(result.refs)
+    expect(documentWithExtensions[OPENAPI_PROJECTION_PROFILE_EXTENSION]).toBe(result.profile)
     expect(result.refs).toHaveLength(1)
     expect(result.typeTargets?.[0]?.name).toBe('Book')
   })

@@ -12,6 +12,23 @@
 
 The profile names are exported through `OPENAPI_PROJECTION_PROFILES`, runtime profile checks use `isOpenApiProjectionProfile()`, and shape rules are exported through `OPENAPI_PROJECTION_PROFILE_SEMANTICS`.
 
+## Projection Metadata Extensions
+
+Projection metadata that describes the emitted artifact, rather than the API contract itself, belongs in root-level OpenAPI extension fields:
+
+| Extension | Source envelope field | Purpose |
+|---|---|---|
+| `x-schema-engine-profile` | `profile` | Identifies whether the serialized document is a `component-bundle`, `operation-contract`, or `full-api-document`. |
+| `x-schema-engine-version-hash` | `versionHash` | Preserves the projection freshness/content hash used by the producer. |
+| `x-schema-engine-sources` | `sources` | Preserves source coordinates keyed by producer-defined ids, including file path, JSON Pointer, optional line/column, or DB entity/id/pointer coordinates. |
+| `x-schema-engine-refs` | `refs` | Preserves the source ref graph edges, raw ref text, optional resolved target id, edge kind, and source coordinate. |
+
+The extension names are exported as `OPENAPI_PROJECTION_PROFILE_EXTENSION`, `OPENAPI_PROJECTION_VERSION_HASH_EXTENSION`, `OPENAPI_PROJECTION_SOURCES_EXTENSION`, `OPENAPI_PROJECTION_REFS_EXTENSION`, and the ordered tuple `OPENAPI_PROJECTION_EXTENSION_NAMES`.
+
+Use `serializeOpenApiProjectionExtensions(result)` when a caller needs only the metadata extension object, or `attachOpenApiProjectionExtensions(result)` when a caller needs the OpenAPI document with those root-level `x-*` fields applied. The helpers copy source and ref records so file coordinates, DB coordinates, and ref graph metadata survive JSON/YAML serialization without sharing mutable references with the envelope.
+
+Standard OpenAPI fields remain responsible for the API artifact itself: `openapi`, `info`, `servers`, `paths`, `webhooks`, `components`, `security`, `tags`, `externalDocs`, `jsonSchemaDialect`, normal component schemas, and normal `$ref` values. Projection-only provenance and freshness data should not be encoded into standard OpenAPI fields. Diagnostics and `typeTargets` stay in the sidecar envelope until a future story defines stable OpenAPI extensions for them.
+
 ## Validation
 
 `validateOpenApiProjection(result)` is the shared dependency-light validation entrypoint. It accepts unknown input, returns `SchemaValidateResult`, and reports ordinary invalid projection data as structured diagnostics instead of throwing.

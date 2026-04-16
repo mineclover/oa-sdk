@@ -48,6 +48,16 @@ OA SDK와 bun-graph-db가 각자의 source loader, repository, CLI, MCP, GraphQL
 | `OpenApiProjectionResult` | `openapi-projection-contract/src/index.ts` | OpenAPI projection, profile, refs, diagnostics, sources, version hash, type target metadata를 담는 공유 결과 envelope |
 | `OpenApiProjectionProfile` | `openapi-projection-contract/src/index.ts` | `component-bundle`, `operation-contract`, `full-api-document` projection 종류 |
 | `OPENAPI_PROJECTION_PROFILES` | `openapi-projection-contract/src/index.ts` | 허용되는 projection profile literal 목록 |
+| `OPENAPI_PROJECTION_PROFILE_EXTENSION` | `openapi-projection-contract/src/index.ts` | projection profile을 직렬화하는 OpenAPI extension 이름 `x-schema-engine-profile` |
+| `OPENAPI_PROJECTION_VERSION_HASH_EXTENSION` | `openapi-projection-contract/src/index.ts` | projection freshness/content hash를 직렬화하는 OpenAPI extension 이름 `x-schema-engine-version-hash` |
+| `OPENAPI_PROJECTION_SOURCES_EXTENSION` | `openapi-projection-contract/src/index.ts` | source coordinate map을 직렬화하는 OpenAPI extension 이름 `x-schema-engine-sources` |
+| `OPENAPI_PROJECTION_REFS_EXTENSION` | `openapi-projection-contract/src/index.ts` | ref graph edge 목록을 직렬화하는 OpenAPI extension 이름 `x-schema-engine-refs` |
+| `OPENAPI_PROJECTION_EXTENSION_NAMES` | `openapi-projection-contract/src/index.ts` | 표준 schema-engine projection metadata OpenAPI extension 이름 tuple |
+| `OpenApiProjectionExtensionName` | `openapi-projection-contract/src/index.ts` | 표준 projection metadata extension 이름 union |
+| `OpenApiProjectionExtensionFields` | `openapi-projection-contract/src/index.ts` | profile, versionHash, sources, refs를 root-level x-* fields로 직렬화한 shape |
+| `OpenApiProjectionDocumentWithExtensions` | `openapi-projection-contract/src/index.ts` | 기존 OpenAPI projection document와 projection metadata extensions를 결합한 타입 |
+| `serializeOpenApiProjectionExtensions()` | `openapi-projection-contract/src/index.ts` | projection envelope metadata를 `x-schema-engine-*` extension fields로 복사 직렬화 |
+| `attachOpenApiProjectionExtensions()` | `openapi-projection-contract/src/index.ts` | OpenAPI projection document root에 표준 projection metadata extensions를 부착 |
 | `OpenApiProjectionProfileSemantics` | `openapi-projection-contract/src/index.ts` | profile별 paths/components/validation 의미를 표현하는 source-agnostic contract |
 | `OPENAPI_PROJECTION_PROFILE_SEMANTICS` | `openapi-projection-contract/src/index.ts` | profile별 empty paths, components.schemas, operation requirement, 일반 OpenAPI validation 규칙 |
 | `isOpenApiProjectionProfile` | `openapi-projection-contract/src/index.ts` | unknown 값을 runtime에서 `OpenApiProjectionProfile`로 좁히는 type guard |

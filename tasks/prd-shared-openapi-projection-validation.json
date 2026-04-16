@@ -118,11 +118,12 @@
         "pnpm build:scripts && pnpm check:api-index passes when public exports change."
       ],
       "priority": 5,
-      "passes": false,
+      "passes": true,
       "notes": "Define metadata names before adapters write extensions.",
       "dependsOn": [
         "US-004"
-      ]
+      ],
+      "completionNotes": "Completed by agent"
     },
     {
       "id": "US-006",
@@ -330,6 +331,6 @@
     }
   ],
   "metadata": {
-    "updatedAt": "2026-04-16T04:14:41.291Z"
+    "updatedAt": "2026-04-16T04:21:17.193Z"
   }
 }

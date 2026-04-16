@@ -4,7 +4,19 @@ export const OPENAPI_PROJECTION_PROFILES = [
   'full-api-document',
 ] as const
 
+export const OPENAPI_PROJECTION_PROFILE_EXTENSION = 'x-schema-engine-profile'
+export const OPENAPI_PROJECTION_VERSION_HASH_EXTENSION = 'x-schema-engine-version-hash'
+export const OPENAPI_PROJECTION_SOURCES_EXTENSION = 'x-schema-engine-sources'
+export const OPENAPI_PROJECTION_REFS_EXTENSION = 'x-schema-engine-refs'
+export const OPENAPI_PROJECTION_EXTENSION_NAMES = [
+  OPENAPI_PROJECTION_PROFILE_EXTENSION,
+  OPENAPI_PROJECTION_VERSION_HASH_EXTENSION,
+  OPENAPI_PROJECTION_SOURCES_EXTENSION,
+  OPENAPI_PROJECTION_REFS_EXTENSION,
+] as const
+
 export type OpenApiProjectionProfile = typeof OPENAPI_PROJECTION_PROFILES[number]
+export type OpenApiProjectionExtensionName = typeof OPENAPI_PROJECTION_EXTENSION_NAMES[number]
 
 export type OpenApiProjectionProfileSemantics = {
   profile: OpenApiProjectionProfile
@@ -134,6 +146,36 @@ export type OpenApiProjectionResult<TProjection extends object = { openapi: stri
   sources: Record<string, SchemaSourceCoordinate>
   versionHash: string
   typeTargets?: SchemaTypeTarget[]
+}
+
+export type OpenApiProjectionExtensionFields = {
+  [OPENAPI_PROJECTION_PROFILE_EXTENSION]: OpenApiProjectionProfile
+  [OPENAPI_PROJECTION_VERSION_HASH_EXTENSION]: string
+  [OPENAPI_PROJECTION_SOURCES_EXTENSION]: Record<string, SchemaSourceCoordinate>
+  [OPENAPI_PROJECTION_REFS_EXTENSION]: SchemaRefEdge[]
+}
+
+export type OpenApiProjectionDocumentWithExtensions<TProjection extends object> =
+  TProjection & OpenApiProjectionExtensionFields
+
+export function serializeOpenApiProjectionExtensions(
+  result: Pick<OpenApiProjectionResult<object>, 'profile' | 'refs' | 'sources' | 'versionHash'>,
+): OpenApiProjectionExtensionFields {
+  return {
+    [OPENAPI_PROJECTION_PROFILE_EXTENSION]: result.profile,
+    [OPENAPI_PROJECTION_VERSION_HASH_EXTENSION]: result.versionHash,
+    [OPENAPI_PROJECTION_SOURCES_EXTENSION]: copySourceMap(result.sources),
+    [OPENAPI_PROJECTION_REFS_EXTENSION]: result.refs.map(copyRefEdge),
+  }
+}
+
+export function attachOpenApiProjectionExtensions<TProjection extends object>(
+  result: OpenApiProjectionResult<TProjection>,
+): OpenApiProjectionDocumentWithExtensions<TProjection> {
+  return {
+    ...result.projection,
+    ...serializeOpenApiProjectionExtensions(result),
+  }
 }
 
 const OPENAPI_OPERATION_METHODS = [
@@ -529,6 +571,45 @@ function validateTypeTargets(value: unknown, diagnostics: SchemaDiagnostic[]): v
     if (target.source !== undefined) {
       validateSourceCoordinate(target.source, `${path}.source`, diagnostics)
     }
+  }
+}
+
+function copySourceMap(
+  sources: Record<string, SchemaSourceCoordinate>,
+): Record<string, SchemaSourceCoordinate> {
+  const copied: Record<string, SchemaSourceCoordinate> = {}
+  for (const [id, source] of Object.entries(sources)) {
+    copied[id] = copySourceCoordinate(source)
+  }
+  return copied
+}
+
+function copyRefEdge(edge: SchemaRefEdge): SchemaRefEdge {
+  return {
+    from: edge.from,
+    ...(edge.to !== undefined ? { to: edge.to } : {}),
+    ref: edge.ref,
+    kind: edge.kind,
+    source: copySourceCoordinate(edge.source),
+  }
+}
+
+function copySourceCoordinate(source: SchemaSourceCoordinate): SchemaSourceCoordinate {
+  if (source.kind === 'file') {
+    return {
+      kind: 'file',
+      filePath: source.filePath,
+      pointer: source.pointer,
+      ...(source.line !== undefined ? { line: source.line } : {}),
+      ...(source.column !== undefined ? { column: source.column } : {}),
+    }
+  }
+
+  return {
+    kind: 'db',
+    entity: source.entity,
+    id: source.id,
+    pointer: source.pointer,
   }
 }
 
