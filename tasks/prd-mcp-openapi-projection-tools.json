@@ -151,11 +151,12 @@
         "bun run build passes."
       ],
       "priority": 6,
-      "passes": false,
+      "passes": true,
       "notes": "Build on the integration scenario and reuse existing invalidation flows.",
       "dependsOn": [
         "US-005"
-      ]
+      ],
+      "completionNotes": "Completed by agent"
     },
     {
       "id": "US-007",
@@ -235,6 +236,6 @@
     }
   ],
   "metadata": {
-    "updatedAt": "2026-04-16T08:59:36.983Z"
+    "updatedAt": "2026-04-16T09:04:57.352Z"
   }
 }
