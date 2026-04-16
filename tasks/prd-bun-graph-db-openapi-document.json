@@ -114,11 +114,12 @@
         "bun run build passes."
       ],
       "priority": 5,
-      "passes": false,
+      "passes": true,
       "notes": "This is the dynamic tool contract counterpart to the static MCP transport schemas.",
       "dependsOn": [
         "US-004"
-      ]
+      ],
+      "completionNotes": "Completed by agent"
     },
     {
       "id": "US-006",
@@ -194,6 +195,6 @@
     }
   ],
   "metadata": {
-    "updatedAt": "2026-04-16T13:43:25.132Z"
+    "updatedAt": "2026-04-16T13:51:59.441Z"
   }
 }
