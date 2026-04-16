@@ -8,7 +8,7 @@
 |---|---|---|---|
 | `component-bundle` | `paths` may be absent or empty. | `components.schemas` is required. | Profile-aware validation should allow the empty-path component bundle shape while requiring reusable schemas. |
 | `operation-contract` | `paths` must contain at least one operation under a path item. | `components.schemas` is optional unless referenced by operations. | Profile-aware validation should combine normal OpenAPI checks with the operation requirement. |
-| `full-api-document` | Uses normal OpenAPI document rules. | Uses normal OpenAPI document rules. | Validators should apply normal OpenAPI document validation. |
+| `full-api-document` | Uses normal OpenAPI document rules. | Uses normal OpenAPI document rules. | Host validators should apply normal OpenAPI validation; this package performs dependency-light structural checks only. |
 
 The profile names are exported through `OPENAPI_PROJECTION_PROFILES`, runtime profile checks use `isOpenApiProjectionProfile()`, and shape rules are exported through `OPENAPI_PROJECTION_PROFILE_SEMANTICS`.
 

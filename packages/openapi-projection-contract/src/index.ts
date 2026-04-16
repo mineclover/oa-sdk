@@ -70,7 +70,7 @@ export const OPENAPI_PROJECTION_PROFILE_SEMANTICS = {
   },
   'full-api-document': {
     profile: 'full-api-document',
-    summary: 'A complete OpenAPI document intended to pass normal OpenAPI document validation.',
+    summary: 'A complete OpenAPI document intended for host-level OpenAPI validation.',
     paths: {
       rule: 'standard-openapi',
       description: 'paths follow the normal OpenAPI document rules without projection-specific relaxation.',
@@ -81,7 +81,7 @@ export const OPENAPI_PROJECTION_PROFILE_SEMANTICS = {
     },
     validation: {
       rule: 'standard-openapi-document',
-      description: 'validators should apply normal OpenAPI document validation for this profile.',
+      description: 'host validators should apply normal OpenAPI document validation; this package performs dependency-light structural checks only.',
     },
   },
 } as const satisfies Record<OpenApiProjectionProfile, OpenApiProjectionProfileSemantics>
