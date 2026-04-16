@@ -220,11 +220,12 @@
         "Focused bun-graph-db projection tests pass when projection/MCP behavior changes."
       ],
       "priority": 9,
-      "passes": false,
+      "passes": true,
       "notes": "First bun projection profile. Keep it independent from MCP schema generation for now.",
       "dependsOn": [
         "US-008"
-      ]
+      ],
+      "completionNotes": "Completed by agent"
     },
     {
       "id": "US-010",
@@ -334,6 +335,6 @@
     }
   ],
   "metadata": {
-    "updatedAt": "2026-04-16T04:50:59.287Z"
+    "updatedAt": "2026-04-16T04:57:04.557Z"
   }
 }
