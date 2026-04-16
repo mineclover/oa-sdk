@@ -176,11 +176,12 @@
         "bun run build passes."
       ],
       "priority": 7,
-      "passes": false,
+      "passes": true,
       "notes": "Covers bad projection behavior separately from happy-path export.",
       "dependsOn": [
         "US-004"
-      ]
+      ],
+      "completionNotes": "Completed by agent"
     },
     {
       "id": "US-008",
@@ -236,6 +237,6 @@
     }
   ],
   "metadata": {
-    "updatedAt": "2026-04-16T09:04:57.352Z"
+    "updatedAt": "2026-04-16T09:08:44.137Z"
   }
 }
