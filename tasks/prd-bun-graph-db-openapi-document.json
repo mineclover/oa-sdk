@@ -19,9 +19,10 @@
         "bun run build passes."
       ],
       "priority": 1,
-      "passes": false,
+      "passes": true,
       "notes": "This story sets boundaries before implementation so agents do not inline dynamic table schemas into a static document.",
-      "dependsOn": []
+      "dependsOn": [],
+      "completionNotes": "Completed by agent"
     },
     {
       "id": "US-002",
@@ -190,6 +191,6 @@
     }
   ],
   "metadata": {
-    "updatedAt": "2026-04-16T13:05:00.000Z"
+    "updatedAt": "2026-04-16T13:24:09.153Z"
   }
 }
