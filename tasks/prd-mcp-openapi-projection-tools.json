@@ -1,0 +1,236 @@
+{
+  "name": "MCP OpenAPI Projection Tools",
+  "description": "Add table-scoped MCP tools that let clients retrieve OpenAPI 3.2 projection artifacts for component-bundle and operation-contract profiles, together with validateOpenApiProjection() results.",
+  "branchName": "ralph/mcp-openapi-projection-tools",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Define table-scoped MCP projection tool contract",
+      "description": "As an MCP client developer, I want a table-scoped tool contract for OpenAPI projection export so that AI tools can discover table schema projections directly through MCP.",
+      "acceptanceCriteria": [
+        "Add a table-scoped MCP tool named get-openapi-projection-{tableId} or equivalent.",
+        "Tool description states that it returns an OpenAPI 3.2 projection artifact for the current table.",
+        "Tool input schema supports profile.",
+        "profile supports component-bundle and operation-contract.",
+        "Default profile is component-bundle.",
+        "Tool input schema uses enum constraints for supported profile values.",
+        "Tool output contract is documented in code comments or docs.",
+        "Existing table-scoped MCP tools remain listed.",
+        "bun run typecheck passes.",
+        "bun run lint --max-diagnostics=20 passes.",
+        "Focused MCP/projection tests for changed behavior pass.",
+        "bun run build passes."
+      ],
+      "priority": 1,
+      "passes": true,
+      "notes": "Tool contract only. Prefer table-scoped server because table context is already fixed there.",
+      "dependsOn": [],
+      "completionNotes": "Completed by agent"
+    },
+    {
+      "id": "US-002",
+      "title": "Register projection export tool in Table MCP Server",
+      "description": "As an MCP client, I want table-scoped tools/list to include the projection export tool so that I know the projection is available.",
+      "acceptanceCriteria": [
+        "TableMcpServer registers the projection export tool during table tool initialization.",
+        "The tool appears in tools/list for table-scoped MCP servers.",
+        "The tool does not require TableSchemaProjectionService during list-time schema construction.",
+        "Missing projection service is represented in handler output, not by omitting the tool.",
+        "Focused tools/list test verifies the tool name, description, input schema, and profile enum.",
+        "bun run typecheck passes.",
+        "bun run lint --max-diagnostics=20 passes.",
+        "Focused MCP/projection tests for changed behavior pass.",
+        "bun run build passes."
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": "Depends on the tool contract shape.",
+      "dependsOn": [
+        "US-001"
+      ]
+    },
+    {
+      "id": "US-003",
+      "title": "Implement MCP projection export handler",
+      "description": "As an MCP client, I want to call the projection export tool so that I can retrieve the table OpenAPI projection from MCP.",
+      "acceptanceCriteria": [
+        "Handler obtains the current table projection through TableSchemaProjectionService.",
+        "For component-bundle, handler returns toTableSchemaOpenApiProjectionResult(projection).",
+        "For operation-contract, handler returns toTableSchemaOpenApiOperationContractProjectionResult(projection).",
+        "Handler calls validateOpenApiProjection() on the projection result.",
+        "Handler returns { projection, validation }.",
+        "Returned projection includes profile, projection, refs, diagnostics, sources, versionHash, and typeTargets where available.",
+        "Returned projection document includes root-level x-schema-engine-* extension fields.",
+        "Unsupported profile values return a structured MCP error.",
+        "Missing projection service returns a structured MCP error.",
+        "bun run typecheck passes.",
+        "bun run lint --max-diagnostics=20 passes.",
+        "Focused MCP/projection tests for changed behavior pass.",
+        "bun run build passes."
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": "Use existing projection adapters and validator. Do not create MCP-only projection logic.",
+      "dependsOn": [
+        "US-002"
+      ]
+    },
+    {
+      "id": "US-004",
+      "title": "Add unit coverage for projection tool handler",
+      "description": "As a maintainer, I want unit tests for the projection export handler so that contract regressions are caught quickly.",
+      "acceptanceCriteria": [
+        "Unit test verifies default profile behavior.",
+        "Unit test verifies component-bundle handler output shape.",
+        "Unit test verifies operation-contract handler output shape.",
+        "Unit test verifies validation.valid is true for valid projections.",
+        "Unit test verifies returned projection includes refs, sources, diagnostics, versionHash, and x-extension metadata.",
+        "Unit test verifies unsupported profile returns structured error.",
+        "Unit test verifies missing projection service returns structured error.",
+        "Tests do not require a real network server.",
+        "bun run typecheck passes.",
+        "bun run lint --max-diagnostics=20 passes.",
+        "Focused MCP/projection tests for changed behavior pass.",
+        "bun run build passes."
+      ],
+      "priority": 4,
+      "passes": false,
+      "notes": "Can be implemented in existing table MCP unit/integration-style tests without real sockets.",
+      "dependsOn": [
+        "US-003"
+      ]
+    },
+    {
+      "id": "US-005",
+      "title": "Add MCP projection export integration scenario",
+      "description": "As an integration tester, I want to create a table and retrieve its OpenAPI projection through MCP so that end-to-end projection export is verified.",
+      "acceptanceCriteria": [
+        "Integration test creates a table.",
+        "Integration test creates at least two attribute types.",
+        "Integration test creates attributes for the table.",
+        "Integration test lists table-scoped MCP tools and finds the projection export tool.",
+        "Integration test calls projection export tool with component-bundle.",
+        "Returned component-bundle projection validates with validateOpenApiProjection().",
+        "Returned component-bundle projection includes components.schemas.",
+        "Returned component-bundle projection includes refs, sources, diagnostics, versionHash, and typeTargets.",
+        "Integration test calls projection export tool with operation-contract.",
+        "Returned operation-contract projection includes create/update operation paths.",
+        "Returned operation-contract projection validates with validateOpenApiProjection().",
+        "bun run typecheck passes.",
+        "bun run lint --max-diagnostics=20 passes.",
+        "Focused MCP/projection tests for changed behavior pass.",
+        "bun run build passes."
+      ],
+      "priority": 5,
+      "passes": false,
+      "notes": "End-to-end happy path for actual table-scoped MCP middleware.",
+      "dependsOn": [
+        "US-004"
+      ]
+    },
+    {
+      "id": "US-006",
+      "title": "Verify projection refresh after schema change",
+      "description": "As an MCP client, I want projection export output to refresh after table schema changes so that AI tools do not consume stale contracts.",
+      "acceptanceCriteria": [
+        "Integration test captures initial projection versionHash.",
+        "Test updates or creates an attribute/attribute type for the table.",
+        "Table-scoped MCP schema cache refresh occurs through existing invalidation path.",
+        "Calling the projection export tool after schema change returns a different versionHash.",
+        "New or changed attribute appears in components.schemas.",
+        "x-schema-engine-version-hash matches returned versionHash.",
+        "Existing create/update MCP input schemas still reflect the refreshed projection.",
+        "Test verifies no stale projection artifact is returned after refresh.",
+        "bun run typecheck passes.",
+        "bun run lint --max-diagnostics=20 passes.",
+        "Focused MCP/projection tests for changed behavior pass.",
+        "bun run build passes."
+      ],
+      "priority": 6,
+      "passes": false,
+      "notes": "Build on the integration scenario and reuse existing invalidation flows.",
+      "dependsOn": [
+        "US-005"
+      ]
+    },
+    {
+      "id": "US-007",
+      "title": "Verify invalid projection and diagnostic behavior",
+      "description": "As a maintainer, I want invalid projection cases to be visible through MCP so that clients can distinguish unavailable projections from valid schemas.",
+      "acceptanceCriteria": [
+        "Test constructs or injects a projection with error diagnostics, such as a missing attribute type.",
+        "Projection export tool returns projection diagnostics in the response when possible.",
+        "validation.valid is false when diagnostics contain errors.",
+        "MCP response does not crash or omit diagnostics.",
+        "Table-scoped create/update tool fallback behavior remains safe.",
+        "_meta.tableSchemaProjection.usable remains false for unusable projections.",
+        "Error response shape is stable and machine-readable.",
+        "bun run typecheck passes.",
+        "bun run lint --max-diagnostics=20 passes.",
+        "Focused MCP/projection tests for changed behavior pass.",
+        "bun run build passes."
+      ],
+      "priority": 7,
+      "passes": false,
+      "notes": "Covers bad projection behavior separately from happy-path export.",
+      "dependsOn": [
+        "US-004"
+      ]
+    },
+    {
+      "id": "US-008",
+      "title": "Document MCP projection export usage",
+      "description": "As an MCP consumer, I want documentation for the projection export tool so that I can retrieve and validate table schemas through MCP.",
+      "acceptanceCriteria": [
+        "Update schema projection experiment docs with MCP projection export usage.",
+        "Update shared SchemaEngine boundary docs to list MCP projection export as a consumer surface.",
+        "Document available profiles.",
+        "Document response shape { projection, validation }.",
+        "Document that MCP is a consumer, not the source of truth.",
+        "Document REST and GraphQL projection export remain available.",
+        "Include example MCP call payloads for both profiles.",
+        "Include troubleshooting notes for invalid projections and usable: false.",
+        "bun run typecheck passes.",
+        "bun run lint --max-diagnostics=20 passes.",
+        "Focused MCP/projection tests for changed behavior pass.",
+        "bun run build passes."
+      ],
+      "priority": 8,
+      "passes": false,
+      "notes": "Documentation follows implementation and integration tests.",
+      "dependsOn": [
+        "US-006",
+        "US-007"
+      ]
+    },
+    {
+      "id": "US-009",
+      "title": "Final MCP projection export verification",
+      "description": "As a release maintainer, I want final verification for MCP OpenAPI projection export so that the feature is safe to rely on.",
+      "acceptanceCriteria": [
+        "bun run typecheck passes.",
+        "bun run lint --max-diagnostics=20 passes.",
+        "bun run build passes.",
+        "Focused MCP projection export unit tests pass.",
+        "MCP tools/list projection integration test passes.",
+        "GraphQL/MCP projection smoke test passes.",
+        "Invalid projection fallback test passes.",
+        "No temporary test artifacts remain.",
+        "Remaining dirty files are documented if unrelated work exists.",
+        "bun test tests/unit/schema/schema-engine-vocabulary-adapter.test.ts passes.",
+        "bun test tests/integration/mcp-table-projection-tools-list.test.ts passes.",
+        "bun test tests/integration/projection-graphql-mcp-smoke.test.ts passes.",
+        "Any new MCP projection export integration tests pass."
+      ],
+      "priority": 9,
+      "passes": false,
+      "notes": "Final verification only. Do not add new feature scope here.",
+      "dependsOn": [
+        "US-008"
+      ]
+    }
+  ],
+  "metadata": {
+    "updatedAt": "2026-04-16T08:38:58.332Z"
+  }
+}
