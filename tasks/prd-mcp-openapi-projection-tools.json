@@ -43,11 +43,12 @@
         "bun run build passes."
       ],
       "priority": 2,
-      "passes": false,
+      "passes": true,
       "notes": "Depends on the tool contract shape.",
       "dependsOn": [
         "US-001"
-      ]
+      ],
+      "completionNotes": "Completed by agent"
     },
     {
       "id": "US-003",
@@ -231,6 +232,6 @@
     }
   ],
   "metadata": {
-    "updatedAt": "2026-04-16T08:38:58.332Z"
+    "updatedAt": "2026-04-16T08:45:31.846Z"
   }
 }
