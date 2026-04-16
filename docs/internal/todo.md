@@ -3,16 +3,17 @@
 > 완료된 구현은 [spec.md](./spec.md), API 상세는 [api-index.md](./api-index.md)를 참조.
 > 정렬 기준: definition builder → ref correctness → 증분 workspace index → 코드 생성 정책 → 진단 UX → 공개 API → 런타임 활용 → 남은 OAS 스펙 순.
 > 증분 설계: [ADR-006 — SQLite 기반 증분 Workspace Index](./architecture/006-incremental-workspace-index.md)
-> 다음 PRD: [OpenAPI Definition Builder](../../tasks/prd-openapi-definition-builder.md)
+> 다음 PRD: [Definition Builder Domain Backfill](../../tasks/prd-definition-builder-domain-backfill.md)
 
 ---
 
 ## 다음 세션 실행 순서
 
-현재 ralph PRD 기준 OpenAPI definition builder의 canonical ID grammar/parser(US-001), fragment definition node model(US-002), registry graph/ref edge collection(US-003), source canonical/file ref resolution(US-004), output `$ref` rewrite(US-005), target-local output naming(US-006), server/domain collision simulation(US-007), path flattening guard simulation(US-008), duplicate/dedupe policy(US-009), target bundle configuration/selection(US-010), selected target OpenAPI 3.2 emit(US-011), CLI artifact build entry(US-012), WorkspaceIndex metadata integration(US-013), migration comparison plan(US-014)은 완료되었다. 다음 blocking 목표는 실제 current domain specs를 fragment equivalents로 backfill하고 current `.merged.yaml`과 builder parity artifact를 병렬 검증하는 단계다.
+현재 ralph PRD 기준 OpenAPI definition builder의 canonical ID grammar/parser(US-001), fragment definition node model(US-002), registry graph/ref edge collection(US-003), source canonical/file ref resolution(US-004), output `$ref` rewrite(US-005), target-local output naming(US-006), server/domain collision simulation(US-007), path flattening guard simulation(US-008), duplicate/dedupe policy(US-009), target bundle configuration/selection(US-010), selected target OpenAPI 3.2 emit(US-011), CLI artifact build entry(US-012), WorkspaceIndex metadata integration(US-013), migration comparison plan(US-014)은 완료되었다. 다음 blocking 목표는 [Definition Builder Domain Backfill](../../tasks/prd-definition-builder-domain-backfill.md)에 따라 실제 current domain specs를 fragment equivalents로 backfill하고 current `.merged.yaml`과 builder parity artifact를 병렬 검증하는 단계다.
 
 ### [ ] OpenAPI definition builder: current-domain fragment backfill
-배경: migration plan은 확정되었지만 `packages/schemas/src/fragments`는 아직 builder behavior fixture이며 current `src/domains/{common,health,users}/spec.yaml` 전체와 동등한 source가 아니다.
+배경: migration plan은 확정되었지만 `packages/schemas/src/fragments`는 아직 builder behavior fixture이며 current `src/domains/{common,health,users}/spec.yaml` 전체와 동등한 source가 아니다. 실행 상세는 [Definition Builder Domain Backfill PRD](../../tasks/prd-definition-builder-domain-backfill.md)를 따른다.
+현재 완료: [domain merge inventory](./domain-merge-inventory.md)에 profile files, domain specs, shared components, health/users paths and operations, generated artifact paths, validation commands, and source-section-to-fragment-kind mapping을 기록했다.
 구현 순서:
 1. `src/profiles/{local,staging,production}.yaml`의 `servers`를 profile별 parity target config로 복제하고, local parity target을 기준 artifact로 먼저 검증한다.
 2. `src/domains/common/spec.yaml`의 schemas/responses/parameters/securitySchemes를 `shared/common` fragments로 분리하고 local refs를 `oa://...` canonical refs로 바꾼다.
@@ -22,24 +23,78 @@
 6. Builder artifact를 기존 `downgrade-3.1.ts`, Redocly, Spectral, `oa-gen validate`, parser/codegen/schema tests에 통과시킨 뒤 차이와 downstream generated diff를 검토한다.
 완료 기준: current `.merged.yaml` path는 유지하면서 builder parity artifact가 zero-error diagnostics, accepted normalized diff, `.merged.3.1.yaml` compatibility, and rollback-safe script boundaries를 갖는다.
 
+## 잔여 보완 작업
+
+### [x] OAS 3.2 coverage table drift 정리
+배경: `docs/internal/oas32-coverage.md`의 런타임 지원 표가 일부 최신 구현을 반영하지 못한다. `Webhooks`는 parser/router/client/mock-server 쪽 테스트가 있고, `Encoding`도 multipart field-level handling 구현이 완료됐지만 표에는 일부 `—`로 남아 있다.
+작업:
+1. `docs/internal/oas32-coverage.md`의 `Webhooks`, `Encoding`, 관련 parser/mock-server/codegen/router/client 칸을 실제 구현 상태와 맞춘다.
+2. 근거 테스트 파일을 `feature-test-matrix.json` 또는 표 주석에 연결할지 결정한다.
+3. `pnpm check:feature-tests`를 실행한다.
+완료: `docs/internal/oas32-coverage.md`의 `Webhooks`와 `Encoding` row를 실제 parser/mock-server/codegen/router/client 지원 상태에 맞추고, 보강 근거 테스트 파일을 표 아래에 추가함.
+완료 기준: coverage 표가 `docs/internal/spec.md`와 모순되지 않고, 지원 범위와 non-goal이 구분된다.
+
+### [x] Feature-test matrix assertion depth 보강 검토
+배경: `pnpm check:feature-tests`는 경로 존재와 glob 매칭을 검증하지만, 각 capability가 실제 assertion으로 보호되는지는 검증하지 않는다.
+작업:
+1. matrix feature별로 대표 테스트 1~2개가 핵심 assertion을 포함하는지 샘플 리뷰한다.
+2. assertion gap이 큰 feature에는 더 구체적인 `testPaths`를 추가하거나 신규 테스트를 작성한다.
+3. 필요하면 JSON schema 수준의 필드 규칙을 강화한다.
+완료: `feature-test-matrix.md`에 assertion depth policy를 추가해 drift guard와 semantic test runner의 역할을 분리하고, broad glob row는 대표 테스트 파일을 명시해야 한다는 관리 규칙을 문서화함.
+완료 기준: matrix가 단순 파일 존재표가 아니라 회귀 방지 의도를 설명하는 수준으로 유지된다.
+
+### [x] Preview app coverage 정책 결정
+배경: `apps/preview`는 문서에 노출되어 있지만 현재 feature-test matrix의 핵심 검증 대상에는 포함하지 않았다. 현재 cross-package E2E 증명은 `apps/playground`가 담당한다.
+작업:
+1. `apps/preview`를 제품 surface로 볼지, 데모/수동 확인 surface로 볼지 결정한다.
+2. 제품 surface라면 최소 smoke test 또는 build/typecheck script를 추가한다.
+3. 데모 surface라면 docs에 자동 검증 범위 밖임을 명시한다.
+완료: `apps/preview`는 브라우저 수동 프리뷰 surface로 두고, 자동 E2E 보증은 `apps/playground`가 담당한다고 `docs/README.md`에 명시함.
+완료 기준: preview app의 품질 책임이 문서와 CI에서 모호하지 않다.
+
+### [x] JSON-RPC batch support 결정
+배경: bun-graph-db MCP OpenAPI full document는 현재 single JSON-RPC request만 문서화한다. 서버도 batch request를 처리하지 않는다.
+작업:
+1. MCP server가 batch를 지원해야 하는지 결정한다.
+2. 지원한다면 `McpHttpServer`와 table-scoped MCP server 모두에 batch 처리와 tests를 추가한다.
+3. 지원하지 않는다면 docs에 single-request only 정책을 유지한다.
+완료: 현재 정책은 single JSON-RPC request only로 유지한다. `bun-graph-db projection 소비` 가이드에 batch가 필요하면 서버 구현과 static OpenAPI document를 함께 확장해야 한다고 명시함.
+완료 기준: static OpenAPI document와 실제 MCP server 동작이 계속 일치한다.
+
+### [x] GraphQL OpenAPI wrapper 범위 결정
+배경: bun-graph-db full document는 stable REST/MCP endpoint discovery에 집중한다. GraphQL introspection 또는 selected GraphQL operation wrapper는 future question으로 남아 있다.
+작업:
+1. `/graphql` 자체만 문서화할지, selected GraphQL operation을 REST/OpenAPI wrapper로 제공할지 결정한다.
+2. wrapper가 필요하면 별도 PRD로 분리한다.
+완료: 현재 static full document는 selected GraphQL operation을 OpenAPI wrapper로 확장하지 않는다. GraphQL은 projection fetch transport 중 하나로 유지하고, stable endpoint/client/mock 생성은 `GET /api/openapi` 또는 table projection snapshot을 기준으로 한다고 문서화함.
+완료 기준: GraphQL과 OpenAPI full document의 경계가 문서상 모호하지 않다.
+
 ### [ ] 운영 관찰: SQLite optional native dependency 설치성
 배경: `better-sqlite3`는 증분 WorkspaceIndex의 primary driver지만 native optional dependency라 환경별 설치 실패 가능성이 있음.
 현재 처리: 설치 성공 시 `better-sqlite3` 사용, 실패 시 `node:sqlite`, 둘 다 실패하거나 DB 오류가 나면 full rebuild fallback + CLI warning.
+현재 확인: 2026-04-17 로컬 환경에서는 `loadSqliteDriver()`가 `better-sqlite3`를 선택함. `packages/codegen/src/__tests__/workspace-index.test.ts`는 supported driver load, driver mismatch cache invalidation, rollback, DB open fallback을 검증함.
 관찰 기준: CI/개발자 환경에서 optional install 실패가 잦거나 fallback warning이 반복되면 prebuilt 지원 범위 또는 driver 정책을 재검토.
 
-### [ ] 운영 관찰: Spectral response-example 힌트 4건
+### [x] 운영 관찰: Spectral response-example 힌트 4건
 배경: `pnpm schema:validate`는 통과하지만 Spectral `response-example-recommended` hint가 4건 남아 있음.
 현재 처리: 0 error / 0 warning / 4 hint로 문서화. schema correctness에는 영향 없음.
 후속 기준: Prism/mock 예제 품질을 더 강화하기로 하면 `paths./users.get.responses[200]`, `components.schemas.Error`, `HealthStatus`, `User` 예제를 보강.
+완료: `users` 목록 응답 inline schema와 `Error`, `HealthStatus`, `User` component schemas에 singular `example`을 추가해 Spectral `response-example-recommended` hint를 제거함. `pnpm --filter @oa-sdk/schemas run validate`, `pnpm --filter @oa-sdk/schemas test`, `pnpm check:feature-tests` 통과.
 
-### [ ] 운영 관찰: node:sqlite experimental warning in tests
+### [x] 운영 관찰: node:sqlite experimental warning in tests
 배경: 실제 `SQLiteWorkspaceIndex`는 `better-sqlite3`를 primary로 잡지만, 일부 테스트 헬퍼가 DB meta 확인용으로 `node:sqlite`를 직접 열어 warning이 출력됨.
 현재 처리: 기능 실패는 아니며 `better-sqlite3` driver 사용은 수동 검증 완료.
 후속 기준: 테스트 로그 소음을 줄여야 하면 테스트 헬퍼도 selected driver adapter를 재사용하도록 정리.
+완료: `workspace-index.test.ts`의 SQLite meta 확인 helper가 직접 `node:sqlite`를 require하지 않고 `loadSqliteDriver().open()`을 사용하도록 변경함. `pnpm --filter @oa-sdk/codegen test -- src/__tests__/workspace-index.test.ts`와 `pnpm --filter @oa-sdk/codegen typecheck` 통과, experimental warning 출력 없음.
 
 ---
 
 ## 완료된 실행 항목
+
+### [x] Definition Builder Domain Backfill: current merge source inventory
+배경: current domain specs를 fragment equivalents로 backfill하기 전에 현재 merge input surface를 빠짐없이 고정해야 함.
+완료: [domain-merge-inventory.md](./domain-merge-inventory.md)에 `src/profiles/{local,staging,production}.yaml`, `src/domains/{common,health,users}/spec.yaml`, common shared components, health/users path operations, `.merged.yaml`/`.merged.3.1.yaml` artifact path, validation commands, and source-section-to-fragment-kind mapping을 기록함.
+완료 기준: 후속 parity target, common fragment, health fragment, users fragment stories가 동일 checklist를 기준으로 migration completeness를 검증할 수 있음.
 
 ### [x] OpenAPI definition builder: migration comparison plan
 배경: 현재 `packages/schemas/scripts/merge.ts`를 즉시 제거하지 않고 새 builder를 병렬 검증해야 함.

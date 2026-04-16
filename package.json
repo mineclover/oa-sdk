@@ -28,7 +28,7 @@
     "demo": "pnpm --filter playground run demo",
     "build:scripts": "tsup scripts/spec-diff.ts scripts/check-api-index.ts --format esm --outDir scripts/dist --clean --platform node --external execa --external yaml",
     "check:api-index": "node scripts/dist/check-api-index.mjs",
-    "check:feature-tests": "tsx scripts/check-feature-test-matrix.ts",
+    "check:feature-tests": "node --import tsx scripts/check-feature-test-matrix.ts",
     "spec:diff": "node scripts/dist/spec-diff.mjs"
   },
   "devDependencies": {

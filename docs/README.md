@@ -13,7 +13,7 @@
 | [Mock 서버](./guides/mock-server-usage.md) | MSW / Node HTTP |
 | [스키마 작성](./guides/schema-authoring.md) | 도메인 분리 spec.yaml |
 | [SchemaAlgebra](./guides/schema-algebra.md) | fold 패턴 확장 |
-| [Preview App](../apps/preview/) | 브라우저에서 스펙 → 코드 생성 + SW mock 테스트 |
+| [Preview App](../apps/preview/) | 브라우저 수동 프리뷰. 자동 E2E 보증은 [playground](../apps/playground/)가 담당 |
 
 ## 프로젝트 관리 (SSOT)
 
@@ -24,6 +24,7 @@
 | [spec.md](./internal/spec.md) | 구현 현황 |
 | [plan.md](./internal/plan.md) | 로드맵 |
 | [api-index.md](./internal/api-index.md) | API 단일 소스 |
+| [feature-test-matrix.md](./internal/feature-test-matrix.md) | 기능 ↔ 테스트 매핑 |
 | [oas32-coverage.md](./internal/oas32-coverage.md) | OAS 3.2 커버리지 |
 | [traceability.md](./internal/traceability.md) | 스펙 ↔ 코드 추적 |
 | [architecture/](./internal/architecture/) | ADR |

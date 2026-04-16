@@ -37,6 +37,14 @@ paths:
                   total:
                     type: integer
                     minimum: 0
+                example:
+                  items:
+                    - id: "00000000-0000-0000-0000-000000000001"
+                      email: "alice@example.com"
+                      name: "Alice"
+                      role: user
+                      createdAt: "2024-01-01T00:00:00.000Z"
+                  total: 1
               examples:
                 default:
                   dataValue:
@@ -224,6 +232,12 @@ components:
           name: "Alice"
           role: user
           createdAt: "2024-01-01T00:00:00.000Z"
+      example:
+        id: "00000000-0000-0000-0000-000000000001"
+        email: "alice@example.com"
+        name: "Alice"
+        role: user
+        createdAt: "2024-01-01T00:00:00.000Z"
 
     CreateUserRequest:
       type: object

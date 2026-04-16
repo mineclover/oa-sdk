@@ -1,6 +1,6 @@
 # Spec — 현재 구현 현황
 
-> API 상세: [api-index.md](./api-index.md) / OAS 커버리지: [oas32-coverage.md](./oas32-coverage.md)
+> API 상세: [api-index.md](./api-index.md) / OAS 커버리지: [oas32-coverage.md](./oas32-coverage.md) / 기능별 테스트: [feature-test-matrix.md](./feature-test-matrix.md)
 
 ---
 
@@ -16,6 +16,40 @@ client       ← core + parser. fetch SDK + SSE
 typia-mock   ← core + parser (+ typia: peer). LLM 함수 호출 검증 서버
 schemas      ← 독립. OAS 소스 + merge + 3.1↔3.2 변환
 ```
+
+---
+
+## 기능별 테스트 관리 ✅
+
+`docs/internal/feature-test-matrix.json`은 기능과 대표 테스트 경로, 유지 명령을 연결하는
+machine-readable SSOT다. 사람이 읽는 요약은
+[`feature-test-matrix.md`](./feature-test-matrix.md)에 둔다.
+
+현재 매핑은 15개 기능 그룹과 50개 테스트 경로 패턴을 관리한다.
+
+```bash
+pnpm check:feature-tests
+```
+
+이 검증은 중복 feature id, 필수 필드 누락, 존재하지 않는 테스트 파일, 매칭되지 않는 glob,
+테스트 경로나 명령이 비어 있는 feature를 실패로 처리한다.
+
+---
+
+## 외부 OpenAPI Projection Producer 소비 ✅
+
+bun-graph-db는 OA SDK 바깥의 OpenAPI projection producer로 소비할 수 있다.
+상세 워크플로는 [`bun-graph-db projection 소비`](../guides/use-cases/bun-graph-db-projections.md)에 둔다.
+
+| Artifact | Source | OA SDK use |
+|---|---|---|
+| Static full document | `GET /api/openapi` | stable REST/MCP endpoint discovery, `validate`, `typegen`, `client`, mock-server |
+| Table component bundle | REST/GraphQL/MCP table projection with `profile=component-bundle` | runtime table reusable schema snapshot |
+| Table operation contract | REST/GraphQL/MCP table projection with `profile=operation-contract` | runtime table create/update request contract, table-specific generated types/client/mock |
+
+Static full documents are stable endpoint contracts. Runtime table shapes stay
+projection snapshots and must be stored with their `versionHash` freshness
+marker.
 
 ---
 
@@ -297,6 +331,7 @@ Builder WorkspaceIndex metadata는 SQLite schema를 늘리지 않고 기존 row�
 #### Migration from domain merge (US-014)
 
 현재 schema pipeline은 definition builder가 기존 artifact와 동등함을 입증할 때까지 유지한다. Builder output은 병렬 artifact로만 생성하고, `packages/schemas/scripts/merge.ts`와 `pnpm --filter @oa-sdk/schemas run merge`는 rollback 가능한 source-of-truth path로 남긴다.
+Current merge input inventory for the backfill is tracked in [`domain-merge-inventory.md`](./domain-merge-inventory.md).
 
 | 단계 | 현재 domain merge path | 새 definition builder path |
 |------|------------------------|----------------------------|

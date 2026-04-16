@@ -93,6 +93,9 @@ jq -r '.data.versionHash' \
 ## 3. GraphQL table projection fetch
 
 GraphQL은 같은 projection result를 JSON scalar로 반환한다. `tableId` 또는 `identifier` 중 하나를 전달한다.
+Static full document는 selected GraphQL operation을 OpenAPI wrapper로 확장하지 않는다.
+GraphQL은 projection fetch transport 중 하나로 사용하고, stable endpoint/client/mock 생성은
+`GET /api/openapi` full document 또는 table projection snapshot을 기준으로 한다.
 
 ```graphql
 query TableProjection($tableId: ID!, $profile: String!) {
@@ -131,6 +134,8 @@ GraphQL 응답에서 `data.tableOpenApiProjection.projection`을 OpenAPI snapsho
 ## 4. MCP table projection fetch
 
 Table-scoped MCP endpoint는 `/sub/{tableId}/mcp`다. 먼저 `tools/list`로 현재 table server가 광고하는 tool 이름과 `inputSchema`를 확인한다.
+현재 bun-graph-db MCP HTTP server는 single JSON-RPC request만 문서화하고 지원한다.
+JSON-RPC batch request가 필요하면 서버 구현과 static OpenAPI document를 함께 확장해야 한다.
 
 ```bash
 curl -sS http://localhost:3000/sub/project_tasks/mcp \

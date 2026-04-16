@@ -1,6 +1,5 @@
 import { describe, it, expect, expectTypeOf } from 'vitest'
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
-import { createRequire } from 'node:module'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import {
@@ -13,8 +12,6 @@ import {
   type WorkspaceIndex,
 } from '../workspace-index.js'
 import { createSQLiteWorkspaceIndex, loadSqliteDriver, SQLITE_WORKSPACE_INDEX_SCHEMA_VERSION } from '../sqlite-workspace-index.js'
-
-const require = createRequire(import.meta.url)
 
 const apiFile: WorkspaceFileRecord = {
   filePath: 'api.yaml',
@@ -592,8 +589,7 @@ type TestSqliteDatabase = {
 }
 
 function openSqliteForTest(dbPath: string): TestSqliteDatabase {
-  const sqlite = require('node:sqlite') as { DatabaseSync: new (path: string) => TestSqliteDatabase }
-  return new sqlite.DatabaseSync(dbPath)
+  return loadSqliteDriver().open(dbPath) as TestSqliteDatabase
 }
 
 function listTables(db: TestSqliteDatabase): string[] {

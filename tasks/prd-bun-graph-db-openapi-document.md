@@ -1,8 +1,28 @@
 # PRD: Bun Graph DB OpenAPI Document Surface
 
+## Status
+
+Completed. Implemented in `references/bun-graph-db` and linked from the root
+repository through the submodule pointer. The implementation keeps stable REST
+and MCP endpoint discovery in the static full document while preserving runtime
+table schemas as separate projection artifacts.
+
+## Resolved Decisions
+
+- The static full document endpoint is `GET /api/openapi`.
+- The root MCP tool contract projection is exposed as the MCP tool
+  `get-root-openapi-projection`.
+- GraphQL introspection is not expanded into OpenAPI wrappers in this iteration.
+- MCP protocol schemas model `initialize`, `tools/list`, and `tools/call`.
+- MCP tool definitions and tool call result content blocks are modeled in the
+  static full document; tool-specific argument schemas remain dynamic and are
+  discovered through `tools/list` or root/table projection export.
+- JSON-RPC batch requests are not documented because the current MCP server
+  handles single JSON-RPC requests only.
+
 ## Overview
 
-bun-graph-db already exports dynamic table schema projections as OpenAPI 3.2 artifacts through REST, GraphQL, and table-scoped MCP. It does not yet expose a full OpenAPI document for the stable bun-graph-db API surface or for the MCP JSON-RPC transport/tool discovery surface.
+bun-graph-db exports dynamic table schema projections as OpenAPI 3.2 artifacts through REST, GraphQL, and table-scoped MCP. This PRD adds a full OpenAPI document for the stable bun-graph-db API surface and for the MCP JSON-RPC transport/tool discovery surface.
 
 This feature adds a static OpenAPI 3.2 document surface for stable REST and MCP protocol endpoints while keeping runtime table shapes as dynamic projection artifacts. The full document should describe how clients discover tables, retrieve table projections, call MCP endpoints, and consume tool schemas. It must not inline every runtime table shape into a stale static document.
 
@@ -38,91 +58,91 @@ For final verification story, also run:
 **Description:** As an API maintainer, I want a clear full-document scope so that stable API surfaces are documented without freezing dynamic table schemas.
 
 **Acceptance Criteria:**
-- [ ] Document that `full-api-document` covers stable REST and MCP protocol endpoints only.
-- [ ] Document that runtime table schemas remain available through table projection endpoints.
-- [ ] Document that table projections must be referenced or linked, not eagerly inlined into the static full document.
-- [ ] Include `versionHash` and projection profile guidance for schema freshness.
-- [ ] Add non-goals for client/router generation over arbitrary runtime table shapes.
+- [x] Document that `full-api-document` covers stable REST and MCP protocol endpoints only.
+- [x] Document that runtime table schemas remain available through table projection endpoints.
+- [x] Document that table projections must be referenced or linked, not eagerly inlined into the static full document.
+- [x] Include `versionHash` and projection profile guidance for schema freshness.
+- [x] Add non-goals for client/router generation over arbitrary runtime table shapes.
 
 ### US-002: Add Static OpenAPI Document Builder
 **Description:** As a client developer, I want bun-graph-db to build a stable OpenAPI 3.2 document so that I can inspect and generate clients for the stable API surface.
 
 **Acceptance Criteria:**
-- [ ] Add a pure builder for the static bun-graph-db OpenAPI 3.2 document.
-- [ ] Builder returns `openapi: "3.2.0"`, `info`, `paths`, and reusable `components`.
-- [ ] Builder includes REST projection endpoint `GET /api/tables/{tableId}/openapi-projection`.
-- [ ] Builder includes MCP endpoints `/mcp` and `/sub/{tableId}/mcp` as JSON-RPC POST operations.
-- [ ] Builder includes reusable JSON-RPC request/response/error schemas.
-- [ ] Builder includes common query/path parameters such as `tableId` and projection `profile`.
-- [ ] Builder has unit tests for required paths, schemas, and parameters.
+- [x] Add a pure builder for the static bun-graph-db OpenAPI 3.2 document.
+- [x] Builder returns `openapi: "3.2.0"`, `info`, `paths`, and reusable `components`.
+- [x] Builder includes REST projection endpoint `GET /api/tables/{tableId}/openapi-projection`.
+- [x] Builder includes MCP endpoints `/mcp` and `/sub/{tableId}/mcp` as JSON-RPC POST operations.
+- [x] Builder includes reusable JSON-RPC request/response/error schemas.
+- [x] Builder includes common query/path parameters such as `tableId` and projection `profile`.
+- [x] Builder has unit tests for required paths, schemas, and parameters.
 
 ### US-003: Expose Full Document Through REST
 **Description:** As an API consumer, I want to fetch the stable OpenAPI document over REST so that tooling can discover bun-graph-db without repository access.
 
 **Acceptance Criteria:**
-- [ ] Add a REST endpoint such as `GET /api/openapi`.
-- [ ] Endpoint returns the static OpenAPI 3.2 document.
-- [ ] Endpoint response uses `application/json`.
-- [ ] Endpoint does not require a table id.
-- [ ] Endpoint does not inline dynamic table-specific schemas.
-- [ ] Unit or integration test verifies status, content type, and document shape.
+- [x] Add a REST endpoint such as `GET /api/openapi`.
+- [x] Endpoint returns the static OpenAPI 3.2 document.
+- [x] Endpoint response uses `application/json`.
+- [x] Endpoint does not require a table id.
+- [x] Endpoint does not inline dynamic table-specific schemas.
+- [x] Unit or integration test verifies status, content type, and document shape.
 
 ### US-004: Represent MCP Tool Discovery in OpenAPI
 **Description:** As an MCP client developer, I want MCP protocol calls represented in OpenAPI so that the transport contract is inspectable through standard tooling.
 
 **Acceptance Criteria:**
-- [ ] OpenAPI components include schemas for `initialize`, `tools/list`, and `tools/call` JSON-RPC requests.
-- [ ] OpenAPI components include schemas for MCP content blocks and tool definitions.
-- [ ] `/mcp` POST request body accepts a JSON-RPC request union or documented generic envelope.
-- [ ] `/sub/{tableId}/mcp` POST request body accepts table-scoped JSON-RPC calls.
-- [ ] The document explains that tool-specific `arguments` schemas are discovered dynamically through `tools/list`.
-- [ ] Tests verify MCP protocol schemas are present in `components.schemas`.
+- [x] OpenAPI components include schemas for `initialize`, `tools/list`, and `tools/call` JSON-RPC requests.
+- [x] OpenAPI components include schemas for MCP content blocks and tool definitions.
+- [x] `/mcp` POST request body accepts a JSON-RPC request union or documented generic envelope.
+- [x] `/sub/{tableId}/mcp` POST request body accepts table-scoped JSON-RPC calls.
+- [x] The document explains that tool-specific `arguments` schemas are discovered dynamically through `tools/list`.
+- [x] Tests verify MCP protocol schemas are present in `components.schemas`.
 
 ### US-005: Add Root MCP OpenAPI Projection Export
 **Description:** As an MCP consumer, I want a root-level projection of available MCP tool contracts so that I can translate tool schemas into OpenAPI-compatible components.
 
 **Acceptance Criteria:**
-- [ ] Add a root MCP tool or REST endpoint that exports root MCP tool contracts as an OpenAPI projection artifact.
-- [ ] Projection includes tool argument schemas derived from `tools/list` input schemas.
-- [ ] Projection includes stable tool names and descriptions.
-- [ ] Projection includes diagnostics for tools that cannot be mapped to OpenAPI-compatible schemas.
-- [ ] Projection returns `profile`, `projection`, `refs`, `diagnostics`, `sources`, `versionHash`, and `typeTargets` where available.
-- [ ] Projection validates with `validateOpenApiProjection()` or returns machine-readable validation diagnostics.
+- [x] Add a root MCP tool or REST endpoint that exports root MCP tool contracts as an OpenAPI projection artifact.
+- [x] Projection includes tool argument schemas derived from `tools/list` input schemas.
+- [x] Projection includes stable tool names and descriptions.
+- [x] Projection includes diagnostics for tools that cannot be mapped to OpenAPI-compatible schemas.
+- [x] Projection returns `profile`, `projection`, `refs`, `diagnostics`, `sources`, `versionHash`, and `typeTargets` where available.
+- [x] Projection validates with `validateOpenApiProjection()` or returns machine-readable validation diagnostics.
 
 ### US-006: Keep Table-Scoped Projection Integration
 **Description:** As an AI tool, I want static API discovery to link to table-scoped projection export so that I can retrieve current table schemas on demand.
 
 **Acceptance Criteria:**
-- [ ] Full document includes the table projection export endpoint.
-- [ ] Full document documents supported table projection profiles: `component-bundle` and `operation-contract`.
-- [ ] Full document documents invalid profile behavior.
-- [ ] Existing table-scoped MCP `get-openapi-projection-{tableId}` tool remains supported.
-- [ ] Existing table projection tests continue to pass.
-- [ ] Static full document does not become stale when table attributes change.
+- [x] Full document includes the table projection export endpoint.
+- [x] Full document documents supported table projection profiles: `component-bundle` and `operation-contract`.
+- [x] Full document documents invalid profile behavior.
+- [x] Existing table-scoped MCP `get-openapi-projection-{tableId}` tool remains supported.
+- [x] Existing table projection tests continue to pass.
+- [x] Static full document does not become stale when table attributes change.
 
 ### US-007: Document OA SDK Consumption Workflow
 **Description:** As an OA SDK user, I want documentation showing how to consume bun-graph-db OpenAPI documents and projections so that I can generate clients, mocks, and types safely.
 
 **Acceptance Criteria:**
-- [ ] Add docs explaining static full document vs dynamic table projection.
-- [ ] Add examples for fetching `GET /api/openapi`.
-- [ ] Add examples for fetching table projection through REST, GraphQL, and MCP.
-- [ ] Add guidance for OA SDK `validate`, `typegen`, `client`, and mock-server use.
-- [ ] Add warning that table runtime schemas should be consumed with `versionHash` freshness checks.
+- [x] Add docs explaining static full document vs dynamic table projection.
+- [x] Add examples for fetching `GET /api/openapi`.
+- [x] Add examples for fetching table projection through REST, GraphQL, and MCP.
+- [x] Add guidance for OA SDK `validate`, `typegen`, `client`, and mock-server use.
+- [x] Add warning that table runtime schemas should be consumed with `versionHash` freshness checks.
 
 ### US-008: Final Full Document Verification
 **Description:** As a release maintainer, I want final verification for the OpenAPI document surface so that the feature is safe for tooling.
 
 **Acceptance Criteria:**
-- [ ] `bun run typecheck` passes.
-- [ ] `bun run lint --max-diagnostics=20` passes.
-- [ ] `bun run build` passes.
-- [ ] Full document builder tests pass.
-- [ ] REST full document endpoint tests pass.
-- [ ] MCP protocol schema tests pass.
-- [ ] Existing projection smoke tests pass.
-- [ ] No temporary test artifacts remain.
-- [ ] Remaining dirty files are documented if unrelated work exists.
+- [x] `bun run typecheck` passes.
+- [x] `bun run lint --max-diagnostics=20` passes.
+- [x] `bun run build` passes.
+- [x] Full document builder tests pass.
+- [x] REST full document endpoint tests pass.
+- [x] MCP protocol schema tests pass.
+- [x] Existing projection smoke tests pass.
+- [x] No temporary test artifacts remain.
+- [x] Remaining dirty files are documented if unrelated work exists.
 
 ## Functional Requirements
 
@@ -162,7 +182,6 @@ For final verification story, also run:
 
 ## Open Questions
 
-- Should the REST endpoint be `/api/openapi`, `/api/openapi.json`, or `/api/openapi-projection?profile=full-api-document`?
-- Should root MCP tool projection be a REST endpoint, an MCP tool, or both?
-- Should GraphQL introspection be represented in the full OpenAPI document only as `/graphql`, or should selected GraphQL operations receive OpenAPI wrappers?
-- Should MCP tool result schemas be modeled now, or only tool argument schemas in the first iteration?
+- Should a future REST endpoint mirror `get-root-openapi-projection` for non-MCP clients?
+- Should selected GraphQL operations receive OpenAPI wrappers in a later iteration?
+- Should JSON-RPC batch request support be implemented and then documented in the static full document?

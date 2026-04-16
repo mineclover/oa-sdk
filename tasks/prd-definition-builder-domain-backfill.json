@@ -1,0 +1,235 @@
+{
+  "name": "Definition Builder Domain Backfill",
+  "description": "Backfill current oa-sdk domain specs into OpenAPI Definition Builder fragments and prove parity with the existing merged OpenAPI artifact before replacing merge.ts.",
+  "branchName": "ralph/definition-builder-domain-backfill",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Inventory current merge sources",
+      "description": "As a schema maintainer, I want an inventory of the current merge inputs so that the fragment backfill has a complete source checklist.",
+      "acceptanceCriteria": [
+        "List current profile files under packages/schemas/src/profiles.",
+        "List current domain specs under packages/schemas/src/domains.",
+        "List current shared components in common/spec.yaml.",
+        "List current paths and operations in health/spec.yaml.",
+        "List current paths and operations in users/spec.yaml.",
+        "Record current .merged.yaml path, .merged.3.1.yaml path, and validation commands.",
+        "Document which source sections map to definition fragment kinds.",
+        "pnpm typecheck passes.",
+        "pnpm test passes.",
+        "pnpm build passes.",
+        "pnpm schema:validate passes.",
+        "pnpm build:scripts && pnpm check:api-index passes.",
+        "pnpm check:feature-tests passes."
+      ],
+      "priority": 1,
+      "passes": true,
+      "notes": "Inventory first to avoid partial migration of current domain sources.",
+      "dependsOn": [],
+      "completionNotes": "Completed by agent"
+    },
+    {
+      "id": "US-002",
+      "title": "Create parity target configs",
+      "description": "As a builder user, I want target configs equivalent to the current environment profiles so that builder output can be generated beside the existing merge output.",
+      "acceptanceCriteria": [
+        "Add target config for local parity based on packages/schemas/src/profiles/local.yaml.",
+        "Add target configs for staging and production if current profile files exist.",
+        "Target configs include stable name, scopes, domains, servers, and includePaths.",
+        "Local parity target includes all paths currently emitted by .merged.yaml.",
+        "Target config tests verify target selection includes expected direct paths and shared refs.",
+        "Current domain merge remains unchanged.",
+        "pnpm typecheck passes.",
+        "pnpm test passes.",
+        "pnpm build passes.",
+        "pnpm schema:validate passes.",
+        "pnpm build:scripts && pnpm check:api-index passes.",
+        "pnpm check:feature-tests passes."
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": "Keep target configs parallel to current profile files.",
+      "dependsOn": [
+        "US-001"
+      ]
+    },
+    {
+      "id": "US-003",
+      "title": "Backfill shared common fragments",
+      "description": "As a schema author, I want common schemas, responses, parameters, and security schemes split into canonical fragments so that downstream domains can reference shared definitions by stable identity.",
+      "acceptanceCriteria": [
+        "Convert common schemas into schema:shared/common/* fragments.",
+        "Convert common responses into response:shared/common/* fragments.",
+        "Convert common parameters into parameter:shared/common/* fragments.",
+        "Convert common security schemes into securityScheme:shared/common/* fragments.",
+        "Replace local shared refs inside fragments with oa://... canonical refs.",
+        "Tests verify common fragments register without duplicate canonical IDs.",
+        "Tests verify emitted shared component names match or intentionally alias current merged output names.",
+        "pnpm typecheck passes.",
+        "pnpm test passes.",
+        "pnpm build passes.",
+        "pnpm schema:validate passes.",
+        "pnpm build:scripts && pnpm check:api-index passes.",
+        "pnpm check:feature-tests passes."
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": "Shared fragments should be stable before domain fragments reference them.",
+      "dependsOn": [
+        "US-002"
+      ]
+    },
+    {
+      "id": "US-004",
+      "title": "Backfill health domain fragments",
+      "description": "As a schema author, I want health domain paths and schemas represented as fragments so that health endpoints can be emitted by the builder.",
+      "acceptanceCriteria": [
+        "Convert /health into a path fragment with canonical identity.",
+        "Convert /health/stream into a path fragment with canonical identity.",
+        "Convert HealthStatus into a schema fragment.",
+        "Preserve SSE itemSchema behavior for /health/stream.",
+        "Replace refs to common responses/schemas with canonical refs.",
+        "Tests verify health fragments emit paths and components equivalent to current merge output.",
+        "pnpm typecheck passes.",
+        "pnpm test passes.",
+        "pnpm build passes.",
+        "pnpm schema:validate passes.",
+        "pnpm build:scripts && pnpm check:api-index passes.",
+        "pnpm check:feature-tests passes."
+      ],
+      "priority": 4,
+      "passes": false,
+      "notes": "Health has small scope and should prove path/schema fragment pattern before users.",
+      "dependsOn": [
+        "US-003"
+      ]
+    },
+    {
+      "id": "US-005",
+      "title": "Backfill users domain fragments",
+      "description": "As a schema author, I want users domain paths and schemas represented as fragments so that user APIs can be emitted by the builder.",
+      "acceptanceCriteria": [
+        "Convert /users into a path fragment with canonical identity.",
+        "Convert /users/{id} into a path fragment with canonical identity.",
+        "Convert User, CreateUserRequest, and UpdateUserRequest into schema fragments.",
+        "Preserve current request/response refs and operation IDs.",
+        "Preserve current pagination, filter, error response, and security refs.",
+        "Tests verify users fragments emit paths and components equivalent to current merge output.",
+        "pnpm typecheck passes.",
+        "pnpm test passes.",
+        "pnpm build passes.",
+        "pnpm schema:validate passes.",
+        "pnpm build:scripts && pnpm check:api-index passes.",
+        "pnpm check:feature-tests passes."
+      ],
+      "priority": 5,
+      "passes": false,
+      "notes": "Users domain is the primary current domain parity proof.",
+      "dependsOn": [
+        "US-004"
+      ]
+    },
+    {
+      "id": "US-006",
+      "title": "Add builder parity artifact workflow",
+      "description": "As a release maintainer, I want a repeatable workflow that builds a builder artifact and compares it with current .merged.yaml so that parity can be reviewed before replacing merge output.",
+      "acceptanceCriteria": [
+        "Add command or documented script to run oa-gen build-spec for the local parity target.",
+        "Write builder output to a parallel artifact path that does not replace .merged.yaml.",
+        "Emit diagnostics JSON and collision report JSON for the parity build.",
+        "Add normalized diff command or script comparing current .merged.yaml to builder output.",
+        "Diff ignores expected ordering differences.",
+        "Diff reports unexpected path/component/security/server differences.",
+        "Tests cover successful parity artifact generation and at least one intentional diff case.",
+        "pnpm typecheck passes.",
+        "pnpm test passes.",
+        "pnpm build passes.",
+        "pnpm schema:validate passes.",
+        "pnpm build:scripts && pnpm check:api-index passes.",
+        "pnpm check:feature-tests passes."
+      ],
+      "priority": 6,
+      "passes": false,
+      "notes": "Parallel artifact workflow is required before any replacement decision.",
+      "dependsOn": [
+        "US-005"
+      ]
+    },
+    {
+      "id": "US-007",
+      "title": "Validate compatibility gates",
+      "description": "As a maintainer, I want the builder parity artifact to pass the same validation and downstream codegen gates as the current merged artifact so that migration risk is visible.",
+      "acceptanceCriteria": [
+        "Builder artifact passes oa-gen validate.",
+        "Builder artifact passes current schema validation flow or an explicitly documented equivalent.",
+        "Builder artifact can be downgraded to OpenAPI 3.1 with sidecar output.",
+        "Generated typegen output from builder artifact is compared with current generated output or documented accepted differences.",
+        "Router/client/mock-server compatibility checks run against builder artifact.",
+        "Any accepted drift is documented with rationale and owner.",
+        "pnpm typecheck passes.",
+        "pnpm test passes.",
+        "pnpm build passes.",
+        "pnpm schema:validate passes.",
+        "pnpm build:scripts && pnpm check:api-index passes.",
+        "pnpm check:feature-tests passes."
+      ],
+      "priority": 7,
+      "passes": false,
+      "notes": "This story proves generated artifacts can be consumed by current downstream packages.",
+      "dependsOn": [
+        "US-006"
+      ]
+    },
+    {
+      "id": "US-008",
+      "title": "Document rollback and replacement criteria",
+      "description": "As a maintainer, I want rollback and replacement criteria documented so that the builder can replace .merged.yaml only when parity is safe.",
+      "acceptanceCriteria": [
+        "Document that merge.ts remains the active production path during parity work.",
+        "Document rollback path to current merge.ts and current domain specs.",
+        "Document the exact criteria required before builder output may replace .merged.yaml.",
+        "Document how .merged.3.1.yaml compatibility is preserved.",
+        "Update docs/internal/todo.md with the migration status.",
+        "Update docs/internal/spec.md with builder parity status.",
+        "pnpm typecheck passes.",
+        "pnpm test passes.",
+        "pnpm build passes.",
+        "pnpm schema:validate passes.",
+        "pnpm build:scripts && pnpm check:api-index passes.",
+        "pnpm check:feature-tests passes."
+      ],
+      "priority": 8,
+      "passes": false,
+      "notes": "Replacement is not part of this PRD; document criteria only.",
+      "dependsOn": [
+        "US-007"
+      ]
+    },
+    {
+      "id": "US-009",
+      "title": "Final migration verification",
+      "description": "As a release maintainer, I want final verification for the domain backfill migration so that the next phase can decide whether to switch merge output.",
+      "acceptanceCriteria": [
+        "pnpm typecheck passes.",
+        "pnpm test passes.",
+        "pnpm build passes.",
+        "pnpm schema:validate passes.",
+        "pnpm build:scripts && pnpm check:api-index passes.",
+        "pnpm check:feature-tests passes.",
+        "Builder parity artifact has zero error diagnostics.",
+        "Normalized diff is accepted and documented.",
+        "No temporary test artifacts remain unless intentionally documented.",
+        "Remaining dirty files are documented if unrelated work exists."
+      ],
+      "priority": 9,
+      "passes": false,
+      "notes": "Final verification only. Do not add replacement scope here.",
+      "dependsOn": [
+        "US-008"
+      ]
+    }
+  ],
+  "metadata": {
+    "updatedAt": "2026-04-16T23:37:55.266Z"
+  }
+}

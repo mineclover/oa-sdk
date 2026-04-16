@@ -69,8 +69,8 @@
 | OAuth2 / deviceAuthorization | ✅ | ✅ | ✅ (bearer 확인) | — | — | — |
 | Links | ✅ | ✅ (추출) | ✅ (응답 메타데이터) | ✅ (typegen) | — | — |
 | Callbacks | ✅ | ✅ (추출) | ✅ (POST simulation) | — | — | — |
-| Webhooks | ✅ | ✅ (추출) | — | — | — | — |
-| Encoding | ✅ | — | — | — | — | — |
+| Webhooks | ✅ | ✅ (추출) | ✅ (MSW/Node inbound routes) | ✅ (payload types) | ✅ (handler stubs) | ✅ (payload types, no methods) |
+| Encoding | ✅ | ✅ (requestBody/media 보존) | ✅ (multipart field-level handling) | — | ✅ (multipart body parsing hints) | — |
 | XML | ✅ | — | ✅ (`application/xml` element-only parse/serialize) | — | — | — |
 | Extensions (x-*) | ✅ | ✅ (보존) | — | — | — | — |
 
@@ -83,3 +83,11 @@
 - **✅ router**: 라우터 스텁 코드 생성에 사용
 - **✅ client**: 클라이언트 SDK 코드 생성에 사용
 - **—**: 타입은 정의되었으나 해당 패키지에서 미사용
+
+## 보강 근거
+
+- Webhooks parser extraction: `packages/parser/src/__tests__/parse-document.test.ts`, `packages/parser/src/__tests__/parse-edge-cases.test.ts`
+- Webhooks mock routes: `packages/mock-server/src/__tests__/integration/msw.test.ts`, `packages/mock-server/src/__tests__/integration/node-http.test.ts`
+- Webhooks router/client generation: `packages/router/src/__tests__/generate-router.test.ts`, `packages/client/src/__tests__/generate-client.test.ts`
+- Encoding multipart handling: `packages/mock-server/src/__tests__/unit/validator-body.test.ts`
+- Router multipart body hints: `packages/router/src/__tests__/generate-router.test.ts`
