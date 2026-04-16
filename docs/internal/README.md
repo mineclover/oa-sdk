@@ -8,6 +8,7 @@
 ```
 spec.md (구현 현황 — 무엇이 작동하는가)
   ├─ 패키지별 기능 목록 + 테스트 수
+  ├─ → feature-test-matrix.md (기능 ↔ 테스트 매핑)
   ├─ → api-index.md (각 함수/타입 상세)
   ├─ → oas32-coverage.md (OAS 기능별 커버리지)
   └─ → traceability.md (스펙↔코드 매핑)
@@ -26,6 +27,7 @@ architecture/ (설계 결정)
 | 문서 | 역할 | 업데이트 시점 |
 |------|------|-------------|
 | [spec.md](./spec.md) | 작동하는 기능 목록 | 기능 추가/제거 시 |
+| [feature-test-matrix.md](./feature-test-matrix.md) | 기능별 테스트 파일·명령 매핑 | 기능/테스트 추가·이동·삭제 시 |
 | [api-index.md](./api-index.md) | 타입·함수 단일 소스 + 재구현 금지 | 함수/타입 추가 시 |
 | [oas32-coverage.md](./oas32-coverage.md) | OAS 3.2 기능별 지원 매트릭스 | 새 기능 구현 시 |
 | [traceability.md](./traceability.md) | 공식 스펙 § → 타입 → 코드 매핑 | 파일 추가/이동 시 |
