@@ -43,10 +43,15 @@
 
 OA SDK와 bun-graph-db가 각자의 source loader, repository, CLI, MCP, GraphQL, REST, SQLite 구현을 가져오지 않고 공유할 projection 결과 타입.
 
-| 타입 | 정의 | 용도 |
+| Export | 정의 | 용도 |
 |------|------|------|
 | `OpenApiProjectionResult` | `openapi-projection-contract/src/index.ts` | OpenAPI projection, profile, refs, diagnostics, sources, version hash, type target metadata를 담는 공유 결과 envelope |
 | `OpenApiProjectionProfile` | `openapi-projection-contract/src/index.ts` | `component-bundle`, `operation-contract`, `full-api-document` projection 종류 |
+| `OPENAPI_PROJECTION_PROFILES` | `openapi-projection-contract/src/index.ts` | 허용되는 projection profile literal 목록 |
+| `OpenApiProjectionProfileSemantics` | `openapi-projection-contract/src/index.ts` | profile별 paths/components/validation 의미를 표현하는 source-agnostic contract |
+| `OPENAPI_PROJECTION_PROFILE_SEMANTICS` | `openapi-projection-contract/src/index.ts` | profile별 empty paths, components.schemas, operation requirement, 일반 OpenAPI validation 규칙 |
+| `isOpenApiProjectionProfile` | `openapi-projection-contract/src/index.ts` | unknown 값을 runtime에서 `OpenApiProjectionProfile`로 좁히는 type guard |
+| `getOpenApiProjectionProfileSemantics` | `openapi-projection-contract/src/index.ts` | 특정 profile의 validation semantics 조회 |
 | `SchemaRefEdge` | `openapi-projection-contract/src/index.ts` | projection artifact 안에서 발견된 ref edge와 source coordinate |
 | `SchemaDiagnostic` | `openapi-projection-contract/src/index.ts` | source-aware projection diagnostic |
 | `SchemaSourceCoordinate` | `openapi-projection-contract/src/index.ts` | file 또는 DB 기반 source coordinate |

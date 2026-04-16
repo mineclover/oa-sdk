@@ -68,11 +68,12 @@
         "pnpm build:scripts && pnpm check:api-index passes when public exports change."
       ],
       "priority": 3,
-      "passes": false,
+      "passes": true,
       "notes": "This story defines profile semantics before validator implementation.",
       "dependsOn": [
         "US-002"
-      ]
+      ],
+      "completionNotes": "Completed by agent"
     },
     {
       "id": "US-004",
@@ -328,6 +329,6 @@
     }
   ],
   "metadata": {
-    "updatedAt": "2026-04-16T04:02:28.389Z"
+    "updatedAt": "2026-04-16T04:06:47.127Z"
   }
 }

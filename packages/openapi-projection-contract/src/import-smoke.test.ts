@@ -1,4 +1,10 @@
 import { describe, expect, it } from 'vitest'
+import {
+  getOpenApiProjectionProfileSemantics,
+  isOpenApiProjectionProfile,
+  OPENAPI_PROJECTION_PROFILE_SEMANTICS,
+  OPENAPI_PROJECTION_PROFILES,
+} from '@oa-sdk/openapi-projection-contract'
 import type {
   OpenApiProjectionProfile,
   OpenApiProjectionResult,
@@ -13,7 +19,12 @@ describe('@oa-sdk/openapi-projection-contract import smoke', () => {
   it('imports the built ESM package through its workspace package name', async () => {
     const imported = await import('@oa-sdk/openapi-projection-contract')
 
-    expect(Object.keys(imported)).toEqual([])
+    expect(Object.keys(imported).sort()).toEqual([
+      'OPENAPI_PROJECTION_PROFILES',
+      'OPENAPI_PROJECTION_PROFILE_SEMANTICS',
+      'getOpenApiProjectionProfileSemantics',
+      'isOpenApiProjectionProfile',
+    ].sort())
     expect(Object.prototype.toString.call(imported)).toBe('[object Module]')
   })
 
@@ -61,6 +72,11 @@ describe('@oa-sdk/openapi-projection-contract import smoke', () => {
 
     expect(validation.valid).toBe(true)
     expect(result.profile).toBe('component-bundle')
+    expect(OPENAPI_PROJECTION_PROFILES).toContain(result.profile)
+    expect(isOpenApiProjectionProfile(result.profile)).toBe(true)
+    expect(getOpenApiProjectionProfileSemantics(result.profile)).toBe(
+      OPENAPI_PROJECTION_PROFILE_SEMANTICS['component-bundle'],
+    )
     expect(result.refs).toHaveLength(1)
     expect(result.typeTargets?.[0]?.name).toBe('Book')
   })
