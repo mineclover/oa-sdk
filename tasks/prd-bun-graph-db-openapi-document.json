@@ -66,11 +66,12 @@
         "bun run build passes."
       ],
       "priority": 3,
-      "passes": false,
+      "passes": true,
       "notes": "Endpoint name can be finalized during implementation; keep route stable once introduced.",
       "dependsOn": [
         "US-002"
-      ]
+      ],
+      "completionNotes": "Completed by agent"
     },
     {
       "id": "US-004",
@@ -192,6 +193,6 @@
     }
   ],
   "metadata": {
-    "updatedAt": "2026-04-16T13:30:56.117Z"
+    "updatedAt": "2026-04-16T13:37:05.285Z"
   }
 }
