@@ -192,11 +192,12 @@
         "bun run lint --max-diagnostics=20 passes."
       ],
       "priority": 8,
-      "passes": false,
+      "passes": true,
       "notes": "This story resolves the cross-repo package boundary before bun adapters import the contract.",
       "dependsOn": [
         "US-004"
-      ]
+      ],
+      "completionNotes": "Completed by agent"
     },
     {
       "id": "US-009",
@@ -333,6 +334,6 @@
     }
   ],
   "metadata": {
-    "updatedAt": "2026-04-16T04:40:04.253Z"
+    "updatedAt": "2026-04-16T04:50:59.287Z"
   }
 }
