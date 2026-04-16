@@ -142,6 +142,21 @@ export type {
   DefinitionOpenApiEmitResult,
 } from './definition-openapi-emit.js'
 
+// ─── Definition OpenAPI Projection Adapter ───────────────────────────────
+export {
+  DEFINITION_PROJECTION_COLLISION_REPORT_EXTENSION,
+  DEFINITION_PROJECTION_OUTPUT_NAMES_EXTENSION,
+  computeDefinitionOpenApiProjectionVersionHash,
+  toDefinitionOpenApiProjectionResult,
+} from './definition-openapi-projection.js'
+export type {
+  DefinitionOpenApiProjectionAdapterInput,
+  DefinitionOpenApiProjectionAdapterOptions,
+  DefinitionOpenApiProjectionDocument,
+  DefinitionOpenApiProjectionMetadataExtensions,
+  DefinitionOpenApiProjectionResult,
+} from './definition-openapi-projection.js'
+
 // ─── Lint ─────────────────────────────────────────────────────────────────
 export { lintDocument } from './lint.js'
 export type { LintResult, LintSeverity, LintOptions } from './lint.js'

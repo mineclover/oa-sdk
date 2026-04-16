@@ -146,11 +146,12 @@
         "pnpm build:scripts && pnpm check:api-index passes when public exports change."
       ],
       "priority": 6,
-      "passes": false,
+      "passes": true,
       "notes": "This adapter should live on the OA SDK side and must not import bun-graph-db code.",
       "dependsOn": [
         "US-005"
-      ]
+      ],
+      "completionNotes": "Completed by agent"
     },
     {
       "id": "US-007",
@@ -331,6 +332,6 @@
     }
   ],
   "metadata": {
-    "updatedAt": "2026-04-16T04:21:17.193Z"
+    "updatedAt": "2026-04-16T04:31:20.785Z"
   }
 }

@@ -1,78 +1,54 @@
 import { describe, expect, it } from 'vitest'
+import {
+  OPENAPI_PROJECTION_PROFILE_EXTENSION,
+  OPENAPI_PROJECTION_REFS_EXTENSION,
+  OPENAPI_PROJECTION_SOURCES_EXTENSION,
+  OPENAPI_PROJECTION_VERSION_HASH_EXTENSION,
+  validateOpenApiProjection,
+} from '@oa-sdk/openapi-projection-contract'
 import { createDefinitionNode } from '../definition-node.js'
-import { createDefinitionRegistry, type DefinitionRegistry } from '../definition-registry.js'
-import { emitDefinitionOpenApiDocument, type DefinitionOpenApiEmitResult } from '../definition-openapi-emit.js'
+import { createDefinitionRegistry } from '../definition-registry.js'
+import { emitDefinitionOpenApiDocument } from '../definition-openapi-emit.js'
+import {
+  DEFINITION_PROJECTION_COLLISION_REPORT_EXTENSION,
+  DEFINITION_PROJECTION_OUTPUT_NAMES_EXTENSION,
+  toDefinitionOpenApiProjectionResult,
+} from '../definition-openapi-projection.js'
 import { selectDefinitionTarget, type DefinitionTargetConfig } from '../definition-target.js'
 
-type SharedSchemaSourceCoordinate =
-  | {
-      kind: 'file'
-      filePath: string
-      pointer: string
-      line?: number
-      column?: number
-    }
-  | {
-      kind: 'db'
-      entity: string
-      id: string
-      pointer: string
-    }
-
-type SharedSchemaDiagnostic = {
-  severity: 'error' | 'warning' | 'info'
-  code: string
-  message: string
-  source?: SharedSchemaSourceCoordinate
-}
-
-type SharedSchemaRefEdge = {
-  from: string
-  to?: string
-  ref: string
-  kind: string
-  source: SharedSchemaSourceCoordinate
-}
-
-type SharedSchemaTypeTarget = {
-  id: string
-  name: string
-  kind: string
-  source?: SharedSchemaSourceCoordinate
-}
-
-type SharedSchemaProjectionEnvelope<TProjection> = {
-  projection: TProjection
-  refs: SharedSchemaRefEdge[]
-  diagnostics: SharedSchemaDiagnostic[]
-  sources: Record<string, SharedSchemaSourceCoordinate>
-  versionHash: string
-  typeTargets?: SharedSchemaTypeTarget[]
-}
-
-describe('shared schema engine vocabulary adapter', () => {
-  it('maps OA definition builder artifacts to the shared projection envelope shape', () => {
+describe('definition OpenAPI projection adapter', () => {
+  it('maps a successful target document to the shared OpenApiProjectionResult contract', () => {
     const registry = createDefinitionRegistry(fixtureNodes())
     const selection = selectDefinitionTarget(registry, targetConfig())
     const emitted = emitDefinitionOpenApiDocument(selection)
 
-    const envelope = toSharedProjectionEnvelope(registry, emitted)
-
-    expect(envelope.projection.openapi).toBe('3.2.0')
-    expect(envelope.versionHash).toBe('path:public/book/NotesPath=sha256:path|schema:public/book/Note=sha256:note')
-    expect(envelope.sources).toEqual({
-      'path:public/book/NotesPath': {
-        kind: 'file',
-        filePath: '/workspace/fragments/path/public/book/NotesPath.yaml',
-        pointer: '#/content',
-      },
-      'schema:public/book/Note': {
-        kind: 'file',
-        filePath: '/workspace/fragments/schema/public/book/Note.yaml',
-        pointer: '#/content',
-      },
+    const projection = toDefinitionOpenApiProjectionResult({ registry, selection, emitted }, {
+      lookupSourceLocation: fixtureSourceLocation,
     })
-    expect(envelope.refs).toEqual([
+    const secondProjection = toDefinitionOpenApiProjectionResult({ registry, selection, emitted }, {
+      lookupSourceLocation: fixtureSourceLocation,
+    })
+
+    expect(projection.profile).toBe('full-api-document')
+    expect(projection.projection.openapi).toBe('3.2.0')
+    expect((projection.projection.paths?.['/notes'] as Record<string, unknown>).get).toEqual(
+      (emitted.document.paths?.['/notes'] as Record<string, unknown>).get,
+    )
+    expect(validateOpenApiProjection(projection)).toEqual({
+      valid: true,
+      diagnostics: [],
+    })
+    expect(projection.versionHash).toMatch(/^sha256:[a-f0-9]{64}$/)
+    expect(projection.versionHash).toBe(secondProjection.versionHash)
+
+    expect(projection.sources['path:public/book/NotesPath']).toEqual({
+      kind: 'file',
+      filePath: '/workspace/fragments/path/public/book/NotesPath.yaml',
+      pointer: '#/content',
+      line: 2,
+      column: 1,
+    })
+    expect(projection.refs).toEqual([
       {
         from: 'path:public/book/NotesPath',
         to: 'schema:public/book/Note',
@@ -82,110 +58,121 @@ describe('shared schema engine vocabulary adapter', () => {
           kind: 'file',
           filePath: '/workspace/fragments/path/public/book/NotesPath.yaml',
           pointer: '#/content/get/responses/200/content/application~1json/schema/$ref',
+          line: 12,
+          column: 23,
+        },
+      },
+      {
+        from: 'schema:public/book/Note',
+        to: 'schema:public/notebook/Note',
+        ref: 'oa://schema/public/notebook/Note',
+        kind: 'definition-ref',
+        source: {
+          kind: 'file',
+          filePath: '/workspace/fragments/schema/public/book/Note.yaml',
+          pointer: '#/content/properties/related/$ref',
+          line: 5,
+          column: 18,
         },
       },
     ])
-    expect(envelope.diagnostics).toEqual([])
+    expect(projection.typeTargets?.map(target => [target.id, target.name, target.kind])).toEqual([
+      ['schema:public/book/Note', 'BookNote', 'schema'],
+      ['schema:public/notebook/Note', 'NotebookNote', 'schema'],
+    ])
+
+    expect(projection.projection[OPENAPI_PROJECTION_PROFILE_EXTENSION]).toBe('full-api-document')
+    expect(projection.projection[OPENAPI_PROJECTION_VERSION_HASH_EXTENSION]).toBe(projection.versionHash)
+    expect(projection.projection[OPENAPI_PROJECTION_SOURCES_EXTENSION]).toEqual(projection.sources)
+    expect(projection.projection[OPENAPI_PROJECTION_REFS_EXTENSION]).toEqual(projection.refs)
+    expect(projection.projection[DEFINITION_PROJECTION_OUTPUT_NAMES_EXTENSION]).toEqual([
+      {
+        id: 'schema:public/book/Note',
+        kind: 'schema',
+        scope: 'public',
+        domain: 'book',
+        localName: 'Note',
+        outputName: 'BookNote',
+        reason: 'domain-prefix',
+      },
+      {
+        id: 'schema:public/notebook/Note',
+        kind: 'schema',
+        scope: 'public',
+        domain: 'notebook',
+        localName: 'Note',
+        outputName: 'NotebookNote',
+        reason: 'domain-prefix',
+      },
+    ])
+    expect(projection.projection[DEFINITION_PROJECTION_COLLISION_REPORT_EXTENSION]).toEqual([
+      {
+        canonicalId: 'schema:public/book/Note',
+        targetName: 'public-api',
+        kind: 'schema',
+        scope: 'public',
+        domain: 'book',
+        localName: 'Note',
+        outputName: 'BookNote',
+        reason: 'domain-prefix',
+        severity: 'warning',
+      },
+      {
+        canonicalId: 'schema:public/notebook/Note',
+        targetName: 'public-api',
+        kind: 'schema',
+        scope: 'public',
+        domain: 'notebook',
+        localName: 'Note',
+        outputName: 'NotebookNote',
+        reason: 'domain-prefix',
+        severity: 'warning',
+      },
+    ])
   })
 
-  it('maps registry, target, emit, and validation diagnostics into the shared envelope', () => {
-    const registry = createDefinitionRegistry(diagnosticFixtureNodes())
+  it('preserves registry diagnostics in the shared diagnostic envelope', () => {
+    const registry = createDefinitionRegistry(diagnosticFixtureNodes(), {
+      lookupSourceLocation: (sourcePath, pointer) => {
+        if (sourcePath.endsWith('/Broken.yaml') && pointer === '#/content/$ref') {
+          return { line: 31, column: 9 }
+        }
+        return undefined
+      },
+    })
     const selection = selectDefinitionTarget(registry, diagnosticTargetConfig())
     const emitted = emitDefinitionOpenApiDocument(selection)
 
-    const envelope = toSharedProjectionEnvelope(registry, emitted)
-    const diagnosticCodes = envelope.diagnostics.map(diagnostic => diagnostic.code)
+    const projection = toDefinitionOpenApiProjectionResult({ registry, selection, emitted })
+    const diagnosticCodes = projection.diagnostics.map(diagnostic => diagnostic.code)
 
+    expect(validateOpenApiProjection(projection).valid).toBe(false)
     expect(diagnosticCodes).toEqual(expect.arrayContaining([
       'definition-registry/missing-ref',
       'definition-target/disallowed-ref',
       'definition-openapi-emit/unrewritten-ref',
       'definition-openapi-emit/validation-error',
     ]))
-    expect(envelope.diagnostics).toEqual(expect.arrayContaining([
+    expect(projection.diagnostics).toEqual(expect.arrayContaining([
       expect.objectContaining({
         code: 'definition-registry/missing-ref',
         source: {
           kind: 'file',
           filePath: '/workspace/fragments/schema/public/book/Broken.yaml',
           pointer: '#/content/$ref',
+          line: 31,
+          column: 9,
         },
       }),
     ]))
   })
 })
 
-function toSharedProjectionEnvelope(
-  registry: DefinitionRegistry,
-  emitted: DefinitionOpenApiEmitResult,
-): SharedSchemaProjectionEnvelope<DefinitionOpenApiEmitResult['document']> {
-  return {
-    projection: emitted.document,
-    refs: registry.refEdges.map(edge => {
-      const record: SharedSchemaRefEdge = {
-        from: edge.sourceId,
-        ref: edge.ref,
-        kind: 'definition-ref',
-        source: {
-          kind: 'file',
-          filePath: edge.sourcePath,
-          pointer: edge.sourcePointer,
-        },
-      }
-      if (edge.targetId !== undefined) record.to = edge.targetId
-      return record
-    }),
-    diagnostics: [
-      ...registry.diagnostics.map(toSharedDiagnostic),
-      ...emitted.diagnostics.map(toSharedDiagnostic),
-    ],
-    sources: Object.fromEntries(registry.nodes.map(node => [
-      node.id,
-      {
-        kind: 'file',
-        filePath: node.sourcePath,
-        pointer: node.sourcePointer,
-      },
-    ])),
-    versionHash: registry.nodes
-      .map(node => `${node.id}=${node.contentHash}`)
-      .sort((a, b) => a.localeCompare(b))
-      .join('|'),
-  }
-}
-
-function toSharedDiagnostic(diagnostic: {
-  severity: SharedSchemaDiagnostic['severity']
-  code: string
-  message: string
-  sourcePath?: string
-  sourcePointer?: string
-  line?: number
-  column?: number
-}): SharedSchemaDiagnostic {
-  return {
-    severity: diagnostic.severity,
-    code: diagnostic.code,
-    message: diagnostic.message,
-    ...(diagnostic.sourcePath
-      ? {
-          source: {
-            kind: 'file' as const,
-            filePath: diagnostic.sourcePath,
-            pointer: diagnostic.sourcePointer ?? '#',
-            ...(typeof diagnostic.line === 'number' ? { line: diagnostic.line } : {}),
-            ...(typeof diagnostic.column === 'number' ? { column: diagnostic.column } : {}),
-          },
-        }
-      : {}),
-  }
-}
-
 function targetConfig(): DefinitionTargetConfig {
   return {
     name: 'public-api',
     scopes: ['public'],
-    domains: ['book'],
+    domains: ['book', 'notebook'],
     servers: [{ url: 'https://api.example.test' }],
     includePaths: ['/notes'],
   }
@@ -219,11 +206,25 @@ function fixtureNodes() {
       id: 'schema:public/book/Note',
       sourcePath: '/workspace/fragments/schema/public/book/Note.yaml',
       sourcePointer: '#/content',
-      contentHash: 'sha256:note',
+      contentHash: 'sha256:book-note',
       content: {
         type: 'object',
         properties: {
           id: { type: 'string' },
+          related: { $ref: 'oa://schema/public/notebook/Note' },
+        },
+      },
+    }),
+    createDefinitionNode({
+      id: 'schema:public/notebook/Note',
+      sourcePath: '/workspace/fragments/schema/public/notebook/Note.yaml',
+      sourcePointer: '#/content',
+      contentHash: 'sha256:notebook-note',
+      content: {
+        type: 'object',
+        properties: {
+          id: { type: 'string' },
+          body: { type: 'string' },
         },
       },
     }),
@@ -294,4 +295,20 @@ function diagnosticFixtureNodes() {
       },
     }),
   ]
+}
+
+function fixtureSourceLocation(sourcePath: string, pointer: string) {
+  if (sourcePath.endsWith('/NotesPath.yaml') && pointer === '#/content') {
+    return { line: 2, column: 1 }
+  }
+  if (
+    sourcePath.endsWith('/NotesPath.yaml')
+    && pointer === '#/content/get/responses/200/content/application~1json/schema/$ref'
+  ) {
+    return { line: 12, column: 23 }
+  }
+  if (sourcePath.endsWith('/Note.yaml') && pointer === '#/content/properties/related/$ref') {
+    return { line: 5, column: 18 }
+  }
+  return undefined
 }

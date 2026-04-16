@@ -18,6 +18,7 @@
   },
   "dependencies": {
     "@oa-sdk/core": "workspace:*",
+    "@oa-sdk/openapi-projection-contract": "workspace:*",
     "ajv": "^8.17.0",
     "yaml": "^2.8.3"
   },

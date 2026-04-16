@@ -106,6 +106,10 @@ OA SDK와 bun-graph-db가 각자의 source loader, repository, CLI, MCP, GraphQL
 | `allocateDefinitionOutputNames()` | `definition-output-names.ts` | 한 target에 포함된 component-like definition node의 output component name을 target-local로 할당하고 alias metadata와 collision report를 생성 |
 | `selectDefinitionTarget()` | `definition-target.ts` | target config의 scopes/domains/includePaths로 직접 path를 고르고 registry ref edge를 재귀 순회해 target-local node set과 output name allocation을 생성 |
 | `emitDefinitionOpenApiDocument()` | `definition-openapi-emit.ts` | selected target result를 OpenAPI 3.2 document로 materialize하고 rewritten local `$ref`, alias metadata, validation diagnostics를 생성 |
+| `toDefinitionOpenApiProjectionResult()` | `definition-openapi-projection.ts` | definition registry, target selection, OpenAPI emit result를 공유 OpenAPI projection envelope로 변환하고 표준 projection extension fields를 문서 root에 부착 |
+| `computeDefinitionOpenApiProjectionVersionHash()` | `definition-openapi-projection.ts` | definition projection 입력의 registry content hash, target config, output names, emitted document를 안정 정렬해 version hash 계산 |
+| `DEFINITION_PROJECTION_OUTPUT_NAMES_EXTENSION` | `definition-openapi-projection.ts` | adapter가 output name alias metadata를 보존하는 OA SDK 전용 OpenAPI extension 이름 |
+| `DEFINITION_PROJECTION_COLLISION_REPORT_EXTENSION` | `definition-openapi-projection.ts` | adapter가 target-local output name collision report metadata를 보존하는 OA SDK 전용 OpenAPI extension 이름 |
 | `rewriteDefinitionOutputRefs()` | `definition-output-refs.ts` | registry target id를 사용해 fragment content/refs의 source `$ref`를 표준 OpenAPI component `$ref`로 rewrite |
 | `toOpenApiComponentRef()` | `definition-output-refs.ts` | component-like definition node와 output name을 OpenAPI component `$ref` 문자열로 변환 |
 | `DEFINITION_OUTPUT_COMPONENT_PATHS` | `definition-output-refs.ts` | definition kind별 OpenAPI component 위치 매핑: schemas/responses/parameters/requestBodies/headers/links/callbacks/securitySchemes |
@@ -183,6 +187,11 @@ OA SDK와 bun-graph-db가 각자의 source loader, repository, CLI, MCP, GraphQL
 | `DefinitionOpenApiEmitDiagnostic` | `definition-openapi-emit.ts` | target/output-name diagnostics와 emit 자체 diagnostics를 합친 union |
 | `DefinitionOpenApiEmitOwnDiagnostic` | `definition-openapi-emit.ts` | missing path, path collision, invalid content, unrewritten ref, validation error diagnostic shape |
 | `DefinitionOpenApiEmitDiagnosticCode` | `definition-openapi-emit.ts` | OpenAPI emit diagnostic code union |
+| `DefinitionOpenApiProjectionAdapterInput` | `definition-openapi-projection.ts` | registry, selection, emitted result를 함께 받는 adapter 입력 shape |
+| `DefinitionOpenApiProjectionAdapterOptions` | `definition-openapi-projection.ts` | version hash forwarding과 source line/column lookup을 지원하는 adapter 옵션 |
+| `DefinitionOpenApiProjectionDocument` | `definition-openapi-projection.ts` | emitted OpenAPI document와 표준 projection extensions, OA SDK output naming extensions를 결합한 document type |
+| `DefinitionOpenApiProjectionMetadataExtensions` | `definition-openapi-projection.ts` | OA SDK output names와 collision report extension fields shape |
+| `DefinitionOpenApiProjectionResult` | `definition-openapi-projection.ts` | full-api-document profile로 변환된 Definition Builder OpenAPI projection envelope |
 | `DefinitionOutputRefRewrite` | `definition-output-refs.ts` | source ref, target id, output ref, component path, output name을 담는 rewrite 기록 |
 | `DefinitionOutputRefRewriteOptions` | `definition-output-refs.ts` | output name map 또는 resolver를 받는 output ref rewrite 옵션 |
 | `DefinitionOutputRefRewriteResult` | `definition-output-refs.ts` | rewritten nodes, nodeById, rewrite 기록, registry diagnostics를 담는 결과 |
