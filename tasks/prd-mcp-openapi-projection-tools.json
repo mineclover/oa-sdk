@@ -125,11 +125,12 @@
         "bun run build passes."
       ],
       "priority": 5,
-      "passes": false,
+      "passes": true,
       "notes": "End-to-end happy path for actual table-scoped MCP middleware.",
       "dependsOn": [
         "US-004"
-      ]
+      ],
+      "completionNotes": "Completed by agent"
     },
     {
       "id": "US-006",
@@ -234,6 +235,6 @@
     }
   ],
   "metadata": {
-    "updatedAt": "2026-04-16T08:55:25.260Z"
+    "updatedAt": "2026-04-16T08:59:36.983Z"
   }
 }
