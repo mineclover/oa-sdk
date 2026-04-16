@@ -3,6 +3,7 @@ metadata:
   path: /internal/health
 content:
   get:
+    operationId: getInternalHealth
     summary: Internal health status
     responses:
       '200':

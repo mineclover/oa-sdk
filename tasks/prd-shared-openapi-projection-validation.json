@@ -1,0 +1,332 @@
+{
+  "name": "Shared OpenAPI Projection Validation",
+  "description": "Align OA SDK and bun-graph-db validation around an OpenAPI 3.2 Projection Interface. Both systems keep their native source models, while a new contract package defines OpenApiProjectionResult, projection profiles, source/ref/diagnostic metadata, and a shared validation entrypoint.",
+  "branchName": "ralph/shared-openapi-projection-validation",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Reconcile existing vocabulary draft and adapter tests",
+      "description": "As a maintainer, I want the current draft vocabulary docs and adapter tests corrected before adding a package so that the new contract starts from a consistent baseline.",
+      "acceptanceCriteria": [
+        "OA SDK adapter test maps registry diagnostics, target diagnostics, emit diagnostics, and validation diagnostics into the shared diagnostic envelope.",
+        "OA SDK adapter test includes at least one diagnostic case proving registry diagnostics survive mapping.",
+        "bun-graph-db shared boundary doc defines every type referenced in its vocabulary block, including SchemaTypeTarget or removes unused references.",
+        "OA SDK and bun-graph-db vocabulary docs use the same field names for projection, refs, diagnostics, sources, versionHash, and typeTargets.",
+        "Existing adapter tests remain thin field mappings and do not duplicate projection logic.",
+        "pnpm typecheck passes.",
+        "pnpm test or focused package tests pass.",
+        "bun run typecheck passes.",
+        "bun run lint --max-diagnostics=20 passes.",
+        "Focused bun-graph-db projection tests pass when projection/MCP behavior changes."
+      ],
+      "priority": 1,
+      "passes": true,
+      "notes": "Preflight story. Fix the review gaps in the current draft before creating the package.",
+      "dependsOn": [],
+      "completionNotes": "Completed by agent"
+    },
+    {
+      "id": "US-002",
+      "title": "Create OpenAPI projection contract package",
+      "description": "As a schema platform maintainer, I want a shared contract package so that both systems can import the same projection result types without importing each other's source-specific code.",
+      "acceptanceCriteria": [
+        "Add workspace package packages/openapi-projection-contract.",
+        "Package name is @oa-sdk/openapi-projection-contract.",
+        "Package exports OpenApiProjectionResult.",
+        "Package exports OpenApiProjectionProfile.",
+        "Package exports SchemaRefEdge, SchemaDiagnostic, SchemaSourceCoordinate, SchemaValidateResult, and SchemaTypeTarget.",
+        "Package has no dependency on OA SDK parser internals, codegen CLI internals, bun-graph-db repositories, MCP, GraphQL, REST, SQLite, or filesystem loading.",
+        "Package build script emits ESM and type declarations.",
+        "Contract package import smoke test passes from inside OA SDK workspace.",
+        "OA SDK API index is updated if public package exports are tracked there.",
+        "pnpm typecheck passes.",
+        "pnpm test or focused package tests pass.",
+        "pnpm build:scripts && pnpm check:api-index passes when public exports change."
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": "Keep this package contract-first and dependency-light. Do not move projection engines here.",
+      "dependsOn": [
+        "US-001"
+      ]
+    },
+    {
+      "id": "US-003",
+      "title": "Define projection profiles and semantics",
+      "description": "As a validation tool author, I want projection profile semantics defined in code and docs so that validation can be profile-aware.",
+      "acceptanceCriteria": [
+        "OpenApiProjectionProfile supports component-bundle, operation-contract, and full-api-document.",
+        "component-bundle permits empty paths and requires components.schemas.",
+        "operation-contract requires at least one operation under paths.",
+        "full-api-document requires normal OpenAPI document validation.",
+        "Contract docs explain which profile OA SDK and bun-graph-db should emit first.",
+        "Contract tests cover valid profile values and invalid profile values.",
+        "Profile semantics are not tied to one source model.",
+        "pnpm typecheck passes.",
+        "pnpm test or focused package tests pass.",
+        "pnpm build:scripts && pnpm check:api-index passes when public exports change."
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": "This story defines profile semantics before validator implementation.",
+      "dependsOn": [
+        "US-002"
+      ]
+    },
+    {
+      "id": "US-004",
+      "title": "Implement validateOpenApiProjection",
+      "description": "As a validation user, I want a shared validateOpenApiProjection() entrypoint so that both systems can validate projection envelopes consistently.",
+      "acceptanceCriteria": [
+        "Contract package exports validateOpenApiProjection(result).",
+        "Validation checks OpenAPI document structural validity through a dependency-light path or a clearly documented injected validator.",
+        "Validation checks profile-specific requirements.",
+        "Validation checks refs entries have required from, ref, kind, and source.",
+        "Validation checks diagnostics entries have valid severity, code, and message.",
+        "Validation checks sources entries use supported file or DB coordinate variants.",
+        "Validation treats any diagnostic with severity error as projection-invalid.",
+        "Validation returns structured diagnostics and does not throw for ordinary invalid projection data.",
+        "Validation does not read files, query repositories, open SQLite, construct MCP servers, or execute GraphQL.",
+        "pnpm typecheck passes.",
+        "pnpm test or focused package tests pass.",
+        "pnpm build:scripts && pnpm check:api-index passes when public exports change."
+      ],
+      "priority": 4,
+      "passes": false,
+      "notes": "Prefer a small validator over a broad engine. Ordinary invalid inputs should return diagnostics.",
+      "dependsOn": [
+        "US-003"
+      ]
+    },
+    {
+      "id": "US-005",
+      "title": "Define projection metadata extensions",
+      "description": "As a debugging user, I want standard OpenAPI extensions for projection metadata so that source and ref provenance can survive serialization.",
+      "acceptanceCriteria": [
+        "Define extension names x-schema-engine-profile, x-schema-engine-version-hash, x-schema-engine-sources, and x-schema-engine-refs.",
+        "Contract package exports constants for these extension names.",
+        "Contract package documents which metadata belongs in standard OpenAPI fields versus x-* extensions.",
+        "Extension serialization preserves file source coordinates.",
+        "Extension serialization preserves DB source coordinates.",
+        "Extension serialization preserves ref graph metadata.",
+        "Extension fields do not invalidate OpenAPI document validation.",
+        "pnpm typecheck passes.",
+        "pnpm test or focused package tests pass.",
+        "pnpm build:scripts && pnpm check:api-index passes when public exports change."
+      ],
+      "priority": 5,
+      "passes": false,
+      "notes": "Define metadata names before adapters write extensions.",
+      "dependsOn": [
+        "US-004"
+      ]
+    },
+    {
+      "id": "US-006",
+      "title": "Add OA SDK Definition Builder projection adapter",
+      "description": "As an OA SDK maintainer, I want Definition Builder output adapted to OpenApiProjectionResult so that OA SDK target builds can use the shared validation contract.",
+      "acceptanceCriteria": [
+        "Add adapter from Definition Builder registry/selection/emit result to OpenApiProjectionResult.",
+        "Adapter sets profile to full-api-document.",
+        "Adapter maps emitted OpenAPI document to document.",
+        "Adapter maps registry ref edges to SchemaRefEdge.",
+        "Adapter includes registry, target, output naming, emit, and validation diagnostics.",
+        "Adapter maps file source paths, JSON Pointers, and line/column where available into file source coordinates.",
+        "Adapter computes or forwards a stable versionHash.",
+        "Adapter preserves alias/collision metadata through metadata or documented extension fields.",
+        "Tests cover successful document projection.",
+        "Tests cover registry diagnostics surviving adapter mapping.",
+        "pnpm typecheck passes.",
+        "pnpm test or focused package tests pass.",
+        "pnpm schema:validate passes when OpenAPI output changes.",
+        "pnpm build:scripts && pnpm check:api-index passes when public exports change."
+      ],
+      "priority": 6,
+      "passes": false,
+      "notes": "This adapter should live on the OA SDK side and must not import bun-graph-db code.",
+      "dependsOn": [
+        "US-005"
+      ]
+    },
+    {
+      "id": "US-007",
+      "title": "Validate OA SDK builder projections",
+      "description": "As an OA SDK user, I want generated target documents to pass the shared projection validator so that builder outputs conform to the common validation interface.",
+      "acceptanceCriteria": [
+        "Existing definition builder targets can be adapted to OpenApiProjectionResult.",
+        "validateOpenApiProjection() passes for public, admin, internal, and book-notebook targets.",
+        "Tests assert emitted target documents contain no oa:// refs.",
+        "Tests assert path parameters and operationIds are valid in emitted target documents.",
+        "Tests assert collision reports remain available.",
+        "Tests assert full-api-document profile rejects invalid emitted documents.",
+        "Focused test or CLI path verifies oa-gen build-spec output can be validated through the shared entrypoint.",
+        "pnpm typecheck passes.",
+        "pnpm test or focused package tests pass.",
+        "pnpm schema:validate passes when OpenAPI output changes.",
+        "pnpm build:scripts && pnpm check:api-index passes when public exports change."
+      ],
+      "priority": 7,
+      "passes": false,
+      "notes": "This story proves the OA SDK integration, not just the adapter unit test.",
+      "dependsOn": [
+        "US-006"
+      ]
+    },
+    {
+      "id": "US-008",
+      "title": "Wire bun-graph-db to the contract package",
+      "description": "As a bun-graph-db maintainer, I want to consume the shared projection contract without importing OA SDK implementation internals so that bun adapters compile against the same types.",
+      "acceptanceCriteria": [
+        "Add a local development dependency from bun-graph-db to @oa-sdk/openapi-projection-contract using the repository-relative path used in this workspace.",
+        "bun-graph-db imports only contract package types/helpers, not OA SDK parser/codegen internals.",
+        "bun-graph-db typecheck passes with the contract package dependency.",
+        "Document that the local file dependency is a development integration path until the package is published or vendored.",
+        "No bun-graph-db repository, GraphQL, MCP, or storage code is moved into the contract package.",
+        "bun run typecheck passes.",
+        "bun run lint --max-diagnostics=20 passes."
+      ],
+      "priority": 8,
+      "passes": false,
+      "notes": "This story resolves the cross-repo package boundary before bun adapters import the contract.",
+      "dependsOn": [
+        "US-004"
+      ]
+    },
+    {
+      "id": "US-009",
+      "title": "Add bun-graph-db component-bundle adapter",
+      "description": "As a bun-graph-db maintainer, I want table schema projections adapted into OpenAPI 3.2 component bundles so that runtime DB metadata can use OpenAPI-compatible validation tooling.",
+      "acceptanceCriteria": [
+        "Add adapter from TableSchemaProjection to OpenApiProjectionResult.",
+        "Adapter sets profile to component-bundle.",
+        "Adapter emits OpenAPI 3.2 document with openapi, info, empty paths, and components.schemas.",
+        "Adapter maps $defs entries into components.schemas.",
+        "Adapter rewrites internal $defs refs to #/components/schemas/...",
+        "Adapter preserves projection refs.",
+        "Adapter preserves projection diagnostics.",
+        "Adapter preserves DB source coordinates.",
+        "Adapter forwards versionHash.",
+        "Tests cover a valid table schema projection becoming a valid component-bundle projection.",
+        "Tests cover projection error diagnostics surviving adapter mapping.",
+        "bun run typecheck passes.",
+        "bun run lint --max-diagnostics=20 passes.",
+        "Focused bun-graph-db projection tests pass when projection/MCP behavior changes."
+      ],
+      "priority": 9,
+      "passes": false,
+      "notes": "First bun projection profile. Keep it independent from MCP schema generation for now.",
+      "dependsOn": [
+        "US-008"
+      ]
+    },
+    {
+      "id": "US-010",
+      "title": "Add bun-graph-db operation-contract adapter",
+      "description": "As a bun-graph-db validation user, I want create/update node contracts represented as OpenAPI operations so that request payload validation can use the common OpenAPI projection interface.",
+      "acceptanceCriteria": [
+        "Adapter can emit operation-contract profile for a table projection.",
+        "Operation contract includes create node path or synthetic path.",
+        "Create node operation requestBody references projected create input schema.",
+        "Update node operation requestBody references projected update input schema.",
+        "Update node operation includes a required nodeId path parameter or equivalent operation parameter.",
+        "OperationIds are stable and table-specific.",
+        "Response stubs are valid OpenAPI responses.",
+        "Tests validate operation-contract output with validateOpenApiProjection().",
+        "Tests validate create payload success/failure through the shared validation path where supported.",
+        "Tests validate update payload partial semantics are preserved.",
+        "bun run typecheck passes.",
+        "bun run lint --max-diagnostics=20 passes.",
+        "Focused bun-graph-db projection tests pass when projection/MCP behavior changes."
+      ],
+      "priority": 10,
+      "passes": false,
+      "notes": "Build on the component-bundle adapter and add operation request contracts.",
+      "dependsOn": [
+        "US-009"
+      ]
+    },
+    {
+      "id": "US-011",
+      "title": "Align bun-graph-db MCP tools/list schema generation",
+      "description": "As an MCP client, I want table-scoped tools/list schemas to derive from OpenAPI projection output so that MCP schema output does not drift from the shared validation surface.",
+      "acceptanceCriteria": [
+        "MCP schema generation can consume bun-graph-db OpenApiProjectionResult.",
+        "Existing TableSchemaProjection direct mapper remains only as a compatibility fallback during migration.",
+        "Create node MCP tool input schema is derived from OpenAPI projection components.",
+        "Update node MCP tool input schema is derived from OpenAPI projection components.",
+        "Projection diagnostics still appear in MCP _meta.",
+        "Unusable projections still fall back safely and set usable: false.",
+        "Existing table-scoped tools remain listed.",
+        "Focused MCP tools/list tests pass.",
+        "GraphQL/MCP projection smoke test confirms schema refresh after table schema changes.",
+        "bun run typecheck passes.",
+        "bun run lint --max-diagnostics=20 passes.",
+        "Focused bun-graph-db projection tests pass when projection/MCP behavior changes."
+      ],
+      "priority": 11,
+      "passes": false,
+      "notes": "This is the highest-risk bun story. Keep compatibility fallback until tests prove parity.",
+      "dependsOn": [
+        "US-010"
+      ]
+    },
+    {
+      "id": "US-012",
+      "title": "Document as-is to-be architecture",
+      "description": "As an architect, I want the as-is/to-be alignment documented so that future work does not confuse OpenAPI projection sharing with schema engine implementation sharing.",
+      "acceptanceCriteria": [
+        "OA SDK architecture docs describe the as-is/to-be alignment.",
+        "bun-graph-db shared SchemaEngine boundary docs describe the as-is/to-be alignment.",
+        "Docs state that native source models remain separate.",
+        "Docs state that OpenAPI 3.2 is the validation and exchange projection interface.",
+        "Docs state that the shared package is a contract and validation package, not a shared source loader or engine.",
+        "Docs include extraction gates for any future shared implementation.",
+        "Docs define the three projection profiles and intended consumers.",
+        "Docs include migration notes for bun-graph-db MCP schema generation.",
+        "pnpm typecheck passes.",
+        "pnpm test or focused package tests pass.",
+        "bun run typecheck passes.",
+        "bun run lint --max-diagnostics=20 passes."
+      ],
+      "priority": 12,
+      "passes": false,
+      "notes": "Documentation story after both sides prove the adapter shape.",
+      "dependsOn": [
+        "US-007",
+        "US-011"
+      ]
+    },
+    {
+      "id": "US-013",
+      "title": "Final cross-repo verification",
+      "description": "As a release maintainer, I want full verification across OA SDK and bun-graph-db so that the OpenAPI projection contract is safe to build on.",
+      "acceptanceCriteria": [
+        "OA SDK full quality gates pass.",
+        "bun-graph-db full focused quality gates pass.",
+        "pnpm build passes.",
+        "bun run build passes.",
+        "OA SDK oa-gen build-spec and oa-gen validate pass for all definition builder targets.",
+        "bun-graph-db focused projection/runtime tests pass.",
+        "bun-graph-db GraphQL/MCP projection smoke tests pass.",
+        "No temporary generated output directories are left in the worktree.",
+        "Remaining dirty files are documented by category if unrelated work is present.",
+        "pnpm typecheck passes.",
+        "pnpm test or focused package tests pass.",
+        "pnpm schema:validate passes when OpenAPI output changes.",
+        "pnpm build:scripts && pnpm check:api-index passes when public exports change.",
+        "bun run typecheck passes.",
+        "bun run lint --max-diagnostics=20 passes.",
+        "Focused bun-graph-db projection tests pass when projection/MCP behavior changes."
+      ],
+      "priority": 13,
+      "passes": false,
+      "notes": "Final verification only. Do not add new feature scope here.",
+      "dependsOn": [
+        "US-012"
+      ]
+    }
+  ],
+  "metadata": {
+    "updatedAt": "2026-04-16T03:52:58.469Z"
+  }
+}

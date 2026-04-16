@@ -3,7 +3,15 @@ metadata:
   path: /admin/books/{bookId}/notes
 content:
   get:
+    operationId: listAdminBookNotes
     summary: List admin book notes
+    parameters:
+      - name: bookId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
     responses:
       '200':
         description: OK

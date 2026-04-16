@@ -3,6 +3,7 @@ dist/
 packages/schemas/src/.merged.yaml
 .turbo/
 .omx/
+.ralph-tui/
 coverage/
 *.local
 .env

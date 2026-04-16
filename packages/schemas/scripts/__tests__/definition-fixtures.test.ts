@@ -78,6 +78,7 @@ describe('definition builder fixtures', () => {
       expect(fixture.id).toBe(expectedId)
       expect(fixture.metadata).toMatchObject({ path: expectedPath })
       expect(fixture.content).toEqual(expect.any(Object))
+      expectPathOperationMetadata(fixture.content, expectedPath)
     }
   })
 
@@ -105,6 +106,29 @@ function readFixture(relativePath: string): { id?: unknown; metadata?: unknown; 
   return parseYaml(raw) as { id?: unknown; metadata?: unknown; content?: unknown }
 }
 
+function expectPathOperationMetadata(content: unknown, path: string): void {
+  expect(isRecord(content)).toBe(true)
+  const pathParams = Array.from(path.matchAll(/\{([^}]+)\}/g), match => match[1]).filter(Boolean)
+
+  for (const operation of Object.values(content as Record<string, unknown>)) {
+    if (!isRecord(operation)) continue
+    expect(operation.operationId).toEqual(expect.any(String))
+    expect(operation.operationId).not.toBe('')
+
+    const parameters = Array.isArray(operation.parameters) ? operation.parameters : []
+    for (const pathParam of pathParams) {
+      expect(parameters).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          name: pathParam,
+          in: 'path',
+          required: true,
+          schema: expect.objectContaining({ type: 'string' }),
+        }),
+      ]))
+    }
+  }
+}
+
 function readTargetFixture(relativePath: string): {
   name?: unknown
   scopes?: unknown
@@ -123,4 +147,8 @@ function readTargetFixture(relativePath: string): {
     includePaths?: unknown
     namingPolicy?: unknown
   }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
 }
