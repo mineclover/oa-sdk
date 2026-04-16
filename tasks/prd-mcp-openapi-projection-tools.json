@@ -96,11 +96,12 @@
         "bun run build passes."
       ],
       "priority": 4,
-      "passes": false,
+      "passes": true,
       "notes": "Can be implemented in existing table MCP unit/integration-style tests without real sockets.",
       "dependsOn": [
         "US-003"
-      ]
+      ],
+      "completionNotes": "Completed by agent"
     },
     {
       "id": "US-005",
@@ -233,6 +234,6 @@
     }
   ],
   "metadata": {
-    "updatedAt": "2026-04-16T08:49:55.711Z"
+    "updatedAt": "2026-04-16T08:55:25.260Z"
   }
 }
