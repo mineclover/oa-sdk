@@ -247,11 +247,12 @@
         "Focused bun-graph-db projection tests pass when projection/MCP behavior changes."
       ],
       "priority": 10,
-      "passes": false,
+      "passes": true,
       "notes": "Build on the component-bundle adapter and add operation request contracts.",
       "dependsOn": [
         "US-009"
-      ]
+      ],
+      "completionNotes": "Completed by agent"
     },
     {
       "id": "US-011",
@@ -335,6 +336,6 @@
     }
   ],
   "metadata": {
-    "updatedAt": "2026-04-16T04:57:04.557Z"
+    "updatedAt": "2026-04-16T05:02:15.406Z"
   }
 }
