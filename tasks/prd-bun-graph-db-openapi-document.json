@@ -1,0 +1,195 @@
+{
+  "name": "Bun Graph DB OpenAPI Document Surface",
+  "description": "Expose a stable OpenAPI 3.2 document for bun-graph-db REST and MCP protocol endpoints while keeping runtime table schemas available through dynamic projection exports.",
+  "branchName": "ralph/bun-graph-db-openapi-document",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Define full document scope",
+      "description": "As an API maintainer, I want a clear full-document scope so that stable API surfaces are documented without freezing dynamic table schemas.",
+      "acceptanceCriteria": [
+        "Document that full-api-document covers stable REST and MCP protocol endpoints only.",
+        "Document that runtime table schemas remain available through table projection endpoints.",
+        "Document that table projections must be referenced or linked, not eagerly inlined into the static full document.",
+        "Include versionHash and projection profile guidance for schema freshness.",
+        "Add non-goals for client/router generation over arbitrary runtime table shapes.",
+        "bun run typecheck passes.",
+        "bun run lint --max-diagnostics=20 passes.",
+        "Focused OpenAPI/MCP projection tests for changed behavior pass.",
+        "bun run build passes."
+      ],
+      "priority": 1,
+      "passes": false,
+      "notes": "This story sets boundaries before implementation so agents do not inline dynamic table schemas into a static document.",
+      "dependsOn": []
+    },
+    {
+      "id": "US-002",
+      "title": "Add static OpenAPI document builder",
+      "description": "As a client developer, I want bun-graph-db to build a stable OpenAPI 3.2 document so that I can inspect and generate clients for the stable API surface.",
+      "acceptanceCriteria": [
+        "Add a pure builder for the static bun-graph-db OpenAPI 3.2 document.",
+        "Builder returns openapi: \"3.2.0\", info, paths, and reusable components.",
+        "Builder includes REST projection endpoint GET /api/tables/{tableId}/openapi-projection.",
+        "Builder includes MCP endpoints /mcp and /sub/{tableId}/mcp as JSON-RPC POST operations.",
+        "Builder includes reusable JSON-RPC request/response/error schemas.",
+        "Builder includes common query/path parameters such as tableId and projection profile.",
+        "Builder has unit tests for required paths, schemas, and parameters.",
+        "bun run typecheck passes.",
+        "bun run lint --max-diagnostics=20 passes.",
+        "Focused OpenAPI/MCP projection tests for changed behavior pass.",
+        "bun run build passes."
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": "Prefer a pure builder module before wiring HTTP routes.",
+      "dependsOn": [
+        "US-001"
+      ]
+    },
+    {
+      "id": "US-003",
+      "title": "Expose full document through REST",
+      "description": "As an API consumer, I want to fetch the stable OpenAPI document over REST so that tooling can discover bun-graph-db without repository access.",
+      "acceptanceCriteria": [
+        "Add a REST endpoint such as GET /api/openapi.",
+        "Endpoint returns the static OpenAPI 3.2 document.",
+        "Endpoint response uses application/json.",
+        "Endpoint does not require a table id.",
+        "Endpoint does not inline dynamic table-specific schemas.",
+        "Unit or integration test verifies status, content type, and document shape.",
+        "bun run typecheck passes.",
+        "bun run lint --max-diagnostics=20 passes.",
+        "Focused OpenAPI/MCP projection tests for changed behavior pass.",
+        "bun run build passes."
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": "Endpoint name can be finalized during implementation; keep route stable once introduced.",
+      "dependsOn": [
+        "US-002"
+      ]
+    },
+    {
+      "id": "US-004",
+      "title": "Represent MCP tool discovery in OpenAPI",
+      "description": "As an MCP client developer, I want MCP protocol calls represented in OpenAPI so that the transport contract is inspectable through standard tooling.",
+      "acceptanceCriteria": [
+        "OpenAPI components include schemas for initialize, tools/list, and tools/call JSON-RPC requests.",
+        "OpenAPI components include schemas for MCP content blocks and tool definitions.",
+        "/mcp POST request body accepts a JSON-RPC request union or documented generic envelope.",
+        "/sub/{tableId}/mcp POST request body accepts table-scoped JSON-RPC calls.",
+        "The document explains that tool-specific arguments schemas are discovered dynamically through tools/list.",
+        "Tests verify MCP protocol schemas are present in components.schemas.",
+        "bun run typecheck passes.",
+        "bun run lint --max-diagnostics=20 passes.",
+        "Focused OpenAPI/MCP projection tests for changed behavior pass.",
+        "bun run build passes."
+      ],
+      "priority": 4,
+      "passes": false,
+      "notes": "Keep JSON-RPC protocol schema separate from dynamic tool argument projections.",
+      "dependsOn": [
+        "US-002"
+      ]
+    },
+    {
+      "id": "US-005",
+      "title": "Add root MCP OpenAPI projection export",
+      "description": "As an MCP consumer, I want a root-level projection of available MCP tool contracts so that I can translate tool schemas into OpenAPI-compatible components.",
+      "acceptanceCriteria": [
+        "Add a root MCP tool or REST endpoint that exports root MCP tool contracts as an OpenAPI projection artifact.",
+        "Projection includes tool argument schemas derived from tools/list input schemas.",
+        "Projection includes stable tool names and descriptions.",
+        "Projection includes diagnostics for tools that cannot be mapped to OpenAPI-compatible schemas.",
+        "Projection returns profile, projection, refs, diagnostics, sources, versionHash, and typeTargets where available.",
+        "Projection validates with validateOpenApiProjection() or returns machine-readable validation diagnostics.",
+        "bun run typecheck passes.",
+        "bun run lint --max-diagnostics=20 passes.",
+        "Focused OpenAPI/MCP projection tests for changed behavior pass.",
+        "bun run build passes."
+      ],
+      "priority": 5,
+      "passes": false,
+      "notes": "This is the dynamic tool contract counterpart to the static MCP transport schemas.",
+      "dependsOn": [
+        "US-004"
+      ]
+    },
+    {
+      "id": "US-006",
+      "title": "Keep table-scoped projection integration",
+      "description": "As an AI tool, I want static API discovery to link to table-scoped projection export so that I can retrieve current table schemas on demand.",
+      "acceptanceCriteria": [
+        "Full document includes the table projection export endpoint.",
+        "Full document documents supported table projection profiles: component-bundle and operation-contract.",
+        "Full document documents invalid profile behavior.",
+        "Existing table-scoped MCP get-openapi-projection-{tableId} tool remains supported.",
+        "Existing table projection tests continue to pass.",
+        "Static full document does not become stale when table attributes change.",
+        "bun run typecheck passes.",
+        "bun run lint --max-diagnostics=20 passes.",
+        "Focused OpenAPI/MCP projection tests for changed behavior pass.",
+        "bun run build passes."
+      ],
+      "priority": 6,
+      "passes": false,
+      "notes": "This story protects dynamic table schema behavior from static document creep.",
+      "dependsOn": [
+        "US-003",
+        "US-005"
+      ]
+    },
+    {
+      "id": "US-007",
+      "title": "Document OA SDK consumption workflow",
+      "description": "As an OA SDK user, I want documentation showing how to consume bun-graph-db OpenAPI documents and projections so that I can generate clients, mocks, and types safely.",
+      "acceptanceCriteria": [
+        "Add docs explaining static full document vs dynamic table projection.",
+        "Add examples for fetching GET /api/openapi.",
+        "Add examples for fetching table projection through REST, GraphQL, and MCP.",
+        "Add guidance for OA SDK validate, typegen, client, and mock-server use.",
+        "Add warning that table runtime schemas should be consumed with versionHash freshness checks.",
+        "bun run typecheck passes.",
+        "bun run lint --max-diagnostics=20 passes.",
+        "Focused OpenAPI/MCP projection tests for changed behavior pass.",
+        "bun run build passes."
+      ],
+      "priority": 7,
+      "passes": false,
+      "notes": "Docs should make bun-graph-db an OpenAPI projection producer in the OA SDK workflow.",
+      "dependsOn": [
+        "US-006"
+      ]
+    },
+    {
+      "id": "US-008",
+      "title": "Final full document verification",
+      "description": "As a release maintainer, I want final verification for the OpenAPI document surface so that the feature is safe for tooling.",
+      "acceptanceCriteria": [
+        "bun run typecheck passes.",
+        "bun run lint --max-diagnostics=20 passes.",
+        "bun run build passes.",
+        "Full document builder tests pass.",
+        "REST full document endpoint tests pass.",
+        "MCP protocol schema tests pass.",
+        "Existing projection smoke tests pass.",
+        "No temporary test artifacts remain.",
+        "Remaining dirty files are documented if unrelated work exists.",
+        "bun test tests/unit/schema/schema-engine-vocabulary-adapter.test.ts passes.",
+        "bun test tests/unit/rest-api-controllers.test.ts passes.",
+        "bun test tests/integration/projection-graphql-mcp-smoke.test.ts passes.",
+        "Any new full-document or root MCP projection tests pass."
+      ],
+      "priority": 8,
+      "passes": false,
+      "notes": "Final verification only. Do not add new feature scope here.",
+      "dependsOn": [
+        "US-007"
+      ]
+    }
+  ],
+  "metadata": {
+    "updatedAt": "2026-04-16T13:05:00.000Z"
+  }
+}

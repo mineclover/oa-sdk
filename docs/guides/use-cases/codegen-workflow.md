@@ -6,6 +6,32 @@
 
 DB 스키마(Drizzle)에서 시작하여 API 전 계층의 코드를 자동 생성.
 
+## 핵심 계약 경계
+
+oa-sdk 파이프라인에서 OpenAPI 3.2 spec은 외부 API 계약의 중심 산출물이다.
+Drizzle, Zod, 수동 `spec.yaml` fragment는 이 계약을 만드는 입력이고, TypeScript 타입,
+라우터 스텁, 클라이언트 SDK, mock server는 이 계약을 소비하는 출력이다.
+
+```txt
+Drizzle schema / Zod schema / 수동 OpenAPI fragment
+  -> OpenAPI 3.2 components + paths
+  -> validate / lint / spec diff
+  -> typegen / router stub / client / mock server
+  -> 실제 API handler 구현
+```
+
+Drizzle은 내부 DB 모델의 SSOT로 두고, OpenAPI는 외부 API 계약의 SSOT로 둔다.
+둘을 같은 타입으로 취급하지 말고, API DTO와 mapper를 통해 연결한다.
+
+```txt
+DB 내부 모델: Drizzle
+API 외부 계약: OpenAPI
+런타임 검증/파생 스키마: Zod 또는 OpenAPI validator
+타입 생성: oa-sdk typegen
+서버 골격: oa-sdk router
+클라이언트/테스트: oa-sdk client + mock-server
+```
+
 ## 1. Drizzle → OAS components.yaml
 
 ```bash
@@ -36,6 +62,57 @@ export default defineConfig({
 oa-gen generate --config codegen.config.mjs
 ```
 
+### Drizzle 스키마 관리 원칙
+
+Drizzle에서 생성한 `select`, `insert`, `update` schema는 OpenAPI component의 초안으로
+사용한다. 공개 API의 request/response DTO는 DB 테이블과 달라질 수 있으므로 필요한
+경우 spec fragment에서 보정한다.
+
+예를 들어 DB row가 다음 필드를 가진다고 해도:
+
+```typescript
+type UserRow = {
+  id: string
+  email: string
+  passwordHash: string
+  createdAt: Date
+  updatedAt: Date
+  deletedAt: Date | null
+}
+```
+
+외부 response DTO는 내부 컬럼을 그대로 노출하지 않는다.
+
+```typescript
+type UserResponse = {
+  id: string
+  email: string
+  createdAt: string
+}
+```
+
+handler에서는 DB row를 generated API 타입으로 명시적으로 변환한다.
+
+```typescript
+function toUserResponse(row: UserRow): UserResponse {
+  return {
+    id: row.id,
+    email: row.email,
+    createdAt: row.createdAt.toISOString(),
+  }
+}
+```
+
+운영 규칙:
+
+- `passwordHash`, internal flag, soft delete 컬럼은 response에 노출하지 않는다.
+- `id`, `createdAt`, `updatedAt`처럼 서버가 관리하는 값은 create request에서 제외한다.
+- DB nullable과 API optional은 같은 개념이 아니므로 request/response별로 명시한다.
+- DB default와 API default도 분리해서 문서화한다.
+- `numeric`, `decimal`, `bigint`, `json`, enum은 OpenAPI 표현을 명확히 정한다.
+- relation은 테이블 구조 그대로 내보내지 말고 use-case별 DTO로 만든다.
+- DB migration은 저장 구조 변경 기록이고, OpenAPI diff는 API 계약 변경 기록이다.
+
 ## 2. OAS → TypeScript 타입
 
 ```bash
@@ -63,6 +140,10 @@ export type CreateUserResponse = User
 oa-gen router --spec packages/schemas/src/.merged.yaml --types-import './types' -o src/router.ts
 ```
 
+생성된 라우터와 타입은 API 계약을 구현하기 위한 골격이다. 생성 파일을 직접 수정하기보다
+handler/use-case/service에서 실제 로직을 구현하고, 반환값이 generated response type을
+만족하도록 유지한다.
+
 ## 4. OAS → fetch 클라이언트
 
 ```bash
@@ -76,6 +157,30 @@ async *streamHealthEvents(): AsyncGenerator<StreamHealthEventsResponse> {
   yield* stream('GET', '/health/stream')
 }
 ```
+
+## 계약 검증 게이트
+
+OpenAPI를 문서로만 두면 쉽게 실제 구현과 어긋난다. 아래 명령을 CI 게이트로 두고,
+breaking change는 spec diff에서 먼저 확인한다.
+
+```bash
+pnpm --filter @oa-sdk/schemas run merge
+oa-gen validate --spec packages/schemas/src/.merged.yaml
+oa-gen lint --spec packages/schemas/src/.merged.yaml
+```
+
+API 문서로 사용할 정보는 README에 따로 흩어두지 말고 spec에 둔다.
+
+- `summary`, `description`
+- 안정적인 `operationId`
+- request/response examples
+- 공통 error response component
+- auth/security scheme
+- pagination, filter, sort 규칙
+- nullable, optional, default, readOnly, writeOnly 구분
+
+공통 query parameter와 metadata schema 예시는 [스키마 작성 가이드](../schema-authoring.md)의
+`공통 parameters 운영 시나리오`를 따른다.
 
 ## 전체 파이프라인 한 줄
 

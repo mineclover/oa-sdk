@@ -125,6 +125,279 @@ parameters:
 | `#/components/securitySchemes/bearerAuth` | JWT Bearer 인증 |
 | `#/components/securitySchemes/oauth2` | OAuth 2.0 인증 |
 
+## 공통 parameters 운영 시나리오
+
+`components.parameters`는 이름, 위치, 직렬화 방식, 기본 제약이 여러 operation에서
+동일한 query/path/header parameter에 사용한다. 모든 filter를 범용 객체 하나로
+숨기지 말고, 공통 규칙만 component화하고 실제 필터 필드는 operation별로 명시한다.
+
+### Offset pagination
+
+목록 API의 기본 페이지네이션은 `Page`, `Limit`, `Sort`, `SearchQuery`를 재사용한다.
+
+```yaml
+components:
+  parameters:
+    Page:
+      name: page
+      in: query
+      description: 1부터 시작하는 페이지 번호
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+      examples:
+        first:
+          dataValue: 1
+          serializedValue: "page=1"
+
+    Limit:
+      name: limit
+      in: query
+      description: 페이지 크기
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+      examples:
+        default:
+          dataValue: 20
+          serializedValue: "limit=20"
+
+    Sort:
+      name: sort
+      in: query
+      description: 정렬 필드. `-createdAt`은 내림차순이다.
+      schema:
+        type: string
+      examples:
+        createdAtAsc:
+          dataValue: "createdAt"
+          serializedValue: "sort=createdAt"
+        createdAtDesc:
+          dataValue: "-createdAt"
+          serializedValue: "sort=-createdAt"
+
+    SearchQuery:
+      name: q
+      in: query
+      description: 사용자 입력 검색어
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 200
+```
+
+operation에서는 공통 parameter를 `$ref`로 가져오고, 리소스별 필터는 직접 작성한다.
+
+```yaml
+paths:
+  /users:
+    get:
+      operationId: listUsers
+      parameters:
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Sort"
+        - $ref: "#/components/parameters/SearchQuery"
+        - name: role
+          in: query
+          schema:
+            type: string
+            enum: [admin, user, guest]
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [active, suspended]
+```
+
+목록 응답 envelope는 `components.schemas`에 둔다.
+
+```yaml
+components:
+  schemas:
+    PageMeta:
+      type: object
+      required: [page, limit, total]
+      properties:
+        page:
+          type: integer
+        limit:
+          type: integer
+        total:
+          type: integer
+
+    UserListResponse:
+      type: object
+      required: [items, meta]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/User"
+        meta:
+          $ref: "#/components/schemas/PageMeta"
+```
+
+### Cursor pagination
+
+무한 스크롤, feed, event stream처럼 순서가 고정된 목록은 offset pagination과 섞지 말고
+cursor 전용 parameter와 meta schema를 사용한다.
+
+```yaml
+components:
+  parameters:
+    Cursor:
+      name: cursor
+      in: query
+      description: 다음 페이지 조회를 위한 opaque cursor
+      schema:
+        type: string
+
+  schemas:
+    CursorMeta:
+      type: object
+      required: [hasNextPage]
+      properties:
+        nextCursor:
+          type: string
+        hasNextPage:
+          type: boolean
+```
+
+```yaml
+paths:
+  /activity-feed:
+    get:
+      operationId: listActivityFeed
+      parameters:
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/Limit"
+```
+
+### Date range와 audit query
+
+생성일, 수정일, 감사 로그 조회는 공통 parameter 후보지만 의미가 endpoint마다 달라질 수 있다.
+동일한 의미로 반복되는 경우에만 component화한다.
+
+```yaml
+components:
+  parameters:
+    CreatedAfter:
+      name: createdAfter
+      in: query
+      description: 이 시각 이후 생성된 항목만 조회
+      schema:
+        type: string
+        format: date-time
+
+    UpdatedBefore:
+      name: updatedBefore
+      in: query
+      description: 이 시각 이전 수정된 항목만 조회
+      schema:
+        type: string
+        format: date-time
+```
+
+시간 필터는 inclusive/exclusive 정책을 description에 명시한다. 정책이 다르면 같은
+component를 재사용하지 않는다.
+
+### Soft delete와 관리자 전용 옵션
+
+`includeDeleted`, `includeArchived` 같은 parameter는 접근 권한과 강하게 연결된다.
+일반 목록 API에 무조건 붙이지 말고, 관리자 API나 audit API에서만 사용한다.
+
+```yaml
+components:
+  parameters:
+    IncludeDeleted:
+      name: includeDeleted
+      in: query
+      description: 삭제 처리된 항목을 포함한다. 관리자 권한이 필요하다.
+      schema:
+        type: boolean
+        default: false
+```
+
+### 공통 metadata schema
+
+생성 시간, 수정 시간, 작성자 같은 서버 관리 필드는 request DTO가 아니라 response DTO에
+조합한다.
+
+```yaml
+components:
+  schemas:
+    TimestampMeta:
+      type: object
+      required: [createdAt, updatedAt]
+      properties:
+        createdAt:
+          type: string
+          format: date-time
+          readOnly: true
+        updatedAt:
+          type: string
+          format: date-time
+          readOnly: true
+
+    ActorMeta:
+      type: object
+      properties:
+        createdBy:
+          type: string
+          format: uuid
+          readOnly: true
+        updatedBy:
+          type: string
+          format: uuid
+          readOnly: true
+
+    User:
+      allOf:
+        - type: object
+          required: [id, email]
+          properties:
+            id:
+              type: string
+              format: uuid
+              readOnly: true
+            email:
+              type: string
+              format: email
+        - $ref: "#/components/schemas/TimestampMeta"
+        - $ref: "#/components/schemas/ActorMeta"
+```
+
+create/update request에는 서버 관리 metadata를 넣지 않는다.
+
+```yaml
+components:
+  schemas:
+    CreateUserRequest:
+      type: object
+      required: [email]
+      properties:
+        email:
+          type: string
+          format: email
+```
+
+### 수집할 운영 시나리오
+
+공통 parameter를 추가하기 전에 아래 항목을 먼저 수집한다.
+
+| 시나리오 | 후보 parameter | component화 기준 |
+|---|---|---|
+| 기본 목록 조회 | `page`, `limit`, `sort`, `q` | 대부분의 목록 API에서 의미와 제약이 같음 |
+| feed/무한 스크롤 | `cursor`, `limit` | 정렬 기준이 고정되고 cursor가 opaque 값임 |
+| 기간 조회 | `createdAfter`, `createdBefore`, `updatedAfter`, `updatedBefore` | inclusive/exclusive 정책이 동일함 |
+| soft delete | `includeDeleted`, `includeArchived` | 권한 정책과 노출 범위가 동일함 |
+| multi-tenant path/query | `orgId`, `workspaceId`, `tenantId` | 위치와 이름이 API 전체에서 안정적임 |
+| 리소스별 필터 | `role`, `status`, `type`, `state` | component화하지 않고 operation별로 enum과 의미를 명시함 |
+
 ## `$ref` 작성 규칙
 
 ### 내부 `$ref`
