@@ -12,13 +12,14 @@ from oa_interface_contracts import (
     emit_openapi,
     validate_contract_spec,
 )
-from oa_interface_fastapi import detect_drift, load_module_attr
+from oa_interface_fastapi import DriftIssue, detect_drift, load_module_attr
 from rich.console import Console
 
 app = typer.Typer(no_args_is_help=True)
 console = Console()
 
 OutputFormat = Literal["human", "json"]
+DriftOutputFormat = Literal["text", "json", "markdown"]
 
 
 @app.command()
@@ -127,17 +128,14 @@ def drift(
         str,
         typer.Option("--contract", help="Contract reference as module:attr"),
     ],
+    output_format: Annotated[DriftOutputFormat, typer.Option("--format", "-f")] = "text",
 ) -> None:
     issues = detect_drift(app_ref, contract_ref)
 
-    if not issues:
-        console.print("[green]No FastAPI drift detected.[/green]")
-        return
+    _print_drift_result(issues, output_format)
 
-    for issue in issues:
-        console.print(f"[red]{issue.code}[/red] {issue.location} - {issue.detail}")
-
-    raise typer.Exit(1)
+    if issues:
+        raise typer.Exit(1)
 
 
 def _load_contract_source(source: str) -> ContractSpec:
@@ -175,6 +173,67 @@ def _print_validation_issues(issues: list[ValidationIssue]) -> None:
             f"[{style}]{issue.severity}[/{style}] "
             f"{issue.code} {issue.location} - {issue.detail}"
         )
+
+
+def _print_drift_result(
+    issues: list[DriftIssue],
+    output_format: DriftOutputFormat,
+) -> None:
+    if output_format == "json":
+        console.print(
+            json.dumps(_drift_result_payload(issues), indent=2, sort_keys=True),
+            soft_wrap=True,
+        )
+        return
+
+    if output_format == "markdown":
+        console.print(_drift_markdown(issues), soft_wrap=True)
+        return
+
+    if not issues:
+        console.print("[green]No FastAPI drift detected.[/green]")
+        return
+
+    for issue in issues:
+        console.print(f"[red]{issue.code}[/red] {issue.location} - {issue.detail}")
+
+
+def _drift_result_payload(issues: list[DriftIssue]) -> dict[str, object]:
+    return {
+        "drift": bool(issues),
+        "issues": [
+            {
+                "code": issue.code,
+                "location": issue.location,
+                "detail": issue.detail,
+            }
+            for issue in issues
+        ],
+    }
+
+
+def _drift_markdown(issues: list[DriftIssue]) -> str:
+    if not issues:
+        return "## FastAPI Drift\n\nNo FastAPI drift detected."
+
+    rows = [
+        "## FastAPI Drift",
+        "",
+        "| Code | Location | Detail |",
+        "| --- | --- | --- |",
+    ]
+    for issue in issues:
+        rows.append(
+            "| "
+            f"{_markdown_cell(issue.code)} | "
+            f"{_markdown_cell(issue.location)} | "
+            f"{_markdown_cell(issue.detail)} |"
+        )
+    return "\n".join(rows)
+
+
+def _markdown_cell(value: object) -> str:
+    return str(value).replace("\n", " ").replace("|", "\\|")
 
 
 def _artifact_check_result(

@@ -464,7 +464,7 @@ def test_drift_command_accepts_matching_example_app() -> None:
     assert "No FastAPI drift detected" in result.stdout
 
 
-def test_drift_command_exits_nonzero_when_drift_exists(tmp_path, monkeypatch) -> None:
+def _write_drift_fixture(tmp_path):
     fixture = tmp_path / "drift_fixture.py"
     fixture.write_text(
         """
@@ -499,6 +499,11 @@ def get_widget(widget_id: str) -> Widget:
     return Widget(id=widget_id)
 """
     )
+    return fixture
+
+
+def test_drift_command_exits_nonzero_when_drift_exists(tmp_path, monkeypatch) -> None:
+    _write_drift_fixture(tmp_path)
     monkeypatch.syspath_prepend(str(tmp_path))
 
     result = CliRunner().invoke(
@@ -513,4 +518,50 @@ def get_widget(widget_id: str) -> Widget:
     )
 
     assert result.exit_code == 1
+    assert "operation-id-drift" in result.stdout
+
+
+def test_drift_command_supports_json_output(tmp_path, monkeypatch) -> None:
+    _write_drift_fixture(tmp_path)
+    monkeypatch.syspath_prepend(str(tmp_path))
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "drift",
+            "--app",
+            "drift_fixture:app",
+            "--contract",
+            "drift_fixture:contract",
+            "--format",
+            "json",
+        ],
+    )
+
+    payload = json.loads(result.stdout)
+    assert result.exit_code == 1
+    assert payload["drift"] is True
+    assert payload["issues"][0]["code"] == "operation-id-drift"
+
+
+def test_drift_command_supports_markdown_output(tmp_path, monkeypatch) -> None:
+    _write_drift_fixture(tmp_path)
+    monkeypatch.syspath_prepend(str(tmp_path))
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "drift",
+            "--app",
+            "drift_fixture:app",
+            "--contract",
+            "drift_fixture:contract",
+            "--format",
+            "markdown",
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "## FastAPI Drift" in result.stdout
+    assert "| Code | Location | Detail |" in result.stdout
     assert "operation-id-drift" in result.stdout

@@ -1,9 +1,14 @@
-from fastapi import FastAPI
+from typing import Annotated
+
+from fastapi import FastAPI, Security
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from .contracts import registry
 from .models import CreateUser, User
 
 app = FastAPI(title=registry.name, version=registry.version)
+bearer_auth = HTTPBearer(scheme_name="BearerAuth")
+BearerCredentials = Annotated[HTTPAuthorizationCredentials, Security(bearer_auth)]
 
 
 @registry.route(
@@ -15,7 +20,7 @@ app = FastAPI(title=registry.name, version=registry.version)
     security=["BearerAuth"],
 )
 @app.post("/users", response_model=User, operation_id="create_user")
-def create_user(body: CreateUser) -> User:
+def create_user(body: CreateUser, _credentials: BearerCredentials) -> User:
     return User(id="usr_1", email=body.email)
 
 

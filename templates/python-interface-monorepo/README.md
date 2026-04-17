@@ -145,12 +145,12 @@ Target drift command for the FastAPI adapter lane:
 ```bash
 uv run --package oa-interface-cli oa-contract drift \
   --app example_api.main:app \
-  --contract example_api.contracts:registry
+  --contract example_api.contracts:registry \
+  --format text
 ```
 
-The `drift` command is part of the intended management surface. If the adapter
-package has not landed yet, keep this command in acceptance criteria and do not
-claim runtime drift is enforced in CI.
+Use `--format json` for machine-readable CI details or `--format markdown` for
+pull request summaries.
 
 ## Adding Models And Endpoints
 
