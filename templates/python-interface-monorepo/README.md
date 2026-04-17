@@ -131,7 +131,7 @@ claim runtime drift is enforced in CI.
 1. Add or update the Pydantic DTO.
 2. Register the model schema in `ContractRegistry` or `ContractSpec.schemas`.
 3. Register reusable security schemes, error responses, and examples when the
-   endpoint needs them.
+   endpoint needs them. Use `responses={...}` for additional success statuses.
 4. Register the endpoint with `registry.endpoint(...)`, or use
    `@registry.route(...)` beside the framework route decorator.
 5. Add or update the FastAPI route with matching request and response models.
@@ -154,6 +154,30 @@ independently.
 @app.post("/users", response_model=User, operation_id="create_user")
 def create_user(body: CreateUser) -> User:
     ...
+```
+
+Multi-status success responses can be declared without giving up reusable error
+responses:
+
+```python
+registry.endpoint(
+    method="post",
+    path="/users",
+    operation_id="create_user",
+    request_model="CreateUser",
+    responses={
+        201: {
+            "description": "User created.",
+            "model": "User",
+            "examples": ["created_user_response"],
+        },
+        202: {
+            "description": "User creation accepted.",
+            "model": "Job",
+        },
+    },
+    error_responses=["Unauthorized"],
+)
 ```
 
 ## Breaking Change Review

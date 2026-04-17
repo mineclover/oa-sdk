@@ -37,6 +37,8 @@ _HTTP_METHOD_ORDER = {
 
 _P = ParamSpec("_P")
 _R = TypeVar("_R")
+type ResponseDeclaration = ContractResponse | Mapping[str, object]
+type ResponseDeclarations = Mapping[int | str, ResponseDeclaration]
 
 
 class ContractRegistryError(ValueError):
@@ -188,6 +190,8 @@ class ContractRegistry:
         summary: str | None = None,
         request_model: str | None = None,
         response_model: str | None = None,
+        success_responses: Sequence[ContractResponse] = (),
+        responses: ResponseDeclarations | None = None,
         tags: Sequence[str] = (),
         security: Sequence[Mapping[str, Sequence[str]]] = (),
         request_examples: Sequence[str] = (),
@@ -203,6 +207,7 @@ class ContractRegistry:
             summary=summary,
             request_model=request_model,
             response_model=response_model,
+            success_responses=_normalize_success_responses(success_responses, responses),
             tags=list(tags),
             security=[{name: list(scopes) for name, scopes in item.items()} for item in security],
             request_examples=list(request_examples),
@@ -225,6 +230,8 @@ class ContractRegistry:
         summary: str | None = None,
         request_model: str | None = None,
         response_model: str | None = None,
+        success_responses: Sequence[ContractResponse] = (),
+        responses: ResponseDeclarations | None = None,
         tags: Sequence[str] = (),
         security: Sequence[Mapping[str, Sequence[str]]] = (),
         request_examples: Sequence[str] = (),
@@ -241,6 +248,8 @@ class ContractRegistry:
                 summary=summary,
                 request_model=request_model,
                 response_model=response_model,
+                success_responses=success_responses,
+                responses=responses,
                 tags=tags,
                 security=security,
                 request_examples=request_examples,
@@ -307,3 +316,91 @@ def _registered_endpoint_key(item: RegisteredEndpoint) -> tuple[str, int, str, s
         endpoint.method,
         endpoint.operation_id,
     )
+
+
+def _normalize_success_responses(
+    success_responses: Sequence[ContractResponse],
+    responses: ResponseDeclarations | None,
+) -> list[ContractResponse]:
+    normalized = list(success_responses)
+    normalized.extend(_response_map_from_declarations(responses))
+    return sorted(normalized, key=_contract_response_key)
+
+
+def _response_map_from_declarations(
+    responses: ResponseDeclarations | None,
+) -> list[ContractResponse]:
+    if responses is None:
+        return []
+    return [
+        _response_from_declaration(status_code, declaration)
+        for status_code, declaration in sorted(
+            responses.items(),
+            key=lambda item: _status_code_key(str(item[0])),
+        )
+    ]
+
+
+def _response_from_declaration(
+    status_code: int | str,
+    declaration: ResponseDeclaration,
+) -> ContractResponse:
+    normalized_status_code = str(status_code)
+    if isinstance(declaration, ContractResponse):
+        if declaration.status_code != normalized_status_code:
+            raise ContractRegistryError(
+                "Response declaration status does not match its mapping key: "
+                f"{declaration.status_code} != {normalized_status_code}."
+            )
+        return declaration
+
+    description = declaration.get("description")
+    if not isinstance(description, str):
+        raise ContractRegistryError(
+            f"responses[{normalized_status_code!r}].description must be a string."
+        )
+
+    model = declaration.get("model")
+    if model is not None and not isinstance(model, str):
+        raise ContractRegistryError(
+            f"responses[{normalized_status_code!r}].model must be a string."
+        )
+
+    content_type = declaration.get("content_type", "application/json")
+    if not isinstance(content_type, str):
+        raise ContractRegistryError(
+            f"responses[{normalized_status_code!r}].content_type must be a string."
+        )
+
+    examples = _string_list(
+        declaration.get("examples", ()),
+        f"responses[{normalized_status_code!r}].examples",
+    )
+    return ContractResponse(
+        status_code=normalized_status_code,
+        description=description,
+        model=model,
+        content_type=content_type,
+        examples=examples,
+    )
+
+
+def _string_list(value: object, field: str) -> list[str]:
+    if not isinstance(value, Sequence) or isinstance(value, (str, bytes)):
+        raise ContractRegistryError(f"{field} must be a sequence of strings.")
+    items: list[str] = []
+    for item in value:
+        if not isinstance(item, str):
+            raise ContractRegistryError(f"{field} must be a sequence of strings.")
+        items.append(item)
+    return items
+
+
+def _contract_response_key(response: ContractResponse) -> tuple[int, str]:
+    return _status_code_key(response.status_code)
+
+
+def _status_code_key(status_code: str) -> tuple[int, str]:
+    if status_code == "default":
+        return (1000, status_code)
+    return (int(status_code), status_code)

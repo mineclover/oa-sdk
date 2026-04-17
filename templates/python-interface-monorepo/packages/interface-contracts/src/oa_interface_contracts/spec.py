@@ -55,6 +55,7 @@ class ContractEndpoint(BaseModel):
     summary: str | None = None
     request_model: str | None = None
     response_model: str | None = None
+    success_responses: list[ContractResponse] = Field(default_factory=list)
     tags: list[str] = Field(default_factory=list)
     security: list[dict[str, list[str]]] = Field(default_factory=list)
     request_examples: list[str] = Field(default_factory=list)

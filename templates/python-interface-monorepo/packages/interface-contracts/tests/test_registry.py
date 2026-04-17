@@ -25,6 +25,11 @@ class ErrorBody(BaseModel):
     message: str
 
 
+class Job(BaseModel):
+    id: str
+    status: str
+
+
 def test_registry_emits_deterministic_contract_spec() -> None:
     registry = ContractRegistry(name="Users API", version="1.0.0")
     registry.model("User", User)
@@ -150,6 +155,53 @@ def test_registry_defines_security_responses_examples_and_targets() -> None:
     assert operation["responses"]["401"] == {"$ref": "#/components/responses/Unauthorized"}
 
 
+def test_registry_supports_explicit_multi_status_success_responses() -> None:
+    registry = ContractRegistry(name="Users API", version="1.0.0")
+    registry.model("CreateUser", CreateUser)
+    registry.model("Job", Job)
+    registry.model("User", User)
+    registry.example(
+        "created_user_response",
+        value={"id": "usr_1", "email": "user@example.com"},
+    )
+    registry.endpoint(
+        method="post",
+        path="/users",
+        operation_id="create_user",
+        request_model="CreateUser",
+        responses={
+            201: {
+                "description": "User created.",
+                "model": "User",
+                "examples": ["created_user_response"],
+            },
+            202: ContractResponse(
+                status_code="202",
+                description="User creation accepted.",
+                model="Job",
+                content_type="application/vnd.example.job+json",
+            ),
+        },
+    )
+
+    contract = registry.to_spec()
+    endpoint = contract.endpoints[0]
+    document = emit_openapi(contract)
+    responses = document["paths"]["/users"]["post"]["responses"]
+
+    assert [response.status_code for response in endpoint.success_responses] == ["201", "202"]
+    assert set(responses) == {"201", "202"}
+    assert responses["201"]["content"]["application/json"]["schema"] == {
+        "$ref": "#/components/schemas/User"
+    }
+    assert responses["201"]["content"]["application/json"]["examples"] == {
+        "created_user_response": {"$ref": "#/components/examples/created_user_response"}
+    }
+    assert responses["202"]["content"]["application/vnd.example.job+json"]["schema"] == {
+        "$ref": "#/components/schemas/Job"
+    }
+
+
 def test_registry_validation_reports_duplicate_operation_id_and_method_path() -> None:
     registry = ContractRegistry(name="Users API", version="1.0.0")
     registry.model("User", User)
@@ -190,6 +242,26 @@ def test_registry_validation_reports_missing_model_references() -> None:
         "missing-request-model",
         "missing-response-model",
     ]
+
+
+def test_registry_validation_reports_missing_explicit_response_model_reference() -> None:
+    registry = ContractRegistry(name="Users API", version="1.0.0")
+    registry.endpoint(
+        method="post",
+        path="/jobs",
+        operation_id="create_job",
+        responses={
+            202: {
+                "description": "Job accepted.",
+                "model": "Job",
+            }
+        },
+    )
+
+    issues = registry.validate()
+
+    assert [issue.code for issue in issues] == ["missing-response-model"]
+    assert issues[0].location == "POST /jobs response:202"
 
 
 def test_registry_validation_reports_missing_authoring_references() -> None:

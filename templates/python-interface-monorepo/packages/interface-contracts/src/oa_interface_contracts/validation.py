@@ -156,6 +156,15 @@ def _missing_model_reference_issues(contract: ContractSpec) -> list[ValidationIs
                     detail=f"response_model {endpoint.response_model} is not registered.",
                 )
             )
+        for response in endpoint.success_responses:
+            if response.model is not None and response.model not in schema_names:
+                issues.append(
+                    ValidationIssue(
+                        code="missing-response-model",
+                        location=f"{location} response:{response.status_code}",
+                        detail=f"response model {response.model} is not registered.",
+                    )
+                )
 
     for response_name, response in sorted(contract.standard_error_responses.items()):
         if response.model is not None and response.model not in schema_names:
@@ -230,6 +239,16 @@ def _missing_example_reference_issues(contract: ContractSpec) -> list[Validation
                         detail=f"response example {example_name} is not registered.",
                     )
                 )
+        for response in endpoint.success_responses:
+            for example_name in sorted(response.examples):
+                if example_name not in example_names:
+                    issues.append(
+                        ValidationIssue(
+                            code="missing-response-example",
+                            location=f"{location} response:{response.status_code}",
+                            detail=f"response example {example_name} is not registered.",
+                        )
+                    )
 
     for response_name, response in sorted(contract.standard_error_responses.items()):
         for example_name in sorted(response.examples):

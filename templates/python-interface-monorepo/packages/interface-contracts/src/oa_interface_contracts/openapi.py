@@ -84,22 +84,33 @@ def _operation(endpoint: ContractEndpoint, contract: ContractSpec) -> dict[str, 
 
 
 def _responses(endpoint: ContractEndpoint, contract: ContractSpec) -> Mapping[str, Any]:
-    if endpoint.response_model is None:
-        responses: dict[str, Any] = {"204": {"description": "No Content"}}
-    else:
-        response = ContractResponse(
-            status_code="200",
-            description="OK",
-            model=endpoint.response_model,
-            examples=endpoint.response_examples,
-        )
-        responses = {response.status_code: _response_object(response)}
+    responses: dict[str, Any] = {
+        response.status_code: _response_object(response)
+        for response in _success_responses(endpoint)
+    }
 
     for response_name in endpoint.error_responses:
         response = contract.standard_error_responses[response_name]
         responses[response.status_code] = {"$ref": f"#/components/responses/{response_name}"}
 
     return responses
+
+
+def _success_responses(endpoint: ContractEndpoint) -> list[ContractResponse]:
+    responses: list[ContractResponse] = []
+    if endpoint.response_model is not None:
+        responses.append(
+            ContractResponse(
+                status_code="200",
+                description="OK",
+                model=endpoint.response_model,
+                examples=endpoint.response_examples,
+            )
+        )
+    elif not endpoint.success_responses:
+        responses.append(ContractResponse(status_code="204", description="No Content"))
+    responses.extend(endpoint.success_responses)
+    return sorted(responses, key=_response_status_key)
 
 
 def _response_object(response: ContractResponse) -> dict[str, Any]:
@@ -118,6 +129,12 @@ def _response_object(response: ContractResponse) -> dict[str, Any]:
 
 def _schema_ref(name: str) -> dict[str, str]:
     return {"$ref": f"#/components/schemas/{name}"}
+
+
+def _response_status_key(response: ContractResponse) -> tuple[int, str]:
+    if response.status_code == "default":
+        return (1000, response.status_code)
+    return (int(response.status_code), response.status_code)
 
 
 def _example_refs(example_names: Sequence[str]) -> dict[str, dict[str, str]]:
