@@ -1,0 +1,109 @@
+id: path:public/users/UserByIdPath
+metadata:
+  path: /users/{id}
+refs:
+  - ref: oa://securityScheme/shared/common/BearerAuth
+    sourcePointer: "#/content/get/security/0/bearerAuth"
+  - ref: oa://securityScheme/shared/common/BearerAuth
+    sourcePointer: "#/content/patch/security/0/bearerAuth"
+  - ref: oa://securityScheme/shared/common/BearerAuth
+    sourcePointer: "#/content/delete/security/0/bearerAuth"
+content:
+  parameters:
+    - name: id
+      in: path
+      required: true
+      description: 사용자 UUID
+      schema:
+        type: string
+        format: uuid
+      examples:
+        default:
+          dataValue: "00000000-0000-0000-0000-000000000001"
+          serializedValue: "00000000-0000-0000-0000-000000000001"
+
+  get:
+    tags: [users]
+    operationId: getUserById
+    summary: 사용자 단건 조회
+    description: UUID로 특정 사용자의 상세 정보를 조회합니다
+    security:
+      - bearerAuth: []
+    responses:
+      "200":
+        description: 사용자 정보
+        content:
+          application/json:
+            schema:
+              $ref: oa://schema/public/users/User
+            examples:
+              default:
+                dataValue:
+                  id: "00000000-0000-0000-0000-000000000001"
+                  email: "alice@example.com"
+                  name: "Alice"
+                  role: user
+                  createdAt: "2024-01-01T00:00:00.000Z"
+      "401":
+        $ref: oa://response/shared/common/Unauthorized
+      "404":
+        $ref: oa://response/shared/common/NotFound
+
+  patch:
+    tags: [users]
+    operationId: updateUser
+    summary: 사용자 수정 (부분 업데이트)
+    description: 이름, 역할 등 사용자 정보를 부분적으로 수정합니다
+    security:
+      - bearerAuth: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: oa://schema/public/users/UpdateUserRequest
+          examples:
+            default:
+              dataValue:
+                name: "Alice Updated"
+              serializedValue: '{"name":"Alice Updated"}'
+    responses:
+      "200":
+        description: 수정된 사용자 정보
+        content:
+          application/json:
+            schema:
+              $ref: oa://schema/public/users/User
+            examples:
+              default:
+                dataValue:
+                  id: "00000000-0000-0000-0000-000000000001"
+                  email: "alice@example.com"
+                  name: "Alice Updated"
+                  role: user
+                  createdAt: "2024-01-01T00:00:00.000Z"
+      "400":
+        $ref: oa://response/shared/common/BadRequest
+      "401":
+        $ref: oa://response/shared/common/Unauthorized
+      "403":
+        $ref: oa://response/shared/common/Forbidden
+      "404":
+        $ref: oa://response/shared/common/NotFound
+      "422":
+        $ref: oa://response/shared/common/UnprocessableEntity
+
+  delete:
+    tags: [users]
+    operationId: deleteUser
+    summary: 사용자 삭제
+    description: UUID로 특정 사용자를 삭제합니다. 복구 불가.
+    security:
+      - bearerAuth: []
+    responses:
+      "204":
+        description: 삭제 완료 (본문 없음)
+      "401":
+        $ref: oa://response/shared/common/Unauthorized
+      "404":
+        $ref: oa://response/shared/common/NotFound

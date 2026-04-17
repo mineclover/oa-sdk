@@ -17,6 +17,9 @@ const FIXTURES = [
   ['schema:public/book/Note', 'schema/public/book/Note.yaml'],
   ['schema:public/health/HealthStatus', 'schema/public/health/HealthStatus.yaml'],
   ['schema:public/notebook/Note', 'schema/public/notebook/Note.yaml'],
+  ['schema:public/users/CreateUserRequest', 'schema/public/users/CreateUserRequest.yaml'],
+  ['schema:public/users/UpdateUserRequest', 'schema/public/users/UpdateUserRequest.yaml'],
+  ['schema:public/users/User', 'schema/public/users/User.yaml'],
 ] as const
 
 const COMMON_SHARED_COMPONENT_FIXTURES = [
@@ -40,6 +43,8 @@ const PATH_FIXTURES = [
   ['path:public/health/HealthPath', 'path/public/health/HealthPath.yaml', '/health'],
   ['path:public/health/HealthStreamPath', 'path/public/health/HealthStreamPath.yaml', '/health/stream'],
   ['path:public/notebook/NotebookNotesPath', 'path/public/notebook/NotebookNotesPath.yaml', '/notebooks/{notebookId}/notes'],
+  ['path:public/users/UsersPath', 'path/public/users/UsersPath.yaml', '/users'],
+  ['path:public/users/UserByIdPath', 'path/public/users/UserByIdPath.yaml', '/users/{id}'],
   ['path:admin/book/BookNotesPath', 'path/admin/book/BookNotesPath.yaml', '/admin/books/{bookId}/notes'],
   ['path:internal/health/HealthPath', 'path/internal/health/HealthPath.yaml', '/internal/health'],
 ] as const
@@ -139,13 +144,19 @@ function readFixture(relativePath: string): { id?: unknown; metadata?: unknown; 
 function expectPathOperationMetadata(content: unknown, path: string): void {
   expect(isRecord(content)).toBe(true)
   const pathParams = Array.from(path.matchAll(/\{([^}]+)\}/g), match => match[1]).filter(Boolean)
+  const pathLevelParameters = Array.isArray((content as Record<string, unknown>).parameters)
+    ? (content as Record<string, unknown>).parameters as unknown[]
+    : []
 
   for (const operation of Object.values(content as Record<string, unknown>)) {
     if (!isRecord(operation)) continue
     expect(operation.operationId).toEqual(expect.any(String))
     expect(operation.operationId).not.toBe('')
 
-    const parameters = Array.isArray(operation.parameters) ? operation.parameters : []
+    const parameters = [
+      ...pathLevelParameters,
+      ...(Array.isArray(operation.parameters) ? operation.parameters : []),
+    ]
     for (const pathParam of pathParams) {
       expect(parameters).toEqual(expect.arrayContaining([
         expect.objectContaining({

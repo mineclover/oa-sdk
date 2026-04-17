@@ -135,6 +135,70 @@ describe('oa-gen build-spec', () => {
     }))
   })
 
+  it('loads supplemental fragment refs for non-$ref dependency edges', () => {
+    writeTarget('public-api.yaml', {
+      name: 'public-api',
+      scopes: ['shared', 'public'],
+      domains: ['common', 'book'],
+      servers: [{ url: 'https://api.example.test' }],
+      includePaths: ['/books'],
+      namingPolicy: {
+        aliases: {
+          'securityScheme:shared/common/BearerAuth': 'bearerAuth',
+        },
+      },
+    })
+    writeFragment('path/public/book/BooksPath.yaml', {
+      id: 'path:public/book/BooksPath',
+      metadata: { path: '/books' },
+      refs: [
+        {
+          ref: 'oa://securityScheme/shared/common/BearerAuth',
+          sourcePointer: '#/content/get/security/0/bearerAuth',
+        },
+      ],
+      content: {
+        get: {
+          summary: 'List books',
+          security: [{ bearerAuth: [] }],
+          responses: {
+            '200': { description: 'OK' },
+          },
+        },
+      },
+    })
+    writeFragment('securityScheme/shared/common/BearerAuth.yaml', {
+      id: 'securityScheme:shared/common/BearerAuth',
+      content: {
+        type: 'http',
+        scheme: 'bearer',
+      },
+    })
+
+    const outputPath = join(tmpDir, 'out', 'public-api.yaml')
+    const result = runCli([
+      'build-spec',
+      '--target',
+      join(tmpDir, 'targets', 'public-api.yaml'),
+      '--output',
+      outputPath,
+    ])
+
+    expect(result.status).toBe(0)
+
+    const document = parseYaml(readFileSync(outputPath, 'utf8')) as {
+      paths?: Record<string, { get?: { security?: unknown } }>
+      components?: { securitySchemes?: Record<string, unknown> }
+    }
+    expect(document.paths?.['/books']?.get?.security).toEqual([{ bearerAuth: [] }])
+    expect(document.components?.securitySchemes).toEqual({
+      bearerAuth: {
+        type: 'http',
+        scheme: 'bearer',
+      },
+    })
+  })
+
   it('exits non-zero and reports duplicate canonical IDs', () => {
     writeTarget('public-api.yaml', targetConfig(['/books']))
     writeFragment('path/public/book/BooksPath.yaml', pathRefFixture('/books', 'oa://schema/public/book/Book'))

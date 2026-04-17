@@ -13,6 +13,7 @@ import {
   resolve,
 } from 'node:path'
 import {
+  createDefinitionRef,
   createDefinitionNode,
   createDefinitionRegistry,
   createSourceLocationIndex,
@@ -20,6 +21,7 @@ import {
   selectDefinitionTarget,
   toDefinitionOpenApiProjectionResult,
   type DefinitionNode,
+  type DefinitionRef,
   type DefinitionOpenApiEmitDiagnostic,
   type DefinitionOpenApiProjectionResult,
   type DefinitionOutputNameCollisionReportEntry,
@@ -300,8 +302,11 @@ function loadDefinitionFragments(fragmentsDir: string): LoadedFragments {
         contentHash: createContentHash(parsed.content),
         content: parsed.content,
       }
+      const refs = readFragmentRefs(parsed.refs, filePath, diagnostics)
+      if (refs === undefined) continue
+
       nodes.push(createDefinitionNode(
-        isRecord(parsed.metadata) ? { ...input, metadata: parsed.metadata } : input,
+        isRecord(parsed.metadata) ? { ...input, metadata: parsed.metadata, refs } : { ...input, refs },
       ))
     } catch (error) {
       diagnostics.push(fragmentDiagnostic(filePath, error instanceof Error ? error.message : String(error)))
@@ -314,6 +319,43 @@ function loadDefinitionFragments(fragmentsDir: string): LoadedFragments {
     sourceLocations,
     filePaths,
   }
+}
+
+function readFragmentRefs(
+  refs: unknown,
+  filePath: string,
+  diagnostics: BuildSpecCliDiagnostic[],
+): DefinitionRef[] | undefined {
+  if (refs === undefined) return []
+  if (!Array.isArray(refs)) {
+    diagnostics.push(fragmentDiagnostic(filePath, 'Definition fragment refs must be an array.', '#/refs'))
+    return undefined
+  }
+
+  const explicitRefs: DefinitionRef[] = []
+  for (const [index, refEntry] of refs.entries()) {
+    const pointer = `#/refs/${index}`
+    if (!isRecord(refEntry)) {
+      diagnostics.push(fragmentDiagnostic(filePath, 'Definition fragment ref entry must contain ref and sourcePointer strings.', pointer))
+      return undefined
+    }
+    if (typeof refEntry.ref !== 'string') {
+      diagnostics.push(fragmentDiagnostic(filePath, 'Definition fragment ref entry must contain a string ref.', `${pointer}/ref`))
+      return undefined
+    }
+    if (typeof refEntry.sourcePointer !== 'string') {
+      diagnostics.push(fragmentDiagnostic(filePath, 'Definition fragment ref entry must contain a string sourcePointer.', `${pointer}/sourcePointer`))
+      return undefined
+    }
+    explicitRefs.push(createDefinitionRef({
+      ref: refEntry.ref,
+      sourcePath: filePath,
+      sourcePointer: refEntry.sourcePointer,
+      ...(isRecord(refEntry.metadata) ? { metadata: refEntry.metadata } : {}),
+    }))
+  }
+
+  return explicitRefs
 }
 
 function listDefinitionFiles(rootDir: string): string[] {

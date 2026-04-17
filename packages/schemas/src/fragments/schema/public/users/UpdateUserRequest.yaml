@@ -1,0 +1,12 @@
+id: schema:public/users/UpdateUserRequest
+content:
+  type: object
+  description: 사용자 수정 요청 (부분 업데이트 — 모든 필드 optional)
+  properties:
+    name:
+      type: string
+      minLength: 1
+      maxLength: 100
+    role:
+      type: string
+      enum: [admin, user, guest]
