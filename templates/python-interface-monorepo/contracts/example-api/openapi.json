@@ -1,5 +1,44 @@
 {
   "components": {
+    "examples": {
+      "create_user_request": {
+        "summary": "Create user request",
+        "value": {
+          "email": "user@example.com"
+        }
+      },
+      "created_user_response": {
+        "summary": "Created user response",
+        "value": {
+          "email": "user@example.com",
+          "id": "usr_1"
+        }
+      },
+      "unauthorized_response": {
+        "summary": "Unauthorized response",
+        "value": {
+          "code": "unauthorized",
+          "message": "Authentication required."
+        }
+      }
+    },
+    "responses": {
+      "Unauthorized": {
+        "content": {
+          "application/json": {
+            "examples": {
+              "unauthorized_response": {
+                "$ref": "#/components/examples/unauthorized_response"
+              }
+            },
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            }
+          }
+        },
+        "description": "Authentication required."
+      }
+    },
     "schemas": {
       "CreateUser": {
         "properties": {
@@ -13,7 +52,27 @@
           "email"
         ],
         "title": "CreateUser",
-        "type": "object"
+        "type": "object",
+        "x-oa-audience": "public"
+      },
+      "ErrorResponse": {
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "message"
+        ],
+        "title": "ErrorResponse",
+        "type": "object",
+        "x-oa-audience": "public"
       },
       "User": {
         "properties": {
@@ -32,7 +91,8 @@
           "email"
         ],
         "title": "User",
-        "type": "object"
+        "type": "object",
+        "x-oa-audience": "public"
       }
     },
     "securitySchemes": {
@@ -56,6 +116,11 @@
         "requestBody": {
           "content": {
             "application/json": {
+              "examples": {
+                "create_user_request": {
+                  "$ref": "#/components/examples/create_user_request"
+                }
+              },
               "schema": {
                 "$ref": "#/components/schemas/CreateUser"
               }
@@ -67,12 +132,20 @@
           "200": {
             "content": {
               "application/json": {
+                "examples": {
+                  "created_user_response": {
+                    "$ref": "#/components/examples/created_user_response"
+                  }
+                },
                 "schema": {
                   "$ref": "#/components/schemas/User"
                 }
               }
             },
             "description": "OK"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
           }
         },
         "security": [
@@ -83,5 +156,5 @@
       }
     }
   },
-  "x-oa-contract-hash": "sha256:54830f7277c24e975447a8deeecb3f927ea134336076a8cfe464b01a06858d3f"
+  "x-oa-contract-hash": "sha256:6de96a5e93ffebb1cdd96b02e86659fb236cb1f7d6d5c791315153eb936606a8"
 }

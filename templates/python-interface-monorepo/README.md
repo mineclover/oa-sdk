@@ -85,11 +85,15 @@ Run the CLI:
 uv run --package oa-interface-cli oa-contract --help
 ```
 
+When endpoints are registered with `@registry.route(...)` in `main.py`, point
+CLI commands and tests at `example_api.main:contract`. Importing `main.py`
+materializes route decorator registrations before the contract is serialized.
+
 Validate a serialized contract or a registry reference:
 
 ```bash
 uv run --package oa-interface-cli oa-contract validate contracts/example-api/contract.json
-uv run --package oa-interface-cli oa-contract validate example_api.contracts:registry
+uv run --package oa-interface-cli oa-contract validate example_api.main:contract
 ```
 
 Emit deterministic OpenAPI:
@@ -100,11 +104,11 @@ uv run --package oa-interface-cli oa-contract emit-openapi \
   --output contracts/example-api/openapi.json
 
 uv run --package oa-interface-cli oa-contract emit-openapi \
-  example_api.contracts:registry \
+  example_api.main:contract \
   --output contracts/example-api/openapi.json
 
 uv run --package oa-interface-cli oa-contract emit-openapi \
-  example_api.contracts:registry \
+  example_api.main:contract \
   --target public \
   --output contracts/example-api/openapi.public.json
 ```
@@ -123,7 +127,7 @@ uv run --package oa-interface-cli oa-contract check-artifact \
   contracts/example-api/openapi.json
 
 uv run --package oa-interface-cli oa-contract check-artifact \
-  example_api.contracts:registry \
+  example_api.main:contract \
   contracts/example-api/openapi.json \
   --format json
 ```
@@ -152,7 +156,7 @@ Target drift command for the FastAPI adapter lane:
 ```bash
 uv run --package oa-interface-cli oa-contract drift \
   --app example_api.main:app \
-  --contract example_api.contracts:registry \
+  --contract example_api.main:contract \
   --format text
 ```
 
@@ -254,9 +258,19 @@ registry.bearer_security_scheme(
     bearer_format="JWT",
     description="JWT bearer token.",
 )
-registry.public_target(description="Public API")
+registry.public_target(
+    description="Public user-management API.",
+    required_error_responses=["Unauthorized"],
+)
 registry.model("CreateUser", CreateUser, audience="public")
+registry.model("ErrorResponse", ErrorResponse, audience="public")
 registry.model("User", User, audience="public")
+registry.error_response(
+    "Unauthorized",
+    status_code=401,
+    description="Authentication required.",
+    model="ErrorResponse",
+)
 
 @registry.route(
     method="post",
@@ -265,9 +279,15 @@ registry.model("User", User, audience="public")
     request_model="CreateUser",
     response_model="User",
     security=["BearerAuth"],
+    error_responses=["Unauthorized"],
     targets=["public"],
 )
-@app.post("/users", response_model=User, operation_id="create_user")
+@app.post(
+    "/users",
+    response_model=User,
+    operation_id="create_user",
+    responses={401: {"model": ErrorResponse, "description": "Authentication required."}},
+)
 def create_user(body: CreateUser) -> User:
     ...
 ```

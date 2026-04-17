@@ -11,7 +11,9 @@ from .loader import load_module_attr
 OpenApiDocument = dict[str, Any]
 
 _HTTP_METHODS = frozenset({"get", "post", "put", "patch", "delete", "head", "options", "trace"})
-_IGNORED_SCHEMA_KEYS = frozenset({"title", "$defs"})
+_IGNORED_SCHEMA_KEYS = frozenset(
+    {"title", "$defs", "x-oa-audience", "x-oa-targets", "x-internal-only", "x-internal"}
+)
 _UNORDERED_SCHEMA_LIST_KEYS = frozenset({"allOf", "anyOf", "enum", "oneOf", "required"})
 
 

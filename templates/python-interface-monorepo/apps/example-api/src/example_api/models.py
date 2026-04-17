@@ -8,3 +8,8 @@ class User(BaseModel):
 
 class CreateUser(BaseModel):
     email: EmailStr
+
+
+class ErrorResponse(BaseModel):
+    code: str
+    message: str
