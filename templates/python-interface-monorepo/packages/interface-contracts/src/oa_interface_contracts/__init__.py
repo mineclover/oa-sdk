@@ -1,3 +1,9 @@
+from .artifact import (
+    OpenApiArtifactCheck,
+    artifact_drift_summary,
+    compare_openapi_documents,
+    load_openapi_artifact,
+)
 from .diff import (
     BreakingChange,
     ContractChange,
@@ -19,6 +25,10 @@ from .spec import (
     JsonSchema,
     ModelAudience,
     SecuritySchemeType,
+)
+from .testing import (
+    assert_contract_valid,
+    assert_openapi_artifact_current,
 )
 from .validation import (
     ContractValidationError,
@@ -44,13 +54,19 @@ __all__ = [
     "HttpMethod",
     "JsonSchema",
     "ModelAudience",
+    "OpenApiArtifactCheck",
     "RegisteredEndpoint",
     "SecuritySchemeType",
     "ValidationIssue",
     "ValidationSeverity",
+    "artifact_drift_summary",
+    "assert_contract_valid",
+    "assert_openapi_artifact_current",
+    "compare_openapi_documents",
     "contract_version_hash",
     "diff_contract_changes",
     "diff_contracts",
     "emit_openapi",
+    "load_openapi_artifact",
     "validate_contract_spec",
 ]

@@ -1,5 +1,4 @@
 import json
-from json import JSONDecodeError
 from pathlib import Path
 from typing import Annotated, Any, Literal, cast
 
@@ -9,8 +8,10 @@ from oa_interface_contracts import (
     ContractRegistry,
     ContractSpec,
     ValidationIssue,
+    compare_openapi_documents,
     diff_contract_changes,
     emit_openapi,
+    load_openapi_artifact,
     validate_contract_spec,
 )
 from oa_interface_fastapi import (
@@ -88,13 +89,13 @@ def check_artifact(
 ) -> None:
     try:
         contract = _load_contract_source(source)
-        actual = _load_openapi_artifact(artifact)
+        actual = load_openapi_artifact(artifact)
     except (AttributeError, ImportError, OSError, TypeError, ValueError) as exc:
         _print_artifact_error(artifact, str(exc), output_format)
         raise typer.Exit(1) from exc
 
     expected = emit_openapi(contract)
-    result = _artifact_check_result(artifact, expected, actual)
+    result = compare_openapi_documents(artifact, expected, actual).to_dict()
 
     if output_format == "json":
         console.print(json.dumps(result, indent=2, sort_keys=True), soft_wrap=True)
@@ -220,16 +221,6 @@ def _load_contract_source(source: str) -> ContractSpec:
     raise ValueError(f"{source} is not a readable file or module:attr reference")
 
 
-def _load_openapi_artifact(path: Path) -> dict[str, Any]:
-    try:
-        payload = json.loads(path.read_text())
-    except JSONDecodeError as exc:
-        raise ValueError(f"{path} is not valid JSON: {exc.msg}") from exc
-    if not isinstance(payload, dict):
-        raise ValueError(f"{path} must contain a JSON object")
-    return cast(dict[str, Any], payload)
-
-
 def _contract_from_reference(reference: str) -> ContractSpec:
     value = load_module_attr(reference)
     if isinstance(value, ContractSpec):
@@ -307,103 +298,6 @@ def _drift_markdown(issues: list[DriftIssue]) -> str:
 
 def _markdown_cell(value: object) -> str:
     return str(value).replace("\n", " ").replace("|", "\\|")
-
-
-def _artifact_check_result(
-    artifact: Path,
-    expected: dict[str, Any],
-    actual: dict[str, Any],
-) -> dict[str, object]:
-    fresh = actual == expected
-    return {
-        "artifact": str(artifact),
-        "fresh": fresh,
-        "summary": "matches managed OpenAPI"
-        if fresh
-        else _artifact_drift_summary(expected, actual),
-        "expected_hash": _document_contract_hash(expected),
-        "actual_hash": _document_contract_hash(actual),
-    }
-
-
-def _artifact_drift_summary(
-    expected: dict[str, Any],
-    actual: dict[str, Any],
-) -> str:
-    parts: list[str] = []
-    if _document_contract_hash(expected) != _document_contract_hash(actual):
-        parts.append("hash mismatch")
-    parts.extend(
-        summary
-        for summary in (
-            _mapping_drift_summary(
-                "paths",
-                _object_map(expected, "paths"),
-                _object_map(actual, "paths"),
-            ),
-            _mapping_drift_summary(
-                "schemas",
-                _component_map(expected, "schemas"),
-                _component_map(actual, "schemas"),
-            ),
-            _mapping_drift_summary(
-                "responses",
-                _component_map(expected, "responses"),
-                _component_map(actual, "responses"),
-            ),
-            _mapping_drift_summary(
-                "securitySchemes",
-                _component_map(expected, "securitySchemes"),
-                _component_map(actual, "securitySchemes"),
-            ),
-        )
-        if summary is not None
-    )
-    return "; ".join(parts) if parts else "content differs from managed OpenAPI"
-
-
-def _mapping_drift_summary(
-    label: str,
-    expected: dict[str, Any],
-    actual: dict[str, Any],
-) -> str | None:
-    expected_keys = set(expected)
-    actual_keys = set(actual)
-    missing = expected_keys - actual_keys
-    extra = actual_keys - expected_keys
-    changed = {
-        key
-        for key in expected_keys & actual_keys
-        if expected[key] != actual[key]
-    }
-    if not missing and not extra and not changed:
-        return None
-
-    counts: list[str] = []
-    if missing:
-        counts.append(f"{len(missing)} missing")
-    if extra:
-        counts.append(f"{len(extra)} extra")
-    if changed:
-        counts.append(f"{len(changed)} changed")
-    return f"{label}: {', '.join(counts)}"
-
-
-def _object_map(document: dict[str, Any], key: str) -> dict[str, Any]:
-    value = document.get(key)
-    if isinstance(value, dict):
-        return cast(dict[str, Any], value)
-    return {}
-
-
-def _component_map(document: dict[str, Any], key: str) -> dict[str, Any]:
-    components = document.get("components")
-    if not isinstance(components, dict):
-        return {}
-    value = components.get(key)
-    if isinstance(value, dict):
-        return cast(dict[str, Any], value)
-    return {}
 
 
 def _document_contract_hash(document: dict[str, Any]) -> str | None:
@@ -532,7 +426,7 @@ def _review_artifact_result(
         }
 
     try:
-        actual_openapi = _load_openapi_artifact(artifact)
+        actual_openapi = load_openapi_artifact(artifact)
     except (OSError, ValueError) as exc:
         return {
             "checked": True,
@@ -543,7 +437,7 @@ def _review_artifact_result(
             "actual_hash": None,
         }
 
-    result = _artifact_check_result(artifact, expected_openapi, actual_openapi)
+    result = compare_openapi_documents(artifact, expected_openapi, actual_openapi).to_dict()
     result["checked"] = True
     return result
 

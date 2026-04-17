@@ -183,6 +183,49 @@ all checks are clean, `COMMENT` for non-breaking or incomplete review signals,
 and `REQUEST_CHANGES` for breaking changes, validation errors, drift, or stale
 artifacts.
 
+## Pytest Integration
+
+Use the assertion helpers when an existing service already has pytest in CI and
+does not need a separate shell script for each contract gate.
+
+```python
+from pathlib import Path
+
+from oa_interface_contracts import (
+    assert_contract_valid,
+    assert_openapi_artifact_current,
+)
+from oa_interface_fastapi import assert_no_fastapi_drift
+
+
+OPENAPI_ARTIFACT = Path("contracts/example-api/openapi.json")
+
+
+def test_contract_gate() -> None:
+    assert_contract_valid("example_api.main:contract")
+    assert_no_fastapi_drift("example_api.main:app", "example_api.main:contract")
+    assert_openapi_artifact_current(
+        "example_api.main:contract",
+        OPENAPI_ARTIFACT,
+    )
+```
+
+The helpers also accept direct objects, which is useful when tests already
+import the app or contract:
+
+```python
+from example_api.main import app, contract
+
+
+def test_contract_gate_direct_objects() -> None:
+    assert_contract_valid(contract)
+    assert_no_fastapi_drift(app, contract)
+```
+
+Failed assertions include the validation issue code, drift issue code, affected
+operation or artifact path, and the concise artifact drift summary used by the
+CLI.
+
 ## Adding Models And Endpoints
 
 1. Add or update the Pydantic DTO.
