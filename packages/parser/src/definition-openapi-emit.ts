@@ -2,6 +2,7 @@ import type {
   OasComponents,
   OasDocument,
   OasInfo,
+  OasTag,
   OasPathItem,
 } from './oas32-types.js'
 import type { CanonicalDefinitionId, ComponentLikeDefinitionKind } from './definition-id.js'
@@ -50,6 +51,7 @@ const ALIAS_EXTENSION = 'x-oa-sdk-definition-aliases'
 export type DefinitionOpenApiEmitOptions = {
   openapi?: string
   info?: OasInfo
+  tags?: readonly OasTag[]
   jsonSchemaDialect?: string
   includeAliasMetadata?: boolean
 }
@@ -134,7 +136,7 @@ export function emitDefinitionOpenApiDocument(
   const renamedAliases = selection.outputNameAllocation.aliases.filter(alias => alias.outputName !== alias.localName)
   const document: OasDocument = {
     openapi: options.openapi ?? '3.2.0',
-    info: options.info ?? {
+    info: options.info ?? selection.target.info ?? {
       title: selection.target.name,
       version: '0.0.0',
     },
@@ -146,6 +148,11 @@ export function emitDefinitionOpenApiDocument(
 
   if (options.jsonSchemaDialect !== undefined) {
     document.jsonSchemaDialect = options.jsonSchemaDialect
+  }
+
+  const tags = options.tags ?? selection.target.tags
+  if (tags !== undefined) {
+    document.tags = [...tags]
   }
 
   if (options.includeAliasMetadata !== false) {

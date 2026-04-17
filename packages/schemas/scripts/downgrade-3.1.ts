@@ -14,7 +14,7 @@
 
 import { readFileSync, writeFileSync } from 'node:fs'
 import { resolve, dirname } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import { parse, stringify } from 'yaml'
 
 export const PRESERVE_FIELDS = new Set([
@@ -142,4 +142,6 @@ function main(): void {
   console.log(`📦 사이드카 메타: ${metaPath} (${Object.keys(sidecar).length}개 필드 보존)`)
 }
 
-main()
+if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
+  main()
+}

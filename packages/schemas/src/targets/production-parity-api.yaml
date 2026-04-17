@@ -1,4 +1,11 @@
 name: production-parity-api
+info:
+  title: OA SDK API
+  description: OpenAPI 3.2 기반 API 관리 인프라
+  version: 0.1.0
+  license:
+    name: MIT
+    identifier: MIT
 scopes:
   - shared
   - public
@@ -9,11 +16,18 @@ domains:
 servers:
   - url: https://api.example.com/v1
     description: Production
+tags:
+  - name: health
+    description: 서버 상태 확인
+  - name: users
+    description: 사용자 관리
 includePaths:
   - /health
   - /health/stream
   - /users
   - /users/{id}
+includeDefinitions:
+  - securityScheme:shared/common/OAuth2
 namingPolicy:
   aliases:
     "securityScheme:shared/common/BearerAuth": bearerAuth

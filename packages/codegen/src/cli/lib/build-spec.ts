@@ -18,8 +18,10 @@ import {
   createDefinitionRegistry,
   createSourceLocationIndex,
   emitDefinitionOpenApiDocument,
+  parseDefinitionId,
   selectDefinitionTarget,
   toDefinitionOpenApiProjectionResult,
+  type CanonicalDefinitionId,
   type DefinitionNode,
   type DefinitionRef,
   type DefinitionOpenApiEmitDiagnostic,
@@ -27,8 +29,10 @@ import {
   type DefinitionOutputNameCollisionReportEntry,
   type DefinitionRegistryDiagnostic,
   type DefinitionTargetConfig,
+  type OasInfo,
   type OasDocument,
   type OasServer,
+  type OasTag,
   type SourceLocation,
   type SourceLocationIndex,
 } from '@oa-sdk/parser'
@@ -74,6 +78,7 @@ export type BuildSpecSummary = {
   fragmentCount: number
   selectedNodeCount: number
   directPathIds: string[]
+  directDefinitionIds: string[]
   dirtyTargetPaths?: string[]
   dirtyTargetNames?: string[]
   outputPath?: string
@@ -163,6 +168,7 @@ export function buildSpec(options: BuildSpecOptions): BuildSpecResult {
     fragmentCount: fragments.nodes.length,
     selectedNodeCount: selection.nodes.length,
     directPathIds: selection.directPathIds,
+    directDefinitionIds: selection.directDefinitionIds,
     errors: diagnostics.filter(diagnostic => diagnostic.severity === 'error').length,
     warnings: diagnostics.filter(diagnostic => diagnostic.severity === 'warning').length,
     infos: diagnostics.filter(diagnostic => diagnostic.severity === 'info').length,
@@ -248,10 +254,13 @@ function loadTargetConfig(targetPath: string): DefinitionTargetConfig {
   }
 
   const name = readRequiredString(parsed, 'name', targetPath)
+  const info = readOptionalInfo(parsed, 'info', targetPath)
   const scopes = readStringArray(parsed, 'scopes', targetPath)
   const domains = readStringArray(parsed, 'domains', targetPath)
   const servers = readServerArray(parsed, 'servers', targetPath)
+  const tags = readOptionalTags(parsed, 'tags', targetPath)
   const includePaths = readStringArray(parsed, 'includePaths', targetPath)
+  const includeDefinitions = readOptionalDefinitionIdArray(parsed, 'includeDefinitions', targetPath)
   const config: DefinitionTargetConfig = {
     name,
     scopes,
@@ -259,6 +268,9 @@ function loadTargetConfig(targetPath: string): DefinitionTargetConfig {
     servers,
     includePaths,
   }
+  if (info !== undefined) config.info = info
+  if (tags !== undefined) config.tags = tags
+  if (includeDefinitions !== undefined) config.includeDefinitions = includeDefinitions
   const aliases = readAliases(parsed)
   if (aliases !== undefined) {
     config.namingPolicy = { aliases }
@@ -408,6 +420,33 @@ function readStringArray(record: Record<string, unknown>, key: string, filePath:
   return value
 }
 
+function readOptionalStringArray(record: Record<string, unknown>, key: string, filePath: string): string[] | undefined {
+  const value = record[key]
+  if (value === undefined) return undefined
+  if (!Array.isArray(value) || value.some(item => typeof item !== 'string')) {
+    throw new Error(`Target config ${filePath} must declare ${key} as a string array when present.`)
+  }
+  return value
+}
+
+function readOptionalDefinitionIdArray(
+  record: Record<string, unknown>,
+  key: string,
+  filePath: string,
+): CanonicalDefinitionId[] | undefined {
+  const values = readOptionalStringArray(record, key, filePath)
+  if (values === undefined) return undefined
+
+  return values.map((value, index) => {
+    try {
+      return parseDefinitionId(value).id
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      throw new Error(`Target config ${filePath} has invalid ${key}[${index}]: ${message}`)
+    }
+  })
+}
+
 function readServerArray(record: Record<string, unknown>, key: string, filePath: string): OasServer[] {
   const value = record[key]
   if (
@@ -417,6 +456,24 @@ function readServerArray(record: Record<string, unknown>, key: string, filePath:
     throw new Error(`Target config ${filePath} must declare ${key} as an object array with string url fields.`)
   }
   return value as OasServer[]
+}
+
+function readOptionalInfo(record: Record<string, unknown>, key: string, filePath: string): OasInfo | undefined {
+  const value = record[key]
+  if (value === undefined) return undefined
+  if (!isRecord(value) || typeof value.title !== 'string' || typeof value.version !== 'string') {
+    throw new Error(`Target config ${filePath} must declare ${key} with string title and version fields when present.`)
+  }
+  return value as OasInfo
+}
+
+function readOptionalTags(record: Record<string, unknown>, key: string, filePath: string): OasTag[] | undefined {
+  const value = record[key]
+  if (value === undefined) return undefined
+  if (!Array.isArray(value) || value.some(item => !isRecord(item) || typeof item.name !== 'string')) {
+    throw new Error(`Target config ${filePath} must declare ${key} as an object array with string name fields when present.`)
+  }
+  return value as OasTag[]
 }
 
 function readAliases(record: Record<string, unknown>): Record<string, string> | undefined {

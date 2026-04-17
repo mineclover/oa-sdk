@@ -25,6 +25,7 @@ import {
 export const BUILDER_FRAGMENT_COMPONENT_SECTION = 'definition-fragment'
 export const BUILDER_TARGET_COMPONENT_SECTION = 'definition-target'
 export const BUILDER_TARGET_REF_POINTER_PREFIX = '#/x-oa-sdk-builder-index/directPathIds'
+export const BUILDER_TARGET_INCLUDE_DEFINITION_POINTER_PREFIX = '#/x-oa-sdk-builder-index/directDefinitionIds'
 export const BUILDER_INDEX_OWNER = 'definition-builder'
 
 export type BuilderWorkspaceScanOptions = {
@@ -233,7 +234,18 @@ function createTargetRefRecords(
   selection.directPathIds.forEach((id, index) => {
     const node = selection.nodeById.get(id)
     if (!node) return
-    records.push(createTargetRefRecord(targetPath, id, node, index))
+    records.push(createTargetRefRecord(targetPath, id, node, `${BUILDER_TARGET_REF_POINTER_PREFIX}/${index}`))
+  })
+
+  selection.directDefinitionIds.forEach((id, index) => {
+    const node = selection.nodeById.get(id)
+    if (!node) return
+    records.push(createTargetRefRecord(
+      targetPath,
+      id,
+      node,
+      `${BUILDER_TARGET_INCLUDE_DEFINITION_POINTER_PREFIX}/${index}`,
+    ))
   })
 
   return records
@@ -243,11 +255,11 @@ function createTargetRefRecord(
   targetPath: string,
   id: CanonicalDefinitionId,
   node: DefinitionRegistryNode,
-  index: number,
+  pointer: string,
 ): WorkspaceRefRecord {
   return {
     fromFile: targetPath,
-    fromPointer: `${BUILDER_TARGET_REF_POINTER_PREFIX}/${index}`,
+    fromPointer: pointer,
     refText: id,
     kind: 'external',
     resolved: true,

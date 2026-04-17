@@ -40,8 +40,11 @@ describe('builder parity target configs', () => {
       expect(target.name).toBe(targetName)
       expect(target.scopes).toEqual(['shared', 'public'])
       expect(target.domains).toEqual(['common', 'health', 'users'])
+      expect(target.info).toEqual(readRootInfo())
       expect(target.servers).toEqual(readProfileServers(profileName))
+      expect(target.tags).toEqual(readRootTags())
       expect(target.includePaths).toEqual(currentMergedPaths)
+      expect(target.includeDefinitions).toEqual(['securityScheme:shared/common/OAuth2'])
       expect(target.namingPolicy).toEqual({ aliases: SHARED_COMMON_OUTPUT_ALIASES })
     }
   })
@@ -80,7 +83,9 @@ describe('builder parity target configs', () => {
       'schema:shared/common/Error',
       'schema:shared/common/ValidationError',
       'securityScheme:shared/common/BearerAuth',
+      'securityScheme:shared/common/OAuth2',
     ])
+    expect(selection.directDefinitionIds).toEqual(['securityScheme:shared/common/OAuth2'])
     expect(sharedTargetIds(selection.refEdges)).toEqual([
       'parameter:shared/common/Limit',
       'parameter:shared/common/Page',
@@ -96,6 +101,7 @@ describe('builder parity target configs', () => {
       'securityScheme:shared/common/BearerAuth',
     ])
     expect(selection.outputNameAllocation.outputNames.get('securityScheme:shared/common/BearerAuth')).toBe('bearerAuth')
+    expect(selection.outputNameAllocation.outputNames.get('securityScheme:shared/common/OAuth2')).toBe('oauth2')
   })
 })
 
@@ -116,6 +122,22 @@ function readProfileServers(profileName: string): unknown[] {
     throw new Error(`Invalid profile fixture: ${profileName}`)
   }
   return parsed.servers
+}
+
+function readRootInfo(): unknown {
+  const parsed = readYaml(join(schemasDir, 'openapi.yaml'))
+  if (!isRecord(parsed) || !isRecord(parsed.info)) {
+    throw new Error('Invalid root OpenAPI fixture: missing info')
+  }
+  return parsed.info
+}
+
+function readRootTags(): unknown[] {
+  const parsed = readYaml(join(schemasDir, 'openapi.yaml'))
+  if (!isRecord(parsed) || !Array.isArray(parsed.tags)) {
+    throw new Error('Invalid root OpenAPI fixture: missing tags')
+  }
+  return parsed.tags
 }
 
 function readCurrentMergedDomainPaths(): string[] {
@@ -154,6 +176,10 @@ function paritySelectionNodes(): DefinitionNode[] {
     definitionNode('securityScheme:shared/common/BearerAuth', {
       type: 'http',
       scheme: 'bearer',
+    }),
+    definitionNode('securityScheme:shared/common/OAuth2', {
+      type: 'oauth2',
+      flows: {},
     }),
     definitionNode('schema:public/health/HealthStatus', { type: 'object' }),
     definitionNode('schema:public/users/User', { type: 'object' }),

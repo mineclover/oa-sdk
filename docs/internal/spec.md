@@ -318,7 +318,7 @@ oa-gen build-spec \
 ```
 
 Options:
-- `--target, -t`: target config YAML/JSON path. `name`, `scopes`, `domains`, `servers`, `includePaths`, optional `namingPolicy.aliases`를 사용한다.
+- `--target, -t`: target config YAML/JSON path. `name`, optional root `info`, `scopes`, `domains`, `servers`, optional `tags`, `includePaths`, optional `includeDefinitions`, optional `namingPolicy.aliases`를 사용한다.
 - `--fragments`: definition fragments root. 생략하면 target config의 sibling `../fragments`를 사용한다.
 - `--output, -o`: valid build일 때 쓸 OpenAPI YAML artifact path. 생략하면 YAML을 stdout으로 출력한다.
 - `--diagnostics`: registry/target/output-name/emit diagnostics를 담은 JSON sidecar path. 실패해도 기록한다.
@@ -326,7 +326,7 @@ Options:
 
 CLI build는 fragment `content` 기준 SHA-256 hash를 생성해 registry에 넘기고 YAML source location index를 연결해 duplicate/ref diagnostics에 source coordinates를 보강한다. Duplicate canonical id, missing/unsupported source ref, target disallowed ref, output name collision, unrewritten ref, emitted document validation error 중 하나라도 `error` severity이면 artifact output은 쓰지 않고 exit code 1로 종료한다. Diagnostics/collision sidecar는 실패한 CI run에서도 분석할 수 있도록 output artifact와 독립적으로 작성한다.
 
-Builder WorkspaceIndex metadata는 SQLite schema를 늘리지 않고 기존 row를 재사용한다. Target config 파일과 fragment 파일은 `files`에 content hash/mtime/realpath로 저장하고, fragment id는 `components.section = definition-fragment`, target bundle은 `components.section = definition-target`으로 기록한다. Fragment source `$ref`는 fragment file → target fragment file `refs` edge가 되고, target config는 direct path root fragment로 향하는 `refs` edge를 기록한다. 기존 `refs.to_file` 역방향 dirty propagation이 schema fragment 변경을 참조 fragment와 target config까지 전파하므로 target bundle은 직접 또는 transitively 포함한 fragment가 바뀔 때 dirty가 된다. Target config 파일 자체가 바뀌면 reverse dependency가 없으므로 해당 target만 dirty가 되며, no-op/SQLite fallback은 ADR-006 원칙대로 scanned target을 full rebuild 대상으로 취급한다.
+Builder WorkspaceIndex metadata는 SQLite schema를 늘리지 않고 기존 row를 재사용한다. Target config 파일과 fragment 파일은 `files`에 content hash/mtime/realpath로 저장하고, fragment id는 `components.section = definition-fragment`, target bundle은 `components.section = definition-target`으로 기록한다. Fragment source `$ref`는 fragment file → target fragment file `refs` edge가 되고, target config는 direct path root fragment와 explicit retained `includeDefinitions` fragment로 향하는 `refs` edge를 기록한다. 기존 `refs.to_file` 역방향 dirty propagation이 schema fragment 변경을 참조 fragment와 target config까지 전파하므로 target bundle은 직접 또는 transitively 포함한 fragment가 바뀔 때 dirty가 된다. Target config 파일 자체가 바뀌면 reverse dependency가 없으므로 해당 target만 dirty가 되며, no-op/SQLite fallback은 ADR-006 원칙대로 scanned target을 full rebuild 대상으로 취급한다.
 
 #### Migration from domain merge (US-014)
 
@@ -347,7 +347,7 @@ Current files migrate to fragments in this order:
 
 | Current file/section | Fragment target |
 |----------------------|-----------------|
-| `src/openapi.yaml` root `info` and global `tags` | Target-level emitted metadata or `tag` fragments once tag emit is wired; keep existing root metadata in `.merged.yaml` until parity target supports it |
+| `src/openapi.yaml` root `info` and global `tags` | Target-level emitted metadata in profile-specific parity targets; future `tag` fragments may replace this once tag emit is wired |
 | `src/profiles/local.yaml`, `src/profiles/staging.yaml`, `src/profiles/production.yaml` | Target config `servers` in profile-specific parity targets: `local-parity-api`, `staging-parity-api`, and `production-parity-api` |
 | `src/domains/common/spec.yaml#/components/schemas/*` | `src/fragments/schema/shared/common/{SchemaName}.yaml` |
 | `src/domains/common/spec.yaml#/components/responses/*` | `src/fragments/response/shared/common/{ResponseName}.yaml` |
@@ -367,11 +367,12 @@ Compatibility requirements:
 - `.merged.3.1.yaml` must continue to be derived from the 3.2 artifact through `packages/schemas/scripts/downgrade-3.1.ts` or an equivalent transform that preserves the same `.merged.3.1.meta.json` sidecar contract. Redocly bundle/preview continues to consume the 3.1 artifact.
 - The replacement candidate must pass `pnpm schema:validate`, `pnpm --filter @oa-sdk/schemas test`, parser/codegen tests, and `pnpm build:scripts && pnpm check:api-index` with the same or intentionally reviewed Spectral hint profile.
 - A normalized diff between current `.merged.yaml` and the builder parity artifact must show only reviewed, documented differences. Component output renames are allowed only when target-local alias metadata maps every renamed output back to its canonical id and downstream codegen diffs are accepted.
+- `pnpm schema:parity:compat` is the local compatibility gate for the builder artifact. It rebuilds current and builder artifacts, requires zero normalized OpenAPI drift, runs `oa-gen validate`, applies the same Spectral ruleset, downgrades the builder artifact to OpenAPI 3.1 with sidecar output, runs Redocly against that 3.1 artifact, compares typegen declaration content with current output, and runs router/client/mock-server consumers against the builder artifact. Details and accepted generated-output ordering differences are tracked in [definition-builder-compatibility-gates.md](./definition-builder-compatibility-gates.md).
 
 Rollback and replacement rule:
 
 - Rollback is the current default: keep `packages/schemas/scripts/merge.ts`, keep schema package scripts pointed at `pnpm merge && pnpm downgrade:3.1`, and generate builder artifacts under a parallel path such as `packages/schemas/src/.builder/{target}.yaml` or an ignored CI artifact directory.
-- Local parity workflow: run `pnpm schema:parity:build` to build `packages/schemas/src/.builder/local-parity-api.yaml` plus `local-parity-api.diagnostics.json` and `local-parity-api.collisions.json`, then run `pnpm schema:parity:diff` to compare current `packages/schemas/src/.merged.yaml` with the builder artifact. The diff normalizes object, path/component map, server, parameter, required, tag, and security ordering before reporting root/path/component/security/server drift.
+- Local parity workflow: run `pnpm schema:parity:build` to build `packages/schemas/src/.builder/local-parity-api.yaml` plus `local-parity-api.diagnostics.json` and `local-parity-api.collisions.json`, then run `pnpm schema:parity:diff` to compare current `packages/schemas/src/.merged.yaml` with the builder artifact. Run `pnpm schema:parity:compat` for the full validation/downstream compatibility gate. The diff normalizes object, path/component map, server, parameter, required, tag, and security ordering before reporting root/path/component/security/server drift.
 - If builder validation, normalized diff, codegen output diff, or 3.1 downgrade compatibility fails, delete the parallel builder artifact or ignore its CI job output; no source-of-truth artifact changes are needed because `.merged.yaml` is still produced by `merge.ts`.
 - Builder output can replace `.merged.yaml` only after all current domain source sections listed above have fragment equivalents, a parity target covers the same profile/path/component surface as the current local merge, builder diagnostics have zero errors, `.merged.yaml` and `.merged.3.1.yaml` compatibility gates pass, and maintainers approve the normalized diff plus downstream generated type/API diff.
 - The replacement change should be a separate implementation story that changes schema package scripts atomically. `merge.ts` remains available for at least one release cycle after replacement so rollback can restore the old command path without reconstructing the script.
@@ -387,7 +388,7 @@ Rollback and replacement rule:
 | Flattening guard | `schema:public/a/Name`, `schema:public/aname/Name`, `schema:public/a-name/Name`, `schema:admin/a/Name`은 flatten 결과가 같을 수 있어도 다른 canonical identity다. builder는 string flattening만으로 동치 추론을 하지 않고 attempted output name과 모든 colliding canonical IDs를 `output-name-collision`으로 보고 |
 | Collision simulation | public/admin target fixture에서 server target → domain → local name 순서의 rename과 target-local report를 검증. flattening output collision은 fail-on-collision diagnostic으로 검증되며, book-notebook target fixture emit은 `BookNote`/`NotebookNote` output을 검증 |
 | Dedupe policy | duplicate canonical id는 error. 동일 schema hash는 기본 info diagnostic only. 의미가 다른 정의는 자동 structural dedupe 금지. opt-in semantic dedupe는 `metadata.semanticAliasOf`와 registry `semanticAliases`로만 표현 |
-| Target bundle | `name`, `scopes`, `domains`, `servers`, `includePaths`, `namingPolicy.aliases` format으로 선언. `selectDefinitionTarget()`가 exact path match + transitive ref walk + target-local output name allocation을 수행하고 OpenAPI emit에 넘긴다 |
+| Target bundle | `name`, optional root `info`, `scopes`, `domains`, `servers`, optional `tags`, `includePaths`, optional `includeDefinitions`, `namingPolicy.aliases` format으로 선언. `selectDefinitionTarget()`가 exact path match + explicit retained definitions + transitive ref walk + target-local output name allocation을 수행하고 OpenAPI emit에 넘긴다 |
 | OpenAPI emit | `emitDefinitionOpenApiDocument()`가 selected target을 OAS 3.2 document로 materialize하고 rewritten local `$ref`만 허용. Alias metadata는 root extension 또는 result sidecar report로 제공 |
 | Definition builder CLI | `oa-gen build-spec --target ... --output ... --diagnostics ... --collision-report ...`가 target OpenAPI artifact와 machine-readable sidecar를 생성. Duplicate canonical id 또는 unresolved source ref는 non-zero exit |
 | Builder WorkspaceIndex metadata | fragment file/hash/id/ref metadata와 target config → direct path root edge를 기존 `WorkspaceIndex` row로 저장. 변경 감지는 full rebuild correctness를 유지하면서 affected target 계산에만 사용 |

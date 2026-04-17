@@ -1,4 +1,6 @@
+import type { OasInfo } from './types/document.js'
 import type { OasServer } from './types/server.js'
+import type { OasTag } from './types/headers-tags.js'
 import type { CanonicalDefinitionId } from './definition-id.js'
 import {
   allocateDefinitionOutputNames,
@@ -18,15 +20,20 @@ export type DefinitionTargetNamingPolicy = {
 
 export type DefinitionTargetConfig = {
   name: string
+  info?: OasInfo
   scopes: readonly string[]
   domains: readonly string[]
   servers: readonly OasServer[]
+  tags?: readonly OasTag[]
   includePaths: readonly string[]
+  includeDefinitions?: readonly CanonicalDefinitionId[]
   namingPolicy?: DefinitionTargetNamingPolicy
 }
 
 export type DefinitionTargetDiagnosticCode =
   | 'definition-target/path-not-found'
+  | 'definition-target/definition-not-found'
+  | 'definition-target/disallowed-definition'
   | 'definition-target/disallowed-ref'
 
 export type DefinitionTargetDiagnostic = {
@@ -47,6 +54,7 @@ export type DefinitionTargetSelectionResult = {
   valid: boolean
   target: DefinitionTargetConfig
   directPathIds: CanonicalDefinitionId[]
+  directDefinitionIds: CanonicalDefinitionId[]
   nodes: DefinitionRegistryNode[]
   nodeById: ReadonlyMap<CanonicalDefinitionId, DefinitionRegistryNode>
   refEdges: DefinitionRegistryRefEdge[]
@@ -62,7 +70,11 @@ export function selectDefinitionTarget(
 ): DefinitionTargetSelectionResult {
   const diagnostics: DefinitionTargetDiagnostic[] = []
   const directPathIds = selectDirectPathIds(registry.nodes, target, diagnostics)
-  const selectedIds = collectTransitiveTargetIds(registry, target, directPathIds, diagnostics)
+  const directDefinitionIds = selectDirectDefinitionIds(registry, target, diagnostics)
+  const selectedIds = collectTransitiveTargetIds(registry, target, [
+    ...directPathIds,
+    ...directDefinitionIds,
+  ], diagnostics)
   const selectedNodes = registry.nodes.filter(node => selectedIds.has(node.id))
   const nodeById = new Map<CanonicalDefinitionId, DefinitionRegistryNode>()
 
@@ -84,6 +96,7 @@ export function selectDefinitionTarget(
     valid: registry.valid && outputNameAllocation.valid && diagnostics.length === 0,
     target,
     directPathIds,
+    directDefinitionIds,
     nodes: selectedNodes,
     nodeById,
     refEdges,
@@ -122,6 +135,44 @@ function selectDirectPathIds(
   }
 
   return [...new Set(directPathIds)]
+}
+
+function selectDirectDefinitionIds(
+  registry: DefinitionRegistry,
+  target: DefinitionTargetConfig,
+  diagnostics: DefinitionTargetDiagnostic[],
+): CanonicalDefinitionId[] {
+  const ids = target.includeDefinitions ?? []
+  const directDefinitionIds: CanonicalDefinitionId[] = []
+
+  for (const id of ids) {
+    const node = registry.nodeById.get(id)
+    if (!node) {
+      diagnostics.push({
+        code: 'definition-target/definition-not-found',
+        severity: 'error',
+        targetName: target.name,
+        id,
+        message: `Target "${target.name}" include definition "${id}" did not match a registered definition.`,
+      })
+      continue
+    }
+
+    if (!isAllowedTargetNode(node, target)) {
+      diagnostics.push({
+        code: 'definition-target/disallowed-definition',
+        severity: 'error',
+        targetName: target.name,
+        id,
+        message: `Target "${target.name}" cannot include definition "${id}" because scope "${node.scope}" or domain "${node.domain}" is outside configured scopes/domains.`,
+      })
+      continue
+    }
+
+    directDefinitionIds.push(id)
+  }
+
+  return [...new Set(directDefinitionIds)]
 }
 
 function collectTransitiveTargetIds(

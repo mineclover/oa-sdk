@@ -16,7 +16,9 @@ describe('definition target selection', () => {
     expect(publicTarget.target.servers).toEqual([{ url: 'https://api.example.test' }])
     expect(adminTarget.target.servers).toEqual([{ url: 'https://admin.example.test' }])
     expect(publicTarget.directPathIds).toEqual(['path:public/book/BookNotesPath'])
+    expect(publicTarget.directDefinitionIds).toEqual([])
     expect(adminTarget.directPathIds).toEqual(['path:admin/book/BookNotesPath'])
+    expect(adminTarget.directDefinitionIds).toEqual([])
     expect(sortedIds(publicTarget.nodes)).toEqual([
       'parameter:public/book/BookIdParameter',
       'path:public/book/BookNotesPath',
@@ -104,6 +106,53 @@ describe('definition target selection', () => {
         sourcePointer: '#/content/get/responses/200/$ref',
         message: 'Target "public-api" cannot include referenced definition "schema:admin/book/Note" because scope "admin" or domain "book" is outside configured scopes/domains.',
       },
+    ])
+  })
+
+  it('includes explicit retained definitions without requiring a path ref', () => {
+    const registry = createDefinitionRegistry([
+      ...fixtureNodes(),
+      definitionNode('securityScheme:shared/common/OAuth2', {
+        type: 'oauth2',
+        flows: {},
+      }),
+    ])
+
+    const target = selectDefinitionTarget(registry, {
+      ...publicConfig(),
+      includeDefinitions: ['securityScheme:shared/common/OAuth2'],
+    })
+
+    expect(target.valid).toBe(true)
+    expect(target.directDefinitionIds).toEqual(['securityScheme:shared/common/OAuth2'])
+    expect(sortedIds(target.nodes)).toContain('securityScheme:shared/common/OAuth2')
+  })
+
+  it('rejects explicit retained definitions that are missing or outside the target boundary', () => {
+    const registry = createDefinitionRegistry([
+      ...fixtureNodes(),
+      definitionNode('schema:internal/book/AuditOnly'),
+    ])
+
+    const target = selectDefinitionTarget(registry, {
+      ...publicConfig(),
+      includeDefinitions: [
+        'schema:shared/common/Missing',
+        'schema:internal/book/AuditOnly',
+      ],
+    })
+
+    expect(target.valid).toBe(false)
+    expect(target.directDefinitionIds).toEqual([])
+    expect(target.diagnostics).toEqual([
+      expect.objectContaining({
+        code: 'definition-target/definition-not-found',
+        id: 'schema:shared/common/Missing',
+      }),
+      expect.objectContaining({
+        code: 'definition-target/disallowed-definition',
+        id: 'schema:internal/book/AuditOnly',
+      }),
     ])
   })
 })

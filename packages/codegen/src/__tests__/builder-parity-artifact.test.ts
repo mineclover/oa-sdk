@@ -64,6 +64,7 @@ describe('builder parity artifact workflow', () => {
     ])
     expect(document.components?.schemas?.User).toBeDefined()
     expect(document.components?.securitySchemes?.bearerAuth).toBeDefined()
+    expect(document.components?.securitySchemes?.oauth2).toBeDefined()
 
     const diagnostics = readJson(diagnosticsPath) as {
       valid?: boolean
