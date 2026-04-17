@@ -39,6 +39,7 @@ _P = ParamSpec("_P")
 _R = TypeVar("_R")
 type ResponseDeclaration = ContractResponse | Mapping[str, object]
 type ResponseDeclarations = Mapping[int | str, ResponseDeclaration]
+type SecurityRequirementDeclaration = str | Mapping[str, Sequence[str]]
 
 
 class ContractRegistryError(ValueError):
@@ -131,6 +132,168 @@ class ContractRegistry:
         )
         return self
 
+    def bearer_security_scheme(
+        self,
+        name: str,
+        *,
+        description: str | None = None,
+        bearer_format: str | None = None,
+    ) -> Self:
+        return self.security_scheme(
+            name,
+            type="http",
+            description=description,
+            scheme="bearer",
+            bearer_format=bearer_format,
+        )
+
+    def bearer_auth(
+        self,
+        name: str,
+        *,
+        description: str | None = None,
+        bearer_format: str | None = None,
+    ) -> Self:
+        return self.bearer_security_scheme(
+            name,
+            description=description,
+            bearer_format=bearer_format,
+        )
+
+    def api_key_security_scheme(
+        self,
+        name: str,
+        *,
+        parameter_name: str,
+        location: ApiKeyLocation,
+        description: str | None = None,
+    ) -> Self:
+        return self.security_scheme(
+            name,
+            type="apiKey",
+            description=description,
+            parameter_name=parameter_name,
+            location=location,
+        )
+
+    def api_key_auth(
+        self,
+        name: str,
+        *,
+        parameter_name: str,
+        location: ApiKeyLocation,
+        description: str | None = None,
+    ) -> Self:
+        return self.api_key_security_scheme(
+            name,
+            parameter_name=parameter_name,
+            location=location,
+            description=description,
+        )
+
+    def oauth2_security_scheme(
+        self,
+        name: str,
+        *,
+        flows: Mapping[str, object],
+        description: str | None = None,
+    ) -> Self:
+        return self.security_scheme(
+            name,
+            type="oauth2",
+            description=description,
+            flows=flows,
+        )
+
+    def oauth2_auth(
+        self,
+        name: str,
+        *,
+        flows: Mapping[str, object],
+        description: str | None = None,
+    ) -> Self:
+        return self.oauth2_security_scheme(
+            name,
+            flows=flows,
+            description=description,
+        )
+
+    def open_id_connect_security_scheme(
+        self,
+        name: str,
+        *,
+        open_id_connect_url: str,
+        description: str | None = None,
+    ) -> Self:
+        return self.security_scheme(
+            name,
+            type="openIdConnect",
+            description=description,
+            open_id_connect_url=open_id_connect_url,
+        )
+
+    def openid_connect_security_scheme(
+        self,
+        name: str,
+        *,
+        open_id_connect_url: str,
+        description: str | None = None,
+    ) -> Self:
+        return self.open_id_connect_security_scheme(
+            name,
+            open_id_connect_url=open_id_connect_url,
+            description=description,
+        )
+
+    def open_id_connect_auth(
+        self,
+        name: str,
+        *,
+        open_id_connect_url: str,
+        description: str | None = None,
+    ) -> Self:
+        return self.open_id_connect_security_scheme(
+            name,
+            open_id_connect_url=open_id_connect_url,
+            description=description,
+        )
+
+    def openid_connect_auth(
+        self,
+        name: str,
+        *,
+        open_id_connect_url: str,
+        description: str | None = None,
+    ) -> Self:
+        return self.open_id_connect_security_scheme(
+            name,
+            open_id_connect_url=open_id_connect_url,
+            description=description,
+        )
+
+    def mutual_tls_security_scheme(
+        self,
+        name: str,
+        *,
+        description: str | None = None,
+    ) -> Self:
+        return self.security_scheme(
+            name,
+            type="mutualTLS",
+            description=description,
+        )
+
+    def mutual_tls_auth(
+        self,
+        name: str,
+        *,
+        description: str | None = None,
+    ) -> Self:
+        return self.mutual_tls_security_scheme(
+            name,
+            description=description,
+        )
+
     def error_response(
         self,
         name: str,
@@ -193,7 +356,7 @@ class ContractRegistry:
         success_responses: Sequence[ContractResponse] = (),
         responses: ResponseDeclarations | None = None,
         tags: Sequence[str] = (),
-        security: Sequence[Mapping[str, Sequence[str]]] = (),
+        security: Sequence[SecurityRequirementDeclaration] = (),
         request_examples: Sequence[str] = (),
         response_examples: Sequence[str] = (),
         error_responses: Sequence[str] = (),
@@ -209,7 +372,7 @@ class ContractRegistry:
             response_model=response_model,
             success_responses=_normalize_success_responses(success_responses, responses),
             tags=list(tags),
-            security=[{name: list(scopes) for name, scopes in item.items()} for item in security],
+            security=_normalize_security_requirements(security),
             request_examples=list(request_examples),
             response_examples=list(response_examples),
             error_responses=list(error_responses),
@@ -233,7 +396,7 @@ class ContractRegistry:
         success_responses: Sequence[ContractResponse] = (),
         responses: ResponseDeclarations | None = None,
         tags: Sequence[str] = (),
-        security: Sequence[Mapping[str, Sequence[str]]] = (),
+        security: Sequence[SecurityRequirementDeclaration] = (),
         request_examples: Sequence[str] = (),
         response_examples: Sequence[str] = (),
         error_responses: Sequence[str] = (),
@@ -394,6 +557,38 @@ def _string_list(value: object, field: str) -> list[str]:
             raise ContractRegistryError(f"{field} must be a sequence of strings.")
         items.append(item)
     return items
+
+
+def _normalize_security_requirements(
+    security: Sequence[SecurityRequirementDeclaration],
+) -> list[dict[str, list[str]]]:
+    return [
+        _security_requirement_from_declaration(index, declaration)
+        for index, declaration in enumerate(security)
+    ]
+
+
+def _security_requirement_from_declaration(
+    index: int,
+    declaration: SecurityRequirementDeclaration,
+) -> dict[str, list[str]]:
+    if isinstance(declaration, str):
+        return {declaration: []}
+    if not isinstance(declaration, Mapping):
+        raise ContractRegistryError(
+            f"security[{index}] must be a security scheme name or requirement mapping."
+        )
+
+    pairs: list[tuple[str, Sequence[str]]] = []
+    for scheme_name, scopes in declaration.items():
+        if not isinstance(scheme_name, str):
+            raise ContractRegistryError(f"security[{index}] scheme names must be strings.")
+        pairs.append((scheme_name, scopes))
+
+    return {
+        scheme_name: _string_list(scopes, f"security[{index}][{scheme_name!r}]")
+        for scheme_name, scopes in sorted(pairs)
+    }
 
 
 def _contract_response_key(response: ContractResponse) -> tuple[int, str]:

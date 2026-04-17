@@ -144,17 +144,30 @@ real services so implementation changes and contract changes can be reviewed
 independently.
 
 ```python
+registry.bearer_security_scheme(
+    "BearerAuth",
+    bearer_format="JWT",
+    description="JWT bearer token.",
+)
+
 @registry.route(
     method="post",
     path="/users",
     operation_id="create_user",
     request_model="CreateUser",
     response_model="User",
+    security=["BearerAuth"],
 )
 @app.post("/users", response_model=User, operation_id="create_user")
 def create_user(body: CreateUser) -> User:
     ...
 ```
+
+Use `api_key_security_scheme(...)`, `oauth2_security_scheme(...)`,
+`open_id_connect_security_scheme(...)`, and `mutual_tls_security_scheme(...)`
+for the other OpenAPI security scheme types. Endpoint `security=[...]` accepts
+plain scheme names for empty-scope requirements or OpenAPI requirement mappings
+such as `{"OAuth2": ["users:read"]}`.
 
 Multi-status success responses can be declared without giving up reusable error
 responses:

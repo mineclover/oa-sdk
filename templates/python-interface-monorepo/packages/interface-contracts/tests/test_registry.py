@@ -85,10 +85,8 @@ def test_registry_defines_security_responses_examples_and_targets() -> None:
     registry.model("CreateUser", CreateUser)
     registry.model("ErrorBody", ErrorBody)
     registry.model("User", User)
-    registry.security_scheme(
+    registry.bearer_security_scheme(
         "BearerAuth",
-        type="http",
-        scheme="bearer",
         bearer_format="JWT",
         description="JWT bearer token.",
     )
@@ -119,7 +117,7 @@ def test_registry_defines_security_responses_examples_and_targets() -> None:
         operation_id="create_user",
         request_model="CreateUser",
         response_model="User",
-        security=[{"BearerAuth": []}],
+        security=["BearerAuth"],
         request_examples=["create_user_request"],
         response_examples=["created_user_response"],
         error_responses=["Unauthorized"],
@@ -153,6 +151,67 @@ def test_registry_defines_security_responses_examples_and_targets() -> None:
         "created_user_response": {"$ref": "#/components/examples/created_user_response"}
     }
     assert operation["responses"]["401"] == {"$ref": "#/components/responses/Unauthorized"}
+
+
+def test_registry_security_scheme_helpers_emit_openapi_shapes() -> None:
+    oauth_flows = {
+        "clientCredentials": {
+            "tokenUrl": "https://auth.example.com/oauth/token",
+            "scopes": {"users:read": "Read users"},
+        }
+    }
+    registry = ContractRegistry(name="Users API", version="1.0.0")
+    registry.bearer_security_scheme(
+        "BearerAuth",
+        bearer_format="JWT",
+        description="JWT bearer token.",
+    )
+    registry.api_key_security_scheme(
+        "ApiKeyAuth",
+        parameter_name="X-API-Key",
+        location="header",
+        description="API key header.",
+    )
+    registry.oauth2_security_scheme("OAuth2", flows=oauth_flows)
+    registry.open_id_connect_security_scheme(
+        "OpenID",
+        open_id_connect_url="https://auth.example.com/.well-known/openid-configuration",
+    )
+    registry.mutual_tls_security_scheme("MutualTLS")
+    registry.endpoint(
+        method="get",
+        path="/users",
+        operation_id="list_users",
+        security=["BearerAuth", {"OAuth2": ["users:read"]}, "ApiKeyAuth"],
+    )
+
+    document = emit_openapi(registry.to_spec())
+
+    assert document["components"]["securitySchemes"] == {
+        "ApiKeyAuth": {
+            "type": "apiKey",
+            "description": "API key header.",
+            "name": "X-API-Key",
+            "in": "header",
+        },
+        "BearerAuth": {
+            "type": "http",
+            "description": "JWT bearer token.",
+            "scheme": "bearer",
+            "bearerFormat": "JWT",
+        },
+        "MutualTLS": {"type": "mutualTLS"},
+        "OAuth2": {"type": "oauth2", "flows": oauth_flows},
+        "OpenID": {
+            "type": "openIdConnect",
+            "openIdConnectUrl": "https://auth.example.com/.well-known/openid-configuration",
+        },
+    }
+    assert document["paths"]["/users"]["get"]["security"] == [
+        {"BearerAuth": []},
+        {"OAuth2": ["users:read"]},
+        {"ApiKeyAuth": []},
+    ]
 
 
 def test_registry_supports_explicit_multi_status_success_responses() -> None:
@@ -271,7 +330,7 @@ def test_registry_validation_reports_missing_authoring_references() -> None:
         method="post",
         path="/users",
         operation_id="create_user",
-        security=[{"BearerAuth": []}],
+        security=["BearerAuth"],
         request_examples=["create_user_request"],
         response_examples=["created_user_response"],
         error_responses=["Unauthorized"],

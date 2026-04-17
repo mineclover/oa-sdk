@@ -12,6 +12,7 @@ app = FastAPI(title=registry.name, version=registry.version)
     operation_id="create_user",
     request_model="CreateUser",
     response_model="User",
+    security=["BearerAuth"],
 )
 @app.post("/users", response_model=User, operation_id="create_user")
 def create_user(body: CreateUser) -> User:
