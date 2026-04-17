@@ -168,6 +168,129 @@ def test_emit_openapi_writes_identical_output_across_repeated_runs(tmp_path) -> 
     assert output_path.read_text() == first_payload
 
 
+def test_check_artifact_reports_fresh_artifact(tmp_path) -> None:
+    contract_path = tmp_path / "contract.json"
+    artifact_path = tmp_path / "contracts" / "users-api" / "openapi.json"
+    contract_path.write_text(
+        json.dumps(
+            {
+                "name": "Users API",
+                "version": "1.0.0",
+                "endpoints": [
+                    {
+                        "method": "get",
+                        "path": "/users",
+                        "operation_id": "list_users",
+                    }
+                ],
+                "schemas": {},
+            }
+        )
+    )
+    runner = CliRunner()
+    emit_result = runner.invoke(
+        app,
+        ["emit-openapi", str(contract_path), "--output", str(artifact_path)],
+    )
+
+    result = runner.invoke(
+        app,
+        ["check-artifact", str(contract_path), str(artifact_path)],
+    )
+
+    assert emit_result.exit_code == 0
+    assert result.exit_code == 0
+    assert "fresh" in result.stdout
+    assert str(artifact_path) in result.stdout
+
+
+def test_check_artifact_exits_nonzero_when_artifact_is_stale(tmp_path) -> None:
+    contract_path = tmp_path / "contract.json"
+    artifact_path = tmp_path / "contracts" / "users-api" / "openapi.json"
+    contract_path.write_text(
+        json.dumps(
+            {
+                "name": "Users API",
+                "version": "1.0.0",
+                "endpoints": [
+                    {
+                        "method": "get",
+                        "path": "/users",
+                        "operation_id": "list_users",
+                    }
+                ],
+                "schemas": {},
+            }
+        )
+    )
+    artifact_path.parent.mkdir(parents=True)
+    artifact_path.write_text(
+        json.dumps(
+            {
+                "openapi": "3.1.0",
+                "info": {"title": "Users API", "version": "1.0.0"},
+                "paths": {},
+                "components": {"schemas": {}},
+                "x-oa-contract-hash": "sha256:stale",
+            }
+        )
+    )
+
+    result = CliRunner().invoke(
+        app,
+        ["check-artifact", str(contract_path), str(artifact_path)],
+    )
+
+    assert result.exit_code == 1
+    assert "stale" in result.stdout
+    assert str(artifact_path) in result.stdout
+    assert "hash mismatch" in result.stdout
+    assert "paths: 1 missing" in result.stdout
+
+
+def test_check_artifact_supports_json_output(tmp_path) -> None:
+    contract_path = tmp_path / "contract.json"
+    artifact_path = tmp_path / "contracts" / "users-api" / "openapi.json"
+    contract_path.write_text(
+        json.dumps(
+            {
+                "name": "Users API",
+                "version": "1.0.0",
+                "endpoints": [
+                    {
+                        "method": "get",
+                        "path": "/users",
+                        "operation_id": "list_users",
+                    }
+                ],
+                "schemas": {},
+            }
+        )
+    )
+    artifact_path.parent.mkdir(parents=True)
+    artifact_path.write_text(
+        json.dumps(
+            {
+                "openapi": "3.1.0",
+                "info": {"title": "Users API", "version": "1.0.0"},
+                "paths": {},
+                "components": {"schemas": {}},
+            }
+        )
+    )
+
+    result = CliRunner().invoke(
+        app,
+        ["check-artifact", str(contract_path), str(artifact_path), "--format", "json"],
+    )
+    payload = json.loads(result.stdout)
+
+    assert result.exit_code == 1
+    assert payload["fresh"] is False
+    assert payload["artifact"] == str(artifact_path)
+    assert payload["summary"] == "hash mismatch; paths: 1 missing"
+
+
 def test_drift_command_accepts_matching_example_app() -> None:
     result = CliRunner().invoke(
         app,

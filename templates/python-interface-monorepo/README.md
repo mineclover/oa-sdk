@@ -52,7 +52,7 @@ apps/example-api/src/example_api/
   contracts.py    # ContractRegistry or ContractSpec
   main.py         # FastAPI app and route handlers
 
-contracts/example-api/
+contracts/<api>/
   contract.json
   openapi.json
   compatibility-report.json
@@ -63,7 +63,7 @@ Rules:
 - Keep DTOs in Pydantic models.
 - Register schemas and endpoints in the contract layer.
 - Keep route handlers in the app layer.
-- Generate `openapi.json` from the contract layer.
+- Generate `contracts/<api>/openapi.json` from the contract layer.
 - Review `contract.json` changes, not only generated OpenAPI changes.
 - Fail CI when generated artifacts are stale, breaking changes are unapproved,
   or FastAPI runtime drift is detected.
@@ -107,6 +107,23 @@ uv run --package oa-interface-cli oa-contract emit-openapi \
 Emitted OpenAPI includes `x-oa-contract-hash`, a SHA-256 hash derived only from
 the serialized contract spec. It is stable across repeated runs for the same
 contract and should change when the managed contract changes.
+
+Check that the checked-in OpenAPI artifact is fresh:
+
+```bash
+uv run --package oa-interface-cli oa-contract check-artifact \
+  contracts/example-api/contract.json \
+  contracts/example-api/openapi.json
+
+uv run --package oa-interface-cli oa-contract check-artifact \
+  example_api.contracts:registry \
+  contracts/example-api/openapi.json \
+  --format json
+```
+
+Use `contracts/<api>/openapi.json` as the generated artifact path in CI. The
+check parses the existing artifact and compares it with freshly emitted managed
+OpenAPI, so formatting changes do not cause false failures.
 
 Review breaking changes:
 
@@ -269,6 +286,8 @@ Team implementation should be considered complete when:
 - `oa-contract emit-openapi` accepts valid contract JSON or `module:attr`
   registry references and produces stable OpenAPI 3.1 JSON with sorted output
   plus contract-derived hash metadata.
+- `oa-contract check-artifact` compares `contracts/<api>/openapi.json` with
+  freshly emitted managed OpenAPI and exits non-zero when the artifact is stale.
 - `oa-contract diff --fail-on-breaking` exits non-zero for breaking changes.
 - `oa-contract drift --app module:app --contract module:registry` compares
   FastAPI runtime OpenAPI against the managed contract and exits non-zero on
