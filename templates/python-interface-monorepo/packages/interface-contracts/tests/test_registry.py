@@ -30,6 +30,18 @@ class Job(BaseModel):
     status: str
 
 
+class AdminUser(BaseModel):
+    id: str
+    email: EmailStr
+    permissions: list[str]
+
+
+class InternalUser(BaseModel):
+    id: str
+    email: EmailStr
+    shard: str
+
+
 def test_registry_emits_deterministic_contract_spec() -> None:
     registry = ContractRegistry(name="Users API", version="1.0.0")
     registry.model("User", User)
@@ -151,6 +163,55 @@ def test_registry_defines_security_responses_examples_and_targets() -> None:
         "created_user_response": {"$ref": "#/components/examples/created_user_response"}
     }
     assert operation["responses"]["401"] == {"$ref": "#/components/responses/Unauthorized"}
+
+
+def test_registry_emits_target_specific_openapi_with_reachable_schemas() -> None:
+    registry = ContractRegistry(name="Users API", version="1.0.0")
+    registry.public_target(description="Public API")
+    registry.admin_target(description="Admin API")
+    registry.internal_target(description="Internal API")
+    registry.model("AdminUser", AdminUser, audience="admin")
+    registry.model("ErrorBody", ErrorBody, audience="shared")
+    registry.model("InternalUser", InternalUser, audience="internal")
+    registry.model("User", User, audience="public")
+    registry.endpoint(
+        method="get",
+        path="/users",
+        operation_id="list_users",
+        response_model="User",
+        targets=["public", "admin"],
+    )
+    registry.endpoint(
+        method="get",
+        path="/admin/users",
+        operation_id="list_admin_users",
+        response_model="AdminUser",
+        targets=["admin"],
+    )
+    registry.endpoint(
+        method="get",
+        path="/internal/users",
+        operation_id="list_internal_users",
+        response_model="InternalUser",
+        targets=["internal"],
+    )
+
+    contract = registry.to_spec()
+    public_document = emit_openapi(contract, target="public")
+    admin_document = emit_openapi(contract, target="admin")
+    internal_document = emit_openapi(contract, target="internal")
+
+    assert contract.schemas["User"]["x-oa-audience"] == "public"
+    assert contract.schemas["AdminUser"]["x-oa-audience"] == "admin"
+    assert contract.schemas["ErrorBody"]["x-oa-audience"] == "shared"
+    assert contract.schemas["InternalUser"]["x-oa-audience"] == "internal"
+    assert contract.schemas["InternalUser"]["x-internal-only"] is True
+    assert list(public_document["paths"]) == ["/users"]
+    assert list(public_document["components"]["schemas"]) == ["User"]
+    assert list(admin_document["paths"]) == ["/admin/users", "/users"]
+    assert list(admin_document["components"]["schemas"]) == ["AdminUser", "User"]
+    assert list(internal_document["paths"]) == ["/internal/users"]
+    assert list(internal_document["components"]["schemas"]) == ["InternalUser"]
 
 
 def test_registry_security_scheme_helpers_emit_openapi_shapes() -> None:

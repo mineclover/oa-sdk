@@ -131,6 +131,71 @@ registry.endpoint(
     assert document["x-oa-contract-hash"].startswith("sha256:")
 
 
+def test_emit_openapi_target_option_filters_output(tmp_path, monkeypatch) -> None:
+    fixture = tmp_path / "target_fixture.py"
+    fixture.write_text(
+        """
+from oa_interface_contracts import ContractRegistry
+from pydantic import BaseModel
+
+
+class Widget(BaseModel):
+    id: str
+
+
+class AdminWidget(BaseModel):
+    id: str
+    permissions: list[str]
+
+
+class InternalWidget(BaseModel):
+    id: str
+    shard: str
+
+
+registry = ContractRegistry(name="Widgets API", version="1.0.0")
+registry.public_target()
+registry.admin_target()
+registry.internal_target()
+registry.model("Widget", Widget, audience="public")
+registry.model("AdminWidget", AdminWidget, audience="admin")
+registry.model("InternalWidget", InternalWidget, audience="internal")
+registry.endpoint(
+    method="get",
+    path="/widgets",
+    operation_id="list_widgets",
+    response_model="Widget",
+    targets=["public"],
+)
+registry.endpoint(
+    method="get",
+    path="/admin/widgets",
+    operation_id="list_admin_widgets",
+    response_model="AdminWidget",
+    targets=["admin"],
+)
+registry.endpoint(
+    method="get",
+    path="/internal/widgets",
+    operation_id="list_internal_widgets",
+    response_model="InternalWidget",
+    targets=["internal"],
+)
+"""
+    )
+    monkeypatch.syspath_prepend(str(tmp_path))
+
+    result = CliRunner().invoke(
+        app,
+        ["emit-openapi", "target_fixture:registry", "--target", "public"],
+    )
+
+    assert result.exit_code == 0
+    document = json.loads(result.stdout)
+    assert list(document["paths"]) == ["/widgets"]
+    assert list(document["components"]["schemas"]) == ["Widget"]
+
+
 def test_emit_openapi_writes_identical_output_across_repeated_runs(tmp_path) -> None:
     contract_path = tmp_path / "contract.json"
     output_path = tmp_path / "openapi.json"

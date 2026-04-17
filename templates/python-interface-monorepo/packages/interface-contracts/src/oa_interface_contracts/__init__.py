@@ -17,6 +17,7 @@ from .spec import (
     ContractTarget,
     HttpMethod,
     JsonSchema,
+    ModelAudience,
     SecuritySchemeType,
 )
 from .validation import (
@@ -42,6 +43,7 @@ __all__ = [
     "ContractValidationError",
     "HttpMethod",
     "JsonSchema",
+    "ModelAudience",
     "RegisteredEndpoint",
     "SecuritySchemeType",
     "ValidationIssue",

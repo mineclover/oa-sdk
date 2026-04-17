@@ -1,13 +1,21 @@
 import re
 from collections import defaultdict
-from collections.abc import Collection
+from collections.abc import Collection, Mapping
 from dataclasses import dataclass
 from typing import Literal
 
 from .spec import ContractEndpoint, ContractSpec
 
+_COMPONENT_SCHEMA_REF_PREFIX = "#/components/schemas/"
 _PATH_PARAM_PATTERN = re.compile(r"{([^}/]+)}")
 _INTERNAL_ONLY_SCHEMA_EXTENSIONS = ("x-internal-only", "x-internal")
+_MODEL_AUDIENCE_ORDER = {
+    "public": 0,
+    "admin": 1,
+    "internal": 2,
+}
+_SCHEMA_AUDIENCE_EXTENSION = "x-oa-audience"
+_SCHEMA_TARGETS_EXTENSION = "x-oa-targets"
 _HTTP_METHOD_ORDER = {
     "get": 0,
     "post": 1,
@@ -55,6 +63,7 @@ def validate_contract_spec(contract: ContractSpec) -> list[ValidationIssue]:
     issues.extend(_missing_example_reference_issues(contract))
     issues.extend(_unknown_target_reference_issues(contract))
     issues.extend(_public_target_leakage_issues(contract))
+    issues.extend(_target_schema_audience_issues(contract))
     return _sorted_issues(issues)
 
 
@@ -372,7 +381,7 @@ def _public_target_leakage_issues(contract: ContractSpec) -> list[ValidationIssu
                 )
             )
 
-        for model_name in _endpoint_model_names(endpoint, contract):
+        for model_name in _endpoint_reachable_model_names(endpoint, contract):
             schema = contract.schemas.get(model_name)
             if schema is not None and _schema_internal_only(schema):
                 issues.append(
@@ -382,6 +391,33 @@ def _public_target_leakage_issues(contract: ContractSpec) -> list[ValidationIssu
                         detail=(
                             f"public target(s) {public_target_label} reference "
                             f"internal-only model {model_name}."
+                        ),
+                    )
+                )
+
+    return issues
+
+
+def _target_schema_audience_issues(contract: ContractSpec) -> list[ValidationIssue]:
+    issues: list[ValidationIssue] = []
+    public_targets = _public_target_names(contract)
+
+    for endpoint in sorted(contract.endpoints, key=_endpoint_key):
+        location = _endpoint_label(endpoint)
+        for target_name in sorted(set(endpoint.targets)):
+            for model_name in _endpoint_reachable_model_names(endpoint, contract):
+                schema = contract.schemas.get(model_name)
+                if schema is None or _schema_allowed_for_target(schema, target_name):
+                    continue
+                if target_name in public_targets and _schema_internal_only(schema):
+                    continue
+                issues.append(
+                    ValidationIssue(
+                        code="target-schema-audience",
+                        location=location,
+                        detail=(
+                            f"target {target_name} cannot reference "
+                            f"{_schema_target_label(schema)} model {model_name}."
                         ),
                     )
                 )
@@ -412,6 +448,96 @@ def _endpoint_model_names(endpoint: ContractEndpoint, contract: ContractSpec) ->
         if error_response is not None and error_response.model is not None:
             names.add(error_response.model)
     return sorted(names)
+
+
+def _endpoint_reachable_model_names(
+    endpoint: ContractEndpoint,
+    contract: ContractSpec,
+) -> list[str]:
+    reachable = {
+        name for name in _endpoint_model_names(endpoint, contract) if name in contract.schemas
+    }
+    pending = list(reachable)
+    while pending:
+        schema_name = pending.pop()
+        schema = contract.schemas.get(schema_name)
+        if schema is None:
+            continue
+        for ref_name in sorted(_schema_ref_names(schema)):
+            if ref_name not in contract.schemas or ref_name in reachable:
+                continue
+            reachable.add(ref_name)
+            pending.append(ref_name)
+    return sorted(reachable)
+
+
+def _schema_ref_names(value: object) -> set[str]:
+    names: set[str] = set()
+    if isinstance(value, Mapping):
+        ref = value.get("$ref")
+        if isinstance(ref, str):
+            name = _component_schema_name_from_ref(ref)
+            if name is not None:
+                names.add(name)
+        for item in value.values():
+            names.update(_schema_ref_names(item))
+    elif isinstance(value, list):
+        for item in value:
+            names.update(_schema_ref_names(item))
+    return names
+
+
+def _component_schema_name_from_ref(ref: str) -> str | None:
+    if not ref.startswith(_COMPONENT_SCHEMA_REF_PREFIX):
+        return None
+    pointer = ref[len(_COMPONENT_SCHEMA_REF_PREFIX):]
+    encoded_name = pointer.split("/", 1)[0]
+    return encoded_name.replace("~1", "/").replace("~0", "~")
+
+
+def _schema_allowed_for_target(schema: Mapping[str, object], target: str) -> bool:
+    if _schema_internal_only(schema):
+        return target == "internal"
+
+    schema_targets = _schema_target_names(schema)
+    if schema_targets is not None:
+        return target in schema_targets
+
+    audience = schema.get(_SCHEMA_AUDIENCE_EXTENSION)
+    if audience is None or audience == "shared":
+        return True
+    if not isinstance(audience, str):
+        return True
+    return _audience_allowed_for_target(audience, target)
+
+
+def _schema_target_names(schema: Mapping[str, object]) -> set[str] | None:
+    raw_targets = schema.get(_SCHEMA_TARGETS_EXTENSION)
+    if raw_targets is None:
+        return None
+    if isinstance(raw_targets, list) and all(isinstance(item, str) for item in raw_targets):
+        return set(raw_targets)
+    return None
+
+
+def _audience_allowed_for_target(audience: str, target: str) -> bool:
+    audience_order = _MODEL_AUDIENCE_ORDER.get(audience)
+    target_order = _MODEL_AUDIENCE_ORDER.get(target)
+    if audience_order is None or target_order is None:
+        return audience == target
+    return target_order >= audience_order
+
+
+def _schema_target_label(schema: Mapping[str, object]) -> str:
+    schema_targets = _schema_target_names(schema)
+    if schema_targets is not None:
+        return "/".join(sorted(schema_targets))
+    audience = schema.get(_SCHEMA_AUDIENCE_EXTENSION)
+    if isinstance(audience, str):
+        return audience
+    if _schema_internal_only(schema):
+        return "internal"
+    return "restricted"
 
 
 def _schema_internal_only(schema: object) -> bool:

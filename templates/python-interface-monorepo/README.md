@@ -102,11 +102,18 @@ uv run --package oa-interface-cli oa-contract emit-openapi \
 uv run --package oa-interface-cli oa-contract emit-openapi \
   example_api.contracts:registry \
   --output contracts/example-api/openapi.json
+
+uv run --package oa-interface-cli oa-contract emit-openapi \
+  example_api.contracts:registry \
+  --target public \
+  --output contracts/example-api/openapi.public.json
 ```
 
 Emitted OpenAPI includes `x-oa-contract-hash`, a SHA-256 hash derived only from
 the serialized contract spec. It is stable across repeated runs for the same
-contract and should change when the managed contract changes.
+contract and should change when the managed contract changes. When `--target`
+is provided, the artifact includes only endpoints assigned to that target and
+schemas reachable from those endpoints.
 
 Check that the checked-in OpenAPI artifact is fresh:
 
@@ -156,6 +163,9 @@ pull request summaries.
 
 1. Add or update the Pydantic DTO.
 2. Register the model schema in `ContractRegistry` or `ContractSpec.schemas`.
+   Use `audience="public"`, `audience="admin"`, `audience="internal"`, or
+   `audience="shared"` when a model should be limited or explicitly shared
+   across target-specific artifacts.
 3. Register reusable security schemes, error responses, and examples when the
    endpoint needs them. Use `responses={...}` for additional success statuses.
 4. Configure target policies with `required_error_responses=[...]` and
@@ -177,6 +187,9 @@ registry.bearer_security_scheme(
     bearer_format="JWT",
     description="JWT bearer token.",
 )
+registry.public_target(description="Public API")
+registry.model("CreateUser", CreateUser, audience="public")
+registry.model("User", User, audience="public")
 
 @registry.route(
     method="post",
@@ -185,6 +198,7 @@ registry.bearer_security_scheme(
     request_model="CreateUser",
     response_model="User",
     security=["BearerAuth"],
+    targets=["public"],
 )
 @app.post("/users", response_model=User, operation_id="create_user")
 def create_user(body: CreateUser) -> User:

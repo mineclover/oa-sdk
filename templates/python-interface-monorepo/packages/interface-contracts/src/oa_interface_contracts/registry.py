@@ -15,6 +15,7 @@ from .spec import (
     ContractTarget,
     HttpMethod,
     JsonSchema,
+    ModelAudience,
     SecuritySchemeType,
 )
 from .validation import (
@@ -33,6 +34,7 @@ _HTTP_METHOD_ORDER = {
     "options": 6,
     "trace": 7,
 }
+_MODEL_AUDIENCE_NAMES = {"public", "admin", "internal", "shared"}
 
 _P = ParamSpec("_P")
 _R = TypeVar("_R")
@@ -60,6 +62,8 @@ class ContractRegistry:
         self.name = name
         self.version = version
         self._models: dict[str, type[BaseModel]] = {}
+        self._model_audiences: dict[str, ModelAudience] = {}
+        self._model_targets: dict[str, tuple[str, ...]] = {}
         self._internal_model_names: set[str] = set()
         self._security_schemes: dict[str, ContractSecurityScheme] = {}
         self._standard_error_responses: dict[str, ContractResponse] = {}
@@ -95,13 +99,33 @@ class ContractRegistry:
     def endpoints(self) -> tuple[ContractEndpoint, ...]:
         return tuple(item.endpoint for item in self._endpoints)
 
-    def model(self, name: str, model: type[BaseModel], *, internal_only: bool = False) -> Self:
+    def model(
+        self,
+        name: str,
+        model: type[BaseModel],
+        *,
+        audience: ModelAudience | None = None,
+        targets: Sequence[str] | None = None,
+        internal_only: bool = False,
+    ) -> Self:
         if not name:
             raise ContractRegistryError("Model name must not be empty.")
         if name in self._models:
             raise ContractRegistryError(f"Model {name} is already registered.")
+        if audience is not None and audience not in _MODEL_AUDIENCE_NAMES:
+            raise ContractRegistryError(f"Unknown model audience {audience}.")
+        if audience is not None and targets is not None:
+            raise ContractRegistryError("Model audience and targets cannot both be provided.")
+        if internal_only and audience not in (None, "internal"):
+            raise ContractRegistryError("internal_only models must use the internal audience.")
         self._models[name] = model
-        if internal_only:
+        if audience is not None:
+            self._model_audiences[name] = audience
+        if targets is not None:
+            self._model_targets[name] = tuple(
+                _string_list(targets, f"model[{name!r}].targets")
+            )
+        if internal_only or audience == "internal":
             self._internal_model_names.add(name)
         return self
 
@@ -361,6 +385,43 @@ class ContractRegistry:
         )
         return self
 
+    def public_target(
+        self,
+        *,
+        description: str | None = None,
+        required_error_responses: Sequence[str] = (),
+    ) -> Self:
+        return self.target(
+            "public",
+            description=description,
+            required_error_responses=required_error_responses,
+            public=True,
+        )
+
+    def admin_target(
+        self,
+        *,
+        description: str | None = None,
+        required_error_responses: Sequence[str] = (),
+    ) -> Self:
+        return self.target(
+            "admin",
+            description=description,
+            required_error_responses=required_error_responses,
+        )
+
+    def internal_target(
+        self,
+        *,
+        description: str | None = None,
+        required_error_responses: Sequence[str] = (),
+    ) -> Self:
+        return self.target(
+            "internal",
+            description=description,
+            required_error_responses=required_error_responses,
+        )
+
     def endpoint(
         self,
         *,
@@ -490,8 +551,15 @@ class ContractRegistry:
         schemas: dict[str, JsonSchema] = {}
         for name, model in sorted(self._models.items(), key=lambda item: item[0]):
             schema = schema_from_model(model)
-            if name in self._internal_model_names:
+            audience = self._model_audiences.get(name)
+            targets = self._model_targets.get(name)
+            if audience is not None or targets is not None or name in self._internal_model_names:
                 schema = dict(schema)
+            if audience is not None:
+                schema["x-oa-audience"] = audience
+            if targets is not None:
+                schema["x-oa-targets"] = list(targets)
+            if name in self._internal_model_names:
                 schema["x-internal-only"] = True
             schemas[name] = schema
         return schemas

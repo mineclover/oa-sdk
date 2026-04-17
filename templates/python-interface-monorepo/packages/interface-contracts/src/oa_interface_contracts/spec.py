@@ -5,6 +5,7 @@ from pydantic import BaseModel, ConfigDict, Field
 HttpMethod = Literal["get", "post", "put", "patch", "delete", "head", "options", "trace"]
 SecuritySchemeType = Literal["apiKey", "http", "mutualTLS", "oauth2", "openIdConnect"]
 ApiKeyLocation = Literal["query", "header", "cookie"]
+ModelAudience = Literal["public", "admin", "internal", "shared"]
 JsonSchema = dict[str, object]
 
 

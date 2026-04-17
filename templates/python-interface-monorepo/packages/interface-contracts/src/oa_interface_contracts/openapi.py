@@ -14,6 +14,15 @@ from .spec import (
     JsonSchema,
 )
 
+_COMPONENT_SCHEMA_REF_PREFIX = "#/components/schemas/"
+_INTERNAL_ONLY_SCHEMA_EXTENSIONS = ("x-internal-only", "x-internal")
+_MODEL_AUDIENCE_ORDER = {
+    "public": 0,
+    "admin": 1,
+    "internal": 2,
+}
+_SCHEMA_AUDIENCE_EXTENSION = "x-oa-audience"
+_SCHEMA_TARGETS_EXTENSION = "x-oa-targets"
 _HTTP_METHOD_ORDER = {
     "get": 0,
     "post": 1,
@@ -30,7 +39,8 @@ def schema_from_model(model: type[BaseModel]) -> JsonSchema:
     return model.model_json_schema(mode="validation")
 
 
-def emit_openapi(contract: ContractSpec) -> dict[str, Any]:
+def emit_openapi(contract: ContractSpec, *, target: str | None = None) -> dict[str, Any]:
+    contract = _contract_for_target(contract, target)
     paths: dict[str, dict[str, Any]] = {}
 
     for endpoint in sorted(contract.endpoints, key=_endpoint_key):
@@ -54,6 +64,208 @@ def emit_openapi(contract: ContractSpec) -> dict[str, Any]:
     if tags:
         document["tags"] = tags
     return document
+
+
+def _contract_for_target(contract: ContractSpec, target: str | None) -> ContractSpec:
+    if target is None:
+        return contract
+
+    _validate_declared_target(contract, target)
+    endpoints = [endpoint for endpoint in contract.endpoints if target in endpoint.targets]
+    used_error_response_names = _used_error_response_names(endpoints, contract)
+    schema_names = _reachable_schema_names(contract, endpoints, used_error_response_names)
+    disallowed_schema_names = [
+        name
+        for name in schema_names
+        if not _schema_allowed_for_target(contract.schemas[name], target)
+    ]
+    if disallowed_schema_names:
+        joined_names = ", ".join(disallowed_schema_names)
+        raise ValueError(
+            f"target {target} references schema(s) not allowed for that target: {joined_names}"
+        )
+
+    used_security_scheme_names = _used_security_scheme_names(endpoints)
+    used_example_names = _used_example_names(
+        endpoints,
+        contract.standard_error_responses,
+        used_error_response_names,
+    )
+    return ContractSpec(
+        name=contract.name,
+        version=contract.version,
+        endpoints=endpoints,
+        schemas={
+            name: contract.schemas[name]
+            for name in sorted(schema_names)
+        },
+        security_schemes={
+            name: scheme
+            for name, scheme in sorted(contract.security_schemes.items())
+            if name in used_security_scheme_names
+        },
+        standard_error_responses={
+            name: response
+            for name, response in sorted(contract.standard_error_responses.items())
+            if name in used_error_response_names
+        },
+        examples={
+            name: example
+            for name, example in sorted(contract.examples.items())
+            if name in used_example_names
+        },
+        targets=[item for item in contract.targets if item.name == target],
+    )
+
+
+def _validate_declared_target(contract: ContractSpec, target: str) -> None:
+    target_names = {item.name for item in contract.targets}
+    if target_names and target not in target_names:
+        raise ValueError(f"target {target} is not declared.")
+
+
+def _used_error_response_names(
+    endpoints: Sequence[ContractEndpoint],
+    contract: ContractSpec,
+) -> set[str]:
+    response_names = set(contract.standard_error_responses)
+    return {
+        response_name
+        for endpoint in endpoints
+        for response_name in endpoint.error_responses
+        if response_name in response_names
+    }
+
+
+def _used_security_scheme_names(endpoints: Sequence[ContractEndpoint]) -> set[str]:
+    return {
+        scheme_name
+        for endpoint in endpoints
+        for requirement in endpoint.security
+        for scheme_name in requirement
+    }
+
+
+def _used_example_names(
+    endpoints: Sequence[ContractEndpoint],
+    standard_error_responses: Mapping[str, ContractResponse],
+    used_error_response_names: set[str],
+) -> set[str]:
+    names: set[str] = set()
+    for endpoint in endpoints:
+        names.update(endpoint.request_examples)
+        names.update(endpoint.response_examples)
+        for response in endpoint.success_responses:
+            names.update(response.examples)
+    for response_name in used_error_response_names:
+        names.update(standard_error_responses[response_name].examples)
+    return names
+
+
+def _reachable_schema_names(
+    contract: ContractSpec,
+    endpoints: Sequence[ContractEndpoint],
+    used_error_response_names: set[str],
+) -> set[str]:
+    reachable = {
+        name
+        for name in _endpoint_model_names(endpoints, contract, used_error_response_names)
+        if name in contract.schemas
+    }
+    pending = list(reachable)
+    while pending:
+        schema_name = pending.pop()
+        schema = contract.schemas.get(schema_name)
+        if schema is None:
+            continue
+        for ref_name in sorted(_schema_ref_names(schema)):
+            if ref_name not in contract.schemas or ref_name in reachable:
+                continue
+            reachable.add(ref_name)
+            pending.append(ref_name)
+    return reachable
+
+
+def _endpoint_model_names(
+    endpoints: Sequence[ContractEndpoint],
+    contract: ContractSpec,
+    used_error_response_names: set[str],
+) -> set[str]:
+    names: set[str] = set()
+    for endpoint in endpoints:
+        if endpoint.request_model is not None:
+            names.add(endpoint.request_model)
+        if endpoint.response_model is not None:
+            names.add(endpoint.response_model)
+        for response in endpoint.success_responses:
+            if response.model is not None:
+                names.add(response.model)
+    for response_name in used_error_response_names:
+        response = contract.standard_error_responses[response_name]
+        if response.model is not None:
+            names.add(response.model)
+    return names
+
+
+def _schema_ref_names(value: object) -> set[str]:
+    names: set[str] = set()
+    if isinstance(value, Mapping):
+        ref = value.get("$ref")
+        if isinstance(ref, str):
+            name = _component_schema_name_from_ref(ref)
+            if name is not None:
+                names.add(name)
+        for item in value.values():
+            names.update(_schema_ref_names(item))
+    elif isinstance(value, list):
+        for item in value:
+            names.update(_schema_ref_names(item))
+    return names
+
+
+def _component_schema_name_from_ref(ref: str) -> str | None:
+    if not ref.startswith(_COMPONENT_SCHEMA_REF_PREFIX):
+        return None
+    pointer = ref[len(_COMPONENT_SCHEMA_REF_PREFIX):]
+    encoded_name = pointer.split("/", 1)[0]
+    return encoded_name.replace("~1", "/").replace("~0", "~")
+
+
+def _schema_allowed_for_target(schema: JsonSchema, target: str) -> bool:
+    if _schema_internal_only(schema):
+        return target == "internal"
+
+    schema_targets = _schema_target_names(schema)
+    if schema_targets is not None:
+        return target in schema_targets
+
+    audience = schema.get(_SCHEMA_AUDIENCE_EXTENSION)
+    if audience is None or audience == "shared":
+        return True
+    if not isinstance(audience, str):
+        return True
+    return _audience_allowed_for_target(audience, target)
+
+
+def _schema_internal_only(schema: Mapping[str, object]) -> bool:
+    return any(schema.get(extension) is True for extension in _INTERNAL_ONLY_SCHEMA_EXTENSIONS)
+
+
+def _schema_target_names(schema: Mapping[str, object]) -> set[str] | None:
+    raw_targets = schema.get(_SCHEMA_TARGETS_EXTENSION)
+    if raw_targets is None:
+        return None
+    if isinstance(raw_targets, list) and all(isinstance(item, str) for item in raw_targets):
+        return set(raw_targets)
+    return None
+
+
+def _audience_allowed_for_target(audience: str, target: str) -> bool:
+    audience_order = _MODEL_AUDIENCE_ORDER.get(audience)
+    target_order = _MODEL_AUDIENCE_ORDER.get(target)
+    if audience_order is None or target_order is None:
+        return audience == target
+    return target_order >= audience_order
 
 
 def contract_version_hash(contract: ContractSpec) -> str:

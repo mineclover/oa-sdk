@@ -5,9 +5,11 @@ from oa_interface_contracts import (
     ContractResponse,
     ContractSecurityScheme,
     ContractSpec,
+    ContractTarget,
     diff_contract_changes,
     diff_contracts,
     emit_openapi,
+    validate_contract_spec,
 )
 from oa_interface_contracts.openapi import schema_from_model
 from pydantic import BaseModel, EmailStr
@@ -137,6 +139,78 @@ def test_emit_openapi_is_deterministic_and_sorted() -> None:
         {"name": "write"},
     ]
     assert first_document["x-oa-contract-hash"].startswith("sha256:")
+
+
+def test_emit_openapi_target_filters_transitively_reachable_schemas() -> None:
+    contract = ContractSpec(
+        name="Users API",
+        version="1.0.0",
+        targets=[ContractTarget(name="public", public=True)],
+        schemas={
+            "Envelope": {
+                "type": "object",
+                "properties": {
+                    "user": {"$ref": "#/components/schemas/User"},
+                },
+            },
+            "Unused": {"type": "object"},
+            "User": {
+                "type": "object",
+                "x-oa-audience": "public",
+                "properties": {
+                    "id": {"type": "string"},
+                },
+            },
+        },
+        endpoints=[
+            ContractEndpoint(
+                method="get",
+                path="/users",
+                operation_id="list_users",
+                response_model="Envelope",
+                targets=["public"],
+            )
+        ],
+    )
+
+    document = emit_openapi(contract, target="public")
+
+    assert list(document["components"]["schemas"]) == ["Envelope", "User"]
+
+
+def test_validation_reports_transitive_public_internal_schema_leakage() -> None:
+    contract = ContractSpec(
+        name="Users API",
+        version="1.0.0",
+        targets=[ContractTarget(name="public", public=True)],
+        schemas={
+            "InternalSecret": {
+                "type": "object",
+                "x-oa-audience": "internal",
+                "x-internal-only": True,
+            },
+            "PublicEnvelope": {
+                "type": "object",
+                "properties": {
+                    "secret": {"$ref": "#/components/schemas/InternalSecret"},
+                },
+            },
+        },
+        endpoints=[
+            ContractEndpoint(
+                method="get",
+                path="/leak",
+                operation_id="get_leak",
+                response_model="PublicEnvelope",
+                targets=["public"],
+            )
+        ],
+    )
+
+    issues = validate_contract_spec(contract)
+
+    assert [issue.code for issue in issues] == ["public-internal-model"]
+    assert "internal-only model InternalSecret" in issues[0].detail
 
 
 def test_diff_contracts_classifies_breaking_and_non_breaking_changes() -> None:

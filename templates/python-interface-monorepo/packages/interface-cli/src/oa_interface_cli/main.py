@@ -42,6 +42,13 @@ def validate(source: Annotated[str, typer.Argument()]) -> None:
 def emit_openapi_command(
     source: Annotated[str, typer.Argument()],
     output: Annotated[Path | None, typer.Option("--output", "-o")] = None,
+    target: Annotated[
+        str | None,
+        typer.Option(
+            "--target",
+            help="Emit only operations and reachable schemas assigned to this target.",
+        ),
+    ] = None,
 ) -> None:
     try:
         contract = _load_contract_source(source)
@@ -49,7 +56,13 @@ def emit_openapi_command(
         console.print(f"[red]invalid[/red] {source} - {exc}")
         raise typer.Exit(1) from exc
 
-    payload = json.dumps(emit_openapi(contract), indent=2, sort_keys=True)
+    try:
+        document = emit_openapi(contract, target=target)
+    except ValueError as exc:
+        console.print(f"[red]invalid[/red] {source} - {exc}")
+        raise typer.Exit(1) from exc
+
+    payload = json.dumps(document, indent=2, sort_keys=True)
     if output is None:
         console.print(payload)
     else:
