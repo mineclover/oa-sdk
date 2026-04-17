@@ -1,3 +1,4 @@
+from .adapters import OpenApiDocument, RuntimeOpenApiAdapter
 from .artifact import (
     OpenApiArtifactCheck,
     artifact_drift_summary,
@@ -68,8 +69,10 @@ __all__ = [
     "HttpMethod",
     "JsonSchema",
     "ModelAudience",
+    "OpenApiDocument",
     "OpenApiArtifactCheck",
     "RegisteredEndpoint",
+    "RuntimeOpenApiAdapter",
     "SecuritySchemeType",
     "ValidationIssue",
     "ValidationSeverity",

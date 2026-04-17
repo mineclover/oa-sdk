@@ -4,9 +4,14 @@ from dataclasses import dataclass
 from typing import Any, Protocol, cast, runtime_checkable
 
 from fastapi import FastAPI
-from oa_interface_contracts import ContractSpec, emit_openapi
+from oa_interface_contracts import (
+    ContractSpec,
+    RuntimeOpenApiAdapter,
+    emit_openapi,
+    load_module_attr,
+)
 
-from .loader import load_module_attr
+from .adapter import FASTAPI_ADAPTER
 
 OpenApiDocument = dict[str, Any]
 
@@ -34,11 +39,24 @@ class DriftIssue:
     detail: str
 
 
-def detect_drift(app_ref: str, contract_ref: str) -> list[DriftIssue]:
-    fastapi_app = load_fastapi_app(app_ref)
-    runtime_openapi: OpenApiDocument = fastapi_app.openapi()
+def detect_drift(
+    app_ref: str,
+    contract_ref: str,
+    *,
+    adapter: RuntimeOpenApiAdapter = FASTAPI_ADAPTER,
+) -> list[DriftIssue]:
+    runtime_openapi = load_runtime_openapi(app_ref, adapter=adapter)
     managed_openapi = load_contract_openapi(contract_ref)
     return compare_openapi(runtime_openapi, managed_openapi)
+
+
+def load_runtime_openapi(
+    reference: str,
+    *,
+    adapter: RuntimeOpenApiAdapter = FASTAPI_ADAPTER,
+) -> OpenApiDocument:
+    runtime = load_module_attr(reference)
+    return dict(adapter.extract_openapi(runtime))
 
 
 def load_fastapi_app(reference: str) -> FastAPI:

@@ -1,19 +1,24 @@
+from .adapter import FASTAPI_ADAPTER, FastApiRuntimeAdapter
 from .drift import (
     DriftIssue,
     compare_openapi,
     detect_drift,
     load_contract_openapi,
     load_fastapi_app,
+    load_runtime_openapi,
 )
 from .loader import load_module_attr
 from .testing import assert_no_fastapi_drift
 
 __all__ = [
     "DriftIssue",
+    "FASTAPI_ADAPTER",
+    "FastApiRuntimeAdapter",
     "assert_no_fastapi_drift",
     "compare_openapi",
     "detect_drift",
     "load_contract_openapi",
     "load_fastapi_app",
     "load_module_attr",
+    "load_runtime_openapi",
 ]

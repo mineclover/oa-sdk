@@ -6,6 +6,7 @@ from typing import Any, Protocol, runtime_checkable
 from fastapi import FastAPI
 from oa_interface_contracts import ContractInput, emit_openapi, load_contract_spec
 
+from .adapter import FASTAPI_ADAPTER
 from .drift import DriftIssue, _contract_to_openapi, compare_openapi
 from .loader import load_module_attr
 
@@ -37,9 +38,9 @@ def assert_no_fastapi_drift(app: FastApiInput, contract: ContractInput) -> None:
 def _runtime_openapi(source: FastApiInput) -> Mapping[str, Any]:
     if isinstance(source, str):
         app = load_module_attr(source)
-        if not isinstance(app, FastAPI):
-            raise TypeError(f"{source} did not resolve to a FastAPI app")
-        return app.openapi()
+        return FASTAPI_ADAPTER.extract_openapi(app)
+    if isinstance(source, FastAPI):
+        return FASTAPI_ADAPTER.extract_openapi(source)
     if isinstance(source, Mapping):
         return source
     if isinstance(source, OpenApiProvider):

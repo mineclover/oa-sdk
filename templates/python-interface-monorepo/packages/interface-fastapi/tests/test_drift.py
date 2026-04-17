@@ -1,6 +1,13 @@
+import pytest
 from fastapi import FastAPI
-from oa_interface_contracts import ContractEndpoint, ContractResponse, ContractSpec, emit_openapi
-from oa_interface_fastapi import compare_openapi
+from oa_interface_contracts import (
+    ContractEndpoint,
+    ContractResponse,
+    ContractSpec,
+    RuntimeOpenApiAdapter,
+    emit_openapi,
+)
+from oa_interface_fastapi import FASTAPI_ADAPTER, compare_openapi, load_runtime_openapi
 from pydantic import BaseModel
 
 
@@ -22,6 +29,36 @@ class WidgetCopy(BaseModel):
 
 class OtherWidget(BaseModel):
     slug: str
+
+
+def test_fastapi_adapter_implements_runtime_openapi_protocol() -> None:
+    app = FastAPI(title="Widgets API", version="1.0.0")
+
+    document = FASTAPI_ADAPTER.extract_openapi(app)
+
+    assert isinstance(FASTAPI_ADAPTER, RuntimeOpenApiAdapter)
+    assert document["info"]["title"] == "Widgets API"
+
+
+def test_fastapi_adapter_rejects_non_fastapi_runtime() -> None:
+    with pytest.raises(TypeError, match="FastAPI adapter"):
+        FASTAPI_ADAPTER.extract_openapi(object())
+
+
+def test_load_runtime_openapi_uses_adapter_for_module_reference(tmp_path, monkeypatch) -> None:
+    fixture = tmp_path / "adapter_fixture.py"
+    fixture.write_text(
+        """
+from fastapi import FastAPI
+
+app = FastAPI(title="Adapter Fixture", version="1.0.0")
+"""
+    )
+    monkeypatch.syspath_prepend(str(tmp_path))
+
+    document = load_runtime_openapi("adapter_fixture:app")
+
+    assert document["info"]["title"] == "Adapter Fixture"
 
 
 def _contract(operation_id: str = "get_widget") -> ContractSpec:

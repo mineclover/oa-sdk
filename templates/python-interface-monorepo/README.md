@@ -36,11 +36,30 @@ separate enough to manage independently.
 | Path | Purpose |
 |---|---|
 | `packages/interface-contracts` | Core contract models, Pydantic schema extraction, OpenAPI emit, and breaking diff primitives. |
+| `packages/interface-fastapi` | FastAPI runtime OpenAPI adapter, drift normalization, and pytest drift helper. |
 | `packages/interface-cli` | `oa-contract` CLI for validation, OpenAPI artifact generation, and compatibility checks. |
 | `apps/example-api` | FastAPI example that shares Pydantic DTOs and contract definitions with the tooling. |
 
 Future adapters should be added as workspace members under `packages/*`, for
-example `packages/interface-fastapi`.
+example `packages/interface-litestar`, `packages/interface-django-ninja`, or
+`packages/interface-flask`.
+
+## Adapter Package Boundaries
+
+`packages/interface-contracts` owns framework-neutral contracts: `ContractSpec`,
+`ContractRegistry`, deterministic OpenAPI emission, diffing, validation,
+artifact checks, snapshots, and the `RuntimeOpenApiAdapter` protocol. It must
+not import FastAPI or any other web framework.
+
+Framework packages implement that adapter protocol and own framework-specific
+runtime extraction or normalization. `packages/interface-fastapi` is the first
+adapter package: it imports FastAPI, extracts runtime OpenAPI from a FastAPI app,
+and suppresses only known FastAPI-generated OpenAPI noise such as validation 422
+responses.
+
+`packages/interface-cli` wires installed adapters into commands. The drift lane
+currently selects `--adapter fastapi` by default; future adapter candidates are
+Litestar, Django Ninja, and Flask.
 
 ## Management Model
 
@@ -154,7 +173,7 @@ jobs:
       - run: uv run --package oa-interface-cli oa-contract snapshot example_api.main:contract --output contracts/example-api/contract.json
       - run: uv run --package oa-interface-cli oa-contract validate example_api.main:contract
       - run: uv run --package oa-interface-cli oa-contract check-artifact example_api.main:contract contracts/example-api/openapi.json
-      - run: uv run --package oa-interface-cli oa-contract drift --app example_api.main:app --contract example_api.main:contract --format markdown
+      - run: uv run --package oa-interface-cli oa-contract drift --adapter fastapi --app example_api.main:app --contract example_api.main:contract --format markdown
 ```
 
 If the repository stores base and head contract snapshots, add the review gate:
@@ -296,6 +315,7 @@ Target drift command for the FastAPI adapter lane:
 
 ```bash
 uv run --package oa-interface-cli oa-contract drift \
+  --adapter fastapi \
   --app example_api.main:app \
   --contract example_api.main:contract \
   --format text
@@ -567,9 +587,9 @@ Team implementation should be considered complete when:
 - `oa-contract check-artifact` compares `contracts/<api>/openapi.json` with
   freshly emitted managed OpenAPI and exits non-zero when the artifact is stale.
 - `oa-contract diff --fail-on-breaking` exits non-zero for breaking changes.
-- `oa-contract drift --app module:app --contract module:contract` compares
-  FastAPI runtime OpenAPI against the managed contract and exits non-zero on
-  drift.
+- `oa-contract drift --adapter fastapi --app module:app --contract module:contract`
+  compares FastAPI runtime OpenAPI against the managed contract and exits
+  non-zero on drift.
 - `uv run pytest`, `uv run ruff check .`, and `uv run mypy` pass from the
   workspace root.
 - README examples match the implemented CLI behavior.

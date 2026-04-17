@@ -6,20 +6,21 @@ import typer
 from oa_interface_contracts import (
     ContractChange,
     ContractSpec,
+    RuntimeOpenApiAdapter,
     ValidationIssue,
     compare_openapi_documents,
     diff_contract_changes,
     emit_openapi,
     load_contract_spec,
+    load_module_attr,
     load_openapi_artifact,
     serialize_contract_snapshot,
     validate_contract_spec,
 )
 from oa_interface_fastapi import (
+    FASTAPI_ADAPTER,
     DriftIssue,
     compare_openapi,
-    detect_drift,
-    load_fastapi_app,
 )
 from rich.console import Console
 
@@ -28,6 +29,7 @@ console = Console()
 
 OutputFormat = Literal["human", "json"]
 DriftOutputFormat = Literal["text", "json", "markdown"]
+AdapterName = Literal["fastapi"]
 ReviewOutputFormat = Literal["json", "markdown"]
 ReviewRecommendation = Literal["APPROVE", "COMMENT", "REQUEST_CHANGES"]
 
@@ -175,10 +177,15 @@ def drift(
         typer.Option("--contract", help="Contract reference as module:attr"),
     ],
     output_format: Annotated[DriftOutputFormat, typer.Option("--format", "-f")] = "text",
+    adapter_name: Annotated[
+        AdapterName,
+        typer.Option("--adapter", help="Runtime adapter used to extract OpenAPI from --app."),
+    ] = "fastapi",
 ) -> None:
-    issues = detect_drift(app_ref, contract_ref)
+    adapter = _runtime_adapter(adapter_name)
+    issues = _detect_drift(app_ref, contract_ref, adapter=adapter)
 
-    _print_drift_result(issues, output_format)
+    _print_drift_result(issues, output_format, adapter=adapter)
 
     if issues:
         raise typer.Exit(1)
@@ -239,6 +246,32 @@ def _load_contract_source(source: str) -> ContractSpec:
     return load_contract_spec(source)
 
 
+def _runtime_adapter(adapter_name: AdapterName) -> RuntimeOpenApiAdapter:
+    if adapter_name == "fastapi":
+        return FASTAPI_ADAPTER
+    raise ValueError(f"unsupported adapter {adapter_name!r}")
+
+
+def _detect_drift(
+    app_ref: str,
+    contract_ref: str,
+    *,
+    adapter: RuntimeOpenApiAdapter,
+) -> list[DriftIssue]:
+    runtime_openapi = _runtime_openapi(app_ref, adapter=adapter)
+    managed_openapi = emit_openapi(_load_contract_source(contract_ref))
+    return compare_openapi(runtime_openapi, managed_openapi)
+
+
+def _runtime_openapi(
+    app_ref: str,
+    *,
+    adapter: RuntimeOpenApiAdapter,
+) -> dict[str, Any]:
+    runtime = load_module_attr(app_ref)
+    return dict(adapter.extract_openapi(runtime))
+
+
 def _print_validation_issues(issues: list[ValidationIssue]) -> None:
     for issue in issues:
         style = "red" if issue.severity == "error" else "yellow"
@@ -251,6 +284,8 @@ def _print_validation_issues(issues: list[ValidationIssue]) -> None:
 def _print_drift_result(
     issues: list[DriftIssue],
     output_format: DriftOutputFormat,
+    *,
+    adapter: RuntimeOpenApiAdapter,
 ) -> None:
     if output_format == "json":
         console.print(
@@ -260,11 +295,11 @@ def _print_drift_result(
         return
 
     if output_format == "markdown":
-        console.print(_drift_markdown(issues), soft_wrap=True)
+        console.print(_drift_markdown(issues, adapter=adapter), soft_wrap=True)
         return
 
     if not issues:
-        console.print("[green]No FastAPI drift detected.[/green]")
+        console.print(f"[green]No {adapter.framework} drift detected.[/green]")
         return
 
     for issue in issues:
@@ -285,12 +320,16 @@ def _drift_result_payload(issues: list[DriftIssue]) -> dict[str, object]:
     }
 
 
-def _drift_markdown(issues: list[DriftIssue]) -> str:
+def _drift_markdown(
+    issues: list[DriftIssue],
+    *,
+    adapter: RuntimeOpenApiAdapter,
+) -> str:
     if not issues:
-        return "## FastAPI Drift\n\nNo FastAPI drift detected."
+        return f"## {adapter.framework} Drift\n\nNo {adapter.framework} drift detected."
 
     rows = [
-        "## FastAPI Drift",
+        f"## {adapter.framework} Drift",
         "",
         "| Code | Location | Detail |",
         "| --- | --- | --- |",
@@ -329,7 +368,7 @@ def _build_review_report(
     validation_issues = validate_contract_spec(head_contract)
     diff_result = diff_contract_changes(base_contract, head_contract)
     managed_openapi = emit_openapi(head_contract, target=target)
-    drift_result = _review_drift_result(app_ref, managed_openapi)
+    drift_result = _review_drift_result(app_ref, managed_openapi, adapter=FASTAPI_ADAPTER)
     artifact_result = _review_artifact_result(artifact, managed_openapi)
 
     drift_failed = bool(drift_result.get("issues"))
@@ -391,6 +430,8 @@ def _review_recommendation(
 def _review_drift_result(
     app_ref: str | None,
     managed_openapi: dict[str, Any],
+    *,
+    adapter: RuntimeOpenApiAdapter,
 ) -> dict[str, object]:
     if app_ref is None:
         return {
@@ -401,7 +442,7 @@ def _review_drift_result(
         }
 
     try:
-        runtime_openapi = load_fastapi_app(app_ref).openapi()
+        runtime_openapi = _runtime_openapi(app_ref, adapter=adapter)
         issues = compare_openapi(runtime_openapi, managed_openapi)
     except Exception as exc:  # noqa: BLE001 - report drift-check failures in the review body.
         issues = [

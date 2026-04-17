@@ -629,6 +629,8 @@ def test_drift_command_accepts_matching_example_app() -> None:
             "example_api.main:app",
             "--contract",
             "example_api.contracts:registry",
+            "--adapter",
+            "fastapi",
         ],
     )
 
