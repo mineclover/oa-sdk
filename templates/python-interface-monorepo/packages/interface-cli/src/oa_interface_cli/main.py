@@ -5,13 +5,14 @@ from typing import Annotated, Any, Literal, cast
 import typer
 from oa_interface_contracts import (
     ContractChange,
-    ContractRegistry,
     ContractSpec,
     ValidationIssue,
     compare_openapi_documents,
     diff_contract_changes,
     emit_openapi,
+    load_contract_spec,
     load_openapi_artifact,
+    serialize_contract_snapshot,
     validate_contract_spec,
 )
 from oa_interface_fastapi import (
@@ -19,7 +20,6 @@ from oa_interface_fastapi import (
     compare_openapi,
     detect_drift,
     load_fastapi_app,
-    load_module_attr,
 )
 from rich.console import Console
 
@@ -46,6 +46,29 @@ def validate(source: Annotated[str, typer.Argument()]) -> None:
         raise typer.Exit(1)
 
     console.print(f"[green]valid[/green] {source}")
+
+
+@app.command()
+def snapshot(
+    source: Annotated[
+        str,
+        typer.Argument(help="Contract JSON, snapshot JSON, or module:attr registry reference."),
+    ],
+    output: Annotated[Path | None, typer.Option("--output", "-o")] = None,
+) -> None:
+    try:
+        payload = serialize_contract_snapshot(source)
+    except (AttributeError, ImportError, OSError, TypeError, ValueError) as exc:
+        console.print(f"[red]invalid[/red] {source} - {exc}")
+        raise typer.Exit(1) from exc
+
+    if output is None:
+        console.print(payload, soft_wrap=True)
+        return
+
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(f"{payload}\n")
+    console.print(f"[green]wrote[/green] {output}", soft_wrap=True)
 
 
 @app.command("emit-openapi")
@@ -120,8 +143,8 @@ def diff(
     head: Annotated[Path, typer.Argument(exists=True, readable=True)],
     fail_on_breaking: Annotated[bool, typer.Option("--fail-on-breaking")] = False,
 ) -> None:
-    base_contract = ContractSpec.model_validate_json(base.read_text())
-    head_contract = ContractSpec.model_validate_json(head.read_text())
+    base_contract = _load_contract_source(str(base))
+    head_contract = _load_contract_source(str(head))
     result = diff_contract_changes(base_contract, head_contract)
 
     if not result.breaking and not result.non_breaking:
@@ -213,21 +236,7 @@ def review(
 
 
 def _load_contract_source(source: str) -> ContractSpec:
-    path = Path(source)
-    if path.exists():
-        return ContractSpec.model_validate_json(path.read_text())
-    if ":" in source:
-        return _contract_from_reference(source)
-    raise ValueError(f"{source} is not a readable file or module:attr reference")
-
-
-def _contract_from_reference(reference: str) -> ContractSpec:
-    value = load_module_attr(reference)
-    if isinstance(value, ContractSpec):
-        return value
-    if isinstance(value, ContractRegistry):
-        return value.to_spec(validate=False)
-    raise TypeError("contract reference must resolve to ContractSpec or ContractRegistry")
+    return load_contract_spec(source)
 
 
 def _print_validation_issues(issues: list[ValidationIssue]) -> None:

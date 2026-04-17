@@ -233,6 +233,113 @@ def test_emit_openapi_writes_identical_output_across_repeated_runs(tmp_path) -> 
     assert output_path.read_text() == first_payload
 
 
+def test_snapshot_command_writes_stable_snapshot_with_toolkit_metadata(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    fixture = tmp_path / "snapshot_fixture.py"
+    fixture.write_text(
+        """
+from oa_interface_contracts import ContractRegistry
+from pydantic import BaseModel
+
+
+class Widget(BaseModel):
+    id: str
+
+
+registry = ContractRegistry(name="Widgets API", version="1.0.0")
+registry.model("Widget", Widget)
+registry.endpoint(
+    method="get",
+    path="/widgets/{widget_id}",
+    operation_id="get_widget",
+    response_model="Widget",
+    path_params=["widget_id"],
+)
+"""
+    )
+    monkeypatch.syspath_prepend(str(tmp_path))
+    snapshot_path = tmp_path / "contracts" / "widgets" / "contract.json"
+    runner = CliRunner()
+
+    first = runner.invoke(
+        app,
+        ["snapshot", "snapshot_fixture:registry", "--output", str(snapshot_path)],
+    )
+    first_payload = snapshot_path.read_text()
+    second = runner.invoke(
+        app,
+        ["snapshot", "snapshot_fixture:registry", "--output", str(snapshot_path)],
+    )
+    payload = json.loads(first_payload)
+
+    assert first.exit_code == 0
+    assert second.exit_code == 0
+    assert snapshot_path.read_text() == first_payload
+    assert payload["format"] == "oa-contract-snapshot"
+    assert payload["snapshot_version"] == 1
+    assert payload["toolkit"]["oa-interface-cli"]
+    assert payload["toolkit"]["oa-interface-contracts"]
+    assert payload["contract"]["name"] == "Widgets API"
+
+
+def test_snapshot_can_feed_existing_contract_commands(tmp_path, monkeypatch) -> None:
+    fixture = tmp_path / "snapshot_gate_fixture.py"
+    fixture.write_text(
+        """
+from oa_interface_contracts import ContractRegistry
+from pydantic import BaseModel
+
+
+class Widget(BaseModel):
+    id: str
+
+
+registry = ContractRegistry(name="Widgets API", version="1.0.0")
+registry.model("Widget", Widget)
+registry.endpoint(
+    method="get",
+    path="/widgets/{widget_id}",
+    operation_id="get_widget",
+    response_model="Widget",
+    tags=["widgets"],
+    path_params=["widget_id"],
+)
+"""
+    )
+    monkeypatch.syspath_prepend(str(tmp_path))
+    snapshot_path = tmp_path / "contract.json"
+    runner = CliRunner()
+    snapshot_result = runner.invoke(
+        app,
+        ["snapshot", "snapshot_gate_fixture:registry", "--output", str(snapshot_path)],
+    )
+
+    validate_result = runner.invoke(app, ["validate", str(snapshot_path)])
+    diff_result = runner.invoke(app, ["diff", str(snapshot_path), str(snapshot_path)])
+    module_openapi_result = runner.invoke(
+        app,
+        ["emit-openapi", "snapshot_gate_fixture:registry"],
+    )
+    snapshot_openapi_result = runner.invoke(app, ["emit-openapi", str(snapshot_path)])
+    review_result = runner.invoke(
+        app,
+        ["review", str(snapshot_path), str(snapshot_path), "--format", "json"],
+    )
+    review_payload = json.loads(review_result.stdout)
+
+    assert snapshot_result.exit_code == 0
+    assert validate_result.exit_code == 0
+    assert diff_result.exit_code == 0
+    assert "No contract changes detected" in diff_result.stdout
+    assert module_openapi_result.exit_code == 0
+    assert snapshot_openapi_result.exit_code == 0
+    assert json.loads(snapshot_openapi_result.stdout) == json.loads(module_openapi_result.stdout)
+    assert review_result.exit_code == 0
+    assert review_payload["recommendation"] == "COMMENT"
+
+
 def test_check_artifact_reports_fresh_artifact(tmp_path) -> None:
     contract_path = tmp_path / "contract.json"
     artifact_path = tmp_path / "contracts" / "users-api" / "openapi.json"

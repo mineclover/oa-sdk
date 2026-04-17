@@ -13,6 +13,18 @@ from .diff import (
 )
 from .openapi import contract_version_hash, emit_openapi
 from .registry import ContractRegistry, ContractRegistryError, RegisteredEndpoint
+from .snapshot import (
+    ContractInput,
+    ContractSnapshot,
+    contract_spec_from_json,
+    contract_spec_from_mapping,
+    load_contract_json,
+    load_contract_spec,
+    load_module_attr,
+    serialize_contract_snapshot,
+    snapshot_contract,
+    toolkit_version_metadata,
+)
 from .spec import (
     ApiKeyLocation,
     ContractEndpoint,
@@ -44,10 +56,12 @@ __all__ = [
     "ContractDiffResult",
     "ContractEndpoint",
     "ContractExample",
+    "ContractInput",
     "ContractRegistry",
     "ContractRegistryError",
     "ContractResponse",
     "ContractSecurityScheme",
+    "ContractSnapshot",
     "ContractSpec",
     "ContractTarget",
     "ContractValidationError",
@@ -63,10 +77,18 @@ __all__ = [
     "assert_contract_valid",
     "assert_openapi_artifact_current",
     "compare_openapi_documents",
+    "contract_spec_from_json",
+    "contract_spec_from_mapping",
     "contract_version_hash",
     "diff_contract_changes",
     "diff_contracts",
     "emit_openapi",
+    "load_contract_json",
+    "load_contract_spec",
     "load_openapi_artifact",
+    "load_module_attr",
+    "serialize_contract_snapshot",
+    "snapshot_contract",
+    "toolkit_version_metadata",
     "validate_contract_spec",
 ]

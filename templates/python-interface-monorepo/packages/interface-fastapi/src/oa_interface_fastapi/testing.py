@@ -4,8 +4,7 @@ from pathlib import Path
 from typing import Any, Protocol, runtime_checkable
 
 from fastapi import FastAPI
-from oa_interface_contracts import emit_openapi
-from oa_interface_contracts.testing import ContractInput, load_contract_spec
+from oa_interface_contracts import ContractInput, emit_openapi, load_contract_spec
 
 from .drift import DriftIssue, _contract_to_openapi, compare_openapi
 from .loader import load_module_attr

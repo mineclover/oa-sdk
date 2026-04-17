@@ -1,51 +1,10 @@
-from collections.abc import Mapping
-from importlib import import_module
 from os import PathLike
 from pathlib import Path
-from typing import Any, Protocol, runtime_checkable
 
 from .artifact import compare_openapi_documents, load_openapi_artifact
 from .openapi import emit_openapi
-from .registry import ContractRegistry
-from .spec import ContractSpec
+from .snapshot import ContractInput, load_contract_spec
 from .validation import ValidationIssue, validate_contract_spec
-
-
-@runtime_checkable
-class ContractFactory(Protocol):
-    def to_contract(self) -> ContractSpec: ...
-
-
-ContractInput = (
-    str
-    | PathLike[str]
-    | ContractSpec
-    | ContractRegistry
-    | Mapping[str, Any]
-    | ContractFactory
-)
-
-
-def load_contract_spec(source: ContractInput) -> ContractSpec:
-    if isinstance(source, ContractSpec):
-        return source
-    if isinstance(source, ContractRegistry):
-        return source.to_spec(validate=False)
-    if isinstance(source, Mapping):
-        return ContractSpec.model_validate(source)
-    if isinstance(source, (str, PathLike)):
-        text = str(source)
-        path = Path(source)
-        if path.exists():
-            return ContractSpec.model_validate_json(path.read_text())
-        if isinstance(source, str) and ":" in source:
-            return load_contract_spec(_load_module_attr(source))
-        raise ValueError(f"{text} is not a readable file or module:attr reference")
-    if isinstance(source, ContractFactory):
-        return source.to_contract()
-    raise TypeError(
-        "contract source must be ContractSpec, ContractRegistry, mapping, file, or module:attr"
-    )
 
 
 def assert_contract_valid(source: ContractInput) -> None:
@@ -91,17 +50,6 @@ def assert_openapi_artifact_current(
             ]
         )
     )
-
-
-def _load_module_attr(reference: str) -> Any:
-    module_name, separator, attr_path = reference.partition(":")
-    if not separator or not module_name or not attr_path:
-        raise ValueError("reference must use module:attribute syntax")
-
-    value: Any = import_module(module_name)
-    for attr in attr_path.split("."):
-        value = getattr(value, attr)
-    return value
 
 
 def _validation_failure_message(label: str, issues: list[ValidationIssue]) -> str:
