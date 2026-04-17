@@ -36,10 +36,15 @@ def validate(source: Annotated[str, typer.Argument()]) -> None:
 
 @app.command("emit-openapi")
 def emit_openapi_command(
-    path: Annotated[Path, typer.Argument(exists=True, readable=True)],
+    source: Annotated[str, typer.Argument()],
     output: Annotated[Path | None, typer.Option("--output", "-o")] = None,
 ) -> None:
-    contract = ContractSpec.model_validate_json(path.read_text())
+    try:
+        contract = _load_contract_source(source)
+    except (AttributeError, ImportError, OSError, TypeError, ValueError) as exc:
+        console.print(f"[red]invalid[/red] {source} - {exc}")
+        raise typer.Exit(1) from exc
+
     payload = json.dumps(emit_openapi(contract), indent=2, sort_keys=True)
     if output is None:
         console.print(payload)

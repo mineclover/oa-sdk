@@ -98,7 +98,15 @@ Emit deterministic OpenAPI:
 uv run --package oa-interface-cli oa-contract emit-openapi \
   contracts/example-api/contract.json \
   --output contracts/example-api/openapi.json
+
+uv run --package oa-interface-cli oa-contract emit-openapi \
+  example_api.contracts:registry \
+  --output contracts/example-api/openapi.json
 ```
+
+Emitted OpenAPI includes `x-oa-contract-hash`, a SHA-256 hash derived only from
+the serialized contract spec. It is stable across repeated runs for the same
+contract and should change when the managed contract changes.
 
 Review breaking changes:
 
@@ -258,7 +266,9 @@ Team implementation should be considered complete when:
   error responses, and public/internal leakage are rejected.
 - `oa-contract validate` accepts valid contract JSON or `module:attr` registry
   references and fails invalid contracts.
-- `oa-contract emit-openapi` produces stable OpenAPI 3.1 JSON with sorted output.
+- `oa-contract emit-openapi` accepts valid contract JSON or `module:attr`
+  registry references and produces stable OpenAPI 3.1 JSON with sorted output
+  plus contract-derived hash metadata.
 - `oa-contract diff --fail-on-breaking` exits non-zero for breaking changes.
 - `oa-contract drift --app module:app --contract module:registry` compares
   FastAPI runtime OpenAPI against the managed contract and exits non-zero on

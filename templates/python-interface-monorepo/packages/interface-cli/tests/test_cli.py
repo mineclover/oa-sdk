@@ -90,6 +90,84 @@ registry.endpoint(
     assert "valid" in result.stdout
 
 
+def test_emit_openapi_accepts_module_registry_reference_and_is_deterministic(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    fixture = tmp_path / "emit_fixture.py"
+    fixture.write_text(
+        """
+from oa_interface_contracts import ContractRegistry
+from pydantic import BaseModel
+
+
+class Widget(BaseModel):
+    id: str
+
+
+registry = ContractRegistry(name="Widgets API", version="1.0.0")
+registry.model("Widget", Widget)
+registry.endpoint(
+    method="get",
+    path="/widgets/{widget_id}",
+    operation_id="get_widget",
+    response_model="Widget",
+    tags=["widgets"],
+    path_params=["widget_id"],
+)
+"""
+    )
+    monkeypatch.syspath_prepend(str(tmp_path))
+    runner = CliRunner()
+
+    first = runner.invoke(app, ["emit-openapi", "emit_fixture:registry"])
+    second = runner.invoke(app, ["emit-openapi", "emit_fixture:registry"])
+
+    assert first.exit_code == 0
+    assert second.exit_code == 0
+    assert first.stdout == second.stdout
+    document = json.loads(first.stdout)
+    assert document["info"]["title"] == "Widgets API"
+    assert document["x-oa-contract-hash"].startswith("sha256:")
+
+
+def test_emit_openapi_writes_identical_output_across_repeated_runs(tmp_path) -> None:
+    contract_path = tmp_path / "contract.json"
+    output_path = tmp_path / "openapi.json"
+    contract_path.write_text(
+        json.dumps(
+            {
+                "name": "Users API",
+                "version": "1.0.0",
+                "endpoints": [
+                    {
+                        "method": "get",
+                        "path": "/users",
+                        "operation_id": "list_users",
+                        "tags": ["users"],
+                    }
+                ],
+                "schemas": {},
+            }
+        )
+    )
+    runner = CliRunner()
+
+    first = runner.invoke(
+        app,
+        ["emit-openapi", str(contract_path), "--output", str(output_path)],
+    )
+    first_payload = output_path.read_text()
+    second = runner.invoke(
+        app,
+        ["emit-openapi", str(contract_path), "--output", str(output_path)],
+    )
+
+    assert first.exit_code == 0
+    assert second.exit_code == 0
+    assert output_path.read_text() == first_payload
+
+
 def test_drift_command_accepts_matching_example_app() -> None:
     result = CliRunner().invoke(
         app,
