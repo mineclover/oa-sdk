@@ -1,0 +1,16 @@
+id: path:public/health/HealthStreamPath
+metadata:
+  path: /health/stream
+content:
+  get:
+    operationId: streamHealthEvents
+    summary: 서버 상태 실시간 스트림
+    description: SSE로 서버 상태 변화를 실시간으로 구독
+    tags:
+      - health
+    security: []
+    responses:
+      "200":
+        description: SSE 이벤트 스트림
+      "503":
+        $ref: oa://response/shared/common/ServiceUnavailable

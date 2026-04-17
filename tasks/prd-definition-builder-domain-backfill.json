@@ -100,11 +100,12 @@
         "pnpm check:feature-tests passes."
       ],
       "priority": 4,
-      "passes": false,
+      "passes": true,
       "notes": "Health has small scope and should prove path/schema fragment pattern before users.",
       "dependsOn": [
         "US-003"
-      ]
+      ],
+      "completionNotes": "Completed by agent"
     },
     {
       "id": "US-005",
@@ -232,6 +233,6 @@
     }
   ],
   "metadata": {
-    "updatedAt": "2026-04-17T02:00:02.502Z"
+    "updatedAt": "2026-04-17T02:08:50.137Z"
   }
 }

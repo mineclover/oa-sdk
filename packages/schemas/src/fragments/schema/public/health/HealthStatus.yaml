@@ -1,0 +1,19 @@
+id: schema:public/health/HealthStatus
+content:
+  type: object
+  required:
+    - status
+    - timestamp
+  properties:
+    status:
+      type: string
+      enum: [ok]
+    timestamp:
+      type: string
+      format: date-time
+  examples:
+    - status: ok
+      timestamp: "2026-04-04T00:00:00.000Z"
+  example:
+    status: ok
+    timestamp: "2026-04-04T00:00:00.000Z"

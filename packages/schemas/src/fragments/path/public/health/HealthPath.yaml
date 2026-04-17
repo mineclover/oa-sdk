@@ -1,0 +1,27 @@
+id: path:public/health/HealthPath
+metadata:
+  path: /health
+content:
+  get:
+    operationId: getHealth
+    summary: 서버 상태 확인
+    description: 서버가 정상 동작 중인지 확인하는 헬스체크 엔드포인트
+    tags:
+      - health
+    security: []
+    responses:
+      "200":
+        description: 서버 정상
+        content:
+          application/json:
+            schema:
+              $ref: oa://schema/public/health/HealthStatus
+            examples:
+              ok:
+                summary: 정상 응답
+                dataValue:
+                  status: ok
+                  timestamp: "2026-04-04T00:00:00.000Z"
+                serializedValue: '{"status":"ok","timestamp":"2026-04-04T00:00:00.000Z"}'
+      "503":
+        $ref: oa://response/shared/common/ServiceUnavailable

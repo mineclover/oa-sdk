@@ -15,6 +15,7 @@ const FIXTURES = [
   ['schema:public/aname/Name', 'schema/public/aname/Name.yaml'],
   ['schema:public/a-name/Name', 'schema/public/a-name/Name.yaml'],
   ['schema:public/book/Note', 'schema/public/book/Note.yaml'],
+  ['schema:public/health/HealthStatus', 'schema/public/health/HealthStatus.yaml'],
   ['schema:public/notebook/Note', 'schema/public/notebook/Note.yaml'],
 ] as const
 
@@ -36,6 +37,8 @@ const COMMON_SHARED_COMPONENT_FIXTURES = [
 
 const PATH_FIXTURES = [
   ['path:public/book/BookNotesPath', 'path/public/book/BookNotesPath.yaml', '/books/{bookId}/notes'],
+  ['path:public/health/HealthPath', 'path/public/health/HealthPath.yaml', '/health'],
+  ['path:public/health/HealthStreamPath', 'path/public/health/HealthStreamPath.yaml', '/health/stream'],
   ['path:public/notebook/NotebookNotesPath', 'path/public/notebook/NotebookNotesPath.yaml', '/notebooks/{notebookId}/notes'],
   ['path:admin/book/BookNotesPath', 'path/admin/book/BookNotesPath.yaml', '/admin/books/{bookId}/notes'],
   ['path:internal/health/HealthPath', 'path/internal/health/HealthPath.yaml', '/internal/health'],
