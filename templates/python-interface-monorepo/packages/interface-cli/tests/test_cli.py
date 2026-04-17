@@ -630,3 +630,134 @@ def test_drift_command_supports_markdown_output(tmp_path, monkeypatch) -> None:
     assert "## FastAPI Drift" in result.stdout
     assert "| Code | Location | Detail |" in result.stdout
     assert "operation-id-drift" in result.stdout
+
+
+def test_review_command_supports_clean_json_report(tmp_path) -> None:
+    artifact_path = tmp_path / "contracts" / "example-api" / "openapi.json"
+    runner = CliRunner()
+    emit_result = runner.invoke(
+        app,
+        [
+            "emit-openapi",
+            "example_api.contracts:registry",
+            "--output",
+            str(artifact_path),
+        ],
+    )
+
+    result = runner.invoke(
+        app,
+        [
+            "review",
+            "example_api.contracts:registry",
+            "example_api.contracts:registry",
+            "--app",
+            "example_api.main:app",
+            "--artifact",
+            str(artifact_path),
+            "--format",
+            "json",
+        ],
+    )
+    payload = json.loads(result.stdout)
+
+    assert emit_result.exit_code == 0
+    assert result.exit_code == 0
+    assert payload["recommendation"] == "APPROVE"
+    assert payload["diff"]["breaking"] == []
+    assert payload["diff"]["non_breaking"] == []
+    assert payload["drift"]["issues"] == []
+    assert payload["artifact"]["fresh"] is True
+    assert payload["validation"]["issues"] == []
+
+
+def test_review_command_markdown_report_orders_failing_sections(tmp_path, monkeypatch) -> None:
+    fixture = tmp_path / "review_fixture.py"
+    fixture.write_text(
+        """
+from fastapi import FastAPI
+
+
+app = FastAPI(title="Users API", version="2.0.0")
+
+
+@app.get("/status", operation_id="runtime_status")
+def get_status() -> dict[str, str]:
+    return {"status": "ok"}
+"""
+    )
+    monkeypatch.syspath_prepend(str(tmp_path))
+    base_path = tmp_path / "base.contract.json"
+    head_path = tmp_path / "head.contract.json"
+    artifact_path = tmp_path / "contracts" / "users-api" / "openapi.json"
+    base_path.write_text(
+        json.dumps(
+            {
+                "name": "Users API",
+                "version": "1.0.0",
+                "endpoints": [
+                    {
+                        "method": "get",
+                        "path": "/users",
+                        "operation_id": "list_users",
+                    }
+                ],
+                "schemas": {},
+            }
+        )
+    )
+    head_path.write_text(
+        json.dumps(
+            {
+                "name": "Users API",
+                "version": "2.0.0",
+                "endpoints": [
+                    {
+                        "method": "get",
+                        "path": "/status",
+                        "operation_id": "get_status",
+                    }
+                ],
+                "schemas": {},
+            }
+        )
+    )
+    artifact_path.parent.mkdir(parents=True)
+    artifact_path.write_text(
+        json.dumps(
+            {
+                "openapi": "3.1.0",
+                "info": {"title": "Users API", "version": "2.0.0"},
+                "paths": {},
+                "components": {"schemas": {}},
+                "x-oa-contract-hash": "sha256:stale",
+            }
+        )
+    )
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "review",
+            str(base_path),
+            str(head_path),
+            "--app",
+            "review_fixture:app",
+            "--artifact",
+            str(artifact_path),
+            "--format",
+            "markdown",
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "Recommendation: **REQUEST_CHANGES**" in result.stdout
+    assert "endpoint-removed" in result.stdout
+    assert "operation-id-drift" in result.stdout
+    assert "**stale**" in result.stdout
+    assert "endpoint-added" in result.stdout
+    assert result.stdout.index("## Breaking Changes") < result.stdout.index("## Drift Issues")
+    assert result.stdout.index("## Drift Issues") < result.stdout.index("## Artifact Freshness")
+    assert result.stdout.index("## Artifact Freshness") < result.stdout.index(
+        "## Non-breaking Changes"
+    )

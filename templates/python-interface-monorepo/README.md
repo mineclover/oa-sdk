@@ -159,6 +159,30 @@ uv run --package oa-interface-cli oa-contract drift \
 Use `--format json` for machine-readable CI details or `--format markdown` for
 pull request summaries.
 
+Generate a combined contract review report for pull requests:
+
+```bash
+uv run --package oa-interface-cli oa-contract review \
+  contracts/base.contract.json \
+  contracts/head.contract.json \
+  --app example_api.main:app \
+  --artifact contracts/example-api/openapi.json \
+  --format markdown
+
+uv run --package oa-interface-cli oa-contract review \
+  contracts/base.contract.json \
+  contracts/head.contract.json \
+  --app example_api.main:app \
+  --artifact contracts/example-api/openapi.json \
+  --format json
+```
+
+The review report combines the contract diff, head-contract validation,
+FastAPI drift, and OpenAPI artifact freshness. It recommends `APPROVE` when
+all checks are clean, `COMMENT` for non-breaking or incomplete review signals,
+and `REQUEST_CHANGES` for breaking changes, validation errors, drift, or stale
+artifacts.
+
 ## Adding Models And Endpoints
 
 1. Add or update the Pydantic DTO.
