@@ -85,10 +85,11 @@ Run the CLI:
 uv run --package oa-interface-cli oa-contract --help
 ```
 
-Validate a serialized contract:
+Validate a serialized contract or a registry reference:
 
 ```bash
 uv run --package oa-interface-cli oa-contract validate contracts/example-api/contract.json
+uv run --package oa-interface-cli oa-contract validate example_api.contracts:registry
 ```
 
 Emit deterministic OpenAPI:
@@ -132,11 +133,13 @@ claim runtime drift is enforced in CI.
 2. Register the model schema in `ContractRegistry` or `ContractSpec.schemas`.
 3. Register reusable security schemes, error responses, and examples when the
    endpoint needs them. Use `responses={...}` for additional success statuses.
-4. Register the endpoint with `registry.endpoint(...)`, or use
+4. Configure target policies with `required_error_responses=[...]` and
+   `public=True` when public contract leakage checks should apply.
+5. Register the endpoint with `registry.endpoint(...)`, or use
    `@registry.route(...)` beside the framework route decorator.
-5. Add or update the FastAPI route with matching request and response models.
-6. Emit OpenAPI and inspect the artifact diff.
-7. Run validation, diff, drift, and workspace checks.
+6. Add or update the FastAPI route with matching request and response models.
+7. Emit OpenAPI and inspect the artifact diff.
+8. Run validation, diff, drift, and workspace checks.
 
 In the example app, DTOs live in `models.py`, the managed contract lives in
 `contracts.py`, and FastAPI routes live in `main.py`. Keep that separation in
@@ -251,8 +254,10 @@ Team implementation should be considered complete when:
 - `ContractRegistry` exists as the preferred authoring API and can emit a
   deterministic `ContractSpec`.
 - Duplicate schema names, duplicate endpoints, duplicate operation IDs, missing
-  model references, and invalid path parameter references are rejected.
-- `oa-contract validate` accepts valid contract JSON and fails invalid contracts.
+  model references, invalid path parameter references, missing target-required
+  error responses, and public/internal leakage are rejected.
+- `oa-contract validate` accepts valid contract JSON or `module:attr` registry
+  references and fails invalid contracts.
 - `oa-contract emit-openapi` produces stable OpenAPI 3.1 JSON with sorted output.
 - `oa-contract diff --fail-on-breaking` exits non-zero for breaking changes.
 - `oa-contract drift --app module:app --contract module:registry` compares

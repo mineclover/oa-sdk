@@ -21,7 +21,6 @@ from .validation import (
     ContractValidationError,
     ValidationIssue,
     validate_contract_spec,
-    validate_endpoint_path_params,
 )
 
 _HTTP_METHOD_ORDER = {
@@ -61,6 +60,7 @@ class ContractRegistry:
         self.name = name
         self.version = version
         self._models: dict[str, type[BaseModel]] = {}
+        self._internal_model_names: set[str] = set()
         self._security_schemes: dict[str, ContractSecurityScheme] = {}
         self._standard_error_responses: dict[str, ContractResponse] = {}
         self._examples: dict[str, ContractExample] = {}
@@ -95,12 +95,14 @@ class ContractRegistry:
     def endpoints(self) -> tuple[ContractEndpoint, ...]:
         return tuple(item.endpoint for item in self._endpoints)
 
-    def model(self, name: str, model: type[BaseModel]) -> Self:
+    def model(self, name: str, model: type[BaseModel], *, internal_only: bool = False) -> Self:
         if not name:
             raise ContractRegistryError("Model name must not be empty.")
         if name in self._models:
             raise ContractRegistryError(f"Model {name} is already registered.")
         self._models[name] = model
+        if internal_only:
+            self._internal_model_names.add(name)
         return self
 
     def security_scheme(
@@ -336,12 +338,27 @@ class ContractRegistry:
         )
         return self
 
-    def target(self, name: str, *, description: str | None = None) -> Self:
+    def target(
+        self,
+        name: str,
+        *,
+        description: str | None = None,
+        required_error_responses: Sequence[str] = (),
+        public: bool = False,
+    ) -> Self:
         if not name:
             raise ContractRegistryError("Target name must not be empty.")
         if name in self._targets:
             raise ContractRegistryError(f"Target {name} is already registered.")
-        self._targets[name] = ContractTarget(name=name, description=description)
+        self._targets[name] = ContractTarget(
+            name=name,
+            description=description,
+            required_error_responses=_string_list(
+                required_error_responses,
+                f"target[{name!r}].required_error_responses",
+            ),
+            public=public,
+        )
         return self
 
     def endpoint(
@@ -361,8 +378,10 @@ class ContractRegistry:
         response_examples: Sequence[str] = (),
         error_responses: Sequence[str] = (),
         targets: Sequence[str] = (),
+        internal_only: bool = False,
         path_params: Sequence[str] | None = None,
     ) -> Self:
+        normalized_path_params = None if path_params is None else list(path_params)
         endpoint = ContractEndpoint(
             method=method,
             path=path,
@@ -377,8 +396,12 @@ class ContractRegistry:
             response_examples=list(response_examples),
             error_responses=list(error_responses),
             targets=list(targets),
+            internal_only=internal_only,
+            path_params=normalized_path_params,
         )
-        declared_path_params = None if path_params is None else tuple(path_params)
+        declared_path_params = (
+            None if normalized_path_params is None else tuple(normalized_path_params)
+        )
         self._endpoints.append(
             RegisteredEndpoint(endpoint=endpoint, path_params=declared_path_params)
         )
@@ -401,6 +424,7 @@ class ContractRegistry:
         response_examples: Sequence[str] = (),
         error_responses: Sequence[str] = (),
         targets: Sequence[str] = (),
+        internal_only: bool = False,
         path_params: Sequence[str] | None = None,
     ) -> Callable[[Callable[_P, _R]], Callable[_P, _R]]:
         def decorator(func: Callable[_P, _R]) -> Callable[_P, _R]:
@@ -419,6 +443,7 @@ class ContractRegistry:
                 response_examples=response_examples,
                 error_responses=error_responses,
                 targets=targets,
+                internal_only=internal_only,
                 path_params=path_params,
             )
             return func
@@ -427,10 +452,7 @@ class ContractRegistry:
 
     def validate(self) -> list[ValidationIssue]:
         spec = self.to_spec(validate=False)
-        issues = validate_contract_spec(spec)
-        for item in self._endpoints:
-            issues.extend(validate_endpoint_path_params(item.endpoint, item.path_params))
-        return sorted(issues, key=lambda issue: (issue.location, issue.code, issue.detail))
+        return validate_contract_spec(spec)
 
     def assert_valid(self) -> None:
         issues = self.validate()
@@ -465,10 +487,14 @@ class ContractRegistry:
         return self.to_spec(validate=validate)
 
     def schema_map(self) -> dict[str, JsonSchema]:
-        return {
-            name: schema_from_model(model)
-            for name, model in sorted(self._models.items(), key=lambda item: item[0])
-        }
+        schemas: dict[str, JsonSchema] = {}
+        for name, model in sorted(self._models.items(), key=lambda item: item[0]):
+            schema = schema_from_model(model)
+            if name in self._internal_model_names:
+                schema = dict(schema)
+                schema["x-internal-only"] = True
+            schemas[name] = schema
+        return schemas
 
 
 def _registered_endpoint_key(item: RegisteredEndpoint) -> tuple[str, int, str, str]:

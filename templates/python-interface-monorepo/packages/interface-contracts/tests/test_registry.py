@@ -283,6 +283,7 @@ def test_registry_validation_reports_duplicate_operation_id_and_method_path() ->
         "duplicate-method-path",
         "duplicate-operation-id",
     ]
+    assert {issue.severity for issue in issues} == {"error"}
 
 
 def test_registry_validation_reports_missing_model_references() -> None:
@@ -345,6 +346,54 @@ def test_registry_validation_reports_missing_authoring_references() -> None:
         "missing-response-example",
         "missing-security-scheme",
         "unknown-target",
+    ]
+
+
+def test_registry_validation_reports_missing_required_target_error_responses() -> None:
+    registry = ContractRegistry(name="Users API", version="1.0.0")
+    registry.model("ErrorBody", ErrorBody)
+    registry.error_response(
+        "Unauthorized",
+        status_code=401,
+        description="Authentication required.",
+        model="ErrorBody",
+    )
+    registry.target(
+        "public",
+        public=True,
+        required_error_responses=["Unauthorized"],
+    )
+    registry.endpoint(
+        method="get",
+        path="/users",
+        operation_id="list_users",
+        targets=["public"],
+    )
+
+    issues = registry.validate()
+
+    assert [issue.code for issue in issues] == ["missing-required-error-response"]
+    assert issues[0].detail == "target public requires error response Unauthorized."
+
+
+def test_registry_validation_reports_public_internal_leakage() -> None:
+    registry = ContractRegistry(name="Users API", version="1.0.0")
+    registry.model("InternalUser", User, internal_only=True)
+    registry.target("public", public=True)
+    registry.endpoint(
+        method="get",
+        path="/internal/users",
+        operation_id="list_internal_users",
+        response_model="InternalUser",
+        targets=["public"],
+        internal_only=True,
+    )
+
+    issues = registry.validate()
+
+    assert [issue.code for issue in issues] == [
+        "public-internal-endpoint",
+        "public-internal-model",
     ]
 
 

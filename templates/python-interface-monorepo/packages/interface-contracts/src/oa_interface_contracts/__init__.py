@@ -13,7 +13,12 @@ from .spec import (
     JsonSchema,
     SecuritySchemeType,
 )
-from .validation import ContractValidationError, ValidationIssue, validate_contract_spec
+from .validation import (
+    ContractValidationError,
+    ValidationIssue,
+    ValidationSeverity,
+    validate_contract_spec,
+)
 
 __all__ = [
     "ApiKeyLocation",
@@ -32,6 +37,7 @@ __all__ = [
     "RegisteredEndpoint",
     "SecuritySchemeType",
     "ValidationIssue",
+    "ValidationSeverity",
     "diff_contracts",
     "emit_openapi",
     "validate_contract_spec",

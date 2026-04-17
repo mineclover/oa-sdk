@@ -3,8 +3,15 @@ from pathlib import Path
 from typing import Annotated
 
 import typer
-from oa_interface_contracts import ContractSpec, diff_contracts, emit_openapi
-from oa_interface_fastapi import detect_drift
+from oa_interface_contracts import (
+    ContractRegistry,
+    ContractSpec,
+    ValidationIssue,
+    diff_contracts,
+    emit_openapi,
+    validate_contract_spec,
+)
+from oa_interface_fastapi import detect_drift, load_module_attr
 from rich.console import Console
 
 app = typer.Typer(no_args_is_help=True)
@@ -12,9 +19,19 @@ console = Console()
 
 
 @app.command()
-def validate(path: Annotated[Path, typer.Argument(exists=True, readable=True)]) -> None:
-    ContractSpec.model_validate_json(path.read_text())
-    console.print(f"[green]valid[/green] {path}")
+def validate(source: Annotated[str, typer.Argument()]) -> None:
+    try:
+        contract = _load_contract_source(source)
+    except (AttributeError, ImportError, OSError, TypeError, ValueError) as exc:
+        console.print(f"[red]invalid[/red] {source} - {exc}")
+        raise typer.Exit(1) from exc
+
+    issues = validate_contract_spec(contract)
+    if issues:
+        _print_validation_issues(issues)
+        raise typer.Exit(1)
+
+    console.print(f"[green]valid[/green] {source}")
 
 
 @app.command("emit-openapi")
@@ -71,3 +88,30 @@ def drift(
         console.print(f"[red]{issue.code}[/red] {issue.location} - {issue.detail}")
 
     raise typer.Exit(1)
+
+
+def _load_contract_source(source: str) -> ContractSpec:
+    path = Path(source)
+    if path.exists():
+        return ContractSpec.model_validate_json(path.read_text())
+    if ":" in source:
+        return _contract_from_reference(source)
+    raise ValueError(f"{source} is not a readable file or module:attr reference")
+
+
+def _contract_from_reference(reference: str) -> ContractSpec:
+    value = load_module_attr(reference)
+    if isinstance(value, ContractSpec):
+        return value
+    if isinstance(value, ContractRegistry):
+        return value.to_spec(validate=False)
+    raise TypeError("contract reference must resolve to ContractSpec or ContractRegistry")
+
+
+def _print_validation_issues(issues: list[ValidationIssue]) -> None:
+    for issue in issues:
+        style = "red" if issue.severity == "error" else "yellow"
+        console.print(
+            f"[{style}]{issue.severity}[/{style}] "
+            f"{issue.code} {issue.location} - {issue.detail}"
+        )

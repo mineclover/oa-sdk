@@ -2,10 +2,12 @@ import re
 from collections import defaultdict
 from collections.abc import Collection
 from dataclasses import dataclass
+from typing import Literal
 
 from .spec import ContractEndpoint, ContractSpec
 
 _PATH_PARAM_PATTERN = re.compile(r"{([^}/]+)}")
+_INTERNAL_ONLY_SCHEMA_EXTENSIONS = ("x-internal-only", "x-internal")
 _HTTP_METHOD_ORDER = {
     "get": 0,
     "post": 1,
@@ -16,6 +18,13 @@ _HTTP_METHOD_ORDER = {
     "options": 6,
     "trace": 7,
 }
+_SEVERITY_ORDER = {
+    "error": 0,
+    "warning": 1,
+    "info": 2,
+}
+
+ValidationSeverity = Literal["error", "warning", "info"]
 
 
 @dataclass(frozen=True)
@@ -23,6 +32,7 @@ class ValidationIssue:
     code: str
     location: str
     detail: str
+    severity: ValidationSeverity = "error"
 
 
 class ContractValidationError(ValueError):
@@ -37,24 +47,28 @@ def validate_contract_spec(contract: ContractSpec) -> list[ValidationIssue]:
     issues: list[ValidationIssue] = []
     issues.extend(_duplicate_operation_id_issues(contract.endpoints))
     issues.extend(_duplicate_method_path_issues(contract.endpoints))
+    issues.extend(_path_parameter_issues(contract.endpoints))
     issues.extend(_missing_model_reference_issues(contract))
     issues.extend(_missing_security_scheme_reference_issues(contract))
     issues.extend(_missing_error_response_reference_issues(contract))
+    issues.extend(_missing_required_error_response_issues(contract))
     issues.extend(_missing_example_reference_issues(contract))
     issues.extend(_unknown_target_reference_issues(contract))
+    issues.extend(_public_target_leakage_issues(contract))
     return _sorted_issues(issues)
 
 
 def validate_endpoint_path_params(
     endpoint: ContractEndpoint,
-    declared_path_params: Collection[str] | None,
+    declared_path_params: Collection[str] | None = None,
 ) -> list[ValidationIssue]:
-    if declared_path_params is None:
+    declared_source = endpoint.path_params if declared_path_params is None else declared_path_params
+    if declared_source is None:
         return []
 
     issues: list[ValidationIssue] = []
     location = _endpoint_label(endpoint)
-    declared = list(declared_path_params)
+    declared = list(declared_source)
     path_params = _extract_path_params(endpoint.path)
     path_param_set = set(path_params)
     declared_set = set(declared)
@@ -87,6 +101,13 @@ def validate_endpoint_path_params(
         )
 
     return _sorted_issues(issues)
+
+
+def _path_parameter_issues(endpoints: list[ContractEndpoint]) -> list[ValidationIssue]:
+    issues: list[ValidationIssue] = []
+    for endpoint in sorted(endpoints, key=_endpoint_key):
+        issues.extend(validate_endpoint_path_params(endpoint))
+    return issues
 
 
 def _duplicate_operation_id_issues(endpoints: list[ContractEndpoint]) -> list[ValidationIssue]:
@@ -215,6 +236,49 @@ def _missing_error_response_reference_issues(contract: ContractSpec) -> list[Val
     return issues
 
 
+def _missing_required_error_response_issues(contract: ContractSpec) -> list[ValidationIssue]:
+    issues: list[ValidationIssue] = []
+    response_names = set(contract.standard_error_responses)
+    targets_by_name = {target.name: target for target in contract.targets}
+
+    for target_name, target in sorted(targets_by_name.items()):
+        for response_name in sorted(target.required_error_responses):
+            if response_name not in response_names:
+                issues.append(
+                    ValidationIssue(
+                        code="missing-error-response",
+                        location=f"target:{target_name}",
+                        detail=(
+                            f"target required error response {response_name} "
+                            "is not registered."
+                        ),
+                    )
+                )
+
+    for endpoint in sorted(contract.endpoints, key=_endpoint_key):
+        location = _endpoint_label(endpoint)
+        endpoint_responses = set(endpoint.error_responses)
+        for target_name in sorted(set(endpoint.targets)):
+            target_policy = targets_by_name.get(target_name)
+            if target_policy is None:
+                continue
+            for response_name in sorted(
+                set(target_policy.required_error_responses) - endpoint_responses
+            ):
+                issues.append(
+                    ValidationIssue(
+                        code="missing-required-error-response",
+                        location=location,
+                        detail=(
+                            f"target {target_name} requires error response "
+                            f"{response_name}."
+                        ),
+                    )
+                )
+
+    return issues
+
+
 def _missing_example_reference_issues(contract: ContractSpec) -> list[ValidationIssue]:
     issues: list[ValidationIssue] = []
     example_names = set(contract.examples)
@@ -283,6 +347,79 @@ def _unknown_target_reference_issues(contract: ContractSpec) -> list[ValidationI
     return issues
 
 
+def _public_target_leakage_issues(contract: ContractSpec) -> list[ValidationIssue]:
+    public_targets = _public_target_names(contract)
+    if not public_targets:
+        return []
+
+    issues: list[ValidationIssue] = []
+    for endpoint in sorted(contract.endpoints, key=_endpoint_key):
+        endpoint_public_targets = sorted(public_targets & set(endpoint.targets))
+        if not endpoint_public_targets:
+            continue
+
+        location = _endpoint_label(endpoint)
+        public_target_label = ", ".join(endpoint_public_targets)
+        if endpoint.internal_only:
+            issues.append(
+                ValidationIssue(
+                    code="public-internal-endpoint",
+                    location=location,
+                    detail=(
+                        "internal-only endpoint targets public target(s): "
+                        f"{public_target_label}."
+                    ),
+                )
+            )
+
+        for model_name in _endpoint_model_names(endpoint, contract):
+            schema = contract.schemas.get(model_name)
+            if schema is not None and _schema_internal_only(schema):
+                issues.append(
+                    ValidationIssue(
+                        code="public-internal-model",
+                        location=location,
+                        detail=(
+                            f"public target(s) {public_target_label} reference "
+                            f"internal-only model {model_name}."
+                        ),
+                    )
+                )
+
+    return issues
+
+
+def _public_target_names(contract: ContractSpec) -> set[str]:
+    public_targets = {target.name for target in contract.targets if target.public}
+    if any(target.name == "public" for target in contract.targets):
+        public_targets.add("public")
+    if any("public" in endpoint.targets for endpoint in contract.endpoints):
+        public_targets.add("public")
+    return public_targets
+
+
+def _endpoint_model_names(endpoint: ContractEndpoint, contract: ContractSpec) -> list[str]:
+    names: set[str] = set()
+    if endpoint.request_model is not None:
+        names.add(endpoint.request_model)
+    if endpoint.response_model is not None:
+        names.add(endpoint.response_model)
+    for response in endpoint.success_responses:
+        if response.model is not None:
+            names.add(response.model)
+    for response_name in endpoint.error_responses:
+        error_response = contract.standard_error_responses.get(response_name)
+        if error_response is not None and error_response.model is not None:
+            names.add(error_response.model)
+    return sorted(names)
+
+
+def _schema_internal_only(schema: object) -> bool:
+    if not isinstance(schema, dict):
+        return False
+    return any(schema.get(extension) is True for extension in _INTERNAL_ONLY_SCHEMA_EXTENSIONS)
+
+
 def _extract_path_params(path: str) -> list[str]:
     return _PATH_PARAM_PATTERN.findall(path)
 
@@ -316,4 +453,13 @@ def _method_path_key(method_path: tuple[str, str]) -> tuple[str, int, str]:
 
 
 def _sorted_issues(issues: list[ValidationIssue]) -> list[ValidationIssue]:
-    return sorted(issues, key=lambda issue: (issue.location, issue.code, issue.detail))
+    return sorted(issues, key=_issue_key)
+
+
+def _issue_key(issue: ValidationIssue) -> tuple[int, str, str, str]:
+    return (
+        _SEVERITY_ORDER[issue.severity],
+        issue.location,
+        issue.code,
+        issue.detail,
+    )

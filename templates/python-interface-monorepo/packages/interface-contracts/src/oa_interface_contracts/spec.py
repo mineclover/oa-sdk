@@ -44,6 +44,8 @@ class ContractTarget(BaseModel):
 
     name: Annotated[str, Field(min_length=1)]
     description: str | None = None
+    required_error_responses: list[str] = Field(default_factory=list)
+    public: bool = False
 
 
 class ContractEndpoint(BaseModel):
@@ -62,6 +64,8 @@ class ContractEndpoint(BaseModel):
     response_examples: list[str] = Field(default_factory=list)
     error_responses: list[str] = Field(default_factory=list)
     targets: list[str] = Field(default_factory=list)
+    internal_only: bool = False
+    path_params: list[str] | None = None
 
 
 class ContractSpec(BaseModel):
