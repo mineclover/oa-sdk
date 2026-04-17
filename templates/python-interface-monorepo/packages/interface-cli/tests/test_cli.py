@@ -291,6 +291,163 @@ def test_check_artifact_supports_json_output(tmp_path) -> None:
     assert payload["summary"] == "hash mismatch; paths: 1 missing"
 
 
+def test_diff_output_separates_breaking_and_non_breaking_changes(tmp_path) -> None:
+    base_path = tmp_path / "base.contract.json"
+    head_path = tmp_path / "head.contract.json"
+    base_path.write_text(
+        json.dumps(
+            {
+                "name": "Users API",
+                "version": "1.0.0",
+                "endpoints": [
+                    {
+                        "method": "get",
+                        "path": "/users",
+                        "operation_id": "list_users",
+                        "response_model": "User",
+                    }
+                ],
+                "schemas": {
+                    "User": {
+                        "type": "object",
+                        "properties": {"id": {"type": "string"}},
+                    }
+                },
+            }
+        )
+    )
+    head_path.write_text(
+        json.dumps(
+            {
+                "name": "Users API",
+                "version": "1.1.0",
+                "endpoints": [
+                    {
+                        "method": "get",
+                        "path": "/users",
+                        "operation_id": "search_users",
+                        "response_model": "User",
+                    },
+                    {
+                        "method": "get",
+                        "path": "/status",
+                        "operation_id": "get_status",
+                    },
+                ],
+                "schemas": {
+                    "User": {
+                        "type": "object",
+                        "properties": {
+                            "id": {"type": "string"},
+                            "display_name": {"type": "string"},
+                        },
+                    }
+                },
+            }
+        )
+    )
+
+    result = CliRunner().invoke(app, ["diff", str(base_path), str(head_path)])
+
+    assert result.exit_code == 0
+    assert "Breaking changes" in result.stdout
+    assert "operation-id-changed" in result.stdout
+    assert "Non-breaking changes" in result.stdout
+    assert "endpoint-added" in result.stdout
+    assert "response-field-added" in result.stdout
+
+
+def test_diff_fail_on_breaking_allows_non_breaking_changes(tmp_path) -> None:
+    base_path = tmp_path / "base.contract.json"
+    head_path = tmp_path / "head.contract.json"
+    base_path.write_text(
+        json.dumps(
+            {
+                "name": "Users API",
+                "version": "1.0.0",
+                "endpoints": [
+                    {
+                        "method": "get",
+                        "path": "/users",
+                        "operation_id": "list_users",
+                    }
+                ],
+                "schemas": {},
+            }
+        )
+    )
+    head_path.write_text(
+        json.dumps(
+            {
+                "name": "Users API",
+                "version": "1.1.0",
+                "endpoints": [
+                    {
+                        "method": "get",
+                        "path": "/users",
+                        "operation_id": "list_users",
+                    },
+                    {
+                        "method": "get",
+                        "path": "/status",
+                        "operation_id": "get_status",
+                    },
+                ],
+                "schemas": {},
+            }
+        )
+    )
+
+    result = CliRunner().invoke(
+        app,
+        ["diff", str(base_path), str(head_path), "--fail-on-breaking"],
+    )
+
+    assert result.exit_code == 0
+    assert "No breaking changes detected" in result.stdout
+    assert "Non-breaking changes" in result.stdout
+
+
+def test_diff_fail_on_breaking_exits_nonzero_for_breaking_changes(tmp_path) -> None:
+    base_path = tmp_path / "base.contract.json"
+    head_path = tmp_path / "head.contract.json"
+    base_path.write_text(
+        json.dumps(
+            {
+                "name": "Users API",
+                "version": "1.0.0",
+                "endpoints": [
+                    {
+                        "method": "get",
+                        "path": "/users",
+                        "operation_id": "list_users",
+                    }
+                ],
+                "schemas": {},
+            }
+        )
+    )
+    head_path.write_text(
+        json.dumps(
+            {
+                "name": "Users API",
+                "version": "1.1.0",
+                "endpoints": [],
+                "schemas": {},
+            }
+        )
+    )
+
+    result = CliRunner().invoke(
+        app,
+        ["diff", str(base_path), str(head_path), "--fail-on-breaking"],
+    )
+
+    assert result.exit_code == 1
+    assert "Breaking changes" in result.stdout
+    assert "endpoint-removed" in result.stdout
+
+
 def test_drift_command_accepts_matching_example_app() -> None:
     result = CliRunner().invoke(
         app,

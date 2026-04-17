@@ -1,4 +1,10 @@
-from .diff import BreakingChange, diff_contracts
+from .diff import (
+    BreakingChange,
+    ContractChange,
+    ContractDiffResult,
+    diff_contract_changes,
+    diff_contracts,
+)
 from .openapi import contract_version_hash, emit_openapi
 from .registry import ContractRegistry, ContractRegistryError, RegisteredEndpoint
 from .spec import (
@@ -23,6 +29,8 @@ from .validation import (
 __all__ = [
     "ApiKeyLocation",
     "BreakingChange",
+    "ContractChange",
+    "ContractDiffResult",
     "ContractEndpoint",
     "ContractExample",
     "ContractRegistry",
@@ -39,6 +47,7 @@ __all__ = [
     "ValidationIssue",
     "ValidationSeverity",
     "contract_version_hash",
+    "diff_contract_changes",
     "diff_contracts",
     "emit_openapi",
     "validate_contract_spec",

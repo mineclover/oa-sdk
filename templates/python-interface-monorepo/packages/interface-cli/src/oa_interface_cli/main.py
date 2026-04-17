@@ -8,7 +8,7 @@ from oa_interface_contracts import (
     ContractRegistry,
     ContractSpec,
     ValidationIssue,
-    diff_contracts,
+    diff_contract_changes,
     emit_openapi,
     validate_contract_spec,
 )
@@ -98,16 +98,25 @@ def diff(
 ) -> None:
     base_contract = ContractSpec.model_validate_json(base.read_text())
     head_contract = ContractSpec.model_validate_json(head.read_text())
-    changes = diff_contracts(base_contract, head_contract)
+    result = diff_contract_changes(base_contract, head_contract)
 
-    if not changes:
-        console.print("[green]No breaking changes detected.[/green]")
+    if not result.breaking and not result.non_breaking:
+        console.print("[green]No contract changes detected.[/green]")
         return
 
-    for change in changes:
-        console.print(f"[red]{change.code}[/red] {change.endpoint} - {change.detail}")
+    if result.breaking:
+        console.print("[red]Breaking changes[/red]")
+        for change in result.breaking:
+            console.print(f"[red]{change.code}[/red] {change.endpoint} - {change.detail}")
+    else:
+        console.print("[green]No breaking changes detected.[/green]")
 
-    if fail_on_breaking:
+    if result.non_breaking:
+        console.print("[green]Non-breaking changes[/green]")
+        for change in result.non_breaking:
+            console.print(f"[green]{change.code}[/green] {change.endpoint} - {change.detail}")
+
+    if fail_on_breaking and result.breaking:
         raise typer.Exit(1)
 
 
