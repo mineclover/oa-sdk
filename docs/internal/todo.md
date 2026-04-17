@@ -13,13 +13,13 @@
 
 ### [ ] OpenAPI definition builder: current-domain fragment backfill
 배경: migration plan은 확정되었지만 `packages/schemas/src/fragments`는 아직 builder behavior fixture이며 current `src/domains/{common,health,users}/spec.yaml` 전체와 동등한 source가 아니다. 실행 상세는 [Definition Builder Domain Backfill PRD](../../tasks/prd-definition-builder-domain-backfill.md)를 따른다.
-현재 완료: [domain merge inventory](./domain-merge-inventory.md)에 profile files, domain specs, shared components, health/users paths and operations, generated artifact paths, validation commands, and source-section-to-fragment-kind mapping을 기록했다. `src/targets/{local,staging,production}-parity-api.yaml`가 current profile servers와 current domain merge path set을 복제한다.
+현재 완료: [domain merge inventory](./domain-merge-inventory.md)에 profile files, domain specs, shared components, health/users paths and operations, generated artifact paths, validation commands, and source-section-to-fragment-kind mapping을 기록했다. `src/targets/{local,staging,production}-parity-api.yaml`가 current profile servers와 current domain merge path set을 복제하고, common/health/users fragments plus local parity artifact build/diff scripts now cover the current review workflow.
 구현 순서:
 1. 완료: `src/profiles/{local,staging,production}.yaml`의 `servers`를 profile별 parity target config로 복제하고, local parity target config selection을 테스트한다.
 2. `src/domains/common/spec.yaml`의 schemas/responses/parameters/securitySchemes를 `shared/common` fragments로 분리하고 local refs를 `oa://...` canonical refs로 바꾼다.
 3. `src/domains/health/spec.yaml`의 `/health`, `/health/stream`, `HealthStatus`를 path/schema fragments로 옮기고 shared response refs를 canonical refs로 연결한다.
 4. `src/domains/users/spec.yaml`의 `/users`, `/users/{id}`, `User`, `CreateUserRequest`, `UpdateUserRequest`를 path/schema fragments로 옮긴다.
-5. `oa-gen build-spec`로 parallel artifact와 diagnostics/collision reports를 만들고, current `.merged.yaml`과 normalized diff를 생성한다.
+5. 완료: `oa-gen build-spec`로 parallel artifact와 diagnostics/collision reports를 만들고, current `.merged.yaml`과 normalized diff를 생성한다.
 6. Builder artifact를 기존 `downgrade-3.1.ts`, Redocly, Spectral, `oa-gen validate`, parser/codegen/schema tests에 통과시킨 뒤 차이와 downstream generated diff를 검토한다.
 완료 기준: current `.merged.yaml` path는 유지하면서 builder parity artifact가 zero-error diagnostics, accepted normalized diff, `.merged.3.1.yaml` compatibility, and rollback-safe script boundaries를 갖는다.
 

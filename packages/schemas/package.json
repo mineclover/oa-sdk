@@ -18,6 +18,8 @@
     "validate:spectral": "spectral lint src/.merged.yaml --ruleset .spectral.yaml",
     "validate:redocly": "redocly lint",
     "validate": "pnpm merge && pnpm downgrade:3.1 && pnpm validate:spectral && pnpm validate:redocly",
+    "parity:build": "node ../codegen/dist/cli/index.js build-spec --target src/targets/local-parity-api.yaml --fragments src/fragments --output src/.builder/local-parity-api.yaml --diagnostics src/.builder/local-parity-api.diagnostics.json --collision-report src/.builder/local-parity-api.collisions.json",
+    "parity:diff": "node --import tsx ../../scripts/builder-parity-diff.ts src/.merged.yaml src/.builder/local-parity-api.yaml",
     "bundle": "pnpm merge && pnpm downgrade:3.1 && redocly bundle src/.merged.3.1.yaml --output dist/openapi.yaml && redocly bundle src/.merged.3.1.yaml --output dist/openapi.json",
     "preview": "pnpm merge && pnpm downgrade:3.1 && redocly preview-docs src/.merged.3.1.yaml",
     "build": "pnpm merge && pnpm downgrade:3.1",
