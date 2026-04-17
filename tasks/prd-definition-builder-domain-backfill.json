@@ -47,11 +47,12 @@
         "pnpm check:feature-tests passes."
       ],
       "priority": 2,
-      "passes": false,
+      "passes": true,
       "notes": "Keep target configs parallel to current profile files.",
       "dependsOn": [
         "US-001"
-      ]
+      ],
+      "completionNotes": "Completed by agent"
     },
     {
       "id": "US-003",
@@ -230,6 +231,6 @@
     }
   ],
   "metadata": {
-    "updatedAt": "2026-04-16T23:37:55.266Z"
+    "updatedAt": "2026-04-17T01:49:52.721Z"
   }
 }

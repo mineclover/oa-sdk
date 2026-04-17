@@ -348,7 +348,7 @@ Current files migrate to fragments in this order:
 | Current file/section | Fragment target |
 |----------------------|-----------------|
 | `src/openapi.yaml` root `info` and global `tags` | Target-level emitted metadata or `tag` fragments once tag emit is wired; keep existing root metadata in `.merged.yaml` until parity target supports it |
-| `src/profiles/local.yaml`, `src/profiles/staging.yaml`, `src/profiles/production.yaml` | Target config `servers` in profile-specific targets, for example `local-api`, `staging-api`, and `production-api` |
+| `src/profiles/local.yaml`, `src/profiles/staging.yaml`, `src/profiles/production.yaml` | Target config `servers` in profile-specific parity targets: `local-parity-api`, `staging-parity-api`, and `production-parity-api` |
 | `src/domains/common/spec.yaml#/components/schemas/*` | `src/fragments/schema/shared/common/{SchemaName}.yaml` |
 | `src/domains/common/spec.yaml#/components/responses/*` | `src/fragments/response/shared/common/{ResponseName}.yaml` |
 | `src/domains/common/spec.yaml#/components/parameters/*` | `src/fragments/parameter/shared/common/{ParameterName}.yaml` |

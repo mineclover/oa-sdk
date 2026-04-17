@@ -1,0 +1,20 @@
+name: local-parity-api
+scopes:
+  - shared
+  - public
+domains:
+  - common
+  - health
+  - users
+servers:
+  - url: http://localhost:4010
+    description: Mock server (@oa-sdk/mock-server)
+  - url: http://localhost:3000
+    description: Local dev server
+includePaths:
+  - /health
+  - /health/stream
+  - /users
+  - /users/{id}
+namingPolicy:
+  aliases: {}
