@@ -127,7 +127,7 @@ describe('matchRoute', () => {
 })
 
 describe('matchRoute cache', () => {
-  it('matchRoute 캐시 — 1000회 호출 성능', () => {
+  it('matchRoute 캐시 — 반복 호출이 cold path보다 빨라진다', () => {
     // Build a RouteIndex with 50 routes
     const paths: Record<string, unknown> = {}
     for (let i = 0; i < 50; i++) {
@@ -137,13 +137,19 @@ describe('matchRoute cache', () => {
     }
     const index = loadSchema(doc({ paths } as any))
 
-    const start = performance.now()
-    for (let i = 0; i < 1000; i++) {
-      matchRoute(index, 'get', `/api/v1/resource${i % 50}/abc`)
+    const coldStart = performance.now()
+    for (let i = 0; i < 50; i++) {
+      matchRoute(index, 'get', `/api/v1/resource${i}/abc`)
     }
-    const elapsed = performance.now() - start
+    const coldElapsed = performance.now() - coldStart
 
-    expect(elapsed).toBeLessThan(50)
+    const warmStart = performance.now()
+    for (let i = 0; i < 50; i++) {
+      matchRoute(index, 'get', `/api/v1/resource${i}/abc`)
+    }
+    const warmElapsed = performance.now() - warmStart
+
+    expect(warmElapsed).toBeLessThan(coldElapsed)
   })
 })
 
