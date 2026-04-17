@@ -1,0 +1,13 @@
+id: response:shared/common/UnprocessableEntity
+content:
+  description: 스키마 유효성 검사 실패
+  content:
+    application/json:
+      schema:
+        $ref: oa://schema/shared/common/Error
+      examples:
+        default:
+          dataValue:
+            code: SCHEMA_VALIDATION_FAILED
+            message: 요청 본문이 스키마 유효성 검사를 통과하지 못했습니다
+          serializedValue: '{"code":"SCHEMA_VALIDATION_FAILED","message":"요청 본문이 스키마 유효성 검사를 통과하지 못했습니다"}'

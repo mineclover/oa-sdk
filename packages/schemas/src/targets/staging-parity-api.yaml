@@ -15,4 +15,6 @@ includePaths:
   - /users
   - /users/{id}
 namingPolicy:
-  aliases: {}
+  aliases:
+    "securityScheme:shared/common/BearerAuth": bearerAuth
+    "securityScheme:shared/common/OAuth2": oauth2

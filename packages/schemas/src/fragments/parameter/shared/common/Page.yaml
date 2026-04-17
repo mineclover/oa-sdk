@@ -1,0 +1,13 @@
+id: parameter:shared/common/Page
+content:
+  name: page
+  in: query
+  description: 페이지 번호 (1-based)
+  schema:
+    type: integer
+    minimum: 1
+    default: 1
+  examples:
+    default:
+      dataValue: 1
+      serializedValue: "page=1"

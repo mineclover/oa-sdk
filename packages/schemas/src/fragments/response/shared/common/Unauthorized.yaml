@@ -1,0 +1,13 @@
+id: response:shared/common/Unauthorized
+content:
+  description: "인증 실패 — 토큰 없음 또는 만료"
+  content:
+    application/json:
+      schema:
+        $ref: oa://schema/shared/common/Error
+      examples:
+        default:
+          dataValue:
+            code: UNAUTHORIZED
+            message: 인증이 필요합니다
+          serializedValue: '{"code":"UNAUTHORIZED","message":"인증이 필요합니다"}'

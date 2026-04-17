@@ -1,0 +1,20 @@
+id: schema:shared/common/ValidationError
+content:
+  type: object
+  description: 필드 수준 유효성 검사 에러
+  required:
+    - path
+    - message
+  properties:
+    path:
+      type: string
+      example: /body/email
+    message:
+      type: string
+      example: "must match format 'email'"
+    received:
+      description: 실제 수신된 값
+      example: not-an-email
+    expected:
+      type: string
+      example: "string with format 'email'"

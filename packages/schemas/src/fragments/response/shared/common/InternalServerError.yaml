@@ -1,0 +1,13 @@
+id: response:shared/common/InternalServerError
+content:
+  description: 서버 내부 오류
+  content:
+    application/json:
+      schema:
+        $ref: oa://schema/shared/common/Error
+      examples:
+        default:
+          dataValue:
+            code: INTERNAL_SERVER_ERROR
+            message: 서버 내부 오류가 발생했습니다
+          serializedValue: '{"code":"INTERNAL_SERVER_ERROR","message":"서버 내부 오류가 발생했습니다"}'

@@ -22,6 +22,11 @@ const PROFILE_PARITY_TARGETS = [
   ['production', 'production-parity-api'],
 ] as const
 
+const SHARED_COMMON_OUTPUT_ALIASES = {
+  'securityScheme:shared/common/BearerAuth': 'bearerAuth',
+  'securityScheme:shared/common/OAuth2': 'oauth2',
+} as const
+
 describe('builder parity target configs', () => {
   it('declares profile-parity targets with current profile servers and merged paths', () => {
     const currentMergedPaths = readCurrentMergedDomainPaths()
@@ -37,7 +42,7 @@ describe('builder parity target configs', () => {
       expect(target.domains).toEqual(['common', 'health', 'users'])
       expect(target.servers).toEqual(readProfileServers(profileName))
       expect(target.includePaths).toEqual(currentMergedPaths)
-      expect(target.namingPolicy).toEqual({ aliases: {} })
+      expect(target.namingPolicy).toEqual({ aliases: SHARED_COMMON_OUTPUT_ALIASES })
     }
   })
 
@@ -90,6 +95,7 @@ describe('builder parity target configs', () => {
       'schema:shared/common/ValidationError',
       'securityScheme:shared/common/BearerAuth',
     ])
+    expect(selection.outputNameAllocation.outputNames.get('securityScheme:shared/common/BearerAuth')).toBe('bearerAuth')
   })
 })
 

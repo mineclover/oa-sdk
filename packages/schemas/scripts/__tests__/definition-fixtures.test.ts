@@ -16,7 +16,22 @@ const FIXTURES = [
   ['schema:public/a-name/Name', 'schema/public/a-name/Name.yaml'],
   ['schema:public/book/Note', 'schema/public/book/Note.yaml'],
   ['schema:public/notebook/Note', 'schema/public/notebook/Note.yaml'],
+] as const
+
+const COMMON_SHARED_COMPONENT_FIXTURES = [
   ['schema:shared/common/Error', 'schema/shared/common/Error.yaml'],
+  ['schema:shared/common/ValidationError', 'schema/shared/common/ValidationError.yaml'],
+  ['response:shared/common/BadRequest', 'response/shared/common/BadRequest.yaml'],
+  ['response:shared/common/Unauthorized', 'response/shared/common/Unauthorized.yaml'],
+  ['response:shared/common/Forbidden', 'response/shared/common/Forbidden.yaml'],
+  ['response:shared/common/NotFound', 'response/shared/common/NotFound.yaml'],
+  ['response:shared/common/UnprocessableEntity', 'response/shared/common/UnprocessableEntity.yaml'],
+  ['response:shared/common/InternalServerError', 'response/shared/common/InternalServerError.yaml'],
+  ['response:shared/common/ServiceUnavailable', 'response/shared/common/ServiceUnavailable.yaml'],
+  ['parameter:shared/common/Page', 'parameter/shared/common/Page.yaml'],
+  ['parameter:shared/common/Limit', 'parameter/shared/common/Limit.yaml'],
+  ['securityScheme:shared/common/BearerAuth', 'securityScheme/shared/common/BearerAuth.yaml'],
+  ['securityScheme:shared/common/OAuth2', 'securityScheme/shared/common/OAuth2.yaml'],
 ] as const
 
 const PATH_FIXTURES = [
@@ -66,6 +81,18 @@ describe('definition builder fixtures', () => {
       const fixture = readFixture(relativePath)
       expect(fixture.id).toBe(expectedId)
       expect(fixture.content).toMatchObject({ type: 'object' })
+    }
+  })
+
+  it('declares canonical shared common component fixtures', () => {
+    const fixtureIds = COMMON_SHARED_COMPONENT_FIXTURES.map(([id]) => id)
+    expect(new Set(fixtureIds).size).toBe(COMMON_SHARED_COMPONENT_FIXTURES.length)
+
+    for (const [expectedId, relativePath] of COMMON_SHARED_COMPONENT_FIXTURES) {
+      const fixture = readFixture(relativePath)
+      expect(fixture.id).toBe(expectedId)
+      expect(fixture.content).toEqual(expect.any(Object))
+      expect(JSON.stringify(fixture.content)).not.toContain('#/components/')
     }
   })
 

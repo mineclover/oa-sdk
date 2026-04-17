@@ -1,0 +1,21 @@
+id: securityScheme:shared/common/OAuth2
+content:
+  type: oauth2
+  description: OAuth 2.0 인증 (Authorization Code + Device Authorization 지원)
+  flows:
+    authorizationCode:
+      authorizationUrl: https://auth.example.com/authorize
+      tokenUrl: https://auth.example.com/token
+      refreshUrl: https://auth.example.com/token
+      oauth2MetadataUrl: https://auth.example.com/.well-known/oauth-authorization-server
+      scopes:
+        read: 읽기 권한
+        write: 쓰기 권한
+        admin: 관리자 권한
+    deviceAuthorization:
+      deviceAuthorizationUrl: https://auth.example.com/device/code
+      tokenUrl: https://auth.example.com/token
+      oauth2MetadataUrl: https://auth.example.com/.well-known/oauth-authorization-server
+      scopes:
+        read: 읽기 권한
+        write: 쓰기 권한

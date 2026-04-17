@@ -1,0 +1,13 @@
+id: response:shared/common/BadRequest
+content:
+  description: "잘못된 요청 — 요청 형식 또는 파라미터 오류"
+  content:
+    application/json:
+      schema:
+        $ref: oa://schema/shared/common/Error
+      examples:
+        default:
+          dataValue:
+            code: BAD_REQUEST
+            message: 요청 형식이 올바르지 않습니다
+          serializedValue: '{"code":"BAD_REQUEST","message":"요청 형식이 올바르지 않습니다"}'

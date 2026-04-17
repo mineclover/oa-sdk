@@ -1,0 +1,13 @@
+id: response:shared/common/Forbidden
+content:
+  description: "권한 없음 — 접근 거부"
+  content:
+    application/json:
+      schema:
+        $ref: oa://schema/shared/common/Error
+      examples:
+        default:
+          dataValue:
+            code: FORBIDDEN
+            message: 이 리소스에 접근할 권한이 없습니다
+          serializedValue: '{"code":"FORBIDDEN","message":"이 리소스에 접근할 권한이 없습니다"}'
