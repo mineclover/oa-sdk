@@ -9,6 +9,7 @@
 spec.md (구현 현황 — 무엇이 작동하는가)
   ├─ 패키지별 기능 목록 + 테스트 수
   ├─ → feature-test-matrix.md (기능 ↔ 테스트 매핑)
+  ├─ → user-scenario-tests.md (사용자 관점 E2E 시나리오)
   ├─ → api-index.md (각 함수/타입 상세)
   ├─ → oas32-coverage.md (OAS 기능별 커버리지)
   ├─ → definition-builder-compatibility-gates.md (builder parity validation gates)
@@ -29,6 +30,7 @@ architecture/ (설계 결정)
 |------|------|-------------|
 | [spec.md](./spec.md) | 작동하는 기능 목록 | 기능 추가/제거 시 |
 | [feature-test-matrix.md](./feature-test-matrix.md) | 기능별 테스트 파일·명령 매핑 | 기능/테스트 추가·이동·삭제 시 |
+| [user-scenario-tests.md](./user-scenario-tests.md) | 사용자 관점 E2E 시나리오 테스트 목록 | 사용자 시나리오 테스트 추가·이동·삭제 시 |
 | [api-index.md](./api-index.md) | 타입·함수 단일 소스 + 재구현 금지 | 함수/타입 추가 시 |
 | [oas32-coverage.md](./oas32-coverage.md) | OAS 3.2 기능별 지원 매트릭스 | 새 기능 구현 시 |
 | [domain-merge-inventory.md](./domain-merge-inventory.md) | current domain merge input checklist | schema profile/domain source 변경 시 |

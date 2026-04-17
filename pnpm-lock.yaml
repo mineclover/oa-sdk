@@ -47,6 +47,9 @@ importers:
       '@oa-sdk/mock-server':
         specifier: workspace:*
         version: link:../../packages/mock-server
+      '@oa-sdk/openapi-projection-contract':
+        specifier: workspace:*
+        version: link:../../packages/openapi-projection-contract
       '@oa-sdk/parser':
         specifier: workspace:*
         version: link:../../packages/parser

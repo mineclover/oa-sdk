@@ -6,12 +6,12 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import { readFileSync, writeFileSync, mkdirSync, rmSync, existsSync } from 'node:fs'
 import { join, resolve } from 'node:path'
-import { execSync } from 'node:child_process'
 import { parse as parseYaml } from 'yaml'
 import { generateTypesFromSpec } from '@oa-sdk/codegen/typegen'
 import { generateRouter } from '@oa-sdk/router'
 import { generateClient } from '@oa-sdk/client'
 import type { OasDocument } from '@oa-sdk/parser'
+import { runTsc } from './run-tsc.js'
 
 const root = resolve(__dirname, '../../..')
 const specPath = join(root, 'packages/schemas/src/.merged.yaml')
@@ -66,6 +66,6 @@ describe.skipIf(!specExists)('풀 파이프라인: typegen → router → client
       include: ['types.ts'],
     }), 'utf8')
 
-    execSync('npx tsc --noEmit', { cwd: tmpDir, timeout: 15_000 })
+    runTsc(tmpDir, 15_000)
   })
 })

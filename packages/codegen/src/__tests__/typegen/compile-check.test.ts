@@ -3,7 +3,8 @@
  * 실제 merged spec에서 생성한 타입을 tsc로 검증한다.
  */
 import { describe, it, expect } from 'vitest'
-import { execSync } from 'node:child_process'
+import { execFileSync } from 'node:child_process'
+import { createRequire } from 'node:module'
 import { mkdirSync, writeFileSync, readFileSync, rmSync, existsSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { parse as parseYaml } from 'yaml'
@@ -12,6 +13,8 @@ import type { OasDocument } from '@oa-sdk/parser'
 
 const pkgDir = resolve(__dirname, '../..')
 const tmpDir = join(pkgDir, '.tmp-compile-test')
+const require = createRequire(import.meta.url)
+const tscBin = require.resolve('typescript/bin/tsc')
 
 function cleanup() {
   if (existsSync(tmpDir)) rmSync(tmpDir, { recursive: true })
@@ -97,7 +100,7 @@ const response: ListUsersResponse = [user]
     }), 'utf8')
 
     try {
-      execSync('npx tsc --noEmit', { cwd: tmpDir, encoding: 'utf8', timeout: 15_000 })
+      runTsc()
     } catch (err) {
       const stderr = (err as { stderr?: string }).stderr ?? ''
       cleanup()
@@ -134,7 +137,7 @@ const response: ListUsersResponse = [user]
     }), 'utf8')
 
     try {
-      execSync('npx tsc --noEmit', { cwd: tmpDir, encoding: 'utf8', timeout: 15_000 })
+      runTsc()
     } catch (err) {
       const stderr = (err as { stderr?: string }).stderr ?? ''
       cleanup()
@@ -144,3 +147,12 @@ const response: ListUsersResponse = [user]
     cleanup()
   })
 })
+
+function runTsc(): void {
+  execFileSync(process.execPath, [tscBin, '--noEmit'], {
+    cwd: tmpDir,
+    encoding: 'utf8',
+    timeout: 15_000,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
+}

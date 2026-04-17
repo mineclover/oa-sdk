@@ -1,0 +1,401 @@
+{
+  "name": "Python API Contract Governance Toolkit",
+  "description": "Build a production-ready Python API contract governance toolkit from the uv monorepo template. The toolkit makes Python/Pydantic/FastAPI API contracts explicit, reviewable, drift-checked, diffable, target-aware, and reportable.",
+  "branchName": "ralph/python-api-contract-governance-toolkit",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Expand Contract Registry Authoring",
+      "description": "As an API maintainer, I want ContractRegistry to define models, endpoints, security, responses, examples, and targets so that API contracts are managed from one clear authoring surface.",
+      "acceptanceCriteria": [
+        "ContractRegistry supports registering Pydantic models by stable schema name",
+        "ContractRegistry supports registering security schemes",
+        "ContractRegistry supports declaring standard error responses",
+        "ContractRegistry supports declaring examples for request and response bodies",
+        "ContractRegistry supports assigning endpoints to one or more targets",
+        "Existing @registry.route(...) behavior remains backward compatible",
+        "Public exports are updated for new contract authoring types",
+        "uv lock --check passes",
+        "uv run pytest passes",
+        "uv run ruff check . passes",
+        "uv run mypy passes"
+      ],
+      "priority": 1,
+      "passes": true,
+      "notes": "",
+      "dependsOn": [],
+      "completionNotes": "Completed by agent"
+    },
+    {
+      "id": "US-002",
+      "title": "Add Response and Error Contract Model",
+      "description": "As an API maintainer, I want response contracts to include status codes, body schemas, and examples so that OpenAPI output reflects real API behavior.",
+      "acceptanceCriteria": [
+        "Add a response contract type that can represent status code, description, model reference, content type, and examples",
+        "Support success responses and error responses separately",
+        "Keep simple response_model=\"User\" route declarations supported",
+        "Add explicit responses={...} or equivalent for multi-status operations",
+        "OpenAPI emit includes all declared response statuses",
+        "Validation reports missing response model references",
+        "uv lock --check passes",
+        "uv run pytest passes",
+        "uv run ruff check . passes",
+        "uv run mypy passes"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": "",
+      "dependsOn": [
+        "US-001"
+      ]
+    },
+    {
+      "id": "US-003",
+      "title": "Add Security Scheme Management",
+      "description": "As an API maintainer, I want security schemes to be declared in the registry so that authentication requirements are explicit and validated.",
+      "acceptanceCriteria": [
+        "Add registry API for bearer, apiKey, OAuth2, OpenID Connect, and mutualTLS schemes",
+        "Endpoints can reference registered security scheme names",
+        "OpenAPI emit includes components.securitySchemes",
+        "OpenAPI emit includes operation-level security requirements",
+        "Validation reports references to unknown security schemes",
+        "Example app includes a representative bearer auth scheme",
+        "uv lock --check passes",
+        "uv run pytest passes",
+        "uv run ruff check . passes",
+        "uv run mypy passes"
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": "",
+      "dependsOn": [
+        "US-001"
+      ]
+    },
+    {
+      "id": "US-004",
+      "title": "Strengthen Contract Validation Policies",
+      "description": "As an API reviewer, I want validation policies to catch contract quality issues before code reaches CI so that contracts remain consistent and reviewable.",
+      "acceptanceCriteria": [
+        "ValidationIssue includes severity, code, location, and detail",
+        "Validation detects duplicate operation IDs",
+        "Validation detects duplicate method/path combinations",
+        "Validation detects missing request and response model references",
+        "Validation detects path parameter mismatches",
+        "Validation detects missing security scheme references",
+        "Validation detects missing required error responses for configured targets",
+        "Validation detects public target leakage of internal-only models or endpoints",
+        "CLI validate can load both JSON contract files and module:attr registry references",
+        "uv lock --check passes",
+        "uv run pytest passes",
+        "uv run ruff check . passes",
+        "uv run mypy passes"
+      ],
+      "priority": 4,
+      "passes": false,
+      "notes": "",
+      "dependsOn": [
+        "US-001",
+        "US-002",
+        "US-003"
+      ]
+    },
+    {
+      "id": "US-005",
+      "title": "Deterministic OpenAPI Artifact Emission",
+      "description": "As a release engineer, I want deterministic OpenAPI artifacts so that generated contract diffs are stable and reviewable.",
+      "acceptanceCriteria": [
+        "emit_openapi() emits stable key ordering for paths, methods, schemas, responses, security schemes, and tags",
+        "CLI emit-openapi accepts module:attr registry references in addition to serialized contract JSON",
+        "CLI output is deterministic across repeated runs",
+        "OpenAPI output includes a version hash or equivalent metadata sidecar",
+        "Generated artifacts contain only contract-derived data, not incidental runtime state",
+        "Tests verify repeated emission produces identical JSON",
+        "uv lock --check passes",
+        "uv run pytest passes",
+        "uv run ruff check . passes",
+        "uv run mypy passes"
+      ],
+      "priority": 5,
+      "passes": false,
+      "notes": "",
+      "dependsOn": [
+        "US-001",
+        "US-002",
+        "US-003"
+      ]
+    },
+    {
+      "id": "US-006",
+      "title": "Add Artifact Freshness Check",
+      "description": "As a CI maintainer, I want to fail stale OpenAPI artifacts so that generated files cannot drift from the managed contract.",
+      "acceptanceCriteria": [
+        "Add CLI command oa-contract check-artifact",
+        "Command compares managed contract OpenAPI output with an existing artifact file",
+        "Command exits non-zero when the artifact is stale",
+        "Command supports JSON and human-readable output",
+        "Command reports the artifact path and a concise drift summary",
+        "README documents the recommended contracts/<api>/openapi.json artifact layout",
+        "uv lock --check passes",
+        "uv run pytest passes",
+        "uv run ruff check . passes",
+        "uv run mypy passes"
+      ],
+      "priority": 6,
+      "passes": false,
+      "notes": "",
+      "dependsOn": [
+        "US-005"
+      ]
+    },
+    {
+      "id": "US-007",
+      "title": "Strengthen Breaking Diff Classifier",
+      "description": "As an API reviewer, I want contract diffs to classify breaking changes accurately so that unsafe API changes are blocked before release.",
+      "acceptanceCriteria": [
+        "Diff detects endpoint removal",
+        "Diff detects operation ID changes",
+        "Diff detects request model changes",
+        "Diff detects response model changes",
+        "Diff detects status code removal",
+        "Diff detects required request field additions",
+        "Diff detects response field removal",
+        "Diff detects response field type narrowing",
+        "Diff detects enum value removal",
+        "Diff detects nullable to non-nullable changes",
+        "Diff detects security requirement strengthening",
+        "Diff output separates breaking and non-breaking changes",
+        "--fail-on-breaking exits non-zero only for breaking changes",
+        "uv lock --check passes",
+        "uv run pytest passes",
+        "uv run ruff check . passes",
+        "uv run mypy passes"
+      ],
+      "priority": 7,
+      "passes": false,
+      "notes": "",
+      "dependsOn": [
+        "US-001",
+        "US-002",
+        "US-003"
+      ]
+    },
+    {
+      "id": "US-008",
+      "title": "Normalize FastAPI Drift Comparison",
+      "description": "As a FastAPI maintainer, I want drift checks to ignore framework noise while catching meaningful contract mismatches so that CI failures are trustworthy.",
+      "acceptanceCriteria": [
+        "Drift comparison normalizes FastAPI automatic validation responses such as 422",
+        "Drift comparison supports $ref-based schema comparison",
+        "Drift comparison detects runtime routes missing from the contract",
+        "Drift comparison detects contract routes missing from runtime OpenAPI",
+        "Drift comparison detects operation ID mismatch",
+        "Drift comparison detects request schema mismatch",
+        "Drift comparison detects response schema mismatch",
+        "Drift comparison detects status code mismatch for managed statuses",
+        "Drift comparison detects security mismatch",
+        "CLI drift supports text, JSON, and Markdown output modes",
+        "uv lock --check passes",
+        "uv run pytest passes",
+        "uv run ruff check . passes",
+        "uv run mypy passes"
+      ],
+      "priority": 8,
+      "passes": false,
+      "notes": "",
+      "dependsOn": [
+        "US-002",
+        "US-003",
+        "US-005"
+      ]
+    },
+    {
+      "id": "US-009",
+      "title": "Add Public/Admin/Internal Target Split",
+      "description": "As a platform maintainer, I want a single registry to emit public, admin, and internal OpenAPI documents so that each audience receives only the API surface intended for it.",
+      "acceptanceCriteria": [
+        "Add target declaration API to ContractRegistry",
+        "Endpoints can be assigned to one or more targets",
+        "Models can be marked public, admin, internal, or shared",
+        "OpenAPI emit supports --target public, --target admin, and --target internal",
+        "Target-specific artifacts include only reachable schemas",
+        "Validation fails when public targets reference internal-only schemas",
+        "Tests verify public output excludes admin/internal endpoints",
+        "Tests verify internal output can include internal schemas",
+        "uv lock --check passes",
+        "uv run pytest passes",
+        "uv run ruff check . passes",
+        "uv run mypy passes"
+      ],
+      "priority": 9,
+      "passes": false,
+      "notes": "",
+      "dependsOn": [
+        "US-001",
+        "US-005"
+      ]
+    },
+    {
+      "id": "US-010",
+      "title": "Add Contract Review Report",
+      "description": "As a pull request reviewer, I want a Markdown and JSON contract review report so that API changes can be reviewed without reading raw OpenAPI JSON.",
+      "acceptanceCriteria": [
+        "Add CLI command oa-contract review",
+        "Review combines diff, drift, validation, and artifact freshness checks",
+        "Review emits JSON output for automation",
+        "Review emits Markdown output for PR comments",
+        "Review includes recommendation: APPROVE, COMMENT, or REQUEST_CHANGES",
+        "Review lists breaking changes first",
+        "Review lists drift issues separately",
+        "Review lists stale artifact status",
+        "Review lists non-breaking changes",
+        "Tests cover report output for clean and failing cases",
+        "uv lock --check passes",
+        "uv run pytest passes",
+        "uv run ruff check . passes",
+        "uv run mypy passes"
+      ],
+      "priority": 10,
+      "passes": false,
+      "notes": "",
+      "dependsOn": [
+        "US-004",
+        "US-006",
+        "US-007",
+        "US-008",
+        "US-009"
+      ]
+    },
+    {
+      "id": "US-011",
+      "title": "Add Pytest Integration Helpers",
+      "description": "As a Python service developer, I want pytest helpers so that contract validation and drift checks can be added to existing projects with minimal boilerplate.",
+      "acceptanceCriteria": [
+        "Add helper assert_contract_valid(...)",
+        "Add helper assert_no_fastapi_drift(...)",
+        "Add helper assert_openapi_artifact_current(...)",
+        "Helpers accept module references and direct objects",
+        "Helpers produce useful assertion messages",
+        "Example app includes a pytest contract gate using helpers",
+        "README documents pytest integration",
+        "uv lock --check passes",
+        "uv run pytest passes",
+        "uv run ruff check . passes",
+        "uv run mypy passes"
+      ],
+      "priority": 11,
+      "passes": false,
+      "notes": "",
+      "dependsOn": [
+        "US-004",
+        "US-006",
+        "US-008"
+      ]
+    },
+    {
+      "id": "US-012",
+      "title": "Improve Example API as Adoption Reference",
+      "description": "As a new adopter, I want the example app to demonstrate realistic API governance patterns so that I can copy the structure into my own service.",
+      "acceptanceCriteria": [
+        "Example app keeps DTOs in models.py",
+        "Example app keeps registry setup in contracts.py",
+        "Example app keeps route implementation in main.py",
+        "Example app demonstrates @registry.route(...)",
+        "Example app demonstrates security scheme registration",
+        "Example app demonstrates error response registration",
+        "Example app demonstrates target assignment",
+        "Example app demonstrates drift command in README",
+        "Example app tests cover registry, FastAPI route, and drift behavior",
+        "uv lock --check passes",
+        "uv run pytest passes",
+        "uv run ruff check . passes",
+        "uv run mypy passes"
+      ],
+      "priority": 12,
+      "passes": false,
+      "notes": "",
+      "dependsOn": [
+        "US-001",
+        "US-002",
+        "US-003",
+        "US-009"
+      ]
+    },
+    {
+      "id": "US-013",
+      "title": "Add CI and Migration Documentation",
+      "description": "As an adopting team, I want clear CI and migration guidance so that I can introduce the toolkit without rewriting my whole API.",
+      "acceptanceCriteria": [
+        "README includes GitHub Actions example",
+        "README includes pre-commit example",
+        "README includes existing FastAPI project migration steps",
+        "README explains which files are source of truth and which are generated artifacts",
+        "README explains how to handle intentional breaking changes",
+        "README explains how to suppress or resolve known framework drift",
+        "README includes recommended folder layout for contracts/",
+        "uv lock --check passes",
+        "uv run pytest passes",
+        "uv run ruff check . passes",
+        "uv run mypy passes"
+      ],
+      "priority": 13,
+      "passes": false,
+      "notes": "",
+      "dependsOn": [
+        "US-006",
+        "US-008",
+        "US-010",
+        "US-011"
+      ]
+    },
+    {
+      "id": "US-014",
+      "title": "Add Machine-Readable Contract Snapshots",
+      "description": "As a release engineer, I want serialized contract snapshots so that releases can compare contract versions without importing application code.",
+      "acceptanceCriteria": [
+        "Add CLI command oa-contract snapshot",
+        "Snapshot serializes a registry or contract object to deterministic contract.json",
+        "Snapshot includes toolkit version metadata",
+        "Snapshot can be used as input to validate, diff, emit-openapi, and review",
+        "Snapshot output is stable across repeated runs",
+        "Tests verify module-based registry and JSON snapshot produce equivalent OpenAPI",
+        "uv lock --check passes",
+        "uv run pytest passes",
+        "uv run ruff check . passes",
+        "uv run mypy passes"
+      ],
+      "priority": 14,
+      "passes": false,
+      "notes": "",
+      "dependsOn": [
+        "US-005"
+      ]
+    },
+    {
+      "id": "US-015",
+      "title": "Define Adapter Extension Interface",
+      "description": "As a toolkit maintainer, I want a clean adapter interface so that future frameworks can be supported without coupling core contracts to FastAPI.",
+      "acceptanceCriteria": [
+        "Define adapter protocol for runtime OpenAPI extraction",
+        "FastAPI adapter implements the protocol",
+        "Drift command uses adapter abstraction internally",
+        "Core interface-contracts package does not import FastAPI",
+        "Adapter package boundaries are documented",
+        "README lists future adapter candidates: Litestar, Django Ninja, Flask",
+        "uv lock --check passes",
+        "uv run pytest passes",
+        "uv run ruff check . passes",
+        "uv run mypy passes"
+      ],
+      "priority": 15,
+      "passes": false,
+      "notes": "",
+      "dependsOn": [
+        "US-008"
+      ]
+    }
+  ],
+  "metadata": {
+    "updatedAt": "2026-04-17T15:48:13.066Z"
+  }
+}

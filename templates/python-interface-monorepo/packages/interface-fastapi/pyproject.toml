@@ -1,0 +1,16 @@
+[project]
+name = "oa-interface-fastapi"
+version = "0.1.0"
+description = "FastAPI drift adapter for Python interface contract management"
+requires-python = ">=3.12"
+dependencies = [
+  "fastapi>=0.120.0",
+  "oa-interface-contracts",
+]
+
+[tool.uv.sources]
+oa-interface-contracts = { workspace = true }
+
+[build-system]
+requires = ["uv_build>=0.11.7,<0.12"]
+build-backend = "uv_build"

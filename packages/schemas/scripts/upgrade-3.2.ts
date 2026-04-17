@@ -11,7 +11,7 @@
 
 import { readFileSync, writeFileSync, existsSync } from 'node:fs'
 import { resolve, dirname } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import { parse, stringify } from 'yaml'
 
 /**
@@ -141,4 +141,6 @@ function main(): void {
   }
 }
 
-main()
+if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
+  main()
+}

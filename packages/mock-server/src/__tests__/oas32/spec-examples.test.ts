@@ -12,6 +12,7 @@
  */
 import { describe, it, expect } from 'vitest'
 import { pickResponse } from '../../core/response-picker.js'
+import { validateRequest } from '../../core/request-validator.js'
 import type { OasResponse } from '@oa-sdk/parser'
 
 function res(mediaContent: NonNullable<OasResponse['content']>[string]): Record<string, OasResponse> {
@@ -139,3 +140,83 @@ describe('비JSON 미디어 타입 (text/event-stream, text/plain 등)', () => {
     expect(r?.contentType).toBe('text/event-stream')
   })
 })
+
+// ─── example quality / mock readiness gate ──────────────────────────────────
+
+describe('example quality / mock readiness gate', () => {
+  it('chosen response example is valid against the documented JSON schema', () => {
+    const schema = {
+      type: 'object',
+      required: ['id', 'email'],
+      properties: {
+        id: { type: 'string' },
+        email: { type: 'string', format: 'email' },
+      },
+      additionalProperties: false,
+    }
+    const picked = pickResponse(res({
+      schema,
+      examples: {
+        ready: {
+          dataValue: {
+            id: 'usr_1',
+            email: 'user@example.test',
+          },
+        },
+      },
+    }))
+
+    expect(picked?.body).toEqual({ id: 'usr_1', email: 'user@example.test' })
+    expect(validateExampleBody(picked?.body, schema)).toEqual({ valid: true })
+  })
+
+  it('fails the readiness check when a mock example cannot satisfy its schema', () => {
+    const schema = {
+      type: 'object',
+      required: ['id', 'email'],
+      properties: {
+        id: { type: 'string' },
+        email: { type: 'string', format: 'email' },
+      },
+      additionalProperties: false,
+    }
+    const picked = pickResponse(res({
+      schema,
+      examples: {
+        invalid: {
+          dataValue: {
+            id: 'usr_1',
+            email: 'not-an-email',
+          },
+        },
+      },
+    }))
+    const validation = validateExampleBody(picked?.body, schema)
+
+    expect(validation.valid).toBe(false)
+    if (!validation.valid) {
+      expect(validation.errors.map(error => error.code)).toContain('FORMAT_MISMATCH')
+    }
+  })
+})
+
+function validateExampleBody(body: unknown, schema: Record<string, unknown>) {
+  return validateRequest(
+    {
+      pathParams: {},
+      queryParams: {},
+      headers: {},
+      body,
+      contentType: 'application/json',
+    },
+    [],
+    {
+      required: true,
+      content: {
+        'application/json': {
+          schema,
+        },
+      },
+    },
+  )
+}

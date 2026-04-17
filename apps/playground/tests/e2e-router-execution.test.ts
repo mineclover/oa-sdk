@@ -11,10 +11,10 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import { writeFileSync, mkdirSync, rmSync, existsSync } from 'node:fs'
 import { join, resolve } from 'node:path'
-import { execSync } from 'node:child_process'
 import { generateRouter } from '@oa-sdk/router'
 import { generateTypesFromSpec } from '@oa-sdk/codegen/typegen'
 import type { OasDocument } from '@oa-sdk/parser'
+import { runTsc } from './run-tsc.js'
 
 // ─── Inline OAS 3.2 spec with diverse content types ────────────────────────
 
@@ -363,7 +363,7 @@ describe('Combined tsc compilation', () => {
       'utf8',
     )
 
-    execSync('npx tsc --noEmit', { cwd: tmpDir, timeout: 30_000 })
+    runTsc(tmpDir)
   })
 
   it('router.ts + types.ts compile together (with stubs for missing types)', () => {
@@ -393,6 +393,6 @@ describe('Combined tsc compilation', () => {
       'utf8',
     )
 
-    execSync('npx tsc --noEmit', { cwd: tmpDir, timeout: 30_000 })
+    runTsc(tmpDir)
   })
 })

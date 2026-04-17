@@ -10,6 +10,7 @@
  *   - dataValue → value (Example Object)
  *   - Schema examples (named map) → example (singular)
  *   - 3.2 전용 필드 → 사이드카에 JSON Pointer로 저장 후 제거
+ *   - 3.1에서 표현할 수 없는 제거 필드도 roundtrip 복원을 위해 사이드카에 보존
  */
 
 import { readFileSync, writeFileSync } from 'node:fs'
@@ -43,19 +44,19 @@ export function downgrade(doc: Record<string, unknown>): DowngradeResult {
 
 export function transform(node: unknown, pointer: string, sidecar: Record<string, unknown>, parentKey?: string): unknown {
   if (node === null || typeof node !== 'object') return node
-  if (Array.isArray(node)) return node.map((item, i) => transform(item, `${pointer}/${i}`, sidecar))
+  if (Array.isArray(node)) return node.map((item, i) => transform(item, `${pointer}/${i}`, sidecar, parentKey))
 
   const obj = node as Record<string, unknown>
   const result: Record<string, unknown> = {}
 
   // Schema examples (named map) → example (singular) + 사이드카 보존
-  if (isSchemaContext(obj) && obj['examples'] && typeof obj['examples'] === 'object' && !Array.isArray(obj['examples'])) {
-    const named = obj['examples'] as Record<string, Record<string, unknown>>
-    const firstValue = Object.values(named).map(ex => ex['value'] ?? ex['dataValue']).find(v => v !== undefined)
-    if (firstValue !== undefined) obj['example'] = firstValue
-    sidecar[`${pointer}/examples`] = obj['examples']
-    delete obj['examples']
-  }
+  const schemaExamples = isSchemaContext(obj) && obj['examples'] && typeof obj['examples'] === 'object' && !Array.isArray(obj['examples'])
+    ? obj['examples'] as Record<string, Record<string, unknown>>
+    : undefined
+  const schemaExampleValue = schemaExamples
+    ? Object.values(schemaExamples).map(ex => ex['value'] ?? ex['dataValue']).find(v => v !== undefined)
+    : undefined
+  if (schemaExamples) sidecar[`${pointer}/examples`] = schemaExamples
 
   for (const [key, value] of Object.entries(obj)) {
     const childPointer = `${pointer}/${escapePointer(key)}`
@@ -68,9 +69,13 @@ export function transform(node: unknown, pointer: string, sidecar: Record<string
 
     // dataValue → value
     if (key === 'dataValue') {
+      sidecar[childPointer] = value
       if (!('value' in obj)) result['value'] = value
       continue
     }
+
+    // Schema examples map → singular example in 3.1 output
+    if (key === 'examples' && schemaExamples) continue
 
     // 3.2 전용 → 사이드카 보존
     if (PRESERVE_FIELDS.has(key)) {
@@ -79,20 +84,42 @@ export function transform(node: unknown, pointer: string, sidecar: Record<string
     }
 
     // 3.2 전용 → 제거 (복원 가치 낮음)
-    if (REMOVE_FIELDS.has(key)) continue
+    if (REMOVE_FIELDS.has(key)) {
+      sidecar[childPointer] = value
+      continue
+    }
 
     // Server.name 제거
-    if (key === 'name' && parentKey === 'servers') continue
+    if (key === 'name' && parentKey === 'servers') {
+      sidecar[childPointer] = value
+      continue
+    }
     // Tag.parent, Tag.kind 제거
-    if ((key === 'parent' || key === 'kind') && parentKey === 'tags') continue
+    if ((key === 'parent' || key === 'kind') && parentKey === 'tags') {
+      sidecar[childPointer] = value
+      continue
+    }
     // PathItem.query 제거
-    if (key === 'query' && isPathItem(obj)) continue
+    if (key === 'query' && isPathItem(obj)) {
+      sidecar[childPointer] = value
+      continue
+    }
     // Components.pathItems, Components.mediaTypes 제거
-    if ((key === 'pathItems' || key === 'mediaTypes') && parentKey === 'components') continue
+    if ((key === 'pathItems' || key === 'mediaTypes') && parentKey === 'components') {
+      sidecar[childPointer] = value
+      continue
+    }
     // $ref 오버라이드 제거
-    if ('$ref' in obj && (key === 'summary' || key === 'description') && key !== '$ref') continue
+    if ('$ref' in obj && (key === 'summary' || key === 'description') && key !== '$ref') {
+      sidecar[childPointer] = value
+      continue
+    }
 
     result[key] = transform(value, childPointer, sidecar, key)
+  }
+
+  if (schemaExampleValue !== undefined && !('example' in result)) {
+    result['example'] = schemaExampleValue
   }
 
   return result

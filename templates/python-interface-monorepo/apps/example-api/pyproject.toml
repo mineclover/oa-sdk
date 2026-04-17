@@ -1,0 +1,18 @@
+[project]
+name = "example-api"
+version = "0.1.0"
+description = "FastAPI app using interface contracts"
+requires-python = ">=3.12"
+dependencies = [
+  "fastapi>=0.120.0",
+  "oa-interface-contracts",
+  "pydantic[email]>=2.12.0",
+  "uvicorn>=0.37.0",
+]
+
+[tool.uv.sources]
+oa-interface-contracts = { workspace = true }
+
+[build-system]
+requires = ["uv_build>=0.11.7,<0.12"]
+build-backend = "uv_build"

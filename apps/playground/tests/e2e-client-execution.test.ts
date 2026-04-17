@@ -13,12 +13,12 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import { writeFileSync, mkdirSync, rmSync, existsSync } from 'node:fs'
 import { join, resolve } from 'node:path'
-import { execSync } from 'node:child_process'
 import { generateClient } from '@oa-sdk/client'
 import { generateTypesFromSpec } from '@oa-sdk/codegen/typegen'
 import { createNodeMockServer } from '@oa-sdk/mock-server/adapters/node-http'
 import type { NodeMockServer } from '@oa-sdk/mock-server/adapters/node-http'
 import type { OasDocument } from '@oa-sdk/parser'
+import { runTsc } from './run-tsc.js'
 
 // ─── Inline OAS 3.2 spec ───────────────────────────────────────────────────
 
@@ -375,7 +375,7 @@ describe('Generated client + types compile with tsc --strict', () => {
       'utf8',
     )
 
-    execSync('npx tsc --noEmit', { cwd: tmpDir, timeout: 30_000 })
+    runTsc(tmpDir)
   })
 
   it('client.ts + types.ts compile together (with stubs for missing response types)', () => {
@@ -401,6 +401,6 @@ describe('Generated client + types compile with tsc --strict', () => {
       'utf8',
     )
 
-    execSync('npx tsc --noEmit', { cwd: tmpDir, timeout: 30_000 })
+    runTsc(tmpDir)
   })
 })

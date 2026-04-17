@@ -19,6 +19,7 @@
     "@oa-sdk/client": "workspace:*",
     "@oa-sdk/codegen": "workspace:*",
     "@oa-sdk/mock-server": "workspace:*",
+    "@oa-sdk/openapi-projection-contract": "workspace:*",
     "@oa-sdk/parser": "workspace:*",
     "@oa-sdk/router": "workspace:*",
     "@oa-sdk/schemas": "workspace:*",

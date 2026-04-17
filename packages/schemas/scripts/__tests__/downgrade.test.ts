@@ -180,14 +180,14 @@ describe('downgrade — sidecar preservation', () => {
 
 describe('downgrade — removed fields', () => {
   for (const field of REMOVE_FIELDS) {
-    it(`drops "${field}" entirely (not in sidecar)`, () => {
+    it(`drops "${field}" from 3.1 output and preserves it in sidecar`, () => {
       const doc: Record<string, unknown> = {
         openapi: '3.2.0',
         [field]: 'something',
       }
       const { transformed, sidecar } = downgrade(doc)
       expect(transformed[field]).toBeUndefined()
-      expect(Object.values(sidecar)).not.toContain('something')
+      expect(sidecar[`/${field}`]).toBe('something')
     })
   }
 })
@@ -201,6 +201,7 @@ describe('downgrade — context-specific removals', () => {
     const result = transform(server, '/servers/0', sidecar, 'servers') as Record<string, unknown>
     expect(result['url']).toBe('https://api.example.com')
     expect(result['name']).toBeUndefined()
+    expect(sidecar['/servers/0/name']).toBe('production')
   })
 
   it('removes Tag.parent and Tag.kind', () => {
@@ -210,6 +211,8 @@ describe('downgrade — context-specific removals', () => {
     expect(result['name']).toBe('Auth')
     expect(result['parent']).toBeUndefined()
     expect(result['kind']).toBeUndefined()
+    expect(sidecar['/tags/0/parent']).toBe('Security')
+    expect(sidecar['/tags/0/kind']).toBe('module')
   })
 
   it('removes PathItem.query', () => {
@@ -218,6 +221,7 @@ describe('downgrade — context-specific removals', () => {
     const result = transform(pathItem, '/paths/~1users', sidecar) as Record<string, unknown>
     expect(result['get']).toBeDefined()
     expect(result['query']).toBeUndefined()
+    expect(sidecar['/paths/~1users/query']).toEqual({ foo: 'bar' })
   })
 
   it('removes Components.pathItems and Components.mediaTypes', () => {
@@ -231,6 +235,8 @@ describe('downgrade — context-specific removals', () => {
     expect(result['schemas']).toBeDefined()
     expect(result['pathItems']).toBeUndefined()
     expect(result['mediaTypes']).toBeUndefined()
+    expect(sidecar['/components/pathItems']).toEqual({ x: {} })
+    expect(sidecar['/components/mediaTypes']).toEqual({ y: {} })
   })
 
   it('removes $ref override fields (summary, description)', () => {
@@ -244,6 +250,8 @@ describe('downgrade — context-specific removals', () => {
     expect(result['$ref']).toBe('#/components/schemas/Foo')
     expect(result['summary']).toBeUndefined()
     expect(result['description']).toBeUndefined()
+    expect(sidecar['/test/summary']).toBe('overridden')
+    expect(sidecar['/test/description']).toBe('overridden desc')
   })
 })
 
@@ -268,15 +276,16 @@ describe('downgrade — recursion', () => {
     expect(items[1]['keep']).toBe('also')
   })
 
-  it('removes Server.name when parentKey is servers (direct call)', () => {
-    // Note: parentKey is not propagated through array recursion,
-    // so Server.name removal only works when transform is called
-    // directly with parentKey='servers' for each server object.
-    const sidecar: Record<string, unknown> = {}
-    const server = { url: 'https://a.com', name: 'srv-a' }
-    const result = transform(server, '/servers/0', sidecar, 'servers') as Record<string, unknown>
-    expect(result['name']).toBeUndefined()
-    expect(result['url']).toBe('https://a.com')
+  it('propagates array parent context for Server.name removal', () => {
+    const doc = {
+      openapi: '3.2.0',
+      servers: [{ url: 'https://a.com', name: 'srv-a' }],
+    }
+    const { transformed, sidecar } = downgrade(doc)
+    const server = (transformed['servers'] as Array<Record<string, unknown>>)[0]!
+    expect(server['name']).toBeUndefined()
+    expect(server['url']).toBe('https://a.com')
+    expect(sidecar['/servers/0/name']).toBe('srv-a')
   })
 
   it('handles deeply nested structures', () => {
