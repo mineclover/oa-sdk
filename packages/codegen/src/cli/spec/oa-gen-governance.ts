@@ -117,6 +117,61 @@ export const oaGenGovernanceManifest = {
       },
     },
     {
+      id: 'target-check',
+      kind: 'command',
+      name: 'target-check',
+      summary: 'target OpenAPI path surface 포함/제외 assertion 검증',
+      components: {
+        options: [
+          {
+            name: 'target',
+            type: 'string',
+            short: 't',
+            description: 'Definition Builder target config 경로',
+          },
+          {
+            name: 'artifact',
+            type: 'string',
+            description: '검증할 generated OpenAPI artifact YAML/JSON 경로',
+          },
+          {
+            name: 'fragments',
+            type: 'string',
+            description: 'definition fragments 디렉토리 (기본: target sibling ../fragments)',
+          },
+          {
+            name: 'must-include-path',
+            type: 'string',
+            description: 'emitted OpenAPI paths에 반드시 포함되어야 하는 path assertion (반복 가능)',
+          },
+          {
+            name: 'must-exclude-path',
+            type: 'string',
+            description: 'emitted OpenAPI paths에 포함되면 안 되는 path assertion (반복 가능)',
+          },
+          {
+            name: 'format',
+            type: 'string',
+            short: 'f',
+            description: 'markdown | json (기본: markdown)',
+          },
+        ],
+        inputs: [
+          { name: 'target', kind: 'definition-target', required: false, option: 'target' },
+          { name: 'artifact', kind: 'openapi-artifact', required: false, option: 'artifact' },
+          { name: 'fragments', kind: 'definition-fragments', required: false, option: 'fragments' },
+        ],
+        checks: ['target-coverage'],
+        reports: [
+          { formats: ['markdown', 'json'], schema: 'oa-gen.target-coverage.v1' },
+        ],
+        exitPolicy: {
+          success: ['APPROVE'],
+          failure: ['REQUEST_CHANGES'],
+        },
+      },
+    },
+    {
       id: 'diff',
       kind: 'command',
       name: 'diff',

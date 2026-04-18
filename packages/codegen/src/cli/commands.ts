@@ -13,6 +13,7 @@ import { checkArtifact } from './commands/check-artifact.js'
 import { drift } from './commands/drift.js'
 import { inventory } from './commands/inventory.js'
 import { duplicateReview } from './commands/duplicate-review.js'
+import { targetCheck } from './commands/target-check.js'
 
 export const commands: Command[] = [
   generate,
@@ -25,6 +26,7 @@ export const commands: Command[] = [
   validate,
   inventory,
   duplicateReview,
+  targetCheck,
   diff,
   checkArtifact,
   drift,

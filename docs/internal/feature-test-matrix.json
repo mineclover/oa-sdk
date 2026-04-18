@@ -172,6 +172,30 @@
       ]
     },
     {
+      "id": "target-check",
+      "name": "Target path surface check",
+      "category": "governance",
+      "package": "@oa-sdk/codegen",
+      "description": "oa-gen target-check validates emitted OpenAPI path surfaces for Definition Builder targets and generated artifacts with repeatable include/exclude assertions.",
+      "capabilities": [
+        "Definition Builder target source mode",
+        "generated OpenAPI artifact source mode",
+        "required path assertions",
+        "forbidden path assertions",
+        "deterministic repeated assertion ordering",
+        "markdown and JSON CLI reports",
+        "non-zero exit on path assertion failures"
+      ],
+      "testPaths": [
+        "packages/codegen/src/__tests__/target-coverage.test.ts",
+        "packages/codegen/src/__tests__/cli-target-check.test.ts"
+      ],
+      "commands": [
+        "pnpm --filter @oa-sdk/codegen test",
+        "pnpm --filter @oa-sdk/codegen typecheck"
+      ]
+    },
+    {
       "id": "zod-drizzle-to-oas",
       "name": "Zod and Drizzle to OpenAPI schema generation",
       "category": "codegen",

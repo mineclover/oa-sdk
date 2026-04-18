@@ -168,6 +168,26 @@ export function checkTargetCoverage(options: TargetCoverageOptions): TargetCover
 
 export const analyzeTargetCoverage = checkTargetCoverage
 
+export function formatTargetCoverageMarkdown(report: TargetCoverageResult): string {
+  const lines = [
+    '## Target Check',
+    '',
+    `Source: ${markdownText(sourceDetail(report.source))}`,
+    `Summary: ${report.summary.assertionCount} assertions, ${report.summary.pathCount} emitted paths, ${report.summary.failureCount} failures.`,
+    '',
+    '### Assertions',
+    ...assertionLines(report.assertions),
+  ]
+
+  lines.push(
+    '',
+    '### Failures',
+    ...failureLines(report.failures),
+  )
+
+  return lines.join('\n')
+}
+
 function loadTargetCoverageDocument(options: TargetCoverageOptions): LoadedTargetCoverageDocument {
   const sourceCount = [
     options.artifactPath,
@@ -252,4 +272,43 @@ function sourceLabel(source: TargetCoverageSource): string {
   }
   if (source.kind === 'openapi-artifact') return 'OpenAPI artifact'
   return 'OpenAPI document'
+}
+
+function sourceDetail(source: TargetCoverageSource): string {
+  const detail = source.path ?? source.targetPath
+  if (detail === undefined) return sourceLabel(source)
+  return `${sourceLabel(source)} (${detail})`
+}
+
+function assertionLines(assertions: readonly TargetCoverageAssertionResult[]): string[] {
+  if (assertions.length === 0) return ['None.']
+  return [
+    '| Result | Assertion | Path | Details |',
+    '| --- | --- | --- | --- |',
+    ...assertions.map(assertion => {
+      const details = assertion.passed
+        ? '-'
+        : `${assertion.code ?? 'failed'}: ${assertion.message ?? 'failed'}`
+      return `| ${assertion.passed ? 'PASS' : 'FAIL'} | ${assertion.kind} | \`${markdownCode(assertion.path)}\` | ${markdownText(details)} |`
+    }),
+  ]
+}
+
+function failureLines(failures: readonly TargetCoverageFailure[]): string[] {
+  if (failures.length === 0) return ['None.']
+  return [
+    '| Code | Assertion | Path | Message |',
+    '| --- | --- | --- | --- |',
+    ...failures.map(failure => (
+      `| \`${markdownCode(failure.code)}\` | ${failure.assertion} | \`${markdownCode(failure.path)}\` | ${markdownText(failure.message)} |`
+    )),
+  ]
+}
+
+function markdownText(value: unknown): string {
+  return String(value).replace(/\s+/g, ' ').replace(/\|/g, '\\|').trim()
+}
+
+function markdownCode(value: unknown): string {
+  return markdownText(value).replace(/`/g, '\\`')
 }

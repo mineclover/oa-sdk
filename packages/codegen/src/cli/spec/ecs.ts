@@ -7,6 +7,7 @@ export type CliCheckKind =
   | 'head-validation'
   | 'inventory'
   | 'runtime-drift'
+  | 'target-coverage'
 
 export type CliInputKind =
   | 'contract-document'

@@ -123,7 +123,7 @@ marker.
 | WorkspaceIndex | 파일 hash/component/ref/source/diagnostic/type alias metadata용 index 경계. 기본 noop은 모든 파일을 dirty 처리해 기존 full rebuild 동작 유지 |
 | SQLiteWorkspaceIndex | `.oa-cache/state.sqlite`에 index row를 보존. `better-sqlite3` primary + `node:sqlite` fallback driver를 사용하며 WAL/foreign key/transaction, schema/options mismatch 또는 DB 오류 시 full rebuild fallback |
 | Workspace dirty detection | entry/domain/profile/external ref 파일 scan → new/modified/deleted/unchanged 분류 → refs.to_file 역방향 dirty 전파 → stale row invalidation |
-| CLI | 커맨드 모듈 구조. `generate`/`typegen`/`router`/`client`/`build-spec`/`dev`/`lint`/`validate`/`inventory`/`duplicate-review`/`diff`/`check-artifact`/`drift`/`review`/`--help`; `validate`/`typegen`은 opt-in `--incremental --cache-dir`, `dev`는 watch mode에서 같은 index path 사용. `lint`/`validate` diagnostic은 YAML source map이 있으면 `file:line:column`을 출력하고 target `file#pointer` fallback을 유지. `inventory`, `duplicate-review`, `diff`, `check-artifact`, `drift`, `review`는 CLI ECS manifest를 기준으로 governance checks와 Markdown/JSON report를 구성한다 |
+| CLI | 커맨드 모듈 구조. `generate`/`typegen`/`router`/`client`/`build-spec`/`dev`/`lint`/`validate`/`inventory`/`duplicate-review`/`target-check`/`diff`/`check-artifact`/`drift`/`review`/`--help`; `validate`/`typegen`은 opt-in `--incremental --cache-dir`, `dev`는 watch mode에서 같은 index path 사용. `lint`/`validate` diagnostic은 YAML source map이 있으면 `file:line:column`을 출력하고 target `file#pointer` fallback을 유지. `inventory`, `duplicate-review`, `target-check`, `diff`, `check-artifact`, `drift`, `review`는 CLI ECS manifest를 기준으로 governance checks와 Markdown/JSON report를 구성한다 |
 
 ### OpenAPI inventory command (OpenAPI aggregation governance Phase 1)
 
@@ -144,6 +144,16 @@ Exit policy는 error severity에만 실패한다. Duplicate canonical id와 targ
 구현은 `packages/codegen/src/cli/lib/duplicate-review.ts`와 `packages/codegen/src/cli/commands/duplicate-review.ts`에 있으며, CLI governance manifest는 `packages/codegen/src/cli/spec/oa-gen-governance.ts`와 `docs/cli-spec/oa-gen.governance.json`이 함께 소유한다.
 
 대표 검증은 `packages/codegen/src/__tests__/duplicate-review.test.ts`와 `packages/codegen/src/__tests__/cli-duplicate-review.test.ts`가 맡는다.
+
+### Target-check command (OpenAPI aggregation governance Phase 3)
+
+`oa-gen target-check --target <target.yaml> --must-include-path <path> --must-exclude-path <path>`은 Definition Builder target config를 `build-spec`의 in-memory output으로 materialize한 뒤 emitted OpenAPI `paths` key를 검증한다. Generated artifact mode는 `--artifact <openapi.yaml|json>`으로 같은 assertion core를 사용한다. `--target`과 `--artifact`는 one-of source mode이며, target mode에서만 `--fragments`가 target sibling `../fragments` 기본값을 override한다.
+
+`--must-include-path`와 `--must-exclude-path`는 반복 가능하고, 중복 제거 후 path 문자열 기준 stable sort로 평가한다. JSON report schema는 `oa-gen.target-coverage.v1`이고, Markdown report는 every assertion row를 `PASS`/`FAIL`로 렌더링한 뒤 failure table을 별도로 제공한다. Missing required path는 `target-coverage/missing-required-path`, emitted forbidden path는 `target-coverage/forbidden-path-emitted` failure code로 non-zero exit한다.
+
+구현은 `packages/codegen/src/cli/lib/target-coverage.ts`와 `packages/codegen/src/cli/commands/target-check.ts`에 있으며, CLI governance manifest는 `packages/codegen/src/cli/spec/oa-gen-governance.ts`와 `docs/cli-spec/oa-gen.governance.json`이 함께 소유한다.
+
+대표 검증은 `packages/codegen/src/__tests__/target-coverage.test.ts`와 `packages/codegen/src/__tests__/cli-target-check.test.ts`가 맡는다.
 
 ### Runtime OpenAPI URL drift input (OpenAPI aggregation governance Phase 4)
 

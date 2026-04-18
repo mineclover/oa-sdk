@@ -1,6 +1,6 @@
 import { resolve } from 'node:path'
 import { existsSync } from 'node:fs'
-import type { Command } from '../lib/types.js'
+import type { Command, CommandArgValue } from '../lib/types.js'
 import type { CodegenConfig } from '../../config.js'
 import type { OutputOptions } from '../../types.js'
 import { generateComponents } from '../../generator.js'
@@ -31,7 +31,7 @@ export const generate: Command = {
   },
 }
 
-type Args = Record<string, string | boolean | undefined>
+type Args = Record<string, CommandArgValue>
 
 async function runDrizzle(schemaPath: string, args: Args): Promise<void> {
   const { generateFromDrizzle } = await import('../../drizzle/index.js')

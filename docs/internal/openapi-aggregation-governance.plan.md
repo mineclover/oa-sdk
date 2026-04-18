@@ -79,7 +79,7 @@ Acceptance criteria:
 
 중복 후보를 사람이 검토하기 쉬운 report로 만든다.
 
-Proposed CLI:
+Implemented CLI:
 
 ```bash
 oa-gen duplicate-review --fragments packages/schemas/src/fragments --format markdown
@@ -112,11 +112,22 @@ oa-gen target-check \
   --must-exclude-path /admin
 ```
 
+Generated artifact mode uses the same assertion core:
+
+```bash
+oa-gen target-check \
+  --artifact packages/schemas/src/.public-api.yaml \
+  --must-include-path /health \
+  --must-exclude-path /admin \
+  --format json
+```
+
 Acceptance criteria:
 
 - Public target can assert no admin/internal paths are emitted.
 - Missing required paths fail with non-zero exit.
 - The same check can run against generated target artifact or target config.
+- Markdown and JSON reports include every assertion result and failure.
 
 ### 4. Review Bundle
 
