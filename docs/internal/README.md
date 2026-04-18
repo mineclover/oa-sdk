@@ -42,7 +42,6 @@ architecture/ (설계 결정)
 | [oas32-coverage.md](./oas32-coverage.md) | OAS 3.2 기능별 지원 매트릭스 | 새 기능 구현 시 |
 | [domain-merge-inventory.md](./domain-merge-inventory.md) | current domain merge input checklist | schema profile/domain source 변경 시 |
 | [definition-builder-compatibility-gates.md](./definition-builder-compatibility-gates.md) | builder parity validation/downstream gates and accepted differences | builder parity workflow 변경 시 |
-| [openapi-aggregation-governance.plan.md](./openapi-aggregation-governance.plan.md) | OpenAPI aggregation/governance planned capabilities | 신규 aggregation 기능 구현 전/진행 중 |
 | [traceability.md](./traceability.md) | 공식 스펙 § → 타입 → 코드 매핑 | 파일 추가/이동 시 |
 | [plan.md](./plan.md) | 로드맵 + 아키텍처 | Phase 완료/추가 시 |
 | [architecture/packages.md](./architecture/packages.md) | 패키지 구조 + 파일 역할 | 패키지/파일 변경 시 |

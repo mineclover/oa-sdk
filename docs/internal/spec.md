@@ -25,7 +25,7 @@ schemas      ← 독립. OAS 소스 + merge + 3.1↔3.2 변환
 machine-readable SSOT다. 사람이 읽는 요약은
 [`feature-test-matrix.md`](./feature-test-matrix.md)에 둔다.
 
-현재 매핑은 20개 기능 그룹과 CLI spec drift guard를 포함한 테스트 경로 패턴을 관리한다.
+현재 매핑은 22개 기능 그룹과 CLI spec drift guard를 포함한 테스트 경로 패턴을 관리한다.
 
 ```bash
 pnpm check:feature-tests

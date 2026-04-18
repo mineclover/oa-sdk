@@ -34,6 +34,8 @@ without checking behavior, add focused assertions or split the matrix row.
 | `openapi-projection-contract` | `@oa-sdk/openapi-projection-contract` | projection profiles, extensions, validation | `packages/openapi-projection-contract/src/validation.test.ts`, `projection-extensions.test.ts` |
 | `definition-builder` | `@oa-sdk/parser`, `@oa-sdk/codegen` | definition registry, target selection, emit, composition/provenance reports, workspace index | `packages/parser/src/__tests__/definition-*.test.ts`, `packages/codegen/src/__tests__/builder-*.test.ts` |
 | `schema-authoring-workflow` | `@oa-sdk/schemas` | merge, fixture, upgrade, downgrade scripts | `packages/schemas/scripts/__tests__/merge.test.ts`, `upgrade.test.ts`, `downgrade.test.ts` |
+| `definition-duplicate-review` | `@oa-sdk/codegen` | Definition Builder duplicate identity risk reports | `packages/codegen/src/__tests__/duplicate-review.test.ts`, `cli-duplicate-review.test.ts` |
+| `target-check` | `@oa-sdk/codegen` | emitted OpenAPI path include/exclude assertions | `packages/codegen/src/__tests__/target-coverage.test.ts`, `cli-target-check.test.ts` |
 | `zod-drizzle-to-oas` | `@oa-sdk/codegen` | Zod and Drizzle schema generation | `packages/codegen/src/__tests__/zod-to-schema.test.ts`, `packages/codegen/src/__tests__/drizzle/*.test.ts` |
 | `source-adapter-boundaries` | `@oa-sdk/codegen` | normalized source fragments for Zod, Drizzle, Projection envelopes, Python snapshots, and file-backed inputs | `packages/codegen/src/__tests__/codegen-source-adapters.test.ts`, `source-file-adapters.test.ts`, `openapi-source-fragments.test.ts` |
 | `typegen` | `@oa-sdk/codegen` | TypeScript type generation | `packages/codegen/src/__tests__/typegen/*.test.ts`, `mock-typegen-compat.test.ts` |

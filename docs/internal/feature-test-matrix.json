@@ -538,7 +538,7 @@
         "docs/cli-spec/cli-command.schema.json",
         "docs/cli-spec/oa-contract.governance.json",
         "docs/cli-spec/oa-gen.governance.json",
-        "docs/internal/openapi-aggregation-governance.plan.md",
+        "docs/internal/spec.md",
         "docs/internal/api-index.md",
         "docs/internal/feature-test-matrix.md",
         "docs/internal/feature-test-matrix.json"
