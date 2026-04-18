@@ -40,9 +40,12 @@ export type LoadedDefinitionFragments = {
   filePaths: string[]
 }
 
+export function readYamlOrJsonDocument(filePath: string): unknown {
+  return parseDocument(readFileSync(filePath, 'utf8'), filePath)
+}
+
 export function loadDefinitionTargetConfig(targetPath: string): DefinitionTargetConfig {
-  const raw = readFileSync(targetPath, 'utf8')
-  const parsed = parseDocument(raw, targetPath)
+  const parsed = readYamlOrJsonDocument(targetPath)
   if (!isRecord(parsed)) {
     throw new Error(`Target config must be an object: ${targetPath}`)
   }
