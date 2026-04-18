@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-04-17",
+  "updatedAt": "2026-04-18",
   "description": "Feature-to-test mapping for oa-sdk. Each feature lists representative automated coverage and the commands that maintain it.",
   "features": [
     {
@@ -108,12 +108,14 @@
       "name": "OpenAPI definition builder",
       "category": "builder",
       "package": "@oa-sdk/parser",
-      "description": "Canonical definition IDs, registry graph, target selection, output naming, OpenAPI emit, and projection adapter.",
+      "description": "Canonical definition IDs, registry graph, target selection, output naming, OpenAPI emit, composition/provenance reports, and projection adapter.",
       "capabilities": [
         "canonical definition IDs",
         "definition registry",
         "target-local output naming",
         "OpenAPI emit",
+        "composition report sidecar",
+        "provenance sidecar",
         "full-api-document projection"
       ],
       "testPaths": [
@@ -198,18 +200,24 @@
       "name": "Codegen CLI workflow",
       "category": "cli",
       "package": "@oa-sdk/codegen",
-      "description": "oa-gen generate/typegen/router/client/build-spec/lint/validate/diff/check-artifact/review/dev command behavior.",
+      "description": "oa-gen generate/typegen/router/client/build-spec/lint/validate/inventory/diff/check-artifact/drift/review/dev command behavior, including build-spec sidecar reports, runtime URL drift input, and provenance review.",
       "capabilities": [
         "generate",
         "typegen",
         "router",
         "client",
         "build-spec",
+        "build-spec composition report",
+        "build-spec provenance report",
         "lint",
         "validate",
+        "inventory",
         "diff",
         "check-artifact",
+        "drift",
+        "runtime OpenAPI URL drift input",
         "review",
+        "review provenance diff",
         "dev"
       ],
       "testPaths": [
@@ -220,6 +228,72 @@
       ],
       "commands": [
         "pnpm --filter @oa-sdk/codegen test"
+      ]
+    },
+    {
+      "id": "runtime-openapi-url-drift",
+      "name": "Runtime OpenAPI URL drift input",
+      "category": "governance",
+      "package": "@oa-sdk/codegen",
+      "description": "oa-gen drift can compare managed OpenAPI files against runtime OpenAPI URLs and report fetch, redirect, HTTP status, and parse failures.",
+      "capabilities": [
+        "runtime OpenAPI URL fetch",
+        "redirect metadata in JSON reports",
+        "non-2xx drift-check-failed reporting",
+        "parse failure drift-check-failed reporting",
+        "existing runtime file path drift behavior"
+      ],
+      "testPaths": [
+        "packages/codegen/src/__tests__/cli-scenarios.test.ts",
+        "packages/codegen/src/__tests__/runtime-openapi-fetch.test.ts"
+      ],
+      "commands": [
+        "pnpm --filter @oa-sdk/codegen test",
+        "pnpm --filter @oa-sdk/codegen typecheck"
+      ]
+    },
+    {
+      "id": "openapi-provenance",
+      "name": "OpenAPI source provenance map",
+      "category": "governance",
+      "package": "@oa-sdk/codegen",
+      "description": "Build-spec provenance sidecar maps emitted OpenAPI path/component pointers back to canonical source fragments, and review can report provenance entry changes.",
+      "capabilities": [
+        "output pointer provenance map",
+        "canonical id and source file/pointer links",
+        "content hash provenance",
+        "provenance diff in review reports"
+      ],
+      "testPaths": [
+        "packages/codegen/src/__tests__/cli-build-spec.test.ts",
+        "packages/codegen/src/__tests__/cli-scenarios.test.ts"
+      ],
+      "commands": [
+        "pnpm --filter @oa-sdk/codegen test",
+        "pnpm --filter @oa-sdk/codegen typecheck"
+      ]
+    },
+    {
+      "id": "openapi-inventory",
+      "name": "OpenAPI inventory reports",
+      "category": "governance",
+      "package": "@oa-sdk/codegen",
+      "description": "oa-gen inventory summarizes OpenAPI path, operation, component, tag/domain, security, source metadata, and unused component surface.",
+      "capabilities": [
+        "path and operation counts",
+        "component counts by section",
+        "tag and path-domain grouping",
+        "security scheme usage summary",
+        "projection source metadata summary",
+        "unused component candidate detection"
+      ],
+      "testPaths": [
+        "packages/codegen/src/__tests__/openapi-inventory.test.ts",
+        "packages/codegen/src/__tests__/cli-scenarios.test.ts"
+      ],
+      "commands": [
+        "pnpm --filter @oa-sdk/codegen test",
+        "pnpm --filter @oa-sdk/codegen typecheck"
       ]
     },
     {
@@ -392,6 +466,7 @@
         "docs/cli-spec/oa-gen.governance.json",
         "docs/internal/openapi-aggregation-governance.plan.md",
         "docs/internal/api-index.md",
+        "docs/internal/feature-test-matrix.md",
         "docs/internal/feature-test-matrix.json"
       ],
       "commands": [

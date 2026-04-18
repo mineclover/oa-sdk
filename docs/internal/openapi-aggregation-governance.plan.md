@@ -20,9 +20,10 @@ projection, definition fragment를 수집해 하나의 관리 가능한 OpenAPI 
 - Definition Builder: [Definition Builder](../concepts/definition-builder.md)
 - CLI manifest: [CLI Spec](../cli-spec/README.md)
 
-현재 구현은 Definition Builder target artifact, normalized OpenAPI diff, breaking diff,
-artifact freshness, runtime OpenAPI drift, review report를 제공한다. 이 계획은 “수집,
-provenance, inventory, composition, duplicate review, target coverage”를 별도 기능으로
+현재 구현은 Definition Builder target artifact, composition report sidecar,
+source provenance map, normalized OpenAPI diff, breaking diff, artifact freshness,
+runtime OpenAPI drift with URL fetch, review report, inventory command를 제공한다. 이
+계획은 “수집, duplicate review, target coverage”를 별도 기능으로
 올리는 단계다.
 
 ## Documentation Boundary
@@ -74,86 +75,7 @@ Acceptance criteria:
 - Adapter output can feed Definition Builder or inventory.
 - Existing Zod/Drizzle/codegen behavior remains backward compatible.
 
-### 2. Source Provenance Map
-
-OpenAPI artifact의 path/component가 어떤 source에서 왔는지 추적한다.
-
-Expected output:
-
-```json
-{
-  "#/paths/~1users/get": {
-    "sourcePath": "packages/schemas/src/fragments/path/public/users/UsersPath.yaml",
-    "sourcePointer": "#/content/get",
-    "canonicalId": "path:public/users/UsersPath",
-    "contentHash": "sha256:..."
-  }
-}
-```
-
-Acceptance criteria:
-
-- `oa-gen build-spec` can emit a provenance sidecar.
-- `oa-gen review` can include changed provenance entries.
-- Provenance is stable across repeated builds.
-- Provenance never replaces OpenAPI artifact content.
-
-### 3. Inventory Command
-
-전체 API surface를 빠르게 요약한다.
-
-Proposed CLI:
-
-```bash
-oa-gen inventory --spec packages/schemas/src/.merged.yaml --format markdown
-oa-gen inventory --spec packages/schemas/src/.merged.yaml --format json
-```
-
-Report sections:
-
-- path count
-- operation count
-- component counts by section
-- tag/domain grouping
-- security scheme summary
-- target/source summary when provenance exists
-- unused component candidates
-
-Acceptance criteria:
-
-- JSON output is stable and machine-readable.
-- Markdown output is compact enough for PR comments.
-- Inventory can read plain OpenAPI documents and target artifacts.
-
-### 4. Composition Report
-
-Definition Builder가 무엇을 선택하고 조합했는지 sidecar로 출력한다.
-
-Proposed CLI:
-
-```bash
-oa-gen build-spec \
-  --target packages/schemas/src/targets/local-parity-api.yaml \
-  --composition-report packages/schemas/src/.builder/local-parity-api.composition.json
-```
-
-Report sections:
-
-- direct path ids
-- direct retained definition ids
-- transitive component ids
-- omitted node counts by scope/domain/kind
-- output aliases
-- collision report
-- source refs
-
-Acceptance criteria:
-
-- Composition report is emitted only from builder data, not by re-parsing output OpenAPI.
-- Report links selected output paths/components to canonical ids.
-- Report is included in review bundle when present.
-
-### 5. Duplicate Review
+### 2. Duplicate Review
 
 중복 후보를 사람이 검토하기 쉬운 report로 만든다.
 
@@ -177,7 +99,7 @@ Acceptance criteria:
 - Intentional semantic aliases suppress only the intended duplicate warning.
 - Report includes source path and canonical id for every entry.
 
-### 6. Target Coverage Gate
+### 3. Target Coverage Gate
 
 target artifact가 기대한 surface를 포함/제외하는지 검증한다.
 
@@ -196,25 +118,7 @@ Acceptance criteria:
 - Missing required paths fail with non-zero exit.
 - The same check can run against generated target artifact or target config.
 
-### 7. Runtime OpenAPI Fetch
-
-`oa-gen drift`가 file path뿐 아니라 runtime OpenAPI URL도 받을 수 있게 한다.
-
-Proposed CLI:
-
-```bash
-oa-gen drift \
-  --runtime-openapi-url http://localhost:3000/openapi.json \
-  --managed-openapi packages/schemas/src/.merged.yaml
-```
-
-Acceptance criteria:
-
-- URL fetch failure is reported as drift-check-failed.
-- Redirects and non-2xx responses are visible in JSON output.
-- File path behavior remains unchanged.
-
-### 8. Review Bundle
+### 4. Review Bundle
 
 PR review에 필요한 report들을 하나로 묶는다.
 
@@ -239,18 +143,15 @@ Acceptance criteria:
 
 ## Phase Order
 
-1. Inventory command
-2. Composition report sidecar
-3. Source provenance map
-4. Runtime OpenAPI URL fetch for drift
-5. Duplicate review command
-6. Target coverage gate
-7. Review bundle
-8. Source adapter formalization
+1. Duplicate review command
+2. Target coverage gate
+3. Review bundle
+4. Source adapter formalization
 
-Inventory comes first because it needs only the existing parser and gives immediate visibility into
-path/component surface. Source adapters come later because they stabilize better after provenance and
-composition report shapes are proven.
+Inventory, composition report, source provenance map, and runtime OpenAPI URL fetch have been
+implemented and promoted to `spec.md`, `api-index.md`, and `feature-test-matrix.json`. Source
+adapters come later because they stabilize better after provenance and composition report shapes are
+proven.
 
 ## Promotion Rules
 

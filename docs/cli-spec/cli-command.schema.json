@@ -44,6 +44,7 @@
                   "artifact-freshness",
                   "breaking-diff",
                   "head-validation",
+                  "inventory",
                   "runtime-drift"
                 ]
               }
@@ -83,6 +84,7 @@
             "module-reference",
             "openapi-artifact",
             "openapi-document",
+            "openapi-provenance",
             "runtime-openapi"
           ]
         },

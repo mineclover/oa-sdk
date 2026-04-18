@@ -1,0 +1,288 @@
+{
+  "name": "OpenAPI Aggregation Governance Completion",
+  "description": "Complete the remaining planned OpenAPI aggregation governance capabilities: duplicate review, target coverage gate, review bundle, and source adapter formalization.",
+  "branchName": "ralph/openapi-aggregation-governance",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Build Duplicate Review Analyzer",
+      "description": "As a maintainer, I want a reusable duplicate review analyzer for Definition Builder fragments so that duplicate candidates can be reported without changing emitted OpenAPI output.",
+      "acceptanceCriteria": [
+        "Add a reusable duplicate review analyzer under packages/codegen/src/cli/lib/ or an existing equivalent governance lib boundary",
+        "Analyzer reads Definition Builder fragments from a fragments directory using existing fragment parsing conventions where possible",
+        "Analyzer reports duplicate canonical ids with all source paths and canonical ids involved",
+        "Analyzer reports same content hash with different canonical ids",
+        "Analyzer reports same local name with different shapes",
+        "Analyzer reports output name collision candidates using target-local naming concepts where target context is available",
+        "Analyzer reports explicit metadata.semanticAliasOf pairs",
+        "Analyzer never mutates fragments and never auto-merges definitions",
+        "pnpm --filter @oa-sdk/codegen build passes",
+        "pnpm --filter @oa-sdk/codegen typecheck passes",
+        "pnpm --filter @oa-sdk/codegen test passes",
+        "pnpm check:cli-spec passes",
+        "pnpm check:feature-tests passes",
+        "pnpm check:api-index passes",
+        "git diff --check passes"
+      ],
+      "priority": 1,
+      "passes": true,
+      "notes": "",
+      "dependsOn": [],
+      "completionNotes": "Completed by agent"
+    },
+    {
+      "id": "US-002",
+      "title": "Add oa-gen duplicate-review CLI",
+      "description": "As a maintainer, I want oa-gen duplicate-review to emit markdown and JSON duplicate review reports so that PR reviewers can inspect source identity risks quickly.",
+      "acceptanceCriteria": [
+        "Add oa-gen duplicate-review --fragments <dir> --format markdown|json",
+        "Default format is markdown and is compact enough for PR comments",
+        "JSON output is stable, machine-readable, and includes source path and canonical id for every entry",
+        "Intentional semantic aliases suppress only the intended duplicate warning",
+        "CLI exits zero when only informational duplicate candidates are present and non-zero only for configured error-level findings such as duplicate canonical ids",
+        "Add CLI governance manifest entries in packages/codegen/src/cli/spec/oa-gen-governance.ts and docs/cli-spec/oa-gen.governance.json",
+        "Add focused tests for analyzer output, CLI JSON, CLI markdown, semantic alias suppression, and duplicate id failure",
+        "Promote only the implemented duplicate-review behavior to docs/internal/spec.md, docs/internal/api-index.md, and docs/internal/feature-test-matrix.json",
+        "pnpm --filter @oa-sdk/codegen build passes",
+        "pnpm --filter @oa-sdk/codegen typecheck passes",
+        "pnpm --filter @oa-sdk/codegen test passes",
+        "pnpm check:cli-spec passes",
+        "pnpm check:feature-tests passes",
+        "pnpm check:api-index passes",
+        "git diff --check passes"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": "",
+      "dependsOn": [
+        "US-001"
+      ]
+    },
+    {
+      "id": "US-003",
+      "title": "Build Target Coverage Gate Core",
+      "description": "As a maintainer, I want a reusable target coverage checker so that required and forbidden API paths can be validated against a generated artifact or a Definition Builder target config.",
+      "acceptanceCriteria": [
+        "Add a target coverage checker under packages/codegen/src/cli/lib/ or an equivalent governance lib boundary",
+        "Checker can read plain generated OpenAPI YAML/JSON artifacts",
+        "Checker can read a Definition Builder target config by building the target through the existing target loader path",
+        "Checker supports mustIncludePath assertions",
+        "Checker supports mustExcludePath assertions",
+        "Missing required paths produce stable machine-readable failures",
+        "Forbidden emitted paths produce stable machine-readable failures",
+        "Existing build-spec target behavior is not changed by the checker",
+        "pnpm --filter @oa-sdk/codegen build passes",
+        "pnpm --filter @oa-sdk/codegen typecheck passes",
+        "pnpm --filter @oa-sdk/codegen test passes",
+        "pnpm check:cli-spec passes",
+        "pnpm check:feature-tests passes",
+        "pnpm check:api-index passes",
+        "git diff --check passes"
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": "",
+      "dependsOn": []
+    },
+    {
+      "id": "US-004",
+      "title": "Add oa-gen target-check CLI",
+      "description": "As a maintainer, I want oa-gen target-check to fail CI when a target artifact includes or omits the wrong path surface.",
+      "acceptanceCriteria": [
+        "Add oa-gen target-check --target <target.yaml> --must-include-path <path> --must-exclude-path <path> support",
+        "Add an artifact input mode for generated OpenAPI documents if the final CLI design needs a distinct --artifact or --spec option",
+        "Multiple include and exclude assertions are supported deterministically",
+        "Missing required paths fail with non-zero exit",
+        "Forbidden paths fail with non-zero exit",
+        "JSON and human/markdown output include every assertion and result",
+        "Add CLI governance manifest entries in both TS and docs manifests",
+        "Add tests for passing public target checks, missing required path failures, forbidden path failures, and generated artifact mode",
+        "Promote only implemented target-check behavior to internal docs and feature-test matrix",
+        "pnpm --filter @oa-sdk/codegen build passes",
+        "pnpm --filter @oa-sdk/codegen typecheck passes",
+        "pnpm --filter @oa-sdk/codegen test passes",
+        "pnpm check:cli-spec passes",
+        "pnpm check:feature-tests passes",
+        "pnpm check:api-index passes",
+        "git diff --check passes"
+      ],
+      "priority": 4,
+      "passes": false,
+      "notes": "",
+      "dependsOn": [
+        "US-003"
+      ]
+    },
+    {
+      "id": "US-005",
+      "title": "Build Review Bundle Aggregator",
+      "description": "As a maintainer, I want a review bundle aggregator that combines existing governance report payloads so that PR review output is complete but each section remains independently inspectable.",
+      "acceptanceCriteria": [
+        "Add a review bundle data model with schemaVersion and a recommendation-first summary",
+        "Bundle includes breaking diff before non-breaking changes",
+        "Bundle includes artifact freshness as a separate section",
+        "Bundle can include runtime drift as a separate section",
+        "Bundle can include inventory report data as a separate section",
+        "Bundle can include composition report data as a separate section",
+        "Bundle can include duplicate review data as a separate section",
+        "JSON output preserves each underlying report object without flattening away important detail",
+        "Aggregator reuses existing report helpers where possible instead of duplicating diff, inventory, or drift logic",
+        "pnpm --filter @oa-sdk/codegen build passes",
+        "pnpm --filter @oa-sdk/codegen typecheck passes",
+        "pnpm --filter @oa-sdk/codegen test passes",
+        "pnpm check:cli-spec passes",
+        "pnpm check:feature-tests passes",
+        "pnpm check:api-index passes",
+        "git diff --check passes"
+      ],
+      "priority": 5,
+      "passes": false,
+      "notes": "",
+      "dependsOn": [
+        "US-002"
+      ]
+    },
+    {
+      "id": "US-006",
+      "title": "Add oa-gen review-bundle CLI",
+      "description": "As a maintainer, I want oa-gen review-bundle to emit a single markdown or JSON report for PR review workflows.",
+      "acceptanceCriteria": [
+        "Add oa-gen review-bundle --base <file> --head <file> --artifact <file> --format markdown|json",
+        "Add optional flags for inventory, composition report, runtime drift input, and duplicate review input according to the implemented aggregator model",
+        "Markdown output starts with the recommendation and summary",
+        "Markdown output keeps breaking changes before non-breaking changes",
+        "Artifact freshness, runtime drift, inventory, composition, and duplicate review appear as separate sections when provided",
+        "JSON output preserves nested reports with stable property names",
+        "CLI governance manifests include the command and options",
+        "Add tests for clean bundle approval, breaking change request-changes, incomplete optional sections, and JSON nesting",
+        "Promote only implemented review-bundle behavior to internal docs and feature-test matrix",
+        "pnpm --filter @oa-sdk/codegen build passes",
+        "pnpm --filter @oa-sdk/codegen typecheck passes",
+        "pnpm --filter @oa-sdk/codegen test passes",
+        "pnpm check:cli-spec passes",
+        "pnpm check:feature-tests passes",
+        "pnpm check:api-index passes",
+        "git diff --check passes"
+      ],
+      "priority": 6,
+      "passes": false,
+      "notes": "",
+      "dependsOn": [
+        "US-005"
+      ]
+    },
+    {
+      "id": "US-007",
+      "title": "Define Source Fragment Model And Diagnostics",
+      "description": "As a maintainer, I want a formal source fragment model so that multiple OpenAPI/JSON Schema-compatible inputs can feed inventory, Definition Builder, or future provenance workflows consistently.",
+      "acceptanceCriteria": [
+        "Add a shared OpenApiSourceFragment type in an appropriate package boundary without breaking existing public exports",
+        "Model includes id, kind, optional sourcePath, optional sourcePointer, contentHash, content, and optional metadata",
+        "Add source adapter diagnostic types that include source path and pointer",
+        "Add deterministic content hashing helpers or reuse existing hashing helpers through a stable API",
+        "Add tests for deterministic ids, deterministic content hashes, and source diagnostics",
+        "Document the model in docs/internal/api-index.md only if it is exported as public API",
+        "pnpm --filter @oa-sdk/codegen build passes",
+        "pnpm --filter @oa-sdk/codegen typecheck passes",
+        "pnpm --filter @oa-sdk/codegen test passes",
+        "pnpm check:cli-spec passes",
+        "pnpm check:feature-tests passes",
+        "pnpm check:api-index passes",
+        "git diff --check passes"
+      ],
+      "priority": 7,
+      "passes": false,
+      "notes": "",
+      "dependsOn": []
+    },
+    {
+      "id": "US-008",
+      "title": "Add File-Based Source Adapters",
+      "description": "As a maintainer, I want adapters for Definition Builder fragments, raw OpenAPI fragments, and standalone JSON Schema files so that file-based source inputs can become normalized source fragments.",
+      "acceptanceCriteria": [
+        "Add an adapter for Definition Builder fragment files",
+        "Add an adapter for raw OpenAPI fragment files",
+        "Add an adapter for standalone JSON Schema files",
+        "Each adapter produces deterministic fragment ids and content hashes",
+        "Each adapter preserves source path and JSON pointer diagnostics",
+        "Adapter output can feed existing Definition Builder or inventory code paths where applicable",
+        "Existing build-spec, inventory, typegen, and validate behavior remains backward compatible",
+        "Add tests covering YAML and JSON inputs",
+        "pnpm --filter @oa-sdk/codegen build passes",
+        "pnpm --filter @oa-sdk/codegen typecheck passes",
+        "pnpm --filter @oa-sdk/codegen test passes",
+        "pnpm check:cli-spec passes",
+        "pnpm check:feature-tests passes",
+        "pnpm check:api-index passes",
+        "git diff --check passes"
+      ],
+      "priority": 8,
+      "passes": false,
+      "notes": "",
+      "dependsOn": [
+        "US-007"
+      ]
+    },
+    {
+      "id": "US-009",
+      "title": "Formalize Projection And Codegen Source Adapter Boundaries",
+      "description": "As a maintainer, I want adapter boundaries for Zod, Drizzle, OpenAPI Projection envelopes, and Python ContractSpec snapshots so that cross-language inputs share one governance vocabulary.",
+      "acceptanceCriteria": [
+        "Document or implement adapter boundaries for Zod schemas",
+        "Document or implement adapter boundaries for Drizzle table schemas",
+        "Document or implement adapter boundaries for OpenAPI Projection envelopes",
+        "Document or implement adapter boundaries for Python ContractSpec snapshots",
+        "Existing Zod/Drizzle/codegen behavior remains backward compatible",
+        "Projection envelope metadata is preserved where present",
+        "Python snapshot handling is source-agnostic and does not introduce Python runtime dependencies into TS packages",
+        "Add tests or documented fixtures showing each planned input class maps to normalized fragment concepts",
+        "pnpm --filter @oa-sdk/codegen build passes",
+        "pnpm --filter @oa-sdk/codegen typecheck passes",
+        "pnpm --filter @oa-sdk/codegen test passes",
+        "pnpm check:cli-spec passes",
+        "pnpm check:feature-tests passes",
+        "pnpm check:api-index passes",
+        "git diff --check passes"
+      ],
+      "priority": 9,
+      "passes": false,
+      "notes": "",
+      "dependsOn": [
+        "US-007",
+        "US-008"
+      ]
+    },
+    {
+      "id": "US-010",
+      "title": "Finalize Governance Plan Lifecycle",
+      "description": "As a maintainer, I want the planned document lifecycle closed correctly so that implemented behavior is represented in the internal SSOT and no completed planned items remain in the plan file.",
+      "acceptanceCriteria": [
+        "Every implemented capability from this PRD is represented in docs/internal/spec.md",
+        "New public API or CLI surface is represented in docs/internal/api-index.md",
+        "docs/internal/feature-test-matrix.json includes feature ownership and test paths for every new capability",
+        "docs/internal/feature-test-matrix.md human summary is consistent with the JSON matrix",
+        "docs/internal/openapi-aggregation-governance.plan.md contains only unimplemented remaining work",
+        "If all planned phases are implemented and represented in spec.md, remove the plan file according to its promotion rule",
+        "pnpm --filter @oa-sdk/codegen build passes",
+        "pnpm --filter @oa-sdk/codegen typecheck passes",
+        "pnpm --filter @oa-sdk/codegen test passes",
+        "pnpm check:cli-spec passes",
+        "pnpm check:feature-tests passes",
+        "pnpm check:api-index passes",
+        "git diff --check passes"
+      ],
+      "priority": 10,
+      "passes": false,
+      "notes": "",
+      "dependsOn": [
+        "US-002",
+        "US-004",
+        "US-006",
+        "US-009"
+      ]
+    }
+  ],
+  "metadata": {
+    "updatedAt": "2026-04-18T10:05:08.847Z"
+  }
+}

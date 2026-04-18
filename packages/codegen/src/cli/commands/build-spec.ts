@@ -11,18 +11,24 @@ export const buildSpecCommand: Command = {
     output:             { type: 'string', short: 'o', description: '빌드된 OpenAPI YAML 출력 파일 경로' },
     diagnostics:        { type: 'string', description: 'builder diagnostics JSON 출력 파일 경로' },
     'collision-report': { type: 'string', description: 'machine-readable output name collision report JSON 출력 파일 경로' },
+    'composition-report': { type: 'string', description: 'machine-readable target composition report JSON 출력 파일 경로' },
+    provenance: { type: 'string', description: 'machine-readable output pointer provenance map JSON 출력 파일 경로' },
   },
   async run(args) {
     const fragmentsDir = optStr(args, 'fragments')
     const outputPath = optStr(args, 'output')
     const diagnosticsPath = optStr(args, 'diagnostics')
     const collisionReportPath = optStr(args, 'collision-report')
+    const compositionReportPath = optStr(args, 'composition-report')
+    const provenancePath = optStr(args, 'provenance')
     const result = buildSpec({
       targetPath: str(args, 'target'),
       ...(fragmentsDir ? { fragmentsDir } : {}),
       ...(outputPath ? { outputPath } : {}),
       ...(diagnosticsPath ? { diagnosticsPath } : {}),
       ...(collisionReportPath ? { collisionReportPath } : {}),
+      ...(compositionReportPath ? { compositionReportPath } : {}),
+      ...(provenancePath ? { provenancePath } : {}),
     })
 
     const summary = result.summary

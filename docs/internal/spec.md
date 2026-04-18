@@ -9,7 +9,7 @@
 ```
 core         ← 공유 유틸 (문자열, 코드젠, 포맷, 응답 상태, HTTP 서버)
 parser       ← core. OAS 3.2 파서 + IR + fold + lint + validate + query
-codegen      ← core + parser (+ router, client: optional peer). CLI 11커맨드
+codegen      ← core + parser (+ router, client: optional peer). CLI 13커맨드
 mock-server  ← core + parser. AJV 검증 + 어댑터 + 테스트 헬퍼
 router       ← core + parser. Hono/Express 스텁
 client       ← core + parser. fetch SDK + SSE
@@ -25,7 +25,7 @@ schemas      ← 독립. OAS 소스 + merge + 3.1↔3.2 변환
 machine-readable SSOT다. 사람이 읽는 요약은
 [`feature-test-matrix.md`](./feature-test-matrix.md)에 둔다.
 
-현재 매핑은 15개 기능 그룹과 CLI spec drift guard를 포함한 테스트 경로 패턴을 관리한다.
+현재 매핑은 19개 기능 그룹과 CLI spec drift guard를 포함한 테스트 경로 패턴을 관리한다.
 
 ```bash
 pnpm check:feature-tests
@@ -123,7 +123,30 @@ marker.
 | WorkspaceIndex | 파일 hash/component/ref/source/diagnostic/type alias metadata용 index 경계. 기본 noop은 모든 파일을 dirty 처리해 기존 full rebuild 동작 유지 |
 | SQLiteWorkspaceIndex | `.oa-cache/state.sqlite`에 index row를 보존. `better-sqlite3` primary + `node:sqlite` fallback driver를 사용하며 WAL/foreign key/transaction, schema/options mismatch 또는 DB 오류 시 full rebuild fallback |
 | Workspace dirty detection | entry/domain/profile/external ref 파일 scan → new/modified/deleted/unchanged 분류 → refs.to_file 역방향 dirty 전파 → stale row invalidation |
-| CLI | 커맨드 모듈 구조. `generate`/`typegen`/`router`/`client`/`build-spec`/`lint`/`validate`/`diff`/`check-artifact`/`review`/`dev`/`--help`; `validate`/`typegen`은 opt-in `--incremental --cache-dir`, `dev`는 watch mode에서 같은 index path 사용. `lint`/`validate` diagnostic은 YAML source map이 있으면 `file:line:column`을 출력하고 target `file#pointer` fallback을 유지. `diff`, `check-artifact`, `review`는 CLI ECS manifest를 기준으로 governance checks와 Markdown/JSON report를 구성한다 |
+| CLI | 커맨드 모듈 구조. `generate`/`typegen`/`router`/`client`/`build-spec`/`dev`/`lint`/`validate`/`inventory`/`diff`/`check-artifact`/`drift`/`review`/`--help`; `validate`/`typegen`은 opt-in `--incremental --cache-dir`, `dev`는 watch mode에서 같은 index path 사용. `lint`/`validate` diagnostic은 YAML source map이 있으면 `file:line:column`을 출력하고 target `file#pointer` fallback을 유지. `inventory`, `diff`, `check-artifact`, `drift`, `review`는 CLI ECS manifest를 기준으로 governance checks와 Markdown/JSON report를 구성한다 |
+
+### OpenAPI inventory command (OpenAPI aggregation governance Phase 1)
+
+`oa-gen inventory --spec <openapi.yaml> --format markdown|json`은 plain OpenAPI 문서와 Definition Builder target artifact를 읽어 path/operation/component surface를 요약한다. 구현은 `packages/codegen/src/cli/lib/openapi-inventory.ts`와 `packages/codegen/src/cli/commands/inventory.ts`에 있으며, CLI governance manifest는 `packages/codegen/src/cli/spec/oa-gen-governance.ts`와 `docs/cli-spec/oa-gen.governance.json`이 함께 소유한다.
+
+리포트는 path count, operation count, component section별 count, tag/domain grouping, security scheme usage, projection/source extension summary, unused component candidates를 포함한다. JSON report schema는 `oa-gen.inventory.v1`이며 deterministic array ordering을 사용한다. Markdown report는 PR comment에 넣기 위한 compact table 중심 출력이다.
+
+대표 검증은 `packages/codegen/src/__tests__/openapi-inventory.test.ts`와 `packages/codegen/src/__tests__/cli-scenarios.test.ts`가 맡는다.
+
+### Runtime OpenAPI URL drift input (OpenAPI aggregation governance Phase 4)
+
+`oa-gen drift`는 기존 file path 입력 `--runtime-openapi`와 함께 URL 입력 `--runtime-openapi-url`을 지원한다. 두 입력은 one-of 관계이며 `--managed-openapi`는 기존처럼 관리 OpenAPI YAML/JSON 파일을 받는다.
+
+```bash
+oa-gen drift \
+  --runtime-openapi-url http://localhost:3000/openapi.json \
+  --managed-openapi packages/schemas/src/.merged.yaml \
+  --format json
+```
+
+URL fetch 결과는 JSON report의 `runtimeFetch`에 `url`, `finalUrl`, `redirected`, `status`, `statusText`, `contentType`을 기록한다. URL fetch, non-2xx response, 또는 parse 실패는 `status: "drift-check-failed"`와 `failure.code: "drift-check-failed"`로 보고하고 non-zero로 종료한다. 기존 file path 비교 동작은 변경하지 않는다.
+
+대표 검증은 `packages/codegen/src/__tests__/runtime-openapi-fetch.test.ts`와 `packages/codegen/src/__tests__/cli-scenarios.test.ts`가 맡는다.
 
 ### Resolver baseline (US-001) / Shared contract (US-002) / External cache alignment (US-003)
 
@@ -314,7 +337,9 @@ oa-gen build-spec \
   --target packages/schemas/src/targets/book-notebook-api.yaml \
   --output artifacts/book-notebook-api.yaml \
   --diagnostics artifacts/book-notebook-api.diagnostics.json \
-  --collision-report artifacts/book-notebook-api.collisions.json
+  --collision-report artifacts/book-notebook-api.collisions.json \
+  --composition-report artifacts/book-notebook-api.composition.json \
+  --provenance artifacts/book-notebook-api.provenance.json
 ```
 
 Options:
@@ -323,8 +348,12 @@ Options:
 - `--output, -o`: valid build일 때 쓸 OpenAPI YAML artifact path. 생략하면 YAML을 stdout으로 출력한다.
 - `--diagnostics`: registry/target/output-name/emit diagnostics를 담은 JSON sidecar path. 실패해도 기록한다.
 - `--collision-report`: target-local naming collision report JSON path. `canonicalId`, `targetName`, `kind`, `scope`, `domain`, `localName`, `outputName`, `reason`, `severity` row array를 기록한다.
+- `--composition-report`: target composition report JSON path. Registry/selection/emit report 데이터에서 direct path ids, direct retained definition ids, transitive component ids, omitted node counts by scope/domain/kind, output path/component canonical id links, output aliases, collision report, source refs를 기록한다. 출력 OpenAPI를 재파싱하지 않는다.
+- `--provenance`: output pointer provenance map JSON path. `#/paths/{path}`, `#/paths/{path}/{method}`, `#/components/{section}/{name}` pointer별 `canonicalId`, `kind`, `sourcePath`, `sourcePointer`, `contentHash`를 기록한다. Provenance는 artifact content를 대체하지 않는 sidecar이며 stable pointer ordering으로 기록한다.
 
-CLI build는 fragment `content` 기준 SHA-256 hash를 생성해 registry에 넘기고 YAML source location index를 연결해 duplicate/ref diagnostics에 source coordinates를 보강한다. Duplicate canonical id, missing/unsupported source ref, target disallowed ref, output name collision, unrewritten ref, emitted document validation error 중 하나라도 `error` severity이면 artifact output은 쓰지 않고 exit code 1로 종료한다. Diagnostics/collision sidecar는 실패한 CI run에서도 분석할 수 있도록 output artifact와 독립적으로 작성한다.
+CLI build는 fragment `content` 기준 SHA-256 hash를 생성해 registry에 넘기고 YAML source location index를 연결해 duplicate/ref diagnostics에 source coordinates를 보강한다. Duplicate canonical id, missing/unsupported source ref, target disallowed ref, output name collision, unrewritten ref, emitted document validation error 중 하나라도 `error` severity이면 artifact output은 쓰지 않고 exit code 1로 종료한다. Diagnostics/collision/composition/provenance sidecar는 실패한 CI run에서도 분석할 수 있도록 output artifact와 독립적으로 작성한다.
+
+`oa-gen review`는 `--base-provenance`와 `--head-provenance`를 받으면 provenance map을 pointer별로 비교해 added/removed/changed provenance entries를 JSON report와 Markdown `Provenance Changes` 섹션에 포함한다. Provenance 변화는 artifact freshness나 breaking diff를 대체하지 않고, API content diff가 깨끗하더라도 source ownership/content hash 변경을 review comment로 드러낸다.
 
 Builder WorkspaceIndex metadata는 SQLite schema를 늘리지 않고 기존 row를 재사용한다. Target config 파일과 fragment 파일은 `files`에 content hash/mtime/realpath로 저장하고, fragment id는 `components.section = definition-fragment`, target bundle은 `components.section = definition-target`으로 기록한다. Fragment source `$ref`는 fragment file → target fragment file `refs` edge가 되고, target config는 direct path root fragment와 explicit retained `includeDefinitions` fragment로 향하는 `refs` edge를 기록한다. 기존 `refs.to_file` 역방향 dirty propagation이 schema fragment 변경을 참조 fragment와 target config까지 전파하므로 target bundle은 직접 또는 transitively 포함한 fragment가 바뀔 때 dirty가 된다. Target config 파일 자체가 바뀌면 reverse dependency가 없으므로 해당 target만 dirty가 되며, no-op/SQLite fallback은 ADR-006 원칙대로 scanned target을 full rebuild 대상으로 취급한다.
 
@@ -338,7 +367,7 @@ Builder parity status as of 2026-04-17: local/staging/production parity target c
 | 단계 | 현재 domain merge path | 새 definition builder path |
 |------|------------------------|----------------------------|
 | Source layout | `packages/schemas/src/openapi.yaml`, `src/profiles/{local,staging,production}.yaml`, `src/domains/{common,health,users}/spec.yaml` | `packages/schemas/src/fragments/**/{Name}.yaml` plus `packages/schemas/src/targets/{target}.yaml` |
-| Composition command | `pnpm --filter @oa-sdk/schemas run merge` runs `packages/schemas/scripts/merge.ts` | `oa-gen build-spec --target packages/schemas/src/targets/{target}.yaml --output {parallel-artifact}.yaml --diagnostics {target}.diagnostics.json --collision-report {target}.collisions.json` |
+| Composition command | `pnpm --filter @oa-sdk/schemas run merge` runs `packages/schemas/scripts/merge.ts` | `oa-gen build-spec --target packages/schemas/src/targets/{target}.yaml --output {parallel-artifact}.yaml --diagnostics {target}.diagnostics.json --collision-report {target}.collisions.json --composition-report {target}.composition.json --provenance {target}.provenance.json` |
 | Merge boundary | Domain `spec.yaml` files are merged whole-file: `common` first, remaining domains alphabetically | Target config selects exact path fragments, then registry refs recursively include schema/parameter/response/requestBody/security fragments |
 | Servers | `merge.ts` injects one profile file into root `servers` | Target config owns emitted `servers`; current profiles migrate to profile-specific target configs or target variants |
 | Refs | Domain specs use OpenAPI-local refs such as `#/components/schemas/Error` | Source fragments use canonical refs such as `oa://schema/shared/common/Error`; emit rewrites them back to local OpenAPI refs |
@@ -392,7 +421,7 @@ Rollback and replacement rule:
 | Dedupe policy | duplicate canonical id는 error. 동일 schema hash는 기본 info diagnostic only. 의미가 다른 정의는 자동 structural dedupe 금지. opt-in semantic dedupe는 `metadata.semanticAliasOf`와 registry `semanticAliases`로만 표현 |
 | Target bundle | `name`, optional root `info`, `scopes`, `domains`, `servers`, optional `tags`, `includePaths`, optional `includeDefinitions`, `namingPolicy.aliases` format으로 선언. `selectDefinitionTarget()`가 exact path match + explicit retained definitions + transitive ref walk + target-local output name allocation을 수행하고 OpenAPI emit에 넘긴다 |
 | OpenAPI emit | `emitDefinitionOpenApiDocument()`가 selected target을 OAS 3.2 document로 materialize하고 rewritten local `$ref`만 허용. Alias metadata는 root extension 또는 result sidecar report로 제공 |
-| Definition builder CLI | `oa-gen build-spec --target ... --output ... --diagnostics ... --collision-report ...`가 target OpenAPI artifact와 machine-readable sidecar를 생성. Duplicate canonical id 또는 unresolved source ref는 non-zero exit |
+| Definition builder CLI | `oa-gen build-spec --target ... --output ... --diagnostics ... --collision-report ... --composition-report ... --provenance ...`가 target OpenAPI artifact와 machine-readable sidecar를 생성. Duplicate canonical id 또는 unresolved source ref는 non-zero exit |
 | Builder WorkspaceIndex metadata | fragment file/hash/id/ref metadata와 target config → direct path root edge를 기존 `WorkspaceIndex` row로 저장. 변경 감지는 full rebuild correctness를 유지하면서 affected target 계산에만 사용 |
 | Migration | 기존 `packages/schemas/scripts/merge.ts`는 유지하고, builder는 병렬 output으로 검증한 뒤 `.merged.yaml` 대체 여부 결정 |
 
@@ -408,10 +437,12 @@ PRD: [tasks/prd-openapi-definition-builder.md](../../tasks/prd-openapi-definitio
 ```bash
 pnpm --filter @oa-sdk/schemas run merge            # 도메인 병합
 pnpm schema:validate                               # merge + 3.1 변환 + Spectral/Redocly + oa-gen validate
-oa-gen build-spec --target packages/schemas/src/targets/book-notebook-api.yaml -o artifacts/book-notebook-api.yaml --diagnostics artifacts/book-notebook-api.diagnostics.json --collision-report artifacts/book-notebook-api.collisions.json
+oa-gen build-spec --target packages/schemas/src/targets/book-notebook-api.yaml -o artifacts/book-notebook-api.yaml --diagnostics artifacts/book-notebook-api.diagnostics.json --collision-report artifacts/book-notebook-api.collisions.json --composition-report artifacts/book-notebook-api.composition.json --provenance artifacts/book-notebook-api.provenance.json
 oa-gen validate --spec .merged.yaml                # 종합 검증
 oa-gen validate --spec .merged.yaml --incremental --cache-dir .oa-cache
 oa-gen lint --spec .merged.yaml                    # 린트만
+oa-gen inventory --spec .merged.yaml --format markdown
+oa-gen drift --runtime-openapi-url http://localhost:3000/openapi.json --managed-openapi .merged.yaml --format json
 pnpm --filter @oa-sdk/schemas run downgrade:3.1    # 3.1 변환 (Swagger UI 호환)
 ```
 
@@ -489,11 +520,11 @@ pnpm demo  # API 구조 + Mock 12시나리오 + 커버리지
 |--------|--------|
 | core | 52 |
 | parser | 237 |
-| codegen | 499 |
+| codegen | 541 |
 | mock-server | 580 |
 | playground | 114 |
 | router | 36 |
 | client | 39 |
 | schemas | 78 |
 | typia-mock | 53 |
-| **합계** | **1688** |
+| **합계** | **1730** |

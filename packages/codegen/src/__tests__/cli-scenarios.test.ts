@@ -663,6 +663,40 @@ describe('validate', () => {
   })
 })
 
+// ── inventory ───────────────────────────────────────────────
+
+describe('inventory', () => {
+  it('OpenAPI surface inventory를 JSON으로 출력한다', () => {
+    const out = cli(`inventory --spec ${specPath} --format json`)
+    const payload = JSON.parse(out) as {
+      schemaVersion?: string
+      totals?: { paths?: number; operations?: number; components?: number }
+      tagGroups?: Array<{ name?: string; operationCount?: number }>
+      unusedComponents?: unknown[]
+    }
+
+    expect(payload.schemaVersion).toBe('oa-gen.inventory.v1')
+    expect(payload.totals).toEqual({
+      paths: 2,
+      operations: 3,
+      components: 2,
+      unusedComponentCandidates: 0,
+    })
+    expect(payload.tagGroups).toEqual([
+      { name: '(untagged)', pathCount: 2, operationCount: 3, paths: ['/users', '/users/{id}'] },
+    ])
+    expect(payload.unusedComponents).toEqual([])
+  })
+
+  it('OpenAPI surface inventory를 markdown으로 출력한다', () => {
+    const out = cli(`inventory --spec ${specPath}`)
+
+    expect(out).toContain('## OpenAPI Inventory')
+    expect(out).toContain('- Paths: 2')
+    expect(out).toContain('| (untagged) | 3 | /users, /users/{id} |')
+  })
+})
+
 // ── diff / artifact ─────────────────────────────────────────
 
 describe('diff and check-artifact', () => {
@@ -752,6 +786,53 @@ describe('diff and check-artifact', () => {
     expect(payload.drift).toBe(true)
     expect(payload.issues?.length).toBeGreaterThan(0)
   })
+
+  it('drift가 runtime OpenAPI URL을 fetch한다', () => {
+    const managedPath = join(tmpDir, 'drift-url-managed.yaml')
+    writeFileSync(managedPath, yamlStringify(cleanReviewSpec()), 'utf8')
+    const runtimeUrl = `data:application/json,${encodeURIComponent(JSON.stringify(cleanReviewSpec()))}`
+    const { stdout, status } = cliCapture(
+      `drift --runtime-openapi-url ${runtimeUrl} --managed-openapi ${managedPath} --format json`,
+    )
+    const payload = JSON.parse(stdout) as {
+      drift?: boolean
+      runtimeFetch?: {
+        url?: string
+        status?: number
+      }
+    }
+
+    expect(status).toBe(0)
+    expect(payload.drift).toBe(false)
+    expect(payload.runtimeFetch).toEqual(expect.objectContaining({
+      url: runtimeUrl,
+      status: 200,
+    }))
+  })
+
+  it('drift URL parse failure를 drift-check-failed로 보고한다', () => {
+    const managedPath = join(tmpDir, 'drift-url-failure-managed.yaml')
+    writeFileSync(managedPath, yamlStringify(cleanReviewSpec()), 'utf8')
+    const runtimeUrl = 'data:application/json,%7Bbad'
+    const { stdout, status } = cliCapture(
+      `drift --runtime-openapi-url ${runtimeUrl} --managed-openapi ${managedPath} --format json`,
+    )
+    const payload = JSON.parse(stdout) as {
+      status?: string
+      failure?: { code?: string; message?: string }
+      runtimeFetch?: {
+        status?: number
+      }
+    }
+
+    expect(status).toBe(1)
+    expect(payload.status).toBe('drift-check-failed')
+    expect(payload.failure?.code).toBe('drift-check-failed')
+    expect(payload.failure?.message).toContain('could not be parsed')
+    expect(payload.runtimeFetch).toEqual(expect.objectContaining({
+      status: 200,
+    }))
+  })
 })
 
 // ── review ─────────────────────────────────────────────────
@@ -796,6 +877,62 @@ describe('review', () => {
     expect(report.recommendation).toBe('COMMENT')
     expect(report.summary?.checksIncomplete).toBe(true)
     expect(report.artifact?.checked).toBe(false)
+  })
+
+  it('provenance sidecar 변경을 review JSON에 포함한다', () => {
+    const basePath = join(tmpDir, 'review-provenance-base.yaml')
+    const headPath = join(tmpDir, 'review-provenance-head.yaml')
+    const artifactPath = join(tmpDir, 'review-provenance-artifact.yaml')
+    const baseProvenancePath = join(tmpDir, 'review-base.provenance.json')
+    const headProvenancePath = join(tmpDir, 'review-head.provenance.json')
+    const spec = cleanReviewSpec()
+    writeFileSync(basePath, yamlStringify(spec), 'utf8')
+    writeFileSync(headPath, yamlStringify(spec), 'utf8')
+    writeFileSync(artifactPath, yamlStringify(spec), 'utf8')
+    writeFileSync(baseProvenancePath, JSON.stringify({
+      '#/paths/~1ping': {
+        canonicalId: 'path:public/health/PingPath',
+        kind: 'path',
+        sourcePath: 'fragments/path/public/health/PingPath.yaml',
+        sourcePointer: '#/content',
+        contentHash: 'sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+      },
+    }), 'utf8')
+    writeFileSync(headProvenancePath, JSON.stringify({
+      '#/paths/~1ping': {
+        canonicalId: 'path:public/health/PingPath',
+        kind: 'path',
+        sourcePath: 'fragments/path/public/health/PingPath.yaml',
+        sourcePointer: '#/content',
+        contentHash: 'sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+      },
+    }), 'utf8')
+
+    const out = cli([
+      `review --base ${basePath}`,
+      `--head ${headPath}`,
+      `--artifact ${artifactPath}`,
+      `--base-provenance ${baseProvenancePath}`,
+      `--head-provenance ${headProvenancePath}`,
+      '--format json',
+    ].join(' '))
+    const report = JSON.parse(out) as {
+      recommendation?: string
+      summary?: { provenanceChanges?: number }
+      provenance?: {
+        checked?: boolean
+        changed?: boolean
+        differences?: Array<{ kind?: string; pointer?: string }>
+      }
+    }
+
+    expect(report.recommendation).toBe('COMMENT')
+    expect(report.summary?.provenanceChanges).toBe(1)
+    expect(report.provenance?.checked).toBe(true)
+    expect(report.provenance?.changed).toBe(true)
+    expect(report.provenance?.differences).toEqual([
+      expect.objectContaining({ kind: 'changed', pointer: '#/paths/~1ping' }),
+    ])
   })
 
   it('breaking change와 stale artifact를 REQUEST_CHANGES로 보고하고 non-zero 종료한다', () => {

@@ -17,6 +17,11 @@ import {
   diffOpenApiDocuments,
   type OpenApiNormalizedDiffEntry,
 } from '../lib/openapi-normalized-diff.js'
+import {
+  diffBuildSpecProvenanceMaps,
+  loadBuildSpecProvenanceMap,
+  type BuildSpecProvenanceDiffEntry,
+} from '../lib/provenance-report.js'
 
 type ReviewFormat = 'markdown' | 'json'
 type ReviewRecommendation = 'APPROVE' | 'COMMENT' | 'REQUEST_CHANGES'
@@ -27,6 +32,15 @@ type ArtifactReview = {
   fresh: boolean | null
   summary: string
   differences: OpenApiNormalizedDiffEntry[]
+}
+
+type ProvenanceReview = {
+  checked: boolean
+  base: string | null
+  head: string | null
+  changed: boolean | null
+  summary: string
+  differences: BuildSpecProvenanceDiffEntry[]
 }
 
 type ReviewReport = {
@@ -40,6 +54,7 @@ type ReviewReport = {
     validationWarnings: number
     validationInfos: number
     artifactFresh: boolean | null
+    provenanceChanges: number | null
     checksIncomplete: boolean
   }
   diff: {
@@ -55,6 +70,7 @@ type ReviewReport = {
     }>
   }
   artifact: ArtifactReview
+  provenance: ProvenanceReview
 }
 
 const reviewSpec = commandById(oaGenGovernanceManifest, 'review')
@@ -95,6 +111,14 @@ export const review: Command = {
       type: 'string',
       description: optionDescription(reviewSpec, 'fragments'),
     },
+    'base-provenance': {
+      type: 'string',
+      description: optionDescription(reviewSpec, 'base-provenance'),
+    },
+    'head-provenance': {
+      type: 'string',
+      description: optionDescription(reviewSpec, 'head-provenance'),
+    },
   },
   async run(args) {
     const { validateDocument } = await import('@oa-sdk/parser')
@@ -116,6 +140,10 @@ export const review: Command = {
     const breaking = classifyBreakingChanges(endpointDiff)
     const nonBreaking = classifyNonBreakingChanges(endpointDiff)
     const artifact = artifactReview(optStr(args, 'artifact'), head.document)
+    const provenance = provenanceReview(
+      optStr(args, 'base-provenance'),
+      optStr(args, 'head-provenance'),
+    )
     const report: ReviewReport = {
       recommendation: recommendation({
         breaking,
@@ -123,6 +151,7 @@ export const review: Command = {
         validationWarnings: validation.warnings,
         validationInfos: validation.infos,
         artifact,
+        provenance,
         nonBreaking,
       }),
       base: base.path,
@@ -134,7 +163,9 @@ export const review: Command = {
         validationWarnings: validation.warnings.length,
         validationInfos: validation.infos.length,
         artifactFresh: artifact.fresh,
-        checksIncomplete: !artifact.checked,
+        provenanceChanges: provenance.changed === null ? null : provenance.differences.length,
+        checksIncomplete: !artifact.checked
+          || ((provenance.base !== null || provenance.head !== null) && !provenance.checked),
       },
       diff: { breaking, nonBreaking },
       validation: {
@@ -146,6 +177,7 @@ export const review: Command = {
         })),
       },
       artifact,
+      provenance,
     }
     const format = readFormat(optStr(args, 'format'))
     const payload = format === 'json'
@@ -155,6 +187,46 @@ export const review: Command = {
     writeOutput(optStr(args, 'output'), payload, 'OpenAPI review report')
     if (report.recommendation === 'REQUEST_CHANGES') process.exit(1)
   },
+}
+
+function provenanceReview(
+  baseProvenancePath: string | undefined,
+  headProvenancePath: string | undefined,
+): ProvenanceReview {
+  if (!baseProvenancePath && !headProvenancePath) {
+    return {
+      checked: false,
+      base: null,
+      head: null,
+      changed: null,
+      summary: 'not checked',
+      differences: [],
+    }
+  }
+  if (!baseProvenancePath || !headProvenancePath) {
+    return {
+      checked: false,
+      base: baseProvenancePath ?? null,
+      head: headProvenancePath ?? null,
+      changed: null,
+      summary: 'requires both base and head provenance sidecars',
+      differences: [],
+    }
+  }
+
+  const base = loadBuildSpecProvenanceMap(baseProvenancePath)
+  const head = loadBuildSpecProvenanceMap(headProvenancePath)
+  const differences = diffBuildSpecProvenanceMaps(base, head)
+  return {
+    checked: true,
+    base: baseProvenancePath,
+    head: headProvenancePath,
+    changed: differences.length > 0,
+    summary: differences.length === 0
+      ? 'provenance maps match'
+      : `${differences.length} provenance entr${differences.length === 1 ? 'y' : 'ies'} changed`,
+    differences,
+  }
 }
 
 function artifactReview(
@@ -191,6 +263,7 @@ function recommendation(input: {
   validationWarnings: LintResult[]
   validationInfos: LintResult[]
   artifact: ArtifactReview
+  provenance: ProvenanceReview
 }): ReviewRecommendation {
   if (input.breaking.length > 0 || input.validationErrors.length > 0 || input.artifact.fresh === false) {
     return 'REQUEST_CHANGES'
@@ -200,6 +273,8 @@ function recommendation(input: {
     || input.validationWarnings.length > 0
     || input.validationInfos.length > 0
     || !input.artifact.checked
+    || input.provenance.changed === true
+    || (input.provenance.base !== null || input.provenance.head !== null) && !input.provenance.checked
   ) {
     return 'COMMENT'
   }
@@ -224,6 +299,7 @@ function reviewMarkdown(report: ReviewReport): string {
     `- Validation errors: ${report.summary.validationErrors}`,
     `- Validation warnings: ${report.summary.validationWarnings}`,
     `- Artifact fresh: ${report.summary.artifactFresh ?? 'not checked'}`,
+    `- Provenance changes: ${report.summary.provenanceChanges ?? 'not checked'}`,
     '',
     '## Breaking Changes',
     ...changeLines(report.diff.breaking),
@@ -234,10 +310,42 @@ function reviewMarkdown(report: ReviewReport): string {
     '## Artifact Freshness',
     ...artifactLines(report.artifact),
     '',
+    '## Provenance Changes',
+    ...provenanceLines(report.provenance),
+    '',
     '## Non-breaking Changes',
     ...changeLines(report.diff.nonBreaking),
   ]
   return lines.join('\n')
+}
+
+function provenanceLines(provenance: ProvenanceReview): string[] {
+  if (!provenance.checked) return [provenance.summary === 'not checked' ? 'Not checked.' : markdownText(provenance.summary)]
+  const lines = [
+    `- Base: \`${markdownCode(provenance.base)}\``,
+    `- Head: \`${markdownCode(provenance.head)}\``,
+    `- Status: **${provenance.changed ? 'changed' : 'unchanged'}** - ${markdownText(provenance.summary)}`,
+  ]
+  if (provenance.differences.length === 0) return lines
+  lines.push(
+    '',
+    '| Kind | Pointer | Base | Head |',
+    '| --- | --- | --- | --- |',
+    ...provenance.differences.map(difference => (
+      `| ${markdownText(difference.kind)} | \`${markdownCode(difference.pointer)}\` | ${provenanceCell(difference.base)} | ${provenanceCell(difference.head)} |`
+    )),
+  )
+  return lines
+}
+
+function provenanceCell(entry: BuildSpecProvenanceDiffEntry['base']): string {
+  if (entry === undefined) return '-'
+  return [
+    `\`${markdownCode(entry.canonicalId)}\``,
+    markdownText(entry.sourcePath),
+    `\`${markdownCode(entry.sourcePointer)}\``,
+    `\`${markdownCode(entry.contentHash)}\``,
+  ].join('<br>')
 }
 
 function changeLines(changes: ContractDiffChange[]): string[] {

@@ -43,6 +43,40 @@ export const oaGenGovernanceManifest = {
       },
     },
     {
+      id: 'inventory',
+      kind: 'command',
+      name: 'inventory',
+      summary: 'OpenAPI path/component/security surface inventory 리포트',
+      components: {
+        options: [
+          {
+            name: 'spec',
+            type: 'string',
+            short: 's',
+            required: true,
+            description: 'inventory를 생성할 OpenAPI YAML/JSON 또는 target artifact 경로',
+          },
+          {
+            name: 'format',
+            type: 'string',
+            short: 'f',
+            description: 'markdown | json (기본: markdown)',
+          },
+        ],
+        inputs: [
+          { name: 'spec', kind: 'openapi-document', required: true, option: 'spec' },
+        ],
+        checks: ['inventory'],
+        reports: [
+          { formats: ['markdown', 'json'], schema: 'oa-gen.inventory.v1' },
+        ],
+        exitPolicy: {
+          success: ['APPROVE', 'COMMENT'],
+          failure: ['REQUEST_CHANGES'],
+        },
+      },
+    },
+    {
       id: 'diff',
       kind: 'command',
       name: 'diff',
@@ -141,8 +175,12 @@ export const oaGenGovernanceManifest = {
           {
             name: 'runtime-openapi',
             type: 'string',
-            required: true,
             description: 'runtime OpenAPI YAML/JSON 경로',
+          },
+          {
+            name: 'runtime-openapi-url',
+            type: 'string',
+            description: 'runtime OpenAPI YAML/JSON URL',
           },
           {
             name: 'managed-openapi',
@@ -158,7 +196,8 @@ export const oaGenGovernanceManifest = {
           },
         ],
         inputs: [
-          { name: 'runtime-openapi', kind: 'runtime-openapi', required: true, option: 'runtime-openapi' },
+          { name: 'runtime-openapi', kind: 'runtime-openapi', required: false, option: 'runtime-openapi' },
+          { name: 'runtime-openapi-url', kind: 'runtime-openapi', required: false, option: 'runtime-openapi-url' },
           { name: 'managed-openapi', kind: 'openapi-document', required: true, option: 'managed-openapi' },
         ],
         checks: ['runtime-drift'],
@@ -217,11 +256,23 @@ export const oaGenGovernanceManifest = {
             type: 'string',
             description: 'definition fragments 디렉토리 (기본: target sibling ../fragments)',
           },
+          {
+            name: 'base-provenance',
+            type: 'string',
+            description: 'base OpenAPI provenance sidecar JSON 경로',
+          },
+          {
+            name: 'head-provenance',
+            type: 'string',
+            description: 'head OpenAPI provenance sidecar JSON 경로',
+          },
         ],
         inputs: [
           { name: 'base', kind: 'openapi-document', required: true, option: 'base' },
           { name: 'head', kind: 'openapi-document', required: true, option: 'head' },
           { name: 'artifact', kind: 'openapi-artifact', required: false, option: 'artifact' },
+          { name: 'base-provenance', kind: 'openapi-provenance', required: false, option: 'base-provenance' },
+          { name: 'head-provenance', kind: 'openapi-provenance', required: false, option: 'head-provenance' },
         ],
         checks: ['breaking-diff', 'head-validation', 'artifact-freshness'],
         reports: [

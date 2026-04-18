@@ -37,6 +37,10 @@ describe('oa-gen build-spec', () => {
     expect(result.stdout).toContain('oa-gen build-spec --target, -t <target>')
     expect(result.stdout).toContain('[build-spec] target config 파일 경로')
     expect(result.stdout).toContain('[build-spec] 빌드된 OpenAPI YAML 출력 파일 경로')
+    expect(result.stdout).toContain('--composition-report')
+    expect(result.stdout).toContain('machine-readable target composition report JSON 출력 파일 경로')
+    expect(result.stdout).toContain('--provenance')
+    expect(result.stdout).toContain('machine-readable output pointer provenance map JSON 출력 파일 경로')
   })
 
   it('builds a target OpenAPI document and writes sidecar reports', () => {
@@ -77,6 +81,8 @@ describe('oa-gen build-spec', () => {
     const outputPath = join(tmpDir, 'out', 'public-api.yaml')
     const diagnosticsPath = join(tmpDir, 'out', 'diagnostics.json')
     const collisionReportPath = join(tmpDir, 'out', 'collisions.json')
+    const compositionReportPath = join(tmpDir, 'out', 'composition.json')
+    const provenancePath = join(tmpDir, 'out', 'provenance.json')
     const result = runCli([
       'build-spec',
       '--target',
@@ -87,6 +93,10 @@ describe('oa-gen build-spec', () => {
       diagnosticsPath,
       '--collision-report',
       collisionReportPath,
+      '--composition-report',
+      compositionReportPath,
+      '--provenance',
+      provenancePath,
     ])
 
     expect(result.status).toBe(0)
@@ -132,6 +142,73 @@ describe('oa-gen build-spec', () => {
       canonicalId: 'schema:public/book/Book',
       outputName: 'Book',
       severity: 'info',
+    }))
+
+    const compositionReport = readJson(compositionReportPath) as {
+      schemaVersion?: string
+      summary?: {
+        selectedNodeCount?: number
+        directPathCount?: number
+        transitiveComponentCount?: number
+        omittedNodeCount?: number
+      }
+      selected?: {
+        directPathIds?: string[]
+        transitiveComponentIds?: string[]
+      }
+      output?: {
+        paths?: Array<{ canonicalId?: string; openApiPath?: string }>
+        components?: Array<{ canonicalId?: string; outputPointer?: string }>
+      }
+      sourceRefs?: Array<{ sourceId?: string; targetId?: string; ref?: string }>
+    }
+    expect(compositionReport.schemaVersion).toBe('oa-gen.composition-report.v1')
+    expect(compositionReport.summary).toEqual(expect.objectContaining({
+      selectedNodeCount: 2,
+      directPathCount: 1,
+      transitiveComponentCount: 1,
+      omittedNodeCount: 0,
+    }))
+    expect(compositionReport.selected?.directPathIds).toEqual(['path:public/book/BooksPath'])
+    expect(compositionReport.selected?.transitiveComponentIds).toEqual(['schema:public/book/Book'])
+    expect(compositionReport.output?.paths).toContainEqual(expect.objectContaining({
+      canonicalId: 'path:public/book/BooksPath',
+      openApiPath: '/books',
+    }))
+    expect(compositionReport.output?.components).toContainEqual(expect.objectContaining({
+      canonicalId: 'schema:public/book/Book',
+      outputPointer: '#/components/schemas/Book',
+    }))
+    expect(compositionReport.sourceRefs).toContainEqual(expect.objectContaining({
+      sourceId: 'path:public/book/BooksPath',
+      targetId: 'schema:public/book/Book',
+      ref: 'oa://schema/public/book/Book',
+    }))
+
+    const provenance = readJson(provenancePath) as Record<string, {
+      canonicalId?: string
+      sourcePath?: string
+      sourcePointer?: string
+      contentHash?: string
+    }>
+    expect(Object.keys(provenance)).toEqual([
+      '#/components/schemas/Book',
+      '#/paths/~1books',
+      '#/paths/~1books/get',
+    ])
+    expect(provenance['#/paths/~1books']).toEqual(expect.objectContaining({
+      canonicalId: 'path:public/book/BooksPath',
+      sourcePointer: '#/content',
+      contentHash: expect.stringMatching(/^sha256:[a-f0-9]{64}$/),
+    }))
+    expect(provenance['#/paths/~1books/get']).toEqual(expect.objectContaining({
+      canonicalId: 'path:public/book/BooksPath',
+      sourcePointer: '#/content/get',
+    }))
+    expect(provenance['#/components/schemas/Book']).toEqual(expect.objectContaining({
+      canonicalId: 'schema:public/book/Book',
+      sourcePointer: '#/content',
+      contentHash: expect.stringMatching(/^sha256:[a-f0-9]{64}$/),
     }))
   })
 

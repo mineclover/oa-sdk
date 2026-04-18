@@ -269,6 +269,19 @@ Typegen 공개 surface는 root entry(`@oa-sdk/codegen`)와 typegen sub-entry(`@o
 
 ---
 
+## CLI (`oa-gen`)
+
+| Command | 구현 | 용도 |
+|------|------|------|
+| `build-spec` | `packages/codegen/src/cli/commands/build-spec.ts`, `packages/codegen/src/cli/lib/build-spec.ts`, `packages/codegen/src/cli/lib/composition-report.ts`, `packages/codegen/src/cli/lib/provenance-report.ts` | Definition Builder target config와 fragments에서 OpenAPI artifact를 생성하고 diagnostics, collision report, composition report, provenance sidecar를 출력 |
+| `drift` | `packages/codegen/src/cli/commands/drift.ts` | managed OpenAPI 파일과 runtime OpenAPI 파일 또는 URL을 비교하고 URL fetch/HTTP/parse 실패를 `drift-check-failed`로 보고 |
+| `inventory` | `packages/codegen/src/cli/commands/inventory.ts` + `packages/codegen/src/cli/lib/openapi-inventory.ts` | OpenAPI YAML/JSON 또는 Definition Builder target artifact에서 path/operation/component count, tag/domain grouping, security scheme usage, projection source metadata, unused component candidates를 `markdown` 또는 `json`으로 보고 |
+| `review` | `packages/codegen/src/cli/commands/review.ts`, `packages/codegen/src/cli/lib/provenance-report.ts` | base/head OpenAPI diff, validation, artifact freshness를 묶고 선택적으로 base/head provenance sidecar 변경 entries를 report에 포함 |
+
+Governance manifest: `packages/codegen/src/cli/spec/oa-gen-governance.ts` 및 `docs/cli-spec/oa-gen.governance.json`.
+
+---
+
 ## 어댑터 (`@oa-sdk/mock-server`)
 
 | 함수/타입 | 파일 | 용도 |

@@ -4,6 +4,7 @@ export type CliCheckKind =
   | 'artifact-freshness'
   | 'breaking-diff'
   | 'head-validation'
+  | 'inventory'
   | 'runtime-drift'
 
 export type CliInputKind =
@@ -11,6 +12,7 @@ export type CliInputKind =
   | 'module-reference'
   | 'openapi-artifact'
   | 'openapi-document'
+  | 'openapi-provenance'
   | 'runtime-openapi'
 
 export type CliOutputFormat = 'human' | 'json' | 'markdown' | 'text'

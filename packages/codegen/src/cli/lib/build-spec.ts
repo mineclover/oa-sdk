@@ -1,43 +1,26 @@
-import { createHash } from 'node:crypto'
 import {
   mkdirSync,
-  readdirSync,
-  readFileSync,
-  statSync,
   writeFileSync,
 } from 'node:fs'
 import {
   dirname,
-  extname,
   join,
   resolve,
 } from 'node:path'
 import {
-  createDefinitionRef,
-  createDefinitionNode,
   createDefinitionRegistry,
-  createSourceLocationIndex,
   emitDefinitionOpenApiDocument,
-  parseDefinitionId,
   selectDefinitionTarget,
   toDefinitionOpenApiProjectionResult,
-  type CanonicalDefinitionId,
-  type DefinitionNode,
-  type DefinitionRef,
   type DefinitionOpenApiEmitDiagnostic,
   type DefinitionOpenApiProjectionResult,
   type DefinitionOutputNameCollisionReportEntry,
   type DefinitionRegistryDiagnostic,
-  type DefinitionTargetConfig,
-  type OasInfo,
   type OasDocument,
-  type OasServer,
-  type OasTag,
-  type SourceLocation,
   type SourceLocationIndex,
 } from '@oa-sdk/parser'
 import type { SchemaDiagnostic } from '@oa-sdk/openapi-projection-contract'
-import { parse as parseYaml, stringify as stringifyYaml } from 'yaml'
+import { stringify as stringifyYaml } from 'yaml'
 import {
   detectBuilderDirtyTargets,
   recordBuilderWorkspaceIndex,
@@ -45,6 +28,20 @@ import {
   type BuilderDirtyTargetResult,
 } from '../../builder-index.js'
 import type { WorkspaceIndex } from '../../workspace-index.js'
+import {
+  createBuildSpecCompositionReport,
+  type BuildSpecCompositionReport,
+} from './composition-report.js'
+import {
+  createBuildSpecProvenanceMap,
+  type BuildSpecProvenanceMap,
+} from './provenance-report.js'
+import {
+  loadDefinitionFragments,
+  loadDefinitionTargetConfig,
+  lookupDefinitionSourceLocation,
+  type DefinitionFragmentLoadDiagnostic,
+} from './definition-fragments.js'
 
 export type BuildSpecOptions = {
   targetPath: string
@@ -52,19 +49,15 @@ export type BuildSpecOptions = {
   outputPath?: string
   diagnosticsPath?: string
   collisionReportPath?: string
+  compositionReportPath?: string
+  provenancePath?: string
   writeOutput?: boolean
   workspaceIndex?: WorkspaceIndex
   parserVersion?: string
   runId?: string
 }
 
-export type BuildSpecCliDiagnostic = {
-  code: 'definition-fragment/invalid-fragment'
-  severity: 'error'
-  message: string
-  sourcePath: string
-  sourcePointer?: string
-}
+export type BuildSpecCliDiagnostic = DefinitionFragmentLoadDiagnostic
 
 export type BuildSpecDiagnostic =
   | BuildSpecCliDiagnostic
@@ -85,6 +78,8 @@ export type BuildSpecSummary = {
   outputPath?: string
   diagnosticsPath?: string
   collisionReportPath?: string
+  compositionReportPath?: string
+  provenancePath?: string
   errors: number
   warnings: number
   infos: number
@@ -96,15 +91,10 @@ export type BuildSpecResult = {
   projection: DefinitionOpenApiProjectionResult
   diagnostics: BuildSpecDiagnostic[]
   collisionReport: DefinitionOutputNameCollisionReportEntry[]
+  compositionReport: BuildSpecCompositionReport
+  provenance: BuildSpecProvenanceMap
   summary: BuildSpecSummary
   dirty?: BuilderDirtyTargetResult
-}
-
-type LoadedFragments = {
-  nodes: DefinitionNode[]
-  diagnostics: BuildSpecCliDiagnostic[]
-  sourceLocations: ReadonlyMap<string, SourceLocationIndex>
-  filePaths: string[]
 }
 
 export function buildSpec(options: BuildSpecOptions): BuildSpecResult {
@@ -113,7 +103,7 @@ export function buildSpec(options: BuildSpecOptions): BuildSpecResult {
     process.cwd(),
     options.fragmentsDir ?? join(dirname(targetPath), '..', 'fragments'),
   )
-  const target = loadTargetConfig(targetPath)
+  const target = loadDefinitionTargetConfig(targetPath)
   const fragments = loadDefinitionFragments(fragmentsDir)
   const scannedFiles = options.workspaceIndex
     ? scanBuilderWorkspaceFiles({
@@ -128,14 +118,14 @@ export function buildSpec(options: BuildSpecOptions): BuildSpecResult {
     : undefined
   const registry = createDefinitionRegistry(fragments.nodes, {
     lookupSourceLocation(sourcePath, sourcePointer) {
-      return lookupSourceLocation(fragments.sourceLocations, sourcePath, sourcePointer)
+      return lookupDefinitionSourceLocation(fragments.sourceLocations, sourcePath, sourcePointer)
     },
   })
   const selection = selectDefinitionTarget(registry, target)
   const emitted = emitDefinitionOpenApiDocument(selection)
   const baseProjection = toDefinitionOpenApiProjectionResult({ registry, selection, emitted }, {
     lookupSourceLocation(sourcePath, sourcePointer) {
-      return lookupSourceLocation(fragments.sourceLocations, sourcePath, sourcePointer)
+      return lookupDefinitionSourceLocation(fragments.sourceLocations, sourcePath, sourcePointer)
     },
   })
   const projection: DefinitionOpenApiProjectionResult = fragments.diagnostics.length === 0
@@ -161,6 +151,21 @@ export function buildSpec(options: BuildSpecOptions): BuildSpecResult {
   const collisionReportPath = options.collisionReportPath
     ? resolve(process.cwd(), options.collisionReportPath)
     : undefined
+  const compositionReportPath = options.compositionReportPath
+    ? resolve(process.cwd(), options.compositionReportPath)
+    : undefined
+  const provenancePath = options.provenancePath
+    ? resolve(process.cwd(), options.provenancePath)
+    : undefined
+  const compositionReport = createBuildSpecCompositionReport({
+    targetPath,
+    fragmentsDir,
+    target,
+    registry,
+    selection,
+    emitted,
+  })
+  const provenance = createBuildSpecProvenanceMap(selection)
   const summary: BuildSpecSummary = {
     valid,
     targetName: target.name,
@@ -178,6 +183,8 @@ export function buildSpec(options: BuildSpecOptions): BuildSpecResult {
   if (outputPath !== undefined) summary.outputPath = outputPath
   if (diagnosticsPath !== undefined) summary.diagnosticsPath = diagnosticsPath
   if (collisionReportPath !== undefined) summary.collisionReportPath = collisionReportPath
+  if (compositionReportPath !== undefined) summary.compositionReportPath = compositionReportPath
+  if (provenancePath !== undefined) summary.provenancePath = provenancePath
   if (dirty !== undefined) {
     summary.dirtyTargetPaths = dirty.dirtyTargetPaths
     summary.dirtyTargetNames = dirty.dirtyTargetNames
@@ -193,6 +200,14 @@ export function buildSpec(options: BuildSpecOptions): BuildSpecResult {
 
   if (collisionReportPath !== undefined) {
     writeJsonFile(collisionReportPath, emitted.report.collisionReport)
+  }
+
+  if (compositionReportPath !== undefined) {
+    writeJsonFile(compositionReportPath, compositionReport)
+  }
+
+  if (provenancePath !== undefined) {
+    writeJsonFile(provenancePath, provenance)
   }
 
   if (valid && options.writeOutput !== false) {
@@ -221,6 +236,8 @@ export function buildSpec(options: BuildSpecOptions): BuildSpecResult {
     projection,
     diagnostics,
     collisionReport: emitted.report.collisionReport,
+    compositionReport,
+    provenance,
     summary,
     ...(dirty !== undefined ? { dirty } : {}),
   }
@@ -231,7 +248,7 @@ function toProjectionDiagnostic(
   sourceLocations: ReadonlyMap<string, SourceLocationIndex>,
 ): SchemaDiagnostic {
   const pointer = diagnostic.sourcePointer ?? '#'
-  const location = lookupSourceLocation(sourceLocations, diagnostic.sourcePath, pointer)
+  const location = lookupDefinitionSourceLocation(sourceLocations, diagnostic.sourcePath, pointer)
 
   return {
     severity: diagnostic.severity,
@@ -247,287 +264,6 @@ function toProjectionDiagnostic(
   }
 }
 
-function loadTargetConfig(targetPath: string): DefinitionTargetConfig {
-  const raw = readFileSync(targetPath, 'utf8')
-  const parsed = parseDocument(raw, targetPath)
-  if (!isRecord(parsed)) {
-    throw new Error(`Target config must be an object: ${targetPath}`)
-  }
-
-  const name = readRequiredString(parsed, 'name', targetPath)
-  const info = readOptionalInfo(parsed, 'info', targetPath)
-  const scopes = readStringArray(parsed, 'scopes', targetPath)
-  const domains = readStringArray(parsed, 'domains', targetPath)
-  const servers = readServerArray(parsed, 'servers', targetPath)
-  const tags = readOptionalTags(parsed, 'tags', targetPath)
-  const includePaths = readStringArray(parsed, 'includePaths', targetPath)
-  const includeDefinitions = readOptionalDefinitionIdArray(parsed, 'includeDefinitions', targetPath)
-  const config: DefinitionTargetConfig = {
-    name,
-    scopes,
-    domains,
-    servers,
-    includePaths,
-  }
-  if (info !== undefined) config.info = info
-  if (tags !== undefined) config.tags = tags
-  if (includeDefinitions !== undefined) config.includeDefinitions = includeDefinitions
-  const aliases = readAliases(parsed)
-  if (aliases !== undefined) {
-    config.namingPolicy = { aliases }
-  }
-
-  return config
-}
-
-function loadDefinitionFragments(fragmentsDir: string): LoadedFragments {
-  const nodes: DefinitionNode[] = []
-  const diagnostics: BuildSpecCliDiagnostic[] = []
-  const sourceLocations = new Map<string, SourceLocationIndex>()
-  const filePaths = listDefinitionFiles(fragmentsDir)
-
-  for (const filePath of filePaths) {
-    const raw = readFileSync(filePath, 'utf8')
-    sourceLocations.set(filePath, createSourceLocationIndex(raw, { filePath }))
-
-    try {
-      const parsed = parseDocument(raw, filePath)
-      if (!isRecord(parsed)) {
-        diagnostics.push(fragmentDiagnostic(filePath, 'Fragment file must contain an object.'))
-        continue
-      }
-
-      const id = parsed.id
-      if (typeof id !== 'string') {
-        diagnostics.push(fragmentDiagnostic(filePath, 'Definition fragment must declare a string id.', '#/id'))
-        continue
-      }
-
-      if (!Object.prototype.hasOwnProperty.call(parsed, 'content')) {
-        diagnostics.push(fragmentDiagnostic(filePath, 'Definition fragment must declare content.', '#/content'))
-        continue
-      }
-
-      const input = {
-        id,
-        sourcePath: filePath,
-        sourcePointer: '#/content',
-        contentHash: createContentHash(parsed.content),
-        content: parsed.content,
-      }
-      const refs = readFragmentRefs(parsed.refs, filePath, diagnostics)
-      if (refs === undefined) continue
-
-      nodes.push(createDefinitionNode(
-        isRecord(parsed.metadata) ? { ...input, metadata: parsed.metadata, refs } : { ...input, refs },
-      ))
-    } catch (error) {
-      diagnostics.push(fragmentDiagnostic(filePath, error instanceof Error ? error.message : String(error)))
-    }
-  }
-
-  return {
-    nodes,
-    diagnostics,
-    sourceLocations,
-    filePaths,
-  }
-}
-
-function readFragmentRefs(
-  refs: unknown,
-  filePath: string,
-  diagnostics: BuildSpecCliDiagnostic[],
-): DefinitionRef[] | undefined {
-  if (refs === undefined) return []
-  if (!Array.isArray(refs)) {
-    diagnostics.push(fragmentDiagnostic(filePath, 'Definition fragment refs must be an array.', '#/refs'))
-    return undefined
-  }
-
-  const explicitRefs: DefinitionRef[] = []
-  for (const [index, refEntry] of refs.entries()) {
-    const pointer = `#/refs/${index}`
-    if (!isRecord(refEntry)) {
-      diagnostics.push(fragmentDiagnostic(filePath, 'Definition fragment ref entry must contain ref and sourcePointer strings.', pointer))
-      return undefined
-    }
-    if (typeof refEntry.ref !== 'string') {
-      diagnostics.push(fragmentDiagnostic(filePath, 'Definition fragment ref entry must contain a string ref.', `${pointer}/ref`))
-      return undefined
-    }
-    if (typeof refEntry.sourcePointer !== 'string') {
-      diagnostics.push(fragmentDiagnostic(filePath, 'Definition fragment ref entry must contain a string sourcePointer.', `${pointer}/sourcePointer`))
-      return undefined
-    }
-    explicitRefs.push(createDefinitionRef({
-      ref: refEntry.ref,
-      sourcePath: filePath,
-      sourcePointer: refEntry.sourcePointer,
-      ...(isRecord(refEntry.metadata) ? { metadata: refEntry.metadata } : {}),
-    }))
-  }
-
-  return explicitRefs
-}
-
-function listDefinitionFiles(rootDir: string): string[] {
-  const files: string[] = []
-
-  function visit(directory: string): void {
-    const entries = readdirSync(directory, { withFileTypes: true })
-    for (const entry of entries) {
-      const path = join(directory, entry.name)
-      if (entry.isDirectory()) {
-        visit(path)
-        continue
-      }
-      if (!entry.isFile()) continue
-      if (isDefinitionFile(path)) files.push(path)
-    }
-  }
-
-  if (!statSync(rootDir).isDirectory()) {
-    throw new Error(`Fragments path must be a directory: ${rootDir}`)
-  }
-
-  visit(rootDir)
-  return files.sort((a, b) => a.localeCompare(b))
-}
-
-function parseDocument(raw: string, filePath: string): unknown {
-  if (filePath.endsWith('.json')) return JSON.parse(raw)
-  return parseYaml(raw)
-}
-
-function isDefinitionFile(filePath: string): boolean {
-  const extension = extname(filePath)
-  return extension === '.yaml' || extension === '.yml' || extension === '.json'
-}
-
-function readRequiredString(record: Record<string, unknown>, key: string, filePath: string): string {
-  const value = record[key]
-  if (typeof value !== 'string' || value.length === 0) {
-    throw new Error(`Target config ${filePath} must declare a non-empty string ${key}.`)
-  }
-  return value
-}
-
-function readStringArray(record: Record<string, unknown>, key: string, filePath: string): string[] {
-  const value = record[key]
-  if (!Array.isArray(value) || value.some(item => typeof item !== 'string')) {
-    throw new Error(`Target config ${filePath} must declare ${key} as a string array.`)
-  }
-  return value
-}
-
-function readOptionalStringArray(record: Record<string, unknown>, key: string, filePath: string): string[] | undefined {
-  const value = record[key]
-  if (value === undefined) return undefined
-  if (!Array.isArray(value) || value.some(item => typeof item !== 'string')) {
-    throw new Error(`Target config ${filePath} must declare ${key} as a string array when present.`)
-  }
-  return value
-}
-
-function readOptionalDefinitionIdArray(
-  record: Record<string, unknown>,
-  key: string,
-  filePath: string,
-): CanonicalDefinitionId[] | undefined {
-  const values = readOptionalStringArray(record, key, filePath)
-  if (values === undefined) return undefined
-
-  return values.map((value, index) => {
-    try {
-      return parseDefinitionId(value).id
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error)
-      throw new Error(`Target config ${filePath} has invalid ${key}[${index}]: ${message}`)
-    }
-  })
-}
-
-function readServerArray(record: Record<string, unknown>, key: string, filePath: string): OasServer[] {
-  const value = record[key]
-  if (
-    !Array.isArray(value)
-    || value.some(item => !isRecord(item) || typeof item.url !== 'string' || item.url.length === 0)
-  ) {
-    throw new Error(`Target config ${filePath} must declare ${key} as an object array with string url fields.`)
-  }
-  return value as OasServer[]
-}
-
-function readOptionalInfo(record: Record<string, unknown>, key: string, filePath: string): OasInfo | undefined {
-  const value = record[key]
-  if (value === undefined) return undefined
-  if (!isRecord(value) || typeof value.title !== 'string' || typeof value.version !== 'string') {
-    throw new Error(`Target config ${filePath} must declare ${key} with string title and version fields when present.`)
-  }
-  return value as OasInfo
-}
-
-function readOptionalTags(record: Record<string, unknown>, key: string, filePath: string): OasTag[] | undefined {
-  const value = record[key]
-  if (value === undefined) return undefined
-  if (!Array.isArray(value) || value.some(item => !isRecord(item) || typeof item.name !== 'string')) {
-    throw new Error(`Target config ${filePath} must declare ${key} as an object array with string name fields when present.`)
-  }
-  return value as OasTag[]
-}
-
-function readAliases(record: Record<string, unknown>): Record<string, string> | undefined {
-  const namingPolicy = record.namingPolicy
-  if (!isRecord(namingPolicy)) return undefined
-  const aliases = namingPolicy.aliases
-  if (!isRecord(aliases)) return undefined
-
-  const output: Record<string, string> = {}
-  for (const [id, outputName] of Object.entries(aliases)) {
-    if (typeof outputName === 'string') output[id] = outputName
-  }
-  return output
-}
-
-function lookupSourceLocation(
-  sourceLocations: ReadonlyMap<string, SourceLocationIndex>,
-  sourcePath: string,
-  sourcePointer: string,
-): Pick<SourceLocation, 'line' | 'column'> | undefined {
-  return sourceLocations.get(sourcePath)?.lookup(sourcePointer)
-}
-
-function fragmentDiagnostic(
-  sourcePath: string,
-  message: string,
-  sourcePointer?: string,
-): BuildSpecCliDiagnostic {
-  const diagnostic: BuildSpecCliDiagnostic = {
-    code: 'definition-fragment/invalid-fragment',
-    severity: 'error',
-    message,
-    sourcePath,
-  }
-  if (sourcePointer !== undefined) diagnostic.sourcePointer = sourcePointer
-  return diagnostic
-}
-
-function createContentHash(value: unknown): string {
-  return `sha256:${createHash('sha256').update(stableStringify(value)).digest('hex')}`
-}
-
-function stableStringify(value: unknown): string {
-  if (value === null || typeof value !== 'object') return JSON.stringify(value)
-  if (Array.isArray(value)) return `[${value.map(item => stableStringify(item)).join(',')}]`
-
-  return `{${Object.entries(value as Record<string, unknown>)
-    .filter(([, child]) => child !== undefined)
-    .sort(([left], [right]) => left.localeCompare(right))
-    .map(([key, child]) => `${JSON.stringify(key)}:${stableStringify(child)}`)
-    .join(',')}}`
-}
-
 function writeJsonFile(filePath: string, value: unknown): void {
   writeTextFile(filePath, `${JSON.stringify(value, null, 2)}\n`)
 }
@@ -535,8 +271,4 @@ function writeJsonFile(filePath: string, value: unknown): void {
 function writeTextFile(filePath: string, value: string): void {
   mkdirSync(dirname(filePath), { recursive: true })
   writeFileSync(filePath, value, 'utf8')
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
 }
