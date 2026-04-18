@@ -272,6 +272,11 @@ Typegen 공개 surface는 root entry(`@oa-sdk/codegen`)와 typegen sub-entry(`@o
 | `formatTargetCoverageMarkdown()` | `cli/lib/target-coverage.ts` | target-check assertion result와 failure를 compact Markdown report로 렌더링 |
 | `createReviewBundle()` | `cli/lib/review-bundle.ts` | base/head diff, artifact freshness, optional runtime drift, inventory, composition, duplicate review payload를 PR review bundle로 집계 |
 | `formatReviewBundleMarkdown()` | `cli/lib/review-bundle.ts` | recommendation과 summary로 시작하고 breaking changes를 non-breaking changes보다 먼저 두는 review-bundle Markdown report를 렌더링 |
+| `collectOpenApiDocumentSourceFragments()` | `cli/lib/openapi-source-fragments.ts` | OpenAPI `paths`/`webhooks`/`components` sections를 normalized source fragments와 pointer diagnostics issue로 수집 |
+| `adaptZodSchemas()` | `cli/lib/source-adapters.ts` | Zod schema map을 기존 `zodToSchema()` 경로로 OpenAPI schema source fragments에 매핑 |
+| `adaptDrizzleTables()` | `cli/lib/source-adapters.ts` | Drizzle extracted table 목록을 기존 `convertTables()` 경로로 select/insert/update schema source fragments에 매핑 |
+| `adaptOpenApiProjectionEnvelope()` | `cli/lib/source-adapters.ts` | `OpenApiProjectionResult` envelope의 projection document와 profile/versionHash/sources/refs/typeTargets metadata를 source fragments로 보존 |
+| `adaptPythonContractSpecSnapshot()` | `cli/lib/source-adapters.ts` | Python `ContractSpec` 또는 `oa-contract-snapshot` JSON mapping을 Python runtime 없이 schema/operation/response/security/example/target fragments로 매핑 |
 
 ---
 

@@ -29,6 +29,22 @@ export type OpenApiSourceFragmentIdInput = {
   contentHash: string
 }
 
+export type OpenApiDocumentSourceFragmentIssue = {
+  message: string
+  sourcePointer: string
+}
+
+export type OpenApiDocumentSourceFragmentResult = {
+  fragments: OpenApiSourceFragment[]
+  issues: OpenApiDocumentSourceFragmentIssue[]
+}
+
+export type OpenApiDocumentSourceFragmentOptions = {
+  sourcePath?: string
+  sourcePointerBase?: string
+  metadata?: OpenApiSourceFragmentMetadata
+}
+
 export type OpenApiSourceAdapterDiagnosticSeverity = 'error' | 'warning' | 'info'
 
 export type OpenApiSourceAdapterDiagnostic<
@@ -100,8 +116,195 @@ export function createOpenApiSourceAdapterDiagnostic<
   return diagnostic
 }
 
+export function collectOpenApiDocumentSourceFragments(
+  document: Record<string, unknown>,
+  options: OpenApiDocumentSourceFragmentOptions = {},
+): OpenApiDocumentSourceFragmentResult {
+  const fragments: OpenApiSourceFragment[] = []
+  const issues: OpenApiDocumentSourceFragmentIssue[] = []
+  const pointerBase = options.sourcePointerBase ?? '#'
+
+  collectPathFragments(pointerChild(pointerBase, 'paths'), document.paths, fragments, issues, options)
+  collectPathFragments(pointerChild(pointerBase, 'webhooks'), document.webhooks, fragments, issues, options)
+
+  const componentsPointer = pointerChild(pointerBase, 'components')
+  const components = document.components
+  if (components !== undefined && !isRecord(components)) {
+    issues.push({
+      message: 'OpenAPI components must be an object.',
+      sourcePointer: componentsPointer,
+    })
+  } else if (components !== undefined) {
+    collectComponentFragments(componentsPointer, components, fragments, issues, options)
+  }
+
+  return {
+    fragments: fragments.sort((left, right) => (
+      (left.sourcePointer ?? '').localeCompare(right.sourcePointer ?? '')
+      || left.kind.localeCompare(right.kind)
+    )),
+    issues,
+  }
+}
+
 function createOpenApiSourceDigest(value: unknown): string {
   return createHash('sha256').update(stableStringify(value)).digest('hex')
+}
+
+function collectPathFragments(
+  sectionPointer: string,
+  value: unknown,
+  fragments: OpenApiSourceFragment[],
+  issues: OpenApiDocumentSourceFragmentIssue[],
+  options: OpenApiDocumentSourceFragmentOptions,
+): void {
+  if (value === undefined) return
+  if (!isRecord(value)) {
+    issues.push({
+      message: 'OpenAPI paths/webhooks section must be an object.',
+      sourcePointer: sectionPointer,
+    })
+    return
+  }
+
+  for (const [path, pathItem] of sortedEntries(value)) {
+    const pathPointer = pointerChild(sectionPointer, path)
+    if (!isRecord(pathItem)) {
+      issues.push({
+        message: 'OpenAPI path item must be an object.',
+        sourcePointer: pathPointer,
+      })
+      continue
+    }
+
+    fragments.push(createOpenApiSourceFragment({
+      kind: sectionPointer.endsWith('/webhooks') ? 'webhook' : 'path',
+      ...(options.sourcePath !== undefined ? { sourcePath: options.sourcePath } : {}),
+      sourcePointer: pathPointer,
+      content: pathItem,
+      metadata: mergeMetadata(
+        options.metadata,
+        sectionPointer.endsWith('/webhooks') ? { webhook: path } : { path },
+      ),
+    }))
+
+    for (const method of sortedOpenApiOperationMethods(pathItem)) {
+      fragments.push(createOpenApiSourceFragment({
+        kind: 'operation',
+        ...(options.sourcePath !== undefined ? { sourcePath: options.sourcePath } : {}),
+        sourcePointer: pointerChild(pathPointer, method),
+        content: pathItem[method],
+        metadata: mergeMetadata(
+          options.metadata,
+          sectionPointer.endsWith('/webhooks') ? { webhook: path, method } : { path, method },
+        ),
+      }))
+    }
+  }
+}
+
+function collectComponentFragments(
+  sectionPointer: string,
+  components: Record<string, unknown>,
+  fragments: OpenApiSourceFragment[],
+  issues: OpenApiDocumentSourceFragmentIssue[],
+  options: OpenApiDocumentSourceFragmentOptions,
+): void {
+  for (const [section, values] of sortedEntries(components)) {
+    const componentSectionPointer = pointerChild(sectionPointer, section)
+    if (!isRecord(values)) {
+      issues.push({
+        message: 'OpenAPI component section must be an object.',
+        sourcePointer: componentSectionPointer,
+      })
+      continue
+    }
+
+    for (const [name, content] of sortedEntries(values)) {
+      const pointer = pointerChild(componentSectionPointer, name)
+      if (!isOpenApiComponentContent(section, content)) {
+        issues.push({
+          message: 'OpenAPI component entry must be an object, array, or boolean schema.',
+          sourcePointer: pointer,
+        })
+        continue
+      }
+
+      fragments.push(createOpenApiSourceFragment({
+        kind: componentSectionKind(section),
+        ...(options.sourcePath !== undefined ? { sourcePath: options.sourcePath } : {}),
+        sourcePointer: pointer,
+        content,
+        metadata: mergeMetadata(options.metadata, {
+          componentSection: section,
+          name,
+        }),
+      }))
+    }
+  }
+}
+
+const OPENAPI_OPERATION_METHODS = [
+  'get',
+  'put',
+  'post',
+  'delete',
+  'options',
+  'head',
+  'patch',
+  'trace',
+  'query',
+] as const
+
+const COMPONENT_SECTION_KINDS: Record<string, string> = {
+  schemas: 'schema',
+  responses: 'response',
+  parameters: 'parameter',
+  examples: 'example',
+  requestBodies: 'requestBody',
+  headers: 'header',
+  securitySchemes: 'securityScheme',
+  links: 'link',
+  callbacks: 'callback',
+  pathItems: 'pathItem',
+  mediaTypes: 'mediaType',
+}
+
+function sortedOpenApiOperationMethods(pathItem: Record<string, unknown>): string[] {
+  return OPENAPI_OPERATION_METHODS.filter(method => isRecord(pathItem[method]))
+}
+
+function componentSectionKind(section: string): string {
+  return COMPONENT_SECTION_KINDS[section] ?? `component:${section}`
+}
+
+function isOpenApiComponentContent(section: string, content: unknown): boolean {
+  return isRecord(content) || Array.isArray(content) || (section === 'schemas' && typeof content === 'boolean')
+}
+
+function sortedEntries(record: Record<string, unknown>): Array<[string, unknown]> {
+  return Object.entries(record).sort(([left], [right]) => left.localeCompare(right))
+}
+
+function pointerChild(pointer: string, token: string): string {
+  return pointer === '#'
+    ? `#/${encodePointerToken(token)}`
+    : `${pointer}/${encodePointerToken(token)}`
+}
+
+function encodePointerToken(value: string): string {
+  return value.replace(/~/g, '~0').replace(/\//g, '~1')
+}
+
+function mergeMetadata(
+  base: OpenApiSourceFragmentMetadata | undefined,
+  extension: OpenApiSourceFragmentMetadata,
+): OpenApiSourceFragmentMetadata {
+  return base === undefined ? extension : { ...base, ...extension }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
 }
 
 function stableStringify(value: unknown): string {

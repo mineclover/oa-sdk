@@ -26,6 +26,7 @@ import {
 } from '@oa-sdk/parser'
 import { parse as parseYaml } from 'yaml'
 import {
+  collectOpenApiDocumentSourceFragments,
   createOpenApiSourceAdapterDiagnostic,
   createOpenApiSourceContentHash,
   createOpenApiSourceFragment,
@@ -456,142 +457,15 @@ function collectRawOpenApiFragments(
   document: Record<string, unknown>,
   diagnostics: RawOpenApiFragmentLoadDiagnostic[],
 ): OpenApiSourceFragment[] {
-  const fragments: OpenApiSourceFragment[] = []
-  collectPathFragments(sourcePath, '#/paths', document.paths, diagnostics, fragments)
-  collectPathFragments(sourcePath, '#/webhooks', document.webhooks, diagnostics, fragments)
-
-  const components = document.components
-  if (components !== undefined && !isRecord(components)) {
-    diagnostics.push(rawOpenApiDiagnostic(sourcePath, 'OpenAPI components must be an object.', '#/components'))
-  } else if (components !== undefined) {
-    collectComponentFragments(sourcePath, components, diagnostics, fragments)
+  const result = collectOpenApiDocumentSourceFragments(document, { sourcePath })
+  for (const issue of result.issues) {
+    diagnostics.push(rawOpenApiDiagnostic(sourcePath, issue.message, issue.sourcePointer))
   }
-
-  return fragments.sort((left, right) => (
-    (left.sourcePointer ?? '').localeCompare(right.sourcePointer ?? '')
-    || left.kind.localeCompare(right.kind)
-  ))
-}
-
-function collectPathFragments(
-  sourcePath: string,
-  sectionPointer: string,
-  value: unknown,
-  diagnostics: RawOpenApiFragmentLoadDiagnostic[],
-  fragments: OpenApiSourceFragment[],
-): void {
-  if (value === undefined) return
-  if (!isRecord(value)) {
-    diagnostics.push(rawOpenApiDiagnostic(sourcePath, 'OpenAPI paths/webhooks section must be an object.', sectionPointer))
-    return
-  }
-
-  for (const [path, pathItem] of sortedEntries(value)) {
-    const pathPointer = `${sectionPointer}/${encodePointerToken(path)}`
-    if (!isRecord(pathItem)) {
-      diagnostics.push(rawOpenApiDiagnostic(sourcePath, 'OpenAPI path item must be an object.', pathPointer))
-      continue
-    }
-    fragments.push(createOpenApiSourceFragment({
-      kind: sectionPointer === '#/webhooks' ? 'webhook' : 'path',
-      sourcePath,
-      sourcePointer: pathPointer,
-      content: pathItem,
-      metadata: sectionPointer === '#/webhooks'
-        ? { webhook: path }
-        : { path },
-    }))
-
-    for (const method of sortedOpenApiOperationMethods(pathItem)) {
-      fragments.push(createOpenApiSourceFragment({
-        kind: 'operation',
-        sourcePath,
-        sourcePointer: `${pathPointer}/${method}`,
-        content: pathItem[method],
-        metadata: sectionPointer === '#/webhooks'
-          ? { webhook: path, method }
-          : { path, method },
-      }))
-    }
-  }
-}
-
-function collectComponentFragments(
-  sourcePath: string,
-  components: Record<string, unknown>,
-  diagnostics: RawOpenApiFragmentLoadDiagnostic[],
-  fragments: OpenApiSourceFragment[],
-): void {
-  for (const [section, values] of sortedEntries(components)) {
-    const sectionPointer = `#/components/${encodePointerToken(section)}`
-    if (!isRecord(values)) {
-      diagnostics.push(rawOpenApiDiagnostic(sourcePath, 'OpenAPI component section must be an object.', sectionPointer))
-      continue
-    }
-    for (const [name, content] of sortedEntries(values)) {
-      const pointer = `${sectionPointer}/${encodePointerToken(name)}`
-      if (!isRecord(content) && !Array.isArray(content) && !(section === 'schemas' && typeof content === 'boolean')) {
-        diagnostics.push(rawOpenApiDiagnostic(sourcePath, 'OpenAPI component entry must be an object, array, or boolean schema.', pointer))
-        continue
-      }
-      fragments.push(createOpenApiSourceFragment({
-        kind: componentSectionKind(section),
-        sourcePath,
-        sourcePointer: pointer,
-        content,
-        metadata: {
-          componentSection: section,
-          name,
-        },
-      }))
-    }
-  }
-}
-
-const OPENAPI_OPERATION_METHODS = [
-  'get',
-  'put',
-  'post',
-  'delete',
-  'options',
-  'head',
-  'patch',
-  'trace',
-  'query',
-] as const
-
-const COMPONENT_SECTION_KINDS: Record<string, string> = {
-  schemas: 'schema',
-  responses: 'response',
-  parameters: 'parameter',
-  examples: 'example',
-  requestBodies: 'requestBody',
-  headers: 'header',
-  securitySchemes: 'securityScheme',
-  links: 'link',
-  callbacks: 'callback',
-  pathItems: 'pathItem',
-  mediaTypes: 'mediaType',
-}
-
-function sortedOpenApiOperationMethods(pathItem: Record<string, unknown>): string[] {
-  return OPENAPI_OPERATION_METHODS.filter(method => isRecord(pathItem[method]))
-}
-
-function componentSectionKind(section: string): string {
-  return COMPONENT_SECTION_KINDS[section] ?? `component:${section}`
+  return result.fragments
 }
 
 function isJsonSchemaRoot(value: unknown): boolean {
   return typeof value === 'boolean' || isRecord(value)
-}
-
-function sortedEntries(record: Record<string, unknown>): Array<[string, unknown]> {
-  return Object.entries(record).sort(([left], [right]) => left.localeCompare(right))
-}
-
-function encodePointerToken(value: string): string {
-  return value.replace(/~/g, '~0').replace(/\//g, '~1')
 }
 
 function isDefinitionFile(filePath: string): boolean {

@@ -220,6 +220,30 @@
       ]
     },
     {
+      "id": "source-adapter-boundaries",
+      "name": "OpenAPI source adapter boundaries",
+      "category": "codegen",
+      "package": "@oa-sdk/codegen",
+      "description": "Zod, Drizzle, OpenAPI Projection envelope, Python ContractSpec snapshot, and file-backed source inputs normalize into OpenApiSourceFragment concepts.",
+      "capabilities": [
+        "Zod schema source fragments",
+        "Drizzle table schema source fragments",
+        "OpenAPI Projection envelope metadata preservation",
+        "Python ContractSpec snapshot JSON fragments",
+        "shared OpenAPI document fragment collection",
+        "file-backed Definition Builder/OpenAPI/JSON Schema adapters"
+      ],
+      "testPaths": [
+        "packages/codegen/src/__tests__/codegen-source-adapters.test.ts",
+        "packages/codegen/src/__tests__/source-file-adapters.test.ts",
+        "packages/codegen/src/__tests__/openapi-source-fragments.test.ts"
+      ],
+      "commands": [
+        "pnpm --filter @oa-sdk/codegen test",
+        "pnpm --filter @oa-sdk/codegen typecheck"
+      ]
+    },
+    {
       "id": "typegen",
       "name": "OpenAPI to TypeScript type generation",
       "category": "codegen",

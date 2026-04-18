@@ -161,10 +161,9 @@ Acceptance criteria:
 3. Review bundle
 4. Source adapter formalization
 
-Inventory, composition report, source provenance map, and runtime OpenAPI URL fetch have been
-implemented and promoted to `spec.md`, `api-index.md`, and `feature-test-matrix.json`. Source
-adapters come later because they stabilize better after provenance and composition report shapes are
-proven.
+Inventory, composition report, source provenance map, runtime OpenAPI URL fetch, and source adapter
+formalization have been implemented and promoted to `spec.md`, `api-index.md`, and
+`feature-test-matrix.json`.
 
 ## Promotion Rules
 
