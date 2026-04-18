@@ -1,6 +1,8 @@
 # oa-sdk
 
-OpenAPI 3.2를 중심으로 한 양방향 API 인프라 모노레포.
+OpenAPI 3.2 contract를 중심으로 한 API governance 인프라 모노레포.
+세부 schema/definition fragment를 조합해 완성된 OpenAPI artifact를 만들고,
+검증·비교·생성·mock/runtime 테스트·review gate까지 연결합니다.
 
 ```
 Drizzle ORM ──▶                        ──▶ Mock Server
@@ -17,7 +19,7 @@ Zod Schema  ──▶  OpenAPI 3.2 Spec      ──▶ TypeScript 타입
 | `@oa-sdk/schemas` | 도메인 분리 OAS 3.2 소스 + merge + 3.1↔3.2 변환 |
 | `@oa-sdk/parser` | OAS 3.2 파서 + IR + fold + lint + validate + query |
 | `@oa-sdk/mock-server` | AJV Mock 서버 (MSW + Node HTTP) + Security + 테스트 헬퍼 |
-| `@oa-sdk/codegen` | Zod/Drizzle → OAS + OAS → TS 타입 + CLI 11커맨드 |
+| `@oa-sdk/codegen` | Zod/Drizzle → OAS + Definition Builder target artifact + OAS → TS 타입 + CLI 11커맨드 |
 | `@oa-sdk/router` | OAS → Hono/Express 라우터 스텁 |
 | `@oa-sdk/client` | OAS → fetch 클라이언트 SDK + SSE + 인증 미들웨어 + 재시도 |
 | `@oa-sdk/typia-mock` | typia ILlmApplication 기반 LLM 함수 호출 검증 서버 |

@@ -2,18 +2,20 @@
 
 ## One Sentence
 
-oa-sdk는 OpenAPI contract를 API 개발의 중심 산출물로 두고, authoring, validation,
-code generation, mock/runtime testing, diff, drift, artifact freshness, review gate를
-하나의 폐루프로 연결한다.
+oa-sdk는 OpenAPI 3.2 contract를 중심으로 세부 definition fragment와 schema 입력을
+조합해 완성된 API artifact를 만들고, validation, code generation, mock/runtime testing,
+diff, drift, artifact freshness, review gate를 하나의 폐루프로 연결한다.
 
 ## Core Beliefs
 
 1. OpenAPI는 정적 문서가 아니라 실행 가능한 API 계약이다.
 2. Source of truth와 generated artifact는 분리되어야 한다.
-3. API 변경은 사람이 읽기 전에 기계가 먼저 분류해야 한다.
-4. Breaking change, runtime drift, stale artifact는 CI에서 막아야 한다.
-5. TS/JS와 Python은 같은 governance vocabulary와 CLI manifest를 공유해야 한다.
-6. 각 도구는 독립적으로 쓸 수 있어야 하지만, 함께 쓸 때 계약 폐루프가 닫혀야 한다.
+3. 완성된 OpenAPI는 작은 definition/schema 조각을 조합해 만들 수 있어야 한다.
+4. 중복과 이름 충돌은 자동 병합하지 말고 source identity와 output identity를 분리해야 한다.
+5. API 변경은 사람이 읽기 전에 기계가 먼저 분류해야 한다.
+6. Breaking change, runtime drift, stale artifact는 CI에서 막아야 한다.
+7. TS/JS와 Python은 같은 governance vocabulary와 CLI manifest를 공유해야 한다.
+8. 각 도구는 독립적으로 쓸 수 있어야 하지만, 함께 쓸 때 계약 폐루프가 닫혀야 한다.
 
 ## Primary Workflows
 
@@ -29,8 +31,9 @@ Author contract
 ## System Loop
 
 ```txt
-Drizzle / Zod / OpenAPI fragments / Pydantic DTOs
+Drizzle / Zod / OpenAPI fragments / Definition Builder fragments / Pydantic DTOs
   -> OpenAPI or ContractSpec source of truth
+  -> target-specific OpenAPI assembly
   -> deterministic generated artifacts
   -> typegen / router / client / mock server
   -> runtime and artifact drift checks
@@ -42,6 +45,7 @@ Drizzle / Zod / OpenAPI fragments / Pydantic DTOs
 oa-sdk is:
 
 - an OpenAPI 3.2-first contract toolchain
+- a parser/builder that combines modular schema and definition inputs into OpenAPI artifacts
 - a code generation bridge from contract to consumers
 - a mock/test runtime for contract behavior
 - a governance toolkit for diff, drift, freshness, and review
@@ -57,12 +61,15 @@ oa-sdk is not:
 ## Design Principles
 
 1. **Contract first**: API-facing behavior is described as contract data before it is consumed by generators.
-2. **Generated artifacts are disposable**: regenerate instead of manually editing.
-3. **Deterministic output**: stable diffs are a product feature.
-4. **Reviewable changes**: diff and review reports should be readable without inspecting raw OpenAPI.
-5. **Drift is a failure mode**: runtime, artifact, docs, and manifest drift need explicit checks.
-6. **Language-neutral governance**: shared manifest and vocabulary come before per-language CLI details.
-7. **Incremental adoption**: teams can start with validation or typegen and add stronger gates later.
+2. **Modular assembly**: complete OpenAPI artifacts can be built from smaller schema, path, operation, response, and security definitions.
+3. **Identity separation**: source canonical identity and output component names are different concerns.
+4. **No silent dedupe**: duplicate ids and output collisions are diagnostics, not hidden merges.
+5. **Generated artifacts are disposable**: regenerate instead of manually editing.
+6. **Deterministic output**: stable diffs are a product feature.
+7. **Reviewable changes**: diff and review reports should be readable without inspecting raw OpenAPI.
+8. **Drift is a failure mode**: runtime, artifact, docs, and manifest drift need explicit checks.
+9. **Language-neutral governance**: shared manifest and vocabulary come before per-language CLI details.
+10. **Incremental adoption**: teams can start with validation or typegen and add stronger gates later.
 
 ## Reference Map
 

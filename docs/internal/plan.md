@@ -8,9 +8,9 @@
 
 ## 시스템 목표
 
-OpenAPI contract를 중심으로 authoring, validation, code generation, mock/runtime
-testing, diff/drift/freshness review를 연결한다. 시스템 루프는
-[Vision](../vision.md#system-loop)을 따른다.
+OpenAPI contract를 중심으로 modular schema/definition composition, authoring,
+validation, code generation, mock/runtime testing, diff/drift/freshness review를
+연결한다. 시스템 루프는 [Vision](../vision.md#system-loop)을 따른다.
 
 ---
 

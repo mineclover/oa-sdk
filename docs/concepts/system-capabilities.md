@@ -40,6 +40,17 @@ source fragments를 target-specific OpenAPI document로 조립한다.
 
 관련 정의: [Target](./contract-governance.md#target), [Definition Builder](./definition-builder.md)
 
+## Parsing And Composition
+
+서로 다른 schema/definition 입력을 읽고 조합해 완성된 OpenAPI artifact를 만든다.
+
+- OpenAPI fragments are parsed into definition nodes and registry edges.
+- Zod/Drizzle inputs can project reusable schemas into OpenAPI components.
+- `$ref` graph, source metadata, and canonical ids preserve composition boundaries.
+- duplicate ids, structural duplicates, and output collisions are explicit diagnostics.
+
+관련 정의: [Definition Builder](./definition-builder.md), [OpenAPI Projection](./openapi-projection.md)
+
 ## Code Generation
 
 OpenAPI contract에서 consumer code를 생성한다.
