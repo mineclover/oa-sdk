@@ -123,6 +123,7 @@ export function analyzeDefinitionDuplicateReview(
   const fragmentsDir = resolve(process.cwd(), options.fragmentsDir)
   const fragments = loadDefinitionFragments(fragmentsDir)
   const registry = createDefinitionRegistry(fragments.nodes, {
+    structuralDuplicateSeverity: 'off',
     lookupSourceLocation(sourcePath, sourcePointer) {
       return lookupDefinitionSourceLocation(fragments.sourceLocations, sourcePath, sourcePointer)
     },
@@ -136,7 +137,7 @@ export function analyzeDefinitionDuplicateReview(
   ]
   const findings = [
     ...collectDuplicateCanonicalIdFindings(fragments.nodes),
-    ...collectSameContentHashFindings(fragments.nodes),
+    ...collectSameContentHashFindings(fragments.nodes, registry.semanticAliases),
     ...collectSameLocalNameDifferentShapeFindings(fragments.nodes),
     ...collectOutputNameCollisionFindings(outputNameContexts),
     ...collectSemanticAliasFindings(registry.semanticAliases, registry.nodeById),
@@ -231,14 +232,17 @@ function collectDuplicateCanonicalIdFindings(
 
 function collectSameContentHashFindings(
   nodes: readonly DefinitionNode[],
+  semanticAliases: readonly DefinitionSemanticAlias[],
 ): DefinitionDuplicateReviewFinding[] {
   const groups = groupNodes(nodes, node => node.contentHash)
   const findings: DefinitionDuplicateReviewFinding[] = []
+  const intentionallyAliasedSourceIds = collectIntentionallyAliasedSourceIds(groups, semanticAliases)
 
   for (const [contentHash, group] of groups) {
-    const canonicalIds = distinctCanonicalIds(group)
+    const unaliasedGroup = group.filter(node => !intentionallyAliasedSourceIds.has(node.id))
+    const canonicalIds = distinctCanonicalIds(unaliasedGroup)
     if (canonicalIds.length <= 1) continue
-    const sources = sourceEntries(group)
+    const sources = sourceEntries(unaliasedGroup)
     findings.push({
       code: 'definition-duplicate-review/same-content-hash',
       severity: 'info',
@@ -250,6 +254,24 @@ function collectSameContentHashFindings(
   }
 
   return findings
+}
+
+function collectIntentionallyAliasedSourceIds(
+  groups: ReadonlyMap<string, readonly DefinitionNode[]>,
+  semanticAliases: readonly DefinitionSemanticAlias[],
+): Set<CanonicalDefinitionId> {
+  const aliasedSourceIds = new Set<CanonicalDefinitionId>()
+
+  for (const group of groups.values()) {
+    const groupIds = new Set(group.map(node => node.id))
+    for (const alias of semanticAliases) {
+      if (groupIds.has(alias.sourceId) && groupIds.has(alias.targetId)) {
+        aliasedSourceIds.add(alias.sourceId)
+      }
+    }
+  }
+
+  return aliasedSourceIds
 }
 
 function collectSameLocalNameDifferentShapeFindings(
@@ -471,4 +493,108 @@ function compareOptional(left: string | undefined, right: string | undefined): n
 
 function isDefinitionNode(value: DefinitionNode | undefined): value is DefinitionNode {
   return value !== undefined
+}
+
+export function formatDefinitionDuplicateReviewMarkdown(
+  report: DefinitionDuplicateReviewResult,
+): string {
+  const lines = [
+    '## Definition Duplicate Review',
+    '',
+    `Fragments: \`${markdownCode(report.fragmentsDir)}\``,
+    targetLine(report),
+    `Summary: ${report.summary.findingCount} findings, ${report.summary.diagnosticCount} diagnostics, ${report.summary.errors} errors, ${report.summary.warnings} warnings, ${report.summary.infos} infos.`,
+    '',
+    '### Findings',
+    ...findingLines(report.findings),
+  ]
+
+  if (report.diagnostics.length > 0) {
+    lines.push(
+      '',
+      '### Diagnostics',
+      ...diagnosticLines(report.diagnostics),
+    )
+  }
+
+  return lines.join('\n')
+}
+
+function targetLine(report: DefinitionDuplicateReviewResult): string {
+  if (report.targets.length === 0) return 'Targets: all fragments (synthetic naming review)'
+  return `Targets: ${report.targets.map(target => target.targetPath
+    ? `${target.name} (${target.targetPath})`
+    : target.name).map(markdownText).join(', ')}`
+}
+
+function findingLines(findings: readonly DefinitionDuplicateReviewFinding[]): string[] {
+  if (findings.length === 0) return ['None.']
+  return [
+    '| Severity | Finding | Detail | Sources |',
+    '| --- | --- | --- | --- |',
+    ...findings.map(finding => [
+      markdownText(finding.severity),
+      `\`${markdownCode(shortFindingCode(finding.code))}\``,
+      markdownText(findingDetail(finding)),
+      finding.sources.length === 0
+        ? '-'
+        : finding.sources.map(source => (
+          `\`${markdownCode(source.canonicalId)}\`<br>${markdownText(source.sourcePath)}${markdownText(source.sourcePointer)}`
+        )).join('<br>'),
+    ].join(' | ')).map(row => `| ${row} |`),
+  ]
+}
+
+function diagnosticLines(diagnostics: readonly DefinitionDuplicateReviewDiagnostic[]): string[] {
+  return [
+    '| Severity | Code | Source | Message |',
+    '| --- | --- | --- | --- |',
+    ...diagnostics.map(diagnostic => [
+      markdownText(diagnostic.severity),
+      `\`${markdownCode(shortDiagnosticCode(diagnostic.code))}\``,
+      markdownText(diagnosticSource(diagnostic) ?? '-'),
+      markdownText(diagnostic.message),
+    ].join(' | ')).map(row => `| ${row} |`),
+  ]
+}
+
+function findingDetail(finding: DefinitionDuplicateReviewFinding): string {
+  if (finding.semanticAlias) {
+    return `${finding.semanticAlias.sourceId} -> ${finding.semanticAlias.targetId}`
+  }
+  if (finding.outputName) {
+    return `${finding.targetName ?? 'all-fragments'} ${finding.kind ?? 'definition'} output "${finding.outputName}": ${finding.canonicalIds.join(', ')}`
+  }
+  if (finding.contentHash) {
+    return `${finding.contentHash}: ${finding.canonicalIds.join(', ')}`
+  }
+  if (finding.kind && finding.localName) {
+    return `${finding.kind} "${finding.localName}": ${finding.canonicalIds.join(', ')}`
+  }
+  return finding.canonicalIds.join(', ')
+}
+
+function diagnosticSource(diagnostic: DefinitionDuplicateReviewDiagnostic): string | undefined {
+  if ('sourcePath' in diagnostic && typeof diagnostic.sourcePath === 'string') {
+    return `${diagnostic.sourcePath}${diagnostic.sourcePointer ?? ''}`
+  }
+  if ('path' in diagnostic && typeof diagnostic.path === 'string') return diagnostic.path
+  if ('pointer' in diagnostic && typeof diagnostic.pointer === 'string') return diagnostic.pointer
+  return undefined
+}
+
+function shortFindingCode(code: DefinitionDuplicateReviewFindingCode): string {
+  return code.replace('definition-duplicate-review/', '')
+}
+
+function shortDiagnosticCode(code: string): string {
+  return code.replace(/^definition-[^/]+\//, '')
+}
+
+function markdownText(value: unknown): string {
+  return String(value).replace(/\s+/g, ' ').replace(/\|/g, '\\|').trim()
+}
+
+function markdownCode(value: unknown): string {
+  return markdownText(value).replace(/`/g, '\\`')
 }

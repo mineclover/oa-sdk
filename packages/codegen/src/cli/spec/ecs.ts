@@ -3,12 +3,15 @@ export type CliEntityKind = 'command'
 export type CliCheckKind =
   | 'artifact-freshness'
   | 'breaking-diff'
+  | 'duplicate-review'
   | 'head-validation'
   | 'inventory'
   | 'runtime-drift'
 
 export type CliInputKind =
   | 'contract-document'
+  | 'definition-fragments'
+  | 'definition-target'
   | 'module-reference'
   | 'openapi-artifact'
   | 'openapi-document'

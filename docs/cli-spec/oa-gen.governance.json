@@ -91,6 +91,59 @@
       }
     },
     {
+      "id": "duplicate-review",
+      "kind": "command",
+      "name": "duplicate-review",
+      "summary": "Definition fragments duplicate identity risk 리포트",
+      "components": {
+        "options": [
+          {
+            "name": "fragments",
+            "type": "string",
+            "required": true,
+            "description": "definition fragments 디렉토리"
+          },
+          {
+            "name": "target",
+            "type": "string",
+            "short": "t",
+            "description": "target-local output name collision을 확인할 Definition Builder target config 경로"
+          },
+          {
+            "name": "format",
+            "type": "string",
+            "short": "f",
+            "description": "markdown | json (기본: markdown)"
+          }
+        ],
+        "inputs": [
+          {
+            "name": "fragments",
+            "kind": "definition-fragments",
+            "required": true,
+            "option": "fragments"
+          },
+          {
+            "name": "target",
+            "kind": "definition-target",
+            "required": false,
+            "option": "target"
+          }
+        ],
+        "checks": ["duplicate-review"],
+        "reports": [
+          {
+            "formats": ["markdown", "json"],
+            "schema": "oa-gen.duplicate-review.v1"
+          }
+        ],
+        "exitPolicy": {
+          "success": ["APPROVE", "COMMENT"],
+          "failure": ["REQUEST_CHANGES"]
+        }
+      }
+    },
+    {
       "id": "diff",
       "kind": "command",
       "name": "diff",

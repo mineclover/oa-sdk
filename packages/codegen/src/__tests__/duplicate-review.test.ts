@@ -57,6 +57,16 @@ describe('definition duplicate review analyzer', () => {
         },
       },
     })
+    writeFragment('schema/public/book/BookCopy.yaml', {
+      id: 'schema:public/book/BookCopy',
+      content: {
+        type: 'object',
+        required: ['id'],
+        properties: {
+          id: { type: 'string' },
+        },
+      },
+    })
     writeFragment('schema/public/notebook/Book.yaml', {
       id: 'schema:public/notebook/Book',
       content: {
@@ -112,8 +122,9 @@ describe('definition duplicate review analyzer', () => {
     expect(sameHash.contentHash).toMatch(/^sha256:[a-f0-9]{64}$/)
     expect(sameHash.canonicalIds).toEqual([
       'schema:public/book/Book',
-      'schema:public/book/BookAlias',
+      'schema:public/book/BookCopy',
     ])
+    expect(sameHash.canonicalIds).not.toContain('schema:public/book/BookAlias')
 
     const localName = finding(result, 'definition-duplicate-review/same-local-name-different-shape')
     expect(localName).toEqual(expect.objectContaining({
@@ -156,6 +167,47 @@ describe('definition duplicate review analyzer', () => {
       targetId: 'schema:public/book/Book',
     }))
   })
+
+  it('suppresses only the same-content candidate covered by a semantic alias', () => {
+    const content = {
+      type: 'object',
+      required: ['id'],
+      properties: {
+        id: { type: 'string' },
+      },
+    }
+    writeFragment('schema/public/book/Book.yaml', {
+      id: 'schema:public/book/Book',
+      content,
+    })
+    writeFragment('schema/public/book/BookAlias.yaml', {
+      id: 'schema:public/book/BookAlias',
+      metadata: {
+        semanticAliasOf: 'schema:public/book/Book',
+      },
+      content,
+    })
+    writeFragment('schema/public/archive/ArchivedBook.yaml', {
+      id: 'schema:public/archive/ArchivedBook',
+      content,
+    })
+
+    const result = analyzeDefinitionDuplicateReview({
+      fragmentsDir: join(tmpDir, 'fragments'),
+    })
+
+    const sameHash = finding(result, 'definition-duplicate-review/same-content-hash')
+    expect(sameHash.canonicalIds).toEqual([
+      'schema:public/archive/ArchivedBook',
+      'schema:public/book/Book',
+    ])
+    expect(sameHash.sources.map(source => source.canonicalId)).toEqual([
+      'schema:public/archive/ArchivedBook',
+      'schema:public/book/Book',
+    ])
+    expect(result.findings.filter(entry => entry.code === 'definition-duplicate-review/semantic-alias'))
+      .toHaveLength(1)
+  })
 })
 
 function finding(
@@ -186,6 +238,7 @@ function snapshotFragments(): Record<string, string> {
   const files = [
     'schema/public/book/Book.yaml',
     'schema/public/book/BookAlias.yaml',
+    'schema/public/book/BookCopy.yaml',
     'schema/public/book/BookDuplicate.yaml',
     'schema/public/notebook/Book.yaml',
   ]

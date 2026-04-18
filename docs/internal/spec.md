@@ -9,7 +9,7 @@
 ```
 core         ← 공유 유틸 (문자열, 코드젠, 포맷, 응답 상태, HTTP 서버)
 parser       ← core. OAS 3.2 파서 + IR + fold + lint + validate + query
-codegen      ← core + parser (+ router, client: optional peer). CLI 13커맨드
+codegen      ← core + parser (+ router, client: optional peer). CLI 14커맨드
 mock-server  ← core + parser. AJV 검증 + 어댑터 + 테스트 헬퍼
 router       ← core + parser. Hono/Express 스텁
 client       ← core + parser. fetch SDK + SSE
@@ -25,7 +25,7 @@ schemas      ← 독립. OAS 소스 + merge + 3.1↔3.2 변환
 machine-readable SSOT다. 사람이 읽는 요약은
 [`feature-test-matrix.md`](./feature-test-matrix.md)에 둔다.
 
-현재 매핑은 19개 기능 그룹과 CLI spec drift guard를 포함한 테스트 경로 패턴을 관리한다.
+현재 매핑은 20개 기능 그룹과 CLI spec drift guard를 포함한 테스트 경로 패턴을 관리한다.
 
 ```bash
 pnpm check:feature-tests
@@ -123,7 +123,7 @@ marker.
 | WorkspaceIndex | 파일 hash/component/ref/source/diagnostic/type alias metadata용 index 경계. 기본 noop은 모든 파일을 dirty 처리해 기존 full rebuild 동작 유지 |
 | SQLiteWorkspaceIndex | `.oa-cache/state.sqlite`에 index row를 보존. `better-sqlite3` primary + `node:sqlite` fallback driver를 사용하며 WAL/foreign key/transaction, schema/options mismatch 또는 DB 오류 시 full rebuild fallback |
 | Workspace dirty detection | entry/domain/profile/external ref 파일 scan → new/modified/deleted/unchanged 분류 → refs.to_file 역방향 dirty 전파 → stale row invalidation |
-| CLI | 커맨드 모듈 구조. `generate`/`typegen`/`router`/`client`/`build-spec`/`dev`/`lint`/`validate`/`inventory`/`diff`/`check-artifact`/`drift`/`review`/`--help`; `validate`/`typegen`은 opt-in `--incremental --cache-dir`, `dev`는 watch mode에서 같은 index path 사용. `lint`/`validate` diagnostic은 YAML source map이 있으면 `file:line:column`을 출력하고 target `file#pointer` fallback을 유지. `inventory`, `diff`, `check-artifact`, `drift`, `review`는 CLI ECS manifest를 기준으로 governance checks와 Markdown/JSON report를 구성한다 |
+| CLI | 커맨드 모듈 구조. `generate`/`typegen`/`router`/`client`/`build-spec`/`dev`/`lint`/`validate`/`inventory`/`duplicate-review`/`diff`/`check-artifact`/`drift`/`review`/`--help`; `validate`/`typegen`은 opt-in `--incremental --cache-dir`, `dev`는 watch mode에서 같은 index path 사용. `lint`/`validate` diagnostic은 YAML source map이 있으면 `file:line:column`을 출력하고 target `file#pointer` fallback을 유지. `inventory`, `duplicate-review`, `diff`, `check-artifact`, `drift`, `review`는 CLI ECS manifest를 기준으로 governance checks와 Markdown/JSON report를 구성한다 |
 
 ### OpenAPI inventory command (OpenAPI aggregation governance Phase 1)
 
@@ -132,6 +132,18 @@ marker.
 리포트는 path count, operation count, component section별 count, tag/domain grouping, security scheme usage, projection/source extension summary, unused component candidates를 포함한다. JSON report schema는 `oa-gen.inventory.v1`이며 deterministic array ordering을 사용한다. Markdown report는 PR comment에 넣기 위한 compact table 중심 출력이다.
 
 대표 검증은 `packages/codegen/src/__tests__/openapi-inventory.test.ts`와 `packages/codegen/src/__tests__/cli-scenarios.test.ts`가 맡는다.
+
+### Definition duplicate-review command (OpenAPI aggregation governance Phase 2)
+
+`oa-gen duplicate-review --fragments <dir> --format markdown|json`은 Definition Builder fragments를 읽어 duplicate canonical id, 동일 content hash 후보, 같은 local name의 다른 shape, target-local output name collision, explicit `metadata.semanticAliasOf` pair를 리포트한다. 기본 format은 PR comment용 compact Markdown이고 JSON schema는 `oa-gen.duplicate-review.v1`이다.
+
+JSON report는 `findings[].sources[]`마다 `canonicalId`, `sourcePath`, `sourcePointer`, `contentHash`를 보존한다. Semantic alias는 해당 source/target pair가 같은 content hash group에 있을 때만 same-content 후보에서 alias source를 제외하고, 같은 hash를 공유하는 다른 canonical id 후보는 계속 보고한다.
+
+Exit policy는 error severity에만 실패한다. Duplicate canonical id와 target config를 준 상태의 output name collision은 non-zero exit이고, same-content 후보 같은 informational finding만 있으면 exit 0이다.
+
+구현은 `packages/codegen/src/cli/lib/duplicate-review.ts`와 `packages/codegen/src/cli/commands/duplicate-review.ts`에 있으며, CLI governance manifest는 `packages/codegen/src/cli/spec/oa-gen-governance.ts`와 `docs/cli-spec/oa-gen.governance.json`이 함께 소유한다.
+
+대표 검증은 `packages/codegen/src/__tests__/duplicate-review.test.ts`와 `packages/codegen/src/__tests__/cli-duplicate-review.test.ts`가 맡는다.
 
 ### Runtime OpenAPI URL drift input (OpenAPI aggregation governance Phase 4)
 
@@ -442,6 +454,7 @@ oa-gen validate --spec .merged.yaml                # 종합 검증
 oa-gen validate --spec .merged.yaml --incremental --cache-dir .oa-cache
 oa-gen lint --spec .merged.yaml                    # 린트만
 oa-gen inventory --spec .merged.yaml --format markdown
+oa-gen duplicate-review --fragments packages/schemas/src/fragments --format markdown
 oa-gen drift --runtime-openapi-url http://localhost:3000/openapi.json --managed-openapi .merged.yaml --format json
 pnpm --filter @oa-sdk/schemas run downgrade:3.1    # 3.1 변환 (Swagger UI 호환)
 ```

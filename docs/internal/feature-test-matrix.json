@@ -148,6 +148,30 @@
       ]
     },
     {
+      "id": "definition-duplicate-review",
+      "name": "Definition duplicate review",
+      "category": "governance",
+      "package": "@oa-sdk/codegen",
+      "description": "oa-gen duplicate-review reports Definition Builder duplicate identity risks as compact markdown or stable JSON, with semantic alias suppression and error-only non-zero exits.",
+      "capabilities": [
+        "duplicate canonical id findings",
+        "same content hash candidates",
+        "same local name different shape candidates",
+        "target-local output name collision candidates",
+        "semantic alias suppression",
+        "markdown and JSON CLI reports",
+        "error-level exit policy"
+      ],
+      "testPaths": [
+        "packages/codegen/src/__tests__/duplicate-review.test.ts",
+        "packages/codegen/src/__tests__/cli-duplicate-review.test.ts"
+      ],
+      "commands": [
+        "pnpm --filter @oa-sdk/codegen test",
+        "pnpm --filter @oa-sdk/codegen typecheck"
+      ]
+    },
+    {
       "id": "zod-drizzle-to-oas",
       "name": "Zod and Drizzle to OpenAPI schema generation",
       "category": "codegen",

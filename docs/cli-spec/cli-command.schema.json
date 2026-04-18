@@ -43,6 +43,7 @@
                 "enum": [
                   "artifact-freshness",
                   "breaking-diff",
+                  "duplicate-review",
                   "head-validation",
                   "inventory",
                   "runtime-drift"
@@ -81,6 +82,8 @@
         "kind": {
           "enum": [
             "contract-document",
+            "definition-fragments",
+            "definition-target",
             "module-reference",
             "openapi-artifact",
             "openapi-document",
