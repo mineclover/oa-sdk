@@ -374,3 +374,46 @@ def test_diff_contracts_classifies_breaking_and_non_breaking_changes() -> None:
     assert [change.code for change in diff_contracts(base, head)] == [
         change.code for change in result.breaking
     ]
+
+
+def test_diff_contracts_flags_disjoint_response_type_changes_as_breaking() -> None:
+    base = ContractSpec(
+        name="Users API",
+        version="1.0.0",
+        endpoints=[
+            ContractEndpoint(
+                method="get",
+                path="/users/{user_id}",
+                operation_id="get_user",
+                response_model="User",
+            )
+        ],
+        schemas={
+            "User": {
+                "type": "object",
+                "properties": {
+                    "external_id": {"type": "string"},
+                },
+            },
+        },
+    )
+    head = ContractSpec(
+        name="Users API",
+        version="1.1.0",
+        endpoints=base.endpoints,
+        schemas={
+            "User": {
+                "type": "object",
+                "properties": {
+                    "external_id": {"type": "integer"},
+                },
+            },
+        },
+    )
+
+    result = diff_contract_changes(base, head)
+
+    assert [(change.code, change.endpoint) for change in result.breaking] == [
+        ("response-field-type-narrowed", "schema:User.external_id")
+    ]
+    assert result.non_breaking == []

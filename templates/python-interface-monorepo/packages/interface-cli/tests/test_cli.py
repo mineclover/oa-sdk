@@ -1,7 +1,30 @@
 import json
+from pathlib import Path
 
+from oa_interface_cli.cli_spec import OA_CONTRACT_GOVERNANCE_MANIFEST
 from oa_interface_cli.main import app
 from typer.testing import CliRunner
+
+
+def test_cli_manifest_matches_registered_commands() -> None:
+    manifest_commands = {
+        command["name"]
+        for command in OA_CONTRACT_GOVERNANCE_MANIFEST["commands"]
+    }
+    help_result = CliRunner().invoke(app, ["--help"])
+
+    assert help_result.exit_code == 0
+    for command_name in sorted(manifest_commands):
+        assert command_name in help_result.stdout
+
+
+def test_cli_manifest_matches_repo_spec() -> None:
+    repo_root = Path(__file__).resolve().parents[5]
+    repo_manifest_path = repo_root / "docs" / "cli-spec" / "oa-contract.governance.json"
+    if not repo_manifest_path.exists():
+        return
+
+    assert json.loads(repo_manifest_path.read_text()) == OA_CONTRACT_GOVERNANCE_MANIFEST
 
 
 def test_validate_contract_file(tmp_path) -> None:
@@ -463,6 +486,65 @@ def test_check_artifact_supports_json_output(tmp_path) -> None:
     assert payload["summary"] == "hash mismatch; paths: 1 missing"
 
 
+def test_check_artifact_supports_target_specific_artifacts(tmp_path) -> None:
+    contract_path = tmp_path / "contract.json"
+    artifact_path = tmp_path / "contracts" / "widgets-api" / "openapi.public.json"
+    contract_path.write_text(
+        json.dumps(
+            {
+                "name": "Widgets API",
+                "version": "1.0.0",
+                "targets": [
+                    {"name": "public", "public": True},
+                    {"name": "admin"},
+                ],
+                "endpoints": [
+                    {
+                        "method": "get",
+                        "path": "/widgets",
+                        "operation_id": "list_widgets",
+                        "targets": ["public"],
+                    },
+                    {
+                        "method": "get",
+                        "path": "/admin/widgets",
+                        "operation_id": "list_admin_widgets",
+                        "targets": ["admin"],
+                    },
+                ],
+                "schemas": {},
+            }
+        )
+    )
+    runner = CliRunner()
+    emit_result = runner.invoke(
+        app,
+        [
+            "emit-openapi",
+            str(contract_path),
+            "--target",
+            "public",
+            "--output",
+            str(artifact_path),
+        ],
+    )
+
+    result = runner.invoke(
+        app,
+        ["check-artifact", str(contract_path), str(artifact_path), "--target", "public"],
+    )
+    full_contract_result = runner.invoke(
+        app,
+        ["check-artifact", str(contract_path), str(artifact_path)],
+    )
+
+    assert emit_result.exit_code == 0
+    assert result.exit_code == 0
+    assert "fresh" in result.stdout
+    assert full_contract_result.exit_code == 1
+    assert "stale" in full_contract_result.stdout
+
+
 def test_diff_output_separates_breaking_and_non_breaking_changes(tmp_path) -> None:
     base_path = tmp_path / "base.contract.json"
     head_path = tmp_path / "head.contract.json"
@@ -748,7 +830,7 @@ def test_review_command_supports_clean_json_report(tmp_path) -> None:
         app,
         [
             "emit-openapi",
-            "example_api.contracts:registry",
+            "example_api.main:contract",
             "--output",
             str(artifact_path),
         ],
@@ -758,8 +840,8 @@ def test_review_command_supports_clean_json_report(tmp_path) -> None:
         app,
         [
             "review",
-            "example_api.contracts:registry",
-            "example_api.contracts:registry",
+            "example_api.main:contract",
+            "example_api.main:contract",
             "--app",
             "example_api.main:app",
             "--artifact",
@@ -778,6 +860,149 @@ def test_review_command_supports_clean_json_report(tmp_path) -> None:
     assert payload["drift"]["issues"] == []
     assert payload["artifact"]["fresh"] is True
     assert payload["validation"]["issues"] == []
+
+
+def test_review_imports_app_before_loading_registry_references(tmp_path, monkeypatch) -> None:
+    contracts_fixture = tmp_path / "review_contracts_fixture.py"
+    contracts_fixture.write_text(
+        """
+from oa_interface_contracts import ContractRegistry
+from pydantic import BaseModel
+
+
+class Widget(BaseModel):
+    id: str
+
+
+registry = ContractRegistry(name="Widgets API", version="1.0.0")
+registry.model("Widget", Widget)
+"""
+    )
+    app_fixture = tmp_path / "review_app_fixture.py"
+    app_fixture.write_text(
+        """
+from fastapi import FastAPI
+
+from review_contracts_fixture import Widget, registry
+
+
+app = FastAPI(title="Widgets API", version="1.0.0")
+
+
+@registry.route(
+    method="get",
+    path="/widgets/{widget_id}",
+    operation_id="get_widget",
+    response_model="Widget",
+    path_params=["widget_id"],
+)
+@app.get("/widgets/{widget_id}", response_model=Widget, operation_id="get_widget")
+def get_widget(widget_id: str) -> Widget:
+    return Widget(id=widget_id)
+"""
+    )
+    monkeypatch.syspath_prepend(str(tmp_path))
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "review",
+            "review_contracts_fixture:registry",
+            "review_contracts_fixture:registry",
+            "--app",
+            "review_app_fixture:app",
+            "--format",
+            "json",
+        ],
+    )
+    payload = json.loads(result.stdout)
+
+    assert result.exit_code == 0
+    assert payload["recommendation"] == "COMMENT"
+    assert payload["summary"]["checks_incomplete"] is True
+    assert payload["drift"]["issues"] == []
+
+
+def test_review_target_ignores_runtime_routes_outside_target(tmp_path, monkeypatch) -> None:
+    fixture = tmp_path / "review_target_fixture.py"
+    fixture.write_text(
+        """
+from fastapi import FastAPI
+from oa_interface_contracts import ContractRegistry
+from pydantic import BaseModel
+
+
+class PublicWidget(BaseModel):
+    id: str
+
+
+class AdminWidget(BaseModel):
+    id: str
+
+
+registry = ContractRegistry(name="Widgets API", version="1.0.0")
+registry.public_target()
+registry.admin_target()
+registry.model("PublicWidget", PublicWidget, audience="public")
+registry.model("AdminWidget", AdminWidget, audience="admin")
+
+app = FastAPI(title="Widgets API", version="1.0.0")
+
+
+@registry.route(
+    method="get",
+    path="/widgets/{widget_id}",
+    operation_id="get_widget",
+    response_model="PublicWidget",
+    targets=["public"],
+    path_params=["widget_id"],
+)
+@app.get("/widgets/{widget_id}", response_model=PublicWidget, operation_id="get_widget")
+def get_widget(widget_id: str) -> PublicWidget:
+    return PublicWidget(id=widget_id)
+
+
+@registry.route(
+    method="get",
+    path="/admin/widgets/{widget_id}",
+    operation_id="get_admin_widget",
+    response_model="AdminWidget",
+    targets=["admin"],
+    path_params=["widget_id"],
+)
+@app.get(
+    "/admin/widgets/{widget_id}",
+    response_model=AdminWidget,
+    operation_id="get_admin_widget",
+)
+def get_admin_widget(widget_id: str) -> AdminWidget:
+    return AdminWidget(id=widget_id)
+
+
+contract = registry.to_spec()
+"""
+    )
+    monkeypatch.syspath_prepend(str(tmp_path))
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "review",
+            "review_target_fixture:contract",
+            "review_target_fixture:contract",
+            "--app",
+            "review_target_fixture:app",
+            "--target",
+            "public",
+            "--format",
+            "json",
+        ],
+    )
+    payload = json.loads(result.stdout)
+
+    assert result.exit_code == 0
+    assert payload["recommendation"] == "COMMENT"
+    assert payload["drift"]["issues"] == []
 
 
 def test_review_command_markdown_report_orders_failing_sections(tmp_path, monkeypatch) -> None:

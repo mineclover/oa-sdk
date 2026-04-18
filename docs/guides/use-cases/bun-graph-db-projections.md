@@ -4,6 +4,8 @@
 
 ## 시나리오
 
+공통 용어는 [Concepts](../../concepts.md)를 따른다.
+
 bun-graph-db를 OpenAPI projection producer로 둔다. OA SDK는 producer에서 받은 artifact를 파일로 고정하고, 그 snapshot을 기준으로 `validate`, `typegen`, `client`, `mock-server`를 실행한다.
 
 ```txt

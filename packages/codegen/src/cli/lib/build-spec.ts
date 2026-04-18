@@ -52,6 +52,7 @@ export type BuildSpecOptions = {
   outputPath?: string
   diagnosticsPath?: string
   collisionReportPath?: string
+  writeOutput?: boolean
   workspaceIndex?: WorkspaceIndex
   parserVersion?: string
   runId?: string
@@ -194,7 +195,7 @@ export function buildSpec(options: BuildSpecOptions): BuildSpecResult {
     writeJsonFile(collisionReportPath, emitted.report.collisionReport)
   }
 
-  if (valid) {
+  if (valid && options.writeOutput !== false) {
     const yaml = stringifyYaml(emitted.document)
     if (outputPath !== undefined) {
       writeTextFile(outputPath, yaml)

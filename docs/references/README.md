@@ -8,7 +8,7 @@ OpenAPI 공식 스펙 원문을 로컬에서 탐색하고 동기화하는 방법
 references/
 └── OpenAPI-Specification/   ← git submodule (OAI 공식 레포, 읽기 전용)
 
-docs/spec-reference/
+docs/references/
 └── oas32/                   ← split-spec 스크립트 생성물 (탐색용)
     ├── index.md             ← 진입점
     ├── 00~15-*.md           ← 의미 단위 분할본
@@ -24,12 +24,12 @@ docs/spec-reference/
 
 ```bash
 # 인덱스에서 시작
-cat docs/spec-reference/oas32/index.md
+cat docs/references/oas32/index.md
 
 # 특정 기능 검색
-grep -rn "itemSchema" docs/spec-reference/oas32/
-grep -rn "deviceAuthorization" docs/spec-reference/oas32/14-security.md
-grep -rn "dataValue" docs/spec-reference/oas32/10-examples-links.md
+grep -rn "itemSchema" docs/references/oas32/
+grep -rn "deviceAuthorization" docs/references/oas32/14-security.md
+grep -rn "dataValue" docs/references/oas32/10-examples-links.md
 
 # 원본 전문 검색 (라인 번호 포함)
 grep -n "itemSchema" references/OpenAPI-Specification/versions/3.2.0.md

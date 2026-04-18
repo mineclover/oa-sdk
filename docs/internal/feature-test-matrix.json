@@ -198,7 +198,7 @@
       "name": "Codegen CLI workflow",
       "category": "cli",
       "package": "@oa-sdk/codegen",
-      "description": "oa-gen generate/typegen/router/client/build-spec/lint/validate/dev command behavior.",
+      "description": "oa-gen generate/typegen/router/client/build-spec/lint/validate/diff/check-artifact/review/dev command behavior.",
       "capabilities": [
         "generate",
         "typegen",
@@ -207,6 +207,9 @@
         "build-spec",
         "lint",
         "validate",
+        "diff",
+        "check-artifact",
+        "review",
         "dev"
       ],
       "testPaths": [
@@ -335,6 +338,36 @@
       ]
     },
     {
+      "id": "python-contract-governance-template",
+      "name": "Python contract governance template",
+      "category": "template",
+      "package": "templates/python-interface-monorepo",
+      "description": "Python/Pydantic/FastAPI contract registry, OpenAPI emission, diff, drift, artifact freshness, review, pytest helpers, and CLI manifest mirror.",
+      "capabilities": [
+        "ContractRegistry authoring",
+        "OpenAPI artifact emission",
+        "breaking diff",
+        "FastAPI runtime drift",
+        "artifact freshness",
+        "review report",
+        "pytest helpers",
+        "oa-contract CLI ECS manifest mirror"
+      ],
+      "testPaths": [
+        "templates/python-interface-monorepo/packages/interface-contracts/tests/*.py",
+        "templates/python-interface-monorepo/packages/interface-fastapi/tests/*.py",
+        "templates/python-interface-monorepo/packages/interface-cli/tests/*.py",
+        "templates/python-interface-monorepo/apps/example-api/tests/*.py",
+        "templates/python-interface-monorepo/packages/interface-cli/src/oa_interface_cli/cli_spec.json",
+        "templates/python-interface-monorepo/packages/interface-cli/src/oa_interface_cli/cli_spec.py"
+      ],
+      "commands": [
+        "cd templates/python-interface-monorepo && uv run pytest",
+        "cd templates/python-interface-monorepo && uv run ruff check .",
+        "cd templates/python-interface-monorepo && uv run mypy"
+      ]
+    },
+    {
       "id": "governance-docs",
       "name": "Governance docs and drift guards",
       "category": "governance",
@@ -342,17 +375,26 @@
       "description": "API index drift checks and feature-to-test matrix maintenance.",
       "capabilities": [
         "API index export drift detection",
+        "CLI ECS manifest drift detection",
         "feature-to-test matrix validation",
         "internal SSOT links"
       ],
       "testPaths": [
         "scripts/check-api-index.ts",
+        "scripts/check-cli-spec.ts",
         "scripts/check-feature-test-matrix.ts",
+        "docs/concepts.md",
+        "docs/concepts/*.md",
+        "docs/cli-spec/README.md",
+        "docs/cli-spec/cli-command.schema.json",
+        "docs/cli-spec/oa-contract.governance.json",
+        "docs/cli-spec/oa-gen.governance.json",
         "docs/internal/api-index.md",
         "docs/internal/feature-test-matrix.json"
       ],
       "commands": [
         "pnpm build:scripts && pnpm check:api-index",
+        "pnpm check:cli-spec",
         "pnpm check:feature-tests"
       ]
     }

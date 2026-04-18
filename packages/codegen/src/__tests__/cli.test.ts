@@ -58,6 +58,16 @@ describe('oa-gen CLI', () => {
     expect(output).toContain('Watch mode')
   })
 
+  it('--help에 review 커맨드가 표시된다', () => {
+    const output = runCli('--help')
+    expect(output).toContain('diff')
+    expect(output).toContain('check-artifact')
+    expect(output).toContain('drift')
+    expect(output).toContain('review')
+    expect(output).toContain('--base')
+    expect(output).toContain('--head')
+  })
+
   it('커맨드 없이 실행 → help 표시', () => {
     const stdout = runCli('')
     expect(stdout).toContain('oa-gen')

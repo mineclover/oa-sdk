@@ -8,9 +8,8 @@ DB 스키마(Drizzle)에서 시작하여 API 전 계층의 코드를 자동 생�
 
 ## 핵심 계약 경계
 
-oa-sdk 파이프라인에서 OpenAPI 3.2 spec은 외부 API 계약의 중심 산출물이다.
-Drizzle, Zod, 수동 `spec.yaml` fragment는 이 계약을 만드는 입력이고, TypeScript 타입,
-라우터 스텁, 클라이언트 SDK, mock server는 이 계약을 소비하는 출력이다.
+공통 용어는 [Concepts](../../concepts.md)를 따른다. 이 워크플로우에서는 OpenAPI contract가
+외부 API 계약이고, Drizzle/Zod/manual fragments는 그 계약을 만드는 입력이다.
 
 ```txt
 Drizzle schema / Zod schema / 수동 OpenAPI fragment
@@ -20,8 +19,8 @@ Drizzle schema / Zod schema / 수동 OpenAPI fragment
   -> 실제 API handler 구현
 ```
 
-Drizzle은 내부 DB 모델의 SSOT로 두고, OpenAPI는 외부 API 계약의 SSOT로 둔다.
-둘을 같은 타입으로 취급하지 말고, API DTO와 mapper를 통해 연결한다.
+Drizzle DB 모델과 OpenAPI contract는 서로 다른 source of truth다. 둘을 같은 타입으로
+취급하지 말고 API DTO와 mapper를 통해 연결한다.
 
 ```txt
 DB 내부 모델: Drizzle
@@ -32,10 +31,8 @@ API 외부 계약: OpenAPI
 클라이언트/테스트: oa-sdk client + mock-server
 ```
 
-bun-graph-db처럼 OpenAPI projection을 외부에서 생산하는 시스템은 같은 소비 파이프라인에
-들어올 수 있다. Stable API surface는 raw `GET /api/openapi` full document로 받고,
-runtime table shape은 REST/GraphQL/MCP table projection snapshot과 `versionHash`를 함께
-저장한 뒤 OA SDK 도구에 넣는다. 자세한 fetch/validate/typegen/client/mock-server 절차는
+bun-graph-db처럼 OpenAPI projection을 외부에서 생산하는 시스템도 같은 소비 파이프라인에
+들어올 수 있다. 자세한 fetch/validate/typegen/client/mock-server 절차는
 [bun-graph-db projection 소비](./bun-graph-db-projections.md)를 따른다.
 
 ## 1. Drizzle → OAS components.yaml
@@ -173,6 +170,26 @@ breaking change는 spec diff에서 먼저 확인한다.
 pnpm --filter @oa-sdk/schemas run merge
 oa-gen validate --spec packages/schemas/src/.merged.yaml
 oa-gen lint --spec packages/schemas/src/.merged.yaml
+oa-gen diff \
+  --base contracts/baselines/v1.openapi.yaml \
+  --head packages/schemas/src/.merged.yaml \
+  --fail-on-breaking
+oa-gen check-artifact \
+  --head packages/schemas/src/.merged.yaml \
+  --artifact packages/schemas/dist/openapi.yaml
+oa-gen check-artifact \
+  --head packages/schemas/src/.merged.yaml \
+  --target packages/schemas/src/targets/local-parity-api.yaml \
+  --artifact packages/schemas/src/.builder/local-parity-api.yaml
+oa-gen drift \
+  --runtime-openapi runtime.openapi.yaml \
+  --managed-openapi packages/schemas/src/.merged.yaml \
+  --format markdown
+oa-gen review \
+  --base contracts/baselines/v1.openapi.yaml \
+  --head packages/schemas/src/.merged.yaml \
+  --artifact packages/schemas/dist/openapi.yaml \
+  --format markdown
 ```
 
 API 문서로 사용할 정보는 README에 따로 흩어두지 말고 spec에 둔다.

@@ -1,0 +1,122 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://oa-sdk.local/schemas/cli-command.schema.json",
+  "title": "OA SDK CLI Command Manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "namespace", "commands"],
+  "properties": {
+    "version": { "const": 1 },
+    "namespace": { "type": "string", "minLength": 1 },
+    "commands": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/command" }
+    }
+  },
+  "$defs": {
+    "command": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "name", "summary", "components"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" },
+        "kind": { "const": "command" },
+        "name": { "type": "string", "minLength": 1 },
+        "summary": { "type": "string", "minLength": 1 },
+        "components": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["options", "inputs", "checks", "reports", "exitPolicy"],
+          "properties": {
+            "options": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/option" }
+            },
+            "inputs": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/input" }
+            },
+            "checks": {
+              "type": "array",
+              "items": {
+                "enum": [
+                  "artifact-freshness",
+                  "breaking-diff",
+                  "head-validation",
+                  "runtime-drift"
+                ]
+              }
+            },
+            "reports": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/report" }
+            },
+            "exitPolicy": { "$ref": "#/$defs/exitPolicy" }
+          }
+        }
+      }
+    },
+    "option": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "type", "description"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "type": { "enum": ["boolean", "string"] },
+        "required": { "type": "boolean" },
+        "short": { "type": "string", "minLength": 1, "maxLength": 1 },
+        "positional": { "type": "boolean" },
+        "position": { "type": "integer", "minimum": 0 },
+        "description": { "type": "string", "minLength": 1 }
+      }
+    },
+    "input": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "kind", "required"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "kind": {
+          "enum": [
+            "contract-document",
+            "module-reference",
+            "openapi-artifact",
+            "openapi-document",
+            "runtime-openapi"
+          ]
+        },
+        "required": { "type": "boolean" },
+        "option": { "type": "string", "minLength": 1 }
+      }
+    },
+    "report": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["formats", "schema"],
+      "properties": {
+        "formats": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "enum": ["human", "json", "markdown", "text"] }
+        },
+        "schema": { "type": "string", "minLength": 1 }
+      }
+    },
+    "exitPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["success", "failure"],
+      "properties": {
+        "success": {
+          "type": "array",
+          "items": { "enum": ["APPROVE", "COMMENT", "REQUEST_CHANGES"] }
+        },
+        "failure": {
+          "type": "array",
+          "items": { "enum": ["APPROVE", "COMMENT", "REQUEST_CHANGES"] }
+        }
+      }
+    }
+  }
+}

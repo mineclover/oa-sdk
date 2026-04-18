@@ -1,0 +1,399 @@
+{
+  "version": 1,
+  "namespace": "oa-contract",
+  "commands": [
+    {
+      "id": "validate",
+      "kind": "command",
+      "name": "validate",
+      "summary": "ContractSpec 또는 registry reference 검증",
+      "components": {
+        "options": [
+          {
+            "name": "source",
+            "type": "string",
+            "required": true,
+            "positional": true,
+            "position": 0,
+            "description": "Contract JSON, snapshot JSON, 또는 module:attr registry reference"
+          }
+        ],
+        "inputs": [
+          {
+            "name": "source",
+            "kind": "contract-document",
+            "required": true,
+            "option": "source"
+          }
+        ],
+        "checks": ["head-validation"],
+        "reports": [
+          {
+            "formats": ["human"],
+            "schema": "oa-contract.validate.human.v1"
+          }
+        ],
+        "exitPolicy": {
+          "success": ["APPROVE", "COMMENT"],
+          "failure": ["REQUEST_CHANGES"]
+        }
+      }
+    },
+    {
+      "id": "snapshot",
+      "kind": "command",
+      "name": "snapshot",
+      "summary": "registry 또는 ContractSpec을 deterministic contract snapshot으로 직렬화",
+      "components": {
+        "options": [
+          {
+            "name": "source",
+            "type": "string",
+            "required": true,
+            "positional": true,
+            "position": 0,
+            "description": "Contract JSON, snapshot JSON, 또는 module:attr registry reference"
+          },
+          {
+            "name": "output",
+            "type": "string",
+            "short": "o",
+            "description": "snapshot 출력 파일 경로 (기본: stdout)"
+          }
+        ],
+        "inputs": [
+          {
+            "name": "source",
+            "kind": "contract-document",
+            "required": true,
+            "option": "source"
+          }
+        ],
+        "checks": [],
+        "reports": [
+          {
+            "formats": ["json"],
+            "schema": "oa-contract.snapshot.v1"
+          }
+        ],
+        "exitPolicy": {
+          "success": ["APPROVE", "COMMENT"],
+          "failure": ["REQUEST_CHANGES"]
+        }
+      }
+    },
+    {
+      "id": "emit-openapi",
+      "kind": "command",
+      "name": "emit-openapi",
+      "summary": "ContractSpec에서 deterministic OpenAPI artifact 생성",
+      "components": {
+        "options": [
+          {
+            "name": "source",
+            "type": "string",
+            "required": true,
+            "positional": true,
+            "position": 0,
+            "description": "Contract JSON, snapshot JSON, 또는 module:attr registry reference"
+          },
+          {
+            "name": "output",
+            "type": "string",
+            "short": "o",
+            "description": "OpenAPI 출력 파일 경로 (기본: stdout)"
+          },
+          {
+            "name": "target",
+            "type": "string",
+            "description": "target-specific OpenAPI slice"
+          }
+        ],
+        "inputs": [
+          {
+            "name": "source",
+            "kind": "contract-document",
+            "required": true,
+            "option": "source"
+          }
+        ],
+        "checks": [],
+        "reports": [
+          {
+            "formats": ["json"],
+            "schema": "oa-contract.openapi.v1"
+          }
+        ],
+        "exitPolicy": {
+          "success": ["APPROVE", "COMMENT"],
+          "failure": ["REQUEST_CHANGES"]
+        }
+      }
+    },
+    {
+      "id": "check-artifact",
+      "kind": "command",
+      "name": "check-artifact",
+      "summary": "generated OpenAPI artifact freshness 확인",
+      "components": {
+        "options": [
+          {
+            "name": "source",
+            "type": "string",
+            "required": true,
+            "positional": true,
+            "position": 0,
+            "description": "Contract JSON, snapshot JSON, 또는 module:attr registry reference"
+          },
+          {
+            "name": "artifact",
+            "type": "string",
+            "required": true,
+            "positional": true,
+            "position": 1,
+            "description": "비교할 generated OpenAPI artifact 경로"
+          },
+          {
+            "name": "format",
+            "type": "string",
+            "short": "f",
+            "description": "human | json (기본: human)"
+          },
+          {
+            "name": "target",
+            "type": "string",
+            "description": "target-specific OpenAPI slice"
+          }
+        ],
+        "inputs": [
+          {
+            "name": "source",
+            "kind": "contract-document",
+            "required": true,
+            "option": "source"
+          },
+          {
+            "name": "artifact",
+            "kind": "openapi-artifact",
+            "required": true,
+            "option": "artifact"
+          }
+        ],
+        "checks": ["artifact-freshness"],
+        "reports": [
+          {
+            "formats": ["human", "json"],
+            "schema": "oa-contract.artifact-freshness.v1"
+          }
+        ],
+        "exitPolicy": {
+          "success": ["APPROVE"],
+          "failure": ["REQUEST_CHANGES"]
+        }
+      }
+    },
+    {
+      "id": "diff",
+      "kind": "command",
+      "name": "diff",
+      "summary": "base/head contract breaking diff 분류",
+      "components": {
+        "options": [
+          {
+            "name": "base",
+            "type": "string",
+            "required": true,
+            "positional": true,
+            "position": 0,
+            "description": "base Contract JSON 또는 snapshot 경로"
+          },
+          {
+            "name": "head",
+            "type": "string",
+            "required": true,
+            "positional": true,
+            "position": 1,
+            "description": "head Contract JSON 또는 snapshot 경로"
+          },
+          {
+            "name": "fail-on-breaking",
+            "type": "boolean",
+            "description": "breaking change가 있으면 non-zero 종료"
+          }
+        ],
+        "inputs": [
+          {
+            "name": "base",
+            "kind": "contract-document",
+            "required": true,
+            "option": "base"
+          },
+          {
+            "name": "head",
+            "kind": "contract-document",
+            "required": true,
+            "option": "head"
+          }
+        ],
+        "checks": ["breaking-diff"],
+        "reports": [
+          {
+            "formats": ["human"],
+            "schema": "oa-contract.diff.human.v1"
+          }
+        ],
+        "exitPolicy": {
+          "success": ["APPROVE", "COMMENT"],
+          "failure": ["REQUEST_CHANGES"]
+        }
+      }
+    },
+    {
+      "id": "drift",
+      "kind": "command",
+      "name": "drift",
+      "summary": "runtime OpenAPI와 managed contract OpenAPI drift 비교",
+      "components": {
+        "options": [
+          {
+            "name": "app",
+            "type": "string",
+            "required": true,
+            "description": "FastAPI app reference as module:attr"
+          },
+          {
+            "name": "contract",
+            "type": "string",
+            "required": true,
+            "description": "Contract reference as module:attr"
+          },
+          {
+            "name": "format",
+            "type": "string",
+            "short": "f",
+            "description": "text | json | markdown (기본: text)"
+          },
+          {
+            "name": "adapter",
+            "type": "string",
+            "description": "runtime OpenAPI adapter name (기본: fastapi)"
+          }
+        ],
+        "inputs": [
+          {
+            "name": "app",
+            "kind": "module-reference",
+            "required": true,
+            "option": "app"
+          },
+          {
+            "name": "contract",
+            "kind": "contract-document",
+            "required": true,
+            "option": "contract"
+          }
+        ],
+        "checks": ["runtime-drift"],
+        "reports": [
+          {
+            "formats": ["text", "json", "markdown"],
+            "schema": "oa-contract.drift.v1"
+          }
+        ],
+        "exitPolicy": {
+          "success": ["APPROVE"],
+          "failure": ["REQUEST_CHANGES"]
+        }
+      }
+    },
+    {
+      "id": "review",
+      "kind": "command",
+      "name": "review",
+      "summary": "contract review 리포트 (diff + validate + drift + artifact freshness)",
+      "components": {
+        "options": [
+          {
+            "name": "base",
+            "type": "string",
+            "required": true,
+            "positional": true,
+            "position": 0,
+            "description": "base Contract JSON, snapshot JSON, 또는 module:attr reference"
+          },
+          {
+            "name": "head",
+            "type": "string",
+            "required": true,
+            "positional": true,
+            "position": 1,
+            "description": "head Contract JSON, snapshot JSON, 또는 module:attr reference"
+          },
+          {
+            "name": "artifact",
+            "type": "string",
+            "description": "head와 비교할 generated OpenAPI artifact 경로"
+          },
+          {
+            "name": "app",
+            "type": "string",
+            "description": "FastAPI app reference as module:attr for drift checks"
+          },
+          {
+            "name": "target",
+            "type": "string",
+            "description": "target-specific OpenAPI slice"
+          },
+          {
+            "name": "format",
+            "type": "string",
+            "short": "f",
+            "description": "markdown | json (기본: markdown)"
+          }
+        ],
+        "inputs": [
+          {
+            "name": "base",
+            "kind": "contract-document",
+            "required": true,
+            "option": "base"
+          },
+          {
+            "name": "head",
+            "kind": "contract-document",
+            "required": true,
+            "option": "head"
+          },
+          {
+            "name": "artifact",
+            "kind": "openapi-artifact",
+            "required": false,
+            "option": "artifact"
+          },
+          {
+            "name": "app",
+            "kind": "module-reference",
+            "required": false,
+            "option": "app"
+          }
+        ],
+        "checks": [
+          "breaking-diff",
+          "head-validation",
+          "runtime-drift",
+          "artifact-freshness"
+        ],
+        "reports": [
+          {
+            "formats": ["markdown", "json"],
+            "schema": "oa-contract.review-report.v1"
+          }
+        ],
+        "exitPolicy": {
+          "success": ["APPROVE", "COMMENT"],
+          "failure": ["REQUEST_CHANGES"]
+        }
+      }
+    }
+  ]
+}

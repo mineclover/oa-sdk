@@ -384,19 +384,31 @@ def _schema_constraint_changes(
         )
         base_types = base_types - {"null"}
 
-    if base_types and head_types and head_types < base_types:
+    if _type_change_is_breaking(usage, base_types, head_types):
         changes.append(
             _breaking(
                 f"{usage}-field-type-narrowed",
                 location,
                 (
-                    f"{usage.title()} field type narrowed from "
+                    f"{usage.title()} field type changed from "
                     f"{_format_values(base_types)} to {_format_values(head_types)}."
                 ),
             )
         )
 
     return changes
+
+
+def _type_change_is_breaking(
+    usage: SchemaUsage,
+    base_types: set[str],
+    head_types: set[str],
+) -> bool:
+    if not base_types or not head_types or base_types == head_types:
+        return False
+    if usage == "request":
+        return not head_types.issuperset(base_types)
+    return True
 
 
 def _response_shapes(

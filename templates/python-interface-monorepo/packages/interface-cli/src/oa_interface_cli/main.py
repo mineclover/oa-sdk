@@ -111,15 +111,22 @@ def check_artifact(
     source: Annotated[str, typer.Argument()],
     artifact: Annotated[Path, typer.Argument(exists=True, readable=True)],
     output_format: Annotated[OutputFormat, typer.Option("--format", "-f")] = "human",
+    target: Annotated[
+        str | None,
+        typer.Option(
+            "--target",
+            help="Freshness-check the target-specific OpenAPI slice.",
+        ),
+    ] = None,
 ) -> None:
     try:
         contract = _load_contract_source(source)
         actual = load_openapi_artifact(artifact)
+        expected = emit_openapi(contract, target=target)
     except (AttributeError, ImportError, OSError, TypeError, ValueError) as exc:
         _print_artifact_error(artifact, str(exc), output_format)
         raise typer.Exit(1) from exc
 
-    expected = emit_openapi(contract)
     result = compare_openapi_documents(artifact, expected, actual).to_dict()
 
     if output_format == "json":
@@ -363,12 +370,27 @@ def _build_review_report(
     artifact: Path | None,
     target: str | None,
 ) -> dict[str, object]:
+    runtime_openapi: dict[str, Any] | None = None
+    runtime_openapi_error: Exception | None = None
+    if app_ref is not None:
+        try:
+            runtime_openapi = _runtime_openapi(app_ref, adapter=FASTAPI_ADAPTER)
+        except Exception as exc:  # noqa: BLE001 - report drift-check failures in the review body.
+            runtime_openapi_error = exc
+
     base_contract = _load_contract_source(base)
     head_contract = _load_contract_source(head)
     validation_issues = validate_contract_spec(head_contract)
     diff_result = diff_contract_changes(base_contract, head_contract)
     managed_openapi = emit_openapi(head_contract, target=target)
-    drift_result = _review_drift_result(app_ref, managed_openapi, adapter=FASTAPI_ADAPTER)
+    drift_result = _review_drift_result(
+        app_ref,
+        managed_openapi,
+        adapter=FASTAPI_ADAPTER,
+        runtime_openapi=runtime_openapi,
+        runtime_openapi_error=runtime_openapi_error,
+        managed_routes_only=target is not None,
+    )
     artifact_result = _review_artifact_result(artifact, managed_openapi)
 
     drift_failed = bool(drift_result.get("issues"))
@@ -432,6 +454,9 @@ def _review_drift_result(
     managed_openapi: dict[str, Any],
     *,
     adapter: RuntimeOpenApiAdapter,
+    runtime_openapi: dict[str, Any] | None = None,
+    runtime_openapi_error: Exception | None = None,
+    managed_routes_only: bool = False,
 ) -> dict[str, object]:
     if app_ref is None:
         return {
@@ -442,8 +467,19 @@ def _review_drift_result(
         }
 
     try:
-        runtime_openapi = _runtime_openapi(app_ref, adapter=adapter)
-        issues = compare_openapi(runtime_openapi, managed_openapi)
+        if runtime_openapi_error is not None:
+            raise runtime_openapi_error
+        actual_runtime_openapi = (
+            _runtime_openapi(app_ref, adapter=adapter)
+            if runtime_openapi is None
+            else runtime_openapi
+        )
+        if managed_routes_only:
+            actual_runtime_openapi = _runtime_openapi_for_managed_routes(
+                actual_runtime_openapi,
+                managed_openapi,
+            )
+        issues = compare_openapi(actual_runtime_openapi, managed_openapi)
     except Exception as exc:  # noqa: BLE001 - report drift-check failures in the review body.
         issues = [
             DriftIssue(
@@ -459,6 +495,34 @@ def _review_drift_result(
         "issues": [_drift_issue_payload(issue) for issue in issues],
         "summary": "drift detected" if issues else "no drift detected",
     }
+
+
+def _runtime_openapi_for_managed_routes(
+    runtime_openapi: dict[str, Any],
+    managed_openapi: dict[str, Any],
+) -> dict[str, Any]:
+    managed_paths = managed_openapi.get("paths")
+    runtime_paths = runtime_openapi.get("paths")
+    if not isinstance(managed_paths, dict) or not isinstance(runtime_paths, dict):
+        return runtime_openapi
+
+    filtered = dict(runtime_openapi)
+    filtered_paths: dict[str, Any] = {}
+    for path, managed_path_item in managed_paths.items():
+        runtime_path_item = runtime_paths.get(path)
+        if not isinstance(path, str) or not isinstance(managed_path_item, dict):
+            continue
+        if not isinstance(runtime_path_item, dict):
+            continue
+        filtered_path_item = {
+            method: runtime_path_item[method]
+            for method in managed_path_item
+            if method in runtime_path_item
+        }
+        if filtered_path_item:
+            filtered_paths[path] = filtered_path_item
+    filtered["paths"] = filtered_paths
+    return filtered
 
 
 def _review_artifact_result(

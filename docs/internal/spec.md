@@ -1,6 +1,6 @@
 # Spec — 현재 구현 현황
 
-> API 상세: [api-index.md](./api-index.md) / OAS 커버리지: [oas32-coverage.md](./oas32-coverage.md) / 기능별 테스트: [feature-test-matrix.md](./feature-test-matrix.md)
+> 개념 정의: [Concepts](../concepts.md) / API 상세: [api-index.md](./api-index.md) / OAS 커버리지: [oas32-coverage.md](./oas32-coverage.md) / 기능별 테스트: [feature-test-matrix.md](./feature-test-matrix.md)
 
 ---
 
@@ -9,7 +9,7 @@
 ```
 core         ← 공유 유틸 (문자열, 코드젠, 포맷, 응답 상태, HTTP 서버)
 parser       ← core. OAS 3.2 파서 + IR + fold + lint + validate + query
-codegen      ← core + parser (+ router, client: optional peer). CLI 8커맨드
+codegen      ← core + parser (+ router, client: optional peer). CLI 11커맨드
 mock-server  ← core + parser. AJV 검증 + 어댑터 + 테스트 헬퍼
 router       ← core + parser. Hono/Express 스텁
 client       ← core + parser. fetch SDK + SSE
@@ -25,7 +25,7 @@ schemas      ← 독립. OAS 소스 + merge + 3.1↔3.2 변환
 machine-readable SSOT다. 사람이 읽는 요약은
 [`feature-test-matrix.md`](./feature-test-matrix.md)에 둔다.
 
-현재 매핑은 15개 기능 그룹과 50개 테스트 경로 패턴을 관리한다.
+현재 매핑은 15개 기능 그룹과 CLI spec drift guard를 포함한 테스트 경로 패턴을 관리한다.
 
 ```bash
 pnpm check:feature-tests
@@ -123,7 +123,7 @@ marker.
 | WorkspaceIndex | 파일 hash/component/ref/source/diagnostic/type alias metadata용 index 경계. 기본 noop은 모든 파일을 dirty 처리해 기존 full rebuild 동작 유지 |
 | SQLiteWorkspaceIndex | `.oa-cache/state.sqlite`에 index row를 보존. `better-sqlite3` primary + `node:sqlite` fallback driver를 사용하며 WAL/foreign key/transaction, schema/options mismatch 또는 DB 오류 시 full rebuild fallback |
 | Workspace dirty detection | entry/domain/profile/external ref 파일 scan → new/modified/deleted/unchanged 분류 → refs.to_file 역방향 dirty 전파 → stale row invalidation |
-| CLI | 커맨드 모듈 구조. `generate`/`typegen`/`router`/`client`/`build-spec`/`lint`/`validate`/`dev`/`--help`; `validate`/`typegen`은 opt-in `--incremental --cache-dir`, `dev`는 watch mode에서 같은 index path 사용. `lint`/`validate` diagnostic은 YAML source map이 있으면 `file:line:column`을 출력하고 target `file#pointer` fallback을 유지 |
+| CLI | 커맨드 모듈 구조. `generate`/`typegen`/`router`/`client`/`build-spec`/`lint`/`validate`/`diff`/`check-artifact`/`review`/`dev`/`--help`; `validate`/`typegen`은 opt-in `--incremental --cache-dir`, `dev`는 watch mode에서 같은 index path 사용. `lint`/`validate` diagnostic은 YAML source map이 있으면 `file:line:column`을 출력하고 target `file#pointer` fallback을 유지. `diff`, `check-artifact`, `review`는 CLI ECS manifest를 기준으로 governance checks와 Markdown/JSON report를 구성한다 |
 
 ### Resolver baseline (US-001) / Shared contract (US-002) / External cache alignment (US-003)
 

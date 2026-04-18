@@ -5,19 +5,10 @@
  * 커맨드 모듈 기반 디스패치. 각 커맨드는 commands/*.ts에 정의.
  */
 
-import type { Command } from './lib/types.js'
 import { runCommand } from './lib/run.js'
 import { generateHelp } from './lib/help.js'
-import { typegen } from './commands/typegen.js'
-import { router } from './commands/router.js'
-import { client } from './commands/client.js'
-import { generate } from './commands/generate.js'
-import { lint } from './commands/lint.js'
-import { validate } from './commands/validate.js'
-import { dev } from './commands/dev.js'
-import { buildSpecCommand } from './commands/build-spec.js'
+import { commands } from './commands.js'
 
-const commands: Command[] = [generate, typegen, router, client, buildSpecCommand, dev, lint, validate]
 const commandMap = new Map(commands.map(c => [c.name, c]))
 
 // ── 디스패치 ────────────────────────────────────────────────

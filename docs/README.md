@@ -4,6 +4,7 @@
 
 | 문서 | 대상 |
 |------|------|
+| [Concepts](./concepts.md) | 공통 용어와 계약 경계 정의 |
 | [Quick Start](./guides/quick-start.md) | 5분 안에 전 파이프라인 체험 |
 | [Mock 테스팅](./guides/use-cases/mock-testing.md) | 프론트엔드 테스트에서 Mock 서버 활용 |
 | [코드젠 워크플로](./guides/use-cases/codegen-workflow.md) | Drizzle → OAS → TS → 라우터 → 클라이언트 |
@@ -14,6 +15,15 @@
 | [스키마 작성](./guides/schema-authoring.md) | 도메인 분리 spec.yaml |
 | [SchemaAlgebra](./guides/schema-algebra.md) | fold 패턴 확장 |
 | [Preview App](../apps/preview/) | 브라우저 수동 프리뷰. 자동 E2E 보증은 [playground](../apps/playground/)가 담당 |
+
+## CLI Governance Spec
+
+| 문서 | 대상 |
+|------|------|
+| [CLI Spec](./cli-spec/README.md) | TS/JS와 Python governance CLI 정렬 기준 |
+| [CLI command schema](./cli-spec/cli-command.schema.json) | command entity + component JSON Schema |
+| [oa-gen governance manifest](./cli-spec/oa-gen.governance.json) | TS/JS `oa-gen` governance 명령 스펙 |
+| [oa-contract governance manifest](./cli-spec/oa-contract.governance.json) | Python `oa-contract` governance 명령 스펙 |
 
 ## 프로젝트 관리 (SSOT)
 

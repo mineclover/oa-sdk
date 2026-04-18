@@ -33,6 +33,7 @@
     "demo": "pnpm --filter playground run demo",
     "build:scripts": "tsup scripts/spec-diff.ts scripts/check-api-index.ts scripts/builder-parity-diff.ts scripts/builder-parity-compat.ts --format esm --outDir scripts/dist --clean --platform node --external execa --external yaml --external @oa-sdk/mock-server",
     "check:api-index": "node scripts/dist/check-api-index.js",
+    "check:cli-spec": "node --import tsx scripts/check-cli-spec.ts",
     "check:feature-tests": "node --import tsx scripts/check-feature-test-matrix.ts",
     "spec:diff": "node scripts/dist/spec-diff.js"
   },

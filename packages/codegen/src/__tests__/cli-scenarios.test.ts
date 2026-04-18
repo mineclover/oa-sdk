@@ -104,6 +104,123 @@ function cliCapture(args: string): { stdout: string; stderr: string; status: num
   }
 }
 
+function cleanReviewSpec(): Record<string, unknown> {
+  return {
+    openapi: '3.2.0',
+    info: { title: 'Review API', version: '1.0.0' },
+    paths: {
+      '/ping': {
+        get: {
+          operationId: 'getPing',
+          summary: 'Get ping status',
+          responses: { '204': { description: 'No content' } },
+        },
+      },
+    },
+  }
+}
+
+function responseSchemaReviewSpec(type: 'string' | 'integer'): Record<string, unknown> {
+  return {
+    openapi: '3.2.0',
+    info: { title: 'Review API', version: '1.0.0' },
+    paths: {
+      '/users': {
+        get: {
+          operationId: 'listUsers',
+          summary: 'List users',
+          responses: {
+            '200': {
+              description: 'OK',
+              content: {
+                'application/json': {
+                  schema: { type: 'object', properties: { id: { type } } },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+  }
+}
+
+function writeTargetFixture(dir: string): { targetPath: string; artifactPath: string } {
+  const targetPath = join(dir, 'targets', 'public-api.yaml')
+  const fragmentPath = join(dir, 'fragments', 'path', 'public', 'health', 'HealthPath.yaml')
+  const artifactPath = join(dir, 'artifacts', 'public-api.yaml')
+  mkdirSync(join(dir, 'targets'), { recursive: true })
+  mkdirSync(join(dir, 'fragments', 'path', 'public', 'health'), { recursive: true })
+  mkdirSync(join(dir, 'artifacts'), { recursive: true })
+  writeFileSync(targetPath, yamlStringify({
+    name: 'public-api',
+    scopes: ['public'],
+    domains: ['health'],
+    servers: [{ url: 'https://api.example.test' }],
+    includePaths: ['/health'],
+    namingPolicy: { aliases: {} },
+  }), 'utf8')
+  writeFileSync(fragmentPath, yamlStringify({
+    id: 'path:public/health/HealthPath',
+    metadata: { path: '/health' },
+    content: {
+      get: {
+        operationId: 'getHealth',
+        summary: 'Get health',
+        responses: { '204': { description: 'No content' } },
+      },
+    },
+  }), 'utf8')
+  writeFileSync(artifactPath, yamlStringify({
+    openapi: '3.2.0',
+    info: { title: 'public-api', version: '0.0.0' },
+    servers: [{ url: 'https://api.example.test' }],
+    paths: {
+      '/health': {
+        get: {
+          operationId: 'getHealth',
+          summary: 'Get health',
+          responses: { '204': { description: 'No content' } },
+        },
+      },
+    },
+  }), 'utf8')
+  return { targetPath, artifactPath }
+}
+
+function referencedResponseSchemaReviewSpec(type: 'string' | 'integer'): Record<string, unknown> {
+  return {
+    openapi: '3.2.0',
+    info: { title: 'Review API', version: '1.0.0' },
+    paths: {
+      '/users': {
+        get: {
+          operationId: 'listUsers',
+          summary: 'List users',
+          responses: {
+            '200': {
+              description: 'OK',
+              content: {
+                'application/json': {
+                  schema: { $ref: '#/components/schemas/User' },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    components: {
+      schemas: {
+        User: {
+          type: 'object',
+          properties: { id: { type } },
+        },
+      },
+    },
+  }
+}
+
 beforeAll(() => {
   mkdirSync(tmpDir, { recursive: true })
   specPath = join(tmpDir, 'api.yaml')
@@ -543,6 +660,176 @@ describe('validate', () => {
     expect(stdout).toContain('Valid')
     expect(stderr).toContain('SQLite workspace index unavailable')
     expect(stderr).toContain('falling back to full rebuild')
+  })
+})
+
+// ── diff / artifact ─────────────────────────────────────────
+
+describe('diff and check-artifact', () => {
+  it('diff --fail-on-breaking이 breaking change에서 non-zero 종료한다', () => {
+    const basePath = join(tmpDir, 'diff-base.yaml')
+    const headPath = join(tmpDir, 'diff-head.yaml')
+    writeFileSync(basePath, yamlStringify(responseSchemaReviewSpec('string')), 'utf8')
+    writeFileSync(headPath, yamlStringify(responseSchemaReviewSpec('integer')), 'utf8')
+
+    const { stdout, status } = cliCapture(`diff --base ${basePath} --head ${headPath} --fail-on-breaking`)
+
+    expect(status).toBe(1)
+    expect(stdout).toContain('#### Breaking Changes')
+    expect(stdout).toContain('response-schema-changed')
+  })
+
+  it('diff가 같은 $ref 뒤의 component schema 변경도 breaking으로 잡는다', () => {
+    const basePath = join(tmpDir, 'diff-ref-base.yaml')
+    const headPath = join(tmpDir, 'diff-ref-head.yaml')
+    writeFileSync(basePath, yamlStringify(referencedResponseSchemaReviewSpec('string')), 'utf8')
+    writeFileSync(headPath, yamlStringify(referencedResponseSchemaReviewSpec('integer')), 'utf8')
+
+    const { stdout, status } = cliCapture(`diff --base ${basePath} --head ${headPath} --fail-on-breaking`)
+
+    expect(status).toBe(1)
+    expect(stdout).toContain('response-schema-changed')
+  })
+
+  it('check-artifact가 stale artifact를 JSON으로 보고한다', () => {
+    const headPath = join(tmpDir, 'artifact-head.yaml')
+    const artifactPath = join(tmpDir, 'artifact-stale.yaml')
+    writeFileSync(headPath, yamlStringify(responseSchemaReviewSpec('integer')), 'utf8')
+    writeFileSync(artifactPath, yamlStringify(responseSchemaReviewSpec('string')), 'utf8')
+
+    const { stdout, status } = cliCapture(
+      `check-artifact --head ${headPath} --artifact ${artifactPath} --format json`,
+    )
+    const payload = JSON.parse(stdout) as {
+      fresh?: boolean
+      differences?: unknown[]
+    }
+
+    expect(status).toBe(1)
+    expect(payload.fresh).toBe(false)
+    expect(payload.differences?.length).toBeGreaterThan(0)
+  })
+
+  it('check-artifact --target이 Definition Builder target output을 artifact와 비교한다', () => {
+    const dir = join(tmpDir, 'target-artifact')
+    const { targetPath, artifactPath } = writeTargetFixture(dir)
+
+    const { stdout, status } = cliCapture(
+      `check-artifact --head ${artifactPath} --target ${targetPath} --artifact ${artifactPath} --format json`,
+    )
+    const payload = JSON.parse(stdout) as { fresh?: boolean }
+
+    expect(status).toBe(0)
+    expect(payload.fresh).toBe(true)
+  })
+
+  it('drift가 runtime OpenAPI와 managed OpenAPI 차이를 보고한다', () => {
+    const managedPath = join(tmpDir, 'drift-managed.yaml')
+    const runtimePath = join(tmpDir, 'drift-runtime.yaml')
+    writeFileSync(managedPath, yamlStringify(cleanReviewSpec()), 'utf8')
+    writeFileSync(runtimePath, yamlStringify({
+      ...cleanReviewSpec(),
+      paths: {
+        '/runtime-only': {
+          get: {
+            operationId: 'runtimeOnly',
+            summary: 'Runtime-only route',
+            responses: { '204': { description: 'No content' } },
+          },
+        },
+      },
+    }), 'utf8')
+
+    const { stdout, status } = cliCapture(
+      `drift --runtime-openapi ${runtimePath} --managed-openapi ${managedPath} --format json`,
+    )
+    const payload = JSON.parse(stdout) as {
+      drift?: boolean
+      issues?: unknown[]
+    }
+
+    expect(status).toBe(1)
+    expect(payload.drift).toBe(true)
+    expect(payload.issues?.length).toBeGreaterThan(0)
+  })
+})
+
+// ── review ─────────────────────────────────────────────────
+
+describe('review', () => {
+  it('깨끗한 head와 최신 artifact에 APPROVE JSON 리포트를 출력한다', () => {
+    const basePath = join(tmpDir, 'review-clean-base.yaml')
+    const headPath = join(tmpDir, 'review-clean-head.yaml')
+    const artifactPath = join(tmpDir, 'review-clean-artifact.yaml')
+    const spec = cleanReviewSpec()
+    writeFileSync(basePath, yamlStringify(spec), 'utf8')
+    writeFileSync(headPath, yamlStringify(spec), 'utf8')
+    writeFileSync(artifactPath, yamlStringify(spec), 'utf8')
+
+    const out = cli(`review --base ${basePath} --head ${headPath} --artifact ${artifactPath} --format json`)
+    const report = JSON.parse(out) as {
+      recommendation?: string
+      summary?: { artifactFresh?: boolean; breakingChanges?: number }
+      validation?: { issues?: unknown[] }
+    }
+
+    expect(report.recommendation).toBe('APPROVE')
+    expect(report.summary?.artifactFresh).toBe(true)
+    expect(report.summary?.breakingChanges).toBe(0)
+    expect(report.validation?.issues).toEqual([])
+  })
+
+  it('artifact가 없으면 incomplete check로 COMMENT를 출력한다', () => {
+    const basePath = join(tmpDir, 'review-comment-base.yaml')
+    const headPath = join(tmpDir, 'review-comment-head.yaml')
+    const spec = cleanReviewSpec()
+    writeFileSync(basePath, yamlStringify(spec), 'utf8')
+    writeFileSync(headPath, yamlStringify(spec), 'utf8')
+
+    const out = cli(`review --base ${basePath} --head ${headPath} --format json`)
+    const report = JSON.parse(out) as {
+      recommendation?: string
+      summary?: { checksIncomplete?: boolean }
+      artifact?: { checked?: boolean }
+    }
+
+    expect(report.recommendation).toBe('COMMENT')
+    expect(report.summary?.checksIncomplete).toBe(true)
+    expect(report.artifact?.checked).toBe(false)
+  })
+
+  it('breaking change와 stale artifact를 REQUEST_CHANGES로 보고하고 non-zero 종료한다', () => {
+    const basePath = join(tmpDir, 'review-breaking-base.yaml')
+    const headPath = join(tmpDir, 'review-breaking-head.yaml')
+    const artifactPath = join(tmpDir, 'review-breaking-artifact.yaml')
+    writeFileSync(basePath, yamlStringify(responseSchemaReviewSpec('string')), 'utf8')
+    writeFileSync(headPath, yamlStringify(responseSchemaReviewSpec('integer')), 'utf8')
+    writeFileSync(artifactPath, yamlStringify(responseSchemaReviewSpec('string')), 'utf8')
+
+    const { stdout, status } = cliCapture(
+      `review --base ${basePath} --head ${headPath} --artifact ${artifactPath}`,
+    )
+
+    expect(status).toBe(1)
+    expect(stdout).toContain('Recommendation: **REQUEST_CHANGES**')
+    expect(stdout).toContain('response-schema-changed')
+    expect(stdout).toContain('**stale**')
+  })
+
+  it('review --target이 Definition Builder target output을 artifact freshness에 사용한다', () => {
+    const dir = join(tmpDir, 'target-review')
+    const { targetPath, artifactPath } = writeTargetFixture(dir)
+
+    const out = cli(
+      `review --base ${artifactPath} --head ${artifactPath} --target ${targetPath} --artifact ${artifactPath} --format json`,
+    )
+    const payload = JSON.parse(out) as {
+      artifact?: { fresh?: boolean }
+      summary?: { artifactFresh?: boolean }
+    }
+
+    expect(payload.artifact?.fresh).toBe(true)
+    expect(payload.summary?.artifactFresh).toBe(true)
   })
 })
 
