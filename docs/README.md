@@ -4,6 +4,7 @@
 
 | 문서 | 대상 |
 |------|------|
+| [Vision](./vision.md) | 핵심 철학과 주 목표 |
 | [Concepts](./concepts.md) | 공통 용어와 계약 경계 정의 |
 | [Quick Start](./guides/quick-start.md) | 5분 안에 전 파이프라인 체험 |
 | [Mock 테스팅](./guides/use-cases/mock-testing.md) | 프론트엔드 테스트에서 Mock 서버 활용 |

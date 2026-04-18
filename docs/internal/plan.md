@@ -1,21 +1,16 @@
 # Plan — 구현 로드맵
 
 > 목표와 단계별 방향을 기술합니다.
+> 핵심 철학과 주 목표는 [Vision](../vision.md)을 참조하세요.
 > 실제 구현 현황은 [spec.md](./spec.md), 즉시 태스크는 [todo.md](./todo.md)를 참조하세요.
 
 ---
 
 ## 시스템 목표
 
-**OpenAPI 3.2를 중심으로 한 양방향 API 인프라**
-
-```
-                    ┌─────────────────────┐
-  Drizzle ORM ────▶ │                     │ ────▶ Mock Server
-  Zod Schema  ────▶ │  OpenAPI 3.2 Spec   │ ────▶ TypeScript 타입
-  (자동 수집)       │  (단일 소스)        │ ────▶ 서버 라우터 스텁
-                    └─────────────────────┘ ────▶ 클라이언트 SDK
-```
+OpenAPI contract를 중심으로 authoring, validation, code generation, mock/runtime
+testing, diff/drift/freshness review를 연결한다. 시스템 루프는
+[Vision](../vision.md#system-loop)을 따른다.
 
 ---
 

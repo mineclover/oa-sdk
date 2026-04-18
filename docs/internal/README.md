@@ -28,6 +28,7 @@ architecture/ (설계 결정)
 
 | 문서 | 역할 | 업데이트 시점 |
 |------|------|-------------|
+| [../vision.md](../vision.md) | 핵심 철학과 주 목표 | 제품 방향/경계 변경 시 |
 | [../concepts.md](../concepts.md) | 공통 용어와 계약 경계 정의 | 새 개념 추가/의미 변경 시 |
 | [spec.md](./spec.md) | 작동하는 기능 목록 | 기능 추가/제거 시 |
 | [feature-test-matrix.md](./feature-test-matrix.md) | 기능별 테스트 파일·명령 매핑 | 기능/테스트 추가·이동·삭제 시 |

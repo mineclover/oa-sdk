@@ -4,6 +4,10 @@
 기능 축별 문서에 둔다. 가이드와 README는 이 인덱스나 세부 정의 문서를 참조하고,
 동일한 정의를 다시 길게 반복하지 않는다.
 
+## Vision
+
+핵심 철학과 주 목표는 [Vision](./vision.md)을 따른다.
+
 ## System Capabilities
 
 기본 기능 축은 [System Capabilities](./concepts/system-capabilities.md)를 따른다.

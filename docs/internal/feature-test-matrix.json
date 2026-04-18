@@ -383,6 +383,7 @@
         "scripts/check-api-index.ts",
         "scripts/check-cli-spec.ts",
         "scripts/check-feature-test-matrix.ts",
+        "docs/vision.md",
         "docs/concepts.md",
         "docs/concepts/*.md",
         "docs/cli-spec/README.md",

@@ -76,6 +76,7 @@ console.log(describeApi(parseDocument(spec)))
 
 | 문서 | |
 |------|-|
+| [Vision](./docs/vision.md) | 핵심 철학과 주 목표 |
 | [Concepts](./docs/concepts.md) | 공통 용어와 계약 경계 |
 | [Quick Start](./docs/guides/quick-start.md) | 5분 파이프라인 체험 |
 | [전체 문서](./docs/README.md) | 유저 가이드 + SSOT |
