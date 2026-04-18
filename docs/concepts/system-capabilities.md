@@ -1,6 +1,7 @@
 # System Capabilities
 
-oa-sdk의 기본 기능은 OpenAPI contract를 중심으로 생산, 검증, 비교, 생성, 실행 테스트,
+oa-sdk의 기본 기능은 OpenAPI/JSON Schema 호환 입력을 수집해 하나의 OpenAPI contract로
+통합하고, path/component surface와 metadata를 관리하며, 검증, 비교, 생성, 실행 테스트,
 운영 guard를 연결하는 것이다. 상세 구현 현황은 [spec.md](../internal/spec.md), 기능별
 테스트 소유권은 [feature-test-matrix.md](../internal/feature-test-matrix.md)를 따른다.
 
@@ -12,6 +13,29 @@ oa-sdk의 기본 기능은 OpenAPI contract를 중심으로 생산, 검증, 비�
 - Python template: Pydantic DTO + `ContractRegistry`, 또는 checked-in `ContractSpec`
 
 관련 정의: [Source Of Truth](./contract-governance.md#source-of-truth)
+
+## Collection And Normalization
+
+여러 라이브러리와 시스템에서 나온 OpenAPI/JSON Schema 호환 입력을 수집하고 정규화한다.
+
+- Zod and Drizzle inputs become OpenAPI schema components.
+- OpenAPI fragments become parser-visible source documents.
+- Definition Builder fragments become canonical definition nodes.
+- Python Pydantic DTOs become `ContractSpec.schemas`.
+- Projection producers can provide component bundles or operation contracts.
+
+관련 정의: [OpenAPI Projection](./openapi-projection.md), [OpenAPI Contract](./contract-governance.md#openapi-contract)
+
+## Path Surface Management
+
+전체 API path surface를 하나의 관리 가능한 OpenAPI document로 조립하고 추적한다.
+
+- Domain merge keeps path/component keys deterministic.
+- Definition Builder target selection chooses path definitions and transitive components.
+- Runtime drift checks compare managed paths against runtime OpenAPI paths.
+- Review reports expose endpoint additions, removals, and schema changes before merge.
+
+관련 정의: [Target](./contract-governance.md#target), [Drift](./contract-governance.md#drift)
 
 ## Validation
 

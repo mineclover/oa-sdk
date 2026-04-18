@@ -1,7 +1,8 @@
 # oa-sdk
 
 OpenAPI 3.2 contract를 중심으로 한 API governance 인프라 모노레포.
-세부 schema/definition fragment를 조합해 완성된 OpenAPI artifact를 만들고,
+여러 라이브러리와 시스템이 내보내는 OpenAPI/JSON Schema 호환 조각을 수집해 하나의
+OpenAPI artifact로 통합하고, metadata와 전체 path surface를 관리하며,
 검증·비교·생성·mock/runtime 테스트·review gate까지 연결합니다.
 
 ```

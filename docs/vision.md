@@ -2,20 +2,23 @@
 
 ## One Sentence
 
-oa-sdk는 OpenAPI 3.2 contract를 중심으로 세부 definition fragment와 schema 입력을
-조합해 완성된 API artifact를 만들고, validation, code generation, mock/runtime testing,
+oa-sdk는 각 라이브러리와 시스템이 지원하는 OpenAPI spec, JSON Schema, schema projection,
+definition fragment를 수집해 하나의 OpenAPI 3.2 contract artifact로 통합하고,
+metadata와 전체 path surface를 관리하며, validation, code generation, mock/runtime testing,
 diff, drift, artifact freshness, review gate를 하나의 폐루프로 연결한다.
 
 ## Core Beliefs
 
 1. OpenAPI는 정적 문서가 아니라 실행 가능한 API 계약이다.
-2. Source of truth와 generated artifact는 분리되어야 한다.
-3. 완성된 OpenAPI는 작은 definition/schema 조각을 조합해 만들 수 있어야 한다.
-4. 중복과 이름 충돌은 자동 병합하지 말고 source identity와 output identity를 분리해야 한다.
-5. API 변경은 사람이 읽기 전에 기계가 먼저 분류해야 한다.
-6. Breaking change, runtime drift, stale artifact는 CI에서 막아야 한다.
-7. TS/JS와 Python은 같은 governance vocabulary와 CLI manifest를 공유해야 한다.
-8. 각 도구는 독립적으로 쓸 수 있어야 하지만, 함께 쓸 때 계약 폐루프가 닫혀야 한다.
+2. OpenAPI/JSON Schema 호환 조각은 수집, 정규화, 조합될 수 있어야 한다.
+3. Source of truth와 generated artifact는 분리되어야 한다.
+4. 완성된 OpenAPI는 작은 definition/schema 조각을 조합해 만들 수 있어야 한다.
+5. 전체 path surface와 component graph는 관리 가능한 단위로 추적되어야 한다.
+6. 중복과 이름 충돌은 자동 병합하지 말고 source identity와 output identity를 분리해야 한다.
+7. API 변경은 사람이 읽기 전에 기계가 먼저 분류해야 한다.
+8. Breaking change, runtime drift, stale artifact는 CI에서 막아야 한다.
+9. TS/JS와 Python은 같은 governance vocabulary와 CLI manifest를 공유해야 한다.
+10. 각 도구는 독립적으로 쓸 수 있어야 하지만, 함께 쓸 때 계약 폐루프가 닫혀야 한다.
 
 ## Primary Workflows
 
@@ -31,9 +34,10 @@ Author contract
 ## System Loop
 
 ```txt
-Drizzle / Zod / OpenAPI fragments / Definition Builder fragments / Pydantic DTOs
+Drizzle / Zod / JSON Schema / OpenAPI fragments / Definition Builder fragments / Pydantic DTOs
+  -> collected schema and definition inputs
   -> OpenAPI or ContractSpec source of truth
-  -> target-specific OpenAPI assembly
+  -> target-specific OpenAPI assembly with metadata and path management
   -> deterministic generated artifacts
   -> typegen / router / client / mock server
   -> runtime and artifact drift checks
