@@ -34,6 +34,7 @@
 |------|------|
 | [spec.md](./internal/spec.md) | 구현 현황 |
 | [plan.md](./internal/plan.md) | 로드맵 |
+| [openapi-aggregation-governance.plan.md](./internal/openapi-aggregation-governance.plan.md) | OpenAPI aggregation/governance 계획 |
 | [api-index.md](./internal/api-index.md) | API 단일 소스 |
 | [feature-test-matrix.md](./internal/feature-test-matrix.md) | 기능 ↔ 테스트 매핑 |
 | [oas32-coverage.md](./internal/oas32-coverage.md) | OAS 3.2 커버리지 |

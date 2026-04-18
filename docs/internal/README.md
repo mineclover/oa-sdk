@@ -19,6 +19,11 @@ plan.md (로드맵 — 어디를 향하는가)
   ├─ Phase 1~6 현황
   └─ → goals/ (목표별 상세)
 
+*.plan.md / *.todo.md (계획 — 아직 구현 완료가 아님)
+  ├─ 예상 CLI/API와 acceptance criteria
+  ├─ 구현 전 설계와 phase 순서
+  └─ 완료 후 spec.md/api-index.md/feature-test-matrix.md로 승격
+
 architecture/ (설계 결정)
   ├─ packages.md (패키지 구조 + 파일별 역할)
   └─ ADR 001~007
@@ -37,6 +42,7 @@ architecture/ (설계 결정)
 | [oas32-coverage.md](./oas32-coverage.md) | OAS 3.2 기능별 지원 매트릭스 | 새 기능 구현 시 |
 | [domain-merge-inventory.md](./domain-merge-inventory.md) | current domain merge input checklist | schema profile/domain source 변경 시 |
 | [definition-builder-compatibility-gates.md](./definition-builder-compatibility-gates.md) | builder parity validation/downstream gates and accepted differences | builder parity workflow 변경 시 |
+| [openapi-aggregation-governance.plan.md](./openapi-aggregation-governance.plan.md) | OpenAPI aggregation/governance planned capabilities | 신규 aggregation 기능 구현 전/진행 중 |
 | [traceability.md](./traceability.md) | 공식 스펙 § → 타입 → 코드 매핑 | 파일 추가/이동 시 |
 | [plan.md](./plan.md) | 로드맵 + 아키텍처 | Phase 완료/추가 시 |
 | [architecture/packages.md](./architecture/packages.md) | 패키지 구조 + 파일 역할 | 패키지/파일 변경 시 |
@@ -52,3 +58,10 @@ architecture/ (설계 결정)
 ```
 
 SSOT에 상세가 있으므로 유저 가이드에서 동일 정보를 반복하지 않습니다.
+
+## 계획과 완료 구분
+
+- `*.plan.md`, `*.todo.md`는 구현 전 또는 진행 중 계획이다.
+- `spec.md`는 구현되어 검증된 기능만 담는다.
+- 계획 문서의 예상 타입, CLI, report shape은 구현 완료 전까지 완료 기능처럼 인용하지 않는다.
+- 구현 완료 시 테스트, `api-index.md`, `feature-test-matrix.md`를 갱신한 뒤 `spec.md`로 승격한다.
