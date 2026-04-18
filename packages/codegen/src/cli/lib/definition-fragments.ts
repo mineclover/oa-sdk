@@ -1,4 +1,3 @@
-import { createHash } from 'node:crypto'
 import {
   readdirSync,
   readFileSync,
@@ -24,14 +23,15 @@ import {
   type SourceLocationIndex,
 } from '@oa-sdk/parser'
 import { parse as parseYaml } from 'yaml'
+import {
+  createOpenApiSourceAdapterDiagnostic,
+  createOpenApiSourceContentHash,
+  createOpenApiSourceFragment,
+  type OpenApiSourceAdapterDiagnostic,
+} from './openapi-source-fragments.js'
 
-export type DefinitionFragmentLoadDiagnostic = {
-  code: 'definition-fragment/invalid-fragment'
-  severity: 'error'
-  message: string
-  sourcePath: string
-  sourcePointer?: string
-}
+export type DefinitionFragmentLoadDiagnostic =
+  OpenApiSourceAdapterDiagnostic<'definition-fragment/invalid-fragment', 'error'>
 
 export type LoadedDefinitionFragments = {
   nodes: DefinitionNode[]
@@ -104,18 +104,29 @@ export function loadDefinitionFragments(fragmentsDir: string): LoadedDefinitionF
         continue
       }
 
-      const input = {
-        id,
+      const definitionId = parseDefinitionId(id)
+      const metadata = isRecord(parsed.metadata) ? parsed.metadata : undefined
+      const sourceFragment = createOpenApiSourceFragment({
+        id: definitionId.id,
+        kind: definitionId.kind,
         sourcePath: filePath,
         sourcePointer: '#/content',
-        contentHash: createDefinitionContentHash(parsed.content),
         content: parsed.content,
-      }
+        ...(metadata !== undefined ? { metadata } : {}),
+      })
       const refs = readFragmentRefs(parsed.refs, filePath, diagnostics)
       if (refs === undefined) continue
 
+      const input = {
+        id: definitionId,
+        sourcePath: filePath,
+        sourcePointer: '#/content',
+        contentHash: sourceFragment.contentHash,
+        content: sourceFragment.content,
+      }
+
       nodes.push(createDefinitionNode(
-        isRecord(parsed.metadata) ? { ...input, metadata: parsed.metadata, refs } : { ...input, refs },
+        metadata !== undefined ? { ...input, metadata, refs } : { ...input, refs },
       ))
     } catch (error) {
       diagnostics.push(fragmentDiagnostic(filePath, error instanceof Error ? error.message : String(error)))
@@ -139,7 +150,7 @@ export function lookupDefinitionSourceLocation(
 }
 
 export function createDefinitionContentHash(value: unknown): string {
-  return `sha256:${createHash('sha256').update(stableStringify(value)).digest('hex')}`
+  return createOpenApiSourceContentHash(value)
 }
 
 function readFragmentRefs(
@@ -303,25 +314,13 @@ function fragmentDiagnostic(
   message: string,
   sourcePointer?: string,
 ): DefinitionFragmentLoadDiagnostic {
-  const diagnostic: DefinitionFragmentLoadDiagnostic = {
+  return createOpenApiSourceAdapterDiagnostic({
     code: 'definition-fragment/invalid-fragment',
     severity: 'error',
     message,
     sourcePath,
-  }
-  if (sourcePointer !== undefined) diagnostic.sourcePointer = sourcePointer
-  return diagnostic
-}
-
-function stableStringify(value: unknown): string {
-  if (value === null || typeof value !== 'object') return JSON.stringify(value)
-  if (Array.isArray(value)) return `[${value.map(item => stableStringify(item)).join(',')}]`
-
-  return `{${Object.entries(value as Record<string, unknown>)
-    .filter(([, child]) => child !== undefined)
-    .sort(([left], [right]) => left.localeCompare(right))
-    .map(([key, child]) => `${JSON.stringify(key)}:${stableStringify(child)}`)
-    .join(',')}}`
+    sourcePointer: sourcePointer ?? '#',
+  })
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
