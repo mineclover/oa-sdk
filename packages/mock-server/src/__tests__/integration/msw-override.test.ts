@@ -3,7 +3,7 @@
  * msw/node setupServer + override/clearOverride/clearOverrides 검증
  */
 import { describe, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
-import { setupServer, type SetupServerApi } from 'msw/node'
+import { setupServer } from 'msw/node'
 import { createMswMockServer } from '../../adapters/msw.js'
 import { createOverrideSpec } from '../fixtures/specs.js'
 
@@ -11,7 +11,7 @@ const spec = createOverrideSpec()
 
 const BASE = 'http://localhost'
 const mock = createMswMockServer(spec)
-let server: SetupServerApi
+let server: ReturnType<typeof setupServer>
 
 beforeAll(() => {
   server = setupServer(...mock.handlers)

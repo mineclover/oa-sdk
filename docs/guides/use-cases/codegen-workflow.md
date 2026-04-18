@@ -35,6 +35,10 @@ bun-graph-db처럼 OpenAPI projection을 외부에서 생산하는 시스템도 
 들어올 수 있다. 자세한 fetch/validate/typegen/client/mock-server 절차는
 [bun-graph-db projection 소비](./bun-graph-db-projections.md)를 따른다.
 
+PR에서 target artifact, provenance, duplicate review, runtime drift, review bundle까지
+한 번에 검토하는 절차는 [OpenAPI Governance Workflow](./openapi-governance-workflow.md)를
+따른다.
+
 ## 1. Drizzle → OAS components.yaml
 
 ```bash
@@ -185,6 +189,14 @@ oa-gen drift \
   --runtime-openapi runtime.openapi.yaml \
   --managed-openapi packages/schemas/src/.merged.yaml \
   --format markdown
+oa-gen duplicate-review \
+  --fragments packages/schemas/src/fragments \
+  --target packages/schemas/src/targets/local-parity-api.yaml \
+  --format markdown
+oa-gen target-check \
+  --target packages/schemas/src/targets/local-parity-api.yaml \
+  --must-include-path /health \
+  --must-exclude-path /admin
 oa-gen review \
   --base contracts/baselines/v1.openapi.yaml \
   --head packages/schemas/src/.merged.yaml \

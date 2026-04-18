@@ -102,7 +102,6 @@ generateTypes({ schemas: {}, operations: [] }, typegenTypegenOptions)
             exactOptionalPropertyTypes: true,
             noUncheckedIndexedAccess: true,
             verbatimModuleSyntax: true,
-            baseUrl: '.',
             paths: {
               '@oa-sdk/codegen': [join(pkgDir, 'src/index.ts')],
               '@oa-sdk/codegen/typegen': [join(pkgDir, 'src/typegen/index.ts')],

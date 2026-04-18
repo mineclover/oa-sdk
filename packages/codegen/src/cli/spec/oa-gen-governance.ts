@@ -278,6 +278,11 @@ export const oaGenGovernanceManifest = {
             description: 'runtime OpenAPI YAML/JSON URL',
           },
           {
+            name: 'runtime-header',
+            type: 'string',
+            description: 'runtime OpenAPI URL fetch에 추가할 HTTP header. 예: "Authorization: Bearer $TOKEN" (반복 가능)',
+          },
+          {
             name: 'managed-openapi',
             type: 'string',
             required: true,

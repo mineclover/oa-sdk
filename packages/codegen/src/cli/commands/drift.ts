@@ -1,6 +1,6 @@
 import type { Command } from '../lib/types.js'
 import { loadSpecWithPath } from '../lib/load-spec.js'
-import { optStr, str } from '../lib/args.js'
+import { optStr, optStrArray, str } from '../lib/args.js'
 import { parse as parseYaml } from 'yaml'
 import {
   diffOpenApiDocuments,
@@ -15,6 +15,7 @@ const driftSpec = commandById(oaGenGovernanceManifest, 'drift')
 
 export type RuntimeFetchInfo = {
   url: string
+  requestHeaders?: string[]
   redirected?: boolean
   finalUrl?: string
   status?: number
@@ -29,6 +30,10 @@ export type DriftFailure = {
 }
 
 export type RuntimeOpenApiFetch = typeof fetch
+export type RuntimeHeaderInput = {
+  name: string
+  value: string
+}
 
 export const drift: Command = {
   name: driftSpec.name,
@@ -41,6 +46,11 @@ export const drift: Command = {
     'runtime-openapi-url': {
       type: 'string',
       description: optionDescription(driftSpec, 'runtime-openapi-url'),
+    },
+    'runtime-header': {
+      type: 'string',
+      multiple: true,
+      description: optionDescription(driftSpec, 'runtime-header'),
     },
     'managed-openapi': {
       type: 'string',
@@ -60,7 +70,9 @@ export const drift: Command = {
     const runtimeUrl = optStr(args, 'runtime-openapi-url')
     if (runtimePath !== undefined) runtimeInput.runtimePath = runtimePath
     if (runtimeUrl !== undefined) runtimeInput.runtimeUrl = runtimeUrl
-    const runtime = await loadRuntimeOpenApi(runtimeInput)
+    const runtime = await loadRuntimeOpenApi(runtimeInput, {
+      headers: parseRuntimeHeaders(optStrArray(args, 'runtime-header')),
+    })
     const format = readFormat(optStr(args, 'format'))
 
     if ('failure' in runtime) {
@@ -103,10 +115,15 @@ export const drift: Command = {
   },
 }
 
-async function loadRuntimeOpenApi(options: {
-  runtimePath?: string
-  runtimeUrl?: string
-}): Promise<
+async function loadRuntimeOpenApi(
+  options: {
+    runtimePath?: string
+    runtimeUrl?: string
+  },
+  fetchOptions: {
+    headers?: readonly RuntimeHeaderInput[]
+  } = {},
+): Promise<
   | { document: Record<string, unknown>; path: string; source: string; fetch?: RuntimeFetchInfo }
   | { source: string; failure: DriftFailure; fetch?: RuntimeFetchInfo }
 > {
@@ -125,20 +142,28 @@ async function loadRuntimeOpenApi(options: {
     }
   }
 
-  return fetchRuntimeOpenApi(options.runtimeUrl!)
+  return fetchRuntimeOpenApi(options.runtimeUrl!, fetch, fetchOptions)
 }
 
 export async function fetchRuntimeOpenApi(
   url: string,
   fetcher: RuntimeOpenApiFetch = fetch,
+  options: {
+    headers?: readonly RuntimeHeaderInput[]
+  } = {},
 ): Promise<
   | { document: Record<string, unknown>; path: string; source: string; fetch: RuntimeFetchInfo }
   | { source: string; failure: DriftFailure; fetch: RuntimeFetchInfo }
 > {
   const fetchInfo: RuntimeFetchInfo = { url }
+  if (options.headers !== undefined && options.headers.length > 0) {
+    fetchInfo.requestHeaders = options.headers.map(header => header.name.toLowerCase()).sort()
+  }
   try {
+    const requestHeaders = new Headers({ accept: 'application/json, application/yaml, text/yaml, */*' })
+    for (const header of options.headers ?? []) requestHeaders.set(header.name, header.value)
     const response = await fetcher(url, {
-      headers: { accept: 'application/json, application/yaml, text/yaml, */*' },
+      headers: requestHeaders,
     })
     fetchInfo.redirected = response.redirected
     fetchInfo.finalUrl = response.url
@@ -202,6 +227,26 @@ function parseRuntimeOpenApi(raw: string, contentType: string | undefined, url: 
 
 function shouldParseJson(contentType: string | undefined, url: string): boolean {
   return contentType?.includes('json') === true || /\.json(?:[?#]|$)/.test(url)
+}
+
+function parseRuntimeHeaders(values: readonly string[]): RuntimeHeaderInput[] {
+  return values.map(parseRuntimeHeader)
+}
+
+function parseRuntimeHeader(value: string): RuntimeHeaderInput {
+  const separator = value.indexOf(':')
+  if (separator <= 0) {
+    throw new Error(`invalid --runtime-header value: ${value}. Expected "Header-Name: value".`)
+  }
+  const name = value.slice(0, separator).trim()
+  const headerValue = value.slice(separator + 1).trim()
+  if (!/^[!#$%&'*+\-.^_`|~0-9A-Za-z]+$/.test(name)) {
+    throw new Error(`invalid --runtime-header name: ${name}`)
+  }
+  if (headerValue.length === 0) {
+    throw new Error(`invalid --runtime-header value for ${name}: value must be non-empty`)
+  }
+  return { name, value: headerValue }
 }
 
 function writeDriftFailure(

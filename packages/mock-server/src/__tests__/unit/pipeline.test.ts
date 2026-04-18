@@ -113,8 +113,14 @@ describe('loadSchema — 커스텀 passes', () => {
   })
 
   it('커스텀 pass — 모든 경로에 접두사 추가', () => {
-    const spy = vi.fn(<T>(s: T): T => s)
-    const loggingPass: SpecPass = { name: 'logging', run: spy }
+    const spy = vi.fn()
+    const loggingPass: SpecPass = {
+      name: 'logging',
+      run<T>(s: T): T {
+        spy(s)
+        return s
+      },
+    }
 
     const spec = bare()
     loadSchema(spec, [...DEFAULT_PASSES, loggingPass])

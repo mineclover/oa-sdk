@@ -9,6 +9,9 @@
 | [Quick Start](./guides/quick-start.md) | 5분 안에 전 파이프라인 체험 |
 | [Mock 테스팅](./guides/use-cases/mock-testing.md) | 프론트엔드 테스트에서 Mock 서버 활용 |
 | [코드젠 워크플로](./guides/use-cases/codegen-workflow.md) | Drizzle → OAS → TS → 라우터 → 클라이언트 |
+| [OpenAPI Governance Workflow](./guides/use-cases/openapi-governance-workflow.md) | target artifact sidecar, duplicate review, target-check, drift, review bundle |
+| [OpenAPI Governance Service Template](./guides/openapi-governance-service-template.md) | 서비스별 governance 설정 템플릿 |
+| [Path Fragment Conventions](./guides/path-fragment-conventions.md) | path fragment 폴더, canonical id, feedback 좌표 규칙 |
 | [bun-graph-db projection 소비](./guides/use-cases/bun-graph-db-projections.md) | bun-graph-db OpenAPI full document/table projection → OA SDK |
 | [테스트 피드백](./guides/use-cases/test-feedback.md) | 커버리지 + 검증 피드백 루프 |
 | [CLI 세팅](./guides/cli-setup.md) | 설치 + CLI 명령어 |
@@ -34,7 +37,6 @@
 |------|------|
 | [spec.md](./internal/spec.md) | 구현 현황 |
 | [plan.md](./internal/plan.md) | 로드맵 |
-| [openapi-aggregation-governance.plan.md](./internal/openapi-aggregation-governance.plan.md) | OpenAPI aggregation/governance 계획 |
 | [api-index.md](./internal/api-index.md) | API 단일 소스 |
 | [feature-test-matrix.md](./internal/feature-test-matrix.md) | 기능 ↔ 테스트 매핑 |
 | [oas32-coverage.md](./internal/oas32-coverage.md) | OAS 3.2 커버리지 |

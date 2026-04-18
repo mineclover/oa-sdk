@@ -20,7 +20,7 @@ Zod Schema  ──▶  OpenAPI 3.2 Spec      ──▶ TypeScript 타입
 | `@oa-sdk/schemas` | 도메인 분리 OAS 3.2 소스 + merge + 3.1↔3.2 변환 |
 | `@oa-sdk/parser` | OAS 3.2 파서 + IR + fold + lint + validate + query |
 | `@oa-sdk/mock-server` | AJV Mock 서버 (MSW + Node HTTP) + Security + 테스트 헬퍼 |
-| `@oa-sdk/codegen` | Zod/Drizzle → OAS + Definition Builder target artifact + OAS → TS 타입 + CLI 11커맨드 |
+| `@oa-sdk/codegen` | Zod/Drizzle → OAS + Definition Builder target artifact + OAS → TS 타입 + CLI 16커맨드 |
 | `@oa-sdk/router` | OAS → Hono/Express 라우터 스텁 |
 | `@oa-sdk/client` | OAS → fetch 클라이언트 SDK + SSE + 인증 미들웨어 + 재시도 |
 | `@oa-sdk/typia-mock` | typia ILlmApplication 기반 LLM 함수 호출 검증 서버 |
@@ -38,7 +38,11 @@ oa-gen diff --base old.yaml --head .merged.yaml --fail-on-breaking
 oa-gen check-artifact --head .merged.yaml --artifact dist/openapi.yaml
 oa-gen check-artifact --head .merged.yaml --target packages/schemas/src/targets/local-parity-api.yaml --artifact packages/schemas/src/.builder/local-parity-api.yaml
 oa-gen drift --runtime-openapi runtime.yaml --managed-openapi .merged.yaml
+oa-gen inventory --spec .merged.yaml --format markdown
+oa-gen duplicate-review --fragments packages/schemas/src/fragments --format markdown
+oa-gen target-check --target packages/schemas/src/targets/public-api.yaml --must-include-path /health --must-exclude-path /admin
 oa-gen review --base old.yaml --head .merged.yaml --artifact dist/openapi.yaml
+oa-gen review-bundle --base old.yaml --head .merged.yaml --artifact dist/openapi.yaml --inventory --format markdown
 
 # 코드 생성
 oa-gen typegen --spec .merged.yaml -o types.ts
@@ -82,6 +86,9 @@ console.log(describeApi(parseDocument(spec)))
 | [Vision](./docs/vision.md) | 핵심 철학과 주 목표 |
 | [Concepts](./docs/concepts.md) | 공통 용어와 계약 경계 |
 | [Quick Start](./docs/guides/quick-start.md) | 5분 파이프라인 체험 |
+| [OpenAPI Governance Workflow](./docs/guides/use-cases/openapi-governance-workflow.md) | target sidecar + PR review gate |
+| [Service Governance Template](./docs/guides/openapi-governance-service-template.md) | 서비스별 OpenAPI governance 설정 템플릿 |
+| [Path Fragment Conventions](./docs/guides/path-fragment-conventions.md) | path 폴더/ID/feedback 좌표 규칙 |
 | [전체 문서](./docs/README.md) | 유저 가이드 + SSOT |
 | [구현 현황](./docs/internal/spec.md) | 패키지별 구현 현황 + 테스트 관리 |
 | [API 인덱스](./docs/internal/api-index.md) | 타입·함수 단일 소스 |

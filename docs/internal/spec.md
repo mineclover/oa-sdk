@@ -9,7 +9,7 @@
 ```
 core         ← 공유 유틸 (문자열, 코드젠, 포맷, 응답 상태, HTTP 서버)
 parser       ← core. OAS 3.2 파서 + IR + fold + lint + validate + query
-codegen      ← core + parser (+ router, client: optional peer). CLI 14커맨드
+codegen      ← core + parser (+ router, client: optional peer). CLI 16커맨드
 mock-server  ← core + parser. AJV 검증 + 어댑터 + 테스트 헬퍼
 router       ← core + parser. Hono/Express 스텁
 client       ← core + parser. fetch SDK + SSE
@@ -174,7 +174,7 @@ oa-gen drift \
   --format json
 ```
 
-URL fetch 결과는 JSON report의 `runtimeFetch`에 `url`, `finalUrl`, `redirected`, `status`, `statusText`, `contentType`을 기록한다. URL fetch, non-2xx response, 또는 parse 실패는 `status: "drift-check-failed"`와 `failure.code: "drift-check-failed"`로 보고하고 non-zero로 종료한다. 기존 file path 비교 동작은 변경하지 않는다.
+인증이 필요한 URL에는 `--runtime-header "Authorization: Bearer $TOKEN"` 같은 header option을 반복해서 전달할 수 있다. URL fetch 결과는 JSON report의 `runtimeFetch`에 `url`, `finalUrl`, `redirected`, `status`, `statusText`, `contentType`, `requestHeaders`를 기록한다. `requestHeaders`에는 header 이름만 남기고 값은 남기지 않는다. URL fetch, non-2xx response, 또는 parse 실패는 `status: "drift-check-failed"`와 `failure.code: "drift-check-failed"`로 보고하고 non-zero로 종료한다. 기존 file path 비교 동작은 변경하지 않는다.
 
 대표 검증은 `packages/codegen/src/__tests__/runtime-openapi-fetch.test.ts`와 `packages/codegen/src/__tests__/cli-scenarios.test.ts`가 맡는다.
 

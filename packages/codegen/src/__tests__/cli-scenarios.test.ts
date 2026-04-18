@@ -92,7 +92,11 @@ function cliFail(args: string): { stdout: string; stderr: string } {
 }
 
 function cliCapture(args: string): { stdout: string; stderr: string; status: number | null } {
-  const result = spawnSync(process.execPath, [cliPath, ...args.split(' ')], {
+  return cliCaptureArgs(args.split(' '))
+}
+
+function cliCaptureArgs(args: string[]): { stdout: string; stderr: string; status: number | null } {
+  const result = spawnSync(process.execPath, [cliPath, ...args], {
     cwd: pkgDir,
     encoding: 'utf8',
     timeout: 15_000,
@@ -791,13 +795,22 @@ describe('diff and check-artifact', () => {
     const managedPath = join(tmpDir, 'drift-url-managed.yaml')
     writeFileSync(managedPath, yamlStringify(cleanReviewSpec()), 'utf8')
     const runtimeUrl = `data:application/json,${encodeURIComponent(JSON.stringify(cleanReviewSpec()))}`
-    const { stdout, status } = cliCapture(
-      `drift --runtime-openapi-url ${runtimeUrl} --managed-openapi ${managedPath} --format json`,
-    )
+    const { stdout, status } = cliCaptureArgs([
+      'drift',
+      '--runtime-openapi-url',
+      runtimeUrl,
+      '--runtime-header',
+      'Authorization: Bearer test-token',
+      '--managed-openapi',
+      managedPath,
+      '--format',
+      'json',
+    ])
     const payload = JSON.parse(stdout) as {
       drift?: boolean
       runtimeFetch?: {
         url?: string
+        requestHeaders?: string[]
         status?: number
       }
     }
@@ -806,6 +819,7 @@ describe('diff and check-artifact', () => {
     expect(payload.drift).toBe(false)
     expect(payload.runtimeFetch).toEqual(expect.objectContaining({
       url: runtimeUrl,
+      requestHeaders: ['authorization'],
       status: 200,
     }))
   })

@@ -3,25 +3,33 @@ import { fetchRuntimeOpenApi, type RuntimeOpenApiFetch } from '../cli/commands/d
 
 describe('runtime OpenAPI URL fetch', () => {
   it('captures redirect metadata on successful URL fetches', async () => {
-    const fetcher: RuntimeOpenApiFetch = async () => response({
-      ok: true,
-      redirected: true,
-      url: 'https://api.example.test/redirected.json',
-      status: 200,
-      statusText: 'OK',
-      contentType: 'application/json',
-      body: {
-        openapi: '3.2.0',
-        info: { title: 'Runtime API', version: '1.0.0' },
-        paths: {},
-      },
+    let authorizationHeader: string | null = null
+    const fetcher: RuntimeOpenApiFetch = async (_url, init) => {
+      authorizationHeader = new Headers(init?.headers).get('authorization')
+      return response({
+        ok: true,
+        redirected: true,
+        url: 'https://api.example.test/redirected.json',
+        status: 200,
+        statusText: 'OK',
+        contentType: 'application/json',
+        body: {
+          openapi: '3.2.0',
+          info: { title: 'Runtime API', version: '1.0.0' },
+          paths: {},
+        },
+      })
+    }
+
+    const result = await fetchRuntimeOpenApi('https://api.example.test/openapi.json', fetcher, {
+      headers: [{ name: 'Authorization', value: 'Bearer test-token' }],
     })
 
-    const result = await fetchRuntimeOpenApi('https://api.example.test/openapi.json', fetcher)
-
     expect('failure' in result).toBe(false)
+    expect(authorizationHeader).toBe('Bearer test-token')
     expect(result.fetch).toEqual(expect.objectContaining({
       url: 'https://api.example.test/openapi.json',
+      requestHeaders: ['authorization'],
       redirected: true,
       finalUrl: 'https://api.example.test/redirected.json',
       status: 200,

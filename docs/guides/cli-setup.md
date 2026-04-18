@@ -19,6 +19,43 @@ git submodule update --init --recursive
 
 ## 주요 워크플로우
 
+### OpenAPI governance checks
+
+API 변경 PR에서는 [OpenAPI Governance Workflow](./use-cases/openapi-governance-workflow.md)를
+기본 흐름으로 사용한다.
+
+| 명령 | 목적 |
+|---|---|
+| `oa-gen build-spec` | Definition Builder target artifact와 diagnostics/collision/composition/provenance sidecar 생성 |
+| `oa-gen inventory` | OpenAPI path/operation/component/security surface 요약 |
+| `oa-gen duplicate-review` | fragment duplicate identity risk와 semantic alias 검토 |
+| `oa-gen target-check` | target 또는 artifact path include/exclude assertion 검증 |
+| `oa-gen drift` | runtime OpenAPI 파일 또는 URL과 managed OpenAPI drift 비교 |
+| `oa-gen review` | diff, validation, artifact freshness, optional provenance diff report |
+| `oa-gen review-bundle` | PR comment용 aggregate review report 생성 |
+
+최소 PR gate 예시:
+
+```bash
+oa-gen diff \
+  --base contracts/baselines/v1.openapi.yaml \
+  --head packages/schemas/src/.merged.yaml \
+  --fail-on-breaking
+
+oa-gen check-artifact \
+  --head packages/schemas/src/.merged.yaml \
+  --artifact packages/schemas/dist/openapi.yaml
+
+oa-gen duplicate-review \
+  --fragments packages/schemas/src/fragments \
+  --target packages/schemas/src/targets/local-parity-api.yaml
+
+oa-gen target-check \
+  --target packages/schemas/src/targets/local-parity-api.yaml \
+  --must-include-path /health \
+  --must-exclude-path /admin
+```
+
 ### 스키마 검증
 
 ```bash
