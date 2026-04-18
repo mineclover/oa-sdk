@@ -2,8 +2,8 @@ import type { Command } from '../lib/types.js'
 import { loadSpecWithPath } from '../lib/load-spec.js'
 import { optStr, str } from '../lib/args.js'
 import { loadOpenApiOrTarget } from '../lib/target-openapi.js'
+import { createArtifactFreshnessReport } from '../lib/artifact-freshness.js'
 import {
-  diffOpenApiDocuments,
   formatOpenApiDiff,
 } from '../lib/openapi-normalized-diff.js'
 import { commandById, optionDescription } from '../spec/ecs.js'
@@ -50,28 +50,23 @@ export const checkArtifact: Command = {
       ...(fragmentsDir ? { fragmentsDir } : {}),
     })
     const artifact = loadSpecWithPath(str(args, 'artifact'))
-    const differences = diffOpenApiDocuments(head.document, artifact.document)
-    const fresh = differences.length === 0
-    const payload = {
-      artifact: artifact.path,
-      fresh,
-      summary: fresh
-        ? 'matches head OpenAPI'
-        : `${differences.length} OpenAPI difference${differences.length === 1 ? '' : 's'} detected`,
-      differences,
-    }
+    const payload = createArtifactFreshnessReport({
+      headDocument: head.document,
+      artifactDocument: artifact.document,
+      artifactPath: artifact.path,
+    })
     const format = readFormat(optStr(args, 'format'))
 
     if (format === 'json') {
       console.log(JSON.stringify(payload, null, 2))
-    } else if (fresh) {
+    } else if (payload.fresh) {
       console.log(`fresh ${payload.artifact} - ${payload.summary}`)
     } else {
       console.log(`stale ${payload.artifact} - ${payload.summary}`)
-      console.log(formatOpenApiDiff(differences))
+      console.log(formatOpenApiDiff(payload.differences))
     }
 
-    if (!fresh) process.exit(1)
+    if (!payload.fresh) process.exit(1)
   },
 }
 

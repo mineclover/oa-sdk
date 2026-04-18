@@ -14,9 +14,13 @@ import {
   type ContractDiffChange,
 } from '../lib/openapi-breaking-diff.js'
 import {
-  diffOpenApiDocuments,
   type OpenApiNormalizedDiffEntry,
 } from '../lib/openapi-normalized-diff.js'
+import {
+  createArtifactFreshnessReport,
+  createSkippedArtifactFreshnessReport,
+  type ArtifactFreshnessSection,
+} from '../lib/artifact-freshness.js'
 import {
   diffBuildSpecProvenanceMaps,
   loadBuildSpecProvenanceMap,
@@ -26,13 +30,7 @@ import {
 type ReviewFormat = 'markdown' | 'json'
 type ReviewRecommendation = 'APPROVE' | 'COMMENT' | 'REQUEST_CHANGES'
 
-type ArtifactReview = {
-  checked: boolean
-  artifact: string | null
-  fresh: boolean | null
-  summary: string
-  differences: OpenApiNormalizedDiffEntry[]
-}
+type ArtifactReview = ArtifactFreshnessSection
 
 type ProvenanceReview = {
   checked: boolean
@@ -234,26 +232,15 @@ function artifactReview(
   headDocument: Record<string, unknown>,
 ): ArtifactReview {
   if (!artifactPath) {
-    return {
-      checked: false,
-      artifact: null,
-      fresh: null,
-      summary: 'not checked',
-      differences: [],
-    }
+    return createSkippedArtifactFreshnessReport()
   }
 
   const artifact = loadSpecWithPath(artifactPath)
-  const differences = diffOpenApiDocuments(headDocument, artifact.document)
-  return {
-    checked: true,
-    artifact: artifact.path,
-    fresh: differences.length === 0,
-    summary: differences.length === 0
-      ? 'matches head OpenAPI'
-      : `${differences.length} OpenAPI difference${differences.length === 1 ? '' : 's'} detected`,
-    differences,
-  }
+  return createArtifactFreshnessReport({
+    headDocument,
+    artifactDocument: artifact.document,
+    artifactPath: artifact.path,
+  })
 }
 
 function recommendation(input: {
