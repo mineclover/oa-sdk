@@ -36,7 +36,7 @@ without checking behavior, add focused assertions or split the matrix row.
 | `schema-authoring-workflow` | `@oa-sdk/schemas` | merge, fixture, upgrade, downgrade scripts | `packages/schemas/scripts/__tests__/merge.test.ts`, `upgrade.test.ts`, `downgrade.test.ts` |
 | `zod-drizzle-to-oas` | `@oa-sdk/codegen` | Zod and Drizzle schema generation | `packages/codegen/src/__tests__/zod-to-schema.test.ts`, `packages/codegen/src/__tests__/drizzle/*.test.ts` |
 | `typegen` | `@oa-sdk/codegen` | TypeScript type generation | `packages/codegen/src/__tests__/typegen/*.test.ts`, `mock-typegen-compat.test.ts` |
-| `cli-codegen-workflow` | `@oa-sdk/codegen` | `oa-gen` command behavior, including build-spec sidecars, inventory, runtime URL drift, provenance, and review reports | `packages/codegen/src/__tests__/cli*.test.ts`, `cli-scenarios.test.ts` |
+| `cli-codegen-workflow` | `@oa-sdk/codegen` | `oa-gen` command behavior, including build-spec sidecars, inventory, runtime URL drift, provenance, review reports, and review bundles | `packages/codegen/src/__tests__/cli*.test.ts`, `cli-scenarios.test.ts` |
 | `runtime-openapi-url-drift` | `@oa-sdk/codegen` | runtime OpenAPI URL fetch for drift checks | `packages/codegen/src/__tests__/cli-scenarios.test.ts`, `runtime-openapi-fetch.test.ts` |
 | `openapi-provenance` | `@oa-sdk/codegen` | output pointer provenance maps and review provenance diffs | `packages/codegen/src/__tests__/cli-build-spec.test.ts`, `cli-scenarios.test.ts` |
 | `openapi-inventory` | `@oa-sdk/codegen` | OpenAPI surface inventory reports | `packages/codegen/src/__tests__/openapi-inventory.test.ts`, `cli-scenarios.test.ts` |

@@ -60,6 +60,7 @@ describe('review bundle aggregator', () => {
     const markdown = formatReviewBundleMarkdown(bundle)
 
     expect(bundle.summary.recommendation).toBe('REQUEST_CHANGES')
+    expect(markdown.startsWith('Recommendation: **REQUEST_CHANGES**\n\n## Summary')).toBe(true)
     expect(bundle.summary.breakingChanges).toBeGreaterThan(0)
     expect(bundle.summary.nonBreakingChanges).toBeGreaterThan(0)
     expect(bundle.sections.artifactFreshness.report.fresh).toBe(false)

@@ -123,7 +123,7 @@ marker.
 | WorkspaceIndex | 파일 hash/component/ref/source/diagnostic/type alias metadata용 index 경계. 기본 noop은 모든 파일을 dirty 처리해 기존 full rebuild 동작 유지 |
 | SQLiteWorkspaceIndex | `.oa-cache/state.sqlite`에 index row를 보존. `better-sqlite3` primary + `node:sqlite` fallback driver를 사용하며 WAL/foreign key/transaction, schema/options mismatch 또는 DB 오류 시 full rebuild fallback |
 | Workspace dirty detection | entry/domain/profile/external ref 파일 scan → new/modified/deleted/unchanged 분류 → refs.to_file 역방향 dirty 전파 → stale row invalidation |
-| CLI | 커맨드 모듈 구조. `generate`/`typegen`/`router`/`client`/`build-spec`/`dev`/`lint`/`validate`/`inventory`/`duplicate-review`/`target-check`/`diff`/`check-artifact`/`drift`/`review`/`--help`; `validate`/`typegen`은 opt-in `--incremental --cache-dir`, `dev`는 watch mode에서 같은 index path 사용. `lint`/`validate` diagnostic은 YAML source map이 있으면 `file:line:column`을 출력하고 target `file#pointer` fallback을 유지. `inventory`, `duplicate-review`, `target-check`, `diff`, `check-artifact`, `drift`, `review`는 CLI ECS manifest를 기준으로 governance checks와 Markdown/JSON report를 구성한다 |
+| CLI | 커맨드 모듈 구조. `generate`/`typegen`/`router`/`client`/`build-spec`/`dev`/`lint`/`validate`/`inventory`/`duplicate-review`/`target-check`/`diff`/`check-artifact`/`drift`/`review`/`review-bundle`/`--help`; `validate`/`typegen`은 opt-in `--incremental --cache-dir`, `dev`는 watch mode에서 같은 index path 사용. `lint`/`validate` diagnostic은 YAML source map이 있으면 `file:line:column`을 출력하고 target `file#pointer` fallback을 유지. `inventory`, `duplicate-review`, `target-check`, `diff`, `check-artifact`, `drift`, `review`, `review-bundle`는 CLI ECS manifest를 기준으로 governance checks와 Markdown/JSON report를 구성한다 |
 
 ### OpenAPI inventory command (OpenAPI aggregation governance Phase 1)
 
@@ -169,6 +169,18 @@ oa-gen drift \
 URL fetch 결과는 JSON report의 `runtimeFetch`에 `url`, `finalUrl`, `redirected`, `status`, `statusText`, `contentType`을 기록한다. URL fetch, non-2xx response, 또는 parse 실패는 `status: "drift-check-failed"`와 `failure.code: "drift-check-failed"`로 보고하고 non-zero로 종료한다. 기존 file path 비교 동작은 변경하지 않는다.
 
 대표 검증은 `packages/codegen/src/__tests__/runtime-openapi-fetch.test.ts`와 `packages/codegen/src/__tests__/cli-scenarios.test.ts`가 맡는다.
+
+### Review-bundle command (OpenAPI aggregation governance Phase 5)
+
+`oa-gen review-bundle --base <base.yaml> --head <head.yaml> --artifact <artifact.yaml> --format markdown|json`은 PR 리뷰용 단일 bundle을 출력한다. 필수 입력은 base/head OpenAPI 문서와 generated artifact이며, artifact freshness는 항상 별도 section으로 포함된다.
+
+선택 입력은 `--inventory`(head OpenAPI inventory 생성), `--runtime-drift <drift.json>`(`oa-gen drift --format json` 출력 포함), `--composition-report <composition.json>`(`build-spec --composition-report` 출력 포함), `--duplicate-review <duplicate-review.json>`(`oa-gen duplicate-review --format json` 출력 포함)이다. Markdown은 `Recommendation: **...**`와 summary로 시작하고 breaking changes section을 non-breaking changes section보다 먼저 렌더링한다. JSON schema는 `oa-gen.review-bundle.v1`이며 `sections.artifactFreshness`, `sections.runtimeDrift`, `sections.inventory`, `sections.composition`, `sections.duplicateReview` 아래에 각 원본 report를 중첩 보존한다.
+
+`REQUEST_CHANGES` recommendation만 non-zero exit이며 `APPROVE`와 `COMMENT`는 PR comment workflow에서 계속 사용할 수 있도록 exit code 0이다.
+
+구현은 `packages/codegen/src/cli/lib/review-bundle.ts`와 `packages/codegen/src/cli/commands/review-bundle.ts`에 있으며, CLI governance manifest는 `packages/codegen/src/cli/spec/oa-gen-governance.ts`와 `docs/cli-spec/oa-gen.governance.json`이 함께 소유한다.
+
+대표 검증은 `packages/codegen/src/__tests__/review-bundle.test.ts`와 `packages/codegen/src/__tests__/cli-review-bundle.test.ts`가 맡는다.
 
 ### Resolver baseline (US-001) / Shared contract (US-002) / External cache alignment (US-003)
 

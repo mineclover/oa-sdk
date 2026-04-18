@@ -495,6 +495,116 @@
           "failure": ["REQUEST_CHANGES"]
         }
       }
+    },
+    {
+      "id": "review-bundle",
+      "kind": "command",
+      "name": "review-bundle",
+      "summary": "PR용 OpenAPI review bundle 리포트",
+      "components": {
+        "options": [
+          {
+            "name": "base",
+            "type": "string",
+            "required": true,
+            "description": "base OpenAPI YAML/JSON 경로"
+          },
+          {
+            "name": "head",
+            "type": "string",
+            "required": true,
+            "description": "head OpenAPI YAML/JSON 경로"
+          },
+          {
+            "name": "artifact",
+            "type": "string",
+            "required": true,
+            "description": "head와 비교할 generated OpenAPI artifact 경로"
+          },
+          {
+            "name": "inventory",
+            "type": "boolean",
+            "description": "head OpenAPI inventory section을 포함"
+          },
+          {
+            "name": "runtime-drift",
+            "type": "string",
+            "description": "oa-gen drift --format json 출력 파일 경로"
+          },
+          {
+            "name": "composition-report",
+            "type": "string",
+            "description": "build-spec composition report JSON 경로"
+          },
+          {
+            "name": "duplicate-review",
+            "type": "string",
+            "description": "oa-gen duplicate-review --format json 출력 파일 경로"
+          },
+          {
+            "name": "format",
+            "type": "string",
+            "short": "f",
+            "description": "markdown | json (기본: markdown)"
+          }
+        ],
+        "inputs": [
+          {
+            "name": "base",
+            "kind": "openapi-document",
+            "required": true,
+            "option": "base"
+          },
+          {
+            "name": "head",
+            "kind": "openapi-document",
+            "required": true,
+            "option": "head"
+          },
+          {
+            "name": "artifact",
+            "kind": "openapi-artifact",
+            "required": true,
+            "option": "artifact"
+          },
+          {
+            "name": "runtime-drift",
+            "kind": "runtime-drift-report",
+            "required": false,
+            "option": "runtime-drift"
+          },
+          {
+            "name": "composition-report",
+            "kind": "composition-report",
+            "required": false,
+            "option": "composition-report"
+          },
+          {
+            "name": "duplicate-review",
+            "kind": "duplicate-review-report",
+            "required": false,
+            "option": "duplicate-review"
+          }
+        ],
+        "checks": [
+          "breaking-diff",
+          "artifact-freshness",
+          "runtime-drift",
+          "inventory",
+          "composition",
+          "duplicate-review"
+        ],
+        "reports": [
+          {
+            "formats": ["markdown", "json"],
+            "schema": "oa-gen.review-bundle.v1"
+          }
+        ],
+        "exitPolicy": {
+          "success": ["APPROVE", "COMMENT"],
+          "failure": ["REQUEST_CHANGES"]
+        }
+      }
     }
   ]
 }

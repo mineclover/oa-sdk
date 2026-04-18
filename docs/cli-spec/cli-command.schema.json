@@ -43,10 +43,12 @@
                 "enum": [
                   "artifact-freshness",
                   "breaking-diff",
+                  "composition",
                   "duplicate-review",
                   "head-validation",
                   "inventory",
-                  "runtime-drift"
+                  "runtime-drift",
+                  "target-coverage"
                 ]
               }
             },
@@ -82,12 +84,15 @@
         "kind": {
           "enum": [
             "contract-document",
+            "composition-report",
             "definition-fragments",
             "definition-target",
+            "duplicate-review-report",
             "module-reference",
             "openapi-artifact",
             "openapi-document",
             "openapi-provenance",
+            "runtime-drift-report",
             "runtime-openapi"
           ]
         },

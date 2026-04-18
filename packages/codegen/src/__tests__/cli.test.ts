@@ -65,6 +65,7 @@ describe('oa-gen CLI', () => {
     expect(output).toContain('check-artifact')
     expect(output).toContain('drift')
     expect(output).toContain('review')
+    expect(output).toContain('review-bundle')
     expect(output).toContain('--base')
     expect(output).toContain('--head')
   })

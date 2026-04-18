@@ -141,7 +141,9 @@ oa-gen review-bundle \
   --head packages/schemas/src/.merged.yaml \
   --artifact packages/schemas/dist/openapi.yaml \
   --inventory \
+  --runtime-drift artifacts/runtime-drift.json \
   --composition-report packages/schemas/src/.builder/local-parity-api.composition.json \
+  --duplicate-review artifacts/duplicate-review.json \
   --format markdown
 ```
 

@@ -14,6 +14,7 @@ import { drift } from './commands/drift.js'
 import { inventory } from './commands/inventory.js'
 import { duplicateReview } from './commands/duplicate-review.js'
 import { targetCheck } from './commands/target-check.js'
+import { reviewBundle } from './commands/review-bundle.js'
 
 export const commands: Command[] = [
   generate,
@@ -31,4 +32,5 @@ export const commands: Command[] = [
   checkArtifact,
   drift,
   review,
+  reviewBundle,
 ]

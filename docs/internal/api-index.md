@@ -270,6 +270,8 @@ Typegen 공개 surface는 root entry(`@oa-sdk/codegen`)와 typegen sub-entry(`@o
 | `formatDefinitionDuplicateReviewMarkdown()` | `cli/lib/duplicate-review.ts` | duplicate-review 결과를 PR comment용 compact Markdown으로 렌더링 |
 | `checkTargetCoverage()` | `cli/lib/target-coverage.ts` | generated OpenAPI artifact 또는 Definition Builder target materialization 결과의 emitted `paths` key에 include/exclude assertion을 적용 |
 | `formatTargetCoverageMarkdown()` | `cli/lib/target-coverage.ts` | target-check assertion result와 failure를 compact Markdown report로 렌더링 |
+| `createReviewBundle()` | `cli/lib/review-bundle.ts` | base/head diff, artifact freshness, optional runtime drift, inventory, composition, duplicate review payload를 PR review bundle로 집계 |
+| `formatReviewBundleMarkdown()` | `cli/lib/review-bundle.ts` | recommendation과 summary로 시작하고 breaking changes를 non-breaking changes보다 먼저 두는 review-bundle Markdown report를 렌더링 |
 
 ---
 
@@ -282,6 +284,7 @@ Typegen 공개 surface는 root entry(`@oa-sdk/codegen`)와 typegen sub-entry(`@o
 | `drift` | `packages/codegen/src/cli/commands/drift.ts` | managed OpenAPI 파일과 runtime OpenAPI 파일 또는 URL을 비교하고 URL fetch/HTTP/parse 실패를 `drift-check-failed`로 보고 |
 | `inventory` | `packages/codegen/src/cli/commands/inventory.ts` + `packages/codegen/src/cli/lib/openapi-inventory.ts` | OpenAPI YAML/JSON 또는 Definition Builder target artifact에서 path/operation/component count, tag/domain grouping, security scheme usage, projection source metadata, unused component candidates를 `markdown` 또는 `json`으로 보고 |
 | `review` | `packages/codegen/src/cli/commands/review.ts`, `packages/codegen/src/cli/lib/provenance-report.ts` | base/head OpenAPI diff, validation, artifact freshness를 묶고 선택적으로 base/head provenance sidecar 변경 entries를 report에 포함 |
+| `review-bundle` | `packages/codegen/src/cli/commands/review-bundle.ts`, `packages/codegen/src/cli/lib/review-bundle.ts` | base/head OpenAPI diff와 artifact freshness를 필수 section으로 묶고 선택적으로 inventory, runtime drift JSON, composition report JSON, duplicate-review JSON을 stable nested section으로 포함 |
 | `target-check` | `packages/codegen/src/cli/commands/target-check.ts`, `packages/codegen/src/cli/lib/target-coverage.ts` | Definition Builder target config 또는 generated OpenAPI artifact의 emitted path surface를 include/exclude assertion으로 검증하고 실패 시 non-zero 종료 |
 
 Governance manifest: `packages/codegen/src/cli/spec/oa-gen-governance.ts` 및 `docs/cli-spec/oa-gen.governance.json`.

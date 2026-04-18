@@ -248,7 +248,7 @@
       "name": "Codegen CLI workflow",
       "category": "cli",
       "package": "@oa-sdk/codegen",
-      "description": "oa-gen generate/typegen/router/client/build-spec/lint/validate/inventory/diff/check-artifact/drift/review/dev command behavior, including build-spec sidecar reports, runtime URL drift input, and provenance review.",
+      "description": "oa-gen generate/typegen/router/client/build-spec/lint/validate/inventory/diff/check-artifact/drift/review/review-bundle/dev command behavior, including build-spec sidecar reports, runtime URL drift input, provenance review, and PR review bundle aggregation.",
       "capabilities": [
         "generate",
         "typegen",
@@ -266,6 +266,8 @@
         "runtime OpenAPI URL drift input",
         "review",
         "review provenance diff",
+        "review-bundle",
+        "review bundle optional sidecars",
         "dev"
       ],
       "testPaths": [

@@ -233,8 +233,6 @@ export function createRuntimeDriftFailureReport(options: {
 
 export function formatReviewBundleMarkdown(bundle: ReviewBundle): string {
   const lines = [
-    '# OpenAPI Review Bundle',
-    '',
     `Recommendation: **${bundle.summary.recommendation}**`,
     '',
     '## Summary',
