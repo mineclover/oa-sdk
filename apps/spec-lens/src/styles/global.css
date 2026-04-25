@@ -193,6 +193,25 @@ code, .mono { font-family: var(--font-mono); }
 .muted  { color: var(--text-muted); }
 .subtle { color: var(--text-secondary); }
 
+/* ─── Language toggle ─────────────────────────────────────────────────── */
+.lang-btn {
+  padding: 2px 7px;
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: var(--text-xs);
+  font-family: var(--font-sans);
+  transition: background 0.1s, color 0.1s, border-color 0.1s;
+}
+.lang-btn:hover { background: var(--bg-elevated); color: var(--text-primary); }
+.lang-btn.active {
+  background: var(--bg-elevated);
+  border-color: var(--blue);
+  color: var(--blue);
+}
+
 /* ─── Inline code chip ────────────────────────────────────────────────── */
 .code-tag {
   font-size: var(--text-xs);

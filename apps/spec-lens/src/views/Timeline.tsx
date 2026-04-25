@@ -5,18 +5,7 @@ import { Badge, DiffBadges } from '../components/Badge.js'
 import { Button } from '../components/Button.js'
 import { Select } from '../components/Select.js'
 import { Spinner } from '../components/Spinner.js'
-
-function formatRelativeTime(ts: number): string {
-  const diff = Date.now() - ts
-  const mins = Math.floor(diff / 60000)
-  const hours = Math.floor(diff / 3600000)
-  const days = Math.floor(diff / 86400000)
-  if (mins < 1) return 'just now'
-  if (mins < 60) return `${mins}m ago`
-  if (hours < 24) return `${hours}h ago`
-  if (days < 30) return `${days}d ago`
-  return new Date(ts).toLocaleDateString()
-}
+import { useLocale, formatRelativeTimeFull } from '../i18n/index.js'
 
 function sourceIcon(source: string): string {
   switch (source) {
@@ -32,6 +21,7 @@ export function Timeline({
 }: {
   onSelectDiff: (baseId: string, headId: string) => void
 }) {
+  const { t } = useLocale()
   const qc = useQueryClient()
   const [limit, setLimit] = useState(100)
 
@@ -57,7 +47,7 @@ export function Timeline({
   if (error) {
     return (
       <div style={{ padding: 24, color: 'var(--red)' }}>
-        Failed to load timeline: {String(error)}
+        {t.diffLoadError}: {String(error)}
       </div>
     )
   }
@@ -67,18 +57,18 @@ export function Timeline({
       {/* Header */}
       <div className="panel-hd" style={{ justifyContent: 'space-between' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span style={{ fontWeight: 600 }}>Timeline</span>
+          <span style={{ fontWeight: 600 }}>{t.timelineTitle}</span>
           {entries && (
-            <span className="label">{entries.length} revision{entries.length !== 1 ? 's' : ''}</span>
+            <span className="label">{t.timelineRevisionCount(entries.length)}</span>
           )}
         </div>
         <Select value={limit} onChange={e => setLimit(Number(e.target.value))}>
           {[50, 100, 200, 500].map(n => (
-            <option key={n} value={n}>최근 {n}개</option>
+            <option key={n} value={n}>{t.timelineRecentN(n)}</option>
           ))}
         </Select>
         <Button loading={refresh.isPending} onClick={() => refresh.mutate()}>
-          ↻ Refresh
+          {t.timelineRefresh}
         </Button>
       </div>
 
@@ -86,7 +76,7 @@ export function Timeline({
       <div style={{ overflowY: 'auto', flex: 1 }}>
         {entries?.length === 0 && (
           <div style={{ padding: 32, textAlign: 'center', color: 'var(--text-muted)' }}>
-            No revisions yet. Click <strong>Refresh</strong> to fetch from the source.
+            {t.timelineEmpty}
           </div>
         )}
         {entries?.map((entry, i) => (
@@ -111,6 +101,7 @@ function TimelineRow({
   prev: SpecTimelineEntry | undefined
   onSelectDiff: (baseId: string, headId: string) => void
 }) {
+  const { t } = useLocale()
   const hasDiff = prev !== undefined
   const { diffStats } = entry
 
@@ -133,14 +124,7 @@ function TimelineRow({
       <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 0 }}>
         {/* Row 1: sha + source badge + time */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <code
-            style={{
-              fontSize: 12,
-              color: 'var(--blue)',
-              fontFamily: 'var(--font-mono)',
-              flexShrink: 0,
-            }}
-          >
+          <code style={{ fontSize: 12, color: 'var(--blue)', fontFamily: 'var(--font-mono)', flexShrink: 0 }}>
             {entry.revision.shortId}
           </code>
           <Badge variant="muted">
@@ -149,46 +133,29 @@ function TimelineRow({
           {entry.revision.sourceRef && (
             <Badge variant="purple">{entry.revision.sourceRef}</Badge>
           )}
-          <span style={{ color: 'var(--text-muted)', fontSize: 11, marginLeft: 'auto' }}>
-            {formatRelativeTime(entry.revision.timestamp)}
+          <span className="label" style={{ marginLeft: 'auto' }}>
+            {formatRelativeTimeFull(entry.revision.timestamp, t)}
           </span>
         </div>
 
         {/* Row 2: commit message */}
-        <div
-          style={{
-            color: 'var(--text-primary)',
-            fontSize: 13,
-            whiteSpace: 'nowrap',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-          }}
-        >
-          {entry.revision.message || '(no message)'}
+        <div style={{ color: 'var(--text-primary)', fontSize: 13, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          {entry.revision.message || t.timelineNoMessage}
         </div>
 
         {/* Row 3: author */}
         {entry.revision.author && (
-          <div style={{ color: 'var(--text-muted)', fontSize: 11 }}>
-            {entry.revision.author}
-          </div>
+          <div className="label">{entry.revision.author}</div>
         )}
 
         {/* Row 4: affected files */}
         {entry.affectedFiles.length > 0 && (
-          <div
-            style={{
-              display: 'flex',
-              flexWrap: 'wrap',
-              gap: 4,
-              marginTop: 2,
-            }}
-          >
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 2 }}>
             {entry.affectedFiles.slice(0, 5).map(f => (
               <span key={f} className="code-tag">{f.split('/').pop()}</span>
             ))}
             {entry.affectedFiles.length > 5 && (
-              <span className="label">+{entry.affectedFiles.length - 5} more</span>
+              <span className="label">{t.timelineMoreFiles(entry.affectedFiles.length - 5)}</span>
             )}
           </div>
         )}
@@ -197,7 +164,7 @@ function TimelineRow({
       {/* Right: diff badges */}
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
         {!entry.snapshotCached
-          ? <Badge variant="amber">build failed</Badge>
+          ? <Badge variant="amber">{t.timelineBuildFailed}</Badge>
           : <DiffBadges
               added={diffStats.pathsAdded}
               removed={diffStats.pathsRemoved}
@@ -206,7 +173,7 @@ function TimelineRow({
             />
         }
         {hasDiff && entry.snapshotCached && (
-          <span className="label">view diff →</span>
+          <span className="label">{t.timelineViewDiff}</span>
         )}
       </div>
     </div>

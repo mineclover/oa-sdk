@@ -5,6 +5,7 @@ import { api, type BreakingChange, type SpecSnapshot, type SpecTimelineDiff } fr
 import { Badge } from '../components/Badge.js'
 import { Spinner } from '../components/Spinner.js'
 import { SplitDiff } from '../components/SplitDiff.js'
+import { useLocale } from '../i18n/index.js'
 
 const MonacoDiffEditor = lazy(() =>
   import('@monaco-editor/react').then(m => ({ default: m.DiffEditor })),
@@ -21,6 +22,7 @@ export function DiffView({
   headId: string
   onBack: () => void
 }) {
+  const { t } = useLocale()
   const [tab, setTab] = useState<Tab>('changes')
 
   useEffect(() => { setTab('changes') }, [baseId, headId])
@@ -58,7 +60,7 @@ export function DiffView({
   if (fetchError) {
     return (
       <div style={{ padding: 32, color: 'var(--red)' }}>
-        <div style={{ fontWeight: 600, marginBottom: 6 }}>Failed to load diff</div>
+        <div style={{ fontWeight: 600, marginBottom: 6 }}>{t.diffLoadError}</div>
         <code style={{ fontFamily: 'var(--font-mono)', fontSize: 12 }}>
           {String(fetchError)}
         </code>
@@ -69,23 +71,23 @@ export function DiffView({
   if (!diff) {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', flex: 1, padding: 48, color: 'var(--text-muted)' }}>
-        No diff data available.
+        {t.diffNoData}
       </div>
     )
   }
 
   const TABS: Array<{ id: Tab; label: string; count?: number }> = [
-    { id: 'changes', label: 'Changes', count: diff?.normalizedDiff.length },
-    { id: 'yaml',    label: 'Full YAML' },
-    { id: 'breaking', label: 'Breaking', count: diff?.breakingDiff.length },
-    { id: 'fragments', label: 'Fragments', count: diff?.affectedFragments.length },
+    { id: 'changes',   label: t.diffTabChanges,   count: diff?.normalizedDiff.length },
+    { id: 'yaml',      label: t.diffTabYaml },
+    { id: 'breaking',  label: t.diffTabBreaking,  count: diff?.breakingDiff.length },
+    { id: 'fragments', label: t.diffTabFragments, count: diff?.affectedFragments.length },
   ]
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       {/* Header */}
       <div className="panel-hd" style={{ gap: 12 }}>
-        <button onClick={onBack} style={backBtnStyle}>← Timeline</button>
+        <button onClick={onBack} style={backBtnStyle}>{t.diffBack}</button>
         <CommitRange baseId={baseId} headId={headId} />
         {diff && <DiffStatLine stats={diff.stats} />}
         {isLoading && <Spinner size={14} />}
@@ -135,12 +137,13 @@ function ChangesPanel({
   baseSnap: SpecSnapshot | null
   headSnap: SpecSnapshot | null
 }) {
+  const { t } = useLocale()
   if (!diff) return <CenteredSpinner />
 
   if (diff.normalizedDiff.length === 0) {
     return (
       <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)' }}>
-        No spec differences between these two revisions.
+        {t.diffNoSpecDiff}
       </div>
     )
   }
@@ -181,10 +184,18 @@ function CategorySection({
   baseSpec: Record<string, unknown> | null
   headSpec: Record<string, unknown> | null
 }) {
+  const { t } = useLocale()
+  const categoryLabels: Record<string, string> = {
+    path: t.diffCategoryPaths,
+    component: t.diffCategoryComponents,
+    root: t.diffCategoryRoot,
+    server: t.diffCategoryServers,
+    security: t.diffCategorySecurity,
+  }
   return (
     <div style={{ borderBottom: '1px solid var(--border)' }}>
       <div className="section-hd">
-        {CATEGORY_LABELS[category] ?? category}
+        {categoryLabels[category] ?? category}
         <span className="label" style={{ marginLeft: 6, fontWeight: 400 }}>
           {entries.length}
         </span>
@@ -201,13 +212,6 @@ function CategorySection({
   )
 }
 
-const CATEGORY_LABELS: Record<string, string> = {
-  path: 'API Paths',
-  component: 'Components',
-  root: 'Root',
-  server: 'Servers',
-  security: 'Security',
-}
 
 function DiffEntryRow({
   entry,
@@ -317,6 +321,7 @@ function YamlDiffPanel({
   baseSnap: SpecSnapshot | null
   headSnap: SpecSnapshot | null
 }) {
+  const { t } = useLocale()
   const [mode, setMode] = useState<'side-by-side' | 'inline'>('side-by-side')
 
   if (!baseSnap || !headSnap) return <CenteredSpinner />
@@ -324,7 +329,7 @@ function YamlDiffPanel({
   if (!baseSnap.spec || !headSnap.spec) {
     return (
       <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)' }}>
-        Spec unavailable — snapshot has build errors.
+        {t.diffSpecUnavailable}
       </div>
     )
   }
@@ -345,12 +350,12 @@ function YamlDiffPanel({
         }}
       >
         <ModeToggle
-          label="Side by side"
+          label={t.diffSideBySide}
           active={mode === 'side-by-side'}
           onClick={() => setMode('side-by-side')}
         />
         <ModeToggle
-          label="Inline"
+          label={t.diffInline}
           active={mode === 'inline'}
           onClick={() => setMode('inline')}
         />
@@ -383,10 +388,11 @@ function YamlDiffPanel({
 // ─────────────────── Breaking panel ───────────────────
 
 function BreakingPanel({ changes }: { changes: BreakingChange[] }) {
+  const { t } = useLocale()
   if (changes.length === 0) {
     return (
       <div style={{ padding: 40, textAlign: 'center', color: 'var(--green)' }}>
-        ✓ No breaking changes
+        {t.diffNoBreaking}
       </div>
     )
   }
@@ -430,6 +436,7 @@ function FragmentsPanel({
   baseId: string
   headId: string
 }) {
+  const { t } = useLocale()
   const [selectedFile, setSelectedFile] = useState<string | null>(null)
 
   useEffect(() => { setSelectedFile(null) }, [baseId, headId])
@@ -452,7 +459,7 @@ function FragmentsPanel({
   if (fragments.length === 0) {
     return (
       <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)' }}>
-        No fragment files changed
+        {t.diffNoFragments}
       </div>
     )
   }
@@ -461,8 +468,8 @@ function FragmentsPanel({
     <div style={{ display: 'flex', height: '100%', overflow: 'hidden' }}>
       {/* File list */}
       <div style={{ width: 280, borderRight: '1px solid var(--border)', overflowY: 'auto', flexShrink: 0 }}>
-        <div style={{ padding: '8px 12px', fontSize: 11, color: 'var(--text-muted)', borderBottom: '1px solid var(--border-muted)' }}>
-          {fragments.length} file{fragments.length !== 1 ? 's' : ''} changed · click to view
+        <div className="label" style={{ padding: '8px 12px', borderBottom: '1px solid var(--border-muted)' }}>
+          {t.diffFragmentCount(fragments.length)}
         </div>
         <ul style={{ listStyle: 'none' }}>
           {fragments.map(f => (
@@ -493,7 +500,7 @@ function FragmentsPanel({
       <div style={{ flex: 1, overflow: 'auto' }}>
         {selectedFile === null ? (
           <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>
-            Select a file to view its content
+            {t.diffSelectFile}
           </div>
         ) : (!baseSnap || !headSnap) ? (
           <div style={{ display: 'flex', justifyContent: 'center', padding: 40 }}>
@@ -533,15 +540,16 @@ function CommitRange({ baseId, headId }: { baseId: string; headId: string }) {
 }
 
 function DiffStatLine({ stats }: { stats: SpecTimelineDiff['stats'] }) {
+  const { t } = useLocale()
   return (
     <div style={{ display: 'flex', gap: 6 }}>
-      {stats.pathsAdded > 0 && <Badge variant="green">+{stats.pathsAdded} paths</Badge>}
-      {stats.pathsRemoved > 0 && <Badge variant="red">−{stats.pathsRemoved} paths</Badge>}
-      {stats.pathsChanged > 0 && <Badge variant="blue">~{stats.pathsChanged} paths</Badge>}
-      {stats.schemasAdded > 0 && <Badge variant="green">+{stats.schemasAdded} schemas</Badge>}
-      {stats.schemasRemoved > 0 && <Badge variant="red">−{stats.schemasRemoved} schemas</Badge>}
-      {stats.schemasChanged > 0 && <Badge variant="blue">~{stats.schemasChanged} schemas</Badge>}
-      {stats.breakingChanges > 0 && <Badge variant="amber">⚡{stats.breakingChanges} breaking</Badge>}
+      {stats.pathsAdded > 0 && <Badge variant="green">{t.statPathsAdded(stats.pathsAdded)}</Badge>}
+      {stats.pathsRemoved > 0 && <Badge variant="red">{t.statPathsRemoved(stats.pathsRemoved)}</Badge>}
+      {stats.pathsChanged > 0 && <Badge variant="blue">{t.statPathsChanged(stats.pathsChanged)}</Badge>}
+      {stats.schemasAdded > 0 && <Badge variant="green">{t.statSchemasAdded(stats.schemasAdded)}</Badge>}
+      {stats.schemasRemoved > 0 && <Badge variant="red">{t.statSchemasRemoved(stats.schemasRemoved)}</Badge>}
+      {stats.schemasChanged > 0 && <Badge variant="blue">{t.statSchemasChanged(stats.schemasChanged)}</Badge>}
+      {stats.breakingChanges > 0 && <Badge variant="amber">{t.statBreaking(stats.breakingChanges)}</Badge>}
     </div>
   )
 }

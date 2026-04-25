@@ -1,3 +1,5 @@
+import { useLocale } from '../i18n/index.js'
+
 // Line-level side-by-side diff renderer (no CDN dependency)
 
 type DiffLine =
@@ -139,6 +141,7 @@ export function SplitDiff({
   modified: string
   kind: 'added' | 'removed' | 'changed'
 }) {
+  const { t } = useLocale()
   const ops = diffLines(original, modified)
   const rows = toAlignedRows(ops)
 
@@ -147,25 +150,22 @@ export function SplitDiff({
 
   return (
     <div style={{ display: 'flex', fontFamily: 'var(--font-mono)', fontSize: 12, lineHeight: '20px', overflow: 'auto' }}>
-      {/* Left panel */}
       <Panel
-        title="Before"
+        title={t.splitBefore}
         side="left"
         rows={rows}
         lineNos={leftLineNos}
         hidden={kind === 'added'}
+        notExistLabel={t.splitNotExistBefore}
       />
-
-      {/* Divider */}
       <div style={{ width: 1, background: 'var(--border)', flexShrink: 0 }} />
-
-      {/* Right panel */}
       <Panel
-        title="After"
+        title={t.splitAfter}
         side="right"
         rows={rows}
         lineNos={rightLineNos}
         hidden={kind === 'removed'}
+        notExistLabel={t.splitNoLongerExists}
       />
     </div>
   )
@@ -177,12 +177,14 @@ function Panel({
   rows,
   lineNos,
   hidden,
+  notExistLabel,
 }: {
   title: string
   side: 'left' | 'right'
   rows: AlignedRow[]
   lineNos: (number | null)[]
   hidden: boolean
+  notExistLabel: string
 }) {
   const isLeft = side === 'left'
   const accentColor = isLeft ? 'var(--red)' : 'var(--green)'
@@ -210,7 +212,7 @@ function Panel({
       <div style={{ overflow: 'auto' }}>
         {hidden ? (
           <div style={{ padding: '16px 12px', color: 'var(--text-muted)', fontFamily: 'var(--font-sans)', fontSize: 12 }}>
-            — {isLeft ? 'Did not exist before' : 'No longer exists'}
+            — {notExistLabel}
           </div>
         ) : (
           rows.map((row, i) => (

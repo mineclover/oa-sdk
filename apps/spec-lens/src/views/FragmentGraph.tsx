@@ -5,14 +5,7 @@ import { api, type SpecGraph } from '../api/client.js'
 import { Badge } from '../components/Badge.js'
 import { Select } from '../components/Select.js'
 import { Spinner } from '../components/Spinner.js'
-
-function formatRelativeTime(ts: number): string {
-  const diff = Date.now() - ts
-  const days = Math.floor(diff / 86400000)
-  if (days < 1) return 'today'
-  if (days < 30) return `${days}d ago`
-  return new Date(ts).toLocaleDateString()
-}
+import { useLocale, formatRelativeTimeCompact } from '../i18n/index.js'
 
 const SCOPE_COLORS: Record<string, string> = {
   public:   '#58a6ff',
@@ -52,6 +45,7 @@ export function FragmentGraph() {
   const [selected, setSelected] = useState<NodeDatum | null>(null)
   const [kindFilter, setKindFilter] = useState<string>('')
   const [scopeFilter, setScopeFilter] = useState<string>('')
+  const { t } = useLocale()
   const [selectedRevisionId, setSelectedRevisionId] = useState<string>('')
 
   const { data: timeline } = useQuery({
@@ -184,17 +178,15 @@ export function FragmentGraph() {
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       {/* Header */}
       <div className="panel-hd">
-        <span style={{ fontWeight: 600 }}>Fragment Graph</span>
+        <span style={{ fontWeight: 600 }}>{t.graphTitle}</span>
         {graph && (
-          <span className="label">
-            {graph.nodes.length} nodes · {graph.edges.length} edges
-          </span>
+          <span className="label">{t.graphNodeEdgeCount(graph.nodes.length, graph.edges.length)}</span>
         )}
         {/* Revision selector */}
         {timeline && timeline.length > 0 && (() => {
           const cached = timeline.filter(e => e.snapshotCached)
           if (cached.length === 0) {
-            return <span className="label">No snapshots available</span>
+            return <span className="label">{t.graphNoSnapshots}</span>
           }
           return (
             <Select
@@ -204,7 +196,7 @@ export function FragmentGraph() {
             >
               {cached.map(e => (
                 <option key={e.revision.id} value={e.revision.id}>
-                  {e.revision.shortId} · {e.revision.message.slice(0, 40)}{e.revision.message.length > 40 ? '…' : ''} ({formatRelativeTime(e.revision.timestamp)})
+                  {e.revision.shortId} · {e.revision.message.slice(0, 40)}{e.revision.message.length > 40 ? '…' : ''} ({formatRelativeTimeCompact(e.revision.timestamp, t)})
                 </option>
               ))}
             </Select>
@@ -212,11 +204,11 @@ export function FragmentGraph() {
         })()}
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
           <Select value={kindFilter} onChange={e => setKindFilter(e.target.value)}>
-            <option value="">All kinds</option>
+            <option value="">{t.graphAllKinds}</option>
             {allKinds.map(k => <option key={k} value={k}>{k}</option>)}
           </Select>
           <Select value={scopeFilter} onChange={e => setScopeFilter(e.target.value)}>
-            <option value="">All scopes</option>
+            <option value="">{t.graphAllScopes}</option>
             {allScopes.map(s => <option key={s} value={s}>{s}</option>)}
           </Select>
         </div>
@@ -255,7 +247,7 @@ export function FragmentGraph() {
             }}
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-              <span style={{ fontWeight: 600, fontSize: 13 }}>Fragment</span>
+              <span style={{ fontWeight: 600, fontSize: 13 }}>{t.graphDetailTitle}</span>
               <button
                 onClick={() => setSelected(null)}
                 style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 16 }}
@@ -263,14 +255,14 @@ export function FragmentGraph() {
                 ×
               </button>
             </div>
-            <DetailRow label="Name" value={selected.localName} mono />
-            <DetailRow label="Kind" value={selected.kind} />
-            <DetailRow label="Scope" value={selected.scope} />
-            <DetailRow label="Domain" value={selected.domain} />
-            <DetailRow label="ID" value={selected.id} mono small />
-            <DetailRow label="Hash" value={selected.contentHash.slice(0, 12) + '…'} mono small />
+            <DetailRow label={t.graphDetailName} value={selected.localName} mono />
+            <DetailRow label={t.graphDetailKind} value={selected.kind} />
+            <DetailRow label={t.graphDetailScope} value={selected.scope} />
+            <DetailRow label={t.graphDetailDomain} value={selected.domain} />
+            <DetailRow label={t.graphDetailId} value={selected.id} mono small />
+            <DetailRow label={t.graphDetailHash} value={selected.contentHash.slice(0, 12) + '…'} mono small />
             <div style={{ marginTop: 8 }}>
-              <div className="label" style={{ marginBottom: 4 }}>Source</div>
+              <div className="label" style={{ marginBottom: 4 }}>{t.graphDetailSource}</div>
               <code className="subtle" style={{ fontSize: 10, fontFamily: 'var(--font-mono)', wordBreak: 'break-all' }}>
                 {selected.sourcePath.split('/').slice(-3).join('/')}
               </code>

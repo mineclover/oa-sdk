@@ -3,18 +3,21 @@ import { Timeline } from './views/Timeline.js'
 import { DiffView } from './views/DiffView.js'
 import { PathProvenance } from './views/PathProvenance.js'
 import { FragmentGraph } from './views/FragmentGraph.js'
+import { useLocale } from './i18n/index.js'
+import type { Locale } from './i18n/index.js'
 
 type View = 'timeline' | 'diff' | 'paths' | 'graph'
 
-const NAV_ITEMS: Array<{ id: Exclude<View, 'diff'>; label: string; icon: string }> = [
-  { id: 'timeline', label: 'Timeline',  icon: '⏱' },
-  { id: 'paths',    label: 'Paths',     icon: '⚡' },
-  { id: 'graph',    label: 'Graph',     icon: '◎' },
-]
-
 export function App() {
+  const { t, locale, setLocale } = useLocale()
   const [view, setView] = useState<View>('timeline')
   const [diffIds, setDiffIds] = useState<{ base: string; head: string } | null>(null)
+
+  const NAV_ITEMS: Array<{ id: Exclude<View, 'diff'>; label: string; icon: string }> = [
+    { id: 'timeline', label: t.navTimeline, icon: '⏱' },
+    { id: 'paths',    label: t.navPaths,    icon: '⚡' },
+    { id: 'graph',    label: t.navGraph,    icon: '◎' },
+  ]
 
   function openDiff(baseId: string, headId: string) {
     setDiffIds({ base: baseId, head: headId })
@@ -27,6 +30,7 @@ export function App() {
   }
 
   const activeNav = view === 'diff' ? 'timeline' : view
+  const nextLocale: Locale = locale === 'ko' ? 'en' : 'ko'
 
   return (
     <div style={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
@@ -58,26 +62,36 @@ export function App() {
         {/* Nav items */}
         <div style={{ padding: 8, flex: 1 }}>
           {NAV_ITEMS.map(item => (
-            <NavItem
+            <button
               key={item.id}
-              icon={item.icon}
-              label={item.label}
-              active={activeNav === item.id}
               onClick={() => setView(item.id)}
-            />
+              className={`nav-item${activeNav === item.id ? ' active' : ''}`}
+              aria-current={activeNav === item.id ? 'page' : undefined}
+            >
+              <span style={{ fontSize: 'var(--text-lg)' }}>{item.icon}</span>
+              {item.label}
+            </button>
           ))}
         </div>
 
         {/* Footer */}
         <div
           style={{
-            padding: '12px 16px',
+            padding: '10px 16px',
             borderTop: '1px solid var(--border)',
-            fontSize: 11,
-            color: 'var(--text-muted)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
           }}
         >
-          @oa-sdk/spec-lens
+          <span className="label">{t.appFooter}</span>
+          <button
+            className="lang-btn"
+            onClick={() => setLocale(nextLocale)}
+            title={t.langToggle}
+          >
+            {t.langToggle}
+          </button>
         </div>
       </nav>
 
@@ -91,28 +105,5 @@ export function App() {
         {view === 'graph' && <FragmentGraph />}
       </main>
     </div>
-  )
-}
-
-function NavItem({
-  icon,
-  label,
-  active,
-  onClick,
-}: {
-  icon: string
-  label: string
-  active: boolean
-  onClick: () => void
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={`nav-item${active ? ' active' : ''}`}
-      aria-current={active ? 'page' : undefined}
-    >
-      <span style={{ fontSize: 'var(--text-lg)' }}>{icon}</span>
-      {label}
-    </button>
   )
 }
