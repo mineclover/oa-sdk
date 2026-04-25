@@ -114,7 +114,7 @@ export function DiffView({
           <BreakingPanel changes={diff.breakingDiff} />
         )}
         {tab === 'fragments' && diff && (
-          <FragmentsPanel fragments={diff.affectedFragments} />
+          <FragmentsPanel fragments={diff.affectedFragments} baseId={baseId} headId={headId} />
         )}
       </div>
     </div>
@@ -429,7 +429,32 @@ function BreakingPanel({ changes }: { changes: BreakingChange[] }) {
 
 // ─────────────────── Fragments panel ───────────────────
 
-function FragmentsPanel({ fragments }: { fragments: string[] }) {
+function FragmentsPanel({
+  fragments,
+  baseId,
+  headId,
+}: {
+  fragments: string[]
+  baseId: string
+  headId: string
+}) {
+  const [selectedFile, setSelectedFile] = useState<string | null>(null)
+
+  const { data: baseSnap } = useQuery({
+    queryKey: ['snapshot', baseId, 'entries'],
+    queryFn: () => api.snapshot(baseId, true),
+    enabled: selectedFile !== null,
+  })
+
+  const { data: headSnap } = useQuery({
+    queryKey: ['snapshot', headId, 'entries'],
+    queryFn: () => api.snapshot(headId, true),
+    enabled: selectedFile !== null,
+  })
+
+  const baseEntry = selectedFile ? baseSnap?.entries?.find(e => e.relativePath === selectedFile) : undefined
+  const headEntry = selectedFile ? headSnap?.entries?.find(e => e.relativePath === selectedFile) : undefined
+
   if (fragments.length === 0) {
     return (
       <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)' }}>
@@ -437,28 +462,62 @@ function FragmentsPanel({ fragments }: { fragments: string[] }) {
       </div>
     )
   }
+
   return (
-    <div style={{ overflowY: 'auto', padding: 20 }}>
-      <div style={{ color: 'var(--text-muted)', fontSize: 12, marginBottom: 12 }}>
-        {fragments.length} file{fragments.length !== 1 ? 's' : ''} changed
+    <div style={{ display: 'flex', height: '100%', overflow: 'hidden' }}>
+      {/* File list */}
+      <div style={{ width: 280, borderRight: '1px solid var(--border)', overflowY: 'auto', flexShrink: 0 }}>
+        <div style={{ padding: '8px 12px', fontSize: 11, color: 'var(--text-muted)', borderBottom: '1px solid var(--border-muted)' }}>
+          {fragments.length} file{fragments.length !== 1 ? 's' : ''} changed · click to view
+        </div>
+        <ul style={{ listStyle: 'none' }}>
+          {fragments.map(f => (
+            <li
+              key={f}
+              onClick={() => setSelectedFile(f === selectedFile ? null : f)}
+              style={{
+                fontFamily: 'var(--font-mono)',
+                fontSize: 11,
+                padding: '7px 12px',
+                cursor: 'pointer',
+                borderBottom: '1px solid var(--border-muted)',
+                background: selectedFile === f ? 'var(--bg-hover)' : undefined,
+                color: selectedFile === f ? 'var(--text-primary)' : 'var(--text-secondary)',
+                wordBreak: 'break-all',
+              }}
+            >
+              {f.split('/').pop()}
+              <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 1 }}>
+                {f.split('/').slice(0, -1).join('/')}
+              </div>
+            </li>
+          ))}
+        </ul>
       </div>
-      <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 4 }}>
-        {fragments.map(f => (
-          <li
-            key={f}
-            style={{
-              fontFamily: 'var(--font-mono)',
-              fontSize: 12,
-              color: 'var(--text-primary)',
-              padding: '5px 10px',
-              background: 'var(--bg-elevated)',
-              borderRadius: 'var(--radius-sm)',
-            }}
-          >
-            {f}
-          </li>
-        ))}
-      </ul>
+
+      {/* File diff */}
+      <div style={{ flex: 1, overflow: 'auto' }}>
+        {selectedFile === null ? (
+          <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>
+            Select a file to view its content
+          </div>
+        ) : (!baseSnap || !headSnap) ? (
+          <div style={{ display: 'flex', justifyContent: 'center', padding: 40 }}>
+            <Spinner size={20} />
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            <div style={{ padding: '6px 12px', background: 'var(--bg-surface)', borderBottom: '1px solid var(--border)', fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
+              {selectedFile}
+            </div>
+            <SplitDiff
+              original={baseEntry?.content ?? ''}
+              modified={headEntry?.content ?? ''}
+              kind={baseEntry === undefined ? 'added' : headEntry === undefined ? 'removed' : 'changed'}
+            />
+          </div>
+        )}
+      </div>
     </div>
   )
 }

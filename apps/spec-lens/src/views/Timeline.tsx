@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api, type SpecTimelineEntry } from '../api/client.js'
 import { Badge, DiffBadges } from '../components/Badge.js'
@@ -30,10 +31,11 @@ export function Timeline({
   onSelectDiff: (baseId: string, headId: string) => void
 }) {
   const qc = useQueryClient()
+  const [limit, setLimit] = useState(100)
 
   const { data: entries, isLoading, error } = useQuery({
-    queryKey: ['timeline'],
-    queryFn: () => api.timeline(100),
+    queryKey: ['timeline', limit],
+    queryFn: () => api.timeline(limit),
     refetchInterval: 30000,
   })
 
@@ -72,13 +74,32 @@ export function Timeline({
           flexShrink: 0,
         }}
       >
-        <div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <span style={{ fontWeight: 600 }}>Timeline</span>
           {entries && (
-            <span style={{ marginLeft: 8, color: 'var(--text-muted)', fontSize: 12 }}>
+            <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>
               {entries.length} revision{entries.length !== 1 ? 's' : ''}
             </span>
           )}
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <select
+            value={limit}
+            onChange={e => setLimit(Number(e.target.value))}
+            style={{
+              padding: '4px 8px',
+              background: 'var(--bg-elevated)',
+              border: '1px solid var(--border)',
+              borderRadius: 'var(--radius-md)',
+              color: 'var(--text-secondary)',
+              fontSize: 12,
+              cursor: 'pointer',
+            }}
+          >
+            {[50, 100, 200, 500].map(n => (
+              <option key={n} value={n}>최근 {n}개</option>
+            ))}
+          </select>
         </div>
         <button
           onClick={() => refresh.mutate()}

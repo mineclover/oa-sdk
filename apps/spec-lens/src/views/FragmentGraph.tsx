@@ -5,6 +5,14 @@ import { api, type SpecGraph } from '../api/client.js'
 import { Badge } from '../components/Badge.js'
 import { Spinner } from '../components/Spinner.js'
 
+function formatRelativeTime(ts: number): string {
+  const diff = Date.now() - ts
+  const days = Math.floor(diff / 86400000)
+  if (days < 1) return 'today'
+  if (days < 30) return `${days}d ago`
+  return new Date(ts).toLocaleDateString()
+}
+
 const SCOPE_COLORS: Record<string, string> = {
   public:   '#58a6ff',
   shared:   '#3fb950',
@@ -43,10 +51,19 @@ export function FragmentGraph() {
   const [selected, setSelected] = useState<NodeDatum | null>(null)
   const [kindFilter, setKindFilter] = useState<string>('')
   const [scopeFilter, setScopeFilter] = useState<string>('')
+  const [selectedRevisionId, setSelectedRevisionId] = useState<string>('')
+
+  const { data: timeline } = useQuery({
+    queryKey: ['timeline'],
+    queryFn: () => api.timeline(100),
+  })
+
+  const revisionId = selectedRevisionId || timeline?.[0]?.revision.id
 
   const { data: graph, isLoading } = useQuery({
-    queryKey: ['graph'],
-    queryFn: () => api.graph(),
+    queryKey: ['graph', revisionId],
+    queryFn: () => api.graph(revisionId),
+    enabled: revisionId !== undefined,
   })
 
   useEffect(() => {
@@ -175,6 +192,20 @@ export function FragmentGraph() {
           <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>
             {graph.nodes.length} nodes · {graph.edges.length} edges
           </span>
+        )}
+        {/* Revision selector */}
+        {timeline && timeline.length > 0 && (
+          <select
+            value={selectedRevisionId || (timeline[0]?.revision.id ?? '')}
+            onChange={e => setSelectedRevisionId(e.target.value)}
+            style={{ ...filterStyle, minWidth: 220 }}
+          >
+            {timeline.filter(e => e.snapshotCached).map(e => (
+              <option key={e.revision.id} value={e.revision.id}>
+                {e.revision.shortId} · {e.revision.message.slice(0, 40)}{e.revision.message.length > 40 ? '…' : ''} ({formatRelativeTime(e.revision.timestamp)})
+              </option>
+            ))}
+          </select>
         )}
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
           <select value={kindFilter} onChange={e => setKindFilter(e.target.value)} style={filterStyle}>
