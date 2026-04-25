@@ -84,18 +84,7 @@ export function DiffView({
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       {/* Header */}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 12,
-          padding: '10px 20px',
-          borderBottom: '1px solid var(--border)',
-          background: 'var(--bg-surface)',
-          flexShrink: 0,
-          flexWrap: 'wrap',
-        }}
-      >
+      <div className="panel-hd" style={{ gap: 12 }}>
         <button onClick={onBack} style={backBtnStyle}>← Timeline</button>
         <CommitRange baseId={baseId} headId={headId} />
         {diff && <DiffStatLine stats={diff.stats} />}
@@ -194,19 +183,9 @@ function CategorySection({
 }) {
   return (
     <div style={{ borderBottom: '1px solid var(--border)' }}>
-      <div
-        style={{
-          padding: '8px 20px',
-          background: 'var(--bg-elevated)',
-          fontSize: 11,
-          fontWeight: 600,
-          color: 'var(--text-secondary)',
-          textTransform: 'uppercase',
-          letterSpacing: '0.05em',
-        }}
-      >
+      <div className="section-hd">
         {CATEGORY_LABELS[category] ?? category}
-        <span style={{ marginLeft: 6, fontWeight: 400, color: 'var(--text-muted)' }}>
+        <span className="label" style={{ marginLeft: 6, fontWeight: 400 }}>
           {entries.length}
         </span>
       </div>

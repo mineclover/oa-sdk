@@ -183,21 +183,10 @@ export function FragmentGraph() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       {/* Header */}
-      <div
-        style={{
-          padding: '12px 20px',
-          borderBottom: '1px solid var(--border)',
-          background: 'var(--bg-surface)',
-          flexShrink: 0,
-          display: 'flex',
-          alignItems: 'center',
-          gap: 10,
-          flexWrap: 'wrap',
-        }}
-      >
+      <div className="panel-hd">
         <span style={{ fontWeight: 600 }}>Fragment Graph</span>
         {graph && (
-          <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>
+          <span className="label">
             {graph.nodes.length} nodes · {graph.edges.length} edges
           </span>
         )}
@@ -205,7 +194,7 @@ export function FragmentGraph() {
         {timeline && timeline.length > 0 && (() => {
           const cached = timeline.filter(e => e.snapshotCached)
           if (cached.length === 0) {
-            return <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>No snapshots available</span>
+            return <span className="label">No snapshots available</span>
           }
           return (
             <Select
@@ -235,9 +224,9 @@ export function FragmentGraph() {
         {/* Scope legend */}
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           {Object.entries(SCOPE_COLORS).map(([scope, color]) => (
-            <span key={scope} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11 }}>
+            <span key={scope} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
               <span style={{ width: 8, height: 8, borderRadius: '50%', background: color, display: 'inline-block' }} />
-              <span style={{ color: 'var(--text-muted)' }}>{scope}</span>
+              <span className="label">{scope}</span>
             </span>
           ))}
         </div>
@@ -281,8 +270,8 @@ export function FragmentGraph() {
             <DetailRow label="ID" value={selected.id} mono small />
             <DetailRow label="Hash" value={selected.contentHash.slice(0, 12) + '…'} mono small />
             <div style={{ marginTop: 8 }}>
-              <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>Source</div>
-              <code style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--text-secondary)', wordBreak: 'break-all' }}>
+              <div className="label" style={{ marginBottom: 4 }}>Source</div>
+              <code className="subtle" style={{ fontSize: 10, fontFamily: 'var(--font-mono)', wordBreak: 'break-all' }}>
                 {selected.sourcePath.split('/').slice(-3).join('/')}
               </code>
             </div>
@@ -296,11 +285,11 @@ export function FragmentGraph() {
 function DetailRow({ label, value, mono, small }: { label: string; value: string; mono?: boolean; small?: boolean }) {
   return (
     <div style={{ marginBottom: 8 }}>
-      <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 2 }}>{label}</div>
+      <div className="label" style={{ marginBottom: 2 }}>{label}</div>
       <div
         style={{
           fontFamily: mono ? 'var(--font-mono)' : undefined,
-          fontSize: small ? 11 : 13,
+          fontSize: small ? 'var(--text-xs)' : 'var(--text-base)',
           color: 'var(--text-primary)',
           wordBreak: 'break-all',
         }}

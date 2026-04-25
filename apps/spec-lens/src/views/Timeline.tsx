@@ -65,23 +65,11 @@ export function Timeline({
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       {/* Header */}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: '12px 20px',
-          borderBottom: '1px solid var(--border)',
-          background: 'var(--bg-surface)',
-          flexShrink: 0,
-        }}
-      >
+      <div className="panel-hd" style={{ justifyContent: 'space-between' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <span style={{ fontWeight: 600 }}>Timeline</span>
           {entries && (
-            <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>
-              {entries.length} revision{entries.length !== 1 ? 's' : ''}
-            </span>
+            <span className="label">{entries.length} revision{entries.length !== 1 ? 's' : ''}</span>
           )}
         </div>
         <Select value={limit} onChange={e => setLimit(Number(e.target.value))}>
@@ -197,24 +185,10 @@ function TimelineRow({
             }}
           >
             {entry.affectedFiles.slice(0, 5).map(f => (
-              <span
-                key={f}
-                style={{
-                  fontSize: 11,
-                  fontFamily: 'var(--font-mono)',
-                  color: 'var(--text-muted)',
-                  background: 'var(--bg-elevated)',
-                  padding: '1px 5px',
-                  borderRadius: 3,
-                }}
-              >
-                {f.split('/').pop()}
-              </span>
+              <span key={f} className="code-tag">{f.split('/').pop()}</span>
             ))}
             {entry.affectedFiles.length > 5 && (
-              <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-                +{entry.affectedFiles.length - 5} more
-              </span>
+              <span className="label">+{entry.affectedFiles.length - 5} more</span>
             )}
           </div>
         )}
@@ -232,7 +206,7 @@ function TimelineRow({
             />
         }
         {hasDiff && entry.snapshotCached && (
-          <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>view diff →</span>
+          <span className="label">view diff →</span>
         )}
       </div>
     </div>

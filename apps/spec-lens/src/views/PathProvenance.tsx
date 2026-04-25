@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { Fragment, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { api, type SpecPathEntry } from '../api/client.js'
 import { Badge } from '../components/Badge.js'
@@ -64,23 +64,11 @@ export function PathProvenance() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       {/* Header */}
-      <div
-        style={{
-          padding: '12px 20px',
-          borderBottom: '1px solid var(--border)',
-          background: 'var(--bg-surface)',
-          flexShrink: 0,
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 10,
-        }}
-      >
+      <div className="panel-hd" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 10 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <span style={{ fontWeight: 600 }}>Path Provenance</span>
           {paths && (
-            <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>
-              {filtered.length} / {paths.length} paths
-            </span>
+            <span className="label">{filtered.length} / {paths.length} paths</span>
           )}
         </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -148,65 +136,99 @@ export function PathProvenance() {
 }
 
 function PathRow({ entry }: { entry: SpecPathEntry }) {
+  const [open, setOpen] = useState(false)
   const pathParts = entry.canonicalId.split(':')
   const kindPart = pathParts[0] ?? ''
   const pathPart = pathParts[1] ?? ''
 
   return (
-    <tr
-      style={{ borderBottom: '1px solid var(--border-muted)' }}
-    >
-      <td style={{ padding: '8px 12px' }}>
-        <code style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-primary)' }}>
-          {entry.path}
-        </code>
-      </td>
-      <td style={{ padding: '8px 12px' }}>
-        <div style={{ display: 'flex', gap: 3, flexWrap: 'wrap' }}>
-          {entry.methods.map(m => <MethodBadge key={m} method={m} />)}
-        </div>
-      </td>
-      <td style={{ padding: '8px 12px' }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-          <code style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-secondary)' }}>
-            {pathPart}
+    <Fragment>
+      <tr
+        className="hoverable"
+        style={{ borderBottom: open ? undefined : '1px solid var(--border-muted)' }}
+        onClick={() => setOpen(o => !o)}
+      >
+        <td style={{ padding: '8px 12px' }}>
+          <code style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-primary)' }}>
+            {entry.path}
           </code>
-          {kindPart && <Badge variant="muted">{kindPart}</Badge>}
-        </div>
-      </td>
-      <td style={{ padding: '8px 12px' }}>
-        <Badge variant="blue">{entry.scope}</Badge>
-      </td>
-      <td style={{ padding: '8px 12px' }}>
-        <Badge variant="purple">{entry.domain}</Badge>
-      </td>
-      <td style={{ padding: '8px 12px' }}>
-        <code
-          style={{
-            fontFamily: 'var(--font-mono)',
-            fontSize: 11,
-            color: 'var(--text-muted)',
-            maxWidth: 200,
-            display: 'inline-block',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-            verticalAlign: 'middle',
-          }}
-          title={entry.sourceFile}
-        >
-          {entry.sourceFile.split('/').slice(-2).join('/')}
-        </code>
-      </td>
-      <td style={{ padding: '8px 12px', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
-        <code style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-secondary)' }}>
-          {entry.lastChangedRevisionId.slice(0, 7)}
-        </code>
-        <span style={{ marginLeft: 6, fontSize: 11 }}>
-          {formatRelativeTime(entry.lastChangedTimestamp)}
-        </span>
-      </td>
-    </tr>
+        </td>
+        <td style={{ padding: '8px 12px' }}>
+          <div style={{ display: 'flex', gap: 3, flexWrap: 'wrap' }}>
+            {entry.methods.map(m => <MethodBadge key={m} method={m} />)}
+          </div>
+        </td>
+        <td style={{ padding: '8px 12px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <code style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-secondary)' }}>
+              {pathPart}
+            </code>
+            {kindPart && <Badge variant="muted">{kindPart}</Badge>}
+          </div>
+        </td>
+        <td style={{ padding: '8px 12px' }}>
+          <Badge variant="blue">{entry.scope}</Badge>
+        </td>
+        <td style={{ padding: '8px 12px' }}>
+          <Badge variant="purple">{entry.domain}</Badge>
+        </td>
+        <td style={{ padding: '8px 12px' }}>
+          <code
+            className="subtle"
+            style={{
+              fontFamily: 'var(--font-mono)',
+              fontSize: 11,
+              maxWidth: 200,
+              display: 'inline-block',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+              verticalAlign: 'middle',
+            }}
+            title={entry.sourceFile}
+          >
+            {entry.sourceFile.split('/').slice(-2).join('/')}
+          </code>
+        </td>
+        <td style={{ padding: '8px 12px', whiteSpace: 'nowrap' }}>
+          <code style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-secondary)' }}>
+            {entry.lastChangedRevisionId.slice(0, 7)}
+          </code>
+          <span className="label" style={{ marginLeft: 6 }}>
+            {formatRelativeTime(entry.lastChangedTimestamp)}
+          </span>
+        </td>
+      </tr>
+      {open && (
+        <tr style={{ borderBottom: '1px solid var(--border-muted)', background: 'var(--bg-elevated)' }}>
+          <td colSpan={7} style={{ padding: '10px 16px' }}>
+            <div style={{ display: 'flex', gap: 32, flexWrap: 'wrap' }}>
+              <DetailField label="Canonical ID">
+                <code className="code-tag" style={{ fontSize: 11 }}>{entry.canonicalId}</code>
+              </DetailField>
+              <DetailField label="Source File">
+                <code className="code-tag" style={{ fontSize: 11 }}>{entry.sourceFile}</code>
+              </DetailField>
+              <DetailField label="Content Hash">
+                <code className="code-tag" style={{ fontSize: 11 }}>{entry.contentHash.slice(0, 16)}…</code>
+              </DetailField>
+              <DetailField label="Last Changed Revision">
+                <code className="code-tag" style={{ fontSize: 11 }}>{entry.lastChangedRevisionId}</code>
+              </DetailField>
+            </div>
+          </td>
+        </tr>
+      )}
+    </Fragment>
+  )
+}
+
+function DetailField({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+      <span className="label">{label}</span>
+      {children}
+    </div>
   )
 }
 
