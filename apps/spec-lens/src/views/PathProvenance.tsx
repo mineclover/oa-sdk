@@ -5,7 +5,8 @@ import { Badge } from '../components/Badge.js'
 import { Input } from '../components/Input.js'
 import { Select } from '../components/Select.js'
 import { Spinner } from '../components/Spinner.js'
-import { useLocale, formatRelativeTimeCompact } from '../i18n/index.js'
+import { useTranslation } from 'react-i18next'
+import { formatRelativeTimeCompact } from '../i18n/index.js'
 
 const METHOD_COLORS: Record<string, string> = {
   get: 'var(--blue)',
@@ -38,7 +39,7 @@ function MethodBadge({ method }: { method: string }) {
 }
 
 export function PathProvenance() {
-  const { t } = useLocale()
+  const { t } = useTranslation()
   const [scopeFilter, setScopeFilter] = useState('')
   const [domainFilter, setDomainFilter] = useState('')
   const [search, setSearch] = useState('')
@@ -56,13 +57,13 @@ export function PathProvenance() {
   ) ?? []
 
   const TABLE_HEADERS = [
-    t.pathsColPath,
-    t.pathsColMethods,
-    t.pathsColCanonicalId,
-    t.pathsColScope,
-    t.pathsColDomain,
-    t.pathsColSourceFile,
-    t.pathsColLastChanged,
+    t('pathsColPath'),
+    t('pathsColMethods'),
+    t('pathsColCanonicalId'),
+    t('pathsColScope'),
+    t('pathsColDomain'),
+    t('pathsColSourceFile'),
+    t('pathsColLastChanged'),
   ]
 
   return (
@@ -70,24 +71,24 @@ export function PathProvenance() {
       {/* Header */}
       <div className="panel-hd" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 10 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span style={{ fontWeight: 600 }}>{t.pathsTitle}</span>
+          <span style={{ fontWeight: 600 }}>{t('pathsTitle')}</span>
           {paths && (
-            <span className="label">{t.pathsCount(filtered.length, paths.length)}</span>
+            <span className="label">{t('pathsCount', { filtered: filtered.length, total: paths.length })}</span>
           )}
         </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <Input
-            placeholder={t.pathsSearch}
+            placeholder={t('pathsSearch')}
             value={search}
             onChange={e => setSearch(e.target.value)}
             style={{ minWidth: 160 }}
           />
           <Select value={scopeFilter} onChange={e => setScopeFilter(e.target.value)}>
-            <option value="">{t.pathsAllScopes}</option>
+            <option value="">{t('pathsAllScopes')}</option>
             {allScopes.map(s => <option key={s} value={s}>{s}</option>)}
           </Select>
           <Select value={domainFilter} onChange={e => setDomainFilter(e.target.value)}>
-            <option value="">{t.pathsAllDomains}</option>
+            <option value="">{t('pathsAllDomains')}</option>
             {allDomains.map(d => <option key={d} value={d}>{d}</option>)}
           </Select>
         </div>
@@ -127,7 +128,7 @@ export function PathProvenance() {
               {filtered.length === 0 && (
                 <tr>
                   <td colSpan={7} style={{ padding: 32, textAlign: 'center', color: 'var(--text-muted)' }}>
-                    {t.pathsEmpty}
+                    {t('pathsEmpty')}
                   </td>
                 </tr>
               )}
@@ -140,7 +141,7 @@ export function PathProvenance() {
 }
 
 function PathRow({ entry }: { entry: SpecPathEntry }) {
-  const { t } = useLocale()
+  const { t } = useTranslation()
   const [open, setOpen] = useState(false)
   const pathParts = entry.canonicalId.split(':')
   const kindPart = pathParts[0] ?? ''
@@ -208,16 +209,16 @@ function PathRow({ entry }: { entry: SpecPathEntry }) {
         <tr style={{ borderBottom: '1px solid var(--border-muted)', background: 'var(--bg-elevated)' }}>
           <td colSpan={7} style={{ padding: '10px 16px' }}>
             <div style={{ display: 'flex', gap: 32, flexWrap: 'wrap' }}>
-              <DetailField label={t.pathsDetailCanonicalId}>
+              <DetailField label={t('pathsDetailCanonicalId')}>
                 <code className="code-tag" style={{ fontSize: 11 }}>{entry.canonicalId}</code>
               </DetailField>
-              <DetailField label={t.pathsDetailSourceFile}>
+              <DetailField label={t('pathsDetailSourceFile')}>
                 <code className="code-tag" style={{ fontSize: 11 }}>{entry.sourceFile}</code>
               </DetailField>
-              <DetailField label={t.pathsDetailContentHash}>
+              <DetailField label={t('pathsDetailContentHash')}>
                 <code className="code-tag" style={{ fontSize: 11 }}>{entry.contentHash.slice(0, 16)}…</code>
               </DetailField>
-              <DetailField label={t.pathsDetailLastRevision}>
+              <DetailField label={t('pathsDetailLastRevision')}>
                 <code className="code-tag" style={{ fontSize: 11 }}>{entry.lastChangedRevisionId}</code>
               </DetailField>
             </div>

@@ -1,3 +1,3 @@
-export { LocaleProvider, useLocale } from './context.js'
+export { i18n } from './config.js'
 export { formatRelativeTimeFull, formatRelativeTimeCompact } from './utils.js'
-export type { Locale, Translations } from './translations.js'
+export type { TranslationKeys } from './locales/en.js'

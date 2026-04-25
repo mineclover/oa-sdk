@@ -1,4 +1,4 @@
-import { useLocale } from '../i18n/index.js'
+import { useTranslation } from 'react-i18next'
 
 // Line-level side-by-side diff renderer (no CDN dependency)
 
@@ -141,7 +141,7 @@ export function SplitDiff({
   modified: string
   kind: 'added' | 'removed' | 'changed'
 }) {
-  const { t } = useLocale()
+  const { t } = useTranslation()
   const ops = diffLines(original, modified)
   const rows = toAlignedRows(ops)
 
@@ -151,21 +151,21 @@ export function SplitDiff({
   return (
     <div style={{ display: 'flex', fontFamily: 'var(--font-mono)', fontSize: 12, lineHeight: '20px', overflow: 'auto' }}>
       <Panel
-        title={t.splitBefore}
+        title={t('splitBefore')}
         side="left"
         rows={rows}
         lineNos={leftLineNos}
         hidden={kind === 'added'}
-        notExistLabel={t.splitNotExistBefore}
+        notExistLabel={t('splitNotExistBefore')}
       />
       <div style={{ width: 1, background: 'var(--border)', flexShrink: 0 }} />
       <Panel
-        title={t.splitAfter}
+        title={t('splitAfter')}
         side="right"
         rows={rows}
         lineNos={rightLineNos}
         hidden={kind === 'removed'}
-        notExistLabel={t.splitNoLongerExists}
+        notExistLabel={t('splitNoLongerExists')}
       />
     </div>
   )

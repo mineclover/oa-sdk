@@ -2,7 +2,7 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { App } from './App.js'
-import { LocaleProvider } from './i18n/index.js'
+import './i18n/config.js' // initialise i18next before render
 import './styles/global.css'
 
 const queryClient = new QueryClient({
@@ -19,10 +19,8 @@ if (!root) throw new Error('#root not found')
 
 createRoot(root).render(
   <StrictMode>
-    <LocaleProvider>
-      <QueryClientProvider client={queryClient}>
-        <App />
-      </QueryClientProvider>
-    </LocaleProvider>
+    <QueryClientProvider client={queryClient}>
+      <App />
+    </QueryClientProvider>
   </StrictMode>,
 )

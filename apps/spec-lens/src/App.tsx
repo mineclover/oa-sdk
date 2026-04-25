@@ -1,22 +1,21 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Timeline } from './views/Timeline.js'
 import { DiffView } from './views/DiffView.js'
 import { PathProvenance } from './views/PathProvenance.js'
 import { FragmentGraph } from './views/FragmentGraph.js'
-import { useLocale } from './i18n/index.js'
-import type { Locale } from './i18n/index.js'
 
 type View = 'timeline' | 'diff' | 'paths' | 'graph'
 
 export function App() {
-  const { t, locale, setLocale } = useLocale()
+  const { t, i18n } = useTranslation()
   const [view, setView] = useState<View>('timeline')
   const [diffIds, setDiffIds] = useState<{ base: string; head: string } | null>(null)
 
   const NAV_ITEMS: Array<{ id: Exclude<View, 'diff'>; label: string; icon: string }> = [
-    { id: 'timeline', label: t.navTimeline, icon: '⏱' },
-    { id: 'paths',    label: t.navPaths,    icon: '⚡' },
-    { id: 'graph',    label: t.navGraph,    icon: '◎' },
+    { id: 'timeline', label: t('navTimeline'), icon: '⏱' },
+    { id: 'paths',    label: t('navPaths'),    icon: '⚡' },
+    { id: 'graph',    label: t('navGraph'),    icon: '◎' },
   ]
 
   function openDiff(baseId: string, headId: string) {
@@ -29,8 +28,13 @@ export function App() {
     setDiffIds(null)
   }
 
+  function toggleLang() {
+    const next = i18n.language === 'ko' ? 'en' : 'ko'
+    localStorage.setItem('spec-lens-locale', next)
+    void i18n.changeLanguage(next)
+  }
+
   const activeNav = view === 'diff' ? 'timeline' : view
-  const nextLocale: Locale = locale === 'ko' ? 'en' : 'ko'
 
   return (
     <div style={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
@@ -84,13 +88,9 @@ export function App() {
             justifyContent: 'space-between',
           }}
         >
-          <span className="label">{t.appFooter}</span>
-          <button
-            className="lang-btn"
-            onClick={() => setLocale(nextLocale)}
-            title={t.langToggle}
-          >
-            {t.langToggle}
+          <span className="label">{t('appFooter')}</span>
+          <button className="lang-btn" onClick={toggleLang}>
+            {t('langToggle')}
           </button>
         </div>
       </nav>

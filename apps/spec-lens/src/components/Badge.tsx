@@ -36,7 +36,7 @@ export function Badge({
   )
 }
 
-import { useLocale } from '../i18n/index.js'
+import { useTranslation } from 'react-i18next'
 
 export function DiffBadges({
   added,
@@ -49,7 +49,7 @@ export function DiffBadges({
   changed: number
   breaking: number
 }) {
-  const { t } = useLocale()
+  const { t } = useTranslation()
   return (
     <span style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
       {added > 0 && <Badge variant="green">+{added}</Badge>}
@@ -57,7 +57,7 @@ export function DiffBadges({
       {changed > 0 && <Badge variant="blue">~{changed}</Badge>}
       {breaking > 0 && <Badge variant="amber">⚡{breaking}</Badge>}
       {added === 0 && removed === 0 && changed === 0 && (
-        <Badge variant="muted">{t.noChanges}</Badge>
+        <Badge variant="muted">{t('noChanges')}</Badge>
       )}
     </span>
   )
