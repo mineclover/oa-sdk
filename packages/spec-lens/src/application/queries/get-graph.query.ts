@@ -50,9 +50,7 @@ function buildGraph(snapshot: SpecSnapshotStored): SpecGraph {
   // Deduplicate nodes by canonicalId
   const nodeMap = new Map(nodes.map(n => [n.id, n]))
 
-  // Build $ref edges from provenance diff pointers — use provenanceDiff from snapshot
-  // For graph edges we use the component relationships embedded in the spec
-  const edges = buildEdgesFromSpec(snapshot.spec)
+  const edges = buildEdgesFromSpec(snapshot.spec, snapshot.provenance)
 
   return {
     nodes: [...nodeMap.values()],
@@ -60,10 +58,21 @@ function buildGraph(snapshot: SpecSnapshotStored): SpecGraph {
   }
 }
 
-function buildEdgesFromSpec(spec: Record<string, unknown> | null): SpecGraph['edges'] {
+function buildEdgesFromSpec(
+  spec: Record<string, unknown> | null,
+  provenance: Record<string, unknown>,
+): SpecGraph['edges'] {
   if (spec === null) return []
+
+  // Map output JSON pointer → canonicalId (e.g. "#/components/schemas/User" → "schema:public/users/User")
+  const pointerToId = new Map<string, string>()
+  for (const [ptr, rawEntry] of Object.entries(provenance)) {
+    const entry = rawEntry as BuildSpecProvenanceEntry
+    if (typeof entry.canonicalId === 'string') pointerToId.set(ptr, entry.canonicalId)
+  }
+
   const edges: SpecGraph['edges'] = []
-  collectRefs(spec, '#', edges, undefined, new WeakSet())
+  collectRefs(spec, '#', edges, undefined, new WeakSet(), pointerToId)
   return edges
 }
 
@@ -73,25 +82,33 @@ function collectRefs(
   edges: SpecGraph['edges'],
   sourceId: string | undefined,
   visited: WeakSet<object>,
+  pointerToId: Map<string, string>,
 ): void {
   if (typeof value !== 'object' || value === null) return
   if (visited.has(value)) return
   visited.add(value)
 
   if (Array.isArray(value)) {
-    value.forEach((item, i) => collectRefs(item, `${pointer}/${i}`, edges, sourceId, visited))
+    value.forEach((item, i) =>
+      collectRefs(item, `${pointer}/${i}`, edges, sourceId, visited, pointerToId),
+    )
     return
   }
+
   const obj = value as Record<string, unknown>
+  // If this pointer is a known node, it becomes the source for nested refs
+  const currentId = pointerToId.get(pointer) ?? sourceId
+
   if (typeof obj['$ref'] === 'string') {
-    const ref = obj['$ref'] as string
-    if (sourceId !== undefined) {
-      edges.push({ source: sourceId, target: ref, refPointer: pointer })
+    const targetId = pointerToId.get(obj['$ref'])
+    if (currentId !== undefined && targetId !== undefined && currentId !== targetId) {
+      edges.push({ source: currentId, target: targetId, refPointer: pointer })
     }
     // Don't return — OAS 3.1 allows sibling properties alongside $ref
   }
+
   for (const [key, child] of Object.entries(obj)) {
     if (key === '$ref') continue
-    collectRefs(child, `${pointer}/${key}`, edges, sourceId ?? pointer, visited)
+    collectRefs(child, `${pointer}/${key}`, edges, currentId, visited, pointerToId)
   }
 }

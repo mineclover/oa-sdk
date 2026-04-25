@@ -90,7 +90,6 @@ export function DiffView({
         <button onClick={onBack} style={backBtnStyle}>{t('diffBack')}</button>
         <CommitRange baseId={baseId} headId={headId} />
         {diff && <DiffStatLine stats={diff.stats} />}
-        {isLoading && <Spinner size={14} />}
       </div>
 
       {/* Tabs */}

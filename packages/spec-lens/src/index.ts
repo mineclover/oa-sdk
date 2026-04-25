@@ -47,7 +47,6 @@ export {
   LocalGitAdapter,
   SnapshotBuilder,
   SqliteCache,
-  buildCacheKey,
   buildTargetConfigDigest,
 } from './infrastructure/index.js'
 export type {

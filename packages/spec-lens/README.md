@@ -72,7 +72,8 @@ src/
 | `GET` | `/api/snapshot/:revisionId?include=entries` | + fragment 원문 포함 |
 | `GET` | `/api/diff/:baseId/:headId` | 두 revision 간 diff |
 | `GET` | `/api/paths` | 현재 스펙의 path 목록 + provenance (Read Model) |
-| `GET` | `/api/graph` | fragment $ref 의존 그래프 |
+| `GET` | `/api/graph` | fragment $ref 의존 그래프 (최신 revision) |
+| `GET` | `/api/graph?revision=:id` | 특정 revision의 fragment 그래프 |
 
 ---
 

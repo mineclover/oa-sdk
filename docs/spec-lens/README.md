@@ -129,7 +129,7 @@ Monaco Editor 기반이므로 전체 파일을 스크롤하며 확인할 때 사
 
 ### Diff — Fragments 탭
 
-변경에 관여한 **definition fragment 파일 목록**. 어느 `.yaml` 파일이 이 커밋에서 바뀌었는지 확인한다.
+변경에 관여한 **definition fragment 파일 목록**. 파일명을 클릭하면 해당 `.yaml` 파일의 Before/After 인라인 diff가 펼쳐진다.
 
 ---
 
@@ -147,33 +147,28 @@ Monaco Editor 기반이므로 전체 파일을 스크롤하며 확인할 때 사
 | Source File | 이 path를 정의하는 fragment 파일 |
 | Last Changed | 마지막으로 변경된 커밋 SHA + 시간 |
 
-scope / domain 드롭다운과 검색창으로 필터링 가능하다.
+scope / domain 드롭다운과 검색창으로 필터링 가능하다. 행을 클릭하면 Canonical ID · 전체 소스 파일 경로 · Content Hash · 마지막 변경 revision 상세 정보가 확장된다.
 
 ---
 
 ### Fragment Graph
 
-최신 revision의 definition fragment들 사이의 `$ref` 의존 관계를 D3 force-directed 그래프로 시각화한다.
+선택한 revision의 definition fragment들 사이의 `$ref` 의존 관계를 D3 force-directed 그래프로 시각화한다.
 
 - **노드**: fragment 하나 (schema, operation, path, response 등)
 - **엣지**: `$ref` 참조 방향
 - **색상**: scope별 구분
   - 파랑 `public` · 초록 `shared` · 주황 `admin` · 보라 `internal`
+- 상단 드롭다운으로 **revision 선택** (캐시된 revision만 표시)
 - 노드를 클릭하면 우측 패널에 상세 정보 표시
 - 마우스 휠 줌 / 드래그 이동 지원
 - kind / scope 드롭다운으로 필터링 가능
 
 ---
 
-## UI에서 미구현된 API 기능
+## 언어 설정
 
-다음 기능은 HTTP API로는 지원되지만 현재 UI에서 접근할 수 없다.
-
-| 기능 | API | 우선순위 |
-|------|-----|---------|
-| 특정 revision의 fragment 그래프 조회 | `GET /api/graph?revision=:id` | 높음 — 스펙 변경 시점의 의존 관계 파악 |
-| fragment 파일 원문 조회 | `GET /api/snapshot/:id?include=entries` | 중간 — 변경된 fragment 파일 내용 확인 |
-| 타임라인 표시 개수 조정 | `GET /api/timeline?limit=N` | 낮음 — 현재 100개 고정 |
+사이드바 하단의 **`EN` / `한국어`** 버튼으로 UI 언어를 전환한다. 선택한 언어는 `localStorage`에 저장되어 다음 방문 시에도 유지된다. 기본값은 한국어.
 
 ---
 
@@ -186,7 +181,7 @@ scope / domain 드롭다운과 검색창으로 필터링 가능하다.
 │  GET  /api/snapshot/:id   GetSnapshotHandler        │  Query
 │  GET  /api/diff/:b/:h     GetDiffHandler            │  Query
 │  GET  /api/paths          GetPathsHandler           │  Query  (Read Model)
-│  GET  /api/graph          GetGraphHandler           │  Query
+│  GET  /api/graph[?revision=:id] GetGraphHandler     │  Query
 └────────────────────┬────────────────────────────────┘
                      │ Ports (interface)
 ┌─ Infrastructure ───────────────────────────────────┐
