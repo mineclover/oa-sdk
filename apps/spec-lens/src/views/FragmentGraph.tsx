@@ -62,7 +62,7 @@ export function FragmentGraph() {
 
   const { data: graph, isLoading } = useQuery({
     queryKey: ['graph', revisionId ?? null],
-    queryFn: () => api.graph(revisionId!),
+    queryFn: () => api.graph(revisionId),
     enabled: !!revisionId,
   })
 

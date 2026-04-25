@@ -38,6 +38,39 @@ export type ProvenanceEntry = {
   contentHash: string
 }
 
+export type ProvenanceDiffEntry = {
+  kind: 'added' | 'removed' | 'changed'
+  pointer: string
+  message: string
+  base?: ProvenanceEntry
+  head?: ProvenanceEntry
+}
+
+export type SpecCompositionReport = {
+  schemaVersion: string
+  target: {
+    name: string
+    targetPath: string
+    fragmentsDir: string
+    scopes: string[]
+    domains: string[]
+    includePaths: string[]
+    includeDefinitions: string[]
+  }
+  summary: {
+    registryNodeCount: number
+    selectedNodeCount: number
+    directPathCount: number
+    directDefinitionCount: number
+    transitiveComponentCount: number
+    omittedNodeCount: number
+    sourceRefCount: number
+    outputAliasCount: number
+    renamedOutputAliasCount: number
+    collisionReportCount: number
+  }
+}
+
 export type SpecSnapshot = {
   schemaVersion: string
   revision: SpecRevision
@@ -46,6 +79,7 @@ export type SpecSnapshot = {
   targetConfigDigest: string
   spec: Record<string, unknown> | null
   provenance: Record<string, ProvenanceEntry>
+  composition: SpecCompositionReport
   diagnostics: Array<{ code: string; severity: string; message: string; pointer?: string; sourcePath?: string }>
   builtAt: number
   entries?: SpecFileEntry[]
@@ -71,6 +105,7 @@ export type SpecTimelineDiff = {
   headRevision: SpecRevision
   normalizedDiff: DiffEntry[]
   breakingDiff: BreakingChange[]
+  provenanceDiff: ProvenanceDiffEntry[]
   affectedFragments: string[]
   stats: {
     pathsAdded: number

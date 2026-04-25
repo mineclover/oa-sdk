@@ -107,7 +107,7 @@ async function main() {
     cache,
     builder,
     fragmentsDir,
-    targetPath: targetConfig.name,
+    targetPath,
     targetConfig,
     ...(cfg.branch !== undefined ? { branch: cfg.branch } : {}),
     port,

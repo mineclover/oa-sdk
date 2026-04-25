@@ -39,6 +39,11 @@ export function createSpecLensServer(config: SpecLensServerConfig): Hono {
 
   app.use('/api/*', cors())
 
+  app.onError((err, c) => {
+    console.error(err)
+    return c.json({ error: err instanceof Error ? err.message : String(err) }, 500)
+  })
+
   // 🔴 Command: RefreshTimeline
   app.post('/api/refresh', async (c) => {
     const result = await refresh.handle({

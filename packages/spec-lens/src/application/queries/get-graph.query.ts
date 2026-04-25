@@ -26,8 +26,9 @@ export class GetGraphHandler {
 }
 
 function buildGraph(snapshot: SpecSnapshotStored): SpecGraph {
-  const nodes = Object.entries(snapshot.provenance).map(([pointer, rawEntry]) => {
+  const nodes = Object.entries(snapshot.provenance).flatMap(([pointer, rawEntry]) => {
     const entry = rawEntry as BuildSpecProvenanceEntry
+    if (typeof entry.canonicalId !== 'string') return []
     const parts = entry.canonicalId.split(':')
     const kindPart = parts[0] ?? ''
     const pathPart = parts[1] ?? ''
@@ -36,7 +37,7 @@ function buildGraph(snapshot: SpecSnapshotStored): SpecGraph {
     const domain = segments[1] ?? ''
     const localName = segments.slice(2).join('/') || pointer
 
-    return {
+    return [{
       id: entry.canonicalId,
       kind: kindPart,
       scope,
@@ -44,7 +45,7 @@ function buildGraph(snapshot: SpecSnapshotStored): SpecGraph {
       localName,
       sourcePath: entry.sourcePath,
       contentHash: entry.contentHash,
-    }
+    }]
   })
 
   // Deduplicate nodes by canonicalId
