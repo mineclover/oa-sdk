@@ -80,14 +80,15 @@ export class GithubAdapter implements SpecSourcePort {
       )
     }
 
-    const prefix = fragmentsDir.replace(/^\//, '').replace(/\/$/, '') + '/'
+    const normalized = fragmentsDir.replace(/^\//, '').replace(/\/$/, '')
+    const prefix = normalized === '' ? '' : normalized + '/'
     const fileItems = tree.tree.filter(
-      item => item.type === 'blob' && item.path.startsWith(prefix),
+      item => item.type === 'blob' && item.path.startsWith(prefix) && isDefinitionFile(item.path),
     )
 
     const entries = await Promise.all(
       fileItems.map(async item => {
-        const relativePath = item.path.slice(prefix.length)
+        const relativePath = prefix === '' ? item.path : item.path.slice(prefix.length)
         const content = await this.fetchBlob(item.sha, token)
         return {
           relativePath,
@@ -107,10 +108,11 @@ export class GithubAdapter implements SpecSourcePort {
     const url = `${this.apiBase}/repos/${this.config.owner}/${this.config.repo}/compare/${baseRevision.id}...${headRevision.id}`
     const compare = await this.fetchJson<{ files?: GithubCompareFile[] }>(url, token)
 
-    const prefix = fragmentsDir.replace(/^\//, '').replace(/\/$/, '') + '/'
+    const normalized = fragmentsDir.replace(/^\//, '').replace(/\/$/, '')
+    const prefix = normalized === '' ? '' : normalized + '/'
     return (compare.files ?? [])
-      .filter(f => f.filename.startsWith(prefix))
-      .map(f => f.filename.slice(prefix.length))
+      .filter(f => f.filename.startsWith(prefix) && isDefinitionFile(f.filename))
+      .map(f => prefix === '' ? f.filename : f.filename.slice(prefix.length))
   }
 
   private toRevision(commit: GithubCommit): SpecRevision {
@@ -153,4 +155,8 @@ export class GithubAdapter implements SpecSourcePort {
 
 function sha256(content: string): string {
   return createHash('sha256').update(content).digest('hex')
+}
+
+function isDefinitionFile(filePath: string): boolean {
+  return filePath.endsWith('.yaml') || filePath.endsWith('.yml') || filePath.endsWith('.json')
 }

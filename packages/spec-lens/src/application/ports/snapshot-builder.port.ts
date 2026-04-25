@@ -5,6 +5,7 @@ export type BuildSnapshotOptions = {
   revision: SpecRevision
   entries: SpecFileEntry[]
   fragmentsDir: string
+  targetPath: string
   targetConfig: DefinitionTargetConfig
   targetConfigDigest: string
 }

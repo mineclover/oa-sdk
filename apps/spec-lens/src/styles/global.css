@@ -1,36 +1,79 @@
 :root {
-  --bg-base: #0d1117;
-  --bg-surface: #161b22;
+  /* ─── Background ──────────────────────────────────────────────────── */
+  --bg-base:     #0d1117;
+  --bg-surface:  #161b22;
   --bg-elevated: #21262d;
-  --bg-hover: #2d333b;
-  --border: #30363d;
+  --bg-hover:    #2d333b;
+
+  /* ─── Border ──────────────────────────────────────────────────────── */
+  --border:       #30363d;
   --border-muted: #21262d;
 
-  --text-primary: #e6edf3;
+  /* ─── Text ────────────────────────────────────────────────────────── */
+  --text-primary:   #e6edf3;
   --text-secondary: #8b949e;
-  --text-muted: #6e7681;
-  --text-link: #58a6ff;
+  --text-muted:     #6e7681;
+  --text-link:      #58a6ff;
 
-  --green: #3fb950;
-  --green-bg: rgba(63,185,80,0.15);
-  --red: #f85149;
-  --red-bg: rgba(248,81,73,0.15);
-  --amber: #e3b341;
-  --amber-bg: rgba(227,179,65,0.15);
-  --blue: #58a6ff;
-  --blue-bg: rgba(88,166,255,0.15);
-  --purple: #bc8cff;
-  --purple-bg: rgba(188,140,255,0.15);
+  /* ─── Semantic colors ─────────────────────────────────────────────── */
+  --green:     #3fb950;
+  --green-bg:  rgba(63,  185, 80,  0.15);
+  --red:       #f85149;
+  --red-bg:    rgba(248, 81,  73,  0.15);
+  --amber:     #e3b341;
+  --amber-bg:  rgba(227, 179, 65,  0.15);
+  --blue:      #58a6ff;
+  --blue-bg:   rgba(88,  166, 255, 0.15);
+  --purple:    #bc8cff;
+  --purple-bg: rgba(188, 140, 255, 0.15);
+  --orange:    #f0883e;
+  --orange-bg: rgba(240, 136, 62,  0.15);
 
+  /* ─── Diff panel colors ───────────────────────────────────────────── */
+  --diff-del-bg:     rgba(248, 81,  73,  0.15);
+  --diff-del-header: rgba(248, 81,  73,  0.08);
+  --diff-del-word:   rgba(255, 80,  80,  0.45);
+  --diff-add-bg:     rgba(63,  185, 80,  0.15);
+  --diff-add-header: rgba(63,  185, 80,  0.08);
+  --diff-add-word:   rgba(60,  210, 100, 0.45);
+  --diff-empty-bg:   rgba(139, 148, 158, 0.05);
+
+  /* ─── Spacing scale ───────────────────────────────────────────────── */
+  --sp-1:  4px;
+  --sp-2:  8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 20px;
+  --sp-6: 24px;
+  --sp-8: 32px;
+
+  /* ─── Typography ──────────────────────────────────────────────────── */
+  --text-xs:   11px;
+  --text-sm:   12px;
+  --text-base: 13px;
+  --text-md:   14px;
+  --text-lg:   15px;
+  --text-xl:   18px;
+
+  --fw-normal: 400;
+  --fw-medium: 500;
+  --fw-semi:   600;
+  --fw-bold:   700;
+
+  /* ─── Layout ──────────────────────────────────────────────────────── */
   --sidebar-w: 220px;
+
+  /* ─── Fonts ───────────────────────────────────────────────────────── */
   --font-mono: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
   --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 
+  /* ─── Radius ──────────────────────────────────────────────────────── */
   --radius-sm: 4px;
   --radius-md: 6px;
   --radius-lg: 8px;
 }
 
+/* ─── Reset ───────────────────────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 html, body, #root {
@@ -38,7 +81,7 @@ html, body, #root {
   background: var(--bg-base);
   color: var(--text-primary);
   font-family: var(--font-sans);
-  font-size: 14px;
+  font-size: var(--text-md);
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
 }
@@ -52,3 +95,110 @@ code, .mono { font-family: var(--font-mono); }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+/* ─── Animation ───────────────────────────────────────────────────────── */
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ─── Button ──────────────────────────────────────────────────────────── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px var(--sp-3);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  cursor: pointer;
+  font-size: var(--text-sm);
+  font-weight: var(--fw-medium);
+  font-family: var(--font-sans);
+  transition: background 0.1s;
+  white-space: nowrap;
+  user-select: none;
+}
+.btn:hover:not(:disabled) { background: var(--bg-hover); }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* ─── Select & Input ──────────────────────────────────────────────────── */
+.select,
+.input {
+  padding: var(--sp-1) var(--sp-2);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+  font-family: var(--font-sans);
+  outline: none;
+}
+.select { cursor: pointer; }
+.select:focus, .input:focus { border-color: var(--blue); }
+.input::placeholder { color: var(--text-muted); }
+
+/* ─── Nav item ────────────────────────────────────────────────────────── */
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 7px 10px;
+  border-radius: var(--radius-md);
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: var(--text-base);
+  font-weight: var(--fw-normal);
+  font-family: var(--font-sans);
+  text-align: left;
+  transition: background 0.1s, color 0.1s;
+}
+.nav-item:hover { background: var(--bg-elevated); }
+.nav-item.active {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+  font-weight: var(--fw-semi);
+}
+
+/* ─── Panel header ────────────────────────────────────────────────────── */
+.panel-hd {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: var(--sp-3) var(--sp-5);
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-surface);
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+
+/* ─── Section / category header ──────────────────────────────────────── */
+.section-hd {
+  padding: var(--sp-2) var(--sp-5);
+  background: var(--bg-elevated);
+  font-size: var(--text-xs);
+  font-weight: var(--fw-semi);
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* ─── Hoverable rows ──────────────────────────────────────────────────── */
+.hoverable { transition: background 0.1s; cursor: pointer; }
+.hoverable:hover { background: var(--bg-hover); }
+
+/* ─── Typography helpers ──────────────────────────────────────────────── */
+.label  { font-size: var(--text-xs); color: var(--text-muted); }
+.muted  { color: var(--text-muted); }
+.subtle { color: var(--text-secondary); }
+
+/* ─── Inline code chip ────────────────────────────────────────────────── */
+.code-tag {
+  font-size: var(--text-xs);
+  font-family: var(--font-mono);
+  color: var(--text-muted);
+  background: var(--bg-elevated);
+  padding: 1px 5px;
+  border-radius: var(--radius-sm);
+}

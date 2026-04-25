@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api, type SpecTimelineEntry } from '../api/client.js'
 import { Badge, DiffBadges } from '../components/Badge.js'
+import { Button } from '../components/Button.js'
+import { Select } from '../components/Select.js'
 import { Spinner } from '../components/Spinner.js'
 
 function formatRelativeTime(ts: number): string {
@@ -82,45 +84,14 @@ export function Timeline({
             </span>
           )}
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <select
-            value={limit}
-            onChange={e => setLimit(Number(e.target.value))}
-            style={{
-              padding: '4px 8px',
-              background: 'var(--bg-elevated)',
-              border: '1px solid var(--border)',
-              borderRadius: 'var(--radius-md)',
-              color: 'var(--text-secondary)',
-              fontSize: 12,
-              cursor: 'pointer',
-            }}
-          >
-            {[50, 100, 200, 500].map(n => (
-              <option key={n} value={n}>최근 {n}개</option>
-            ))}
-          </select>
-        </div>
-        <button
-          onClick={() => refresh.mutate()}
-          disabled={refresh.isPending}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 6,
-            padding: '5px 12px',
-            background: 'var(--bg-elevated)',
-            border: '1px solid var(--border)',
-            borderRadius: 'var(--radius-md)',
-            color: 'var(--text-primary)',
-            cursor: 'pointer',
-            fontSize: 12,
-            fontWeight: 500,
-          }}
-        >
-          {refresh.isPending ? <Spinner size={12} /> : '↻'}
-          Refresh
-        </button>
+        <Select value={limit} onChange={e => setLimit(Number(e.target.value))}>
+          {[50, 100, 200, 500].map(n => (
+            <option key={n} value={n}>최근 {n}개</option>
+          ))}
+        </Select>
+        <Button loading={refresh.isPending} onClick={() => refresh.mutate()}>
+          ↻ Refresh
+        </Button>
       </div>
 
       {/* Entry list */}
@@ -157,6 +128,7 @@ function TimelineRow({
 
   return (
     <div
+      className={hasDiff ? 'hoverable' : undefined}
       style={{
         display: 'grid',
         gridTemplateColumns: '1fr auto',
@@ -164,14 +136,7 @@ function TimelineRow({
         gap: 12,
         padding: '12px 20px',
         borderBottom: '1px solid var(--border-muted)',
-        cursor: hasDiff ? 'pointer' : 'default',
-        transition: 'background 0.1s',
-      }}
-      onMouseEnter={e => {
-        if (hasDiff) (e.currentTarget as HTMLElement).style.background = 'var(--bg-hover)'
-      }}
-      onMouseLeave={e => {
-        (e.currentTarget as HTMLElement).style.background = ''
+        cursor: hasDiff ? undefined : 'default',
       }}
       onClick={() => {
         if (hasDiff && prev) onSelectDiff(prev.revision.id, entry.revision.id)

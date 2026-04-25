@@ -53,7 +53,8 @@ export function createSpecLensServer(config: SpecLensServerConfig): Hono {
 
   // 🔵 Query: GetTimeline (Read Model)
   app.get('/api/timeline', async (c) => {
-    const limit = Number(c.req.query('limit') ?? 100)
+    const rawLimit = Number(c.req.query('limit'))
+    const limit = Number.isFinite(rawLimit) && rawLimit > 0 ? Math.floor(rawLimit) : 100
     const entries = await getTimeline.handle({
       fragmentsDir: config.fragmentsDir,
       targetPath: config.targetPath,

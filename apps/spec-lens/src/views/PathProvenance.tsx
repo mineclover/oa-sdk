@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { api, type SpecPathEntry } from '../api/client.js'
 import { Badge } from '../components/Badge.js'
+import { Input } from '../components/Input.js'
+import { Select } from '../components/Select.js'
 import { Spinner } from '../components/Spinner.js'
 
 const METHOD_COLORS: Record<string, string> = {
@@ -82,28 +84,20 @@ export function PathProvenance() {
           )}
         </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          <input
+          <Input
             placeholder="Search paths…"
             value={search}
             onChange={e => setSearch(e.target.value)}
-            style={inputStyle}
+            style={{ minWidth: 160 }}
           />
-          <select
-            value={scopeFilter}
-            onChange={e => setScopeFilter(e.target.value)}
-            style={inputStyle}
-          >
+          <Select value={scopeFilter} onChange={e => setScopeFilter(e.target.value)}>
             <option value="">All scopes</option>
             {allScopes.map(s => <option key={s} value={s}>{s}</option>)}
-          </select>
-          <select
-            value={domainFilter}
-            onChange={e => setDomainFilter(e.target.value)}
-            style={inputStyle}
-          >
+          </Select>
+          <Select value={domainFilter} onChange={e => setDomainFilter(e.target.value)}>
             <option value="">All domains</option>
             {allDomains.map(d => <option key={d} value={d}>{d}</option>)}
-          </select>
+          </Select>
         </div>
       </div>
 
@@ -154,19 +148,13 @@ export function PathProvenance() {
 }
 
 function PathRow({ entry }: { entry: SpecPathEntry }) {
-  const [open, setOpen] = useState(false)
   const pathParts = entry.canonicalId.split(':')
   const kindPart = pathParts[0] ?? ''
   const pathPart = pathParts[1] ?? ''
 
   return (
     <tr
-      style={{
-        borderBottom: '1px solid var(--border-muted)',
-        background: open ? 'var(--bg-elevated)' : undefined,
-        cursor: 'pointer',
-      }}
-      onClick={() => setOpen(o => !o)}
+      style={{ borderBottom: '1px solid var(--border-muted)' }}
     >
       <td style={{ padding: '8px 12px' }}>
         <code style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-primary)' }}>
@@ -222,13 +210,3 @@ function PathRow({ entry }: { entry: SpecPathEntry }) {
   )
 }
 
-const inputStyle: React.CSSProperties = {
-  padding: '5px 10px',
-  background: 'var(--bg-elevated)',
-  border: '1px solid var(--border)',
-  borderRadius: 'var(--radius-md)',
-  color: 'var(--text-primary)',
-  fontSize: 12,
-  outline: 'none',
-  minWidth: 120,
-}

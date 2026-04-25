@@ -23,7 +23,7 @@ export class LocalGitAdapter implements SpecSourcePort {
   async listRevisions(options: ListRevisionsOptions): Promise<SpecRevision[]> {
     const args = [
       'log',
-      `--format=%H%n%aI%n%s%n%an%n---`,
+      `--format=%H%n%aI%n%s%n%an%n%x00`,
     ]
     if (options.branch !== undefined) args.push(options.branch)
     if (options.since !== undefined) args.push(`--since=${new Date(options.since).toISOString()}`)
@@ -90,7 +90,7 @@ export class LocalGitAdapter implements SpecSourcePort {
 
 function parseGitLog(output: string): SpecRevision[] {
   const revisions: SpecRevision[] = []
-  const chunks = output.split('---\n').filter(c => c.trim().length > 0)
+  const chunks = output.split('\0').filter(c => c.trim().length > 0)
 
   for (const chunk of chunks) {
     const lines = chunk.split('\n')

@@ -30,7 +30,6 @@ export interface CachePort {
 
   // Read
   listTimeline(options: ListTimelineOptions): Promise<SpecTimelineEntry[]>
-  getSnapshot(cacheKey: string): Promise<SpecSnapshotStored | null>
   getSnapshotByRevision(revisionId: string, fragmentsDir: string, targetPath: string, targetConfigDigest: string): Promise<SpecSnapshotStored | null>
   getDiff(baseRevisionId: string, headRevisionId: string, fragmentsDir: string, targetPath: string): Promise<SpecTimelineDiff | null>
   listPaths(options: ListPathsOptions): Promise<SpecPathEntry[]>

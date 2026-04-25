@@ -11,9 +11,20 @@ type AlignedRow =
 
 // ── LCS-based line diff ─────────────────────────────────────────────────
 
+const LCS_LINE_LIMIT = 2000
+
 function diffLines(original: string, modified: string): DiffLine[] {
   const a = original === '' ? [] : original.split('\n')
   const b = modified === '' ? [] : modified.split('\n')
+
+  // Fall back to a flat diff for large inputs to avoid O(n²) freeze
+  if (a.length + b.length > LCS_LINE_LIMIT) {
+    return [
+      ...a.map(content => ({ type: 'delete' as const, content })),
+      ...b.map(content => ({ type: 'insert' as const, content })),
+    ]
+  }
+
   const m = a.length
   const n = b.length
 
@@ -29,22 +40,22 @@ function diffLines(original: string, modified: string): DiffLine[] {
     }
   }
 
-  // Backtrack
+  // Backtrack — push then reverse to avoid O(n²) unshift
   const result: DiffLine[] = []
   let i = m, j = n
   while (i > 0 || j > 0) {
     if (i > 0 && j > 0 && a[i - 1] === b[j - 1]) {
-      result.unshift({ type: 'equal', content: a[i - 1]! })
+      result.push({ type: 'equal', content: a[i - 1]! })
       i--; j--
     } else if (j > 0 && (i === 0 || dp[i]![j - 1]! >= dp[i - 1]![j]!)) {
-      result.unshift({ type: 'insert', content: b[j - 1]! })
+      result.push({ type: 'insert', content: b[j - 1]! })
       j--
     } else {
-      result.unshift({ type: 'delete', content: a[i - 1]! })
+      result.push({ type: 'delete', content: a[i - 1]! })
       i--
     }
   }
-  return result
+  return result.reverse()
 }
 
 // ── Pair consecutive delete+insert as "change" rows ────────────────────
@@ -104,7 +115,7 @@ function highlightWords(
       <mark
         key={i}
         style={{
-          background: side === 'left' ? 'rgba(255,80,80,0.45)' : 'rgba(60,210,100,0.45)',
+          background: side === 'left' ? 'var(--diff-del-word)' : 'var(--diff-add-word)',
           color: 'inherit',
           borderRadius: 2,
         }}
@@ -175,7 +186,7 @@ function Panel({
 }) {
   const isLeft = side === 'left'
   const accentColor = isLeft ? 'var(--red)' : 'var(--green)'
-  const accentBg = isLeft ? 'rgba(248,81,73,0.08)' : 'rgba(63,185,80,0.08)'
+  const accentBg = isLeft ? 'var(--diff-del-header)' : 'var(--diff-add-header)'
 
   return (
     <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
@@ -244,10 +255,8 @@ function DiffRow({
   const isChanged = row.left !== null && row.right !== null  // both sides exist → real change
 
   const bgColor = isPresent
-    ? isLeft
-      ? 'rgba(248,81,73,0.15)'
-      : 'rgba(63,185,80,0.15)'
-    : 'rgba(139,148,158,0.05)'
+    ? isLeft ? 'var(--diff-del-bg)' : 'var(--diff-add-bg)'
+    : 'var(--diff-empty-bg)'
 
   const prefix = isPresent
     ? isLeft ? '−' : '+'

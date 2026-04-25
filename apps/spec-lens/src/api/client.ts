@@ -114,8 +114,15 @@ export type SpecGraph = {
 
 async function apiFetch<T>(path: string): Promise<T> {
   const res = await fetch(path)
-  if (!res.ok) throw new Error(`API ${path} → ${res.status}`)
-  return res.json() as Promise<T>
+  if (!res.ok) {
+    const body = await res.text().catch(() => '')
+    throw new Error(`API ${path} → ${res.status}${body ? `: ${body.slice(0, 200)}` : ''}`)
+  }
+  try {
+    return await res.json() as T
+  } catch {
+    throw new Error(`API ${path} → invalid JSON response`)
+  }
 }
 
 export const api = {
@@ -141,6 +148,12 @@ export const api = {
   graph: (revisionId?: string) =>
     apiFetch<SpecGraph>(`/api/graph${revisionId ? `?revision=${revisionId}` : ''}`),
 
-  refresh: () =>
-    fetch('/api/refresh', { method: 'POST' }).then(r => r.json()),
+  refresh: async () => {
+    const res = await fetch('/api/refresh', { method: 'POST' })
+    if (!res.ok) {
+      const body = await res.text().catch(() => '')
+      throw new Error(`API /api/refresh → ${res.status}${body ? `: ${body.slice(0, 200)}` : ''}`)
+    }
+    return res.json() as Promise<unknown>
+  },
 }

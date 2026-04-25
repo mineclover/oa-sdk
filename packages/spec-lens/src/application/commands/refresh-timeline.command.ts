@@ -39,6 +39,7 @@ export class RefreshTimelineHandler {
     })
     const errors: RefreshTimelineResult['errors'] = []
     let builtSnapshots = 0
+    let newRevisions = 0
     const snapshots: SnapshotEntry[] = []
 
     for (const revision of revisions) {
@@ -47,10 +48,11 @@ export class RefreshTimelineHandler {
         snapshots.push({ revision, stored: cached })
         continue
       }
+      newRevisions++
 
       try {
         const entries = await this.source.getFileEntries({ revision, fragmentsDir })
-        const snapshot = await this.builder.build({ revision, entries, fragmentsDir, targetConfig, targetConfigDigest })
+        const snapshot = await this.builder.build({ revision, entries, fragmentsDir, targetPath, targetConfig, targetConfigDigest })
         const entryRefs = entries.map(e => ({ relativePath: e.relativePath, contentHash: e.contentHash }))
         const stored: SpecSnapshotStored = { ...snapshot, entryRefs }
         await this.cache.saveSnapshot(stored, entries)
@@ -69,7 +71,7 @@ export class RefreshTimelineHandler {
     await this.computeDiffsAndUpdateReadModel(snapshots, fragmentsDir, targetPath, errors)
     await this.populatePathEntries(snapshots, fragmentsDir, targetPath)
 
-    return { newRevisions: revisions.length, builtSnapshots, errors }
+    return { newRevisions, builtSnapshots, errors }
   }
 
   private async computeDiffsAndUpdateReadModel(
@@ -146,11 +148,8 @@ export class RefreshTimelineHandler {
     const specPaths = latestSpec['paths'] as Record<string, unknown> | undefined
     if (specPaths === undefined) return
 
-    // Build path → lastChanged map by walking diffs newest → oldest
+    // Walk diffs newest→oldest; first occurrence of each path = most recent change
     const lastChanged = new Map<string, { revisionId: string; timestamp: number }>()
-    for (const apiPath of Object.keys(specPaths)) {
-      lastChanged.set(apiPath, { revisionId: latestEntry.revision.id, timestamp: latestEntry.revision.timestamp })
-    }
 
     for (let i = 0; i < snapshots.length - 1; i++) {
       const head = snapshots[i]
@@ -164,9 +163,17 @@ export class RefreshTimelineHandler {
         if (entry.category !== 'path') continue
         // pointer: #/paths/~1books~1{bookId}~1notes  → /books/{bookId}/notes
         const apiPath = decodeJsonPointerPath(entry.pointer)
-        if (apiPath !== null && lastChanged.has(apiPath)) {
+        // Keep only first hit (newest-first traversal) — subsequent hits are older changes
+        if (apiPath !== null && !lastChanged.has(apiPath)) {
           lastChanged.set(apiPath, { revisionId: head.revision.id, timestamp: head.revision.timestamp })
         }
+      }
+    }
+
+    // Paths absent from all diffs were never changed — assign the latest revision
+    for (const apiPath of Object.keys(specPaths)) {
+      if (!lastChanged.has(apiPath)) {
+        lastChanged.set(apiPath, { revisionId: latestEntry.revision.id, timestamp: latestEntry.revision.timestamp })
       }
     }
 

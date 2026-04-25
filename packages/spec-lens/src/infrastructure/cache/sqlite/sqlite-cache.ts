@@ -129,14 +129,6 @@ export class SqliteCache implements CachePort {
     return rows.map(rowToTimelineEntry)
   }
 
-  async getSnapshot(cacheKey: string): Promise<SpecSnapshotStored | null> {
-    const row = this.db.prepare(
-      'SELECT data FROM snapshots WHERE cache_key = ?',
-    ).get(cacheKey) as { data: string } | undefined
-    if (row === undefined) return null
-    return JSON.parse(row.data) as SpecSnapshotStored
-  }
-
   async getSnapshotByRevision(
     revisionId: string,
     fragmentsDir: string,

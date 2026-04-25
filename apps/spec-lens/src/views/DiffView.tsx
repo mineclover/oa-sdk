@@ -1,4 +1,4 @@
-import { lazy, Suspense, useState } from 'react'
+import { lazy, Suspense, useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { stringify as yamlStringify } from 'yaml'
 import { api, type BreakingChange, type SpecSnapshot, type SpecTimelineDiff } from '../api/client.js'
@@ -23,6 +23,10 @@ export function DiffView({
 }) {
   const [tab, setTab] = useState<Tab>('changes')
 
+  useEffect(() => { setTab('changes') }, [baseId, headId])
+
+  const needsSnapshots = tab === 'changes' || tab === 'yaml'
+
   const { data: diff, isLoading: diffLoading, error: diffError } = useQuery({
     queryKey: ['diff', baseId, headId],
     queryFn: () => api.diff(baseId, headId),
@@ -31,17 +35,19 @@ export function DiffView({
   const { data: baseSnap, isLoading: baseLoading, error: baseError } = useQuery({
     queryKey: ['snapshot', baseId],
     queryFn: () => api.snapshot(baseId),
+    enabled: needsSnapshots,
   })
 
   const { data: headSnap, isLoading: headLoading, error: headError } = useQuery({
     queryKey: ['snapshot', headId],
     queryFn: () => api.snapshot(headId),
+    enabled: needsSnapshots,
   })
 
-  const isLoading = diffLoading || baseLoading || headLoading
+  const isLoading = diffLoading || (needsSnapshots && (baseLoading || headLoading))
   const fetchError = diffError ?? baseError ?? headError
 
-  if (diffLoading) {
+  if (isLoading) {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', padding: 48 }}>
         <Spinner size={28} />
@@ -56,6 +62,14 @@ export function DiffView({
         <code style={{ fontFamily: 'var(--font-mono)', fontSize: 12 }}>
           {String(fetchError)}
         </code>
+      </div>
+    )
+  }
+
+  if (!diff) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', flex: 1, padding: 48, color: 'var(--text-muted)' }}>
+        No diff data available.
       </div>
     )
   }
@@ -242,17 +256,16 @@ function DiffEntryRow({
     <div style={{ borderBottom: '1px solid var(--border-muted)' }}>
       {/* Entry header — clickable */}
       <div
+        className={hasContent ? 'hoverable' : undefined}
         onClick={() => hasContent && setExpanded(e => !e)}
         style={{
           display: 'flex',
           alignItems: 'center',
           gap: 10,
           padding: '8px 20px',
-          cursor: hasContent ? 'pointer' : 'default',
+          cursor: hasContent ? undefined : 'default',
           userSelect: 'none',
         }}
-        onMouseEnter={e => { if (hasContent) (e.currentTarget as HTMLElement).style.background = 'var(--bg-hover)' }}
-        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = '' }}
       >
         {/* Kind indicator */}
         <span
@@ -439,6 +452,8 @@ function FragmentsPanel({
   headId: string
 }) {
   const [selectedFile, setSelectedFile] = useState<string | null>(null)
+
+  useEffect(() => { setSelectedFile(null) }, [baseId, headId])
 
   const { data: baseSnap } = useQuery({
     queryKey: ['snapshot', baseId, 'entries'],

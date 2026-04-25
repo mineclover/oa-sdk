@@ -1,3 +1,4 @@
+/// <reference path="./vendor.d.ts" />
 /**
  * Drizzle 테이블 → Zod → OpenAPI Schema 변환
  *

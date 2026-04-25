@@ -1,3 +1,4 @@
+import { resolve } from 'node:path'
 import type { Command } from '../lib/types.js'
 import { optStr, str } from '../lib/args.js'
 import { buildSpec, type BuildSpecDiagnostic } from '../lib/build-spec.js'
@@ -75,7 +76,7 @@ export const buildSpecCommand: Command = {
             targetName: summary.targetName,
           },
           input: {
-            targetPath,
+            targetPath: summary.targetPath,
             ...(fragmentsDir ? { fragmentsDir } : {}),
             ...(outputPath ? { outputPath } : {}),
             ...(diagnosticsPath ? { diagnosticsPath } : {}),
@@ -140,11 +141,11 @@ export const buildSpecCommand: Command = {
           },
           target: {
             targetType: 'definition-target',
-            targetKey: targetPath,
-            targetPath,
+            targetKey: resolve(targetPath),
+            targetPath: resolve(targetPath),
           },
           input: {
-            targetPath,
+            targetPath: resolve(targetPath),
             ...(fragmentsDir ? { fragmentsDir } : {}),
             ...(outputPath ? { outputPath } : {}),
             ...(diagnosticsPath ? { diagnosticsPath } : {}),

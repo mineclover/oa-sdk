@@ -88,9 +88,10 @@ function collectRefs(
     if (sourceId !== undefined) {
       edges.push({ source: sourceId, target: ref, refPointer: pointer })
     }
-    return
+    // Don't return — OAS 3.1 allows sibling properties alongside $ref
   }
   for (const [key, child] of Object.entries(obj)) {
+    if (key === '$ref') continue
     collectRefs(child, `${pointer}/${key}`, edges, sourceId ?? pointer, visited)
   }
 }

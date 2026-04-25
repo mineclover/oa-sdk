@@ -3,6 +3,7 @@ import * as d3 from 'd3'
 import { useQuery } from '@tanstack/react-query'
 import { api, type SpecGraph } from '../api/client.js'
 import { Badge } from '../components/Badge.js'
+import { Select } from '../components/Select.js'
 import { Spinner } from '../components/Spinner.js'
 
 function formatRelativeTime(ts: number): string {
@@ -54,16 +55,20 @@ export function FragmentGraph() {
   const [selectedRevisionId, setSelectedRevisionId] = useState<string>('')
 
   const { data: timeline } = useQuery({
-    queryKey: ['timeline'],
+    queryKey: ['timeline', 100],
     queryFn: () => api.timeline(100),
+    staleTime: 30_000,
   })
 
-  const revisionId = selectedRevisionId || timeline?.[0]?.revision.id
+  const firstCachedRevisionId = timeline?.find(e => e.snapshotCached)?.revision.id
+  const revisionId = selectedRevisionId || firstCachedRevisionId
+
+  useEffect(() => { setSelected(null) }, [revisionId])
 
   const { data: graph, isLoading } = useQuery({
-    queryKey: ['graph', revisionId],
-    queryFn: () => api.graph(revisionId),
-    enabled: revisionId !== undefined,
+    queryKey: ['graph', revisionId ?? null],
+    queryFn: () => api.graph(revisionId!),
+    enabled: !!revisionId,
   })
 
   useEffect(() => {
@@ -166,8 +171,11 @@ export function FragmentGraph() {
       node.attr('transform', d => `translate(${d.x ?? 0},${d.y ?? 0})`)
     })
 
-    return () => { simulation.stop() }
-  }, [graph, kindFilter, scopeFilter])
+    return () => {
+      simulation.stop()
+      svg.on('.zoom', null)
+    }
+  }, [graph, kindFilter, scopeFilter, revisionId])
 
   const allKinds = [...new Set(graph?.nodes.map(n => n.kind) ?? [])].sort()
   const allScopes = [...new Set(graph?.nodes.map(n => n.scope) ?? [])].sort()
@@ -194,28 +202,34 @@ export function FragmentGraph() {
           </span>
         )}
         {/* Revision selector */}
-        {timeline && timeline.length > 0 && (
-          <select
-            value={selectedRevisionId || (timeline[0]?.revision.id ?? '')}
-            onChange={e => setSelectedRevisionId(e.target.value)}
-            style={{ ...filterStyle, minWidth: 220 }}
-          >
-            {timeline.filter(e => e.snapshotCached).map(e => (
-              <option key={e.revision.id} value={e.revision.id}>
-                {e.revision.shortId} · {e.revision.message.slice(0, 40)}{e.revision.message.length > 40 ? '…' : ''} ({formatRelativeTime(e.revision.timestamp)})
-              </option>
-            ))}
-          </select>
-        )}
+        {timeline && timeline.length > 0 && (() => {
+          const cached = timeline.filter(e => e.snapshotCached)
+          if (cached.length === 0) {
+            return <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>No snapshots available</span>
+          }
+          return (
+            <Select
+              value={selectedRevisionId || (cached[0]?.revision.id ?? '')}
+              onChange={e => setSelectedRevisionId(e.target.value)}
+              style={{ minWidth: 220 }}
+            >
+              {cached.map(e => (
+                <option key={e.revision.id} value={e.revision.id}>
+                  {e.revision.shortId} · {e.revision.message.slice(0, 40)}{e.revision.message.length > 40 ? '…' : ''} ({formatRelativeTime(e.revision.timestamp)})
+                </option>
+              ))}
+            </Select>
+          )
+        })()}
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
-          <select value={kindFilter} onChange={e => setKindFilter(e.target.value)} style={filterStyle}>
+          <Select value={kindFilter} onChange={e => setKindFilter(e.target.value)}>
             <option value="">All kinds</option>
             {allKinds.map(k => <option key={k} value={k}>{k}</option>)}
-          </select>
-          <select value={scopeFilter} onChange={e => setScopeFilter(e.target.value)} style={filterStyle}>
+          </Select>
+          <Select value={scopeFilter} onChange={e => setScopeFilter(e.target.value)}>
             <option value="">All scopes</option>
             {allScopes.map(s => <option key={s} value={s}>{s}</option>)}
-          </select>
+          </Select>
         </div>
 
         {/* Scope legend */}
@@ -297,12 +311,3 @@ function DetailRow({ label, value, mono, small }: { label: string; value: string
   )
 }
 
-const filterStyle: React.CSSProperties = {
-  padding: '4px 8px',
-  background: 'var(--bg-elevated)',
-  border: '1px solid var(--border)',
-  borderRadius: 'var(--radius-md)',
-  color: 'var(--text-primary)',
-  fontSize: 12,
-  outline: 'none',
-}

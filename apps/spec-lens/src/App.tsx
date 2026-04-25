@@ -108,30 +108,10 @@ function NavItem({
   return (
     <button
       onClick={onClick}
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 10,
-        width: '100%',
-        padding: '7px 10px',
-        borderRadius: 'var(--radius-md)',
-        background: active ? 'var(--bg-hover)' : 'none',
-        border: 'none',
-        color: active ? 'var(--text-primary)' : 'var(--text-secondary)',
-        cursor: 'pointer',
-        fontSize: 13,
-        fontWeight: active ? 600 : 400,
-        textAlign: 'left',
-        transition: 'background 0.1s, color 0.1s',
-      }}
-      onMouseEnter={e => {
-        if (!active) (e.currentTarget as HTMLElement).style.background = 'var(--bg-elevated)'
-      }}
-      onMouseLeave={e => {
-        if (!active) (e.currentTarget as HTMLElement).style.background = ''
-      }}
+      className={`nav-item${active ? ' active' : ''}`}
+      aria-current={active ? 'page' : undefined}
     >
-      <span style={{ fontSize: 15 }}>{icon}</span>
+      <span style={{ fontSize: 'var(--text-lg)' }}>{icon}</span>
       {label}
     </button>
   )

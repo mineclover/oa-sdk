@@ -27,7 +27,7 @@ import type {
 
 export class SnapshotBuilder implements SnapshotBuilderPort {
   async build(options: BuildSnapshotOptions): Promise<SpecSnapshot> {
-    const { revision, entries, fragmentsDir, targetConfig, targetConfigDigest } = options
+    const { revision, entries, fragmentsDir, targetPath, targetConfig, targetConfigDigest } = options
 
     const fragments = loadDefinitionFragmentsFromEntries(entries, fragmentsDir)
     const registry = createDefinitionRegistry(fragments.nodes, {
@@ -73,7 +73,7 @@ export class SnapshotBuilder implements SnapshotBuilderPort {
       schemaVersion: 'spec-lens.snapshot.v1',
       revision,
       fragmentsDir,
-      targetPath: targetConfig.name,
+      targetPath,
       targetConfigDigest,
       spec,
       provenance,
