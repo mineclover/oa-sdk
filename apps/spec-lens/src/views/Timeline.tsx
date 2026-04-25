@@ -1,0 +1,254 @@
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { api, type SpecTimelineEntry } from '../api/client.js'
+import { Badge, DiffBadges } from '../components/Badge.js'
+import { Spinner } from '../components/Spinner.js'
+
+function formatRelativeTime(ts: number): string {
+  const diff = Date.now() - ts
+  const mins = Math.floor(diff / 60000)
+  const hours = Math.floor(diff / 3600000)
+  const days = Math.floor(diff / 86400000)
+  if (mins < 1) return 'just now'
+  if (mins < 60) return `${mins}m ago`
+  if (hours < 24) return `${hours}h ago`
+  if (days < 30) return `${days}d ago`
+  return new Date(ts).toLocaleDateString()
+}
+
+function sourceIcon(source: string): string {
+  switch (source) {
+    case 'github': return '⬡'
+    case 'local-git': return '◉'
+    case 'gitlab': return '◈'
+    default: return '◇'
+  }
+}
+
+export function Timeline({
+  onSelectDiff,
+}: {
+  onSelectDiff: (baseId: string, headId: string) => void
+}) {
+  const qc = useQueryClient()
+
+  const { data: entries, isLoading, error } = useQuery({
+    queryKey: ['timeline'],
+    queryFn: () => api.timeline(100),
+    refetchInterval: 30000,
+  })
+
+  const refresh = useMutation({
+    mutationFn: api.refresh,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['timeline'] }),
+  })
+
+  if (isLoading) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', padding: 48 }}>
+        <Spinner size={28} />
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div style={{ padding: 24, color: 'var(--red)' }}>
+        Failed to load timeline: {String(error)}
+      </div>
+    )
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+      {/* Header */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: '12px 20px',
+          borderBottom: '1px solid var(--border)',
+          background: 'var(--bg-surface)',
+          flexShrink: 0,
+        }}
+      >
+        <div>
+          <span style={{ fontWeight: 600 }}>Timeline</span>
+          {entries && (
+            <span style={{ marginLeft: 8, color: 'var(--text-muted)', fontSize: 12 }}>
+              {entries.length} revision{entries.length !== 1 ? 's' : ''}
+            </span>
+          )}
+        </div>
+        <button
+          onClick={() => refresh.mutate()}
+          disabled={refresh.isPending}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
+            padding: '5px 12px',
+            background: 'var(--bg-elevated)',
+            border: '1px solid var(--border)',
+            borderRadius: 'var(--radius-md)',
+            color: 'var(--text-primary)',
+            cursor: 'pointer',
+            fontSize: 12,
+            fontWeight: 500,
+          }}
+        >
+          {refresh.isPending ? <Spinner size={12} /> : '↻'}
+          Refresh
+        </button>
+      </div>
+
+      {/* Entry list */}
+      <div style={{ overflowY: 'auto', flex: 1 }}>
+        {entries?.length === 0 && (
+          <div style={{ padding: 32, textAlign: 'center', color: 'var(--text-muted)' }}>
+            No revisions yet. Click <strong>Refresh</strong> to fetch from the source.
+          </div>
+        )}
+        {entries?.map((entry, i) => (
+          <TimelineRow
+            key={entry.revision.id}
+            entry={entry}
+            prev={entries[i + 1]}
+            onSelectDiff={onSelectDiff}
+          />
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function TimelineRow({
+  entry,
+  prev,
+  onSelectDiff,
+}: {
+  entry: SpecTimelineEntry
+  prev: SpecTimelineEntry | undefined
+  onSelectDiff: (baseId: string, headId: string) => void
+}) {
+  const hasDiff = prev !== undefined
+  const { diffStats } = entry
+
+  return (
+    <div
+      style={{
+        display: 'grid',
+        gridTemplateColumns: '1fr auto',
+        alignItems: 'start',
+        gap: 12,
+        padding: '12px 20px',
+        borderBottom: '1px solid var(--border-muted)',
+        cursor: hasDiff ? 'pointer' : 'default',
+        transition: 'background 0.1s',
+      }}
+      onMouseEnter={e => {
+        if (hasDiff) (e.currentTarget as HTMLElement).style.background = 'var(--bg-hover)'
+      }}
+      onMouseLeave={e => {
+        (e.currentTarget as HTMLElement).style.background = ''
+      }}
+      onClick={() => {
+        if (hasDiff && prev) onSelectDiff(prev.revision.id, entry.revision.id)
+      }}
+    >
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 0 }}>
+        {/* Row 1: sha + source badge + time */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <code
+            style={{
+              fontSize: 12,
+              color: 'var(--blue)',
+              fontFamily: 'var(--font-mono)',
+              flexShrink: 0,
+            }}
+          >
+            {entry.revision.shortId}
+          </code>
+          <Badge variant="muted">
+            {sourceIcon(entry.revision.source)} {entry.revision.source}
+          </Badge>
+          {entry.revision.sourceRef && (
+            <Badge variant="purple">{entry.revision.sourceRef}</Badge>
+          )}
+          <span style={{ color: 'var(--text-muted)', fontSize: 11, marginLeft: 'auto' }}>
+            {formatRelativeTime(entry.revision.timestamp)}
+          </span>
+        </div>
+
+        {/* Row 2: commit message */}
+        <div
+          style={{
+            color: 'var(--text-primary)',
+            fontSize: 13,
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+          }}
+        >
+          {entry.revision.message || '(no message)'}
+        </div>
+
+        {/* Row 3: author */}
+        {entry.revision.author && (
+          <div style={{ color: 'var(--text-muted)', fontSize: 11 }}>
+            {entry.revision.author}
+          </div>
+        )}
+
+        {/* Row 4: affected files */}
+        {entry.affectedFiles.length > 0 && (
+          <div
+            style={{
+              display: 'flex',
+              flexWrap: 'wrap',
+              gap: 4,
+              marginTop: 2,
+            }}
+          >
+            {entry.affectedFiles.slice(0, 5).map(f => (
+              <span
+                key={f}
+                style={{
+                  fontSize: 11,
+                  fontFamily: 'var(--font-mono)',
+                  color: 'var(--text-muted)',
+                  background: 'var(--bg-elevated)',
+                  padding: '1px 5px',
+                  borderRadius: 3,
+                }}
+              >
+                {f.split('/').pop()}
+              </span>
+            ))}
+            {entry.affectedFiles.length > 5 && (
+              <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                +{entry.affectedFiles.length - 5} more
+              </span>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Right: diff badges */}
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
+        {!entry.snapshotCached
+          ? <Badge variant="amber">build failed</Badge>
+          : <DiffBadges
+              added={diffStats.pathsAdded}
+              removed={diffStats.pathsRemoved}
+              changed={diffStats.pathsChanged}
+              breaking={diffStats.breakingChanges}
+            />
+        }
+        {hasDiff && entry.snapshotCached && (
+          <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>view diff →</span>
+        )}
+      </div>
+    </div>
+  )
+}

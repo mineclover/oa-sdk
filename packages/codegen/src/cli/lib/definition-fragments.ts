@@ -155,6 +155,70 @@ export function loadDefinitionFragments(fragmentsDir: string): LoadedDefinitionF
   }
 }
 
+export type SpecFileEntryInput = {
+  relativePath: string
+  content: string
+}
+
+export function loadDefinitionFragmentsFromEntries(
+  entries: SpecFileEntryInput[],
+  fragmentsDir: string,
+): LoadedDefinitionFragments {
+  const nodes: DefinitionNode[] = []
+  const diagnostics: DefinitionFragmentLoadDiagnostic[] = []
+  const sourceLocations = new Map<string, SourceLocationIndex>()
+  const filePaths: string[] = []
+  const sorted = [...entries].sort((a, b) => a.relativePath.localeCompare(b.relativePath))
+
+  for (const entry of sorted) {
+    if (!isDefinitionFile(entry.relativePath)) continue
+    const adapted = adaptDefinitionBuilderFragmentFileFromContent(
+      entry.relativePath,
+      entry.content,
+      fragmentsDir,
+    )
+    sourceLocations.set(adapted.sourcePath, adapted.sourceLocation)
+    diagnostics.push(...adapted.diagnostics)
+    if (adapted.node !== undefined) nodes.push(adapted.node)
+    filePaths.push(adapted.sourcePath)
+  }
+
+  return { nodes, diagnostics, sourceLocations, filePaths }
+}
+
+export function adaptDefinitionBuilderFragmentFileFromContent(
+  relativePath: string,
+  content: string,
+  fragmentsDir: string,
+): DefinitionBuilderFragmentAdapterResult {
+  const sourcePath = join(resolve(fragmentsDir), relativePath)
+  let sourceLocation = createSourceLocationIndex('', { filePath: sourcePath })
+
+  let document: unknown
+  try {
+    sourceLocation = createSourceLocationIndex(content, { filePath: sourcePath })
+    document = parseDocument(content, relativePath)
+  } catch (error) {
+    return {
+      sourcePath,
+      raw: content,
+      sourceLocation,
+      fragments: [],
+      diagnostics: [fragmentDiagnostic(sourcePath, error instanceof Error ? error.message : String(error))],
+    }
+  }
+
+  const base: SourceFileAdapterResult<DefinitionFragmentLoadDiagnostic> = {
+    sourcePath,
+    raw: content,
+    document,
+    sourceLocation,
+    fragments: [],
+    diagnostics: [],
+  }
+  return adaptDefinitionBuilderFragmentDocument(base)
+}
+
 export function lookupDefinitionSourceLocation(
   sourceLocations: ReadonlyMap<string, SourceLocationIndex>,
   sourcePath: string,
@@ -172,6 +236,12 @@ export function adaptDefinitionBuilderFragmentFile(filePath: string): Definition
     filePath,
     (sourcePath, message, sourcePointer) => fragmentDiagnostic(sourcePath, message, sourcePointer),
   )
+  return adaptDefinitionBuilderFragmentDocument(parsed)
+}
+
+function adaptDefinitionBuilderFragmentDocument(
+  parsed: SourceFileAdapterResult<DefinitionFragmentLoadDiagnostic>,
+): DefinitionBuilderFragmentAdapterResult {
   if (parsed.document === undefined) return parsed
 
   const diagnostics: DefinitionFragmentLoadDiagnostic[] = []

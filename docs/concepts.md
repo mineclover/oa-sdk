@@ -60,6 +60,34 @@
 
 정의: [CLI Governance](./concepts/cli-governance.md#cli-governance-manifest)
 
+## Behavior ECS
+
+정의: [Behavior ECS](./concepts/behavior-ecs.md)
+
+## Behavior ECS Use Cases
+
+정의: [Behavior ECS](./concepts/behavior-ecs.md#representative-use-cases)
+
+## Behavior ECS Basic Test Cases
+
+정의: [Behavior ECS](./concepts/behavior-ecs.md#basic-test-cases)
+
+## Action Entity
+
+정의: [Behavior ECS](./concepts/behavior-ecs.md#entity)
+
+## Action Component
+
+정의: [Behavior ECS](./concepts/behavior-ecs.md#component)
+
+## Action System
+
+정의: [Behavior ECS](./concepts/behavior-ecs.md#system)
+
+## Behavior Lifecycle
+
+정의: [Behavior ECS](./concepts/behavior-ecs.md#lifecycle)
+
 ## Runtime Adapter
 
 정의: [Runtime And Generation](./concepts/runtime-and-generation.md#runtime-adapter)

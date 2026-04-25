@@ -68,6 +68,15 @@ const manifestSpecs = [
   },
 ] as const
 
+const undocumentedOaGenCommands = new Set([
+  'generate',
+  'typegen',
+  'router',
+  'client',
+  'lint',
+  'dev',
+])
+
 function main(): void {
   const issues: string[] = []
   if (!existsSync(schemaPath)) {
@@ -109,6 +118,7 @@ function compareTsCommandImplementation(
   issues: string[],
 ): void {
   const commandByName = new Map(commands.map(command => [command.name, command]))
+  const manifestCommandNames = new Set(manifest.commands.map(command => command.name))
   for (const manifestCommand of manifest.commands) {
     const implementation = commandByName.get(manifestCommand.name)
     if (!implementation) {
@@ -144,6 +154,12 @@ function compareTsCommandImplementation(
         issues.push(`oa-gen:${manifestCommand.name}: TS implementation has undocumented option ${optionName}`)
       }
     }
+  }
+
+  for (const implementationName of commandByName.keys()) {
+    if (manifestCommandNames.has(implementationName)) continue
+    if (undocumentedOaGenCommands.has(implementationName)) continue
+    issues.push(`oa-gen:${implementationName}: command is missing from governance manifest`)
   }
 }
 

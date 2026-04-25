@@ -1,0 +1,35 @@
+{
+  "name": "@oa-sdk/spec-lens",
+  "version": "0.1.0",
+  "description": "OpenAPI spec change history management and observation tool for oa-sdk",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsup src/index.ts --format esm --dts",
+    "build:ui": "pnpm --filter @oa-sdk/spec-lens-ui run build",
+    "dev": "tsup src/index.ts --format esm --dts --watch",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@hono/node-server": "^2.0.0",
+    "@oa-sdk/codegen": "workspace:*",
+    "@oa-sdk/parser": "workspace:*",
+    "better-sqlite3": "^12.4.1",
+    "hono": "^4.7.11"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/node": "^24.0.0",
+    "tsup": "^8.0.0",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.4"
+  }
+}

@@ -1,5 +1,27 @@
 import type { BuildSpecCompositionReport } from './composition-report.js'
 import type { DefinitionDuplicateReviewResult } from './duplicate-review.js'
+import type {
+  BuildSpecMetadataRegistry,
+  BuildSpecMetadataRegistryDiffEntry,
+} from './metadata-registry.js'
+import type { BuildSpecProvenanceDiffEntry } from './provenance-report.js'
+import type {
+  MetadataRegistryDiffReview,
+  ProvenanceDiffReview,
+} from './review-sidecar-diff.js'
+import {
+  formatArtifactFreshnessLines,
+  formatChangeLines,
+  formatSidecarDiffLines,
+  markdownCode,
+  markdownText,
+} from './review-markdown.js'
+import {
+  isOptionalSidecarDiffIncomplete,
+  optionalSidecarDiffChangeCount,
+  recommendReviewOutcome,
+  type ReviewOutcome,
+} from './review-policy.js'
 import type { OpenApiInventory } from './openapi-inventory.js'
 import { createOpenApiInventory } from './openapi-inventory.js'
 import {
@@ -13,17 +35,14 @@ import {
   diffOpenApiDocuments,
   type OpenApiNormalizedDiffEntry,
 } from './openapi-normalized-diff.js'
-import {
-  createArtifactFreshnessReport,
-  createSkippedArtifactFreshnessReport,
-  type ArtifactFreshnessSection,
-} from './artifact-freshness.js'
+import { type ArtifactFreshnessSection } from './artifact-freshness.js'
+import { createArtifactReview } from './artifact-review.js'
 
 export const REVIEW_BUNDLE_SCHEMA_VERSION = 'oa-gen.review-bundle.v1'
 export const REVIEW_BUNDLE_DIFF_SCHEMA_VERSION = 'oa-gen.review-bundle.diff.v1'
 export const REVIEW_BUNDLE_RUNTIME_DRIFT_SCHEMA_VERSION = 'oa-gen.drift.v1'
 
-export type ReviewBundleRecommendation = 'APPROVE' | 'COMMENT' | 'REQUEST_CHANGES'
+export type ReviewBundleRecommendation = ReviewOutcome
 
 export type ReviewBundleDocumentInput = {
   document: Record<string, unknown>
@@ -69,12 +88,18 @@ export type ReviewBundleReportSection<TReport> = {
   report: TReport
 }
 
+export type ReviewBundleMetadataRegistryDiff = MetadataRegistryDiffReview
+export type ReviewBundleProvenanceDiff = ProvenanceDiffReview
+
 export type ReviewBundleSections = {
   breakingDiff: ReviewBundleBreakingDiffSection
   artifactFreshness: ReviewBundleReportSection<ArtifactFreshnessSection>
   runtimeDrift?: ReviewBundleReportSection<ReviewBundleRuntimeDriftReport>
+  provenanceDiff?: ReviewBundleReportSection<ReviewBundleProvenanceDiff>
   inventory?: ReviewBundleReportSection<OpenApiInventory>
   composition?: ReviewBundleReportSection<BuildSpecCompositionReport>
+  metadataRegistry?: ReviewBundleReportSection<BuildSpecMetadataRegistry>
+  metadataRegistryDiff?: ReviewBundleReportSection<ReviewBundleMetadataRegistryDiff>
   duplicateReview?: ReviewBundleReportSection<DefinitionDuplicateReviewResult>
   nonBreakingChanges: ReviewBundleNonBreakingChangesSection
 }
@@ -84,10 +109,19 @@ export type ReviewBundleSummary = {
   reasons: string[]
   breakingChanges: number
   nonBreakingChanges: number
+  artifactChecked: boolean
   artifactFresh: boolean | null
+  runtimeDriftIncluded: boolean
   runtimeDrift: boolean | null
+  provenanceChecked: boolean
+  provenanceChanges: number | null
   inventoryIncluded: boolean
   compositionIncluded: boolean
+  metadataRegistryIncluded: boolean
+  metadataRegistryChecked: boolean
+  metadataRegistryValid: boolean | null
+  metadataRegistryChanges: number | null
+  duplicateReviewIncluded: boolean
   duplicateReviewValid: boolean | null
   checksIncomplete: boolean
 }
@@ -109,9 +143,12 @@ export type CreateReviewBundleOptions = {
     runtimeFetch?: Record<string, unknown>
   }
   runtimeDrift?: ReviewBundleRuntimeDriftReport
+  provenanceDiff?: ReviewBundleProvenanceDiff
   includeInventory?: boolean
   inventory?: OpenApiInventory
   composition?: BuildSpecCompositionReport
+  metadataRegistry?: BuildSpecMetadataRegistry
+  metadataRegistryDiff?: ReviewBundleMetadataRegistryDiff
   duplicateReview?: DefinitionDuplicateReviewResult
 }
 
@@ -120,13 +157,11 @@ export function createReviewBundle(options: CreateReviewBundleOptions): ReviewBu
   const breaking = classifyBreakingChanges(diff)
   const nonBreaking = classifyNonBreakingChanges(diff)
   const artifactFreshness = options.artifactFreshness
-    ?? (options.artifact
-      ? createArtifactFreshnessReport({
-          headDocument: options.head.document,
-          artifactDocument: options.artifact.document,
-          artifactPath: options.artifact.path,
-        })
-      : createSkippedArtifactFreshnessReport())
+    ?? createArtifactReview({
+      headDocument: options.head.document,
+      ...(options.artifact?.path !== undefined ? { artifactPath: options.artifact.path } : {}),
+      ...(options.artifact?.document !== undefined ? { artifactDocument: options.artifact.document } : {}),
+    })
   const runtimeDrift = options.runtimeDrift
     ?? (options.runtime
       ? createRuntimeDriftReport({
@@ -158,11 +193,20 @@ export function createReviewBundle(options: CreateReviewBundleOptions): ReviewBu
     ...(runtimeDrift !== undefined
       ? { runtimeDrift: { included: true, report: runtimeDrift } }
       : {}),
+    ...(options.provenanceDiff !== undefined
+      ? { provenanceDiff: { included: true, report: options.provenanceDiff } }
+      : {}),
     ...(inventory !== undefined
       ? { inventory: { included: true, report: inventory } }
       : {}),
     ...(options.composition !== undefined
       ? { composition: { included: true, report: options.composition } }
+      : {}),
+    ...(options.metadataRegistry !== undefined
+      ? { metadataRegistry: { included: true, report: options.metadataRegistry } }
+      : {}),
+    ...(options.metadataRegistryDiff !== undefined
+      ? { metadataRegistryDiff: { included: true, report: options.metadataRegistryDiff } }
       : {}),
     ...(options.duplicateReview !== undefined
       ? { duplicateReview: { included: true, report: options.duplicateReview } }
@@ -179,8 +223,11 @@ export function createReviewBundle(options: CreateReviewBundleOptions): ReviewBu
     nonBreaking,
     artifactFreshness,
     runtimeDrift,
+    provenanceDiff: options.provenanceDiff,
     inventoryIncluded: inventory !== undefined,
     compositionIncluded: options.composition !== undefined,
+    metadataRegistry: options.metadataRegistry,
+    metadataRegistryDiff: options.metadataRegistryDiff,
     duplicateReview: options.duplicateReview,
   })
 
@@ -240,8 +287,11 @@ export function formatReviewBundleMarkdown(bundle: ReviewBundle): string {
     `- Non-breaking changes: ${bundle.summary.nonBreakingChanges}`,
     `- Artifact fresh: ${bundle.summary.artifactFresh ?? 'not checked'}`,
     `- Runtime drift: ${bundle.summary.runtimeDrift ?? 'not checked'}`,
+    `- Provenance changes: ${bundle.summary.provenanceChanges ?? 'not checked'}`,
     `- Inventory: ${bundle.summary.inventoryIncluded ? 'included' : 'not included'}`,
     `- Composition: ${bundle.summary.compositionIncluded ? 'included' : 'not included'}`,
+    `- Metadata registry: ${bundle.summary.metadataRegistryIncluded ? (bundle.summary.metadataRegistryValid ?? 'included') : 'not included'}`,
+    `- Metadata registry changes: ${bundle.summary.metadataRegistryChanges ?? 'not checked'}`,
     `- Duplicate review: ${bundle.summary.duplicateReviewValid ?? 'not included'}`,
   ]
   if (bundle.summary.reasons.length > 0) {
@@ -268,6 +318,13 @@ export function formatReviewBundleMarkdown(bundle: ReviewBundle): string {
       ...runtimeDriftLines(bundle.sections.runtimeDrift.report),
     )
   }
+  if (bundle.sections.provenanceDiff !== undefined) {
+    lines.push(
+      '',
+      '## Provenance Changes',
+      ...provenanceDiffLines(bundle.sections.provenanceDiff.report),
+    )
+  }
   if (bundle.sections.inventory !== undefined) {
     lines.push(
       '',
@@ -280,6 +337,20 @@ export function formatReviewBundleMarkdown(bundle: ReviewBundle): string {
       '',
       '## Composition',
       ...compositionLines(bundle.sections.composition.report),
+    )
+  }
+  if (bundle.sections.metadataRegistry !== undefined) {
+    lines.push(
+      '',
+      '## Metadata Registry',
+      ...metadataRegistryLines(bundle.sections.metadataRegistry.report),
+    )
+  }
+  if (bundle.sections.metadataRegistryDiff !== undefined) {
+    lines.push(
+      '',
+      '## Metadata Registry Changes',
+      ...metadataRegistryDiffLines(bundle.sections.metadataRegistryDiff.report),
     )
   }
   if (bundle.sections.duplicateReview !== undefined) {
@@ -304,11 +375,16 @@ function createSummary(input: {
   nonBreaking: readonly ContractDiffChange[]
   artifactFreshness: ArtifactFreshnessSection
   runtimeDrift: ReviewBundleRuntimeDriftReport | undefined
+  provenanceDiff: ReviewBundleProvenanceDiff | undefined
   inventoryIncluded: boolean
   compositionIncluded: boolean
+  metadataRegistry: BuildSpecMetadataRegistry | undefined
+  metadataRegistryDiff: ReviewBundleMetadataRegistryDiff | undefined
   duplicateReview: DefinitionDuplicateReviewResult | undefined
 }): ReviewBundleSummary {
   const reasons: string[] = []
+  const provenanceDiffIncomplete = isOptionalSidecarDiffIncomplete(input.provenanceDiff)
+  const metadataRegistryDiffIncomplete = isOptionalSidecarDiffIncomplete(input.metadataRegistryDiff)
 
   if (input.breaking.length > 0) {
     reasons.push(`${input.breaking.length} breaking change${input.breaking.length === 1 ? '' : 's'} detected`)
@@ -323,6 +399,19 @@ function createSummary(input: {
     reasons.push(input.runtimeDrift.status === 'drift-check-failed'
       ? 'runtime drift check failed'
       : 'runtime OpenAPI drift detected')
+  }
+  if (input.provenanceDiff?.changed === true) {
+    reasons.push('provenance entries changed')
+  } else if (provenanceDiffIncomplete) {
+    reasons.push('provenance diff was not fully checked')
+  }
+  if (input.metadataRegistry !== undefined && metadataRegistryHasErrors(input.metadataRegistry)) {
+    reasons.push('metadata registry has duplicate or invalid entries')
+  }
+  if (input.metadataRegistryDiff?.changed === true) {
+    reasons.push('metadata registry entries changed')
+  } else if (metadataRegistryDiffIncomplete) {
+    reasons.push('metadata registry diff was not fully checked')
   }
   if (input.duplicateReview !== undefined && !input.duplicateReview.valid) {
     reasons.push('duplicate review has error-level findings or diagnostics')
@@ -339,17 +428,33 @@ function createSummary(input: {
       nonBreaking: input.nonBreaking,
       artifactFreshness: input.artifactFreshness,
       runtimeDrift: input.runtimeDrift,
+      provenanceDiff: input.provenanceDiff,
+      metadataRegistry: input.metadataRegistry,
+      metadataRegistryDiff: input.metadataRegistryDiff,
       duplicateReview: input.duplicateReview,
     }),
     reasons,
     breakingChanges: input.breaking.length,
     nonBreakingChanges: input.nonBreaking.length,
+    artifactChecked: input.artifactFreshness.checked,
     artifactFresh: input.artifactFreshness.fresh,
+    runtimeDriftIncluded: input.runtimeDrift !== undefined,
     runtimeDrift: input.runtimeDrift?.drift ?? null,
+    provenanceChecked: input.provenanceDiff?.checked ?? false,
+    provenanceChanges: optionalSidecarDiffChangeCount(input.provenanceDiff),
     inventoryIncluded: input.inventoryIncluded,
     compositionIncluded: input.compositionIncluded,
+    metadataRegistryIncluded: input.metadataRegistry !== undefined,
+    metadataRegistryChecked: input.metadataRegistryDiff?.checked ?? false,
+    metadataRegistryValid: input.metadataRegistry !== undefined
+      ? !metadataRegistryHasErrors(input.metadataRegistry)
+      : null,
+    metadataRegistryChanges: optionalSidecarDiffChangeCount(input.metadataRegistryDiff),
+    duplicateReviewIncluded: input.duplicateReview !== undefined,
     duplicateReviewValid: input.duplicateReview?.valid ?? null,
-    checksIncomplete: !input.artifactFreshness.checked,
+    checksIncomplete: !input.artifactFreshness.checked
+      || provenanceDiffIncomplete
+      || metadataRegistryDiffIncomplete,
   }
 }
 
@@ -358,44 +463,39 @@ function recommend(input: {
   nonBreaking: readonly ContractDiffChange[]
   artifactFreshness: ArtifactFreshnessSection
   runtimeDrift: ReviewBundleRuntimeDriftReport | undefined
+  provenanceDiff: ReviewBundleProvenanceDiff | undefined
+  metadataRegistry: BuildSpecMetadataRegistry | undefined
+  metadataRegistryDiff: ReviewBundleMetadataRegistryDiff | undefined
   duplicateReview: DefinitionDuplicateReviewResult | undefined
 }): ReviewBundleRecommendation {
-  if (
-    input.breaking.length > 0
-    || input.artifactFreshness.fresh === false
-    || input.runtimeDrift?.drift === true
-    || input.duplicateReview?.valid === false
-  ) {
-    return 'REQUEST_CHANGES'
-  }
-  if (
-    input.nonBreaking.length > 0
-    || !input.artifactFreshness.checked
-    || (input.duplicateReview !== undefined && input.duplicateReview.summary.findingCount > 0)
-  ) {
-    return 'COMMENT'
-  }
-  return 'APPROVE'
+  return recommendReviewOutcome({
+    hasBlocking: input.breaking.length > 0
+      || input.artifactFreshness.fresh === false
+      || input.runtimeDrift?.drift === true
+      || (input.metadataRegistry !== undefined && metadataRegistryHasErrors(input.metadataRegistry))
+      || input.duplicateReview?.valid === false,
+    hasAdvisory: input.nonBreaking.length > 0
+      || !input.artifactFreshness.checked
+      || input.provenanceDiff?.changed === true
+      || isOptionalSidecarDiffIncomplete(input.provenanceDiff)
+      || input.metadataRegistryDiff?.changed === true
+      || isOptionalSidecarDiffIncomplete(input.metadataRegistryDiff)
+      || (input.duplicateReview !== undefined && input.duplicateReview.summary.findingCount > 0),
+  })
 }
 
 function changeLines(changes: readonly ContractDiffChange[]): string[] {
-  if (changes.length === 0) return ['None.']
-  return changes.map(change => (
-    `- \`${markdownCode(change.code)}\` \`${markdownCode(change.endpoint)}\` - ${markdownText(change.detail)}`
-  ))
+  return formatChangeLines(changes)
 }
 
 function artifactLines(report: ArtifactFreshnessSection): string[] {
-  if (!report.checked) return [markdownText(report.summary)]
-  const lines = [
-    `- \`${markdownCode(report.artifact)}\`: **${report.fresh ? 'fresh' : 'stale'}** - ${markdownText(report.summary)}`,
-  ]
-  if (report.differences.length > 0) {
-    lines.push(...report.differences.map(difference => (
-      `- ${markdownText(difference.kind)} \`${markdownCode(difference.pointer)}\`: ${markdownText(difference.message)}`
-    )))
-  }
-  return lines
+  return formatArtifactFreshnessLines({
+    checked: report.checked,
+    artifact: report.artifact,
+    fresh: report.fresh,
+    summary: report.summary,
+    differences: report.differences,
+  })
 }
 
 function runtimeDriftLines(report: ReviewBundleRuntimeDriftReport): string[] {
@@ -418,6 +518,25 @@ function runtimeDriftLines(report: ReviewBundleRuntimeDriftReport): string[] {
   return lines
 }
 
+function provenanceDiffLines(report: ReviewBundleProvenanceDiff): string[] {
+  return formatSidecarDiffLines({
+    report,
+    markdownText,
+    markdownCode,
+    getBaseCell: difference => provenanceDiffCell(difference.base),
+    getHeadCell: difference => provenanceDiffCell(difference.head),
+  })
+}
+
+function provenanceDiffCell(entry: BuildSpecProvenanceDiffEntry['base']): string {
+  if (!entry) return '—'
+  return [
+    `canonicalId=${entry.canonicalId}`,
+    `sourcePath=${entry.sourcePath}`,
+    `contentHash=${entry.contentHash}`,
+  ].map(markdownText).join('<br>')
+}
+
 function inventoryLines(report: OpenApiInventory): string[] {
   return [
     `- Paths: ${report.totals.paths}`,
@@ -438,6 +557,46 @@ function compositionLines(report: BuildSpecCompositionReport): string[] {
   ]
 }
 
+function metadataRegistryLines(report: BuildSpecMetadataRegistry): string[] {
+  return [
+    `- Target: ${markdownText(report.targetName)}`,
+    `- Entries: ${report.summary.entryCount}`,
+    `- Explicit tracking IDs: ${report.summary.explicitTrackingIdCount}`,
+    `- Generated tracking IDs: ${report.summary.generatedTrackingIdCount}`,
+    `- Invalid tracking IDs: ${report.summary.invalidTrackingIdCount}`,
+    `- Duplicate tracking IDs: ${report.summary.duplicateTrackingIdCount}`,
+    `- Duplicate stable keys: ${report.summary.duplicateStableKeyCount}`,
+    `- Duplicate output pointers: ${report.summary.duplicateOutputPointerCount}`,
+  ]
+}
+
+function metadataRegistryDiffLines(report: ReviewBundleMetadataRegistryDiff): string[] {
+  return formatSidecarDiffLines({
+    report,
+    markdownText,
+    markdownCode,
+    getBaseCell: difference => metadataRegistryDiffCell(difference.base),
+    getHeadCell: difference => metadataRegistryDiffCell(difference.head),
+  })
+}
+
+function metadataRegistryDiffCell(entry: BuildSpecMetadataRegistryDiffEntry['base']): string {
+  if (!entry) return '—'
+  return [
+    `canonicalId=${entry.canonicalId}`,
+    `identityKey=${entry.identityKey}`,
+    `stableKey=${entry.stableKey}`,
+    `trackingId=${entry.trackingId}`,
+  ].map(markdownText).join('<br>')
+}
+
+function metadataRegistryHasErrors(report: BuildSpecMetadataRegistry): boolean {
+  return report.summary.invalidTrackingIdCount > 0
+    || report.summary.duplicateTrackingIdCount > 0
+    || report.summary.duplicateStableKeyCount > 0
+    || report.summary.duplicateOutputPointerCount > 0
+}
+
 function duplicateReviewLines(report: DefinitionDuplicateReviewResult): string[] {
   return [
     `- Valid: ${report.valid}`,
@@ -447,12 +606,4 @@ function duplicateReviewLines(report: DefinitionDuplicateReviewResult): string[]
     `- Warnings: ${report.summary.warnings}`,
     `- Infos: ${report.summary.infos}`,
   ]
-}
-
-function markdownText(value: unknown): string {
-  return String(value).replace(/\s+/g, ' ').replace(/\|/g, '\\|').trim()
-}
-
-function markdownCode(value: unknown): string {
-  return markdownText(value).replace(/`/g, '\\`')
 }

@@ -12,6 +12,7 @@ import { diff } from './commands/diff.js'
 import { checkArtifact } from './commands/check-artifact.js'
 import { drift } from './commands/drift.js'
 import { inventory } from './commands/inventory.js'
+import { behaviorQuery } from './commands/behavior-query.js'
 import { duplicateReview } from './commands/duplicate-review.js'
 import { targetCheck } from './commands/target-check.js'
 import { reviewBundle } from './commands/review-bundle.js'
@@ -26,6 +27,7 @@ export const commands: Command[] = [
   lint,
   validate,
   inventory,
+  behaviorQuery,
   duplicateReview,
   targetCheck,
   diff,

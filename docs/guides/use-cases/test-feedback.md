@@ -88,6 +88,7 @@ if (!res.ok) {
 
 → [에러 분류 상세](../../internal/spec.md)
 → [OAS 커버리지 매트릭스](../../internal/oas32-coverage.md)
+→ [Behavior ECS 기본 테스트 케이스](../../internal/behavior-ecs.spec.md#baseline-test-cases)
 
 ## 5. 린트로 스펙 품질 확인
 
@@ -97,3 +98,4 @@ oa-gen lint --spec packages/schemas/src/.merged.yaml
 ```
 
 → [린터 규칙 목록](../../internal/spec.md)
+→ [Behavior ECS](../../concepts/behavior-ecs.md)

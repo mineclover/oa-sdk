@@ -6,6 +6,10 @@
 
 프론트엔드 또는 통합 테스트에서 실제 백엔드 없이 API 동작을 시뮬레이션.
 
+행동 수집/조회 관점의 개념 정의는 [Behavior ECS](../../concepts/behavior-ecs.md)를 따르고,
+baseline/local verification은
+[Behavior ECS Spec](../../internal/behavior-ecs.spec.md)를 단일 소스로 본다.
+
 ## Node HTTP 어댑터 (Vitest/Playwright)
 
 ```typescript
@@ -65,6 +69,7 @@ Security → Content-Type → Parameters → Body → 응답 선택
 
 → [에러 코드 8종 상세](../../internal/spec.md)
 → [검증 API](../../internal/api-index.md#함수-oa-sdkmock-server)
+→ [Behavior ECS](../../concepts/behavior-ecs.md)
 
 ## 응답 우선순위
 
@@ -73,3 +78,4 @@ examples[0].dataValue → value → example → schema.example → schema.defaul
 ```
 
 → [OAS 3.2 Examples 커버리지](../../internal/oas32-coverage.md)
+→ [Behavior ECS 기본 테스트 케이스](../../internal/behavior-ecs.spec.md#baseline-test-cases)

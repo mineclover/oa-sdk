@@ -39,6 +39,10 @@ PR에서 target artifact, provenance, duplicate review, runtime drift, review bu
 한 번에 검토하는 절차는 [OpenAPI Governance Workflow](./openapi-governance-workflow.md)를
 따른다.
 
+command execution logging과 projection/read model은 [Behavior ECS](../../concepts/behavior-ecs.md)를
+따르고, baseline/local verification은
+[Behavior ECS Spec](../../internal/behavior-ecs.spec.md)를 단일 소스로 본다.
+
 ## 1. Drizzle → OAS components.yaml
 
 ```bash
@@ -229,3 +233,4 @@ oa-gen client  --spec packages/schemas/src/.merged.yaml --types-import './types'
 → [CLI 전체 명령어](../cli-setup.md)
 → [API 상세](../../internal/api-index.md)
 → [Zod 타입 커버리지](../../internal/spec.md)
+→ [Behavior ECS](../../concepts/behavior-ecs.md)

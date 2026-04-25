@@ -5,6 +5,86 @@ export const oaGenGovernanceManifest = {
   namespace: 'oa-gen',
   commands: [
     {
+      id: 'build-spec',
+      kind: 'command',
+      name: 'build-spec',
+      summary: 'Definition Builder target OpenAPI artifact와 sidecar 생성',
+      components: {
+        options: [
+          {
+            name: 'target',
+            type: 'string',
+            short: 't',
+            required: true,
+            description: 'target config 파일 경로',
+          },
+          {
+            name: 'fragments',
+            type: 'string',
+            description: 'definition fragments 디렉토리 (기본: target sibling ../fragments)',
+          },
+          {
+            name: 'output',
+            type: 'string',
+            short: 'o',
+            description: '빌드된 OpenAPI YAML 출력 파일 경로',
+          },
+          {
+            name: 'diagnostics',
+            type: 'string',
+            description: 'builder diagnostics JSON 출력 파일 경로',
+          },
+          {
+            name: 'collision-report',
+            type: 'string',
+            description: 'machine-readable output name collision report JSON 출력 파일 경로',
+          },
+          {
+            name: 'composition-report',
+            type: 'string',
+            description: 'machine-readable target composition report JSON 출력 파일 경로',
+          },
+          {
+            name: 'provenance',
+            type: 'string',
+            description: 'machine-readable output pointer provenance map JSON 출력 파일 경로',
+          },
+          {
+            name: 'metadata-registry',
+            type: 'string',
+            description: 'machine-readable internal metadata registry JSON 출력 파일 경로',
+          },
+          {
+            name: 'behavior-log',
+            type: 'string',
+            description: 'append-only behavior JSONL 출력 파일 경로',
+          },
+          {
+            name: 'behavior-db',
+            type: 'string',
+            description: 'append-only behavior SQLite DB 파일 경로',
+          },
+        ],
+        inputs: [
+          { name: 'target', kind: 'definition-target', required: true, option: 'target' },
+          { name: 'fragments', kind: 'definition-fragments', required: false, option: 'fragments' },
+        ],
+        checks: ['composition', 'metadata-registry'],
+        reports: [
+          { formats: ['human'], schema: 'oa-gen.build-spec.human.v1' },
+          { formats: ['json'], schema: 'oa-gen.build-spec.diagnostics.v1' },
+          { formats: ['json'], schema: 'oa-gen.build-spec.collision-report.v1' },
+          { formats: ['json'], schema: 'oa-gen.composition-report.v1' },
+          { formats: ['json'], schema: 'oa-gen.build-spec.provenance.v1' },
+          { formats: ['json'], schema: 'oa-gen.metadata-registry.v1' },
+        ],
+        exitPolicy: {
+          success: ['APPROVE'],
+          failure: ['REQUEST_CHANGES'],
+        },
+      },
+    },
+    {
       id: 'validate',
       kind: 'command',
       name: 'validate',
@@ -69,6 +149,85 @@ export const oaGenGovernanceManifest = {
         checks: ['inventory'],
         reports: [
           { formats: ['markdown', 'json'], schema: 'oa-gen.inventory.v1' },
+        ],
+        exitPolicy: {
+          success: ['APPROVE', 'COMMENT'],
+          failure: ['REQUEST_CHANGES'],
+        },
+      },
+    },
+    {
+      id: 'behavior-query',
+      kind: 'command',
+      name: 'behavior-query',
+      summary: 'behavior SQLite projection 조회',
+      components: {
+        options: [
+          {
+            name: 'behavior-db',
+            type: 'string',
+            required: true,
+            description: 'behavior SQLite DB 파일 경로',
+          },
+          {
+            name: 'mode',
+            type: 'string',
+            required: true,
+            description: 'recent | recent-failures | latest-failure-by-type | latest-by-type | latest-by-identity | latest-by-target | latest-by-decision-signal | latest-by-recommendation | summary-by-type | summary-by-status | summary-by-target-type | summary-by-behavior-status | summary-by-behavior-decision-signal | summary-by-decision-signal | summary-by-recommendation',
+          },
+          {
+            name: 'behavior-type',
+            type: 'string',
+            description: 'latest-by-type 또는 latest-failure-by-type 조회용 behavior type',
+          },
+          {
+            name: 'identity-key',
+            type: 'string',
+            description: 'latest-by-identity 조회용 identity key',
+          },
+          {
+            name: 'target-type',
+            type: 'string',
+            description: 'latest-by-target 조회용 target type',
+          },
+          {
+            name: 'target-key',
+            type: 'string',
+            description: 'latest-by-target 조회용 target key',
+          },
+          {
+            name: 'decision-signal',
+            type: 'string',
+            description: 'latest-by-decision-signal 조회용 또는 exact match filter',
+          },
+          {
+            name: 'recommendation',
+            type: 'string',
+            description: 'latest-by-recommendation 조회용 recommendation',
+          },
+          {
+            name: 'status',
+            type: 'string',
+            description: 'recent/recent-failures filter 또는 status exact match',
+          },
+          {
+            name: 'limit',
+            type: 'string',
+            description: 'recent / recent-failures 조회 개수 제한 (기본: 20)',
+          },
+          {
+            name: 'format',
+            type: 'string',
+            short: 'f',
+            description: 'markdown | json (기본: markdown)',
+          },
+        ],
+        inputs: [
+          { name: 'behavior-db', kind: 'behavior-store', required: true, option: 'behavior-db' },
+        ],
+        checks: ['behavior-query'],
+        reports: [
+          { formats: ['markdown', 'json'], schema: 'oa-gen.behavior-query.v1' },
         ],
         exitPolicy: {
           success: ['APPROVE', 'COMMENT'],
@@ -294,6 +453,16 @@ export const oaGenGovernanceManifest = {
             short: 'f',
             description: 'text | json | markdown (기본: text)',
           },
+          {
+            name: 'behavior-log',
+            type: 'string',
+            description: 'append-only behavior JSONL 출력 파일 경로',
+          },
+          {
+            name: 'behavior-db',
+            type: 'string',
+            description: 'append-only behavior SQLite DB 파일 경로',
+          },
         ],
         inputs: [
           { name: 'runtime-openapi', kind: 'runtime-openapi', required: false, option: 'runtime-openapi' },
@@ -366,6 +535,26 @@ export const oaGenGovernanceManifest = {
             type: 'string',
             description: 'head OpenAPI provenance sidecar JSON 경로',
           },
+          {
+            name: 'base-metadata-registry',
+            type: 'string',
+            description: 'base OpenAPI metadata registry sidecar JSON 경로',
+          },
+          {
+            name: 'head-metadata-registry',
+            type: 'string',
+            description: 'head OpenAPI metadata registry sidecar JSON 경로',
+          },
+          {
+            name: 'behavior-log',
+            type: 'string',
+            description: 'append-only behavior JSONL 출력 파일 경로',
+          },
+          {
+            name: 'behavior-db',
+            type: 'string',
+            description: 'append-only behavior SQLite DB 파일 경로',
+          },
         ],
         inputs: [
           { name: 'base', kind: 'openapi-document', required: true, option: 'base' },
@@ -373,8 +562,10 @@ export const oaGenGovernanceManifest = {
           { name: 'artifact', kind: 'openapi-artifact', required: false, option: 'artifact' },
           { name: 'base-provenance', kind: 'openapi-provenance', required: false, option: 'base-provenance' },
           { name: 'head-provenance', kind: 'openapi-provenance', required: false, option: 'head-provenance' },
+          { name: 'base-metadata-registry', kind: 'metadata-registry-report', required: false, option: 'base-metadata-registry' },
+          { name: 'head-metadata-registry', kind: 'metadata-registry-report', required: false, option: 'head-metadata-registry' },
         ],
-        checks: ['breaking-diff', 'head-validation', 'artifact-freshness'],
+        checks: ['breaking-diff', 'head-validation', 'artifact-freshness', 'metadata-registry'],
         reports: [
           { formats: ['markdown', 'json'], schema: 'oa-gen.review-report.v1' },
         ],
@@ -420,9 +611,44 @@ export const oaGenGovernanceManifest = {
             description: 'oa-gen drift --format json 출력 파일 경로',
           },
           {
+            name: 'behavior-log',
+            type: 'string',
+            description: 'append-only behavior JSONL 출력 파일 경로',
+          },
+          {
+            name: 'behavior-db',
+            type: 'string',
+            description: 'append-only behavior SQLite DB 파일 경로',
+          },
+          {
+            name: 'base-provenance',
+            type: 'string',
+            description: 'base OpenAPI provenance sidecar JSON 경로',
+          },
+          {
+            name: 'head-provenance',
+            type: 'string',
+            description: 'head OpenAPI provenance sidecar JSON 경로',
+          },
+          {
             name: 'composition-report',
             type: 'string',
             description: 'build-spec composition report JSON 경로',
+          },
+          {
+            name: 'metadata-registry',
+            type: 'string',
+            description: 'build-spec metadata registry JSON 경로',
+          },
+          {
+            name: 'base-metadata-registry',
+            type: 'string',
+            description: 'base OpenAPI metadata registry sidecar JSON 경로',
+          },
+          {
+            name: 'head-metadata-registry',
+            type: 'string',
+            description: 'head OpenAPI metadata registry sidecar JSON 경로',
           },
           {
             name: 'duplicate-review',
@@ -441,10 +667,15 @@ export const oaGenGovernanceManifest = {
           { name: 'head', kind: 'openapi-document', required: true, option: 'head' },
           { name: 'artifact', kind: 'openapi-artifact', required: true, option: 'artifact' },
           { name: 'runtime-drift', kind: 'runtime-drift-report', required: false, option: 'runtime-drift' },
+          { name: 'base-provenance', kind: 'openapi-provenance', required: false, option: 'base-provenance' },
+          { name: 'head-provenance', kind: 'openapi-provenance', required: false, option: 'head-provenance' },
           { name: 'composition-report', kind: 'composition-report', required: false, option: 'composition-report' },
+          { name: 'metadata-registry', kind: 'metadata-registry-report', required: false, option: 'metadata-registry' },
+          { name: 'base-metadata-registry', kind: 'metadata-registry-report', required: false, option: 'base-metadata-registry' },
+          { name: 'head-metadata-registry', kind: 'metadata-registry-report', required: false, option: 'head-metadata-registry' },
           { name: 'duplicate-review', kind: 'duplicate-review-report', required: false, option: 'duplicate-review' },
         ],
-        checks: ['breaking-diff', 'artifact-freshness', 'runtime-drift', 'inventory', 'composition', 'duplicate-review'],
+        checks: ['breaking-diff', 'artifact-freshness', 'runtime-drift', 'inventory', 'composition', 'metadata-registry', 'duplicate-review'],
         reports: [
           { formats: ['markdown', 'json'], schema: 'oa-gen.review-bundle.v1' },
         ],

@@ -42,11 +42,13 @@
               "items": {
                 "enum": [
                   "artifact-freshness",
+                  "behavior-query",
                   "breaking-diff",
                   "composition",
                   "duplicate-review",
                   "head-validation",
                   "inventory",
+                  "metadata-registry",
                   "runtime-drift",
                   "target-coverage"
                 ]
@@ -83,11 +85,13 @@
         "name": { "type": "string", "minLength": 1 },
         "kind": {
           "enum": [
+            "behavior-store",
             "contract-document",
             "composition-report",
             "definition-fragments",
             "definition-target",
             "duplicate-review-report",
+            "metadata-registry-report",
             "module-reference",
             "openapi-artifact",
             "openapi-document",

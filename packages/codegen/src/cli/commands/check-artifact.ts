@@ -2,7 +2,7 @@ import type { Command } from '../lib/types.js'
 import { loadSpecWithPath } from '../lib/load-spec.js'
 import { optStr, str } from '../lib/args.js'
 import { loadOpenApiOrTarget } from '../lib/target-openapi.js'
-import { createArtifactFreshnessReport } from '../lib/artifact-freshness.js'
+import { createArtifactReview } from '../lib/artifact-review.js'
 import {
   formatOpenApiDiff,
 } from '../lib/openapi-normalized-diff.js'
@@ -50,10 +50,10 @@ export const checkArtifact: Command = {
       ...(fragmentsDir ? { fragmentsDir } : {}),
     })
     const artifact = loadSpecWithPath(str(args, 'artifact'))
-    const payload = createArtifactFreshnessReport({
+    const payload = createArtifactReview({
       headDocument: head.document,
-      artifactDocument: artifact.document,
       artifactPath: artifact.path,
+      artifactDocument: artifact.document,
     })
     const format = readFormat(optStr(args, 'format'))
 

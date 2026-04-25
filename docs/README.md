@@ -6,6 +6,7 @@
 |------|------|
 | [Vision](./vision.md) | 핵심 철학과 주 목표 |
 | [Concepts](./concepts.md) | 공통 용어와 계약 경계 정의 |
+| [Behavior ECS](./concepts/behavior-ecs.md) | 행동 단위 Entity/Component/System 정의, representative use case, 기본 테스트 케이스 |
 | [Quick Start](./guides/quick-start.md) | 5분 안에 전 파이프라인 체험 |
 | [Mock 테스팅](./guides/use-cases/mock-testing.md) | 프론트엔드 테스트에서 Mock 서버 활용 |
 | [코드젠 워크플로](./guides/use-cases/codegen-workflow.md) | Drizzle → OAS → TS → 라우터 → 클라이언트 |
@@ -19,6 +20,7 @@
 | [스키마 작성](./guides/schema-authoring.md) | 도메인 분리 spec.yaml |
 | [SchemaAlgebra](./guides/schema-algebra.md) | fold 패턴 확장 |
 | [Preview App](../apps/preview/) | 브라우저 수동 프리뷰. 자동 E2E 보증은 [playground](../apps/playground/)가 담당 |
+| [spec-lens](./spec-lens/README.md) | 커밋별 OpenAPI 변경 이력 관측 도구 — Timeline, Diff, Path Provenance, Fragment Graph |
 
 ## CLI Governance Spec
 
@@ -38,6 +40,7 @@
 | [spec.md](./internal/spec.md) | 구현 현황 |
 | [plan.md](./internal/plan.md) | 로드맵 |
 | [api-index.md](./internal/api-index.md) | API 단일 소스 |
+| [behavior-ecs.spec.md](./internal/behavior-ecs.spec.md) | 행동 데이터 SSOT, representative use case, baseline/local verification |
 | [feature-test-matrix.md](./internal/feature-test-matrix.md) | 기능 ↔ 테스트 매핑 |
 | [oas32-coverage.md](./internal/oas32-coverage.md) | OAS 3.2 커버리지 |
 | [traceability.md](./internal/traceability.md) | 스펙 ↔ 코드 추적 |

@@ -26,13 +26,14 @@ API 변경 PR에서는 [OpenAPI Governance Workflow](./use-cases/openapi-governa
 
 | 명령 | 목적 |
 |---|---|
-| `oa-gen build-spec` | Definition Builder target artifact와 diagnostics/collision/composition/provenance sidecar 생성 |
+| `oa-gen build-spec` | Definition Builder target artifact와 diagnostics/collision/composition/provenance/metadata sidecar 생성 |
 | `oa-gen inventory` | OpenAPI path/operation/component/security surface 요약 |
+| `oa-gen behavior-query` | behavior SQLite projection을 filtered recent/latest와 summary-by-* 기준으로 조회 (`--status`, `--decision-signal`, `latest-by-decision-signal`, `behavior+decision` composite summary 지원) |
 | `oa-gen duplicate-review` | fragment duplicate identity risk와 semantic alias 검토 |
 | `oa-gen target-check` | target 또는 artifact path include/exclude assertion 검증 |
-| `oa-gen drift` | runtime OpenAPI 파일 또는 URL과 managed OpenAPI drift 비교 |
-| `oa-gen review` | diff, validation, artifact freshness, optional provenance diff report |
-| `oa-gen review-bundle` | PR comment용 aggregate review report 생성 |
+| `oa-gen drift` | runtime OpenAPI 파일 또는 URL과 managed OpenAPI drift 비교, optional behavior logging |
+| `oa-gen review` | diff, validation, artifact freshness, optional provenance/metadata diff report, optional behavior logging |
+| `oa-gen review-bundle` | PR comment용 aggregate review report 생성 (optional provenance/metadata diff + behavior logging 포함) |
 
 최소 PR gate 예시:
 

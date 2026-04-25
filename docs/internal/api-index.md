@@ -270,8 +270,60 @@ Typegen 공개 surface는 root entry(`@oa-sdk/codegen`)와 typegen sub-entry(`@o
 | `formatDefinitionDuplicateReviewMarkdown()` | `cli/lib/duplicate-review.ts` | duplicate-review 결과를 PR comment용 compact Markdown으로 렌더링 |
 | `checkTargetCoverage()` | `cli/lib/target-coverage.ts` | generated OpenAPI artifact 또는 Definition Builder target materialization 결과의 emitted `paths` key에 include/exclude assertion을 적용 |
 | `formatTargetCoverageMarkdown()` | `cli/lib/target-coverage.ts` | target-check assertion result와 failure를 compact Markdown report로 렌더링 |
-| `createReviewBundle()` | `cli/lib/review-bundle.ts` | base/head diff, artifact freshness, optional runtime drift, inventory, composition, duplicate review payload를 PR review bundle로 집계 |
+| `createArtifactReview()` | `cli/lib/artifact-review.ts` | artifact freshness report 생성과 skipped fallback을 CLI orchestration 관점에서 통합 |
+| `createBehaviorRecord()` | `cli/lib/behavior-recorder.ts` | append-only behavior entity payload를 schemaVersion/behaviorId/status와 함께 생성 |
+| `createBehaviorIdentityKey()` | `cli/lib/behavior-recorder.ts` | behaviorType과 deterministic parts로 상태 전이/최신 projection 기준 identity key를 생성 |
+| `getBehaviorTypeDefinition()` | `cli/lib/behavior-registry.ts` | behavior type별 input/target/decision/result schema, identity builder, projection policy 선언을 조회 |
+| `readBehaviorComponentSchemas()` | `cli/lib/behavior-registry.ts` | behavior type별 input/target/decision/result schema set을 반환 |
+| `readBehaviorProjectionPolicy()` | `cli/lib/behavior-registry.ts` | behavior type별 projection snapshot policy를 계산 |
+| `resolveBehaviorIdentityParts()` | `cli/lib/behavior-registry.ts` | behavior type registry 기반으로 identity key parts를 계산 |
+| `validateBehaviorRegistryComponents()` | `cli/lib/behavior-registry.ts` | behavior type registry 기반 cross-component semantic rule을 검증 |
+| `createBehaviorRecorder()` | `cli/lib/behavior-recorder.ts` | 하위 호환용 recorder factory. file path를 JSONL adapter로 연결 |
+| `createBehaviorRecorderFromOptions()` | `cli/lib/behavior-recorder.ts` | noop, JSONL, SQLite adapter 중 하나를 선택해 behavior recorder를 생성 |
+| `createSqliteBehaviorRecorder()` | `cli/lib/behavior-recorder.ts` | append-only `behavior_records` table을 사용하는 SQLite recorder adapter를 생성 |
+| `createMemoryBehaviorRecorder()` | `cli/lib/behavior-recorder.ts` | 테스트/향후 orchestration용 in-memory behavior recorder adapter를 생성 |
+| `validateBehaviorRecord()` | `cli/lib/behavior-recorder.ts` | behavior record schema를 검증하고 path/message issue 목록을 반환 |
+| `assertValidBehaviorRecord()` | `cli/lib/behavior-recorder.ts` | invalid behavior record를 예외로 차단 |
+| `isAllowedBehaviorStatusTransition()` | `cli/lib/behavior-recorder.ts` | documented lifecycle transition 허용 여부를 판단 |
+| `assertBehaviorStatusTransition()` | `cli/lib/behavior-recorder.ts` | invalid lifecycle transition을 예외로 차단 |
+| `createSqliteBehaviorProjectionReader()` | `cli/lib/behavior-projection.ts` | `behavior_records`/`behavior_projections`에서 recent/latest-by-type/latest-by-identity/latest-by-target/latest-by-decision-signal/latest-failure/latest-by-recommendation read projection과 full raw listing을 제공 |
+| `queryBehavior()` | `cli/lib/behavior-query.ts` | behavior projection reader를 mode selector + exact-match filters(`behaviorType`/`identityKey`/`targetType`/`targetKey`/`decisionSignal`/`recommendation`/`status`) 기반 JSON report로 변환하고 summary-by-* 및 composite aggregation bucket(`behavior+status`, `behavior+decision`)을 계산 |
+| `formatBehaviorQueryMarkdown()` | `cli/lib/behavior-query.ts` | behavior projection query result를 filter summary와 decision signal column을 포함한 Markdown table로 렌더링하고 aggregation mode에서는 dimensions column을 함께 출력 |
+| `createReviewBundle()` | `cli/lib/review-bundle.ts` | base/head diff, artifact freshness, optional runtime drift, provenance diff, inventory, composition, metadata registry, duplicate review payload를 PR review bundle로 집계 |
 | `formatReviewBundleMarkdown()` | `cli/lib/review-bundle.ts` | recommendation과 summary로 시작하고 breaking changes를 non-breaking changes보다 먼저 두는 review-bundle Markdown report를 렌더링 |
+| `createReviewReport()` | `cli/lib/review-report.ts` | review command의 JSON report model과 summary/recommendation/reasons 계산을 조립 |
+| `formatReviewReportMarkdown()` | `cli/lib/review-report.ts` | review command의 Markdown report를 공통 renderer 기준으로 렌더링 |
+| `createReviewBehaviorResult()` | `cli/lib/review-behavior-result.ts` | review report를 behavior result payload shape로 변환 |
+| `createReviewBundleBehaviorResult()` | `cli/lib/review-behavior-result.ts` | review-bundle summary를 behavior result payload shape로 변환 |
+| `createReviewBehaviorReasonFields()` | `cli/lib/review-behavior-result.ts` | review/review-bundle 공통 recommendation + reasons slice를 behavior result shape로 변환 |
+| `createReviewBehaviorDiffFields()` | `cli/lib/review-behavior-result.ts` | breaking/non-breaking count slice를 behavior result shape로 변환 |
+| `createReviewValidationFields()` | `cli/lib/review-behavior-result.ts` | review validation count slice를 behavior result shape로 변환 |
+| `createReviewCheckedState()` | `cli/lib/review-behavior-result.ts` | review artifact/provenance/metadata checked state slice를 behavior result shape로 변환 |
+| `createReviewBundleIncludedState()` | `cli/lib/review-behavior-result.ts` | review-bundle artifact/runtime/inventory/composition/metadata/duplicate include/checked state slice를 behavior result shape로 변환 |
+| `recommendationDecisionSignal()` | `cli/lib/review-behavior-result.ts` | APPROVE/COMMENT/REQUEST_CHANGES를 behavior decision signal로 매핑 |
+| `recommendationDecisionReason()` | `cli/lib/review-behavior-result.ts` | review recommendation별 decision reason 문구를 반환 |
+| `bundleRecommendationDecisionReason()` | `cli/lib/review-behavior-result.ts` | review-bundle recommendation별 decision reason 문구를 반환 |
+| `validateBuildOpenApiTargetComponents()` | `cli/lib/build-runtime-behavior-validation.ts` | build_openapi_target semantic validator. target/input path, targetKey, decision/result consistency를 검증 |
+| `validateSyncRuntimeOpenApiComponents()` | `cli/lib/build-runtime-behavior-validation.ts` | sync_runtime_openapi semantic validator. target/input path, targetKey, runtime source, decision/result consistency를 검증 |
+| `validateReviewBehaviorComponents()` | `cli/lib/review-behavior-validation.ts` | review/review-bundle 공통 semantic validator. recommendation/reasons/sidecar checked state 일관성을 검증 |
+| `issue()` | `cli/lib/behavior-validation-utils.ts` | behavior validator issue helper |
+| `readDecisionSignal()` | `cli/lib/behavior-validation-utils.ts` | behavior decision component에서 primarySignal을 읽는다 |
+| `readString()` | `cli/lib/behavior-validation-utils.ts` | behavior component field를 string으로 읽는다 |
+| `readBoolean()` | `cli/lib/behavior-validation-utils.ts` | behavior component field를 boolean으로 읽는다 |
+| `readNullableBoolean()` | `cli/lib/behavior-validation-utils.ts` | behavior component field를 nullable boolean으로 읽는다 |
+| `readNumber()` | `cli/lib/behavior-validation-utils.ts` | behavior component field를 number로 읽는다 |
+| `readStringArray()` | `cli/lib/behavior-validation-utils.ts` | behavior component field를 string array로 읽는다 |
+| `readNullableNumber()` | `cli/lib/behavior-validation-utils.ts` | behavior component field를 nullable number로 읽는다 |
+| `readSidecarPairState()` | `cli/lib/behavior-validation-utils.ts` | base/head sidecar pair의 none/partial/complete 상태를 계산한다 |
+| `validateSameStringField()` | `cli/lib/behavior-validation-utils.ts` | input/target 같은 이름 field의 cross-field equality를 검증한다 |
+| `validateCrossStringField()` | `cli/lib/behavior-validation-utils.ts` | 임의 component pair의 string field equality를 검증한다 |
+| `validateReviewBehaviorComponents()` | `cli/lib/review-behavior-validation.ts` | review/review-bundle 공통 semantic validator. recommendation/reasons/sidecar checked state 일관성을 검증 |
+| `createProvenanceDiffReview()` | `cli/lib/review-sidecar-diff.ts` | base/head provenance sidecar diff summary를 checked/changed/summary shape로 정규화 |
+| `createMetadataRegistryDiffReview()` | `cli/lib/review-sidecar-diff.ts` | base/head metadata registry sidecar diff summary를 checked/changed/summary shape로 정규화 |
+| `recommendReviewOutcome()` | `cli/lib/review-policy.ts` | review/review-bundle 공통 APPROVE/COMMENT/REQUEST_CHANGES 결정 helper |
+| `formatChangeLines()` | `cli/lib/review-markdown.ts` | review/review-bundle 공통 change list Markdown renderer |
+| `formatArtifactFreshnessLines()` | `cli/lib/review-markdown.ts` | artifact freshness section Markdown renderer |
+| `formatSidecarDiffLines()` | `cli/lib/review-markdown.ts` | provenance/metadata sidecar diff table Markdown renderer |
 | `collectOpenApiDocumentSourceFragments()` | `cli/lib/openapi-source-fragments.ts` | OpenAPI `paths`/`webhooks`/`components` sections를 normalized source fragments와 pointer diagnostics issue로 수집 |
 | `adaptZodSchemas()` | `cli/lib/source-adapters.ts` | Zod schema map을 기존 `zodToSchema()` 경로로 OpenAPI schema source fragments에 매핑 |
 | `adaptDrizzleTables()` | `cli/lib/source-adapters.ts` | Drizzle extracted table 목록을 기존 `convertTables()` 경로로 select/insert/update schema source fragments에 매핑 |
@@ -284,12 +336,14 @@ Typegen 공개 surface는 root entry(`@oa-sdk/codegen`)와 typegen sub-entry(`@o
 
 | Command | 구현 | 용도 |
 |------|------|------|
-| `build-spec` | `packages/codegen/src/cli/commands/build-spec.ts`, `packages/codegen/src/cli/lib/build-spec.ts`, `packages/codegen/src/cli/lib/composition-report.ts`, `packages/codegen/src/cli/lib/provenance-report.ts` | Definition Builder target config와 fragments에서 OpenAPI artifact를 생성하고 diagnostics, collision report, composition report, provenance sidecar를 출력 |
+| `build-spec` | `packages/codegen/src/cli/commands/build-spec.ts`, `packages/codegen/src/cli/lib/build-spec.ts`, `packages/codegen/src/cli/lib/composition-report.ts`, `packages/codegen/src/cli/lib/provenance-report.ts`, `packages/codegen/src/cli/lib/metadata-registry.ts`, `packages/codegen/src/cli/lib/behavior-recorder.ts`, `packages/codegen/src/cli/lib/behavior-registry.ts` | Definition Builder target config와 fragments에서 OpenAPI artifact를 생성하고 diagnostics, collision report, composition report, provenance sidecar, metadata registry sidecar를 출력하며 선택적으로 behavior JSONL/SQLite record를 append한다 |
+| `behavior-query` | `packages/codegen/src/cli/commands/behavior-query.ts`, `packages/codegen/src/cli/lib/behavior-query.ts`, `packages/codegen/src/cli/lib/behavior-projection.ts` | behavior SQLite projection을 filtered recent/latest-by-type/latest-failure-by-type/latest-by-identity/latest-by-target/latest-by-decision-signal/latest-by-recommendation 및 summary-by-type/status/target-type/behavior-status/behavior-decision-signal/decision-signal/recommendation 모드로 조회하며 `decision-signal` exact-match filter를 지원한다 |
+| `check-artifact` | `packages/codegen/src/cli/commands/check-artifact.ts`, `packages/codegen/src/cli/lib/artifact-freshness.ts`, `packages/codegen/src/cli/lib/artifact-review.ts` | generated OpenAPI artifact freshness 확인 |
 | `duplicate-review` | `packages/codegen/src/cli/commands/duplicate-review.ts`, `packages/codegen/src/cli/lib/duplicate-review.ts` | Definition fragments duplicate identity risk를 `markdown` 또는 `json`으로 보고하고 error severity finding에서만 non-zero 종료 |
-| `drift` | `packages/codegen/src/cli/commands/drift.ts` | managed OpenAPI 파일과 runtime OpenAPI 파일 또는 URL을 비교하고 URL fetch/HTTP/parse 실패를 `drift-check-failed`로 보고 |
+| `drift` | `packages/codegen/src/cli/commands/drift.ts`, `packages/codegen/src/cli/lib/behavior-recorder.ts`, `packages/codegen/src/cli/lib/behavior-registry.ts` | managed OpenAPI 파일과 runtime OpenAPI 파일 또는 URL을 비교하고 URL fetch/HTTP/parse 실패를 `drift-check-failed`로 보고하며 선택적으로 behavior JSONL/SQLite record를 append한다 |
 | `inventory` | `packages/codegen/src/cli/commands/inventory.ts` + `packages/codegen/src/cli/lib/openapi-inventory.ts` | OpenAPI YAML/JSON 또는 Definition Builder target artifact에서 path/operation/component count, tag/domain grouping, security scheme usage, projection source metadata, unused component candidates를 `markdown` 또는 `json`으로 보고 |
-| `review` | `packages/codegen/src/cli/commands/review.ts`, `packages/codegen/src/cli/lib/provenance-report.ts` | base/head OpenAPI diff, validation, artifact freshness를 묶고 선택적으로 base/head provenance sidecar 변경 entries를 report에 포함 |
-| `review-bundle` | `packages/codegen/src/cli/commands/review-bundle.ts`, `packages/codegen/src/cli/lib/review-bundle.ts` | base/head OpenAPI diff와 artifact freshness를 필수 section으로 묶고 선택적으로 inventory, runtime drift JSON, composition report JSON, duplicate-review JSON을 stable nested section으로 포함 |
+| `review` | `packages/codegen/src/cli/commands/review.ts`, `packages/codegen/src/cli/lib/review-report.ts`, `packages/codegen/src/cli/lib/artifact-review.ts`, `packages/codegen/src/cli/lib/review-sidecar-diff.ts`, `packages/codegen/src/cli/lib/review-markdown.ts`, `packages/codegen/src/cli/lib/review-policy.ts`, `packages/codegen/src/cli/lib/provenance-report.ts`, `packages/codegen/src/cli/lib/metadata-registry.ts`, `packages/codegen/src/cli/lib/behavior-registry.ts` | base/head OpenAPI diff, validation, artifact freshness를 묶고 선택적으로 base/head provenance sidecar와 metadata registry sidecar 변경 entries를 report에 포함 |
+| `review-bundle` | `packages/codegen/src/cli/commands/review-bundle.ts`, `packages/codegen/src/cli/lib/review-bundle.ts`, `packages/codegen/src/cli/lib/artifact-review.ts`, `packages/codegen/src/cli/lib/review-sidecar-diff.ts`, `packages/codegen/src/cli/lib/review-markdown.ts`, `packages/codegen/src/cli/lib/review-policy.ts`, `packages/codegen/src/cli/lib/provenance-report.ts`, `packages/codegen/src/cli/lib/metadata-registry.ts`, `packages/codegen/src/cli/lib/behavior-recorder.ts`, `packages/codegen/src/cli/lib/behavior-registry.ts` | base/head OpenAPI diff와 artifact freshness를 필수 section으로 묶고 선택적으로 inventory, runtime drift JSON, provenance diff, composition report JSON, metadata registry JSON, metadata registry diff, duplicate-review JSON을 stable nested section으로 포함하며 behavior JSONL/SQLite record를 append할 수 있다 |
 | `target-check` | `packages/codegen/src/cli/commands/target-check.ts`, `packages/codegen/src/cli/lib/target-coverage.ts` | Definition Builder target config 또는 generated OpenAPI artifact의 emitted path surface를 include/exclude assertion으로 검증하고 실패 시 non-zero 종료 |
 
 Governance manifest: `packages/codegen/src/cli/spec/oa-gen-governance.ts` 및 `docs/cli-spec/oa-gen.governance.json`.

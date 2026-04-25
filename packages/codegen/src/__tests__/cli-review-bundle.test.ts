@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import {
   existsSync,
   mkdirSync,
+  readFileSync,
   rmSync,
   writeFileSync,
 } from 'node:fs'
@@ -10,8 +11,12 @@ import { spawnSync } from 'node:child_process'
 import { stringify as stringifyYaml } from 'yaml'
 import type { BuildSpecCompositionReport } from '../cli/lib/composition-report.js'
 import type { DefinitionDuplicateReviewResult } from '../cli/lib/duplicate-review.js'
+import type { BuildSpecMetadataRegistry } from '../cli/lib/metadata-registry.js'
+import type { BuildSpecProvenanceEntry } from '../cli/lib/provenance-report.js'
+import { loadSqliteDriver } from '../sqlite-workspace-index.js'
 import type {
   ReviewBundle,
+  ReviewBundleProvenanceDiff,
   ReviewBundleRuntimeDriftReport,
 } from '../cli/lib/review-bundle.js'
 
@@ -120,9 +125,14 @@ describe('oa-gen review-bundle', () => {
     const artifactPath = writeYaml('artifact.yaml', spec)
     const runtimeDrift = runtimeDriftReport(false)
     const composition = compositionReport()
+    const metadataRegistry = metadataRegistryReport()
     const duplicateReview = duplicateReviewReport()
     const runtimeDriftPath = writeJson('runtime-drift.json', runtimeDrift)
+    const baseProvenancePath = writeJson('base.provenance.json', provenanceDiffBase())
+    const headProvenancePath = writeJson('head.provenance.json', provenanceDiffHead())
+    const provenanceDiff = provenanceDiffReport(baseProvenancePath, headProvenancePath)
     const compositionPath = writeJson('composition.json', composition)
+    const metadataRegistryPath = writeJson('metadata-registry.json', metadataRegistry)
     const duplicateReviewPath = writeJson('duplicate-review.json', duplicateReview)
 
     const result = runCli([
@@ -136,8 +146,14 @@ describe('oa-gen review-bundle', () => {
       '--inventory',
       '--runtime-drift',
       runtimeDriftPath,
+      '--base-provenance',
+      baseProvenancePath,
+      '--head-provenance',
+      headProvenancePath,
       '--composition-report',
       compositionPath,
+      '--metadata-registry',
+      metadataRegistryPath,
       '--duplicate-review',
       duplicateReviewPath,
       '--format',
@@ -151,15 +167,248 @@ describe('oa-gen review-bundle', () => {
       'breakingDiff',
       'artifactFreshness',
       'runtimeDrift',
+      'provenanceDiff',
       'inventory',
       'composition',
+      'metadataRegistry',
       'duplicateReview',
       'nonBreakingChanges',
     ])
     expect(bundle.sections.runtimeDrift?.report).toEqual(runtimeDrift)
+    expect(bundle.sections.provenanceDiff?.report).toEqual(provenanceDiff)
     expect(bundle.sections.inventory?.report.schemaVersion).toBe('oa-gen.inventory.v1')
     expect(bundle.sections.composition?.report).toEqual(composition)
+    expect(bundle.sections.metadataRegistry?.report).toEqual(metadataRegistry)
     expect(bundle.sections.duplicateReview?.report).toEqual(duplicateReview)
+  })
+
+  it('includes metadata registry diff when base and head sidecars are provided', () => {
+    const spec = reviewSpec('string')
+    const basePath = writeYaml('base.yaml', spec)
+    const headPath = writeYaml('head.yaml', spec)
+    const artifactPath = writeYaml('artifact.yaml', spec)
+    const baseMetadataRegistryPath = writeJson('base.metadata.json', metadataRegistryReport('trk_meta_v1', 'oa-meta:v1:meta1'))
+    const headMetadataRegistryPath = writeJson('head.metadata.json', metadataRegistryReport('trk_meta_v2', 'oa-meta:v1:meta2'))
+
+    const result = runCli([
+      'review-bundle',
+      '--base',
+      basePath,
+      '--head',
+      headPath,
+      '--artifact',
+      artifactPath,
+      '--base-metadata-registry',
+      baseMetadataRegistryPath,
+      '--head-metadata-registry',
+      headMetadataRegistryPath,
+      '--format',
+      'json',
+    ])
+
+    expect(result.status).toBe(0)
+    const bundle = JSON.parse(result.stdout) as ReviewBundle & {
+      summary?: { recommendation?: string; metadataRegistryChanges?: number | null }
+    }
+    expect(bundle.summary?.recommendation).toBe('COMMENT')
+    expect(bundle.summary?.metadataRegistryChanges).toBe(1)
+    expect(bundle.sections.metadataRegistryDiff?.report).toEqual(expect.objectContaining({
+      checked: true,
+      changed: true,
+      base: baseMetadataRegistryPath,
+      head: headMetadataRegistryPath,
+    }))
+    expect(bundle.sections.metadataRegistryDiff?.report.differences).toEqual([
+      expect.objectContaining({ kind: 'changed', pointer: '#/paths/~1pets' }),
+    ])
+  })
+
+  it('writes a succeeded review-bundle behavior record when behavior logging is enabled', () => {
+    const spec = reviewSpec('string')
+    const basePath = writeYaml('base.yaml', spec)
+    const headPath = writeYaml('head.yaml', spec)
+    const artifactPath = writeYaml('artifact.yaml', spec)
+    const behaviorLogPath = writeJsonlPath('review-bundle.behavior.jsonl')
+
+    const result = runCli([
+      'review-bundle',
+      '--base',
+      basePath,
+      '--head',
+      headPath,
+      '--artifact',
+      artifactPath,
+      '--behavior-log',
+      behaviorLogPath,
+      '--format',
+      'json',
+    ])
+
+    expect(result.status).toBe(0)
+    const records = readJsonl(behaviorLogPath) as Array<{
+      behaviorType?: string
+      status?: string
+      components?: {
+        decision?: { primarySignal?: string }
+        result?: {
+          recommendation?: string
+          reasonCount?: number
+          reasons?: string[]
+          artifactChecked?: boolean
+          artifactFresh?: boolean | null
+          runtimeDriftIncluded?: boolean
+          provenanceChecked?: boolean
+          inventoryIncluded?: boolean
+          compositionIncluded?: boolean
+          metadataRegistryIncluded?: boolean
+          metadataRegistryChecked?: boolean
+          metadataRegistryValid?: boolean | null
+          duplicateReviewIncluded?: boolean
+        }
+      }
+    }>
+
+    expect(records).toHaveLength(1)
+    expect(records[0]).toEqual(expect.objectContaining({
+      behaviorType: 'publish_review_bundle',
+      status: 'succeeded',
+      components: expect.objectContaining({
+        decision: expect.objectContaining({
+          primarySignal: 'approve',
+        }),
+        result: expect.objectContaining({
+          recommendation: 'APPROVE',
+          reasonCount: 0,
+          reasons: [],
+          artifactChecked: true,
+          artifactFresh: true,
+          runtimeDriftIncluded: false,
+          provenanceChecked: false,
+          inventoryIncluded: false,
+          compositionIncluded: false,
+          metadataRegistryIncluded: false,
+          metadataRegistryChecked: false,
+          metadataRegistryValid: null,
+          duplicateReviewIncluded: false,
+        }),
+      }),
+    }))
+  })
+
+  it('writes a failed review-bundle behavior record when recommendation is request_changes', () => {
+    const basePath = writeYaml('base.yaml', reviewSpec('string'))
+    const headPath = writeYaml('head.yaml', reviewSpec('integer'))
+    const artifactPath = writeYaml('artifact.yaml', reviewSpec('string'))
+    const behaviorLogPath = writeJsonlPath('review-bundle-failed.behavior.jsonl')
+
+    const result = runCli([
+      'review-bundle',
+      '--base',
+      basePath,
+      '--head',
+      headPath,
+      '--artifact',
+      artifactPath,
+      '--behavior-log',
+      behaviorLogPath,
+      '--format',
+      'json',
+    ])
+
+    expect(result.status).toBe(1)
+    const records = readJsonl(behaviorLogPath) as Array<{
+      behaviorType?: string
+      status?: string
+      components?: {
+        decision?: { primarySignal?: string }
+        result?: {
+          recommendation?: string
+          reasonCount?: number
+          reasons?: string[]
+          artifactChecked?: boolean
+          artifactFresh?: boolean | null
+          runtimeDriftIncluded?: boolean
+          breakingChanges?: number
+          provenanceChecked?: boolean
+          inventoryIncluded?: boolean
+          compositionIncluded?: boolean
+          metadataRegistryIncluded?: boolean
+          metadataRegistryChecked?: boolean
+          metadataRegistryValid?: boolean | null
+          duplicateReviewIncluded?: boolean
+        }
+      }
+    }>
+
+    expect(records).toHaveLength(1)
+    expect(records[0]).toEqual(expect.objectContaining({
+      behaviorType: 'publish_review_bundle',
+      status: 'failed',
+      components: expect.objectContaining({
+        decision: expect.objectContaining({
+          primarySignal: 'request-changes',
+        }),
+        result: expect.objectContaining({
+          recommendation: 'REQUEST_CHANGES',
+          reasonCount: expect.any(Number),
+          reasons: expect.arrayContaining([
+            expect.stringContaining('breaking change'),
+          ]),
+          artifactChecked: true,
+          artifactFresh: false,
+          runtimeDriftIncluded: false,
+          breakingChanges: 1,
+          provenanceChecked: false,
+          inventoryIncluded: false,
+          compositionIncluded: false,
+          metadataRegistryIncluded: false,
+          metadataRegistryChecked: false,
+          metadataRegistryValid: null,
+          duplicateReviewIncluded: false,
+        }),
+      }),
+    }))
+  })
+
+  it('writes a succeeded review-bundle behavior record to SQLite when behavior-db is enabled', () => {
+    const spec = reviewSpec('string')
+    const basePath = writeYaml('base.yaml', spec)
+    const headPath = writeYaml('head.yaml', spec)
+    const artifactPath = writeYaml('artifact.yaml', spec)
+    const behaviorDbPath = join(tmpDir, 'review-bundle.behavior.sqlite')
+
+    const result = runCli([
+      'review-bundle',
+      '--base',
+      basePath,
+      '--head',
+      headPath,
+      '--artifact',
+      artifactPath,
+      '--behavior-db',
+      behaviorDbPath,
+      '--format',
+      'json',
+    ])
+
+    expect(result.status).toBe(0)
+    const sqlite = loadSqliteDriver().open(behaviorDbPath)
+    try {
+      const rows = sqlite.prepare(`
+        SELECT behavior_type, status
+        FROM behavior_records
+        ORDER BY occurred_at
+      `).all()
+
+      expect(rows).toEqual([
+        expect.objectContaining({
+          behavior_type: 'publish_review_bundle',
+          status: 'succeeded',
+        }),
+      ])
+    } finally {
+      sqlite.close()
+    }
   })
 })
 
@@ -290,6 +539,92 @@ function duplicateReviewReport(): DefinitionDuplicateReviewResult {
   }
 }
 
+function metadataRegistryReport(
+  trackingId = 'trk_meta_v1',
+  stableKey = 'oa-meta:v1:meta1',
+): BuildSpecMetadataRegistry {
+  return {
+    schemaVersion: 'oa-gen.metadata-registry.v1',
+    targetName: 'public-api',
+    summary: {
+      entryCount: 1,
+      explicitTrackingIdCount: 0,
+      generatedTrackingIdCount: 1,
+      invalidTrackingIdCount: 0,
+      duplicateTrackingIdCount: 0,
+      duplicateStableKeyCount: 0,
+      duplicateOutputPointerCount: 0,
+    },
+    duplicates: {
+      trackingIds: [],
+      stableKeys: [],
+      outputPointers: [],
+    },
+    entries: {
+      '#/paths/~1pets': {
+        pointer: '#/paths/~1pets',
+        canonicalId: 'path:public/pet/PetsPath',
+        kind: 'path',
+        sourcePath: 'fragments/path/public/pet/PetsPath.yaml',
+        sourcePointer: '#/content',
+        contentHash: 'sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+        trackingId,
+        trackingIdSource: 'generated',
+        identityKey: 'definition:path:public/pet/PetsPath',
+        identitySource: 'canonical',
+        stableKey,
+        metadata: { path: '/pets' },
+        openApiPath: '/pets',
+      },
+    },
+  }
+}
+
+function provenanceDiffBase(): Record<string, BuildSpecProvenanceEntry> {
+  return {
+    '#/paths/~1pets': {
+      canonicalId: 'path:public/pet/PetsPath',
+      kind: 'path',
+      sourcePath: 'fragments/path/public/pet/PetsPath.yaml',
+      sourcePointer: '#/content',
+      contentHash: 'sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+    },
+  }
+}
+
+function provenanceDiffHead(): Record<string, BuildSpecProvenanceEntry> {
+  return {
+    '#/paths/~1pets': {
+      canonicalId: 'path:public/pet/PetsPath',
+      kind: 'path',
+      sourcePath: 'fragments/path/public/pet/PetsPath.yaml',
+      sourcePointer: '#/content',
+      contentHash: 'sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+    },
+  }
+}
+
+function provenanceDiffReport(base = 'base.provenance.json', head = 'head.provenance.json'): ReviewBundleProvenanceDiff {
+  const baseEntry = provenanceDiffBase()['#/paths/~1pets']!
+  const headEntry = provenanceDiffHead()['#/paths/~1pets']!
+  return {
+    checked: true,
+    base,
+    head,
+    changed: true,
+    summary: '1 provenance entry changed',
+    differences: [
+      {
+        kind: 'changed',
+        pointer: '#/paths/~1pets',
+        base: baseEntry,
+        head: headEntry,
+        message: 'Provenance changed for #/paths/~1pets.',
+      },
+    ],
+  }
+}
+
 function writeYaml(relativePath: string, value: unknown): string {
   const filePath = join(tmpDir, relativePath)
   mkdirSync(dirname(filePath), { recursive: true })
@@ -302,6 +637,18 @@ function writeJson(relativePath: string, value: unknown): string {
   mkdirSync(dirname(filePath), { recursive: true })
   writeFileSync(filePath, JSON.stringify(value, null, 2), 'utf8')
   return filePath
+}
+
+function writeJsonlPath(relativePath: string): string {
+  return join(tmpDir, relativePath)
+}
+
+function readJsonl(filePath: string): unknown[] {
+  return readFileSync(filePath, 'utf8')
+    .trim()
+    .split('\n')
+    .filter((line: string) => line.length > 0)
+    .map((line: string) => JSON.parse(line))
 }
 
 function runCli(args: string[]): { stdout: string; stderr: string; status: number | null } {

@@ -33,6 +33,11 @@ import {
   type BuildSpecCompositionReport,
 } from './composition-report.js'
 import {
+  createBuildSpecMetadataRegistry,
+  type BuildSpecMetadataRegistry,
+  type BuildSpecMetadataRegistryDiagnostic,
+} from './metadata-registry.js'
+import {
   createBuildSpecProvenanceMap,
   type BuildSpecProvenanceMap,
 } from './provenance-report.js'
@@ -51,6 +56,7 @@ export type BuildSpecOptions = {
   collisionReportPath?: string
   compositionReportPath?: string
   provenancePath?: string
+  metadataRegistryPath?: string
   writeOutput?: boolean
   workspaceIndex?: WorkspaceIndex
   parserVersion?: string
@@ -61,6 +67,7 @@ export type BuildSpecCliDiagnostic = DefinitionFragmentLoadDiagnostic
 
 export type BuildSpecDiagnostic =
   | BuildSpecCliDiagnostic
+  | BuildSpecMetadataRegistryDiagnostic
   | DefinitionRegistryDiagnostic
   | DefinitionOpenApiEmitDiagnostic
 
@@ -80,6 +87,7 @@ export type BuildSpecSummary = {
   collisionReportPath?: string
   compositionReportPath?: string
   provenancePath?: string
+  metadataRegistryPath?: string
   errors: number
   warnings: number
   infos: number
@@ -93,6 +101,7 @@ export type BuildSpecResult = {
   collisionReport: DefinitionOutputNameCollisionReportEntry[]
   compositionReport: BuildSpecCompositionReport
   provenance: BuildSpecProvenanceMap
+  metadataRegistry: BuildSpecMetadataRegistry
   summary: BuildSpecSummary
   dirty?: BuilderDirtyTargetResult
 }
@@ -140,10 +149,13 @@ export function buildSpec(options: BuildSpecOptions): BuildSpecResult {
           ...baseProjection.diagnostics,
         ],
       }
+  const metadataRegistryResult = createBuildSpecMetadataRegistry(selection)
+  const metadataRegistry = metadataRegistryResult.registry
   const diagnostics: BuildSpecDiagnostic[] = [
     ...fragments.diagnostics,
     ...registry.diagnostics,
     ...emitted.diagnostics,
+    ...metadataRegistryResult.diagnostics,
   ]
   const valid = diagnostics.every(diagnostic => diagnostic.severity !== 'error')
   const outputPath = options.outputPath ? resolve(process.cwd(), options.outputPath) : undefined
@@ -156,6 +168,9 @@ export function buildSpec(options: BuildSpecOptions): BuildSpecResult {
     : undefined
   const provenancePath = options.provenancePath
     ? resolve(process.cwd(), options.provenancePath)
+    : undefined
+  const metadataRegistryPath = options.metadataRegistryPath
+    ? resolve(process.cwd(), options.metadataRegistryPath)
     : undefined
   const compositionReport = createBuildSpecCompositionReport({
     targetPath,
@@ -185,6 +200,7 @@ export function buildSpec(options: BuildSpecOptions): BuildSpecResult {
   if (collisionReportPath !== undefined) summary.collisionReportPath = collisionReportPath
   if (compositionReportPath !== undefined) summary.compositionReportPath = compositionReportPath
   if (provenancePath !== undefined) summary.provenancePath = provenancePath
+  if (metadataRegistryPath !== undefined) summary.metadataRegistryPath = metadataRegistryPath
   if (dirty !== undefined) {
     summary.dirtyTargetPaths = dirty.dirtyTargetPaths
     summary.dirtyTargetNames = dirty.dirtyTargetNames
@@ -208,6 +224,10 @@ export function buildSpec(options: BuildSpecOptions): BuildSpecResult {
 
   if (provenancePath !== undefined) {
     writeJsonFile(provenancePath, provenance)
+  }
+
+  if (metadataRegistryPath !== undefined) {
+    writeJsonFile(metadataRegistryPath, metadataRegistry)
   }
 
   if (valid && options.writeOutput !== false) {
@@ -238,6 +258,7 @@ export function buildSpec(options: BuildSpecOptions): BuildSpecResult {
     collisionReport: emitted.report.collisionReport,
     compositionReport,
     provenance,
+    metadataRegistry,
     summary,
     ...(dirty !== undefined ? { dirty } : {}),
   }

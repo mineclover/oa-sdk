@@ -5,6 +5,7 @@
 ## 시나리오
 
 공통 용어는 [Concepts](../../concepts.md)를 따른다.
+행동 수집/조회 관점의 개념 정의는 [Behavior ECS](../../concepts/behavior-ecs.md)를 따른다.
 
 bun-graph-db를 OpenAPI projection producer로 둔다. OA SDK는 producer에서 받은 artifact를 파일로 고정하고, 그 snapshot을 기준으로 `validate`, `typegen`, `client`, `mock-server`를 실행한다.
 
@@ -53,6 +54,10 @@ oa-gen client --spec contracts/bun-graph-db/openapi.json \
 ```
 
 Static full document로 생성한 client와 mock은 stable endpoint surface만 다룬다. runtime table별 attribute schema는 아래 table projection snapshot에서 따로 소비한다.
+
+이 흐름을 governance/audit까지 확장할 때는
+[Behavior ECS Spec](../../internal/behavior-ecs.spec.md)의 representative use case와 baseline
+test case를 같이 본다.
 
 ## 2. REST table projection fetch
 

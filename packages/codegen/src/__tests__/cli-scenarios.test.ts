@@ -10,6 +10,11 @@ import { join, resolve } from 'node:path'
 import { execSync, spawnSync, type ExecSyncOptionsWithStringEncoding } from 'node:child_process'
 import { stringify as yamlStringify } from 'yaml'
 import { createSQLiteWorkspaceIndex } from '../sqlite-workspace-index.js'
+import {
+  createBehaviorIdentityKey,
+  createBehaviorRecord,
+  createBehaviorRecorderFromOptions,
+} from '../cli/lib/behavior-recorder.js'
 
 const pkgDir = resolve(__dirname, '../..')
 const cliPath = resolve(pkgDir, 'dist/cli/index.js')
@@ -108,6 +113,14 @@ function cliCaptureArgs(args: string[]): { stdout: string; stderr: string; statu
   }
 }
 
+function readJsonl(filePath: string): unknown[] {
+  return readFileSync(filePath, 'utf8')
+    .trim()
+    .split('\n')
+    .filter(line => line.length > 0)
+    .map(line => JSON.parse(line))
+}
+
 function cleanReviewSpec(): Record<string, unknown> {
   return {
     openapi: '3.2.0',
@@ -119,6 +132,44 @@ function cleanReviewSpec(): Record<string, unknown> {
           summary: 'Get ping status',
           responses: { '204': { description: 'No content' } },
         },
+      },
+    },
+  }
+}
+
+function metadataRegistryFixture(trackingId: string, stableKey: string): Record<string, unknown> {
+  return {
+    schemaVersion: 'oa-gen.metadata-registry.v1',
+    targetName: 'public-api',
+    summary: {
+      entryCount: 1,
+      explicitTrackingIdCount: 0,
+      generatedTrackingIdCount: 1,
+      invalidTrackingIdCount: 0,
+      duplicateTrackingIdCount: 0,
+      duplicateStableKeyCount: 0,
+      duplicateOutputPointerCount: 0,
+    },
+    duplicates: {
+      trackingIds: [],
+      stableKeys: [],
+      outputPointers: [],
+    },
+    entries: {
+      '#/paths/~1ping': {
+        pointer: '#/paths/~1ping',
+        canonicalId: 'path:public/health/PingPath',
+        kind: 'path',
+        sourcePath: 'fragments/path/public/health/PingPath.yaml',
+        sourcePointer: '#/content',
+        contentHash: 'sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+        trackingId,
+        trackingIdSource: 'generated',
+        identityKey: 'definition:path:public/health/PingPath',
+        identitySource: 'canonical',
+        stableKey,
+        metadata: { path: '/ping' },
+        openApiPath: '/ping',
       },
     },
   }
@@ -824,6 +875,44 @@ describe('diff and check-artifact', () => {
     }))
   })
 
+  it('behavior logging이 활성화되면 drift success behavior를 JSONL로 남긴다', () => {
+    const managedPath = join(tmpDir, 'drift-behavior-managed.yaml')
+    const runtimePath = join(tmpDir, 'drift-behavior-runtime.yaml')
+    const behaviorLogPath = join(tmpDir, 'drift.behavior.jsonl')
+    writeFileSync(managedPath, yamlStringify(cleanReviewSpec()), 'utf8')
+    writeFileSync(runtimePath, yamlStringify(cleanReviewSpec()), 'utf8')
+
+    const { stdout, status } = cliCapture(
+      `drift --runtime-openapi ${runtimePath} --managed-openapi ${managedPath} --behavior-log ${behaviorLogPath} --format json`,
+    )
+    const payload = JSON.parse(stdout) as { drift?: boolean }
+    const records = readJsonl(behaviorLogPath) as Array<{
+      behaviorType?: string
+      status?: string
+      components?: {
+        decision?: { primarySignal?: string }
+        result?: { drift?: boolean; issueCount?: number }
+      }
+    }>
+
+    expect(status).toBe(0)
+    expect(payload.drift).toBe(false)
+    expect(records).toHaveLength(1)
+    expect(records[0]).toEqual(expect.objectContaining({
+      behaviorType: 'sync_runtime_openapi',
+      status: 'succeeded',
+      components: expect.objectContaining({
+        decision: expect.objectContaining({
+          primarySignal: 'no-drift',
+        }),
+        result: expect.objectContaining({
+          drift: false,
+          issueCount: 0,
+        }),
+      }),
+    }))
+  })
+
   it('drift URL parse failure를 drift-check-failed로 보고한다', () => {
     const managedPath = join(tmpDir, 'drift-url-failure-managed.yaml')
     writeFileSync(managedPath, yamlStringify(cleanReviewSpec()), 'utf8')
@@ -845,6 +934,41 @@ describe('diff and check-artifact', () => {
     expect(payload.failure?.message).toContain('could not be parsed')
     expect(payload.runtimeFetch).toEqual(expect.objectContaining({
       status: 200,
+    }))
+  })
+
+  it('behavior logging이 활성화되면 drift failure behavior를 JSONL로 남긴다', () => {
+    const managedPath = join(tmpDir, 'drift-behavior-failure-managed.yaml')
+    const behaviorLogPath = join(tmpDir, 'drift-failure.behavior.jsonl')
+    writeFileSync(managedPath, yamlStringify(cleanReviewSpec()), 'utf8')
+    const runtimeUrl = 'data:application/json,%7Bbad'
+
+    const { status } = cliCapture(
+      `drift --runtime-openapi-url ${runtimeUrl} --managed-openapi ${managedPath} --behavior-log ${behaviorLogPath} --format json`,
+    )
+    const records = readJsonl(behaviorLogPath) as Array<{
+      behaviorType?: string
+      status?: string
+      components?: {
+        decision?: { primarySignal?: string }
+        result?: { status?: string; failureCode?: string }
+      }
+    }>
+
+    expect(status).toBe(1)
+    expect(records).toHaveLength(1)
+    expect(records[0]).toEqual(expect.objectContaining({
+      behaviorType: 'sync_runtime_openapi',
+      status: 'failed',
+      components: expect.objectContaining({
+        decision: expect.objectContaining({
+          primarySignal: 'fetch-failure',
+        }),
+        result: expect.objectContaining({
+          status: 'drift-check-failed',
+          failureCode: 'drift-check-failed',
+        }),
+      }),
     }))
   })
 })
@@ -872,6 +996,63 @@ describe('review', () => {
     expect(report.summary?.artifactFresh).toBe(true)
     expect(report.summary?.breakingChanges).toBe(0)
     expect(report.validation?.issues).toEqual([])
+  })
+
+  it('behavior logging이 활성화되면 review success behavior를 JSONL로 남긴다', () => {
+    const basePath = join(tmpDir, 'review-behavior-base.yaml')
+    const headPath = join(tmpDir, 'review-behavior-head.yaml')
+    const artifactPath = join(tmpDir, 'review-behavior-artifact.yaml')
+    const behaviorLogPath = join(tmpDir, 'review.behavior.jsonl')
+    const spec = cleanReviewSpec()
+    writeFileSync(basePath, yamlStringify(spec), 'utf8')
+    writeFileSync(headPath, yamlStringify(spec), 'utf8')
+    writeFileSync(artifactPath, yamlStringify(spec), 'utf8')
+
+    const out = cli([
+      `review --base ${basePath}`,
+      `--head ${headPath}`,
+      `--artifact ${artifactPath}`,
+      `--behavior-log ${behaviorLogPath}`,
+      '--format json',
+    ].join(' '))
+    const report = JSON.parse(out) as { recommendation?: string }
+    const records = readJsonl(behaviorLogPath) as Array<{
+      behaviorType?: string
+      status?: string
+      components?: {
+        decision?: { primarySignal?: string }
+        result?: {
+          recommendation?: string
+          reasonCount?: number
+          reasons?: string[]
+          artifactChecked?: boolean
+          artifactFresh?: boolean | null
+          provenanceChecked?: boolean
+          metadataRegistryChecked?: boolean
+        }
+      }
+    }>
+
+    expect(report.recommendation).toBe('APPROVE')
+    expect(records).toHaveLength(1)
+    expect(records[0]).toEqual(expect.objectContaining({
+      behaviorType: 'review_openapi_change',
+      status: 'succeeded',
+      components: expect.objectContaining({
+        decision: expect.objectContaining({
+          primarySignal: 'approve',
+        }),
+        result: expect.objectContaining({
+          recommendation: 'APPROVE',
+          reasonCount: 0,
+          reasons: [],
+          artifactChecked: true,
+          artifactFresh: true,
+          provenanceChecked: false,
+          metadataRegistryChecked: false,
+        }),
+      }),
+    }))
   })
 
   it('artifact가 없으면 incomplete check로 COMMENT를 출력한다', () => {
@@ -949,6 +1130,46 @@ describe('review', () => {
     ])
   })
 
+  it('metadata registry sidecar 변경을 review JSON에 포함한다', () => {
+    const basePath = join(tmpDir, 'review-metadata-base.yaml')
+    const headPath = join(tmpDir, 'review-metadata-head.yaml')
+    const artifactPath = join(tmpDir, 'review-metadata-artifact.yaml')
+    const baseMetadataPath = join(tmpDir, 'review-base.metadata.json')
+    const headMetadataPath = join(tmpDir, 'review-head.metadata.json')
+    const spec = cleanReviewSpec()
+    writeFileSync(basePath, yamlStringify(spec), 'utf8')
+    writeFileSync(headPath, yamlStringify(spec), 'utf8')
+    writeFileSync(artifactPath, yamlStringify(spec), 'utf8')
+    writeFileSync(baseMetadataPath, JSON.stringify(metadataRegistryFixture('trk_meta_v1', 'oa-meta:v1:meta1')), 'utf8')
+    writeFileSync(headMetadataPath, JSON.stringify(metadataRegistryFixture('trk_meta_v2', 'oa-meta:v1:meta2')), 'utf8')
+
+    const out = cli([
+      `review --base ${basePath}`,
+      `--head ${headPath}`,
+      `--artifact ${artifactPath}`,
+      `--base-metadata-registry ${baseMetadataPath}`,
+      `--head-metadata-registry ${headMetadataPath}`,
+      '--format json',
+    ].join(' '))
+    const report = JSON.parse(out) as {
+      recommendation?: string
+      summary?: { metadataRegistryChanges?: number }
+      metadataRegistry?: {
+        checked?: boolean
+        changed?: boolean
+        differences?: Array<{ kind?: string; pointer?: string }>
+      }
+    }
+
+    expect(report.recommendation).toBe('COMMENT')
+    expect(report.summary?.metadataRegistryChanges).toBe(1)
+    expect(report.metadataRegistry?.checked).toBe(true)
+    expect(report.metadataRegistry?.changed).toBe(true)
+    expect(report.metadataRegistry?.differences).toEqual([
+      expect.objectContaining({ kind: 'changed', pointer: '#/paths/~1ping' }),
+    ])
+  })
+
   it('breaking change와 stale artifact를 REQUEST_CHANGES로 보고하고 non-zero 종료한다', () => {
     const basePath = join(tmpDir, 'review-breaking-base.yaml')
     const headPath = join(tmpDir, 'review-breaking-head.yaml')
@@ -967,6 +1188,65 @@ describe('review', () => {
     expect(stdout).toContain('**stale**')
   })
 
+  it('behavior logging이 활성화되면 review request-changes behavior를 JSONL로 남긴다', () => {
+    const basePath = join(tmpDir, 'review-failed-base.yaml')
+    const headPath = join(tmpDir, 'review-failed-head.yaml')
+    const artifactPath = join(tmpDir, 'review-failed-artifact.yaml')
+    const behaviorLogPath = join(tmpDir, 'review-failed.behavior.jsonl')
+    writeFileSync(basePath, yamlStringify(responseSchemaReviewSpec('string')), 'utf8')
+    writeFileSync(headPath, yamlStringify(responseSchemaReviewSpec('integer')), 'utf8')
+    writeFileSync(artifactPath, yamlStringify(responseSchemaReviewSpec('string')), 'utf8')
+
+    const { status } = cliCapture([
+      `review --base ${basePath}`,
+      `--head ${headPath}`,
+      `--artifact ${artifactPath}`,
+      `--behavior-log ${behaviorLogPath}`,
+      '--format json',
+    ].join(' '))
+    const records = readJsonl(behaviorLogPath) as Array<{
+      behaviorType?: string
+      status?: string
+      components?: {
+        decision?: { primarySignal?: string }
+        result?: {
+          recommendation?: string
+          reasonCount?: number
+          reasons?: string[]
+          artifactChecked?: boolean
+          artifactFresh?: boolean | null
+          provenanceChecked?: boolean
+          metadataRegistryChecked?: boolean
+          breakingChanges?: number
+        }
+      }
+    }>
+
+    expect(status).toBe(1)
+    expect(records).toHaveLength(1)
+    expect(records[0]).toEqual(expect.objectContaining({
+      behaviorType: 'review_openapi_change',
+      status: 'failed',
+      components: expect.objectContaining({
+        decision: expect.objectContaining({
+          primarySignal: 'request-changes',
+        }),
+        result: expect.objectContaining({
+          recommendation: 'REQUEST_CHANGES',
+          reasonCount: expect.any(Number),
+          reasons: expect.arrayContaining([
+            expect.stringContaining('breaking change'),
+          ]),
+          artifactChecked: true,
+          artifactFresh: false,
+          provenanceChecked: false,
+          metadataRegistryChecked: false,
+          breakingChanges: 1,
+        }),
+      }),
+    }))
+  })
+
   it('review --target이 Definition Builder target output을 artifact freshness에 사용한다', () => {
     const dir = join(tmpDir, 'target-review')
     const { targetPath, artifactPath } = writeTargetFixture(dir)
@@ -981,6 +1261,654 @@ describe('review', () => {
 
     expect(payload.artifact?.fresh).toBe(true)
     expect(payload.summary?.artifactFresh).toBe(true)
+  })
+})
+
+// ── behavior-query ────────────────────────────────────────
+
+describe('behavior-query', () => {
+  it('latest-by-type를 JSON으로 조회한다', () => {
+    const dbPath = join(tmpDir, 'behavior-query.sqlite')
+    const recorder = createBehaviorRecorderFromOptions({ sqlitePath: dbPath })
+    recorder.record(createBehaviorRecord({
+      behaviorType: 'build_openapi_target',
+      identityKey: createBehaviorIdentityKey({
+        behaviorType: 'build_openapi_target',
+        parts: { targetType: 'definition-target', targetKey: 'public-api' },
+      }),
+      status: 'received',
+      components: {
+        actor: { actorType: 'system', actorId: 'oa-gen' },
+        target: { targetType: 'definition-target', targetKey: 'public-api', targetPath: 'targets/public-api.yaml' },
+        context: { source: 'cli', command: 'build-spec' },
+        result: { valid: false, fragmentCount: 0, selectedNodeCount: 0, errors: 0, warnings: 0, infos: 0, errorCodes: [] },
+      },
+    }))
+    recorder.record(createBehaviorRecord({
+      behaviorType: 'build_openapi_target',
+      identityKey: createBehaviorIdentityKey({
+        behaviorType: 'build_openapi_target',
+        parts: { targetType: 'definition-target', targetKey: 'public-api' },
+      }),
+      status: 'validated',
+      components: {
+        actor: { actorType: 'system', actorId: 'oa-gen' },
+        target: { targetType: 'definition-target', targetKey: 'public-api', targetPath: 'targets/public-api.yaml' },
+        context: { source: 'cli', command: 'build-spec' },
+        result: { valid: false, fragmentCount: 0, selectedNodeCount: 0, errors: 0, warnings: 0, infos: 0, errorCodes: [] },
+      },
+    }))
+    recorder.close?.()
+
+    const out = cli(
+      `behavior-query --behavior-db ${dbPath} --mode latest-by-type --behavior-type build_openapi_target --format json`,
+    )
+    const payload = JSON.parse(out) as {
+      schemaVersion?: string
+      count?: number
+      entries?: Array<{ behaviorType?: string; status?: string; targetKey?: string }>
+    }
+
+    expect(payload.schemaVersion).toBe('oa-gen.behavior-query.v1')
+    expect(payload.count).toBe(1)
+    expect(payload.entries).toEqual([
+      expect.objectContaining({
+        behaviorType: 'build_openapi_target',
+        status: 'validated',
+        targetKey: 'public-api',
+      }),
+    ])
+  })
+
+  it('latest-failure-by-type를 JSON으로 조회한다', () => {
+    const dbPath = join(tmpDir, 'behavior-query-latest-failure.sqlite')
+    const recorder = createBehaviorRecorderFromOptions({ sqlitePath: dbPath })
+    recorder.record(createBehaviorRecord({
+      behaviorType: 'review_openapi_change',
+      identityKey: createBehaviorIdentityKey({
+        behaviorType: 'review_openapi_change',
+        parts: { targetType: 'openapi-review', targetKey: 'base.yaml|head.yaml' },
+      }),
+      status: 'failed',
+      components: {
+        actor: { actorType: 'system', actorId: 'oa-gen' },
+        target: { targetType: 'openapi-review', targetKey: 'base.yaml|head.yaml', basePath: 'base.yaml', headPath: 'head.yaml' },
+        context: { source: 'cli', command: 'review' },
+        decision: { primarySignal: 'request-changes', decisionReason: 'review found blocking changes that require follow-up' },
+        result: {
+          recommendation: 'REQUEST_CHANGES',
+          reasonCount: 1,
+          reasons: ['review found blocking changes that require follow-up'],
+          breakingChanges: 1,
+          nonBreakingChanges: 0,
+          validationErrors: 0,
+          validationWarnings: 0,
+          validationInfos: 0,
+          artifactChecked: false,
+          provenanceChecked: false,
+          metadataRegistryChecked: false,
+          artifactFresh: false,
+          provenanceChanges: null,
+          metadataRegistryChanges: null,
+          checksIncomplete: false,
+        },
+      },
+    }))
+    recorder.close?.()
+
+    const out = cli(
+      `behavior-query --behavior-db ${dbPath} --mode latest-failure-by-type --behavior-type review_openapi_change --format json`,
+    )
+    const payload = JSON.parse(out) as {
+      count?: number
+      entries?: Array<{ behaviorType?: string; status?: string; decisionSignal?: string }>
+    }
+
+    expect(payload.count).toBe(1)
+    expect(payload.entries).toEqual([
+      expect.objectContaining({
+        behaviorType: 'review_openapi_change',
+        status: 'failed',
+        decisionSignal: 'request-changes',
+      }),
+    ])
+  })
+
+  it('latest-by-decision-signal을 JSON으로 조회한다', () => {
+    const dbPath = join(tmpDir, 'behavior-query-latest-decision.sqlite')
+    const recorder = createBehaviorRecorderFromOptions({ sqlitePath: dbPath })
+    recorder.record(createBehaviorRecord({
+      behaviorType: 'review_openapi_change',
+      identityKey: createBehaviorIdentityKey({
+        behaviorType: 'review_openapi_change',
+        parts: { targetType: 'openapi-review', targetKey: 'base.yaml|head.yaml' },
+      }),
+      status: 'failed',
+      components: {
+        actor: { actorType: 'system', actorId: 'oa-gen' },
+        target: { targetType: 'openapi-review', targetKey: 'base.yaml|head.yaml', basePath: 'base.yaml', headPath: 'head.yaml' },
+        context: { source: 'cli', command: 'review' },
+        decision: { primarySignal: 'request-changes', decisionReason: 'review found blocking changes that require follow-up' },
+        result: {
+          recommendation: 'REQUEST_CHANGES',
+          reasonCount: 1,
+          reasons: ['review found blocking changes that require follow-up'],
+          breakingChanges: 1,
+          nonBreakingChanges: 0,
+          validationErrors: 0,
+          validationWarnings: 0,
+          validationInfos: 0,
+          artifactChecked: false,
+          provenanceChecked: false,
+          metadataRegistryChecked: false,
+          artifactFresh: false,
+          provenanceChanges: null,
+          metadataRegistryChanges: null,
+          checksIncomplete: false,
+        },
+      },
+    }))
+    recorder.close?.()
+
+    const out = cli(
+      `behavior-query --behavior-db ${dbPath} --mode latest-by-decision-signal --decision-signal request-changes --format json`,
+    )
+    const payload = JSON.parse(out) as {
+      count?: number
+      entries?: Array<{ behaviorType?: string; decisionSignal?: string; recommendation?: string }>
+    }
+
+    expect(payload.count).toBe(1)
+    expect(payload.entries).toEqual([
+      expect.objectContaining({
+        behaviorType: 'review_openapi_change',
+        decisionSignal: 'request-changes',
+        recommendation: 'REQUEST_CHANGES',
+      }),
+    ])
+  })
+
+  it('summary-by-decision-signal을 JSON으로 조회한다', () => {
+    const dbPath = join(tmpDir, 'behavior-query-summary-decision.sqlite')
+    const recorder = createBehaviorRecorderFromOptions({ sqlitePath: dbPath })
+    recorder.record(createBehaviorRecord({
+      behaviorType: 'review_openapi_change',
+      identityKey: createBehaviorIdentityKey({
+        behaviorType: 'review_openapi_change',
+        parts: { targetType: 'openapi-review', targetKey: 'base-a|head-a' },
+      }),
+      status: 'failed',
+      components: {
+        actor: { actorType: 'system', actorId: 'oa-gen' },
+        target: { targetType: 'openapi-review', targetKey: 'base-a|head-a', basePath: 'base-a', headPath: 'head-a' },
+        context: { source: 'cli', command: 'review' },
+        decision: { primarySignal: 'request-changes', decisionReason: 'review found blocking changes that require follow-up' },
+        result: {
+          recommendation: 'REQUEST_CHANGES',
+          reasonCount: 1,
+          reasons: ['review found blocking changes that require follow-up'],
+          breakingChanges: 1,
+          nonBreakingChanges: 0,
+          validationErrors: 0,
+          validationWarnings: 0,
+          validationInfos: 0,
+          artifactChecked: false,
+          provenanceChecked: false,
+          metadataRegistryChecked: false,
+          artifactFresh: false,
+          provenanceChanges: null,
+          metadataRegistryChanges: null,
+          checksIncomplete: false,
+        },
+      },
+    }))
+    recorder.record(createBehaviorRecord({
+      behaviorType: 'review_openapi_change',
+      identityKey: createBehaviorIdentityKey({
+        behaviorType: 'review_openapi_change',
+        parts: { targetType: 'openapi-review', targetKey: 'base-b|head-b' },
+      }),
+      status: 'succeeded',
+      components: {
+        actor: { actorType: 'system', actorId: 'oa-gen' },
+        target: { targetType: 'openapi-review', targetKey: 'base-b|head-b', basePath: 'base-b', headPath: 'head-b' },
+        context: { source: 'cli', command: 'review' },
+        decision: { primarySignal: 'approve', decisionReason: 'review found no blocking issues and all required checks are satisfied' },
+        result: {
+          recommendation: 'APPROVE',
+          reasonCount: 0,
+          reasons: [],
+          breakingChanges: 0,
+          nonBreakingChanges: 0,
+          validationErrors: 0,
+          validationWarnings: 0,
+          validationInfos: 0,
+          artifactChecked: false,
+          provenanceChecked: false,
+          metadataRegistryChecked: false,
+          artifactFresh: true,
+          provenanceChanges: null,
+          metadataRegistryChanges: null,
+          checksIncomplete: false,
+        },
+      },
+    }))
+    recorder.record(createBehaviorRecord({
+      behaviorType: 'review_openapi_change',
+      identityKey: createBehaviorIdentityKey({
+        behaviorType: 'review_openapi_change',
+        parts: { targetType: 'openapi-review', targetKey: 'base-c|head-c' },
+      }),
+      status: 'failed',
+      components: {
+        actor: { actorType: 'system', actorId: 'oa-gen' },
+        target: { targetType: 'openapi-review', targetKey: 'base-c|head-c', basePath: 'base-c', headPath: 'head-c' },
+        context: { source: 'cli', command: 'review' },
+        decision: { primarySignal: 'request-changes', decisionReason: 'review found blocking changes that require follow-up' },
+        result: {
+          recommendation: 'REQUEST_CHANGES',
+          reasonCount: 1,
+          reasons: ['review found blocking changes that require follow-up'],
+          breakingChanges: 1,
+          nonBreakingChanges: 0,
+          validationErrors: 0,
+          validationWarnings: 0,
+          validationInfos: 0,
+          artifactChecked: false,
+          provenanceChecked: false,
+          metadataRegistryChecked: false,
+          artifactFresh: false,
+          provenanceChanges: null,
+          metadataRegistryChanges: null,
+          checksIncomplete: false,
+        },
+      },
+    }))
+    recorder.close?.()
+
+    const out = cli(
+      `behavior-query --behavior-db ${dbPath} --mode summary-by-decision-signal --behavior-type review_openapi_change --format json`,
+    )
+    const payload = JSON.parse(out) as {
+      count?: number
+      entries?: Array<unknown>
+      aggregations?: Array<{ key?: string; count?: number }>
+    }
+
+    expect(payload.count).toBe(3)
+    expect(payload.entries).toEqual([])
+    expect(payload.aggregations).toEqual([
+      { key: 'approve', count: 1, dimensions: { decisionSignal: 'approve' } },
+      { key: 'request-changes', count: 2, dimensions: { decisionSignal: 'request-changes' } },
+    ])
+  })
+
+  it('summary-by-behavior-status를 JSON으로 조회한다', () => {
+    const dbPath = join(tmpDir, 'behavior-query-summary-status.sqlite')
+    const recorder = createBehaviorRecorderFromOptions({ sqlitePath: dbPath })
+    recorder.record(createBehaviorRecord({
+      behaviorType: 'build_openapi_target',
+      identityKey: createBehaviorIdentityKey({
+        behaviorType: 'build_openapi_target',
+        parts: { targetType: 'definition-target', targetKey: 'public-api' },
+      }),
+      status: 'failed',
+      components: {
+        actor: { actorType: 'system', actorId: 'oa-gen' },
+        target: { targetType: 'definition-target', targetKey: 'public-api', targetPath: 'targets/public-api.yaml' },
+        context: { source: 'cli', command: 'build-spec' },
+        decision: { primarySignal: 'build-invalid', decisionReason: 'builder diagnostics contain one or more errors' },
+        result: {
+          valid: false,
+          fragmentCount: 1,
+          selectedNodeCount: 1,
+          errors: 1,
+          warnings: 0,
+          infos: 0,
+          errorCodes: ['definition-registry/missing-ref'],
+        },
+      },
+    }))
+    recorder.record(createBehaviorRecord({
+      behaviorType: 'review_openapi_change',
+      identityKey: createBehaviorIdentityKey({
+        behaviorType: 'review_openapi_change',
+        parts: { targetType: 'openapi-review', targetKey: 'base-b|head-b' },
+      }),
+      status: 'succeeded',
+      components: {
+        actor: { actorType: 'system', actorId: 'oa-gen' },
+        target: { targetType: 'openapi-review', targetKey: 'base-b|head-b', basePath: 'base-b', headPath: 'head-b' },
+        context: { source: 'cli', command: 'review' },
+        decision: { primarySignal: 'approve', decisionReason: 'review found no blocking issues and all required checks are satisfied' },
+        result: {
+          recommendation: 'APPROVE',
+          reasonCount: 0,
+          reasons: [],
+          breakingChanges: 0,
+          nonBreakingChanges: 0,
+          validationErrors: 0,
+          validationWarnings: 0,
+          validationInfos: 0,
+          artifactChecked: false,
+          provenanceChecked: false,
+          metadataRegistryChecked: false,
+          artifactFresh: true,
+          provenanceChanges: null,
+          metadataRegistryChanges: null,
+          checksIncomplete: false,
+        },
+      },
+    }))
+    recorder.record(createBehaviorRecord({
+      behaviorType: 'review_openapi_change',
+      identityKey: createBehaviorIdentityKey({
+        behaviorType: 'review_openapi_change',
+        parts: { targetType: 'openapi-review', targetKey: 'base-c|head-c' },
+      }),
+      status: 'failed',
+      components: {
+        actor: { actorType: 'system', actorId: 'oa-gen' },
+        target: { targetType: 'openapi-review', targetKey: 'base-c|head-c', basePath: 'base-c', headPath: 'head-c' },
+        context: { source: 'cli', command: 'review' },
+        decision: { primarySignal: 'request-changes', decisionReason: 'review found blocking changes that require follow-up' },
+        result: {
+          recommendation: 'REQUEST_CHANGES',
+          reasonCount: 1,
+          reasons: ['review found blocking changes that require follow-up'],
+          breakingChanges: 1,
+          nonBreakingChanges: 0,
+          validationErrors: 0,
+          validationWarnings: 0,
+          validationInfos: 0,
+          artifactChecked: false,
+          provenanceChecked: false,
+          metadataRegistryChecked: false,
+          artifactFresh: false,
+          provenanceChanges: null,
+          metadataRegistryChanges: null,
+          checksIncomplete: false,
+        },
+      },
+    }))
+    recorder.close?.()
+
+    const out = cli(
+      `behavior-query --behavior-db ${dbPath} --mode summary-by-behavior-status --format json`,
+    )
+    const payload = JSON.parse(out) as {
+      count?: number
+      entries?: Array<unknown>
+      aggregations?: Array<{ key?: string; count?: number; dimensions?: { behaviorType?: string; status?: string } }>
+    }
+
+    expect(payload.count).toBe(3)
+    expect(payload.entries).toEqual([])
+    expect(payload.aggregations).toEqual([
+      { key: 'build_openapi_target|failed', count: 1, dimensions: { behaviorType: 'build_openapi_target', status: 'failed' } },
+      { key: 'review_openapi_change|failed', count: 1, dimensions: { behaviorType: 'review_openapi_change', status: 'failed' } },
+      { key: 'review_openapi_change|succeeded', count: 1, dimensions: { behaviorType: 'review_openapi_change', status: 'succeeded' } },
+    ])
+  })
+
+  it('summary-by-behavior-decision-signal을 JSON으로 조회한다', () => {
+    const dbPath = join(tmpDir, 'behavior-query-summary-behavior-decision.sqlite')
+    const recorder = createBehaviorRecorderFromOptions({ sqlitePath: dbPath })
+    recorder.record(createBehaviorRecord({
+      behaviorType: 'build_openapi_target',
+      identityKey: createBehaviorIdentityKey({
+        behaviorType: 'build_openapi_target',
+        parts: { targetType: 'definition-target', targetKey: 'public-api' },
+      }),
+      status: 'failed',
+      components: {
+        actor: { actorType: 'system', actorId: 'oa-gen' },
+        target: { targetType: 'definition-target', targetKey: 'public-api', targetPath: 'targets/public-api.yaml' },
+        context: { source: 'cli', command: 'build-spec' },
+        decision: { primarySignal: 'build-invalid', decisionReason: 'builder diagnostics contain one or more errors' },
+        result: {
+          valid: false,
+          fragmentCount: 1,
+          selectedNodeCount: 1,
+          errors: 1,
+          warnings: 0,
+          infos: 0,
+          errorCodes: ['definition-registry/missing-ref'],
+        },
+      },
+    }))
+    recorder.record(createBehaviorRecord({
+      behaviorType: 'review_openapi_change',
+      identityKey: createBehaviorIdentityKey({
+        behaviorType: 'review_openapi_change',
+        parts: { targetType: 'openapi-review', targetKey: 'base-b|head-b' },
+      }),
+      status: 'succeeded',
+      components: {
+        actor: { actorType: 'system', actorId: 'oa-gen' },
+        target: { targetType: 'openapi-review', targetKey: 'base-b|head-b', basePath: 'base-b', headPath: 'head-b' },
+        context: { source: 'cli', command: 'review' },
+        decision: { primarySignal: 'approve', decisionReason: 'review found no blocking issues and all required checks are satisfied' },
+        result: {
+          recommendation: 'APPROVE',
+          reasonCount: 0,
+          reasons: [],
+          breakingChanges: 0,
+          nonBreakingChanges: 0,
+          validationErrors: 0,
+          validationWarnings: 0,
+          validationInfos: 0,
+          artifactChecked: false,
+          provenanceChecked: false,
+          metadataRegistryChecked: false,
+          artifactFresh: true,
+          provenanceChanges: null,
+          metadataRegistryChanges: null,
+          checksIncomplete: false,
+        },
+      },
+    }))
+    recorder.record(createBehaviorRecord({
+      behaviorType: 'review_openapi_change',
+      identityKey: createBehaviorIdentityKey({
+        behaviorType: 'review_openapi_change',
+        parts: { targetType: 'openapi-review', targetKey: 'base-c|head-c' },
+      }),
+      status: 'failed',
+      components: {
+        actor: { actorType: 'system', actorId: 'oa-gen' },
+        target: { targetType: 'openapi-review', targetKey: 'base-c|head-c', basePath: 'base-c', headPath: 'head-c' },
+        context: { source: 'cli', command: 'review' },
+        decision: { primarySignal: 'request-changes', decisionReason: 'review found blocking changes that require follow-up' },
+        result: {
+          recommendation: 'REQUEST_CHANGES',
+          reasonCount: 1,
+          reasons: ['review found blocking changes that require follow-up'],
+          breakingChanges: 1,
+          nonBreakingChanges: 0,
+          validationErrors: 0,
+          validationWarnings: 0,
+          validationInfos: 0,
+          artifactChecked: false,
+          provenanceChecked: false,
+          metadataRegistryChecked: false,
+          artifactFresh: false,
+          provenanceChanges: null,
+          metadataRegistryChanges: null,
+          checksIncomplete: false,
+        },
+      },
+    }))
+    recorder.close?.()
+
+    const out = cli(
+      `behavior-query --behavior-db ${dbPath} --mode summary-by-behavior-decision-signal --format json`,
+    )
+    const payload = JSON.parse(out) as {
+      count?: number
+      entries?: Array<unknown>
+      aggregations?: Array<{ key?: string; count?: number; dimensions?: { behaviorType?: string; decisionSignal?: string } }>
+    }
+
+    expect(payload.count).toBe(3)
+    expect(payload.entries).toEqual([])
+    expect(payload.aggregations).toEqual([
+      { key: 'build_openapi_target|build-invalid', count: 1, dimensions: { behaviorType: 'build_openapi_target', decisionSignal: 'build-invalid' } },
+      { key: 'review_openapi_change|approve', count: 1, dimensions: { behaviorType: 'review_openapi_change', decisionSignal: 'approve' } },
+      { key: 'review_openapi_change|request-changes', count: 1, dimensions: { behaviorType: 'review_openapi_change', decisionSignal: 'request-changes' } },
+    ])
+  })
+
+  it('summary-by-target-type를 markdown으로 조회한다', () => {
+    const dbPath = join(tmpDir, 'behavior-query-summary-target-type.sqlite')
+    const recorder = createBehaviorRecorderFromOptions({ sqlitePath: dbPath })
+    recorder.record(createBehaviorRecord({
+      behaviorType: 'build_openapi_target',
+      identityKey: createBehaviorIdentityKey({
+        behaviorType: 'build_openapi_target',
+        parts: { targetType: 'definition-target', targetKey: 'public-api' },
+      }),
+      status: 'succeeded',
+      components: {
+        actor: { actorType: 'system', actorId: 'oa-gen' },
+        target: { targetType: 'definition-target', targetKey: 'public-api', targetPath: 'targets/public-api.yaml' },
+        context: { source: 'cli', command: 'build-spec' },
+        decision: { primarySignal: 'build-valid', decisionReason: 'builder diagnostics contain no errors' },
+        result: {
+          valid: true,
+          fragmentCount: 1,
+          selectedNodeCount: 1,
+          errors: 0,
+          warnings: 0,
+          infos: 0,
+          errorCodes: [],
+        },
+      },
+    }))
+    recorder.record(createBehaviorRecord({
+      behaviorType: 'review_openapi_change',
+      identityKey: createBehaviorIdentityKey({
+        behaviorType: 'review_openapi_change',
+        parts: { targetType: 'openapi-review', targetKey: 'base-a|head-a' },
+      }),
+      status: 'failed',
+      components: {
+        actor: { actorType: 'system', actorId: 'oa-gen' },
+        target: { targetType: 'openapi-review', targetKey: 'base-a|head-a', basePath: 'base-a', headPath: 'head-a' },
+        context: { source: 'cli', command: 'review' },
+        decision: { primarySignal: 'request-changes', decisionReason: 'review found blocking changes that require follow-up' },
+        result: {
+          recommendation: 'REQUEST_CHANGES',
+          reasonCount: 1,
+          reasons: ['review found blocking changes that require follow-up'],
+          breakingChanges: 1,
+          nonBreakingChanges: 0,
+          validationErrors: 0,
+          validationWarnings: 0,
+          validationInfos: 0,
+          artifactChecked: false,
+          provenanceChecked: false,
+          metadataRegistryChecked: false,
+          artifactFresh: false,
+          provenanceChanges: null,
+          metadataRegistryChanges: null,
+          checksIncomplete: false,
+        },
+      },
+    }))
+    recorder.record(createBehaviorRecord({
+      behaviorType: 'review_openapi_change',
+      identityKey: createBehaviorIdentityKey({
+        behaviorType: 'review_openapi_change',
+        parts: { targetType: 'openapi-review', targetKey: 'base-b|head-b' },
+      }),
+      status: 'succeeded',
+      components: {
+        actor: { actorType: 'system', actorId: 'oa-gen' },
+        target: { targetType: 'openapi-review', targetKey: 'base-b|head-b', basePath: 'base-b', headPath: 'head-b' },
+        context: { source: 'cli', command: 'review' },
+        decision: { primarySignal: 'approve', decisionReason: 'review found no blocking issues and all required checks are satisfied' },
+        result: {
+          recommendation: 'APPROVE',
+          reasonCount: 0,
+          reasons: [],
+          breakingChanges: 0,
+          nonBreakingChanges: 0,
+          validationErrors: 0,
+          validationWarnings: 0,
+          validationInfos: 0,
+          artifactChecked: false,
+          provenanceChecked: false,
+          metadataRegistryChecked: false,
+          artifactFresh: true,
+          provenanceChanges: null,
+          metadataRegistryChanges: null,
+          checksIncomplete: false,
+        },
+      },
+    }))
+    recorder.close?.()
+
+    const out = cli(
+      `behavior-query --behavior-db ${dbPath} --mode summary-by-target-type`,
+    )
+
+    expect(out).toContain('# Behavior Query')
+    expect(out).toContain('summary-by-target-type')
+    expect(out).toContain('| Group | Count | Dimensions |')
+    expect(out).toContain('`definition-target`')
+    expect(out).toContain('`openapi-review`')
+    expect(out).toContain('`targetType=definition-target`')
+    expect(out).toContain('`targetType=openapi-review`')
+  })
+
+  it('recent-failures를 markdown으로 조회한다', () => {
+    const dbPath = join(tmpDir, 'behavior-query-failures.sqlite')
+    const recorder = createBehaviorRecorderFromOptions({ sqlitePath: dbPath })
+    recorder.record(createBehaviorRecord({
+      behaviorType: 'review_openapi_change',
+      identityKey: createBehaviorIdentityKey({
+        behaviorType: 'review_openapi_change',
+        parts: { targetType: 'openapi-review', targetKey: 'base.yaml|head.yaml' },
+      }),
+      status: 'failed',
+      components: {
+        actor: { actorType: 'system', actorId: 'oa-gen' },
+        target: { targetType: 'openapi-review', targetKey: 'base.yaml|head.yaml', basePath: 'base.yaml', headPath: 'head.yaml' },
+        context: { source: 'cli', command: 'review' },
+        decision: { primarySignal: 'request-changes', decisionReason: 'review found blocking changes that require follow-up' },
+        result: {
+          recommendation: 'REQUEST_CHANGES',
+          reasonCount: 1,
+          reasons: ['review found blocking changes that require follow-up'],
+          breakingChanges: 1,
+          nonBreakingChanges: 0,
+          validationErrors: 0,
+          validationWarnings: 0,
+          validationInfos: 0,
+          artifactChecked: false,
+          provenanceChecked: false,
+          metadataRegistryChecked: false,
+          artifactFresh: false,
+          provenanceChanges: null,
+          metadataRegistryChanges: null,
+          checksIncomplete: false,
+        },
+      },
+    }))
+    recorder.close?.()
+
+    const out = cli(
+      `behavior-query --behavior-db ${dbPath} --mode recent-failures --behavior-type review_openapi_change --decision-signal request-changes --status failed --limit 5`,
+    )
+
+    expect(out).toContain('# Behavior Query')
+    expect(out).toContain('recent-failures')
+    expect(out).toContain('Filter behaviorType')
+    expect(out).toContain('Filter decisionSignal')
+    expect(out).toContain('Filter status')
+    expect(out).toContain('review_openapi_change')
+    expect(out).toContain('REQUEST_CHANGES')
   })
 })
 

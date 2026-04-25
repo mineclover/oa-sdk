@@ -43,7 +43,8 @@ oa-gen build-spec \
   --diagnostics artifacts/openapi-governance/local-parity-api.diagnostics.json \
   --collision-report artifacts/openapi-governance/local-parity-api.collisions.json \
   --composition-report artifacts/openapi-governance/local-parity-api.composition.json \
-  --provenance artifacts/openapi-governance/local-parity-api.provenance.json
+  --provenance artifacts/openapi-governance/local-parity-api.provenance.json \
+  --metadata-registry artifacts/openapi-governance/local-parity-api.metadata.json
 ```
 
 Sidecar 의미:
@@ -52,8 +53,12 @@ Sidecar 의미:
 - `collisions.json`: target-local output name allocation report
 - `composition.json`: direct paths, retained definitions, transitive components, omitted counts, source refs
 - `provenance.json`: emitted OpenAPI pointer → canonical id/source path/source pointer/content hash
+- `metadata.json`: emitted OpenAPI pointer → internal metadata, logical identity key, stable key, tracking id, source refs, example pointers
 
 `diagnostics.json`에 error가 있으면 output artifact는 쓰지 않는다.
+Metadata registry의 stable key는 canonical id와 operation method 같은 logical slot에서 생성되므로 content/path/output name 변경에도 유지된다. Tracking id나 stable key가 중복되면 diagnostics에 error로 남고 output artifact는 생성하지 않는다.
+Canonical id rename은 fragment `metadata.replaces`에 이전 canonical id를 선언해 추적을 이어간다. Output pointer 충돌이나 invalid tracking id도 diagnostics와 metadata sidecar에 함께 남긴다.
+`schemaVersion`은 sidecar JSON 구조 버전이고, `oa-meta:v1:{digest}`의 `v1`은 stable key 생성 알고리즘 버전이다. JSON 구조 변경과 key algorithm 변경은 독립적으로 관리한다.
 
 ## 2. Surface inventory 확인
 
@@ -178,11 +183,15 @@ oa-gen review \
   --artifact packages/schemas/dist/openapi.yaml \
   --base-provenance contracts/baselines/v1.provenance.json \
   --head-provenance artifacts/openapi-governance/local-parity-api.provenance.json \
+  --base-metadata-registry contracts/baselines/v1.metadata.json \
+  --head-metadata-registry artifacts/openapi-governance/local-parity-api.metadata.json \
   --format markdown
 ```
 
 Provenance change는 OpenAPI content diff를 대체하지 않는다. API content가 같아도 source
 fragment ownership, source pointer, content hash 변화가 있으면 review evidence로 드러낸다.
+Metadata registry change도 별도 evidence다. API content가 같아도 stable key, tracking id,
+logical identity drift가 있으면 review에서 분리해서 볼 수 있다.
 
 ## 7. PR review bundle 생성
 
@@ -195,7 +204,12 @@ oa-gen review-bundle \
   --artifact packages/schemas/dist/openapi.yaml \
   --inventory \
   --runtime-drift artifacts/openapi-governance/runtime-drift.json \
+  --base-provenance contracts/baselines/v1.provenance.json \
+  --head-provenance artifacts/openapi-governance/local-parity-api.provenance.json \
   --composition-report artifacts/openapi-governance/local-parity-api.composition.json \
+  --metadata-registry artifacts/openapi-governance/local-parity-api.metadata.json \
+  --base-metadata-registry contracts/baselines/v1.metadata.json \
+  --head-metadata-registry artifacts/openapi-governance/local-parity-api.metadata.json \
   --duplicate-review artifacts/openapi-governance/duplicate-review.json \
   --format markdown
 ```
@@ -210,7 +224,12 @@ oa-gen review-bundle \
   --artifact packages/schemas/dist/openapi.yaml \
   --inventory \
   --runtime-drift artifacts/openapi-governance/runtime-drift.json \
+  --base-provenance contracts/baselines/v1.provenance.json \
+  --head-provenance artifacts/openapi-governance/local-parity-api.provenance.json \
   --composition-report artifacts/openapi-governance/local-parity-api.composition.json \
+  --metadata-registry artifacts/openapi-governance/local-parity-api.metadata.json \
+  --base-metadata-registry contracts/baselines/v1.metadata.json \
+  --head-metadata-registry artifacts/openapi-governance/local-parity-api.metadata.json \
   --duplicate-review artifacts/openapi-governance/duplicate-review.json \
   --format json \
   > artifacts/openapi-governance/review-bundle.json
@@ -255,6 +274,8 @@ oa-gen duplicate-review \
 
 ## 관련 문서
 
+- [Behavior ECS](../../concepts/behavior-ecs.md)
+- [Behavior ECS Spec](../../internal/behavior-ecs.spec.md)
 - [코드젠 워크플로](./codegen-workflow.md)
 - [CLI 세팅](../cli-setup.md)
 - [OpenAPI Governance Service Template](../openapi-governance-service-template.md)

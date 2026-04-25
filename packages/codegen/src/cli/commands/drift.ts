@@ -6,6 +6,10 @@ import {
   diffOpenApiDocuments,
   type OpenApiNormalizedDiffEntry,
 } from '../lib/openapi-normalized-diff.js'
+import {
+  createBehaviorRecord,
+  createBehaviorRecorderFromOptions,
+} from '../lib/behavior-recorder.js'
 import { commandById, optionDescription } from '../spec/ecs.js'
 import { oaGenGovernanceManifest } from '../spec/oa-gen-governance.js'
 
@@ -62,56 +66,213 @@ export const drift: Command = {
       short: 'f',
       description: optionDescription(driftSpec, 'format'),
     },
+    'behavior-log': {
+      type: 'string',
+      description: 'append-only behavior JSONL 출력 파일 경로',
+    },
+    'behavior-db': {
+      type: 'string',
+      description: 'append-only behavior SQLite DB 파일 경로',
+    },
   },
   async run(args) {
-    const managed = loadSpecWithPath(str(args, 'managed-openapi'))
+    const managedPath = str(args, 'managed-openapi')
+    const managed = loadSpecWithPath(managedPath)
     const runtimeInput: { runtimePath?: string; runtimeUrl?: string } = {}
     const runtimePath = optStr(args, 'runtime-openapi')
     const runtimeUrl = optStr(args, 'runtime-openapi-url')
     if (runtimePath !== undefined) runtimeInput.runtimePath = runtimePath
     if (runtimeUrl !== undefined) runtimeInput.runtimeUrl = runtimeUrl
-    const runtime = await loadRuntimeOpenApi(runtimeInput, {
-      headers: parseRuntimeHeaders(optStrArray(args, 'runtime-header')),
-    })
+    const runtimeHeaders = parseRuntimeHeaders(optStrArray(args, 'runtime-header'))
     const format = readFormat(optStr(args, 'format'))
+    const behaviorLogPath = optStr(args, 'behavior-log')
+    const behaviorDbPath = optStr(args, 'behavior-db')
+    const behaviorRecorder = createBehaviorRecorderFromOptions({
+      ...(behaviorLogPath !== undefined ? { jsonlPath: behaviorLogPath } : {}),
+      ...(behaviorDbPath !== undefined ? { sqlitePath: behaviorDbPath } : {}),
+    })
+    const startedAt = Date.now()
 
-    if ('failure' in runtime) {
+    try {
+      const runtime = await loadRuntimeOpenApi(runtimeInput, {
+        headers: runtimeHeaders,
+      })
+
+      if ('failure' in runtime) {
+        const targetKey = `${managed.path}|${runtime.source}`
+        const payload = {
+          drift: true,
+          status: 'drift-check-failed',
+          runtime: runtime.source,
+          managed: managed.path,
+          issues: [],
+          failure: runtime.failure,
+          ...(runtime.fetch ? { runtimeFetch: runtime.fetch } : {}),
+        }
+        await behaviorRecorder.record(createBehaviorRecord({
+          behaviorType: 'sync_runtime_openapi',
+          status: 'failed',
+          components: {
+            actor: {
+              actorType: 'system',
+              actorId: 'oa-gen',
+            },
+            target: {
+              targetType: 'runtime-openapi',
+              targetKey,
+              managedPath: managed.path,
+              runtimeSource: runtime.source,
+            },
+            input: {
+              ...(runtimePath ? { runtimePath } : {}),
+              ...(runtimeUrl ? { runtimeUrl } : {}),
+              managedPath,
+              ...(runtimeHeaders.length > 0 ? { runtimeHeaders: runtimeHeaders.map(header => header.name) } : {}),
+            },
+            context: {
+              command: 'drift',
+              source: 'cli',
+            },
+            decision: {
+              primarySignal: 'fetch-failure',
+              decisionReason: 'runtime OpenAPI could not be fetched or parsed',
+            },
+            result: {
+              drift: true,
+              status: 'drift-check-failed',
+              failureCode: runtime.failure.code,
+              failureMessage: runtime.failure.message,
+            },
+            audit: {
+              cwd: process.cwd(),
+              pid: process.pid,
+            },
+            metrics: {
+              durationMs: Date.now() - startedAt,
+            },
+          },
+        }))
+        writeDriftFailure(payload, format)
+        behaviorRecorder.close?.()
+        process.exit(1)
+      }
+
+      const issues = diffOpenApiDocuments(managed.document, runtime.document)
       const payload = {
-        drift: true,
-        status: 'drift-check-failed',
-        runtime: runtime.source,
+        drift: issues.length > 0,
+        status: 'ok',
+        runtime: runtime.path,
         managed: managed.path,
-        issues: [],
-        failure: runtime.failure,
+        issues,
         ...(runtime.fetch ? { runtimeFetch: runtime.fetch } : {}),
       }
-      writeDriftFailure(payload, format)
-      process.exit(1)
-    }
+      const targetKey = `${managed.path}|${runtime.path}`
 
-    const issues = diffOpenApiDocuments(managed.document, runtime.document)
-    const payload = {
-      drift: issues.length > 0,
-      status: 'ok',
-      runtime: runtime.path,
-      managed: managed.path,
-      issues,
-      ...(runtime.fetch ? { runtimeFetch: runtime.fetch } : {}),
-    }
+      await behaviorRecorder.record(createBehaviorRecord({
+        behaviorType: 'sync_runtime_openapi',
+        status: issues.length > 0 ? 'failed' : 'succeeded',
+        components: {
+          actor: {
+            actorType: 'system',
+            actorId: 'oa-gen',
+          },
+          target: {
+            targetType: 'runtime-openapi',
+            targetKey,
+            managedPath: managed.path,
+            runtimePath: runtime.path,
+          },
+          input: {
+            ...(runtimePath ? { runtimePath } : {}),
+            ...(runtimeUrl ? { runtimeUrl } : {}),
+            managedPath,
+            ...(runtimeHeaders.length > 0 ? { runtimeHeaders: runtimeHeaders.map(header => header.name) } : {}),
+          },
+          context: {
+            command: 'drift',
+            source: 'cli',
+          },
+          decision: {
+            primarySignal: issues.length > 0 ? 'drift-detected' : 'no-drift',
+            decisionReason: issues.length > 0
+              ? 'managed and runtime OpenAPI documents differ'
+              : 'managed and runtime OpenAPI documents match',
+          },
+          result: {
+            drift: issues.length > 0,
+            status: 'ok',
+            issueCount: issues.length,
+            issueKinds: issues.map(issue => issue.kind),
+          },
+          audit: {
+            cwd: process.cwd(),
+            pid: process.pid,
+          },
+          metrics: {
+            durationMs: Date.now() - startedAt,
+          },
+        },
+      }))
 
-    if (format === 'json') {
-      console.log(JSON.stringify(payload, null, 2))
-    } else if (format === 'markdown') {
-      console.log(driftMarkdown(issues))
-    } else if (issues.length === 0) {
-      console.log('No OpenAPI runtime drift detected.')
-    } else {
-      for (const issue of issues) {
-        console.log(`${issue.kind} ${issue.pointer} - ${issue.message}`)
+      if (format === 'json') {
+        console.log(JSON.stringify(payload, null, 2))
+      } else if (format === 'markdown') {
+        console.log(driftMarkdown(issues))
+      } else if (issues.length === 0) {
+        console.log('No OpenAPI runtime drift detected.')
+      } else {
+        for (const issue of issues) {
+          console.log(`${issue.kind} ${issue.pointer} - ${issue.message}`)
+        }
       }
-    }
 
-    if (issues.length > 0) process.exit(1)
+      behaviorRecorder.close?.()
+      if (issues.length > 0) process.exit(1)
+    } catch (error) {
+      const targetKey = `${managedPath}|${runtimePath ?? runtimeUrl ?? 'unknown-runtime'}`
+      await behaviorRecorder.record(createBehaviorRecord({
+        behaviorType: 'sync_runtime_openapi',
+        status: 'failed',
+        components: {
+          actor: {
+            actorType: 'system',
+            actorId: 'oa-gen',
+          },
+          target: {
+            targetType: 'runtime-openapi',
+            targetKey,
+            managedPath,
+            ...(runtimePath ? { runtimePath } : {}),
+            ...(runtimeUrl ? { runtimeSource: runtimeUrl } : {}),
+          },
+          input: {
+            ...(runtimePath ? { runtimePath } : {}),
+            ...(runtimeUrl ? { runtimeUrl } : {}),
+            managedPath,
+          },
+          context: {
+            command: 'drift',
+            source: 'cli',
+          },
+          decision: {
+            primarySignal: 'runtime-error',
+            decisionReason: 'drift command raised an exception before producing a diff report',
+          },
+          result: {
+            errorMessage: error instanceof Error ? error.message : String(error),
+          },
+          audit: {
+            cwd: process.cwd(),
+            pid: process.pid,
+          },
+          metrics: {
+            durationMs: Date.now() - startedAt,
+          },
+        },
+      }))
+      behaviorRecorder.close?.()
+      throw error
+    }
   },
 }
 

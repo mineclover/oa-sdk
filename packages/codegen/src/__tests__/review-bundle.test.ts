@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import type { BuildSpecCompositionReport } from '../cli/lib/composition-report.js'
 import type { DefinitionDuplicateReviewResult } from '../cli/lib/duplicate-review.js'
+import type { BuildSpecMetadataRegistry } from '../cli/lib/metadata-registry.js'
 import {
   createReviewBundle,
   createRuntimeDriftFailureReport,
   formatReviewBundleMarkdown,
 } from '../cli/lib/review-bundle.js'
+import type { ReviewBundleProvenanceDiff } from '../cli/lib/review-bundle.js'
 import { createOpenApiInventory } from '../cli/lib/openapi-inventory.js'
 
 describe('review bundle aggregator', () => {
@@ -79,29 +81,58 @@ describe('review bundle aggregator', () => {
     })
     const inventory = createOpenApiInventory(spec, { documentPath: 'head.yaml' })
     const composition = compositionReport()
+    const metadataRegistry = metadataRegistryReport()
+    const provenanceDiff = provenanceDiffReport()
+    const baseMetadataEntry = metadataRegistry.entries['#/paths/~1pets']!
+    const headMetadataEntry = metadataRegistryReport('trk_meta_v2', 'oa-meta:v1:meta2').entries['#/paths/~1pets']!
+    const metadataRegistryDiff = {
+      checked: true,
+      base: 'base.metadata.json',
+      head: 'head.metadata.json',
+      changed: true,
+      summary: '1 metadata registry entry changed',
+      differences: [
+        {
+          kind: 'changed' as const,
+          pointer: '#/paths/~1pets',
+          base: baseMetadataEntry,
+          head: headMetadataEntry,
+          message: 'Metadata registry entry changed for #/paths/~1pets.',
+        },
+      ],
+    }
     const duplicateReview = duplicateReviewReport()
     const bundle = createReviewBundle({
       base: { document: spec, path: 'base.yaml' },
       head: { document: spec, path: 'head.yaml' },
       artifact: { document: spec, path: 'artifact.yaml' },
       runtimeDrift,
+      provenanceDiff,
       inventory,
       composition,
+      metadataRegistry,
+      metadataRegistryDiff,
       duplicateReview,
     })
     const parsed = JSON.parse(JSON.stringify(bundle)) as typeof bundle
 
     expect(bundle.summary.recommendation).toBe('REQUEST_CHANGES')
     expect(parsed.sections.runtimeDrift?.report).toEqual(runtimeDrift)
+    expect(parsed.sections.provenanceDiff?.report).toEqual(provenanceDiff)
     expect(parsed.sections.inventory?.report).toEqual(inventory)
     expect(parsed.sections.composition?.report).toEqual(composition)
+    expect(parsed.sections.metadataRegistry?.report).toEqual(metadataRegistry)
+    expect(parsed.sections.metadataRegistryDiff?.report).toEqual(metadataRegistryDiff)
     expect(parsed.sections.duplicateReview?.report).toEqual(duplicateReview)
     expect(Object.keys(parsed.sections)).toEqual([
       'breakingDiff',
       'artifactFreshness',
       'runtimeDrift',
+      'provenanceDiff',
       'inventory',
       'composition',
+      'metadataRegistry',
+      'metadataRegistryDiff',
       'duplicateReview',
       'nonBreakingChanges',
     ])
@@ -221,5 +252,77 @@ function duplicateReviewReport(): DefinitionDuplicateReviewResult {
         'definition-duplicate-review/semantic-alias': 0,
       },
     },
+  }
+}
+
+function metadataRegistryReport(
+  trackingId = 'trk_meta_v1',
+  stableKey = 'oa-meta:v1:meta1',
+): BuildSpecMetadataRegistry {
+  return {
+    schemaVersion: 'oa-gen.metadata-registry.v1',
+    targetName: 'public-api',
+    summary: {
+      entryCount: 1,
+      explicitTrackingIdCount: 0,
+      generatedTrackingIdCount: 1,
+      invalidTrackingIdCount: 0,
+      duplicateTrackingIdCount: 0,
+      duplicateStableKeyCount: 0,
+      duplicateOutputPointerCount: 0,
+    },
+    duplicates: {
+      trackingIds: [],
+      stableKeys: [],
+      outputPointers: [],
+    },
+    entries: {
+      '#/paths/~1pets': {
+        pointer: '#/paths/~1pets',
+        canonicalId: 'path:public/pet/PetsPath',
+        kind: 'path',
+        sourcePath: 'fragments/path/public/pet/PetsPath.yaml',
+        sourcePointer: '#/content',
+        contentHash: 'sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+        trackingId,
+        trackingIdSource: 'generated',
+        identityKey: 'definition:path:public/pet/PetsPath',
+        identitySource: 'canonical',
+        stableKey,
+        metadata: { path: '/pets' },
+        openApiPath: '/pets',
+      },
+    },
+  }
+}
+
+function provenanceDiffReport(): ReviewBundleProvenanceDiff {
+  return {
+    checked: true,
+    base: 'base.provenance.json',
+    head: 'head.provenance.json',
+    changed: true,
+    summary: '1 provenance entry changed',
+    differences: [
+      {
+        kind: 'changed',
+        pointer: '#/paths/~1pets',
+        base: {
+          canonicalId: 'path:public/pet/PetsPath',
+          kind: 'path',
+          sourcePath: 'fragments/path/public/pet/PetsPath.yaml',
+          sourcePointer: '#/content',
+          contentHash: 'sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+        },
+        head: {
+          canonicalId: 'path:public/pet/PetsPath',
+          kind: 'path',
+          sourcePath: 'fragments/path/public/pet/PetsPath.yaml',
+          sourcePointer: '#/content',
+          contentHash: 'sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+        },
+        message: 'Provenance changed for #/paths/~1pets.',
+      },
+    ],
   }
 }

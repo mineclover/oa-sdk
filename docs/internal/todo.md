@@ -109,7 +109,7 @@
 
 ### [x] OpenAPI definition builder: CLI artifact build entry
 배경: target selection과 OpenAPI emit이 parser에 구현되었으므로 로컬/CI에서 target config를 지정해 builder artifact와 sidecar reports를 생성할 entry가 필요함.
-완료: `@oa-sdk/codegen` CLI에 `oa-gen build-spec --target ...` 커맨드를 추가함. Target config sibling `../fragments`를 기본 fragment root로 사용하고 `--fragments`로 override할 수 있으며, valid build는 `--output` OpenAPI YAML artifact 또는 stdout으로 출력한다. `--diagnostics`는 registry/target/output-name/emit diagnostics JSON을 실패 시에도 기록하고, `--collision-report`는 target-local naming collision report row array를 machine-readable JSON으로 기록한다.
+완료: `@oa-sdk/codegen` CLI에 `oa-gen build-spec --target ...` 커맨드를 추가함. Target config sibling `../fragments`를 기본 fragment root로 사용하고 `--fragments`로 override할 수 있으며, valid build는 `--output` OpenAPI YAML artifact 또는 stdout으로 출력한다. `--diagnostics`는 registry/target/output-name/emit diagnostics JSON을 실패 시에도 기록하고, `--collision-report`는 target-local naming collision report row array를 machine-readable JSON으로 기록한다. `--metadata-registry`는 output pointer별 internal metadata, identity/stable key, tracking id, source refs, example source pointers를 기록하고 duplicate output pointer/tracking/stable key, invalid tracking id, invalid replacement id를 diagnostics로 승격한다.
 완료 기준: duplicate canonical id, missing/unsupported source ref, target disallowed ref, output name collision, unrewritten ref, emitted document validation error가 있으면 output artifact를 쓰지 않고 exit code 1로 종료함. CLI tests가 success artifact/report 생성, duplicate canonical ID failure, unresolved required ref failure를 검증함. Public package exports는 변경하지 않아 `docs/internal/api-index.md` 업데이트는 불필요함.
 
 ### [x] OpenAPI definition builder: OpenAPI document emit

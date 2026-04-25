@@ -1,0 +1,37 @@
+import { createHash } from 'node:crypto'
+
+export type CacheKeyInput = {
+  revisionId: string
+  fragmentsDir: string
+  targetConfigDigest: string
+  codegenVersion: string
+  schemaVersion: string
+}
+
+export function buildCacheKey(input: CacheKeyInput): string {
+  const sorted = {
+    codegenVersion: input.codegenVersion,
+    fragmentsDir: input.fragmentsDir,
+    revisionId: input.revisionId,
+    schemaVersion: input.schemaVersion,
+    targetConfigDigest: input.targetConfigDigest,
+  }
+  return createHash('sha256').update(JSON.stringify(sorted)).digest('hex')
+}
+
+export function buildTargetConfigDigest(config: unknown): string {
+  const normalized = sortDeep(config)
+  return createHash('sha256').update(JSON.stringify(normalized)).digest('hex')
+}
+
+function sortDeep(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(sortDeep)
+  if (value !== null && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>)
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([k, v]) => [k, sortDeep(v)]),
+    )
+  }
+  return value
+}

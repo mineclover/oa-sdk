@@ -1,0 +1,17 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "types": ["node"]
+  },
+  "include": [
+    "src/spec-lens/**/*",
+    "src/cli/lib/**/*",
+    "src/cli/spec/**/*",
+    "src/builder-index.ts",
+    "src/workspace-index.ts",
+    "src/sqlite-workspace-index.ts"
+  ],
+  "exclude": ["dist", "node_modules"]
+}

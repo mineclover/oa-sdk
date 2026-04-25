@@ -272,7 +272,7 @@
       "name": "Codegen CLI workflow",
       "category": "cli",
       "package": "@oa-sdk/codegen",
-      "description": "oa-gen generate/typegen/router/client/build-spec/lint/validate/inventory/diff/check-artifact/drift/review/review-bundle/dev command behavior, including build-spec sidecar reports, runtime URL drift input, provenance review, and PR review bundle aggregation.",
+      "description": "oa-gen generate/typegen/router/client/build-spec/lint/validate/inventory/behavior-query/diff/check-artifact/drift/review/review-bundle/dev command behavior, including build-spec sidecar reports, behavior logging, metadata registry, behavior query, runtime URL drift input, provenance review, metadata/provenance diff, and PR review bundle aggregation.",
       "capabilities": [
         "generate",
         "typegen",
@@ -281,6 +281,9 @@
         "build-spec",
         "build-spec composition report",
         "build-spec provenance report",
+        "build-spec metadata registry",
+        "behavior logging",
+        "behavior query",
         "lint",
         "validate",
         "inventory",
@@ -290,6 +293,7 @@
         "runtime OpenAPI URL drift input",
         "review",
         "review provenance diff",
+        "review metadata registry diff",
         "review-bundle",
         "review bundle optional sidecars",
         "dev"
@@ -298,7 +302,9 @@
         "packages/codegen/src/__tests__/cli*.test.ts",
         "packages/codegen/src/__tests__/cli-scenarios.test.ts",
         "packages/codegen/src/__tests__/cli-build-spec.test.ts",
-        "packages/codegen/src/__tests__/cli-schema-coverage.test.ts"
+        "packages/codegen/src/__tests__/cli-schema-coverage.test.ts",
+        "packages/codegen/src/__tests__/behavior-recorder.test.ts",
+        "packages/codegen/src/__tests__/behavior-projection.test.ts"
       ],
       "commands": [
         "pnpm --filter @oa-sdk/codegen test"

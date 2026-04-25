@@ -67,7 +67,8 @@ oa-gen build-spec \
   --diagnostics "$OUT/$SERVICE.diagnostics.json" \
   --collision-report "$OUT/$SERVICE.collisions.json" \
   --composition-report "$OUT/$SERVICE.composition.json" \
-  --provenance "$OUT/$SERVICE.provenance.json"
+  --provenance "$OUT/$SERVICE.provenance.json" \
+  --metadata-registry "$OUT/$SERVICE.metadata.json"
 ```
 
 Skip this section for services that do not use Definition Builder target configs.
@@ -179,7 +180,12 @@ oa-gen review-bundle \
   --artifact {path-to-generated-openapi.yaml} \
   --inventory \
   --runtime-drift "$OUT/$SERVICE.runtime-drift.json" \
+  --base-provenance "contracts/baselines/$SERVICE/v1.provenance.json" \
+  --head-provenance "$OUT/$SERVICE.provenance.json" \
   --composition-report "$OUT/$SERVICE.composition.json" \
+  --metadata-registry "$OUT/$SERVICE.metadata.json" \
+  --base-metadata-registry "contracts/baselines/$SERVICE/v1.metadata.json" \
+  --head-metadata-registry "$OUT/$SERVICE.metadata.json" \
   --duplicate-review "$OUT/$SERVICE.duplicate-review.json" \
   --format markdown \
   > "$OUT/$SERVICE.review.md"

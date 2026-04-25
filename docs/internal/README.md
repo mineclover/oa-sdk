@@ -39,6 +39,7 @@ architecture/ (설계 결정)
 | [feature-test-matrix.md](./feature-test-matrix.md) | 기능별 테스트 파일·명령 매핑 | 기능/테스트 추가·이동·삭제 시 |
 | [user-scenario-tests.md](./user-scenario-tests.md) | 사용자 관점 E2E 시나리오 테스트 목록 | 사용자 시나리오 테스트 추가·이동·삭제 시 |
 | [api-index.md](./api-index.md) | 타입·함수 단일 소스 + 재구현 금지 | 함수/타입 추가 시 |
+| [behavior-ecs.spec.md](./behavior-ecs.spec.md) | 행동 데이터 Entity/Component/System SSOT, representative use case, baseline/local verification | 행동 수집/로깅 모델 변경 시 |
 | [oas32-coverage.md](./oas32-coverage.md) | OAS 3.2 기능별 지원 매트릭스 | 새 기능 구현 시 |
 | [domain-merge-inventory.md](./domain-merge-inventory.md) | current domain merge input checklist | schema profile/domain source 변경 시 |
 | [definition-builder-compatibility-gates.md](./definition-builder-compatibility-gates.md) | builder parity validation/downstream gates and accepted differences | builder parity workflow 변경 시 |
