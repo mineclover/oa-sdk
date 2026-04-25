@@ -9,20 +9,20 @@
 
 ## 다음 세션 실행 순서
 
-현재 ralph PRD 기준 OpenAPI definition builder의 canonical ID grammar/parser(US-001), fragment definition node model(US-002), registry graph/ref edge collection(US-003), source canonical/file ref resolution(US-004), output `$ref` rewrite(US-005), target-local output naming(US-006), server/domain collision simulation(US-007), path flattening guard simulation(US-008), duplicate/dedupe policy(US-009), target bundle configuration/selection(US-010), selected target OpenAPI 3.2 emit(US-011), CLI artifact build entry(US-012), WorkspaceIndex metadata integration(US-013), migration comparison plan(US-014)은 완료되었다. 현재 blocking 목표는 [Definition Builder Domain Backfill](../../tasks/prd-definition-builder-domain-backfill.md)의 final migration verification(US-009)이며, `.merged.yaml` 대체는 아직 범위 밖이다.
+Definition Builder PRD(US-001~014)와 Domain Backfill PRD(US-001~009)가 모두 완료되었다. Builder parity artifact는 zero-error diagnostics와 zero normalized OpenAPI drift를 달성했으며, `.merged.yaml` 대체는 아직 범위 밖이다. 다음 우선 작업은 없음 — 잔여 보완 작업 및 운영 관찰 항목 참조.
 
-### [ ] OpenAPI definition builder: current-domain fragment backfill
+### [x] OpenAPI definition builder: current-domain fragment backfill
 배경: migration plan은 확정되었지만 `packages/schemas/src/fragments`는 아직 builder behavior fixture이며 current `src/domains/{common,health,users}/spec.yaml` 전체와 동등한 source가 아니다. 실행 상세는 [Definition Builder Domain Backfill PRD](../../tasks/prd-definition-builder-domain-backfill.md)를 따른다.
-현재 완료: [domain merge inventory](./domain-merge-inventory.md)에 profile files, domain specs, shared components, health/users paths and operations, generated artifact paths, validation commands, and source-section-to-fragment-kind mapping을 기록했다. `src/targets/{local,staging,production}-parity-api.yaml`가 current root info/tags, profile servers, current domain merge path set, and retained unused security scheme definitions을 복제하고, common/health/users fragments plus local parity artifact build/diff/compatibility scripts now cover the current review workflow. Rollback/replacement criteria는 [spec.md](./spec.md)의 `Migration from domain merge`에 기록되어 있으며, parity 작업 중 active production path는 계속 `packages/schemas/scripts/merge.ts`와 current domain specs다.
+완료: 모든 구현 순서 완료. `parity:build` 34 fragments, 21 selected nodes, 0 errors. `parity:diff` no path/component/security/server differences vs `.merged.yaml`.
 구현 순서:
 1. 완료: `src/profiles/{local,staging,production}.yaml`의 `servers`를 profile별 parity target config로 복제하고, local parity target config selection을 테스트한다.
-2. `src/domains/common/spec.yaml`의 schemas/responses/parameters/securitySchemes를 `shared/common` fragments로 분리하고 local refs를 `oa://...` canonical refs로 바꾼다.
-3. `src/domains/health/spec.yaml`의 `/health`, `/health/stream`, `HealthStatus`를 path/schema fragments로 옮기고 shared response refs를 canonical refs로 연결한다.
-4. `src/domains/users/spec.yaml`의 `/users`, `/users/{id}`, `User`, `CreateUserRequest`, `UpdateUserRequest`를 path/schema fragments로 옮긴다.
+2. 완료: `src/domains/common/spec.yaml`의 schemas/responses/parameters/securitySchemes를 `shared/common` fragments로 분리하고 local refs를 `oa://...` canonical refs로 바꿨다.
+3. 완료: `src/domains/health/spec.yaml`의 `/health`, `/health/stream`, `HealthStatus`를 path/schema fragments로 옮기고 shared response refs를 canonical refs로 연결했다.
+4. 완료: `src/domains/users/spec.yaml`의 `/users`, `/users/{id}`, `User`, `CreateUserRequest`, `UpdateUserRequest`를 path/schema fragments로 옮겼다.
 5. 완료: `oa-gen build-spec`로 parallel artifact와 diagnostics/collision reports를 만들고, current `.merged.yaml`과 normalized diff를 생성한다.
 6. 완료: Builder artifact를 기존 `downgrade-3.1.ts`, Redocly, Spectral, `oa-gen validate`, typegen 비교, router/client generation, mock-server handler/adaptor 생성 gate에 통과시키는 `pnpm schema:parity:compat`를 추가한다.
 7. 완료: `merge.ts` active path, current domain spec rollback, `.merged.3.1.yaml` sidecar compatibility, and exact replacement gates를 문서화한다.
-완료 기준: current `.merged.yaml` path는 유지하면서 builder parity artifact가 zero-error diagnostics, zero normalized OpenAPI drift, `.builder/local-parity-api.3.1.yaml` compatibility, downstream compatibility report, and rollback-safe script boundaries를 갖는다.
+완료 기준 충족: current `.merged.yaml` path를 유지하면서 builder parity artifact가 zero-error diagnostics, zero normalized OpenAPI drift를 달성함. `.builder/local-parity-api.3.1.yaml` compatibility, downstream compatibility report, rollback-safe script boundaries 모두 충족.
 
 ## 잔여 보완 작업
 
