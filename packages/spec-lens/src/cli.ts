@@ -74,7 +74,8 @@ async function main() {
   const cfg = findConfig() ?? autoDetectConfig()
   const port = cfg.port ?? 4891
   const dbPath = resolve(process.cwd(), cfg.dbPath ?? '.spec-lens.db')
-  const fragmentsDir = resolve(process.cwd(), cfg.fragmentsDir)
+  // fragmentsDir: keep as configured (repo-relative) — remote adapters require relative paths
+  const fragmentsDir = cfg.fragmentsDir.replace(/\/$/, '')
   const targetPath = resolve(process.cwd(), cfg.targetPath)
 
   console.log('spec-lens server starting…')

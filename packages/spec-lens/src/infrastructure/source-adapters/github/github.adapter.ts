@@ -86,16 +86,13 @@ export class GithubAdapter implements SpecSourcePort {
       item => item.type === 'blob' && item.path.startsWith(prefix) && isDefinitionFile(item.path),
     )
 
-    const entries = await Promise.all(
-      fileItems.map(async item => {
+    const entries = await withConcurrency(
+      fileItems.map(item => async () => {
         const relativePath = prefix === '' ? item.path : item.path.slice(prefix.length)
         const content = await this.fetchBlob(item.sha, token)
-        return {
-          relativePath,
-          content,
-          contentHash: sha256(content),
-        }
+        return { relativePath, content, contentHash: sha256(content) }
       }),
+      10,
     )
 
     return entries
@@ -148,7 +145,7 @@ export class GithubAdapter implements SpecSourcePort {
         'X-GitHub-Api-Version': '2022-11-28',
       },
     })
-    if (res.status === 429 || res.status === 403) {
+    if (res.status === 429 || (res.status === 403 && res.headers.get('X-RateLimit-Remaining') === '0')) {
       const reset = res.headers.get('X-RateLimit-Reset')
       const resetMsg = reset !== null
         ? ` Rate limit resets at ${new Date(Number(reset) * 1000).toISOString()}.`
@@ -169,4 +166,17 @@ function sha256(content: string): string {
 
 function isDefinitionFile(filePath: string): boolean {
   return filePath.endsWith('.yaml') || filePath.endsWith('.yml') || filePath.endsWith('.json')
+}
+
+async function withConcurrency<T>(tasks: Array<() => Promise<T>>, limit: number): Promise<T[]> {
+  const results: T[] = new Array(tasks.length)
+  let next = 0
+  async function worker() {
+    while (next < tasks.length) {
+      const i = next++
+      results[i] = await tasks[i]!()
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(limit, tasks.length) }, worker))
+  return results
 }
