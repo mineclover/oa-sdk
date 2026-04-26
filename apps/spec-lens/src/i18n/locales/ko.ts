@@ -103,6 +103,13 @@ const ko: KoKeys = {
   pathsDetailContentHash: '콘텐츠 해시',
   pathsDetailLastRevision: '마지막 변경 revision',
 
+  // ── Breaking panel ──────────────────────────────────────────
+  breakingFilterAll: '전체',
+  breakingFilterBreaking: 'Breaking',
+  breakingFilterNonBreaking: 'Non-breaking',
+  breakingCountSummary: 'breaking {{breaking}}개 · non-breaking {{nonBreaking}}개',
+  breakingFilterEmpty: '해당 필터에 맞는 항목이 없습니다.',
+
   // ── FragmentGraph ───────────────────────────────────────────
   graphTitle: '프래그먼트 그래프',
   graphNodeEdgeCount: '노드 {{nodes}} · 엣지 {{edges}}',
@@ -117,6 +124,8 @@ const ko: KoKeys = {
   graphDetailId: 'ID',
   graphDetailHash: '해시',
   graphDetailSource: '소스',
+  graphDetailRefs: '참조 ({{count}})',
+  graphDetailRefdBy: '참조됨 ({{count}})',
 }
 
 export default ko

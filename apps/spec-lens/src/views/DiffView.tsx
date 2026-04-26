@@ -386,8 +386,12 @@ function YamlDiffPanel({
 
 // ─────────────────── Breaking panel ───────────────────
 
+type BreakingSeverityFilter = 'all' | 'breaking' | 'non-breaking'
+
 function BreakingPanel({ changes }: { changes: BreakingChange[] }) {
   const { t } = useTranslation()
+  const [filter, setFilter] = useState<BreakingSeverityFilter>('all')
+
   if (changes.length === 0) {
     return (
       <div style={{ padding: 40, textAlign: 'center', color: 'var(--green)' }}>
@@ -396,30 +400,70 @@ function BreakingPanel({ changes }: { changes: BreakingChange[] }) {
     )
   }
 
+  const breakingCount    = changes.filter(c => c.severity === 'breaking').length
+  const nonBreakingCount = changes.filter(c => c.severity === 'non-breaking').length
+  const visible = filter === 'all' ? changes : changes.filter(c => c.severity === filter)
+
   return (
-    <div style={{ overflowY: 'auto', flex: 1 }}>
-      {changes.map((c, i) => (
-        <div
-          key={i}
-          style={{
-            padding: '12px 20px',
-            borderBottom: '1px solid var(--border-muted)',
-            display: 'grid',
-            gridTemplateColumns: 'auto 1fr',
-            gap: 12,
-            alignItems: 'start',
-          }}
-        >
-          <Badge variant={c.severity === 'breaking' ? 'red' : 'amber'}>{c.severity}</Badge>
-          <div>
-            <code style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--text-primary)' }}>
-              {c.endpoint}
-            </code>
-            <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 3 }}>{c.detail}</div>
-            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 1 }}>{c.code}</div>
+    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
+      {/* Filter bar */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 20px', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
+        {(['all', 'breaking', 'non-breaking'] as BreakingSeverityFilter[]).map(f => (
+          <button
+            key={f}
+            onClick={() => setFilter(f)}
+            style={{
+              padding: '3px 10px',
+              borderRadius: 4,
+              border: '1px solid var(--border)',
+              background: filter === f ? 'var(--bg-elevated)' : 'transparent',
+              color: filter === f ? 'var(--fg-primary)' : 'var(--fg-muted)',
+              fontSize: 'var(--text-xs)',
+              fontWeight: filter === f ? 600 : 400,
+              cursor: 'pointer',
+            }}
+          >
+            {f === 'all'
+              ? t('breakingFilterAll')
+              : f === 'breaking'
+              ? t('breakingFilterBreaking')
+              : t('breakingFilterNonBreaking')}
+          </button>
+        ))}
+        <span className="label" style={{ marginLeft: 4 }}>
+          {t('breakingCountSummary', { breaking: breakingCount, nonBreaking: nonBreakingCount })}
+        </span>
+      </div>
+
+      {/* List */}
+      <div style={{ overflowY: 'auto', flex: 1 }}>
+        {visible.length === 0 ? (
+          <div style={{ padding: 32, textAlign: 'center', color: 'var(--fg-muted)', fontSize: 'var(--text-sm)' }}>
+            {t('breakingFilterEmpty')}
           </div>
-        </div>
-      ))}
+        ) : visible.map((c, i) => (
+          <div
+            key={i}
+            style={{
+              padding: '12px 20px',
+              borderBottom: '1px solid var(--border-muted)',
+              display: 'grid',
+              gridTemplateColumns: 'auto 1fr',
+              gap: 12,
+              alignItems: 'start',
+            }}
+          >
+            <Badge variant={c.severity === 'breaking' ? 'red' : 'amber'}>{c.severity}</Badge>
+            <div>
+              <code style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--text-primary)' }}>
+                {c.endpoint}
+              </code>
+              <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 3 }}>{c.detail}</div>
+              <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 1 }}>{c.code}</div>
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   )
 }

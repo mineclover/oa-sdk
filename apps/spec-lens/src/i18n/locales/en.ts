@@ -100,6 +100,13 @@ const en = {
   pathsDetailContentHash: 'Content Hash',
   pathsDetailLastRevision: 'Last Changed Revision',
 
+  // ── Breaking panel ─────────────────────────────────────────
+  breakingFilterAll: 'All',
+  breakingFilterBreaking: 'Breaking',
+  breakingFilterNonBreaking: 'Non-breaking',
+  breakingCountSummary: '{{breaking}} breaking · {{nonBreaking}} non-breaking',
+  breakingFilterEmpty: 'No items match this filter.',
+
   // ── FragmentGraph ──────────────────────────────────────────
   graphTitle: 'Fragment Graph',
   graphNodeEdgeCount: '{{nodes}} nodes · {{edges}} edges',
@@ -114,6 +121,8 @@ const en = {
   graphDetailId: 'ID',
   graphDetailHash: 'Hash',
   graphDetailSource: 'Source',
+  graphDetailRefs: 'References ({{count}})',
+  graphDetailRefdBy: 'Referenced by ({{count}})',
 } as const
 
 export default en

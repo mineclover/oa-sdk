@@ -236,39 +236,126 @@ export function FragmentGraph() {
         )}
 
         {/* Detail panel */}
-        {selected && (
-          <div
-            style={{
-              width: 260,
-              borderLeft: '1px solid var(--border)',
-              background: 'var(--bg-surface)',
-              padding: 16,
-              overflowY: 'auto',
-              flexShrink: 0,
-            }}
-          >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-              <span style={{ fontWeight: 600, fontSize: 13 }}>{t('graphDetailTitle')}</span>
-              <button
-                onClick={() => setSelected(null)}
-                style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 16 }}
-              >
-                ×
-              </button>
-            </div>
-            <DetailRow label={t('graphDetailName')} value={selected.localName} mono />
-            <DetailRow label={t('graphDetailKind')} value={selected.kind} />
-            <DetailRow label={t('graphDetailScope')} value={selected.scope} />
-            <DetailRow label={t('graphDetailDomain')} value={selected.domain} />
-            <DetailRow label={t('graphDetailId')} value={selected.id} mono small />
-            <DetailRow label={t('graphDetailHash')} value={selected.contentHash.slice(0, 12) + '…'} mono small />
-            <div style={{ marginTop: 8 }}>
-              <div className="label" style={{ marginBottom: 4 }}>{t('graphDetailSource')}</div>
-              <code className="subtle" style={{ fontSize: 10, fontFamily: 'var(--font-mono)', wordBreak: 'break-all' }}>
-                {selected.sourcePath.split('/').slice(-3).join('/')}
+        {selected && graph && (
+          <NodeDetailPanel
+            node={selected}
+            edges={graph.edges}
+            nodes={graph.nodes}
+            onClose={() => setSelected(null)}
+          />
+        )}
+      </div>
+    </div>
+  )
+}
+
+function NodeDetailPanel({
+  node,
+  edges,
+  nodes,
+  onClose,
+}: {
+  node: NodeDatum
+  edges: SpecGraph['edges']
+  nodes: SpecGraph['nodes']
+  onClose: () => void
+}) {
+  const { t } = useTranslation()
+  const nodeById = new Map(nodes.map(n => [n.id, n]))
+
+  const outEdges = edges.filter(e => e.source === node.id)
+  const inEdges  = edges.filter(e => e.target === node.id)
+
+  return (
+    <div
+      style={{
+        width: 280,
+        borderLeft: '1px solid var(--border)',
+        background: 'var(--bg-surface)',
+        padding: 16,
+        overflowY: 'auto',
+        flexShrink: 0,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 8,
+      }}
+    >
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <span style={{ fontWeight: 600, fontSize: 13 }}>{t('graphDetailTitle')}</span>
+        <button
+          onClick={onClose}
+          style={{ background: 'none', border: 'none', color: 'var(--fg-muted)', cursor: 'pointer', fontSize: 16 }}
+        >
+          ×
+        </button>
+      </div>
+
+      <DetailRow label={t('graphDetailName')} value={node.localName} mono />
+      <DetailRow label={t('graphDetailKind')} value={node.kind} />
+      <DetailRow label={t('graphDetailScope')} value={node.scope} />
+      <DetailRow label={t('graphDetailDomain')} value={node.domain} />
+      <DetailRow label={t('graphDetailId')} value={node.id} mono small />
+      <DetailRow label={t('graphDetailHash')} value={node.contentHash.slice(0, 12) + '…'} mono small />
+      <div>
+        <div className="label" style={{ marginBottom: 4 }}>{t('graphDetailSource')}</div>
+        <code style={{ fontSize: 10, fontFamily: 'var(--font-mono)', wordBreak: 'break-all', color: 'var(--fg-muted)' }}>
+          {node.sourcePath.split('/').slice(-3).join('/')}
+        </code>
+      </div>
+
+      <EdgeList
+        label={t('graphDetailRefs', { count: outEdges.length })}
+        edgeIds={outEdges.map(e => e.target as string)}
+        nodeById={nodeById}
+      />
+      <EdgeList
+        label={t('graphDetailRefdBy', { count: inEdges.length })}
+        edgeIds={inEdges.map(e => e.source as string)}
+        nodeById={nodeById}
+      />
+    </div>
+  )
+}
+
+function EdgeList({
+  label,
+  edgeIds,
+  nodeById,
+}: {
+  label: string
+  edgeIds: string[]
+  nodeById: Map<string, SpecGraph['nodes'][number]>
+}) {
+  if (edgeIds.length === 0) return null
+  const MAX = 6
+  const visible = edgeIds.slice(0, MAX)
+  const overflow = edgeIds.length - MAX
+
+  return (
+    <div>
+      <div className="label" style={{ marginBottom: 4 }}>{label}</div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+        {visible.map(id => {
+          const n = nodeById.get(id)
+          return (
+            <div key={id} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <span
+                style={{
+                  width: 6,
+                  height: 6,
+                  borderRadius: '50%',
+                  background: SCOPE_COLORS[n?.scope ?? ''] ?? '#8b949e',
+                  flexShrink: 0,
+                }}
+              />
+              <code style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--fg-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {n?.localName ?? id.split('/').pop() ?? id}
               </code>
             </div>
-          </div>
+          )
+        })}
+        {overflow > 0 && (
+          <span className="label">+{overflow} more</span>
         )}
       </div>
     </div>
@@ -277,13 +364,13 @@ export function FragmentGraph() {
 
 function DetailRow({ label, value, mono, small }: { label: string; value: string; mono?: boolean; small?: boolean }) {
   return (
-    <div style={{ marginBottom: 8 }}>
+    <div>
       <div className="label" style={{ marginBottom: 2 }}>{label}</div>
       <div
         style={{
           fontFamily: mono ? 'var(--font-mono)' : undefined,
-          fontSize: small ? 'var(--text-xs)' : 'var(--text-base)',
-          color: 'var(--text-primary)',
+          fontSize: small ? 'var(--text-xs)' : 'var(--text-sm)',
+          color: 'var(--fg-primary)',
           wordBreak: 'break-all',
         }}
       >
