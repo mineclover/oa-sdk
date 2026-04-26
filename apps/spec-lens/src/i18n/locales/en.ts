@@ -17,7 +17,6 @@ const en = {
   configTarget: 'Target',
   configFragments: 'Fragments',
   configSource: 'Source',
-  configBranch: 'Branch',
 
   // ── Badge ──────────────────────────────────────────────────
   noChanges: 'no changes',

@@ -24,7 +24,6 @@ const ko: KoKeys = {
   configTarget: '대상',
   configFragments: '프래그먼트',
   configSource: '소스',
-  configBranch: '브랜치',
 
   // ── Badge ───────────────────────────────────────────────────
   noChanges: '변경 없음',
