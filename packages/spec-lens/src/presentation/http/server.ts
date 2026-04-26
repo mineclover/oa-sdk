@@ -57,6 +57,10 @@ export function createSpecLensServer(config: SpecLensServerConfig): Hono {
 
   // 🔴 Command: RefreshTimeline
   app.post('/api/refresh', async (c) => {
+    // Sync remote repo before fetching revisions (GithubAdapter bare clone strategy)
+    if ('syncRepo' in config.source && typeof config.source.syncRepo === 'function') {
+      await (config.source.syncRepo as (branch?: string) => Promise<void>)(config.branch)
+    }
     const result = await refresh.handle({
       fragmentsDir: config.fragmentsDir,
       targetPath: config.targetPath,

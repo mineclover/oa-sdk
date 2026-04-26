@@ -9,6 +9,7 @@ export { DefaultTokenProvider } from './source-adapters/github/token-provider.js
 export type { TokenProvider, TokenProviderConfig } from './source-adapters/github/token-provider.js'
 export { GitlabAdapter } from './source-adapters/gitlab/gitlab.adapter.js'
 export type { GitlabAdapterConfig } from './source-adapters/gitlab/gitlab.adapter.js'
+export { GitlabTokenProvider } from './source-adapters/gitlab/gitlab-token-provider.js'
 export { LocalGitAdapter } from './source-adapters/local-git/local-git.adapter.js'
 export type { LocalGitAdapterConfig } from './source-adapters/local-git/local-git.adapter.js'
 export { FileDiffAdapter } from './source-adapters/file/file-diff.adapter.js'

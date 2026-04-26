@@ -184,25 +184,37 @@ export class SqliteCache implements CachePort {
   }
 
   async clearCache(fragmentsDir: string, targetPath: string): Promise<ClearCacheResult> {
-    const snapshots = this.db.prepare(
-      'DELETE FROM snapshots WHERE fragments_dir = ? AND target_path = ?',
-    ).run(fragmentsDir, targetPath)
-    const diffs = this.db.prepare(
-      'DELETE FROM diffs WHERE fragments_dir = ? AND target_path = ?',
-    ).run(fragmentsDir, targetPath)
-    const timeline = this.db.prepare(
-      'DELETE FROM timeline_entries WHERE fragments_dir = ? AND target_path = ?',
-    ).run(fragmentsDir, targetPath)
-    const paths = this.db.prepare(
-      'DELETE FROM path_entries WHERE fragments_dir = ? AND target_path = ?',
-    ).run(fragmentsDir, targetPath)
-    // fragment_blobs are shared (content-addressable) — do not delete
-    return {
-      deletedSnapshots: snapshots.changes,
-      deletedDiffs: diffs.changes,
-      deletedTimeline: timeline.changes,
-      deletedPaths: paths.changes,
-    }
+    const run = this.db.transaction((): ClearCacheResult => {
+      // snapshot_entries first — must precede snapshots deletion to avoid orphans
+      const entries = this.db.prepare(
+        'DELETE FROM snapshot_entries WHERE cache_key IN (SELECT cache_key FROM snapshots WHERE fragments_dir = ? AND target_path = ?)',
+      ).run(fragmentsDir, targetPath)
+      const snapshots = this.db.prepare(
+        'DELETE FROM snapshots WHERE fragments_dir = ? AND target_path = ?',
+      ).run(fragmentsDir, targetPath)
+      const diffs = this.db.prepare(
+        'DELETE FROM diffs WHERE fragments_dir = ? AND target_path = ?',
+      ).run(fragmentsDir, targetPath)
+      const timeline = this.db.prepare(
+        'DELETE FROM timeline_entries WHERE fragments_dir = ? AND target_path = ?',
+      ).run(fragmentsDir, targetPath)
+      const paths = this.db.prepare(
+        'DELETE FROM path_entries WHERE fragments_dir = ? AND target_path = ?',
+      ).run(fragmentsDir, targetPath)
+      // Remove fragment_blobs that are no longer referenced by any snapshot_entry
+      const blobs = this.db.prepare(
+        'DELETE FROM fragment_blobs WHERE content_hash NOT IN (SELECT DISTINCT content_hash FROM snapshot_entries)',
+      ).run()
+      return {
+        deletedSnapshots: snapshots.changes,
+        deletedDiffs: diffs.changes,
+        deletedTimeline: timeline.changes,
+        deletedPaths: paths.changes,
+        deletedEntries: entries.changes,
+        deletedBlobs: blobs.changes,
+      }
+    })
+    return run()
   }
 
   close(): void {

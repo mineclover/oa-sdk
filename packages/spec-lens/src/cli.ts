@@ -9,6 +9,7 @@ import { SnapshotBuilder } from './infrastructure/snapshot-engine/snapshot-build
 import { GithubAdapter } from './infrastructure/source-adapters/github/github.adapter.js'
 import { GitlabAdapter } from './infrastructure/source-adapters/gitlab/gitlab.adapter.js'
 import { DefaultTokenProvider } from './infrastructure/source-adapters/github/token-provider.js'
+import { GitlabTokenProvider } from './infrastructure/source-adapters/gitlab/gitlab-token-provider.js'
 import { LocalGitAdapter } from './infrastructure/source-adapters/local-git/local-git.adapter.js'
 import { serveSpecLens } from './presentation/http/server.js'
 
@@ -105,7 +106,7 @@ async function main() {
     source = new GitlabAdapter({
       ...(cfg.gitlab.host !== undefined ? { host: cfg.gitlab.host } : {}),
       projectId: cfg.gitlab.projectId,
-      tokenProvider: new DefaultTokenProvider(),
+      tokenProvider: new GitlabTokenProvider(),
     })
   } else {
     source = new LocalGitAdapter({

@@ -24,6 +24,8 @@ export type ClearCacheResult = {
   deletedDiffs: number
   deletedTimeline: number
   deletedPaths: number
+  deletedEntries: number
+  deletedBlobs: number
 }
 
 export interface CachePort {

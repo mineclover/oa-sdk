@@ -44,7 +44,6 @@ export class GithubAdapter implements SpecSourcePort {
 
   async listRevisions(options: ListRevisionsOptions): Promise<SpecRevision[]> {
     const branch = options.branch ?? this.config.branch
-    await this.syncRepo(branch)
     return this.local.listRevisions({
       ...options,
       ...(branch !== undefined ? { branch } : {}),

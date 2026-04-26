@@ -45,6 +45,7 @@ export {
   GithubAdapter,
   GithubApiAdapter,
   GitlabAdapter,
+  GitlabTokenProvider,
   LocalGitAdapter,
   SnapshotBuilder,
   SqliteCache,
