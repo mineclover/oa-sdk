@@ -39,6 +39,17 @@ export function createSpecLensServer(config: SpecLensServerConfig): Hono {
 
   app.use('/api/*', cors())
 
+  // 🔵 Query: GetConfig (server identity — which target is being observed)
+  app.get('/api/config', (c) => {
+    return c.json({
+      targetName: config.targetConfig.name,
+      targetPath: config.targetPath,
+      fragmentsDir: config.fragmentsDir,
+      sourceKind: config.source.kind,
+      ...(config.branch !== undefined ? { branch: config.branch } : {}),
+    })
+  })
+
   app.onError((err, c) => {
     console.error(err)
     return c.json({ error: err instanceof Error ? err.message : String(err) }, 500)

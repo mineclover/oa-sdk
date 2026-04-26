@@ -136,9 +136,10 @@ describe('RefreshTimelineHandler', () => {
       },
     }
 
-    const stored1 = { ...makeStored('r1', spec), revision: r1, provenance: { '#/paths/~1users': { canonicalId: 'path:public/users/Users', kind: 'path', sourcePath: 'f.yaml', sourcePointer: '#', contentHash: 'h' } } }
-    const stored2 = { ...makeStored('r2', spec), revision: r2, provenance: { '#/paths/~1users': { canonicalId: 'path:public/users/Users', kind: 'path', sourcePath: 'f.yaml', sourcePointer: '#', contentHash: 'h' } } }
-    const stored3 = { ...makeStored('r3', spec), revision: r3, provenance: { '#/paths/~1users': { canonicalId: 'path:public/users/Users', kind: 'path', sourcePath: 'f.yaml', sourcePointer: '#', contentHash: 'h' } } }
+    const prov = { '#/paths/~1users': { canonicalId: 'path:public/users/Users', kind: 'path', sourcePath: 'f.yaml', sourcePointer: '#', contentHash: 'h' } } as never
+    const stored1 = { ...makeStored('r1', spec), revision: r1, provenance: prov }
+    const stored2 = { ...makeStored('r2', spec), revision: r2, provenance: prov }
+    const stored3 = { ...makeStored('r3', spec), revision: r3, provenance: prov }
 
     const diff_r2_r1 = makeDiff({}, [{ category: 'path', kind: 'changed', pointer: '#/paths/~1users', message: 'changed' }])
     const diff_r3_r2 = makeDiff({}, [{ category: 'path', kind: 'changed', pointer: '#/paths/~1users', message: 'changed' }])

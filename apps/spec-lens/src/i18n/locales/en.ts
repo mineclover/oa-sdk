@@ -13,6 +13,12 @@ const en = {
   appFooter: '@oa-sdk/spec-lens',
   langToggle: '한국어',
 
+  // ── Target info ────────────────────────────────────────────
+  configTarget: 'Target',
+  configFragments: 'Fragments',
+  configSource: 'Source',
+  configBranch: 'Branch',
+
   // ── Badge ──────────────────────────────────────────────────
   noChanges: 'no changes',
 

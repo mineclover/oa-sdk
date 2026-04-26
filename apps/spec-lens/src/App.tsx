@@ -1,15 +1,22 @@
 import { useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Timeline } from './views/Timeline.js'
 import { DiffView } from './views/DiffView.js'
 import { PathProvenance } from './views/PathProvenance.js'
 import { FragmentGraph } from './views/FragmentGraph.js'
+import { api } from './api/client.js'
 
 type View = 'timeline' | 'diff' | 'paths' | 'graph'
 
 export function App() {
   const { t, i18n } = useTranslation()
   const [view, setView] = useState<View>('timeline')
+  const { data: serverConfig } = useQuery({
+    queryKey: ['config'],
+    queryFn: api.config,
+    staleTime: Infinity,
+  })
   const [diffIds, setDiffIds] = useState<{ base: string; head: string } | null>(null)
 
   const NAV_ITEMS: Array<{ id: Exclude<View, 'diff'>; label: string; icon: string }> = [
@@ -63,6 +70,39 @@ export function App() {
           <span style={{ fontWeight: 700, fontSize: 15, letterSpacing: '-0.3px' }}>spec-lens</span>
         </div>
 
+        {/* Target info */}
+        {serverConfig !== undefined && (
+          <div
+            style={{
+              padding: '10px 16px',
+              borderBottom: '1px solid var(--border)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 4,
+            }}
+          >
+            <TargetInfoRow label={t('configTarget')}>
+              <span
+                title={serverConfig.targetPath}
+                style={{ fontWeight: 600, fontSize: 'var(--text-sm)', color: 'var(--fg-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+              >
+                {serverConfig.targetName}
+              </span>
+            </TargetInfoRow>
+            <TargetInfoRow label={t('configFragments')}>
+              <span
+                title={serverConfig.fragmentsDir}
+                style={{ fontFamily: 'monospace', fontSize: 'var(--text-xs)', color: 'var(--fg-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+              >
+                {shortPath(serverConfig.fragmentsDir)}
+              </span>
+            </TargetInfoRow>
+            <TargetInfoRow label={t('configSource')}>
+              <span className="label">{serverConfig.sourceKind}{serverConfig.branch ? ` · ${serverConfig.branch}` : ''}</span>
+            </TargetInfoRow>
+          </div>
+        )}
+
         {/* Nav items */}
         <div style={{ padding: 8, flex: 1 }}>
           {NAV_ITEMS.map(item => (
@@ -106,4 +146,18 @@ export function App() {
       </main>
     </div>
   )
+}
+
+function TargetInfoRow({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, minWidth: 0 }}>
+      <span style={{ fontSize: 'var(--text-xs)', color: 'var(--fg-subtle)', flexShrink: 0, width: 62 }}>{label}</span>
+      <span style={{ minWidth: 0, flex: 1 }}>{children}</span>
+    </div>
+  )
+}
+
+function shortPath(full: string): string {
+  const parts = full.replace(/\\/g, '/').split('/')
+  return parts.slice(-3).join('/')
 }

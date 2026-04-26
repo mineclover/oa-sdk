@@ -20,7 +20,7 @@ function makeStored(
     targetPath: '/t',
     targetConfigDigest: 'd',
     spec,
-    provenance,
+    provenance: provenance as never,
     composition: {} as never,
     diagnostics: [],
     builtAt: 1000,

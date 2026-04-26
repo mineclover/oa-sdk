@@ -147,6 +147,14 @@ export type SpecGraph = {
   }>
 }
 
+export type SpecServerConfig = {
+  targetName: string
+  targetPath: string
+  fragmentsDir: string
+  sourceKind: SpecSourceKind
+  branch?: string
+}
+
 async function apiFetch<T>(path: string): Promise<T> {
   const res = await fetch(path)
   if (!res.ok) {
@@ -182,6 +190,8 @@ export const api = {
 
   graph: (revisionId?: string) =>
     apiFetch<SpecGraph>(`/api/graph${revisionId ? `?revision=${revisionId}` : ''}`),
+
+  config: () => apiFetch<SpecServerConfig>('/api/config'),
 
   refresh: async () => {
     const res = await fetch('/api/refresh', { method: 'POST' })
