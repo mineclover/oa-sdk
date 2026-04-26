@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto'
+import type { DefinitionTargetConfig } from '@oa-sdk/parser'
 
 export type CacheKeyInput = {
   revisionId: string
@@ -19,7 +20,7 @@ export function buildCacheKey(input: CacheKeyInput): string {
   return createHash('sha256').update(JSON.stringify(sorted)).digest('hex')
 }
 
-export function buildTargetConfigDigest(config: unknown): string {
+export function buildTargetConfigDigest(config: DefinitionTargetConfig): string {
   const normalized = sortDeep(config)
   return createHash('sha256').update(JSON.stringify(normalized)).digest('hex')
 }

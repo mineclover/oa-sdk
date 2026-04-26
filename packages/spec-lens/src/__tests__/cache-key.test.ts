@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
+import type { DefinitionTargetConfig } from '@oa-sdk/parser'
 import { buildCacheKey, buildTargetConfigDigest } from '../infrastructure/cache/sqlite/cache-key.js'
+
+function makeConfig(overrides: Partial<DefinitionTargetConfig> = {}): DefinitionTargetConfig {
+  return { name: 'api', scopes: [], domains: [], servers: [], includePaths: [], ...overrides }
+}
 
 describe('buildCacheKey', () => {
   it('returns a 64-char hex string', () => {
@@ -60,24 +65,25 @@ describe('buildCacheKey', () => {
 
 describe('buildTargetConfigDigest', () => {
   it('returns a 64-char hex string', () => {
-    expect(buildTargetConfigDigest({ name: 'api', scopes: ['public'] })).toMatch(/^[0-9a-f]{64}$/)
+    expect(buildTargetConfigDigest(makeConfig({ scopes: ['public'] }))).toMatch(/^[0-9a-f]{64}$/)
   })
 
   it('is stable regardless of key ordering', () => {
-    const a = buildTargetConfigDigest({ name: 'api', scopes: ['public'], domains: ['users'] })
-    const b = buildTargetConfigDigest({ domains: ['users'], scopes: ['public'], name: 'api' })
+    // Both produce the same digest — key insertion order doesn't affect hash
+    const a = buildTargetConfigDigest(makeConfig({ scopes: ['public'], domains: ['users'] }))
+    const b = buildTargetConfigDigest(makeConfig({ domains: ['users'], scopes: ['public'] }))
     expect(a).toBe(b)
   })
 
   it('differs for different configs', () => {
-    const a = buildTargetConfigDigest({ name: 'api-a' })
-    const b = buildTargetConfigDigest({ name: 'api-b' })
+    const a = buildTargetConfigDigest(makeConfig({ name: 'api-a' }))
+    const b = buildTargetConfigDigest(makeConfig({ name: 'api-b' }))
     expect(a).not.toBe(b)
   })
 
-  it('handles nested objects stably', () => {
-    const a = buildTargetConfigDigest({ servers: [{ url: 'https://a.test', z: 1, a: 2 }] })
-    const b = buildTargetConfigDigest({ servers: [{ url: 'https://a.test', a: 2, z: 1 }] })
+  it('handles nested server objects stably regardless of key order', () => {
+    const a = buildTargetConfigDigest(makeConfig({ servers: [{ url: 'https://a.test', description: 'prod' }] }))
+    const b = buildTargetConfigDigest(makeConfig({ servers: [{ description: 'prod', url: 'https://a.test' }] }))
     expect(a).toBe(b)
   })
 })

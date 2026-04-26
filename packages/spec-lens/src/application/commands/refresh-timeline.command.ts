@@ -187,13 +187,14 @@ export class RefreshTimelineHandler {
       const provenanceEntry = latest.provenance[pointer]
       if (provenanceEntry === undefined) continue
 
-      const canonicalId = provenanceEntry.canonicalId as string
+      const canonicalId = provenanceEntry.canonicalId
       const idParts = canonicalId.split(':')
       const pathPart = idParts[1] ?? ''
       const segments = pathPart.split('/')
       const scope = segments[0] ?? ''
       const domain = segments[1] ?? ''
-      const methods = HTTP_METHODS.filter(m => (pathItem as Record<string, unknown>)[m] !== undefined)
+      const pathItemObj = pathItem as Record<string, unknown>
+      const methods = HTTP_METHODS.filter(m => pathItemObj[m] !== undefined)
       const lc = lastChanged.get(apiPath) ?? { revisionId: latestEntry.revision.id, timestamp: latestEntry.revision.timestamp }
 
       pathEntries.push({
@@ -202,8 +203,8 @@ export class RefreshTimelineHandler {
         canonicalId,
         scope,
         domain,
-        sourceFile: provenanceEntry.sourcePath as string,
-        contentHash: provenanceEntry.contentHash as string,
+        sourceFile: provenanceEntry.sourcePath,
+        contentHash: provenanceEntry.contentHash,
         lastChangedRevisionId: lc.revisionId,
         lastChangedTimestamp: lc.timestamp,
       })

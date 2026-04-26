@@ -1,5 +1,5 @@
 import type { CachePort } from '../ports/cache.port.js'
-import type { BuildSpecProvenanceEntry } from '@oa-sdk/codegen/spec-lens'
+import type { BuildSpecProvenanceMap } from '@oa-sdk/codegen/spec-lens'
 import type { SpecGraph, SpecSnapshotStored } from '../../domain/index.js'
 
 export type GetGraphQuery = {
@@ -26,8 +26,7 @@ export class GetGraphHandler {
 }
 
 function buildGraph(snapshot: SpecSnapshotStored): SpecGraph {
-  const nodes = Object.entries(snapshot.provenance).flatMap(([pointer, rawEntry]) => {
-    const entry = rawEntry as BuildSpecProvenanceEntry
+  const nodes = Object.entries(snapshot.provenance).flatMap(([pointer, entry]) => {
     if (typeof entry.canonicalId !== 'string') return []
     const parts = entry.canonicalId.split(':')
     const kindPart = parts[0] ?? ''
@@ -61,15 +60,14 @@ function buildGraph(snapshot: SpecSnapshotStored): SpecGraph {
 
 function buildEdgesFromSpec(
   spec: Record<string, unknown> | null,
-  provenance: Record<string, unknown>,
+  provenance: BuildSpecProvenanceMap,
 ): SpecGraph['edges'] {
   if (spec === null) return []
 
   // Map output JSON pointer → canonicalId (e.g. "#/components/schemas/User" → "schema:public/users/User")
   const pointerToId = new Map<string, string>()
-  for (const [ptr, rawEntry] of Object.entries(provenance)) {
-    const entry = rawEntry as BuildSpecProvenanceEntry
-    if (typeof entry.canonicalId === 'string') pointerToId.set(ptr, entry.canonicalId)
+  for (const [ptr, entry] of Object.entries(provenance)) {
+    pointerToId.set(ptr, entry.canonicalId)
   }
 
   const edges: SpecGraph['edges'] = []

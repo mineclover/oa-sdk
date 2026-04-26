@@ -44,20 +44,16 @@ export class SnapshotBuilder implements SnapshotBuilderPort {
       ...emitted.diagnostics,
     ]
 
-    const diagnostics: SpecSnapshotDiagnostic[] = allDiagnostics.map(d => {
-      const pointer = 'pointer' in d ? (d.pointer as string | undefined) : undefined
-      const sourcePath = 'sourcePath' in d ? (d.sourcePath as string | undefined) : undefined
-      return {
-        code: d.code as string,
-        severity: d.severity as SpecSnapshotDiagnostic['severity'],
-        message: d.message as string,
-        ...(pointer !== undefined ? { pointer } : {}),
-        ...(sourcePath !== undefined ? { sourcePath } : {}),
-      }
-    })
+    const diagnostics: SpecSnapshotDiagnostic[] = allDiagnostics.map(d => ({
+      code: d.code,
+      severity: d.severity,
+      message: d.message,
+      ...('pointer' in d && d.pointer !== undefined ? { pointer: d.pointer as string } : {}),
+      ...('sourcePath' in d && d.sourcePath !== undefined ? { sourcePath: d.sourcePath as string } : {}),
+    }))
 
     const valid = diagnostics.every(d => d.severity !== 'error')
-    const spec = valid ? (emitted.document as Record<string, unknown>) : null
+    const spec: Record<string, unknown> | null = valid ? emitted.document : null
 
     const provenance = valid ? createBuildSpecProvenanceMap(selection) : {}
     const composition = createBuildSpecCompositionReport({

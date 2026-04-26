@@ -35,8 +35,6 @@ export class SqliteCache implements CachePort {
           'INSERT OR REPLACE INTO snapshot_entries (cache_key, relative_path, content_hash) VALUES (?, ?, ?)',
         ).run(cacheKey, entry.relativePath, entry.contentHash)
       }
-      const { entries: _entries, ...stored } = snapshot as SpecSnapshotStored & { entries?: unknown }
-      void _entries
       this.db.prepare(`
         INSERT OR REPLACE INTO snapshots (cache_key, revision_id, fragments_dir, target_path, target_config_digest, data, built_at)
         VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -46,7 +44,7 @@ export class SqliteCache implements CachePort {
         snapshot.fragmentsDir,
         snapshot.targetPath,
         snapshot.targetConfigDigest,
-        JSON.stringify(stored),
+        JSON.stringify(snapshot),
         snapshot.builtAt,
       )
     })
@@ -157,7 +155,7 @@ export class SqliteCache implements CachePort {
 
   async listPaths(options: ListPathsOptions): Promise<SpecPathEntry[]> {
     let query = 'SELECT * FROM path_entries WHERE fragments_dir = ? AND target_path = ?'
-    const params: unknown[] = [options.fragmentsDir, options.targetPath]
+    const params: (string | number)[] = [options.fragmentsDir, options.targetPath]
 
     if (options.scope !== undefined) {
       query += ' AND scope = ?'
