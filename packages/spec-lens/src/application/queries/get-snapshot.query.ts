@@ -33,6 +33,8 @@ export class GetSnapshotHandler {
       const content = await this.cache.getFragmentBlob(ref.contentHash)
       if (content !== null) {
         resolved.push({ relativePath: ref.relativePath, content, contentHash: ref.contentHash })
+      } else {
+        console.warn(`[spec-lens] Missing blob for ${ref.relativePath} (${ref.contentHash.slice(0, 8)})`)
       }
     }
     return resolved

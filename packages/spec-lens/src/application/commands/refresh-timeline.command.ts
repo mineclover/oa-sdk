@@ -49,13 +49,16 @@ export class RefreshTimelineHandler {
     const errors: RefreshTimelineResult['errors'] = []
     let builtSnapshots = 0
 
-    // Step 1: check cache for all revisions in parallel
+    // Step 1: check cache for all revisions in parallel; treat read errors as cache miss
     const cacheResults = await Promise.all(
-      revisions.map(revision =>
-        this.cache
-          .getSnapshotByRevision(revision.id, fragmentsDir, targetPath, targetConfigDigest)
-          .then(cached => ({ revision, cached })),
-      ),
+      revisions.map(async revision => {
+        try {
+          const cached = await this.cache.getSnapshotByRevision(revision.id, fragmentsDir, targetPath, targetConfigDigest)
+          return { revision, cached }
+        } catch {
+          return { revision, cached: null }
+        }
+      }),
     )
 
     const newRevisions = cacheResults.filter(r => r.cached === null).length

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { api, type SpecTimelineEntry } from '../api/client.js'
+import { api, type ClearCacheResult, type SpecTimelineEntry } from '../api/client.js'
 import { Badge, DiffBadges } from '../components/Badge.js'
 import { Button } from '../components/Button.js'
 import { Select } from '../components/Select.js'
@@ -35,14 +35,16 @@ export function Timeline({
   const refresh = useMutation({
     mutationFn: api.refresh,
     onSuccess: () => void qc.invalidateQueries(),
+    onError: (err) => console.error('[spec-lens] Refresh failed:', err),
   })
 
   const clearCache = useMutation({
     mutationFn: api.clearCache,
-    onSuccess: (result) => {
+    onSuccess: (result: ClearCacheResult) => {
       alert(t('timelineClearCacheDone', { snapshots: result.deletedSnapshots, diffs: result.deletedDiffs }))
       void qc.invalidateQueries()
     },
+    onError: (err) => console.error('[spec-lens] Clear cache failed:', err),
   })
 
   if (isLoading) {

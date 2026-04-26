@@ -70,6 +70,7 @@ export function FragmentGraph() {
     if (!graph || !svgRef.current) return
     const svg = d3.select(svgRef.current)
     const { width, height } = svgRef.current.getBoundingClientRect()
+    if (width === 0 || height === 0) return
 
     svg.selectAll('*').remove()
 

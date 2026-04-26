@@ -71,8 +71,23 @@ export type SpecCompositionReport = {
   }
 }
 
+export type RefreshResult = {
+  newRevisions: number
+  builtSnapshots: number
+  errors: Array<{ revisionId: string; message: string }>
+}
+
+export type ClearCacheResult = {
+  deletedSnapshots: number
+  deletedDiffs: number
+  deletedTimeline: number
+  deletedPaths: number
+  deletedEntries: number
+  deletedBlobs: number
+}
+
 export type SpecSnapshot = {
-  schemaVersion: string
+  schemaVersion: 'spec-lens.snapshot.v1'
   revision: SpecRevision
   fragmentsDir: string
   targetPath: string
@@ -80,7 +95,7 @@ export type SpecSnapshot = {
   spec: Record<string, unknown> | null
   provenance: Record<string, ProvenanceEntry>
   composition: SpecCompositionReport
-  diagnostics: Array<{ code: string; severity: string; message: string; pointer?: string; sourcePath?: string }>
+  diagnostics: Array<{ code: string; severity: 'error' | 'warning' | 'info'; message: string; pointer?: string; sourcePath?: string }>
   builtAt: number
   entries?: SpecFileEntry[]
 }
@@ -204,7 +219,7 @@ export const api = {
       const body = await res.text().catch(() => '')
       throw new Error(`API /api/cache → ${res.status}${body ? `: ${body.slice(0, 200)}` : ''}`)
     }
-    return res.json() as Promise<{ deletedSnapshots: number; deletedDiffs: number; deletedTimeline: number; deletedPaths: number }>
+    return res.json() as Promise<ClearCacheResult>
   },
 
   refresh: async () => {
@@ -213,6 +228,6 @@ export const api = {
       const body = await res.text().catch(() => '')
       throw new Error(`API /api/refresh → ${res.status}${body ? `: ${body.slice(0, 200)}` : ''}`)
     }
-    return res.json() as Promise<unknown>
+    return res.json() as Promise<RefreshResult>
   },
 }

@@ -77,7 +77,11 @@ function scanDirectory(rootPath: string): SpecFileEntry[] {
     }
   }
 
-  if (statSync(rootPath).isDirectory()) visit(rootPath)
+  try {
+    if (statSync(rootPath).isDirectory()) visit(rootPath)
+  } catch (err) {
+    throw new Error(`Failed to scan directory '${rootPath}': ${err instanceof Error ? err.message : String(err)}`)
+  }
   return entries.sort((a, b) => a.relativePath.localeCompare(b.relativePath))
 }
 

@@ -199,9 +199,9 @@ function CategorySection({
           {entries.length}
         </span>
       </div>
-      {entries.map((entry, i) => (
+      {entries.map((entry) => (
         <DiffEntryRow
-          key={i}
+          key={`${entry.pointer}::${entry.kind}`}
           entry={entry}
           baseSpec={baseSpec}
           headSpec={headSpec}
@@ -441,9 +441,9 @@ function BreakingPanel({ changes }: { changes: BreakingChange[] }) {
           <div style={{ padding: 32, textAlign: 'center', color: 'var(--fg-muted)', fontSize: 'var(--text-sm)' }}>
             {t('breakingFilterEmpty')}
           </div>
-        ) : visible.map((c, i) => (
+        ) : visible.map((c) => (
           <div
-            key={i}
+            key={`${c.endpoint}::${c.code}`}
             style={{
               padding: '12px 20px',
               borderBottom: '1px solid var(--border-muted)',
