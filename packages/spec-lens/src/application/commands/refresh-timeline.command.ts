@@ -2,7 +2,7 @@ import type { DefinitionTargetConfig } from '@oa-sdk/parser'
 import type { CachePort } from '../ports/cache.port.js'
 import type { SnapshotBuilderPort } from '../ports/snapshot-builder.port.js'
 import type { SpecSourcePort } from '../ports/spec-source.port.js'
-import type { SpecRevision, SpecSnapshotStored } from '../../domain/index.js'
+import type { SpecFileEntry, SpecRevision, SpecSnapshotStored } from '../../domain/index.js'
 
 export type RefreshTimelineOptions = {
   fragmentsDir: string
@@ -22,6 +22,15 @@ export type RefreshTimelineResult = {
 // stored=null means build failed — revision still appears in timeline with snapshotCached=false
 type SnapshotEntry = { revision: SpecRevision; stored: SpecSnapshotStored | null }
 
+type BuildResult = {
+  revision: SpecRevision
+  stored: SpecSnapshotStored | null
+  entries: SpecFileEntry[] | null
+  error: Error | null
+}
+
+const BUILD_CONCURRENCY = 4
+
 export class RefreshTimelineHandler {
   constructor(
     private readonly source: SpecSourcePort,
@@ -39,34 +48,61 @@ export class RefreshTimelineHandler {
     })
     const errors: RefreshTimelineResult['errors'] = []
     let builtSnapshots = 0
-    let newRevisions = 0
-    const snapshots: SnapshotEntry[] = []
 
-    for (const revision of revisions) {
-      const cached = await this.cache.getSnapshotByRevision(revision.id, fragmentsDir, targetPath, targetConfigDigest)
-      if (cached !== null) {
-        snapshots.push({ revision, stored: cached })
-        continue
-      }
-      newRevisions++
+    // Step 1: check cache for all revisions in parallel
+    const cacheResults = await Promise.all(
+      revisions.map(revision =>
+        this.cache
+          .getSnapshotByRevision(revision.id, fragmentsDir, targetPath, targetConfigDigest)
+          .then(cached => ({ revision, cached })),
+      ),
+    )
 
-      try {
-        const entries = await this.source.getFileEntries({ revision, fragmentsDir })
-        const snapshot = await this.builder.build({ revision, entries, fragmentsDir, targetPath, targetConfig, targetConfigDigest })
-        const entryRefs = entries.map(e => ({ relativePath: e.relativePath, contentHash: e.contentHash }))
-        const stored: SpecSnapshotStored = { ...snapshot, entryRefs }
-        await this.cache.saveSnapshot(stored, entries)
-        snapshots.push({ revision, stored })
+    const newRevisions = cacheResults.filter(r => r.cached === null).length
+
+    // Step 2: build cache misses in parallel (concurrency limited)
+    const buildResults = await withConcurrency<BuildResult>(
+      cacheResults
+        .filter(r => r.cached === null)
+        .map(({ revision }) => async () => {
+          try {
+            const entries = await this.source.getFileEntries({ revision, fragmentsDir })
+            const snapshot = await this.builder.build({
+              revision, entries, fragmentsDir, targetPath, targetConfig, targetConfigDigest,
+            })
+            const entryRefs = entries.map(e => ({ relativePath: e.relativePath, contentHash: e.contentHash }))
+            const stored: SpecSnapshotStored = { ...snapshot, entryRefs }
+            return { revision, stored, entries, error: null }
+          } catch (err) {
+            return {
+              revision,
+              stored: null,
+              entries: null,
+              error: err instanceof Error ? err : new Error(String(err)),
+            }
+          }
+        }),
+      BUILD_CONCURRENCY,
+    )
+
+    // Step 3: save successful builds sequentially (SQLite allows 1 writer)
+    const buildMap = new Map<string, BuildResult>()
+    for (const result of buildResults) {
+      buildMap.set(result.revision.id, result)
+      if (result.stored !== null && result.entries !== null) {
+        await this.cache.saveSnapshot(result.stored, result.entries)
         builtSnapshots++
-      } catch (error) {
-        errors.push({
-          revisionId: revision.id,
-          message: error instanceof Error ? error.message : String(error),
-        })
-        // Still track the revision in the timeline (snapshotCached=false)
-        snapshots.push({ revision, stored: null })
+      } else if (result.error !== null) {
+        errors.push({ revisionId: result.revision.id, message: result.error.message })
       }
     }
+
+    // Step 4: reconstruct in original (newest-first) order for diff computation
+    const snapshots: SnapshotEntry[] = cacheResults.map(({ revision, cached }) => {
+      if (cached !== null) return { revision, stored: cached }
+      const built = buildMap.get(revision.id)
+      return { revision, stored: built?.stored ?? null }
+    })
 
     await this.computeDiffsAndUpdateReadModel(snapshots, fragmentsDir, targetPath, errors)
     await this.populatePathEntries(snapshots, fragmentsDir, targetPath)
@@ -228,4 +264,17 @@ function decodeJsonPointerPath(pointer: string): string | null {
 
 function encodeJsonPointerSegment(value: string): string {
   return value.replaceAll('~', '~0').replaceAll('/', '~1')
+}
+
+async function withConcurrency<T>(tasks: Array<() => Promise<T>>, limit: number): Promise<T[]> {
+  const results: T[] = new Array(tasks.length)
+  let next = 0
+  async function worker() {
+    while (next < tasks.length) {
+      const i = next++
+      results[i] = await tasks[i]!()
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(limit, tasks.length) }, worker))
+  return results
 }

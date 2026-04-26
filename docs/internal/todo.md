@@ -26,15 +26,8 @@ Definition Builder PRD(US-001~014)와 Domain Backfill PRD(US-001~009)가 모두 
 
 ## spec-lens 잔여 항목
 
-### [ ] RefreshTimeline 병렬 revision 처리
-배경: 대량 미캐시 revision 처리 시 순차 for loop이 병목. 10개 미스 revision 기준 ~10초.
-작업:
-1. Phase 1: 캐시 미스 revision들의 getFileEntries + builder.build를 concurrency=4로 병렬 실행
-2. Phase 2: saveSnapshot 배치 트랜잭션 (현재 개별 트랜잭션)
-3. snapshots 배열 재조합 시 original revision 순서 보존 필수 (diff 계산 의존)
-참고 분석: pLimit 외부 라이브러리 없이 내부 semaphore (withConcurrency 패턴) 사용 가능
-예상 개선: 50% 이상 처리 시간 단축 (getFileEntries I/O 병렬화 효과)
-완료 기준: 50개 미캐시 revision 처리 시간 < 30초 (현재 ~52초 추정)
+### [x] RefreshTimeline 병렬 revision 처리
+완료: Promise.all로 전체 캐시 조회 병렬화, withConcurrency(4)로 미캐시 빌드 병렬화, 저장은 SQLite WAL 제약상 순차 유지. snapshots 배열은 원래 순서 재조합하여 diff 계산 보존.
 
 ### [ ] GitLab 어댑터 검증
 배경: `GitlabAdapter`(REST API 기반)는 구현되었으나 실제 GitLab 인스턴스 대상 통합 테스트가 없다.
