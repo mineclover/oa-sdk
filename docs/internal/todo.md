@@ -24,6 +24,19 @@ Definition Builder PRD(US-001~014)와 Domain Backfill PRD(US-001~009)가 모두 
 7. 완료: `merge.ts` active path, current domain spec rollback, `.merged.3.1.yaml` sidecar compatibility, and exact replacement gates를 문서화한다.
 완료 기준 충족: current `.merged.yaml` path를 유지하면서 builder parity artifact가 zero-error diagnostics, zero normalized OpenAPI drift를 달성함. `.builder/local-parity-api.3.1.yaml` compatibility, downstream compatibility report, rollback-safe script boundaries 모두 충족.
 
+## spec-lens 잔여 항목
+
+### [ ] GitLab 어댑터 검증
+배경: `GitlabAdapter`(REST API 기반)는 구현되었으나 실제 GitLab 인스턴스 대상 통합 테스트가 없다.
+작업:
+1. 테스트 환경 선택 (GitLab CE Docker / GitLab.com 무료 계정)
+2. `listRevisions`, `getFileEntries`, `getChangedFiles` E2E 검증
+3. 인증 오류 / rate limit / 페이지네이션 케이스 확인
+4. `GithubAdapter`처럼 bare clone + LocalGitAdapter 위임 방식으로 전환 검토 (현재는 REST API 방식 유지)
+완료 기준: 실제 GitLab 레포 대상으로 refresh 성공, 타임라인 표시 확인.
+
+---
+
 ## 잔여 보완 작업
 
 ### [x] OAS 3.2 coverage table drift 정리

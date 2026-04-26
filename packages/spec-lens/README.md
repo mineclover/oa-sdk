@@ -2,7 +2,7 @@
 
 OpenAPI 스펙 변경 이력 관리·관측 서버 패키지.
 
-git 소스(GitHub / 로컬 git)에서 definition fragments 변경 이력을 수집하고, 커밋별 스냅샷 빌드·diff 계산·Read Model 갱신을 수행하며, Hono HTTP API로 제공한다. 브라우저 UI(`apps/spec-lens`)가 이 API를 소비한다.
+git 소스(GitHub / GitLab / 로컬 git)에서 definition fragments 변경 이력을 수집하고, 커밋별 스냅샷 빌드·diff 계산·Read Model 갱신을 수행하며, Hono HTTP API로 제공한다. 브라우저 UI(`apps/spec-lens`)가 이 API를 소비한다.
 
 **전체 사용 가이드**: [`docs/spec-lens/README.md`](../../docs/spec-lens/README.md)
 
@@ -40,7 +40,7 @@ src/
 │   ├── ports/         아웃바운드 포트 인터페이스
 │   │   ├── spec-source.port.ts      git 소스 어댑터 계약
 │   │   ├── snapshot-builder.port.ts 스냅샷 빌드·diff 계약
-│   │   └── cache.port.ts            저장소 계약
+│   │   └── cache.port.ts            저장소 계약 (clearCache 포함)
 │   ├── commands/      쓰기 핸들러 (Command)
 │   │   └── refresh-timeline.command.ts
 │   └── queries/       읽기 핸들러 (Query)
@@ -51,7 +51,10 @@ src/
 │       └── get-graph.query.ts
 ├── infrastructure/    포트 구현체
 │   ├── source-adapters/
-│   │   ├── github/       GithubAdapter + TokenProvider
+│   │   ├── github/       GithubAdapter (bare clone + git)
+│   │   │                 GithubApiAdapter (REST API 전용)
+│   │   │                 DefaultTokenProvider
+│   │   ├── gitlab/       GitlabAdapter (REST API)  ⚠️ 테스트 환경 미구축
 │   │   ├── local-git/    LocalGitAdapter
 │   │   └── file/         FileDiffAdapter (두 디렉터리 직접 비교)
 │   ├── snapshot-engine/  SnapshotBuilder (oa-gen 파이프라인 인메모리)
@@ -66,7 +69,9 @@ src/
 
 | Method | Path | 설명 |
 |--------|------|------|
+| `GET` | `/api/config` | 서버 설정 조회 (target, source, fragmentsDir) |
 | `POST` | `/api/refresh` | git 소스에서 이력 수집 및 스냅샷 빌드 |
+| `DELETE` | `/api/cache` | 현재 target의 캐시 전체 삭제 |
 | `GET` | `/api/timeline` | 타임라인 목록 (Read Model) |
 | `GET` | `/api/snapshot/:revisionId` | 특정 revision의 빌드된 스펙 |
 | `GET` | `/api/snapshot/:revisionId?include=entries` | + fragment 원문 포함 |
@@ -98,3 +103,6 @@ pnpm test
 | `sqlite-cache.test.ts` | save/load 라운드트립, isolation, upsert, limit |
 | `snapshot-builder-diff.test.ts` | diff 통계, affectedFragments, null spec 핸들링 |
 | `local-git-adapter.test.ts` | 실제 repo 기반 통합 검증 |
+| `get-graph-query.test.ts` | 노드 빌드, 엣지 해석, self-loop 제외 |
+| `refresh-timeline.test.ts` | full workflow, lastChanged 최신 우선, 빌드 실패 처리 |
+| `query-handlers.test.ts` | GetDiff / GetPaths / GetSnapshot / GetTimeline 핸들러 |
