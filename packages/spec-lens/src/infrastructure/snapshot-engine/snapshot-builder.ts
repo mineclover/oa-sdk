@@ -57,7 +57,7 @@ export class SnapshotBuilder implements SnapshotBuilderPort {
 
     const provenance = valid ? createBuildSpecProvenanceMap(selection) : {}
     const composition = createBuildSpecCompositionReport({
-      targetPath: '',
+      targetPath,
       fragmentsDir,
       target: targetConfig,
       registry,

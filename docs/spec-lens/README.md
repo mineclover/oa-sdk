@@ -57,6 +57,7 @@ dbPath: .spec-lens.db
 
 ```yaml
 source: local-git
+branch: main               # 분석할 브랜치 (생략 시 현재 HEAD)
 localGit:
   repoPath: .               # 생략 시 현재 디렉터리
 ```

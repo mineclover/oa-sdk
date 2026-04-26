@@ -70,3 +70,6 @@ CREATE TABLE IF NOT EXISTS path_entries (
   last_changed_timestamp  INTEGER NOT NULL,
   PRIMARY KEY (fragments_dir, target_path, path)
 );
+
+CREATE INDEX IF NOT EXISTS path_entries_filter_idx
+  ON path_entries (fragments_dir, target_path, scope, domain);

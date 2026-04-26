@@ -34,7 +34,7 @@ export function Timeline({
 
   const refresh = useMutation({
     mutationFn: api.refresh,
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['timeline'] }),
+    onSuccess: () => void qc.invalidateQueries(),
   })
 
   const clearCache = useMutation({

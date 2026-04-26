@@ -106,3 +106,9 @@ pnpm test
 | `get-graph-query.test.ts` | 노드 빌드, 엣지 해석, self-loop 제외 |
 | `refresh-timeline.test.ts` | full workflow, lastChanged 최신 우선, 빌드 실패 처리 |
 | `query-handlers.test.ts` | GetDiff / GetPaths / GetSnapshot / GetTimeline 핸들러 |
+
+## 알려진 제약
+
+- `fragment_blobs` 테이블은 content-addressable이므로 `clearCache` 시 삭제하지 않는다. 장기 운영 시 미참조 blob이 누적될 수 있으나 중복 저장은 없다.
+- `source: github` 의 `GithubAdapter`는 bare clone 후 로컬 git으로 동작한다. git CLI가 없는 환경에서는 `GithubApiAdapter`를 직접 사용한다.
+- `source: gitlab` 은 테스트 환경 미구축 (TODO).
