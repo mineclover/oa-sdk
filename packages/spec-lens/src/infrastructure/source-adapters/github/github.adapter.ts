@@ -1,4 +1,8 @@
-import { createHash } from 'node:crypto'
+import { execFile } from 'node:child_process'
+import { existsSync, mkdirSync } from 'node:fs'
+import { join, resolve } from 'node:path'
+import { promisify } from 'node:util'
+import { LocalGitAdapter } from '../local-git/local-git.adapter.js'
 import type {
   GetChangedFilesOptions,
   GetFileEntriesOptions,
@@ -8,175 +12,82 @@ import type {
 import type { SpecFileEntry, SpecRevision } from '../../../domain/index.js'
 import type { TokenProvider } from './token-provider.js'
 
+const execFileAsync = promisify(execFile)
+
 export type GithubAdapterConfig = {
   owner: string
   repo: string
   tokenProvider: TokenProvider
-  baseUrl?: string  // GitHub Enterprise: 'https://ghe.example.com/api/v3'
-}
-
-type GithubCommit = {
-  sha: string
-  commit: {
-    message: string
-    author: { name: string; date: string } | null
-  }
-}
-
-type GithubTreeItem = {
-  path: string
-  type: string
-  sha: string
-  size?: number
-}
-
-type GithubCompareFile = {
-  filename: string
-  status: string
+  /** Branch to track. If omitted, all remote branches are fetched. */
+  branch?: string
+  /** Local directory where repos are cloned. Default: '.spec-lens-repos' */
+  repoCache?: string
+  /** GitHub Enterprise host, e.g. 'https://ghe.example.com' */
+  host?: string
 }
 
 export class GithubAdapter implements SpecSourcePort {
   readonly kind = 'github' as const
 
-  private readonly apiBase: string
+  private readonly repoPath: string
+  private readonly cloneBase: string
   private readonly repoKey: string
+  private readonly local: LocalGitAdapter
 
   constructor(private readonly config: GithubAdapterConfig) {
-    this.apiBase = config.baseUrl ?? 'https://api.github.com'
-    this.repoKey = `github.com/${config.owner}/${config.repo}`
+    const host = (config.host ?? 'https://github.com').replace(/\/$/, '')
+    const cacheDir = resolve(config.repoCache ?? '.spec-lens-repos')
+    this.repoPath = join(cacheDir, config.owner, config.repo)
+    this.cloneBase = `${host}/${config.owner}/${config.repo}.git`
+    this.repoKey = `${host.replace('https://', '')}/${config.owner}/${config.repo}`
+    this.local = new LocalGitAdapter({ repoPath: this.repoPath })
   }
 
   async listRevisions(options: ListRevisionsOptions): Promise<SpecRevision[]> {
-    const token = await this.config.tokenProvider.getToken(this.repoKey)
-    const params = new URLSearchParams({
-      path: options.fragmentsDir,
-      per_page: String(options.limit ?? 50),
-    })
-    if (options.branch !== undefined) params.set('sha', options.branch)
-    if (options.since !== undefined) params.set('since', new Date(options.since).toISOString())
-    if (options.until !== undefined) params.set('until', new Date(options.until).toISOString())
-
-    const url = `${this.apiBase}/repos/${this.config.owner}/${this.config.repo}/commits?${params}`
-    const commits = await this.fetchJson<GithubCommit[]>(url, token)
-
-    return commits.map(c => this.toRevision(c))
+    await this.syncRepo(options.branch ?? this.config.branch)
+    return this.local.listRevisions(options)
   }
 
   async getFileEntries(options: GetFileEntriesOptions): Promise<SpecFileEntry[]> {
-    const token = await this.config.tokenProvider.getToken(this.repoKey)
-    const { revision, fragmentsDir } = options
-
-    // Get the tree for this commit
-    const commitUrl = `${this.apiBase}/repos/${this.config.owner}/${this.config.repo}/commits/${revision.id}`
-    const commit = await this.fetchJson<{ commit: { tree: { sha: string } } }>(commitUrl, token)
-    const treeSha = commit.commit.tree.sha
-
-    const treeUrl = `${this.apiBase}/repos/${this.config.owner}/${this.config.repo}/git/trees/${treeSha}?recursive=1`
-    const tree = await this.fetchJson<{ tree: GithubTreeItem[]; truncated: boolean }>(treeUrl, token)
-    if (tree.truncated) {
-      throw new Error(
-        `Git tree truncated at commit ${revision.id}. The repo is too large for recursive tree fetch. ` +
-        `Use a more specific fragmentsDir or contact repo maintainers.`,
-      )
-    }
-
-    const normalized = fragmentsDir.replace(/^\//, '').replace(/\/$/, '')
-    const prefix = normalized === '' ? '' : normalized + '/'
-    const fileItems = tree.tree.filter(
-      item => item.type === 'blob' && item.path.startsWith(prefix) && isDefinitionFile(item.path),
-    )
-
-    const entries = await withConcurrency(
-      fileItems.map(item => async () => {
-        const relativePath = prefix === '' ? item.path : item.path.slice(prefix.length)
-        const content = await this.fetchBlob(item.sha, token)
-        return { relativePath, content, contentHash: sha256(content) }
-      }),
-      10,
-    )
-
-    return entries
+    return this.local.getFileEntries(options)
   }
 
   async getChangedFiles(options: GetChangedFilesOptions): Promise<string[]> {
+    return this.local.getChangedFiles(options)
+  }
+
+  /** Exposed for explicit pre-fetch (e.g. health checks). */
+  async syncRepo(branch?: string): Promise<void> {
     const token = await this.config.tokenProvider.getToken(this.repoKey)
-    const { baseRevision, headRevision, fragmentsDir } = options
+    // Embed token in HTTPS URL — not stored in git config
+    const authUrl = this.cloneBase.replace('https://', `https://oauth2:${token}@`)
 
-    const url = `${this.apiBase}/repos/${this.config.owner}/${this.config.repo}/compare/${baseRevision.id}...${headRevision.id}`
-    const compare = await this.fetchJson<{ files?: GithubCompareFile[] }>(url, token)
-
-    const normalized = fragmentsDir.replace(/^\//, '').replace(/\/$/, '')
-    const prefix = normalized === '' ? '' : normalized + '/'
-    return (compare.files ?? [])
-      .filter(f => f.filename.startsWith(prefix) && isDefinitionFile(f.filename))
-      .map(f => prefix === '' ? f.filename : f.filename.slice(prefix.length))
-  }
-
-  private toRevision(commit: GithubCommit): SpecRevision {
-    const date = commit.commit.author?.date ?? new Date().toISOString()
-    const authorName = commit.commit.author?.name
-    return {
-      id: commit.sha,
-      shortId: commit.sha.slice(0, 7),
-      timestamp: new Date(date).getTime(),
-      message: commit.commit.message.split('\n')[0] ?? '',
-      source: 'github',
-      ...(authorName !== undefined ? { author: authorName } : {}),
+    if (!existsSync(join(this.repoPath, 'HEAD'))) {
+      mkdirSync(this.repoPath, { recursive: true })
+      console.log(`[spec-lens] Cloning ${this.config.owner}/${this.config.repo}…`)
+      // Bare clone with partial blob filter: only metadata, blobs fetched on demand
+      await git(['clone', '--bare', '--filter=blob:none', '--no-tags', authUrl, this.repoPath])
+      console.log(`[spec-lens] Clone complete → ${this.repoPath}`)
+    } else {
+      const refspec = branch
+        ? `+refs/heads/${branch}:refs/heads/${branch}`
+        : '+refs/heads/*:refs/heads/*'
+      await git(['fetch', authUrl, refspec], this.repoPath)
     }
-  }
-
-  private async fetchBlob(blobSha: string, token: string): Promise<string> {
-    const url = `${this.apiBase}/repos/${this.config.owner}/${this.config.repo}/git/blobs/${blobSha}`
-    const blob = await this.fetchJson<{ content: string; encoding: string }>(url, token)
-    if (blob.encoding === 'base64') {
-      return Buffer.from(blob.content.replace(/\n/g, ''), 'base64').toString('utf8')
-    }
-    if (blob.encoding === 'utf-8') {
-      return blob.content
-    }
-    throw new Error(`Unsupported GitHub blob encoding: ${blob.encoding} (sha: ${blobSha})`)
-  }
-
-  private async fetchJson<T>(url: string, token: string): Promise<T> {
-    const res = await fetch(url, {
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Accept': 'application/vnd.github+json',
-        'X-GitHub-Api-Version': '2022-11-28',
-      },
-    })
-    if (res.status === 429 || (res.status === 403 && res.headers.get('X-RateLimit-Remaining') === '0')) {
-      const reset = res.headers.get('X-RateLimit-Reset')
-      const resetMsg = reset !== null
-        ? ` Rate limit resets at ${new Date(Number(reset) * 1000).toISOString()}.`
-        : ''
-      throw new Error(`GitHub API rate limited (${res.status}).${resetMsg} Reduce refresh frequency or use a token with higher quota.`)
-    }
-    if (!res.ok) {
-      const body = await res.text().catch(() => '')
-      throw new Error(`GitHub API error ${res.status}: ${url}\n${body}`)
-    }
-    return res.json() as Promise<T>
   }
 }
 
-function sha256(content: string): string {
-  return createHash('sha256').update(content).digest('hex')
-}
-
-function isDefinitionFile(filePath: string): boolean {
-  return filePath.endsWith('.yaml') || filePath.endsWith('.yml') || filePath.endsWith('.json')
-}
-
-async function withConcurrency<T>(tasks: Array<() => Promise<T>>, limit: number): Promise<T[]> {
-  const results: T[] = new Array(tasks.length)
-  let next = 0
-  async function worker() {
-    while (next < tasks.length) {
-      const i = next++
-      results[i] = await tasks[i]!()
-    }
-  }
-  await Promise.all(Array.from({ length: Math.min(limit, tasks.length) }, worker))
-  return results
+async function git(args: string[], cwd?: string): Promise<string> {
+  const { stdout } = await execFileAsync('git', args, {
+    cwd,
+    maxBuffer: 50 * 1024 * 1024,
+  }).catch(err => {
+    // Strip auth URL from error messages to avoid token leak in logs
+    const msg = (err instanceof Error ? err.message : String(err)).replace(
+      /https:\/\/[^@]+@/g,
+      'https://***@',
+    )
+    throw new Error(msg)
+  })
+  return stdout
 }

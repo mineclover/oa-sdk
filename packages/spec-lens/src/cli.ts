@@ -14,7 +14,7 @@ import { serveSpecLens } from './presentation/http/server.js'
 
 type CliConfig = {
   source: 'github' | 'gitlab' | 'local-git'
-  github?: { owner: string; repo: string; branch?: string }
+  github?: { owner: string; repo: string; branch?: string; host?: string; repoCache?: string }
   gitlab?: { host?: string; projectId: string | number }
   localGit?: { repoPath?: string }
   fragmentsDir: string
@@ -96,6 +96,9 @@ async function main() {
       owner: cfg.github.owner,
       repo: cfg.github.repo,
       tokenProvider: new DefaultTokenProvider(),
+      ...(cfg.github.branch !== undefined ? { branch: cfg.github.branch } : {}),
+      ...(cfg.github.host !== undefined ? { host: cfg.github.host } : {}),
+      ...(cfg.github.repoCache !== undefined ? { repoCache: cfg.github.repoCache } : {}),
     })
   } else if (cfg.source === 'gitlab') {
     if (!cfg.gitlab) throw new Error('gitlab config required when source=gitlab')

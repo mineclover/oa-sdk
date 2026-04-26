@@ -44,6 +44,7 @@ export {
   DefaultTokenProvider,
   FileDiffAdapter,
   GithubAdapter,
+  GithubApiAdapter,
   GitlabAdapter,
   LocalGitAdapter,
   SnapshotBuilder,
@@ -53,6 +54,7 @@ export {
 export type {
   FileDiffAdapterConfig,
   GithubAdapterConfig,
+  GithubApiAdapterConfig,
   GitlabAdapterConfig,
   LocalGitAdapterConfig,
   TokenProvider,
