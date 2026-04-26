@@ -151,6 +151,12 @@ export function createSpecLensServer(config: SpecLensServerConfig): Hono {
     return c.json(graph)
   })
 
+  // 🔴 Command: ClearCache
+  app.delete('/api/cache', async (c) => {
+    const result = await config.cache.clearCache(config.fragmentsDir, config.targetPath)
+    return c.json(result)
+  })
+
   // Static UI (운영: React 빌드 결과 서빙)
   if (config.uiDir !== undefined) {
     app.use('/ui/*', serveStatic({ root: config.uiDir }))

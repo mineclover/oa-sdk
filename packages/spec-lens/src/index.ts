@@ -44,6 +44,7 @@ export {
   DefaultTokenProvider,
   FileDiffAdapter,
   GithubAdapter,
+  GitlabAdapter,
   LocalGitAdapter,
   SnapshotBuilder,
   SqliteCache,
@@ -52,6 +53,7 @@ export {
 export type {
   FileDiffAdapterConfig,
   GithubAdapterConfig,
+  GitlabAdapterConfig,
   LocalGitAdapterConfig,
   TokenProvider,
   TokenProviderConfig,

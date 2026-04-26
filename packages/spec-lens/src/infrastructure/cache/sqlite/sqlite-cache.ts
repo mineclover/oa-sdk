@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import Database from 'better-sqlite3'
-import type { CachePort, ListPathsOptions, ListTimelineOptions } from '../../../application/ports/cache.port.js'
+import type { CachePort, ClearCacheResult, ListPathsOptions, ListTimelineOptions } from '../../../application/ports/cache.port.js'
 import type {
   SpecFileEntry,
   SpecPathEntry,
@@ -181,6 +181,28 @@ export class SqliteCache implements CachePort {
       'SELECT content FROM fragment_blobs WHERE content_hash = ?',
     ).get(contentHash) as { content: string } | undefined
     return row?.content ?? null
+  }
+
+  async clearCache(fragmentsDir: string, targetPath: string): Promise<ClearCacheResult> {
+    const snapshots = this.db.prepare(
+      'DELETE FROM snapshots WHERE fragments_dir = ? AND target_path = ?',
+    ).run(fragmentsDir, targetPath)
+    const diffs = this.db.prepare(
+      'DELETE FROM diffs WHERE fragments_dir = ? AND target_path = ?',
+    ).run(fragmentsDir, targetPath)
+    const timeline = this.db.prepare(
+      'DELETE FROM timeline_entries WHERE fragments_dir = ? AND target_path = ?',
+    ).run(fragmentsDir, targetPath)
+    const paths = this.db.prepare(
+      'DELETE FROM path_entries WHERE fragments_dir = ? AND target_path = ?',
+    ).run(fragmentsDir, targetPath)
+    // fragment_blobs are shared (content-addressable) — do not delete
+    return {
+      deletedSnapshots: snapshots.changes,
+      deletedDiffs: diffs.changes,
+      deletedTimeline: timeline.changes,
+      deletedPaths: paths.changes,
+    }
   }
 
   close(): void {

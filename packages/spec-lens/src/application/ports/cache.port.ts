@@ -19,6 +19,13 @@ export type ListPathsOptions = {
   domain?: string
 }
 
+export type ClearCacheResult = {
+  deletedSnapshots: number
+  deletedDiffs: number
+  deletedTimeline: number
+  deletedPaths: number
+}
+
 export interface CachePort {
   // Write Side (snapshot 빌드 결과 저장, 단일 트랜잭션)
   saveSnapshot(snapshot: SpecSnapshotStored, entries: SpecFileEntry[]): Promise<void>
@@ -34,4 +41,7 @@ export interface CachePort {
   getDiff(baseRevisionId: string, headRevisionId: string, fragmentsDir: string, targetPath: string): Promise<SpecTimelineDiff | null>
   listPaths(options: ListPathsOptions): Promise<SpecPathEntry[]>
   getFragmentBlob(contentHash: string): Promise<string | null>
+
+  // Maintenance
+  clearCache(fragmentsDir: string, targetPath: string): Promise<ClearCacheResult>
 }

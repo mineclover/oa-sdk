@@ -198,6 +198,15 @@ export const api = {
 
   config: () => apiFetch<SpecServerConfig>('/api/config'),
 
+  clearCache: async () => {
+    const res = await fetch('/api/cache', { method: 'DELETE' })
+    if (!res.ok) {
+      const body = await res.text().catch(() => '')
+      throw new Error(`API /api/cache → ${res.status}${body ? `: ${body.slice(0, 200)}` : ''}`)
+    }
+    return res.json() as Promise<{ deletedSnapshots: number; deletedDiffs: number; deletedTimeline: number; deletedPaths: number }>
+  },
+
   refresh: async () => {
     const res = await fetch('/api/refresh', { method: 'POST' })
     if (!res.ok) {

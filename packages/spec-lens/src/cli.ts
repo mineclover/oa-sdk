@@ -7,13 +7,15 @@ import { buildTargetConfigDigest } from './infrastructure/cache/sqlite/cache-key
 import { SqliteCache } from './infrastructure/cache/sqlite/sqlite-cache.js'
 import { SnapshotBuilder } from './infrastructure/snapshot-engine/snapshot-builder.js'
 import { GithubAdapter } from './infrastructure/source-adapters/github/github.adapter.js'
+import { GitlabAdapter } from './infrastructure/source-adapters/gitlab/gitlab.adapter.js'
 import { DefaultTokenProvider } from './infrastructure/source-adapters/github/token-provider.js'
 import { LocalGitAdapter } from './infrastructure/source-adapters/local-git/local-git.adapter.js'
 import { serveSpecLens } from './presentation/http/server.js'
 
 type CliConfig = {
-  source: 'github' | 'local-git'
+  source: 'github' | 'gitlab' | 'local-git'
   github?: { owner: string; repo: string; branch?: string }
+  gitlab?: { host?: string; projectId: string | number }
   localGit?: { repoPath?: string }
   fragmentsDir: string
   targetPath: string
@@ -92,6 +94,13 @@ async function main() {
     source = new GithubAdapter({
       owner: cfg.github.owner,
       repo: cfg.github.repo,
+      tokenProvider: new DefaultTokenProvider(),
+    })
+  } else if (cfg.source === 'gitlab') {
+    if (!cfg.gitlab) throw new Error('gitlab config required when source=gitlab')
+    source = new GitlabAdapter({
+      ...(cfg.gitlab.host !== undefined ? { host: cfg.gitlab.host } : {}),
+      projectId: cfg.gitlab.projectId,
       tokenProvider: new DefaultTokenProvider(),
     })
   } else {

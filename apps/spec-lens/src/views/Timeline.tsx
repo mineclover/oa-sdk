@@ -37,6 +37,14 @@ export function Timeline({
     onSuccess: () => qc.invalidateQueries({ queryKey: ['timeline'] }),
   })
 
+  const clearCache = useMutation({
+    mutationFn: api.clearCache,
+    onSuccess: (result) => {
+      alert(t('timelineClearCacheDone', { snapshots: result.deletedSnapshots, diffs: result.deletedDiffs }))
+      void qc.invalidateQueries()
+    },
+  })
+
   if (isLoading) {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', padding: 48 }}>
@@ -68,6 +76,15 @@ export function Timeline({
             <option key={n} value={n}>{t('timelineRecentN', { count: n })}</option>
           ))}
         </Select>
+        <Button
+          loading={clearCache.isPending}
+          onClick={() => {
+            if (window.confirm(t('timelineClearCacheConfirm'))) clearCache.mutate()
+          }}
+          style={{ fontSize: 'var(--text-xs)', padding: '4px 10px', opacity: 0.7 }}
+        >
+          {t('timelineClearCache')}
+        </Button>
         <Button loading={refresh.isPending} onClick={() => refresh.mutate()}>
           {t('timelineRefresh')}
         </Button>
