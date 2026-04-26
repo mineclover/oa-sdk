@@ -52,22 +52,13 @@ describe('LocalGitAdapter', () => {
     }
   })
 
-  it('returns changed files between two revisions', async () => {
-    const revisions = await adapter.listRevisions({ fragmentsDir: FRAGMENTS_DIR, limit: 5 })
-    if (revisions.length < 2) return  // not enough history
+  it('returns relative paths without fragmentsDir prefix', async () => {
+    const revisions = await adapter.listRevisions({ fragmentsDir: FRAGMENTS_DIR, limit: 2 })
+    if (revisions.length === 0) return
 
-    const head = revisions[0]!
-    const base = revisions[revisions.length - 1]!
-    const changed = await adapter.getChangedFiles({
-      baseRevision: base,
-      headRevision: head,
-      fragmentsDir: FRAGMENTS_DIR,
-    })
-
-    // relativePaths only (no prefix)
-    for (const path of changed) {
-      expect(path.startsWith(FRAGMENTS_DIR)).toBe(false)
-      expect(path.endsWith('.yaml') || path.endsWith('.yml') || path.endsWith('.json')).toBe(true)
+    const entries = await adapter.getFileEntries({ revision: revisions[0]!, fragmentsDir: FRAGMENTS_DIR })
+    for (const entry of entries) {
+      expect(entry.relativePath.startsWith(FRAGMENTS_DIR)).toBe(false)
     }
   })
 })

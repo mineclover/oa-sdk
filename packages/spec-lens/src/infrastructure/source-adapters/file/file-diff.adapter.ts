@@ -2,7 +2,6 @@ import { createHash } from 'node:crypto'
 import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { extname, join, relative } from 'node:path'
 import type {
-  GetChangedFilesOptions,
   GetFileEntriesOptions,
   ListRevisionsOptions,
   SpecSourcePort,
@@ -53,23 +52,6 @@ export class FileDiffAdapter implements SpecSourcePort {
     return scanDirectory(rootPath)
   }
 
-  async getChangedFiles(options: GetChangedFilesOptions): Promise<string[]> {
-    const baseEntries = await this.getFileEntries({ revision: options.baseRevision, fragmentsDir: '' })
-    const headEntries = await this.getFileEntries({ revision: options.headRevision, fragmentsDir: '' })
-
-    const baseMap = new Map(baseEntries.map(e => [e.relativePath, e.contentHash]))
-    const headMap = new Map(headEntries.map(e => [e.relativePath, e.contentHash]))
-    const changed: string[] = []
-
-    for (const [path, hash] of headMap) {
-      if (baseMap.get(path) !== hash) changed.push(path)
-    }
-    for (const path of baseMap.keys()) {
-      if (!headMap.has(path)) changed.push(path)
-    }
-
-    return changed.sort()
-  }
 }
 
 function scanDirectory(rootPath: string): SpecFileEntry[] {

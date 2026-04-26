@@ -24,7 +24,6 @@ export {
 export type {
   BuildSnapshotOptions,
   CachePort,
-  GetChangedFilesOptions,
   GetDiffQuery,
   GetFileEntriesOptions,
   GetGraphQuery,

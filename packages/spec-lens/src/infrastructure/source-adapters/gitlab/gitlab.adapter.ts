@@ -1,6 +1,5 @@
 import { createHash } from 'node:crypto'
 import type {
-  GetChangedFilesOptions,
   GetFileEntriesOptions,
   ListRevisionsOptions,
   SpecSourcePort,
@@ -30,14 +29,6 @@ type GitlabTreeItem = {
   type: 'blob' | 'tree'
 }
 
-type GitlabDiff = {
-  old_path: string
-  new_path: string
-  deleted_file: boolean
-  new_file: boolean
-  renamed_file: boolean
-}
-
 export class GitlabAdapter implements SpecSourcePort {
   readonly kind = 'gitlab' as const
 
@@ -62,7 +53,8 @@ export class GitlabAdapter implements SpecSourcePort {
 
     const url = `${this.apiBase}/projects/${encodeURIComponent(String(this.config.projectId))}/repository/commits?${params}`
     const commits = await this.fetchJson<GitlabCommit[]>(url, token)
-    return commits.map(c => this.toRevision(c))
+    const branch = options.branch
+    return commits.map(c => this.toRevision(c, branch))
   }
 
   async getFileEntries(options: GetFileEntriesOptions): Promise<SpecFileEntry[]> {
@@ -101,22 +93,6 @@ export class GitlabAdapter implements SpecSourcePort {
     return entries
   }
 
-  async getChangedFiles(options: GetChangedFilesOptions): Promise<string[]> {
-    const token = await this.config.tokenProvider.getToken(this.projectKey)
-    const { baseRevision, headRevision, fragmentsDir } = options
-    const projectPath = encodeURIComponent(String(this.config.projectId))
-
-    const url = `${this.apiBase}/projects/${projectPath}/repository/compare?from=${baseRevision.id}&to=${headRevision.id}&straight=true`
-    const compare = await this.fetchJson<{ diffs: GitlabDiff[] }>(url, token)
-
-    const prefix = fragmentsDir.replace(/\/$/, '') + '/'
-    return compare.diffs
-      .flatMap(d => [d.old_path, d.new_path])
-      .filter((p, i, arr) => arr.indexOf(p) === i)  // deduplicate
-      .filter(p => p.startsWith(prefix) && isDefinitionFile(p))
-      .map(p => p.slice(prefix.length))
-  }
-
   private async fetchFileContent(filePath: string, ref: string, token: string): Promise<string> {
     const projectPath = encodeURIComponent(String(this.config.projectId))
     const encodedFile = encodeURIComponent(filePath)
@@ -151,7 +127,7 @@ export class GitlabAdapter implements SpecSourcePort {
     return res
   }
 
-  private toRevision(commit: GitlabCommit): SpecRevision {
+  private toRevision(commit: GitlabCommit, branch?: string): SpecRevision {
     const authorName = commit.author_name.length > 0 ? commit.author_name : undefined
     return {
       id: commit.id,
@@ -160,6 +136,7 @@ export class GitlabAdapter implements SpecSourcePort {
       message: commit.title,
       source: 'gitlab',
       ...(authorName !== undefined ? { author: authorName } : {}),
+      ...(branch !== undefined ? { sourceRef: branch } : {}),
     }
   }
 }

@@ -1,6 +1,5 @@
 import { createHash } from 'node:crypto'
 import type {
-  GetChangedFilesOptions,
   GetFileEntriesOptions,
   ListRevisionsOptions,
   SpecSourcePort,
@@ -59,7 +58,8 @@ export class GithubApiAdapter implements SpecSourcePort {
     const url = `${this.apiBase}/repos/${this.config.owner}/${this.config.repo}/commits?${params}`
     const commits = await this.fetchJson<GithubCommit[]>(url, token)
 
-    return commits.map(c => this.toRevision(c))
+    const branch = options.branch
+    return commits.map(c => this.toRevision(c, branch))
   }
 
   async getFileEntries(options: GetFileEntriesOptions): Promise<SpecFileEntry[]> {
@@ -95,21 +95,7 @@ export class GithubApiAdapter implements SpecSourcePort {
     )
   }
 
-  async getChangedFiles(options: GetChangedFilesOptions): Promise<string[]> {
-    const token = await this.config.tokenProvider.getToken(this.repoKey)
-    const { baseRevision, headRevision, fragmentsDir } = options
-
-    const url = `${this.apiBase}/repos/${this.config.owner}/${this.config.repo}/compare/${baseRevision.id}...${headRevision.id}`
-    const compare = await this.fetchJson<{ files?: GithubCompareFile[] }>(url, token)
-
-    const normalized = fragmentsDir.replace(/^\//, '').replace(/\/$/, '')
-    const prefix = normalized === '' ? '' : normalized + '/'
-    return (compare.files ?? [])
-      .filter(f => f.filename.startsWith(prefix) && isDefinitionFile(f.filename))
-      .map(f => prefix === '' ? f.filename : f.filename.slice(prefix.length))
-  }
-
-  private toRevision(commit: GithubCommit): SpecRevision {
+  private toRevision(commit: GithubCommit, branch?: string): SpecRevision {
     const date = commit.commit.author?.date ?? new Date().toISOString()
     const authorName = commit.commit.author?.name
     return {
@@ -119,6 +105,7 @@ export class GithubApiAdapter implements SpecSourcePort {
       message: commit.commit.message.split('\n')[0] ?? '',
       source: 'github',
       ...(authorName !== undefined ? { author: authorName } : {}),
+      ...(branch !== undefined ? { sourceRef: branch } : {}),
     }
   }
 

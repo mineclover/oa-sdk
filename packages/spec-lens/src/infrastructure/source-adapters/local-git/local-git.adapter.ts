@@ -2,7 +2,6 @@ import { createHash } from 'node:crypto'
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
 import type {
-  GetChangedFilesOptions,
   GetFileEntriesOptions,
   ListRevisionsOptions,
   SpecSourcePort,
@@ -13,6 +12,8 @@ const execFileAsync = promisify(execFile)
 
 export type LocalGitAdapterConfig = {
   repoPath: string
+  /** Default branch for listRevisions when options.branch is not specified. */
+  branch?: string
 }
 
 export class LocalGitAdapter implements SpecSourcePort {
@@ -21,28 +22,26 @@ export class LocalGitAdapter implements SpecSourcePort {
   constructor(private readonly config: LocalGitAdapterConfig) {}
 
   async listRevisions(options: ListRevisionsOptions): Promise<SpecRevision[]> {
-    const args = [
-      'log',
-      `--format=%H%n%aI%n%s%n%an%n%x00`,
-    ]
-    if (options.branch !== undefined) args.push(options.branch)
+    const branch = options.branch ?? this.config.branch
+    const args = ['log', '--format=%H%n%aI%n%s%n%an%n%x00']
+    if (branch !== undefined) args.push(branch)
     if (options.since !== undefined) args.push(`--since=${new Date(options.since).toISOString()}`)
     if (options.until !== undefined) args.push(`--until=${new Date(options.until).toISOString()}`)
     if (options.limit !== undefined) args.push(`-${options.limit}`)
     args.push('--', options.fragmentsDir)
 
     const output = await this.git(args)
-    return parseGitLog(output)
+    const revisions = parseGitLog(output)
+    if (branch === undefined) return revisions
+    return revisions.map(r => ({ ...r, sourceRef: branch }))
   }
 
   async getFileEntries(options: GetFileEntriesOptions): Promise<SpecFileEntry[]> {
-    const { revision, fragmentsDir } = options
-    const prefix = fragmentsDir.replace(/\/$/, '') + '/'
+    const { revision } = options
+    const dir = normalizeDir(options.fragmentsDir)
+    const prefix = dir ? dir + '/' : ''
 
-    // List all files in fragmentsDir at this commit
-    const listOutput = await this.git([
-      'ls-tree', '-r', '--name-only', revision.id, '--', fragmentsDir,
-    ])
+    const listOutput = await this.git(['ls-tree', '-r', '--name-only', revision.id, '--', dir])
 
     const filePaths = listOutput
       .split('\n')
@@ -50,43 +49,32 @@ export class LocalGitAdapter implements SpecSourcePort {
       .filter(p => p.length > 0 && isDefinitionFile(p))
 
     if (filePaths.length === 0) {
-      console.warn(`[spec-lens] No definition files found in '${fragmentsDir}' at ${revision.id.slice(0, 7)} — check fragmentsDir config`)
+      console.warn(`[spec-lens] No definition files found in '${dir}' at ${revision.id.slice(0, 7)} — check fragmentsDir config`)
     }
 
-    const entries = await Promise.all(
+    const settled = await Promise.allSettled(
       filePaths.map(async (filePath): Promise<SpecFileEntry> => {
         const content = await this.git(['show', `${revision.id}:${filePath}`])
-        const relativePath = filePath.startsWith(prefix) ? filePath.slice(prefix.length) : filePath
-        return {
-          relativePath,
-          content,
-          contentHash: sha256(content),
-        }
+        const relativePath = prefix && filePath.startsWith(prefix) ? filePath.slice(prefix.length) : filePath
+        return { relativePath, content, contentHash: sha256(content) }
       }),
     )
 
+    const entries: SpecFileEntry[] = []
+    for (const result of settled) {
+      if (result.status === 'fulfilled') {
+        entries.push(result.value)
+      } else {
+        console.warn(`[spec-lens] Skipping file at ${revision.id.slice(0, 7)}: ${result.reason instanceof Error ? result.reason.message : String(result.reason)}`)
+      }
+    }
     return entries
   }
 
-  async getChangedFiles(options: GetChangedFilesOptions): Promise<string[]> {
-    const { baseRevision, headRevision, fragmentsDir } = options
-    const prefix = fragmentsDir.replace(/\/$/, '') + '/'
-
-    const output = await this.git([
-      'diff', '--name-only', `${baseRevision.id}..${headRevision.id}`, '--', fragmentsDir,
-    ])
-
-    return output
-      .split('\n')
-      .map(p => p.trim())
-      .filter(p => p.length > 0 && isDefinitionFile(p))
-      .map(p => p.startsWith(prefix) ? p.slice(prefix.length) : p)
-  }
-
-  private async git(args: string[]): Promise<string> {
+  async git(args: string[]): Promise<string> {
     const { stdout } = await execFileAsync('git', args, {
       cwd: this.config.repoPath,
-      maxBuffer: 50 * 1024 * 1024,  // 50MB
+      maxBuffer: 50 * 1024 * 1024,
     })
     return stdout
   }
@@ -117,6 +105,10 @@ function parseGitLog(output: string): SpecRevision[] {
   }
 
   return revisions
+}
+
+function normalizeDir(dir: string): string {
+  return dir.replace(/^\//, '').replace(/\/$/, '')
 }
 
 function isDefinitionFile(filePath: string): boolean {

@@ -13,12 +13,6 @@ export type GetFileEntriesOptions = {
   fragmentsDir: string
 }
 
-export type GetChangedFilesOptions = {
-  baseRevision: SpecRevision
-  headRevision: SpecRevision
-  fragmentsDir: string
-}
-
 export interface SpecSourcePort {
   readonly kind: SpecSourceKind
 
@@ -27,7 +21,4 @@ export interface SpecSourcePort {
 
   // 특정 revision의 fragmentsDir 전체 파일 내용
   getFileEntries(options: GetFileEntriesOptions): Promise<SpecFileEntry[]>
-
-  // 두 revision 사이에서 변경된 파일의 relativePath 목록
-  getChangedFiles(options: GetChangedFilesOptions): Promise<string[]>
 }

@@ -15,7 +15,6 @@ export type { GetTimelineQuery } from './queries/get-timeline.query.js'
 export type { CachePort, ListPathsOptions, ListTimelineOptions } from './ports/cache.port.js'
 export type { BuildSnapshotOptions, SnapshotBuilderPort } from './ports/snapshot-builder.port.js'
 export type {
-  GetChangedFilesOptions,
   GetFileEntriesOptions,
   ListRevisionsOptions,
   SpecSourcePort,

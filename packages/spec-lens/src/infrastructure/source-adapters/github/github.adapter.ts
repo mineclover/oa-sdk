@@ -4,7 +4,6 @@ import { join, resolve } from 'node:path'
 import { promisify } from 'node:util'
 import { LocalGitAdapter } from '../local-git/local-git.adapter.js'
 import type {
-  GetChangedFilesOptions,
   GetFileEntriesOptions,
   ListRevisionsOptions,
   SpecSourcePort,
@@ -44,16 +43,16 @@ export class GithubAdapter implements SpecSourcePort {
   }
 
   async listRevisions(options: ListRevisionsOptions): Promise<SpecRevision[]> {
-    await this.syncRepo(options.branch ?? this.config.branch)
-    return this.local.listRevisions(options)
+    const branch = options.branch ?? this.config.branch
+    await this.syncRepo(branch)
+    return this.local.listRevisions({
+      ...options,
+      ...(branch !== undefined ? { branch } : {}),
+    })
   }
 
   async getFileEntries(options: GetFileEntriesOptions): Promise<SpecFileEntry[]> {
     return this.local.getFileEntries(options)
-  }
-
-  async getChangedFiles(options: GetChangedFilesOptions): Promise<string[]> {
-    return this.local.getChangedFiles(options)
   }
 
   /** Exposed for explicit pre-fetch (e.g. health checks). */
