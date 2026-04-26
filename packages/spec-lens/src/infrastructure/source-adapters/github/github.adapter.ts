@@ -134,7 +134,10 @@ export class GithubAdapter implements SpecSourcePort {
     if (blob.encoding === 'base64') {
       return Buffer.from(blob.content.replace(/\n/g, ''), 'base64').toString('utf8')
     }
-    return blob.content
+    if (blob.encoding === 'utf-8') {
+      return blob.content
+    }
+    throw new Error(`Unsupported GitHub blob encoding: ${blob.encoding} (sha: ${blobSha})`)
   }
 
   private async fetchJson<T>(url: string, token: string): Promise<T> {
@@ -145,6 +148,13 @@ export class GithubAdapter implements SpecSourcePort {
         'X-GitHub-Api-Version': '2022-11-28',
       },
     })
+    if (res.status === 429 || res.status === 403) {
+      const reset = res.headers.get('X-RateLimit-Reset')
+      const resetMsg = reset !== null
+        ? ` Rate limit resets at ${new Date(Number(reset) * 1000).toISOString()}.`
+        : ''
+      throw new Error(`GitHub API rate limited (${res.status}).${resetMsg} Reduce refresh frequency or use a token with higher quota.`)
+    }
     if (!res.ok) {
       const body = await res.text().catch(() => '')
       throw new Error(`GitHub API error ${res.status}: ${url}\n${body}`)

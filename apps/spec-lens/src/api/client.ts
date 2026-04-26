@@ -156,7 +156,12 @@ export type SpecServerConfig = {
 }
 
 async function apiFetch<T>(path: string): Promise<T> {
-  const res = await fetch(path)
+  let res: Response
+  try {
+    res = await fetch(path)
+  } catch (err) {
+    throw new Error(`API ${path} → network error: ${err instanceof Error ? err.message : String(err)}`)
+  }
   if (!res.ok) {
     const body = await res.text().catch(() => '')
     throw new Error(`API ${path} → ${res.status}${body ? `: ${body.slice(0, 200)}` : ''}`)

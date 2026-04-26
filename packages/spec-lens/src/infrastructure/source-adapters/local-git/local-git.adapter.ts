@@ -49,6 +49,10 @@ export class LocalGitAdapter implements SpecSourcePort {
       .map(p => p.trim())
       .filter(p => p.length > 0 && isDefinitionFile(p))
 
+    if (filePaths.length === 0) {
+      console.warn(`[spec-lens] No definition files found in '${fragmentsDir}' at ${revision.id.slice(0, 7)} — check fragmentsDir config`)
+    }
+
     const entries = await Promise.all(
       filePaths.map(async (filePath): Promise<SpecFileEntry> => {
         const content = await this.git(['show', `${revision.id}:${filePath}`])

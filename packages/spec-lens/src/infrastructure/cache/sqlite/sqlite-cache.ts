@@ -20,6 +20,7 @@ export class SqliteCache implements CachePort {
   constructor(dbPath: string) {
     this.db = new Database(dbPath)
     this.db.pragma('journal_mode = WAL')
+    this.db.pragma('busy_timeout = 5000')
     this.db.pragma('foreign_keys = ON')
     this.db.exec(SCHEMA_SQL)
   }
@@ -137,7 +138,9 @@ export class SqliteCache implements CachePort {
       'SELECT data FROM snapshots WHERE revision_id = ? AND fragments_dir = ? AND target_path = ? AND target_config_digest = ? LIMIT 1',
     ).get(revisionId, fragmentsDir, targetPath, targetConfigDigest) as { data: string } | undefined
     if (row === undefined) return null
-    return JSON.parse(row.data) as SpecSnapshotStored
+    const snapshot = JSON.parse(row.data) as SpecSnapshotStored
+    if (snapshot.schemaVersion !== 'spec-lens.snapshot.v1') return null
+    return snapshot
   }
 
   async getDiff(
@@ -150,7 +153,9 @@ export class SqliteCache implements CachePort {
       'SELECT data FROM diffs WHERE base_revision_id = ? AND head_revision_id = ? AND fragments_dir = ? AND target_path = ?',
     ).get(baseRevisionId, headRevisionId, fragmentsDir, targetPath) as { data: string } | undefined
     if (row === undefined) return null
-    return JSON.parse(row.data) as SpecTimelineDiff
+    const diff = JSON.parse(row.data) as SpecTimelineDiff
+    if (diff.schemaVersion !== 'spec-lens.diff.v1') return null
+    return diff
   }
 
   async listPaths(options: ListPathsOptions): Promise<SpecPathEntry[]> {
