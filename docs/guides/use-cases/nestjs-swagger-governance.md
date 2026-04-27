@@ -292,6 +292,18 @@ bash apps/nestjs-ref/scripts/openapi-governance.sh update-baseline  # baseline �
 
 `drift` 케이스는 첫 인자 이후의 모든 인자를 그대로 `oa-gen drift`에 전달하므로 `--runtime-header`, `--behavior-log`, `--format json` 등을 추가로 붙일 수 있다.
 
+### Profile Noise Removal Scope
+
+`nestjs-swagger`/`fastapi` profile은 **빈 `info.contact`, 루트 `servers`, 루트 `tags`만** noise로 처리한다. 이들은 두 프레임워크 모두 사용자가 명시 설정하지 않으면 무조건 빈 값으로 emit하는 cosmetic field라 안전하게 제거할 수 있다. `generic` profile은 어떤 것도 제거하지 않는다 — 출처가 불명확한 빈 배열이 의도적일 수 있기 때문.
+
+다음은 의도적으로 **보존**한다:
+
+- **`operationId`**: FastAPI가 생성하는 `read_user_users__user_id__get` 같은 자동 ID. operationId rename은 클라이언트 측 breaking change이므로 baseline이 이를 감지하도록 유지.
+- **422 ValidationError 응답**: FastAPI/Pydantic이 모든 검증 라우트에 자동 추가하는 응답. 클라이언트가 의존할 수 있는 contract signal로 본다.
+- **`HTTPValidationError` schema 등 generated component**: 라이브러리가 만든 schema도 contract의 일부로 baseline에 포함.
+
+이 정책 때문에 함수 이름을 바꾸면 `oa-gen review`가 breaking change로 잡는다 — 이는 의도된 동작이다.
+
 ### Config Source of Truth
 
 `openapi-governance.config.json`이 artifact interface와 consumer 매핑의 단일 소스다. `scripts/openapi-governance.sh`는 scaffold time에 그 config를 기준으로 렌더링되며, 각 단계에 어떤 artifact를 넘길지 (NORMALIZED / UPGRADED / BASELINE)는 그때 고정된다. JSON을 hand-edit해도 스크립트는 자동 갱신되지 않으므로, `artifacts` 경로나 `consumers` 매핑이 바뀌면 `oa-gen scaffold-governance --root <서비스> --service <이름> --profile <profile> --force`를 다시 실행해야 한다. 렌더링된 스크립트 헤더의 `# config fingerprint: <hash>` 한 줄이 현재 config와 일치하지 않으면 동기화가 어긋났다는 신호다.
@@ -350,7 +362,8 @@ apps/nestjs-ref/dist/
 
 ## 관련 문서
 
-- [레퍼런스 구현](../../../apps/nestjs-ref/)
+- [NestJS 레퍼런스 구현](../../../apps/nestjs-ref/)
+- [FastAPI 레퍼런스 구현](../../../apps/fastapi-ref/)
 - [OpenAPI Governance Workflow](./openapi-governance-workflow.md)
 - [OpenAPI Governance Service Template](../openapi-governance-service-template.md)
 - [CLI 세팅](../cli-setup.md)

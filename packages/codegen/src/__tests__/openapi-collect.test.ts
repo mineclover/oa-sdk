@@ -61,6 +61,45 @@ describe('openapi collect scaffold', () => {
     expect(result.report.conversions.map(item => item.code)).toContain('schema/nullable-upgraded')
   })
 
+  it('fastapi profile preserves auto-generated operationId and 422 ValidationError responses', () => {
+    // FastAPI emits operationId like `read_user_users__user_id__get` and a default 422
+    // ValidationError response on every operation with body/path/query validation.
+    // We intentionally PRESERVE both: operationId rename = breaking change for clients,
+    // and the 422 envelope is signal (not noise) that consumers may rely on.
+    const normalized = normalizeOpenApiDocument({
+      openapi: '3.1.0',
+      info: { title: 'F', version: '1.0' },
+      paths: {
+        '/users/{user_id}': {
+          get: {
+            operationId: 'read_user_users__user_id__get',
+            parameters: [{ name: 'user_id', in: 'path', required: true, schema: { type: 'string' } }],
+            responses: {
+              '200': { description: 'ok' },
+              '422': {
+                description: 'Validation Error',
+                content: {
+                  'application/json': { schema: { $ref: '#/components/schemas/HTTPValidationError' } },
+                },
+              },
+            },
+          },
+        },
+      },
+      components: {
+        schemas: {
+          HTTPValidationError: { type: 'object', properties: { detail: { type: 'array', items: { type: 'string' } } } },
+        },
+      },
+    }, { profile: 'fastapi' })
+
+    const op = (normalized.paths as Record<string, { get: { operationId: string; responses: Record<string, unknown> } }>)['/users/{user_id}']!.get
+    expect(op.operationId).toBe('read_user_users__user_id__get')
+    expect(op.responses['422']).toBeDefined()
+    const schemas = (normalized.components as { schemas: Record<string, unknown> }).schemas
+    expect(schemas.HTTPValidationError).toBeDefined()
+  })
+
   it('fastapi profile drops empty info.contact / root servers / root tags', () => {
     const normalized = normalizeOpenApiDocument({
       openapi: '3.1.0',
