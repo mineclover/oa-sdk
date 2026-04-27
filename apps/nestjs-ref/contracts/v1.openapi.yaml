@@ -1,0 +1,200 @@
+openapi: 3.0.0
+info:
+  description: Reference NestJS API — managed by oa-sdk governance tools
+  title: NestJS Reference API
+  version: "1.0"
+paths:
+  /health:
+    get:
+      operationId: HealthController_check
+      parameters: []
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponseDto"
+          description: ""
+      summary: Service health check
+      tags:
+        - health
+  /users:
+    get:
+      operationId: UsersController_findAll
+      parameters: []
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: "#/components/schemas/UserDto"
+                type: array
+          description: ""
+      security:
+        - bearer: []
+      summary: List all users
+      tags:
+        - users
+    post:
+      operationId: UsersController_create
+      parameters: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateUserDto"
+        required: true
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserDto"
+          description: ""
+      security:
+        - bearer: []
+      summary: Create a user
+      tags:
+        - users
+  /users/{id}:
+    get:
+      operationId: UsersController_findOne
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            format: uuid
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserDto"
+          description: ""
+        "404":
+          description: User not found
+      security:
+        - bearer: []
+      summary: Get user by ID
+      tags:
+        - users
+    delete:
+      operationId: UsersController_remove
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            format: uuid
+            type: string
+      responses:
+        "204":
+          description: ""
+        "404":
+          description: User not found
+      security:
+        - bearer: []
+      summary: Delete user
+      tags:
+        - users
+    patch:
+      operationId: UsersController_update
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            format: uuid
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateUserDto"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserDto"
+          description: ""
+        "404":
+          description: User not found
+      security:
+        - bearer: []
+      summary: Update user
+      tags:
+        - users
+components:
+  schemas:
+    CreateUserDto:
+      properties:
+        email:
+          example: alice@example.com
+          format: email
+          type: string
+        name:
+          example: Alice
+          maxLength: 100
+          minLength: 1
+          type: string
+      required:
+        - name
+        - email
+      type: object
+    HealthResponseDto:
+      properties:
+        status:
+          enum:
+            - ok
+            - error
+          example: ok
+          type: string
+      required:
+        - status
+      type: object
+    UpdateUserDto:
+      properties:
+        email:
+          example: alice@example.com
+          format: email
+          type: string
+        name:
+          example: Alice
+          maxLength: 100
+          minLength: 1
+          type: string
+      type: object
+    UserDto:
+      properties:
+        createdAt:
+          format: date-time
+          type: string
+        email:
+          example: alice@example.com
+          format: email
+          type: string
+        id:
+          example: 550e8400-e29b-41d4-a716-446655440000
+          format: uuid
+          type: string
+        name:
+          example: Alice
+          maxLength: 100
+          minLength: 1
+          type: string
+      required:
+        - id
+        - name
+        - email
+        - createdAt
+      type: object
+  securitySchemes:
+    bearer:
+      bearerFormat: JWT
+      scheme: bearer
+      type: http

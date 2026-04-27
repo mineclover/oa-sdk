@@ -10,3 +10,11 @@ coverage/
 .env
 .env.*
 !.env.*.example
+apps/nestjs-ref/contracts/openapi.raw.json
+apps/nestjs-ref/contracts/openapi.raw.yaml
+apps/nestjs-ref/contracts/openapi.generated.json
+apps/nestjs-ref/contracts/openapi.generated.yaml
+apps/nestjs-ref/contracts/openapi.normalized.yaml
+apps/nestjs-ref/contracts/openapi.upgraded.yaml
+apps/nestjs-ref/contracts/openapi.collect-report.json
+apps/nestjs-ref/src/generated/
