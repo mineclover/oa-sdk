@@ -1,0 +1,266 @@
+import { chmodSync, existsSync, mkdirSync, writeFileSync } from 'node:fs'
+import { dirname, join, relative, resolve } from 'node:path'
+import type { OpenApiCollectProfile } from './openapi-collect.js'
+
+export type OpenApiGovernanceScaffoldOptions = {
+  rootDir: string
+  service: string
+  profile: OpenApiCollectProfile
+  sourceCommand?: string
+  runtimeOpenApiUrl?: string
+  force?: boolean
+}
+
+export type OpenApiGovernanceScaffoldResult = {
+  rootDir: string
+  files: string[]
+}
+
+export type OpenApiGovernanceInterface = {
+  schemaVersion: 'oa-gen.openapi-governance.v1'
+  service: string
+  profile: OpenApiCollectProfile
+  source: {
+    kind: 'external-openapi'
+    command: string | null
+    runtimeOpenApiUrl: string | null
+  }
+  artifacts: {
+    raw: string
+    normalized: string
+    upgraded: string
+    baseline: string
+    collectReport: string
+    typegen: string
+  }
+  consumers: {
+    governance: string
+    review: string
+    typegen: string
+    inventory: string
+    validate: string
+    driftManaged: string
+  }
+}
+
+const CONFIG_PATH = 'openapi-governance.config.json'
+const SCRIPT_PATH = 'scripts/openapi-governance.sh'
+const DOC_PATH = 'openapi-governance.md'
+
+export function createOpenApiGovernanceInterface(options: {
+  service: string
+  profile: OpenApiCollectProfile
+  sourceCommand?: string
+  runtimeOpenApiUrl?: string
+}): OpenApiGovernanceInterface {
+  return {
+    schemaVersion: 'oa-gen.openapi-governance.v1',
+    service: options.service,
+    profile: options.profile,
+    source: {
+      kind: 'external-openapi',
+      command: options.sourceCommand ?? null,
+      runtimeOpenApiUrl: options.runtimeOpenApiUrl ?? null,
+    },
+    artifacts: {
+      raw: 'contracts/openapi.raw.yaml',
+      normalized: 'contracts/openapi.normalized.yaml',
+      upgraded: 'contracts/openapi.upgraded.yaml',
+      baseline: 'contracts/v1.openapi.yaml',
+      collectReport: 'contracts/openapi.collect-report.json',
+      typegen: 'src/generated/api-types.ts',
+    },
+    consumers: {
+      governance: 'artifacts.normalized',
+      review: 'artifacts.normalized',
+      typegen: 'artifacts.normalized',
+      inventory: 'artifacts.upgraded',
+      validate: 'artifacts.upgraded',
+      driftManaged: 'artifacts.normalized',
+    },
+  }
+}
+
+export function scaffoldOpenApiGovernance(
+  options: OpenApiGovernanceScaffoldOptions,
+): OpenApiGovernanceScaffoldResult {
+  const rootDir = resolve(process.cwd(), options.rootDir)
+  mkdirSync(rootDir, { recursive: true })
+
+  const governance = createOpenApiGovernanceInterface({
+    service: options.service,
+    profile: options.profile,
+    ...(options.sourceCommand ? { sourceCommand: options.sourceCommand } : {}),
+    ...(options.runtimeOpenApiUrl ? { runtimeOpenApiUrl: options.runtimeOpenApiUrl } : {}),
+  })
+
+  const files: string[] = []
+  writeScaffoldFile(rootDir, CONFIG_PATH, `${JSON.stringify(governance, null, 2)}\n`, options.force, files)
+  writeScaffoldFile(rootDir, SCRIPT_PATH, renderGovernanceScript(governance), options.force, files)
+  chmodSync(join(rootDir, SCRIPT_PATH), 0o755)
+  writeScaffoldFile(rootDir, DOC_PATH, renderGovernanceDoc(governance), options.force, files)
+
+  mkdirSync(join(rootDir, 'contracts'), { recursive: true })
+  mkdirSync(join(rootDir, 'scripts'), { recursive: true })
+  mkdirSync(join(rootDir, 'src/generated'), { recursive: true })
+
+  return { rootDir, files }
+}
+
+function writeScaffoldFile(
+  rootDir: string,
+  filePath: string,
+  content: string,
+  force: boolean | undefined,
+  files: string[],
+): void {
+  const absolutePath = join(rootDir, filePath)
+  if (existsSync(absolutePath) && !force) {
+    throw new Error(`refusing to overwrite existing scaffold file: ${absolutePath}. Pass --force to overwrite.`)
+  }
+  mkdirSync(dirname(absolutePath), { recursive: true })
+  writeFileSync(absolutePath, content, 'utf8')
+  files.push(absolutePath)
+}
+
+function renderGovernanceScript(config: OpenApiGovernanceInterface): string {
+  const sourceCommand = config.source.command
+  const runtimeUrl = config.source.runtimeOpenApiUrl
+  return `#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "\${BASH_SOURCE[0]}")" && pwd)"
+APP_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+REPO_ROOT="$(cd "$APP_DIR/../.." && pwd)"
+if [[ -n "\${OA_GEN:-}" ]]; then
+  # shellcheck disable=SC2206
+  OA_GEN_CMD=(\${OA_GEN})
+else
+  OA_GEN_CMD=(node "$REPO_ROOT/packages/codegen/dist/cli/index.js")
+fi
+
+RAW="$APP_DIR/${config.artifacts.raw}"
+NORMALIZED="$APP_DIR/${config.artifacts.normalized}"
+UPGRADED="$APP_DIR/${config.artifacts.upgraded}"
+BASELINE="$APP_DIR/${config.artifacts.baseline}"
+COLLECT_REPORT="$APP_DIR/${config.artifacts.collectReport}"
+TYPEGEN="$APP_DIR/${config.artifacts.typegen}"
+RUNTIME_OPENAPI_URL="${runtimeUrl ?? ''}"
+
+source_openapi() {
+${sourceCommand ? `  (cd "$APP_DIR" && ${sourceCommand})` : '  test -f "$RAW" || { echo "missing raw OpenAPI artifact: $RAW"; exit 1; }'}
+}
+
+collect_openapi() {
+  source_openapi
+  "\${OA_GEN_CMD[@]}" collect \\
+    --spec "$RAW" \\
+    --normalized "$NORMALIZED" \\
+    --upgraded "$UPGRADED" \\
+    --report "$COLLECT_REPORT" \\
+    --profile ${config.profile}
+}
+
+case "\${1:-all}" in
+  collect)
+    collect_openapi
+    ;;
+  check)
+    collect_openapi
+    "\${OA_GEN_CMD[@]}" check-artifact --head "$NORMALIZED" --artifact "$BASELINE" --format human
+    ;;
+  review)
+    collect_openapi
+    "\${OA_GEN_CMD[@]}" review --base "$BASELINE" --head "$NORMALIZED" --artifact "$BASELINE" --format markdown
+    ;;
+  typegen)
+    collect_openapi
+    mkdir -p "$(dirname "$TYPEGEN")"
+    "\${OA_GEN_CMD[@]}" typegen --spec "$NORMALIZED" --output "$TYPEGEN"
+    ;;
+  inventory)
+    collect_openapi
+    "\${OA_GEN_CMD[@]}" inventory --spec "$UPGRADED" --format markdown
+    ;;
+  validate-upgraded)
+    collect_openapi
+    "\${OA_GEN_CMD[@]}" validate --spec "$UPGRADED"
+    ;;
+  drift)
+    collect_openapi
+    test -n "$RUNTIME_OPENAPI_URL" || { echo "runtimeOpenApiUrl is not configured"; exit 1; }
+    "\${OA_GEN_CMD[@]}" drift --runtime-openapi-url "$RUNTIME_OPENAPI_URL" --managed-openapi "$NORMALIZED" --format markdown
+    ;;
+  update-baseline)
+    collect_openapi
+    cp "$NORMALIZED" "$BASELINE"
+    echo "baseline updated: $BASELINE"
+    ;;
+  all)
+    collect_openapi
+    "\${OA_GEN_CMD[@]}" check-artifact --head "$NORMALIZED" --artifact "$BASELINE" --format human
+    "\${OA_GEN_CMD[@]}" review --base "$BASELINE" --head "$NORMALIZED" --artifact "$BASELINE" --format markdown
+    mkdir -p "$(dirname "$TYPEGEN")"
+    "\${OA_GEN_CMD[@]}" typegen --spec "$NORMALIZED" --output "$TYPEGEN"
+    "\${OA_GEN_CMD[@]}" validate --spec "$UPGRADED"
+    ;;
+  *)
+    echo "usage: $0 [collect|check|review|typegen|inventory|validate-upgraded|drift|update-baseline|all]"
+    exit 1
+    ;;
+esac
+`
+}
+
+function renderGovernanceDoc(config: OpenApiGovernanceInterface): string {
+  const runtime = config.source.runtimeOpenApiUrl ?? '(not configured)'
+  const source = config.source.command ?? 'write raw OpenAPI to contracts/openapi.raw.yaml before running governance'
+  return `# OpenAPI Governance — ${config.service}
+
+Generated by \`oa-gen scaffold-governance\`.
+
+## Interface
+
+| Field | Value |
+|---|---|
+| Service | \`${config.service}\` |
+| Profile | \`${config.profile}\` |
+| Source command | \`${source}\` |
+| Runtime OpenAPI URL | \`${runtime}\` |
+| Raw artifact | \`${config.artifacts.raw}\` |
+| Normalized governance artifact | \`${config.artifacts.normalized}\` |
+| OpenAPI 3.2 analysis artifact | \`${config.artifacts.upgraded}\` |
+| Baseline | \`${config.artifacts.baseline}\` |
+
+## Commands
+
+\`\`\`bash
+bash scripts/openapi-governance.sh collect
+bash scripts/openapi-governance.sh check
+bash scripts/openapi-governance.sh review
+bash scripts/openapi-governance.sh typegen
+bash scripts/openapi-governance.sh inventory
+bash scripts/openapi-governance.sh validate-upgraded
+bash scripts/openapi-governance.sh drift
+bash scripts/openapi-governance.sh update-baseline
+bash scripts/openapi-governance.sh all
+\`\`\`
+
+\`all\` runs the PR gate pipeline: collect → check-artifact → review → typegen → validate-upgraded. \`inventory\`(read-only summary)와 \`drift\`(runtime 서버 필요)는 의도적으로 분리되어 있으니 필요할 때 별도로 실행한다.
+
+## Artifact Policy
+
+- Use \`${config.artifacts.normalized}\` for governance, review, typegen, and runtime drift.
+- Use \`${config.artifacts.upgraded}\` for OpenAPI 3.2 validation, inventory, and analysis.
+- Commit \`${config.artifacts.baseline}\`.
+- Ignore raw, normalized, upgraded, reports, and generated types unless the service deliberately publishes them.
+`
+}
+
+export function formatScaffoldResult(result: OpenApiGovernanceScaffoldResult): string {
+  const lines = [
+    `OpenAPI governance scaffold created: ${result.rootDir}`,
+    ...result.files.map(file => `- ${relative(result.rootDir, file)}`),
+  ]
+  return lines.join('\n')
+}

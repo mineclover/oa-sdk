@@ -185,6 +185,261 @@
       }
     },
     {
+      "id": "normalize",
+      "kind": "command",
+      "name": "normalize",
+      "summary": "외부 OpenAPI 산출물 정규화",
+      "components": {
+        "options": [
+          {
+            "name": "spec",
+            "type": "string",
+            "short": "s",
+            "required": true,
+            "description": "정규화할 OpenAPI YAML/JSON 경로"
+          },
+          {
+            "name": "output",
+            "type": "string",
+            "short": "o",
+            "description": "정규화된 OpenAPI YAML 출력 경로 (기본: stdout)"
+          },
+          {
+            "name": "profile",
+            "type": "string",
+            "description": "generic | nestjs-swagger (기본: generic)"
+          }
+        ],
+        "inputs": [
+          {
+            "name": "spec",
+            "kind": "openapi-document",
+            "required": true,
+            "option": "spec"
+          }
+        ],
+        "checks": [],
+        "reports": [
+          {
+            "formats": [
+              "human"
+            ],
+            "schema": "oa-gen.normalize.human.v1"
+          }
+        ],
+        "exitPolicy": {
+          "success": [
+            "APPROVE"
+          ],
+          "failure": [
+            "REQUEST_CHANGES"
+          ]
+        }
+      }
+    },
+    {
+      "id": "upgrade",
+      "kind": "command",
+      "name": "upgrade",
+      "summary": "OpenAPI 3.0/3.1 산출물을 OpenAPI 3.2 분석 artifact로 변환",
+      "components": {
+        "options": [
+          {
+            "name": "spec",
+            "type": "string",
+            "short": "s",
+            "required": true,
+            "description": "업그레이드할 OpenAPI YAML/JSON 경로"
+          },
+          {
+            "name": "output",
+            "type": "string",
+            "short": "o",
+            "description": "OpenAPI 3.2 YAML 출력 경로 (기본: stdout)"
+          },
+          {
+            "name": "report",
+            "type": "string",
+            "description": "변환 리포트 JSON 출력 경로"
+          }
+        ],
+        "inputs": [
+          {
+            "name": "spec",
+            "kind": "openapi-document",
+            "required": true,
+            "option": "spec"
+          }
+        ],
+        "checks": [],
+        "reports": [
+          {
+            "formats": [
+              "human"
+            ],
+            "schema": "oa-gen.upgrade.human.v1"
+          },
+          {
+            "formats": [
+              "json"
+            ],
+            "schema": "oa-gen.openapi-upgrade-report.v1"
+          }
+        ],
+        "exitPolicy": {
+          "success": [
+            "APPROVE",
+            "COMMENT"
+          ],
+          "failure": [
+            "REQUEST_CHANGES"
+          ]
+        }
+      }
+    },
+    {
+      "id": "collect",
+      "kind": "command",
+      "name": "collect",
+      "summary": "외부 OpenAPI 산출물 수집 scaffold: raw 보존, normalize, 3.2 upgrade",
+      "components": {
+        "options": [
+          {
+            "name": "spec",
+            "type": "string",
+            "short": "s",
+            "required": true,
+            "description": "수집할 OpenAPI YAML/JSON 경로"
+          },
+          {
+            "name": "raw",
+            "type": "string",
+            "description": "원본 산출물 복사 경로"
+          },
+          {
+            "name": "normalized",
+            "type": "string",
+            "required": true,
+            "description": "stable governance artifact 출력 경로"
+          },
+          {
+            "name": "upgraded",
+            "type": "string",
+            "required": true,
+            "description": "OpenAPI 3.2 분석 artifact 출력 경로"
+          },
+          {
+            "name": "report",
+            "type": "string",
+            "description": "수집/변환 리포트 JSON 출력 경로"
+          },
+          {
+            "name": "profile",
+            "type": "string",
+            "description": "generic | nestjs-swagger (기본: generic)"
+          }
+        ],
+        "inputs": [
+          {
+            "name": "spec",
+            "kind": "openapi-document",
+            "required": true,
+            "option": "spec"
+          }
+        ],
+        "checks": [],
+        "reports": [
+          {
+            "formats": [
+              "human"
+            ],
+            "schema": "oa-gen.collect.human.v1"
+          },
+          {
+            "formats": [
+              "json"
+            ],
+            "schema": "oa-gen.openapi-collect-report.v1"
+          }
+        ],
+        "exitPolicy": {
+          "success": [
+            "APPROVE",
+            "COMMENT"
+          ],
+          "failure": [
+            "REQUEST_CHANGES"
+          ]
+        }
+      }
+    },
+    {
+      "id": "scaffold-governance",
+      "kind": "command",
+      "name": "scaffold-governance",
+      "summary": "외부 OpenAPI 서비스용 governance interface/config/scripts scaffold 생성",
+      "components": {
+        "options": [
+          {
+            "name": "root",
+            "type": "string",
+            "required": true,
+            "description": "스캐폴드를 생성할 서비스 루트 디렉토리"
+          },
+          {
+            "name": "service",
+            "type": "string",
+            "required": true,
+            "description": "서비스 이름"
+          },
+          {
+            "name": "profile",
+            "type": "string",
+            "description": "generic | nestjs-swagger (기본: generic)"
+          },
+          {
+            "name": "source-command",
+            "type": "string",
+            "description": "raw OpenAPI artifact를 생성하는 명령. 예: pnpm export:openapi"
+          },
+          {
+            "name": "runtime-openapi-url",
+            "type": "string",
+            "description": "runtime drift 확인용 OpenAPI URL"
+          },
+          {
+            "name": "force",
+            "type": "boolean",
+            "description": "기존 scaffold 파일 덮어쓰기"
+          }
+        ],
+        "inputs": [],
+        "checks": [],
+        "reports": [
+          {
+            "formats": [
+              "human"
+            ],
+            "schema": "oa-gen.scaffold-governance.human.v1"
+          },
+          {
+            "formats": [
+              "json"
+            ],
+            "schema": "oa-gen.openapi-governance.v1"
+          }
+        ],
+        "exitPolicy": {
+          "success": [
+            "APPROVE"
+          ],
+          "failure": [
+            "REQUEST_CHANGES"
+          ]
+        }
+      }
+    },
+    {
       "id": "inventory",
       "kind": "command",
       "name": "inventory",
