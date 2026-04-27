@@ -1,8 +1,8 @@
 # Use Case: NestJS Swagger → oa-sdk Governance
 
-NestJS Swagger(code-first)가 자동 생성한 OpenAPI spec을 oa-sdk 도구로 검증·추적·타입 생성하는 패턴.
+NestJS Swagger(code-first)가 자동 생성한 OpenAPI spec을 oa-sdk 도구로 검증·추적·타입 생성하는 패턴. FastAPI 변형은 [`apps/fastapi-ref/`](../../../apps/fastapi-ref/)와 동일 파이프라인을 사용한다 — `oa-gen scaffold-governance --profile fastapi`만 다르고 나머지 흐름은 그대로다.
 
-레퍼런스 구현: [`apps/nestjs-ref/`](../../../apps/nestjs-ref/)
+레퍼런스 구현: [`apps/nestjs-ref/`](../../../apps/nestjs-ref/), [`apps/fastapi-ref/`](../../../apps/fastapi-ref/)
 
 ---
 
@@ -35,7 +35,7 @@ NestJS 앱 (code-first)
 │
 ├── scripts/
 │   ├── export-openapi.ts            ← NestJS 앱 컨텍스트로 스펙 추출
-│   └── openapi-governance.sh        ← scaffold가 만든 collect/check/review/typegen/inventory/validate-upgraded/drift/update-baseline 표준 진입점
+│   └── openapi-governance.sh        ← scaffold가 만든 collect/check/review/review-bundle/typegen/inventory/validate-upgraded/drift/update-baseline/all 표준 진입점
 │
 └── contracts/
     ├── v1.openapi.yaml              ← committed baseline (git 관리)
@@ -58,7 +58,7 @@ oa-gen scaffold-governance \
 스캐폴드는 다음 파일을 만든다.
 
 - `openapi-governance.config.json`: oa-sdk 기능별 artifact interface.
-- `scripts/openapi-governance.sh`: collect/check/review/typegen/inventory/validate-upgraded/drift 실행 표준 스크립트.
+- `scripts/openapi-governance.sh`: collect/check/review/review-bundle/typegen/inventory/validate-upgraded/drift/update-baseline/all 실행 표준 스크립트.
 - `openapi-governance.md`: 서비스별 governance 설정 문서.
 
 ---

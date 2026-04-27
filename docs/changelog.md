@@ -8,16 +8,21 @@ NestJS Swagger / FastAPI처럼 외부 프레임워크가 생성한 OpenAPI 산�
 
 ### CLI surface
 
-`@oa-sdk/codegen`에 4개 명령 추가 (CLI 명령 18 → 22):
+`@oa-sdk/codegen`에 4개 명령 추가 (oa-gen CLI 명령 17 → 21):
 
-- `oa-gen scaffold-governance --root <서비스> --service <이름> --profile <generic|nestjs-swagger> [--source-command "..."] [--runtime-openapi-url "..."]` — `openapi-governance.config.json`(`oa-gen.openapi-governance.v1` schema), `scripts/openapi-governance.sh`, `openapi-governance.md`를 생성하고 contracts/scripts/src 디렉토리를 만든다.
+- `oa-gen scaffold-governance --root <서비스> --service <이름> --profile <generic|nestjs-swagger|fastapi> [--source-command "..."] [--runtime-openapi-url "..."]` — `openapi-governance.config.json`(`oa-gen.openapi-governance.v1` schema), `scripts/openapi-governance.sh`, `openapi-governance.md`를 생성하고 contracts/scripts/src 디렉토리를 만든다.
 - `oa-gen collect --spec <raw> --normalized <out> --upgraded <out> [--report <out>] [--raw <copy>] [--profile <profile>]` — raw 보존 + normalized governance artifact + OpenAPI 3.2 분석 artifact + collect report를 한 번에 생성.
 - `oa-gen normalize --spec <raw> [--output <out>] [--profile <profile>]` — 의미 보존 normalize만(stable diff용).
 - `oa-gen upgrade --spec <normalized> [--output <out>] [--report <out>]` — 3.0/3.1 → 3.2 변환만.
 
 ### Reference implementation
 
-`apps/nestjs-ref/`에 NestJS 10 + Swagger 7 레퍼런스 서비스 추가. `bash scripts/openapi-governance.sh all`이 collect → check-artifact → review → typegen → validate-upgraded까지 통과한다. `review-bundle`/`inventory`/`drift`/`update-baseline`도 별도 타깃으로 노출.
+두 개의 작동하는 레퍼런스가 같은 scaffold 출력을 사용한다 — profile만 다름:
+
+- `apps/nestjs-ref/` — NestJS 10 + Swagger 7 (TypeScript / pnpm), `--profile nestjs-swagger`.
+- `apps/fastapi-ref/` — FastAPI 0.115 + Pydantic 2 (Python / uv), `--profile fastapi`.
+
+두 곳 모두 `bash scripts/openapi-governance.sh all`이 collect → check-artifact → review → typegen → validate-upgraded까지 통과한다. `review-bundle`/`inventory`/`drift`/`update-baseline`도 별도 타깃으로 노출. FastAPI/NestJS profile은 빈 `info.contact` / 루트 `servers` / 루트 `tags` noise 제거 동작을 공유한다 (generic profile은 보존).
 
 ### Hardening
 
@@ -48,6 +53,6 @@ NestJS Swagger / FastAPI처럼 외부 프레임워크가 생성한 OpenAPI 산�
 ### Gates
 
 - 47 test files / 648 tests passing.
-- `pnpm check:cli-spec` — 22 command entities.
+- `pnpm check:cli-spec` — 22 command entities (oa-gen 15 + oa-contract 7 manifest entries; the runtime CLI itself exports 21 commands, of which 15 are governance-tracked).
 - `pnpm check:api-index` — exports와 문서 정합.
 - `pnpm check:feature-tests` — 23 features / 86 test paths (신규 `external-openapi-governance-scaffold` 항목 등록).

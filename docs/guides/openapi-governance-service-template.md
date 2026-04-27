@@ -74,6 +74,8 @@ for OpenAPI 3.2 inventory, validation, and analysis features.
 
 ## Path Ownership
 
+> External-artifact mode: declare these paths in the service's CI gate via `--must-include-path` / `--must-exclude-path` flags on `oa-gen target-check --artifact`. The scaffold's rendered script does not run target-check; add it to CI as needed.
+
 List expected public surface.
 
 ```yaml
@@ -95,6 +97,8 @@ For nested paths, follow [Path Fragment Conventions](./path-fragment-conventions
 
 ## Target Artifact And Sidecars
 
+> Definition Builder mode only. External-artifact services skip this entire section — the rendered `scripts/openapi-governance.sh` produces normalized/upgraded artifacts via `oa-gen collect` instead.
+
 ```bash
 SERVICE={service-name}
 OUT=artifacts/openapi-governance/$SERVICE
@@ -115,6 +119,8 @@ oa-gen build-spec \
 Skip this section for services that do not use Definition Builder target configs.
 
 ## Standard Checks
+
+Definition Builder mode:
 
 ```bash
 SERVICE={service-name}
@@ -143,13 +149,19 @@ Scaffolded external-artifact mode:
 bash scripts/openapi-governance.sh collect
 bash scripts/openapi-governance.sh check
 bash scripts/openapi-governance.sh review
+bash scripts/openapi-governance.sh review-bundle
 bash scripts/openapi-governance.sh typegen
 bash scripts/openapi-governance.sh inventory
 bash scripts/openapi-governance.sh validate-upgraded
 bash scripts/openapi-governance.sh drift
+bash scripts/openapi-governance.sh drift --runtime-header "Authorization: Bearer $TOKEN"
+bash scripts/openapi-governance.sh update-baseline
+bash scripts/openapi-governance.sh all
 ```
 
 ## Duplicate Review
+
+> Definition Builder mode only. External-artifact services skip this section — there are no fragments to dedupe.
 
 ```bash
 oa-gen duplicate-review \
@@ -226,6 +238,8 @@ OpenAPI file first and use file mode.
 
 ## Review Bundle
 
+Definition Builder mode (full sidecar set):
+
 ```bash
 oa-gen review-bundle \
   --base contracts/baselines/$SERVICE/v1.openapi.yaml \
@@ -245,6 +259,14 @@ oa-gen review-bundle \
 ```
 
 If a sidecar does not apply to the service, omit that flag.
+
+External-artifact mode minimum:
+
+```bash
+bash scripts/openapi-governance.sh review-bundle
+```
+
+The scaffold's `review-bundle` target invokes `oa-gen review-bundle --base BASELINE --head NORMALIZED --artifact BASELINE --inventory --format markdown`. Composition / metadata-registry / duplicate-review sidecars do not apply because external-artifact mode does not produce them.
 
 ## CI Gate
 

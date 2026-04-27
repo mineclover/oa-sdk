@@ -32,6 +32,20 @@ bash scripts/openapi-governance.sh update-baseline                              
 
 `drift` 케이스는 추가 인자를 그대로 `oa-gen drift`에 전달하므로 `--runtime-header`, `--behavior-log`, `--format json` 등을 자유롭게 붙일 수 있다.
 
+`package.json`에는 셸 진입점을 1:1로 매핑한 npm alias가 있다.
+
+| 스크립트 | 동작 |
+|---|---|
+| `pnpm governance:all` | `bash scripts/openapi-governance.sh all` |
+| `pnpm governance:collect` | `... collect` |
+| `pnpm governance:check` | `... check` (baseline freshness 단독) |
+| `pnpm governance:review` | `... review` |
+| `pnpm governance:review-bundle` | `... review-bundle` |
+| `pnpm governance:inventory` | `... inventory` |
+| `pnpm governance:validate-upgraded` | `... validate-upgraded` |
+| `pnpm governance:drift` | `... drift`(추가 인자 forwarding은 셸 직접 호출 사용) |
+| `pnpm governance:update-baseline` | `... update-baseline` |
+
 설치된 `oa-gen`을 쓰려면 `OA_GEN=oa-gen bash scripts/openapi-governance.sh all`. 첫 실행 시 baseline이 없으면 `update-baseline`을 가리키는 안내가 출력된다. 스크립트 헤더의 `# config fingerprint: <hash>` 라인이 현재 `openapi-governance.config.json`과 어긋나면 `--force` 재스캐폴드 신호다.
 
 ## 재생성
