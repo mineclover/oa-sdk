@@ -3,6 +3,7 @@ import { existsSync, mkdirSync, readFileSync, rmSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import {
   createOpenApiGovernanceInterface,
+  fingerprintGovernanceConfig,
   scaffoldOpenApiGovernance,
 } from '../cli/lib/openapi-governance-scaffold.js'
 
@@ -73,6 +74,8 @@ describe('openapi governance scaffold', () => {
     expect(script).toContain('source_openapi runs the --source-command captured at scaffold time as')
     expect(script).toContain('review-bundle')
     expect(script).toContain('--inventory')
+    expect(script).toContain('shift || true')
+    expect(script).toMatch(/drift --runtime-openapi-url[^\n]*"\$@"/)
     const doc = readFileSync(join(tmpDir, 'openapi-governance.md'), 'utf8')
     expect(doc).toContain('OpenAPI 3.2 analysis artifact')
     expect(doc).toContain('`all` runs the PR gate pipeline')
@@ -120,6 +123,35 @@ describe('openapi governance scaffold', () => {
     // inventory + validate read upgraded
     expect(script).toContain('inventory --spec "${UPGRADED}"')
     expect(script).toContain('validate --spec "${UPGRADED}"')
+  })
+
+  it('embeds a config fingerprint in the script header that matches helper output', () => {
+    const config = createOpenApiGovernanceInterface({
+      service: 'orders',
+      profile: 'nestjs-swagger',
+      sourceCommand: 'pnpm export:openapi',
+      runtimeOpenApiUrl: 'http://localhost:3000/openapi.json',
+    })
+    scaffoldOpenApiGovernance({
+      rootDir: tmpDir,
+      service: 'orders',
+      profile: 'nestjs-swagger',
+      sourceCommand: 'pnpm export:openapi',
+      runtimeOpenApiUrl: 'http://localhost:3000/openapi.json',
+    })
+    const expected = fingerprintGovernanceConfig(config)
+    const script = readFileSync(join(tmpDir, 'scripts/openapi-governance.sh'), 'utf8')
+    expect(script).toContain(`# config fingerprint: ${expected}`)
+  })
+
+  it('fingerprint changes when consumers/profile/artifacts diverge', () => {
+    const a = createOpenApiGovernanceInterface({ service: 'a', profile: 'generic' })
+    const b = createOpenApiGovernanceInterface({ service: 'a', profile: 'nestjs-swagger' })
+    expect(fingerprintGovernanceConfig(a)).not.toBe(fingerprintGovernanceConfig(b))
+
+    const c = createOpenApiGovernanceInterface({ service: 'a', profile: 'generic' })
+    c.consumers.review = 'artifacts.upgraded'
+    expect(fingerprintGovernanceConfig(a)).not.toBe(fingerprintGovernanceConfig(c))
   })
 
   it('rejects a non-http(s) runtime URL at scaffold time', () => {

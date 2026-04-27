@@ -38,3 +38,17 @@ bash scripts/openapi-governance.sh all
 - Use `contracts/openapi.upgraded.yaml` for OpenAPI 3.2 validation, inventory, and analysis.
 - Commit `contracts/v1.openapi.yaml`.
 - Ignore raw, normalized, upgraded, reports, and generated types unless the service deliberately publishes them.
+
+## Source of Truth
+
+`openapi-governance.config.json` is the source of truth for the artifact interface and consumer mapping. `scripts/openapi-governance.sh` is rendered from that config at scaffold time and bakes the resolved artifact paths into each step. **Hand-editing the JSON does not retroactively change the script.** After updating `artifacts` paths, `consumers` mapping, profile, source command, or runtime URL, re-run:
+
+```bash
+oa-gen scaffold-governance \
+  --root <service-root> \
+  --service nestjs-ref \
+  --profile nestjs-swagger \
+  --force
+```
+
+The shell script's first line includes a config fingerprint comment so divergence between the rendered script and the current config can be detected at a glance.

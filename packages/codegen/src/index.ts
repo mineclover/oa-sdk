@@ -26,6 +26,7 @@ export {
 } from './cli/lib/openapi-collect.js'
 export {
   createOpenApiGovernanceInterface,
+  fingerprintGovernanceConfig,
   formatScaffoldResult,
   scaffoldOpenApiGovernance,
 } from './cli/lib/openapi-governance-scaffold.js'

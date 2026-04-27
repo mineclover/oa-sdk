@@ -229,6 +229,7 @@ Typegen 공개 surface는 root entry(`@oa-sdk/codegen`)와 typegen sub-entry(`@o
 | `createOpenApiGovernanceInterface()` | `cli/lib/openapi-governance-scaffold.ts` | 외부 OpenAPI 서비스용 artifact interface(`oa-gen.openapi-governance.v1`) payload 생성 |
 | `scaffoldOpenApiGovernance()` | `cli/lib/openapi-governance-scaffold.ts` | 서비스 root에 `openapi-governance.config.json`, `scripts/openapi-governance.sh`, `openapi-governance.md`와 contracts/scripts/src 디렉토리를 생성 |
 | `formatScaffoldResult()` | `cli/lib/openapi-governance-scaffold.ts` | scaffold 결과의 root 디렉토리와 생성 파일 목록을 사용자 친화 텍스트로 렌더링 |
+| `fingerprintGovernanceConfig()` | `cli/lib/openapi-governance-scaffold.ts` | profile/source/artifacts/consumers를 안정 정렬 후 sha256 16자로 해시. rendered 스크립트와 config drift 감지에 사용 |
 
 ### 타입 (`@oa-sdk/codegen`)
 
