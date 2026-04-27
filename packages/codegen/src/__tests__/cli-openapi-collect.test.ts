@@ -122,6 +122,65 @@ describe('oa-gen normalize/upgrade/collect CLI', () => {
     expect(upgraded.openapi).toBe('3.2.0')
   })
 
+  it('collect copies the source to --raw and writes report only when --report is given', () => {
+    const specPath = writeYaml('source/openapi.yaml', {
+      openapi: '3.0.0',
+      info: { title: 'API', version: '1.0' },
+      paths: {},
+      components: {},
+    })
+    const rawCopyPath = join(tmpDir, 'snapshots/2026/openapi.raw.yaml')
+    const normalizedPath = join(tmpDir, 'normalized.yaml')
+    const upgradedPath = join(tmpDir, 'upgraded.yaml')
+    const reportPath = join(tmpDir, 'collect-report.json')
+
+    const withReport = runCli([
+      'collect',
+      '--spec', specPath,
+      '--raw', rawCopyPath,
+      '--normalized', normalizedPath,
+      '--upgraded', upgradedPath,
+      '--report', reportPath,
+    ])
+
+    expect(withReport.status).toBe(0)
+    expect(existsSync(rawCopyPath)).toBe(true)
+    expect(readFileSync(rawCopyPath, 'utf8')).toBe(readFileSync(specPath, 'utf8'))
+    expect(existsSync(reportPath)).toBe(true)
+    const report = JSON.parse(readFileSync(reportPath, 'utf8')) as OpenApiCollectReport
+    expect(report.raw).toBe(rawCopyPath)
+
+    rmSync(reportPath)
+    rmSync(rawCopyPath)
+    const noReport = runCli([
+      'collect',
+      '--spec', specPath,
+      '--normalized', normalizedPath,
+      '--upgraded', upgradedPath,
+    ])
+    expect(noReport.status).toBe(0)
+    expect(existsSync(reportPath)).toBe(false)
+    expect(existsSync(rawCopyPath)).toBe(false)
+  })
+
+  it('upgrade prints YAML to stdout when --output is omitted and skips --report', () => {
+    const specPath = writeYaml('openapi.yaml', {
+      openapi: '3.0.0',
+      info: { title: 'T', version: '1' },
+      paths: {},
+      components: {},
+    })
+    const reportPath = join(tmpDir, 'no-report-here.json')
+
+    const result = runCli(['upgrade', '--spec', specPath])
+
+    expect(result.status).toBe(0)
+    expect(result.stderr).toBe('')
+    const upgraded = parseYaml(result.stdout) as Record<string, unknown>
+    expect(upgraded.openapi).toBe('3.2.0')
+    expect(existsSync(reportPath)).toBe(false)
+  })
+
   it('collect rejects an unsupported --profile value', () => {
     const specPath = writeYaml('openapi.raw.yaml', {
       openapi: '3.0.0',
