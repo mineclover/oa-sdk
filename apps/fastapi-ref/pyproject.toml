@@ -17,6 +17,6 @@ dev = [
 
 [tool.uv]
 package = false
-
-[project.scripts]
-export-openapi = "scripts.export_openapi:main"
+# package = false skips installing the project as a Python package.
+# Run scripts/export_openapi.py directly: `uv run python scripts/export_openapi.py`.
+# That is the source-command baked into scripts/openapi-governance.sh.
