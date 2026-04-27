@@ -18,3 +18,6 @@ apps/nestjs-ref/contracts/openapi.normalized.yaml
 apps/nestjs-ref/contracts/openapi.upgraded.yaml
 apps/nestjs-ref/contracts/openapi.collect-report.json
 apps/nestjs-ref/src/generated/
+.spec-lens.db
+.spec-lens.db-shm
+.spec-lens.db-wal

@@ -42,6 +42,18 @@ Definition Builder PRD(US-001~014)와 Domain Backfill PRD(US-001~009)가 모두 
 
 ## 잔여 보완 작업
 
+### [x] 외부 OpenAPI artifact governance scaffold (NestJS Swagger 등)
+배경: NestJS Swagger처럼 코드퍼스트로 OpenAPI를 생성하는 외부 프레임워크 산출물을 oa-sdk governance 파이프라인에 표준 방식으로 연결할 수단이 없었다.
+완료 (2026-04-27): `oa-gen scaffold-governance` / `collect` / `normalize` / `upgrade` CLI 4종을 `@oa-sdk/codegen`에 추가. scaffold는 `openapi-governance.config.json` (artifact interface + consumer 매핑), `scripts/openapi-governance.sh` (collect/check/review/typegen/inventory/validate-upgraded/drift/update-baseline/all), `openapi-governance.md`를 생성하고 contracts/scripts/src 디렉토리를 만든다. `apps/nestjs-ref`를 NestJS 10 + Swagger 7 레퍼런스 구현으로 추가했다.
+하드닝:
+- 스크립트가 `git rev-parse --show-toplevel`로 repo root를 자동 감지하고, baseline 미존재 시 `update-baseline` 힌트와 함께 친절한 exit 1을 낸다.
+- `OA_GEN` 환경변수 split이 glob 확장하지 않도록 `read -ra OA_GEN_CMD <<<` 사용.
+- `--runtime-openapi-url`을 scaffold 시 `URL` 파서로 검증해 http(s) 아닌 값을 거절.
+- `--source-command`는 trusted 셸 입력임을 rendered 스크립트 주석으로 명시.
+- `upgradeOpenApiDocumentTo32`가 `paths`/`webhooks`/`components.{schemas,responses,parameters,requestBodies,headers,callbacks,pathItems}`를 모두 재귀 순회하여 nullable 변환을 빠뜨리지 않는다.
+- `cloneJson`은 `structuredClone` 사용으로 undefined 손실 방지.
+완료 기준: 레퍼런스 앱에서 `bash scripts/openapi-governance.sh all`이 collect → check → review → typegen → validate-upgraded까지 통과하고, 신규 4 CLI는 manifest/api-index/feature-test-matrix gates와 정합. 신규 helper 4개와 type 8개를 `@oa-sdk/codegen` public surface로 등록함.
+
 ### [x] OAS 3.2 coverage table drift 정리
 배경: `docs/internal/oas32-coverage.md`의 런타임 지원 표가 일부 최신 구현을 반영하지 못한다. `Webhooks`는 parser/router/client/mock-server 쪽 테스트가 있고, `Encoding`도 multipart field-level handling 구현이 완료됐지만 표에는 일부 `—`로 남아 있다.
 작업:
