@@ -61,9 +61,10 @@ oa-gen target-check \
   --must-exclude-path /admin
 ```
 
-외부 프레임워크 산출물(NestJS Swagger 등)을 oa-sdk 전체 기능에 연결하는 예시:
+외부 프레임워크 산출물(NestJS Swagger, FastAPI 등)을 oa-sdk 전체 기능에 연결하는 예시. profile은 `generic`/`nestjs-swagger`/`fastapi`를 지원하고, FastAPI는 `--profile fastapi` + `apps/fastapi-ref` 레퍼런스를 그대로 사용한다.
 
 ```bash
+# NestJS Swagger
 oa-gen scaffold-governance \
   --root apps/nestjs-ref \
   --service nestjs-ref \
@@ -72,7 +73,32 @@ oa-gen scaffold-governance \
   --runtime-openapi-url http://localhost:3000/openapi.json
 
 bash apps/nestjs-ref/scripts/openapi-governance.sh all
+
+# FastAPI
+oa-gen scaffold-governance \
+  --root apps/fastapi-ref \
+  --service fastapi-ref \
+  --profile fastapi \
+  --source-command "uv run python scripts/export_openapi.py" \
+  --runtime-openapi-url http://localhost:8000/openapi.json
+
+bash apps/fastapi-ref/scripts/openapi-governance.sh all
 ```
+
+### 레포 게이트 (drift checks)
+
+루트 `package.json`에서 사용 가능한 정합성 검사:
+
+| 명령 | 검사 대상 |
+|---|---|
+| `pnpm check:cli-spec` | `oa-gen` / `oa-contract` governance manifest와 `docs/cli-spec/*.json` 정합성 (현재 22 entities) |
+| `pnpm check:api-index` | 패키지 export ↔ `docs/internal/api-index.md` drift |
+| `pnpm check:feature-tests` | `docs/internal/feature-test-matrix.{md,json}` 항목 ↔ 실제 테스트 경로 (현재 23 features / 88 paths) |
+| `pnpm schema:parity:build` | Definition Builder parity artifact 빌드 |
+| `pnpm schema:parity:diff` | parity artifact ↔ `.merged.yaml` normalized diff |
+| `pnpm schema:parity:compat` | parity artifact를 downgrade-3.1 / spectral / redocly / oa-gen validate / typegen / router / client / mock-server까지 통과시키는 호환성 게이트 |
+
+`check:api-index`는 `pnpm build:scripts` 산출물에 의존하므로 처음에는 빌드 후 실행한다.
 
 ### 스키마 검증
 

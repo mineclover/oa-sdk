@@ -35,6 +35,7 @@ pnpm --filter @oa-sdk/schemas run merge    # 도메인 병합
 oa-gen validate --spec .merged.yaml        # 종합 검증 (3.2 + 3.1 호환)
 oa-gen lint --spec .merged.yaml            # 린트만
 oa-gen scaffold-governance --root apps/nestjs-ref --service nestjs-ref --profile nestjs-swagger --source-command "pnpm export:openapi"
+oa-gen scaffold-governance --root apps/fastapi-ref --service fastapi-ref --profile fastapi --source-command "uv run python scripts/export_openapi.py"
 oa-gen collect --spec contracts/openapi.raw.yaml --normalized contracts/openapi.normalized.yaml --upgraded contracts/openapi.upgraded.yaml --profile nestjs-swagger
 oa-gen normalize --spec contracts/openapi.raw.yaml --output contracts/openapi.normalized.yaml --profile nestjs-swagger
 oa-gen upgrade --spec contracts/openapi.normalized.yaml --output contracts/openapi.upgraded.yaml
@@ -92,7 +93,7 @@ console.log(describeApi(parseDocument(spec)))
 | [Concepts](./docs/concepts.md) | 공통 용어와 계약 경계 |
 | [Quick Start](./docs/guides/quick-start.md) | 5분 파이프라인 체험 |
 | [OpenAPI Governance Workflow](./docs/guides/use-cases/openapi-governance-workflow.md) | target sidecar + PR review gate |
-| [NestJS Swagger Governance](./docs/guides/use-cases/nestjs-swagger-governance.md) | Swagger 3.0 산출물 수집 + normalized/upgraded artifact |
+| [NestJS Swagger / FastAPI Governance](./docs/guides/use-cases/nestjs-swagger-governance.md) | NestJS Swagger 또는 FastAPI 산출물 수집 + normalized/upgraded artifact (apps/nestjs-ref, apps/fastapi-ref) |
 | [Service Governance Template](./docs/guides/openapi-governance-service-template.md) | 서비스별 OpenAPI governance 설정 템플릿 |
 | [Path Fragment Conventions](./docs/guides/path-fragment-conventions.md) | path 폴더/ID/feedback 좌표 규칙 |
 | [전체 문서](./docs/README.md) | 유저 가이드 + SSOT |

@@ -42,9 +42,9 @@ Definition Builder PRD(US-001~014)와 Domain Backfill PRD(US-001~009)가 모두 
 
 ## 잔여 보완 작업
 
-### [x] 외부 OpenAPI artifact governance scaffold (NestJS Swagger 등)
-배경: NestJS Swagger처럼 코드퍼스트로 OpenAPI를 생성하는 외부 프레임워크 산출물을 oa-sdk governance 파이프라인에 표준 방식으로 연결할 수단이 없었다.
-완료 (2026-04-27): `oa-gen scaffold-governance` / `collect` / `normalize` / `upgrade` CLI 4종을 `@oa-sdk/codegen`에 추가. scaffold는 `openapi-governance.config.json` (artifact interface + consumer 매핑), `scripts/openapi-governance.sh` (collect/check/review/typegen/inventory/validate-upgraded/drift/update-baseline/all), `openapi-governance.md`를 생성하고 contracts/scripts/src 디렉토리를 만든다. `apps/nestjs-ref`를 NestJS 10 + Swagger 7 레퍼런스 구현으로 추가했다.
+### [x] 외부 OpenAPI artifact governance scaffold (NestJS Swagger, FastAPI 등)
+배경: NestJS Swagger / FastAPI처럼 코드퍼스트로 OpenAPI를 생성하는 외부 프레임워크 산출물을 oa-sdk governance 파이프라인에 표준 방식으로 연결할 수단이 없었다.
+완료 (2026-04-27): `oa-gen scaffold-governance` / `collect` / `normalize` / `upgrade` CLI 4종을 `@oa-sdk/codegen`에 추가. scaffold는 `openapi-governance.config.json` (artifact interface + consumer 매핑), `scripts/openapi-governance.sh` (collect/check/review/review-bundle/typegen/inventory/validate-upgraded/drift/update-baseline/all), `openapi-governance.md`를 생성하고 contracts/scripts/src 디렉토리를 만든다. `apps/nestjs-ref`(NestJS 10 + Swagger 7, `--profile nestjs-swagger`)와 `apps/fastapi-ref`(FastAPI 0.115 + Pydantic 2, `--profile fastapi`)를 두 레퍼런스 구현으로 추가했다 — 두 profile 모두 빈 `info.contact`/루트 `servers`/루트 `tags` noise 제거 동작을 공유한다.
 하드닝:
 - 스크립트가 `git rev-parse --show-toplevel`로 repo root를 자동 감지하고, baseline 미존재 시 `update-baseline` 힌트와 함께 친절한 exit 1을 낸다.
 - `OA_GEN` 환경변수 split이 glob 확장하지 않도록 `read -ra OA_GEN_CMD <<<` 사용.

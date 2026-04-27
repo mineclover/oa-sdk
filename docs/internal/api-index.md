@@ -221,7 +221,7 @@ Typegen 공개 surface는 root entry(`@oa-sdk/codegen`)와 typegen sub-entry(`@o
 | `createMemoryWorkspaceIndex()` | `workspace-index.ts` | 파일 단위 metadata 저장/변경 감지용 in-memory WorkspaceIndex 생성 |
 | `createSQLiteWorkspaceIndex()` | `sqlite-workspace-index.ts` | `.oa-cache/state.sqlite` 기반 persistent WorkspaceIndex 생성 |
 | `SQLITE_WORKSPACE_INDEX_SCHEMA_VERSION` | `sqlite-workspace-index.ts` | SQLite workspace index schema compatibility version |
-| `parseOpenApiCollectProfile()` | `cli/lib/openapi-collect.ts` | undefined → 'generic' default, generic/nestjs-swagger 외 값은 supported list와 함께 throw |
+| `parseOpenApiCollectProfile()` | `cli/lib/openapi-collect.ts` | undefined → 'generic' default, generic/nestjs-swagger/fastapi 외 값은 supported list와 함께 throw |
 | `normalizeOpenApiDocument()` | `cli/lib/openapi-collect.ts` | 외부 OpenAPI 문서를 의미 보존 normalize (noise 제거, stable key/array ordering, YAML anchor 제거) |
 | `upgradeOpenApiDocumentTo32()` | `cli/lib/openapi-collect.ts` | normalized OpenAPI 3.0/3.1 문서를 OpenAPI 3.2 분석 artifact로 파생하고 nullable 등 변환 report를 함께 반환 |
 | `stringifyOpenApiYaml()` | `cli/lib/openapi-collect.ts` | normalized OpenAPI 문서를 YAML anchor 없이 stable한 YAML 문자열로 직렬화 |

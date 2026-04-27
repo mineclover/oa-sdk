@@ -1,8 +1,8 @@
 # nestjs-ref
 
-NestJS Swagger → oa-sdk governance 레퍼런스 구현. 외부 OpenAPI 산출물을 oa-sdk 기능별 artifact interface로 연결하는 표준 흐름의 작동하는 예제다.
+NestJS Swagger → oa-sdk governance 레퍼런스 구현. 외부 OpenAPI 산출물을 oa-sdk 기능별 artifact interface로 연결하는 표준 흐름의 작동하는 예제다. FastAPI 변형은 [`apps/fastapi-ref/`](../fastapi-ref/) 참조 — 동일 파이프라인, `--profile fastapi`만 다름.
 
-상세 가이드: [docs/guides/use-cases/nestjs-swagger-governance.md](../../docs/guides/use-cases/nestjs-swagger-governance.md)
+상세 가이드: [docs/guides/use-cases/nestjs-swagger-governance.md](../../docs/guides/use-cases/nestjs-swagger-governance.md) (NestJS / FastAPI 양쪽 다룸)
 서비스 템플릿: [docs/guides/openapi-governance-service-template.md](../../docs/guides/openapi-governance-service-template.md)
 
 ## 구성
