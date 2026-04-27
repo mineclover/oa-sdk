@@ -20,7 +20,7 @@ Zod Schema  ──▶  OpenAPI 3.2 Spec      ──▶ TypeScript 타입
 | `@oa-sdk/schemas` | 도메인 분리 OAS 3.2 소스 + merge + 3.1↔3.2 변환 |
 | `@oa-sdk/parser` | OAS 3.2 파서 + IR + fold + lint + validate + query |
 | `@oa-sdk/mock-server` | AJV Mock 서버 (MSW + Node HTTP) + Security + 테스트 헬퍼 |
-| `@oa-sdk/codegen` | Zod/Drizzle → OAS + Definition Builder target artifact + OAS → TS 타입 + CLI 18커맨드 |
+| `@oa-sdk/codegen` | Zod/Drizzle → OAS + Definition Builder target artifact + 외부 OpenAPI 수집/업그레이드 + OAS → TS 타입 + CLI 22커맨드 |
 | `@oa-sdk/router` | OAS → Hono/Express 라우터 스텁 |
 | `@oa-sdk/client` | OAS → fetch 클라이언트 SDK + SSE + 인증 미들웨어 + 재시도 |
 | `@oa-sdk/typia-mock` | typia ILlmApplication 기반 LLM 함수 호출 검증 서버 |
@@ -34,6 +34,9 @@ pnpm install
 pnpm --filter @oa-sdk/schemas run merge    # 도메인 병합
 oa-gen validate --spec .merged.yaml        # 종합 검증 (3.2 + 3.1 호환)
 oa-gen lint --spec .merged.yaml            # 린트만
+oa-gen scaffold-governance --root apps/nestjs-ref --service nestjs-ref --profile nestjs-swagger --source-command "pnpm export:openapi"
+oa-gen collect --spec contracts/openapi.raw.yaml --normalized contracts/openapi.normalized.yaml --upgraded contracts/openapi.upgraded.yaml --profile nestjs-swagger
+oa-gen upgrade --spec contracts/openapi.normalized.yaml --output contracts/openapi.upgraded.yaml
 oa-gen diff --base old.yaml --head .merged.yaml --fail-on-breaking
 oa-gen check-artifact --head .merged.yaml --artifact dist/openapi.yaml
 oa-gen check-artifact --head .merged.yaml --target packages/schemas/src/targets/local-parity-api.yaml --artifact packages/schemas/src/.builder/local-parity-api.yaml
@@ -88,6 +91,7 @@ console.log(describeApi(parseDocument(spec)))
 | [Concepts](./docs/concepts.md) | 공통 용어와 계약 경계 |
 | [Quick Start](./docs/guides/quick-start.md) | 5분 파이프라인 체험 |
 | [OpenAPI Governance Workflow](./docs/guides/use-cases/openapi-governance-workflow.md) | target sidecar + PR review gate |
+| [NestJS Swagger Governance](./docs/guides/use-cases/nestjs-swagger-governance.md) | Swagger 3.0 산출물 수집 + normalized/upgraded artifact |
 | [Service Governance Template](./docs/guides/openapi-governance-service-template.md) | 서비스별 OpenAPI governance 설정 템플릿 |
 | [Path Fragment Conventions](./docs/guides/path-fragment-conventions.md) | path 폴더/ID/feedback 좌표 규칙 |
 | [전체 문서](./docs/README.md) | 유저 가이드 + SSOT |

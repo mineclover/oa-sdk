@@ -221,6 +221,14 @@ Typegen 공개 surface는 root entry(`@oa-sdk/codegen`)와 typegen sub-entry(`@o
 | `createMemoryWorkspaceIndex()` | `workspace-index.ts` | 파일 단위 metadata 저장/변경 감지용 in-memory WorkspaceIndex 생성 |
 | `createSQLiteWorkspaceIndex()` | `sqlite-workspace-index.ts` | `.oa-cache/state.sqlite` 기반 persistent WorkspaceIndex 생성 |
 | `SQLITE_WORKSPACE_INDEX_SCHEMA_VERSION` | `sqlite-workspace-index.ts` | SQLite workspace index schema compatibility version |
+| `parseOpenApiCollectProfile()` | `cli/lib/openapi-collect.ts` | undefined → 'generic' default, generic/nestjs-swagger 외 값은 supported list와 함께 throw |
+| `normalizeOpenApiDocument()` | `cli/lib/openapi-collect.ts` | 외부 OpenAPI 문서를 의미 보존 normalize (noise 제거, stable key/array ordering, YAML anchor 제거) |
+| `upgradeOpenApiDocumentTo32()` | `cli/lib/openapi-collect.ts` | normalized OpenAPI 3.0/3.1 문서를 OpenAPI 3.2 분석 artifact로 파생하고 nullable 등 변환 report를 함께 반환 |
+| `stringifyOpenApiYaml()` | `cli/lib/openapi-collect.ts` | normalized OpenAPI 문서를 YAML anchor 없이 stable한 YAML 문자열로 직렬화 |
+| `createOpenApiCollectReport()` | `cli/lib/openapi-collect.ts` | profile/raw/normalized/upgraded 경로와 upgrade report를 묶은 collect report payload 생성 |
+| `createOpenApiGovernanceInterface()` | `cli/lib/openapi-governance-scaffold.ts` | 외부 OpenAPI 서비스용 artifact interface(`oa-gen.openapi-governance.v1`) payload 생성 |
+| `scaffoldOpenApiGovernance()` | `cli/lib/openapi-governance-scaffold.ts` | 서비스 root에 `openapi-governance.config.json`, `scripts/openapi-governance.sh`, `openapi-governance.md`와 contracts/scripts/src 디렉토리를 생성 |
+| `formatScaffoldResult()` | `cli/lib/openapi-governance-scaffold.ts` | scaffold 결과의 root 디렉토리와 생성 파일 목록을 사용자 친화 텍스트로 렌더링 |
 
 ### 타입 (`@oa-sdk/codegen`)
 
@@ -258,6 +266,13 @@ Typegen 공개 surface는 root entry(`@oa-sdk/codegen`)와 typegen sub-entry(`@o
 | `SQLiteWorkspaceIndex` | `sqlite-workspace-index.ts` | SQLite-backed WorkspaceIndex with database path, fallback reason, and close method |
 | `SQLiteWorkspaceIndexOptions` | `sqlite-workspace-index.ts` | cacheDir/dbPath/schemaVersion/compatibility/busyTimeoutMs 설정 |
 | `SqliteDriverName` | `sqlite-workspace-index.ts` | persistent index backend 이름 (`better-sqlite3` primary, `node:sqlite` fallback) |
+| `OpenApiCollectProfile` | `cli/lib/openapi-collect.ts` | 외부 OpenAPI collect/normalize/scaffold profile union (generic \| nestjs-swagger) |
+| `OpenApiTransformWarning` | `cli/lib/openapi-collect.ts` | collect/upgrade pipeline의 pointer-aware 변환/경고 항목 |
+| `OpenApiUpgradeReport` | `cli/lib/openapi-collect.ts` | OpenAPI 3.0/3.1 → 3.2 변환 report. source/target version과 conversion/warning 목록 포함 |
+| `OpenApiCollectReport` | `cli/lib/openapi-collect.ts` | collect command가 기록하는 raw/normalized/upgraded 경로와 upgrade report 묶음 |
+| `OpenApiGovernanceInterface` | `cli/lib/openapi-governance-scaffold.ts` | 외부 OpenAPI 서비스용 artifact interface(`oa-gen.openapi-governance.v1`) payload 타입 |
+| `OpenApiGovernanceScaffoldOptions` | `cli/lib/openapi-governance-scaffold.ts` | scaffold root/service/profile/source-command/runtime URL/force overwrite 옵션 |
+| `OpenApiGovernanceScaffoldResult` | `cli/lib/openapi-governance-scaffold.ts` | scaffold 결과의 rootDir와 생성된 파일 절대 경로 목록 |
 
 ### 내부 함수 (`@oa-sdk/codegen` — index 미노출)
 
@@ -339,12 +354,16 @@ Typegen 공개 surface는 root entry(`@oa-sdk/codegen`)와 typegen sub-entry(`@o
 | `build-spec` | `packages/codegen/src/cli/commands/build-spec.ts`, `packages/codegen/src/cli/lib/build-spec.ts`, `packages/codegen/src/cli/lib/composition-report.ts`, `packages/codegen/src/cli/lib/provenance-report.ts`, `packages/codegen/src/cli/lib/metadata-registry.ts`, `packages/codegen/src/cli/lib/behavior-recorder.ts`, `packages/codegen/src/cli/lib/behavior-registry.ts` | Definition Builder target config와 fragments에서 OpenAPI artifact를 생성하고 diagnostics, collision report, composition report, provenance sidecar, metadata registry sidecar를 출력하며 선택적으로 behavior JSONL/SQLite record를 append한다 |
 | `behavior-query` | `packages/codegen/src/cli/commands/behavior-query.ts`, `packages/codegen/src/cli/lib/behavior-query.ts`, `packages/codegen/src/cli/lib/behavior-projection.ts` | behavior SQLite projection을 filtered recent/latest-by-type/latest-failure-by-type/latest-by-identity/latest-by-target/latest-by-decision-signal/latest-by-recommendation 및 summary-by-type/status/target-type/behavior-status/behavior-decision-signal/decision-signal/recommendation 모드로 조회하며 `decision-signal` exact-match filter를 지원한다 |
 | `check-artifact` | `packages/codegen/src/cli/commands/check-artifact.ts`, `packages/codegen/src/cli/lib/artifact-freshness.ts`, `packages/codegen/src/cli/lib/artifact-review.ts` | generated OpenAPI artifact freshness 확인 |
+| `collect` | `packages/codegen/src/cli/commands/collect.ts`, `packages/codegen/src/cli/lib/openapi-collect.ts` | 외부 OpenAPI 산출물을 raw로 보존하고 stable governance용 normalized artifact와 OpenAPI 3.2 analysis용 upgraded artifact, collect report를 생성한다 |
 | `duplicate-review` | `packages/codegen/src/cli/commands/duplicate-review.ts`, `packages/codegen/src/cli/lib/duplicate-review.ts` | Definition fragments duplicate identity risk를 `markdown` 또는 `json`으로 보고하고 error severity finding에서만 non-zero 종료 |
 | `drift` | `packages/codegen/src/cli/commands/drift.ts`, `packages/codegen/src/cli/lib/behavior-recorder.ts`, `packages/codegen/src/cli/lib/behavior-registry.ts` | managed OpenAPI 파일과 runtime OpenAPI 파일 또는 URL을 비교하고 URL fetch/HTTP/parse 실패를 `drift-check-failed`로 보고하며 선택적으로 behavior JSONL/SQLite record를 append한다 |
 | `inventory` | `packages/codegen/src/cli/commands/inventory.ts` + `packages/codegen/src/cli/lib/openapi-inventory.ts` | OpenAPI YAML/JSON 또는 Definition Builder target artifact에서 path/operation/component count, tag/domain grouping, security scheme usage, projection source metadata, unused component candidates를 `markdown` 또는 `json`으로 보고 |
+| `normalize` | `packages/codegen/src/cli/commands/normalize.ts`, `packages/codegen/src/cli/lib/openapi-collect.ts` | 외부 OpenAPI 산출물의 의미를 바꾸지 않고 noise 제거, stable ordering, YAML anchor 제거를 적용해 diff 가능한 governance artifact를 생성한다 |
 | `review` | `packages/codegen/src/cli/commands/review.ts`, `packages/codegen/src/cli/lib/review-report.ts`, `packages/codegen/src/cli/lib/artifact-review.ts`, `packages/codegen/src/cli/lib/review-sidecar-diff.ts`, `packages/codegen/src/cli/lib/review-markdown.ts`, `packages/codegen/src/cli/lib/review-policy.ts`, `packages/codegen/src/cli/lib/provenance-report.ts`, `packages/codegen/src/cli/lib/metadata-registry.ts`, `packages/codegen/src/cli/lib/behavior-registry.ts` | base/head OpenAPI diff, validation, artifact freshness를 묶고 선택적으로 base/head provenance sidecar와 metadata registry sidecar 변경 entries를 report에 포함 |
 | `review-bundle` | `packages/codegen/src/cli/commands/review-bundle.ts`, `packages/codegen/src/cli/lib/review-bundle.ts`, `packages/codegen/src/cli/lib/artifact-review.ts`, `packages/codegen/src/cli/lib/review-sidecar-diff.ts`, `packages/codegen/src/cli/lib/review-markdown.ts`, `packages/codegen/src/cli/lib/review-policy.ts`, `packages/codegen/src/cli/lib/provenance-report.ts`, `packages/codegen/src/cli/lib/metadata-registry.ts`, `packages/codegen/src/cli/lib/behavior-recorder.ts`, `packages/codegen/src/cli/lib/behavior-registry.ts` | base/head OpenAPI diff와 artifact freshness를 필수 section으로 묶고 선택적으로 inventory, runtime drift JSON, provenance diff, composition report JSON, metadata registry JSON, metadata registry diff, duplicate-review JSON을 stable nested section으로 포함하며 behavior JSONL/SQLite record를 append할 수 있다 |
+| `scaffold-governance` | `packages/codegen/src/cli/commands/scaffold-governance.ts`, `packages/codegen/src/cli/lib/openapi-governance-scaffold.ts` | 외부 OpenAPI 서비스 루트에 `openapi-governance.config.json`, `scripts/openapi-governance.sh`, `openapi-governance.md`를 생성해 oa-sdk 기능별 artifact interface를 표준화한다 |
 | `target-check` | `packages/codegen/src/cli/commands/target-check.ts`, `packages/codegen/src/cli/lib/target-coverage.ts` | Definition Builder target config 또는 generated OpenAPI artifact의 emitted path surface를 include/exclude assertion으로 검증하고 실패 시 non-zero 종료 |
+| `upgrade` | `packages/codegen/src/cli/commands/upgrade.ts`, `packages/codegen/src/cli/lib/openapi-collect.ts` | normalized OpenAPI 3.0/3.1 artifact를 OpenAPI 3.2 analysis artifact로 파생하고 nullable 등 표현 변환 report를 남긴다 |
 
 Governance manifest: `packages/codegen/src/cli/spec/oa-gen-governance.ts` 및 `docs/cli-spec/oa-gen.governance.json`.
 

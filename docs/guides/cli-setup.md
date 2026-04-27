@@ -27,6 +27,10 @@ API 변경 PR에서는 [OpenAPI Governance Workflow](./use-cases/openapi-governa
 | 명령 | 목적 |
 |---|---|
 | `oa-gen build-spec` | Definition Builder target artifact와 diagnostics/collision/composition/provenance/metadata sidecar 생성 |
+| `oa-gen scaffold-governance` | 외부 OpenAPI 서비스용 config/script/docs 스캐폴드 생성 |
+| `oa-gen collect` | 외부 OpenAPI raw 산출물을 normalized governance artifact와 OpenAPI 3.2 upgraded artifact로 수집 |
+| `oa-gen normalize` | 외부 OpenAPI 문서를 stable diff 가능한 governance artifact로 정규화 |
+| `oa-gen upgrade` | OpenAPI 3.0/3.1 문서를 OpenAPI 3.2 analysis artifact로 파생 |
 | `oa-gen inventory` | OpenAPI path/operation/component/security surface 요약 |
 | `oa-gen behavior-query` | behavior SQLite projection을 filtered recent/latest와 summary-by-* 기준으로 조회 (`--status`, `--decision-signal`, `latest-by-decision-signal`, `behavior+decision` composite summary 지원) |
 | `oa-gen duplicate-review` | fragment duplicate identity risk와 semantic alias 검토 |
@@ -55,6 +59,19 @@ oa-gen target-check \
   --target packages/schemas/src/targets/local-parity-api.yaml \
   --must-include-path /health \
   --must-exclude-path /admin
+```
+
+외부 프레임워크 산출물(NestJS Swagger 등)을 oa-sdk 전체 기능에 연결하는 예시:
+
+```bash
+oa-gen scaffold-governance \
+  --root apps/nestjs-ref \
+  --service nestjs-ref \
+  --profile nestjs-swagger \
+  --source-command "pnpm export:openapi" \
+  --runtime-openapi-url http://localhost:3000/openapi.json
+
+bash apps/nestjs-ref/scripts/openapi-governance.sh all
 ```
 
 ### 스키마 검증

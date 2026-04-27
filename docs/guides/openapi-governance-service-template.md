@@ -1,8 +1,19 @@
 # OpenAPI Governance Service Template
 
-새 서비스에 oa-sdk governance를 붙일 때 이 문서를 복사해서 서비스별 설정 문서로 사용한다.
-권장 위치는 서비스 repo의 `docs/openapi-governance.md` 또는 monorepo의
-`services/{service}/openapi-governance.md`다.
+새 서비스에 oa-sdk governance를 붙일 때 사용하는 표준 템플릿이다. 외부 프레임워크가
+생성하는 OpenAPI 산출물(NestJS Swagger, FastAPI 등)은 먼저 스캐폴드 명령으로
+`raw → normalized → upgraded` artifact interface를 만든다.
+
+```bash
+oa-gen scaffold-governance \
+  --root services/{service} \
+  --service {service-name} \
+  --profile generic \
+  --source-command "{command-that-writes-contracts/openapi.raw.yaml}" \
+  --runtime-openapi-url http://localhost:{port}/openapi.json
+```
+
+NestJS Swagger 서비스는 `--profile nestjs-swagger`를 사용한다.
 
 ## Service Profile
 
@@ -12,9 +23,10 @@
 | Owner | `{team-or-owner}` |
 | Runtime base URL | `http://localhost:{port}` |
 | Runtime OpenAPI URL | `http://localhost:{port}/openapi.json` |
-| Managed OpenAPI | `{path-to-managed-openapi.yaml}` |
-| Generated artifact | `{path-to-generated-openapi.yaml}` |
-| Baseline OpenAPI | `contracts/baselines/{service}/v1.openapi.yaml` |
+| Raw artifact | `contracts/openapi.raw.yaml` |
+| Normalized governance artifact | `contracts/openapi.normalized.yaml` |
+| OpenAPI 3.2 analysis artifact | `contracts/openapi.upgraded.yaml` |
+| Baseline OpenAPI | `contracts/v1.openapi.yaml` |
 | Baseline provenance | `contracts/baselines/{service}/v1.provenance.json` |
 | Target config | `{path-to-target.yaml}` |
 | Fragments root | `{path-to-fragments}` |
@@ -30,6 +42,35 @@ Choose one primary source mode.
 | Definition Builder target | Service owns modular fragments and target configs | Target config, fragments root, managed artifact output |
 | Projection producer | Service emits OpenAPI Projection envelope or component bundle | Projection snapshot, managed OpenAPI adapter output |
 | Python ContractSpec snapshot | Python service uses `oa-contract` snapshot | ContractSpec JSON, emitted OpenAPI artifact |
+
+## Artifact Interface
+
+`openapi-governance.config.json` declares which artifact each oa-sdk capability consumes.
+
+```json
+{
+  "schemaVersion": "oa-gen.openapi-governance.v1",
+  "artifacts": {
+    "raw": "contracts/openapi.raw.yaml",
+    "normalized": "contracts/openapi.normalized.yaml",
+    "upgraded": "contracts/openapi.upgraded.yaml",
+    "baseline": "contracts/v1.openapi.yaml",
+    "collectReport": "contracts/openapi.collect-report.json",
+    "typegen": "src/generated/api-types.ts"
+  },
+  "consumers": {
+    "governance": "artifacts.normalized",
+    "review": "artifacts.normalized",
+    "typegen": "artifacts.normalized",
+    "inventory": "artifacts.upgraded",
+    "validate": "artifacts.upgraded",
+    "driftManaged": "artifacts.normalized"
+  }
+}
+```
+
+Use `normalized` for contract stability and breaking-change review. Use `upgraded`
+for OpenAPI 3.2 inventory, validation, and analysis features.
 
 ## Path Ownership
 
@@ -94,6 +135,18 @@ oa-gen inventory \
   --spec {path-to-managed-openapi.yaml} \
   --format json \
   > "$OUT/$SERVICE.inventory.json"
+```
+
+Scaffolded external-artifact mode:
+
+```bash
+bash scripts/openapi-governance.sh collect
+bash scripts/openapi-governance.sh check
+bash scripts/openapi-governance.sh review
+bash scripts/openapi-governance.sh typegen
+bash scripts/openapi-governance.sh inventory
+bash scripts/openapi-governance.sh validate-upgraded
+bash scripts/openapi-governance.sh drift
 ```
 
 ## Duplicate Review
