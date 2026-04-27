@@ -283,10 +283,18 @@ oa-gen typegen --spec "$NORMALIZED" --output src/generated/api-types.ts
 
 ```bash
 bash apps/nestjs-ref/scripts/openapi-governance.sh all              # collect → check → review → typegen → validate-upgraded
+bash apps/nestjs-ref/scripts/openapi-governance.sh review-bundle    # PR comment용 단일 markdown(--inventory 포함)
 bash apps/nestjs-ref/scripts/openapi-governance.sh inventory        # 3.2 upgraded artifact 기준 inventory
 bash apps/nestjs-ref/scripts/openapi-governance.sh drift             # runtime OpenAPI URL 비교
+bash apps/nestjs-ref/scripts/openapi-governance.sh drift --runtime-header "Authorization: Bearer $TOKEN"
 bash apps/nestjs-ref/scripts/openapi-governance.sh update-baseline  # baseline 갱신
 ```
+
+`drift` 케이스는 첫 인자 이후의 모든 인자를 그대로 `oa-gen drift`에 전달하므로 `--runtime-header`, `--behavior-log`, `--format json` 등을 추가로 붙일 수 있다.
+
+### Config Source of Truth
+
+`openapi-governance.config.json`이 artifact interface와 consumer 매핑의 단일 소스다. `scripts/openapi-governance.sh`는 scaffold time에 그 config를 기준으로 렌더링되며, 각 단계에 어떤 artifact를 넘길지 (NORMALIZED / UPGRADED / BASELINE)는 그때 고정된다. JSON을 hand-edit해도 스크립트는 자동 갱신되지 않으므로, `artifacts` 경로나 `consumers` 매핑이 바뀌면 `oa-gen scaffold-governance --root <서비스> --service <이름> --profile <profile> --force`를 다시 실행해야 한다. 렌더링된 스크립트 헤더의 `# config fingerprint: <hash>` 한 줄이 현재 config와 일치하지 않으면 동기화가 어긋났다는 신호다.
 
 ---
 

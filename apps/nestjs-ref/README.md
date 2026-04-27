@@ -22,13 +22,17 @@ pnpm --filter @oa-sdk/codegen build
 
 # 작업 디렉토리: apps/nestjs-ref
 pnpm export:openapi             # NestJS → contracts/openapi.raw.yaml
-bash scripts/openapi-governance.sh all   # collect → check → review → typegen → validate-upgraded
+bash scripts/openapi-governance.sh all          # collect → check → review → typegen → validate-upgraded
+bash scripts/openapi-governance.sh review-bundle # PR comment용 단일 markdown(inventory 포함)
 bash scripts/openapi-governance.sh inventory
-bash scripts/openapi-governance.sh drift              # 별도 터미널에서 pnpm dev로 서버 실행 중일 때
-bash scripts/openapi-governance.sh update-baseline    # 의도된 변경 후 baseline 갱신
+bash scripts/openapi-governance.sh drift                                                  # localhost:3000 OpenAPI와 비교
+bash scripts/openapi-governance.sh drift --runtime-header "Authorization: Bearer $TOKEN"  # 인증된 runtime URL
+bash scripts/openapi-governance.sh update-baseline                                        # 의도된 변경 후 baseline 갱신
 ```
 
-설치된 `oa-gen`을 쓰려면 `OA_GEN=oa-gen bash scripts/openapi-governance.sh all`. 첫 실행 시 baseline이 없으면 `update-baseline`을 가리키는 안내가 출력된다.
+`drift` 케이스는 추가 인자를 그대로 `oa-gen drift`에 전달하므로 `--runtime-header`, `--behavior-log`, `--format json` 등을 자유롭게 붙일 수 있다.
+
+설치된 `oa-gen`을 쓰려면 `OA_GEN=oa-gen bash scripts/openapi-governance.sh all`. 첫 실행 시 baseline이 없으면 `update-baseline`을 가리키는 안내가 출력된다. 스크립트 헤더의 `# config fingerprint: <hash>` 라인이 현재 `openapi-governance.config.json`과 어긋나면 `--force` 재스캐폴드 신호다.
 
 ## 재생성
 

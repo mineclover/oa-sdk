@@ -1,5 +1,7 @@
 # oa-sdk 문서
 
+최근 체크포인트: [Changelog](./changelog.md) (가장 최근: 2026-04-27 — External OpenAPI Artifact Governance Scaffold).
+
 ## 유저 가이드
 
 | 문서 | 대상 |
