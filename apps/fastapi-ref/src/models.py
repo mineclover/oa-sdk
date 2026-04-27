@@ -1,9 +1,8 @@
-from datetime import datetime
 from enum import Enum
 from typing import Optional
 from uuid import UUID
 
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import AwareDatetime, BaseModel, EmailStr, Field
 
 
 class UserRole(str, Enum):
@@ -16,7 +15,7 @@ class User(BaseModel):
     email: EmailStr
     name: str = Field(min_length=1, max_length=120)
     role: UserRole = UserRole.user
-    createdAt: datetime
+    createdAt: AwareDatetime
 
 
 class CreateUserRequest(BaseModel):
@@ -37,7 +36,7 @@ class UsersListResponse(BaseModel):
 
 class HealthStatus(BaseModel):
     status: str = Field(pattern="^(ok|degraded|down)$")
-    timestamp: datetime
+    timestamp: AwareDatetime
 
 
 class ApiError(BaseModel):
