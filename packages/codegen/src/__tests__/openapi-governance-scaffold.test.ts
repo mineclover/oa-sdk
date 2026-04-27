@@ -65,6 +65,38 @@ describe('openapi governance scaffold', () => {
     const script = readFileSync(join(tmpDir, 'scripts/openapi-governance.sh'), 'utf8')
     expect(script).toContain('validate-upgraded')
     expect(script).toContain('"${OA_GEN_CMD[@]}" collect')
-    expect(readFileSync(join(tmpDir, 'openapi-governance.md'), 'utf8')).toContain('OpenAPI 3.2 analysis artifact')
+    expect(script).toContain('git -C "$APP_DIR" rev-parse --show-toplevel')
+    expect(script).toContain('require_baseline()')
+    expect(script).toContain("hint: run '$0 update-baseline'")
+    expect(script).toContain('Override the oa-gen invocation by setting OA_GEN')
+    const doc = readFileSync(join(tmpDir, 'openapi-governance.md'), 'utf8')
+    expect(doc).toContain('OpenAPI 3.2 analysis artifact')
+    expect(doc).toContain('`all` runs the PR gate pipeline')
+  })
+
+  it('refuses to overwrite existing scaffold without --force', () => {
+    scaffoldOpenApiGovernance({
+      rootDir: tmpDir,
+      service: 'orders',
+      profile: 'generic',
+    })
+
+    expect(() =>
+      scaffoldOpenApiGovernance({
+        rootDir: tmpDir,
+        service: 'orders',
+        profile: 'generic',
+      }),
+    ).toThrow(/refusing to overwrite/)
+  })
+
+  it('emits source_openapi guard when --source-command is omitted', () => {
+    scaffoldOpenApiGovernance({
+      rootDir: tmpDir,
+      service: 'orders',
+      profile: 'generic',
+    })
+    const script = readFileSync(join(tmpDir, 'scripts/openapi-governance.sh'), 'utf8')
+    expect(script).toContain('test -f "$RAW" || { echo "missing raw OpenAPI artifact: $RAW"; exit 1; }')
   })
 })
