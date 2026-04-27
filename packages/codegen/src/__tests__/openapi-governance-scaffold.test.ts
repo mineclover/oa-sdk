@@ -69,6 +69,8 @@ describe('openapi governance scaffold', () => {
     expect(script).toContain('require_baseline()')
     expect(script).toContain("hint: run '$0 update-baseline'")
     expect(script).toContain('Override the oa-gen invocation by setting OA_GEN')
+    expect(script).toContain('read -ra OA_GEN_CMD <<< "${OA_GEN}"')
+    expect(script).toContain('source_openapi runs the --source-command captured at scaffold time as')
     const doc = readFileSync(join(tmpDir, 'openapi-governance.md'), 'utf8')
     expect(doc).toContain('OpenAPI 3.2 analysis artifact')
     expect(doc).toContain('`all` runs the PR gate pipeline')
@@ -98,5 +100,24 @@ describe('openapi governance scaffold', () => {
     })
     const script = readFileSync(join(tmpDir, 'scripts/openapi-governance.sh'), 'utf8')
     expect(script).toContain('test -f "$RAW" || { echo "missing raw OpenAPI artifact: $RAW"; exit 1; }')
+  })
+
+  it('rejects a non-http(s) runtime URL at scaffold time', () => {
+    expect(() =>
+      scaffoldOpenApiGovernance({
+        rootDir: tmpDir,
+        service: 'orders',
+        profile: 'generic',
+        runtimeOpenApiUrl: 'file:///etc/passwd',
+      }),
+    ).toThrow(/expected http: or https:/)
+    expect(() =>
+      scaffoldOpenApiGovernance({
+        rootDir: tmpDir,
+        service: 'orders',
+        profile: 'generic',
+        runtimeOpenApiUrl: 'not a url',
+      }),
+    ).toThrow(/invalid --runtime-openapi-url/)
   })
 })

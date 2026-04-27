@@ -87,6 +87,10 @@ export function scaffoldOpenApiGovernance(
   const rootDir = resolve(process.cwd(), options.rootDir)
   mkdirSync(rootDir, { recursive: true })
 
+  if (options.runtimeOpenApiUrl !== undefined) {
+    assertValidRuntimeUrl(options.runtimeOpenApiUrl)
+  }
+
   const governance = createOpenApiGovernanceInterface({
     service: options.service,
     profile: options.profile,
@@ -105,6 +109,18 @@ export function scaffoldOpenApiGovernance(
   mkdirSync(join(rootDir, 'src/generated'), { recursive: true })
 
   return { rootDir, files }
+}
+
+function assertValidRuntimeUrl(value: string): void {
+  let parsed: URL
+  try {
+    parsed = new URL(value)
+  } catch {
+    throw new Error(`invalid --runtime-openapi-url: ${value}. expected http(s) URL.`)
+  }
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+    throw new Error(`invalid --runtime-openapi-url protocol: ${parsed.protocol}. expected http: or https:.`)
+  }
 }
 
 function writeScaffoldFile(
@@ -141,8 +157,9 @@ else
   REPO_ROOT="$(cd "$APP_DIR/../.." && pwd)"
 fi
 if [[ -n "\${OA_GEN:-}" ]]; then
-  # shellcheck disable=SC2206
-  OA_GEN_CMD=(\${OA_GEN})
+  # Split on whitespace without pathname expansion. read -ra preserves
+  # quoted segments better than the legacy unquoted array assignment.
+  read -ra OA_GEN_CMD <<< "\${OA_GEN}"
 else
   OA_GEN_CMD=(node "$REPO_ROOT/packages/codegen/dist/cli/index.js")
 fi
@@ -155,6 +172,10 @@ COLLECT_REPORT="$APP_DIR/${config.artifacts.collectReport}"
 TYPEGEN="$APP_DIR/${config.artifacts.typegen}"
 RUNTIME_OPENAPI_URL="${runtimeUrl ?? ''}"
 
+# source_openapi runs the --source-command captured at scaffold time as
+# verbatim shell. Treat its body as trusted input from whoever ran scaffold;
+# review changes here the same way you would review any committed shell
+# script before running 'all'.
 source_openapi() {
 ${sourceCommand ? `  (cd "$APP_DIR" && ${sourceCommand})` : '  test -f "$RAW" || { echo "missing raw OpenAPI artifact: $RAW"; exit 1; }'}
 }

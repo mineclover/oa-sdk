@@ -78,12 +78,7 @@ export function upgradeOpenApiDocumentTo32(
     })
   }
 
-  const schemas = readRecord(readRecord(upgraded.components).schemas)
-  for (const [name, schema] of Object.entries(schemas)) {
-    if (isRecord(schema)) {
-      schemas[name] = upgradeSchemaObject(schema, `#/components/schemas/${escapeJsonPointer(name)}`, warnings, conversions)
-    }
-  }
+  upgradeAllSchemaPositions(upgraded, warnings, conversions)
 
   const normalized = normalizeOpenApiDocument(upgraded)
   return {
@@ -129,6 +124,235 @@ export function createOpenApiCollectReport(options: {
     upgraded: options.upgraded,
     upgrade: options.upgrade,
   }
+}
+
+function upgradeAllSchemaPositions(
+  document: Record<string, unknown>,
+  warnings: OpenApiTransformWarning[],
+  conversions: OpenApiTransformWarning[],
+): void {
+  const components = readRecord(document.components)
+  upgradeRecordOfSchemas(components, 'schemas', '#/components/schemas', warnings, conversions)
+  upgradeRecordOfHeaders(components, 'headers', '#/components/headers', warnings, conversions)
+  upgradeRecordOfParameters(components, 'parameters', '#/components/parameters', warnings, conversions)
+  upgradeRecordOfRequestBodies(components, 'requestBodies', '#/components/requestBodies', warnings, conversions)
+  upgradeRecordOfResponses(components, 'responses', '#/components/responses', warnings, conversions)
+  upgradeRecordOfCallbacks(components, 'callbacks', '#/components/callbacks', warnings, conversions)
+  upgradeRecordOfPathItems(components, 'pathItems', '#/components/pathItems', warnings, conversions)
+
+  upgradeRecordOfPathItems(document, 'paths', '#/paths', warnings, conversions)
+  upgradeRecordOfPathItems(document, 'webhooks', '#/webhooks', warnings, conversions)
+}
+
+function upgradeRecordOfCallbacks(
+  parent: Record<string, unknown>,
+  key: string,
+  pointer: string,
+  warnings: OpenApiTransformWarning[],
+  conversions: OpenApiTransformWarning[],
+): void {
+  const map = readRecord(parent[key])
+  for (const [name, callback] of Object.entries(map)) {
+    if (!isRecord(callback) || isReference(callback)) continue
+    for (const [expression, pathItem] of Object.entries(callback)) {
+      if (!isRecord(pathItem) || isReference(pathItem)) continue
+      upgradePathItem(pathItem, `${pointer}/${escapeJsonPointer(name)}/${escapeJsonPointer(expression)}`, warnings, conversions)
+    }
+  }
+}
+
+function upgradeRecordOfSchemas(
+  parent: Record<string, unknown>,
+  key: string,
+  pointer: string,
+  warnings: OpenApiTransformWarning[],
+  conversions: OpenApiTransformWarning[],
+): void {
+  const map = readRecord(parent[key])
+  for (const [name, schema] of Object.entries(map)) {
+    if (!isRecord(schema)) continue
+    map[name] = upgradeSchemaObject(schema, `${pointer}/${escapeJsonPointer(name)}`, warnings, conversions)
+  }
+  if (Object.keys(map).length > 0) parent[key] = map
+}
+
+function upgradeRecordOfHeaders(
+  parent: Record<string, unknown>,
+  key: string,
+  pointer: string,
+  warnings: OpenApiTransformWarning[],
+  conversions: OpenApiTransformWarning[],
+): void {
+  const map = readRecord(parent[key])
+  for (const [name, header] of Object.entries(map)) {
+    if (!isRecord(header) || isReference(header)) continue
+    upgradeParameterLike(header, `${pointer}/${escapeJsonPointer(name)}`, warnings, conversions)
+  }
+}
+
+function upgradeRecordOfParameters(
+  parent: Record<string, unknown>,
+  key: string,
+  pointer: string,
+  warnings: OpenApiTransformWarning[],
+  conversions: OpenApiTransformWarning[],
+): void {
+  const map = readRecord(parent[key])
+  for (const [name, parameter] of Object.entries(map)) {
+    if (!isRecord(parameter) || isReference(parameter)) continue
+    upgradeParameterLike(parameter, `${pointer}/${escapeJsonPointer(name)}`, warnings, conversions)
+  }
+}
+
+function upgradeRecordOfRequestBodies(
+  parent: Record<string, unknown>,
+  key: string,
+  pointer: string,
+  warnings: OpenApiTransformWarning[],
+  conversions: OpenApiTransformWarning[],
+): void {
+  const map = readRecord(parent[key])
+  for (const [name, requestBody] of Object.entries(map)) {
+    if (!isRecord(requestBody) || isReference(requestBody)) continue
+    upgradeRequestBody(requestBody, `${pointer}/${escapeJsonPointer(name)}`, warnings, conversions)
+  }
+}
+
+function upgradeRecordOfResponses(
+  parent: Record<string, unknown>,
+  key: string,
+  pointer: string,
+  warnings: OpenApiTransformWarning[],
+  conversions: OpenApiTransformWarning[],
+): void {
+  const map = readRecord(parent[key])
+  for (const [name, response] of Object.entries(map)) {
+    if (!isRecord(response) || isReference(response)) continue
+    upgradeResponse(response, `${pointer}/${escapeJsonPointer(name)}`, warnings, conversions)
+  }
+}
+
+function upgradeRecordOfPathItems(
+  parent: Record<string, unknown>,
+  key: string,
+  pointer: string,
+  warnings: OpenApiTransformWarning[],
+  conversions: OpenApiTransformWarning[],
+): void {
+  const map = readRecord(parent[key])
+  for (const [name, item] of Object.entries(map)) {
+    if (!isRecord(item) || isReference(item)) continue
+    upgradePathItem(item, `${pointer}/${escapeJsonPointer(name)}`, warnings, conversions)
+  }
+}
+
+function upgradePathItem(
+  pathItem: Record<string, unknown>,
+  pointer: string,
+  warnings: OpenApiTransformWarning[],
+  conversions: OpenApiTransformWarning[],
+): void {
+  upgradeArrayOfParameters(pathItem, 'parameters', pointer, warnings, conversions)
+  for (const method of HTTP_METHODS) {
+    const operation = pathItem[method]
+    if (!isRecord(operation)) continue
+    upgradeOperation(operation, `${pointer}/${method}`, warnings, conversions)
+  }
+}
+
+function upgradeOperation(
+  operation: Record<string, unknown>,
+  pointer: string,
+  warnings: OpenApiTransformWarning[],
+  conversions: OpenApiTransformWarning[],
+): void {
+  upgradeArrayOfParameters(operation, 'parameters', pointer, warnings, conversions)
+  const requestBody = operation.requestBody
+  if (isRecord(requestBody) && !isReference(requestBody)) {
+    upgradeRequestBody(requestBody, `${pointer}/requestBody`, warnings, conversions)
+  }
+  const responses = readRecord(operation.responses)
+  for (const [code, response] of Object.entries(responses)) {
+    if (!isRecord(response) || isReference(response)) continue
+    upgradeResponse(response, `${pointer}/responses/${escapeJsonPointer(code)}`, warnings, conversions)
+  }
+  upgradeRecordOfCallbacks(operation, 'callbacks', `${pointer}/callbacks`, warnings, conversions)
+}
+
+function upgradeArrayOfParameters(
+  parent: Record<string, unknown>,
+  key: string,
+  parentPointer: string,
+  warnings: OpenApiTransformWarning[],
+  conversions: OpenApiTransformWarning[],
+): void {
+  const list = parent[key]
+  if (!Array.isArray(list)) return
+  list.forEach((parameter, index) => {
+    if (!isRecord(parameter) || isReference(parameter)) return
+    upgradeParameterLike(parameter, `${parentPointer}/${key}/${index}`, warnings, conversions)
+  })
+}
+
+function upgradeParameterLike(
+  parameter: Record<string, unknown>,
+  pointer: string,
+  warnings: OpenApiTransformWarning[],
+  conversions: OpenApiTransformWarning[],
+): void {
+  upgradeSchemaSlot(parameter, pointer, warnings, conversions)
+  upgradeContentSlot(parameter, pointer, warnings, conversions)
+}
+
+function upgradeRequestBody(
+  requestBody: Record<string, unknown>,
+  pointer: string,
+  warnings: OpenApiTransformWarning[],
+  conversions: OpenApiTransformWarning[],
+): void {
+  upgradeContentSlot(requestBody, pointer, warnings, conversions)
+}
+
+function upgradeResponse(
+  response: Record<string, unknown>,
+  pointer: string,
+  warnings: OpenApiTransformWarning[],
+  conversions: OpenApiTransformWarning[],
+): void {
+  upgradeContentSlot(response, pointer, warnings, conversions)
+  const headers = readRecord(response.headers)
+  for (const [name, header] of Object.entries(headers)) {
+    if (!isRecord(header) || isReference(header)) continue
+    upgradeParameterLike(header, `${pointer}/headers/${escapeJsonPointer(name)}`, warnings, conversions)
+  }
+}
+
+function upgradeSchemaSlot(
+  parent: Record<string, unknown>,
+  parentPointer: string,
+  warnings: OpenApiTransformWarning[],
+  conversions: OpenApiTransformWarning[],
+): void {
+  const schema = parent.schema
+  if (!isRecord(schema)) return
+  parent.schema = upgradeSchemaObject(schema, `${parentPointer}/schema`, warnings, conversions)
+}
+
+function upgradeContentSlot(
+  parent: Record<string, unknown>,
+  parentPointer: string,
+  warnings: OpenApiTransformWarning[],
+  conversions: OpenApiTransformWarning[],
+): void {
+  const content = readRecord(parent.content)
+  for (const [mediaType, value] of Object.entries(content)) {
+    if (!isRecord(value)) continue
+    upgradeSchemaSlot(value, `${parentPointer}/content/${escapeJsonPointer(mediaType)}`, warnings, conversions)
+  }
+}
+
+function isReference(value: Record<string, unknown>): boolean {
+  return typeof value.$ref === 'string'
 }
 
 function upgradeSchemaObject(
@@ -220,6 +444,9 @@ function shouldDropNoise(
   profile: OpenApiCollectProfile,
   pointer: string,
 ): boolean {
+  // Only drop empty fields when we know the source generator emitted them as
+  // unavoidable defaults. For `generic` we preserve everything — an empty
+  // `servers: []` or `tags: []` from an unknown source may be intentional.
   if (profile !== 'nestjs-swagger') return false
   if (key === 'contact' && isRecord(value) && Object.keys(value).length === 0) return true
   if ((key === 'servers' || key === 'tags') && Array.isArray(value) && value.length === 0 && pointer.split('/').length === 2) {
@@ -286,7 +513,7 @@ function compareStable(left: unknown, right: unknown): number {
 }
 
 function cloneJson<T>(value: T): T {
-  return JSON.parse(JSON.stringify(value)) as T
+  return structuredClone(value)
 }
 
 function readRecord(value: unknown): Record<string, unknown> {

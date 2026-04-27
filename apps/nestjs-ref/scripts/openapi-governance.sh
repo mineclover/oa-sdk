@@ -13,8 +13,9 @@ else
   REPO_ROOT="$(cd "$APP_DIR/../.." && pwd)"
 fi
 if [[ -n "${OA_GEN:-}" ]]; then
-  # shellcheck disable=SC2206
-  OA_GEN_CMD=(${OA_GEN})
+  # Split on whitespace without pathname expansion. read -ra preserves
+  # quoted segments better than the legacy unquoted array assignment.
+  read -ra OA_GEN_CMD <<< "${OA_GEN}"
 else
   OA_GEN_CMD=(node "$REPO_ROOT/packages/codegen/dist/cli/index.js")
 fi
@@ -27,6 +28,10 @@ COLLECT_REPORT="$APP_DIR/contracts/openapi.collect-report.json"
 TYPEGEN="$APP_DIR/src/generated/api-types.ts"
 RUNTIME_OPENAPI_URL="http://localhost:3000/openapi.json"
 
+# source_openapi runs the --source-command captured at scaffold time as
+# verbatim shell. Treat its body as trusted input from whoever ran scaffold;
+# review changes here the same way you would review any committed shell
+# script before running 'all'.
 source_openapi() {
   (cd "$APP_DIR" && pnpm export:openapi)
 }
