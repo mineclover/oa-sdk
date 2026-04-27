@@ -200,4 +200,27 @@ describe('SQLiteWorkspaceIndex fallback driver chain', () => {
     expect(message).toContain('Simulated missing module: better-sqlite3')
     expect(message).toContain('Simulated missing module: node:sqlite')
   })
+
+  it('falls back to better-sqlite3 when node:sqlite cannot be required (older Node simulation)', () => {
+    patchModuleLoad(new Set(['node:sqlite']))
+
+    const driver = loadSqliteDriver()
+    expect(driver.name).toBe<SqliteDriverName>('better-sqlite3')
+
+    const tmp = mkdtempSync(join(tmpdir(), 'oa-sdk-sqlite-fallback-'))
+    try {
+      const dbPath = join(tmp, 'driver.sqlite')
+      const db = driver.open(dbPath)
+      try {
+        db.exec('CREATE TABLE probe (id INTEGER PRIMARY KEY, label TEXT NOT NULL)')
+        db.prepare('INSERT INTO probe (id, label) VALUES (?, ?)').run(1, 'better-sqlite3-fallback-ok')
+        const row = db.prepare('SELECT label FROM probe WHERE id = ?').get(1)
+        expect(row).toEqual({ label: 'better-sqlite3-fallback-ok' })
+      } finally {
+        db.close()
+      }
+    } finally {
+      rmSync(tmp, { recursive: true, force: true })
+    }
+  })
 })

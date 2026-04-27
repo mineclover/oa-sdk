@@ -642,19 +642,11 @@ class NodeSQLiteWorkspaceIndex implements SQLiteWorkspaceIndex {
 }
 
 export function loadSqliteDriver(): SqliteDriver {
+  // Prefer node:sqlite (built-in, no native compilation, ~40% faster on the
+  // warm-cache workload that dominates incremental tool runs — see
+  // packages/codegen/scripts/bench-sqlite-driver.ts). Fall back to
+  // better-sqlite3 when running on Node <22 where node:sqlite is unavailable.
   const errors: string[] = []
-
-  try {
-    const betterSqlite = require('better-sqlite3') as BetterSqliteModule
-    return {
-      name: 'better-sqlite3',
-      open(path: string): SqliteDatabase {
-        return betterSqlite(path)
-      },
-    }
-  } catch (error) {
-    errors.push(`better-sqlite3: ${errorMessage(error)}`)
-  }
 
   try {
     const sqlite = require('node:sqlite') as NodeSqliteModule
@@ -666,6 +658,18 @@ export function loadSqliteDriver(): SqliteDriver {
     }
   } catch (error) {
     errors.push(`node:sqlite: ${errorMessage(error)}`)
+  }
+
+  try {
+    const betterSqlite = require('better-sqlite3') as BetterSqliteModule
+    return {
+      name: 'better-sqlite3',
+      open(path: string): SqliteDatabase {
+        return betterSqlite(path)
+      },
+    }
+  } catch (error) {
+    errors.push(`better-sqlite3: ${errorMessage(error)}`)
   }
 
   throw new Error(`No supported SQLite driver found (${errors.join('; ')})`)

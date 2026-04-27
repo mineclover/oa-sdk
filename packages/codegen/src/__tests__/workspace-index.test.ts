@@ -401,7 +401,7 @@ describe('WorkspaceIndex', () => {
     }
   })
 
-  it('loads a supported SQLite driver with better-sqlite3 preferred when available', () => {
+  it('loads a supported SQLite driver with node:sqlite preferred and better-sqlite3 fallback', () => {
     const driver = loadSqliteDriver()
     expect(['better-sqlite3', 'node:sqlite']).toContain(driver.name)
   })
