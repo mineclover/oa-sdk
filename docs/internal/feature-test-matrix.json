@@ -492,6 +492,39 @@
       ]
     },
     {
+      "id": "external-openapi-governance-scaffold",
+      "name": "External OpenAPI governance scaffold",
+      "category": "governance",
+      "package": "@oa-sdk/codegen",
+      "description": "oa-gen scaffold-governance/collect/normalize/upgrade for services that consume third-party OpenAPI artifacts (NestJS Swagger, FastAPI, etc.) — generated artifact interface, normalize/upgrade transforms, and rendered governance shell script.",
+      "capabilities": [
+        "scaffold-governance",
+        "scaffold artifact interface (oa-gen.openapi-governance.v1)",
+        "rendered openapi-governance.sh script (collect/check/review/typegen/inventory/validate-upgraded/drift/update-baseline/all)",
+        "rendered openapi-governance.md doc",
+        "runtime URL validation at scaffold time",
+        "OA_GEN env override without glob expansion",
+        "git rev-parse repo root detection with fallback",
+        "missing-baseline guard with update-baseline hint",
+        "collect (normalize + 3.2 upgrade + collect report)",
+        "normalize (stable governance artifact)",
+        "upgrade (3.0/3.1 → 3.2 analysis artifact + transform report)",
+        "nullable upgrade across paths/webhooks/components/callbacks",
+        "profile parsing (generic | nestjs-swagger)"
+      ],
+      "testPaths": [
+        "packages/codegen/src/__tests__/openapi-collect.test.ts",
+        "packages/codegen/src/__tests__/openapi-governance-scaffold.test.ts",
+        "packages/codegen/src/__tests__/cli-openapi-collect.test.ts",
+        "apps/nestjs-ref/openapi-governance.config.json",
+        "apps/nestjs-ref/scripts/openapi-governance.sh"
+      ],
+      "commands": [
+        "pnpm --filter @oa-sdk/codegen test",
+        "pnpm --filter @oa-sdk/codegen typecheck"
+      ]
+    },
+    {
       "id": "python-contract-governance-template",
       "name": "Python contract governance template",
       "category": "template",
