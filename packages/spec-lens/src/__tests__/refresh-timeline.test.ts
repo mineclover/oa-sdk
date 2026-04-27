@@ -178,4 +178,37 @@ describe('RefreshTimelineHandler', () => {
     const usersEntry = pathEntries?.find(e => e.path === '/users')
     expect(usersEntry?.lastChangedRevisionId).toBe('r1')
   })
+
+  it('treats getSnapshotByRevision rejection as cache miss and builds the revision', async () => {
+    const revisions = [makeRevision('r1')]
+
+    const source: SpecSourcePort = {
+      listRevisions: vi.fn().mockResolvedValue(revisions),
+      getFileEntries: vi.fn().mockResolvedValue([]),
+    } as unknown as SpecSourcePort
+
+    const built = makeStored('r1')
+    const builder: SnapshotBuilderPort = {
+      build: vi.fn().mockResolvedValue(built),
+      diff: vi.fn().mockReturnValue(makeDiff()),
+    } as unknown as SnapshotBuilderPort
+
+    const saveSnapshot = vi.fn().mockResolvedValue(undefined)
+    const cache: CachePort = {
+      // throws instead of returning null — must be treated as miss
+      getSnapshotByRevision: vi.fn().mockRejectedValue(new Error('DB locked')),
+      saveSnapshot,
+      saveDiff: vi.fn().mockResolvedValue(undefined),
+      getDiff: vi.fn().mockResolvedValue(null),
+      upsertTimelineEntry: vi.fn().mockResolvedValue(undefined),
+      upsertPathEntries: vi.fn().mockResolvedValue(undefined),
+    } as unknown as CachePort
+
+    const handler = new RefreshTimelineHandler(source, builder, cache)
+    const result = await handler.handle(OPTIONS)
+
+    expect(result.newRevisions).toBe(1)
+    expect(result.builtSnapshots).toBe(1)
+    expect(saveSnapshot).toHaveBeenCalledOnce()
+  })
 })

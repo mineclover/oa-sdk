@@ -670,7 +670,10 @@ function CenteredSpinner() {
 
 function extractByPointer(obj: Record<string, unknown>, pointer: string): unknown {
   // pointer format: #/components/schemas/Error or /components/schemas/Error
-  const parts = pointer.replace(/^#?\//, '').split('/').filter(Boolean)
+  // RFC 6901: ~1 → '/', ~0 → '~' (decode ~1 first)
+  const parts = pointer.replace(/^#?\//, '').split('/')
+    .filter(Boolean)
+    .map(p => p.replaceAll('~1', '/').replaceAll('~0', '~'))
   let current: unknown = obj
   for (const part of parts) {
     if (typeof current !== 'object' || current === null) return undefined

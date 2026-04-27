@@ -181,3 +181,66 @@ describe('SqliteCache — upsertTimelineEntry / listTimeline', () => {
     expect(list).toHaveLength(3)
   })
 })
+
+describe('SqliteCache — clearCache', () => {
+  it('removes snapshots, entries, diffs, timeline, and returns counts', async () => {
+    await cache.saveSnapshot(makeSnapshot('rev-001', '/f', 'api'), makeEntries())
+    await cache.saveDiff(makeDiff('base', 'rev-001'), '/f', 'api')
+    await cache.upsertTimelineEntry(
+      { revision: makeRevision('rev-001'), affectedFiles: [], snapshotCached: true,
+        diffStats: { pathsAdded: 0, pathsRemoved: 0, pathsChanged: 0, breakingChanges: 0 } },
+      '/f', 'api',
+    )
+
+    const result = await cache.clearCache('/f', 'api')
+    expect(result.deletedSnapshots).toBe(1)
+    expect(result.deletedDiffs).toBe(1)
+    expect(result.deletedTimeline).toBe(1)
+    expect(result.deletedEntries).toBe(1)
+
+    expect(await cache.getSnapshotByRevision('rev-001', '/f', 'api', 'test-digest')).toBeNull()
+    expect(await cache.listTimeline({ fragmentsDir: '/f', targetPath: 'api' })).toHaveLength(0)
+  })
+
+  it('removes orphaned fragment_blobs after clear', async () => {
+    await cache.saveSnapshot(makeSnapshot('rev-001', '/f', 'api'), makeEntries())
+    expect(await cache.getFragmentBlob('abc123')).toBe('type: object')
+
+    const result = await cache.clearCache('/f', 'api')
+    expect(result.deletedBlobs).toBe(1)
+    expect(await cache.getFragmentBlob('abc123')).toBeNull()
+  })
+
+  it('does not remove blobs shared with another target', async () => {
+    await cache.saveSnapshot(makeSnapshot('rev-001', '/f', 'api-a'), makeEntries())
+    await cache.saveSnapshot(makeSnapshot('rev-002', '/f', 'api-b'), makeEntries())
+
+    await cache.clearCache('/f', 'api-a')
+    // abc123 still referenced by api-b snapshot_entry
+    expect(await cache.getFragmentBlob('abc123')).toBe('type: object')
+  })
+
+  it('does not delete data for a different target', async () => {
+    await cache.saveSnapshot(makeSnapshot('rev-001', '/f', 'api-a'), makeEntries())
+    await cache.saveSnapshot(makeSnapshot('rev-001', '/f', 'api-b'), makeEntries())
+
+    await cache.clearCache('/f', 'api-a')
+    expect(await cache.getSnapshotByRevision('rev-001', '/f', 'api-b', 'test-digest')).not.toBeNull()
+  })
+})
+
+describe('SqliteCache — schemaVersion and malformed data guards', () => {
+  it('returns null for snapshot with wrong schemaVersion in DB', async () => {
+    const snap = makeSnapshot('rev-bad', '/f', 'api')
+    const broken = { ...snap, schemaVersion: 'spec-lens.snapshot.v99' }
+    await cache.saveSnapshot(broken as never, makeEntries())
+    expect(await cache.getSnapshotByRevision('rev-bad', '/f', 'api', 'test-digest')).toBeNull()
+  })
+
+  it('returns null for diff with wrong schemaVersion in DB', async () => {
+    const diff = makeDiff('base', 'head')
+    const broken = { ...diff, schemaVersion: 'spec-lens.diff.v99' }
+    await cache.saveDiff(broken as never, '/f', 'api')
+    expect(await cache.getDiff('base', 'head', '/f', 'api')).toBeNull()
+  })
+})

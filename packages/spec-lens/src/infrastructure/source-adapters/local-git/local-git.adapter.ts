@@ -27,7 +27,7 @@ export class LocalGitAdapter implements SpecSourcePort {
     if (branch !== undefined) args.push(branch)
     if (options.since !== undefined) args.push(`--since=${new Date(options.since).toISOString()}`)
     if (options.until !== undefined) args.push(`--until=${new Date(options.until).toISOString()}`)
-    if (options.limit !== undefined) args.push(`-${options.limit}`)
+    if (options.limit !== undefined) args.push(`-${Math.max(1, Math.floor(options.limit))}`)
     args.push('--', options.fragmentsDir)
 
     const output = await this.git(args)

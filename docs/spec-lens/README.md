@@ -99,7 +99,9 @@ gitlab:
   # host: https://gitlab.company.com  # self-hosted
 ```
 
-**인증**: `PRIVATE-TOKEN` 헤더 — `GITHUB_TOKEN` / `GH_TOKEN` 환경변수를 재사용한다.
+**인증** (resolve 순서):
+1. `GITLAB_TOKEN` / `GL_TOKEN` / `CI_JOB_TOKEN` 환경변수
+2. `glab auth token` CLI (GitLab CLI 설치된 경우)
 
 ---
 

@@ -138,7 +138,12 @@ export class SqliteCache implements CachePort {
       'SELECT data FROM snapshots WHERE revision_id = ? AND fragments_dir = ? AND target_path = ? AND target_config_digest = ? LIMIT 1',
     ).get(revisionId, fragmentsDir, targetPath, targetConfigDigest) as { data: string } | undefined
     if (row === undefined) return null
-    const snapshot = JSON.parse(row.data) as SpecSnapshotStored
+    let snapshot: SpecSnapshotStored
+    try {
+      snapshot = JSON.parse(row.data) as SpecSnapshotStored
+    } catch {
+      return null
+    }
     if (snapshot.schemaVersion !== 'spec-lens.snapshot.v1') return null
     return snapshot
   }
@@ -153,7 +158,12 @@ export class SqliteCache implements CachePort {
       'SELECT data FROM diffs WHERE base_revision_id = ? AND head_revision_id = ? AND fragments_dir = ? AND target_path = ?',
     ).get(baseRevisionId, headRevisionId, fragmentsDir, targetPath) as { data: string } | undefined
     if (row === undefined) return null
-    const diff = JSON.parse(row.data) as SpecTimelineDiff
+    let diff: SpecTimelineDiff
+    try {
+      diff = JSON.parse(row.data) as SpecTimelineDiff
+    } catch {
+      return null
+    }
     if (diff.schemaVersion !== 'spec-lens.diff.v1') return null
     return diff
   }

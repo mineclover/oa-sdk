@@ -35,7 +35,11 @@ function findConfig(): CliConfig | null {
     const p = resolve(process.cwd(), name)
     if (existsSync(p)) {
       const raw = readFileSync(p, 'utf8')
-      return (name.endsWith('.json') ? JSON.parse(raw) : parseYaml(raw)) as CliConfig
+      try {
+        return (name.endsWith('.json') ? JSON.parse(raw) : parseYaml(raw)) as CliConfig
+      } catch (err) {
+        throw new Error(`Failed to parse config '${name}': ${err instanceof Error ? err.message : String(err)}`)
+      }
     }
   }
   return null
@@ -51,6 +55,7 @@ function autoDetectConfig(): CliConfig {
     const full = resolve(process.cwd(), rel)
     if (existsSync(full)) {
       const fragmentsDir = resolve(dirname(full), '..', 'fragments')
+      if (!existsSync(fragmentsDir)) continue
       return {
         source: 'local-git',
         localGit: { repoPath: process.cwd() },
@@ -125,6 +130,15 @@ async function main() {
     targetConfig,
     ...(cfg.branch !== undefined ? { branch: cfg.branch } : {}),
     port,
+  })
+
+  process.on('SIGINT', () => {
+    cache.close()
+    process.exit(0)
+  })
+  process.on('SIGTERM', () => {
+    cache.close()
+    process.exit(0)
   })
 }
 

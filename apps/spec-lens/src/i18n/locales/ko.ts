@@ -87,7 +87,7 @@ const ko: KoKeys = {
   relDaysAgo: '{{count}}일 전',
 
   // ── PathProvenance ──────────────────────────────────────────
-  pathsTitle: 'Path Provenance',
+  pathsTitle: '경로 출처',
   pathsCount: '{{filtered}} / {{total}} 경로',
   pathsSearch: '경로 검색…',
   pathsAllScopes: '모든 scope',

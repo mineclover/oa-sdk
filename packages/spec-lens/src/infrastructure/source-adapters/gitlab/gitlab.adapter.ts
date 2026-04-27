@@ -82,14 +82,22 @@ export class GitlabAdapter implements SpecSourcePort {
 
     const fileItems = allItems.filter(item => item.type === 'blob' && isDefinitionFile(item.path))
 
-    const entries = await Promise.all(
+    const prefix = fragmentsDir.replace(/\/$/, '') + '/'
+    const settled = await Promise.allSettled(
       fileItems.map(async item => {
-        const prefix = fragmentsDir.replace(/\/$/, '') + '/'
         const relativePath = item.path.startsWith(prefix) ? item.path.slice(prefix.length) : item.path
         const content = await this.fetchFileContent(item.path, revision.id, token)
         return { relativePath, content, contentHash: sha256(content) }
       }),
     )
+    const entries: SpecFileEntry[] = []
+    for (const result of settled) {
+      if (result.status === 'fulfilled') {
+        entries.push(result.value)
+      } else {
+        console.warn(`[spec-lens] Skipping GitLab file at ${revision.id.slice(0, 7)}: ${result.reason instanceof Error ? result.reason.message : String(result.reason)}`)
+      }
+    }
     return entries
   }
 
@@ -122,7 +130,8 @@ export class GitlabAdapter implements SpecSourcePort {
     }
     if (!res.ok) {
       const body = await res.text().catch(() => '')
-      throw new Error(`GitLab API error ${res.status}: ${url}\n${body}`)
+      const safePath = new URL(url).pathname
+      throw new Error(`GitLab API error ${res.status}: ${safePath}\n${body}`)
     }
     return res
   }
