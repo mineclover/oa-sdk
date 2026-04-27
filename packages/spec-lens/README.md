@@ -54,7 +54,7 @@ src/
 │   │   ├── github/       GithubAdapter (bare clone + git)
 │   │   │                 GithubApiAdapter (REST API 전용)
 │   │   │                 DefaultTokenProvider
-│   │   ├── gitlab/       GitlabAdapter (REST API)  ⚠️ 테스트 환경 미구축
+│   │   ├── gitlab/       GitlabAdapter (REST API + PRIVATE-TOKEN)
 │   │   ├── local-git/    LocalGitAdapter
 │   │   └── file/         FileDiffAdapter (두 디렉터리 직접 비교)
 │   ├── snapshot-engine/  SnapshotBuilder (oa-gen 파이프라인 인메모리)
@@ -106,9 +106,30 @@ pnpm test
 | `get-graph-query.test.ts` | 노드 빌드, 엣지 해석, self-loop 제외 |
 | `refresh-timeline.test.ts` | full workflow, lastChanged 최신 우선, 빌드 실패 처리 |
 | `query-handlers.test.ts` | GetDiff / GetPaths / GetSnapshot / GetTimeline 핸들러 |
+| `gitlab-adapter.integration.test.ts` | listRevisions / getFileEntries / 연속 revision content drift / 401 auth 에러 (env-gated, GitLab 인스턴스 필요) |
+
+### GitLab integration test 실행
+
+`gitlab-adapter.integration.test.ts`는 다음 환경변수가 모두 있을 때만 실행되고, 그 외엔 깨끗하게 skip된다.
+
+| 변수 | 의미 |
+|---|---|
+| `GITLAB_INTEGRATION_HOST` | GitLab base URL. 예: `http://localhost:8929` |
+| `GITLAB_INTEGRATION_PROJECT_ID` | 프로젝트의 numeric ID 또는 `namespace/path` |
+| `GITLAB_INTEGRATION_TOKEN` | `api`+`read_repository` scope를 가진 PAT (`glpat-...`) |
+| `GITLAB_INTEGRATION_FRAGMENTS_DIR` | optional, 기본 `fragments` |
+
+테스트 대상 프로젝트는 `fragments/` 디렉토리 아래에 OpenAPI fragment YAML/JSON이 들어있고 그 디렉토리를 변경한 commit이 최소 2개 이상 있어야 한다. 새 인스턴스라면 GitLab API로 프로젝트 + 커밋 3개를 직접 만들 수 있다 — `POST /api/v4/projects` + `POST/PUT /api/v4/projects/:id/repository/files/...`.
+
+```bash
+GITLAB_INTEGRATION_HOST=http://localhost:8929 \
+GITLAB_INTEGRATION_PROJECT_ID=1 \
+GITLAB_INTEGRATION_TOKEN=glpat-xxx \
+pnpm --filter @oa-sdk/spec-lens test -- src/__tests__/gitlab-adapter.integration.test.ts
+```
 
 ## 알려진 제약
 
 - `fragment_blobs` 테이블은 content-addressable이므로 `clearCache` 시 삭제하지 않는다. 장기 운영 시 미참조 blob이 누적될 수 있으나 중복 저장은 없다.
 - `source: github` 의 `GithubAdapter`는 bare clone 후 로컬 git으로 동작한다. git CLI가 없는 환경에서는 `GithubApiAdapter`를 직접 사용한다.
-- `source: gitlab` 은 테스트 환경 미구축 (TODO).
+- `source: gitlab` 은 REST API 방식. self-hosted GitLab은 GitHub처럼 좁은 API rate limit이 없으므로 bare-clone 변환은 도입하지 않았다 — rate limit 압력이 실제로 발생하면 재고려.

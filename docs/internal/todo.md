@@ -29,14 +29,11 @@ Definition Builder PRD(US-001~014)와 Domain Backfill PRD(US-001~009)가 모두 
 ### [x] RefreshTimeline 병렬 revision 처리
 완료: Promise.all로 전체 캐시 조회 병렬화, withConcurrency(4)로 미캐시 빌드 병렬화, 저장은 SQLite WAL 제약상 순차 유지. snapshots 배열은 원래 순서 재조합하여 diff 계산 보존.
 
-### [ ] GitLab 어댑터 검증
-배경: `GitlabAdapter`(REST API 기반)는 구현되었으나 실제 GitLab 인스턴스 대상 통합 테스트가 없다.
-작업:
-1. 테스트 환경 선택 (GitLab CE Docker / GitLab.com 무료 계정)
-2. `listRevisions`, `getFileEntries`, `getChangedFiles` E2E 검증
-3. 인증 오류 / rate limit / 페이지네이션 케이스 확인
-4. `GithubAdapter`처럼 bare clone + LocalGitAdapter 위임 방식으로 전환 검토 (현재는 REST API 방식 유지)
-완료 기준: 실제 GitLab 레포 대상으로 refresh 성공, 타임라인 표시 확인.
+### [x] GitLab 어댑터 검증
+배경: `GitlabAdapter`(REST API 기반)는 구현되었으나 실제 GitLab 인스턴스 대상 통합 테스트가 없었다.
+완료 (2026-04-27): 로컬 GitLab CE 인스턴스(`http://localhost:8929`)에서 4 케이스 통합 테스트 추가 — `listRevisions`(fragments path filter + branch + commits 정렬), `getFileEntries`(tree pagination + file content + sha256 contentHash), 연속 revision 간 content drift 감지, 401/403 auth 에러 메시지 정합성. 테스트는 `GITLAB_INTEGRATION_{HOST,PROJECT_ID,TOKEN,FRAGMENTS_DIR}` 환경변수가 모두 있을 때만 실행되고 그 외엔 깨끗하게 skip — CI 안전. 운영 가이드는 [packages/spec-lens/README.md](../../packages/spec-lens/README.md) 참조.
+REST vs bare-clone 결정: REST API 방식 유지. 이유는 (1) 4 케이스 모두 통과해 refresh/timeline 흐름이 검증됨, (2) bare-clone 전환은 `getFileEntries`의 tree pagination 비용을 한 번에 줄일 수는 있지만 git 의존성을 추가하고 GitLab 토큰 → SSH/HTTPS 자격 매핑이 추가 복잡도를 가져옴, (3) GithubAdapter가 bare-clone으로 간 이유는 GitHub API rate limit이 좁기 때문이고 self-hosted GitLab은 같은 압력이 없음. 변환은 rate limit 압력이 실제로 발생할 때 재고려.
+완료 기준 충족: 실제 GitLab 레포 대상으로 refresh + 타임라인 + diff 흐름 모두 통과 (`gitlab-adapter.integration.test.ts`).
 
 ---
 
