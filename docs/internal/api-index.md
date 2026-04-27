@@ -266,7 +266,7 @@ Typegen 공개 surface는 root entry(`@oa-sdk/codegen`)와 typegen sub-entry(`@o
 | `WorkspaceTypeAliasFilter` | `workspace-index.ts` | type alias metadata 조회 필터 |
 | `SQLiteWorkspaceIndex` | `sqlite-workspace-index.ts` | SQLite-backed WorkspaceIndex with database path, fallback reason, and close method |
 | `SQLiteWorkspaceIndexOptions` | `sqlite-workspace-index.ts` | cacheDir/dbPath/schemaVersion/compatibility/busyTimeoutMs 설정 |
-| `SqliteDriverName` | `sqlite-workspace-index.ts` | persistent index backend 이름 (`better-sqlite3` primary, `node:sqlite` fallback) |
+| `SqliteDriverName` | `sqlite-workspace-index.ts` | persistent index backend 이름 (`node:sqlite` primary, `better-sqlite3` fallback) |
 | `OpenApiCollectProfile` | `cli/lib/openapi-collect.ts` | 외부 OpenAPI collect/normalize/scaffold profile union (generic \| nestjs-swagger \| fastapi) |
 | `OpenApiTransformWarning` | `cli/lib/openapi-collect.ts` | collect/upgrade pipeline의 pointer-aware 변환/경고 항목 |
 | `OpenApiUpgradeReport` | `cli/lib/openapi-collect.ts` | OpenAPI 3.0/3.1 → 3.2 변환 report. source/target version과 conversion/warning 목록 포함 |
