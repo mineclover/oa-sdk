@@ -275,13 +275,24 @@ oa-gen target-check \
 
 ## Adoption Checklist
 
+### External-artifact services (NestJS Swagger, FastAPI, etc.)
+
+- [ ] Ran `oa-gen scaffold-governance --root <service> --service <name> --profile <profile> --source-command "<cmd>" --runtime-openapi-url "<url>"`.
+- [ ] `openapi-governance.config.json` artifact paths and `consumers` mapping reflect the service layout (re-run scaffold with `--force` after editing the source-of-truth fields).
+- [ ] `contracts/v1.openapi.yaml` baseline is committed (initial baseline via `bash scripts/openapi-governance.sh update-baseline`).
+- [ ] Raw / normalized / upgraded / collect-report / generated-types paths are gitignored.
+- [ ] CI runs `bash scripts/openapi-governance.sh all` (collect → check → review → typegen → validate-upgraded) plus `inventory` / `review-bundle` as needed.
+- [ ] Authenticated runtime drift uses `bash scripts/openapi-governance.sh drift --runtime-header "Authorization: Bearer $TOKEN"`.
+
+### Definition Builder services
+
 - [ ] Service has a managed OpenAPI source path.
 - [ ] Service has a generated artifact path or target artifact output path.
 - [ ] Service has a baseline OpenAPI path.
 - [ ] Service has a runtime OpenAPI URL or exported runtime OpenAPI file.
 - [ ] Public/admin/internal path ownership is documented.
 - [ ] `mustIncludePaths` and `mustExcludePaths` are listed.
-- [ ] Definition Builder services follow path folder conventions.
+- [ ] Path folder conventions are followed.
 - [ ] Duplicate review is configured for fragment-based services.
 - [ ] Review bundle output path is stable.
 - [ ] CI runs diff, artifact freshness, target-check, and relevant package gates.
