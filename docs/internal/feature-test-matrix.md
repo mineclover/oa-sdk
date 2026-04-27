@@ -48,7 +48,7 @@ without checking behavior, add focused assertions or split the matrix row.
 | `mock-server` | `@oa-sdk/mock-server` | MSW/Node mock server, validation, callbacks, XML, streaming | `packages/mock-server/src/__tests__/unit/*.test.ts`, `integration/*.test.ts`, `oas32/*.test.ts` |
 | `typia-mock` | `@oa-sdk/typia-mock` | typia function validation server | `packages/typia-mock/src/__tests__/unit/*.test.ts`, `integration/server.test.ts` |
 | `playground-pipeline` | `playground` | cross-package E2E workflows | `apps/playground/tests/e2e-pipeline.test.ts`, `codegen-pipeline.test.ts` |
-| `external-openapi-governance-scaffold` | `@oa-sdk/codegen` | scaffold-governance/collect/normalize/upgrade for third-party OpenAPI artifact intake | `packages/codegen/src/__tests__/openapi-collect.test.ts`, `openapi-governance-scaffold.test.ts`, `cli-openapi-collect.test.ts` |
+| `external-openapi-governance-scaffold` | `@oa-sdk/codegen` | scaffold-governance/collect/normalize/upgrade for third-party OpenAPI artifact intake (NestJS Swagger, FastAPI) | `packages/codegen/src/__tests__/openapi-collect.test.ts`, `openapi-governance-scaffold.test.ts`, `cli-openapi-collect.test.ts`, `apps/{nestjs-ref,fastapi-ref}/scripts/openapi-governance.sh` |
 | `python-contract-governance-template` | `templates/python-interface-monorepo` | Python contract governance toolkit | `packages/interface-contracts/tests/*.py`, `packages/interface-cli/tests/test_cli.py` |
 | `governance-docs` | root | docs, CLI spec, and test-matrix drift guards | `scripts/check-api-index.ts`, `scripts/check-cli-spec.ts`, `scripts/check-feature-test-matrix.ts`, `docs/internal/feature-test-matrix.md` |
 

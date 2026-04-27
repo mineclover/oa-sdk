@@ -500,24 +500,29 @@
       "capabilities": [
         "scaffold-governance",
         "scaffold artifact interface (oa-gen.openapi-governance.v1)",
-        "rendered openapi-governance.sh script (collect/check/review/typegen/inventory/validate-upgraded/drift/update-baseline/all)",
+        "rendered openapi-governance.sh script (collect/check/review/review-bundle/typegen/inventory/validate-upgraded/drift/update-baseline/all)",
         "rendered openapi-governance.md doc",
         "runtime URL validation at scaffold time",
         "OA_GEN env override without glob expansion",
         "git rev-parse repo root detection with fallback",
         "missing-baseline guard with update-baseline hint",
+        "config fingerprint embed",
+        "drift extra-args forwarding",
+        "consumers field drives script artifact selection",
         "collect (normalize + 3.2 upgrade + collect report)",
         "normalize (stable governance artifact)",
         "upgrade (3.0/3.1 → 3.2 analysis artifact + transform report)",
         "nullable upgrade across paths/webhooks/components/callbacks",
-        "profile parsing (generic | nestjs-swagger)"
+        "profile parsing (generic | nestjs-swagger | fastapi)"
       ],
       "testPaths": [
         "packages/codegen/src/__tests__/openapi-collect.test.ts",
         "packages/codegen/src/__tests__/openapi-governance-scaffold.test.ts",
         "packages/codegen/src/__tests__/cli-openapi-collect.test.ts",
         "apps/nestjs-ref/openapi-governance.config.json",
-        "apps/nestjs-ref/scripts/openapi-governance.sh"
+        "apps/nestjs-ref/scripts/openapi-governance.sh",
+        "apps/fastapi-ref/openapi-governance.config.json",
+        "apps/fastapi-ref/scripts/openapi-governance.sh"
       ],
       "commands": [
         "pnpm --filter @oa-sdk/codegen test",

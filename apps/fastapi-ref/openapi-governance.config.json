@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "oa-gen.openapi-governance.v1",
+  "service": "fastapi-ref",
+  "profile": "fastapi",
+  "source": {
+    "kind": "external-openapi",
+    "command": "uv run python scripts/export_openapi.py",
+    "runtimeOpenApiUrl": "http://localhost:8000/openapi.json"
+  },
+  "artifacts": {
+    "raw": "contracts/openapi.raw.yaml",
+    "normalized": "contracts/openapi.normalized.yaml",
+    "upgraded": "contracts/openapi.upgraded.yaml",
+    "baseline": "contracts/v1.openapi.yaml",
+    "collectReport": "contracts/openapi.collect-report.json",
+    "typegen": "src/generated/api-types.ts"
+  },
+  "consumers": {
+    "governance": "artifacts.normalized",
+    "review": "artifacts.normalized",
+    "typegen": "artifacts.normalized",
+    "inventory": "artifacts.upgraded",
+    "validate": "artifacts.upgraded",
+    "driftManaged": "artifacts.normalized"
+  }
+}

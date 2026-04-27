@@ -18,6 +18,14 @@ apps/nestjs-ref/contracts/openapi.normalized.yaml
 apps/nestjs-ref/contracts/openapi.upgraded.yaml
 apps/nestjs-ref/contracts/openapi.collect-report.json
 apps/nestjs-ref/src/generated/
+apps/fastapi-ref/contracts/openapi.raw.json
+apps/fastapi-ref/contracts/openapi.raw.yaml
+apps/fastapi-ref/contracts/openapi.normalized.yaml
+apps/fastapi-ref/contracts/openapi.upgraded.yaml
+apps/fastapi-ref/contracts/openapi.collect-report.json
+apps/fastapi-ref/src/generated/
+apps/fastapi-ref/.venv/
+apps/fastapi-ref/**/__pycache__/
 .spec-lens.db
 .spec-lens.db-shm
 .spec-lens.db-wal
