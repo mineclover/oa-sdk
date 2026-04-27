@@ -99,7 +99,9 @@ REST vs bare-clone 결정: REST API 방식 유지. 이유는 (1) 4 케이스 모
 배경: `better-sqlite3`는 증분 WorkspaceIndex의 primary driver지만 native optional dependency라 환경별 설치 실패 가능성이 있음.
 현재 처리: 설치 성공 시 `better-sqlite3` 사용, 실패 시 `node:sqlite`, 둘 다 실패하거나 DB 오류가 나면 full rebuild fallback + CLI warning.
 현재 확인: 2026-04-17 로컬 환경에서는 `loadSqliteDriver()`가 `better-sqlite3`를 선택함. `packages/codegen/src/__tests__/workspace-index.test.ts`는 supported driver load, driver mismatch cache invalidation, rollback, DB open fallback을 검증함.
-관찰 기준: CI/개발자 환경에서 optional install 실패가 잦거나 fallback warning이 반복되면 prebuilt 지원 범위 또는 driver 정책을 재검토.
+시그널 #1 — Forced fallback 동작 검증 (2026-04-28): `packages/codegen/src/__tests__/workspace-index-fallback.test.ts`가 `Module._load`를 monkey-patch해 `better-sqlite3`를 require 실패시키고 `loadSqliteDriver()` → `createSQLiteWorkspaceIndex` lifecycle을 `node:sqlite`로 전부 통과시킴. 양쪽 모두 require 실패하면 두 driver name을 함께 담은 진단 메시지로 throw. fallback 경로 자체에 hardening 필요한 결함 없음.
+시그널 #2 — Driver 벤치마크 (2026-04-28, Node 24.15 / darwin arm64, 75 files × 5 components × 5 refs, median of 3): cold = better-sqlite3 22.2ms vs node:sqlite 26.6ms (15-17% 차이, 임계 30% 미달); warm = better-sqlite3 11.5ms vs **node:sqlite 7.9ms** (40-46% 더 빠름). 측정/스크립트는 `packages/codegen/scripts/bench-sqlite-driver.ts`, JSON은 `packages/codegen/.bench/sqlite-driver.json`. 워크로드의 warm 경로가 incremental 도구의 일반 동작이라는 점에서 "better-sqlite3 우선" 정책의 perf 정당성이 약화됨.
+관찰 기준: 위 시그널을 근거로 driver 우선순위 inversion 또는 native dep 단순화를 검토할 수 있음.
 
 ### [x] 운영 관찰: Spectral response-example 힌트 4건
 배경: `pnpm schema:validate`는 통과하지만 Spectral `response-example-recommended` hint가 4건 남아 있음.

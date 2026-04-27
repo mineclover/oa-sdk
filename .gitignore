@@ -29,3 +29,4 @@ apps/fastapi-ref/**/__pycache__/
 .spec-lens.db
 .spec-lens.db-shm
 .spec-lens.db-wal
+packages/codegen/.bench/
