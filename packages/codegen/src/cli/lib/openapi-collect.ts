@@ -2,9 +2,9 @@ import { mkdirSync, writeFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { stringify as stringifyYaml } from 'yaml'
 
-export type OpenApiCollectProfile = 'generic' | 'nestjs-swagger'
+export type OpenApiCollectProfile = 'generic' | 'nestjs-swagger' | 'fastapi'
 
-const OPEN_API_COLLECT_PROFILES: readonly OpenApiCollectProfile[] = ['generic', 'nestjs-swagger']
+const OPEN_API_COLLECT_PROFILES: readonly OpenApiCollectProfile[] = ['generic', 'nestjs-swagger', 'fastapi']
 
 export function parseOpenApiCollectProfile(value: string | undefined): OpenApiCollectProfile {
   if (value === undefined) return 'generic'
@@ -447,7 +447,10 @@ function shouldDropNoise(
   // Only drop empty fields when we know the source generator emitted them as
   // unavoidable defaults. For `generic` we preserve everything — an empty
   // `servers: []` or `tags: []` from an unknown source may be intentional.
-  if (profile !== 'nestjs-swagger') return false
+  // nestjs-swagger and fastapi both materialize empty info.contact /
+  // root-level servers / root-level tags whenever the user didn't configure
+  // them explicitly, so the rule is shared.
+  if (profile === 'generic') return false
   if (key === 'contact' && isRecord(value) && Object.keys(value).length === 0) return true
   if ((key === 'servers' || key === 'tags') && Array.isArray(value) && value.length === 0 && pointer.split('/').length === 2) {
     return true

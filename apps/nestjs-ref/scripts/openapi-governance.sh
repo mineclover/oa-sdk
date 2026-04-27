@@ -110,9 +110,11 @@ case "${1:-all}" in
     echo "baseline updated: $BASELINE"
     ;;
   all)
+    # 'review --artifact' already runs the freshness check, so 'all' skips
+    # the standalone check-artifact step. Use the 'check' target if you
+    # need the freshness gate alone (faster than running review).
     collect_openapi
     require_baseline
-    "${OA_GEN_CMD[@]}" check-artifact --head "${NORMALIZED}" --artifact "$BASELINE" --format human
     "${OA_GEN_CMD[@]}" review --base "$BASELINE" --head "${NORMALIZED}" --artifact "$BASELINE" --format markdown
     mkdir -p "$(dirname "$TYPEGEN")"
     "${OA_GEN_CMD[@]}" typegen --spec "${NORMALIZED}" --output "$TYPEGEN"

@@ -61,6 +61,24 @@ describe('openapi collect scaffold', () => {
     expect(result.report.conversions.map(item => item.code)).toContain('schema/nullable-upgraded')
   })
 
+  it('fastapi profile drops empty info.contact / root servers / root tags', () => {
+    const normalized = normalizeOpenApiDocument({
+      openapi: '3.1.0',
+      info: { title: 'F', version: '1.0', contact: {} },
+      servers: [],
+      tags: [],
+      paths: { '/items': { get: { responses: { '200': { description: 'ok' } } } } },
+      components: {
+        schemas: {
+          HTTPValidationError: { type: 'object', properties: { detail: { type: 'array', items: { type: 'string' } } } },
+        },
+      },
+    }, { profile: 'fastapi' })
+
+    expect(Object.keys(normalized)).toEqual(['openapi', 'info', 'paths', 'components'])
+    expect(normalized.info).toEqual({ title: 'F', version: '1.0' })
+  })
+
   it('upgrades a 3.1 input by setting the version with no nullable conversions', () => {
     const result = upgradeOpenApiDocumentTo32({
       openapi: '3.1.0',

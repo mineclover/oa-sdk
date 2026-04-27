@@ -30,7 +30,7 @@ bash scripts/openapi-governance.sh update-baseline
 bash scripts/openapi-governance.sh all
 ```
 
-`all` runs the PR gate pipeline: collect → check-artifact → review → typegen → validate-upgraded. `inventory`(read-only summary), `review-bundle`(PR comment용 단일 markdown), `drift`(runtime 서버 필요)는 의도적으로 분리되어 있으니 필요할 때 별도로 실행한다.
+`all` runs the PR gate pipeline: collect → review (포함 freshness check) → typegen → validate-upgraded. 빠른 freshness 단독 검사가 필요하면 `check` 타깃을 사용한다. `inventory`(read-only summary), `review-bundle`(PR comment용 단일 markdown), `drift`(runtime 서버 필요)는 의도적으로 분리되어 있으니 필요할 때 별도로 실행한다.
 
 ## Artifact Policy
 

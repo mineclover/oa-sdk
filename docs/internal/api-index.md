@@ -267,7 +267,7 @@ Typegen 공개 surface는 root entry(`@oa-sdk/codegen`)와 typegen sub-entry(`@o
 | `SQLiteWorkspaceIndex` | `sqlite-workspace-index.ts` | SQLite-backed WorkspaceIndex with database path, fallback reason, and close method |
 | `SQLiteWorkspaceIndexOptions` | `sqlite-workspace-index.ts` | cacheDir/dbPath/schemaVersion/compatibility/busyTimeoutMs 설정 |
 | `SqliteDriverName` | `sqlite-workspace-index.ts` | persistent index backend 이름 (`better-sqlite3` primary, `node:sqlite` fallback) |
-| `OpenApiCollectProfile` | `cli/lib/openapi-collect.ts` | 외부 OpenAPI collect/normalize/scaffold profile union (generic \| nestjs-swagger) |
+| `OpenApiCollectProfile` | `cli/lib/openapi-collect.ts` | 외부 OpenAPI collect/normalize/scaffold profile union (generic \| nestjs-swagger \| fastapi) |
 | `OpenApiTransformWarning` | `cli/lib/openapi-collect.ts` | collect/upgrade pipeline의 pointer-aware 변환/경고 항목 |
 | `OpenApiUpgradeReport` | `cli/lib/openapi-collect.ts` | OpenAPI 3.0/3.1 → 3.2 변환 report. source/target version과 conversion/warning 목록 포함 |
 | `OpenApiCollectReport` | `cli/lib/openapi-collect.ts` | collect command가 기록하는 raw/normalized/upgraded 경로와 upgrade report 묶음 |

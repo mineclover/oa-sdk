@@ -145,7 +145,7 @@ export const oaGenGovernanceManifest = {
           {
             name: 'profile',
             type: 'string',
-            description: 'generic | nestjs-swagger (기본: generic)',
+            description: 'generic | nestjs-swagger | fastapi (기본: generic)',
           },
         ],
         inputs: [
@@ -240,7 +240,7 @@ export const oaGenGovernanceManifest = {
           {
             name: 'profile',
             type: 'string',
-            description: 'generic | nestjs-swagger (기본: generic)',
+            description: 'generic | nestjs-swagger | fastapi (기본: generic)',
           },
         ],
         inputs: [
@@ -279,7 +279,7 @@ export const oaGenGovernanceManifest = {
           {
             name: 'profile',
             type: 'string',
-            description: 'generic | nestjs-swagger (기본: generic)',
+            description: 'generic | nestjs-swagger | fastapi (기본: generic)',
           },
           {
             name: 'source-command',

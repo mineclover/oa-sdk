@@ -194,12 +194,12 @@ describe('oa-gen normalize/upgrade/collect CLI', () => {
       '--spec', specPath,
       '--normalized', join(tmpDir, 'normalized.yaml'),
       '--upgraded', join(tmpDir, 'upgraded.yaml'),
-      '--profile', 'fastapi',
+      '--profile', 'django-ninja',
     ])
 
     expect(result.status).not.toBe(0)
-    expect(result.stderr).toContain('unsupported OpenAPI collect profile: fastapi')
-    expect(result.stderr).toContain('allowed: generic, nestjs-swagger')
+    expect(result.stderr).toContain('unsupported OpenAPI collect profile: django-ninja')
+    expect(result.stderr).toContain('allowed: generic, nestjs-swagger, fastapi')
   })
 })
 

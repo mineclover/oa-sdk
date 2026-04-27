@@ -299,9 +299,11 @@ case "\${1:-all}" in
     echo "baseline updated: $BASELINE"
     ;;
   all)
+    # 'review --artifact' already runs the freshness check, so 'all' skips
+    # the standalone check-artifact step. Use the 'check' target if you
+    # need the freshness gate alone (faster than running review).
     collect_openapi
     require_baseline
-    "\${OA_GEN_CMD[@]}" check-artifact --head "\${${governanceArtifact}}" --artifact "$BASELINE" --format human
     "\${OA_GEN_CMD[@]}" review --base "$BASELINE" --head "\${${reviewArtifact}}" --artifact "$BASELINE" --format markdown
     mkdir -p "$(dirname "$TYPEGEN")"
     "\${OA_GEN_CMD[@]}" typegen --spec "\${${typegenArtifact}}" --output "$TYPEGEN"
@@ -350,7 +352,7 @@ bash scripts/openapi-governance.sh update-baseline
 bash scripts/openapi-governance.sh all
 \`\`\`
 
-\`all\` runs the PR gate pipeline: collect → check-artifact → review → typegen → validate-upgraded. \`inventory\`(read-only summary), \`review-bundle\`(PR comment용 단일 markdown), \`drift\`(runtime 서버 필요)는 의도적으로 분리되어 있으니 필요할 때 별도로 실행한다.
+\`all\` runs the PR gate pipeline: collect → review (포함 freshness check) → typegen → validate-upgraded. 빠른 freshness 단독 검사가 필요하면 \`check\` 타깃을 사용한다. \`inventory\`(read-only summary), \`review-bundle\`(PR comment용 단일 markdown), \`drift\`(runtime 서버 필요)는 의도적으로 분리되어 있으니 필요할 때 별도로 실행한다.
 
 ## Artifact Policy
 

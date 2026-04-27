@@ -12,7 +12,7 @@ export const scaffoldGovernance: Command = {
   options: {
     root: { type: 'string', required: true, description: '스캐폴드를 생성할 서비스 루트 디렉토리' },
     service: { type: 'string', required: true, description: '서비스 이름' },
-    profile: { type: 'string', description: 'generic | nestjs-swagger (기본: generic)' },
+    profile: { type: 'string', description: 'generic | nestjs-swagger | fastapi (기본: generic)' },
     'source-command': { type: 'string', description: 'raw OpenAPI artifact를 생성하는 명령. 예: pnpm export:openapi' },
     'runtime-openapi-url': { type: 'string', description: 'runtime drift 확인용 OpenAPI URL' },
     force: { type: 'boolean', description: '기존 scaffold 파일 덮어쓰기' },

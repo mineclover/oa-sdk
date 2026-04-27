@@ -14,7 +14,7 @@ export const normalize: Command = {
   options: {
     spec: { type: 'string', short: 's', required: true, description: '정규화할 OpenAPI YAML/JSON 경로' },
     output: { type: 'string', short: 'o', description: '정규화된 OpenAPI YAML 출력 경로 (기본: stdout)' },
-    profile: { type: 'string', description: 'generic | nestjs-swagger (기본: generic)' },
+    profile: { type: 'string', description: 'generic | nestjs-swagger | fastapi (기본: generic)' },
   },
   async run(args) {
     const { document } = loadSpecWithPath(str(args, 'spec'))

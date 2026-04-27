@@ -21,7 +21,7 @@ export const collect: Command = {
     normalized: { type: 'string', required: true, description: 'stable governance artifact 출력 경로' },
     upgraded: { type: 'string', required: true, description: 'OpenAPI 3.2 분석 artifact 출력 경로' },
     report: { type: 'string', description: '수집/변환 리포트 JSON 출력 경로' },
-    profile: { type: 'string', description: 'generic | nestjs-swagger (기본: generic)' },
+    profile: { type: 'string', description: 'generic | nestjs-swagger | fastapi (기본: generic)' },
   },
   async run(args) {
     const spec = str(args, 'spec')
