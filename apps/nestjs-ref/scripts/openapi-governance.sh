@@ -61,30 +61,40 @@ case "${1:-all}" in
   check)
     collect_openapi
     require_baseline
-    "${OA_GEN_CMD[@]}" check-artifact --head "$NORMALIZED" --artifact "$BASELINE" --format human
+    "${OA_GEN_CMD[@]}" check-artifact --head "${NORMALIZED}" --artifact "$BASELINE" --format human
     ;;
   review)
     collect_openapi
     require_baseline
-    "${OA_GEN_CMD[@]}" review --base "$BASELINE" --head "$NORMALIZED" --artifact "$BASELINE" --format markdown
+    "${OA_GEN_CMD[@]}" review --base "$BASELINE" --head "${NORMALIZED}" --artifact "$BASELINE" --format markdown
     ;;
   typegen)
     collect_openapi
     mkdir -p "$(dirname "$TYPEGEN")"
-    "${OA_GEN_CMD[@]}" typegen --spec "$NORMALIZED" --output "$TYPEGEN"
+    "${OA_GEN_CMD[@]}" typegen --spec "${NORMALIZED}" --output "$TYPEGEN"
     ;;
   inventory)
     collect_openapi
-    "${OA_GEN_CMD[@]}" inventory --spec "$UPGRADED" --format markdown
+    "${OA_GEN_CMD[@]}" inventory --spec "${UPGRADED}" --format markdown
     ;;
   validate-upgraded)
     collect_openapi
-    "${OA_GEN_CMD[@]}" validate --spec "$UPGRADED"
+    "${OA_GEN_CMD[@]}" validate --spec "${UPGRADED}"
     ;;
   drift)
     collect_openapi
     test -n "$RUNTIME_OPENAPI_URL" || { echo "runtimeOpenApiUrl is not configured" >&2; exit 1; }
-    "${OA_GEN_CMD[@]}" drift --runtime-openapi-url "$RUNTIME_OPENAPI_URL" --managed-openapi "$NORMALIZED" --format markdown
+    "${OA_GEN_CMD[@]}" drift --runtime-openapi-url "$RUNTIME_OPENAPI_URL" --managed-openapi "${NORMALIZED}" --format markdown
+    ;;
+  review-bundle)
+    collect_openapi
+    require_baseline
+    "${OA_GEN_CMD[@]}" review-bundle \
+      --base "$BASELINE" \
+      --head "${NORMALIZED}" \
+      --artifact "$BASELINE" \
+      --inventory \
+      --format markdown
     ;;
   update-baseline)
     collect_openapi
@@ -95,14 +105,14 @@ case "${1:-all}" in
   all)
     collect_openapi
     require_baseline
-    "${OA_GEN_CMD[@]}" check-artifact --head "$NORMALIZED" --artifact "$BASELINE" --format human
-    "${OA_GEN_CMD[@]}" review --base "$BASELINE" --head "$NORMALIZED" --artifact "$BASELINE" --format markdown
+    "${OA_GEN_CMD[@]}" check-artifact --head "${NORMALIZED}" --artifact "$BASELINE" --format human
+    "${OA_GEN_CMD[@]}" review --base "$BASELINE" --head "${NORMALIZED}" --artifact "$BASELINE" --format markdown
     mkdir -p "$(dirname "$TYPEGEN")"
-    "${OA_GEN_CMD[@]}" typegen --spec "$NORMALIZED" --output "$TYPEGEN"
-    "${OA_GEN_CMD[@]}" validate --spec "$UPGRADED"
+    "${OA_GEN_CMD[@]}" typegen --spec "${NORMALIZED}" --output "$TYPEGEN"
+    "${OA_GEN_CMD[@]}" validate --spec "${UPGRADED}"
     ;;
   *)
-    echo "usage: $0 [collect|check|review|typegen|inventory|validate-upgraded|drift|update-baseline|all]" >&2
+    echo "usage: $0 [collect|check|review|review-bundle|typegen|inventory|validate-upgraded|drift|update-baseline|all]" >&2
     exit 1
     ;;
 esac

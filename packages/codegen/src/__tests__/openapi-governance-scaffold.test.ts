@@ -71,6 +71,8 @@ describe('openapi governance scaffold', () => {
     expect(script).toContain('Override the oa-gen invocation by setting OA_GEN')
     expect(script).toContain('read -ra OA_GEN_CMD <<< "${OA_GEN}"')
     expect(script).toContain('source_openapi runs the --source-command captured at scaffold time as')
+    expect(script).toContain('review-bundle')
+    expect(script).toContain('--inventory')
     const doc = readFileSync(join(tmpDir, 'openapi-governance.md'), 'utf8')
     expect(doc).toContain('OpenAPI 3.2 analysis artifact')
     expect(doc).toContain('`all` runs the PR gate pipeline')
@@ -100,6 +102,24 @@ describe('openapi governance scaffold', () => {
     })
     const script = readFileSync(join(tmpDir, 'scripts/openapi-governance.sh'), 'utf8')
     expect(script).toContain('test -f "$RAW" || { echo "missing raw OpenAPI artifact: $RAW"; exit 1; }')
+  })
+
+  it('renders shell variables that follow consumers map exactly', () => {
+    scaffoldOpenApiGovernance({
+      rootDir: tmpDir,
+      service: 'orders',
+      profile: 'nestjs-swagger',
+      sourceCommand: 'pnpm export:openapi',
+    })
+    const script = readFileSync(join(tmpDir, 'scripts/openapi-governance.sh'), 'utf8')
+    // governance + review + typegen + driftManaged read normalized
+    expect(script).toContain('check-artifact --head "${NORMALIZED}"')
+    expect(script).toContain('review --base "$BASELINE" --head "${NORMALIZED}"')
+    expect(script).toContain('typegen --spec "${NORMALIZED}"')
+    expect(script).toContain('drift --runtime-openapi-url "$RUNTIME_OPENAPI_URL" --managed-openapi "${NORMALIZED}"')
+    // inventory + validate read upgraded
+    expect(script).toContain('inventory --spec "${UPGRADED}"')
+    expect(script).toContain('validate --spec "${UPGRADED}"')
   })
 
   it('rejects a non-http(s) runtime URL at scaffold time', () => {
