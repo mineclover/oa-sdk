@@ -426,6 +426,13 @@ describe("persona roleplay (generated)", () => {
     expect(res.status).toBe(200)
   })
 
+  // ── users/data-eng-bulk-export-users ──
+  it("data-eng-bulk-export-users → POST /admin/users/export → 202", async () => {
+    personas.switchTo(server, "data-eng-bulk-export-users")
+    const res = await client.post("/admin/users/export", {"format":"json","pseudonymize":true}, { headers: { authorization: 'Bearer t' } })
+    expect(res.status).toBe(202)
+  })
+
   // ── users/getUserById-not-found ──
   it("getUserById-not-found → GET /users/00000000-0000-0000-0000-000000000001 → 404", async () => {
     personas.switchTo(server, "getUserById-not-found")
@@ -578,6 +585,13 @@ describe("persona roleplay (generated)", () => {
     personas.switchTo(server, "rate-limited-reportUser")
     const res = await client.post("/users/00000000-0000-0000-0000-000000000001/reports", {"reason":"harassment","details":"공격적 메시지 반복 발신"}, { headers: { authorization: 'Bearer t' } })
     expect(res.status).toBe(429)
+  })
+
+  // ── users/site-admin-purge-user ──
+  it("site-admin-purge-user → POST /admin/users/00000000-0000-0000-0000-000000000001/purge → 204", async () => {
+    personas.switchTo(server, "site-admin-purge-user")
+    const res = await client.post("/admin/users/00000000-0000-0000-0000-000000000001/purge", {"reason":"confirmed policy violation","legalHoldOverride":false}, { headers: { authorization: 'Bearer t' } })
+    expect(res.status).toBe(204)
   })
 
   // ── users/target-of-role-change ──

@@ -353,6 +353,98 @@ paths:
         '403':
           $ref: '#/components/responses/Forbidden'
 
+  /admin/users/export:
+    post:
+      tags: [users]
+      operationId: requestUsersExport
+      summary: 사용자 PII bulk export 작업 요청
+      description: |
+        data-eng ETL surface. 사용자 PII bulk export를 비동기 job으로 등록하고
+        ExportJob을 반환합니다. non-admin perspective로 소비되는 export는
+        pseudonymization이 필수이며 기본값도 pseudonymize=true입니다. 호출은 audited.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminUsersExportRequest'
+            examples:
+              default:
+                dataValue:
+                  format: json
+                  pseudonymize: true
+                serializedValue: '{"format":"json","pseudonymize":true}'
+      responses:
+        '202':
+          description: bulk export job 등록 완료
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExportJob'
+              examples:
+                default:
+                  dataValue:
+                    jobId: "00000000-0000-0000-0000-000000000201"
+                    status: queued
+                    requestedAt: "2026-05-04T00:00:00.000Z"
+                  serializedValue: '{"jobId":"00000000-0000-0000-0000-000000000201","status":"queued","requestedAt":"2026-05-04T00:00:00.000Z"}'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /admin/users/{id}/purge:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: 영구 삭제 대상 사용자 UUID
+        schema:
+          type: string
+          format: uuid
+        examples:
+          default:
+            dataValue: "00000000-0000-0000-0000-000000000001"
+            serializedValue: "00000000-0000-0000-0000-000000000001"
+
+    post:
+      tags: [users]
+      operationId: purgeUser
+      summary: 사용자 영구 삭제
+      description: |
+        site-admin authority only. deleteUser와 달리 30일 soft-delete window를
+        우회하는 hard purge입니다. legal hold override 여부와 사유를 감사 로그에
+        남기며 호출은 audited.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PurgeUserRequest'
+            examples:
+              default:
+                dataValue:
+                  reason: "confirmed policy violation"
+                  legalHoldOverride: false
+                serializedValue: '{"reason":"confirmed policy violation","legalHoldOverride":false}'
+      responses:
+        '204':
+          description: 영구 삭제 완료 (본문 없음)
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
 components:
   schemas:
     User:
@@ -417,6 +509,37 @@ components:
         role:
           type: string
           enum: [admin, user, guest]
+
+    AdminUsersExportRequest:
+      type: object
+      description: |
+        사용자 PII bulk export 요청. data-eng ETL surface이며 non-admin
+        perspective에서는 pseudonymization이 필수입니다.
+      additionalProperties: false
+      properties:
+        format:
+          type: string
+          enum: [json, csv]
+          default: json
+        pseudonymize:
+          type: boolean
+          default: true
+
+    PurgeUserRequest:
+      type: object
+      description: site-admin 사용자 hard purge 요청. deleteUser soft-delete와 구분됩니다.
+      required: [reason]
+      additionalProperties: false
+      properties:
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 1000
+          description: 영구 삭제 감사 사유
+        legalHoldOverride:
+          type: boolean
+          default: false
+          description: legal hold 예외 승인 여부
 
     PublicUserProfile:
       type: object
