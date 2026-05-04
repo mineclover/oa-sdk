@@ -1,0 +1,339 @@
+# me 도메인 — 셀프 서비스 (현재 인증된 사용자 자기 자원)
+# 페르소나 매핑:
+#   End-user Emma → 다른 사용자 권한 분기 없이 안전하게 자기 데이터만 조작
+#
+# 설계 메모:
+#   /users/{id}는 admin이 임의 사용자에 접근하는 surface, /me는 자기 자신 전용.
+#   동일 동작이라도 권한 모델이 다르므로 별도 path로 분리한다.
+
+tags:
+  - name: me
+    description: 셀프 서비스 — 현재 인증된 사용자 자기 자원
+
+paths:
+  /me:
+    get:
+      tags: [me]
+      operationId: getMe
+      summary: 내 정보 조회
+      description: 현재 access 토큰으로 식별되는 사용자의 정보를 반환합니다.
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: 내 사용자 정보
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+              examples:
+                default:
+                  dataValue:
+                    id: "00000000-0000-0000-0000-000000000001"
+                    email: "alice@example.com"
+                    name: "Alice"
+                    role: user
+                    createdAt: "2024-01-01T00:00:00.000Z"
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    patch:
+      tags: [me]
+      operationId: updateMe
+      summary: 내 정보 수정 (부분 업데이트)
+      description: |
+        현재 사용자의 name 등 프로필을 수정합니다. role은 셀프 변경 불가 — admin이
+        /users/{id} 를 통해서만 변경할 수 있습니다.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateMeRequest'
+            examples:
+              default:
+                dataValue:
+                  name: "Alice (self-edit)"
+                serializedValue: '{"name":"Alice (self-edit)"}'
+      responses:
+        '200':
+          description: 수정된 내 사용자 정보
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+    delete:
+      tags: [me]
+      operationId: deleteMyAccount
+      summary: 셀프 계정 탈퇴 (soft-delete)
+      description: |
+        본인 계정 비활성화. PIPA/GDPR right-to-erasure 대응. 30일 이내 복구 가능,
+        이후 영구 파기. 응답 본문 없음.
+      security:
+        - bearerAuth: []
+      responses:
+        '204':
+          description: 탈퇴 처리 완료 (본문 없음)
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /me/onboarding:
+    get:
+      tags: [me]
+      operationId: getOnboardingChecklist
+      summary: 온보딩 체크리스트 조회
+      description: 첫 로그인 시 표시할 가이드 체크리스트. 진행률은 user state에 따름.
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: 체크리스트
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OnboardingChecklist'
+              examples:
+                default:
+                  dataValue:
+                    items:
+                      - id: complete-profile
+                        title: 프로필 작성
+                        completed: false
+                      - id: invite-team
+                        title: 팀원 초대
+                        completed: false
+                  serializedValue: '{"items":[{"id":"complete-profile","title":"프로필 작성","completed":false},{"id":"invite-team","title":"팀원 초대","completed":false}]}'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /me/role-changes:
+    get:
+      tags: [me]
+      operationId: listMyRoleChanges
+      summary: 내 역할 변경 이력 조회
+      description: |
+        admin이 내 역할을 변경한 이력 일람. target-of-action 페르소나의 surface.
+        변경 시점·이전/현재 역할·변경자·사유 포함.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: 역할 변경 이력
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, total]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/RoleChangeEvent'
+                  total:
+                    type: integer
+                    minimum: 0
+              examples:
+                default:
+                  dataValue:
+                    items:
+                      - id: "00000000-0000-0000-0000-000000000100"
+                        changedAt: "2026-04-01T00:00:00.000Z"
+                        previousRole: user
+                        newRole: admin
+                        changedBy: "00000000-0000-0000-0000-000000000099"
+                        reason: "권한 위임"
+                    total: 1
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /me/export:
+    post:
+      tags: [me]
+      operationId: requestMyDataExport
+      summary: 내 데이터 export 작업 요청
+      description: |
+        GDPR 정보주체 이동권 대응. 비동기 job 생성 후 jobId 반환. 완료 시 별도
+        알림 또는 polling으로 다운로드 URL 획득. 동시 진행 1건 제한.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExportRequest'
+            examples:
+              default:
+                dataValue:
+                  format: json
+                serializedValue: '{"format":"json"}'
+      responses:
+        '202':
+          description: export job 등록 완료
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExportJob'
+              examples:
+                default:
+                  dataValue:
+                    jobId: "00000000-0000-0000-0000-000000000200"
+                    status: queued
+                    requestedAt: "2026-05-04T00:00:00.000Z"
+                  serializedValue: '{"jobId":"00000000-0000-0000-0000-000000000200","status":"queued","requestedAt":"2026-05-04T00:00:00.000Z"}'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /me/change-password:
+    post:
+      tags: [me]
+      operationId: changeMyPassword
+      summary: 내 비밀번호 변경
+      description: |
+        현재 비밀번호 검증 후 새 비밀번호로 교체합니다. 성공 시 기존 refresh 토큰은
+        무효화될 수 있으므로 클라이언트는 재로그인 또는 refresh 흐름을 다시 시작해야 합니다.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangePasswordRequest'
+            examples:
+              default:
+                dataValue:
+                  currentPassword: "secure1234"
+                  newPassword: "evenmoresecure5678"
+                serializedValue: '{"currentPassword":"secure1234","newPassword":"evenmoresecure5678"}'
+      responses:
+        '204':
+          description: 비밀번호 변경 완료 (본문 없음)
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+components:
+  schemas:
+    UpdateMeRequest:
+      type: object
+      description: 셀프 프로필 수정 — role은 포함 불가 (admin 전용)
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+
+    OnboardingChecklist:
+      type: object
+      description: 온보딩 가이드 체크리스트
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/OnboardingItem'
+      example:
+        items:
+          - id: complete-profile
+            title: 프로필 작성
+            completed: false
+
+    OnboardingItem:
+      type: object
+      required: [id, title, completed]
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        completed:
+          type: boolean
+        hint:
+          type: string
+
+    RoleChangeEvent:
+      type: object
+      description: 역할 변경 이력 단건
+      required: [id, changedAt, previousRole, newRole, changedBy]
+      properties:
+        id:
+          type: string
+          format: uuid
+        changedAt:
+          type: string
+          format: date-time
+        previousRole:
+          type: string
+          enum: [admin, user, guest]
+        newRole:
+          type: string
+          enum: [admin, user, guest]
+        changedBy:
+          type: string
+          format: uuid
+          description: 변경을 수행한 admin의 UUID
+        reason:
+          type: string
+
+    ExportRequest:
+      type: object
+      description: 데이터 export 요청
+      properties:
+        format:
+          type: string
+          enum: [json, csv]
+          default: json
+
+    ExportJob:
+      type: object
+      description: export job 상태
+      required: [jobId, status, requestedAt]
+      properties:
+        jobId:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [queued, running, ready, failed]
+        requestedAt:
+          type: string
+          format: date-time
+        downloadUrl:
+          type: string
+          format: uri
+          description: status가 ready일 때만 제공
+      example:
+        jobId: "00000000-0000-0000-0000-000000000200"
+        status: queued
+        requestedAt: "2026-05-04T00:00:00.000Z"
+
+    ChangePasswordRequest:
+      type: object
+      description: 비밀번호 변경 요청
+      required: [currentPassword, newPassword]
+      properties:
+        currentPassword:
+          type: string
+          minLength: 1
+        newPassword:
+          type: string
+          minLength: 8
+          description: 최소 8자 이상

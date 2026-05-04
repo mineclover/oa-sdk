@@ -11,7 +11,158 @@ tags:
     description: 서버 상태 확인
   - name: users
     description: 사용자 관리
+  - name: auth
+    description: 인증 — 토큰 발급/갱신/폐기
+  - name: me
+    description: 셀프 서비스 — 현재 인증된 사용자 자기 자원
 paths:
+  /auth/register:
+    post:
+      tags:
+        - auth
+      operationId: register
+      summary: 회원가입 (공개)
+      description: 이메일·이름·비밀번호로 신규 사용자 계정을 만들고 토큰 페어를 반환합니다. 인증 불필요.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterRequest"
+            examples:
+              default:
+                value:
+                  email: greg@example.com
+                  name: Greg
+                  password: secure1234
+      responses:
+        "201":
+          description: 회원가입 + 토큰 발급
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthSession"
+              examples:
+                default:
+                  value:
+                    user:
+                      id: 00000000-0000-0000-0000-000000000010
+                      email: greg@example.com
+                      name: Greg
+                      role: user
+                      createdAt: 2026-05-04T00:00:00.000Z
+                    tokens:
+                      accessToken: eyJhbGciOi...register
+                      refreshToken: rt_register_0001
+                      tokenType: Bearer
+                      expiresIn: 3600
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+  /auth/login:
+    post:
+      tags:
+        - auth
+      operationId: login
+      summary: 로그인 (공개)
+      description: 이메일과 비밀번호를 검증하고 access/refresh 토큰 페어를 발급합니다. 인증 불필요.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+            examples:
+              default:
+                value:
+                  email: alice@example.com
+                  password: secure1234
+      responses:
+        "200":
+          description: 로그인 성공
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthSession"
+              examples:
+                default:
+                  value:
+                    user:
+                      id: 00000000-0000-0000-0000-000000000001
+                      email: alice@example.com
+                      name: Alice
+                      role: user
+                      createdAt: 2024-01-01T00:00:00.000Z
+                    tokens:
+                      accessToken: eyJhbGciOi...login
+                      refreshToken: rt_login_0001
+                      tokenType: Bearer
+                      expiresIn: 3600
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+  /auth/refresh:
+    post:
+      tags:
+        - auth
+      operationId: refreshToken
+      summary: 토큰 갱신 (공개)
+      description: 유효한 refresh 토큰으로 새 access 토큰 페어를 발급합니다. access 토큰 인증 불필요.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RefreshRequest"
+            examples:
+              default:
+                value:
+                  refreshToken: rt_login_0001
+      responses:
+        "200":
+          description: 갱신된 토큰 페어
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TokenPair"
+              examples:
+                default:
+                  value:
+                    accessToken: eyJhbGciOi...refreshed
+                    refreshToken: rt_login_0002
+                    tokenType: Bearer
+                    expiresIn: 3600
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+  /auth/logout:
+    post:
+      tags:
+        - auth
+      operationId: logout
+      summary: 로그아웃
+      description: 현재 access 토큰과 연결된 세션을 종료합니다. 응답 본문 없음.
+      security:
+        - bearerAuth: []
+      responses:
+        "204":
+          description: 로그아웃 완료 (본문 없음)
+        "401":
+          $ref: "#/components/responses/Unauthorized"
   /health:
     get:
       operationId: getHealth
@@ -48,6 +199,96 @@ paths:
           description: SSE 이벤트 스트림
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
+  /me:
+    get:
+      tags:
+        - me
+      operationId: getMe
+      summary: 내 정보 조회
+      description: 현재 access 토큰으로 식별되는 사용자의 정보를 반환합니다.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: 내 사용자 정보
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+              examples:
+                default:
+                  value:
+                    id: 00000000-0000-0000-0000-000000000001
+                    email: alice@example.com
+                    name: Alice
+                    role: user
+                    createdAt: 2024-01-01T00:00:00.000Z
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    patch:
+      tags:
+        - me
+      operationId: updateMe
+      summary: 내 정보 수정 (부분 업데이트)
+      description: |
+        현재 사용자의 name 등 프로필을 수정합니다. role은 셀프 변경 불가 — admin이
+        /users/{id} 를 통해서만 변경할 수 있습니다.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateMeRequest"
+            examples:
+              default:
+                value:
+                  name: Alice (self-edit)
+      responses:
+        "200":
+          description: 수정된 내 사용자 정보
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+  /me/change-password:
+    post:
+      tags:
+        - me
+      operationId: changeMyPassword
+      summary: 내 비밀번호 변경
+      description: |
+        현재 비밀번호 검증 후 새 비밀번호로 교체합니다. 성공 시 기존 refresh 토큰은
+        무효화될 수 있으므로 클라이언트는 재로그인 또는 refresh 흐름을 다시 시작해야 합니다.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChangePasswordRequest"
+            examples:
+              default:
+                value:
+                  currentPassword: secure1234
+                  newPassword: evenmoresecure5678
+      responses:
+        "204":
+          description: 비밀번호 변경 완료 (본문 없음)
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
   /users:
     get:
       tags:
@@ -258,7 +499,17 @@ components:
       properties:
         code:
           type: string
-          description: 머신 리더블 에러 코드
+          description: 머신 리더블 에러 코드 (페르소나 시나리오의 expected assertion 단위)
+          enum:
+            - BAD_REQUEST
+            - UNAUTHORIZED
+            - FORBIDDEN
+            - NOT_FOUND
+            - CONFLICT
+            - SCHEMA_VALIDATION_FAILED
+            - RATE_LIMITED
+            - INTERNAL_SERVER_ERROR
+            - SERVICE_UNAVAILABLE
           example: NOT_FOUND
         message:
           type: string
@@ -301,6 +552,98 @@ components:
         expected:
           type: string
           example: string with format 'email'
+    RegisterRequest:
+      type: object
+      description: 회원가입 요청
+      required:
+        - email
+        - name
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        password:
+          type: string
+          minLength: 8
+          description: 최소 8자 이상
+    LoginRequest:
+      type: object
+      description: 로그인 요청
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 1
+    RefreshRequest:
+      type: object
+      description: 토큰 갱신 요청
+      required:
+        - refreshToken
+      properties:
+        refreshToken:
+          type: string
+          minLength: 1
+    TokenPair:
+      type: object
+      description: access/refresh 토큰 페어
+      required:
+        - accessToken
+        - refreshToken
+        - tokenType
+        - expiresIn
+      properties:
+        accessToken:
+          type: string
+          description: bearerAuth 헤더에 사용할 JWT
+        refreshToken:
+          type: string
+          description: /auth/refresh 호출에 사용할 장기 토큰
+        tokenType:
+          type: string
+          enum:
+            - Bearer
+        expiresIn:
+          type: integer
+          minimum: 1
+          description: accessToken 만료까지 남은 초
+      example:
+        accessToken: eyJhbGciOi...example
+        refreshToken: rt_example_0001
+        tokenType: Bearer
+        expiresIn: 3600
+    AuthSession:
+      type: object
+      description: 사용자 + 토큰 페어 — 가입/로그인 응답 단위
+      required:
+        - user
+        - tokens
+      properties:
+        user:
+          $ref: "#/components/schemas/User"
+        tokens:
+          $ref: "#/components/schemas/TokenPair"
+      example:
+        user:
+          id: 00000000-0000-0000-0000-000000000001
+          email: alice@example.com
+          name: Alice
+          role: user
+          createdAt: 2024-01-01T00:00:00.000Z
+        tokens:
+          accessToken: eyJhbGciOi...example
+          refreshToken: rt_example_0001
+          tokenType: Bearer
+          expiresIn: 3600
     HealthStatus:
       type: object
       required:
@@ -320,6 +663,28 @@ components:
       example:
         status: ok
         timestamp: 2026-04-04T00:00:00.000Z
+    UpdateMeRequest:
+      type: object
+      description: 셀프 프로필 수정 — role은 포함 불가 (admin 전용)
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+    ChangePasswordRequest:
+      type: object
+      description: 비밀번호 변경 요청
+      required:
+        - currentPassword
+        - newPassword
+      properties:
+        currentPassword:
+          type: string
+          minLength: 1
+        newPassword:
+          type: string
+          minLength: 8
+          description: 최소 8자 이상
     User:
       type: object
       description: 사용자 정보
@@ -450,6 +815,35 @@ components:
               value:
                 code: SCHEMA_VALIDATION_FAILED
                 message: 요청 본문이 스키마 유효성 검사를 통과하지 못했습니다
+    Conflict:
+      description: 리소스 충돌 — 중복 식별자 또는 동시성 충돌
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          examples:
+            default:
+              value:
+                code: CONFLICT
+                message: 이미 존재하는 리소스입니다
+    TooManyRequests:
+      description: 요청 제한 초과 — Retry-After 헤더로 재시도 가능 시점 안내
+      headers:
+        Retry-After:
+          description: 재시도 가능 시점 (초 단위 정수 또는 HTTP-date)
+          required: true
+          schema:
+            type: string
+            example: "30"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          examples:
+            default:
+              value:
+                code: RATE_LIMITED
+                message: 요청 한도를 초과했습니다. 잠시 후 다시 시도해 주세요
     InternalServerError:
       description: 서버 내부 오류
       content:

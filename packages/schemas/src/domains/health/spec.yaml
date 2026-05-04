@@ -46,6 +46,63 @@ paths:
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
+  /health/ready:
+    get:
+      operationId: getReadiness
+      summary: 서버 준비 상태 확인 (readiness)
+      description: |
+        Kubernetes readiness probe / 배포 게이트용. 의존 시스템(DB, queue 등)
+        검증 결과를 포함. `getHealth`(liveness)와 별개 — liveness는 프로세스
+        살아있음만, readiness는 트래픽을 받을 준비가 됐는지 확인.
+      tags:
+        - health
+      security: []
+      responses:
+        "200":
+          description: 트래픽 수용 가능
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReadinessReport"
+              examples:
+                default:
+                  dataValue:
+                    status: ready
+                    timestamp: "2026-05-04T00:00:00.000Z"
+                    dependencies:
+                      - name: postgres
+                        status: ok
+                        latencyMs: 3
+                      - name: redis
+                        status: ok
+                        latencyMs: 1
+                  serializedValue: '{"status":"ready","timestamp":"2026-05-04T00:00:00.000Z","dependencies":[{"name":"postgres","status":"ok","latencyMs":3},{"name":"redis","status":"ok","latencyMs":1}]}'
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+
+  /version:
+    get:
+      operationId: getVersion
+      summary: 빌드/배포 정보 조회
+      description: 현재 실행 중인 빌드의 git sha, 빌드 시각, 배포 버전.
+      tags:
+        - health
+      security: []
+      responses:
+        "200":
+          description: 빌드 정보
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BuildInfo"
+              examples:
+                default:
+                  dataValue:
+                    version: "0.1.0"
+                    gitSha: "a0ca91100000000000000000000000000000000"
+                    builtAt: "2026-05-04T00:00:00.000Z"
+                  serializedValue: '{"version":"0.1.0","gitSha":"a0ca91100000000000000000000000000000000","builtAt":"2026-05-04T00:00:00.000Z"}'
+
 components:
   schemas:
     HealthStatus:
@@ -66,3 +123,60 @@ components:
       example:
         status: ok
         timestamp: "2026-04-04T00:00:00.000Z"
+
+    ReadinessReport:
+      type: object
+      description: readiness probe 결과 — 의존 시스템 검증 포함
+      required: [status, timestamp, dependencies]
+      properties:
+        status:
+          type: string
+          enum: [ready, not-ready]
+        timestamp:
+          type: string
+          format: date-time
+        dependencies:
+          type: array
+          items:
+            $ref: "#/components/schemas/DependencyStatus"
+      example:
+        status: ready
+        timestamp: "2026-05-04T00:00:00.000Z"
+        dependencies:
+          - name: postgres
+            status: ok
+
+    DependencyStatus:
+      type: object
+      required: [name, status]
+      properties:
+        name:
+          type: string
+        status:
+          type: string
+          enum: [ok, degraded, down]
+        latencyMs:
+          type: integer
+          minimum: 0
+        message:
+          type: string
+
+    BuildInfo:
+      type: object
+      description: 현재 실행 중인 빌드 정보
+      required: [version, gitSha, builtAt]
+      properties:
+        version:
+          type: string
+          description: semver 또는 빌드 식별 라벨
+        gitSha:
+          type: string
+          minLength: 7
+          description: 커밋 해시
+        builtAt:
+          type: string
+          format: date-time
+      example:
+        version: "0.1.0"
+        gitSha: "a0ca911"
+        builtAt: "2026-05-04T00:00:00.000Z"

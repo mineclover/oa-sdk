@@ -10,3 +10,6 @@
 [submodule "references/bun-graph-db"]
 	path = references/bun-graph-db
 	url = https://github.com/mineclover/bun-graph-db
+[submodule "references/symphony"]
+	path = references/symphony
+	url = https://github.com/openai/symphony

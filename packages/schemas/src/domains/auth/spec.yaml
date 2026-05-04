@@ -1,0 +1,325 @@
+# auth 도메인 — 가입/로그인/토큰 갱신/로그아웃
+# 페르소나 매핑:
+#   Guest Greg  → /auth/register, /auth/login (인증 없이 진입)
+#   Emma/Olivia → /auth/refresh, /auth/logout (세션 유지/종료)
+tags:
+  - name: auth
+    description: 인증 — 토큰 발급/갱신/폐기
+
+paths:
+  /auth/register:
+    post:
+      tags: [auth]
+      operationId: register
+      summary: 회원가입 (공개)
+      description: 이메일·이름·비밀번호로 신규 사용자 계정을 만들고 토큰 페어를 반환합니다. 인증 불필요.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+            examples:
+              default:
+                dataValue:
+                  email: "greg@example.com"
+                  name: "Greg"
+                  password: "secure1234"
+                serializedValue: '{"email":"greg@example.com","name":"Greg","password":"secure1234"}'
+      responses:
+        '201':
+          description: 회원가입 + 토큰 발급
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthSession'
+              examples:
+                default:
+                  dataValue:
+                    user:
+                      id: "00000000-0000-0000-0000-000000000010"
+                      email: "greg@example.com"
+                      name: "Greg"
+                      role: user
+                      createdAt: "2026-05-04T00:00:00.000Z"
+                    tokens:
+                      accessToken: "eyJhbGciOi...register"
+                      refreshToken: "rt_register_0001"
+                      tokenType: Bearer
+                      expiresIn: 3600
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /auth/login:
+    post:
+      tags: [auth]
+      operationId: login
+      summary: 로그인 (공개)
+      description: 이메일과 비밀번호를 검증하고 access/refresh 토큰 페어를 발급합니다. 인증 불필요.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+            examples:
+              default:
+                dataValue:
+                  email: "alice@example.com"
+                  password: "secure1234"
+                serializedValue: '{"email":"alice@example.com","password":"secure1234"}'
+      responses:
+        '200':
+          description: 로그인 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthSession'
+              examples:
+                default:
+                  dataValue:
+                    user:
+                      id: "00000000-0000-0000-0000-000000000001"
+                      email: "alice@example.com"
+                      name: "Alice"
+                      role: user
+                      createdAt: "2024-01-01T00:00:00.000Z"
+                    tokens:
+                      accessToken: "eyJhbGciOi...login"
+                      refreshToken: "rt_login_0001"
+                      tokenType: Bearer
+                      expiresIn: 3600
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /auth/refresh:
+    post:
+      tags: [auth]
+      operationId: refreshToken
+      summary: 토큰 갱신 (공개)
+      description: 유효한 refresh 토큰으로 새 access 토큰 페어를 발급합니다. access 토큰 인증 불필요.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshRequest'
+            examples:
+              default:
+                dataValue:
+                  refreshToken: "rt_login_0001"
+                serializedValue: '{"refreshToken":"rt_login_0001"}'
+      responses:
+        '200':
+          description: 갱신된 토큰 페어
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenPair'
+              examples:
+                default:
+                  dataValue:
+                    accessToken: "eyJhbGciOi...refreshed"
+                    refreshToken: "rt_login_0002"
+                    tokenType: Bearer
+                    expiresIn: 3600
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+  /auth/forgot-password:
+    post:
+      tags: [auth]
+      operationId: forgotPassword
+      summary: 비밀번호 재설정 토큰 발송 (공개)
+      description: |
+        이메일로 reset 토큰 링크를 발송합니다. 이메일이 시스템에 없어도 동일한 204를
+        반환 (enumeration 방지). 인증 불필요.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ForgotPasswordRequest'
+            examples:
+              default:
+                dataValue:
+                  email: "alice@example.com"
+                serializedValue: '{"email":"alice@example.com"}'
+      responses:
+        '204':
+          description: 토큰 발송 처리 완료 (본문 없음)
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /auth/reset-password:
+    post:
+      tags: [auth]
+      operationId: resetPassword
+      summary: 비밀번호 재설정 (공개)
+      description: forgot-password로 발급받은 reset 토큰과 새 비밀번호로 갱신.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResetPasswordRequest'
+            examples:
+              default:
+                dataValue:
+                  token: "rt_reset_0001"
+                  newPassword: "evenmoresecure5678"
+                serializedValue: '{"token":"rt_reset_0001","newPassword":"evenmoresecure5678"}'
+      responses:
+        '204':
+          description: 비밀번호 갱신 완료 (본문 없음)
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+  /auth/logout:
+    post:
+      tags: [auth]
+      operationId: logout
+      summary: 로그아웃
+      description: 현재 access 토큰과 연결된 세션을 종료합니다. 응답 본문 없음.
+      security:
+        - bearerAuth: []
+      responses:
+        '204':
+          description: 로그아웃 완료 (본문 없음)
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+components:
+  schemas:
+    RegisterRequest:
+      type: object
+      description: 회원가입 요청
+      required: [email, name, password]
+      properties:
+        email:
+          type: string
+          format: email
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        password:
+          type: string
+          minLength: 8
+          description: 최소 8자 이상
+
+    LoginRequest:
+      type: object
+      description: 로그인 요청
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 1
+
+    RefreshRequest:
+      type: object
+      description: 토큰 갱신 요청
+      required: [refreshToken]
+      properties:
+        refreshToken:
+          type: string
+          minLength: 1
+
+    TokenPair:
+      type: object
+      description: access/refresh 토큰 페어
+      required: [accessToken, refreshToken, tokenType, expiresIn]
+      properties:
+        accessToken:
+          type: string
+          description: bearerAuth 헤더에 사용할 JWT
+        refreshToken:
+          type: string
+          description: /auth/refresh 호출에 사용할 장기 토큰
+        tokenType:
+          type: string
+          enum: [Bearer]
+        expiresIn:
+          type: integer
+          minimum: 1
+          description: accessToken 만료까지 남은 초
+      example:
+        accessToken: "eyJhbGciOi...example"
+        refreshToken: "rt_example_0001"
+        tokenType: Bearer
+        expiresIn: 3600
+
+    ForgotPasswordRequest:
+      type: object
+      description: 비밀번호 재설정 토큰 발송 요청
+      required: [email]
+      properties:
+        email:
+          type: string
+          format: email
+
+    ResetPasswordRequest:
+      type: object
+      description: 비밀번호 재설정 요청
+      required: [token, newPassword]
+      properties:
+        token:
+          type: string
+          minLength: 1
+        newPassword:
+          type: string
+          minLength: 8
+          description: 최소 8자 이상
+
+    AuthSession:
+      type: object
+      description: 사용자 + 토큰 페어 — 가입/로그인 응답 단위
+      required: [user, tokens]
+      properties:
+        user:
+          $ref: '#/components/schemas/User'
+        tokens:
+          $ref: '#/components/schemas/TokenPair'
+      example:
+        user:
+          id: "00000000-0000-0000-0000-000000000001"
+          email: "alice@example.com"
+          name: "Alice"
+          role: user
+          createdAt: "2024-01-01T00:00:00.000Z"
+        tokens:
+          accessToken: "eyJhbGciOi...example"
+          refreshToken: "rt_example_0001"
+          tokenType: Bearer
+          expiresIn: 3600

@@ -203,6 +203,156 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
+  /users/{id}/public:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: 사용자 UUID
+        schema:
+          type: string
+          format: uuid
+        examples:
+          default:
+            dataValue: "00000000-0000-0000-0000-000000000001"
+            serializedValue: "00000000-0000-0000-0000-000000000001"
+
+    get:
+      tags: [users]
+      operationId: getPublicUserProfile
+      summary: 공개 프로필 조회
+      description: |
+        다른 user의 공개 가시 정보(이름, 역할). email/createdAt 등 PII 미포함.
+        멘션·검색 결과 등에서 사용. user/scoped:read 이상 필요.
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: 공개 프로필
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicUserProfile'
+              examples:
+                default:
+                  dataValue:
+                    id: "00000000-0000-0000-0000-000000000001"
+                    name: "Alice"
+                    role: user
+                  serializedValue: '{"id":"00000000-0000-0000-0000-000000000001","name":"Alice","role":"user"}'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /users/{id}/reports:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: 신고 대상 사용자 UUID
+        schema:
+          type: string
+          format: uuid
+
+    post:
+      tags: [users]
+      operationId: reportUser
+      summary: 사용자 신고
+      description: |
+        혐오·스팸·사기 등 정책 위반 사용자를 운영자에게 신고. 신고자는 인증된
+        user. 동일 신고자→대상 페어는 24시간 내 1회로 rate-limit.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReportRequest'
+            examples:
+              default:
+                dataValue:
+                  reason: harassment
+                  details: "공격적 메시지 반복 발신"
+                serializedValue: '{"reason":"harassment","details":"공격적 메시지 반복 발신"}'
+      responses:
+        '201':
+          description: 신고 접수 완료
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Report'
+              examples:
+                default:
+                  dataValue:
+                    id: "00000000-0000-0000-0000-000000000300"
+                    targetUserId: "00000000-0000-0000-0000-000000000001"
+                    reporterUserId: "00000000-0000-0000-0000-000000000002"
+                    reason: harassment
+                    status: open
+                    createdAt: "2026-05-04T00:00:00.000Z"
+                  serializedValue: '{"id":"00000000-0000-0000-0000-000000000300","targetUserId":"00000000-0000-0000-0000-000000000001","reporterUserId":"00000000-0000-0000-0000-000000000002","reason":"harassment","status":"open","createdAt":"2026-05-04T00:00:00.000Z"}'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /moderation/reports:
+    get:
+      tags: [users]
+      operationId: listModerationReports
+      summary: 신고 큐 조회 (운영자)
+      description: |
+        운영자(moderator) 전용. 처리 대기/처리 중 신고 일람. status 필터로
+        open/under-review/resolved 등 분기.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+        - name: status
+          in: query
+          description: 신고 상태 필터
+          schema:
+            type: string
+            enum: [open, under-review, resolved, dismissed]
+      responses:
+        '200':
+          description: 신고 큐
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, total]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Report'
+                  total:
+                    type: integer
+                    minimum: 0
+              examples:
+                default:
+                  dataValue:
+                    items:
+                      - id: "00000000-0000-0000-0000-000000000300"
+                        targetUserId: "00000000-0000-0000-0000-000000000001"
+                        reporterUserId: "00000000-0000-0000-0000-000000000002"
+                        reason: harassment
+                        status: open
+                        createdAt: "2026-05-04T00:00:00.000Z"
+                    total: 1
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
 components:
   schemas:
     User:
@@ -267,3 +417,71 @@ components:
         role:
           type: string
           enum: [admin, user, guest]
+
+    PublicUserProfile:
+      type: object
+      description: 공개 프로필 — PII 비포함 (email/createdAt 제외)
+      required: [id, name, role]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        role:
+          type: string
+          enum: [admin, user, guest]
+      example:
+        id: "00000000-0000-0000-0000-000000000001"
+        name: "Alice"
+        role: user
+
+    ReportRequest:
+      type: object
+      description: 신고 요청 본문
+      required: [reason]
+      properties:
+        reason:
+          type: string
+          enum: [spam, harassment, hate-speech, fraud, impersonation, other]
+        details:
+          type: string
+          maxLength: 1000
+
+    Report:
+      type: object
+      description: 신고 단건
+      required: [id, targetUserId, reporterUserId, reason, status, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        targetUserId:
+          type: string
+          format: uuid
+        reporterUserId:
+          type: string
+          format: uuid
+        reason:
+          type: string
+          enum: [spam, harassment, hate-speech, fraud, impersonation, other]
+        details:
+          type: string
+        status:
+          type: string
+          enum: [open, under-review, resolved, dismissed]
+        createdAt:
+          type: string
+          format: date-time
+        resolvedAt:
+          type: string
+          format: date-time
+      example:
+        id: "00000000-0000-0000-0000-000000000300"
+        targetUserId: "00000000-0000-0000-0000-000000000001"
+        reporterUserId: "00000000-0000-0000-0000-000000000002"
+        reason: harassment
+        status: open
+        createdAt: "2026-05-04T00:00:00.000Z"

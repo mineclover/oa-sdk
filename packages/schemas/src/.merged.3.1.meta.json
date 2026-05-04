@@ -4,11 +4,78 @@
   "downgradeVersion": "3.1.0",
   "originalVersion": "3.2.0",
   "preserved": {
+    "/paths/~1auth~1register/post/requestBody/content/application~1json/examples/default/dataValue": {
+      "email": "greg@example.com",
+      "name": "Greg",
+      "password": "secure1234"
+    },
+    "/paths/~1auth~1register/post/requestBody/content/application~1json/examples/default/serializedValue": "{\"email\":\"greg@example.com\",\"name\":\"Greg\",\"password\":\"secure1234\"}",
+    "/paths/~1auth~1register/post/responses/201/content/application~1json/examples/default/dataValue": {
+      "user": {
+        "id": "00000000-0000-0000-0000-000000000010",
+        "email": "greg@example.com",
+        "name": "Greg",
+        "role": "user",
+        "createdAt": "2026-05-04T00:00:00.000Z"
+      },
+      "tokens": {
+        "accessToken": "eyJhbGciOi...register",
+        "refreshToken": "rt_register_0001",
+        "tokenType": "Bearer",
+        "expiresIn": 3600
+      }
+    },
+    "/paths/~1auth~1login/post/requestBody/content/application~1json/examples/default/dataValue": {
+      "email": "alice@example.com",
+      "password": "secure1234"
+    },
+    "/paths/~1auth~1login/post/requestBody/content/application~1json/examples/default/serializedValue": "{\"email\":\"alice@example.com\",\"password\":\"secure1234\"}",
+    "/paths/~1auth~1login/post/responses/200/content/application~1json/examples/default/dataValue": {
+      "user": {
+        "id": "00000000-0000-0000-0000-000000000001",
+        "email": "alice@example.com",
+        "name": "Alice",
+        "role": "user",
+        "createdAt": "2024-01-01T00:00:00.000Z"
+      },
+      "tokens": {
+        "accessToken": "eyJhbGciOi...login",
+        "refreshToken": "rt_login_0001",
+        "tokenType": "Bearer",
+        "expiresIn": 3600
+      }
+    },
+    "/paths/~1auth~1refresh/post/requestBody/content/application~1json/examples/default/dataValue": {
+      "refreshToken": "rt_login_0001"
+    },
+    "/paths/~1auth~1refresh/post/requestBody/content/application~1json/examples/default/serializedValue": "{\"refreshToken\":\"rt_login_0001\"}",
+    "/paths/~1auth~1refresh/post/responses/200/content/application~1json/examples/default/dataValue": {
+      "accessToken": "eyJhbGciOi...refreshed",
+      "refreshToken": "rt_login_0002",
+      "tokenType": "Bearer",
+      "expiresIn": 3600
+    },
     "/paths/~1health/get/responses/200/content/application~1json/examples/ok/dataValue": {
       "status": "ok",
       "timestamp": "2026-04-04T00:00:00.000Z"
     },
     "/paths/~1health/get/responses/200/content/application~1json/examples/ok/serializedValue": "{\"status\":\"ok\",\"timestamp\":\"2026-04-04T00:00:00.000Z\"}",
+    "/paths/~1me/get/responses/200/content/application~1json/examples/default/dataValue": {
+      "id": "00000000-0000-0000-0000-000000000001",
+      "email": "alice@example.com",
+      "name": "Alice",
+      "role": "user",
+      "createdAt": "2024-01-01T00:00:00.000Z"
+    },
+    "/paths/~1me/patch/requestBody/content/application~1json/examples/default/dataValue": {
+      "name": "Alice (self-edit)"
+    },
+    "/paths/~1me/patch/requestBody/content/application~1json/examples/default/serializedValue": "{\"name\":\"Alice (self-edit)\"}",
+    "/paths/~1me~1change-password/post/requestBody/content/application~1json/examples/default/dataValue": {
+      "currentPassword": "secure1234",
+      "newPassword": "evenmoresecure5678"
+    },
+    "/paths/~1me~1change-password/post/requestBody/content/application~1json/examples/default/serializedValue": "{\"currentPassword\":\"secure1234\",\"newPassword\":\"evenmoresecure5678\"}",
     "/paths/~1users/get/responses/200/content/application~1json/examples/default/dataValue": {
       "items": [
         {
@@ -80,6 +147,16 @@
       "message": "요청 본문이 스키마 유효성 검사를 통과하지 못했습니다"
     },
     "/components/responses/UnprocessableEntity/content/application~1json/examples/default/serializedValue": "{\"code\":\"SCHEMA_VALIDATION_FAILED\",\"message\":\"요청 본문이 스키마 유효성 검사를 통과하지 못했습니다\"}",
+    "/components/responses/Conflict/content/application~1json/examples/default/dataValue": {
+      "code": "CONFLICT",
+      "message": "이미 존재하는 리소스입니다"
+    },
+    "/components/responses/Conflict/content/application~1json/examples/default/serializedValue": "{\"code\":\"CONFLICT\",\"message\":\"이미 존재하는 리소스입니다\"}",
+    "/components/responses/TooManyRequests/content/application~1json/examples/default/dataValue": {
+      "code": "RATE_LIMITED",
+      "message": "요청 한도를 초과했습니다. 잠시 후 다시 시도해 주세요"
+    },
+    "/components/responses/TooManyRequests/content/application~1json/examples/default/serializedValue": "{\"code\":\"RATE_LIMITED\",\"message\":\"요청 한도를 초과했습니다. 잠시 후 다시 시도해 주세요\"}",
     "/components/responses/InternalServerError/content/application~1json/examples/default/dataValue": {
       "code": "INTERNAL_SERVER_ERROR",
       "message": "서버 내부 오류가 발생했습니다"
