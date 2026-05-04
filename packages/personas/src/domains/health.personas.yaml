@@ -13,6 +13,7 @@ personas:
       data: HealthStatus
       intent: monitor
       trigger: load-balancer-probe
+      consumer: infra-ops
     reference:
       channel: [public-api]
     outcome:
@@ -29,6 +30,7 @@ personas:
       data: HealthEvent
       intent: subscribe
       trigger: dashboard-realtime
+      consumer: infra-ops
     reference:
       channel: [browser, cli]
     outcome:
@@ -46,6 +48,7 @@ personas:
       data: HealthStatus
       intent: monitor
       trigger: deploy-gate
+      consumer: infra-ops
     reference:
       channel: [public-api]
     outcome:
@@ -62,6 +65,7 @@ personas:
       data: HealthStatus
       intent: read-detail
       trigger: deploy-verification
+      consumer: infra-ops
     reference:
       channel: [public-api]
     outcome:

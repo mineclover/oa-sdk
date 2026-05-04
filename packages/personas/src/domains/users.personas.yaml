@@ -21,6 +21,7 @@ personas:
       data: User(any)
       intent: list
       trigger: ops-monitoring
+      consumer: internal-tool
     reference:
       regulation: [pii-kr-pipa]
       channel: [browser, public-api]
@@ -38,6 +39,7 @@ personas:
       data: User(any)
       intent: read-detail
       trigger: user-support
+      consumer: internal-tool
     reference:
       regulation: [pii-kr-pipa]
       channel: [browser]
@@ -54,6 +56,7 @@ personas:
       data: User(any)
       intent: create
       trigger: bulk-onboarding
+      consumer: internal-tool
     reference:
       regulation: [pii-kr-pipa]
       channel: [browser, public-api]
@@ -71,6 +74,7 @@ personas:
       data: Role
       intent: update
       trigger: privilege-management
+      consumer: internal-tool
     reference:
       regulation: [pii-kr-pipa]
       channel: [browser]
@@ -88,6 +92,7 @@ personas:
       data: User(any)
       intent: hard-delete
       trigger: violation-action
+      consumer: internal-tool
     reference:
       regulation: [pii-kr-pipa]
       channel: [browser]
@@ -138,6 +143,7 @@ personas:
       data: User(any)
       intent: read-detail
       trigger: phantom-id
+      consumer: internal-tool
     reference:
       regulation: [pii-kr-pipa]
       channel: [browser]
@@ -155,6 +161,7 @@ personas:
       data: User(any)
       intent: update
       trigger: phantom-id
+      consumer: internal-tool
     reference:
       regulation: [pii-kr-pipa]
       channel: [browser]
@@ -223,6 +230,7 @@ personas:
       data: User(any)
       intent: moderate
       trigger: report-queue
+      consumer: site-admin
     reference:
       regulation: [content-violence]
       channel: [browser]

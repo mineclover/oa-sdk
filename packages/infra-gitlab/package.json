@@ -1,0 +1,28 @@
+{
+  "name": "@oa-sdk/infra-gitlab",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Pulumi preset: GitLab CE Omnibus + GitLab Runner on local Docker. Phase 1 of the GitLab-based DevOps infrastructure that backs Symphony orchestration.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "scripts": {
+    "build": "tsup src/index.ts --format esm --dts",
+    "typecheck": "tsc --noEmit",
+    "preview": "pulumi preview",
+    "up": "pulumi up",
+    "down": "pulumi destroy",
+    "stack:init": "pulumi stack init dev || true",
+    "login:local": "pulumi login --local",
+    "register:runner": "bash ./scripts/register-runner.sh",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@pulumi/docker": "^4.6.0",
+    "@pulumi/pulumi": "^3.140.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "tsup": "^8.0.0",
+    "typescript": "^5.9.3"
+  }
+}

@@ -264,7 +264,7 @@ function checkRequiredIdentity(persona: Persona, domain: string, issues: Validat
 
 function identityKey(p: Persona): string {
   const i = p.identity ?? ({} as Persona['identity'])
-  return [i.actor, i.data, i.intent, i.trigger, i.skill ?? ''].join('|')
+  return [i.actor, i.data, i.intent, i.trigger, i.skill ?? '', i.consumer ?? ''].join('|')
 }
 
 function buildTraitValueSets(traits: Map<string, TraitVocabulary>): Map<string, Set<string>> {

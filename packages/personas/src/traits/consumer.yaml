@@ -1,0 +1,48 @@
+# consumer 차원 어휘 — API 소비자 perspective (관점)
+# actor와 직교: 같은 actor라도 어떤 stakeholder 입장에서 호출하는지에 따라 의무가 다름.
+# 미설정 시 디폴트는 `end-user` (제품 직접 사용자).
+#
+# 4 카테고리:
+#   product         — 제품 최종 사용자 (앱/웹 UX)
+#   integration     — 외부 통합 (백엔드 서비스 / 파트너 SDK)
+#   internal-ops    — 내부 운영자 (어드민, CS, SRE)
+#   data-platform   — 데이터/분석 (ETL, lineage)
+
+categories:
+  - id: product
+    description: "제품을 직접 사용하는 최종 사용자 — 앱/웹/모바일"
+  - id: integration
+    description: "외부 통합 — 다른 백엔드 서비스 또는 파트너 SDK가 우리 API를 호출"
+  - id: internal-ops
+    description: "내부 운영자 — 어드민 대시보드, CS 도구, SRE 모니터링, 사이트 admin"
+  - id: data-platform
+    description: "데이터 엔지니어/분석가 — bulk export, ETL, BI dashboard, lineage"
+
+values:
+  - id: end-user
+    category: product
+    description: "제품 직접 사용자 — 앱 / 웹 UI를 통해 호출 (디폴트)"
+
+  - id: backend
+    category: integration
+    description: "내부/외부 백엔드 서비스 — service-to-service 호출. 머신 to 머신, JSON 응답에 최적화"
+
+  - id: infra-ops
+    category: internal-ops
+    description: "운영/SRE — liveness/readiness probe, 메트릭 수집, 배포 검증"
+
+  - id: data-eng
+    category: data-platform
+    description: "데이터 엔지니어 — bulk export, daily ETL, schema stability 의존"
+
+  - id: b2b-customer
+    category: integration
+    description: "B2B 파트너 — OAuth scope 기반 위임 통합. partner-sdk 채널, webhook 의존, idempotency 강함"
+
+  - id: internal-tool
+    category: internal-ops
+    description: "내부 도구 사용자 — 어드민 대시보드, CS 도구, 직원 검색/처리"
+
+  - id: site-admin
+    category: internal-ops
+    description: "사이트 관리자 — 모더레이션, 정책 집행, 슈퍼-admin 권한 (강제 삭제, legal-hold 해제)"

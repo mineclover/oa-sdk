@@ -69,6 +69,8 @@ export interface PersonaIdentity {
   intent: string
   trigger: string
   skill?: string
+  /** API consumer perspective (e.g. backend / b2b-customer / internal-tool / infra-ops). Defaults conceptually to 'end-user' when omitted. */
+  consumer?: string
 }
 
 export interface PersonaReference {

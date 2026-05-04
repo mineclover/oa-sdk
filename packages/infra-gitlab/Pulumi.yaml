@@ -1,0 +1,33 @@
+name: infra-gitlab
+description: Pulumi preset for a self-hosted GitLab CE + GitLab Runner stack on local Docker.
+main: src/index.ts
+runtime:
+  name: nodejs
+  options:
+    typescript: true
+template:
+  description: |
+    Phase 1 preset — single-host GitLab CE Omnibus on Docker, plus a Docker-executor Runner.
+    Use this stack as the DevOps substrate for downstream automation (e.g. Symphony orchestration).
+config:
+  infra-gitlab:gitlabHostname:
+    description: External hostname users will type into the browser. Use 'localhost' for local dev.
+    default: localhost
+  infra-gitlab:gitlabHttpPort:
+    description: Host port mapped to GitLab's HTTP listener.
+    default: 8929
+  infra-gitlab:gitlabSshPort:
+    description: Host port mapped to GitLab's SSH listener (for git+ssh).
+    default: 2289
+  infra-gitlab:gitlabImageTag:
+    description: gitlab/gitlab-ce image tag.
+    default: latest
+  infra-gitlab:runnerImageTag:
+    description: gitlab/gitlab-runner image tag.
+    default: latest
+  infra-gitlab:enableRunner:
+    description: Whether to provision the Runner container alongside GitLab.
+    default: true
+  infra-gitlab:rootPassword:
+    description: Initial root password (set via Omnibus GITLAB_ROOT_PASSWORD). Stored as a Pulumi secret.
+    secret: true
