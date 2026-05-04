@@ -21,6 +21,7 @@
     "@oa-sdk/mock-server": "workspace:*",
     "@oa-sdk/openapi-projection-contract": "workspace:*",
     "@oa-sdk/parser": "workspace:*",
+    "@oa-sdk/personas": "workspace:*",
     "@oa-sdk/router": "workspace:*",
     "@oa-sdk/schemas": "workspace:*",
     "yaml": "^2.5.0",
