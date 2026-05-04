@@ -12,10 +12,13 @@ import { join } from 'node:path'
 
 import {
   loadAllDomains,
+  loadAllDataModels,
   loadAllTraits,
+  loadDataModel,
   loadOperationIdsFromMergedSpec,
   loadOperationsFromMergedSpec,
   loadRegistry,
+  listDataModels,
 } from './load.js'
 
 const tmpRoot = mkdtempSync(join(tmpdir(), 'personas-load-'))
@@ -130,6 +133,39 @@ describe('load.ts — I/O boundary', () => {
       expect(d.domain).toBeTruthy()
       expect(Array.isArray(d.personas)).toBe(true)
     }
+  })
+
+  it('lists bundled data-model personas in stable entity order', () => {
+    expect(listDataModels()).toEqual([
+      'Account',
+      'Credential',
+      'HealthStatus',
+      'Report',
+      'Session',
+      'User',
+    ])
+  })
+
+  it('loads a bundled data-model persona by entity name', () => {
+    const model = loadDataModel('User')
+    expect(model.entity).toBe('User')
+    expect(model.schema_ref).toBe('#/components/schemas/User')
+    expect(model.local_variants?.map(v => v.id)).toEqual([
+      'User(any)',
+      'User(self)',
+      'User(other)',
+    ])
+  })
+
+  it('loads all bundled data-model personas', () => {
+    expect(loadAllDataModels().map(m => m.entity)).toEqual([
+      'Account',
+      'Credential',
+      'HealthStatus',
+      'Report',
+      'Session',
+      'User',
+    ])
   })
 
   // cleanup

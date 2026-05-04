@@ -7,8 +7,8 @@ import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import { analyzeCoverage, renderMarkdown } from './coverage.js'
-import { loadAllDomains, loadOperationsFromMergedSpec } from './load.js'
-import type { DomainMatrix } from './types.js'
+import { loadAllDataModels, loadAllDomains, loadOperationsFromMergedSpec } from './load.js'
+import type { DataModelPersona, DomainMatrix, TraitVocabulary } from './types.js'
 import type { OperationInfo } from './load.js'
 
 const __dir = dirname(fileURLToPath(import.meta.url))
@@ -41,12 +41,9 @@ describe('coverage analyzer', () => {
     expect(report.unmappedPersonas[0]!.personaId).toBe('future-p')
   })
 
-  it('bundled matrices surface the intentional user-domain gap backlog', () => {
+  it('bundled matrices have no unmapped gap backlog after v0.8 promotion', () => {
     const report = analyzeCoverage({ domains, knownOperations })
-    expect(report.unmappedPersonas.map(p => p.personaId).sort()).toEqual([
-      'data-eng-bulk-export-users',
-      'site-admin-purge-user',
-    ])
+    expect(report.unmappedPersonas).toEqual([])
   })
 
   it('detects unjustified operations when persona matrix is empty', () => {
@@ -73,14 +70,105 @@ describe('coverage analyzer', () => {
   })
 
   it('renderMarkdown emits stable section headers', () => {
-    const report = analyzeCoverage({ domains, knownOperations })
+    const consumerVocab: TraitVocabulary = {
+      categories: [
+        { id: 'product' },
+      ],
+      values: [
+        { id: 'end-user', category: 'product' },
+      ],
+    }
+    const report = analyzeCoverage({
+      domains,
+      knownOperations,
+      consumerVocab,
+      dataModels: loadAllDataModels(),
+    })
     const md = renderMarkdown(report)
     expect(md).toContain('# Personas Coverage Report')
     expect(md).toContain('## Operation coverage')
     expect(md).toContain('## Actor cross-section')
     expect(md).toContain('## Regulation cross-section')
     expect(md).toContain('## Channel cross-section')
+    expect(md).toContain('## Consumer category coverage')
+    expect(md).toContain('## Data model coverage')
     // Gap backlog section appears only when there are unmapped personas; no longer always present
+  })
+
+  it('buildDataModelCoverage maps entity variants back to authored data models', () => {
+    const dataModels: DataModelPersona[] = [{
+      entity: 'User',
+      local_variants: [
+        { id: 'User(any)' },
+        { id: 'User(self)' },
+      ],
+      invariants: {
+        pii: true,
+        audit: { required_on: ['read-detail'] },
+      },
+      regulations: ['pii-gdpr'],
+    }]
+    const synthDomains: DomainMatrix[] = [{
+      domain: 'fake',
+      personas: [
+        {
+          id: 'admin-user-any',
+          status: 'implemented',
+          identity: { actor: 'admin', data: 'User(any)', intent: 'read-detail', trigger: 'ops-monitoring' },
+        },
+        {
+          id: 'owner-user-self',
+          status: 'implemented',
+          identity: { actor: 'owner-self', data: 'User(self)', intent: 'read-detail', trigger: 'profile-opened' },
+        },
+        {
+          id: 'user-other',
+          status: 'implemented',
+          identity: { actor: 'user', data: 'User(other)', intent: 'read-detail', trigger: 'profile-opened' },
+        },
+      ],
+    }]
+    const report = analyzeCoverage({ domains: synthDomains, knownOperations: new Map(), dataModels })
+    expect(report.dataModelCoverage).toEqual([{
+      entity: 'User',
+      personaIds: ['admin-user-any', 'owner-user-self', 'user-other'],
+      pii: true,
+      auditRequired: true,
+      regulations: ['pii-gdpr'],
+    }])
+  })
+
+  it('consumer category cross-section counts personas by consumer vocabulary category', () => {
+    const consumerVocab: TraitVocabulary = {
+      categories: [
+        { id: 'product' },
+        { id: 'integration' },
+      ],
+      values: [
+        { id: 'end-user', category: 'product' },
+        { id: 'backend', category: 'integration' },
+      ],
+    }
+    const synthDomains: DomainMatrix[] = [{
+      domain: 'fake',
+      personas: [
+        {
+          id: 'product-consumer',
+          status: 'implemented',
+          identity: { actor: 'owner-self', data: 'User(self)', intent: 'read-detail', trigger: 'profile-opened', consumer: 'end-user' },
+        },
+        {
+          id: 'backend-consumer',
+          status: 'implemented',
+          identity: { actor: 'system', data: 'User(any)', intent: 'list', trigger: 'service-sync', consumer: 'backend' },
+        },
+      ],
+    }]
+    const report = analyzeCoverage({ domains: synthDomains, knownOperations: new Map(), consumerVocab })
+    expect(report.consumerCategories).toEqual([
+      { category: 'product', personaCount: 1, triggers: ['end-user'] },
+      { category: 'integration', personaCount: 1, triggers: ['backend'] },
+    ])
   })
 
   it('acknowledged_orphans subtract from orphanResponses and surface in dedicated list', () => {
