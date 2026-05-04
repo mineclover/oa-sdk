@@ -1,0 +1,522 @@
+domain: users
+description: "사용자 관리 도메인 — admin이 임의 사용자에 대해 수행하는 surface (셀프 surface는 me 도메인)"
+
+# data 어휘 (도메인-로컬):
+#   User(any)    — 임의 사용자 (admin 컨텍스트)
+#   User(other)  — 자기가 아닌 다른 사용자 (일반 user 컨텍스트)
+#   Role         — 사용자 역할 enum 자체
+
+# 의도적으로 페르소나로 모델링하지 않는 orphan 응답 — propose CLI가 skip하고
+# coverage는 별도 섹션에 표시. 새 페르소나로 채우지 말 것.
+acknowledged_orphans:
+  - operationId: createUser
+    statusCode: "500"
+    reason: "infrastructure error — no actor causes this; contract obligation only."
+
+personas:
+  - id: admin-monitor
+    status: implemented
+    identity:
+      actor: admin
+      data: User(any)
+      intent: list
+      trigger: ops-monitoring
+    reference:
+      regulation: [pii-kr-pipa]
+      channel: [browser, public-api]
+    outcome:
+      shape: list-paginated
+      access: [scoped:admin, audited]
+      maps_to: [listUsers]
+      expects: [200]
+    notes: "운영 대시보드용. PIPA 적용 — 마스킹 또는 운영자 본인 확인 강화."
+
+  - id: admin-user-detail
+    status: implemented
+    identity:
+      actor: admin
+      data: User(any)
+      intent: read-detail
+      trigger: user-support
+    reference:
+      regulation: [pii-kr-pipa]
+      channel: [browser]
+    outcome:
+      shape: detail
+      access: [scoped:admin, audited]
+      maps_to: [getUserById]
+      expects: [200]
+
+  - id: admin-create-user
+    status: implemented
+    identity:
+      actor: admin
+      data: User(any)
+      intent: create
+      trigger: bulk-onboarding
+    reference:
+      regulation: [pii-kr-pipa]
+      channel: [browser, public-api]
+    outcome:
+      shape: detail
+      access: [scoped:admin, audited]
+      maps_to: [createUser]
+      expects: [201]
+    notes: "공개 가입(register)과 별개. 운영자가 사전 등록하는 경우. 이메일 중복은 409."
+
+  - id: admin-role-grant
+    status: implemented
+    identity:
+      actor: admin
+      data: Role
+      intent: update
+      trigger: privilege-management
+    reference:
+      regulation: [pii-kr-pipa]
+      channel: [browser]
+    outcome:
+      shape: detail
+      access: [scoped:admin, audited]
+      maps_to: [updateUser]
+      expects: [200]
+    notes: "PATCH /users/{id} {role}. 역할 변경은 감사 필수."
+
+  - id: admin-user-removal
+    status: implemented
+    identity:
+      actor: admin
+      data: User(any)
+      intent: hard-delete
+      trigger: violation-action
+    reference:
+      regulation: [pii-kr-pipa]
+      channel: [browser]
+    outcome:
+      shape: command
+      access: [scoped:admin, audited]
+      maps_to: [deleteUser]
+      expects: [204]
+    notes: "현 spec의 DELETE /users/{id} 는 hard-delete. soft-delete가 필요하면 별 페르소나로 추가."
+
+  # ── negative-path (orphan response 해소) ─────────────────────────────
+  - id: guest-unauthorized-list
+    status: implemented
+    identity:
+      actor: guest
+      data: User(any)
+      intent: list
+      trigger: missing-auth
+    reference:
+      channel: [public-api, browser]
+    outcome:
+      shape: list-paginated
+      access: [public]            # 인증 없는 시도
+      maps_to: [listUsers]
+      expects: [401]
+    notes: "negative-path. 미인증 호출 → 401. listUsers의 401 응답 커버. happy-path는 admin-monitor."
+
+  - id: non-admin-update-other-user
+    status: implemented
+    identity:
+      actor: user
+      data: User(other)
+      intent: update
+      trigger: privilege-escalation-attempt
+    reference:
+      channel: [browser, public-api]
+    outcome:
+      shape: detail
+      access: [scoped:read, audited]
+      maps_to: [updateUser]
+      expects: [403]
+    notes: "negative-path. 일반 user가 admin endpoint를 호출 → 403. updateUser의 403 응답 커버. 권한 우회 시도는 audit 필수."
+
+  - id: getUserById-not-found
+    status: implemented
+    identity:
+      actor: admin
+      data: User(any)
+      intent: read-detail
+      trigger: phantom-id
+    reference:
+      regulation: [pii-kr-pipa]
+      channel: [browser]
+    outcome:
+      shape: detail
+      access: [scoped:admin, audited]
+      maps_to: [getUserById]
+      expects: [404]
+    notes: "negative-path. 존재하지 않는 UUID 조회 → 404. getUserById의 404 응답 커버."
+
+  - id: updateUser-not-found
+    status: implemented
+    identity:
+      actor: admin
+      data: User(any)
+      intent: update
+      trigger: phantom-id
+    reference:
+      regulation: [pii-kr-pipa]
+      channel: [browser]
+    outcome:
+      shape: detail
+      access: [scoped:admin, audited]
+      maps_to: [updateUser]
+      expects: [404]
+    notes: "negative-path. 존재하지 않는 UUID 수정 → 404. updateUser의 404 응답 커버."
+
+  # ── moderation / public profile / role history (이전 proposed → 모두 implemented) ────
+  - id: user-public-profile-view
+    status: implemented
+    identity:
+      actor: user
+      data: User(other)
+      intent: read-detail
+      trigger: mention
+    reference:
+      regulation: [privacy-self-disclosure]
+      channel: [browser, mobile-app]
+    outcome:
+      shape: detail
+      access: [scoped:read, pseudonymized]
+      maps_to: [getPublicUserProfile]
+      expects: [200]
+    notes: "GET /users/{id}/public — PII 비포함 공개 프로필. mention/검색 결과 등에서 사용."
+
+  - id: target-of-role-change
+    status: implemented
+    identity:
+      actor: target-of-action
+      data: Role
+      intent: list
+      trigger: role-changed-notification
+    reference:
+      channel: [mobile-app, browser]
+    outcome:
+      shape: list-paginated
+      access: [private-self, audited]
+      maps_to: [listMyRoleChanges]
+      expects: [200]
+    notes: "GET /me/role-changes — admin이 내 역할을 변경한 이력 일람. shape: list-paginated로 변경 (이력은 다건)."
+
+  - id: user-report-abuse
+    status: implemented
+    identity:
+      actor: user
+      data: User(other)
+      intent: report
+      trigger: abuse-detected
+    reference:
+      regulation: [content-violence]
+      channel: [browser, mobile-app]
+    outcome:
+      shape: command
+      access: [scoped:write, rate-limited, audited]
+      maps_to: [reportUser]
+      expects: [201]
+    notes: "POST /users/{id}/reports — 신고 surface. 신고자→대상 페어 24h 1회 rate-limit."
+
+  - id: moderator-review-reports
+    status: implemented
+    identity:
+      actor: moderator
+      data: User(any)
+      intent: moderate
+      trigger: report-queue
+    reference:
+      regulation: [content-violence]
+      channel: [browser]
+    outcome:
+      shape: list-paginated
+      access: [scoped:admin, audited]
+      maps_to: [listModerationReports]
+      expects: [200]
+    notes: "GET /moderation/reports — moderator 전용 큐. user-report-abuse와 짝."
+
+  # ── auto-promoted from v0.6 propose (negative-path coverage) ────────
+
+  - id: malformed-createUser
+    status: implemented
+    identity:
+      actor: admin
+      data: User(any)
+      intent: create
+      trigger: malformed-request
+    reference:
+      regulation: [pii-kr-pipa]
+      channel: [browser, public-api]
+    outcome:
+      shape: detail
+      access: ["scoped:admin", audited]
+      maps_to: [createUser]
+      expects: [400]
+    notes: "negative-path. 잘못된 요청 형식 → 400. createUser의 400 응답 커버."
+  - id: guest-unauthorized-createUser
+    status: implemented
+    identity:
+      actor: guest
+      data: User(any)
+      intent: create
+      trigger: missing-auth
+    reference:
+      channel: [browser, public-api]
+    outcome:
+      shape: detail
+      access: [public]
+      maps_to: [createUser]
+      expects: [401]
+    notes: "negative-path. 미인증 호출 → 401. createUser의 401 응답 커버."
+  - id: malformed-payload-createUser
+    status: implemented
+    identity:
+      actor: admin
+      data: User(any)
+      intent: create
+      trigger: malformed-payload
+    reference:
+      regulation: [pii-kr-pipa]
+      channel: [browser, public-api]
+    outcome:
+      shape: detail
+      access: ["scoped:admin", audited]
+      maps_to: [createUser]
+      expects: [422]
+    notes: "negative-path. schema 위반 → 422. createUser의 422 응답 커버."
+  - id: guest-unauthorized-deleteUser
+    status: implemented
+    identity:
+      actor: guest
+      data: User(any)
+      intent: hard-delete
+      trigger: missing-auth
+    reference:
+      channel: [browser]
+    outcome:
+      shape: command
+      access: [public]
+      maps_to: [deleteUser]
+      expects: [401]
+    notes: "negative-path. 미인증 호출 → 401. deleteUser의 401 응답 커버."
+  - id: not-found-deleteUser
+    status: implemented
+    identity:
+      actor: admin
+      data: User(any)
+      intent: hard-delete
+      trigger: phantom-id
+    reference:
+      regulation: [pii-kr-pipa]
+      channel: [browser]
+    outcome:
+      shape: command
+      access: ["scoped:admin", audited]
+      maps_to: [deleteUser]
+      expects: [404]
+    notes: "negative-path. 존재하지 않는 리소스 → 404. deleteUser의 404 응답 커버."
+
+  - id: guest-unauthorized-getPublicUserProfile
+    status: implemented
+    identity:
+      actor: guest
+      data: User(other)
+      intent: read-detail
+      trigger: missing-auth
+    reference:
+      channel: [browser, mobile-app]
+    outcome:
+      shape: detail
+      access: [public]
+      maps_to: [getPublicUserProfile]
+      expects: [401]
+    notes: "negative-path. 미인증 호출 → 401. getPublicUserProfile의 401 응답 커버."
+  - id: not-found-getPublicUserProfile
+    status: implemented
+    identity:
+      actor: user
+      data: User(other)
+      intent: read-detail
+      trigger: phantom-id
+    reference:
+      regulation: [privacy-self-disclosure]
+      channel: [browser, mobile-app]
+    outcome:
+      shape: detail
+      access: ["scoped:read", pseudonymized]
+      maps_to: [getPublicUserProfile]
+      expects: [404]
+    notes: "negative-path. 존재하지 않는 리소스 → 404. getPublicUserProfile의 404 응답 커버."
+
+  - id: guest-unauthorized-getUserById
+    status: implemented
+    identity:
+      actor: guest
+      data: User(any)
+      intent: read-detail
+      trigger: missing-auth
+    reference:
+      channel: [browser]
+    outcome:
+      shape: detail
+      access: [public]
+      maps_to: [getUserById]
+      expects: [401]
+    notes: "negative-path. 미인증 호출 → 401. getUserById의 401 응답 커버."
+
+  - id: guest-unauthorized-listModerationReports
+    status: implemented
+    identity:
+      actor: guest
+      data: User(any)
+      intent: moderate
+      trigger: missing-auth
+    reference:
+      channel: [browser]
+    outcome:
+      shape: list-paginated
+      access: [public]
+      maps_to: [listModerationReports]
+      expects: [401]
+    notes: "negative-path. 미인증 호출 → 401. listModerationReports의 401 응답 커버."
+  - id: insufficient-scope-listModerationReports
+    status: implemented
+    identity:
+      actor: user
+      data: User(any)
+      intent: moderate
+      trigger: insufficient-scope
+    reference:
+      channel: [browser]
+    outcome:
+      shape: list-paginated
+      access: ["scoped:admin", audited, "scoped:read"]
+      maps_to: [listModerationReports]
+      expects: [403]
+    notes: "negative-path. 권한 부족 → 403. listModerationReports의 403 응답 커버."
+
+  - id: guest-unauthorized-listMyRoleChanges
+    status: implemented
+    identity:
+      actor: guest
+      data: Role
+      intent: list
+      trigger: missing-auth
+    reference:
+      channel: [mobile-app, browser]
+    outcome:
+      shape: list-paginated
+      access: [public]
+      maps_to: [listMyRoleChanges]
+      expects: [401]
+    notes: "negative-path. 미인증 호출 → 401. listMyRoleChanges의 401 응답 커버."
+
+  - id: malformed-reportUser
+    status: implemented
+    identity:
+      actor: user
+      data: User(other)
+      intent: report
+      trigger: malformed-request
+    reference:
+      regulation: [content-violence]
+      channel: [browser, mobile-app]
+    outcome:
+      shape: command
+      access: ["scoped:write", rate-limited, audited]
+      maps_to: [reportUser]
+      expects: [400]
+    notes: "negative-path. 잘못된 요청 형식 → 400. reportUser의 400 응답 커버."
+  - id: guest-unauthorized-reportUser
+    status: implemented
+    identity:
+      actor: guest
+      data: User(other)
+      intent: report
+      trigger: missing-auth
+    reference:
+      channel: [browser, mobile-app]
+    outcome:
+      shape: command
+      access: [public]
+      maps_to: [reportUser]
+      expects: [401]
+    notes: "negative-path. 미인증 호출 → 401. reportUser의 401 응답 커버."
+  - id: malformed-payload-reportUser
+    status: implemented
+    identity:
+      actor: user
+      data: User(other)
+      intent: report
+      trigger: malformed-payload
+    reference:
+      regulation: [content-violence]
+      channel: [browser, mobile-app]
+    outcome:
+      shape: command
+      access: ["scoped:write", rate-limited, audited]
+      maps_to: [reportUser]
+      expects: [422]
+    notes: "negative-path. schema 위반 → 422. reportUser의 422 응답 커버."
+  - id: rate-limited-reportUser
+    status: implemented
+    identity:
+      actor: user
+      data: User(other)
+      intent: report
+      trigger: rate-limit-hit
+    reference:
+      regulation: [content-violence]
+      channel: [browser, mobile-app]
+    outcome:
+      shape: command
+      access: ["scoped:write", rate-limited, audited]
+      maps_to: [reportUser]
+      expects: [429]
+    notes: "negative-path. 요청 한도 초과 → 429. reportUser의 429 응답 커버."
+
+  - id: malformed-updateUser
+    status: implemented
+    identity:
+      actor: admin
+      data: Role
+      intent: update
+      trigger: malformed-request
+    reference:
+      regulation: [pii-kr-pipa]
+      channel: [browser]
+    outcome:
+      shape: detail
+      access: ["scoped:admin", audited]
+      maps_to: [updateUser]
+      expects: [400]
+    notes: "negative-path. 잘못된 요청 형식 → 400. updateUser의 400 응답 커버."
+  - id: guest-unauthorized-updateUser
+    status: implemented
+    identity:
+      actor: guest
+      data: Role
+      intent: update
+      trigger: missing-auth
+    reference:
+      channel: [browser]
+    outcome:
+      shape: detail
+      access: [public]
+      maps_to: [updateUser]
+      expects: [401]
+    notes: "negative-path. 미인증 호출 → 401. updateUser의 401 응답 커버."
+  - id: malformed-payload-updateUser
+    status: implemented
+    identity:
+      actor: admin
+      data: Role
+      intent: update
+      trigger: malformed-payload
+    reference:
+      regulation: [pii-kr-pipa]
+      channel: [browser]
+    outcome:
+      shape: detail
+      access: ["scoped:admin", audited]
+      maps_to: [updateUser]
+      expects: [422]
+    notes: "negative-path. schema 위반 → 422. updateUser의 422 응답 커버."

@@ -1,0 +1,123 @@
+domain: health
+description: "서버 상태 도메인 — 라이브니스 체크, 실시간 상태 스트림"
+
+# data 어휘 (도메인-로컬):
+#   HealthStatus  — { status, timestamp }
+#   HealthEvent   — SSE로 발행되는 상태 변화 이벤트
+
+personas:
+  - id: ops-liveness-check
+    status: implemented
+    identity:
+      actor: system
+      data: HealthStatus
+      intent: monitor
+      trigger: load-balancer-probe
+    reference:
+      channel: [public-api]
+    outcome:
+      shape: detail
+      access: [public]
+      maps_to: [getHealth]
+      expects: [200]
+    notes: "Kubernetes liveness/readiness probe, LB health check 등 자동화 actor. 인증 없음, 짧은 polling."
+
+  - id: ops-event-stream
+    status: implemented
+    identity:
+      actor: system
+      data: HealthEvent
+      intent: subscribe
+      trigger: dashboard-realtime
+    reference:
+      channel: [browser, cli]
+    outcome:
+      shape: stream-sse
+      access: [public]
+      maps_to: [streamHealthEvents]
+      expects: [200]
+    notes: "운영 대시보드 SSE 구독. 인증은 reverse proxy 단에서 처리하는 구성."
+
+  # ── readiness / version (이전 proposed → 모두 implemented) ────────────
+  - id: ops-readiness-check
+    status: implemented
+    identity:
+      actor: system
+      data: HealthStatus
+      intent: monitor
+      trigger: deploy-gate
+    reference:
+      channel: [public-api]
+    outcome:
+      shape: detail
+      access: [public]
+      maps_to: [getReadiness]
+      expects: [200]
+    notes: "GET /health/ready — readiness vs liveness 분리. 의존 DB/queue 검사 포함."
+
+  - id: ops-version-info
+    status: implemented
+    identity:
+      actor: system
+      data: HealthStatus
+      intent: read-detail
+      trigger: deploy-verification
+    reference:
+      channel: [public-api]
+    outcome:
+      shape: detail
+      access: [public]
+      maps_to: [getVersion]
+      expects: [200]
+    notes: "GET /version — build sha, deployed at. SRE Sam 페르소나의 배포 검증."
+
+  # ── auto-promoted from v0.6 propose (negative-path coverage) ────────
+
+  - id: dependency-down-getHealth
+    status: implemented
+    identity:
+      actor: system
+      data: HealthStatus
+      intent: monitor
+      trigger: dependency-down
+    reference:
+      channel: [public-api]
+    outcome:
+      shape: detail
+      access: [public]
+      maps_to: [getHealth]
+      expects: [503]
+    notes: "negative-path. 의존 시스템 장애 → 503. getHealth의 503 응답 커버."
+
+  - id: dependency-down-getReadiness
+    status: implemented
+    identity:
+      actor: system
+      data: ReadinessReport
+      intent: monitor
+      trigger: dependency-down
+    reference:
+      channel: [public-api]
+    outcome:
+      shape: detail
+      access: [public]
+      maps_to: [getReadiness]
+      expects: [503]
+    notes: "negative-path. 의존 시스템 장애 → 503. getReadiness의 503 응답 커버."
+
+  - id: dependency-down-streamHealthEvents
+    status: implemented
+    identity:
+      actor: system
+      data: HealthEvent
+      intent: monitor
+      trigger: dependency-down
+    reference:
+      channel: [browser, cli]
+    outcome:
+      shape: stream-sse
+      access: [public]
+      maps_to: [streamHealthEvents]
+      expects: [503]
+    notes: "negative-path. 의존 시스템 장애 → 503. streamHealthEvents의 503 응답 커버."
+

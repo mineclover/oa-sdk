@@ -1,0 +1,173 @@
+# trigger 차원 어휘 — 페르소나가 발동되는 상황
+# 4 카테고리:
+#   operational    — 운영자/시스템이 정기적으로 수행 (모니터링, 배포 등)
+#   lifecycle      — 사용자 lifecycle event (가입/로그인/탈퇴 등)
+#   failure-mode   — 에러/거부 경로 (auth fail, malformed, rate limit 등)
+#   semantic       — 도메인 비즈니스 액션 (mention, abuse-detected 등)
+
+categories:
+  - id: operational
+    description: "운영자/시스템이 정기적·자동으로 수행하는 액션"
+  - id: lifecycle
+    description: "사용자 계정/세션의 lifecycle event"
+  - id: failure-mode
+    description: "에러 응답 경로 — auth fail, validation, rate limit 등"
+  - id: semantic
+    description: "도메인 비즈니스 액션 — 신고, 멘션 등"
+
+values:
+  # ── operational ───────────────────────────────────────────────────────
+  - id: ops-monitoring
+    category: operational
+    description: "운영 대시보드 / 정기 모니터링"
+
+  - id: dashboard-realtime
+    category: operational
+    description: "실시간 대시보드 SSE 구독"
+
+  - id: load-balancer-probe
+    category: operational
+    description: "K8s liveness / LB health check"
+
+  - id: deploy-gate
+    category: operational
+    description: "배포 readiness 검증"
+
+  - id: deploy-verification
+    category: operational
+    description: "배포 후 빌드 정보 확인"
+
+  - id: bulk-onboarding
+    category: operational
+    description: "운영자가 사용자 사전 등록"
+
+  - id: privilege-management
+    category: operational
+    description: "운영자가 사용자 역할 변경"
+
+  - id: violation-action
+    category: operational
+    description: "정책 위반 사용자 처리"
+
+  - id: user-support
+    category: operational
+    description: "고객 지원용 사용자 조회"
+
+  - id: report-queue
+    category: operational
+    description: "신고 큐 처리"
+
+  # ── lifecycle ─────────────────────────────────────────────────────────
+  - id: first-arrival
+    category: lifecycle
+    description: "신규 가입 진입"
+
+  - id: return-visit
+    category: lifecycle
+    description: "재방문 로그인"
+
+  - id: token-expiring
+    category: lifecycle
+    description: "access token 만료 임박 → refresh"
+
+  - id: leave-device
+    category: lifecycle
+    description: "단말 이탈 → logout"
+
+  - id: leave-service
+    category: lifecycle
+    description: "서비스 탈퇴"
+
+  - id: first-login
+    category: lifecycle
+    description: "첫 로그인 / 온보딩 진입"
+
+  - id: profile-page
+    category: lifecycle
+    description: "프로필 페이지 진입"
+
+  - id: edit-profile
+    category: lifecycle
+    description: "프로필 수정 액션"
+
+  - id: security-hardening
+    category: lifecycle
+    description: "비밀번호 변경 등 보안 강화"
+
+  - id: forgot-password
+    category: lifecycle
+    description: "비밀번호 재설정 토큰 요청"
+
+  - id: reset-link-clicked
+    category: lifecycle
+    description: "재설정 링크 클릭 후 새 비밀번호 입력"
+
+  - id: gdpr-portability
+    category: lifecycle
+    description: "GDPR 정보주체 이동권 — data export"
+
+  # ── failure-mode ──────────────────────────────────────────────────────
+  - id: missing-auth
+    category: failure-mode
+    description: "인증 토큰 누락 또는 무효 → 401"
+
+  - id: insufficient-scope
+    category: failure-mode
+    description: "scope 부족 → 403"
+
+  - id: privilege-escalation-attempt
+    category: failure-mode
+    description: "권한 우회 시도 → 403 + audit"
+
+  - id: phantom-id
+    category: failure-mode
+    description: "존재하지 않는 리소스 ID → 404"
+
+  - id: duplicate-identity
+    category: failure-mode
+    description: "중복 식별자 → 409"
+
+  - id: malformed-request
+    category: failure-mode
+    description: "잘못된 요청 형식 (구조적 오류) → 400"
+
+  - id: malformed-payload
+    category: failure-mode
+    description: "schema 위반 → 422"
+
+  - id: malformed-reset-request
+    category: failure-mode
+    description: "reset 요청 본문 형식 오류 → 400"
+
+  - id: malformed-reset-payload
+    category: failure-mode
+    description: "reset 본문 schema 위반 → 422"
+
+  - id: rate-limit-hit
+    category: failure-mode
+    description: "요청 한도 초과 → 429"
+
+  - id: brute-force-detected
+    category: failure-mode
+    description: "brute-force 감지 → 429 + Retry-After"
+
+  - id: wrong-password
+    category: failure-mode
+    description: "잘못된 비밀번호 → 401"
+
+  - id: dependency-down
+    category: failure-mode
+    description: "의존 시스템 장애 → 503"
+
+  # ── semantic ──────────────────────────────────────────────────────────
+  - id: mention
+    category: semantic
+    description: "다른 사용자 멘션 — 공개 프로필 조회 트리거"
+
+  - id: abuse-detected
+    category: semantic
+    description: "정책 위반 콘텐츠 발견 → 신고"
+
+  - id: role-changed-notification
+    category: semantic
+    description: "본인 역할이 변경됨을 인지 → 이력 조회"

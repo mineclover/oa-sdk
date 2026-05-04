@@ -1,0 +1,36 @@
+# shape 차원 어휘 — 응답/요청 형태
+# 단일값. 한 페르소나는 하나의 shape를 기대.
+# discovery + tempo를 통합한 차원.
+
+values:
+  - id: detail
+    description: "단건 객체 응답."
+    status: stable
+
+  - id: list-paginated
+    description: "{ items, total } 또는 cursor 기반 페이지네이션."
+    status: stable
+
+  - id: list-faceted
+    description: "검색 + 패싯/필터/정렬. q, sort, facet 파라미터."
+    status: stable
+
+  - id: stream-sse
+    description: "Server-Sent Events. text/event-stream."
+    status: stable
+
+  - id: stream-ndjson
+    description: "newline-delimited JSON 스트림."
+    status: stable
+
+  - id: bulk-batch
+    description: "대량 요청/응답. 일반적으로 비동기 job + 결과 polling."
+    status: stable
+
+  - id: command
+    description: "단순 명령 — 204 No Content 또는 작은 ack 응답."
+    status: stable
+
+  - id: token
+    description: "토큰 페어 응답 — 인증 surface 전용."
+    status: stable

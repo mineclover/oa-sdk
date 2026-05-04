@@ -1,0 +1,35 @@
+# channel 차원 어휘 — 소비 매체
+# 다중 적용 가능. 하지만 채널이 다르고 shape/access가 다르면 페르소나를 분리해야 함.
+
+values:
+  - id: browser
+    description: "웹 브라우저 — 쿠키/CSRF 컨텍스트, 상호작용 폼."
+    status: stable
+
+  - id: mobile-app
+    description: "네이티브 앱 — deep-link, push notification, offline cache."
+    status: stable
+
+  - id: public-api
+    description: "공식 공개 API — Bearer 토큰, 명시적 versioning."
+    status: stable
+
+  - id: partner-sdk
+    description: "파트너 SDK — scope 제한된 third-party-app 호출."
+    status: stable
+
+  - id: webhook
+    description: "outbound webhook — 시스템 actor가 외부로 push."
+    status: stable
+
+  - id: csv-export
+    description: "대량 CSV/Parquet 내보내기 — bulk-batch shape와 짝이 됨."
+    status: stable
+
+  - id: llm-tool-call
+    description: "LLM agent의 tool/function call — JSON Schema strict, 비결정 입력에 robust해야 함."
+    status: proposed
+
+  - id: cli
+    description: "공식 CLI 또는 power-user 스크립트 — JSON 출력, idempotency 강함."
+    status: stable

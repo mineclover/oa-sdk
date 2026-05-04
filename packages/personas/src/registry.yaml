@@ -1,0 +1,123 @@
+# Data Persona Registry — v0.1
+#
+# 페르소나는 (Identity × Reference × Outcome) 세 bucket의 trait 조합.
+# - Identity: 페르소나 좌표 (PK). 다르면 다른 페르소나.
+# - Reference: 외부 vocabulary lookup으로 enrichment.
+# - Outcome: 페르소나가 API 계약에 요구하는 형태.
+#
+# 차원 자체는 닫혀 있고, 각 차원의 어휘는 traits/*.yaml에서 자유 추가 가능.
+
+version: "0.4-prep"
+
+buckets:
+  identity:
+    description: "페르소나 식별 — 같은 5축 값은 한 페르소나"
+    dimensions:
+      actor:
+        required: true
+        cardinality: single
+        vocabulary: traits/actor.yaml
+        description: "데이터에 대한 권한 계층"
+      data:
+        required: true
+        cardinality: single
+        vocabulary: null    # 도메인-로컬 enum (도메인 .personas.yaml 내부 일관성만)
+        description: "어떤 데이터 노드를 만지는가 (도메인 컨텍스트)"
+      intent:
+        required: true
+        cardinality: single
+        vocabulary: traits/intent.yaml
+        description: "페르소나가 이루려는 행위 유형"
+      trigger:
+        required: true
+        cardinality: single
+        vocabulary: traits/trigger.yaml
+        description: "이 페르소나가 발동되는 상황 (4 카테고리: operational/lifecycle/failure-mode/semantic)"
+      skill:
+        required: false
+        cardinality: single
+        vocabulary: traits/skill.yaml
+        description: "숙련도 — onboarding 등 skill-specific surface가 있을 때만 명시"
+
+  reference:
+    description: "외부 카탈로그 lookup으로 enrichment. 페르소나 식별 영향 없음."
+    dimensions:
+      regulation:
+        required: false
+        cardinality: multi
+        vocabulary: traits/regulation.yaml
+        description: "법적/정책 제약 — 동시 적용 가능"
+      channel:
+        required: false
+        cardinality: multi
+        vocabulary: traits/channel.yaml
+        description: "소비 매체 — 동시 적용 가능"
+
+  outcome:
+    description: "페르소나가 API 계약에 요구하는 형태"
+    dimensions:
+      shape:
+        required: false
+        cardinality: single
+        vocabulary: traits/shape.yaml
+        description: "응답/요청 형태 — list-paginated, detail, stream-sse, bulk-batch 등"
+      access:
+        required: false
+        cardinality: multi
+        vocabulary: traits/access.yaml
+        description: "권한/감사/프라이버시 의무 — 다중 적용 가능"
+      maps_to:
+        required: false        # status: proposed면 비어 있어도 됨
+        cardinality: multi
+        vocabulary: null       # OpenAPI operationId — .merged.yaml 검증
+        description: "이 페르소나를 실현하는 operationId 목록"
+      expects:
+        required: false        # status: proposed면 비어 있어도 됨
+        cardinality: multi
+        vocabulary: null       # HTTP status codes — operation.responses 키와 교차검증
+        description: "이 페르소나가 호출 시 받게 되는 HTTP status code (negative-path는 별 페르소나로 분리)"
+
+# 페르소나 row 상태 — 매트릭스가 wishlist화되는 것 방지
+statuses:
+  - id: implemented
+    description: "maps_to 모두 .merged.yaml에 실재해야 함 (validate 강제)"
+  - id: proposed
+    description: "미래 surface — maps_to 비어있거나 미실재 허용"
+  - id: deprecated
+    description: "제거 예정 — backlog에 surface 정리 작업 등록"
+
+# 차원 간 호환성 제약
+# v0.3: enforcement
+#   - "when" matches the persona; if "forbid: true", emit issue.
+#   - "require" emits an issue if the matched persona lacks the listed dimension values.
+# Path syntax for "when" / "require" keys:
+#   identity.<dim>   — single-value match (string)
+#   reference.<dim>  — multi-value match: ["any"] = at least one set; ["foo","bar"] = at least one of these set
+#   outcome.<dim>    — single (shape) or multi (access)
+#
+# Constraints with unsupported predicates (e.g., data_kind without trait support) are
+# skipped at runtime with a one-line warn, and reported in the constraint summary.
+
+constraints:
+  - id: guest-cannot-hard-delete
+    description: "미인증 actor는 영구삭제를 성공할 수 없음 (401/403 등 거부 응답은 허용)"
+    when:
+      identity.actor: guest
+      identity.intent: hard-delete
+      outcome.expects: [200, 201, 204]    # success codes only
+    forbid: true
+    severity: error
+
+# 비활성 — 미래 작업 시 활성화
+# 'data_kind' 같은 도메인 data dictionary trait 도입 후 constraints로 이동.
+# 현재 정의해두면 매번 skip-warn 잡음이 발생하므로 별 섹션으로 분리.
+deferred_constraints:
+  - id: pii-bulk-requires-regulation
+    description: "PII 데이터를 대량 export 시 규제 trait 명시 필수"
+    when:
+      data_kind: pii
+      outcome.shape: bulk-batch
+    require:
+      reference.regulation: ["any"]
+    severity: warn
+    blocked_by: "data_kind trait 미지원 — 도메인 data dictionary 도입 필요"

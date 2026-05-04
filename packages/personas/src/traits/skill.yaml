@@ -1,0 +1,20 @@
+# skill 차원 어휘 — 숙련도
+# 선택적 identity. spec에 별도 surface가 필요한 경우만 명시.
+# 비어 있으면 skill-agnostic — 모든 숙련도가 동일 surface 공유.
+
+values:
+  - id: onboarding
+    description: "첫 사용 — 안내/체크리스트/튜토리얼 surface 필요. 보통 별 endpoint(/me/onboarding 등) 또는 응답 hint 플래그가 따름."
+    status: stable
+
+  - id: novice
+    description: "기본 흐름만 익숙. surface는 default 매개변수와 단순 응답을 기대."
+    status: stable
+
+  - id: intermediate
+    description: "대부분 기능 사용. 필터·정렬·페이지네이션 활용."
+    status: stable
+
+  - id: expert
+    description: "bulk/script/공식 SDK 사용. raw/expanded 응답, idempotency-key, ETag, partial response 등을 기대."
+    status: stable

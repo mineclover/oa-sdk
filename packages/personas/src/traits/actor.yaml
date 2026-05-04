@@ -1,0 +1,35 @@
+# actor 차원 어휘 — 데이터에 대한 권한 계층
+# v0.1 초기 어휘. 추가 시 status: proposed로 시작 권장.
+
+values:
+  - id: guest
+    description: "미인증 — 토큰 없음. 공개 endpoint만 접근."
+    status: stable
+
+  - id: user
+    description: "인증된 일반 사용자. 자기 데이터 + 공개 데이터 접근."
+    status: stable
+
+  - id: owner-self
+    description: "데이터의 소유자(=자기 자신). user 중 데이터 소유 컨텍스트 강조 시 사용."
+    status: stable
+
+  - id: target-of-action
+    description: "다른 actor의 행위 대상이 된 사용자 (예: 신고당함, 추방됨, 역할 변경됨). 알림/이의제기 surface의 주체."
+    status: stable
+
+  - id: moderator
+    description: "운영자 — 신고 큐 처리, 콘텐츠 숨김 등 한정 권한."
+    status: stable
+
+  - id: admin
+    description: "관리자 — 전체 권한. 법적/감사 surface 대상."
+    status: stable
+
+  - id: third-party-app
+    description: "OAuth scope 기반 외부 앱. 위임된 user 권한으로 동작."
+    status: stable
+
+  - id: system
+    description: "내부 시스템 actor — webhook, scheduled job, replication."
+    status: stable

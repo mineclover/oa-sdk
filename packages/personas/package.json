@@ -1,0 +1,39 @@
+{
+  "name": "@oa-sdk/personas",
+  "version": "0.1.0",
+  "description": "Data Persona meta-framework — trait registry + per-domain persona matrix + validator",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./registry.yaml": "./src/registry.yaml",
+    "./traits/*": "./src/traits/*",
+    "./domains/*": "./src/domains/*"
+  },
+  "files": ["dist", "src/registry.yaml", "src/traits", "src/domains"],
+  "scripts": {
+    "build": "tsup src/index.ts --format esm --dts",
+    "validate": "node --import tsx scripts/validate.ts",
+    "coverage": "node --import tsx scripts/coverage.ts",
+    "bind": "node --import tsx scripts/bind.ts",
+    "gen:tests": "node --import tsx scripts/generate-tests.ts",
+    "propose": "node --import tsx scripts/propose-personas.ts",
+    "check": "pnpm --filter @oa-sdk/schemas merge && pnpm bind && pnpm validate",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "yaml": "^2.8.3"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "tsup": "^8.0.0",
+    "tsx": "^4.0.0",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.4"
+  }
+}

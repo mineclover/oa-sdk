@@ -1,0 +1,45 @@
+# regulation 차원 어휘 — 법적/정책 제약
+# 다중 적용 가능. 한 페르소나가 여러 규제를 동시에 만족해야 할 수 있음.
+
+values:
+  - id: pii-kr-pipa
+    jurisdiction: KR
+    basis: "개인정보 보호법"
+    summary: "개인정보 처리/제공/파기 규제. 마스킹·가명처리·감사 로그 요구."
+    status: stable
+
+  - id: pii-gdpr
+    jurisdiction: EU
+    basis: "GDPR"
+    summary: "정보주체 권리(열람·정정·삭제·이동·반대). data export/erasure surface 필요."
+    status: stable
+
+  - id: child-protection-coppa
+    jurisdiction: US
+    basis: "COPPA"
+    summary: "13세 미만 아동 데이터 수집 제한. 부모 동의 surface 필요."
+    status: proposed
+
+  - id: content-violence
+    jurisdiction: KR
+    basis: "정보통신망법 시행령"
+    summary: "폭력/혐오 콘텐츠 모더레이션 surface 요구."
+    status: stable
+
+  - id: content-gambling
+    jurisdiction: KR
+    basis: "사행행위 등 규제법"
+    summary: "사행 콘텐츠 차단/신고 surface 요구."
+    status: proposed
+
+  - id: financial-kyc
+    jurisdiction: KR
+    basis: "특정금융정보법"
+    summary: "금융 거래 시 KYC/AML 검증 surface 요구."
+    status: proposed
+
+  - id: privacy-self-disclosure
+    jurisdiction: any
+    basis: "내부 정책"
+    summary: "사용자가 자기 데이터를 보는 경우 별도 규제 적용 없음 — 명시 시 면책 표현."
+    status: stable

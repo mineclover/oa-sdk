@@ -1,0 +1,39 @@
+# access 차원 어휘 — 권한/감사/프라이버시 의무
+# 다중값. 한 페르소나가 여러 의무를 동시에 가짐 (예: admin은 audited + scoped:write).
+
+values:
+  - id: public
+    description: "인증 불필요. security: [] 매핑."
+    status: stable
+
+  - id: private-self
+    description: "본인만 접근. /me 계열 또는 owner-self 검사."
+    status: stable
+
+  - id: scoped:read
+    description: "OAuth scope 'read' 필요."
+    status: stable
+
+  - id: scoped:write
+    description: "OAuth scope 'write' 필요."
+    status: stable
+
+  - id: scoped:admin
+    description: "OAuth scope 'admin' 필요 — 운영자 surface."
+    status: stable
+
+  - id: audited
+    description: "감사 로그 필수. 응답 헤더(X-Audit-Id 등) 또는 별도 감사 시스템 기록."
+    status: stable
+
+  - id: pseudonymized
+    description: "응답에서 직접 식별자 제거 또는 가명화."
+    status: stable
+
+  - id: rate-limited
+    description: "Rate limit 적용. 429 + Retry-After 응답 가능성 contract에 명시."
+    status: stable
+
+  - id: idempotent
+    description: "Idempotency-Key 헤더 지원 또는 자연 idempotent (GET/PUT/DELETE)."
+    status: stable
