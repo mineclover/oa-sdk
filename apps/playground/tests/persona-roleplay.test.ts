@@ -78,7 +78,14 @@ describe('persona roleplay — listUsers', () => {
 
   it('personasFor() enumerates roleplay variants', () => {
     const variants = personas.personasFor('listUsers').sort()
-    expect(variants).toEqual(['admin-monitor', 'guest-unauthorized-list'])
+    // listUsers is touched by multiple consumer perspectives: admin (internal-tool),
+    // guest (negative-path 401), backend (service-to-service), b2b-customer (partner SDK).
+    expect(variants).toEqual(expect.arrayContaining([
+      'admin-monitor',
+      'guest-unauthorized-list',
+      'backend-svc-list-users',
+      'b2b-customer-list-users',
+    ]))
   })
 })
 

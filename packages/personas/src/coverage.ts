@@ -14,7 +14,7 @@
  * No spec mutation, no I/O. Pure data analysis over loaded matrices.
  */
 
-import type { DomainMatrix, PersonaIdentity, PersonaStatus, TraitVocabulary } from './types.js'
+import type { DomainMatrix, PersonaIdentity, PersonaStatus, TraitVocabulary, DataModelPersona } from './types.js'
 import type { OperationInfo } from './load.js'
 
 export interface OperationCoverageRow {
@@ -43,6 +43,17 @@ export interface AcknowledgedOrphanRow {
   operationId: string
   statusCode: string
   reason: string
+}
+
+export interface DataModelCoverageRow {
+  entity: string
+  /** Persona ids whose `identity.data` matches this entity (or a local variant). */
+  personaIds: string[]
+  /** True when entity declares pii: true in invariants. */
+  pii: boolean
+  /** True when invariants.audit.required_on is non-empty. */
+  auditRequired: boolean
+  regulations: string[]
 }
 
 export interface CrossSection {
@@ -82,6 +93,8 @@ export interface CoverageReport {
   unknownConsumers?: string[]
   /** Intentional orphans (e.g. infrastructure 500) — flat list across domains. */
   acknowledgedOrphans: AcknowledgedOrphanRow[]
+  /** Optional — only populated when dataModels are provided. */
+  dataModelCoverage?: DataModelCoverageRow[]
   totals: {
     domains: number
     personas: number
@@ -101,6 +114,8 @@ export interface CoverageInput {
   triggerVocab?: TraitVocabulary
   /** Optional — when provided, coverage includes a Consumer category cross-section. */
   consumerVocab?: TraitVocabulary
+  /** Optional — when provided, coverage builds entity → personas index. */
+  dataModels?: DataModelPersona[]
 }
 
 export function analyzeCoverage(input: CoverageInput): CoverageReport {
@@ -253,7 +268,41 @@ export function analyzeCoverage(input: CoverageInput): CoverageReport {
     if (unknownValues.length > 0) report.unknownConsumers = unknownValues
   }
 
+  if (input.dataModels && input.dataModels.length > 0) {
+    report.dataModelCoverage = buildDataModelCoverage(input.domains, input.dataModels)
+  }
+
   return report
+}
+
+function buildDataModelCoverage(domains: DomainMatrix[], models: DataModelPersona[]): DataModelCoverageRow[] {
+  return models.map(model => {
+    const variants = new Set<string>([
+      model.entity,
+      ...((model.local_variants ?? []).map(v => v.id)),
+    ])
+    const personaIds: string[] = []
+    for (const m of domains) {
+      for (const p of m.personas) {
+        const data = p.identity?.data
+        if (!data) continue
+        // Match exact or "Entity(...)" prefix variant
+        if (variants.has(data) || data.startsWith(`${model.entity}(`)) {
+          personaIds.push(p.id)
+        }
+      }
+    }
+    const inv = (model.invariants ?? {}) as Record<string, unknown>
+    const auditObj = inv['audit'] as Record<string, unknown> | undefined
+    const requiredOn = (auditObj?.['required_on'] as unknown[] | undefined) ?? []
+    return {
+      entity: model.entity,
+      personaIds: personaIds.sort(),
+      pii: inv['pii'] === true,
+      auditRequired: requiredOn.length > 0,
+      regulations: (model.regulations ?? []) as string[],
+    }
+  }).sort((a, b) => a.entity.localeCompare(b.entity))
 }
 
 function buildIdentityCategoryView(
@@ -470,6 +519,22 @@ export function renderMarkdown(report: CoverageReport): string {
       for (const c of report.unknownConsumers) lines.push(`- \`${c}\``)
       lines.push('')
     }
+  }
+
+  if (report.dataModelCoverage && report.dataModelCoverage.length > 0) {
+    lines.push('## Data model coverage')
+    lines.push('')
+    lines.push('Authored data-modeling personas (in `data-models/`) cross-referenced with API consumer personas.')
+    lines.push('')
+    lines.push('| entity | personas | PII | audit | regulations |')
+    lines.push('|---|---:|:---:|:---:|---|')
+    for (const row of report.dataModelCoverage) {
+      const pii = row.pii ? '✓' : '—'
+      const audit = row.auditRequired ? '✓' : '—'
+      const regs = row.regulations.length === 0 ? '—' : row.regulations.map(r => `\`${r}\``).join(', ')
+      lines.push(`| \`${row.entity}\` | ${row.personaIds.length} | ${pii} | ${audit} | ${regs} |`)
+    }
+    lines.push('')
   }
 
   if (report.unmappedPersonas.length > 0) {

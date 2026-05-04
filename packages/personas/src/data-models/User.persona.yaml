@@ -1,0 +1,73 @@
+# Data-modeling persona — User 엔티티
+# API consumer persona (domains/*)와 분리:
+#   - API consumer persona: "누가 / 어떻게 / 왜 호출하는가"
+#   - Data-modeling persona: "데이터 자체의 invariants — PII / audit / retention / 접근 패턴"
+
+entity: User
+schema_ref: "#/components/schemas/User"
+description: "사용자 엔티티 — 인증된 계정 + 관리 대상. 가장 많은 actor가 접근."
+
+# 데이터-로컬 변종 ─ 같은 엔티티의 컨텍스트별 표기
+local_variants:
+  - id: User(any)
+    description: "임의 사용자 (admin 컨텍스트)"
+  - id: User(self)
+    description: "본인 (owner-self 컨텍스트)"
+  - id: User(other)
+    description: "본인 아닌 다른 사용자 (일반 user 컨텍스트)"
+
+# 엔티티 invariants — 데이터-수준 의무
+invariants:
+  pii: true
+  fields_pii: [email, name]
+  fields_public: [id, name, role]
+
+  retention:
+    soft_delete: true
+    soft_delete_window_days: 30
+    hard_delete_authority: site-admin
+    legal_hold_supported: false           # v0.9 후보
+
+  audit:
+    required_on: [create, update, hard-delete, export]
+    audit_fields: [id, intent, actor_id, timestamp]
+    correlation_required: true
+
+  privacy:
+    masking_required_for_consumer:        # 어떤 consumer에게 PII 마스킹 강제
+      - data-eng
+      - b2b-customer
+    pseudonymized_for: [data-eng, b2b-customer]
+
+# 데이터 엔티티가 받아들이는 access pattern (intent × actor 매트릭스)
+access_patterns:
+  - intent: create
+    valid_actors: [admin, guest]
+    notes: "admin은 createUser (사전 등록), guest는 register (공개 가입)"
+  - intent: list
+    valid_actors: [admin, guest, third-party-app]
+    notes: "guest는 401, admin/third-party는 scope에 따라"
+  - intent: read-detail
+    valid_actors: [admin, owner-self, user, guest]
+    notes: "owner-self는 /me, admin은 /users/{id}, user는 /users/{id}/public, guest는 401"
+  - intent: update
+    valid_actors: [admin, owner-self, guest, user]
+    notes: "admin은 role 가능, owner-self는 name만, user(other)는 403, guest는 401"
+  - intent: hard-delete
+    valid_actors: [admin]
+    notes: "admin만 성공. guest/user 시도는 401/403. 정책: registry constraint guest-cannot-hard-delete"
+  - intent: soft-delete
+    valid_actors: [owner-self]
+    notes: "owner-self가 자기 계정 탈퇴 (DELETE /me, 30일 복구 가능)"
+  - intent: export
+    valid_actors: [owner-self, system]
+    notes: "owner-self는 GDPR portability (POST /me/export, 비동기 job). system은 data-eng의 ETL"
+  - intent: report
+    valid_actors: [user]
+    notes: "user(other)에 대해 신고. POST /users/{id}/reports"
+  - intent: moderate
+    valid_actors: [moderator]
+    notes: "moderator가 신고 큐 처리. site-admin perspective"
+
+# 적용 가능한 regulation
+regulations: [pii-kr-pipa, pii-gdpr]

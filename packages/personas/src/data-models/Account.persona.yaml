@@ -1,0 +1,30 @@
+# Data-modeling persona — Account 엔티티
+# Auth 도메인의 가입/로그인 컨텍스트에서 본 사용자.
+# User 엔티티와 동일 데이터지만 컨텍스트가 다름:
+#   - User: 인증된 후의 데이터 객체
+#   - Account: 가입/로그인 진행 중인 자격증명 단위
+
+entity: Account
+description: "auth 컨텍스트의 사용자 — 가입/로그인 단위. User와 1:1 매핑."
+
+invariants:
+  pii: true
+  fields_pii: [email, name]
+
+  retention:
+    soft_delete: false                    # Account 자체는 lifecycle 없음 (User 위임)
+    inherits_from: User
+
+  audit:
+    required_on: [create, authenticate, revoke]
+
+  privacy:
+    enumeration_protection: true          # register 시 이미 존재하는 이메일이라도 적절히 처리
+    register_returns_session: true        # 즉시 로그인 (별 login 호출 불필요)
+
+access_patterns:
+  - intent: create
+    valid_actors: [guest]
+    notes: "register — 공개 가입. PIPA 적용. brute-force 방지 rate-limited."
+
+regulations: [pii-kr-pipa]

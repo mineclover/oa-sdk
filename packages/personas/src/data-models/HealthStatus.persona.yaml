@@ -1,0 +1,44 @@
+# Data-modeling persona — HealthStatus 엔티티 (+ 변종 ReadinessReport, BuildInfo, HealthEvent)
+# 운영 영역. PII 무관, 외부 노출 가능.
+
+entity: HealthStatus
+schema_ref: "#/components/schemas/HealthStatus"
+description: "서버 상태 — liveness/readiness/version/event-stream의 공통 추상."
+
+local_variants:
+  - id: HealthStatus
+    description: "기본 liveness — { status: ok, timestamp }"
+  - id: ReadinessReport
+    description: "readiness probe — 의존 시스템 검증 결과 포함"
+  - id: BuildInfo
+    description: "버전 메타 — git sha + builtAt"
+  - id: HealthEvent
+    description: "SSE 이벤트 — 상태 변화 실시간 발행"
+
+invariants:
+  pii: false
+  public: true                            # 인증 없이 노출 가능 (단, /health/stream은 reverse proxy 인증 권장)
+
+  retention:
+    cacheable_seconds: 5                  # liveness 응답은 짧게 캐시 가능
+    no_persist: true
+
+  audit:
+    required_on: []                       # ops 데이터, audit 불필요
+
+  reliability:
+    must_respond_within_ms: 100           # liveness probe 타임아웃 강제
+    fail_open: false                      # 의존 down 시 503 명시
+
+access_patterns:
+  - intent: monitor
+    valid_actors: [system]
+    notes: "K8s probe / LB / SRE dashboard. infra-ops perspective."
+  - intent: subscribe
+    valid_actors: [system]
+    notes: "SSE 스트림 — 운영 대시보드"
+  - intent: read-detail
+    valid_actors: [system]
+    notes: "GET /version — 배포 검증"
+
+regulations: []

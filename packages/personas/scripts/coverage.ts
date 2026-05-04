@@ -20,7 +20,7 @@ import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import { analyzeCoverage, renderMarkdown } from '../src/coverage.js'
-import { loadAllDomains, loadAllTraits, loadOperationsFromMergedSpec, loadRegistry } from '../src/load.js'
+import { loadAllDataModels, loadAllDomains, loadAllTraits, loadOperationsFromMergedSpec, loadRegistry } from '../src/load.js'
 
 const __dir = dirname(fileURLToPath(import.meta.url))
 
@@ -45,11 +45,13 @@ function main(): void {
   const traits = loadAllTraits(registry)
   const triggerVocab = traits.get('trigger')
   const consumerVocab = traits.get('consumer')
+  const dataModels = loadAllDataModels()
   const report = analyzeCoverage({
     domains,
     knownOperations,
     ...(triggerVocab ? { triggerVocab } : {}),
     ...(consumerVocab ? { consumerVocab } : {}),
+    ...(dataModels.length > 0 ? { dataModels } : {}),
   })
   const md = renderMarkdown(report)
 

@@ -1,0 +1,32 @@
+# Data-modeling persona — Session 엔티티
+# Access/refresh 토큰 페어, 활성 세션. lifecycle 짧음, 보안에 직결.
+
+entity: Session
+description: "access + refresh 토큰 페어. user 또는 third-party-app(service-to-service) 모두 보유 가능."
+
+invariants:
+  pii: false                              # 토큰 자체는 PII 아님. 단, refresh 토큰은 도용 시 지속적 접근 가능 — secret-grade
+  sensitivity: high
+
+  retention:
+    access_token_lifetime_seconds: 3600   # 1h
+    refresh_token_lifetime_days: 30
+    revocable: true                       # logout 또는 비밀번호 변경 시 무효화
+
+  audit:
+    required_on: [authenticate, revoke]
+    audit_fields: [session_id, actor_id, ip_address, user_agent, timestamp]
+
+  rotation:
+    refresh_on_use: true                  # refresh 시 새 refresh 토큰 발급, 이전은 무효화 (rotation)
+    on_password_change: revoke-all        # 비밀번호 변경 시 모든 세션 무효화
+
+access_patterns:
+  - intent: authenticate
+    valid_actors: [guest, user, third-party-app]
+    notes: "guest=login (신규 발급), user/third-party=refresh"
+  - intent: revoke
+    valid_actors: [user]
+    notes: "logout — 자기 access token 무효화"
+
+regulations: []                           # 직접 PII 아니지만 audit 강제

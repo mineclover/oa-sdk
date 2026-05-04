@@ -96,7 +96,8 @@ access도 다르다면** 별 페르소나로 분리한다. 채널 폭발을 막�
 | v0.5.5 | 11 proposed 페르소나 spec 구현 + 11개 신규 endpoint(forgot-password / reset-password / onboarding / DELETE /me / role-changes / export / public-profile / reports / moderation / readiness / version). implemented 26 → 37, ops 14 → 25 |
 | v0.6 | `pnpm propose` — orphan response → 페르소나 stub 자동. status code 휴리스틱 (401→guest, 503→system, 404→phantom-id 등) |
 | v0.6.5 | propose 결과 → 41 stub 검토·승격. PK 충돌 4건 자동 검출 후 trigger/data 차원 차별화. 78 implemented (16 → 78) |
-| **v0.7 (현재)** | trigger 어휘 카탈로그 (`traits/trigger.yaml`, 38 값 × 4 카테고리). coverage에 trigger category cross-section. `acknowledged_orphans` 마커 (의도적 skip) — propose idempotent. README에 contract-simulation 한계 명시 |
+| v0.7 | trigger 어휘 카탈로그 (`traits/trigger.yaml`, 38 값 × 4 카테고리). `acknowledged_orphans` 마커 — propose idempotent. README에 contract-simulation 한계 명시 |
+| **v0.8 (현재)** | API consumer perspective 차원 (`identity.consumer`, 4 cat × 7 값: end-user / backend / infra-ops / data-eng / b2b-customer / internal-tool / site-admin). 같은 op가 stakeholder 별 다른 페르소나로 분기. `data-models/` 분리 — 엔티티 invariants(PII/audit/retention) 데이터-모델링 페르소나로 별도 표현. 7 신규 페르소나 (84 personas). |
 | v0.6+ | 도메인 data dictionary (예: `data_kind: pii`) → `pii-bulk-requires-regulation` 등 보류 constraint 활성화 |
 
 ## 참조

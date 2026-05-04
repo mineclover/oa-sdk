@@ -1,0 +1,37 @@
+# Data-modeling persona — Report 엔티티
+# 사용자 신고. content moderation 흐름의 핵심 데이터.
+
+entity: Report
+schema_ref: "#/components/schemas/Report"
+description: "사용자→사용자 신고. moderator/site-admin이 처리."
+
+invariants:
+  pii: true                               # 신고자 + 대상 모두 user 식별
+  fields_pii: [reporterUserId, targetUserId]
+  fields_public: [id, reason, status, createdAt]
+  contains_user_input: true               # details 필드는 자유 텍스트 — XSS/PII 노출 방지 필요
+
+  retention:
+    soft_delete: false
+    permanent_audit: true                 # 신고 이력은 영구 보관 (정책 / 법적 증거)
+
+  audit:
+    required_on: [create, moderate, dismiss]
+    correlation_required: true            # 신고 → 처리 → 결과 추적
+
+  privacy:
+    reporter_anonymized_to: [target]      # 신고당한 사용자에게 신고자 식별 정보 노출 금지
+    visible_to: [reporter, moderator, site-admin]
+
+access_patterns:
+  - intent: create
+    valid_actors: [user]
+    notes: "POST /users/{id}/reports — 신고자→대상 페어 24h 1회 rate-limit"
+  - intent: list
+    valid_actors: [moderator, admin]
+    notes: "GET /moderation/reports — 신고 큐 조회. site-admin perspective"
+  - intent: moderate
+    valid_actors: [moderator, admin]
+    notes: "PATCH /moderation/reports/{id} — 처리 상태 갱신 (proposed)"
+
+regulations: [content-violence]

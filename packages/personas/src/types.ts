@@ -103,6 +103,28 @@ export interface AcknowledgedOrphan {
   reason: string
 }
 
+/**
+ * Data-modeling persona — describes invariants and access patterns OF the
+ * data entity (not the API consumer). Lives in `data-models/{Entity}.persona.yaml`.
+ *
+ * This complements API-consumer personas (in `domains/`) by capturing the
+ * data-side perspective: PII flags, retention rules, audit requirements.
+ *
+ * Free-form: each file's shape is documented in the file itself. The loader
+ * does not enforce schema beyond `entity` + `description`.
+ */
+export interface DataModelPersona {
+  entity: string
+  schema_ref?: string
+  description?: string
+  local_variants?: Array<{ id: string; description?: string }>
+  invariants?: Record<string, unknown>
+  access_patterns?: Array<Record<string, unknown>>
+  regulations?: string[]
+  /** Allow extension fields without breaking strict types. */
+  [key: string]: unknown
+}
+
 export interface DomainMatrix {
   domain: string
   description?: string

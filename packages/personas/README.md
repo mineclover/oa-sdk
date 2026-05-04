@@ -58,6 +58,43 @@ scripts/
   notes: "PII 적용 — 마스킹 또는 운영자 본인 확인 강화."
 ```
 
+## v0.8 — consumer perspective + data-modeling persona split
+
+**API consumer 차원 추가** (`identity.consumer`):
+같은 actor·data·intent라도 *어떤 stakeholder 시점*에서 호출하는지에 따라 다른 페르소나.
+4 카테고리 × 7 값:
+- `product` (default): end-user
+- `integration`: backend, b2b-customer
+- `internal-ops`: infra-ops, internal-tool, site-admin
+- `data-platform`: data-eng
+
+같은 `listUsers`도 4가지 perspective 페르소나로 분기:
+- `admin-monitor` (internal-tool) → 운영자 대시보드
+- `backend-svc-list-users` (backend) → service-to-service
+- `b2b-customer-list-users` (b2b-customer) → 파트너 OAuth
+- `guest-unauthorized-list` (negative-path)
+
+**데이터 모델링 페르소나 분리** (`data-models/`):
+API consumer persona는 "누가/왜 호출"에 집중, data-modeling persona는 "데이터 자체의
+invariants — PII / audit / retention / 접근 패턴"에 집중. 별 파일로 분리:
+
+```
+src/
+  domains/                          # API consumer personas (현행)
+    auth.personas.yaml ...
+  data-models/                      # NEW — 엔티티 invariants
+    User.persona.yaml               # PII flag, soft-delete, audit, masking-for-consumer
+    Credential.persona.yaml         # rotation, enumeration-protection, sensitivity: highest
+    Account.persona.yaml
+    Session.persona.yaml
+    Report.persona.yaml
+    HealthStatus.persona.yaml
+```
+
+coverage report 새 섹션:
+- **Data model coverage** — 엔티티 × persona 수 × PII/audit 표시
+- **Consumer category coverage** — 페르소나의 stakeholder 분포
+
 ## v0.7 — trigger taxonomy + acknowledged orphans
 
 trigger 차원에 vocabulary 추가 (38 trigger × 4 카테고리: operational/lifecycle/failure-mode/semantic).

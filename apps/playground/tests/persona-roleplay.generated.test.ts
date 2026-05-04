@@ -34,6 +34,13 @@ describe("persona roleplay (generated)", () => {
   afterAll(teardown)
   beforeEach(() => server.clearOverrides())
 
+  // ── auth/backend-svc-token-refresh ──
+  it("backend-svc-token-refresh → POST /auth/refresh → 200", async () => {
+    personas.switchTo(server, "backend-svc-token-refresh")
+    const res = await client.post("/auth/refresh", {"refreshToken":"rt_login_0001"}, { headers: { authorization: 'Bearer t' } })
+    expect(res.status).toBe(200)
+  })
+
   // ── auth/duplicate-email-register ──
   it("duplicate-email-register → POST /auth/register → 409", async () => {
     personas.switchTo(server, "duplicate-email-register")
@@ -396,6 +403,27 @@ describe("persona roleplay (generated)", () => {
     personas.switchTo(server, "admin-user-removal")
     const res = await client.delete("/users/00000000-0000-0000-0000-000000000001", undefined, { headers: { authorization: 'Bearer t' } })
     expect(res.status).toBe(204)
+  })
+
+  // ── users/b2b-customer-list-users ──
+  it("b2b-customer-list-users → GET /users → 200", async () => {
+    personas.switchTo(server, "b2b-customer-list-users")
+    const res = await client.get("/users", { headers: { authorization: 'Bearer t' } })
+    expect(res.status).toBe(200)
+  })
+
+  // ── users/backend-svc-list-users ──
+  it("backend-svc-list-users → GET /users → 200", async () => {
+    personas.switchTo(server, "backend-svc-list-users")
+    const res = await client.get("/users", { headers: { authorization: 'Bearer t' } })
+    expect(res.status).toBe(200)
+  })
+
+  // ── users/cs-agent-lookup-user ──
+  it("cs-agent-lookup-user → GET /users/00000000-0000-0000-0000-000000000001 → 200", async () => {
+    personas.switchTo(server, "cs-agent-lookup-user")
+    const res = await client.get("/users/00000000-0000-0000-0000-000000000001", { headers: { authorization: 'Bearer t' } })
+    expect(res.status).toBe(200)
   })
 
   // ── users/getUserById-not-found ──
