@@ -44,7 +44,13 @@ function main(): void {
   const registry = loadRegistry()
   const traits = loadAllTraits(registry)
   const triggerVocab = traits.get('trigger')
-  const report = analyzeCoverage({ domains, knownOperations, ...(triggerVocab ? { triggerVocab } : {}) })
+  const consumerVocab = traits.get('consumer')
+  const report = analyzeCoverage({
+    domains,
+    knownOperations,
+    ...(triggerVocab ? { triggerVocab } : {}),
+    ...(consumerVocab ? { consumerVocab } : {}),
+  })
   const md = renderMarkdown(report)
 
   if (outPath) {

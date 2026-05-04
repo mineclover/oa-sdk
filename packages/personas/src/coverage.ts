@@ -76,6 +76,10 @@ export interface CoverageReport {
   triggerCategories?: TriggerCategoryRow[]
   /** Triggers used by personas but missing from the vocabulary (drift signal). */
   unknownTriggers?: string[]
+  /** Optional — only populated when consumerVocab is provided. */
+  consumerCategories?: TriggerCategoryRow[]
+  /** Consumer values used but missing from the vocabulary. */
+  unknownConsumers?: string[]
   /** Intentional orphans (e.g. infrastructure 500) — flat list across domains. */
   acknowledgedOrphans: AcknowledgedOrphanRow[]
   totals: {
@@ -95,6 +99,8 @@ export interface CoverageInput {
   knownOperations: Map<string, OperationInfo>
   /** Optional — when provided, coverage includes a Trigger category cross-section. */
   triggerVocab?: TraitVocabulary
+  /** Optional — when provided, coverage includes a Consumer category cross-section. */
+  consumerVocab?: TraitVocabulary
 }
 
 export function analyzeCoverage(input: CoverageInput): CoverageReport {
@@ -232,58 +238,69 @@ export function analyzeCoverage(input: CoverageInput): CoverageReport {
   }
 
   if (input.triggerVocab) {
-    const { triggerCategories, unknownTriggers } = buildTriggerCategoryView(input.domains, input.triggerVocab)
+    const { categories: triggerCategories, unknownValues } = buildIdentityCategoryView(
+      input.domains, input.triggerVocab, p => p.identity?.trigger,
+    )
     report.triggerCategories = triggerCategories
-    if (unknownTriggers.length > 0) report.unknownTriggers = unknownTriggers
+    if (unknownValues.length > 0) report.unknownTriggers = unknownValues
+  }
+
+  if (input.consumerVocab) {
+    const { categories: consumerCategories, unknownValues } = buildIdentityCategoryView(
+      input.domains, input.consumerVocab, p => p.identity?.consumer,
+    )
+    report.consumerCategories = consumerCategories
+    if (unknownValues.length > 0) report.unknownConsumers = unknownValues
   }
 
   return report
 }
 
-function buildTriggerCategoryView(
+function buildIdentityCategoryView(
   domains: DomainMatrix[],
   vocab: TraitVocabulary,
-): { triggerCategories: TriggerCategoryRow[]; unknownTriggers: string[] } {
-  const triggerToCategory = new Map<string, string>()
+  pick: (p: { identity?: PersonaIdentity }) => string | undefined,
+): { categories: TriggerCategoryRow[]; unknownValues: string[] } {
+  const valueToCategory = new Map<string, string>()
   for (const v of vocab.values) {
-    if (v.category) triggerToCategory.set(v.id, v.category)
+    if (v.category) valueToCategory.set(v.id, v.category)
   }
-  const categories = vocab.categories ?? []
+  const categoryDefs = vocab.categories ?? []
 
-  const counts = new Map<string, { personas: number; triggers: Set<string> }>()
-  for (const cat of categories) counts.set(cat.id, { personas: 0, triggers: new Set() })
+  const counts = new Map<string, { personas: number; values: Set<string> }>()
+  for (const cat of categoryDefs) counts.set(cat.id, { personas: 0, values: new Set() })
 
   const unknown = new Set<string>()
   for (const m of domains) {
     for (const p of m.personas) {
-      const trig = p.identity?.trigger
-      if (!trig) continue
-      const cat = triggerToCategory.get(trig)
+      const value = pick(p)
+      if (!value) continue
+      const cat = valueToCategory.get(value)
       if (!cat) {
-        unknown.add(trig)
+        unknown.add(value)
         continue
       }
       let bucket = counts.get(cat)
       if (!bucket) {
-        bucket = { personas: 0, triggers: new Set() }
+        bucket = { personas: 0, values: new Set() }
         counts.set(cat, bucket)
       }
       bucket.personas++
-      bucket.triggers.add(trig)
+      bucket.values.add(value)
     }
   }
 
-  const triggerCategories: TriggerCategoryRow[] = categories.map(cat => {
-    const c = counts.get(cat.id) ?? { personas: 0, triggers: new Set<string>() }
+  const categories: TriggerCategoryRow[] = categoryDefs.map(cat => {
+    const c = counts.get(cat.id) ?? { personas: 0, values: new Set<string>() }
     const row: TriggerCategoryRow = {
       category: cat.id,
       personaCount: c.personas,
-      triggers: [...c.triggers].sort(),
+      triggers: [...c.values].sort(),
     }
     if (cat.description) row.description = cat.description
     return row
   })
-  return { triggerCategories, unknownTriggers: [...unknown].sort() }
+  return { categories, unknownValues: [...unknown].sort() }
 }
 
 function bumpCount(map: Map<string, number>, key: string): void {
@@ -431,9 +448,26 @@ export function renderMarkdown(report: CoverageReport): string {
     if (report.unknownTriggers && report.unknownTriggers.length > 0) {
       lines.push('### Unknown triggers (drift signal)')
       lines.push('')
-      lines.push('Triggers used by personas but not declared in `traits/trigger.yaml`:')
-      lines.push('')
       for (const t of report.unknownTriggers) lines.push(`- \`${t}\``)
+      lines.push('')
+    }
+  }
+
+  if (report.consumerCategories && report.consumerCategories.length > 0) {
+    lines.push('## Consumer category coverage')
+    lines.push('')
+    lines.push('Personas tagged by API-consumer perspective. Personas without explicit `consumer` are implicitly `end-user`.')
+    lines.push('')
+    lines.push('| category | personas | distinct consumers |')
+    lines.push('|---|---:|---|')
+    for (const row of report.consumerCategories) {
+      lines.push(`| \`${row.category}\` | ${row.personaCount} | ${row.triggers.map(c => `\`${c}\``).join(', ') || '—'} |`)
+    }
+    lines.push('')
+    if (report.unknownConsumers && report.unknownConsumers.length > 0) {
+      lines.push('### Unknown consumers (drift signal)')
+      lines.push('')
+      for (const c of report.unknownConsumers) lines.push(`- \`${c}\``)
       lines.push('')
     }
   }

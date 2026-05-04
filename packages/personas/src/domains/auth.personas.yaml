@@ -153,6 +153,24 @@ personas:
       expects: [429]
     notes: "negative-path. brute-force 감지 → 429 + Retry-After. login의 429 응답 커버."
 
+  # ── perspective expansion (consumer 차원) ─────────────────────────────
+  - id: backend-svc-token-refresh
+    status: implemented
+    identity:
+      actor: third-party-app
+      data: Session
+      intent: authenticate
+      trigger: token-expiring
+      consumer: backend
+    reference:
+      channel: [public-api]
+    outcome:
+      shape: token
+      access: [public]
+      maps_to: [refreshToken]
+      expects: [200]
+    notes: "service-to-service: 백엔드 서비스가 자기 access token 만료 임박 시 refresh. user-token-refresh와 동일 op지만 consumer가 backend (machine-to-machine)."
+
   # ── password reset flow (이전 proposed → 모두 implemented) ────────────
   - id: guest-password-reset-request
     status: implemented

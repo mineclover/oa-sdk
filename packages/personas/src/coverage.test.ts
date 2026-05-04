@@ -41,9 +41,12 @@ describe('coverage analyzer', () => {
     expect(report.unmappedPersonas[0]!.personaId).toBe('future-p')
   })
 
-  it('bundled matrices currently have zero gap backlog (all promoted)', () => {
+  it('bundled matrices surface the intentional user-domain gap backlog', () => {
     const report = analyzeCoverage({ domains, knownOperations })
-    expect(report.unmappedPersonas).toEqual([])
+    expect(report.unmappedPersonas.map(p => p.personaId).sort()).toEqual([
+      'data-eng-bulk-export-users',
+      'site-admin-purge-user',
+    ])
   })
 
   it('detects unjustified operations when persona matrix is empty', () => {

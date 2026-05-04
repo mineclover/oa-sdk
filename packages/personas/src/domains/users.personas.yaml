@@ -172,7 +172,97 @@ personas:
       expects: [404]
     notes: "negative-path. 존재하지 않는 UUID 수정 → 404. updateUser의 404 응답 커버."
 
-  # ── moderation / public profile / role history (이전 proposed → 모두 implemented) ────
+  # ── perspective expansion (consumer 차원) — 같은 op, 다른 stakeholder 시점 ────
+  - id: backend-svc-list-users
+    status: implemented
+    identity:
+      actor: third-party-app       # service-to-service token
+      data: User(any)
+      intent: list
+      trigger: ops-monitoring
+      consumer: backend
+    reference:
+      regulation: [pii-kr-pipa]
+      channel: [public-api]
+    outcome:
+      shape: list-paginated
+      access: [scoped:read, audited]
+      maps_to: [listUsers]
+      expects: [200]
+    notes: "내부 백엔드 서비스가 user 동기화 — service-to-service. partner-sdk가 아닌 internal mTLS. PII 필드 마스킹 필수."
+
+  - id: b2b-customer-list-users
+    status: implemented
+    identity:
+      actor: third-party-app
+      data: User(any)
+      intent: list
+      trigger: ops-monitoring
+      consumer: b2b-customer
+    reference:
+      regulation: [pii-kr-pipa]
+      channel: [partner-sdk]
+    outcome:
+      shape: list-paginated
+      access: [scoped:read, audited, rate-limited]
+      maps_to: [listUsers]
+      expects: [200]
+    notes: "B2B 파트너 OAuth 통합 — scope=read 위임받아 호출. partner-sdk channel, polling보다 webhook 권장."
+
+  - id: data-eng-bulk-export-users
+    status: proposed
+    identity:
+      actor: system
+      data: User(any)
+      intent: export
+      trigger: ops-monitoring
+      consumer: data-eng
+    reference:
+      regulation: [pii-kr-pipa]
+      channel: [csv-export]
+    outcome:
+      shape: bulk-batch
+      access: [scoped:admin, audited, pseudonymized]
+      maps_to: []                  # spec backlog: POST /admin/users/export
+      expects: []
+    notes: "데이터 엔지니어 daily ETL — bulk export, 비식별화 필수. spec endpoint 부재 — POST /admin/users/export 추가 필요."
+
+  - id: site-admin-purge-user
+    status: proposed
+    identity:
+      actor: admin
+      data: User(any)
+      intent: hard-delete
+      trigger: violation-action
+      consumer: site-admin
+    reference:
+      regulation: [pii-kr-pipa, pii-gdpr]
+      channel: [browser]
+    outcome:
+      shape: command
+      access: [scoped:admin, audited]
+      maps_to: []                  # spec backlog: POST /admin/users/{id}/purge
+      expects: []
+    notes: "사이트 관리자의 강제 영구 삭제 (legal-hold 해제 + soft-delete bypass). spec backlog: POST /admin/users/{id}/purge — admin-user-removal과 구분 (그건 일반 운영자 hard-delete)."
+
+  - id: cs-agent-lookup-user
+    status: implemented
+    identity:
+      actor: admin
+      data: User(any)
+      intent: read-detail
+      trigger: user-support
+      consumer: internal-tool
+      skill: intermediate
+    reference:
+      regulation: [pii-kr-pipa]
+      channel: [browser]
+    outcome:
+      shape: detail
+      access: [scoped:admin, audited]
+      maps_to: [getUserById]
+      expects: [200]
+    notes: "고객 지원 직원이 사용자 조회 — admin-user-detail과 동일 op지만 consumer / skill 차원이 다름. CS는 직원 검색·티켓 컨텍스트, audit log에 ticket_id 첨부 권장."
   - id: user-public-profile-view
     status: implemented
     identity:
