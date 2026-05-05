@@ -14,6 +14,8 @@ categories:
     description: "에러 응답 경로 — auth fail, validation, rate limit 등"
   - id: semantic
     description: "도메인 비즈니스 액션 — 신고, 멘션 등"
+  - id: development
+    description: "개발 lifecycle / CI / 릴리스 — non-production surface (v0.13)"
 
 values:
   # ── operational ───────────────────────────────────────────────────────
@@ -171,3 +173,24 @@ values:
   - id: role-changed-notification
     category: semantic
     description: "본인 역할이 변경됨을 인지 → 이력 조회"
+
+  # ── development (v0.13) ───────────────────────────────────────────────
+  - id: pre-commit
+    category: development
+    description: "git pre-commit hook 발화 — local commit 시 검증 실행"
+
+  - id: ci-gate
+    category: development
+    description: "PR check / merge gate — CI 자동화에서 차단 가능한 검증"
+
+  - id: audit-review
+    category: development
+    description: "정기 컴플라이언스 / 보안 검토 — 사람 reviewer가 read-only 조회"
+
+  - id: design-review
+    category: development
+    description: "설계 회의 / 아키텍처 review — 변경 제안 단계의 인스펙션"
+
+  - id: release-prep
+    category: development
+    description: "릴리스 준비 단계 — version bump, changelog, build verification"

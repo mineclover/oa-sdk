@@ -2,6 +2,7 @@ domain: me
 description: "셀프 서비스 도메인 — 현재 인증된 사용자가 자기 자원만 접근"
 
 metadata:
+  kind: openapi-http
   responsibility: "자기 데이터 — 본인이 자기 자원에만 read/update/delete/export"
   owns_entities:
     - "User(self)"

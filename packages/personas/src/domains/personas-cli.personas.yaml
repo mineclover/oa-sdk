@@ -1,0 +1,217 @@
+# personas-cli — @oa-sdk/personas CLI surface (v0.13 dogfood)
+# 11 CLI 명령을 페르소나로 모델링. surface kind: cli-tool.
+#
+# kind: cli-tool 의 의미
+#   - operationId 검증 skip (synthetic id `cli:<command>` 가능 — 검증 비대상)
+#   - expects 검증 skip (HTTP status code 의미 없음, exit code는 별도 어휘)
+#   - drift 검증 skip (bound spec과 무관)
+# 따라서 룰 #1, #2, #4, #5, #6, #9-#22 만 적용.
+
+domain: personas-cli
+description: "@oa-sdk/personas CLI surface — meta application of framework to itself (v0.13 dogfood)"
+
+metadata:
+  kind: cli-tool
+  responsibility: "framework users → CLI 명령. baseline 부트스트랩 / 검증 / coverage / 통합 / 자동 생성"
+  owns_entities:
+    - PersonaMatrix
+    - ProjectMeta
+    - BoundSpec
+    - CoverageReport
+    - GeneratedTestSuite
+    - ProposedStubs
+    - FlowGraph
+    - ProfileExpansion
+  allowed_actors:
+    - framework-developer
+    - ci-bot
+    - auditor
+
+# data 어휘 (도메인-로컬):
+#   PersonaMatrix       — src/domains/*.personas.yaml 의 구조체
+#   ProjectMeta         — .persona-project.yaml (wizard 산출)
+#   BoundSpec           — .merged.persona.yaml (bind 산출)
+#   CoverageReport      — pnpm coverage stdout (markdown)
+#   GeneratedTestSuite  — apps/playground/tests/*.generated.test.ts
+#   ProposedStubs       — pnpm propose stdout (yaml)
+#   FlowGraph           — pnpm flow stdout (mermaid)
+#   ProfileExpansion    — pnpm profiles show 결과
+
+personas:
+  # ── baseline phase (1회) ──────────────────────────────────────────────
+  - id: dev-bootstraps-baseline
+    status: proposed
+    identity:
+      actor: framework-developer
+      data: ProjectMeta
+      intent: create
+      trigger: first-arrival
+      consumer: internal-tool
+    reference:
+      channel: [cli]
+    outcome:
+      shape: command
+      access: [private-self]
+    notes: |
+      신규 프로젝트 도입 시 `pnpm wizard` 1회 실행. baseline 결정.
+      재실행 시 abort (--reset 필요). 단방향 transition.
+
+  # ── signal-driven phase (반복) ────────────────────────────────────────
+  - id: dev-validates-pre-commit
+    status: proposed
+    identity:
+      actor: framework-developer
+      data: PersonaMatrix
+      intent: validate
+      trigger: pre-commit
+      consumer: internal-tool
+    reference:
+      channel: [cli]
+    outcome:
+      shape: command
+      access: [private-self]
+    skills: [retryable]
+    notes: "git pre-commit hook이 `pnpm validate` 실행. 22 룰 통과 못하면 commit 차단."
+
+  - id: ci-bot-checks-pr
+    status: proposed
+    identity:
+      actor: ci-bot
+      data: PersonaMatrix
+      intent: validate
+      trigger: ci-gate
+      consumer: backend
+    reference:
+      channel: [cli]
+    outcome:
+      shape: command
+      access: [audited]
+    skills: [retryable, audit-emission]
+    notes: "PR check가 `pnpm check` (merge → bind → validate) 실행. drift / orphan / vocab 위반 차단."
+
+  - id: dev-iterates-from-spec
+    status: proposed
+    identity:
+      actor: framework-developer
+      data: PersonaMatrix
+      intent: transform
+      trigger: design-review
+      consumer: internal-tool
+    reference:
+      channel: [cli]
+    outcome:
+      shape: command
+      access: [private-self]
+    notes: "spec 변경 후 `pnpm propose --from-spec` 으로 3 signal (orphan + new-op + new-schema) 자동 감지 → 사람 review."
+
+  - id: dev-binds-after-merge
+    status: proposed
+    identity:
+      actor: framework-developer
+      data: BoundSpec
+      intent: transform
+      trigger: design-review
+      consumer: internal-tool
+    reference:
+      channel: [cli]
+    outcome:
+      shape: command
+      access: [private-self]
+    notes: "schemas merge 후 `pnpm bind` — `.merged.yaml` → `.merged.persona.yaml`. drift 차단의 전제."
+
+  - id: dev-regenerates-tests
+    status: proposed
+    identity:
+      actor: framework-developer
+      data: GeneratedTestSuite
+      intent: transform
+      trigger: design-review
+      consumer: internal-tool
+    reference:
+      channel: [cli]
+    outcome:
+      shape: command
+      access: [private-self]
+    notes: "페르소나 promote 후 `pnpm gen:tests` — implemented 페르소나마다 vitest `it()` 자동."
+
+  # ── inspection / review phase ─────────────────────────────────────────
+  - id: auditor-reviews-compliance
+    status: proposed
+    identity:
+      actor: auditor
+      data: CoverageReport
+      intent: inspect
+      trigger: audit-review
+      consumer: internal-tool
+    reference:
+      channel: [cli]
+    outcome:
+      shape: detail
+      access: [audited]
+    skills: [audit-emission]
+    notes: |
+      분기 컴플라이언스 검토 — `pnpm coverage --profile=pipa-compliance` 로 PIPA footprint 추출.
+      auditor는 *report 자체*를 inspect — report content가 PII를 referer해도 CLI surface는 PII handling 아님.
+
+  - id: dev-explores-flow
+    status: proposed
+    identity:
+      actor: framework-developer
+      data: FlowGraph
+      intent: inspect
+      trigger: design-review
+      consumer: internal-tool
+    reference:
+      channel: [cli]
+    outcome:
+      shape: detail
+      access: [private-self]
+    notes: "설계 회의에서 `pnpm flow` — mermaid + topological layers로 페르소나 간 의존 시각화."
+
+  - id: dev-queries-profile
+    status: proposed
+    identity:
+      actor: framework-developer
+      data: ProfileExpansion
+      intent: inspect
+      trigger: design-review
+      consumer: internal-tool
+    reference:
+      channel: [cli]
+    outcome:
+      shape: list-paginated
+      access: [private-self]
+    skills: [pagination]
+    notes: "`pnpm profiles list` / `pnpm profiles show <id>` — saved query expand 결과 조회."
+
+  - id: dev-acts-on-orphan
+    status: proposed
+    identity:
+      actor: framework-developer
+      data: ProposedStubs
+      intent: transform
+      trigger: ci-gate
+      consumer: internal-tool
+    reference:
+      channel: [cli]
+    outcome:
+      shape: bulk-batch
+      access: [private-self]
+    skills: [batch]
+    notes: "orphan 발견 시 `pnpm propose` → stub yaml 검토 → 승격."
+
+  - id: ci-bot-runs-tests
+    status: proposed
+    identity:
+      actor: ci-bot
+      data: GeneratedTestSuite
+      intent: monitor
+      trigger: ci-gate
+      consumer: backend
+    reference:
+      channel: [cli]
+    outcome:
+      shape: command
+      access: [audited]
+    skills: [retryable, audit-emission, metrics-emission]
+    notes: "PR check가 `pnpm test` (130 unit) + playground `pnpm test` (211 e2e) 실행. 실패 시 차단."

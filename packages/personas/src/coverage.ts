@@ -178,6 +178,10 @@ export function analyzeCoverage(input: CoverageInput): CoverageReport {
   const totals = { domains: input.domains.length, personas: 0, implemented: 0, proposed: 0, deprecated: 0, operationsCovered: 0, operationsTotal: input.knownOperations.size }
 
   for (const matrix of input.domains) {
+    // v0.13: only openapi-http domains participate in maps_to coverage tracking.
+    // cli-tool / library-api / event-stream personas have synthetic operationIds (or none),
+    // so "unmapped" doesn't apply.
+    const matrixKind = matrix.metadata?.kind ?? 'openapi-http'
     for (const persona of matrix.personas) {
       totals.personas++
       if (persona.status === 'implemented') totals.implemented++
@@ -192,7 +196,8 @@ export function analyzeCoverage(input: CoverageInput): CoverageReport {
       const ids = persona.outcome?.maps_to ?? []
 
       // unmapped tracking — proposed without operation, or deprecated still mapped
-      if (persona.status === 'proposed' && ids.length === 0) {
+      // (skip non-openapi-http surfaces — they don't have operationIds to map to)
+      if (matrixKind === 'openapi-http' && persona.status === 'proposed' && ids.length === 0) {
         const entry: GapEntry = {
           domain: matrix.domain,
           personaId: persona.id,

@@ -94,7 +94,7 @@ scripts/                          # CLI 진입점 (8 파일)
 - `data-models/<Entity>.persona.yaml` — 한 데이터 entity의 *단일* invariant 정의
 - `profiles/<name>.profile.yaml` — *단일* persona 번들 query
 
-## 도메인 ownership (v0.12)
+## 도메인 ownership (v0.12) + surface kind (v0.13)
 
 각 도메인 .personas.yaml은 자기 책임을 명시:
 
@@ -103,6 +103,7 @@ scripts/                          # CLI 진입점 (8 파일)
 domain: users
 description: "사용자 관리 — admin operations"
 metadata:
+  kind: openapi-http              # v0.13 — surface 종류
   responsibility: "사용자 데이터 admin operations — list/조회/관리/모더레이션"
   owns_entities:
     - "User(any)"            # admin 컨텍스트
@@ -121,6 +122,19 @@ personas: [...]
 ```
 
 룰 #20-21이 강제 — `data` / `actor` 가 metadata 외 값을 가지면 error. 도메인 boundary가 *코드로* 보장됨. `me` 도메인의 페르소나가 `User(any)`를 잘못 쓰면 즉시 검증 실패.
+
+### v0.13 — surface kind
+
+`metadata.kind` 으로 도메인의 surface 종류를 선언. 미설정 시 `openapi-http` (backward-compat).
+
+| kind | 의미 | 비활성 룰 |
+|------|------|----------|
+| `openapi-http` | HTTP REST/RPC API (default) | (모든 룰 적용) |
+| `cli-tool`     | CLI 명령 surface — synthetic operationId 허용 | #3 maps_to 존재성, #7 drift, #8 expects |
+| `library-api`  | 함수/모듈 surface — operationId 무관 | #3 maps_to 존재성, #7 drift, #8 expects |
+| `event-stream` | pub/sub 이벤트 — channel/payload 위주 | #3 maps_to 존재성, #7 drift, #8 expects |
+
+비-`openapi-http` 도메인은 OpenAPI 검증 룰을 skip하지만, 어휘 매칭 / domain ownership / 카디널리티 등 모든 *intrinsic* 룰은 그대로 적용. `personas-cli` 도메인이 dogfood 사례 — `@oa-sdk/personas` 자체 11 CLI를 페르소나로 모델링.
 
 ## 페르소나 row 골격
 
@@ -220,6 +234,7 @@ selector:
 | 19 | empty profile (selector/personas/extends 모두 빈 경우) | warn | v0.11.5 |
 | 20 | domain ownership — `data` ∈ `metadata.owns_entities` | error | v0.12 |
 | 21 | domain ownership — `actor` ∈ `metadata.allowed_actors` | error | v0.12 |
+| (kind-aware) | 룰 #3, #7, #8은 `metadata.kind === 'openapi-http'` 도메인에만 적용 (v0.13) | — | v0.13 |
 | (consistency) | audited↔audit-emission, rate-limited↔rate-limit-honored, pseudonymized↔pseudonymized | warn | v0.11 P4 |
 
 ## CLI 10종

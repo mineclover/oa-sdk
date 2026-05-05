@@ -2,6 +2,7 @@ domain: users
 description: "사용자 관리 도메인 — admin이 임의 사용자에 대해 수행하는 surface (셀프 surface는 me 도메인)"
 
 metadata:
+  kind: openapi-http
   responsibility: "사용자 데이터 admin operations — list/조회/관리/모더레이션 (셀프 surface는 me 도메인 책임)"
   owns_entities:
     - "User(any)"

@@ -138,7 +138,7 @@ selector:
 | `proposed` | 미래 surface — 다음 spec 작업 backlog | 비어있어도 OK |
 | `deprecated` | 제거 예정 | 정리 작업 등록 |
 
-## 운영 패러다임 — baseline-once + signal-driven (v0.12)
+## 운영 패러다임 — baseline-once + signal-driven (v0.12) + surface kind (v0.13)
 
 페르소나 매트릭스는 *사람이 매번 손으로 짜는* 것이 아님. **signal이 발생하면 도구가 자동 stub 생성, 사람이 review**.
 
@@ -156,6 +156,13 @@ selector:
 ├─ domain ownership ─────────────────────────────────────────┤
 │ 페르소나는 데이터에 속하고, 데이터는 도메인에 속함.         │
 │ 도메인이 자기 entity / 허용 actor / 허용 channel 보유.     │
+├─ surface kind (v0.13) ─────────────────────────────────────┤
+│ 도메인이 자기 surface 종류 선언:                            │
+│  openapi-http (default) — REST/RPC, 모든 룰 적용            │
+│  cli-tool                — synthetic op, drift/expects skip │
+│  library-api             — 함수/모듈, drift skip            │
+│  event-stream            — pub/sub, channel/payload 위주    │
+│ 같은 페르소나 모델로 non-HTTP surface까지 표현 가능.        │
 └────────────────────────────────────────────────────────────┘
 ```
 
@@ -164,6 +171,7 @@ selector:
 - **baseline은 신중히 한 번** — 큰 refactor 시 `pnpm wizard --reset`
 - **시그널이 트리거** — 사람이 직접 늘리지 않음
 - **review가 게이트** — auto-stub은 항상 `proposed` 상태
+- **surface kind가 검증 정책을 분기** (v0.13) — non-HTTP 도메인은 OpenAPI 룰 skip, intrinsic 룰만 적용
 
 ## 사용 사이클
 
@@ -280,7 +288,8 @@ acknowledged_orphans:
 | v0.11 | `identity.skill` → `identity.proficiency` rename. `Persona.skills` capability tags 도입 — `traits/skill.yaml` (6 cat × 25 값). 57 페르소나 자동 분류. 룰 #15 + access↔skills 일관성 constraint 3개 |
 | v0.11.5 | persona profiles — saved query bundle. 5 sample profile. `pnpm profiles` CLI. 룰 #16-18 |
 | v0.12 A.1+B | baseline-once + signal-driven. `pnpm wizard` (1회용) + `pnpm propose --from-spec` (3 signal) |
-| **v0.12 A.2 (현재)** | domain ownership boundary — 각 도메인 metadata block (`owns_entities` / `allowed_actors` / `responsibility`). 룰 #20-21로 boundary 강제. 84 페르소나 모두 통과 — 도메인 책임이 *코드로* 보장됨 |
+| v0.12 A.2 | domain ownership boundary — 각 도메인 metadata block (`owns_entities` / `allowed_actors` / `responsibility`). 룰 #20-21로 boundary 강제. 84 페르소나 모두 통과 — 도메인 책임이 *코드로* 보장됨 |
+| **v0.13 (현재)** | surface kind dimension — `metadata.kind: openapi-http \| cli-tool \| library-api \| event-stream`. 룰 #3, #7, #8이 kind에 conditional. dogfood `personas-cli` 도메인 11 페르소나 promote (cli-tool) — 프레임워크가 자기 자신에 적용됨. 신규 어휘: `actor` (framework-developer/ci-bot/auditor), `intent` (inspect/transform/validate), `trigger` (pre-commit/ci-gate/audit-review/design-review/release-prep) |
 
 ## 향후 후보
 

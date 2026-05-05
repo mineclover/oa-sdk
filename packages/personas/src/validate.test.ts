@@ -634,4 +634,71 @@ describe('personas v0.1 validator', () => {
     expect(report.issues.some(i => i.severity === 'error' && i.message.includes('drift'))).toBe(true)
     expect(report.ok).toBe(false)
   })
+
+  // ── v0.13: surface kind ─────────────────────────────────────────────
+  describe('v0.13 surface kind', () => {
+    it('cli-tool kind skips maps_to + expects validation (synthetic ops allowed)', () => {
+      const matrix: DomainMatrix = {
+        domain: 'cli-fake',
+        metadata: { kind: 'cli-tool' },
+        personas: [{
+          id: 'cli-validate',
+          status: 'implemented',
+          identity: { actor: 'framework-developer', data: 'PersonaMatrix', intent: 'validate', trigger: 'pre-commit', consumer: 'internal-tool' },
+          reference: { channel: ['cli'] },
+          outcome: {
+            shape: 'command',
+            access: ['private-self'],
+            // synthetic operationId — would error under openapi-http
+            maps_to: ['cli:validate'],
+            // exit code, not HTTP — would error under openapi-http
+            expects: [0],
+          },
+        }],
+      }
+      const report = validate({ registry, traits, domains: [matrix], knownOperations: new Map() })
+      const errors = report.issues.filter(i => i.severity === 'error')
+      // No maps_to / expects errors should fire
+      expect(errors.find(e => e.message.includes('not found in merged spec'))).toBeUndefined()
+      expect(errors.find(e => e.message.includes('not declared in operation'))).toBeUndefined()
+    })
+
+    it('library-api kind skips drift / maps_to / expects', () => {
+      const matrix: DomainMatrix = {
+        domain: 'lib-fake',
+        metadata: { kind: 'library-api' },
+        personas: [{
+          id: 'lib-fn',
+          status: 'implemented',
+          identity: { actor: 'framework-developer', data: 'BoundSpec', intent: 'transform', trigger: 'design-review', consumer: 'internal-tool' },
+          reference: { channel: ['cli'] },
+          outcome: {
+            shape: 'command',
+            access: ['private-self'],
+            maps_to: ['fn:applyBindings'],
+          },
+        }],
+      }
+      const report = validate({ registry, traits, domains: [matrix], knownOperations: new Map() })
+      const errors = report.issues.filter(i => i.severity === 'error')
+      expect(errors.find(e => e.message.includes('not found in merged spec'))).toBeUndefined()
+    })
+
+    it('default kind (omitted) is openapi-http — maps_to errors still fire', () => {
+      const matrix: DomainMatrix = {
+        domain: 'http-default',
+        // metadata.kind omitted
+        personas: [{
+          id: 'http-bad',
+          status: 'implemented',
+          identity: { actor: 'admin', data: 'X', intent: 'list', trigger: 'ops-monitoring' },
+          outcome: {
+            maps_to: ['nonexistentOp'],
+          },
+        }],
+      }
+      const report = validate({ registry, traits, domains: [matrix], knownOperations: new Map() })
+      expect(report.issues.some(i => i.severity === 'error' && i.message.includes('not found in merged spec'))).toBe(true)
+    })
+  })
 })

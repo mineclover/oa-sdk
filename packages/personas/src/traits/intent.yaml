@@ -61,3 +61,15 @@ values:
   - id: subscribe
     description: "이벤트 구독 — SSE/WebSocket/webhook"
     status: stable
+
+  - id: inspect
+    description: "변경 없이 메타/구조 조회 — read-detail이 데이터 본체라면 inspect는 검토/감사 목적의 메타 조회"
+    status: proposed
+
+  - id: transform
+    description: "한 형식 → 다른 형식으로 변환 — bind, codegen, schema merge, build artifacts"
+    status: proposed
+
+  - id: validate
+    description: "규칙 검증 — 22 룰, 컴플라이언스, schema validation. 본질적으로 read-only + judgement"
+    status: proposed

@@ -2,6 +2,7 @@ domain: auth
 description: "인증 도메인 — 가입/로그인/토큰 갱신/로그아웃"
 
 metadata:
+  kind: openapi-http
   responsibility: "사용자 계정의 lifecycle — 가입/로그인/토큰 발급/갱신/폐기/비밀번호"
   owns_entities: [Account, Credential, Session]
   allowed_actors: [guest, user, third-party-app]

@@ -105,10 +105,11 @@ export function validate(opts: ValidateOptions): ValidationReport {
       checkVocabularyMatch(persona, opts.registry, traitValueSets, matrix.domain, issues)
 
       // ── 3. maps_to operationId existence ────────────────────────────
-      checkMapsTo(persona, matrix.domain, opts.knownOperations, issues)
+      const kind = domainKind(matrix)
+      checkMapsTo(persona, matrix.domain, opts.knownOperations, issues, kind)
 
       // ── 8. expects ⊆ operation.responses ────────────────────────────
-      checkExpects(persona, matrix.domain, opts.knownOperations, issues)
+      checkExpects(persona, matrix.domain, opts.knownOperations, issues, kind)
 
       // ── 6. constraints ──────────────────────────────────────────────
       for (const constraint of opts.registry.constraints) {
@@ -145,7 +146,9 @@ export function validate(opts: ValidateOptions): ValidationReport {
 
   // ── 7. drift detection (optional) ─────────────────────────────────────
   if (opts.boundSpec) {
-    const drifts = detectDrift(opts.boundSpec, opts.domains)
+    // v0.13: drift is openapi-http-only (bound spec only contains HTTP ops)
+    const httpDomains = opts.domains.filter(m => domainKind(m) === 'openapi-http')
+    const drifts = detectDrift(opts.boundSpec, httpDomains)
     for (const d of drifts) {
       issues.push({
         severity: 'error',
@@ -390,12 +393,20 @@ function checkVocabularyMatch(
   }
 }
 
+/** v0.13: domain의 surface kind 조회. 미설정 = openapi-http (default). */
+function domainKind(matrix: DomainMatrix): import('./types.js').SurfaceKind {
+  return matrix.metadata?.kind ?? 'openapi-http'
+}
+
 function checkMapsTo(
   persona: Persona,
   domain: string,
   knownOperations: Map<string, OperationInfo> | null,
   issues: ValidationIssue[],
+  kind: import('./types.js').SurfaceKind = 'openapi-http',
 ): void {
+  // v0.13: non-openapi-http 도메인은 OpenAPI maps_to 검증 skip
+  if (kind !== 'openapi-http') return
   const ids = persona.outcome?.maps_to ?? []
 
   if (persona.status === 'implemented') {
@@ -441,7 +452,10 @@ function checkExpects(
   domain: string,
   knownOperations: Map<string, OperationInfo> | null,
   issues: ValidationIssue[],
+  kind: import('./types.js').SurfaceKind = 'openapi-http',
 ): void {
+  // v0.13: non-openapi-http는 expects 의미가 다름 (CLI exit code 등) → 검증 skip
+  if (kind !== 'openapi-http') return
   const expects = persona.outcome?.expects ?? []
 
   // Implemented persona without expects = lossy — we cannot bridge to mock-server / e2e.

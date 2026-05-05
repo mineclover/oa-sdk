@@ -2,6 +2,7 @@ domain: health
 description: "서버 상태 도메인 — 라이브니스 체크, 실시간 상태 스트림"
 
 metadata:
+  kind: openapi-http
   responsibility: "운영 상태 — liveness/readiness/version/event-stream surface (system actor 전용)"
   owns_entities: [HealthStatus, ReadinessReport, HealthEvent]
   allowed_actors: [system]

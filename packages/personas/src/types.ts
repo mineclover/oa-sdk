@@ -196,10 +196,22 @@ export interface DataModelPersona {
 }
 
 /**
+ * v0.13 — surface kind. 도메인이 어떤 종류의 surface를 다루는지 선언.
+ * kind에 따라 검증 룰 분기:
+ *   openapi-http   — maps_to/expects/drift 강제 (기본)
+ *   cli-tool       — synthetic operationId 허용 (cli:<command>), exit code 사용
+ *   library-api    — 함수/모듈 — operationId 무관, drift 비검증
+ *   event-stream   — pub/sub event — channel/payload 위주
+ */
+export type SurfaceKind = 'openapi-http' | 'cli-tool' | 'library-api' | 'event-stream'
+
+/**
  * v0.12 — Domain ownership boundary.
  * 각 도메인이 자기 entity / actor 책임 명시. 룰 #20-21로 강제.
  */
 export interface DomainMetadata {
+  /** v0.13: surface kind. 미설정 = 'openapi-http' (backward-compat). */
+  kind?: SurfaceKind
   /** 이 도메인이 소유한 entity 이름 목록 (base form). 변종(`User(self)` 등)은 자동 매칭. */
   owns_entities?: string[]
   /** 이 도메인에서 등장 가능한 actor 목록. 외 actor 사용 시 룰 #21 위반. */
