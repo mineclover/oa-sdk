@@ -174,7 +174,7 @@ personas: [...]
 
 | 종류 | 파일 | 단위 | 의미 |
 |------|------|------|------|
-| **API consumer** | `domains/<dom>.personas.yaml` | row × N | 누가/언제/어떻게 호출하나 |
+| **API consumer** | `domains/<dom>.personas.yaml` | row × N | 누가/언제/어떻게 호출하나 (kind: openapi-http / cli-tool / library-api / event-stream) |
 | **data-modeling** | `data-models/<Entity>.persona.yaml` | 단일 entity | 데이터 자체 invariants (PII/audit/retention) |
 | **profile** (v0.11.5) | `profiles/<name>.profile.yaml` | 단일 query | saved query — selector + 명시 + extends + exclude |
 
@@ -183,7 +183,7 @@ personas: [...]
 | | `domains/*.personas.yaml` | `data-models/*.persona.yaml` |
 |---|---|---|
 | **관점** | "누가 / 왜 / 어떻게 호출하나" | "데이터 자체의 invariants" |
-| **단위** | persona row (84개) | data entity (6개) |
+| **단위** | persona row (95개 — HTTP 84 + CLI 11 dogfood) | data entity (6개) |
 | **predicate** | identity tuple = PK | entity 이름 = PK |
 | **examples** | `admin-monitor`, `b2b-customer-list-users` | `User`, `Credential`, `Session` |
 | **invariants** | shape, access, regulation, expects | PII flag, retention, audit, masking |
@@ -241,7 +241,7 @@ selector:
 
 ```bash
 pnpm wizard                   # baseline 부트스트랩 (1회용) — region/regulation/compliance/stakeholders + spec path 입력 → .persona-project.yaml
-pnpm validate                 # 18 룰 검증 (drift 포함)
+pnpm validate                 # 22 룰 검증 (drift 포함, kind-aware: #3/#7/#8은 openapi-http 도메인만)
 pnpm coverage                 # 12-section markdown — operation / response status / actor / regulation / channel / region / compliance / trigger / skill / consumer / data-model / acknowledged-orphans
 pnpm coverage --out=…         # 파일로
 pnpm bind                     # .merged.yaml → .merged.persona.yaml (x-persona 주입)
@@ -266,6 +266,10 @@ pnpm check                    # merge → bind → validate 한 방
 
 3. domain ownership           각 도메인 .personas.yaml의 metadata로 boundary 강화
                              (entity 소유, actor 허용, channel 허용)
+
+4. surface kind (v0.13)       metadata.kind로 도메인 surface 종류 선언
+                             openapi-http(default) / cli-tool / library-api / event-stream
+                             non-HTTP 도메인은 OpenAPI 룰(maps_to/drift/expects) skip
 ```
 
 **주요 원칙**:
@@ -345,14 +349,16 @@ client.switchTo(mockServer, 'guest-unauthorized-list')  // → 401
 
 ## 안정성 — 누적 지표
 
-| 지표 | v0.11.5 |
+| 지표 | v0.13 |
 |------|---------|
-| personas | 84 (84 implemented · 0 proposed) |
-| operations | 27/27 covered |
-| validation rules | 18 |
-| trait files | 12 |
+| personas | 95 (84 implemented · 11 proposed) |
+| domains | 5 (auth/health/me/users + personas-cli dogfood) |
+| surface kinds | 4 (openapi-http: 4 / cli-tool: 1) |
+| operations | 27/27 covered (HTTP) |
+| validation rules | 22 + kind-aware 분기 |
+| trait files | 13 |
 | sample profiles | 5 |
-| unit tests | 121 |
+| unit tests | 142 |
 | e2e tests | 211 |
 | 검증 게이트 errors | 0 |
 | 검증 게이트 warnings | 0 |
@@ -379,6 +385,8 @@ client.switchTo(mockServer, 'guest-unauthorized-list')  // → 401
 | v0.10 | reference 확장 — `region` + `compliance_framework` (L3+L4). coverage cross-section 2개 추가. 확장 5단계 taxonomy 정의 |
 | v0.11 | `identity.skill` → `identity.proficiency` rename + `Persona.skills` (capability tags) + `traits/skill.yaml` (6 cat × 25 값) + 검증 룰 #15 + access↔skills 일관성 constraint 3개 |
 | v0.11.5 | `PersonaProfile` (saved query bundle) + 5 sample profiles (mobile-app / b2b-customer / pipa-compliance / audit-required / infra-ops) + `pnpm profiles` CLI + 검증 룰 #16-18 |
+| v0.12 | baseline-once + signal-driven (`pnpm wizard` + `pnpm propose --from-spec` 3 signal) + domain ownership boundary (`metadata.{owns_entities,allowed_actors,responsibility}`) + 검증 룰 #20-21 |
+| v0.13 | surface kind dimension (`metadata.kind: openapi-http \| cli-tool \| library-api \| event-stream`) + 룰 #3/#7/#8 kind-conditional + 신규 어휘 (`actor`: framework-developer/ci-bot/auditor, `intent`: inspect/transform/validate, `trigger`: pre-commit/ci-gate/audit-review/design-review/release-prep) + dogfood `personas-cli` 도메인 11 페르소나 promote + `src/kind.ts` 모듈 추출 |
 
 상세는 [`docs/concepts/data-persona.md`](../../docs/concepts/data-persona.md) 참조.
 

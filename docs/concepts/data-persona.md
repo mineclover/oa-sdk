@@ -231,33 +231,46 @@ acknowledged_orphans:
 
 `pnpm propose`가 이 마커를 보고 stub 생성에서 제외 → CLI가 idempotent해짐.
 
-## 9 검증 룰
+## 22 검증 룰
 
 | # | 룰 | 도입 |
 |---|---|---|
 | 1 | identity PK 유일성 | v0.1 |
 | 2 | vocabulary 매칭 | v0.1 |
-| 3 | maps_to 실재성 | v0.1 |
+| 3 | maps_to 실재성 *(openapi-http only)* | v0.1 |
 | 4 | 필수 identity | v0.1 |
 | 5 | status enum | v0.1 |
 | 6 | constraints (forbid/require) | v0.3 |
-| 7 | drift (양방향 일관성) | v0.3 |
-| 8 | expects ⊆ responses (range/default 매칭) | v0.4-prep |
+| 7 | drift (양방향 일관성) *(openapi-http only)* | v0.3 |
+| 8 | expects ⊆ responses (range/default 매칭) *(openapi-http only)* | v0.4-prep |
 | 9 | links 무결성 (target/self-link/cycle/supersedes) | v0.9 |
+| 10 | regulation ↔ region 정합 (PIPA→KR / GDPR→EU) | v0.10.5 |
+| 11 | guest-cannot-hard-delete | v0.3 |
+| 15 | skills vocabulary | v0.11 |
+| 16 | profile id 유일성 | v0.11.5 |
+| 17 | profile.personas / exclude id 실재성 | v0.11.5 |
+| 18 | profile.extends cycle / unknown reference | v0.11.5 |
+| 19 | empty profile warn | v0.11.5 |
+| 20 | domain ownership: data ∈ owns_entities | v0.12 |
+| 21 | domain ownership: actor ∈ allowed_actors | v0.12 |
+| (kind-aware) | 룰 #3/#7/#8은 `metadata.kind === 'openapi-http'` 도메인에만 적용 | v0.13 |
+| (consistency) | audited↔audit-emission, rate-limited↔rate-limit-honored, pseudonymized↔pseudonymized | v0.11 P4 |
 
-## 9 CLI
+## 11 CLI
 
 | CLI | 역할 |
 |-----|------|
-| `validate` | 18 룰 검증 (drift + profiles 포함) |
+| `wizard` | baseline 부트스트랩 (1회용) — region/regulation/compliance/spec path 입력 → `.persona-project.yaml` |
+| `validate` | 22 룰 검증 (drift + profiles 포함, kind-aware: #3/#7/#8은 openapi-http 도메인만) |
 | `coverage` | 12-section markdown — operation / response-status / actor / regulation / channel / region / compliance / trigger / **skill** / consumer / data-model / acknowledged-orphans |
 | `bind` | `.merged.yaml` → `.merged.persona.yaml` (operation에 `x-persona` 주입) |
 | `propose` | orphan response → 페르소나 stub 자동 (idempotent) |
-| `gen:tests` | 매트릭스 → vitest 매트릭스 자동 (apps/playground) |
+| `propose --from-spec` | 전체 spec scan (3 signal: orphan + new-op + new-schema) |
+| `gen:tests` | 매트릭스 → vitest 매트릭스 자동 (apps/playground), HTTP 도메인만 |
 | `flow` | 의존성 그래프 markdown + mermaid + topological layers |
 | `profiles` | `list` / `show <id>` — saved query 일람 + expand 결과 |
 | `check` | `merge → bind → validate` 한 방 |
-| `test` | 108 unit tests |
+| `test` | 142 unit tests |
 
 ## ⚠️ 한계 — 계약 시뮬레이션
 
