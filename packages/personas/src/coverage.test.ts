@@ -313,6 +313,25 @@ describe('coverage analyzer', () => {
     expect(report.unmappedPersonas).toEqual([])
   })
 
+  it('totals.byKind reflects domain kind distribution', () => {
+    const report = analyzeCoverage({ domains, knownOperations })
+    expect(report.totals.byKind).toBeDefined()
+    // bundled matrices: 4 HTTP domains + 1 cli-tool dogfood
+    expect(report.totals.byKind!['openapi-http']).toBeGreaterThan(0)
+    expect(report.totals.byKind!['cli-tool']).toBe(11)        // dogfood domain has 11 personas
+    // sum equals total personas
+    const sum = Object.values(report.totals.byKind!).reduce((a, b) => a + b, 0)
+    expect(sum).toBe(report.totals.personas)
+  })
+
+  it('renderMarkdown surfaces by-kind breakdown when multiple kinds present', () => {
+    const report = analyzeCoverage({ domains, knownOperations })
+    const md = renderMarkdown(report)
+    expect(md).toContain('by kind:')
+    expect(md).toContain('cli-tool:')
+    expect(md).toContain('openapi-http:')
+  })
+
   it('openapi-http proposed persona without maps_to still appears in unmapped backlog', () => {
     const httpDomain: DomainMatrix = {
       domain: 'http-fake',

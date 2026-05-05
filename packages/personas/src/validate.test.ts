@@ -685,9 +685,10 @@ describe('personas v0.1 validator', () => {
     })
 
     it('rejects invalid metadata.kind value (rule #22)', () => {
+      // Cast at the boundary — an invalid kind would fail compile-time.
       const matrix = {
         domain: 'typo',
-        metadata: { kind: 'openpi-http' as unknown as never },     // typo — common mistake
+        metadata: { kind: 'openpi-http' },     // typo — common mistake
         personas: [{
           id: 'p1',
           status: 'implemented',

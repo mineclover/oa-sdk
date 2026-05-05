@@ -16,7 +16,7 @@
 
 import type { DomainMatrix, PersonaIdentity, PersonaStatus, TraitVocabulary, DataModelPersona } from './types.js'
 import type { OperationInfo } from './load.js'
-import { isHttpDomain } from './kind.js'
+import { domainKind, isHttpDomain } from './kind.js'
 
 export interface OperationCoverageRow {
   operationId: string
@@ -111,6 +111,8 @@ export interface CoverageReport {
     deprecated: number
     operationsCovered: number
     operationsTotal: number
+    /** v0.13: persona count broken down by surface kind. operationsCovered/Total stays HTTP-scoped. */
+    byKind?: Record<string, number>
   }
 }
 
@@ -176,15 +178,18 @@ export function analyzeCoverage(input: CoverageInput): CoverageReport {
   const compliancePersonaCount = new Map<string, number>()
 
   const unmapped: GapEntry[] = []
-  const totals = { domains: input.domains.length, personas: 0, implemented: 0, proposed: 0, deprecated: 0, operationsCovered: 0, operationsTotal: input.knownOperations.size }
+  const byKind: Record<string, number> = {}
+  const totals = { domains: input.domains.length, personas: 0, implemented: 0, proposed: 0, deprecated: 0, operationsCovered: 0, operationsTotal: input.knownOperations.size, byKind }
 
   for (const matrix of input.domains) {
     // v0.13: only openapi-http domains participate in maps_to coverage tracking.
     // cli-tool / library-api / event-stream personas have synthetic operationIds (or none),
     // so "unmapped" doesn't apply.
     const matrixIsHttp = isHttpDomain(matrix)
+    const kindLabel = domainKind(matrix)
     for (const persona of matrix.personas) {
       totals.personas++
+      byKind[kindLabel] = (byKind[kindLabel] ?? 0) + 1
       if (persona.status === 'implemented') totals.implemented++
       else if (persona.status === 'proposed') totals.proposed++
       else if (persona.status === 'deprecated') totals.deprecated++
@@ -482,7 +487,11 @@ export function renderMarkdown(report: CoverageReport): string {
   lines.push('')
   lines.push(`- domains: **${t.domains}**`)
   lines.push(`- personas: **${t.personas}** (${t.implemented} implemented · ${t.proposed} proposed · ${t.deprecated} deprecated)`)
-  lines.push(`- operations: **${t.operationsCovered}/${t.operationsTotal} covered** by an implemented persona`)
+  if (t.byKind && Object.keys(t.byKind).length > 1) {
+    const kinds = Object.entries(t.byKind).sort(([a], [b]) => a.localeCompare(b)).map(([k, n]) => `${k}: ${n}`).join(' · ')
+    lines.push(`  - by kind: ${kinds}`)
+  }
+  lines.push(`- operations: **${t.operationsCovered}/${t.operationsTotal} covered** by an implemented persona (HTTP scope)`)
   lines.push(`- unjustified surface: **${report.unjustifiedOperations.length}**`)
   lines.push(`- gap backlog (proposed without maps_to): **${report.unmappedPersonas.length}**`)
   lines.push(`- acknowledged orphans (intentional): **${report.acknowledgedOrphans.length}**`)

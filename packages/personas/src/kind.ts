@@ -2,9 +2,21 @@
  * v0.13 — surface kind helpers.
  *
  * Single source for "what kind is this domain" + filters for kind-specific
- * processing. Imported by validate, coverage, bind, generate-tests, propose.
+ * processing. Imported by validate, coverage, bind, generate-tests, propose, mock.
  *
  * Default kind: 'openapi-http' — backward-compat for matrices written before v0.13.
+ *
+ * ### Adding a new kind
+ *
+ * 1. Add the literal to `SurfaceKind` union in `types.ts`.
+ * 2. Add the literal to `KIND_VALUES` set below — `isValidKind()` will then accept it.
+ * 3. Decide which kind-aware modules need updates:
+ *    - `validate.ts` rules #3/#7/#8 are openapi-http-only via `domainKind() === 'openapi-http'`
+ *    - `bind.ts`, `coverage.ts`, `generate-tests.ts`, `propose.ts`, `mock.ts` use `isHttpDomain()`
+ *    - if the new kind needs its own validator (e.g., gRPC service descriptor existence),
+ *      branch on `domainKind(matrix) === '<new-kind>'` and add domain-specific checks.
+ * 4. Document the kind in `README.md` "surface kind" section + `docs/concepts/data-persona.md`.
+ * 5. Add at least one test case in `kind.test.ts` and `validate.test.ts`.
  */
 
 import type { DomainMatrix, SurfaceKind } from './types.js'

@@ -4,13 +4,35 @@ export type {
   PersonaReference,
   PersonaOutcome,
   PersonaStatus,
+  PersonaProfile,
+  ProfileSelector,
+  PersonaLink,
+  PersonaLinkType,
+  DataModelPersona,
   DomainMatrix,
+  DomainMetadata,
+  SurfaceKind,
+  AcknowledgedOrphan,
   Registry,
+  RegistryConstraint,
   TraitVocabulary,
   TraitValue,
+  TraitCategory,
+  DimensionSpec,
+  BucketSpec,
   ValidationIssue,
   ValidationReport,
 } from './types.js'
+
+// v0.13 — surface kind helpers
+export {
+  DEFAULT_KIND,
+  KIND_VALUES,
+  domainKind,
+  isHttpDomain,
+  httpDomainsOnly,
+  isValidKind,
+} from './kind.js'
 
 export {
   loadRegistry,
@@ -58,8 +80,8 @@ export type { PersonaMockClient, MockServerLike, CreatePersonaMockClientOptions 
 export { generateVitestSuite } from './generate-tests.js'
 export type { GenerateTestsOptions } from './generate-tests.js'
 
-export { proposeStubsFromOrphans, renderStubsAsYaml } from './propose.js'
-export type { ProposeOptions, ProposedStub } from './propose.js'
+export { proposeStubsFromOrphans, proposeStubsFromSpec, renderStubsAsYaml } from './propose.js'
+export type { ProposeOptions, ProposeFromSpecOptions, ProposedStub, StubSignal } from './propose.js'
 
 export { collectEdges, groupEdgesByLinkType, topologicalLayers, renderFlowMarkdown } from './flow.js'
 export type { FlowEdge } from './flow.js'
