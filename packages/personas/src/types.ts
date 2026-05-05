@@ -142,6 +142,8 @@ export interface ProfileSelector {
   status?: PersonaStatus[]
   /** 도메인 이름 필터. */
   domain?: string[]
+  /** v0.13: surface kind 필터 (e.g. `kind: [openapi-http]` to exclude CLI/library/event surfaces). */
+  kind?: SurfaceKind[]
   /** identity 차원 필터. */
   actor?: string[]
   intent?: string[]

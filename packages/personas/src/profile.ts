@@ -13,6 +13,7 @@
  * Pure: no I/O. expandProfile은 매트릭스를 받아 페르소나 id set 반환.
  */
 
+import { domainKind } from './kind.js'
 import type { DomainMatrix, Persona, PersonaProfile, ProfileSelector } from './types.js'
 
 export interface ExpandOptions {
@@ -43,12 +44,12 @@ function expandRec(
   visited.add(profile.id)
 
   const result = new Set<string>()
-  const allPersonas = opts.domains.flatMap(m => m.personas.map(p => ({ persona: p, domain: m.domain })))
+  const allPersonas = opts.domains.flatMap(m => m.personas.map(p => ({ persona: p, domain: m.domain, matrix: m })))
 
   // 1. selector
   if (profile.selector) {
-    for (const { persona, domain } of allPersonas) {
-      if (matchesSelector(persona, domain, profile.selector)) {
+    for (const { persona, domain, matrix } of allPersonas) {
+      if (matchesSelector(persona, domain, profile.selector, matrix)) {
         result.add(persona.id)
       }
     }
@@ -72,10 +73,22 @@ function expandRec(
   return result
 }
 
-export function matchesSelector(persona: Persona, domain: string, sel: ProfileSelector): boolean {
+/**
+ * Match a persona against a selector. The 4th argument (`matrix`) is needed
+ * to evaluate `selector.kind` — when omitted, the kind filter is treated as
+ * "openapi-http" (default kind), which is backward-compatible for selectors
+ * that don't use the kind field.
+ */
+export function matchesSelector(
+  persona: Persona,
+  domain: string,
+  sel: ProfileSelector,
+  matrix?: DomainMatrix,
+): boolean {
   // 모든 조건 AND
   if (sel.status && !sel.status.includes(persona.status)) return false
   if (sel.domain && !sel.domain.includes(domain)) return false
+  if (sel.kind && matrix && !sel.kind.includes(domainKind(matrix))) return false
 
   if (sel.actor && !sel.actor.includes(persona.identity.actor)) return false
   if (sel.intent && !sel.intent.includes(persona.identity.intent)) return false

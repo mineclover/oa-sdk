@@ -359,8 +359,8 @@ client.switchTo(mockServer, 'guest-unauthorized-list')  // → 401
 | operations | 27/27 covered (HTTP) |
 | validation rules | 19 numbered + 7 registry constraints + kind-aware 분기 |
 | trait files | 13 |
-| sample profiles | 5 |
-| unit tests | 151 |
+| sample profiles | 6 (+ dogfood-cli using `kind` selector) |
+| unit tests | 155 |
 | e2e tests | 211 |
 | 검증 게이트 errors | 0 |
 | 검증 게이트 warnings | 0 |

@@ -1,0 +1,8 @@
+id: dogfood-cli
+description: |
+  v0.13 — `metadata.kind: cli-tool` 도메인의 페르소나만 선택하는 saved query.
+  `pnpm profiles show dogfood-cli`로 oa-sdk 자체 dogfood 페르소나 11종 일괄 조회.
+  surface kind selector 사용 예시.
+
+selector:
+  kind: [cli-tool]

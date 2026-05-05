@@ -321,6 +321,18 @@ describe('personas v0.1 validator', () => {
     )).toBe(true)
   })
 
+  it('v0.13: profile selector.kind with unknown value is error', () => {
+    const profiles = [
+      { id: 'bad-kind', selector: { kind: ['grpc' as never] } },
+    ]
+    const report = validate({ registry, traits, domains: [], knownOperations: new Map(), profiles })
+    expect(report.issues.some(i =>
+      i.severity === 'error' &&
+      i.message.includes("'grpc'") &&
+      i.message.includes('selector.kind'),
+    )).toBe(true)
+  })
+
   it('v0.11.5 rule #18: profile extends cycle detection', () => {
     const profiles = [
       { id: 'a', extends: ['b'] },

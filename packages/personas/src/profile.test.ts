@@ -12,11 +12,12 @@ describe('profile — bundled', () => {
   const profiles = loadAllProfiles()
   const profileMap = new Map(profiles.map(p => [p.id, p]))
 
-  it('all 5 sample profiles load', () => {
-    expect(profiles.length).toBe(5)
+  it('all 6 sample profiles load', () => {
+    expect(profiles.length).toBe(6)
     expect(profiles.map(p => p.id).sort()).toEqual([
       'audit-required',
       'b2b-customer-suite',
+      'dogfood-cli',
       'infra-ops-monitoring',
       'mobile-app',
       'pipa-compliance',
@@ -29,6 +30,17 @@ describe('profile — bundled', () => {
     expect(expanded.length).toBeGreaterThan(0)
     // mobile-app channel personas should include user-self-read
     expect(expanded).toContain('user-self-read')
+  })
+
+  it('v0.13: expandProfile with kind: [cli-tool] picks dogfood personas only', () => {
+    const cliOnly: PersonaProfile = {
+      id: 'cli-only',
+      selector: { kind: ['cli-tool'] },
+    }
+    const expanded = expandProfile(cliOnly, { domains, profiles: profileMap })
+    expect(expanded.length).toBe(11)               // dogfood domain has 11 personas
+    expect(expanded).toContain('dev-validates-pre-commit')
+    expect(expanded).toContain('ci-bot-checks-pr')
   })
 
   it('pipa-compliance includes all PIPA-tagged personas', () => {
@@ -125,5 +137,29 @@ describe('profile — synthetic', () => {
     const persona = domains[0]!.personas[0]!
     expect(matchesSelector(persona, 'fake', { actor: ['admin', 'user'] })).toBe(true)
     expect(matchesSelector(persona, 'fake', { actor: ['guest'] })).toBe(false)
+  })
+
+  // ── v0.13: kind selector ────────────────────────────────────────────
+  it('matchesSelector — kind filter requires matching matrix metadata', () => {
+    const httpMatrix: DomainMatrix = {
+      domain: 'h',
+      metadata: { kind: 'openapi-http' },
+      personas: [],
+    }
+    const cliMatrix: DomainMatrix = {
+      domain: 'c',
+      metadata: { kind: 'cli-tool' },
+      personas: [],
+    }
+    const persona = domains[0]!.personas[0]!
+    expect(matchesSelector(persona, 'h', { kind: ['openapi-http'] }, httpMatrix)).toBe(true)
+    expect(matchesSelector(persona, 'h', { kind: ['cli-tool'] }, httpMatrix)).toBe(false)
+    expect(matchesSelector(persona, 'c', { kind: ['cli-tool'] }, cliMatrix)).toBe(true)
+  })
+
+  it('matchesSelector — kind filter is silently bypassed without matrix arg (back-compat)', () => {
+    const persona = domains[0]!.personas[0]!
+    // No matrix provided — kind clause is ignored, other clauses still evaluated
+    expect(matchesSelector(persona, 'h', { kind: ['cli-tool'] })).toBe(true)
   })
 })

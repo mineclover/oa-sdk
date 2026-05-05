@@ -577,6 +577,19 @@ function checkProfiles(
     }
   }
 
+  // v0.13: selector.kind 어휘 가드 — 유효 값 외 거부
+  for (const p of profiles) {
+    for (const k of p.selector?.kind ?? []) {
+      if (!isValidKind(k)) {
+        issues.push({
+          severity: 'error',
+          domain: '(profiles)',
+          message: `profile '${p.id}' selector.kind contains unknown value '${k}' (allowed: ${[...KIND_VALUES].join(', ')})`,
+        })
+      }
+    }
+  }
+
   // 18: extends cycle detection
   for (const p of profiles) {
     const visited = new Set<string>()
