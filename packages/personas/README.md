@@ -79,10 +79,11 @@ src/
     User.persona.yaml Credential.persona.yaml
     Account.persona.yaml Session.persona.yaml
     Report.persona.yaml HealthStatus.persona.yaml
-  profiles/                       # saved query bundles (5 파일, v0.11.5)
+  profiles/                       # saved query bundles (6 파일, v0.11.5+)
     mobile-app.profile.yaml b2b-customer-suite.profile.yaml
     pipa-compliance.profile.yaml audit-required.profile.yaml
     infra-ops-monitoring.profile.yaml
+    dogfood-cli.profile.yaml         # ← v0.13, kind selector 사용 예시
 scripts/                          # CLI 진입점 (8 파일)
   validate.ts coverage.ts bind.ts
   propose-personas.ts generate-tests.ts flow.ts profile.ts
@@ -203,10 +204,18 @@ selector:
 ```
 
 4가지 정의 방식 조합:
-- `selector` — 동적 매칭 (status, identity·reference·outcome·skills 어떤 차원이든)
+- `selector` — 동적 매칭 (status, identity·reference·outcome·skills, **kind** *(v0.13)* 어떤 차원이든)
 - `personas` — 명시적 id 추가 (selector 결과에 union)
 - `extends` — 다른 profile 흡수 (재귀, cycle detection)
 - `exclude` — 결과에서 빠질 id
+
+surface kind selector 사용 예 (v0.13):
+```yaml
+# profiles/dogfood-cli.profile.yaml
+id: dogfood-cli
+selector:
+  kind: [cli-tool]               # personas-cli 도메인의 11 페르소나만
+```
 
 `pnpm profiles list` / `pnpm profiles show <id>`로 조회.
 
@@ -388,7 +397,7 @@ client.switchTo(mockServer, 'guest-unauthorized-list')  // → 401
 | v0.11 | `identity.skill` → `identity.proficiency` rename + `Persona.skills` (capability tags) + `traits/skill.yaml` (6 cat × 25 값) + 검증 룰 #15 + access↔skills 일관성 constraint 3개 |
 | v0.11.5 | `PersonaProfile` (saved query bundle) + 5 sample profiles (mobile-app / b2b-customer / pipa-compliance / audit-required / infra-ops) + `pnpm profiles` CLI + 검증 룰 #16-18 |
 | v0.12 | baseline-once + signal-driven (`pnpm wizard` + `pnpm propose --from-spec` 3 signal) + domain ownership boundary (`metadata.{owns_entities,allowed_actors,responsibility}`) + 검증 룰 #20-21 |
-| v0.13 | surface kind dimension (`metadata.kind: openapi-http \| cli-tool \| library-api \| event-stream`) + 룰 #3/#7/#8 kind-conditional + 신규 어휘 (`actor`: framework-developer/ci-bot/auditor, `intent`: inspect/transform/validate, `trigger`: pre-commit/ci-gate/audit-review/design-review/release-prep) + dogfood `personas-cli` 도메인 11 페르소나 promote + `src/kind.ts` 모듈 추출 |
+| v0.13 | surface kind dimension (`metadata.kind: openapi-http \| cli-tool \| library-api \| event-stream`) + 룰 #3/#7/#8 kind-conditional + 룰 #22 (kind 어휘 가드) + 신규 어휘 (`actor`: framework-developer/ci-bot/auditor, `intent`: inspect/transform/validate, `trigger`: pre-commit/ci-gate/audit-review/design-review/release-prep) + dogfood `personas-cli` 도메인 11 페르소나 promote + `src/kind.ts` 모듈 (public API) + coverage `byKind` 분기 + `ProfileSelector.kind` 차원 + `dogfood-cli` sample profile + mock applyTo의 cli-tool auto-skip |
 
 상세는 [`docs/concepts/data-persona.md`](../../docs/concepts/data-persona.md) 참조.
 

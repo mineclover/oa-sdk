@@ -119,12 +119,22 @@ selector:
 ```
 
 4가지 정의 방식 조합:
-- `selector` — 동적 매칭 (모든 차원 + skills + status + domain)
+- `selector` — 동적 매칭 (모든 차원 + skills + status + domain + **kind** *(v0.13)*)
 - `personas` — 명시적 id 추가 (selector 결과에 union)
 - `extends` — 다른 profile 흡수 (재귀, cycle detection)
 - `exclude` — 결과에서 빠질 id
 
-5 sample profile (현재): mobile-app / b2b-customer-suite / pipa-compliance / audit-required / infra-ops-monitoring.
+`selector.kind` (v0.13) — surface kind 필터. 예: `kind: [cli-tool]` 로 dogfood 페르소나만 조회.
+
+```yaml
+# profiles/dogfood-cli.profile.yaml
+id: dogfood-cli
+description: "@oa-sdk/personas dogfood (cli-tool kind) 페르소나만"
+selector:
+  kind: [cli-tool]                # 11 페르소나 (personas-cli 도메인)
+```
+
+6 sample profile (현재): mobile-app / b2b-customer-suite / pipa-compliance / audit-required / infra-ops-monitoring / **dogfood-cli**.
 
 `pnpm profiles list` / `pnpm profiles show <id>`로 expand 결과 조회.
 
@@ -305,7 +315,7 @@ acknowledged_orphans:
 | v0.11.5 | persona profiles — saved query bundle. 5 sample profile. `pnpm profiles` CLI. 룰 #16-18 |
 | v0.12 A.1+B | baseline-once + signal-driven. `pnpm wizard` (1회용) + `pnpm propose --from-spec` (3 signal) |
 | v0.12 A.2 | domain ownership boundary — 각 도메인 metadata block (`owns_entities` / `allowed_actors` / `responsibility`). 룰 #20-21로 boundary 강제. 84 페르소나 모두 통과 — 도메인 책임이 *코드로* 보장됨 |
-| **v0.13 (현재)** | surface kind dimension — `metadata.kind: openapi-http \| cli-tool \| library-api \| event-stream`. 룰 #3, #7, #8이 kind에 conditional. dogfood `personas-cli` 도메인 11 페르소나 promote (cli-tool) — 프레임워크가 자기 자신에 적용됨. 신규 어휘: `actor` (framework-developer/ci-bot/auditor), `intent` (inspect/transform/validate), `trigger` (pre-commit/ci-gate/audit-review/design-review/release-prep) |
+| **v0.13 (현재)** | surface kind dimension — `metadata.kind: openapi-http \| cli-tool \| library-api \| event-stream`. 룰 #3, #7, #8이 kind에 conditional. 룰 #22 (kind 어휘 가드) 신설. dogfood `personas-cli` 도메인 11 페르소나 promote (cli-tool) — 프레임워크가 자기 자신에 적용됨. 신규 어휘: `actor` (framework-developer/ci-bot/auditor), `intent` (inspect/transform/validate), `trigger` (pre-commit/ci-gate/audit-review/design-review/release-prep). 모듈화: `src/kind.ts` 헬퍼 (domainKind/isHttpDomain/httpDomainsOnly/isValidKind) — public API export. coverage report에 `byKind` 분기. mock-server applyTo가 cli-tool persona 자동 skip. `ProfileSelector.kind` 차원 추가 + `dogfood-cli` sample profile. |
 
 ## 향후 후보
 
