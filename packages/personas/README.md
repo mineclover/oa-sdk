@@ -21,60 +21,78 @@ pnpm --filter @oa-sdk/personas flow         # 의존성 그래프 (markdown + me
 
 루트에서 `pnpm personas:check / coverage / test`로도 실행 가능.
 
-## 3-bucket × 9-dimension 모델
+## 모델 — 3 bucket × 11 dimension + skills + links
 
 ```
-┌─ identity (PK) ─ 같은 6축이면 같은 페르소나 ──────────────────────┐
-│ actor      enum  guest/user/owner-self/admin/moderator/system/…  │
-│ data       enum  도메인-로컬 (User(self), Credential, Session, …) │
-│ intent     enum  create/read-detail/list/update/revoke/export/…   │
-│ trigger    enum  signup/missing-auth/phantom-id/ops-monitoring/…  │
-│ skill?     enum  onboarding/novice/intermediate/expert            │
-│ consumer?  enum  end-user/backend/b2b-customer/internal-tool/…    │
-├─ reference ─ 외부 카탈로그 lookup (enrichment) ────────────────────┤
-│ regulation           multi pii-kr-pipa, pii-gdpr, content-violence, … │
-│ channel              multi browser, mobile-app, public-api, …          │
-│ region               multi KR / EU / US / JP / SG / APAC / GLOBAL      │
-│ compliance_framework multi SOC2 / ISO27001 / HIPAA / PCI-DSS / ISMS-P  │
-├─ outcome ─ API 계약이 만족해야 할 형태 ────────────────────────────┤
-│ shape      enum  detail/list-paginated/stream-sse/bulk-batch/…    │
-│ access     multi public/scoped:admin/audited/rate-limited/…       │
-│ maps_to    multi 이 페르소나가 실현하는 operationId               │
-│ expects    multi 받게 되는 HTTP status code                       │
-└─ links ─ 페르소나 간 관계 (v0.9) ──────────────────────────────────┤
-│ depends_on   A→B  A는 B 이후에 발동 (login → use)                 │
-│ refines      A→B  A는 B의 perspective 변종 (b2b → admin-monitor)  │
-│ supersedes   A→B  A가 B를 대체 (마이그레이션)                      │
-└────────────────────────────────────────────────────────────────────┘
+┌─ identity (PK) ─ 같은 6축이면 같은 페르소나 ──────────────────────────┐
+│ actor         enum  guest/user/owner-self/admin/moderator/system/…   │
+│ data          enum  도메인-로컬 (User(self), Credential, Session, …)  │
+│ intent        enum  create/read-detail/list/update/revoke/export/…    │
+│ trigger       enum  signup/missing-auth/phantom-id/ops-monitoring/…   │
+│ proficiency?  enum  사용자 숙련도 — onboarding/novice/intermediate/expert │
+│ consumer?     enum  end-user/backend/b2b-customer/internal-tool/…     │
+├─ reference ─ 외부 카탈로그 lookup (enrichment, 다중) ──────────────────┤
+│ regulation             pii-kr-pipa / pii-gdpr / content-violence / …  │
+│ channel                browser / mobile-app / public-api / …          │
+│ region                 KR / EU / US / JP / SG / APAC / GLOBAL          │
+│ compliance_framework   SOC2 / ISO27001 / HIPAA / PCI-DSS / ISMS-P     │
+├─ outcome ─ API 계약이 만족해야 할 형태 ─────────────────────────────────┤
+│ shape         enum   detail/list-paginated/stream-sse/bulk-batch/…    │
+│ access        multi  public/scoped:admin/audited/rate-limited/…       │
+│ maps_to       multi  이 페르소나가 실현하는 operationId               │
+│ expects       multi  받게 되는 HTTP status code                       │
+├─ skills (top-level, v0.11) ─ 페르소나 고유 보유 능력 (multi) ───────────┤
+│ request-shape    pagination / filter-by-role / batch / …              │
+│ response-shape   sse-stream / etag-supported / partial-response       │
+│ lifecycle        idempotent / retryable / cacheable                    │
+│ observability    audit-emission / metrics-emission / trace-context     │
+│ security         pii-visible-admin / pii-masked-default / pseudonymized│
+│ integration      oauth-scope-aware / rate-limit-honored / webhook-…   │
+├─ links ─ 페르소나 간 관계 (v0.9) ──────────────────────────────────────┤
+│ depends_on   A→B  A는 B 이후에 발동 (login → use)                     │
+│ refines      A→B  A는 B의 perspective 변종 (b2b → admin-monitor)      │
+│ supersedes   A→B  A가 B를 대체 (마이그레이션)                          │
+└────────────────────────────────────────────────────────────────────────┘
 ```
 
-각 bucket은 독립적으로 운영:
-- **identity** = enum 추론 / PK 유일성. `consumer`/`skill`은 선택 dimension.
-- **reference** = 외부 vocab 변경이 도메인 매트릭스에 자동 전파.
-- **outcome** = spec validate 입력. shape는 응답 schema 모양, access는 보안/감사 의무, maps_to/expects는 OpenAPI 교차검증.
+각 영역의 의도:
+- **identity** = enum 추론 / PK 유일성. `proficiency`/`consumer`는 선택 dimension.
+- **reference** = 외부 vocab 변경이 매트릭스에 자동 전파. PK 영향 X.
+- **outcome** = OpenAPI spec validate 입력. shape는 응답 schema 모양, access는 의무, maps_to/expects는 spec 교차검증.
+- **skills** (v0.11) = 페르소나 고유 보유 능력 (RPG 캐릭터의 perks 같음). access(의무)와 짝 — `audited` access면 `audit-emission` skill 필수 (정합성 룰 #6).
 - **links** = 시퀀스 / 변종 / lifecycle 추적 (qa-sdk/definition-catalog `LinkType` 어휘 차용).
 
 ## 파일 구조
 
 ```
 src/
-  registry.yaml                   # 3 bucket × 9 차원 정의 + statuses + constraints
-  traits/                         # 닫힌 vocabulary (11 파일)
-    actor.yaml intent.yaml skill.yaml consumer.yaml
-    trigger.yaml link-type.yaml
+  registry.yaml                   # bucket 정의 + top_level_vocabularies + statuses + constraints
+  traits/                         # 닫힌 vocabulary (12 파일)
+    actor.yaml intent.yaml proficiency.yaml consumer.yaml
+    trigger.yaml link-type.yaml skill.yaml             # ← skill = capability tags (v0.11)
     regulation.yaml channel.yaml region.yaml compliance-framework.yaml
     shape.yaml access.yaml
-  domains/                        # API consumer 페르소나 (4 파일)
+  domains/                        # API consumer 페르소나 매트릭스 (4 파일)
     auth.personas.yaml me.personas.yaml
     users.personas.yaml health.personas.yaml
-  data-models/                    # 데이터 모델링 페르소나 (6 파일)
+  data-models/                    # 데이터 모델링 페르소나 — entity invariants (6 파일)
     User.persona.yaml Credential.persona.yaml
     Account.persona.yaml Session.persona.yaml
     Report.persona.yaml HealthStatus.persona.yaml
-scripts/                          # CLI 진입점 (6 파일)
+  profiles/                       # saved query bundles (5 파일, v0.11.5)
+    mobile-app.profile.yaml b2b-customer-suite.profile.yaml
+    pipa-compliance.profile.yaml audit-required.profile.yaml
+    infra-ops-monitoring.profile.yaml
+scripts/                          # CLI 진입점 (8 파일)
   validate.ts coverage.ts bind.ts
-  propose-personas.ts generate-tests.ts flow.ts
+  propose-personas.ts generate-tests.ts flow.ts profile.ts
 ```
+
+**파일 명명 컨벤션**:
+- `traits/<name>.yaml` — 단일 vocabulary (actor, channel, …)
+- `domains/<domain>.personas.yaml` — 한 도메인의 *복수* persona row 매트릭스
+- `data-models/<Entity>.persona.yaml` — 한 데이터 entity의 *단일* invariant 정의
+- `profiles/<name>.profile.yaml` — *단일* persona 번들 query
 
 ## 페르소나 row 골격
 
@@ -87,15 +105,22 @@ scripts/                          # CLI 진입점 (6 파일)
     intent: list                   # traits/intent.yaml
     trigger: ops-monitoring        # traits/trigger.yaml
     consumer: internal-tool        # traits/consumer.yaml (선택)
-    skill: expert                  # traits/skill.yaml (선택)
+    proficiency: expert             # traits/proficiency.yaml (선택)
   reference:
     regulation: [pii-kr-pipa]      # multi
     channel: [browser, public-api] # multi
+    region: [KR]                    # multi (v0.10)
+    compliance_framework: [SOC2]    # multi (v0.10)
   outcome:
     shape: list-paginated          # traits/shape.yaml
     access: [scoped:admin, audited]
     maps_to: [listUsers]           # implemented면 .merged.yaml에 실재해야 함
     expects: [200]                 # operation.responses 키와 교차검증
+  skills:                          # 페르소나 고유 능력 (v0.11, top-level)
+    - pagination                   # traits/skill.yaml
+    - filter-by-role
+    - audit-emission                # `audited` access와 짝 (정합성 룰)
+    - pii-visible-admin
   links:                           # 다른 페르소나와의 관계 (선택)
     - linkType: depends_on
       target: guest-login
@@ -103,7 +128,15 @@ scripts/                          # CLI 진입점 (6 파일)
   notes: "운영 대시보드용. PIPA 적용 — 마스킹 필수."
 ```
 
-## 두 가지 페르소나 — domains/ vs data-models/
+## 페르소나의 3 종류 — domains / data-models / profiles
+
+| 종류 | 파일 | 단위 | 의미 |
+|------|------|------|------|
+| **API consumer** | `domains/<dom>.personas.yaml` | row × N | 누가/언제/어떻게 호출하나 |
+| **data-modeling** | `data-models/<Entity>.persona.yaml` | 단일 entity | 데이터 자체 invariants (PII/audit/retention) |
+| **profile** (v0.11.5) | `profiles/<name>.profile.yaml` | 단일 query | saved query — selector + 명시 + extends + exclude |
+
+### domains/ (API consumer matrices) vs data-models/ (entity invariants)
 
 | | `domains/*.personas.yaml` | `data-models/*.persona.yaml` |
 |---|---|---|
@@ -115,32 +148,61 @@ scripts/                          # CLI 진입점 (6 파일)
 
 두 perspective가 매트릭스 한 곳에 섞이지 않게 분리. coverage report의 "Data model coverage" 섹션이 양쪽 cross-reference.
 
-## 9 검증 룰
+### profiles/ (saved query bundles)
+
+자주 쓰는 페르소나 query를 yaml로 저장:
+```yaml
+# profiles/audit-required.profile.yaml
+id: audit-required
+description: "audit-emission skill 보유 페르소나 — SOC2 audit scope"
+selector:
+  status: [implemented]
+  skills: [audit-emission]
+```
+
+4가지 정의 방식 조합:
+- `selector` — 동적 매칭 (status, identity·reference·outcome·skills 어떤 차원이든)
+- `personas` — 명시적 id 추가 (selector 결과에 union)
+- `extends` — 다른 profile 흡수 (재귀, cycle detection)
+- `exclude` — 결과에서 빠질 id
+
+`pnpm profiles list` / `pnpm profiles show <id>`로 조회.
+
+## 18 검증 룰
 
 `pnpm validate`가 다음을 강제:
 
-| # | 룰 | error/warn |
-|---|---|---|
-| 1 | identity PK 유일성 — 같은 (actor, data, intent, trigger, skill, consumer) tuple은 도메인 내 1회 | error |
-| 2 | vocabulary 매칭 — actor/intent/skill/consumer/trigger/regulation/channel/shape/access/link-type 값이 trait yaml에 존재 | error |
-| 3 | maps_to 실재성 — `implemented` row의 모든 operationId가 `.merged.yaml`에 존재 | error |
-| 4 | 필수 identity — actor/data/intent/trigger 미설정 시 거부 | error |
-| 5 | status enum — implemented/proposed/deprecated 외 값 거부 | error |
-| 6 | constraints — `registry.constraints`의 forbid/require 룰. 미지원 predicate는 1회 skip-warn | error/warn |
-| 7 | drift — `.merged.persona.yaml` 존재 시 operation별 `x-persona`가 매트릭스와 일치 | error |
-| 8 | expects ⊆ responses — `expects`의 모든 status가 operation.responses에 선언. range(`2XX`)/`default` 매칭 | error |
-| 9 | links 무결성 — link target은 known persona id, self-link 거부, depends_on 사이클 검출, supersedes target은 deprecated이어야 함 | error/warn |
+| # | 룰 | severity | 도입 |
+|---|---|---|---|
+| 1 | identity PK 유일성 — `(actor, data, intent, trigger, proficiency, consumer)` tuple 도메인 내 1회 | error | v0.1 |
+| 2 | vocabulary 매칭 — 모든 trait dimension 값이 trait yaml에 존재 | error | v0.1 |
+| 3 | maps_to 실재성 — `implemented` row의 operationId가 `.merged.yaml`에 존재 | error | v0.1 |
+| 4 | 필수 identity — actor/data/intent/trigger 미설정 시 거부 | error | v0.1 |
+| 5 | status enum — implemented/proposed/deprecated 외 거부 | error | v0.1 |
+| 6 | `registry.constraints` 강제 — forbid/require 룰. 미지원 predicate는 1회 skip-warn | error/warn | v0.3 |
+| 7 | drift — `.merged.persona.yaml` 존재 시 `x-persona`가 매트릭스와 일치 | error | v0.3 |
+| 8 | expects ⊆ responses — `expects` 모든 status가 operation.responses에. range/`default` 매칭 | error | v0.4-prep |
+| 9 | links 무결성 — target 실재 / self-link 거부 / depends_on cycle / supersedes deprecated | error/warn | v0.9 |
+| 10 | regulation ↔ region 정합 — `pii-kr-pipa` 면 `region: [KR]`, `pii-gdpr` 면 `[EU]` | error | v0.10.5 |
+| 11 | guest-cannot-hard-delete — 미인증 actor는 영구삭제 성공 불가 (success 코드 expects 시) | error | v0.3 |
+| 15 | skills vocabulary — `Persona.skills` 값이 `traits/skill.yaml`에 존재 | error | v0.11 |
+| 16 | profile id 유일성 | error | v0.11.5 |
+| 17 | profile.personas / profile.exclude 의 persona id 실재성 | error/warn | v0.11.5 |
+| 18 | profile.extends 사이클 검출 + unknown profile reference | error | v0.11.5 |
+| (consistency) | audited↔audit-emission, rate-limited↔rate-limit-honored, pseudonymized↔pseudonymized | warn | v0.11 P4 |
 
-## CLI 6종
+## CLI 8종
 
 ```bash
-pnpm validate           # 9 룰 검증 (drift 포함)
-pnpm coverage           # 7-section markdown 리포트 (operations / status / actors / regulations / channels / triggers / consumers / data-models)
+pnpm validate           # 18 룰 검증 (drift 포함)
+pnpm coverage           # 9-section markdown — operations / response status / actors / regulations / channels / triggers / consumers / skills / regions / compliance / data-models
 pnpm coverage --out=…   # 파일로
 pnpm bind               # .merged.yaml → .merged.persona.yaml (x-persona 주입)
 pnpm propose            # orphan response → 페르소나 stub 자동 (idempotent — acknowledged_orphans 존중)
-pnpm gen:tests          # 매트릭스 → vitest 매트릭스 자동 생성 (apps/playground/tests/persona-roleplay.generated.test.ts)
+pnpm gen:tests          # 매트릭스 → vitest 매트릭스 자동 생성
 pnpm flow               # 의존성 그래프 (markdown + mermaid + topological layers)
+pnpm profiles list      # saved profile 일람 + 각 페르소나 수
+pnpm profiles show <id> # 단일 profile expand 결과 (markdown)
 pnpm check              # merge → bind → validate 한 방
 ```
 
@@ -197,6 +259,36 @@ client.switchTo(mockServer, 'guest-unauthorized-list')  // → 401
 예: `malformed-payload-register` 페르소나가 422를 받지만 — 테스트는 *유효한* body를 보내도 mock이 422를 반환합니다. 진짜 422를 트리거하려면 real backend 또는 mock-server의 override 우회 모드가 필요.
 
 이 한계는 *의도된 것* — 페르소나는 "이 actor가 이 operation을 호출했을 때 *계약상* 무엇이 오기로 약속됐나"를 다룹니다. 실제 validation의 *동작* 검증은 mock-server가 자체적으로 schema 기반으로 수행하는 별 트랙입니다 (override 없이 호출하면 동작).
+
+## CI 통합
+
+운영 환경에서 권장되는 게이트:
+
+```yaml
+# .github/workflows/personas.yml (예시)
+- run: pnpm install
+- run: pnpm --filter @oa-sdk/personas check         # merge → bind → validate
+- run: pnpm --filter @oa-sdk/personas coverage --out=coverage.md
+- run: pnpm --filter @oa-sdk/personas test
+- run: pnpm --filter @oa-sdk/personas gen:tests
+- run: pnpm --filter playground test                # 211 e2e
+```
+
+`check`는 `merge` 누락 시 drift error로 차단 → 매트릭스 변경 후 bind 잊는 사고 방지.
+
+## 안정성 — 누적 지표
+
+| 지표 | v0.11.5 |
+|------|---------|
+| personas | 84 (84 implemented · 0 proposed) |
+| operations | 27/27 covered |
+| validation rules | 18 |
+| trait files | 12 |
+| sample profiles | 5 |
+| unit tests | 121 |
+| e2e tests | 211 |
+| 검증 게이트 errors | 0 |
+| 검증 게이트 warnings | 0 |
 
 ## 외부 어휘 차용
 

@@ -524,6 +524,22 @@ function checkProfiles(
     }
   }
 
+  // 19: empty profile warning — selector + personas + extends 모두 비어있으면 의미 없음
+  for (const p of profiles) {
+    const hasSelector = p.selector && Object.values(p.selector).some(v =>
+      Array.isArray(v) ? v.length > 0 : v !== undefined,
+    )
+    const hasPersonas = (p.personas ?? []).length > 0
+    const hasExtends = (p.extends ?? []).length > 0
+    if (!hasSelector && !hasPersonas && !hasExtends) {
+      issues.push({
+        severity: 'warn',
+        domain: '(profiles)',
+        message: `profile '${p.id}' is empty — selector / personas / extends 중 하나는 있어야 의미 있음`,
+      })
+    }
+  }
+
   // 18: extends cycle detection
   for (const p of profiles) {
     const visited = new Set<string>()

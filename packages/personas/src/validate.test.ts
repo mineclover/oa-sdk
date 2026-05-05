@@ -128,6 +128,127 @@ describe('personas v0.1 validator', () => {
     )).toBe(true)
   })
 
+  it('v0.11 P4: rate-limited-access ↔ rate-limit-honored skill', () => {
+    const matrix: DomainMatrix = {
+      domain: 'fake',
+      personas: [{
+        id: 'rate-limit-mismatch',
+        status: 'implemented',
+        identity: { actor: 'guest', data: 'X', intent: 'authenticate', trigger: 'return-visit' },
+        outcome: { access: ['rate-limited'], maps_to: ['op1'], expects: [200] },
+        skills: ['retryable'],          // missing rate-limit-honored
+      }],
+    }
+    const synthOps = new Map([['op1', { operationId: 'op1', path: '/x', method: 'get', responses: new Set(['200']) }]])
+    const report = validate({ registry, traits, domains: [matrix], knownOperations: synthOps })
+    expect(report.issues.some(i =>
+      i.severity === 'warn' &&
+      i.message.includes('rate-limited-access-requires-rate-limit-skill'),
+    )).toBe(true)
+  })
+
+  it('v0.11 P4: pseudonymized-access ↔ pseudonymized skill', () => {
+    const matrix: DomainMatrix = {
+      domain: 'fake',
+      personas: [{
+        id: 'pseudo-mismatch',
+        status: 'implemented',
+        identity: { actor: 'system', data: 'X', intent: 'export', trigger: 'ops-monitoring' },
+        outcome: { access: ['pseudonymized'], maps_to: ['op1'], expects: [200] },
+        skills: ['batch'],              // missing pseudonymized
+      }],
+    }
+    const synthOps = new Map([['op1', { operationId: 'op1', path: '/x', method: 'get', responses: new Set(['200']) }]])
+    const report = validate({ registry, traits, domains: [matrix], knownOperations: synthOps })
+    expect(report.issues.some(i =>
+      i.severity === 'warn' &&
+      i.message.includes('pseudonymized-access-requires-skill'),
+    )).toBe(true)
+  })
+
+  it('v0.11 rule #15: valid skill in vocabulary passes', () => {
+    const matrix: DomainMatrix = {
+      domain: 'fake',
+      personas: [{
+        id: 'happy-skill',
+        status: 'implemented',
+        identity: { actor: 'admin', data: 'X', intent: 'list', trigger: 'ops-monitoring' },
+        skills: ['pagination', 'audit-emission'],
+        outcome: { maps_to: ['op1'], expects: [200], access: ['audited'] },
+      }],
+    }
+    const synthOps = new Map([['op1', { operationId: 'op1', path: '/x', method: 'get', responses: new Set(['200']) }]])
+    const report = validate({ registry, traits, domains: [matrix], knownOperations: synthOps })
+    expect(report.issues.filter(i => i.severity === 'error' && i.message.includes('skill'))).toEqual([])
+  })
+
+  it('v0.11.5 rule #16: profile id duplication is error', () => {
+    const profiles = [
+      { id: 'p1', selector: { status: ['implemented' as const] } },
+      { id: 'p1', selector: { status: ['proposed' as const] } },
+    ]
+    const report = validate({ registry, traits, domains: [], knownOperations: new Map(), profiles })
+    expect(report.issues.some(i =>
+      i.severity === 'error' &&
+      i.message.includes("profile id 'p1' duplicated"),
+    )).toBe(true)
+  })
+
+  it('v0.11.5 rule #17: unknown persona id in profile.personas', () => {
+    const profiles = [
+      { id: 'p1', personas: ['real', 'phantom-persona'] },
+    ]
+    const matrix: DomainMatrix = {
+      domain: 'fake',
+      personas: [{
+        id: 'real',
+        status: 'implemented',
+        identity: { actor: 'admin', data: 'X', intent: 'list', trigger: 'ops-monitoring' },
+        outcome: { maps_to: ['op1'], expects: [200] },
+      }],
+    }
+    const synthOps = new Map([['op1', { operationId: 'op1', path: '/x', method: 'get', responses: new Set(['200']) }]])
+    const report = validate({ registry, traits, domains: [matrix], knownOperations: synthOps, profiles })
+    expect(report.issues.some(i =>
+      i.severity === 'error' &&
+      i.message.includes("references unknown persona id 'phantom-persona'"),
+    )).toBe(true)
+  })
+
+  it('v0.11.5 rule #19: empty profile (no selector / personas / extends) is warn', () => {
+    const profiles = [
+      { id: 'empty', description: 'placeholder' },
+    ]
+    const report = validate({ registry, traits, domains: [], knownOperations: new Map(), profiles })
+    expect(report.issues.some(i =>
+      i.severity === 'warn' &&
+      i.message.includes("profile 'empty' is empty"),
+    )).toBe(true)
+  })
+
+  it('v0.11.5 rule #18: profile extends cycle detection', () => {
+    const profiles = [
+      { id: 'a', extends: ['b'] },
+      { id: 'b', extends: ['a'] },
+    ]
+    const report = validate({ registry, traits, domains: [], knownOperations: new Map(), profiles })
+    expect(report.issues.some(i =>
+      i.severity === 'error' &&
+      i.message.includes('profile extends cycle'),
+    )).toBe(true)
+  })
+
+  it('v0.11.5 rule #18: unknown profile in extends', () => {
+    const profiles = [
+      { id: 'a', extends: ['does-not-exist'] },
+    ]
+    const report = validate({ registry, traits, domains: [], knownOperations: new Map(), profiles })
+    expect(report.issues.some(i =>
+      i.severity === 'error' &&
+      i.message.includes("extends unknown profile 'does-not-exist'"),
+    )).toBe(true)
+  })
+
   it('v0.11 P4: audited-access ↔ audit-emission-skill consistency (warn when missing)', () => {
     const matrix: DomainMatrix = {
       domain: 'fake',

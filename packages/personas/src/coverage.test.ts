@@ -86,6 +86,47 @@ describe('coverage analyzer', () => {
     expect(soc2!.operationIds).toContain('listUsers')
   })
 
+  it('v0.11: skill capability cross-section populated when skillVocab provided', () => {
+    const skillVocab: TraitVocabulary = {
+      categories: [
+        { id: 'request-shape' },
+        { id: 'observability' },
+      ],
+      values: [
+        { id: 'pagination', category: 'request-shape' },
+        { id: 'audit-emission', category: 'observability' },
+      ],
+    }
+    const synthDomains: DomainMatrix[] = [{
+      domain: 'fake',
+      personas: [
+        { id: 'a', status: 'implemented', identity: { actor: 'admin', data: 'X', intent: 'list', trigger: 'ops-monitoring' }, skills: ['pagination', 'audit-emission'] },
+        { id: 'b', status: 'implemented', identity: { actor: 'user', data: 'X', intent: 'list', trigger: 'ops-monitoring' }, skills: ['pagination'] },
+      ],
+    }]
+    const report = analyzeCoverage({ domains: synthDomains, knownOperations, skillVocab })
+    expect(report.skillCategories).toBeDefined()
+    const requestShape = report.skillCategories!.find(c => c.category === 'request-shape')
+    const observability = report.skillCategories!.find(c => c.category === 'observability')
+    expect(requestShape!.personaCount).toBe(2)        // a + b have pagination
+    expect(observability!.personaCount).toBe(1)       // only a has audit-emission
+  })
+
+  it('v0.11: unknown skills appear in unknownSkills list', () => {
+    const skillVocab: TraitVocabulary = { categories: [{ id: 'cat' }], values: [{ id: 'known', category: 'cat' }] }
+    const synthDomains: DomainMatrix[] = [{
+      domain: 'fake',
+      personas: [{
+        id: 'p',
+        status: 'implemented',
+        identity: { actor: 'admin', data: 'X', intent: 'list', trigger: 'ops-monitoring' },
+        skills: ['known', 'rogue-skill'],
+      }],
+    }]
+    const report = analyzeCoverage({ domains: synthDomains, knownOperations, skillVocab })
+    expect(report.unknownSkills).toContain('rogue-skill')
+  })
+
   it('v0.10: renderMarkdown includes Region + Compliance sections when populated', () => {
     const report = analyzeCoverage({ domains, knownOperations })
     const md = renderMarkdown(report)

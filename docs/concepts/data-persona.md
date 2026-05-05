@@ -7,35 +7,37 @@
 
 페르소나는 *사람*이 아니라 **(주체-데이터 관계)** 다. 같은 데이터라도 누가/언제/왜 만지는지에 따라 다른 페르소나가 되고, 그게 곧 별도 API operation의 정당성이다.
 
-## 두 가지 페르소나
+## 페르소나의 3 종류
 
-매트릭스 안에 두 관점이 섞이지 않게 분리:
+매트릭스 안에 세 perspective가 섞이지 않게 분리:
 
-| | API consumer 페르소나 | data-modeling 페르소나 |
-|---|---|---|
-| **관점** | "누가 / 어떤 시점에 / 어떤 stakeholder 시점에서 호출하나" | "데이터 자체의 invariants" |
-| **단위** | persona row (84개) | data entity (6개) |
-| **위치** | `domains/*.personas.yaml` | `data-models/*.persona.yaml` |
-| **PK** | identity tuple | entity 이름 |
-| **예** | `admin-monitor`, `b2b-customer-list-users` | `User`, `Credential`, `Session` |
-| **표현 의무** | shape, access, regulation, expects | PII flag, retention, audit, masking |
+| | API consumer | data-modeling | profile (v0.11.5) |
+|---|---|---|---|
+| **관점** | "누가 / 어떻게 호출하나" | "데이터 자체의 invariants" | "이 stakeholder 보유 페르소나 set" |
+| **단위** | persona row (84개) | data entity (6개) | saved query (5개) |
+| **위치** | `domains/*.personas.yaml` | `data-models/*.persona.yaml` | `profiles/*.profile.yaml` |
+| **PK** | identity tuple | entity 이름 | profile id |
+| **예** | `admin-monitor`, `b2b-customer-list-users` | `User`, `Credential` | `audit-required`, `mobile-app` |
+| **표현 의무** | shape, access, regulation, expects, **skills**, links | PII flag, retention, audit, masking | selector / extends / exclude |
 
-두 perspective가 cross-reference (`pnpm coverage`의 "Data model coverage" 섹션).
+세 perspective가 모두 cross-reference (`pnpm coverage` markdown).
 
-## 3-bucket × 9-dimension 모델
+## 3-bucket × 11-dimension + skills + links 모델
 
 ```
-identity (PK)         actor + data + intent + trigger + skill? + consumer?
-reference (lookup)    regulation + channel
+identity (PK)         actor + data + intent + trigger + proficiency? + consumer?
+reference (lookup)    regulation + channel + region + compliance_framework
 outcome (obligation)  shape + access + maps_to + expects
+skills (capability)   pagination / audit-emission / oauth-scope-aware / …    (v0.11)
 links (relation)      depends_on / refines / supersedes
 ```
 
-각 bucket의 역할:
+각 영역의 역할:
 
-- **identity**는 enum 추론용 — 같은 6축 값은 한 페르소나 (다르면 분리)
-- **reference**는 외부 vocab 변경이 매트릭스에 자동 전파되는 lookup
-- **outcome**은 spec validate 입력 — shape는 응답 schema 모양, access는 보안/감사 의무, maps_to/expects는 OpenAPI 교차검증
+- **identity**는 enum 추론용 — 같은 6축 값은 한 페르소나 (다르면 분리). PK 영향.
+- **reference**는 외부 vocab 변경이 매트릭스에 자동 전파되는 lookup. PK 영향 X.
+- **outcome**은 spec validate 입력 — shape는 응답 schema 모양, access는 의무, maps_to/expects는 OpenAPI 교차검증
+- **skills** (v0.11)은 페르소나 *고유 보유 능력* — RPG 캐릭터의 perks. access(의무)와 짝 맞춤 (audited 의무 → audit-emission 능력).
 - **links**는 시퀀스/변종/lifecycle 추적 (qa-sdk LinkType 어휘 차용 subset)
 
 ### identity — 6축 (4 필수 + 2 선택)
@@ -46,7 +48,7 @@ links (relation)      depends_on / refines / supersedes
 | `data` | 어떤 데이터 노드 | 도메인-로컬 (`User(self)`, `Credential`, `Session`…) — 정식 정의는 `data-models/` |
 | `intent` | 무엇을 이루려는가 | create · read-detail · list · search · update · soft-delete · hard-delete · revoke · moderate · report · appeal · export · authenticate · monitor · subscribe |
 | `trigger` | 언제 발동되는가 | 38값 × 4 category (operational/lifecycle/failure-mode/semantic) |
-| `skill?` | 숙련도 | onboarding · novice · intermediate · expert |
+| `proficiency?` | 사용자 숙련도 (v0.11에서 `skill`로부터 rename) | onboarding · novice · intermediate · expert |
 | `consumer?` | stakeholder 시점 | end-user · backend · b2b-customer · internal-tool · site-admin · infra-ops · data-eng |
 
 `skill`/`consumer`는 선택. spec/access 의무가 갈릴 때만 명시. 같은 actor·data·intent·trigger도 consumer 다르면 다른 페르소나(`listUsers` → admin-monitor / backend-svc / b2b-customer / cs-agent 4 변종).
@@ -71,6 +73,26 @@ reference는 페르소나 식별에 영향 X. 다만 reference 값이 다르면�
 | `maps_to` | 이 페르소나를 실현하는 operationId 목록 |
 | `expects` | 받게 되는 HTTP status code 목록. operation의 `responses` 키와 교차검증 |
 
+### skills — 페르소나 고유 보유 능력 (v0.11)
+
+`Persona.skills: string[]` — top-level 필드. RPG 캐릭터의 perks/skills처럼 페르소나가 무엇을 *할 수 있는지* 명시. 6 카테고리:
+
+| 카테고리 | 예 |
+|---|---|
+| request-shape | pagination / filter-by-role / batch / full-text-search |
+| response-shape | sse-stream / etag-supported / partial-response |
+| lifecycle | idempotent / retryable / cacheable |
+| observability | audit-emission / metrics-emission / trace-context |
+| security | pii-visible-admin / pii-masked-default / pseudonymized |
+| integration | oauth-scope-aware / rate-limit-honored / webhook-source |
+
+**access ↔ skills 정합성** (constraint engine 적용):
+- `access: [audited]` ⇔ `skills: [audit-emission]`
+- `access: [rate-limited]` ⇔ `skills: [rate-limit-honored]`
+- `access: [pseudonymized]` ⇔ `skills: [pseudonymized]`
+
+위반 시 warn — 의무 명시했지만 능력 명시 안 함 = lying.
+
 ### links — 페르소나 간 관계 (v0.9)
 
 qa-sdk/definition-catalog의 `LinkType` 10종 중 페르소나 컨텍스트 의미 있는 3종 차용.
@@ -82,6 +104,29 @@ qa-sdk/definition-catalog의 `LinkType` 10종 중 페르소나 컨텍스트 의�
 | `supersedes` | 이전 페르소나 대체 (마이그레이션) | (정의 변경 시) |
 
 식별자가 qa-sdk와 동일 → 향후 공통 패키지 분리 시 자연스럽게 흡수 가능.
+
+## profiles — saved query bundles (v0.11.5)
+
+페르소나 query 결과를 yaml로 저장한 재사용 단위. RPG 캐릭터의 "skill loadout"처럼 stakeholder가 보유한 페르소나 set을 표현.
+
+```yaml
+# profiles/audit-required.profile.yaml
+id: audit-required
+description: "audit-emission skill 보유 — SOC2 audit scope"
+selector:
+  status: [implemented]
+  skills: [audit-emission]
+```
+
+4가지 정의 방식 조합:
+- `selector` — 동적 매칭 (모든 차원 + skills + status + domain)
+- `personas` — 명시적 id 추가 (selector 결과에 union)
+- `extends` — 다른 profile 흡수 (재귀, cycle detection)
+- `exclude` — 결과에서 빠질 id
+
+5 sample profile (현재): mobile-app / b2b-customer-suite / pipa-compliance / audit-required / infra-ops-monitoring.
+
+`pnpm profiles list` / `pnpm profiles show <id>`로 expand 결과 조회.
 
 ## persona row 상태
 
@@ -165,18 +210,19 @@ acknowledged_orphans:
 | 8 | expects ⊆ responses (range/default 매칭) | v0.4-prep |
 | 9 | links 무결성 (target/self-link/cycle/supersedes) | v0.9 |
 
-## 8 CLI
+## 9 CLI
 
 | CLI | 역할 |
 |-----|------|
-| `validate` | 9 룰 검증 (drift 포함) |
-| `coverage` | 7-section markdown — operations / status / actors / regulations / channels / triggers / consumers / data-models |
+| `validate` | 18 룰 검증 (drift + profiles 포함) |
+| `coverage` | 9-section markdown — operations / status / actors / regulations / channels / triggers / consumers / **skills** / regions / compliance / data-models |
 | `bind` | `.merged.yaml` → `.merged.persona.yaml` (operation에 `x-persona` 주입) |
 | `propose` | orphan response → 페르소나 stub 자동 (idempotent) |
 | `gen:tests` | 매트릭스 → vitest 매트릭스 자동 (apps/playground) |
 | `flow` | 의존성 그래프 markdown + mermaid + topological layers |
+| `profiles` | `list` / `show <id>` — saved query 일람 + expand 결과 |
 | `check` | `merge → bind → validate` 한 방 |
-| `test` | 89 unit tests |
+| `test` | 108 unit tests |
 
 ## ⚠️ 한계 — 계약 시뮬레이션
 
