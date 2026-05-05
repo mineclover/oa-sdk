@@ -59,8 +59,9 @@ After `pulumi up` completes, the GitLab container is **booting** but not yet hea
 
 ```bash
 docker logs -f gitlab
-# or:
-curl -fsS http://localhost:8929/-/health   # 200 OK once reconfigure finishes
+# or, the canonical readiness signal (see OPERATIONS.md for why /-/health is unsuitable from the host):
+docker inspect -f '{{.State.Health.Status}}' gitlab     # waits for 'healthy'
+curl -sS -o /dev/null -w '%{http_code}\n' http://localhost:8929/users/sign_in   # 200 once Rails is ready
 ```
 
 ## Register the Runner
