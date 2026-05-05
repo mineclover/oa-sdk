@@ -68,7 +68,8 @@ export interface PersonaIdentity {
   data: string
   intent: string
   trigger: string
-  skill?: string
+  /** 사용자 숙련도 — onboarding/novice/intermediate/expert. (v0.11: 이전 `skill` field에서 rename) */
+  proficiency?: string
   /** API consumer perspective (e.g. backend / b2b-customer / internal-tool / infra-ops). Defaults conceptually to 'end-user' when omitted. */
   consumer?: string
 }

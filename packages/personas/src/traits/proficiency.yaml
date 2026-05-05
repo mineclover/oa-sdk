@@ -1,6 +1,8 @@
-# skill 차원 어휘 — 숙련도
+# proficiency 차원 어휘 — 사용자 숙련도
 # 선택적 identity. spec에 별도 surface가 필요한 경우만 명시.
-# 비어 있으면 skill-agnostic — 모든 숙련도가 동일 surface 공유.
+# 비어 있으면 proficiency-agnostic — 모든 숙련도가 동일 surface 공유.
+#
+# v0.11에서 `skill`로부터 rename — `skill`은 이제 페르소나 capability tags 의미.
 
 values:
   - id: onboarding

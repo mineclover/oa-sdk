@@ -270,7 +270,7 @@ function serializePersona(p: Persona): string {
   out.push(`      data: ${yamlScalar(p.identity.data)}`)
   out.push(`      intent: ${p.identity.intent}`)
   out.push(`      trigger: ${p.identity.trigger}`)
-  if (p.identity.skill) out.push(`      skill: ${p.identity.skill}`)
+  if (p.identity.proficiency) out.push(`      proficiency: ${p.identity.proficiency}`)
   if (p.reference) {
     out.push('    reference:')
     if (p.reference.regulation && p.reference.regulation.length > 0) {

@@ -33,11 +33,11 @@ buckets:
         cardinality: single
         vocabulary: traits/trigger.yaml
         description: "이 페르소나가 발동되는 상황 (4 카테고리: operational/lifecycle/failure-mode/semantic)"
-      skill:
+      proficiency:
         required: false
         cardinality: single
-        vocabulary: traits/skill.yaml
-        description: "숙련도 — onboarding 등 skill-specific surface가 있을 때만 명시"
+        vocabulary: traits/proficiency.yaml
+        description: "사용자 숙련도 — onboarding 등 proficiency-specific surface가 있을 때만 명시 (v0.11: skill → proficiency 리네임. skill은 이제 페르소나 capability)"
       consumer:
         required: false       # 미설정 시 'end-user' (제품 직접 사용자)로 간주
         cardinality: single

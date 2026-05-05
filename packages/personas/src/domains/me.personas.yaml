@@ -125,7 +125,7 @@ personas:
       data: User(self)
       intent: read-detail
       trigger: first-login
-      skill: onboarding
+      proficiency: onboarding
     reference:
       channel: [ browser, mobile-app ]
     outcome:

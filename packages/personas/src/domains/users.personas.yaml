@@ -280,7 +280,7 @@ personas:
       intent: read-detail
       trigger: user-support
       consumer: internal-tool
-      skill: intermediate
+      proficiency: intermediate
     reference:
       regulation: [ pii-kr-pipa ]
       channel: [ browser ]
