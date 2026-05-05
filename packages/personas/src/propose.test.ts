@@ -176,14 +176,70 @@ describe('proposeStubsFromOrphans', () => {
     const stubs = proposeStubsFromOrphans({ spec, domains, knownOperations })
     const yaml = renderStubsAsYaml(stubs)
     expect(yaml).toContain('# ════════ domain: users ════════')
-    expect(yaml).toContain('# ── bar ──')
-    expect(yaml).toContain('# ── foo ──')
+    expect(yaml).toContain('# op: bar')
+    expect(yaml).toContain('# op: foo')
+    expect(yaml).toContain('# ── signal: orphan ──')
     expect(yaml).toContain('status: proposed')
   })
 
   it('renderStubsAsYaml shows friendly message when no stubs', () => {
     const yaml = renderStubsAsYaml([])
-    expect(yaml).toContain('No orphan responses found')
+    expect(yaml).toContain('No signals detected')
+  })
+
+  it('v0.12 from-spec: generates new-op stubs for operations with no implemented persona', async () => {
+    const { proposeStubsFromSpec } = await import('./propose.js')
+    const knownOperations = makeOps({
+      newOp: { path: '/new', method: 'post', responses: ['201'] },
+    })
+    const spec: MinimalOpenApiDoc = {
+      paths: { '/new': { post: { operationId: 'newOp', responses: { '201': {} } } } },
+    }
+    const stubs = proposeStubsFromSpec({ spec, domains: [], knownOperations })
+    expect(stubs.some(s => s.signal === 'new-op' && s.operationId === 'newOp')).toBe(true)
+  })
+
+  it('v0.12 from-spec: generates new-schema stubs for schemas without data-models', async () => {
+    const { proposeStubsFromSpec } = await import('./propose.js')
+    const spec: MinimalOpenApiDoc = {
+      paths: {},
+      components: {
+        schemas: {
+          NewEntity: { type: 'object' },
+          // 비-entity schemas는 skip (Request/Response 패턴)
+          CreateUserRequest: { type: 'object' },
+        },
+      } as Record<string, unknown>,
+    }
+    const stubs = proposeStubsFromSpec({
+      spec,
+      domains: [],
+      knownOperations: new Map(),
+      knownDataModels: new Set(),
+    })
+    expect(stubs.some(s => s.signal === 'new-schema' && s.operationId === 'NewEntity')).toBe(true)
+    expect(stubs.some(s => s.signal === 'new-schema' && s.operationId === 'CreateUserRequest')).toBe(false)
+  })
+
+  it('v0.12 from-spec: skips operations with existing implemented persona (idempotent)', async () => {
+    const { proposeStubsFromSpec } = await import('./propose.js')
+    const knownOperations = makeOps({
+      foo: { path: '/foo', method: 'get', responses: ['200'] },
+    })
+    const spec: MinimalOpenApiDoc = {
+      paths: { '/foo': { get: { operationId: 'foo', responses: { '200': {} } } } },
+    }
+    const domains: DomainMatrix[] = [{
+      domain: 'fake',
+      personas: [{
+        id: 'happy',
+        status: 'implemented',
+        identity: { actor: 'admin', data: 'X', intent: 'list', trigger: 'ops-monitoring' },
+        outcome: { maps_to: ['foo'], expects: [200] },
+      }],
+    }]
+    const stubs = proposeStubsFromSpec({ spec, domains, knownOperations })
+    expect(stubs.some(s => s.operationId === 'foo' && s.signal === 'new-op')).toBe(false)
   })
 
   it('skips orphans listed in acknowledged_orphans', () => {

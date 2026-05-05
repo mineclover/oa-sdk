@@ -1,20 +1,14 @@
 /**
  * v0.6 — propose persona stubs from orphan responses.
+ * v0.12 — also propose happy-path stubs for operations without any persona.
  *
- * Runs over the merged spec + persona matrices. For every (operationId,
- * statusCode) declared in spec but not claimed by an `implemented`
- * persona's `outcome.expects`, emit a `proposed` persona stub.
+ * Two modes:
+ *   - proposeStubsFromOrphans: only stubs for orphan response codes
+ *   - proposeStubsFromSpec:    happy-path + orphan stubs (full spec scan)
  *
- * Heuristics map status codes to (actor, trigger, naming):
- *
- *   400 → malformed-payload     422 → malformed-payload (schema)
- *   401 → missing-auth          (actor: guest)
- *   403 → insufficient-scope    (actor: user)
- *   404 → phantom-id            (resource not found)
- *   409 → duplicate-identity    (conflict)
- *   429 → rate-limit-hit
- *   500 → server-error
- *   503 → dependency-down       (actor: system)
+ * Heuristics:
+ *   - happy-path: security → actor, method+path → intent, opId → trigger
+ *   - orphan: status code → trigger/actor/severity (existing logic)
  *
  * Stubs are pure data — caller decides what to do (stdout, file write,
  * append). Naming-collision against existing personas is skipped.
@@ -31,11 +25,20 @@ export interface ProposeOptions {
   knownOperations: Map<string, OperationInfo>
 }
 
+/** v0.12: 어떤 signal이 stub 생성을 트리거했는지 표시 */
+export type StubSignal =
+  | 'orphan'        // declared response without persona expecting it
+  | 'new-op'        // operation has no implemented persona at all
+  | 'new-schema'    // schema in spec without data-model file
+
 export interface ProposedStub {
   /** Domain file recommendation (best-effort: primary persona's domain or path-prefix). */
   domain: string
   operationId: string
+  /** 적용 status code (orphan/new-op) 또는 schema 이름 (new-schema). */
   statusCode: string
+  /** Signal source. */
+  signal: StubSignal
   /** Generated persona row (matches Persona shape, status='proposed'). */
   persona: Persona
   /** True if this id collides with an existing persona — caller may skip. */
@@ -77,6 +80,7 @@ export function proposeStubsFromOrphans(opts: ProposeOptions): ProposedStub[] {
         domain: ownerDomain,
         operationId: opId,
         statusCode: code,
+        signal: 'orphan',
         persona: stub,
         collision: existingIds.has(stub.id),
       })
@@ -88,6 +92,179 @@ export function proposeStubsFromOrphans(opts: ProposeOptions): ProposedStub[] {
     a.operationId.localeCompare(b.operationId) ||
     a.statusCode.localeCompare(b.statusCode),
   )
+}
+
+// ─── v0.12: signal-driven full-spec inference ────────────────────────────
+
+/**
+ * proposeStubsFromSpec — 전체 spec scan으로 3 signal 모두 처리:
+ *   - new-op:     spec 신규 op, 페르소나 없음 → happy-path stub
+ *   - orphan:     declared response, 페르소나 없음 → negative-path stub (기존)
+ *   - new-schema: spec 신규 schema, data-model 없음 → 안내 stub
+ *
+ * 출력은 idempotent — 이미 처리된 op/schema는 skip.
+ */
+export interface ProposeFromSpecOptions extends ProposeOptions {
+  /** 이미 존재하는 data-models 엔티티 이름 set (new-schema signal 검출에 사용). */
+  knownDataModels?: Set<string>
+}
+
+export function proposeStubsFromSpec(opts: ProposeFromSpecOptions): ProposedStub[] {
+  const orphanStubs = proposeStubsFromOrphans(opts)
+  const happyStubs = generateHappyPathStubs(opts)
+  const schemaStubs = generateSchemaStubs(opts)
+  return [...happyStubs, ...orphanStubs, ...schemaStubs].sort((a, b) =>
+    a.domain.localeCompare(b.domain) ||
+    a.signal.localeCompare(b.signal) ||
+    a.operationId.localeCompare(b.operationId),
+  )
+}
+
+function generateHappyPathStubs(opts: ProposeOptions): ProposedStub[] {
+  const stubs: ProposedStub[] = []
+  const existingIds = new Set<string>()
+  for (const m of opts.domains) for (const p of m.personas) existingIds.add(p.id)
+
+  for (const [opId, info] of opts.knownOperations.entries()) {
+    const claimers = listPersonasForOperation(opId, opts.domains)
+    if (claimers.length > 0) continue                  // already has happy-path
+
+    const persona = buildHappyPathPersona(opId, info, opts.spec)
+    if (!persona) continue
+    const ownerDomain = inferDomainFromPath(info.path, opts.domains)
+
+    stubs.push({
+      domain: ownerDomain,
+      operationId: opId,
+      statusCode: String(persona.outcome?.expects?.[0] ?? '200'),
+      signal: 'new-op',
+      persona,
+      collision: existingIds.has(persona.id),
+    })
+  }
+  return stubs
+}
+
+function buildHappyPathPersona(opId: string, info: OperationInfo, spec: MinimalOpenApiDoc): Persona | null {
+  const op = findOperation(spec, opId)
+  if (!op) return null
+  const operation = op.operation
+
+  // Actor inference from security
+  const security = operation['security'] as Array<Record<string, unknown>> | undefined
+  const isPublic = !security || security.length === 0 ||
+    (security.length === 1 && Object.keys(security[0] ?? {}).length === 0)
+
+  const path = info.path
+  let actor = 'user'
+  let consumer: string | undefined
+  if (isPublic) {
+    actor = 'guest'
+  } else if (path.includes('/admin/')) {
+    actor = 'admin'
+    consumer = 'internal-tool'
+  } else if (path.startsWith('/me/') || path === '/me') {
+    actor = 'owner-self'
+  } else if (path.startsWith('/health') || path.startsWith('/version')) {
+    actor = 'system'
+    consumer = 'infra-ops'
+  }
+
+  const intent = inferIntent(info.method, path, opId)
+  const trigger = inferTriggerFromOpId(opId, intent)
+  const successCode = pickSuccessCode([...info.responses])
+
+  const persona: Persona = {
+    id: makeHappyPathId(opId),
+    status: 'proposed',
+    identity: { actor, data: inferDataFromOp(opId, spec), intent, trigger },
+    notes: `(auto-stub from spec, signal=new-op) happy-path for ${opId}. 검토 후 actor / data / consumer / skills 보강 필요.`,
+  }
+  if (consumer) persona.identity.consumer = consumer
+  persona.outcome = {
+    shape: inferShape(intent, path),
+    access: actor === 'guest' ? ['public'] : ['scoped:read'],
+    maps_to: [opId],
+    expects: [successCode],
+  }
+  return persona
+}
+
+function inferIntent(method: string, path: string, opId: string): string {
+  const m = method.toLowerCase()
+  const lid = opId.toLowerCase()
+  if (lid.includes('login') || lid.includes('refresh') || lid.includes('register')) return 'authenticate'
+  if (lid.includes('logout') || lid.includes('revoke')) return 'revoke'
+  if (lid.includes('export')) return 'export'
+  if (lid.includes('subscribe') || lid.includes('stream')) return 'subscribe'
+  if (lid.includes('monitor') || (m === 'get' && path.startsWith('/health'))) return 'monitor'
+  if (m === 'get') return /\{[^}]+\}\s*$/.test(path) ? 'read-detail' : 'list'
+  if (m === 'post') return 'create'
+  if (m === 'put' || m === 'patch') return 'update'
+  if (m === 'delete') return /\/me$/.test(path) ? 'soft-delete' : 'hard-delete'
+  return 'read-detail'
+}
+
+function inferTriggerFromOpId(opId: string, intent: string): string {
+  const lid = opId.toLowerCase()
+  if (lid.includes('login')) return 'return-visit'
+  if (lid.includes('register') || lid.includes('signup')) return 'first-arrival'
+  if (lid.includes('refresh')) return 'token-expiring'
+  if (lid.includes('logout')) return 'leave-device'
+  if (lid.includes('export')) return 'gdpr-portability'
+  if (intent === 'monitor') return 'load-balancer-probe'
+  if (intent === 'list' || intent === 'read-detail') return 'profile-page'
+  if (intent === 'update') return 'edit-profile'
+  if (intent === 'hard-delete' || intent === 'soft-delete') return 'leave-service'
+  return 'first-arrival'
+}
+
+function inferShape(intent: string, _path: string): string {
+  if (intent === 'list') return 'list-paginated'
+  if (intent === 'authenticate') return 'token'
+  if (intent === 'subscribe') return 'stream-sse'
+  if (intent === 'export') return 'bulk-batch'
+  if (intent === 'hard-delete' || intent === 'soft-delete' || intent === 'revoke') return 'command'
+  return 'detail'
+}
+
+function pickSuccessCode(declared: string[]): number {
+  for (const c of ['200', '201', '202', '204']) if (declared.includes(c)) return Number(c)
+  const exact = declared.filter(c => /^2\d{2}$/.test(c))
+  if (exact.length > 0) return Number(exact[0])
+  return 200
+}
+
+function makeHappyPathId(opId: string): string {
+  return `happy-${opId}`
+}
+
+function generateSchemaStubs(opts: ProposeFromSpecOptions): ProposedStub[] {
+  const stubs: ProposedStub[] = []
+  const known = opts.knownDataModels ?? new Set<string>()
+  const schemas = (opts.spec as { components?: { schemas?: Record<string, unknown> } }).components?.schemas
+  if (!schemas) return stubs
+
+  for (const name of Object.keys(schemas)) {
+    if (known.has(name)) continue
+    // 비-entity로 보이는 스키마는 skip (Request/Response/Error 등)
+    if (/Request$|Response$|^Error$|Validation/.test(name)) continue
+    const persona: Persona = {
+      id: `data-model-${name}`,
+      status: 'proposed',
+      identity: { actor: 'system', data: name, intent: 'read-detail', trigger: 'first-arrival' },
+      notes: `(auto-stub from spec, signal=new-schema) ${name} schema 발견 — data-models/${name}.persona.yaml 작성 권장. 이 stub은 placeholder; 실제 구현은 data-model 파일에.`,
+    }
+    stubs.push({
+      domain: '(data-models)',
+      operationId: name,
+      statusCode: '-',
+      signal: 'new-schema',
+      persona,
+      collision: false,
+    })
+  }
+  return stubs
 }
 
 // ─── stub construction ────────────────────────────────────────────────────
@@ -233,24 +410,41 @@ function inferDomainFromPath(path: string, domains: DomainMatrix[]): string {
 
 /** Render proposals as a single YAML document for review/copy-paste. */
 export function renderStubsAsYaml(stubs: ProposedStub[]): string {
-  if (stubs.length === 0) return '# No orphan responses found — nothing to propose.\n'
+  if (stubs.length === 0) return '# No signals detected — nothing to propose.\n'
   const lines: string[] = []
   lines.push('# AUTO-GENERATED proposal — review then copy into appropriate domain .personas.yaml')
   lines.push('# Each stub is `status: proposed`. Promote to `implemented` after filling details.')
+  lines.push(`# Signal types: orphan (response code) | new-op (no persona) | new-schema (no data-model)`)
+  lines.push('')
+
+  // Summary
+  const bySignal = new Map<StubSignal, number>()
+  for (const s of stubs) bySignal.set(s.signal, (bySignal.get(s.signal) ?? 0) + 1)
+  for (const [sig, count] of [...bySignal.entries()].sort()) {
+    lines.push(`#   ${sig}: ${count}`)
+  }
   lines.push('')
 
   let lastDomain = ''
   let lastOp = ''
+  let lastSignal: StubSignal | '' = ''
   for (const stub of stubs) {
     if (stub.domain !== lastDomain) {
       lines.push('')
       lines.push(`# ════════ domain: ${stub.domain} ════════`)
       lastDomain = stub.domain
       lastOp = ''
+      lastSignal = ''
+    }
+    if (stub.signal !== lastSignal) {
+      lines.push('')
+      lines.push(`# ── signal: ${stub.signal} ──`)
+      lastSignal = stub.signal
+      lastOp = ''
     }
     if (stub.operationId !== lastOp) {
       lines.push('')
-      lines.push(`# ── ${stub.operationId} ──`)
+      lines.push(`# ${stub.signal === 'new-schema' ? 'schema' : 'op'}: ${stub.operationId}`)
       lastOp = stub.operationId
     }
     if (stub.collision) {

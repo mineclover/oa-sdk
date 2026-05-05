@@ -1,9 +1,11 @@
 /**
- * CLI: pnpm propose-personas
+ * CLI: pnpm propose [--from-spec]
  *
- * Reads .merged.yaml + persona matrices, proposes a `status: proposed`
- * persona stub for every (operationId, statusCode) pair declared in spec but
- * not claimed by any implemented persona's `outcome.expects`.
+ * Reads .merged.yaml + persona matrices, proposes `status: proposed` stubs.
+ *
+ * Modes:
+ *   (default)      orphan-response stubs only — declared status codes without persona
+ *   --from-spec    full spec scan: new-op + orphan + new-schema signals (v0.12)
  *
  * Output:
  *   --out=<path>   write YAML stubs to file
@@ -19,9 +21,9 @@ import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { parse } from 'yaml'
 
-import { proposeStubsFromOrphans, renderStubsAsYaml } from '../src/propose.js'
+import { proposeStubsFromOrphans, proposeStubsFromSpec, renderStubsAsYaml } from '../src/propose.js'
 import type { MinimalOpenApiDoc } from '../src/bind.js'
-import { loadAllDomains, loadOperationsFromMergedSpec } from '../src/load.js'
+import { loadAllDataModels, loadAllDomains, loadOperationsFromMergedSpec } from '../src/load.js'
 
 const __dir = dirname(fileURLToPath(import.meta.url))
 
@@ -47,7 +49,15 @@ function main(): void {
     process.exit(2)
   }
 
-  const stubs = proposeStubsFromOrphans({ spec, domains, knownOperations })
+  const fromSpec = process.argv.includes('--from-spec')
+  const stubs = fromSpec
+    ? proposeStubsFromSpec({
+        spec,
+        domains,
+        knownOperations,
+        knownDataModels: new Set(loadAllDataModels().map(m => m.entity)),
+      })
+    : proposeStubsFromOrphans({ spec, domains, knownOperations })
   const yaml = renderStubsAsYaml(stubs)
 
   if (outPath) {
