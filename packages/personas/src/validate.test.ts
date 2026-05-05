@@ -259,6 +259,38 @@ describe('personas v0.1 validator', () => {
     )).toBe(true)
   })
 
+  it('v0.12 metadata.owns_entities empty array → 룰 #20 skip', () => {
+    const matrix: DomainMatrix = {
+      domain: 'fake',
+      metadata: { owns_entities: [], allowed_actors: ['admin'] },
+      personas: [{
+        id: 'p1',
+        status: 'implemented',
+        identity: { actor: 'admin', data: 'AnyEntity', intent: 'list', trigger: 'ops-monitoring' },
+        outcome: { maps_to: ['op1'], expects: [200] },
+      }],
+    }
+    const synthOps = new Map([['op1', { operationId: 'op1', path: '/x', method: 'get', responses: new Set(['200']) }]])
+    const report = validate({ registry, traits, domains: [matrix], knownOperations: synthOps })
+    expect(report.issues.some(i => i.severity === 'error' && i.dimension === 'data')).toBe(false)
+  })
+
+  it('v0.12 metadata.allowed_actors empty array → 룰 #21 skip', () => {
+    const matrix: DomainMatrix = {
+      domain: 'fake',
+      metadata: { owns_entities: ['X'], allowed_actors: [] },
+      personas: [{
+        id: 'p1',
+        status: 'implemented',
+        identity: { actor: 'admin', data: 'X', intent: 'list', trigger: 'ops-monitoring' },
+        outcome: { maps_to: ['op1'], expects: [200] },
+      }],
+    }
+    const synthOps = new Map([['op1', { operationId: 'op1', path: '/x', method: 'get', responses: new Set(['200']) }]])
+    const report = validate({ registry, traits, domains: [matrix], knownOperations: synthOps })
+    expect(report.issues.some(i => i.severity === 'error' && i.dimension === 'actor')).toBe(false)
+  })
+
   it('v0.12 domain metadata absent → 룰 #20-21 skip (backward-compat)', () => {
     const matrix: DomainMatrix = {
       domain: 'legacy',

@@ -227,7 +227,7 @@ selector:
 ```bash
 pnpm wizard                   # baseline 부트스트랩 (1회용) — region/regulation/compliance/stakeholders + spec path 입력 → .persona-project.yaml
 pnpm validate                 # 18 룰 검증 (drift 포함)
-pnpm coverage                 # 9-section markdown
+pnpm coverage                 # 12-section markdown — operation / response status / actor / regulation / channel / region / compliance / trigger / skill / consumer / data-model / acknowledged-orphans
 pnpm coverage --out=…         # 파일로
 pnpm bind                     # .merged.yaml → .merged.persona.yaml (x-persona 주입)
 pnpm propose                  # orphan response → 페르소나 stub 자동 (idempotent — acknowledged_orphans 존중)

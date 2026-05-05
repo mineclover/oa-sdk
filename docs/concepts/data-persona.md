@@ -242,7 +242,7 @@ acknowledged_orphans:
 | CLI | 역할 |
 |-----|------|
 | `validate` | 18 룰 검증 (drift + profiles 포함) |
-| `coverage` | 9-section markdown — operations / status / actors / regulations / channels / triggers / consumers / **skills** / regions / compliance / data-models |
+| `coverage` | 12-section markdown — operation / response-status / actor / regulation / channel / region / compliance / trigger / **skill** / consumer / data-model / acknowledged-orphans |
 | `bind` | `.merged.yaml` → `.merged.persona.yaml` (operation에 `x-persona` 주입) |
 | `propose` | orphan response → 페르소나 stub 자동 (idempotent) |
 | `gen:tests` | 매트릭스 → vitest 매트릭스 자동 (apps/playground) |
@@ -294,4 +294,5 @@ acknowledged_orphans:
 - [Vision](../vision.md) — 전체 도메인 철학
 - [Behavior ECS](./behavior-ecs.md) — 행동 좌표 (페르소나는 행동의 *주체* 차원에 해당)
 - [`@oa-sdk/personas` README](../../packages/personas/README.md) — 패키지 사용법
+- [`docs/examples/dogfood/`](../examples/dogfood/README.md) — oa-sdk 자체 페르소나 빌딩 (CLI 컨텍스트 example)
 - [`qa-sdk/packages/definition-catalog`](https://github.com/) — LinkType 어휘 출처 (참조)
