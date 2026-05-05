@@ -37,6 +37,44 @@ REST vs bare-clone 결정: REST API 방식 유지. 이유는 (1) 4 케이스 모
 
 ---
 
+## infra-gitlab 잔여 항목
+
+> 패키지: [`@oa-sdk/infra-gitlab`](../../packages/infra-gitlab/) — Pulumi preset for self-hosted GitLab CE + Runner.
+> 운영 절차/노하우: [packages/infra-gitlab/OPERATIONS.md](../../packages/infra-gitlab/OPERATIONS.md).
+> 큰 그림: 자율 코딩 에이전트(Symphony 계열)를 GitLab 위에서 돌리는 DevOps substrate. Phase 1(로컬 Docker)만 완료, Phase 2~4 미착수.
+
+### [ ] Phase 2 — K3s variant
+배경: Phase 1은 단일 호스트 Docker 한정. K3s 단일 노드(또는 멀티 노드)에서 같은 스택을 띄우려면 `gitlab/gitlab` Helm chart, Ingress, cert-manager(Let's Encrypt) 통합이 필요하다.
+범위: 별도 Pulumi stack(`k3s`) 또는 별도 패키지(`@oa-sdk/infra-gitlab-k3s`) — 결정 후 착수. Helm release 리소스, 도메인 구성, TLS 종단 처리.
+완료 기준: 동일한 외부 인터페이스(브라우저로 GitLab 사용 가능 + Runner CI 동작)를 K3s 위에서 재현, OPERATIONS.md에 K3s 절차 추가.
+
+### [ ] Phase 3 — 클라우드 VM
+배경: 로컬 dev/PoC를 넘어 운영급 단일 호스트(DO Droplet / GCE / EC2)에 배포할 수 있어야 함.
+범위: Pulumi-managed VM + DNS A 레코드 + cloud-init으로 Docker + 본 프리셋의 stack을 부팅. Backup(volume snapshot) 정책 포함.
+완료 기준: `pulumi up`만으로 외부 접근 가능한 GitLab 인스턴스가 뜸. RAM/디스크 사이징과 비용 추정치를 OPERATIONS.md에 기록.
+
+### [ ] Phase 4 — Symphony GitLab tracker integration
+배경: Symphony SPEC §5.3.1은 현재 `tracker.kind: linear`만 지원([SPEC](https://github.com/openai/symphony/blob/main/SPEC.md#531-tracker-object)). GitLab 이슈를 Symphony가 읽으려면 다리가 필요하다. 옵션 (a) Symphony fork에 GitLab tracker 추가, (b) GitLab→Linear-shaped proxy, (c) Symphony 우회 직접 오케스트레이션.
+범위: 옵션 결정이 1차 산출. 그 후 어댑터 코드/프록시 서비스/대체 오케스트레이터 중 선택지 구현.
+완료 기준: GitLab issue 상태 변화가 코딩 에이전트 워크스페이스 dispatch로 이어지는 end-to-end 데모.
+
+### [ ] Runner 등록 자동화
+배경: 현재 등록은 수동(UI에서 `glrt-...` 토큰 발급 → `pnpm register:runner`). 운영 자동화에 마찰을 만든다.
+범위: GitLab API로 instance/group runner 사전 생성 → 토큰을 Pulumi config secret에 저장 → 컨테이너 기동 시 `gitlab-runner register --non-interactive` 자동 실행. GitLab 16.0+의 auth token 모델에 맞춰야 함.
+완료 기준: `pnpm up`만으로 Runner가 실제로 등록 완료된 상태로 뜸. 토큰 회전 절차 OPERATIONS.md에 기록.
+
+### [ ] 호스트 가시 readiness — `monitoring_whitelist` 확장 옵션
+배경: `/-/health`가 host에서 404를 내는 quirk(OPERATIONS.md 문서화 완료). 외부 모니터링 도구(Prometheus blackbox 등)에서 직접 hit해야 할 때를 위한 opt-in 토글이 없다.
+범위: Pulumi config `enableExternalHealthProbe: boolean` 추가, true이면 Omnibus config의 `gitlab_rails['monitoring_whitelist']`에 Docker bridge 게이트웨이 IP 대역 포함.
+완료 기준: 토글 on 상태에서 host의 `/-/health` 200, off일 때 기존(404) 동작 유지.
+
+### [ ] Pause helper script — destroy/up 대신 stop/start
+배경: 장기 dev 인스턴스는 destroy 시 GitLab 상태가 사라지므로 `docker stop`을 권장(OPERATIONS.md). 매번 두 컨테이너명을 외우는 마찰 제거.
+범위: `pnpm pause` (= `docker stop gitlab gitlab-runner`), `pnpm resume` (= `docker start ...`) script 추가.
+완료 기준: 두 명령으로 상태 보존된 stop/start이 가능.
+
+---
+
 ## 잔여 보완 작업
 
 ### [x] 외부 OpenAPI artifact governance scaffold (NestJS Swagger, FastAPI 등)
