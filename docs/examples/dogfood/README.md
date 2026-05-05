@@ -1,5 +1,7 @@
 # Dogfood — oa-sdk 자체 페르소나 빌딩
 
+> **Status (v0.13):** 이 dogfood 실험이 v0.13 surface kind dimension의 동기가 됐고, 정식 매트릭스로 promote됨. 캐노니컬 정의는 [`packages/personas/src/domains/personas-cli.personas.yaml`](../../../packages/personas/src/domains/personas-cli.personas.yaml) — `metadata.kind: cli-tool`. 이 README는 *journey 기록*으로 남겨둠.
+
 > "프레임워크를 자기 자신에 적용한 example." 페르소나 모델이 OpenAPI 컨슈머가 아닌 *CLI/library 컨슈머*에도 적용 가능한지 검증.
 
 ## 의도
@@ -51,9 +53,9 @@ dogfood 적용 중 새로 필요한 어휘:
 
 ## Example 매트릭스
 
-[`personas-cli.personas.yaml`](./personas-cli.personas.yaml) 파일이 11개 CLI를 페르소나로 표현. status: proposed로 — *문서 example*로만, 실제 validation에는 포함되지 않음.
+v0.13 promote 후 매트릭스는 [`packages/personas/src/domains/personas-cli.personas.yaml`](../../../packages/personas/src/domains/personas-cli.personas.yaml)로 이동 — `metadata.kind: cli-tool`로 선언, `pnpm validate`에 정식 포함.
 
-핵심 페르소나 5개 미리보기:
+핵심 페르소나 5개 미리보기 (실제 promote 후 일부 필드 — `consumer: developer-tool` → `internal-tool`, `shape: cli-output` → `command` — 기존 어휘로 normalize):
 
 ```yaml
 - id: dev-validates-pre-commit
@@ -134,13 +136,13 @@ dogfood 적용 중 새로 필요한 어휘:
 
 ### 향후 framework 확장 제안
 
-1. **Surface kind 차원** — `kind: openapi-http | cli-tool | library-api | event-stream`. 도메인이 자기 surface 종류 선언.
-2. **kind 별 어휘 자동 활성화** — cli-tool kind면 `shape: cli-output / exit-code` 활성화, regulation/region 비활성화.
-3. **synthetic operationId 지원** — non-OpenAPI 페르소나의 maps_to를 `cli:<command>` 같은 prefix로 표현, 별 검증 경로.
+1. **Surface kind 차원** — `kind: openapi-http | cli-tool | library-api | event-stream`. 도메인이 자기 surface 종류 선언. ✅ **v0.13 ship 완료**
+2. **kind 별 어휘 자동 활성화** — cli-tool kind면 `shape: cli-output / exit-code` 활성화, regulation/region 비활성화. (TODO — 현재는 어휘 매칭 강제, kind에 따른 활성/비활성 분기 없음)
+3. **synthetic operationId 지원** — non-OpenAPI 페르소나의 maps_to를 `cli:<command>` 같은 prefix로 표현, 별 검증 경로. ✅ v0.13 — bind/drift/maps_to-existence 룰이 cli-tool 도메인을 skip
 4. **multi-project 패턴** — oa-sdk의 별 패키지마다 자체 페르소나 매트릭스 보유, baseline 공유.
 
 ## 참조
 
 - [Data Persona 컨셉](../../concepts/data-persona.md)
 - [@oa-sdk/personas README](../../../packages/personas/README.md)
-- v0.13 후보: surface kind 차원 추가 (위 #1)
+- 캐노니컬 매트릭스: [`personas-cli.personas.yaml`](../../../packages/personas/src/domains/personas-cli.personas.yaml)

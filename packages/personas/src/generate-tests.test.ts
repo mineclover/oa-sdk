@@ -105,4 +105,36 @@ describe('generateVitestSuite — bundled matrices', () => {
     const suite = generateVitestSuite({ spec: synthSpec, domains: synthDomains, specRelativePath: './x.yaml' })
     expect(suite).toContain('client.post("/x", undefined, { headers')
   })
+
+  // ── v0.13: kind-aware generation ───────────────────────────────────
+  it('cli-tool domain personas do NOT generate HTTP test items', () => {
+    const synthSpec: MinimalOpenApiDoc = {
+      paths: { '/x': { get: { operationId: 'getX', responses: { '200': { description: 'ok' } } } } },
+    }
+    const httpDomain: DomainMatrix = {
+      domain: 'http',
+      metadata: { kind: 'openapi-http' },
+      personas: [{
+        id: 'http-p',
+        status: 'implemented',
+        identity: { actor: 'admin', data: 'X', intent: 'list', trigger: 'ops-monitoring' },
+        outcome: { maps_to: ['getX'], expects: [200] },
+      }],
+    }
+    const cliDomain: DomainMatrix = {
+      domain: 'cli',
+      metadata: { kind: 'cli-tool' },
+      personas: [{
+        id: 'cli-p',
+        status: 'implemented',
+        identity: { actor: 'framework-developer', data: 'PersonaMatrix', intent: 'validate', trigger: 'pre-commit', consumer: 'internal-tool' },
+        outcome: { maps_to: ['cli:validate'], expects: [0] },
+      }],
+    }
+    const suite = generateVitestSuite({ spec: synthSpec, domains: [httpDomain, cliDomain], specRelativePath: './x.yaml' })
+    // The HTTP persona produces an it() — the CLI persona must not.
+    expect(suite).toContain('http-p')
+    expect(suite).not.toContain('cli-p')
+    expect(suite).not.toContain('cli:validate')
+  })
 })

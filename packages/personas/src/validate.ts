@@ -28,6 +28,7 @@ import type {
   Persona,
   Registry,
   RegistryConstraint,
+  SurfaceKind,
   TraitVocabulary,
   ValidationIssue,
   ValidationReport,
@@ -35,6 +36,7 @@ import type {
 import type { OperationInfo } from './load.js'
 import type { MinimalOpenApiDoc } from './bind.js'
 import { detectDrift } from './bind.js'
+import { domainKind, httpDomainsOnly } from './kind.js'
 
 export interface ValidateOptions {
   registry: Registry
@@ -147,8 +149,7 @@ export function validate(opts: ValidateOptions): ValidationReport {
   // ── 7. drift detection (optional) ─────────────────────────────────────
   if (opts.boundSpec) {
     // v0.13: drift is openapi-http-only (bound spec only contains HTTP ops)
-    const httpDomains = opts.domains.filter(m => domainKind(m) === 'openapi-http')
-    const drifts = detectDrift(opts.boundSpec, httpDomains)
+    const drifts = detectDrift(opts.boundSpec, httpDomainsOnly(opts.domains))
     for (const d of drifts) {
       issues.push({
         severity: 'error',
@@ -393,17 +394,12 @@ function checkVocabularyMatch(
   }
 }
 
-/** v0.13: domain의 surface kind 조회. 미설정 = openapi-http (default). */
-function domainKind(matrix: DomainMatrix): import('./types.js').SurfaceKind {
-  return matrix.metadata?.kind ?? 'openapi-http'
-}
-
 function checkMapsTo(
   persona: Persona,
   domain: string,
   knownOperations: Map<string, OperationInfo> | null,
   issues: ValidationIssue[],
-  kind: import('./types.js').SurfaceKind = 'openapi-http',
+  kind: SurfaceKind = 'openapi-http',
 ): void {
   // v0.13: non-openapi-http 도메인은 OpenAPI maps_to 검증 skip
   if (kind !== 'openapi-http') return
@@ -452,7 +448,7 @@ function checkExpects(
   domain: string,
   knownOperations: Map<string, OperationInfo> | null,
   issues: ValidationIssue[],
-  kind: import('./types.js').SurfaceKind = 'openapi-http',
+  kind: SurfaceKind = 'openapi-http',
 ): void {
   // v0.13: non-openapi-http는 expects 의미가 다름 (CLI exit code 등) → 검증 skip
   if (kind !== 'openapi-http') return

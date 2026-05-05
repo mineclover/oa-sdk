@@ -110,4 +110,23 @@ describe('detectDrift', () => {
     const drift = detectDrift(partial, fixtureDomains)
     expect(drift.some(d => d.operationId === 'op2')).toBe(true)
   })
+
+  // ── v0.13: kind-aware binding ──────────────────────────────────────
+  it('computeExpectedBindings excludes non-openapi-http domains', () => {
+    const cliDomain: DomainMatrix = {
+      domain: 'cli',
+      metadata: { kind: 'cli-tool' },
+      personas: [{
+        id: 'cli-p',
+        status: 'implemented',
+        identity: { actor: 'framework-developer', data: 'PersonaMatrix', intent: 'validate', trigger: 'pre-commit', consumer: 'internal-tool' },
+        // Synthetic operationId — must not leak into HTTP bindings
+        outcome: { maps_to: ['cli:validate'] },
+      }],
+    }
+    const bindings = computeExpectedBindings([...fixtureDomains, cliDomain])
+    expect(bindings.has('cli:validate')).toBe(false)
+    // HTTP bindings still produced
+    expect(bindings.has('op1')).toBe(true)
+  })
 })

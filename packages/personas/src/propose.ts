@@ -18,6 +18,7 @@ import type { MinimalOpenApiDoc } from './bind.js'
 import type { OperationInfo } from './load.js'
 import { listPersonasForOperation, findOperation } from './resolver.js'
 import type { DomainMatrix, Persona } from './types.js'
+import { isHttpDomain } from './kind.js'
 
 export interface ProposeOptions {
   spec: MinimalOpenApiDoc
@@ -397,7 +398,10 @@ function findDomainOf(personaId: string | undefined, domains: DomainMatrix[]): s
 }
 
 function inferDomainFromPath(path: string, domains: DomainMatrix[]): string {
-  const known = new Set(domains.map(d => d.domain))
+  // v0.13: only HTTP domains can own HTTP operation stubs.
+  // cli-tool/library-api/event-stream domains are excluded as proposal targets.
+  const httpDomains = domains.filter(isHttpDomain)
+  const known = new Set(httpDomains.map(d => d.domain))
   const seg = path.split('/').filter(Boolean)[0]
   if (seg && known.has(seg)) return seg
   // Special-cases for path prefixes that don't map 1:1 to a domain folder

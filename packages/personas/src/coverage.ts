@@ -16,6 +16,7 @@
 
 import type { DomainMatrix, PersonaIdentity, PersonaStatus, TraitVocabulary, DataModelPersona } from './types.js'
 import type { OperationInfo } from './load.js'
+import { isHttpDomain } from './kind.js'
 
 export interface OperationCoverageRow {
   operationId: string
@@ -181,7 +182,7 @@ export function analyzeCoverage(input: CoverageInput): CoverageReport {
     // v0.13: only openapi-http domains participate in maps_to coverage tracking.
     // cli-tool / library-api / event-stream personas have synthetic operationIds (or none),
     // so "unmapped" doesn't apply.
-    const matrixKind = matrix.metadata?.kind ?? 'openapi-http'
+    const matrixIsHttp = isHttpDomain(matrix)
     for (const persona of matrix.personas) {
       totals.personas++
       if (persona.status === 'implemented') totals.implemented++
@@ -197,7 +198,7 @@ export function analyzeCoverage(input: CoverageInput): CoverageReport {
 
       // unmapped tracking — proposed without operation, or deprecated still mapped
       // (skip non-openapi-http surfaces — they don't have operationIds to map to)
-      if (matrixKind === 'openapi-http' && persona.status === 'proposed' && ids.length === 0) {
+      if (matrixIsHttp && persona.status === 'proposed' && ids.length === 0) {
         const entry: GapEntry = {
           domain: matrix.domain,
           personaId: persona.id,

@@ -13,6 +13,7 @@
 import { findOperation } from './resolver.js'
 import type { MinimalOpenApiDoc } from './bind.js'
 import type { DomainMatrix, Persona } from './types.js'
+import { isHttpDomain } from './kind.js'
 
 export interface GenerateTestsOptions {
   spec: MinimalOpenApiDoc
@@ -70,6 +71,9 @@ export function generateVitestSuite(opts: GenerateTestsOptions): string {
 function collectItems(spec: MinimalOpenApiDoc, domains: DomainMatrix[]): GeneratedItem[] {
   const items: GeneratedItem[] = []
   for (const matrix of domains) {
+    // v0.13: only HTTP domains generate HTTP request mocks. Non-HTTP personas
+    // (cli-tool, library-api, event-stream) need a different test scaffold.
+    if (!isHttpDomain(matrix)) continue
     for (const persona of matrix.personas) {
       if (persona.status !== 'implemented') continue
       const expects = persona.outcome?.expects ?? []

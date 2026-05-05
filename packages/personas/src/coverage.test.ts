@@ -297,4 +297,34 @@ describe('coverage analyzer', () => {
     const report = analyzeCoverage({ domains, knownOperations: augmented })
     expect(report.unjustifiedOperations).toContain('phantomOperation')
   })
+
+  // ── v0.13: kind-aware coverage ─────────────────────────────────────
+  it('cli-tool proposed persona without maps_to does NOT appear in unmapped backlog', () => {
+    const cliDomain: DomainMatrix = {
+      domain: 'cli-fake',
+      metadata: { kind: 'cli-tool' },
+      personas: [{
+        id: 'cli-no-maps',
+        status: 'proposed',
+        identity: { actor: 'framework-developer', data: 'PersonaMatrix', intent: 'validate', trigger: 'pre-commit', consumer: 'internal-tool' },
+      }],
+    }
+    const report = analyzeCoverage({ domains: [cliDomain], knownOperations })
+    expect(report.unmappedPersonas).toEqual([])
+  })
+
+  it('openapi-http proposed persona without maps_to still appears in unmapped backlog', () => {
+    const httpDomain: DomainMatrix = {
+      domain: 'http-fake',
+      metadata: { kind: 'openapi-http' },
+      personas: [{
+        id: 'http-no-maps',
+        status: 'proposed',
+        identity: { actor: 'admin', data: 'X', intent: 'list', trigger: 'ops-monitoring' },
+      }],
+    }
+    const report = analyzeCoverage({ domains: [httpDomain], knownOperations })
+    expect(report.unmappedPersonas.length).toBe(1)
+    expect(report.unmappedPersonas[0]!.personaId).toBe('http-no-maps')
+  })
 })

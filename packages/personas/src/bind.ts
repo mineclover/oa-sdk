@@ -13,6 +13,7 @@
  */
 
 import type { DomainMatrix, Persona } from './types.js'
+import { isHttpDomain } from './kind.js'
 
 /** Minimal OpenAPI shape — we only touch paths/operations and info. */
 export interface MinimalOpenApiDoc {
@@ -42,10 +43,14 @@ export interface BindOptions {
 /**
  * Build the canonical operationId → [personaId, ...] map from matrices.
  * Only `implemented` personas justify a binding.
+ *
+ * v0.13: skips non-`openapi-http` domains — their `maps_to` entries (e.g.
+ * `cli:validate`) are synthetic and have no operationId in the OpenAPI spec.
  */
 export function computeExpectedBindings(domains: DomainMatrix[]): Map<string, string[]> {
   const out = new Map<string, string[]>()
   for (const matrix of domains) {
+    if (!isHttpDomain(matrix)) continue
     for (const persona of matrix.personas) {
       if (persona.status !== 'implemented') continue
       for (const opId of persona.outcome?.maps_to ?? []) {
