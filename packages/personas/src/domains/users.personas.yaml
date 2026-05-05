@@ -189,6 +189,10 @@ personas:
       access: [scoped:read, audited]
       maps_to: [listUsers]
       expects: [200]
+    links:
+      - linkType: refines
+        target: admin-monitor
+        reason: "같은 listUsers — admin-monitor의 backend-perspective 변종"
     notes: "내부 백엔드 서비스가 user 동기화 — service-to-service. partner-sdk가 아닌 internal mTLS. PII 필드 마스킹 필수."
 
   - id: b2b-customer-list-users
@@ -207,6 +211,10 @@ personas:
       access: [scoped:read, audited, rate-limited]
       maps_to: [listUsers]
       expects: [200]
+    links:
+      - linkType: refines
+        target: admin-monitor
+        reason: "같은 listUsers의 b2b-customer perspective 변종 — partner-sdk channel + rate-limit 추가"
     notes: "B2B 파트너 OAuth 통합 — scope=read 위임받아 호출. partner-sdk channel, polling보다 webhook 권장."
 
   - id: data-eng-bulk-export-users
@@ -244,6 +252,10 @@ personas:
       maps_to: [purgeUser]
       expects: [204]
     notes: "사이트 관리자의 강제 영구 삭제 — POST /admin/users/{id}/purge가 30일 soft-delete window를 우회하고 감사 사유를 요구. deleteUser와 별도 authority."
+    links:
+      - linkType: refines
+        target: admin-user-removal
+        reason: "강도 높은 변종 — soft-delete window 우회 + legal-hold override 권한"
 
   - id: cs-agent-lookup-user
     status: implemented
@@ -262,6 +274,10 @@ personas:
       access: [scoped:admin, audited]
       maps_to: [getUserById]
       expects: [200]
+    links:
+      - linkType: refines
+        target: admin-user-detail
+        reason: "같은 getUserById — CS 직원 컨텍스트(skill=intermediate, ticket-id audit)로 구체화"
     notes: "고객 지원 직원이 사용자 조회 — admin-user-detail과 동일 op지만 consumer / skill 차원이 다름. CS는 직원 검색·티켓 컨텍스트, audit log에 ticket_id 첨부 권장."
   - id: user-public-profile-view
     status: implemented

@@ -21,6 +21,7 @@
     "bind": "node --import tsx scripts/bind.ts",
     "gen:tests": "node --import tsx scripts/generate-tests.ts",
     "propose": "node --import tsx scripts/propose-personas.ts",
+    "flow": "node --import tsx scripts/flow.ts",
     "check": "pnpm --filter @oa-sdk/schemas merge && pnpm bind && pnpm validate",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",

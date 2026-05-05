@@ -21,6 +21,10 @@ personas:
       access: [private-self]
       maps_to: [getMe]
       expects: [200]
+    links:
+      - linkType: depends_on
+        target: guest-login
+        reason: "logged-in 상태 전제 — bearerAuth 토큰 필요"
 
   - id: user-self-update
     status: implemented
@@ -36,6 +40,10 @@ personas:
       access: [private-self]
       maps_to: [updateMe]
       expects: [200]
+    links:
+      - linkType: depends_on
+        target: guest-login
+        reason: "logged-in 상태 전제"
     notes: "role 변경 불가 — admin이 /users/{id}로만 변경. spec의 UpdateMeRequest에 role 미포함으로 강제."
 
   - id: user-self-change-password
@@ -53,6 +61,10 @@ personas:
       access: [private-self, audited, rate-limited]
       maps_to: [changeMyPassword]
       expects: [204]
+    links:
+      - linkType: depends_on
+        target: guest-login
+        reason: "현재 비밀번호 검증 위해 logged-in 상태 필요"
     notes: "비밀번호 변경은 감사 로그 필수. brute-force 방지 위해 rate-limited."
 
   # ── negative-path (orphan response 해소) ─────────────────────────────

@@ -58,6 +58,38 @@ scripts/
   notes: "PII 적용 — 마스킹 또는 운영자 본인 확인 강화."
 ```
 
+## v0.9 — persona dependency graph
+
+페르소나 간 관계를 명시 (qa-sdk/definition-catalog의 `LinkType` 어휘 차용 — 페르소나 컨텍스트 3종):
+
+| linkType | 의미 | 예 |
+|---|---|---|
+| `depends_on` | 시간 선후관계 — A가 B 이후에 발동 | `user-self-read` depends_on `guest-login` |
+| `refines` | perspective 변종 — A가 B의 stakeholder 변형 | `b2b-customer-list-users` refines `admin-monitor` |
+| `supersedes` | 이전 페르소나 대체 | (정의 변경/마이그레이션 시) |
+
+```yaml
+- id: user-self-read
+  ...
+  links:
+    - linkType: depends_on
+      target: guest-login
+      reason: "logged-in 상태 전제"
+```
+
+검증 룰 #9:
+- 모든 link target은 실제 페르소나 id여야 함
+- self-link 거부
+- `depends_on` 사이클 검출 (DFS 3-state)
+- `supersedes` target은 deprecated이어야 함 (warn)
+
+`pnpm flow` — markdown + mermaid flowchart:
+```
+- depends_on: 5 edges (5개가 guest-login에 의존)
+- refines: 4 edges (perspective 변종)
+- topological layers: 0 (79) → 1 (5)
+```
+
 ## v0.8 — consumer perspective + data-modeling persona split
 
 **API consumer 차원 추가** (`identity.consumer`):

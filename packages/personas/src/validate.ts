@@ -2,7 +2,7 @@
  * Validation rules:
  *   v0.1
  *     1. Identity PK uniqueness — within a domain, no two personas share the same
- *        (actor, data, intent, trigger, skill?) tuple.
+ *        (actor, data, intent, trigger, skill?, consumer?) tuple.
  *     2. Reference vocabulary matching — every regulation/channel value exists in its trait file.
  *        (Identity dimensions with vocabularies — actor, intent, skill — also checked.)
  *     3. maps_to operationId existence — for status: implemented rows, every operationId
@@ -17,6 +17,10 @@
  *   v0.4-prep
  *     8. expects ⊆ operation.responses — every status code listed in
  *        outcome.expects must be declared in the operation's responses block.
+ *   v0.9
+ *     9. links integrity — every persona link target must reference an existing
+ *        persona id (across all domains). depends_on cycles are errors;
+ *        self-links are errors; supersedes target should not be 'implemented'.
  */
 
 import type {
@@ -53,6 +57,12 @@ export function validate(opts: ValidateOptions): ValidationReport {
   // Track constraints that hit an unsupported predicate so we emit one warn per constraint
   // (not per persona — the predicate gap is a registry-level issue, not a persona issue).
   const unsupportedConstraints = new Map<string, string>()    // constraintId → predicate path
+
+  // Pre-build (id → persona) index for v0.9 link integrity
+  const personaById = new Map<string, Persona>()
+  for (const m of opts.domains) {
+    for (const p of m.personas) personaById.set(p.id, p)
+  }
 
   for (const matrix of opts.domains) {
     const seenIdentityKeys = new Map<string, string>()    // PK string → personaId
@@ -102,8 +112,14 @@ export function validate(opts: ValidateOptions): ValidationReport {
       for (const constraint of opts.registry.constraints) {
         applyConstraint(persona, matrix.domain, constraint, issues, unsupportedConstraints)
       }
+
+      // ── 9. link integrity (target exists, no self-link, supersedes deprecated) ─
+      checkLinks(persona, matrix.domain, personaById, issues)
     }
   }
+
+  // ── 9b. depends_on cycle detection (graph-level) ────────────────────────
+  detectDependsOnCycles(personaById, issues)
 
   // Emit one warn per constraint that hit an unsupported predicate (deduped)
   for (const [id, predicate] of unsupportedConstraints.entries()) {
@@ -444,6 +460,98 @@ function checkExpects(
         })
       }
     }
+  }
+}
+
+// ─── v0.9: link integrity ─────────────────────────────────────────────────
+
+function checkLinks(
+  persona: Persona,
+  domain: string,
+  personaById: Map<string, Persona>,
+  issues: ValidationIssue[],
+): void {
+  const links = persona.links ?? []
+  if (links.length === 0) return
+
+  for (const link of links) {
+    if (link.target === persona.id) {
+      issues.push({
+        severity: 'error',
+        domain,
+        personaId: persona.id,
+        message: `link targets self (${link.linkType} → ${link.target}) — self-references not allowed`,
+      })
+      continue
+    }
+    const target = personaById.get(link.target)
+    if (!target) {
+      issues.push({
+        severity: 'error',
+        domain,
+        personaId: persona.id,
+        message: `link target '${link.target}' (linkType: ${link.linkType}) is not a known persona id`,
+      })
+      continue
+    }
+    if (link.linkType === 'supersedes' && target.status === 'implemented') {
+      issues.push({
+        severity: 'warn',
+        domain,
+        personaId: persona.id,
+        message: `supersedes target '${link.target}' is still 'implemented' — mark it 'deprecated' or remove it`,
+      })
+    }
+  }
+}
+
+function detectDependsOnCycles(
+  personaById: Map<string, Persona>,
+  issues: ValidationIssue[],
+): void {
+  // Build adjacency: persona id → depends_on targets
+  const adj = new Map<string, string[]>()
+  for (const [id, p] of personaById.entries()) {
+    const targets = (p.links ?? [])
+      .filter(l => l.linkType === 'depends_on')
+      .map(l => l.target)
+      .filter(t => personaById.has(t))           // skip unknown — already errored above
+    adj.set(id, targets)
+  }
+
+  // 3-state DFS: 0 = unvisited, 1 = on stack, 2 = done
+  const state = new Map<string, 0 | 1 | 2>()
+  for (const id of adj.keys()) state.set(id, 0)
+  const reportedCycles = new Set<string>()        // dedupe — one report per cycle
+
+  for (const start of adj.keys()) {
+    if (state.get(start) !== 0) continue
+    const stack: string[] = []
+    const visit = (node: string): void => {
+      state.set(node, 1)
+      stack.push(node)
+      for (const next of adj.get(node) ?? []) {
+        if (state.get(next) === 1) {
+          // cycle — extract slice
+          const idx = stack.indexOf(next)
+          const cycle = stack.slice(idx).concat(next)
+          const key = [...cycle].sort().join('|')
+          if (!reportedCycles.has(key)) {
+            reportedCycles.add(key)
+            issues.push({
+              severity: 'error',
+              domain: '(graph)',
+              message: `depends_on cycle: ${cycle.join(' → ')}`,
+            })
+          }
+        } else if (state.get(next) === 0) {
+          visit(next)
+        }
+      }
+      stack.pop()
+      state.set(node, 2)
+    }
+    visit(start)
   }
 }
 

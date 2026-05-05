@@ -86,12 +86,25 @@ export interface PersonaOutcome {
   expects?: number[]
 }
 
+/** 정의 간 관계 — qa-sdk/definition-catalog LinkType 어휘 중 페르소나 컨텍스트 4종 (현재 3종 활성). */
+export type PersonaLinkType = 'depends_on' | 'refines' | 'supersedes'
+
+export interface PersonaLink {
+  linkType: PersonaLinkType
+  /** target persona id — 같은 매트릭스 또는 다른 도메인의 페르소나여도 됨 */
+  target: string
+  /** 사람이 읽을 1줄 — 왜 이 관계가 있는지 */
+  reason?: string
+}
+
 export interface Persona {
   id: string
   status: PersonaStatus
   identity: PersonaIdentity
   reference?: PersonaReference
   outcome?: PersonaOutcome
+  /** 다른 페르소나와의 관계 — 시퀀스 그래프 / 변종 추적 / lifecycle */
+  links?: PersonaLink[]
   notes?: string
 }
 

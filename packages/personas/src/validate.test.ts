@@ -247,6 +247,73 @@ describe('personas v0.1 validator', () => {
     expect(report.issues.filter(i => i.severity === 'error' && i.dimension === 'expects')).toEqual([])
   })
 
+  it('rule 9: link target must reference an existing persona', () => {
+    const matrix: DomainMatrix = {
+      domain: 'fake',
+      personas: [{
+        id: 'p1',
+        status: 'proposed',
+        identity: { actor: 'admin', data: 'X', intent: 'list', trigger: 'ops-monitoring' },
+        links: [{ linkType: 'depends_on', target: 'does-not-exist' }],
+      }],
+    }
+    const report = validate({ registry, traits, domains: [matrix], knownOperations: new Map() })
+    expect(report.issues.some(i =>
+      i.severity === 'error' &&
+      i.personaId === 'p1' &&
+      i.message.includes("'does-not-exist'") &&
+      i.message.includes('not a known persona id'),
+    )).toBe(true)
+  })
+
+  it('rule 9: self-link is rejected', () => {
+    const matrix: DomainMatrix = {
+      domain: 'fake',
+      personas: [{
+        id: 'p1',
+        status: 'proposed',
+        identity: { actor: 'admin', data: 'X', intent: 'list', trigger: 'ops-monitoring' },
+        links: [{ linkType: 'refines', target: 'p1' }],
+      }],
+    }
+    const report = validate({ registry, traits, domains: [matrix], knownOperations: new Map() })
+    expect(report.issues.some(i =>
+      i.severity === 'error' &&
+      i.message.includes('self-references not allowed'),
+    )).toBe(true)
+  })
+
+  it('rule 9: depends_on cycles are detected', () => {
+    const matrix: DomainMatrix = {
+      domain: 'fake',
+      personas: [
+        { id: 'a', status: 'proposed', identity: { actor: 'admin', data: 'X', intent: 'list', trigger: 'ops-monitoring' }, links: [{ linkType: 'depends_on', target: 'b' }] },
+        { id: 'b', status: 'proposed', identity: { actor: 'user', data: 'X', intent: 'list', trigger: 'ops-monitoring' }, links: [{ linkType: 'depends_on', target: 'a' }] },
+      ],
+    }
+    const report = validate({ registry, traits, domains: [matrix], knownOperations: new Map() })
+    expect(report.issues.some(i =>
+      i.severity === 'error' &&
+      i.domain === '(graph)' &&
+      i.message.includes('depends_on cycle'),
+    )).toBe(true)
+  })
+
+  it('rule 9: supersedes target should not be implemented', () => {
+    const matrix: DomainMatrix = {
+      domain: 'fake',
+      personas: [
+        { id: 'old', status: 'implemented', identity: { actor: 'admin', data: 'X', intent: 'list', trigger: 'ops-monitoring' } },
+        { id: 'new', status: 'implemented', identity: { actor: 'user', data: 'X', intent: 'list', trigger: 'user-support' }, links: [{ linkType: 'supersedes', target: 'old' }] },
+      ],
+    }
+    const report = validate({ registry, traits, domains: [matrix], knownOperations: new Map() })
+    expect(report.issues.some(i =>
+      i.severity === 'warn' &&
+      i.message.includes("supersedes target 'old' is still 'implemented'"),
+    )).toBe(true)
+  })
+
   it('drift detection fires when bound spec disagrees with matrices', async () => {
     const { applyBindings } = await import('./bind.js')
     const baseDoc = { info: {}, paths: { '/x': { get: { operationId: 'phantomOp' } } } }

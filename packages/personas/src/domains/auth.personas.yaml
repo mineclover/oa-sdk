@@ -54,6 +54,10 @@ personas:
       access: [public]    # access token은 만료됐을 수 있으므로 refresh는 자기 토큰으로만 인증
       maps_to: [refreshToken]
       expects: [200]
+    links:
+      - linkType: depends_on
+        target: guest-login
+        reason: "초기 refresh 토큰은 login에서만 발급 — refresh 자체는 그 후 lifecycle"
 
   - id: user-logout
     status: implemented
@@ -69,6 +73,10 @@ personas:
       access: [private-self]
       maps_to: [logout]
       expects: [204]
+    links:
+      - linkType: depends_on
+        target: guest-login
+        reason: "active session이 있어야 logout 의미"
     notes: "intent: revoke — 자기 access token 무효화. refresh token도 동시 폐기될 수 있음."
 
   # ── negative-path (orphan response 해소) ─────────────────────────────

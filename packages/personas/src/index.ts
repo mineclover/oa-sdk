@@ -54,3 +54,6 @@ export type { GenerateTestsOptions } from './generate-tests.js'
 
 export { proposeStubsFromOrphans, renderStubsAsYaml } from './propose.js'
 export type { ProposeOptions, ProposedStub } from './propose.js'
+
+export { collectEdges, groupEdgesByLinkType, topologicalLayers, renderFlowMarkdown } from './flow.js'
+export type { FlowEdge } from './flow.js'
