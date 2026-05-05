@@ -14,13 +14,13 @@ personas:
       intent: read-detail
       trigger: profile-page
     reference:
-      regulation: [privacy-self-disclosure]
-      channel: [browser, mobile-app, public-api]
+      regulation: [ privacy-self-disclosure ]
+      channel: [ browser, mobile-app, public-api ]
     outcome:
       shape: detail
-      access: [private-self]
-      maps_to: [getMe]
-      expects: [200]
+      access: [ private-self ]
+      maps_to: [ getMe ]
+      expects: [ 200 ]
     links:
       - linkType: depends_on
         target: guest-login
@@ -34,12 +34,12 @@ personas:
       intent: update
       trigger: edit-profile
     reference:
-      channel: [browser, mobile-app]
+      channel: [ browser, mobile-app ]
     outcome:
       shape: detail
-      access: [private-self]
-      maps_to: [updateMe]
-      expects: [200]
+      access: [ private-self ]
+      maps_to: [ updateMe ]
+      expects: [ 200 ]
     links:
       - linkType: depends_on
         target: guest-login
@@ -54,13 +54,14 @@ personas:
       intent: update
       trigger: security-hardening
     reference:
-      regulation: [pii-kr-pipa]
-      channel: [browser, mobile-app]
+      regulation: [ pii-kr-pipa ]
+      channel: [ browser, mobile-app ]
+      region: [ KR ]
     outcome:
       shape: command
-      access: [private-self, audited, rate-limited]
-      maps_to: [changeMyPassword]
-      expects: [204]
+      access: [ private-self, audited, rate-limited ]
+      maps_to: [ changeMyPassword ]
+      expects: [ 204 ]
     links:
       - linkType: depends_on
         target: guest-login
@@ -76,12 +77,12 @@ personas:
       intent: read-detail
       trigger: missing-auth
     reference:
-      channel: [browser, mobile-app, public-api]
+      channel: [ browser, mobile-app, public-api ]
     outcome:
       shape: detail
-      access: [public]
-      maps_to: [getMe]
-      expects: [401]
+      access: [ public ]
+      maps_to: [ getMe ]
+      expects: [ 401 ]
     notes: "negative-path. 미인증 호출 → 401. getMe의 401 응답 커버."
 
   - id: guest-unauthorized-updateMe
@@ -92,12 +93,12 @@ personas:
       intent: update
       trigger: missing-auth
     reference:
-      channel: [browser, mobile-app]
+      channel: [ browser, mobile-app ]
     outcome:
       shape: detail
-      access: [public]
-      maps_to: [updateMe]
-      expects: [401]
+      access: [ public ]
+      maps_to: [ updateMe ]
+      expects: [ 401 ]
     notes: "negative-path. 미인증 호출 → 401. updateMe의 401 응답 커버."
 
   - id: guest-unauthorized-changePassword
@@ -108,12 +109,12 @@ personas:
       intent: update
       trigger: missing-auth
     reference:
-      channel: [browser, mobile-app]
+      channel: [ browser, mobile-app ]
     outcome:
       shape: command
-      access: [public]
-      maps_to: [changeMyPassword]
-      expects: [401]
+      access: [ public ]
+      maps_to: [ changeMyPassword ]
+      expects: [ 401 ]
     notes: "negative-path. 미인증 호출 → 401. changeMyPassword의 401 응답 커버."
 
   # ── self-service expansion (이전 proposed → 모두 implemented) ────────
@@ -126,12 +127,12 @@ personas:
       trigger: first-login
       skill: onboarding
     reference:
-      channel: [browser, mobile-app]
+      channel: [ browser, mobile-app ]
     outcome:
       shape: detail
-      access: [private-self]
-      maps_to: [getOnboardingChecklist]
-      expects: [200]
+      access: [ private-self ]
+      maps_to: [ getOnboardingChecklist ]
+      expects: [ 200 ]
     notes: "GET /me/onboarding — 첫 로그인 시 가이드용 체크리스트. skill=onboarding 차원이 별 surface를 요구하는 케이스."
 
   - id: user-self-delete-account
@@ -142,14 +143,14 @@ personas:
       intent: soft-delete
       trigger: leave-service
     reference:
-      regulation: [pii-kr-pipa, pii-gdpr]
-      channel: [browser, mobile-app]
-      region: [KR, EU]
+      regulation: [ pii-kr-pipa, pii-gdpr ]
+      channel: [ browser, mobile-app ]
+      region: [ KR, EU ]
     outcome:
       shape: command
-      access: [private-self, audited]
-      maps_to: [deleteMyAccount]
-      expects: [204]
+      access: [ private-self, audited ]
+      maps_to: [ deleteMyAccount ]
+      expects: [ 204 ]
     notes: "DELETE /me — soft-delete (30일 복구 가능). PIPA 파기 요구권 / GDPR right-to-erasure."
 
   - id: user-self-data-export
@@ -160,14 +161,14 @@ personas:
       intent: export
       trigger: gdpr-portability
     reference:
-      regulation: [pii-gdpr]
-      channel: [browser]
-      region: [EU]
+      regulation: [ pii-gdpr ]
+      channel: [ browser ]
+      region: [ EU ]
     outcome:
       shape: bulk-batch
-      access: [private-self, audited, rate-limited]
-      maps_to: [requestMyDataExport]
-      expects: [202]
+      access: [ private-self, audited, rate-limited ]
+      maps_to: [ requestMyDataExport ]
+      expects: [ 202 ]
     notes: "POST /me/export — GDPR 정보주체 이동권. 비동기 job + download URL."
 
   # ── auto-promoted from v0.6 propose (negative-path coverage) ────────
@@ -180,13 +181,14 @@ personas:
       intent: update
       trigger: malformed-request
     reference:
-      regulation: [pii-kr-pipa]
-      channel: [browser, mobile-app]
+      regulation: [ pii-kr-pipa ]
+      channel: [ browser, mobile-app ]
+      region: [ KR ]
     outcome:
       shape: command
-      access: [private-self, audited, rate-limited]
-      maps_to: [changeMyPassword]
-      expects: [400]
+      access: [ private-self, audited, rate-limited ]
+      maps_to: [ changeMyPassword ]
+      expects: [ 400 ]
     notes: "negative-path. 잘못된 요청 형식 → 400. changeMyPassword의 400 응답 커버."
   - id: malformed-payload-changeMyPassword
     status: implemented
@@ -196,13 +198,14 @@ personas:
       intent: update
       trigger: malformed-payload
     reference:
-      regulation: [pii-kr-pipa]
-      channel: [browser, mobile-app]
+      regulation: [ pii-kr-pipa ]
+      channel: [ browser, mobile-app ]
+      region: [ KR ]
     outcome:
       shape: command
-      access: [private-self, audited, rate-limited]
-      maps_to: [changeMyPassword]
-      expects: [422]
+      access: [ private-self, audited, rate-limited ]
+      maps_to: [ changeMyPassword ]
+      expects: [ 422 ]
     notes: "negative-path. schema 위반 → 422. changeMyPassword의 422 응답 커버."
 
   - id: guest-unauthorized-deleteMyAccount
@@ -213,12 +216,12 @@ personas:
       intent: soft-delete
       trigger: missing-auth
     reference:
-      channel: [browser, mobile-app]
+      channel: [ browser, mobile-app ]
     outcome:
       shape: command
-      access: [public]
-      maps_to: [deleteMyAccount]
-      expects: [401]
+      access: [ public ]
+      maps_to: [ deleteMyAccount ]
+      expects: [ 401 ]
     notes: "negative-path. 미인증 호출 → 401. deleteMyAccount의 401 응답 커버."
 
   - id: guest-unauthorized-getOnboardingChecklist
@@ -229,12 +232,12 @@ personas:
       intent: read-detail
       trigger: missing-auth
     reference:
-      channel: [browser, mobile-app]
+      channel: [ browser, mobile-app ]
     outcome:
       shape: detail
-      access: [public]
-      maps_to: [getOnboardingChecklist]
-      expects: [401]
+      access: [ public ]
+      maps_to: [ getOnboardingChecklist ]
+      expects: [ 401 ]
     notes: "negative-path. 미인증 호출 → 401. getOnboardingChecklist의 401 응답 커버."
 
   - id: guest-unauthorized-requestMyDataExport
@@ -245,12 +248,12 @@ personas:
       intent: export
       trigger: missing-auth
     reference:
-      channel: [browser]
+      channel: [ browser ]
     outcome:
       shape: bulk-batch
-      access: [public]
-      maps_to: [requestMyDataExport]
-      expects: [401]
+      access: [ public ]
+      maps_to: [ requestMyDataExport ]
+      expects: [ 401 ]
     notes: "negative-path. 미인증 호출 → 401. requestMyDataExport의 401 응답 커버."
   - id: rate-limited-requestMyDataExport
     status: implemented
@@ -260,13 +263,14 @@ personas:
       intent: export
       trigger: rate-limit-hit
     reference:
-      regulation: [pii-gdpr]
-      channel: [browser]
+      regulation: [ pii-gdpr ]
+      channel: [ browser ]
+      region: [ EU ]
     outcome:
       shape: bulk-batch
-      access: [private-self, audited, rate-limited]
-      maps_to: [requestMyDataExport]
-      expects: [429]
+      access: [ private-self, audited, rate-limited ]
+      maps_to: [ requestMyDataExport ]
+      expects: [ 429 ]
     notes: "negative-path. 요청 한도 초과 → 429. requestMyDataExport의 429 응답 커버."
 
   - id: malformed-updateMe
@@ -277,12 +281,12 @@ personas:
       intent: update
       trigger: malformed-request
     reference:
-      channel: [browser, mobile-app]
+      channel: [ browser, mobile-app ]
     outcome:
       shape: detail
-      access: [private-self]
-      maps_to: [updateMe]
-      expects: [400]
+      access: [ private-self ]
+      maps_to: [ updateMe ]
+      expects: [ 400 ]
     notes: "negative-path. 잘못된 요청 형식 → 400. updateMe의 400 응답 커버."
   - id: malformed-payload-updateMe
     status: implemented
@@ -292,11 +296,10 @@ personas:
       intent: update
       trigger: malformed-payload
     reference:
-      channel: [browser, mobile-app]
+      channel: [ browser, mobile-app ]
     outcome:
       shape: detail
-      access: [private-self]
-      maps_to: [updateMe]
-      expects: [422]
+      access: [ private-self ]
+      maps_to: [ updateMe ]
+      expects: [ 422 ]
     notes: "negative-path. schema 위반 → 422. updateMe의 422 응답 커버."
-

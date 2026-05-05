@@ -128,6 +128,44 @@ describe('personas v0.1 validator', () => {
     )).toBe(true)
   })
 
+  it('v0.10.5: pipa-requires-kr-region constraint — error when KR missing', () => {
+    const matrix: DomainMatrix = {
+      domain: 'fake',
+      personas: [{
+        id: 'pipa-without-kr',
+        status: 'implemented',
+        identity: { actor: 'admin', data: 'X', intent: 'list', trigger: 'ops-monitoring' },
+        reference: { regulation: ['pii-kr-pipa'] },
+        outcome: { maps_to: ['op1'], expects: [200] },
+      }],
+    }
+    const synthOps = new Map([['op1', { operationId: 'op1', path: '/x', method: 'get', responses: new Set(['200']) }]])
+    const report = validate({ registry, traits, domains: [matrix], knownOperations: synthOps })
+    expect(report.issues.some(i =>
+      i.severity === 'error' &&
+      i.message.includes('pipa-requires-kr-region'),
+    )).toBe(true)
+  })
+
+  it('v0.10.5: gdpr-requires-eu-region constraint — error when EU missing', () => {
+    const matrix: DomainMatrix = {
+      domain: 'fake',
+      personas: [{
+        id: 'gdpr-without-eu',
+        status: 'implemented',
+        identity: { actor: 'owner-self', data: 'X', intent: 'export', trigger: 'gdpr-portability' },
+        reference: { regulation: ['pii-gdpr'], region: ['KR'] },     // wrong region for GDPR
+        outcome: { maps_to: ['op1'], expects: [200] },
+      }],
+    }
+    const synthOps = new Map([['op1', { operationId: 'op1', path: '/x', method: 'get', responses: new Set(['200']) }]])
+    const report = validate({ registry, traits, domains: [matrix], knownOperations: synthOps })
+    expect(report.issues.some(i =>
+      i.severity === 'error' &&
+      i.message.includes('gdpr-requires-eu-region'),
+    )).toBe(true)
+  })
+
   it('does not fire guest-cannot-hard-delete when expects is a denied response', () => {
     // negative-path: guest tries to delete, gets 401 — allowed (real-world spec coverage)
     const deniedAttempt: DomainMatrix = {

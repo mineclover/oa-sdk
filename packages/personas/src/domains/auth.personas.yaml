@@ -15,14 +15,14 @@ personas:
       intent: create
       trigger: first-arrival
     reference:
-      regulation: [pii-kr-pipa]
-      channel: [browser, mobile-app]
-      region: [KR]
+      regulation: [ pii-kr-pipa ]
+      channel: [ browser, mobile-app ]
+      region: [ KR ]
     outcome:
       shape: token
-      access: [public, rate-limited]
-      maps_to: [register]
-      expects: [201]
+      access: [ public, rate-limited ]
+      maps_to: [ register ]
+      expects: [ 201 ]
     notes: "공개 가입. PII 수집(email, name, password) — PIPA 적용. 동시 회원가입 폭주 방지 위해 rate-limited."
 
   - id: guest-login
@@ -33,12 +33,12 @@ personas:
       intent: authenticate
       trigger: return-visit
     reference:
-      channel: [browser, mobile-app, cli]
+      channel: [ browser, mobile-app, cli ]
     outcome:
       shape: token
-      access: [public, rate-limited]
-      maps_to: [login]
-      expects: [200]
+      access: [ public, rate-limited ]
+      maps_to: [ login ]
+      expects: [ 200 ]
     notes: "인증 자체는 PII 처리지만 login은 로그 외 데이터 노출 없음. brute-force 방지로 rate-limited 필수."
 
   - id: user-token-refresh
@@ -49,12 +49,12 @@ personas:
       intent: authenticate
       trigger: token-expiring
     reference:
-      channel: [browser, mobile-app, cli, public-api]
+      channel: [ browser, mobile-app, cli, public-api ]
     outcome:
       shape: token
-      access: [public]    # access token은 만료됐을 수 있으므로 refresh는 자기 토큰으로만 인증
-      maps_to: [refreshToken]
-      expects: [200]
+      access: [ public ] # access token은 만료됐을 수 있으므로 refresh는 자기 토큰으로만 인증
+      maps_to: [ refreshToken ]
+      expects: [ 200 ]
     links:
       - linkType: depends_on
         target: guest-login
@@ -68,12 +68,12 @@ personas:
       intent: revoke
       trigger: leave-device
     reference:
-      channel: [browser, mobile-app, cli]
+      channel: [ browser, mobile-app, cli ]
     outcome:
       shape: command
-      access: [private-self]
-      maps_to: [logout]
-      expects: [204]
+      access: [ private-self ]
+      maps_to: [ logout ]
+      expects: [ 204 ]
     links:
       - linkType: depends_on
         target: guest-login
@@ -89,12 +89,12 @@ personas:
       intent: create
       trigger: malformed-payload
     reference:
-      channel: [browser, mobile-app]
+      channel: [ browser, mobile-app ]
     outcome:
       shape: token
-      access: [public]
-      maps_to: [register]
-      expects: [422]
+      access: [ public ]
+      maps_to: [ register ]
+      expects: [ 422 ]
     notes: "negative-path. 비밀번호 8자 미만 등 schema 위반 → 422. register의 422 응답 커버."
 
   - id: duplicate-email-register
@@ -105,13 +105,14 @@ personas:
       intent: create
       trigger: duplicate-identity
     reference:
-      regulation: [pii-kr-pipa]
-      channel: [browser, mobile-app]
+      regulation: [ pii-kr-pipa ]
+      channel: [ browser, mobile-app ]
+      region: [ KR ]
     outcome:
       shape: token
-      access: [public]
-      maps_to: [register]
-      expects: [409]
+      access: [ public ]
+      maps_to: [ register ]
+      expects: [ 409 ]
     notes: "negative-path. 이미 가입된 이메일 → 409 CONFLICT. register의 409 응답 커버."
 
   - id: register-rate-limited
@@ -122,12 +123,12 @@ personas:
       intent: create
       trigger: rate-limit-hit
     reference:
-      channel: [public-api]
+      channel: [ public-api ]
     outcome:
       shape: token
-      access: [public, rate-limited]
-      maps_to: [register]
-      expects: [429]
+      access: [ public, rate-limited ]
+      maps_to: [ register ]
+      expects: [ 429 ]
     notes: "negative-path. 회원가입 폭주 → 429 + Retry-After. register의 429 응답 커버."
 
   - id: login-bad-credentials
@@ -138,12 +139,12 @@ personas:
       intent: authenticate
       trigger: wrong-password
     reference:
-      channel: [browser, mobile-app, cli]
+      channel: [ browser, mobile-app, cli ]
     outcome:
       shape: token
-      access: [public, rate-limited]
-      maps_to: [login]
-      expects: [401]
+      access: [ public, rate-limited ]
+      maps_to: [ login ]
+      expects: [ 401 ]
     notes: "negative-path. 잘못된 비밀번호 → 401. login의 401 응답 커버."
 
   - id: login-rate-limited
@@ -154,12 +155,12 @@ personas:
       intent: authenticate
       trigger: brute-force-detected
     reference:
-      channel: [public-api]
+      channel: [ public-api ]
     outcome:
       shape: token
-      access: [public, rate-limited]
-      maps_to: [login]
-      expects: [429]
+      access: [ public, rate-limited ]
+      maps_to: [ login ]
+      expects: [ 429 ]
     notes: "negative-path. brute-force 감지 → 429 + Retry-After. login의 429 응답 커버."
 
   # ── perspective expansion (consumer 차원) ─────────────────────────────
@@ -172,12 +173,12 @@ personas:
       trigger: token-expiring
       consumer: backend
     reference:
-      channel: [public-api]
+      channel: [ public-api ]
     outcome:
       shape: token
-      access: [public]
-      maps_to: [refreshToken]
-      expects: [200]
+      access: [ public ]
+      maps_to: [ refreshToken ]
+      expects: [ 200 ]
     notes: "service-to-service: 백엔드 서비스가 자기 access token 만료 임박 시 refresh. user-token-refresh와 동일 op지만 consumer가 backend (machine-to-machine)."
 
   # ── password reset flow (이전 proposed → 모두 implemented) ────────────
@@ -189,13 +190,14 @@ personas:
       intent: update
       trigger: forgot-password
     reference:
-      regulation: [pii-kr-pipa]
-      channel: [browser, mobile-app]
+      regulation: [ pii-kr-pipa ]
+      channel: [ browser, mobile-app ]
+      region: [ KR ]
     outcome:
       shape: command
-      access: [public, rate-limited]
-      maps_to: [forgotPassword]
-      expects: [204]
+      access: [ public, rate-limited ]
+      maps_to: [ forgotPassword ]
+      expects: [ 204 ]
     notes: "POST /auth/forgot-password. enumeration 방지 위해 이메일 미존재여도 동일 204."
 
   - id: guest-password-reset-confirm
@@ -206,12 +208,12 @@ personas:
       intent: update
       trigger: reset-link-clicked
     reference:
-      channel: [browser, mobile-app]
+      channel: [ browser, mobile-app ]
     outcome:
       shape: command
-      access: [public, rate-limited]
-      maps_to: [resetPassword]
-      expects: [204]
+      access: [ public, rate-limited ]
+      maps_to: [ resetPassword ]
+      expects: [ 204 ]
     notes: "POST /auth/reset-password — reset 토큰 + new password."
 
   # ── auto-promoted from v0.6 propose (negative-path coverage) ────────
@@ -224,13 +226,14 @@ personas:
       intent: update
       trigger: malformed-request
     reference:
-      regulation: [pii-kr-pipa]
-      channel: [browser, mobile-app]
+      regulation: [ pii-kr-pipa ]
+      channel: [ browser, mobile-app ]
+      region: [ KR ]
     outcome:
       shape: command
-      access: [public, rate-limited]
-      maps_to: [forgotPassword]
-      expects: [400]
+      access: [ public, rate-limited ]
+      maps_to: [ forgotPassword ]
+      expects: [ 400 ]
     notes: "negative-path. 잘못된 요청 형식 → 400. forgotPassword의 400 응답 커버."
   - id: malformed-payload-forgotPassword
     status: implemented
@@ -240,13 +243,14 @@ personas:
       intent: update
       trigger: malformed-payload
     reference:
-      regulation: [pii-kr-pipa]
-      channel: [browser, mobile-app]
+      regulation: [ pii-kr-pipa ]
+      channel: [ browser, mobile-app ]
+      region: [ KR ]
     outcome:
       shape: command
-      access: [public, rate-limited]
-      maps_to: [forgotPassword]
-      expects: [422]
+      access: [ public, rate-limited ]
+      maps_to: [ forgotPassword ]
+      expects: [ 422 ]
     notes: "negative-path. schema 위반 → 422. forgotPassword의 422 응답 커버."
   - id: rate-limited-forgotPassword
     status: implemented
@@ -256,13 +260,14 @@ personas:
       intent: update
       trigger: rate-limit-hit
     reference:
-      regulation: [pii-kr-pipa]
-      channel: [browser, mobile-app]
+      regulation: [ pii-kr-pipa ]
+      channel: [ browser, mobile-app ]
+      region: [ KR ]
     outcome:
       shape: command
-      access: [public, rate-limited]
-      maps_to: [forgotPassword]
-      expects: [429]
+      access: [ public, rate-limited ]
+      maps_to: [ forgotPassword ]
+      expects: [ 429 ]
     notes: "negative-path. 요청 한도 초과 → 429. forgotPassword의 429 응답 커버."
 
   - id: malformed-login
@@ -273,12 +278,12 @@ personas:
       intent: authenticate
       trigger: malformed-request
     reference:
-      channel: [browser, mobile-app, cli]
+      channel: [ browser, mobile-app, cli ]
     outcome:
       shape: token
-      access: [public, rate-limited]
-      maps_to: [login]
-      expects: [400]
+      access: [ public, rate-limited ]
+      maps_to: [ login ]
+      expects: [ 400 ]
     notes: "negative-path. 잘못된 요청 형식 → 400. login의 400 응답 커버."
   - id: malformed-payload-login
     status: implemented
@@ -288,12 +293,12 @@ personas:
       intent: authenticate
       trigger: malformed-payload
     reference:
-      channel: [browser, mobile-app, cli]
+      channel: [ browser, mobile-app, cli ]
     outcome:
       shape: token
-      access: [public, rate-limited]
-      maps_to: [login]
-      expects: [422]
+      access: [ public, rate-limited ]
+      maps_to: [ login ]
+      expects: [ 422 ]
     notes: "negative-path. schema 위반 → 422. login의 422 응답 커버."
 
   - id: guest-unauthorized-logout
@@ -304,12 +309,12 @@ personas:
       intent: revoke
       trigger: missing-auth
     reference:
-      channel: [browser, mobile-app, cli]
+      channel: [ browser, mobile-app, cli ]
     outcome:
       shape: command
-      access: [public]
-      maps_to: [logout]
-      expects: [401]
+      access: [ public ]
+      maps_to: [ logout ]
+      expects: [ 401 ]
     notes: "negative-path. 미인증 호출 → 401. logout의 401 응답 커버."
 
   - id: guest-unauthorized-refreshToken
@@ -320,12 +325,12 @@ personas:
       intent: authenticate
       trigger: missing-auth
     reference:
-      channel: [browser, mobile-app, cli, public-api]
+      channel: [ browser, mobile-app, cli, public-api ]
     outcome:
       shape: token
-      access: [public]
-      maps_to: [refreshToken]
-      expects: [401]
+      access: [ public ]
+      maps_to: [ refreshToken ]
+      expects: [ 401 ]
     notes: "negative-path. 미인증 호출 → 401. refreshToken의 401 응답 커버."
   - id: malformed-payload-refreshToken
     status: implemented
@@ -335,12 +340,12 @@ personas:
       intent: authenticate
       trigger: malformed-payload
     reference:
-      channel: [browser, mobile-app, cli, public-api]
+      channel: [ browser, mobile-app, cli, public-api ]
     outcome:
       shape: token
-      access: [public]
-      maps_to: [refreshToken]
-      expects: [422]
+      access: [ public ]
+      maps_to: [ refreshToken ]
+      expects: [ 422 ]
     notes: "negative-path. schema 위반 → 422. refreshToken의 422 응답 커버."
 
   - id: malformed-register
@@ -351,13 +356,14 @@ personas:
       intent: create
       trigger: malformed-request
     reference:
-      regulation: [pii-kr-pipa]
-      channel: [browser, mobile-app]
+      regulation: [ pii-kr-pipa ]
+      channel: [ browser, mobile-app ]
+      region: [ KR ]
     outcome:
       shape: token
-      access: [public, rate-limited]
-      maps_to: [register]
-      expects: [400]
+      access: [ public, rate-limited ]
+      maps_to: [ register ]
+      expects: [ 400 ]
     notes: "negative-path. 잘못된 요청 형식 → 400. register의 400 응답 커버."
 
   - id: malformed-resetPassword
@@ -368,12 +374,12 @@ personas:
       intent: update
       trigger: malformed-reset-request
     reference:
-      channel: [browser, mobile-app]
+      channel: [ browser, mobile-app ]
     outcome:
       shape: command
-      access: [public, rate-limited]
-      maps_to: [resetPassword]
-      expects: [400]
+      access: [ public, rate-limited ]
+      maps_to: [ resetPassword ]
+      expects: [ 400 ]
     notes: "negative-path. 잘못된 요청 형식 → 400. resetPassword의 400 응답 커버."
   - id: guest-unauthorized-resetPassword
     status: implemented
@@ -383,12 +389,12 @@ personas:
       intent: update
       trigger: missing-auth
     reference:
-      channel: [browser, mobile-app]
+      channel: [ browser, mobile-app ]
     outcome:
       shape: command
-      access: [public]
-      maps_to: [resetPassword]
-      expects: [401]
+      access: [ public ]
+      maps_to: [ resetPassword ]
+      expects: [ 401 ]
     notes: "negative-path. 미인증 호출 → 401. resetPassword의 401 응답 커버."
   - id: malformed-payload-resetPassword
     status: implemented
@@ -398,11 +404,10 @@ personas:
       intent: update
       trigger: malformed-reset-payload
     reference:
-      channel: [browser, mobile-app]
+      channel: [ browser, mobile-app ]
     outcome:
       shape: command
-      access: [public, rate-limited]
-      maps_to: [resetPassword]
-      expects: [422]
+      access: [ public, rate-limited ]
+      maps_to: [ resetPassword ]
+      expects: [ 422 ]
     notes: "negative-path. schema 위반 → 422. resetPassword의 422 응답 커버."
-
