@@ -96,6 +96,27 @@ The passphrase is **not recoverable** if lost — it is the root of the local se
 
 Volume removal is **destructive** — all GitLab state (repos, users, CI history) is wiped. For a long-lived dev instance, prefer `docker stop gitlab gitlab-runner` instead of `pulumi destroy`; bring back with `docker start gitlab gitlab-runner`.
 
+After `pulumi destroy` the stack itself still exists (config + history). Two options:
+
+| Goal | Command |
+|------|---------|
+| Re-create with the **same** rootPassword and config | `pnpm up` (config and secrets are preserved) |
+| Drop the stack entirely and start fresh | `pulumi stack rm dev --yes` then `pnpm stack:init` and re-set `rootPassword` |
+
+### Recovering from state drift
+
+Symptom: `pulumi destroy` fails with `Error stopping container <id>: No such container: <id>` because something outside Pulumi (manual `docker rm`, `docker compose down`, Docker Desktop reset) removed a container Pulumi still believes exists.
+
+Fix: refresh state to reality, then retry destroy.
+
+```bash
+set -a && source .env && set +a
+pulumi refresh --yes      # syncs Pulumi state with what Docker actually has
+pulumi destroy --yes      # now succeeds against the surviving resources
+```
+
+`refresh` is non-destructive on its own — it only mutates Pulumi's state file, not Docker. Always run it before manually editing state with `pulumi state delete`.
+
 ## Known caveats
 
 - **First-boot duration.** Omnibus runs chef-solo on first boot; budget 3–5 minutes between `pulumi up` returning and Rails answering on `/users/sign_in`.

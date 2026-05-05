@@ -90,9 +90,17 @@ The runner uses the **internal** URL `http://gitlab/` (shared Docker network) ra
 
 ```bash
 pnpm down                         # destroys containers, volumes, network
+pulumi stack rm dev --yes         # optional — also drops stack config/history
 ```
 
-> **Volumes survive `pulumi destroy` only if you remove the stack output and re-run** — the default destroys named volumes too, which wipes GitLab state. For long-lived dev instances, pause the stack instead of destroying.
+For long-lived dev instances **pause** instead of destroying — `pulumi destroy` removes the named volumes and wipes all GitLab state.
+
+```bash
+docker stop gitlab gitlab-runner   # pause
+docker start gitlab gitlab-runner  # resume — state preserved
+```
+
+If `pulumi destroy` errors with `No such container: <id>` (Pulumi state drifted from Docker reality), see [OPERATIONS.md → Recovering from state drift](./OPERATIONS.md#recovering-from-state-drift).
 
 ## Stack outputs
 
