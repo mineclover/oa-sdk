@@ -24,6 +24,7 @@ Zod Schema  ──▶  OpenAPI 3.2 Spec      ──▶ TypeScript 타입
 | `@oa-sdk/router` | OAS → Hono/Express 라우터 스텁 |
 | `@oa-sdk/client` | OAS → fetch 클라이언트 SDK + SSE + 인증 미들웨어 + 재시도 |
 | `@oa-sdk/typia-mock` | typia ILlmApplication 기반 LLM 함수 호출 검증 서버 |
+| `@oa-sdk/personas` | OpenAPI 위 persona 매트릭스 — 84 페르소나 / 9 trait dimension / 8 CLI / e2e roleplay 자동 생성 ([Concept](./docs/concepts/data-persona.md)) |
 
 ## 사용 방법
 
@@ -58,6 +59,13 @@ oa-gen generate --drizzle-schema ./db/schema.ts --output ./domains/users/
 
 # Mock 테스트
 pnpm mock:start
+
+# Persona governance — spec ↔ persona 매트릭스 ↔ e2e
+pnpm personas:check                                       # merge → bind → validate
+pnpm personas:coverage                                    # cross-cut 리포트 (markdown)
+pnpm --filter @oa-sdk/personas flow                       # 의존성 그래프 (mermaid)
+pnpm --filter @oa-sdk/personas propose                    # orphan → stub 자동
+pnpm --filter @oa-sdk/personas gen:tests                  # vitest e2e 매트릭스 자동
 
 # 3.1 호환 (Swagger UI)
 pnpm --filter @oa-sdk/schemas run downgrade:3.1
@@ -96,6 +104,7 @@ console.log(describeApi(parseDocument(spec)))
 | [NestJS Swagger / FastAPI Governance](./docs/guides/use-cases/nestjs-swagger-governance.md) | NestJS Swagger 또는 FastAPI 산출물 수집 + normalized/upgraded artifact (apps/nestjs-ref, apps/fastapi-ref) |
 | [Service Governance Template](./docs/guides/openapi-governance-service-template.md) | 서비스별 OpenAPI governance 설정 템플릿 |
 | [Path Fragment Conventions](./docs/guides/path-fragment-conventions.md) | path 폴더/ID/feedback 좌표 규칙 |
+| [Data Persona](./docs/concepts/data-persona.md) | persona 메타 프레임워크 — `@oa-sdk/personas` 컨셉 (3-bucket × 9-dimension × link types) |
 | [전체 문서](./docs/README.md) | 유저 가이드 + SSOT |
 | [구현 현황](./docs/internal/spec.md) | 패키지별 구현 현황 + 테스트 관리 |
 | [API 인덱스](./docs/internal/api-index.md) | 타입·함수 단일 소스 |

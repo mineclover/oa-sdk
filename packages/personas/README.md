@@ -1,39 +1,77 @@
 # @oa-sdk/personas
 
-Data Persona meta-framework — v0.1.
+> OpenAPI 계약 위에 페르소나 매트릭스를 올려, "누가 / 어떤 데이터를 / 어떤 시점에 / 어떤 stakeholder 시점에서" 호출하는지 ECS 스타일 trait 합성으로 표현하고, 매트릭스와 spec의 양방향 일관성을 강제하면서 e2e 시나리오를 자동 도출하는 **메타 프레임워크**.
 
-페르소나는 *사람*이 아니라 **(주체-데이터 관계)** 입니다. 같은 데이터라도 누가/언제/왜
-만지는지에 따라 다른 페르소나가 되고, 그게 곧 별도 API operation의 정당성입니다.
-이 패키지는 OpenAPI surface 설계를 페르소나 매트릭스로부터 역으로 도출하기 위한
-trait registry + per-domain matrix + validator를 제공합니다.
+페르소나는 *사람*이 아니라 **(주체-데이터 관계)**. 같은 데이터라도 누가/언제/왜 만지는지에 따라 다른 페르소나가 되고, 그게 곧 별도 API operation의 정당성.
 
-## 3 buckets
+## Quick start
 
-| Bucket | 역할 | 차원 |
-|--------|------|------|
-| **identity** | 페르소나 식별 (PK) | actor / data / intent / trigger / skill? |
-| **reference** | 외부 카탈로그 lookup (enrichment) | regulation / channel |
-| **outcome** | API 계약이 만족해야 할 형태 | shape / access / `maps_to` / `expects` |
+```bash
+# 한 방에 — schemas merge → bind → validate
+pnpm --filter @oa-sdk/personas check
 
-차원 자체는 닫혀 있고, 각 차원의 어휘는 `src/traits/*.yaml`에서 자유 추가.
-새 trait 값은 `status: proposed`로 시작 권장.
+# 또는 단계별
+pnpm --filter @oa-sdk/personas validate     # 9 룰 검증
+pnpm --filter @oa-sdk/personas coverage     # cross-cut 리포트 (markdown)
+pnpm --filter @oa-sdk/personas bind         # spec에 x-persona 주입
+pnpm --filter @oa-sdk/personas propose      # orphan → stub 자동 생성
+pnpm --filter @oa-sdk/personas gen:tests    # vitest 매트릭스 자동
+pnpm --filter @oa-sdk/personas flow         # 의존성 그래프 (markdown + mermaid)
+```
+
+루트에서 `pnpm personas:check / coverage / test`로도 실행 가능.
+
+## 3-bucket × 9-dimension 모델
+
+```
+┌─ identity (PK) ─ 같은 6축이면 같은 페르소나 ──────────────────────┐
+│ actor      enum  guest/user/owner-self/admin/moderator/system/…  │
+│ data       enum  도메인-로컬 (User(self), Credential, Session, …) │
+│ intent     enum  create/read-detail/list/update/revoke/export/…   │
+│ trigger    enum  signup/missing-auth/phantom-id/ops-monitoring/…  │
+│ skill?     enum  onboarding/novice/intermediate/expert            │
+│ consumer?  enum  end-user/backend/b2b-customer/internal-tool/…    │
+├─ reference ─ 외부 카탈로그 lookup (enrichment) ────────────────────┤
+│ regulation multi pii-kr-pipa, pii-gdpr, content-violence, …       │
+│ channel    multi browser, mobile-app, public-api, csv-export, …   │
+├─ outcome ─ API 계약이 만족해야 할 형태 ────────────────────────────┤
+│ shape      enum  detail/list-paginated/stream-sse/bulk-batch/…    │
+│ access     multi public/scoped:admin/audited/rate-limited/…       │
+│ maps_to    multi 이 페르소나가 실현하는 operationId               │
+│ expects    multi 받게 되는 HTTP status code                       │
+└─ links ─ 페르소나 간 관계 (v0.9) ──────────────────────────────────┤
+│ depends_on   A→B  A는 B 이후에 발동 (login → use)                 │
+│ refines      A→B  A는 B의 perspective 변종 (b2b → admin-monitor)  │
+│ supersedes   A→B  A가 B를 대체 (마이그레이션)                      │
+└────────────────────────────────────────────────────────────────────┘
+```
+
+각 bucket은 독립적으로 운영:
+- **identity** = enum 추론 / PK 유일성. `consumer`/`skill`은 선택 dimension.
+- **reference** = 외부 vocab 변경이 도메인 매트릭스에 자동 전파.
+- **outcome** = spec validate 입력. shape는 응답 schema 모양, access는 보안/감사 의무, maps_to/expects는 OpenAPI 교차검증.
+- **links** = 시퀀스 / 변종 / lifecycle 추적 (qa-sdk/definition-catalog `LinkType` 어휘 차용).
 
 ## 파일 구조
 
 ```
 src/
-  registry.yaml                   # 3 bucket × 차원 정의 + 상태 + 제약 (v0.1은 정의만)
-  traits/
-    actor.yaml intent.yaml skill.yaml
+  registry.yaml                   # 3 bucket × 9 차원 정의 + statuses + constraints
+  traits/                         # 닫힌 vocabulary (9 파일)
+    actor.yaml intent.yaml skill.yaml consumer.yaml
+    trigger.yaml link-type.yaml
     regulation.yaml channel.yaml
     shape.yaml access.yaml
-  domains/
-    auth.personas.yaml
-    me.personas.yaml
-    users.personas.yaml
-    health.personas.yaml
-scripts/
-  validate.ts                     # CLI 진입점
+  domains/                        # API consumer 페르소나 (4 파일)
+    auth.personas.yaml me.personas.yaml
+    users.personas.yaml health.personas.yaml
+  data-models/                    # 데이터 모델링 페르소나 (6 파일)
+    User.persona.yaml Credential.persona.yaml
+    Account.persona.yaml Session.persona.yaml
+    Report.persona.yaml HealthStatus.persona.yaml
+scripts/                          # CLI 진입점 (6 파일)
+  validate.ts coverage.ts bind.ts
+  propose-personas.ts generate-tests.ts flow.ts
 ```
 
 ## 페르소나 row 골격
@@ -42,318 +80,146 @@ scripts/
 - id: admin-monitor                # 도메인 안에서 유일
   status: implemented              # implemented | proposed | deprecated
   identity:
-    actor: admin                   # traits/actor.yaml 어휘
-    data: User(any)                # 도메인-로컬 enum
-    intent: list                   # traits/intent.yaml 어휘
-    trigger: ops-monitoring        # 도메인-로컬 자유 enum
-    skill: expert                  # 선택 (traits/skill.yaml)
+    actor: admin                   # traits/actor.yaml
+    data: User(any)                # 도메인-로컬 enum (data-models/User에 invariants)
+    intent: list                   # traits/intent.yaml
+    trigger: ops-monitoring        # traits/trigger.yaml
+    consumer: internal-tool        # traits/consumer.yaml (선택)
+    skill: expert                  # traits/skill.yaml (선택)
   reference:
     regulation: [pii-kr-pipa]      # multi
     channel: [browser, public-api] # multi
   outcome:
-    shape: list-paginated          # single (traits/shape.yaml)
-    access: [scoped:admin, audited]# multi (traits/access.yaml)
-    maps_to: [listUsers]           # OpenAPI operationId — implemented면 .merged.yaml에 실재해야 함
-    expects: [200]                 # 받게 되는 HTTP status — operation.responses 키에 존재해야 함
-  notes: "PII 적용 — 마스킹 또는 운영자 본인 확인 강화."
-```
-
-## v0.9 — persona dependency graph
-
-페르소나 간 관계를 명시 (qa-sdk/definition-catalog의 `LinkType` 어휘 차용 — 페르소나 컨텍스트 3종):
-
-| linkType | 의미 | 예 |
-|---|---|---|
-| `depends_on` | 시간 선후관계 — A가 B 이후에 발동 | `user-self-read` depends_on `guest-login` |
-| `refines` | perspective 변종 — A가 B의 stakeholder 변형 | `b2b-customer-list-users` refines `admin-monitor` |
-| `supersedes` | 이전 페르소나 대체 | (정의 변경/마이그레이션 시) |
-
-```yaml
-- id: user-self-read
-  ...
-  links:
+    shape: list-paginated          # traits/shape.yaml
+    access: [scoped:admin, audited]
+    maps_to: [listUsers]           # implemented면 .merged.yaml에 실재해야 함
+    expects: [200]                 # operation.responses 키와 교차검증
+  links:                           # 다른 페르소나와의 관계 (선택)
     - linkType: depends_on
       target: guest-login
-      reason: "logged-in 상태 전제"
+      reason: "login → use 시퀀스"
+  notes: "운영 대시보드용. PIPA 적용 — 마스킹 필수."
 ```
 
-검증 룰 #9:
-- 모든 link target은 실제 페르소나 id여야 함
-- self-link 거부
-- `depends_on` 사이클 검출 (DFS 3-state)
-- `supersedes` target은 deprecated이어야 함 (warn)
+## 두 가지 페르소나 — domains/ vs data-models/
 
-`pnpm flow` — markdown + mermaid flowchart:
-```
-- depends_on: 5 edges (5개가 guest-login에 의존)
-- refines: 4 edges (perspective 변종)
-- topological layers: 0 (79) → 1 (5)
-```
+| | `domains/*.personas.yaml` | `data-models/*.persona.yaml` |
+|---|---|---|
+| **관점** | "누가 / 왜 / 어떻게 호출하나" | "데이터 자체의 invariants" |
+| **단위** | persona row (84개) | data entity (6개) |
+| **predicate** | identity tuple = PK | entity 이름 = PK |
+| **examples** | `admin-monitor`, `b2b-customer-list-users` | `User`, `Credential`, `Session` |
+| **invariants** | shape, access, regulation, expects | PII flag, retention, audit, masking |
 
-## v0.8 — consumer perspective + data-modeling persona split
+두 perspective가 매트릭스 한 곳에 섞이지 않게 분리. coverage report의 "Data model coverage" 섹션이 양쪽 cross-reference.
 
-**API consumer 차원 추가** (`identity.consumer`):
-같은 actor·data·intent라도 *어떤 stakeholder 시점*에서 호출하는지에 따라 다른 페르소나.
-4 카테고리 × 7 값:
-- `product` (default): end-user
-- `integration`: backend, b2b-customer
-- `internal-ops`: infra-ops, internal-tool, site-admin
-- `data-platform`: data-eng
+## 9 검증 룰
 
-같은 `listUsers`도 4가지 perspective 페르소나로 분기:
-- `admin-monitor` (internal-tool) → 운영자 대시보드
-- `backend-svc-list-users` (backend) → service-to-service
-- `b2b-customer-list-users` (b2b-customer) → 파트너 OAuth
-- `guest-unauthorized-list` (negative-path)
+`pnpm validate`가 다음을 강제:
 
-**데이터 모델링 페르소나 분리** (`data-models/`):
-API consumer persona는 "누가/왜 호출"에 집중, data-modeling persona는 "데이터 자체의
-invariants — PII / audit / retention / 접근 패턴"에 집중. 별 파일로 분리:
+| # | 룰 | error/warn |
+|---|---|---|
+| 1 | identity PK 유일성 — 같은 (actor, data, intent, trigger, skill, consumer) tuple은 도메인 내 1회 | error |
+| 2 | vocabulary 매칭 — actor/intent/skill/consumer/trigger/regulation/channel/shape/access/link-type 값이 trait yaml에 존재 | error |
+| 3 | maps_to 실재성 — `implemented` row의 모든 operationId가 `.merged.yaml`에 존재 | error |
+| 4 | 필수 identity — actor/data/intent/trigger 미설정 시 거부 | error |
+| 5 | status enum — implemented/proposed/deprecated 외 값 거부 | error |
+| 6 | constraints — `registry.constraints`의 forbid/require 룰. 미지원 predicate는 1회 skip-warn | error/warn |
+| 7 | drift — `.merged.persona.yaml` 존재 시 operation별 `x-persona`가 매트릭스와 일치 | error |
+| 8 | expects ⊆ responses — `expects`의 모든 status가 operation.responses에 선언. range(`2XX`)/`default` 매칭 | error |
+| 9 | links 무결성 — link target은 known persona id, self-link 거부, depends_on 사이클 검출, supersedes target은 deprecated이어야 함 | error/warn |
 
-```
-src/
-  domains/                          # API consumer personas (현행)
-    auth.personas.yaml ...
-  data-models/                      # NEW — 엔티티 invariants
-    User.persona.yaml               # PII flag, soft-delete, audit, masking-for-consumer
-    Credential.persona.yaml         # rotation, enumeration-protection, sensitivity: highest
-    Account.persona.yaml
-    Session.persona.yaml
-    Report.persona.yaml
-    HealthStatus.persona.yaml
-```
-
-coverage report 새 섹션:
-- **Data model coverage** — 엔티티 × persona 수 × PII/audit 표시
-- **Consumer category coverage** — 페르소나의 stakeholder 분포
-
-## v0.7 — trigger taxonomy + acknowledged orphans
-
-trigger 차원에 vocabulary 추가 (38 trigger × 4 카테고리: operational/lifecycle/failure-mode/semantic).
-coverage report에 trigger category cross-section 섹션 추가:
-
-```
-| category     | personas | distinct triggers          |
-| operational  | 10       | ops-monitoring, …          |
-| lifecycle    | 12       | signup, token-expiring, …  |
-| failure-mode | 53       | missing-auth, malformed-…  |
-| semantic     | 3        | mention, abuse-detected, …  |
-```
-
-**Acknowledged orphans**: 의도적으로 페르소나로 모델링하지 않는 응답 코드(예: 500
-infrastructure error)를 도메인 매트릭스에 명시:
-
-```yaml
-# users.personas.yaml
-acknowledged_orphans:
-  - operationId: createUser
-    statusCode: "500"
-    reason: "infrastructure error — no actor causes this; contract obligation only."
-```
-
-`pnpm propose`가 이 마커를 보고 stub 생성에서 제외 → propose CLI가 idempotent해짐.
-
-## v0.6 — propose-personas (orphan → stub 자동)
-
-`pnpm coverage`가 발견한 orphan response를 페르소나 stub으로 변환:
+## CLI 6종
 
 ```bash
-pnpm --filter @oa-sdk/personas propose                    # stdout
-pnpm --filter @oa-sdk/personas propose --out=stubs.yaml   # file
+pnpm validate           # 9 룰 검증 (drift 포함)
+pnpm coverage           # 7-section markdown 리포트 (operations / status / actors / regulations / channels / triggers / consumers / data-models)
+pnpm coverage --out=…   # 파일로
+pnpm bind               # .merged.yaml → .merged.persona.yaml (x-persona 주입)
+pnpm propose            # orphan response → 페르소나 stub 자동 (idempotent — acknowledged_orphans 존중)
+pnpm gen:tests          # 매트릭스 → vitest 매트릭스 자동 생성 (apps/playground/tests/persona-roleplay.generated.test.ts)
+pnpm flow               # 의존성 그래프 (markdown + mermaid + topological layers)
+pnpm check              # merge → bind → validate 한 방
 ```
-
-Status code별 휴리스틱:
-
-| code | actor | trigger | id prefix |
-|------|-------|---------|-----------|
-| 400 | (op 상속) | malformed-request | malformed |
-| 401 | guest | missing-auth | guest-unauthorized |
-| 403 | user | insufficient-scope | insufficient-scope |
-| 404 | (op 상속) | phantom-id | not-found |
-| 409 | (op 상속) | duplicate-identity | conflict |
-| 422 | (op 상속) | malformed-payload | malformed-payload |
-| 429 | (op 상속) | rate-limit-hit | rate-limited |
-| 503 | system | dependency-down | dependency-down |
-
-각 stub은 `status: proposed`로 시작 — 검토 후 `implemented`로 승격하면서 `notes` 보강. 출력은 `# domain: X` / `# ── opId ──` 헤더로 그룹핑되어 도메인 .personas.yaml에 직접 복사 가능.
-
-운영 사이클:
-```
-pnpm coverage          # orphan 발견
-pnpm propose           # stub 자동 생성
-(수동) 검토 + 도메인 yaml에 복사 + status: implemented 승격
-pnpm gen:tests         # e2e 자동 확장
-```
-
-## v0.5 — auto-generated e2e roleplay suite
-
-매트릭스에서 vitest 테스트 스위트 자동 생성:
-
-```bash
-pnpm --filter @oa-sdk/personas gen:tests
-# → apps/playground/tests/persona-roleplay.generated.test.ts (26 tests)
-```
-
-각 implemented 페르소나가 1개 `it()` 블록이 됨 — 새 페르소나 1행 = 새 테스트 1줄. 페르소나 추가 후 `pnpm gen:tests`로 재생성하고 커밋.
-
-생성기 동작:
-- path 템플릿 자동 substitution (parameter examples → format 추론 → fallback)
-- request body는 spec의 `examples.default.dataValue` / `value` / `example` 우선 추출
-- 출력 파일은 portable (`new URL(relPath, import.meta.url)` 사용 — 절대경로 X)
-- 안정 정렬 (domain → persona id) → diff 깔끔
-
-## ⚠️ 한계 — 계약 시뮬레이션 vs 실제 검증
-
-페르소나 매트릭스 기반 e2e는 **계약 형태(contract shape)** 만 확인합니다. mock-server의
-`override`는 요청을 무시하고 페르소나가 claim한 status code/body를 반환하므로:
-
-- ✅ 검증되는 것 — 응답 status, 응답 body 모양, persona ↔ operation 매핑, drift, vocab
-- ❌ *검증되지 않는* 것 — 실제 request body validation (AJV), 실제 인증 처리, 실제 비즈니스 로직
-
-예: `malformed-payload-register` 페르소나가 422를 받지만 — 테스트는 *유효한* body를
-보내도 mock이 422를 반환합니다. 진짜 422를 트리거하려면 real backend 또는 mock-server의
-override 우회 모드가 필요합니다.
-
-이 한계는 *의도된 것* — 페르소나는 "이 actor가 이 operation을 호출했을 때 *계약상* 무엇이
-오기로 약속됐나"를 다룹니다. 실제 validation의 *동작* 검증은 mock-server가 자체적으로
-schema 기반으로 수행하는 별 트랙입니다 (override 없이 호출하면 동작).
-
-## v0.4 — persona roleplay (mock branching)
-
-페르소나 매트릭스를 그대로 mock-server 응답 분기로 사용:
-
-```typescript
-import { createNodeMockServer } from '@oa-sdk/mock-server/adapters/node-http'
-import { createTestClient } from '@oa-sdk/mock-server'
-import { createPersonaMockClient, loadAllDomains } from '@oa-sdk/personas'
-
-const server = createNodeMockServer(spec, { port: 0 })
-await server.start()
-const client = createTestClient(server)
-const personas = createPersonaMockClient({ spec, domains: loadAllDomains() })
-
-// 같은 endpoint, 다른 페르소나 → 다른 응답
-personas.switchTo(server, 'admin-monitor')
-expect((await client.get('/users')).status).toBe(200)
-
-personas.switchTo(server, 'guest-unauthorized-list')
-expect((await client.get('/users')).status).toBe(401)
-```
-
-API:
-- `act(personaId, operationId)` — 순수 시뮬레이션 (HTTP 없이 응답 모양 반환)
-- `personasFor(operationId)` — 이 operation을 claim하는 모든 페르소나 id 열거
-- `applyTo(server, personaId)` — mock-server에 페르소나 expects를 override로 푸시
-- `switchTo(server, personaId)` — clearOverrides + applyTo
-
-## CLI
-
-```bash
-# 한 방에 — schemas merge → bind → validate
-pnpm --filter @oa-sdk/personas check
-
-# 단계별:
-pnpm --filter @oa-sdk/personas validate     # PK/vocab/maps_to/expects/constraints/drift
-pnpm --filter @oa-sdk/personas coverage     # operation/actor/regulation/channel/status cross-cut
-pnpm --filter @oa-sdk/personas coverage --out=coverage.md
-pnpm --filter @oa-sdk/personas bind         # .merged.yaml → .merged.persona.yaml (x-persona 주입)
-```
-
-## v0.3 spec binding
-
-`pnpm bind`은 `.merged.yaml`을 읽고 각 operation에 `x-persona` extension을 주입한
-`.merged.persona.yaml`을 만든다. 페르소나 매트릭스가 SoT, OpenAPI는 derived projection.
-
-```yaml
-# .merged.persona.yaml — 자동 생성, 직접 편집 금지
-info:
-  ...
-  x-persona-meta:
-    version: "0.1"
-    matrices: 4
-    personas: 25
-    implemented: 14
-    proposed: 11
-    generatedAt: 2026-05-04T...
-paths:
-  /users:
-    get:
-      operationId: listUsers
-      x-persona: [admin-monitor]      # ← 매트릭스에서 자동 도출
-```
-
-이후 `pnpm validate`은 `.merged.persona.yaml`이 존재하면 양방향 일관성 검증을 수행:
-- operation의 `x-persona`가 매트릭스의 `maps_to`와 정확히 같은 페어를 표현해야 함
-- 한쪽만 수정하고 bind를 잊으면 drift error → CI 차단
-
-권장 워크플로우:
-```bash
-pnpm --filter @oa-sdk/schemas merge      # .merged.yaml
-pnpm --filter @oa-sdk/personas bind      # .merged.persona.yaml
-pnpm --filter @oa-sdk/personas validate  # PK + vocab + drift
-```
-
-## v0.1 검증 룰
-
-`pnpm --filter @oa-sdk/personas validate`
-
-1. **identity PK 유일성** — 같은 (actor, data, intent, trigger, skill) tuple이 도메인 내 1회만.
-2. **vocabulary 매칭** — actor / intent / skill / regulation / channel / shape / access 값이 trait yaml에 존재.
-3. **maps_to 실재성** — `status: implemented`인 row의 모든 operationId가 `.merged.yaml`에 존재.
-4. **필수 identity** — actor / data / intent / trigger 미설정 시 error.
-5. **status enum** — implemented / proposed / deprecated 외 값 거부.
-6. **constraints** (v0.3) — `registry.constraints`의 `forbid`/`require` 룰을 강제. 지원되지 않는 predicate(예: `data_kind`)가 포함된 룰은 1회 skip-warn 후 통과.
-7. **drift** (v0.3, optional) — `.merged.persona.yaml` 존재 시 operation별 `x-persona`가 매트릭스와 일치하는지 검사.
-8. **expects** (v0.4-prep) — `outcome.expects`의 모든 status code가 매핑된 operation의 `responses`에 선언돼야 함. OpenAPI range(`2XX`/`5XX`)와 `default`도 매칭. implemented이지만 expects 비어있으면 warn.
-
-## v0.4-prep response status coverage
-
-`pnpm coverage` 출력에 새 섹션 "Response status coverage"가 추가됨. 각 operation의:
-- **declared** — OpenAPI에 선언된 모든 응답 코드 (`200`, `401`, ...)
-- **persona-expected** — implemented 페르소나가 `outcome.expects`로 claim한 코드
-- **orphans** — declared이지만 어떤 페르소나도 expects하지 않는 코드 → negative-path 페르소나 backlog
-
-예: `updateUser`의 orphans `[400, 401, 403, 404, 422]` → 각각 "non-admin이 role 변경 시도 → 403", "잘못된 role enum → 422" 등 negative-path 페르소나 후보를 자동 발굴.
-
-## v0.2 커버리지 리포트
-
-`pnpm --filter @oa-sdk/personas coverage` 가 출력하는 markdown:
-
-- **Operation coverage** — operationId × 페르소나/actor/regulation/channel 테이블
-- **Unjustified operations** — `implemented` 페르소나 없는 operation (정당화되지 않은 surface)
-- **Actor cross-section** — actor가 닿는 operation 집합 (admin이 어디까지 닿나?)
-- **Regulation cross-section** — 규제가 적용되는 operation 집합 (PIPA 적용 endpoint 일람)
-- **Channel cross-section** — 채널별 operation 집합
-- **Gap backlog** — `proposed` 페르소나 (다음 spec 작업 후보)
-
-unjustified operation이 1개 이상이면 exit 1 → CI gate 가능.
 
 ## 운영 사이클
 
 ```
-1. 페르소나 추가 (도메인 .personas.yaml 새 row)
-   └ 새 trait 값 필요 시 traits/*.yaml 어휘 등록 (status: proposed)
-2. validate
-3. gap = status: proposed && maps_to: []  → 다음 spec 작업 backlog
-4. spec 보강 후 → status: implemented 로 승격
-5. (v0.2) operation에 x-persona: [persona-id, ...] 박아 OpenAPI에 직접 결합
+spec 변경 또는 페르소나 추가
+  ↓
+pnpm check                   ─── 검증 실패면 여기서 멈춤
+  ↓
+pnpm coverage                ─── orphan / unjustified / cross-section 확인
+  ↓
+(orphan 있으면) pnpm propose ─── proposed stub 생성 → 검토 → 도메인 yaml에 복사 → status 승격
+  ↓
+pnpm gen:tests               ─── e2e 테스트 자동 갱신
+  ↓
+e2e 실행                     ─── 같은 op가 페르소나에 따라 다른 status로 분기
 ```
 
 ## API (programmatic)
 
 ```typescript
 import {
-  loadRegistry,
-  loadAllTraits,
-  loadAllDomains,
-  loadOperationIdsFromMergedSpec,
-  validate,
+  loadRegistry, loadAllTraits, loadAllDomains, loadAllDataModels,
+  loadOperationsFromMergedSpec,
+  validate, analyzeCoverage, applyBindings,
+  proposeStubsFromOrphans, generateVitestSuite,
+  collectEdges, topologicalLayers, renderFlowMarkdown,
+  resolvePersonaResponse, createPersonaMockClient,
 } from '@oa-sdk/personas'
 
-const registry = loadRegistry()
-const traits = loadAllTraits(registry)
-const domains = loadAllDomains()
-const knownOperationIds = loadOperationIdsFromMergedSpec('path/to/.merged.yaml')
+// 매트릭스 검증
+const report = validate({
+  registry: loadRegistry(),
+  traits: loadAllTraits(loadRegistry()),
+  domains: loadAllDomains(),
+  knownOperations: loadOperationsFromMergedSpec('.merged.yaml'),
+})
 
-const report = validate({ registry, traits, domains, knownOperationIds })
+// e2e 페르소나 시뮬레이터
+const client = createPersonaMockClient({ spec, domains: loadAllDomains() })
+client.applyTo(mockServer, 'admin-monitor')        // 200 OK overrides
+const res = await fetch('/users', ...)              // → 200
+client.switchTo(mockServer, 'guest-unauthorized-list')  // → 401
 ```
+
+## ⚠️ 한계 — 계약 시뮬레이션 vs 실제 검증
+
+페르소나 매트릭스 기반 e2e는 **계약 형태(contract shape)** 만 확인합니다. mock-server의 `override`는 요청을 무시하고 페르소나가 claim한 status code/body를 반환:
+
+- ✅ 검증되는 것 — 응답 status, body 모양, persona ↔ operation 매핑, drift, vocab, dependency cycles
+- ❌ *검증되지 않는 것* — 실제 request body validation (AJV), 실제 인증 처리, 실제 비즈니스 로직
+
+예: `malformed-payload-register` 페르소나가 422를 받지만 — 테스트는 *유효한* body를 보내도 mock이 422를 반환합니다. 진짜 422를 트리거하려면 real backend 또는 mock-server의 override 우회 모드가 필요.
+
+이 한계는 *의도된 것* — 페르소나는 "이 actor가 이 operation을 호출했을 때 *계약상* 무엇이 오기로 약속됐나"를 다룹니다. 실제 validation의 *동작* 검증은 mock-server가 자체적으로 schema 기반으로 수행하는 별 트랙입니다 (override 없이 호출하면 동작).
+
+## 외부 어휘 차용
+
+- `traits/link-type.yaml`은 `~/workflow/qa-sdk/packages/definition-catalog`의 `LinkType` 10종 중 페르소나 컨텍스트 의미 있는 3종(`depends_on`/`refines`/`supersedes`)만 차용. 식별자 동일 → 향후 공통 패키지 분리 시 자연스럽게 흡수 가능.
+
+## 버전 이력 (요약)
+
+| 버전 | 핵심 추가 |
+|------|---------|
+| v0.1 | 3-bucket framework + 5 검증 룰 + 7 trait + 4 domain matrices |
+| v0.2 | `coverage` CLI — operation/actor/regulation/channel cross-cut + unjustified 검출 |
+| v0.3 | `bind` CLI + `x-persona` extension 주입 + drift 검출 + constraints 강제 |
+| v0.4-prep | `outcome.expects` (HTTP status) + range/`default` 매칭 + response status orphan 검출 |
+| v0.4 | persona resolver + `createPersonaMockClient` (`act`/`applyTo`/`switchTo`) — e2e roleplay |
+| v0.5 | `gen:tests` — 매트릭스 → vitest 자동 |
+| v0.5.5 | 11 proposed → spec 구현 + 11개 신규 endpoint |
+| v0.6 | `propose` CLI — orphan response → 페르소나 stub 자동 |
+| v0.7 | `traits/trigger.yaml` 카탈로그 (38값 × 4카테고리) + `acknowledged_orphans` (idempotent) |
+| v0.8 | `consumer` perspective 차원 (7값 × 4카테고리) + `data-models/` 분리 (6 entities) |
+| v0.9 | persona dependency graph (`links`) + `flow` CLI + 검증 룰 #9 (cycle detection) |
+
+상세는 [`docs/concepts/data-persona.md`](../../docs/concepts/data-persona.md) 참조.
+
+## 참조
+
+- [Vision](../../docs/vision.md) — 전체 도메인 철학
+- [Behavior ECS](../../docs/concepts/behavior-ecs.md) — 행동 좌표 시스템
+- [Data Persona Concept](../../docs/concepts/data-persona.md) — 메타 프레임워크 컨셉
