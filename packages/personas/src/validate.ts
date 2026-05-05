@@ -44,6 +44,8 @@ export interface ValidateOptions {
   knownOperations: Map<string, OperationInfo> | null
   /** Optional bound spec for v0.3 drift detection. */
   boundSpec?: MinimalOpenApiDoc | null
+  /** v0.11.5 — profiles for cross-validation (id uniqueness, target id existence). */
+  profiles?: import('./types.js').PersonaProfile[]
 }
 
 export function validate(opts: ValidateOptions): ValidationReport {
@@ -123,6 +125,11 @@ export function validate(opts: ValidateOptions): ValidationReport {
 
   // ── 9b. depends_on cycle detection (graph-level) ────────────────────────
   detectDependsOnCycles(personaById, issues)
+
+  // ── 16-18. v0.11.5: profile integrity ────────────────────────────────────
+  if (opts.profiles && opts.profiles.length > 0) {
+    checkProfiles(opts.profiles, personaById, issues)
+  }
 
   // Emit one warn per constraint that hit an unsupported predicate (deduped)
   for (const [id, predicate] of unsupportedConstraints.entries()) {
@@ -467,6 +474,89 @@ function checkExpects(
         })
       }
     }
+  }
+}
+
+// ─── v0.11.5: profile integrity ───────────────────────────────────────────
+
+function checkProfiles(
+  profiles: import('./types.js').PersonaProfile[],
+  personaById: Map<string, Persona>,
+  issues: ValidationIssue[],
+): void {
+  const ids = new Map<string, number>()       // id → first-seen index
+  const profileById = new Map<string, import('./types.js').PersonaProfile>()
+
+  // 16: id uniqueness
+  profiles.forEach((p, i) => {
+    if (ids.has(p.id)) {
+      issues.push({
+        severity: 'error',
+        domain: '(profiles)',
+        message: `profile id '${p.id}' duplicated (also at index ${ids.get(p.id)})`,
+      })
+    } else {
+      ids.set(p.id, i)
+      profileById.set(p.id, p)
+    }
+  })
+
+  // 17: explicit `personas` ids must exist
+  for (const p of profiles) {
+    for (const personaId of p.personas ?? []) {
+      if (!personaById.has(personaId)) {
+        issues.push({
+          severity: 'error',
+          domain: '(profiles)',
+          message: `profile '${p.id}' references unknown persona id '${personaId}'`,
+        })
+      }
+    }
+    // exclude도 같은 검사
+    for (const personaId of p.exclude ?? []) {
+      if (!personaById.has(personaId)) {
+        issues.push({
+          severity: 'warn',
+          domain: '(profiles)',
+          message: `profile '${p.id}' excludes unknown persona id '${personaId}' (no-op)`,
+        })
+      }
+    }
+  }
+
+  // 18: extends cycle detection
+  for (const p of profiles) {
+    const visited = new Set<string>()
+    const stack: string[] = []
+    const dfs = (cur: string): void => {
+      if (visited.has(cur)) return
+      if (stack.includes(cur)) {
+        const idx = stack.indexOf(cur)
+        const cycle = stack.slice(idx).concat(cur)
+        issues.push({
+          severity: 'error',
+          domain: '(profiles)',
+          message: `profile extends cycle: ${cycle.join(' → ')}`,
+        })
+        return
+      }
+      stack.push(cur)
+      const target = profileById.get(cur)
+      for (const ref of target?.extends ?? []) {
+        if (!profileById.has(ref)) {
+          issues.push({
+            severity: 'error',
+            domain: '(profiles)',
+            message: `profile '${cur}' extends unknown profile '${ref}'`,
+          })
+          continue
+        }
+        dfs(ref)
+      }
+      stack.pop()
+      visited.add(cur)
+    }
+    dfs(p.id)
   }
 }
 

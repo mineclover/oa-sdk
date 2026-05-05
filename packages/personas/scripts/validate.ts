@@ -21,6 +21,7 @@ import {
   defaultPackageRoot,
   listDomains,
   loadAllDomains,
+  loadAllProfiles,
   loadAllTraits,
   loadOperationsFromMergedSpec,
   loadRegistry,
@@ -62,7 +63,8 @@ function main(): void {
   console.log(`   Bound:   ${boundPath}${boundSpec === null ? ' (skipped — run pnpm bind to enable drift check)' : ' (drift check active)'}`)
   console.log('')
 
-  const report = validate({ registry, traits, domains, knownOperations, boundSpec })
+  const profiles = loadAllProfiles(root)
+  const report = validate({ registry, traits, domains, knownOperations, boundSpec, profiles })
 
   for (const issue of report.issues) {
     const icon = issue.severity === 'error' ? '❌' : '⚠️ '

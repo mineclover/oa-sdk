@@ -1,0 +1,8 @@
+id: pipa-compliance
+description: |
+  PIPA(한국 개인정보 보호법) 적용 페르소나 전체. KR region에서 PII 처리하는
+  모든 surface — 정기 감사 / 컴플라이언스 보고용.
+
+selector:
+  status: [implemented]
+  regulation: [pii-kr-pipa]

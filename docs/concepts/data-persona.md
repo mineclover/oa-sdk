@@ -202,7 +202,10 @@ acknowledged_orphans:
 | v0.7 | `traits/trigger.yaml` (38값 × 4카테고리) + `acknowledged_orphans` (idempotent) |
 | v0.8 | `consumer` perspective (7값 × 4카테고리) + `data-models/` 분리 |
 | v0.9 | persona dependency graph + `flow` CLI + 검증 룰 #9 (qa-sdk LinkType 차용) |
-| **v0.10 (현재)** | reference bucket 확장 — `region`(데이터 residency) + `compliance_framework`(SOC2/ISO27001/HIPAA 등) 두 차원 추가. coverage 신규 cross-section 2개. 8 페르소나에 region/compliance 분류. 확장 5단계 taxonomy 정의 |
+| v0.10 | reference bucket 확장 — `region`(데이터 residency) + `compliance_framework`(SOC2/ISO27001/HIPAA 등). 8 페르소나 분류. 확장 5단계 taxonomy 정의 |
+| v0.10.5 | regulation ↔ region 정합성 강제 — 22 페르소나 일괄 region 부착 + 2 cross-reference constraint |
+| v0.11 | `identity.skill` → `identity.proficiency` rename. `Persona.skills` capability tags 도입 — `traits/skill.yaml` (6 cat × 25 값). 57 페르소나 자동 분류. 룰 #15 + access↔skills 일관성 constraint 3개 |
+| **v0.11.5 (현재)** | persona profiles — saved query bundle. 5 sample profile (mobile-app / b2b-customer / pipa-compliance / audit-required / infra-ops). `pnpm profiles` CLI. 룰 #16-18 (id 유일성 / target id 실재성 / extends 사이클) |
 
 ## 향후 후보
 

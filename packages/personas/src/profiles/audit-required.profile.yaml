@@ -1,0 +1,8 @@
+id: audit-required
+description: |
+  audit-emission skill을 보유한 페르소나 — SOC2 audit scope 보고용. capability
+  기반 selector 예시.
+
+selector:
+  status: [implemented]
+  skills: [audit-emission]

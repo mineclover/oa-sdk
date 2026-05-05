@@ -22,11 +22,17 @@ export {
   loadDataModel,
   listDataModels,
   loadAllDataModels,
+  loadProfile,
+  listProfiles,
+  loadAllProfiles,
   loadOperationIdsFromMergedSpec,
   loadOperationsFromMergedSpec,
   defaultPackageRoot,
 } from './load.js'
 export type { OperationInfo } from './load.js'
+
+export { expandProfile, matchesSelector, renderProfileMarkdown } from './profile.js'
+export type { ExpandOptions } from './profile.js'
 
 export { validate } from './validate.js'
 export type { ValidateOptions } from './validate.js'

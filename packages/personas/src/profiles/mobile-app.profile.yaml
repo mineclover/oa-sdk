@@ -1,0 +1,8 @@
+id: mobile-app
+description: |
+  모바일 앱 직접 호출 surface. 모바일 채널에서 발생하는 모든 happy / negative-path
+  페르소나. UX 영향 적은 일부 401 페르소나는 exclude.
+
+selector:
+  status: [implemented]
+  channel: [mobile-app]

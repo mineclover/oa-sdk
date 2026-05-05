@@ -1,0 +1,7 @@
+id: b2b-customer-suite
+description: |
+  B2B 파트너 OAuth 통합 surface. partner-sdk channel + scope-aware 페르소나.
+
+selector:
+  status: [implemented]
+  consumer: [b2b-customer]

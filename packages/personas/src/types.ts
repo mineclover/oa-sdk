@@ -133,6 +133,47 @@ export interface AcknowledgedOrphan {
 }
 
 /**
+ * v0.11.5 — persona profile (saved query bundle).
+ * profiles/{name}.profile.yaml 에 저장. selector + 명시 + extends + exclude로 페르소나
+ * id 집합을 동적 또는 정적으로 정의.
+ */
+export interface ProfileSelector {
+  /** 페르소나 status 필터 (default: all). */
+  status?: PersonaStatus[]
+  /** 도메인 이름 필터. */
+  domain?: string[]
+  /** identity 차원 필터. */
+  actor?: string[]
+  intent?: string[]
+  trigger?: string[]
+  consumer?: string[]
+  proficiency?: string[]
+  /** reference 차원 필터. */
+  regulation?: string[]
+  channel?: string[]
+  region?: string[]
+  compliance_framework?: string[]
+  /** outcome 차원 필터. */
+  shape?: string[]
+  access?: string[]
+  /** v0.11 capability 필터 — 명시한 skills를 모두 보유해야 함 (AND). */
+  skills?: string[]
+}
+
+export interface PersonaProfile {
+  id: string
+  description?: string
+  /** 동적 매칭 조건 — 모든 필드 AND, 단일 필드 내 array는 OR. */
+  selector?: ProfileSelector
+  /** 명시적 페르소나 id 추가 (selector 결과에 union). */
+  personas?: string[]
+  /** 다른 profile 흡수 — 재귀 expand. */
+  extends?: string[]
+  /** 결과에서 제외할 페르소나 id. */
+  exclude?: string[]
+}
+
+/**
  * Data-modeling persona — describes invariants and access patterns OF the
  * data entity (not the API consumer). Lives in `data-models/{Entity}.persona.yaml`.
  *

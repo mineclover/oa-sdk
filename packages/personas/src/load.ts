@@ -8,7 +8,7 @@ import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { parse } from 'yaml'
 
-import type { Registry, TraitVocabulary, DomainMatrix, DataModelPersona } from './types.js'
+import type { Registry, TraitVocabulary, DomainMatrix, DataModelPersona, PersonaProfile } from './types.js'
 
 const __dir = dirname(fileURLToPath(import.meta.url))
 
@@ -78,6 +78,26 @@ export function loadDataModel(name: string, packageRoot: string = defaultPackage
 
 export function loadAllDataModels(packageRoot: string = defaultPackageRoot()): DataModelPersona[] {
   return listDataModels(packageRoot).map(n => loadDataModel(n, packageRoot))
+}
+
+// ─── profiles (v0.11.5) ──────────────────────────────────────────────────
+
+export function listProfiles(packageRoot: string = defaultPackageRoot()): string[] {
+  const dir = join(packageRoot, 'src', 'profiles')
+  if (!existsSync(dir)) return []
+  return readdirSync(dir)
+    .filter(f => f.endsWith('.profile.yaml'))
+    .map(f => f.replace('.profile.yaml', ''))
+    .sort()
+}
+
+export function loadProfile(name: string, packageRoot: string = defaultPackageRoot()): PersonaProfile {
+  const path = join(packageRoot, 'src', 'profiles', `${name}.profile.yaml`)
+  return parse(readFileSync(path, 'utf8')) as PersonaProfile
+}
+
+export function loadAllProfiles(packageRoot: string = defaultPackageRoot()): PersonaProfile[] {
+  return listProfiles(packageRoot).map(n => loadProfile(n, packageRoot))
 }
 
 export interface OperationInfo {

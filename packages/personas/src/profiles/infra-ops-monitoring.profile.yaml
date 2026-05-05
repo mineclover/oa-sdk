@@ -1,0 +1,8 @@
+id: infra-ops-monitoring
+description: |
+  운영/SRE perspective — health/readiness/version/event-stream 등 infra 모니터링
+  surface. Kubernetes probe, dashboard, 배포 검증 컨텍스트.
+
+selector:
+  status: [implemented]
+  consumer: [infra-ops]

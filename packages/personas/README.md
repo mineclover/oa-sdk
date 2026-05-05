@@ -218,6 +218,8 @@ client.switchTo(mockServer, 'guest-unauthorized-list')  // → 401
 | v0.8 | `consumer` perspective 차원 (7값 × 4카테고리) + `data-models/` 분리 (6 entities) |
 | v0.9 | persona dependency graph (`links`) + `flow` CLI + 검증 룰 #9 (cycle detection) |
 | v0.10 | reference 확장 — `region` + `compliance_framework` (L3+L4). coverage cross-section 2개 추가. 확장 5단계 taxonomy 정의 |
+| v0.11 | `identity.skill` → `identity.proficiency` rename + `Persona.skills` (capability tags) + `traits/skill.yaml` (6 cat × 25 값) + 검증 룰 #15 + access↔skills 일관성 constraint 3개 |
+| v0.11.5 | `PersonaProfile` (saved query bundle) + 5 sample profiles (mobile-app / b2b-customer / pipa-compliance / audit-required / infra-ops) + `pnpm profiles` CLI + 검증 룰 #16-18 |
 
 상세는 [`docs/concepts/data-persona.md`](../../docs/concepts/data-persona.md) 참조.
 
