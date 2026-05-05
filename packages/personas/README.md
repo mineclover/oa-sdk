@@ -94,6 +94,34 @@ scripts/                          # CLI 진입점 (8 파일)
 - `data-models/<Entity>.persona.yaml` — 한 데이터 entity의 *단일* invariant 정의
 - `profiles/<name>.profile.yaml` — *단일* persona 번들 query
 
+## 도메인 ownership (v0.12)
+
+각 도메인 .personas.yaml은 자기 책임을 명시:
+
+```yaml
+# domains/users.personas.yaml
+domain: users
+description: "사용자 관리 — admin operations"
+metadata:
+  responsibility: "사용자 데이터 admin operations — list/조회/관리/모더레이션"
+  owns_entities:
+    - "User(any)"            # admin 컨텍스트
+    - "User(other)"           # 일반 user의 다른 사용자 컨텍스트
+    - "Role"
+    - "Report"
+  allowed_actors:
+    - admin
+    - user
+    - moderator
+    - target-of-action
+    - third-party-app
+    - system
+    - guest
+personas: [...]
+```
+
+룰 #20-21이 강제 — `data` / `actor` 가 metadata 외 값을 가지면 error. 도메인 boundary가 *코드로* 보장됨. `me` 도메인의 페르소나가 `User(any)`를 잘못 쓰면 즉시 검증 실패.
+
 ## 페르소나 row 골격
 
 ```yaml
@@ -189,6 +217,9 @@ selector:
 | 16 | profile id 유일성 | error | v0.11.5 |
 | 17 | profile.personas / profile.exclude 의 persona id 실재성 | error/warn | v0.11.5 |
 | 18 | profile.extends 사이클 검출 + unknown profile reference | error | v0.11.5 |
+| 19 | empty profile (selector/personas/extends 모두 빈 경우) | warn | v0.11.5 |
+| 20 | domain ownership — `data` ∈ `metadata.owns_entities` | error | v0.12 |
+| 21 | domain ownership — `actor` ∈ `metadata.allowed_actors` | error | v0.12 |
 | (consistency) | audited↔audit-emission, rate-limited↔rate-limit-honored, pseudonymized↔pseudonymized | warn | v0.11 P4 |
 
 ## CLI 10종

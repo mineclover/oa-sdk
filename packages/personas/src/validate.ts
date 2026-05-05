@@ -120,6 +120,9 @@ export function validate(opts: ValidateOptions): ValidationReport {
 
       // ── 15. v0.11: skills vocabulary 매칭 ───────────────────────────
       checkSkills(persona, matrix.domain, opts.traits, issues)
+
+      // ── 20-21. v0.12: domain ownership boundary ────────────────────
+      checkDomainOwnership(persona, matrix, issues)
     }
   }
 
@@ -573,6 +576,47 @@ function checkProfiles(
       visited.add(cur)
     }
     dfs(p.id)
+  }
+}
+
+// ─── v0.12: domain ownership boundary ─────────────────────────────────────
+
+function checkDomainOwnership(
+  persona: Persona,
+  matrix: DomainMatrix,
+  issues: ValidationIssue[],
+): void {
+  const meta = matrix.metadata
+  if (!meta) return                                  // metadata 없으면 검증 skip
+
+  // Rule #20 — data ∈ owns_entities
+  if (meta.owns_entities && meta.owns_entities.length > 0) {
+    const data = persona.identity?.data
+    if (data && !meta.owns_entities.includes(data)) {
+      issues.push({
+        severity: 'error',
+        domain: matrix.domain,
+        personaId: persona.id,
+        bucket: 'identity',
+        dimension: 'data',
+        message: `data '${data}' not owned by domain '${matrix.domain}' (owns: ${meta.owns_entities.join(', ')})`,
+      })
+    }
+  }
+
+  // Rule #21 — actor ∈ allowed_actors
+  if (meta.allowed_actors && meta.allowed_actors.length > 0) {
+    const actor = persona.identity?.actor
+    if (actor && !meta.allowed_actors.includes(actor)) {
+      issues.push({
+        severity: 'error',
+        domain: matrix.domain,
+        personaId: persona.id,
+        bucket: 'identity',
+        dimension: 'actor',
+        message: `actor '${actor}' not allowed in domain '${matrix.domain}' (allowed: ${meta.allowed_actors.join(', ')})`,
+      })
+    }
   }
 }
 

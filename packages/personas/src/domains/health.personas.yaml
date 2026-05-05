@@ -1,6 +1,11 @@
 domain: health
 description: "서버 상태 도메인 — 라이브니스 체크, 실시간 상태 스트림"
 
+metadata:
+  responsibility: "운영 상태 — liveness/readiness/version/event-stream surface (system actor 전용)"
+  owns_entities: [HealthStatus, ReadinessReport, HealthEvent]
+  allowed_actors: [system]
+
 # data 어휘 (도메인-로컬):
 #   HealthStatus  — { status, timestamp }
 #   HealthEvent   — SSE로 발행되는 상태 변화 이벤트

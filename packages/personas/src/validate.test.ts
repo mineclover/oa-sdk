@@ -215,6 +215,69 @@ describe('personas v0.1 validator', () => {
     )).toBe(true)
   })
 
+  it('v0.12 rule #20: data must be in domain.owns_entities', () => {
+    const matrix: DomainMatrix = {
+      domain: 'fake',
+      metadata: {
+        owns_entities: ['User(self)', 'Credential(self)'],
+      },
+      personas: [{
+        id: 'wrong-data',
+        status: 'implemented',
+        identity: { actor: 'admin', data: 'Order(any)', intent: 'list', trigger: 'ops-monitoring' },
+        outcome: { maps_to: ['op1'], expects: [200] },
+      }],
+    }
+    const synthOps = new Map([['op1', { operationId: 'op1', path: '/x', method: 'get', responses: new Set(['200']) }]])
+    const report = validate({ registry, traits, domains: [matrix], knownOperations: synthOps })
+    expect(report.issues.some(i =>
+      i.severity === 'error' &&
+      i.dimension === 'data' &&
+      i.message.includes("not owned by domain 'fake'"),
+    )).toBe(true)
+  })
+
+  it('v0.12 rule #21: actor must be in domain.allowed_actors', () => {
+    const matrix: DomainMatrix = {
+      domain: 'health',
+      metadata: {
+        allowed_actors: ['system'],
+      },
+      personas: [{
+        id: 'wrong-actor',
+        status: 'implemented',
+        identity: { actor: 'admin', data: 'HealthStatus', intent: 'monitor', trigger: 'load-balancer-probe' },
+        outcome: { maps_to: ['op1'], expects: [200] },
+      }],
+    }
+    const synthOps = new Map([['op1', { operationId: 'op1', path: '/x', method: 'get', responses: new Set(['200']) }]])
+    const report = validate({ registry, traits, domains: [matrix], knownOperations: synthOps })
+    expect(report.issues.some(i =>
+      i.severity === 'error' &&
+      i.dimension === 'actor' &&
+      i.message.includes("not allowed in domain 'health'"),
+    )).toBe(true)
+  })
+
+  it('v0.12 domain metadata absent → 룰 #20-21 skip (backward-compat)', () => {
+    const matrix: DomainMatrix = {
+      domain: 'legacy',
+      // no metadata
+      personas: [{
+        id: 'p1',
+        status: 'implemented',
+        identity: { actor: 'admin', data: 'AnyEntity', intent: 'list', trigger: 'ops-monitoring' },
+        outcome: { maps_to: ['op1'], expects: [200] },
+      }],
+    }
+    const synthOps = new Map([['op1', { operationId: 'op1', path: '/x', method: 'get', responses: new Set(['200']) }]])
+    const report = validate({ registry, traits, domains: [matrix], knownOperations: synthOps })
+    expect(report.issues.some(i =>
+      i.severity === 'error' &&
+      (i.dimension === 'data' || i.dimension === 'actor'),
+    )).toBe(false)
+  })
+
   it('v0.11.5 rule #19: empty profile (no selector / personas / extends) is warn', () => {
     const profiles = [
       { id: 'empty', description: 'placeholder' },

@@ -1,6 +1,22 @@
 domain: users
 description: "사용자 관리 도메인 — admin이 임의 사용자에 대해 수행하는 surface (셀프 surface는 me 도메인)"
 
+metadata:
+  responsibility: "사용자 데이터 admin operations — list/조회/관리/모더레이션 (셀프 surface는 me 도메인 책임)"
+  owns_entities:
+    - "User(any)"
+    - "User(other)"
+    - "Role"
+    - "Report"
+  allowed_actors:
+    - admin
+    - user
+    - moderator
+    - target-of-action
+    - third-party-app
+    - system
+    - guest
+
 # data 어휘 (도메인-로컬):
 #   User(any)    — 임의 사용자 (admin 컨텍스트)
 #   User(other)  — 자기가 아닌 다른 사용자 (일반 user 컨텍스트)

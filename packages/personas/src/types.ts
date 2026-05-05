@@ -195,9 +195,24 @@ export interface DataModelPersona {
   [key: string]: unknown
 }
 
+/**
+ * v0.12 — Domain ownership boundary.
+ * 각 도메인이 자기 entity / actor 책임 명시. 룰 #20-21로 강제.
+ */
+export interface DomainMetadata {
+  /** 이 도메인이 소유한 entity 이름 목록 (base form). 변종(`User(self)` 등)은 자동 매칭. */
+  owns_entities?: string[]
+  /** 이 도메인에서 등장 가능한 actor 목록. 외 actor 사용 시 룰 #21 위반. */
+  allowed_actors?: string[]
+  /** 도메인 한 줄 책임 (소유한 행위 영역). */
+  responsibility?: string
+}
+
 export interface DomainMatrix {
   domain: string
   description?: string
+  /** v0.12: domain ownership boundary */
+  metadata?: DomainMetadata
   personas: Persona[]
   /**
    * Orphan response codes intentionally not modeled as personas (e.g., 500

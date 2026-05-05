@@ -1,6 +1,14 @@
 domain: me
 description: "셀프 서비스 도메인 — 현재 인증된 사용자가 자기 자원만 접근"
 
+metadata:
+  responsibility: "자기 데이터 — 본인이 자기 자원에만 read/update/delete/export"
+  owns_entities:
+    - "User(self)"
+    - "Credential(self)"
+    - "OnboardingChecklist"
+  allowed_actors: [owner-self, guest]
+
 # data 어휘 (도메인-로컬):
 #   User(self)        — 인증 토큰의 주인인 사용자 객체
 #   Credential(self)  — 자기 비밀번호

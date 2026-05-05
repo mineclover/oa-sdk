@@ -279,7 +279,8 @@ acknowledged_orphans:
 | v0.10.5 | regulation ↔ region 정합성 강제 — 22 페르소나 일괄 region 부착 + 2 cross-reference constraint |
 | v0.11 | `identity.skill` → `identity.proficiency` rename. `Persona.skills` capability tags 도입 — `traits/skill.yaml` (6 cat × 25 값). 57 페르소나 자동 분류. 룰 #15 + access↔skills 일관성 constraint 3개 |
 | v0.11.5 | persona profiles — saved query bundle. 5 sample profile. `pnpm profiles` CLI. 룰 #16-18 |
-| **v0.12 (현재)** | baseline-once + signal-driven 패러다임. `pnpm wizard` 마법사 (1회용 baseline 부트스트랩). `pnpm propose --from-spec` 전체 spec scan (3 signal: orphan + new-op + new-schema). 사람이 매트릭스 직접 늘리지 않고 signal이 자동 stub 생성, review 후 promote |
+| v0.12 A.1+B | baseline-once + signal-driven. `pnpm wizard` (1회용) + `pnpm propose --from-spec` (3 signal) |
+| **v0.12 A.2 (현재)** | domain ownership boundary — 각 도메인 metadata block (`owns_entities` / `allowed_actors` / `responsibility`). 룰 #20-21로 boundary 강제. 84 페르소나 모두 통과 — 도메인 책임이 *코드로* 보장됨 |
 
 ## 향후 후보
 
