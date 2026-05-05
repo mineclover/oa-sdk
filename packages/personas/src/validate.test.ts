@@ -128,6 +128,26 @@ describe('personas v0.1 validator', () => {
     )).toBe(true)
   })
 
+  it('v0.11 P4: audited-access ↔ audit-emission-skill consistency (warn when missing)', () => {
+    const matrix: DomainMatrix = {
+      domain: 'fake',
+      personas: [{
+        id: 'audit-mismatch',
+        status: 'implemented',
+        identity: { actor: 'admin', data: 'X', intent: 'list', trigger: 'ops-monitoring' },
+        outcome: { access: ['audited'], maps_to: ['op1'], expects: [200] },
+        // skills missing audit-emission
+        skills: ['pagination'],
+      }],
+    }
+    const synthOps = new Map([['op1', { operationId: 'op1', path: '/x', method: 'get', responses: new Set(['200']) }]])
+    const report = validate({ registry, traits, domains: [matrix], knownOperations: synthOps })
+    expect(report.issues.some(i =>
+      i.severity === 'warn' &&
+      i.message.includes('audited-access-requires-audit-emission-skill'),
+    )).toBe(true)
+  })
+
   it('v0.11 rule #15: skill values must be in vocabulary', () => {
     const matrix: DomainMatrix = {
       domain: 'fake',

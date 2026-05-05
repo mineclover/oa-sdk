@@ -244,6 +244,10 @@ interface PathRead {
 }
 
 function readPath(persona: Persona, path: string): PathRead {
+  // v0.11: top-level fields (skills) handled with no dot
+  if (path === 'skills') {
+    return { values: persona.skills ?? [] }
+  }
   const [bucket, dim] = path.split('.')
   if (!bucket || !dim) return { values: [], unsupported: true }
 
