@@ -25,6 +25,8 @@ personas:
     reference:
       regulation: [pii-kr-pipa]
       channel: [browser, public-api]
+      region: [KR]
+      compliance_framework: [SOC2, ISMS-P]
     outcome:
       shape: list-paginated
       access: [scoped:admin, audited]
@@ -206,6 +208,8 @@ personas:
     reference:
       regulation: [pii-kr-pipa]
       channel: [partner-sdk]
+      region: [KR, GLOBAL]
+      compliance_framework: [SOC2, ISO27001]
     outcome:
       shape: list-paginated
       access: [scoped:read, audited, rate-limited]
@@ -228,6 +232,8 @@ personas:
     reference:
       regulation: [pii-kr-pipa]
       channel: [csv-export]
+      region: [KR]
+      compliance_framework: [ISMS-P, SOC2]
     outcome:
       shape: bulk-batch
       access: [scoped:admin, audited, pseudonymized]
@@ -246,6 +252,8 @@ personas:
     reference:
       regulation: [pii-kr-pipa, pii-gdpr]
       channel: [browser]
+      region: [KR, EU]
+      compliance_framework: [SOC2, ISMS-P]
     outcome:
       shape: command
       access: [scoped:admin, audited]
@@ -269,6 +277,8 @@ personas:
     reference:
       regulation: [pii-kr-pipa]
       channel: [browser]
+      region: [KR]
+      compliance_framework: [SOC2]
     outcome:
       shape: detail
       access: [scoped:admin, audited]

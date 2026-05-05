@@ -144,6 +144,7 @@ personas:
     reference:
       regulation: [pii-kr-pipa, pii-gdpr]
       channel: [browser, mobile-app]
+      region: [KR, EU]
     outcome:
       shape: command
       access: [private-self, audited]
@@ -161,6 +162,7 @@ personas:
     reference:
       regulation: [pii-gdpr]
       channel: [browser]
+      region: [EU]
     outcome:
       shape: bulk-batch
       access: [private-self, audited, rate-limited]

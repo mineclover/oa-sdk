@@ -57,6 +57,16 @@ buckets:
         cardinality: multi
         vocabulary: traits/channel.yaml
         description: "소비 매체 — 동시 적용 가능"
+      region:
+        required: false
+        cardinality: multi
+        vocabulary: traits/region.yaml
+        description: "데이터 residency / 법적 관할 — 디폴트 unconstrained"
+      compliance_framework:
+        required: false
+        cardinality: multi
+        vocabulary: traits/compliance-framework.yaml
+        description: "조직 단위 인증 — regulation(법)과 직교. SOC2/ISO27001/HIPAA 등"
 
   outcome:
     description: "페르소나가 API 계약에 요구하는 형태"

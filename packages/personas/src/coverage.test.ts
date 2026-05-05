@@ -69,6 +69,30 @@ describe('coverage analyzer', () => {
     expect(pipa!.operationIds).toContain('listUsers')
   })
 
+  it('v0.10: region cross-section is populated when personas declare region', () => {
+    const report = analyzeCoverage({ domains, knownOperations })
+    const kr = report.regionCrossSection.buckets.find(b => b.value === 'KR')
+    expect(kr).toBeDefined()
+    expect(kr!.operationIds).toEqual(expect.arrayContaining(['register', 'listUsers']))
+    const eu = report.regionCrossSection.buckets.find(b => b.value === 'EU')
+    expect(eu).toBeDefined()
+    expect(eu!.operationIds).toContain('requestMyDataExport')
+  })
+
+  it('v0.10: compliance framework cross-section orthogonal to regulation', () => {
+    const report = analyzeCoverage({ domains, knownOperations })
+    const soc2 = report.complianceCrossSection.buckets.find(b => b.value === 'SOC2')
+    expect(soc2).toBeDefined()
+    expect(soc2!.operationIds).toContain('listUsers')
+  })
+
+  it('v0.10: renderMarkdown includes Region + Compliance sections when populated', () => {
+    const report = analyzeCoverage({ domains, knownOperations })
+    const md = renderMarkdown(report)
+    expect(md).toContain('## Region cross-section')
+    expect(md).toContain('## Compliance framework cross-section')
+  })
+
   it('renderMarkdown emits stable section headers', () => {
     const consumerVocab: TraitVocabulary = {
       categories: [

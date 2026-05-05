@@ -57,7 +57,7 @@ export interface DataModelCoverageRow {
 }
 
 export interface CrossSection {
-  axis: 'actor' | 'regulation' | 'channel'
+  axis: 'actor' | 'regulation' | 'channel' | 'region' | 'compliance_framework'
   buckets: Array<{ value: string; operationIds: string[]; personaCount: number }>
 }
 
@@ -83,6 +83,10 @@ export interface CoverageReport {
   actorCrossSection: CrossSection
   regulationCrossSection: CrossSection
   channelCrossSection: CrossSection
+  /** v0.10: data residency / 법적 관할 cross-section */
+  regionCrossSection: CrossSection
+  /** v0.10: 조직 단위 인증 (SOC2/ISO27001/...) cross-section */
+  complianceCrossSection: CrossSection
   /** Optional — only populated when triggerVocab is provided. */
   triggerCategories?: TriggerCategoryRow[]
   /** Triggers used by personas but missing from the vocabulary (drift signal). */
@@ -160,6 +164,10 @@ export function analyzeCoverage(input: CoverageInput): CoverageReport {
   const regulationPersonaCount = new Map<string, number>()
   const channelOps = new Map<string, Set<string>>()
   const channelPersonaCount = new Map<string, number>()
+  const regionOps = new Map<string, Set<string>>()
+  const regionPersonaCount = new Map<string, number>()
+  const complianceOps = new Map<string, Set<string>>()
+  const compliancePersonaCount = new Map<string, number>()
 
   const unmapped: GapEntry[] = []
   const totals = { domains: input.domains.length, personas: 0, implemented: 0, proposed: 0, deprecated: 0, operationsCovered: 0, operationsTotal: input.knownOperations.size }
@@ -174,6 +182,8 @@ export function analyzeCoverage(input: CoverageInput): CoverageReport {
       const actor = persona.identity?.actor ?? '(missing)'
       const regulations = persona.reference?.regulation ?? []
       const channels = persona.reference?.channel ?? []
+      const regions = persona.reference?.region ?? []
+      const compliances = persona.reference?.compliance_framework ?? []
       const ids = persona.outcome?.maps_to ?? []
 
       // unmapped tracking — proposed without operation, or deprecated still mapped
@@ -203,10 +213,12 @@ export function analyzeCoverage(input: CoverageInput): CoverageReport {
       }
 
       // cross-sections: aggregate operationIds and persona counts
-      // (consider all statuses for actor/regulation/channel — proposed personas tell us coverage *intent*)
+      // (consider all statuses for reference dimensions — proposed personas tell us coverage *intent*)
       bumpCount(actorPersonaCount, actor)
       for (const r of regulations) bumpCount(regulationPersonaCount, r)
       for (const c of channels) bumpCount(channelPersonaCount, c)
+      for (const r of regions) bumpCount(regionPersonaCount, r)
+      for (const f of compliances) bumpCount(compliancePersonaCount, f)
 
       // for the operation set side, only count implemented mappings (real surface)
       if (persona.status === 'implemented') {
@@ -214,6 +226,8 @@ export function analyzeCoverage(input: CoverageInput): CoverageReport {
           addToSet(actorOps, actor, id)
           for (const r of regulations) addToSet(regulationOps, r, id)
           for (const c of channels) addToSet(channelOps, c, id)
+          for (const r of regions) addToSet(regionOps, r, id)
+          for (const f of compliances) addToSet(complianceOps, f, id)
         }
       }
     }
@@ -248,6 +262,8 @@ export function analyzeCoverage(input: CoverageInput): CoverageReport {
     actorCrossSection: buildCrossSection('actor', actorOps, actorPersonaCount),
     regulationCrossSection: buildCrossSection('regulation', regulationOps, regulationPersonaCount),
     channelCrossSection: buildCrossSection('channel', channelOps, channelPersonaCount),
+    regionCrossSection: buildCrossSection('region', regionOps, regionPersonaCount),
+    complianceCrossSection: buildCrossSection('compliance_framework', complianceOps, compliancePersonaCount),
     acknowledgedOrphans: acknowledgedRows,
     totals,
   }
@@ -461,6 +477,32 @@ export function renderMarkdown(report: CoverageReport): string {
 
   lines.push('## Channel cross-section')
   lines.push('')
+  if (report.regionCrossSection.buckets.length > 0) {
+    lines.push('## Region cross-section')
+    lines.push('')
+    lines.push('데이터 residency / 법적 관할. 미설정 페르소나는 region-agnostic.')
+    lines.push('')
+    lines.push('| region | operations | personas |')
+    lines.push('|---|---|---:|')
+    for (const b of report.regionCrossSection.buckets) {
+      lines.push(`| \`${b.value}\` | ${b.operationIds.map(o => `\`${o}\``).join(', ') || '—'} | ${b.personaCount} |`)
+    }
+    lines.push('')
+  }
+
+  if (report.complianceCrossSection.buckets.length > 0) {
+    lines.push('## Compliance framework cross-section')
+    lines.push('')
+    lines.push('조직 단위 인증 (SOC2/ISO27001/HIPAA …). regulation(법)과 직교.')
+    lines.push('')
+    lines.push('| framework | operations | personas |')
+    lines.push('|---|---|---:|')
+    for (const b of report.complianceCrossSection.buckets) {
+      lines.push(`| \`${b.value}\` | ${b.operationIds.map(o => `\`${o}\``).join(', ') || '—'} | ${b.personaCount} |`)
+    }
+    lines.push('')
+  }
+
   if (report.channelCrossSection.buckets.length === 0) {
     lines.push('_No channel tags applied._')
   } else {

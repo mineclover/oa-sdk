@@ -36,8 +36,10 @@ interface GeneratedItem {
   body: unknown | null
 }
 
-const HTTP_METHODS_WITH_BODY = new Set(['post', 'put', 'patch', 'delete'])
-const HTTP_METHODS_NO_BODY = new Set(['get', 'head', 'options'])
+// TestClient.delete signature is (path, opts) — no body. Match that here even
+// though OpenAPI permits DELETE with bodies; we use overrides anyway.
+const HTTP_METHODS_WITH_BODY = new Set(['post', 'put', 'patch'])
+const HTTP_METHODS_NO_BODY = new Set(['get', 'head', 'options', 'delete'])
 
 export function generateVitestSuite(opts: GenerateTestsOptions): string {
   const items = collectItems(opts.spec, opts.domains)

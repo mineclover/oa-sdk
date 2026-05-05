@@ -17,6 +17,7 @@ personas:
     reference:
       regulation: [pii-kr-pipa]
       channel: [browser, mobile-app]
+      region: [KR]
     outcome:
       shape: token
       access: [public, rate-limited]

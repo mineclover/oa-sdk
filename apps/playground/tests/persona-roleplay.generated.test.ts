@@ -261,7 +261,7 @@ describe("persona roleplay (generated)", () => {
   // ── me/guest-unauthorized-deleteMyAccount ──
   it("guest-unauthorized-deleteMyAccount → DELETE /me → 401", async () => {
     personas.switchTo(server, "guest-unauthorized-deleteMyAccount")
-    const res = await client.delete("/me", undefined, { headers: { authorization: 'Bearer t' } })
+    const res = await client.delete("/me", { headers: { authorization: 'Bearer t' } })
     expect(res.status).toBe(401)
   })
 
@@ -352,7 +352,7 @@ describe("persona roleplay (generated)", () => {
   // ── me/user-self-delete-account ──
   it("user-self-delete-account → DELETE /me → 204", async () => {
     personas.switchTo(server, "user-self-delete-account")
-    const res = await client.delete("/me", undefined, { headers: { authorization: 'Bearer t' } })
+    const res = await client.delete("/me", { headers: { authorization: 'Bearer t' } })
     expect(res.status).toBe(204)
   })
 
@@ -401,7 +401,7 @@ describe("persona roleplay (generated)", () => {
   // ── users/admin-user-removal ──
   it("admin-user-removal → DELETE /users/00000000-0000-0000-0000-000000000001 → 204", async () => {
     personas.switchTo(server, "admin-user-removal")
-    const res = await client.delete("/users/00000000-0000-0000-0000-000000000001", undefined, { headers: { authorization: 'Bearer t' } })
+    const res = await client.delete("/users/00000000-0000-0000-0000-000000000001", { headers: { authorization: 'Bearer t' } })
     expect(res.status).toBe(204)
   })
 
@@ -450,7 +450,7 @@ describe("persona roleplay (generated)", () => {
   // ── users/guest-unauthorized-deleteUser ──
   it("guest-unauthorized-deleteUser → DELETE /users/00000000-0000-0000-0000-000000000001 → 401", async () => {
     personas.switchTo(server, "guest-unauthorized-deleteUser")
-    const res = await client.delete("/users/00000000-0000-0000-0000-000000000001", undefined, { headers: { authorization: 'Bearer t' } })
+    const res = await client.delete("/users/00000000-0000-0000-0000-000000000001", { headers: { authorization: 'Bearer t' } })
     expect(res.status).toBe(401)
   })
 
@@ -569,7 +569,7 @@ describe("persona roleplay (generated)", () => {
   // ── users/not-found-deleteUser ──
   it("not-found-deleteUser → DELETE /users/00000000-0000-0000-0000-000000000001 → 404", async () => {
     personas.switchTo(server, "not-found-deleteUser")
-    const res = await client.delete("/users/00000000-0000-0000-0000-000000000001", undefined, { headers: { authorization: 'Bearer t' } })
+    const res = await client.delete("/users/00000000-0000-0000-0000-000000000001", { headers: { authorization: 'Bearer t' } })
     expect(res.status).toBe(404)
   })
 

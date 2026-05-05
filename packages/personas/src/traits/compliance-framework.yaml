@@ -1,0 +1,37 @@
+# compliance_framework 차원 어휘 — 조직 단위 인증 / 감사 프레임워크
+# reference bucket. 다중 적용 가능. regulation(법)과 직교:
+#   regulation             = 법적 의무 (PIPA, GDPR, COPPA …)
+#   compliance_framework   = 조직 인증 (SOC2, ISO27001, HIPAA, …)
+#
+# 같은 PII 처리도 SOC2 인증 받은 운영자에 한정하거나, 미인증 액세스를 차단하는
+# 페르소나를 spec으로 표현 가능.
+
+categories:
+  - id: security
+    description: "정보보안 인증"
+  - id: privacy
+    description: "프라이버시 관리체계"
+  - id: financial
+    description: "금융 거래 인증"
+  - id: healthcare
+    description: "의료정보 인증"
+
+values:
+  - id: SOC2
+    category: security
+    description: "AICPA SOC 2 — 보안/가용성/처리무결성/기밀성/프라이버시"
+  - id: ISO27001
+    category: security
+    description: "ISO/IEC 27001 — 정보보안 관리체계(ISMS)"
+  - id: NIST-CSF
+    category: security
+    description: "NIST Cybersecurity Framework"
+  - id: HIPAA
+    category: healthcare
+    description: "Health Insurance Portability and Accountability Act — 의료정보 보호"
+  - id: PCI-DSS
+    category: financial
+    description: "Payment Card Industry Data Security Standard — 카드 결제"
+  - id: ISMS-P
+    category: privacy
+    description: "한국 정보보호 및 개인정보보호 관리체계 인증"

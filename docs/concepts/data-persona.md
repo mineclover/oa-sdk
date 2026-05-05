@@ -57,6 +57,8 @@ links (relation)      depends_on / refines / supersedes
 |------|------|------|
 | `regulation` | 법적/정책 제약 (다중) | pii-kr-pipa, pii-gdpr, content-violence, content-gambling, child-protection-coppa, financial-kyc |
 | `channel` | 소비 매체 (다중) | browser, mobile-app, public-api, partner-sdk, webhook, csv-export, llm-tool-call, cli |
+| `region` | 데이터 residency / 법적 관할 (다중) — v0.10 | KR · EU · US · JP · SG · APAC · GLOBAL |
+| `compliance_framework` | 조직 단위 인증 (다중) — v0.10. regulation(법)과 직교 | SOC2 · ISO27001 · NIST-CSF · HIPAA · PCI-DSS · ISMS-P |
 
 reference는 페르소나 식별에 영향 X. 다만 reference 값이 다르면서 **shape나 access도 다르면** 별 페르소나로 분리(채널 폭발 방지 휴리스틱).
 
@@ -106,6 +108,34 @@ pnpm gen:tests               ─── e2e 테스트 자동 갱신
   ↓
 e2e 실행                     ─── 같은 op가 페르소나에 따라 다른 status로 분기
 ```
+
+## 확장 작업 정의 — 5단계 분류
+
+framework에 변경을 가하는 모든 작업은 **영향 범위 + 수정 표면**으로 등급이 갈린다:
+
+| 레벨 | 이름 | 의미 | 수정 표면 | 검증/검사 영향 | 비용 |
+|------|------|------|----------|--------------|------|
+| L1 | Vocabulary | 기존 trait yaml에 값 추가 | `traits/X.yaml` 1줄 | rule #2 통과 즉시 사용 가능 | 매우낮 |
+| L2 | Sub-trait field | trait value에 메타 필드 추가 (예: `category`, `jurisdiction`) | trait yaml + (선택) typed reader | cross-section 분류 가능해짐 | 낮 |
+| L3 | Trait file | 기존 bucket에 새 vocabulary 파일 추가 | `traits/Y.yaml` 신설 + registry pointer | 어휘 검증 가능 | 중 |
+| L4 | Dimension | 기존 bucket에 새 차원 추가 (PK / lookup / obligation 영향) | types.ts + registry + (대개) coverage section | rule #1 PK 변경 (identity일 때), rule #2 vocab 검증 추가 | 중-높 |
+| L5 | Bucket | 새 bucket 추가 (현재 identity / reference / outcome 외) | 전체 아키텍처 | 모든 룰 영향 | 매우높 |
+
+부속 분류:
+
+| 종류 | 의미 | 예 |
+|------|------|----|
+| Persona row extension | 매트릭스에 row 추가 (data만) | 새 페르소나 1줄 |
+| Constraint extension | `registry.constraints` 신규 룰 | `pii-bulk-requires-regulation` |
+| CLI extension | 신규 pnpm 명령 | `pnpm flow` |
+| Output extension | 기존 CLI에 섹션 추가 | coverage에 "Trigger category coverage" |
+
+원칙:
+- **identity 차원**(PK 영향) 추가는 L4 — 기존 페르소나 PK 변동 가능성 검토 필수
+- **reference 차원**(enrichment) 추가는 L3+L4 — PK 영향 없음, lookup만 추가
+- **outcome 차원**(obligation) 추가는 L4 — 검증 룰 추가 동반
+
+v0.10의 `region` + `compliance_framework`는 L3+L4 (reference bucket 차원 추가).
 
 ## acknowledged orphans — 의도적 skip
 
@@ -171,7 +201,8 @@ acknowledged_orphans:
 | v0.6 | `propose` CLI — orphan → 페르소나 stub 자동 |
 | v0.7 | `traits/trigger.yaml` (38값 × 4카테고리) + `acknowledged_orphans` (idempotent) |
 | v0.8 | `consumer` perspective (7값 × 4카테고리) + `data-models/` 분리 |
-| **v0.9 (현재)** | persona dependency graph + `flow` CLI + 검증 룰 #9 (qa-sdk LinkType 차용) |
+| v0.9 | persona dependency graph + `flow` CLI + 검증 룰 #9 (qa-sdk LinkType 차용) |
+| **v0.10 (현재)** | reference bucket 확장 — `region`(데이터 residency) + `compliance_framework`(SOC2/ISO27001/HIPAA 등) 두 차원 추가. coverage 신규 cross-section 2개. 8 페르소나에 region/compliance 분류. 확장 5단계 taxonomy 정의 |
 
 ## 향후 후보
 

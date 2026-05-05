@@ -32,8 +32,10 @@ pnpm --filter @oa-sdk/personas flow         # 의존성 그래프 (markdown + me
 │ skill?     enum  onboarding/novice/intermediate/expert            │
 │ consumer?  enum  end-user/backend/b2b-customer/internal-tool/…    │
 ├─ reference ─ 외부 카탈로그 lookup (enrichment) ────────────────────┤
-│ regulation multi pii-kr-pipa, pii-gdpr, content-violence, …       │
-│ channel    multi browser, mobile-app, public-api, csv-export, …   │
+│ regulation           multi pii-kr-pipa, pii-gdpr, content-violence, … │
+│ channel              multi browser, mobile-app, public-api, …          │
+│ region               multi KR / EU / US / JP / SG / APAC / GLOBAL      │
+│ compliance_framework multi SOC2 / ISO27001 / HIPAA / PCI-DSS / ISMS-P  │
 ├─ outcome ─ API 계약이 만족해야 할 형태 ────────────────────────────┤
 │ shape      enum  detail/list-paginated/stream-sse/bulk-batch/…    │
 │ access     multi public/scoped:admin/audited/rate-limited/…       │
@@ -57,10 +59,10 @@ pnpm --filter @oa-sdk/personas flow         # 의존성 그래프 (markdown + me
 ```
 src/
   registry.yaml                   # 3 bucket × 9 차원 정의 + statuses + constraints
-  traits/                         # 닫힌 vocabulary (9 파일)
+  traits/                         # 닫힌 vocabulary (11 파일)
     actor.yaml intent.yaml skill.yaml consumer.yaml
     trigger.yaml link-type.yaml
-    regulation.yaml channel.yaml
+    regulation.yaml channel.yaml region.yaml compliance-framework.yaml
     shape.yaml access.yaml
   domains/                        # API consumer 페르소나 (4 파일)
     auth.personas.yaml me.personas.yaml
@@ -215,6 +217,7 @@ client.switchTo(mockServer, 'guest-unauthorized-list')  // → 401
 | v0.7 | `traits/trigger.yaml` 카탈로그 (38값 × 4카테고리) + `acknowledged_orphans` (idempotent) |
 | v0.8 | `consumer` perspective 차원 (7값 × 4카테고리) + `data-models/` 분리 (6 entities) |
 | v0.9 | persona dependency graph (`links`) + `flow` CLI + 검증 룰 #9 (cycle detection) |
+| v0.10 | reference 확장 — `region` + `compliance_framework` (L3+L4). coverage cross-section 2개 추가. 확장 5단계 taxonomy 정의 |
 
 상세는 [`docs/concepts/data-persona.md`](../../docs/concepts/data-persona.md) 참조.
 

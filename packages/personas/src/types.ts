@@ -76,6 +76,10 @@ export interface PersonaIdentity {
 export interface PersonaReference {
   regulation?: string[]
   channel?: string[]
+  /** 데이터 residency / 법적 관할 (KR / EU / US / APAC / GLOBAL …). 미설정 = unconstrained. */
+  region?: string[]
+  /** 조직 단위 인증 (SOC2 / ISO27001 / HIPAA 등). regulation(법)과 직교. */
+  compliance_framework?: string[]
 }
 
 export interface PersonaOutcome {

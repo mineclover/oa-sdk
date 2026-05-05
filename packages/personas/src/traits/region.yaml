@@ -1,0 +1,36 @@
+# region 차원 어휘 — 데이터 residency / 법적 관할
+# reference bucket. 다중 적용 가능 (한 페르소나가 여러 region에 동시 노출될 수 있음).
+# 미설정 시 디폴트 = unconstrained (region에 무관).
+#
+# 카테고리 두 분류:
+#   jurisdiction — 단일 법적 관할 (regulation과 1:1 또는 N:1 매핑 가능)
+#   zone         — 광역 묶음 (jurisdiction을 cross 함)
+
+categories:
+  - id: jurisdiction
+    description: "단일 법적 관할 — regulation 1:1 적용"
+  - id: zone
+    description: "광역 — 여러 jurisdiction 묶음"
+
+values:
+  - id: KR
+    category: jurisdiction
+    description: "대한민국 — PIPA 적용"
+  - id: EU
+    category: jurisdiction
+    description: "유럽연합 — GDPR 적용. 데이터 EU 내 보관 의무"
+  - id: US
+    category: jurisdiction
+    description: "미국 — 주별 다름 (CCPA, HIPAA 등)"
+  - id: JP
+    category: jurisdiction
+    description: "일본 — APPI 적용"
+  - id: SG
+    category: jurisdiction
+    description: "싱가포르 — PDPA 적용"
+  - id: APAC
+    category: zone
+    description: "아시아·태평양 광역 — KR/JP/SG 등 jurisdiction 묶음"
+  - id: GLOBAL
+    category: zone
+    description: "전 region — 보편 적용 또는 region-agnostic"
