@@ -6,7 +6,7 @@
  *     2. Reference vocabulary matching — every regulation/channel value exists in its trait file.
  *        (Identity dimensions with vocabularies — actor, intent, skill — also checked.)
  *     3. maps_to operationId existence — for status: implemented rows, every operationId
- *        must exist in the merged OpenAPI spec.
+ *        must exist in the merged OpenAPI spec. (openapi-http kind only — v0.13)
  *     4. Required field presence — identity.{actor,data,intent,trigger} must be set.
  *     5. Status enum — must be one of registry.statuses.
  *   v0.3
@@ -14,13 +14,25 @@
  *        predicates are reported as a single skip-warn per constraint.
  *     7. Bidirectional drift detection (optional) — if a bound spec is provided,
  *        x-persona on each operation must match the personas that map to it.
+ *        (openapi-http kind only — v0.13)
  *   v0.4-prep
  *     8. expects ⊆ operation.responses — every status code listed in
  *        outcome.expects must be declared in the operation's responses block.
+ *        (openapi-http kind only — v0.13)
  *   v0.9
  *     9. links integrity — every persona link target must reference an existing
  *        persona id (across all domains). depends_on cycles are errors;
  *        self-links are errors; supersedes target should not be 'implemented'.
+ *   v0.11
+ *     15. skills vocabulary — Persona.skills values must exist in traits/skill.yaml.
+ *   v0.11.5
+ *     16-19. profile id uniqueness / reference existence / extends cycle / empty profile.
+ *   v0.12
+ *     20-21. domain ownership — persona.data ∈ metadata.owns_entities;
+ *            persona.identity.actor ∈ metadata.allowed_actors.
+ *   v0.13
+ *     22. metadata.kind enum guard — must be one of openapi-http / cli-tool /
+ *         library-api / event-stream. (Typo would bypass kind-conditional rules.)
  */
 
 import type {
@@ -36,7 +48,7 @@ import type {
 import type { OperationInfo } from './load.js'
 import type { MinimalOpenApiDoc } from './bind.js'
 import { detectDrift } from './bind.js'
-import { domainKind, httpDomainsOnly } from './kind.js'
+import { KIND_VALUES, domainKind, httpDomainsOnly, isValidKind } from './kind.js'
 
 export interface ValidateOptions {
   registry: Registry
@@ -69,6 +81,18 @@ export function validate(opts: ValidateOptions): ValidationReport {
   }
 
   for (const matrix of opts.domains) {
+    // ── 22. v0.13: metadata.kind 어휘 가드 ────────────────────────────────
+    // Domain-level check (one issue per domain, not per persona). Invalid kind
+    // would silently bypass HTTP-only rules (#3/#7/#8) — surface as error.
+    const rawKind = matrix.metadata?.kind
+    if (rawKind !== undefined && !isValidKind(rawKind)) {
+      issues.push({
+        severity: 'error',
+        domain: matrix.domain,
+        message: `unknown metadata.kind '${String(rawKind)}' (allowed: ${[...KIND_VALUES].join(', ')})`,
+      })
+    }
+
     const seenIdentityKeys = new Map<string, string>()    // PK string → personaId
 
     for (const persona of matrix.personas) {

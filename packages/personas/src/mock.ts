@@ -16,6 +16,7 @@
  */
 
 import type { MinimalOpenApiDoc } from './bind.js'
+import { isHttpDomain } from './kind.js'
 import { listPersonasForOperation, resolvePersonaResponse } from './resolver.js'
 import type { ResolvedPersonaResponse } from './resolver.js'
 import type { DomainMatrix } from './types.js'
@@ -74,9 +75,11 @@ export function createPersonaMockClient(options: CreatePersonaMockClientOptions)
 
     applyTo(server, personaId) {
       const applied: string[] = []
-      const personaEntry = options.domains
-        .flatMap(m => m.personas)
-        .find(p => p.id === personaId)
+      // v0.13: only HTTP domains carry operationIds the mock-server can override.
+      // CLI / library / event-stream personas have synthetic ids — silently no-op.
+      const ownerMatrix = options.domains.find(m => m.personas.some(p => p.id === personaId))
+      if (!ownerMatrix || !isHttpDomain(ownerMatrix)) return applied
+      const personaEntry = ownerMatrix.personas.find(p => p.id === personaId)
       if (!personaEntry) return applied
 
       const ids = personaEntry.outcome?.maps_to ?? []

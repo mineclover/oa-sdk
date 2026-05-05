@@ -3,7 +3,7 @@
  */
 
 import { describe, expect, it } from 'vitest'
-import { DEFAULT_KIND, domainKind, isHttpDomain, httpDomainsOnly } from './kind.js'
+import { DEFAULT_KIND, KIND_VALUES, domainKind, isHttpDomain, httpDomainsOnly, isValidKind } from './kind.js'
 import type { DomainMatrix } from './types.js'
 
 const noPersonas: DomainMatrix['personas'] = []
@@ -30,6 +30,26 @@ describe('kind helpers', () => {
     expect(isHttpDomain({ domain: 'c', metadata: { kind: 'cli-tool' }, personas: noPersonas })).toBe(false)
     expect(isHttpDomain({ domain: 'd', metadata: { kind: 'library-api' }, personas: noPersonas })).toBe(false)
     expect(isHttpDomain({ domain: 'e', metadata: { kind: 'event-stream' }, personas: noPersonas })).toBe(false)
+  })
+
+  it('isValidKind accepts the four canonical values', () => {
+    expect(isValidKind('openapi-http')).toBe(true)
+    expect(isValidKind('cli-tool')).toBe(true)
+    expect(isValidKind('library-api')).toBe(true)
+    expect(isValidKind('event-stream')).toBe(true)
+  })
+
+  it('isValidKind rejects unknown / typo values', () => {
+    expect(isValidKind('openpi-http')).toBe(false)       // typo
+    expect(isValidKind('clitool')).toBe(false)           // missing dash
+    expect(isValidKind('grpc')).toBe(false)              // unknown
+    expect(isValidKind('')).toBe(false)
+    expect(isValidKind(undefined)).toBe(false)
+    expect(isValidKind(42)).toBe(false)
+  })
+
+  it('KIND_VALUES contains exactly four kinds', () => {
+    expect(KIND_VALUES.size).toBe(4)
   })
 
   it('httpDomainsOnly filters out non-HTTP kinds', () => {

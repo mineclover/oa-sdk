@@ -36,12 +36,12 @@ values:
 
   - id: framework-developer
     description: "프레임워크/SDK 자체를 개발하는 사람. CLI/library surface의 1차 사용자. (v0.13)"
-    status: proposed
+    status: stable
 
   - id: ci-bot
     description: "CI 자동화 agent — GitHub Actions, GitLab CI, scheduled job. 사람 개입 없이 검증/배포 실행. (v0.13)"
-    status: proposed
+    status: stable
 
   - id: auditor
     description: "외부/내부 컴플라이언스 검토자 — read-only 권한, 정기 검토 surface. (v0.13)"
-    status: proposed
+    status: stable

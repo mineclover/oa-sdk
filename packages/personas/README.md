@@ -210,7 +210,7 @@ selector:
 
 `pnpm profiles list` / `pnpm profiles show <id>`로 조회.
 
-## 18 검증 룰
+## 19 검증 룰 (numbered) + 룰 그룹
 
 `pnpm validate`가 다음을 강제:
 
@@ -234,14 +234,16 @@ selector:
 | 19 | empty profile (selector/personas/extends 모두 빈 경우) | warn | v0.11.5 |
 | 20 | domain ownership — `data` ∈ `metadata.owns_entities` | error | v0.12 |
 | 21 | domain ownership — `actor` ∈ `metadata.allowed_actors` | error | v0.12 |
+| 22 | `metadata.kind` 어휘 가드 — `openapi-http \| cli-tool \| library-api \| event-stream` 외 거부 | error | v0.13 |
 | (kind-aware) | 룰 #3, #7, #8은 `metadata.kind === 'openapi-http'` 도메인에만 적용 (v0.13) | — | v0.13 |
 | (consistency) | audited↔audit-emission, rate-limited↔rate-limit-honored, pseudonymized↔pseudonymized | warn | v0.11 P4 |
+| (constraints) | registry.yaml의 7 constraint (guest-can't-hard-delete / pipa→KR / gdpr→EU / audited↔audit-emission 등) — 룰 #6에 의해 enforce | error/warn | v0.3+ |
 
-## CLI 10종
+## 11 CLI
 
 ```bash
 pnpm wizard                   # baseline 부트스트랩 (1회용) — region/regulation/compliance/stakeholders + spec path 입력 → .persona-project.yaml
-pnpm validate                 # 22 룰 검증 (drift 포함, kind-aware: #3/#7/#8은 openapi-http 도메인만)
+pnpm validate                 # 19 numbered 룰 + constraint group + kind-aware (#3/#7/#8은 openapi-http만)
 pnpm coverage                 # 12-section markdown — operation / response status / actor / regulation / channel / region / compliance / trigger / skill / consumer / data-model / acknowledged-orphans
 pnpm coverage --out=…         # 파일로
 pnpm bind                     # .merged.yaml → .merged.persona.yaml (x-persona 주입)
@@ -355,10 +357,10 @@ client.switchTo(mockServer, 'guest-unauthorized-list')  // → 401
 | domains | 5 (auth/health/me/users + personas-cli dogfood) |
 | surface kinds | 4 (openapi-http: 4 / cli-tool: 1) |
 | operations | 27/27 covered (HTTP) |
-| validation rules | 22 + kind-aware 분기 |
+| validation rules | 19 numbered + 7 registry constraints + kind-aware 분기 |
 | trait files | 13 |
 | sample profiles | 5 |
-| unit tests | 142 |
+| unit tests | 149 |
 | e2e tests | 211 |
 | 검증 게이트 errors | 0 |
 | 검증 게이트 warnings | 0 |

@@ -684,6 +684,57 @@ describe('personas v0.1 validator', () => {
       expect(errors.find(e => e.message.includes('not found in merged spec'))).toBeUndefined()
     })
 
+    it('rejects invalid metadata.kind value (rule #22)', () => {
+      const matrix = {
+        domain: 'typo',
+        metadata: { kind: 'openpi-http' as unknown as never },     // typo — common mistake
+        personas: [{
+          id: 'p1',
+          status: 'implemented',
+          identity: { actor: 'admin', data: 'X', intent: 'list', trigger: 'ops-monitoring' },
+          outcome: { maps_to: ['nonexistentOp'] },
+        }],
+      } as unknown as DomainMatrix
+      const report = validate({ registry, traits, domains: [matrix], knownOperations: new Map() })
+      const kindErr = report.issues.find(i => i.severity === 'error' && i.message.includes('unknown metadata.kind'))
+      expect(kindErr).toBeDefined()
+      // Sanity: kind-aware rules should NOT silently pass under invalid kind —
+      // the kind error makes the report not-ok regardless.
+      expect(report.ok).toBe(false)
+    })
+
+    it('library-api kind validates clean and skips drift / maps_to', () => {
+      const matrix: DomainMatrix = {
+        domain: 'lib-clean',
+        metadata: { kind: 'library-api' },
+        personas: [{
+          id: 'lib-fn',
+          status: 'implemented',
+          identity: { actor: 'framework-developer', data: 'BoundSpec', intent: 'transform', trigger: 'design-review', consumer: 'internal-tool' },
+          outcome: { maps_to: ['fn:bind'], expects: [0] },
+        }],
+      }
+      const report = validate({ registry, traits, domains: [matrix], knownOperations: new Map() })
+      const errors = report.issues.filter(i => i.severity === 'error')
+      expect(errors).toEqual([])
+    })
+
+    it('event-stream kind validates clean and skips drift / maps_to', () => {
+      const matrix: DomainMatrix = {
+        domain: 'evt',
+        metadata: { kind: 'event-stream' },
+        personas: [{
+          id: 'evt-emit',
+          status: 'implemented',
+          identity: { actor: 'system', data: 'X', intent: 'subscribe', trigger: 'ops-monitoring' },
+          outcome: { maps_to: ['evt:user.created'], expects: [200] },
+        }],
+      }
+      const report = validate({ registry, traits, domains: [matrix], knownOperations: new Map() })
+      const errors = report.issues.filter(i => i.severity === 'error')
+      expect(errors).toEqual([])
+    })
+
     it('default kind (omitted) is openapi-http — maps_to errors still fire', () => {
       const matrix: DomainMatrix = {
         domain: 'http-default',

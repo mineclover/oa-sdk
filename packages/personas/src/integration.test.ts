@@ -78,4 +78,19 @@ describe('integration — profile × mock client × spec', () => {
       expect(a).toEqual([...a].sort())
     }
   })
+
+  // v0.13: cli-tool persona's applyTo silently no-ops (synthetic opIds).
+  it('mock-client.applyTo on a cli-tool persona returns empty (no HTTP overrides)', () => {
+    const overrides: string[] = []
+    const fakeServer = {
+      override: (opId: string) => { overrides.push(opId) },
+      clearOverride: () => {},
+      clearOverrides: () => {},
+    }
+    // pick any persona from the personas-cli dogfood domain
+    const cliPersonaId = 'dev-validates-pre-commit'
+    const applied = client.applyTo(fakeServer, cliPersonaId)
+    expect(applied).toEqual([])
+    expect(overrides).toEqual([])
+  })
 })
