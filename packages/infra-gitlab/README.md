@@ -126,4 +126,4 @@ pnpm down                         # destroys containers, volumes, network
 
 ## Symphony note
 
-Symphony's current SPEC (`references/symphony/SPEC.md` §5.3.1) only supports `tracker.kind: linear`. This preset prepares the GitLab-side infrastructure; bridging GitLab issues into Symphony requires either (a) a GitLab tracker adapter implemented against Symphony's extensible front-matter, (b) a GitLab→Linear-shaped proxy, or (c) bypassing Symphony for direct GitLab→Codex orchestration. That work is tracked separately and is **not part of this preset**.
+Symphony's current SPEC ([openai/symphony `SPEC.md` §5.3.1](https://github.com/openai/symphony/blob/main/SPEC.md#531-tracker-object)) only supports `tracker.kind: linear`. This preset prepares the GitLab-side infrastructure; bridging GitLab issues into Symphony requires either (a) a GitLab tracker adapter implemented against Symphony's extensible front-matter, (b) a GitLab→Linear-shaped proxy, or (c) bypassing Symphony for direct GitLab→Codex orchestration. That work is tracked separately and is **not part of this preset**.
