@@ -138,6 +138,33 @@ selector:
 | `proposed` | 미래 surface — 다음 spec 작업 backlog | 비어있어도 OK |
 | `deprecated` | 제거 예정 | 정리 작업 등록 |
 
+## 운영 패러다임 — baseline-once + signal-driven (v0.12)
+
+페르소나 매트릭스는 *사람이 매번 손으로 짜는* 것이 아님. **signal이 발생하면 도구가 자동 stub 생성, 사람이 review**.
+
+```
+┌─ baseline (1회) ──────────────────────────────────────────┐
+│ pnpm wizard 실행 → .persona-project.yaml 생성             │
+│ system context (region/regulation/compliance/stakeholder) │
+│ 큰 refactor 아니면 변경 X.                                 │
+├─ signal-driven (반복) ─────────────────────────────────────┤
+│ propose가 다음 signal 감지:                                │
+│  new-op       — spec 신규 op, 페르소나 없음               │
+│  orphan       — declared response, 페르소나 없음           │
+│  new-schema   — spec 신규 schema, data-model 없음          │
+│ 자동 stub 생성 → status: proposed → 사람 review → 승격     │
+├─ domain ownership ─────────────────────────────────────────┤
+│ 페르소나는 데이터에 속하고, 데이터는 도메인에 속함.         │
+│ 도메인이 자기 entity / 허용 actor / 허용 channel 보유.     │
+└────────────────────────────────────────────────────────────┘
+```
+
+원칙:
+- **데이터가 도메인에 속함, 페르소나가 데이터에 속함** → 페르소나 위치가 도메인 boundary로 자연 결정
+- **baseline은 신중히 한 번** — 큰 refactor 시 `pnpm wizard --reset`
+- **시그널이 트리거** — 사람이 직접 늘리지 않음
+- **review가 게이트** — auto-stub은 항상 `proposed` 상태
+
 ## 사용 사이클
 
 ```
@@ -251,7 +278,8 @@ acknowledged_orphans:
 | v0.10 | reference bucket 확장 — `region`(데이터 residency) + `compliance_framework`(SOC2/ISO27001/HIPAA 등). 8 페르소나 분류. 확장 5단계 taxonomy 정의 |
 | v0.10.5 | regulation ↔ region 정합성 강제 — 22 페르소나 일괄 region 부착 + 2 cross-reference constraint |
 | v0.11 | `identity.skill` → `identity.proficiency` rename. `Persona.skills` capability tags 도입 — `traits/skill.yaml` (6 cat × 25 값). 57 페르소나 자동 분류. 룰 #15 + access↔skills 일관성 constraint 3개 |
-| **v0.11.5 (현재)** | persona profiles — saved query bundle. 5 sample profile (mobile-app / b2b-customer / pipa-compliance / audit-required / infra-ops). `pnpm profiles` CLI. 룰 #16-18 (id 유일성 / target id 실재성 / extends 사이클) |
+| v0.11.5 | persona profiles — saved query bundle. 5 sample profile. `pnpm profiles` CLI. 룰 #16-18 |
+| **v0.12 (현재)** | baseline-once + signal-driven 패러다임. `pnpm wizard` 마법사 (1회용 baseline 부트스트랩). `pnpm propose --from-spec` 전체 spec scan (3 signal: orphan + new-op + new-schema). 사람이 매트릭스 직접 늘리지 않고 signal이 자동 stub 생성, review 후 promote |
 
 ## 향후 후보
 

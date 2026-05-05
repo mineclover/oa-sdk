@@ -191,20 +191,41 @@ selector:
 | 18 | profile.extends 사이클 검출 + unknown profile reference | error | v0.11.5 |
 | (consistency) | audited↔audit-emission, rate-limited↔rate-limit-honored, pseudonymized↔pseudonymized | warn | v0.11 P4 |
 
-## CLI 8종
+## CLI 10종
 
 ```bash
-pnpm validate           # 18 룰 검증 (drift 포함)
-pnpm coverage           # 9-section markdown — operations / response status / actors / regulations / channels / triggers / consumers / skills / regions / compliance / data-models
-pnpm coverage --out=…   # 파일로
-pnpm bind               # .merged.yaml → .merged.persona.yaml (x-persona 주입)
-pnpm propose            # orphan response → 페르소나 stub 자동 (idempotent — acknowledged_orphans 존중)
-pnpm gen:tests          # 매트릭스 → vitest 매트릭스 자동 생성
-pnpm flow               # 의존성 그래프 (markdown + mermaid + topological layers)
-pnpm profiles list      # saved profile 일람 + 각 페르소나 수
-pnpm profiles show <id> # 단일 profile expand 결과 (markdown)
-pnpm check              # merge → bind → validate 한 방
+pnpm wizard                   # baseline 부트스트랩 (1회용) — region/regulation/compliance/stakeholders + spec path 입력 → .persona-project.yaml
+pnpm validate                 # 18 룰 검증 (drift 포함)
+pnpm coverage                 # 9-section markdown
+pnpm coverage --out=…         # 파일로
+pnpm bind                     # .merged.yaml → .merged.persona.yaml (x-persona 주입)
+pnpm propose                  # orphan response → 페르소나 stub 자동 (idempotent — acknowledged_orphans 존중)
+pnpm propose --from-spec      # 전체 spec scan: orphan + new-op + new-schema 3 signal (v0.12)
+pnpm gen:tests                # 매트릭스 → vitest 매트릭스 자동 생성
+pnpm flow                     # 의존성 그래프 (markdown + mermaid + topological layers)
+pnpm profiles list            # saved profile 일람 + 각 페르소나 수
+pnpm profiles show <id>       # 단일 profile expand 결과 (markdown)
+pnpm check                    # merge → bind → validate 한 방
 ```
+
+### 운영 패러다임 — baseline-once + signal-driven
+
+```
+1. baseline (1회)            wizard로 system context 결정 → .persona-project.yaml
+                             traits/* / domain ownership / 프로젝트 메타 고정.
+
+2. signal-driven (반복)       spec/data 변동 → propose가 signal 감지 → auto-stub
+                             3 signal: new-op / orphan / new-schema
+                             출력: status: proposed → 사람 review → implemented 승격.
+
+3. domain ownership           각 도메인 .personas.yaml의 metadata로 boundary 강화
+                             (entity 소유, actor 허용, channel 허용)
+```
+
+**주요 원칙**:
+- 사람이 매트릭스를 *직접* 늘리지 않음. spec 변경 / orphan 발견이 signal을 발생.
+- baseline은 신중히 한 번 → 변경 X (큰 refactor 시 `pnpm wizard --reset`).
+- review 게이트가 항상 있음 — auto-stub은 `proposed` 상태로만 도입, `implemented`로 promote는 사람이.
 
 ## 운영 사이클
 

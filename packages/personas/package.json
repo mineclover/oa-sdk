@@ -23,12 +23,14 @@
     "propose": "node --import tsx scripts/propose-personas.ts",
     "flow": "node --import tsx scripts/flow.ts",
     "profiles": "node --import tsx scripts/profile.ts",
+    "wizard": "node --import tsx scripts/wizard.ts",
     "check": "pnpm --filter @oa-sdk/schemas merge && pnpm bind && pnpm validate",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "clean": "rm -rf dist"
   },
   "dependencies": {
+    "@inquirer/prompts": "^7.0.0",
     "yaml": "^2.8.3"
   },
   "devDependencies": {
