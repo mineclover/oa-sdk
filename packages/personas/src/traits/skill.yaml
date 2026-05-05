@@ -1,0 +1,123 @@
+# skill 차원 어휘 — 페르소나 capability tags (v0.11)
+# 페르소나가 *고유하게 보유하는 능력*. RPG 캐릭터의 perks/skills와 유사.
+# 다중 cardinality. 한 페르소나가 여러 skill을 동시 보유.
+#
+# `Persona.skills: string[]` 필드 (top-level, optional).
+# 미설정 = skill-agnostic (능력 명시 없음).
+
+categories:
+  - id: request-shape
+    description: "요청 측 능력 — pagination/filter/batch 등 입력 변형"
+  - id: response-shape
+    description: "응답 측 능력 — sse/etag/partial 등 출력 변형"
+  - id: lifecycle
+    description: "호출 lifecycle 보장 — idempotent/retryable/cacheable"
+  - id: observability
+    description: "관측 — audit/metrics/trace 발생"
+  - id: security
+    description: "보안 — pii 노출/마스킹/서명/mtls"
+  - id: integration
+    description: "통합 — webhook/oauth-scope/rate-limit"
+
+values:
+  # ── request-shape ─────────────────────────────────────────────────────
+  - id: pagination
+    category: request-shape
+    description: "page / limit 또는 cursor 페이지네이션 지원"
+
+  - id: filter-by-role
+    category: request-shape
+    description: "role 쿼리 파라미터 지원"
+
+  - id: filter-by-status
+    category: request-shape
+    description: "status 쿼리 파라미터 지원"
+
+  - id: full-text-search
+    category: request-shape
+    description: "q 또는 search 텍스트 쿼리"
+
+  - id: batch
+    category: request-shape
+    description: "다건 처리 — bulk-batch shape와 짝"
+
+  # ── response-shape ────────────────────────────────────────────────────
+  - id: sse-stream
+    category: response-shape
+    description: "Server-Sent Events 스트림 응답"
+
+  - id: etag-supported
+    category: response-shape
+    description: "ETag 헤더 + If-None-Match 처리"
+
+  - id: partial-response
+    category: response-shape
+    description: "fields= 같은 partial response 지원"
+
+  # ── lifecycle ─────────────────────────────────────────────────────────
+  - id: idempotent
+    category: lifecycle
+    description: "Idempotency-Key 또는 자연 idempotent (GET/PUT/DELETE)"
+
+  - id: retryable
+    category: lifecycle
+    description: "재시도 안전 — 5xx 시 클라이언트가 재시도해도 OK"
+
+  - id: cacheable
+    category: lifecycle
+    description: "Cache-Control 응답 — CDN/browser cache 가능"
+
+  # ── observability ─────────────────────────────────────────────────────
+  - id: audit-emission
+    category: observability
+    description: "감사 이벤트 발생 (X-Audit-Id 또는 별 audit pipeline)"
+
+  - id: metrics-emission
+    category: observability
+    description: "Prometheus/Datadog 메트릭 발생"
+
+  - id: trace-context
+    category: observability
+    description: "W3C trace-context 또는 X-Request-Id 전파"
+
+  # ── security ──────────────────────────────────────────────────────────
+  - id: pii-visible-admin
+    category: security
+    description: "admin scope에서는 PII 평문 노출 (마스킹 X)"
+
+  - id: pii-masked-default
+    category: security
+    description: "PII 기본 마스킹 — admin scope만 평문 가능"
+
+  - id: pseudonymized
+    category: security
+    description: "PII 직접 식별자 제거 / 가명화"
+
+  - id: signed-response
+    category: security
+    description: "JWS/JWT 서명 응답 — 무결성 보장"
+
+  - id: mtls
+    category: security
+    description: "mutual TLS — client cert 검증"
+
+  # ── integration ───────────────────────────────────────────────────────
+  - id: webhook-source
+    category: integration
+    description: "이 호출이 webhook을 trigger (outbound)"
+
+  - id: webhook-target
+    category: integration
+    description: "이 페르소나는 webhook 수신자 — inbound"
+
+  - id: oauth-scope-aware
+    category: integration
+    description: "OAuth scope 검증 — read/write/admin 분리"
+
+  - id: rate-limit-honored
+    category: integration
+    description: "Rate limit 응답 (429) + Retry-After 헤더 발급"
+
+  - id: idempotency-key-required
+    category: integration
+    description: "Idempotency-Key 헤더 필수 — partner SDK 권장"

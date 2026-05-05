@@ -35,6 +35,10 @@ export function loadAllTraits(registry: Registry, packageRoot: string = defaultP
       }
     }
   }
+  // v0.11: top-level vocabularies (e.g. skill) outside any bucket
+  for (const [name, ref] of Object.entries(registry.top_level_vocabularies ?? {})) {
+    map.set(name, loadTrait(ref, packageRoot))
+  }
   return map
 }
 

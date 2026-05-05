@@ -7,7 +7,12 @@
 #
 # 차원 자체는 닫혀 있고, 각 차원의 어휘는 traits/*.yaml에서 자유 추가 가능.
 
-version: "0.4-prep"
+version: "0.11"
+
+# Top-level vocabularies — bucket에 속하지 않는 page-level trait yaml.
+# v0.11: skill = 페르소나 capability tags (Persona.skills field).
+top_level_vocabularies:
+  skill: traits/skill.yaml
 
 buckets:
   identity:

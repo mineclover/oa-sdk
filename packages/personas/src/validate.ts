@@ -115,6 +115,9 @@ export function validate(opts: ValidateOptions): ValidationReport {
 
       // ── 9. link integrity (target exists, no self-link, supersedes deprecated) ─
       checkLinks(persona, matrix.domain, personaById, issues)
+
+      // ── 15. v0.11: skills vocabulary 매칭 ───────────────────────────
+      checkSkills(persona, matrix.domain, opts.traits, issues)
     }
   }
 
@@ -459,6 +462,31 @@ function checkExpects(
           message: `expected status ${code} not declared in operation '${id}' (declared: ${[...op.responses].sort().join(', ')})`,
         })
       }
+    }
+  }
+}
+
+// ─── v0.11: skill vocabulary matching ─────────────────────────────────────
+
+function checkSkills(
+  persona: Persona,
+  domain: string,
+  traits: Map<string, TraitVocabulary>,
+  issues: ValidationIssue[],
+): void {
+  const skills = persona.skills ?? []
+  if (skills.length === 0) return
+  const vocab = traits.get('skill')
+  if (!vocab) return                              // skill vocab not registered
+  const known = new Set(vocab.values.map(v => v.id))
+  for (const s of skills) {
+    if (!known.has(s)) {
+      issues.push({
+        severity: 'error',
+        domain,
+        personaId: persona.id,
+        message: `skill '${s}' not in vocabulary 'traits/skill.yaml'`,
+      })
     }
   }
 }

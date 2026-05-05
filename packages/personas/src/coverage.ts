@@ -95,6 +95,9 @@ export interface CoverageReport {
   consumerCategories?: TriggerCategoryRow[]
   /** Consumer values used but missing from the vocabulary. */
   unknownConsumers?: string[]
+  /** v0.11: skill capability tags cross-section (only when skillVocab provided). */
+  skillCategories?: TriggerCategoryRow[]
+  unknownSkills?: string[]
   /** Intentional orphans (e.g. infrastructure 500) — flat list across domains. */
   acknowledgedOrphans: AcknowledgedOrphanRow[]
   /** Optional — only populated when dataModels are provided. */
@@ -118,6 +121,8 @@ export interface CoverageInput {
   triggerVocab?: TraitVocabulary
   /** Optional — when provided, coverage includes a Consumer category cross-section. */
   consumerVocab?: TraitVocabulary
+  /** v0.11: when provided, coverage builds Skill capability cross-section. */
+  skillVocab?: TraitVocabulary
   /** Optional — when provided, coverage builds entity → personas index. */
   dataModels?: DataModelPersona[]
 }
@@ -284,6 +289,15 @@ export function analyzeCoverage(input: CoverageInput): CoverageReport {
     if (unknownValues.length > 0) report.unknownConsumers = unknownValues
   }
 
+  if (input.skillVocab) {
+    // skills field가 array — 카테고리별로 펼쳐서 카운트
+    const { categories: skillCategories, unknownValues } = buildSkillCategoryView(
+      input.domains, input.skillVocab,
+    )
+    report.skillCategories = skillCategories
+    if (unknownValues.length > 0) report.unknownSkills = unknownValues
+  }
+
   if (input.dataModels && input.dataModels.length > 0) {
     report.dataModelCoverage = buildDataModelCoverage(input.domains, input.dataModels)
   }
@@ -319,6 +333,62 @@ function buildDataModelCoverage(domains: DomainMatrix[], models: DataModelPerson
       regulations: (model.regulations ?? []) as string[],
     }
   }).sort((a, b) => a.entity.localeCompare(b.entity))
+}
+
+/**
+ * v0.11: skills는 array field — buildIdentityCategoryView과 달리 한 페르소나가 여러 값.
+ * 각 skill 등장마다 한 번씩 카운트.
+ */
+function buildSkillCategoryView(
+  domains: DomainMatrix[],
+  vocab: TraitVocabulary,
+): { categories: TriggerCategoryRow[]; unknownValues: string[] } {
+  const valueToCategory = new Map<string, string>()
+  for (const v of vocab.values) {
+    if (v.category) valueToCategory.set(v.id, v.category)
+  }
+  const categoryDefs = vocab.categories ?? []
+
+  const counts = new Map<string, { personas: number; values: Set<string> }>()
+  for (const cat of categoryDefs) counts.set(cat.id, { personas: 0, values: new Set() })
+
+  const unknown = new Set<string>()
+  for (const m of domains) {
+    for (const p of m.personas) {
+      const skills = p.skills ?? []
+      const seenCats = new Set<string>()
+      for (const s of skills) {
+        const cat = valueToCategory.get(s)
+        if (!cat) {
+          unknown.add(s)
+          continue
+        }
+        let bucket = counts.get(cat)
+        if (!bucket) {
+          bucket = { personas: 0, values: new Set() }
+          counts.set(cat, bucket)
+        }
+        bucket.values.add(s)
+        if (!seenCats.has(cat)) {
+          // 한 페르소나가 같은 카테고리에 여러 skill을 가지면 personas는 1로만 카운트
+          bucket.personas++
+          seenCats.add(cat)
+        }
+      }
+    }
+  }
+
+  const categories: TriggerCategoryRow[] = categoryDefs.map(cat => {
+    const c = counts.get(cat.id) ?? { personas: 0, values: new Set<string>() }
+    const row: TriggerCategoryRow = {
+      category: cat.id,
+      personaCount: c.personas,
+      triggers: [...c.values].sort(),
+    }
+    if (cat.description) row.description = cat.description
+    return row
+  })
+  return { categories, unknownValues: [...unknown].sort() }
 }
 
 function buildIdentityCategoryView(
@@ -540,6 +610,25 @@ export function renderMarkdown(report: CoverageReport): string {
       lines.push('### Unknown triggers (drift signal)')
       lines.push('')
       for (const t of report.unknownTriggers) lines.push(`- \`${t}\``)
+      lines.push('')
+    }
+  }
+
+  if (report.skillCategories && report.skillCategories.length > 0) {
+    lines.push('## Skill capability cross-section')
+    lines.push('')
+    lines.push('페르소나 고유 보유 능력 (capability tags). 한 페르소나가 여러 카테고리에 걸쳐 skills 보유 가능.')
+    lines.push('')
+    lines.push('| category | personas | distinct skills |')
+    lines.push('|---|---:|---|')
+    for (const row of report.skillCategories) {
+      lines.push(`| \`${row.category}\` | ${row.personaCount} | ${row.triggers.map(s => `\`${s}\``).join(', ') || '—'} |`)
+    }
+    lines.push('')
+    if (report.unknownSkills && report.unknownSkills.length > 0) {
+      lines.push('### Unknown skills (drift)')
+      lines.push('')
+      for (const s of report.unknownSkills) lines.push(`- \`${s}\``)
       lines.push('')
     }
   }

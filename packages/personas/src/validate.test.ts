@@ -128,6 +128,25 @@ describe('personas v0.1 validator', () => {
     )).toBe(true)
   })
 
+  it('v0.11 rule #15: skill values must be in vocabulary', () => {
+    const matrix: DomainMatrix = {
+      domain: 'fake',
+      personas: [{
+        id: 'unknown-skill',
+        status: 'implemented',
+        identity: { actor: 'admin', data: 'X', intent: 'list', trigger: 'ops-monitoring' },
+        skills: ['pagination', 'not-a-real-skill'],
+        outcome: { maps_to: ['op1'], expects: [200] },
+      }],
+    }
+    const synthOps = new Map([['op1', { operationId: 'op1', path: '/x', method: 'get', responses: new Set(['200']) }]])
+    const report = validate({ registry, traits, domains: [matrix], knownOperations: synthOps })
+    expect(report.issues.some(i =>
+      i.severity === 'error' &&
+      i.message.includes("skill 'not-a-real-skill' not in vocabulary"),
+    )).toBe(true)
+  })
+
   it('v0.10.5: pipa-requires-kr-region constraint — error when KR missing', () => {
     const matrix: DomainMatrix = {
       domain: 'fake',

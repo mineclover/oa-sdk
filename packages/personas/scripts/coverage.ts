@@ -45,12 +45,14 @@ function main(): void {
   const traits = loadAllTraits(registry)
   const triggerVocab = traits.get('trigger')
   const consumerVocab = traits.get('consumer')
+  const skillVocab = traits.get('skill')
   const dataModels = loadAllDataModels()
   const report = analyzeCoverage({
     domains,
     knownOperations,
     ...(triggerVocab ? { triggerVocab } : {}),
     ...(consumerVocab ? { consumerVocab } : {}),
+    ...(skillVocab ? { skillVocab } : {}),
     ...(dataModels.length > 0 ? { dataModels } : {}),
   })
   const md = renderMarkdown(report)

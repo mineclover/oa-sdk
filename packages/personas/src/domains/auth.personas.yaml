@@ -23,6 +23,7 @@ personas:
       access: [ public, rate-limited ]
       maps_to: [ register ]
       expects: [ 201 ]
+    skills: [ audit-emission, rate-limit-honored, retryable ]
     notes: "공개 가입. PII 수집(email, name, password) — PIPA 적용. 동시 회원가입 폭주 방지 위해 rate-limited."
 
   - id: guest-login
@@ -39,6 +40,7 @@ personas:
       access: [ public, rate-limited ]
       maps_to: [ login ]
       expects: [ 200 ]
+    skills: [ audit-emission, rate-limit-honored, retryable ]
     notes: "인증 자체는 PII 처리지만 login은 로그 외 데이터 노출 없음. brute-force 방지로 rate-limited 필수."
 
   - id: user-token-refresh
@@ -129,6 +131,7 @@ personas:
       access: [ public, rate-limited ]
       maps_to: [ register ]
       expects: [ 429 ]
+    skills: [ rate-limit-honored ]
     notes: "negative-path. 회원가입 폭주 → 429 + Retry-After. register의 429 응답 커버."
 
   - id: login-bad-credentials
@@ -145,6 +148,7 @@ personas:
       access: [ public, rate-limited ]
       maps_to: [ login ]
       expects: [ 401 ]
+    skills: [ rate-limit-honored, retryable ]
     notes: "negative-path. 잘못된 비밀번호 → 401. login의 401 응답 커버."
 
   - id: login-rate-limited
@@ -161,6 +165,7 @@ personas:
       access: [ public, rate-limited ]
       maps_to: [ login ]
       expects: [ 429 ]
+    skills: [ rate-limit-honored, retryable ]
     notes: "negative-path. brute-force 감지 → 429 + Retry-After. login의 429 응답 커버."
 
   # ── perspective expansion (consumer 차원) ─────────────────────────────
@@ -198,6 +203,7 @@ personas:
       access: [ public, rate-limited ]
       maps_to: [ forgotPassword ]
       expects: [ 204 ]
+    skills: [ rate-limit-honored ]
     notes: "POST /auth/forgot-password. enumeration 방지 위해 이메일 미존재여도 동일 204."
 
   - id: guest-password-reset-confirm
@@ -214,6 +220,7 @@ personas:
       access: [ public, rate-limited ]
       maps_to: [ resetPassword ]
       expects: [ 204 ]
+    skills: [ rate-limit-honored ]
     notes: "POST /auth/reset-password — reset 토큰 + new password."
 
   # ── auto-promoted from v0.6 propose (negative-path coverage) ────────
@@ -234,6 +241,7 @@ personas:
       access: [ public, rate-limited ]
       maps_to: [ forgotPassword ]
       expects: [ 400 ]
+    skills: [ rate-limit-honored ]
     notes: "negative-path. 잘못된 요청 형식 → 400. forgotPassword의 400 응답 커버."
   - id: malformed-payload-forgotPassword
     status: implemented
@@ -251,6 +259,7 @@ personas:
       access: [ public, rate-limited ]
       maps_to: [ forgotPassword ]
       expects: [ 422 ]
+    skills: [ rate-limit-honored ]
     notes: "negative-path. schema 위반 → 422. forgotPassword의 422 응답 커버."
   - id: rate-limited-forgotPassword
     status: implemented
@@ -268,6 +277,7 @@ personas:
       access: [ public, rate-limited ]
       maps_to: [ forgotPassword ]
       expects: [ 429 ]
+    skills: [ rate-limit-honored ]
     notes: "negative-path. 요청 한도 초과 → 429. forgotPassword의 429 응답 커버."
 
   - id: malformed-login
@@ -284,6 +294,7 @@ personas:
       access: [ public, rate-limited ]
       maps_to: [ login ]
       expects: [ 400 ]
+    skills: [ rate-limit-honored, retryable ]
     notes: "negative-path. 잘못된 요청 형식 → 400. login의 400 응답 커버."
   - id: malformed-payload-login
     status: implemented
@@ -299,6 +310,7 @@ personas:
       access: [ public, rate-limited ]
       maps_to: [ login ]
       expects: [ 422 ]
+    skills: [ rate-limit-honored, retryable ]
     notes: "negative-path. schema 위반 → 422. login의 422 응답 커버."
 
   - id: guest-unauthorized-logout
@@ -331,6 +343,7 @@ personas:
       access: [ public ]
       maps_to: [ refreshToken ]
       expects: [ 401 ]
+    skills: [ retryable ]
     notes: "negative-path. 미인증 호출 → 401. refreshToken의 401 응답 커버."
   - id: malformed-payload-refreshToken
     status: implemented
@@ -364,6 +377,7 @@ personas:
       access: [ public, rate-limited ]
       maps_to: [ register ]
       expects: [ 400 ]
+    skills: [ rate-limit-honored ]
     notes: "negative-path. 잘못된 요청 형식 → 400. register의 400 응답 커버."
 
   - id: malformed-resetPassword
@@ -380,6 +394,7 @@ personas:
       access: [ public, rate-limited ]
       maps_to: [ resetPassword ]
       expects: [ 400 ]
+    skills: [ rate-limit-honored ]
     notes: "negative-path. 잘못된 요청 형식 → 400. resetPassword의 400 응답 커버."
   - id: guest-unauthorized-resetPassword
     status: implemented
@@ -410,4 +425,5 @@ personas:
       access: [ public, rate-limited ]
       maps_to: [ resetPassword ]
       expects: [ 422 ]
+    skills: [ rate-limit-honored ]
     notes: "negative-path. schema 위반 → 422. resetPassword의 422 응답 커버."

@@ -32,6 +32,7 @@ personas:
       access: [ scoped:admin, audited ]
       maps_to: [ listUsers ]
       expects: [ 200 ]
+    skills: [ audit-emission, filter-by-role, filter-by-status, pagination, pii-visible-admin ]
     notes: "운영 대시보드용. PIPA 적용 — 마스킹 또는 운영자 본인 확인 강화."
 
   - id: admin-user-detail
@@ -51,6 +52,7 @@ personas:
       access: [ scoped:admin, audited ]
       maps_to: [ getUserById ]
       expects: [ 200 ]
+    skills: [ audit-emission, pii-visible-admin ]
 
   - id: admin-create-user
     status: implemented
@@ -69,6 +71,7 @@ personas:
       access: [ scoped:admin, audited ]
       maps_to: [ createUser ]
       expects: [ 201 ]
+    skills: [ audit-emission, pii-visible-admin ]
     notes: "공개 가입(register)과 별개. 운영자가 사전 등록하는 경우. 이메일 중복은 409."
 
   - id: admin-role-grant
@@ -88,6 +91,7 @@ personas:
       access: [ scoped:admin, audited ]
       maps_to: [ updateUser ]
       expects: [ 200 ]
+    skills: [ audit-emission, pii-visible-admin ]
     notes: "PATCH /users/{id} {role}. 역할 변경은 감사 필수."
 
   - id: admin-user-removal
@@ -107,6 +111,7 @@ personas:
       access: [ scoped:admin, audited ]
       maps_to: [ deleteUser ]
       expects: [ 204 ]
+    skills: [ audit-emission, pii-visible-admin ]
     notes: "현 spec의 DELETE /users/{id} 는 hard-delete. soft-delete가 필요하면 별 페르소나로 추가."
 
   # ── negative-path (orphan response 해소) ─────────────────────────────
@@ -124,6 +129,7 @@ personas:
       access: [ public ] # 인증 없는 시도
       maps_to: [ listUsers ]
       expects: [ 401 ]
+    skills: [ pagination ]
     notes: "negative-path. 미인증 호출 → 401. listUsers의 401 응답 커버. happy-path는 admin-monitor."
 
   - id: non-admin-update-other-user
@@ -140,6 +146,7 @@ personas:
       access: [ scoped:read, audited ]
       maps_to: [ updateUser ]
       expects: [ 403 ]
+    skills: [ audit-emission ]
     notes: "negative-path. 일반 user가 admin endpoint를 호출 → 403. updateUser의 403 응답 커버. 권한 우회 시도는 audit 필수."
 
   - id: getUserById-not-found
@@ -159,6 +166,7 @@ personas:
       access: [ scoped:admin, audited ]
       maps_to: [ getUserById ]
       expects: [ 404 ]
+    skills: [ audit-emission, pii-visible-admin ]
     notes: "negative-path. 존재하지 않는 UUID 조회 → 404. getUserById의 404 응답 커버."
 
   - id: updateUser-not-found
@@ -178,6 +186,7 @@ personas:
       access: [ scoped:admin, audited ]
       maps_to: [ updateUser ]
       expects: [ 404 ]
+    skills: [ audit-emission, pii-visible-admin ]
     notes: "negative-path. 존재하지 않는 UUID 수정 → 404. updateUser의 404 응답 커버."
 
   # ── perspective expansion (consumer 차원) — 같은 op, 다른 stakeholder 시점 ────
@@ -198,6 +207,7 @@ personas:
       access: [ scoped:read, audited ]
       maps_to: [ listUsers ]
       expects: [ 200 ]
+    skills: [ audit-emission, pagination ]
     links:
       - linkType: refines
         target: admin-monitor
@@ -222,6 +232,7 @@ personas:
       access: [ scoped:read, audited, rate-limited ]
       maps_to: [ listUsers ]
       expects: [ 200 ]
+    skills: [ audit-emission, oauth-scope-aware, pagination, pii-masked-default, rate-limit-honored ]
     links:
       - linkType: refines
         target: admin-monitor
@@ -246,6 +257,7 @@ personas:
       access: [ scoped:admin, audited, pseudonymized ]
       maps_to: [ requestUsersExport ]
       expects: [ 202 ]
+    skills: [ audit-emission, batch, idempotent, pii-masked-default, pseudonymized ]
     notes: "데이터 엔지니어 daily ETL — POST /admin/users/export가 비동기 ExportJob을 생성. 기본 pseudonymize=true로 bulk PII export를 비식별화."
 
   - id: site-admin-purge-user
@@ -266,6 +278,7 @@ personas:
       access: [ scoped:admin, audited ]
       maps_to: [ purgeUser ]
       expects: [ 204 ]
+    skills: [ audit-emission, pii-visible-admin ]
     notes: "사이트 관리자의 강제 영구 삭제 — POST /admin/users/{id}/purge가 30일 soft-delete window를 우회하고 감사 사유를 요구. deleteUser와 별도 authority."
     links:
       - linkType: refines
@@ -291,6 +304,7 @@ personas:
       access: [ scoped:admin, audited ]
       maps_to: [ getUserById ]
       expects: [ 200 ]
+    skills: [ audit-emission, pii-visible-admin ]
     links:
       - linkType: refines
         target: admin-user-detail
@@ -311,6 +325,7 @@ personas:
       access: [ scoped:read, pseudonymized ]
       maps_to: [ getPublicUserProfile ]
       expects: [ 200 ]
+    skills: [ pseudonymized ]
     notes: "GET /users/{id}/public — PII 비포함 공개 프로필. mention/검색 결과 등에서 사용."
 
   - id: target-of-role-change
@@ -327,6 +342,7 @@ personas:
       access: [ private-self, audited ]
       maps_to: [ listMyRoleChanges ]
       expects: [ 200 ]
+    skills: [ audit-emission, pagination ]
     notes: "GET /me/role-changes — admin이 내 역할을 변경한 이력 일람. shape: list-paginated로 변경 (이력은 다건)."
 
   - id: user-report-abuse
@@ -344,6 +360,7 @@ personas:
       access: [ scoped:write, rate-limited, audited ]
       maps_to: [ reportUser ]
       expects: [ 201 ]
+    skills: [ audit-emission, rate-limit-honored ]
     notes: "POST /users/{id}/reports — 신고 surface. 신고자→대상 페어 24h 1회 rate-limit."
 
   - id: moderator-review-reports
@@ -362,6 +379,7 @@ personas:
       access: [ scoped:admin, audited ]
       maps_to: [ listModerationReports ]
       expects: [ 200 ]
+    skills: [ audit-emission, pii-visible-admin ]
     notes: "GET /moderation/reports — moderator 전용 큐. user-report-abuse와 짝."
 
   # ── auto-promoted from v0.6 propose (negative-path coverage) ────────
@@ -382,6 +400,7 @@ personas:
       access: [ "scoped:admin", audited ]
       maps_to: [ createUser ]
       expects: [ 400 ]
+    skills: [ audit-emission ]
     notes: "negative-path. 잘못된 요청 형식 → 400. createUser의 400 응답 커버."
   - id: guest-unauthorized-createUser
     status: implemented
@@ -414,6 +433,7 @@ personas:
       access: [ "scoped:admin", audited ]
       maps_to: [ createUser ]
       expects: [ 422 ]
+    skills: [ audit-emission ]
     notes: "negative-path. schema 위반 → 422. createUser의 422 응답 커버."
   - id: guest-unauthorized-deleteUser
     status: implemented
@@ -446,6 +466,7 @@ personas:
       access: [ "scoped:admin", audited ]
       maps_to: [ deleteUser ]
       expects: [ 404 ]
+    skills: [ audit-emission ]
     notes: "negative-path. 존재하지 않는 리소스 → 404. deleteUser의 404 응답 커버."
 
   - id: guest-unauthorized-getPublicUserProfile
@@ -478,6 +499,7 @@ personas:
       access: [ "scoped:read", pseudonymized ]
       maps_to: [ getPublicUserProfile ]
       expects: [ 404 ]
+    skills: [ pseudonymized ]
     notes: "negative-path. 존재하지 않는 리소스 → 404. getPublicUserProfile의 404 응답 커버."
 
   - id: guest-unauthorized-getUserById
@@ -525,6 +547,7 @@ personas:
       access: [ "scoped:admin", audited, "scoped:read" ]
       maps_to: [ listModerationReports ]
       expects: [ 403 ]
+    skills: [ audit-emission ]
     notes: "negative-path. 권한 부족 → 403. listModerationReports의 403 응답 커버."
 
   - id: guest-unauthorized-listMyRoleChanges
@@ -541,6 +564,7 @@ personas:
       access: [ public ]
       maps_to: [ listMyRoleChanges ]
       expects: [ 401 ]
+    skills: [ pagination ]
     notes: "negative-path. 미인증 호출 → 401. listMyRoleChanges의 401 응답 커버."
 
   - id: malformed-reportUser
@@ -558,6 +582,7 @@ personas:
       access: [ "scoped:write", rate-limited, audited ]
       maps_to: [ reportUser ]
       expects: [ 400 ]
+    skills: [ audit-emission, rate-limit-honored ]
     notes: "negative-path. 잘못된 요청 형식 → 400. reportUser의 400 응답 커버."
   - id: guest-unauthorized-reportUser
     status: implemented
@@ -589,6 +614,7 @@ personas:
       access: [ "scoped:write", rate-limited, audited ]
       maps_to: [ reportUser ]
       expects: [ 422 ]
+    skills: [ audit-emission, rate-limit-honored ]
     notes: "negative-path. schema 위반 → 422. reportUser의 422 응답 커버."
   - id: rate-limited-reportUser
     status: implemented
@@ -605,6 +631,7 @@ personas:
       access: [ "scoped:write", rate-limited, audited ]
       maps_to: [ reportUser ]
       expects: [ 429 ]
+    skills: [ audit-emission, rate-limit-honored ]
     notes: "negative-path. 요청 한도 초과 → 429. reportUser의 429 응답 커버."
 
   - id: malformed-updateUser
@@ -623,6 +650,7 @@ personas:
       access: [ "scoped:admin", audited ]
       maps_to: [ updateUser ]
       expects: [ 400 ]
+    skills: [ audit-emission ]
     notes: "negative-path. 잘못된 요청 형식 → 400. updateUser의 400 응답 커버."
   - id: guest-unauthorized-updateUser
     status: implemented
@@ -655,4 +683,5 @@ personas:
       access: [ "scoped:admin", audited ]
       maps_to: [ updateUser ]
       expects: [ 422 ]
+    skills: [ audit-emission ]
     notes: "negative-path. schema 위반 → 422. updateUser의 422 응답 커버."

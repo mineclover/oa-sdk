@@ -39,6 +39,11 @@ export interface Registry {
     reference: BucketSpec
     outcome: BucketSpec
   }
+  /**
+   * v0.11: bucket 외 top-level vocabularies (e.g., `skill` for Persona.skills).
+   * key = vocabulary 이름, value = trait yaml 상대경로.
+   */
+  top_level_vocabularies?: Record<string, string>
   statuses: Array<{ id: PersonaStatus; description: string }>
   constraints: RegistryConstraint[]
 }
@@ -108,6 +113,12 @@ export interface Persona {
   identity: PersonaIdentity
   reference?: PersonaReference
   outcome?: PersonaOutcome
+  /**
+   * 페르소나가 고유하게 보유한 capability tags (v0.11).
+   * RPG 캐릭터의 skills처럼 — pagination, audit-emission, oauth-scope-aware, etc.
+   * `traits/skill.yaml` vocabulary와 검증.
+   */
+  skills?: string[]
   /** 다른 페르소나와의 관계 — 시퀀스 그래프 / 변종 추적 / lifecycle */
   links?: PersonaLink[]
   notes?: string

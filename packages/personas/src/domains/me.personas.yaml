@@ -62,6 +62,7 @@ personas:
       access: [ private-self, audited, rate-limited ]
       maps_to: [ changeMyPassword ]
       expects: [ 204 ]
+    skills: [ audit-emission, rate-limit-honored ]
     links:
       - linkType: depends_on
         target: guest-login
@@ -151,6 +152,7 @@ personas:
       access: [ private-self, audited ]
       maps_to: [ deleteMyAccount ]
       expects: [ 204 ]
+    skills: [ audit-emission ]
     notes: "DELETE /me — soft-delete (30일 복구 가능). PIPA 파기 요구권 / GDPR right-to-erasure."
 
   - id: user-self-data-export
@@ -169,6 +171,7 @@ personas:
       access: [ private-self, audited, rate-limited ]
       maps_to: [ requestMyDataExport ]
       expects: [ 202 ]
+    skills: [ audit-emission, batch, idempotent, rate-limit-honored ]
     notes: "POST /me/export — GDPR 정보주체 이동권. 비동기 job + download URL."
 
   # ── auto-promoted from v0.6 propose (negative-path coverage) ────────
@@ -189,6 +192,7 @@ personas:
       access: [ private-self, audited, rate-limited ]
       maps_to: [ changeMyPassword ]
       expects: [ 400 ]
+    skills: [ audit-emission, rate-limit-honored ]
     notes: "negative-path. 잘못된 요청 형식 → 400. changeMyPassword의 400 응답 커버."
   - id: malformed-payload-changeMyPassword
     status: implemented
@@ -206,6 +210,7 @@ personas:
       access: [ private-self, audited, rate-limited ]
       maps_to: [ changeMyPassword ]
       expects: [ 422 ]
+    skills: [ audit-emission, rate-limit-honored ]
     notes: "negative-path. schema 위반 → 422. changeMyPassword의 422 응답 커버."
 
   - id: guest-unauthorized-deleteMyAccount
@@ -254,6 +259,7 @@ personas:
       access: [ public ]
       maps_to: [ requestMyDataExport ]
       expects: [ 401 ]
+    skills: [ batch, idempotent ]
     notes: "negative-path. 미인증 호출 → 401. requestMyDataExport의 401 응답 커버."
   - id: rate-limited-requestMyDataExport
     status: implemented
@@ -271,6 +277,7 @@ personas:
       access: [ private-self, audited, rate-limited ]
       maps_to: [ requestMyDataExport ]
       expects: [ 429 ]
+    skills: [ audit-emission, batch, idempotent, rate-limit-honored ]
     notes: "negative-path. 요청 한도 초과 → 429. requestMyDataExport의 429 응답 커버."
 
   - id: malformed-updateMe
