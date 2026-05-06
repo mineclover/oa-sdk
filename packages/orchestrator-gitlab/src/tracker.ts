@@ -59,6 +59,12 @@ export class GitlabTracker implements Tracker {
       .map((r) => normalizeIssue(r));
   }
 
+  async getIssue(issueId: string): Promise<Issue> {
+    const path = `/api/v4/projects/${encodeURIComponent(this.#projectId)}/issues/${encodeURIComponent(issueId)}`;
+    const raw = await this.#request<GitlabIssueRaw>("GET", path);
+    return normalizeIssue(raw);
+  }
+
   async transitionLabels(
     issueId: string,
     transition: { add?: ReadonlyArray<string>; remove?: ReadonlyArray<string> },

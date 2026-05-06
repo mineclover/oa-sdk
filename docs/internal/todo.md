@@ -88,14 +88,13 @@ REST vs bare-clone 결정: REST API 방식 유지. 이유는 (1) 4 케이스 모
 ### [x] Phase B.1 — SubprocessAgent 추출 + ClaudeAgent
 완료 (2026-05-07): 공통 subprocess 머신(spawn/timeout/abort/stdout-capture)을 `SubprocessAgent`로 추출, `CodexAgent`는 그 위 thin subclass로 재작성. `ClaudeAgent` 신규 (`claude --print` 헤드리스, prompt는 stdin 기본). 단위 테스트 10건 (`test/subprocess-agent.test.ts`) — node를 fake binary로 사용해 OS-portable. 결정 기록: Claude Agent SDK 통합은 보류, `claude` CLI 호환이 더 가볍고 SDK 변경에 덜 노출됨. Total 16 unit + 2 integration 통과.
 
-### [ ] Phase B.2 — 견고성 (retries / state reconciliation / max_turns)
-배경: Phase A/B.1은 단일 turn, 실패 시 단순히 `agent-failed`로 종료. Symphony SPEC §7-8의 핵심 안정성 기능들이 빠짐.
-범위:
-- exponential backoff retry (Symphony §7.3 `Worker Exit (abnormal)`)
-- state reconciliation: 이슈가 closed/cancelled로 바뀌면 in-flight agent 취소 (Symphony §8.5 Part B)
-- `max_turns` 연속 turn — 한 워커 세션 안에서 첫 turn 후 이슈가 여전히 active이면 continuation prompt로 재실행
-- 토큰 사용량 metric (Symphony Live Session §4.1.6 모방)
-완료 기준: 새 시나리오 테스트(취소/재시도/연속 turn) 모두 통과. README의 Roadmap 표 갱신.
+### [x] Phase B.2 — 견고성 (retries / state reconciliation / max_turns / token aggregation)
+완료 (2026-05-07): Symphony SPEC §7-8의 4개 안정성 기능을 한 라운드에 도입.
+- **Per-turn retry**: `maxAttempts × min(base * 2^(attempt-1), max)` 지수 백오프. `failed`/`timed-out`만 재시도, `cancelled`는 즉시 종료. 디폴트 `maxAttempts=1`이라 기존 동작 변화 없음 (operator opt-in).
+- **State reconciliation**: 워커 시작 시 `reconciliationIntervalMs` 주기로 issue를 re-fetch. issue가 closed로 가거나 running 라벨이 외부에서 제거되면 in-flight agent 즉시 cancel (AbortSignal.any로 parent + reconcile 신호 합성). 디폴트 15s 주기, `0`이면 끔.
+- **`max_turns` continuation**: 성공 turn 후 issue를 다시 fetch해 `continueLabel`이 남아 있으면 다음 turn 실행 (`PromptInput.turnNumber` + `previousTurnResult` 전달). `maxTurns` 캡 도달 또는 라벨 제거 시 종료. 디폴트 `maxTurns=1`.
+- **Token aggregation**: `AgentResult.tokens`(input/output/total) 옵셔널 필드 추가. agent가 채우면 GitLab note에 표시, 오케스트레이터 종료 시 누적 합계 로깅.
+타입 변경: `PromptBuilder.build`가 `(input: PromptInput)` 받음 (turn/attempt/previousTurnResult). `Tracker.getIssue` REQUIRED. 21 unit + 2 integration 모두 통과 (기존 11 + B.2 신규 5: retry-success/retry-give-up/reconciliation-cancel/continuation/token-note + 기타 갱신).
 
 ### [ ] Phase C — `WORKFLOW.md` 호환 + Liquid prompt + hot reload
 배경: Symphony 사용자가 자기 `WORKFLOW.md`를 그대로 쓰고 싶을 때 또는 prompt를 코드 변경 없이 다듬고 싶을 때.

@@ -74,11 +74,13 @@ async function runOnce(config: OrchestratorConfig, issueIid: string | undefined)
   const target = targets[0];
   if (target === undefined) return;
   const workspace = await config.workspace.ensure(target);
-  const prompt = await config.prompt.build(target);
+  const prompt = await config.prompt.build({ issue: target, turnNumber: 1, attempt: 1 });
   const result = await config.agent.run({
     workspacePath: workspace.path,
     prompt,
     issue: target,
+    turnNumber: 1,
+    attempt: 1,
   });
   console.log(JSON.stringify({ issue: target.iid, workspace: workspace.path, result }, null, 2));
 }

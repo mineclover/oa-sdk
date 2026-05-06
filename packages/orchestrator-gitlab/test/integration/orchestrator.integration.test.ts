@@ -109,7 +109,7 @@ describeIfEnabled("orchestrator-gitlab — real GitLab integration", () => {
       tracker,
       workspace,
       agent: new EchoAgent(),
-      prompt: { build: (issue) => `Resolve issue ${issue.iid}: ${issue.title}` },
+      prompt: { build: ({ issue }) => `Resolve issue ${issue.iid}: ${issue.title}` },
       pollIntervalMs: 1_000,
       labels,
       signal: ac.signal,

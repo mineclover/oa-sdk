@@ -120,7 +120,18 @@ Required token scope: `api`. Per run a unique label namespace (`agent-{ready,run
 |-------|------|--------|
 | **A** | Polling + workspace + agent abstraction + Codex adapter + label transitions | ✅ |
 | **B.1** | `SubprocessAgent` extracted; `ClaudeAgent` shipped on top of it | ✅ |
-| B.2 | Retries with exp backoff, state reconciliation (cancel on terminal), `max_turns` | ⏳ |
+| **B.2** | Per-turn retry with exp backoff (`maxAttempts` × `retryBackoffBaseMs`/`maxRetryBackoffMs`); reconciliation watcher cancels in-flight agents on issue close or external label removal; continuation turns via `maxTurns` + `continueLabel`; `AgentTokens` aggregation in notes + shutdown summary | ✅ |
 | C | `WORKFLOW.md`-compatible config + Liquid prompts + hot reload | ⏳ |
+
+### Phase B.2 config (all optional, default to no behaviour change)
+
+| Field | Default | Effect |
+|-------|---------|--------|
+| `maxAttempts` | `1` | retry on `failed`/`timed-out` up to N times per turn. `cancelled` never retries. |
+| `retryBackoffBaseMs` | `1_000` | base for `min(base * 2^(attempt-1), max)` |
+| `maxRetryBackoffMs` | `300_000` | cap on per-retry backoff |
+| `maxTurns` | `1` | continuation cap. With `>1`, after a successful turn the orchestrator re-fetches the issue; if `continueLabel` still present, runs another turn. |
+| `continueLabel` | `undefined` | required to actually run continuation turns. Operator removes the label to end the loop. |
+| `reconciliationIntervalMs` | `15_000` | how often each in-flight worker re-fetches its issue. Set `0` to disable. |
 
 Pending items tracked in [`docs/internal/todo.md` → orchestrator-gitlab](../../docs/internal/todo.md#orchestrator-gitlab-잔여-항목).

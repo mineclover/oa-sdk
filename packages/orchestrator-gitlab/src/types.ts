@@ -45,12 +45,23 @@ export interface AgentInput {
   readonly issue: Readonly<Issue>;
   readonly env?: Readonly<Record<string, string>>;
   readonly signal?: AbortSignal;
+  /** 1-based turn number within the current worker session. */
+  readonly turnNumber?: number;
+  /** 1-based retry attempt within the current turn. */
+  readonly attempt?: number;
 }
 
 export interface AgentArtifacts {
   readonly branch?: string;
   readonly commits?: ReadonlyArray<string>;
   readonly mrUrl?: string;
+}
+
+/** Per-run token usage. Optional — Phase B.2 wires aggregation, but the bundled subprocess agents do not parse stdout to populate this. Custom agents may. */
+export interface AgentTokens {
+  readonly input: number;
+  readonly output: number;
+  readonly total: number;
 }
 
 export type AgentStatus = "succeeded" | "failed" | "timed-out" | "cancelled";
@@ -60,6 +71,7 @@ export interface AgentResult {
   readonly summary: string;
   readonly error?: string;
   readonly artifacts?: AgentArtifacts;
+  readonly tokens?: AgentTokens;
 }
 
 export interface Agent {
@@ -67,13 +79,25 @@ export interface Agent {
   run(input: AgentInput): Promise<AgentResult>;
 }
 
+export interface PromptInput {
+  readonly issue: Readonly<Issue>;
+  /** 1-based turn number within the current worker session. */
+  readonly turnNumber: number;
+  /** 1-based retry attempt within the current turn. */
+  readonly attempt: number;
+  /** Most recent agent result, present from turnNumber >= 2 (continuation). */
+  readonly previousTurnResult?: Readonly<AgentResult>;
+}
+
 export interface PromptBuilder {
-  build(issue: Readonly<Issue>): string | Promise<string>;
+  build(input: PromptInput): string | Promise<string>;
 }
 
 export interface Tracker {
   /** Fetch issues currently eligible for dispatch (e.g. labelled as ready, not running/done/failed). */
   listEligibleIssues(labels: LabelConfig): Promise<ReadonlyArray<Issue>>;
+  /** Re-fetch a single issue. Used by reconciliation to detect external state changes mid-run. */
+  getIssue(issueId: string): Promise<Issue>;
   /** Atomically transition labels — orchestrator uses this to claim, complete, or fail an issue. */
   transitionLabels(
     issueId: string,
