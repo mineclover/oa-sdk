@@ -96,11 +96,22 @@ This orchestrator pairs with [`@oa-sdk/infra-gitlab`](../infra-gitlab/README.md)
 ## Testing
 
 ```bash
-pnpm --filter @oa-sdk/orchestrator-gitlab test
-pnpm --filter @oa-sdk/orchestrator-gitlab typecheck
+pnpm --filter @oa-sdk/orchestrator-gitlab test          # unit tests (FakeTracker + EchoAgent, no I/O)
+pnpm --filter @oa-sdk/orchestrator-gitlab typecheck     # tsc --noEmit
 ```
 
-The Phase A test suite uses an in-memory `FakeTracker` and `EchoAgent` — no network or subprocess.
+### Integration tests against a real GitLab
+
+End-to-end suite under `test/integration/` exercises `GitlabTracker` + the orchestrator loop against a live instance. Tests **skip cleanly** when env is missing — safe in CI.
+
+```bash
+GITLAB_INTEGRATION_BASE_URL=http://localhost:8929 \
+GITLAB_INTEGRATION_TOKEN=glpat-xxxxxxxx \
+GITLAB_INTEGRATION_PROJECT_ID=1 \
+  pnpm --filter @oa-sdk/orchestrator-gitlab test:integration
+```
+
+Required token scope: `api`. Per run a unique label namespace (`agent-{ready,running,done,failed}-it-<runId>`) is used so tests do not collide with real workflows; created issues are closed in `afterAll` for cleanup. The `@oa-sdk/infra-gitlab` preset provides a suitable local instance.
 
 ## Roadmap
 

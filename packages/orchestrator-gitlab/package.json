@@ -25,6 +25,7 @@
     "build": "tsup src/index.ts src/cli.ts src/agents/echo.ts src/agents/codex.ts --format esm --dts --clean",
     "dev": "tsup src/index.ts src/cli.ts src/agents/echo.ts src/agents/codex.ts --format esm --dts --watch",
     "test": "vitest run",
+    "test:integration": "vitest run test/integration",
     "typecheck": "tsc --noEmit",
     "clean": "rm -rf dist"
   },
