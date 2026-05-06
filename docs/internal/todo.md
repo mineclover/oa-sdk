@@ -44,14 +44,47 @@ REST vs bare-clone 결정: REST API 방식 유지. 이유는 (1) 4 케이스 모
 > 큰 그림: 자율 코딩 에이전트(Symphony 계열)를 GitLab 위에서 돌리는 DevOps substrate. Phase 1(로컬 Docker)만 완료, Phase 2~4 미착수.
 
 ### [ ] Phase 2 — K3s variant
-배경: Phase 1은 단일 호스트 Docker 한정. K3s 단일 노드(또는 멀티 노드)에서 같은 스택을 띄우려면 `gitlab/gitlab` Helm chart, Ingress, cert-manager(Let's Encrypt) 통합이 필요하다.
-범위: 별도 Pulumi stack(`k3s`) 또는 별도 패키지(`@oa-sdk/infra-gitlab-k3s`) — 결정 후 착수. Helm release 리소스, 도메인 구성, TLS 종단 처리.
-완료 기준: 동일한 외부 인터페이스(브라우저로 GitLab 사용 가능 + Runner CI 동작)를 K3s 위에서 재현, OPERATIONS.md에 K3s 절차 추가.
+배경: Phase 1은 단일 호스트 Docker 한정. K3s에서 같은 스택을 띄우면 (1) ingress + TLS를 표준 패턴으로 풀 수 있고, (2) Symphony가 향후 멀티 인스턴스로 가도 받침대가 됨.
+
+설계 옵션:
+- **(a) Omnibus 이미지 + Deployment** — 현 Phase 1을 거의 그대로 K8s manifest로 이식. `gitlab/gitlab-ce` 컨테이너를 단일 Pod에 띄우고 `PersistentVolumeClaim` 3개로 `/etc/gitlab`, `/var/log/gitlab`, `/var/opt/gitlab`. 자원 발자국과 운영 모델이 Phase 1과 동일.
+- **(b) `gitlab/gitlab` 공식 Helm chart** — webservice/sidekiq/postgres/redis/gitaly/registry/etc. 분리. cloud-native, 본격 운영급. 단일 노드 기준 자원 요구가 Omnibus보다 큼 (4GB로 시작 X).
+- **추천: (a)부터.** Phase 1 mental model 그대로 유지하면서 K8s 표준 ingress/TLS만 얹는 게 ROI가 큼. (b)는 multi-tenant scale이 실제로 필요한 시점에 별도 패키지(`@oa-sdk/infra-gitlab-k3s-ha`)로.
+
+기술 선택:
+- Pulumi: `@pulumi/kubernetes` (TS) — kubeconfig를 Pulumi config로 받아 k3s 클러스터 대상 동작.
+- 로컬 K3s 대안: `k3d`(macOS에서 docker 위에 K3s) — 문서화로 안내하되 패키지가 강제하지는 않음.
+- Ingress: Traefik(K3s 기본) 또는 nginx-ingress. cert-manager로 Let's Encrypt staging issuer를 1차 default.
+- 도메인: `<sub>.nip.io` 옵션 (DNS 추가 비용 0) + 사용자 도메인 옵션.
+
+오픈 질문:
+- 별도 Pulumi 스택(`k3s`)으로 같은 패키지에 둘지, 신규 패키지(`@oa-sdk/infra-gitlab-k3s`)로 분리할지? Pulumi 관행은 stack-per-environment지만, 현재 프리셋은 *플랫폼*이 다른 것이므로 패키지 분리가 더 명확.
+- Runner도 K8s executor로 갈지(`gitlab-runner` Helm chart, `kubernetes` executor) docker executor 그대로 둘지. K8s executor가 cluster-native이고 보안 격리가 더 깔끔.
+
+완료 기준: 동일한 외부 인터페이스(브라우저로 GitLab 사용 가능 + Runner CI 동작)를 K3s 위에서 재현. OPERATIONS.md에 (k3s 환경 가정 + manifest 절차 + ingress 설정) 챕터 추가. Phase 1과 호환되는 방식의 backup 가이드(PVC snapshot).
 
 ### [ ] Phase 3 — 클라우드 VM
-배경: 로컬 dev/PoC를 넘어 운영급 단일 호스트(DO Droplet / GCE / EC2)에 배포할 수 있어야 함.
-범위: Pulumi-managed VM + DNS A 레코드 + cloud-init으로 Docker + 본 프리셋의 stack을 부팅. Backup(volume snapshot) 정책 포함.
-완료 기준: `pulumi up`만으로 외부 접근 가능한 GitLab 인스턴스가 뜸. RAM/디스크 사이징과 비용 추정치를 OPERATIONS.md에 기록.
+배경: 로컬 dev/PoC를 넘어 외부 접근 가능한 운영급 GitLab을 한 명령으로 띄울 수 있어야 함. 실제 *팀* 단위로 사용하려면 필수.
+
+설계 옵션:
+- **(a) Provider-specific 별도 패키지** — `@oa-sdk/infra-gitlab-do` (DigitalOcean), `-aws`, `-gcp` 등 각각. 각자가 자기 Pulumi provider만 의존.
+- **(b) Provider 추상화 인터페이스 + 단일 패키지** — `@oa-sdk/infra-gitlab-vm` 안에 `VMProvider` interface, 옵셔널 구현체. 사용자가 active provider 선택.
+- **추천: (a) 시작 — DigitalOcean 1개부터.** 추상화는 두 번째 provider가 실제로 필요할 때 (b)로 리팩터. YAGNI.
+
+DigitalOcean 1차 타깃 이유: cheapest GitLab-class droplet(~$24/mo for 4GB), API 단순, Pulumi `@pulumi/digitalocean` 안정적, DNS/Spaces(S3-호환)/Snapshot 한 콘솔에서.
+
+기술 선택:
+- VM 사이즈: 4GB RAM minimum (GitLab Omnibus 권장). 8GB가 운영 sweet spot.
+- 부트스트랩: `cloud-init`으로 Docker 설치 + 본 repo clone + `pulumi up`으로 Phase 1 stack 자동 기동. 또는 `docker-compose`-equivalent로 단순화.
+- DNS: Pulumi-managed `digitalocean.DnsRecord` (사용자가 도메인을 DO nameserver로 위임했다는 가정).
+- TLS: 두 옵션 — (i) `caddy` 리버스 프록시(자동 LE) + GitLab은 80에 바인드, (ii) GitLab Omnibus 자체의 LE 모듈 활성. (i)가 운영 단순.
+- Backup: DO Volume Snapshot API + cron. 또는 `gitlab-backup` 명령을 cron으로 + DO Spaces 업로드.
+
+오픈 질문:
+- 단일 VM vs HA pair. v1은 단일 VM, MTBF 한계는 backup으로 보완.
+- Floating IP (DO 기능) 사용해서 VM 교체 시 DNS 변경 없이 갈지. 추가 월 ~$4.
+
+완료 기준: `pulumi up`만으로 외부 접근 가능 GitLab 인스턴스. HTTPS 자동. backup cron 동작 검증. RAM/디스크 사이징과 월 비용 추정치를 OPERATIONS.md (또는 신규 패키지의 README)에 기록.
 
 ### [x] Phase 4 — Symphony GitLab tracker integration: 옵션 (c) 자체 구현으로 결정
 배경: Symphony SPEC §5.3.1은 현재 `tracker.kind: linear`만 지원([SPEC](https://github.com/openai/symphony/blob/main/SPEC.md#531-tracker-object)). 옵션 (a) Symphony fork에 GitLab tracker 추가, (b) GitLab→Linear-shaped proxy, (c) Symphony 우회 직접 오케스트레이션.
@@ -97,18 +130,78 @@ REST vs bare-clone 결정: REST API 방식 유지. 이유는 (1) 4 케이스 모
 타입 변경: `PromptBuilder.build`가 `(input: PromptInput)` 받음 (turn/attempt/previousTurnResult). `Tracker.getIssue` REQUIRED. 21 unit + 2 integration 모두 통과 (기존 11 + B.2 신규 5: retry-success/retry-give-up/reconciliation-cancel/continuation/token-note + 기타 갱신).
 
 ### [ ] Phase C — `WORKFLOW.md` 호환 + Liquid prompt + hot reload
-배경: Symphony 사용자가 자기 `WORKFLOW.md`를 그대로 쓰고 싶을 때 또는 prompt를 코드 변경 없이 다듬고 싶을 때.
-범위:
-- `WorkflowFileLoader`: front matter YAML + Markdown body 파싱 (Symphony §5.2)
-- `LiquidPromptBuilder`: strict mode, unknown variable 시 렌더 실패 (Symphony §5.4)
-- 파일 watch + hot reload — invalid 시 last-known-good 유지 (Symphony §6.2)
-- `tracker.kind: gitlab` 매핑 (Symphony front matter extension)
-완료 기준: 기존 Symphony WORKFLOW.md를 (tracker.kind만 gitlab으로 바꿔) 그대로 로드할 수 있음.
+배경:
+- 현재 config는 TS 모듈에서 `OrchestratorConfig` 객체를 default-export하는 형태. 코드 한 줄 바꾸려면 빌드/재시작 필요.
+- Symphony 사용자가 기존 `WORKFLOW.md`를 그대로 가져오면 마찰이 적어짐 (Symphony가 닦은 prompt 컨벤션 + workpad 구조 그대로 재활용 가능).
+- Operator가 prompt 한 줄 다듬을 때마다 ts 빌드는 과함. 텍스트 파일이 더 적합.
+
+3개의 독립 가능한 sub-track:
+
+**C.1 — `WorkflowFileLoader`** (Symphony §5.1–5.3 파일 형식)
+- 입력: `WORKFLOW.md` 경로
+- 처리: `---` ... `---` YAML front matter 파싱 → `WorkflowConfig`로 코어스, 본문 trim → `prompt_template`
+- 출력: `{ config, prompt_template }`
+- 검증 도구 후보: `zod`(런타임 dev중), `typia`(이 모노레포가 typia-mock으로 검증된 typia 도입 사례 있음 — 빌드타임 코드 생성으로 빠름). **추천: typia**, 모노레포 일관성 + 컴파일타임 스키마.
+- Symphony front matter 호환: `tracker.kind`만 `gitlab` 추가. 나머지(`polling`, `workspace`, `hooks`, `agent`, `codex`)는 명시적 매핑/무시 결정 필요. **추천 매핑**:
+  - `polling.interval_ms` → `pollIntervalMs`
+  - `agent.max_concurrent_agents` → `maxConcurrent`
+  - `agent.max_turns` → `maxTurns`
+  - `agent.max_retry_backoff_ms` → `maxRetryBackoffMs`
+  - `codex.*` → 무시 (우리는 agent를 코드로 plug-in)
+  - `hooks.after_create` → `FsWorkspaceManager.afterCreate`로 배선
+  - 신규 GitLab-specific top-level: `tracker.gitlab.{base_url, token_var, project_id}`, `tracker.gitlab.labels.{ready,running,done,failed}`, `tracker.gitlab.continue_label`
+
+**C.2 — `LiquidPromptBuilder`** (Symphony §5.4 Liquid-호환 strict mode)
+- 입력: `prompt_template` 문자열 + `PromptInput`
+- 처리: Liquid 호환 엔진(`liquidjs` 후보) strict mode — unknown variable/filter는 render 실패
+- 변수 매핑: Symphony가 노출하는 `{{ issue.identifier }}`(Linear 키 형식)와 우리 `{{ issue.iid }}`(GitLab `#42`) 간 갭. 두 가지 호환 전략:
+  - (i) **alias 등록** — Liquid context에 `issue.identifier`를 `issue.iid`의 alias로 노출. Symphony WORKFLOW.md를 한 글자도 안 고치고 가져오기 가능.
+  - (ii) **명시적 마이그레이션 가이드** — 변수명을 GitLab-친화적으로 바꾸도록 안내.
+  - **추천: (i)** — 마찰 최소화가 이 트랙의 가치 자체.
+- 추가 변수: `attempt`(이미 Symphony 호환), `turn_number`(Symphony에는 없는 신규).
+
+**C.3 — Hot reload** (Symphony §6.2)
+- 파일 watch 라이브러리: `chokidar`(이미 vitest dep로 들어와 있을 가능성) 또는 `node:fs.watch`(외부 dep 0). **추천: `node:fs.watch`** + 100ms debounce — macOS의 fsevents 신뢰성 문제는 polling fallback으로 완화 가능. dependency 0이 큼.
+- semantics:
+  - 파일이 변경될 때마다 reload → parse → validate
+  - 성공 시 새 config 적용. **In-flight 워커는 죽이지 않음** (Symphony §6.2 그대로). `pollIntervalMs`/`maxConcurrent`는 다음 tick부터 적용.
+  - 실패 시 last-known-good 유지 + reload 에러 로그.
+- prompt template 변경은 *다음 turn build*부터 반영 — agent.run 중인 worker는 그대로.
+
+오픈 질문:
+- C.1/C.2/C.3 같은 PR로 갈지 분리할지. C.1 + C.2는 함께 가야 의미 있음 (둘 다 없으면 WORKFLOW.md 못 씀). C.3은 분리 가능.
+- 기존 TS 모듈 config도 계속 지원할지(즉 두 입력 모드 병존), WORKFLOW.md로 단일화할지. 기존 사용자(이미 있는 통합 테스트 등)를 깨고 싶지 않으니 **병존**이 안전.
+
+완료 기준: Symphony elixir 레퍼런스의 `WORKFLOW.md`(tracker.kind만 gitlab으로 바꿔)를 로드해 일반 GitLab 흐름이 한 turn 이상 통과. WORKFLOW.md 수정 후 재시작 없이 다음 polling tick부터 새 prompt 반영. 통합 테스트 1건 추가 (실 GitLab + WORKFLOW.md fixture).
 
 ### [ ] 운영 도구 — observability + dashboard
-배경: 현재는 stdout 로그만. 다중 에이전트 운영 시 어떤 issue가 어느 단계인지 시각화 필요.
-범위: 최소한 `GET /healthz`, `GET /state` JSON endpoint를 띄우는 옵션 (Symphony Phoenix LiveView 대체). 또는 OpenTelemetry export 옵션.
-완료 기준: 외부 모니터링이 in-flight 워커 수 / 최근 에러를 끌어갈 수 있음.
+배경: 현재 가시성은 stdout 로그뿐. 다중 에이전트가 동시 진행 중일 때 "어느 issue가 어느 phase에 있는지", "최근 에러는 무엇인지", "토큰 누계" 같은 질문에 즉답이 어렵다. 단순 production 운영도 어렵다.
+
+상태 노출 두 surface:
+
+**(a) HTTP endpoint** — 외부 의존성 0, 즉시 유용
+- `GET /healthz` → `200` if orchestrator loop alive, `503` if shutdown 진행중. liveness probe.
+- `GET /state` → JSON: `{ inFlight: [...], metrics: {...}, lastError: ... }`. Symphony Phoenix LiveView의 JSON 등가물.
+- `GET /issues/:iid` → 해당 issue의 워커 상태 (있으면 turn/attempt + last note 시각).
+- 구현: `node:http` 한 페이지. 외부 dep 0. configurable via `OrchestratorConfig.httpPort`.
+- 상태 노출 위해 orchestrator 내부 리팩터 필요 — 현재 `run()` 함수 안의 `metrics`와 `inFlight`를 외부에서 read-only로 볼 수 있게 인스턴스화 (또는 observer 콜백).
+
+**(b) OpenTelemetry export** — production observability
+- metrics: `orchestrator.dispatched`, `.succeeded`, `.failed`, `.cancelled`, `.tokens.total` (Counter); `.in_flight` (UpDownCounter); `.turn.duration` (Histogram).
+- spans: `orchestrator.process_issue` (root) → `agent.run` (child). attributes: `issue.iid`, `agent.name`, `turn.number`, `attempt.number`.
+- 구현: `@opentelemetry/api` (interface 전용) + 사용자가 SDK 선택해 wire (Prometheus exporter, OTLP 등). 패키지는 SDK 강제 안 함 — 무거워짐.
+- 트레이드오프: OTel 코드 추가는 cheap이지만, 정확한 attribute 합의는 future-proofing 비용. Phase 1로 (a)만 만들고, OTel은 별도 PR.
+
+권고 phase 분할:
+- **운영 도구.1**: HTTP `/healthz` + `/state` 만. 30분짜리 작업, 즉시 운영 가시성 확보.
+- **운영 도구.2**: 같은 endpoint에 `/issues/:iid` 추가 + 워커 history short ring buffer.
+- **운영 도구.3**: OpenTelemetry instrumentation. attribute 컨벤션 결정 후 착수.
+
+오픈 질문:
+- HTTP 서버를 orchestrator-gitlab에 in-process로 넣을지, 별도 sidecar 프로세스로 분리할지. **추천: in-process**, 단순 + 상태 공유 무료. shutdown signal로 함께 정리.
+- Auth: dev에서는 unprotected, production에서는 `Authorization: Bearer <token>` 옵션 (config의 `httpAuthToken`).
+
+완료 기준: `pulumi up`된 GitLab과 `orchestrator-gitlab run` 동시 가동 상태에서 `curl http://localhost:<port>/state | jq`로 in-flight 워커 수 + 최근 metrics가 정확히 보임. README에 endpoint 명세 + curl 예제.
 
 ---
 

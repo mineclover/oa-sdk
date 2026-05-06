@@ -121,7 +121,8 @@ Required token scope: `api`. Per run a unique label namespace (`agent-{ready,run
 | **A** | Polling + workspace + agent abstraction + Codex adapter + label transitions | ✅ |
 | **B.1** | `SubprocessAgent` extracted; `ClaudeAgent` shipped on top of it | ✅ |
 | **B.2** | Per-turn retry with exp backoff (`maxAttempts` × `retryBackoffBaseMs`/`maxRetryBackoffMs`); reconciliation watcher cancels in-flight agents on issue close or external label removal; continuation turns via `maxTurns` + `continueLabel`; `AgentTokens` aggregation in notes + shutdown summary | ✅ |
-| C | `WORKFLOW.md`-compatible config + Liquid prompts + hot reload | ⏳ |
+| C | `WORKFLOW.md`-compatible config + Liquid prompts + hot reload | 📋 [design notes](../../docs/internal/todo.md#orchestrator-gitlab-잔여-항목) |
+| Ops | HTTP `/healthz` + `/state` + `/issues/:iid` for live orchestrator state; OpenTelemetry instrumentation as a follow-on | 📋 [design notes](../../docs/internal/todo.md#orchestrator-gitlab-잔여-항목) |
 
 ### Phase B.2 config (all optional, default to no behaviour change)
 

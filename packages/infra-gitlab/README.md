@@ -126,13 +126,13 @@ If `pulumi destroy` errors with `No such container: <id>` (Pulumi state drifted 
 
 ## Roadmap (future phases)
 
-| Phase | Scope |
-|-------|-------|
-| 1 *(this)* | Local Docker — GitLab CE Omnibus + Runner |
-| 2 | K3s variant using `gitlab/gitlab` Helm chart, ingress, cert-manager |
-| 3 | Cloud VM (DigitalOcean / GCE / EC2) with Pulumi-managed VM + DNS |
-| 4 | Symphony GitLab tracker integration (out of band — Symphony SPEC currently only supports `tracker.kind: linear`) |
+| Phase | Scope | Status |
+|-------|-------|--------|
+| 1 *(this)* | Local Docker — GitLab CE Omnibus + Runner | ✅ |
+| 2 | K3s variant — Omnibus image as Deployment + Ingress + cert-manager (full Helm chart split deferred) | 📋 [design notes](../../docs/internal/todo.md#infra-gitlab-잔여-항목) |
+| 3 | Cloud VM — DigitalOcean droplet + cloud-init + caddy TLS as v1; provider abstraction iff a 2nd target lands | 📋 [design notes](../../docs/internal/todo.md#infra-gitlab-잔여-항목) |
+| 4 | ~~Symphony GitLab tracker integration~~ | ✅ resolved — see [`@oa-sdk/orchestrator-gitlab`](../orchestrator-gitlab/) (option (c): native reimplementation of Symphony's loop for GitLab) |
 
 ## Symphony note
 
-Symphony's current SPEC ([openai/symphony `SPEC.md` §5.3.1](https://github.com/openai/symphony/blob/main/SPEC.md#531-tracker-object)) only supports `tracker.kind: linear`. This preset prepares the GitLab-side infrastructure; bridging GitLab issues into Symphony requires either (a) a GitLab tracker adapter implemented against Symphony's extensible front-matter, (b) a GitLab→Linear-shaped proxy, or (c) bypassing Symphony for direct GitLab→Codex orchestration. That work is tracked separately and is **not part of this preset**.
+Symphony's current SPEC ([openai/symphony `SPEC.md` §5.3.1](https://github.com/openai/symphony/blob/main/SPEC.md#531-tracker-object)) only supports `tracker.kind: linear`. This preset prepares the GitLab-side infrastructure. The orchestration layer that consumes GitLab issues lives in [`@oa-sdk/orchestrator-gitlab`](../orchestrator-gitlab/), which treats Symphony's SPEC as a design reference rather than a code dependency.
