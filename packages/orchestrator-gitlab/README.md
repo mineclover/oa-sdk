@@ -70,13 +70,14 @@ GITLAB_TOKEN=glpat-xxxx orchestrator-gitlab dry-run --config ./orchestrator.conf
 
 ## Agents
 
-| Adapter | Module | Status |
-|---------|--------|--------|
-| `EchoAgent` | `@oa-sdk/orchestrator-gitlab/agents/echo` | Stable — for tests + dry-run |
-| `CodexAgent` | `@oa-sdk/orchestrator-gitlab/agents/codex` | Phase A — wraps `codex exec` subprocess |
-| `ClaudeAgent` | — | Phase B — pending decision between Claude Agent SDK vs `claude --print` headless |
+All concrete adapters share `SubprocessAgent` (`@oa-sdk/orchestrator-gitlab/agents/subprocess`) — a generic spawn-with-timeout/abort/stdout-capture helper. Adding another CLI-based agent is a ~20-line subclass; see `agents/codex.ts` and `agents/claude.ts` as templates.
 
-To plug in your own agent, implement the `Agent` interface (`name` + `run(input)` returning `AgentResult`) and pass it as `config.agent`.
+| Adapter | Module | Default invocation | Notes |
+|---------|--------|-------------------|-------|
+| `EchoAgent` | `@oa-sdk/orchestrator-gitlab/agents/echo` | — (in-process) | Deterministic; for tests, dry-run, smoke checks. |
+| `CodexAgent` | `@oa-sdk/orchestrator-gitlab/agents/codex` | `codex exec <prompt>` | Override `bin`, `globalArgs`, `subcommand`, `timeoutMs`, `extraEnv` via constructor opts. |
+| `ClaudeAgent` | `@oa-sdk/orchestrator-gitlab/agents/claude` | `claude --print` (prompt via stdin) | Override `bin`, `args`, `promptDelivery`, `timeoutMs`, `extraEnv` via constructor opts. Use `extraEnv: { ANTHROPIC_API_KEY: ... }` to forward auth. |
+| (your own) | implement the `Agent` interface | — | Or extend `SubprocessAgent` with your bin's defaults. |
 
 ## Label contract
 
@@ -115,10 +116,11 @@ Required token scope: `api`. Per run a unique label namespace (`agent-{ready,run
 
 ## Roadmap
 
-| Phase | Adds |
-|-------|------|
-| **A** *(this)* | Polling + workspace + agent abstraction + Codex adapter + label transitions |
-| B | Retries with exp backoff, state reconciliation (cancel on terminal), `max_turns`, ClaudeAgent |
-| C | `WORKFLOW.md`-compatible config + Liquid prompts + hot reload |
+| Phase | Adds | Status |
+|-------|------|--------|
+| **A** | Polling + workspace + agent abstraction + Codex adapter + label transitions | ✅ |
+| **B.1** | `SubprocessAgent` extracted; `ClaudeAgent` shipped on top of it | ✅ |
+| B.2 | Retries with exp backoff, state reconciliation (cancel on terminal), `max_turns` | ⏳ |
+| C | `WORKFLOW.md`-compatible config + Liquid prompts + hot reload | ⏳ |
 
 Pending items tracked in [`docs/internal/todo.md` → orchestrator-gitlab](../../docs/internal/todo.md#orchestrator-gitlab-잔여-항목).

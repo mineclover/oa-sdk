@@ -24,7 +24,7 @@ A local TypeScript service that, given a GitLab project and an agent factory, po
 ## Key decisions
 
 ### D1. Multi-agent from day one
-The `Agent` interface is the only seam between the orchestrator and the underlying coding tool. Phase A ships an `EchoAgent` (deterministic, used for tests + dry-run) and a `CodexAgent` (subprocess wrapper around the `codex` CLI). A `ClaudeAgent` shell exists as a stub; concrete implementation lands in Phase B once we settle on Claude Agent SDK vs `claude --print` headless mode.
+The `Agent` interface is the only seam between the orchestrator and the underlying coding tool. Phase A ships an `EchoAgent` (deterministic, used for tests + dry-run) and a `CodexAgent` (subprocess wrapper around the `codex` CLI). **Update (Phase B.1):** the subprocess machinery is now extracted as `SubprocessAgent`, and `ClaudeAgent` is shipped on top of it (`claude --print` headless mode, prompt over stdin by default). Adding a third CLI-based agent is a thin subclass with its own defaults.
 
 ### D2. Issue eligibility uses labels, not state
 GitLab issues do not have a Linear-style structured workflow state. Phase A uses labels as the eligibility signal:

@@ -1,6 +1,14 @@
 export { run } from "./orchestrator.js";
 export { GitlabApiError, GitlabTracker, type GitlabTrackerOptions } from "./tracker.js";
 export { FsWorkspaceManager, sanitizeKey, type FsWorkspaceOptions } from "./workspace.js";
+export { EchoAgent } from "./agents/echo.js";
+export { CodexAgent, type CodexAgentOptions } from "./agents/codex.js";
+export { ClaudeAgent, type ClaudeAgentOptions } from "./agents/claude.js";
+export {
+  SubprocessAgent,
+  type PromptDelivery,
+  type SubprocessAgentOptions,
+} from "./agents/subprocess.js";
 export type {
   Agent,
   AgentArtifacts,

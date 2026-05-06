@@ -83,15 +83,19 @@ REST vs bare-clone 결정: REST API 방식 유지. 이유는 (1) 4 케이스 모
 ### [x] Phase A — MVP 오케스트레이션 루프
 완료 (2026-05-07): label 기반 polling → 워크스페이스 ensure → agent 실행 → 결과를 GitLab note로 회신 + label 전이 (`agent-ready` → `agent-running` → `agent-done`/`agent-failed`). `EchoAgent` (deterministic, 테스트용) + `CodexAgent` (`codex exec` subprocess wrapper). `GitlabTracker` REST 어댑터, `FsWorkspaceManager` (Symphony §4.2 sanitize). CLI `run`/`dry-run`. 6 테스트 통과 (orchestrator end-to-end + 실패 경로 + concurrency dedup + sanitize + EchoAgent abort).
 
-### [ ] Phase B — 견고성 (retries / state reconciliation / max_turns / Claude adapter)
-배경: Phase A는 단일 turn, 실패 시 단순히 `agent-failed`로 종료. Symphony SPEC §7-8의 핵심 안정성 기능들이 빠짐.
+추가 (2026-05-07): env-gated 통합 테스트 2건 (`test/integration/`) — 실제 GitLab 인스턴스 상대 happy path / failure path 모두 통과. `pnpm test:integration`으로 실행, env 미설정 시 깨끗하게 skip.
+
+### [x] Phase B.1 — SubprocessAgent 추출 + ClaudeAgent
+완료 (2026-05-07): 공통 subprocess 머신(spawn/timeout/abort/stdout-capture)을 `SubprocessAgent`로 추출, `CodexAgent`는 그 위 thin subclass로 재작성. `ClaudeAgent` 신규 (`claude --print` 헤드리스, prompt는 stdin 기본). 단위 테스트 10건 (`test/subprocess-agent.test.ts`) — node를 fake binary로 사용해 OS-portable. 결정 기록: Claude Agent SDK 통합은 보류, `claude` CLI 호환이 더 가볍고 SDK 변경에 덜 노출됨. Total 16 unit + 2 integration 통과.
+
+### [ ] Phase B.2 — 견고성 (retries / state reconciliation / max_turns)
+배경: Phase A/B.1은 단일 turn, 실패 시 단순히 `agent-failed`로 종료. Symphony SPEC §7-8의 핵심 안정성 기능들이 빠짐.
 범위:
 - exponential backoff retry (Symphony §7.3 `Worker Exit (abnormal)`)
 - state reconciliation: 이슈가 closed/cancelled로 바뀌면 in-flight agent 취소 (Symphony §8.5 Part B)
 - `max_turns` 연속 turn — 한 워커 세션 안에서 첫 turn 후 이슈가 여전히 active이면 continuation prompt로 재실행
-- `ClaudeAgent` 구현 — Claude Agent SDK vs `claude --print` headless mode 결정 후 진행
 - 토큰 사용량 metric (Symphony Live Session §4.1.6 모방)
-완료 기준: Phase A 테스트 + 새 시나리오 테스트(취소/재시도/연속 turn/Claude) 모두 통과. README의 Roadmap 표 갱신.
+완료 기준: 새 시나리오 테스트(취소/재시도/연속 turn) 모두 통과. README의 Roadmap 표 갱신.
 
 ### [ ] Phase C — `WORKFLOW.md` 호환 + Liquid prompt + hot reload
 배경: Symphony 사용자가 자기 `WORKFLOW.md`를 그대로 쓰고 싶을 때 또는 prompt를 코드 변경 없이 다듬고 싶을 때.
