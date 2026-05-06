@@ -26,6 +26,7 @@ Zod Schema  ──▶  OpenAPI 3.2 Spec      ──▶ TypeScript 타입
 | `@oa-sdk/typia-mock` | typia ILlmApplication 기반 LLM 함수 호출 검증 서버 |
 | `@oa-sdk/personas` | OpenAPI 위 persona 매트릭스 — 84 페르소나 / 9 trait dimension / 8 CLI / e2e roleplay 자동 생성 ([Concept](./docs/concepts/data-persona.md)) |
 | `@oa-sdk/infra-gitlab` | Pulumi preset — 로컬 Docker에 GitLab CE Omnibus + Runner 기동 ([README](./packages/infra-gitlab/README.md) · [Operations](./packages/infra-gitlab/OPERATIONS.md) · [TODO](./docs/internal/todo.md#infra-gitlab-잔여-항목)). 자율 코딩 에이전트(Symphony 계열)용 DevOps substrate Phase 1. |
+| `@oa-sdk/orchestrator-gitlab` | GitLab-네이티브 코딩 에이전트 오케스트레이터 — Symphony SPEC을 디자인 레퍼런스로 차용한 자체 구현. label 기반 이슈 디스패치 + 격리 워크스페이스 + multi-agent (Codex/Claude/custom). Phase A MVP ([README](./packages/orchestrator-gitlab/README.md) · [PRD](./packages/orchestrator-gitlab/docs/prd-phase-a.md) · [TODO](./docs/internal/todo.md#orchestrator-gitlab-잔여-항목)). |
 
 ## 사용 방법
 

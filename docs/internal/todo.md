@@ -53,10 +53,9 @@ REST vs bare-clone 결정: REST API 방식 유지. 이유는 (1) 4 케이스 모
 범위: Pulumi-managed VM + DNS A 레코드 + cloud-init으로 Docker + 본 프리셋의 stack을 부팅. Backup(volume snapshot) 정책 포함.
 완료 기준: `pulumi up`만으로 외부 접근 가능한 GitLab 인스턴스가 뜸. RAM/디스크 사이징과 비용 추정치를 OPERATIONS.md에 기록.
 
-### [ ] Phase 4 — Symphony GitLab tracker integration
-배경: Symphony SPEC §5.3.1은 현재 `tracker.kind: linear`만 지원([SPEC](https://github.com/openai/symphony/blob/main/SPEC.md#531-tracker-object)). GitLab 이슈를 Symphony가 읽으려면 다리가 필요하다. 옵션 (a) Symphony fork에 GitLab tracker 추가, (b) GitLab→Linear-shaped proxy, (c) Symphony 우회 직접 오케스트레이션.
-범위: 옵션 결정이 1차 산출. 그 후 어댑터 코드/프록시 서비스/대체 오케스트레이터 중 선택지 구현.
-완료 기준: GitLab issue 상태 변화가 코딩 에이전트 워크스페이스 dispatch로 이어지는 end-to-end 데모.
+### [x] Phase 4 — Symphony GitLab tracker integration: 옵션 (c) 자체 구현으로 결정
+배경: Symphony SPEC §5.3.1은 현재 `tracker.kind: linear`만 지원([SPEC](https://github.com/openai/symphony/blob/main/SPEC.md#531-tracker-object)). 옵션 (a) Symphony fork에 GitLab tracker 추가, (b) GitLab→Linear-shaped proxy, (c) Symphony 우회 직접 오케스트레이션.
+결정 (2026-05-07): (c) 채택. 이유 — (a)는 upstream merge 부담 영구화, (b)는 Linear GraphQL 모사 비용 대비 가치 낮음, (c)는 Symphony SPEC을 *디자인 레퍼런스*로만 가져와 GitLab 네이티브로 다시 구현 (코드 의존성 0). 후속 작업은 [`@oa-sdk/orchestrator-gitlab`](../../packages/orchestrator-gitlab/) 패키지에서 phase A/B/C로 추적.
 
 ### [ ] Runner 등록 자동화
 배경: 현재 등록은 수동(UI에서 `glrt-...` 토큰 발급 → `pnpm register:runner`). 운영 자동화에 마찰을 만든다.
@@ -72,6 +71,41 @@ REST vs bare-clone 결정: REST API 방식 유지. 이유는 (1) 4 케이스 모
 배경: 장기 dev 인스턴스는 destroy 시 GitLab 상태가 사라지므로 `docker stop`을 권장(OPERATIONS.md). 매번 두 컨테이너명을 외우는 마찰 제거.
 범위: `pnpm pause` (= `docker stop gitlab gitlab-runner`), `pnpm resume` (= `docker start ...`) script 추가.
 완료 기준: 두 명령으로 상태 보존된 stop/start이 가능.
+
+---
+
+## orchestrator-gitlab 잔여 항목
+
+> 패키지: [`@oa-sdk/orchestrator-gitlab`](../../packages/orchestrator-gitlab/) — GitLab-네이티브 코딩 에이전트 오케스트레이터.
+> 디자인 결정 + Phase A 범위: [packages/orchestrator-gitlab/docs/prd-phase-a.md](../../packages/orchestrator-gitlab/docs/prd-phase-a.md).
+> 위 infra-gitlab Phase 4 항목의 후속.
+
+### [x] Phase A — MVP 오케스트레이션 루프
+완료 (2026-05-07): label 기반 polling → 워크스페이스 ensure → agent 실행 → 결과를 GitLab note로 회신 + label 전이 (`agent-ready` → `agent-running` → `agent-done`/`agent-failed`). `EchoAgent` (deterministic, 테스트용) + `CodexAgent` (`codex exec` subprocess wrapper). `GitlabTracker` REST 어댑터, `FsWorkspaceManager` (Symphony §4.2 sanitize). CLI `run`/`dry-run`. 6 테스트 통과 (orchestrator end-to-end + 실패 경로 + concurrency dedup + sanitize + EchoAgent abort).
+
+### [ ] Phase B — 견고성 (retries / state reconciliation / max_turns / Claude adapter)
+배경: Phase A는 단일 turn, 실패 시 단순히 `agent-failed`로 종료. Symphony SPEC §7-8의 핵심 안정성 기능들이 빠짐.
+범위:
+- exponential backoff retry (Symphony §7.3 `Worker Exit (abnormal)`)
+- state reconciliation: 이슈가 closed/cancelled로 바뀌면 in-flight agent 취소 (Symphony §8.5 Part B)
+- `max_turns` 연속 turn — 한 워커 세션 안에서 첫 turn 후 이슈가 여전히 active이면 continuation prompt로 재실행
+- `ClaudeAgent` 구현 — Claude Agent SDK vs `claude --print` headless mode 결정 후 진행
+- 토큰 사용량 metric (Symphony Live Session §4.1.6 모방)
+완료 기준: Phase A 테스트 + 새 시나리오 테스트(취소/재시도/연속 turn/Claude) 모두 통과. README의 Roadmap 표 갱신.
+
+### [ ] Phase C — `WORKFLOW.md` 호환 + Liquid prompt + hot reload
+배경: Symphony 사용자가 자기 `WORKFLOW.md`를 그대로 쓰고 싶을 때 또는 prompt를 코드 변경 없이 다듬고 싶을 때.
+범위:
+- `WorkflowFileLoader`: front matter YAML + Markdown body 파싱 (Symphony §5.2)
+- `LiquidPromptBuilder`: strict mode, unknown variable 시 렌더 실패 (Symphony §5.4)
+- 파일 watch + hot reload — invalid 시 last-known-good 유지 (Symphony §6.2)
+- `tracker.kind: gitlab` 매핑 (Symphony front matter extension)
+완료 기준: 기존 Symphony WORKFLOW.md를 (tracker.kind만 gitlab으로 바꿔) 그대로 로드할 수 있음.
+
+### [ ] 운영 도구 — observability + dashboard
+배경: 현재는 stdout 로그만. 다중 에이전트 운영 시 어떤 issue가 어느 단계인지 시각화 필요.
+범위: 최소한 `GET /healthz`, `GET /state` JSON endpoint를 띄우는 옵션 (Symphony Phoenix LiveView 대체). 또는 OpenTelemetry export 옵션.
+완료 기준: 외부 모니터링이 in-flight 워커 수 / 최근 에러를 끌어갈 수 있음.
 
 ---
 
