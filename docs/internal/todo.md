@@ -151,50 +151,26 @@ DigitalOcean 1차 타깃 이유: cheapest GitLab-class droplet(~$24/mo for 4GB),
 - **Token aggregation**: `AgentResult.tokens`(input/output/total) 옵셔널 필드 추가. agent가 채우면 GitLab note에 표시, 오케스트레이터 종료 시 누적 합계 로깅.
 타입 변경: `PromptBuilder.build`가 `(input: PromptInput)` 받음 (turn/attempt/previousTurnResult). `Tracker.getIssue` REQUIRED. 21 unit + 2 integration 모두 통과 (기존 11 + B.2 신규 5: retry-success/retry-give-up/reconciliation-cancel/continuation/token-note + 기타 갱신).
 
-### [ ] Phase C — `WORKFLOW.md` 호환 + Liquid prompt + hot reload
-배경:
-- 현재 config는 TS 모듈에서 `OrchestratorConfig` 객체를 default-export하는 형태. 코드 한 줄 바꾸려면 빌드/재시작 필요.
-- Symphony 사용자가 기존 `WORKFLOW.md`를 그대로 가져오면 마찰이 적어짐 (Symphony가 닦은 prompt 컨벤션 + workpad 구조 그대로 재활용 가능).
-- Operator가 prompt 한 줄 다듬을 때마다 ts 빌드는 과함. 텍스트 파일이 더 적합.
+### [x] Phase C.1 + C.2 — WORKFLOW.md loader + Liquid prompt builder
+완료 (2026-05-07): Symphony-호환 `WORKFLOW.md` 모드 도입.
+- `parseWorkflow` / `loadWorkflow` (`src/workflow.ts`): front matter YAML + Markdown body 분리 → `OrchestratorConfig` 인스턴스 빌드. Symphony §5.5 에러 클래스(`MissingWorkflowFileError`, `WorkflowParseError`, `WorkflowFrontMatterNotAMapError`, `WorkflowValidationError`) 전부. `$VAR_NAME` 치환 + `~/` 확장. `tracker.kind`는 `gitlab`만 허용 (linear는 명시적으로 거절 — 전략 결정 §).
+- `LiquidPromptBuilder` (`src/prompt-liquid.ts`): liquidjs strict 모드 (`strictVariables` + `strictFilters`). Symphony WORKFLOW.md drop-in을 위한 두 alias — `issue.identifier === "#${iid}"`, `attempt === null` on first attempt within a turn (Symphony §5.4 contract). `symphonyAliases:false` 옵션으로 alias 끌 수 있음.
+- `agent.kind: echo | codex | claude` 매핑 + `agent.options`로 SubprocessAgent 옵션 통과. 커스텀 agent는 `loadWorkflow(path, { agent })` override.
+- CLI에 `--workflow <path>` 추가, `--config`와 mutually exclusive.
+- 22 unit 신규 (parseWorkflow / resolveVarRefs / LiquidPromptBuilder strict mode + alias / buildConfigFromWorkflow validation paths / loadWorkflow file end-to-end). 총 43 unit + 2 integration 통과. 통합 테스트는 영향 없음.
+범위 외 (C.3로): hot reload, file watch.
 
-3개의 독립 가능한 sub-track:
-
-**C.1 — `WorkflowFileLoader`** (Symphony §5.1–5.3 파일 형식)
-- 입력: `WORKFLOW.md` 경로
-- 처리: `---` ... `---` YAML front matter 파싱 → `WorkflowConfig`로 코어스, 본문 trim → `prompt_template`
-- 출력: `{ config, prompt_template }`
-- 검증 도구 후보: `zod`(런타임 dev중), `typia`(이 모노레포가 typia-mock으로 검증된 typia 도입 사례 있음 — 빌드타임 코드 생성으로 빠름). **추천: typia**, 모노레포 일관성 + 컴파일타임 스키마.
-- Symphony front matter 호환: `tracker.kind`만 `gitlab` 추가. 나머지(`polling`, `workspace`, `hooks`, `agent`, `codex`)는 명시적 매핑/무시 결정 필요. **추천 매핑**:
-  - `polling.interval_ms` → `pollIntervalMs`
-  - `agent.max_concurrent_agents` → `maxConcurrent`
-  - `agent.max_turns` → `maxTurns`
-  - `agent.max_retry_backoff_ms` → `maxRetryBackoffMs`
-  - `codex.*` → 무시 (우리는 agent를 코드로 plug-in)
-  - `hooks.after_create` → `FsWorkspaceManager.afterCreate`로 배선
-  - 신규 GitLab-specific top-level: `tracker.gitlab.{base_url, token_var, project_id}`, `tracker.gitlab.labels.{ready,running,done,failed}`, `tracker.gitlab.continue_label`
-
-**C.2 — `LiquidPromptBuilder`** (Symphony §5.4 Liquid-호환 strict mode)
-- 입력: `prompt_template` 문자열 + `PromptInput`
-- 처리: Liquid 호환 엔진(`liquidjs` 후보) strict mode — unknown variable/filter는 render 실패
-- 변수 매핑: Symphony가 노출하는 `{{ issue.identifier }}`(Linear 키 형식)와 우리 `{{ issue.iid }}`(GitLab `#42`) 간 갭. 두 가지 호환 전략:
-  - (i) **alias 등록** — Liquid context에 `issue.identifier`를 `issue.iid`의 alias로 노출. Symphony WORKFLOW.md를 한 글자도 안 고치고 가져오기 가능.
-  - (ii) **명시적 마이그레이션 가이드** — 변수명을 GitLab-친화적으로 바꾸도록 안내.
-  - **추천: (i)** — 마찰 최소화가 이 트랙의 가치 자체.
-- 추가 변수: `attempt`(이미 Symphony 호환), `turn_number`(Symphony에는 없는 신규).
-
-**C.3 — Hot reload** (Symphony §6.2)
-- 파일 watch 라이브러리: `chokidar`(이미 vitest dep로 들어와 있을 가능성) 또는 `node:fs.watch`(외부 dep 0). **추천: `node:fs.watch`** + 100ms debounce — macOS의 fsevents 신뢰성 문제는 polling fallback으로 완화 가능. dependency 0이 큼.
+### [ ] Phase C.3 — Hot reload (Symphony §6.2)
+배경: C.1+C.2 완료로 `WORKFLOW.md`가 SSOT가 됐지만 매번 재시작해야 반영됨. Symphony는 file watch + 무중단 reload를 표준으로 가짐.
+범위:
+- 파일 watch: **`node:fs.watch`** + 100ms debounce (외부 dep 0 — 우리는 이미 yaml/liquidjs만 추가했음, 더 늘리지 않음). macOS fsevents 신뢰성 이슈는 polling fallback으로 완화.
 - semantics:
-  - 파일이 변경될 때마다 reload → parse → validate
-  - 성공 시 새 config 적용. **In-flight 워커는 죽이지 않음** (Symphony §6.2 그대로). `pollIntervalMs`/`maxConcurrent`는 다음 tick부터 적용.
-  - 실패 시 last-known-good 유지 + reload 에러 로그.
-- prompt template 변경은 *다음 turn build*부터 반영 — agent.run 중인 worker는 그대로.
-
-오픈 질문:
-- C.1/C.2/C.3 같은 PR로 갈지 분리할지. C.1 + C.2는 함께 가야 의미 있음 (둘 다 없으면 WORKFLOW.md 못 씀). C.3은 분리 가능.
-- 기존 TS 모듈 config도 계속 지원할지(즉 두 입력 모드 병존), WORKFLOW.md로 단일화할지. 기존 사용자(이미 있는 통합 테스트 등)를 깨고 싶지 않으니 **병존**이 안전.
-
-완료 기준: Symphony elixir 레퍼런스의 `WORKFLOW.md`(tracker.kind만 gitlab으로 바꿔)를 로드해 일반 GitLab 흐름이 한 turn 이상 통과. WORKFLOW.md 수정 후 재시작 없이 다음 polling tick부터 새 prompt 반영. 통합 테스트 1건 추가 (실 GitLab + WORKFLOW.md fixture).
+  - 변경 → re-parse → validate
+  - 성공 시 새 config 적용. **In-flight 워커는 죽이지 않음** (Symphony §6.2). `pollIntervalMs` / `maxConcurrent` / `maxTurns` 등은 다음 tick / 다음 dispatch부터 적용. prompt template 변경은 *다음 turn build*부터.
+  - 실패 시 last-known-good 유지 + reload 에러 로그 (config crash 절대 금지).
+- 구현 위치: orchestrator의 `run()`을 LiveConfig wrapper로 감싸 인덱싱. 또는 reload 시 `OrchestratorConfig`의 reference만 swap.
+오픈 질문: agent를 hot-swap할지 — Symphony는 codex.command 변경도 reload 대상으로 SPEC. 우리는 단일 agent 인스턴스라 swap 시 in-flight 워커가 어떻게 되는지 결정해야 함. **추천: agent swap은 Phase C.3 범위 밖, 기존 agent 인스턴스 유지 / 다음 worker부터 새 agent 사용은 C.4로 분리.**
+완료 기준: 실 GitLab 통합 테스트로 — 실행 중에 WORKFLOW.md의 prompt body 변경 → 다음 turn에서 새 prompt 반영, 잘못된 YAML로 저장 → service crash 없이 last-known-good 유지 + 에러 로그.
 
 ### [ ] 운영 도구 — observability + dashboard
 배경: 현재 가시성은 stdout 로그뿐. 다중 에이전트가 동시 진행 중일 때 "어느 issue가 어느 phase에 있는지", "최근 에러는 무엇인지", "토큰 누계" 같은 질문에 즉답이 어렵다. 단순 production 운영도 어렵다.

@@ -4,22 +4,26 @@ import { resolve } from "node:path";
 
 import type { OrchestratorConfig } from "./config.js";
 import { run } from "./orchestrator.js";
+import { loadWorkflow } from "./workflow.js";
 
 interface ParsedArgs {
   readonly command: "run" | "dry-run" | "help";
   readonly configPath: string | undefined;
+  readonly workflowPath: string | undefined;
   readonly issueIid: string | undefined;
 }
 
 async function main(): Promise<void> {
   const args = parseArgs(process.argv.slice(2));
 
-  if (args.command === "help" || args.configPath === undefined) {
+  if (args.command === "help" || (args.configPath === undefined && args.workflowPath === undefined)) {
     printHelp();
     process.exit(args.command === "help" ? 0 : 1);
   }
 
-  const config = await loadConfig(args.configPath);
+  const config = args.workflowPath !== undefined
+    ? await loadWorkflow(resolve(process.cwd(), args.workflowPath))
+    : await loadConfig(args.configPath as string);
 
   const ac = new AbortController();
   const stop = (): void => {
@@ -86,37 +90,49 @@ async function runOnce(config: OrchestratorConfig, issueIid: string | undefined)
 }
 
 function parseArgs(argv: ReadonlyArray<string>): ParsedArgs {
+  const empty: ParsedArgs = {
+    command: "help",
+    configPath: undefined,
+    workflowPath: undefined,
+    issueIid: undefined,
+  };
   if (argv.length === 0) {
-    return { command: "help", configPath: undefined, issueIid: undefined };
+    return empty;
   }
   const command = argv[0];
   let configPath: string | undefined;
+  let workflowPath: string | undefined;
   let issueIid: string | undefined;
   for (let i = 1; i < argv.length; i++) {
     const a = argv[i];
     if (a === "--config" || a === "-c") {
       configPath = argv[++i];
+    } else if (a === "--workflow" || a === "-w") {
+      workflowPath = argv[++i];
     } else if (a === "--issue") {
       issueIid = argv[++i];
     } else if (a === "--help" || a === "-h") {
-      return { command: "help", configPath: undefined, issueIid: undefined };
+      return empty;
     }
   }
   if (command === "run" || command === "dry-run") {
-    return { command, configPath, issueIid };
+    return { command, configPath, workflowPath, issueIid };
   }
-  return { command: "help", configPath: undefined, issueIid: undefined };
+  return empty;
 }
 
 function printHelp(): void {
-  console.log(`orchestrator-gitlab — Phase A MVP
+  console.log(`orchestrator-gitlab
 
 Usage:
-  orchestrator-gitlab run     --config <path>
-  orchestrator-gitlab dry-run --config <path> [--issue <iid>]
+  orchestrator-gitlab run     [--config <path> | --workflow <path>]
+  orchestrator-gitlab dry-run [--config <path> | --workflow <path>] [--issue <iid>]
 
-The config file is a JS/TS module that default-exports an OrchestratorConfig
-(see @oa-sdk/orchestrator-gitlab types).
+  --config / -c     JS/TS module default-exporting an OrchestratorConfig.
+  --workflow / -w   WORKFLOW.md (Symphony-compatible front matter + Liquid prompt).
+                    Mutually exclusive with --config.
+
+See @oa-sdk/orchestrator-gitlab README for both formats.
 `);
 }
 

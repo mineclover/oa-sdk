@@ -9,6 +9,26 @@ export {
   type PromptDelivery,
   type SubprocessAgentOptions,
 } from "./agents/subprocess.js";
+export {
+  LiquidPromptBuilder,
+  renderPromptOnce,
+  DEFAULT_PROMPT_TEMPLATE,
+  type LiquidPromptBuilderOptions,
+} from "./prompt-liquid.js";
+export {
+  loadWorkflow,
+  buildConfigFromWorkflow,
+  parseWorkflow,
+  readAndParseWorkflow,
+  resolvePath,
+  resolveVarRefs,
+  MissingWorkflowFileError,
+  WorkflowParseError,
+  WorkflowFrontMatterNotAMapError,
+  WorkflowValidationError,
+  type LoadWorkflowOverrides,
+  type ParsedWorkflow,
+} from "./workflow.js";
 export type {
   Agent,
   AgentArtifacts,

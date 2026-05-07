@@ -32,6 +32,51 @@ GitLab issue                Tracker.listEligible()       claim → label `agent-
 pnpm --filter @oa-sdk/orchestrator-gitlab build
 ```
 
+### Option A — `WORKFLOW.md` (Symphony-compatible front matter + Liquid prompt)
+
+```yaml
+---
+tracker:
+  kind: gitlab
+  base_url: http://localhost:8929
+  token: $GITLAB_TOKEN
+  project_id: 1
+  continue_label: agent-continue       # optional — enables continuation turns
+polling:
+  interval_ms: 5000
+workspace:
+  root: ~/code/orchestrator-workspaces
+  project_slug: myproj
+hooks:
+  after_create: |
+    git clone --depth 1 git@gitlab.example.com:myorg/myproj.git .
+agent:
+  kind: codex                            # echo | codex | claude
+  max_concurrent_agents: 5
+  max_turns: 5
+  max_retry_backoff_ms: 60000
+  options:
+    timeout_ms: 1800000
+---
+
+You are working on GitLab issue {{ issue.identifier }}.
+
+Title: {{ issue.title }}
+{% if attempt %}Continuation attempt #{{ attempt }}.{% endif %}
+
+{{ issue.description }}
+```
+
+Run:
+
+```bash
+GITLAB_TOKEN=glpat-xxxx orchestrator-gitlab run --workflow ./WORKFLOW.md
+```
+
+The front-matter schema is a strict subset of Symphony's (SPEC §5.3) plus GitLab-specific keys (`tracker.base_url`, `tracker.project_id`, `tracker.labels`, `tracker.continue_label`, `tracker.reconciliation_interval_ms`). The Liquid template renders in **strict mode** — unknown variable or filter raises immediately. Symphony's `{{ issue.identifier }}` and `{% if attempt %}…{% endif %}` work unchanged via aliases (`issue.identifier === "#${iid}"`, `attempt === null` on the first try within a turn).
+
+### Option B — TS config module
+
 Author a config module (`orchestrator.config.js`):
 
 ```js
@@ -121,7 +166,8 @@ Required token scope: `api`. Per run a unique label namespace (`agent-{ready,run
 | **A** | Polling + workspace + agent abstraction + Codex adapter + label transitions | ✅ |
 | **B.1** | `SubprocessAgent` extracted; `ClaudeAgent` shipped on top of it | ✅ |
 | **B.2** | Per-turn retry with exp backoff (`maxAttempts` × `retryBackoffBaseMs`/`maxRetryBackoffMs`); reconciliation watcher cancels in-flight agents on issue close or external label removal; continuation turns via `maxTurns` + `continueLabel`; `AgentTokens` aggregation in notes + shutdown summary | ✅ |
-| C | `WORKFLOW.md`-compatible config + Liquid prompts + hot reload | 📋 [design notes](../../docs/internal/todo.md#orchestrator-gitlab-잔여-항목) |
+| **C.1 + C.2** | `WorkflowFileLoader` (Symphony-compatible front matter + `$VAR` substitution + typed validation errors) and `LiquidPromptBuilder` (strict mode + `issue.identifier` / null-`attempt` aliases for Symphony WORKFLOW.md drop-in) | ✅ |
+| C.3 | Hot reload — file watch + parse + apply to running orchestrator without restart | 📋 [design notes](../../docs/internal/todo.md#orchestrator-gitlab-잔여-항목) |
 | Ops | HTTP `/healthz` + `/state` + `/issues/:iid` for live orchestrator state; OpenTelemetry instrumentation as a follow-on | 📋 [design notes](../../docs/internal/todo.md#orchestrator-gitlab-잔여-항목) |
 
 ### Phase B.2 config (all optional, default to no behaviour change)
