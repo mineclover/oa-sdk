@@ -10,6 +10,12 @@ export interface InfraConfig {
   readonly runnerImageTag: string;
   readonly enableRunner: boolean;
   readonly rootPassword: pulumi.Output<string> | undefined;
+  /**
+   * When true, widen `gitlab_rails['monitoring_whitelist']` so the host-side
+   * `/-/health` probe returns 200 instead of 404. See OPERATIONS.md for why
+   * the default keeps GitLab's own whitelist (127.0.0.1/8 only) intact.
+   */
+  readonly enableExternalHealthProbe: boolean;
 }
 
 export function loadConfig(): InfraConfig {
@@ -21,5 +27,6 @@ export function loadConfig(): InfraConfig {
     runnerImageTag: cfg.get("runnerImageTag") ?? "latest",
     enableRunner: cfg.getBoolean("enableRunner") ?? true,
     rootPassword: cfg.getSecret("rootPassword"),
+    enableExternalHealthProbe: cfg.getBoolean("enableExternalHealthProbe") ?? false,
   };
 }

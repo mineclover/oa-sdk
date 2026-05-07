@@ -14,6 +14,9 @@
     "stack:init": "pulumi stack init dev || true",
     "login:local": "pulumi login --local",
     "register:runner": "bash ./scripts/register-runner.sh",
+    "register:runner:auto": "bash ./scripts/register-runner-auto.sh",
+    "pause": "docker stop gitlab gitlab-runner",
+    "resume": "docker start gitlab gitlab-runner",
     "clean": "rm -rf dist"
   },
   "dependencies": {

@@ -90,20 +90,14 @@ DigitalOcean 1차 타깃 이유: cheapest GitLab-class droplet(~$24/mo for 4GB),
 배경: Symphony SPEC §5.3.1은 현재 `tracker.kind: linear`만 지원([SPEC](https://github.com/openai/symphony/blob/main/SPEC.md#531-tracker-object)). 옵션 (a) Symphony fork에 GitLab tracker 추가, (b) GitLab→Linear-shaped proxy, (c) Symphony 우회 직접 오케스트레이션.
 결정 (2026-05-07): (c) 채택. 이유 — (a)는 upstream merge 부담 영구화, (b)는 Linear GraphQL 모사 비용 대비 가치 낮음, (c)는 Symphony SPEC을 *디자인 레퍼런스*로만 가져와 GitLab 네이티브로 다시 구현 (코드 의존성 0). 후속 작업은 [`@oa-sdk/orchestrator-gitlab`](../../packages/orchestrator-gitlab/) 패키지에서 phase A/B/C로 추적.
 
-### [ ] Runner 등록 자동화
-배경: 현재 등록은 수동(UI에서 `glrt-...` 토큰 발급 → `pnpm register:runner`). 운영 자동화에 마찰을 만든다.
-범위: GitLab API로 instance/group runner 사전 생성 → 토큰을 Pulumi config secret에 저장 → 컨테이너 기동 시 `gitlab-runner register --non-interactive` 자동 실행. GitLab 16.0+의 auth token 모델에 맞춰야 함.
-완료 기준: `pnpm up`만으로 Runner가 실제로 등록 완료된 상태로 뜸. 토큰 회전 절차 OPERATIONS.md에 기록.
+### [x] Runner 등록 자동화
+완료 (2026-05-07): `scripts/register-runner-auto.sh` + `pnpm register:runner:auto`. GitLab 16.0+ auth-token 모델 기준 — `POST /api/v4/user/runners`로 runner row 생성 → 응답 `token` 캡처 → 컨테이너 안에서 `gitlab-runner register --non-interactive`로 등록. description/tag-list/locked 등은 모두 서버 측 속성이므로 API 호출 시점에 설정, 클라이언트 register 단계에는 executor 설정만 전달. 실 GitLab 인스턴스(localhost:8929)에서 end-to-end 검증 완료 — `Runner registered successfully` + `gitlab-runner list`에 새 row 확인. `RUNNER_KIND`(instance/group/project), `RUNNER_SCOPE_ID`, `RUNNER_DESCRIPTION`, `RUNNER_TAGS`, `RUNNER_EXECUTOR`, `RUNNER_DOCKER_IMAGE` 모두 env로 override.
 
-### [ ] 호스트 가시 readiness — `monitoring_whitelist` 확장 옵션
-배경: `/-/health`가 host에서 404를 내는 quirk(OPERATIONS.md 문서화 완료). 외부 모니터링 도구(Prometheus blackbox 등)에서 직접 hit해야 할 때를 위한 opt-in 토글이 없다.
-범위: Pulumi config `enableExternalHealthProbe: boolean` 추가, true이면 Omnibus config의 `gitlab_rails['monitoring_whitelist']`에 Docker bridge 게이트웨이 IP 대역 포함.
-완료 기준: 토글 on 상태에서 host의 `/-/health` 200, off일 때 기존(404) 동작 유지.
+### [x] 호스트 가시 readiness — `monitoring_whitelist` 확장 옵션
+완료 (2026-05-07): Pulumi config `enableExternalHealthProbe: boolean` (default false). true이면 `gitlab_rails['monitoring_whitelist']`를 Docker bridge IP 대역(`172.16.0.0/12`, `192.168.0.0/16`, `10.0.0.0/8`)으로 확장 → host의 `/-/health`가 200 반환. off일 때는 GitLab 기본(`127.0.0.1/8`만 허용) 유지 → 기존 404 동작 보존. OPERATIONS.md에 토글 절차 + 권장 default probe 대안(`docker inspect`, `/users/sign_in`) 명시.
 
-### [ ] Pause helper script — destroy/up 대신 stop/start
-배경: 장기 dev 인스턴스는 destroy 시 GitLab 상태가 사라지므로 `docker stop`을 권장(OPERATIONS.md). 매번 두 컨테이너명을 외우는 마찰 제거.
-범위: `pnpm pause` (= `docker stop gitlab gitlab-runner`), `pnpm resume` (= `docker start ...`) script 추가.
-완료 기준: 두 명령으로 상태 보존된 stop/start이 가능.
+### [x] Pause helper script — destroy/up 대신 stop/start
+완료 (2026-05-07): `pnpm pause` (= `docker stop gitlab gitlab-runner`), `pnpm resume` (= `docker start gitlab gitlab-runner`). `package.json` scripts에 추가, OPERATIONS.md에 `pnpm down`(destructive)와 차이 명시.
 
 ---
 
@@ -182,9 +176,11 @@ DigitalOcean 1차 타깃 이유: cheapest GitLab-class droplet(~$24/mo for 4GB),
 - 11 신규 unit test: 4 라우트 happy path + 405 / 404 / 401 / 200 with bearer / 잘못된 길이 토큰 거절.
 범위 외 (Ops.2+로): per-issue history ring buffer, OpenTelemetry instrumentation.
 
-### [ ] Phase Ops.2+ — observability 확장
-- per-issue history: 최근 N개 turn의 status/timestamps를 ring buffer에 보관 → `/issues/:iid/history` 엔드포인트
-- OpenTelemetry instrumentation: counters/histograms + spans (`@opentelemetry/api` 인터페이스만, SDK는 운영자 선택)
+### [x] Phase Ops.2 — per-issue history + OpenTelemetry instrumentation
+완료 (2026-05-07):
+- **History ring buffer** (`OrchestratorRuntime.appendHistory` + `HISTORY_CAP_PER_ISSUE = 50`): per-issue 큐에 턴 종료 시점 timestamp / turn / attempt / status / durationMs / agent / 256자 truncated summary / optional tokens 기록. `GET /issues/:iid/history`가 `{iid, entries}` 반환. 큰 summary는 잘려서 GitLab note(원본)와 분리.
+- **OpenTelemetry**: `@opentelemetry/api` 의존(인터페이스만) — operator가 SDK를 wire하지 않으면 모든 호출이 no-op로 흡수돼 zero overhead. Counters: `dispatched`/`succeeded`/`failed`/`cancelled`/`tokens.total`/`reloads`/`reload_failures`. UpDownCounter: `in_flight`. Histogram: `turn.duration_ms`. Spans: `orchestrator.process_issue`(루트) + `agent.run`(자식). attribute: `issue.id`/`iid`, `agent.name`, `turn.number`, `attempt.number`, `status`.
+- 11 신규 unit test (history endpoint 2 + ring buffer cap 4 + OTel 5). 총 69 unit + 2 integration 통과.
 
 ### [ ] 운영 도구 — observability + dashboard
 배경: 현재 가시성은 stdout 로그뿐. 다중 에이전트가 동시 진행 중일 때 "어느 issue가 어느 phase에 있는지", "최근 에러는 무엇인지", "토큰 누계" 같은 질문에 즉답이 어렵다. 단순 production 운영도 어렵다.

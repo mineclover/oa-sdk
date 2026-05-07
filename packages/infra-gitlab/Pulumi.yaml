@@ -31,3 +31,11 @@ config:
   infra-gitlab:rootPassword:
     description: Initial root password (set via Omnibus GITLAB_ROOT_PASSWORD). Stored as a Pulumi secret.
     secret: true
+  infra-gitlab:enableExternalHealthProbe:
+    description: |
+      When true, GitLab's monitoring_whitelist is widened to include the Docker
+      bridge gateway IP range so that host-side `curl /-/health` returns 200
+      instead of 404. Off by default — see OPERATIONS.md → "Readiness — /-/health
+      is not a host-side signal" for the rationale and the default probe
+      alternatives (`docker inspect`, `/users/sign_in`).
+    default: false

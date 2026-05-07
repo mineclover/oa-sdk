@@ -28,12 +28,18 @@ export function createGitLab(name: string, args: GitLabArgs): GitLabService {
 
   // Omnibus self-config: external_url + bind to container's internal HTTP/SSH ports.
   // Bundled Postgres/Redis are used; no external dependencies in Phase 1.
+  // monitoring_whitelist is widened only when the operator opts in — by default
+  // we preserve GitLab's stock 127.0.0.1/8 protection (so /-/health stays
+  // private to in-container probes and Docker health checks).
+  const monitoringWhitelistLine = cfg.enableExternalHealthProbe
+    ? `gitlab_rails['monitoring_whitelist'] = ['127.0.0.0/8', '172.16.0.0/12', '192.168.0.0/16', '10.0.0.0/8']\n`
+    : "";
   const omnibusConfig = pulumi.interpolate`
 external_url '${externalUrl}'
 gitlab_rails['gitlab_shell_ssh_port'] = ${cfg.gitlabSshPort}
 nginx['listen_port'] = 80
 nginx['listen_https'] = false
-`;
+${monitoringWhitelistLine}`;
 
   const envs: pulumi.Input<string>[] = [
     pulumi.interpolate`GITLAB_OMNIBUS_CONFIG=${omnibusConfig}`,

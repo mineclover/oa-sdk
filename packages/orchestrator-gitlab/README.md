@@ -194,7 +194,7 @@ Required token scope: `api`. Per run a unique label namespace (`agent-{ready,run
 | **C.1 + C.2** | `WorkflowFileLoader` (Symphony-compatible front matter + `$VAR` substitution + typed validation errors) and `LiquidPromptBuilder` (strict mode + `issue.identifier` / null-`attempt` aliases for Symphony WORKFLOW.md drop-in) | ✅ |
 | **C.3** | Hot reload — `node:fs.watch` debounce, re-parse on change, swap `LiveConfigProvider`; in-flight workers untouched, last-known-good preserved on parse error | ✅ |
 | **Ops.1** | Observability HTTP server: `GET /healthz` (200/503), `GET /state` (RuntimeSnapshot JSON), `GET /issues/:iid` (per-worker InFlightSnapshot); optional Bearer auth | ✅ |
-| Ops.2+ | `/issues/:iid` history ring buffer, OpenTelemetry instrumentation | 📋 [design notes](../../docs/internal/todo.md#orchestrator-gitlab-잔여-항목) |
+| **Ops.2** | Per-issue history ring buffer (`GET /issues/:iid/history`, capped at 50 entries) + OpenTelemetry instrumentation (counters / UpDownCounter / Histogram + spans). `@opentelemetry/api` only — SDK is operator's choice; absent SDK = no-op | ✅ |
 
 ### Phase B.2 config (all optional, default to no behaviour change)
 

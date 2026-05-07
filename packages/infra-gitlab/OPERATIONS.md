@@ -76,6 +76,40 @@ After GitLab is healthy:
 
 The Runner uses the **internal** URL `http://gitlab/` on the shared Docker network (`gitlab-net`) so it does not depend on host port forwarding being symmetric.
 
+### Auto-register (GitLab 16.0+ auth-token model)
+
+If you have a personal access token with `api` scope, you can skip steps 1–3 (no UI click-through):
+
+```bash
+GITLAB_BASE_URL=http://localhost:8929 \
+GITLAB_TOKEN=glpat-xxxx \
+  pnpm register:runner:auto
+```
+
+The script `POST /api/v4/user/runners` with the appropriate `runner_type` (default `instance_type`), captures the `glrt-...` auth token from the response, then runs `gitlab-runner register --non-interactive` inside the container with only the executor-side flags (description / tag-list / locked are server-side properties set on the API call). Override defaults via `RUNNER_DESCRIPTION`, `RUNNER_TAGS`, `RUNNER_KIND`, `RUNNER_SCOPE_ID`, `RUNNER_EXECUTOR`, `RUNNER_DOCKER_IMAGE`.
+
+### Pause / resume
+
+For long-lived dev instances, prefer pausing over destroying — the volumes and therefore GitLab state survive. The package exposes shortcuts:
+
+```bash
+pnpm pause   # = docker stop gitlab gitlab-runner
+pnpm resume  # = docker start gitlab gitlab-runner
+```
+
+`pnpm down` / `pulumi destroy` is destructive (volumes get removed), so use it only when you actually want to start fresh.
+
+### Host-side `/-/health` opt-in
+
+If you need an external monitor (Prometheus blackbox, uptime checker) to hit `/-/health` from the host, set:
+
+```bash
+PULUMI_CONFIG_PASSPHRASE=… pulumi config set enableExternalHealthProbe true
+PULUMI_CONFIG_PASSPHRASE=… pnpm up   # rolls the gitlab container with the wider whitelist
+```
+
+This widens `gitlab_rails['monitoring_whitelist']` to the Docker bridge IP ranges (`172.16.0.0/12`, `192.168.0.0/16`, `10.0.0.0/8`) so the host-rewritten source IP passes the check. Default off — see "Readiness — `/-/health` is **not** a host-side signal" above for the rationale.
+
 ## Credentials & secrets
 
 | Secret | Stored in | How to retrieve |
