@@ -113,6 +113,28 @@ DigitalOcean 1차 타깃 이유: cheapest GitLab-class droplet(~$24/mo for 4GB),
 > 디자인 결정 + Phase A 범위: [packages/orchestrator-gitlab/docs/prd-phase-a.md](../../packages/orchestrator-gitlab/docs/prd-phase-a.md).
 > 위 infra-gitlab Phase 4 항목의 후속.
 
+### 전략 결정 (2026-05-07)
+
+**Symphony 와 GitLab 연동의 진짜 의도**: "Symphony-style 오케스트레이션이 GitLab에서 돌면 됨"(결과 중심).
+
+**현재 path = (c) 자체 구현**. orchestrator-gitlab을 발전시키는 길.
+
+**Path 2 = (a) Symphony fork**는 *최적화 후보로 보류*. 다음 신호 중 **둘 이상**이 실측되면 진지하게 재평가:
+
+1. Codex `app-server` stdio JSON-RPC가 정말 필요해짐 — 단일 턴 `codex exec`만으로는 multi-turn 내 streaming events / sub-agent 호출 / sandbox approval flow를 못 받쳐줄 때.
+2. OTP supervisor의 견고함이 실측 차이로 드러남 — 워커 crash 시 부분 상태 잔존, 메모리 누수 누적 등.
+3. 운영자 dashboard가 본격 필요 — Ops tooling Phase 1의 HTTP `/state`만으로 부족.
+4. Symphony SPEC 추적 비용이 부담 — Symphony가 SPEC을 진화시킬 때마다 우리가 따라잡아야 하는 운영 비용 누적.
+5. 다중 트래커 지원이 요건이 됨 — GitHub Issues / Linear / Jira 등 추가. Symphony는 이미 트래커 추상화가 되어 있음.
+
+**Path 1 그대로 가야 하는 신호** (재평가 *불필요*):
+- 단일 GitLab 단일 프로젝트 위주 운영
+- 단일 턴 (`codex exec` / `claude --print`)으로 충분한 워크로드
+- TypeScript/Node 친숙도 > Elixir/OTP 친숙도
+- Symphony 자체 기능보다 *우리 사용 사례에 정확히 fit하는 것*이 더 가치 있음
+
+**(b) Linear-shaped proxy는 영구 폐기**. 큰 GraphQL 표면적 모사 비용 vs marginal benefit 합당하지 않음.
+
 ### [x] Phase A — MVP 오케스트레이션 루프
 완료 (2026-05-07): label 기반 polling → 워크스페이스 ensure → agent 실행 → 결과를 GitLab note로 회신 + label 전이 (`agent-ready` → `agent-running` → `agent-done`/`agent-failed`). `EchoAgent` (deterministic, 테스트용) + `CodexAgent` (`codex exec` subprocess wrapper). `GitlabTracker` REST 어댑터, `FsWorkspaceManager` (Symphony §4.2 sanitize). CLI `run`/`dry-run`. 6 테스트 통과 (orchestrator end-to-end + 실패 경로 + concurrency dedup + sanitize + EchoAgent abort).
 
