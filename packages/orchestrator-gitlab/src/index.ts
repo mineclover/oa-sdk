@@ -1,4 +1,25 @@
-export { run } from "./orchestrator.js";
+export { run, type ConfigInput, type RunOptions } from "./orchestrator.js";
+export {
+  LiveConfigProvider,
+  isLiveConfigProvider,
+  watchWorkflow,
+  type WatchHandle,
+  type WatchOptions,
+} from "./live-config.js";
+export {
+  OrchestratorRuntime,
+  snapshot,
+  type RuntimeSnapshot,
+  type InFlightInfo,
+  type InFlightSnapshot,
+  type RunMetrics,
+  type RuntimeError,
+} from "./runtime.js";
+export {
+  startHttpServer,
+  type HttpServerHandle,
+  type HttpServerOptions,
+} from "./http-server.js";
 export { GitlabApiError, GitlabTracker, type GitlabTrackerOptions } from "./tracker.js";
 export { FsWorkspaceManager, sanitizeKey, type FsWorkspaceOptions } from "./workspace.js";
 export { EchoAgent } from "./agents/echo.js";

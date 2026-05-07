@@ -29,6 +29,22 @@ export interface OrchestratorConfig {
   readonly signal?: AbortSignal;
   /** Logger sink. Defaults to console for dev; tests can substitute a buffer. */
   readonly log?: (record: LogRecord) => void;
+  /**
+   * Optional HTTP observability surface. When set, `run()` starts an HTTP
+   * server bound to `httpHost:httpPort` exposing:
+   *   - `GET /healthz` → 200 alive / 503 shutting down
+   *   - `GET /state`   → JSON RuntimeSnapshot
+   *   - `GET /issues/:iid` → InFlightSnapshot or 404
+   * Defaults to disabled. See `runtime.ts` for the snapshot shape.
+   */
+  readonly httpPort?: number;
+  /** Bind host for the observability HTTP server. Defaults to `127.0.0.1`. */
+  readonly httpHost?: string;
+  /**
+   * If set, `/state` and `/issues/:iid` require `Authorization: Bearer <token>`.
+   * `/healthz` stays unauthenticated so probes always work.
+   */
+  readonly httpAuthToken?: string;
 }
 
 export interface LogRecord {

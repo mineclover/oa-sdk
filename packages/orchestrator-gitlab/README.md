@@ -71,7 +71,32 @@ Run:
 
 ```bash
 GITLAB_TOKEN=glpat-xxxx orchestrator-gitlab run --workflow ./WORKFLOW.md
+# Hot reload — pick up edits to WORKFLOW.md without restart:
+GITLAB_TOKEN=glpat-xxxx orchestrator-gitlab run --workflow ./WORKFLOW.md --watch
 ```
+
+Hot-reloadable: the prompt template, all `polling`/`agent`/`tracker.*` integers, label sets, `continue_label`. In-flight workers keep the snapshot they were dispatched with; new workers and the next-tick scheduler pick up the new values. Parse errors leave the previous (last-known-good) config in effect and surface on `runtime.lastReloadError` and the operator log — the service never crashes on a bad save.
+
+### Observability HTTP server (optional)
+
+Add `http` block to enable a localhost JSON surface:
+
+```yaml
+http:
+  port: 7081           # required to enable
+  host: 127.0.0.1      # default
+  auth_token: $ORCH_HTTP_TOKEN   # optional bearer; /healthz stays public
+```
+
+Routes:
+
+| Path | Behaviour |
+|------|-----------|
+| `GET /healthz` | `200 {"ok":true,"shuttingDown":false}` while alive, `503 {"ok":false,"shuttingDown":true}` after shutdown begins. Always unauthenticated. |
+| `GET /state` | `200 RuntimeSnapshot` — uptime, metrics (dispatched/succeeded/failed/cancelled/tokens), `inFlight: InFlightSnapshot[]`, `reloadCount`, `lastReloadError`. |
+| `GET /issues/:iid` | `200 InFlightSnapshot` for that IID's in-flight worker, `404` otherwise. |
+
+`auth_token` (when set) gates `/state` and `/issues/:iid` via `Authorization: Bearer <token>`. Use Pulumi secrets / `$VAR` substitution to avoid committing the token.
 
 The front-matter schema is a strict subset of Symphony's (SPEC §5.3) plus GitLab-specific keys (`tracker.base_url`, `tracker.project_id`, `tracker.labels`, `tracker.continue_label`, `tracker.reconciliation_interval_ms`). The Liquid template renders in **strict mode** — unknown variable or filter raises immediately. Symphony's `{{ issue.identifier }}` and `{% if attempt %}…{% endif %}` work unchanged via aliases (`issue.identifier === "#${iid}"`, `attempt === null` on the first try within a turn).
 
@@ -167,8 +192,9 @@ Required token scope: `api`. Per run a unique label namespace (`agent-{ready,run
 | **B.1** | `SubprocessAgent` extracted; `ClaudeAgent` shipped on top of it | ✅ |
 | **B.2** | Per-turn retry with exp backoff (`maxAttempts` × `retryBackoffBaseMs`/`maxRetryBackoffMs`); reconciliation watcher cancels in-flight agents on issue close or external label removal; continuation turns via `maxTurns` + `continueLabel`; `AgentTokens` aggregation in notes + shutdown summary | ✅ |
 | **C.1 + C.2** | `WorkflowFileLoader` (Symphony-compatible front matter + `$VAR` substitution + typed validation errors) and `LiquidPromptBuilder` (strict mode + `issue.identifier` / null-`attempt` aliases for Symphony WORKFLOW.md drop-in) | ✅ |
-| C.3 | Hot reload — file watch + parse + apply to running orchestrator without restart | 📋 [design notes](../../docs/internal/todo.md#orchestrator-gitlab-잔여-항목) |
-| Ops | HTTP `/healthz` + `/state` + `/issues/:iid` for live orchestrator state; OpenTelemetry instrumentation as a follow-on | 📋 [design notes](../../docs/internal/todo.md#orchestrator-gitlab-잔여-항목) |
+| **C.3** | Hot reload — `node:fs.watch` debounce, re-parse on change, swap `LiveConfigProvider`; in-flight workers untouched, last-known-good preserved on parse error | ✅ |
+| **Ops.1** | Observability HTTP server: `GET /healthz` (200/503), `GET /state` (RuntimeSnapshot JSON), `GET /issues/:iid` (per-worker InFlightSnapshot); optional Bearer auth | ✅ |
+| Ops.2+ | `/issues/:iid` history ring buffer, OpenTelemetry instrumentation | 📋 [design notes](../../docs/internal/todo.md#orchestrator-gitlab-잔여-항목) |
 
 ### Phase B.2 config (all optional, default to no behaviour change)
 

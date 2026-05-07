@@ -138,6 +138,7 @@ export function buildConfigFromWorkflow(
   const polling = getObject(raw, "polling") ?? {};
   const agentCfg = getObject(raw, "agent") ?? {};
   const trackerCfg = getObject(raw, "tracker") ?? {};
+  const httpCfg = getObject(raw, "http") ?? {};
 
   const pollIntervalMs = getNumber(polling, "interval_ms");
   const maxConcurrent = getNumber(agentCfg, "max_concurrent_agents");
@@ -146,6 +147,10 @@ export function buildConfigFromWorkflow(
   const maxTurns = getNumber(agentCfg, "max_turns");
   const reconciliationIntervalMs = getNumber(trackerCfg, "reconciliation_interval_ms");
   const continueLabel = getString(trackerCfg, "continue_label");
+  const httpPort = getNumber(httpCfg, "port");
+  const httpHost = getString(httpCfg, "host");
+  const httpAuthTokenRaw = getString(httpCfg, "auth_token");
+  const httpAuthToken = httpAuthTokenRaw !== undefined ? resolveVarRefs(httpAuthTokenRaw) : undefined;
 
   const out: Mutable<OrchestratorConfig> = {
     tracker,
@@ -161,6 +166,9 @@ export function buildConfigFromWorkflow(
   if (maxTurns !== undefined) out.maxTurns = maxTurns;
   if (reconciliationIntervalMs !== undefined) out.reconciliationIntervalMs = reconciliationIntervalMs;
   if (continueLabel !== undefined) out.continueLabel = continueLabel;
+  if (httpPort !== undefined) out.httpPort = httpPort;
+  if (httpHost !== undefined) out.httpHost = httpHost;
+  if (httpAuthToken !== undefined && httpAuthToken.length > 0) out.httpAuthToken = httpAuthToken;
   if (overrides.signal !== undefined) out.signal = overrides.signal;
   if (overrides.log !== undefined) out.log = overrides.log;
   return out;

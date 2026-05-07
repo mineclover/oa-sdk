@@ -160,17 +160,31 @@ DigitalOcean 1차 타깃 이유: cheapest GitLab-class droplet(~$24/mo for 4GB),
 - 22 unit 신규 (parseWorkflow / resolveVarRefs / LiquidPromptBuilder strict mode + alias / buildConfigFromWorkflow validation paths / loadWorkflow file end-to-end). 총 43 unit + 2 integration 통과. 통합 테스트는 영향 없음.
 범위 외 (C.3로): hot reload, file watch.
 
-### [ ] Phase C.3 — Hot reload (Symphony §6.2)
-배경: C.1+C.2 완료로 `WORKFLOW.md`가 SSOT가 됐지만 매번 재시작해야 반영됨. Symphony는 file watch + 무중단 reload를 표준으로 가짐.
-범위:
-- 파일 watch: **`node:fs.watch`** + 100ms debounce (외부 dep 0 — 우리는 이미 yaml/liquidjs만 추가했음, 더 늘리지 않음). macOS fsevents 신뢰성 이슈는 polling fallback으로 완화.
-- semantics:
-  - 변경 → re-parse → validate
-  - 성공 시 새 config 적용. **In-flight 워커는 죽이지 않음** (Symphony §6.2). `pollIntervalMs` / `maxConcurrent` / `maxTurns` 등은 다음 tick / 다음 dispatch부터 적용. prompt template 변경은 *다음 turn build*부터.
-  - 실패 시 last-known-good 유지 + reload 에러 로그 (config crash 절대 금지).
-- 구현 위치: orchestrator의 `run()`을 LiveConfig wrapper로 감싸 인덱싱. 또는 reload 시 `OrchestratorConfig`의 reference만 swap.
-오픈 질문: agent를 hot-swap할지 — Symphony는 codex.command 변경도 reload 대상으로 SPEC. 우리는 단일 agent 인스턴스라 swap 시 in-flight 워커가 어떻게 되는지 결정해야 함. **추천: agent swap은 Phase C.3 범위 밖, 기존 agent 인스턴스 유지 / 다음 worker부터 새 agent 사용은 C.4로 분리.**
-완료 기준: 실 GitLab 통합 테스트로 — 실행 중에 WORKFLOW.md의 prompt body 변경 → 다음 turn에서 새 prompt 반영, 잘못된 YAML로 저장 → service crash 없이 last-known-good 유지 + 에러 로그.
+### [x] Phase C.3 — Hot reload (Symphony §6.2)
+완료 (2026-05-07):
+- `LiveConfigProvider` (`src/live-config.ts`): 현재 `OrchestratorConfig`를 들고, `swap(next)`로 통째 교체. orchestrator는 `current()` getter를 통해 매 tick / 매 dispatch / 매 turn build / 매 reconcile fetch에서 fresh value 읽음.
+- `watchWorkflow(path, options)`: `node:fs.watch` + 100ms debounce (default). 변경 이벤트 → 재파싱 → 성공 시 swap + `runtime.reloadCount++`, 실패 시 last-known-good 유지 + `runtime.lastReloadError` 기록. service crash 0.
+- `run()` 시그니처: `run(input: OrchestratorConfig | LiveConfigProvider, options?: { runtime })`. 정적 OrchestratorConfig는 기존처럼 동작 (backward compat). `resolveOpts`를 매 tick 재호출해 hot-reloadable 필드(pollIntervalMs/maxConcurrent/maxAttempts/labels/continueLabel/reconciliationIntervalMs)가 즉시 반영.
+- CLI `--watch` 플래그 추가 (`--workflow`와 함께 사용).
+- 결정: in-flight 워커는 reload 시 abort하지 않음 (Symphony §6.2 정책 그대로). agent 인스턴스 hot-swap은 범위 밖 — 다음 dispatch부터 새 agent 사용은 C.4 후속.
+- 4 신규 unit test: 초기 로드 / 변경→swap / invalid YAML→last-known-good / close()→이후 변경 무시.
+
+### [x] Phase Ops.1 — observability HTTP server
+완료 (2026-05-07):
+- `OrchestratorRuntime` 클래스 (`src/runtime.ts`): in-flight 워커 + metrics + reload 카운터 + lastError. orchestrator가 mutate, HTTP 서버 / 외부 observer가 read.
+- `startHttpServer(rt, opts)` (`src/http-server.ts`): `node:http` 직접 사용 (외부 dep 0). 3 엔드포인트:
+  - `GET /healthz` — 200 alive / 503 shuttingDown. 항상 unauth.
+  - `GET /state` — RuntimeSnapshot (uptime/metrics/inFlight/reloadCount/lastReloadError).
+  - `GET /issues/:iid` — 매칭되는 in-flight 워커의 InFlightSnapshot 또는 404.
+- 옵셔널 Bearer auth (`httpAuthToken`) — constant-time 비교, `/healthz` 제외.
+- `OrchestratorConfig.httpPort`/`httpHost`/`httpAuthToken` 필드, WORKFLOW.md `http.{port,host,auth_token}` 매핑 (auth_token은 `$VAR` 치환).
+- `run()`이 자동으로 서버 시작/종료 — 셧다운 시 1초 grace 후 keep-alive 강제 종료.
+- 11 신규 unit test: 4 라우트 happy path + 405 / 404 / 401 / 200 with bearer / 잘못된 길이 토큰 거절.
+범위 외 (Ops.2+로): per-issue history ring buffer, OpenTelemetry instrumentation.
+
+### [ ] Phase Ops.2+ — observability 확장
+- per-issue history: 최근 N개 turn의 status/timestamps를 ring buffer에 보관 → `/issues/:iid/history` 엔드포인트
+- OpenTelemetry instrumentation: counters/histograms + spans (`@opentelemetry/api` 인터페이스만, SDK는 운영자 선택)
 
 ### [ ] 운영 도구 — observability + dashboard
 배경: 현재 가시성은 stdout 로그뿐. 다중 에이전트가 동시 진행 중일 때 "어느 issue가 어느 phase에 있는지", "최근 에러는 무엇인지", "토큰 누계" 같은 질문에 즉답이 어렵다. 단순 production 운영도 어렵다.

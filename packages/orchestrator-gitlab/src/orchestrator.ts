@@ -1,4 +1,7 @@
 import { DEFAULTS, defaultLog, type LogRecord, type OrchestratorConfig } from "./config.js";
+import { startHttpServer, type HttpServerHandle } from "./http-server.js";
+import { isLiveConfigProvider, LiveConfigProvider } from "./live-config.js";
+import { OrchestratorRuntime } from "./runtime.js";
 import {
   DEFAULT_LABELS,
   type AgentResult,
@@ -19,134 +22,170 @@ interface RuntimeOptions {
   readonly reconciliationIntervalMs: number;
 }
 
-interface RunMetrics {
-  inFlight: number;
-  totalDispatched: number;
-  totalSucceeded: number;
-  totalFailed: number;
-  totalCancelled: number;
-  tokens: { input: number; output: number; total: number };
+export type ConfigInput = OrchestratorConfig | LiveConfigProvider;
+
+export interface RunOptions {
+  /** Inject a runtime so HTTP server / external observers can read live state. */
+  readonly runtime?: OrchestratorRuntime;
 }
 
 /**
- * Run the orchestrator until `signal` aborts. Single-instance assumption.
+ * Run the orchestrator until the configured signal aborts. Single-instance.
  *
- * Phase B.2 features:
- *   - per-turn retry with exponential backoff (`maxAttempts` × bounded backoff)
+ * Accepts either a static `OrchestratorConfig` (snapshot at startup) or a
+ * `LiveConfigProvider` whose `current()` is consulted every tick — Phase C.3
+ * hot reload uses the latter.
+ *
+ * Phase B.2 + C.3 + Ops semantics:
+ *   - per-turn retry with exponential backoff
  *   - continuation turns up to `maxTurns` when `continueLabel` remains set
- *   - reconciliation watcher per in-flight issue: cancels the agent if the
- *     issue is closed or loses the running label externally
+ *   - reconciliation watcher cancels in-flight agent on issue close or running-label removal
  *   - token usage aggregation across runs (logged at shutdown)
+ *   - hot reload via LiveConfigProvider — opts re-resolved each tick / dispatch / turn
+ *   - optional observability HTTP server when `httpPort` is set
  */
-export async function run(config: OrchestratorConfig): Promise<void> {
-  const opts = resolveOpts(config);
-  const log = config.log ?? defaultLog;
-  const signal = config.signal;
-  const inFlight = new Set<string>();
-  const metrics: RunMetrics = {
-    inFlight: 0,
-    totalDispatched: 0,
-    totalSucceeded: 0,
-    totalFailed: 0,
-    totalCancelled: 0,
-    tokens: { input: 0, output: 0, total: 0 },
-  };
+export async function run(input: ConfigInput, options: RunOptions = {}): Promise<void> {
+  const getConfig = (): OrchestratorConfig =>
+    isLiveConfigProvider(input) ? input.current() : input;
 
+  const initialConfig = getConfig();
+  const log = initialConfig.log ?? defaultLog;
+  const signal = initialConfig.signal;
+  const runtime = options.runtime ?? new OrchestratorRuntime();
+  runtime.startedAt = Date.now();
+
+  let httpHandle: HttpServerHandle | undefined;
+  if (initialConfig.httpPort !== undefined) {
+    try {
+      httpHandle = await startHttpServer(runtime, {
+        host: initialConfig.httpHost ?? "127.0.0.1",
+        port: initialConfig.httpPort,
+        ...(initialConfig.httpAuthToken !== undefined ? { authToken: initialConfig.httpAuthToken } : {}),
+      });
+      log({ level: "info", msg: `http server listening on ${initialConfig.httpHost ?? "127.0.0.1"}:${String(httpHandle.port)}` });
+    } catch (err) {
+      log({ level: "error", msg: "failed to start observability http server", error: err });
+    }
+  }
+
+  const opts0 = resolveOpts(initialConfig);
   log({
     level: "info",
     msg:
-      `orchestrator starting agent=${config.agent.name} ` +
-      `pollIntervalMs=${String(opts.pollIntervalMs)} maxConcurrent=${String(opts.maxConcurrent)} ` +
-      `maxAttempts=${String(opts.maxAttempts)} maxTurns=${String(opts.maxTurns)}` +
-      (opts.continueLabel !== undefined ? ` continueLabel=${opts.continueLabel}` : "") +
-      ` reconciliationIntervalMs=${String(opts.reconciliationIntervalMs)}`,
+      `orchestrator starting agent=${initialConfig.agent.name} ` +
+      `pollIntervalMs=${String(opts0.pollIntervalMs)} maxConcurrent=${String(opts0.maxConcurrent)} ` +
+      `maxAttempts=${String(opts0.maxAttempts)} maxTurns=${String(opts0.maxTurns)}` +
+      (opts0.continueLabel !== undefined ? ` continueLabel=${opts0.continueLabel}` : "") +
+      ` reconciliationIntervalMs=${String(opts0.reconciliationIntervalMs)}` +
+      (isLiveConfigProvider(input) ? " hotReload=on" : ""),
   });
 
   while (!isAborted(signal)) {
     try {
-      const issues = await config.tracker.listEligibleIssues(opts.labels);
+      const cfg = getConfig();
+      const opts = resolveOpts(cfg);
+      const issues = await cfg.tracker.listEligibleIssues(opts.labels);
       for (const issue of issues) {
         if (isAborted(signal)) break;
-        if (inFlight.has(issue.id)) continue;
-        if (inFlight.size >= opts.maxConcurrent) break;
+        if (runtime.inFlight.has(issue.id)) continue;
+        if (runtime.inFlight.size >= opts.maxConcurrent) break;
 
-        inFlight.add(issue.id);
-        metrics.inFlight = inFlight.size;
-        metrics.totalDispatched++;
-        void processIssue(issue, config, opts, log, metrics)
+        runtime.inFlight.set(issue.id, {
+          issue,
+          agentName: cfg.agent.name,
+          startedAt: Date.now(),
+          turnNumber: 1,
+          attempt: 1,
+        });
+        runtime.metrics.inFlight = runtime.inFlight.size;
+        runtime.metrics.totalDispatched++;
+
+        void processIssue(issue, getConfig, runtime, log)
           .catch((err: unknown) => {
             log({ level: "error", msg: "unhandled processIssue rejection", issueId: issue.id, issueIid: issue.iid, error: err });
           })
           .finally(() => {
-            inFlight.delete(issue.id);
-            metrics.inFlight = inFlight.size;
+            runtime.inFlight.delete(issue.id);
+            runtime.metrics.inFlight = runtime.inFlight.size;
           });
       }
     } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      runtime.lastError = { msg, at: Date.now() };
       log({ level: "error", msg: "tick failed", error: err });
     }
 
-    await sleep(opts.pollIntervalMs, signal);
+    await sleep(resolveOpts(getConfig()).pollIntervalMs, signal);
   }
 
-  log({ level: "info", msg: `orchestrator stopping; waiting for ${String(inFlight.size)} in-flight worker(s)` });
-  while (inFlight.size > 0) {
+  runtime.shuttingDown = true;
+  log({ level: "info", msg: `orchestrator stopping; waiting for ${String(runtime.inFlight.size)} in-flight worker(s)` });
+  while (runtime.inFlight.size > 0) {
     await sleep(200);
   }
+
+  if (httpHandle !== undefined) {
+    try {
+      await httpHandle.close();
+    } catch (err) {
+      log({ level: "warn", msg: "http server close failed", error: err });
+    }
+  }
+
   log({
     level: "info",
     msg:
-      `orchestrator stopped. dispatched=${String(metrics.totalDispatched)} ` +
-      `succeeded=${String(metrics.totalSucceeded)} failed=${String(metrics.totalFailed)} ` +
-      `cancelled=${String(metrics.totalCancelled)} ` +
-      `tokens(in/out/total)=${String(metrics.tokens.input)}/${String(metrics.tokens.output)}/${String(metrics.tokens.total)}`,
+      `orchestrator stopped. dispatched=${String(runtime.metrics.totalDispatched)} ` +
+      `succeeded=${String(runtime.metrics.totalSucceeded)} failed=${String(runtime.metrics.totalFailed)} ` +
+      `cancelled=${String(runtime.metrics.totalCancelled)} ` +
+      `tokens(in/out/total)=${String(runtime.metrics.tokens.input)}/${String(runtime.metrics.tokens.output)}/${String(runtime.metrics.tokens.total)}` +
+      ` reloads=${String(runtime.reloadCount)}`,
   });
 }
 
 async function processIssue(
   issue: Readonly<Issue>,
-  config: OrchestratorConfig,
-  opts: RuntimeOptions,
+  getConfig: () => OrchestratorConfig,
+  runtime: OrchestratorRuntime,
   log: (r: LogRecord) => void,
-  metrics: RunMetrics,
 ): Promise<void> {
   const issueId = issue.id;
   const issueIid = issue.iid;
+  const cfg0 = getConfig();
+  const opts0 = resolveOpts(cfg0);
 
-  log({ level: "info", msg: "claiming", issueId, issueIid, agent: config.agent.name });
-  await config.tracker.transitionLabels(issueId, {
-    add: [opts.labels.running],
-    remove: [opts.labels.ready],
+  log({ level: "info", msg: "claiming", issueId, issueIid, agent: cfg0.agent.name });
+  await cfg0.tracker.transitionLabels(issueId, {
+    add: [opts0.labels.running],
+    remove: [opts0.labels.ready],
   });
 
   let workspace;
   try {
-    workspace = await config.workspace.ensure(issue);
+    workspace = await cfg0.workspace.ensure(issue);
   } catch (err) {
     log({ level: "error", msg: "workspace ensure failed", issueId, issueIid, error: err });
-    await finalize(config, issueId, opts, {
+    await finalize(cfg0, issueId, opts0, {
       status: "failed",
       summary: "Workspace preparation failed before the agent could run.",
       error: stringifyError(err),
     }).catch((postErr: unknown) => {
       log({ level: "error", msg: "label finalize after workspace failure failed", issueId, issueIid, error: postErr });
     });
-    metrics.totalFailed++;
+    runtime.metrics.totalFailed++;
     return;
   }
 
-  // Reconciliation watcher: if the tracker reports the issue closed or the
-  // running label disappears externally, abort the in-flight agent.
+  // Reconciliation watcher
   const reconcileAC = new AbortController();
   const reconcileTimer =
-    opts.reconciliationIntervalMs > 0
+    opts0.reconciliationIntervalMs > 0
       ? startReconciler({
-          tracker: config.tracker,
+          getConfig,
           issueId,
           issueIid,
-          intervalMs: opts.reconciliationIntervalMs,
-          runningLabel: opts.labels.running,
-          orchestratorSignal: config.signal,
+          intervalMs: opts0.reconciliationIntervalMs,
+          orchestratorSignal: cfg0.signal,
           onTerminate: (reason) => {
             log({ level: "info", msg: `reconciliation terminating in-flight agent: ${reason}`, issueId, issueIid });
             reconcileAC.abort();
@@ -159,22 +198,30 @@ async function processIssue(
 
   try {
     let turnNumber = 1;
-    while (turnNumber <= opts.maxTurns && !isAborted(config.signal) && !reconcileAC.signal.aborted) {
+    // maxTurns is read fresh per outer iteration so a hot reload between turns can extend / contract the loop.
+    while (turnNumber <= resolveOpts(getConfig()).maxTurns && !isAborted(getConfig().signal) && !reconcileAC.signal.aborted) {
+      const inFlightInfo = runtime.inFlight.get(issueId);
+      if (inFlightInfo !== undefined) {
+        inFlightInfo.turnNumber = turnNumber;
+        inFlightInfo.attempt = 1;
+      }
       const turnResult = await runTurnWithRetry({
-        config,
+        getConfig,
         issue,
         workspacePath: workspace.path,
         turnNumber,
-        opts,
         reconcileSignal: reconcileAC.signal,
         previousTurnResult: lastResult,
         log,
-        metrics,
+        runtime,
       });
       lastResult = turnResult;
+      if (inFlightInfo !== undefined) {
+        inFlightInfo.lastTurnStatus = turnResult.status;
+      }
 
-      // Per-turn note so each turn is visible to the operator.
-      await config.tracker.postNote(issueId, formatNote(config.agent.name, turnNumber, turnResult)).catch(
+      const cfg = getConfig();
+      await cfg.tracker.postNote(issueId, formatNote(cfg.agent.name, turnNumber, turnResult)).catch(
         (err: unknown) => {
           log({ level: "error", msg: "postNote failed", issueId, issueIid, error: err });
         },
@@ -189,23 +236,21 @@ async function processIssue(
         break;
       }
 
-      // Continuation check: only if continueLabel is configured and still present.
-      if (opts.continueLabel === undefined) {
-        break;
-      }
-      if (turnNumber + 1 > opts.maxTurns) {
-        log({ level: "info", msg: `maxTurns=${String(opts.maxTurns)} reached after successful turn`, issueId, issueIid });
+      const continueOpts = resolveOpts(getConfig());
+      if (continueOpts.continueLabel === undefined) break;
+      if (turnNumber + 1 > continueOpts.maxTurns) {
+        log({ level: "info", msg: `maxTurns=${String(continueOpts.maxTurns)} reached after successful turn`, issueId, issueIid });
         break;
       }
       let stillContinue = false;
       try {
-        const refreshed = await config.tracker.getIssue(issueId);
-        stillContinue = refreshed.labels.includes(opts.continueLabel);
+        const refreshed = await getConfig().tracker.getIssue(issueId);
+        stillContinue = refreshed.labels.includes(continueOpts.continueLabel);
       } catch (err) {
         log({ level: "warn", msg: "getIssue for continuation check failed; ending turn loop", issueId, issueIid, error: err });
       }
       if (!stillContinue) {
-        log({ level: "info", msg: `continueLabel '${opts.continueLabel}' not present — ending turn loop`, issueId, issueIid });
+        log({ level: "info", msg: `continueLabel '${continueOpts.continueLabel}' not present — ending turn loop`, issueId, issueIid });
         break;
       }
       turnNumber++;
@@ -217,11 +262,13 @@ async function processIssue(
         summary: "no turns ran for this issue",
       };
 
-    if (finalResult.status === "succeeded") metrics.totalSucceeded++;
-    else if (finalResult.status === "cancelled") metrics.totalCancelled++;
-    else metrics.totalFailed++;
+    if (finalResult.status === "succeeded") runtime.metrics.totalSucceeded++;
+    else if (finalResult.status === "cancelled") runtime.metrics.totalCancelled++;
+    else runtime.metrics.totalFailed++;
 
-    await finalizeLabels(config, issueId, opts, finalResult).catch((err: unknown) => {
+    const finalCfg = getConfig();
+    const finalOpts = resolveOpts(finalCfg);
+    await finalizeLabels(finalCfg, issueId, finalOpts, finalResult).catch((err: unknown) => {
       log({ level: "error", msg: "finalize labels failed", issueId, issueIid, error: err });
     });
   } finally {
@@ -230,19 +277,18 @@ async function processIssue(
 }
 
 interface TurnArgs {
-  readonly config: OrchestratorConfig;
+  readonly getConfig: () => OrchestratorConfig;
   readonly issue: Readonly<Issue>;
   readonly workspacePath: string;
   readonly turnNumber: number;
-  readonly opts: RuntimeOptions;
   readonly reconcileSignal: AbortSignal;
   readonly previousTurnResult: AgentResult | undefined;
   readonly log: (r: LogRecord) => void;
-  readonly metrics: RunMetrics;
+  readonly runtime: OrchestratorRuntime;
 }
 
 async function runTurnWithRetry(args: TurnArgs): Promise<AgentResult> {
-  const { config, issue, workspacePath, turnNumber, opts, reconcileSignal, previousTurnResult, log, metrics } = args;
+  const { getConfig, issue, workspacePath, turnNumber, reconcileSignal, previousTurnResult, log, runtime } = args;
   const issueId = issue.id;
   const issueIid = issue.iid;
   let lastResult: AgentResult = {
@@ -250,8 +296,12 @@ async function runTurnWithRetry(args: TurnArgs): Promise<AgentResult> {
     summary: "no attempts ran",
   };
 
-  for (let attempt = 1; attempt <= opts.maxAttempts; attempt++) {
-    if (isAborted(config.signal) || reconcileSignal.aborted) {
+  // Re-resolve opts at attempt boundaries so a hot-reloaded maxAttempts/backoff takes effect mid-turn.
+  let attemptOpts = resolveOpts(getConfig());
+
+  for (let attempt = 1; attempt <= attemptOpts.maxAttempts; attempt++) {
+    const cfg = getConfig();
+    if (isAborted(cfg.signal) || reconcileSignal.aborted) {
       lastResult = {
         status: "cancelled",
         summary: `cancelled before attempt ${String(attempt)}`,
@@ -259,24 +309,29 @@ async function runTurnWithRetry(args: TurnArgs): Promise<AgentResult> {
       break;
     }
 
-    const promptInput: Parameters<typeof config.prompt.build>[0] = {
+    const inFlightInfo = runtime.inFlight.get(issueId);
+    if (inFlightInfo !== undefined) {
+      inFlightInfo.attempt = attempt;
+    }
+
+    const promptInput: Parameters<typeof cfg.prompt.build>[0] = {
       issue,
       turnNumber,
       attempt,
       ...(previousTurnResult !== undefined ? { previousTurnResult } : {}),
     };
-    const prompt = await config.prompt.build(promptInput);
+    const prompt = await cfg.prompt.build(promptInput);
 
-    const combinedSignal = combineSignals(config.signal, reconcileSignal);
+    const combinedSignal = combineSignals(cfg.signal, reconcileSignal);
     log({
       level: "info",
       msg: `dispatching turn=${String(turnNumber)} attempt=${String(attempt)}`,
       issueId,
       issueIid,
-      agent: config.agent.name,
+      agent: cfg.agent.name,
     });
 
-    const agentInput: Parameters<typeof config.agent.run>[0] = {
+    const agentInput: Parameters<typeof cfg.agent.run>[0] = {
       workspacePath,
       prompt,
       issue,
@@ -287,7 +342,7 @@ async function runTurnWithRetry(args: TurnArgs): Promise<AgentResult> {
 
     let result: AgentResult;
     try {
-      result = await config.agent.run(agentInput);
+      result = await cfg.agent.run(agentInput);
     } catch (err) {
       result = {
         status: "failed",
@@ -297,7 +352,7 @@ async function runTurnWithRetry(args: TurnArgs): Promise<AgentResult> {
     }
     lastResult = result;
     if (result.tokens !== undefined) {
-      addTokens(metrics.tokens, result.tokens);
+      addTokens(runtime.metrics.tokens, result.tokens);
     }
 
     log({
@@ -305,18 +360,18 @@ async function runTurnWithRetry(args: TurnArgs): Promise<AgentResult> {
       msg: `turn=${String(turnNumber)} attempt=${String(attempt)} status=${result.status}`,
       issueId,
       issueIid,
-      agent: config.agent.name,
+      agent: cfg.agent.name,
     });
 
     if (result.status === "succeeded") return result;
     if (result.status === "cancelled") return result;
 
-    // failed | timed-out → retry if attempts remain
-    if (attempt < opts.maxAttempts) {
-      const backoff = Math.min(opts.retryBackoffBaseMs * 2 ** (attempt - 1), opts.maxRetryBackoffMs);
+    attemptOpts = resolveOpts(getConfig());
+    if (attempt < attemptOpts.maxAttempts) {
+      const backoff = Math.min(attemptOpts.retryBackoffBaseMs * 2 ** (attempt - 1), attemptOpts.maxRetryBackoffMs);
       log({
         level: "warn",
-        msg: `retrying after ${String(backoff)}ms (attempt ${String(attempt + 1)}/${String(opts.maxAttempts)})`,
+        msg: `retrying after ${String(backoff)}ms (attempt ${String(attempt + 1)}/${String(attemptOpts.maxAttempts)})`,
         issueId,
         issueIid,
       });
@@ -334,11 +389,10 @@ async function runTurnWithRetry(args: TurnArgs): Promise<AgentResult> {
 }
 
 interface ReconcilerArgs {
-  readonly tracker: OrchestratorConfig["tracker"];
+  readonly getConfig: () => OrchestratorConfig;
   readonly issueId: string;
   readonly issueIid: string;
   readonly intervalMs: number;
-  readonly runningLabel: string;
   readonly orchestratorSignal: AbortSignal | undefined;
   readonly onTerminate: (reason: string) => void;
   readonly log: (r: LogRecord) => void;
@@ -354,18 +408,19 @@ function startReconciler(args: ReconcilerArgs): ReconcilerHandle {
     if (cancelled) return;
     if (isAborted(args.orchestratorSignal)) return;
     try {
-      const refreshed = await args.tracker.getIssue(args.issueId);
+      const cfg = args.getConfig();
+      const labels = resolveOpts(cfg).labels;
+      const refreshed = await cfg.tracker.getIssue(args.issueId);
       if (cancelled) return;
       if (refreshed.state !== "opened") {
         args.onTerminate(`issue moved to state=${refreshed.state}`);
         return;
       }
-      if (!refreshed.labels.includes(args.runningLabel)) {
-        args.onTerminate(`running label '${args.runningLabel}' removed externally`);
+      if (!refreshed.labels.includes(labels.running)) {
+        args.onTerminate(`running label '${labels.running}' removed externally`);
         return;
       }
     } catch (err) {
-      // Transient errors should not kill the in-flight worker; log and try again next tick.
       args.log({ level: "warn", msg: "reconciliation fetch failed (will retry)", issueId: args.issueId, issueIid: args.issueIid, error: err });
     }
   };
@@ -467,7 +522,6 @@ function combineSignals(
   child: AbortSignal,
 ): AbortSignal {
   if (parent === undefined) return child;
-  // AbortSignal.any is available since Node 20.3.
   return AbortSignal.any([parent, child]);
 }
 
