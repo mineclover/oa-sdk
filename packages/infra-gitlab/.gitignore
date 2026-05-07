@@ -1,6 +1,10 @@
 node_modules/
 dist/
 .pulumi/
+# Per-stack config + encrypted secrets are operator-local. Pulumi.yaml (the
+# project descriptor) is still tracked.
+Pulumi.*.yaml
+!Pulumi.yaml
 Pulumi.*.yaml.bak
 .env
 .env.*
