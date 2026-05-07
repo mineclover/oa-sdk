@@ -1,4 +1,4 @@
-import type { Issue } from "./types.js";
+import type { AgentStatus, AgentTokens, Issue } from "./types.js";
 
 export interface InFlightInfo {
   readonly issue: Readonly<Issue>;
@@ -26,6 +26,21 @@ export interface RuntimeError {
   readonly at: number;
 }
 
+export interface IssueHistoryEntry {
+  readonly at: number;
+  readonly turnNumber: number;
+  readonly attempt: number;
+  readonly status: AgentStatus;
+  readonly durationMs: number;
+  readonly agent: string;
+  /** Truncated to ~256 chars to keep the ring buffer light. */
+  readonly summarySnippet: string;
+  readonly tokens?: AgentTokens;
+}
+
+/** Cap per-issue history. Older entries fall off the front. */
+export const HISTORY_CAP_PER_ISSUE = 50;
+
 /**
  * Mutable runtime state shared by `run()`, the HTTP server, and the hot-reload
  * watcher. Callers may read this directly for observability; mutation is
@@ -52,6 +67,20 @@ export class OrchestratorRuntime {
   reloadCount = 0;
   /** Last reload error, if any. Cleared on next successful reload. */
   lastReloadError: RuntimeError | undefined;
+  /** Per-issue ring buffer of completed turns. Capped at HISTORY_CAP_PER_ISSUE. */
+  readonly history: Map<string, IssueHistoryEntry[]> = new Map();
+
+  appendHistory(issueId: string, entry: IssueHistoryEntry): void {
+    let buf = this.history.get(issueId);
+    if (buf === undefined) {
+      buf = [];
+      this.history.set(issueId, buf);
+    }
+    buf.push(entry);
+    if (buf.length > HISTORY_CAP_PER_ISSUE) {
+      buf.splice(0, buf.length - HISTORY_CAP_PER_ISSUE);
+    }
+  }
 }
 
 /** Read-only snapshot suitable for JSON serialization (HTTP `/state` endpoint). */

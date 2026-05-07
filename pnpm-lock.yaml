@@ -362,6 +362,9 @@ importers:
 
   packages/orchestrator-gitlab:
     dependencies:
+      '@opentelemetry/api':
+        specifier: ^1.9.0
+        version: 1.9.0
       liquidjs:
         specifier: ^10.18.0
         version: 10.25.7

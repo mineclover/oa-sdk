@@ -9,9 +9,11 @@ export {
 export {
   OrchestratorRuntime,
   snapshot,
+  HISTORY_CAP_PER_ISSUE,
   type RuntimeSnapshot,
   type InFlightInfo,
   type InFlightSnapshot,
+  type IssueHistoryEntry,
   type RunMetrics,
   type RuntimeError,
 } from "./runtime.js";

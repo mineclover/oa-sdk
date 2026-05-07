@@ -2,6 +2,7 @@ import { watch, type FSWatcher } from "node:fs";
 import { resolve as resolvePath } from "node:path";
 
 import type { OrchestratorConfig, LogRecord } from "./config.js";
+import { recordReload } from "./otel.js";
 import type { OrchestratorRuntime } from "./runtime.js";
 import { loadWorkflow, type LoadWorkflowOverrides } from "./workflow.js";
 
@@ -82,12 +83,14 @@ export async function watchWorkflow(
         options.runtime.reloadCount++;
         options.runtime.lastReloadError = undefined;
       }
+      recordReload(true);
       log?.({ level: "info", msg: `workflow reloaded from ${absPath}` });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       if (options.runtime !== undefined) {
         options.runtime.lastReloadError = { msg, at: Date.now() };
       }
+      recordReload(false);
       log?.({ level: "error", msg: `workflow reload failed; keeping last-known-good`, error: err });
     }
   };

@@ -16,6 +16,7 @@ export interface HttpServerHandle {
 }
 
 const ISSUE_PATH_RE = /^\/issues\/([^/?#]+)\/?$/;
+const ISSUE_HISTORY_PATH_RE = /^\/issues\/([^/?#]+)\/history\/?$/;
 
 /**
  * Start the orchestrator's observability HTTP server.
@@ -61,6 +62,25 @@ export async function startHttpServer(
 
     if (path === "/state") {
       send(res, 200, snapshot(rt));
+      return;
+    }
+
+    const historyMatch = ISSUE_HISTORY_PATH_RE.exec(path);
+    if (historyMatch !== null) {
+      const iid = decodeURIComponent(historyMatch[1] ?? "");
+      // History is keyed by internal id, but for GitLab id===iid in our normalization.
+      // Try both lookups for correctness when a custom Tracker uses different keys.
+      const direct = rt.history.get(iid);
+      let entries = direct;
+      if (entries === undefined) {
+        for (const [k, buf] of rt.history) {
+          if (k === iid) {
+            entries = buf;
+            break;
+          }
+        }
+      }
+      send(res, 200, { iid, entries: entries ?? [] });
       return;
     }
 

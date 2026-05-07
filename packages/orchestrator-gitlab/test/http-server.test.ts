@@ -115,6 +115,41 @@ describe("HTTP observability server", () => {
     const r = await fetchJson(`${baseUrl}/state`, { method: "POST" });
     expect(r.status).toBe(405);
   });
+
+  it("GET /issues/:iid/history returns the appended ring buffer", async () => {
+    rt.appendHistory("55", {
+      at: 1_000,
+      turnNumber: 1,
+      attempt: 1,
+      status: "succeeded",
+      durationMs: 250,
+      agent: "echo",
+      summarySnippet: "first turn",
+    });
+    rt.appendHistory("55", {
+      at: 2_000,
+      turnNumber: 2,
+      attempt: 1,
+      status: "failed",
+      durationMs: 400,
+      agent: "echo",
+      summarySnippet: "second turn",
+    });
+
+    const r = await fetchJson(`${baseUrl}/issues/55/history`);
+    expect(r.status).toBe(200);
+    const body = r.body as { iid: string; entries: ReadonlyArray<Record<string, unknown>> };
+    expect(body.iid).toBe("55");
+    expect(body.entries.length).toBe(2);
+    expect(body.entries[0]?.turnNumber).toBe(1);
+    expect(body.entries[1]?.status).toBe("failed");
+  });
+
+  it("GET /issues/:iid/history returns empty entries when none recorded", async () => {
+    const r = await fetchJson(`${baseUrl}/issues/never-seen/history`);
+    expect(r.status).toBe(200);
+    expect(r.body).toEqual({ iid: "never-seen", entries: [] });
+  });
 });
 
 describe("HTTP server auth", () => {

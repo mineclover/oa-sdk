@@ -1,6 +1,13 @@
 import { DEFAULTS, defaultLog, type LogRecord, type OrchestratorConfig } from "./config.js";
 import { startHttpServer, type HttpServerHandle } from "./http-server.js";
 import { isLiveConfigProvider, LiveConfigProvider } from "./live-config.js";
+import {
+  recordDispatched,
+  recordTurn,
+  recordWorkerExit,
+  startProcessIssueSpan,
+  startTurnSpan,
+} from "./otel.js";
 import { OrchestratorRuntime } from "./runtime.js";
 import {
   DEFAULT_LABELS,
@@ -99,6 +106,7 @@ export async function run(input: ConfigInput, options: RunOptions = {}): Promise
         });
         runtime.metrics.inFlight = runtime.inFlight.size;
         runtime.metrics.totalDispatched++;
+        recordDispatched(issue, cfg.agent.name);
 
         void processIssue(issue, getConfig, runtime, log)
           .catch((err: unknown) => {
@@ -196,6 +204,8 @@ async function processIssue(
 
   let lastResult: AgentResult | undefined;
 
+  const issueSpan = startProcessIssueSpan(issue, cfg0.agent.name);
+
   try {
     let turnNumber = 1;
     // maxTurns is read fresh per outer iteration so a hot reload between turns can extend / contract the loop.
@@ -205,6 +215,7 @@ async function processIssue(
         inFlightInfo.turnNumber = turnNumber;
         inFlightInfo.attempt = 1;
       }
+      const turnStart = Date.now();
       const turnResult = await runTurnWithRetry({
         getConfig,
         issue,
@@ -215,10 +226,26 @@ async function processIssue(
         log,
         runtime,
       });
+      const turnDurationMs = Math.max(0, Date.now() - turnStart);
       lastResult = turnResult;
       if (inFlightInfo !== undefined) {
         inFlightInfo.lastTurnStatus = turnResult.status;
       }
+
+      const histAgent = inFlightInfo?.agentName ?? getConfig().agent.name;
+      const summary = turnResult.summary ?? "";
+      const historyEntry = {
+        at: turnStart,
+        turnNumber,
+        attempt: inFlightInfo?.attempt ?? 1,
+        status: turnResult.status,
+        durationMs: turnDurationMs,
+        agent: histAgent,
+        summarySnippet: summary.length > 256 ? `${summary.slice(0, 253)}...` : summary,
+        ...(turnResult.tokens !== undefined ? { tokens: turnResult.tokens } : {}),
+      };
+      runtime.appendHistory(issueId, historyEntry);
+      recordTurn(issue, histAgent, turnNumber, turnDurationMs, turnResult);
 
       const cfg = getConfig();
       await cfg.tracker.postNote(issueId, formatNote(cfg.agent.name, turnNumber, turnResult)).catch(
@@ -265,6 +292,9 @@ async function processIssue(
     if (finalResult.status === "succeeded") runtime.metrics.totalSucceeded++;
     else if (finalResult.status === "cancelled") runtime.metrics.totalCancelled++;
     else runtime.metrics.totalFailed++;
+
+    recordWorkerExit(issue, cfg0.agent.name, finalResult.status);
+    issueSpan.end(finalResult);
 
     const finalCfg = getConfig();
     const finalOpts = resolveOpts(finalCfg);
@@ -340,6 +370,7 @@ async function runTurnWithRetry(args: TurnArgs): Promise<AgentResult> {
       ...(combinedSignal !== undefined ? { signal: combinedSignal } : {}),
     };
 
+    const attemptSpan = startTurnSpan(issue, cfg.agent.name, turnNumber, attempt);
     let result: AgentResult;
     try {
       result = await cfg.agent.run(agentInput);
@@ -350,6 +381,7 @@ async function runTurnWithRetry(args: TurnArgs): Promise<AgentResult> {
         error: stringifyError(err),
       };
     }
+    attemptSpan.end(result);
     lastResult = result;
     if (result.tokens !== undefined) {
       addTokens(runtime.metrics.tokens, result.tokens);
