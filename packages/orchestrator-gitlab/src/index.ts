@@ -22,7 +22,34 @@ export {
   type HttpServerHandle,
   type HttpServerOptions,
 } from "./http-server.js";
-export { GitlabApiError, GitlabTracker, type GitlabTrackerOptions } from "./tracker.js";
+export {
+  encodeGitlabProjectId,
+  GitlabApiError,
+  GitlabProjectClient,
+  type GitlabMaybeResponse,
+  type GitlabProjectClientOptions,
+} from "./gitlab-client.js";
+export {
+  GitlabContextSearchService,
+  gitlabDiscussionCoordinate,
+  gitlabIssueCoordinate,
+  gitlabIssueNoteCoordinate,
+  gitlabMergeRequestCoordinate,
+  gitlabPipelineCoordinate,
+  gitlabRepoFileCoordinate,
+  gitlabReleaseCoordinate,
+  gitlabSnippetCoordinate,
+  gitlabWikiPageCoordinate,
+  parseGitlabContextCoordinate,
+  type GitlabContextCapabilities,
+  type GitlabContextDocument,
+  type GitlabContextExpandOptions,
+  type GitlabContextKind,
+  type GitlabContextSearchQuery,
+  type GitlabContextSearchResult,
+  type GitlabContextSearchServiceOptions,
+} from "./context-search.js";
+export { GitlabTracker, type GitlabTrackerOptions } from "./tracker.js";
 export { FsWorkspaceManager, sanitizeKey, type FsWorkspaceOptions } from "./workspace.js";
 export { EchoAgent } from "./agents/echo.js";
 export { CodexAgent, type CodexAgentOptions } from "./agents/codex.js";

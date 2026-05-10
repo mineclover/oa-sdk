@@ -1,3 +1,4 @@
+import { GitlabApiError, GitlabProjectClient } from "./gitlab-client.js";
 import type { Issue, LabelConfig, Tracker } from "./types.js";
 
 export interface GitlabTrackerOptions {
@@ -5,7 +6,7 @@ export interface GitlabTrackerOptions {
   readonly baseUrl: string;
   /** Personal access token or project access token with `api` scope. */
   readonly token: string;
-  /** Numeric project id (preferred) or URL-encoded namespace/path (e.g. `mygroup%2Fmyrepo`). */
+  /** Numeric project id (preferred) or namespace/path (e.g. `mygroup/myrepo`). */
   readonly projectId: string | number;
   /** Optional fetch override for testing. Defaults to global fetch. */
   readonly fetchImpl?: typeof fetch;
@@ -24,19 +25,10 @@ interface GitlabIssueRaw {
 }
 
 export class GitlabTracker implements Tracker {
-  readonly #baseUrl: string;
-  readonly #token: string;
-  readonly #projectId: string;
-  readonly #fetch: typeof fetch;
+  readonly #client: GitlabProjectClient;
 
   constructor(opts: GitlabTrackerOptions) {
-    if (opts.baseUrl.endsWith("/")) {
-      throw new Error("GitlabTracker: baseUrl must not end with '/'");
-    }
-    this.#baseUrl = opts.baseUrl;
-    this.#token = opts.token;
-    this.#projectId = String(opts.projectId);
-    this.#fetch = opts.fetchImpl ?? globalThis.fetch.bind(globalThis);
+    this.#client = new GitlabProjectClient(opts);
   }
 
   async listEligibleIssues(labels: LabelConfig): Promise<ReadonlyArray<Issue>> {
@@ -50,8 +42,8 @@ export class GitlabTracker implements Tracker {
       order_by: "updated_at",
       sort: "asc",
     });
-    const path = `/api/v4/projects/${encodeURIComponent(this.#projectId)}/issues?${params.toString()}`;
-    const raws = await this.#request<ReadonlyArray<GitlabIssueRaw>>("GET", path);
+    const path = this.#client.projectApiPath(`/issues?${params.toString()}`);
+    const raws = await this.#client.request<ReadonlyArray<GitlabIssueRaw>>("GET", path);
 
     const skip = new Set([labels.running, labels.done, labels.failed]);
     return raws
@@ -60,8 +52,8 @@ export class GitlabTracker implements Tracker {
   }
 
   async getIssue(issueId: string): Promise<Issue> {
-    const path = `/api/v4/projects/${encodeURIComponent(this.#projectId)}/issues/${encodeURIComponent(issueId)}`;
-    const raw = await this.#request<GitlabIssueRaw>("GET", path);
+    const path = this.#client.projectApiPath(`/issues/${encodeURIComponent(issueId)}`);
+    const raw = await this.#client.request<GitlabIssueRaw>("GET", path);
     return normalizeIssue(raw);
   }
 
@@ -83,56 +75,16 @@ export class GitlabTracker implements Tracker {
     // recover it from a side-channel: the orchestrator passes IID-as-id when
     // calling tracker methods. To keep that contract honest, expose the IID
     // via Issue.iid and have orchestrator pass IID into these methods.
-    const path = `/api/v4/projects/${encodeURIComponent(this.#projectId)}/issues/${encodeURIComponent(issueId)}`;
-    await this.#request<unknown>("PUT", path, body);
+    const path = this.#client.projectApiPath(`/issues/${encodeURIComponent(issueId)}`);
+    await this.#client.request<unknown>("PUT", path, body);
   }
 
   async postNote(issueId: string, body: string): Promise<void> {
-    const path = `/api/v4/projects/${encodeURIComponent(this.#projectId)}/issues/${encodeURIComponent(issueId)}/notes`;
-    await this.#request<unknown>("POST", path, { body });
-  }
-
-  async #request<T>(method: string, path: string, body?: unknown): Promise<T> {
-    const headers: Record<string, string> = {
-      "PRIVATE-TOKEN": this.#token,
-      Accept: "application/json",
-    };
-    let payload: string | undefined;
-    if (body !== undefined) {
-      headers["Content-Type"] = "application/json";
-      payload = JSON.stringify(body);
-    }
-    const init: RequestInit = { method, headers };
-    if (payload !== undefined) {
-      init.body = payload;
-    }
-    const res = await this.#fetch(`${this.#baseUrl}${path}`, init);
-    if (!res.ok) {
-      const text = await res.text().catch(() => "");
-      throw new GitlabApiError(method, path, res.status, text);
-    }
-    if (res.status === 204) {
-      return undefined as T;
-    }
-    return (await res.json()) as T;
+    const path = this.#client.projectApiPath(`/issues/${encodeURIComponent(issueId)}/notes`);
+    await this.#client.request<unknown>("POST", path, { body });
   }
 }
-
-export class GitlabApiError extends Error {
-  readonly method: string;
-  readonly path: string;
-  readonly status: number;
-  readonly responseBody: string;
-
-  constructor(method: string, path: string, status: number, responseBody: string) {
-    super(`GitLab API ${method} ${path} → ${status}`);
-    this.name = "GitlabApiError";
-    this.method = method;
-    this.path = path;
-    this.status = status;
-    this.responseBody = responseBody;
-  }
-}
+export { GitlabApiError };
 
 function normalizeIssue(r: GitlabIssueRaw): Issue {
   return {

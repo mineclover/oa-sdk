@@ -172,8 +172,52 @@ describe("orchestrator (Phase A)", () => {
     expect(tracker.notes[0]?.body).toContain("`failed`");
     expect(tracker.notes[0]?.body).toContain("agent kaboom");
     const adds = tracker.transitions.flatMap((t) => t.add);
+    const removes = tracker.transitions.flatMap((t) => t.remove);
     expect(adds).toContain(DEFAULT_LABELS.failed);
     expect(adds).not.toContain(DEFAULT_LABELS.done);
+    expect(removes).toContain(DEFAULT_LABELS.running);
+    expect(removes).toContain(DEFAULT_LABELS.ready);
+  });
+
+  it("posts a failed note and finalizes labels when prompt building fails", async () => {
+    const tracker = new FakeTracker();
+    tracker.pending = [makeIssue("100", { title: "prompt fail" })];
+
+    const badPromptBuilder: PromptBuilder = {
+      build: () => {
+        throw new Error("template exploded");
+      },
+    };
+
+    const ac = new AbortController();
+    const workspace = new FsWorkspaceManager({ root: tmpRoot, projectSlug: "demo" });
+
+    const runPromise = run({
+      tracker,
+      workspace,
+      agent: new EchoAgent(),
+      prompt: badPromptBuilder,
+      pollIntervalMs: 25,
+      maxAttempts: 1,
+      reconciliationIntervalMs: 0,
+      signal: ac.signal,
+      log: () => undefined,
+    });
+
+    await sleep(150);
+    ac.abort();
+    await runPromise;
+
+    expect(tracker.notes.length).toBe(1);
+    expect(tracker.notes[0]?.body).toContain("`failed`");
+    expect(tracker.notes[0]?.body).toContain("template exploded");
+
+    const adds = tracker.transitions.flatMap((t) => t.add);
+    const removes = tracker.transitions.flatMap((t) => t.remove);
+    expect(adds).toContain(DEFAULT_LABELS.failed);
+    expect(adds).not.toContain(DEFAULT_LABELS.done);
+    expect(removes).toContain(DEFAULT_LABELS.running);
+    expect(removes).toContain(DEFAULT_LABELS.ready);
   });
 
   it("does not double-dispatch the same issue while a previous run is in flight", async () => {

@@ -343,41 +343,49 @@ async function runTurnWithRetry(args: TurnArgs): Promise<AgentResult> {
     if (inFlightInfo !== undefined) {
       inFlightInfo.attempt = attempt;
     }
-
-    const promptInput: Parameters<typeof cfg.prompt.build>[0] = {
-      issue,
-      turnNumber,
-      attempt,
-      ...(previousTurnResult !== undefined ? { previousTurnResult } : {}),
-    };
-    const prompt = await cfg.prompt.build(promptInput);
-
     const combinedSignal = combineSignals(cfg.signal, reconcileSignal);
-    log({
-      level: "info",
-      msg: `dispatching turn=${String(turnNumber)} attempt=${String(attempt)}`,
-      issueId,
-      issueIid,
-      agent: cfg.agent.name,
-    });
-
-    const agentInput: Parameters<typeof cfg.agent.run>[0] = {
-      workspacePath,
-      prompt,
-      issue,
-      turnNumber,
-      attempt,
-      ...(combinedSignal !== undefined ? { signal: combinedSignal } : {}),
-    };
 
     const attemptSpan = startTurnSpan(issue, cfg.agent.name, turnNumber, attempt);
     let result: AgentResult;
     try {
-      result = await cfg.agent.run(agentInput);
+      const promptInput: Parameters<typeof cfg.prompt.build>[0] = {
+        issue,
+        turnNumber,
+        attempt,
+        ...(previousTurnResult !== undefined ? { previousTurnResult } : {}),
+      };
+      const prompt = await cfg.prompt.build(promptInput);
+
+      log({
+        level: "info",
+        msg: `dispatching turn=${String(turnNumber)} attempt=${String(attempt)}`,
+        issueId,
+        issueIid,
+        agent: cfg.agent.name,
+      });
+
+      const agentInput: Parameters<typeof cfg.agent.run>[0] = {
+        workspacePath,
+        prompt,
+        issue,
+        turnNumber,
+        attempt,
+        ...(combinedSignal !== undefined ? { signal: combinedSignal } : {}),
+      };
+
+      try {
+        result = await cfg.agent.run(agentInput);
+      } catch (err) {
+        result = {
+          status: "failed",
+          summary: "Agent threw during execution.",
+          error: stringifyError(err),
+        };
+      }
     } catch (err) {
       result = {
         status: "failed",
-        summary: "Agent threw during execution.",
+        summary: "Prompt build failed.",
         error: stringifyError(err),
       };
     }

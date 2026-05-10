@@ -31,3 +31,4 @@ apps/fastapi-ref/**/__pycache__/
 .spec-lens.db-shm
 .spec-lens.db-wal
 packages/codegen/.bench/
+.pnpm-store/

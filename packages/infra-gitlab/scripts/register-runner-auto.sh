@@ -69,24 +69,66 @@ case "${RUNNER_KIND}" in
   *)
     echo "error: unknown RUNNER_KIND='${RUNNER_KIND}' (expected: instance|group|project)" >&2
     exit 1
+  ;;
+esac
+
+# Validate boolean-like flags early so the request body stays valid JSON.
+case "${RUNNER_LOCKED}" in
+  true|false) ;;
+  *)
+    echo "error: RUNNER_LOCKED must be 'true' or 'false', got '${RUNNER_LOCKED}'" >&2
+    exit 1
     ;;
 esac
 
-# Map kind to GitLab's runner_type
-runner_type="${RUNNER_KIND}_type"
+case "${RUNNER_RUN_UNTAGGED}" in
+  true|false) ;;
+  *)
+    echo "error: RUNNER_RUN_UNTAGGED must be 'true' or 'false', got '${RUNNER_RUN_UNTAGGED}'" >&2
+    exit 1
+    ;;
+esac
 
-# Build JSON body deterministically (no jq dependency).
-# Embedded values are safe because we control them; if a future operator wants
-# to inject special chars in description/tags, switch to jq.
-read -r -d '' body <<JSON || true
-{
-  "runner_type": "${runner_type}",
-  "description": "${RUNNER_DESCRIPTION}",
-  "tag_list": "${RUNNER_TAGS}",
-  "locked": ${RUNNER_LOCKED},
-  "run_untagged": ${RUNNER_RUN_UNTAGGED}$( [ "${RUNNER_KIND}" = "group" ] && printf ', "group_id": %s' "${RUNNER_SCOPE_ID}" || true )$( [ "${RUNNER_KIND}" = "project" ] && printf ', "project_id": %s' "${RUNNER_SCOPE_ID}" || true )
+if [ "${RUNNER_KIND}" = "group" ] || [ "${RUNNER_KIND}" = "project" ]; then
+  if ! printf '%s' "${RUNNER_SCOPE_ID}" | grep -Eq '^[0-9]+$'; then
+    echo "error: RUNNER_SCOPE_ID must be a numeric ID for kind='${RUNNER_KIND}', got '${RUNNER_SCOPE_ID}'" >&2
+    exit 1
+  fi
+fi
+
+# Build JSON body safely without jq while properly escaping string values.
+if ! command -v node >/dev/null 2>&1; then
+  echo "error: node is required to build JSON payload safely" >&2
+  exit 1
+fi
+
+body="$( \
+  RUNNER_KIND="${RUNNER_KIND}" \
+  RUNNER_DESCRIPTION="${RUNNER_DESCRIPTION}" \
+  RUNNER_TAGS="${RUNNER_TAGS}" \
+  RUNNER_LOCKED="${RUNNER_LOCKED}" \
+  RUNNER_RUN_UNTAGGED="${RUNNER_RUN_UNTAGGED}" \
+  RUNNER_SCOPE_ID="${RUNNER_SCOPE_ID:-}" \
+  node - <<'NODE'
+const payload = {
+  runner_type: `${process.env.RUNNER_KIND}_type`,
+  description: process.env.RUNNER_DESCRIPTION || "",
+  tag_list: process.env.RUNNER_TAGS || "",
+  locked: process.env.RUNNER_LOCKED === "true",
+  run_untagged: process.env.RUNNER_RUN_UNTAGGED === "true",
+};
+
+const kind = process.env.RUNNER_KIND || "instance";
+if (kind === "group") {
+  payload.group_id = Number(process.env.RUNNER_SCOPE_ID);
 }
-JSON
+if (kind === "project") {
+  payload.project_id = Number(process.env.RUNNER_SCOPE_ID);
+}
+
+process.stdout.write(JSON.stringify(payload));
+NODE
+)"
 
 echo "→ creating runner via ${GITLAB_BASE_URL}${api_path}"
 
