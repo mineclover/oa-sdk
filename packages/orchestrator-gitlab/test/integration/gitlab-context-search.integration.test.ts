@@ -143,12 +143,17 @@ describeIfEnabled("GitLab CE context search", () => {
       await client.request<unknown>("DELETE", `${projectPath}/repository/tags/${encodeURIComponent(tagName)}`);
     });
 
-    const results = await service.search({
+    const searchResponse = await service.searchDetailed({
       text: marker,
       kinds: ["issue", "merge_request", "repo_file", "wiki_page", "snippet", "release"],
       ref: branch,
       limit: 20,
+    }, {
+      includeCapabilities: true,
     });
+    expect(searchResponse.warnings).toEqual([]);
+    expect(searchResponse.capabilities?.version).not.toBe("");
+    const results = searchResponse.results;
 
     expect(new Set(results.map((r) => r.kind))).toEqual(
       new Set(["issue", "merge_request", "repo_file", "wiki_page", "snippet", "release"]),
@@ -193,6 +198,10 @@ describeIfEnabled("GitLab CE context search", () => {
     expect(wikiResult).toBeDefined();
     const wikiDoc = await service.expand(wikiResult!.id);
     expect(wikiDoc.body).toContain("wiki fixture");
+
+    const unsupported = await service.searchDetailed({ kinds: ["issue_note", "discussion"], limit: 5 });
+    expect(unsupported.results).toEqual([]);
+    expect(new Set(unsupported.warnings.map((warning) => warning.kind))).toEqual(new Set(["issue_note", "discussion"]));
 
     const capabilities = await service.discoverCapabilities();
     expect(capabilities.version).not.toBe("");

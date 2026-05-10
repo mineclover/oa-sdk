@@ -2,10 +2,13 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   GitlabContextSearchService,
+  gitlabBoardCoordinate,
   gitlabDiscussionCoordinate,
   gitlabIssueCoordinate,
   gitlabIssueNoteCoordinate,
+  gitlabLabelCoordinate,
   gitlabMergeRequestCoordinate,
+  gitlabMilestoneCoordinate,
   gitlabPipelineCoordinate,
   gitlabRepoFileCoordinate,
   gitlabReleaseCoordinate,
@@ -19,6 +22,16 @@ function jsonResponse(value: unknown, status = 200): Response {
   return new Response(JSON.stringify(value), {
     status,
     headers: { "content-type": "application/json" },
+  });
+}
+
+function jsonPageResponse(value: unknown, nextPage = "", status = 200): Response {
+  return new Response(JSON.stringify(value), {
+    status,
+    headers: {
+      "content-type": "application/json",
+      "x-next-page": nextPage,
+    },
   });
 }
 
@@ -58,6 +71,18 @@ describe("GitLab context coordinates", () => {
     expect(parseGitlabContextCoordinate(gitlabPipelineCoordinate("1", 10))).toEqual({
       kind: "pipeline",
       pipelineId: "10",
+    });
+    expect(parseGitlabContextCoordinate(gitlabLabelCoordinate("1", "area::api"))).toEqual({
+      kind: "label",
+      name: "area::api",
+    });
+    expect(parseGitlabContextCoordinate(gitlabMilestoneCoordinate("1", 11))).toEqual({
+      kind: "milestone",
+      milestoneId: "11",
+    });
+    expect(parseGitlabContextCoordinate(gitlabBoardCoordinate("1", 12))).toEqual({
+      kind: "board",
+      boardId: "12",
     });
     expect(parseGitlabContextCoordinate(gitlabReleaseCoordinate("1", "v1.0.0"))).toEqual({
       kind: "release",
@@ -154,6 +179,119 @@ describe("GitlabContextSearchService", () => {
       "repo_file",
     ]);
     expect(results.map((r) => r.id)).toContain("gitlab://project/1/repository/files/docs%2Fapi.md?ref=main");
+  });
+
+  it("returns detailed search metadata for partial failures, cursor, and capabilities", async () => {
+    const fetchImpl = vi.fn(async (url: string | URL) => {
+      const parsed = new URL(String(url));
+      const path = parsed.pathname;
+      if (path.endsWith("/version")) {
+        return jsonResponse({ version: "18.11.2", enterprise: false });
+      }
+      if (path.endsWith("/wikis") || path.endsWith("/snippets") || path.endsWith("/boards")) {
+        return jsonResponse([]);
+      }
+      if (path.endsWith("/merge_requests") || path.endsWith("/pipelines")) {
+        if (parsed.searchParams.get("order_by") === "updated_at") {
+          return jsonPageResponse({ message: "boom" }, "", 500);
+        }
+        return jsonResponse([]);
+      }
+      if (path.endsWith("/issues")) {
+        return jsonPageResponse(
+          [
+            {
+              iid: 1,
+              title: "Paged issue",
+              description: "body",
+              state: "opened",
+              labels: [],
+              web_url: "http://gitlab/issues/1",
+              updated_at: "2026-05-10T00:00:00.000Z",
+            },
+          ],
+          "2",
+        );
+      }
+      return jsonResponse([]);
+    });
+    const client = new GitlabProjectClient({
+      baseUrl: "http://localhost:8929",
+      token: "tok",
+      projectId: 1,
+      fetchImpl,
+    });
+    const service = new GitlabContextSearchService({ client, coordinateProjectId: "1" });
+
+    const response = await service.searchDetailed(
+      { text: "api", kinds: ["issue", "pipeline", "discussion"], limit: 10 },
+      { includeCapabilities: true },
+    );
+
+    expect(response.results.map((r) => r.kind)).toEqual(["issue"]);
+    expect(response.cursor).toBe("page=2");
+    expect(response.capabilities?.version).toBe("18.11.2");
+    expect(response.warnings).toEqual(expect.arrayContaining([
+      expect.objectContaining({ kind: "discussion", code: "unsupported_kind" }),
+      expect.objectContaining({ kind: "pipeline", code: "request_failed", status: 500 }),
+    ]));
+  });
+
+  it("searches labels, milestones, boards, and pipelines as first-class context kinds", async () => {
+    const fetchImpl = vi.fn(async (url: string | URL) => {
+      const path = new URL(String(url)).pathname;
+      if (path.endsWith("/labels")) {
+        return jsonPageResponse([{ name: "area::api", color: "#ff0000", description: "API area" }]);
+      }
+      if (path.endsWith("/milestones")) {
+        return jsonPageResponse([
+          {
+            id: 10,
+            iid: 3,
+            title: "v1",
+            description: "release",
+            state: "active",
+            due_date: "2026-05-10",
+          },
+        ]);
+      }
+      if (path.endsWith("/boards")) {
+        return jsonPageResponse([{ id: 4, name: "Agent Board" }]);
+      }
+      if (path.endsWith("/pipelines")) {
+        return jsonPageResponse([
+          {
+            id: 5,
+            status: "success",
+            ref: "main",
+            sha: "abc",
+            web_url: "http://gitlab/pipelines/5",
+            updated_at: "2026-05-10T00:00:00.000Z",
+          },
+        ]);
+      }
+      return jsonResponse([]);
+    });
+    const client = new GitlabProjectClient({
+      baseUrl: "http://localhost:8929",
+      token: "tok",
+      projectId: 1,
+      fetchImpl,
+    });
+    const service = new GitlabContextSearchService({ client, coordinateProjectId: "1" });
+
+    const response = await service.searchDetailed({
+      kinds: ["label", "milestone", "board", "pipeline"],
+      limit: 20,
+    });
+
+    expect(new Set(response.results.map((r) => r.kind))).toEqual(new Set(["label", "milestone", "board", "pipeline"]));
+    expect(response.results.map((r) => r.id)).toEqual(expect.arrayContaining([
+      "gitlab://project/1/labels/area%3A%3Aapi",
+      "gitlab://project/1/milestones/3",
+      "gitlab://project/1/boards/4",
+      "gitlab://project/1/pipelines/5",
+    ]));
   });
 
   it("expands an issue document with comments and links", async () => {

@@ -41,6 +41,24 @@ export interface GitlabContextSearchResult {
   readonly metadata: Readonly<Record<string, string | number | boolean>>;
 }
 
+export interface GitlabContextSearchWarning {
+  readonly kind: GitlabContextKind;
+  readonly code: "unsupported_kind" | "request_failed";
+  readonly message: string;
+  readonly status?: number | undefined;
+}
+
+export interface GitlabContextSearchResponse {
+  readonly results: ReadonlyArray<GitlabContextSearchResult>;
+  readonly warnings: ReadonlyArray<GitlabContextSearchWarning>;
+  readonly cursor?: string | undefined;
+  readonly capabilities?: GitlabContextCapabilities | undefined;
+}
+
+export interface GitlabContextSearchOptions {
+  readonly includeCapabilities?: boolean;
+}
+
 export interface GitlabContextExpandOptions {
   readonly includeBody?: boolean;
   readonly includeComments?: boolean;
@@ -156,6 +174,27 @@ interface GitlabReleaseRaw {
   readonly _links?: { readonly self?: string };
 }
 
+interface GitlabLabelRaw {
+  readonly name: string;
+  readonly color: string;
+  readonly description?: string | null;
+}
+
+interface GitlabMilestoneRaw {
+  readonly id: number;
+  readonly iid?: number;
+  readonly title: string;
+  readonly description?: string | null;
+  readonly state: string;
+  readonly due_date?: string | null;
+  readonly updated_at?: string;
+}
+
+interface GitlabBoardRaw {
+  readonly id: number;
+  readonly name?: string | null;
+}
+
 interface GitlabPipelineRaw {
   readonly id: number;
   readonly status: string;
@@ -170,6 +209,20 @@ interface GitlabVersionRaw {
   readonly enterprise?: boolean;
 }
 
+interface SearchPage<T> {
+  readonly items: ReadonlyArray<T>;
+  readonly hasNext: boolean;
+}
+
+interface KindSearchResult {
+  readonly results: ReadonlyArray<GitlabContextSearchResult>;
+  readonly hasNext: boolean;
+}
+
+interface SearchCursorState {
+  readonly page: number;
+}
+
 const DEFAULT_KINDS: ReadonlyArray<GitlabContextKind> = [
   "issue",
   "merge_request",
@@ -178,6 +231,19 @@ const DEFAULT_KINDS: ReadonlyArray<GitlabContextKind> = [
   "snippet",
   "release",
 ];
+
+const DIRECT_SEARCH_KINDS = new Set<GitlabContextKind>([
+  "issue",
+  "merge_request",
+  "repo_file",
+  "wiki_page",
+  "snippet",
+  "pipeline",
+  "release",
+  "label",
+  "milestone",
+  "board",
+]);
 
 const DEFAULT_LIMIT = 20;
 
@@ -191,17 +257,54 @@ export class GitlabContextSearchService {
   }
 
   async search(query: GitlabContextSearchQuery): Promise<ReadonlyArray<GitlabContextSearchResult>> {
+    const response = await this.searchDetailed(query);
+    return response.results;
+  }
+
+  async searchDetailed(
+    query: GitlabContextSearchQuery,
+    options: GitlabContextSearchOptions = {},
+  ): Promise<GitlabContextSearchResponse> {
     const limit = normalizeLimit(query.limit);
     const kinds = query.kinds ?? DEFAULT_KINDS;
-    const tasks = kinds.map((kind) => this.#searchKind(kind, query, limit));
+    const cursorState = parseSearchCursor(query.cursor);
+    const page = cursorState.page;
+    const warnings: GitlabContextSearchWarning[] = [];
+    const directKinds = kinds.filter((kind) => {
+      if (DIRECT_SEARCH_KINDS.has(kind)) return true;
+      warnings.push({
+        kind,
+        code: "unsupported_kind",
+        message: `${kind} cannot be searched project-wide; expand its parent object instead.`,
+      });
+      return false;
+    });
+
+    const tasks = directKinds.map((kind) => this.#searchKind(kind, query, limit, page));
     const settled = await Promise.allSettled(tasks);
     const results: GitlabContextSearchResult[] = [];
-    for (const result of settled) {
+    let hasNext = false;
+    for (const [index, result] of settled.entries()) {
+      const kind = directKinds[index] ?? "issue";
       if (result.status === "fulfilled") {
-        results.push(...result.value);
+        results.push(...result.value.results);
+        hasNext = hasNext || result.value.hasNext;
+      } else {
+        warnings.push({
+          kind,
+          code: "request_failed",
+          message: errorMessage(result.reason),
+          status: errorStatus(result.reason),
+        });
       }
     }
-    return sortResults(results).slice(0, limit);
+    const capabilities = options.includeCapabilities === true ? await this.discoverCapabilities() : undefined;
+    return {
+      results: sortResults(results).slice(0, limit),
+      warnings,
+      cursor: hasNext ? encodeSearchCursor({ page: page + 1 }) : undefined,
+      ...(capabilities === undefined ? {} : { capabilities }),
+    };
   }
 
   async expand(id: string, options: GitlabContextExpandOptions = {}): Promise<GitlabContextDocument> {
@@ -251,28 +354,38 @@ export class GitlabContextSearchService {
     kind: GitlabContextKind,
     query: GitlabContextSearchQuery,
     limit: number,
-  ): Promise<ReadonlyArray<GitlabContextSearchResult>> {
+    page: number,
+  ): Promise<KindSearchResult> {
     switch (kind) {
       case "issue":
-        return await this.#searchIssues(query, limit);
+        return await this.#searchIssues(query, limit, page);
       case "merge_request":
-        return await this.#searchMergeRequests(query, limit);
+        return await this.#searchMergeRequests(query, limit, page);
       case "repo_file":
-        return await this.#searchRepoFiles(query, limit);
+        return await this.#searchRepoFiles(query, limit, page);
       case "wiki_page":
-        return await this.#searchWikiPages(query, limit);
+        return await this.#searchWikiPages(query, limit, page);
       case "snippet":
-        return await this.#searchSnippets(query, limit);
+        return await this.#searchSnippets(query, limit, page);
+      case "pipeline":
+        return await this.#searchPipelines(query, limit, page);
       case "release":
-        return await this.#searchReleases(query, limit);
+        return await this.#searchReleases(query, limit, page);
+      case "label":
+        return await this.#searchLabels(query, limit, page);
+      case "milestone":
+        return await this.#searchMilestones(query, limit, page);
+      case "board":
+        return await this.#searchBoards(query, limit, page);
       default:
-        return [];
+        return { results: [], hasNext: false };
     }
   }
 
-  async #searchIssues(query: GitlabContextSearchQuery, limit: number): Promise<ReadonlyArray<GitlabContextSearchResult>> {
+  async #searchIssues(query: GitlabContextSearchQuery, limit: number, page: number): Promise<KindSearchResult> {
     const params = new URLSearchParams({
       per_page: String(limit),
+      page: String(page),
       order_by: "updated_at",
       sort: "desc",
     });
@@ -283,11 +396,8 @@ export class GitlabContextSearchService {
     if (query.updatedAfter !== undefined) params.set("updated_after", query.updatedAfter);
     if (query.updatedBefore !== undefined) params.set("updated_before", query.updatedBefore);
 
-    const raws = await this.#client.request<ReadonlyArray<GitlabIssueSearchRaw>>(
-      "GET",
-      this.#client.projectApiPath(`/issues?${params.toString()}`),
-    );
-    return raws.map((issue) => ({
+    const pageResult = await this.#requestPage<GitlabIssueSearchRaw>(this.#client.projectApiPath(`/issues?${params.toString()}`));
+    return pageResults(pageResult, (issue) => ({
       id: gitlabIssueCoordinate(this.#coordinateProjectId, issue.iid),
       kind: "issue",
       title: issue.title,
@@ -305,9 +415,11 @@ export class GitlabContextSearchService {
   async #searchMergeRequests(
     query: GitlabContextSearchQuery,
     limit: number,
-  ): Promise<ReadonlyArray<GitlabContextSearchResult>> {
+    page: number,
+  ): Promise<KindSearchResult> {
     const params = new URLSearchParams({
       per_page: String(limit),
+      page: String(page),
       order_by: "updated_at",
       sort: "desc",
     });
@@ -320,11 +432,10 @@ export class GitlabContextSearchService {
     if (query.updatedAfter !== undefined) params.set("updated_after", query.updatedAfter);
     if (query.updatedBefore !== undefined) params.set("updated_before", query.updatedBefore);
 
-    const raws = await this.#client.request<ReadonlyArray<GitlabMergeRequestSearchRaw>>(
-      "GET",
+    const pageResult = await this.#requestPage<GitlabMergeRequestSearchRaw>(
       this.#client.projectApiPath(`/merge_requests?${params.toString()}`),
     );
-    return raws.map((mr) => ({
+    return pageResults(pageResult, (mr) => ({
       id: gitlabMergeRequestCoordinate(this.#coordinateProjectId, mr.iid),
       kind: "merge_request",
       title: mr.title,
@@ -342,25 +453,23 @@ export class GitlabContextSearchService {
     }));
   }
 
-  async #searchRepoFiles(query: GitlabContextSearchQuery, limit: number): Promise<ReadonlyArray<GitlabContextSearchResult>> {
+  async #searchRepoFiles(query: GitlabContextSearchQuery, limit: number, page: number): Promise<KindSearchResult> {
     const ref = query.ref ?? query.branch ?? "main";
     const params = new URLSearchParams({
       recursive: "true",
       per_page: String(Math.min(Math.max(limit, 1), 100)),
+      page: String(page),
       ref,
     });
-    const items = await this.#client.request<ReadonlyArray<GitlabTreeRaw>>(
-      "GET",
-      this.#client.projectApiPath(`/repository/tree?${params.toString()}`),
-    );
+    const pageResult = await this.#requestPage<GitlabTreeRaw>(this.#client.projectApiPath(`/repository/tree?${params.toString()}`));
     const text = query.text?.toLowerCase();
-    return items
+    const results = pageResult.items
       .filter((item) => item.type === "blob")
       .filter((item) => text === undefined || item.path.toLowerCase().includes(text))
       .slice(0, limit)
       .map((item) => ({
         id: gitlabRepoFileCoordinate(this.#coordinateProjectId, item.path, ref),
-        kind: "repo_file",
+        kind: "repo_file" as const,
         title: item.path,
         ref,
         metadata: {
@@ -368,40 +477,41 @@ export class GitlabContextSearchService {
           ref,
         },
       }));
+    return { results, hasNext: pageResult.hasNext };
   }
 
-  async #searchWikiPages(query: GitlabContextSearchQuery, limit: number): Promise<ReadonlyArray<GitlabContextSearchResult>> {
-    const pages = await this.#client.request<ReadonlyArray<GitlabWikiRaw>>(
-      "GET",
-      this.#client.projectApiPath("/wikis?with_content=0"),
-    );
+  async #searchWikiPages(query: GitlabContextSearchQuery, limit: number, page: number): Promise<KindSearchResult> {
+    const params = new URLSearchParams({
+      with_content: "0",
+      per_page: String(limit),
+      page: String(page),
+    });
+    const pageResult = await this.#requestPage<GitlabWikiRaw>(this.#client.projectApiPath(`/wikis?${params.toString()}`));
     const text = query.text?.toLowerCase();
-    return pages
+    const results = pageResult.items
       .filter((page) => text === undefined || page.title.toLowerCase().includes(text) || page.slug.toLowerCase().includes(text))
       .slice(0, limit)
       .map((page) => ({
         id: gitlabWikiPageCoordinate(this.#coordinateProjectId, page.slug),
-        kind: "wiki_page",
+        kind: "wiki_page" as const,
         title: page.title,
         metadata: {
           slug: page.slug,
           format: page.format ?? "",
         },
       }));
+    return { results, hasNext: pageResult.hasNext };
   }
 
-  async #searchSnippets(query: GitlabContextSearchQuery, limit: number): Promise<ReadonlyArray<GitlabContextSearchResult>> {
-    const params = new URLSearchParams({ per_page: String(limit) });
-    const snippets = await this.#client.request<ReadonlyArray<GitlabSnippetRaw>>(
-      "GET",
-      this.#client.projectApiPath(`/snippets?${params.toString()}`),
-    );
+  async #searchSnippets(query: GitlabContextSearchQuery, limit: number, page: number): Promise<KindSearchResult> {
+    const params = new URLSearchParams({ per_page: String(limit), page: String(page) });
+    const pageResult = await this.#requestPage<GitlabSnippetRaw>(this.#client.projectApiPath(`/snippets?${params.toString()}`));
     const text = query.text?.toLowerCase();
-    return snippets
+    const results = pageResult.items
       .filter((snippet) => text === undefined || snippet.title.toLowerCase().includes(text) || (snippet.description ?? "").toLowerCase().includes(text))
       .map((snippet) => ({
         id: gitlabSnippetCoordinate(this.#coordinateProjectId, snippet.id),
-        kind: "snippet",
+        kind: "snippet" as const,
         title: snippet.title,
         url: snippet.web_url,
         preview: truncate(snippet.description ?? "", 240),
@@ -411,20 +521,18 @@ export class GitlabContextSearchService {
           visibility: snippet.visibility,
         },
       }));
+    return { results, hasNext: pageResult.hasNext };
   }
 
-  async #searchReleases(query: GitlabContextSearchQuery, limit: number): Promise<ReadonlyArray<GitlabContextSearchResult>> {
-    const params = new URLSearchParams({ per_page: String(limit) });
-    const releases = await this.#client.request<ReadonlyArray<GitlabReleaseRaw>>(
-      "GET",
-      this.#client.projectApiPath(`/releases?${params.toString()}`),
-    );
+  async #searchReleases(query: GitlabContextSearchQuery, limit: number, page: number): Promise<KindSearchResult> {
+    const params = new URLSearchParams({ per_page: String(limit), page: String(page) });
+    const pageResult = await this.#requestPage<GitlabReleaseRaw>(this.#client.projectApiPath(`/releases?${params.toString()}`));
     const text = query.text?.toLowerCase();
-    return releases
+    const results = pageResult.items
       .filter((release) => text === undefined || release.name.toLowerCase().includes(text) || release.tag_name.toLowerCase().includes(text))
       .map((release) => ({
         id: gitlabReleaseCoordinate(this.#coordinateProjectId, release.tag_name),
-        kind: "release",
+        kind: "release" as const,
         title: release.name,
         url: release._links?.self,
         preview: truncate(release.description ?? "", 240),
@@ -434,6 +542,85 @@ export class GitlabContextSearchService {
           tagName: release.tag_name,
         },
       }));
+    return { results, hasNext: pageResult.hasNext };
+  }
+
+  async #searchLabels(query: GitlabContextSearchQuery, limit: number, page: number): Promise<KindSearchResult> {
+    const params = new URLSearchParams({ per_page: String(limit), page: String(page) });
+    if (query.text !== undefined && query.text.length > 0) params.set("search", query.text);
+    const pageResult = await this.#requestPage<GitlabLabelRaw>(this.#client.projectApiPath(`/labels?${params.toString()}`));
+    return pageResults(pageResult, (label) => ({
+      id: gitlabLabelCoordinate(this.#coordinateProjectId, label.name),
+      kind: "label",
+      title: label.name,
+      preview: truncate(label.description ?? "", 240),
+      metadata: {
+        name: label.name,
+        color: label.color,
+      },
+    }));
+  }
+
+  async #searchMilestones(query: GitlabContextSearchQuery, limit: number, page: number): Promise<KindSearchResult> {
+    const params = new URLSearchParams({ per_page: String(limit), page: String(page) });
+    if (query.text !== undefined && query.text.length > 0) params.set("search", query.text);
+    if (query.state === "opened" || query.state === "closed") params.set("state", query.state);
+    const pageResult = await this.#requestPage<GitlabMilestoneRaw>(this.#client.projectApiPath(`/milestones?${params.toString()}`));
+    return pageResults(pageResult, (milestone) => ({
+      id: gitlabMilestoneCoordinate(this.#coordinateProjectId, milestone.iid ?? milestone.id),
+      kind: "milestone",
+      title: milestone.title,
+      preview: truncate(milestone.description ?? "", 240),
+      updatedAt: milestone.updated_at,
+      metadata: {
+        id: milestone.id,
+        iid: milestone.iid ?? milestone.id,
+        state: milestone.state,
+        dueDate: milestone.due_date ?? "",
+      },
+    }));
+  }
+
+  async #searchBoards(query: GitlabContextSearchQuery, limit: number, page: number): Promise<KindSearchResult> {
+    const params = new URLSearchParams({ per_page: String(limit), page: String(page) });
+    const pageResult = await this.#requestPage<GitlabBoardRaw>(this.#client.projectApiPath(`/boards?${params.toString()}`));
+    const text = query.text?.toLowerCase();
+    const results = pageResult.items
+      .filter((board) => text === undefined || (board.name ?? "").toLowerCase().includes(text))
+      .map((board) => ({
+        id: gitlabBoardCoordinate(this.#coordinateProjectId, board.id),
+        kind: "board" as const,
+        title: board.name ?? `Board ${String(board.id)}`,
+        metadata: {
+          id: board.id,
+        },
+      }));
+    return { results, hasNext: pageResult.hasNext };
+  }
+
+  async #searchPipelines(query: GitlabContextSearchQuery, limit: number, page: number): Promise<KindSearchResult> {
+    const params = new URLSearchParams({ per_page: String(limit), page: String(page), order_by: "updated_at", sort: "desc" });
+    if (query.ref !== undefined) params.set("ref", query.ref);
+    if (query.branch !== undefined) params.set("ref", query.branch);
+    const pageResult = await this.#requestPage<GitlabPipelineRaw>(this.#client.projectApiPath(`/pipelines?${params.toString()}`));
+    const text = query.text?.toLowerCase();
+    const results = pageResult.items
+      .filter((pipeline) => text === undefined || pipeline.status.toLowerCase().includes(text) || (pipeline.ref ?? "").toLowerCase().includes(text))
+      .map((pipeline) => ({
+        id: gitlabPipelineCoordinate(this.#coordinateProjectId, pipeline.id),
+        kind: "pipeline" as const,
+        title: `Pipeline ${String(pipeline.id)} ${pipeline.status}`,
+        url: pipeline.web_url,
+        updatedAt: pipeline.updated_at,
+        ref: pipeline.ref,
+        metadata: {
+          id: pipeline.id,
+          status: pipeline.status,
+          ref: pipeline.ref ?? "",
+          sha: pipeline.sha ?? "",
+        },
+      }));
+    return { results, hasNext: pageResult.hasNext };
   }
 
   async #expandIssue(iid: string, options: GitlabContextExpandOptions): Promise<GitlabContextDocument> {
@@ -605,6 +792,20 @@ export class GitlabContextSearchService {
       this.#client.projectApiPath(`/merge_requests/${encodeURIComponent(iid)}/discussions?${params.toString()}`),
     );
   }
+
+  async #requestPage<T>(path: string): Promise<SearchPage<T>> {
+    const response = await this.#client.requestMaybe<ReadonlyArray<T>>("GET", path);
+    if (!response.ok) {
+      const message = typeof response.body === "string" ? response.body : JSON.stringify(response.body);
+      const error = new Error(`GitLab API GET ${path} -> ${String(response.status)} ${message}`);
+      (error as { status?: number }).status = response.status;
+      throw error;
+    }
+    return {
+      items: Array.isArray(response.body) ? response.body : [],
+      hasNext: (response.headers.get("x-next-page") ?? "").length > 0,
+    };
+  }
 }
 
 type ParsedCoordinate =
@@ -614,6 +815,9 @@ type ParsedCoordinate =
   | { readonly kind: "wiki_page"; readonly slug: string }
   | { readonly kind: "snippet"; readonly snippetId: string }
   | { readonly kind: "pipeline"; readonly pipelineId: string }
+  | { readonly kind: "label"; readonly name: string }
+  | { readonly kind: "milestone"; readonly milestoneId: string }
+  | { readonly kind: "board"; readonly boardId: string }
   | { readonly kind: "issue_note"; readonly issueIid: string; readonly noteId: string }
   | { readonly kind: "discussion"; readonly mergeRequestIid: string; readonly discussionId: string }
   | { readonly kind: "release"; readonly tagName: string };
@@ -648,6 +852,18 @@ export function gitlabSnippetCoordinate(projectId: string, snippetId: string | n
 
 export function gitlabPipelineCoordinate(projectId: string, pipelineId: string | number): string {
   return `gitlab://project/${encodeURIComponent(projectId)}/pipelines/${encodeURIComponent(String(pipelineId))}`;
+}
+
+export function gitlabLabelCoordinate(projectId: string, name: string): string {
+  return `gitlab://project/${encodeURIComponent(projectId)}/labels/${encodeURIComponent(name)}`;
+}
+
+export function gitlabMilestoneCoordinate(projectId: string, milestoneId: string | number): string {
+  return `gitlab://project/${encodeURIComponent(projectId)}/milestones/${encodeURIComponent(String(milestoneId))}`;
+}
+
+export function gitlabBoardCoordinate(projectId: string, boardId: string | number): string {
+  return `gitlab://project/${encodeURIComponent(projectId)}/boards/${encodeURIComponent(String(boardId))}`;
 }
 
 export function gitlabReleaseCoordinate(projectId: string, tagName: string): string {
@@ -696,6 +912,12 @@ export function parseGitlabContextCoordinate(id: string): ParsedCoordinate {
       return { kind: "snippet", snippetId: requiredPart(rest[0], id) };
     case "pipelines":
       return { kind: "pipeline", pipelineId: requiredPart(rest[0], id) };
+    case "labels":
+      return { kind: "label", name: requiredPart(rest[0], id) };
+    case "milestones":
+      return { kind: "milestone", milestoneId: requiredPart(rest[0], id) };
+    case "boards":
+      return { kind: "board", boardId: requiredPart(rest[0], id) };
     case "releases":
       return { kind: "release", tagName: requiredPart(rest[0], id) };
     default:
@@ -716,6 +938,41 @@ function sortResults(results: ReadonlyArray<GitlabContextSearchResult>): GitlabC
     if (au !== bu) return bu.localeCompare(au);
     return a.title.localeCompare(b.title);
   });
+}
+
+function pageResults<T>(
+  page: SearchPage<T>,
+  map: (item: T) => GitlabContextSearchResult,
+): KindSearchResult {
+  return {
+    results: page.items.map(map),
+    hasNext: page.hasNext,
+  };
+}
+
+function parseSearchCursor(cursor: string | undefined): SearchCursorState {
+  if (cursor === undefined || cursor.length === 0) return { page: 1 };
+  const params = new URLSearchParams(cursor);
+  const page = Number(params.get("page"));
+  if (!Number.isFinite(page) || page < 1) return { page: 1 };
+  return { page: Math.floor(page) };
+}
+
+function encodeSearchCursor(cursor: SearchCursorState): string {
+  return new URLSearchParams({ page: String(cursor.page) }).toString();
+}
+
+function errorMessage(value: unknown): string {
+  if (value instanceof Error) return value.message;
+  return String(value);
+}
+
+function errorStatus(value: unknown): number | undefined {
+  if (typeof value === "object" && value !== null && "status" in value) {
+    const status = (value as { readonly status?: unknown }).status;
+    return typeof status === "number" ? status : undefined;
+  }
+  return undefined;
 }
 
 function truncate(value: string, maxChars = 1_000): string {

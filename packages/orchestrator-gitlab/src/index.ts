@@ -31,10 +31,13 @@ export {
 } from "./gitlab-client.js";
 export {
   GitlabContextSearchService,
+  gitlabBoardCoordinate,
   gitlabDiscussionCoordinate,
   gitlabIssueCoordinate,
   gitlabIssueNoteCoordinate,
+  gitlabLabelCoordinate,
   gitlabMergeRequestCoordinate,
+  gitlabMilestoneCoordinate,
   gitlabPipelineCoordinate,
   gitlabRepoFileCoordinate,
   gitlabReleaseCoordinate,
@@ -45,9 +48,12 @@ export {
   type GitlabContextDocument,
   type GitlabContextExpandOptions,
   type GitlabContextKind,
+  type GitlabContextSearchOptions,
   type GitlabContextSearchQuery,
+  type GitlabContextSearchResponse,
   type GitlabContextSearchResult,
   type GitlabContextSearchServiceOptions,
+  type GitlabContextSearchWarning,
 } from "./context-search.js";
 export { GitlabTracker, type GitlabTrackerOptions } from "./tracker.js";
 export { FsWorkspaceManager, sanitizeKey, type FsWorkspaceOptions } from "./workspace.js";

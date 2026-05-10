@@ -103,7 +103,20 @@ export interface GitlabContextSearchResult {
   readonly ref?: string;
   readonly metadata: Readonly<Record<string, string | number | boolean>>;
 }
+
+export interface GitlabContextSearchResponse {
+  readonly results: ReadonlyArray<GitlabContextSearchResult>;
+  readonly warnings: ReadonlyArray<GitlabContextSearchWarning>;
+  readonly cursor?: string;
+  readonly capabilities?: GitlabContextCapabilities;
+}
 ```
+
+현재 public API는 두 층이다.
+- `search(query)`: 기존 호출자를 위한 results-only 호환 API.
+- `searchDetailed(query, { includeCapabilities })`: UI/API/agent 공통화용 응답. partial failure, unsupported kind, pagination cursor, capability matrix를 함께 반환한다.
+
+`issue_note`와 `discussion`은 project-wide search가 아니라 parent expand 표면이다. 직접 검색 요청 시 `unsupported_kind` warning을 반환하고, issue/MR expand에서 comments/discussions를 가져간다.
 
 ### 좌표 규칙
 
@@ -167,6 +180,8 @@ export interface GitlabContextDocument {
 - kinds별 API 호출을 병렬 수행.
 - GitLab API가 제공하는 filter를 최대한 사용.
 - 결과를 normalized `GitlabContextSearchResult`로 합친다.
+- GitLab pagination header의 `x-next-page`를 cursor로 정규화한다.
+- kind별 요청 실패는 전체 검색 실패가 아니라 `warnings`에 `request_failed`로 싣는다.
 
 장점:
 - 저장소 추가 없음.
@@ -176,6 +191,7 @@ export interface GitlabContextDocument {
 한계:
 - notes/discussions/wiki/repo content full-text 검색이 약하다.
 - UI에서 빠른 global search를 제공하기 어렵다.
+- API-first cursor는 federated kind 전체에 같은 page를 적용한다. 정교한 per-kind cursor는 local index 단계에서 보강한다.
 
 ### Phase 2: SQLite FTS local index
 
