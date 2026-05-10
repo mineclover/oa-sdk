@@ -8,7 +8,7 @@
     "node": ">=20.0.0",
     "pnpm": ">=9.0.0"
   },
-  "packageManager": "pnpm@9.15.0",
+  "packageManager": "pnpm@10.30.3",
   "scripts": {
     "build": "pnpm --filter @oa-sdk/openapi-projection-contract build && pnpm --filter @oa-sdk/core build && pnpm --filter @oa-sdk/parser build && pnpm --filter @oa-sdk/router build && pnpm --filter @oa-sdk/client build && pnpm --filter @oa-sdk/codegen build && pnpm --filter @oa-sdk/mock-server build && pnpm --filter @oa-sdk/typia-mock build",
     "build:all": "turbo run build",

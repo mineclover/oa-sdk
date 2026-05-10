@@ -25,7 +25,7 @@
     "@oa-sdk/router": "workspace:*",
     "@oa-sdk/schemas": "workspace:*",
     "yaml": "^2.5.0",
-    "zod": "^4.3.6"
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",
