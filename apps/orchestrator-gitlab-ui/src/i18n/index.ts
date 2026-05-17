@@ -165,6 +165,13 @@ export type TranslationKey =
   | 'docs.rawMarkdownTitle'
   | 'docs.rawMarkdownDescription'
   | 'docs.rawMarkdownPayload'
+  | 'docs.markdownInsightsTitle'
+  | 'docs.markdownInsightsDescription'
+  | 'docs.markdownInsightsIssues'
+  | 'docs.markdownInsightsMergeRequests'
+  | 'docs.markdownInsightsTasks'
+  | 'docs.markdownInsightsNoReferences'
+  | 'docs.markdownInsightsNoTasks'
   | 'docs.applyRawMarkdown'
   | 'docs.saveTarget'
   | 'docs.targetWiki'
@@ -370,6 +377,13 @@ const translations: Record<Locale, Record<TranslationKey, string>> = {
     'docs.rawMarkdownTitle': 'Raw Markdown',
     'docs.rawMarkdownDescription': 'Notion-like 에디터에서 작성한 구조화 문서가 실제로 저장될 Markdown 원문입니다. 원문을 수정한 뒤 에디터에 다시 적용할 수 있습니다.',
     'docs.rawMarkdownPayload': 'Raw Markdown payload',
+    'docs.markdownInsightsTitle': 'Markdown 추적',
+    'docs.markdownInsightsDescription': '저장될 Markdown에서 GitLab 참조와 task marker를 즉시 확인합니다.',
+    'docs.markdownInsightsIssues': '이슈',
+    'docs.markdownInsightsMergeRequests': 'MR',
+    'docs.markdownInsightsTasks': 'Tasks',
+    'docs.markdownInsightsNoReferences': '감지된 이슈/MR 참조 없음',
+    'docs.markdownInsightsNoTasks': '감지된 task marker 없음',
     'docs.applyRawMarkdown': '에디터에 적용',
     'docs.saveTarget': '저장 대상',
     'docs.targetWiki': 'Wiki 페이지',
@@ -572,6 +586,13 @@ const translations: Record<Locale, Record<TranslationKey, string>> = {
     'docs.rawMarkdownTitle': 'Raw Markdown',
     'docs.rawMarkdownDescription': 'The Markdown source that will be saved from the Notion-like structured editor. Edit it directly and apply it back to the editor.',
     'docs.rawMarkdownPayload': 'Raw Markdown payload',
+    'docs.markdownInsightsTitle': 'Markdown tracking',
+    'docs.markdownInsightsDescription': 'Check GitLab references and task markers in the Markdown that will be saved.',
+    'docs.markdownInsightsIssues': 'Issues',
+    'docs.markdownInsightsMergeRequests': 'MRs',
+    'docs.markdownInsightsTasks': 'Tasks',
+    'docs.markdownInsightsNoReferences': 'No issue or MR references detected',
+    'docs.markdownInsightsNoTasks': 'No task markers detected',
     'docs.applyRawMarkdown': 'Apply to editor',
     'docs.saveTarget': 'Save target',
     'docs.targetWiki': 'Wiki page',

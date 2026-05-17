@@ -31,6 +31,7 @@ import {
 } from './DocumentEditorUi.js'
 import type { PlateDocumentEditorProps } from './PlateDocumentEditor.types.js'
 import { reorderDocumentEditorBlocks } from './document-editor-blocks.js'
+import { isGitLabTaskMarkdown } from '../editor/markdown-insights.js'
 import { parseMarkdownTable } from './markdown-table.js'
 import { useDocumentTableEditor } from './useDocumentTableEditor.js'
 import { useGitLabReferenceSearch } from './useGitLabReferenceSearch.js'
@@ -185,6 +186,16 @@ export function PlateDocumentEditor({
     closeInsertPanels()
   }
 
+  function toggleTodoList() {
+    if (activeBlockIndex !== null) {
+      setDraftMarkdown(current => isGitLabTaskMarkdown(current)
+        ? current.replace(/^(\s*)(?:[-+*]|\d+[.)])\s+\[[ xX~]\]\s+/, '$1')
+        : `- [ ] ${current.trim()}`)
+      return
+    }
+    insertRawGitLabMarkdown('- [ ] ')
+  }
+
   function insertReferenceSuggestion(suggestion: { readonly glfmReference: string }) {
     insertRawGitLabMarkdown(suggestion.glfmReference)
   }
@@ -295,7 +306,7 @@ export function PlateDocumentEditor({
             onToggleInlineCode={editorCommands.toggleInlineCode}
             onToggleItalic={editorCommands.toggleItalic}
             onToggleStrikethrough={editorCommands.toggleStrikethrough}
-            onToggleTodoList={() => editorCommands.toggleList('todo')}
+            onToggleTodoList={toggleTodoList}
           />
           {linkPanelOpen ? (
             <DocumentLinkPanel
@@ -437,6 +448,7 @@ function shouldKeepRawBlock(node: Value[number], markdown: string): boolean {
   if (parseMarkdownTable(markdown) !== null) return true
   if (markdown.startsWith('```mermaid') || markdown.startsWith('```math')) return true
   if (markdown.startsWith('> [!')) return true
+  if (isGitLabTaskMarkdown(markdown)) return true
   if (markdown === '[[_TOC_]]') return true
   return /^!\[[^\]]*]\([^)]+\)$/.test(markdown)
 }

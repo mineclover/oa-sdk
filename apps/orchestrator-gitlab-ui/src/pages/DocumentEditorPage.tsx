@@ -21,6 +21,7 @@ import {
   targetLabels,
   type DocumentationItem,
 } from './docs-model.js'
+import { analyzeMarkdown } from '../editor/markdown-insights.js'
 
 const PlateDocumentEditor = lazy(() =>
   import('../components/PlateDocumentEditor.js').then(module => ({
@@ -64,6 +65,9 @@ export function DocumentEditorPage({
   const editorRoute = documentEditPath(document.id)
   const storageLocation = documentStorageLocation(document.id)
   const gitLabDestination = gitLabDestinationLabel(saveDraft, branch)
+  const markdownInsights = useMemo(() => analyzeMarkdown(markdownPreview), [markdownPreview])
+  const issueReferences = markdownInsights.references.filter(reference => reference.kind === 'issue')
+  const mergeRequestReferences = markdownInsights.references.filter(reference => reference.kind === 'mergeRequest')
 
   async function runSave(dryRun: boolean) {
     setSaveStatus('saving')
@@ -262,6 +266,29 @@ export function DocumentEditorPage({
             </button>
           </div>
         </section>
+        <section className="markdown-insights-panel">
+          <div>
+            <h3>{translate(locale, 'docs.markdownInsightsTitle')}</h3>
+            <p className="run-meta">{translate(locale, 'docs.markdownInsightsDescription')}</p>
+          </div>
+          <div className="markdown-insights-grid">
+            <MarkdownInsightGroup
+              emptyLabel={translate(locale, 'docs.markdownInsightsNoReferences')}
+              label={translate(locale, 'docs.markdownInsightsIssues')}
+              values={issueReferences.map(reference => reference.reference)}
+            />
+            <MarkdownInsightGroup
+              emptyLabel={translate(locale, 'docs.markdownInsightsNoReferences')}
+              label={translate(locale, 'docs.markdownInsightsMergeRequests')}
+              values={mergeRequestReferences.map(reference => reference.reference)}
+            />
+            <MarkdownInsightGroup
+              emptyLabel={translate(locale, 'docs.markdownInsightsNoTasks')}
+              label={translate(locale, 'docs.markdownInsightsTasks')}
+              values={markdownInsights.tasks.map(task => `${String(task.line)} ${task.marker} ${task.text}`)}
+            />
+          </div>
+        </section>
         <section className="dry-run-save">
           <div>
             <h3>{translate(locale, 'docs.dryRunTitle')}</h3>
@@ -296,5 +323,28 @@ export function DocumentEditorPage({
         ) : null}
       </section>
     </>
+  )
+}
+
+function MarkdownInsightGroup({
+  emptyLabel,
+  label,
+  values,
+}: {
+  readonly emptyLabel: string
+  readonly label: string
+  readonly values: readonly string[]
+}) {
+  return (
+    <div className="markdown-insight-group">
+      <strong>{label}</strong>
+      {values.length > 0 ? (
+        <div className="markdown-insight-tags">
+          {values.map(value => <span className="badge badge-info" key={value}>{value}</span>)}
+        </div>
+      ) : (
+        <span className="run-meta">{emptyLabel}</span>
+      )}
+    </div>
   )
 }

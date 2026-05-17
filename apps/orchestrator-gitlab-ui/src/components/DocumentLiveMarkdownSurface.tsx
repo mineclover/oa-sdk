@@ -1,5 +1,6 @@
 import type { Value } from 'platejs'
 import { plateValueToGitLabMarkdown } from '@oa-sdk/markdown-editor'
+import { analyzeMarkdown } from '../editor/markdown-insights.js'
 import { parseMarkdownTable } from './markdown-table.js'
 
 export function DocumentLiveMarkdownSurface({
@@ -142,6 +143,19 @@ function MarkdownBlockPreview({
   }
   if (trimmed.startsWith('> ')) {
     return <blockquote>{trimmed.split('\n').map(line => line.replace(/^>\s?/, '')).join('\n')}</blockquote>
+  }
+  const tasks = analyzeMarkdown(trimmed).tasks
+  if (tasks.length > 0) {
+    return (
+      <ul className="live-markdown-task-list">
+        {tasks.map(task => (
+          <li key={`${String(task.line)}-${task.text}`}>
+            <span className="live-markdown-task-marker">{task.marker}</span>
+            <span>{task.text}</span>
+          </li>
+        ))}
+      </ul>
+    )
   }
   if (/^!\[[^\]]*]\([^)]+\)$/.test(trimmed)) {
     const match = trimmed.match(/^!\[([^\]]*)]\(([^)]+)\)$/)
