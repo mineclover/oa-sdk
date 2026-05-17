@@ -587,6 +587,94 @@ h1 {
   background: transparent;
 }
 
+.notion-editor-layout {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  gap: 22px;
+  align-items: start;
+}
+
+.notion-block-rail {
+  position: sticky;
+  top: 16px;
+  display: grid;
+  gap: 8px;
+  max-height: calc(100vh - 120px);
+  padding: 10px;
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fbfcfd;
+}
+
+.notion-block-rail-title {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.notion-block-list {
+  display: grid;
+  gap: 6px;
+}
+
+.notion-block-handle {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  gap: 8px;
+  width: 100%;
+  min-height: 42px;
+  padding: 7px 8px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text);
+  cursor: grab;
+  text-align: left;
+}
+
+.notion-block-handle:hover,
+.notion-block-handle-over {
+  border-color: var(--accent);
+  background: #e4f4f7;
+}
+
+.notion-block-handle-dragging {
+  opacity: 0.55;
+}
+
+.notion-block-handle:active {
+  cursor: grabbing;
+}
+
+.notion-block-grip {
+  color: var(--muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 12px;
+  letter-spacing: -1px;
+  line-height: 20px;
+}
+
+.notion-block-summary {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.notion-block-summary span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.notion-block-summary small {
+  color: var(--muted);
+  font-size: 11px;
+  text-transform: uppercase;
+}
+
 .reference-search-controls {
   display: flex;
   flex-wrap: wrap;
@@ -1017,6 +1105,19 @@ h2 {
   .notion-page-title {
     font-size: 30px;
   }
+
+  .notion-editor-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .notion-block-rail {
+    position: static;
+    max-height: none;
+  }
+
+  .notion-block-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 560px) {
@@ -1054,5 +1155,9 @@ h2 {
 
   .notion-command-group > span {
     width: 100%;
+  }
+
+  .notion-block-list {
+    grid-template-columns: 1fr;
   }
 }

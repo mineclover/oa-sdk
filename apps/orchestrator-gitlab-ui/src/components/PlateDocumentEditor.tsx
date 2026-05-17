@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type DragEvent } from 'react'
 import type { Value } from 'platejs'
 import {
   Plate,
@@ -51,6 +51,8 @@ interface PlateDocumentEditorProps {
     formatting: string
     references: string
     status: string
+    blockOrder: string
+    dragBlock: string
     toolbar: {
       heading1: string
       heading2: string
@@ -105,6 +107,36 @@ function ToolbarButton({
   )
 }
 
+function nodeText(node: unknown): string {
+  if (node === null || typeof node !== 'object') return ''
+  const text = (node as { text?: unknown }).text
+  if (typeof text === 'string') return text
+  const children = (node as { children?: unknown }).children
+  if (!Array.isArray(children)) return ''
+  return children.map(child => nodeText(child)).join('')
+}
+
+function blockLabel(node: Value[number], index: number): string {
+  const text = nodeText(node).trim().replace(/\s+/g, ' ')
+  return text.length > 0 ? text.slice(0, 72) : `Block ${String(index + 1)}`
+}
+
+function blockTypeLabel(node: Value[number]): string {
+  const type = typeof node.type === 'string' ? node.type : 'p'
+  if (type === 'p' && typeof node.listStyleType === 'string') return node.listStyleType
+  return type
+}
+
+function reorderBlocks(value: Value, fromIndex: number, toIndex: number): Value {
+  if (fromIndex === toIndex || fromIndex < 0 || toIndex < 0) return value
+  if (fromIndex >= value.length || toIndex >= value.length) return value
+  const nextValue = [...value]
+  const [moved] = nextValue.splice(fromIndex, 1)
+  if (moved === undefined) return value
+  nextValue.splice(toIndex, 0, moved)
+  return nextValue
+}
+
 export function PlateDocumentEditor({
   document,
   initialValue,
@@ -117,23 +149,67 @@ export function PlateDocumentEditor({
   const [referenceQuery, setReferenceQuery] = useState('')
   const [referenceResults, setReferenceResults] = useState<ReadonlyArray<GitLabReferenceSuggestion>>([])
   const [referenceSearchState, setReferenceSearchState] = useState<'idle' | 'loading' | 'loaded' | 'error'>('idle')
+  const [draggedBlockIndex, setDraggedBlockIndex] = useState<number | null>(null)
+  const [dragOverBlockIndex, setDragOverBlockIndex] = useState<number | null>(null)
+  const [editorValue, setEditorValue] = useState<Value>(
+    () => parseStoredEditorValue(window.localStorage.getItem(storageKey), initialValue) as Value,
+  )
   const editor = usePlateEditor({
     plugins: createGitLabPlatePlugins() as never,
-    value: () => parseStoredEditorValue(window.localStorage.getItem(storageKey), initialValue) as Value,
+    value: editorValue,
   })
   const editorCommands = createGitLabPlateCommands(editor)
+
+  function syncEditorValue(value: Value) {
+    setEditorValue(value)
+    editorCommands.resetValue(value)
+    window.localStorage.setItem(storageKey, serializeEditorValue(value))
+    onMarkdownChange(plateValueToGitLabMarkdown(value))
+  }
 
   useEffect(() => {
     if (markdownImport === undefined || markdownImport.version === 0) return
     const nextValue = editorCommands.resetValueFromMarkdown(markdownImport.markdown)
+    setEditorValue(nextValue)
     window.localStorage.setItem(storageKey, serializeEditorValue(nextValue))
     onMarkdownChange(plateValueToGitLabMarkdown(nextValue))
   }, [markdownImport?.version])
 
   function resetValue() {
-    editorCommands.resetValue(initialValue)
-    window.localStorage.setItem(storageKey, serializeEditorValue(initialValue))
-    onMarkdownChange(plateValueToGitLabMarkdown(initialValue))
+    syncEditorValue(initialValue)
+  }
+
+  function moveBlock(fromIndex: number, toIndex: number) {
+    const nextValue = reorderBlocks(editorValue, fromIndex, toIndex)
+    if (nextValue === editorValue) return
+    syncEditorValue(nextValue)
+  }
+
+  function handleBlockDragStart(event: DragEvent<HTMLButtonElement>, index: number) {
+    setDraggedBlockIndex(index)
+    setDragOverBlockIndex(index)
+    event.dataTransfer.effectAllowed = 'move'
+    event.dataTransfer.setData('text/plain', String(index))
+  }
+
+  function handleBlockDragOver(event: DragEvent<HTMLButtonElement>, index: number) {
+    event.preventDefault()
+    event.dataTransfer.dropEffect = 'move'
+    setDragOverBlockIndex(index)
+  }
+
+  function handleBlockDrop(event: DragEvent<HTMLButtonElement>, index: number) {
+    event.preventDefault()
+    const sourceIndex = draggedBlockIndex ?? Number(event.dataTransfer.getData('text/plain'))
+    setDraggedBlockIndex(null)
+    setDragOverBlockIndex(null)
+    if (!Number.isInteger(sourceIndex)) return
+    moveBlock(sourceIndex, index)
+  }
+
+  function handleBlockDragEnd() {
+    setDraggedBlockIndex(null)
+    setDragOverBlockIndex(null)
   }
 
   function addLink() {
@@ -234,6 +310,7 @@ export function PlateDocumentEditor({
         <Plate
           editor={editor}
           onChange={({ value }: { value: Value }) => {
+            setEditorValue(value)
             window.localStorage.setItem(storageKey, serializeEditorValue(value))
             onMarkdownChange(plateValueToGitLabMarkdown(value))
           }}
@@ -319,8 +396,38 @@ export function PlateDocumentEditor({
               </ul>
             ) : null}
           </div>
-          <div className="editor-frame notion-editor-frame">
-            <PlateContent className="plate-content notion-plate-content" placeholder={labels.placeholder} />
+          <div className="notion-editor-layout">
+            <aside className="notion-block-rail" aria-label={labels.blockOrder}>
+              <div className="notion-block-rail-title">{labels.blockOrder}</div>
+              <div className="notion-block-list">
+                {editorValue.map((node, index) => (
+                  <button
+                    className={
+                      'notion-block-handle' +
+                      (draggedBlockIndex === index ? ' notion-block-handle-dragging' : '') +
+                      (dragOverBlockIndex === index && draggedBlockIndex !== index ? ' notion-block-handle-over' : '')
+                    }
+                    draggable
+                    key={`${String(node.type ?? 'p')}-${String(index)}`}
+                    title={labels.dragBlock}
+                    type="button"
+                    onDragEnd={handleBlockDragEnd}
+                    onDragOver={event => handleBlockDragOver(event, index)}
+                    onDragStart={event => handleBlockDragStart(event, index)}
+                    onDrop={event => handleBlockDrop(event, index)}
+                  >
+                    <span className="notion-block-grip" aria-hidden="true">::</span>
+                    <span className="notion-block-summary">
+                      <span>{blockLabel(node, index)}</span>
+                      <small>{blockTypeLabel(node)}</small>
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </aside>
+            <div className="editor-frame notion-editor-frame">
+              <PlateContent className="plate-content notion-plate-content" placeholder={labels.placeholder} />
+            </div>
           </div>
         </Plate>
       </div>

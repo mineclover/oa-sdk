@@ -391,6 +391,8 @@ function DocumentEditorPage({
             formatting: translate(locale, 'docs.editorFormatting'),
             references: translate(locale, 'docs.editorReferences'),
             status: translate(locale, 'docs.editorStatus'),
+            blockOrder: translate(locale, 'docs.editorBlockOrder'),
+            dragBlock: translate(locale, 'docs.editorDragBlock'),
             toolbar: {
               heading1: translate(locale, 'docs.editorH1'),
               heading2: translate(locale, 'docs.editorH2'),

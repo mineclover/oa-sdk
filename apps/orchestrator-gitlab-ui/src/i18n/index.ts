@@ -102,6 +102,8 @@ export type TranslationKey =
   | 'docs.editorFormatting'
   | 'docs.editorReferences'
   | 'docs.editorStatus'
+  | 'docs.editorBlockOrder'
+  | 'docs.editorDragBlock'
   | 'docs.editorH1'
   | 'docs.editorH2'
   | 'docs.editorH3'
@@ -282,6 +284,8 @@ const translations: Record<Locale, Record<TranslationKey, string>> = {
     'docs.editorFormatting': '서식',
     'docs.editorReferences': 'GitLab 참조',
     'docs.editorStatus': '상태',
+    'docs.editorBlockOrder': '블록 순서',
+    'docs.editorDragBlock': '드래그해서 블록 이동',
     'docs.editorH1': 'H1',
     'docs.editorH2': 'H2',
     'docs.editorH3': 'H3',
@@ -459,6 +463,8 @@ const translations: Record<Locale, Record<TranslationKey, string>> = {
     'docs.editorFormatting': 'Formatting',
     'docs.editorReferences': 'GitLab references',
     'docs.editorStatus': 'Status',
+    'docs.editorBlockOrder': 'Block order',
+    'docs.editorDragBlock': 'Drag to move block',
     'docs.editorH1': 'H1',
     'docs.editorH2': 'H2',
     'docs.editorH3': 'H3',
