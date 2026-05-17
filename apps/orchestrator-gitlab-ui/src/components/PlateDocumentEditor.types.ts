@@ -41,6 +41,15 @@ export interface PlateDocumentEditorLabels {
   readonly imageAlt: string
   readonly imageApply: string
   readonly imageCancel: string
+  readonly liveEmptyBlock: string
+  readonly tableEdit: string
+  readonly tableTitle: string
+  readonly tableAddRow: string
+  readonly tableAddColumn: string
+  readonly tableRemoveRow: string
+  readonly tableRemoveColumn: string
+  readonly tableApply: string
+  readonly tableCancel: string
   readonly toolbar: {
     readonly heading1: string
     readonly heading2: string

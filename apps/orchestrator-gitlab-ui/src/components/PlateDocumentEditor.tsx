@@ -17,6 +17,7 @@ import {
   createGitLabPlateCommands,
   createGitLabPlatePlugins,
 } from '@oa-sdk/markdown-editor/plate'
+import { DocumentLiveMarkdownSurface } from './DocumentLiveMarkdownSurface.js'
 import {
   DocumentBlockRail,
   DocumentCommandBar,
@@ -25,10 +26,13 @@ import {
   DocumentMarkdownInsertPanel,
   DocumentProperties,
   DocumentSnippetMenu,
+  DocumentTableEditorModal,
   ToolbarButton,
 } from './DocumentEditorUi.js'
 import type { PlateDocumentEditorProps } from './PlateDocumentEditor.types.js'
 import { reorderDocumentEditorBlocks } from './document-editor-blocks.js'
+import { parseMarkdownTable } from './markdown-table.js'
+import { useDocumentTableEditor } from './useDocumentTableEditor.js'
 import { useGitLabReferenceSearch } from './useGitLabReferenceSearch.js'
 
 export function PlateDocumentEditor({
@@ -50,6 +54,8 @@ export function PlateDocumentEditor({
   const [imagePanelOpen, setImagePanelOpen] = useState(false)
   const [imageAlt, setImageAlt] = useState('')
   const [imageUrl, setImageUrl] = useState('')
+  const [activeBlockIndex, setActiveBlockIndex] = useState<number | null>(null)
+  const [draftMarkdown, setDraftMarkdown] = useState('')
   const [editorValue, setEditorValue] = useState<Value>(
     () => parseStoredEditorValue(window.localStorage.getItem(storageKey), initialValue) as Value,
   )
@@ -58,6 +64,11 @@ export function PlateDocumentEditor({
     value: editorValue,
   })
   const editorCommands = createGitLabPlateCommands(editor)
+  const tableEditorController = useDocumentTableEditor({
+    commitActiveBlock,
+    syncEditorValue,
+    value: editorValue,
+  })
 
   function syncEditorValue(value: Value) {
     setEditorValue(value)
@@ -79,6 +90,7 @@ export function PlateDocumentEditor({
   }
 
   function moveBlock(fromIndex: number, toIndex: number) {
+    commitActiveBlock()
     const nextValue = reorderDocumentEditorBlocks(editorValue, fromIndex, toIndex)
     if (nextValue === editorValue) return
     syncEditorValue(nextValue)
@@ -112,6 +124,7 @@ export function PlateDocumentEditor({
   }
 
   function addLink() {
+    commitActiveBlock()
     closeInsertPanels()
     setLinkPanelOpen(true)
     setLinkText('')
@@ -137,7 +150,7 @@ export function PlateDocumentEditor({
     const url = linkUrl.trim()
     if (url.length === 0) return
     const text = linkText.trim().length > 0 ? linkText.trim() : url
-    editorCommands.upsertLink({ text, url })
+    insertRawGitLabMarkdown(`[${text}](${url})`)
     closeInsertPanels()
   }
 
@@ -176,7 +189,14 @@ export function PlateDocumentEditor({
   }
 
   function insertRawGitLabMarkdown(markdown: string) {
-    editorCommands.insertRawMarkdown(markdown)
+    const insertIndex = activeBlockIndex === null ? editorValue.length : activeBlockIndex + 1
+    const nextValue = [...editorValue]
+    nextValue.splice(insertIndex, 0, {
+      children: [{ text: markdown }],
+      glfmRaw: true,
+      type: 'p',
+    } as Value[number])
+    syncEditorValue(nextValue)
   }
 
   function insertManualReference() {
@@ -192,6 +212,10 @@ export function PlateDocumentEditor({
       return
     }
     if (snippet.kind === 'raw') {
+      if (snippet.id === 'table') {
+        tableEditorController.openTableEditor(null, snippet.markdown)
+        return
+      }
       insertRawGitLabMarkdown(snippet.markdown)
       return
     }
@@ -201,6 +225,36 @@ export function PlateDocumentEditor({
     }
 
     openImagePanel(snippet)
+  }
+
+  function focusBlock(index: number) {
+    commitActiveBlock()
+    setActiveBlockIndex(index)
+    setDraftMarkdown(plateValueToGitLabMarkdown([editorValue[index] as Value[number]]))
+  }
+
+  function commitActiveBlock() {
+    if (activeBlockIndex === null) return
+    const originalNode = editorValue[activeBlockIndex]
+    if (originalNode === undefined) {
+      setActiveBlockIndex(null)
+      setDraftMarkdown('')
+      return
+    }
+    const markdown = draftMarkdown.trim()
+    const replacement = markdown.length === 0
+      ? [{ children: [{ text: '' }], type: 'p' } as Value[number]]
+      : shouldKeepRawBlock(originalNode, markdown)
+        ? [{ children: [{ text: markdown }], glfmRaw: true, type: 'p' } as Value[number]]
+        : editorCommands.resetValueFromMarkdown(markdown)
+    const nextValue = [
+      ...editorValue.slice(0, activeBlockIndex),
+      ...replacement,
+      ...editorValue.slice(activeBlockIndex + 1),
+    ]
+    setActiveBlockIndex(null)
+    setDraftMarkdown('')
+    syncEditorValue(nextValue)
   }
 
   return (
@@ -330,11 +384,47 @@ export function PlateDocumentEditor({
               onDrop={handleBlockDrop}
             />
             <div className="editor-frame notion-editor-frame">
-              <PlateContent className="plate-content notion-plate-content" placeholder={labels.placeholder} />
+              <DocumentLiveMarkdownSurface
+                activeBlockIndex={activeBlockIndex}
+                draftMarkdown={draftMarkdown}
+                labels={{
+                  editTable: labels.tableEdit,
+                  emptyBlock: labels.liveEmptyBlock,
+                }}
+                value={editorValue}
+                onBlurBlock={commitActiveBlock}
+                onChangeDraft={setDraftMarkdown}
+                onEditTable={tableEditorController.openExistingTableEditor}
+                onFocusBlock={focusBlock}
+              />
+              <PlateContent className="plate-content notion-plate-content plate-content-hidden" placeholder={labels.placeholder} />
             </div>
           </div>
+          {tableEditorController.tableEditor === null ? null : (
+            <DocumentTableEditorModal
+              labels={labels}
+              table={tableEditorController.tableEditor.table}
+              onAddColumn={tableEditorController.addTableColumn}
+              onAddRow={tableEditorController.addTableRow}
+              onCancel={tableEditorController.closeTableEditor}
+              onChangeCell={tableEditorController.changeTableCell}
+              onChangeHeader={tableEditorController.changeTableHeader}
+              onRemoveColumn={tableEditorController.removeTableColumn}
+              onRemoveRow={tableEditorController.removeTableRow}
+              onSubmit={tableEditorController.submitTableEditor}
+            />
+          )}
         </Plate>
       </div>
     </section>
   )
+}
+
+function shouldKeepRawBlock(node: Value[number], markdown: string): boolean {
+  if ((node as { glfmRaw?: unknown }).glfmRaw === true) return true
+  if (parseMarkdownTable(markdown) !== null) return true
+  if (markdown.startsWith('```mermaid') || markdown.startsWith('```math')) return true
+  if (markdown.startsWith('> [!')) return true
+  if (markdown === '[[_TOC_]]') return true
+  return /^!\[[^\]]*]\([^)]+\)$/.test(markdown)
 }

@@ -118,6 +118,15 @@ export type TranslationKey =
   | 'docs.editorImageAlt'
   | 'docs.editorImageApply'
   | 'docs.editorImageCancel'
+  | 'docs.editorLiveEmptyBlock'
+  | 'docs.editorTableEdit'
+  | 'docs.editorTableTitle'
+  | 'docs.editorTableAddRow'
+  | 'docs.editorTableAddColumn'
+  | 'docs.editorTableRemoveRow'
+  | 'docs.editorTableRemoveColumn'
+  | 'docs.editorTableApply'
+  | 'docs.editorTableCancel'
   | 'docs.editorH1'
   | 'docs.editorH2'
   | 'docs.editorH3'
@@ -314,6 +323,15 @@ const translations: Record<Locale, Record<TranslationKey, string>> = {
     'docs.editorImageAlt': '대체 텍스트',
     'docs.editorImageApply': '이미지 삽입',
     'docs.editorImageCancel': '취소',
+    'docs.editorLiveEmptyBlock': '빈 블록',
+    'docs.editorTableEdit': '테이블 편집',
+    'docs.editorTableTitle': '테이블 편집',
+    'docs.editorTableAddRow': '행 추가',
+    'docs.editorTableAddColumn': '열 추가',
+    'docs.editorTableRemoveRow': '행 삭제',
+    'docs.editorTableRemoveColumn': '열 삭제',
+    'docs.editorTableApply': '테이블 적용',
+    'docs.editorTableCancel': '취소',
     'docs.editorH1': 'H1',
     'docs.editorH2': 'H2',
     'docs.editorH3': 'H3',
@@ -507,6 +525,15 @@ const translations: Record<Locale, Record<TranslationKey, string>> = {
     'docs.editorImageAlt': 'Alt text',
     'docs.editorImageApply': 'Insert image',
     'docs.editorImageCancel': 'Cancel',
+    'docs.editorLiveEmptyBlock': 'Empty block',
+    'docs.editorTableEdit': 'Edit table',
+    'docs.editorTableTitle': 'Edit table',
+    'docs.editorTableAddRow': 'Add row',
+    'docs.editorTableAddColumn': 'Add column',
+    'docs.editorTableRemoveRow': 'Remove row',
+    'docs.editorTableRemoveColumn': 'Remove column',
+    'docs.editorTableApply': 'Apply table',
+    'docs.editorTableCancel': 'Cancel',
     'docs.editorH1': 'H1',
     'docs.editorH2': 'H2',
     'docs.editorH3': 'H3',

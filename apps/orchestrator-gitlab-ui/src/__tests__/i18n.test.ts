@@ -22,6 +22,8 @@ describe('i18n', () => {
     expect(translate('en', 'docs.editorInsertMarkdownTitle')).toBe('Insert Markdown')
     expect(translate('ko', 'docs.editorImageTitle')).toBe('이미지 삽입')
     expect(translate('en', 'docs.editorImageTitle')).toBe('Insert image')
+    expect(translate('ko', 'docs.editorTableTitle')).toBe('테이블 편집')
+    expect(translate('en', 'docs.editorTableTitle')).toBe('Edit table')
   })
 
   it('interpolates params in locale strings', () => {

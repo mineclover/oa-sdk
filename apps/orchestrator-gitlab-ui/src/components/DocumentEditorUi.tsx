@@ -4,6 +4,7 @@ import {
   documentEditorBlockLabel,
   documentEditorBlockTypeLabel,
 } from './document-editor-blocks.js'
+import type { MarkdownTable } from './markdown-table.js'
 import type {
   PlateDocumentEditorDocument,
   PlateDocumentEditorLabels,
@@ -277,6 +278,94 @@ export function DocumentImageInsertPanel({
         <button className="editor-toolbar-button" type="button" onClick={onCancel}>{labels.imageCancel}</button>
       </div>
     </form>
+  )
+}
+
+export function DocumentTableEditorModal({
+  labels,
+  onAddColumn,
+  onAddRow,
+  onCancel,
+  onChangeCell,
+  onChangeHeader,
+  onRemoveColumn,
+  onRemoveRow,
+  onSubmit,
+  table,
+}: {
+  readonly labels: PlateDocumentEditorLabels
+  readonly onAddColumn: () => void
+  readonly onAddRow: () => void
+  readonly onCancel: () => void
+  readonly onChangeCell: (rowIndex: number, cellIndex: number, value: string) => void
+  readonly onChangeHeader: (index: number, value: string) => void
+  readonly onRemoveColumn: (index: number) => void
+  readonly onRemoveRow: (index: number) => void
+  readonly onSubmit: () => void
+  readonly table: MarkdownTable
+}) {
+  return (
+    <div className="document-modal-backdrop" role="presentation">
+      <form
+        className="document-table-modal"
+        aria-label={labels.tableTitle}
+        onSubmit={event => {
+          event.preventDefault()
+          onSubmit()
+        }}
+      >
+        <div className="document-table-modal-header">
+          <h3>{labels.tableTitle}</h3>
+          <div className="document-table-modal-actions">
+            <button className="editor-toolbar-button" type="button" onClick={onAddColumn}>{labels.tableAddColumn}</button>
+            <button className="editor-toolbar-button" type="button" onClick={onAddRow}>{labels.tableAddRow}</button>
+          </div>
+        </div>
+        <div className="document-table-editor-scroll">
+          <table className="document-table-editor-grid">
+            <thead>
+              <tr>
+                {table.headers.map((header, index) => (
+                  <th key={index}>
+                    <input
+                      value={header}
+                      onChange={event => onChangeHeader(index, event.target.value)}
+                    />
+                    <button className="document-table-remove" type="button" onClick={() => onRemoveColumn(index)}>
+                      {labels.tableRemoveColumn}
+                    </button>
+                  </th>
+                ))}
+                <th />
+              </tr>
+            </thead>
+            <tbody>
+              {table.rows.map((row, rowIndex) => (
+                <tr key={rowIndex}>
+                  {table.headers.map((_, cellIndex) => (
+                    <td key={cellIndex}>
+                      <input
+                        value={row[cellIndex] ?? ''}
+                        onChange={event => onChangeCell(rowIndex, cellIndex, event.target.value)}
+                      />
+                    </td>
+                  ))}
+                  <td>
+                    <button className="document-table-remove" type="button" onClick={() => onRemoveRow(rowIndex)}>
+                      {labels.tableRemoveRow}
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <div className="document-table-submit-row">
+          <button className="editor-toolbar-button" type="submit">{labels.tableApply}</button>
+          <button className="editor-toolbar-button" type="button" onClick={onCancel}>{labels.tableCancel}</button>
+        </div>
+      </form>
+    </div>
   )
 }
 

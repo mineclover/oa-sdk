@@ -849,6 +849,139 @@ h1 {
   background: transparent;
 }
 
+.live-markdown-surface {
+  display: grid;
+  gap: 8px;
+}
+
+.live-markdown-block {
+  border-radius: 6px;
+}
+
+.live-markdown-block-active {
+  background: #fbfcfd;
+}
+
+.live-markdown-preview-button {
+  display: block;
+  width: 100%;
+  min-height: 34px;
+  padding: 7px 8px 7px 28px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  cursor: text;
+}
+
+.live-markdown-preview-button:hover,
+.live-markdown-preview-button:focus {
+  border-color: var(--border);
+  background: #fbfcfd;
+  outline: none;
+}
+
+.live-markdown-preview-button h1,
+.live-markdown-preview-button h2,
+.live-markdown-preview-button h3,
+.live-markdown-preview-button h4,
+.live-markdown-preview-button h5,
+.live-markdown-preview-button h6,
+.live-markdown-preview-button p,
+.live-markdown-preview-button blockquote,
+.live-markdown-preview-button pre {
+  margin: 0;
+}
+
+.live-markdown-preview-button blockquote {
+  padding-left: 12px;
+  border-left: 3px solid var(--border);
+  color: var(--muted);
+  white-space: pre-wrap;
+}
+
+.live-markdown-preview-button pre {
+  overflow: auto;
+  padding: 10px;
+  border-radius: 6px;
+  background: #0f172a;
+  color: #e2e8f0;
+  font-size: 13px;
+}
+
+.live-markdown-preview-button img {
+  max-width: min(100%, 560px);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.live-markdown-empty {
+  color: var(--muted);
+}
+
+.live-markdown-editor {
+  display: block;
+  width: 100%;
+  min-height: 92px;
+  padding: 10px 12px;
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text);
+  font: 13px/1.6 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  resize: vertical;
+}
+
+.live-markdown-editor:focus {
+  outline: 2px solid #bde6ed;
+  outline-offset: 1px;
+}
+
+.live-markdown-table-preview {
+  display: grid;
+  gap: 8px;
+}
+
+.live-markdown-table-scroll {
+  overflow-x: auto;
+}
+
+.live-markdown-table-preview table,
+.document-table-editor-grid {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.live-markdown-table-preview th,
+.live-markdown-table-preview td,
+.document-table-editor-grid th,
+.document-table-editor-grid td {
+  padding: 7px 9px;
+  border: 1px solid var(--border);
+  vertical-align: top;
+}
+
+.live-markdown-table-preview th {
+  background: var(--surface-2);
+  font-size: 12px;
+  text-transform: uppercase;
+}
+
+.live-markdown-table-edit {
+  width: fit-content;
+  cursor: pointer;
+}
+
+.plate-content-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+}
+
 .notion-plate-content {
   min-height: 460px;
   padding: 0;
@@ -880,6 +1013,72 @@ h1 {
 .notion-plate-content [data-slate-node='element']:hover::before {
   background: var(--surface-2);
   color: var(--muted);
+}
+
+.document-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgb(15 23 42 / 42%);
+}
+
+.document-table-modal {
+  display: grid;
+  gap: 14px;
+  width: min(920px, 100%);
+  max-height: min(760px, calc(100vh - 48px));
+  padding: 16px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: 0 24px 80px rgb(15 23 42 / 22%);
+}
+
+.document-table-modal-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.document-table-modal-header h3 {
+  margin: 0;
+}
+
+.document-table-modal-actions,
+.document-table-submit-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.document-table-editor-scroll {
+  overflow: auto;
+}
+
+.document-table-editor-grid input {
+  width: 100%;
+  min-width: 140px;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text);
+}
+
+.document-table-remove {
+  margin-top: 6px;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
 }
 
 .markdown-preview-panel {
