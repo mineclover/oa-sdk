@@ -17,27 +17,16 @@ import {
   createGitLabPlateCommands,
   createGitLabPlatePlugins,
 } from '@oa-sdk/markdown-editor/plate'
-import type { PlateDocumentEditorProps } from './PlateDocumentEditor.types.js'
 import {
-  documentEditorBlockLabel,
-  documentEditorBlockTypeLabel,
-  reorderDocumentEditorBlocks,
-} from './document-editor-blocks.js'
+  DocumentBlockRail,
+  DocumentCommandBar,
+  DocumentProperties,
+  DocumentSnippetMenu,
+  ToolbarButton,
+} from './DocumentEditorUi.js'
+import type { PlateDocumentEditorProps } from './PlateDocumentEditor.types.js'
+import { reorderDocumentEditorBlocks } from './document-editor-blocks.js'
 import { useGitLabReferenceSearch } from './useGitLabReferenceSearch.js'
-
-function ToolbarButton({
-  children,
-  onClick,
-}: {
-  children: string
-  onClick: () => void
-}) {
-  return (
-    <button className="editor-toolbar-button" type="button" onClick={onClick}>
-      {children}
-    </button>
-  )
-}
 
 export function PlateDocumentEditor({
   document,
@@ -161,29 +150,7 @@ export function PlateDocumentEditor({
     <section className="panel document-editor-panel notion-editor-panel">
       <div className="notion-page-cover" aria-hidden="true" />
       <div className="notion-page">
-        <div className="notion-page-kicker">
-          <span className="badge badge-info">{labels.saved}</span>
-          <span>{labels.title}</span>
-        </div>
-        <h1 className="notion-page-title">{document.title}</h1>
-        <dl className="notion-property-grid">
-          <div>
-            <dt>{labels.project}</dt>
-            <dd>{document.project}</dd>
-          </div>
-          <div>
-            <dt>{labels.path}</dt>
-            <dd>{document.path}</dd>
-          </div>
-          <div>
-            <dt>{labels.owner}</dt>
-            <dd>{document.owner}</dd>
-          </div>
-          <div>
-            <dt>{labels.status}</dt>
-            <dd>{labels.saved}</dd>
-          </div>
-        </dl>
+        <DocumentProperties document={document} labels={labels} />
 
         <Plate
           editor={editor}
@@ -193,40 +160,28 @@ export function PlateDocumentEditor({
             onMarkdownChange(plateValueToGitLabMarkdown(value))
           }}
         >
-          <div className="notion-command-bar" aria-label="Document editor toolbar">
-            <div className="notion-command-group">
-              <span>{labels.blocks}</span>
-              <ToolbarButton onClick={() => editorCommands.toggleHeading(1)}>{labels.toolbar.heading1}</ToolbarButton>
-              <ToolbarButton onClick={() => editorCommands.toggleHeading(2)}>{labels.toolbar.heading2}</ToolbarButton>
-              <ToolbarButton onClick={() => editorCommands.toggleHeading(3)}>{labels.toolbar.heading3}</ToolbarButton>
-              <ToolbarButton onClick={editorCommands.toggleBlockquote}>{labels.toolbar.quote}</ToolbarButton>
-              <ToolbarButton onClick={() => editorCommands.toggleList('disc')}>{labels.toolbar.bulletList}</ToolbarButton>
-              <ToolbarButton onClick={() => editorCommands.toggleList('todo')}>{labels.toolbar.todoList}</ToolbarButton>
-            </div>
-            <div className="notion-command-group">
-              <span>{labels.formatting}</span>
-              <ToolbarButton onClick={editorCommands.toggleBold}>{labels.toolbar.bold}</ToolbarButton>
-              <ToolbarButton onClick={editorCommands.toggleItalic}>{labels.toolbar.italic}</ToolbarButton>
-              <ToolbarButton onClick={editorCommands.toggleInlineCode}>{labels.toolbar.code}</ToolbarButton>
-              <ToolbarButton onClick={editorCommands.toggleStrikethrough}>{labels.toolbar.strike}</ToolbarButton>
-              <ToolbarButton onClick={addLink}>{labels.toolbar.link}</ToolbarButton>
-              <ToolbarButton onClick={editorCommands.indentBlock}>{labels.toolbar.indent}</ToolbarButton>
-              <ToolbarButton onClick={editorCommands.outdentBlock}>{labels.toolbar.outdent}</ToolbarButton>
-            </div>
-            <button className="editor-toolbar-button editor-toolbar-reset" type="button" onClick={resetValue}>
-              {labels.reset}
-            </button>
-          </div>
-          <div className="notion-block-menu" aria-label="GitLab Markdown snippets">
-            <div className="notion-block-menu-title">{labels.references}</div>
-            <div className="notion-block-menu-actions">
-              {gitLabMarkdownSnippets.map(snippet => (
-                <ToolbarButton key={snippet.id} onClick={() => handleSnippet(snippet)}>
-                  {labels.snippets[snippet.labelKey]}
-                </ToolbarButton>
-              ))}
-            </div>
-          </div>
+          <DocumentCommandBar
+            labels={labels}
+            onAddLink={addLink}
+            onIndent={editorCommands.indentBlock}
+            onOutdent={editorCommands.outdentBlock}
+            onReset={resetValue}
+            onToggleBlockquote={editorCommands.toggleBlockquote}
+            onToggleBold={editorCommands.toggleBold}
+            onToggleBulletList={() => editorCommands.toggleList('disc')}
+            onToggleHeading={editorCommands.toggleHeading}
+            onToggleInlineCode={editorCommands.toggleInlineCode}
+            onToggleItalic={editorCommands.toggleItalic}
+            onToggleStrikethrough={editorCommands.toggleStrikethrough}
+            onToggleTodoList={() => editorCommands.toggleList('todo')}
+          />
+          <DocumentSnippetMenu labels={labels}>
+            {gitLabMarkdownSnippets.map(snippet => (
+              <ToolbarButton key={snippet.id} onClick={() => handleSnippet(snippet)}>
+                {labels.snippets[snippet.labelKey]}
+              </ToolbarButton>
+            ))}
+          </DocumentSnippetMenu>
           <div className="reference-search-panel notion-reference-panel" aria-label="GitLab reference search">
             <div className="reference-search-controls">
               <span className="badge badge-info">
@@ -275,34 +230,16 @@ export function PlateDocumentEditor({
             ) : null}
           </div>
           <div className="notion-editor-layout">
-            <aside className="notion-block-rail" aria-label={labels.blockOrder}>
-              <div className="notion-block-rail-title">{labels.blockOrder}</div>
-              <div className="notion-block-list">
-                {editorValue.map((node, index) => (
-                  <button
-                    className={
-                      'notion-block-handle' +
-                      (draggedBlockIndex === index ? ' notion-block-handle-dragging' : '') +
-                      (dragOverBlockIndex === index && draggedBlockIndex !== index ? ' notion-block-handle-over' : '')
-                    }
-                    draggable
-                    key={`${String(node.type ?? 'p')}-${String(index)}`}
-                    title={labels.dragBlock}
-                    type="button"
-                    onDragEnd={handleBlockDragEnd}
-                    onDragOver={event => handleBlockDragOver(event, index)}
-                    onDragStart={event => handleBlockDragStart(event, index)}
-                    onDrop={event => handleBlockDrop(event, index)}
-                  >
-                    <span className="notion-block-grip" aria-hidden="true">::</span>
-                    <span className="notion-block-summary">
-                      <span>{documentEditorBlockLabel(node, index)}</span>
-                      <small>{documentEditorBlockTypeLabel(node)}</small>
-                    </span>
-                  </button>
-                ))}
-              </div>
-            </aside>
+            <DocumentBlockRail
+              dragOverBlockIndex={dragOverBlockIndex}
+              draggedBlockIndex={draggedBlockIndex}
+              labels={labels}
+              value={editorValue}
+              onDragEnd={handleBlockDragEnd}
+              onDragOver={handleBlockDragOver}
+              onDragStart={handleBlockDragStart}
+              onDrop={handleBlockDrop}
+            />
             <div className="editor-frame notion-editor-frame">
               <PlateContent className="plate-content notion-plate-content" placeholder={labels.placeholder} />
             </div>
