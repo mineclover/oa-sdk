@@ -47,6 +47,10 @@ interface PlateDocumentEditorProps {
     project: string
     path: string
     owner: string
+    blocks: string
+    formatting: string
+    references: string
+    status: string
     toolbar: {
       heading1: string
       heading2: string
@@ -200,107 +204,126 @@ export function PlateDocumentEditor({
   }
 
   return (
-    <section className="panel document-editor-panel">
-      <div className="document-editor-heading">
-        <div>
-          <h2>{labels.title}</h2>
-          <p className="run-meta">{labels.description}</p>
+    <section className="panel document-editor-panel notion-editor-panel">
+      <div className="notion-page-cover" aria-hidden="true" />
+      <div className="notion-page">
+        <div className="notion-page-kicker">
+          <span className="badge badge-info">{labels.saved}</span>
+          <span>{labels.title}</span>
         </div>
-        <span className="badge badge-info">{labels.saved}</span>
-      </div>
-      <div className="document-editor-meta">
-        <span>{labels.project}: {document.project}</span>
-        <span>{labels.path}: {document.path}</span>
-        <span>{labels.owner}: {document.owner}</span>
-      </div>
+        <h1 className="notion-page-title">{document.title}</h1>
+        <dl className="notion-property-grid">
+          <div>
+            <dt>{labels.project}</dt>
+            <dd>{document.project}</dd>
+          </div>
+          <div>
+            <dt>{labels.path}</dt>
+            <dd>{document.path}</dd>
+          </div>
+          <div>
+            <dt>{labels.owner}</dt>
+            <dd>{document.owner}</dd>
+          </div>
+          <div>
+            <dt>{labels.status}</dt>
+            <dd>{labels.saved}</dd>
+          </div>
+        </dl>
 
-      <Plate
-        editor={editor}
-        onChange={({ value }: { value: Value }) => {
-          window.localStorage.setItem(storageKey, serializeEditorValue(value))
-          onMarkdownChange(plateValueToGitLabMarkdown(value))
-        }}
-      >
-        <div className="editor-toolbar" aria-label="Document editor toolbar">
-          <ToolbarButton onClick={() => editorCommands.toggleHeading(1)}>{labels.toolbar.heading1}</ToolbarButton>
-          <ToolbarButton onClick={() => editorCommands.toggleHeading(2)}>{labels.toolbar.heading2}</ToolbarButton>
-          <ToolbarButton onClick={() => editorCommands.toggleHeading(3)}>{labels.toolbar.heading3}</ToolbarButton>
-          <ToolbarButton onClick={() => editorCommands.toggleHeading(4)}>{labels.toolbar.heading4}</ToolbarButton>
-          <ToolbarButton onClick={() => editorCommands.toggleHeading(5)}>{labels.toolbar.heading5}</ToolbarButton>
-          <ToolbarButton onClick={() => editorCommands.toggleHeading(6)}>{labels.toolbar.heading6}</ToolbarButton>
-          <ToolbarButton onClick={editorCommands.toggleBlockquote}>{labels.toolbar.quote}</ToolbarButton>
-          <ToolbarButton onClick={editorCommands.toggleBold}>{labels.toolbar.bold}</ToolbarButton>
-          <ToolbarButton onClick={editorCommands.toggleItalic}>{labels.toolbar.italic}</ToolbarButton>
-          <ToolbarButton onClick={editorCommands.toggleInlineCode}>{labels.toolbar.code}</ToolbarButton>
-          <ToolbarButton onClick={editorCommands.toggleStrikethrough}>{labels.toolbar.strike}</ToolbarButton>
-          <ToolbarButton onClick={addLink}>{labels.toolbar.link}</ToolbarButton>
-          <ToolbarButton onClick={() => editorCommands.toggleList('disc')}>{labels.toolbar.bulletList}</ToolbarButton>
-          <ToolbarButton onClick={() => editorCommands.toggleList('decimal')}>{labels.toolbar.numberedList}</ToolbarButton>
-          <ToolbarButton onClick={() => editorCommands.toggleList('todo')}>{labels.toolbar.todoList}</ToolbarButton>
-          <ToolbarButton onClick={editorCommands.indentBlock}>{labels.toolbar.indent}</ToolbarButton>
-          <ToolbarButton onClick={editorCommands.outdentBlock}>{labels.toolbar.outdent}</ToolbarButton>
-          <button className="editor-toolbar-button editor-toolbar-reset" type="button" onClick={resetValue}>
-            {labels.reset}
-          </button>
-        </div>
-        <div className="editor-toolbar editor-snippet-toolbar" aria-label="GitLab Markdown snippets">
-          {gitLabMarkdownSnippets.map(snippet => (
-            <ToolbarButton key={snippet.id} onClick={() => handleSnippet(snippet)}>
-              {labels.snippets[snippet.labelKey]}
-            </ToolbarButton>
-          ))}
-        </div>
-        <div className="reference-search-panel" aria-label="GitLab reference search">
-          <div className="reference-search-controls">
-            <span className="badge badge-info">
-              {referenceKind === 'issue' ? labels.snippets.issueReference : labels.snippets.mergeRequestReference}
-            </span>
-            <input
-              className="reference-search-input"
-              value={referenceQuery}
-              placeholder={labels.snippets.searchPlaceholder}
-              onChange={event => setReferenceQuery(event.target.value)}
-              onKeyDown={event => {
-                if (event.key === 'Enter') {
-                  event.preventDefault()
-                  void runReferenceSearch()
-                }
-              }}
-            />
-            <button className="editor-toolbar-button" type="button" onClick={() => void runReferenceSearch()}>
-              {labels.snippets.search}
-            </button>
-            <button className="editor-toolbar-button" type="button" onClick={insertManualReference}>
-              {labels.snippets.manual}
+        <Plate
+          editor={editor}
+          onChange={({ value }: { value: Value }) => {
+            window.localStorage.setItem(storageKey, serializeEditorValue(value))
+            onMarkdownChange(plateValueToGitLabMarkdown(value))
+          }}
+        >
+          <div className="notion-command-bar" aria-label="Document editor toolbar">
+            <div className="notion-command-group">
+              <span>{labels.blocks}</span>
+              <ToolbarButton onClick={() => editorCommands.toggleHeading(1)}>{labels.toolbar.heading1}</ToolbarButton>
+              <ToolbarButton onClick={() => editorCommands.toggleHeading(2)}>{labels.toolbar.heading2}</ToolbarButton>
+              <ToolbarButton onClick={() => editorCommands.toggleHeading(3)}>{labels.toolbar.heading3}</ToolbarButton>
+              <ToolbarButton onClick={editorCommands.toggleBlockquote}>{labels.toolbar.quote}</ToolbarButton>
+              <ToolbarButton onClick={() => editorCommands.toggleList('disc')}>{labels.toolbar.bulletList}</ToolbarButton>
+              <ToolbarButton onClick={() => editorCommands.toggleList('todo')}>{labels.toolbar.todoList}</ToolbarButton>
+            </div>
+            <div className="notion-command-group">
+              <span>{labels.formatting}</span>
+              <ToolbarButton onClick={editorCommands.toggleBold}>{labels.toolbar.bold}</ToolbarButton>
+              <ToolbarButton onClick={editorCommands.toggleItalic}>{labels.toolbar.italic}</ToolbarButton>
+              <ToolbarButton onClick={editorCommands.toggleInlineCode}>{labels.toolbar.code}</ToolbarButton>
+              <ToolbarButton onClick={editorCommands.toggleStrikethrough}>{labels.toolbar.strike}</ToolbarButton>
+              <ToolbarButton onClick={addLink}>{labels.toolbar.link}</ToolbarButton>
+              <ToolbarButton onClick={editorCommands.indentBlock}>{labels.toolbar.indent}</ToolbarButton>
+              <ToolbarButton onClick={editorCommands.outdentBlock}>{labels.toolbar.outdent}</ToolbarButton>
+            </div>
+            <button className="editor-toolbar-button editor-toolbar-reset" type="button" onClick={resetValue}>
+              {labels.reset}
             </button>
           </div>
-          {referenceSearchState === 'error' ? (
-            <p className="reference-search-message">{labels.snippets.unavailable}</p>
-          ) : null}
-          {referenceSearchState === 'loaded' && referenceResults.length === 0 ? (
-            <p className="reference-search-message">{labels.snippets.noResults}</p>
-          ) : null}
-          {referenceResults.length > 0 ? (
-            <ul className="reference-search-results">
-              {referenceResults.map(result => (
-                <li key={result.id}>
-                  <button
-                    className="reference-search-result"
-                    type="button"
-                    onClick={() => insertReferenceSuggestion(result)}
-                  >
-                    <span>{result.glfmReference}</span>
-                    <strong>{result.title}</strong>
-                  </button>
-                </li>
+          <div className="notion-block-menu" aria-label="GitLab Markdown snippets">
+            <div className="notion-block-menu-title">{labels.references}</div>
+            <div className="notion-block-menu-actions">
+              {gitLabMarkdownSnippets.map(snippet => (
+                <ToolbarButton key={snippet.id} onClick={() => handleSnippet(snippet)}>
+                  {labels.snippets[snippet.labelKey]}
+                </ToolbarButton>
               ))}
-            </ul>
-          ) : null}
-        </div>
-        <div className="editor-frame">
-          <PlateContent className="plate-content" placeholder={labels.placeholder} />
-        </div>
-      </Plate>
+            </div>
+          </div>
+          <div className="reference-search-panel notion-reference-panel" aria-label="GitLab reference search">
+            <div className="reference-search-controls">
+              <span className="badge badge-info">
+                {referenceKind === 'issue' ? labels.snippets.issueReference : labels.snippets.mergeRequestReference}
+              </span>
+              <input
+                className="reference-search-input"
+                value={referenceQuery}
+                placeholder={labels.snippets.searchPlaceholder}
+                onChange={event => setReferenceQuery(event.target.value)}
+                onKeyDown={event => {
+                  if (event.key === 'Enter') {
+                    event.preventDefault()
+                    void runReferenceSearch()
+                  }
+                }}
+              />
+              <button className="editor-toolbar-button" type="button" onClick={() => void runReferenceSearch()}>
+                {labels.snippets.search}
+              </button>
+              <button className="editor-toolbar-button" type="button" onClick={insertManualReference}>
+                {labels.snippets.manual}
+              </button>
+            </div>
+            {referenceSearchState === 'error' ? (
+              <p className="reference-search-message">{labels.snippets.unavailable}</p>
+            ) : null}
+            {referenceSearchState === 'loaded' && referenceResults.length === 0 ? (
+              <p className="reference-search-message">{labels.snippets.noResults}</p>
+            ) : null}
+            {referenceResults.length > 0 ? (
+              <ul className="reference-search-results">
+                {referenceResults.map(result => (
+                  <li key={result.id}>
+                    <button
+                      className="reference-search-result"
+                      type="button"
+                      onClick={() => insertReferenceSuggestion(result)}
+                    >
+                      <span>{result.glfmReference}</span>
+                      <strong>{result.title}</strong>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+          </div>
+          <div className="editor-frame notion-editor-frame">
+            <PlateContent className="plate-content notion-plate-content" placeholder={labels.placeholder} />
+          </div>
+        </Plate>
+      </div>
     </section>
   )
 }

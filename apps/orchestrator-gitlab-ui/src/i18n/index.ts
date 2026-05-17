@@ -98,6 +98,10 @@ export type TranslationKey =
   | 'docs.editorLoading'
   | 'docs.editorReset'
   | 'docs.editorSaved'
+  | 'docs.editorBlocks'
+  | 'docs.editorFormatting'
+  | 'docs.editorReferences'
+  | 'docs.editorStatus'
   | 'docs.editorH1'
   | 'docs.editorH2'
   | 'docs.editorH3'
@@ -274,6 +278,10 @@ const translations: Record<Locale, Record<TranslationKey, string>> = {
     'docs.editorLoading': '에디터를 불러오는 중입니다...',
     'docs.editorReset': '초기화',
     'docs.editorSaved': '로컬 자동 저장',
+    'docs.editorBlocks': '블록',
+    'docs.editorFormatting': '서식',
+    'docs.editorReferences': 'GitLab 참조',
+    'docs.editorStatus': '상태',
     'docs.editorH1': 'H1',
     'docs.editorH2': 'H2',
     'docs.editorH3': 'H3',
@@ -447,6 +455,10 @@ const translations: Record<Locale, Record<TranslationKey, string>> = {
     'docs.editorLoading': 'Loading editor...',
     'docs.editorReset': 'Reset',
     'docs.editorSaved': 'Local autosave',
+    'docs.editorBlocks': 'Blocks',
+    'docs.editorFormatting': 'Formatting',
+    'docs.editorReferences': 'GitLab references',
+    'docs.editorStatus': 'Status',
     'docs.editorH1': 'H1',
     'docs.editorH2': 'H2',
     'docs.editorH3': 'H3',

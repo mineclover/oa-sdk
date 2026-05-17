@@ -387,6 +387,10 @@ function DocumentEditorPage({
             project: translate(locale, 'docs.project'),
             path: translate(locale, 'docs.path'),
             owner: translate(locale, 'docs.owner'),
+            blocks: translate(locale, 'docs.editorBlocks'),
+            formatting: translate(locale, 'docs.editorFormatting'),
+            references: translate(locale, 'docs.editorReferences'),
+            status: translate(locale, 'docs.editorStatus'),
             toolbar: {
               heading1: translate(locale, 'docs.editorH1'),
               heading2: translate(locale, 'docs.editorH2'),
