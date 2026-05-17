@@ -20,7 +20,9 @@ import {
 import {
   DocumentBlockRail,
   DocumentCommandBar,
+  DocumentImageInsertPanel,
   DocumentLinkPanel,
+  DocumentMarkdownInsertPanel,
   DocumentProperties,
   DocumentSnippetMenu,
   ToolbarButton,
@@ -43,6 +45,11 @@ export function PlateDocumentEditor({
   const [linkPanelOpen, setLinkPanelOpen] = useState(false)
   const [linkText, setLinkText] = useState('')
   const [linkUrl, setLinkUrl] = useState('')
+  const [markdownPanelTitle, setMarkdownPanelTitle] = useState('')
+  const [markdownPanelValue, setMarkdownPanelValue] = useState('')
+  const [imagePanelOpen, setImagePanelOpen] = useState(false)
+  const [imageAlt, setImageAlt] = useState('')
+  const [imageUrl, setImageUrl] = useState('')
   const [editorValue, setEditorValue] = useState<Value>(
     () => parseStoredEditorValue(window.localStorage.getItem(storageKey), initialValue) as Value,
   )
@@ -105,15 +112,25 @@ export function PlateDocumentEditor({
   }
 
   function addLink() {
+    closeInsertPanels()
     setLinkPanelOpen(true)
     setLinkText('')
     setLinkUrl('')
   }
 
-  function cancelLinkPanel() {
+  function closeInsertPanels() {
     setLinkPanelOpen(false)
     setLinkText('')
     setLinkUrl('')
+    setMarkdownPanelTitle('')
+    setMarkdownPanelValue('')
+    setImagePanelOpen(false)
+    setImageAlt('')
+    setImageUrl('')
+  }
+
+  function cancelLinkPanel() {
+    closeInsertPanels()
   }
 
   function submitLinkPanel() {
@@ -121,7 +138,37 @@ export function PlateDocumentEditor({
     if (url.length === 0) return
     const text = linkText.trim().length > 0 ? linkText.trim() : url
     editorCommands.upsertLink({ text, url })
-    cancelLinkPanel()
+    closeInsertPanels()
+  }
+
+  function openMarkdownPanel(title: string, fallbackMarkdown: string) {
+    closeInsertPanels()
+    setMarkdownPanelTitle(title)
+    setMarkdownPanelValue(fallbackMarkdown)
+  }
+
+  function submitMarkdownPanel() {
+    const markdown = markdownPanelValue.trim()
+    if (markdown.length === 0) return
+    insertRawGitLabMarkdown(markdown)
+    closeInsertPanels()
+  }
+
+  function openImagePanel(snippet: Extract<GitLabMarkdownSnippet, { readonly kind: 'image' }>) {
+    closeInsertPanels()
+    setImagePanelOpen(true)
+    setImageUrl(snippet.defaultUrl)
+    setImageAlt(snippet.defaultAlt)
+  }
+
+  function submitImagePanel() {
+    const url = imageUrl.trim()
+    if (url.length === 0) return
+    insertRawGitLabMarkdown(createGitLabMarkdownImageSnippetMarkdown({
+      alt: imageAlt.trim().length > 0 ? imageAlt.trim() : labels.snippets.image,
+      url,
+    }))
+    closeInsertPanels()
   }
 
   function insertReferenceSuggestion(suggestion: { readonly glfmReference: string }) {
@@ -133,12 +180,10 @@ export function PlateDocumentEditor({
   }
 
   function insertManualReference() {
-    const markdown = window.prompt(
+    openMarkdownPanel(
       referenceSearch.kind === 'issue' ? labels.snippets.issueReference : labels.snippets.mergeRequestReference,
       referenceSearch.kind === 'issue' ? '#123' : '!123',
     )
-    if (markdown === null || markdown.trim().length === 0) return
-    insertRawGitLabMarkdown(markdown)
   }
 
   function handleSnippet(snippet: GitLabMarkdownSnippet) {
@@ -151,16 +196,11 @@ export function PlateDocumentEditor({
       return
     }
     if (snippet.kind === 'prompt') {
-      const markdown = window.prompt(labels.snippets[snippet.labelKey], snippet.fallbackMarkdown)
-      if (markdown === null || markdown.trim().length === 0) return
-      insertRawGitLabMarkdown(markdown)
+      openMarkdownPanel(labels.snippets[snippet.labelKey], snippet.fallbackMarkdown)
       return
     }
 
-    const url = window.prompt(snippet.urlPrompt, snippet.defaultUrl)
-    if (url === null || url.trim().length === 0) return
-    const alt = window.prompt(snippet.altPrompt, snippet.defaultAlt) ?? snippet.defaultAlt
-    insertRawGitLabMarkdown(createGitLabMarkdownImageSnippetMarkdown({ alt, url }))
+    openImagePanel(snippet)
   }
 
   return (
@@ -201,6 +241,27 @@ export function PlateDocumentEditor({
               url={linkUrl}
               onCancel={cancelLinkPanel}
               onSubmit={submitLinkPanel}
+            />
+          ) : null}
+          {markdownPanelTitle.length > 0 ? (
+            <DocumentMarkdownInsertPanel
+              labels={labels}
+              markdown={markdownPanelValue}
+              setMarkdown={setMarkdownPanelValue}
+              title={markdownPanelTitle}
+              onCancel={closeInsertPanels}
+              onSubmit={submitMarkdownPanel}
+            />
+          ) : null}
+          {imagePanelOpen ? (
+            <DocumentImageInsertPanel
+              alt={imageAlt}
+              labels={labels}
+              setAlt={setImageAlt}
+              setUrl={setImageUrl}
+              url={imageUrl}
+              onCancel={closeInsertPanels}
+              onSubmit={submitImagePanel}
             />
           ) : null}
           <DocumentSnippetMenu labels={labels}>

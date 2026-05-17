@@ -512,7 +512,8 @@ h1 {
 .notion-command-bar .editor-toolbar-button,
 .notion-block-menu .editor-toolbar-button,
 .notion-reference-panel .editor-toolbar-button,
-.document-link-panel .editor-toolbar-button {
+.document-link-panel .editor-toolbar-button,
+.document-insert-panel .editor-toolbar-button {
   min-height: 28px;
   border-color: transparent;
   background: transparent;
@@ -524,7 +525,8 @@ h1 {
 .notion-command-bar .editor-toolbar-button:hover,
 .notion-block-menu .editor-toolbar-button:hover,
 .notion-reference-panel .editor-toolbar-button:hover,
-.document-link-panel .editor-toolbar-button:hover {
+.document-link-panel .editor-toolbar-button:hover,
+.document-insert-panel .editor-toolbar-button:hover {
   border-color: var(--border);
   background: var(--surface-2);
   color: var(--text);
@@ -551,7 +553,8 @@ h1 {
   font-weight: 650;
 }
 
-.document-link-panel {
+.document-link-panel,
+.document-insert-panel {
   display: grid;
   gap: 10px;
   margin-bottom: 12px;
@@ -561,12 +564,14 @@ h1 {
   background: #fbfcfd;
 }
 
-.document-link-panel h3 {
+.document-link-panel h3,
+.document-insert-panel h3 {
   margin: 0;
   font-size: 15px;
 }
 
-.document-link-field {
+.document-link-field,
+.document-insert-field {
   display: grid;
   gap: 6px;
   color: var(--muted);
@@ -574,7 +579,9 @@ h1 {
   font-weight: 700;
 }
 
-.document-link-field input {
+.document-link-field input,
+.document-insert-field input,
+.document-insert-field textarea {
   min-height: 34px;
   padding: 6px 9px;
   border: 1px solid var(--border);
@@ -584,13 +591,20 @@ h1 {
   font: inherit;
 }
 
-.document-link-field input:focus {
+.document-insert-field textarea {
+  resize: vertical;
+}
+
+.document-link-field input:focus,
+.document-insert-field input:focus,
+.document-insert-field textarea:focus {
   border-color: var(--accent);
   outline: 2px solid #bde6ed;
   outline-offset: 1px;
 }
 
-.document-link-actions {
+.document-link-actions,
+.document-insert-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;

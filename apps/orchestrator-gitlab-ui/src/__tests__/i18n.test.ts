@@ -18,6 +18,10 @@ describe('i18n', () => {
     expect(translate('en', 'docs.editorLinkTitle')).toBe('Create link')
     expect(translate('ko', 'docs.editorLinkApply')).toBe('링크 적용')
     expect(translate('en', 'docs.editorLinkApply')).toBe('Apply link')
+    expect(translate('ko', 'docs.editorInsertMarkdownTitle')).toBe('Markdown 삽입')
+    expect(translate('en', 'docs.editorInsertMarkdownTitle')).toBe('Insert Markdown')
+    expect(translate('ko', 'docs.editorImageTitle')).toBe('이미지 삽입')
+    expect(translate('en', 'docs.editorImageTitle')).toBe('Insert image')
   })
 
   it('interpolates params in locale strings', () => {

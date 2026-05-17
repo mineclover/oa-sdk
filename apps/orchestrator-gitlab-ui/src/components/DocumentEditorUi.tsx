@@ -184,6 +184,102 @@ export function DocumentLinkPanel({
   )
 }
 
+export function DocumentMarkdownInsertPanel({
+  labels,
+  markdown,
+  onCancel,
+  onSubmit,
+  setMarkdown,
+  title,
+}: {
+  readonly labels: PlateDocumentEditorLabels
+  readonly markdown: string
+  readonly onCancel: () => void
+  readonly onSubmit: () => void
+  readonly setMarkdown: (value: string) => void
+  readonly title: string
+}) {
+  return (
+    <form
+      className="document-insert-panel"
+      onSubmit={event => {
+        event.preventDefault()
+        onSubmit()
+      }}
+    >
+      <div>
+        <h3>{title.length > 0 ? title : labels.insertMarkdownTitle}</h3>
+      </div>
+      <label className="document-insert-field">
+        <span>{labels.insertMarkdownLabel}</span>
+        <textarea
+          autoFocus
+          rows={4}
+          value={markdown}
+          onChange={event => setMarkdown(event.target.value)}
+        />
+      </label>
+      <div className="document-insert-actions">
+        <button className="editor-toolbar-button" type="submit">{labels.insertMarkdownApply}</button>
+        <button className="editor-toolbar-button" type="button" onClick={onCancel}>{labels.insertMarkdownCancel}</button>
+      </div>
+    </form>
+  )
+}
+
+export function DocumentImageInsertPanel({
+  alt,
+  labels,
+  onCancel,
+  onSubmit,
+  setAlt,
+  setUrl,
+  url,
+}: {
+  readonly alt: string
+  readonly labels: PlateDocumentEditorLabels
+  readonly onCancel: () => void
+  readonly onSubmit: () => void
+  readonly setAlt: (value: string) => void
+  readonly setUrl: (value: string) => void
+  readonly url: string
+}) {
+  return (
+    <form
+      className="document-insert-panel"
+      onSubmit={event => {
+        event.preventDefault()
+        onSubmit()
+      }}
+    >
+      <div>
+        <h3>{labels.imageTitle}</h3>
+      </div>
+      <label className="document-insert-field">
+        <span>{labels.imageUrl}</span>
+        <input
+          autoFocus
+          inputMode="url"
+          placeholder="https://"
+          value={url}
+          onChange={event => setUrl(event.target.value)}
+        />
+      </label>
+      <label className="document-insert-field">
+        <span>{labels.imageAlt}</span>
+        <input
+          value={alt}
+          onChange={event => setAlt(event.target.value)}
+        />
+      </label>
+      <div className="document-insert-actions">
+        <button className="editor-toolbar-button" type="submit">{labels.imageApply}</button>
+        <button className="editor-toolbar-button" type="button" onClick={onCancel}>{labels.imageCancel}</button>
+      </div>
+    </form>
+  )
+}
+
 export function DocumentBlockRail({
   dragOverBlockIndex,
   draggedBlockIndex,

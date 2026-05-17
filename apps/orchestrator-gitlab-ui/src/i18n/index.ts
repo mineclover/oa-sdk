@@ -109,6 +109,15 @@ export type TranslationKey =
   | 'docs.editorLinkUrl'
   | 'docs.editorLinkApply'
   | 'docs.editorLinkCancel'
+  | 'docs.editorInsertMarkdownTitle'
+  | 'docs.editorInsertMarkdownLabel'
+  | 'docs.editorInsertMarkdownApply'
+  | 'docs.editorInsertMarkdownCancel'
+  | 'docs.editorImageTitle'
+  | 'docs.editorImageUrl'
+  | 'docs.editorImageAlt'
+  | 'docs.editorImageApply'
+  | 'docs.editorImageCancel'
   | 'docs.editorH1'
   | 'docs.editorH2'
   | 'docs.editorH3'
@@ -296,6 +305,15 @@ const translations: Record<Locale, Record<TranslationKey, string>> = {
     'docs.editorLinkUrl': 'URL',
     'docs.editorLinkApply': '링크 적용',
     'docs.editorLinkCancel': '취소',
+    'docs.editorInsertMarkdownTitle': 'Markdown 삽입',
+    'docs.editorInsertMarkdownLabel': 'Markdown',
+    'docs.editorInsertMarkdownApply': '삽입',
+    'docs.editorInsertMarkdownCancel': '취소',
+    'docs.editorImageTitle': '이미지 삽입',
+    'docs.editorImageUrl': '이미지 URL',
+    'docs.editorImageAlt': '대체 텍스트',
+    'docs.editorImageApply': '이미지 삽입',
+    'docs.editorImageCancel': '취소',
     'docs.editorH1': 'H1',
     'docs.editorH2': 'H2',
     'docs.editorH3': 'H3',
@@ -480,6 +498,15 @@ const translations: Record<Locale, Record<TranslationKey, string>> = {
     'docs.editorLinkUrl': 'URL',
     'docs.editorLinkApply': 'Apply link',
     'docs.editorLinkCancel': 'Cancel',
+    'docs.editorInsertMarkdownTitle': 'Insert Markdown',
+    'docs.editorInsertMarkdownLabel': 'Markdown',
+    'docs.editorInsertMarkdownApply': 'Insert',
+    'docs.editorInsertMarkdownCancel': 'Cancel',
+    'docs.editorImageTitle': 'Insert image',
+    'docs.editorImageUrl': 'Image URL',
+    'docs.editorImageAlt': 'Alt text',
+    'docs.editorImageApply': 'Insert image',
+    'docs.editorImageCancel': 'Cancel',
     'docs.editorH1': 'H1',
     'docs.editorH2': 'H2',
     'docs.editorH3': 'H3',

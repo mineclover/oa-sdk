@@ -32,6 +32,15 @@ export interface PlateDocumentEditorLabels {
   readonly linkUrl: string
   readonly linkApply: string
   readonly linkCancel: string
+  readonly insertMarkdownTitle: string
+  readonly insertMarkdownLabel: string
+  readonly insertMarkdownApply: string
+  readonly insertMarkdownCancel: string
+  readonly imageTitle: string
+  readonly imageUrl: string
+  readonly imageAlt: string
+  readonly imageApply: string
+  readonly imageCancel: string
   readonly toolbar: {
     readonly heading1: string
     readonly heading2: string
