@@ -126,7 +126,7 @@ export function resolvePersonaResponse(
 }
 
 /**
- * Follow `$ref` once. The merged spec produced by `pnpm merge` keeps refs
+ * Follow `$ref` once. The merged spec produced by Definition Builder keeps refs
  * intact; we only need single-level resolution for `#/components/responses/X`,
  * `#/components/schemas/X`, etc. (Multi-hop refs would need a loop guard.)
  */

@@ -1,0 +1,52 @@
+id: path:public/auth/AuthLoginPath
+metadata:
+  path: /auth/login
+content:
+  post:
+    tags:
+      - auth
+    operationId: login
+    summary: 로그인 (공개)
+    description: 이메일과 비밀번호를 검증하고 access/refresh 토큰 페어를 발급합니다. 인증 불필요.
+    security: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: oa://schema/public/auth/LoginRequest
+          examples:
+            default:
+              dataValue:
+                email: alice@example.com
+                password: secure1234
+              serializedValue: '{"email":"alice@example.com","password":"secure1234"}'
+    responses:
+      "200":
+        description: 로그인 성공
+        content:
+          application/json:
+            schema:
+              $ref: oa://schema/public/auth/AuthSession
+            examples:
+              default:
+                dataValue:
+                  user:
+                    id: 00000000-0000-0000-0000-000000000001
+                    email: alice@example.com
+                    name: Alice
+                    role: user
+                    createdAt: 2024-01-01T00:00:00.000Z
+                  tokens:
+                    accessToken: eyJhbGciOi...login
+                    refreshToken: rt_login_0001
+                    tokenType: Bearer
+                    expiresIn: 3600
+      "400":
+        $ref: oa://response/shared/common/BadRequest
+      "401":
+        $ref: oa://response/shared/common/Unauthorized
+      "422":
+        $ref: oa://response/shared/common/UnprocessableEntity
+      "429":
+        $ref: oa://response/shared/common/TooManyRequests

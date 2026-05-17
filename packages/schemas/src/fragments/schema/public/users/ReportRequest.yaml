@@ -1,0 +1,19 @@
+id: schema:public/users/ReportRequest
+content:
+  type: object
+  description: 신고 요청 본문
+  required:
+    - reason
+  properties:
+    reason:
+      type: string
+      enum:
+        - spam
+        - harassment
+        - hate-speech
+        - fraud
+        - impersonation
+        - other
+    details:
+      type: string
+      maxLength: 1000

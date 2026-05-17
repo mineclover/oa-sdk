@@ -1,0 +1,62 @@
+id: path:public/users/UsersIdReportsPath
+metadata:
+  path: /users/{id}/reports
+content:
+  parameters:
+    - name: id
+      in: path
+      required: true
+      description: 신고 대상 사용자 UUID
+      schema:
+        type: string
+        format: uuid
+  post:
+    tags:
+      - users
+    operationId: reportUser
+    summary: 사용자 신고
+    description: |
+      혐오·스팸·사기 등 정책 위반 사용자를 운영자에게 신고. 신고자는 인증된
+      user. 동일 신고자→대상 페어는 24시간 내 1회로 rate-limit.
+    security:
+      - bearerAuth: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: oa://schema/public/users/ReportRequest
+          examples:
+            default:
+              dataValue:
+                reason: harassment
+                details: 공격적 메시지 반복 발신
+              serializedValue: '{"reason":"harassment","details":"공격적 메시지 반복 발신"}'
+    responses:
+      "201":
+        description: 신고 접수 완료
+        content:
+          application/json:
+            schema:
+              $ref: oa://schema/public/users/Report
+            examples:
+              default:
+                dataValue:
+                  id: 00000000-0000-0000-0000-000000000300
+                  targetUserId: 00000000-0000-0000-0000-000000000001
+                  reporterUserId: 00000000-0000-0000-0000-000000000002
+                  reason: harassment
+                  status: open
+                  createdAt: 2026-05-04T00:00:00.000Z
+                serializedValue: '{"id":"00000000-0000-0000-0000-000000000300","targetUserId":"00000000-0000-0000-0000-000000000001","reporterUserId":"00000000-0000-0000-0000-000000000002","reason":"harassment","status":"open","createdAt":"2026-05-04T00:00:00.000Z"}'
+      "400":
+        $ref: oa://response/shared/common/BadRequest
+      "401":
+        $ref: oa://response/shared/common/Unauthorized
+      "422":
+        $ref: oa://response/shared/common/UnprocessableEntity
+      "429":
+        $ref: oa://response/shared/common/TooManyRequests
+refs:
+  - ref: oa://securityScheme/shared/common/BearerAuth
+    sourcePointer: "#/content/post/security/0/bearerAuth"

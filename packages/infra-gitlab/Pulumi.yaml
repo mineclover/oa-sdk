@@ -10,8 +10,11 @@ template:
     Phase 1 preset — single-host GitLab CE Omnibus on Docker, plus a Docker-executor Runner.
     Use this stack as the DevOps substrate for downstream automation (e.g. Symphony orchestration).
 config:
+  infra-gitlab:target:
+    description: Deployment target. Default 'docker' preserves the Phase 1 local Docker preset; set 'k3s' for the Kubernetes variant.
+    default: docker
   infra-gitlab:gitlabHostname:
-    description: External hostname users will type into the browser. Use 'localhost' for local dev.
+    description: External hostname users will type into the browser. Use 'localhost' for local Docker; K3s maps this default to gitlab.127.0.0.1.nip.io.
     default: localhost
   infra-gitlab:gitlabHttpPort:
     description: Host port mapped to GitLab's HTTP listener.
@@ -39,3 +42,46 @@ config:
       is not a host-side signal" for the rationale and the default probe
       alternatives (`docker inspect`, `/users/sign_in`).
     default: false
+  infra-gitlab:kubeconfig:
+    description: Optional kubeconfig contents for target=k3s. If unset, Pulumi uses the ambient Kubernetes client config.
+    secret: true
+  infra-gitlab:k3sNamespace:
+    description: Kubernetes namespace for the GitLab stack.
+    default: gitlab
+  infra-gitlab:k3sStorageClassName:
+    description: Optional StorageClass name for GitLab PVCs. Leave unset to use the cluster default.
+  infra-gitlab:k3sGitlabConfigStorageSize:
+    description: PVC size for /etc/gitlab.
+    default: 2Gi
+  infra-gitlab:k3sGitlabLogsStorageSize:
+    description: PVC size for /var/log/gitlab.
+    default: 5Gi
+  infra-gitlab:k3sGitlabDataStorageSize:
+    description: PVC size for /var/opt/gitlab.
+    default: 20Gi
+  infra-gitlab:k3sRunnerConfigStorageSize:
+    description: PVC size for /etc/gitlab-runner.
+    default: 1Gi
+  infra-gitlab:k3sIngressClassName:
+    description: IngressClass used by K3s. Traefik is the K3s default.
+    default: traefik
+  infra-gitlab:k3sCertManagerClusterIssuer:
+    description: cert-manager ClusterIssuer referenced by the GitLab Ingress.
+    default: letsencrypt-staging
+  infra-gitlab:k3sCreateCertManagerIssuer:
+    description: Whether this stack should create the cert-manager ClusterIssuer. Requires cert-manager CRDs to already be installed.
+    default: false
+  infra-gitlab:k3sLetsEncryptEmail:
+    description: Email used for the optional cert-manager ACME ClusterIssuer.
+  infra-gitlab:k3sLetsEncryptServer:
+    description: ACME directory URL for the optional cert-manager ClusterIssuer.
+    default: https://acme-staging-v02.api.letsencrypt.org/directory
+  infra-gitlab:k3sSshServiceType:
+    description: Kubernetes Service type for Git over SSH.
+    default: NodePort
+  infra-gitlab:k3sGitlabSshNodePort:
+    description: Optional fixed NodePort for GitLab SSH when k3sSshServiceType=NodePort.
+    default: 32222
+  infra-gitlab:k3sGitlabSshExternalPort:
+    description: Port rendered into GitLab clone URLs for SSH.
+    default: 32222

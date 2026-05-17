@@ -1,6 +1,7 @@
 # spec-reference 관리 가이드
 
 OpenAPI 공식 스펙 원문을 로컬에서 탐색하고 동기화하는 방법을 다룹니다.
+GitLab 문서 편집 기능은 GLFM 공식 문서를 별도 기준으로 둡니다.
 
 ## 구조
 
@@ -13,10 +14,15 @@ docs/references/
     ├── index.md             ← 진입점
     ├── 00~15-*.md           ← 의미 단위 분할본
     └── appendices/
+└── glfm/
+    └── index.md             ← GitLab Flavored Markdown 구현 기준
 ```
 
 원본 submodule → `pnpm split-spec` → 분할본 생성 흐름입니다.
 분할본은 생성물이므로 직접 편집하지 않습니다.
+
+GLFM은 현재 외부 공식 문서를 source URL로 고정하고, 로컬 문서는 구현 범위와
+백로그를 추적하는 인덱스로 관리합니다.
 
 ---
 

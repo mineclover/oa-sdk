@@ -46,7 +46,7 @@ command execution logging과 projection/read model은 [Behavior ECS](../../conce
 ## 1. Drizzle → OAS components.yaml
 
 ```bash
-oa-gen generate --drizzle-schema ./src/db/schema.ts --output ./packages/schemas/src/domains/users/
+oa-gen generate --drizzle-schema ./src/db/schema.ts --output ./packages/schemas/src/fragments/schema/public/users/
 ```
 
 또는 config 파일:
@@ -58,7 +58,7 @@ import { z } from 'zod'
 
 export default defineConfig({
   mergeIntoSpec: true,
-  specPath: './packages/schemas/src/domains/users/spec.yaml',
+  specPath: './packages/schemas/src/fragments/schema/public/users/User.yaml',
   schemas: {
     User: z.object({
       id: z.string().uuid(),
@@ -175,7 +175,7 @@ OpenAPI를 문서로만 두면 쉽게 실제 구현과 어긋난다. 아래 명�
 breaking change는 spec diff에서 먼저 확인한다.
 
 ```bash
-pnpm --filter @oa-sdk/schemas run merge
+pnpm --filter @oa-sdk/schemas run build:merged
 oa-gen validate --spec packages/schemas/src/.merged.yaml
 oa-gen lint --spec packages/schemas/src/.merged.yaml
 oa-gen diff \
@@ -224,7 +224,7 @@ API 문서로 사용할 정보는 README에 따로 흩어두지 말고 spec에 �
 ## 전체 파이프라인 한 줄
 
 ```bash
-pnpm --filter @oa-sdk/schemas run merge && \
+pnpm --filter @oa-sdk/schemas run build:merged && \
 oa-gen typegen --spec packages/schemas/src/.merged.yaml -o src/types.ts && \
 oa-gen router  --spec packages/schemas/src/.merged.yaml --types-import './types' -o src/router.ts && \
 oa-gen client  --spec packages/schemas/src/.merged.yaml --types-import './types' -o src/client.ts

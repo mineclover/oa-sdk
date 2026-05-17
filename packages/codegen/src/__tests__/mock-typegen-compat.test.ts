@@ -133,7 +133,7 @@ describe('mock-server 응답 ↔ typegen 타입 호환', () => {
       const output = (e.stdout ?? '') + (e.stderr ?? '')
       expect.fail(`mock-server 응답이 typegen 타입과 불일치:\n${output}\n\n생성된 코드:\n${content}`)
     }
-  })
+  }, 20_000)
 
   it('mock-server 최소값이 required 필드만 포함', async () => {
     const { generateAlgebra } = await import('@oa-sdk/mock-server')

@@ -1,0 +1,14 @@
+id: schema:public/auth/LoginRequest
+content:
+  type: object
+  description: 로그인 요청
+  required:
+    - email
+    - password
+  properties:
+    email:
+      type: string
+      format: email
+    password:
+      type: string
+      minLength: 1

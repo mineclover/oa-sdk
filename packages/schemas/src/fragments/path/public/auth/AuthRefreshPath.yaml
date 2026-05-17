@@ -1,0 +1,40 @@
+id: path:public/auth/AuthRefreshPath
+metadata:
+  path: /auth/refresh
+content:
+  post:
+    tags:
+      - auth
+    operationId: refreshToken
+    summary: 토큰 갱신 (공개)
+    description: 유효한 refresh 토큰으로 새 access 토큰 페어를 발급합니다. access 토큰 인증 불필요.
+    security: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: oa://schema/public/auth/RefreshRequest
+          examples:
+            default:
+              dataValue:
+                refreshToken: rt_login_0001
+              serializedValue: '{"refreshToken":"rt_login_0001"}'
+    responses:
+      "200":
+        description: 갱신된 토큰 페어
+        content:
+          application/json:
+            schema:
+              $ref: oa://schema/public/auth/TokenPair
+            examples:
+              default:
+                dataValue:
+                  accessToken: eyJhbGciOi...refreshed
+                  refreshToken: rt_login_0002
+                  tokenType: Bearer
+                  expiresIn: 3600
+      "401":
+        $ref: oa://response/shared/common/Unauthorized
+      "422":
+        $ref: oa://response/shared/common/UnprocessableEntity

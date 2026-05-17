@@ -1,0 +1,52 @@
+id: schema:public/users/Report
+content:
+  type: object
+  description: 신고 단건
+  required:
+    - id
+    - targetUserId
+    - reporterUserId
+    - reason
+    - status
+    - createdAt
+  properties:
+    id:
+      type: string
+      format: uuid
+    targetUserId:
+      type: string
+      format: uuid
+    reporterUserId:
+      type: string
+      format: uuid
+    reason:
+      type: string
+      enum:
+        - spam
+        - harassment
+        - hate-speech
+        - fraud
+        - impersonation
+        - other
+    details:
+      type: string
+    status:
+      type: string
+      enum:
+        - open
+        - under-review
+        - resolved
+        - dismissed
+    createdAt:
+      type: string
+      format: date-time
+    resolvedAt:
+      type: string
+      format: date-time
+  example:
+    id: 00000000-0000-0000-0000-000000000300
+    targetUserId: 00000000-0000-0000-0000-000000000001
+    reporterUserId: 00000000-0000-0000-0000-000000000002
+    reason: harassment
+    status: open
+    createdAt: 2026-05-04T00:00:00.000Z

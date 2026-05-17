@@ -1,0 +1,85 @@
+id: path:public/me/MePath
+metadata:
+  path: /me
+content:
+  get:
+    tags:
+      - me
+    operationId: getMe
+    summary: 내 정보 조회
+    description: 현재 access 토큰으로 식별되는 사용자의 정보를 반환합니다.
+    security:
+      - bearerAuth: []
+    responses:
+      "200":
+        description: 내 사용자 정보
+        content:
+          application/json:
+            schema:
+              $ref: oa://schema/public/users/User
+            examples:
+              default:
+                dataValue:
+                  id: 00000000-0000-0000-0000-000000000001
+                  email: alice@example.com
+                  name: Alice
+                  role: user
+                  createdAt: 2024-01-01T00:00:00.000Z
+      "401":
+        $ref: oa://response/shared/common/Unauthorized
+  patch:
+    tags:
+      - me
+    operationId: updateMe
+    summary: 내 정보 수정 (부분 업데이트)
+    description: |
+      현재 사용자의 name 등 프로필을 수정합니다. role은 셀프 변경 불가 — admin이
+      /users/{id} 를 통해서만 변경할 수 있습니다.
+    security:
+      - bearerAuth: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: oa://schema/public/me/UpdateMeRequest
+          examples:
+            default:
+              dataValue:
+                name: Alice (self-edit)
+              serializedValue: '{"name":"Alice (self-edit)"}'
+    responses:
+      "200":
+        description: 수정된 내 사용자 정보
+        content:
+          application/json:
+            schema:
+              $ref: oa://schema/public/users/User
+      "400":
+        $ref: oa://response/shared/common/BadRequest
+      "401":
+        $ref: oa://response/shared/common/Unauthorized
+      "422":
+        $ref: oa://response/shared/common/UnprocessableEntity
+  delete:
+    tags:
+      - me
+    operationId: deleteMyAccount
+    summary: 셀프 계정 탈퇴 (soft-delete)
+    description: |
+      본인 계정 비활성화. PIPA/GDPR right-to-erasure 대응. 30일 이내 복구 가능,
+      이후 영구 파기. 응답 본문 없음.
+    security:
+      - bearerAuth: []
+    responses:
+      "204":
+        description: 탈퇴 처리 완료 (본문 없음)
+      "401":
+        $ref: oa://response/shared/common/Unauthorized
+refs:
+  - ref: oa://securityScheme/shared/common/BearerAuth
+    sourcePointer: "#/content/get/security/0/bearerAuth"
+  - ref: oa://securityScheme/shared/common/BearerAuth
+    sourcePointer: "#/content/patch/security/0/bearerAuth"
+  - ref: oa://securityScheme/shared/common/BearerAuth
+    sourcePointer: "#/content/delete/security/0/bearerAuth"

@@ -8,30 +8,77 @@ import {
   createRunnerConfigVolume,
 } from "./network.js";
 import { createRunner } from "./runner.js";
+import { createK3sStack } from "./k3s/index.js";
 
 const cfg = loadConfig();
 
-const network = createNetwork("gitlab-net");
-const volumes = createGitLabVolumes("gitlab");
-const gitlab = createGitLab("gitlab", { cfg, network, volumes });
+interface StackOutputs {
+  readonly gitlabUrl: pulumi.Output<string>;
+  readonly gitlabContainerName: pulumi.Output<string> | undefined;
+  readonly gitlabSshPort: pulumi.Output<number> | undefined;
+  readonly runnerContainerName: pulumi.Output<string> | undefined;
+  readonly networkName: pulumi.Output<string> | undefined;
+  readonly gitlabNamespace: pulumi.Output<string> | undefined;
+  readonly gitlabIngressName: pulumi.Output<string> | undefined;
+  readonly gitlabSshServiceName: pulumi.Output<string> | undefined;
+  readonly runnerDeploymentName: pulumi.Output<string> | undefined;
+}
 
-const runnerConfigVolume = cfg.enableRunner
-  ? createRunnerConfigVolume("gitlab")
-  : undefined;
+function createDockerStack(): StackOutputs {
+  const network = createNetwork("gitlab-net");
+  const volumes = createGitLabVolumes("gitlab");
+  const gitlab = createGitLab("gitlab", { cfg, network, volumes });
 
-const runner =
-  cfg.enableRunner && runnerConfigVolume !== undefined
-    ? createRunner("gitlab-runner", {
-        cfg,
-        network,
-        configVolume: runnerConfigVolume,
-        dependsOn: [gitlab.container],
-      })
+  const runnerConfigVolume = cfg.enableRunner
+    ? createRunnerConfigVolume("gitlab")
     : undefined;
 
-export const gitlabUrl = gitlab.externalUrl;
-export const gitlabContainerName = gitlab.container.name;
-export const gitlabSshPort = pulumi.output(cfg.gitlabSshPort);
-export const runnerContainerName: pulumi.Output<string> | undefined =
-  runner?.container.name;
-export const networkName = network.name;
+  const runner =
+    cfg.enableRunner && runnerConfigVolume !== undefined
+      ? createRunner("gitlab-runner", {
+          cfg,
+          network,
+          configVolume: runnerConfigVolume,
+          dependsOn: [gitlab.container],
+        })
+      : undefined;
+
+  return {
+    gitlabUrl: gitlab.externalUrl,
+    gitlabContainerName: gitlab.container.name,
+    gitlabSshPort: pulumi.output(cfg.gitlabSshPort),
+    runnerContainerName: runner?.container.name,
+    networkName: network.name,
+    gitlabNamespace: undefined,
+    gitlabIngressName: undefined,
+    gitlabSshServiceName: undefined,
+    runnerDeploymentName: undefined,
+  };
+}
+
+function createK3sStackOutputs(): StackOutputs {
+  const k3s = createK3sStack(cfg);
+  return {
+    gitlabUrl: k3s.gitlabUrl,
+    gitlabContainerName: undefined,
+    gitlabSshPort: k3s.gitlabSshPort,
+    runnerContainerName: undefined,
+    networkName: undefined,
+    gitlabNamespace: k3s.gitlabNamespace,
+    gitlabIngressName: k3s.gitlabIngressName,
+    gitlabSshServiceName: k3s.gitlabSshServiceName,
+    runnerDeploymentName: k3s.runnerDeploymentName,
+  };
+}
+
+const stack = cfg.target === "k3s" ? createK3sStackOutputs() : createDockerStack();
+
+export const gitlabUrl = stack.gitlabUrl;
+export const gitlabContainerName = stack.gitlabContainerName;
+export const gitlabSshPort = stack.gitlabSshPort;
+export const runnerContainerName = stack.runnerContainerName;
+export const networkName = stack.networkName;
+export const gitlabNamespace = stack.gitlabNamespace;
+export const gitlabIngressName = stack.gitlabIngressName;
+export const gitlabSshServiceName = stack.gitlabSshServiceName;
+export const runnerDeploymentName = stack.runnerDeploymentName;

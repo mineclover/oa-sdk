@@ -6,7 +6,7 @@
  *
  *   await generateFromDrizzle({
  *     schemaPath: './src/db/schema.ts',
- *     output: './packages/schemas/src/domains/users/',
+ *     output: './packages/schemas/src/fragments/schema/public/users/',
  *     schemas: ['select', 'insert', 'update'],
  *   })
  */

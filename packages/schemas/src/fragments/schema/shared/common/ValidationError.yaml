@@ -11,10 +11,10 @@ content:
       example: /body/email
     message:
       type: string
-      example: "must match format 'email'"
+      example: must match format 'email'
     received:
       description: 실제 수신된 값
       example: not-an-email
     expected:
       type: string
-      example: "string with format 'email'"
+      example: string with format 'email'

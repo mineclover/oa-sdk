@@ -16,7 +16,7 @@ import {
 const pkgDir = resolve(__dirname, '../..')
 const repoRoot = resolve(pkgDir, '../..')
 const schemasSrcDir = join(repoRoot, 'packages/schemas/src')
-const tmpBase = resolve(pkgDir, '.tmp-builder-parity-artifact-test')
+const tmpBase = resolve(pkgDir, '.tmp-builder-artifact-test')
 
 let tmpDir: string
 
@@ -29,8 +29,8 @@ afterEach(() => {
   if (existsSync(tmpDir)) rmSync(tmpDir, { recursive: true })
 })
 
-describe('builder parity artifact workflow', () => {
-  it('generates a local parity artifact and sidecar reports without replacing .merged.yaml', () => {
+describe('builder artifact workflow', () => {
+  it('generates a local artifact and sidecar reports', () => {
     const outputPath = join(tmpDir, '.builder', 'local-parity-api.yaml')
     const diagnosticsPath = join(tmpDir, '.builder', 'local-parity-api.diagnostics.json')
     const collisionReportPath = join(tmpDir, '.builder', 'local-parity-api.collisions.json')
@@ -56,12 +56,10 @@ describe('builder parity artifact workflow', () => {
         securitySchemes?: Record<string, unknown>
       }
     }
-    expect(Object.keys(document.paths ?? {}).sort()).toEqual([
-      '/health',
-      '/health/stream',
-      '/users',
-      '/users/{id}',
-    ])
+    const target = parseYaml(readFileSync(join(schemasSrcDir, 'targets/local-parity-api.yaml'), 'utf8')) as {
+      includePaths?: string[]
+    }
+    expect(Object.keys(document.paths ?? {}).sort()).toEqual([...(target.includePaths ?? [])].sort())
     expect(document.components?.schemas?.User).toBeDefined()
     expect(document.components?.securitySchemes?.bearerAuth).toBeDefined()
     expect(document.components?.securitySchemes?.oauth2).toBeDefined()

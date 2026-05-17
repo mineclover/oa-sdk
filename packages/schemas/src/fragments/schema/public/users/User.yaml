@@ -2,7 +2,12 @@ id: schema:public/users/User
 content:
   type: object
   description: 사용자 정보
-  required: [id, email, name, role, createdAt]
+  required:
+    - id
+    - email
+    - name
+    - role
+    - createdAt
   properties:
     id:
       type: string
@@ -16,19 +21,22 @@ content:
       maxLength: 100
     role:
       type: string
-      enum: [admin, user, guest]
+      enum:
+        - admin
+        - user
+        - guest
     createdAt:
       type: string
       format: date-time
   examples:
-    - id: "00000000-0000-0000-0000-000000000001"
-      email: "alice@example.com"
-      name: "Alice"
+    - id: 00000000-0000-0000-0000-000000000001
+      email: alice@example.com
+      name: Alice
       role: user
-      createdAt: "2024-01-01T00:00:00.000Z"
+      createdAt: 2024-01-01T00:00:00.000Z
   example:
-    id: "00000000-0000-0000-0000-000000000001"
-    email: "alice@example.com"
-    name: "Alice"
+    id: 00000000-0000-0000-0000-000000000001
+    email: alice@example.com
+    name: Alice
     role: user
-    createdAt: "2024-01-01T00:00:00.000Z"
+    createdAt: 2024-01-01T00:00:00.000Z

@@ -1,0 +1,72 @@
+id: path:public/users/ModerationReportsPath
+metadata:
+  path: /moderation/reports
+content:
+  get:
+    tags:
+      - users
+    operationId: listModerationReports
+    summary: 신고 큐 조회 (운영자)
+    description: |
+      운영자(moderator) 전용. 처리 대기/처리 중 신고 일람. status 필터로
+      open/under-review/resolved 등 분기.
+    security:
+      - bearerAuth: []
+    parameters:
+      - $ref: oa://parameter/shared/common/Page
+      - $ref: oa://parameter/shared/common/Limit
+      - name: status
+        in: query
+        description: 신고 상태 필터
+        schema:
+          type: string
+          enum:
+            - open
+            - under-review
+            - resolved
+            - dismissed
+    responses:
+      "200":
+        description: 신고 큐
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - items
+                - total
+              properties:
+                items:
+                  type: array
+                  items:
+                    $ref: oa://schema/public/users/Report
+                total:
+                  type: integer
+                  minimum: 0
+              example:
+                items:
+                  - id: 00000000-0000-0000-0000-000000000300
+                    targetUserId: 00000000-0000-0000-0000-000000000001
+                    reporterUserId: 00000000-0000-0000-0000-000000000002
+                    reason: harassment
+                    status: open
+                    createdAt: 2026-05-04T00:00:00.000Z
+                total: 1
+            examples:
+              default:
+                dataValue:
+                  items:
+                    - id: 00000000-0000-0000-0000-000000000300
+                      targetUserId: 00000000-0000-0000-0000-000000000001
+                      reporterUserId: 00000000-0000-0000-0000-000000000002
+                      reason: harassment
+                      status: open
+                      createdAt: 2026-05-04T00:00:00.000Z
+                  total: 1
+      "401":
+        $ref: oa://response/shared/common/Unauthorized
+      "403":
+        $ref: oa://response/shared/common/Forbidden
+refs:
+  - ref: oa://securityScheme/shared/common/BearerAuth
+    sourcePointer: "#/content/get/security/0/bearerAuth"

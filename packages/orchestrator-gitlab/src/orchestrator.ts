@@ -68,6 +68,9 @@ export async function run(input: ConfigInput, options: RunOptions = {}): Promise
         host: initialConfig.httpHost ?? "127.0.0.1",
         port: initialConfig.httpPort,
         ...(initialConfig.httpAuthToken !== undefined ? { authToken: initialConfig.httpAuthToken } : {}),
+        ...(initialConfig.documentSave !== undefined ? { documentSave: initialConfig.documentSave } : {}),
+        ...(initialConfig.contextSearch !== undefined ? { contextSearch: initialConfig.contextSearch } : {}),
+        ...(initialConfig.issueTasks !== undefined ? { issueTasks: initialConfig.issueTasks } : {}),
       });
       log({ level: "info", msg: `http server listening on ${initialConfig.httpHost ?? "127.0.0.1"}:${String(httpHandle.port)}` });
     } catch (err) {

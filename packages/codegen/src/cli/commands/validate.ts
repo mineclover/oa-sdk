@@ -16,6 +16,7 @@ export const validate: Command = {
   description: '종합 검증 (파싱 + 린트 + 3.1 호환)',
   options: {
     spec:          { type: 'string', short: 's', required: true, description: 'OAS spec 파일 경로' },
+    'require-32':  { type: 'boolean', description: '관리 대상 계약으로 OpenAPI 3.2.x 버전을 강제' },
     incremental:   { type: 'boolean', description: 'SQLite workspace index를 사용해 변경 감지/무효화를 수행' },
     'cache-dir':   { type: 'string', description: '증분 workspace index 디렉토리 (기본: ./.oa-cache)' },
   },
@@ -36,6 +37,7 @@ export const validate: Command = {
       const result = validateDocument(doc, {
         basePath: resolvedSpecPath,
         lookupSourceLocation: sourceLocations.lookup,
+        requireOpenApi32: bool(args, 'require-32'),
       })
 
       for (const r of [...result.errors, ...result.warnings, ...result.infos]) {

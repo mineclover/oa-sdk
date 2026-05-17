@@ -2,7 +2,10 @@ id: schema:public/users/CreateUserRequest
 content:
   type: object
   description: 사용자 생성 요청
-  required: [email, name, password]
+  required:
+    - email
+    - name
+    - password
   properties:
     email:
       type: string

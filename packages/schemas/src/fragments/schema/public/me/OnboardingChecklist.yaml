@@ -1,0 +1,16 @@
+id: schema:public/me/OnboardingChecklist
+content:
+  type: object
+  description: 온보딩 가이드 체크리스트
+  required:
+    - items
+  properties:
+    items:
+      type: array
+      items:
+        $ref: oa://schema/public/me/OnboardingItem
+  example:
+    items:
+      - id: complete-profile
+        title: 프로필 작성
+        completed: false

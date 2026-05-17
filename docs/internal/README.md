@@ -41,8 +41,8 @@ architecture/ (설계 결정)
 | [api-index.md](./api-index.md) | 타입·함수 단일 소스 + 재구현 금지 | 함수/타입 추가 시 |
 | [behavior-ecs.spec.md](./behavior-ecs.spec.md) | 행동 데이터 Entity/Component/System SSOT, representative use case, baseline/local verification | 행동 수집/로깅 모델 변경 시 |
 | [oas32-coverage.md](./oas32-coverage.md) | OAS 3.2 기능별 지원 매트릭스 | 새 기능 구현 시 |
-| [domain-merge-inventory.md](./domain-merge-inventory.md) | current domain merge input checklist | schema profile/domain source 변경 시 |
-| [definition-builder-compatibility-gates.md](./definition-builder-compatibility-gates.md) | builder parity validation/downstream gates and accepted differences | builder parity workflow 변경 시 |
+| [domain-merge-inventory.md](./domain-merge-inventory.md) | legacy domain merge input checklist | legacy source reference 확인 시 |
+| [definition-builder-compatibility-gates.md](./definition-builder-compatibility-gates.md) | builder validation/downstream gates and accepted differences | builder workflow 변경 시 |
 | [traceability.md](./traceability.md) | 공식 스펙 § → 타입 → 코드 매핑 | 파일 추가/이동 시 |
 | [plan.md](./plan.md) | 로드맵 + 아키텍처 | Phase 완료/추가 시 |
 | [architecture/packages.md](./architecture/packages.md) | 패키지 구조 + 파일 역할 | 패키지/파일 변경 시 |

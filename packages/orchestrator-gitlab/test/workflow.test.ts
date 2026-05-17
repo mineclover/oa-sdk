@@ -168,6 +168,7 @@ describe("buildConfigFromWorkflow", () => {
         },
         polling: { interval_ms: 5000 },
         workspace: { root: "/tmp/orch-ws", project_slug: "proj" },
+        documents: { default_branch: "release-docs" },
         agent: {
           kind: "echo",
           max_concurrent_agents: 3,
@@ -178,6 +179,9 @@ describe("buildConfigFromWorkflow", () => {
     );
 
     expect(cfg.tracker).toBeDefined();
+    expect(cfg.contextSearch).toBeDefined();
+    expect(cfg.documentSave).toBeDefined();
+    expect(cfg.issueTasks).toBeDefined();
     expect(cfg.workspace).toBeDefined();
     expect(cfg.agent.name).toBe("echo");
     expect(cfg.pollIntervalMs).toBe(5000);

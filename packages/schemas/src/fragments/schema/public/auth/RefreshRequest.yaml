@@ -1,0 +1,10 @@
+id: schema:public/auth/RefreshRequest
+content:
+  type: object
+  description: 토큰 갱신 요청
+  required:
+    - refreshToken
+  properties:
+    refreshToken:
+      type: string
+      minLength: 1

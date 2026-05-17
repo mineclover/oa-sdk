@@ -42,11 +42,28 @@ export class GitlabTracker implements Tracker {
       order_by: "updated_at",
       sort: "asc",
     });
-    const path = this.#client.projectApiPath(`/issues?${params.toString()}`);
-    const raws = await this.#client.request<ReadonlyArray<GitlabIssueRaw>>("GET", path);
+    const issuePages: GitlabIssueRaw[] = [];
+    let nextPage: string | null = null;
+
+    do {
+      const requestParams = new URLSearchParams(params);
+      if (nextPage !== null) requestParams.set("page", nextPage);
+
+      const path = this.#client.projectApiPath(`/issues?${requestParams.toString()}`);
+      const response = await this.#client.requestMaybe<ReadonlyArray<GitlabIssueRaw>>("GET", path);
+      if (!response.ok) {
+        const text = typeof response.body === "string" ? response.body : JSON.stringify(response.body);
+        throw new GitlabApiError("GET", path, response.status, text);
+      }
+
+      if (Array.isArray(response.body)) {
+        issuePages.push(...response.body);
+      }
+      nextPage = nextIssuePage(response.headers);
+    } while (nextPage !== null);
 
     const skip = new Set([labels.running, labels.done, labels.failed]);
-    return raws
+    return issuePages
       .filter((r) => !r.labels.some((l) => skip.has(l)))
       .map((r) => normalizeIssue(r));
   }
@@ -85,6 +102,35 @@ export class GitlabTracker implements Tracker {
   }
 }
 export { GitlabApiError };
+
+function nextIssuePage(headers: Headers): string | null {
+  const xNextPage = Number.parseInt(headers.get("x-next-page") ?? "", 10);
+  if (Number.isInteger(xNextPage) && xNextPage > 0) {
+    return String(xNextPage);
+  }
+
+  const currentPage = Number.parseInt(headers.get("x-page") ?? "", 10);
+  const totalPages = Number.parseInt(headers.get("x-total-pages") ?? "", 10);
+  if (Number.isInteger(currentPage) && Number.isInteger(totalPages) && currentPage < totalPages) {
+    return String(currentPage + 1);
+  }
+
+  const linkHeader = headers.get("link");
+  if (linkHeader === null) return null;
+
+  const nextLinkMatch = linkHeader.match(/<([^>]+)>;\s*rel="next"/);
+  if (nextLinkMatch === null || nextLinkMatch[1] === undefined) return null;
+  try {
+    const nextPage = new URL(nextLinkMatch[1]).searchParams.get("page");
+    const parsed = Number.parseInt(nextPage ?? "", 10);
+    if (Number.isInteger(parsed) && parsed > 0) {
+      return String(parsed);
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
 
 function normalizeIssue(r: GitlabIssueRaw): Issue {
   return {

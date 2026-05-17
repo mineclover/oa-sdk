@@ -1,0 +1,27 @@
+id: schema:public/health/ReadinessReport
+content:
+  type: object
+  description: readiness probe 결과 — 의존 시스템 검증 포함
+  required:
+    - status
+    - timestamp
+    - dependencies
+  properties:
+    status:
+      type: string
+      enum:
+        - ready
+        - not-ready
+    timestamp:
+      type: string
+      format: date-time
+    dependencies:
+      type: array
+      items:
+        $ref: oa://schema/public/health/DependencyStatus
+  example:
+    status: ready
+    timestamp: 2026-05-04T00:00:00.000Z
+    dependencies:
+      - name: postgres
+        status: ok

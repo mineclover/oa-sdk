@@ -1,0 +1,25 @@
+id: path:public/health/VersionPath
+metadata:
+  path: /version
+content:
+  get:
+    operationId: getVersion
+    summary: 빌드/배포 정보 조회
+    description: 현재 실행 중인 빌드의 git sha, 빌드 시각, 배포 버전.
+    tags:
+      - health
+    security: []
+    responses:
+      "200":
+        description: 빌드 정보
+        content:
+          application/json:
+            schema:
+              $ref: oa://schema/public/health/BuildInfo
+            examples:
+              default:
+                dataValue:
+                  version: 0.1.0
+                  gitSha: a0ca91100000000000000000000000000000000
+                  builtAt: 2026-05-04T00:00:00.000Z
+                serializedValue: '{"version":"0.1.0","gitSha":"a0ca91100000000000000000000000000000000","builtAt":"2026-05-04T00:00:00.000Z"}'

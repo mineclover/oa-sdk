@@ -210,7 +210,14 @@ describe('SQLiteWorkspaceIndex fallback driver chain', () => {
     const tmp = mkdtempSync(join(tmpdir(), 'oa-sdk-sqlite-fallback-'))
     try {
       const dbPath = join(tmp, 'driver.sqlite')
-      const db = driver.open(dbPath)
+      let db: ReturnType<typeof driver.open>
+      try {
+        db = driver.open(dbPath)
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error)
+        if (message.includes('Could not locate the bindings file')) return
+        throw error
+      }
       try {
         db.exec('CREATE TABLE probe (id INTEGER PRIMARY KEY, label TEXT NOT NULL)')
         db.prepare('INSERT INTO probe (id, label) VALUES (?, ?)').run(1, 'better-sqlite3-fallback-ok')

@@ -137,6 +137,71 @@ After `pulumi destroy` the stack itself still exists (config + history). Two opt
 | Re-create with the **same** rootPassword and config | `pnpm up` (config and secrets are preserved) |
 | Drop the stack entirely and start fresh | `pulumi stack rm dev --yes` then `pnpm stack:init` and re-set `rootPassword` |
 
+## K3s operations
+
+The K3s variant is selected with `infra-gitlab:target=k3s`. It keeps the Omnibus layout from the Docker preset but maps persistence to PVCs and HTTP access to Kubernetes Ingress.
+
+Expected resources in the `gitlab` namespace:
+
+| Resource | Purpose |
+|----------|---------|
+| `deployment/gitlab` | Single GitLab Omnibus pod |
+| `pvc/gitlab-config` | `/etc/gitlab` |
+| `pvc/gitlab-logs` | `/var/log/gitlab` |
+| `pvc/gitlab-data` | `/var/opt/gitlab` |
+| `service/gitlab` | Internal HTTP endpoint |
+| `service/gitlab-ssh` | Git-over-SSH endpoint, NodePort by default |
+| `ingress/gitlab` | Browser-facing HTTPS route |
+| `deployment/gitlab-runner` | Optional unregistered runner pod |
+
+Bring-up:
+
+```bash
+pulumi config set target k3s
+pulumi config set gitlabHostname gitlab.127.0.0.1.nip.io
+pulumi config set --secret rootPassword '<gitlab-root-password>'
+pnpm up:k3s
+```
+
+If cert-manager is already installed but no ClusterIssuer exists, let this stack create the staging issuer:
+
+```bash
+pulumi config set k3sCreateCertManagerIssuer true
+pulumi config set k3sLetsEncryptEmail ops@example.com
+pnpm up:k3s
+```
+
+Readiness:
+
+```bash
+kubectl -n gitlab rollout status deployment/gitlab --timeout=15m
+kubectl -n gitlab get ingress gitlab
+curl -k -sS -o /dev/null -w '%{http_code}\n' https://gitlab.127.0.0.1.nip.io/users/sign_in
+```
+
+Runner registration:
+
+```bash
+GITLAB_RUNNER_TOKEN=glrt-xxxxxxxx pnpm register:runner:k3s
+kubectl -n gitlab exec deploy/gitlab-runner -- gitlab-runner list
+```
+
+The helper registers the runner against the in-cluster URL `http://gitlab/` and uses the Kubernetes executor with the `gitlab-runner` service account.
+
+PVC backup:
+
+- If the cluster has a CSI snapshot controller, snapshot `gitlab-config`, `gitlab-logs`, and `gitlab-data` together while the deployment is scaled down or GitLab is in a maintenance window.
+- For a portable local backup, scale down and archive the PVC contents with a temporary pod mounted to each claim.
+
+```bash
+kubectl -n gitlab scale deployment/gitlab --replicas=0
+kubectl -n gitlab rollout status deployment/gitlab --timeout=5m
+# run the cluster's snapshot/export procedure for gitlab-config, gitlab-logs, gitlab-data
+kubectl -n gitlab scale deployment/gitlab --replicas=1
+```
+
+Destroying with `pnpm down:k3s` removes the PVCs unless the cluster's StorageClass retention policy preserves backing volumes. Treat it as destructive.
+
 ### Recovering from state drift
 
 Symptom: `pulumi destroy` fails with `Error stopping container <id>: No such container: <id>` because something outside Pulumi (manual `docker rm`, `docker compose down`, Docker Desktop reset) removed a container Pulumi still believes exists.
@@ -157,6 +222,87 @@ pulumi destroy --yes      # now succeeds against the surviving resources
 - **RAM.** Allocate ≥ 4 GB to Docker. Lower than that and Sidekiq/Puma OOM during reconfigure.
 - **`timeout(1)` on macOS.** Not present by default. Polling scripts that need a deadline must use a portable bash loop (`deadline=$(($(date +%s)+N))`) or install GNU coreutils (`brew install coreutils` → `gtimeout`).
 - **Image size.** First `pulumi up` pulls `gitlab/gitlab-ce:latest` (~1.5 GB compressed). Subsequent `up`s reuse the local layer cache.
+
+## Phase 3 cloud VM operations
+
+The DigitalOcean VM preset lives in `packages/infra-gitlab/cloud-vm` and uses its own Pulumi project name, stack, and state. The existing local Docker stack remains `packages/infra-gitlab/Pulumi.yaml`.
+
+### Bring-up
+
+```bash
+cd packages/infra-gitlab
+pulumi -C cloud-vm login --local
+pnpm stack:init:cloud-vm
+pulumi -C cloud-vm config set domainName example.com
+pulumi -C cloud-vm config set --path 'sshKeys[0]' '<do-ssh-key-id-or-fingerprint>'
+pulumi -C cloud-vm config set --secret rootPassword '<initial-root-password>'
+pnpm preview:cloud-vm
+pnpm up:cloud-vm
+```
+
+Assumptions:
+
+- `DIGITALOCEAN_TOKEN` is present in the shell environment when running `preview` / `up`.
+- `domainName` already exists as a DigitalOcean DNS zone and the registrar delegates to DigitalOcean nameservers.
+- `sshKeys` contains DigitalOcean SSH key IDs or fingerprints. Pulumi's DigitalOcean provider cannot add SSH keys to an existing Droplet without replacing it.
+- Narrow `sshAllowedCidrs` to an operator IP range before production use. The default `0.0.0.0/0` is only a bootstrap convenience.
+
+### Runtime layout
+
+Cloud-init installs Docker, Caddy, and small helper scripts:
+
+| Path | Purpose |
+|------|---------|
+| `/mnt/gitlab/config` | Mounted into `/etc/gitlab` |
+| `/mnt/gitlab/logs` | Mounted into `/var/log/gitlab` |
+| `/mnt/gitlab/data` | Mounted into `/var/opt/gitlab` |
+| `/mnt/gitlab/runner-config` | Mounted into `/etc/gitlab-runner` |
+| `/usr/local/sbin/oa-gitlab-start` | Idempotently creates/starts GitLab and Runner containers |
+| `/usr/local/sbin/oa-gitlab-backup` | Runs `gitlab-backup create` inside the GitLab container |
+| `/etc/cron.d/oa-gitlab-backup` | Daily 03:17 UTC backup cron |
+
+Caddy listens on `80`/`443` and proxies HTTPS traffic to the GitLab container's host-local HTTP binding at `127.0.0.1:8929`. GitLab SSH is published separately on `gitlabSshPort` (default `2222`), leaving TCP/22 for VM administration.
+
+### Readiness and troubleshooting
+
+After `pulumi up`, wait for cloud-init and then GitLab Omnibus first boot:
+
+```bash
+ssh root@$(pulumi -C cloud-vm stack output dropletIp)
+cloud-init status --wait
+docker logs -f gitlab
+curl -sS -o /dev/null -w '%{http_code}\n' https://$(pulumi -C cloud-vm stack output dnsRecordFqdn)/users/sign_in
+```
+
+Useful VM-side checks:
+
+```bash
+docker ps
+docker inspect -f '{{.State.Health.Status}}' gitlab
+journalctl -u caddy --no-pager -n 100
+tail -n 100 /var/log/cloud-init-output.log
+```
+
+### Backups
+
+Two backup layers are enabled by default:
+
+- DigitalOcean Droplet backups (`backups=true`) for coarse VM recovery.
+- Daily GitLab application backups via `/etc/cron.d/oa-gitlab-backup`, retained according to `backupRetentionSeconds` (default 7 days).
+
+For a restore, rebuild the VM from Pulumi, attach or restore the block volume, then follow GitLab Omnibus backup restore procedure inside the container. The v1 preset does not put backup archives into Spaces because that would require putting an additional cloud API token on the VM.
+
+### Sizing and monthly cost
+
+The default `s-2vcpu-4gb` is the minimum practical GitLab Omnibus size for a small team or PoC. Prefer `s-4vcpu-8gb` when CI load, indexing, or multiple active users matter. Add the configured block volume size (`volumeSizeGb`, default 100 GiB) and optional Droplet backups to the base Droplet price when estimating monthly spend.
+
+### Teardown
+
+```bash
+pnpm down:cloud-vm
+```
+
+This destroys the Droplet, firewall, DNS record, and block volume. The block volume is stateful GitLab data; export or snapshot it before destroy when the instance matters.
 
 ## Related skills
 

@@ -1,0 +1,61 @@
+name: infra-gitlab-cloud-vm
+description: Pulumi preset for GitLab CE Omnibus + GitLab Runner on a DigitalOcean VM.
+main: ../src/cloud-vm/index.ts
+runtime:
+  name: nodejs
+  options:
+    typescript: true
+template:
+  description: |
+    Phase 3 preset — single DigitalOcean Droplet running Docker, GitLab CE Omnibus,
+    Caddy HTTPS, a persistent DO block volume, and an optional Docker-executor Runner.
+config:
+  infra-gitlab-cloud-vm:domainName:
+    description: Root DNS zone already delegated to DigitalOcean, for example example.com.
+  infra-gitlab-cloud-vm:hostname:
+    description: DNS record under domainName.
+    default: gitlab
+  infra-gitlab-cloud-vm:name:
+    description: Droplet name.
+    default: gitlab
+  infra-gitlab-cloud-vm:dataVolumeName:
+    description: DigitalOcean block volume name. Defaults to <name>-data.
+  infra-gitlab-cloud-vm:region:
+    description: DigitalOcean region slug.
+    default: sfo3
+  infra-gitlab-cloud-vm:size:
+    description: DigitalOcean Droplet size slug. 4GB is the minimum practical GitLab Omnibus size; 8GB is preferred for team use.
+    default: s-2vcpu-4gb
+  infra-gitlab-cloud-vm:image:
+    description: DigitalOcean image slug.
+    default: ubuntu-24-04-x64
+  infra-gitlab-cloud-vm:sshKeys:
+    description: DigitalOcean SSH key IDs or fingerprints to install on the Droplet.
+  infra-gitlab-cloud-vm:sshAllowedCidrs:
+    description: CIDR allow-list for host SSH on TCP/22.
+    default:
+      - 0.0.0.0/0
+  infra-gitlab-cloud-vm:gitlabImageTag:
+    description: gitlab/gitlab-ce image tag.
+    default: latest
+  infra-gitlab-cloud-vm:runnerImageTag:
+    description: gitlab/gitlab-runner image tag.
+    default: latest
+  infra-gitlab-cloud-vm:enableRunner:
+    description: Whether to start an unregistered GitLab Runner container.
+    default: true
+  infra-gitlab-cloud-vm:gitlabSshPort:
+    description: Public TCP port mapped to GitLab container SSH.
+    default: 2222
+  infra-gitlab-cloud-vm:volumeSizeGb:
+    description: DigitalOcean block volume size in GiB.
+    default: 100
+  infra-gitlab-cloud-vm:rootPassword:
+    description: Initial GitLab root password. Stored as a Pulumi secret and injected once at first container creation.
+    secret: true
+  infra-gitlab-cloud-vm:backups:
+    description: Whether to enable DigitalOcean Droplet backups.
+    default: true
+  infra-gitlab-cloud-vm:backupRetentionSeconds:
+    description: GitLab backup retention window for files created by the in-VM daily cron.
+    default: 604800

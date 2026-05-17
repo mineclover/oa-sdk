@@ -35,7 +35,8 @@ pnpm install
 
 # 스펙 관리
 pnpm --filter @oa-sdk/schemas run merge    # 도메인 병합
-oa-gen validate --spec .merged.yaml        # 종합 검증 (3.2 + 3.1 호환)
+oa-gen validate --spec .merged.yaml --require-32  # 관리 대상 계약 검증 (OpenAPI 3.2 strict gate)
+oa-gen validate --spec raw.yaml                    # intake/migration 호환 검증
 oa-gen lint --spec .merged.yaml            # 린트만
 oa-gen scaffold-governance --root apps/nestjs-ref --service nestjs-ref --profile nestjs-swagger --source-command "pnpm export:openapi"
 oa-gen scaffold-governance --root apps/fastapi-ref --service fastapi-ref --profile fastapi --source-command "uv run python scripts/export_openapi.py"

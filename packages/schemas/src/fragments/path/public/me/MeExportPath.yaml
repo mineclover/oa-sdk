@@ -1,0 +1,46 @@
+id: path:public/me/MeExportPath
+metadata:
+  path: /me/export
+content:
+  post:
+    tags:
+      - me
+    operationId: requestMyDataExport
+    summary: 내 데이터 export 작업 요청
+    description: |
+      GDPR 정보주체 이동권 대응. 비동기 job 생성 후 jobId 반환. 완료 시 별도
+      알림 또는 polling으로 다운로드 URL 획득. 동시 진행 1건 제한.
+    security:
+      - bearerAuth: []
+    requestBody:
+      required: false
+      content:
+        application/json:
+          schema:
+            $ref: oa://schema/public/me/ExportRequest
+          examples:
+            default:
+              dataValue:
+                format: json
+              serializedValue: '{"format":"json"}'
+    responses:
+      "202":
+        description: export job 등록 완료
+        content:
+          application/json:
+            schema:
+              $ref: oa://schema/public/me/ExportJob
+            examples:
+              default:
+                dataValue:
+                  jobId: 00000000-0000-0000-0000-000000000200
+                  status: queued
+                  requestedAt: 2026-05-04T00:00:00.000Z
+                serializedValue: '{"jobId":"00000000-0000-0000-0000-000000000200","status":"queued","requestedAt":"2026-05-04T00:00:00.000Z"}'
+      "401":
+        $ref: oa://response/shared/common/Unauthorized
+      "429":
+        $ref: oa://response/shared/common/TooManyRequests
+refs:
+  - ref: oa://securityScheme/shared/common/BearerAuth
+    sourcePointer: "#/content/post/security/0/bearerAuth"

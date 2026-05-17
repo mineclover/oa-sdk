@@ -1,0 +1,17 @@
+id: schema:public/users/PurgeUserRequest
+content:
+  type: object
+  description: site-admin 사용자 hard purge 요청. deleteUser soft-delete와 구분됩니다.
+  required:
+    - reason
+  additionalProperties: false
+  properties:
+    reason:
+      type: string
+      minLength: 1
+      maxLength: 1000
+      description: 영구 삭제 감사 사유
+    legalHoldOverride:
+      type: boolean
+      default: false
+      description: legal hold 예외 승인 여부

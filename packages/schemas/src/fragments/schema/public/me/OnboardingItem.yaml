@@ -1,0 +1,16 @@
+id: schema:public/me/OnboardingItem
+content:
+  type: object
+  required:
+    - id
+    - title
+    - completed
+  properties:
+    id:
+      type: string
+    title:
+      type: string
+    completed:
+      type: boolean
+    hint:
+      type: string

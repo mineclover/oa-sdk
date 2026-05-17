@@ -16,27 +16,26 @@
 ```
 packages/schemas/src/
   openapi.yaml          ← info + tags 전용 (paths/components/servers 없음)
-  profiles/
-    local.yaml          ← servers: [localhost:4010, localhost:3000]
-    staging.yaml
-    production.yaml
-  domains/
-    common/spec.yaml    ← 공유 components (Error, 공통 responses, OAuth)
-    health/spec.yaml    ← /health, /health/stream paths
-    {새 도메인}/spec.yaml
+  fragments/
+    path/public/...     ← path fragments
+    schema/public/...   ← schema fragments
+    response/shared/... ← shared response fragments
+  targets/
+    local-parity-api.yaml
+    staging-parity-api.yaml
+    production-parity-api.yaml
 ```
 
-### 병합 규칙
+### 빌드 규칙
 
-`pnpm merge` 실행 시 `scripts/merge.ts`가:
-1. `openapi.yaml` (info + tags) 을 base로 읽음
-2. `profiles/{PROFILE}.yaml` 에서 servers 주입 (기본값: local)
-3. `domains/*/spec.yaml` 를 스캔 — common 먼저, 나머지 알파벳 순
-4. `src/.merged.yaml` 출력
+`pnpm --filter @oa-sdk/schemas run build:merged` 실행 시 Definition Builder가:
+1. `targets/local-parity-api.yaml`의 root metadata, servers, tags, includePaths를 읽음
+2. `fragments/**/*.yaml`를 canonical id registry로 로드
+3. include path와 retained definitions에서 시작해 `$ref` graph를 재귀 선택
+4. source `oa://...` ref를 OpenAPI local `$ref`로 rewrite
+5. `src/.merged.yaml` 출력
 
-중복 path → 즉시 오류 종료  
-중복 component key → 기본 오류 종료
-임시 호환이 필요하면 `ALLOW_COMPONENT_OVERRIDES=1` 또는 `ALLOW_COMPONENT_OVERRIDE_KEYS=schemas.LegacyName`로 명시 허용
+중복 canonical id, unresolved ref, target 밖 ref, output-name collision, unrewritten ref, validation error → 즉시 오류 종료.
 
 ### 검증 체계
 
@@ -58,10 +57,10 @@ Spectral은 OpenAPI 3.2를 미지원(2026-04 기준)하므로 구조 검증 규�
 ## 스크립트
 
 ```bash
-pnpm merge                   # local 프로필로 병합
-pnpm merge staging           # staging 프로필
-PROFILE=production pnpm merge
-pnpm schema:validate         # merge → spectral → redocly
+pnpm --filter @oa-sdk/schemas run build:merged
+pnpm --filter @oa-sdk/schemas run build:merged:staging
+pnpm --filter @oa-sdk/schemas run build:merged:production
+pnpm schema:validate         # build-spec → downgrade → spectral → redocly → strict 3.2 validate
 pnpm schema:bundle           # validate → dist/openapi.{yaml,json}
 pnpm schema:preview          # Redoc 미리보기
 ```

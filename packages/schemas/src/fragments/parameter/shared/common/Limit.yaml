@@ -11,4 +11,4 @@ content:
   examples:
     default:
       dataValue: 20
-      serializedValue: "limit=20"
+      serializedValue: limit=20

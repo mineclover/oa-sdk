@@ -1,6 +1,6 @@
 id: response:shared/common/Unauthorized
 content:
-  description: "인증 실패 — 토큰 없음 또는 만료"
+  description: 인증 실패 — 토큰 없음 또는 만료
   content:
     application/json:
       schema:

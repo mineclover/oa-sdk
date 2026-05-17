@@ -3,6 +3,7 @@ import * as pulumi from "@pulumi/pulumi";
 const cfg = new pulumi.Config();
 
 export interface InfraConfig {
+  readonly target: "docker" | "k3s";
   readonly gitlabHostname: string;
   readonly gitlabHttpPort: number;
   readonly gitlabSshPort: number;
@@ -19,7 +20,13 @@ export interface InfraConfig {
 }
 
 export function loadConfig(): InfraConfig {
+  const target = cfg.get("target") ?? "docker";
+  if (target !== "docker" && target !== "k3s") {
+    throw new Error(`Unsupported infra-gitlab:target '${target}'. Expected 'docker' or 'k3s'.`);
+  }
+
   return {
+    target,
     gitlabHostname: cfg.get("gitlabHostname") ?? "localhost",
     gitlabHttpPort: cfg.getNumber("gitlabHttpPort") ?? 8929,
     gitlabSshPort: cfg.getNumber("gitlabSshPort") ?? 2289,

@@ -1,0 +1,20 @@
+id: path:public/auth/AuthLogoutPath
+metadata:
+  path: /auth/logout
+content:
+  post:
+    tags:
+      - auth
+    operationId: logout
+    summary: 로그아웃
+    description: 현재 access 토큰과 연결된 세션을 종료합니다. 응답 본문 없음.
+    security:
+      - bearerAuth: []
+    responses:
+      "204":
+        description: 로그아웃 완료 (본문 없음)
+      "401":
+        $ref: oa://response/shared/common/Unauthorized
+refs:
+  - ref: oa://securityScheme/shared/common/BearerAuth
+    sourcePointer: "#/content/post/security/0/bearerAuth"

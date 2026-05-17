@@ -5,6 +5,9 @@ import type {
   Tracker,
   WorkspaceManager,
 } from "./types.js";
+import type { GitlabDocumentSaveService } from "./document-save.js";
+import type { GitlabContextSearchService } from "./context-search.js";
+import type { GitlabIssueTaskService } from "./issue-tasks.js";
 
 export interface OrchestratorConfig {
   readonly tracker: Tracker;
@@ -45,6 +48,12 @@ export interface OrchestratorConfig {
    * `/healthz` stays unauthenticated so probes always work.
    */
   readonly httpAuthToken?: string;
+  /** Optional GitLab-backed document save service exposed through `POST /documents/save`. */
+  readonly documentSave?: GitlabDocumentSaveService;
+  /** Optional GitLab-backed context search service exposed through `GET /context/search`. */
+  readonly contextSearch?: Pick<GitlabContextSearchService, "searchDetailed">;
+  /** Optional GitLab-backed issue task service exposed through `GET /issues/:iid/tasks`. */
+  readonly issueTasks?: Pick<GitlabIssueTaskService, "getIssueTasks" | "addIssueTask" | "updateIssueTask" | "deleteIssueTask">;
 }
 
 export interface LogRecord {

@@ -40,14 +40,22 @@
     "./context-search": {
       "import": "./dist/context-search.js",
       "types": "./dist/context-search.d.ts"
+    },
+    "./document-save": {
+      "import": "./dist/document-save.js",
+      "types": "./dist/document-save.d.ts"
+    },
+    "./issue-tasks": {
+      "import": "./dist/issue-tasks.js",
+      "types": "./dist/issue-tasks.d.ts"
     }
   },
   "bin": {
     "orchestrator-gitlab": "./dist/cli.js"
   },
   "scripts": {
-    "build": "tsup src/index.ts src/cli.ts src/agents/echo.ts src/agents/codex.ts src/agents/claude.ts src/agents/subprocess.ts src/workflow.ts src/prompt-liquid.ts src/runtime.ts src/live-config.ts src/http-server.ts src/otel.ts src/gitlab-client.ts src/context-search.ts --format esm --dts --clean",
-    "dev": "tsup src/index.ts src/cli.ts src/agents/echo.ts src/agents/codex.ts src/agents/claude.ts src/agents/subprocess.ts src/workflow.ts src/prompt-liquid.ts src/runtime.ts src/live-config.ts src/http-server.ts src/otel.ts src/gitlab-client.ts src/context-search.ts --format esm --dts --watch",
+    "build": "tsup src/index.ts src/cli.ts src/agents/echo.ts src/agents/codex.ts src/agents/claude.ts src/agents/subprocess.ts src/workflow.ts src/prompt-liquid.ts src/runtime.ts src/live-config.ts src/http-server.ts src/otel.ts src/gitlab-client.ts src/context-search.ts src/document-save.ts src/issue-tasks.ts --format esm --dts --clean",
+    "dev": "tsup src/index.ts src/cli.ts src/agents/echo.ts src/agents/codex.ts src/agents/claude.ts src/agents/subprocess.ts src/workflow.ts src/prompt-liquid.ts src/runtime.ts src/live-config.ts src/http-server.ts src/otel.ts src/gitlab-client.ts src/context-search.ts src/document-save.ts src/issue-tasks.ts --format esm --dts --watch",
     "test": "vitest run",
     "test:integration": "vitest run test/integration",
     "typecheck": "tsc --noEmit",

@@ -1,0 +1,53 @@
+id: path:public/users/AdminUsersIdPurgePath
+metadata:
+  path: /admin/users/{id}/purge
+content:
+  parameters:
+    - name: id
+      in: path
+      required: true
+      description: 영구 삭제 대상 사용자 UUID
+      schema:
+        type: string
+        format: uuid
+      examples:
+        default:
+          dataValue: 00000000-0000-0000-0000-000000000001
+          serializedValue: 00000000-0000-0000-0000-000000000001
+  post:
+    tags:
+      - users
+    operationId: purgeUser
+    summary: 사용자 영구 삭제
+    description: |
+      site-admin authority only. deleteUser와 달리 30일 soft-delete window를
+      우회하는 hard purge입니다. legal hold override 여부와 사유를 감사 로그에
+      남기며 호출은 audited.
+    security:
+      - bearerAuth: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: oa://schema/public/users/PurgeUserRequest
+          examples:
+            default:
+              dataValue:
+                reason: confirmed policy violation
+                legalHoldOverride: false
+              serializedValue: '{"reason":"confirmed policy violation","legalHoldOverride":false}'
+    responses:
+      "204":
+        description: 영구 삭제 완료 (본문 없음)
+      "400":
+        $ref: oa://response/shared/common/BadRequest
+      "401":
+        $ref: oa://response/shared/common/Unauthorized
+      "403":
+        $ref: oa://response/shared/common/Forbidden
+      "404":
+        $ref: oa://response/shared/common/NotFound
+refs:
+  - ref: oa://securityScheme/shared/common/BearerAuth
+    sourcePointer: "#/content/post/security/0/bearerAuth"

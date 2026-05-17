@@ -144,6 +144,15 @@ paths:
                   total:
                     type: integer
                     minimum: 0
+                example:
+                  items:
+                    - id: "00000000-0000-0000-0000-000000000100"
+                      changedAt: "2026-04-01T00:00:00.000Z"
+                      previousRole: user
+                      newRole: admin
+                      changedBy: "00000000-0000-0000-0000-000000000099"
+                      reason: "권한 위임"
+                  total: 1
               examples:
                 default:
                   dataValue:

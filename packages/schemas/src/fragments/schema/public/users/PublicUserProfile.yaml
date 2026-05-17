@@ -1,0 +1,26 @@
+id: schema:public/users/PublicUserProfile
+content:
+  type: object
+  description: 공개 프로필 — PII 비포함 (email/createdAt 제외)
+  required:
+    - id
+    - name
+    - role
+  properties:
+    id:
+      type: string
+      format: uuid
+    name:
+      type: string
+      minLength: 1
+      maxLength: 100
+    role:
+      type: string
+      enum:
+        - admin
+        - user
+        - guest
+  example:
+    id: 00000000-0000-0000-0000-000000000001
+    name: Alice
+    role: user

@@ -1,0 +1,35 @@
+id: schema:public/me/RoleChangeEvent
+content:
+  type: object
+  description: 역할 변경 이력 단건
+  required:
+    - id
+    - changedAt
+    - previousRole
+    - newRole
+    - changedBy
+  properties:
+    id:
+      type: string
+      format: uuid
+    changedAt:
+      type: string
+      format: date-time
+    previousRole:
+      type: string
+      enum:
+        - admin
+        - user
+        - guest
+    newRole:
+      type: string
+      enum:
+        - admin
+        - user
+        - guest
+    changedBy:
+      type: string
+      format: uuid
+      description: 변경을 수행한 admin의 UUID
+    reason:
+      type: string

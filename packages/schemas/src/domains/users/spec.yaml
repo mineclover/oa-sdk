@@ -337,6 +337,15 @@ paths:
                   total:
                     type: integer
                     minimum: 0
+                example:
+                  items:
+                    - id: "00000000-0000-0000-0000-000000000300"
+                      targetUserId: "00000000-0000-0000-0000-000000000001"
+                      reporterUserId: "00000000-0000-0000-0000-000000000002"
+                      reason: harassment
+                      status: open
+                      createdAt: "2026-05-04T00:00:00.000Z"
+                  total: 1
               examples:
                 default:
                   dataValue:

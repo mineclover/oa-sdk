@@ -21,7 +21,7 @@ content:
                 summary: 정상 응답
                 dataValue:
                   status: ok
-                  timestamp: "2026-04-04T00:00:00.000Z"
+                  timestamp: 2026-04-04T00:00:00.000Z
                 serializedValue: '{"status":"ok","timestamp":"2026-04-04T00:00:00.000Z"}'
       "503":
         $ref: oa://response/shared/common/ServiceUnavailable

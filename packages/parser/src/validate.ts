@@ -24,6 +24,14 @@ export type ValidationResult = {
 export type ValidateDocumentOptions = {
   basePath?: string
   lookupSourceLocation?: (filePath: string, pointer: string) => { line: number; column: number } | undefined
+  /**
+   * Enforce OpenAPI 3.2 as the contract format.
+   *
+   * Default validation remains compatible with existing 3.x documents and emits
+   * an info diagnostic for pre-3.2 inputs. Governance gates should set this to
+   * true so 3.0/3.1 artifacts cannot be treated as managed oa-sdk contracts.
+   */
+  requireOpenApi32?: boolean
 }
 
 /**
@@ -70,9 +78,16 @@ export function validateDocument(
     return buildResult(results)
   }
 
-  // 3.2 미만이면 경고
+  // 3.2 미만이면 경고. 관리 대상 계약 게이트에서는 에러로 승격.
   if (version !== '3.2.0' && !version.startsWith('3.2')) {
-    results.push({ path: '/openapi', severity: 'info', rule: 'parse/version-32', message: `OAS ${version} — 3.2.0 권장. 3.2 전용 기능(dataValue, itemSchema 등) 사용 불가.` })
+    results.push({
+      path: '/openapi',
+      severity: options.requireOpenApi32 === true ? 'error' : 'info',
+      rule: 'parse/version-32',
+      message: options.requireOpenApi32 === true
+        ? `OAS ${version} — oa-sdk managed contracts require OpenAPI 3.2.x. Run upgrade before publishing this contract.`
+        : `OAS ${version} — 3.2.0 권장. 3.2 전용 기능(dataValue, itemSchema 등) 사용 불가.`,
+    })
   }
 
   // Step 4: 자체 린터 실행

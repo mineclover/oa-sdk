@@ -10,4 +10,4 @@ content:
   examples:
     default:
       dataValue: 1
-      serializedValue: "page=1"
+      serializedValue: page=1

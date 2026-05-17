@@ -1,0 +1,30 @@
+id: schema:public/me/ExportJob
+content:
+  type: object
+  description: export job 상태
+  required:
+    - jobId
+    - status
+    - requestedAt
+  properties:
+    jobId:
+      type: string
+      format: uuid
+    status:
+      type: string
+      enum:
+        - queued
+        - running
+        - ready
+        - failed
+    requestedAt:
+      type: string
+      format: date-time
+    downloadUrl:
+      type: string
+      format: uri
+      description: status가 ready일 때만 제공
+  example:
+    jobId: 00000000-0000-0000-0000-000000000200
+    status: queued
+    requestedAt: 2026-05-04T00:00:00.000Z

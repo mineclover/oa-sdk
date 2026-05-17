@@ -1,0 +1,60 @@
+id: path:public/me/MeRoleChangesPath
+metadata:
+  path: /me/role-changes
+content:
+  get:
+    tags:
+      - me
+    operationId: listMyRoleChanges
+    summary: 내 역할 변경 이력 조회
+    description: |
+      admin이 내 역할을 변경한 이력 일람. target-of-action 페르소나의 surface.
+      변경 시점·이전/현재 역할·변경자·사유 포함.
+    security:
+      - bearerAuth: []
+    parameters:
+      - $ref: oa://parameter/shared/common/Page
+      - $ref: oa://parameter/shared/common/Limit
+    responses:
+      "200":
+        description: 역할 변경 이력
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - items
+                - total
+              properties:
+                items:
+                  type: array
+                  items:
+                    $ref: oa://schema/public/me/RoleChangeEvent
+                total:
+                  type: integer
+                  minimum: 0
+              example:
+                items:
+                  - id: 00000000-0000-0000-0000-000000000100
+                    changedAt: 2026-04-01T00:00:00.000Z
+                    previousRole: user
+                    newRole: admin
+                    changedBy: 00000000-0000-0000-0000-000000000099
+                    reason: 권한 위임
+                total: 1
+            examples:
+              default:
+                dataValue:
+                  items:
+                    - id: 00000000-0000-0000-0000-000000000100
+                      changedAt: 2026-04-01T00:00:00.000Z
+                      previousRole: user
+                      newRole: admin
+                      changedBy: 00000000-0000-0000-0000-000000000099
+                      reason: 권한 위임
+                  total: 1
+      "401":
+        $ref: oa://response/shared/common/Unauthorized
+refs:
+  - ref: oa://securityScheme/shared/common/BearerAuth
+    sourcePointer: "#/content/get/security/0/bearerAuth"

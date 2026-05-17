@@ -1,6 +1,6 @@
 {
   "name": "OpenAPI Definition Builder",
-  "description": "Build an OpenAPI 3.2 definition builder that treats OpenAPI documents as build artifacts generated from canonical definition fragments using kind:scope/domain/name identities, target-local naming, collision reports, and migration from the current domain merge path.",
+  "description": "Build an OpenAPI 3.2 definition builder that treats OpenAPI documents as build artifacts generated from canonical definition fragments using kind:scope/domain/name identities, target-local naming, collision reports, and migration away from the legacy domain merge path.",
   "branchName": "ralph/openapi-definition-builder",
   "userStories": [
     {
@@ -174,7 +174,7 @@
     {
       "id": "US-007",
       "title": "Simulate server and domain name collisions",
-      "description": "As a schema platform maintainer, I want collision behavior simulated across server targets and domains so that naming policy is proven before replacing current merge output.",
+      "description": "As a schema platform maintainer, I want collision behavior simulated across server targets and domains so that naming policy is proven before replacing legacy output.",
       "acceptanceCriteria": [
         "Add fixture target public-api including schema:public/book/Note and schema:public/notebook/Note.",
         "Add fixture target admin-api including schema:admin/book/Note and another colliding local name.",
@@ -288,7 +288,7 @@
     {
       "id": "US-011",
       "title": "Emit OpenAPI 3.2 document from registry",
-      "description": "As a CLI user, I want the builder to emit a valid OpenAPI 3.2 document from selected fragments so that current merge output can eventually be replaced.",
+      "description": "As a CLI user, I want the builder to emit a valid OpenAPI 3.2 document from selected fragments so that legacy output can be replaced.",
       "acceptanceCriteria": [
         "Emit root openapi, info, servers, paths, webhooks, and components.",
         "Emit rewritten $ref values only.",
@@ -375,13 +375,13 @@
     },
     {
       "id": "US-014",
-      "title": "Document migration from current domain merge",
-      "description": "As a maintainer, I want a migration plan from current domain-level merge.ts to the definition builder so that current schemas remain stable during transition.",
+      "title": "Document migration from legacy domain merge",
+      "description": "As a maintainer, I want a migration plan from domain-level merge.ts to the definition builder so that schemas remain stable during transition.",
       "acceptanceCriteria": [
-        "Document current merge path and new builder path side by side.",
+        "Document legacy merge path and new builder path side by side.",
         "Define which current files become fragments.",
         "Define compatibility requirements for .merged.yaml and .merged.3.1.yaml.",
-        "Include rollback plan: current merge remains available until builder output matches expected validation.",
+        "Include rollback plan: builder replacement is revertible through git history.",
         "Document when builder output can replace .merged.yaml.",
         "Update docs/internal/todo.md with implementation order.",
         "Update tasks/prd-openapi-definition-builder.md if migration story changes.",
@@ -394,7 +394,7 @@
       ],
       "priority": 14,
       "passes": true,
-      "notes": "Final documentation and migration story. Keep current packages/schemas/scripts/merge.ts available.",
+      "notes": "Final documentation and migration story. Legacy merge script removed after builder replacement.",
       "dependsOn": [
         "US-012",
         "US-013"

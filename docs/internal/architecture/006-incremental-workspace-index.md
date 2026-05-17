@@ -153,19 +153,19 @@ OpenAPI definition builder metadata는 US-013에서 별도 SQLite table 없이 �
 6. run affected outputs
    - validate는 dirty/impacted 파일 diagnostic을 갱신한다.
    - typegen은 external alias/type output 영향이 있을 때 재생성한다.
-   - merge는 path/component 중복을 현재 파일 기준으로 다시 확인한다.
+   - build-spec은 path/component 중복을 target selection 결과 기준으로 다시 확인한다.
 
 7. fallback
    - DB schema version mismatch, DB 오류, 옵션 mismatch, cache 불일치가 있으면 full rebuild를 수행한다.
 
 ## Component 중복 정책
 
-중복 차단 정책은 현재 `merge.ts`와 동일하다.
+중복 차단 정책은 Definition Builder output ownership 기준으로 적용한다.
 
 - 중복 path는 항상 오류.
 - 중복 component는 기본 오류.
-- `ALLOW_COMPONENT_OVERRIDES=1`이면 warning 후 허용.
-- `ALLOW_COMPONENT_OVERRIDE_KEYS=schemas.User,...`는 지정 key만 허용.
+- component 이름 충돌은 target-local output naming policy나 명시 alias로 해결한다.
+- 해결되지 않은 output-name collision은 오류다.
 - 두 component의 content hash가 같아도 기본 오류다. 동일 내용 중복을 허용하면 소유권이 흐려지고, 이후 한쪽만 바뀔 때 증분 결과가 불안정해진다.
 
 SQLite 판정 query:

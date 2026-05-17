@@ -1,0 +1,13 @@
+id: response:shared/common/Conflict
+content:
+  description: 리소스 충돌 — 중복 식별자 또는 동시성 충돌
+  content:
+    application/json:
+      schema:
+        $ref: oa://schema/shared/common/Error
+      examples:
+        default:
+          dataValue:
+            code: CONFLICT
+            message: 이미 존재하는 리소스입니다
+          serializedValue: '{"code":"CONFLICT","message":"이미 존재하는 리소스입니다"}'

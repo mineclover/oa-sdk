@@ -1,0 +1,23 @@
+id: schema:public/health/BuildInfo
+content:
+  type: object
+  description: 현재 실행 중인 빌드 정보
+  required:
+    - version
+    - gitSha
+    - builtAt
+  properties:
+    version:
+      type: string
+      description: semver 또는 빌드 식별 라벨
+    gitSha:
+      type: string
+      minLength: 7
+      description: 커밋 해시
+    builtAt:
+      type: string
+      format: date-time
+  example:
+    version: 0.1.0
+    gitSha: a0ca911
+    builtAt: 2026-05-04T00:00:00.000Z

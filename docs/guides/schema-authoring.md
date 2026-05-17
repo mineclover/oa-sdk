@@ -1,42 +1,41 @@
 # 스키마 작성 가이드
 
-## 새 도메인 추가
+## 새 API fragment 추가
 
-1. `packages/schemas/src/domains/{name}/spec.yaml` 생성
-2. 부분 OpenAPI 스펙 형식으로 작성 (아래 템플릿 참고)
+1. `packages/schemas/src/fragments/{kind}/{scope}/{domain}/{name}.yaml` 생성
+2. canonical `id`와 OpenAPI fragment body를 작성 (아래 템플릿 참고)
 3. `pnpm schema:validate`로 검증
 
 ```yaml
-# domains/{name}/spec.yaml
-tags:
-  - name: my-domain
-    description: 도메인 설명
+# fragments/path/public/my-domain/MyResourcePath.yaml
+id: path:public/my-domain/MyResourcePath
+path: /my-resource
+item:
+  get:
+    tags: [my-domain]
+    operationId: listMyResource
+    summary: 목록 조회
+    responses:
+      "200":
+        description: 성공
+        content:
+          application/json:
+            schema:
+              $ref: oa://schema/public/my-domain/MyResource
+```
 
-paths:
-  /my-resource:
-    get:
-      tags: [my-domain]
-      operationId: listMyResource
-      summary: 목록 조회
-      responses:
-        "200":
-          description: 성공
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/MyResource"
-
-components:
-  schemas:
-    MyResource:
-      type: object
-      required: [id, name]
-      properties:
-        id:
-          type: string
-          format: uuid
-        name:
-          type: string
+```yaml
+# fragments/schema/public/my-domain/MyResource.yaml
+id: schema:public/my-domain/MyResource
+content:
+  type: object
+  required: [id, name]
+  properties:
+    id:
+      type: string
+      format: uuid
+    name:
+      type: string
 ```
 
 ## OAS 3.2 문법 규칙
@@ -448,12 +447,8 @@ id:
 
 ## Component 이름 충돌
 
-도메인 병합 시 같은 `components.<section>.<name>`은 기본 오류입니다. 임시 호환이 필요한 경우에만 명시적으로 허용합니다.
-
-```bash
-ALLOW_COMPONENT_OVERRIDES=1 pnpm --filter @oa-sdk/schemas run merge
-ALLOW_COMPONENT_OVERRIDE_KEYS=schemas.LegacyUser pnpm --filter @oa-sdk/schemas run merge
-```
+Definition Builder target 안에서 같은 output component name이 충돌하면 기본 오류입니다.
+해결은 source 이름 변경이 아니라 target-local naming policy 또는 명시 alias로 처리합니다.
 
 ## operationId 컨벤션
 

@@ -1,0 +1,17 @@
+id: schema:public/users/AdminUsersExportRequest
+content:
+  type: object
+  description: |
+    사용자 PII bulk export 요청. data-eng ETL surface이며 non-admin
+    perspective에서는 pseudonymization이 필수입니다.
+  additionalProperties: false
+  properties:
+    format:
+      type: string
+      enum:
+        - json
+        - csv
+      default: json
+    pseudonymize:
+      type: boolean
+      default: true

@@ -55,6 +55,23 @@ export {
   type GitlabContextSearchServiceOptions,
   type GitlabContextSearchWarning,
 } from "./context-search.js";
+export {
+  GitlabDocumentSaveService,
+  type GitlabDocumentSaveInput,
+  type GitlabDocumentSaveMode,
+  type GitlabDocumentSaveRequest,
+  type GitlabDocumentSaveResult,
+  type GitlabDocumentSaveServiceOptions,
+  type GitlabDocumentTarget,
+} from "./document-save.js";
+export {
+  GitlabIssueTaskService,
+  parseGitLabIssueTasks,
+  type GitlabIssueTask,
+  type GitlabIssueTaskReport,
+  type GitlabIssueTaskServiceOptions,
+  type GitlabIssueTaskSummary,
+} from "./issue-tasks.js";
 export { GitlabTracker, type GitlabTrackerOptions } from "./tracker.js";
 export { FsWorkspaceManager, sanitizeKey, type FsWorkspaceOptions } from "./workspace.js";
 export { EchoAgent } from "./agents/echo.js";

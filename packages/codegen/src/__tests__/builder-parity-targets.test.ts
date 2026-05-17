@@ -39,7 +39,7 @@ describe('builder parity target configs', () => {
 
       expect(target.name).toBe(targetName)
       expect(target.scopes).toEqual(['shared', 'public'])
-      expect(target.domains).toEqual(['common', 'health', 'users'])
+      expect(target.domains).toEqual(['common', 'auth', 'health', 'me', 'users'])
       expect(target.info).toEqual(readRootInfo())
       expect(target.servers).toEqual(readProfileServers(profileName))
       expect(target.tags).toEqual(readRootTags())
@@ -50,7 +50,11 @@ describe('builder parity target configs', () => {
   })
 
   it('selects local parity direct paths and shared refs', () => {
-    const target = readTargetConfig('local-parity-api.yaml')
+    const target: DefinitionTargetConfig = {
+      ...readTargetConfig('local-parity-api.yaml'),
+      domains: ['common', 'health', 'users'],
+      includePaths: ['/health', '/health/stream', '/users', '/users/{id}'],
+    }
     const registry = createDefinitionRegistry(paritySelectionNodes())
     const selection = selectDefinitionTarget(registry, target)
 
@@ -143,7 +147,7 @@ function readRootTags(): unknown[] {
 function readCurrentMergedDomainPaths(): string[] {
   const paths: string[] = []
 
-  for (const domainName of ['common', 'health', 'users']) {
+  for (const domainName of ['common', 'auth', 'health', 'me', 'users']) {
     const parsed = readYaml(join(schemasDir, 'domains', domainName, 'spec.yaml'))
     if (!isRecord(parsed) || !isRecord(parsed.paths)) continue
     paths.push(...Object.keys(parsed.paths))

@@ -44,6 +44,22 @@ describe('validateDocument', () => {
     expect(result.infos.some(i => i.rule === 'parse/version-32')).toBe(true)
   })
 
+  it('requireOpenApi32 옵션은 3.1 문서를 관리 대상 계약 에러로 처리한다', () => {
+    const result = validateDocument({
+      openapi: '3.1.0',
+      info: { title: 'T', version: '0' },
+      paths: {},
+    }, { requireOpenApi32: true })
+
+    expect(result.valid).toBe(false)
+    expect(result.errors).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        path: '/openapi',
+        rule: 'parse/version-32',
+      }),
+    ]))
+  })
+
   it('2.x 버전 → 에러', () => {
     const result = validateDocument({ openapi: '2.0', info: { title: 'T', version: '0' } })
     expect(result.valid).toBe(false)

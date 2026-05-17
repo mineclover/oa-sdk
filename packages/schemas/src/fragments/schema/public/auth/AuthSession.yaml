@@ -1,0 +1,24 @@
+id: schema:public/auth/AuthSession
+content:
+  type: object
+  description: 사용자 + 토큰 페어 — 가입/로그인 응답 단위
+  required:
+    - user
+    - tokens
+  properties:
+    user:
+      $ref: oa://schema/public/users/User
+    tokens:
+      $ref: oa://schema/public/auth/TokenPair
+  example:
+    user:
+      id: 00000000-0000-0000-0000-000000000001
+      email: alice@example.com
+      name: Alice
+      role: user
+      createdAt: 2024-01-01T00:00:00.000Z
+    tokens:
+      accessToken: eyJhbGciOi...example
+      refreshToken: rt_example_0001
+      tokenType: Bearer
+      expiresIn: 3600

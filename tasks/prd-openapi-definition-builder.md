@@ -1,8 +1,10 @@
 # PRD: OpenAPI Definition Builder
 
+Status: implemented in OA SDK. The checklist is closed because the parser/codegen builder stack now covers canonical IDs, registry graph, ref resolution, target-local naming, collision diagnostics, target selection, OpenAPI emit, `oa-gen build-spec`, and WorkspaceIndex metadata integration. Builder output now owns `.merged.yaml`; the legacy domain `merge.ts` path has been removed.
+
 ## Overview
 
-OpenAPI output should become a build artifact generated from smaller, reusable definition fragments. The current merge model can combine domain specs, but the next goal is finer-grained definition graph management: individual schemas, path fragments, responses, parameters, servers, and operations should be addressable by canonical identity and composed into target-specific OpenAPI documents.
+OpenAPI output is a build artifact generated from smaller, reusable definition fragments. The legacy domain merge model could combine domain specs, but the replacement goal is finer-grained definition graph management: individual schemas, path fragments, responses, parameters, servers, and operations are addressable by canonical identity and composed into target-specific OpenAPI documents.
 
 This matters because `$ref` is not just a pointer syntax. It is the mechanism for naming and reusing conceptual definitions. Two definitions may share the local name `Note` while meaning different things, such as a book note versus a notebook note. The source definitions should not be renamed just to avoid output collisions. Instead, the builder should preserve source identity and resolve output component names through a naming policy.
 
@@ -20,12 +22,12 @@ The builder must never infer equivalence by flattening strings. For example, `sc
 - Provide deterministic output component names and alias metadata.
 - Manage name uniqueness from the target server scope down to domain scope and local definition names.
 - Detect flattened-name collisions such as `schema:public/a/Name` versus `schema:public/aname/Name` without treating their canonical identities as equivalent.
-- Simulate collision and duplicate-warning behavior before replacing current merge output.
+- Simulate collision and duplicate-warning behavior before replacing legacy output.
 - Build on the existing resolver, external alias, and WorkspaceIndex concepts.
 
 ## Package Ownership
 
-- `@oa-sdk/schemas` owns fragment source layout, target configs, schema fixtures, and migration from the current domain merge.
+- `@oa-sdk/schemas` owns fragment source layout, target configs, schema fixtures, and the migration away from legacy domain merge.
 - `@oa-sdk/parser` provides validation, source location, JSON Pointer traversal, and ref graph primitives.
 - `@oa-sdk/codegen` exposes the builder through CLI, for example `oa-gen build-spec`, and integrates with WorkspaceIndex for future incremental target builds.
 
@@ -54,134 +56,134 @@ Execution note: the active Ralph implementation split the original PRD work into
 **Description:** As a spec author, I want each OpenAPI fragment to have canonical identity separate from output component name so that local names can stay natural inside each domain.
 
 **Acceptance Criteria:**
-- [ ] Define `DefinitionId` shape for schema/path/operation/parameter/response/server fragments.
-- [ ] Canonical IDs use the fixed grammar `kind:scope/domain/name`.
-- [ ] `kind` is one of `schema`, `response`, `parameter`, `requestBody`, `header`, `link`, `callback`, `path`, `operation`, `server`, `tag`, or `securityScheme`.
-- [ ] `scope` represents API exposure/server family such as `shared`, `public`, `admin`, `internal`, or `partner`.
-- [ ] `domain` represents bounded context such as `common`, `book`, `notebook`, `user`, `auth`, or `health`.
-- [ ] `name` is the domain-local definition name and should be PascalCase for component-like definitions.
-- [ ] Include canonical id, kind, scope, domain, local name, source path, source pointer, content hash, metadata, and refs.
-- [ ] Document that source identity is stable and output name is derived later.
-- [ ] Add fixtures for `schema:public/book/Note`, `schema:public/notebook/Note`, and `schema:shared/common/Error`.
-- [ ] Reject malformed IDs such as `schema:book/Note`, `schema:Note`, and nested IDs such as `schema:public/book/chapter/Note`.
-- [ ] Reject file path/frontmatter canonical id mismatches when both are available.
+- [x] Define `DefinitionId` shape for schema/path/operation/parameter/response/server fragments.
+- [x] Canonical IDs use the fixed grammar `kind:scope/domain/name`.
+- [x] `kind` is one of `schema`, `response`, `parameter`, `requestBody`, `header`, `link`, `callback`, `path`, `operation`, `server`, `tag`, or `securityScheme`.
+- [x] `scope` represents API exposure/server family such as `shared`, `public`, `admin`, `internal`, or `partner`.
+- [x] `domain` represents bounded context such as `common`, `book`, `notebook`, `user`, `auth`, or `health`.
+- [x] `name` is the domain-local definition name and should be PascalCase for component-like definitions.
+- [x] Include canonical id, kind, scope, domain, local name, source path, source pointer, content hash, metadata, and refs.
+- [x] Document that source identity is stable and output name is derived later.
+- [x] Add fixtures for `schema:public/book/Note`, `schema:public/notebook/Note`, and `schema:shared/common/Error`.
+- [x] Reject malformed IDs such as `schema:book/Note`, `schema:Note`, and nested IDs such as `schema:public/book/chapter/Note`.
+- [x] Reject file path/frontmatter canonical id mismatches when both are available.
 
 ### US-002: Add Definition Registry Graph
 **Description:** As a builder, I want to load fragments into a registry graph so that refs, duplicates, and target bundles can be reasoned about before emitting OpenAPI.
 
 **Acceptance Criteria:**
-- [ ] Add registry data structures for definition nodes and ref edges.
-- [ ] Collect refs from fragment contents using JSON Pointer-aware traversal.
-- [ ] Preserve source coordinates for diagnostics.
-- [ ] Detect duplicate canonical ids as errors.
-- [ ] Tests cover node registration, ref edge collection, and duplicate canonical id rejection.
+- [x] Add registry data structures for definition nodes and ref edges.
+- [x] Collect refs from fragment contents using JSON Pointer-aware traversal.
+- [x] Preserve source coordinates for diagnostics.
+- [x] Detect duplicate canonical ids as errors.
+- [x] Tests cover node registration, ref edge collection, and duplicate canonical id rejection.
 
 ### US-003: Resolve Canonical Refs and Rewrite Output `$ref`
 **Description:** As a builder, I want source refs to resolve to canonical identities and then rewrite to valid output OpenAPI refs so that fragment authoring and emitted documents are decoupled.
 
 **Acceptance Criteria:**
-- [ ] Support source refs such as `oa://schema/public/book/Note`.
-- [ ] Support file refs where feasible and normalize them to canonical ids.
-- [ ] Rewrite schema refs to `#/components/schemas/{OutputName}`.
-- [ ] Preserve unsupported/missing ref diagnostics.
-- [ ] Tests cover canonical ref, relative file ref, missing ref, and nested ref rewrite.
+- [x] Support source refs such as `oa://schema/public/book/Note`.
+- [x] Support file refs where feasible and normalize them to canonical ids.
+- [x] Rewrite schema refs to `#/components/schemas/{OutputName}`.
+- [x] Preserve unsupported/missing ref diagnostics.
+- [x] Tests cover canonical ref, relative file ref, missing ref, and nested ref rewrite.
 
 ### US-004: Implement Output Naming Policy
 **Description:** As a spec author, I want deterministic output names so that name collisions like `book.Note` and `notebook.Note` are resolved without changing source definitions.
 
 **Acceptance Criteria:**
-- [ ] Implement `preserve-if-unique` naming policy.
-- [ ] Implement `domain-prefix` naming policy.
-- [ ] Implement server-aware namespace resolution where output name allocation considers target server, domain, and local definition name.
-- [ ] Emit alias metadata mapping canonical id to output name.
-- [ ] If two definitions have the same local name and both are included, output names are deterministic, e.g. `BookNote`, `NotebookNote`.
-- [ ] Tests cover `book.Note` versus `notebook.Note`.
+- [x] Implement `preserve-if-unique` naming policy.
+- [x] Implement `domain-prefix` naming policy.
+- [x] Implement server-aware namespace resolution where output name allocation considers target server, domain, and local definition name.
+- [x] Emit alias metadata mapping canonical id to output name.
+- [x] If two definitions have the same local name and both are included, output names are deterministic, e.g. `BookNote`, `NotebookNote`.
+- [x] Tests cover `book.Note` versus `notebook.Note`.
 
 ### US-005: Simulate Server and Domain Name Collision Behavior
 **Description:** As a schema platform maintainer, I want collision and duplicate handling simulated across server targets and domains so that naming policy is proven before migration.
 
 **Acceptance Criteria:**
-- [ ] Add fixture target `public-api` that includes `book.Note` and `notebook.Note`.
-- [ ] Add fixture target `admin-api` that includes at least one additional `admin.Note` or `internal.Note`.
-- [ ] Simulate same local name across different domains in the same target and verify deterministic output names.
-- [ ] Simulate same local name across different server targets and verify target-local output names do not leak between bundles.
-- [ ] Simulate identical structural schema under different semantic identities and verify it remains separate with warning/info only.
-- [ ] Simulate duplicate canonical id and verify it is an error.
-- [ ] Emit a machine-readable collision report with canonical id, target name, domain, local name, output name, reason, and severity.
-- [ ] Tests cover no-collision, rename collision, structural duplicate warning, and canonical duplicate error.
+- [x] Add fixture target `public-api` that includes `book.Note` and `notebook.Note`.
+- [x] Add fixture target `admin-api` that includes at least one additional `admin.Note` or `internal.Note`.
+- [x] Simulate same local name across different domains in the same target and verify deterministic output names.
+- [x] Simulate same local name across different server targets and verify target-local output names do not leak between bundles.
+- [x] Simulate identical structural schema under different semantic identities and verify it remains separate with warning/info only.
+- [x] Simulate duplicate canonical id and verify it is an error.
+- [x] Emit a machine-readable collision report with canonical id, target name, domain, local name, output name, reason, and severity.
+- [x] Tests cover no-collision, rename collision, structural duplicate warning, and canonical duplicate error.
 
 ### US-006: Simulate Path Flattening Equivalence Risks
 **Description:** As a schema platform maintainer, I want path-aware canonical identities tested against flattened output names so that `schema:public/a/Name` and `schema:public/aname/Name` are not accidentally treated as the same definition.
 
 **Acceptance Criteria:**
-- [ ] Add fixtures for `schema:public/a/Name`, `schema:public/aname/Name`, `schema:public/a-name/Name`, and `schema:admin/a/Name`.
-- [ ] Verify all fixtures have distinct canonical identities.
-- [ ] Run naming policy simulation and detect any flattened output symbol collision.
-- [ ] If a policy maps multiple canonical ids to the same output name, emit `output-name-collision` diagnostics.
-- [ ] The collision diagnostic includes all colliding canonical ids and the attempted output name.
-- [ ] The builder either deterministically renames the later definitions or fails according to target policy.
-- [ ] Tests prove no semantic dedupe occurs only because flattened names match.
+- [x] Add fixtures for `schema:public/a/Name`, `schema:public/aname/Name`, `schema:public/a-name/Name`, and `schema:admin/a/Name`.
+- [x] Verify all fixtures have distinct canonical identities.
+- [x] Run naming policy simulation and detect any flattened output symbol collision.
+- [x] If a policy maps multiple canonical ids to the same output name, emit `output-name-collision` diagnostics.
+- [x] The collision diagnostic includes all colliding canonical ids and the attempted output name.
+- [x] The builder either deterministically renames the later definitions or fails according to target policy.
+- [x] Tests prove no semantic dedupe occurs only because flattened names match.
 
 ### US-007: Define Duplicate and Dedupe Policy
 **Description:** As a maintainer, I want explicit duplicate and dedupe rules so that structural similarity does not accidentally collapse semantically different definitions.
 
 **Acceptance Criteria:**
-- [ ] Duplicate canonical id is an error.
-- [ ] Duplicate output name is handled by naming policy or explicit alias.
-- [ ] Identical schema hash across different canonical ids produces warning/info only by default.
-- [ ] No automatic structural dedupe unless an explicit semantic alias/ref is declared.
-- [ ] Tests cover identical shape but different meaning remaining separate.
+- [x] Duplicate canonical id is an error.
+- [x] Duplicate output name is handled by naming policy or explicit alias.
+- [x] Identical schema hash across different canonical ids produces warning/info only by default.
+- [x] No automatic structural dedupe unless an explicit semantic alias/ref is declared.
+- [x] Tests cover identical shape but different meaning remaining separate.
 
 ### US-008: Add Target Bundle Configuration
 **Description:** As an API owner, I want target configs for public/admin/internal servers so that only selected domains and paths are emitted into each OpenAPI document.
 
 **Acceptance Criteria:**
-- [ ] Define target config format with name, servers, include domains, include paths, and naming policy.
-- [ ] Target selection includes directly matched paths.
-- [ ] Target selection recursively includes referenced schemas/parameters/responses.
-- [ ] Tests cover public versus admin target selection.
+- [x] Define target config format with name, servers, include domains, include paths, and naming policy.
+- [x] Target selection includes directly matched paths.
+- [x] Target selection recursively includes referenced schemas/parameters/responses.
+- [x] Tests cover public versus admin target selection.
 
 ### US-009: Build OpenAPI Document From Registry
-**Description:** As a CLI user, I want the builder to emit a valid OpenAPI 3.2 document from selected fragments so that current merge output can eventually be replaced.
+**Description:** As a CLI user, I want the builder to emit a valid OpenAPI 3.2 document from selected fragments so that legacy output can be replaced.
 
 **Acceptance Criteria:**
-- [ ] Emit root `openapi`, `info`, `servers`, `paths`, and `components`.
-- [ ] Emit rewritten `$ref` values only.
-- [ ] Preserve OAS 3.2 fields such as `dataValue`, `serializedValue`, and `itemSchema`.
-- [ ] Output passes `validateDocument()`.
-- [ ] Add fixture target that emits book and notebook APIs with colliding `Note` source names.
+- [x] Emit root `openapi`, `info`, `servers`, `paths`, and `components`.
+- [x] Emit rewritten `$ref` values only.
+- [x] Preserve OAS 3.2 fields such as `dataValue`, `serializedValue`, and `itemSchema`.
+- [x] Output passes `validateDocument()`.
+- [x] Add fixture target that emits book and notebook APIs with colliding `Note` source names.
 
 ### US-010: Add CLI Entry for Definition Builder
 **Description:** As a CLI user, I want a command or script to build target OpenAPI documents from fragment configs so that the builder can run in CI and local workflows.
 
 **Acceptance Criteria:**
-- [ ] Add a CLI command or script such as `oa-gen build-spec --target ...`.
-- [ ] Support output path.
-- [ ] Support diagnostics output.
-- [ ] Exit non-zero on duplicate canonical id or unresolved required refs.
-- [ ] Tests cover success and failure CLI cases.
+- [x] Add a CLI command or script such as `oa-gen build-spec --target ...`.
+- [x] Support output path.
+- [x] Support diagnostics output.
+- [x] Exit non-zero on duplicate canonical id or unresolved required refs.
+- [x] Tests cover success and failure CLI cases.
 
 ### US-011: Integrate Builder With WorkspaceIndex
 **Description:** As a user of large specs, I want fragment-level changes to dirty only affected target bundles so that multi-server schema builds are incremental.
 
 **Acceptance Criteria:**
-- [ ] Store fragment file/hash/id/ref metadata in WorkspaceIndex or an adjacent builder index.
-- [ ] Changing a schema fragment dirties target bundles that include it directly or transitively.
-- [ ] Changing target config dirties only that target.
-- [ ] Driver fallback and full rebuild principles match ADR-006.
-- [ ] Tests cover changed schema fragment invalidating dependent target.
+- [x] Store fragment file/hash/id/ref metadata in WorkspaceIndex or an adjacent builder index.
+- [x] Changing a schema fragment dirties target bundles that include it directly or transitively.
+- [x] Changing target config dirties only that target.
+- [x] Driver fallback and full rebuild principles match ADR-006.
+- [x] Tests cover changed schema fragment invalidating dependent target.
 
-### US-014: Document Migration From Current Domain Merge
-**Description:** As a maintainer, I want a migration plan from current domain-level `merge.ts` to the definition builder so that current schemas remain stable during transition.
+### US-014: Document Migration From Legacy Domain Merge
+**Description:** As a maintainer, I want a migration plan from domain-level `merge.ts` to the definition builder so that schemas remain stable during transition.
 
 **Acceptance Criteria:**
-- [ ] Document current merge path and new builder path side by side.
-- [ ] Define which current files become fragments.
-- [ ] Define compatibility requirements for `.merged.yaml` and `.merged.3.1.yaml`.
-- [ ] Include rollback plan: current merge remains available until builder output matches expected validation.
-- [ ] Document when builder output can replace `.merged.yaml`.
-- [ ] Update `docs/internal/todo.md` with implementation order.
-- [ ] Update this PRD if the migration story or numbering changes during implementation.
+- [x] Document legacy merge path and new builder path side by side.
+- [x] Define which current files become fragments.
+- [x] Define compatibility requirements for `.merged.yaml` and `.merged.3.1.yaml`.
+- [x] Include rollback plan: builder replacement is revertible through git history.
+- [x] Document when builder output can replace `.merged.yaml`.
+- [x] Update `docs/internal/todo.md` with implementation order.
+- [x] Update this PRD if the migration story or numbering changes during implementation.
 
 ## Functional Requirements
 
@@ -193,7 +195,7 @@ Execution note: the active Ralph implementation split the original PRD work into
 - FR-6: Structural equality must not imply semantic dedupe.
 - FR-7: Builder diagnostics must preserve source path/pointer where possible.
 - FR-8: Emitted documents must pass existing parser validation.
-- FR-9: Existing domain merge must remain available during migration.
+- FR-9: Existing domain merge must remain available during migration and then be removed after replacement.
 - FR-10: Name allocation must be scoped by target server first, then domain, then local definition name.
 - FR-11: Collision reports must explain whether a rename, warning, or error occurred.
 - FR-12: Canonical identity and output symbol equivalence must never be inferred by string flattening.
@@ -202,7 +204,7 @@ Execution note: the active Ralph implementation split the original PRD work into
 
 ## Non-Goals
 
-- Do not remove `packages/schemas/scripts/merge.ts` immediately.
+- Legacy `packages/schemas/scripts/merge.ts` has been removed after replacement approval.
 - Do not force all existing schema files into the new fragment format in one step.
 - Do not automatically dedupe schemas based only on identical structure.
 - Do not change runtime mock-server/router/client behavior as part of the initial builder.
@@ -225,7 +227,7 @@ Execution note: the active Ralph implementation split the original PRD work into
 - Output OpenAPI 3.2 validates with current parser pipeline.
 - Naming collisions are deterministic and inspectable through alias metadata.
 - Collision simulations produce stable machine-readable reports for rename/warning/error cases.
-- Current schema validation pipeline remains unaffected until migration is explicitly enabled.
+- Current schema validation pipeline is owned by Definition Builder after migration is enabled.
 
 ## Open Questions
 

@@ -74,11 +74,25 @@ const COMMON_COMPONENTS = [
     outputName: 'NotFound',
   },
   {
+    id: 'response:shared/common/Conflict',
+    sourceSection: 'responses',
+    sourceName: 'Conflict',
+    relativePath: 'response/shared/common/Conflict.yaml',
+    outputName: 'Conflict',
+  },
+  {
     id: 'response:shared/common/UnprocessableEntity',
     sourceSection: 'responses',
     sourceName: 'UnprocessableEntity',
     relativePath: 'response/shared/common/UnprocessableEntity.yaml',
     outputName: 'UnprocessableEntity',
+  },
+  {
+    id: 'response:shared/common/TooManyRequests',
+    sourceSection: 'responses',
+    sourceName: 'TooManyRequests',
+    relativePath: 'response/shared/common/TooManyRequests.yaml',
+    outputName: 'TooManyRequests',
   },
   {
     id: 'response:shared/common/InternalServerError',
@@ -135,7 +149,7 @@ const COMMON_OUTPUT_ALIASES = {
 } as const
 
 describe('builder shared common fragments', () => {
-  it('matches current common domain components with canonical refs', () => {
+  it('matches archived common domain components with canonical refs', () => {
     const commonSpec = readYaml(join(schemasDir, 'domains/common/spec.yaml'))
 
     for (const component of COMMON_COMPONENTS) {
@@ -161,7 +175,7 @@ describe('builder shared common fragments', () => {
     )
   })
 
-  it('emits current shared component names, using explicit security aliases', () => {
+  it('emits shared component names, using explicit security aliases', () => {
     const registry = createDefinitionRegistry([
       ...loadCommonFragmentNodes(),
       commonProbePathNode(),
@@ -229,7 +243,9 @@ function commonProbePathNode(): DefinitionNode {
           '401': { $ref: 'oa://response/shared/common/Unauthorized' },
           '403': { $ref: 'oa://response/shared/common/Forbidden' },
           '404': { $ref: 'oa://response/shared/common/NotFound' },
+          '409': { $ref: 'oa://response/shared/common/Conflict' },
           '422': { $ref: 'oa://response/shared/common/UnprocessableEntity' },
+          '429': { $ref: 'oa://response/shared/common/TooManyRequests' },
           '500': { $ref: 'oa://response/shared/common/InternalServerError' },
           '503': { $ref: 'oa://response/shared/common/ServiceUnavailable' },
         },

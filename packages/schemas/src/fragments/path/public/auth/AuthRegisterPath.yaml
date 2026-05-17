@@ -1,0 +1,53 @@
+id: path:public/auth/AuthRegisterPath
+metadata:
+  path: /auth/register
+content:
+  post:
+    tags:
+      - auth
+    operationId: register
+    summary: 회원가입 (공개)
+    description: 이메일·이름·비밀번호로 신규 사용자 계정을 만들고 토큰 페어를 반환합니다. 인증 불필요.
+    security: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: oa://schema/public/auth/RegisterRequest
+          examples:
+            default:
+              dataValue:
+                email: greg@example.com
+                name: Greg
+                password: secure1234
+              serializedValue: '{"email":"greg@example.com","name":"Greg","password":"secure1234"}'
+    responses:
+      "201":
+        description: 회원가입 + 토큰 발급
+        content:
+          application/json:
+            schema:
+              $ref: oa://schema/public/auth/AuthSession
+            examples:
+              default:
+                dataValue:
+                  user:
+                    id: 00000000-0000-0000-0000-000000000010
+                    email: greg@example.com
+                    name: Greg
+                    role: user
+                    createdAt: 2026-05-04T00:00:00.000Z
+                  tokens:
+                    accessToken: eyJhbGciOi...register
+                    refreshToken: rt_register_0001
+                    tokenType: Bearer
+                    expiresIn: 3600
+      "400":
+        $ref: oa://response/shared/common/BadRequest
+      "409":
+        $ref: oa://response/shared/common/Conflict
+      "422":
+        $ref: oa://response/shared/common/UnprocessableEntity
+      "429":
+        $ref: oa://response/shared/common/TooManyRequests

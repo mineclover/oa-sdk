@@ -82,7 +82,7 @@ import { generateFromDrizzle } from '@oa-sdk/codegen/drizzle'
 
 await generateFromDrizzle({
   schemaPath: './src/db/schema.ts',
-  output: './packages/schemas/src/domains/users/',
+  output: './packages/schemas/src/fragments/schema/public/users/',
   schemas: ['select', 'insert', 'update'],  // 기본값: 전체
 })
 
@@ -90,7 +90,7 @@ await generateFromDrizzle({
 await generateFromDrizzle({
   schemaPath: './src/db/schema.ts',
   mergeIntoSpec: true,
-  specPath: './packages/schemas/src/domains/users/spec.yaml',
+  specPath: './packages/schemas/src/fragments/schema/public/users/User.yaml',
 })
 ```
 

@@ -2,7 +2,7 @@
 
 GitLab-native coding-agent orchestrator. Polls labelled GitLab issues, spins up an isolated workspace per issue, runs a pluggable coding agent, and reports back via a GitLab note.
 
-> **Status — Phase A (MVP).** End-to-end loop, EchoAgent + CodexAgent. State reconciliation, retries, multi-turn continuation, and `WORKFLOW.md` compatibility are deferred to Phase B/C.
+> **Status — GitLab-native orchestration + context foundation.** The package now includes the issue-driven agent loop, Codex/Claude subprocess adapters, retries, reconciliation, multi-turn continuation, `WORKFLOW.md` loading/hot reload, HTTP/OTel observability, and a GitLab project context search/read API.
 >
 > Design rationale: see [`docs/prd-phase-a.md`](./docs/prd-phase-a.md).
 
@@ -86,6 +86,8 @@ http:
   port: 7081           # required to enable
   host: 127.0.0.1      # default
   auth_token: $ORCH_HTTP_TOKEN   # optional bearer; /healthz stays public
+documents:
+  default_branch: main # fallback for repository document saves
 ```
 
 Routes:
@@ -95,8 +97,18 @@ Routes:
 | `GET /healthz` | `200 {"ok":true,"shuttingDown":false}` while alive, `503 {"ok":false,"shuttingDown":true}` after shutdown begins. Always unauthenticated. |
 | `GET /state` | `200 RuntimeSnapshot` — uptime, metrics (dispatched/succeeded/failed/cancelled/tokens), `inFlight: InFlightSnapshot[]`, `reloadCount`, `lastReloadError`. |
 | `GET /issues/:iid` | `200 InFlightSnapshot` for that IID's in-flight worker, `404` otherwise. |
+| `GET /issues/:iid/tasks?remaining=true` | `200` issue task report for a specific GitLab issue. With `remaining=true`, returns the unchecked applicable task list derived from the issue description. |
+| `POST /issues/:iid/tasks` | Adds a `- [ ]` task to the issue description. Body: `{ "text": "..." }`. |
+| `PATCH /issues/:iid/tasks/:line` | Updates a task list item by source line. Body can include `text`, `checked`, or `inapplicable`. |
+| `DELETE /issues/:iid/tasks/:line` | Removes a task list item by source line. |
+| `GET /context/search?kinds=issue,merge_request&text=release&limit=8` | `200 GitlabContextSearchResponse` when `contextSearch` is configured. The UI uses this for GLFM `#iid` / `!iid` insertion. |
+| `POST /documents/save` | Dry-runs or executes GitLab Wiki, repository file, and release note writes through the configured GitLab project client. Defaults to dry-run unless body has `{ "dryRun": false }`. |
 
-`auth_token` (when set) gates `/state` and `/issues/:iid` via `Authorization: Bearer <token>`. Use Pulumi secrets / `$VAR` substitution to avoid committing the token.
+`auth_token` (when set) gates `/state`, `/issues/:iid`, `/context/search`, and mutation endpoints via `Authorization: Bearer <token>`. Use Pulumi secrets / `$VAR` substitution to avoid committing the token.
+
+Detailed endpoint contracts are maintained in [`docs/http-api.md`](./docs/http-api.md).
+
+`documents.default_branch` controls the fallback branch for repository document writes when a request omits `branch`; it defaults to `main`.
 
 The front-matter schema is a strict subset of Symphony's (SPEC §5.3) plus GitLab-specific keys (`tracker.base_url`, `tracker.project_id`, `tracker.labels`, `tracker.continue_label`, `tracker.reconciliation_interval_ms`). The Liquid template renders in **strict mode** — unknown variable or filter raises immediately. Symphony's `{{ issue.identifier }}` and `{% if attempt %}…{% endif %}` work unchanged via aliases (`issue.identifier === "#${iid}"`, `attempt === null` on the first try within a turn).
 
@@ -137,6 +149,25 @@ GITLAB_TOKEN=glpat-xxxx orchestrator-gitlab run --config ./orchestrator.config.j
 # or single-issue dry-run, no comment loop:
 GITLAB_TOKEN=glpat-xxxx orchestrator-gitlab dry-run --config ./orchestrator.config.js --issue 42
 ```
+
+### Dry-run semantics
+
+`dry-run` is a one-shot execution path for local verification.
+
+For the selected issue, the command:
+
+- loads config/workflow once,
+- selects one eligible issue (or the `--issue <iid>` target),
+- builds the prompt,
+- runs the configured agent once with `turnNumber=1` and `attempt=1`,
+- prints the result JSON to stdout.
+
+It intentionally performs **no tracker writes**:
+
+- no `transitionLabels(...)` calls (so no `agent-running` / `agent-done` / `agent-failed` label changes),
+- no `postNote(...)` call.
+
+It also does not enter the continuous polling loop (`run`), watch mode, or continuation turns.
 
 ## Agents
 

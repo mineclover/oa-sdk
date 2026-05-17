@@ -421,56 +421,31 @@ CLI build는 fragment `content` 기준 SHA-256 hash를 생성해 registry에 넘
 
 Builder WorkspaceIndex metadata는 SQLite schema를 늘리지 않고 기존 row를 재사용한다. Target config 파일과 fragment 파일은 `files`에 content hash/mtime/realpath로 저장하고, fragment id는 `components.section = definition-fragment`, target bundle은 `components.section = definition-target`으로 기록한다. Fragment source `$ref`는 fragment file → target fragment file `refs` edge가 되고, target config는 direct path root fragment와 explicit retained `includeDefinitions` fragment로 향하는 `refs` edge를 기록한다. 기존 `refs.to_file` 역방향 dirty propagation이 schema fragment 변경을 참조 fragment와 target config까지 전파하므로 target bundle은 직접 또는 transitively 포함한 fragment가 바뀔 때 dirty가 된다. Target config 파일 자체가 바뀌면 reverse dependency가 없으므로 해당 target만 dirty가 되며, no-op/SQLite fallback은 ADR-006 원칙대로 scanned target을 full rebuild 대상으로 취급한다.
 
-#### Migration from domain merge (US-014)
+#### Definition Builder as Canonical Schema Pipeline
 
-현재 schema pipeline은 definition builder가 기존 artifact와 동등함을 입증할 때까지 유지한다. Builder output은 병렬 artifact로만 생성하고, `packages/schemas/scripts/merge.ts`와 `pnpm --filter @oa-sdk/schemas run merge`는 rollback 가능한 source-of-truth path로 남긴다.
-Current merge input inventory for the backfill is tracked in [`domain-merge-inventory.md`](./domain-merge-inventory.md).
+Schema composition is now owned by Definition Builder. `packages/schemas/src/.merged.yaml` is generated directly from `packages/schemas/src/targets/local-parity-api.yaml` and `packages/schemas/src/fragments/`. The legacy whole-domain merge script has been removed; `src/domains/**/spec.yaml` files are archived historical/migration reference material, not an active build source.
 
-Builder parity status as of 2026-04-17: local/staging/production parity target configs and common/health/users fragments exist, the local builder artifact is generated under `packages/schemas/src/.builder/`, and `pnpm schema:parity:compat` is the required downstream compatibility gate. Production validation, bundle, preview, and generated `.merged.yaml` ownership still run through `merge.ts`; replacement is not approved by this phase.
+Current builder status: local/staging/production target configs cover `common`, `auth`, `health`, `me`, and `users`; the local target emits 22 paths and 41 components from 76 fragments with 63 selected nodes and zero diagnostics. `pnpm schema:validate` is the canonical gate: it builds parser/codegen, emits `.merged.yaml` through `oa-gen build-spec`, downgrades to 3.1, runs Spectral/Redocly, and then runs strict `oa-gen validate --require-32`.
 
-| 단계 | 현재 domain merge path | 새 definition builder path |
-|------|------------------------|----------------------------|
-| Source layout | `packages/schemas/src/openapi.yaml`, `src/profiles/{local,staging,production}.yaml`, `src/domains/{common,health,users}/spec.yaml` | `packages/schemas/src/fragments/**/{Name}.yaml` plus `packages/schemas/src/targets/{target}.yaml` |
-| Composition command | `pnpm --filter @oa-sdk/schemas run merge` runs `packages/schemas/scripts/merge.ts` | `oa-gen build-spec --target packages/schemas/src/targets/{target}.yaml --output {parallel-artifact}.yaml --diagnostics {target}.diagnostics.json --collision-report {target}.collisions.json --composition-report {target}.composition.json --provenance {target}.provenance.json --metadata-registry {target}.metadata.json` |
-| Merge boundary | Domain `spec.yaml` files are merged whole-file: `common` first, remaining domains alphabetically | Target config selects exact path fragments, then registry refs recursively include schema/parameter/response/requestBody/security fragments |
-| Servers | `merge.ts` injects one profile file into root `servers` | Target config owns emitted `servers`; current profiles migrate to profile-specific target configs or target variants |
-| Refs | Domain specs use OpenAPI-local refs such as `#/components/schemas/Error` | Source fragments use canonical refs such as `oa://schema/shared/common/Error`; emit rewrites them back to local OpenAPI refs |
-| Collision behavior | Duplicate paths and duplicate component keys fail unless component override env vars explicitly allow them | Duplicate canonical ids, unresolved refs, target leaks, output-name collisions, unrewritten refs, and validation errors fail the build; target-local alias/collision reports explain renames |
-| Artifact ownership | `src/.merged.yaml` is the checked validation input; `src/.merged.3.1.yaml` and `src/.merged.3.1.meta.json` are generated from it | Builder artifacts are generated beside, not over, `.merged.yaml` until parity is approved |
+| 단계 | Definition Builder path |
+|------|-------------------------|
+| Source layout | `packages/schemas/src/fragments/**/{Name}.yaml` plus `packages/schemas/src/targets/{target}.yaml` |
+| Composition command | `pnpm --filter @oa-sdk/schemas run build:merged` writes `src/.merged.yaml` through `oa-gen build-spec` |
+| Target variants | `build:merged`, `build:merged:staging`, and `build:merged:production` select the local/staging/production target configs |
+| Selection boundary | Target config selects exact path fragments, retained definitions, and transitive registry refs |
+| Servers/tags/info | Target config owns root metadata and emitted server list |
+| Refs | Source fragments use canonical refs such as `oa://schema/shared/common/Error`; emit rewrites them to local OpenAPI refs |
+| Collision behavior | Duplicate canonical ids, unresolved refs, target leaks, output-name collisions, unrewritten refs, and validation errors fail the build |
+| Artifact ownership | `src/.merged.yaml` is the canonical OpenAPI 3.2 validation input; `src/.merged.3.1.yaml` and `.meta.json` are generated from it |
 
-Current files migrate to fragments in this order:
+Builder replacement requirements now become ongoing governance requirements:
 
-| Current file/section | Fragment target |
-|----------------------|-----------------|
-| `src/openapi.yaml` root `info` and global `tags` | Target-level emitted metadata in profile-specific parity targets; future `tag` fragments may replace this once tag emit is wired |
-| `src/profiles/local.yaml`, `src/profiles/staging.yaml`, `src/profiles/production.yaml` | Target config `servers` in profile-specific parity targets: `local-parity-api`, `staging-parity-api`, and `production-parity-api` |
-| `src/domains/common/spec.yaml#/components/schemas/*` | `src/fragments/schema/shared/common/{SchemaName}.yaml` |
-| `src/domains/common/spec.yaml#/components/responses/*` | `src/fragments/response/shared/common/{ResponseName}.yaml` |
-| `src/domains/common/spec.yaml#/components/parameters/*` | `src/fragments/parameter/shared/common/{ParameterName}.yaml` |
-| `src/domains/common/spec.yaml#/components/securitySchemes/*` | `src/fragments/securityScheme/shared/common/{SchemeName}.yaml` |
-| `src/domains/health/spec.yaml#/paths/~1health` and `#/paths/~1health~1stream` | `src/fragments/path/public/health/HealthPath.yaml` and `src/fragments/path/public/health/HealthStreamPath.yaml` with `metadata.path` |
-| `src/domains/health/spec.yaml#/components/schemas/HealthStatus` | `src/fragments/schema/public/health/HealthStatus.yaml` unless the target is intentionally internal-only |
-| `src/domains/users/spec.yaml#/paths/~1users` and `#/paths/~1users~1{id}` | `src/fragments/path/public/users/UsersPath.yaml` and `src/fragments/path/public/users/UserByIdPath.yaml` with `metadata.path` |
-| `src/domains/users/spec.yaml#/components/schemas/{User,CreateUserRequest,UpdateUserRequest}` | `src/fragments/schema/public/users/{User,CreateUserRequest,UpdateUserRequest}.yaml` |
-| Domain-local `tags` sections | `tag` fragments or target metadata; they must preserve existing tag names/descriptions before replacement |
-| `src/.merged.yaml`, `src/.merged.3.1.yaml`, `src/.merged.3.1.meta.json` | Generated artifacts only; do not migrate them to source fragments |
-
-Compatibility requirements:
-
-- `.merged.yaml` remains the canonical OpenAPI 3.2 validation input until replacement. The builder parity artifact must preserve the same root `openapi`, `info`, `servers`, `tags`, `paths`, `components`, operation ids, security requirements, examples, and OAS 3.2 fields that downstream parser/codegen/mock/router/client flows consume.
-- Builder output must contain only local OpenAPI `$ref` values after emit. No `oa://...` refs, relative fragment refs, unresolved target diagnostics, or output-name collision diagnostics are allowed in the replacement candidate.
-- `.merged.3.1.yaml` must continue to be derived from the active 3.2 artifact through `packages/schemas/scripts/downgrade-3.1.ts` or an equivalent transform that preserves the same `.merged.3.1.meta.json` sidecar contract. During parity work the builder proves this under `.builder/local-parity-api.3.1.yaml` and `.builder/local-parity-api.3.1.meta.json`; after replacement, Redocly bundle/preview must still consume the generated `.merged.3.1.yaml` sidecar pair.
-- The replacement candidate must pass `pnpm typecheck`, `pnpm test`, `pnpm build`, `pnpm schema:validate`, `pnpm build:scripts && pnpm check:api-index`, and `pnpm check:feature-tests` with the same or intentionally reviewed Spectral hint profile.
-- A normalized diff between current `.merged.yaml` and the builder parity artifact must show only reviewed, documented differences. Component output renames are allowed only when target-local alias metadata maps every renamed output back to its canonical id and downstream codegen diffs are accepted.
-- `pnpm schema:parity:compat` is the local compatibility gate for the builder artifact. It rebuilds current and builder artifacts, requires zero normalized OpenAPI drift, runs `oa-gen validate`, applies the same Spectral ruleset, downgrades the builder artifact to OpenAPI 3.1 with sidecar output, runs Redocly against that 3.1 artifact, compares typegen declaration content with current output, and runs router/client/mock-server consumers against the builder artifact. Details and accepted generated-output ordering differences are tracked in [definition-builder-compatibility-gates.md](./definition-builder-compatibility-gates.md).
-
-Rollback and replacement rule:
-
-- Rollback is the current default: keep `packages/schemas/scripts/merge.ts`, keep current domain sources under `packages/schemas/src/domains/{common,health,users}/spec.yaml`, keep schema package scripts pointed at `pnpm merge && pnpm downgrade:3.1`, and generate builder artifacts under a parallel path such as `packages/schemas/src/.builder/{target}.yaml` or an ignored CI artifact directory.
-- Local parity workflow: run `pnpm schema:parity:build` to build `packages/schemas/src/.builder/local-parity-api.yaml` plus `local-parity-api.diagnostics.json` and `local-parity-api.collisions.json`, then run `pnpm schema:parity:diff` to compare current `packages/schemas/src/.merged.yaml` with the builder artifact. Run `pnpm schema:parity:compat` for the full validation/downstream compatibility gate. The diff normalizes object, path/component map, server, parameter, required, tag, and security ordering before reporting root/path/component/security/server drift.
-- If builder validation, normalized diff, codegen output diff, or 3.1 downgrade compatibility fails, delete the parallel builder artifact or ignore its CI job output; no source-of-truth artifact changes are needed because `.merged.yaml` is still produced by `merge.ts`.
-- Builder output can replace `.merged.yaml` only after all current domain source sections listed above have fragment equivalents, a parity target covers the same profile/path/component surface as the current local merge, builder diagnostics have zero errors, `.merged.yaml` and `.merged.3.1.yaml` compatibility gates pass, and maintainers approve the normalized diff plus downstream generated type/API diff.
-- The replacement change should be a separate implementation story that changes schema package scripts atomically. `merge.ts` remains available for at least one release cycle after replacement so rollback can restore the old command path without reconstructing the script.
+- `.merged.yaml` must be generated only by `oa-gen build-spec` from target config + fragments.
+- Build diagnostics and collision reports under `src/.builder/` must stay zero-error for the active local target.
+- Output must contain only local OpenAPI `` values; no `oa://` refs may survive emission.
+- `.merged.3.1.yaml` must continue to be derived from the active 3.2 artifact through `downgrade-3.1.ts` with the same sidecar contract.
+- `pnpm schema:validate`, `pnpm --filter @oa-sdk/schemas test`, and downstream codegen/router/client/mock-server tests are the regression surface for future changes.
+- Rollback now means reverting this replacement change in git; no in-repo legacy merge command remains.
 
 | 개념 | 계획 |
 |------|------|
@@ -487,7 +462,7 @@ Rollback and replacement rule:
 | OpenAPI emit | `emitDefinitionOpenApiDocument()`가 selected target을 OAS 3.2 document로 materialize하고 rewritten local `$ref`만 허용. Alias metadata는 root extension 또는 result sidecar report로 제공 |
 | Definition builder CLI | `oa-gen build-spec --target ... --output ... --diagnostics ... --collision-report ... --composition-report ... --provenance ... --metadata-registry ...`가 target OpenAPI artifact와 machine-readable sidecar를 생성. Duplicate canonical id 또는 unresolved source ref는 non-zero exit |
 | Builder WorkspaceIndex metadata | fragment file/hash/id/ref metadata와 target config → direct path root edge를 기존 `WorkspaceIndex` row로 저장. 변경 감지는 full rebuild correctness를 유지하면서 affected target 계산에만 사용 |
-| Migration | 기존 `packages/schemas/scripts/merge.ts`는 유지하고, builder는 병렬 output으로 검증한 뒤 `.merged.yaml` 대체 여부 결정 |
+| Migration | `packages/schemas/scripts/merge.ts`는 제거됨. `packages/schemas/src/.merged.yaml`은 target config + fragments에서 `oa-gen build-spec`로 생성 |
 
 패키지 책임: `@oa-sdk/schemas`는 fragment layout/target config/fixtures/migration을 소유하고, `@oa-sdk/parser`는 validation/source/ref graph primitive를 제공하며, `@oa-sdk/codegen`은 `oa-gen build-spec` CLI와 WorkspaceIndex 연동을 소유한다.
 
@@ -499,8 +474,8 @@ PRD: [tasks/prd-openapi-definition-builder.md](../../tasks/prd-openapi-definitio
 
 ### 스펙 관리
 ```bash
-pnpm --filter @oa-sdk/schemas run merge            # 도메인 병합
-pnpm schema:validate                               # merge + 3.1 변환 + Spectral/Redocly + oa-gen validate
+pnpm --filter @oa-sdk/schemas run build:merged     # Definition Builder artifact 생성
+pnpm schema:validate                               # build-spec + 3.1 변환 + Spectral/Redocly + oa-gen validate
 oa-gen build-spec --target packages/schemas/src/targets/book-notebook-api.yaml -o artifacts/book-notebook-api.yaml --diagnostics artifacts/book-notebook-api.diagnostics.json --collision-report artifacts/book-notebook-api.collisions.json --composition-report artifacts/book-notebook-api.composition.json --provenance artifacts/book-notebook-api.provenance.json --metadata-registry artifacts/book-notebook-api.metadata.json
 oa-gen validate --spec .merged.yaml                # 종합 검증
 oa-gen validate --spec .merged.yaml --incremental --cache-dir .oa-cache

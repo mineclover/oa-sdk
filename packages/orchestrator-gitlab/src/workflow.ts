@@ -7,6 +7,10 @@ import type { OrchestratorConfig } from "./config.js";
 import { ClaudeAgent } from "./agents/claude.js";
 import { CodexAgent } from "./agents/codex.js";
 import { EchoAgent } from "./agents/echo.js";
+import { GitlabContextSearchService } from "./context-search.js";
+import { GitlabDocumentSaveService } from "./document-save.js";
+import { GitlabProjectClient, type GitlabProjectClientOptions } from "./gitlab-client.js";
+import { GitlabIssueTaskService } from "./issue-tasks.js";
 import { LiquidPromptBuilder, DEFAULT_PROMPT_TEMPLATE } from "./prompt-liquid.js";
 import { GitlabTracker } from "./tracker.js";
 import type { Agent, LabelConfig, Workspace } from "./types.js";
@@ -127,7 +131,20 @@ export function buildConfigFromWorkflow(
   promptTemplate: string,
   overrides: LoadWorkflowOverrides = {},
 ): OrchestratorConfig {
-  const tracker = buildTracker(getObject(raw, "tracker") ?? {});
+  const trackerCfg = getObject(raw, "tracker") ?? {};
+  const gitlabOptions = buildGitlabClientOptions(trackerCfg);
+  const tracker = new GitlabTracker(gitlabOptions);
+  const contextSearch = new GitlabContextSearchService({
+    client: new GitlabProjectClient(gitlabOptions),
+    coordinateProjectId: String(gitlabOptions.projectId),
+  });
+  const issueTasks = new GitlabIssueTaskService({
+    client: new GitlabProjectClient(gitlabOptions),
+  });
+  const documentSave = new GitlabDocumentSaveService({
+    client: new GitlabProjectClient(gitlabOptions),
+    defaultBranch: getString(getObject(raw, "documents") ?? {}, "default_branch") ?? "main",
+  });
   const labels = buildLabels(getObject(raw, "tracker") ?? {});
   const workspace = buildWorkspace(getObject(raw, "workspace") ?? {}, getObject(raw, "hooks") ?? {});
   const agent = overrides.agent ?? buildAgent(getObject(raw, "agent") ?? {});
@@ -137,7 +154,6 @@ export function buildConfigFromWorkflow(
 
   const polling = getObject(raw, "polling") ?? {};
   const agentCfg = getObject(raw, "agent") ?? {};
-  const trackerCfg = getObject(raw, "tracker") ?? {};
   const httpCfg = getObject(raw, "http") ?? {};
 
   const pollIntervalMs = getNumber(polling, "interval_ms");
@@ -157,6 +173,9 @@ export function buildConfigFromWorkflow(
     workspace,
     agent,
     prompt,
+    contextSearch,
+    documentSave,
+    issueTasks,
   };
   if (labels !== undefined) out.labels = labels;
   if (pollIntervalMs !== undefined) out.pollIntervalMs = pollIntervalMs;
@@ -178,7 +197,7 @@ export function buildConfigFromWorkflow(
  * Builders for individual sections
  * ---------------------------------------------------------------------*/
 
-function buildTracker(rawTracker: Record<string, unknown>): GitlabTracker {
+function buildGitlabClientOptions(rawTracker: Record<string, unknown>): GitlabProjectClientOptions {
   const kind = getString(rawTracker, "kind");
   if (kind !== "gitlab") {
     throw new WorkflowValidationError(
@@ -199,11 +218,11 @@ function buildTracker(rawTracker: Record<string, unknown>): GitlabTracker {
     getString(rawTracker, "project_id") ?? toStringOrUndefined(getNumber(rawTracker, "project_id")),
     "tracker.project_id",
   );
-  return new GitlabTracker({
+  return {
     baseUrl: baseUrl.replace(/\/$/, ""),
     token,
     projectId,
-  });
+  };
 }
 
 function buildLabels(rawTracker: Record<string, unknown>): Partial<LabelConfig> | undefined {

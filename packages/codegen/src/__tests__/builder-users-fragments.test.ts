@@ -85,7 +85,7 @@ const SHARED_COMMON_OUTPUT_ALIASES = {
 } as const
 
 describe('builder users fragments', () => {
-  it('matches current users domain paths and schemas with canonical refs', () => {
+  it('matches archived users domain paths and schemas with canonical refs', () => {
     const usersSpec = readYaml(join(schemasDir, 'domains/users/spec.yaml'))
 
     for (const fragmentFixture of USERS_FRAGMENTS) {
@@ -112,7 +112,7 @@ describe('builder users fragments', () => {
     }
   })
 
-  it('emits users paths and selected components equivalent to the current merge sources', () => {
+  it('emits users paths and selected components equivalent to builder fragments', () => {
     const usersSpec = readYaml(join(schemasDir, 'domains/users/spec.yaml'))
     const commonSpec = readYaml(join(schemasDir, 'domains/common/spec.yaml'))
     const registry = createDefinitionRegistry([

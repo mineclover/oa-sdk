@@ -1,5 +1,7 @@
 # PRD: Shared OpenAPI Projection Validation
 
+Status: partially implemented. OA SDK-side contract work is complete for US-002 through US-007: `@oa-sdk/openapi-projection-contract`, projection profiles, metadata extensions, `validateOpenApiProjection()`, and Definition Builder projection validation are implemented. US-001 vocabulary reconciliation and US-008 through US-013 cross-repo bun-graph-db/MCP wiring remain outside the current oa-sdk workspace and are intentionally left open.
+
 ## Overview
 
 OA SDK and bun-graph-db currently expose different schema projection surfaces. OA SDK builds OpenAPI 3.2 documents from file-based definition fragments, while bun-graph-db projects runtime table metadata into `$defs` JSON Schema artifacts and MCP input schemas. This prevents validation tooling from being source-agnostic.
@@ -54,80 +56,80 @@ For final verification story, also run:
 **Description:** As a schema platform maintainer, I want a shared contract package so that both systems can import the same projection result types without importing each other's source-specific code.
 
 **Acceptance Criteria:**
-- [ ] Add workspace package `packages/openapi-projection-contract`.
-- [ ] Package name is `@oa-sdk/openapi-projection-contract`.
-- [ ] Package exports `OpenApiProjectionResult`.
-- [ ] Package exports `OpenApiProjectionProfile`.
-- [ ] Package exports `SchemaRefEdge`, `SchemaDiagnostic`, `SchemaSourceCoordinate`, `SchemaValidateResult`, and `SchemaTypeTarget`.
-- [ ] Package has no dependency on OA SDK parser internals, codegen CLI internals, bun-graph-db repositories, MCP, GraphQL, REST, SQLite, or filesystem loading.
-- [ ] Package build script emits ESM and type declarations.
-- [ ] Contract package import smoke test passes from inside OA SDK workspace.
-- [ ] OA SDK API index is updated if public package exports are tracked there.
+- [x] Add workspace package `packages/openapi-projection-contract`.
+- [x] Package name is `@oa-sdk/openapi-projection-contract`.
+- [x] Package exports `OpenApiProjectionResult`.
+- [x] Package exports `OpenApiProjectionProfile`.
+- [x] Package exports `SchemaRefEdge`, `SchemaDiagnostic`, `SchemaSourceCoordinate`, `SchemaValidateResult`, and `SchemaTypeTarget`.
+- [x] Package has no dependency on OA SDK parser internals, codegen CLI internals, bun-graph-db repositories, MCP, GraphQL, REST, SQLite, or filesystem loading.
+- [x] Package build script emits ESM and type declarations.
+- [x] Contract package import smoke test passes from inside OA SDK workspace.
+- [x] OA SDK API index is updated if public package exports are tracked there.
 
 ### US-003: Define Projection Profiles and Semantics
 **Description:** As a validation tool author, I want projection profile semantics defined in code and docs so that validation can be profile-aware.
 
 **Acceptance Criteria:**
-- [ ] `OpenApiProjectionProfile` supports `component-bundle`, `operation-contract`, and `full-api-document`.
-- [ ] `component-bundle` permits empty `paths` and requires `components.schemas`.
-- [ ] `operation-contract` requires at least one operation under `paths`.
-- [ ] `full-api-document` requires normal OpenAPI document validation.
-- [ ] Contract docs explain which profile OA SDK and bun-graph-db should emit first.
-- [ ] Contract tests cover valid profile values and invalid profile values.
-- [ ] Profile semantics are not tied to one source model.
+- [x] `OpenApiProjectionProfile` supports `component-bundle`, `operation-contract`, and `full-api-document`.
+- [x] `component-bundle` permits empty `paths` and requires `components.schemas`.
+- [x] `operation-contract` requires at least one operation under `paths`.
+- [x] `full-api-document` requires normal OpenAPI document validation.
+- [x] Contract docs explain which profile OA SDK and bun-graph-db should emit first.
+- [x] Contract tests cover valid profile values and invalid profile values.
+- [x] Profile semantics are not tied to one source model.
 
 ### US-004: Implement validateOpenApiProjection
 **Description:** As a validation user, I want a shared `validateOpenApiProjection()` entrypoint so that both systems can validate projection envelopes consistently.
 
 **Acceptance Criteria:**
-- [ ] Contract package exports `validateOpenApiProjection(result)`.
-- [ ] Validation checks OpenAPI document structural validity through a dependency-light path or a clearly documented injected validator.
-- [ ] Validation checks profile-specific requirements.
-- [ ] Validation checks refs entries have required `from`, `ref`, `kind`, and `source`.
-- [ ] Validation checks diagnostics entries have valid severity, code, and message.
-- [ ] Validation checks sources entries use supported file or DB coordinate variants.
-- [ ] Validation treats any diagnostic with `severity: error` as projection-invalid.
-- [ ] Validation returns structured diagnostics and does not throw for ordinary invalid projection data.
-- [ ] Validation does not read files, query repositories, open SQLite, construct MCP servers, or execute GraphQL.
+- [x] Contract package exports `validateOpenApiProjection(result)`.
+- [x] Validation checks OpenAPI document structural validity through a dependency-light path or a clearly documented injected validator.
+- [x] Validation checks profile-specific requirements.
+- [x] Validation checks refs entries have required `from`, `ref`, `kind`, and `source`.
+- [x] Validation checks diagnostics entries have valid severity, code, and message.
+- [x] Validation checks sources entries use supported file or DB coordinate variants.
+- [x] Validation treats any diagnostic with `severity: error` as projection-invalid.
+- [x] Validation returns structured diagnostics and does not throw for ordinary invalid projection data.
+- [x] Validation does not read files, query repositories, open SQLite, construct MCP servers, or execute GraphQL.
 
 ### US-005: Define Projection Metadata Extensions
 **Description:** As a debugging user, I want standard OpenAPI extensions for projection metadata so that source and ref provenance can survive serialization.
 
 **Acceptance Criteria:**
-- [ ] Define extension names `x-schema-engine-profile`, `x-schema-engine-version-hash`, `x-schema-engine-sources`, and `x-schema-engine-refs`.
-- [ ] Contract package exports constants for these extension names.
-- [ ] Contract package documents which metadata belongs in standard OpenAPI fields versus `x-*` extensions.
-- [ ] Extension serialization preserves file source coordinates.
-- [ ] Extension serialization preserves DB source coordinates.
-- [ ] Extension serialization preserves ref graph metadata.
-- [ ] Extension fields do not invalidate OpenAPI document validation.
+- [x] Define extension names `x-schema-engine-profile`, `x-schema-engine-version-hash`, `x-schema-engine-sources`, and `x-schema-engine-refs`.
+- [x] Contract package exports constants for these extension names.
+- [x] Contract package documents which metadata belongs in standard OpenAPI fields versus `x-*` extensions.
+- [x] Extension serialization preserves file source coordinates.
+- [x] Extension serialization preserves DB source coordinates.
+- [x] Extension serialization preserves ref graph metadata.
+- [x] Extension fields do not invalidate OpenAPI document validation.
 
 ### US-006: Add OA SDK Definition Builder Projection Adapter
 **Description:** As an OA SDK maintainer, I want Definition Builder output adapted to `OpenApiProjectionResult` so that OA SDK target builds can use the shared validation contract.
 
 **Acceptance Criteria:**
-- [ ] Add adapter from Definition Builder registry/selection/emit result to `OpenApiProjectionResult`.
-- [ ] Adapter sets profile to `full-api-document`.
-- [ ] Adapter maps emitted OpenAPI document to `document`.
-- [ ] Adapter maps registry ref edges to `SchemaRefEdge`.
-- [ ] Adapter includes registry, target, output naming, emit, and validation diagnostics.
-- [ ] Adapter maps file source paths, JSON Pointers, and line/column where available into file source coordinates.
-- [ ] Adapter computes or forwards a stable `versionHash`.
-- [ ] Adapter preserves alias/collision metadata through `metadata` or documented extension fields.
-- [ ] Tests cover successful document projection.
-- [ ] Tests cover registry diagnostics surviving adapter mapping.
+- [x] Add adapter from Definition Builder registry/selection/emit result to `OpenApiProjectionResult`.
+- [x] Adapter sets profile to `full-api-document`.
+- [x] Adapter maps emitted OpenAPI document to `document`.
+- [x] Adapter maps registry ref edges to `SchemaRefEdge`.
+- [x] Adapter includes registry, target, output naming, emit, and validation diagnostics.
+- [x] Adapter maps file source paths, JSON Pointers, and line/column where available into file source coordinates.
+- [x] Adapter computes or forwards a stable `versionHash`.
+- [x] Adapter preserves alias/collision metadata through `metadata` or documented extension fields.
+- [x] Tests cover successful document projection.
+- [x] Tests cover registry diagnostics surviving adapter mapping.
 
 ### US-007: Validate OA SDK Builder Projections
 **Description:** As an OA SDK user, I want generated target documents to pass the shared projection validator so that builder outputs conform to the common validation interface.
 
 **Acceptance Criteria:**
-- [ ] Existing definition builder targets can be adapted to `OpenApiProjectionResult`.
-- [ ] `validateOpenApiProjection()` passes for public, admin, internal, and book-notebook targets.
-- [ ] Tests assert emitted target documents contain no `oa://` refs.
-- [ ] Tests assert path parameters and operationIds are valid in emitted target documents.
-- [ ] Tests assert collision reports remain available.
-- [ ] Tests assert `full-api-document` profile rejects invalid emitted documents.
-- [ ] Focused test or CLI path verifies `oa-gen build-spec` output can be validated through the shared entrypoint.
+- [x] Existing definition builder targets can be adapted to `OpenApiProjectionResult`.
+- [x] `validateOpenApiProjection()` passes for public, admin, internal, and book-notebook targets.
+- [x] Tests assert emitted target documents contain no `oa://` refs.
+- [x] Tests assert path parameters and operationIds are valid in emitted target documents.
+- [x] Tests assert collision reports remain available.
+- [x] Tests assert `full-api-document` profile rejects invalid emitted documents.
+- [x] Focused test or CLI path verifies `oa-gen build-spec` output can be validated through the shared entrypoint.
 
 ### US-008: Wire bun-graph-db to the Contract Package
 **Description:** As a bun-graph-db maintainer, I want to consume the shared projection contract without importing OA SDK implementation internals so that bun adapters compile against the same types.

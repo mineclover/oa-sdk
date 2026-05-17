@@ -237,6 +237,104 @@ describe("GitlabContextSearchService", () => {
     ]));
   });
 
+  it("propagates cursor input as page parameter and returns next page cursor", async () => {
+    const fetchImpl = vi.fn(async (url: string | URL) => {
+      const parsed = new URL(String(url));
+      const path = parsed.pathname;
+      if (path.endsWith("/issues")) {
+        return jsonPageResponse([
+          {
+            iid: 1,
+            title: "Paged issue",
+            description: "body",
+            state: "opened",
+            labels: [],
+            web_url: "http://gitlab/issues/1",
+            updated_at: "2026-05-10T00:00:00.000Z",
+          },
+        ], "4");
+      }
+      if (path.endsWith("/repository/tree")) {
+        return jsonResponse([
+          { path: "docs/api.md", type: "blob" },
+        ]);
+      }
+      return jsonResponse([]);
+    });
+    const client = new GitlabProjectClient({
+      baseUrl: "http://localhost:8929",
+      token: "tok",
+      projectId: 1,
+      fetchImpl,
+    });
+    const service = new GitlabContextSearchService({ client, coordinateProjectId: "1" });
+
+    const response = await service.searchDetailed({
+      cursor: "page=3",
+      kinds: ["issue", "repo_file"],
+      limit: 20,
+    });
+
+    const issueRequest = fetchImpl.mock.calls.find(([requestUrl]) =>
+      new URL(String(requestUrl)).pathname.endsWith("/issues"),
+    );
+    const repoFileRequest = fetchImpl.mock.calls.find(([requestUrl]) =>
+      new URL(String(requestUrl)).pathname.endsWith("/repository/tree"),
+    );
+    if (issueRequest === undefined || repoFileRequest === undefined) {
+      throw new Error("expected issue and repo file requests");
+    }
+    expect(new URL(String(issueRequest[0])).searchParams.get("page")).toBe("3");
+    expect(new URL(String(repoFileRequest[0])).searchParams.get("page")).toBe("3");
+    expect(response.cursor).toBe("page=4");
+    expect(response.results.map((r) => r.kind)).toEqual(["issue", "repo_file"]);
+  });
+
+  it("search() keeps legacy behavior by dropping detailed warnings", async () => {
+    const fetchImpl = vi.fn(async (url: string | URL) => {
+      const parsed = new URL(String(url));
+      const path = parsed.pathname;
+      if (path.endsWith("/issues")) {
+        return jsonResponse([
+          {
+            iid: 1,
+            title: "API issue",
+            description: "issue body",
+            state: "opened",
+            labels: [],
+            web_url: "http://gitlab/issues/1",
+            updated_at: "2026-05-10T00:00:00.000Z",
+          },
+        ]);
+      }
+      if (path.endsWith("/pipelines")) {
+        return jsonPageResponse({ message: "boom" }, "", 500);
+      }
+      return jsonResponse([]);
+    });
+    const client = new GitlabProjectClient({
+      baseUrl: "http://localhost:8929",
+      token: "tok",
+      projectId: 1,
+      fetchImpl,
+    });
+    const service = new GitlabContextSearchService({ client, coordinateProjectId: "1" });
+
+    const detailed = await service.searchDetailed({
+      kinds: ["issue", "pipeline", "discussion"],
+      limit: 20,
+    });
+    const legacy = await service.search({ kinds: ["issue", "pipeline", "discussion"], limit: 20 });
+
+    expect(detailed.results).toEqual(legacy);
+    expect(detailed.warnings).toEqual(expect.arrayContaining([
+      expect.objectContaining({ kind: "discussion", code: "unsupported_kind" }),
+      expect.objectContaining({ kind: "pipeline", code: "request_failed", status: 500 }),
+    ]));
+    expect("warnings" in legacy).toBe(false);
+    expect("cursor" in legacy).toBe(false);
+  });
+
   it("searches labels, milestones, boards, and pipelines as first-class context kinds", async () => {
     const fetchImpl = vi.fn(async (url: string | URL) => {
       const path = new URL(String(url)).pathname;

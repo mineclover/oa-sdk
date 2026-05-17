@@ -1,0 +1,20 @@
+id: schema:public/health/DependencyStatus
+content:
+  type: object
+  required:
+    - name
+    - status
+  properties:
+    name:
+      type: string
+    status:
+      type: string
+      enum:
+        - ok
+        - degraded
+        - down
+    latencyMs:
+      type: integer
+      minimum: 0
+    message:
+      type: string

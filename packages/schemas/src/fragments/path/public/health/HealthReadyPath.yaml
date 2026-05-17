@@ -1,0 +1,36 @@
+id: path:public/health/HealthReadyPath
+metadata:
+  path: /health/ready
+content:
+  get:
+    operationId: getReadiness
+    summary: 서버 준비 상태 확인 (readiness)
+    description: |
+      Kubernetes readiness probe / 배포 게이트용. 의존 시스템(DB, queue 등)
+      검증 결과를 포함. `getHealth`(liveness)와 별개 — liveness는 프로세스
+      살아있음만, readiness는 트래픽을 받을 준비가 됐는지 확인.
+    tags:
+      - health
+    security: []
+    responses:
+      "200":
+        description: 트래픽 수용 가능
+        content:
+          application/json:
+            schema:
+              $ref: oa://schema/public/health/ReadinessReport
+            examples:
+              default:
+                dataValue:
+                  status: ready
+                  timestamp: 2026-05-04T00:00:00.000Z
+                  dependencies:
+                    - name: postgres
+                      status: ok
+                      latencyMs: 3
+                    - name: redis
+                      status: ok
+                      latencyMs: 1
+                serializedValue: '{"status":"ready","timestamp":"2026-05-04T00:00:00.000Z","dependencies":[{"name":"postgres","status":"ok","latencyMs":3},{"name":"redis","status":"ok","latencyMs":1}]}'
+      "503":
+        $ref: oa://response/shared/common/ServiceUnavailable

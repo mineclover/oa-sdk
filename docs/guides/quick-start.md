@@ -9,10 +9,10 @@ git clone <repo> && cd oa-sdk
 pnpm install
 ```
 
-## 2. 스키마 병합 + 검증
+## 2. 스키마 빌드 + 검증
 
 ```bash
-pnpm --filter @oa-sdk/schemas run merge
+pnpm --filter @oa-sdk/schemas run build:merged
 oa-gen validate --spec packages/schemas/src/.merged.yaml
 ```
 

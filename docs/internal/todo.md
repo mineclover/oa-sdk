@@ -3,26 +3,31 @@
 > 완료된 구현은 [spec.md](./spec.md), API 상세는 [api-index.md](./api-index.md)를 참조.
 > 정렬 기준: definition builder → ref correctness → 증분 workspace index → 코드 생성 정책 → 진단 UX → 공개 API → 런타임 활용 → 남은 OAS 스펙 순.
 > 증분 설계: [ADR-006 — SQLite 기반 증분 Workspace Index](./architecture/006-incremental-workspace-index.md)
-> 다음 PRD: [Definition Builder Domain Backfill](../../tasks/prd-definition-builder-domain-backfill.md)
+> 다음 PRD: 기본 기능 안정화 기준으로는 없음. 외부 연동 backlog는 [MCP OpenAPI Projection Tools](../../tasks/prd-mcp-openapi-projection-tools.md)를 참조.
 
 ---
 
 ## 다음 세션 실행 순서
 
-Definition Builder PRD(US-001~014)와 Domain Backfill PRD(US-001~009)가 모두 완료되었다. Builder parity artifact는 zero-error diagnostics와 zero normalized OpenAPI drift를 달성했으며, `.merged.yaml` 대체는 아직 범위 밖이다. 다음 우선 작업은 없음 — 잔여 보완 작업 및 운영 관찰 항목 참조.
+Definition Builder PRD(US-001~014), Domain Backfill PRD(US-001~009), Aggregation Governance PRD, OA SDK-side Projection Contract work가 완료되었다. Definition Builder가 `.merged.yaml`의 canonical 생성 경로가 되었고 legacy `merge.ts`는 제거되었다.
+
+현재 진짜 잔여 backlog:
+- cross-repo bun-graph-db/MCP projection export 연동 ([MCP OpenAPI Projection Tools](../../tasks/prd-mcp-openapi-projection-tools.md))
+
+OA SDK 기본 기능 안정화 관점의 다음 작업은 신규 기능 구현보다 문서/게이트 drift 감시와 cross-repo MCP projection 연동이다.
 
 ### [x] OpenAPI definition builder: current-domain fragment backfill
-배경: migration plan은 확정되었지만 `packages/schemas/src/fragments`는 아직 builder behavior fixture이며 current `src/domains/{common,health,users}/spec.yaml` 전체와 동등한 source가 아니다. 실행 상세는 [Definition Builder Domain Backfill PRD](../../tasks/prd-definition-builder-domain-backfill.md)를 따른다.
-완료: 모든 구현 순서 완료. `parity:build` 34 fragments, 21 selected nodes, 0 errors. `parity:diff` no path/component/security/server differences vs `.merged.yaml`.
+배경: migration plan이 완료되어 `packages/schemas/src/fragments`와 `packages/schemas/src/targets`가 active schema source가 되었다. 실행 상세는 [Definition Builder Domain Backfill PRD](../../tasks/prd-definition-builder-domain-backfill.md)를 따른다.
+완료: 모든 구현 순서 완료. 현재 builder target은 `common`, `auth`, `health`, `me`, `users` 도메인까지 확장되었고 `build:merged`는 76 fragments, 63 selected nodes, 0 errors/warnings/infos 상태다. `.merged.yaml`은 builder가 직접 생성한다.
 구현 순서:
 1. 완료: `src/profiles/{local,staging,production}.yaml`의 `servers`를 profile별 parity target config로 복제하고, local parity target config selection을 테스트한다.
 2. 완료: `src/domains/common/spec.yaml`의 schemas/responses/parameters/securitySchemes를 `shared/common` fragments로 분리하고 local refs를 `oa://...` canonical refs로 바꿨다.
 3. 완료: `src/domains/health/spec.yaml`의 `/health`, `/health/stream`, `HealthStatus`를 path/schema fragments로 옮기고 shared response refs를 canonical refs로 연결했다.
 4. 완료: `src/domains/users/spec.yaml`의 `/users`, `/users/{id}`, `User`, `CreateUserRequest`, `UpdateUserRequest`를 path/schema fragments로 옮겼다.
-5. 완료: `oa-gen build-spec`로 parallel artifact와 diagnostics/collision reports를 만들고, current `.merged.yaml`과 normalized diff를 생성한다.
-6. 완료: Builder artifact를 기존 `downgrade-3.1.ts`, Redocly, Spectral, `oa-gen validate`, typegen 비교, router/client generation, mock-server handler/adaptor 생성 gate에 통과시키는 `pnpm schema:parity:compat`를 추가한다.
-7. 완료: `merge.ts` active path, current domain spec rollback, `.merged.3.1.yaml` sidecar compatibility, and exact replacement gates를 문서화한다.
-완료 기준 충족: current `.merged.yaml` path를 유지하면서 builder parity artifact가 zero-error diagnostics, zero normalized OpenAPI drift를 달성함. `.builder/local-parity-api.3.1.yaml` compatibility, downstream compatibility report, rollback-safe script boundaries 모두 충족.
+5. 완료: `oa-gen build-spec`로 canonical artifact와 diagnostics/collision reports를 생성한다.
+6. 완료: Builder artifact를 기존 `downgrade-3.1.ts`, Redocly, Spectral, `oa-gen validate`, typegen 비교, router/client generation, mock-server handler/adaptor 생성 gate에 통과시켰다.
+7. 완료: builder active path, `.merged.3.1.yaml` sidecar compatibility, and replacement gates를 문서화한다.
+완료 기준 충족: builder가 `.merged.yaml`을 직접 생성하며 zero diagnostics 상태를 유지함. `.builder/local-parity-api.3.1.yaml` compatibility, downstream compatibility report, rollback-safe script boundaries 모두 충족.
 
 ## spec-lens 잔여 항목
 
@@ -41,9 +46,9 @@ REST vs bare-clone 결정: REST API 방식 유지. 이유는 (1) 4 케이스 모
 
 > 패키지: [`@oa-sdk/infra-gitlab`](../../packages/infra-gitlab/) — Pulumi preset for self-hosted GitLab CE + Runner.
 > 운영 절차/노하우: [packages/infra-gitlab/OPERATIONS.md](../../packages/infra-gitlab/OPERATIONS.md).
-> 큰 그림: 자율 코딩 에이전트(Symphony 계열)를 GitLab 위에서 돌리는 DevOps substrate. Phase 1(로컬 Docker)만 완료, Phase 2~4 미착수.
+> 큰 그림: 자율 코딩 에이전트(Symphony 계열)를 GitLab 위에서 돌리는 DevOps substrate. Phase 1(로컬 Docker), Phase 2(K3s), Phase 3(Cloud VM), Phase 4(오케스트레이터 연동 방향 결정/자체 구현) 모두 conservative v1까지 완료.
 
-### [ ] Phase 2 — K3s variant
+### [x] Phase 2 — K3s variant
 배경: Phase 1은 단일 호스트 Docker 한정. K3s에서 같은 스택을 띄우면 (1) ingress + TLS를 표준 패턴으로 풀 수 있고, (2) Symphony가 향후 멀티 인스턴스로 가도 받침대가 됨.
 
 설계 옵션:
@@ -61,9 +66,9 @@ REST vs bare-clone 결정: REST API 방식 유지. 이유는 (1) 4 케이스 모
 - 별도 Pulumi 스택(`k3s`)으로 같은 패키지에 둘지, 신규 패키지(`@oa-sdk/infra-gitlab-k3s`)로 분리할지? Pulumi 관행은 stack-per-environment지만, 현재 프리셋은 *플랫폼*이 다른 것이므로 패키지 분리가 더 명확.
 - Runner도 K8s executor로 갈지(`gitlab-runner` Helm chart, `kubernetes` executor) docker executor 그대로 둘지. K8s executor가 cluster-native이고 보안 격리가 더 깔끔.
 
-완료 기준: 동일한 외부 인터페이스(브라우저로 GitLab 사용 가능 + Runner CI 동작)를 K3s 위에서 재현. OPERATIONS.md에 (k3s 환경 가정 + manifest 절차 + ingress 설정) 챕터 추가. Phase 1과 호환되는 방식의 backup 가이드(PVC snapshot).
+완료 (2026-05-16): 같은 패키지 안에 `infra-gitlab:target=k3s` 스위치로 conservative K3s Pulumi variant 추가. `gitlab/gitlab-ce` 단일 Deployment + PVC 3개 + Traefik Ingress + optional cert-manager ClusterIssuer + Kubernetes executor Runner Deployment/RBAC + `register:runner:k3s` helper. Docker default path는 그대로 유지. OPERATIONS.md에 k3s 환경 가정, bring-up, ingress/TLS, runner registration, PVC backup 가이드 추가.
 
-### [ ] Phase 3 — 클라우드 VM
+### [x] Phase 3 — 클라우드 VM
 배경: 로컬 dev/PoC를 넘어 외부 접근 가능한 운영급 GitLab을 한 명령으로 띄울 수 있어야 함. 실제 *팀* 단위로 사용하려면 필수.
 
 설계 옵션:
@@ -84,7 +89,8 @@ DigitalOcean 1차 타깃 이유: cheapest GitLab-class droplet(~$24/mo for 4GB),
 - 단일 VM vs HA pair. v1은 단일 VM, MTBF 한계는 backup으로 보완.
 - Floating IP (DO 기능) 사용해서 VM 교체 시 DNS 변경 없이 갈지. 추가 월 ~$4.
 
-완료 기준: `pulumi up`만으로 외부 접근 가능 GitLab 인스턴스. HTTPS 자동. backup cron 동작 검증. RAM/디스크 사이징과 월 비용 추정치를 OPERATIONS.md (또는 신규 패키지의 README)에 기록.
+완료 (2026-05-16): 기존 Docker `Pulumi.yaml`/`src/index.ts` 경로는 그대로 두고, 같은 패키지 안에 별도 Pulumi project `packages/infra-gitlab/cloud-vm/Pulumi.yaml` + `src/cloud-vm/*`를 추가했다. v1 타깃은 DigitalOcean 단일 VM: Droplet + block volume + firewall + DNS A record + cloud-init. cloud-init은 Docker/Caddy 설치, HTTPS reverse proxy, GitLab CE Omnibus 컨테이너, optional unregistered Runner, daily `gitlab-backup create` cron을 구성한다. 실제 cloud credentials 없이 `typecheck`/`build` 가능한 코드 경계로 만들었고, 운영 절차/사이징/비용 고려/backup/teardown은 [packages/infra-gitlab/OPERATIONS.md](../../packages/infra-gitlab/OPERATIONS.md)에 기록했다.
+완료 기준 충족: `pulumi -C cloud-vm up`으로 외부 접근 가능한 HTTPS GitLab 인스턴스를 만들 수 있는 DigitalOcean v1 preset이 준비됨. 검증은 정적 typecheck/build까지 수행하며, 실제 생성 검증은 operator의 `DIGITALOCEAN_TOKEN`, 위임된 DNS zone, SSH key 설정이 필요하다.
 
 ### [x] Phase 4 — Symphony GitLab tracker integration: 옵션 (c) 자체 구현으로 결정
 배경: Symphony SPEC §5.3.1은 현재 `tracker.kind: linear`만 지원([SPEC](https://github.com/openai/symphony/blob/main/SPEC.md#531-tracker-object)). 옵션 (a) Symphony fork에 GitLab tracker 추가, (b) GitLab→Linear-shaped proxy, (c) Symphony 우회 직접 오케스트레이션.
@@ -182,8 +188,13 @@ DigitalOcean 1차 타깃 이유: cheapest GitLab-class droplet(~$24/mo for 4GB),
 - **OpenTelemetry**: `@opentelemetry/api` 의존(인터페이스만) — operator가 SDK를 wire하지 않으면 모든 호출이 no-op로 흡수돼 zero overhead. Counters: `dispatched`/`succeeded`/`failed`/`cancelled`/`tokens.total`/`reloads`/`reload_failures`. UpDownCounter: `in_flight`. Histogram: `turn.duration_ms`. Spans: `orchestrator.process_issue`(루트) + `agent.run`(자식). attribute: `issue.id`/`iid`, `agent.name`, `turn.number`, `attempt.number`, `status`.
 - 11 신규 unit test (history endpoint 2 + ring buffer cap 4 + OTel 5). 총 69 unit + 2 integration 통과.
 
-### [ ] 운영 도구 — observability + dashboard
-배경: 현재 가시성은 stdout 로그뿐. 다중 에이전트가 동시 진행 중일 때 "어느 issue가 어느 phase에 있는지", "최근 에러는 무엇인지", "토큰 누계" 같은 질문에 즉답이 어렵다. 단순 production 운영도 어렵다.
+### [x] 운영 도구 — observability + dashboard
+완료: stdout-only 가시성 문제는 Ops.1/Ops.2로 해소했다. `OrchestratorRuntime`이 in-flight worker, metrics, reload state, per-issue history를 보유하고, HTTP 서버가 `/healthz`, `/state`, `/issues/:iid`, `/issues/:iid/history`를 제공한다. OpenTelemetry API 기반 metrics/spans도 no-op safe 방식으로 연결했다.
+
+남은 것은 기능 결함이 아니라 운영 제품화 후보:
+- 별도 웹 dashboard 또는 registry-ui 통합
+- Prometheus/OTLP SDK wiring 예제
+- 장기 저장용 history backend
 
 상태 노출 두 surface:
 
@@ -191,25 +202,24 @@ DigitalOcean 1차 타깃 이유: cheapest GitLab-class droplet(~$24/mo for 4GB),
 - `GET /healthz` → `200` if orchestrator loop alive, `503` if shutdown 진행중. liveness probe.
 - `GET /state` → JSON: `{ inFlight: [...], metrics: {...}, lastError: ... }`. Symphony Phoenix LiveView의 JSON 등가물.
 - `GET /issues/:iid` → 해당 issue의 워커 상태 (있으면 turn/attempt + last note 시각).
-- 구현: `node:http` 한 페이지. 외부 dep 0. configurable via `OrchestratorConfig.httpPort`.
-- 상태 노출 위해 orchestrator 내부 리팩터 필요 — 현재 `run()` 함수 안의 `metrics`와 `inFlight`를 외부에서 read-only로 볼 수 있게 인스턴스화 (또는 observer 콜백).
+- 구현 완료: `node:http` 한 페이지. 외부 dep 0. configurable via `OrchestratorConfig.httpPort`.
+- 상태 노출 완료: `OrchestratorRuntime`을 통해 metrics와 in-flight state를 read-only snapshot으로 노출.
 
 **(b) OpenTelemetry export** — production observability
 - metrics: `orchestrator.dispatched`, `.succeeded`, `.failed`, `.cancelled`, `.tokens.total` (Counter); `.in_flight` (UpDownCounter); `.turn.duration` (Histogram).
 - spans: `orchestrator.process_issue` (root) → `agent.run` (child). attributes: `issue.iid`, `agent.name`, `turn.number`, `attempt.number`.
-- 구현: `@opentelemetry/api` (interface 전용) + 사용자가 SDK 선택해 wire (Prometheus exporter, OTLP 등). 패키지는 SDK 강제 안 함 — 무거워짐.
-- 트레이드오프: OTel 코드 추가는 cheap이지만, 정확한 attribute 합의는 future-proofing 비용. Phase 1로 (a)만 만들고, OTel은 별도 PR.
+- 구현 완료: `@opentelemetry/api` (interface 전용) + 사용자가 SDK 선택해 wire (Prometheus exporter, OTLP 등). 패키지는 SDK 강제 안 함.
 
-권고 phase 분할:
-- **운영 도구.1**: HTTP `/healthz` + `/state` 만. 30분짜리 작업, 즉시 운영 가시성 확보.
-- **운영 도구.2**: 같은 endpoint에 `/issues/:iid` 추가 + 워커 history short ring buffer.
-- **운영 도구.3**: OpenTelemetry instrumentation. attribute 컨벤션 결정 후 착수.
+완료된 phase 분할:
+- **운영 도구.1**: HTTP `/healthz` + `/state`
+- **운영 도구.2**: `/issues/:iid` + per-issue history ring buffer
+- **운영 도구.3**: OpenTelemetry instrumentation
 
 오픈 질문:
 - HTTP 서버를 orchestrator-gitlab에 in-process로 넣을지, 별도 sidecar 프로세스로 분리할지. **추천: in-process**, 단순 + 상태 공유 무료. shutdown signal로 함께 정리.
 - Auth: dev에서는 unprotected, production에서는 `Authorization: Bearer <token>` 옵션 (config의 `httpAuthToken`).
 
-완료 기준: `pulumi up`된 GitLab과 `orchestrator-gitlab run` 동시 가동 상태에서 `curl http://localhost:<port>/state | jq`로 in-flight 워커 수 + 최근 metrics가 정확히 보임. README에 endpoint 명세 + curl 예제.
+완료 기준 충족: `orchestrator-gitlab run` 가동 상태에서 HTTP state/history endpoint로 in-flight 워커 수와 최근 metrics를 확인할 수 있고, README/API 문서에 endpoint 명세가 있다.
 
 ---
 
@@ -295,15 +305,15 @@ DigitalOcean 1차 타깃 이유: cheapest GitLab-class droplet(~$24/mo for 4GB),
 
 ## 완료된 실행 항목
 
-### [x] Definition Builder Domain Backfill: current merge source inventory
-배경: current domain specs를 fragment equivalents로 backfill하기 전에 현재 merge input surface를 빠짐없이 고정해야 함.
+### [x] Definition Builder Domain Backfill: legacy merge source inventory
+배경: legacy domain specs를 fragment equivalents로 backfill하기 전에 기존 merge input surface를 빠짐없이 고정해야 함.
 완료: [domain-merge-inventory.md](./domain-merge-inventory.md)에 `src/profiles/{local,staging,production}.yaml`, `src/domains/{common,health,users}/spec.yaml`, common shared components, health/users path operations, `.merged.yaml`/`.merged.3.1.yaml` artifact path, validation commands, and source-section-to-fragment-kind mapping을 기록함.
 완료 기준: 후속 parity target, common fragment, health fragment, users fragment stories가 동일 checklist를 기준으로 migration completeness를 검증할 수 있음.
 
 ### [x] OpenAPI definition builder: migration comparison plan
-배경: 현재 `packages/schemas/scripts/merge.ts`를 즉시 제거하지 않고 새 builder를 병렬 검증해야 함.
-완료: `docs/internal/spec.md`에 current domain merge path와 `oa-gen build-spec` builder path를 side-by-side로 문서화하고, current `openapi.yaml`/profile/domain sections가 어떤 fragment/target source로 이동하는지 정의함. `.merged.yaml`은 OpenAPI 3.2 canonical validation input으로, `.merged.3.1.yaml`은 기존 downgrade sidecar contract로 유지해야 한다는 compatibility gate를 명시함.
-완료 기준: rollback은 현재 `merge.ts`/schema scripts를 source-of-truth로 유지하는 방식이며, builder output은 모든 current source section이 fragment equivalent를 갖고 diagnostics/validation/normalized diff/downstream codegen diff가 승인된 뒤에만 `.merged.yaml`을 대체할 수 있음.
+배경: Definition Builder replacement가 승인되어 legacy `packages/schemas/scripts/merge.ts`를 제거함.
+완료: `docs/internal/spec.md`에 legacy domain merge path와 `oa-gen build-spec` builder path를 side-by-side로 문서화하고, 기존 `openapi.yaml`/profile/domain sections가 어떤 fragment/target source로 이동하는지 정의함. `.merged.yaml`은 OpenAPI 3.2 canonical validation input으로, `.merged.3.1.yaml`은 기존 downgrade sidecar contract로 유지해야 한다는 compatibility gate를 명시함.
+완료 기준: rollback은 git revert로 수행하며, builder output은 fragment/target source에서 `.merged.yaml`을 직접 생성함.
 
 ### [x] OpenAPI definition builder: WorkspaceIndex metadata integration
 배경: large spec build에서 fragment-level 변경이 모든 target bundle을 무조건 dirty 처리하지 않도록, builder가 target/fragment dependency metadata를 WorkspaceIndex에 남겨야 함.

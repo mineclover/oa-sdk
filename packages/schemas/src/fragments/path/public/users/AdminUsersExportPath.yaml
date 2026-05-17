@@ -1,0 +1,50 @@
+id: path:public/users/AdminUsersExportPath
+metadata:
+  path: /admin/users/export
+content:
+  post:
+    tags:
+      - users
+    operationId: requestUsersExport
+    summary: 사용자 PII bulk export 작업 요청
+    description: |
+      data-eng ETL surface. 사용자 PII bulk export를 비동기 job으로 등록하고
+      ExportJob을 반환합니다. non-admin perspective로 소비되는 export는
+      pseudonymization이 필수이며 기본값도 pseudonymize=true입니다. 호출은 audited.
+    security:
+      - bearerAuth: []
+    requestBody:
+      required: false
+      content:
+        application/json:
+          schema:
+            $ref: oa://schema/public/users/AdminUsersExportRequest
+          examples:
+            default:
+              dataValue:
+                format: json
+                pseudonymize: true
+              serializedValue: '{"format":"json","pseudonymize":true}'
+    responses:
+      "202":
+        description: bulk export job 등록 완료
+        content:
+          application/json:
+            schema:
+              $ref: oa://schema/public/me/ExportJob
+            examples:
+              default:
+                dataValue:
+                  jobId: 00000000-0000-0000-0000-000000000201
+                  status: queued
+                  requestedAt: 2026-05-04T00:00:00.000Z
+                serializedValue: '{"jobId":"00000000-0000-0000-0000-000000000201","status":"queued","requestedAt":"2026-05-04T00:00:00.000Z"}'
+      "401":
+        $ref: oa://response/shared/common/Unauthorized
+      "403":
+        $ref: oa://response/shared/common/Forbidden
+      "429":
+        $ref: oa://response/shared/common/TooManyRequests
+refs:
+  - ref: oa://securityScheme/shared/common/BearerAuth
+    sourcePointer: "#/content/post/security/0/bearerAuth"

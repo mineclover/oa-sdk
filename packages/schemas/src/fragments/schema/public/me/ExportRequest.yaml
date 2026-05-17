@@ -1,0 +1,11 @@
+id: schema:public/me/ExportRequest
+content:
+  type: object
+  description: 데이터 export 요청
+  properties:
+    format:
+      type: string
+      enum:
+        - json
+        - csv
+      default: json

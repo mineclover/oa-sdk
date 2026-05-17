@@ -7,13 +7,14 @@ content:
   properties:
     status:
       type: string
-      enum: [ok]
+      enum:
+        - ok
     timestamp:
       type: string
       format: date-time
   examples:
     - status: ok
-      timestamp: "2026-04-04T00:00:00.000Z"
+      timestamp: 2026-04-04T00:00:00.000Z
   example:
     status: ok
-    timestamp: "2026-04-04T00:00:00.000Z"
+    timestamp: 2026-04-04T00:00:00.000Z

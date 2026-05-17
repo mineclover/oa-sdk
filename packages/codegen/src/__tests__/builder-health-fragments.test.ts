@@ -61,7 +61,7 @@ const CANONICAL_TO_OUTPUT_REF_REWRITES: Readonly<Record<string, string>> = {
 }
 
 describe('builder health fragments', () => {
-  it('matches current health domain paths and schema with canonical refs', () => {
+  it('matches archived health domain paths and schema with canonical refs', () => {
     const healthSpec = readYaml(join(schemasDir, 'domains/health/spec.yaml'))
 
     for (const fragmentFixture of HEALTH_FRAGMENTS) {
@@ -82,7 +82,7 @@ describe('builder health fragments', () => {
     }
   })
 
-  it('emits health paths and selected components equivalent to the current merge sources', () => {
+  it('emits health paths and selected components equivalent to builder fragments', () => {
     const healthSpec = readYaml(join(schemasDir, 'domains/health/spec.yaml'))
     const commonSpec = readYaml(join(schemasDir, 'domains/common/spec.yaml'))
     const registry = createDefinitionRegistry([

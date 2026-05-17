@@ -1,0 +1,47 @@
+id: path:public/users/UsersIdPublicPath
+metadata:
+  path: /users/{id}/public
+content:
+  parameters:
+    - name: id
+      in: path
+      required: true
+      description: 사용자 UUID
+      schema:
+        type: string
+        format: uuid
+      examples:
+        default:
+          dataValue: 00000000-0000-0000-0000-000000000001
+          serializedValue: 00000000-0000-0000-0000-000000000001
+  get:
+    tags:
+      - users
+    operationId: getPublicUserProfile
+    summary: 공개 프로필 조회
+    description: |
+      다른 user의 공개 가시 정보(이름, 역할). email/createdAt 등 PII 미포함.
+      멘션·검색 결과 등에서 사용. user/scoped:read 이상 필요.
+    security:
+      - bearerAuth: []
+    responses:
+      "200":
+        description: 공개 프로필
+        content:
+          application/json:
+            schema:
+              $ref: oa://schema/public/users/PublicUserProfile
+            examples:
+              default:
+                dataValue:
+                  id: 00000000-0000-0000-0000-000000000001
+                  name: Alice
+                  role: user
+                serializedValue: '{"id":"00000000-0000-0000-0000-000000000001","name":"Alice","role":"user"}'
+      "401":
+        $ref: oa://response/shared/common/Unauthorized
+      "404":
+        $ref: oa://response/shared/common/NotFound
+refs:
+  - ref: oa://securityScheme/shared/common/BearerAuth
+    sourcePointer: "#/content/get/security/0/bearerAuth"

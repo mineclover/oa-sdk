@@ -2,6 +2,9 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { startHttpServer, type HttpServerHandle } from "../src/http-server.js";
 import { OrchestratorRuntime } from "../src/runtime.js";
+import type { GitlabDocumentSaveInput } from "../src/document-save.js";
+import type { GitlabContextSearchQuery } from "../src/context-search.js";
+import type { GitlabIssueTaskReport } from "../src/issue-tasks.js";
 
 async function fetchJson(
   url: string,
@@ -195,3 +198,339 @@ describe("HTTP server auth", () => {
     expect(r.status).toBe(401);
   });
 });
+
+describe("HTTP document save endpoint", () => {
+  let rt: OrchestratorRuntime;
+  let handle: HttpServerHandle;
+  let baseUrl: string;
+
+  afterEach(async () => {
+    await handle.close();
+  });
+
+  it("returns 503 when document save is not configured", async () => {
+    rt = new OrchestratorRuntime();
+    handle = await startHttpServer(rt, { host: "127.0.0.1", port: 0 });
+    baseUrl = `http://127.0.0.1:${String(handle.port)}`;
+
+    const r = await fetchJson(`${baseUrl}/documents/save`, {
+      method: "POST",
+      body: JSON.stringify({ target: "wiki", path: "wiki/a", title: "A", markdown: "# A" }),
+    });
+
+    expect(r.status).toBe(503);
+    expect(r.body).toEqual({ error: "document_save_unavailable" });
+  });
+
+  it("requires auth when authToken is configured", async () => {
+    rt = new OrchestratorRuntime();
+    handle = await startHttpServer(rt, {
+      host: "127.0.0.1",
+      port: 0,
+      authToken: "secret",
+      documentSave: fakeDocumentSaveService(),
+    });
+    baseUrl = `http://127.0.0.1:${String(handle.port)}`;
+
+    const r = await fetchJson(`${baseUrl}/documents/save`, {
+      method: "POST",
+      body: JSON.stringify({ target: "wiki", path: "wiki/a", title: "A", markdown: "# A" }),
+    });
+
+    expect(r.status).toBe(401);
+  });
+
+  it("returns dry-run document save request by default", async () => {
+    rt = new OrchestratorRuntime();
+    const service = fakeDocumentSaveService();
+    handle = await startHttpServer(rt, {
+      host: "127.0.0.1",
+      port: 0,
+      authToken: "secret",
+      documentSave: service,
+    });
+    baseUrl = `http://127.0.0.1:${String(handle.port)}`;
+
+    const r = await fetchJson(`${baseUrl}/documents/save`, {
+      method: "POST",
+      headers: { Authorization: "Bearer secret" },
+      body: JSON.stringify({ target: "repository", path: "docs/a.md", title: "A", markdown: "# A", branch: "docs/a" }),
+    });
+
+    expect(r.status).toBe(200);
+    expect(r.body).toEqual({
+      dryRun: true,
+      request: {
+        method: "PUT",
+        path: "/api/v4/projects/1/repository/files/docs%2Fa.md",
+        body: {
+          branch: "docs/a",
+          content: "# A",
+        },
+      },
+    });
+    expect(service.calls).toEqual([
+      {
+        input: { target: "repository", path: "docs/a.md", title: "A", markdown: "# A", branch: "docs/a" },
+        opts: { dryRun: true },
+      },
+    ]);
+  });
+
+  it("passes dryRun false through to document save service", async () => {
+    rt = new OrchestratorRuntime();
+    const service = fakeDocumentSaveService();
+    handle = await startHttpServer(rt, {
+      host: "127.0.0.1",
+      port: 0,
+      documentSave: service,
+    });
+    baseUrl = `http://127.0.0.1:${String(handle.port)}`;
+
+    const r = await fetchJson(`${baseUrl}/documents/save`, {
+      method: "POST",
+      body: JSON.stringify({ target: "wiki", path: "wiki/a", title: "A", markdown: "# A", dryRun: false }),
+    });
+
+    expect(r.status).toBe(200);
+    expect(service.calls[0]?.opts).toEqual({ dryRun: false });
+  });
+});
+
+describe("HTTP context search endpoint", () => {
+  let rt: OrchestratorRuntime;
+  let handle: HttpServerHandle;
+  let baseUrl: string;
+
+  afterEach(async () => {
+    await handle.close();
+  });
+
+  it("returns 503 when context search is not configured", async () => {
+    rt = new OrchestratorRuntime();
+    handle = await startHttpServer(rt, { host: "127.0.0.1", port: 0 });
+    baseUrl = `http://127.0.0.1:${String(handle.port)}`;
+
+    const r = await fetchJson(`${baseUrl}/context/search?kinds=issue&text=release`);
+
+    expect(r.status).toBe(503);
+    expect(r.body).toEqual({ error: "context_search_unavailable" });
+  });
+
+  it("requires auth when authToken is configured", async () => {
+    rt = new OrchestratorRuntime();
+    handle = await startHttpServer(rt, {
+      host: "127.0.0.1",
+      port: 0,
+      authToken: "secret",
+      contextSearch: fakeContextSearchService(),
+    });
+    baseUrl = `http://127.0.0.1:${String(handle.port)}`;
+
+    const r = await fetchJson(`${baseUrl}/context/search?kinds=issue&text=release`);
+
+    expect(r.status).toBe(401);
+  });
+
+  it("passes query filters to the context search service", async () => {
+    rt = new OrchestratorRuntime();
+    const service = fakeContextSearchService();
+    handle = await startHttpServer(rt, {
+      host: "127.0.0.1",
+      port: 0,
+      contextSearch: service,
+    });
+    baseUrl = `http://127.0.0.1:${String(handle.port)}`;
+
+    const r = await fetchJson(`${baseUrl}/context/search?kinds=issue,merge_request&text=release&state=opened&limit=7`);
+
+    expect(r.status).toBe(200);
+    expect(r.body).toEqual({
+      results: [
+        {
+          id: "gitlab://project/1/issues/123",
+          kind: "issue",
+          title: "Release blocker",
+          metadata: { iid: 123, state: "opened" },
+        },
+      ],
+      warnings: [],
+    });
+    expect(service.calls).toEqual([
+      {
+        query: {
+          kinds: ["issue", "merge_request"],
+          text: "release",
+          state: "opened",
+          limit: 7,
+        },
+        options: { includeCapabilities: false },
+      },
+    ]);
+  });
+});
+
+describe("HTTP issue task endpoint", () => {
+  let rt: OrchestratorRuntime;
+  let handle: HttpServerHandle;
+  let baseUrl: string;
+
+  afterEach(async () => {
+    await handle.close();
+  });
+
+  it("returns 503 when issue task service is not configured", async () => {
+    rt = new OrchestratorRuntime();
+    handle = await startHttpServer(rt, { host: "127.0.0.1", port: 0 });
+    baseUrl = `http://127.0.0.1:${String(handle.port)}`;
+
+    const r = await fetchJson(`${baseUrl}/issues/42/tasks`);
+
+    expect(r.status).toBe(503);
+    expect(r.body).toEqual({ error: "issue_tasks_unavailable" });
+  });
+
+  it("requires auth when authToken is configured", async () => {
+    rt = new OrchestratorRuntime();
+    handle = await startHttpServer(rt, {
+      host: "127.0.0.1",
+      port: 0,
+      authToken: "secret",
+      issueTasks: fakeIssueTaskService(),
+    });
+    baseUrl = `http://127.0.0.1:${String(handle.port)}`;
+
+    const r = await fetchJson(`${baseUrl}/issues/42/tasks`);
+
+    expect(r.status).toBe(401);
+  });
+
+  it("returns remaining issue tasks for a specific issue", async () => {
+    rt = new OrchestratorRuntime();
+    const service = fakeIssueTaskService();
+    handle = await startHttpServer(rt, {
+      host: "127.0.0.1",
+      port: 0,
+      issueTasks: service,
+    });
+    baseUrl = `http://127.0.0.1:${String(handle.port)}`;
+
+    const r = await fetchJson(`${baseUrl}/issues/42/tasks?remaining=true`);
+
+    expect(r.status).toBe(200);
+    expect(r.body).toEqual({
+      iid: "42",
+      title: "Task issue",
+      state: "opened",
+      summary: { count: 2, completedCount: 1 },
+      remainingTasks: [
+        { line: 1, text: "write docs", marker: "[ ]", checked: false, inapplicable: false },
+      ],
+    });
+    expect(service.calls).toEqual(["42"]);
+  });
+
+  it("creates, updates, and deletes tasks through issue task endpoints", async () => {
+    rt = new OrchestratorRuntime();
+    const service = fakeIssueTaskService();
+    handle = await startHttpServer(rt, {
+      host: "127.0.0.1",
+      port: 0,
+      issueTasks: service,
+    });
+    baseUrl = `http://127.0.0.1:${String(handle.port)}`;
+
+    expect((await fetchJson(`${baseUrl}/issues/42/tasks`, {
+      method: "POST",
+      body: JSON.stringify({ text: "new task" }),
+    })).status).toBe(200);
+    expect((await fetchJson(`${baseUrl}/issues/42/tasks/1`, {
+      method: "PATCH",
+      body: JSON.stringify({ checked: true, text: "write docs now" }),
+    })).status).toBe(200);
+    expect((await fetchJson(`${baseUrl}/issues/42/tasks/2`, { method: "DELETE" })).status).toBe(200);
+
+    expect(service.calls).toEqual([
+      "add:42:new task",
+      "update:42:1:true:write docs now",
+      "delete:42:2",
+    ]);
+  });
+});
+
+function fakeDocumentSaveService() {
+  const calls: Array<{ input: GitlabDocumentSaveInput; opts: { dryRun?: boolean } }> = [];
+  return {
+    calls,
+    async save(input: GitlabDocumentSaveInput, opts: { dryRun?: boolean }) {
+      calls.push({ input, opts });
+      return {
+        dryRun: opts.dryRun === true,
+        request: {
+          method: "PUT" as const,
+          path: input.target === "repository" ? "/api/v4/projects/1/repository/files/docs%2Fa.md" : "/api/v4/projects/1/wikis/a",
+          body: input.target === "repository"
+            ? { branch: input.branch ?? "main", content: input.markdown }
+            : { title: input.title, content: input.markdown },
+        },
+      };
+    },
+  };
+}
+
+function fakeContextSearchService() {
+  const calls: Array<{ query: GitlabContextSearchQuery; options: { includeCapabilities?: boolean } }> = [];
+  return {
+    calls,
+    async searchDetailed(query: GitlabContextSearchQuery, options: { includeCapabilities?: boolean } = {}) {
+      calls.push({ query, options });
+      return {
+        results: [
+          {
+            id: "gitlab://project/1/issues/123",
+            kind: "issue" as const,
+            title: "Release blocker",
+            metadata: { iid: 123, state: "opened" },
+          },
+        ],
+        warnings: [],
+      };
+    },
+  };
+}
+
+function fakeIssueTaskService() {
+  const calls: string[] = [];
+  const report: GitlabIssueTaskReport = {
+    iid: "42",
+    title: "Task issue",
+    state: "opened",
+    summary: { count: 2, completedCount: 1 },
+    tasks: [
+      { line: 1, text: "write docs", marker: "[ ]", checked: false, inapplicable: false },
+      { line: 2, text: "done", marker: "[x]", checked: true, inapplicable: false },
+    ],
+    remainingTasks: [
+      { line: 1, text: "write docs", marker: "[ ]", checked: false, inapplicable: false },
+    ],
+  };
+  return {
+    calls,
+    async getIssueTasks(iid: string | number) {
+      calls.push(String(iid));
+      return report;
+    },
+    async addIssueTask(iid: string | number, text: string) {
+      calls.push(`add:${String(iid)}:${text}`);
+      return report;
+    },
+    async updateIssueTask(iid: string | number, line: number, update: { checked?: boolean; text?: string }) {
+      calls.push(`update:${String(iid)}:${String(line)}:${String(update.checked)}:${String(update.text)}`);
+      return report;
+    },
+    async deleteIssueTask(iid: string | number, line: number) {
+      calls.push(`delete:${String(iid)}:${String(line)}`);
+      return report;
+    },
+  };
+}

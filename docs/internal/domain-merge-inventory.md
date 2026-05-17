@@ -1,14 +1,14 @@
-# Domain Merge Inventory
+# Legacy Domain Merge Inventory
 
-Snapshot for Definition Builder Domain Backfill US-001. This file is the source
-checklist for migrating the current domain merge inputs into definition
-fragments. Update it before backfilling if any source under
-`packages/schemas/src/profiles` or `packages/schemas/src/domains` changes.
+Snapshot for Definition Builder Domain Backfill US-001. This file records the
+legacy source checklist that was used to migrate domain merge inputs into
+definition fragments. The active schema build no longer reads
+`packages/schemas/src/profiles` or `packages/schemas/src/domains`.
 
-## Merge Inputs
+## Legacy Merge Inputs
 
-The active merge command is `pnpm --filter @oa-sdk/schemas run merge`, which runs
-`packages/schemas/scripts/merge.ts`. The script reads
+The removed merge command was `pnpm --filter @oa-sdk/schemas run merge`, which
+ran `packages/schemas/scripts/merge.ts`. The script read
 `packages/schemas/src/openapi.yaml`, injects one profile server list, then merges
 domain specs with `common` first and the remaining domains alphabetically.
 
@@ -84,10 +84,10 @@ Additional users source sections:
 | Root schema validation | `pnpm schema:validate` |
 | Root quality gates for this PRD | `pnpm typecheck`, `pnpm test`, `pnpm build`, `pnpm schema:validate`, `pnpm build:scripts && pnpm check:api-index`, `pnpm check:feature-tests` |
 
-`pnpm --filter @oa-sdk/schemas run validate` expands to merge, downgrade,
-Spectral lint of `src/.merged.yaml`, and Redocly lint. `pnpm schema:validate`
-also builds parser/codegen first and runs the `oa-gen validate` command against
-`packages/schemas/src/.merged.yaml`.
+`pnpm --filter @oa-sdk/schemas run validate` now expands to `build:merged`,
+downgrade, Spectral lint of `src/.merged.yaml`, and Redocly lint.
+`pnpm schema:validate` also builds parser/codegen first and runs strict
+`oa-gen validate --require-32` against `packages/schemas/src/.merged.yaml`.
 
 ## Source Section To Fragment Kind Map
 

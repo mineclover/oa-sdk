@@ -1,64 +1,67 @@
-# Definition Builder Compatibility Gates
+# Definition Builder Validation Gates
 
-This document records the local compatibility gate for the current-domain
-definition builder parity artifact.
+Definition Builder is now the canonical schema composition path. The legacy
+domain merge script has been removed, so this document records the active gates
+for the generated `packages/schemas/src/.merged.yaml` artifact.
 
-## Command
+## Canonical Command
 
 ```bash
-pnpm schema:parity:compat
+pnpm schema:validate
 ```
 
-The command keeps `packages/schemas/src/.merged.yaml` as the source-of-truth
-artifact and validates the ignored parallel artifact
-`packages/schemas/src/.builder/local-parity-api.yaml`.
+The root command performs the full OpenAPI contract gate:
 
-## Gate Coverage
+1. Builds `@oa-sdk/parser`.
+2. Builds `@oa-sdk/codegen`.
+3. Runs `@oa-sdk/schemas` validation.
+4. Runs strict `oa-gen validate --require-32` against `packages/schemas/src/.merged.yaml`.
 
-`pnpm schema:parity:compat` performs these checks:
+Inside `@oa-sdk/schemas`, validation is:
 
-1. Rebuilds the current merge artifact with `pnpm --filter @oa-sdk/schemas run merge`.
-2. Rebuilds the builder artifact with `pnpm --filter @oa-sdk/schemas run parity:build`.
-3. Compares current `.merged.yaml` and builder `.builder/local-parity-api.yaml` with the normalized OpenAPI diff.
-4. Runs `oa-gen validate` against the builder artifact.
-5. Downgrades the builder artifact to OpenAPI 3.1 at `.builder/local-parity-api.3.1.yaml` and writes `.builder/local-parity-api.3.1.meta.json`.
-6. Runs the same Spectral ruleset against the builder OpenAPI 3.2 artifact.
-7. Runs the same Redocly ruleset against the downgraded builder OpenAPI 3.1 artifact.
-8. Generates typegen output from both current and builder artifacts and compares the generated declarations.
-9. Generates router and client output from the builder artifact.
-10. Creates MSW handlers and a Node mock-server adapter from the builder artifact without binding a socket.
+1. `pnpm build:merged` — emits `.merged.yaml` with `oa-gen build-spec`.
+2. `pnpm downgrade:3.1` — derives `.merged.3.1.yaml` and `.merged.3.1.meta.json`.
+3. `pnpm validate:spectral` — lints the OpenAPI 3.2 artifact.
+4. `pnpm validate:redocly` — lints the downgraded OpenAPI 3.1 artifact.
 
-The generated report is written to
-`packages/schemas/src/.builder/local-parity-api.compatibility.json`.
+## Builder Outputs
 
-## Validation Equivalence
+`build:merged` writes:
 
-The current `pnpm schema:validate` flow is tied to `.merged.yaml`. The builder
-equivalent applies the same validation surfaces to the builder artifact:
+- `src/.merged.yaml`
+- `src/.builder/local-api.diagnostics.json`
+- `src/.builder/local-api.collisions.json`
 
-- `oa-gen validate --spec packages/schemas/src/.builder/local-parity-api.yaml`
-- `spectral lint src/.builder/local-parity-api.yaml --ruleset .spectral.yaml`
-- `downgrade-3.1.ts` transform to `.builder/local-parity-api.3.1.yaml` plus sidecar
-- `redocly lint src/.builder/local-parity-api.3.1.yaml --config redocly.yaml`
+The active local target must keep build diagnostics at zero errors, warnings,
+and infos unless a future policy explicitly allows informational findings.
 
-## Accepted Differences
+## Target Variants
 
-OpenAPI artifact drift: none. The local parity target carries the current root
-`info`, `tags`, profile `servers`, selected paths, and retained shared
-security schemes, so `pnpm schema:parity:diff` must report no differences.
+The same builder path supports environment variants:
 
-Generated typegen declaration order: accepted. Owner:
-definition-builder maintainers. Rationale: the builder emits equivalent
-schemas and operations from fragment traversal order, while the current merge
-emits from domain-file order. TypeScript type aliases can reference later
-declarations, so declaration ordering does not change the generated API
-surface. The compatibility gate normalizes exported declaration blocks and
-fails if any declaration content differs.
+```bash
+pnpm --filter @oa-sdk/schemas run build:merged
+pnpm --filter @oa-sdk/schemas run build:merged:staging
+pnpm --filter @oa-sdk/schemas run build:merged:production
+```
 
-## Retained Definitions
+Each command selects a target config under `packages/schemas/src/targets/` and
+writes the selected artifact to `src/.merged.yaml` for downstream validation or
+bundling.
 
-Target configs use `includeDefinitions` for current merge components that must
-remain in the emitted artifact even when no selected path references them. The
-local/staging/production parity targets use this for
-`securityScheme:shared/common/OAuth2`, preserving the current generated client
-auth helper and the current `components.securitySchemes.oauth2` surface.
+## Required Invariants
+
+- Emitted OpenAPI must contain only local OpenAPI `$ref` values.
+- No `oa://` source refs may survive in `.merged.yaml`.
+- `openapi` must remain `3.2.0`.
+- The active target must retain all intended root `info`, `servers`, `tags`,
+  paths, components, security schemes, examples, and OpenAPI 3.2 fields.
+- `.merged.3.1.meta.json` must preserve all downgraded 3.2-only fields needed
+  for round-trip restoration.
+- Spectral and Redocly must stay clean.
+
+## Rollback
+
+Rollback is now a normal git rollback of the Definition Builder replacement
+change. There is no supported in-repo legacy merge command after this
+transition.

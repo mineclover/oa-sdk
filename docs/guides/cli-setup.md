@@ -94,9 +94,7 @@ bash apps/fastapi-ref/scripts/openapi-governance.sh all
 | `pnpm check:cli-spec` | `oa-gen` / `oa-contract` governance manifest와 `docs/cli-spec/*.json` 정합성 (현재 22 entities) |
 | `pnpm check:api-index` | 패키지 export ↔ `docs/internal/api-index.md` drift |
 | `pnpm check:feature-tests` | `docs/internal/feature-test-matrix.{md,json}` 항목 ↔ 실제 테스트 경로 (현재 23 features / 88 paths) |
-| `pnpm schema:parity:build` | Definition Builder parity artifact 빌드 |
-| `pnpm schema:parity:diff` | parity artifact ↔ `.merged.yaml` normalized diff |
-| `pnpm schema:parity:compat` | parity artifact를 downgrade-3.1 / spectral / redocly / oa-gen validate / typegen / router / client / mock-server까지 통과시키는 호환성 게이트 |
+| `pnpm schema:validate` | Definition Builder로 `.merged.yaml` 생성 후 downgrade-3.1 / spectral / redocly / strict OpenAPI 3.2 validate 실행 |
 
 `check:api-index`는 `pnpm build:scripts` 산출물에 의존하므로 처음에는 빌드 후 실행한다.
 
@@ -107,7 +105,7 @@ pnpm schema:validate
 ```
 
 내부적으로 세 단계를 순차 실행:
-1. `merge.ts` — 도메인 spec 병합 → `src/.merged.yaml`
+1. `oa-gen build-spec` — target config + fragments → `src/.merged.yaml`
 2. `spectral lint .merged.yaml` — 스타일 가이드 검사
 3. `redocly lint .merged.yaml` — $ref 유효성 + 스펙 준수 검사
 
@@ -117,7 +115,8 @@ pnpm schema:validate
 pnpm schema:bundle
 ```
 
-`packages/schemas/src/domains/*/spec.yaml` 을 병합 → 번들:
+Definition Builder가 `packages/schemas/src/targets/local-parity-api.yaml`와
+`packages/schemas/src/fragments/`를 조합한 뒤 3.1 downgrade artifact를 번들:
 - `packages/schemas/dist/openapi.yaml`
 - `packages/schemas/dist/openapi.json`
 
@@ -140,12 +139,12 @@ pnpm mock:start
 ## 환경 프로필
 
 ```bash
-pnpm --filter @oa-sdk/schemas merge            # local (기본)
-pnpm --filter @oa-sdk/schemas merge:staging    # staging
-pnpm --filter @oa-sdk/schemas merge:production # production
+pnpm --filter @oa-sdk/schemas run build:merged            # local (기본)
+pnpm --filter @oa-sdk/schemas run build:merged:staging    # staging
+pnpm --filter @oa-sdk/schemas run build:merged:production # production
 ```
 
-프로필 파일: `packages/schemas/src/profiles/{local,staging,production}.yaml`
+Target config: `packages/schemas/src/targets/{local,staging,production}-parity-api.yaml`
 
 ## Spectral 규칙 커스텀
 

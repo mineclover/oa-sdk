@@ -1,0 +1,35 @@
+id: path:public/me/MeOnboardingPath
+metadata:
+  path: /me/onboarding
+content:
+  get:
+    tags:
+      - me
+    operationId: getOnboardingChecklist
+    summary: 온보딩 체크리스트 조회
+    description: 첫 로그인 시 표시할 가이드 체크리스트. 진행률은 user state에 따름.
+    security:
+      - bearerAuth: []
+    responses:
+      "200":
+        description: 체크리스트
+        content:
+          application/json:
+            schema:
+              $ref: oa://schema/public/me/OnboardingChecklist
+            examples:
+              default:
+                dataValue:
+                  items:
+                    - id: complete-profile
+                      title: 프로필 작성
+                      completed: false
+                    - id: invite-team
+                      title: 팀원 초대
+                      completed: false
+                serializedValue: '{"items":[{"id":"complete-profile","title":"프로필 작성","completed":false},{"id":"invite-team","title":"팀원 초대","completed":false}]}'
+      "401":
+        $ref: oa://response/shared/common/Unauthorized
+refs:
+  - ref: oa://securityScheme/shared/common/BearerAuth
+    sourcePointer: "#/content/get/security/0/bearerAuth"

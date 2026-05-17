@@ -6,7 +6,7 @@ oa-sdk/
     openapi-projection-contract/ @oa-sdk/openapi-projection-contract OAS projection contract + validation
     core/          @oa-sdk/core         공유 유틸 (pascalCase, toColonPath, collectTypeNames)
     parser/        @oa-sdk/parser       OAS 3.2 파서 + IR + fold + lint + query
-    schemas/       @oa-sdk/schemas      도메인 분리 OAS 소스 + merge + 검증
+    schemas/       @oa-sdk/schemas      Definition Builder fragments/targets + OAS artifact 검증
     mock-server/   @oa-sdk/mock-server  AJV Mock 서버 (MSW + Node HTTP) + 테스트 헬퍼
     codegen/       @oa-sdk/codegen      Zod/Drizzle → OAS + typegen + CLI
     router/        @oa-sdk/router       OAS → Hono/Express 라우터 스텁
@@ -75,10 +75,9 @@ schemas      ← 독립
 
 | 파일 | 역할 |
 |------|------|
-| `src/openapi.yaml` | base (info + tags + license) |
-| `src/profiles/*.yaml` | 환경별 servers |
-| `src/domains/*/spec.yaml` | 도메인별 paths + components |
-| `scripts/merge.ts` | 도메인 병합 |
+| `src/fragments/**/*.yaml` | canonical definition fragments |
+| `src/targets/*.yaml` | Definition Builder target configs |
+| `src/openapi.yaml`, `src/profiles/*.yaml`, `src/domains/*/spec.yaml` | legacy merge reference material |
 | `scripts/downgrade-3.1.ts` | 3.2→3.1 다운그레이드 |
 
 ### @oa-sdk/mock-server

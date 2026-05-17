@@ -1,4 +1,4 @@
-node_modules/
+node_modules
 dist/
 packages/schemas/src/.merged.yaml
 packages/schemas/src/.merged.persona.yaml

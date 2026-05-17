@@ -1,0 +1,9 @@
+id: schema:public/me/UpdateMeRequest
+content:
+  type: object
+  description: 셀프 프로필 수정 — role은 포함 불가 (admin 전용)
+  properties:
+    name:
+      type: string
+      minLength: 1
+      maxLength: 100

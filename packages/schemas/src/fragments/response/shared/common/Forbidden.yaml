@@ -1,6 +1,6 @@
 id: response:shared/common/Forbidden
 content:
-  description: "권한 없음 — 접근 거부"
+  description: 권한 없음 — 접근 거부
   content:
     application/json:
       schema:
