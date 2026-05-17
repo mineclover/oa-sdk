@@ -133,6 +133,9 @@ export type TranslationKey =
   | 'docs.snippetUnavailable'
   | 'docs.markdownPreviewTitle'
   | 'docs.markdownPreviewDescription'
+  | 'docs.rawMarkdownTitle'
+  | 'docs.rawMarkdownDescription'
+  | 'docs.rawMarkdownPayload'
   | 'docs.saveTarget'
   | 'docs.targetWiki'
   | 'docs.targetRepository'
@@ -305,6 +308,9 @@ const translations: Record<Locale, Record<TranslationKey, string>> = {
     'docs.snippetUnavailable': 'GitLab 검색 API에 연결할 수 없음',
     'docs.markdownPreviewTitle': 'GitLab Markdown 미리보기',
     'docs.markdownPreviewDescription': '에디터 내용은 GitLab Markdown으로 직렬화한 뒤 저장 API payload에 사용합니다.',
+    'docs.rawMarkdownTitle': 'Raw Markdown',
+    'docs.rawMarkdownDescription': 'Notion-like 에디터에서 작성한 구조화 문서가 실제로 저장될 Markdown 원문입니다.',
+    'docs.rawMarkdownPayload': 'Raw Markdown payload',
     'docs.saveTarget': '저장 대상',
     'docs.targetWiki': 'Wiki 페이지',
     'docs.targetRepository': '저장소 파일',
@@ -474,6 +480,9 @@ const translations: Record<Locale, Record<TranslationKey, string>> = {
     'docs.snippetUnavailable': 'GitLab search API unavailable',
     'docs.markdownPreviewTitle': 'GitLab Markdown preview',
     'docs.markdownPreviewDescription': 'Editor content is serialized to GitLab Markdown before it becomes a save API payload.',
+    'docs.rawMarkdownTitle': 'Raw Markdown',
+    'docs.rawMarkdownDescription': 'The Markdown source that will be saved from the Notion-like structured editor.',
+    'docs.rawMarkdownPayload': 'Raw Markdown payload',
     'docs.saveTarget': 'Save target',
     'docs.targetWiki': 'Wiki page',
     'docs.targetRepository': 'Repository file',

@@ -432,6 +432,7 @@ function DocumentEditorPage({
           <div>
             <h2>{translate(locale, 'docs.markdownPreviewTitle')}</h2>
             <p className="run-meta">{translate(locale, 'docs.markdownPreviewDescription')}</p>
+            <p className="run-meta">{translate(locale, 'docs.requestDestination')}: <code>{gitLabDestination}</code></p>
           </div>
           <label className="target-select-label">
             <span>{translate(locale, 'docs.saveTarget')}</span>
@@ -467,6 +468,15 @@ function DocumentEditorPage({
             onChange={event => setBranch(event.target.value)}
           />
         </label>
+        <section className="raw-markdown-view">
+          <div>
+            <h3>{translate(locale, 'docs.rawMarkdownTitle')}</h3>
+            <p className="run-meta">{translate(locale, 'docs.rawMarkdownDescription')}</p>
+          </div>
+          <pre className="markdown-preview raw-markdown-preview" aria-label={translate(locale, 'docs.rawMarkdownPayload')}>
+            {saveDraft.markdown}
+          </pre>
+        </section>
         <section className="dry-run-save">
           <div>
             <h3>{translate(locale, 'docs.dryRunTitle')}</h3>
@@ -492,9 +502,6 @@ function DocumentEditorPage({
           </div>
           <pre className="markdown-preview" aria-label={translate(locale, 'docs.dryRunBody')}>
             {JSON.stringify(saveRequest.body, null, 2)}
-          </pre>
-          <pre className="markdown-preview" aria-label={translate(locale, 'docs.dryRunPayload')}>
-            {saveDraft.markdown}
           </pre>
         </section>
         {saveResult.length > 0 ? (

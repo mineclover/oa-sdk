@@ -553,6 +553,16 @@ h1 {
   gap: 12px;
 }
 
+.raw-markdown-view {
+  display: grid;
+  gap: 10px;
+}
+
+.raw-markdown-view h3 {
+  margin: 0;
+  font-size: 15px;
+}
+
 .target-select-label {
   display: grid;
   gap: 6px;
@@ -593,7 +603,7 @@ h1 {
 .dry-run-save {
   display: grid;
   gap: 12px;
-  grid-template-columns: minmax(240px, 0.75fr) minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-columns: minmax(240px, 0.75fr) minmax(0, 1fr);
 }
 
 .dry-run-save h3 {
@@ -619,6 +629,10 @@ h1 {
   background: #f8fafc;
   color: var(--text);
   white-space: pre-wrap;
+}
+
+.raw-markdown-preview {
+  min-height: 260px;
 }
 
 .status-warning {
