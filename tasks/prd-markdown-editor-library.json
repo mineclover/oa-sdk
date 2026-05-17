@@ -1,0 +1,103 @@
+{
+  "name": "Markdown Editor Library",
+  "description": "Extract the GitLab Markdown editor syntax implementation into a reusable package so GLFM serialization, snippets, themes, and host integrations can be maintained independently from orchestrator-gitlab-ui.",
+  "branchName": "codex/markdown-editor-library",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Extract pure GLFM serialization",
+      "description": "As an editor maintainer, I want GLFM serialization in a reusable package so that Markdown syntax behavior can be tested and versioned outside the GitLab UI.",
+      "acceptanceCriteria": [
+        "Create @oa-sdk/markdown-editor.",
+        "Move Plate-compatible value types into the package without requiring React.",
+        "Move stored editor value parse/serialize helpers into the package.",
+        "Move plateValueToGitLabMarkdown into the package as a GLFM serializer.",
+        "Preserve heading, paragraph, blockquote, inline mark, link, list, task list, indentation, and raw GLFM snippet behavior.",
+        "Add exact serializer tests in the package.",
+        "Update orchestrator-gitlab-ui to consume the package.",
+        "pnpm --filter @oa-sdk/markdown-editor test passes.",
+        "pnpm --filter @oa-sdk/markdown-editor typecheck passes.",
+        "pnpm --filter @oa-sdk/orchestrator-gitlab-ui test passes.",
+        "pnpm --filter @oa-sdk/orchestrator-gitlab-ui typecheck passes."
+      ],
+      "priority": 1,
+      "passes": true,
+      "notes": "First milestone keeps React/Plate UI in the app while extracting pure syntax contracts.",
+      "dependsOn": [],
+      "completionNotes": "Implemented @oa-sdk/markdown-editor with pure value types, persistence helpers, GLFM serialization tests, and orchestrator-gitlab-ui adapter wiring."
+    },
+    {
+      "id": "US-002",
+      "title": "Introduce GLFM snippet registry",
+      "description": "As an editor maintainer, I want GitLab-specific snippets declared as data so that syntax actions are easy to add, remove, and customize.",
+      "acceptanceCriteria": [
+        "Define snippet IDs and metadata.",
+        "Support prompt-backed snippets without hardcoding prompt text inside the editor shell.",
+        "Keep issue/MR lookup provider injected by the host app.",
+        "Add tests for snippet raw Markdown output."
+      ],
+      "priority": 2,
+      "passes": true,
+      "notes": "",
+      "dependsOn": [
+        "US-001"
+      ],
+      "completionNotes": "Implemented provider-neutral GLFM snippet registry with stable IDs, prompt/raw/image metadata, package tests, and GitLab UI toolbar rendering from registry data."
+    },
+    {
+      "id": "US-003",
+      "title": "Extract Plate preset and commands",
+      "description": "As a React app developer, I want a reusable Plate preset and command map so that host apps can render their own toolbar while sharing Markdown behavior.",
+      "acceptanceCriteria": [
+        "Move Plate plugin list and element components into a reusable preset.",
+        "Expose command helpers for headings, blockquote, marks, lists, indentation, links, and raw GLFM insertion.",
+        "Keep host styling and labels configurable.",
+        "Verify the GitLab UI toolbar still performs existing actions."
+      ],
+      "priority": 3,
+      "passes": true,
+      "notes": "",
+      "dependsOn": [
+        "US-001"
+      ],
+      "completionNotes": "Implemented @oa-sdk/markdown-editor/plate with reusable GitLab Plate plugin preset and command helpers for headings, blockquote, marks, lists, indentation, links, reset, and raw GLFM insertion. GitLab UI now consumes the preset and commands while retaining host labels and styling."
+    },
+    {
+      "id": "US-004",
+      "title": "Add theme tokens",
+      "description": "As a product developer, I want multiple editor themes so that the same Markdown editor can fit operational dashboards, docs pages, and high-contrast workflows.",
+      "acceptanceCriteria": [
+        "Define stable --md-editor-* CSS variables.",
+        "Add base, GitLab-like, compact, and high-contrast theme files.",
+        "Migrate app CSS to theme variables without visual regressions.",
+        "Document theme import and override rules."
+      ],
+      "priority": 4,
+      "passes": true,
+      "notes": "",
+      "dependsOn": [
+        "US-003"
+      ],
+      "completionNotes": "Implemented package theme CSS exports for base, GitLab-like, compact, and high-contrast themes using --md-editor-* variables. GitLab UI now imports the package base and GitLab themes and no longer owns Plate content typography styles."
+    },
+    {
+      "id": "US-005",
+      "title": "Expand GLFM coverage",
+      "description": "As a GitLab documentation author, I want more GLFM syntax support so that the editor can cover advanced documentation workflows over time.",
+      "acceptanceCriteria": [
+        "Prioritize backlog from docs/references/glfm/index.md.",
+        "Add support for task list inapplicable state [~].",
+        "Add structured autocomplete hooks for labels, milestones, users, commits, and snippets.",
+        "Add feature tests for every supported syntax addition."
+      ],
+      "priority": 5,
+      "passes": true,
+      "notes": "",
+      "dependsOn": [
+        "US-002",
+        "US-003"
+      ],
+      "completionNotes": "Implemented GitLab task list inapplicable marker serialization with taskState: inapplicable, added provider-neutral autocomplete trigger/provider contracts for labels, milestones, users, commits, and snippets, and updated GLFM reference coverage."
+    }
+  ]
+}

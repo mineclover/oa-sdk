@@ -1,0 +1,44 @@
+{
+  "name": "@oa-sdk/markdown-editor",
+  "version": "0.1.0",
+  "description": "Reusable Markdown editor syntax helpers and GitLab Flavored Markdown serialization",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./glfm": {
+      "import": "./dist/glfm/index.js",
+      "types": "./dist/glfm/index.d.ts"
+    },
+    "./plate": {
+      "import": "./dist/plate/index.js",
+      "types": "./dist/plate/index.d.ts"
+    },
+    "./themes/base.css": "./themes/base.css",
+    "./themes/gitlab.css": "./themes/gitlab.css",
+    "./themes/compact.css": "./themes/compact.css",
+    "./themes/high-contrast.css": "./themes/high-contrast.css"
+  },
+  "scripts": {
+    "build": "tsup src/index.ts src/glfm/index.ts src/plate/index.ts --format esm --dts",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@platejs/basic-nodes": "^53.0.0",
+    "@platejs/indent": "^53.0.0",
+    "@platejs/link": "^53.0.3",
+    "@platejs/list": "^53.0.2",
+    "platejs": "^53.0.3",
+    "react": "^19.1.0"
+  },
+  "devDependencies": {
+    "tsup": "^8.0.0",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.4"
+  }
+}
