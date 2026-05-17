@@ -17,81 +17,13 @@ import {
   createGitLabPlateCommands,
   createGitLabPlatePlugins,
 } from '@oa-sdk/markdown-editor/plate'
+import type { PlateDocumentEditorProps } from './PlateDocumentEditor.types.js'
 import {
-  searchGitLabReferences,
-  type GitLabReferenceSearchKind,
-  type GitLabReferenceSuggestion,
-} from '../gitlab/reference-search-adapter.js'
-import { getOrchestratorApiOptions } from '../gitlab/api-options.js'
-
-interface PlateDocumentEditorProps {
-  initialValue: Value
-  markdownImport?: {
-    readonly markdown: string
-    readonly version: number
-  }
-  onMarkdownChange: (markdown: string) => void
-  storageKey: string
-  document: {
-    title: string
-    project: string
-    path: string
-    owner: string
-  }
-  labels: {
-    title: string
-    description: string
-    placeholder: string
-    reset: string
-    saved: string
-    project: string
-    path: string
-    owner: string
-    blocks: string
-    formatting: string
-    references: string
-    status: string
-    blockOrder: string
-    dragBlock: string
-    toolbar: {
-      heading1: string
-      heading2: string
-      heading3: string
-      heading4: string
-      heading5: string
-      heading6: string
-      quote: string
-      bold: string
-      italic: string
-      code: string
-      strike: string
-      link: string
-      bulletList: string
-      numberedList: string
-      todoList: string
-      indent: string
-      outdent: string
-    }
-    snippets: {
-      issueReference: string
-      mergeRequestReference: string
-      labelReference: string
-      milestoneReference: string
-      table: string
-      codeFence: string
-      mermaid: string
-      math: string
-      toc: string
-      alert: string
-      image: string
-      searchPlaceholder: string
-      search: string
-      manual: string
-      noResults: string
-      unavailable: string
-    }
-  }
-}
+  documentEditorBlockLabel,
+  documentEditorBlockTypeLabel,
+  reorderDocumentEditorBlocks,
+} from './document-editor-blocks.js'
+import { useGitLabReferenceSearch } from './useGitLabReferenceSearch.js'
 
 function ToolbarButton({
   children,
@@ -107,36 +39,6 @@ function ToolbarButton({
   )
 }
 
-function nodeText(node: unknown): string {
-  if (node === null || typeof node !== 'object') return ''
-  const text = (node as { text?: unknown }).text
-  if (typeof text === 'string') return text
-  const children = (node as { children?: unknown }).children
-  if (!Array.isArray(children)) return ''
-  return children.map(child => nodeText(child)).join('')
-}
-
-function blockLabel(node: Value[number], index: number): string {
-  const text = nodeText(node).trim().replace(/\s+/g, ' ')
-  return text.length > 0 ? text.slice(0, 72) : `Block ${String(index + 1)}`
-}
-
-function blockTypeLabel(node: Value[number]): string {
-  const type = typeof node.type === 'string' ? node.type : 'p'
-  if (type === 'p' && typeof node.listStyleType === 'string') return node.listStyleType
-  return type
-}
-
-function reorderBlocks(value: Value, fromIndex: number, toIndex: number): Value {
-  if (fromIndex === toIndex || fromIndex < 0 || toIndex < 0) return value
-  if (fromIndex >= value.length || toIndex >= value.length) return value
-  const nextValue = [...value]
-  const [moved] = nextValue.splice(fromIndex, 1)
-  if (moved === undefined) return value
-  nextValue.splice(toIndex, 0, moved)
-  return nextValue
-}
-
 export function PlateDocumentEditor({
   document,
   initialValue,
@@ -145,10 +47,7 @@ export function PlateDocumentEditor({
   onMarkdownChange,
   storageKey,
 }: PlateDocumentEditorProps) {
-  const [referenceKind, setReferenceKind] = useState<GitLabReferenceSearchKind>('issue')
-  const [referenceQuery, setReferenceQuery] = useState('')
-  const [referenceResults, setReferenceResults] = useState<ReadonlyArray<GitLabReferenceSuggestion>>([])
-  const [referenceSearchState, setReferenceSearchState] = useState<'idle' | 'loading' | 'loaded' | 'error'>('idle')
+  const referenceSearch = useGitLabReferenceSearch()
   const [draggedBlockIndex, setDraggedBlockIndex] = useState<number | null>(null)
   const [dragOverBlockIndex, setDragOverBlockIndex] = useState<number | null>(null)
   const [editorValue, setEditorValue] = useState<Value>(
@@ -180,7 +79,7 @@ export function PlateDocumentEditor({
   }
 
   function moveBlock(fromIndex: number, toIndex: number) {
-    const nextValue = reorderBlocks(editorValue, fromIndex, toIndex)
+    const nextValue = reorderDocumentEditorBlocks(editorValue, fromIndex, toIndex)
     if (nextValue === editorValue) return
     syncEditorValue(nextValue)
   }
@@ -219,28 +118,7 @@ export function PlateDocumentEditor({
     editorCommands.upsertLink({ text, url })
   }
 
-  function openReferenceSearch(kind: GitLabReferenceSearchKind) {
-    setReferenceKind(kind)
-    setReferenceSearchState('idle')
-  }
-
-  async function runReferenceSearch() {
-    if (referenceQuery.trim().length === 0) return
-    setReferenceSearchState('loading')
-    try {
-      const results = await searchGitLabReferences({
-        kind: referenceKind,
-        text: referenceQuery.trim(),
-      }, getOrchestratorApiOptions())
-      setReferenceResults(results)
-      setReferenceSearchState('loaded')
-    } catch {
-      setReferenceResults([])
-      setReferenceSearchState('error')
-    }
-  }
-
-  function insertReferenceSuggestion(suggestion: GitLabReferenceSuggestion) {
+  function insertReferenceSuggestion(suggestion: { readonly glfmReference: string }) {
     insertRawGitLabMarkdown(suggestion.glfmReference)
   }
 
@@ -250,8 +128,8 @@ export function PlateDocumentEditor({
 
   function insertManualReference() {
     const markdown = window.prompt(
-      referenceKind === 'issue' ? labels.snippets.issueReference : labels.snippets.mergeRequestReference,
-      referenceKind === 'issue' ? '#123' : '!123',
+      referenceSearch.kind === 'issue' ? labels.snippets.issueReference : labels.snippets.mergeRequestReference,
+      referenceSearch.kind === 'issue' ? '#123' : '!123',
     )
     if (markdown === null || markdown.trim().length === 0) return
     insertRawGitLabMarkdown(markdown)
@@ -259,7 +137,7 @@ export function PlateDocumentEditor({
 
   function handleSnippet(snippet: GitLabMarkdownSnippet) {
     if (snippet.kind === 'reference') {
-      openReferenceSearch(snippet.referenceKind)
+      referenceSearch.open(snippet.referenceKind)
       return
     }
     if (snippet.kind === 'raw') {
@@ -352,36 +230,36 @@ export function PlateDocumentEditor({
           <div className="reference-search-panel notion-reference-panel" aria-label="GitLab reference search">
             <div className="reference-search-controls">
               <span className="badge badge-info">
-                {referenceKind === 'issue' ? labels.snippets.issueReference : labels.snippets.mergeRequestReference}
+                {referenceSearch.kind === 'issue' ? labels.snippets.issueReference : labels.snippets.mergeRequestReference}
               </span>
               <input
                 className="reference-search-input"
-                value={referenceQuery}
+                value={referenceSearch.query}
                 placeholder={labels.snippets.searchPlaceholder}
-                onChange={event => setReferenceQuery(event.target.value)}
+                onChange={event => referenceSearch.setQuery(event.target.value)}
                 onKeyDown={event => {
                   if (event.key === 'Enter') {
                     event.preventDefault()
-                    void runReferenceSearch()
+                    void referenceSearch.run()
                   }
                 }}
               />
-              <button className="editor-toolbar-button" type="button" onClick={() => void runReferenceSearch()}>
+              <button className="editor-toolbar-button" type="button" onClick={() => void referenceSearch.run()}>
                 {labels.snippets.search}
               </button>
               <button className="editor-toolbar-button" type="button" onClick={insertManualReference}>
                 {labels.snippets.manual}
               </button>
             </div>
-            {referenceSearchState === 'error' ? (
+            {referenceSearch.state === 'error' ? (
               <p className="reference-search-message">{labels.snippets.unavailable}</p>
             ) : null}
-            {referenceSearchState === 'loaded' && referenceResults.length === 0 ? (
+            {referenceSearch.state === 'loaded' && referenceSearch.results.length === 0 ? (
               <p className="reference-search-message">{labels.snippets.noResults}</p>
             ) : null}
-            {referenceResults.length > 0 ? (
+            {referenceSearch.results.length > 0 ? (
               <ul className="reference-search-results">
-                {referenceResults.map(result => (
+                {referenceSearch.results.map(result => (
                   <li key={result.id}>
                     <button
                       className="reference-search-result"
@@ -418,8 +296,8 @@ export function PlateDocumentEditor({
                   >
                     <span className="notion-block-grip" aria-hidden="true">::</span>
                     <span className="notion-block-summary">
-                      <span>{blockLabel(node, index)}</span>
-                      <small>{blockTypeLabel(node)}</small>
+                      <span>{documentEditorBlockLabel(node, index)}</span>
+                      <small>{documentEditorBlockTypeLabel(node)}</small>
                     </span>
                   </button>
                 ))}
