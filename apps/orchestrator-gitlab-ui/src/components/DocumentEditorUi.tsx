@@ -131,6 +131,59 @@ export function DocumentSnippetMenu({
   )
 }
 
+export function DocumentLinkPanel({
+  labels,
+  onCancel,
+  onSubmit,
+  setText,
+  setUrl,
+  text,
+  url,
+}: {
+  readonly labels: PlateDocumentEditorLabels
+  readonly onCancel: () => void
+  readonly onSubmit: () => void
+  readonly setText: (value: string) => void
+  readonly setUrl: (value: string) => void
+  readonly text: string
+  readonly url: string
+}) {
+  return (
+    <form
+      className="document-link-panel"
+      onSubmit={event => {
+        event.preventDefault()
+        onSubmit()
+      }}
+    >
+      <div>
+        <h3>{labels.linkTitle}</h3>
+      </div>
+      <label className="document-link-field">
+        <span>{labels.linkText}</span>
+        <input
+          value={text}
+          onChange={event => setText(event.target.value)}
+        />
+      </label>
+      <label className="document-link-field">
+        <span>{labels.linkUrl}</span>
+        <input
+          autoFocus
+          inputMode="url"
+          placeholder="https://"
+          value={url}
+          onChange={event => setUrl(event.target.value)}
+        />
+      </label>
+      <div className="document-link-actions">
+        <button className="editor-toolbar-button" type="submit">{labels.linkApply}</button>
+        <button className="editor-toolbar-button" type="button" onClick={onCancel}>{labels.linkCancel}</button>
+      </div>
+    </form>
+  )
+}
+
 export function DocumentBlockRail({
   dragOverBlockIndex,
   draggedBlockIndex,

@@ -27,6 +27,11 @@ export interface PlateDocumentEditorLabels {
   readonly status: string
   readonly blockOrder: string
   readonly dragBlock: string
+  readonly linkTitle: string
+  readonly linkText: string
+  readonly linkUrl: string
+  readonly linkApply: string
+  readonly linkCancel: string
   readonly toolbar: {
     readonly heading1: string
     readonly heading2: string

@@ -20,6 +20,7 @@ import {
 import {
   DocumentBlockRail,
   DocumentCommandBar,
+  DocumentLinkPanel,
   DocumentProperties,
   DocumentSnippetMenu,
   ToolbarButton,
@@ -39,6 +40,9 @@ export function PlateDocumentEditor({
   const referenceSearch = useGitLabReferenceSearch()
   const [draggedBlockIndex, setDraggedBlockIndex] = useState<number | null>(null)
   const [dragOverBlockIndex, setDragOverBlockIndex] = useState<number | null>(null)
+  const [linkPanelOpen, setLinkPanelOpen] = useState(false)
+  const [linkText, setLinkText] = useState('')
+  const [linkUrl, setLinkUrl] = useState('')
   const [editorValue, setEditorValue] = useState<Value>(
     () => parseStoredEditorValue(window.localStorage.getItem(storageKey), initialValue) as Value,
   )
@@ -101,10 +105,23 @@ export function PlateDocumentEditor({
   }
 
   function addLink() {
-    const url = window.prompt('https://')
-    if (url === null || url.trim().length === 0) return
-    const text = window.prompt('Text', url) ?? url
+    setLinkPanelOpen(true)
+    setLinkText('')
+    setLinkUrl('')
+  }
+
+  function cancelLinkPanel() {
+    setLinkPanelOpen(false)
+    setLinkText('')
+    setLinkUrl('')
+  }
+
+  function submitLinkPanel() {
+    const url = linkUrl.trim()
+    if (url.length === 0) return
+    const text = linkText.trim().length > 0 ? linkText.trim() : url
     editorCommands.upsertLink({ text, url })
+    cancelLinkPanel()
   }
 
   function insertReferenceSuggestion(suggestion: { readonly glfmReference: string }) {
@@ -175,6 +192,17 @@ export function PlateDocumentEditor({
             onToggleStrikethrough={editorCommands.toggleStrikethrough}
             onToggleTodoList={() => editorCommands.toggleList('todo')}
           />
+          {linkPanelOpen ? (
+            <DocumentLinkPanel
+              labels={labels}
+              setText={setLinkText}
+              setUrl={setLinkUrl}
+              text={linkText}
+              url={linkUrl}
+              onCancel={cancelLinkPanel}
+              onSubmit={submitLinkPanel}
+            />
+          ) : null}
           <DocumentSnippetMenu labels={labels}>
             {gitLabMarkdownSnippets.map(snippet => (
               <ToolbarButton key={snippet.id} onClick={() => handleSnippet(snippet)}>

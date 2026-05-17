@@ -132,6 +132,11 @@ export function DocumentEditorPage({
             status: translate(locale, 'docs.editorStatus'),
             blockOrder: translate(locale, 'docs.editorBlockOrder'),
             dragBlock: translate(locale, 'docs.editorDragBlock'),
+            linkTitle: translate(locale, 'docs.editorLinkTitle'),
+            linkText: translate(locale, 'docs.editorLinkText'),
+            linkUrl: translate(locale, 'docs.editorLinkUrl'),
+            linkApply: translate(locale, 'docs.editorLinkApply'),
+            linkCancel: translate(locale, 'docs.editorLinkCancel'),
             toolbar: {
               heading1: translate(locale, 'docs.editorH1'),
               heading2: translate(locale, 'docs.editorH2'),

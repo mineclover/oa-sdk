@@ -104,6 +104,11 @@ export type TranslationKey =
   | 'docs.editorStatus'
   | 'docs.editorBlockOrder'
   | 'docs.editorDragBlock'
+  | 'docs.editorLinkTitle'
+  | 'docs.editorLinkText'
+  | 'docs.editorLinkUrl'
+  | 'docs.editorLinkApply'
+  | 'docs.editorLinkCancel'
   | 'docs.editorH1'
   | 'docs.editorH2'
   | 'docs.editorH3'
@@ -286,6 +291,11 @@ const translations: Record<Locale, Record<TranslationKey, string>> = {
     'docs.editorStatus': '상태',
     'docs.editorBlockOrder': '블록 순서',
     'docs.editorDragBlock': '드래그해서 블록 이동',
+    'docs.editorLinkTitle': '링크 작성',
+    'docs.editorLinkText': '표시 텍스트',
+    'docs.editorLinkUrl': 'URL',
+    'docs.editorLinkApply': '링크 적용',
+    'docs.editorLinkCancel': '취소',
     'docs.editorH1': 'H1',
     'docs.editorH2': 'H2',
     'docs.editorH3': 'H3',
@@ -465,6 +475,11 @@ const translations: Record<Locale, Record<TranslationKey, string>> = {
     'docs.editorStatus': 'Status',
     'docs.editorBlockOrder': 'Block order',
     'docs.editorDragBlock': 'Drag to move block',
+    'docs.editorLinkTitle': 'Create link',
+    'docs.editorLinkText': 'Display text',
+    'docs.editorLinkUrl': 'URL',
+    'docs.editorLinkApply': 'Apply link',
+    'docs.editorLinkCancel': 'Cancel',
     'docs.editorH1': 'H1',
     'docs.editorH2': 'H2',
     'docs.editorH3': 'H3',

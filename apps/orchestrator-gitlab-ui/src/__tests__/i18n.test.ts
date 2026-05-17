@@ -13,6 +13,13 @@ describe('i18n', () => {
     expect(translate('en', 'route.issues.title')).toBe('Issues')
   })
 
+  it('translates editor link panel labels in Korean and English', () => {
+    expect(translate('ko', 'docs.editorLinkTitle')).toBe('링크 작성')
+    expect(translate('en', 'docs.editorLinkTitle')).toBe('Create link')
+    expect(translate('ko', 'docs.editorLinkApply')).toBe('링크 적용')
+    expect(translate('en', 'docs.editorLinkApply')).toBe('Apply link')
+  })
+
   it('interpolates params in locale strings', () => {
     expect(translate('ko', 'time.minutesAgo', { minutes: 17 })).toBe('17분 전')
     expect(translate('en', 'time.minutesAgo', { minutes: 17 })).toBe('17m ago')

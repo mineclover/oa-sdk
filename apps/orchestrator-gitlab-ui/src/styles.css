@@ -511,7 +511,8 @@ h1 {
 
 .notion-command-bar .editor-toolbar-button,
 .notion-block-menu .editor-toolbar-button,
-.notion-reference-panel .editor-toolbar-button {
+.notion-reference-panel .editor-toolbar-button,
+.document-link-panel .editor-toolbar-button {
   min-height: 28px;
   border-color: transparent;
   background: transparent;
@@ -522,7 +523,8 @@ h1 {
 
 .notion-command-bar .editor-toolbar-button:hover,
 .notion-block-menu .editor-toolbar-button:hover,
-.notion-reference-panel .editor-toolbar-button:hover {
+.notion-reference-panel .editor-toolbar-button:hover,
+.document-link-panel .editor-toolbar-button:hover {
   border-color: var(--border);
   background: var(--surface-2);
   color: var(--text);
@@ -547,6 +549,51 @@ h1 {
   min-height: 30px;
   font-size: 12px;
   font-weight: 650;
+}
+
+.document-link-panel {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 12px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fbfcfd;
+}
+
+.document-link-panel h3 {
+  margin: 0;
+  font-size: 15px;
+}
+
+.document-link-field {
+  display: grid;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.document-link-field input {
+  min-height: 34px;
+  padding: 6px 9px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+}
+
+.document-link-field input:focus {
+  border-color: var(--accent);
+  outline: 2px solid #bde6ed;
+  outline-offset: 1px;
+}
+
+.document-link-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .reference-search-panel {
