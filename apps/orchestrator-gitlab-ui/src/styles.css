@@ -635,6 +635,12 @@ h1 {
   min-height: 260px;
 }
 
+.raw-markdown-textarea {
+  width: 100%;
+  resize: vertical;
+  font: 12px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
 .status-warning {
   border-color: var(--warning);
   background: #fff4d8;

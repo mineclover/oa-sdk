@@ -3,7 +3,7 @@ import { createGitLabPlatePlugins } from '../plate/index.js'
 
 describe('GitLab Plate preset', () => {
   it('creates the supported plugin set', () => {
-    expect(createGitLabPlatePlugins()).toHaveLength(14)
+    expect(createGitLabPlatePlugins()).toHaveLength(15)
   })
 
   it('accepts host class name overrides', () => {
@@ -15,7 +15,10 @@ describe('GitLab Plate preset', () => {
           heading1: 'host-heading-1',
         },
       }),
-    ).toHaveLength(14)
+    ).toHaveLength(15)
+  })
+
+  it('can disable Markdown import/export integration for minimal hosts', () => {
+    expect(createGitLabPlatePlugins({ markdown: false })).toHaveLength(14)
   })
 })
-

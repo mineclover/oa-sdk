@@ -20,7 +20,13 @@ vi.mock('@platejs/link', () => ({
 }))
 
 function createEditor() {
+  const markdownValue: Value = [{ type: 'h2', children: [{ text: 'Imported' }] }]
   return {
+    getApi: vi.fn(() => ({
+      markdown: {
+        deserialize: vi.fn(() => markdownValue),
+      },
+    })),
     tf: {
       blockquote: { toggle: vi.fn() },
       bold: { toggle: vi.fn() },
@@ -51,6 +57,7 @@ describe('GitLab Plate commands', () => {
     const value: Value = [{ type: 'p', children: [{ text: 'Reset' }] }]
 
     commands.resetValue(value)
+    commands.resetValueFromMarkdown('## Imported')
     commands.insertRawMarkdown('[[TOC]]')
     commands.toggleHeading(3)
     commands.toggleBlockquote()
@@ -60,6 +67,7 @@ describe('GitLab Plate commands', () => {
     commands.toggleStrikethrough()
 
     expect(editor.tf.setValue).toHaveBeenCalledWith(value)
+    expect(editor.tf.setValue).toHaveBeenCalledWith([{ type: 'h2', children: [{ text: 'Imported' }] }])
     expect(editor.tf.insertNodes).toHaveBeenCalledWith({
       children: [{ text: '[[TOC]]' }],
       glfmRaw: true,

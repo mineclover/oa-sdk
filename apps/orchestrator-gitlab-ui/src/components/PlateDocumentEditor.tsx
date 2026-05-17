@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { Value } from 'platejs'
 import {
   Plate,
@@ -26,6 +26,10 @@ import { getOrchestratorApiOptions } from '../gitlab/api-options.js'
 
 interface PlateDocumentEditorProps {
   initialValue: Value
+  markdownImport?: {
+    readonly markdown: string
+    readonly version: number
+  }
   onMarkdownChange: (markdown: string) => void
   storageKey: string
   document: {
@@ -101,6 +105,7 @@ export function PlateDocumentEditor({
   document,
   initialValue,
   labels,
+  markdownImport,
   onMarkdownChange,
   storageKey,
 }: PlateDocumentEditorProps) {
@@ -109,10 +114,17 @@ export function PlateDocumentEditor({
   const [referenceResults, setReferenceResults] = useState<ReadonlyArray<GitLabReferenceSuggestion>>([])
   const [referenceSearchState, setReferenceSearchState] = useState<'idle' | 'loading' | 'loaded' | 'error'>('idle')
   const editor = usePlateEditor({
-    plugins: createGitLabPlatePlugins(),
+    plugins: createGitLabPlatePlugins() as never,
     value: () => parseStoredEditorValue(window.localStorage.getItem(storageKey), initialValue) as Value,
   })
   const editorCommands = createGitLabPlateCommands(editor)
+
+  useEffect(() => {
+    if (markdownImport === undefined || markdownImport.version === 0) return
+    const nextValue = editorCommands.resetValueFromMarkdown(markdownImport.markdown)
+    window.localStorage.setItem(storageKey, serializeEditorValue(nextValue))
+    onMarkdownChange(plateValueToGitLabMarkdown(nextValue))
+  }, [markdownImport?.version])
 
   function resetValue() {
     editorCommands.resetValue(initialValue)

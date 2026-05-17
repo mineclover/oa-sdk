@@ -304,6 +304,7 @@ function DocumentEditorPage({
   const [branch, setBranch] = useState('main')
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
   const [saveResult, setSaveResult] = useState<string>('')
+  const [markdownImport, setMarkdownImport] = useState({ markdown: '', version: 0 })
   const initialEditorValue = useMemo(
     () => editorValueForDocument(document),
     [document],
@@ -375,6 +376,7 @@ function DocumentEditorPage({
             owner: document.owner,
           }}
           initialValue={initialEditorValue}
+          markdownImport={markdownImport}
           storageKey={documentEditorStorageKey(document.id)}
           labels={{
             title: translate(locale, 'docs.editorTitle'),
@@ -473,9 +475,24 @@ function DocumentEditorPage({
             <h3>{translate(locale, 'docs.rawMarkdownTitle')}</h3>
             <p className="run-meta">{translate(locale, 'docs.rawMarkdownDescription')}</p>
           </div>
-          <pre className="markdown-preview raw-markdown-preview" aria-label={translate(locale, 'docs.rawMarkdownPayload')}>
-            {saveDraft.markdown}
-          </pre>
+          <textarea
+            className="markdown-preview raw-markdown-preview raw-markdown-textarea"
+            aria-label={translate(locale, 'docs.rawMarkdownPayload')}
+            value={markdownPreview}
+            onChange={event => setMarkdownPreview(event.target.value)}
+          />
+          <div className="save-action-row">
+            <button
+              className="button"
+              type="button"
+              onClick={() => setMarkdownImport(current => ({
+                markdown: markdownPreview,
+                version: current.version + 1,
+              }))}
+            >
+              {translate(locale, 'docs.applyRawMarkdown')}
+            </button>
+          </div>
         </section>
         <section className="dry-run-save">
           <div>

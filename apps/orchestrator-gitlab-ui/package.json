@@ -16,6 +16,7 @@
     "@platejs/indent": "^53.0.0",
     "@platejs/link": "^53.0.3",
     "@platejs/list": "^53.0.2",
+    "@platejs/markdown": "^53.0.4",
     "platejs": "^53.0.3",
     "react": "^19.1.0",
     "react-dom": "^19.1.0"

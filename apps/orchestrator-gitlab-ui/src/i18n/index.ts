@@ -136,6 +136,7 @@ export type TranslationKey =
   | 'docs.rawMarkdownTitle'
   | 'docs.rawMarkdownDescription'
   | 'docs.rawMarkdownPayload'
+  | 'docs.applyRawMarkdown'
   | 'docs.saveTarget'
   | 'docs.targetWiki'
   | 'docs.targetRepository'
@@ -309,8 +310,9 @@ const translations: Record<Locale, Record<TranslationKey, string>> = {
     'docs.markdownPreviewTitle': 'GitLab Markdown 미리보기',
     'docs.markdownPreviewDescription': '에디터 내용은 GitLab Markdown으로 직렬화한 뒤 저장 API payload에 사용합니다.',
     'docs.rawMarkdownTitle': 'Raw Markdown',
-    'docs.rawMarkdownDescription': 'Notion-like 에디터에서 작성한 구조화 문서가 실제로 저장될 Markdown 원문입니다.',
+    'docs.rawMarkdownDescription': 'Notion-like 에디터에서 작성한 구조화 문서가 실제로 저장될 Markdown 원문입니다. 원문을 수정한 뒤 에디터에 다시 적용할 수 있습니다.',
     'docs.rawMarkdownPayload': 'Raw Markdown payload',
+    'docs.applyRawMarkdown': '에디터에 적용',
     'docs.saveTarget': '저장 대상',
     'docs.targetWiki': 'Wiki 페이지',
     'docs.targetRepository': '저장소 파일',
@@ -481,8 +483,9 @@ const translations: Record<Locale, Record<TranslationKey, string>> = {
     'docs.markdownPreviewTitle': 'GitLab Markdown preview',
     'docs.markdownPreviewDescription': 'Editor content is serialized to GitLab Markdown before it becomes a save API payload.',
     'docs.rawMarkdownTitle': 'Raw Markdown',
-    'docs.rawMarkdownDescription': 'The Markdown source that will be saved from the Notion-like structured editor.',
+    'docs.rawMarkdownDescription': 'The Markdown source that will be saved from the Notion-like structured editor. Edit it directly and apply it back to the editor.',
     'docs.rawMarkdownPayload': 'Raw Markdown payload',
+    'docs.applyRawMarkdown': 'Apply to editor',
     'docs.saveTarget': 'Save target',
     'docs.targetWiki': 'Wiki page',
     'docs.targetRepository': 'Repository file',

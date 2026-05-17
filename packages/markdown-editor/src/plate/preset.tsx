@@ -14,6 +14,7 @@ import {
 import { IndentPlugin } from '@platejs/indent/react'
 import { LinkPlugin } from '@platejs/link/react'
 import { ListPlugin } from '@platejs/list/react'
+import { MarkdownPlugin } from '@platejs/markdown'
 import {
   PlateElement,
   type PlateElementProps,
@@ -32,6 +33,7 @@ export interface GitLabPlatePresetClassNames {
 
 export interface GitLabPlatePresetOptions {
   readonly classNames?: GitLabPlatePresetClassNames
+  readonly markdown?: boolean
 }
 
 const defaultClassNames = {
@@ -56,7 +58,7 @@ function resolvePresetClassNames(options: GitLabPlatePresetOptions = {}): Requir
   }
 }
 
-export function createGitLabPlatePlugins(options: GitLabPlatePresetOptions = {}) {
+export function createGitLabPlatePlugins(options: GitLabPlatePresetOptions = {}): unknown[] {
   const classNames = resolvePresetClassNames(options)
 
   function H1Element(props: PlateElementProps) {
@@ -87,7 +89,7 @@ export function createGitLabPlatePlugins(options: GitLabPlatePresetOptions = {})
     return <PlateElement as="blockquote" className={classNames.blockquote} {...props} />
   }
 
-  return [
+  const plugins = [
     BoldPlugin,
     ItalicPlugin,
     CodePlugin,
@@ -103,4 +105,6 @@ export function createGitLabPlatePlugins(options: GitLabPlatePresetOptions = {})
     H6Plugin.withComponent(H6Element),
     BlockquotePlugin.withComponent(BlockquoteElement),
   ]
+
+  return options.markdown === false ? plugins : [MarkdownPlugin, ...plugins]
 }

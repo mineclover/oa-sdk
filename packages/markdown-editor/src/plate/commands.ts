@@ -1,6 +1,7 @@
 import { indent, outdent } from '@platejs/indent'
 import { upsertLink } from '@platejs/link'
 import { toggleList } from '@platejs/list'
+import { MarkdownPlugin } from '@platejs/markdown'
 import type { Value } from 'platejs'
 import type { PlateEditor } from 'platejs/react'
 
@@ -32,6 +33,7 @@ export type GitLabMarkdownListStyle = 'disc' | 'decimal' | 'todo'
 
 export interface GitLabPlateCommands {
   readonly resetValue: (value: Value) => void
+  readonly resetValueFromMarkdown: (markdown: string) => Value
   readonly insertRawMarkdown: (markdown: string) => void
   readonly upsertLink: (params: { readonly text: string; readonly url: string }) => void
   readonly toggleHeading: (level: 1 | 2 | 3 | 4 | 5 | 6) => void
@@ -51,6 +53,24 @@ export function asGitLabPlateEditor(editor: PlateEditor): GitLabPlateEditor {
 
 export function resetGitLabPlateValue(editor: PlateEditor, value: Value): void {
   asGitLabPlateEditor(editor).tf.setValue(value)
+}
+
+export function markdownToGitLabPlateValue(editor: PlateEditor, markdown: string): Value {
+  const api = (editor as PlateEditor & {
+    readonly getApi: (plugin: typeof MarkdownPlugin) => {
+      readonly markdown: {
+        readonly deserialize: (markdown: string) => Value
+      }
+    }
+  }).getApi(MarkdownPlugin)
+
+  return api.markdown.deserialize(markdown)
+}
+
+export function resetGitLabPlateValueFromMarkdown(editor: PlateEditor, markdown: string): Value {
+  const value = markdownToGitLabPlateValue(editor, markdown)
+  resetGitLabPlateValue(editor, value)
+  return value
 }
 
 export function insertRawGitLabMarkdown(editor: PlateEditor, markdown: string): void {
@@ -116,6 +136,7 @@ export function createGitLabPlateCommands(editor: PlateEditor): GitLabPlateComma
     insertRawMarkdown: markdown => insertRawGitLabMarkdown(editor, markdown),
     outdentBlock: () => outdentGitLabBlock(editor),
     resetValue: value => resetGitLabPlateValue(editor, value),
+    resetValueFromMarkdown: markdown => resetGitLabPlateValueFromMarkdown(editor, markdown),
     toggleBlockquote: () => toggleGitLabBlockquote(editor),
     toggleBold: () => toggleGitLabBold(editor),
     toggleHeading: level => toggleGitLabHeading(editor, level),
