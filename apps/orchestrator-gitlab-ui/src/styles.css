@@ -311,8 +311,19 @@ h1 {
 }
 
 .document-workspace {
-  display: grid;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
   gap: 12px;
+}
+
+.document-workspace code,
+.run-meta code {
+  overflow-wrap: anywhere;
+  color: var(--text);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 12px;
 }
 
 .document-picker-list {
@@ -367,6 +378,17 @@ h1 {
 
 .document-edit-link:hover {
   background: #e4f4f7;
+}
+
+.document-edit-link-primary {
+  margin-top: 0;
+  padding: 8px 12px;
+  background: var(--accent);
+  color: #ffffff;
+}
+
+.document-edit-link-primary:hover {
+  background: #0b7285;
 }
 
 .editor-toolbar {

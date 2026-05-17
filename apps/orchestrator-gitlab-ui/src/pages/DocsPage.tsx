@@ -173,6 +173,16 @@ function documentEditPath(documentId: string): string {
   return `/docs/${encodeURIComponent(documentId)}`
 }
 
+function documentStorageLocation(documentId: string): string {
+  return `localStorage:${documentEditorStorageKey(documentId)}`
+}
+
+function gitLabDestinationLabel(draft: ReturnType<typeof createGitLabDocumentSaveDraft>, branch: string): string {
+  if (draft.target === 'repository') return `${draft.project}@${branch}:${draft.path}`
+  if (draft.target === 'wiki') return `${draft.project} wiki:${draft.path}`
+  return `${draft.project} release:${draft.path}`
+}
+
 function documentIdFromPathname(pathname: string): string | undefined {
   const match = /^\/docs\/([^/?#]+)\/?$/.exec(pathname)
   return match?.[1] === undefined ? undefined : decodeURIComponent(match[1])
@@ -202,6 +212,23 @@ function DocsIndexPage({ locale, onNavigate }: Pick<DocsPageProps, 'locale' | 'o
 
   return (
     <>
+      <section className="panel document-workspace">
+        <div>
+          <h2>{translate(locale, 'docs.workspaceTitle')}</h2>
+          <p className="run-meta">{translate(locale, 'docs.workspaceDescription')}</p>
+          <p className="run-meta">
+            {translate(locale, 'docs.editorRouteHint')}: <code>{documentEditPath(defaultDocument.id)}</code>
+          </p>
+        </div>
+        <a
+          className="document-edit-link document-edit-link-primary"
+          href={documentEditPath(defaultDocument.id)}
+          onClick={event => handleOpenEditor(event, defaultDocument.id)}
+        >
+          {translate(locale, 'docs.openFirstEditor')}
+        </a>
+      </section>
+
       <section className="summary-strip">
         {docsByType.map(group => (
           <article className="summary-strip-item" key={group.scope}>
@@ -228,6 +255,8 @@ function DocsIndexPage({ locale, onNavigate }: Pick<DocsPageProps, 'locale' | 'o
                     <p className="run-meta">{translate(locale, 'docs.project')}: {item.project}</p>
                     <p className="run-meta">{item.path}</p>
                     <p className="run-meta">{translate(locale, 'docs.owner')}: {item.owner}</p>
+                    <p className="run-meta">{translate(locale, 'docs.editorRoute')}: {documentEditPath(item.id)}</p>
+                    <p className="run-meta">{translate(locale, 'docs.autosaveLocation')}: {documentStorageLocation(item.id)}</p>
                     <a
                       className="document-edit-link"
                       href={documentEditPath(item.id)}
@@ -292,6 +321,9 @@ function DocumentEditorPage({
     markdown: markdownPreview,
   })
   const saveRequest = buildBackendDocumentSaveRequest(saveDraft, { branch, mode: saveMode, dryRun: true })
+  const editorRoute = documentEditPath(document.id)
+  const storageLocation = documentStorageLocation(document.id)
+  const gitLabDestination = gitLabDestinationLabel(saveDraft, branch)
 
   async function runSave(dryRun: boolean) {
     setSaveStatus('saving')
@@ -317,6 +349,9 @@ function DocumentEditorPage({
         <div>
           <h2>{translate(locale, 'docs.workspaceTitle')}</h2>
           <p className="run-meta">{document.title}</p>
+          <p className="run-meta">{translate(locale, 'docs.editorRoute')}: <code>{editorRoute}</code></p>
+          <p className="run-meta">{translate(locale, 'docs.autosaveLocation')}: <code>{storageLocation}</code></p>
+          <p className="run-meta">{translate(locale, 'docs.gitlabDestination')}: <code>{gitLabDestination}</code></p>
         </div>
         <button className="button" type="button" onClick={() => onNavigate('/docs')}>
           {translate(locale, 'docs.backToDocs')}
@@ -438,6 +473,7 @@ function DocumentEditorPage({
             <p className="run-meta">{translate(locale, 'docs.dryRunDescription')}</p>
             <p className="run-meta">{translate(locale, 'docs.dryRunProject')}: {saveDraft.project}</p>
             <p className="run-meta">{translate(locale, 'docs.dryRunPath')}: {saveDraft.path}</p>
+            <p className="run-meta">{translate(locale, 'docs.requestDestination')}: {gitLabDestination}</p>
             <p className="run-meta">{translate(locale, 'docs.dryRunMethod')}: {saveRequest.method}</p>
             <p className="run-meta">{translate(locale, 'docs.dryRunEndpoint')}: {saveRequest.path}</p>
             <div className="save-action-row">

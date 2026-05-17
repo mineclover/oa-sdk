@@ -83,6 +83,12 @@ export type TranslationKey =
   | 'docs.workspaceTitle'
   | 'docs.workspaceDescription'
   | 'docs.openEditor'
+  | 'docs.openFirstEditor'
+  | 'docs.editorRoute'
+  | 'docs.editorRouteHint'
+  | 'docs.autosaveLocation'
+  | 'docs.gitlabDestination'
+  | 'docs.requestDestination'
   | 'docs.backToDocs'
   | 'docs.notFoundTitle'
   | 'docs.notFoundDescription'
@@ -249,6 +255,12 @@ const translations: Record<Locale, Record<TranslationKey, string>> = {
     'docs.workspaceTitle': '문서 편집 워크스페이스',
     'docs.workspaceDescription': '편집할 GitLab 문서를 선택하면 문서별 초안과 자동 저장 공간이 분리됩니다.',
     'docs.openEditor': '편집 열기',
+    'docs.openFirstEditor': '첫 문서 편집 열기',
+    'docs.editorRoute': '에디터 경로',
+    'docs.editorRouteHint': '바로 진입 가능한 에디터 경로',
+    'docs.autosaveLocation': '로컬 자동 저장 위치',
+    'docs.gitlabDestination': 'GitLab 저장 목적지',
+    'docs.requestDestination': '요청 저장 목적지',
     'docs.backToDocs': '문서 목록으로',
     'docs.notFoundTitle': '문서를 찾을 수 없음',
     'docs.notFoundDescription': '요청한 문서 경로가 현재 GitLab 문서 인덱스에 없습니다.',
@@ -412,6 +424,12 @@ const translations: Record<Locale, Record<TranslationKey, string>> = {
     'docs.workspaceTitle': 'Document editing workspace',
     'docs.workspaceDescription': 'Choose a GitLab document to edit with document-specific drafts and autosave storage.',
     'docs.openEditor': 'Open editor',
+    'docs.openFirstEditor': 'Open first editor',
+    'docs.editorRoute': 'Editor route',
+    'docs.editorRouteHint': 'Direct editor route',
+    'docs.autosaveLocation': 'Local autosave location',
+    'docs.gitlabDestination': 'GitLab save destination',
+    'docs.requestDestination': 'Request save destination',
     'docs.backToDocs': 'Back to docs',
     'docs.notFoundTitle': 'Document not found',
     'docs.notFoundDescription': 'The requested document path is not in the current GitLab document index.',
