@@ -7,6 +7,7 @@ export function DocumentLiveMarkdownSurface({
   draftMarkdown,
   labels,
   onBlurBlock,
+  onCancelBlock,
   onChangeDraft,
   onEditTable,
   onFocusBlock,
@@ -19,6 +20,7 @@ export function DocumentLiveMarkdownSurface({
     readonly emptyBlock: string
   }
   readonly onBlurBlock: () => void
+  readonly onCancelBlock: () => void
   readonly onChangeDraft: (value: string) => void
   readonly onEditTable: (index: number) => void
   readonly onFocusBlock: (index: number) => void
@@ -36,10 +38,22 @@ export function DocumentLiveMarkdownSurface({
           >
             {isActive ? (
               <textarea
+                autoFocus
                 className="live-markdown-editor"
                 value={draftMarkdown}
                 onBlur={onBlurBlock}
                 onChange={event => onChangeDraft(event.target.value)}
+                onKeyDown={event => {
+                  if (event.key === 'Escape') {
+                    event.preventDefault()
+                    onCancelBlock()
+                    return
+                  }
+                  if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
+                    event.preventDefault()
+                    onBlurBlock()
+                  }
+                }}
               />
             ) : (
               <div

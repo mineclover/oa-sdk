@@ -1,4 +1,4 @@
-import { useEffect, useState, type DragEvent } from 'react'
+import { useEffect, useRef, useState, type DragEvent } from 'react'
 import type { Value } from 'platejs'
 import {
   Plate,
@@ -56,6 +56,7 @@ export function PlateDocumentEditor({
   const [imageUrl, setImageUrl] = useState('')
   const [activeBlockIndex, setActiveBlockIndex] = useState<number | null>(null)
   const [draftMarkdown, setDraftMarkdown] = useState('')
+  const skipNextBlockCommit = useRef(false)
   const [editorValue, setEditorValue] = useState<Value>(
     () => parseStoredEditorValue(window.localStorage.getItem(storageKey), initialValue) as Value,
   )
@@ -234,6 +235,10 @@ export function PlateDocumentEditor({
   }
 
   function commitActiveBlock() {
+    if (skipNextBlockCommit.current) {
+      skipNextBlockCommit.current = false
+      return
+    }
     if (activeBlockIndex === null) return
     const originalNode = editorValue[activeBlockIndex]
     if (originalNode === undefined) {
@@ -255,6 +260,12 @@ export function PlateDocumentEditor({
     setActiveBlockIndex(null)
     setDraftMarkdown('')
     syncEditorValue(nextValue)
+  }
+
+  function cancelActiveBlock() {
+    skipNextBlockCommit.current = true
+    setActiveBlockIndex(null)
+    setDraftMarkdown('')
   }
 
   return (
@@ -393,6 +404,7 @@ export function PlateDocumentEditor({
                 }}
                 value={editorValue}
                 onBlurBlock={commitActiveBlock}
+                onCancelBlock={cancelActiveBlock}
                 onChangeDraft={setDraftMarkdown}
                 onEditTable={tableEditorController.openExistingTableEditor}
                 onFocusBlock={focusBlock}

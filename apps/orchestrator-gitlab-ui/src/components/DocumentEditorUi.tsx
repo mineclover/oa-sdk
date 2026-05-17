@@ -309,9 +309,16 @@ export function DocumentTableEditorModal({
       <form
         className="document-table-modal"
         aria-label={labels.tableTitle}
+        role="dialog"
         onSubmit={event => {
           event.preventDefault()
           onSubmit()
+        }}
+        onKeyDown={event => {
+          if (event.key === 'Escape') {
+            event.preventDefault()
+            onCancel()
+          }
         }}
       >
         <div className="document-table-modal-header">
