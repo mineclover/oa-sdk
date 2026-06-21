@@ -228,6 +228,7 @@ Typegen 공개 surface는 root entry(`@oa-sdk/codegen`)와 typegen sub-entry(`@o
 | `upgradeOpenApiDocumentTo32()` | `cli/lib/openapi-collect.ts` | normalized OpenAPI 3.0/3.1 문서를 OpenAPI 3.2 분석 artifact로 파생하고 nullable 등 변환 report를 함께 반환 |
 | `stringifyOpenApiYaml()` | `cli/lib/openapi-collect.ts` | normalized OpenAPI 문서를 YAML anchor 없이 stable한 YAML 문자열로 직렬화 |
 | `createOpenApiCollectReport()` | `cli/lib/openapi-collect.ts` | profile/raw/normalized/upgraded 경로와 upgrade report를 묶은 collect report payload 생성 |
+| `exportOpenApiToTypeSpec()` | `cli/lib/tsp-export.ts` | OpenAPI artifact를 TypeSpec spike source와 diagnostics report로 변환 |
 | `createOpenApiGovernanceInterface()` | `cli/lib/openapi-governance-scaffold.ts` | 외부 OpenAPI 서비스용 artifact interface(`oa-gen.openapi-governance.v1`) payload 생성 |
 | `scaffoldOpenApiGovernance()` | `cli/lib/openapi-governance-scaffold.ts` | 서비스 root에 `openapi-governance.config.json`, `scripts/openapi-governance.sh`, `openapi-governance.md`와 contracts/scripts/src 디렉토리를 생성 |
 | `formatScaffoldResult()` | `cli/lib/openapi-governance-scaffold.ts` | scaffold 결과의 root 디렉토리와 생성 파일 목록을 사용자 친화 텍스트로 렌더링 |
@@ -274,6 +275,11 @@ Typegen 공개 surface는 root entry(`@oa-sdk/codegen`)와 typegen sub-entry(`@o
 | `OpenApiTransformWarning` | `cli/lib/openapi-collect.ts` | collect/upgrade pipeline의 pointer-aware 변환/경고 항목 |
 | `OpenApiUpgradeReport` | `cli/lib/openapi-collect.ts` | OpenAPI 3.0/3.1 → 3.2 변환 report. source/target version과 conversion/warning 목록 포함 |
 | `OpenApiCollectReport` | `cli/lib/openapi-collect.ts` | collect command가 기록하는 raw/normalized/upgraded 경로와 upgrade report 묶음 |
+| `TspExportOptions` | `cli/lib/tsp-export.ts` | TypeSpec export namespace 옵션 |
+| `TspExportResult` | `cli/lib/tsp-export.ts` | 생성된 TypeSpec source, diagnostics report, diagnostics 목록 |
+| `TspExportReport` | `cli/lib/tsp-export.ts` | `oa-gen.tsp-export-report.v1` report payload. counts와 warning diagnostics를 포함 |
+| `TspExportDiagnostic` | `cli/lib/tsp-export.ts` | TypeSpec export 중 의미 손실 또는 미구현 mapping을 기록하는 warning diagnostic |
+| `TspExportDiagnosticSeverity` | `cli/lib/tsp-export.ts` | 현재 TypeSpec export diagnostic severity union |
 | `OpenApiGovernanceInterface` | `cli/lib/openapi-governance-scaffold.ts` | 외부 OpenAPI 서비스용 artifact interface(`oa-gen.openapi-governance.v1`) payload 타입 |
 | `OpenApiGovernanceScaffoldOptions` | `cli/lib/openapi-governance-scaffold.ts` | scaffold root/service/profile/source-command/runtime URL/force overwrite 옵션 |
 | `OpenApiGovernanceScaffoldResult` | `cli/lib/openapi-governance-scaffold.ts` | scaffold 결과의 rootDir와 생성된 파일 절대 경로 목록 |
@@ -367,6 +373,7 @@ Typegen 공개 surface는 root entry(`@oa-sdk/codegen`)와 typegen sub-entry(`@o
 | `review-bundle` | `packages/codegen/src/cli/commands/review-bundle.ts`, `packages/codegen/src/cli/lib/review-bundle.ts`, `packages/codegen/src/cli/lib/artifact-review.ts`, `packages/codegen/src/cli/lib/review-sidecar-diff.ts`, `packages/codegen/src/cli/lib/review-markdown.ts`, `packages/codegen/src/cli/lib/review-policy.ts`, `packages/codegen/src/cli/lib/provenance-report.ts`, `packages/codegen/src/cli/lib/metadata-registry.ts`, `packages/codegen/src/cli/lib/behavior-recorder.ts`, `packages/codegen/src/cli/lib/behavior-registry.ts` | base/head OpenAPI diff와 artifact freshness를 필수 section으로 묶고 선택적으로 inventory, runtime drift JSON, provenance diff, composition report JSON, metadata registry JSON, metadata registry diff, duplicate-review JSON을 stable nested section으로 포함하며 behavior JSONL/SQLite record를 append할 수 있다 |
 | `scaffold-governance` | `packages/codegen/src/cli/commands/scaffold-governance.ts`, `packages/codegen/src/cli/lib/openapi-governance-scaffold.ts` | 외부 OpenAPI 서비스 루트에 `openapi-governance.config.json`, `scripts/openapi-governance.sh`, `openapi-governance.md`를 생성해 oa-sdk 기능별 artifact interface를 표준화한다 |
 | `target-check` | `packages/codegen/src/cli/commands/target-check.ts`, `packages/codegen/src/cli/lib/target-coverage.ts` | Definition Builder target config 또는 generated OpenAPI artifact의 emitted path surface를 include/exclude assertion으로 검증하고 실패 시 non-zero 종료 |
+| `tsp-export` | `packages/codegen/src/cli/commands/tsp-export.ts`, `packages/codegen/src/cli/lib/tsp-export.ts` | OpenAPI YAML/JSON artifact를 TypeSpec spike source와 diagnostics JSON으로 변환 |
 | `upgrade` | `packages/codegen/src/cli/commands/upgrade.ts`, `packages/codegen/src/cli/lib/openapi-collect.ts` | normalized OpenAPI 3.0/3.1 artifact를 OpenAPI 3.2 analysis artifact로 파생하고 nullable 등 표현 변환 report를 남긴다 |
 
 Governance manifest: `packages/codegen/src/cli/spec/oa-gen-governance.ts` 및 `docs/cli-spec/oa-gen.governance.json`.

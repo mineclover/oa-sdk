@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-04-18",
+  "updatedAt": "2026-06-21",
   "description": "Feature-to-test mapping for oa-sdk. Each feature lists representative automated coverage and the commands that maintain it.",
   "features": [
     {
@@ -265,6 +265,30 @@
       "commands": [
         "pnpm --filter @oa-sdk/codegen test",
         "pnpm --filter @oa-sdk/codegen typecheck"
+      ]
+    },
+    {
+      "id": "typespec-roundtrip-export",
+      "name": "TypeSpec roundtrip export",
+      "category": "codegen",
+      "package": "@oa-sdk/codegen",
+      "description": "OpenAPI artifacts can be exported to TypeSpec spike source, compiled back through the TypeSpec OpenAPI emitter, validated by OA SDK, and diffed for TSP-first readiness.",
+      "capabilities": [
+        "OpenAPI to TypeSpec source export",
+        "export diagnostics report",
+        "TypeSpec OpenAPI 3.2 emitter probe",
+        "OA SDK validation of emitted OpenAPI",
+        "roundtrip diff classification"
+      ],
+      "testPaths": [
+        "packages/codegen/src/__tests__/tsp-export.test.ts",
+        "scripts/typespec-roundtrip.ts",
+        "docs/internal/typespec-roundtrip.plan.md"
+      ],
+      "commands": [
+        "pnpm --filter @oa-sdk/codegen test -- src/__tests__/tsp-export.test.ts",
+        "pnpm --filter @oa-sdk/codegen typecheck",
+        "pnpm typespec:roundtrip"
       ]
     },
     {

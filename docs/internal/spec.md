@@ -9,7 +9,7 @@
 ```
 core         ← 공유 유틸 (문자열, 코드젠, 포맷, 응답 상태, HTTP 서버)
 parser       ← core. OAS 3.2 파서 + IR + fold + lint + validate + query
-codegen      ← core + parser (+ router, client: optional peer). CLI 16커맨드
+codegen      ← core + parser (+ router, client: optional peer). CLI 22 command modules + 16 governance manifest commands
 mock-server  ← core + parser. AJV 검증 + 어댑터 + 테스트 헬퍼
 router       ← core + parser. Hono/Express 스텁
 client       ← core + parser. fetch SDK + SSE
@@ -27,7 +27,7 @@ schemas      ← 독립. OAS 소스 + merge + 3.1↔3.2 변환
 machine-readable SSOT다. 사람이 읽는 요약은
 [`feature-test-matrix.md`](./feature-test-matrix.md)에 둔다.
 
-현재 매핑은 22개 기능 그룹과 CLI spec drift guard를 포함한 테스트 경로 패턴을 관리한다.
+현재 매핑은 24개 기능 그룹과 CLI spec drift guard를 포함한 테스트 경로 패턴을 관리한다.
 
 ```bash
 pnpm check:feature-tests
@@ -127,7 +127,8 @@ marker.
 | WorkspaceIndex | 파일 hash/component/ref/source/diagnostic/type alias metadata용 index 경계. 기본 noop은 모든 파일을 dirty 처리해 기존 full rebuild 동작 유지 |
 | SQLiteWorkspaceIndex | `.oa-cache/state.sqlite`에 index row를 보존. `node:sqlite`(Node 22+ 내장) primary + `better-sqlite3` fallback driver를 사용하며 WAL/foreign key/transaction, schema/options mismatch 또는 DB 오류 시 full rebuild fallback. driver 우선순위 inversion 근거는 [docs/changelog.md 2026-04-28](../changelog.md) 참조 |
 | Workspace dirty detection | entry/domain/profile/external ref 파일 scan → new/modified/deleted/unchanged 분류 → refs.to_file 역방향 dirty 전파 → stale row invalidation |
-| CLI | 커맨드 모듈 구조. `generate`/`typegen`/`router`/`client`/`build-spec`/`dev`/`lint`/`validate`/`inventory`/`behavior-query`/`duplicate-review`/`target-check`/`diff`/`check-artifact`/`drift`/`review`/`review-bundle`/`--help`; `validate`/`typegen`은 opt-in `--incremental --cache-dir`, `dev`는 watch mode에서 같은 index path 사용. `lint`/`validate` diagnostic은 YAML source map이 있으면 `file:line:column`을 출력하고 target `file#pointer` fallback을 유지. `inventory`, `behavior-query`, `duplicate-review`, `target-check`, `diff`, `check-artifact`, `drift`, `review`, `review-bundle`는 CLI ECS manifest를 기준으로 governance checks와 Markdown/JSON report를 구성하고, `behavior-query`는 exact-match filters(`status`, `decision-signal` 포함), `latest-failure-by-type`/`latest-by-decision-signal` mode, 그리고 `summary-by-type`/`summary-by-status`/`summary-by-target-type`/`summary-by-behavior-status`/`summary-by-behavior-decision-signal`/`summary-by-decision-signal`/`summary-by-recommendation` aggregation mode를 지원하며, aggregation Markdown은 structured `dimensions`를 함께 출력한다. behavior instrumentation은 `cli/lib/behavior-registry.ts`의 behavior type registry를 통해 identity builder / input/component schema / projection policy를 공유한다 |
+| TypeSpec export | `oa-gen tsp-export --spec <openapi.yaml> --output <main.tsp> --report <report.json>`가 OpenAPI artifact를 TypeSpec spike source와 diagnostics report로 변환. 라운드트립 평가는 `pnpm typespec:roundtrip`이 export → TypeSpec OpenAPI emitter → OA SDK validate → OA SDK diff를 실행한다. 상세 평가는 [typespec-roundtrip.plan.md](./typespec-roundtrip.plan.md)에 둔다 |
+| CLI | 커맨드 모듈 구조. `generate`/`typegen`/`router`/`client`/`build-spec`/`dev`/`lint`/`validate`/`normalize`/`upgrade`/`collect`/`tsp-export`/`scaffold-governance`/`inventory`/`behavior-query`/`duplicate-review`/`target-check`/`diff`/`check-artifact`/`drift`/`review`/`review-bundle`/`--help`; `validate`/`typegen`은 opt-in `--incremental --cache-dir`, `dev`는 watch mode에서 같은 index path 사용. `lint`/`validate` diagnostic은 YAML source map이 있으면 `file:line:column`을 출력하고 target `file#pointer` fallback을 유지. Governance manifest는 `build-spec`/`validate`/`normalize`/`upgrade`/`collect`/`tsp-export`/`scaffold-governance`/`inventory`/`behavior-query`/`duplicate-review`/`target-check`/`diff`/`check-artifact`/`drift`/`review`/`review-bundle` 16개 command를 추적한다. `behavior-query`는 exact-match filters(`status`, `decision-signal` 포함), `latest-failure-by-type`/`latest-by-decision-signal` mode, 그리고 `summary-by-type`/`summary-by-status`/`summary-by-target-type`/`summary-by-behavior-status`/`summary-by-behavior-decision-signal`/`summary-by-decision-signal`/`summary-by-recommendation` aggregation mode를 지원하며, aggregation Markdown은 structured `dimensions`를 함께 출력한다. behavior instrumentation은 `cli/lib/behavior-registry.ts`의 behavior type registry를 통해 identity builder / input/component schema / projection policy를 공유한다 |
 
 ### OpenAPI inventory command (OpenAPI aggregation governance Phase 1)
 
@@ -486,6 +487,8 @@ oa-gen validate --spec .merged.yaml --incremental --cache-dir .oa-cache
 oa-gen lint --spec .merged.yaml                    # 린트만
 oa-gen inventory --spec .merged.yaml --format markdown
 oa-gen duplicate-review --fragments packages/schemas/src/fragments --format markdown
+oa-gen tsp-export --spec packages/schemas/src/.merged.yaml --output artifacts/main.tsp --report artifacts/tsp-export-report.json
+pnpm typespec:roundtrip                            # OpenAPI -> TypeSpec -> OpenAPI probe
 oa-gen drift --runtime-openapi-url http://localhost:3000/openapi.json --managed-openapi .merged.yaml --format json
 pnpm --filter @oa-sdk/schemas run downgrade:3.1    # 3.1 변환 (Swagger UI 호환)
 ```

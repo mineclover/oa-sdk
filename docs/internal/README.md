@@ -13,6 +13,7 @@ spec.md (구현 현황 — 무엇이 작동하는가)
   ├─ → api-index.md (각 함수/타입 상세)
   ├─ → oas32-coverage.md (OAS 기능별 커버리지)
   ├─ → definition-builder-compatibility-gates.md (builder parity validation gates)
+  ├─ → typespec-roundtrip.plan.md (TypeSpec 전환 가능성 평가)
   └─ → traceability.md (스펙↔코드 매핑)
 
 plan.md (로드맵 — 어디를 향하는가)
@@ -43,6 +44,7 @@ architecture/ (설계 결정)
 | [oas32-coverage.md](./oas32-coverage.md) | OAS 3.2 기능별 지원 매트릭스 | 새 기능 구현 시 |
 | [domain-merge-inventory.md](./domain-merge-inventory.md) | legacy domain merge input checklist | legacy source reference 확인 시 |
 | [definition-builder-compatibility-gates.md](./definition-builder-compatibility-gates.md) | builder validation/downstream gates and accepted differences | builder workflow 변경 시 |
+| [typespec-roundtrip.plan.md](./typespec-roundtrip.plan.md) | TypeSpec roundtrip 평가 루프, 교집합/차집합, TSP-first 선언 기준 | TypeSpec export/roundtrip 결과 변경 시 |
 | [traceability.md](./traceability.md) | 공식 스펙 § → 타입 → 코드 매핑 | 파일 추가/이동 시 |
 | [plan.md](./plan.md) | 로드맵 + 아키텍처 | Phase 완료/추가 시 |
 | [architecture/packages.md](./architecture/packages.md) | 패키지 구조 + 파일 역할 | 패키지/파일 변경 시 |
