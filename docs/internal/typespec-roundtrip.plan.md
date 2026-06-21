@@ -11,10 +11,12 @@ Versioned implementation planning lives under [`typespec-roundtrip/`](./typespec
 Implemented source:
 
 - `packages/codegen/src/cli/lib/tsp-export.ts` — OpenAPI artifact to TypeSpec source exporter and diagnostics report.
+- `packages/codegen/src/cli/lib/typespec-roundtrip-report.ts` — roundtrip report assembly, diagnostic ownership classification, and readiness gates.
 - `packages/codegen/src/cli/commands/tsp-export.ts` — `oa-gen tsp-export --spec <openapi.yaml> --output <main.tsp> --report <report.json>`.
 - `scripts/typespec-roundtrip.ts` — reproducible probe for export, TypeSpec compile, emitted OpenAPI validation, and OpenAPI diff.
 - `packages/codegen/src/__tests__/tsp-export.test.ts` — focused exporter coverage.
 - `packages/codegen/src/__tests__/openapi-breaking-diff.test.ts` — proven TypeSpec/OpenAPI shape equivalence coverage.
+- `packages/codegen/src/__tests__/typespec-roundtrip-report.test.ts` — machine-readable report and diagnostic policy coverage.
 
 Toolchain:
 
@@ -61,21 +63,29 @@ Current probe on `packages/schemas/src/.merged.yaml`:
 | Component schemas | 28 -> 32 |
 | Generated `.tsp` size | 1067 lines |
 | Export diagnostics | 91 |
+| Export diagnostics gate | pass, 91 accepted and 0 unaccepted |
 | Breaking diff | 0 breaking changes across 0 modified operations |
 
 Diagnostic distribution:
 
-| Code | Count | Meaning |
-|---|---:|---|
-| `response/examples-dropped` | 79 | Response media examples are not mapped yet |
-| `parameter/examples-dropped` | 11 | Parameter examples are not mapped yet |
-| `components/security-scheme-dropped` | 1 | Unused OAuth2 security scheme is not mapped yet |
+| Code | Count | Disposition | Owner |
+|---|---:|---|---|
+| `response/examples-dropped` | 79 | accepted externalized | `oa-sdk-openapi-example-sidecar` |
+| `parameter/examples-dropped` | 11 | accepted externalized | `oa-sdk-openapi-example-sidecar` |
+| `components/security-scheme-dropped` | 1 | accepted metadata-only | `openapi-security-component-metadata` |
+
+Diagnostic policy distribution:
+
+| Disposition | Accepted | Count |
+|---|---:|---:|
+| externalized | true | 90 |
+| metadata-only | true | 1 |
 
 Current endpoint diff:
 
 - No endpoint changes are detected by OA SDK diff.
 - Component schemas remain `28 -> 32`; the four additional schemas are accepted TypeSpec projection artifacts: `ErrorMeta`, `ListModerationReports200Body`, `ListMyRoleChanges200Body`, and `ListUsers200Body`.
-- Remaining readiness work is diagnostic ownership, not breaking endpoint drift.
+- The roundtrip report now records per-diagnostic ownership and rationale. The current fixture has no unaccepted exporter diagnostics.
 
 ## Intersection
 
@@ -91,14 +101,14 @@ The first exporter pass shows a useful intersection:
 - Basic scalar constraints: format, min/max length, numeric min/max, pattern.
 - Schema and property documentation, JSON-compatible default values, deprecated markers, schema/property examples, and strict-object sealing via TypeSpec `...Record<never>;`.
 
-This is enough to keep path and operation identity stable, but not enough to claim semantic roundtrip.
+This is enough to keep path and operation identity stable and to run a machine-readable `0.3.0` readiness gate, but not enough by itself to claim TSP-first authoring.
 
 ## Difference Backlog
 
 Before a TSP-first declaration, close or explicitly accept these gaps:
 
-1. OAuth2 component policy: map the unused OAuth2 security scheme or classify it as OpenAPI-side metadata for this fixture.
-2. Parameter and response media examples: decide how OA SDK `dataValue` / `serializedValue` examples are preserved without weakening mock-server response priority.
+1. OAuth2 component policy: the current unused OAuth2 scheme is classified as OpenAPI-side metadata; any referenced unsupported security scheme remains contract-bearing.
+2. Parameter and response media examples: OA SDK `dataValue` / `serializedValue` examples are externalized to OpenAPI-owned example sidecar/runtime ownership so mock-server priority is not weakened.
 3. Untyped schema policy: `ValidationError.received` is the only accepted `unknown` escape hatch; any new untyped schema still emits `schema/type-unknown`.
 4. Visibility and annotations: map readOnly/writeOnly/annotations only after the OA SDK visibility policy is explicit.
 5. Component projection policy: keep the accepted extra TypeSpec schemas visible in the roundtrip report or eliminate them if they become confusing for release review.

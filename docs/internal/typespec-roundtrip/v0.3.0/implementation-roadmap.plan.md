@@ -3,7 +3,7 @@
 > Target package version: `@oa-sdk/codegen` `0.3.0`.
 > Current package version: `@oa-sdk/codegen` `0.2.0`.
 
-Status: in progress. Phase 0 through Phase 3, Phase 4 schema examples, and Phase 5 bearer/tag/header/accepted-unknown mapping are implemented; this document does not declare TSP-first.
+Status: implemented for the `0.3.0` evaluation track. Phase 0 through Phase 6 are complete for the canonical roundtrip fixture. This document does not declare TSP-first.
 
 ## Goal
 
@@ -164,7 +164,7 @@ Evidence:
 
 ## Phase 4 — Examples And Mock Semantics
 
-Status: in progress. Schema-level examples are implemented; parameter and response media examples still need an ownership decision.
+Status: implemented for `0.3.0` evaluation. Schema-level examples are emitted; parameter and response media examples are accepted as OA SDK-owned externalized metadata.
 
 Purpose: decide which sample data belongs in TypeSpec and which remains OA SDK-owned runtime data.
 
@@ -185,11 +185,11 @@ Evidence:
 - Schema and property `example` / `examples` values now emit TypeSpec `@example(...)` where they can be represented as TypeSpec value literals.
 - Example value emission is schema-aware for `utcDateTime.fromISO(...)`, `plainDate.fromISO(...)`, arrays, object properties, and local `$ref` traversal.
 - `pnpm typespec:roundtrip -- --report /tmp/oa-sdk-typespec-roundtrip-phase4-schema-examples.json` reports diagnostics `126`, down from `149`, with no `schema/examples-dropped`.
-- `parameter/examples-dropped` (`11`) and `response/examples-dropped` (`79`) remain because OA SDK OpenAPI 3.2 examples carry `dataValue` / `serializedValue`; TypeSpec's current projection can emit data or serialized parameter examples but not both, and response media examples would lose serialized mock semantics without a sidecar policy.
+- `parameter/examples-dropped` (`11`) and `response/examples-dropped` (`79`) remain as accepted `externalized` diagnostics owned by `oa-sdk-openapi-example-sidecar` because OA SDK OpenAPI 3.2 examples carry `dataValue` / `serializedValue`; TypeSpec's current projection can emit data or serialized parameter examples but not both, and response media examples would lose serialized mock semantics if projected as plain TypeSpec examples.
 
 ## Phase 5 — Security, Headers, Tags, And Visibility
 
-Status: in progress. Bearer security, response headers, tag metadata, and the accepted `ValidationError.received` unknown policy are implemented; OAuth2 remains.
+Status: implemented for the canonical fixture. Bearer security, response headers, tag metadata, the accepted `ValidationError.received` unknown policy, and unused OAuth2 metadata classification are implemented.
 
 Purpose: close the remaining contract-bearing surfaces that TypeSpec can represent but the first exporter pass drops.
 
@@ -215,9 +215,35 @@ Evidence:
 - Bearer security schemes now emit TypeSpec `model bearerAuth is BearerAuth;`, and protected operations emit `@useAuth(bearerAuth)`.
 - `ValidationError.received` now emits `unknown` without `schema/type-unknown`; any other untyped schema still emits `schema/type-unknown`.
 - `pnpm typespec:roundtrip -- --report /tmp/oa-sdk-typespec-roundtrip-phase5-unknown.json` reports diagnostics `91`, down from `119`, with no `operation/security-dropped`, `response/headers-dropped`, `tags/metadata-dropped`, or `schema/type-unknown`.
-- Remaining Phase 5 diagnostics are `components/security-scheme-dropped` (`1`) for the unused OAuth2 component.
+- The unused OAuth2 component diagnostic is accepted as `metadata-only` and owned by `openapi-security-component-metadata`; any referenced unsupported security scheme remains `contract-bearing` and fails the export diagnostics gate.
+
+## Phase 5.5 — Diagnostic Policy Gate
+
+Status: implemented.
+
+Purpose: make accepted exporter diagnostics machine-readable instead of relying on prose review.
+
+Tasks:
+
+- Add diagnostic policy classification to the roundtrip report.
+- Classify current parameter and response examples as accepted `externalized` metadata with owner and rationale.
+- Classify the current unused OAuth2 security component as accepted `metadata-only` while keeping referenced unsupported security schemes contract-bearing.
+- Add an `exportDiagnostics` report gate that fails on any unaccepted diagnostic.
+
+Gate:
+
+- Current canonical report has zero unaccepted exporter diagnostics.
+- New unclassified or contract-bearing diagnostics fail `gates.exportDiagnostics`.
+
+Evidence:
+
+- `pnpm typespec:roundtrip -- --report /tmp/oa-sdk-typespec-roundtrip-policy.json` reports `export diagnostics gate: pass (91 accepted, 0 unaccepted)`.
+- Report `diagnosticsByPolicy` is `externalized` (`90`) and `metadata-only` (`1`), all accepted.
+- Report `diagnosticPolicies` records code, count, owner, and rationale for every accepted diagnostic group.
 
 ## Phase 6 — Readiness Gate And Decision Prep
+
+Status: implemented for the `0.3.0` evaluation track. This closes readiness evidence for the canonical fixture but does not promote `.tsp` to the canonical authoring source.
 
 Purpose: make the release evidence clear enough to support or reject a later TSP-first decision.
 
@@ -240,6 +266,14 @@ Gate:
   - zero breaking roundtrip diff, or
   - a machine-readable accepted-difference list with no unclassified contract-bearing gaps.
 
+Evidence:
+
+- `pnpm typespec:roundtrip -- --fail-on-breaking` passes with `operations` `27 -> 27`, component schemas `28 -> 32`, valid emitted OpenAPI 3.2, and no endpoint changes.
+- `pnpm typespec:roundtrip -- --report /tmp/oa-sdk-typespec-roundtrip-policy.json` reports `export diagnostics gate: pass (91 accepted, 0 unaccepted)`.
+- Focused codegen tests and typecheck pass for TypeSpec export, OpenAPI diff normalization, and roundtrip report policy coverage.
+- Governance guards pass: `pnpm check:feature-tests`, `pnpm check:cli-spec`, and `pnpm check:api-index`.
+- Implemented surfaces are promoted to `docs/internal/spec.md`, `docs/internal/typespec-roundtrip.plan.md`, and `docs/internal/feature-test-matrix.*`. `docs/internal/api-index.md` remains limited to actual package exports, so internal report helpers are not listed there.
+
 ## Implementation Order
 
 Recommended order:
@@ -258,8 +292,8 @@ Do not start with diff normalization. Normalize only after a concrete TypeSpec/O
 
 The version is ready when:
 
-- `pnpm typespec:roundtrip -- --fail-on-breaking` passes or all failures are accepted and machine-readable.
-- Contract-bearing exporter diagnostics are zero.
-- Metadata-only diagnostics are documented with owner and rationale.
+- `pnpm typespec:roundtrip -- --fail-on-breaking` passes or all failures are accepted and machine-readable. Current canonical evidence: pass.
+- Contract-bearing exporter diagnostics are zero. Current canonical evidence: zero unaccepted diagnostics.
+- Metadata-only diagnostics are documented with owner and rationale. Current canonical evidence: `diagnosticPolicies` in the roundtrip report.
 - No TypeSpec-generated artifact becomes the canonical schema source yet.
 - Follow-up decision points are clear enough for a TSP-first ADR.

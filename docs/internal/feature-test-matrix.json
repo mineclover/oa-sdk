@@ -272,13 +272,14 @@
       "name": "TypeSpec roundtrip export",
       "category": "codegen",
       "package": "@oa-sdk/codegen",
-      "description": "OpenAPI artifacts can be exported to TypeSpec spike source, compiled back through the TypeSpec OpenAPI emitter, validated by OA SDK, and diffed for TSP-first readiness.",
+      "description": "OpenAPI artifacts can be exported to TypeSpec spike source, compiled back through the TypeSpec OpenAPI emitter, validated by OA SDK, diffed, and classified with diagnostic policy gates for TSP-first readiness.",
       "capabilities": [
         "OpenAPI to TypeSpec source export",
         "export diagnostics report",
         "TypeSpec OpenAPI 3.2 emitter probe",
         "OA SDK validation of emitted OpenAPI",
-        "roundtrip diff classification"
+        "roundtrip diff classification",
+        "export diagnostic policy gate"
       ],
       "testPaths": [
         "packages/codegen/src/__tests__/tsp-export.test.ts",

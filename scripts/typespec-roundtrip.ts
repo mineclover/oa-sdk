@@ -100,6 +100,9 @@ async function main(): Promise<void> {
     console.log(`  emitted: ${relative(workspace, emittedPath)}`)
     if (args.report) console.log(`  report: ${relative(root, resolve(root, args.report))}`)
     console.log(`  export diagnostics: ${roundtripReport.counts.exportDiagnostics}`)
+    const acceptedDiagnostics = countAcceptedDiagnostics(roundtripReport.diagnostics)
+    const unacceptedDiagnostics = countUnacceptedDiagnostics(roundtripReport.diagnostics)
+    console.log(`  export diagnostics gate: ${roundtripReport.gates.exportDiagnostics} (${acceptedDiagnostics} accepted, ${unacceptedDiagnostics} unaccepted)`)
     console.log(`  operations: ${roundtripReport.counts.operations.source} -> ${roundtripReport.counts.operations.emitted}`)
     console.log(`  component schemas: ${roundtripReport.counts.componentSchemas.source} -> ${roundtripReport.counts.componentSchemas.emitted}`)
     console.log(`  validation: ${validation.summary}`)
@@ -113,6 +116,14 @@ async function main(): Promise<void> {
   } finally {
     if (!args.keep) rmSync(workspace, { recursive: true, force: true })
   }
+}
+
+function countAcceptedDiagnostics(diagnostics: Array<{ policy: { accepted: boolean } }>): number {
+  return diagnostics.filter(diagnostic => diagnostic.policy.accepted).length
+}
+
+function countUnacceptedDiagnostics(diagnostics: Array<{ policy: { accepted: boolean } }>): number {
+  return diagnostics.filter(diagnostic => !diagnostic.policy.accepted).length
 }
 
 function linkWorkspaceNodeModules(workspace: string): void {
