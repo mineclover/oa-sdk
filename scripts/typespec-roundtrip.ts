@@ -6,9 +6,9 @@
  * diff is reported and only fails when --fail-on-breaking is passed.
  */
 
-import { existsSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join, relative, resolve } from 'node:path'
+import { dirname, join, relative, resolve } from 'node:path'
 import { execa } from 'execa'
 import { stringify } from 'yaml'
 import { loadSpecWithPath } from '../packages/codegen/src/cli/lib/load-spec.js'
@@ -18,6 +18,7 @@ import {
   formatMarkdown,
   hasBreakingChanges,
 } from '../packages/codegen/src/cli/lib/openapi-breaking-diff.js'
+import { createTypeSpecRoundtripReport } from '../packages/codegen/src/cli/lib/typespec-roundtrip-report.js'
 import { validateDocument } from '../packages/parser/src/validate.js'
 
 type Args = {
@@ -25,6 +26,7 @@ type Args = {
   namespace: string
   keep: boolean
   failOnBreaking: boolean
+  report?: string
 }
 
 const root = resolve(process.cwd())
@@ -68,16 +70,26 @@ async function main(): Promise<void> {
 
     const diff = diffEndpoints(document, emittedDocument)
     const breaking = hasBreakingChanges(diff)
-    const originalSchemas = Object.keys(document.components?.schemas ?? {}).length
-    const emittedSchemas = Object.keys(emittedDocument.components?.schemas ?? {}).length
-    const originalOperations = Object.values(document.paths ?? {}).reduce(
-      (count, pathItem) => count + countOperations(pathItem),
-      0,
-    )
-    const emittedOperations = Object.values(emittedDocument.paths ?? {}).reduce(
-      (count, pathItem) => count + countOperations(pathItem),
-      0,
-    )
+    const roundtripReport = createTypeSpecRoundtripReport({
+      namespace: exported.report.namespace,
+      sourceOpenapiPath: specPath,
+      emittedOpenapiPath: emittedPath,
+      tspSourcePath: tspPath,
+      workspacePath: workspace,
+      sourceDocument: document,
+      emittedDocument,
+      exportReport: exported.report,
+      diff,
+      validation: {
+        valid: validation.valid,
+        summary: validation.summary,
+      },
+    })
+    if (args.report) {
+      const resolvedReportPath = resolve(root, args.report)
+      mkdirSync(dirname(resolvedReportPath), { recursive: true })
+      writeFileSync(resolvedReportPath, `${JSON.stringify(roundtripReport, null, 2)}\n`)
+    }
 
     console.log('')
     console.log('TypeSpec roundtrip probe')
@@ -86,9 +98,10 @@ async function main(): Promise<void> {
     console.log(`  workspace: ${workspace}`)
     console.log(`  tsp: ${relative(workspace, tspPath)}`)
     console.log(`  emitted: ${relative(workspace, emittedPath)}`)
-    console.log(`  export diagnostics: ${exported.report.counts.diagnostics}`)
-    console.log(`  operations: ${originalOperations} -> ${emittedOperations}`)
-    console.log(`  component schemas: ${originalSchemas} -> ${emittedSchemas}`)
+    if (args.report) console.log(`  report: ${relative(root, resolve(root, args.report))}`)
+    console.log(`  export diagnostics: ${roundtripReport.counts.exportDiagnostics}`)
+    console.log(`  operations: ${roundtripReport.counts.operations.source} -> ${roundtripReport.counts.operations.emitted}`)
+    console.log(`  component schemas: ${roundtripReport.counts.componentSchemas.source} -> ${roundtripReport.counts.componentSchemas.emitted}`)
     console.log(`  validation: ${validation.summary}`)
     console.log(`  breaking diff: ${breaking ? 'yes' : 'no'}`)
     console.log('')
@@ -123,11 +136,13 @@ function createTspConfig(): string {
 }
 
 function parseArgs(rawArgs: string[]): Args {
+  const report = readOption(rawArgs, '--report')
   return {
     spec: readOption(rawArgs, '--spec') ?? 'packages/schemas/src/.merged.yaml',
     namespace: readOption(rawArgs, '--namespace') ?? 'OaSdkApi',
     keep: rawArgs.includes('--keep'),
     failOnBreaking: rawArgs.includes('--fail-on-breaking'),
+    ...(report ? { report } : {}),
   }
 }
 
@@ -139,16 +154,6 @@ function readOption(args: string[], name: string): string | undefined {
     throw new Error(`${name} requires a value`)
   }
   return value
-}
-
-function countOperations(value: unknown): number {
-  if (!value || typeof value !== 'object') return 0
-  const pathItem = value as Record<string, unknown>
-  let count = 0
-  for (const method of ['get', 'put', 'post', 'delete', 'options', 'head', 'patch', 'trace', 'query']) {
-    if (pathItem[method]) count += 1
-  }
-  return count
 }
 
 await main()

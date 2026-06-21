@@ -3,7 +3,7 @@
 > Target package version: `@oa-sdk/codegen` `0.3.0`.
 > Current package version: `@oa-sdk/codegen` `0.2.0`.
 
-Status: planning. This document is not an implementation spec and does not declare TSP-first.
+Status: in progress. Phase 0 is implemented; this document does not declare TSP-first.
 
 ## Goal
 
@@ -53,6 +53,8 @@ Expected docs:
 
 ## Phase 0 — Probe Hardening
 
+Status: implemented.
+
 Purpose: make the current roundtrip failure actionable before changing mappings.
 
 Tasks:
@@ -72,6 +74,12 @@ Gate:
 
 - `pnpm typespec:roundtrip` exits 0 and writes the report when requested.
 - `pnpm typespec:roundtrip -- --fail-on-breaking` still fails until later phases close or accept differences.
+
+Evidence:
+
+- `pnpm typespec:roundtrip -- --report /tmp/oa-sdk-typespec-roundtrip-report.json` writes `oa-sdk.typespec-roundtrip-report.v1`.
+- The report includes paths, source/emitted operation and schema counts, diagnostics grouped by code, breaking/non-breaking diff counts, and changed operation path/operationId summaries.
+- `pnpm typespec:roundtrip -- --fail-on-breaking` still fails on the current 16 breaking differences.
 
 ## Phase 1 — Schema Metadata Preservation
 

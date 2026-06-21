@@ -40,11 +40,12 @@ Run:
 
 ```bash
 pnpm typespec:roundtrip
+pnpm typespec:roundtrip -- --report artifacts/typespec-roundtrip-report.json
 pnpm typespec:roundtrip -- --keep
 pnpm typespec:roundtrip -- --fail-on-breaking
 ```
 
-`--fail-on-breaking` is the future gate. It is expected to fail until the remaining semantic differences are either removed or explicitly accepted.
+The default probe is a visibility command: it exits 0 when export, TypeSpec compile, and OA SDK validation pass, even if semantic diff remains. `--fail-on-breaking` is the readiness gate. It is expected to fail until the remaining semantic differences are either removed or explicitly accepted.
 
 ## Baseline Evidence
 
