@@ -263,6 +263,51 @@ export const oaGenGovernanceManifest = {
       },
     },
     {
+      id: 'tsp-export',
+      kind: 'command',
+      name: 'tsp-export',
+      summary: 'OpenAPI artifact를 TypeSpec spike source와 diagnostics로 변환',
+      components: {
+        options: [
+          {
+            name: 'spec',
+            type: 'string',
+            short: 's',
+            required: true,
+            description: 'TypeSpec으로 변환할 OpenAPI YAML/JSON 경로',
+          },
+          {
+            name: 'output',
+            type: 'string',
+            short: 'o',
+            description: '생성할 .tsp 파일 경로 (기본: stdout)',
+          },
+          {
+            name: 'report',
+            type: 'string',
+            description: '변환 diagnostics JSON 출력 경로',
+          },
+          {
+            name: 'namespace',
+            type: 'string',
+            description: '생성할 TypeSpec namespace 이름',
+          },
+        ],
+        inputs: [
+          { name: 'spec', kind: 'openapi-document', required: true, option: 'spec' },
+        ],
+        checks: [],
+        reports: [
+          { formats: ['text'], schema: 'oa-gen.tsp-export.source.v1' },
+          { formats: ['json'], schema: 'oa-gen.tsp-export-report.v1' },
+        ],
+        exitPolicy: {
+          success: ['APPROVE', 'COMMENT'],
+          failure: ['REQUEST_CHANGES'],
+        },
+      },
+    },
+    {
       id: 'scaffold-governance',
       kind: 'command',
       name: 'scaffold-governance',

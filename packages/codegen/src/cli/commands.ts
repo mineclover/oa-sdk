@@ -20,6 +20,7 @@ import { behaviorQuery } from './commands/behavior-query.js'
 import { duplicateReview } from './commands/duplicate-review.js'
 import { targetCheck } from './commands/target-check.js'
 import { reviewBundle } from './commands/review-bundle.js'
+import { tspExport } from './commands/tsp-export.js'
 
 export const commands: Command[] = [
   generate,
@@ -33,6 +34,7 @@ export const commands: Command[] = [
   normalize,
   upgrade,
   collect,
+  tspExport,
   scaffoldGovernance,
   inventory,
   behaviorQuery,

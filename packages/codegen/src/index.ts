@@ -24,6 +24,7 @@ export {
   stringifyOpenApiYaml,
   upgradeOpenApiDocumentTo32,
 } from './cli/lib/openapi-collect.js'
+export { exportOpenApiToTypeSpec } from './cli/lib/tsp-export.js'
 export {
   createOpenApiGovernanceInterface,
   fingerprintGovernanceConfig,
@@ -43,6 +44,13 @@ export type {
   OpenApiTransformWarning,
   OpenApiUpgradeReport,
 } from './cli/lib/openapi-collect.js'
+export type {
+  TspExportDiagnostic,
+  TspExportDiagnosticSeverity,
+  TspExportOptions,
+  TspExportReport,
+  TspExportResult,
+} from './cli/lib/tsp-export.js'
 export type {
   OpenApiGovernanceInterface,
   OpenApiGovernanceScaffoldOptions,
