@@ -60,7 +60,7 @@ Current probe on `packages/schemas/src/.merged.yaml`:
 | Operations | 27 -> 27 |
 | Component schemas | 28 -> 32 |
 | Generated `.tsp` size | 1067 lines |
-| Export diagnostics | 92 |
+| Export diagnostics | 91 |
 | Breaking diff | 0 breaking changes across 0 modified operations |
 
 Diagnostic distribution:
@@ -69,7 +69,6 @@ Diagnostic distribution:
 |---|---:|---|
 | `response/examples-dropped` | 79 | Response media examples are not mapped yet |
 | `parameter/examples-dropped` | 11 | Parameter examples are not mapped yet |
-| `schema/type-unknown` | 1 | Source schema lacks enough type information for precise TypeSpec |
 | `components/security-scheme-dropped` | 1 | Unused OAuth2 security scheme is not mapped yet |
 
 Current endpoint diff:
@@ -100,7 +99,7 @@ Before a TSP-first declaration, close or explicitly accept these gaps:
 
 1. OAuth2 component policy: map the unused OAuth2 security scheme or classify it as OpenAPI-side metadata for this fixture.
 2. Parameter and response media examples: decide how OA SDK `dataValue` / `serializedValue` examples are preserved without weakening mock-server response priority.
-3. Untyped schema cleanup: fix `ValidationError.received` or define a deliberate `unknown` escape hatch.
+3. Untyped schema policy: `ValidationError.received` is the only accepted `unknown` escape hatch; any new untyped schema still emits `schema/type-unknown`.
 4. Visibility and annotations: map readOnly/writeOnly/annotations only after the OA SDK visibility policy is explicit.
 5. Component projection policy: keep the accepted extra TypeSpec schemas visible in the roundtrip report or eliminate them if they become confusing for release review.
 6. Diff normalization: continue teaching OA SDK review tooling only proven TypeSpec-emitted shapes that are semantically equivalent, without suppressing real contract changes.

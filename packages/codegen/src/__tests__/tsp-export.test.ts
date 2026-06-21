@@ -246,4 +246,61 @@ describe('TypeSpec export spike', () => {
       pointer: '#/components/schemas/Request/properties/metadata/examples/0',
     }))
   })
+
+  it('accepts the canonical validation received field as an intentional unknown escape hatch', () => {
+    const document: OasDocument = {
+      openapi: '3.2.0',
+      info: { title: 'Validation Error', version: '0.1.0' },
+      paths: {},
+      components: {
+        schemas: {
+          ValidationError: {
+            type: 'object',
+            properties: {
+              received: {
+                description: 'Raw received value.',
+              },
+            },
+          },
+        },
+      },
+    }
+
+    const result = exportOpenApiToTypeSpec(document, { namespace: 'ValidationErrorApi' })
+
+    expect(result.source).toContain('@doc("Raw received value.")')
+    expect(result.source).toContain('received?: unknown;')
+    expect(result.report.diagnostics).not.toContainEqual(expect.objectContaining({
+      code: 'schema/type-unknown',
+      pointer: '#/components/schemas/ValidationError/properties/received',
+    }))
+  })
+
+  it('diagnoses untyped schemas outside the accepted validation received field', () => {
+    const document: OasDocument = {
+      openapi: '3.2.0',
+      info: { title: 'Unknown Schema', version: '0.1.0' },
+      paths: {},
+      components: {
+        schemas: {
+          Request: {
+            type: 'object',
+            properties: {
+              raw: {
+                description: 'Raw value.',
+              },
+            },
+          },
+        },
+      },
+    }
+
+    const result = exportOpenApiToTypeSpec(document, { namespace: 'UnknownSchemaApi' })
+
+    expect(result.source).toContain('raw?: unknown;')
+    expect(result.report.diagnostics).toContainEqual(expect.objectContaining({
+      code: 'schema/type-unknown',
+      pointer: '#/components/schemas/Request/properties/raw',
+    }))
+  })
 })

@@ -594,7 +594,9 @@ class TypeSpecExporter {
     if (typeValue === 'boolean') return rendered('boolean')
     if (typeValue === 'null') return rendered('null')
 
-    this.addDiagnostic('schema/type-unknown', pointer, 'Schema type could not be mapped precisely and was emitted as unknown.')
+    if (!this.isAcceptedUnknownSchema(pointer)) {
+      this.addDiagnostic('schema/type-unknown', pointer, 'Schema type could not be mapped precisely and was emitted as unknown.')
+    }
     return rendered('unknown')
   }
 
@@ -788,6 +790,10 @@ class TypeSpecExporter {
 
   private addDefaultUnsupportedDiagnostic(pointer: string, message: string): void {
     this.addDiagnostic('schema/default-unsupported', pointer, message)
+  }
+
+  private isAcceptedUnknownSchema(pointer: string): boolean {
+    return pointer === '#/components/schemas/ValidationError/properties/received'
   }
 
   private addDiagnostic(code: string, pointer: string, message: string): void {

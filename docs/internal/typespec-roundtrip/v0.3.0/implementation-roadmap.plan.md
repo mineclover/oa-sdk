@@ -3,7 +3,7 @@
 > Target package version: `@oa-sdk/codegen` `0.3.0`.
 > Current package version: `@oa-sdk/codegen` `0.2.0`.
 
-Status: in progress. Phase 0 through Phase 3, Phase 4 schema examples, and Phase 5 bearer/tag/header mapping are implemented; this document does not declare TSP-first.
+Status: in progress. Phase 0 through Phase 3, Phase 4 schema examples, and Phase 5 bearer/tag/header/accepted-unknown mapping are implemented; this document does not declare TSP-first.
 
 ## Goal
 
@@ -189,7 +189,7 @@ Evidence:
 
 ## Phase 5 — Security, Headers, Tags, And Visibility
 
-Status: in progress. Bearer security, response headers, and tag metadata are implemented; OAuth2 and `ValidationError.received` remain.
+Status: in progress. Bearer security, response headers, tag metadata, and the accepted `ValidationError.received` unknown policy are implemented; OAuth2 remains.
 
 Purpose: close the remaining contract-bearing surfaces that TypeSpec can represent but the first exporter pass drops.
 
@@ -200,7 +200,7 @@ Tasks:
 - Emit response headers with TypeSpec `@header` response properties.
 - Preserve tag descriptions through TypeSpec-supported metadata or an OpenAPI extension/sidecar.
 - Define a policy for `readOnly`, `writeOnly`, annotations, and visibility before emitting them.
-- Fix or intentionally document `ValidationError.received` as the only `schema/type-unknown` escape hatch.
+- Treat `ValidationError.received` as the only accepted `unknown` escape hatch while keeping new untyped schemas diagnostic-driven.
 
 Gate:
 
@@ -213,8 +213,9 @@ Evidence:
 - OpenAPI tag descriptions now emit TypeSpec `@tagMetadata(...)`.
 - Response headers now emit TypeSpec response model `@header(...)` properties, including header schema examples where supported.
 - Bearer security schemes now emit TypeSpec `model bearerAuth is BearerAuth;`, and protected operations emit `@useAuth(bearerAuth)`.
-- `pnpm typespec:roundtrip -- --report /tmp/oa-sdk-typespec-roundtrip-phase5-security.json` reports diagnostics `92`, down from `119`, with no `operation/security-dropped`, `response/headers-dropped`, or `tags/metadata-dropped`.
-- Remaining Phase 5 diagnostics are `components/security-scheme-dropped` (`1`) for the unused OAuth2 component and `schema/type-unknown` (`1`).
+- `ValidationError.received` now emits `unknown` without `schema/type-unknown`; any other untyped schema still emits `schema/type-unknown`.
+- `pnpm typespec:roundtrip -- --report /tmp/oa-sdk-typespec-roundtrip-phase5-unknown.json` reports diagnostics `91`, down from `119`, with no `operation/security-dropped`, `response/headers-dropped`, `tags/metadata-dropped`, or `schema/type-unknown`.
+- Remaining Phase 5 diagnostics are `components/security-scheme-dropped` (`1`) for the unused OAuth2 component.
 
 ## Phase 6 — Readiness Gate And Decision Prep
 
