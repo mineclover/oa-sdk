@@ -49,6 +49,11 @@ SWC에서 참조하는 패턴:
 
 ## Phase별 현황
 
+### Next — TypeSpec roundtrip readiness (`@oa-sdk/codegen` v0.3.0)
+OpenAPI artifact를 `.tsp`로 변환한 뒤 TypeSpec OpenAPI emitter를 거쳐 다시 OA SDK 검증/diff 루프에 넣는 전환 가능성 평가 트랙입니다. 현재 `oa-gen tsp-export`와 `pnpm typespec:roundtrip`은 동작하지만, 아직 `--fail-on-breaking`은 16개 breaking diff 때문에 실패합니다.
+
+목표는 TSP-first 선언이 아니라 다음 `@oa-sdk/codegen` minor에서 roundtrip gap을 줄이고, 남은 차이를 machine-readable accepted difference 또는 contract-bearing gap으로 분류하는 것입니다. 상세 로드맵은 [typespec-roundtrip/v0.3.0/implementation-roadmap.plan.md](./typespec-roundtrip/v0.3.0/implementation-roadmap.plan.md)에 둡니다.
+
 ### Phase 1 — 스키마 관리 ✅
 도메인 분리 + Spectral/Redocly 이중 검증 + 환경 프로필
 

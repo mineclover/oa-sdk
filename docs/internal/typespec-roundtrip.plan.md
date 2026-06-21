@@ -4,6 +4,8 @@
 
 Status: evaluation, not an ADR and not yet a TSP-first decision.
 
+Versioned implementation planning lives under [`typespec-roundtrip/`](./typespec-roundtrip/). The next target is [`@oa-sdk/codegen` `0.3.0`](./typespec-roundtrip/v0.3.0/implementation-roadmap.plan.md), following the current `@oa-sdk/codegen` `0.2.0` package version.
+
 ## Current Surfaces
 
 Implemented source:
