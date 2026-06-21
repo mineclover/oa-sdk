@@ -24,6 +24,7 @@ describe('TypeSpec export spike', () => {
             summary: 'Get user',
             description: 'Load one user by id.',
             tags: ['users'],
+            security: [{ bearerAuth: [] }],
             parameters: [
               { $ref: '#/components/parameters/Page' },
             ],
@@ -160,6 +161,7 @@ describe('TypeSpec export spike', () => {
     expect(result.source).toContain('@info(#{ version: "0.1.0" })')
     expect(result.source).toContain('@tagMetadata("users", #{ description: "User management" })')
     expect(result.source).toContain('namespace OaSdkApi;')
+    expect(result.source).toContain('model bearerAuth is BearerAuth;')
     expect(result.source).toContain('model User {')
     expect(result.source).toContain('@example(#{ id: "00000000-0000-0000-0000-000000000001", email: "alice@example.com", role: "user", createdAt: utcDateTime.fromISO("2024-01-01T00:00:00.000Z") })')
     expect(result.source).toContain('@example("00000000-0000-0000-0000-000000000001")')
@@ -176,6 +178,7 @@ describe('TypeSpec export spike', () => {
     expect(result.source).toContain('oldNickname?: string;')
     expect(result.source).toContain('...Record<never>;')
     expect(result.source).toContain('@operationId("getUser")')
+    expect(result.source).toContain('@useAuth(bearerAuth)')
     expect(result.source).toContain('@route("/users/{id}")')
     expect(result.source).toContain('@get')
     expect(result.source).toContain('@path @format("uuid") id: string')
@@ -195,7 +198,6 @@ describe('TypeSpec export spike', () => {
     const diagnosticCodes = result.report.diagnostics.map(diagnostic => diagnostic.code)
     expect(diagnosticCodes).toEqual(
       expect.arrayContaining([
-        'components/security-schemes-dropped',
         'parameter/examples-dropped',
         'response/examples-dropped',
       ]),
@@ -204,6 +206,8 @@ describe('TypeSpec export spike', () => {
     expect(diagnosticCodes).not.toContain('schema/deprecated-dropped')
     expect(diagnosticCodes).not.toContain('response/headers-dropped')
     expect(diagnosticCodes).not.toContain('tags/metadata-dropped')
+    expect(diagnosticCodes).not.toContain('components/security-schemes-dropped')
+    expect(diagnosticCodes).not.toContain('operation/security-dropped')
   })
 
   it('diagnoses defaults that cannot be represented as TypeSpec value literals', () => {

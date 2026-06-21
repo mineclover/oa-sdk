@@ -3,7 +3,7 @@
 > Target package version: `@oa-sdk/codegen` `0.3.0`.
 > Current package version: `@oa-sdk/codegen` `0.2.0`.
 
-Status: in progress. Phase 0 through Phase 3, Phase 4 schema examples, and Phase 5 tag/header mapping are implemented; this document does not declare TSP-first.
+Status: in progress. Phase 0 through Phase 3, Phase 4 schema examples, and Phase 5 bearer/tag/header mapping are implemented; this document does not declare TSP-first.
 
 ## Goal
 
@@ -189,7 +189,7 @@ Evidence:
 
 ## Phase 5 — Security, Headers, Tags, And Visibility
 
-Status: in progress. Response headers and tag metadata are implemented; security and `ValidationError.received` remain.
+Status: in progress. Bearer security, response headers, and tag metadata are implemented; OAuth2 and `ValidationError.received` remain.
 
 Purpose: close the remaining contract-bearing surfaces that TypeSpec can represent but the first exporter pass drops.
 
@@ -212,8 +212,9 @@ Evidence:
 
 - OpenAPI tag descriptions now emit TypeSpec `@tagMetadata(...)`.
 - Response headers now emit TypeSpec response model `@header(...)` properties, including header schema examples where supported.
-- `pnpm typespec:roundtrip -- --report /tmp/oa-sdk-typespec-roundtrip-phase5-tags-headers.json` reports diagnostics `119`, down from `126`, with no `response/headers-dropped` or `tags/metadata-dropped`.
-- Remaining Phase 5 diagnostics are `components/security-schemes-dropped` (`1`), `operation/security-dropped` (`27`), and `schema/type-unknown` (`1`).
+- Bearer security schemes now emit TypeSpec `model bearerAuth is BearerAuth;`, and protected operations emit `@useAuth(bearerAuth)`.
+- `pnpm typespec:roundtrip -- --report /tmp/oa-sdk-typespec-roundtrip-phase5-security.json` reports diagnostics `92`, down from `119`, with no `operation/security-dropped`, `response/headers-dropped`, or `tags/metadata-dropped`.
+- Remaining Phase 5 diagnostics are `components/security-scheme-dropped` (`1`) for the unused OAuth2 component and `schema/type-unknown` (`1`).
 
 ## Phase 6 — Readiness Gate And Decision Prep
 

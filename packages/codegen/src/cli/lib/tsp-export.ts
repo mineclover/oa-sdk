@@ -84,6 +84,7 @@ export function exportOpenApiToTypeSpec(document: OasDocument, options: TspExpor
 class TypeSpecExporter {
   private readonly diagnostics: TspExportDiagnostic[] = []
   private readonly componentNameBySchemaName = new Map<string, string>()
+  private readonly authNameBySecuritySchemeName = new Map<string, string>()
   private readonly usedTypeNames = new Set<string>()
   private readonly generatedModelDeclarations: string[][] = []
   private readonly responseModels: ResponseModel[] = []
@@ -116,6 +117,7 @@ class TypeSpecExporter {
     lines.push(`namespace ${namespace};`)
     lines.push('')
 
+    const securityDeclarations = this.emitSecurityModels()
     const componentDeclarations = schemaEntries.flatMap(([schemaName, schema]) => {
       const typeName = this.componentNameBySchemaName.get(schemaName) ?? this.reserveTypeName(schemaName)
       return this.emitNamedSchema(typeName, schema as OasSchema, `#/components/schemas/${escapeJsonPointer(schemaName)}`)
@@ -123,6 +125,7 @@ class TypeSpecExporter {
 
     const operations = this.emitOperations()
     const declarations = [
+      ...securityDeclarations,
       ...componentDeclarations,
       ...this.generatedModelDeclarations.flat(),
       ...this.responseModels.flatMap(model => model.lines),
@@ -179,6 +182,32 @@ class TypeSpecExporter {
     }
     if (tag.parent) entries.push(`parent: ${quote(tag.parent)}`)
     return entries.length > 0 ? `#{ ${entries.join(', ')} }` : null
+  }
+
+  private emitSecurityModels(): string[] {
+    const lines: string[] = []
+    const schemes = this.document.components?.securitySchemes ?? {}
+    for (const [schemeName, scheme] of Object.entries(schemes)) {
+      const pointer = `#/components/securitySchemes/${escapeJsonPointer(schemeName)}`
+      if (isReference(scheme)) {
+        this.addDiagnostic('components/security-scheme-dropped', pointer, `Referenced security scheme ${schemeName} is not emitted by the current TypeSpec auth mapping.`)
+        continue
+      }
+      if (
+        scheme.type === 'http'
+        && typeof scheme.scheme === 'string'
+        && scheme.scheme.toLowerCase() === 'bearer'
+        && IDENTIFIER_RE.test(schemeName)
+        && !this.usedTypeNames.has(schemeName)
+      ) {
+        this.usedTypeNames.add(schemeName)
+        this.authNameBySecuritySchemeName.set(schemeName, schemeName)
+        lines.push(`model ${schemeName} is BearerAuth;`, '')
+        continue
+      }
+      this.addDiagnostic('components/security-scheme-dropped', pointer, `Security scheme ${schemeName} is not emitted by the current TypeSpec auth mapping.`)
+    }
+    return lines
   }
 
   private emitNamedSchema(typeName: string, schema: OasSchema, pointer: string): string[] {
@@ -264,14 +293,12 @@ class TypeSpecExporter {
     const decorators = [
       ...this.emitDecoratorsForDescription(operation.summary, operation.description),
       ...(operation.tags ?? []).map(tag => `@tag(${quote(tag)})`),
+      ...this.emitOperationSecurityDecorators(operation.security, `${pointer}/security`),
       `@operationId(${quote(operationId)})`,
       `@route(${quote(path)})`,
       `@${method}`,
     ]
 
-    if (operation.security) {
-      this.addDiagnostic('operation/security-dropped', `${pointer}/security`, 'Operation security requirements need a TypeSpec auth model and were not emitted.')
-    }
     if (operation.callbacks) {
       this.addDiagnostic('operation/callbacks-dropped', `${pointer}/callbacks`, 'OpenAPI callbacks were not emitted to TypeSpec.')
     }
@@ -328,6 +355,31 @@ class TypeSpecExporter {
       const defaultValue = rendered.defaultValue ? ` = ${rendered.defaultValue}` : ''
       return `${decorators.join(' ')} ${toValueName(parameter.name)}${optional}: ${rendered.type}${defaultValue}`
     })
+  }
+
+  private emitOperationSecurityDecorators(security: OasOperation['security'], pointer: string): string[] {
+    if (security === undefined) return []
+    if (!Array.isArray(security)) {
+      this.addDiagnostic('operation/security-dropped', pointer, 'Operation security requirements are not an array and were not emitted.')
+      return []
+    }
+    if (security.length === 0) return []
+    if (security.length !== 1 || !isRecord(security[0])) {
+      this.addDiagnostic('operation/security-dropped', pointer, 'Only single bearer security requirements are emitted to TypeSpec currently.')
+      return []
+    }
+    const entries = Object.entries(security[0])
+    if (entries.length !== 1) {
+      this.addDiagnostic('operation/security-dropped', pointer, 'Combined security requirements are not emitted to TypeSpec currently.')
+      return []
+    }
+    const [schemeName, scopes] = entries[0]!
+    const authName = this.authNameBySecuritySchemeName.get(schemeName)
+    if (!authName || (Array.isArray(scopes) && scopes.length > 0)) {
+      this.addDiagnostic('operation/security-dropped', pointer, `Security requirement ${schemeName} is not supported by the current TypeSpec auth mapping.`)
+      return []
+    }
+    return [`@useAuth(${authName})`]
   }
 
   private emitRequestBodyParameter(operationId: string, requestBodyValue: Referenceable<OasRequestBody> | undefined, pointer: string): string | null {
@@ -718,9 +770,6 @@ class TypeSpecExporter {
   private reportDocumentLevelLosses(): void {
     if (this.document.security) {
       this.addDiagnostic('document/security-dropped', '#/security', 'Root security requirements need a TypeSpec auth model and were not emitted.')
-    }
-    if (this.document.components?.securitySchemes) {
-      this.addDiagnostic('components/security-schemes-dropped', '#/components/securitySchemes', 'Security schemes are not emitted by the first tsp-export pass.')
     }
     if (this.document.jsonSchemaDialect) {
       this.addDiagnostic('document/json-schema-dialect-dropped', '#/jsonSchemaDialect', 'jsonSchemaDialect is OpenAPI-level metadata and was not emitted to TypeSpec.')

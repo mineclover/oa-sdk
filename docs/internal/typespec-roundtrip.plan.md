@@ -60,7 +60,7 @@ Current probe on `packages/schemas/src/.merged.yaml`:
 | Operations | 27 -> 27 |
 | Component schemas | 28 -> 32 |
 | Generated `.tsp` size | 1067 lines |
-| Export diagnostics | 119 |
+| Export diagnostics | 92 |
 | Breaking diff | 0 breaking changes across 0 modified operations |
 
 Diagnostic distribution:
@@ -68,10 +68,9 @@ Diagnostic distribution:
 | Code | Count | Meaning |
 |---|---:|---|
 | `response/examples-dropped` | 79 | Response media examples are not mapped yet |
-| `operation/security-dropped` | 27 | Operation security requirements need a TypeSpec auth convention |
 | `parameter/examples-dropped` | 11 | Parameter examples are not mapped yet |
 | `schema/type-unknown` | 1 | Source schema lacks enough type information for precise TypeSpec |
-| `components/security-schemes-dropped` | 1 | Shared security schemes are not mapped yet |
+| `components/security-scheme-dropped` | 1 | Unused OAuth2 security scheme is not mapped yet |
 
 Current endpoint diff:
 
@@ -99,7 +98,7 @@ This is enough to keep path and operation identity stable, but not enough to cla
 
 Before a TSP-first declaration, close or explicitly accept these gaps:
 
-1. Security: map `components.securitySchemes` and root/operation security requirements to a stable TypeSpec auth convention.
+1. OAuth2 component policy: map the unused OAuth2 security scheme or classify it as OpenAPI-side metadata for this fixture.
 2. Parameter and response media examples: decide how OA SDK `dataValue` / `serializedValue` examples are preserved without weakening mock-server response priority.
 3. Untyped schema cleanup: fix `ValidationError.received` or define a deliberate `unknown` escape hatch.
 4. Visibility and annotations: map readOnly/writeOnly/annotations only after the OA SDK visibility policy is explicit.
