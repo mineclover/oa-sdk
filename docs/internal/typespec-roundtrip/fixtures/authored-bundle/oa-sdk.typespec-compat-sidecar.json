@@ -1,0 +1,70 @@
+{
+  "schemaVersion": "oa-sdk.typespec-compat-sidecar.v1",
+  "counts": {
+    "entries": 3,
+    "parameterExamples": 1,
+    "responseMediaExamples": 1,
+    "securitySchemes": 1
+  },
+  "entries": [
+    {
+      "kind": "parameter-examples",
+      "pointer": "#/paths/~1users/get/parameters/0",
+      "target": {
+        "path": "/users",
+        "method": "get",
+        "name": "page",
+        "in": "query"
+      },
+      "value": {
+        "examples": {
+          "default": {
+            "dataValue": 1,
+            "serializedValue": "page=1"
+          }
+        }
+      }
+    },
+    {
+      "kind": "response-media-examples",
+      "pointer": "#/paths/~1users/get/responses/200/content/application~1json",
+      "target": {
+        "path": "/users",
+        "method": "get",
+        "statusCode": "200",
+        "mediaType": "application/json"
+      },
+      "value": {
+        "examples": {
+          "default": {
+            "dataValue": [
+              {
+                "id": "usr_1",
+                "name": "Alice"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "kind": "security-scheme",
+      "pointer": "#/components/securitySchemes/oauth2",
+      "target": {
+        "name": "oauth2"
+      },
+      "value": {
+        "type": "oauth2",
+        "flows": {
+          "authorizationCode": {
+            "authorizationUrl": "https://auth.example.com/authorize",
+            "tokenUrl": "https://auth.example.com/token",
+            "scopes": {
+              "read:users": "Read users"
+            }
+          }
+        }
+      }
+    }
+  ]
+}

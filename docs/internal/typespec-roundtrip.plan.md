@@ -16,8 +16,11 @@ Implemented source:
 - `packages/codegen/src/cli/commands/tsp-export.ts` — `oa-gen tsp-export --spec <openapi.yaml> --output <main.tsp> --report <report.json>`.
 - `packages/codegen/src/cli/commands/tsp-restore.ts` — `oa-gen tsp-restore --spec <emitted.yaml> --sidecar <sidecar.json> --output <restored.yaml>`.
 - `scripts/typespec-roundtrip.ts` — reproducible probe for export, TypeSpec compile, emitted OpenAPI validation, and OpenAPI diff.
+- `scripts/typespec-bundle-check.ts` — reproducible probe for authored `.tsp + sidecar` bundle compile, restore, validation, and optional expected OpenAPI diff.
+- `docs/internal/typespec-roundtrip/fixtures/authored-bundle/` — minimal authored bundle fixture proving the two-track input shape.
 - `packages/codegen/src/__tests__/tsp-export.test.ts` — focused exporter coverage.
 - `packages/codegen/src/__tests__/typespec-sidecar.test.ts` — compatibility sidecar creation/restore coverage.
+- `packages/codegen/src/__tests__/typespec-authored-bundle.test.ts` — authored `.tsp + sidecar` compile/restore fixture coverage.
 - `packages/codegen/src/__tests__/openapi-breaking-diff.test.ts` — proven TypeSpec/OpenAPI shape equivalence coverage.
 - `packages/codegen/src/__tests__/typespec-roundtrip-report.test.ts` — machine-readable report and diagnostic policy coverage.
 
@@ -53,6 +56,8 @@ pnpm typespec:roundtrip -- --keep
 pnpm typespec:roundtrip -- --fail-on-breaking
 oa-gen tsp-export --spec packages/schemas/src/.merged.yaml --output artifacts/main.tsp --sidecar artifacts/typespec-sidecar.json
 oa-gen tsp-restore --spec artifacts/typespec-emitted.yaml --sidecar artifacts/typespec-sidecar.json --output artifacts/typespec-restored.yaml
+pnpm typespec:bundle-check
+pnpm typespec:bundle-check -- --fail-on-breaking --report artifacts/typespec-bundle-check-report.json
 ```
 
 The default probe is a visibility command: it exits 0 when export, TypeSpec compile, and OA SDK validation pass, even if semantic diff remains. `--fail-on-breaking` is the readiness gate; the current canonical artifact passes it, and future semantic regressions must either be removed or explicitly accepted by policy.
@@ -75,6 +80,9 @@ Current probe on `packages/schemas/src/.merged.yaml`:
 | Sidecar restore | pass, 91 applied targets and 0 missing targets |
 | Breaking diff | 0 breaking changes across 0 modified operations |
 | Restored breaking diff | 0 breaking changes across 0 modified operations |
+| Authored bundle check | pass, 1 operation, 3 sidecar entries, 3 applied targets, 0 missing targets |
+| Authored restored validation | pass, 0 warnings, 0 infos |
+| Authored restored breaking diff | 0 breaking changes across 0 modified operations |
 
 Diagnostic distribution:
 
@@ -97,6 +105,7 @@ Current endpoint diff:
 - Component schemas remain `28 -> 32`; the four additional schemas are accepted TypeSpec projection artifacts: `ErrorMeta`, `ListModerationReports200Body`, `ListMyRoleChanges200Body`, and `ListUsers200Body`.
 - The roundtrip report now records per-diagnostic ownership and rationale. The current fixture has no unaccepted exporter diagnostics.
 - The compatibility sidecar restores examples/security metadata that is intentionally outside the TypeSpec projection. One path-level parameter entry restores to three emitted operation parameters, so restore applied target count is higher than sidecar entry count.
+- The authored bundle fixture proves the opposite direction as a first slice: a hand-written `.tsp` structural contract plus authored `oa-sdk.typespec-compat-sidecar.v1` compiles, restores OA SDK examples/security metadata, validates, and matches the expected OpenAPI endpoint surface with no breaking diff.
 
 ## Intersection
 
@@ -134,3 +143,4 @@ Declare TSP-first only when:
 - The authoring guide says which facts belong in `.tsp`, which remain OpenAPI sidecars/extensions, and which remain OA SDK runtime data.
 - The generated OpenAPI remains valid under OA SDK's OpenAPI 3.2 gate and downstream codegen/router/client/mock-server tests.
 - The compatibility sidecar schema is stable enough for authored `.tsp + sidecar` fixtures, not only generated sidecars.
+- Authored `.tsp + sidecar` fixtures pass `pnpm typespec:bundle-check -- --fail-on-breaking` and cover every sidecar entry kind that is accepted by policy.

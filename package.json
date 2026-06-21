@@ -35,7 +35,8 @@
     "check:cli-spec": "node --import tsx scripts/check-cli-spec.ts",
     "check:feature-tests": "node --import tsx scripts/check-feature-test-matrix.ts",
     "spec:diff": "node scripts/dist/spec-diff.js",
-    "typespec:roundtrip": "node --import tsx scripts/typespec-roundtrip.ts"
+    "typespec:roundtrip": "node --import tsx scripts/typespec-roundtrip.ts",
+    "typespec:bundle-check": "node --import tsx scripts/typespec-bundle-check.ts"
   },
   "devDependencies": {
     "@changesets/cli": "^2.31.0",

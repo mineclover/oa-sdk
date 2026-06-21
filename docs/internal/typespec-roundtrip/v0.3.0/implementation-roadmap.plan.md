@@ -300,6 +300,34 @@ Evidence:
 - Sidecar restore reports `91` applied targets and `0` missing targets. One path-level parameter entry restores to three emitted operation parameters.
 - Restored OpenAPI validation passes with `0` warnings and `0` infos, and restored breaking diff is `no`.
 
+## Phase 8 — Authored Bundle Check
+
+Status: first slice implemented.
+
+Purpose: prove that the two-track model also works when `.tsp + sidecar` is the input bundle, not only when both files are generated from existing OpenAPI.
+
+Tasks:
+
+- Add a minimal authored TypeSpec fixture with one endpoint and one model.
+- Add an authored `oa-sdk.typespec-compat-sidecar.v1` fixture covering parameter examples, response media examples, and unsupported security component metadata.
+- Compile the authored fixture through the TypeSpec OpenAPI emitter.
+- Restore the sidecar and validate the restored OpenAPI 3.2 artifact.
+- Diff the restored artifact against an expected OpenAPI fixture with OA SDK's endpoint diff.
+
+Gate:
+
+- `pnpm typespec:bundle-check -- --fail-on-breaking` passes.
+- Authored bundle restore reports no missing targets.
+- Authored bundle restored validation reports no warnings or infos.
+- Authored bundle restored diff reports no breaking endpoint changes.
+
+Evidence:
+
+- `pnpm typespec:bundle-check -- --fail-on-breaking --report /tmp/oa-sdk-typespec-bundle-check-gate.json` reports `1` emitted/restored/expected operation.
+- Authored sidecar reports `3` entries: `1` parameter example, `1` response media example, and `1` security scheme.
+- Sidecar restore reports `3` applied targets and `0` missing targets.
+- Emitted, restored, and expected OpenAPI validation pass with `0` warnings and `0` infos, and restored breaking diff is `no`.
+
 ## Implementation Order
 
 Recommended order:
@@ -312,6 +340,7 @@ Recommended order:
 6. Phase 5 security/header/tag/visibility policy.
 7. Phase 6 gate and decision prep.
 8. Phase 7 two-track compatibility sidecar.
+9. Phase 8 authored bundle check.
 
 Do not start with diff normalization. Normalize only after a concrete TypeSpec/OpenAPI equivalence has been proven with source/emitted examples.
 
@@ -325,3 +354,4 @@ The version is ready when:
 - No TypeSpec-generated artifact becomes the canonical schema source yet.
 - Follow-up decision points are clear enough for a TSP-first ADR.
 - Two-track compatibility can restore OpenAPI-owned sidecar semantics onto TypeSpec-emitted OpenAPI without breaking endpoint diff.
+- Authored `.tsp + sidecar` fixtures pass the bundle check with every currently accepted sidecar entry kind represented.
