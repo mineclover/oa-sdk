@@ -276,6 +276,7 @@
       "capabilities": [
         "OpenAPI to TypeSpec source export",
         "OpenAPI-owned TypeSpec compatibility sidecar",
+        "generated TypeSpec bundle manifest",
         "authored TypeSpec bundle manifest",
         "sidecar restore into TypeSpec-emitted OpenAPI",
         "sidecar semantic re-extraction stability report",

@@ -9,6 +9,7 @@ import {
 import { join, resolve } from 'node:path'
 import { spawnSync } from 'node:child_process'
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml'
+import type { TypeSpecBundleManifest } from '../cli/lib/typespec-bundle-manifest.js'
 import type {
   TypeSpecCompatibilityRestoreReport,
   TypeSpecCompatibilitySidecarCompareReport,
@@ -101,6 +102,7 @@ describe('oa-gen TypeSpec sidecar CLI', () => {
     })
     const tspPath = join(tmpDir, 'main.tsp')
     const sidecarPath = join(tmpDir, 'sidecar.json')
+    const bundleManifestPath = join(tmpDir, 'oa-sdk.typespec-bundle.json')
     const restoredPath = join(tmpDir, 'restored.yaml')
     const restoreReportPath = join(tmpDir, 'restore-report.json')
     const stabilityReportPath = join(tmpDir, 'stability-report.json')
@@ -110,12 +112,23 @@ describe('oa-gen TypeSpec sidecar CLI', () => {
       '--spec', sourcePath,
       '--output', tspPath,
       '--sidecar', sidecarPath,
+      '--bundle-manifest', bundleManifestPath,
     ])
     expect(exportResult.status).toBe(0)
     expect(exportResult.stderr).toBe('')
     expect(existsSync(tspPath)).toBe(true)
 
     const sidecar = JSON.parse(readFileSync(sidecarPath, 'utf8')) as TypeSpecCompatibilitySidecar
+    const bundleManifest = JSON.parse(readFileSync(bundleManifestPath, 'utf8')) as TypeSpecBundleManifest
+    expect(bundleManifest).toEqual({
+      schemaVersion: 'oa-sdk.typespec-bundle.v1',
+      entrypoint: 'main.tsp',
+      sidecar: 'sidecar.json',
+      compatibility: {
+        openapiVersion: '3.2.0',
+        sidecarSchemaVersion: 'oa-sdk.typespec-compat-sidecar.v1',
+      },
+    })
     expect(sidecar.schemaVersion).toBe('oa-sdk.typespec-compat-sidecar.v1')
     expect(sidecar.counts).toEqual({
       entries: 2,
@@ -158,6 +171,23 @@ describe('oa-gen TypeSpec sidecar CLI', () => {
         dataValue: { items: [] },
       },
     })
+  })
+
+  it('requires output and sidecar when exporting a TypeSpec bundle manifest', () => {
+    const sourcePath = writeYaml('source.yaml', {
+      openapi: '3.2.0',
+      info: { title: 'Sidecar API', version: '1.0.0' },
+      paths: {},
+    })
+
+    const exportResult = runCli([
+      'tsp-export',
+      '--spec', sourcePath,
+      '--bundle-manifest', join(tmpDir, 'oa-sdk.typespec-bundle.json'),
+    ])
+
+    expect(exportResult.status).not.toBe(0)
+    expect(exportResult.stderr).toContain('--bundle-manifest requires both --output and --sidecar')
   })
 
   it('fails restore when a sidecar target is missing and still writes the report', () => {

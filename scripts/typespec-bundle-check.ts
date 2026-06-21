@@ -9,8 +9,13 @@
 
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { dirname, isAbsolute, join, normalize, relative, resolve } from 'node:path'
+import { dirname, join, relative, resolve } from 'node:path'
 import { execa } from 'execa'
+import {
+  parseTypeSpecBundleManifest,
+  resolveTypeSpecBundleManifestPaths,
+  type TypeSpecBundleManifest,
+} from '../packages/codegen/src/cli/lib/typespec-bundle-manifest.js'
 import { loadSpecWithPath } from '../packages/codegen/src/cli/lib/load-spec.js'
 import { stringifyOpenApiYaml } from '../packages/codegen/src/cli/lib/openapi-collect.js'
 import {
@@ -39,17 +44,6 @@ type Args = {
   report?: string
   keep: boolean
   failOnBreaking: boolean
-}
-
-type TypeSpecBundleManifest = {
-  schemaVersion: 'oa-sdk.typespec-bundle.v1'
-  entrypoint: string
-  sidecar: string
-  expectedOpenapi?: string
-  compatibility?: {
-    openapiVersion?: string
-    sidecarSchemaVersion?: string
-  }
 }
 
 type BundleConfig = {
@@ -362,104 +356,22 @@ function loadBundleConfig(projectPath: string, args: Args): BundleConfig {
   const manifest = manifestPath
     ? parseTypeSpecBundleManifest(loadJson(manifestPath), manifestPath)
     : undefined
-  const manifestBase = manifestPath ? dirname(manifestPath) : projectPath
+  const manifestPaths = manifest && manifestPath
+    ? resolveTypeSpecBundleManifestPaths(manifest, manifestPath)
+    : undefined
   return {
     source: manifest ? 'manifest' : 'defaults',
     projectPath,
     ...(manifestPath ? { manifestPath } : {}),
-    entrypointPath: manifest
-      ? resolveBundlePath(manifestBase, manifest.entrypoint, 'entrypoint')
-      : join(projectPath, 'main.tsp'),
+    entrypointPath: manifestPaths?.entrypointPath ?? join(projectPath, 'main.tsp'),
     sidecarPath: args.sidecar
       ? resolve(root, args.sidecar)
-      : manifest
-        ? resolveBundlePath(manifestBase, manifest.sidecar, 'sidecar')
-        : join(projectPath, 'oa-sdk.typespec-compat-sidecar.json'),
+      : manifestPaths?.sidecarPath ?? join(projectPath, 'oa-sdk.typespec-compat-sidecar.json'),
     expectedPath: args.expected
       ? resolve(root, args.expected)
-      : manifest?.expectedOpenapi
-        ? resolveBundlePath(manifestBase, manifest.expectedOpenapi, 'expectedOpenapi')
-        : join(projectPath, 'expected.openapi.yaml'),
+      : manifestPaths?.expectedOpenapiPath ?? join(projectPath, 'expected.openapi.yaml'),
     ...(manifest ? { manifest } : {}),
   }
-}
-
-function parseTypeSpecBundleManifest(value: unknown, path: string): TypeSpecBundleManifest {
-  const errors: string[] = []
-  if (!isRecord(value)) {
-    throw new Error(`invalid TypeSpec bundle manifest ${relative(root, path)}: expected object`)
-  }
-  if (value.schemaVersion !== 'oa-sdk.typespec-bundle.v1') {
-    errors.push('schemaVersion must be oa-sdk.typespec-bundle.v1')
-  }
-  const entrypoint = readManifestRelativePath(value, 'entrypoint', errors)
-  const sidecar = readManifestRelativePath(value, 'sidecar', errors)
-  const expectedOpenapi = readOptionalManifestRelativePath(value, 'expectedOpenapi', errors)
-  let compatibility: TypeSpecBundleManifest['compatibility']
-  if (value.compatibility !== undefined) {
-    if (!isRecord(value.compatibility)) {
-      errors.push('compatibility must be an object')
-    } else {
-      const openapiVersion = optionalString(value.compatibility, 'openapiVersion', errors)
-      const sidecarSchemaVersion = optionalString(value.compatibility, 'sidecarSchemaVersion', errors)
-      compatibility = {
-        ...(openapiVersion ? { openapiVersion } : {}),
-        ...(sidecarSchemaVersion ? { sidecarSchemaVersion } : {}),
-      }
-      if (sidecarSchemaVersion && sidecarSchemaVersion !== 'oa-sdk.typespec-compat-sidecar.v1') {
-        errors.push('compatibility.sidecarSchemaVersion must be oa-sdk.typespec-compat-sidecar.v1')
-      }
-    }
-  }
-  if (errors.length > 0 || !entrypoint || !sidecar) {
-    throw new Error(`invalid TypeSpec bundle manifest ${relative(root, path)}: ${errors.join('; ')}`)
-  }
-  return {
-    schemaVersion: 'oa-sdk.typespec-bundle.v1',
-    entrypoint,
-    sidecar,
-    ...(expectedOpenapi ? { expectedOpenapi } : {}),
-    ...(compatibility ? { compatibility } : {}),
-  }
-}
-
-function readManifestRelativePath(record: Record<string, unknown>, key: string, errors: string[]): string | undefined {
-  const value = record[key]
-  if (typeof value !== 'string' || value.trim() === '') {
-    errors.push(`${key} must be a non-empty relative path`)
-    return undefined
-  }
-  validateManifestRelativePath(value, key, errors)
-  return value
-}
-
-function readOptionalManifestRelativePath(record: Record<string, unknown>, key: string, errors: string[]): string | undefined {
-  if (record[key] === undefined) return undefined
-  return readManifestRelativePath(record, key, errors)
-}
-
-function optionalString(record: Record<string, unknown>, key: string, errors: string[]): string | undefined {
-  const value = record[key]
-  if (value === undefined) return undefined
-  if (typeof value !== 'string' || value.trim() === '') {
-    errors.push(`compatibility.${key} must be a non-empty string`)
-    return undefined
-  }
-  return value
-}
-
-function validateManifestRelativePath(path: string, key: string, errors: string[]): void {
-  const normalized = normalize(path)
-  if (isAbsolute(path) || normalized === '..' || normalized.startsWith('../') || normalized.startsWith('..\\')) {
-    errors.push(`${key} must stay inside the TypeSpec bundle directory`)
-  }
-}
-
-function resolveBundlePath(basePath: string, path: string, key: string): string {
-  const errors: string[] = []
-  validateManifestRelativePath(path, key, errors)
-  if (errors.length > 0) throw new Error(errors.join('; '))
-  return resolve(basePath, path)
 }
 
 function assertFileExists(path: string, label: string): void {
@@ -478,10 +390,6 @@ function readOption(args: string[], name: string): string | undefined {
 
 function loadJson(path: string): unknown {
   return JSON.parse(readFileSync(path, 'utf8')) as unknown
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
 await main()

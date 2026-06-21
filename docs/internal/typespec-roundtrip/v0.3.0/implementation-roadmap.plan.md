@@ -39,7 +39,7 @@ Current gate state: `pnpm typespec:roundtrip -- --fail-on-breaking` passes becau
 
 Expected user-visible surface:
 
-- `oa-gen tsp-export` remains the explicit conversion command and can write an OA SDK compatibility sidecar.
+- `oa-gen tsp-export` remains the explicit conversion command and can write an OA SDK compatibility sidecar plus `oa-sdk.typespec-bundle.v1` manifest.
 - `oa-gen tsp-restore` reapplies that sidecar to TypeSpec-emitted OpenAPI.
 - `pnpm typespec:roundtrip` remains the repository probe.
 - A machine-readable roundtrip report is added before the gate is promoted.
@@ -284,6 +284,7 @@ Purpose: let OpenAPI-owned semantics and TypeSpec-authored structure coexist whi
 Tasks:
 
 - Generate an OA SDK compatibility sidecar from the OpenAPI artifact during `tsp-export`.
+- Generate an `oa-sdk.typespec-bundle.v1` manifest during `tsp-export` when `.tsp` output and sidecar output are both requested.
 - Restore sidecar metadata onto TypeSpec-emitted OpenAPI.
 - Write an optional `tsp-restore --stability-report` for restore-time sidecar re-extraction drift checks.
 - Include sidecar restore validation and diff evidence in `pnpm typespec:roundtrip`.
@@ -292,6 +293,7 @@ Tasks:
 Gate:
 
 - `oa-gen tsp-export --sidecar` writes `oa-sdk.typespec-compat-sidecar.v1`.
+- `oa-gen tsp-export --bundle-manifest` writes `oa-sdk.typespec-bundle.v1` and requires both `--output` and `--sidecar`.
 - `oa-gen tsp-restore` applies the sidecar and validates the restored OpenAPI 3.2 document.
 - `oa-gen tsp-restore --stability-report` writes `oa-sdk.typespec-compat-compare-report.v1` and fails on missing expected entries, unexpected actual entries, or value mismatches.
 - Canonical roundtrip reports no sidecar restore missing targets and no restored breaking diff.
@@ -300,6 +302,7 @@ Gate:
 Evidence:
 
 - `pnpm typespec:roundtrip -- --report /tmp/oa-sdk-typespec-roundtrip-sidecar.json` reports a compatibility sidecar with `89` entries: `79` response media examples, `9` parameter examples, and `1` security scheme.
+- The roundtrip workspace includes `oa-sdk.typespec-bundle.v1`, and the roundtrip report records its path.
 - Sidecar restore reports `91` applied targets and `0` missing targets. One path-level parameter entry restores to three emitted operation parameters.
 - Sidecar re-extraction reports `89/89` expected entries satisfied, `91/91` actual entries covered, and `0` missing expected entries, unexpected actual entries, or value mismatches.
 - Restored OpenAPI validation passes with `0` warnings and `0` infos, and restored breaking diff is `no`.

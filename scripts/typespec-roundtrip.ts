@@ -14,6 +14,7 @@ import { stringify } from 'yaml'
 import { loadSpecWithPath } from '../packages/codegen/src/cli/lib/load-spec.js'
 import { stringifyOpenApiYaml } from '../packages/codegen/src/cli/lib/openapi-collect.js'
 import { exportOpenApiToTypeSpec } from '../packages/codegen/src/cli/lib/tsp-export.js'
+import { createTypeSpecBundleManifest } from '../packages/codegen/src/cli/lib/typespec-bundle-manifest.js'
 import {
   applyTypeSpecCompatibilitySidecar,
   compareTypeSpecCompatibilitySidecars,
@@ -46,6 +47,7 @@ async function main(): Promise<void> {
   const tspConfigPath = join(workspace, 'tspconfig.yaml')
   const reportPath = join(workspace, 'tsp-export-report.json')
   const sidecarPath = join(workspace, 'oa-sdk-typespec-sidecar.json')
+  const bundleManifestPath = join(workspace, 'oa-sdk.typespec-bundle.json')
   const restoredPath = join(workspace, 'openapi.restored.yaml')
 
   try {
@@ -56,6 +58,11 @@ async function main(): Promise<void> {
     writeFileSync(tspPath, exported.source)
     writeFileSync(reportPath, `${JSON.stringify(exported.report, null, 2)}\n`)
     writeFileSync(sidecarPath, `${JSON.stringify(sidecar, null, 2)}\n`)
+    writeFileSync(bundleManifestPath, `${JSON.stringify(createTypeSpecBundleManifest({
+      manifestPath: bundleManifestPath,
+      entrypointPath: tspPath,
+      sidecarPath,
+    }), null, 2)}\n`)
     writeFileSync(tspConfigPath, createTspConfig())
 
     await execa('pnpm', ['exec', 'tsp', 'compile', workspace, '--output-dir', outputDir], {
@@ -100,6 +107,7 @@ async function main(): Promise<void> {
       sourceOpenapiPath: specPath,
       emittedOpenapiPath: emittedPath,
       tspSourcePath: tspPath,
+      bundleManifestPath,
       workspacePath: workspace,
       sourceDocument: document,
       emittedDocument,
@@ -135,6 +143,7 @@ async function main(): Promise<void> {
     console.log(`  namespace: ${exported.report.namespace}`)
     console.log(`  workspace: ${workspace}`)
     console.log(`  tsp: ${relative(workspace, tspPath)}`)
+    console.log(`  bundle manifest: ${relative(workspace, bundleManifestPath)}`)
     console.log(`  emitted: ${relative(workspace, emittedPath)}`)
     console.log(`  sidecar: ${relative(workspace, sidecarPath)}`)
     console.log(`  restored: ${relative(workspace, restoredPath)}`)

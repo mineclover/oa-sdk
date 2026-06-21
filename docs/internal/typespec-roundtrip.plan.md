@@ -11,9 +11,10 @@ Versioned implementation planning lives under [`typespec-roundtrip/`](./typespec
 Implemented source:
 
 - `packages/codegen/src/cli/lib/tsp-export.ts` — OpenAPI artifact to TypeSpec source exporter and diagnostics report.
+- `packages/codegen/src/cli/lib/typespec-bundle-manifest.ts` — `oa-sdk.typespec-bundle.v1` manifest creation, parsing, and bundle-local path resolution.
 - `packages/codegen/src/cli/lib/typespec-sidecar.ts` — OA SDK-owned TypeSpec compatibility sidecar creation, restore, and semantic stability comparison.
 - `packages/codegen/src/cli/lib/typespec-roundtrip-report.ts` — roundtrip report assembly, diagnostic ownership classification, and readiness gates.
-- `packages/codegen/src/cli/commands/tsp-export.ts` — `oa-gen tsp-export --spec <openapi.yaml> --output <main.tsp> --report <report.json>`.
+- `packages/codegen/src/cli/commands/tsp-export.ts` — `oa-gen tsp-export --spec <openapi.yaml> --output <main.tsp> --report <report.json> --sidecar <sidecar.json> --bundle-manifest <manifest.json>`.
 - `packages/codegen/src/cli/commands/tsp-restore.ts` — `oa-gen tsp-restore --spec <emitted.yaml> --sidecar <sidecar.json> --output <restored.yaml> --stability-report <stability.json>`.
 - `scripts/typespec-roundtrip.ts` — reproducible probe for export, TypeSpec compile, emitted OpenAPI validation, and OpenAPI diff.
 - `scripts/typespec-bundle-check.ts` — reproducible probe for authored `.tsp + sidecar` bundle manifest loading, compile, restore, validation, and optional expected OpenAPI diff.
@@ -55,7 +56,7 @@ pnpm typespec:roundtrip
 pnpm typespec:roundtrip -- --report artifacts/typespec-roundtrip-report.json
 pnpm typespec:roundtrip -- --keep
 pnpm typespec:roundtrip -- --fail-on-breaking
-oa-gen tsp-export --spec packages/schemas/src/.merged.yaml --output artifacts/main.tsp --sidecar artifacts/typespec-sidecar.json
+oa-gen tsp-export --spec packages/schemas/src/.merged.yaml --output artifacts/main.tsp --sidecar artifacts/typespec-sidecar.json --bundle-manifest artifacts/oa-sdk.typespec-bundle.json
 oa-gen tsp-restore --spec artifacts/typespec-emitted.yaml --sidecar artifacts/typespec-sidecar.json --output artifacts/typespec-restored.yaml --stability-report artifacts/typespec-sidecar-stability.json
 pnpm typespec:bundle-check
 pnpm typespec:bundle-check -- --manifest docs/internal/typespec-roundtrip/fixtures/authored-bundle/oa-sdk.typespec-bundle.json
@@ -76,6 +77,7 @@ Current probe on `packages/schemas/src/.merged.yaml`:
 | Operations | 27 -> 27 |
 | Component schemas | 28 -> 32 |
 | Generated `.tsp` size | 1067 lines |
+| Generated bundle manifest | pass, `oa-sdk.typespec-bundle.v1` ties exported `main.tsp` to the generated compatibility sidecar |
 | Export diagnostics | 91 |
 | Export diagnostics gate | pass, 91 accepted and 0 unaccepted |
 | Compatibility sidecar | 89 entries: 79 response media examples, 9 parameter examples, 1 security scheme |
@@ -110,6 +112,7 @@ Current endpoint diff:
 - Component schemas remain `28 -> 32`; the four additional schemas are accepted TypeSpec projection artifacts: `ErrorMeta`, `ListModerationReports200Body`, `ListMyRoleChanges200Body`, and `ListUsers200Body`.
 - The roundtrip report now records per-diagnostic ownership and rationale. The current fixture has no unaccepted exporter diagnostics.
 - The compatibility sidecar restores examples/security metadata that is intentionally outside the TypeSpec projection. One path-level parameter entry restores to three emitted operation parameters, so restore applied target count is higher than sidecar entry count.
+- The generated roundtrip workspace now includes `oa-sdk.typespec-bundle.v1`, so OpenAPI export produces a portable `.tsp + sidecar` bundle instead of two unrelated files.
 - The restored OpenAPI can be re-scanned into a sidecar with no semantic drift. The canonical fixture intentionally expands path-level parameter examples into operation-level targets, so expected and actual entry counts may differ while semantic coverage remains complete.
 - The authored bundle fixture proves the opposite direction as a first slice: an `oa-sdk.typespec-bundle.v1` manifest points to a hand-written `.tsp` structural contract plus authored `oa-sdk.typespec-compat-sidecar.v1`; the bundle compiles, restores OA SDK examples/security metadata, validates, and matches the expected OpenAPI endpoint surface with no breaking diff.
 

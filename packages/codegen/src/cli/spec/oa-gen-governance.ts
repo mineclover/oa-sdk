@@ -293,6 +293,11 @@ export const oaGenGovernanceManifest = {
             description: 'TypeSpec projection 밖에 남길 OA SDK compatibility sidecar JSON 출력 경로',
           },
           {
+            name: 'bundle-manifest',
+            type: 'string',
+            description: '생성한 .tsp와 sidecar를 묶는 oa-sdk.typespec-bundle.v1 manifest JSON 출력 경로',
+          },
+          {
             name: 'namespace',
             type: 'string',
             description: '생성할 TypeSpec namespace 이름',
@@ -306,6 +311,7 @@ export const oaGenGovernanceManifest = {
           { formats: ['text'], schema: 'oa-gen.tsp-export.source.v1' },
           { formats: ['json'], schema: 'oa-gen.tsp-export-report.v1' },
           { formats: ['json'], schema: 'oa-sdk.typespec-compat-sidecar.v1' },
+          { formats: ['json'], schema: 'oa-sdk.typespec-bundle.v1' },
         ],
         exitPolicy: {
           success: ['APPROVE', 'COMMENT'],
