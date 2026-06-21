@@ -5,7 +5,7 @@
   "type": "module",
   "description": "OpenAPI 3.2 management monorepo — modular schemas, codegen bridge, mock server",
   "engines": {
-    "node": ">=20.0.0",
+    "node": ">=25.0.0",
     "pnpm": ">=9.0.0"
   },
   "packageManager": "pnpm@10.30.3",

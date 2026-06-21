@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [master, main]
   pull_request:
-    branches: [main]
+    branches: [master, main]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -23,11 +23,11 @@ jobs:
 
       - uses: pnpm/action-setup@v4
         with:
-          version: 9
+          version: 10.30.3
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 25
           cache: pnpm
 
       - name: Install dependencies
@@ -35,18 +35,18 @@ jobs:
 
       # ── Build ──────────────────────────────────────────────
       - name: Build packages
-        run: pnpm build
+        run: pnpm build:all
 
       - name: Build CI scripts
         run: pnpm build:scripts
 
       # ── Typecheck ──────────────────────────────────────────
       - name: Type check
-        run: pnpm typecheck
+        run: pnpm typecheck:all
 
       # ── Test ───────────────────────────────────────────────
       - name: Test
-        run: pnpm test
+        run: pnpm test:all
 
       # ── Schema validation ──────────────────────────────────
       - name: Schema validate
@@ -65,9 +65,15 @@ jobs:
 
       # ── API index drift check ────────────────────────────────
       - name: API index consistency
-        run: node scripts/dist/check-api-index.mjs
+        run: pnpm check:api-index
+
+      - name: CLI spec consistency
+        run: pnpm check:cli-spec
+
+      - name: Feature test matrix consistency
+        run: pnpm check:feature-tests
 
       # ── Spec diff (PR only) ────────────────────────────────
       - name: API spec diff
         if: github.event_name == 'pull_request'
-        run: node scripts/dist/spec-diff.mjs --git origin/${{ github.base_ref }} >> "$GITHUB_STEP_SUMMARY"
+        run: pnpm spec:diff -- --git origin/${{ github.base_ref }} >> "$GITHUB_STEP_SUMMARY"

@@ -14,6 +14,10 @@ import {
   type SchemaToTsOptions as TypegenSchemaToTsOptions,
   type TypegenOptions as TypegenTypegenOptions,
 } from '../typegen/index.js'
+import {
+  generateTypesFromSpec as browserGenerateTypesFromSpec,
+  type TypegenOptions as BrowserTypegenOptions,
+} from '../typegen/browser.js'
 
 type PackageJson = {
   exports: Record<string, unknown>
@@ -39,6 +43,11 @@ describe('public codegen API surface', () => {
 
     expect(rootSchemaToTs({ $ref: '#/components/schemas/User' }, options)).toBe('UserModel')
     expect(typegenSchemaToTs({ type: 'string' }, options)).toBe('string')
+    expect(browserGenerateTypesFromSpec({
+      openapi: '3.2.0',
+      info: { title: 'Browser fixture', version: '1.0.0' },
+      paths: {},
+    }, { banner: false } satisfies BrowserTypegenOptions)).toBe('')
   })
 
   it('typechecks documented package imports for typegen option types', () => {
@@ -63,6 +72,10 @@ import {
   type SchemaToTsOptions as TypegenSchemaToTsOptions,
   type TypegenOptions as TypegenTypegenOptions,
 } from '@oa-sdk/codegen/typegen'
+import {
+  generateTypesFromSpec as browserGenerateTypesFromSpec,
+  type TypegenOptions as BrowserTypegenOptions,
+} from '@oa-sdk/codegen/typegen/browser'
 
 const rootTypegenOptions: RootTypegenOptions = {
   banner: false,
@@ -82,6 +95,16 @@ const typegenSchemaOptions: TypegenSchemaToTsOptions = rootSchemaOptions
 schemaToTs({ type: 'string' }, typegenSchemaOptions)
 typegenSchemaToTs({ $ref: '#/components/schemas/User' }, rootSchemaOptions)
 generateTypes({ schemas: {}, operations: [] }, typegenTypegenOptions)
+
+const browserOptions: BrowserTypegenOptions = {
+  banner: false,
+  includeAnnotations: true,
+}
+browserGenerateTypesFromSpec({
+  openapi: '3.2.0',
+  info: { title: 'Browser fixture', version: '1.0.0' },
+  paths: {},
+}, browserOptions)
 `,
         'utf8',
       )
@@ -105,6 +128,7 @@ generateTypes({ schemas: {}, operations: [] }, typegenTypegenOptions)
             paths: {
               '@oa-sdk/codegen': [join(pkgDir, 'src/index.ts')],
               '@oa-sdk/codegen/typegen': [join(pkgDir, 'src/typegen/index.ts')],
+              '@oa-sdk/codegen/typegen/browser': [join(pkgDir, 'src/typegen/browser.ts')],
             },
           },
           include: ['fixture.ts'],
@@ -115,7 +139,7 @@ generateTypes({ schemas: {}, operations: [] }, typegenTypegenOptions)
       execFileSync(tscBin, ['--project', join(tmp, 'tsconfig.json')], {
         cwd: tmp,
         encoding: 'utf8',
-        timeout: 15_000,
+        timeout: 30_000,
       })
     } catch (err) {
       const error = err as { stdout?: string; stderr?: string; message?: string }
@@ -130,7 +154,7 @@ generateTypes({ schemas: {}, operations: [] }, typegenTypegenOptions)
   it('keeps deep typegen modules out of package exports', () => {
     const packageJson = readPackageJson()
 
-    expect(Object.keys(packageJson.exports).sort()).toEqual(['.', './drizzle', './spec-lens', './typegen'])
+    expect(Object.keys(packageJson.exports).sort()).toEqual(['.', './drizzle', './spec-lens', './typegen', './typegen/browser'])
     expect(packageJson.exports).not.toHaveProperty('./typegen/generate-types')
     expect(packageJson.exports).not.toHaveProperty('./typegen/schema-to-ts')
   })

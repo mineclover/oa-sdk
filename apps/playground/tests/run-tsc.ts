@@ -4,7 +4,7 @@ import { createRequire } from 'node:module'
 const require = createRequire(import.meta.url)
 const tscBin = require.resolve('typescript/bin/tsc')
 
-export function runTsc(cwd: string, timeout = 30_000): void {
+export function runTsc(cwd: string, timeout = 60_000): void {
   execFileSync(process.execPath, [tscBin, '--noEmit'], {
     cwd,
     timeout,

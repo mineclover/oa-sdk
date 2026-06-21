@@ -1,6 +1,6 @@
-import type { OasSchema } from '@oa-sdk/parser'
-import type { SchemaAlgebra } from '@oa-sdk/parser'
-import { foldSchema } from '@oa-sdk/parser'
+import type { OasSchema } from '@oa-sdk/parser/browser'
+import type { SchemaAlgebra } from '@oa-sdk/parser/browser'
+import { foldSchema } from '@oa-sdk/parser/browser'
 
 // ─── 문자열 포맷 생성 (내부 헬퍼) ────────────────────────────────────────────
 

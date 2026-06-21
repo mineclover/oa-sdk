@@ -1,6 +1,6 @@
 import { http, HttpResponse, type RequestHandler } from 'msw'
-import { parseDocument, HTTP_METHODS, resolveServerUrl, type OasDocument, type OperationEntry, type RouteIndex } from '@oa-sdk/parser'
-import { toColonPath } from '@oa-sdk/core'
+import { derefInternalSpec, parseDocument, HTTP_METHODS, resolveServerUrl, type OasDocument, type OperationEntry, type RouteIndex } from '@oa-sdk/parser/browser'
+import { toColonPath } from '@oa-sdk/core/browser'
 import { handleRequest } from '../core/handler.js'
 import { isStreamingContentType, generateStreamChunks } from '../core/stream.js'
 import { filterRouteIndex, type RouteFilter } from '../core/route-filter.js'
@@ -88,7 +88,7 @@ function buildMswHandlers(
   options: MswHandlerOptions,
   overrides: Map<string, OverrideResponse>,
 ): RequestHandler[] {
-  const parsed = parseDocument(spec as OasDocument)
+  const parsed = parseDocument(derefInternalSpec(spec as OasDocument))
   const mergedRoutes = mergeWebhookRoutes(parsed.routes, parsed.webhooks)
   const index = filterRouteIndex(mergedRoutes, options.include)
   if (options.validateRequestSchemas !== false) assertValidRequestSchemas(index)

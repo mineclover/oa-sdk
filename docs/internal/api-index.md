@@ -205,7 +205,8 @@ OA SDK와 bun-graph-db가 각자의 source loader, repository, CLI, MCP, GraphQL
 ## 함수 (`@oa-sdk/codegen`)
 
 Typegen 공개 surface는 root entry(`@oa-sdk/codegen`)와 typegen sub-entry(`@oa-sdk/codegen/typegen`)에서 동일하게 지원한다.
-지원 subpath는 package exports의 `.`, `./drizzle`, `./typegen`뿐이며 `typegen/generate-types.ts`와 `typegen/schema-to-ts.ts`는 문서상 코드 위치일 뿐 package deep import로 공개하지 않는다.
+지원 subpath는 package exports의 `.`, `./drizzle`, `./spec-lens`, `./typegen`, `./typegen/browser`뿐이며 `typegen/generate-types.ts`와 `typegen/schema-to-ts.ts`는 문서상 코드 위치일 뿐 package deep import로 공개하지 않는다.
+`./typegen/browser`는 이미 로드된 OpenAPI 객체를 위한 브라우저 안전 surface이며, 외부 파일 `$ref` 분석과 `basePath` 처리는 Node용 `./typegen`에 남긴다.
 
 | 함수 | 파일 | 용도 |
 |------|------|------|
@@ -214,6 +215,7 @@ Typegen 공개 surface는 root entry(`@oa-sdk/codegen`)와 typegen sub-entry(`@o
 | `defineConfig()` | `config.ts` | 타입 안전 config 헬퍼 |
 | `generateTypes()` | `typegen/generate-types.ts` | ParsedDocument → TS 타입 문자열 (ResponseLinks 포함) |
 | `generateTypesFromSpec()` | `typegen/generate-types.ts` | OAS spec → TS 타입 (parseDocument 포함, ResponseLinks 포함) |
+| `generateTypes()` / `generateTypesFromSpec()` | `typegen/browser.ts` | 브라우저 안전 typegen. in-memory spec만 처리하고 Node crypto/path/filesystem ref graph를 import하지 않음 |
 | `analyzeExternalSchemaRefs()` | `typegen/generate-types.ts` | 외부 schema-position `$ref` 스키마 타입명/충돌 diagnostic 조회 (`#/components/schemas/*`, `#/$defs/*`, 비 components schema root 포함, operation 타입 충돌/unsupported pointer 경고 포함) |
 | `schemaToTs()` | `typegen/schema-to-ts.ts` | 단일 OAS Schema → TS 타입 문자열 (SchemaToTsOptions 지원) |
 | `createWorkspaceIndex()` | `workspace-index.ts` | 기본 noop 또는 memory WorkspaceIndex 생성 |
@@ -242,6 +244,7 @@ Typegen 공개 surface는 root entry(`@oa-sdk/codegen`)와 typegen sub-entry(`@o
 | `DrizzleCodegenOptions` | `drizzle/index.ts` | `OutputOptions & { schemaPath, ... }` |
 | `OasSchema` | **`@oa-sdk/parser` re-export** | codegen이 parser 정식 타입 사용 |
 | `TypegenOptions` | `typegen/generate-types.ts` | public typegen 옵션. `@oa-sdk/codegen`과 `@oa-sdk/codegen/typegen`에서 모두 export |
+| TypegenOptions | `typegen/browser.ts` | 브라우저 안전 subentry의 typegen 옵션. banner/style/includeAnnotations/refNameOverrides만 지원하며 basePath 외부 ref 분석 옵션은 포함하지 않음 |
 | `SchemaToTsOptions` | `typegen/schema-to-ts.ts` | public `schemaToTs()` 옵션. `@oa-sdk/codegen`과 `@oa-sdk/codegen/typegen`에서 모두 export |
 | `ExternalSchemaRefAnalysis` | `typegen/generate-types.ts` | 외부 schema-position `$ref` alias 분석 결과 |
 | `ExternalSchemaTypeAlias` | `typegen/generate-types.ts` | 외부 schema alias의 source pointer/ref/type name/content hash metadata |

@@ -1,12 +1,47 @@
 import { parse as parseYaml } from 'yaml'
-import type { OasDocument } from '@oa-sdk/parser'
-import { generateTypesFromSpec } from '@oa-sdk/codegen'
-import { generateRouter } from '@oa-sdk/router'
-import { generateClient } from '@oa-sdk/client'
-import { createMswHandlers } from '@oa-sdk/mock-server'
-import { setupWorker, type SetupWorker } from 'msw/browser'
+import type { OasDocument } from '@oa-sdk/parser/browser'
+import type { SetupWorker } from 'msw/browser'
 
 let worker: SetupWorker | null = null
+
+type CodegenModules = {
+  generateTypesFromSpec: typeof import('@oa-sdk/codegen/typegen/browser')['generateTypesFromSpec']
+  generateRouter: typeof import('@oa-sdk/router/browser')['generateRouter']
+  generateClient: typeof import('@oa-sdk/client/browser')['generateClient']
+}
+
+let codegenModulesPromise: Promise<CodegenModules> | null = null
+
+function loadCodegenModules(): Promise<CodegenModules> {
+  codegenModulesPromise ??= Promise.all([
+    import('@oa-sdk/codegen/typegen/browser'),
+    import('@oa-sdk/router/browser'),
+    import('@oa-sdk/client/browser'),
+  ]).then(([typegen, router, client]) => ({
+    generateTypesFromSpec: typegen.generateTypesFromSpec,
+    generateRouter: router.generateRouter,
+    generateClient: client.generateClient,
+  }))
+  return codegenModulesPromise
+}
+
+type MockModules = {
+  createMswHandlers: typeof import('@oa-sdk/mock-server/browser')['createMswHandlers']
+  setupWorker: typeof import('msw/browser')['setupWorker']
+}
+
+let mockModulesPromise: Promise<MockModules> | null = null
+
+function loadMockModules(): Promise<MockModules> {
+  mockModulesPromise ??= Promise.all([
+    import('@oa-sdk/mock-server/browser'),
+    import('msw/browser'),
+  ]).then(([mockServer, mswBrowser]) => ({
+    createMswHandlers: mockServer.createMswHandlers,
+    setupWorker: mswBrowser.setupWorker,
+  }))
+  return mockModulesPromise
+}
 
 // ─── Example spec ─────────────────────────────────────────────
 
@@ -173,7 +208,7 @@ function parseSpec(input: string): OasDocument | null {
 
 // ─── Generate ─────────────────────────────────────────────────
 
-function generate() {
+async function generate() {
   const spec = parseSpec(specInput.value)
   if (!spec) {
     const msg = '// Error: Invalid OpenAPI spec'
@@ -183,32 +218,47 @@ function generate() {
     return
   }
 
+  let codegen: CodegenModules
   try {
-    outputTypes.textContent = generateTypesFromSpec(spec)
+    codegen = await loadCodegenModules()
+  } catch (e) {
+    const msg = `// Error loading generators:\n// ${e}`
+    outputTypes.textContent = msg
+    outputRouter.textContent = msg
+    outputClient.textContent = msg
+    return
+  }
+
+  try {
+    outputTypes.textContent = codegen.generateTypesFromSpec(spec)
   } catch (e) {
     outputTypes.textContent = `// Error generating types:\n// ${e}`
   }
 
   try {
-    outputRouter.textContent = generateRouter(spec, { target: 'hono', typesImport: './types' })
+    outputRouter.textContent = codegen.generateRouter(spec, { target: 'hono', typesImport: './types' })
   } catch (e) {
     outputRouter.textContent = `// Error generating router:\n// ${e}`
   }
 
   try {
-    outputClient.textContent = generateClient(spec, { typesImport: './types' })
+    outputClient.textContent = codegen.generateClient(spec, { typesImport: './types' })
   } catch (e) {
     outputClient.textContent = `// Error generating client:\n// ${e}`
   }
 }
 
-btnGenerate.addEventListener('click', generate)
+btnGenerate.addEventListener('click', () => { void generate() })
 
 // ─── Load Example ─────────────────────────────────────────────
 
 btnLoadExample.addEventListener('click', () => {
   specInput.value = EXAMPLE_SPEC
-  generate()
+  mockMethod.value = 'GET'
+  mockUrl.value = '/pets'
+  mockBody.value = ''
+  mockHeaders.value = ''
+  void generate()
 })
 
 // ─── Mock Server (Service Worker) ─────────────────────────────
@@ -222,6 +272,7 @@ btnStartMock.addEventListener('click', async () => {
   }
 
   try {
+    const { createMswHandlers, setupWorker } = await loadMockModules()
     if (worker) await worker.stop()
     const handlers = createMswHandlers(spec)
     worker = setupWorker(...handlers)

@@ -17,6 +17,8 @@ typia-mock   ← core + parser (+ typia: peer). LLM 함수 호출 검증 서버
 schemas      ← 독립. OAS 소스 + merge + 3.1↔3.2 변환
 ```
 
+개발/CI 런타임 기준은 Node.js 25 이상이다. `packageManager`는 pnpm 10.30.3으로 고정하고, Node 타입 의존성도 25 계열과 맞춘다.
+
 ---
 
 ## 기능별 테스트 관리 ✅
@@ -68,6 +70,7 @@ marker.
 |------|------|
 | OAS 3.2 타입 | 30개 오브젝트, §별 13파일, 자체 관리 (openapi3-ts 없음) |
 | `parseDocument()` | → ParsedDocument IR (operations, routes, schemas, security, tags, webhooks), `basePath`/`cycleStrategy` 옵션 |
+| 브라우저 엔트리 | `@oa-sdk/parser/browser` — 파일시스템 없는 in-memory surface. `parseDocument()`는 no-deref, `derefInternalSpec()`은 internal `$ref`만 인라인 전개 |
 | `SchemaAlgebra` fold | 스키마 재귀 순회 — 타입별 의미 해석 |
 | `resolveRefGraph()` | 공유 `RefResolver` 기반 내부/외부 `$ref` 그래프 수집, nested external ref 추적, 누락/순환 diagnostic |
 | `derefSpec()` | 공유 `RefResolver` 기반 내부/외부 YAML/JSON `$ref` 인라인 전개, sibling 구조 정보 보존, `cycleStrategy` 지원 |
@@ -100,7 +103,7 @@ marker.
 | `createCoverageTracker` | operationId별 호출 추적 + 커버리지 비율 |
 | `filterRouteIndex` / `RouteFilter` | 태그/경로/메서드 기반 RouteIndex 필터링 |
 | Webhooks | ParsedDocument.webhooks → RouteIndex 자동 병합 |
-| 브라우저 번들 | `@oa-sdk/mock-server/browser` — Node.js 의존성 없는 브라우저용 엔트리 |
+| 브라우저 번들 | `@oa-sdk/mock-server/browser` — Node.js 의존성 없는 브라우저용 엔트리. MSW 경로는 `derefInternalSpec()`으로 internal `$ref`만 해소하고 외부 파일 ref는 Node 루트 경로에 남긴다 |
 | 부하 | 100 동시 요청 <200ms |
 
 ## `@oa-sdk/codegen` ✅
@@ -115,7 +118,8 @@ marker.
 | typegen readOnly | `readOnly: true` → `readonly` 수식어 |
 | typegen deprecated | `deprecated: true` → `@deprecated` JSDoc |
 | typegen annotations | `annotations` 객체 → `includeAnnotations` 옵션으로 `@note`/`@see` JSDoc |
-| typegen public API | `generateTypes*`, `analyzeExternalSchemaRefs`, `schemaToTs`, `TypegenOptions`, `SchemaToTsOptions`, external ref diagnostic 타입은 root entry와 `@oa-sdk/codegen/typegen`에서 공개. package exports는 `.`, `./drizzle`, `./typegen`만 지원하고 deep typegen implementation import는 비공개. 공개 option type import는 package import fixture와 API index validation으로 회귀 방지 |
+| typegen public API | `generateTypes*`, `analyzeExternalSchemaRefs`, `schemaToTs`, `TypegenOptions`, `SchemaToTsOptions`, external ref diagnostic 타입은 root entry와 `@oa-sdk/codegen/typegen`에서 공개. package exports는 `.`, `./drizzle`, `./spec-lens`, `./typegen`, `./typegen/browser`만 지원하고 deep typegen implementation import는 비공개. 공개 option type import는 package import fixture와 API index validation으로 회귀 방지 |
+| typegen browser API | `@oa-sdk/codegen/typegen/browser` — 이미 로드된 OAS 객체만 처리하는 브라우저 안전 typegen. `basePath` 기반 외부 `$ref` 분석은 Node용 `@oa-sdk/codegen/typegen` 책임 |
 | typegen external refs | 외부 YAML/JSON schema-position `$ref` alias 생성 (`#/components/schemas/*`, `#/$defs/*`, 비 components schema root), nested relative ref source 기준 해소, 이름/operation 타입 충돌 시 파일명 기반 deterministic rename + 경고, unsupported pointer는 `unknown` 경고 |
 | typegen 중복 방지 | schema 이름과 Op 타입 이름 충돌 시 schema 우선, 중복 생성 방지 |
 | typegen const 중첩 | 중첩 프로퍼티의 `const` → 리터럴 타입 정규화 |

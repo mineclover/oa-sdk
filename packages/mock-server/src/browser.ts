@@ -21,6 +21,6 @@ export type { CoverageTracker, CallbackTracker } from './testing.js'
 export type { MockErrorCode, MockValidationStage, MockErrorDetail, MockValidationResult, MockErrorResponse } from './errors/types.js'
 export { classifyAjvErrors } from './errors/classifier.js'
 
-// ─── parser re-exports ────────────────────────────────────────────────────────
-export { foldSchema, SchemaFolder, DerefFolder, derefSpec, parseDocument, loadSchema, matchRoute } from '@oa-sdk/parser'
-export type { SchemaAlgebra, SpecPass } from '@oa-sdk/parser'
+// ─── parser re-exports (browser-safe, no filesystem deref) ───────────────────
+export { derefInternalSpec, foldSchema, SchemaFolder, parseDocument, loadSchema, matchRoute } from '@oa-sdk/parser/browser'
+export type { InternalDerefOptions, SchemaAlgebra } from '@oa-sdk/parser/browser'

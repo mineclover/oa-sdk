@@ -24,7 +24,7 @@
     "flow": "node --import tsx scripts/flow.ts",
     "profiles": "node --import tsx scripts/profile.ts",
     "wizard": "node --import tsx scripts/wizard.ts",
-    "check": "pnpm --filter @oa-sdk/schemas merge && pnpm bind && pnpm validate",
+    "check": "pnpm --filter @oa-sdk/schemas run build:merged && pnpm bind && pnpm validate",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "clean": "rm -rf dist"
@@ -34,7 +34,7 @@
     "yaml": "^2.8.3"
   },
   "devDependencies": {
-    "@types/node": "^24.0.0",
+    "@types/node": "^25.0.0",
     "tsup": "^8.0.0",
     "tsx": "^4.0.0",
     "typescript": "^5.9.3",

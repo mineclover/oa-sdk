@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
+import { createRequire } from 'node:module'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import Database from 'better-sqlite3'
 import type { CachePort, ClearCacheResult, ListPathsOptions, ListTimelineOptions } from '../../../application/ports/cache.port.js'
 import type {
   SpecFileEntry,
@@ -13,21 +13,25 @@ import type {
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const SCHEMA_SQL = readFileSync(join(__dirname, 'schema.sql'), 'utf8')
+const require = createRequire(import.meta.url)
 
 export class SqliteCache implements CachePort {
-  private readonly db: Database.Database
+  private readonly db: SqliteDatabase
+  readonly driverName: SqliteDriverName
 
   constructor(dbPath: string) {
-    this.db = new Database(dbPath)
-    this.db.pragma('journal_mode = WAL')
-    this.db.pragma('busy_timeout = 5000')
-    this.db.pragma('foreign_keys = ON')
+    const driver = loadSpecLensSqliteDriver()
+    this.driverName = driver.name
+    this.db = driver.open(dbPath)
+    this.db.exec('PRAGMA journal_mode = WAL')
+    this.db.exec('PRAGMA busy_timeout = 5000')
+    this.db.exec('PRAGMA foreign_keys = ON')
     this.db.exec(SCHEMA_SQL)
   }
 
   async saveSnapshot(snapshot: SpecSnapshotStored, entries: SpecFileEntry[]): Promise<void> {
     const cacheKey = this.snapshotCacheKey(snapshot)
-    const save = this.db.transaction(() => {
+    runTransaction(this.db, () => {
       for (const entry of entries) {
         this.db.prepare(
           'INSERT OR IGNORE INTO fragment_blobs (content_hash, content) VALUES (?, ?)',
@@ -49,7 +53,6 @@ export class SqliteCache implements CachePort {
         snapshot.builtAt,
       )
     })
-    save()
   }
 
   async saveDiff(diff: SpecTimelineDiff, fragmentsDir: string, targetPath: string): Promise<void> {
@@ -92,7 +95,7 @@ export class SqliteCache implements CachePort {
   }
 
   async upsertPathEntries(fragmentsDir: string, targetPath: string, entries: SpecPathEntry[]): Promise<void> {
-    const upsert = this.db.transaction(() => {
+    runTransaction(this.db, () => {
       for (const entry of entries) {
         this.db.prepare(`
           INSERT OR REPLACE INTO path_entries
@@ -114,7 +117,6 @@ export class SqliteCache implements CachePort {
         )
       }
     })
-    upsert()
   }
 
   async listTimeline(options: ListTimelineOptions): Promise<SpecTimelineEntry[]> {
@@ -194,7 +196,7 @@ export class SqliteCache implements CachePort {
   }
 
   async clearCache(fragmentsDir: string, targetPath: string): Promise<ClearCacheResult> {
-    const run = this.db.transaction((): ClearCacheResult => {
+    return runTransaction(this.db, (): ClearCacheResult => {
       // snapshot_entries first — must precede snapshots deletion to avoid orphans
       const entries = this.db.prepare(
         'DELETE FROM snapshot_entries WHERE cache_key IN (SELECT cache_key FROM snapshots WHERE fragments_dir = ? AND target_path = ?)',
@@ -224,7 +226,6 @@ export class SqliteCache implements CachePort {
         deletedBlobs: blobs.changes,
       }
     })
-    return run()
   }
 
   close(): void {
@@ -234,6 +235,84 @@ export class SqliteCache implements CachePort {
   private snapshotCacheKey(snapshot: SpecSnapshotStored): string {
     return `${snapshot.revision.id}:${snapshot.fragmentsDir}:${snapshot.targetPath}:${snapshot.targetConfigDigest}`
   }
+}
+
+type SqliteValue = string | number | bigint | null | Uint8Array
+
+type SqliteStatement = {
+  all(...values: SqliteValue[]): Record<string, unknown>[]
+  get(...values: SqliteValue[]): Record<string, unknown> | undefined
+  run(...values: SqliteValue[]): { changes: number, lastInsertRowid: number | bigint }
+}
+
+type SqliteDatabase = {
+  close(): void
+  exec(sql: string): void
+  prepare(sql: string): SqliteStatement
+}
+
+type SqliteDriverName = 'node:sqlite' | 'better-sqlite3'
+
+type SqliteDriver = {
+  name: SqliteDriverName
+  open(path: string): SqliteDatabase
+}
+
+type NodeSqliteModule = {
+  DatabaseSync: new (path: string) => SqliteDatabase
+}
+
+type BetterSqliteModule = {
+  (path: string): SqliteDatabase
+}
+
+function loadSpecLensSqliteDriver(): SqliteDriver {
+  const errors: string[] = []
+  try {
+    const sqlite = require('node:sqlite') as NodeSqliteModule
+    return {
+      name: 'node:sqlite',
+      open(path: string): SqliteDatabase {
+        return new sqlite.DatabaseSync(path)
+      },
+    }
+  } catch (error) {
+    errors.push(`node:sqlite: ${errorMessage(error)}`)
+  }
+
+  try {
+    const betterSqlite = require('better-sqlite3') as BetterSqliteModule
+    return {
+      name: 'better-sqlite3',
+      open(path: string): SqliteDatabase {
+        return betterSqlite(path)
+      },
+    }
+  } catch (error) {
+    errors.push(`better-sqlite3: ${errorMessage(error)}`)
+  }
+
+  throw new Error(`No supported SQLite driver found (${errors.join('; ')})`)
+}
+
+function runTransaction<T>(db: SqliteDatabase, callback: () => T): T {
+  db.exec('BEGIN IMMEDIATE')
+  try {
+    const result = callback()
+    db.exec('COMMIT')
+    return result
+  } catch (error) {
+    try {
+      db.exec('ROLLBACK')
+    } catch {
+      // Preserve the original transaction failure.
+    }
+    throw error
+  }
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error)
 }
 
 type TimelineRow = {

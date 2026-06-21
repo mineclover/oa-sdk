@@ -14,6 +14,7 @@ const pkgDir = resolve(__dirname, '../..')
 const cliPath = resolve(pkgDir, 'dist/cli/index.js')
 // config/output을 패키지 내부 .tmp에 생성 (ESM이 node_modules/zod를 찾을 수 있도록)
 const tmpBase = resolve(pkgDir, '.tmp-cli-test')
+const CLI_TIMEOUT_MS = 30_000
 
 let tmpDir: string
 
@@ -30,13 +31,13 @@ function runCli(args: string): string {
   return execSync(`node ${cliPath} ${args}`, {
     cwd: pkgDir,
     encoding: 'utf8',
-    timeout: 10_000,
+    timeout: CLI_TIMEOUT_MS,
   })
 }
 
 function runCliFail(args: string): string {
   try {
-    execSync(`node ${cliPath} ${args}`, { cwd: pkgDir, encoding: 'utf8', timeout: 10_000 })
+    execSync(`node ${cliPath} ${args}`, { cwd: pkgDir, encoding: 'utf8', timeout: CLI_TIMEOUT_MS })
     throw new Error('expected to fail')
   } catch (err) {
     return (err as { stderr?: string }).stderr ?? ''

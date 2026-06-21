@@ -63,8 +63,13 @@ schemas      ← 독립
 |------|------|
 | `src/types/*.ts` | OAS 3.2 전체 타입 (§별 13파일) |
 | `src/types.ts` | ParsedDocument IR |
-| `src/parse.ts` | parseDocument() 풀 파서 |
-| `src/schema-loader.ts` | loadSchema() + matchRoute() |
+| `src/parse.ts` | parseDocument() 풀 파서 (Node/full pipeline entry) |
+| `src/parse-core.ts` | pipeline 후 OAS 객체 또는 browser no-deref 객체를 ParsedDocument IR로 구성하는 순수 코어 |
+| `src/browser.ts` | 브라우저 안전 parser entry. no-deref parse + query/fold/route match + internal-only deref |
+| `src/deref-internal.ts` | 파일시스템 없이 internal `$ref`만 인라인 전개 |
+| `src/schema-loader.ts` | loadSchema() + route-match re-export |
+| `src/schema-loader-browser.ts` | browser no-deref RouteIndex loader |
+| `src/route-match.ts` | HTTP_METHODS + RouteIndex matchRoute() |
 | `src/deref.ts` | $ref 역참조 + 순환 감지 |
 | `src/fold.ts` | SchemaAlgebra + foldSchema() |
 | `src/pipeline.ts` | SpecPass[] 파이프라인 |
@@ -101,6 +106,7 @@ schemas      ← 독립
 | `src/zod-to-schema.ts` | Zod 4 → OAS Schema |
 | `src/typegen/schema-to-ts.ts` | OAS → TypeScript 타입 (JSDoc 제약, readonly, deprecated, annotations) |
 | `src/typegen/generate-types.ts` | ParsedDocument → TS 파일 (schema/Op 중복 방지) |
+| `src/typegen/browser.ts` | 브라우저 안전 typegen entry. in-memory spec만 처리하고 외부 파일 ref graph는 import하지 않음 |
 | `src/drizzle/extractor.ts` | Drizzle 테이블 감지 |
 | `src/drizzle/converter.ts` | Drizzle → Zod 변환 |
 | `src/cli/index.ts` | oa-gen CLI 디스패치 (커맨드 모듈 기반) |
@@ -112,12 +118,14 @@ schemas      ← 독립
 | 파일 | 역할 |
 |------|------|
 | `src/generate-router.ts` | OAS → Hono/Express 라우터 |
+| `src/browser.ts` | 브라우저 안전 라우터 생성 entry. in-memory spec만 처리하고 Node parser pipeline은 import하지 않음 |
 
 ### @oa-sdk/client
 
 | 파일 | 역할 |
 |------|------|
 | `src/generate-client.ts` | OAS → fetch createClient() + SSE + 인증 미들웨어 + retry/timeout + validate |
+| `src/browser.ts` | 브라우저 안전 클라이언트 생성 entry. in-memory spec만 처리하고 Node parser pipeline은 import하지 않음 |
 
 ### @oa-sdk/typia-mock
 

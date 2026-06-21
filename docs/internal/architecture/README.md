@@ -15,3 +15,4 @@
 | [005-spectral-redocly-split.md](./005-spectral-redocly-split.md) | Spectral(스타일) / Redocly(구조) 역할 분리 |
 | [006-incremental-workspace-index.md](./006-incremental-workspace-index.md) | SQLite 기반 증분 Workspace Index |
 | [007-shared-schema-engine-vocabulary.md](./007-shared-schema-engine-vocabulary.md) | OpenAPI Projection Contract 경계 |
+| [008-browser-runtime-entrypoints.md](./008-browser-runtime-entrypoints.md) | 브라우저 런타임 엔트리포인트와 후속 재구조화 제안 |

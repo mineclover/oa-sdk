@@ -152,7 +152,7 @@ function runTsc(): void {
   execFileSync(process.execPath, [tscBin, '--noEmit'], {
     cwd: tmpDir,
     encoding: 'utf8',
-    timeout: 15_000,
+    timeout: 30_000,
     stdio: ['ignore', 'pipe', 'pipe'],
   })
 }

@@ -99,6 +99,11 @@ export const oaGenGovernanceManifest = {
             description: 'OAS spec 파일 경로',
           },
           {
+            name: 'require-32',
+            type: 'boolean',
+            description: '관리 대상 계약으로 OpenAPI 3.2.x 버전을 강제',
+          },
+          {
             name: 'incremental',
             type: 'boolean',
             description: 'SQLite workspace index를 사용해 변경 감지/무효화를 수행',

@@ -30,6 +30,8 @@ Zod Schema  ──▶  OpenAPI 3.2 Spec      ──▶ TypeScript 타입
 
 ## 사용 방법
 
+개발/CI 기준 런타임은 Node.js 25 이상이며, 패키지 매니저는 `packageManager`에 고정된 pnpm 10.30.3을 사용합니다.
+
 ```bash
 pnpm install
 

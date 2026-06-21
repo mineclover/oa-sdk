@@ -15,8 +15,8 @@
  *   - format 주석 (/** @format uuid *​/)
  */
 
-import { foldSchema, type SchemaAlgebra, type OasSchema } from '@oa-sdk/parser'
-import { escapeKey } from '@oa-sdk/core'
+import { foldSchema, type SchemaAlgebra, type OasSchema } from '@oa-sdk/parser/browser'
+import { escapeKey } from '@oa-sdk/core/browser'
 
 export const typescriptAlgebra: SchemaAlgebra<string> = {
   string:  (s) => withNullable(s, resolveStringType(s)),
