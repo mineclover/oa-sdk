@@ -116,6 +116,7 @@ describe('TypeSpec roundtrip report', () => {
       emittedOpenapiPath: '/tmp/roundtrip/openapi.yaml',
       tspSourcePath: '/tmp/roundtrip/main.tsp',
       bundleManifestPath: '/tmp/roundtrip/oa-sdk.typespec-bundle.json',
+      bundleExpectedOpenapiPath: '/tmp/roundtrip/expected.openapi.yaml',
       workspacePath: '/tmp/roundtrip',
       sourceDocument,
       emittedDocument,
@@ -131,6 +132,7 @@ describe('TypeSpec roundtrip report', () => {
     expect(report.paths.sourceOpenapi).toBe('/repo/packages/schemas/src/.merged.yaml')
     expect(report.paths.emittedOpenapi).toBe('/tmp/roundtrip/openapi.yaml')
     expect(report.paths.bundleManifest).toBe('/tmp/roundtrip/oa-sdk.typespec-bundle.json')
+    expect(report.paths.bundleExpectedOpenapi).toBe('/tmp/roundtrip/expected.openapi.yaml')
     expect(report.counts.operations).toEqual({ source: 1, emitted: 1 })
     expect(report.counts.componentSchemas).toEqual({ source: 2, emitted: 3 })
     expect(report.counts.exportDiagnostics).toBe(3)

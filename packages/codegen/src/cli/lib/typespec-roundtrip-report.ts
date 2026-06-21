@@ -57,6 +57,7 @@ export type TypeSpecRoundtripReport = {
     tspSource: string
     workspace: string
     bundleManifest?: string
+    bundleExpectedOpenapi?: string
     compatibilitySidecar?: string
     restoredOpenapi?: string
   }
@@ -137,6 +138,7 @@ export type CreateTypeSpecRoundtripReportInput = {
   emittedOpenapiPath: string
   tspSourcePath: string
   bundleManifestPath?: string
+  bundleExpectedOpenapiPath?: string
   workspacePath: string
   sourceDocument: OasDocument
   emittedDocument: OasDocument
@@ -185,6 +187,7 @@ export function createTypeSpecRoundtripReport(
       tspSource: input.tspSourcePath,
       workspace: input.workspacePath,
       ...(input.bundleManifestPath ? { bundleManifest: input.bundleManifestPath } : {}),
+      ...(input.bundleExpectedOpenapiPath ? { bundleExpectedOpenapi: input.bundleExpectedOpenapiPath } : {}),
       ...(input.compatibilitySidecar
         ? {
             compatibilitySidecar: input.compatibilitySidecar.sidecarPath,

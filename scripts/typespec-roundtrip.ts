@@ -48,6 +48,7 @@ async function main(): Promise<void> {
   const reportPath = join(workspace, 'tsp-export-report.json')
   const sidecarPath = join(workspace, 'oa-sdk-typespec-sidecar.json')
   const bundleManifestPath = join(workspace, 'oa-sdk.typespec-bundle.json')
+  const expectedOpenapiPath = join(workspace, 'expected.openapi.yaml')
   const restoredPath = join(workspace, 'openapi.restored.yaml')
 
   try {
@@ -58,10 +59,12 @@ async function main(): Promise<void> {
     writeFileSync(tspPath, exported.source)
     writeFileSync(reportPath, `${JSON.stringify(exported.report, null, 2)}\n`)
     writeFileSync(sidecarPath, `${JSON.stringify(sidecar, null, 2)}\n`)
+    writeFileSync(expectedOpenapiPath, stringifyOpenApiYaml(document))
     writeFileSync(bundleManifestPath, `${JSON.stringify(createTypeSpecBundleManifest({
       manifestPath: bundleManifestPath,
       entrypointPath: tspPath,
       sidecarPath,
+      expectedOpenapiPath,
     }), null, 2)}\n`)
     writeFileSync(tspConfigPath, createTspConfig())
 
@@ -108,6 +111,7 @@ async function main(): Promise<void> {
       emittedOpenapiPath: emittedPath,
       tspSourcePath: tspPath,
       bundleManifestPath,
+      bundleExpectedOpenapiPath: expectedOpenapiPath,
       workspacePath: workspace,
       sourceDocument: document,
       emittedDocument,
@@ -144,6 +148,7 @@ async function main(): Promise<void> {
     console.log(`  workspace: ${workspace}`)
     console.log(`  tsp: ${relative(workspace, tspPath)}`)
     console.log(`  bundle manifest: ${relative(workspace, bundleManifestPath)}`)
+    console.log(`  bundle expected: ${relative(workspace, expectedOpenapiPath)}`)
     console.log(`  emitted: ${relative(workspace, emittedPath)}`)
     console.log(`  sidecar: ${relative(workspace, sidecarPath)}`)
     console.log(`  restored: ${relative(workspace, restoredPath)}`)

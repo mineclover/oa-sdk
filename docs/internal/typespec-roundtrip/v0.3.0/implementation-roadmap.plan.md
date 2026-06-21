@@ -305,7 +305,7 @@ Gate:
 Evidence:
 
 - `pnpm typespec:roundtrip -- --report /tmp/oa-sdk-typespec-roundtrip-sidecar.json` reports a compatibility sidecar with `89` entries: `79` response media examples, `9` parameter examples, and `1` security scheme.
-- The roundtrip workspace includes `oa-sdk.typespec-bundle.v1`, and the roundtrip report records its path.
+- The roundtrip workspace includes `oa-sdk.typespec-bundle.v1` and bundle-local `expected.openapi.yaml`, and the roundtrip report records both paths.
 - A generated bundle manifest can be fed back into `pnpm typespec:bundle-check -- --manifest <generated> --report <report>`; when `expectedOpenapi` is present, the report includes `gates.expectedDiff`, and otherwise still gates TypeSpec compile, sidecar restore/re-extraction stability, and emitted/restored OpenAPI 3.2 validation.
 - Sidecar restore reports `91` applied targets and `0` missing targets. One path-level parameter entry restores to three emitted operation parameters.
 - Sidecar re-extraction reports `89/89` expected entries satisfied, `91/91` actual entries covered, and `0` missing expected entries, unexpected actual entries, or value mismatches.

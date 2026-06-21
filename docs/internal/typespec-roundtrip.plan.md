@@ -79,7 +79,7 @@ Current probe on `packages/schemas/src/.merged.yaml`:
 | Component schemas | 28 -> 32 |
 | Generated `.tsp` size | 1067 lines |
 | Generated bundle manifest | pass, `oa-sdk.typespec-bundle.v1` ties exported `main.tsp` to the generated compatibility sidecar |
-| Generated bundle expected OpenAPI | optional, `oa-gen tsp-export --bundle-expected-openapi <expected.openapi.yaml>` writes a bundle-local expected OpenAPI and links it from the manifest |
+| Generated bundle expected OpenAPI | pass, `pnpm typespec:roundtrip -- --keep` and `oa-gen tsp-export --bundle-expected-openapi <expected.openapi.yaml>` write a bundle-local expected OpenAPI and link it from the manifest |
 | Generated bundle check | pass, `pnpm typespec:bundle-check -- --manifest <generated>` compiles the generated `.tsp`, restores sidecar metadata, validates emitted/restored OpenAPI, and runs expected diff when `expectedOpenapi` is present |
 | Export diagnostics | 91 |
 | Export diagnostics gate | pass, 91 accepted and 0 unaccepted |
@@ -115,7 +115,7 @@ Current endpoint diff:
 - Component schemas remain `28 -> 32`; the four additional schemas are accepted TypeSpec projection artifacts: `ErrorMeta`, `ListModerationReports200Body`, `ListMyRoleChanges200Body`, and `ListUsers200Body`.
 - The roundtrip report now records per-diagnostic ownership and rationale. The current fixture has no unaccepted exporter diagnostics.
 - The compatibility sidecar restores examples/security metadata that is intentionally outside the TypeSpec projection. One path-level parameter entry restores to three emitted operation parameters, so restore applied target count is higher than sidecar entry count.
-- The generated roundtrip workspace now includes `oa-sdk.typespec-bundle.v1`, so OpenAPI export produces a portable `.tsp + sidecar` bundle instead of two unrelated files.
+- The generated roundtrip workspace now includes `oa-sdk.typespec-bundle.v1` plus bundle-local `expected.openapi.yaml`, so OpenAPI export produces a portable `.tsp + sidecar + expected OpenAPI` bundle instead of unrelated files.
 - Generated `oa-sdk.typespec-bundle.v1` files are accepted directly by `pnpm typespec:bundle-check -- --manifest <generated>`. When `expectedOpenapi` is declared through `--bundle-expected-openapi`, generated bundle checks also run the expected diff gate; without it, they still gate TypeSpec compile, sidecar restore/re-extract stability, and OA SDK OpenAPI validation.
 - The restored OpenAPI can be re-scanned into a sidecar with no semantic drift. The canonical fixture intentionally expands path-level parameter examples into operation-level targets, so expected and actual entry counts may differ while semantic coverage remains complete.
 - The authored bundle fixture proves the opposite direction as a first slice: an `oa-sdk.typespec-bundle.v1` manifest points to a hand-written `.tsp` structural contract plus authored `oa-sdk.typespec-compat-sidecar.v1`; the bundle compiles, restores OA SDK examples/security metadata, validates, and matches the expected OpenAPI endpoint surface with no breaking diff.
