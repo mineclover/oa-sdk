@@ -41,6 +41,7 @@ Expected user-visible surface:
 
 - `oa-gen tsp-export` remains the explicit conversion command and can write an OA SDK compatibility sidecar plus `oa-sdk.typespec-bundle.v1` manifest.
 - `oa-gen tsp-restore` reapplies that sidecar to TypeSpec-emitted OpenAPI.
+- `oa-gen tsp-bundle-check` validates authored or generated `oa-sdk.typespec-bundle.v1` manifests through compile, restore, validation, stability, and optional expected diff gates.
 - `pnpm typespec:roundtrip` remains the repository probe.
 - A machine-readable roundtrip report is added before the gate is promoted.
 - `--fail-on-breaking` becomes meaningful enough for CI use once accepted differences are encoded.
@@ -298,7 +299,7 @@ Gate:
 - `oa-gen tsp-export --bundle-expected-openapi` writes the expected OpenAPI artifact and requires `--bundle-manifest`.
 - `oa-gen tsp-restore` applies the sidecar and validates the restored OpenAPI 3.2 document.
 - `oa-gen tsp-restore --stability-report` writes `oa-sdk.typespec-compat-compare-report.v1` and fails on missing expected entries, unexpected actual entries, or value mismatches.
-- `pnpm typespec:bundle-check -- --manifest <generated>` accepts the generated `oa-sdk.typespec-bundle.v1` without requiring `expectedOpenapi`.
+- `oa-gen tsp-bundle-check --manifest <generated>` accepts the generated `oa-sdk.typespec-bundle.v1` without requiring `expectedOpenapi`; `pnpm typespec:bundle-check -- --manifest <generated>` is the repository wrapper.
 - Canonical roundtrip reports no sidecar restore missing targets and no restored breaking diff.
 - Canonical roundtrip reports no sidecar re-extraction drift.
 
@@ -306,7 +307,7 @@ Evidence:
 
 - `pnpm typespec:roundtrip -- --report /tmp/oa-sdk-typespec-roundtrip-sidecar.json` reports a compatibility sidecar with `89` entries: `79` response media examples, `9` parameter examples, and `1` security scheme.
 - The roundtrip workspace includes `oa-sdk.typespec-bundle.v1` and bundle-local `expected.openapi.yaml`, and the roundtrip report records both paths.
-- A generated bundle manifest can be fed back into `pnpm typespec:bundle-check -- --manifest <generated> --report <report>`; when `expectedOpenapi` is present, the report includes `gates.expectedDiff`, and otherwise still gates TypeSpec compile, sidecar restore/re-extraction stability, and emitted/restored OpenAPI 3.2 validation.
+- A generated bundle manifest can be fed back into `oa-gen tsp-bundle-check --manifest <generated> --report <report>`; when `expectedOpenapi` is present, the report includes `gates.expectedDiff`, and otherwise still gates TypeSpec compile, sidecar restore/re-extraction stability, and emitted/restored OpenAPI 3.2 validation.
 - Sidecar restore reports `91` applied targets and `0` missing targets. One path-level parameter entry restores to three emitted operation parameters.
 - Sidecar re-extraction reports `89/89` expected entries satisfied, `91/91` actual entries covered, and `0` missing expected entries, unexpected actual entries, or value mismatches.
 - Restored OpenAPI validation passes with `0` warnings and `0` infos, and restored breaking diff is `no`.
@@ -328,8 +329,8 @@ Tasks:
 
 Gate:
 
-- `pnpm typespec:bundle-check -- --fail-on-breaking` passes.
-- `pnpm typespec:bundle-check` discovers `oa-sdk.typespec-bundle.v1` by default, and `--manifest <path>` can point at an explicit bundle manifest.
+- `oa-gen tsp-bundle-check --fail-on-breaking` and `pnpm typespec:bundle-check -- --fail-on-breaking` pass.
+- `oa-gen tsp-bundle-check` discovers `oa-sdk.typespec-bundle.v1` by default, and `--manifest <path>` can point at an explicit bundle manifest.
 - Authored bundle restore reports no missing targets.
 - Authored bundle sidecar re-extraction reports no semantic drift.
 - Authored bundle restored validation reports no warnings or infos.
@@ -337,7 +338,7 @@ Gate:
 
 Evidence:
 
-- `pnpm typespec:bundle-check -- --fail-on-breaking --report /tmp/oa-sdk-typespec-bundle-check-gate.json` loads `oa-sdk.typespec-bundle.v1` and reports `1` emitted/restored/expected operation.
+- `oa-gen tsp-bundle-check --fail-on-breaking --report /tmp/oa-sdk-typespec-bundle-check-gate.json` loads `oa-sdk.typespec-bundle.v1` and reports `1` emitted/restored/expected operation.
 - Authored sidecar reports `3` entries: `1` parameter example, `1` response media example, and `1` security scheme.
 - Sidecar restore reports `3` applied targets and `0` missing targets.
 - Sidecar re-extraction reports `3/3` expected entries satisfied, `3/3` actual entries covered, and `0` missing expected entries, unexpected actual entries, or value mismatches.

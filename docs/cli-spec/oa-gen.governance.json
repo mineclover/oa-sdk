@@ -557,6 +557,112 @@
       }
     },
     {
+      "id": "tsp-bundle-check",
+      "kind": "command",
+      "name": "tsp-bundle-check",
+      "summary": "TypeSpec bundle manifest를 compile/restore/validation/diff 루프로 검증",
+      "components": {
+        "options": [
+          {
+            "name": "project",
+            "type": "string",
+            "description": "TypeSpec bundle project directory (default: authored fixture or manifest directory)"
+          },
+          {
+            "name": "manifest",
+            "type": "string",
+            "description": "oa-sdk.typespec-bundle.v1 manifest JSON path"
+          },
+          {
+            "name": "sidecar",
+            "type": "string",
+            "description": "override oa-sdk.typespec-compat-sidecar.v1 JSON path"
+          },
+          {
+            "name": "expected",
+            "type": "string",
+            "description": "override expected OpenAPI YAML/JSON path"
+          },
+          {
+            "name": "output",
+            "type": "string",
+            "short": "o",
+            "description": "restored OpenAPI YAML output path"
+          },
+          {
+            "name": "report",
+            "type": "string",
+            "description": "bundle check report JSON output path"
+          },
+          {
+            "name": "keep",
+            "type": "boolean",
+            "description": "keep temporary TypeSpec compile workspace"
+          },
+          {
+            "name": "fail-on-breaking",
+            "type": "boolean",
+            "description": "fail when expected restored OpenAPI diff has breaking changes"
+          }
+        ],
+        "inputs": [
+          {
+            "name": "project",
+            "kind": "typespec-project",
+            "required": false,
+            "option": "project"
+          },
+          {
+            "name": "manifest",
+            "kind": "typespec-bundle-manifest",
+            "required": false,
+            "option": "manifest"
+          },
+          {
+            "name": "sidecar",
+            "kind": "typespec-compatibility-sidecar",
+            "required": false,
+            "option": "sidecar"
+          },
+          {
+            "name": "expected",
+            "kind": "openapi-document",
+            "required": false,
+            "option": "expected"
+          }
+        ],
+        "checks": [
+          "typespec-bundle-check",
+          "typespec-sidecar-restore",
+          "typespec-sidecar-stability",
+          "breaking-diff"
+        ],
+        "reports": [
+          {
+            "formats": [
+              "human"
+            ],
+            "schema": "oa-gen.tsp-bundle-check.human.v1"
+          },
+          {
+            "formats": [
+              "json"
+            ],
+            "schema": "oa-sdk.typespec-bundle-check-report.v1"
+          }
+        ],
+        "exitPolicy": {
+          "success": [
+            "APPROVE",
+            "COMMENT"
+          ],
+          "failure": [
+            "REQUEST_CHANGES"
+          ]
+        }
+      }
+    },
+    {
       "id": "scaffold-governance",
       "kind": "command",
       "name": "scaffold-governance",

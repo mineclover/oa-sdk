@@ -11,6 +11,7 @@ export type CliCheckKind =
   | 'metadata-registry'
   | 'runtime-drift'
   | 'target-coverage'
+  | 'typespec-bundle-check'
   | 'typespec-sidecar-restore'
   | 'typespec-sidecar-stability'
 
@@ -28,7 +29,9 @@ export type CliInputKind =
   | 'openapi-provenance'
   | 'runtime-drift-report'
   | 'runtime-openapi'
+  | 'typespec-bundle-manifest'
   | 'typespec-compatibility-sidecar'
+  | 'typespec-project'
 
 export type CliOutputFormat = 'human' | 'json' | 'markdown' | 'text'
 

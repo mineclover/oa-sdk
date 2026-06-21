@@ -288,6 +288,9 @@ Typegen 공개 surface는 root entry(`@oa-sdk/codegen`)와 typegen sub-entry(`@o
 
 | 함수 | 파일 | 용도 |
 |------|------|------|
+| `checkTypeSpecBundle()` | `cli/lib/typespec-bundle-check.ts` | `oa-sdk.typespec-bundle.v1` manifest를 TypeSpec compile, sidecar restore/re-extract, OpenAPI 3.2 validation, optional expected diff gate로 검증 |
+| `parseTypeSpecBundleCheckArgs()` | `cli/lib/typespec-bundle-check.ts` | `typespec:bundle-check` wrapper CLI 인자를 shared bundle check 옵션으로 파싱 |
+| `printTypeSpecBundleCheckSummary()` | `cli/lib/typespec-bundle-check.ts` | bundle check 결과를 human-readable summary와 optional diff Markdown으로 출력 |
 | `generateFromDrizzle()` | `drizzle/index.ts` | Drizzle 파일 → YAML |
 | `writeSchemas()` | `writer.ts` | NamedSchema[] → YAML 파일 |
 | `mergeIntoSpec()` | `spec-merge.ts` | spec.yaml에 schemas 병합 |
@@ -373,7 +376,8 @@ Typegen 공개 surface는 root entry(`@oa-sdk/codegen`)와 typegen sub-entry(`@o
 | `review-bundle` | `packages/codegen/src/cli/commands/review-bundle.ts`, `packages/codegen/src/cli/lib/review-bundle.ts`, `packages/codegen/src/cli/lib/artifact-review.ts`, `packages/codegen/src/cli/lib/review-sidecar-diff.ts`, `packages/codegen/src/cli/lib/review-markdown.ts`, `packages/codegen/src/cli/lib/review-policy.ts`, `packages/codegen/src/cli/lib/provenance-report.ts`, `packages/codegen/src/cli/lib/metadata-registry.ts`, `packages/codegen/src/cli/lib/behavior-recorder.ts`, `packages/codegen/src/cli/lib/behavior-registry.ts` | base/head OpenAPI diff와 artifact freshness를 필수 section으로 묶고 선택적으로 inventory, runtime drift JSON, provenance diff, composition report JSON, metadata registry JSON, metadata registry diff, duplicate-review JSON을 stable nested section으로 포함하며 behavior JSONL/SQLite record를 append할 수 있다 |
 | `scaffold-governance` | `packages/codegen/src/cli/commands/scaffold-governance.ts`, `packages/codegen/src/cli/lib/openapi-governance-scaffold.ts` | 외부 OpenAPI 서비스 루트에 `openapi-governance.config.json`, `scripts/openapi-governance.sh`, `openapi-governance.md`를 생성해 oa-sdk 기능별 artifact interface를 표준화한다 |
 | `target-check` | `packages/codegen/src/cli/commands/target-check.ts`, `packages/codegen/src/cli/lib/target-coverage.ts` | Definition Builder target config 또는 generated OpenAPI artifact의 emitted path surface를 include/exclude assertion으로 검증하고 실패 시 non-zero 종료 |
-| `tsp-export` | `packages/codegen/src/cli/commands/tsp-export.ts`, `packages/codegen/src/cli/lib/tsp-export.ts`, `packages/codegen/src/cli/lib/typespec-sidecar.ts`, `packages/codegen/src/cli/lib/typespec-bundle-manifest.ts` | OpenAPI YAML/JSON artifact를 TypeSpec spike source, diagnostics JSON, optional OA SDK compatibility sidecar, optional `oa-sdk.typespec-bundle.v1` manifest로 변환 |
+| `tsp-export` | `packages/codegen/src/cli/commands/tsp-export.ts`, `packages/codegen/src/cli/lib/tsp-export.ts`, `packages/codegen/src/cli/lib/typespec-sidecar.ts`, `packages/codegen/src/cli/lib/typespec-bundle-manifest.ts` | OpenAPI YAML/JSON artifact를 TypeSpec spike source, diagnostics JSON, optional OA SDK compatibility sidecar, optional bundle-local expected OpenAPI, optional `oa-sdk.typespec-bundle.v1` manifest로 변환 |
+| `tsp-bundle-check` | `packages/codegen/src/cli/commands/tsp-bundle-check.ts`, `packages/codegen/src/cli/lib/typespec-bundle-check.ts`, `packages/codegen/src/cli/lib/typespec-bundle-manifest.ts`, `packages/codegen/src/cli/lib/typespec-sidecar.ts` | authored/generated `oa-sdk.typespec-bundle.v1` manifest를 TypeSpec compile, sidecar restore/re-extract stability, OpenAPI validation, optional expected diff gate로 검증 |
 | `tsp-restore` | `packages/codegen/src/cli/commands/tsp-restore.ts`, `packages/codegen/src/cli/lib/typespec-sidecar.ts` | TypeSpec emitted OpenAPI artifact에 OA SDK compatibility sidecar를 재적용하고 restore report를 출력 |
 | `upgrade` | `packages/codegen/src/cli/commands/upgrade.ts`, `packages/codegen/src/cli/lib/openapi-collect.ts` | normalized OpenAPI 3.0/3.1 artifact를 OpenAPI 3.2 analysis artifact로 파생하고 nullable 등 표현 변환 report를 남긴다 |
 
