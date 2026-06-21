@@ -29,6 +29,42 @@ afterEach(() => {
 })
 
 describe('authored TypeSpec compatibility bundle', () => {
+  it('checks the authored .tsp + sidecar bundle through its manifest', () => {
+    const reportPath = join(tmpDir, 'bundle-report.json')
+    const check = spawnSync('pnpm', [
+      'typespec:bundle-check',
+      '--',
+      '--manifest',
+      join(fixtureDir, 'oa-sdk.typespec-bundle.json'),
+      '--fail-on-breaking',
+      '--report',
+      reportPath,
+    ], {
+      cwd: rootDir,
+      encoding: 'utf8',
+    })
+    expect(check.status, `${check.stdout}\n${check.stderr}`).toBe(0)
+
+    const report = JSON.parse(readFileSync(reportPath, 'utf8')) as Record<string, any>
+    expect(report.bundle).toEqual({
+      source: 'manifest',
+      schemaVersion: 'oa-sdk.typespec-bundle.v1',
+      compatibility: {
+        openapiVersion: '3.2.0',
+        sidecarSchemaVersion: 'oa-sdk.typespec-compat-sidecar.v1',
+      },
+    })
+    expect(report.paths.manifest).toBe(join(fixtureDir, 'oa-sdk.typespec-bundle.json'))
+    expect(report.paths.entrypoint).toBe(join(fixtureDir, 'main.tsp'))
+    expect(report.paths.sidecar).toBe(join(fixtureDir, 'oa-sdk.typespec-compat-sidecar.json'))
+    expect(report.paths.expectedOpenapi).toBe(join(fixtureDir, 'expected.openapi.yaml'))
+    expect(report.gates).toEqual({
+      compatibilitySidecar: 'pass',
+      restoredValidation: 'pass',
+      expectedDiff: 'pass',
+    })
+  })
+
   it('compiles authored .tsp, restores sidecar metadata, and matches the expected OpenAPI surface', () => {
     const compile = spawnSync('pnpm', [
       'exec',

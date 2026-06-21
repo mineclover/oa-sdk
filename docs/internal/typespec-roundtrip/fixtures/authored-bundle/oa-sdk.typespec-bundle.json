@@ -1,0 +1,10 @@
+{
+  "schemaVersion": "oa-sdk.typespec-bundle.v1",
+  "entrypoint": "main.tsp",
+  "sidecar": "oa-sdk.typespec-compat-sidecar.json",
+  "expectedOpenapi": "expected.openapi.yaml",
+  "compatibility": {
+    "openapiVersion": "3.2.0",
+    "sidecarSchemaVersion": "oa-sdk.typespec-compat-sidecar.v1"
+  }
+}

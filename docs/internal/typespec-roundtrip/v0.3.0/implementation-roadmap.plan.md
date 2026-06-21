@@ -313,6 +313,7 @@ Purpose: prove that the two-track model also works when `.tsp + sidecar` is the 
 Tasks:
 
 - Add a minimal authored TypeSpec fixture with one endpoint and one model.
+- Add an `oa-sdk.typespec-bundle.v1` manifest that binds the TypeSpec entrypoint, compatibility sidecar, expected OpenAPI, and compatibility metadata.
 - Add an authored `oa-sdk.typespec-compat-sidecar.v1` fixture covering parameter examples, response media examples, and unsupported security component metadata.
 - Compile the authored fixture through the TypeSpec OpenAPI emitter.
 - Restore the sidecar and validate the restored OpenAPI 3.2 artifact.
@@ -321,6 +322,7 @@ Tasks:
 Gate:
 
 - `pnpm typespec:bundle-check -- --fail-on-breaking` passes.
+- `pnpm typespec:bundle-check` discovers `oa-sdk.typespec-bundle.v1` by default, and `--manifest <path>` can point at an explicit bundle manifest.
 - Authored bundle restore reports no missing targets.
 - Authored bundle sidecar re-extraction reports no semantic drift.
 - Authored bundle restored validation reports no warnings or infos.
@@ -328,7 +330,7 @@ Gate:
 
 Evidence:
 
-- `pnpm typespec:bundle-check -- --fail-on-breaking --report /tmp/oa-sdk-typespec-bundle-check-gate.json` reports `1` emitted/restored/expected operation.
+- `pnpm typespec:bundle-check -- --fail-on-breaking --report /tmp/oa-sdk-typespec-bundle-check-gate.json` loads `oa-sdk.typespec-bundle.v1` and reports `1` emitted/restored/expected operation.
 - Authored sidecar reports `3` entries: `1` parameter example, `1` response media example, and `1` security scheme.
 - Sidecar restore reports `3` applied targets and `0` missing targets.
 - Sidecar re-extraction reports `3/3` expected entries satisfied, `3/3` actual entries covered, and `0` missing expected entries, unexpected actual entries, or value mismatches.
@@ -360,5 +362,5 @@ The version is ready when:
 - No TypeSpec-generated artifact becomes the canonical schema source yet.
 - Follow-up decision points are clear enough for a TSP-first ADR.
 - Two-track compatibility can restore OpenAPI-owned sidecar semantics onto TypeSpec-emitted OpenAPI without breaking endpoint diff.
-- Authored `.tsp + sidecar` fixtures pass the bundle check with every currently accepted sidecar entry kind represented.
+- Authored `.tsp + sidecar` fixtures are declared through `oa-sdk.typespec-bundle.v1` and pass the bundle check with every currently accepted sidecar entry kind represented.
 - Sidecar restore is semantically stable after re-extraction from restored OpenAPI, with no missing expected entries, unexpected actual entries, or value mismatches.
