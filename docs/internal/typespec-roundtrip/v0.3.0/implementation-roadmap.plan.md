@@ -3,7 +3,7 @@
 > Target package version: `@oa-sdk/codegen` `0.3.0`.
 > Current package version: `@oa-sdk/codegen` `0.2.0`.
 
-Status: in progress. Phase 0 is implemented; this document does not declare TSP-first.
+Status: in progress. Phase 0 and Phase 1 are implemented; this document does not declare TSP-first.
 
 ## Goal
 
@@ -83,6 +83,8 @@ Evidence:
 
 ## Phase 1 — Schema Metadata Preservation
 
+Status: implemented.
+
 Purpose: remove avoidable schema drift where TypeSpec can represent the same OpenAPI semantics.
 
 Tasks:
@@ -97,6 +99,15 @@ Gate:
 
 - Diagnostics for `schema/default-dropped` and property description loss are eliminated or reclassified.
 - Request/response schema diff caused only by default/description loss is removed.
+
+Evidence:
+
+- `tsp-export` emits schema/property `@doc`, TypeSpec default initializers, `#deprecated "Deprecated"`, and `...Record<never>;` for `additionalProperties: false`.
+- OA SDK diff treats TypeSpec OpenAPI 3.2 object sealing output, `unevaluatedProperties: { not: {} }`, as equivalent to `additionalProperties: false` only for plain object schemas.
+- `pnpm typespec:roundtrip -- --report /tmp/oa-sdk-typespec-roundtrip-phase1-keep.json --keep` passes export, TypeSpec compile, and OA SDK OpenAPI 3.2 validation.
+- Current report: operations `27 -> 27`, schemas `28 -> 32`, diagnostics `149`, breaking diff `13` across `7` modified operations.
+- `schema/default-dropped`, `schema/deprecated-dropped`, and `schema/additional-properties-dropped` are absent from the report.
+- Remaining breaking changes are pagination parameter schema equivalence and response body shape equivalence, so Phase 2 and Phase 3 own the next reductions.
 
 ## Phase 2 — Parameter Identity And Pagination
 

@@ -8,6 +8,6 @@ The parent evaluation document is [`../typespec-roundtrip.plan.md`](../typespec-
 
 | Target | Package | Plan | Status |
 |---|---|---|---|
-| `v0.3.0` | `@oa-sdk/codegen` | [`v0.3.0/implementation-roadmap.plan.md`](./v0.3.0/implementation-roadmap.plan.md) | planning |
+| `v0.3.0` | `@oa-sdk/codegen` | [`v0.3.0/implementation-roadmap.plan.md`](./v0.3.0/implementation-roadmap.plan.md) | in progress |
 
 Version folders are planning artifacts. They do not change package versions by themselves.

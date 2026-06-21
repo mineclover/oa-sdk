@@ -51,6 +51,17 @@ export type TspExportResult = {
 type RenderedSchema = {
   type: string
   decorators: string[]
+  defaultValue?: string
+}
+
+type RenderSchemaOptions = {
+  includeMetadata?: boolean
+  includeDefault?: boolean
+  includeConstraints?: boolean
+}
+
+type EmitModelOptions = {
+  reportSchemaDefault?: boolean
 }
 
 type ResponseModel = {
@@ -155,17 +166,22 @@ class TypeSpecExporter {
     if (this.isObjectSchema(schema)) {
       return this.emitModel(typeName, schema, pointer)
     }
-    const rendered = this.renderSchema(schema, `${typeName}Value`, pointer)
+    if (schema.default !== undefined) {
+      this.addDefaultUnsupportedDiagnostic(`${pointer}/default`, 'Top-level schema defaults cannot be emitted as TypeSpec alias initializers yet.')
+    }
+    const rendered = this.renderSchema(schema, `${typeName}Value`, pointer, { includeDefault: false })
     return [
-      ...this.emitDecoratorsForSchema(schema, pointer),
       ...rendered.decorators,
       `alias ${typeName} = ${rendered.type};`,
       '',
     ]
   }
 
-  private emitModel(typeName: string, schema: OasSchema, pointer: string): string[] {
+  private emitModel(typeName: string, schema: OasSchema, pointer: string, options: EmitModelOptions = {}): string[] {
     this.reportSchemaLosses(schema, pointer)
+    if ((options.reportSchemaDefault ?? true) && schema.default !== undefined) {
+      this.addDefaultUnsupportedDiagnostic(`${pointer}/default`, 'Object schema defaults cannot be emitted as TypeSpec model initializers yet.')
+    }
     const lines: string[] = [
       ...this.emitDecoratorsForSchema(schema, pointer),
       `model ${typeName} {`,
@@ -176,8 +192,12 @@ class TypeSpecExporter {
       const propertyPointer = `${pointer}/properties/${escapeJsonPointer(propertyName)}`
       const rendered = this.renderSchema(propertySchema, `${typeName}${toTypeName(propertyName)}`, propertyPointer)
       const optional = required.has(propertyName) ? '' : '?'
+      const defaultValue = rendered.defaultValue ? ` = ${rendered.defaultValue}` : ''
       for (const decorator of rendered.decorators) lines.push(`  ${decorator}`)
-      lines.push(`  ${formatPropertyName(propertyName)}${optional}: ${rendered.type};`)
+      lines.push(`  ${formatPropertyName(propertyName)}${optional}: ${rendered.type}${defaultValue};`)
+    }
+    if (schema.additionalProperties === false) {
+      lines.push('  ...Record<never>;')
     }
     lines.push('}', '')
     return lines
@@ -269,7 +289,7 @@ class TypeSpecExporter {
     return [...merged.values()].map(({ parameter, pointer: parameterPointer }) => {
       const schema = parameter.schema
       const rendered = schema
-        ? this.renderSchema(schema as OasSchema, `${toTypeName(operationId)}${toTypeName(parameter.name)}Param`, `${parameterPointer}/schema`)
+        ? this.renderSchema(schema as OasSchema, `${toTypeName(operationId)}${toTypeName(parameter.name)}Param`, `${parameterPointer}/schema`, { includeMetadata: false })
         : { type: 'unknown', decorators: [] }
       const location = parameter.in === 'path' || parameter.in === 'query' || parameter.in === 'header' || parameter.in === 'cookie'
         ? parameter.in
@@ -283,7 +303,8 @@ class TypeSpecExporter {
       if (parameter.example !== undefined || parameter.examples !== undefined) {
         this.addDiagnostic('parameter/examples-dropped', parameterPointer, 'Parameter examples are not emitted to TypeSpec.')
       }
-      return `${decorators.join(' ')} ${toValueName(parameter.name)}${optional}: ${rendered.type}`
+      const defaultValue = rendered.defaultValue ? ` = ${rendered.defaultValue}` : ''
+      return `${decorators.join(' ')} ${toValueName(parameter.name)}${optional}: ${rendered.type}${defaultValue}`
     })
   }
 
@@ -307,14 +328,15 @@ class TypeSpecExporter {
       this.addDiagnostic('request-body/schema-missing', `${pointer}/content/${escapeJsonPointer(mediaType)}`, 'Request body media type has no schema.')
       return null
     }
-    const rendered = this.renderSchema(schema as OasSchema, `${toTypeName(operationId)}RequestBody`, `${pointer}/content/${escapeJsonPointer(mediaType)}/schema`)
+    const rendered = this.renderSchema(schema as OasSchema, `${toTypeName(operationId)}RequestBody`, `${pointer}/content/${escapeJsonPointer(mediaType)}/schema`, { includeMetadata: false })
     const decorators = [
       ...this.emitDecoratorsForDescription(undefined, requestBody.description),
       '@body',
       ...rendered.decorators,
     ]
     const optional = requestBody.required ? '' : '?'
-    return `${decorators.join(' ')} body${optional}: ${rendered.type}`
+    const defaultValue = rendered.defaultValue ? ` = ${rendered.defaultValue}` : ''
+    return `${decorators.join(' ')} body${optional}: ${rendered.type}${defaultValue}`
   }
 
   private emitResponseModels(operationId: string, operation: OasOperation, pointer: string): ResponseModel[] {
@@ -337,7 +359,8 @@ class TypeSpecExporter {
       const body = this.renderResponseBody(operationId, statusCode, response, responsePointer)
       if (body) {
         for (const decorator of body.decorators) lines.push(`  ${decorator}`)
-        lines.push(`  @body body: ${body.type};`)
+        const defaultValue = body.defaultValue ? ` = ${body.defaultValue}` : ''
+        lines.push(`  @body body: ${body.type}${defaultValue};`)
       }
       if (response.headers) {
         this.addDiagnostic('response/headers-dropped', `${responsePointer}/headers`, 'Response headers are not emitted to TypeSpec response models yet.')
@@ -371,16 +394,28 @@ class TypeSpecExporter {
     return this.renderSchema(schema as OasSchema, `${toTypeName(operationId)}${statusCode}Body`, `${pointer}/content/${escapeJsonPointer(mediaType)}/schema`)
   }
 
-  private renderSchema(schema: OasSchema, contextName: string, pointer: string): RenderedSchema {
+  private renderSchema(schema: OasSchema, contextName: string, pointer: string, options: RenderSchemaOptions = {}): RenderedSchema {
+    const includeMetadata = options.includeMetadata ?? true
+    const includeDefault = options.includeDefault ?? true
+    const includeConstraints = options.includeConstraints ?? true
     this.reportSchemaLosses(schema, pointer)
+    const decorators = [
+      ...(includeMetadata ? this.emitDecoratorsForSchema(schema, pointer) : []),
+      ...(includeConstraints ? this.emitConstraintDecorators(schema) : []),
+    ]
+    const defaultValue = includeDefault ? this.emitDefaultValueForSchema(schema, pointer) : undefined
+    const rendered = (type: string, schemaDecorators = decorators): RenderedSchema => ({
+      type,
+      decorators: schemaDecorators,
+      ...(defaultValue !== undefined ? { defaultValue } : {}),
+    })
     if (schema.$ref) {
       const refName = this.localSchemaRefName(schema.$ref, pointer)
-      return { type: refName ?? 'unknown', decorators: [] }
+      return rendered(refName ?? 'unknown')
     }
-    const decorators = this.emitConstraintDecorators(schema)
-    if (schema.const !== undefined) return { type: literal(schema.const), decorators }
+    if (schema.const !== undefined) return rendered(literal(schema.const))
     if (Array.isArray(schema.enum) && schema.enum.length > 0) {
-      return { type: schema.enum.map(value => literal(value)).join(' | '), decorators }
+      return rendered(schema.enum.map(value => literal(value)).join(' | '))
     }
 
     const typeValue = schema.type
@@ -395,66 +430,78 @@ class TypeSpecExporter {
       } else {
         delete nonNullSchema.type
       }
-      const rendered = this.renderSchema(nonNullSchema, contextName, pointer)
-      return {
-        type: typeValue.includes('null') ? `${rendered.type} | null` : rendered.type,
-        decorators: [...decorators, ...rendered.decorators],
-      }
+      const nonNullRendered = this.renderSchema(nonNullSchema, contextName, pointer, {
+        includeMetadata: false,
+        includeDefault: false,
+        includeConstraints: false,
+      })
+      return rendered(typeValue.includes('null') ? `${nonNullRendered.type} | null` : nonNullRendered.type)
     }
 
     if (typeValue === 'array') {
       const item = schema.items
-        ? this.renderSchema(schema.items, `${contextName}Item`, `${pointer}/items`)
+        ? this.renderSchema(schema.items, `${contextName}Item`, `${pointer}/items`, {
+          includeMetadata: false,
+          includeDefault: false,
+        })
         : { type: 'unknown', decorators: [] }
-      return { type: `${item.type}[]`, decorators: [...decorators, ...item.decorators] }
+      return rendered(`${item.type}[]`, [...decorators, ...item.decorators])
     }
 
     if (typeValue === 'object' || schema.properties) {
       const inlineName = this.reserveTypeName(contextName)
-      const lines = this.emitModel(inlineName, schema, pointer)
+      const lines = this.emitModel(inlineName, schema, pointer, { reportSchemaDefault: false })
       this.generatedModelDeclarations.push(lines)
-      return { type: inlineName, decorators }
+      return rendered(inlineName)
     }
 
     if (schema.allOf && schema.allOf.length > 0) {
-      return {
-        type: schema.allOf.map((item, index) => this.renderSchema(item, `${contextName}AllOf${index + 1}`, `${pointer}/allOf/${index}`).type).join(' & '),
-        decorators,
-      }
+      return rendered(schema.allOf.map((item, index) => this.renderSchema(item, `${contextName}AllOf${index + 1}`, `${pointer}/allOf/${index}`, {
+        includeMetadata: false,
+        includeDefault: false,
+      }).type).join(' & '))
     }
     if (schema.oneOf && schema.oneOf.length > 0) {
-      return {
-        type: schema.oneOf.map((item, index) => this.renderSchema(item, `${contextName}OneOf${index + 1}`, `${pointer}/oneOf/${index}`).type).join(' | '),
-        decorators,
-      }
+      return rendered(schema.oneOf.map((item, index) => this.renderSchema(item, `${contextName}OneOf${index + 1}`, `${pointer}/oneOf/${index}`, {
+        includeMetadata: false,
+        includeDefault: false,
+      }).type).join(' | '))
     }
     if (schema.anyOf && schema.anyOf.length > 0) {
-      return {
-        type: schema.anyOf.map((item, index) => this.renderSchema(item, `${contextName}AnyOf${index + 1}`, `${pointer}/anyOf/${index}`).type).join(' | '),
-        decorators,
-      }
+      return rendered(schema.anyOf.map((item, index) => this.renderSchema(item, `${contextName}AnyOf${index + 1}`, `${pointer}/anyOf/${index}`, {
+        includeMetadata: false,
+        includeDefault: false,
+      }).type).join(' | '))
     }
 
     if (typeValue === 'string') {
-      if (schema.format === 'date-time') return { type: 'utcDateTime', decorators }
-      if (schema.format === 'date') return { type: 'plainDate', decorators }
-      return { type: 'string', decorators }
+      if (schema.format === 'date-time') return rendered('utcDateTime')
+      if (schema.format === 'date') return rendered('plainDate')
+      return rendered('string')
     }
-    if (typeValue === 'integer') return { type: schema.format === 'int64' ? 'int64' : 'int32', decorators }
-    if (typeValue === 'number') return { type: schema.format === 'float' ? 'float32' : 'float64', decorators }
-    if (typeValue === 'boolean') return { type: 'boolean', decorators }
-    if (typeValue === 'null') return { type: 'null', decorators }
+    if (typeValue === 'integer') return rendered(schema.format === 'int64' ? 'int64' : 'int32')
+    if (typeValue === 'number') return rendered(schema.format === 'float' ? 'float32' : 'float64')
+    if (typeValue === 'boolean') return rendered('boolean')
+    if (typeValue === 'null') return rendered('null')
 
     this.addDiagnostic('schema/type-unknown', pointer, 'Schema type could not be mapped precisely and was emitted as unknown.')
-    return { type: 'unknown', decorators }
+    return rendered('unknown')
   }
 
   private emitDecoratorsForSchema(schema: OasSchema, pointer: string): string[] {
     const decorators = this.emitDecoratorsForDescription(undefined, schema.description)
     if (schema.deprecated) {
-      this.addDiagnostic('schema/deprecated-dropped', `${pointer}/deprecated`, 'Deprecated marker is not emitted to TypeSpec yet.')
+      decorators.push('#deprecated "Deprecated"')
     }
     return decorators
+  }
+
+  private emitDefaultValueForSchema(schema: OasSchema, pointer: string): string | undefined {
+    if (schema.default === undefined) return undefined
+    const value = typeSpecValueLiteral(schema.default)
+    if (value !== undefined) return value
+    this.addDefaultUnsupportedDiagnostic(`${pointer}/default`, 'Schema default is not a JSON-compatible TypeSpec value literal and was not emitted.')
+    return undefined
   }
 
   private emitConstraintDecorators(schema: OasSchema): string[] {
@@ -545,7 +592,6 @@ class TypeSpecExporter {
   }
 
   private reportSchemaLosses(schema: OasSchema, pointer: string): void {
-    if (schema.default !== undefined) this.addDiagnostic('schema/default-dropped', `${pointer}/default`, 'Schema default is not emitted to TypeSpec yet.')
     if (schema.example !== undefined || schema.examples !== undefined) this.addDiagnostic('schema/examples-dropped', pointer, 'Schema examples are not emitted to TypeSpec yet.')
     if (schema.readOnly || schema.writeOnly) this.addDiagnostic('schema/visibility-dropped', pointer, 'readOnly/writeOnly need a visibility policy and were not emitted.')
     if (schema.discriminator) this.addDiagnostic('schema/discriminator-dropped', `${pointer}/discriminator`, 'Discriminator metadata is not emitted to TypeSpec yet.')
@@ -554,6 +600,10 @@ class TypeSpecExporter {
     }
     if (schema.patternProperties) this.addDiagnostic('schema/pattern-properties-dropped', `${pointer}/patternProperties`, 'patternProperties is not emitted to TypeSpec yet.')
     if (schema.not || schema.if || schema.then || schema.else) this.addDiagnostic('schema/conditional-dropped', pointer, 'not/if/then/else schema constraints are not emitted to TypeSpec yet.')
+  }
+
+  private addDefaultUnsupportedDiagnostic(pointer: string, message: string): void {
+    this.addDiagnostic('schema/default-unsupported', pointer, message)
   }
 
   private addDiagnostic(code: string, pointer: string, message: string): void {
@@ -578,6 +628,29 @@ function literal(value: unknown): string {
   if (typeof value === 'number' || typeof value === 'boolean') return String(value)
   if (value === null) return 'null'
   return 'unknown'
+}
+
+function typeSpecValueLiteral(value: unknown): string | undefined {
+  if (typeof value === 'string') return quote(value)
+  if (typeof value === 'boolean') return String(value)
+  if (typeof value === 'number') return Number.isFinite(value) ? String(value) : undefined
+  if (value === null) return 'null'
+  if (Array.isArray(value)) {
+    const items = value.map(typeSpecValueLiteral)
+    if (items.some(item => item === undefined)) return undefined
+    return `#[${items.join(', ')}]`
+  }
+  if (isRecord(value)) {
+    const entries = Object.entries(value)
+      .map(([key, entry]) => {
+        if (!IDENTIFIER_RE.test(key)) return undefined
+        const literalValue = typeSpecValueLiteral(entry)
+        return literalValue === undefined ? undefined : `${key}: ${literalValue}`
+      })
+    if (entries.some(entry => entry === undefined)) return undefined
+    return `#{${entries.length > 0 ? ` ${entries.join(', ')} ` : ''}}`
+  }
+  return undefined
 }
 
 function toTypeName(raw: string): string {

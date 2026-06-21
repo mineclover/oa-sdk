@@ -3,6 +3,7 @@ export type HttpMethod = 'get' | 'post' | 'put' | 'patch' | 'delete' | 'head' | 
 const HTTP_METHODS: HttpMethod[] = ['get', 'post', 'put', 'patch', 'delete', 'head', 'options', 'trace']
 const IGNORED_SCHEMA_KEYS = new Set(['description', 'examples', 'example', 'title'])
 const UNORDERED_ARRAY_KEYS = new Set(['allOf', 'anyOf', 'enum', 'oneOf', 'required'])
+const COMPOSITION_SCHEMA_KEYS = new Set(['allOf', 'anyOf', 'oneOf', 'not', 'if', 'then', 'else'])
 
 export interface EndpointParameter {
   key: string
@@ -432,11 +433,34 @@ function normalizeSchema(
     }
   }
 
-  return stableObject(Object.fromEntries(
+  return normalizeObjectSealing(stableObject(Object.fromEntries(
     Object.entries(value)
       .filter(([key]) => !IGNORED_SCHEMA_KEYS.has(key))
       .map(([key, item]) => [key, normalizeSchema(item, document, seenRefs, key)]),
-  ))
+  )))
+}
+
+function normalizeObjectSealing(schema: Record<string, unknown>): Record<string, unknown> {
+  if (
+    schema.additionalProperties === undefined
+    && isNeverSchema(schema.unevaluatedProperties)
+    && !hasCompositionSchema(schema)
+  ) {
+    const { unevaluatedProperties: _unevaluatedProperties, ...rest } = schema
+    return stableObject({ ...rest, additionalProperties: false })
+  }
+  return schema
+}
+
+function isNeverSchema(value: unknown): boolean {
+  return isRecord(value)
+    && Object.keys(value).length === 1
+    && isRecord(value.not)
+    && Object.keys(value.not).length === 0
+}
+
+function hasCompositionSchema(schema: Record<string, unknown>): boolean {
+  return Object.keys(schema).some(key => COMPOSITION_SCHEMA_KEYS.has(key))
 }
 
 function stableObject(value: Record<string, unknown>): Record<string, unknown> {

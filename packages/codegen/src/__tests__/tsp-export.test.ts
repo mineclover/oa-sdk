@@ -94,11 +94,21 @@ describe('TypeSpec export spike', () => {
           User: {
             type: 'object',
             required: ['id', 'email', 'role', 'createdAt'],
+            additionalProperties: false,
             properties: {
-              id: { type: 'string', format: 'uuid' },
+              id: { type: 'string', format: 'uuid', description: 'Stable user id.' },
               email: { type: 'string', format: 'email' },
-              name: { type: 'string', minLength: 1, maxLength: 100 },
-              role: { type: 'string', enum: ['admin', 'user'] },
+              name: { type: 'string', minLength: 1, maxLength: 100, default: 'Anonymous' },
+              role: { type: 'string', enum: ['admin', 'user'], default: 'user' },
+              tags: { type: 'array', items: { type: 'string' }, default: ['new'] },
+              preferences: {
+                type: 'object',
+                properties: {
+                  emailNotifications: { type: 'boolean' },
+                },
+                default: { emailNotifications: true },
+              },
+              oldNickname: { type: 'string', deprecated: true },
               createdAt: { type: 'string', format: 'date-time' },
             },
           },
@@ -129,16 +139,23 @@ describe('TypeSpec export spike', () => {
     expect(result.source).toContain('@info(#{ version: "0.1.0" })')
     expect(result.source).toContain('namespace OaSdkApi;')
     expect(result.source).toContain('model User {')
+    expect(result.source).toContain('@doc("Stable user id.")')
     expect(result.source).toContain('@format("uuid")')
     expect(result.source).toContain('id: string;')
     expect(result.source).toContain('@format("email")')
+    expect(result.source).toContain('name?: string = "Anonymous";')
+    expect(result.source).toContain('tags?: string[] = #["new"];')
+    expect(result.source).toContain('preferences?: UserPreferences = #{ emailNotifications: true };')
     expect(result.source).toContain('createdAt: utcDateTime;')
-    expect(result.source).toContain('role: "admin" | "user";')
+    expect(result.source).toContain('role: "admin" | "user" = "user";')
+    expect(result.source).toContain('#deprecated "Deprecated"')
+    expect(result.source).toContain('oldNickname?: string;')
+    expect(result.source).toContain('...Record<never>;')
     expect(result.source).toContain('@operationId("getUser")')
     expect(result.source).toContain('@route("/users/{id}")')
     expect(result.source).toContain('@get')
     expect(result.source).toContain('@path @format("uuid") id: string')
-    expect(result.source).toContain('@query @minValue(1) page?: int32')
+    expect(result.source).toContain('@query @minValue(1) page?: int32 = 1')
     expect(result.source).toContain('model GetUser200Response {')
     expect(result.source).toContain('@statusCode statusCode: 200;')
     expect(result.source).toContain('@body body: User;')
@@ -147,14 +164,48 @@ describe('TypeSpec export spike', () => {
 
     expect(result.report.counts.componentSchemas).toBe(3)
     expect(result.report.counts.operations).toBe(2)
-    expect(result.report.diagnostics.map(diagnostic => diagnostic.code)).toEqual(
+    const diagnosticCodes = result.report.diagnostics.map(diagnostic => diagnostic.code)
+    expect(diagnosticCodes).toEqual(
       expect.arrayContaining([
         'components/security-schemes-dropped',
         'parameter/examples-dropped',
         'response/examples-dropped',
-        'schema/default-dropped',
         'tags/metadata-dropped',
       ]),
     )
+    expect(diagnosticCodes).not.toContain('schema/default-dropped')
+    expect(diagnosticCodes).not.toContain('schema/deprecated-dropped')
+  })
+
+  it('diagnoses defaults that cannot be represented as TypeSpec value literals', () => {
+    const document: OasDocument = {
+      openapi: '3.2.0',
+      info: { title: 'Defaults', version: '0.1.0' },
+      paths: {},
+      components: {
+        schemas: {
+          Request: {
+            type: 'object',
+            properties: {
+              metadata: {
+                type: 'object',
+                properties: {
+                  'x-enabled': { type: 'boolean' },
+                },
+                default: { 'x-enabled': true },
+              },
+            },
+          },
+        },
+      },
+    }
+
+    const result = exportOpenApiToTypeSpec(document, { namespace: 'DefaultsApi' })
+
+    expect(result.source).not.toContain('#{ "x-enabled": true }')
+    expect(result.report.diagnostics).toContainEqual(expect.objectContaining({
+      code: 'schema/default-unsupported',
+      pointer: '#/components/schemas/Request/properties/metadata/default',
+    }))
   })
 })

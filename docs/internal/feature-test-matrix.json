@@ -282,12 +282,13 @@
       ],
       "testPaths": [
         "packages/codegen/src/__tests__/tsp-export.test.ts",
+        "packages/codegen/src/__tests__/openapi-breaking-diff.test.ts",
         "packages/codegen/src/__tests__/typespec-roundtrip-report.test.ts",
         "scripts/typespec-roundtrip.ts",
         "docs/internal/typespec-roundtrip.plan.md"
       ],
       "commands": [
-        "pnpm --filter @oa-sdk/codegen test -- src/__tests__/tsp-export.test.ts",
+        "pnpm --filter @oa-sdk/codegen test -- src/__tests__/tsp-export.test.ts src/__tests__/openapi-breaking-diff.test.ts src/__tests__/typespec-roundtrip-report.test.ts",
         "pnpm --filter @oa-sdk/codegen typecheck",
         "pnpm typespec:roundtrip"
       ]
