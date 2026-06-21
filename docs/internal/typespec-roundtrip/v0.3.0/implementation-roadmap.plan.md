@@ -3,7 +3,7 @@
 > Target package version: `@oa-sdk/codegen` `0.3.0`.
 > Current package version: `@oa-sdk/codegen` `0.2.0`.
 
-Status: in progress. Phase 0 and Phase 1 are implemented; this document does not declare TSP-first.
+Status: in progress. Phase 0 through Phase 3 are implemented; this document does not declare TSP-first.
 
 ## Goal
 
@@ -18,9 +18,9 @@ The `0.3.0` goal is:
 
 Non-goal for `0.3.0`: switching schema authoring to `.tsp` by default.
 
-## Baseline
+## Initial Baseline
 
-Current evidence from `pnpm typespec:roundtrip`:
+Initial evidence from `pnpm typespec:roundtrip` before the `0.3.0` implementation phases:
 
 | Signal | Current |
 |---|---:|
@@ -31,7 +31,7 @@ Current evidence from `pnpm typespec:roundtrip`:
 | Export diagnostics | 159 |
 | Breaking diff | 16 |
 
-Current failure mode: `pnpm typespec:roundtrip -- --fail-on-breaking` fails because the emitted OpenAPI is valid but not semantically equivalent under OA SDK diff.
+Current gate state: `pnpm typespec:roundtrip -- --fail-on-breaking` passes because the emitted OpenAPI is semantically equivalent under OA SDK diff. Remaining work is diagnostic classification and mapping, not endpoint breaking diff.
 
 ## Release Shape
 
@@ -111,6 +111,8 @@ Evidence:
 
 ## Phase 2 — Parameter Identity And Pagination
 
+Status: implemented.
+
 Purpose: stabilize reusable parameter semantics such as `Page` and `Limit`.
 
 Tasks:
@@ -125,7 +127,15 @@ Gate:
 - `page` and `limit` no longer show `parameter-schema-changed` unless their schema constraints truly changed.
 - Any accepted inline-vs-component difference is recorded in the roundtrip report.
 
+Evidence:
+
+- OpenAPI `type: integer` without `format` now emits TypeSpec `integer`, not `int32`, so TypeSpec does not narrow reusable pagination parameters.
+- `pnpm typespec:roundtrip -- --report /tmp/oa-sdk-typespec-roundtrip-phase2.json` reports zero `parameter-schema-changed` breaking changes.
+- Reusable parameter identity does not need a special accepted-difference rule while the emitted inline parameter schema is equivalent under OA SDK diff. Parameter examples remain Phase 4 ownership.
+
 ## Phase 3 — Request And Response Shape Equivalence
+
+Status: implemented.
 
 Purpose: reduce body schema breaking changes without hiding real contract drift.
 
@@ -145,6 +155,12 @@ Gate:
 
 - Current response/request breaking diff count is reduced to zero or all remaining body differences are explicitly accepted.
 - Component schema count increase from 28 to 32 is explained by accepted generated models or eliminated.
+
+Evidence:
+
+- The same unformatted integer preservation removes response body schema drift for readiness/auth/list responses.
+- `pnpm typespec:roundtrip -- --fail-on-breaking` passes with no endpoint changes detected.
+- Component schemas remain `28 -> 32`; the four added schemas are accepted TypeSpec projection artifacts: `ErrorMeta`, `ListModerationReports200Body`, `ListMyRoleChanges200Body`, and `ListUsers200Body`.
 
 ## Phase 4 — Examples And Mock Semantics
 

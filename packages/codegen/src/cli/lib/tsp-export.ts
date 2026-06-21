@@ -479,7 +479,11 @@ class TypeSpecExporter {
       if (schema.format === 'date') return rendered('plainDate')
       return rendered('string')
     }
-    if (typeValue === 'integer') return rendered(schema.format === 'int64' ? 'int64' : 'int32')
+    if (typeValue === 'integer') {
+      if (schema.format === 'int32') return rendered('int32')
+      if (schema.format === 'int64') return rendered('int64')
+      return rendered('integer')
+    }
     if (typeValue === 'number') return rendered(schema.format === 'float' ? 'float32' : 'float64')
     if (typeValue === 'boolean') return rendered('boolean')
     if (typeValue === 'null') return rendered('null')

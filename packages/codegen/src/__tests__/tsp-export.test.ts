@@ -155,7 +155,7 @@ describe('TypeSpec export spike', () => {
     expect(result.source).toContain('@route("/users/{id}")')
     expect(result.source).toContain('@get')
     expect(result.source).toContain('@path @format("uuid") id: string')
-    expect(result.source).toContain('@query @minValue(1) page?: int32 = 1')
+    expect(result.source).toContain('@query @minValue(1) page?: integer = 1')
     expect(result.source).toContain('model GetUser200Response {')
     expect(result.source).toContain('@statusCode statusCode: 200;')
     expect(result.source).toContain('@body body: User;')

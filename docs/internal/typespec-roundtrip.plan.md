@@ -61,7 +61,7 @@ Current probe on `packages/schemas/src/.merged.yaml`:
 | Component schemas | 28 -> 32 |
 | Generated `.tsp` size | 1067 lines |
 | Export diagnostics | 149 |
-| Breaking diff | 13 breaking changes across 7 modified operations |
+| Breaking diff | 0 breaking changes across 0 modified operations |
 
 Diagnostic distribution:
 
@@ -76,11 +76,11 @@ Diagnostic distribution:
 | `components/security-schemes-dropped` | 1 | Shared security schemes are not mapped yet |
 | `tags/metadata-dropped` | 1 | Tag descriptions are not mapped yet |
 
-Current breaking categories:
+Current endpoint diff:
 
-- Query parameter schema drift for shared pagination parameters (`page`, `limit`).
-- Response body schema drift for list/readiness/auth responses.
-- Generated inline TypeSpec response/request models increase component schema count.
+- No endpoint changes are detected by OA SDK diff.
+- Component schemas remain `28 -> 32`; the four additional schemas are accepted TypeSpec projection artifacts: `ErrorMeta`, `ListModerationReports200Body`, `ListMyRoleChanges200Body`, and `ListUsers200Body`.
+- Remaining readiness work is diagnostic ownership, not breaking endpoint drift.
 
 ## Intersection
 
@@ -91,6 +91,7 @@ The first exporter pass shows a useful intersection:
 - Request bodies and response status/body models.
 - Component schema references, object models, required vs optional properties.
 - Primitive types, arrays, enums, const, nullable unions, `allOf` intersections, `oneOf`/`anyOf` unions.
+- Unformatted OpenAPI `integer` values without accidental `int32` narrowing.
 - String formats including `date-time` and `date`.
 - Basic scalar constraints: format, min/max length, numeric min/max, pattern.
 - Schema and property documentation, JSON-compatible default values, deprecated markers, and strict-object sealing via TypeSpec `...Record<never>;`.
@@ -101,15 +102,14 @@ This is enough to keep path and operation identity stable, but not enough to cla
 
 Before a TSP-first declaration, close or explicitly accept these gaps:
 
-1. Response and request schema equivalence: avoid TypeSpec-emitted inline model churn where it changes OA SDK diff semantics.
-2. Pagination parameters: preserve reusable parameter schema constraints and names without weakening `Page`/`Limit`.
-3. Security: map `components.securitySchemes` and root/operation security requirements to a stable TypeSpec auth convention.
-4. Examples: decide which examples are authoring data, mock-server semantics, or documentation metadata, then map or explicitly externalize them.
-5. Response headers: emit response header properties so router/client/mock-server header semantics remain visible.
-6. Tag metadata: preserve tag descriptions or define a sidecar if TypeSpec projection is not the owner.
-7. Untyped schema cleanup: fix `ValidationError.received` or define a deliberate `unknown` escape hatch.
-8. Visibility and annotations: map readOnly/writeOnly/annotations only after the OA SDK visibility policy is explicit.
-9. Diff normalization: continue teaching OA SDK review tooling only proven TypeSpec-emitted shapes that are semantically equivalent, without suppressing real contract changes.
+1. Security: map `components.securitySchemes` and root/operation security requirements to a stable TypeSpec auth convention.
+2. Examples: decide which examples are authoring data, mock-server semantics, or documentation metadata, then map or explicitly externalize them.
+3. Response headers: emit response header properties so router/client/mock-server header semantics remain visible.
+4. Tag metadata: preserve tag descriptions or define a sidecar if TypeSpec projection is not the owner.
+5. Untyped schema cleanup: fix `ValidationError.received` or define a deliberate `unknown` escape hatch.
+6. Visibility and annotations: map readOnly/writeOnly/annotations only after the OA SDK visibility policy is explicit.
+7. Component projection policy: keep the accepted extra TypeSpec schemas visible in the roundtrip report or eliminate them if they become confusing for release review.
+8. Diff normalization: continue teaching OA SDK review tooling only proven TypeSpec-emitted shapes that are semantically equivalent, without suppressing real contract changes.
 
 ## Declaration Criteria
 
