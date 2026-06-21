@@ -1,5 +1,6 @@
 import type {
   OasDocument,
+  OasHeader,
   OasMediaType,
   OasOperation,
   OasParameter,
@@ -160,7 +161,24 @@ class TypeSpecExporter {
     lines.push(`@service(#{ title: ${quote(title)} })`)
     const version = this.document.info?.version ?? '0.0.0'
     lines.push(`@info(#{ version: ${quote(version)} })`)
+    for (const tag of this.document.tags ?? []) {
+      if (!tag.name) continue
+      const metadata = this.renderTagMetadata(tag)
+      if (metadata) lines.push(`@tagMetadata(${quote(tag.name)}, ${metadata})`)
+    }
     return lines
+  }
+
+  private renderTagMetadata(tag: NonNullable<OasDocument['tags']>[number]): string | null {
+    const entries: string[] = []
+    if (tag.description) entries.push(`description: ${quote(tag.description)}`)
+    if (tag.externalDocs?.url) {
+      const externalDocs = [`url: ${quote(tag.externalDocs.url)}`]
+      if (tag.externalDocs.description) externalDocs.push(`description: ${quote(tag.externalDocs.description)}`)
+      entries.push(`externalDocs: #{ ${externalDocs.join(', ')} }`)
+    }
+    if (tag.parent) entries.push(`parent: ${quote(tag.parent)}`)
+    return entries.length > 0 ? `#{ ${entries.join(', ')} }` : null
   }
 
   private emitNamedSchema(typeName: string, schema: OasSchema, pointer: string): string[] {
@@ -367,7 +385,7 @@ class TypeSpecExporter {
         lines.push(`  @body body: ${body.type}${defaultValue};`)
       }
       if (response.headers) {
-        this.addDiagnostic('response/headers-dropped', `${responsePointer}/headers`, 'Response headers are not emitted to TypeSpec response models yet.')
+        lines.push(...this.emitResponseHeaders(modelName, response.headers, `${responsePointer}/headers`))
       }
       if (response.links) {
         this.addDiagnostic('response/links-dropped', `${responsePointer}/links`, 'OpenAPI links are not emitted to TypeSpec response models.')
@@ -376,6 +394,37 @@ class TypeSpecExporter {
       models.push({ name: modelName, lines })
     }
     return models
+  }
+
+  private emitResponseHeaders(
+    modelName: string,
+    headers: Record<string, Referenceable<OasHeader>>,
+    pointer: string,
+  ): string[] {
+    const lines: string[] = []
+    for (const [headerName, headerValue] of Object.entries(headers)) {
+      const headerPointer = `${pointer}/${escapeJsonPointer(headerName)}`
+      const header = this.resolveReference<OasHeader>(headerValue, headerPointer)
+      if (!header) continue
+      if (header.content) {
+        this.addDiagnostic('response/header-content-dropped', `${headerPointer}/content`, 'Response header content schemas are not emitted to TypeSpec yet.')
+        continue
+      }
+      const rendered = header.schema
+        ? this.renderSchema(header.schema, `${modelName}${toTypeName(headerName)}Header`, `${headerPointer}/schema`)
+        : { type: 'unknown', decorators: [] }
+      const decorators = [
+        ...this.emitDecoratorsForDescription(undefined, header.description),
+        ...(header.deprecated ? ['#deprecated "Deprecated"'] : []),
+        `@header(${quote(headerName)})`,
+        ...rendered.decorators,
+      ]
+      const optional = header.required ? '' : '?'
+      const defaultValue = rendered.defaultValue ? ` = ${rendered.defaultValue}` : ''
+      for (const decorator of decorators) lines.push(`  ${decorator}`)
+      lines.push(`  ${toValueName(headerName)}${optional}: ${rendered.type}${defaultValue};`)
+    }
+    return lines
   }
 
   private renderResponseBody(operationId: string, statusCode: string, response: OasResponse, pointer: string): RenderedSchema | null {
@@ -672,9 +721,6 @@ class TypeSpecExporter {
     }
     if (this.document.components?.securitySchemes) {
       this.addDiagnostic('components/security-schemes-dropped', '#/components/securitySchemes', 'Security schemes are not emitted by the first tsp-export pass.')
-    }
-    if (this.document.tags?.some(tag => tag.description)) {
-      this.addDiagnostic('tags/metadata-dropped', '#/tags', 'Tag descriptions are not emitted as TypeSpec tag metadata yet.')
     }
     if (this.document.jsonSchemaDialect) {
       this.addDiagnostic('document/json-schema-dialect-dropped', '#/jsonSchemaDialect', 'jsonSchemaDialect is OpenAPI-level metadata and was not emitted to TypeSpec.')

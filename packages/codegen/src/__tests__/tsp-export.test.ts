@@ -40,6 +40,16 @@ describe('TypeSpec export spike', () => {
                 },
               },
               '401': { $ref: '#/components/responses/Unauthorized' },
+              '429': {
+                description: 'Rate limited',
+                headers: {
+                  'Retry-After': {
+                    description: 'Retry after seconds.',
+                    required: true,
+                    schema: { type: 'string', example: '30' },
+                  },
+                },
+              },
             },
           },
         },
@@ -148,6 +158,7 @@ describe('TypeSpec export spike', () => {
     expect(result.source).toContain('@server("http://localhost:4010", "Mock server")')
     expect(result.source).toContain('@service(#{ title: "OA SDK API" })')
     expect(result.source).toContain('@info(#{ version: "0.1.0" })')
+    expect(result.source).toContain('@tagMetadata("users", #{ description: "User management" })')
     expect(result.source).toContain('namespace OaSdkApi;')
     expect(result.source).toContain('model User {')
     expect(result.source).toContain('@example(#{ id: "00000000-0000-0000-0000-000000000001", email: "alice@example.com", role: "user", createdAt: utcDateTime.fromISO("2024-01-01T00:00:00.000Z") })')
@@ -172,6 +183,10 @@ describe('TypeSpec export spike', () => {
     expect(result.source).toContain('model GetUser200Response {')
     expect(result.source).toContain('@statusCode statusCode: 200;')
     expect(result.source).toContain('@body body: User;')
+    expect(result.source).toContain('model GetUser429Response {')
+    expect(result.source).toContain('@doc("Retry after seconds.")')
+    expect(result.source).toContain('@header("Retry-After")')
+    expect(result.source).toContain('retryAfter: string;')
     expect(result.source).toContain('@post')
     expect(result.source).toContain('@body body: CreateUserRequest')
 
@@ -183,11 +198,12 @@ describe('TypeSpec export spike', () => {
         'components/security-schemes-dropped',
         'parameter/examples-dropped',
         'response/examples-dropped',
-        'tags/metadata-dropped',
       ]),
     )
     expect(diagnosticCodes).not.toContain('schema/default-dropped')
     expect(diagnosticCodes).not.toContain('schema/deprecated-dropped')
+    expect(diagnosticCodes).not.toContain('response/headers-dropped')
+    expect(diagnosticCodes).not.toContain('tags/metadata-dropped')
   })
 
   it('diagnoses defaults that cannot be represented as TypeSpec value literals', () => {

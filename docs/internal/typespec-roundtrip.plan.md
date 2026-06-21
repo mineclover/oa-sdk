@@ -60,7 +60,7 @@ Current probe on `packages/schemas/src/.merged.yaml`:
 | Operations | 27 -> 27 |
 | Component schemas | 28 -> 32 |
 | Generated `.tsp` size | 1067 lines |
-| Export diagnostics | 126 |
+| Export diagnostics | 119 |
 | Breaking diff | 0 breaking changes across 0 modified operations |
 
 Diagnostic distribution:
@@ -70,10 +70,8 @@ Diagnostic distribution:
 | `response/examples-dropped` | 79 | Response media examples are not mapped yet |
 | `operation/security-dropped` | 27 | Operation security requirements need a TypeSpec auth convention |
 | `parameter/examples-dropped` | 11 | Parameter examples are not mapped yet |
-| `response/headers-dropped` | 6 | Response headers are not emitted into TypeSpec response models yet |
 | `schema/type-unknown` | 1 | Source schema lacks enough type information for precise TypeSpec |
 | `components/security-schemes-dropped` | 1 | Shared security schemes are not mapped yet |
-| `tags/metadata-dropped` | 1 | Tag descriptions are not mapped yet |
 
 Current endpoint diff:
 
@@ -103,12 +101,10 @@ Before a TSP-first declaration, close or explicitly accept these gaps:
 
 1. Security: map `components.securitySchemes` and root/operation security requirements to a stable TypeSpec auth convention.
 2. Parameter and response media examples: decide how OA SDK `dataValue` / `serializedValue` examples are preserved without weakening mock-server response priority.
-3. Response headers: emit response header properties so router/client/mock-server header semantics remain visible.
-4. Tag metadata: preserve tag descriptions or define a sidecar if TypeSpec projection is not the owner.
-5. Untyped schema cleanup: fix `ValidationError.received` or define a deliberate `unknown` escape hatch.
-6. Visibility and annotations: map readOnly/writeOnly/annotations only after the OA SDK visibility policy is explicit.
-7. Component projection policy: keep the accepted extra TypeSpec schemas visible in the roundtrip report or eliminate them if they become confusing for release review.
-8. Diff normalization: continue teaching OA SDK review tooling only proven TypeSpec-emitted shapes that are semantically equivalent, without suppressing real contract changes.
+3. Untyped schema cleanup: fix `ValidationError.received` or define a deliberate `unknown` escape hatch.
+4. Visibility and annotations: map readOnly/writeOnly/annotations only after the OA SDK visibility policy is explicit.
+5. Component projection policy: keep the accepted extra TypeSpec schemas visible in the roundtrip report or eliminate them if they become confusing for release review.
+6. Diff normalization: continue teaching OA SDK review tooling only proven TypeSpec-emitted shapes that are semantically equivalent, without suppressing real contract changes.
 
 ## Declaration Criteria
 
