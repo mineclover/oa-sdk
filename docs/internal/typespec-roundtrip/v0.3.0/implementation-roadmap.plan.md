@@ -3,7 +3,7 @@
 > Target package version: `@oa-sdk/codegen` `0.3.0`.
 > Current package version: `@oa-sdk/codegen` `0.2.0`.
 
-Status: in progress. Phase 0 through Phase 3 are implemented; this document does not declare TSP-first.
+Status: in progress. Phase 0 through Phase 3 and Phase 4 schema examples are implemented; this document does not declare TSP-first.
 
 ## Goal
 
@@ -164,6 +164,8 @@ Evidence:
 
 ## Phase 4 — Examples And Mock Semantics
 
+Status: in progress. Schema-level examples are implemented; parameter and response media examples still need an ownership decision.
+
 Purpose: decide which sample data belongs in TypeSpec and which remains OA SDK-owned runtime data.
 
 Tasks:
@@ -177,6 +179,13 @@ Gate:
 
 - `response/examples-dropped`, `schema/examples-dropped`, and `parameter/examples-dropped` diagnostics are either removed or classified as accepted sidecar ownership.
 - Mock-server example readiness is not weakened by TypeSpec export.
+
+Evidence:
+
+- Schema and property `example` / `examples` values now emit TypeSpec `@example(...)` where they can be represented as TypeSpec value literals.
+- Example value emission is schema-aware for `utcDateTime.fromISO(...)`, `plainDate.fromISO(...)`, arrays, object properties, and local `$ref` traversal.
+- `pnpm typespec:roundtrip -- --report /tmp/oa-sdk-typespec-roundtrip-phase4-schema-examples.json` reports diagnostics `126`, down from `149`, with no `schema/examples-dropped`.
+- `parameter/examples-dropped` (`11`) and `response/examples-dropped` (`79`) remain because OA SDK OpenAPI 3.2 examples carry `dataValue` / `serializedValue`; TypeSpec's current projection can emit data or serialized parameter examples but not both, and response media examples would lose serialized mock semantics without a sidecar policy.
 
 ## Phase 5 — Security, Headers, Tags, And Visibility
 

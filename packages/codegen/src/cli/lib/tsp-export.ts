@@ -58,6 +58,7 @@ type RenderSchemaOptions = {
   includeMetadata?: boolean
   includeDefault?: boolean
   includeConstraints?: boolean
+  includeExamples?: boolean
 }
 
 type EmitModelOptions = {
@@ -169,7 +170,10 @@ class TypeSpecExporter {
     if (schema.default !== undefined) {
       this.addDefaultUnsupportedDiagnostic(`${pointer}/default`, 'Top-level schema defaults cannot be emitted as TypeSpec alias initializers yet.')
     }
-    const rendered = this.renderSchema(schema, `${typeName}Value`, pointer, { includeDefault: false })
+    const rendered = this.renderSchema(schema, `${typeName}Value`, pointer, {
+      includeDefault: false,
+      includeExamples: false,
+    })
     return [
       ...rendered.decorators,
       `alias ${typeName} = ${rendered.type};`,
@@ -398,9 +402,10 @@ class TypeSpecExporter {
     const includeMetadata = options.includeMetadata ?? true
     const includeDefault = options.includeDefault ?? true
     const includeConstraints = options.includeConstraints ?? true
+    const includeExamples = options.includeExamples ?? true
     this.reportSchemaLosses(schema, pointer)
     const decorators = [
-      ...(includeMetadata ? this.emitDecoratorsForSchema(schema, pointer) : []),
+      ...(includeMetadata ? this.emitDecoratorsForSchema(schema, pointer, { includeExamples }) : []),
       ...(includeConstraints ? this.emitConstraintDecorators(schema) : []),
     ]
     const defaultValue = includeDefault ? this.emitDefaultValueForSchema(schema, pointer) : undefined
@@ -492,20 +497,101 @@ class TypeSpecExporter {
     return rendered('unknown')
   }
 
-  private emitDecoratorsForSchema(schema: OasSchema, pointer: string): string[] {
+  private emitDecoratorsForSchema(schema: OasSchema, pointer: string, options: { includeExamples?: boolean } = {}): string[] {
     const decorators = this.emitDecoratorsForDescription(undefined, schema.description)
     if (schema.deprecated) {
       decorators.push('#deprecated "Deprecated"')
+    }
+    decorators.push(...this.emitExampleDecoratorsForSchema(schema, pointer, options.includeExamples ?? true))
+    return decorators
+  }
+
+  private emitExampleDecoratorsForSchema(schema: OasSchema, pointer: string, includeExamples: boolean): string[] {
+    const examples = schemaExampleValues(schema)
+    if (examples.length === 0) return []
+    if (!includeExamples) {
+      this.addDiagnostic('schema/examples-dropped', pointer, 'Schema examples cannot be emitted at this TypeSpec declaration location.')
+      return []
+    }
+    const decorators: string[] = []
+    for (const [index, example] of examples.entries()) {
+      const value = this.typeSpecValueLiteralForSchema(example, schema, pointer)
+      if (value === undefined) {
+        this.addDiagnostic('schema/examples-unsupported', `${pointer}/examples/${index}`, 'Schema example is not a TypeSpec value literal and was not emitted.')
+        continue
+      }
+      decorators.push(`@example(${value})`)
     }
     return decorators
   }
 
   private emitDefaultValueForSchema(schema: OasSchema, pointer: string): string | undefined {
     if (schema.default === undefined) return undefined
-    const value = typeSpecValueLiteral(schema.default)
+    const value = this.typeSpecValueLiteralForSchema(schema.default, schema, pointer)
     if (value !== undefined) return value
     this.addDefaultUnsupportedDiagnostic(`${pointer}/default`, 'Schema default is not a JSON-compatible TypeSpec value literal and was not emitted.')
     return undefined
+  }
+
+  private typeSpecValueLiteralForSchema(
+    value: unknown,
+    schema: OasSchema,
+    pointer: string,
+    seenRefs: Set<string> = new Set(),
+  ): string | undefined {
+    if (value === null) return 'null'
+    if (schema.$ref && !seenRefs.has(schema.$ref)) {
+      const resolved = this.resolveLocalRef(schema.$ref)
+      if (isRecord(resolved)) {
+        const nextSeen = new Set(seenRefs)
+        nextSeen.add(schema.$ref)
+        return this.typeSpecValueLiteralForSchema(value, resolved as OasSchema, pointer, nextSeen)
+      }
+    }
+
+    const typeValue = schema.type
+    if (Array.isArray(typeValue)) {
+      const nonNullTypes = typeValue.filter(type => type !== 'null')
+      if (value === null && typeValue.includes('null')) return 'null'
+      const nonNullSchema: OasSchema = { ...schema }
+      if (nonNullTypes.length === 1) {
+        nonNullSchema.type = nonNullTypes[0]!
+      } else if (nonNullTypes.length > 1) {
+        nonNullSchema.type = nonNullTypes
+      } else {
+        delete nonNullSchema.type
+      }
+      return this.typeSpecValueLiteralForSchema(value, nonNullSchema, pointer, seenRefs)
+    }
+
+    if (typeof value === 'string' && typeValue === 'string') {
+      if (schema.format === 'date-time') return `utcDateTime.fromISO(${quote(value)})`
+      if (schema.format === 'date') return `plainDate.fromISO(${quote(value)})`
+    }
+
+    if (typeValue === 'array' && Array.isArray(value)) {
+      const itemSchema = schema.items
+      const items = value.map((item, index) => itemSchema
+        ? this.typeSpecValueLiteralForSchema(item, itemSchema, `${pointer}/items`, seenRefs)
+        : typeSpecValueLiteral(item))
+      if (items.some(item => item === undefined)) return undefined
+      return `#[${items.join(', ')}]`
+    }
+
+    if ((typeValue === 'object' || schema.properties) && isRecord(value)) {
+      const entries = Object.entries(value).map(([key, entry]) => {
+        if (!IDENTIFIER_RE.test(key)) return undefined
+        const propertySchema = schema.properties?.[key]
+        const literalValue = propertySchema
+          ? this.typeSpecValueLiteralForSchema(entry, propertySchema, `${pointer}/properties/${escapeJsonPointer(key)}`, seenRefs)
+          : typeSpecValueLiteral(entry)
+        return literalValue === undefined ? undefined : `${key}: ${literalValue}`
+      })
+      if (entries.some(entry => entry === undefined)) return undefined
+      return `#{${entries.length > 0 ? ` ${entries.join(', ')} ` : ''}}`
+    }
+
+    return typeSpecValueLiteral(value)
   }
 
   private emitConstraintDecorators(schema: OasSchema): string[] {
@@ -596,7 +682,6 @@ class TypeSpecExporter {
   }
 
   private reportSchemaLosses(schema: OasSchema, pointer: string): void {
-    if (schema.example !== undefined || schema.examples !== undefined) this.addDiagnostic('schema/examples-dropped', pointer, 'Schema examples are not emitted to TypeSpec yet.')
     if (schema.readOnly || schema.writeOnly) this.addDiagnostic('schema/visibility-dropped', pointer, 'readOnly/writeOnly need a visibility policy and were not emitted.')
     if (schema.discriminator) this.addDiagnostic('schema/discriminator-dropped', `${pointer}/discriminator`, 'Discriminator metadata is not emitted to TypeSpec yet.')
     if (schema.additionalProperties !== undefined && schema.additionalProperties !== false) {
@@ -632,6 +717,11 @@ function literal(value: unknown): string {
   if (typeof value === 'number' || typeof value === 'boolean') return String(value)
   if (value === null) return 'null'
   return 'unknown'
+}
+
+function schemaExampleValues(schema: OasSchema): unknown[] {
+  if (Array.isArray(schema.examples) && schema.examples.length > 0) return schema.examples
+  return schema.example !== undefined ? [schema.example] : []
 }
 
 function typeSpecValueLiteral(value: unknown): string | undefined {

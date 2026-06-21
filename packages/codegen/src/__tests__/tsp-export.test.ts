@@ -95,8 +95,19 @@ describe('TypeSpec export spike', () => {
             type: 'object',
             required: ['id', 'email', 'role', 'createdAt'],
             additionalProperties: false,
+            example: {
+              id: '00000000-0000-0000-0000-000000000001',
+              email: 'alice@example.com',
+              role: 'user',
+              createdAt: '2024-01-01T00:00:00.000Z',
+            },
             properties: {
-              id: { type: 'string', format: 'uuid', description: 'Stable user id.' },
+              id: {
+                type: 'string',
+                format: 'uuid',
+                description: 'Stable user id.',
+                example: '00000000-0000-0000-0000-000000000001',
+              },
               email: { type: 'string', format: 'email' },
               name: { type: 'string', minLength: 1, maxLength: 100, default: 'Anonymous' },
               role: { type: 'string', enum: ['admin', 'user'], default: 'user' },
@@ -139,6 +150,8 @@ describe('TypeSpec export spike', () => {
     expect(result.source).toContain('@info(#{ version: "0.1.0" })')
     expect(result.source).toContain('namespace OaSdkApi;')
     expect(result.source).toContain('model User {')
+    expect(result.source).toContain('@example(#{ id: "00000000-0000-0000-0000-000000000001", email: "alice@example.com", role: "user", createdAt: utcDateTime.fromISO("2024-01-01T00:00:00.000Z") })')
+    expect(result.source).toContain('@example("00000000-0000-0000-0000-000000000001")')
     expect(result.source).toContain('@doc("Stable user id.")')
     expect(result.source).toContain('@format("uuid")')
     expect(result.source).toContain('id: string;')
@@ -193,6 +206,7 @@ describe('TypeSpec export spike', () => {
                   'x-enabled': { type: 'boolean' },
                 },
                 default: { 'x-enabled': true },
+                example: { 'x-enabled': true },
               },
             },
           },
@@ -206,6 +220,10 @@ describe('TypeSpec export spike', () => {
     expect(result.report.diagnostics).toContainEqual(expect.objectContaining({
       code: 'schema/default-unsupported',
       pointer: '#/components/schemas/Request/properties/metadata/default',
+    }))
+    expect(result.report.diagnostics).toContainEqual(expect.objectContaining({
+      code: 'schema/examples-unsupported',
+      pointer: '#/components/schemas/Request/properties/metadata/examples/0',
     }))
   })
 })

@@ -60,7 +60,7 @@ Current probe on `packages/schemas/src/.merged.yaml`:
 | Operations | 27 -> 27 |
 | Component schemas | 28 -> 32 |
 | Generated `.tsp` size | 1067 lines |
-| Export diagnostics | 149 |
+| Export diagnostics | 126 |
 | Breaking diff | 0 breaking changes across 0 modified operations |
 
 Diagnostic distribution:
@@ -69,7 +69,6 @@ Diagnostic distribution:
 |---|---:|---|
 | `response/examples-dropped` | 79 | Response media examples are not mapped yet |
 | `operation/security-dropped` | 27 | Operation security requirements need a TypeSpec auth convention |
-| `schema/examples-dropped` | 23 | Schema examples are not mapped yet |
 | `parameter/examples-dropped` | 11 | Parameter examples are not mapped yet |
 | `response/headers-dropped` | 6 | Response headers are not emitted into TypeSpec response models yet |
 | `schema/type-unknown` | 1 | Source schema lacks enough type information for precise TypeSpec |
@@ -94,7 +93,7 @@ The first exporter pass shows a useful intersection:
 - Unformatted OpenAPI `integer` values without accidental `int32` narrowing.
 - String formats including `date-time` and `date`.
 - Basic scalar constraints: format, min/max length, numeric min/max, pattern.
-- Schema and property documentation, JSON-compatible default values, deprecated markers, and strict-object sealing via TypeSpec `...Record<never>;`.
+- Schema and property documentation, JSON-compatible default values, deprecated markers, schema/property examples, and strict-object sealing via TypeSpec `...Record<never>;`.
 
 This is enough to keep path and operation identity stable, but not enough to claim semantic roundtrip.
 
@@ -103,7 +102,7 @@ This is enough to keep path and operation identity stable, but not enough to cla
 Before a TSP-first declaration, close or explicitly accept these gaps:
 
 1. Security: map `components.securitySchemes` and root/operation security requirements to a stable TypeSpec auth convention.
-2. Examples: decide which examples are authoring data, mock-server semantics, or documentation metadata, then map or explicitly externalize them.
+2. Parameter and response media examples: decide how OA SDK `dataValue` / `serializedValue` examples are preserved without weakening mock-server response priority.
 3. Response headers: emit response header properties so router/client/mock-server header semantics remain visible.
 4. Tag metadata: preserve tag descriptions or define a sidecar if TypeSpec projection is not the owner.
 5. Untyped schema cleanup: fix `ValidationError.received` or define a deliberate `unknown` escape hatch.
