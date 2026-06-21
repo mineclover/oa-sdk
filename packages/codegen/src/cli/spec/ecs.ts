@@ -11,6 +11,7 @@ export type CliCheckKind =
   | 'metadata-registry'
   | 'runtime-drift'
   | 'target-coverage'
+  | 'typespec-sidecar-restore'
 
 export type CliInputKind =
   | 'behavior-store'
@@ -26,6 +27,7 @@ export type CliInputKind =
   | 'openapi-provenance'
   | 'runtime-drift-report'
   | 'runtime-openapi'
+  | 'typespec-compatibility-sidecar'
 
 export type CliOutputFormat = 'human' | 'json' | 'markdown' | 'text'
 

@@ -3,7 +3,7 @@
 > Target package version: `@oa-sdk/codegen` `0.3.0`.
 > Current package version: `@oa-sdk/codegen` `0.2.0`.
 
-Status: implemented for the `0.3.0` evaluation track. Phase 0 through Phase 6 are complete for the canonical roundtrip fixture. This document does not declare TSP-first.
+Status: implemented for the `0.3.0` evaluation track. Phase 0 through Phase 6 are complete for the canonical roundtrip fixture, and the first two-track compatibility sidecar slice is implemented. This document does not declare TSP-first.
 
 ## Goal
 
@@ -39,7 +39,8 @@ Current gate state: `pnpm typespec:roundtrip -- --fail-on-breaking` passes becau
 
 Expected user-visible surface:
 
-- `oa-gen tsp-export` remains the explicit conversion command.
+- `oa-gen tsp-export` remains the explicit conversion command and can write an OA SDK compatibility sidecar.
+- `oa-gen tsp-restore` reapplies that sidecar to TypeSpec-emitted OpenAPI.
 - `pnpm typespec:roundtrip` remains the repository probe.
 - A machine-readable roundtrip report is added before the gate is promoted.
 - `--fail-on-breaking` becomes meaningful enough for CI use once accepted differences are encoded.
@@ -274,6 +275,31 @@ Evidence:
 - Governance guards pass: `pnpm check:feature-tests`, `pnpm check:cli-spec`, and `pnpm check:api-index`.
 - Implemented surfaces are promoted to `docs/internal/spec.md`, `docs/internal/typespec-roundtrip.plan.md`, and `docs/internal/feature-test-matrix.*`. `docs/internal/api-index.md` remains limited to actual package exports, so internal report helpers are not listed there.
 
+## Phase 7 — Two-Track Compatibility Sidecar
+
+Status: first slice implemented.
+
+Purpose: let OpenAPI-owned semantics and TypeSpec-authored structure coexist while the repository evaluates `.tsp` as a future authoring source.
+
+Tasks:
+
+- Generate an OA SDK compatibility sidecar from the OpenAPI artifact during `tsp-export`.
+- Restore sidecar metadata onto TypeSpec-emitted OpenAPI.
+- Include sidecar restore validation and diff evidence in `pnpm typespec:roundtrip`.
+- Keep unsupported referenced security requirements contract-bearing until explicitly accepted by sidecar policy.
+
+Gate:
+
+- `oa-gen tsp-export --sidecar` writes `oa-sdk.typespec-compat-sidecar.v1`.
+- `oa-gen tsp-restore` applies the sidecar and validates the restored OpenAPI 3.2 document.
+- Canonical roundtrip reports no sidecar restore missing targets and no restored breaking diff.
+
+Evidence:
+
+- `pnpm typespec:roundtrip -- --report /tmp/oa-sdk-typespec-roundtrip-sidecar.json` reports a compatibility sidecar with `89` entries: `79` response media examples, `9` parameter examples, and `1` security scheme.
+- Sidecar restore reports `91` applied targets and `0` missing targets. One path-level parameter entry restores to three emitted operation parameters.
+- Restored OpenAPI validation passes with `0` warnings and `0` infos, and restored breaking diff is `no`.
+
 ## Implementation Order
 
 Recommended order:
@@ -285,6 +311,7 @@ Recommended order:
 5. Phase 4 examples and mock semantics.
 6. Phase 5 security/header/tag/visibility policy.
 7. Phase 6 gate and decision prep.
+8. Phase 7 two-track compatibility sidecar.
 
 Do not start with diff normalization. Normalize only after a concrete TypeSpec/OpenAPI equivalence has been proven with source/emitted examples.
 
@@ -297,3 +324,4 @@ The version is ready when:
 - Metadata-only diagnostics are documented with owner and rationale. Current canonical evidence: `diagnosticPolicies` in the roundtrip report.
 - No TypeSpec-generated artifact becomes the canonical schema source yet.
 - Follow-up decision points are clear enough for a TSP-first ADR.
+- Two-track compatibility can restore OpenAPI-owned sidecar semantics onto TypeSpec-emitted OpenAPI without breaking endpoint diff.

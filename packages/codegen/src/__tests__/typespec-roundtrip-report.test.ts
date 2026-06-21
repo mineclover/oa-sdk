@@ -386,6 +386,111 @@ describe('TypeSpec roundtrip report', () => {
     ])
   })
 
+  it('includes compatibility sidecar restore evidence when provided', () => {
+    const document: OasDocument = {
+      openapi: '3.2.0',
+      info: { title: 'Roundtrip source', version: '0.1.0' },
+      paths: {
+        '/users': {
+          get: {
+            operationId: 'listUsers',
+            responses: {
+              '200': { description: 'Users' },
+            },
+          },
+        },
+      },
+    }
+    const exportReport: TspExportReport = {
+      schemaVersion: 'oa-gen.tsp-export-report.v1',
+      namespace: 'OaSdkApi',
+      sourceOpenapi: '3.2.0',
+      counts: {
+        componentSchemas: 0,
+        generatedModels: 0,
+        operations: 1,
+        diagnostics: 0,
+      },
+      diagnostics: [],
+    }
+
+    const report = createTypeSpecRoundtripReport({
+      namespace: 'OaSdkApi',
+      sourceOpenapiPath: '/repo/packages/schemas/src/.merged.yaml',
+      emittedOpenapiPath: '/tmp/roundtrip/openapi.yaml',
+      tspSourcePath: '/tmp/roundtrip/main.tsp',
+      workspacePath: '/tmp/roundtrip',
+      sourceDocument: document,
+      emittedDocument: document,
+      exportReport,
+      diff: diffEndpoints(document, document),
+      validation: {
+        valid: true,
+        summary: 'Valid',
+      },
+      compatibilitySidecar: {
+        sidecarPath: '/tmp/roundtrip/sidecar.json',
+        restoredOpenapiPath: '/tmp/roundtrip/openapi.restored.yaml',
+        sidecar: {
+          schemaVersion: 'oa-sdk.typespec-compat-sidecar.v1',
+          counts: {
+            entries: 1,
+            parameterExamples: 0,
+            responseMediaExamples: 1,
+            securitySchemes: 0,
+          },
+          entries: [
+            {
+              kind: 'response-media-examples',
+              pointer: '#/paths/~1users/get/responses/200/content/application~1json',
+              target: {
+                path: '/users',
+                method: 'get',
+                statusCode: '200',
+                mediaType: 'application/json',
+              },
+              value: {
+                examples: {
+                  default: { dataValue: {} },
+                },
+              },
+            },
+          ],
+        },
+        restoreReport: {
+          schemaVersion: 'oa-sdk.typespec-compat-restore-report.v1',
+          counts: {
+            entries: 1,
+            applied: 1,
+            missingTargets: 0,
+          },
+          diagnostics: [],
+        },
+        restoredDiff: diffEndpoints(document, document),
+        validation: {
+          valid: true,
+          summary: 'Valid',
+        },
+      },
+    })
+
+    expect(report.paths.compatibilitySidecar).toBe('/tmp/roundtrip/sidecar.json')
+    expect(report.paths.restoredOpenapi).toBe('/tmp/roundtrip/openapi.restored.yaml')
+    expect(report.counts.compatibilitySidecar).toEqual({
+      entries: 1,
+      parameterExamples: 0,
+      responseMediaExamples: 1,
+      securitySchemes: 0,
+    })
+    expect(report.compatibilitySidecar?.restore.counts).toEqual({
+      entries: 1,
+      applied: 1,
+      missingTargets: 0,
+    })
+    expect(report.compatibilitySidecar?.diff.breaking).toBe(0)
+    expect(report.gates.compatibilitySidecar).toBe('pass')
+  })
+
   it('groups diagnostics by code in stable order', () => {
     expect(groupDiagnosticsByCode([
       { severity: 'warning', code: 'b', pointer: '#/b', message: 'b' },

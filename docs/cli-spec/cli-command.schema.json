@@ -50,7 +50,8 @@
                   "inventory",
                   "metadata-registry",
                   "runtime-drift",
-                  "target-coverage"
+                  "target-coverage",
+                  "typespec-sidecar-restore"
                 ]
               }
             },
@@ -97,7 +98,8 @@
             "openapi-document",
             "openapi-provenance",
             "runtime-drift-report",
-            "runtime-openapi"
+            "runtime-openapi",
+            "typespec-compatibility-sidecar"
           ]
         },
         "required": { "type": "boolean" },

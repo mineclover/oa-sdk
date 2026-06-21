@@ -288,6 +288,11 @@ export const oaGenGovernanceManifest = {
             description: '변환 diagnostics JSON 출력 경로',
           },
           {
+            name: 'sidecar',
+            type: 'string',
+            description: 'TypeSpec projection 밖에 남길 OA SDK compatibility sidecar JSON 출력 경로',
+          },
+          {
             name: 'namespace',
             type: 'string',
             description: '생성할 TypeSpec namespace 이름',
@@ -300,6 +305,54 @@ export const oaGenGovernanceManifest = {
         reports: [
           { formats: ['text'], schema: 'oa-gen.tsp-export.source.v1' },
           { formats: ['json'], schema: 'oa-gen.tsp-export-report.v1' },
+          { formats: ['json'], schema: 'oa-sdk.typespec-compat-sidecar.v1' },
+        ],
+        exitPolicy: {
+          success: ['APPROVE', 'COMMENT'],
+          failure: ['REQUEST_CHANGES'],
+        },
+      },
+    },
+    {
+      id: 'tsp-restore',
+      kind: 'command',
+      name: 'tsp-restore',
+      summary: 'TypeSpec emitted OpenAPI artifact에 OA SDK compatibility sidecar를 재적용',
+      components: {
+        options: [
+          {
+            name: 'spec',
+            type: 'string',
+            short: 's',
+            required: true,
+            description: 'sidecar를 적용할 TypeSpec emitted OpenAPI YAML/JSON 경로',
+          },
+          {
+            name: 'sidecar',
+            type: 'string',
+            required: true,
+            description: 'oa-sdk.typespec-compat-sidecar.v1 JSON 경로',
+          },
+          {
+            name: 'output',
+            type: 'string',
+            short: 'o',
+            description: '복원된 OpenAPI YAML 출력 경로 (기본: stdout)',
+          },
+          {
+            name: 'report',
+            type: 'string',
+            description: 'sidecar restore report JSON 출력 경로',
+          },
+        ],
+        inputs: [
+          { name: 'spec', kind: 'openapi-document', required: true, option: 'spec' },
+          { name: 'sidecar', kind: 'typespec-compatibility-sidecar', required: true, option: 'sidecar' },
+        ],
+        checks: ['typespec-sidecar-restore'],
+        reports: [
+          { formats: ['human'], schema: 'oa-gen.tsp-restore.human.v1' },
+          { formats: ['json'], schema: 'oa-sdk.typespec-compat-restore-report.v1' },
         ],
         exitPolicy: {
           success: ['APPROVE', 'COMMENT'],

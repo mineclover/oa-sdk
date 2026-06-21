@@ -21,6 +21,7 @@ import { duplicateReview } from './commands/duplicate-review.js'
 import { targetCheck } from './commands/target-check.js'
 import { reviewBundle } from './commands/review-bundle.js'
 import { tspExport } from './commands/tsp-export.js'
+import { tspRestore } from './commands/tsp-restore.js'
 
 export const commands: Command[] = [
   generate,
@@ -35,6 +36,7 @@ export const commands: Command[] = [
   upgrade,
   collect,
   tspExport,
+  tspRestore,
   scaffoldGovernance,
   inventory,
   behaviorQuery,

@@ -11,10 +11,13 @@ Versioned implementation planning lives under [`typespec-roundtrip/`](./typespec
 Implemented source:
 
 - `packages/codegen/src/cli/lib/tsp-export.ts` — OpenAPI artifact to TypeSpec source exporter and diagnostics report.
+- `packages/codegen/src/cli/lib/typespec-sidecar.ts` — OA SDK-owned TypeSpec compatibility sidecar creation and restore.
 - `packages/codegen/src/cli/lib/typespec-roundtrip-report.ts` — roundtrip report assembly, diagnostic ownership classification, and readiness gates.
 - `packages/codegen/src/cli/commands/tsp-export.ts` — `oa-gen tsp-export --spec <openapi.yaml> --output <main.tsp> --report <report.json>`.
+- `packages/codegen/src/cli/commands/tsp-restore.ts` — `oa-gen tsp-restore --spec <emitted.yaml> --sidecar <sidecar.json> --output <restored.yaml>`.
 - `scripts/typespec-roundtrip.ts` — reproducible probe for export, TypeSpec compile, emitted OpenAPI validation, and OpenAPI diff.
 - `packages/codegen/src/__tests__/tsp-export.test.ts` — focused exporter coverage.
+- `packages/codegen/src/__tests__/typespec-sidecar.test.ts` — compatibility sidecar creation/restore coverage.
 - `packages/codegen/src/__tests__/openapi-breaking-diff.test.ts` — proven TypeSpec/OpenAPI shape equivalence coverage.
 - `packages/codegen/src/__tests__/typespec-roundtrip-report.test.ts` — machine-readable report and diagnostic policy coverage.
 
@@ -30,10 +33,12 @@ The evaluation loop must preserve both specs instead of forcing one vocabulary t
 
 1. Start from the current OA SDK OpenAPI artifact: `packages/schemas/src/.merged.yaml`.
 2. Export candidate TypeSpec source with `oa-gen tsp-export`.
-3. Compile the `.tsp` project through `@typespec/openapi3` with OpenAPI `3.2.0`.
-4. Validate the emitted OpenAPI with OA SDK's own `validateDocument(..., requireOpenApi32: true)`.
-5. Diff original OpenAPI against emitted OpenAPI with OA SDK's breaking diff.
-6. Classify every difference as one of:
+3. Write an OA SDK compatibility sidecar for OpenAPI-owned metadata that TypeSpec should not pretend to own.
+4. Compile the `.tsp` project through `@typespec/openapi3` with OpenAPI `3.2.0`.
+5. Restore sidecar metadata onto the emitted OpenAPI.
+6. Validate both emitted and restored OpenAPI with OA SDK's own `validateDocument(..., requireOpenApi32: true)`.
+7. Diff original OpenAPI against emitted/restored OpenAPI with OA SDK's breaking diff.
+8. Classify every difference as one of:
    - TypeSpec can express it and the exporter is missing the mapping.
    - TypeSpec can express it, but OA SDK needs an authoring convention.
    - TypeSpec emits a different but acceptable OpenAPI shape.
@@ -46,9 +51,11 @@ pnpm typespec:roundtrip
 pnpm typespec:roundtrip -- --report artifacts/typespec-roundtrip-report.json
 pnpm typespec:roundtrip -- --keep
 pnpm typespec:roundtrip -- --fail-on-breaking
+oa-gen tsp-export --spec packages/schemas/src/.merged.yaml --output artifacts/main.tsp --sidecar artifacts/typespec-sidecar.json
+oa-gen tsp-restore --spec artifacts/typespec-emitted.yaml --sidecar artifacts/typespec-sidecar.json --output artifacts/typespec-restored.yaml
 ```
 
-The default probe is a visibility command: it exits 0 when export, TypeSpec compile, and OA SDK validation pass, even if semantic diff remains. `--fail-on-breaking` is the readiness gate. It is expected to fail until the remaining semantic differences are either removed or explicitly accepted.
+The default probe is a visibility command: it exits 0 when export, TypeSpec compile, and OA SDK validation pass, even if semantic diff remains. `--fail-on-breaking` is the readiness gate; the current canonical artifact passes it, and future semantic regressions must either be removed or explicitly accepted by policy.
 
 ## Current Evidence
 
@@ -64,7 +71,10 @@ Current probe on `packages/schemas/src/.merged.yaml`:
 | Generated `.tsp` size | 1067 lines |
 | Export diagnostics | 91 |
 | Export diagnostics gate | pass, 91 accepted and 0 unaccepted |
+| Compatibility sidecar | 89 entries: 79 response media examples, 9 parameter examples, 1 security scheme |
+| Sidecar restore | pass, 91 applied targets and 0 missing targets |
 | Breaking diff | 0 breaking changes across 0 modified operations |
+| Restored breaking diff | 0 breaking changes across 0 modified operations |
 
 Diagnostic distribution:
 
@@ -86,6 +96,7 @@ Current endpoint diff:
 - No endpoint changes are detected by OA SDK diff.
 - Component schemas remain `28 -> 32`; the four additional schemas are accepted TypeSpec projection artifacts: `ErrorMeta`, `ListModerationReports200Body`, `ListMyRoleChanges200Body`, and `ListUsers200Body`.
 - The roundtrip report now records per-diagnostic ownership and rationale. The current fixture has no unaccepted exporter diagnostics.
+- The compatibility sidecar restores examples/security metadata that is intentionally outside the TypeSpec projection. One path-level parameter entry restores to three emitted operation parameters, so restore applied target count is higher than sidecar entry count.
 
 ## Intersection
 
@@ -107,8 +118,8 @@ This is enough to keep path and operation identity stable and to run a machine-r
 
 Before a TSP-first declaration, close or explicitly accept these gaps:
 
-1. OAuth2 component policy: the current unused OAuth2 scheme is classified as OpenAPI-side metadata; any referenced unsupported security scheme remains contract-bearing.
-2. Parameter and response media examples: OA SDK `dataValue` / `serializedValue` examples are externalized to OpenAPI-owned example sidecar/runtime ownership so mock-server priority is not weakened.
+1. OAuth2 component policy: the current unused OAuth2 scheme is classified as OpenAPI-side metadata and restored through the compatibility sidecar; any referenced unsupported security scheme remains contract-bearing until its sidecar semantics are explicitly accepted.
+2. Parameter and response media examples: OA SDK `dataValue` / `serializedValue` examples are externalized to the compatibility sidecar so mock-server priority is not weakened.
 3. Untyped schema policy: `ValidationError.received` is the only accepted `unknown` escape hatch; any new untyped schema still emits `schema/type-unknown`.
 4. Visibility and annotations: map readOnly/writeOnly/annotations only after the OA SDK visibility policy is explicit.
 5. Component projection policy: keep the accepted extra TypeSpec schemas visible in the roundtrip report or eliminate them if they become confusing for release review.
@@ -122,3 +133,4 @@ Declare TSP-first only when:
 - All exporter diagnostics are either zero for contract-bearing surfaces or categorized as accepted metadata loss.
 - The authoring guide says which facts belong in `.tsp`, which remain OpenAPI sidecars/extensions, and which remain OA SDK runtime data.
 - The generated OpenAPI remains valid under OA SDK's OpenAPI 3.2 gate and downstream codegen/router/client/mock-server tests.
+- The compatibility sidecar schema is stable enough for authored `.tsp + sidecar` fixtures, not only generated sidecars.

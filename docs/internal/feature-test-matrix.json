@@ -272,9 +272,11 @@
       "name": "TypeSpec roundtrip export",
       "category": "codegen",
       "package": "@oa-sdk/codegen",
-      "description": "OpenAPI artifacts can be exported to TypeSpec spike source, compiled back through the TypeSpec OpenAPI emitter, validated by OA SDK, diffed, and classified with diagnostic policy gates for TSP-first readiness.",
+      "description": "OpenAPI artifacts can be exported to TypeSpec spike source plus OA SDK sidecar metadata, compiled back through the TypeSpec OpenAPI emitter, restored, validated by OA SDK, diffed, and classified with diagnostic policy gates for TSP-first readiness.",
       "capabilities": [
         "OpenAPI to TypeSpec source export",
+        "OpenAPI-owned TypeSpec compatibility sidecar",
+        "sidecar restore into TypeSpec-emitted OpenAPI",
         "export diagnostics report",
         "TypeSpec OpenAPI 3.2 emitter probe",
         "OA SDK validation of emitted OpenAPI",
@@ -283,13 +285,15 @@
       ],
       "testPaths": [
         "packages/codegen/src/__tests__/tsp-export.test.ts",
+        "packages/codegen/src/__tests__/typespec-sidecar.test.ts",
+        "packages/codegen/src/__tests__/cli-tsp-sidecar.test.ts",
         "packages/codegen/src/__tests__/openapi-breaking-diff.test.ts",
         "packages/codegen/src/__tests__/typespec-roundtrip-report.test.ts",
         "scripts/typespec-roundtrip.ts",
         "docs/internal/typespec-roundtrip.plan.md"
       ],
       "commands": [
-        "pnpm --filter @oa-sdk/codegen test -- src/__tests__/tsp-export.test.ts src/__tests__/openapi-breaking-diff.test.ts src/__tests__/typespec-roundtrip-report.test.ts",
+        "pnpm --filter @oa-sdk/codegen test -- src/__tests__/tsp-export.test.ts src/__tests__/typespec-sidecar.test.ts src/__tests__/openapi-breaking-diff.test.ts src/__tests__/typespec-roundtrip-report.test.ts",
         "pnpm --filter @oa-sdk/codegen typecheck",
         "pnpm typespec:roundtrip"
       ]

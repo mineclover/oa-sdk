@@ -12,7 +12,12 @@ import { dirname, join, relative, resolve } from 'node:path'
 import { execa } from 'execa'
 import { stringify } from 'yaml'
 import { loadSpecWithPath } from '../packages/codegen/src/cli/lib/load-spec.js'
+import { stringifyOpenApiYaml } from '../packages/codegen/src/cli/lib/openapi-collect.js'
 import { exportOpenApiToTypeSpec } from '../packages/codegen/src/cli/lib/tsp-export.js'
+import {
+  applyTypeSpecCompatibilitySidecar,
+  createTypeSpecCompatibilitySidecar,
+} from '../packages/codegen/src/cli/lib/typespec-sidecar.js'
 import {
   diffEndpoints,
   formatMarkdown,
@@ -39,13 +44,17 @@ async function main(): Promise<void> {
   const tspPath = join(workspace, 'main.tsp')
   const tspConfigPath = join(workspace, 'tspconfig.yaml')
   const reportPath = join(workspace, 'tsp-export-report.json')
+  const sidecarPath = join(workspace, 'oa-sdk-typespec-sidecar.json')
+  const restoredPath = join(workspace, 'openapi.restored.yaml')
 
   try {
     linkWorkspaceNodeModules(workspace)
     const { document } = loadSpecWithPath(specPath)
     const exported = exportOpenApiToTypeSpec(document, { namespace: args.namespace })
+    const sidecar = createTypeSpecCompatibilitySidecar(document)
     writeFileSync(tspPath, exported.source)
     writeFileSync(reportPath, `${JSON.stringify(exported.report, null, 2)}\n`)
+    writeFileSync(sidecarPath, `${JSON.stringify(sidecar, null, 2)}\n`)
     writeFileSync(tspConfigPath, createTspConfig())
 
     await execa('pnpm', ['exec', 'tsp', 'compile', workspace, '--output-dir', outputDir], {
@@ -68,8 +77,21 @@ async function main(): Promise<void> {
       process.exit(1)
     }
 
+    const restored = applyTypeSpecCompatibilitySidecar(emittedDocument, sidecar)
+    writeFileSync(restoredPath, stringifyOpenApiYaml(restored.document))
+    const restoredValidation = validateDocument(restored.document, {
+      basePath: restoredPath,
+      requireOpenApi32: true,
+    })
+    if (!restoredValidation.valid) {
+      console.error(restoredValidation.summary)
+      process.exit(1)
+    }
+
     const diff = diffEndpoints(document, emittedDocument)
+    const restoredDiff = diffEndpoints(document, restored.document)
     const breaking = hasBreakingChanges(diff)
+    const restoredBreaking = hasBreakingChanges(restoredDiff)
     const roundtripReport = createTypeSpecRoundtripReport({
       namespace: exported.report.namespace,
       sourceOpenapiPath: specPath,
@@ -83,6 +105,17 @@ async function main(): Promise<void> {
       validation: {
         valid: validation.valid,
         summary: validation.summary,
+      },
+      compatibilitySidecar: {
+        sidecarPath,
+        restoredOpenapiPath: restoredPath,
+        sidecar,
+        restoreReport: restored.report,
+        restoredDiff,
+        validation: {
+          valid: restoredValidation.valid,
+          summary: restoredValidation.summary,
+        },
       },
     })
     if (args.report) {
@@ -98,19 +131,24 @@ async function main(): Promise<void> {
     console.log(`  workspace: ${workspace}`)
     console.log(`  tsp: ${relative(workspace, tspPath)}`)
     console.log(`  emitted: ${relative(workspace, emittedPath)}`)
+    console.log(`  sidecar: ${relative(workspace, sidecarPath)}`)
+    console.log(`  restored: ${relative(workspace, restoredPath)}`)
     if (args.report) console.log(`  report: ${relative(root, resolve(root, args.report))}`)
     console.log(`  export diagnostics: ${roundtripReport.counts.exportDiagnostics}`)
     const acceptedDiagnostics = countAcceptedDiagnostics(roundtripReport.diagnostics)
     const unacceptedDiagnostics = countUnacceptedDiagnostics(roundtripReport.diagnostics)
     console.log(`  export diagnostics gate: ${roundtripReport.gates.exportDiagnostics} (${acceptedDiagnostics} accepted, ${unacceptedDiagnostics} unaccepted)`)
+    console.log(`  compatibility sidecar: ${sidecar.counts.entries} entries, restore ${roundtripReport.gates.compatibilitySidecar}`)
     console.log(`  operations: ${roundtripReport.counts.operations.source} -> ${roundtripReport.counts.operations.emitted}`)
     console.log(`  component schemas: ${roundtripReport.counts.componentSchemas.source} -> ${roundtripReport.counts.componentSchemas.emitted}`)
     console.log(`  validation: ${validation.summary}`)
+    console.log(`  restored validation: ${restoredValidation.summary}`)
     console.log(`  breaking diff: ${breaking ? 'yes' : 'no'}`)
+    console.log(`  restored breaking diff: ${restoredBreaking ? 'yes' : 'no'}`)
     console.log('')
     console.log(formatMarkdown(diff))
 
-    if (breaking && args.failOnBreaking) {
+    if ((breaking || restoredBreaking || roundtripReport.gates.compatibilitySidecar === 'fail') && args.failOnBreaking) {
       process.exit(1)
     }
   } finally {

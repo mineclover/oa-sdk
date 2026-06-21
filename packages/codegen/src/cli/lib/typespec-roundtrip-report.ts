@@ -1,5 +1,9 @@
 import type { OasDocument } from '@oa-sdk/parser'
 import type { TspExportDiagnostic, TspExportReport } from './tsp-export.js'
+import type {
+  TypeSpecCompatibilityRestoreReport,
+  TypeSpecCompatibilitySidecar,
+} from './typespec-sidecar.js'
 import {
   classifyBreakingChanges,
   classifyNonBreakingChanges,
@@ -51,6 +55,8 @@ export type TypeSpecRoundtripReport = {
     emittedOpenapi: string
     tspSource: string
     workspace: string
+    compatibilitySidecar?: string
+    restoredOpenapi?: string
   }
   counts: {
     operations: {
@@ -69,6 +75,7 @@ export type TypeSpecRoundtripReport = {
       breaking: number
       nonBreaking: number
     }
+    compatibilitySidecar?: TypeSpecCompatibilitySidecar['counts']
   }
   validation: {
     valid: boolean
@@ -94,9 +101,29 @@ export type TypeSpecRoundtripReport = {
     breaking: ContractDiffChange[]
     nonBreaking: ContractDiffChange[]
   }
+  compatibilitySidecar?: {
+    counts: TypeSpecCompatibilitySidecar['counts']
+    restore: TypeSpecCompatibilityRestoreReport
+    validation: {
+      valid: boolean
+      summary: string
+    }
+    diff: {
+      added: number
+      removed: number
+      modified: number
+      breaking: number
+      nonBreaking: number
+    }
+    changes: {
+      breaking: ContractDiffChange[]
+      nonBreaking: ContractDiffChange[]
+    }
+  }
   gates: {
     breakingDiff: 'pass' | 'fail'
     exportDiagnostics: 'pass' | 'fail'
+    compatibilitySidecar?: 'pass' | 'fail'
   }
 }
 
@@ -114,6 +141,17 @@ export type CreateTypeSpecRoundtripReportInput = {
     valid: boolean
     summary: string
   }
+  compatibilitySidecar?: {
+    sidecarPath: string
+    restoredOpenapiPath: string
+    sidecar: TypeSpecCompatibilitySidecar
+    restoreReport: TypeSpecCompatibilityRestoreReport
+    restoredDiff: DiffResult
+    validation: {
+      valid: boolean
+      summary: string
+    }
+  }
 }
 
 export function createTypeSpecRoundtripReport(
@@ -121,6 +159,12 @@ export function createTypeSpecRoundtripReport(
 ): TypeSpecRoundtripReport {
   const breakingChanges = classifyBreakingChanges(input.diff)
   const nonBreakingChanges = classifyNonBreakingChanges(input.diff)
+  const restoredBreakingChanges = input.compatibilitySidecar
+    ? classifyBreakingChanges(input.compatibilitySidecar.restoredDiff)
+    : []
+  const restoredNonBreakingChanges = input.compatibilitySidecar
+    ? classifyNonBreakingChanges(input.compatibilitySidecar.restoredDiff)
+    : []
   const diagnostics = input.exportReport.diagnostics.map(diagnostic => ({
     ...diagnostic,
     policy: classifyExportDiagnostic(diagnostic, input.sourceDocument),
@@ -133,6 +177,12 @@ export function createTypeSpecRoundtripReport(
       emittedOpenapi: input.emittedOpenapiPath,
       tspSource: input.tspSourcePath,
       workspace: input.workspacePath,
+      ...(input.compatibilitySidecar
+        ? {
+            compatibilitySidecar: input.compatibilitySidecar.sidecarPath,
+            restoredOpenapi: input.compatibilitySidecar.restoredOpenapiPath,
+          }
+        : {}),
     },
     counts: {
       operations: {
@@ -151,6 +201,7 @@ export function createTypeSpecRoundtripReport(
         breaking: breakingChanges.length,
         nonBreaking: nonBreakingChanges.length,
       },
+      ...(input.compatibilitySidecar ? { compatibilitySidecar: input.compatibilitySidecar.sidecar.counts } : {}),
     },
     validation: input.validation,
     diagnosticsByCode: groupDiagnosticsByCode(input.exportReport.diagnostics),
@@ -169,9 +220,38 @@ export function createTypeSpecRoundtripReport(
       breaking: breakingChanges,
       nonBreaking: nonBreakingChanges,
     },
+    ...(input.compatibilitySidecar
+      ? {
+          compatibilitySidecar: {
+            counts: input.compatibilitySidecar.sidecar.counts,
+            restore: input.compatibilitySidecar.restoreReport,
+            validation: input.compatibilitySidecar.validation,
+            diff: {
+              added: input.compatibilitySidecar.restoredDiff.added.length,
+              removed: input.compatibilitySidecar.restoredDiff.removed.length,
+              modified: input.compatibilitySidecar.restoredDiff.modified.length,
+              breaking: restoredBreakingChanges.length,
+              nonBreaking: restoredNonBreakingChanges.length,
+            },
+            changes: {
+              breaking: restoredBreakingChanges,
+              nonBreaking: restoredNonBreakingChanges,
+            },
+          },
+        }
+      : {}),
     gates: {
       breakingDiff: breakingChanges.length > 0 ? 'fail' : 'pass',
       exportDiagnostics: diagnostics.some(diagnostic => !diagnostic.policy.accepted) ? 'fail' : 'pass',
+      ...(input.compatibilitySidecar
+        ? {
+            compatibilitySidecar: input.compatibilitySidecar.validation.valid
+              && restoredBreakingChanges.length === 0
+              && input.compatibilitySidecar.restoreReport.counts.missingTargets === 0
+              ? 'pass'
+              : 'fail',
+          }
+        : {}),
     },
   }
 }
