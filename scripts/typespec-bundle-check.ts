@@ -7,10 +7,21 @@
  * OpenAPI artifact.
  */
 
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import {
+  existsSync,
+  lstatSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join, relative, resolve } from 'node:path'
 import { execa } from 'execa'
+import { parse as parseYaml } from 'yaml'
 import {
   parseTypeSpecBundleManifest,
   resolveTypeSpecBundleManifestPaths,
@@ -146,7 +157,8 @@ async function main(): Promise<void> {
   const restoredPath = args.output ? resolve(root, args.output) : join(workspace, 'openapi.restored.yaml')
 
   try {
-    await execa('pnpm', ['exec', 'tsp', 'compile', projectPath, '--output-dir', outputDir], {
+    const compileProjectPath = prepareCompileProject(bundle, workspace)
+    await execa('pnpm', createCompileArgs(compileProjectPath, outputDir), {
       cwd: root,
       stdio: 'inherit',
     })
@@ -369,9 +381,74 @@ function loadBundleConfig(projectPath: string, args: Args): BundleConfig {
       : manifestPaths?.sidecarPath ?? join(projectPath, 'oa-sdk.typespec-compat-sidecar.json'),
     expectedPath: args.expected
       ? resolve(root, args.expected)
-      : manifestPaths?.expectedOpenapiPath ?? join(projectPath, 'expected.openapi.yaml'),
+      : manifestPaths?.expectedOpenapiPath ?? (manifest ? undefined : join(projectPath, 'expected.openapi.yaml')),
     ...(manifest ? { manifest } : {}),
   }
+}
+
+function prepareCompileProject(bundle: BundleConfig, workspace: string): string {
+  if (bundle.source !== 'manifest') return bundle.projectPath
+  const configPath = findTypeSpecConfig(bundle.projectPath)
+  if (configPath) {
+    assertManifestEntrypointMatchesConfig(bundle, configPath)
+    return bundle.projectPath
+  }
+  const compileProjectPath = join(workspace, 'typespec-project')
+  mkdirSync(compileProjectPath, { recursive: true })
+  for (const entry of readdirSync(bundle.projectPath)) {
+    if (entry === 'node_modules' || entry === 'tspconfig.yaml' || entry === 'tspconfig.yml') continue
+    const sourcePath = join(bundle.projectPath, entry)
+    const targetPath = join(compileProjectPath, entry)
+    symlinkSync(sourcePath, targetPath, lstatSync(sourcePath).isDirectory() ? 'dir' : 'file')
+  }
+  const nodeModulesPath = join(root, 'node_modules')
+  if (!existsSync(nodeModulesPath)) throw new Error(`node_modules does not exist: ${relative(root, nodeModulesPath)}`)
+  symlinkSync(nodeModulesPath, join(compileProjectPath, 'node_modules'), 'dir')
+  const openapiVersion = bundle.manifest?.compatibility?.openapiVersion ?? '3.2.0'
+  const entrypoint = bundle.manifest?.entrypoint ?? 'main.tsp'
+  writeFileSync(join(compileProjectPath, 'tspconfig.yaml'), [
+    'kind: project',
+    `entrypoint: ${JSON.stringify(entrypoint)}`,
+    'emit:',
+    '  - "@typespec/openapi3"',
+    'options:',
+    '  "@typespec/openapi3":',
+    '    openapi-versions:',
+    `      - ${JSON.stringify(openapiVersion)}`,
+    '',
+  ].join('\n'))
+  return compileProjectPath
+}
+
+function findTypeSpecConfig(projectPath: string): string | undefined {
+  const yamlPath = join(projectPath, 'tspconfig.yaml')
+  if (existsSync(yamlPath)) return yamlPath
+  const ymlPath = join(projectPath, 'tspconfig.yml')
+  if (existsSync(ymlPath)) return ymlPath
+  return undefined
+}
+
+function assertManifestEntrypointMatchesConfig(bundle: BundleConfig, configPath: string): void {
+  const config = parseYaml(readFileSync(configPath, 'utf8')) as unknown
+  const configEntrypoint = isRecord(config) && typeof config.entrypoint === 'string' && config.entrypoint.trim() !== ''
+    ? config.entrypoint
+    : 'main.tsp'
+  const manifestEntrypoint = bundle.manifest?.entrypoint ?? 'main.tsp'
+  if (normalizeBundleRelativePath(configEntrypoint) !== normalizeBundleRelativePath(manifestEntrypoint)) {
+    throw new Error(`manifest entrypoint ${manifestEntrypoint} does not match ${relative(root, configPath)} entrypoint ${configEntrypoint}`)
+  }
+}
+
+function normalizeBundleRelativePath(path: string): string {
+  return path.split('\\').join('/').replace(/^\.\//, '')
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+function createCompileArgs(projectPath: string, outputDir: string): string[] {
+  return ['exec', 'tsp', 'compile', projectPath, '--output-dir', outputDir]
 }
 
 function assertFileExists(path: string, label: string): void {

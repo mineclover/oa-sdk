@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { existsSync, mkdirSync, readFileSync, rmSync } from 'node:fs'
+import { copyFileSync, cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { spawnSync } from 'node:child_process'
 import { join, resolve } from 'node:path'
 import {
@@ -63,6 +63,31 @@ describe('authored TypeSpec compatibility bundle', () => {
       restoredValidation: 'pass',
       expectedDiff: 'pass',
     })
+  })
+
+  it('rejects a manifest entrypoint that diverges from the TypeSpec project config', () => {
+    const bundleDir = join(tmpDir, 'bundle')
+    cpSync(fixtureDir, bundleDir, { recursive: true })
+    copyFileSync(join(bundleDir, 'main.tsp'), join(bundleDir, 'alternate.tsp'))
+    const manifestPath = join(bundleDir, 'oa-sdk.typespec-bundle.json')
+    const manifest = JSON.parse(readFileSync(manifestPath, 'utf8')) as Record<string, unknown>
+    writeFileSync(manifestPath, `${JSON.stringify({
+      ...manifest,
+      entrypoint: 'alternate.tsp',
+    }, null, 2)}\n`)
+
+    const check = spawnSync('pnpm', [
+      'typespec:bundle-check',
+      '--',
+      '--manifest',
+      manifestPath,
+    ], {
+      cwd: rootDir,
+      encoding: 'utf8',
+    })
+
+    expect(check.status).not.toBe(0)
+    expect(`${check.stdout}\n${check.stderr}`).toContain('manifest entrypoint alternate.tsp does not match')
   })
 
   it('compiles authored .tsp, restores sidecar metadata, and matches the expected OpenAPI surface', () => {

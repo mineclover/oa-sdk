@@ -296,6 +296,7 @@ Gate:
 - `oa-gen tsp-export --bundle-manifest` writes `oa-sdk.typespec-bundle.v1` and requires both `--output` and `--sidecar`.
 - `oa-gen tsp-restore` applies the sidecar and validates the restored OpenAPI 3.2 document.
 - `oa-gen tsp-restore --stability-report` writes `oa-sdk.typespec-compat-compare-report.v1` and fails on missing expected entries, unexpected actual entries, or value mismatches.
+- `pnpm typespec:bundle-check -- --manifest <generated>` accepts the generated `oa-sdk.typespec-bundle.v1` without requiring `expectedOpenapi`.
 - Canonical roundtrip reports no sidecar restore missing targets and no restored breaking diff.
 - Canonical roundtrip reports no sidecar re-extraction drift.
 
@@ -303,6 +304,7 @@ Evidence:
 
 - `pnpm typespec:roundtrip -- --report /tmp/oa-sdk-typespec-roundtrip-sidecar.json` reports a compatibility sidecar with `89` entries: `79` response media examples, `9` parameter examples, and `1` security scheme.
 - The roundtrip workspace includes `oa-sdk.typespec-bundle.v1`, and the roundtrip report records its path.
+- A generated bundle manifest can be fed back into `pnpm typespec:bundle-check -- --manifest <generated> --report <report>`; with no `expectedOpenapi`, the report omits `gates.expectedDiff` and still gates TypeSpec compile, sidecar restore/re-extraction stability, and emitted/restored OpenAPI 3.2 validation.
 - Sidecar restore reports `91` applied targets and `0` missing targets. One path-level parameter entry restores to three emitted operation parameters.
 - Sidecar re-extraction reports `89/89` expected entries satisfied, `91/91` actual entries covered, and `0` missing expected entries, unexpected actual entries, or value mismatches.
 - Restored OpenAPI validation passes with `0` warnings and `0` infos, and restored breaking diff is `no`.
@@ -354,6 +356,7 @@ Recommended order:
 9. Phase 8 authored bundle check.
 
 Do not start with diff normalization. Normalize only after a concrete TypeSpec/OpenAPI equivalence has been proven with source/emitted examples.
+Generated bundle re-check belongs to Phase 7 because it proves generated bundle portability; Phase 8 separately proves authored input viability.
 
 ## Exit Criteria For `@oa-sdk/codegen@0.3.0`
 
@@ -365,5 +368,6 @@ The version is ready when:
 - No TypeSpec-generated artifact becomes the canonical schema source yet.
 - Follow-up decision points are clear enough for a TSP-first ADR.
 - Two-track compatibility can restore OpenAPI-owned sidecar semantics onto TypeSpec-emitted OpenAPI without breaking endpoint diff.
+- Generated `.tsp + sidecar` bundles are portable enough to be rechecked through `oa-sdk.typespec-bundle.v1` without the original OpenAPI artifact.
 - Authored `.tsp + sidecar` fixtures are declared through `oa-sdk.typespec-bundle.v1` and pass the bundle check with every currently accepted sidecar entry kind represented.
 - Sidecar restore is semantically stable after re-extraction from restored OpenAPI, with no missing expected entries, unexpected actual entries, or value mismatches.

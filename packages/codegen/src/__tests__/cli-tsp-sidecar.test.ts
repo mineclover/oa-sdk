@@ -17,6 +17,7 @@ import type {
 } from '../cli/lib/typespec-sidecar.js'
 
 const pkgDir = resolve(__dirname, '../..')
+const rootDir = resolve(pkgDir, '../..')
 const cliPath = resolve(pkgDir, 'dist/cli/index.js')
 const tmpBase = resolve(pkgDir, '.tmp-cli-tsp-sidecar-test')
 
@@ -136,6 +137,29 @@ describe('oa-gen TypeSpec sidecar CLI', () => {
       responseMediaExamples: 1,
       securitySchemes: 1,
     })
+    const bundleReportPath = join(tmpDir, 'bundle-check-report.json')
+    const bundleCheck = spawnSync('pnpm', [
+      'typespec:bundle-check',
+      '--',
+      '--manifest', bundleManifestPath,
+      '--report', bundleReportPath,
+    ], {
+      cwd: rootDir,
+      encoding: 'utf8',
+    })
+    expect(bundleCheck.status, `${bundleCheck.stdout}\n${bundleCheck.stderr}`).toBe(0)
+    const bundleReport = JSON.parse(readFileSync(bundleReportPath, 'utf8')) as Record<string, any>
+    expect(bundleReport.bundle).toEqual({
+      source: 'manifest',
+      schemaVersion: 'oa-sdk.typespec-bundle.v1',
+      compatibility: {
+        openapiVersion: '3.2.0',
+        sidecarSchemaVersion: 'oa-sdk.typespec-compat-sidecar.v1',
+      },
+    })
+    expect(bundleReport.gates.compatibilitySidecar).toBe('pass')
+    expect(bundleReport.gates.restoredValidation).toBe('pass')
+    expect(bundleReport.gates.expectedDiff).toBeUndefined()
 
     const restoreResult = runCli([
       'tsp-restore',
