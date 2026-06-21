@@ -457,12 +457,51 @@ describe('TypeSpec roundtrip report', () => {
             },
           ],
         },
+        reExtractedSidecar: {
+          schemaVersion: 'oa-sdk.typespec-compat-sidecar.v1',
+          counts: {
+            entries: 1,
+            parameterExamples: 0,
+            responseMediaExamples: 1,
+            securitySchemes: 0,
+          },
+          entries: [
+            {
+              kind: 'response-media-examples',
+              pointer: '#/paths/~1users/get/responses/200/content/application~1json',
+              target: {
+                path: '/users',
+                method: 'get',
+                statusCode: '200',
+                mediaType: 'application/json',
+              },
+              value: {
+                examples: {
+                  default: { dataValue: {} },
+                },
+              },
+            },
+          ],
+        },
         restoreReport: {
           schemaVersion: 'oa-sdk.typespec-compat-restore-report.v1',
           counts: {
             entries: 1,
             applied: 1,
             missingTargets: 0,
+          },
+          diagnostics: [],
+        },
+        stabilityReport: {
+          schemaVersion: 'oa-sdk.typespec-compat-compare-report.v1',
+          counts: {
+            expectedEntries: 1,
+            actualEntries: 1,
+            expectedSatisfied: 1,
+            actualCovered: 1,
+            missingExpected: 0,
+            unexpectedActual: 0,
+            valueMismatches: 0,
           },
           diagnostics: [],
         },
@@ -482,10 +521,25 @@ describe('TypeSpec roundtrip report', () => {
       responseMediaExamples: 1,
       securitySchemes: 0,
     })
+    expect(report.compatibilitySidecar?.reExtractedCounts).toEqual({
+      entries: 1,
+      parameterExamples: 0,
+      responseMediaExamples: 1,
+      securitySchemes: 0,
+    })
     expect(report.compatibilitySidecar?.restore.counts).toEqual({
       entries: 1,
       applied: 1,
       missingTargets: 0,
+    })
+    expect(report.compatibilitySidecar?.stability.counts).toEqual({
+      expectedEntries: 1,
+      actualEntries: 1,
+      expectedSatisfied: 1,
+      actualCovered: 1,
+      missingExpected: 0,
+      unexpectedActual: 0,
+      valueMismatches: 0,
     })
     expect(report.compatibilitySidecar?.diff.breaking).toBe(0)
     expect(report.gates.compatibilitySidecar).toBe('pass')

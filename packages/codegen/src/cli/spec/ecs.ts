@@ -12,6 +12,7 @@ export type CliCheckKind =
   | 'runtime-drift'
   | 'target-coverage'
   | 'typespec-sidecar-restore'
+  | 'typespec-sidecar-stability'
 
 export type CliInputKind =
   | 'behavior-store'

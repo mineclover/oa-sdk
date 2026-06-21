@@ -2,7 +2,12 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { existsSync, mkdirSync, readFileSync, rmSync } from 'node:fs'
 import { spawnSync } from 'node:child_process'
 import { join, resolve } from 'node:path'
-import { applyTypeSpecCompatibilitySidecar, parseTypeSpecCompatibilitySidecar } from '../cli/lib/typespec-sidecar.js'
+import {
+  applyTypeSpecCompatibilitySidecar,
+  compareTypeSpecCompatibilitySidecars,
+  createTypeSpecCompatibilitySidecar,
+  parseTypeSpecCompatibilitySidecar,
+} from '../cli/lib/typespec-sidecar.js'
 import { loadSpecWithPath } from '../cli/lib/load-spec.js'
 import { diffEndpoints, hasBreakingChanges } from '../cli/lib/openapi-breaking-diff.js'
 import { validateDocument } from '@oa-sdk/parser'
@@ -59,6 +64,16 @@ describe('authored TypeSpec compatibility bundle', () => {
       entries: 3,
       applied: 3,
       missingTargets: 0,
+    })
+    const reExtractedSidecar = createTypeSpecCompatibilitySidecar(restored.document)
+    expect(compareTypeSpecCompatibilitySidecars(sidecar, reExtractedSidecar).counts).toEqual({
+      expectedEntries: 3,
+      actualEntries: 3,
+      expectedSatisfied: 3,
+      actualCovered: 3,
+      missingExpected: 0,
+      unexpectedActual: 0,
+      valueMismatches: 0,
     })
 
     const { document: expected } = loadSpecWithPath(join(fixtureDir, 'expected.openapi.yaml'))

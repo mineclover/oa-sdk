@@ -50,7 +50,7 @@ SWC에서 참조하는 패턴:
 ## Phase별 현황
 
 ### Next — TypeSpec roundtrip readiness (`@oa-sdk/codegen` v0.3.0)
-OpenAPI artifact를 `.tsp`와 OA SDK compatibility sidecar로 변환한 뒤 TypeSpec OpenAPI emitter와 sidecar restore를 거쳐 다시 OA SDK 검증/diff 루프에 넣고, authored `.tsp + sidecar` bundle도 같은 검증 루프에 넣는 전환 가능성 평가 트랙입니다. 현재 `oa-gen tsp-export`, `oa-gen tsp-restore`, `pnpm typespec:roundtrip -- --fail-on-breaking`, `pnpm typespec:bundle-check -- --fail-on-breaking`이 동작합니다.
+OpenAPI artifact를 `.tsp`와 OA SDK compatibility sidecar로 변환한 뒤 TypeSpec OpenAPI emitter와 sidecar restore/re-extract를 거쳐 다시 OA SDK 검증/diff 루프에 넣고, authored `.tsp + sidecar` bundle도 같은 검증 루프에 넣는 전환 가능성 평가 트랙입니다. 현재 `oa-gen tsp-export`, `oa-gen tsp-restore --stability-report`, `pnpm typespec:roundtrip -- --fail-on-breaking`, `pnpm typespec:bundle-check -- --fail-on-breaking`이 동작합니다.
 
 목표는 즉시 TSP-first를 선언하는 것이 아니라 다음 `@oa-sdk/codegen` minor에서 roundtrip gap을 줄이고, `.tsp`가 맡을 구조 계약과 OA SDK sidecar가 맡을 runtime/mock/example metadata를 양방향 호환 가능하게 분리하는 것입니다. 상세 로드맵은 [typespec-roundtrip/v0.3.0/implementation-roadmap.plan.md](./typespec-roundtrip/v0.3.0/implementation-roadmap.plan.md)에 둡니다.
 

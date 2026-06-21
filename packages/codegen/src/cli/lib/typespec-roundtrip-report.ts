@@ -1,6 +1,7 @@
 import type { OasDocument } from '@oa-sdk/parser'
 import type { TspExportDiagnostic, TspExportReport } from './tsp-export.js'
 import type {
+  TypeSpecCompatibilitySidecarCompareReport,
   TypeSpecCompatibilityRestoreReport,
   TypeSpecCompatibilitySidecar,
 } from './typespec-sidecar.js'
@@ -103,7 +104,9 @@ export type TypeSpecRoundtripReport = {
   }
   compatibilitySidecar?: {
     counts: TypeSpecCompatibilitySidecar['counts']
+    reExtractedCounts: TypeSpecCompatibilitySidecar['counts']
     restore: TypeSpecCompatibilityRestoreReport
+    stability: TypeSpecCompatibilitySidecarCompareReport
     validation: {
       valid: boolean
       summary: string
@@ -145,7 +148,9 @@ export type CreateTypeSpecRoundtripReportInput = {
     sidecarPath: string
     restoredOpenapiPath: string
     sidecar: TypeSpecCompatibilitySidecar
+    reExtractedSidecar: TypeSpecCompatibilitySidecar
     restoreReport: TypeSpecCompatibilityRestoreReport
+    stabilityReport: TypeSpecCompatibilitySidecarCompareReport
     restoredDiff: DiffResult
     validation: {
       valid: boolean
@@ -224,7 +229,9 @@ export function createTypeSpecRoundtripReport(
       ? {
           compatibilitySidecar: {
             counts: input.compatibilitySidecar.sidecar.counts,
+            reExtractedCounts: input.compatibilitySidecar.reExtractedSidecar.counts,
             restore: input.compatibilitySidecar.restoreReport,
+            stability: input.compatibilitySidecar.stabilityReport,
             validation: input.compatibilitySidecar.validation,
             diff: {
               added: input.compatibilitySidecar.restoredDiff.added.length,
@@ -248,6 +255,9 @@ export function createTypeSpecRoundtripReport(
             compatibilitySidecar: input.compatibilitySidecar.validation.valid
               && restoredBreakingChanges.length === 0
               && input.compatibilitySidecar.restoreReport.counts.missingTargets === 0
+              && input.compatibilitySidecar.stabilityReport.counts.missingExpected === 0
+              && input.compatibilitySidecar.stabilityReport.counts.unexpectedActual === 0
+              && input.compatibilitySidecar.stabilityReport.counts.valueMismatches === 0
               ? 'pass'
               : 'fail',
           }

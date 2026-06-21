@@ -11,6 +11,7 @@ import { spawnSync } from 'node:child_process'
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml'
 import type {
   TypeSpecCompatibilityRestoreReport,
+  TypeSpecCompatibilitySidecarCompareReport,
   TypeSpecCompatibilitySidecar,
 } from '../cli/lib/typespec-sidecar.js'
 
@@ -102,6 +103,7 @@ describe('oa-gen TypeSpec sidecar CLI', () => {
     const sidecarPath = join(tmpDir, 'sidecar.json')
     const restoredPath = join(tmpDir, 'restored.yaml')
     const restoreReportPath = join(tmpDir, 'restore-report.json')
+    const stabilityReportPath = join(tmpDir, 'stability-report.json')
 
     const exportResult = runCli([
       'tsp-export',
@@ -128,6 +130,7 @@ describe('oa-gen TypeSpec sidecar CLI', () => {
       '--sidecar', sidecarPath,
       '--output', restoredPath,
       '--report', restoreReportPath,
+      '--stability-report', stabilityReportPath,
     ])
     expect(restoreResult.status).toBe(0)
     expect(restoreResult.stderr).toBe('')
@@ -137,6 +140,16 @@ describe('oa-gen TypeSpec sidecar CLI', () => {
       entries: 2,
       applied: 2,
       missingTargets: 0,
+    })
+    const stabilityReport = JSON.parse(readFileSync(stabilityReportPath, 'utf8')) as TypeSpecCompatibilitySidecarCompareReport
+    expect(stabilityReport.counts).toEqual({
+      expectedEntries: 2,
+      actualEntries: 2,
+      expectedSatisfied: 2,
+      actualCovered: 2,
+      missingExpected: 0,
+      unexpectedActual: 0,
+      valueMismatches: 0,
     })
     const restored = parseYaml(readFileSync(restoredPath, 'utf8')) as Record<string, any>
     expect(restored.components.securitySchemes.oauth2).toEqual(sidecar.entries.find(entry => entry.kind === 'security-scheme')?.value)
@@ -200,6 +213,57 @@ describe('oa-gen TypeSpec sidecar CLI', () => {
       entries: 1,
       applied: 0,
       missingTargets: 1,
+    })
+  })
+
+  it('fails restore when sidecar re-extraction drifts and still writes the stability report', () => {
+    const emittedPath = writeYaml('emitted.yaml', {
+      openapi: '3.2.0',
+      info: { title: 'Sidecar API', version: '1.0.0' },
+      paths: {},
+    })
+    const sidecarPath = join(tmpDir, 'sidecar.json')
+    const restoredPath = join(tmpDir, 'restored.yaml')
+    const stabilityReportPath = join(tmpDir, 'stability-report.json')
+    const sidecar: TypeSpecCompatibilitySidecar = {
+      schemaVersion: 'oa-sdk.typespec-compat-sidecar.v1',
+      counts: {
+        entries: 1,
+        parameterExamples: 0,
+        responseMediaExamples: 0,
+        securitySchemes: 1,
+      },
+      entries: [
+        {
+          kind: 'security-scheme',
+          pointer: '#/components/securitySchemes/bearerAuth',
+          target: { name: 'bearerAuth' },
+          value: { type: 'http', scheme: 'bearer' },
+        },
+      ],
+    }
+    writeFileSync(sidecarPath, JSON.stringify(sidecar, null, 2), 'utf8')
+
+    const restoreResult = runCli([
+      'tsp-restore',
+      '--spec', emittedPath,
+      '--sidecar', sidecarPath,
+      '--output', restoredPath,
+      '--stability-report', stabilityReportPath,
+    ])
+
+    expect(restoreResult.status).not.toBe(0)
+    expect(restoreResult.stderr).toContain('sidecar stability drift detected: 1 missing expected, 0 unexpected actual, 0 value mismatch(es)')
+    expect(existsSync(restoredPath)).toBe(false)
+    const stabilityReport = JSON.parse(readFileSync(stabilityReportPath, 'utf8')) as TypeSpecCompatibilitySidecarCompareReport
+    expect(stabilityReport.counts).toEqual({
+      expectedEntries: 1,
+      actualEntries: 0,
+      expectedSatisfied: 0,
+      actualCovered: 0,
+      missingExpected: 1,
+      unexpectedActual: 0,
+      valueMismatches: 0,
     })
   })
 })

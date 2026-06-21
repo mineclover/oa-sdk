@@ -94,6 +94,30 @@ export type TypeSpecCompatibilityRestoreResult = {
   report: TypeSpecCompatibilityRestoreReport
 }
 
+export type TypeSpecCompatibilitySidecarCompareDiagnostic = {
+  severity: 'warning'
+  code:
+    | 'typespec-sidecar/missing-expected-entry'
+    | 'typespec-sidecar/unexpected-actual-entry'
+    | 'typespec-sidecar/value-mismatch'
+  pointer: string
+  message: string
+}
+
+export type TypeSpecCompatibilitySidecarCompareReport = {
+  schemaVersion: 'oa-sdk.typespec-compat-compare-report.v1'
+  counts: {
+    expectedEntries: number
+    actualEntries: number
+    expectedSatisfied: number
+    actualCovered: number
+    missingExpected: number
+    unexpectedActual: number
+    valueMismatches: number
+  }
+  diagnostics: TypeSpecCompatibilitySidecarCompareDiagnostic[]
+}
+
 export function createTypeSpecCompatibilitySidecar(document: OasDocument): TypeSpecCompatibilitySidecar {
   const entries: TypeSpecCompatibilitySidecarEntry[] = []
   entries.push(...collectSecuritySchemeEntries(document))
@@ -131,6 +155,78 @@ export function parseTypeSpecCompatibilitySidecar(value: unknown): TypeSpecCompa
     throw new Error(`invalid TypeSpec compatibility sidecar: ${errors.join('; ')}`)
   }
   return value as TypeSpecCompatibilitySidecar
+}
+
+export function compareTypeSpecCompatibilitySidecars(
+  expected: TypeSpecCompatibilitySidecar,
+  actual: TypeSpecCompatibilitySidecar,
+): TypeSpecCompatibilitySidecarCompareReport {
+  const actualCovered = new Set<number>()
+  const actualTargetRelated = new Set<number>()
+  let expectedSatisfied = 0
+  let missingExpected = 0
+  let valueMismatches = 0
+  const diagnostics: TypeSpecCompatibilitySidecarCompareDiagnostic[] = []
+
+  for (const [expectedIndex, expectedEntry] of expected.entries.entries()) {
+    const targetMatches = actual.entries
+      .map((actualEntry, actualIndex) => ({ actualEntry, actualIndex }))
+      .filter(({ actualEntry }) => entriesTargetCompatible(expectedEntry, actualEntry))
+
+    for (const { actualIndex } of targetMatches) actualTargetRelated.add(actualIndex)
+
+    const valueMatches = targetMatches.filter(({ actualEntry }) => entryValuesEqual(expectedEntry, actualEntry))
+    if (valueMatches.length > 0) {
+      expectedSatisfied += 1
+      for (const { actualIndex } of valueMatches) actualCovered.add(actualIndex)
+      continue
+    }
+
+    if (targetMatches.length > 0) {
+      valueMismatches += 1
+      diagnostics.push({
+        severity: 'warning',
+        code: 'typespec-sidecar/value-mismatch',
+        pointer: expectedEntry.pointer,
+        message: `Expected sidecar entry ${expectedIndex} target exists after re-extraction, but its value differs.`,
+      })
+      continue
+    }
+
+    missingExpected += 1
+    diagnostics.push({
+      severity: 'warning',
+      code: 'typespec-sidecar/missing-expected-entry',
+      pointer: expectedEntry.pointer,
+      message: `Expected sidecar entry ${expectedIndex} was not found after re-extraction.`,
+    })
+  }
+
+  let unexpectedActual = 0
+  for (const [actualIndex, actualEntry] of actual.entries.entries()) {
+    if (actualCovered.has(actualIndex) || actualTargetRelated.has(actualIndex)) continue
+    unexpectedActual += 1
+    diagnostics.push({
+      severity: 'warning',
+      code: 'typespec-sidecar/unexpected-actual-entry',
+      pointer: actualEntry.pointer,
+      message: `Actual sidecar entry ${actualIndex} was not present in the expected sidecar semantics.`,
+    })
+  }
+
+  return {
+    schemaVersion: 'oa-sdk.typespec-compat-compare-report.v1',
+    counts: {
+      expectedEntries: expected.entries.length,
+      actualEntries: actual.entries.length,
+      expectedSatisfied,
+      actualCovered: actualCovered.size,
+      missingExpected,
+      unexpectedActual,
+      valueMismatches,
+    },
+    diagnostics,
+  }
 }
 
 export function applyTypeSpecCompatibilitySidecar(
@@ -372,6 +468,8 @@ function applyResponseExamples(
 }
 
 function assignExamples(target: { example?: unknown; examples?: unknown }, value: { example?: unknown; examples?: unknown }): void {
+  delete target.example
+  delete target.examples
   if (value.example !== undefined) target.example = cloneJson(value.example)
   if (value.examples !== undefined) target.examples = cloneJson(value.examples)
 }
@@ -582,6 +680,54 @@ function optionalNonNegativeInteger(
 
 function isSidecarEntryKind(value: unknown): value is TypeSpecCompatibilitySidecarEntry['kind'] {
   return value === 'parameter-examples' || value === 'response-media-examples' || value === 'security-scheme'
+}
+
+function entriesTargetCompatible(
+  expected: TypeSpecCompatibilitySidecarEntry,
+  actual: TypeSpecCompatibilitySidecarEntry,
+): boolean {
+  if (expected.kind !== actual.kind) return false
+  if (expected.kind === 'security-scheme' && actual.kind === 'security-scheme') {
+    return expected.target.name === actual.target.name
+  }
+  if (expected.kind === 'response-media-examples' && actual.kind === 'response-media-examples') {
+    return expected.target.path === actual.target.path
+      && expected.target.method === actual.target.method
+      && expected.target.statusCode === actual.target.statusCode
+      && expected.target.mediaType === actual.target.mediaType
+  }
+  if (expected.kind === 'parameter-examples' && actual.kind === 'parameter-examples') {
+    return expected.target.path === actual.target.path
+      && expected.target.name === actual.target.name
+      && expected.target.in === actual.target.in
+      && (
+        expected.target.method === undefined
+        || actual.target.method === undefined
+        || expected.target.method === actual.target.method
+      )
+  }
+  return false
+}
+
+function entryValuesEqual(
+  expected: TypeSpecCompatibilitySidecarEntry,
+  actual: TypeSpecCompatibilitySidecarEntry,
+): boolean {
+  return stableStringify(expected.value) === stableStringify(actual.value)
+}
+
+function stableStringify(value: unknown): string {
+  return JSON.stringify(sortJsonValue(value))
+}
+
+function sortJsonValue(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(sortJsonValue)
+  if (!isRecord(value)) return value
+  return Object.fromEntries(
+    Object.entries(value)
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([key, item]) => [key, sortJsonValue(item)]),
+  )
 }
 
 function isHttpMethod(value: string): value is HttpMethod {

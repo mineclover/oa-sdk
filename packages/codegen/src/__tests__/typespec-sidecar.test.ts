@@ -2,8 +2,11 @@ import { describe, expect, it } from 'vitest'
 import type { OasDocument } from '@oa-sdk/parser'
 import {
   applyTypeSpecCompatibilitySidecar,
+  compareTypeSpecCompatibilitySidecars,
   createTypeSpecCompatibilitySidecar,
   parseTypeSpecCompatibilitySidecar,
+  type TypeSpecCompatibilitySidecar,
+  type TypeSpecCompatibilitySidecarEntry,
 } from '../cli/lib/typespec-sidecar.js'
 
 describe('TypeSpec compatibility sidecar', () => {
@@ -108,6 +111,7 @@ describe('TypeSpec compatibility sidecar', () => {
                 name: 'page',
                 in: 'query',
                 schema: { type: 'integer', default: 1 },
+                example: 999,
               },
             ],
             responses: {
@@ -116,6 +120,7 @@ describe('TypeSpec compatibility sidecar', () => {
                 content: {
                   'application/json': {
                     schema: { type: 'object' },
+                    example: { stale: true },
                   },
                 },
               },
@@ -131,6 +136,7 @@ describe('TypeSpec compatibility sidecar', () => {
                 in: 'path',
                 required: true,
                 schema: { type: 'string' },
+                example: 'stale',
               },
             ],
             responses: {
@@ -185,16 +191,31 @@ describe('TypeSpec compatibility sidecar', () => {
     expect(listUsers?.parameters?.[0]).toEqual(expect.objectContaining({
       examples: sourceDoc.components.parameters.Page.examples,
     }))
+    expect(listUsers?.parameters?.[0].example).toBeUndefined()
     const listUsers200 = listUsers?.responses?.['200']
-    expect(listUsers200 && 'content' in listUsers200
-      ? listUsers200.content?.['application/json']?.examples
-      : undefined).toEqual(sourceDoc.components.responses.UserList.content['application/json'].examples)
+    const listUsers200Json = listUsers200 && 'content' in listUsers200
+      ? listUsers200.content?.['application/json']
+      : undefined
+    expect(listUsers200Json?.examples).toEqual(sourceDoc.components.responses.UserList.content['application/json'].examples)
+    expect(listUsers200Json?.example).toBeUndefined()
     expect(restoredDoc.paths['/users/{id}'].get.parameters[0]).toEqual(expect.objectContaining({
       examples: sourceDoc.paths['/users/{id}'].parameters[0].examples,
     }))
+    expect(restoredDoc.paths['/users/{id}'].get.parameters[0].example).toBeUndefined()
     expect(restoredDoc.paths['/users/{id}'].delete.parameters[0]).toEqual(expect.objectContaining({
       examples: sourceDoc.paths['/users/{id}'].parameters[0].examples,
     }))
+    expect(restoredDoc.paths['/users/{id}'].delete.parameters[0].example).toBeUndefined()
+    const reExtracted = createTypeSpecCompatibilitySidecar(restored.document)
+    expect(compareTypeSpecCompatibilitySidecars(sidecar, reExtracted).counts).toEqual({
+      expectedEntries: 4,
+      actualEntries: 5,
+      expectedSatisfied: 4,
+      actualCovered: 5,
+      missingExpected: 0,
+      unexpectedActual: 0,
+      valueMismatches: 0,
+    })
   })
 
   it('reports missing restore targets without mutating the input document', () => {
@@ -241,6 +262,162 @@ describe('TypeSpec compatibility sidecar', () => {
       pointer: '#/paths/~1users/get/responses/200/content/application~1json',
     }))
     expect(emitted.paths).toEqual({})
+  })
+
+  it('compares semantically equivalent sidecars after path-level parameter expansion', () => {
+    const sharedParameterValue = {
+      examples: {
+        default: {
+          dataValue: 'usr_1',
+          serializedValue: 'usr_1',
+        },
+      },
+    }
+    const expected: TypeSpecCompatibilitySidecar = {
+      schemaVersion: 'oa-sdk.typespec-compat-sidecar.v1',
+      counts: {
+        entries: 1,
+        parameterExamples: 1,
+        responseMediaExamples: 0,
+        securitySchemes: 0,
+      },
+      entries: [
+        {
+          kind: 'parameter-examples',
+          pointer: '#/paths/~1users~1{id}/parameters/0',
+          target: {
+            path: '/users/{id}',
+            name: 'id',
+            in: 'path',
+          },
+          value: sharedParameterValue,
+        },
+      ],
+    }
+    const actual: TypeSpecCompatibilitySidecar = {
+      schemaVersion: 'oa-sdk.typespec-compat-sidecar.v1',
+      counts: {
+        entries: 2,
+        parameterExamples: 2,
+        responseMediaExamples: 0,
+        securitySchemes: 0,
+      },
+      entries: [
+        {
+          kind: 'parameter-examples',
+          pointer: '#/paths/~1users~1{id}/get/parameters/0',
+          target: {
+            path: '/users/{id}',
+            method: 'get',
+            name: 'id',
+            in: 'path',
+          },
+          value: sharedParameterValue,
+        },
+        {
+          kind: 'parameter-examples',
+          pointer: '#/paths/~1users~1{id}/delete/parameters/0',
+          target: {
+            path: '/users/{id}',
+            method: 'delete',
+            name: 'id',
+            in: 'path',
+          },
+          value: {
+            examples: {
+              default: {
+                serializedValue: 'usr_1',
+                dataValue: 'usr_1',
+              },
+            },
+          },
+        },
+      ],
+    }
+
+    const report = compareTypeSpecCompatibilitySidecars(expected, actual)
+
+    expect(report.counts).toEqual({
+      expectedEntries: 1,
+      actualEntries: 2,
+      expectedSatisfied: 1,
+      actualCovered: 2,
+      missingExpected: 0,
+      unexpectedActual: 0,
+      valueMismatches: 0,
+    })
+    expect(report.diagnostics).toEqual([])
+  })
+
+  it('reports sidecar comparison value mismatches and unexpected entries', () => {
+    const responseEntry = {
+      kind: 'response-media-examples',
+      pointer: '#/paths/~1users/get/responses/200/content/application~1json',
+      target: {
+        path: '/users',
+        method: 'get',
+        statusCode: '200',
+        mediaType: 'application/json',
+      },
+      value: {
+        examples: {
+          default: { dataValue: { items: [] } },
+        },
+      },
+    } satisfies TypeSpecCompatibilitySidecarEntry
+    const expected: TypeSpecCompatibilitySidecar = {
+      schemaVersion: 'oa-sdk.typespec-compat-sidecar.v1',
+      counts: {
+        entries: 1,
+        parameterExamples: 0,
+        responseMediaExamples: 1,
+        securitySchemes: 0,
+      },
+      entries: [
+        responseEntry,
+      ],
+    }
+    const actual: TypeSpecCompatibilitySidecar = {
+      schemaVersion: 'oa-sdk.typespec-compat-sidecar.v1',
+      counts: {
+        entries: 2,
+        parameterExamples: 0,
+        responseMediaExamples: 1,
+        securitySchemes: 1,
+      },
+      entries: [
+        {
+          ...responseEntry,
+          value: {
+            examples: {
+              default: { dataValue: { items: [{ id: 'unexpected' }] } },
+            },
+          },
+        },
+        {
+          kind: 'security-scheme',
+          pointer: '#/components/securitySchemes/oauth2',
+          target: { name: 'oauth2' },
+          value: { type: 'oauth2', flows: {} },
+        },
+      ],
+    }
+
+    const report = compareTypeSpecCompatibilitySidecars(expected, actual)
+
+    expect(report.counts).toEqual({
+      expectedEntries: 1,
+      actualEntries: 2,
+      expectedSatisfied: 0,
+      actualCovered: 0,
+      missingExpected: 0,
+      unexpectedActual: 1,
+      valueMismatches: 1,
+    })
+    expect(report.diagnostics.map(diagnostic => diagnostic.code)).toEqual([
+      'typespec-sidecar/value-mismatch',
+      'typespec-sidecar/unexpected-actual-entry',
+    ])
   })
 
   it('rejects non-sidecar JSON payloads', () => {

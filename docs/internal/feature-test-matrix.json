@@ -272,17 +272,19 @@
       "name": "TypeSpec roundtrip export",
       "category": "codegen",
       "package": "@oa-sdk/codegen",
-      "description": "OpenAPI artifacts can be exported to TypeSpec spike source plus OA SDK sidecar metadata, and authored .tsp + sidecar bundles can be compiled, restored, validated, diffed, and classified with diagnostic policy gates for TSP-first readiness.",
+      "description": "OpenAPI artifacts can be exported to TypeSpec spike source plus OA SDK sidecar metadata, and authored .tsp + sidecar bundles can be compiled, restored, re-extracted for sidecar semantic stability, validated, diffed, and classified with diagnostic policy gates for TSP-first readiness.",
       "capabilities": [
         "OpenAPI to TypeSpec source export",
         "OpenAPI-owned TypeSpec compatibility sidecar",
         "sidecar restore into TypeSpec-emitted OpenAPI",
+        "sidecar semantic re-extraction stability report",
         "authored TypeSpec plus sidecar bundle check",
         "export diagnostics report",
         "TypeSpec OpenAPI 3.2 emitter probe",
         "OA SDK validation of emitted OpenAPI",
         "roundtrip diff classification",
-        "export diagnostic policy gate"
+        "export diagnostic policy gate",
+        "tsp-restore CLI stability drift gate"
       ],
       "testPaths": [
         "packages/codegen/src/__tests__/tsp-export.test.ts",
@@ -297,7 +299,7 @@
         "docs/internal/typespec-roundtrip.plan.md"
       ],
       "commands": [
-        "pnpm --filter @oa-sdk/codegen test -- src/__tests__/tsp-export.test.ts src/__tests__/typespec-sidecar.test.ts src/__tests__/openapi-breaking-diff.test.ts src/__tests__/typespec-roundtrip-report.test.ts",
+        "pnpm --filter @oa-sdk/codegen test -- src/__tests__/tsp-export.test.ts src/__tests__/typespec-sidecar.test.ts src/__tests__/typespec-authored-bundle.test.ts src/__tests__/cli-tsp-sidecar.test.ts src/__tests__/openapi-breaking-diff.test.ts src/__tests__/typespec-roundtrip-report.test.ts",
         "pnpm --filter @oa-sdk/codegen typecheck",
         "pnpm typespec:roundtrip",
         "pnpm typespec:bundle-check"

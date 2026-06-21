@@ -344,15 +344,21 @@ export const oaGenGovernanceManifest = {
             type: 'string',
             description: 'sidecar restore report JSON 출력 경로',
           },
+          {
+            name: 'stability-report',
+            type: 'string',
+            description: '복원 후 재추출한 sidecar semantic stability report JSON 출력 경로',
+          },
         ],
         inputs: [
           { name: 'spec', kind: 'openapi-document', required: true, option: 'spec' },
           { name: 'sidecar', kind: 'typespec-compatibility-sidecar', required: true, option: 'sidecar' },
         ],
-        checks: ['typespec-sidecar-restore'],
+        checks: ['typespec-sidecar-restore', 'typespec-sidecar-stability'],
         reports: [
           { formats: ['human'], schema: 'oa-gen.tsp-restore.human.v1' },
           { formats: ['json'], schema: 'oa-sdk.typespec-compat-restore-report.v1' },
+          { formats: ['json'], schema: 'oa-sdk.typespec-compat-compare-report.v1' },
         ],
         exitPolicy: {
           success: ['APPROVE', 'COMMENT'],

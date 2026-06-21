@@ -16,6 +16,7 @@ import { stringifyOpenApiYaml } from '../packages/codegen/src/cli/lib/openapi-co
 import { exportOpenApiToTypeSpec } from '../packages/codegen/src/cli/lib/tsp-export.js'
 import {
   applyTypeSpecCompatibilitySidecar,
+  compareTypeSpecCompatibilitySidecars,
   createTypeSpecCompatibilitySidecar,
 } from '../packages/codegen/src/cli/lib/typespec-sidecar.js'
 import {
@@ -90,6 +91,8 @@ async function main(): Promise<void> {
 
     const diff = diffEndpoints(document, emittedDocument)
     const restoredDiff = diffEndpoints(document, restored.document)
+    const reExtractedSidecar = createTypeSpecCompatibilitySidecar(restored.document)
+    const sidecarStability = compareTypeSpecCompatibilitySidecars(sidecar, reExtractedSidecar)
     const breaking = hasBreakingChanges(diff)
     const restoredBreaking = hasBreakingChanges(restoredDiff)
     const roundtripReport = createTypeSpecRoundtripReport({
@@ -110,7 +113,9 @@ async function main(): Promise<void> {
         sidecarPath,
         restoredOpenapiPath: restoredPath,
         sidecar,
+        reExtractedSidecar,
         restoreReport: restored.report,
+        stabilityReport: sidecarStability,
         restoredDiff,
         validation: {
           valid: restoredValidation.valid,
@@ -139,6 +144,7 @@ async function main(): Promise<void> {
     const unacceptedDiagnostics = countUnacceptedDiagnostics(roundtripReport.diagnostics)
     console.log(`  export diagnostics gate: ${roundtripReport.gates.exportDiagnostics} (${acceptedDiagnostics} accepted, ${unacceptedDiagnostics} unaccepted)`)
     console.log(`  compatibility sidecar: ${sidecar.counts.entries} entries, restore ${roundtripReport.gates.compatibilitySidecar}`)
+    console.log(`  sidecar re-extract: ${sidecarStability.counts.expectedSatisfied}/${sidecarStability.counts.expectedEntries} expected, ${sidecarStability.counts.actualCovered}/${sidecarStability.counts.actualEntries} actual covered`)
     console.log(`  operations: ${roundtripReport.counts.operations.source} -> ${roundtripReport.counts.operations.emitted}`)
     console.log(`  component schemas: ${roundtripReport.counts.componentSchemas.source} -> ${roundtripReport.counts.componentSchemas.emitted}`)
     console.log(`  validation: ${validation.summary}`)

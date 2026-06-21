@@ -11,10 +11,10 @@ Versioned implementation planning lives under [`typespec-roundtrip/`](./typespec
 Implemented source:
 
 - `packages/codegen/src/cli/lib/tsp-export.ts` — OpenAPI artifact to TypeSpec source exporter and diagnostics report.
-- `packages/codegen/src/cli/lib/typespec-sidecar.ts` — OA SDK-owned TypeSpec compatibility sidecar creation and restore.
+- `packages/codegen/src/cli/lib/typespec-sidecar.ts` — OA SDK-owned TypeSpec compatibility sidecar creation, restore, and semantic stability comparison.
 - `packages/codegen/src/cli/lib/typespec-roundtrip-report.ts` — roundtrip report assembly, diagnostic ownership classification, and readiness gates.
 - `packages/codegen/src/cli/commands/tsp-export.ts` — `oa-gen tsp-export --spec <openapi.yaml> --output <main.tsp> --report <report.json>`.
-- `packages/codegen/src/cli/commands/tsp-restore.ts` — `oa-gen tsp-restore --spec <emitted.yaml> --sidecar <sidecar.json> --output <restored.yaml>`.
+- `packages/codegen/src/cli/commands/tsp-restore.ts` — `oa-gen tsp-restore --spec <emitted.yaml> --sidecar <sidecar.json> --output <restored.yaml> --stability-report <stability.json>`.
 - `scripts/typespec-roundtrip.ts` — reproducible probe for export, TypeSpec compile, emitted OpenAPI validation, and OpenAPI diff.
 - `scripts/typespec-bundle-check.ts` — reproducible probe for authored `.tsp + sidecar` bundle compile, restore, validation, and optional expected OpenAPI diff.
 - `docs/internal/typespec-roundtrip/fixtures/authored-bundle/` — minimal authored bundle fixture proving the two-track input shape.
@@ -39,9 +39,10 @@ The evaluation loop must preserve both specs instead of forcing one vocabulary t
 3. Write an OA SDK compatibility sidecar for OpenAPI-owned metadata that TypeSpec should not pretend to own.
 4. Compile the `.tsp` project through `@typespec/openapi3` with OpenAPI `3.2.0`.
 5. Restore sidecar metadata onto the emitted OpenAPI.
-6. Validate both emitted and restored OpenAPI with OA SDK's own `validateDocument(..., requireOpenApi32: true)`.
-7. Diff original OpenAPI against emitted/restored OpenAPI with OA SDK's breaking diff.
-8. Classify every difference as one of:
+6. Re-extract the sidecar from the restored OpenAPI and compare it against the authored/generated sidecar by semantic target and value.
+7. Validate both emitted and restored OpenAPI with OA SDK's own `validateDocument(..., requireOpenApi32: true)`.
+8. Diff original OpenAPI against emitted/restored OpenAPI with OA SDK's breaking diff.
+9. Classify every difference as one of:
    - TypeSpec can express it and the exporter is missing the mapping.
    - TypeSpec can express it, but OA SDK needs an authoring convention.
    - TypeSpec emits a different but acceptable OpenAPI shape.
@@ -55,7 +56,7 @@ pnpm typespec:roundtrip -- --report artifacts/typespec-roundtrip-report.json
 pnpm typespec:roundtrip -- --keep
 pnpm typespec:roundtrip -- --fail-on-breaking
 oa-gen tsp-export --spec packages/schemas/src/.merged.yaml --output artifacts/main.tsp --sidecar artifacts/typespec-sidecar.json
-oa-gen tsp-restore --spec artifacts/typespec-emitted.yaml --sidecar artifacts/typespec-sidecar.json --output artifacts/typespec-restored.yaml
+oa-gen tsp-restore --spec artifacts/typespec-emitted.yaml --sidecar artifacts/typespec-sidecar.json --output artifacts/typespec-restored.yaml --stability-report artifacts/typespec-sidecar-stability.json
 pnpm typespec:bundle-check
 pnpm typespec:bundle-check -- --fail-on-breaking --report artifacts/typespec-bundle-check-report.json
 ```
@@ -78,9 +79,11 @@ Current probe on `packages/schemas/src/.merged.yaml`:
 | Export diagnostics gate | pass, 91 accepted and 0 unaccepted |
 | Compatibility sidecar | 89 entries: 79 response media examples, 9 parameter examples, 1 security scheme |
 | Sidecar restore | pass, 91 applied targets and 0 missing targets |
+| Sidecar re-extract stability | pass, 89/89 expected entries satisfied, 91/91 actual entries covered, 0 missing/unexpected/value mismatches |
 | Breaking diff | 0 breaking changes across 0 modified operations |
 | Restored breaking diff | 0 breaking changes across 0 modified operations |
 | Authored bundle check | pass, 1 operation, 3 sidecar entries, 3 applied targets, 0 missing targets |
+| Authored sidecar re-extract stability | pass, 3/3 expected entries satisfied, 3/3 actual entries covered, 0 missing/unexpected/value mismatches |
 | Authored restored validation | pass, 0 warnings, 0 infos |
 | Authored restored breaking diff | 0 breaking changes across 0 modified operations |
 
@@ -105,6 +108,7 @@ Current endpoint diff:
 - Component schemas remain `28 -> 32`; the four additional schemas are accepted TypeSpec projection artifacts: `ErrorMeta`, `ListModerationReports200Body`, `ListMyRoleChanges200Body`, and `ListUsers200Body`.
 - The roundtrip report now records per-diagnostic ownership and rationale. The current fixture has no unaccepted exporter diagnostics.
 - The compatibility sidecar restores examples/security metadata that is intentionally outside the TypeSpec projection. One path-level parameter entry restores to three emitted operation parameters, so restore applied target count is higher than sidecar entry count.
+- The restored OpenAPI can be re-scanned into a sidecar with no semantic drift. The canonical fixture intentionally expands path-level parameter examples into operation-level targets, so expected and actual entry counts may differ while semantic coverage remains complete.
 - The authored bundle fixture proves the opposite direction as a first slice: a hand-written `.tsp` structural contract plus authored `oa-sdk.typespec-compat-sidecar.v1` compiles, restores OA SDK examples/security metadata, validates, and matches the expected OpenAPI endpoint surface with no breaking diff.
 
 ## Intersection
@@ -144,3 +148,4 @@ Declare TSP-first only when:
 - The generated OpenAPI remains valid under OA SDK's OpenAPI 3.2 gate and downstream codegen/router/client/mock-server tests.
 - The compatibility sidecar schema is stable enough for authored `.tsp + sidecar` fixtures, not only generated sidecars.
 - Authored `.tsp + sidecar` fixtures pass `pnpm typespec:bundle-check -- --fail-on-breaking` and cover every sidecar entry kind that is accepted by policy.
+- Sidecar restore and re-extraction stability gates pass with no missing expected entries, unexpected actual entries, or value mismatches.

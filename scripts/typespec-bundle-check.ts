@@ -15,7 +15,10 @@ import { loadSpecWithPath } from '../packages/codegen/src/cli/lib/load-spec.js'
 import { stringifyOpenApiYaml } from '../packages/codegen/src/cli/lib/openapi-collect.js'
 import {
   applyTypeSpecCompatibilitySidecar,
+  compareTypeSpecCompatibilitySidecars,
+  createTypeSpecCompatibilitySidecar,
   parseTypeSpecCompatibilitySidecar,
+  type TypeSpecCompatibilitySidecarCompareReport,
 } from '../packages/codegen/src/cli/lib/typespec-sidecar.js'
 import {
   classifyBreakingChanges,
@@ -65,11 +68,18 @@ type TypeSpecBundleCheckReport = {
       responseMediaExamples: number
       securitySchemes: number
     }
+    reExtractedCompatibilitySidecar: {
+      entries: number
+      parameterExamples: number
+      responseMediaExamples: number
+      securitySchemes: number
+    }
     restore: {
       entries: number
       applied: number
       missingTargets: number
     }
+    sidecarStability: TypeSpecCompatibilitySidecarCompareReport['counts']
   }
   validation: {
     emitted: {
@@ -137,6 +147,8 @@ async function main(): Promise<void> {
     const expected = expectedPath ? loadExpected(expectedPath) : undefined
     const emittedDiff = expected ? diffEndpoints(expected.document, emittedDocument) : undefined
     const restoredDiff = expected ? diffEndpoints(expected.document, restored.document) : undefined
+    const reExtractedSidecar = createTypeSpecCompatibilitySidecar(restored.document)
+    const sidecarStability = compareTypeSpecCompatibilitySidecars(sidecar, reExtractedSidecar)
     const report = createReport({
       projectPath,
       sidecarPath,
@@ -145,7 +157,9 @@ async function main(): Promise<void> {
       expectedPath,
       workspace,
       sidecar,
+      reExtractedSidecar,
       restore: restored.report,
+      sidecarStability,
       emittedDocument,
       restoredDocument: restored.document,
       emittedValidation,
@@ -197,7 +211,9 @@ function createReport(input: {
   expectedPath?: string
   workspace: string
   sidecar: ReturnType<typeof parseTypeSpecCompatibilitySidecar>
+  reExtractedSidecar: ReturnType<typeof createTypeSpecCompatibilitySidecar>
   restore: ReturnType<typeof applyTypeSpecCompatibilitySidecar>['report']
+  sidecarStability: TypeSpecCompatibilitySidecarCompareReport
   emittedDocument: Record<string, unknown>
   restoredDocument: Record<string, unknown>
   emittedValidation: { valid: boolean; summary: string }
@@ -222,7 +238,9 @@ function createReport(input: {
       restoredOperations: extractEndpoints(input.restoredDocument).size,
       ...(input.expected ? { expectedOperations: extractEndpoints(input.expected.document).size } : {}),
       compatibilitySidecar: input.sidecar.counts,
+      reExtractedCompatibilitySidecar: input.reExtractedSidecar.counts,
       restore: input.restore.counts,
+      sidecarStability: input.sidecarStability.counts,
     },
     validation: {
       emitted: input.emittedValidation,
@@ -238,7 +256,12 @@ function createReport(input: {
         }
       : {}),
     gates: {
-      compatibilitySidecar: input.restore.counts.missingTargets === 0 ? 'pass' : 'fail',
+      compatibilitySidecar: input.restore.counts.missingTargets === 0
+        && input.sidecarStability.counts.missingExpected === 0
+        && input.sidecarStability.counts.unexpectedActual === 0
+        && input.sidecarStability.counts.valueMismatches === 0
+        ? 'pass'
+        : 'fail',
       restoredValidation: input.restoredValidation.valid ? 'pass' : 'fail',
       ...(input.restoredDiff ? { expectedDiff: restoredBreaking === 0 ? 'pass' : 'fail' } : {}),
     },
@@ -265,6 +288,7 @@ function printSummary(report: TypeSpecBundleCheckReport, restoredDiff: DiffResul
   if (report.paths.expectedOpenapi) console.log(`  expected: ${relative(root, report.paths.expectedOpenapi)}`)
   console.log(`  compatibility sidecar: ${report.counts.compatibilitySidecar.entries} entries, restore ${report.gates.compatibilitySidecar}`)
   console.log(`  restore targets: ${report.counts.restore.applied} applied, ${report.counts.restore.missingTargets} missing`)
+  console.log(`  sidecar re-extract: ${report.counts.sidecarStability.expectedSatisfied}/${report.counts.sidecarStability.expectedEntries} expected, ${report.counts.sidecarStability.actualCovered}/${report.counts.sidecarStability.actualEntries} actual covered`)
   console.log(`  emitted validation: ${report.validation.emitted.summary}`)
   console.log(`  restored validation: ${report.validation.restored.summary}`)
   if (report.validation.expected) console.log(`  expected validation: ${report.validation.expected.summary}`)
