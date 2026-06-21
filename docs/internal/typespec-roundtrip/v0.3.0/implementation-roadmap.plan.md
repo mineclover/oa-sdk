@@ -285,6 +285,7 @@ Tasks:
 
 - Generate an OA SDK compatibility sidecar from the OpenAPI artifact during `tsp-export`.
 - Generate an `oa-sdk.typespec-bundle.v1` manifest during `tsp-export` when `.tsp` output and sidecar output are both requested.
+- Optionally write a bundle-local expected OpenAPI artifact during `tsp-export` so generated bundles can run expected diff gates without reaching back to the original source path.
 - Restore sidecar metadata onto TypeSpec-emitted OpenAPI.
 - Write an optional `tsp-restore --stability-report` for restore-time sidecar re-extraction drift checks.
 - Include sidecar restore validation and diff evidence in `pnpm typespec:roundtrip`.
@@ -294,6 +295,7 @@ Gate:
 
 - `oa-gen tsp-export --sidecar` writes `oa-sdk.typespec-compat-sidecar.v1`.
 - `oa-gen tsp-export --bundle-manifest` writes `oa-sdk.typespec-bundle.v1` and requires both `--output` and `--sidecar`.
+- `oa-gen tsp-export --bundle-expected-openapi` writes the expected OpenAPI artifact and requires `--bundle-manifest`.
 - `oa-gen tsp-restore` applies the sidecar and validates the restored OpenAPI 3.2 document.
 - `oa-gen tsp-restore --stability-report` writes `oa-sdk.typespec-compat-compare-report.v1` and fails on missing expected entries, unexpected actual entries, or value mismatches.
 - `pnpm typespec:bundle-check -- --manifest <generated>` accepts the generated `oa-sdk.typespec-bundle.v1` without requiring `expectedOpenapi`.
@@ -304,7 +306,7 @@ Evidence:
 
 - `pnpm typespec:roundtrip -- --report /tmp/oa-sdk-typespec-roundtrip-sidecar.json` reports a compatibility sidecar with `89` entries: `79` response media examples, `9` parameter examples, and `1` security scheme.
 - The roundtrip workspace includes `oa-sdk.typespec-bundle.v1`, and the roundtrip report records its path.
-- A generated bundle manifest can be fed back into `pnpm typespec:bundle-check -- --manifest <generated> --report <report>`; with no `expectedOpenapi`, the report omits `gates.expectedDiff` and still gates TypeSpec compile, sidecar restore/re-extraction stability, and emitted/restored OpenAPI 3.2 validation.
+- A generated bundle manifest can be fed back into `pnpm typespec:bundle-check -- --manifest <generated> --report <report>`; when `expectedOpenapi` is present, the report includes `gates.expectedDiff`, and otherwise still gates TypeSpec compile, sidecar restore/re-extraction stability, and emitted/restored OpenAPI 3.2 validation.
 - Sidecar restore reports `91` applied targets and `0` missing targets. One path-level parameter entry restores to three emitted operation parameters.
 - Sidecar re-extraction reports `89/89` expected entries satisfied, `91/91` actual entries covered, and `0` missing expected entries, unexpected actual entries, or value mismatches.
 - Restored OpenAPI validation passes with `0` warnings and `0` infos, and restored breaking diff is `no`.
@@ -369,5 +371,6 @@ The version is ready when:
 - Follow-up decision points are clear enough for a TSP-first ADR.
 - Two-track compatibility can restore OpenAPI-owned sidecar semantics onto TypeSpec-emitted OpenAPI without breaking endpoint diff.
 - Generated `.tsp + sidecar` bundles are portable enough to be rechecked through `oa-sdk.typespec-bundle.v1` without the original OpenAPI artifact.
+- Generated bundles can include bundle-local expected OpenAPI and pass the same expected diff gate used by authored bundles.
 - Authored `.tsp + sidecar` fixtures are declared through `oa-sdk.typespec-bundle.v1` and pass the bundle check with every currently accepted sidecar entry kind represented.
 - Sidecar restore is semantically stable after re-extraction from restored OpenAPI, with no missing expected entries, unexpected actual entries, or value mismatches.

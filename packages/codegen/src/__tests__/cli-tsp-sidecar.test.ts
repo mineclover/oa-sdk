@@ -104,6 +104,7 @@ describe('oa-gen TypeSpec sidecar CLI', () => {
     const tspPath = join(tmpDir, 'main.tsp')
     const sidecarPath = join(tmpDir, 'sidecar.json')
     const bundleManifestPath = join(tmpDir, 'oa-sdk.typespec-bundle.json')
+    const bundleExpectedOpenapiPath = join(tmpDir, 'expected.openapi.yaml')
     const restoredPath = join(tmpDir, 'restored.yaml')
     const restoreReportPath = join(tmpDir, 'restore-report.json')
     const stabilityReportPath = join(tmpDir, 'stability-report.json')
@@ -114,6 +115,7 @@ describe('oa-gen TypeSpec sidecar CLI', () => {
       '--output', tspPath,
       '--sidecar', sidecarPath,
       '--bundle-manifest', bundleManifestPath,
+      '--bundle-expected-openapi', bundleExpectedOpenapiPath,
     ])
     expect(exportResult.status).toBe(0)
     expect(exportResult.stderr).toBe('')
@@ -125,11 +127,13 @@ describe('oa-gen TypeSpec sidecar CLI', () => {
       schemaVersion: 'oa-sdk.typespec-bundle.v1',
       entrypoint: 'main.tsp',
       sidecar: 'sidecar.json',
+      expectedOpenapi: 'expected.openapi.yaml',
       compatibility: {
         openapiVersion: '3.2.0',
         sidecarSchemaVersion: 'oa-sdk.typespec-compat-sidecar.v1',
       },
     })
+    expect(existsSync(bundleExpectedOpenapiPath)).toBe(true)
     expect(sidecar.schemaVersion).toBe('oa-sdk.typespec-compat-sidecar.v1')
     expect(sidecar.counts).toEqual({
       entries: 2,
@@ -159,7 +163,8 @@ describe('oa-gen TypeSpec sidecar CLI', () => {
     })
     expect(bundleReport.gates.compatibilitySidecar).toBe('pass')
     expect(bundleReport.gates.restoredValidation).toBe('pass')
-    expect(bundleReport.gates.expectedDiff).toBeUndefined()
+    expect(bundleReport.gates.expectedDiff).toBe('pass')
+    expect(bundleReport.paths.expectedOpenapi).toBe(bundleExpectedOpenapiPath)
 
     const restoreResult = runCli([
       'tsp-restore',
@@ -212,6 +217,51 @@ describe('oa-gen TypeSpec sidecar CLI', () => {
 
     expect(exportResult.status).not.toBe(0)
     expect(exportResult.stderr).toContain('--bundle-manifest requires both --output and --sidecar')
+  })
+
+  it('requires a bundle manifest when exporting bundle expected OpenAPI', () => {
+    const sourcePath = writeYaml('source.yaml', {
+      openapi: '3.2.0',
+      info: { title: 'Sidecar API', version: '1.0.0' },
+      paths: {},
+    })
+
+    const exportResult = runCli([
+      'tsp-export',
+      '--spec', sourcePath,
+      '--bundle-expected-openapi', join(tmpDir, 'expected.openapi.yaml'),
+    ])
+
+    expect(exportResult.status).not.toBe(0)
+    expect(exportResult.stderr).toContain('--bundle-expected-openapi requires --bundle-manifest')
+  })
+
+  it('rejects bundle expected OpenAPI outside the bundle directory before writing artifacts', () => {
+    const sourcePath = writeYaml('source.yaml', {
+      openapi: '3.2.0',
+      info: { title: 'Sidecar API', version: '1.0.0' },
+      paths: {},
+    })
+    const tspPath = join(tmpDir, 'bundle/main.tsp')
+    const sidecarPath = join(tmpDir, 'bundle/sidecar.json')
+    const bundleManifestPath = join(tmpDir, 'bundle/oa-sdk.typespec-bundle.json')
+    const bundleExpectedOpenapiPath = join(tmpDir, 'expected.openapi.yaml')
+
+    const exportResult = runCli([
+      'tsp-export',
+      '--spec', sourcePath,
+      '--output', tspPath,
+      '--sidecar', sidecarPath,
+      '--bundle-manifest', bundleManifestPath,
+      '--bundle-expected-openapi', bundleExpectedOpenapiPath,
+    ])
+
+    expect(exportResult.status).not.toBe(0)
+    expect(exportResult.stderr).toContain('expectedOpenapi must stay inside the TypeSpec bundle directory')
+    expect(existsSync(tspPath)).toBe(false)
+    expect(existsSync(sidecarPath)).toBe(false)
+    expect(existsSync(bundleExpectedOpenapiPath)).toBe(false)
+    expect(existsSync(bundleManifestPath)).toBe(false)
   })
 
   it('fails restore when a sidecar target is missing and still writes the report', () => {

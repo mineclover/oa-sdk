@@ -277,6 +277,7 @@
         "OpenAPI to TypeSpec source export",
         "OpenAPI-owned TypeSpec compatibility sidecar",
         "generated TypeSpec bundle manifest",
+        "generated TypeSpec bundle expected OpenAPI",
         "generated TypeSpec plus sidecar bundle check",
         "authored TypeSpec bundle manifest",
         "sidecar restore into TypeSpec-emitted OpenAPI",

@@ -2,7 +2,7 @@ import { resolve } from 'node:path'
 import type { Command } from '../lib/types.js'
 import { loadSpecWithPath } from '../lib/load-spec.js'
 import { optStr, str } from '../lib/args.js'
-import { writeJson } from '../lib/openapi-collect.js'
+import { writeJson, writeOpenApiYaml } from '../lib/openapi-collect.js'
 import { exportOpenApiToTypeSpec } from '../lib/tsp-export.js'
 import { createTypeSpecCompatibilitySidecar } from '../lib/typespec-sidecar.js'
 import { createTypeSpecBundleManifest } from '../lib/typespec-bundle-manifest.js'
@@ -17,6 +17,7 @@ export const tspExport: Command = {
     report: { type: 'string', description: '변환 diagnostics JSON 출력 경로' },
     sidecar: { type: 'string', description: 'TypeSpec projection 밖에 남길 OA SDK compatibility sidecar JSON 출력 경로' },
     'bundle-manifest': { type: 'string', description: '생성한 .tsp와 sidecar를 묶는 oa-sdk.typespec-bundle.v1 manifest JSON 출력 경로' },
+    'bundle-expected-openapi': { type: 'string', description: 'bundle manifest expectedOpenapi로 연결할 OpenAPI YAML 출력 경로' },
     namespace: { type: 'string', description: '생성할 TypeSpec namespace 이름' },
   },
   async run(args) {
@@ -27,21 +28,29 @@ export const tspExport: Command = {
     const sidecar = optStr(args, 'sidecar')
     const output = optStr(args, 'output')
     const bundleManifest = optStr(args, 'bundle-manifest')
+    const bundleExpectedOpenapi = optStr(args, 'bundle-expected-openapi')
     if (bundleManifest && (!output || !sidecar)) {
       throw new Error('--bundle-manifest requires both --output and --sidecar')
     }
+    if (bundleExpectedOpenapi && !bundleManifest) {
+      throw new Error('--bundle-expected-openapi requires --bundle-manifest')
+    }
+    const bundleManifestPayload = bundleManifest && output && sidecar
+      ? createTypeSpecBundleManifest({
+          manifestPath: resolve(bundleManifest),
+          entrypointPath: resolve(output),
+          sidecarPath: resolve(sidecar),
+          ...(bundleExpectedOpenapi ? { expectedOpenapiPath: resolve(bundleExpectedOpenapi) } : {}),
+        })
+      : undefined
     if (report) writeJson(report, result.report)
     if (sidecar) writeJson(sidecar, createTypeSpecCompatibilitySidecar(document))
-    if (bundleManifest && output && sidecar) {
-      writeJson(bundleManifest, createTypeSpecBundleManifest({
-        manifestPath: resolve(bundleManifest),
-        entrypointPath: resolve(output),
-        sidecarPath: resolve(sidecar),
-      }))
-    }
+    if (bundleExpectedOpenapi) writeOpenApiYaml(bundleExpectedOpenapi, document)
+    if (bundleManifest && bundleManifestPayload) writeJson(bundleManifest, bundleManifestPayload)
     writeOutput(output, result.source, 'TypeSpec export')
     if (report) console.log(`✅ TypeSpec export report: ${report}`)
     if (sidecar) console.log(`✅ TypeSpec compatibility sidecar: ${sidecar}`)
+    if (bundleExpectedOpenapi) console.log(`✅ TypeSpec bundle expected OpenAPI: ${bundleExpectedOpenapi}`)
     if (bundleManifest) console.log(`✅ TypeSpec bundle manifest: ${bundleManifest}`)
   },
 }

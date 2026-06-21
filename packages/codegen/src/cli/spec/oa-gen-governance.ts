@@ -298,6 +298,11 @@ export const oaGenGovernanceManifest = {
             description: '생성한 .tsp와 sidecar를 묶는 oa-sdk.typespec-bundle.v1 manifest JSON 출력 경로',
           },
           {
+            name: 'bundle-expected-openapi',
+            type: 'string',
+            description: 'bundle manifest expectedOpenapi로 연결할 OpenAPI YAML 출력 경로',
+          },
+          {
             name: 'namespace',
             type: 'string',
             description: '생성할 TypeSpec namespace 이름',
