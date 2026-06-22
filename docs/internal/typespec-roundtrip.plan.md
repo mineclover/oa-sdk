@@ -22,6 +22,8 @@ Implemented source:
 - `scripts/typespec-roundtrip.ts` — reproducible probe for export, TypeSpec compile, emitted OpenAPI validation, and OpenAPI diff.
 - `scripts/typespec-bundle-check.ts` — repository wrapper around the shared `oa-gen tsp-bundle-check` implementation.
 - `docs/internal/typespec-roundtrip/oa-sdk-typespec-extensions.v1.md` — `oa-sdk.typespec-extensions.v1` vocabulary for sidecar-less authored TypeSpec bundles.
+- `docs/internal/typespec-roundtrip/oa-sdk-typespec-extensions.v2.md` — `oa-sdk.typespec-extensions.v2` request body examples vocabulary.
+- `docs/internal/typespec-roundtrip/authoring-ownership-guide.md` — maintainer-facing source-of-truth ownership map for TypeSpec-native syntax, OA SDK TypeSpec extensions, compatibility sidecars, and runtime data.
 - `docs/internal/typespec-roundtrip/fixtures/authored-bundle/` — minimal authored bundle fixture proving the two-track input shape with `oa-sdk.typespec-bundle.v1`.
 - `docs/internal/typespec-roundtrip/fixtures/authored-extension-bundle/` — minimal sidecar-less authored bundle fixture proving OA SDK semantics can live in `.tsp` through TypeSpec OpenAPI extensions.
 - `docs/internal/typespec-roundtrip/fixtures/authored-representative-bundle/` — representative sidecar-less authored bundle fixture covering canonical users operations, pagination, request bodies, shared errors, union/composed schema shape, security requirements, and restored OA SDK extension metadata.
@@ -110,6 +112,7 @@ Current probe on `packages/schemas/src/.merged.yaml`:
 | Authored representative restored diff | 0 breaking changes across 0 modified operations |
 | Authored request body extension bundle check | pass, `.tsp` `oa-sdk.typespec-extensions.v2` metadata yields 1 operation, 1 request media example entry, 1 applied target, 0 missing targets |
 | Authored request body extension restored diff | 0 breaking changes across 0 modified operations |
+| Authoring ownership guide | pass, contract facts are mapped to TypeSpec-native syntax, OA SDK TypeSpec extensions, compatibility sidecars, or runtime data / adapter policy |
 
 Diagnostic distribution:
 
@@ -139,6 +142,7 @@ Current endpoint diff:
 - The authored bundle fixture proves the opposite direction as a first slice: an `oa-sdk.typespec-bundle.v1` manifest points to a hand-written `.tsp` structural contract plus authored `oa-sdk.typespec-compat-sidecar.v1`; the bundle compiles, restores OA SDK examples/security metadata, validates, and matches the expected OpenAPI endpoint surface with no breaking diff.
 - The authored extension bundle fixture proves the first sidecar-less slice: an `oa-sdk.typespec-bundle.v1` manifest points only to `.tsp` plus expected OpenAPI, declares `compatibility.oaSdkExtensionSchemaVersion: "oa-sdk.typespec-extensions.v1"`, and OA SDK semantics are restored from `x-oa-sdk-operation-examples` and `x-oa-sdk-security-schemes` metadata emitted from TypeSpec `@extension(...)` decorators.
 - The authored representative bundle fixture proves G1/G2 of the TypeSpec-first goal roadmap: source selection is documented from canonical users operations/components, and a sidecar-less `.tsp` project covers pagination, request bodies, shared error responses, strict object sealing, union/composed schema shape, TypeSpec-native bearer security requirements, and restored OAuth2 metadata with stable re-extraction.
+- The authoring ownership guide proves G4 by giving maintainers a single map for deciding whether a contract fact belongs in TypeSpec-native syntax, an OA SDK TypeSpec extension, the compatibility sidecar, or runtime data / adapter policy.
 
 ## Intersection
 
@@ -167,7 +171,7 @@ Before a TSP-first declaration, close or explicitly accept these gaps:
 5. Component projection policy: keep the accepted extra TypeSpec schemas visible in the roundtrip report or eliminate them if they become confusing for release review.
 6. Diff normalization: continue teaching OA SDK review tooling only proven TypeSpec-emitted shapes that are semantically equivalent, without suppressing real contract changes.
 
-The design direction for extension vNext, representative/full authored fixtures, and ADR outcomes is recorded in [`typespec-roundtrip/tsp-first-decision-design.md`](./typespec-roundtrip/tsp-first-decision-design.md).
+The design direction for extension vNext, representative/full authored fixtures, and ADR outcomes is recorded in [`typespec-roundtrip/tsp-first-decision-design.md`](./typespec-roundtrip/tsp-first-decision-design.md). Maintainer authoring ownership is recorded in [`typespec-roundtrip/authoring-ownership-guide.md`](./typespec-roundtrip/authoring-ownership-guide.md).
 
 ## Declaration Criteria
 
@@ -175,7 +179,7 @@ Declare TSP-first only when:
 
 - `pnpm typespec:roundtrip -- --fail-on-breaking` passes for the canonical schema artifact.
 - All exporter diagnostics are either zero for contract-bearing surfaces or categorized as accepted metadata loss.
-- The authoring guide says which facts belong in `.tsp`, which remain OpenAPI sidecars/extensions, and which remain OA SDK runtime data.
+- The authoring guide says which facts belong in `.tsp`, which remain OpenAPI sidecars/extensions, and which remain OA SDK runtime data: [`typespec-roundtrip/authoring-ownership-guide.md`](./typespec-roundtrip/authoring-ownership-guide.md).
 - The generated OpenAPI remains valid under OA SDK's OpenAPI 3.2 gate and downstream codegen/router/client/mock-server tests.
 - The compatibility sidecar schema is stable enough for authored `.tsp + sidecar` fixtures, not only generated sidecars.
 - Authored `.tsp + sidecar` fixtures are declared through `oa-sdk.typespec-bundle.v1`, pass `oa-gen tsp-bundle-check --fail-on-breaking` and the `pnpm typespec:bundle-check -- --fail-on-breaking` wrapper, and cover every sidecar entry kind that is accepted by policy.

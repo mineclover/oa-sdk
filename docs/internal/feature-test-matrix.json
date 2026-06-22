@@ -282,6 +282,7 @@
         "authored TypeSpec bundle manifest",
     "oa-sdk.typespec-extensions.v1 schema",
     "oa-sdk.typespec-extensions.v2 request body examples schema",
+    "TypeSpec authoring ownership guide",
     "TSP-first decision design",
     "sidecar-less authored TypeSpec extension bundle check",
     "representative authored TypeSpec extension bundle check",
@@ -322,6 +323,7 @@
     "docs/internal/typespec-roundtrip/fixtures/authored-request-body-extension-bundle/expected.openapi.yaml",
     "docs/internal/typespec-roundtrip/oa-sdk-typespec-extensions.v1.md",
     "docs/internal/typespec-roundtrip/oa-sdk-typespec-extensions.v2.md",
+    "docs/internal/typespec-roundtrip/authoring-ownership-guide.md",
     "docs/internal/typespec-roundtrip/tsp-first-decision-design.md",
         "docs/internal/typespec-roundtrip.plan.md"
       ],
