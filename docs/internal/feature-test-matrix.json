@@ -287,6 +287,7 @@
     "accepted TSP-first ADR",
     "TSP-first decision design",
     "TypeSpec production migration G9-G12 goals",
+    "production TypeSpec source layout candidate",
     "sidecar-less authored TypeSpec extension bundle check",
     "representative authored TypeSpec extension bundle check",
     "request body authored TypeSpec extension bundle check",
@@ -334,6 +335,11 @@
     "docs/internal/typespec-roundtrip/fixtures/authored-canonical-bundle/oa-sdk.typespec-bundle.json",
     "docs/internal/typespec-roundtrip/fixtures/authored-canonical-bundle/main.tsp",
     "docs/internal/typespec-roundtrip/fixtures/authored-canonical-bundle/expected.openapi.yaml",
+    "packages/schemas/typespec/README.md",
+    "packages/schemas/typespec/oa-sdk.typespec-bundle.json",
+    "packages/schemas/typespec/main.tsp",
+    "packages/schemas/typespec/tspconfig.yaml",
+    "packages/schemas/typespec/expected.openapi.yaml",
     "docs/internal/typespec-roundtrip/oa-sdk-typespec-extensions.v1.md",
     "docs/internal/typespec-roundtrip/oa-sdk-typespec-extensions.v2.md",
     "docs/internal/typespec-roundtrip/authoring-ownership-guide.md",
@@ -348,6 +354,7 @@
         "pnpm --filter @oa-sdk/codegen typecheck",
         "pnpm typespec:roundtrip",
         "pnpm typespec:bundle-check",
+        "pnpm typespec:bundle-check -- --manifest packages/schemas/typespec/oa-sdk.typespec-bundle.json --fail-on-breaking",
         "pnpm typespec:sidecar-to-extensions -- --sidecar docs/internal/typespec-roundtrip/fixtures/authored-bundle/oa-sdk.typespec-compat-sidecar.json",
         "pnpm typespec:create-canonical-fixture"
       ]

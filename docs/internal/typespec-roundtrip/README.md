@@ -16,6 +16,8 @@ The TypeSpec-first decision design and completed G1-G8 evidence are tracked in [
 
 The staged production migration goals G9-G12 are tracked in [`production-migration-goals.md`](./production-migration-goals.md).
 
+The G9 production TypeSpec source layout candidate is [`../../../packages/schemas/typespec/`](../../../packages/schemas/typespec/).
+
 ## Versions
 
 | Target | Package | Plan | Status |

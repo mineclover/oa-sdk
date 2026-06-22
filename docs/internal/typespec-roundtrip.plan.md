@@ -24,6 +24,7 @@ Implemented source:
 - `scripts/typespec-bundle-check.ts` — repository wrapper around the shared `oa-gen tsp-bundle-check` implementation.
 - `scripts/typespec-sidecar-to-extensions.ts` — repository wrapper for the sidecar-to-extension migration helper.
 - `scripts/typespec-create-authored-canonical-fixture.ts` — reproducible canonical authored fixture regeneration from the production merged OpenAPI schema.
+- `packages/schemas/typespec/` — G9 production-owned TypeSpec source layout candidate for the staged migration.
 - `docs/internal/typespec-roundtrip/oa-sdk-typespec-extensions.v1.md` — `oa-sdk.typespec-extensions.v1` vocabulary for sidecar-less authored TypeSpec bundles.
 - `docs/internal/typespec-roundtrip/oa-sdk-typespec-extensions.v2.md` — `oa-sdk.typespec-extensions.v2` request body examples vocabulary.
 - `docs/internal/typespec-roundtrip/authoring-ownership-guide.md` — maintainer-facing source-of-truth ownership map for TypeSpec-native syntax, OA SDK TypeSpec extensions, compatibility sidecars, and runtime data.
@@ -129,6 +130,7 @@ Current probe on `packages/schemas/src/.merged.yaml`:
 | TypeSpec-first ADR | pass, `docs/internal/architecture/009-typespec-first-authoring.md` records accepted scope, evidence, guardrails, staged migration path, and rollback rules |
 | Sidecar-to-extension migration workflow | pass, `pnpm typespec:sidecar-to-extensions` writes TypeSpec snippets, a residual sidecar, and a report without converting unsupported metadata into comments; current canonical sidecar conversion yields 99 converted entries and 3 residual path-level parameter examples |
 | TypeSpec-first ADR promotion | pass, `docs/internal/architecture/009-typespec-first-authoring.md` accepts TypeSpec-first schema authoring with staged production migration and rollback rules |
+| Production TypeSpec source layout | pass, `packages/schemas/typespec/` exists as the G9 production-owned TypeSpec bundle candidate and passes standalone bundle-check |
 
 Diagnostic distribution:
 
