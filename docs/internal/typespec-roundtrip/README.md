@@ -14,6 +14,8 @@ The current full canonical authored fixture is [`fixtures/authored-canonical-bun
 
 The TypeSpec-first decision design and completed G1-G8 evidence are tracked in [`tsp-first-decision-design.md`](./tsp-first-decision-design.md).
 
+The staged production migration goals G9-G12 are tracked in [`production-migration-goals.md`](./production-migration-goals.md).
+
 ## Versions
 
 | Target | Package | Plan | Status |

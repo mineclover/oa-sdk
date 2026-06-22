@@ -4,7 +4,7 @@
 
 Status: evaluation complete. ADR-009 accepts TypeSpec-first schema authoring with a staged production migration.
 
-Versioned implementation planning lives under [`typespec-roundtrip/`](./typespec-roundtrip/). The sidecar-less authored TypeSpec extension vocabulary is standardized in [`typespec-roundtrip/oa-sdk-typespec-extensions.v1.md`](./typespec-roundtrip/oa-sdk-typespec-extensions.v1.md). The completed TypeSpec-first decision design is tracked in [`typespec-roundtrip/tsp-first-decision-design.md`](./typespec-roundtrip/tsp-first-decision-design.md). The next target is [`@oa-sdk/codegen` `0.3.0`](./typespec-roundtrip/v0.3.0/implementation-roadmap.plan.md), following the current `@oa-sdk/codegen` `0.2.0` package version.
+Versioned implementation planning lives under [`typespec-roundtrip/`](./typespec-roundtrip/). The sidecar-less authored TypeSpec extension vocabulary is standardized in [`typespec-roundtrip/oa-sdk-typespec-extensions.v1.md`](./typespec-roundtrip/oa-sdk-typespec-extensions.v1.md). The completed TypeSpec-first decision design is tracked in [`typespec-roundtrip/tsp-first-decision-design.md`](./typespec-roundtrip/tsp-first-decision-design.md). The staged production migration goals G9-G12 are tracked in [`typespec-roundtrip/production-migration-goals.md`](./typespec-roundtrip/production-migration-goals.md). The next target is [`@oa-sdk/codegen` `0.3.0`](./typespec-roundtrip/v0.3.0/implementation-roadmap.plan.md), following the current `@oa-sdk/codegen` `0.2.0` package version.
 
 ## Current Surfaces
 
@@ -23,10 +23,12 @@ Implemented source:
 - `scripts/typespec-roundtrip.ts` — reproducible probe for export, TypeSpec compile, emitted OpenAPI validation, and OpenAPI diff.
 - `scripts/typespec-bundle-check.ts` — repository wrapper around the shared `oa-gen tsp-bundle-check` implementation.
 - `scripts/typespec-sidecar-to-extensions.ts` — repository wrapper for the sidecar-to-extension migration helper.
+- `scripts/typespec-create-authored-canonical-fixture.ts` — reproducible canonical authored fixture regeneration from the production merged OpenAPI schema.
 - `docs/internal/typespec-roundtrip/oa-sdk-typespec-extensions.v1.md` — `oa-sdk.typespec-extensions.v1` vocabulary for sidecar-less authored TypeSpec bundles.
 - `docs/internal/typespec-roundtrip/oa-sdk-typespec-extensions.v2.md` — `oa-sdk.typespec-extensions.v2` request body examples vocabulary.
 - `docs/internal/typespec-roundtrip/authoring-ownership-guide.md` — maintainer-facing source-of-truth ownership map for TypeSpec-native syntax, OA SDK TypeSpec extensions, compatibility sidecars, and runtime data.
 - `docs/internal/typespec-roundtrip/sidecar-to-extension-migration.md` — G6 workflow for moving supported sidecar entries into TypeSpec extension metadata.
+- `docs/internal/typespec-roundtrip/production-migration-goals.md` — G9-G12 roadmap for wiring the accepted TypeSpec bundle into the production schema build path.
 - `docs/internal/architecture/009-typespec-first-authoring.md` — accepted TypeSpec-first authoring ADR with staged production migration and rollback rules.
 - `docs/internal/typespec-roundtrip/fixtures/authored-bundle/` — minimal authored bundle fixture proving the two-track input shape with `oa-sdk.typespec-bundle.v1`.
 - `docs/internal/typespec-roundtrip/fixtures/authored-extension-bundle/` — minimal sidecar-less authored bundle fixture proving OA SDK semantics can live in `.tsp` through TypeSpec OpenAPI extensions.
@@ -81,6 +83,7 @@ pnpm typespec:bundle-check -- --manifest docs/internal/typespec-roundtrip/fixtur
 pnpm typespec:bundle-check -- --manifest artifacts/oa-sdk.typespec-bundle.json --fail-on-breaking --report artifacts/typespec-generated-bundle-check-report.json
 pnpm typespec:bundle-check -- --fail-on-breaking --report artifacts/typespec-bundle-check-report.json
 pnpm typespec:sidecar-to-extensions -- --sidecar artifacts/typespec-sidecar.json --output artifacts/typespec-extension-snippets.tsp --remaining-sidecar artifacts/typespec-sidecar.remaining.json --report artifacts/typespec-sidecar-to-extensions-report.json
+pnpm typespec:create-canonical-fixture
 ```
 
 The default probe is a visibility command: it exits 0 when export, TypeSpec compile, and OA SDK validation pass, even if semantic diff remains. `--fail-on-breaking` is the readiness gate; the current canonical artifact passes it, and future semantic regressions must either be removed or explicitly accepted by policy.
@@ -180,7 +183,7 @@ This is enough to keep path and operation identity stable and to run a machine-r
 
 ## Difference Backlog
 
-Before a TSP-first declaration, close or explicitly accept these gaps:
+During the staged production migration, keep these accepted gaps visible and close or refine them only with focused evidence:
 
 1. OAuth2 component policy: the current unused OAuth2 scheme is classified as OpenAPI-side metadata and restored through the compatibility sidecar; any referenced unsupported security scheme remains contract-bearing until its sidecar semantics are explicitly accepted.
 2. Parameter and response media examples: OA SDK `dataValue` / `serializedValue` examples are externalized to the compatibility sidecar for generated bundles, and a sidecar-less authored fixture now proves they can also live in `.tsp` as OA SDK TypeSpec extension metadata without weakening mock-server priority.

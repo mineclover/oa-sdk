@@ -105,6 +105,7 @@ Rollback must remain available during and after the staged migration:
 
 - `docs/internal/typespec-roundtrip.plan.md`
 - `docs/internal/typespec-roundtrip/tsp-first-decision-design.md`
+- `docs/internal/typespec-roundtrip/production-migration-goals.md`
 - `docs/internal/typespec-roundtrip/authoring-ownership-guide.md`
 - `docs/internal/typespec-roundtrip/sidecar-to-extension-migration.md`
 - `docs/internal/typespec-roundtrip/oa-sdk-typespec-extensions.v1.md`

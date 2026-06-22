@@ -223,13 +223,13 @@ The remaining work should run as explicit goals instead of one broad "make TypeS
 | G7 Full canonical authored bundle | Prove the canonical OA SDK API can be checked from a TypeSpec bundle without the original OpenAPI artifact. | G5 draft and G6 workflow. | `authored-canonical-bundle` passes bundle check, operation set matches canonical expected OpenAPI, and sidecar/extension re-extraction is stable. |
 | G8 ADR promotion | Decide the real TypeSpec-first outcome. | G7, or an explicit decision to stay conditional. | ADR is updated to reject, conditional accept, or accept with current evidence and rollback/migration rules. |
 
-### Recommended Goal Boundaries
+### Completed Goal Boundary Notes
 
-Start with G1 or G2, not G3. Request body examples are a plausible v2 candidate, but implementing v2 before the representative fixture risks optimizing the extension vocabulary before the authored coverage need is proven.
+G1 and G2 intentionally came before G3 so the representative authored fixture could prove the coverage need before `oa-sdk.typespec-extensions.v2` added request body example ownership.
 
-G5 should not claim accepted TypeSpec-first unless G7 is green. Before G7, the strongest supported ADR outcome is conditional accept.
+G5 stayed conditional until G7 was green. G8 then promoted ADR-009 to accepted TypeSpec-first schema authoring with a staged production migration.
 
-G6 should be treated as tooling/workflow support, not as a schema decision. It must not silently convert unsupported sidecar semantics into comments or unvalidated extension payloads.
+G6 remains tooling/workflow support, not a schema decision. It must not silently convert unsupported sidecar semantics into comments or unvalidated extension payloads.
 
 ### Current Goal Evidence
 
@@ -270,5 +270,9 @@ Additional commands by goal:
 
 ## Next Work Order
 
-1. Open a separate production migration goal to wire the accepted TypeSpec source into the schema build path.
-2. Keep the current OpenAPI production path green until that migration lands with rollback evidence.
+The TypeSpec-first decision track is complete through G8. Production migration now continues in [`production-migration-goals.md`](./production-migration-goals.md) as G9-G12:
+
+1. G9: choose and document the production-owned TypeSpec bundle layout.
+2. G10: wire the schema build or validation path to TypeSpec bundle-check semantics.
+3. G11: add rollback evidence while keeping the current OpenAPI production path green.
+4. G12: prove downstream parser/codegen/router/client/mock-server gates against the TypeSpec-derived artifact.

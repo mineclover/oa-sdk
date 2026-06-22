@@ -286,6 +286,7 @@
     "TypeSpec authoring ownership guide",
     "accepted TSP-first ADR",
     "TSP-first decision design",
+    "TypeSpec production migration G9-G12 goals",
     "sidecar-less authored TypeSpec extension bundle check",
     "representative authored TypeSpec extension bundle check",
     "request body authored TypeSpec extension bundle check",
@@ -337,6 +338,7 @@
     "docs/internal/typespec-roundtrip/oa-sdk-typespec-extensions.v2.md",
     "docs/internal/typespec-roundtrip/authoring-ownership-guide.md",
     "docs/internal/typespec-roundtrip/sidecar-to-extension-migration.md",
+    "docs/internal/typespec-roundtrip/production-migration-goals.md",
     "docs/internal/architecture/009-typespec-first-authoring.md",
     "docs/internal/typespec-roundtrip/tsp-first-decision-design.md",
         "docs/internal/typespec-roundtrip.plan.md"
