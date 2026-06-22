@@ -284,7 +284,7 @@
     "oa-sdk.typespec-extensions.v1 schema",
     "oa-sdk.typespec-extensions.v2 request body examples schema",
     "TypeSpec authoring ownership guide",
-    "conditional TSP-first ADR draft",
+    "accepted TSP-first ADR",
     "TSP-first decision design",
     "sidecar-less authored TypeSpec extension bundle check",
     "representative authored TypeSpec extension bundle check",

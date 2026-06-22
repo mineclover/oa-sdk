@@ -3,7 +3,7 @@
 > Target package version: `@oa-sdk/codegen` `0.3.0`.
 > Current package version: `@oa-sdk/codegen` `0.2.0`.
 
-Status: implemented for the `0.3.0` evaluation track. Phase 0 through Phase 6 are complete for the canonical roundtrip fixture, and the two-track compatibility sidecar slices are implemented through semantic re-extraction stability checks. This document does not declare TSP-first.
+Status: implemented for the `0.3.0` evaluation track. The canonical roundtrip, two-track compatibility sidecar slices, sidecar-less canonical bundle, and ADR evidence are implemented through semantic re-extraction stability checks. ADR-009 now accepts TypeSpec-first schema authoring with a staged production migration.
 
 ## Goal
 
@@ -52,7 +52,7 @@ Expected docs:
 - Existing implemented behavior remains in `docs/internal/spec.md`.
 - Current evaluation summary remains in `docs/internal/typespec-roundtrip.plan.md`.
 - This roadmap owns `0.3.0` implementation sequencing.
-- If all gates pass, a later ADR may decide whether `.tsp` becomes a first-class authoring source.
+- ADR-009 records the accepted TypeSpec-first authoring decision; production build rewiring remains a separate migration.
 
 ## Phase 0 — Probe Hardening
 
@@ -248,7 +248,7 @@ Evidence:
 
 Status: implemented for the `0.3.0` evaluation track. This closes readiness evidence for the canonical fixture but does not promote `.tsp` to the canonical authoring source.
 
-Purpose: make the release evidence clear enough to support or reject a later TSP-first decision.
+Purpose: make the release evidence clear enough to support the TypeSpec-first decision and its staged migration.
 
 Tasks:
 

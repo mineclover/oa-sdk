@@ -2,9 +2,9 @@
 
 ## Status
 
-Conditional accept draft, dated 2026-06-22.
+Accepted, dated 2026-06-22.
 
-TypeSpec is accepted as a first-class authoring surface for selected `oa-sdk.typespec-bundle.v1` bundles that pass the gates below. TypeSpec is not yet accepted as the default source of truth for the production canonical OA SDK schema artifact.
+TypeSpec is accepted as the OA SDK schema authoring source of truth for the staged production migration. The current production OpenAPI fragments remain in place until a follow-up migration wires the production build to the accepted TypeSpec source and preserves the rollback path below.
 
 ## Context
 
@@ -18,13 +18,13 @@ The evaluation has now completed these prerequisite slices:
 - `oa-sdk.typespec-extensions.v2` for request body media examples.
 - A maintainer authoring ownership guide that maps contract facts to TypeSpec-native syntax, OA SDK TypeSpec extensions, compatibility sidecars, or runtime data / adapter policy.
 
-The remaining gap is the final architecture decision, not the small-slice mechanics: the full canonical authored bundle exists as a sidecar-less v2 fixture, and sidecar-to-extension migration has been applied to the canonical sidecar semantics.
+The final architecture decision can now be made: the full canonical authored bundle exists as a sidecar-less v2 fixture, and sidecar-to-extension migration has been applied to the canonical sidecar semantics.
 
 ## Decision
 
-Adopt TypeSpec conditionally for selected authored bundles.
+Adopt TypeSpec-first schema authoring.
 
-Selected authored bundles may be treated as TypeSpec-first only when all of the following are true:
+The accepted production migration target is a TypeSpec bundle that satisfies all of the following:
 
 1. The bundle has an `oa-sdk.typespec-bundle.v1` manifest.
 2. The bundle includes a bundle-local `expected.openapi.yaml`.
@@ -34,7 +34,7 @@ Selected authored bundles may be treated as TypeSpec-first only when all of the 
 6. Restored OpenAPI contains no restore-only `x-oa-sdk-*` metadata.
 7. Sidecar or extension semantic re-extraction reports no missing expected entries, unexpected actual entries, or value mismatches.
 
-Keep `packages/schemas/src/.merged.yaml` and its domain fragments as the canonical production schema source until the full canonical authored bundle passes and this ADR is promoted by G8.
+`docs/internal/typespec-roundtrip/fixtures/authored-canonical-bundle/` is the accepted evidence fixture for that target. The production source switch is intentionally staged: this ADR accepts TypeSpec as the authoring SSOT, but the repository must keep the current OpenAPI production path working until the follow-up migration replaces or generates those artifacts from the TypeSpec source.
 
 ## Evidence
 
@@ -63,7 +63,7 @@ Governance documentation gates must remain green for this ADR:
 
 ## Guardrails
 
-- Do not declare TypeSpec the default schema source of truth before G7 and G8.
+- Do not remove the current OpenAPI production path until the TypeSpec production migration has equivalent build, validation, and rollback gates.
 - Do not use unvalidated TypeSpec comments to carry runtime-only OA SDK semantics.
 - Do not silently add restore-bearing fields to `oa-sdk.typespec-extensions.v1`; new restored OpenAPI output requires a new extension schema version.
 - Do not hide referenced unsupported auth requirements as metadata-only sidecar entries.
@@ -85,22 +85,21 @@ G7 adds `docs/internal/typespec-roundtrip/fixtures/authored-canonical-bundle/` a
 - Sidecar or extension semantic re-extraction is stable.
 - Remaining diagnostics are categorized as accepted metadata, review-policy equivalence, or explicit non-goals.
 
-G8 must update this ADR to one of:
+G8 outcome:
 
 | Outcome | Required State |
 |---|---|
-| Reject | TypeSpec cannot preserve required OA SDK semantics or the maintenance cost exceeds the benefit. |
-| Conditional accept | Selected TypeSpec-authored bundles remain first-class, but production canonical schema remains OpenAPI. |
-| Accept | Full canonical authored bundle passes, migration/rollback rules are defined, and TypeSpec becomes the default schema source of truth. |
+| Accept | Full canonical authored bundle passes, migration/rollback rules are defined, and TypeSpec is accepted as the staged default schema authoring source of truth. |
 
 ## Rollback
 
-Because this is conditional, rollback is local to selected bundles:
+Rollback must remain available during and after the staged migration:
 
 1. Keep or restore the bundle-local `expected.openapi.yaml`.
 2. Move unsupported extension-owned facts back into `oa-sdk.typespec-compat-sidecar.v1`.
-3. Stop treating the bundle as TypeSpec-first until `tsp-bundle-check --fail-on-breaking` is green again.
-4. Keep the production canonical OpenAPI schema unchanged unless G8 explicitly promotes TypeSpec as the default source of truth.
+3. Stop treating a TypeSpec bundle as production-authoritative until `tsp-bundle-check --fail-on-breaking` is green again.
+4. Keep or regenerate the production OpenAPI artifact from the last green source while TypeSpec migration failures are being repaired.
+5. Revert the production build wiring to the OpenAPI path if TypeSpec-generated output cannot preserve OA SDK validation, downstream tests, or mock-server behavior.
 
 ## Related Documents
 

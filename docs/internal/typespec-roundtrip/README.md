@@ -12,7 +12,7 @@ The current sidecar-to-extension migration workflow is documented in [`sidecar-t
 
 The current full canonical authored fixture is [`fixtures/authored-canonical-bundle/`](./fixtures/authored-canonical-bundle/).
 
-The remaining TypeSpec-first decision design is tracked in [`tsp-first-decision-design.md`](./tsp-first-decision-design.md).
+The TypeSpec-first decision design and completed G1-G8 evidence are tracked in [`tsp-first-decision-design.md`](./tsp-first-decision-design.md).
 
 ## Versions
 
