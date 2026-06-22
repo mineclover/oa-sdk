@@ -14,6 +14,7 @@ Implemented source:
 - `packages/codegen/src/cli/lib/typespec-bundle-manifest.ts` — `oa-sdk.typespec-bundle.v1` manifest creation, parsing, and bundle-local path resolution.
 - `packages/codegen/src/cli/lib/typespec-bundle-check.ts` — shared bundle manifest compile, sidecar restore/re-extract, validation, and expected diff gate.
 - `packages/codegen/src/cli/lib/typespec-oa-sdk-extensions.ts` — sidecar-equivalent OA SDK TypeSpec extension metadata extraction from emitted OpenAPI.
+- `packages/codegen/src/cli/lib/typespec-sidecar-to-extensions.ts` — migration helper that converts supported sidecar entries into TypeSpec `@extension(...)` snippets and leaves unsupported entries in a residual sidecar.
 - `packages/codegen/src/cli/lib/typespec-sidecar.ts` — OA SDK-owned TypeSpec compatibility sidecar creation, restore, and semantic stability comparison.
 - `packages/codegen/src/cli/lib/typespec-roundtrip-report.ts` — roundtrip report assembly, diagnostic ownership classification, and readiness gates.
 - `packages/codegen/src/cli/commands/tsp-export.ts` — `oa-gen tsp-export --spec <openapi.yaml> --output <main.tsp> --report <report.json> --sidecar <sidecar.json> --bundle-manifest <manifest.json>`.
@@ -21,15 +22,18 @@ Implemented source:
 - `packages/codegen/src/cli/commands/tsp-bundle-check.ts` — `oa-gen tsp-bundle-check --manifest <manifest.json> --fail-on-breaking --report <report.json>`.
 - `scripts/typespec-roundtrip.ts` — reproducible probe for export, TypeSpec compile, emitted OpenAPI validation, and OpenAPI diff.
 - `scripts/typespec-bundle-check.ts` — repository wrapper around the shared `oa-gen tsp-bundle-check` implementation.
+- `scripts/typespec-sidecar-to-extensions.ts` — repository wrapper for the sidecar-to-extension migration helper.
 - `docs/internal/typespec-roundtrip/oa-sdk-typespec-extensions.v1.md` — `oa-sdk.typespec-extensions.v1` vocabulary for sidecar-less authored TypeSpec bundles.
 - `docs/internal/typespec-roundtrip/oa-sdk-typespec-extensions.v2.md` — `oa-sdk.typespec-extensions.v2` request body examples vocabulary.
 - `docs/internal/typespec-roundtrip/authoring-ownership-guide.md` — maintainer-facing source-of-truth ownership map for TypeSpec-native syntax, OA SDK TypeSpec extensions, compatibility sidecars, and runtime data.
+- `docs/internal/typespec-roundtrip/sidecar-to-extension-migration.md` — G6 workflow for moving supported sidecar entries into TypeSpec extension metadata.
 - `docs/internal/architecture/009-typespec-first-authoring.md` — conditional TypeSpec-first authoring ADR draft for selected authored bundles.
 - `docs/internal/typespec-roundtrip/fixtures/authored-bundle/` — minimal authored bundle fixture proving the two-track input shape with `oa-sdk.typespec-bundle.v1`.
 - `docs/internal/typespec-roundtrip/fixtures/authored-extension-bundle/` — minimal sidecar-less authored bundle fixture proving OA SDK semantics can live in `.tsp` through TypeSpec OpenAPI extensions.
 - `docs/internal/typespec-roundtrip/fixtures/authored-representative-bundle/` — representative sidecar-less authored bundle fixture covering canonical users operations, pagination, request bodies, shared errors, union/composed schema shape, security requirements, and restored OA SDK extension metadata.
 - `packages/codegen/src/__tests__/tsp-export.test.ts` — focused exporter coverage.
 - `packages/codegen/src/__tests__/typespec-sidecar.test.ts` — compatibility sidecar creation/restore coverage.
+- `packages/codegen/src/__tests__/typespec-sidecar-to-extensions.test.ts` — sidecar-to-extension migration coverage.
 - `packages/codegen/src/__tests__/typespec-authored-bundle.test.ts` — authored `.tsp + sidecar` compile/restore fixture coverage.
 - `packages/codegen/src/__tests__/openapi-breaking-diff.test.ts` — proven TypeSpec/OpenAPI shape equivalence coverage.
 - `packages/codegen/src/__tests__/typespec-roundtrip-report.test.ts` — machine-readable report and diagnostic policy coverage.
@@ -74,6 +78,7 @@ pnpm typespec:bundle-check -- --manifest docs/internal/typespec-roundtrip/fixtur
 pnpm typespec:bundle-check -- --manifest docs/internal/typespec-roundtrip/fixtures/authored-representative-bundle/oa-sdk.typespec-bundle.json --fail-on-breaking
 pnpm typespec:bundle-check -- --manifest artifacts/oa-sdk.typespec-bundle.json --fail-on-breaking --report artifacts/typespec-generated-bundle-check-report.json
 pnpm typespec:bundle-check -- --fail-on-breaking --report artifacts/typespec-bundle-check-report.json
+pnpm typespec:sidecar-to-extensions -- --sidecar artifacts/typespec-sidecar.json --output artifacts/typespec-extension-snippets.tsp --remaining-sidecar artifacts/typespec-sidecar.remaining.json --report artifacts/typespec-sidecar-to-extensions-report.json
 ```
 
 The default probe is a visibility command: it exits 0 when export, TypeSpec compile, and OA SDK validation pass, even if semantic diff remains. `--fail-on-breaking` is the readiness gate; the current canonical artifact passes it, and future semantic regressions must either be removed or explicitly accepted by policy.
@@ -115,6 +120,7 @@ Current probe on `packages/schemas/src/.merged.yaml`:
 | Authored request body extension restored diff | 0 breaking changes across 0 modified operations |
 | Authoring ownership guide | pass, contract facts are mapped to TypeSpec-native syntax, OA SDK TypeSpec extensions, compatibility sidecars, or runtime data / adapter policy |
 | Conditional TypeSpec-first ADR draft | pass, `docs/internal/architecture/009-typespec-first-authoring.md` records conditional accept scope, evidence, guardrails, promotion path, and rollback rules |
+| Sidecar-to-extension migration workflow | pass, `pnpm typespec:sidecar-to-extensions` writes TypeSpec snippets, a residual sidecar, and a report without converting unsupported metadata into comments; current canonical sidecar conversion yields 99 converted entries and 3 residual path-level parameter examples |
 
 Diagnostic distribution:
 
@@ -146,6 +152,8 @@ Current endpoint diff:
 - The authored representative bundle fixture proves G1/G2 of the TypeSpec-first goal roadmap: source selection is documented from canonical users operations/components, and a sidecar-less `.tsp` project covers pagination, request bodies, shared error responses, strict object sealing, union/composed schema shape, TypeSpec-native bearer security requirements, and restored OAuth2 metadata with stable re-extraction.
 - The authoring ownership guide proves G4 by giving maintainers a single map for deciding whether a contract fact belongs in TypeSpec-native syntax, an OA SDK TypeSpec extension, the compatibility sidecar, or runtime data / adapter policy.
 - The conditional ADR draft proves G5 by accepting TypeSpec as a first-class authoring surface only for selected bundles that pass manifest, ownership, restore, validation, expected diff, and re-extraction stability gates. The production canonical schema remains OpenAPI until G7/G8.
+- The sidecar-to-extension migration tool proves G6 by generating TypeSpec `@extension(...)` snippets for supported parameter, request, response, and security scheme entries while leaving path-level or otherwise unsupported metadata explicitly sidecar-owned.
+- For the current canonical generated sidecar, the migration tool converts 99/102 entries to extension snippets and leaves 3 path-level parameter examples in the residual sidecar.
 
 ## Intersection
 
@@ -191,3 +199,4 @@ Declare TSP-first only when:
 - Generated `.tsp + sidecar` bundles can be re-read through the same manifest contract without relying on the original OpenAPI artifact.
 - Generated bundles can include a bundle-local expected OpenAPI artifact so the same manifest contract can prove restored diff stability, not only compile/restore validity.
 - Sidecar restore and re-extraction stability gates pass with no missing expected entries, unexpected actual entries, or value mismatches.
+- Sidecar-to-extension migration reports show every supported entry converted to a checked TypeSpec extension target and every unsupported entry retained in the residual sidecar with a reason.

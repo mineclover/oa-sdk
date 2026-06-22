@@ -140,10 +140,14 @@ export function createTypeSpecCompatibilitySidecar(document: OasDocument): TypeS
   const entries: TypeSpecCompatibilitySidecarEntry[] = []
   entries.push(...collectSecuritySchemeEntries(document))
   entries.push(...collectPathEntries(document))
+  return createTypeSpecCompatibilitySidecarFromEntries(entries)
+}
+
+export function createTypeSpecCompatibilitySidecarFromEntries(entries: TypeSpecCompatibilitySidecarEntry[]): TypeSpecCompatibilitySidecar {
   return {
     schemaVersion: 'oa-sdk.typespec-compat-sidecar.v1',
     counts: countEntries(entries),
-    entries,
+    entries: cloneJson(entries),
   }
 }
 

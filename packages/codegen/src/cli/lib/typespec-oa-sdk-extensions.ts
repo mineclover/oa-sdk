@@ -3,6 +3,7 @@ import type {
   TypeSpecCompatibilitySidecar,
   TypeSpecCompatibilitySidecarEntry,
 } from './typespec-sidecar.js'
+import { createTypeSpecCompatibilitySidecarFromEntries } from './typespec-sidecar.js'
 
 type HttpMethod = 'get' | 'put' | 'post' | 'delete' | 'options' | 'head' | 'patch' | 'trace' | 'query'
 
@@ -28,11 +29,7 @@ export function createTypeSpecCompatibilitySidecarFromOpenApiExtensions(
   const schemaVersion = options.schemaVersion ?? DEFAULT_EXTENSION_SCHEMA_VERSION
   entries.push(...collectSecuritySchemeEntries(document))
   entries.push(...collectOperationExampleEntries(document, schemaVersion))
-  return {
-    schemaVersion: 'oa-sdk.typespec-compat-sidecar.v1',
-    counts: countEntries(entries),
-    entries,
-  }
+  return createTypeSpecCompatibilitySidecarFromEntries(entries)
 }
 
 export function stripTypeSpecOpenApiExtensions(document: OasDocument): OasDocument {
@@ -157,18 +154,6 @@ function collectResponseExampleEntries(value: unknown, path: string, method: Htt
     })
   })
   return entries
-}
-
-function countEntries(entries: TypeSpecCompatibilitySidecarEntry[]): TypeSpecCompatibilitySidecar['counts'] {
-  const requestMediaExamples = entries.filter(entry => entry.kind === 'request-media-examples').length
-  const counts: TypeSpecCompatibilitySidecar['counts'] = {
-    entries: entries.length,
-    parameterExamples: entries.filter(entry => entry.kind === 'parameter-examples').length,
-    responseMediaExamples: entries.filter(entry => entry.kind === 'response-media-examples').length,
-    securitySchemes: entries.filter(entry => entry.kind === 'security-scheme').length,
-  }
-  if (requestMediaExamples > 0) counts.requestMediaExamples = requestMediaExamples
-  return counts
 }
 
 function readExampleValue(record: Record<string, unknown>): { example?: unknown; examples?: unknown } | null {

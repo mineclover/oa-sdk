@@ -276,6 +276,7 @@
       "capabilities": [
         "OpenAPI to TypeSpec source export",
         "OpenAPI-owned TypeSpec compatibility sidecar",
+        "sidecar-to-extension migration snippets and residual sidecar",
         "generated TypeSpec bundle manifest",
         "generated TypeSpec bundle expected OpenAPI",
         "generated TypeSpec plus sidecar bundle check",
@@ -302,6 +303,7 @@
       "testPaths": [
         "packages/codegen/src/__tests__/tsp-export.test.ts",
         "packages/codegen/src/__tests__/typespec-sidecar.test.ts",
+        "packages/codegen/src/__tests__/typespec-sidecar-to-extensions.test.ts",
         "packages/codegen/src/__tests__/typespec-authored-bundle.test.ts",
         "packages/codegen/src/__tests__/cli-tsp-sidecar.test.ts",
         "packages/codegen/src/__tests__/openapi-breaking-diff.test.ts",
@@ -309,8 +311,10 @@
         "packages/codegen/src/cli/commands/tsp-bundle-check.ts",
         "packages/codegen/src/cli/lib/typespec-bundle-check.ts",
         "packages/codegen/src/cli/lib/typespec-oa-sdk-extensions.ts",
+        "packages/codegen/src/cli/lib/typespec-sidecar-to-extensions.ts",
         "scripts/typespec-roundtrip.ts",
         "scripts/typespec-bundle-check.ts",
+        "scripts/typespec-sidecar-to-extensions.ts",
         "docs/internal/typespec-roundtrip/fixtures/authored-bundle/oa-sdk.typespec-bundle.json",
         "docs/internal/typespec-roundtrip/fixtures/authored-bundle/main.tsp",
         "docs/internal/typespec-roundtrip/fixtures/authored-extension-bundle/oa-sdk.typespec-bundle.json",
@@ -325,6 +329,7 @@
     "docs/internal/typespec-roundtrip/oa-sdk-typespec-extensions.v1.md",
     "docs/internal/typespec-roundtrip/oa-sdk-typespec-extensions.v2.md",
     "docs/internal/typespec-roundtrip/authoring-ownership-guide.md",
+    "docs/internal/typespec-roundtrip/sidecar-to-extension-migration.md",
     "docs/internal/architecture/009-typespec-first-authoring.md",
     "docs/internal/typespec-roundtrip/tsp-first-decision-design.md",
         "docs/internal/typespec-roundtrip.plan.md"
@@ -333,7 +338,8 @@
         "pnpm --filter @oa-sdk/codegen test -- src/__tests__/tsp-export.test.ts src/__tests__/typespec-sidecar.test.ts src/__tests__/typespec-authored-bundle.test.ts src/__tests__/cli-tsp-sidecar.test.ts src/__tests__/openapi-breaking-diff.test.ts src/__tests__/typespec-roundtrip-report.test.ts",
         "pnpm --filter @oa-sdk/codegen typecheck",
         "pnpm typespec:roundtrip",
-        "pnpm typespec:bundle-check"
+        "pnpm typespec:bundle-check",
+        "pnpm typespec:sidecar-to-extensions -- --sidecar docs/internal/typespec-roundtrip/fixtures/authored-bundle/oa-sdk.typespec-compat-sidecar.json"
       ]
     },
     {

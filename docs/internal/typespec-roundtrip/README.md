@@ -8,6 +8,8 @@ The sidecar-less authored bundle vocabulary is standardized in [`oa-sdk-typespec
 
 The current authoring source-of-truth boundary is summarized in [`authoring-ownership-guide.md`](./authoring-ownership-guide.md).
 
+The current sidecar-to-extension migration workflow is documented in [`sidecar-to-extension-migration.md`](./sidecar-to-extension-migration.md).
+
 The remaining TypeSpec-first decision design is tracked in [`tsp-first-decision-design.md`](./tsp-first-decision-design.md).
 
 ## Versions

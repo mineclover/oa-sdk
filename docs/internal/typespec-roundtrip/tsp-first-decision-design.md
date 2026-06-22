@@ -1,6 +1,6 @@
 # TypeSpec-First Decision Design
 
-Status: decision prep, not an ADR. G1 through G5 are implementation-backed.
+Status: decision prep, not an ADR. G1 through G6 are implementation-backed.
 
 This document locks the design direction for the remaining TypeSpec-first work that follows the `oa-sdk.typespec-extensions.v1` sidecar-less spike. It decides the next semantic scope, the authored fixture strategy, and the ADR evidence model without declaring TypeSpec-first yet.
 
@@ -242,6 +242,8 @@ G6 should be treated as tooling/workflow support, not as a schema decision. It m
 - The canonical export diagnostics now include 13 accepted `request-body/examples-dropped` entries owned by `oa-sdk-openapi-example-sidecar`.
 - G4 is implemented by `docs/internal/typespec-roundtrip/authoring-ownership-guide.md`, which maps contract facts to TypeSpec-native syntax, OA SDK TypeSpec extension metadata, compatibility sidecar, or runtime data / adapter policy.
 - G5 is implemented by `docs/internal/architecture/009-typespec-first-authoring.md` as a conditional accept draft with current command evidence. It does not promote TypeSpec to the default production schema source of truth.
+- G6 is implemented by `packages/codegen/src/cli/lib/typespec-sidecar-to-extensions.ts`, `scripts/typespec-sidecar-to-extensions.ts`, and `docs/internal/typespec-roundtrip/sidecar-to-extension-migration.md`. The workflow converts supported parameter, request media, response media, and security scheme entries into TypeSpec extension snippets and leaves unsupported entries in a residual sidecar with reasons.
+- Applied to the current canonical generated sidecar, G6 converts 99/102 entries into `oa-sdk.typespec-extensions.v2` snippets and leaves 3 path-level parameter example entries in the residual sidecar.
 
 ### Goal Gate Commands
 
@@ -261,9 +263,10 @@ Additional commands by goal:
 | G2 | `pnpm typespec:bundle-check -- --manifest docs/internal/typespec-roundtrip/fixtures/authored-representative-bundle/oa-sdk.typespec-bundle.json --fail-on-breaking` |
 | G3 | `pnpm --filter @oa-sdk/codegen test -- src/__tests__/typespec-authored-bundle.test.ts src/__tests__/typespec-sidecar.test.ts` and the v2 fixture bundle check |
 | G5 | `pnpm typespec:roundtrip -- --fail-on-breaking` plus minimal and representative bundle checks |
+| G6 | `pnpm --filter @oa-sdk/codegen test -- src/__tests__/typespec-sidecar-to-extensions.test.ts` and `pnpm typespec:sidecar-to-extensions -- --sidecar <sidecar> --output <snippets.tsp> --remaining-sidecar <remaining.json> --report <report.json>` |
 | G7 | `pnpm typespec:bundle-check -- --manifest docs/internal/typespec-roundtrip/fixtures/authored-canonical-bundle/oa-sdk.typespec-bundle.json --fail-on-breaking` |
 
 ## Next Work Order
 
-1. Run G6 and G7 before promoting the ADR beyond conditional accept.
+1. Run G7 before promoting the ADR beyond conditional accept.
 2. Run G8 to promote, revise, or reject the ADR based on full fixture evidence.

@@ -18,7 +18,7 @@ The evaluation has now completed these prerequisite slices:
 - `oa-sdk.typespec-extensions.v2` for request body media examples.
 - A maintainer authoring ownership guide that maps contract facts to TypeSpec-native syntax, OA SDK TypeSpec extensions, compatibility sidecars, or runtime data / adapter policy.
 
-The remaining gap is scale and migration, not the small-slice mechanics: the full canonical authored bundle does not yet exist, and sidecar-to-extension migration is not automated.
+The remaining gap is scale, not the small-slice mechanics: the full canonical authored bundle does not yet exist, and sidecar-to-extension migration now has an implementation-backed workflow that still needs to be applied to the canonical fixture.
 
 ## Decision
 
@@ -51,6 +51,7 @@ Current evidence was collected on 2026-06-22.
 | `pnpm --filter @oa-sdk/router test` | pass; `2` test files and `36` tests. |
 | `pnpm --filter @oa-sdk/client test` | pass; `3` test files and `39` tests. |
 | `pnpm --filter @oa-sdk/mock-server test` | pass; `34` test files and `583` tests. |
+| `pnpm typespec:sidecar-to-extensions -- --sidecar <canonical-generated-sidecar> --output /tmp/oa-sdk-g6-canonical/snippets.tsp --remaining-sidecar /tmp/oa-sdk-g6-canonical/remaining.json --report /tmp/oa-sdk-g6-canonical/migration-report.json` | pass; current canonical sidecar `102` entries; `99` converted to `oa-sdk.typespec-extensions.v2` snippets; `3` path-level parameter examples remain sidecar-owned. |
 
 Governance documentation gates must remain green for this ADR:
 
@@ -70,7 +71,7 @@ Governance documentation gates must remain green for this ADR:
 
 ## Promotion Path
 
-G6 must provide a sidecar-to-extension migration tool or documented workflow that:
+G6 provides a sidecar-to-extension migration tool and documented workflow:
 
 - Converts supported `parameter-examples`, `request-media-examples`, `response-media-examples`, and supported `security-scheme` entries into `.tsp` extension metadata.
 - Leaves unsupported metadata explicitly sidecar-owned.
@@ -105,5 +106,6 @@ Because this is conditional, rollback is local to selected bundles:
 - `docs/internal/typespec-roundtrip.plan.md`
 - `docs/internal/typespec-roundtrip/tsp-first-decision-design.md`
 - `docs/internal/typespec-roundtrip/authoring-ownership-guide.md`
+- `docs/internal/typespec-roundtrip/sidecar-to-extension-migration.md`
 - `docs/internal/typespec-roundtrip/oa-sdk-typespec-extensions.v1.md`
 - `docs/internal/typespec-roundtrip/oa-sdk-typespec-extensions.v2.md`
