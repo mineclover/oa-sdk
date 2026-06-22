@@ -82,7 +82,7 @@ G12 should be a downstream verification commit. It should avoid broad unrelated 
 Status: implemented by `packages/schemas/typespec/`.
 
 - Add the production bundle directory and a short README explaining that `.tsp` is the planned authoring source for the staged migration.
-- Keep `oa-sdk.typespec-bundle.json` sidecar-less with `compatibility.oaSdkExtensionSchemaVersion: "oa-sdk.typespec-extensions.v2"` unless the migration discovers a real residual sidecar need.
+- Keep `oa-sdk.typespec-bundle.json` sidecar-less with `compatibility.oaSdkExtensionSchemaVersion: "oa-sdk.typespec-extensions.v3"` unless the migration discovers a real residual sidecar need.
 - Keep `expected.openapi.yaml` bundle-local so G10 can compare TypeSpec-derived output without reading the old OpenAPI source as an oracle.
 - Do not change `schema:validate`, `schema:bundle`, or `packages/schemas/src/.merged.yaml` ownership in G9.
 
@@ -95,8 +95,8 @@ Status: implemented by `pnpm schema:typespec-check`, `pnpm schema:validate`, `pn
 - The gate must compare `packages/schemas/typespec/expected.openapi.yaml` with the reviewed reference using normalized OpenAPI diff so the TypeSpec bundle cannot drift silently.
 - The gate must also compare the TypeSpec-restored artifact with the reviewed reference and require the exact accepted drift set plus pinned normalized reference/restored value hashes from `packages/schemas/typespec/accepted-restored-drift.json`.
 - The accepted restored drift manifest blocks silent new drift after the source-path switch. It should burn down over time, but remaining drift is allowed only while hash-pinned and reviewed.
-- Current reviewed restored-vs-reference drift is 61 entries: `root/changed=1`, `security/removed=9`, `path/changed=22`, `component/removed=11`, `component/changed=14`, and `component/added=4`.
-- Drift burn-down order after the source-path switch is: remaining metadata alignment (`info`, explicit public operation security), reusable component identity (`parameters`, shared responses), response wrapper projection schemas, then operation/path-level metadata differences. Do not refresh the manifest without reviewing that order and the normalized value hashes.
+- Current reviewed restored-vs-reference drift is 52 entries: `root/changed=1`, `path/changed=22`, `component/removed=11`, `component/changed=14`, and `component/added=4`.
+- Drift burn-down order after the source-path switch is: remaining metadata alignment (`info`), reusable component identity (`parameters`, shared responses), response wrapper projection schemas, then operation/path-level metadata differences. Do not refresh the manifest without reviewing that order and the normalized value hashes.
 - `schema:validate`, `schema:bundle`, `schema:preview`, and package-level `build` now depend on the TypeSpec-derived artifact.
 - Preserve Definition Builder commands as the explicit rollback path until a separate removal decision.
 

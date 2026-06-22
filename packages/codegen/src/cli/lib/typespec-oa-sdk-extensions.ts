@@ -9,12 +9,14 @@ type HttpMethod = 'get' | 'put' | 'post' | 'delete' | 'options' | 'head' | 'patc
 
 const HTTP_METHODS: readonly HttpMethod[] = ['get', 'put', 'post', 'delete', 'options', 'head', 'patch', 'trace', 'query']
 const OPERATION_EXAMPLES_EXTENSION = 'x-oa-sdk-operation-examples'
+const OPERATION_SECURITY_EXTENSION = 'x-oa-sdk-operation-security'
 const SECURITY_SCHEMES_EXTENSION = 'x-oa-sdk-security-schemes'
 const DEFAULT_EXTENSION_SCHEMA_VERSION: TypeSpecOpenApiExtensionSchemaVersion = 'oa-sdk.typespec-extensions.v1'
 
 export type TypeSpecOpenApiExtensionSchemaVersion =
   | 'oa-sdk.typespec-extensions.v1'
   | 'oa-sdk.typespec-extensions.v2'
+  | 'oa-sdk.typespec-extensions.v3'
 
 export type TypeSpecOpenApiExtensionRestoreResult = {
   document: OasDocument
@@ -28,6 +30,9 @@ export function createTypeSpecCompatibilitySidecarFromOpenApiExtensions(
   const entries: TypeSpecCompatibilitySidecarEntry[] = []
   const schemaVersion = options.schemaVersion ?? DEFAULT_EXTENSION_SCHEMA_VERSION
   entries.push(...collectSecuritySchemeEntries(document))
+  if (schemaVersion === 'oa-sdk.typespec-extensions.v3') {
+    entries.push(...collectOperationSecurityEntries(document))
+  }
   entries.push(...collectOperationExampleEntries(document, schemaVersion))
   return createTypeSpecCompatibilitySidecarFromEntries(entries)
 }
@@ -40,7 +45,10 @@ export function stripTypeSpecOpenApiExtensions(document: OasDocument): OasDocume
     const pathItem = pathItemValue as Record<string, unknown>
     for (const method of HTTP_METHODS) {
       const operation = pathItem[method]
-      if (isRecord(operation)) delete operation[OPERATION_EXAMPLES_EXTENSION]
+      if (isRecord(operation)) {
+        delete operation[OPERATION_EXAMPLES_EXTENSION]
+        delete operation[OPERATION_SECURITY_EXTENSION]
+      }
     }
   }
   return stripped
@@ -57,6 +65,31 @@ function collectSecuritySchemeEntries(document: OasDocument): TypeSpecCompatibil
   }))
 }
 
+function collectOperationSecurityEntries(document: OasDocument): TypeSpecCompatibilitySidecarEntry[] {
+  const entries: TypeSpecCompatibilitySidecarEntry[] = []
+  for (const [path, pathItemValue] of Object.entries(document.paths ?? {})) {
+    if (!isRecord(pathItemValue)) continue
+    const pathItem = pathItemValue as Record<string, unknown>
+    for (const method of HTTP_METHODS) {
+      const operation = pathItem[method] as OasOperation | undefined
+      if (!isRecord(operation)) continue
+      const extension = (operation as Record<string, unknown>)[OPERATION_SECURITY_EXTENSION]
+      const value = readOperationSecurityValue(extension)
+      if (!value) continue
+      entries.push({
+        kind: 'operation-security',
+        pointer: `#/paths/${escapeJsonPointer(path)}/${method}/${escapeJsonPointer(OPERATION_SECURITY_EXTENSION)}`,
+        target: {
+          path,
+          method,
+        },
+        value,
+      })
+    }
+  }
+  return entries
+}
+
 function collectOperationExampleEntries(
   document: OasDocument,
   schemaVersion: TypeSpecOpenApiExtensionSchemaVersion,
@@ -71,13 +104,19 @@ function collectOperationExampleEntries(
       const extension = (operation as Record<string, unknown>)[OPERATION_EXAMPLES_EXTENSION]
       if (!isRecord(extension)) continue
       entries.push(...collectParameterExampleEntries(extension.parameters, path, method))
-      if (schemaVersion === 'oa-sdk.typespec-extensions.v2') {
+      if (schemaVersion === 'oa-sdk.typespec-extensions.v2' || schemaVersion === 'oa-sdk.typespec-extensions.v3') {
         entries.push(...collectRequestExampleEntries(extension.requestBody, path, method))
       }
       entries.push(...collectResponseExampleEntries(extension.responses, path, method))
     }
   }
   return entries
+}
+
+function readOperationSecurityValue(value: unknown): [] | null {
+  if (Array.isArray(value) && value.length === 0) return []
+  if (isRecord(value) && Array.isArray(value.security) && value.security.length === 0) return []
+  return null
 }
 
 function collectParameterExampleEntries(value: unknown, path: string, method: HttpMethod): TypeSpecCompatibilitySidecarEntry[] {

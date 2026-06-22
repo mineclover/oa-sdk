@@ -2,6 +2,7 @@ import {
   createTypeSpecCompatibilitySidecarFromEntries,
   type TypeSpecCompatibilitySidecar,
   type TypeSpecCompatibilitySidecarEntry,
+  type TypeSpecOperationSecuritySidecarEntry,
   type TypeSpecParameterExamplesSidecarEntry,
   type TypeSpecRequestExamplesSidecarEntry,
   type TypeSpecResponseExamplesSidecarEntry,
@@ -13,6 +14,7 @@ type HttpMethod = TypeSpecRequestExamplesSidecarEntry['target']['method']
 type RecordValue = Record<string, unknown>
 
 const OPERATION_EXAMPLES_EXTENSION = 'x-oa-sdk-operation-examples'
+const OPERATION_SECURITY_EXTENSION = 'x-oa-sdk-operation-security'
 const SECURITY_SCHEMES_EXTENSION = 'x-oa-sdk-security-schemes'
 const DEFAULT_EXTENSION_SCHEMA_VERSION: TypeSpecOpenApiExtensionSchemaVersion = 'oa-sdk.typespec-extensions.v2'
 const IDENTIFIER_RE = /^[A-Za-z_][A-Za-z0-9_]*$/
@@ -39,7 +41,7 @@ export type TypeSpecSidecarConvertedEntry = {
   kind: TypeSpecCompatibilitySidecarEntry['kind']
   pointer: string
   target: RecordValue
-  extension: typeof OPERATION_EXAMPLES_EXTENSION | typeof SECURITY_SCHEMES_EXTENSION
+  extension: typeof OPERATION_EXAMPLES_EXTENSION | typeof OPERATION_SECURITY_EXTENSION | typeof SECURITY_SCHEMES_EXTENSION
   placement: string
 }
 
@@ -62,6 +64,7 @@ type OperationExtensionGroup = {
   parameters: RecordValue
   requestBody: RecordValue
   responses: RecordValue
+  operationSecurity?: TypeSpecOperationSecuritySidecarEntry['value']
   entries: TypeSpecCompatibilitySidecarEntry[]
 }
 
@@ -130,6 +133,7 @@ function convertEntry(
   if (entry.kind === 'parameter-examples') return convertParameterEntry(entry, context.operationGroups)
   if (entry.kind === 'request-media-examples') return convertRequestEntry(entry, context)
   if (entry.kind === 'response-media-examples') return convertResponseEntry(entry, context.operationGroups)
+  if (entry.kind === 'operation-security') return convertOperationSecurityEntry(entry, context)
   return convertSecuritySchemeEntry(entry, context)
 }
 
@@ -173,10 +177,11 @@ function convertRequestEntry(
     operationGroups: Map<string, OperationExtensionGroup>
   },
 ): { converted: true; report: TypeSpecSidecarConvertedEntry } | { converted: false; reason: string } {
-  if (context.extensionSchemaVersion !== 'oa-sdk.typespec-extensions.v2') {
+  if (context.extensionSchemaVersion !== 'oa-sdk.typespec-extensions.v2'
+    && context.extensionSchemaVersion !== 'oa-sdk.typespec-extensions.v3') {
     return {
       converted: false,
-      reason: 'request body media examples require oa-sdk.typespec-extensions.v2',
+      reason: 'request body media examples require oa-sdk.typespec-extensions.v2 or later',
     }
   }
   const value = {
@@ -196,6 +201,37 @@ function convertRequestEntry(
       pointer: entry.pointer,
       target: cloneJson(entry.target) as RecordValue,
       extension: OPERATION_EXAMPLES_EXTENSION,
+      placement: operationPlacement(entry.target.path, entry.target.method),
+    },
+  }
+}
+
+function convertOperationSecurityEntry(
+  entry: TypeSpecOperationSecuritySidecarEntry,
+  context: {
+    extensionSchemaVersion: TypeSpecOpenApiExtensionSchemaVersion
+    operationGroups: Map<string, OperationExtensionGroup>
+  },
+): { converted: true; report: TypeSpecSidecarConvertedEntry } | { converted: false; reason: string } {
+  if (context.extensionSchemaVersion !== 'oa-sdk.typespec-extensions.v3') {
+    return {
+      converted: false,
+      reason: 'operation security overrides require oa-sdk.typespec-extensions.v3',
+    }
+  }
+  if (!Array.isArray(entry.value) || entry.value.length !== 0) {
+    return { converted: false, reason: 'only explicit public security overrides can be rendered as TypeSpec extensions' }
+  }
+  const group = readOperationGroup(context.operationGroups, entry.target.path, entry.target.method)
+  group.operationSecurity = []
+  group.entries.push(entry)
+  return {
+    converted: true,
+    report: {
+      kind: entry.kind,
+      pointer: entry.pointer,
+      target: cloneJson(entry.target) as RecordValue,
+      extension: OPERATION_SECURITY_EXTENSION,
       placement: operationPlacement(entry.target.path, entry.target.method),
     },
   }
@@ -310,7 +346,12 @@ function renderSnippets(operationGroups: Map<string, OperationExtensionGroup>, s
       [
         '',
         `// ${group.method.toUpperCase()} ${group.path}`,
-        renderExtension(OPERATION_EXAMPLES_EXTENSION, value),
+        ...(group.operationSecurity
+          ? [renderExtension(OPERATION_SECURITY_EXTENSION, group.operationSecurity)]
+          : []),
+        ...(Object.keys(value).length > 0
+          ? [renderExtension(OPERATION_EXAMPLES_EXTENSION, value)]
+          : []),
       ].join('\n'),
     )
   }

@@ -12,7 +12,7 @@ Accept `oa-sdk.typespec-extensions.v2` as the narrow restore-bearing extension s
 
 This decision does not make TypeSpec the default production schema source of truth. It only means a sidecar-less authored TypeSpec bundle may own request body `example` / `examples` semantics through `x-oa-sdk-operation-examples.requestBody` when its manifest declares `compatibility.oaSdkExtensionSchemaVersion: "oa-sdk.typespec-extensions.v2"`.
 
-No other metadata family is accepted into v2. Additional restore-bearing fields require a later schema version or a separate design.
+No other metadata family is accepted into v2. Explicit public operation security is standardized separately in [`oa-sdk-typespec-extensions.v3.md`](./oa-sdk-typespec-extensions.v3.md).
 
 ## Purpose
 

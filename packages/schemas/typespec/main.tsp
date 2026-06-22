@@ -912,6 +912,7 @@ model CreateUser500Response {
 @operationId("forgotPassword")
 @route("/auth/forgot-password")
 @post
+@extension("x-oa-sdk-operation-security", #[])
 @extension("x-oa-sdk-operation-examples", #{
   requestBody: #{
     application_json: #{
@@ -978,6 +979,7 @@ op forgotPassword(
 @operationId("login")
 @route("/auth/login")
 @post
+@extension("x-oa-sdk-operation-security", #[])
 @extension("x-oa-sdk-operation-examples", #{
   requestBody: #{
     application_json: #{
@@ -1107,6 +1109,7 @@ op logout(): Logout204Response | Logout401Response;
 @operationId("refreshToken")
 @route("/auth/refresh")
 @post
+@extension("x-oa-sdk-operation-security", #[])
 @extension("x-oa-sdk-operation-examples", #{
   requestBody: #{
     application_json: #{
@@ -1174,6 +1177,7 @@ op refreshToken(
 @operationId("register")
 @route("/auth/register")
 @post
+@extension("x-oa-sdk-operation-security", #[])
 @extension("x-oa-sdk-operation-examples", #{
   requestBody: #{
     application_json: #{
@@ -1278,6 +1282,7 @@ op register(
 @operationId("resetPassword")
 @route("/auth/reset-password")
 @post
+@extension("x-oa-sdk-operation-security", #[])
 @extension("x-oa-sdk-operation-examples", #{
   requestBody: #{
     application_json: #{
@@ -1345,6 +1350,7 @@ op resetPassword(
 @operationId("getHealth")
 @route("/health")
 @get
+@extension("x-oa-sdk-operation-security", #[])
 @extension("x-oa-sdk-operation-examples", #{
   responses: #{
     status_200_application_json: #{
@@ -1384,6 +1390,7 @@ op getHealth(): GetHealth200Response | GetHealth503Response;
 @operationId("getReadiness")
 @route("/health/ready")
 @get
+@extension("x-oa-sdk-operation-security", #[])
 @extension("x-oa-sdk-operation-examples", #{
   responses: #{
     status_200_application_json: #{
@@ -1434,6 +1441,7 @@ op getReadiness(): GetReadiness200Response | GetReadiness503Response;
 @operationId("streamHealthEvents")
 @route("/health/stream")
 @get
+@extension("x-oa-sdk-operation-security", #[])
 @extension("x-oa-sdk-operation-examples", #{
   responses: #{
     status_503_application_json: #{
@@ -1459,6 +1467,7 @@ op streamHealthEvents(): StreamHealthEvents200Response | StreamHealthEvents503Re
 @operationId("getVersion")
 @route("/version")
 @get
+@extension("x-oa-sdk-operation-security", #[])
 @extension("x-oa-sdk-operation-examples", #{
   responses: #{
     status_200_application_json: #{

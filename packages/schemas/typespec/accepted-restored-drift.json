@@ -9,69 +9,6 @@
       "restoredSha256": "2c77430ff371b084e9eb668807fdbad753c04da5b8a1452bf46a5958b87ebdf9"
     },
     {
-      "category": "security",
-      "kind": "removed",
-      "pointer": "#/paths/~1auth~1forgot-password/post/security",
-      "productionSha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
-      "restoredSha256": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c"
-    },
-    {
-      "category": "security",
-      "kind": "removed",
-      "pointer": "#/paths/~1auth~1login/post/security",
-      "productionSha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
-      "restoredSha256": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c"
-    },
-    {
-      "category": "security",
-      "kind": "removed",
-      "pointer": "#/paths/~1auth~1refresh/post/security",
-      "productionSha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
-      "restoredSha256": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c"
-    },
-    {
-      "category": "security",
-      "kind": "removed",
-      "pointer": "#/paths/~1auth~1register/post/security",
-      "productionSha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
-      "restoredSha256": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c"
-    },
-    {
-      "category": "security",
-      "kind": "removed",
-      "pointer": "#/paths/~1auth~1reset-password/post/security",
-      "productionSha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
-      "restoredSha256": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c"
-    },
-    {
-      "category": "security",
-      "kind": "removed",
-      "pointer": "#/paths/~1health/get/security",
-      "productionSha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
-      "restoredSha256": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c"
-    },
-    {
-      "category": "security",
-      "kind": "removed",
-      "pointer": "#/paths/~1health~1ready/get/security",
-      "productionSha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
-      "restoredSha256": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c"
-    },
-    {
-      "category": "security",
-      "kind": "removed",
-      "pointer": "#/paths/~1health~1stream/get/security",
-      "productionSha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
-      "restoredSha256": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c"
-    },
-    {
-      "category": "security",
-      "kind": "removed",
-      "pointer": "#/paths/~1version/get/security",
-      "productionSha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
-      "restoredSha256": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c"
-    },
-    {
       "category": "path",
       "kind": "changed",
       "pointer": "#/paths/~1admin~1users~1export",
@@ -90,14 +27,14 @@
       "kind": "changed",
       "pointer": "#/paths/~1auth~1forgot-password",
       "productionSha256": "e41cf6c783775f7b12182474aeb887bbf0e7a04721f72e77ec819470305d54af",
-      "restoredSha256": "c1c2f416cdce7ae42468f9f934e8c5c8e838fee29d51e3c1b0406439220bfaea"
+      "restoredSha256": "5f552c6cbd504d31fd62adc2408b0ea6ed168af0663c268017e91eea1390ea80"
     },
     {
       "category": "path",
       "kind": "changed",
       "pointer": "#/paths/~1auth~1login",
       "productionSha256": "bba661b1252e3650b3896082408d19bff5077ab7254d02e8b27d9ba31054226b",
-      "restoredSha256": "c529f3e9e74fa8f9f576febec73aa9c2bdb21146f07a0598fa89f1fb78080d4a"
+      "restoredSha256": "79a325e8af428cdb46ffe27284d5b77d9e49c53f92fb3f7738e095ebe0f5a7d5"
     },
     {
       "category": "path",
@@ -111,42 +48,42 @@
       "kind": "changed",
       "pointer": "#/paths/~1auth~1refresh",
       "productionSha256": "2a49652163a8e3884f6d8befb6773aaefde88288d4a13aa44714ecfc0f2dce0d",
-      "restoredSha256": "4e32dab20cda80728022edaeffc1ec51db5789d6adf56ca4eccba10559a113aa"
+      "restoredSha256": "3b26fbf58c4b73638e61c5ec1f89109aafe590a3fb73ec5a763707afa2537876"
     },
     {
       "category": "path",
       "kind": "changed",
       "pointer": "#/paths/~1auth~1register",
       "productionSha256": "9390ad053d2b1726d1deb39b331087110e72fdbc9145e4a22c66f5ff59761ff7",
-      "restoredSha256": "aa68be13d7373dac4180f3314c9084dbdad8e2c56e4a2d036da114d8cdf9d614"
+      "restoredSha256": "67953546a9377116030ec78c27faacdf362fad6a36af95845a367957b9604d8a"
     },
     {
       "category": "path",
       "kind": "changed",
       "pointer": "#/paths/~1auth~1reset-password",
       "productionSha256": "7ba2f0662092769c5885c3b381739eab31abc4ede963a57d80304619b77bfc81",
-      "restoredSha256": "27a4768fbabf1242e8bd756630bac79639755231ee648db9d15630d116df2507"
+      "restoredSha256": "97d20ae5dba985197736f3d006b7bbfb62b796416a6acae04bd4089832f1b870"
     },
     {
       "category": "path",
       "kind": "changed",
       "pointer": "#/paths/~1health",
       "productionSha256": "a718e2303cfd01d8e321806c57a8e76be488bafe31e6e2ecf3271f18f6d5a4fb",
-      "restoredSha256": "36cdca318b85a285b92b67cd98a1d41aaeefbc02afc13332e9949f16d881e136"
+      "restoredSha256": "fd0c621402dedbd0aea4607af2ae4605ed3b63c7ac7edab64fc03ae6a718ff0a"
     },
     {
       "category": "path",
       "kind": "changed",
       "pointer": "#/paths/~1health~1ready",
       "productionSha256": "351b98932505cd692b96ee3102d5e2954370e9783745b530fa0f94239a1c84fd",
-      "restoredSha256": "5b90a10b9f72cec59b460f1e099d7ff45552da3e7c2016754b5437d6660062fe"
+      "restoredSha256": "c78b018499293d6601562f4b16b2c6431fea95d1a5175ae95bb74b9c711e8b34"
     },
     {
       "category": "path",
       "kind": "changed",
       "pointer": "#/paths/~1health~1stream",
       "productionSha256": "8178b3ba0591521d26ca194446c4b8dc0298d1c7b3b7fd99fcf5c0ccde2cfd54",
-      "restoredSha256": "0f6f8e93ed4fe98819a2955531d89496a50241868fc73c22e90876dde090635f"
+      "restoredSha256": "50b9f12e8c321f3335655fac5082eb3523c450ec42d2ed97a26da65eca6b4407"
     },
     {
       "category": "path",
@@ -223,7 +160,7 @@
       "kind": "changed",
       "pointer": "#/paths/~1version",
       "productionSha256": "ea20926174fc5f4ff6983f5525cbc22e5d0ade5a9c3a047ab72ee0b2699da194",
-      "restoredSha256": "d3de562695908539426ba9655eb004986031bff3ca6b65baedffd013db8bbe83"
+      "restoredSha256": "d0db4c182390a0cfe4654aedbab07e6755f9d1c1937437e4783a107f5f733042"
     },
     {
       "category": "component",

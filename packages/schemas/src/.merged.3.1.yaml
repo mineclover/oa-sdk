@@ -231,6 +231,7 @@ paths:
               default:
                 value:
                   email: alice@example.com
+      security: []
   /auth/login:
     post:
       operationId: login
@@ -321,6 +322,7 @@ paths:
                 value:
                   email: alice@example.com
                   password: secure1234
+      security: []
   /auth/logout:
     post:
       operationId: logout
@@ -399,6 +401,7 @@ paths:
               default:
                 value:
                   refreshToken: rt_login_0001
+      security: []
   /auth/register:
     post:
       operationId: register
@@ -490,6 +493,7 @@ paths:
                   email: greg@example.com
                   name: Greg
                   password: secure1234
+      security: []
   /auth/reset-password:
     post:
       operationId: resetPassword
@@ -545,6 +549,7 @@ paths:
                 value:
                   token: rt_reset_0001
                   newPassword: evenmoresecure5678
+      security: []
   /health:
     get:
       operationId: getHealth
@@ -577,6 +582,7 @@ paths:
                     message: 서비스가 일시적으로 사용 불가합니다
       tags:
         - health
+      security: []
   /health/ready:
     get:
       operationId: getReadiness
@@ -618,6 +624,7 @@ paths:
                     message: 서비스가 일시적으로 사용 불가합니다
       tags:
         - health
+      security: []
   /health/stream:
     get:
       operationId: streamHealthEvents
@@ -640,6 +647,7 @@ paths:
                     message: 서비스가 일시적으로 사용 불가합니다
       tags:
         - health
+      security: []
   /me:
     get:
       operationId: getMe
@@ -1605,6 +1613,7 @@ paths:
                     builtAt: 2026-05-04T00:00:00.000Z
       tags:
         - health
+      security: []
 components:
   schemas:
     AdminUsersExportRequest:

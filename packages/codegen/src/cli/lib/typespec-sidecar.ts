@@ -6,6 +6,7 @@ import type {
   OasPathItem,
   OasRequestBody,
   OasResponse,
+  OasSecurityRequirement,
   OasSecurityScheme,
   Referenceable,
 } from '@oa-sdk/parser'
@@ -20,6 +21,7 @@ export type TypeSpecCompatibilitySidecarEntry =
   | TypeSpecParameterExamplesSidecarEntry
   | TypeSpecRequestExamplesSidecarEntry
   | TypeSpecResponseExamplesSidecarEntry
+  | TypeSpecOperationSecuritySidecarEntry
   | TypeSpecSecuritySchemeSidecarEntry
 
 export type TypeSpecParameterExamplesSidecarEntry = {
@@ -78,6 +80,16 @@ export type TypeSpecSecuritySchemeSidecarEntry = {
   value: unknown
 }
 
+export type TypeSpecOperationSecuritySidecarEntry = {
+  kind: 'operation-security'
+  pointer: string
+  target: {
+    path: string
+    method: HttpMethod
+  }
+  value: OasSecurityRequirement[]
+}
+
 export type TypeSpecCompatibilitySidecar = {
   schemaVersion: 'oa-sdk.typespec-compat-sidecar.v1'
   counts: {
@@ -85,6 +97,7 @@ export type TypeSpecCompatibilitySidecar = {
     parameterExamples: number
     requestMediaExamples?: number
     responseMediaExamples: number
+    operationSecurity?: number
     securitySchemes: number
   }
   entries: TypeSpecCompatibilitySidecarEntry[]
@@ -329,6 +342,8 @@ function collectPathEntries(document: OasDocument): TypeSpecCompatibilitySidecar
       const operation = pathItem.value[method] as OasOperation | undefined
       if (!operation) continue
       const operationPointer = `${pathPointer}/${method}`
+      const securityEntry = createOperationSecurityEntry(operation, operationPointer, path, method)
+      if (securityEntry) entries.push(securityEntry)
       for (let index = 0; index < (operation.parameters?.length ?? 0); index += 1) {
         const parameterPointer = `${operationPointer}/parameters/${index}`
         const entry = createParameterExamplesEntry(document, operation.parameters?.[index], parameterPointer, {
@@ -342,6 +357,24 @@ function collectPathEntries(document: OasDocument): TypeSpecCompatibilitySidecar
     }
   }
   return entries
+}
+
+function createOperationSecurityEntry(
+  operation: OasOperation,
+  pointer: string,
+  path: string,
+  method: HttpMethod,
+): TypeSpecOperationSecuritySidecarEntry | null {
+  if (!Array.isArray(operation.security) || operation.security.length !== 0) return null
+  return {
+    kind: 'operation-security',
+    pointer: `${pointer}/security`,
+    target: {
+      path,
+      method,
+    },
+    value: [],
+  }
 }
 
 function createParameterExamplesEntry(
@@ -452,6 +485,9 @@ function applyEntry(
     document.components.securitySchemes[entry.target.name] = cloneJson(entry.value) as Referenceable<OasSecurityScheme>
     return 1
   }
+  if (entry.kind === 'operation-security') {
+    return applyOperationSecurity(document, entry)
+  }
   if (entry.kind === 'parameter-examples') {
     return applyParameterExamples(document, entry, diagnostics)
   }
@@ -459,6 +495,17 @@ function applyEntry(
     return applyRequestExamples(document, entry)
   }
   return applyResponseExamples(document, entry)
+}
+
+function applyOperationSecurity(
+  document: OasDocument,
+  entry: TypeSpecOperationSecuritySidecarEntry,
+): number {
+  const pathItem = readPathItem(document, entry.target.path)
+  const operation = pathItem ? readOperation(pathItem, entry.target.method) : undefined
+  if (!operation) return 0
+  operation.security = cloneJson(entry.value)
+  return 1
 }
 
 function applyParameterExamples(
@@ -596,11 +643,12 @@ function isTypeSpecEmittedSecurityScheme(name: string, scheme: OasSecurityScheme
 
 function countEntries(entries: TypeSpecCompatibilitySidecarEntry[]): TypeSpecCompatibilitySidecar['counts'] {
   const counts = countEntryKinds(entries)
-  const { requestMediaExamples, ...baseCounts } = counts
-  if (requestMediaExamples === 0) return baseCounts
+  const { requestMediaExamples, operationSecurity, ...baseCounts } = counts
+  if (requestMediaExamples === 0 && operationSecurity === 0) return baseCounts
   return {
     ...baseCounts,
-    requestMediaExamples,
+    ...(requestMediaExamples > 0 ? { requestMediaExamples } : {}),
+    ...(operationSecurity > 0 ? { operationSecurity } : {}),
   }
 }
 
@@ -610,7 +658,7 @@ function validateSidecarEntry(value: unknown, path: string, errors: string[]): v
     return
   }
   if (!isSidecarEntryKind(value.kind)) {
-    errors.push(`${path}.kind must be parameter-examples, request-media-examples, response-media-examples, or security-scheme`)
+    errors.push(`${path}.kind must be parameter-examples, request-media-examples, response-media-examples, operation-security, or security-scheme`)
     return
   }
   requireString(value, 'pointer', `${path}.pointer`, errors)
@@ -621,6 +669,8 @@ function validateSidecarEntry(value: unknown, path: string, errors: string[]): v
     validateRequestExamplesEntry(value, path, errors)
   } else if (value.kind === 'response-media-examples') {
     validateResponseExamplesEntry(value, path, errors)
+  } else if (value.kind === 'operation-security') {
+    validateOperationSecurityEntry(value, path, errors)
   } else {
     validateSecuritySchemeEntry(value, path, errors)
   }
@@ -673,6 +723,22 @@ function validateResponseExamplesEntry(
   validateExamplesValue(entry.value, `${path}.value`, errors)
 }
 
+function validateOperationSecurityEntry(
+  entry: RecordValue,
+  path: string,
+  errors: string[],
+): void {
+  if (!isRecord(entry.target)) {
+    errors.push(`${path}.target must be an object`)
+  } else {
+    requireString(entry.target, 'path', `${path}.target.path`, errors)
+    requireHttpMethod(entry.target, 'method', `${path}.target.method`, errors)
+  }
+  if (!Array.isArray(entry.value)) {
+    errors.push(`${path}.value must be an OpenAPI security requirement array`)
+  }
+}
+
 function validateSecuritySchemeEntry(
   entry: RecordValue,
   path: string,
@@ -712,6 +778,9 @@ function validateSidecarCounts(counts: RecordValue, entries: unknown[], errors: 
     ? optionalNonNegativeInteger(counts, 'requestMediaExamples', 'counts.requestMediaExamples', errors)
     : undefined
   const expectedResponseMediaExamples = optionalNonNegativeInteger(counts, 'responseMediaExamples', 'counts.responseMediaExamples', errors)
+  const expectedOperationSecurity = hasOwn(counts, 'operationSecurity')
+    ? optionalNonNegativeInteger(counts, 'operationSecurity', 'counts.operationSecurity', errors)
+    : undefined
   const expectedSecuritySchemes = optionalNonNegativeInteger(counts, 'securitySchemes', 'counts.securitySchemes', errors)
   if (expectedEntries !== undefined && expectedEntries !== actual.entries) {
     errors.push(`counts.entries must equal ${actual.entries}`)
@@ -728,6 +797,12 @@ function validateSidecarCounts(counts: RecordValue, entries: unknown[], errors: 
   if (expectedResponseMediaExamples !== undefined && expectedResponseMediaExamples !== actual.responseMediaExamples) {
     errors.push(`counts.responseMediaExamples must equal ${actual.responseMediaExamples}`)
   }
+  if (expectedOperationSecurity !== undefined && expectedOperationSecurity !== actual.operationSecurity) {
+    errors.push(`counts.operationSecurity must equal ${actual.operationSecurity}`)
+  }
+  if (expectedOperationSecurity === undefined && actual.operationSecurity > 0) {
+    errors.push(`counts.operationSecurity must equal ${actual.operationSecurity}`)
+  }
   if (expectedSecuritySchemes !== undefined && expectedSecuritySchemes !== actual.securitySchemes) {
     errors.push(`counts.securitySchemes must equal ${actual.securitySchemes}`)
   }
@@ -738,6 +813,7 @@ type EntryKindCounts = {
   parameterExamples: number
   requestMediaExamples: number
   responseMediaExamples: number
+  operationSecurity: number
   securitySchemes: number
 }
 
@@ -747,6 +823,7 @@ function countEntryKinds(entries: unknown[]): EntryKindCounts {
     parameterExamples: entries.filter(entry => isRecord(entry) && entry.kind === 'parameter-examples').length,
     requestMediaExamples: entries.filter(entry => isRecord(entry) && entry.kind === 'request-media-examples').length,
     responseMediaExamples: entries.filter(entry => isRecord(entry) && entry.kind === 'response-media-examples').length,
+    operationSecurity: entries.filter(entry => isRecord(entry) && entry.kind === 'operation-security').length,
     securitySchemes: entries.filter(entry => isRecord(entry) && entry.kind === 'security-scheme').length,
   }
 }
@@ -792,6 +869,7 @@ function isSidecarEntryKind(value: unknown): value is TypeSpecCompatibilitySidec
   return value === 'parameter-examples'
     || value === 'request-media-examples'
     || value === 'response-media-examples'
+    || value === 'operation-security'
     || value === 'security-scheme'
 }
 
@@ -802,6 +880,10 @@ function entriesTargetCompatible(
   if (expected.kind !== actual.kind) return false
   if (expected.kind === 'security-scheme' && actual.kind === 'security-scheme') {
     return expected.target.name === actual.target.name
+  }
+  if (expected.kind === 'operation-security' && actual.kind === 'operation-security') {
+    return expected.target.path === actual.target.path
+      && expected.target.method === actual.target.method
   }
   if (expected.kind === 'response-media-examples' && actual.kind === 'response-media-examples') {
     return expected.target.path === actual.target.path

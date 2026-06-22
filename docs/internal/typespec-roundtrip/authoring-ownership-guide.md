@@ -11,7 +11,7 @@ The rule of thumb is simple: use TypeSpec-native syntax when the OpenAPI emitter
 | Bucket | Use When | Current Source |
 |---|---|---|
 | TypeSpec-native syntax | The TypeSpec source and OpenAPI emitter can express the fact directly and the emitted/restored OpenAPI passes OA SDK validation and diff gates. | `.tsp` source and `@typespec/openapi3` output |
-| OA SDK TypeSpec extension | A sidecar-less authored bundle needs restore-bearing OA SDK metadata that maps to an OpenAPI-native target after TypeSpec compile. | `x-oa-sdk-operation-examples`, `x-oa-sdk-security-schemes` emitted from TypeSpec `@extension(...)` |
+| OA SDK TypeSpec extension | A sidecar-less authored bundle needs restore-bearing OA SDK metadata that maps to an OpenAPI-native target after TypeSpec compile. | `x-oa-sdk-operation-examples`, `x-oa-sdk-operation-security`, `x-oa-sdk-security-schemes` emitted from TypeSpec `@extension(...)` |
 | Compatibility sidecar | Generated bundles, `.tsp + sidecar` authored bundles, or unsupported extension semantics need to preserve OpenAPI-owned facts without pretending TypeSpec owns them. | `oa-sdk.typespec-compat-sidecar.v1` |
 | Runtime data or adapter policy | The fact changes mock/runtime behavior, review policy, generation priority, or downstream orchestration but is not itself an OpenAPI contract target. | Mock server, personas, review policy, or downstream adapter code |
 
@@ -21,7 +21,7 @@ The rule of thumb is simple: use TypeSpec-native syntax when the OpenAPI emitter
 |---|---|---|---|
 | Generated `.tsp + sidecar` | `main.tsp`, `oa-sdk.typespec-compat-sidecar.json`, `oa-sdk.typespec-bundle.json`, optional `expected.openapi.yaml` | `sidecar` | OpenAPI-to-TypeSpec export and canonical roundtrip probes. |
 | Authored `.tsp + sidecar` | Hand-written `main.tsp`, authored sidecar, manifest, expected OpenAPI | `sidecar` | Contract slices whose metadata is not yet standardized as a TypeSpec extension. |
-| Authored sidecar-less `.tsp` | Hand-written `main.tsp`, manifest with `compatibility.oaSdkExtensionSchemaVersion`, expected OpenAPI | `typespec-extensions` | Maintainer-authored bundles using `oa-sdk.typespec-extensions.v1` or `v2`. |
+| Authored sidecar-less `.tsp` | Hand-written `main.tsp`, manifest with `compatibility.oaSdkExtensionSchemaVersion`, expected OpenAPI | `typespec-extensions` | Maintainer-authored bundles using `oa-sdk.typespec-extensions.v1`, `v2`, or `v3`. |
 
 If `sidecar` is absent, the manifest must declare `compatibility.oaSdkExtensionSchemaVersion`. If `sidecar` is present, the bundle check uses the sidecar and does not infer extension semantics as the compatibility source.
 
@@ -45,6 +45,7 @@ If `sidecar` is absent, the manifest must declare `compatibility.oaSdkExtensionS
 | Response headers | TypeSpec-native syntax when schema-only header projection is enough | `@header` | Header content schemas and links remain explicit diagnostics until supported. |
 | Response media examples with `dataValue` / `serializedValue` | OA SDK TypeSpec extension or compatibility sidecar | `x-oa-sdk-operation-examples.responses` or `response-media-examples` sidecar entry | v1 and v2 support the sidecar-less extension path. |
 | Bearer auth requirement | TypeSpec-native syntax + optional OA SDK TypeSpec extension for component metadata | `model bearerAuth is BearerAuth;`, `@useAuth(bearerAuth)`, `x-oa-sdk-security-schemes.bearerAuth` | Supported bearer requirements are contract-bearing and should not be sidecar-only. TypeSpec-native auth owns operation semantics; extension metadata may restore OpenAPI component details such as `bearerFormat` and description. |
+| Explicit public operation security override | OA SDK TypeSpec extension v3 or compatibility sidecar | `x-oa-sdk-operation-security: []` or `operation-security` sidecar entry | Use only for OpenAPI's explicit no-auth override. Protected operation auth should remain TypeSpec-native. |
 | Unsupported security scheme component metadata | OA SDK TypeSpec extension or compatibility sidecar | `x-oa-sdk-security-schemes` or `security-scheme` sidecar entry | Safe only as metadata when not changing operation auth semantics. |
 | Referenced unsupported auth requirement | Not accepted as metadata-only | No silent sidecar/extension hiding | Remains contract-bearing until an explicit mapping or policy exists. |
 | Read/write visibility, annotations, role-specific projection | Not extension-first | Define OA SDK visibility policy first | Do not hide this in comments or generic extension payloads. |
@@ -63,6 +64,10 @@ If `sidecar` is absent, the manifest must declare `compatibility.oaSdkExtensionS
 `oa-sdk.typespec-extensions.v2` adds:
 
 - `x-oa-sdk-operation-examples.requestBody`
+
+`oa-sdk.typespec-extensions.v3` adds:
+
+- `x-oa-sdk-operation-security`
 
 A restore-bearing addition requires a new extension schema version. Do not silently expand v1 just because older consumers ignore unknown fields; if the field changes restored OpenAPI output, version it.
 
@@ -86,5 +91,6 @@ Before accepting a new authored TypeSpec bundle:
 - `packages/codegen/src/cli/lib/typespec-roundtrip-report.ts` — diagnostic ownership policy.
 - `docs/internal/typespec-roundtrip/oa-sdk-typespec-extensions.v1.md` — v1 extension schema.
 - `docs/internal/typespec-roundtrip/oa-sdk-typespec-extensions.v2.md` — v2 request body examples schema.
+- `docs/internal/typespec-roundtrip/oa-sdk-typespec-extensions.v3.md` — v3 explicit public operation security schema.
 - `docs/internal/typespec-roundtrip/fixtures/authored-representative-bundle/` — representative sidecar-less authored fixture.
 - `docs/internal/typespec-roundtrip/fixtures/authored-request-body-extension-bundle/` — focused v2 request body fixture.
