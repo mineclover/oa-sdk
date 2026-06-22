@@ -141,7 +141,7 @@ Current probe on `packages/schemas/src/.merged.yaml`:
 | Sidecar-to-extension migration workflow | pass, `pnpm typespec:sidecar-to-extensions` writes TypeSpec snippets, a residual sidecar, and a report without converting unsupported metadata into comments; current canonical sidecar conversion yields 99 converted entries and 3 residual path-level parameter examples |
 | TypeSpec-first ADR promotion | pass, `docs/internal/architecture/009-typespec-first-authoring.md` accepts TypeSpec-first schema authoring with staged production migration and rollback rules |
 | Production TypeSpec source layout | pass, `packages/schemas/typespec/` exists as the production-owned TypeSpec bundle and passes standalone bundle-check |
-| Production TypeSpec schema check | pass, `pnpm schema:typespec-check` runs the production bundle check, verifies bundle-local expected OpenAPI against the reviewed reference, and requires the TypeSpec-restored-vs-reference diff to match `accepted-restored-drift.json` with 36 accepted hash-pinned entries plus a category/kind breakdown |
+| Production TypeSpec schema check | pass, `pnpm schema:typespec-check` runs the production bundle check, verifies bundle-local expected OpenAPI against the reviewed reference, and requires the TypeSpec-restored-vs-reference diff to match `accepted-restored-drift.json` with 22 accepted hash-pinned entries plus a category/kind breakdown |
 | Production TypeSpec rollback gate | pass, `pnpm schema:rollback-check` runs the TypeSpec production gate and the explicit `schema:validate:openapi` OpenAPI/Definition Builder validation path |
 | Production TypeSpec downstream gate | pass, `pnpm schema:downstream-check` generates the TypeSpec-restored production OpenAPI artifact, imports built package `dist` exports, feeds it to parser validation, codegen typegen, router generation, client generation, and mock-server handler creation, and compiles generated typegen/router/client TypeScript consumers plus a synthetic webhook/header fixture |
 
@@ -164,7 +164,7 @@ Diagnostic policy distribution:
 Current endpoint diff:
 
 - No endpoint changes are detected by OA SDK diff.
-- Component schemas remain `28 -> 28`; response wrapper projection artifacts were removed by authoring inline response bodies for the production TypeSpec bundle.
+- Component schemas match `28 -> 28`; response wrapper projection artifacts and component-level metadata drift were removed by production TypeSpec authoring.
 - The roundtrip report now records per-diagnostic ownership and rationale. The current fixture has no unaccepted exporter diagnostics.
 - The compatibility sidecar restores examples/security metadata that is intentionally outside the TypeSpec projection. One path-level parameter entry restores to three emitted operation parameters, so restore applied target count is higher than sidecar entry count.
 - The generated roundtrip workspace now includes `oa-sdk.typespec-bundle.v1` plus bundle-local `expected.openapi.yaml`, so OpenAPI export produces a portable `.tsp + sidecar + expected OpenAPI` bundle instead of unrelated files.

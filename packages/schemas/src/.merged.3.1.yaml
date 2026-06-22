@@ -1011,11 +1011,10 @@ components:
         pseudonymize:
           type: boolean
           default: true
-      unevaluatedProperties:
-        not: {}
       description: |
         사용자 PII bulk export 요청. data-eng ETL surface이며 non-admin
         perspective에서는 pseudonymization이 필수입니다.
+      additionalProperties: false
     AuthSession:
       type: object
       required:
@@ -1027,18 +1026,18 @@ components:
         tokens:
           $ref: "#/components/schemas/TokenPair"
       description: 사용자 + 토큰 페어 — 가입/로그인 응답 단위
-      examples:
-        - user:
-            id: 00000000-0000-0000-0000-000000000001
-            email: alice@example.com
-            name: Alice
-            role: user
-            createdAt: 2024-01-01T00:00:00.000Z
-          tokens:
-            accessToken: eyJhbGciOi...example
-            refreshToken: rt_example_0001
-            tokenType: Bearer
-            expiresIn: 3600
+      example:
+        user:
+          id: 00000000-0000-0000-0000-000000000001
+          email: alice@example.com
+          name: Alice
+          role: user
+          createdAt: 2024-01-01T00:00:00.000Z
+        tokens:
+          accessToken: eyJhbGciOi...example
+          refreshToken: rt_example_0001
+          tokenType: Bearer
+          expiresIn: 3600
     BuildInfo:
       type: object
       required:
@@ -1057,10 +1056,10 @@ components:
           type: string
           format: date-time
       description: 현재 실행 중인 빌드 정보
-      examples:
-        - version: 0.1.0
-          gitSha: a0ca911
-          builtAt: 2026-05-04T00:00:00.000Z
+      example:
+        version: 0.1.0
+        gitSha: a0ca911
+        builtAt: 2026-05-04T00:00:00.000Z
     ChangePasswordRequest:
       type: object
       required:
@@ -1132,13 +1131,11 @@ components:
             - INTERNAL_SERVER_ERROR
             - SERVICE_UNAVAILABLE
           description: 머신 리더블 에러 코드 (페르소나 시나리오의 expected assertion 단위)
-          examples:
-            - NOT_FOUND
+          example: NOT_FOUND
         message:
           type: string
           description: 사람이 읽을 수 있는 에러 설명
-          examples:
-            - 요청한 리소스를 찾을 수 없습니다
+          example: 요청한 리소스를 찾을 수 없습니다
         details:
           type: array
           items:
@@ -1155,6 +1152,9 @@ components:
       examples:
         - code: NOT_FOUND
           message: 요청한 리소스를 찾을 수 없습니다
+      example:
+        code: NOT_FOUND
+        message: 요청한 리소스를 찾을 수 없습니다
     ExportJob:
       type: object
       required:
@@ -1180,10 +1180,10 @@ components:
           format: uri
           description: status가 ready일 때만 제공
       description: export job 상태
-      examples:
-        - jobId: 00000000-0000-0000-0000-000000000200
-          status: queued
-          requestedAt: 2026-05-04T00:00:00.000Z
+      example:
+        jobId: 00000000-0000-0000-0000-000000000200
+        status: queued
+        requestedAt: 2026-05-04T00:00:00.000Z
     ExportRequest:
       type: object
       properties:
@@ -1219,6 +1219,9 @@ components:
       examples:
         - status: ok
           timestamp: 2026-04-04T00:00:00.000Z
+      example:
+        status: ok
+        timestamp: 2026-04-04T00:00:00.000Z
     LoginRequest:
       type: object
       required:
@@ -1242,11 +1245,11 @@ components:
           items:
             $ref: "#/components/schemas/OnboardingItem"
       description: 온보딩 가이드 체크리스트
-      examples:
-        - items:
-            - id: complete-profile
-              title: 프로필 작성
-              completed: false
+      example:
+        items:
+          - id: complete-profile
+            title: 프로필 작성
+            completed: false
     OnboardingItem:
       type: object
       required:
@@ -1283,10 +1286,10 @@ components:
             - user
             - guest
       description: 공개 프로필 — PII 비포함 (email/createdAt 제외)
-      examples:
-        - id: 00000000-0000-0000-0000-000000000001
-          name: Alice
-          role: user
+      example:
+        id: 00000000-0000-0000-0000-000000000001
+        name: Alice
+        role: user
     PurgeUserRequest:
       type: object
       required:
@@ -1301,9 +1304,8 @@ components:
           type: boolean
           description: legal hold 예외 승인 여부
           default: false
-      unevaluatedProperties:
-        not: {}
       description: site-admin 사용자 hard purge 요청. deleteUser soft-delete와 구분됩니다.
+      additionalProperties: false
     ReadinessReport:
       type: object
       required:
@@ -1324,12 +1326,12 @@ components:
           items:
             $ref: "#/components/schemas/DependencyStatus"
       description: readiness probe 결과 — 의존 시스템 검증 포함
-      examples:
-        - status: ready
-          timestamp: 2026-05-04T00:00:00.000Z
-          dependencies:
-            - name: postgres
-              status: ok
+      example:
+        status: ready
+        timestamp: 2026-05-04T00:00:00.000Z
+        dependencies:
+          - name: postgres
+            status: ok
     RefreshRequest:
       type: object
       required:
@@ -1402,13 +1404,13 @@ components:
           type: string
           format: date-time
       description: 신고 단건
-      examples:
-        - id: 00000000-0000-0000-0000-000000000300
-          targetUserId: 00000000-0000-0000-0000-000000000001
-          reporterUserId: 00000000-0000-0000-0000-000000000002
-          reason: harassment
-          status: open
-          createdAt: 2026-05-04T00:00:00.000Z
+      example:
+        id: 00000000-0000-0000-0000-000000000300
+        targetUserId: 00000000-0000-0000-0000-000000000001
+        reporterUserId: 00000000-0000-0000-0000-000000000002
+        reason: harassment
+        status: open
+        createdAt: 2026-05-04T00:00:00.000Z
     ReportRequest:
       type: object
       required:
@@ -1498,11 +1500,11 @@ components:
           minimum: 1
           description: accessToken 만료까지 남은 초
       description: access/refresh 토큰 페어
-      examples:
-        - accessToken: eyJhbGciOi...example
-          refreshToken: rt_example_0001
-          tokenType: Bearer
-          expiresIn: 3600
+      example:
+        accessToken: eyJhbGciOi...example
+        refreshToken: rt_example_0001
+        tokenType: Bearer
+        expiresIn: 3600
     UpdateMeRequest:
       type: object
       properties:
@@ -1560,6 +1562,12 @@ components:
           name: Alice
           role: user
           createdAt: 2024-01-01T00:00:00.000Z
+      example:
+        id: 00000000-0000-0000-0000-000000000001
+        email: alice@example.com
+        name: Alice
+        role: user
+        createdAt: 2024-01-01T00:00:00.000Z
     ValidationError:
       type: object
       required:
@@ -1568,20 +1576,16 @@ components:
       properties:
         path:
           type: string
-          examples:
-            - /body/email
+          example: /body/email
         message:
           type: string
-          examples:
-            - must match format 'email'
+          example: must match format 'email'
         received:
           description: 실제 수신된 값
-          examples:
-            - not-an-email
+          example: not-an-email
         expected:
           type: string
-          examples:
-            - string with format 'email'
+          example: string with format 'email'
       description: 필드 수준 유효성 검사 에러
   securitySchemes:
     bearerAuth:

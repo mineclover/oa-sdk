@@ -360,7 +360,7 @@ namespace OaSdkApi;
 model bearerAuth is BearerAuth;
 
 @doc("사용자 + 토큰 페어 — 가입/로그인 응답 단위")
-@example(#{ user: #{ id: "00000000-0000-0000-0000-000000000001", email: "alice@example.com", name: "Alice", role: "user", createdAt: utcDateTime.fromISO("2024-01-01T00:00:00.000Z") }, tokens: #{ accessToken: "eyJhbGciOi...example", refreshToken: "rt_example_0001", tokenType: "Bearer", expiresIn: 3600 } })
+@extension("example", #{ user: #{ id: "00000000-0000-0000-0000-000000000001", email: "alice@example.com", name: "Alice", role: "user", createdAt: "2024-01-01T00:00:00.000Z" }, tokens: #{ accessToken: "eyJhbGciOi...example", refreshToken: "rt_example_0001", tokenType: "Bearer", expiresIn: 3600 } })
 model AuthSession {
   user: User;
   tokens: TokenPair;
@@ -408,7 +408,7 @@ model ResetPasswordRequest {
 }
 
 @doc("access/refresh 토큰 페어")
-@example(#{ accessToken: "eyJhbGciOi...example", refreshToken: "rt_example_0001", tokenType: "Bearer", expiresIn: 3600 })
+@extension("example", #{ accessToken: "eyJhbGciOi...example", refreshToken: "rt_example_0001", tokenType: "Bearer", expiresIn: 3600 })
 model TokenPair {
   @doc("bearerAuth 헤더에 사용할 JWT")
   accessToken: string;
@@ -421,7 +421,7 @@ model TokenPair {
 }
 
 @doc("현재 실행 중인 빌드 정보")
-@example(#{ version: "0.1.0", gitSha: "a0ca911", builtAt: utcDateTime.fromISO("2026-05-04T00:00:00.000Z") })
+@extension("example", #{ version: "0.1.0", gitSha: "a0ca911", builtAt: "2026-05-04T00:00:00.000Z" })
 model BuildInfo {
   @doc("semver 또는 빌드 식별 라벨")
   version: string;
@@ -439,6 +439,7 @@ model DependencyStatus {
   message?: string;
 }
 
+@extension("example", #{ status: "ok", timestamp: "2026-04-04T00:00:00.000Z" })
 @example(#{ status: "ok", timestamp: utcDateTime.fromISO("2026-04-04T00:00:00.000Z") })
 model HealthStatus {
   status: "ok";
@@ -446,7 +447,7 @@ model HealthStatus {
 }
 
 @doc("readiness probe 결과 — 의존 시스템 검증 포함")
-@example(#{ status: "ready", timestamp: utcDateTime.fromISO("2026-05-04T00:00:00.000Z"), dependencies: #[#{ name: "postgres", status: "ok" }] })
+@extension("example", #{ status: "ready", timestamp: "2026-05-04T00:00:00.000Z", dependencies: #[#{ name: "postgres", status: "ok" }] })
 model ReadinessReport {
   status: "ready" | "not-ready";
   timestamp: utcDateTime;
@@ -463,7 +464,7 @@ model ChangePasswordRequest {
 }
 
 @doc("export job 상태")
-@example(#{ jobId: "00000000-0000-0000-0000-000000000200", status: "queued", requestedAt: utcDateTime.fromISO("2026-05-04T00:00:00.000Z") })
+@extension("example", #{ jobId: "00000000-0000-0000-0000-000000000200", status: "queued", requestedAt: "2026-05-04T00:00:00.000Z" })
 model ExportJob {
   @format("uuid")
   jobId: string;
@@ -480,7 +481,7 @@ model ExportRequest {
 }
 
 @doc("온보딩 가이드 체크리스트")
-@example(#{ items: #[#{ id: "complete-profile", title: "프로필 작성", completed: false }] })
+@extension("example", #{ items: #[#{ id: "complete-profile", title: "프로필 작성", completed: false }] })
 model OnboardingChecklist {
   items: OnboardingItem[];
 }
@@ -513,10 +514,10 @@ model UpdateMeRequest {
 }
 
 @doc("사용자 PII bulk export 요청. data-eng ETL surface이며 non-admin\nperspective에서는 pseudonymization이 필수입니다.\n")
+@extension("additionalProperties", false)
 model AdminUsersExportRequest {
   format?: "json" | "csv" = "json";
   pseudonymize?: boolean = true;
-  ...Record<never>;
 }
 
 @doc("사용자 생성 요청")
@@ -532,7 +533,7 @@ model CreateUserRequest {
 }
 
 @doc("공개 프로필 — PII 비포함 (email/createdAt 제외)")
-@example(#{ id: "00000000-0000-0000-0000-000000000001", name: "Alice", role: "user" })
+@extension("example", #{ id: "00000000-0000-0000-0000-000000000001", name: "Alice", role: "user" })
 model PublicUserProfile {
   @format("uuid")
   id: string;
@@ -543,6 +544,7 @@ model PublicUserProfile {
 }
 
 @doc("site-admin 사용자 hard purge 요청. deleteUser soft-delete와 구분됩니다.")
+@extension("additionalProperties", false)
 model PurgeUserRequest {
   @doc("영구 삭제 감사 사유")
   @minLength(1)
@@ -550,11 +552,10 @@ model PurgeUserRequest {
   reason: string;
   @doc("legal hold 예외 승인 여부")
   legalHoldOverride?: boolean = false;
-  ...Record<never>;
 }
 
 @doc("신고 단건")
-@example(#{ id: "00000000-0000-0000-0000-000000000300", targetUserId: "00000000-0000-0000-0000-000000000001", reporterUserId: "00000000-0000-0000-0000-000000000002", reason: "harassment", status: "open", createdAt: utcDateTime.fromISO("2026-05-04T00:00:00.000Z") })
+@extension("example", #{ id: "00000000-0000-0000-0000-000000000300", targetUserId: "00000000-0000-0000-0000-000000000001", reporterUserId: "00000000-0000-0000-0000-000000000002", reason: "harassment", status: "open", createdAt: "2026-05-04T00:00:00.000Z" })
 model Report {
   @format("uuid")
   id: string;
@@ -585,6 +586,7 @@ model UpdateUserRequest {
 }
 
 @doc("사용자 정보")
+@extension("example", #{ id: "00000000-0000-0000-0000-000000000001", email: "alice@example.com", name: "Alice", role: "user", createdAt: "2024-01-01T00:00:00.000Z" })
 @example(#{ id: "00000000-0000-0000-0000-000000000001", email: "alice@example.com", name: "Alice", role: "user", createdAt: utcDateTime.fromISO("2024-01-01T00:00:00.000Z") })
 model User {
   @format("uuid")
@@ -599,13 +601,14 @@ model User {
 }
 
 @doc("표준 에러 응답 스키마")
+@extension("example", #{ code: "NOT_FOUND", message: "요청한 리소스를 찾을 수 없습니다" })
 @example(#{ code: "NOT_FOUND", message: "요청한 리소스를 찾을 수 없습니다" })
 model Error {
   @doc("머신 리더블 에러 코드 (페르소나 시나리오의 expected assertion 단위)")
-  @example("NOT_FOUND")
+  @extension("example", "NOT_FOUND")
   code: "BAD_REQUEST" | "UNAUTHORIZED" | "FORBIDDEN" | "NOT_FOUND" | "CONFLICT" | "SCHEMA_VALIDATION_FAILED" | "RATE_LIMITED" | "INTERNAL_SERVER_ERROR" | "SERVICE_UNAVAILABLE";
   @doc("사람이 읽을 수 있는 에러 설명")
-  @example("요청한 리소스를 찾을 수 없습니다")
+  @extension("example", "요청한 리소스를 찾을 수 없습니다")
   message: string;
   details?: ValidationError[];
   _meta?: {
@@ -617,14 +620,14 @@ model Error {
 
 @doc("필드 수준 유효성 검사 에러")
 model ValidationError {
-  @example("/body/email")
+  @extension("example", "/body/email")
   path: string;
-  @example("must match format 'email'")
+  @extension("example", "must match format 'email'")
   message: string;
   @doc("실제 수신된 값")
-  @example("not-an-email")
+  @extension("example", "not-an-email")
   received?: unknown;
-  @example("string with format 'email'")
+  @extension("example", "string with format 'email'")
   expected?: string;
 }
 
