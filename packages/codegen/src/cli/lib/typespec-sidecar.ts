@@ -20,6 +20,10 @@ const IDENTIFIER_RE = /^[A-Za-z_][A-Za-z0-9_]*$/
 
 export type TypeSpecCompatibilitySidecarEntry =
   | TypeSpecRootInfoSidecarEntry
+  | TypeSpecComponentParameterSidecarEntry
+  | TypeSpecComponentResponseSidecarEntry
+  | TypeSpecOperationParameterRefSidecarEntry
+  | TypeSpecOperationResponseRefSidecarEntry
   | TypeSpecParameterExamplesSidecarEntry
   | TypeSpecRequestExamplesSidecarEntry
   | TypeSpecResponseExamplesSidecarEntry
@@ -33,6 +37,50 @@ export type TypeSpecRootInfoSidecarEntry = {
     pointer: '#/info'
   }
   value: OasInfo
+}
+
+export type TypeSpecComponentParameterSidecarEntry = {
+  kind: 'component-parameter'
+  pointer: string
+  target: {
+    name: string
+  }
+  value: OasParameter
+}
+
+export type TypeSpecComponentResponseSidecarEntry = {
+  kind: 'component-response'
+  pointer: string
+  target: {
+    name: string
+  }
+  value: OasResponse
+}
+
+export type TypeSpecOperationParameterRefSidecarEntry = {
+  kind: 'operation-parameter-ref'
+  pointer: string
+  target: {
+    path: string
+    method?: HttpMethod
+    index: number
+  }
+  value: {
+    $ref: string
+  }
+}
+
+export type TypeSpecOperationResponseRefSidecarEntry = {
+  kind: 'operation-response-ref'
+  pointer: string
+  target: {
+    path: string
+    method: HttpMethod
+    statusCode: string
+  }
+  value: {
+    $ref: string
+  }
 }
 
 export type TypeSpecParameterExamplesSidecarEntry = {
@@ -106,6 +154,10 @@ export type TypeSpecCompatibilitySidecar = {
   counts: {
     entries: number
     rootInfo?: number
+    componentParameters?: number
+    componentResponses?: number
+    operationParameterRefs?: number
+    operationResponseRefs?: number
     parameterExamples: number
     requestMediaExamples?: number
     responseMediaExamples: number
@@ -165,6 +217,8 @@ export function createTypeSpecCompatibilitySidecar(document: OasDocument): TypeS
   const entries: TypeSpecCompatibilitySidecarEntry[] = []
   const infoEntry = createRootInfoEntry(document)
   if (infoEntry) entries.push(infoEntry)
+  entries.push(...collectComponentParameterEntries(document))
+  entries.push(...collectComponentResponseEntries(document))
   entries.push(...collectSecuritySchemeEntries(document))
   entries.push(...collectPathEntries(document))
   return createTypeSpecCompatibilitySidecarFromEntries(entries)
@@ -349,6 +403,36 @@ function createRootInfoEntry(document: OasDocument): TypeSpecRootInfoSidecarEntr
   }
 }
 
+function collectComponentParameterEntries(document: OasDocument): TypeSpecCompatibilitySidecarEntry[] {
+  const entries: TypeSpecCompatibilitySidecarEntry[] = []
+  const parameters = document.components?.parameters ?? {}
+  for (const [name, value] of Object.entries(parameters)) {
+    if (isReference(value)) continue
+    entries.push({
+      kind: 'component-parameter',
+      pointer: `#/components/parameters/${escapeJsonPointer(name)}`,
+      target: { name },
+      value: cloneJson(value),
+    })
+  }
+  return entries
+}
+
+function collectComponentResponseEntries(document: OasDocument): TypeSpecCompatibilitySidecarEntry[] {
+  const entries: TypeSpecCompatibilitySidecarEntry[] = []
+  const responses = document.components?.responses ?? {}
+  for (const [name, value] of Object.entries(responses)) {
+    if (isReference(value)) continue
+    entries.push({
+      kind: 'component-response',
+      pointer: `#/components/responses/${escapeJsonPointer(name)}`,
+      target: { name },
+      value: cloneJson(value),
+    })
+  }
+  return entries
+}
+
 function collectPathEntries(document: OasDocument): TypeSpecCompatibilitySidecarEntry[] {
   const entries: TypeSpecCompatibilitySidecarEntry[] = []
   for (const [path, pathItemValue] of Object.entries(document.paths ?? {})) {
@@ -358,6 +442,11 @@ function collectPathEntries(document: OasDocument): TypeSpecCompatibilitySidecar
 
     for (let index = 0; index < (pathItem.value.parameters?.length ?? 0); index += 1) {
       const parameterPointer = `${pathPointer}/parameters/${index}`
+      const refEntry = createOperationParameterRefEntry(pathItem.value.parameters?.[index], parameterPointer, {
+        path,
+        index,
+      })
+      if (refEntry) entries.push(refEntry)
       const entry = createParameterExamplesEntry(document, pathItem.value.parameters?.[index], parameterPointer, {
         path,
       })
@@ -372,6 +461,12 @@ function collectPathEntries(document: OasDocument): TypeSpecCompatibilitySidecar
       if (securityEntry) entries.push(securityEntry)
       for (let index = 0; index < (operation.parameters?.length ?? 0); index += 1) {
         const parameterPointer = `${operationPointer}/parameters/${index}`
+        const refEntry = createOperationParameterRefEntry(operation.parameters?.[index], parameterPointer, {
+          path,
+          method,
+          index,
+        })
+        if (refEntry) entries.push(refEntry)
         const entry = createParameterExamplesEntry(document, operation.parameters?.[index], parameterPointer, {
           path,
           method,
@@ -379,10 +474,27 @@ function collectPathEntries(document: OasDocument): TypeSpecCompatibilitySidecar
         if (entry) entries.push(entry)
       }
       entries.push(...collectRequestExamplesEntries(document, operation, operationPointer, path, method))
+      entries.push(...collectResponseRefEntries(operation, operationPointer, path, method))
       entries.push(...collectResponseExamplesEntries(document, operation, operationPointer, path, method))
     }
   }
   return entries
+}
+
+function createOperationParameterRefEntry(
+  parameterValue: Referenceable<OasParameter> | undefined,
+  pointer: string,
+  target: { path: string; method?: HttpMethod; index: number },
+): TypeSpecOperationParameterRefSidecarEntry | null {
+  if (!isReference(parameterValue) || !parameterValue.$ref.startsWith('#/components/parameters/')) return null
+  return {
+    kind: 'operation-parameter-ref',
+    pointer,
+    target,
+    value: {
+      $ref: parameterValue.$ref,
+    },
+  }
 }
 
 function createOperationSecurityEntry(
@@ -458,6 +570,31 @@ function collectRequestExamplesEntries(
   return entries
 }
 
+function collectResponseRefEntries(
+  operation: OasOperation,
+  operationPointer: string,
+  path: string,
+  method: HttpMethod,
+): TypeSpecCompatibilitySidecarEntry[] {
+  const entries: TypeSpecCompatibilitySidecarEntry[] = []
+  for (const [statusCode, responseValue] of Object.entries(operation.responses ?? {})) {
+    if (!isReference(responseValue) || !responseValue.$ref.startsWith('#/components/responses/')) continue
+    entries.push({
+      kind: 'operation-response-ref',
+      pointer: `${operationPointer}/responses/${escapeJsonPointer(statusCode)}`,
+      target: {
+        path,
+        method,
+        statusCode,
+      },
+      value: {
+        $ref: responseValue.$ref,
+      },
+    })
+  }
+  return entries
+}
+
 function collectResponseExamplesEntries(
   document: OasDocument,
   operation: OasOperation,
@@ -509,6 +646,24 @@ function applyEntry(
     document.info = cloneJson(entry.value)
     return 1
   }
+  if (entry.kind === 'component-parameter') {
+    document.components ??= {}
+    document.components.parameters ??= {}
+    document.components.parameters[entry.target.name] = cloneJson(entry.value)
+    return 1
+  }
+  if (entry.kind === 'component-response') {
+    document.components ??= {}
+    document.components.responses ??= {}
+    document.components.responses[entry.target.name] = cloneJson(entry.value)
+    return 1
+  }
+  if (entry.kind === 'operation-parameter-ref') {
+    return applyOperationParameterRef(document, entry)
+  }
+  if (entry.kind === 'operation-response-ref') {
+    return applyOperationResponseRef(document, entry)
+  }
   if (entry.kind === 'security-scheme') {
     document.components ??= {}
     document.components.securitySchemes ??= {}
@@ -525,6 +680,31 @@ function applyEntry(
     return applyRequestExamples(document, entry)
   }
   return applyResponseExamples(document, entry)
+}
+
+function applyOperationParameterRef(
+  document: OasDocument,
+  entry: TypeSpecOperationParameterRefSidecarEntry,
+): number {
+  const pathItem = readPathItem(document, entry.target.path)
+  if (!pathItem) return 0
+  const parameters = entry.target.method
+    ? readOperation(pathItem, entry.target.method)?.parameters
+    : pathItem.parameters
+  if (!parameters || entry.target.index < 0 || entry.target.index >= parameters.length) return 0
+  parameters[entry.target.index] = cloneJson(entry.value)
+  return 1
+}
+
+function applyOperationResponseRef(
+  document: OasDocument,
+  entry: TypeSpecOperationResponseRefSidecarEntry,
+): number {
+  const pathItem = readPathItem(document, entry.target.path)
+  const operation = pathItem ? readOperation(pathItem, entry.target.method) : undefined
+  if (!operation?.responses || !operation.responses[entry.target.statusCode]) return 0
+  operation.responses[entry.target.statusCode] = cloneJson(entry.value)
+  return 1
 }
 
 function applyOperationSecurity(
@@ -677,11 +857,23 @@ function hasOpenApiInfoMetadataBeyondTypeSpecNative(info: OasInfo): boolean {
 
 function countEntries(entries: TypeSpecCompatibilitySidecarEntry[]): TypeSpecCompatibilitySidecar['counts'] {
   const counts = countEntryKinds(entries)
-  const { rootInfo, requestMediaExamples, operationSecurity, ...baseCounts } = counts
-  if (rootInfo === 0 && requestMediaExamples === 0 && operationSecurity === 0) return baseCounts
+  const { rootInfo, componentParameters, componentResponses, operationParameterRefs, operationResponseRefs, requestMediaExamples, operationSecurity, ...baseCounts } = counts
+  if (
+    rootInfo === 0
+    && componentParameters === 0
+    && componentResponses === 0
+    && operationParameterRefs === 0
+    && operationResponseRefs === 0
+    && requestMediaExamples === 0
+    && operationSecurity === 0
+  ) return baseCounts
   return {
     ...baseCounts,
     ...(rootInfo > 0 ? { rootInfo } : {}),
+    ...(componentParameters > 0 ? { componentParameters } : {}),
+    ...(componentResponses > 0 ? { componentResponses } : {}),
+    ...(operationParameterRefs > 0 ? { operationParameterRefs } : {}),
+    ...(operationResponseRefs > 0 ? { operationResponseRefs } : {}),
     ...(requestMediaExamples > 0 ? { requestMediaExamples } : {}),
     ...(operationSecurity > 0 ? { operationSecurity } : {}),
   }
@@ -693,7 +885,7 @@ function validateSidecarEntry(value: unknown, path: string, errors: string[]): v
     return
   }
   if (!isSidecarEntryKind(value.kind)) {
-    errors.push(`${path}.kind must be root-info, parameter-examples, request-media-examples, response-media-examples, operation-security, or security-scheme`)
+    errors.push(`${path}.kind must be root-info, component-parameter, component-response, operation-parameter-ref, operation-response-ref, parameter-examples, request-media-examples, response-media-examples, operation-security, or security-scheme`)
     return
   }
   requireString(value, 'pointer', `${path}.pointer`, errors)
@@ -708,6 +900,14 @@ function validateSidecarEntry(value: unknown, path: string, errors: string[]): v
     validateOperationSecurityEntry(value, path, errors)
   } else if (value.kind === 'root-info') {
     validateRootInfoEntry(value, path, errors)
+  } else if (value.kind === 'component-parameter') {
+    validateComponentEntry(value, path, errors, 'OpenAPI parameter object')
+  } else if (value.kind === 'component-response') {
+    validateComponentEntry(value, path, errors, 'OpenAPI response object')
+  } else if (value.kind === 'operation-parameter-ref') {
+    validateOperationParameterRefEntry(value, path, errors)
+  } else if (value.kind === 'operation-response-ref') {
+    validateOperationResponseRefEntry(value, path, errors)
   } else {
     validateSecuritySchemeEntry(value, path, errors)
   }
@@ -729,6 +929,63 @@ function validateRootInfoEntry(
   }
   requireString(entry.value, 'title', `${path}.value.title`, errors)
   requireString(entry.value, 'version', `${path}.value.version`, errors)
+}
+
+function validateComponentEntry(
+  entry: RecordValue,
+  path: string,
+  errors: string[],
+  valueLabel: string,
+): void {
+  if (!isRecord(entry.target)) {
+    errors.push(`${path}.target must be an object`)
+  } else {
+    requireString(entry.target, 'name', `${path}.target.name`, errors)
+  }
+  if (!isRecord(entry.value)) {
+    errors.push(`${path}.value must be an ${valueLabel}`)
+  }
+}
+
+function validateOperationParameterRefEntry(
+  entry: RecordValue,
+  path: string,
+  errors: string[],
+): void {
+  if (!isRecord(entry.target)) {
+    errors.push(`${path}.target must be an object`)
+  } else {
+    requireString(entry.target, 'path', `${path}.target.path`, errors)
+    optionalHttpMethod(entry.target, 'method', `${path}.target.method`, errors)
+    requireNonNegativeInteger(entry.target, 'index', `${path}.target.index`, errors)
+  }
+  validateReferenceValue(entry.value, `${path}.value`, errors, '#/components/parameters/')
+}
+
+function validateOperationResponseRefEntry(
+  entry: RecordValue,
+  path: string,
+  errors: string[],
+): void {
+  if (!isRecord(entry.target)) {
+    errors.push(`${path}.target must be an object`)
+  } else {
+    requireString(entry.target, 'path', `${path}.target.path`, errors)
+    requireHttpMethod(entry.target, 'method', `${path}.target.method`, errors)
+    requireString(entry.target, 'statusCode', `${path}.target.statusCode`, errors)
+  }
+  validateReferenceValue(entry.value, `${path}.value`, errors, '#/components/responses/')
+}
+
+function validateReferenceValue(
+  value: unknown,
+  path: string,
+  errors: string[],
+  prefix: string,
+): void {
+  if (!isRecord(value) || typeof value.$ref !== 'string' || !value.$ref.startsWith(prefix)) {
+    errors.push(`${path} must contain a local ${prefix} $ref`)
+  }
 }
 
 function validateParameterExamplesEntry(
@@ -831,6 +1088,18 @@ function validateSidecarCounts(counts: RecordValue, entries: unknown[], errors: 
   const expectedRootInfo = hasOwn(counts, 'rootInfo')
     ? optionalNonNegativeInteger(counts, 'rootInfo', 'counts.rootInfo', errors)
     : undefined
+  const expectedComponentParameters = hasOwn(counts, 'componentParameters')
+    ? optionalNonNegativeInteger(counts, 'componentParameters', 'counts.componentParameters', errors)
+    : undefined
+  const expectedComponentResponses = hasOwn(counts, 'componentResponses')
+    ? optionalNonNegativeInteger(counts, 'componentResponses', 'counts.componentResponses', errors)
+    : undefined
+  const expectedOperationParameterRefs = hasOwn(counts, 'operationParameterRefs')
+    ? optionalNonNegativeInteger(counts, 'operationParameterRefs', 'counts.operationParameterRefs', errors)
+    : undefined
+  const expectedOperationResponseRefs = hasOwn(counts, 'operationResponseRefs')
+    ? optionalNonNegativeInteger(counts, 'operationResponseRefs', 'counts.operationResponseRefs', errors)
+    : undefined
   const expectedParameterExamples = optionalNonNegativeInteger(counts, 'parameterExamples', 'counts.parameterExamples', errors)
   const expectedRequestMediaExamples = hasOwn(counts, 'requestMediaExamples')
     ? optionalNonNegativeInteger(counts, 'requestMediaExamples', 'counts.requestMediaExamples', errors)
@@ -848,6 +1117,30 @@ function validateSidecarCounts(counts: RecordValue, entries: unknown[], errors: 
   }
   if (expectedRootInfo === undefined && actual.rootInfo > 0) {
     errors.push(`counts.rootInfo must equal ${actual.rootInfo}`)
+  }
+  if (expectedComponentParameters !== undefined && expectedComponentParameters !== actual.componentParameters) {
+    errors.push(`counts.componentParameters must equal ${actual.componentParameters}`)
+  }
+  if (expectedComponentParameters === undefined && actual.componentParameters > 0) {
+    errors.push(`counts.componentParameters must equal ${actual.componentParameters}`)
+  }
+  if (expectedComponentResponses !== undefined && expectedComponentResponses !== actual.componentResponses) {
+    errors.push(`counts.componentResponses must equal ${actual.componentResponses}`)
+  }
+  if (expectedComponentResponses === undefined && actual.componentResponses > 0) {
+    errors.push(`counts.componentResponses must equal ${actual.componentResponses}`)
+  }
+  if (expectedOperationParameterRefs !== undefined && expectedOperationParameterRefs !== actual.operationParameterRefs) {
+    errors.push(`counts.operationParameterRefs must equal ${actual.operationParameterRefs}`)
+  }
+  if (expectedOperationParameterRefs === undefined && actual.operationParameterRefs > 0) {
+    errors.push(`counts.operationParameterRefs must equal ${actual.operationParameterRefs}`)
+  }
+  if (expectedOperationResponseRefs !== undefined && expectedOperationResponseRefs !== actual.operationResponseRefs) {
+    errors.push(`counts.operationResponseRefs must equal ${actual.operationResponseRefs}`)
+  }
+  if (expectedOperationResponseRefs === undefined && actual.operationResponseRefs > 0) {
+    errors.push(`counts.operationResponseRefs must equal ${actual.operationResponseRefs}`)
   }
   if (expectedParameterExamples !== undefined && expectedParameterExamples !== actual.parameterExamples) {
     errors.push(`counts.parameterExamples must equal ${actual.parameterExamples}`)
@@ -875,6 +1168,10 @@ function validateSidecarCounts(counts: RecordValue, entries: unknown[], errors: 
 type EntryKindCounts = {
   entries: number
   rootInfo: number
+  componentParameters: number
+  componentResponses: number
+  operationParameterRefs: number
+  operationResponseRefs: number
   parameterExamples: number
   requestMediaExamples: number
   responseMediaExamples: number
@@ -886,6 +1183,10 @@ function countEntryKinds(entries: unknown[]): EntryKindCounts {
   return {
     entries: entries.length,
     rootInfo: entries.filter(entry => isRecord(entry) && entry.kind === 'root-info').length,
+    componentParameters: entries.filter(entry => isRecord(entry) && entry.kind === 'component-parameter').length,
+    componentResponses: entries.filter(entry => isRecord(entry) && entry.kind === 'component-response').length,
+    operationParameterRefs: entries.filter(entry => isRecord(entry) && entry.kind === 'operation-parameter-ref').length,
+    operationResponseRefs: entries.filter(entry => isRecord(entry) && entry.kind === 'operation-response-ref').length,
     parameterExamples: entries.filter(entry => isRecord(entry) && entry.kind === 'parameter-examples').length,
     requestMediaExamples: entries.filter(entry => isRecord(entry) && entry.kind === 'request-media-examples').length,
     responseMediaExamples: entries.filter(entry => isRecord(entry) && entry.kind === 'response-media-examples').length,
@@ -912,6 +1213,12 @@ function requireHttpMethod(record: RecordValue, key: string, path: string, error
   }
 }
 
+function requireNonNegativeInteger(record: RecordValue, key: string, path: string, errors: string[]): void {
+  if (!Number.isInteger(record[key]) || (record[key] as number) < 0) {
+    errors.push(`${path} must be a non-negative integer`)
+  }
+}
+
 function optionalHttpMethod(record: RecordValue, key: string, path: string, errors: string[]): void {
   if (hasOwn(record, key) && (typeof record[key] !== 'string' || !isHttpMethod(record[key]))) {
     errors.push(`${path} must be an HTTP method`)
@@ -933,6 +1240,10 @@ function optionalNonNegativeInteger(
 
 function isSidecarEntryKind(value: unknown): value is TypeSpecCompatibilitySidecarEntry['kind'] {
   return value === 'root-info'
+    || value === 'component-parameter'
+    || value === 'component-response'
+    || value === 'operation-parameter-ref'
+    || value === 'operation-response-ref'
     || value === 'parameter-examples'
     || value === 'request-media-examples'
     || value === 'response-media-examples'
@@ -950,6 +1261,22 @@ function entriesTargetCompatible(
   }
   if (expected.kind === 'root-info' && actual.kind === 'root-info') {
     return expected.target.pointer === actual.target.pointer
+  }
+  if (expected.kind === 'component-parameter' && actual.kind === 'component-parameter') {
+    return expected.target.name === actual.target.name
+  }
+  if (expected.kind === 'component-response' && actual.kind === 'component-response') {
+    return expected.target.name === actual.target.name
+  }
+  if (expected.kind === 'operation-parameter-ref' && actual.kind === 'operation-parameter-ref') {
+    return expected.target.path === actual.target.path
+      && expected.target.method === actual.target.method
+      && expected.target.index === actual.target.index
+  }
+  if (expected.kind === 'operation-response-ref' && actual.kind === 'operation-response-ref') {
+    return expected.target.path === actual.target.path
+      && expected.target.method === actual.target.method
+      && expected.target.statusCode === actual.target.statusCode
   }
   if (expected.kind === 'operation-security' && actual.kind === 'operation-security') {
     return expected.target.path === actual.target.path

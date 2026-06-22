@@ -171,31 +171,37 @@ describe('TypeSpec compatibility sidecar', () => {
     const restored = applyTypeSpecCompatibilitySidecar(emitted, parsed)
 
     expect(sidecar.counts).toEqual({
-      entries: 4,
+      entries: 8,
+      componentParameters: 1,
+      componentResponses: 1,
+      operationParameterRefs: 1,
+      operationResponseRefs: 1,
       parameterExamples: 2,
       responseMediaExamples: 1,
       securitySchemes: 1,
     })
     expect(restored.report.counts).toEqual({
-      entries: 4,
-      applied: 5,
+      entries: 8,
+      applied: 9,
       missingTargets: 0,
     })
     expect(restored.report.diagnostics).toContainEqual(expect.objectContaining({
       code: 'typespec-sidecar/parameter-examples-applied-to-multiple-targets',
     }))
     expect(restored.document.components?.securitySchemes?.oauth2).toEqual(source.components?.securitySchemes?.oauth2)
+    expect(restored.document.components?.parameters?.Page).toEqual(source.components?.parameters?.Page)
+    expect(restored.document.components?.responses?.UserList).toEqual(source.components?.responses?.UserList)
     const restoredDoc = restored.document as Record<string, any>
     const sourceDoc = source as Record<string, any>
     const listUsers = restoredDoc.paths['/users'].get
-    expect(listUsers?.parameters?.[0]).toEqual(expect.objectContaining({
+    expect(listUsers?.parameters?.[0]).toEqual({ $ref: '#/components/parameters/Page' })
+    expect(restoredDoc.components.parameters.Page).toEqual(expect.objectContaining({
       examples: sourceDoc.components.parameters.Page.examples,
     }))
-    expect(listUsers?.parameters?.[0].example).toBeUndefined()
+    expect(restoredDoc.components.parameters.Page.example).toBeUndefined()
     const listUsers200 = listUsers?.responses?.['200']
-    const listUsers200Json = listUsers200 && 'content' in listUsers200
-      ? listUsers200.content?.['application/json']
-      : undefined
+    expect(listUsers200).toEqual({ $ref: '#/components/responses/UserList' })
+    const listUsers200Json = restoredDoc.components.responses.UserList.content?.['application/json']
     expect(listUsers200Json?.examples).toEqual(sourceDoc.components.responses.UserList.content['application/json'].examples)
     expect(listUsers200Json?.example).toBeUndefined()
     expect(restoredDoc.paths['/users/{id}'].get.parameters[0]).toEqual(expect.objectContaining({
@@ -208,10 +214,10 @@ describe('TypeSpec compatibility sidecar', () => {
     expect(restoredDoc.paths['/users/{id}'].delete.parameters[0].example).toBeUndefined()
     const reExtracted = createTypeSpecCompatibilitySidecar(restored.document)
     expect(compareTypeSpecCompatibilitySidecars(sidecar, reExtracted).counts).toEqual({
-      expectedEntries: 4,
-      actualEntries: 5,
-      expectedSatisfied: 4,
-      actualCovered: 5,
+      expectedEntries: 8,
+      actualEntries: 9,
+      expectedSatisfied: 8,
+      actualCovered: 9,
       missingExpected: 0,
       unexpectedActual: 0,
       valueMismatches: 0,

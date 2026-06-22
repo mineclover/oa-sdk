@@ -87,6 +87,8 @@ describe('TypeSpec sidecar-to-extension migration', () => {
       convertedEntries: 4,
       remainingEntries: 1,
       operationExtensionGroups: 2,
+      componentParameters: 0,
+      componentResponses: 0,
       securitySchemes: 1,
     })
     expect(result.report.converted.map(entry => entry.kind)).toEqual([
@@ -118,6 +120,129 @@ describe('TypeSpec sidecar-to-extension migration', () => {
     expect(result.snippets).toContain('requestBody: #{')
     expect(result.snippets).toContain('responses: #{')
     expect(result.snippets).not.toContain('tenant-a')
+  })
+
+  it('converts reusable component catalog entries when targeting v5 extensions', () => {
+    const sidecar = parseTypeSpecCompatibilitySidecar({
+      schemaVersion: 'oa-sdk.typespec-compat-sidecar.v1',
+      counts: {
+        entries: 2,
+        componentParameters: 1,
+        componentResponses: 1,
+        parameterExamples: 0,
+        responseMediaExamples: 0,
+        securitySchemes: 0,
+      },
+      entries: [
+        {
+          kind: 'component-parameter',
+          pointer: '#/components/parameters/Page',
+          target: { name: 'Page' },
+          value: {
+            name: 'page',
+            in: 'query',
+            schema: { type: 'integer', default: 1 },
+          },
+        },
+        {
+          kind: 'component-response',
+          pointer: '#/components/responses/TooManyRequests',
+          target: { name: 'TooManyRequests' },
+          value: {
+            description: 'Rate limited',
+            headers: {
+              'Retry-After': {
+                description: 'Retry delay',
+                schema: { type: 'string' },
+              },
+            },
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/Error' },
+              },
+            },
+          },
+        },
+      ],
+    })
+
+    const result = convertTypeSpecSidecarToExtensions(sidecar, {
+      extensionSchemaVersion: 'oa-sdk.typespec-extensions.v5',
+    })
+
+    expect(result.report.counts).toEqual({
+      sourceEntries: 2,
+      convertedEntries: 2,
+      remainingEntries: 0,
+      operationExtensionGroups: 0,
+      componentParameters: 1,
+      componentResponses: 1,
+      securitySchemes: 0,
+    })
+    expect(result.report.converted.map(entry => entry.extension)).toEqual([
+      'x-oa-sdk-components',
+      'x-oa-sdk-components',
+    ])
+    expect(result.snippets).toContain('@extension("x-oa-sdk-components", #{')
+    expect(result.snippets).toContain('parameters: #[')
+    expect(result.snippets).toContain('name: "Page"')
+    expect(result.snippets).toContain('responses: #[')
+    expect(result.snippets).toContain('mediaType: "application/json"')
+    expect(result.snippets).toContain('ref: "#/components/schemas/Error"')
+    expect(result.remainingSidecar.entries).toEqual([])
+  })
+
+  it('converts operation component refs when targeting v5 extensions', () => {
+    const sidecar = parseTypeSpecCompatibilitySidecar({
+      schemaVersion: 'oa-sdk.typespec-compat-sidecar.v1',
+      counts: {
+        entries: 2,
+        operationParameterRefs: 1,
+        operationResponseRefs: 1,
+        parameterExamples: 0,
+        responseMediaExamples: 0,
+        securitySchemes: 0,
+      },
+      entries: [
+        {
+          kind: 'operation-parameter-ref',
+          pointer: '#/paths/~1users/get/parameters/0',
+          target: { path: '/users', method: 'get', index: 0 },
+          value: { $ref: '#/components/parameters/Page' },
+        },
+        {
+          kind: 'operation-response-ref',
+          pointer: '#/paths/~1users/get/responses/401',
+          target: { path: '/users', method: 'get', statusCode: '401' },
+          value: { $ref: '#/components/responses/Unauthorized' },
+        },
+      ],
+    })
+
+    const result = convertTypeSpecSidecarToExtensions(sidecar, {
+      extensionSchemaVersion: 'oa-sdk.typespec-extensions.v5',
+    })
+
+    expect(result.report.counts).toEqual({
+      sourceEntries: 2,
+      convertedEntries: 2,
+      remainingEntries: 0,
+      operationExtensionGroups: 1,
+      componentParameters: 0,
+      componentResponses: 0,
+      securitySchemes: 0,
+    })
+    expect(result.report.converted.map(entry => entry.extension)).toEqual([
+      'x-oa-sdk-operation-component-refs',
+      'x-oa-sdk-operation-component-refs',
+    ])
+    expect(result.snippets).toContain('// GET /users')
+    expect(result.snippets).toContain('@extension("x-oa-sdk-operation-component-refs", #{')
+    expect(result.snippets).toContain('parameters: #[')
+    expect(result.snippets).toContain('index: 0')
+    expect(result.snippets).toContain('responses: #[')
+    expect(result.snippets).toContain('statusCode: "401"')
+    expect(result.snippets).toContain('ref: "#/components/responses/Unauthorized"')
   })
 
   it('keeps request media examples in the sidecar when targeting v1 extensions', () => {

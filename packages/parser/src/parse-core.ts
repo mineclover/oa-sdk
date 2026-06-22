@@ -88,6 +88,27 @@ function deref<T>(item: Referenceable<T> | undefined): T | undefined {
   return item as T
 }
 
+function resolveLocalReference<T>(doc: OasDocument, item: Referenceable<T> | undefined): T | undefined {
+  if (!item || typeof item !== 'object') return undefined
+  if (!('$ref' in item)) return item as T
+  if (!item.$ref.startsWith('#/')) return undefined
+  const resolved = readJsonPointer(doc, item.$ref)
+  return resolved && typeof resolved === 'object' ? resolved as T : undefined
+}
+
+function readJsonPointer(doc: OasDocument, pointer: string): unknown {
+  let value: unknown = doc
+  for (const segment of pointer.slice(2).split('/').map(unescapeJsonPointer)) {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined
+    value = (value as Record<string, unknown>)[segment]
+  }
+  return value
+}
+
+function unescapeJsonPointer(segment: string): string {
+  return segment.replaceAll('~1', '/').replaceAll('~0', '~')
+}
+
 function derefMap<T>(map: Record<string, Referenceable<T>> | undefined): Record<string, T> {
   if (!map) return {}
   const result: Record<string, T> = {}
@@ -104,7 +125,9 @@ function extractOperations(
   doc: OasDocument,
 ): OperationEntry[] {
   const results: OperationEntry[] = []
-  const pathParams = (item.parameters ?? []) as OasParameter[]
+  const pathParams = (item.parameters ?? [])
+    .map(parameter => resolveLocalReference<OasParameter>(doc, parameter))
+    .filter(parameter => parameter !== undefined)
 
   for (const method of STANDARD_METHODS) {
     const op = item[method] as OasOperation | undefined
@@ -127,7 +150,9 @@ function buildEntry(
   item: OasPathItem,
   doc: OasDocument,
 ): OperationEntry {
-  const opParams = (op.parameters ?? []).filter(p => !('$ref' in p)) as OasParameter[]
+  const opParams = (op.parameters ?? [])
+    .map(parameter => resolveLocalReference<OasParameter>(doc, parameter))
+    .filter(parameter => parameter !== undefined)
   const merged = mergeParameters(pathParams, opParams)
 
   const entry: OperationEntry = {
@@ -136,7 +161,7 @@ function buildEntry(
     tags: op.tags ?? [],
     deprecated: op.deprecated ?? false,
     parameters: merged,
-    responses: (op.responses ?? {}) as Record<string, OasResponse>,
+    responses: resolveResponseMap(doc, op.responses),
     security: op.security ?? doc.security ?? [],
     servers: op.servers ?? item.servers ?? doc.servers ?? [],
     callbacks: (op.callbacks ?? {}) as Record<string, OasCallback>,
@@ -151,6 +176,18 @@ function buildEntry(
   if (op.externalDocs !== undefined) entry.externalDocs = op.externalDocs
 
   return entry
+}
+
+function resolveResponseMap(
+  doc: OasDocument,
+  responses: Record<string, Referenceable<OasResponse>> | undefined,
+): Record<string, OasResponse> {
+  const resolved: Record<string, OasResponse> = {}
+  for (const [statusCode, response] of Object.entries(responses ?? {})) {
+    const value = resolveLocalReference<OasResponse>(doc, response)
+    if (value) resolved[statusCode] = value
+  }
+  return resolved
 }
 
 function mergeParameters(path: OasParameter[], op: OasParameter[]): OasParameter[] {

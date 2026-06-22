@@ -39,44 +39,11 @@ paths:
                     status: queued
                     requestedAt: 2026-05-04T00:00:00.000Z
         "401":
-          description: 인증 실패 — 토큰 없음 또는 만료
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-              examples:
-                default:
-                  value:
-                    code: UNAUTHORIZED
-                    message: 인증이 필요합니다
+          $ref: "#/components/responses/Unauthorized"
         "403":
-          description: 권한 없음 — 접근 거부
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-              examples:
-                default:
-                  value:
-                    code: FORBIDDEN
-                    message: 이 리소스에 접근할 권한이 없습니다
+          $ref: "#/components/responses/Forbidden"
         "429":
-          description: 요청 제한 초과 — Retry-After 헤더로 재시도 가능 시점 안내
-          headers:
-            Retry-After:
-              required: true
-              description: 재시도 가능 시점 (초 단위 정수 또는 HTTP-date)
-              schema:
-                type: string
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-              examples:
-                default:
-                  value:
-                    code: RATE_LIMITED
-                    message: 요청 한도를 초과했습니다. 잠시 후 다시 시도해 주세요
+          $ref: "#/components/responses/TooManyRequests"
       tags:
         - users
       requestBody:
@@ -115,49 +82,13 @@ paths:
         "204":
           description: 영구 삭제 완료 (본문 없음)
         "400":
-          description: 잘못된 요청 — 요청 형식 또는 파라미터 오류
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-              examples:
-                default:
-                  value:
-                    code: BAD_REQUEST
-                    message: 요청 형식이 올바르지 않습니다
+          $ref: "#/components/responses/BadRequest"
         "401":
-          description: 인증 실패 — 토큰 없음 또는 만료
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-              examples:
-                default:
-                  value:
-                    code: UNAUTHORIZED
-                    message: 인증이 필요합니다
+          $ref: "#/components/responses/Unauthorized"
         "403":
-          description: 권한 없음 — 접근 거부
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-              examples:
-                default:
-                  value:
-                    code: FORBIDDEN
-                    message: 이 리소스에 접근할 권한이 없습니다
+          $ref: "#/components/responses/Forbidden"
         "404":
-          description: 리소스를 찾을 수 없음
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-              examples:
-                default:
-                  value:
-                    code: NOT_FOUND
-                    message: 요청한 리소스를 찾을 수 없습니다
+          $ref: "#/components/responses/NotFound"
       tags:
         - users
       requestBody:
@@ -185,44 +116,11 @@ paths:
         "204":
           description: 토큰 발송 처리 완료 (본문 없음)
         "400":
-          description: 잘못된 요청 — 요청 형식 또는 파라미터 오류
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-              examples:
-                default:
-                  value:
-                    code: BAD_REQUEST
-                    message: 요청 형식이 올바르지 않습니다
+          $ref: "#/components/responses/BadRequest"
         "422":
-          description: 스키마 유효성 검사 실패
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-              examples:
-                default:
-                  value:
-                    code: SCHEMA_VALIDATION_FAILED
-                    message: 요청 본문이 스키마 유효성 검사를 통과하지 못했습니다
+          $ref: "#/components/responses/UnprocessableEntity"
         "429":
-          description: 요청 제한 초과 — Retry-After 헤더로 재시도 가능 시점 안내
-          headers:
-            Retry-After:
-              required: true
-              description: 재시도 가능 시점 (초 단위 정수 또는 HTTP-date)
-              schema:
-                type: string
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-              examples:
-                default:
-                  value:
-                    code: RATE_LIMITED
-                    message: 요청 한도를 초과했습니다. 잠시 후 다시 시도해 주세요
+          $ref: "#/components/responses/TooManyRequests"
       tags:
         - auth
       requestBody:
@@ -264,55 +162,13 @@ paths:
                       tokenType: Bearer
                       expiresIn: 3600
         "400":
-          description: 잘못된 요청 — 요청 형식 또는 파라미터 오류
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-              examples:
-                default:
-                  value:
-                    code: BAD_REQUEST
-                    message: 요청 형식이 올바르지 않습니다
+          $ref: "#/components/responses/BadRequest"
         "401":
-          description: 인증 실패 — 토큰 없음 또는 만료
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-              examples:
-                default:
-                  value:
-                    code: UNAUTHORIZED
-                    message: 인증이 필요합니다
+          $ref: "#/components/responses/Unauthorized"
         "422":
-          description: 스키마 유효성 검사 실패
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-              examples:
-                default:
-                  value:
-                    code: SCHEMA_VALIDATION_FAILED
-                    message: 요청 본문이 스키마 유효성 검사를 통과하지 못했습니다
+          $ref: "#/components/responses/UnprocessableEntity"
         "429":
-          description: 요청 제한 초과 — Retry-After 헤더로 재시도 가능 시점 안내
-          headers:
-            Retry-After:
-              required: true
-              description: 재시도 가능 시점 (초 단위 정수 또는 HTTP-date)
-              schema:
-                type: string
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-              examples:
-                default:
-                  value:
-                    code: RATE_LIMITED
-                    message: 요청 한도를 초과했습니다. 잠시 후 다시 시도해 주세요
+          $ref: "#/components/responses/TooManyRequests"
       tags:
         - auth
       requestBody:
@@ -337,16 +193,7 @@ paths:
         "204":
           description: 로그아웃 완료 (본문 없음)
         "401":
-          description: 인증 실패 — 토큰 없음 또는 만료
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-              examples:
-                default:
-                  value:
-                    code: UNAUTHORIZED
-                    message: 인증이 필요합니다
+          $ref: "#/components/responses/Unauthorized"
       tags:
         - auth
       security:
@@ -372,27 +219,9 @@ paths:
                     tokenType: Bearer
                     expiresIn: 3600
         "401":
-          description: 인증 실패 — 토큰 없음 또는 만료
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-              examples:
-                default:
-                  value:
-                    code: UNAUTHORIZED
-                    message: 인증이 필요합니다
+          $ref: "#/components/responses/Unauthorized"
         "422":
-          description: 스키마 유효성 검사 실패
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-              examples:
-                default:
-                  value:
-                    code: SCHEMA_VALIDATION_FAILED
-                    message: 요청 본문이 스키마 유효성 검사를 통과하지 못했습니다
+          $ref: "#/components/responses/UnprocessableEntity"
       tags:
         - auth
       requestBody:
@@ -434,55 +263,13 @@ paths:
                       tokenType: Bearer
                       expiresIn: 3600
         "400":
-          description: 잘못된 요청 — 요청 형식 또는 파라미터 오류
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-              examples:
-                default:
-                  value:
-                    code: BAD_REQUEST
-                    message: 요청 형식이 올바르지 않습니다
+          $ref: "#/components/responses/BadRequest"
         "409":
-          description: 리소스 충돌 — 중복 식별자 또는 동시성 충돌
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-              examples:
-                default:
-                  value:
-                    code: CONFLICT
-                    message: 이미 존재하는 리소스입니다
+          $ref: "#/components/responses/Conflict"
         "422":
-          description: 스키마 유효성 검사 실패
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-              examples:
-                default:
-                  value:
-                    code: SCHEMA_VALIDATION_FAILED
-                    message: 요청 본문이 스키마 유효성 검사를 통과하지 못했습니다
+          $ref: "#/components/responses/UnprocessableEntity"
         "429":
-          description: 요청 제한 초과 — Retry-After 헤더로 재시도 가능 시점 안내
-          headers:
-            Retry-After:
-              required: true
-              description: 재시도 가능 시점 (초 단위 정수 또는 HTTP-date)
-              schema:
-                type: string
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-              examples:
-                default:
-                  value:
-                    code: RATE_LIMITED
-                    message: 요청 한도를 초과했습니다. 잠시 후 다시 시도해 주세요
+          $ref: "#/components/responses/TooManyRequests"
       tags:
         - auth
       requestBody:
@@ -508,38 +295,11 @@ paths:
         "204":
           description: 비밀번호 갱신 완료 (본문 없음)
         "400":
-          description: 잘못된 요청 — 요청 형식 또는 파라미터 오류
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-              examples:
-                default:
-                  value:
-                    code: BAD_REQUEST
-                    message: 요청 형식이 올바르지 않습니다
+          $ref: "#/components/responses/BadRequest"
         "401":
-          description: 인증 실패 — 토큰 없음 또는 만료
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-              examples:
-                default:
-                  value:
-                    code: UNAUTHORIZED
-                    message: 인증이 필요합니다
+          $ref: "#/components/responses/Unauthorized"
         "422":
-          description: 스키마 유효성 검사 실패
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-              examples:
-                default:
-                  value:
-                    code: SCHEMA_VALIDATION_FAILED
-                    message: 요청 본문이 스키마 유효성 검사를 통과하지 못했습니다
+          $ref: "#/components/responses/UnprocessableEntity"
       tags:
         - auth
       requestBody:
@@ -574,16 +334,7 @@ paths:
                     status: ok
                     timestamp: 2026-04-04T00:00:00.000Z
         "503":
-          description: 서비스 사용 불가
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-              examples:
-                default:
-                  value:
-                    code: SERVICE_UNAVAILABLE
-                    message: 서비스가 일시적으로 사용 불가합니다
+          $ref: "#/components/responses/ServiceUnavailable"
       tags:
         - health
       security: []
@@ -616,16 +367,7 @@ paths:
                         status: ok
                         latencyMs: 1
         "503":
-          description: 서비스 사용 불가
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-              examples:
-                default:
-                  value:
-                    code: SERVICE_UNAVAILABLE
-                    message: 서비스가 일시적으로 사용 불가합니다
+          $ref: "#/components/responses/ServiceUnavailable"
       tags:
         - health
       security: []
@@ -639,16 +381,7 @@ paths:
         "200":
           description: SSE 이벤트 스트림
         "503":
-          description: 서비스 사용 불가
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-              examples:
-                default:
-                  value:
-                    code: SERVICE_UNAVAILABLE
-                    message: 서비스가 일시적으로 사용 불가합니다
+          $ref: "#/components/responses/ServiceUnavailable"
       tags:
         - health
       security: []
@@ -674,16 +407,7 @@ paths:
                     role: user
                     createdAt: 2024-01-01T00:00:00.000Z
         "401":
-          description: 인증 실패 — 토큰 없음 또는 만료
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-              examples:
-                default:
-                  value:
-                    code: UNAUTHORIZED
-                    message: 인증이 필요합니다
+          $ref: "#/components/responses/Unauthorized"
       tags:
         - me
       security:
@@ -699,16 +423,7 @@ paths:
         "204":
           description: 탈퇴 처리 완료 (본문 없음)
         "401":
-          description: 인증 실패 — 토큰 없음 또는 만료
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-              examples:
-                default:
-                  value:
-                    code: UNAUTHORIZED
-                    message: 인증이 필요합니다
+          $ref: "#/components/responses/Unauthorized"
       tags:
         - me
       security:
@@ -728,38 +443,11 @@ paths:
               schema:
                 $ref: "#/components/schemas/User"
         "400":
-          description: 잘못된 요청 — 요청 형식 또는 파라미터 오류
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-              examples:
-                default:
-                  value:
-                    code: BAD_REQUEST
-                    message: 요청 형식이 올바르지 않습니다
+          $ref: "#/components/responses/BadRequest"
         "401":
-          description: 인증 실패 — 토큰 없음 또는 만료
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-              examples:
-                default:
-                  value:
-                    code: UNAUTHORIZED
-                    message: 인증이 필요합니다
+          $ref: "#/components/responses/Unauthorized"
         "422":
-          description: 스키마 유효성 검사 실패
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-              examples:
-                default:
-                  value:
-                    code: SCHEMA_VALIDATION_FAILED
-                    message: 요청 본문이 스키마 유효성 검사를 통과하지 못했습니다
+          $ref: "#/components/responses/UnprocessableEntity"
       tags:
         - me
       requestBody:
@@ -786,38 +474,11 @@ paths:
         "204":
           description: 비밀번호 변경 완료 (본문 없음)
         "400":
-          description: 잘못된 요청 — 요청 형식 또는 파라미터 오류
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-              examples:
-                default:
-                  value:
-                    code: BAD_REQUEST
-                    message: 요청 형식이 올바르지 않습니다
+          $ref: "#/components/responses/BadRequest"
         "401":
-          description: 인증 실패 — 토큰 없음 또는 만료
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-              examples:
-                default:
-                  value:
-                    code: UNAUTHORIZED
-                    message: 인증이 필요합니다
+          $ref: "#/components/responses/Unauthorized"
         "422":
-          description: 스키마 유효성 검사 실패
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-              examples:
-                default:
-                  value:
-                    code: SCHEMA_VALIDATION_FAILED
-                    message: 요청 본문이 스키마 유효성 검사를 통과하지 못했습니다
+          $ref: "#/components/responses/UnprocessableEntity"
       tags:
         - me
       requestBody:
@@ -855,33 +516,9 @@ paths:
                     status: queued
                     requestedAt: 2026-05-04T00:00:00.000Z
         "401":
-          description: 인증 실패 — 토큰 없음 또는 만료
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-              examples:
-                default:
-                  value:
-                    code: UNAUTHORIZED
-                    message: 인증이 필요합니다
+          $ref: "#/components/responses/Unauthorized"
         "429":
-          description: 요청 제한 초과 — Retry-After 헤더로 재시도 가능 시점 안내
-          headers:
-            Retry-After:
-              required: true
-              description: 재시도 가능 시점 (초 단위 정수 또는 HTTP-date)
-              schema:
-                type: string
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-              examples:
-                default:
-                  value:
-                    code: RATE_LIMITED
-                    message: 요청 한도를 초과했습니다. 잠시 후 다시 시도해 주세요
+          $ref: "#/components/responses/TooManyRequests"
       tags:
         - me
       requestBody:
@@ -920,16 +557,7 @@ paths:
                         title: 팀원 초대
                         completed: false
         "401":
-          description: 인증 실패 — 토큰 없음 또는 만료
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-              examples:
-                default:
-                  value:
-                    code: UNAUTHORIZED
-                    message: 인증이 필요합니다
+          $ref: "#/components/responses/Unauthorized"
       tags:
         - me
       security:
@@ -942,31 +570,8 @@ paths:
         admin이 내 역할을 변경한 이력 일람. target-of-action 페르소나의 surface.
         변경 시점·이전/현재 역할·변경자·사유 포함.
       parameters:
-        - name: page
-          in: query
-          required: false
-          description: 페이지 번호 (1-based)
-          schema:
-            type: integer
-            minimum: 1
-            default: 1
-          explode: false
-          examples:
-            default:
-              value: 1
-        - name: limit
-          in: query
-          required: false
-          description: 페이지당 항목 수
-          schema:
-            type: integer
-            minimum: 1
-            maximum: 100
-            default: 20
-          explode: false
-          examples:
-            default:
-              value: 20
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Limit"
       responses:
         "200":
           description: 역할 변경 이력
@@ -986,16 +591,7 @@ paths:
                         reason: 권한 위임
                     total: 1
         "401":
-          description: 인증 실패 — 토큰 없음 또는 만료
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-              examples:
-                default:
-                  value:
-                    code: UNAUTHORIZED
-                    message: 인증이 필요합니다
+          $ref: "#/components/responses/Unauthorized"
       tags:
         - me
       security:
@@ -1008,31 +604,8 @@ paths:
         운영자(moderator) 전용. 처리 대기/처리 중 신고 일람. status 필터로
         open/under-review/resolved 등 분기.
       parameters:
-        - name: page
-          in: query
-          required: false
-          description: 페이지 번호 (1-based)
-          schema:
-            type: integer
-            minimum: 1
-            default: 1
-          explode: false
-          examples:
-            default:
-              value: 1
-        - name: limit
-          in: query
-          required: false
-          description: 페이지당 항목 수
-          schema:
-            type: integer
-            minimum: 1
-            maximum: 100
-            default: 20
-          explode: false
-          examples:
-            default:
-              value: 20
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Limit"
         - name: status
           in: query
           required: false
@@ -1064,27 +637,9 @@ paths:
                         createdAt: 2026-05-04T00:00:00.000Z
                     total: 1
         "401":
-          description: 인증 실패 — 토큰 없음 또는 만료
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-              examples:
-                default:
-                  value:
-                    code: UNAUTHORIZED
-                    message: 인증이 필요합니다
+          $ref: "#/components/responses/Unauthorized"
         "403":
-          description: 권한 없음 — 접근 거부
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-              examples:
-                default:
-                  value:
-                    code: FORBIDDEN
-                    message: 이 리소스에 접근할 권한이 없습니다
+          $ref: "#/components/responses/Forbidden"
       tags:
         - users
       security:
@@ -1095,31 +650,8 @@ paths:
       summary: 사용자 목록 조회
       description: 페이지네이션과 역할 필터를 지원하는 사용자 목록 API
       parameters:
-        - name: page
-          in: query
-          required: false
-          description: 페이지 번호 (1-based)
-          schema:
-            type: integer
-            minimum: 1
-            default: 1
-          explode: false
-          examples:
-            default:
-              value: 1
-        - name: limit
-          in: query
-          required: false
-          description: 페이지당 항목 수
-          schema:
-            type: integer
-            minimum: 1
-            maximum: 100
-            default: 20
-          explode: false
-          examples:
-            default:
-              value: 20
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Limit"
         - name: role
           in: query
           required: false
@@ -1149,16 +681,7 @@ paths:
                         createdAt: 2024-01-01T00:00:00.000Z
                     total: 1
         "401":
-          description: 인증 실패 — 토큰 없음 또는 만료
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-              examples:
-                default:
-                  value:
-                    code: UNAUTHORIZED
-                    message: 인증이 필요합니다
+          $ref: "#/components/responses/Unauthorized"
       tags:
         - users
       security:
@@ -1184,49 +707,13 @@ paths:
                     role: user
                     createdAt: 2024-01-01T00:00:00.000Z
         "400":
-          description: 잘못된 요청 — 요청 형식 또는 파라미터 오류
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-              examples:
-                default:
-                  value:
-                    code: BAD_REQUEST
-                    message: 요청 형식이 올바르지 않습니다
+          $ref: "#/components/responses/BadRequest"
         "401":
-          description: 인증 실패 — 토큰 없음 또는 만료
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-              examples:
-                default:
-                  value:
-                    code: UNAUTHORIZED
-                    message: 인증이 필요합니다
+          $ref: "#/components/responses/Unauthorized"
         "422":
-          description: 스키마 유효성 검사 실패
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-              examples:
-                default:
-                  value:
-                    code: SCHEMA_VALIDATION_FAILED
-                    message: 요청 본문이 스키마 유효성 검사를 통과하지 못했습니다
+          $ref: "#/components/responses/UnprocessableEntity"
         "500":
-          description: 서버 내부 오류
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-              examples:
-                default:
-                  value:
-                    code: INTERNAL_SERVER_ERROR
-                    message: 서버 내부 오류가 발생했습니다
+          $ref: "#/components/responses/InternalServerError"
       tags:
         - users
       requestBody:
@@ -1275,27 +762,9 @@ paths:
                     role: user
                     createdAt: 2024-01-01T00:00:00.000Z
         "401":
-          description: 인증 실패 — 토큰 없음 또는 만료
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-              examples:
-                default:
-                  value:
-                    code: UNAUTHORIZED
-                    message: 인증이 필요합니다
+          $ref: "#/components/responses/Unauthorized"
         "404":
-          description: 리소스를 찾을 수 없음
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-              examples:
-                default:
-                  value:
-                    code: NOT_FOUND
-                    message: 요청한 리소스를 찾을 수 없습니다
+          $ref: "#/components/responses/NotFound"
       tags:
         - users
       security:
@@ -1319,27 +788,9 @@ paths:
         "204":
           description: 삭제 완료 (본문 없음)
         "401":
-          description: 인증 실패 — 토큰 없음 또는 만료
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-              examples:
-                default:
-                  value:
-                    code: UNAUTHORIZED
-                    message: 인증이 필요합니다
+          $ref: "#/components/responses/Unauthorized"
         "404":
-          description: 리소스를 찾을 수 없음
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-              examples:
-                default:
-                  value:
-                    code: NOT_FOUND
-                    message: 요청한 리소스를 찾을 수 없습니다
+          $ref: "#/components/responses/NotFound"
       tags:
         - users
       security:
@@ -1375,60 +826,15 @@ paths:
                     role: user
                     createdAt: 2024-01-01T00:00:00.000Z
         "400":
-          description: 잘못된 요청 — 요청 형식 또는 파라미터 오류
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-              examples:
-                default:
-                  value:
-                    code: BAD_REQUEST
-                    message: 요청 형식이 올바르지 않습니다
+          $ref: "#/components/responses/BadRequest"
         "401":
-          description: 인증 실패 — 토큰 없음 또는 만료
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-              examples:
-                default:
-                  value:
-                    code: UNAUTHORIZED
-                    message: 인증이 필요합니다
+          $ref: "#/components/responses/Unauthorized"
         "403":
-          description: 권한 없음 — 접근 거부
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-              examples:
-                default:
-                  value:
-                    code: FORBIDDEN
-                    message: 이 리소스에 접근할 권한이 없습니다
+          $ref: "#/components/responses/Forbidden"
         "404":
-          description: 리소스를 찾을 수 없음
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-              examples:
-                default:
-                  value:
-                    code: NOT_FOUND
-                    message: 요청한 리소스를 찾을 수 없습니다
+          $ref: "#/components/responses/NotFound"
         "422":
-          description: 스키마 유효성 검사 실패
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-              examples:
-                default:
-                  value:
-                    code: SCHEMA_VALIDATION_FAILED
-                    message: 요청 본문이 스키마 유효성 검사를 통과하지 못했습니다
+          $ref: "#/components/responses/UnprocessableEntity"
       tags:
         - users
       requestBody:
@@ -1475,27 +881,9 @@ paths:
                     name: Alice
                     role: user
         "401":
-          description: 인증 실패 — 토큰 없음 또는 만료
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-              examples:
-                default:
-                  value:
-                    code: UNAUTHORIZED
-                    message: 인증이 필요합니다
+          $ref: "#/components/responses/Unauthorized"
         "404":
-          description: 리소스를 찾을 수 없음
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-              examples:
-                default:
-                  value:
-                    code: NOT_FOUND
-                    message: 요청한 리소스를 찾을 수 없습니다
+          $ref: "#/components/responses/NotFound"
       tags:
         - users
       security:
@@ -1532,55 +920,13 @@ paths:
                     status: open
                     createdAt: 2026-05-04T00:00:00.000Z
         "400":
-          description: 잘못된 요청 — 요청 형식 또는 파라미터 오류
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-              examples:
-                default:
-                  value:
-                    code: BAD_REQUEST
-                    message: 요청 형식이 올바르지 않습니다
+          $ref: "#/components/responses/BadRequest"
         "401":
-          description: 인증 실패 — 토큰 없음 또는 만료
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-              examples:
-                default:
-                  value:
-                    code: UNAUTHORIZED
-                    message: 인증이 필요합니다
+          $ref: "#/components/responses/Unauthorized"
         "422":
-          description: 스키마 유효성 검사 실패
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-              examples:
-                default:
-                  value:
-                    code: SCHEMA_VALIDATION_FAILED
-                    message: 요청 본문이 스키마 유효성 검사를 통과하지 못했습니다
+          $ref: "#/components/responses/UnprocessableEntity"
         "429":
-          description: 요청 제한 초과 — Retry-After 헤더로 재시도 가능 시점 안내
-          headers:
-            Retry-After:
-              required: true
-              description: 재시도 가능 시점 (초 단위 정수 또는 HTTP-date)
-              schema:
-                type: string
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-              examples:
-                default:
-                  value:
-                    code: RATE_LIMITED
-                    message: 요청 한도를 초과했습니다. 잠시 후 다시 시도해 주세요
+          $ref: "#/components/responses/TooManyRequests"
       tags:
         - users
       requestBody:
@@ -2289,6 +1635,137 @@ components:
             read: 읽기 권한
             write: 쓰기 권한
             admin: 관리자 권한
+  parameters:
+    Limit:
+      name: limit
+      in: query
+      description: 페이지당 항목 수
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+      examples:
+        default:
+          value: 20
+    Page:
+      name: page
+      in: query
+      description: 페이지 번호 (1-based)
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+      examples:
+        default:
+          value: 1
+  responses:
+    BadRequest:
+      description: 잘못된 요청 — 요청 형식 또는 파라미터 오류
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          examples:
+            default:
+              value:
+                code: BAD_REQUEST
+                message: 요청 형식이 올바르지 않습니다
+    Conflict:
+      description: 리소스 충돌 — 중복 식별자 또는 동시성 충돌
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          examples:
+            default:
+              value:
+                code: CONFLICT
+                message: 이미 존재하는 리소스입니다
+    Forbidden:
+      description: 권한 없음 — 접근 거부
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          examples:
+            default:
+              value:
+                code: FORBIDDEN
+                message: 이 리소스에 접근할 권한이 없습니다
+    InternalServerError:
+      description: 서버 내부 오류
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          examples:
+            default:
+              value:
+                code: INTERNAL_SERVER_ERROR
+                message: 서버 내부 오류가 발생했습니다
+    NotFound:
+      description: 리소스를 찾을 수 없음
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          examples:
+            default:
+              value:
+                code: NOT_FOUND
+                message: 요청한 리소스를 찾을 수 없습니다
+    ServiceUnavailable:
+      description: 서비스 사용 불가
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          examples:
+            default:
+              value:
+                code: SERVICE_UNAVAILABLE
+                message: 서비스가 일시적으로 사용 불가합니다
+    TooManyRequests:
+      description: 요청 제한 초과 — Retry-After 헤더로 재시도 가능 시점 안내
+      headers:
+        Retry-After:
+          description: 재시도 가능 시점 (초 단위 정수 또는 HTTP-date)
+          required: true
+          schema:
+            type: string
+            example: "30"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          examples:
+            default:
+              value:
+                code: RATE_LIMITED
+                message: 요청 한도를 초과했습니다. 잠시 후 다시 시도해 주세요
+    Unauthorized:
+      description: 인증 실패 — 토큰 없음 또는 만료
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          examples:
+            default:
+              value:
+                code: UNAUTHORIZED
+                message: 인증이 필요합니다
+    UnprocessableEntity:
+      description: 스키마 유효성 검사 실패
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          examples:
+            default:
+              value:
+                code: SCHEMA_VALIDATION_FAILED
+                message: 요청 본문이 스키마 유효성 검사를 통과하지 못했습니다
 servers:
   - url: http://localhost:4010
     description: Mock server (@oa-sdk/mock-server)

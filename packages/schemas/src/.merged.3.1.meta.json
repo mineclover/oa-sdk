@@ -10,21 +10,6 @@
       "requestedAt": "2026-05-04T00:00:00.000Z"
     },
     "/paths/~1admin~1users~1export/post/responses/202/content/application~1json/examples/default/serializedValue": "{\"jobId\":\"00000000-0000-0000-0000-000000000201\",\"status\":\"queued\",\"requestedAt\":\"2026-05-04T00:00:00.000Z\"}",
-    "/paths/~1admin~1users~1export/post/responses/401/content/application~1json/examples/default/dataValue": {
-      "code": "UNAUTHORIZED",
-      "message": "인증이 필요합니다"
-    },
-    "/paths/~1admin~1users~1export/post/responses/401/content/application~1json/examples/default/serializedValue": "{\"code\":\"UNAUTHORIZED\",\"message\":\"인증이 필요합니다\"}",
-    "/paths/~1admin~1users~1export/post/responses/403/content/application~1json/examples/default/dataValue": {
-      "code": "FORBIDDEN",
-      "message": "이 리소스에 접근할 권한이 없습니다"
-    },
-    "/paths/~1admin~1users~1export/post/responses/403/content/application~1json/examples/default/serializedValue": "{\"code\":\"FORBIDDEN\",\"message\":\"이 리소스에 접근할 권한이 없습니다\"}",
-    "/paths/~1admin~1users~1export/post/responses/429/content/application~1json/examples/default/dataValue": {
-      "code": "RATE_LIMITED",
-      "message": "요청 한도를 초과했습니다. 잠시 후 다시 시도해 주세요"
-    },
-    "/paths/~1admin~1users~1export/post/responses/429/content/application~1json/examples/default/serializedValue": "{\"code\":\"RATE_LIMITED\",\"message\":\"요청 한도를 초과했습니다. 잠시 후 다시 시도해 주세요\"}",
     "/paths/~1admin~1users~1export/post/requestBody/content/application~1json/examples/default/dataValue": {
       "format": "json",
       "pseudonymize": true
@@ -32,46 +17,11 @@
     "/paths/~1admin~1users~1export/post/requestBody/content/application~1json/examples/default/serializedValue": "{\"format\":\"json\",\"pseudonymize\":true}",
     "/paths/~1admin~1users~1{id}~1purge/post/parameters/0/examples/default/dataValue": "00000000-0000-0000-0000-000000000001",
     "/paths/~1admin~1users~1{id}~1purge/post/parameters/0/examples/default/serializedValue": "00000000-0000-0000-0000-000000000001",
-    "/paths/~1admin~1users~1{id}~1purge/post/responses/400/content/application~1json/examples/default/dataValue": {
-      "code": "BAD_REQUEST",
-      "message": "요청 형식이 올바르지 않습니다"
-    },
-    "/paths/~1admin~1users~1{id}~1purge/post/responses/400/content/application~1json/examples/default/serializedValue": "{\"code\":\"BAD_REQUEST\",\"message\":\"요청 형식이 올바르지 않습니다\"}",
-    "/paths/~1admin~1users~1{id}~1purge/post/responses/401/content/application~1json/examples/default/dataValue": {
-      "code": "UNAUTHORIZED",
-      "message": "인증이 필요합니다"
-    },
-    "/paths/~1admin~1users~1{id}~1purge/post/responses/401/content/application~1json/examples/default/serializedValue": "{\"code\":\"UNAUTHORIZED\",\"message\":\"인증이 필요합니다\"}",
-    "/paths/~1admin~1users~1{id}~1purge/post/responses/403/content/application~1json/examples/default/dataValue": {
-      "code": "FORBIDDEN",
-      "message": "이 리소스에 접근할 권한이 없습니다"
-    },
-    "/paths/~1admin~1users~1{id}~1purge/post/responses/403/content/application~1json/examples/default/serializedValue": "{\"code\":\"FORBIDDEN\",\"message\":\"이 리소스에 접근할 권한이 없습니다\"}",
-    "/paths/~1admin~1users~1{id}~1purge/post/responses/404/content/application~1json/examples/default/dataValue": {
-      "code": "NOT_FOUND",
-      "message": "요청한 리소스를 찾을 수 없습니다"
-    },
-    "/paths/~1admin~1users~1{id}~1purge/post/responses/404/content/application~1json/examples/default/serializedValue": "{\"code\":\"NOT_FOUND\",\"message\":\"요청한 리소스를 찾을 수 없습니다\"}",
     "/paths/~1admin~1users~1{id}~1purge/post/requestBody/content/application~1json/examples/default/dataValue": {
       "reason": "confirmed policy violation",
       "legalHoldOverride": false
     },
     "/paths/~1admin~1users~1{id}~1purge/post/requestBody/content/application~1json/examples/default/serializedValue": "{\"reason\":\"confirmed policy violation\",\"legalHoldOverride\":false}",
-    "/paths/~1auth~1forgot-password/post/responses/400/content/application~1json/examples/default/dataValue": {
-      "code": "BAD_REQUEST",
-      "message": "요청 형식이 올바르지 않습니다"
-    },
-    "/paths/~1auth~1forgot-password/post/responses/400/content/application~1json/examples/default/serializedValue": "{\"code\":\"BAD_REQUEST\",\"message\":\"요청 형식이 올바르지 않습니다\"}",
-    "/paths/~1auth~1forgot-password/post/responses/422/content/application~1json/examples/default/dataValue": {
-      "code": "SCHEMA_VALIDATION_FAILED",
-      "message": "요청 본문이 스키마 유효성 검사를 통과하지 못했습니다"
-    },
-    "/paths/~1auth~1forgot-password/post/responses/422/content/application~1json/examples/default/serializedValue": "{\"code\":\"SCHEMA_VALIDATION_FAILED\",\"message\":\"요청 본문이 스키마 유효성 검사를 통과하지 못했습니다\"}",
-    "/paths/~1auth~1forgot-password/post/responses/429/content/application~1json/examples/default/dataValue": {
-      "code": "RATE_LIMITED",
-      "message": "요청 한도를 초과했습니다. 잠시 후 다시 시도해 주세요"
-    },
-    "/paths/~1auth~1forgot-password/post/responses/429/content/application~1json/examples/default/serializedValue": "{\"code\":\"RATE_LIMITED\",\"message\":\"요청 한도를 초과했습니다. 잠시 후 다시 시도해 주세요\"}",
     "/paths/~1auth~1forgot-password/post/requestBody/content/application~1json/examples/default/dataValue": {
       "email": "alice@example.com"
     },
@@ -91,52 +41,17 @@
         "expiresIn": 3600
       }
     },
-    "/paths/~1auth~1login/post/responses/400/content/application~1json/examples/default/dataValue": {
-      "code": "BAD_REQUEST",
-      "message": "요청 형식이 올바르지 않습니다"
-    },
-    "/paths/~1auth~1login/post/responses/400/content/application~1json/examples/default/serializedValue": "{\"code\":\"BAD_REQUEST\",\"message\":\"요청 형식이 올바르지 않습니다\"}",
-    "/paths/~1auth~1login/post/responses/401/content/application~1json/examples/default/dataValue": {
-      "code": "UNAUTHORIZED",
-      "message": "인증이 필요합니다"
-    },
-    "/paths/~1auth~1login/post/responses/401/content/application~1json/examples/default/serializedValue": "{\"code\":\"UNAUTHORIZED\",\"message\":\"인증이 필요합니다\"}",
-    "/paths/~1auth~1login/post/responses/422/content/application~1json/examples/default/dataValue": {
-      "code": "SCHEMA_VALIDATION_FAILED",
-      "message": "요청 본문이 스키마 유효성 검사를 통과하지 못했습니다"
-    },
-    "/paths/~1auth~1login/post/responses/422/content/application~1json/examples/default/serializedValue": "{\"code\":\"SCHEMA_VALIDATION_FAILED\",\"message\":\"요청 본문이 스키마 유효성 검사를 통과하지 못했습니다\"}",
-    "/paths/~1auth~1login/post/responses/429/content/application~1json/examples/default/dataValue": {
-      "code": "RATE_LIMITED",
-      "message": "요청 한도를 초과했습니다. 잠시 후 다시 시도해 주세요"
-    },
-    "/paths/~1auth~1login/post/responses/429/content/application~1json/examples/default/serializedValue": "{\"code\":\"RATE_LIMITED\",\"message\":\"요청 한도를 초과했습니다. 잠시 후 다시 시도해 주세요\"}",
     "/paths/~1auth~1login/post/requestBody/content/application~1json/examples/default/dataValue": {
       "email": "alice@example.com",
       "password": "secure1234"
     },
     "/paths/~1auth~1login/post/requestBody/content/application~1json/examples/default/serializedValue": "{\"email\":\"alice@example.com\",\"password\":\"secure1234\"}",
-    "/paths/~1auth~1logout/post/responses/401/content/application~1json/examples/default/dataValue": {
-      "code": "UNAUTHORIZED",
-      "message": "인증이 필요합니다"
-    },
-    "/paths/~1auth~1logout/post/responses/401/content/application~1json/examples/default/serializedValue": "{\"code\":\"UNAUTHORIZED\",\"message\":\"인증이 필요합니다\"}",
     "/paths/~1auth~1refresh/post/responses/200/content/application~1json/examples/default/dataValue": {
       "accessToken": "eyJhbGciOi...refreshed",
       "refreshToken": "rt_login_0002",
       "tokenType": "Bearer",
       "expiresIn": 3600
     },
-    "/paths/~1auth~1refresh/post/responses/401/content/application~1json/examples/default/dataValue": {
-      "code": "UNAUTHORIZED",
-      "message": "인증이 필요합니다"
-    },
-    "/paths/~1auth~1refresh/post/responses/401/content/application~1json/examples/default/serializedValue": "{\"code\":\"UNAUTHORIZED\",\"message\":\"인증이 필요합니다\"}",
-    "/paths/~1auth~1refresh/post/responses/422/content/application~1json/examples/default/dataValue": {
-      "code": "SCHEMA_VALIDATION_FAILED",
-      "message": "요청 본문이 스키마 유효성 검사를 통과하지 못했습니다"
-    },
-    "/paths/~1auth~1refresh/post/responses/422/content/application~1json/examples/default/serializedValue": "{\"code\":\"SCHEMA_VALIDATION_FAILED\",\"message\":\"요청 본문이 스키마 유효성 검사를 통과하지 못했습니다\"}",
     "/paths/~1auth~1refresh/post/requestBody/content/application~1json/examples/default/dataValue": {
       "refreshToken": "rt_login_0001"
     },
@@ -156,47 +71,12 @@
         "expiresIn": 3600
       }
     },
-    "/paths/~1auth~1register/post/responses/400/content/application~1json/examples/default/dataValue": {
-      "code": "BAD_REQUEST",
-      "message": "요청 형식이 올바르지 않습니다"
-    },
-    "/paths/~1auth~1register/post/responses/400/content/application~1json/examples/default/serializedValue": "{\"code\":\"BAD_REQUEST\",\"message\":\"요청 형식이 올바르지 않습니다\"}",
-    "/paths/~1auth~1register/post/responses/409/content/application~1json/examples/default/dataValue": {
-      "code": "CONFLICT",
-      "message": "이미 존재하는 리소스입니다"
-    },
-    "/paths/~1auth~1register/post/responses/409/content/application~1json/examples/default/serializedValue": "{\"code\":\"CONFLICT\",\"message\":\"이미 존재하는 리소스입니다\"}",
-    "/paths/~1auth~1register/post/responses/422/content/application~1json/examples/default/dataValue": {
-      "code": "SCHEMA_VALIDATION_FAILED",
-      "message": "요청 본문이 스키마 유효성 검사를 통과하지 못했습니다"
-    },
-    "/paths/~1auth~1register/post/responses/422/content/application~1json/examples/default/serializedValue": "{\"code\":\"SCHEMA_VALIDATION_FAILED\",\"message\":\"요청 본문이 스키마 유효성 검사를 통과하지 못했습니다\"}",
-    "/paths/~1auth~1register/post/responses/429/content/application~1json/examples/default/dataValue": {
-      "code": "RATE_LIMITED",
-      "message": "요청 한도를 초과했습니다. 잠시 후 다시 시도해 주세요"
-    },
-    "/paths/~1auth~1register/post/responses/429/content/application~1json/examples/default/serializedValue": "{\"code\":\"RATE_LIMITED\",\"message\":\"요청 한도를 초과했습니다. 잠시 후 다시 시도해 주세요\"}",
     "/paths/~1auth~1register/post/requestBody/content/application~1json/examples/default/dataValue": {
       "email": "greg@example.com",
       "name": "Greg",
       "password": "secure1234"
     },
     "/paths/~1auth~1register/post/requestBody/content/application~1json/examples/default/serializedValue": "{\"email\":\"greg@example.com\",\"name\":\"Greg\",\"password\":\"secure1234\"}",
-    "/paths/~1auth~1reset-password/post/responses/400/content/application~1json/examples/default/dataValue": {
-      "code": "BAD_REQUEST",
-      "message": "요청 형식이 올바르지 않습니다"
-    },
-    "/paths/~1auth~1reset-password/post/responses/400/content/application~1json/examples/default/serializedValue": "{\"code\":\"BAD_REQUEST\",\"message\":\"요청 형식이 올바르지 않습니다\"}",
-    "/paths/~1auth~1reset-password/post/responses/401/content/application~1json/examples/default/dataValue": {
-      "code": "UNAUTHORIZED",
-      "message": "인증이 필요합니다"
-    },
-    "/paths/~1auth~1reset-password/post/responses/401/content/application~1json/examples/default/serializedValue": "{\"code\":\"UNAUTHORIZED\",\"message\":\"인증이 필요합니다\"}",
-    "/paths/~1auth~1reset-password/post/responses/422/content/application~1json/examples/default/dataValue": {
-      "code": "SCHEMA_VALIDATION_FAILED",
-      "message": "요청 본문이 스키마 유효성 검사를 통과하지 못했습니다"
-    },
-    "/paths/~1auth~1reset-password/post/responses/422/content/application~1json/examples/default/serializedValue": "{\"code\":\"SCHEMA_VALIDATION_FAILED\",\"message\":\"요청 본문이 스키마 유효성 검사를 통과하지 못했습니다\"}",
     "/paths/~1auth~1reset-password/post/requestBody/content/application~1json/examples/default/dataValue": {
       "token": "rt_reset_0001",
       "newPassword": "evenmoresecure5678"
@@ -207,11 +87,6 @@
       "timestamp": "2026-04-04T00:00:00.000Z"
     },
     "/paths/~1health/get/responses/200/content/application~1json/examples/ok/serializedValue": "{\"status\":\"ok\",\"timestamp\":\"2026-04-04T00:00:00.000Z\"}",
-    "/paths/~1health/get/responses/503/content/application~1json/examples/default/dataValue": {
-      "code": "SERVICE_UNAVAILABLE",
-      "message": "서비스가 일시적으로 사용 불가합니다"
-    },
-    "/paths/~1health/get/responses/503/content/application~1json/examples/default/serializedValue": "{\"code\":\"SERVICE_UNAVAILABLE\",\"message\":\"서비스가 일시적으로 사용 불가합니다\"}",
     "/paths/~1health~1ready/get/responses/200/content/application~1json/examples/default/dataValue": {
       "status": "ready",
       "timestamp": "2026-05-04T00:00:00.000Z",
@@ -229,16 +104,6 @@
       ]
     },
     "/paths/~1health~1ready/get/responses/200/content/application~1json/examples/default/serializedValue": "{\"status\":\"ready\",\"timestamp\":\"2026-05-04T00:00:00.000Z\",\"dependencies\":[{\"name\":\"postgres\",\"status\":\"ok\",\"latencyMs\":3},{\"name\":\"redis\",\"status\":\"ok\",\"latencyMs\":1}]}",
-    "/paths/~1health~1ready/get/responses/503/content/application~1json/examples/default/dataValue": {
-      "code": "SERVICE_UNAVAILABLE",
-      "message": "서비스가 일시적으로 사용 불가합니다"
-    },
-    "/paths/~1health~1ready/get/responses/503/content/application~1json/examples/default/serializedValue": "{\"code\":\"SERVICE_UNAVAILABLE\",\"message\":\"서비스가 일시적으로 사용 불가합니다\"}",
-    "/paths/~1health~1stream/get/responses/503/content/application~1json/examples/default/dataValue": {
-      "code": "SERVICE_UNAVAILABLE",
-      "message": "서비스가 일시적으로 사용 불가합니다"
-    },
-    "/paths/~1health~1stream/get/responses/503/content/application~1json/examples/default/serializedValue": "{\"code\":\"SERVICE_UNAVAILABLE\",\"message\":\"서비스가 일시적으로 사용 불가합니다\"}",
     "/paths/~1me/get/responses/200/content/application~1json/examples/default/dataValue": {
       "id": "00000000-0000-0000-0000-000000000001",
       "email": "alice@example.com",
@@ -246,50 +111,10 @@
       "role": "user",
       "createdAt": "2024-01-01T00:00:00.000Z"
     },
-    "/paths/~1me/get/responses/401/content/application~1json/examples/default/dataValue": {
-      "code": "UNAUTHORIZED",
-      "message": "인증이 필요합니다"
-    },
-    "/paths/~1me/get/responses/401/content/application~1json/examples/default/serializedValue": "{\"code\":\"UNAUTHORIZED\",\"message\":\"인증이 필요합니다\"}",
-    "/paths/~1me/delete/responses/401/content/application~1json/examples/default/dataValue": {
-      "code": "UNAUTHORIZED",
-      "message": "인증이 필요합니다"
-    },
-    "/paths/~1me/delete/responses/401/content/application~1json/examples/default/serializedValue": "{\"code\":\"UNAUTHORIZED\",\"message\":\"인증이 필요합니다\"}",
-    "/paths/~1me/patch/responses/400/content/application~1json/examples/default/dataValue": {
-      "code": "BAD_REQUEST",
-      "message": "요청 형식이 올바르지 않습니다"
-    },
-    "/paths/~1me/patch/responses/400/content/application~1json/examples/default/serializedValue": "{\"code\":\"BAD_REQUEST\",\"message\":\"요청 형식이 올바르지 않습니다\"}",
-    "/paths/~1me/patch/responses/401/content/application~1json/examples/default/dataValue": {
-      "code": "UNAUTHORIZED",
-      "message": "인증이 필요합니다"
-    },
-    "/paths/~1me/patch/responses/401/content/application~1json/examples/default/serializedValue": "{\"code\":\"UNAUTHORIZED\",\"message\":\"인증이 필요합니다\"}",
-    "/paths/~1me/patch/responses/422/content/application~1json/examples/default/dataValue": {
-      "code": "SCHEMA_VALIDATION_FAILED",
-      "message": "요청 본문이 스키마 유효성 검사를 통과하지 못했습니다"
-    },
-    "/paths/~1me/patch/responses/422/content/application~1json/examples/default/serializedValue": "{\"code\":\"SCHEMA_VALIDATION_FAILED\",\"message\":\"요청 본문이 스키마 유효성 검사를 통과하지 못했습니다\"}",
     "/paths/~1me/patch/requestBody/content/application~1json/examples/default/dataValue": {
       "name": "Alice (self-edit)"
     },
     "/paths/~1me/patch/requestBody/content/application~1json/examples/default/serializedValue": "{\"name\":\"Alice (self-edit)\"}",
-    "/paths/~1me~1change-password/post/responses/400/content/application~1json/examples/default/dataValue": {
-      "code": "BAD_REQUEST",
-      "message": "요청 형식이 올바르지 않습니다"
-    },
-    "/paths/~1me~1change-password/post/responses/400/content/application~1json/examples/default/serializedValue": "{\"code\":\"BAD_REQUEST\",\"message\":\"요청 형식이 올바르지 않습니다\"}",
-    "/paths/~1me~1change-password/post/responses/401/content/application~1json/examples/default/dataValue": {
-      "code": "UNAUTHORIZED",
-      "message": "인증이 필요합니다"
-    },
-    "/paths/~1me~1change-password/post/responses/401/content/application~1json/examples/default/serializedValue": "{\"code\":\"UNAUTHORIZED\",\"message\":\"인증이 필요합니다\"}",
-    "/paths/~1me~1change-password/post/responses/422/content/application~1json/examples/default/dataValue": {
-      "code": "SCHEMA_VALIDATION_FAILED",
-      "message": "요청 본문이 스키마 유효성 검사를 통과하지 못했습니다"
-    },
-    "/paths/~1me~1change-password/post/responses/422/content/application~1json/examples/default/serializedValue": "{\"code\":\"SCHEMA_VALIDATION_FAILED\",\"message\":\"요청 본문이 스키마 유효성 검사를 통과하지 못했습니다\"}",
     "/paths/~1me~1change-password/post/requestBody/content/application~1json/examples/default/dataValue": {
       "currentPassword": "secure1234",
       "newPassword": "evenmoresecure5678"
@@ -301,16 +126,6 @@
       "requestedAt": "2026-05-04T00:00:00.000Z"
     },
     "/paths/~1me~1export/post/responses/202/content/application~1json/examples/default/serializedValue": "{\"jobId\":\"00000000-0000-0000-0000-000000000200\",\"status\":\"queued\",\"requestedAt\":\"2026-05-04T00:00:00.000Z\"}",
-    "/paths/~1me~1export/post/responses/401/content/application~1json/examples/default/dataValue": {
-      "code": "UNAUTHORIZED",
-      "message": "인증이 필요합니다"
-    },
-    "/paths/~1me~1export/post/responses/401/content/application~1json/examples/default/serializedValue": "{\"code\":\"UNAUTHORIZED\",\"message\":\"인증이 필요합니다\"}",
-    "/paths/~1me~1export/post/responses/429/content/application~1json/examples/default/dataValue": {
-      "code": "RATE_LIMITED",
-      "message": "요청 한도를 초과했습니다. 잠시 후 다시 시도해 주세요"
-    },
-    "/paths/~1me~1export/post/responses/429/content/application~1json/examples/default/serializedValue": "{\"code\":\"RATE_LIMITED\",\"message\":\"요청 한도를 초과했습니다. 잠시 후 다시 시도해 주세요\"}",
     "/paths/~1me~1export/post/requestBody/content/application~1json/examples/default/dataValue": {
       "format": "json"
     },
@@ -330,15 +145,6 @@
       ]
     },
     "/paths/~1me~1onboarding/get/responses/200/content/application~1json/examples/default/serializedValue": "{\"items\":[{\"id\":\"complete-profile\",\"title\":\"프로필 작성\",\"completed\":false},{\"id\":\"invite-team\",\"title\":\"팀원 초대\",\"completed\":false}]}",
-    "/paths/~1me~1onboarding/get/responses/401/content/application~1json/examples/default/dataValue": {
-      "code": "UNAUTHORIZED",
-      "message": "인증이 필요합니다"
-    },
-    "/paths/~1me~1onboarding/get/responses/401/content/application~1json/examples/default/serializedValue": "{\"code\":\"UNAUTHORIZED\",\"message\":\"인증이 필요합니다\"}",
-    "/paths/~1me~1role-changes/get/parameters/0/examples/default/dataValue": 1,
-    "/paths/~1me~1role-changes/get/parameters/0/examples/default/serializedValue": "page=1",
-    "/paths/~1me~1role-changes/get/parameters/1/examples/default/dataValue": 20,
-    "/paths/~1me~1role-changes/get/parameters/1/examples/default/serializedValue": "limit=20",
     "/paths/~1me~1role-changes/get/responses/200/content/application~1json/examples/default/dataValue": {
       "items": [
         {
@@ -352,15 +158,6 @@
       ],
       "total": 1
     },
-    "/paths/~1me~1role-changes/get/responses/401/content/application~1json/examples/default/dataValue": {
-      "code": "UNAUTHORIZED",
-      "message": "인증이 필요합니다"
-    },
-    "/paths/~1me~1role-changes/get/responses/401/content/application~1json/examples/default/serializedValue": "{\"code\":\"UNAUTHORIZED\",\"message\":\"인증이 필요합니다\"}",
-    "/paths/~1moderation~1reports/get/parameters/0/examples/default/dataValue": 1,
-    "/paths/~1moderation~1reports/get/parameters/0/examples/default/serializedValue": "page=1",
-    "/paths/~1moderation~1reports/get/parameters/1/examples/default/dataValue": 20,
-    "/paths/~1moderation~1reports/get/parameters/1/examples/default/serializedValue": "limit=20",
     "/paths/~1moderation~1reports/get/responses/200/content/application~1json/examples/default/dataValue": {
       "items": [
         {
@@ -374,20 +171,6 @@
       ],
       "total": 1
     },
-    "/paths/~1moderation~1reports/get/responses/401/content/application~1json/examples/default/dataValue": {
-      "code": "UNAUTHORIZED",
-      "message": "인증이 필요합니다"
-    },
-    "/paths/~1moderation~1reports/get/responses/401/content/application~1json/examples/default/serializedValue": "{\"code\":\"UNAUTHORIZED\",\"message\":\"인증이 필요합니다\"}",
-    "/paths/~1moderation~1reports/get/responses/403/content/application~1json/examples/default/dataValue": {
-      "code": "FORBIDDEN",
-      "message": "이 리소스에 접근할 권한이 없습니다"
-    },
-    "/paths/~1moderation~1reports/get/responses/403/content/application~1json/examples/default/serializedValue": "{\"code\":\"FORBIDDEN\",\"message\":\"이 리소스에 접근할 권한이 없습니다\"}",
-    "/paths/~1users/get/parameters/0/examples/default/dataValue": 1,
-    "/paths/~1users/get/parameters/0/examples/default/serializedValue": "page=1",
-    "/paths/~1users/get/parameters/1/examples/default/dataValue": 20,
-    "/paths/~1users/get/parameters/1/examples/default/serializedValue": "limit=20",
     "/paths/~1users/get/responses/200/content/application~1json/examples/default/dataValue": {
       "items": [
         {
@@ -401,11 +184,6 @@
       "total": 1
     },
     "/paths/~1users/get/responses/200/content/application~1json/examples/default/serializedValue": "{\"items\":[{\"id\":\"00000000-0000-0000-0000-000000000001\",\"email\":\"alice@example.com\",\"name\":\"Alice\",\"role\":\"user\",\"createdAt\":\"2024-01-01T00:00:00.000Z\"}],\"total\":1}",
-    "/paths/~1users/get/responses/401/content/application~1json/examples/default/dataValue": {
-      "code": "UNAUTHORIZED",
-      "message": "인증이 필요합니다"
-    },
-    "/paths/~1users/get/responses/401/content/application~1json/examples/default/serializedValue": "{\"code\":\"UNAUTHORIZED\",\"message\":\"인증이 필요합니다\"}",
     "/paths/~1users/post/responses/201/content/application~1json/examples/default/dataValue": {
       "id": "00000000-0000-0000-0000-000000000002",
       "email": "bob@example.com",
@@ -413,26 +191,6 @@
       "role": "user",
       "createdAt": "2024-01-01T00:00:00.000Z"
     },
-    "/paths/~1users/post/responses/400/content/application~1json/examples/default/dataValue": {
-      "code": "BAD_REQUEST",
-      "message": "요청 형식이 올바르지 않습니다"
-    },
-    "/paths/~1users/post/responses/400/content/application~1json/examples/default/serializedValue": "{\"code\":\"BAD_REQUEST\",\"message\":\"요청 형식이 올바르지 않습니다\"}",
-    "/paths/~1users/post/responses/401/content/application~1json/examples/default/dataValue": {
-      "code": "UNAUTHORIZED",
-      "message": "인증이 필요합니다"
-    },
-    "/paths/~1users/post/responses/401/content/application~1json/examples/default/serializedValue": "{\"code\":\"UNAUTHORIZED\",\"message\":\"인증이 필요합니다\"}",
-    "/paths/~1users/post/responses/422/content/application~1json/examples/default/dataValue": {
-      "code": "SCHEMA_VALIDATION_FAILED",
-      "message": "요청 본문이 스키마 유효성 검사를 통과하지 못했습니다"
-    },
-    "/paths/~1users/post/responses/422/content/application~1json/examples/default/serializedValue": "{\"code\":\"SCHEMA_VALIDATION_FAILED\",\"message\":\"요청 본문이 스키마 유효성 검사를 통과하지 못했습니다\"}",
-    "/paths/~1users/post/responses/500/content/application~1json/examples/default/dataValue": {
-      "code": "INTERNAL_SERVER_ERROR",
-      "message": "서버 내부 오류가 발생했습니다"
-    },
-    "/paths/~1users/post/responses/500/content/application~1json/examples/default/serializedValue": "{\"code\":\"INTERNAL_SERVER_ERROR\",\"message\":\"서버 내부 오류가 발생했습니다\"}",
     "/paths/~1users/post/requestBody/content/application~1json/examples/default/dataValue": {
       "email": "bob@example.com",
       "name": "Bob",
@@ -448,28 +206,8 @@
       "role": "user",
       "createdAt": "2024-01-01T00:00:00.000Z"
     },
-    "/paths/~1users~1{id}/get/responses/401/content/application~1json/examples/default/dataValue": {
-      "code": "UNAUTHORIZED",
-      "message": "인증이 필요합니다"
-    },
-    "/paths/~1users~1{id}/get/responses/401/content/application~1json/examples/default/serializedValue": "{\"code\":\"UNAUTHORIZED\",\"message\":\"인증이 필요합니다\"}",
-    "/paths/~1users~1{id}/get/responses/404/content/application~1json/examples/default/dataValue": {
-      "code": "NOT_FOUND",
-      "message": "요청한 리소스를 찾을 수 없습니다"
-    },
-    "/paths/~1users~1{id}/get/responses/404/content/application~1json/examples/default/serializedValue": "{\"code\":\"NOT_FOUND\",\"message\":\"요청한 리소스를 찾을 수 없습니다\"}",
     "/paths/~1users~1{id}/delete/parameters/0/examples/default/dataValue": "00000000-0000-0000-0000-000000000001",
     "/paths/~1users~1{id}/delete/parameters/0/examples/default/serializedValue": "00000000-0000-0000-0000-000000000001",
-    "/paths/~1users~1{id}/delete/responses/401/content/application~1json/examples/default/dataValue": {
-      "code": "UNAUTHORIZED",
-      "message": "인증이 필요합니다"
-    },
-    "/paths/~1users~1{id}/delete/responses/401/content/application~1json/examples/default/serializedValue": "{\"code\":\"UNAUTHORIZED\",\"message\":\"인증이 필요합니다\"}",
-    "/paths/~1users~1{id}/delete/responses/404/content/application~1json/examples/default/dataValue": {
-      "code": "NOT_FOUND",
-      "message": "요청한 리소스를 찾을 수 없습니다"
-    },
-    "/paths/~1users~1{id}/delete/responses/404/content/application~1json/examples/default/serializedValue": "{\"code\":\"NOT_FOUND\",\"message\":\"요청한 리소스를 찾을 수 없습니다\"}",
     "/paths/~1users~1{id}/patch/parameters/0/examples/default/dataValue": "00000000-0000-0000-0000-000000000001",
     "/paths/~1users~1{id}/patch/parameters/0/examples/default/serializedValue": "00000000-0000-0000-0000-000000000001",
     "/paths/~1users~1{id}/patch/responses/200/content/application~1json/examples/default/dataValue": {
@@ -479,31 +217,6 @@
       "role": "user",
       "createdAt": "2024-01-01T00:00:00.000Z"
     },
-    "/paths/~1users~1{id}/patch/responses/400/content/application~1json/examples/default/dataValue": {
-      "code": "BAD_REQUEST",
-      "message": "요청 형식이 올바르지 않습니다"
-    },
-    "/paths/~1users~1{id}/patch/responses/400/content/application~1json/examples/default/serializedValue": "{\"code\":\"BAD_REQUEST\",\"message\":\"요청 형식이 올바르지 않습니다\"}",
-    "/paths/~1users~1{id}/patch/responses/401/content/application~1json/examples/default/dataValue": {
-      "code": "UNAUTHORIZED",
-      "message": "인증이 필요합니다"
-    },
-    "/paths/~1users~1{id}/patch/responses/401/content/application~1json/examples/default/serializedValue": "{\"code\":\"UNAUTHORIZED\",\"message\":\"인증이 필요합니다\"}",
-    "/paths/~1users~1{id}/patch/responses/403/content/application~1json/examples/default/dataValue": {
-      "code": "FORBIDDEN",
-      "message": "이 리소스에 접근할 권한이 없습니다"
-    },
-    "/paths/~1users~1{id}/patch/responses/403/content/application~1json/examples/default/serializedValue": "{\"code\":\"FORBIDDEN\",\"message\":\"이 리소스에 접근할 권한이 없습니다\"}",
-    "/paths/~1users~1{id}/patch/responses/404/content/application~1json/examples/default/dataValue": {
-      "code": "NOT_FOUND",
-      "message": "요청한 리소스를 찾을 수 없습니다"
-    },
-    "/paths/~1users~1{id}/patch/responses/404/content/application~1json/examples/default/serializedValue": "{\"code\":\"NOT_FOUND\",\"message\":\"요청한 리소스를 찾을 수 없습니다\"}",
-    "/paths/~1users~1{id}/patch/responses/422/content/application~1json/examples/default/dataValue": {
-      "code": "SCHEMA_VALIDATION_FAILED",
-      "message": "요청 본문이 스키마 유효성 검사를 통과하지 못했습니다"
-    },
-    "/paths/~1users~1{id}/patch/responses/422/content/application~1json/examples/default/serializedValue": "{\"code\":\"SCHEMA_VALIDATION_FAILED\",\"message\":\"요청 본문이 스키마 유효성 검사를 통과하지 못했습니다\"}",
     "/paths/~1users~1{id}/patch/requestBody/content/application~1json/examples/default/dataValue": {
       "name": "Alice Updated"
     },
@@ -516,16 +229,6 @@
       "role": "user"
     },
     "/paths/~1users~1{id}~1public/get/responses/200/content/application~1json/examples/default/serializedValue": "{\"id\":\"00000000-0000-0000-0000-000000000001\",\"name\":\"Alice\",\"role\":\"user\"}",
-    "/paths/~1users~1{id}~1public/get/responses/401/content/application~1json/examples/default/dataValue": {
-      "code": "UNAUTHORIZED",
-      "message": "인증이 필요합니다"
-    },
-    "/paths/~1users~1{id}~1public/get/responses/401/content/application~1json/examples/default/serializedValue": "{\"code\":\"UNAUTHORIZED\",\"message\":\"인증이 필요합니다\"}",
-    "/paths/~1users~1{id}~1public/get/responses/404/content/application~1json/examples/default/dataValue": {
-      "code": "NOT_FOUND",
-      "message": "요청한 리소스를 찾을 수 없습니다"
-    },
-    "/paths/~1users~1{id}~1public/get/responses/404/content/application~1json/examples/default/serializedValue": "{\"code\":\"NOT_FOUND\",\"message\":\"요청한 리소스를 찾을 수 없습니다\"}",
     "/paths/~1users~1{id}~1reports/post/responses/201/content/application~1json/examples/default/dataValue": {
       "id": "00000000-0000-0000-0000-000000000300",
       "targetUserId": "00000000-0000-0000-0000-000000000001",
@@ -535,26 +238,6 @@
       "createdAt": "2026-05-04T00:00:00.000Z"
     },
     "/paths/~1users~1{id}~1reports/post/responses/201/content/application~1json/examples/default/serializedValue": "{\"id\":\"00000000-0000-0000-0000-000000000300\",\"targetUserId\":\"00000000-0000-0000-0000-000000000001\",\"reporterUserId\":\"00000000-0000-0000-0000-000000000002\",\"reason\":\"harassment\",\"status\":\"open\",\"createdAt\":\"2026-05-04T00:00:00.000Z\"}",
-    "/paths/~1users~1{id}~1reports/post/responses/400/content/application~1json/examples/default/dataValue": {
-      "code": "BAD_REQUEST",
-      "message": "요청 형식이 올바르지 않습니다"
-    },
-    "/paths/~1users~1{id}~1reports/post/responses/400/content/application~1json/examples/default/serializedValue": "{\"code\":\"BAD_REQUEST\",\"message\":\"요청 형식이 올바르지 않습니다\"}",
-    "/paths/~1users~1{id}~1reports/post/responses/401/content/application~1json/examples/default/dataValue": {
-      "code": "UNAUTHORIZED",
-      "message": "인증이 필요합니다"
-    },
-    "/paths/~1users~1{id}~1reports/post/responses/401/content/application~1json/examples/default/serializedValue": "{\"code\":\"UNAUTHORIZED\",\"message\":\"인증이 필요합니다\"}",
-    "/paths/~1users~1{id}~1reports/post/responses/422/content/application~1json/examples/default/dataValue": {
-      "code": "SCHEMA_VALIDATION_FAILED",
-      "message": "요청 본문이 스키마 유효성 검사를 통과하지 못했습니다"
-    },
-    "/paths/~1users~1{id}~1reports/post/responses/422/content/application~1json/examples/default/serializedValue": "{\"code\":\"SCHEMA_VALIDATION_FAILED\",\"message\":\"요청 본문이 스키마 유효성 검사를 통과하지 못했습니다\"}",
-    "/paths/~1users~1{id}~1reports/post/responses/429/content/application~1json/examples/default/dataValue": {
-      "code": "RATE_LIMITED",
-      "message": "요청 한도를 초과했습니다. 잠시 후 다시 시도해 주세요"
-    },
-    "/paths/~1users~1{id}~1reports/post/responses/429/content/application~1json/examples/default/serializedValue": "{\"code\":\"RATE_LIMITED\",\"message\":\"요청 한도를 초과했습니다. 잠시 후 다시 시도해 주세요\"}",
     "/paths/~1users~1{id}~1reports/post/requestBody/content/application~1json/examples/default/dataValue": {
       "reason": "harassment",
       "details": "공격적 메시지 반복 발신"
@@ -575,6 +258,55 @@
         "read": "읽기 권한",
         "write": "쓰기 권한"
       }
-    }
+    },
+    "/components/parameters/Limit/examples/default/dataValue": 20,
+    "/components/parameters/Limit/examples/default/serializedValue": "limit=20",
+    "/components/parameters/Page/examples/default/dataValue": 1,
+    "/components/parameters/Page/examples/default/serializedValue": "page=1",
+    "/components/responses/BadRequest/content/application~1json/examples/default/dataValue": {
+      "code": "BAD_REQUEST",
+      "message": "요청 형식이 올바르지 않습니다"
+    },
+    "/components/responses/BadRequest/content/application~1json/examples/default/serializedValue": "{\"code\":\"BAD_REQUEST\",\"message\":\"요청 형식이 올바르지 않습니다\"}",
+    "/components/responses/Conflict/content/application~1json/examples/default/dataValue": {
+      "code": "CONFLICT",
+      "message": "이미 존재하는 리소스입니다"
+    },
+    "/components/responses/Conflict/content/application~1json/examples/default/serializedValue": "{\"code\":\"CONFLICT\",\"message\":\"이미 존재하는 리소스입니다\"}",
+    "/components/responses/Forbidden/content/application~1json/examples/default/dataValue": {
+      "code": "FORBIDDEN",
+      "message": "이 리소스에 접근할 권한이 없습니다"
+    },
+    "/components/responses/Forbidden/content/application~1json/examples/default/serializedValue": "{\"code\":\"FORBIDDEN\",\"message\":\"이 리소스에 접근할 권한이 없습니다\"}",
+    "/components/responses/InternalServerError/content/application~1json/examples/default/dataValue": {
+      "code": "INTERNAL_SERVER_ERROR",
+      "message": "서버 내부 오류가 발생했습니다"
+    },
+    "/components/responses/InternalServerError/content/application~1json/examples/default/serializedValue": "{\"code\":\"INTERNAL_SERVER_ERROR\",\"message\":\"서버 내부 오류가 발생했습니다\"}",
+    "/components/responses/NotFound/content/application~1json/examples/default/dataValue": {
+      "code": "NOT_FOUND",
+      "message": "요청한 리소스를 찾을 수 없습니다"
+    },
+    "/components/responses/NotFound/content/application~1json/examples/default/serializedValue": "{\"code\":\"NOT_FOUND\",\"message\":\"요청한 리소스를 찾을 수 없습니다\"}",
+    "/components/responses/ServiceUnavailable/content/application~1json/examples/default/dataValue": {
+      "code": "SERVICE_UNAVAILABLE",
+      "message": "서비스가 일시적으로 사용 불가합니다"
+    },
+    "/components/responses/ServiceUnavailable/content/application~1json/examples/default/serializedValue": "{\"code\":\"SERVICE_UNAVAILABLE\",\"message\":\"서비스가 일시적으로 사용 불가합니다\"}",
+    "/components/responses/TooManyRequests/content/application~1json/examples/default/dataValue": {
+      "code": "RATE_LIMITED",
+      "message": "요청 한도를 초과했습니다. 잠시 후 다시 시도해 주세요"
+    },
+    "/components/responses/TooManyRequests/content/application~1json/examples/default/serializedValue": "{\"code\":\"RATE_LIMITED\",\"message\":\"요청 한도를 초과했습니다. 잠시 후 다시 시도해 주세요\"}",
+    "/components/responses/Unauthorized/content/application~1json/examples/default/dataValue": {
+      "code": "UNAUTHORIZED",
+      "message": "인증이 필요합니다"
+    },
+    "/components/responses/Unauthorized/content/application~1json/examples/default/serializedValue": "{\"code\":\"UNAUTHORIZED\",\"message\":\"인증이 필요합니다\"}",
+    "/components/responses/UnprocessableEntity/content/application~1json/examples/default/dataValue": {
+      "code": "SCHEMA_VALIDATION_FAILED",
+      "message": "요청 본문이 스키마 유효성 검사를 통과하지 못했습니다"
+    },
+    "/components/responses/UnprocessableEntity/content/application~1json/examples/default/serializedValue": "{\"code\":\"SCHEMA_VALIDATION_FAILED\",\"message\":\"요청 본문이 스키마 유효성 검사를 통과하지 못했습니다\"}"
   }
 }

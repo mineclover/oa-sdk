@@ -8,7 +8,9 @@ import { createTypeSpecCompatibilitySidecarFromEntries } from './typespec-sideca
 type HttpMethod = 'get' | 'put' | 'post' | 'delete' | 'options' | 'head' | 'patch' | 'trace' | 'query'
 
 const HTTP_METHODS: readonly HttpMethod[] = ['get', 'put', 'post', 'delete', 'options', 'head', 'patch', 'trace', 'query']
+const COMPONENTS_EXTENSION = 'x-oa-sdk-components'
 const INFO_EXTENSION = 'x-oa-sdk-info'
+const OPERATION_COMPONENT_REFS_EXTENSION = 'x-oa-sdk-operation-component-refs'
 const OPERATION_EXAMPLES_EXTENSION = 'x-oa-sdk-operation-examples'
 const OPERATION_SECURITY_EXTENSION = 'x-oa-sdk-operation-security'
 const SECURITY_SCHEMES_EXTENSION = 'x-oa-sdk-security-schemes'
@@ -19,6 +21,7 @@ export type TypeSpecOpenApiExtensionSchemaVersion =
   | 'oa-sdk.typespec-extensions.v2'
   | 'oa-sdk.typespec-extensions.v3'
   | 'oa-sdk.typespec-extensions.v4'
+  | 'oa-sdk.typespec-extensions.v5'
 
 export type TypeSpecOpenApiExtensionRestoreResult = {
   document: OasDocument
@@ -31,12 +34,15 @@ export function createTypeSpecCompatibilitySidecarFromOpenApiExtensions(
 ): TypeSpecCompatibilitySidecar {
   const entries: TypeSpecCompatibilitySidecarEntry[] = []
   const schemaVersion = options.schemaVersion ?? DEFAULT_EXTENSION_SCHEMA_VERSION
-  if (schemaVersion === 'oa-sdk.typespec-extensions.v4') {
+  if (supportsRootInfo(schemaVersion)) {
     const infoEntry = collectInfoEntry(document)
     if (infoEntry) entries.push(infoEntry)
   }
+  if (supportsReusableComponents(schemaVersion)) {
+    entries.push(...collectReusableComponentEntries(document))
+  }
   entries.push(...collectSecuritySchemeEntries(document))
-  if (schemaVersion === 'oa-sdk.typespec-extensions.v3' || schemaVersion === 'oa-sdk.typespec-extensions.v4') {
+  if (supportsOperationSecurity(schemaVersion)) {
     entries.push(...collectOperationSecurityEntries(document))
   }
   entries.push(...collectOperationExampleEntries(document, schemaVersion))
@@ -45,6 +51,7 @@ export function createTypeSpecCompatibilitySidecarFromOpenApiExtensions(
 
 export function stripTypeSpecOpenApiExtensions(document: OasDocument): OasDocument {
   const stripped = cloneJson(document) as OasDocument
+  delete (stripped as Record<string, unknown>)[COMPONENTS_EXTENSION]
   delete (stripped as Record<string, unknown>)[INFO_EXTENSION]
   delete (stripped as Record<string, unknown>)[SECURITY_SCHEMES_EXTENSION]
   for (const pathItemValue of Object.values(stripped.paths ?? {})) {
@@ -54,11 +61,34 @@ export function stripTypeSpecOpenApiExtensions(document: OasDocument): OasDocume
       const operation = pathItem[method]
       if (isRecord(operation)) {
         delete operation[OPERATION_EXAMPLES_EXTENSION]
+        delete operation[OPERATION_COMPONENT_REFS_EXTENSION]
         delete operation[OPERATION_SECURITY_EXTENSION]
       }
     }
   }
   return stripped
+}
+
+function supportsRootInfo(schemaVersion: TypeSpecOpenApiExtensionSchemaVersion): boolean {
+  return schemaVersion === 'oa-sdk.typespec-extensions.v4'
+    || schemaVersion === 'oa-sdk.typespec-extensions.v5'
+}
+
+function supportsReusableComponents(schemaVersion: TypeSpecOpenApiExtensionSchemaVersion): boolean {
+  return schemaVersion === 'oa-sdk.typespec-extensions.v5'
+}
+
+function supportsOperationSecurity(schemaVersion: TypeSpecOpenApiExtensionSchemaVersion): boolean {
+  return schemaVersion === 'oa-sdk.typespec-extensions.v3'
+    || schemaVersion === 'oa-sdk.typespec-extensions.v4'
+    || schemaVersion === 'oa-sdk.typespec-extensions.v5'
+}
+
+function supportsRequestExamples(schemaVersion: TypeSpecOpenApiExtensionSchemaVersion): boolean {
+  return schemaVersion === 'oa-sdk.typespec-extensions.v2'
+    || schemaVersion === 'oa-sdk.typespec-extensions.v3'
+    || schemaVersion === 'oa-sdk.typespec-extensions.v4'
+    || schemaVersion === 'oa-sdk.typespec-extensions.v5'
 }
 
 function collectInfoEntry(document: OasDocument): TypeSpecCompatibilitySidecarEntry | null {
@@ -82,6 +112,54 @@ function collectInfoEntry(document: OasDocument): TypeSpecCompatibilitySidecarEn
       version,
     },
   }
+}
+
+function collectReusableComponentEntries(document: OasDocument): TypeSpecCompatibilitySidecarEntry[] {
+  const extension = (document as Record<string, unknown>)[COMPONENTS_EXTENSION]
+  if (!isRecord(extension)) return []
+  return [
+    ...collectNamedComponentEntries(extension.parameters, 'parameters', 'component-parameter'),
+    ...collectNamedComponentEntries(extension.responses, 'responses', 'component-response'),
+  ]
+}
+
+function collectNamedComponentEntries(
+  value: unknown,
+  section: 'parameters' | 'responses',
+  kind: 'component-parameter' | 'component-response',
+): TypeSpecCompatibilitySidecarEntry[] {
+  const entries: TypeSpecCompatibilitySidecarEntry[] = []
+  for (const { name, value: componentValue, pointerPart } of readNamedComponentItems(value)) {
+    entries.push({
+      kind,
+      pointer: `#/${escapeJsonPointer(COMPONENTS_EXTENSION)}/${section}/${pointerPart}`,
+      target: { name },
+      value: denormalizeOpenApiExtensionValue(componentValue),
+    } as TypeSpecCompatibilitySidecarEntry)
+  }
+  return entries
+}
+
+function readNamedComponentItems(value: unknown): Array<{ name: string; value: unknown; pointerPart: string }> {
+  if (Array.isArray(value)) {
+    return value.flatMap((item, index) => {
+      if (!isRecord(item) || typeof item.name !== 'string' || item.name.trim() === '' || !isRecord(item.value)) return []
+      return [{
+        name: item.name,
+        value: item.value,
+        pointerPart: String(index),
+      }]
+    })
+  }
+  if (!isRecord(value)) return []
+  return Object.entries(value).flatMap(([name, item]) => {
+    if (!isRecord(item)) return []
+    return [{
+      name,
+      value: item,
+      pointerPart: escapeJsonPointer(name),
+    }]
+  })
 }
 
 function collectSecuritySchemeEntries(document: OasDocument): TypeSpecCompatibilitySidecarEntry[] {
@@ -131,16 +209,86 @@ function collectOperationExampleEntries(
     for (const method of HTTP_METHODS) {
       const operation = pathItem[method] as OasOperation | undefined
       if (!isRecord(operation)) continue
+      if (supportsReusableComponents(schemaVersion)) {
+        entries.push(...collectOperationComponentRefEntries(
+          (operation as Record<string, unknown>)[OPERATION_COMPONENT_REFS_EXTENSION],
+          path,
+          method,
+        ))
+      }
       const extension = (operation as Record<string, unknown>)[OPERATION_EXAMPLES_EXTENSION]
       if (!isRecord(extension)) continue
       entries.push(...collectParameterExampleEntries(extension.parameters, path, method))
-      if (schemaVersion === 'oa-sdk.typespec-extensions.v2'
-        || schemaVersion === 'oa-sdk.typespec-extensions.v3'
-        || schemaVersion === 'oa-sdk.typespec-extensions.v4') {
+      if (supportsRequestExamples(schemaVersion)) {
         entries.push(...collectRequestExampleEntries(extension.requestBody, path, method))
       }
       entries.push(...collectResponseExampleEntries(extension.responses, path, method))
     }
+  }
+  return entries
+}
+
+function collectOperationComponentRefEntries(
+  value: unknown,
+  path: string,
+  method: HttpMethod,
+): TypeSpecCompatibilitySidecarEntry[] {
+  if (!isRecord(value)) return []
+  return [
+    ...collectOperationParameterRefEntries(value.parameters, path, method),
+    ...collectOperationResponseRefEntries(value.responses, path, method),
+  ]
+}
+
+function collectOperationParameterRefEntries(
+  value: unknown,
+  path: string,
+  method: HttpMethod,
+): TypeSpecCompatibilitySidecarEntry[] {
+  if (!Array.isArray(value)) return []
+  const entries: TypeSpecCompatibilitySidecarEntry[] = []
+  for (const [index, item] of value.entries()) {
+    const parameterIndex = isRecord(item) ? item.index : undefined
+    if (!isRecord(item) || typeof parameterIndex !== 'number' || !Number.isInteger(parameterIndex) || parameterIndex < 0 || typeof item.ref !== 'string') continue
+    if (!item.ref.startsWith('#/components/parameters/')) continue
+    entries.push({
+      kind: 'operation-parameter-ref',
+      pointer: `#/paths/${escapeJsonPointer(path)}/${method}/${escapeJsonPointer(OPERATION_COMPONENT_REFS_EXTENSION)}/parameters/${index}`,
+      target: {
+        path,
+        method,
+        index: parameterIndex,
+      },
+      value: {
+        $ref: item.ref,
+      },
+    })
+  }
+  return entries
+}
+
+function collectOperationResponseRefEntries(
+  value: unknown,
+  path: string,
+  method: HttpMethod,
+): TypeSpecCompatibilitySidecarEntry[] {
+  if (!Array.isArray(value)) return []
+  const entries: TypeSpecCompatibilitySidecarEntry[] = []
+  for (const [index, item] of value.entries()) {
+    if (!isRecord(item) || typeof item.statusCode !== 'string' || typeof item.ref !== 'string') continue
+    if (!item.ref.startsWith('#/components/responses/')) continue
+    entries.push({
+      kind: 'operation-response-ref',
+      pointer: `#/paths/${escapeJsonPointer(path)}/${method}/${escapeJsonPointer(OPERATION_COMPONENT_REFS_EXTENSION)}/responses/${index}`,
+      target: {
+        path,
+        method,
+        statusCode: item.statusCode,
+      },
+      value: {
+        $ref: item.ref,
+      },
+    })
   }
   return entries
 }
@@ -263,6 +411,41 @@ function normalizeSecurityScheme(value: unknown): unknown {
     normalized[key] = normalizeSecurityScheme(item)
   }
   return normalized
+}
+
+function denormalizeOpenApiExtensionValue(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(denormalizeOpenApiExtensionValue)
+  if (!isRecord(value)) return cloneJson(value)
+
+  if (typeof value.ref === 'string' && Object.keys(value).length === 1) {
+    return { $ref: value.ref }
+  }
+
+  const normalized: Record<string, unknown> = {}
+  for (const [key, item] of Object.entries(value)) {
+    if (key === 'content') {
+      const content = denormalizeNamedValueArray(item, 'mediaType')
+      normalized.content = content ?? denormalizeOpenApiExtensionValue(item)
+      continue
+    }
+    if (key === 'headers') {
+      const headers = denormalizeNamedValueArray(item, 'name')
+      normalized.headers = headers ?? denormalizeOpenApiExtensionValue(item)
+      continue
+    }
+    normalized[key] = denormalizeOpenApiExtensionValue(item)
+  }
+  return normalized
+}
+
+function denormalizeNamedValueArray(value: unknown, nameKey: 'mediaType' | 'name'): Record<string, unknown> | null {
+  if (!Array.isArray(value)) return null
+  const output: Record<string, unknown> = {}
+  for (const item of value) {
+    if (!isRecord(item) || typeof item[nameKey] !== 'string' || item[nameKey].trim() === '') continue
+    output[item[nameKey]] = denormalizeOpenApiExtensionValue(item.value)
+  }
+  return output
 }
 
 function normalizeScopeList(value: unknown[]): Record<string, string> {

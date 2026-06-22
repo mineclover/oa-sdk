@@ -6,6 +6,289 @@ using OpenAPI;
 
 // Scaffolded by oa-gen tsp-export and promoted to the production TypeSpec source.
 // Keep schema:typespec-check green before changing generated OpenAPI artifacts.
+@extension("x-oa-sdk-components", #{
+  parameters: #[
+    #{
+      name: "Limit",
+      value: #{
+        name: "limit",
+        in: "query",
+        description: "페이지당 항목 수",
+        schema: #{
+          type: "integer",
+          minimum: 1,
+          maximum: 100,
+          default: 20
+        },
+        examples: #{
+          default: #{
+            dataValue: 20,
+            serializedValue: "limit=20"
+          }
+        }
+      }
+    },
+    #{
+      name: "Page",
+      value: #{
+        name: "page",
+        in: "query",
+        description: "페이지 번호 (1-based)",
+        schema: #{
+          type: "integer",
+          minimum: 1,
+          default: 1
+        },
+        examples: #{
+          default: #{
+            dataValue: 1,
+            serializedValue: "page=1"
+          }
+        }
+      }
+    }
+  ],
+  responses: #[
+    #{
+      name: "BadRequest",
+      value: #{
+        description: "잘못된 요청 — 요청 형식 또는 파라미터 오류",
+        content: #[
+          #{
+            mediaType: "application/json",
+            value: #{
+              schema: #{
+                ref: "#/components/schemas/Error"
+              },
+              examples: #{
+                default: #{
+                  dataValue: #{
+                    code: "BAD_REQUEST",
+                    message: "요청 형식이 올바르지 않습니다"
+                  },
+                  serializedValue: "{\"code\":\"BAD_REQUEST\",\"message\":\"요청 형식이 올바르지 않습니다\"}"
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    #{
+      name: "Conflict",
+      value: #{
+        description: "리소스 충돌 — 중복 식별자 또는 동시성 충돌",
+        content: #[
+          #{
+            mediaType: "application/json",
+            value: #{
+              schema: #{
+                ref: "#/components/schemas/Error"
+              },
+              examples: #{
+                default: #{
+                  dataValue: #{
+                    code: "CONFLICT",
+                    message: "이미 존재하는 리소스입니다"
+                  },
+                  serializedValue: "{\"code\":\"CONFLICT\",\"message\":\"이미 존재하는 리소스입니다\"}"
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    #{
+      name: "Forbidden",
+      value: #{
+        description: "권한 없음 — 접근 거부",
+        content: #[
+          #{
+            mediaType: "application/json",
+            value: #{
+              schema: #{
+                ref: "#/components/schemas/Error"
+              },
+              examples: #{
+                default: #{
+                  dataValue: #{
+                    code: "FORBIDDEN",
+                    message: "이 리소스에 접근할 권한이 없습니다"
+                  },
+                  serializedValue: "{\"code\":\"FORBIDDEN\",\"message\":\"이 리소스에 접근할 권한이 없습니다\"}"
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    #{
+      name: "InternalServerError",
+      value: #{
+        description: "서버 내부 오류",
+        content: #[
+          #{
+            mediaType: "application/json",
+            value: #{
+              schema: #{
+                ref: "#/components/schemas/Error"
+              },
+              examples: #{
+                default: #{
+                  dataValue: #{
+                    code: "INTERNAL_SERVER_ERROR",
+                    message: "서버 내부 오류가 발생했습니다"
+                  },
+                  serializedValue: "{\"code\":\"INTERNAL_SERVER_ERROR\",\"message\":\"서버 내부 오류가 발생했습니다\"}"
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    #{
+      name: "NotFound",
+      value: #{
+        description: "리소스를 찾을 수 없음",
+        content: #[
+          #{
+            mediaType: "application/json",
+            value: #{
+              schema: #{
+                ref: "#/components/schemas/Error"
+              },
+              examples: #{
+                default: #{
+                  dataValue: #{
+                    code: "NOT_FOUND",
+                    message: "요청한 리소스를 찾을 수 없습니다"
+                  },
+                  serializedValue: "{\"code\":\"NOT_FOUND\",\"message\":\"요청한 리소스를 찾을 수 없습니다\"}"
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    #{
+      name: "ServiceUnavailable",
+      value: #{
+        description: "서비스 사용 불가",
+        content: #[
+          #{
+            mediaType: "application/json",
+            value: #{
+              schema: #{
+                ref: "#/components/schemas/Error"
+              },
+              examples: #{
+                default: #{
+                  dataValue: #{
+                    code: "SERVICE_UNAVAILABLE",
+                    message: "서비스가 일시적으로 사용 불가합니다"
+                  },
+                  serializedValue: "{\"code\":\"SERVICE_UNAVAILABLE\",\"message\":\"서비스가 일시적으로 사용 불가합니다\"}"
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    #{
+      name: "TooManyRequests",
+      value: #{
+        description: "요청 제한 초과 — Retry-After 헤더로 재시도 가능 시점 안내",
+        headers: #[
+          #{
+            name: "Retry-After",
+            value: #{
+              description: "재시도 가능 시점 (초 단위 정수 또는 HTTP-date)",
+              required: true,
+              schema: #{
+                type: "string",
+                example: "30"
+              }
+            }
+          }
+        ],
+        content: #[
+          #{
+            mediaType: "application/json",
+            value: #{
+              schema: #{
+                ref: "#/components/schemas/Error"
+              },
+              examples: #{
+                default: #{
+                  dataValue: #{
+                    code: "RATE_LIMITED",
+                    message: "요청 한도를 초과했습니다. 잠시 후 다시 시도해 주세요"
+                  },
+                  serializedValue: "{\"code\":\"RATE_LIMITED\",\"message\":\"요청 한도를 초과했습니다. 잠시 후 다시 시도해 주세요\"}"
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    #{
+      name: "Unauthorized",
+      value: #{
+        description: "인증 실패 — 토큰 없음 또는 만료",
+        content: #[
+          #{
+            mediaType: "application/json",
+            value: #{
+              schema: #{
+                ref: "#/components/schemas/Error"
+              },
+              examples: #{
+                default: #{
+                  dataValue: #{
+                    code: "UNAUTHORIZED",
+                    message: "인증이 필요합니다"
+                  },
+                  serializedValue: "{\"code\":\"UNAUTHORIZED\",\"message\":\"인증이 필요합니다\"}"
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    #{
+      name: "UnprocessableEntity",
+      value: #{
+        description: "스키마 유효성 검사 실패",
+        content: #[
+          #{
+            mediaType: "application/json",
+            value: #{
+              schema: #{
+                ref: "#/components/schemas/Error"
+              },
+              examples: #{
+                default: #{
+                  dataValue: #{
+                    code: "SCHEMA_VALIDATION_FAILED",
+                    message: "요청 본문이 스키마 유효성 검사를 통과하지 못했습니다"
+                  },
+                  serializedValue: "{\"code\":\"SCHEMA_VALIDATION_FAILED\",\"message\":\"요청 본문이 스키마 유효성 검사를 통과하지 못했습니다\"}"
+                }
+              }
+            }
+          }
+        ]
+      }
+    }
+  ]
+})
 @extension("x-oa-sdk-info", #{
   title: "OA SDK API",
   description: "OpenAPI 3.2 기반 API 관리 인프라",
@@ -978,6 +1261,22 @@ model CreateUser500Response {
     }
   }
 })
+@extension("x-oa-sdk-operation-component-refs", #{
+  responses: #[
+    #{
+      statusCode: "400",
+      ref: "#/components/responses/BadRequest"
+    },
+    #{
+      statusCode: "422",
+      ref: "#/components/responses/UnprocessableEntity"
+    },
+    #{
+      statusCode: "429",
+      ref: "#/components/responses/TooManyRequests"
+    }
+  ]
+})
 op forgotPassword(
   @body body: ForgotPasswordRequest,
 ): ForgotPassword204Response | ForgotPassword400Response | ForgotPassword422Response | ForgotPassword429Response;
@@ -1082,6 +1381,26 @@ op forgotPassword(
     }
   }
 })
+@extension("x-oa-sdk-operation-component-refs", #{
+  responses: #[
+    #{
+      statusCode: "400",
+      ref: "#/components/responses/BadRequest"
+    },
+    #{
+      statusCode: "401",
+      ref: "#/components/responses/Unauthorized"
+    },
+    #{
+      statusCode: "422",
+      ref: "#/components/responses/UnprocessableEntity"
+    },
+    #{
+      statusCode: "429",
+      ref: "#/components/responses/TooManyRequests"
+    }
+  ]
+})
 op login(
   @body body: LoginRequest,
 ): Login200Response | Login400Response | Login401Response | Login422Response | Login429Response;
@@ -1109,6 +1428,14 @@ op login(
       }
     }
   }
+})
+@extension("x-oa-sdk-operation-component-refs", #{
+  responses: #[
+    #{
+      statusCode: "401",
+      ref: "#/components/responses/Unauthorized"
+    }
+  ]
 })
 op logout(): Logout204Response | Logout401Response;
 
@@ -1175,6 +1502,18 @@ op logout(): Logout204Response | Logout401Response;
       }
     }
   }
+})
+@extension("x-oa-sdk-operation-component-refs", #{
+  responses: #[
+    #{
+      statusCode: "401",
+      ref: "#/components/responses/Unauthorized"
+    },
+    #{
+      statusCode: "422",
+      ref: "#/components/responses/UnprocessableEntity"
+    }
+  ]
 })
 op refreshToken(
   @body body: RefreshRequest,
@@ -1281,6 +1620,26 @@ op refreshToken(
     }
   }
 })
+@extension("x-oa-sdk-operation-component-refs", #{
+  responses: #[
+    #{
+      statusCode: "400",
+      ref: "#/components/responses/BadRequest"
+    },
+    #{
+      statusCode: "409",
+      ref: "#/components/responses/Conflict"
+    },
+    #{
+      statusCode: "422",
+      ref: "#/components/responses/UnprocessableEntity"
+    },
+    #{
+      statusCode: "429",
+      ref: "#/components/responses/TooManyRequests"
+    }
+  ]
+})
 op register(
   @body body: RegisterRequest,
 ): Register201Response | Register400Response | Register409Response | Register422Response | Register429Response;
@@ -1349,6 +1708,22 @@ op register(
     }
   }
 })
+@extension("x-oa-sdk-operation-component-refs", #{
+  responses: #[
+    #{
+      statusCode: "400",
+      ref: "#/components/responses/BadRequest"
+    },
+    #{
+      statusCode: "401",
+      ref: "#/components/responses/Unauthorized"
+    },
+    #{
+      statusCode: "422",
+      ref: "#/components/responses/UnprocessableEntity"
+    }
+  ]
+})
 op resetPassword(
   @body body: ResetPasswordRequest,
 ): ResetPassword204Response | ResetPassword400Response | ResetPassword401Response | ResetPassword422Response;
@@ -1390,6 +1765,14 @@ op resetPassword(
       }
     }
   }
+})
+@extension("x-oa-sdk-operation-component-refs", #{
+  responses: #[
+    #{
+      statusCode: "503",
+      ref: "#/components/responses/ServiceUnavailable"
+    }
+  ]
 })
 op getHealth(): GetHealth200Response | GetHealth503Response;
 
@@ -1442,6 +1825,14 @@ op getHealth(): GetHealth200Response | GetHealth503Response;
     }
   }
 })
+@extension("x-oa-sdk-operation-component-refs", #{
+  responses: #[
+    #{
+      statusCode: "503",
+      ref: "#/components/responses/ServiceUnavailable"
+    }
+  ]
+})
 op getReadiness(): GetReadiness200Response | GetReadiness503Response;
 
 @summary("서버 상태 실시간 스트림")
@@ -1467,6 +1858,14 @@ op getReadiness(): GetReadiness200Response | GetReadiness503Response;
       }
     }
   }
+})
+@extension("x-oa-sdk-operation-component-refs", #{
+  responses: #[
+    #{
+      statusCode: "503",
+      ref: "#/components/responses/ServiceUnavailable"
+    }
+  ]
 })
 op streamHealthEvents(): StreamHealthEvents200Response | StreamHealthEvents503Response;
 
@@ -1561,6 +1960,22 @@ op getVersion(): GetVersion200Response;
     }
   }
 })
+@extension("x-oa-sdk-operation-component-refs", #{
+  responses: #[
+    #{
+      statusCode: "400",
+      ref: "#/components/responses/BadRequest"
+    },
+    #{
+      statusCode: "401",
+      ref: "#/components/responses/Unauthorized"
+    },
+    #{
+      statusCode: "422",
+      ref: "#/components/responses/UnprocessableEntity"
+    }
+  ]
+})
 op changeMyPassword(
   @body body: ChangePasswordRequest,
 ): ChangeMyPassword204Response | ChangeMyPassword400Response | ChangeMyPassword401Response | ChangeMyPassword422Response;
@@ -1629,6 +2044,18 @@ op changeMyPassword(
     }
   }
 })
+@extension("x-oa-sdk-operation-component-refs", #{
+  responses: #[
+    #{
+      statusCode: "401",
+      ref: "#/components/responses/Unauthorized"
+    },
+    #{
+      statusCode: "429",
+      ref: "#/components/responses/TooManyRequests"
+    }
+  ]
+})
 op requestMyDataExport(
   @body body?: ExportRequest,
 ): RequestMyDataExport202Response | RequestMyDataExport401Response | RequestMyDataExport429Response;
@@ -1680,6 +2107,14 @@ op requestMyDataExport(
     }
   }
 })
+@extension("x-oa-sdk-operation-component-refs", #{
+  responses: #[
+    #{
+      statusCode: "401",
+      ref: "#/components/responses/Unauthorized"
+    }
+  ]
+})
 op getOnboardingChecklist(): GetOnboardingChecklist200Response | GetOnboardingChecklist401Response;
 
 @summary("내 정보 조회")
@@ -1721,6 +2156,14 @@ op getOnboardingChecklist(): GetOnboardingChecklist200Response | GetOnboardingCh
     }
   }
 })
+@extension("x-oa-sdk-operation-component-refs", #{
+  responses: #[
+    #{
+      statusCode: "401",
+      ref: "#/components/responses/Unauthorized"
+    }
+  ]
+})
 op getMe(): GetMe200Response | GetMe401Response;
 
 @summary("셀프 계정 탈퇴 (soft-delete)")
@@ -1746,6 +2189,14 @@ op getMe(): GetMe200Response | GetMe401Response;
       }
     }
   }
+})
+@extension("x-oa-sdk-operation-component-refs", #{
+  responses: #[
+    #{
+      statusCode: "401",
+      ref: "#/components/responses/Unauthorized"
+    }
+  ]
 })
 op deleteMyAccount(): DeleteMyAccount204Response | DeleteMyAccount401Response;
 
@@ -1811,6 +2262,22 @@ op deleteMyAccount(): DeleteMyAccount204Response | DeleteMyAccount401Response;
       }
     }
   }
+})
+@extension("x-oa-sdk-operation-component-refs", #{
+  responses: #[
+    #{
+      statusCode: "400",
+      ref: "#/components/responses/BadRequest"
+    },
+    #{
+      statusCode: "401",
+      ref: "#/components/responses/Unauthorized"
+    },
+    #{
+      statusCode: "422",
+      ref: "#/components/responses/UnprocessableEntity"
+    }
+  ]
 })
 op updateMe(
   @body body: UpdateMeRequest,
@@ -1882,6 +2349,24 @@ op updateMe(
       }
     }
   }
+})
+@extension("x-oa-sdk-operation-component-refs", #{
+  parameters: #[
+    #{
+      index: 0,
+      ref: "#/components/parameters/Page"
+    },
+    #{
+      index: 1,
+      ref: "#/components/parameters/Limit"
+    }
+  ],
+  responses: #[
+    #{
+      statusCode: "401",
+      ref: "#/components/responses/Unauthorized"
+    }
+  ]
 })
 op listMyRoleChanges(
   @doc("페이지 번호 (1-based)") @query @minValue(1) page?: integer = 1,
@@ -1965,6 +2450,22 @@ op listMyRoleChanges(
       }
     }
   }
+})
+@extension("x-oa-sdk-operation-component-refs", #{
+  responses: #[
+    #{
+      statusCode: "401",
+      ref: "#/components/responses/Unauthorized"
+    },
+    #{
+      statusCode: "403",
+      ref: "#/components/responses/Forbidden"
+    },
+    #{
+      statusCode: "429",
+      ref: "#/components/responses/TooManyRequests"
+    }
+  ]
 })
 op requestUsersExport(
   @body body?: AdminUsersExportRequest,
@@ -2059,6 +2560,26 @@ op requestUsersExport(
     }
   }
 })
+@extension("x-oa-sdk-operation-component-refs", #{
+  responses: #[
+    #{
+      statusCode: "400",
+      ref: "#/components/responses/BadRequest"
+    },
+    #{
+      statusCode: "401",
+      ref: "#/components/responses/Unauthorized"
+    },
+    #{
+      statusCode: "403",
+      ref: "#/components/responses/Forbidden"
+    },
+    #{
+      statusCode: "404",
+      ref: "#/components/responses/NotFound"
+    }
+  ]
+})
 op purgeUser(
   @doc("영구 삭제 대상 사용자 UUID") @path @format("uuid") id: string,
   @body body: PurgeUserRequest,
@@ -2144,6 +2665,28 @@ op purgeUser(
     }
   }
 })
+@extension("x-oa-sdk-operation-component-refs", #{
+  parameters: #[
+    #{
+      index: 0,
+      ref: "#/components/parameters/Page"
+    },
+    #{
+      index: 1,
+      ref: "#/components/parameters/Limit"
+    }
+  ],
+  responses: #[
+    #{
+      statusCode: "401",
+      ref: "#/components/responses/Unauthorized"
+    },
+    #{
+      statusCode: "403",
+      ref: "#/components/responses/Forbidden"
+    }
+  ]
+})
 op listModerationReports(
   @doc("페이지 번호 (1-based)") @query @minValue(1) page?: integer = 1,
   @doc("페이지당 항목 수") @query @minValue(1) @maxValue(100) limit?: integer = 20,
@@ -2214,6 +2757,18 @@ op listModerationReports(
     }
   }
 })
+@extension("x-oa-sdk-operation-component-refs", #{
+  responses: #[
+    #{
+      statusCode: "401",
+      ref: "#/components/responses/Unauthorized"
+    },
+    #{
+      statusCode: "404",
+      ref: "#/components/responses/NotFound"
+    }
+  ]
+})
 op getUserById(
   @doc("사용자 UUID") @path @format("uuid") id: string,
 ): GetUserById200Response | GetUserById401Response | GetUserById404Response;
@@ -2266,6 +2821,18 @@ op getUserById(
       }
     }
   }
+})
+@extension("x-oa-sdk-operation-component-refs", #{
+  responses: #[
+    #{
+      statusCode: "401",
+      ref: "#/components/responses/Unauthorized"
+    },
+    #{
+      statusCode: "404",
+      ref: "#/components/responses/NotFound"
+    }
+  ]
 })
 op deleteUser(
   @doc("사용자 UUID") @path @format("uuid") id: string,
@@ -2387,6 +2954,30 @@ op deleteUser(
     }
   }
 })
+@extension("x-oa-sdk-operation-component-refs", #{
+  responses: #[
+    #{
+      statusCode: "400",
+      ref: "#/components/responses/BadRequest"
+    },
+    #{
+      statusCode: "401",
+      ref: "#/components/responses/Unauthorized"
+    },
+    #{
+      statusCode: "403",
+      ref: "#/components/responses/Forbidden"
+    },
+    #{
+      statusCode: "404",
+      ref: "#/components/responses/NotFound"
+    },
+    #{
+      statusCode: "422",
+      ref: "#/components/responses/UnprocessableEntity"
+    }
+  ]
+})
 op updateUser(
   @doc("사용자 UUID") @path @format("uuid") id: string,
   @body body: UpdateUserRequest,
@@ -2454,6 +3045,18 @@ op updateUser(
       }
     }
   }
+})
+@extension("x-oa-sdk-operation-component-refs", #{
+  responses: #[
+    #{
+      statusCode: "401",
+      ref: "#/components/responses/Unauthorized"
+    },
+    #{
+      statusCode: "404",
+      ref: "#/components/responses/NotFound"
+    }
+  ]
 })
 op getPublicUserProfile(
   @doc("사용자 UUID") @path @format("uuid") id: string,
@@ -2553,6 +3156,26 @@ op getPublicUserProfile(
     }
   }
 })
+@extension("x-oa-sdk-operation-component-refs", #{
+  responses: #[
+    #{
+      statusCode: "400",
+      ref: "#/components/responses/BadRequest"
+    },
+    #{
+      statusCode: "401",
+      ref: "#/components/responses/Unauthorized"
+    },
+    #{
+      statusCode: "422",
+      ref: "#/components/responses/UnprocessableEntity"
+    },
+    #{
+      statusCode: "429",
+      ref: "#/components/responses/TooManyRequests"
+    }
+  ]
+})
 op reportUser(
   @doc("신고 대상 사용자 UUID") @path @format("uuid") id: string,
   @body body: ReportRequest,
@@ -2624,6 +3247,24 @@ op reportUser(
       }
     }
   }
+})
+@extension("x-oa-sdk-operation-component-refs", #{
+  parameters: #[
+    #{
+      index: 0,
+      ref: "#/components/parameters/Page"
+    },
+    #{
+      index: 1,
+      ref: "#/components/parameters/Limit"
+    }
+  ],
+  responses: #[
+    #{
+      statusCode: "401",
+      ref: "#/components/responses/Unauthorized"
+    }
+  ]
 })
 op listUsers(
   @doc("페이지 번호 (1-based)") @query @minValue(1) page?: integer = 1,
@@ -2723,6 +3364,26 @@ op listUsers(
       }
     }
   }
+})
+@extension("x-oa-sdk-operation-component-refs", #{
+  responses: #[
+    #{
+      statusCode: "400",
+      ref: "#/components/responses/BadRequest"
+    },
+    #{
+      statusCode: "401",
+      ref: "#/components/responses/Unauthorized"
+    },
+    #{
+      statusCode: "422",
+      ref: "#/components/responses/UnprocessableEntity"
+    },
+    #{
+      statusCode: "500",
+      ref: "#/components/responses/InternalServerError"
+    }
+  ]
 })
 op createUser(
   @body body: CreateUserRequest,

@@ -1,8 +1,12 @@
 import {
   createTypeSpecCompatibilitySidecarFromEntries,
+  type TypeSpecComponentParameterSidecarEntry,
+  type TypeSpecComponentResponseSidecarEntry,
   type TypeSpecCompatibilitySidecar,
   type TypeSpecCompatibilitySidecarEntry,
   type TypeSpecOperationSecuritySidecarEntry,
+  type TypeSpecOperationParameterRefSidecarEntry,
+  type TypeSpecOperationResponseRefSidecarEntry,
   type TypeSpecParameterExamplesSidecarEntry,
   type TypeSpecRequestExamplesSidecarEntry,
   type TypeSpecResponseExamplesSidecarEntry,
@@ -14,7 +18,9 @@ import type { TypeSpecOpenApiExtensionSchemaVersion } from './typespec-oa-sdk-ex
 type HttpMethod = TypeSpecRequestExamplesSidecarEntry['target']['method']
 type RecordValue = Record<string, unknown>
 
+const COMPONENTS_EXTENSION = 'x-oa-sdk-components'
 const INFO_EXTENSION = 'x-oa-sdk-info'
+const OPERATION_COMPONENT_REFS_EXTENSION = 'x-oa-sdk-operation-component-refs'
 const OPERATION_EXAMPLES_EXTENSION = 'x-oa-sdk-operation-examples'
 const OPERATION_SECURITY_EXTENSION = 'x-oa-sdk-operation-security'
 const SECURITY_SCHEMES_EXTENSION = 'x-oa-sdk-security-schemes'
@@ -33,6 +39,8 @@ export type TypeSpecSidecarToExtensionsReport = {
     convertedEntries: number
     remainingEntries: number
     operationExtensionGroups: number
+    componentParameters: number
+    componentResponses: number
     securitySchemes: number
   }
   converted: TypeSpecSidecarConvertedEntry[]
@@ -43,7 +51,7 @@ export type TypeSpecSidecarConvertedEntry = {
   kind: TypeSpecCompatibilitySidecarEntry['kind']
   pointer: string
   target: RecordValue
-  extension: typeof INFO_EXTENSION | typeof OPERATION_EXAMPLES_EXTENSION | typeof OPERATION_SECURITY_EXTENSION | typeof SECURITY_SCHEMES_EXTENSION
+  extension: typeof COMPONENTS_EXTENSION | typeof INFO_EXTENSION | typeof OPERATION_COMPONENT_REFS_EXTENSION | typeof OPERATION_EXAMPLES_EXTENSION | typeof OPERATION_SECURITY_EXTENSION | typeof SECURITY_SCHEMES_EXTENSION
   placement: string
 }
 
@@ -63,6 +71,8 @@ export type TypeSpecSidecarToExtensionsResult = {
 type OperationExtensionGroup = {
   path: string
   method: HttpMethod
+  parameterRefs: RecordValue[]
+  responseRefs: RecordValue[]
   parameters: RecordValue
   requestBody: RecordValue
   responses: RecordValue
@@ -76,6 +86,8 @@ export function convertTypeSpecSidecarToExtensions(
 ): TypeSpecSidecarToExtensionsResult {
   const extensionSchemaVersion = options.extensionSchemaVersion ?? DEFAULT_EXTENSION_SCHEMA_VERSION
   const operationGroups = new Map<string, OperationExtensionGroup>()
+  const componentParameters: RecordValue[] = []
+  const componentResponses: RecordValue[] = []
   let rootInfo: RecordValue | undefined
   const securitySchemes: RecordValue = {}
   const securitySchemeNames = new Set<string>()
@@ -86,6 +98,8 @@ export function convertTypeSpecSidecarToExtensions(
   for (const entry of sidecar.entries) {
     const conversion = convertEntry(entry, {
       extensionSchemaVersion,
+      componentParameters,
+      componentResponses,
       operationGroups,
       setRootInfo: value => {
         rootInfo = value
@@ -106,7 +120,7 @@ export function convertTypeSpecSidecarToExtensions(
     })
   }
 
-  const snippets = renderSnippets(operationGroups, rootInfo, securitySchemes)
+  const snippets = renderSnippets(operationGroups, componentParameters, componentResponses, rootInfo, securitySchemes)
   const remainingSidecar = createTypeSpecCompatibilitySidecarFromEntries(remainingEntries)
   return {
     snippets,
@@ -119,6 +133,8 @@ export function convertTypeSpecSidecarToExtensions(
         convertedEntries: converted.length,
         remainingEntries: remainingEntries.length,
         operationExtensionGroups: operationGroups.size,
+        componentParameters: componentParameters.length,
+        componentResponses: componentResponses.length,
         securitySchemes: Object.keys(securitySchemes).length,
       },
       converted,
@@ -131,6 +147,8 @@ function convertEntry(
   entry: TypeSpecCompatibilitySidecarEntry,
   context: {
     extensionSchemaVersion: TypeSpecOpenApiExtensionSchemaVersion
+    componentParameters: RecordValue[]
+    componentResponses: RecordValue[]
     operationGroups: Map<string, OperationExtensionGroup>
     setRootInfo: (value: RecordValue) => void
     securitySchemes: RecordValue
@@ -138,11 +156,73 @@ function convertEntry(
   },
 ): { converted: true; report: TypeSpecSidecarConvertedEntry } | { converted: false; reason: string } {
   if (entry.kind === 'root-info') return convertRootInfoEntry(entry, context)
+  if (entry.kind === 'component-parameter') return convertComponentParameterEntry(entry, context)
+  if (entry.kind === 'component-response') return convertComponentResponseEntry(entry, context)
+  if (entry.kind === 'operation-parameter-ref') return convertOperationParameterRefEntry(entry, context)
+  if (entry.kind === 'operation-response-ref') return convertOperationResponseRefEntry(entry, context)
   if (entry.kind === 'parameter-examples') return convertParameterEntry(entry, context.operationGroups)
   if (entry.kind === 'request-media-examples') return convertRequestEntry(entry, context)
   if (entry.kind === 'response-media-examples') return convertResponseEntry(entry, context.operationGroups)
   if (entry.kind === 'operation-security') return convertOperationSecurityEntry(entry, context)
   return convertSecuritySchemeEntry(entry, context)
+}
+
+function convertComponentParameterEntry(
+  entry: TypeSpecComponentParameterSidecarEntry,
+  context: {
+    extensionSchemaVersion: TypeSpecOpenApiExtensionSchemaVersion
+    componentParameters: RecordValue[]
+  },
+): { converted: true; report: TypeSpecSidecarConvertedEntry } | { converted: false; reason: string } {
+  return convertComponentEntry(entry, context, context.componentParameters, 'parameters', 'component parameter metadata')
+}
+
+function convertComponentResponseEntry(
+  entry: TypeSpecComponentResponseSidecarEntry,
+  context: {
+    extensionSchemaVersion: TypeSpecOpenApiExtensionSchemaVersion
+    componentResponses: RecordValue[]
+  },
+): { converted: true; report: TypeSpecSidecarConvertedEntry } | { converted: false; reason: string } {
+  return convertComponentEntry(entry, context, context.componentResponses, 'responses', 'component response metadata')
+}
+
+function convertComponentEntry(
+  entry: TypeSpecComponentParameterSidecarEntry | TypeSpecComponentResponseSidecarEntry,
+  context: {
+    extensionSchemaVersion: TypeSpecOpenApiExtensionSchemaVersion
+  },
+  targetList: RecordValue[],
+  placementSection: 'parameters' | 'responses',
+  label: string,
+): { converted: true; report: TypeSpecSidecarConvertedEntry } | { converted: false; reason: string } {
+  if (context.extensionSchemaVersion !== 'oa-sdk.typespec-extensions.v5') {
+    return {
+      converted: false,
+      reason: `${label} requires oa-sdk.typespec-extensions.v5`,
+    }
+  }
+  if (!IDENTIFIER_RE.test(entry.target.name)) {
+    return { converted: false, reason: `${label} name cannot be rendered as a stable TypeSpec extension object key` }
+  }
+  const value = normalizeOpenApiComponentForTypeSpecExtension(entry.value)
+  if (!canRenderTypeSpecValue(value)) {
+    return { converted: false, reason: `${label} contains values that cannot be rendered as TypeSpec value literals` }
+  }
+  targetList.push({
+    name: entry.target.name,
+    value,
+  })
+  return {
+    converted: true,
+    report: {
+      kind: entry.kind,
+      pointer: entry.pointer,
+      target: cloneJson(entry.target) as RecordValue,
+      extension: COMPONENTS_EXTENSION,
+      placement: `namespace or service declaration (${placementSection})`,
+    },
+  }
 }
 
 function convertRootInfoEntry(
@@ -152,10 +232,11 @@ function convertRootInfoEntry(
     setRootInfo: (value: RecordValue) => void
   },
 ): { converted: true; report: TypeSpecSidecarConvertedEntry } | { converted: false; reason: string } {
-  if (context.extensionSchemaVersion !== 'oa-sdk.typespec-extensions.v4') {
+  if (context.extensionSchemaVersion !== 'oa-sdk.typespec-extensions.v4'
+    && context.extensionSchemaVersion !== 'oa-sdk.typespec-extensions.v5') {
     return {
       converted: false,
-      reason: 'root info metadata requires oa-sdk.typespec-extensions.v4',
+      reason: 'root info metadata requires oa-sdk.typespec-extensions.v4 or later',
     }
   }
   if (!canRenderTypeSpecValue(entry.value)) {
@@ -170,6 +251,74 @@ function convertRootInfoEntry(
       target: cloneJson(entry.target) as RecordValue,
       extension: INFO_EXTENSION,
       placement: 'namespace or service declaration',
+    },
+  }
+}
+
+function convertOperationParameterRefEntry(
+  entry: TypeSpecOperationParameterRefSidecarEntry,
+  context: {
+    extensionSchemaVersion: TypeSpecOpenApiExtensionSchemaVersion
+    operationGroups: Map<string, OperationExtensionGroup>
+  },
+): { converted: true; report: TypeSpecSidecarConvertedEntry } | { converted: false; reason: string } {
+  if (context.extensionSchemaVersion !== 'oa-sdk.typespec-extensions.v5') {
+    return {
+      converted: false,
+      reason: 'operation parameter component refs require oa-sdk.typespec-extensions.v5',
+    }
+  }
+  if (!entry.target.method) {
+    return {
+      converted: false,
+      reason: 'path-level parameter component refs need explicit operation placement before they can be emitted as operation-level TypeSpec extensions',
+    }
+  }
+  const group = readOperationGroup(context.operationGroups, entry.target.path, entry.target.method)
+  group.parameterRefs.push({
+    index: entry.target.index,
+    ref: entry.value.$ref,
+  })
+  group.entries.push(entry)
+  return {
+    converted: true,
+    report: {
+      kind: entry.kind,
+      pointer: entry.pointer,
+      target: cloneJson(entry.target) as RecordValue,
+      extension: OPERATION_COMPONENT_REFS_EXTENSION,
+      placement: operationPlacement(entry.target.path, entry.target.method),
+    },
+  }
+}
+
+function convertOperationResponseRefEntry(
+  entry: TypeSpecOperationResponseRefSidecarEntry,
+  context: {
+    extensionSchemaVersion: TypeSpecOpenApiExtensionSchemaVersion
+    operationGroups: Map<string, OperationExtensionGroup>
+  },
+): { converted: true; report: TypeSpecSidecarConvertedEntry } | { converted: false; reason: string } {
+  if (context.extensionSchemaVersion !== 'oa-sdk.typespec-extensions.v5') {
+    return {
+      converted: false,
+      reason: 'operation response component refs require oa-sdk.typespec-extensions.v5',
+    }
+  }
+  const group = readOperationGroup(context.operationGroups, entry.target.path, entry.target.method)
+  group.responseRefs.push({
+    statusCode: entry.target.statusCode,
+    ref: entry.value.$ref,
+  })
+  group.entries.push(entry)
+  return {
+    converted: true,
+    report: {
+      kind: entry.kind,
+      pointer: entry.pointer,
+      target: cloneJson(entry.target) as RecordValue,
+      extension: OPERATION_COMPONENT_REFS_EXTENSION,
+      placement: operationPlacement(entry.target.path, entry.target.method),
     },
   }
 }
@@ -215,7 +364,9 @@ function convertRequestEntry(
   },
 ): { converted: true; report: TypeSpecSidecarConvertedEntry } | { converted: false; reason: string } {
   if (context.extensionSchemaVersion !== 'oa-sdk.typespec-extensions.v2'
-    && context.extensionSchemaVersion !== 'oa-sdk.typespec-extensions.v3') {
+    && context.extensionSchemaVersion !== 'oa-sdk.typespec-extensions.v3'
+    && context.extensionSchemaVersion !== 'oa-sdk.typespec-extensions.v4'
+    && context.extensionSchemaVersion !== 'oa-sdk.typespec-extensions.v5') {
     return {
       converted: false,
       reason: 'request body media examples require oa-sdk.typespec-extensions.v2 or later',
@@ -251,7 +402,8 @@ function convertOperationSecurityEntry(
   },
 ): { converted: true; report: TypeSpecSidecarConvertedEntry } | { converted: false; reason: string } {
   if (context.extensionSchemaVersion !== 'oa-sdk.typespec-extensions.v3'
-    && context.extensionSchemaVersion !== 'oa-sdk.typespec-extensions.v4') {
+    && context.extensionSchemaVersion !== 'oa-sdk.typespec-extensions.v4'
+    && context.extensionSchemaVersion !== 'oa-sdk.typespec-extensions.v5') {
     return {
       converted: false,
       reason: 'operation security overrides require oa-sdk.typespec-extensions.v3 or later',
@@ -346,6 +498,8 @@ function readOperationGroup(
   const created: OperationExtensionGroup = {
     path,
     method,
+    parameterRefs: [],
+    responseRefs: [],
     parameters: {},
     requestBody: {},
     responses: {},
@@ -355,17 +509,28 @@ function readOperationGroup(
   return created
 }
 
-function renderSnippets(operationGroups: Map<string, OperationExtensionGroup>, rootInfo: RecordValue | undefined, securitySchemes: RecordValue): string {
+function renderSnippets(
+  operationGroups: Map<string, OperationExtensionGroup>,
+  componentParameters: RecordValue[],
+  componentResponses: RecordValue[],
+  rootInfo: RecordValue | undefined,
+  securitySchemes: RecordValue,
+): string {
   const blocks: string[] = [
     '// Generated from oa-sdk.typespec-compat-sidecar.v1.',
     '// Paste each @extension decorator directly above the matching TypeSpec target.',
   ]
 
-  if (rootInfo || Object.keys(securitySchemes).length > 0) {
+  const components: RecordValue = {}
+  if (componentParameters.length > 0) components.parameters = componentParameters
+  if (componentResponses.length > 0) components.responses = componentResponses
+
+  if (Object.keys(components).length > 0 || rootInfo || Object.keys(securitySchemes).length > 0) {
     blocks.push(
       [
         '',
         '// Namespace or service declaration',
+        ...(Object.keys(components).length > 0 ? [renderExtension(COMPONENTS_EXTENSION, components)] : []),
         ...(rootInfo ? [renderExtension(INFO_EXTENSION, rootInfo)] : []),
         ...(Object.keys(securitySchemes).length > 0 ? [renderExtension(SECURITY_SCHEMES_EXTENSION, securitySchemes)] : []),
       ].join('\n'),
@@ -377,6 +542,9 @@ function renderSnippets(operationGroups: Map<string, OperationExtensionGroup>, r
     return byPath !== 0 ? byPath : left.method.localeCompare(right.method)
   })
   for (const group of sortedGroups) {
+    const componentRefsValue: RecordValue = {}
+    if (group.parameterRefs.length > 0) componentRefsValue.parameters = group.parameterRefs
+    if (group.responseRefs.length > 0) componentRefsValue.responses = group.responseRefs
     const value: RecordValue = {}
     if (Object.keys(group.parameters).length > 0) value.parameters = group.parameters
     if (Object.keys(group.requestBody).length > 0) value.requestBody = group.requestBody
@@ -385,6 +553,9 @@ function renderSnippets(operationGroups: Map<string, OperationExtensionGroup>, r
       [
         '',
         `// ${group.method.toUpperCase()} ${group.path}`,
+        ...(Object.keys(componentRefsValue).length > 0
+          ? [renderExtension(OPERATION_COMPONENT_REFS_EXTENSION, componentRefsValue)]
+          : []),
         ...(group.operationSecurity
           ? [renderExtension(OPERATION_SECURITY_EXTENSION, group.operationSecurity)]
           : []),
@@ -432,6 +603,33 @@ function renderTypeSpecValue(value: unknown, depth = 0): string | null {
     renderedEntries.push(`${indent(depth + 1)}${key}: ${renderedItem}`)
   }
   return `#{\n${renderedEntries.join(',\n')}\n${indent(depth)}}`
+}
+
+function normalizeOpenApiComponentForTypeSpecExtension(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(normalizeOpenApiComponentForTypeSpecExtension)
+  if (!isRecord(value)) return cloneJson(value)
+  if (typeof value.$ref === 'string' && Object.keys(value).length === 1) {
+    return { ref: value.$ref }
+  }
+  const normalized: RecordValue = {}
+  for (const [key, item] of Object.entries(value)) {
+    if (key === 'content' && isRecord(item)) {
+      normalized.content = Object.entries(item).map(([mediaType, mediaValue]) => ({
+        mediaType,
+        value: normalizeOpenApiComponentForTypeSpecExtension(mediaValue),
+      }))
+      continue
+    }
+    if (key === 'headers' && isRecord(item)) {
+      normalized.headers = Object.entries(item).map(([name, headerValue]) => ({
+        name,
+        value: normalizeOpenApiComponentForTypeSpecExtension(headerValue),
+      }))
+      continue
+    }
+    normalized[key] = normalizeOpenApiComponentForTypeSpecExtension(item)
+  }
+  return normalized
 }
 
 function normalizeSecuritySchemeForTypeSpecExtension(value: unknown): unknown {

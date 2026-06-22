@@ -20,21 +20,27 @@ pnpm typespec:sidecar-to-extensions -- \
   --report artifacts/oa-sdk.typespec-sidecar-to-extensions-report.json
 ```
 
-Use `--extension-schema-version oa-sdk.typespec-extensions.v1` only when the authored bundle must stay on v1. The default is `oa-sdk.typespec-extensions.v2`, because request body media examples are accepted only in v2.
+Use `--extension-schema-version` to target the narrowest vocabulary required by the authored bundle. The default remains `oa-sdk.typespec-extensions.v2`; choose v3 for explicit public operation security, v4 for root info metadata, and v5 for reusable component identity.
 
 ## Supported Conversions
 
 | Sidecar kind | TypeSpec target | Extension metadata |
 |---|---|---|
+| `component-parameter` | Namespace or service declaration decorator | `x-oa-sdk-components.parameters`, v5 only |
+| `component-response` | Namespace or service declaration decorator | `x-oa-sdk-components.responses`, v5 only |
+| `operation-parameter-ref` with `target.method` | Matching operation decorator | `x-oa-sdk-operation-component-refs.parameters`, v5 only |
+| `operation-response-ref` | Matching operation decorator | `x-oa-sdk-operation-component-refs.responses`, v5 only |
 | `parameter-examples` with `target.method` | Matching operation decorator | `x-oa-sdk-operation-examples.parameters` |
 | `request-media-examples` | Matching operation decorator | `x-oa-sdk-operation-examples.requestBody`, v2 only |
 | `response-media-examples` | Matching operation decorator | `x-oa-sdk-operation-examples.responses` |
+| `operation-security` | Matching operation decorator | `x-oa-sdk-operation-security`, v3 or later |
 | `security-scheme` | Namespace or service declaration decorator | `x-oa-sdk-security-schemes` |
 
 Unsupported entries remain in the residual sidecar with a reason. Current known residual cases include:
 
 - Path-level parameter examples without explicit operation placement.
 - Request body media examples when targeting `oa-sdk.typespec-extensions.v1`.
+- Operation component parameter refs without explicit operation placement.
 - Values that cannot be rendered as TypeSpec value literals.
 
 The tool must not convert unsupported metadata into comments or unchecked extension payloads.

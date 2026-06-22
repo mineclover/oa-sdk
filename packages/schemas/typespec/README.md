@@ -7,10 +7,10 @@ This bundle is the production-owned TypeSpec authoring source accepted by ADR-00
 Current boundary:
 
 - `packages/schemas/typespec/main.tsp` is the TypeSpec authoring source for the production schema.
-- `packages/schemas/typespec/oa-sdk.typespec-bundle.json` is the bundle manifest and declares `oa-sdk.typespec-extensions.v4`.
+- `packages/schemas/typespec/oa-sdk.typespec-bundle.json` is the bundle manifest and declares `oa-sdk.typespec-extensions.v5`.
 - `packages/schemas/typespec/expected.openapi.yaml` is the reviewed OpenAPI 3.2 reference artifact for diff gates.
 - `packages/schemas/typespec/accepted-restored-drift.json` pins the currently accepted TypeSpec-restored-vs-reference drift by normalized OpenAPI value hash.
-- Current accepted drift is reviewed as 51 hash-pinned entries: path-level projection differences (22) and component projection differences (29).
+- Current accepted drift is reviewed as 40 hash-pinned entries: path-level projection differences (22) and component schema projection differences (18).
 - `packages/schemas/src/.merged.yaml` is generated from this bundle by `pnpm --filter @oa-sdk/schemas run build:typespec`, which is the default `validate`, `build`, `bundle`, and `preview` source path.
 - The OpenAPI/Definition Builder rollback path remains explicit through `pnpm schema:validate:openapi`, `pnpm schema:bundle:openapi`, `pnpm schema:preview:openapi`, and package-level `build:openapi` / `validate:openapi`.
 
@@ -34,7 +34,7 @@ pnpm schema:typespec-check
 
 The schema-level gate runs the bundle check, verifies that `expected.openapi.yaml` is still normalized-diff equivalent to the reviewed reference, and checks that the TypeSpec-restored artifact matches the pinned `accepted-restored-drift.json` manifest. Any new restored-vs-reference drift, missing accepted drift, or changed normalized value hash fails the gate.
 
-The accepted drift should burn down in this order after the source-path switch: reusable parameter/response identity, response wrapper projection schemas, and finally operation/path metadata differences.
+The accepted drift should burn down in this order after the source-path switch: response wrapper projection schemas, and finally operation/path metadata differences. Reusable parameter/response component identity is restored through `oa-sdk.typespec-extensions.v5`.
 
 Rollback G11 gate:
 

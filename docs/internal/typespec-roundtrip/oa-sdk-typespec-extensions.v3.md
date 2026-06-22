@@ -68,4 +68,4 @@ The restore loop is the same as v2, with one additional recognized extension fam
 
 ## Production Evidence
 
-The production TypeSpec bundle used v3 to restore explicit no-auth overrides for public operations. The current production bundle has since moved to v4 so it can also restore root info metadata.
+The production TypeSpec bundle used v3 to restore explicit no-auth overrides for public operations. The current production bundle has since moved to v5 so it can also restore root info metadata and reusable component identity.

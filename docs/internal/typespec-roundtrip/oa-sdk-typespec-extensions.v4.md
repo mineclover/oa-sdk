@@ -4,7 +4,7 @@ Status: accepted for root OpenAPI info metadata, dated 2026-06-22.
 
 Schema version: `oa-sdk.typespec-extensions.v4`.
 
-v4 extends [`oa-sdk.typespec-extensions.v3`](./oa-sdk-typespec-extensions.v3.md) with root `info` metadata restoration. v1, v2, and v3 remain unchanged for sidecar-less bundles that do not need to restore OpenAPI `info` fields beyond TypeSpec's native title/version projection.
+v4 extends [`oa-sdk.typespec-extensions.v3`](./oa-sdk-typespec-extensions.v3.md) with root `info` metadata restoration. v1, v2, and v3 remain unchanged for sidecar-less bundles that do not need to restore OpenAPI `info` fields beyond TypeSpec's native title/version projection. Reusable component identity is standardized separately in [`oa-sdk-typespec-extensions.v5.md`](./oa-sdk-typespec-extensions.v5.md).
 
 ## Decision
 
@@ -80,4 +80,4 @@ The restore loop is the same as v3, with one additional recognized extension fam
 
 ## Production Evidence
 
-The production TypeSpec bundle declares v4 and restores root info metadata, richer bearer component metadata, request/response examples, and explicit public operation security. The schema gate reports 115 extension-derived semantic entries and keeps the reviewed restored-vs-reference drift at 51 hash-pinned entries.
+The production TypeSpec bundle used v4 to restore root info metadata. The current production bundle has since moved to v5 so it can also restore reusable parameter/response component identity.

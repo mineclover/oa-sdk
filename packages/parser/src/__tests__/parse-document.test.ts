@@ -170,6 +170,40 @@ describe('parseDocument', () => {
     expect(op.parameters.map(p => p.name).sort()).toEqual(['fields', 'id'])
   })
 
+  it('local operation parameter/response $ref를 deref pass 없이 해소한다', () => {
+    const result = parseDocument(doc({
+      components: {
+        parameters: {
+          UserId: { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
+          Page: { name: 'page', in: 'query', schema: { type: 'integer' } },
+        },
+        responses: {
+          UserList: {
+            description: 'Users',
+            content: {
+              'application/json': {
+                schema: { type: 'array', items: { type: 'string' } },
+              },
+            },
+          },
+        },
+      },
+      paths: {
+        '/users/{id}': {
+          parameters: [{ $ref: '#/components/parameters/UserId' }],
+          get: {
+            parameters: [{ $ref: '#/components/parameters/Page' }],
+            responses: { '200': { $ref: '#/components/responses/UserList' } },
+          },
+        },
+      },
+    }), [])
+
+    const op = result.operations[0]!
+    expect(op.parameters.map(p => p.name).sort()).toEqual(['id', 'page'])
+    expect(op.responses['200']?.description).toBe('Users')
+  })
+
   it('webhooks 별도 추출 (routes에 미포함)', () => {
     const result = parseDocument(doc({
       webhooks: {

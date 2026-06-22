@@ -11,7 +11,7 @@ The rule of thumb is simple: use TypeSpec-native syntax when the OpenAPI emitter
 | Bucket | Use When | Current Source |
 |---|---|---|
 | TypeSpec-native syntax | The TypeSpec source and OpenAPI emitter can express the fact directly and the emitted/restored OpenAPI passes OA SDK validation and diff gates. | `.tsp` source and `@typespec/openapi3` output |
-| OA SDK TypeSpec extension | A sidecar-less authored bundle needs restore-bearing OA SDK metadata that maps to an OpenAPI-native target after TypeSpec compile. | `x-oa-sdk-info`, `x-oa-sdk-operation-examples`, `x-oa-sdk-operation-security`, `x-oa-sdk-security-schemes` emitted from TypeSpec `@extension(...)` |
+| OA SDK TypeSpec extension | A sidecar-less authored bundle needs restore-bearing OA SDK metadata that maps to an OpenAPI-native target after TypeSpec compile. | `x-oa-sdk-components`, `x-oa-sdk-info`, `x-oa-sdk-operation-component-refs`, `x-oa-sdk-operation-examples`, `x-oa-sdk-operation-security`, `x-oa-sdk-security-schemes` emitted from TypeSpec `@extension(...)` |
 | Compatibility sidecar | Generated bundles, `.tsp + sidecar` authored bundles, or unsupported extension semantics need to preserve OpenAPI-owned facts without pretending TypeSpec owns them. | `oa-sdk.typespec-compat-sidecar.v1` |
 | Runtime data or adapter policy | The fact changes mock/runtime behavior, review policy, generation priority, or downstream orchestration but is not itself an OpenAPI contract target. | Mock server, personas, review policy, or downstream adapter code |
 
@@ -21,7 +21,7 @@ The rule of thumb is simple: use TypeSpec-native syntax when the OpenAPI emitter
 |---|---|---|---|
 | Generated `.tsp + sidecar` | `main.tsp`, `oa-sdk.typespec-compat-sidecar.json`, `oa-sdk.typespec-bundle.json`, optional `expected.openapi.yaml` | `sidecar` | OpenAPI-to-TypeSpec export and canonical roundtrip probes. |
 | Authored `.tsp + sidecar` | Hand-written `main.tsp`, authored sidecar, manifest, expected OpenAPI | `sidecar` | Contract slices whose metadata is not yet standardized as a TypeSpec extension. |
-| Authored sidecar-less `.tsp` | Hand-written `main.tsp`, manifest with `compatibility.oaSdkExtensionSchemaVersion`, expected OpenAPI | `typespec-extensions` | Maintainer-authored bundles using `oa-sdk.typespec-extensions.v1`, `v2`, `v3`, or `v4`. |
+| Authored sidecar-less `.tsp` | Hand-written `main.tsp`, manifest with `compatibility.oaSdkExtensionSchemaVersion`, expected OpenAPI | `typespec-extensions` | Maintainer-authored bundles using `oa-sdk.typespec-extensions.v1`, `v2`, `v3`, `v4`, or `v5`. |
 
 If `sidecar` is absent, the manifest must declare `compatibility.oaSdkExtensionSchemaVersion`. If `sidecar` is present, the bundle check uses the sidecar and does not infer extension semantics as the compatibility source.
 
@@ -31,6 +31,8 @@ If `sidecar` is absent, the manifest must declare `compatibility.oaSdkExtensionS
 |---|---|---|---|
 | API title and version | TypeSpec-native syntax | `@service`, `@info` | Must remain visible in emitted OpenAPI. |
 | API info fields not fully preserved by TypeSpec | OA SDK TypeSpec extension v4 or compatibility sidecar | `x-oa-sdk-info` or `root-info` sidecar entry | Use for OpenAPI `info` metadata such as description and SPDX license identifier when TypeSpec native projection cannot roundtrip it. |
+| Reusable OpenAPI parameter/response component catalog | OA SDK TypeSpec extension v5 or compatibility sidecar | `x-oa-sdk-components` or `component-parameter` / `component-response` sidecar entries | Use when TypeSpec preserves the inline value but not the reusable `components.parameters` / `components.responses` catalog identity. |
+| Operation usage of reusable parameter/response components | OA SDK TypeSpec extension v5 or compatibility sidecar | `x-oa-sdk-operation-component-refs` or `operation-parameter-ref` / `operation-response-ref` sidecar entries | Use together with the component catalog so restored components are referenced by operations instead of becoming unused metadata. |
 | Servers | TypeSpec-native syntax | `@server` | Keep variable-heavy or runtime-selected server behavior outside this track until proven. |
 | Path, HTTP method, operation id | TypeSpec-native syntax | `@route`, `@get`/`@post`/etc., `@operationId` | Operation identity must stay stable across emitted/restored OpenAPI. |
 | Operation summary, description, tags | TypeSpec-native syntax | `@summary`, `@doc`, `@tag` | Tag descriptions use `@tagMetadata` when stable. |
@@ -74,6 +76,11 @@ If `sidecar` is absent, the manifest must declare `compatibility.oaSdkExtensionS
 
 - `x-oa-sdk-info`
 
+`oa-sdk.typespec-extensions.v5` adds:
+
+- `x-oa-sdk-components`
+- `x-oa-sdk-operation-component-refs`
+
 A restore-bearing addition requires a new extension schema version. Do not silently expand v1 just because older consumers ignore unknown fields; if the field changes restored OpenAPI output, version it.
 
 ## Review Checklist
@@ -98,5 +105,6 @@ Before accepting a new authored TypeSpec bundle:
 - `docs/internal/typespec-roundtrip/oa-sdk-typespec-extensions.v2.md` — v2 request body examples schema.
 - `docs/internal/typespec-roundtrip/oa-sdk-typespec-extensions.v3.md` — v3 explicit public operation security schema.
 - `docs/internal/typespec-roundtrip/oa-sdk-typespec-extensions.v4.md` — v4 root info metadata schema.
+- `docs/internal/typespec-roundtrip/oa-sdk-typespec-extensions.v5.md` — v5 reusable component identity schema.
 - `docs/internal/typespec-roundtrip/fixtures/authored-representative-bundle/` — representative sidecar-less authored fixture.
 - `docs/internal/typespec-roundtrip/fixtures/authored-request-body-extension-bundle/` — focused v2 request body fixture.

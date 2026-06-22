@@ -704,6 +704,28 @@ describe('generateTypes — operations', () => {
     expect(ts).toContain('limit?: number')
   })
 
+  it('operation parameter $ref에서도 쿼리 파라미터 타입을 생성한다', () => {
+    const parsed = parseDocument(doc({
+      components: {
+        parameters: {
+          Page: { name: 'page', in: 'query', schema: { type: 'integer' } },
+        },
+      },
+      paths: {
+        '/users': {
+          get: {
+            operationId: 'listUsers',
+            parameters: [{ $ref: '#/components/parameters/Page' }],
+            responses: { '200': { description: 'OK' } },
+          },
+        },
+      },
+    }), [])
+    const ts = generateTypes(parsed)
+    expect(ts).toContain('export type ListUsersQueryParams =')
+    expect(ts).toContain('page?: number')
+  })
+
   it('요청 바디 타입', () => {
     const parsed = parseDocument(doc({
       paths: {
