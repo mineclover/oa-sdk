@@ -41,6 +41,10 @@ import {
 } from './openapi-breaking-diff.js'
 import { validateDocument, type OasDocument } from '@oa-sdk/parser'
 
+type RestoredHttpMethod = 'get' | 'put' | 'post' | 'delete' | 'options' | 'head' | 'patch' | 'trace' | 'query'
+
+const RESTORED_HTTP_METHODS: readonly RestoredHttpMethod[] = ['get', 'put', 'post', 'delete', 'options', 'head', 'patch', 'trace', 'query']
+
 export type TypeSpecBundleCheckArgs = {
   project?: string
   manifest?: string
@@ -508,7 +512,141 @@ function normalizeTypeSpecRestoredOpenApiDocument(document: OasDocument): OasDoc
       }
     }
   }
+  normalizeTypeSpecRestoredPathItems(normalized.paths)
   return normalized
+}
+
+function normalizeTypeSpecRestoredPathItems(paths: unknown): void {
+  if (!isRecord(paths)) return
+  for (const pathItem of Object.values(paths)) {
+    if (!isRecord(pathItem)) continue
+    const operations = readRestoredOperations(pathItem)
+    for (const operation of operations) {
+      normalizeRestoredOperationParameters(operation.operation)
+      normalizeInlineResponseSchemaExamples(operation.operation)
+    }
+    hoistCommonPathParameters(pathItem, operations)
+  }
+}
+
+function readRestoredOperations(
+  pathItem: Record<string, unknown>,
+): Array<{ method: RestoredHttpMethod; operation: Record<string, unknown> }> {
+  const operations: Array<{ method: RestoredHttpMethod; operation: Record<string, unknown> }> = []
+  for (const method of RESTORED_HTTP_METHODS) {
+    const operation = pathItem[method]
+    if (isRecord(operation)) operations.push({ method, operation })
+  }
+  return operations
+}
+
+function normalizeRestoredOperationParameters(operation: Record<string, unknown>): void {
+  const parameters = operation.parameters
+  if (!Array.isArray(parameters)) return
+  for (const parameter of parameters) normalizeRestoredParameter(parameter)
+  if (parameters.length === 0) delete operation.parameters
+}
+
+function normalizeRestoredParameter(parameter: unknown): void {
+  if (!isRecord(parameter)) return
+  if (parameter.in !== 'path' && parameter.required === false) delete parameter.required
+  if (parameter.explode === false && isPrimitiveParameter(parameter)) delete parameter.explode
+}
+
+function isPrimitiveParameter(parameter: Record<string, unknown>): boolean {
+  const schema = parameter.schema
+  if (!isRecord(schema)) return false
+  const type = schema.type
+  return type === 'string' || type === 'number' || type === 'integer' || type === 'boolean'
+}
+
+function hoistCommonPathParameters(
+  pathItem: Record<string, unknown>,
+  operations: Array<{ method: RestoredHttpMethod; operation: Record<string, unknown> }>,
+): void {
+  if (operations.length === 0 || Array.isArray(pathItem.parameters)) return
+  const firstParameters = operations[0]?.operation.parameters
+  if (!Array.isArray(firstParameters)) return
+  const candidates = firstParameters.filter(parameter => isRecord(parameter) && parameter.in === 'path')
+  if (candidates.length === 0) return
+
+  const hoisted: unknown[] = []
+  for (const candidate of candidates) {
+    if (!isRecord(candidate) || typeof candidate.name !== 'string') continue
+    const matches = operations.map(({ operation }) => findMatchingParameter(operation.parameters, candidate))
+    if (matches.some(match => !match)) continue
+    const [firstMatch] = matches
+    if (!firstMatch) continue
+    if (matches.every(match => match && stableJsonValue(match.parameter) === stableJsonValue(firstMatch.parameter))) {
+      hoisted.push(cloneJson(firstMatch.parameter))
+      for (const match of matches) {
+        if (!match || !Array.isArray(match.parameters)) continue
+        match.parameters.splice(match.index, 1)
+      }
+    }
+  }
+
+  if (hoisted.length === 0) return
+  pathItem.parameters = hoisted
+  for (const { operation } of operations) {
+    if (Array.isArray(operation.parameters) && operation.parameters.length === 0) delete operation.parameters
+  }
+}
+
+function findMatchingParameter(
+  parameters: unknown,
+  candidate: Record<string, unknown>,
+): { parameters: unknown[]; index: number; parameter: unknown } | undefined {
+  if (!Array.isArray(parameters)) return undefined
+  const index = parameters.findIndex(parameter => (
+    isRecord(parameter)
+    && parameter.in === candidate.in
+    && parameter.name === candidate.name
+  ))
+  return index >= 0 ? { parameters, index, parameter: parameters[index] } : undefined
+}
+
+function normalizeInlineResponseSchemaExamples(operation: Record<string, unknown>): void {
+  const responses = operation.responses
+  if (!isRecord(responses)) return
+  for (const response of Object.values(responses)) {
+    if (!isRecord(response) || !isRecord(response.content)) continue
+    for (const media of Object.values(response.content)) {
+      if (!isRecord(media) || !isRecord(media.schema) || '$ref' in media.schema || media.schema.example !== undefined) continue
+      const example = readMediaExample(media)
+      if (example !== undefined) media.schema.example = cloneJson(example)
+    }
+  }
+}
+
+function readMediaExample(media: Record<string, unknown>): unknown {
+  if (media.example !== undefined) return media.example
+  const examples = media.examples
+  if (!isRecord(examples)) return undefined
+  const defaultExample = examples.default
+  if (isRecord(defaultExample)) {
+    if (defaultExample.dataValue !== undefined) return defaultExample.dataValue
+    if (defaultExample.value !== undefined) return defaultExample.value
+  }
+  return undefined
+}
+
+function stableJsonValue(value: unknown): string {
+  return JSON.stringify(sortJsonValue(value))
+}
+
+function sortJsonValue(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(sortJsonValue)
+  if (!isRecord(value)) return value
+  return Object.fromEntries(
+    Object.entries(value)
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([key, item]) => [key, sortJsonValue(item)]),
+  )
+}
+
+function cloneJson<T>(value: T): T {
+  return JSON.parse(JSON.stringify(value)) as T
 }
 
 function runProcess(command: string, args: string[], cwd: string): Promise<void> {

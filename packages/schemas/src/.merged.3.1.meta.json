@@ -15,13 +15,13 @@
       "pseudonymize": true
     },
     "/paths/~1admin~1users~1export/post/requestBody/content/application~1json/examples/default/serializedValue": "{\"format\":\"json\",\"pseudonymize\":true}",
-    "/paths/~1admin~1users~1{id}~1purge/post/parameters/0/examples/default/dataValue": "00000000-0000-0000-0000-000000000001",
-    "/paths/~1admin~1users~1{id}~1purge/post/parameters/0/examples/default/serializedValue": "00000000-0000-0000-0000-000000000001",
     "/paths/~1admin~1users~1{id}~1purge/post/requestBody/content/application~1json/examples/default/dataValue": {
       "reason": "confirmed policy violation",
       "legalHoldOverride": false
     },
     "/paths/~1admin~1users~1{id}~1purge/post/requestBody/content/application~1json/examples/default/serializedValue": "{\"reason\":\"confirmed policy violation\",\"legalHoldOverride\":false}",
+    "/paths/~1admin~1users~1{id}~1purge/parameters/0/examples/default/dataValue": "00000000-0000-0000-0000-000000000001",
+    "/paths/~1admin~1users~1{id}~1purge/parameters/0/examples/default/serializedValue": "00000000-0000-0000-0000-000000000001",
     "/paths/~1auth~1forgot-password/post/requestBody/content/application~1json/examples/default/dataValue": {
       "email": "alice@example.com"
     },
@@ -197,8 +197,6 @@
       "password": "secure1234"
     },
     "/paths/~1users/post/requestBody/content/application~1json/examples/default/serializedValue": "{\"email\":\"bob@example.com\",\"name\":\"Bob\",\"password\":\"secure1234\"}",
-    "/paths/~1users~1{id}/get/parameters/0/examples/default/dataValue": "00000000-0000-0000-0000-000000000001",
-    "/paths/~1users~1{id}/get/parameters/0/examples/default/serializedValue": "00000000-0000-0000-0000-000000000001",
     "/paths/~1users~1{id}/get/responses/200/content/application~1json/examples/default/dataValue": {
       "id": "00000000-0000-0000-0000-000000000001",
       "email": "alice@example.com",
@@ -206,10 +204,6 @@
       "role": "user",
       "createdAt": "2024-01-01T00:00:00.000Z"
     },
-    "/paths/~1users~1{id}/delete/parameters/0/examples/default/dataValue": "00000000-0000-0000-0000-000000000001",
-    "/paths/~1users~1{id}/delete/parameters/0/examples/default/serializedValue": "00000000-0000-0000-0000-000000000001",
-    "/paths/~1users~1{id}/patch/parameters/0/examples/default/dataValue": "00000000-0000-0000-0000-000000000001",
-    "/paths/~1users~1{id}/patch/parameters/0/examples/default/serializedValue": "00000000-0000-0000-0000-000000000001",
     "/paths/~1users~1{id}/patch/responses/200/content/application~1json/examples/default/dataValue": {
       "id": "00000000-0000-0000-0000-000000000001",
       "email": "alice@example.com",
@@ -221,14 +215,16 @@
       "name": "Alice Updated"
     },
     "/paths/~1users~1{id}/patch/requestBody/content/application~1json/examples/default/serializedValue": "{\"name\":\"Alice Updated\"}",
-    "/paths/~1users~1{id}~1public/get/parameters/0/examples/default/dataValue": "00000000-0000-0000-0000-000000000001",
-    "/paths/~1users~1{id}~1public/get/parameters/0/examples/default/serializedValue": "00000000-0000-0000-0000-000000000001",
+    "/paths/~1users~1{id}/parameters/0/examples/default/dataValue": "00000000-0000-0000-0000-000000000001",
+    "/paths/~1users~1{id}/parameters/0/examples/default/serializedValue": "00000000-0000-0000-0000-000000000001",
     "/paths/~1users~1{id}~1public/get/responses/200/content/application~1json/examples/default/dataValue": {
       "id": "00000000-0000-0000-0000-000000000001",
       "name": "Alice",
       "role": "user"
     },
     "/paths/~1users~1{id}~1public/get/responses/200/content/application~1json/examples/default/serializedValue": "{\"id\":\"00000000-0000-0000-0000-000000000001\",\"name\":\"Alice\",\"role\":\"user\"}",
+    "/paths/~1users~1{id}~1public/parameters/0/examples/default/dataValue": "00000000-0000-0000-0000-000000000001",
+    "/paths/~1users~1{id}~1public/parameters/0/examples/default/serializedValue": "00000000-0000-0000-0000-000000000001",
     "/paths/~1users~1{id}~1reports/post/responses/201/content/application~1json/examples/default/dataValue": {
       "id": "00000000-0000-0000-0000-000000000300",
       "targetUserId": "00000000-0000-0000-0000-000000000001",

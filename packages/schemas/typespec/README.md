@@ -9,8 +9,8 @@ Current boundary:
 - `packages/schemas/typespec/main.tsp` is the TypeSpec authoring source for the production schema.
 - `packages/schemas/typespec/oa-sdk.typespec-bundle.json` is the bundle manifest and declares `oa-sdk.typespec-extensions.v5`.
 - `packages/schemas/typespec/expected.openapi.yaml` is the reviewed OpenAPI 3.2 reference artifact for diff gates.
-- `packages/schemas/typespec/accepted-restored-drift.json` pins the currently accepted TypeSpec-restored-vs-reference drift by normalized OpenAPI value hash.
-- Current accepted drift is reviewed as 22 hash-pinned entries: path-level operation metadata differences only.
+- `packages/schemas/typespec/accepted-restored-drift.json` pins any accepted TypeSpec-restored-vs-reference drift by normalized OpenAPI value hash.
+- Current accepted drift is reviewed as 0 entries.
 - `packages/schemas/src/.merged.yaml` is generated from this bundle by `pnpm --filter @oa-sdk/schemas run build:typespec`, which is the default `validate`, `build`, `bundle`, and `preview` source path.
 - The OpenAPI/Definition Builder rollback path remains explicit through `pnpm schema:validate:openapi`, `pnpm schema:bundle:openapi`, `pnpm schema:preview:openapi`, and package-level `build:openapi` / `validate:openapi`.
 
@@ -34,7 +34,7 @@ pnpm schema:typespec-check
 
 The schema-level gate runs the bundle check, verifies that `expected.openapi.yaml` is still normalized-diff equivalent to the reviewed reference, and checks that the TypeSpec-restored artifact matches the pinned `accepted-restored-drift.json` manifest. Any new restored-vs-reference drift, missing accepted drift, or changed normalized value hash fails the gate.
 
-The accepted drift should burn down next at the operation/path metadata layer. Reusable parameter/response component identity is restored through `oa-sdk.typespec-extensions.v5`; response wrapper projection schemas and component schema metadata drift have been eliminated through TypeSpec authoring.
+Reusable parameter/response component identity is restored through `oa-sdk.typespec-extensions.v5`; response wrapper projection schemas and component schema metadata drift have been eliminated through TypeSpec authoring, and operation/path metadata drift is eliminated through TypeSpec-restored OpenAPI normalization.
 
 Rollback G11 gate:
 

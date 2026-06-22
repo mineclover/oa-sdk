@@ -354,6 +354,13 @@ describe('authored TypeSpec compatibility bundle', () => {
         responseMediaExamples: 79,
         securitySchemes: 1,
       },
+      reExtractedCompatibilitySidecar: {
+        entries: 102,
+        parameterExamples: 9,
+        requestMediaExamples: 13,
+        responseMediaExamples: 79,
+        securitySchemes: 1,
+      },
       restore: {
         entries: 104,
         applied: 104,
@@ -361,9 +368,9 @@ describe('authored TypeSpec compatibility bundle', () => {
       },
       sidecarStability: {
         expectedEntries: 104,
-        actualEntries: 104,
+        actualEntries: 102,
         expectedSatisfied: 104,
-        actualCovered: 104,
+        actualCovered: 102,
         missingExpected: 0,
         unexpectedActual: 0,
         valueMismatches: 0,
@@ -379,7 +386,7 @@ describe('authored TypeSpec compatibility bundle', () => {
     const restoredDoc = restored as Record<string, any>
     expect(restoredDoc['x-oa-sdk-security-schemes']).toBeUndefined()
     expect(restoredDoc.paths['/users/{id}'].get['x-oa-sdk-operation-examples']).toBeUndefined()
-    expect(restoredDoc.paths['/users/{id}'].get.parameters[0].examples.default).toEqual({
+    expect(restoredDoc.paths['/users/{id}'].parameters[0].examples.default).toEqual({
       dataValue: '00000000-0000-0000-0000-000000000001',
       serializedValue: '00000000-0000-0000-0000-000000000001',
     })

@@ -1,6 +1,6 @@
 # TypeSpec Production Migration Goals
 
-Status: G9-G14 and the production source-path switch are implemented. ADR-009 accepts TypeSpec-first schema authoring, and default schema validation/build/bundle commands now emit production OpenAPI artifacts from the production TypeSpec bundle. G15 tracks the remaining reviewed drift burn-down after the TypeSpec source switch.
+Status: G9-G15 and the production source-path switch are implemented. ADR-009 accepts TypeSpec-first schema authoring, and default schema validation/build/bundle commands now emit production OpenAPI artifacts from the production TypeSpec bundle with no accepted restored-vs-reference drift.
 
 This document extends the completed G1-G8 decision roadmap with production migration goals. It does not reopen the TypeSpec-first decision; it scopes the work required to make the accepted TypeSpec bundle production-authoritative.
 
@@ -44,7 +44,7 @@ The migration must treat those OpenAPI artifacts as generated/verified outputs, 
 | G12 Downstream consumer gates | Prove parser, codegen, router, client, and mock-server behavior against the TypeSpec-derived production OpenAPI. | G10 and G11. | Focused downstream commands run against the TypeSpec-derived artifact, and the feature matrix lists the maintained commands before the migration is considered complete. |
 | G13 Response wrapper projection drift burn-down | Decide and implement the policy for TypeSpec-emitted response body projection schemas versus the old inline response schema shape. | G10-G12 and `oa-sdk.typespec-extensions.v5`. | Implemented: response body projection artifacts were eliminated through inline body authoring and `accepted-restored-drift.json` no longer contains `component/added` entries. |
 | G14 Component schema metadata parity | Burn down component-level schema differences that are not response wrapper projection artifacts. | G13 if it changes component shape; otherwise G10-G12. | Implemented: component-level `example`, property `example`, and `additionalProperties: false` metadata are authored in `.tsp`; `accepted-restored-drift.json` no longer contains component entries. |
-| G15 Operation/path metadata parity | Burn down the remaining operation/path differences after response wrapper and component metadata decisions. | G13 and G14. | The `path/changed` set is eliminated or reduced to explicitly accepted operation/path metadata differences with stable gates and no downstream behavioral drift. |
+| G15 Operation/path metadata parity | Burn down the remaining operation/path differences after response wrapper and component metadata decisions. | G13 and G14. | Implemented: restored OpenAPI normalization removes TypeSpec-only operation/path projection differences, and `accepted-restored-drift.json` contains 0 entries. |
 
 ## Recommended Production Layout
 
@@ -78,7 +78,7 @@ G11 should be a rollback evidence commit. It should make the fallback path expli
 
 G12 should be a downstream verification commit. It should avoid broad unrelated refactors and should focus on the consumers named by ADR-009.
 
-G13-G15 should be independent drift burn-down commits. Each goal must update `packages/schemas/typespec/accepted-restored-drift.json` only after reviewing the normalized reference/restored values for the affected pointers. G13 and G14 are complete; G15 remains.
+G13-G15 should be independent drift burn-down commits. Each goal must update `packages/schemas/typespec/accepted-restored-drift.json` only after reviewing the normalized reference/restored values for the affected pointers. G13, G14, and G15 are complete.
 
 ## Per-Goal Implementation Notes
 
@@ -100,11 +100,11 @@ Status: implemented by `pnpm schema:typespec-check`, `pnpm schema:validate`, `pn
 - The gate must compare `packages/schemas/typespec/expected.openapi.yaml` with the reviewed reference using normalized OpenAPI diff so the TypeSpec bundle cannot drift silently.
 - The gate must also compare the TypeSpec-restored artifact with the reviewed reference and require the exact accepted drift set plus pinned normalized reference/restored value hashes from `packages/schemas/typespec/accepted-restored-drift.json`.
 - The accepted restored drift manifest blocks silent new drift after the source-path switch. It should burn down over time, but remaining drift is allowed only while hash-pinned and reviewed.
-- Current reviewed restored-vs-reference drift is 22 entries: `path/changed=22`.
+- Current reviewed restored-vs-reference drift is 0 entries.
 - Reusable component identity (`parameters`, shared responses, and operation usage refs) is restored through `oa-sdk.typespec-extensions.v5`.
 - Response wrapper projection schemas were eliminated through inline response body authoring.
 - Component schema metadata drift was eliminated through TypeSpec-native examples plus OpenAPI `@extension` metadata for singular examples and `additionalProperties: false`.
-- Remaining drift burn-down target after the source-path switch is operation/path-level metadata differences. Do not refresh the manifest without reviewing the normalized value hashes.
+- Operation/path-level metadata drift was eliminated through TypeSpec-restored OpenAPI normalization.
 - `schema:validate`, `schema:bundle`, `schema:preview`, and package-level `build` now depend on the TypeSpec-derived artifact.
 - Preserve Definition Builder commands as the explicit rollback path until a separate removal decision.
 
@@ -145,15 +145,15 @@ Status: implemented.
 - Models that need both singular `example` and OpenAPI 3.2 `examples` keep `@example(...)` and add `@extension("example", ...)`.
 - Property-level singular examples use `@extension("example", ...)` to avoid emitting an extra `examples` array.
 - `AdminUsersExportRequest` and `PurgeUserRequest` author `additionalProperties: false` through `@extension("additionalProperties", false)`.
-- The resulting accepted drift is 22 entries: `path/changed=22`.
+- The resulting accepted drift after G14 was 22 entries: `path/changed=22`.
 
 ### G15 - Operation/Path Metadata Parity
 
-Status: planned.
+Status: implemented.
 
-- Current reviewed drift includes 22 `path/changed` entries.
-- After G14, inspect only the remaining path entries and classify them by cause: parameter defaults such as explicit `required: false` / `explode: false`, operation object ordering-neutral normalization, or real metadata loss.
-- Any operation/path metadata that affects parser, codegen, mock-server, router, or client behavior must be restored or covered by downstream tests before its hash can remain accepted.
+- The 22 previous `path/changed` entries were classified as TypeSpec emitter projection differences: empty operation `parameters: []`, operation-level path parameters that are equivalent to path-level parameters, primitive query parameter `required: false` / `explode: false`, and inline response schema examples already present as media examples.
+- `normalizeTypeSpecRestoredOpenApiDocument()` removes empty operation parameter arrays, hoists common path parameters to the path item, removes non-semantic primitive query defaults, and copies media examples to inline response schema examples.
+- The resulting accepted drift is 0 entries.
 
 ## Gate Commands
 

@@ -61,4 +61,4 @@ The final restored OpenAPI must contain the restored OpenAPI-native `components.
 
 ## Production Evidence
 
-The production TypeSpec bundle declares v5 and restores root info metadata, richer bearer component metadata, request/response examples, explicit public operation security, and reusable parameter/response component identity. The schema gate reports 193 extension-derived semantic entries and keeps the reviewed restored-vs-reference drift at 22 hash-pinned path entries.
+The production TypeSpec bundle declares v5 and restores root info metadata, richer bearer component metadata, request/response examples, explicit public operation security, and reusable parameter/response component identity. The schema gate reports 193 extension-derived semantic entries and keeps reviewed restored-vs-reference drift at 0 entries.

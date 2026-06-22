@@ -24,7 +24,6 @@ paths:
         data-eng ETL surface. 사용자 PII bulk export를 비동기 job으로 등록하고
         ExportJob을 반환합니다. non-admin perspective로 소비되는 export는
         pseudonymization이 필수이며 기본값도 pseudonymize=true입니다. 호출은 audited.
-      parameters: []
       responses:
         "202":
           description: bulk export job 등록 완료
@@ -67,17 +66,6 @@ paths:
         site-admin authority only. deleteUser와 달리 30일 soft-delete window를
         우회하는 hard purge입니다. legal hold override 여부와 사유를 감사 로그에
         남기며 호출은 audited.
-      parameters:
-        - name: id
-          in: path
-          required: true
-          description: 영구 삭제 대상 사용자 UUID
-          schema:
-            type: string
-            format: uuid
-          examples:
-            default:
-              value: 00000000-0000-0000-0000-000000000001
       responses:
         "204":
           description: 영구 삭제 완료 (본문 없음)
@@ -104,6 +92,17 @@ paths:
                   legalHoldOverride: false
       security:
         - bearerAuth: []
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: 영구 삭제 대상 사용자 UUID
+        schema:
+          type: string
+          format: uuid
+        examples:
+          default:
+            value: 00000000-0000-0000-0000-000000000001
   /auth/forgot-password:
     post:
       operationId: forgotPassword
@@ -111,7 +110,6 @@ paths:
       description: |
         이메일로 reset 토큰 링크를 발송합니다. 이메일이 시스템에 없어도 동일한 204를
         반환 (enumeration 방지). 인증 불필요.
-      parameters: []
       responses:
         "204":
           description: 토큰 발송 처리 완료 (본문 없음)
@@ -139,7 +137,6 @@ paths:
       operationId: login
       summary: 로그인 (공개)
       description: 이메일과 비밀번호를 검증하고 access/refresh 토큰 페어를 발급합니다. 인증 불필요.
-      parameters: []
       responses:
         "200":
           description: 로그인 성공
@@ -188,7 +185,6 @@ paths:
       operationId: logout
       summary: 로그아웃
       description: 현재 access 토큰과 연결된 세션을 종료합니다. 응답 본문 없음.
-      parameters: []
       responses:
         "204":
           description: 로그아웃 완료 (본문 없음)
@@ -203,7 +199,6 @@ paths:
       operationId: refreshToken
       summary: 토큰 갱신 (공개)
       description: 유효한 refresh 토큰으로 새 access 토큰 페어를 발급합니다. access 토큰 인증 불필요.
-      parameters: []
       responses:
         "200":
           description: 갱신된 토큰 페어
@@ -240,7 +235,6 @@ paths:
       operationId: register
       summary: 회원가입 (공개)
       description: 이메일·이름·비밀번호로 신규 사용자 계정을 만들고 토큰 페어를 반환합니다. 인증 불필요.
-      parameters: []
       responses:
         "201":
           description: 회원가입 + 토큰 발급
@@ -290,7 +284,6 @@ paths:
       operationId: resetPassword
       summary: 비밀번호 재설정 (공개)
       description: forgot-password로 발급받은 reset 토큰과 새 비밀번호로 갱신.
-      parameters: []
       responses:
         "204":
           description: 비밀번호 갱신 완료 (본문 없음)
@@ -319,7 +312,6 @@ paths:
       operationId: getHealth
       summary: 서버 상태 확인
       description: 서버가 정상 동작 중인지 확인하는 헬스체크 엔드포인트
-      parameters: []
       responses:
         "200":
           description: 서버 정상
@@ -346,7 +338,6 @@ paths:
         Kubernetes readiness probe / 배포 게이트용. 의존 시스템(DB, queue 등)
         검증 결과를 포함. `getHealth`(liveness)와 별개 — liveness는 프로세스
         살아있음만, readiness는 트래픽을 받을 준비가 됐는지 확인.
-      parameters: []
       responses:
         "200":
           description: 트래픽 수용 가능
@@ -376,7 +367,6 @@ paths:
       operationId: streamHealthEvents
       summary: 서버 상태 실시간 스트림
       description: SSE로 서버 상태 변화를 실시간으로 구독
-      parameters: []
       responses:
         "200":
           description: SSE 이벤트 스트림
@@ -390,7 +380,6 @@ paths:
       operationId: getMe
       summary: 내 정보 조회
       description: 현재 access 토큰으로 식별되는 사용자의 정보를 반환합니다.
-      parameters: []
       responses:
         "200":
           description: 내 사용자 정보
@@ -418,7 +407,6 @@ paths:
       description: |
         본인 계정 비활성화. PIPA/GDPR right-to-erasure 대응. 30일 이내 복구 가능,
         이후 영구 파기. 응답 본문 없음.
-      parameters: []
       responses:
         "204":
           description: 탈퇴 처리 완료 (본문 없음)
@@ -434,7 +422,6 @@ paths:
       description: |
         현재 사용자의 name 등 프로필을 수정합니다. role은 셀프 변경 불가 — admin이
         /users/{id} 를 통해서만 변경할 수 있습니다.
-      parameters: []
       responses:
         "200":
           description: 수정된 내 사용자 정보
@@ -469,7 +456,6 @@ paths:
       description: |
         현재 비밀번호 검증 후 새 비밀번호로 교체합니다. 성공 시 기존 refresh 토큰은
         무효화될 수 있으므로 클라이언트는 재로그인 또는 refresh 흐름을 다시 시작해야 합니다.
-      parameters: []
       responses:
         "204":
           description: 비밀번호 변경 완료 (본문 없음)
@@ -501,7 +487,6 @@ paths:
       description: |
         GDPR 정보주체 이동권 대응. 비동기 job 생성 후 jobId 반환. 완료 시 별도
         알림 또는 polling으로 다운로드 URL 획득. 동시 진행 1건 제한.
-      parameters: []
       responses:
         "202":
           description: export job 등록 완료
@@ -538,7 +523,6 @@ paths:
       operationId: getOnboardingChecklist
       summary: 온보딩 체크리스트 조회
       description: 첫 로그인 시 표시할 가이드 체크리스트. 진행률은 user state에 따름.
-      parameters: []
       responses:
         "200":
           description: 체크리스트
@@ -590,6 +574,15 @@ paths:
                 required:
                   - items
                   - total
+                example:
+                  items:
+                    - id: 00000000-0000-0000-0000-000000000100
+                      changedAt: 2026-04-01T00:00:00.000Z
+                      previousRole: user
+                      newRole: admin
+                      changedBy: 00000000-0000-0000-0000-000000000099
+                      reason: 권한 위임
+                  total: 1
               examples:
                 default:
                   value:
@@ -619,7 +612,6 @@ paths:
         - $ref: "#/components/parameters/Limit"
         - name: status
           in: query
-          required: false
           description: 신고 상태 필터
           schema:
             type: string
@@ -628,7 +620,6 @@ paths:
               - under-review
               - resolved
               - dismissed
-          explode: false
       responses:
         "200":
           description: 신고 큐
@@ -647,6 +638,15 @@ paths:
                 required:
                   - items
                   - total
+                example:
+                  items:
+                    - id: 00000000-0000-0000-0000-000000000300
+                      targetUserId: 00000000-0000-0000-0000-000000000001
+                      reporterUserId: 00000000-0000-0000-0000-000000000002
+                      reason: harassment
+                      status: open
+                      createdAt: 2026-05-04T00:00:00.000Z
+                  total: 1
               examples:
                 default:
                   value:
@@ -676,7 +676,6 @@ paths:
         - $ref: "#/components/parameters/Limit"
         - name: role
           in: query
-          required: false
           description: 역할 필터
           schema:
             type: string
@@ -684,7 +683,6 @@ paths:
               - admin
               - user
               - guest
-          explode: false
       responses:
         "200":
           description: 사용자 목록
@@ -703,6 +701,14 @@ paths:
                 required:
                   - items
                   - total
+                example:
+                  items:
+                    - id: 00000000-0000-0000-0000-000000000001
+                      email: alice@example.com
+                      name: Alice
+                      role: user
+                      createdAt: 2024-01-01T00:00:00.000Z
+                  total: 1
               examples:
                 default:
                   value:
@@ -723,7 +729,6 @@ paths:
       operationId: createUser
       summary: 사용자 생성
       description: 이메일, 이름, 비밀번호를 받아 새 사용자를 생성합니다
-      parameters: []
       responses:
         "201":
           description: 사용자 생성 완료
@@ -768,17 +773,6 @@ paths:
       operationId: getUserById
       summary: 사용자 단건 조회
       description: UUID로 특정 사용자의 상세 정보를 조회합니다
-      parameters:
-        - name: id
-          in: path
-          required: true
-          description: 사용자 UUID
-          schema:
-            type: string
-            format: uuid
-          examples:
-            default:
-              value: 00000000-0000-0000-0000-000000000001
       responses:
         "200":
           description: 사용자 정보
@@ -806,17 +800,6 @@ paths:
       operationId: deleteUser
       summary: 사용자 삭제
       description: UUID로 특정 사용자를 삭제합니다. 복구 불가.
-      parameters:
-        - name: id
-          in: path
-          required: true
-          description: 사용자 UUID
-          schema:
-            type: string
-            format: uuid
-          examples:
-            default:
-              value: 00000000-0000-0000-0000-000000000001
       responses:
         "204":
           description: 삭제 완료 (본문 없음)
@@ -832,17 +815,6 @@ paths:
       operationId: updateUser
       summary: 사용자 수정 (부분 업데이트)
       description: 이름, 역할 등 사용자 정보를 부분적으로 수정합니다
-      parameters:
-        - name: id
-          in: path
-          required: true
-          description: 사용자 UUID
-          schema:
-            type: string
-            format: uuid
-          examples:
-            default:
-              value: 00000000-0000-0000-0000-000000000001
       responses:
         "200":
           description: 수정된 사용자 정보
@@ -882,6 +854,17 @@ paths:
                   name: Alice Updated
       security:
         - bearerAuth: []
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: 사용자 UUID
+        schema:
+          type: string
+          format: uuid
+        examples:
+          default:
+            value: 00000000-0000-0000-0000-000000000001
   /users/{id}/public:
     get:
       operationId: getPublicUserProfile
@@ -889,17 +872,6 @@ paths:
       description: |
         다른 user의 공개 가시 정보(이름, 역할). email/createdAt 등 PII 미포함.
         멘션·검색 결과 등에서 사용. user/scoped:read 이상 필요.
-      parameters:
-        - name: id
-          in: path
-          required: true
-          description: 사용자 UUID
-          schema:
-            type: string
-            format: uuid
-          examples:
-            default:
-              value: 00000000-0000-0000-0000-000000000001
       responses:
         "200":
           description: 공개 프로필
@@ -921,6 +893,17 @@ paths:
         - users
       security:
         - bearerAuth: []
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: 사용자 UUID
+        schema:
+          type: string
+          format: uuid
+        examples:
+          default:
+            value: 00000000-0000-0000-0000-000000000001
   /users/{id}/reports:
     post:
       operationId: reportUser
@@ -928,14 +911,6 @@ paths:
       description: |
         혐오·스팸·사기 등 정책 위반 사용자를 운영자에게 신고. 신고자는 인증된
         user. 동일 신고자→대상 페어는 24시간 내 1회로 rate-limit.
-      parameters:
-        - name: id
-          in: path
-          required: true
-          description: 신고 대상 사용자 UUID
-          schema:
-            type: string
-            format: uuid
       responses:
         "201":
           description: 신고 접수 완료
@@ -975,12 +950,19 @@ paths:
                   details: 공격적 메시지 반복 발신
       security:
         - bearerAuth: []
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: 신고 대상 사용자 UUID
+        schema:
+          type: string
+          format: uuid
   /version:
     get:
       operationId: getVersion
       summary: 빌드/배포 정보 조회
       description: 현재 실행 중인 빌드의 git sha, 빌드 시각, 배포 버전.
-      parameters: []
       responses:
         "200":
           description: 빌드 정보
