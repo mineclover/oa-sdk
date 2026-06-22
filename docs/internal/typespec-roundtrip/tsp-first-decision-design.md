@@ -1,6 +1,6 @@
 # TypeSpec-First Decision Design
 
-Status: decision prep, not an ADR. G1 through G6 are implementation-backed.
+Status: decision prep, not an ADR. G1 through G7 are implementation-backed.
 
 This document locks the design direction for the remaining TypeSpec-first work that follows the `oa-sdk.typespec-extensions.v1` sidecar-less spike. It decides the next semantic scope, the authored fixture strategy, and the ADR evidence model without declaring TypeSpec-first yet.
 
@@ -244,6 +244,7 @@ G6 should be treated as tooling/workflow support, not as a schema decision. It m
 - G5 is implemented by `docs/internal/architecture/009-typespec-first-authoring.md` as a conditional accept draft with current command evidence. It does not promote TypeSpec to the default production schema source of truth.
 - G6 is implemented by `packages/codegen/src/cli/lib/typespec-sidecar-to-extensions.ts`, `scripts/typespec-sidecar-to-extensions.ts`, and `docs/internal/typespec-roundtrip/sidecar-to-extension-migration.md`. The workflow converts supported parameter, request media, response media, and security scheme entries into TypeSpec extension snippets and leaves unsupported entries in a residual sidecar with reasons.
 - Applied to the current canonical generated sidecar, G6 converts 99/102 entries into `oa-sdk.typespec-extensions.v2` snippets and leaves 3 path-level parameter example entries in the residual sidecar.
+- G7 is implemented by `docs/internal/typespec-roundtrip/fixtures/authored-canonical-bundle/`. The sidecar-less v2 bundle expands the 3 path-level parameter examples into 5 operation-level extension entries, restores 104/104 targets, and passes `pnpm typespec:bundle-check -- --manifest docs/internal/typespec-roundtrip/fixtures/authored-canonical-bundle/oa-sdk.typespec-bundle.json --fail-on-breaking`.
 
 ### Goal Gate Commands
 
@@ -268,5 +269,4 @@ Additional commands by goal:
 
 ## Next Work Order
 
-1. Run G7 before promoting the ADR beyond conditional accept.
-2. Run G8 to promote, revise, or reject the ADR based on full fixture evidence.
+1. Run G8 to promote, revise, or reject the ADR based on full fixture evidence.

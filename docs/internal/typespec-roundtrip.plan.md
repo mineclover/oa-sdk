@@ -31,6 +31,7 @@ Implemented source:
 - `docs/internal/typespec-roundtrip/fixtures/authored-bundle/` — minimal authored bundle fixture proving the two-track input shape with `oa-sdk.typespec-bundle.v1`.
 - `docs/internal/typespec-roundtrip/fixtures/authored-extension-bundle/` — minimal sidecar-less authored bundle fixture proving OA SDK semantics can live in `.tsp` through TypeSpec OpenAPI extensions.
 - `docs/internal/typespec-roundtrip/fixtures/authored-representative-bundle/` — representative sidecar-less authored bundle fixture covering canonical users operations, pagination, request bodies, shared errors, union/composed schema shape, security requirements, and restored OA SDK extension metadata.
+- `docs/internal/typespec-roundtrip/fixtures/authored-canonical-bundle/` — full canonical sidecar-less authored bundle fixture scaffolded from the canonical export and backed by `oa-sdk.typespec-extensions.v2`.
 - `packages/codegen/src/__tests__/tsp-export.test.ts` — focused exporter coverage.
 - `packages/codegen/src/__tests__/typespec-sidecar.test.ts` — compatibility sidecar creation/restore coverage.
 - `packages/codegen/src/__tests__/typespec-sidecar-to-extensions.test.ts` — sidecar-to-extension migration coverage.
@@ -76,6 +77,7 @@ pnpm typespec:bundle-check
 pnpm typespec:bundle-check -- --manifest docs/internal/typespec-roundtrip/fixtures/authored-bundle/oa-sdk.typespec-bundle.json
 pnpm typespec:bundle-check -- --manifest docs/internal/typespec-roundtrip/fixtures/authored-extension-bundle/oa-sdk.typespec-bundle.json --fail-on-breaking
 pnpm typespec:bundle-check -- --manifest docs/internal/typespec-roundtrip/fixtures/authored-representative-bundle/oa-sdk.typespec-bundle.json --fail-on-breaking
+pnpm typespec:bundle-check -- --manifest docs/internal/typespec-roundtrip/fixtures/authored-canonical-bundle/oa-sdk.typespec-bundle.json --fail-on-breaking
 pnpm typespec:bundle-check -- --manifest artifacts/oa-sdk.typespec-bundle.json --fail-on-breaking --report artifacts/typespec-generated-bundle-check-report.json
 pnpm typespec:bundle-check -- --fail-on-breaking --report artifacts/typespec-bundle-check-report.json
 pnpm typespec:sidecar-to-extensions -- --sidecar artifacts/typespec-sidecar.json --output artifacts/typespec-extension-snippets.tsp --remaining-sidecar artifacts/typespec-sidecar.remaining.json --report artifacts/typespec-sidecar-to-extensions-report.json
@@ -118,6 +120,8 @@ Current probe on `packages/schemas/src/.merged.yaml`:
 | Authored representative restored diff | 0 breaking changes across 0 modified operations |
 | Authored request body extension bundle check | pass, `.tsp` `oa-sdk.typespec-extensions.v2` metadata yields 1 operation, 1 request media example entry, 1 applied target, 0 missing targets |
 | Authored request body extension restored diff | 0 breaking changes across 0 modified operations |
+| Authored canonical bundle check | pass, sidecar-less `.tsp` `oa-sdk.typespec-extensions.v2` metadata yields 27 operations, 104 sidecar-equivalent entries, 104 applied targets, 0 missing targets |
+| Authored canonical restored diff | 0 breaking changes across 0 modified operations |
 | Authoring ownership guide | pass, contract facts are mapped to TypeSpec-native syntax, OA SDK TypeSpec extensions, compatibility sidecars, or runtime data / adapter policy |
 | Conditional TypeSpec-first ADR draft | pass, `docs/internal/architecture/009-typespec-first-authoring.md` records conditional accept scope, evidence, guardrails, promotion path, and rollback rules |
 | Sidecar-to-extension migration workflow | pass, `pnpm typespec:sidecar-to-extensions` writes TypeSpec snippets, a residual sidecar, and a report without converting unsupported metadata into comments; current canonical sidecar conversion yields 99 converted entries and 3 residual path-level parameter examples |
@@ -154,6 +158,7 @@ Current endpoint diff:
 - The conditional ADR draft proves G5 by accepting TypeSpec as a first-class authoring surface only for selected bundles that pass manifest, ownership, restore, validation, expected diff, and re-extraction stability gates. The production canonical schema remains OpenAPI until G7/G8.
 - The sidecar-to-extension migration tool proves G6 by generating TypeSpec `@extension(...)` snippets for supported parameter, request, response, and security scheme entries while leaving path-level or otherwise unsupported metadata explicitly sidecar-owned.
 - For the current canonical generated sidecar, the migration tool converts 99/102 entries to extension snippets and leaves 3 path-level parameter examples in the residual sidecar.
+- The authored canonical bundle fixture proves G7 by expanding the 3 residual path-level parameter examples into 5 operation-level extension entries, producing a sidecar-less v2 bundle with 104 restored entries and stable re-extraction.
 
 ## Intersection
 
@@ -196,6 +201,7 @@ Declare TSP-first only when:
 - Authored `.tsp + sidecar` fixtures are declared through `oa-sdk.typespec-bundle.v1`, pass `oa-gen tsp-bundle-check --fail-on-breaking` and the `pnpm typespec:bundle-check -- --fail-on-breaking` wrapper, and cover every sidecar entry kind that is accepted by policy.
 - Authored sidecar-less `.tsp` fixtures are declared through `oa-sdk.typespec-bundle.v1`, pass the same bundle check using `compatibility.oaSdkExtensionSchemaVersion`, conform to [`oa-sdk.typespec-extensions.v1`](./typespec-roundtrip/oa-sdk-typespec-extensions.v1.md), and cover every previously sidecar-owned entry kind through `.tsp` extension metadata.
 - Authored representative `.tsp` fixtures are selected from canonical operations/components, document their source selection, pass the same sidecar-less bundle check, and cover the semantic families required before a conditional TypeSpec-first ADR draft.
+- The authored canonical `.tsp` fixture is scaffolded from the canonical export, runs without the original OpenAPI artifact, passes `tsp-bundle-check --fail-on-breaking`, and has stable extension re-extraction.
 - Generated `.tsp + sidecar` bundles can be re-read through the same manifest contract without relying on the original OpenAPI artifact.
 - Generated bundles can include a bundle-local expected OpenAPI artifact so the same manifest contract can prove restored diff stability, not only compile/restore validity.
 - Sidecar restore and re-extraction stability gates pass with no missing expected entries, unexpected actual entries, or value mismatches.

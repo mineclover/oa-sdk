@@ -10,6 +10,8 @@ The current authoring source-of-truth boundary is summarized in [`authoring-owne
 
 The current sidecar-to-extension migration workflow is documented in [`sidecar-to-extension-migration.md`](./sidecar-to-extension-migration.md).
 
+The current full canonical authored fixture is [`fixtures/authored-canonical-bundle/`](./fixtures/authored-canonical-bundle/).
+
 The remaining TypeSpec-first decision design is tracked in [`tsp-first-decision-design.md`](./tsp-first-decision-design.md).
 
 ## Versions

@@ -410,4 +410,5 @@ The version is ready when:
 - Authored `.tsp + sidecar` fixtures are declared through `oa-sdk.typespec-bundle.v1` and pass the bundle check with every currently accepted sidecar entry kind represented.
 - Authored sidecar-less `.tsp` fixtures are declared through `oa-sdk.typespec-bundle.v1`, conform to `oa-sdk.typespec-extensions.v1`, and pass the bundle check with every currently accepted sidecar entry kind represented through TypeSpec extension metadata.
 - Sidecar-to-extension migration can convert supported sidecar entries into checked TypeSpec extension snippets and leaves unsupported metadata explicitly sidecar-owned.
+- The full canonical authored `.tsp` fixture is declared through `oa-sdk.typespec-bundle.v1`, conforms to `oa-sdk.typespec-extensions.v2`, and passes bundle check with 104 restored extension entries and no breaking diff.
 - Sidecar restore is semantically stable after re-extraction from restored OpenAPI, with no missing expected entries, unexpected actual entries, or value mismatches.

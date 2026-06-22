@@ -18,6 +18,7 @@ const fixtureDir = resolve(rootDir, 'docs/internal/typespec-roundtrip/fixtures/a
 const extensionFixtureDir = resolve(rootDir, 'docs/internal/typespec-roundtrip/fixtures/authored-extension-bundle')
 const representativeFixtureDir = resolve(rootDir, 'docs/internal/typespec-roundtrip/fixtures/authored-representative-bundle')
 const requestBodyExtensionFixtureDir = resolve(rootDir, 'docs/internal/typespec-roundtrip/fixtures/authored-request-body-extension-bundle')
+const canonicalFixtureDir = resolve(rootDir, 'docs/internal/typespec-roundtrip/fixtures/authored-canonical-bundle')
 const tmpBase = resolve(pkgDir, '.tmp-typespec-authored-bundle-test')
 
 let tmpDir: string
@@ -292,6 +293,77 @@ describe('authored TypeSpec compatibility bundle', () => {
         },
         serializedValue: '{"email":"bob@example.com","name":"Bob"}',
       },
+    })
+  })
+
+  it('checks the sidecar-less canonical authored .tsp bundle', () => {
+    const reportPath = join(tmpDir, 'canonical-bundle-report.json')
+    const restoredPath = join(tmpDir, 'canonical-restored.yaml')
+    const check = spawnSync('pnpm', [
+      'typespec:bundle-check',
+      '--',
+      '--manifest',
+      join(canonicalFixtureDir, 'oa-sdk.typespec-bundle.json'),
+      '--fail-on-breaking',
+      '--report',
+      reportPath,
+      '--output',
+      restoredPath,
+    ], {
+      cwd: rootDir,
+      encoding: 'utf8',
+    })
+    expect(check.status, `${check.stdout}\n${check.stderr}`).toBe(0)
+
+    const report = JSON.parse(readFileSync(reportPath, 'utf8')) as Record<string, any>
+    expect(report.bundle).toEqual({
+      source: 'manifest',
+      compatibilitySource: 'typespec-extensions',
+      schemaVersion: 'oa-sdk.typespec-bundle.v1',
+      compatibility: {
+        openapiVersion: '3.2.0',
+        oaSdkExtensionSchemaVersion: 'oa-sdk.typespec-extensions.v2',
+      },
+    })
+    expect(report.counts).toMatchObject({
+      emittedOperations: 27,
+      restoredOperations: 27,
+      expectedOperations: 27,
+      compatibilitySidecar: {
+        entries: 104,
+        parameterExamples: 11,
+        requestMediaExamples: 13,
+        responseMediaExamples: 79,
+        securitySchemes: 1,
+      },
+      restore: {
+        entries: 104,
+        applied: 104,
+        missingTargets: 0,
+      },
+      sidecarStability: {
+        expectedEntries: 104,
+        actualEntries: 104,
+        expectedSatisfied: 104,
+        actualCovered: 104,
+        missingExpected: 0,
+        unexpectedActual: 0,
+        valueMismatches: 0,
+      },
+    })
+    expect(report.gates).toEqual({
+      compatibilitySidecar: 'pass',
+      restoredValidation: 'pass',
+      expectedDiff: 'pass',
+    })
+
+    const { document: restored } = loadSpecWithPath(restoredPath)
+    const restoredDoc = restored as Record<string, any>
+    expect(restoredDoc['x-oa-sdk-security-schemes']).toBeUndefined()
+    expect(restoredDoc.paths['/users/{id}'].get['x-oa-sdk-operation-examples']).toBeUndefined()
+    expect(restoredDoc.paths['/users/{id}'].get.parameters[0].examples.default).toEqual({
+      dataValue: '00000000-0000-0000-0000-000000000001',
+      serializedValue: '00000000-0000-0000-0000-000000000001',
     })
   })
 

@@ -18,7 +18,7 @@ The evaluation has now completed these prerequisite slices:
 - `oa-sdk.typespec-extensions.v2` for request body media examples.
 - A maintainer authoring ownership guide that maps contract facts to TypeSpec-native syntax, OA SDK TypeSpec extensions, compatibility sidecars, or runtime data / adapter policy.
 
-The remaining gap is scale, not the small-slice mechanics: the full canonical authored bundle does not yet exist, and sidecar-to-extension migration now has an implementation-backed workflow that still needs to be applied to the canonical fixture.
+The remaining gap is the final architecture decision, not the small-slice mechanics: the full canonical authored bundle exists as a sidecar-less v2 fixture, and sidecar-to-extension migration has been applied to the canonical sidecar semantics.
 
 ## Decision
 
@@ -52,6 +52,7 @@ Current evidence was collected on 2026-06-22.
 | `pnpm --filter @oa-sdk/client test` | pass; `3` test files and `39` tests. |
 | `pnpm --filter @oa-sdk/mock-server test` | pass; `34` test files and `583` tests. |
 | `pnpm typespec:sidecar-to-extensions -- --sidecar <canonical-generated-sidecar> --output /tmp/oa-sdk-g6-canonical/snippets.tsp --remaining-sidecar /tmp/oa-sdk-g6-canonical/remaining.json --report /tmp/oa-sdk-g6-canonical/migration-report.json` | pass; current canonical sidecar `102` entries; `99` converted to `oa-sdk.typespec-extensions.v2` snippets; `3` path-level parameter examples remain sidecar-owned. |
+| `pnpm typespec:bundle-check -- --manifest docs/internal/typespec-roundtrip/fixtures/authored-canonical-bundle/oa-sdk.typespec-bundle.json --fail-on-breaking --report /tmp/oa-sdk-g7-authored-canonical-report.json` | pass; sidecar-less v2 canonical fixture; `27` operations; `104` sidecar-equivalent entries; restore `104` applied and `0` missing; stability `104/104`; breaking diff `0`. |
 
 Governance documentation gates must remain green for this ADR:
 
@@ -77,7 +78,7 @@ G6 provides a sidecar-to-extension migration tool and documented workflow:
 - Leaves unsupported metadata explicitly sidecar-owned.
 - Refuses silent conversion to comments or unchecked extension payloads.
 
-G7 must add `docs/internal/typespec-roundtrip/fixtures/authored-canonical-bundle/` and prove:
+G7 adds `docs/internal/typespec-roundtrip/fixtures/authored-canonical-bundle/` and proves:
 
 - The operation set matches the canonical OA SDK OpenAPI artifact.
 - Restored OpenAPI has no breaking diff against bundle-local expected OpenAPI.
