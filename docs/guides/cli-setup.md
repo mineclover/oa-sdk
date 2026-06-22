@@ -94,7 +94,8 @@ bash apps/fastapi-ref/scripts/openapi-governance.sh all
 | `pnpm check:cli-spec` | `oa-gen` / `oa-contract` governance manifest와 `docs/cli-spec/*.json` 정합성 (현재 22 entities) |
 | `pnpm check:api-index` | 패키지 export ↔ `docs/internal/api-index.md` drift |
 | `pnpm check:feature-tests` | `docs/internal/feature-test-matrix.{md,json}` 항목 ↔ 실제 테스트 경로 (현재 23 features / 88 paths) |
-| `pnpm schema:validate` | Definition Builder로 `.merged.yaml` 생성 후 downgrade-3.1 / spectral / redocly / strict OpenAPI 3.2 validate 실행 |
+| `pnpm schema:validate` | TypeSpec production bundle로 `.merged.yaml` 생성 후 downgrade-3.1 / spectral / redocly / strict OpenAPI 3.2 validate 실행 |
+| `pnpm schema:validate:openapi` | OpenAPI/Definition Builder rollback path로 `.merged.yaml` 생성 후 동일 검증 실행 |
 
 `check:api-index`는 `pnpm build:scripts` 산출물에 의존하므로 처음에는 빌드 후 실행한다.
 
@@ -105,9 +106,17 @@ pnpm schema:validate
 ```
 
 내부적으로 세 단계를 순차 실행:
-1. `oa-gen build-spec` — target config + fragments → `src/.merged.yaml`
-2. `spectral lint .merged.yaml` — 스타일 가이드 검사
-3. `redocly lint .merged.yaml` — $ref 유효성 + 스펙 준수 검사
+1. `schema:typespec-check` — TypeSpec compile + OA SDK extension restore + expected/reference drift gate → `src/.merged.yaml`
+2. `downgrade:3.1` — OpenAPI 3.2 artifact에서 Redocly-compatible 3.1 artifact 생성
+3. `spectral lint .merged.yaml` — 스타일 가이드 검사
+4. `redocly lint .merged.3.1.yaml` — $ref 유효성 + 스펙 준수 검사
+5. `oa-gen validate --require-32` — OA SDK OpenAPI 3.2 strict validation
+
+OpenAPI/Definition Builder fallback을 검증하려면 다음 명령을 사용한다:
+
+```bash
+pnpm schema:validate:openapi
+```
 
 ### 스키마 번들링
 
@@ -115,10 +124,12 @@ pnpm schema:validate
 pnpm schema:bundle
 ```
 
-Definition Builder가 `packages/schemas/src/targets/local-parity-api.yaml`와
-`packages/schemas/src/fragments/`를 조합한 뒤 3.1 downgrade artifact를 번들:
+TypeSpec production bundle이 `packages/schemas/src/.merged.yaml`를 생성한 뒤
+3.1 downgrade artifact를 번들:
 - `packages/schemas/dist/openapi.yaml`
 - `packages/schemas/dist/openapi.json`
+
+OpenAPI/Definition Builder fallback bundle은 `pnpm schema:bundle:openapi`으로 생성한다.
 
 ### 문서 미리보기
 
@@ -136,10 +147,10 @@ pnpm mock:start
 
 기본 포트: `4010`
 
-## 환경 프로필
+## Definition Builder fallback 환경 프로필
 
 ```bash
-pnpm --filter @oa-sdk/schemas run build:merged            # local (기본)
+pnpm --filter @oa-sdk/schemas run build:merged            # local fallback/reference
 pnpm --filter @oa-sdk/schemas run build:merged:staging    # staging
 pnpm --filter @oa-sdk/schemas run build:merged:production # production
 ```

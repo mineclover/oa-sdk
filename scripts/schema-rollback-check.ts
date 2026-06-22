@@ -12,7 +12,7 @@ const steps: Array<{ label: string; args: string[] }> = [
   },
   {
     label: 'OpenAPI/Definition Builder rollback gate',
-    args: ['schema:validate'],
+    args: ['schema:validate:openapi'],
   },
 ]
 

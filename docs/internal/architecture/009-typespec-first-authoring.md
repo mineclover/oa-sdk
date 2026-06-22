@@ -2,13 +2,13 @@
 
 ## Status
 
-Accepted, dated 2026-06-22.
+Accepted, dated 2026-06-22. Production source-path switch implemented with OpenAPI/Definition Builder rollback retained.
 
-TypeSpec is accepted as the OA SDK schema authoring source of truth for the staged production migration. The current production OpenAPI fragments remain in place until a follow-up migration wires the production build to the accepted TypeSpec source and preserves the rollback path below.
+TypeSpec is accepted as the OA SDK schema authoring source of truth for production schema artifacts. The OpenAPI fragments remain in place as an explicit Definition Builder rollback/reference path through `:openapi` commands.
 
 ## Context
 
-OA SDK currently treats OpenAPI 3.2 as the production schema source of truth. The TypeSpec roundtrip track evaluates whether that can change without losing OA SDK contract semantics such as `dataValue` / `serializedValue` examples, OpenAPI 3.2 validation, mock-server behavior, security metadata, and downstream codegen/router/client compatibility.
+OA SDK previously treated OpenAPI 3.2 fragments as the production schema source of truth. The TypeSpec roundtrip track evaluated whether that could change without losing OA SDK contract semantics such as `dataValue` / `serializedValue` examples, OpenAPI 3.2 validation, mock-server behavior, security metadata, and downstream codegen/router/client compatibility.
 
 The evaluation has now completed these prerequisite slices:
 
@@ -34,7 +34,7 @@ The accepted production migration target is a TypeSpec bundle that satisfies all
 6. Restored OpenAPI contains no restore-only `x-oa-sdk-*` metadata.
 7. Sidecar or extension semantic re-extraction reports no missing expected entries, unexpected actual entries, or value mismatches.
 
-`docs/internal/typespec-roundtrip/fixtures/authored-canonical-bundle/` is the accepted evidence fixture for that target. The production source switch is intentionally staged: this ADR accepts TypeSpec as the authoring SSOT, but the repository must keep the current OpenAPI production path working until the follow-up migration replaces or generates those artifacts from the TypeSpec source.
+`docs/internal/typespec-roundtrip/fixtures/authored-canonical-bundle/` is the accepted evidence fixture for that target. `packages/schemas/typespec/` is the production source bundle. Default `schema:validate`, `schema:bundle`, schema package `build`, and preview commands generate artifacts from that TypeSpec bundle, while `schema:validate:openapi`, `schema:bundle:openapi`, `schema:preview:openapi`, and package-level `build:openapi` preserve the OpenAPI/Definition Builder rollback path.
 
 ## Evidence
 
@@ -63,7 +63,7 @@ Governance documentation gates must remain green for this ADR:
 
 ## Guardrails
 
-- Do not remove the current OpenAPI production path until the TypeSpec production migration has equivalent build, validation, and rollback gates.
+- Do not remove the OpenAPI/Definition Builder rollback path without a separate deprecation/removal decision.
 - Do not use unvalidated TypeSpec comments to carry runtime-only OA SDK semantics.
 - Do not silently add restore-bearing fields to `oa-sdk.typespec-extensions.v1`; new restored OpenAPI output requires a new extension schema version.
 - Do not hide referenced unsupported auth requirements as metadata-only sidecar entries.
@@ -93,13 +93,13 @@ G8 outcome:
 
 ## Rollback
 
-Rollback must remain available during and after the staged migration:
+Rollback must remain available after the source-path switch:
 
 1. Keep or restore the bundle-local `expected.openapi.yaml`.
 2. Move unsupported extension-owned facts back into `oa-sdk.typespec-compat-sidecar.v1`.
 3. Stop treating a TypeSpec bundle as production-authoritative until `tsp-bundle-check --fail-on-breaking` is green again.
-4. Keep or regenerate the production OpenAPI artifact from the last green source while TypeSpec migration failures are being repaired.
-5. Revert the production build wiring to the OpenAPI path if TypeSpec-generated output cannot preserve OA SDK validation, downstream tests, or mock-server behavior.
+4. Regenerate the production OpenAPI artifact from the last green OpenAPI/Definition Builder source with `pnpm schema:validate:openapi` while TypeSpec failures are being repaired.
+5. Revert the default production build wiring to the OpenAPI path only if TypeSpec-generated output cannot preserve OA SDK validation, downstream tests, or mock-server behavior.
 
 ## Related Documents
 

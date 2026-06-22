@@ -12,7 +12,7 @@ pnpm install
 ## 2. 스키마 빌드 + 검증
 
 ```bash
-pnpm --filter @oa-sdk/schemas run build:merged
+pnpm schema:validate
 oa-gen validate --spec packages/schemas/src/.merged.yaml
 ```
 

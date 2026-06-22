@@ -1,27 +1,226 @@
 openapi: 3.1.0
 info:
   title: OA SDK API
-  description: OpenAPI 3.2 기반 API 관리 인프라
   version: 0.1.0
-  license:
-    name: MIT
-    identifier: MIT
-servers:
-  - url: http://localhost:4010
-    description: Mock server (@oa-sdk/mock-server)
-  - url: http://localhost:3000
-    description: Local dev server
+tags:
+  - name: me
+    description: 셀프 서비스 — 현재 인증된 사용자 자기 자원
+  - name: auth
+    description: 인증 — 토큰 발급/갱신/폐기
+  - name: users
+    description: 사용자 관리
+  - name: health
+    description: 서버 상태 확인
 paths:
+  /admin/users/export:
+    post:
+      operationId: requestUsersExport
+      summary: 사용자 PII bulk export 작업 요청
+      description: |
+        data-eng ETL surface. 사용자 PII bulk export를 비동기 job으로 등록하고
+        ExportJob을 반환합니다. non-admin perspective로 소비되는 export는
+        pseudonymization이 필수이며 기본값도 pseudonymize=true입니다. 호출은 audited.
+      parameters: []
+      responses:
+        "202":
+          description: bulk export job 등록 완료
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExportJob"
+              examples:
+                default:
+                  value:
+                    jobId: 00000000-0000-0000-0000-000000000201
+                    status: queued
+                    requestedAt: 2026-05-04T00:00:00.000Z
+        "401":
+          description: 인증 실패 — 토큰 없음 또는 만료
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              examples:
+                default:
+                  value:
+                    code: UNAUTHORIZED
+                    message: 인증이 필요합니다
+        "403":
+          description: 권한 없음 — 접근 거부
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              examples:
+                default:
+                  value:
+                    code: FORBIDDEN
+                    message: 이 리소스에 접근할 권한이 없습니다
+        "429":
+          description: 요청 제한 초과 — Retry-After 헤더로 재시도 가능 시점 안내
+          headers:
+            Retry-After:
+              required: true
+              description: 재시도 가능 시점 (초 단위 정수 또는 HTTP-date)
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              examples:
+                default:
+                  value:
+                    code: RATE_LIMITED
+                    message: 요청 한도를 초과했습니다. 잠시 후 다시 시도해 주세요
+      tags:
+        - users
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminUsersExportRequest"
+            examples:
+              default:
+                value:
+                  format: json
+                  pseudonymize: true
+      security:
+        - bearerAuth: []
+  /admin/users/{id}/purge:
+    post:
+      operationId: purgeUser
+      summary: 사용자 영구 삭제
+      description: |
+        site-admin authority only. deleteUser와 달리 30일 soft-delete window를
+        우회하는 hard purge입니다. legal hold override 여부와 사유를 감사 로그에
+        남기며 호출은 audited.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: 영구 삭제 대상 사용자 UUID
+          schema:
+            type: string
+            format: uuid
+          examples:
+            default:
+              value: 00000000-0000-0000-0000-000000000001
+      responses:
+        "204":
+          description: 영구 삭제 완료 (본문 없음)
+        "400":
+          description: 잘못된 요청 — 요청 형식 또는 파라미터 오류
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              examples:
+                default:
+                  value:
+                    code: BAD_REQUEST
+                    message: 요청 형식이 올바르지 않습니다
+        "401":
+          description: 인증 실패 — 토큰 없음 또는 만료
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              examples:
+                default:
+                  value:
+                    code: UNAUTHORIZED
+                    message: 인증이 필요합니다
+        "403":
+          description: 권한 없음 — 접근 거부
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              examples:
+                default:
+                  value:
+                    code: FORBIDDEN
+                    message: 이 리소스에 접근할 권한이 없습니다
+        "404":
+          description: 리소스를 찾을 수 없음
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              examples:
+                default:
+                  value:
+                    code: NOT_FOUND
+                    message: 요청한 리소스를 찾을 수 없습니다
+      tags:
+        - users
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PurgeUserRequest"
+            examples:
+              default:
+                value:
+                  reason: confirmed policy violation
+                  legalHoldOverride: false
+      security:
+        - bearerAuth: []
   /auth/forgot-password:
     post:
-      tags:
-        - auth
       operationId: forgotPassword
       summary: 비밀번호 재설정 토큰 발송 (공개)
       description: |
         이메일로 reset 토큰 링크를 발송합니다. 이메일이 시스템에 없어도 동일한 204를
         반환 (enumeration 방지). 인증 불필요.
-      security: []
+      parameters: []
+      responses:
+        "204":
+          description: 토큰 발송 처리 완료 (본문 없음)
+        "400":
+          description: 잘못된 요청 — 요청 형식 또는 파라미터 오류
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              examples:
+                default:
+                  value:
+                    code: BAD_REQUEST
+                    message: 요청 형식이 올바르지 않습니다
+        "422":
+          description: 스키마 유효성 검사 실패
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              examples:
+                default:
+                  value:
+                    code: SCHEMA_VALIDATION_FAILED
+                    message: 요청 본문이 스키마 유효성 검사를 통과하지 못했습니다
+        "429":
+          description: 요청 제한 초과 — Retry-After 헤더로 재시도 가능 시점 안내
+          headers:
+            Retry-After:
+              required: true
+              description: 재시도 가능 시점 (초 단위 정수 또는 HTTP-date)
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              examples:
+                default:
+                  value:
+                    code: RATE_LIMITED
+                    message: 요청 한도를 초과했습니다. 잠시 후 다시 시도해 주세요
+      tags:
+        - auth
       requestBody:
         required: true
         content:
@@ -32,34 +231,12 @@ paths:
               default:
                 value:
                   email: alice@example.com
-      responses:
-        "204":
-          description: 토큰 발송 처리 완료 (본문 없음)
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "422":
-          $ref: "#/components/responses/UnprocessableEntity"
-        "429":
-          $ref: "#/components/responses/TooManyRequests"
   /auth/login:
     post:
-      tags:
-        - auth
       operationId: login
       summary: 로그인 (공개)
       description: 이메일과 비밀번호를 검증하고 access/refresh 토큰 페어를 발급합니다. 인증 불필요.
-      security: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/LoginRequest"
-            examples:
-              default:
-                value:
-                  email: alice@example.com
-                  password: secure1234
+      parameters: []
       responses:
         "200":
           description: 로그인 성공
@@ -82,45 +259,98 @@ paths:
                       tokenType: Bearer
                       expiresIn: 3600
         "400":
-          $ref: "#/components/responses/BadRequest"
+          description: 잘못된 요청 — 요청 형식 또는 파라미터 오류
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              examples:
+                default:
+                  value:
+                    code: BAD_REQUEST
+                    message: 요청 형식이 올바르지 않습니다
         "401":
-          $ref: "#/components/responses/Unauthorized"
+          description: 인증 실패 — 토큰 없음 또는 만료
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              examples:
+                default:
+                  value:
+                    code: UNAUTHORIZED
+                    message: 인증이 필요합니다
         "422":
-          $ref: "#/components/responses/UnprocessableEntity"
+          description: 스키마 유효성 검사 실패
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              examples:
+                default:
+                  value:
+                    code: SCHEMA_VALIDATION_FAILED
+                    message: 요청 본문이 스키마 유효성 검사를 통과하지 못했습니다
         "429":
-          $ref: "#/components/responses/TooManyRequests"
-  /auth/logout:
-    post:
+          description: 요청 제한 초과 — Retry-After 헤더로 재시도 가능 시점 안내
+          headers:
+            Retry-After:
+              required: true
+              description: 재시도 가능 시점 (초 단위 정수 또는 HTTP-date)
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              examples:
+                default:
+                  value:
+                    code: RATE_LIMITED
+                    message: 요청 한도를 초과했습니다. 잠시 후 다시 시도해 주세요
       tags:
         - auth
-      operationId: logout
-      summary: 로그아웃
-      description: 현재 access 토큰과 연결된 세션을 종료합니다. 응답 본문 없음.
-      security:
-        - bearerAuth: []
-      responses:
-        "204":
-          description: 로그아웃 완료 (본문 없음)
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-  /auth/refresh:
-    post:
-      tags:
-        - auth
-      operationId: refreshToken
-      summary: 토큰 갱신 (공개)
-      description: 유효한 refresh 토큰으로 새 access 토큰 페어를 발급합니다. access 토큰 인증 불필요.
-      security: []
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/RefreshRequest"
+              $ref: "#/components/schemas/LoginRequest"
             examples:
               default:
                 value:
-                  refreshToken: rt_login_0001
+                  email: alice@example.com
+                  password: secure1234
+  /auth/logout:
+    post:
+      operationId: logout
+      summary: 로그아웃
+      description: 현재 access 토큰과 연결된 세션을 종료합니다. 응답 본문 없음.
+      parameters: []
+      responses:
+        "204":
+          description: 로그아웃 완료 (본문 없음)
+        "401":
+          description: 인증 실패 — 토큰 없음 또는 만료
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              examples:
+                default:
+                  value:
+                    code: UNAUTHORIZED
+                    message: 인증이 필요합니다
+      tags:
+        - auth
+      security:
+        - bearerAuth: []
+  /auth/refresh:
+    post:
+      operationId: refreshToken
+      summary: 토큰 갱신 (공개)
+      description: 유효한 refresh 토큰으로 새 access 토큰 페어를 발급합니다. access 토큰 인증 불필요.
+      parameters: []
       responses:
         "200":
           description: 갱신된 토큰 페어
@@ -136,29 +366,45 @@ paths:
                     tokenType: Bearer
                     expiresIn: 3600
         "401":
-          $ref: "#/components/responses/Unauthorized"
+          description: 인증 실패 — 토큰 없음 또는 만료
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              examples:
+                default:
+                  value:
+                    code: UNAUTHORIZED
+                    message: 인증이 필요합니다
         "422":
-          $ref: "#/components/responses/UnprocessableEntity"
-  /auth/register:
-    post:
+          description: 스키마 유효성 검사 실패
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              examples:
+                default:
+                  value:
+                    code: SCHEMA_VALIDATION_FAILED
+                    message: 요청 본문이 스키마 유효성 검사를 통과하지 못했습니다
       tags:
         - auth
-      operationId: register
-      summary: 회원가입 (공개)
-      description: 이메일·이름·비밀번호로 신규 사용자 계정을 만들고 토큰 페어를 반환합니다. 인증 불필요.
-      security: []
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/RegisterRequest"
+              $ref: "#/components/schemas/RefreshRequest"
             examples:
               default:
                 value:
-                  email: greg@example.com
-                  name: Greg
-                  password: secure1234
+                  refreshToken: rt_login_0001
+  /auth/register:
+    post:
+      operationId: register
+      summary: 회원가입 (공개)
+      description: 이메일·이름·비밀번호로 신규 사용자 계정을 만들고 토큰 페어를 반환합니다. 인증 불필요.
+      parameters: []
       responses:
         "201":
           description: 회원가입 + 토큰 발급
@@ -181,21 +427,113 @@ paths:
                       tokenType: Bearer
                       expiresIn: 3600
         "400":
-          $ref: "#/components/responses/BadRequest"
+          description: 잘못된 요청 — 요청 형식 또는 파라미터 오류
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              examples:
+                default:
+                  value:
+                    code: BAD_REQUEST
+                    message: 요청 형식이 올바르지 않습니다
         "409":
-          $ref: "#/components/responses/Conflict"
+          description: 리소스 충돌 — 중복 식별자 또는 동시성 충돌
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              examples:
+                default:
+                  value:
+                    code: CONFLICT
+                    message: 이미 존재하는 리소스입니다
         "422":
-          $ref: "#/components/responses/UnprocessableEntity"
+          description: 스키마 유효성 검사 실패
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              examples:
+                default:
+                  value:
+                    code: SCHEMA_VALIDATION_FAILED
+                    message: 요청 본문이 스키마 유효성 검사를 통과하지 못했습니다
         "429":
-          $ref: "#/components/responses/TooManyRequests"
-  /auth/reset-password:
-    post:
+          description: 요청 제한 초과 — Retry-After 헤더로 재시도 가능 시점 안내
+          headers:
+            Retry-After:
+              required: true
+              description: 재시도 가능 시점 (초 단위 정수 또는 HTTP-date)
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              examples:
+                default:
+                  value:
+                    code: RATE_LIMITED
+                    message: 요청 한도를 초과했습니다. 잠시 후 다시 시도해 주세요
       tags:
         - auth
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterRequest"
+            examples:
+              default:
+                value:
+                  email: greg@example.com
+                  name: Greg
+                  password: secure1234
+  /auth/reset-password:
+    post:
       operationId: resetPassword
       summary: 비밀번호 재설정 (공개)
       description: forgot-password로 발급받은 reset 토큰과 새 비밀번호로 갱신.
-      security: []
+      parameters: []
+      responses:
+        "204":
+          description: 비밀번호 갱신 완료 (본문 없음)
+        "400":
+          description: 잘못된 요청 — 요청 형식 또는 파라미터 오류
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              examples:
+                default:
+                  value:
+                    code: BAD_REQUEST
+                    message: 요청 형식이 올바르지 않습니다
+        "401":
+          description: 인증 실패 — 토큰 없음 또는 만료
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              examples:
+                default:
+                  value:
+                    code: UNAUTHORIZED
+                    message: 인증이 필요합니다
+        "422":
+          description: 스키마 유효성 검사 실패
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              examples:
+                default:
+                  value:
+                    code: SCHEMA_VALIDATION_FAILED
+                    message: 요청 본문이 스키마 유효성 검사를 통과하지 못했습니다
+      tags:
+        - auth
       requestBody:
         required: true
         content:
@@ -207,23 +545,12 @@ paths:
                 value:
                   token: rt_reset_0001
                   newPassword: evenmoresecure5678
-      responses:
-        "204":
-          description: 비밀번호 갱신 완료 (본문 없음)
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "422":
-          $ref: "#/components/responses/UnprocessableEntity"
   /health:
     get:
       operationId: getHealth
       summary: 서버 상태 확인
       description: 서버가 정상 동작 중인지 확인하는 헬스체크 엔드포인트
-      tags:
-        - health
-      security: []
+      parameters: []
       responses:
         "200":
           description: 서버 정상
@@ -238,7 +565,18 @@ paths:
                     status: ok
                     timestamp: 2026-04-04T00:00:00.000Z
         "503":
-          $ref: "#/components/responses/ServiceUnavailable"
+          description: 서비스 사용 불가
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              examples:
+                default:
+                  value:
+                    code: SERVICE_UNAVAILABLE
+                    message: 서비스가 일시적으로 사용 불가합니다
+      tags:
+        - health
   /health/ready:
     get:
       operationId: getReadiness
@@ -247,9 +585,7 @@ paths:
         Kubernetes readiness probe / 배포 게이트용. 의존 시스템(DB, queue 등)
         검증 결과를 포함. `getHealth`(liveness)와 별개 — liveness는 프로세스
         살아있음만, readiness는 트래픽을 받을 준비가 됐는지 확인.
-      tags:
-        - health
-      security: []
+      parameters: []
       responses:
         "200":
           description: 트래픽 수용 가능
@@ -270,52 +606,208 @@ paths:
                         status: ok
                         latencyMs: 1
         "503":
-          $ref: "#/components/responses/ServiceUnavailable"
+          description: 서비스 사용 불가
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              examples:
+                default:
+                  value:
+                    code: SERVICE_UNAVAILABLE
+                    message: 서비스가 일시적으로 사용 불가합니다
+      tags:
+        - health
   /health/stream:
     get:
       operationId: streamHealthEvents
       summary: 서버 상태 실시간 스트림
       description: SSE로 서버 상태 변화를 실시간으로 구독
-      tags:
-        - health
-      security: []
+      parameters: []
       responses:
         "200":
           description: SSE 이벤트 스트림
         "503":
-          $ref: "#/components/responses/ServiceUnavailable"
-  /version:
-    get:
-      operationId: getVersion
-      summary: 빌드/배포 정보 조회
-      description: 현재 실행 중인 빌드의 git sha, 빌드 시각, 배포 버전.
-      tags:
-        - health
-      security: []
-      responses:
-        "200":
-          description: 빌드 정보
+          description: 서비스 사용 불가
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/BuildInfo"
+                $ref: "#/components/schemas/Error"
               examples:
                 default:
                   value:
-                    version: 0.1.0
-                    gitSha: a0ca91100000000000000000000000000000000
-                    builtAt: 2026-05-04T00:00:00.000Z
-  /me/change-password:
-    post:
+                    code: SERVICE_UNAVAILABLE
+                    message: 서비스가 일시적으로 사용 불가합니다
+      tags:
+        - health
+  /me:
+    get:
+      operationId: getMe
+      summary: 내 정보 조회
+      description: 현재 access 토큰으로 식별되는 사용자의 정보를 반환합니다.
+      parameters: []
+      responses:
+        "200":
+          description: 내 사용자 정보
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+              examples:
+                default:
+                  value:
+                    id: 00000000-0000-0000-0000-000000000001
+                    email: alice@example.com
+                    name: Alice
+                    role: user
+                    createdAt: 2024-01-01T00:00:00.000Z
+        "401":
+          description: 인증 실패 — 토큰 없음 또는 만료
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              examples:
+                default:
+                  value:
+                    code: UNAUTHORIZED
+                    message: 인증이 필요합니다
       tags:
         - me
+      security:
+        - bearerAuth: []
+    delete:
+      operationId: deleteMyAccount
+      summary: 셀프 계정 탈퇴 (soft-delete)
+      description: |
+        본인 계정 비활성화. PIPA/GDPR right-to-erasure 대응. 30일 이내 복구 가능,
+        이후 영구 파기. 응답 본문 없음.
+      parameters: []
+      responses:
+        "204":
+          description: 탈퇴 처리 완료 (본문 없음)
+        "401":
+          description: 인증 실패 — 토큰 없음 또는 만료
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              examples:
+                default:
+                  value:
+                    code: UNAUTHORIZED
+                    message: 인증이 필요합니다
+      tags:
+        - me
+      security:
+        - bearerAuth: []
+    patch:
+      operationId: updateMe
+      summary: 내 정보 수정 (부분 업데이트)
+      description: |
+        현재 사용자의 name 등 프로필을 수정합니다. role은 셀프 변경 불가 — admin이
+        /users/{id} 를 통해서만 변경할 수 있습니다.
+      parameters: []
+      responses:
+        "200":
+          description: 수정된 내 사용자 정보
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "400":
+          description: 잘못된 요청 — 요청 형식 또는 파라미터 오류
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              examples:
+                default:
+                  value:
+                    code: BAD_REQUEST
+                    message: 요청 형식이 올바르지 않습니다
+        "401":
+          description: 인증 실패 — 토큰 없음 또는 만료
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              examples:
+                default:
+                  value:
+                    code: UNAUTHORIZED
+                    message: 인증이 필요합니다
+        "422":
+          description: 스키마 유효성 검사 실패
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              examples:
+                default:
+                  value:
+                    code: SCHEMA_VALIDATION_FAILED
+                    message: 요청 본문이 스키마 유효성 검사를 통과하지 못했습니다
+      tags:
+        - me
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateMeRequest"
+            examples:
+              default:
+                value:
+                  name: Alice (self-edit)
+      security:
+        - bearerAuth: []
+  /me/change-password:
+    post:
       operationId: changeMyPassword
       summary: 내 비밀번호 변경
       description: |
         현재 비밀번호 검증 후 새 비밀번호로 교체합니다. 성공 시 기존 refresh 토큰은
         무효화될 수 있으므로 클라이언트는 재로그인 또는 refresh 흐름을 다시 시작해야 합니다.
-      security:
-        - bearerAuth: []
+      parameters: []
+      responses:
+        "204":
+          description: 비밀번호 변경 완료 (본문 없음)
+        "400":
+          description: 잘못된 요청 — 요청 형식 또는 파라미터 오류
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              examples:
+                default:
+                  value:
+                    code: BAD_REQUEST
+                    message: 요청 형식이 올바르지 않습니다
+        "401":
+          description: 인증 실패 — 토큰 없음 또는 만료
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              examples:
+                default:
+                  value:
+                    code: UNAUTHORIZED
+                    message: 인증이 필요합니다
+        "422":
+          description: 스키마 유효성 검사 실패
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              examples:
+                default:
+                  value:
+                    code: SCHEMA_VALIDATION_FAILED
+                    message: 요청 본문이 스키마 유효성 검사를 통과하지 못했습니다
+      tags:
+        - me
       requestBody:
         required: true
         content:
@@ -327,36 +819,16 @@ paths:
                 value:
                   currentPassword: secure1234
                   newPassword: evenmoresecure5678
-      responses:
-        "204":
-          description: 비밀번호 변경 완료 (본문 없음)
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "422":
-          $ref: "#/components/responses/UnprocessableEntity"
+      security:
+        - bearerAuth: []
   /me/export:
     post:
-      tags:
-        - me
       operationId: requestMyDataExport
       summary: 내 데이터 export 작업 요청
       description: |
         GDPR 정보주체 이동권 대응. 비동기 job 생성 후 jobId 반환. 완료 시 별도
         알림 또는 polling으로 다운로드 URL 획득. 동시 진행 1건 제한.
-      security:
-        - bearerAuth: []
-      requestBody:
-        required: false
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/ExportRequest"
-            examples:
-              default:
-                value:
-                  format: json
+      parameters: []
       responses:
         "202":
           description: export job 등록 완료
@@ -371,18 +843,53 @@ paths:
                     status: queued
                     requestedAt: 2026-05-04T00:00:00.000Z
         "401":
-          $ref: "#/components/responses/Unauthorized"
+          description: 인증 실패 — 토큰 없음 또는 만료
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              examples:
+                default:
+                  value:
+                    code: UNAUTHORIZED
+                    message: 인증이 필요합니다
         "429":
-          $ref: "#/components/responses/TooManyRequests"
-  /me/onboarding:
-    get:
+          description: 요청 제한 초과 — Retry-After 헤더로 재시도 가능 시점 안내
+          headers:
+            Retry-After:
+              required: true
+              description: 재시도 가능 시점 (초 단위 정수 또는 HTTP-date)
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              examples:
+                default:
+                  value:
+                    code: RATE_LIMITED
+                    message: 요청 한도를 초과했습니다. 잠시 후 다시 시도해 주세요
       tags:
         - me
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ExportRequest"
+            examples:
+              default:
+                value:
+                  format: json
+      security:
+        - bearerAuth: []
+  /me/onboarding:
+    get:
       operationId: getOnboardingChecklist
       summary: 온보딩 체크리스트 조회
       description: 첫 로그인 시 표시할 가이드 체크리스트. 진행률은 user state에 따름.
-      security:
-        - bearerAuth: []
+      parameters: []
       responses:
         "200":
           description: 체크리스트
@@ -401,122 +908,60 @@ paths:
                         title: 팀원 초대
                         completed: false
         "401":
-          $ref: "#/components/responses/Unauthorized"
-  /me:
-    get:
-      tags:
-        - me
-      operationId: getMe
-      summary: 내 정보 조회
-      description: 현재 access 토큰으로 식별되는 사용자의 정보를 반환합니다.
-      security:
-        - bearerAuth: []
-      responses:
-        "200":
-          description: 내 사용자 정보
+          description: 인증 실패 — 토큰 없음 또는 만료
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/User"
+                $ref: "#/components/schemas/Error"
               examples:
                 default:
                   value:
-                    id: 00000000-0000-0000-0000-000000000001
-                    email: alice@example.com
-                    name: Alice
-                    role: user
-                    createdAt: 2024-01-01T00:00:00.000Z
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-    patch:
+                    code: UNAUTHORIZED
+                    message: 인증이 필요합니다
       tags:
         - me
-      operationId: updateMe
-      summary: 내 정보 수정 (부분 업데이트)
-      description: |
-        현재 사용자의 name 등 프로필을 수정합니다. role은 셀프 변경 불가 — admin이
-        /users/{id} 를 통해서만 변경할 수 있습니다.
       security:
         - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/UpdateMeRequest"
-            examples:
-              default:
-                value:
-                  name: Alice (self-edit)
-      responses:
-        "200":
-          description: 수정된 내 사용자 정보
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/User"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "422":
-          $ref: "#/components/responses/UnprocessableEntity"
-    delete:
-      tags:
-        - me
-      operationId: deleteMyAccount
-      summary: 셀프 계정 탈퇴 (soft-delete)
-      description: |
-        본인 계정 비활성화. PIPA/GDPR right-to-erasure 대응. 30일 이내 복구 가능,
-        이후 영구 파기. 응답 본문 없음.
-      security:
-        - bearerAuth: []
-      responses:
-        "204":
-          description: 탈퇴 처리 완료 (본문 없음)
-        "401":
-          $ref: "#/components/responses/Unauthorized"
   /me/role-changes:
     get:
-      tags:
-        - me
       operationId: listMyRoleChanges
       summary: 내 역할 변경 이력 조회
       description: |
         admin이 내 역할을 변경한 이력 일람. target-of-action 페르소나의 surface.
         변경 시점·이전/현재 역할·변경자·사유 포함.
-      security:
-        - bearerAuth: []
       parameters:
-        - $ref: "#/components/parameters/Page"
-        - $ref: "#/components/parameters/Limit"
+        - name: page
+          in: query
+          required: false
+          description: 페이지 번호 (1-based)
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+          explode: false
+          examples:
+            default:
+              value: 1
+        - name: limit
+          in: query
+          required: false
+          description: 페이지당 항목 수
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+          explode: false
+          examples:
+            default:
+              value: 20
       responses:
         "200":
           description: 역할 변경 이력
           content:
             application/json:
               schema:
-                type: object
-                required:
-                  - items
-                  - total
-                properties:
-                  items:
-                    type: array
-                    items:
-                      $ref: "#/components/schemas/RoleChangeEvent"
-                  total:
-                    type: integer
-                    minimum: 0
-                example:
-                  items:
-                    - id: 00000000-0000-0000-0000-000000000100
-                      changedAt: 2026-04-01T00:00:00.000Z
-                      previousRole: user
-                      newRole: admin
-                      changedBy: 00000000-0000-0000-0000-000000000099
-                      reason: 권한 위임
-                  total: 1
+                $ref: "#/components/schemas/ListMyRoleChanges200Body"
               examples:
                 default:
                   value:
@@ -529,110 +974,56 @@ paths:
                         reason: 권한 위임
                     total: 1
         "401":
-          $ref: "#/components/responses/Unauthorized"
-  /admin/users/export:
-    post:
-      tags:
-        - users
-      operationId: requestUsersExport
-      summary: 사용자 PII bulk export 작업 요청
-      description: |
-        data-eng ETL surface. 사용자 PII bulk export를 비동기 job으로 등록하고
-        ExportJob을 반환합니다. non-admin perspective로 소비되는 export는
-        pseudonymization이 필수이며 기본값도 pseudonymize=true입니다. 호출은 audited.
-      security:
-        - bearerAuth: []
-      requestBody:
-        required: false
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/AdminUsersExportRequest"
-            examples:
-              default:
-                value:
-                  format: json
-                  pseudonymize: true
-      responses:
-        "202":
-          description: bulk export job 등록 완료
+          description: 인증 실패 — 토큰 없음 또는 만료
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ExportJob"
+                $ref: "#/components/schemas/Error"
               examples:
                 default:
                   value:
-                    jobId: 00000000-0000-0000-0000-000000000201
-                    status: queued
-                    requestedAt: 2026-05-04T00:00:00.000Z
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "429":
-          $ref: "#/components/responses/TooManyRequests"
-  /admin/users/{id}/purge:
-    parameters:
-      - name: id
-        in: path
-        required: true
-        description: 영구 삭제 대상 사용자 UUID
-        schema:
-          type: string
-          format: uuid
-        examples:
-          default:
-            value: 00000000-0000-0000-0000-000000000001
-    post:
+                    code: UNAUTHORIZED
+                    message: 인증이 필요합니다
       tags:
-        - users
-      operationId: purgeUser
-      summary: 사용자 영구 삭제
-      description: |
-        site-admin authority only. deleteUser와 달리 30일 soft-delete window를
-        우회하는 hard purge입니다. legal hold override 여부와 사유를 감사 로그에
-        남기며 호출은 audited.
+        - me
       security:
         - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/PurgeUserRequest"
-            examples:
-              default:
-                value:
-                  reason: confirmed policy violation
-                  legalHoldOverride: false
-      responses:
-        "204":
-          description: 영구 삭제 완료 (본문 없음)
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "404":
-          $ref: "#/components/responses/NotFound"
   /moderation/reports:
     get:
-      tags:
-        - users
       operationId: listModerationReports
       summary: 신고 큐 조회 (운영자)
       description: |
         운영자(moderator) 전용. 처리 대기/처리 중 신고 일람. status 필터로
         open/under-review/resolved 등 분기.
-      security:
-        - bearerAuth: []
       parameters:
-        - $ref: "#/components/parameters/Page"
-        - $ref: "#/components/parameters/Limit"
+        - name: page
+          in: query
+          required: false
+          description: 페이지 번호 (1-based)
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+          explode: false
+          examples:
+            default:
+              value: 1
+        - name: limit
+          in: query
+          required: false
+          description: 페이지당 항목 수
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+          explode: false
+          examples:
+            default:
+              value: 20
         - name: status
           in: query
+          required: false
           description: 신고 상태 필터
           schema:
             type: string
@@ -641,33 +1032,14 @@ paths:
               - under-review
               - resolved
               - dismissed
+          explode: false
       responses:
         "200":
           description: 신고 큐
           content:
             application/json:
               schema:
-                type: object
-                required:
-                  - items
-                  - total
-                properties:
-                  items:
-                    type: array
-                    items:
-                      $ref: "#/components/schemas/Report"
-                  total:
-                    type: integer
-                    minimum: 0
-                example:
-                  items:
-                    - id: 00000000-0000-0000-0000-000000000300
-                      targetUserId: 00000000-0000-0000-0000-000000000001
-                      reporterUserId: 00000000-0000-0000-0000-000000000002
-                      reason: harassment
-                      status: open
-                      createdAt: 2026-05-04T00:00:00.000Z
-                  total: 1
+                $ref: "#/components/schemas/ListModerationReports200Body"
               examples:
                 default:
                   value:
@@ -680,29 +1052,201 @@ paths:
                         createdAt: 2026-05-04T00:00:00.000Z
                     total: 1
         "401":
-          $ref: "#/components/responses/Unauthorized"
+          description: 인증 실패 — 토큰 없음 또는 만료
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              examples:
+                default:
+                  value:
+                    code: UNAUTHORIZED
+                    message: 인증이 필요합니다
         "403":
-          $ref: "#/components/responses/Forbidden"
-  /users/{id}:
-    parameters:
-      - name: id
-        in: path
-        required: true
-        description: 사용자 UUID
-        schema:
-          type: string
-          format: uuid
-        examples:
-          default:
-            value: 00000000-0000-0000-0000-000000000001
-    get:
+          description: 권한 없음 — 접근 거부
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              examples:
+                default:
+                  value:
+                    code: FORBIDDEN
+                    message: 이 리소스에 접근할 권한이 없습니다
       tags:
         - users
+      security:
+        - bearerAuth: []
+  /users:
+    get:
+      operationId: listUsers
+      summary: 사용자 목록 조회
+      description: 페이지네이션과 역할 필터를 지원하는 사용자 목록 API
+      parameters:
+        - name: page
+          in: query
+          required: false
+          description: 페이지 번호 (1-based)
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+          explode: false
+          examples:
+            default:
+              value: 1
+        - name: limit
+          in: query
+          required: false
+          description: 페이지당 항목 수
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+          explode: false
+          examples:
+            default:
+              value: 20
+        - name: role
+          in: query
+          required: false
+          description: 역할 필터
+          schema:
+            type: string
+            enum:
+              - admin
+              - user
+              - guest
+          explode: false
+      responses:
+        "200":
+          description: 사용자 목록
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListUsers200Body"
+              examples:
+                default:
+                  value:
+                    items:
+                      - id: 00000000-0000-0000-0000-000000000001
+                        email: alice@example.com
+                        name: Alice
+                        role: user
+                        createdAt: 2024-01-01T00:00:00.000Z
+                    total: 1
+        "401":
+          description: 인증 실패 — 토큰 없음 또는 만료
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              examples:
+                default:
+                  value:
+                    code: UNAUTHORIZED
+                    message: 인증이 필요합니다
+      tags:
+        - users
+      security:
+        - bearerAuth: []
+    post:
+      operationId: createUser
+      summary: 사용자 생성
+      description: 이메일, 이름, 비밀번호를 받아 새 사용자를 생성합니다
+      parameters: []
+      responses:
+        "201":
+          description: 사용자 생성 완료
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+              examples:
+                default:
+                  value:
+                    id: 00000000-0000-0000-0000-000000000002
+                    email: bob@example.com
+                    name: Bob
+                    role: user
+                    createdAt: 2024-01-01T00:00:00.000Z
+        "400":
+          description: 잘못된 요청 — 요청 형식 또는 파라미터 오류
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              examples:
+                default:
+                  value:
+                    code: BAD_REQUEST
+                    message: 요청 형식이 올바르지 않습니다
+        "401":
+          description: 인증 실패 — 토큰 없음 또는 만료
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              examples:
+                default:
+                  value:
+                    code: UNAUTHORIZED
+                    message: 인증이 필요합니다
+        "422":
+          description: 스키마 유효성 검사 실패
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              examples:
+                default:
+                  value:
+                    code: SCHEMA_VALIDATION_FAILED
+                    message: 요청 본문이 스키마 유효성 검사를 통과하지 못했습니다
+        "500":
+          description: 서버 내부 오류
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              examples:
+                default:
+                  value:
+                    code: INTERNAL_SERVER_ERROR
+                    message: 서버 내부 오류가 발생했습니다
+      tags:
+        - users
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateUserRequest"
+            examples:
+              default:
+                value:
+                  email: bob@example.com
+                  name: Bob
+                  password: secure1234
+      security:
+        - bearerAuth: []
+  /users/{id}:
+    get:
       operationId: getUserById
       summary: 사용자 단건 조회
       description: UUID로 특정 사용자의 상세 정보를 조회합니다
-      security:
-        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: 사용자 UUID
+          schema:
+            type: string
+            format: uuid
+          examples:
+            default:
+              value: 00000000-0000-0000-0000-000000000001
       responses:
         "200":
           description: 사용자 정보
@@ -719,27 +1263,90 @@ paths:
                     role: user
                     createdAt: 2024-01-01T00:00:00.000Z
         "401":
-          $ref: "#/components/responses/Unauthorized"
+          description: 인증 실패 — 토큰 없음 또는 만료
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              examples:
+                default:
+                  value:
+                    code: UNAUTHORIZED
+                    message: 인증이 필요합니다
         "404":
-          $ref: "#/components/responses/NotFound"
-    patch:
+          description: 리소스를 찾을 수 없음
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              examples:
+                default:
+                  value:
+                    code: NOT_FOUND
+                    message: 요청한 리소스를 찾을 수 없습니다
       tags:
         - users
+      security:
+        - bearerAuth: []
+    delete:
+      operationId: deleteUser
+      summary: 사용자 삭제
+      description: UUID로 특정 사용자를 삭제합니다. 복구 불가.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: 사용자 UUID
+          schema:
+            type: string
+            format: uuid
+          examples:
+            default:
+              value: 00000000-0000-0000-0000-000000000001
+      responses:
+        "204":
+          description: 삭제 완료 (본문 없음)
+        "401":
+          description: 인증 실패 — 토큰 없음 또는 만료
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              examples:
+                default:
+                  value:
+                    code: UNAUTHORIZED
+                    message: 인증이 필요합니다
+        "404":
+          description: 리소스를 찾을 수 없음
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              examples:
+                default:
+                  value:
+                    code: NOT_FOUND
+                    message: 요청한 리소스를 찾을 수 없습니다
+      tags:
+        - users
+      security:
+        - bearerAuth: []
+    patch:
       operationId: updateUser
       summary: 사용자 수정 (부분 업데이트)
       description: 이름, 역할 등 사용자 정보를 부분적으로 수정합니다
-      security:
-        - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/UpdateUserRequest"
-            examples:
-              default:
-                value:
-                  name: Alice Updated
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: 사용자 UUID
+          schema:
+            type: string
+            format: uuid
+          examples:
+            default:
+              value: 00000000-0000-0000-0000-000000000001
       responses:
         "200":
           description: 수정된 사용자 정보
@@ -756,52 +1363,92 @@ paths:
                     role: user
                     createdAt: 2024-01-01T00:00:00.000Z
         "400":
-          $ref: "#/components/responses/BadRequest"
+          description: 잘못된 요청 — 요청 형식 또는 파라미터 오류
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              examples:
+                default:
+                  value:
+                    code: BAD_REQUEST
+                    message: 요청 형식이 올바르지 않습니다
         "401":
-          $ref: "#/components/responses/Unauthorized"
+          description: 인증 실패 — 토큰 없음 또는 만료
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              examples:
+                default:
+                  value:
+                    code: UNAUTHORIZED
+                    message: 인증이 필요합니다
         "403":
-          $ref: "#/components/responses/Forbidden"
+          description: 권한 없음 — 접근 거부
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              examples:
+                default:
+                  value:
+                    code: FORBIDDEN
+                    message: 이 리소스에 접근할 권한이 없습니다
         "404":
-          $ref: "#/components/responses/NotFound"
+          description: 리소스를 찾을 수 없음
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              examples:
+                default:
+                  value:
+                    code: NOT_FOUND
+                    message: 요청한 리소스를 찾을 수 없습니다
         "422":
-          $ref: "#/components/responses/UnprocessableEntity"
-    delete:
+          description: 스키마 유효성 검사 실패
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              examples:
+                default:
+                  value:
+                    code: SCHEMA_VALIDATION_FAILED
+                    message: 요청 본문이 스키마 유효성 검사를 통과하지 못했습니다
       tags:
         - users
-      operationId: deleteUser
-      summary: 사용자 삭제
-      description: UUID로 특정 사용자를 삭제합니다. 복구 불가.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateUserRequest"
+            examples:
+              default:
+                value:
+                  name: Alice Updated
       security:
         - bearerAuth: []
-      responses:
-        "204":
-          description: 삭제 완료 (본문 없음)
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "404":
-          $ref: "#/components/responses/NotFound"
   /users/{id}/public:
-    parameters:
-      - name: id
-        in: path
-        required: true
-        description: 사용자 UUID
-        schema:
-          type: string
-          format: uuid
-        examples:
-          default:
-            value: 00000000-0000-0000-0000-000000000001
     get:
-      tags:
-        - users
       operationId: getPublicUserProfile
       summary: 공개 프로필 조회
       description: |
         다른 user의 공개 가시 정보(이름, 역할). email/createdAt 등 PII 미포함.
         멘션·검색 결과 등에서 사용. user/scoped:read 이상 필요.
-      security:
-        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: 사용자 UUID
+          schema:
+            type: string
+            format: uuid
+          examples:
+            default:
+              value: 00000000-0000-0000-0000-000000000001
       responses:
         "200":
           description: 공개 프로필
@@ -816,39 +1463,46 @@ paths:
                     name: Alice
                     role: user
         "401":
-          $ref: "#/components/responses/Unauthorized"
+          description: 인증 실패 — 토큰 없음 또는 만료
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              examples:
+                default:
+                  value:
+                    code: UNAUTHORIZED
+                    message: 인증이 필요합니다
         "404":
-          $ref: "#/components/responses/NotFound"
-  /users/{id}/reports:
-    parameters:
-      - name: id
-        in: path
-        required: true
-        description: 신고 대상 사용자 UUID
-        schema:
-          type: string
-          format: uuid
-    post:
+          description: 리소스를 찾을 수 없음
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              examples:
+                default:
+                  value:
+                    code: NOT_FOUND
+                    message: 요청한 리소스를 찾을 수 없습니다
       tags:
         - users
+      security:
+        - bearerAuth: []
+  /users/{id}/reports:
+    post:
       operationId: reportUser
       summary: 사용자 신고
       description: |
         혐오·스팸·사기 등 정책 위반 사용자를 운영자에게 신고. 신고자는 인증된
         user. 동일 신고자→대상 페어는 24시간 내 1회로 rate-limit.
-      security:
-        - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/ReportRequest"
-            examples:
-              default:
-                value:
-                  reason: harassment
-                  details: 공격적 메시지 반복 발신
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: 신고 대상 사용자 UUID
+          schema:
+            type: string
+            format: uuid
       responses:
         "201":
           description: 신고 접수 완료
@@ -866,121 +1520,112 @@ paths:
                     status: open
                     createdAt: 2026-05-04T00:00:00.000Z
         "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "422":
-          $ref: "#/components/responses/UnprocessableEntity"
-        "429":
-          $ref: "#/components/responses/TooManyRequests"
-  /users:
-    get:
-      tags:
-        - users
-      operationId: listUsers
-      summary: 사용자 목록 조회
-      description: 페이지네이션과 역할 필터를 지원하는 사용자 목록 API
-      security:
-        - bearerAuth: []
-      parameters:
-        - $ref: "#/components/parameters/Page"
-        - $ref: "#/components/parameters/Limit"
-        - name: role
-          in: query
-          description: 역할 필터
-          schema:
-            type: string
-            enum:
-              - admin
-              - user
-              - guest
-      responses:
-        "200":
-          description: 사용자 목록
+          description: 잘못된 요청 — 요청 형식 또는 파라미터 오류
           content:
             application/json:
               schema:
-                type: object
-                required:
-                  - items
-                  - total
-                properties:
-                  items:
-                    type: array
-                    items:
-                      $ref: "#/components/schemas/User"
-                  total:
-                    type: integer
-                    minimum: 0
-                example:
-                  items:
-                    - id: 00000000-0000-0000-0000-000000000001
-                      email: alice@example.com
-                      name: Alice
-                      role: user
-                      createdAt: 2024-01-01T00:00:00.000Z
-                  total: 1
+                $ref: "#/components/schemas/Error"
               examples:
                 default:
                   value:
-                    items:
-                      - id: 00000000-0000-0000-0000-000000000001
-                        email: alice@example.com
-                        name: Alice
-                        role: user
-                        createdAt: 2024-01-01T00:00:00.000Z
-                    total: 1
+                    code: BAD_REQUEST
+                    message: 요청 형식이 올바르지 않습니다
         "401":
-          $ref: "#/components/responses/Unauthorized"
-    post:
+          description: 인증 실패 — 토큰 없음 또는 만료
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              examples:
+                default:
+                  value:
+                    code: UNAUTHORIZED
+                    message: 인증이 필요합니다
+        "422":
+          description: 스키마 유효성 검사 실패
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              examples:
+                default:
+                  value:
+                    code: SCHEMA_VALIDATION_FAILED
+                    message: 요청 본문이 스키마 유효성 검사를 통과하지 못했습니다
+        "429":
+          description: 요청 제한 초과 — Retry-After 헤더로 재시도 가능 시점 안내
+          headers:
+            Retry-After:
+              required: true
+              description: 재시도 가능 시점 (초 단위 정수 또는 HTTP-date)
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              examples:
+                default:
+                  value:
+                    code: RATE_LIMITED
+                    message: 요청 한도를 초과했습니다. 잠시 후 다시 시도해 주세요
       tags:
         - users
-      operationId: createUser
-      summary: 사용자 생성
-      description: 이메일, 이름, 비밀번호를 받아 새 사용자를 생성합니다
-      security:
-        - bearerAuth: []
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/CreateUserRequest"
+              $ref: "#/components/schemas/ReportRequest"
             examples:
               default:
                 value:
-                  email: bob@example.com
-                  name: Bob
-                  password: secure1234
+                  reason: harassment
+                  details: 공격적 메시지 반복 발신
+      security:
+        - bearerAuth: []
+  /version:
+    get:
+      operationId: getVersion
+      summary: 빌드/배포 정보 조회
+      description: 현재 실행 중인 빌드의 git sha, 빌드 시각, 배포 버전.
+      parameters: []
       responses:
-        "201":
-          description: 사용자 생성 완료
+        "200":
+          description: 빌드 정보
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/User"
+                $ref: "#/components/schemas/BuildInfo"
               examples:
                 default:
                   value:
-                    id: 00000000-0000-0000-0000-000000000002
-                    email: bob@example.com
-                    name: Bob
-                    role: user
-                    createdAt: 2024-01-01T00:00:00.000Z
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "422":
-          $ref: "#/components/responses/UnprocessableEntity"
-        "500":
-          $ref: "#/components/responses/InternalServerError"
-webhooks: {}
+                    version: 0.1.0
+                    gitSha: a0ca91100000000000000000000000000000000
+                    builtAt: 2026-05-04T00:00:00.000Z
+      tags:
+        - health
 components:
   schemas:
+    AdminUsersExportRequest:
+      type: object
+      properties:
+        format:
+          type: string
+          enum:
+            - json
+            - csv
+          default: json
+        pseudonymize:
+          type: boolean
+          default: true
+      unevaluatedProperties:
+        not: {}
+      description: |
+        사용자 PII bulk export 요청. data-eng ETL surface이며 non-admin
+        perspective에서는 pseudonymization이 필수입니다.
     AuthSession:
       type: object
-      description: 사용자 + 토큰 페어 — 가입/로그인 응답 단위
       required:
         - user
         - tokens
@@ -989,52 +1634,57 @@ components:
           $ref: "#/components/schemas/User"
         tokens:
           $ref: "#/components/schemas/TokenPair"
-      example:
-        user:
-          id: 00000000-0000-0000-0000-000000000001
-          email: alice@example.com
-          name: Alice
-          role: user
-          createdAt: 2024-01-01T00:00:00.000Z
-        tokens:
-          accessToken: eyJhbGciOi...example
-          refreshToken: rt_example_0001
-          tokenType: Bearer
-          expiresIn: 3600
-    ForgotPasswordRequest:
+      description: 사용자 + 토큰 페어 — 가입/로그인 응답 단위
+      examples:
+        - user:
+            id: 00000000-0000-0000-0000-000000000001
+            email: alice@example.com
+            name: Alice
+            role: user
+            createdAt: 2024-01-01T00:00:00.000Z
+          tokens:
+            accessToken: eyJhbGciOi...example
+            refreshToken: rt_example_0001
+            tokenType: Bearer
+            expiresIn: 3600
+    BuildInfo:
       type: object
-      description: 비밀번호 재설정 토큰 발송 요청
       required:
-        - email
+        - version
+        - gitSha
+        - builtAt
       properties:
-        email:
+        version:
           type: string
-          format: email
-    LoginRequest:
+          description: semver 또는 빌드 식별 라벨
+        gitSha:
+          type: string
+          minLength: 7
+          description: 커밋 해시
+        builtAt:
+          type: string
+          format: date-time
+      description: 현재 실행 중인 빌드 정보
+      examples:
+        - version: 0.1.0
+          gitSha: a0ca911
+          builtAt: 2026-05-04T00:00:00.000Z
+    ChangePasswordRequest:
       type: object
-      description: 로그인 요청
       required:
-        - email
-        - password
+        - currentPassword
+        - newPassword
       properties:
-        email:
-          type: string
-          format: email
-        password:
+        currentPassword:
           type: string
           minLength: 1
-    RefreshRequest:
-      type: object
-      description: 토큰 갱신 요청
-      required:
-        - refreshToken
-      properties:
-        refreshToken:
+        newPassword:
           type: string
-          minLength: 1
-    RegisterRequest:
+          minLength: 8
+          description: 최소 8자 이상
+      description: 비밀번호 변경 요청
+    CreateUserRequest:
       type: object
-      description: 회원가입 요청
       required:
         - email
         - name
@@ -1051,70 +1701,7 @@ components:
           type: string
           minLength: 8
           description: 최소 8자 이상
-    ResetPasswordRequest:
-      type: object
-      description: 비밀번호 재설정 요청
-      required:
-        - token
-        - newPassword
-      properties:
-        token:
-          type: string
-          minLength: 1
-        newPassword:
-          type: string
-          minLength: 8
-          description: 최소 8자 이상
-    TokenPair:
-      type: object
-      description: access/refresh 토큰 페어
-      required:
-        - accessToken
-        - refreshToken
-        - tokenType
-        - expiresIn
-      properties:
-        accessToken:
-          type: string
-          description: bearerAuth 헤더에 사용할 JWT
-        refreshToken:
-          type: string
-          description: /auth/refresh 호출에 사용할 장기 토큰
-        tokenType:
-          type: string
-          enum:
-            - Bearer
-        expiresIn:
-          type: integer
-          minimum: 1
-          description: accessToken 만료까지 남은 초
-      example:
-        accessToken: eyJhbGciOi...example
-        refreshToken: rt_example_0001
-        tokenType: Bearer
-        expiresIn: 3600
-    BuildInfo:
-      type: object
-      description: 현재 실행 중인 빌드 정보
-      required:
-        - version
-        - gitSha
-        - builtAt
-      properties:
-        version:
-          type: string
-          description: semver 또는 빌드 식별 라벨
-        gitSha:
-          type: string
-          minLength: 7
-          description: 커밋 해시
-        builtAt:
-          type: string
-          format: date-time
-      example:
-        version: 0.1.0
-        gitSha: a0ca911
-        builtAt: 2026-05-04T00:00:00.000Z
+      description: 사용자 생성 요청
     DependencyStatus:
       type: object
       required:
@@ -1134,68 +1721,52 @@ components:
           minimum: 0
         message:
           type: string
-    HealthStatus:
+    Error:
       type: object
       required:
-        - status
-        - timestamp
+        - code
+        - message
       properties:
-        status:
+        code:
           type: string
           enum:
-            - ok
-        timestamp:
+            - BAD_REQUEST
+            - UNAUTHORIZED
+            - FORBIDDEN
+            - NOT_FOUND
+            - CONFLICT
+            - SCHEMA_VALIDATION_FAILED
+            - RATE_LIMITED
+            - INTERNAL_SERVER_ERROR
+            - SERVICE_UNAVAILABLE
+          description: 머신 리더블 에러 코드 (페르소나 시나리오의 expected assertion 단위)
+          examples:
+            - NOT_FOUND
+        message:
           type: string
-          format: date-time
-      examples:
-        - status: ok
-          timestamp: 2026-04-04T00:00:00.000Z
-      example:
-        status: ok
-        timestamp: 2026-04-04T00:00:00.000Z
-    ReadinessReport:
-      type: object
-      description: readiness probe 결과 — 의존 시스템 검증 포함
-      required:
-        - status
-        - timestamp
-        - dependencies
-      properties:
-        status:
-          type: string
-          enum:
-            - ready
-            - not-ready
-        timestamp:
-          type: string
-          format: date-time
-        dependencies:
+          description: 사람이 읽을 수 있는 에러 설명
+          examples:
+            - 요청한 리소스를 찾을 수 없습니다
+        details:
           type: array
           items:
-            $ref: "#/components/schemas/DependencyStatus"
-      example:
-        status: ready
-        timestamp: 2026-05-04T00:00:00.000Z
-        dependencies:
-          - name: postgres
-            status: ok
-    ChangePasswordRequest:
+            $ref: "#/components/schemas/ValidationError"
+        _meta:
+          $ref: "#/components/schemas/ErrorMeta"
+      description: 표준 에러 응답 스키마
+      examples:
+        - code: NOT_FOUND
+          message: 요청한 리소스를 찾을 수 없습니다
+    ErrorMeta:
       type: object
-      description: 비밀번호 변경 요청
-      required:
-        - currentPassword
-        - newPassword
       properties:
-        currentPassword:
+        operationId:
           type: string
-          minLength: 1
-        newPassword:
+        requestId:
           type: string
-          minLength: 8
-          description: 최소 8자 이상
+          format: uuid
     ExportJob:
       type: object
-      description: export job 상태
       required:
         - jobId
         - status
@@ -1218,13 +1789,13 @@ components:
           type: string
           format: uri
           description: status가 ready일 때만 제공
-      example:
-        jobId: 00000000-0000-0000-0000-000000000200
-        status: queued
-        requestedAt: 2026-05-04T00:00:00.000Z
+      description: export job 상태
+      examples:
+        - jobId: 00000000-0000-0000-0000-000000000200
+          status: queued
+          requestedAt: 2026-05-04T00:00:00.000Z
     ExportRequest:
       type: object
-      description: 데이터 export 요청
       properties:
         format:
           type: string
@@ -1232,9 +1803,112 @@ components:
             - json
             - csv
           default: json
+      description: 데이터 export 요청
+    ForgotPasswordRequest:
+      type: object
+      required:
+        - email
+      properties:
+        email:
+          type: string
+          format: email
+      description: 비밀번호 재설정 토큰 발송 요청
+    HealthStatus:
+      type: object
+      required:
+        - status
+        - timestamp
+      properties:
+        status:
+          type: string
+          enum:
+            - ok
+        timestamp:
+          type: string
+          format: date-time
+      examples:
+        - status: ok
+          timestamp: 2026-04-04T00:00:00.000Z
+    ListModerationReports200Body:
+      type: object
+      required:
+        - items
+        - total
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Report"
+        total:
+          type: integer
+          minimum: 0
+      examples:
+        - items:
+            - id: 00000000-0000-0000-0000-000000000300
+              targetUserId: 00000000-0000-0000-0000-000000000001
+              reporterUserId: 00000000-0000-0000-0000-000000000002
+              reason: harassment
+              status: open
+              createdAt: 2026-05-04T00:00:00.000Z
+          total: 1
+    ListMyRoleChanges200Body:
+      type: object
+      required:
+        - items
+        - total
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/RoleChangeEvent"
+        total:
+          type: integer
+          minimum: 0
+      examples:
+        - items:
+            - id: 00000000-0000-0000-0000-000000000100
+              changedAt: 2026-04-01T00:00:00.000Z
+              previousRole: user
+              newRole: admin
+              changedBy: 00000000-0000-0000-0000-000000000099
+              reason: 권한 위임
+          total: 1
+    ListUsers200Body:
+      type: object
+      required:
+        - items
+        - total
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/User"
+        total:
+          type: integer
+          minimum: 0
+      examples:
+        - items:
+            - id: 00000000-0000-0000-0000-000000000001
+              email: alice@example.com
+              name: Alice
+              role: user
+              createdAt: 2024-01-01T00:00:00.000Z
+          total: 1
+    LoginRequest:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 1
+      description: 로그인 요청
     OnboardingChecklist:
       type: object
-      description: 온보딩 가이드 체크리스트
       required:
         - items
       properties:
@@ -1242,11 +1916,12 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/OnboardingItem"
-      example:
-        items:
-          - id: complete-profile
-            title: 프로필 작성
-            completed: false
+      description: 온보딩 가이드 체크리스트
+      examples:
+        - items:
+            - id: complete-profile
+              title: 프로필 작성
+              completed: false
     OnboardingItem:
       type: object
       required:
@@ -1262,86 +1937,8 @@ components:
           type: boolean
         hint:
           type: string
-    RoleChangeEvent:
-      type: object
-      description: 역할 변경 이력 단건
-      required:
-        - id
-        - changedAt
-        - previousRole
-        - newRole
-        - changedBy
-      properties:
-        id:
-          type: string
-          format: uuid
-        changedAt:
-          type: string
-          format: date-time
-        previousRole:
-          type: string
-          enum:
-            - admin
-            - user
-            - guest
-        newRole:
-          type: string
-          enum:
-            - admin
-            - user
-            - guest
-        changedBy:
-          type: string
-          format: uuid
-          description: 변경을 수행한 admin의 UUID
-        reason:
-          type: string
-    UpdateMeRequest:
-      type: object
-      description: 셀프 프로필 수정 — role은 포함 불가 (admin 전용)
-      properties:
-        name:
-          type: string
-          minLength: 1
-          maxLength: 100
-    AdminUsersExportRequest:
-      type: object
-      description: |
-        사용자 PII bulk export 요청. data-eng ETL surface이며 non-admin
-        perspective에서는 pseudonymization이 필수입니다.
-      additionalProperties: false
-      properties:
-        format:
-          type: string
-          enum:
-            - json
-            - csv
-          default: json
-        pseudonymize:
-          type: boolean
-          default: true
-    CreateUserRequest:
-      type: object
-      description: 사용자 생성 요청
-      required:
-        - email
-        - name
-        - password
-      properties:
-        email:
-          type: string
-          format: email
-        name:
-          type: string
-          minLength: 1
-          maxLength: 100
-        password:
-          type: string
-          minLength: 8
-          description: 최소 8자 이상
     PublicUserProfile:
       type: object
-      description: 공개 프로필 — PII 비포함 (email/createdAt 제외)
       required:
         - id
         - name
@@ -1360,16 +1957,15 @@ components:
             - admin
             - user
             - guest
-      example:
-        id: 00000000-0000-0000-0000-000000000001
-        name: Alice
-        role: user
+      description: 공개 프로필 — PII 비포함 (email/createdAt 제외)
+      examples:
+        - id: 00000000-0000-0000-0000-000000000001
+          name: Alice
+          role: user
     PurgeUserRequest:
       type: object
-      description: site-admin 사용자 hard purge 요청. deleteUser soft-delete와 구분됩니다.
       required:
         - reason
-      additionalProperties: false
       properties:
         reason:
           type: string
@@ -1378,11 +1974,67 @@ components:
           description: 영구 삭제 감사 사유
         legalHoldOverride:
           type: boolean
-          default: false
           description: legal hold 예외 승인 여부
+          default: false
+      unevaluatedProperties:
+        not: {}
+      description: site-admin 사용자 hard purge 요청. deleteUser soft-delete와 구분됩니다.
+    ReadinessReport:
+      type: object
+      required:
+        - status
+        - timestamp
+        - dependencies
+      properties:
+        status:
+          type: string
+          enum:
+            - ready
+            - not-ready
+        timestamp:
+          type: string
+          format: date-time
+        dependencies:
+          type: array
+          items:
+            $ref: "#/components/schemas/DependencyStatus"
+      description: readiness probe 결과 — 의존 시스템 검증 포함
+      examples:
+        - status: ready
+          timestamp: 2026-05-04T00:00:00.000Z
+          dependencies:
+            - name: postgres
+              status: ok
+    RefreshRequest:
+      type: object
+      required:
+        - refreshToken
+      properties:
+        refreshToken:
+          type: string
+          minLength: 1
+      description: 토큰 갱신 요청
+    RegisterRequest:
+      type: object
+      required:
+        - email
+        - name
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        password:
+          type: string
+          minLength: 8
+          description: 최소 8자 이상
+      description: 회원가입 요청
     Report:
       type: object
-      description: 신고 단건
       required:
         - id
         - targetUserId
@@ -1424,16 +2076,16 @@ components:
         resolvedAt:
           type: string
           format: date-time
-      example:
-        id: 00000000-0000-0000-0000-000000000300
-        targetUserId: 00000000-0000-0000-0000-000000000001
-        reporterUserId: 00000000-0000-0000-0000-000000000002
-        reason: harassment
-        status: open
-        createdAt: 2026-05-04T00:00:00.000Z
+      description: 신고 단건
+      examples:
+        - id: 00000000-0000-0000-0000-000000000300
+          targetUserId: 00000000-0000-0000-0000-000000000001
+          reporterUserId: 00000000-0000-0000-0000-000000000002
+          reason: harassment
+          status: open
+          createdAt: 2026-05-04T00:00:00.000Z
     ReportRequest:
       type: object
-      description: 신고 요청 본문
       required:
         - reason
       properties:
@@ -1449,9 +2101,93 @@ components:
         details:
           type: string
           maxLength: 1000
+      description: 신고 요청 본문
+    ResetPasswordRequest:
+      type: object
+      required:
+        - token
+        - newPassword
+      properties:
+        token:
+          type: string
+          minLength: 1
+        newPassword:
+          type: string
+          minLength: 8
+          description: 최소 8자 이상
+      description: 비밀번호 재설정 요청
+    RoleChangeEvent:
+      type: object
+      required:
+        - id
+        - changedAt
+        - previousRole
+        - newRole
+        - changedBy
+      properties:
+        id:
+          type: string
+          format: uuid
+        changedAt:
+          type: string
+          format: date-time
+        previousRole:
+          type: string
+          enum:
+            - admin
+            - user
+            - guest
+        newRole:
+          type: string
+          enum:
+            - admin
+            - user
+            - guest
+        changedBy:
+          type: string
+          format: uuid
+          description: 변경을 수행한 admin의 UUID
+        reason:
+          type: string
+      description: 역할 변경 이력 단건
+    TokenPair:
+      type: object
+      required:
+        - accessToken
+        - refreshToken
+        - tokenType
+        - expiresIn
+      properties:
+        accessToken:
+          type: string
+          description: bearerAuth 헤더에 사용할 JWT
+        refreshToken:
+          type: string
+          description: /auth/refresh 호출에 사용할 장기 토큰
+        tokenType:
+          type: string
+          enum:
+            - Bearer
+        expiresIn:
+          type: integer
+          minimum: 1
+          description: accessToken 만료까지 남은 초
+      description: access/refresh 토큰 페어
+      examples:
+        - accessToken: eyJhbGciOi...example
+          refreshToken: rt_example_0001
+          tokenType: Bearer
+          expiresIn: 3600
+    UpdateMeRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+      description: 셀프 프로필 수정 — role은 포함 불가 (admin 전용)
     UpdateUserRequest:
       type: object
-      description: 사용자 수정 요청 (부분 업데이트 — 모든 필드 optional)
       properties:
         name:
           type: string
@@ -1463,9 +2199,9 @@ components:
             - admin
             - user
             - guest
+      description: 사용자 수정 요청 (부분 업데이트 — 모든 필드 optional)
     User:
       type: object
-      description: 사용자 정보
       required:
         - id
         - email
@@ -1492,221 +2228,40 @@ components:
         createdAt:
           type: string
           format: date-time
+      description: 사용자 정보
       examples:
         - id: 00000000-0000-0000-0000-000000000001
           email: alice@example.com
           name: Alice
           role: user
           createdAt: 2024-01-01T00:00:00.000Z
-      example:
-        id: 00000000-0000-0000-0000-000000000001
-        email: alice@example.com
-        name: Alice
-        role: user
-        createdAt: 2024-01-01T00:00:00.000Z
-    Error:
-      type: object
-      description: 표준 에러 응답 스키마
-      required:
-        - code
-        - message
-      properties:
-        code:
-          type: string
-          description: 머신 리더블 에러 코드 (페르소나 시나리오의 expected assertion 단위)
-          enum:
-            - BAD_REQUEST
-            - UNAUTHORIZED
-            - FORBIDDEN
-            - NOT_FOUND
-            - CONFLICT
-            - SCHEMA_VALIDATION_FAILED
-            - RATE_LIMITED
-            - INTERNAL_SERVER_ERROR
-            - SERVICE_UNAVAILABLE
-          example: NOT_FOUND
-        message:
-          type: string
-          description: 사람이 읽을 수 있는 에러 설명
-          example: 요청한 리소스를 찾을 수 없습니다
-        details:
-          type: array
-          items:
-            $ref: "#/components/schemas/ValidationError"
-        _meta:
-          type: object
-          properties:
-            operationId:
-              type: string
-            requestId:
-              type: string
-              format: uuid
-      examples:
-        - code: NOT_FOUND
-          message: 요청한 리소스를 찾을 수 없습니다
-      example:
-        code: NOT_FOUND
-        message: 요청한 리소스를 찾을 수 없습니다
     ValidationError:
       type: object
-      description: 필드 수준 유효성 검사 에러
       required:
         - path
         - message
       properties:
         path:
           type: string
-          example: /body/email
+          examples:
+            - /body/email
         message:
           type: string
-          example: must match format 'email'
+          examples:
+            - must match format 'email'
         received:
           description: 실제 수신된 값
-          example: not-an-email
+          examples:
+            - not-an-email
         expected:
           type: string
-          example: string with format 'email'
-  responses:
-    BadRequest:
-      description: 잘못된 요청 — 요청 형식 또는 파라미터 오류
-      content:
-        application/json:
-          schema:
-            $ref: "#/components/schemas/Error"
           examples:
-            default:
-              value:
-                code: BAD_REQUEST
-                message: 요청 형식이 올바르지 않습니다
-    Conflict:
-      description: 리소스 충돌 — 중복 식별자 또는 동시성 충돌
-      content:
-        application/json:
-          schema:
-            $ref: "#/components/schemas/Error"
-          examples:
-            default:
-              value:
-                code: CONFLICT
-                message: 이미 존재하는 리소스입니다
-    Forbidden:
-      description: 권한 없음 — 접근 거부
-      content:
-        application/json:
-          schema:
-            $ref: "#/components/schemas/Error"
-          examples:
-            default:
-              value:
-                code: FORBIDDEN
-                message: 이 리소스에 접근할 권한이 없습니다
-    InternalServerError:
-      description: 서버 내부 오류
-      content:
-        application/json:
-          schema:
-            $ref: "#/components/schemas/Error"
-          examples:
-            default:
-              value:
-                code: INTERNAL_SERVER_ERROR
-                message: 서버 내부 오류가 발생했습니다
-    NotFound:
-      description: 리소스를 찾을 수 없음
-      content:
-        application/json:
-          schema:
-            $ref: "#/components/schemas/Error"
-          examples:
-            default:
-              value:
-                code: NOT_FOUND
-                message: 요청한 리소스를 찾을 수 없습니다
-    ServiceUnavailable:
-      description: 서비스 사용 불가
-      content:
-        application/json:
-          schema:
-            $ref: "#/components/schemas/Error"
-          examples:
-            default:
-              value:
-                code: SERVICE_UNAVAILABLE
-                message: 서비스가 일시적으로 사용 불가합니다
-    TooManyRequests:
-      description: 요청 제한 초과 — Retry-After 헤더로 재시도 가능 시점 안내
-      headers:
-        Retry-After:
-          description: 재시도 가능 시점 (초 단위 정수 또는 HTTP-date)
-          required: true
-          schema:
-            type: string
-            example: "30"
-      content:
-        application/json:
-          schema:
-            $ref: "#/components/schemas/Error"
-          examples:
-            default:
-              value:
-                code: RATE_LIMITED
-                message: 요청 한도를 초과했습니다. 잠시 후 다시 시도해 주세요
-    Unauthorized:
-      description: 인증 실패 — 토큰 없음 또는 만료
-      content:
-        application/json:
-          schema:
-            $ref: "#/components/schemas/Error"
-          examples:
-            default:
-              value:
-                code: UNAUTHORIZED
-                message: 인증이 필요합니다
-    UnprocessableEntity:
-      description: 스키마 유효성 검사 실패
-      content:
-        application/json:
-          schema:
-            $ref: "#/components/schemas/Error"
-          examples:
-            default:
-              value:
-                code: SCHEMA_VALIDATION_FAILED
-                message: 요청 본문이 스키마 유효성 검사를 통과하지 못했습니다
-  parameters:
-    Limit:
-      name: limit
-      in: query
-      description: 페이지당 항목 수
-      schema:
-        type: integer
-        minimum: 1
-        maximum: 100
-        default: 20
-      examples:
-        default:
-          value: 20
-    Page:
-      name: page
-      in: query
-      description: 페이지 번호 (1-based)
-      schema:
-        type: integer
-        minimum: 1
-        default: 1
-      examples:
-        default:
-          value: 1
-  requestBodies: {}
-  headers: {}
-  links: {}
-  callbacks: {}
+            - string with format 'email'
+      description: 필드 수준 유효성 검사 에러
   securitySchemes:
     bearerAuth:
       type: http
-      scheme: bearer
-      bearerFormat: JWT
-      description: JWT Bearer 토큰 인증
+      scheme: Bearer
     oauth2:
       type: oauth2
       description: OAuth 2.0 인증 (Authorization Code + Device Authorization 지원)
@@ -1719,27 +2274,10 @@ components:
             read: 읽기 권한
             write: 쓰기 권한
             admin: 관리자 권한
-tags:
-  - name: health
-    description: 서버 상태 확인
-  - name: users
-    description: 사용자 관리
-  - name: auth
-    description: 인증 — 토큰 발급/갱신/폐기
-  - name: me
-    description: 셀프 서비스 — 현재 인증된 사용자 자기 자원
-x-oa-sdk-definition-aliases:
-  - id: securityScheme:shared/common/BearerAuth
-    kind: securityScheme
-    scope: shared
-    domain: common
-    localName: BearerAuth
-    outputName: bearerAuth
-    reason: explicit-alias
-  - id: securityScheme:shared/common/OAuth2
-    kind: securityScheme
-    scope: shared
-    domain: common
-    localName: OAuth2
-    outputName: oauth2
-    reason: explicit-alias
+servers:
+  - url: http://localhost:3000
+    description: Local dev server
+    variables: {}
+  - url: http://localhost:4010
+    description: Mock server (@oa-sdk/mock-server)
+    variables: {}

@@ -274,5 +274,5 @@ The TypeSpec-first decision track is complete through G8. Production migration n
 
 1. G9: choose and document the production-owned TypeSpec bundle layout.
 2. G10: wire the schema build or validation path to TypeSpec bundle-check semantics.
-3. G11: add rollback evidence while keeping the current OpenAPI production path green.
+3. G11: add rollback evidence while keeping the OpenAPI/Definition Builder path green.
 4. G12: prove downstream parser/codegen/router/client/mock-server gates against the TypeSpec-derived artifact.

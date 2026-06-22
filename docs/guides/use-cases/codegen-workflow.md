@@ -175,7 +175,7 @@ OpenAPI를 문서로만 두면 쉽게 실제 구현과 어긋난다. 아래 명�
 breaking change는 spec diff에서 먼저 확인한다.
 
 ```bash
-pnpm --filter @oa-sdk/schemas run build:merged
+pnpm schema:validate
 oa-gen validate --spec packages/schemas/src/.merged.yaml
 oa-gen lint --spec packages/schemas/src/.merged.yaml
 oa-gen diff \
@@ -193,6 +193,7 @@ oa-gen drift \
   --runtime-openapi runtime.openapi.yaml \
   --managed-openapi packages/schemas/src/.merged.yaml \
   --format markdown
+# Definition Builder fallback/reference governance
 oa-gen duplicate-review \
   --fragments packages/schemas/src/fragments \
   --target packages/schemas/src/targets/local-parity-api.yaml \
@@ -224,7 +225,7 @@ API 문서로 사용할 정보는 README에 따로 흩어두지 말고 spec에 �
 ## 전체 파이프라인 한 줄
 
 ```bash
-pnpm --filter @oa-sdk/schemas run build:merged && \
+pnpm schema:validate && \
 oa-gen typegen --spec packages/schemas/src/.merged.yaml -o src/types.ts && \
 oa-gen router  --spec packages/schemas/src/.merged.yaml --types-import './types' -o src/router.ts && \
 oa-gen client  --spec packages/schemas/src/.merged.yaml --types-import './types' -o src/client.ts

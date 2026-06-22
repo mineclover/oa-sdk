@@ -2,6 +2,10 @@
 
 **상태: ✅ 구현 완료**
 
+> 현재 production schema source는 ADR-009 이후 TypeSpec-first입니다. 이 문서는
+> Definition Builder 기반 OpenAPI fragment path의 구현 기록과 rollback/reference
+> 운영 표면을 설명합니다.
+
 ## 목표
 
 - OpenAPI 3.2.0을 단일 소스로 관리
@@ -60,7 +64,7 @@ Spectral은 OpenAPI 3.2를 미지원(2026-04 기준)하므로 구조 검증 규�
 pnpm --filter @oa-sdk/schemas run build:merged
 pnpm --filter @oa-sdk/schemas run build:merged:staging
 pnpm --filter @oa-sdk/schemas run build:merged:production
-pnpm schema:validate         # build-spec → downgrade → spectral → redocly → strict 3.2 validate
-pnpm schema:bundle           # validate → dist/openapi.{yaml,json}
-pnpm schema:preview          # Redoc 미리보기
+pnpm schema:validate:openapi # build-spec → downgrade → spectral → redocly → strict 3.2 validate
+pnpm schema:bundle:openapi   # fallback bundle → dist/openapi.{yaml,json}
+pnpm schema:preview:openapi  # fallback Redoc 미리보기
 ```

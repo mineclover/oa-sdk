@@ -426,31 +426,29 @@ CLI build는 fragment `content` 기준 SHA-256 hash를 생성해 registry에 넘
 
 Builder WorkspaceIndex metadata는 SQLite schema를 늘리지 않고 기존 row를 재사용한다. Target config 파일과 fragment 파일은 `files`에 content hash/mtime/realpath로 저장하고, fragment id는 `components.section = definition-fragment`, target bundle은 `components.section = definition-target`으로 기록한다. Fragment source `$ref`는 fragment file → target fragment file `refs` edge가 되고, target config는 direct path root fragment와 explicit retained `includeDefinitions` fragment로 향하는 `refs` edge를 기록한다. 기존 `refs.to_file` 역방향 dirty propagation이 schema fragment 변경을 참조 fragment와 target config까지 전파하므로 target bundle은 직접 또는 transitively 포함한 fragment가 바뀔 때 dirty가 된다. Target config 파일 자체가 바뀌면 reverse dependency가 없으므로 해당 target만 dirty가 되며, no-op/SQLite fallback은 ADR-006 원칙대로 scanned target을 full rebuild 대상으로 취급한다.
 
-#### Definition Builder as Canonical Schema Pipeline
+#### TypeSpec as Canonical Schema Pipeline
 
-Schema composition is now owned by Definition Builder. `packages/schemas/src/.merged.yaml` is generated directly from `packages/schemas/src/targets/local-parity-api.yaml` and `packages/schemas/src/fragments/`. The legacy whole-domain merge script has been removed; `src/domains/**/spec.yaml` files are archived historical/migration reference material, not an active build source.
+Schema composition is now TypeSpec-first. `packages/schemas/src/.merged.yaml` is generated from `packages/schemas/typespec/main.tsp` through the `oa-sdk.typespec-bundle.v1` manifest, OA SDK TypeSpec extension restore, expected/reference drift gates, and OpenAPI 3.2 validation. The OpenAPI/Definition Builder path remains available as an explicit rollback/reference path through `:openapi` commands; the legacy whole-domain merge script has been removed, and `src/domains/**/spec.yaml` files are archived historical/migration reference material.
 
-Current builder status: local/staging/production target configs cover `common`, `auth`, `health`, `me`, and `users`; the local target emits 22 paths and 41 components from 76 fragments with 63 selected nodes and zero diagnostics. `pnpm schema:validate` is the canonical gate: it builds parser/codegen, emits `.merged.yaml` through `oa-gen build-spec`, downgrades to 3.1, runs Spectral/Redocly, and then runs strict `oa-gen validate --require-32`.
+Current TypeSpec status: the production bundle emits 27 operations and 32 schemas, restores 104 OA SDK extension-derived semantic entries, and keeps 63 reviewed restored-vs-reference differences pinned by normalized value hash. `pnpm schema:validate` is the canonical gate: it builds parser/codegen, emits `.merged.yaml` through `schema:typespec-check`, downgrades to 3.1, runs Spectral/Redocly, and then runs strict `oa-gen validate --require-32`.
 
-| 단계 | Definition Builder path |
+| 단계 | Production TypeSpec path |
 |------|-------------------------|
-| Source layout | `packages/schemas/src/fragments/**/{Name}.yaml` plus `packages/schemas/src/targets/{target}.yaml` |
-| Composition command | `pnpm --filter @oa-sdk/schemas run build:merged` writes `src/.merged.yaml` through `oa-gen build-spec` |
-| Target variants | `build:merged`, `build:merged:staging`, and `build:merged:production` select the local/staging/production target configs |
-| Selection boundary | Target config selects exact path fragments, retained definitions, and transitive registry refs |
-| Servers/tags/info | Target config owns root metadata and emitted server list |
-| Refs | Source fragments use canonical refs such as `oa://schema/shared/common/Error`; emit rewrites them to local OpenAPI refs |
-| Collision behavior | Duplicate canonical ids, unresolved refs, target leaks, output-name collisions, unrewritten refs, and validation errors fail the build |
-| Artifact ownership | `src/.merged.yaml` is the canonical OpenAPI 3.2 validation input; `src/.merged.3.1.yaml` and `.meta.json` are generated from it |
+| Source layout | `packages/schemas/typespec/main.tsp` plus `oa-sdk.typespec-bundle.json` |
+| Composition command | `pnpm --filter @oa-sdk/schemas run build` writes `src/.merged.yaml` through `build:typespec` |
+| Default root gates | `pnpm schema:validate`, `pnpm schema:bundle`, and `pnpm schema:preview` |
+| Rollback path | `pnpm schema:validate:openapi`, `pnpm schema:bundle:openapi`, `pnpm schema:preview:openapi`, and package-level `build:openapi` |
+| Expected/reference gate | `packages/schemas/typespec/expected.openapi.yaml` plus `accepted-restored-drift.json` |
+| Artifact ownership | `src/.merged.yaml` is the generated OpenAPI 3.2 validation input; `src/.merged.3.1.yaml` and `.meta.json` are generated from it |
 
-Builder replacement requirements now become ongoing governance requirements:
+Production schema requirements now become ongoing governance requirements:
 
-- `.merged.yaml` must be generated only by `oa-gen build-spec` from target config + fragments.
-- Build diagnostics and collision reports under `src/.builder/` must stay zero-error for the active local target.
-- Output must contain only local OpenAPI `` values; no `oa://` refs may survive emission.
+- `.merged.yaml` must be generated by the TypeSpec production bundle for default validation/build/bundle commands.
+- `pnpm schema:rollback-check` must keep the OpenAPI/Definition Builder fallback green.
+- TypeSpec-restored drift must either match the accepted hash-pinned manifest or be burned down intentionally.
 - `.merged.3.1.yaml` must continue to be derived from the active 3.2 artifact through `downgrade-3.1.ts` with the same sidecar contract.
 - `pnpm schema:validate`, `pnpm --filter @oa-sdk/schemas test`, and downstream codegen/router/client/mock-server tests are the regression surface for future changes.
-- Rollback now means reverting this replacement change in git; no in-repo legacy merge command remains.
+- Rollback now means using the explicit `:openapi` commands while repairing TypeSpec output, or reverting the source-path switch if TypeSpec output cannot preserve validation/downstream behavior.
 
 | 개념 | 계획 |
 |------|------|
@@ -479,8 +477,9 @@ PRD: [tasks/prd-openapi-definition-builder.md](../../tasks/prd-openapi-definitio
 
 ### 스펙 관리
 ```bash
-pnpm --filter @oa-sdk/schemas run build:merged     # Definition Builder artifact 생성
-pnpm schema:validate                               # build-spec + 3.1 변환 + Spectral/Redocly + oa-gen validate
+pnpm --filter @oa-sdk/schemas run build            # TypeSpec production artifact 생성
+pnpm schema:validate                               # TypeSpec restore + 3.1 변환 + Spectral/Redocly + oa-gen validate
+pnpm schema:validate:openapi                       # Definition Builder rollback/reference path 검증
 oa-gen build-spec --target packages/schemas/src/targets/book-notebook-api.yaml -o artifacts/book-notebook-api.yaml --diagnostics artifacts/book-notebook-api.diagnostics.json --collision-report artifacts/book-notebook-api.collisions.json --composition-report artifacts/book-notebook-api.composition.json --provenance artifacts/book-notebook-api.provenance.json --metadata-registry artifacts/book-notebook-api.metadata.json
 oa-gen validate --spec .merged.yaml                # 종합 검증
 oa-gen validate --spec .merged.yaml --incremental --cache-dir .oa-cache

@@ -2,9 +2,9 @@
 
 > Goal: decide whether the current OA SDK OpenAPI declaration can move to a TypeSpec-first authoring model without losing the contract semantics that OA SDK already uses.
 
-Status: evaluation complete. ADR-009 accepts TypeSpec-first schema authoring with a staged production migration.
+Status: evaluation complete. ADR-009 accepts TypeSpec-first schema authoring, and the production source-path switch is implemented with OpenAPI/Definition Builder rollback commands retained.
 
-Versioned implementation planning lives under [`typespec-roundtrip/`](./typespec-roundtrip/). The sidecar-less authored TypeSpec extension vocabulary is standardized in [`typespec-roundtrip/oa-sdk-typespec-extensions.v1.md`](./typespec-roundtrip/oa-sdk-typespec-extensions.v1.md). The completed TypeSpec-first decision design is tracked in [`typespec-roundtrip/tsp-first-decision-design.md`](./typespec-roundtrip/tsp-first-decision-design.md). The staged production migration goals G9-G12 are tracked in [`typespec-roundtrip/production-migration-goals.md`](./typespec-roundtrip/production-migration-goals.md). The next target is [`@oa-sdk/codegen` `0.3.0`](./typespec-roundtrip/v0.3.0/implementation-roadmap.plan.md), following the current `@oa-sdk/codegen` `0.2.0` package version.
+Versioned implementation planning lives under [`typespec-roundtrip/`](./typespec-roundtrip/). The sidecar-less authored TypeSpec extension vocabulary is standardized in [`typespec-roundtrip/oa-sdk-typespec-extensions.v1.md`](./typespec-roundtrip/oa-sdk-typespec-extensions.v1.md). The completed TypeSpec-first decision design is tracked in [`typespec-roundtrip/tsp-first-decision-design.md`](./typespec-roundtrip/tsp-first-decision-design.md). The production migration goals G9-G12 and source-path switch are tracked in [`typespec-roundtrip/production-migration-goals.md`](./typespec-roundtrip/production-migration-goals.md). The next release housekeeping target is [`@oa-sdk/codegen` `0.3.0`](./typespec-roundtrip/v0.3.0/implementation-roadmap.plan.md), following the current `@oa-sdk/codegen` `0.2.0` package version.
 
 ## Current Surfaces
 
@@ -24,11 +24,11 @@ Implemented source:
 - `scripts/typespec-bundle-check.ts` — repository wrapper around the shared `oa-gen tsp-bundle-check` implementation.
 - `scripts/typespec-sidecar-to-extensions.ts` — repository wrapper for the sidecar-to-extension migration helper.
 - `scripts/typespec-create-authored-canonical-fixture.ts` — reproducible canonical authored fixture regeneration from the production merged OpenAPI schema.
-- `scripts/schema-typespec-check.ts` — G10 schema-level TypeSpec gate for the production bundle, current `.merged.yaml` freshness diff, and accepted restored drift hash manifest.
-- `scripts/schema-rollback-check.ts` — G11 rollback gate that proves the TypeSpec candidate and existing OpenAPI/Definition Builder path stay green together.
+- `scripts/schema-typespec-check.ts` — schema-level TypeSpec gate for the production bundle, reviewed reference diff, and accepted restored drift hash manifest.
+- `scripts/schema-rollback-check.ts` — rollback gate that proves the TypeSpec source and OpenAPI/Definition Builder path stay green together.
 - `scripts/schema-typespec-downstream-check.ts` — G12 downstream gate that imports built package exports, runs parser, codegen, router, client, and mock-server against the TypeSpec-derived production artifact, and compiles generated TypeScript consumers plus a synthetic webhook/header fixture.
-- `packages/schemas/typespec/` — G9 production-owned TypeSpec source layout candidate for the staged migration.
-- `packages/schemas/typespec/accepted-restored-drift.json` — G10 accepted TypeSpec-restored-vs-production drift manifest with normalized value hashes.
+- `packages/schemas/typespec/` — production-owned TypeSpec source layout.
+- `packages/schemas/typespec/accepted-restored-drift.json` — accepted TypeSpec-restored-vs-reference drift manifest with normalized value hashes.
 - `docs/internal/typespec-roundtrip/oa-sdk-typespec-extensions.v1.md` — `oa-sdk.typespec-extensions.v1` vocabulary for sidecar-less authored TypeSpec bundles.
 - `docs/internal/typespec-roundtrip/oa-sdk-typespec-extensions.v2.md` — `oa-sdk.typespec-extensions.v2` request body examples vocabulary.
 - `docs/internal/typespec-roundtrip/authoring-ownership-guide.md` — maintainer-facing source-of-truth ownership map for TypeSpec-native syntax, OA SDK TypeSpec extensions, compatibility sidecars, and runtime data.
@@ -137,9 +137,9 @@ Current probe on `packages/schemas/src/.merged.yaml`:
 | TypeSpec-first ADR | pass, `docs/internal/architecture/009-typespec-first-authoring.md` records accepted scope, evidence, guardrails, staged migration path, and rollback rules |
 | Sidecar-to-extension migration workflow | pass, `pnpm typespec:sidecar-to-extensions` writes TypeSpec snippets, a residual sidecar, and a report without converting unsupported metadata into comments; current canonical sidecar conversion yields 99 converted entries and 3 residual path-level parameter examples |
 | TypeSpec-first ADR promotion | pass, `docs/internal/architecture/009-typespec-first-authoring.md` accepts TypeSpec-first schema authoring with staged production migration and rollback rules |
-| Production TypeSpec source layout | pass, `packages/schemas/typespec/` exists as the G9 production-owned TypeSpec bundle candidate and passes standalone bundle-check |
-| Production TypeSpec schema check | pass, `pnpm schema:typespec-check` runs the production bundle check, verifies bundle-local expected OpenAPI against `packages/schemas/src/.merged.yaml`, and requires the TypeSpec-restored-vs-production diff to match `accepted-restored-drift.json` with 63 accepted hash-pinned entries plus a category/kind breakdown |
-| Production TypeSpec rollback gate | pass, `pnpm schema:rollback-check` runs the TypeSpec production candidate gate and the existing OpenAPI/Definition Builder validation path before any production source-path switch |
+| Production TypeSpec source layout | pass, `packages/schemas/typespec/` exists as the production-owned TypeSpec bundle and passes standalone bundle-check |
+| Production TypeSpec schema check | pass, `pnpm schema:typespec-check` runs the production bundle check, verifies bundle-local expected OpenAPI against the reviewed reference, and requires the TypeSpec-restored-vs-reference diff to match `accepted-restored-drift.json` with 63 accepted hash-pinned entries plus a category/kind breakdown |
+| Production TypeSpec rollback gate | pass, `pnpm schema:rollback-check` runs the TypeSpec production gate and the explicit `schema:validate:openapi` OpenAPI/Definition Builder validation path |
 | Production TypeSpec downstream gate | pass, `pnpm schema:downstream-check` generates the TypeSpec-restored production OpenAPI artifact, imports built package `dist` exports, feeds it to parser validation, codegen typegen, router generation, client generation, and mock-server handler creation, and compiles generated typegen/router/client TypeScript consumers plus a synthetic webhook/header fixture |
 
 Diagnostic distribution:

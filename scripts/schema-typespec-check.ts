@@ -1,6 +1,6 @@
 /**
- * Validate the production TypeSpec schema candidate without changing the
- * existing OpenAPI/Definition Builder production path.
+ * Validate the production TypeSpec schema source against the reviewed OpenAPI
+ * reference and accepted TypeSpec-restored reference drift manifest.
  */
 
 import { createHash } from 'node:crypto'
@@ -92,10 +92,10 @@ try {
 
     console.log('')
     console.log('TypeSpec schema freshness check')
-    console.log(`  production OpenAPI: ${relative(root, resolve(root, args.productionOpenapi))}`)
+    console.log(`  reference OpenAPI: ${relative(root, resolve(root, args.productionOpenapi))}`)
     console.log(`  bundle expected: ${relative(root, resolve(root, args.expectedOpenapi))}`)
     console.log(`  TypeSpec restored: ${relative(root, resolve(root, bundleResult.report.paths.restoredOpenapi))}`)
-    console.log(`  accepted restored drift: ${relative(root, resolve(root, args.acceptedRestoredDrift))}`)
+    console.log(`  accepted restored reference drift: ${relative(root, resolve(root, args.acceptedRestoredDrift))}`)
     console.log(`  expected normalized diff: ${expectedFreshnessDiff.length === 0 ? 'pass' : 'fail'}`)
     console.log(`  restored normalized diff: ${restoredDriftReport.pass ? `pass (${restoredFreshnessDiff.length} accepted)` : 'fail'}`)
     if (restoredDriftReport.pass && restoredFreshnessDiff.length > 0) {
@@ -110,7 +110,7 @@ try {
       }
       if (!restoredDriftReport.pass) {
         console.error('')
-        console.error('TypeSpec-restored OpenAPI drift:')
+        console.error('TypeSpec-restored OpenAPI reference drift:')
         console.error(formatOpenApiDiff(restoredFreshnessDiff))
         console.error('')
         console.error(formatAcceptedDriftMismatch(restoredDriftReport))
@@ -132,7 +132,9 @@ function parseArgs(rawArgs: string[]): Args {
   return {
     manifest: readOption(rawArgs, '--manifest') ?? 'packages/schemas/typespec/oa-sdk.typespec-bundle.json',
     expectedOpenapi: readOption(rawArgs, '--expected-openapi') ?? 'packages/schemas/typespec/expected.openapi.yaml',
-    productionOpenapi: readOption(rawArgs, '--production-openapi') ?? 'packages/schemas/src/.merged.yaml',
+    productionOpenapi: readOption(rawArgs, '--reference-openapi')
+      ?? readOption(rawArgs, '--production-openapi')
+      ?? 'packages/schemas/typespec/expected.openapi.yaml',
     acceptedRestoredDrift: readOption(rawArgs, '--accepted-restored-drift') ?? 'packages/schemas/typespec/accepted-restored-drift.json',
     ...(readOption(rawArgs, '--report') ? { report: readOption(rawArgs, '--report') } : {}),
     ...(readOption(rawArgs, '--output') ? { output: readOption(rawArgs, '--output') } : {}),
@@ -226,7 +228,7 @@ function formatAcceptedDriftMismatch(input: {
   }>
   missing: readonly AcceptedRestoredDriftEntry[]
 }): string {
-  const lines = ['Accepted restored drift mismatch:']
+  const lines = ['Accepted restored reference drift mismatch:']
   if (input.unexpected.length > 0) {
     lines.push(`- unexpected actual drift: ${input.unexpected.length}`)
     for (const entry of input.unexpected.slice(0, 20)) {
@@ -237,8 +239,8 @@ function formatAcceptedDriftMismatch(input: {
     lines.push(`- changed accepted drift value: ${input.changed.length}`)
     for (const { actual, accepted } of input.changed.slice(0, 20)) {
       lines.push(`  - ${driftKey(actual)}`)
-      lines.push(`    expected production/restored: ${shortHash(accepted.productionSha256)}/${shortHash(accepted.restoredSha256)}`)
-      lines.push(`    actual production/restored: ${shortHash(actual.productionSha256)}/${shortHash(actual.restoredSha256)}`)
+      lines.push(`    expected reference/restored: ${shortHash(accepted.productionSha256)}/${shortHash(accepted.restoredSha256)}`)
+      lines.push(`    actual reference/restored: ${shortHash(actual.productionSha256)}/${shortHash(actual.restoredSha256)}`)
     }
   }
   if (input.missing.length > 0) {
@@ -322,14 +324,15 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function printUsage(): void {
   console.error(`Usage:
-  pnpm schema:typespec-check [-- --manifest <path>] [--expected-openapi <path>] [--production-openapi <path>]
+  pnpm schema:typespec-check [-- --manifest <path>] [--expected-openapi <path>] [--reference-openapi <path>]
 
 Options:
   --manifest <path>            TypeSpec bundle manifest. Defaults to packages/schemas/typespec/oa-sdk.typespec-bundle.json.
   --expected-openapi <path>    Bundle-local expected OpenAPI. Defaults to packages/schemas/typespec/expected.openapi.yaml.
-  --production-openapi <path>  Current production OpenAPI artifact. Defaults to packages/schemas/src/.merged.yaml.
+  --reference-openapi <path>   Reviewed OpenAPI reference for restored drift. Defaults to packages/schemas/typespec/expected.openapi.yaml.
+  --production-openapi <path>  Deprecated alias for --reference-openapi.
   --accepted-restored-drift <path>
-                               Accepted restored-vs-production drift manifest. Defaults to packages/schemas/typespec/accepted-restored-drift.json.
+                               Accepted restored-vs-reference drift manifest. Defaults to packages/schemas/typespec/accepted-restored-drift.json.
   --report <path>              Write the underlying bundle-check report.
   --output <path>              Write the restored OpenAPI artifact.
   --keep                       Keep the temporary TypeSpec bundle workspace.

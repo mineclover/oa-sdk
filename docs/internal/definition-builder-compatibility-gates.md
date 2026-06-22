@@ -1,13 +1,14 @@
 # Definition Builder Validation Gates
 
-Definition Builder is now the canonical schema composition path. The legacy
-domain merge script has been removed, so this document records the active gates
-for the generated `packages/schemas/src/.merged.yaml` artifact.
+Definition Builder is now the explicit OpenAPI rollback/reference composition
+path. The default production schema path is TypeSpec-first; this document
+records the fallback gates for generating `packages/schemas/src/.merged.yaml`
+from OpenAPI fragments when the TypeSpec path needs comparison or repair.
 
-## Canonical Command
+## Rollback Command
 
 ```bash
-pnpm schema:validate
+pnpm schema:validate:openapi
 ```
 
 The root command performs the full OpenAPI contract gate:
@@ -17,7 +18,7 @@ The root command performs the full OpenAPI contract gate:
 3. Runs `@oa-sdk/schemas` validation.
 4. Runs strict `oa-gen validate --require-32` against `packages/schemas/src/.merged.yaml`.
 
-Inside `@oa-sdk/schemas`, validation is:
+Inside `@oa-sdk/schemas`, fallback validation is:
 
 1. `pnpm build:merged` — emits `.merged.yaml` with `oa-gen build-spec`.
 2. `pnpm downgrade:3.1` — derives `.merged.3.1.yaml` and `.merged.3.1.meta.json`.
@@ -62,6 +63,8 @@ bundling.
 
 ## Rollback
 
-Rollback is now a normal git rollback of the Definition Builder replacement
-change. There is no supported in-repo legacy merge command after this
-transition.
+Rollback from TypeSpec-generated artifacts is explicit: run
+`pnpm schema:validate:openapi` or `pnpm schema:bundle:openapi` to regenerate
+the artifact from Definition Builder while repairing the TypeSpec source. A
+permanent return to Definition Builder as the default production source requires
+a separate source-path decision or git revert of the TypeSpec switch.

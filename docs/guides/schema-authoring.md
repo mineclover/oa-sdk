@@ -1,10 +1,20 @@
 # 스키마 작성 가이드
 
-## 새 API fragment 추가
+## 새 API 작성 경로
+
+Production schema authoring is TypeSpec-first. 기본 경로에서는
+`packages/schemas/typespec/main.tsp`와 같은 TypeSpec bundle source를 수정한 뒤
+`pnpm schema:validate`로 production OpenAPI artifact를 재생성/검증한다.
+
+OpenAPI fragments are retained as the Definition Builder rollback/reference path.
+아래 fragment workflow를 사용할 때는 기본 TypeSpec artifact가 아니라 rollback path를
+검증하는 것이므로 `pnpm schema:validate:openapi`를 실행한다.
+
+## OpenAPI fragment fallback 추가
 
 1. `packages/schemas/src/fragments/{kind}/{scope}/{domain}/{name}.yaml` 생성
 2. canonical `id`와 OpenAPI fragment body를 작성 (아래 템플릿 참고)
-3. `pnpm schema:validate`로 검증
+3. `pnpm schema:validate:openapi`로 rollback/reference path 검증
 
 ```yaml
 # fragments/path/public/my-domain/MyResourcePath.yaml

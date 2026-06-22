@@ -6,7 +6,7 @@ oa-sdk/
     openapi-projection-contract/ @oa-sdk/openapi-projection-contract OAS projection contract + validation
     core/          @oa-sdk/core         공유 유틸 (pascalCase, toColonPath, collectTypeNames)
     parser/        @oa-sdk/parser       OAS 3.2 파서 + IR + fold + lint + query
-    schemas/       @oa-sdk/schemas      Definition Builder fragments/targets + OAS artifact 검증
+    schemas/       @oa-sdk/schemas      TypeSpec production source + Definition Builder rollback + OAS artifact 검증
     mock-server/   @oa-sdk/mock-server  AJV Mock 서버 (MSW + Node HTTP) + 테스트 헬퍼
     codegen/       @oa-sdk/codegen      Zod/Drizzle → OAS + typegen + CLI
     router/        @oa-sdk/router       OAS → Hono/Express 라우터 스텁
@@ -80,8 +80,11 @@ schemas      ← 독립
 
 | 파일 | 역할 |
 |------|------|
-| `src/fragments/**/*.yaml` | canonical definition fragments |
-| `src/targets/*.yaml` | Definition Builder target configs |
+| `typespec/main.tsp` | production TypeSpec schema source |
+| `typespec/oa-sdk.typespec-bundle.json` | production TypeSpec bundle manifest |
+| `typespec/accepted-restored-drift.json` | reviewed restored-vs-reference drift manifest |
+| `src/fragments/**/*.yaml` | Definition Builder rollback/reference fragments |
+| `src/targets/*.yaml` | Definition Builder rollback/reference target configs |
 | `src/openapi.yaml`, `src/profiles/*.yaml`, `src/domains/*/spec.yaml` | legacy merge reference material |
 | `scripts/downgrade-3.1.ts` | 3.2→3.1 다운그레이드 |
 

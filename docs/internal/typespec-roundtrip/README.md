@@ -14,9 +14,9 @@ The current full canonical authored fixture is [`fixtures/authored-canonical-bun
 
 The TypeSpec-first decision design and completed G1-G8 evidence are tracked in [`tsp-first-decision-design.md`](./tsp-first-decision-design.md).
 
-The staged production migration goals G9-G12 are tracked in [`production-migration-goals.md`](./production-migration-goals.md).
+The production migration goals G9-G12 and source-path switch are tracked in [`production-migration-goals.md`](./production-migration-goals.md).
 
-The G9 production TypeSpec source layout candidate is [`../../../packages/schemas/typespec/`](../../../packages/schemas/typespec/).
+The production TypeSpec source bundle is [`../../../packages/schemas/typespec/`](../../../packages/schemas/typespec/).
 
 ## Versions
 
