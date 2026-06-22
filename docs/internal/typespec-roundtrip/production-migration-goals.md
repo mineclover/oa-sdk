@@ -1,6 +1,6 @@
 # TypeSpec Production Migration Goals
 
-Status: G9-G11 implemented; G12 planned. ADR-009 accepts TypeSpec-first schema authoring, but the production schema build path still uses the current OpenAPI fragments until downstream evidence lands.
+Status: G9-G12 implemented. ADR-009 accepts TypeSpec-first schema authoring, but the production schema build path still uses the current OpenAPI fragments until the source-path switch is explicitly approved.
 
 This document extends the completed G1-G8 decision roadmap with production migration goals. It does not reopen the TypeSpec-first decision; it scopes the work required to make the accepted TypeSpec bundle production-authoritative.
 
@@ -103,6 +103,8 @@ Status: implemented by `pnpm schema:rollback-check` and `pnpm --filter @oa-sdk/s
 
 ### G12 - Downstream Consumer Gates
 
+Status: implemented by `pnpm schema:downstream-check` and `pnpm --filter @oa-sdk/schemas run downstream:check`.
+
 - Run parser/codegen/router/client/mock-server checks against the TypeSpec-derived OpenAPI artifact, not only against the old `.merged.yaml`.
 - Add or update focused commands in the feature matrix once the TypeSpec-derived artifact path is stable.
 - Treat mock-server example selection as a required smoke surface because `dataValue` / `serializedValue` semantics motivated the extension vocabulary.
@@ -125,7 +127,7 @@ Additional commands by goal:
 | G9 | `pnpm typespec:create-canonical-fixture` and `pnpm typespec:bundle-check -- --manifest <production-bundle>/oa-sdk.typespec-bundle.json --fail-on-breaking` |
 | G10 | `pnpm schema:typespec-check`, `pnpm --filter @oa-sdk/schemas run typespec:check`, `pnpm schema:bundle`, and `pnpm schema:validate` |
 | G11 | `pnpm schema:rollback-check` and `pnpm --filter @oa-sdk/schemas run rollback:check` |
-| G12 | `pnpm --filter @oa-sdk/codegen test`, `pnpm --filter @oa-sdk/router test`, `pnpm --filter @oa-sdk/client test`, and `pnpm --filter @oa-sdk/mock-server test` |
+| G12 | `pnpm schema:downstream-check` and `pnpm --filter @oa-sdk/schemas run downstream:check` |
 
 ## Completion Checklist
 
@@ -137,4 +139,4 @@ The production migration is complete only when:
 - `tsp-bundle-check --fail-on-breaking` passes for the production bundle.
 - OA SDK OpenAPI 3.2 validation passes for emitted and restored output.
 - Extension or sidecar re-extraction is stable with no missing expected entries, unexpected actual entries, or value mismatches.
-- Downstream codegen, router, client, and mock-server tests are green against the TypeSpec-derived artifact.
+- Downstream parser, codegen, router, client, and mock-server gates are green against the TypeSpec-derived artifact.

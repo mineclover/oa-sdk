@@ -25,6 +25,7 @@
     "schema:bundle": "pnpm --filter @oa-sdk/schemas run bundle",
     "schema:typespec-check": "node --import tsx scripts/schema-typespec-check.ts",
     "schema:rollback-check": "node --import tsx scripts/schema-rollback-check.ts",
+    "schema:downstream-check": "node --import tsx scripts/schema-typespec-downstream-check.ts",
     "schema:preview": "pnpm --filter @oa-sdk/schemas run preview",
     "personas:check": "pnpm --filter @oa-sdk/personas run check",
     "personas:coverage": "pnpm --filter @oa-sdk/personas run coverage",

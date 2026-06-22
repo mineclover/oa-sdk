@@ -290,6 +290,7 @@
     "production TypeSpec source layout candidate",
     "production TypeSpec schema check",
     "production TypeSpec rollback gate",
+    "production TypeSpec downstream consumer gate",
     "sidecar-less authored TypeSpec extension bundle check",
     "representative authored TypeSpec extension bundle check",
     "request body authored TypeSpec extension bundle check",
@@ -324,6 +325,7 @@
         "scripts/typespec-create-authored-canonical-fixture.ts",
         "scripts/schema-typespec-check.ts",
         "scripts/schema-rollback-check.ts",
+        "scripts/schema-typespec-downstream-check.ts",
         "docs/internal/typespec-roundtrip/fixtures/authored-bundle/oa-sdk.typespec-bundle.json",
         "docs/internal/typespec-roundtrip/fixtures/authored-bundle/main.tsp",
         "docs/internal/typespec-roundtrip/fixtures/authored-extension-bundle/oa-sdk.typespec-bundle.json",
@@ -361,6 +363,7 @@
         "pnpm typespec:bundle-check -- --manifest packages/schemas/typespec/oa-sdk.typespec-bundle.json --fail-on-breaking",
         "pnpm schema:typespec-check",
         "pnpm schema:rollback-check",
+        "pnpm schema:downstream-check",
         "pnpm typespec:sidecar-to-extensions -- --sidecar docs/internal/typespec-roundtrip/fixtures/authored-bundle/oa-sdk.typespec-compat-sidecar.json",
         "pnpm typespec:create-canonical-fixture"
       ]

@@ -26,6 +26,7 @@ Implemented source:
 - `scripts/typespec-create-authored-canonical-fixture.ts` — reproducible canonical authored fixture regeneration from the production merged OpenAPI schema.
 - `scripts/schema-typespec-check.ts` — G10 schema-level TypeSpec gate for the production bundle plus current `.merged.yaml` freshness diff.
 - `scripts/schema-rollback-check.ts` — G11 rollback gate that proves the TypeSpec candidate and existing OpenAPI/Definition Builder path stay green together.
+- `scripts/schema-typespec-downstream-check.ts` — G12 downstream gate that runs parser, codegen, router, client, and mock-server against the TypeSpec-derived production artifact.
 - `packages/schemas/typespec/` — G9 production-owned TypeSpec source layout candidate for the staged migration.
 - `docs/internal/typespec-roundtrip/oa-sdk-typespec-extensions.v1.md` — `oa-sdk.typespec-extensions.v1` vocabulary for sidecar-less authored TypeSpec bundles.
 - `docs/internal/typespec-roundtrip/oa-sdk-typespec-extensions.v2.md` — `oa-sdk.typespec-extensions.v2` request body examples vocabulary.
@@ -89,6 +90,7 @@ pnpm typespec:sidecar-to-extensions -- --sidecar artifacts/typespec-sidecar.json
 pnpm typespec:create-canonical-fixture
 pnpm schema:typespec-check
 pnpm schema:rollback-check
+pnpm schema:downstream-check
 ```
 
 The default probe is a visibility command: it exits 0 when export, TypeSpec compile, and OA SDK validation pass, even if semantic diff remains. `--fail-on-breaking` is the readiness gate; the current canonical artifact passes it, and future semantic regressions must either be removed or explicitly accepted by policy.
@@ -137,6 +139,7 @@ Current probe on `packages/schemas/src/.merged.yaml`:
 | Production TypeSpec source layout | pass, `packages/schemas/typespec/` exists as the G9 production-owned TypeSpec bundle candidate and passes standalone bundle-check |
 | Production TypeSpec schema check | pass, `pnpm schema:typespec-check` runs the production bundle check and verifies bundle-local expected OpenAPI against `packages/schemas/src/.merged.yaml` |
 | Production TypeSpec rollback gate | pass, `pnpm schema:rollback-check` runs the TypeSpec production candidate gate and the existing OpenAPI/Definition Builder validation path before any production source-path switch |
+| Production TypeSpec downstream gate | pass, `pnpm schema:downstream-check` generates the TypeSpec-restored production OpenAPI artifact and feeds it to parser validation, codegen typegen, router generation, client generation, and mock-server handler creation |
 
 Diagnostic distribution:
 
