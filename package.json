@@ -37,7 +37,8 @@
     "spec:diff": "node scripts/dist/spec-diff.js",
     "typespec:roundtrip": "node --import tsx scripts/typespec-roundtrip.ts",
     "typespec:bundle-check": "node --import tsx scripts/typespec-bundle-check.ts",
-    "typespec:sidecar-to-extensions": "node --import tsx scripts/typespec-sidecar-to-extensions.ts"
+    "typespec:sidecar-to-extensions": "node --import tsx scripts/typespec-sidecar-to-extensions.ts",
+    "typespec:create-canonical-fixture": "node --import tsx scripts/typespec-create-authored-canonical-fixture.ts"
   },
   "devDependencies": {
     "@changesets/cli": "^2.31.0",

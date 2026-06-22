@@ -235,13 +235,15 @@ function convertSecuritySchemeEntry(
     securitySchemeNames: Set<string>
   },
 ): { converted: true; report: TypeSpecSidecarConvertedEntry } | { converted: false; reason: string } {
-  const value = normalizeSecuritySchemeForTypeSpecExtension(entry.value)
   if (!IDENTIFIER_RE.test(entry.target.name)) {
     return { converted: false, reason: 'security scheme name cannot be rendered as a stable TypeSpec extension object key' }
   }
   if (context.securitySchemeNames.has(entry.target.name)) {
     return { converted: false, reason: 'duplicate security scheme target cannot be represented as a single TypeSpec extension object key' }
   }
+  const validation = validateSecuritySchemeForTypeSpecExtension(entry.value)
+  if (!validation.valid) return { converted: false, reason: validation.reason }
+  const value = normalizeSecuritySchemeForTypeSpecExtension(entry.value)
   if (!canRenderTypeSpecValue(value)) {
     return { converted: false, reason: 'security scheme metadata contains values that cannot be rendered as TypeSpec value literals' }
   }
@@ -360,13 +362,52 @@ function normalizeSecuritySchemeForTypeSpecExtension(value: unknown): unknown {
     if (key === 'scopes' && isRecord(item)) {
       normalized.scopes = Object.entries(item).map(([name, description]) => ({
         name,
-        description: typeof description === 'string' ? description : String(description ?? ''),
+        description,
       }))
       continue
     }
     normalized[key] = normalizeSecuritySchemeForTypeSpecExtension(item)
   }
   return normalized
+}
+
+function validateSecuritySchemeForTypeSpecExtension(value: unknown, path = 'security scheme metadata'): {
+  valid: true
+} | {
+  valid: false
+  reason: string
+} {
+  if (Array.isArray(value)) {
+    for (const [index, item] of value.entries()) {
+      const validation = validateSecuritySchemeForTypeSpecExtension(item, `${path}[${index}]`)
+      if (!validation.valid) return validation
+    }
+    return { valid: true }
+  }
+  if (!isRecord(value)) return { valid: true }
+
+  for (const [key, item] of Object.entries(value)) {
+    if (key === 'scopes') {
+      if (!isRecord(item)) {
+        return {
+          valid: false,
+          reason: `security scheme scopes must be an object map before they can be emitted as TypeSpec extensions (${path}.scopes)`,
+        }
+      }
+      for (const [scopeName, description] of Object.entries(item)) {
+        if (typeof description === 'string') continue
+        return {
+          valid: false,
+          reason: `security scheme scope descriptions must be strings before they can be emitted as TypeSpec extensions (${path}.scopes.${scopeName})`,
+        }
+      }
+      continue
+    }
+    const validation = validateSecuritySchemeForTypeSpecExtension(item, `${path}.${key}`)
+    if (!validation.valid) return validation
+  }
+
+  return { valid: true }
 }
 
 function uniqueAuthoringKey(record: RecordValue, source: string, seenKeys?: Set<string>): string {

@@ -10,6 +10,7 @@ import {
 } from '../cli/lib/typespec-sidecar.js'
 import { loadSpecWithPath } from '../cli/lib/load-spec.js'
 import { diffEndpoints, hasBreakingChanges } from '../cli/lib/openapi-breaking-diff.js'
+import { diffOpenApiDocuments, formatOpenApiDiff } from '../cli/lib/openapi-normalized-diff.js'
 import { validateDocument } from '@oa-sdk/parser'
 
 const pkgDir = resolve(__dirname, '../..')
@@ -294,6 +295,17 @@ describe('authored TypeSpec compatibility bundle', () => {
         serializedValue: '{"email":"bob@example.com","name":"Bob"}',
       },
     })
+  })
+
+  it('keeps the canonical authored fixture expected OpenAPI in sync with the production merged schema', () => {
+    const { document: productionDocument } = loadSpecWithPath(join(rootDir, 'packages/schemas/src/.merged.yaml'))
+    const { document: fixtureDocument } = loadSpecWithPath(join(canonicalFixtureDir, 'expected.openapi.yaml'))
+    const diff = diffOpenApiDocuments(
+      productionDocument as Record<string, unknown>,
+      fixtureDocument as Record<string, unknown>,
+    )
+
+    expect(diff, formatOpenApiDiff(diff)).toEqual([])
   })
 
   it('checks the sidecar-less canonical authored .tsp bundle', () => {

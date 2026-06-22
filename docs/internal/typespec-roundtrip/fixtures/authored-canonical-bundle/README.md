@@ -14,7 +14,13 @@ The generated canonical sidecar has 102 entries. G6 conversion can move 99 entri
 
 That yields 104 extension-owned entries and no residual sidecar.
 
-Required gate:
+Regenerate this fixture from the current production merged schema:
+
+```bash
+pnpm typespec:create-canonical-fixture
+```
+
+Required gate after regeneration:
 
 ```bash
 pnpm typespec:bundle-check -- --manifest docs/internal/typespec-roundtrip/fixtures/authored-canonical-bundle/oa-sdk.typespec-bundle.json --fail-on-breaking

@@ -290,6 +290,7 @@
     "representative authored TypeSpec extension bundle check",
     "request body authored TypeSpec extension bundle check",
     "canonical authored TypeSpec extension bundle check",
+    "canonical authored TypeSpec fixture regeneration workflow",
         "tsp-bundle-check CLI bundle gate",
         "sidecar restore into TypeSpec-emitted OpenAPI",
         "sidecar semantic re-extraction stability report",
@@ -316,6 +317,7 @@
         "scripts/typespec-roundtrip.ts",
         "scripts/typespec-bundle-check.ts",
         "scripts/typespec-sidecar-to-extensions.ts",
+        "scripts/typespec-create-authored-canonical-fixture.ts",
         "docs/internal/typespec-roundtrip/fixtures/authored-bundle/oa-sdk.typespec-bundle.json",
         "docs/internal/typespec-roundtrip/fixtures/authored-bundle/main.tsp",
         "docs/internal/typespec-roundtrip/fixtures/authored-extension-bundle/oa-sdk.typespec-bundle.json",
@@ -344,7 +346,8 @@
         "pnpm --filter @oa-sdk/codegen typecheck",
         "pnpm typespec:roundtrip",
         "pnpm typespec:bundle-check",
-        "pnpm typespec:sidecar-to-extensions -- --sidecar docs/internal/typespec-roundtrip/fixtures/authored-bundle/oa-sdk.typespec-compat-sidecar.json"
+        "pnpm typespec:sidecar-to-extensions -- --sidecar docs/internal/typespec-roundtrip/fixtures/authored-bundle/oa-sdk.typespec-compat-sidecar.json",
+        "pnpm typespec:create-canonical-fixture"
       ]
     },
     {

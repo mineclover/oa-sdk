@@ -217,4 +217,43 @@ describe('TypeSpec sidecar-to-extension migration', () => {
     expect(result.remainingSidecar.entries[0]?.target).toEqual({ name: 'oauth-2' })
     expect(result.snippets).not.toContain('oauth_2')
   })
+
+  it('keeps security schemes with malformed OAuth scope descriptions in the sidecar', () => {
+    const sidecar = parseTypeSpecCompatibilitySidecar({
+      schemaVersion: 'oa-sdk.typespec-compat-sidecar.v1',
+      counts: {
+        entries: 1,
+        parameterExamples: 0,
+        responseMediaExamples: 0,
+        securitySchemes: 1,
+      },
+      entries: [
+        {
+          kind: 'security-scheme',
+          pointer: '#/components/securitySchemes/oauth2',
+          target: { name: 'oauth2' },
+          value: {
+            type: 'oauth2',
+            flows: {
+              authorizationCode: {
+                authorizationUrl: 'https://auth.example.com/authorize',
+                tokenUrl: 'https://auth.example.com/token',
+                scopes: {
+                  read: { description: 'Read users' },
+                },
+              },
+            },
+          },
+        },
+      ],
+    })
+
+    const result = convertTypeSpecSidecarToExtensions(sidecar)
+
+    expect(result.report.counts.convertedEntries).toBe(0)
+    expect(result.report.counts.remainingEntries).toBe(1)
+    expect(result.report.remaining[0]?.reason).toContain('security scheme scope descriptions must be strings')
+    expect(result.remainingSidecar.entries[0]?.value).toEqual(sidecar.entries[0]?.value)
+    expect(result.snippets).not.toContain('[object Object]')
+  })
 })
