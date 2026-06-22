@@ -98,6 +98,9 @@ try {
     console.log(`  accepted restored drift: ${relative(root, resolve(root, args.acceptedRestoredDrift))}`)
     console.log(`  expected normalized diff: ${expectedFreshnessDiff.length === 0 ? 'pass' : 'fail'}`)
     console.log(`  restored normalized diff: ${restoredDriftReport.pass ? `pass (${restoredFreshnessDiff.length} accepted)` : 'fail'}`)
+    if (restoredDriftReport.pass && restoredFreshnessDiff.length > 0) {
+      console.log(`  accepted drift breakdown: ${formatAcceptedDriftSummary(acceptedRestoredDrift.entries)}`)
+    }
 
     if (expectedFreshnessDiff.length > 0 || !restoredDriftReport.pass) {
       if (expectedFreshnessDiff.length > 0) {
@@ -245,6 +248,18 @@ function formatAcceptedDriftMismatch(input: {
     }
   }
   return lines.join('\n')
+}
+
+function formatAcceptedDriftSummary(entries: readonly AcceptedRestoredDriftEntry[]): string {
+  const counts = new Map<string, number>()
+  for (const entry of entries) {
+    const key = `${entry.category}/${entry.kind}`
+    counts.set(key, (counts.get(key) ?? 0) + 1)
+  }
+  return [...counts.entries()]
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([key, count]) => `${key}=${count}`)
+    .join(', ')
 }
 
 function createAcceptedRestoredDriftEntry(

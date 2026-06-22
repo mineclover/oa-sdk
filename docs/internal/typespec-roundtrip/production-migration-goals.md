@@ -94,6 +94,8 @@ Status: implemented by `pnpm schema:typespec-check` and `pnpm --filter @oa-sdk/s
 - The new gate must compare `packages/schemas/typespec/expected.openapi.yaml` with `packages/schemas/src/.merged.yaml` using normalized OpenAPI diff so the TypeSpec bundle cannot drift from the current production artifact silently.
 - The new gate must also compare the TypeSpec-restored artifact with `packages/schemas/src/.merged.yaml` and require the exact accepted drift set plus pinned normalized production/restored value hashes from `packages/schemas/typespec/accepted-restored-drift.json`.
 - The accepted restored drift manifest blocks silent new drift during the migration. The production source-path switch remains incomplete until that manifest is either empty or intentionally refreshed with reviewed drift.
+- Current reviewed restored-vs-production drift is 63 entries: `root/changed=1`, `server/changed=1`, `security/removed=9`, `security/changed=1`, `path/changed=22`, `component/removed=11`, `component/changed=14`, and `component/added=4`.
+- Drift burn-down order before or during the source-path switch is: metadata alignment (`info`, `servers`, unused security metadata), reusable component identity (`parameters`, shared responses), response wrapper projection schemas, then operation/path-level metadata differences. Do not refresh the manifest without reviewing that order and the normalized value hashes.
 - Only after that gate is green should `schema:validate` or `schema:bundle` start depending on the TypeSpec-derived artifact.
 - Preserve Definition Builder commands until G11 proves rollback.
 

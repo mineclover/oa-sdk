@@ -10,6 +10,7 @@ Current boundary:
 - `packages/schemas/typespec/oa-sdk.typespec-bundle.json` is the bundle manifest and declares `oa-sdk.typespec-extensions.v2`.
 - `packages/schemas/typespec/expected.openapi.yaml` is the bundle-local expected OpenAPI 3.2 artifact for diff gates.
 - `packages/schemas/typespec/accepted-restored-drift.json` pins the currently accepted TypeSpec-restored-vs-production drift by normalized OpenAPI value hash.
+- Current accepted drift is reviewed as 63 hash-pinned entries: root metadata (1), server metadata (1), security metadata (10), path-level projection differences (22), and component projection differences (29).
 - `packages/schemas/src/.merged.yaml` is still produced by the existing OpenAPI/Definition Builder path until the source-path switch is explicitly approved.
 
 Bootstrap or refresh this candidate from the current canonical OpenAPI artifact:
@@ -31,6 +32,8 @@ pnpm schema:typespec-check
 ```
 
 The schema-level gate runs the bundle check, verifies that `expected.openapi.yaml` is still normalized-diff equivalent to `packages/schemas/src/.merged.yaml`, and checks that the TypeSpec-restored artifact matches the pinned `accepted-restored-drift.json` manifest. Any new restored-vs-production drift, missing accepted drift, or changed normalized value hash fails the gate.
+
+The accepted drift should burn down in this order before or during source-path switch work: metadata alignment, reusable parameter/response identity, response wrapper projection schemas, and finally operation/path metadata differences.
 
 Rollback G11 gate:
 
