@@ -608,7 +608,11 @@ model Error {
   @example("요청한 리소스를 찾을 수 없습니다")
   message: string;
   details?: ValidationError[];
-  _meta?: ErrorMeta;
+  _meta?: {
+    operationId?: string;
+    @format("uuid")
+    requestId?: string;
+  };
 }
 
 @doc("필드 수준 유효성 검사 에러")
@@ -622,33 +626,6 @@ model ValidationError {
   received?: unknown;
   @example("string with format 'email'")
   expected?: string;
-}
-
-model ErrorMeta {
-  operationId?: string;
-  @format("uuid")
-  requestId?: string;
-}
-
-@example(#{ items: #[#{ id: "00000000-0000-0000-0000-000000000100", changedAt: utcDateTime.fromISO("2026-04-01T00:00:00.000Z"), previousRole: "user", newRole: "admin", changedBy: "00000000-0000-0000-0000-000000000099", reason: "권한 위임" }], total: 1 })
-model ListMyRoleChanges200Body {
-  items: RoleChangeEvent[];
-  @minValue(0)
-  total: integer;
-}
-
-@example(#{ items: #[#{ id: "00000000-0000-0000-0000-000000000300", targetUserId: "00000000-0000-0000-0000-000000000001", reporterUserId: "00000000-0000-0000-0000-000000000002", reason: "harassment", status: "open", createdAt: utcDateTime.fromISO("2026-05-04T00:00:00.000Z") }], total: 1 })
-model ListModerationReports200Body {
-  items: Report[];
-  @minValue(0)
-  total: integer;
-}
-
-@example(#{ items: #[#{ id: "00000000-0000-0000-0000-000000000001", email: "alice@example.com", name: "Alice", role: "user", createdAt: utcDateTime.fromISO("2024-01-01T00:00:00.000Z") }], total: 1 })
-model ListUsers200Body {
-  items: User[];
-  @minValue(0)
-  total: integer;
 }
 
 @doc("토큰 발송 처리 완료 (본문 없음)")
@@ -947,7 +924,11 @@ model UpdateMe422Response {
 model ListMyRoleChanges200Response {
   @statusCode statusCode: 200;
   @example(#{ items: #[#{ id: "00000000-0000-0000-0000-000000000100", changedAt: utcDateTime.fromISO("2026-04-01T00:00:00.000Z"), previousRole: "user", newRole: "admin", changedBy: "00000000-0000-0000-0000-000000000099", reason: "권한 위임" }], total: 1 })
-  @body body: ListMyRoleChanges200Body;
+  @body body: {
+    items: RoleChangeEvent[];
+    @minValue(0)
+    total: integer;
+  };
 }
 
 @doc("인증 실패 — 토큰 없음 또는 만료")
@@ -1017,7 +998,11 @@ model PurgeUser404Response {
 model ListModerationReports200Response {
   @statusCode statusCode: 200;
   @example(#{ items: #[#{ id: "00000000-0000-0000-0000-000000000300", targetUserId: "00000000-0000-0000-0000-000000000001", reporterUserId: "00000000-0000-0000-0000-000000000002", reason: "harassment", status: "open", createdAt: utcDateTime.fromISO("2026-05-04T00:00:00.000Z") }], total: 1 })
-  @body body: ListModerationReports200Body;
+  @body body: {
+    items: Report[];
+    @minValue(0)
+    total: integer;
+  };
 }
 
 @doc("인증 실패 — 토큰 없음 또는 만료")
@@ -1159,7 +1144,11 @@ model ReportUser429Response {
 model ListUsers200Response {
   @statusCode statusCode: 200;
   @example(#{ items: #[#{ id: "00000000-0000-0000-0000-000000000001", email: "alice@example.com", name: "Alice", role: "user", createdAt: utcDateTime.fromISO("2024-01-01T00:00:00.000Z") }], total: 1 })
-  @body body: ListUsers200Body;
+  @body body: {
+    items: User[];
+    @minValue(0)
+    total: integer;
+  };
 }
 
 @doc("인증 실패 — 토큰 없음 또는 만료")

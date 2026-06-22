@@ -111,21 +111,21 @@
       "kind": "changed",
       "pointer": "#/paths/~1me~1role-changes",
       "productionSha256": "e161668dd7580179ee38defb261f92f1f1df73132724d52da6ae1829f0377a0a",
-      "restoredSha256": "dbcc12694c611b6d9c5cd79b9b9eb2bed965dfa14b653f1ce187c319c39de39b"
+      "restoredSha256": "1a46b6336eebc62bf87e16da5c172ece726a9d2923f1513381ce16acd2a68694"
     },
     {
       "category": "path",
       "kind": "changed",
       "pointer": "#/paths/~1moderation~1reports",
       "productionSha256": "396f450d545044f9c89cbedac4cfc3cf26f29bd48a46e7759663187c5befbce7",
-      "restoredSha256": "5014dde70e60d9af5832e335ddb9a05f0146c2deb799bc55e0e6d29de53a1c7a"
+      "restoredSha256": "911854b466b299cc35823324d630c33a93f388045c616f66fb222138dfd1597a"
     },
     {
       "category": "path",
       "kind": "changed",
       "pointer": "#/paths/~1users",
       "productionSha256": "ca8bc02206befc6760514290454038c98557394f914c52dbce2eb16adbce7682",
-      "restoredSha256": "138b843de5b9e33251b09173b4c2186f7d7768ead146531690267f2acc874f47"
+      "restoredSha256": "01cd2c605492d615b4144bf1283e448aa35d8ccfe910aa7f1e85ac22ab37e3c0"
     },
     {
       "category": "path",
@@ -181,14 +181,7 @@
       "kind": "changed",
       "pointer": "#/components/schemas/Error",
       "productionSha256": "10ab6777e40434b010fcde9528a318fc17e4f47839586cc6300dc3d5ad2756d6",
-      "restoredSha256": "5382d4e31ae2f0062d7e2035e6fd315a1474926f3e89e9c2158ec593864aa3f1"
-    },
-    {
-      "category": "component",
-      "kind": "added",
-      "pointer": "#/components/schemas/ErrorMeta",
-      "productionSha256": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
-      "restoredSha256": "a7fb419f2ffccf7362c8105b5ae2a3587b61f8addea98c2c2047164fc996ef75"
+      "restoredSha256": "4d3f4c0c437a90ad400dfa21be8fc6f82e4e6ef1c8677c1477eea2a23def5715"
     },
     {
       "category": "component",
@@ -203,27 +196,6 @@
       "pointer": "#/components/schemas/HealthStatus",
       "productionSha256": "5bb0b9425c7ff3891b5333087f7d5c1121bfe1de3d93a09660a50705675cd7cf",
       "restoredSha256": "db13946f19d3ba268a03d28b06a42a86cc28f722a4bb404e1f180c5bd852dc36"
-    },
-    {
-      "category": "component",
-      "kind": "added",
-      "pointer": "#/components/schemas/ListModerationReports200Body",
-      "productionSha256": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
-      "restoredSha256": "e6a0fc8cd25439fcdd300e88530310c937ce581c6cfd758bea9fff6ead5d057b"
-    },
-    {
-      "category": "component",
-      "kind": "added",
-      "pointer": "#/components/schemas/ListMyRoleChanges200Body",
-      "productionSha256": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
-      "restoredSha256": "65af643ce4cd9672a9141cfe55b91983790d396c8a3455c56dbb3d9c78948412"
-    },
-    {
-      "category": "component",
-      "kind": "added",
-      "pointer": "#/components/schemas/ListUsers200Body",
-      "productionSha256": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
-      "restoredSha256": "aa49d3fa865a55063ba8c2d5e21bf9b7de8ae489c4748c0e62366e635ab427ee"
     },
     {
       "category": "component",

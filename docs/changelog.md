@@ -20,7 +20,7 @@ OpenAPI/Definition Builder path는 제거하지 않고 explicit rollback/referen
 - `pnpm schema:downstream-check` — TypeSpec-restored artifact를 parser/codegen/router/client/mock-server와 synthetic webhook/header compile smoke에 통과.
 - `pnpm schema:bundle` — TypeSpec-derived 3.1 artifact를 `dist/openapi.{yaml,json}`으로 bundle.
 
-현재 accepted restored-vs-reference drift는 40 hash-pinned entries로 유지한다. reusable component identity는 `oa-sdk.typespec-extensions.v5`로 복원했고, 남은 burn-down 순서는 response wrapper projection schemas, operation/path metadata 순서다.
+현재 accepted restored-vs-reference drift는 36 hash-pinned entries로 유지한다. reusable component identity는 `oa-sdk.typespec-extensions.v5`로 복원했고, response wrapper projection schemas는 inline TypeSpec body authoring으로 제거했다. 남은 burn-down 순서는 component schema metadata parity, operation/path metadata parity 순서다.
 
 ## 2026-04-28 — SQLite driver priority inverted: prefer node:sqlite
 

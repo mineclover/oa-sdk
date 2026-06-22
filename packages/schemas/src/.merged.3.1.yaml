@@ -578,7 +578,18 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ListMyRoleChanges200Body"
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/RoleChangeEvent"
+                  total:
+                    type: integer
+                    minimum: 0
+                required:
+                  - items
+                  - total
               examples:
                 default:
                   value:
@@ -624,7 +635,18 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ListModerationReports200Body"
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Report"
+                  total:
+                    type: integer
+                    minimum: 0
+                required:
+                  - items
+                  - total
               examples:
                 default:
                   value:
@@ -669,7 +691,18 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ListUsers200Body"
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/User"
+                  total:
+                    type: integer
+                    minimum: 0
+                required:
+                  - items
+                  - total
               examples:
                 default:
                   value:
@@ -1111,19 +1144,17 @@ components:
           items:
             $ref: "#/components/schemas/ValidationError"
         _meta:
-          $ref: "#/components/schemas/ErrorMeta"
+          type: object
+          properties:
+            operationId:
+              type: string
+            requestId:
+              type: string
+              format: uuid
       description: 표준 에러 응답 스키마
       examples:
         - code: NOT_FOUND
           message: 요청한 리소스를 찾을 수 없습니다
-    ErrorMeta:
-      type: object
-      properties:
-        operationId:
-          type: string
-        requestId:
-          type: string
-          format: uuid
     ExportJob:
       type: object
       required:
@@ -1188,71 +1219,6 @@ components:
       examples:
         - status: ok
           timestamp: 2026-04-04T00:00:00.000Z
-    ListModerationReports200Body:
-      type: object
-      required:
-        - items
-        - total
-      properties:
-        items:
-          type: array
-          items:
-            $ref: "#/components/schemas/Report"
-        total:
-          type: integer
-          minimum: 0
-      examples:
-        - items:
-            - id: 00000000-0000-0000-0000-000000000300
-              targetUserId: 00000000-0000-0000-0000-000000000001
-              reporterUserId: 00000000-0000-0000-0000-000000000002
-              reason: harassment
-              status: open
-              createdAt: 2026-05-04T00:00:00.000Z
-          total: 1
-    ListMyRoleChanges200Body:
-      type: object
-      required:
-        - items
-        - total
-      properties:
-        items:
-          type: array
-          items:
-            $ref: "#/components/schemas/RoleChangeEvent"
-        total:
-          type: integer
-          minimum: 0
-      examples:
-        - items:
-            - id: 00000000-0000-0000-0000-000000000100
-              changedAt: 2026-04-01T00:00:00.000Z
-              previousRole: user
-              newRole: admin
-              changedBy: 00000000-0000-0000-0000-000000000099
-              reason: 권한 위임
-          total: 1
-    ListUsers200Body:
-      type: object
-      required:
-        - items
-        - total
-      properties:
-        items:
-          type: array
-          items:
-            $ref: "#/components/schemas/User"
-        total:
-          type: integer
-          minimum: 0
-      examples:
-        - items:
-            - id: 00000000-0000-0000-0000-000000000001
-              email: alice@example.com
-              name: Alice
-              role: user
-              createdAt: 2024-01-01T00:00:00.000Z
-          total: 1
     LoginRequest:
       type: object
       required:
