@@ -1,0 +1,446 @@
+{
+  "schemaVersion": "oa-sdk.typespec-restored-drift.v2",
+  "entries": [
+    {
+      "category": "root",
+      "kind": "changed",
+      "pointer": "#/info",
+      "productionSha256": "f7c9c1d6467980f446a133bf042ed08fa338f0d5bdd1cb82b3e1979f537206eb",
+      "restoredSha256": "2c77430ff371b084e9eb668807fdbad753c04da5b8a1452bf46a5958b87ebdf9"
+    },
+    {
+      "category": "server",
+      "kind": "changed",
+      "pointer": "#/servers",
+      "productionSha256": "3e832ab268bc620f0286d81bd60a395bf58657f1d9368a5f5d7d78995871bc1e",
+      "restoredSha256": "a53e97650cf1a92d73033936df3b7bb5cbde09e8780e345fc98411cf1d90de0e"
+    },
+    {
+      "category": "security",
+      "kind": "removed",
+      "pointer": "#/paths/~1auth~1forgot-password/post/security",
+      "productionSha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "restoredSha256": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c"
+    },
+    {
+      "category": "security",
+      "kind": "removed",
+      "pointer": "#/paths/~1auth~1login/post/security",
+      "productionSha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "restoredSha256": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c"
+    },
+    {
+      "category": "security",
+      "kind": "removed",
+      "pointer": "#/paths/~1auth~1refresh/post/security",
+      "productionSha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "restoredSha256": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c"
+    },
+    {
+      "category": "security",
+      "kind": "removed",
+      "pointer": "#/paths/~1auth~1register/post/security",
+      "productionSha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "restoredSha256": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c"
+    },
+    {
+      "category": "security",
+      "kind": "removed",
+      "pointer": "#/paths/~1auth~1reset-password/post/security",
+      "productionSha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "restoredSha256": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c"
+    },
+    {
+      "category": "security",
+      "kind": "removed",
+      "pointer": "#/paths/~1health/get/security",
+      "productionSha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "restoredSha256": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c"
+    },
+    {
+      "category": "security",
+      "kind": "removed",
+      "pointer": "#/paths/~1health~1ready/get/security",
+      "productionSha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "restoredSha256": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c"
+    },
+    {
+      "category": "security",
+      "kind": "removed",
+      "pointer": "#/paths/~1health~1stream/get/security",
+      "productionSha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "restoredSha256": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c"
+    },
+    {
+      "category": "security",
+      "kind": "removed",
+      "pointer": "#/paths/~1version/get/security",
+      "productionSha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "restoredSha256": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c"
+    },
+    {
+      "category": "path",
+      "kind": "changed",
+      "pointer": "#/paths/~1admin~1users~1export",
+      "productionSha256": "83bbd5a3fee1d845c2706787ec282f8c2a557a45a985e1e2df9e6adf83e7c421",
+      "restoredSha256": "262dde22d22d7ae0fe6bb5eb07be2663752100a581fa0f1451b19b8c62a8585f"
+    },
+    {
+      "category": "path",
+      "kind": "changed",
+      "pointer": "#/paths/~1admin~1users~1{id}~1purge",
+      "productionSha256": "8a439b8d3f8cbd39304cc733f33e5efbb27775c49a2f5e55669ea5ec6cef819a",
+      "restoredSha256": "19c33535e1f872b4c5413dc8116772aec5d15fdcea1b2472099c30e40cf35b82"
+    },
+    {
+      "category": "path",
+      "kind": "changed",
+      "pointer": "#/paths/~1auth~1forgot-password",
+      "productionSha256": "e41cf6c783775f7b12182474aeb887bbf0e7a04721f72e77ec819470305d54af",
+      "restoredSha256": "c1c2f416cdce7ae42468f9f934e8c5c8e838fee29d51e3c1b0406439220bfaea"
+    },
+    {
+      "category": "path",
+      "kind": "changed",
+      "pointer": "#/paths/~1auth~1login",
+      "productionSha256": "bba661b1252e3650b3896082408d19bff5077ab7254d02e8b27d9ba31054226b",
+      "restoredSha256": "c529f3e9e74fa8f9f576febec73aa9c2bdb21146f07a0598fa89f1fb78080d4a"
+    },
+    {
+      "category": "path",
+      "kind": "changed",
+      "pointer": "#/paths/~1auth~1logout",
+      "productionSha256": "c45742deaf537d1d2b36db0696aea01f36a120cf13b3a73f48be4855e933eba1",
+      "restoredSha256": "94bd7a3af4f37b2277b0d9008a56bbe5b34cf9b3dce8dacdb1988ec51177de8f"
+    },
+    {
+      "category": "path",
+      "kind": "changed",
+      "pointer": "#/paths/~1auth~1refresh",
+      "productionSha256": "2a49652163a8e3884f6d8befb6773aaefde88288d4a13aa44714ecfc0f2dce0d",
+      "restoredSha256": "4e32dab20cda80728022edaeffc1ec51db5789d6adf56ca4eccba10559a113aa"
+    },
+    {
+      "category": "path",
+      "kind": "changed",
+      "pointer": "#/paths/~1auth~1register",
+      "productionSha256": "9390ad053d2b1726d1deb39b331087110e72fdbc9145e4a22c66f5ff59761ff7",
+      "restoredSha256": "aa68be13d7373dac4180f3314c9084dbdad8e2c56e4a2d036da114d8cdf9d614"
+    },
+    {
+      "category": "path",
+      "kind": "changed",
+      "pointer": "#/paths/~1auth~1reset-password",
+      "productionSha256": "7ba2f0662092769c5885c3b381739eab31abc4ede963a57d80304619b77bfc81",
+      "restoredSha256": "27a4768fbabf1242e8bd756630bac79639755231ee648db9d15630d116df2507"
+    },
+    {
+      "category": "path",
+      "kind": "changed",
+      "pointer": "#/paths/~1health",
+      "productionSha256": "a718e2303cfd01d8e321806c57a8e76be488bafe31e6e2ecf3271f18f6d5a4fb",
+      "restoredSha256": "36cdca318b85a285b92b67cd98a1d41aaeefbc02afc13332e9949f16d881e136"
+    },
+    {
+      "category": "path",
+      "kind": "changed",
+      "pointer": "#/paths/~1health~1ready",
+      "productionSha256": "351b98932505cd692b96ee3102d5e2954370e9783745b530fa0f94239a1c84fd",
+      "restoredSha256": "5b90a10b9f72cec59b460f1e099d7ff45552da3e7c2016754b5437d6660062fe"
+    },
+    {
+      "category": "path",
+      "kind": "changed",
+      "pointer": "#/paths/~1health~1stream",
+      "productionSha256": "8178b3ba0591521d26ca194446c4b8dc0298d1c7b3b7fd99fcf5c0ccde2cfd54",
+      "restoredSha256": "0f6f8e93ed4fe98819a2955531d89496a50241868fc73c22e90876dde090635f"
+    },
+    {
+      "category": "path",
+      "kind": "changed",
+      "pointer": "#/paths/~1me",
+      "productionSha256": "6b1fe215f5098182298fa1c09b6de2660c1881fc45321938a50bd8d530dc4499",
+      "restoredSha256": "3c95f1a0af025b20b7ece61e4e7486a0c863b8bef6d60cb8b018d499470d09d2"
+    },
+    {
+      "category": "path",
+      "kind": "changed",
+      "pointer": "#/paths/~1me~1change-password",
+      "productionSha256": "ed97e0b9fdfac653842f94896716f413a4e428c6cf608c9c9a8822ae10b900fc",
+      "restoredSha256": "d72a0ed328e3c32ad3d4f5c274c163121de8149e7cd08f12f49edc06eb603067"
+    },
+    {
+      "category": "path",
+      "kind": "changed",
+      "pointer": "#/paths/~1me~1export",
+      "productionSha256": "7acec25eb884a521a6442d22856308f9295d9d3e2c501f2e534262ce333247e9",
+      "restoredSha256": "c55daf9814dc9ca745d9043d4a5da310659d84a11f0af32a1285b6f6ad85b2ae"
+    },
+    {
+      "category": "path",
+      "kind": "changed",
+      "pointer": "#/paths/~1me~1onboarding",
+      "productionSha256": "627624aa6596aa94e21e88526db9b3f5c991038e20217442c7882bbba81db502",
+      "restoredSha256": "d38615f22df086d75aa9de08d0e24d075d60ec431854c024a7b2e6270a660bb1"
+    },
+    {
+      "category": "path",
+      "kind": "changed",
+      "pointer": "#/paths/~1me~1role-changes",
+      "productionSha256": "e161668dd7580179ee38defb261f92f1f1df73132724d52da6ae1829f0377a0a",
+      "restoredSha256": "ad79bec7e9a0b7427c62df20fd0d3fa30035166796f84b55d5e63c386f75e9f0"
+    },
+    {
+      "category": "path",
+      "kind": "changed",
+      "pointer": "#/paths/~1moderation~1reports",
+      "productionSha256": "396f450d545044f9c89cbedac4cfc3cf26f29bd48a46e7759663187c5befbce7",
+      "restoredSha256": "dabf49378e2c71b442514d5ba3d6b2b7762bfd09a60d8ed32d1fac12464d1168"
+    },
+    {
+      "category": "path",
+      "kind": "changed",
+      "pointer": "#/paths/~1users",
+      "productionSha256": "ca8bc02206befc6760514290454038c98557394f914c52dbce2eb16adbce7682",
+      "restoredSha256": "35b4a691f4ab8dbe1b197fc01975617f14c4d20fd5b056fc7d5e3067ae4def1f"
+    },
+    {
+      "category": "path",
+      "kind": "changed",
+      "pointer": "#/paths/~1users~1{id}",
+      "productionSha256": "2d943d71020171ec5ddb5ad9f51443cc7f3c55388be4895e6704bda308855762",
+      "restoredSha256": "3eca69efea066fd67d0730ba7074bc12f5bc9efb9664ef256fd963164955a075"
+    },
+    {
+      "category": "path",
+      "kind": "changed",
+      "pointer": "#/paths/~1users~1{id}~1public",
+      "productionSha256": "73ff48d297e669736dbde5b0a32d086d5ee66e55effe9ac115ed5f8413aee965",
+      "restoredSha256": "5f05eaed2d55cf7e488d1f124c50784a0c55c3795642b83732686ee771b2d28e"
+    },
+    {
+      "category": "path",
+      "kind": "changed",
+      "pointer": "#/paths/~1users~1{id}~1reports",
+      "productionSha256": "02da2b06e3dd27d4d51e917eab844f4e3fab2f71d625826f791f62f99a857b2e",
+      "restoredSha256": "a458c4221e60cf563738362a3786014e79e2cee151aa724cf930a20622f604a2"
+    },
+    {
+      "category": "path",
+      "kind": "changed",
+      "pointer": "#/paths/~1version",
+      "productionSha256": "ea20926174fc5f4ff6983f5525cbc22e5d0ade5a9c3a047ab72ee0b2699da194",
+      "restoredSha256": "d3de562695908539426ba9655eb004986031bff3ca6b65baedffd013db8bbe83"
+    },
+    {
+      "category": "component",
+      "kind": "removed",
+      "pointer": "#/components/parameters/Limit",
+      "productionSha256": "f9e0c568f74cbd95c1099bcaf4f7997a606c07bfe049c7e417535fd65341092b",
+      "restoredSha256": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c"
+    },
+    {
+      "category": "component",
+      "kind": "removed",
+      "pointer": "#/components/parameters/Page",
+      "productionSha256": "e11a9dc0f60bc1a69be7b61ad032ff4e5ee9d67ed3a7022d3f3ff1e5f62464cc",
+      "restoredSha256": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c"
+    },
+    {
+      "category": "component",
+      "kind": "removed",
+      "pointer": "#/components/responses/BadRequest",
+      "productionSha256": "bf22ae497d1c73078a948ef8bc7c06c9f9c2ee5d85398a120f8de7a78bc9e2fd",
+      "restoredSha256": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c"
+    },
+    {
+      "category": "component",
+      "kind": "removed",
+      "pointer": "#/components/responses/Conflict",
+      "productionSha256": "f4b6bf0323a90358c62a7497c84feac2d15137842c8b04b25b668277bbf5e51e",
+      "restoredSha256": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c"
+    },
+    {
+      "category": "component",
+      "kind": "removed",
+      "pointer": "#/components/responses/Forbidden",
+      "productionSha256": "b394b112a55341b3e431c9592790fd9450bea19cb487fafe9b70284c24db6746",
+      "restoredSha256": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c"
+    },
+    {
+      "category": "component",
+      "kind": "removed",
+      "pointer": "#/components/responses/InternalServerError",
+      "productionSha256": "f07ade3165066797eb2a2d864df4668daac7b6e75263b30b30013e9028d65f48",
+      "restoredSha256": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c"
+    },
+    {
+      "category": "component",
+      "kind": "removed",
+      "pointer": "#/components/responses/NotFound",
+      "productionSha256": "9add8b3606de3d5ee9a924c0d27f7f772830752e4c2d5fe96d6df704c2e631cb",
+      "restoredSha256": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c"
+    },
+    {
+      "category": "component",
+      "kind": "removed",
+      "pointer": "#/components/responses/ServiceUnavailable",
+      "productionSha256": "239a32fd285057d093aefb6e1cf8f8ff1b459037e21613c99c262d3b6fec867d",
+      "restoredSha256": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c"
+    },
+    {
+      "category": "component",
+      "kind": "removed",
+      "pointer": "#/components/responses/TooManyRequests",
+      "productionSha256": "c76d01d22a458ea3da3f86efd08c16ed7bd33a06a1d799df6cfe0b4256dc42a3",
+      "restoredSha256": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c"
+    },
+    {
+      "category": "component",
+      "kind": "removed",
+      "pointer": "#/components/responses/Unauthorized",
+      "productionSha256": "84722b433e55276cb386a4fa086aba8ecca79f1180a6cc6774782f6bc7cea1c3",
+      "restoredSha256": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c"
+    },
+    {
+      "category": "component",
+      "kind": "removed",
+      "pointer": "#/components/responses/UnprocessableEntity",
+      "productionSha256": "386d03b94d5f44862b695002388555a2e74d08c2e7362c61a017f1559e424c3f",
+      "restoredSha256": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c"
+    },
+    {
+      "category": "component",
+      "kind": "changed",
+      "pointer": "#/components/schemas/AdminUsersExportRequest",
+      "productionSha256": "45e96428b6288aee43371396b8f92542d0ace62923298531b4b759f7cc2bfabd",
+      "restoredSha256": "3ab8c65018c3585137e2506f8d7e4fa3ec88038d975ac448cfce6bd26e2a82b0"
+    },
+    {
+      "category": "component",
+      "kind": "changed",
+      "pointer": "#/components/schemas/AuthSession",
+      "productionSha256": "b4215e31270fd0a424fe54eb3f9dc94c5f8ec0ed69528518788ef85136fb8089",
+      "restoredSha256": "78f94f41d66be0b8817f331f04d7f7793ffd85bc0fd5a644bf650397908188ed"
+    },
+    {
+      "category": "component",
+      "kind": "changed",
+      "pointer": "#/components/schemas/BuildInfo",
+      "productionSha256": "5fe434b363ecebe0d306a738dac22d4d0c285d02bf36929a5e22da397545fabf",
+      "restoredSha256": "cd8cf5d1ab5b18c20a7c8e39f6a16619f5a1c70b0d3c29e5d4ce22cf400ea244"
+    },
+    {
+      "category": "component",
+      "kind": "changed",
+      "pointer": "#/components/schemas/Error",
+      "productionSha256": "10ab6777e40434b010fcde9528a318fc17e4f47839586cc6300dc3d5ad2756d6",
+      "restoredSha256": "5382d4e31ae2f0062d7e2035e6fd315a1474926f3e89e9c2158ec593864aa3f1"
+    },
+    {
+      "category": "component",
+      "kind": "added",
+      "pointer": "#/components/schemas/ErrorMeta",
+      "productionSha256": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
+      "restoredSha256": "a7fb419f2ffccf7362c8105b5ae2a3587b61f8addea98c2c2047164fc996ef75"
+    },
+    {
+      "category": "component",
+      "kind": "changed",
+      "pointer": "#/components/schemas/ExportJob",
+      "productionSha256": "5d9c23f8ac1215a3c2dae919cbf4fd3a42bf0a3340f99ff6c2628c7b3a7ec22e",
+      "restoredSha256": "22092a3f1f20eefadf98e8ea856b0f8bacb9267009ef6a379a62c29779478b8f"
+    },
+    {
+      "category": "component",
+      "kind": "changed",
+      "pointer": "#/components/schemas/HealthStatus",
+      "productionSha256": "5bb0b9425c7ff3891b5333087f7d5c1121bfe1de3d93a09660a50705675cd7cf",
+      "restoredSha256": "db13946f19d3ba268a03d28b06a42a86cc28f722a4bb404e1f180c5bd852dc36"
+    },
+    {
+      "category": "component",
+      "kind": "added",
+      "pointer": "#/components/schemas/ListModerationReports200Body",
+      "productionSha256": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
+      "restoredSha256": "e6a0fc8cd25439fcdd300e88530310c937ce581c6cfd758bea9fff6ead5d057b"
+    },
+    {
+      "category": "component",
+      "kind": "added",
+      "pointer": "#/components/schemas/ListMyRoleChanges200Body",
+      "productionSha256": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
+      "restoredSha256": "65af643ce4cd9672a9141cfe55b91983790d396c8a3455c56dbb3d9c78948412"
+    },
+    {
+      "category": "component",
+      "kind": "added",
+      "pointer": "#/components/schemas/ListUsers200Body",
+      "productionSha256": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
+      "restoredSha256": "aa49d3fa865a55063ba8c2d5e21bf9b7de8ae489c4748c0e62366e635ab427ee"
+    },
+    {
+      "category": "component",
+      "kind": "changed",
+      "pointer": "#/components/schemas/OnboardingChecklist",
+      "productionSha256": "921b3f9dcb761a941b67aa91bee2b76959be190fd8245e194c6c7af5defd35fc",
+      "restoredSha256": "b90a87dbe870c4c66bff2beb7ccd1209796062046283bd7a869a460fb4439e35"
+    },
+    {
+      "category": "component",
+      "kind": "changed",
+      "pointer": "#/components/schemas/PublicUserProfile",
+      "productionSha256": "f9afa8dfa1496d8a6233d8cbbdd8d09e5bbe6692349436f0f98fce0c62476851",
+      "restoredSha256": "0993b4b7ef8e3a35a28d15805802f9e1e61bb318b2ce3e9f7e292fd2cb82b3ea"
+    },
+    {
+      "category": "component",
+      "kind": "changed",
+      "pointer": "#/components/schemas/PurgeUserRequest",
+      "productionSha256": "6058f7f2f7c1833bbe750efa49822baaed1d08df5e5fa7657b1e8d24ebd3344c",
+      "restoredSha256": "b16a8e37ba86b0bfa0a310603d48fdcacab9edf849ab134b5811d1fef05c8d2e"
+    },
+    {
+      "category": "component",
+      "kind": "changed",
+      "pointer": "#/components/schemas/ReadinessReport",
+      "productionSha256": "2d9917fe29ef5e00b8626b04ff62b371e31a2b04a5065baec7e515a2a0606d21",
+      "restoredSha256": "8449203b482f3ff750bc7f76f738dc0cc3dc771b2da35a0a7bfea2d3f7727a4a"
+    },
+    {
+      "category": "component",
+      "kind": "changed",
+      "pointer": "#/components/schemas/Report",
+      "productionSha256": "02dfd628bf380a0cf9efea5272e803d6b59a15130d996cb10d8e6eaa08d497dd",
+      "restoredSha256": "7e0833deb5b22370033e72dac71533ec2057bfd9583d76de48dc447ade816488"
+    },
+    {
+      "category": "component",
+      "kind": "changed",
+      "pointer": "#/components/schemas/TokenPair",
+      "productionSha256": "c2cdb369dc06fa9ea78271a8bdb0506b4b0d6931695d80f8dba81e4b1548613c",
+      "restoredSha256": "3c18e68883a2c1936d860b90fb7c9f15079fc161f8a0f94c6c07910e0090136b"
+    },
+    {
+      "category": "component",
+      "kind": "changed",
+      "pointer": "#/components/schemas/User",
+      "productionSha256": "5b5c7c02c8f9bf4fa35f67dff8490c234fd32cbd7842e188a1c1952b82e001c9",
+      "restoredSha256": "a7f7fb4da5ecb8bc64e93a8260717e9e221023086886be9b87e4ad752f57f233"
+    },
+    {
+      "category": "component",
+      "kind": "changed",
+      "pointer": "#/components/schemas/ValidationError",
+      "productionSha256": "bec6a1af86b3ea20c757dbb0463bbd9e8fbcb4d66cd478dbadc0a34c7bb130de",
+      "restoredSha256": "0c5319feb9db9d5acffcb512206d79be9dde0f0c83407b5440cc504bec185360"
+    },
+    {
+      "category": "security",
+      "kind": "changed",
+      "pointer": "#/components/securitySchemes/bearerAuth",
+      "productionSha256": "39ca1a530a50705964a46974da6bfdd9ff7b76c0addd84f05f2f591f60cb00b3",
+      "restoredSha256": "73e1459c0625f8fccd1a266ff82fb8cc21a2c9e3c658a1ef9291bf3dc3993b7c"
+    }
+  ]
+}

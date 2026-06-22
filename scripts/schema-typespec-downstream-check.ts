@@ -4,7 +4,7 @@
  */
 
 import { spawn } from 'node:child_process'
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, relative, resolve } from 'node:path'
 import { parse as parseYaml } from 'yaml'
@@ -52,11 +52,11 @@ try {
     client,
     mockServer,
   ] = await Promise.all([
-    import('../packages/parser/src/index.js'),
-    import('../packages/codegen/src/index.js'),
-    import('../packages/router/src/index.js'),
-    import('../packages/client/src/index.js'),
-    import('../packages/mock-server/src/index.js'),
+    import('../packages/parser/dist/index.js'),
+    import('../packages/codegen/dist/index.js'),
+    import('../packages/router/dist/index.js'),
+    import('../packages/client/dist/index.js'),
+    import('../packages/mock-server/dist/index.js'),
   ])
 
   const validation = parser.validateDocument(spec, {
@@ -104,6 +104,12 @@ try {
     typesImport: './types',
   })
   assertGeneratedSource('client', clientSource, 'export function createClient')
+  await compileGeneratedConsumers({
+    typegenSource,
+    honoRouterSource,
+    expressRouterSource,
+    clientSource,
+  })
 
   const handlers = mockServer.createMswHandlers(spec)
   if (handlers.length < parsed.operations.length) {
@@ -115,8 +121,8 @@ try {
   console.log(`  artifact: ${displayPath(restoredPath)}`)
   console.log(`  parser: ${parsed.operations.length} operations, ${Object.keys(parsed.schemas).length} schemas`)
   console.log(`  codegen: ${lineCount(typegenSource)} typegen lines, ${typegenWarnings.length} warnings`)
-  console.log(`  router: ${lineCount(honoRouterSource)} hono lines, ${lineCount(expressRouterSource)} express lines`)
-  console.log(`  client: ${lineCount(clientSource)} lines`)
+  console.log(`  router: ${lineCount(honoRouterSource)} hono lines, ${lineCount(expressRouterSource)} express lines, compile pass`)
+  console.log(`  client: ${lineCount(clientSource)} lines, compile pass`)
   console.log(`  mock-server: ${handlers.length} MSW handlers`)
   console.log('TypeSpec downstream check passed')
 } finally {
@@ -146,6 +152,86 @@ function assertGeneratedSource(label: string, source: string, requiredText: stri
   if (!source.includes(requiredText)) {
     throw new Error(`${label} did not include expected output marker: ${requiredText}`)
   }
+}
+
+async function compileGeneratedConsumers(input: {
+  typegenSource: string
+  honoRouterSource: string
+  expressRouterSource: string
+  clientSource: string
+}): Promise<void> {
+  const generatedDir = join(workspace, 'generated-consumers')
+  mkdirSync(generatedDir, { recursive: true })
+  writeFileSync(join(generatedDir, 'types.ts'), input.typegenSource, 'utf8')
+  writeFileSync(join(generatedDir, 'router-hono.ts'), input.honoRouterSource, 'utf8')
+  writeFileSync(join(generatedDir, 'router-express.ts'), input.expressRouterSource, 'utf8')
+  writeFileSync(join(generatedDir, 'client.ts'), input.clientSource, 'utf8')
+  writeFileSync(join(generatedDir, 'runtime-stubs.d.ts'), [
+    "declare module 'hono' {",
+    '  type HonoRequest = {',
+    '    param(): Record<string, string>',
+    '    query(): Record<string, string>',
+    '    json<T = unknown>(): Promise<T>',
+    '    formData(): Promise<FormData>',
+    '    parseBody(): Promise<Record<string, unknown>>',
+    '    text(): Promise<string>',
+    '  }',
+    '  type HonoContext = {',
+    '    req: HonoRequest',
+    '    json(body: unknown, status?: number): unknown',
+    '    body(body: unknown, status?: number): unknown',
+    '    header(name: string, value: string): void',
+    '  }',
+    '  type HonoHandler = (c: HonoContext) => unknown',
+    '  type RouteMethod = (path: string, handler: HonoHandler) => void',
+    '  export class Hono {',
+    '    get: RouteMethod',
+    '    post: RouteMethod',
+    '    put: RouteMethod',
+    '    patch: RouteMethod',
+    '    delete: RouteMethod',
+    '    head: RouteMethod',
+    '    options: RouteMethod',
+    '    trace: RouteMethod',
+    '  }',
+    '}',
+    '',
+    "declare module 'express' {",
+    '  type Request = {',
+    '    params: Record<string, string>',
+    '    query: Record<string, unknown>',
+    '    body: unknown',
+    '  }',
+    '  type Response = {',
+    '    status(code: number): Response',
+    '    json(body: unknown): unknown',
+    '    end(): unknown',
+    '    setHeader(name: string, value: string): void',
+    '  }',
+    '  type ExpressHandler = (req: Request, res: Response) => unknown',
+    '  type RouteMethod = (path: string, handler: ExpressHandler) => void',
+    '  export function Router(): Record<string, RouteMethod>',
+    '}',
+    '',
+  ].join('\n'), 'utf8')
+  writeFileSync(join(generatedDir, 'tsconfig.json'), `${JSON.stringify({
+    compilerOptions: {
+      strict: true,
+      noEmit: true,
+      module: 'ESNext',
+      moduleResolution: 'bundler',
+      target: 'ES2022',
+      lib: ['ES2022', 'DOM'],
+      skipLibCheck: true,
+    },
+    include: ['*.ts', '*.d.ts'],
+  }, null, 2)}\n`, 'utf8')
+
+  await run(process.execPath, [
+    resolve(root, 'node_modules/typescript/bin/tsc'),
+    '--project',
+    join(generatedDir, 'tsconfig.json'),
+  ])
 }
 
 function lineCount(source: string): number {

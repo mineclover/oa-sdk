@@ -87,8 +87,25 @@ type RefGraphDiagnosticWithSource = RefGraphDiagnostic & {
   sourcePointer?: string
 }
 
+type TypegenOperation = {
+  operationId?: string
+  method: string
+  openApiPath: string
+  parameters: OasParameter[]
+  requestBody?: OasRequestBody
+  responses: Record<string, OasResponse>
+  summary?: string
+  description?: string
+}
+
+type TypegenDocument = {
+  schemas: Record<string, OasSchema>
+  operations: TypegenOperation[]
+  webhooks?: TypegenOperation[]
+}
+
 /** ParsedDocument IR 기반 (deref 후). $ref가 해결된 상태. */
-export function generateTypes(doc: { schemas: Record<string, OasSchema>; operations: Array<{ operationId?: string; method: string; openApiPath: string; parameters: OasParameter[]; requestBody?: OasRequestBody; responses: Record<string, OasResponse>; summary?: string; description?: string }> }, options: TypegenOptions = {}): string {
+export function generateTypes(doc: TypegenDocument, options: TypegenOptions = {}): string {
   const { banner = true, style = 'type', includeAnnotations = false } = options
   const schemaOpts: SchemaToTsOptions = { includeAnnotations }
   if (options.refNameOverrides !== undefined) schemaOpts.refNameOverrides = options.refNameOverrides
@@ -115,8 +132,8 @@ export function generateTypes(doc: { schemas: Record<string, OasSchema>; operati
     lines.push('')
   }
 
-  // 2. operations → 요청/응답 타입
-  for (const op of doc.operations) {
+  // 2. operations/webhooks → 요청/응답 타입
+  for (const op of [...doc.operations, ...(doc.webhooks ?? [])]) {
     if (!op.operationId) continue
     const baseName = pascalCase(op.operationId)
 
@@ -226,11 +243,7 @@ function requestBodyToTs(body: OasRequestBody, schemaOpts: SchemaToTsOptions): s
 }
 
 function responseToTs(responses: Record<string, OasResponse>, schemaOpts: SchemaToTsOptions): string | null {
-  const codes = Object.keys(responses)
-    .filter(k => /^2\d{2}$/.test(k))
-    .sort()
-  const key = codes[0] ?? 'default'
-  const response = responses[key]
+  const response = pickSuccessResponse(responses)
   if (!response?.content) return null
 
   const jsonContent = response.content['application/json']
@@ -260,9 +273,7 @@ function errorResponseToTs(responses: Record<string, OasResponse>, schemaOpts: S
 }
 
 function responseHeadersToTs(responses: Record<string, OasResponse>, schemaOpts: SchemaToTsOptions): string | null {
-  const codes = Object.keys(responses).filter(k => /^2\d{2}$/.test(k)).sort()
-  const key = codes[0] ?? 'default'
-  const response = responses[key]
+  const response = pickSuccessResponse(responses)
   if (!response?.headers) return null
   const entries = Object.entries(response.headers)
     .filter(([, h]) => !('$ref' in h))
@@ -277,15 +288,21 @@ function responseHeadersToTs(responses: Record<string, OasResponse>, schemaOpts:
 }
 
 function responseLinksToTs(responses: Record<string, OasResponse>): string | null {
-  const codes = Object.keys(responses).filter(k => /^2\d{2}$/.test(k)).sort()
-  const key = codes[0] ?? 'default'
-  const response = responses[key]
+  const response = pickSuccessResponse(responses)
   if (!response?.links) return null
   const entries = Object.entries(response.links)
     .filter(([, link]) => !('$ref' in link))
     .map(([name, link]) => `  ${propertyNameToTs(name)}: ${linkToTs(link as OasLink)}`)
   if (entries.length === 0) return null
   return `{\n${entries.join('\n')}\n}`
+}
+
+function pickSuccessResponse(responses: Record<string, OasResponse>): OasResponse | undefined {
+  const codes = Object.keys(responses)
+    .filter(k => /^2\d{2}$/.test(k))
+    .sort()
+  const key = codes[0] ?? 'default'
+  return responses[key]
 }
 
 function linkToTs(link: OasLink): string {
@@ -504,7 +521,7 @@ const NON_SCHEMA_OAS_ROOT_SEGMENTS = new Set([
 function collectGeneratedOperationTypeNames(spec: OasDocument): Set<string> {
   const names = new Set<string>()
   const doc = parseDocument(spec, [])
-  for (const op of doc.operations) {
+  for (const op of [...doc.operations, ...doc.webhooks]) {
     if (!op.operationId) continue
     const baseName = pascalCase(op.operationId)
     const pathParams = op.parameters.filter(p => p.in === 'path')
@@ -536,9 +553,10 @@ function hasJsonResponseSchema(responses: Record<string, OasResponse>, statusPat
 }
 
 function hasSuccessJsonResponseSchema(responses: Record<string, OasResponse>): boolean {
-  const has2xx = Object.keys(responses).some(status => /^2\d{2}$/.test(status))
-  if (hasJsonResponseSchema(responses, /^2\d{2}$/)) return true
-  return !has2xx && hasDefaultJsonResponseSchema(responses)
+  const response = pickSuccessResponse(responses)
+  if (!response?.content) return false
+  const jsonContent = response.content['application/json']
+  return !!jsonContent && !('$ref' in jsonContent) && !!jsonContent.schema
 }
 
 function hasDefaultJsonResponseSchema(responses: Record<string, OasResponse>): boolean {
@@ -549,17 +567,13 @@ function hasDefaultJsonResponseSchema(responses: Record<string, OasResponse>): b
 }
 
 function hasSuccessResponseHeaders(responses: Record<string, OasResponse>): boolean {
-  const has2xx = Object.keys(responses).some(status => /^2\d{2}$/.test(status))
-  const headersEntry = Object.entries(responses).find(([status]) => has2xx ? /^2\d{2}$/.test(status) : status === 'default')
-  const response = headersEntry?.[1]
+  const response = pickSuccessResponse(responses)
   return !!response?.headers
     && Object.values(response.headers).some(header => !('$ref' in header))
 }
 
 function hasSuccessResponseLinks(responses: Record<string, OasResponse>): boolean {
-  const has2xx = Object.keys(responses).some(status => /^2\d{2}$/.test(status))
-  const linksEntry = Object.entries(responses).find(([status]) => has2xx ? /^2\d{2}$/.test(status) : status === 'default')
-  const response = linksEntry?.[1]
+  const response = pickSuccessResponse(responses)
   return !!response?.links
     && Object.values(response.links).some(link => !('$ref' in link))
 }

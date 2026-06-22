@@ -24,10 +24,11 @@ Implemented source:
 - `scripts/typespec-bundle-check.ts` — repository wrapper around the shared `oa-gen tsp-bundle-check` implementation.
 - `scripts/typespec-sidecar-to-extensions.ts` — repository wrapper for the sidecar-to-extension migration helper.
 - `scripts/typespec-create-authored-canonical-fixture.ts` — reproducible canonical authored fixture regeneration from the production merged OpenAPI schema.
-- `scripts/schema-typespec-check.ts` — G10 schema-level TypeSpec gate for the production bundle plus current `.merged.yaml` freshness diff.
+- `scripts/schema-typespec-check.ts` — G10 schema-level TypeSpec gate for the production bundle, current `.merged.yaml` freshness diff, and accepted restored drift hash manifest.
 - `scripts/schema-rollback-check.ts` — G11 rollback gate that proves the TypeSpec candidate and existing OpenAPI/Definition Builder path stay green together.
-- `scripts/schema-typespec-downstream-check.ts` — G12 downstream gate that runs parser, codegen, router, client, and mock-server against the TypeSpec-derived production artifact.
+- `scripts/schema-typespec-downstream-check.ts` — G12 downstream gate that imports built package exports, runs parser, codegen, router, client, and mock-server against the TypeSpec-derived production artifact, and compiles generated TypeScript consumers.
 - `packages/schemas/typespec/` — G9 production-owned TypeSpec source layout candidate for the staged migration.
+- `packages/schemas/typespec/accepted-restored-drift.json` — G10 accepted TypeSpec-restored-vs-production drift manifest with normalized value hashes.
 - `docs/internal/typespec-roundtrip/oa-sdk-typespec-extensions.v1.md` — `oa-sdk.typespec-extensions.v1` vocabulary for sidecar-less authored TypeSpec bundles.
 - `docs/internal/typespec-roundtrip/oa-sdk-typespec-extensions.v2.md` — `oa-sdk.typespec-extensions.v2` request body examples vocabulary.
 - `docs/internal/typespec-roundtrip/authoring-ownership-guide.md` — maintainer-facing source-of-truth ownership map for TypeSpec-native syntax, OA SDK TypeSpec extensions, compatibility sidecars, and runtime data.
@@ -137,9 +138,9 @@ Current probe on `packages/schemas/src/.merged.yaml`:
 | Sidecar-to-extension migration workflow | pass, `pnpm typespec:sidecar-to-extensions` writes TypeSpec snippets, a residual sidecar, and a report without converting unsupported metadata into comments; current canonical sidecar conversion yields 99 converted entries and 3 residual path-level parameter examples |
 | TypeSpec-first ADR promotion | pass, `docs/internal/architecture/009-typespec-first-authoring.md` accepts TypeSpec-first schema authoring with staged production migration and rollback rules |
 | Production TypeSpec source layout | pass, `packages/schemas/typespec/` exists as the G9 production-owned TypeSpec bundle candidate and passes standalone bundle-check |
-| Production TypeSpec schema check | pass, `pnpm schema:typespec-check` runs the production bundle check and verifies bundle-local expected OpenAPI against `packages/schemas/src/.merged.yaml` |
+| Production TypeSpec schema check | pass, `pnpm schema:typespec-check` runs the production bundle check, verifies bundle-local expected OpenAPI against `packages/schemas/src/.merged.yaml`, and requires the TypeSpec-restored-vs-production diff to match `accepted-restored-drift.json` with 63 accepted hash-pinned entries |
 | Production TypeSpec rollback gate | pass, `pnpm schema:rollback-check` runs the TypeSpec production candidate gate and the existing OpenAPI/Definition Builder validation path before any production source-path switch |
-| Production TypeSpec downstream gate | pass, `pnpm schema:downstream-check` generates the TypeSpec-restored production OpenAPI artifact and feeds it to parser validation, codegen typegen, router generation, client generation, and mock-server handler creation |
+| Production TypeSpec downstream gate | pass, `pnpm schema:downstream-check` generates the TypeSpec-restored production OpenAPI artifact, imports built package `dist` exports, feeds it to parser validation, codegen typegen, router generation, client generation, and mock-server handler creation, and compiles generated typegen/router/client TypeScript consumers |
 
 Diagnostic distribution:
 

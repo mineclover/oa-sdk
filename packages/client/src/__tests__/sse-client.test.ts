@@ -139,7 +139,7 @@ describe('SSE streaming client', () => {
     expect(code).not.toContain('getReader()')
   })
 
-  it('SSE + types import', () => {
+  it('SSE without generated JSON response type uses unknown', () => {
     const code = generateClient(doc({
       paths: {
         '/events': {
@@ -155,7 +155,8 @@ describe('SSE streaming client', () => {
         },
       },
     }), { typesImport: './types' })
-    expect(code).toContain('StreamEventsResponse')
-    expect(code).toContain("from './types'")
+    expect(code).toContain('AsyncGenerator<unknown>')
+    expect(code).not.toContain('StreamEventsResponse')
+    expect(code).not.toContain("from './types'")
   })
 })

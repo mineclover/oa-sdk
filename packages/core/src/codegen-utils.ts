@@ -22,19 +22,51 @@ export function collectTypeNames(operations: ReadonlyArray<{
     const base = pascalCase(op.operationId)
     if (op.parameters.some(p => p.in === 'path')) names.push(`${base}PathParams`)
     if (op.parameters.some(p => p.in === 'query')) names.push(`${base}QueryParams`)
-    if (op.requestBody) names.push(`${base}Body`)
-    const has2xx = Object.keys(op.responses).some(k => /^2\d{2}$/.test(k))
-    if (has2xx) {
+    if (hasGeneratedRequestBodyType(op.requestBody)) names.push(`${base}Body`)
+    if (hasGeneratedResponseType(op.responses)) {
       names.push(`${base}Response`)
     }
-    // Response headers 존재 여부 확인 (2xx 우선, 2xx가 없으면 default 응답 검사)
-    const hasResponseHeaders = Object.entries(op.responses).some(([k, v]) =>
-      (has2xx ? /^2\d{2}$/.test(k) : k === 'default')
-      && v !== null
-      && typeof v === 'object'
-      && 'headers' in v
-    )
-    if (hasResponseHeaders) names.push(`${base}ResponseHeaders`)
+    if (hasGeneratedResponseHeaders(op.responses)) names.push(`${base}ResponseHeaders`)
   }
   return names
+}
+
+function hasGeneratedRequestBodyType(requestBody: unknown): boolean {
+  if (!isRecord(requestBody)) return false
+  const content = readRecord(requestBody.content)
+  return hasJsonSchemaMedia(content['application/json'])
+}
+
+function hasGeneratedResponseType(responses: Record<string, unknown>): boolean {
+  const codes = Object.keys(responses)
+    .filter(k => /^2\d{2}$/.test(k))
+    .sort()
+  const key = codes[0] ?? 'default'
+  const response = responses[key]
+  if (!isRecord(response)) return false
+  const content = readRecord(response.content)
+  return hasJsonSchemaMedia(content['application/json'])
+}
+
+function hasGeneratedResponseHeaders(responses: Record<string, unknown>): boolean {
+  const codes = Object.keys(responses)
+    .filter(k => /^2\d{2}$/.test(k))
+    .sort()
+  const key = codes[0] ?? 'default'
+  const response = responses[key]
+  if (!isRecord(response)) return false
+  const headers = readRecord(response.headers)
+  return Object.values(headers).some(header => isRecord(header) && !('$ref' in header))
+}
+
+function hasJsonSchemaMedia(media: unknown): boolean {
+  return isRecord(media) && !('$ref' in media) && media.schema !== undefined
+}
+
+function readRecord(value: unknown): Record<string, unknown> {
+  return isRecord(value) ? value : {}
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
 }

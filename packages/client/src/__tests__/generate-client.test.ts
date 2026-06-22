@@ -126,7 +126,17 @@ describe('generateClient', () => {
   it('typesImport → import 문', () => {
     const code = generateClient(doc({
       paths: {
-        '/users': { get: { operationId: 'listUsers', responses: { '200': { description: 'OK' } } } },
+        '/users': {
+          get: {
+            operationId: 'listUsers',
+            responses: {
+              '200': {
+                description: 'OK',
+                content: { 'application/json': { schema: { type: 'array', items: { type: 'object' } } } },
+              },
+            },
+          },
+        },
       },
     }), { typesImport: './types' })
     expect(code).toContain("from './types'")
@@ -203,6 +213,15 @@ describe('generateClient', () => {
     expect(code).toContain('withResponse: {')
     expect(code).toContain('async listUsers(): Promise<ClientResponse<ListUsersResponse, ListUsersResponseHeaders>>')
     expect(code).toContain('return requestResponse<ListUsersResponse, ListUsersResponseHeaders>')
+    expect(code).toContain('{ name: "X-Rate-Limit", type: "integer" }')
+    expect(code).toContain('{ name: "X-Request-Id", type: "string" }')
+  })
+
+  it('typesImport 없이 withResponse가 runtime response headers를 열린 타입으로 노출', () => {
+    const code = generateClient(headersSpec())
+    expect(code).toContain('withResponse: {')
+    expect(code).toContain('async listUsers(): Promise<ClientResponse<unknown, Record<string, unknown>>>')
+    expect(code).toContain('return requestResponse<unknown, Record<string, unknown>>')
     expect(code).toContain('{ name: "X-Rate-Limit", type: "integer" }')
     expect(code).toContain('{ name: "X-Request-Id", type: "string" }')
   })

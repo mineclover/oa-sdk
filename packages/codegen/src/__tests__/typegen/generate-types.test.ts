@@ -499,6 +499,62 @@ describe('analyzeExternalSchemaRefs', () => {
     }
   })
 
+  it('external aliases ignore response names that are not generated from the documented success response', () => {
+    const tmp = mkdtempSync(join(tmpdir(), 'oa-sdk-typegen-'))
+    const basePath = join(tmp, 'api.yaml')
+    writeFileSync(join(tmp, 'models.yaml'), [
+      'components:',
+      '  schemas:',
+      '    ListUsersResponse:',
+      '      type: object',
+      '      required: [id]',
+      '      properties:',
+      '        id:',
+      '          type: string',
+      '',
+    ].join('\n'))
+
+    try {
+      const input = doc({
+        paths: {
+          '/users': {
+            get: {
+              operationId: 'listUsers',
+              responses: {
+                '200': {
+                  description: 'OK',
+                },
+                '201': {
+                  description: 'Created',
+                  content: { 'application/json': { schema: { $ref: './models.yaml#/components/schemas/ListUsersResponse' } } },
+                },
+              },
+            },
+          },
+        },
+      })
+
+      const analysis = analyzeExternalSchemaRefs(input, basePath)
+      expect(analysis.refNameOverrides['./models.yaml#/components/schemas/ListUsersResponse']).toBe('ListUsersResponse')
+      expect(analysis.schemas.ListUsersResponse).toBeDefined()
+      expect(analysis.diagnostics).not.toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          code: 'external-schema-shadows-operation',
+          name: 'ListUsersResponse',
+        }),
+      ]))
+
+      const warnings: string[] = []
+      const output = generateTypesFromSpec(input, { basePath, warnings })
+      expect(output).toContain('export type ListUsersResponse =')
+      expect(output).not.toContain('export type ModelsListUsersResponse =')
+      expect(output).not.toContain('response: ListUsersResponse')
+      expect(warnings).toHaveLength(0)
+    } finally {
+      rmSync(tmp, { recursive: true, force: true })
+    }
+  })
+
   it('unsupported external pointer shapes are reported and emitted as unknown', () => {
     const tmp = mkdtempSync(join(tmpdir(), 'oa-sdk-typegen-'))
     const basePath = join(tmp, 'api.yaml')
@@ -963,6 +1019,42 @@ describe('generateTypes — Response links', () => {
     expect(ts).toContain('"tenantId": "$request.path.tenantId"')
     expect(ts).toContain('requestBody: "$request.body#/sku"')
     expect(ts).toContain('responseLinks: CreateOrderResponseLinks')
+  })
+})
+
+describe('generateTypes — webhooks', () => {
+  it('webhook request body 타입과 Op 메타데이터를 생성한다', () => {
+    const ts = generateTypesFromSpec(doc({
+      webhooks: {
+        orderCreated: {
+          post: {
+            operationId: 'orderCreatedWebhook',
+            requestBody: {
+              required: true,
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    required: ['orderId'],
+                    properties: { orderId: { type: 'string' } },
+                  },
+                },
+              },
+            },
+            responses: {
+              '200': { description: 'Acknowledged' },
+            },
+          },
+        },
+      },
+    }))
+
+    expect(ts).toContain('export type OrderCreatedWebhookBody =')
+    expect(ts).toContain('orderId: string')
+    expect(ts).toContain('export type OrderCreatedWebhookOp = {')
+    expect(ts).toContain("method: 'post'")
+    expect(ts).toContain("path: '/webhooks/orderCreated'")
+    expect(ts).toContain('body: OrderCreatedWebhookBody')
   })
 })
 

@@ -31,7 +31,24 @@ export type BrowserTypegenOptions = {
 
 export type TypegenOptions = BrowserTypegenOptions
 
-export function generateTypes(doc: { schemas: Record<string, OasSchema>; operations: Array<{ operationId?: string; method: string; openApiPath: string; parameters: OasParameter[]; requestBody?: OasRequestBody; responses: Record<string, OasResponse>; summary?: string; description?: string }> }, options: BrowserTypegenOptions = {}): string {
+type TypegenOperation = {
+  operationId?: string
+  method: string
+  openApiPath: string
+  parameters: OasParameter[]
+  requestBody?: OasRequestBody
+  responses: Record<string, OasResponse>
+  summary?: string
+  description?: string
+}
+
+type TypegenDocument = {
+  schemas: Record<string, OasSchema>
+  operations: TypegenOperation[]
+  webhooks?: TypegenOperation[]
+}
+
+export function generateTypes(doc: TypegenDocument, options: BrowserTypegenOptions = {}): string {
   const { banner = true, style = 'type', includeAnnotations = false } = options
   const schemaOpts: SchemaToTsOptions = { includeAnnotations }
   if (options.refNameOverrides !== undefined) schemaOpts.refNameOverrides = options.refNameOverrides
@@ -56,7 +73,7 @@ export function generateTypes(doc: { schemas: Record<string, OasSchema>; operati
     lines.push('')
   }
 
-  for (const op of doc.operations) {
+  for (const op of [...doc.operations, ...(doc.webhooks ?? [])]) {
     if (!op.operationId) continue
     const baseName = pascalCase(op.operationId)
 
@@ -147,11 +164,7 @@ function requestBodyToTs(body: OasRequestBody, schemaOpts: SchemaToTsOptions): s
 }
 
 function responseToTs(responses: Record<string, OasResponse>, schemaOpts: SchemaToTsOptions): string | null {
-  const codes = Object.keys(responses)
-    .filter(k => /^2\d{2}$/.test(k))
-    .sort()
-  const key = codes[0] ?? 'default'
-  const response = responses[key]
+  const response = pickSuccessResponse(responses)
   if (!response?.content) return null
 
   const jsonContent = response.content['application/json']
@@ -179,9 +192,7 @@ function errorResponseToTs(responses: Record<string, OasResponse>, schemaOpts: S
 }
 
 function responseHeadersToTs(responses: Record<string, OasResponse>, schemaOpts: SchemaToTsOptions): string | null {
-  const codes = Object.keys(responses).filter(k => /^2\d{2}$/.test(k)).sort()
-  const key = codes[0] ?? 'default'
-  const response = responses[key]
+  const response = pickSuccessResponse(responses)
   if (!response?.headers) return null
   const entries = Object.entries(response.headers)
     .filter(([, h]) => !('$ref' in h))
@@ -196,15 +207,21 @@ function responseHeadersToTs(responses: Record<string, OasResponse>, schemaOpts:
 }
 
 function responseLinksToTs(responses: Record<string, OasResponse>): string | null {
-  const codes = Object.keys(responses).filter(k => /^2\d{2}$/.test(k)).sort()
-  const key = codes[0] ?? 'default'
-  const response = responses[key]
+  const response = pickSuccessResponse(responses)
   if (!response?.links) return null
   const entries = Object.entries(response.links)
     .filter(([, link]) => !('$ref' in link))
     .map(([name, link]) => `  ${propertyNameToTs(name)}: ${linkToTs(link as OasLink)}`)
   if (entries.length === 0) return null
   return `{\n${entries.join('\n')}\n}`
+}
+
+function pickSuccessResponse(responses: Record<string, OasResponse>): OasResponse | undefined {
+  const codes = Object.keys(responses)
+    .filter(k => /^2\d{2}$/.test(k))
+    .sort()
+  const key = codes[0] ?? 'default'
+  return responses[key]
 }
 
 function linkToTs(link: OasLink): string {

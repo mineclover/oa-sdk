@@ -5,7 +5,7 @@
  * typegen 타입을 import하여 타입 안전 라우터를 생성합니다.
  */
 
-import type { OasDocument, OasResponse, ParsedDocument } from '@oa-sdk/parser'
+import type { OasDocument, OasRequestBody, OasResponse, ParsedDocument } from '@oa-sdk/parser'
 import { parseDocument, DEFAULT_PASSES } from '@oa-sdk/parser'
 import { toColonPath, pascalCase, collectTypeNames, formatGeneratedTs, pickDefaultStatus } from '@oa-sdk/core'
 
@@ -128,13 +128,14 @@ export function generateRouter(spec: OasDocument | ParsedDocument, options: Rout
     // request body
     if (op.requestBody) {
       const contentTypes = op.requestBody.content ? Object.keys(op.requestBody.content) : []
-      const bodyParseLine = buildBodyParseLine(target, contentTypes, baseName, !!typesImport)
+      const bodyParseLine = buildBodyParseLine(target, contentTypes, baseName, !!typesImport && hasGeneratedRequestBodyType(op.requestBody))
       lines.push(`  ${bodyParseLine}`)
     }
 
     // response stub
     const status = pickDefaultStatus(op.responses)
     const hasTypedResponseHeaders = !!typesImport && hasGeneratedResponseHeaders(op.responses)
+    const hasTypedResponseBody = !!typesImport && hasGeneratedResponseType(op.responses)
     lines.push(`    // TODO: implement ${op.operationId}`)
     if (hasTypedResponseHeaders) {
       lines.push(`    // Add documented response headers here.`)
@@ -148,7 +149,7 @@ export function generateRouter(spec: OasDocument | ParsedDocument, options: Rout
     if (target === 'hono') {
       if (status === 204) {
         lines.push(`    return c.body(null, 204)`)
-      } else if (typesImport) {
+      } else if (hasTypedResponseBody) {
         lines.push(`    return c.json({} as ${baseName}Response, ${status})`)
       } else {
         lines.push(`    return c.json({} as any, ${status}) // ${baseName}Response (headers: ${baseName}ResponseHeaders)`)
@@ -156,7 +157,7 @@ export function generateRouter(spec: OasDocument | ParsedDocument, options: Rout
     } else {
       if (status === 204) {
         lines.push(`    return res.status(204).end()`)
-      } else if (typesImport) {
+      } else if (hasTypedResponseBody) {
         lines.push(`    return res.status(${status}).json({} as ${baseName}Response)`)
       } else {
         lines.push(`    return res.status(${status}).json({}) // ${baseName}Response`)
@@ -285,4 +286,20 @@ function hasGeneratedResponseHeaders(responses: Record<string, OasResponse>): bo
   const response = responses[key]
   if (!response?.headers) return false
   return Object.values(response.headers).some(header => !('$ref' in header))
+}
+
+function hasGeneratedRequestBodyType(requestBody: OasRequestBody): boolean {
+  const jsonContent = requestBody.content?.['application/json']
+  return !!jsonContent && !('$ref' in jsonContent) && jsonContent.schema !== undefined
+}
+
+function hasGeneratedResponseType(responses: Record<string, OasResponse>): boolean {
+  const codes = Object.keys(responses)
+    .filter(k => /^2\d{2}$/.test(k))
+    .sort()
+  const key = codes[0] ?? 'default'
+  const response = responses[key]
+  if (!response?.content) return false
+  const jsonContent = response.content['application/json']
+  return !!jsonContent && !('$ref' in jsonContent) && jsonContent.schema !== undefined
 }

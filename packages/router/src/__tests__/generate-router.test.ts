@@ -26,7 +26,12 @@ describe('generateRouter — hono', () => {
           post: {
             operationId: 'createUser',
             requestBody: { content: { 'application/json': { schema: { type: 'object' } } } },
-            responses: { '201': { description: 'Created' } },
+            responses: {
+              '201': {
+                description: 'Created',
+                content: { 'application/json': { schema: { type: 'object' } } },
+              },
+            },
           },
         },
       },
@@ -95,7 +100,12 @@ describe('generateRouter — hono', () => {
         '/users': {
           get: {
             operationId: 'listUsers',
-            responses: { '200': { description: 'OK' } },
+            responses: {
+              '200': {
+                description: 'OK',
+                content: { 'application/json': { schema: { type: 'array', items: { type: 'object' } } } },
+              },
+            },
           },
         },
       },
@@ -112,7 +122,12 @@ describe('generateRouter — typed router (typesImport)', () => {
         '/users': {
           get: {
             operationId: 'listUsers',
-            responses: { '200': { description: 'OK' } },
+            responses: {
+              '200': {
+                description: 'OK',
+                content: { 'application/json': { schema: { type: 'array', items: { type: 'object' } } } },
+              },
+            },
           },
         },
       },
@@ -128,7 +143,12 @@ describe('generateRouter — typed router (typesImport)', () => {
           post: {
             operationId: 'createUser',
             requestBody: { content: { 'application/json': { schema: { type: 'object' } } } },
-            responses: { '201': { description: 'Created' } },
+            responses: {
+              '201': {
+                description: 'Created',
+                content: { 'application/json': { schema: { type: 'object' } } },
+              },
+            },
           },
         },
       },
@@ -188,7 +208,12 @@ describe('generateRouter — typed router (typesImport)', () => {
           post: {
             operationId: 'createUser',
             requestBody: { content: { 'application/json': { schema: { type: 'object' } } } },
-            responses: { '201': { description: 'Created' } },
+            responses: {
+              '201': {
+                description: 'Created',
+                content: { 'application/json': { schema: { type: 'object' } } },
+              },
+            },
           },
         },
       },

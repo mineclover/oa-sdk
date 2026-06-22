@@ -4,7 +4,7 @@
  * typegen 타입을 import하여 타입 안전 API 클라이언트를 생성합니다.
  */
 
-import type { OasDocument, OasResponse, OasSchema, ParsedDocument } from '@oa-sdk/parser'
+import type { OasDocument, OasRequestBody, OasResponse, OasSchema, ParsedDocument } from '@oa-sdk/parser'
 import { parseDocument, resolveServerUrl, DEFAULT_PASSES } from '@oa-sdk/parser'
 import { pascalCase, collectTypeNames, formatGeneratedTs } from '@oa-sdk/core'
 
@@ -379,6 +379,8 @@ export function generateClient(spec: OasDocument | ParsedDocument, options: Clie
     const pathParams = op.parameters.filter(p => p.in === 'path')
     const queryParams = op.parameters.filter(p => p.in === 'query')
     const hasBody = !!op.requestBody
+    const hasTypedBody = !!typesImport && !!op.requestBody && hasGeneratedRequestBodyType(op.requestBody)
+    const hasTypedResponse = !!typesImport && hasGeneratedResponseType(op.responses)
 
     // JSDoc
     if (op.summary || op.description) {
@@ -389,9 +391,9 @@ export function generateClient(spec: OasDocument | ParsedDocument, options: Clie
     const params: string[] = []
     if (pathParams.length > 0) params.push(`params: ${typesImport ? `${baseName}PathParams` : 'Record<string, string>'}`)
     if (queryParams.length > 0) params.push(`query?: ${typesImport ? `${baseName}QueryParams` : 'Record<string, unknown>'}`)
-    if (hasBody) params.push(`body: ${typesImport ? `${baseName}Body` : 'unknown'}`)
+    if (hasBody) params.push(`body: ${hasTypedBody ? `${baseName}Body` : 'unknown'}`)
 
-    const responseType = typesImport ? `${baseName}Response` : 'unknown'
+    const responseType = hasTypedResponse ? `${baseName}Response` : 'unknown'
     const hasResponse = Object.keys(op.responses).some(k => /^2\d{2}$/.test(k) && k !== '204')
 
     // streaming format detection
@@ -458,14 +460,18 @@ export function generateClient(spec: OasDocument | ParsedDocument, options: Clie
       const pathParams = op.parameters.filter(p => p.in === 'path')
       const queryParams = op.parameters.filter(p => p.in === 'query')
       const hasBody = !!op.requestBody
+      const hasTypedBody = !!typesImport && !!op.requestBody && hasGeneratedRequestBodyType(op.requestBody)
+      const hasTypedResponse = !!typesImport && hasGeneratedResponseType(op.responses)
       const params: string[] = []
       if (pathParams.length > 0) params.push(`params: ${typesImport ? `${baseName}PathParams` : 'Record<string, string>'}`)
       if (queryParams.length > 0) params.push(`query?: ${typesImport ? `${baseName}QueryParams` : 'Record<string, unknown>'}`)
-      if (hasBody) params.push(`body: ${typesImport ? `${baseName}Body` : 'unknown'}`)
+      if (hasBody) params.push(`body: ${hasTypedBody ? `${baseName}Body` : 'unknown'}`)
 
       const hasResponse = Object.keys(op.responses).some(k => /^2\d{2}$/.test(k) && k !== '204')
-      const bodyType = typesImport && hasResponse ? `${baseName}Response` : hasResponse ? 'unknown' : 'void'
-      const headersType = typesImport ? `${baseName}ResponseHeaders` : 'Record<string, unknown>'
+      const bodyType = hasTypedResponse ? `${baseName}Response` : hasResponse ? 'unknown' : 'void'
+      const headersType = hasGeneratedResponseHeaders(op.responses)
+        ? typesImport ? `${baseName}ResponseHeaders` : 'Record<string, unknown>'
+        : 'Record<string, never>'
       const pathExpr = pathParams.length > 0
         ? '`' + op.openApiPath.replace(/\{([^}]+)\}/g, '${params.$1}') + '`'
         : `'${op.openApiPath}'`
@@ -565,6 +571,18 @@ type HeaderReadSpec = {
 
 function hasGeneratedResponseHeaders(responses: Record<string, OasResponse>): boolean {
   return responseHeadersToReadSpecs(responses).length > 0
+}
+
+function hasGeneratedRequestBodyType(requestBody: OasRequestBody): boolean {
+  const jsonContent = requestBody.content?.['application/json']
+  return !!jsonContent && !('$ref' in jsonContent) && jsonContent.schema !== undefined
+}
+
+function hasGeneratedResponseType(responses: Record<string, OasResponse>): boolean {
+  const response = pickDocumentedHeaderResponse(responses)
+  if (!response?.content) return false
+  const jsonContent = response.content['application/json']
+  return !!jsonContent && !('$ref' in jsonContent) && jsonContent.schema !== undefined
 }
 
 function responseHeadersToReadSpecs(responses: Record<string, OasResponse>): HeaderReadSpec[] {
