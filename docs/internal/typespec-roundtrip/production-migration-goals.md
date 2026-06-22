@@ -1,6 +1,6 @@
 # TypeSpec Production Migration Goals
 
-Status: G9 implemented; G10-G12 planned. ADR-009 accepts TypeSpec-first schema authoring, but the production schema build path still uses the current OpenAPI fragments until build wiring and rollback evidence land.
+Status: G9-G10 implemented; G11-G12 planned. ADR-009 accepts TypeSpec-first schema authoring, but the production schema build path still uses the current OpenAPI fragments until rollback evidence lands.
 
 This document extends the completed G1-G8 decision roadmap with production migration goals. It does not reopen the TypeSpec-first decision; it scopes the work required to make the accepted TypeSpec bundle production-authoritative.
 
@@ -85,8 +85,11 @@ Status: implemented by `packages/schemas/typespec/`.
 
 ### G10 - Schema Build Wiring
 
+Status: implemented by `pnpm schema:typespec-check` and `pnpm --filter @oa-sdk/schemas run typespec:check`.
+
 - Add a TypeSpec schema validation/build script before replacing existing `build:merged`; a first pass can be named explicitly, such as `schema:typespec-check` or an `@oa-sdk/schemas` package script.
 - The new gate must run TypeSpec compile, OA SDK extension restore, expected diff, OpenAPI 3.2 validation, and sidecar or extension re-extraction stability.
+- The new gate must compare `packages/schemas/typespec/expected.openapi.yaml` with `packages/schemas/src/.merged.yaml` using normalized OpenAPI diff so the TypeSpec bundle cannot drift from the current production artifact silently.
 - Only after that gate is green should `schema:validate` or `schema:bundle` start depending on the TypeSpec-derived artifact.
 - Preserve Definition Builder commands until G11 proves rollback.
 
@@ -118,7 +121,7 @@ Additional commands by goal:
 | Goal | Commands |
 |---|---|
 | G9 | `pnpm typespec:create-canonical-fixture` and `pnpm typespec:bundle-check -- --manifest <production-bundle>/oa-sdk.typespec-bundle.json --fail-on-breaking` |
-| G10 | `pnpm schema:bundle`, `pnpm schema:validate`, and `pnpm typespec:bundle-check -- --manifest <production-bundle>/oa-sdk.typespec-bundle.json --fail-on-breaking` |
+| G10 | `pnpm schema:typespec-check`, `pnpm --filter @oa-sdk/schemas run typespec:check`, `pnpm schema:bundle`, and `pnpm schema:validate` |
 | G11 | The rollback command introduced by G11, plus the G10 gates before and after rollback simulation. |
 | G12 | `pnpm --filter @oa-sdk/codegen test`, `pnpm --filter @oa-sdk/router test`, `pnpm --filter @oa-sdk/client test`, and `pnpm --filter @oa-sdk/mock-server test` |
 

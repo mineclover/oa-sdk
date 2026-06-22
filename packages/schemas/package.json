@@ -18,6 +18,7 @@
     "validate:spectral": "spectral lint src/.merged.yaml --ruleset .spectral.yaml",
     "validate:redocly": "redocly lint",
     "validate": "pnpm build:merged && pnpm downgrade:3.1 && pnpm validate:spectral && pnpm validate:redocly",
+    "typespec:check": "pnpm --dir ../.. schema:typespec-check",
     "bundle": "pnpm build:merged && pnpm downgrade:3.1 && redocly bundle src/.merged.3.1.yaml --output dist/openapi.yaml && redocly bundle src/.merged.3.1.yaml --output dist/openapi.json",
     "preview": "pnpm build:merged && pnpm downgrade:3.1 && redocly preview-docs src/.merged.3.1.yaml",
     "build": "pnpm build:merged && pnpm downgrade:3.1",

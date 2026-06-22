@@ -24,6 +24,7 @@ Implemented source:
 - `scripts/typespec-bundle-check.ts` — repository wrapper around the shared `oa-gen tsp-bundle-check` implementation.
 - `scripts/typespec-sidecar-to-extensions.ts` — repository wrapper for the sidecar-to-extension migration helper.
 - `scripts/typespec-create-authored-canonical-fixture.ts` — reproducible canonical authored fixture regeneration from the production merged OpenAPI schema.
+- `scripts/schema-typespec-check.ts` — G10 schema-level TypeSpec gate for the production bundle plus current `.merged.yaml` freshness diff.
 - `packages/schemas/typespec/` — G9 production-owned TypeSpec source layout candidate for the staged migration.
 - `docs/internal/typespec-roundtrip/oa-sdk-typespec-extensions.v1.md` — `oa-sdk.typespec-extensions.v1` vocabulary for sidecar-less authored TypeSpec bundles.
 - `docs/internal/typespec-roundtrip/oa-sdk-typespec-extensions.v2.md` — `oa-sdk.typespec-extensions.v2` request body examples vocabulary.
@@ -85,6 +86,7 @@ pnpm typespec:bundle-check -- --manifest artifacts/oa-sdk.typespec-bundle.json -
 pnpm typespec:bundle-check -- --fail-on-breaking --report artifacts/typespec-bundle-check-report.json
 pnpm typespec:sidecar-to-extensions -- --sidecar artifacts/typespec-sidecar.json --output artifacts/typespec-extension-snippets.tsp --remaining-sidecar artifacts/typespec-sidecar.remaining.json --report artifacts/typespec-sidecar-to-extensions-report.json
 pnpm typespec:create-canonical-fixture
+pnpm schema:typespec-check
 ```
 
 The default probe is a visibility command: it exits 0 when export, TypeSpec compile, and OA SDK validation pass, even if semantic diff remains. `--fail-on-breaking` is the readiness gate; the current canonical artifact passes it, and future semantic regressions must either be removed or explicitly accepted by policy.
@@ -131,6 +133,7 @@ Current probe on `packages/schemas/src/.merged.yaml`:
 | Sidecar-to-extension migration workflow | pass, `pnpm typespec:sidecar-to-extensions` writes TypeSpec snippets, a residual sidecar, and a report without converting unsupported metadata into comments; current canonical sidecar conversion yields 99 converted entries and 3 residual path-level parameter examples |
 | TypeSpec-first ADR promotion | pass, `docs/internal/architecture/009-typespec-first-authoring.md` accepts TypeSpec-first schema authoring with staged production migration and rollback rules |
 | Production TypeSpec source layout | pass, `packages/schemas/typespec/` exists as the G9 production-owned TypeSpec bundle candidate and passes standalone bundle-check |
+| Production TypeSpec schema check | pass, `pnpm schema:typespec-check` runs the production bundle check and verifies bundle-local expected OpenAPI against `packages/schemas/src/.merged.yaml` |
 
 Diagnostic distribution:
 

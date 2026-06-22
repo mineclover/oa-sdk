@@ -288,6 +288,7 @@
     "TSP-first decision design",
     "TypeSpec production migration G9-G12 goals",
     "production TypeSpec source layout candidate",
+    "production TypeSpec schema check",
     "sidecar-less authored TypeSpec extension bundle check",
     "representative authored TypeSpec extension bundle check",
     "request body authored TypeSpec extension bundle check",
@@ -320,6 +321,7 @@
         "scripts/typespec-bundle-check.ts",
         "scripts/typespec-sidecar-to-extensions.ts",
         "scripts/typespec-create-authored-canonical-fixture.ts",
+        "scripts/schema-typespec-check.ts",
         "docs/internal/typespec-roundtrip/fixtures/authored-bundle/oa-sdk.typespec-bundle.json",
         "docs/internal/typespec-roundtrip/fixtures/authored-bundle/main.tsp",
         "docs/internal/typespec-roundtrip/fixtures/authored-extension-bundle/oa-sdk.typespec-bundle.json",
@@ -355,6 +357,7 @@
         "pnpm typespec:roundtrip",
         "pnpm typespec:bundle-check",
         "pnpm typespec:bundle-check -- --manifest packages/schemas/typespec/oa-sdk.typespec-bundle.json --fail-on-breaking",
+        "pnpm schema:typespec-check",
         "pnpm typespec:sidecar-to-extensions -- --sidecar docs/internal/typespec-roundtrip/fixtures/authored-bundle/oa-sdk.typespec-compat-sidecar.json",
         "pnpm typespec:create-canonical-fixture"
       ]

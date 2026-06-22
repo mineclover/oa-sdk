@@ -23,4 +23,12 @@ Required G9 gate:
 pnpm typespec:bundle-check -- --manifest packages/schemas/typespec/oa-sdk.typespec-bundle.json --fail-on-breaking
 ```
 
-Do not make `schema:validate` or `schema:bundle` depend on this directory in G9. That wiring belongs to G10, after this bundle remains green as a standalone TypeSpec production candidate.
+Schema-level G10 gate:
+
+```bash
+pnpm schema:typespec-check
+```
+
+The schema-level gate runs the bundle check and verifies that `expected.openapi.yaml` is still normalized-diff equivalent to `packages/schemas/src/.merged.yaml`.
+
+Do not make `schema:validate` or `schema:bundle` depend on this directory until G11 rollback evidence lands.
