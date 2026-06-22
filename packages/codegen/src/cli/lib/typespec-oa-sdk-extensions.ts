@@ -8,6 +8,7 @@ import { createTypeSpecCompatibilitySidecarFromEntries } from './typespec-sideca
 type HttpMethod = 'get' | 'put' | 'post' | 'delete' | 'options' | 'head' | 'patch' | 'trace' | 'query'
 
 const HTTP_METHODS: readonly HttpMethod[] = ['get', 'put', 'post', 'delete', 'options', 'head', 'patch', 'trace', 'query']
+const INFO_EXTENSION = 'x-oa-sdk-info'
 const OPERATION_EXAMPLES_EXTENSION = 'x-oa-sdk-operation-examples'
 const OPERATION_SECURITY_EXTENSION = 'x-oa-sdk-operation-security'
 const SECURITY_SCHEMES_EXTENSION = 'x-oa-sdk-security-schemes'
@@ -17,6 +18,7 @@ export type TypeSpecOpenApiExtensionSchemaVersion =
   | 'oa-sdk.typespec-extensions.v1'
   | 'oa-sdk.typespec-extensions.v2'
   | 'oa-sdk.typespec-extensions.v3'
+  | 'oa-sdk.typespec-extensions.v4'
 
 export type TypeSpecOpenApiExtensionRestoreResult = {
   document: OasDocument
@@ -29,8 +31,12 @@ export function createTypeSpecCompatibilitySidecarFromOpenApiExtensions(
 ): TypeSpecCompatibilitySidecar {
   const entries: TypeSpecCompatibilitySidecarEntry[] = []
   const schemaVersion = options.schemaVersion ?? DEFAULT_EXTENSION_SCHEMA_VERSION
+  if (schemaVersion === 'oa-sdk.typespec-extensions.v4') {
+    const infoEntry = collectInfoEntry(document)
+    if (infoEntry) entries.push(infoEntry)
+  }
   entries.push(...collectSecuritySchemeEntries(document))
-  if (schemaVersion === 'oa-sdk.typespec-extensions.v3') {
+  if (schemaVersion === 'oa-sdk.typespec-extensions.v3' || schemaVersion === 'oa-sdk.typespec-extensions.v4') {
     entries.push(...collectOperationSecurityEntries(document))
   }
   entries.push(...collectOperationExampleEntries(document, schemaVersion))
@@ -39,6 +45,7 @@ export function createTypeSpecCompatibilitySidecarFromOpenApiExtensions(
 
 export function stripTypeSpecOpenApiExtensions(document: OasDocument): OasDocument {
   const stripped = cloneJson(document) as OasDocument
+  delete (stripped as Record<string, unknown>)[INFO_EXTENSION]
   delete (stripped as Record<string, unknown>)[SECURITY_SCHEMES_EXTENSION]
   for (const pathItemValue of Object.values(stripped.paths ?? {})) {
     if (!isRecord(pathItemValue)) continue
@@ -52,6 +59,29 @@ export function stripTypeSpecOpenApiExtensions(document: OasDocument): OasDocume
     }
   }
   return stripped
+}
+
+function collectInfoEntry(document: OasDocument): TypeSpecCompatibilitySidecarEntry | null {
+  const extension = (document as Record<string, unknown>)[INFO_EXTENSION]
+  if (!isRecord(extension)) return null
+  const title = typeof extension.title === 'string' && extension.title.trim() !== ''
+    ? extension.title
+    : document.info.title
+  const version = typeof extension.version === 'string' && extension.version.trim() !== ''
+    ? extension.version
+    : document.info.version
+  return {
+    kind: 'root-info',
+    pointer: `#/${escapeJsonPointer(INFO_EXTENSION)}`,
+    target: {
+      pointer: '#/info',
+    },
+    value: {
+      ...cloneJson(extension),
+      title,
+      version,
+    },
+  }
 }
 
 function collectSecuritySchemeEntries(document: OasDocument): TypeSpecCompatibilitySidecarEntry[] {
@@ -104,7 +134,9 @@ function collectOperationExampleEntries(
       const extension = (operation as Record<string, unknown>)[OPERATION_EXAMPLES_EXTENSION]
       if (!isRecord(extension)) continue
       entries.push(...collectParameterExampleEntries(extension.parameters, path, method))
-      if (schemaVersion === 'oa-sdk.typespec-extensions.v2' || schemaVersion === 'oa-sdk.typespec-extensions.v3') {
+      if (schemaVersion === 'oa-sdk.typespec-extensions.v2'
+        || schemaVersion === 'oa-sdk.typespec-extensions.v3'
+        || schemaVersion === 'oa-sdk.typespec-extensions.v4') {
         entries.push(...collectRequestExampleEntries(extension.requestBody, path, method))
       }
       entries.push(...collectResponseExampleEntries(extension.responses, path, method))

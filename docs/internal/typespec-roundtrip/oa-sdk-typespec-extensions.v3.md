@@ -4,7 +4,7 @@ Status: accepted for explicit public operation security overrides, dated 2026-06
 
 Schema version: `oa-sdk.typespec-extensions.v3`.
 
-v3 extends [`oa-sdk.typespec-extensions.v2`](./oa-sdk-typespec-extensions.v2.md) with operation-level public security override metadata. v1 and v2 remain unchanged for sidecar-less bundles that do not need to restore explicit `security: []` onto public operations.
+v3 extends [`oa-sdk.typespec-extensions.v2`](./oa-sdk-typespec-extensions.v2.md) with operation-level public security override metadata. v1 and v2 remain unchanged for sidecar-less bundles that do not need to restore explicit `security: []` onto public operations. Root info metadata is standardized separately in [`oa-sdk-typespec-extensions.v4.md`](./oa-sdk-typespec-extensions.v4.md).
 
 ## Decision
 
@@ -68,4 +68,4 @@ The restore loop is the same as v2, with one additional recognized extension fam
 
 ## Production Evidence
 
-The production TypeSpec bundle declares v3 and restores explicit no-auth overrides for public operations. The schema gate reports 114 extension-derived semantic entries and keeps the reviewed restored-vs-reference drift at 52 hash-pinned entries.
+The production TypeSpec bundle used v3 to restore explicit no-auth overrides for public operations. The current production bundle has since moved to v4 so it can also restore root info metadata.

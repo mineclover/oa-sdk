@@ -1,5 +1,6 @@
 import type {
   OasDocument,
+  OasInfo,
   OasMediaType,
   OasOperation,
   OasParameter,
@@ -18,11 +19,21 @@ const HTTP_METHODS: readonly HttpMethod[] = ['get', 'put', 'post', 'delete', 'op
 const IDENTIFIER_RE = /^[A-Za-z_][A-Za-z0-9_]*$/
 
 export type TypeSpecCompatibilitySidecarEntry =
+  | TypeSpecRootInfoSidecarEntry
   | TypeSpecParameterExamplesSidecarEntry
   | TypeSpecRequestExamplesSidecarEntry
   | TypeSpecResponseExamplesSidecarEntry
   | TypeSpecOperationSecuritySidecarEntry
   | TypeSpecSecuritySchemeSidecarEntry
+
+export type TypeSpecRootInfoSidecarEntry = {
+  kind: 'root-info'
+  pointer: string
+  target: {
+    pointer: '#/info'
+  }
+  value: OasInfo
+}
 
 export type TypeSpecParameterExamplesSidecarEntry = {
   kind: 'parameter-examples'
@@ -94,6 +105,7 @@ export type TypeSpecCompatibilitySidecar = {
   schemaVersion: 'oa-sdk.typespec-compat-sidecar.v1'
   counts: {
     entries: number
+    rootInfo?: number
     parameterExamples: number
     requestMediaExamples?: number
     responseMediaExamples: number
@@ -151,6 +163,8 @@ export type TypeSpecCompatibilitySidecarCompareReport = {
 
 export function createTypeSpecCompatibilitySidecar(document: OasDocument): TypeSpecCompatibilitySidecar {
   const entries: TypeSpecCompatibilitySidecarEntry[] = []
+  const infoEntry = createRootInfoEntry(document)
+  if (infoEntry) entries.push(infoEntry)
   entries.push(...collectSecuritySchemeEntries(document))
   entries.push(...collectPathEntries(document))
   return createTypeSpecCompatibilitySidecarFromEntries(entries)
@@ -323,6 +337,18 @@ function collectSecuritySchemeEntries(document: OasDocument): TypeSpecCompatibil
   return entries
 }
 
+function createRootInfoEntry(document: OasDocument): TypeSpecRootInfoSidecarEntry | null {
+  if (!hasOpenApiInfoMetadataBeyondTypeSpecNative(document.info)) return null
+  return {
+    kind: 'root-info',
+    pointer: '#/info',
+    target: {
+      pointer: '#/info',
+    },
+    value: cloneJson(document.info),
+  }
+}
+
 function collectPathEntries(document: OasDocument): TypeSpecCompatibilitySidecarEntry[] {
   const entries: TypeSpecCompatibilitySidecarEntry[] = []
   for (const [path, pathItemValue] of Object.entries(document.paths ?? {})) {
@@ -479,6 +505,10 @@ function applyEntry(
   entry: TypeSpecCompatibilitySidecarEntry,
   diagnostics: TypeSpecCompatibilityRestoreDiagnostic[],
 ): number {
+  if (entry.kind === 'root-info') {
+    document.info = cloneJson(entry.value)
+    return 1
+  }
   if (entry.kind === 'security-scheme') {
     document.components ??= {}
     document.components.securitySchemes ??= {}
@@ -641,12 +671,17 @@ function isTypeSpecEmittedSecurityScheme(name: string, scheme: OasSecurityScheme
     && keys.every(key => key === 'type' || key === 'scheme')
 }
 
+function hasOpenApiInfoMetadataBeyondTypeSpecNative(info: OasInfo): boolean {
+  return Object.keys(info).some(key => key !== 'title' && key !== 'version')
+}
+
 function countEntries(entries: TypeSpecCompatibilitySidecarEntry[]): TypeSpecCompatibilitySidecar['counts'] {
   const counts = countEntryKinds(entries)
-  const { requestMediaExamples, operationSecurity, ...baseCounts } = counts
-  if (requestMediaExamples === 0 && operationSecurity === 0) return baseCounts
+  const { rootInfo, requestMediaExamples, operationSecurity, ...baseCounts } = counts
+  if (rootInfo === 0 && requestMediaExamples === 0 && operationSecurity === 0) return baseCounts
   return {
     ...baseCounts,
+    ...(rootInfo > 0 ? { rootInfo } : {}),
     ...(requestMediaExamples > 0 ? { requestMediaExamples } : {}),
     ...(operationSecurity > 0 ? { operationSecurity } : {}),
   }
@@ -658,7 +693,7 @@ function validateSidecarEntry(value: unknown, path: string, errors: string[]): v
     return
   }
   if (!isSidecarEntryKind(value.kind)) {
-    errors.push(`${path}.kind must be parameter-examples, request-media-examples, response-media-examples, operation-security, or security-scheme`)
+    errors.push(`${path}.kind must be root-info, parameter-examples, request-media-examples, response-media-examples, operation-security, or security-scheme`)
     return
   }
   requireString(value, 'pointer', `${path}.pointer`, errors)
@@ -671,9 +706,29 @@ function validateSidecarEntry(value: unknown, path: string, errors: string[]): v
     validateResponseExamplesEntry(value, path, errors)
   } else if (value.kind === 'operation-security') {
     validateOperationSecurityEntry(value, path, errors)
+  } else if (value.kind === 'root-info') {
+    validateRootInfoEntry(value, path, errors)
   } else {
     validateSecuritySchemeEntry(value, path, errors)
   }
+}
+
+function validateRootInfoEntry(
+  entry: RecordValue,
+  path: string,
+  errors: string[],
+): void {
+  if (!isRecord(entry.target)) {
+    errors.push(`${path}.target must be an object`)
+  } else if (entry.target.pointer !== '#/info') {
+    errors.push(`${path}.target.pointer must be #/info`)
+  }
+  if (!isRecord(entry.value)) {
+    errors.push(`${path}.value must be an OpenAPI info object`)
+    return
+  }
+  requireString(entry.value, 'title', `${path}.value.title`, errors)
+  requireString(entry.value, 'version', `${path}.value.version`, errors)
 }
 
 function validateParameterExamplesEntry(
@@ -773,6 +828,9 @@ function validateExamplesValue(value: unknown, path: string, errors: string[]): 
 function validateSidecarCounts(counts: RecordValue, entries: unknown[], errors: string[]): void {
   const actual = countEntryKinds(entries)
   const expectedEntries = optionalNonNegativeInteger(counts, 'entries', 'counts.entries', errors)
+  const expectedRootInfo = hasOwn(counts, 'rootInfo')
+    ? optionalNonNegativeInteger(counts, 'rootInfo', 'counts.rootInfo', errors)
+    : undefined
   const expectedParameterExamples = optionalNonNegativeInteger(counts, 'parameterExamples', 'counts.parameterExamples', errors)
   const expectedRequestMediaExamples = hasOwn(counts, 'requestMediaExamples')
     ? optionalNonNegativeInteger(counts, 'requestMediaExamples', 'counts.requestMediaExamples', errors)
@@ -784,6 +842,12 @@ function validateSidecarCounts(counts: RecordValue, entries: unknown[], errors: 
   const expectedSecuritySchemes = optionalNonNegativeInteger(counts, 'securitySchemes', 'counts.securitySchemes', errors)
   if (expectedEntries !== undefined && expectedEntries !== actual.entries) {
     errors.push(`counts.entries must equal ${actual.entries}`)
+  }
+  if (expectedRootInfo !== undefined && expectedRootInfo !== actual.rootInfo) {
+    errors.push(`counts.rootInfo must equal ${actual.rootInfo}`)
+  }
+  if (expectedRootInfo === undefined && actual.rootInfo > 0) {
+    errors.push(`counts.rootInfo must equal ${actual.rootInfo}`)
   }
   if (expectedParameterExamples !== undefined && expectedParameterExamples !== actual.parameterExamples) {
     errors.push(`counts.parameterExamples must equal ${actual.parameterExamples}`)
@@ -810,6 +874,7 @@ function validateSidecarCounts(counts: RecordValue, entries: unknown[], errors: 
 
 type EntryKindCounts = {
   entries: number
+  rootInfo: number
   parameterExamples: number
   requestMediaExamples: number
   responseMediaExamples: number
@@ -820,6 +885,7 @@ type EntryKindCounts = {
 function countEntryKinds(entries: unknown[]): EntryKindCounts {
   return {
     entries: entries.length,
+    rootInfo: entries.filter(entry => isRecord(entry) && entry.kind === 'root-info').length,
     parameterExamples: entries.filter(entry => isRecord(entry) && entry.kind === 'parameter-examples').length,
     requestMediaExamples: entries.filter(entry => isRecord(entry) && entry.kind === 'request-media-examples').length,
     responseMediaExamples: entries.filter(entry => isRecord(entry) && entry.kind === 'response-media-examples').length,
@@ -866,7 +932,8 @@ function optionalNonNegativeInteger(
 }
 
 function isSidecarEntryKind(value: unknown): value is TypeSpecCompatibilitySidecarEntry['kind'] {
-  return value === 'parameter-examples'
+  return value === 'root-info'
+    || value === 'parameter-examples'
     || value === 'request-media-examples'
     || value === 'response-media-examples'
     || value === 'operation-security'
@@ -880,6 +947,9 @@ function entriesTargetCompatible(
   if (expected.kind !== actual.kind) return false
   if (expected.kind === 'security-scheme' && actual.kind === 'security-scheme') {
     return expected.target.name === actual.target.name
+  }
+  if (expected.kind === 'root-info' && actual.kind === 'root-info') {
+    return expected.target.pointer === actual.target.pointer
   }
   if (expected.kind === 'operation-security' && actual.kind === 'operation-security') {
     return expected.target.path === actual.target.path

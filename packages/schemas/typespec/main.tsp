@@ -6,6 +6,15 @@ using OpenAPI;
 
 // Scaffolded by oa-gen tsp-export and promoted to the production TypeSpec source.
 // Keep schema:typespec-check green before changing generated OpenAPI artifacts.
+@extension("x-oa-sdk-info", #{
+  title: "OA SDK API",
+  description: "OpenAPI 3.2 기반 API 관리 인프라",
+  version: "0.1.0",
+  license: #{
+    name: "MIT",
+    identifier: "MIT"
+  }
+})
 @extension("x-oa-sdk-security-schemes", #{
   bearerAuth: #{
     type: "http",

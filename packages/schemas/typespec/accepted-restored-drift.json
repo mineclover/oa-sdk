@@ -2,13 +2,6 @@
   "schemaVersion": "oa-sdk.typespec-restored-drift.v2",
   "entries": [
     {
-      "category": "root",
-      "kind": "changed",
-      "pointer": "#/info",
-      "productionSha256": "f7c9c1d6467980f446a133bf042ed08fa338f0d5bdd1cb82b3e1979f537206eb",
-      "restoredSha256": "2c77430ff371b084e9eb668807fdbad753c04da5b8a1452bf46a5958b87ebdf9"
-    },
-    {
       "category": "path",
       "kind": "changed",
       "pointer": "#/paths/~1admin~1users~1export",

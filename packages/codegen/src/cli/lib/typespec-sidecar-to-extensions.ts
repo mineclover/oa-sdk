@@ -6,6 +6,7 @@ import {
   type TypeSpecParameterExamplesSidecarEntry,
   type TypeSpecRequestExamplesSidecarEntry,
   type TypeSpecResponseExamplesSidecarEntry,
+  type TypeSpecRootInfoSidecarEntry,
   type TypeSpecSecuritySchemeSidecarEntry,
 } from './typespec-sidecar.js'
 import type { TypeSpecOpenApiExtensionSchemaVersion } from './typespec-oa-sdk-extensions.js'
@@ -13,6 +14,7 @@ import type { TypeSpecOpenApiExtensionSchemaVersion } from './typespec-oa-sdk-ex
 type HttpMethod = TypeSpecRequestExamplesSidecarEntry['target']['method']
 type RecordValue = Record<string, unknown>
 
+const INFO_EXTENSION = 'x-oa-sdk-info'
 const OPERATION_EXAMPLES_EXTENSION = 'x-oa-sdk-operation-examples'
 const OPERATION_SECURITY_EXTENSION = 'x-oa-sdk-operation-security'
 const SECURITY_SCHEMES_EXTENSION = 'x-oa-sdk-security-schemes'
@@ -41,7 +43,7 @@ export type TypeSpecSidecarConvertedEntry = {
   kind: TypeSpecCompatibilitySidecarEntry['kind']
   pointer: string
   target: RecordValue
-  extension: typeof OPERATION_EXAMPLES_EXTENSION | typeof OPERATION_SECURITY_EXTENSION | typeof SECURITY_SCHEMES_EXTENSION
+  extension: typeof INFO_EXTENSION | typeof OPERATION_EXAMPLES_EXTENSION | typeof OPERATION_SECURITY_EXTENSION | typeof SECURITY_SCHEMES_EXTENSION
   placement: string
 }
 
@@ -74,6 +76,7 @@ export function convertTypeSpecSidecarToExtensions(
 ): TypeSpecSidecarToExtensionsResult {
   const extensionSchemaVersion = options.extensionSchemaVersion ?? DEFAULT_EXTENSION_SCHEMA_VERSION
   const operationGroups = new Map<string, OperationExtensionGroup>()
+  let rootInfo: RecordValue | undefined
   const securitySchemes: RecordValue = {}
   const securitySchemeNames = new Set<string>()
   const remainingEntries: TypeSpecCompatibilitySidecarEntry[] = []
@@ -84,6 +87,9 @@ export function convertTypeSpecSidecarToExtensions(
     const conversion = convertEntry(entry, {
       extensionSchemaVersion,
       operationGroups,
+      setRootInfo: value => {
+        rootInfo = value
+      },
       securitySchemes,
       securitySchemeNames,
     })
@@ -100,7 +106,7 @@ export function convertTypeSpecSidecarToExtensions(
     })
   }
 
-  const snippets = renderSnippets(operationGroups, securitySchemes)
+  const snippets = renderSnippets(operationGroups, rootInfo, securitySchemes)
   const remainingSidecar = createTypeSpecCompatibilitySidecarFromEntries(remainingEntries)
   return {
     snippets,
@@ -126,15 +132,46 @@ function convertEntry(
   context: {
     extensionSchemaVersion: TypeSpecOpenApiExtensionSchemaVersion
     operationGroups: Map<string, OperationExtensionGroup>
+    setRootInfo: (value: RecordValue) => void
     securitySchemes: RecordValue
     securitySchemeNames: Set<string>
   },
 ): { converted: true; report: TypeSpecSidecarConvertedEntry } | { converted: false; reason: string } {
+  if (entry.kind === 'root-info') return convertRootInfoEntry(entry, context)
   if (entry.kind === 'parameter-examples') return convertParameterEntry(entry, context.operationGroups)
   if (entry.kind === 'request-media-examples') return convertRequestEntry(entry, context)
   if (entry.kind === 'response-media-examples') return convertResponseEntry(entry, context.operationGroups)
   if (entry.kind === 'operation-security') return convertOperationSecurityEntry(entry, context)
   return convertSecuritySchemeEntry(entry, context)
+}
+
+function convertRootInfoEntry(
+  entry: TypeSpecRootInfoSidecarEntry,
+  context: {
+    extensionSchemaVersion: TypeSpecOpenApiExtensionSchemaVersion
+    setRootInfo: (value: RecordValue) => void
+  },
+): { converted: true; report: TypeSpecSidecarConvertedEntry } | { converted: false; reason: string } {
+  if (context.extensionSchemaVersion !== 'oa-sdk.typespec-extensions.v4') {
+    return {
+      converted: false,
+      reason: 'root info metadata requires oa-sdk.typespec-extensions.v4',
+    }
+  }
+  if (!canRenderTypeSpecValue(entry.value)) {
+    return { converted: false, reason: 'root info metadata contains values that cannot be rendered as TypeSpec value literals' }
+  }
+  context.setRootInfo(cloneJson(entry.value) as RecordValue)
+  return {
+    converted: true,
+    report: {
+      kind: entry.kind,
+      pointer: entry.pointer,
+      target: cloneJson(entry.target) as RecordValue,
+      extension: INFO_EXTENSION,
+      placement: 'namespace or service declaration',
+    },
+  }
 }
 
 function convertParameterEntry(
@@ -213,10 +250,11 @@ function convertOperationSecurityEntry(
     operationGroups: Map<string, OperationExtensionGroup>
   },
 ): { converted: true; report: TypeSpecSidecarConvertedEntry } | { converted: false; reason: string } {
-  if (context.extensionSchemaVersion !== 'oa-sdk.typespec-extensions.v3') {
+  if (context.extensionSchemaVersion !== 'oa-sdk.typespec-extensions.v3'
+    && context.extensionSchemaVersion !== 'oa-sdk.typespec-extensions.v4') {
     return {
       converted: false,
-      reason: 'operation security overrides require oa-sdk.typespec-extensions.v3',
+      reason: 'operation security overrides require oa-sdk.typespec-extensions.v3 or later',
     }
   }
   if (!Array.isArray(entry.value) || entry.value.length !== 0) {
@@ -317,18 +355,19 @@ function readOperationGroup(
   return created
 }
 
-function renderSnippets(operationGroups: Map<string, OperationExtensionGroup>, securitySchemes: RecordValue): string {
+function renderSnippets(operationGroups: Map<string, OperationExtensionGroup>, rootInfo: RecordValue | undefined, securitySchemes: RecordValue): string {
   const blocks: string[] = [
     '// Generated from oa-sdk.typespec-compat-sidecar.v1.',
     '// Paste each @extension decorator directly above the matching TypeSpec target.',
   ]
 
-  if (Object.keys(securitySchemes).length > 0) {
+  if (rootInfo || Object.keys(securitySchemes).length > 0) {
     blocks.push(
       [
         '',
         '// Namespace or service declaration',
-        renderExtension(SECURITY_SCHEMES_EXTENSION, securitySchemes),
+        ...(rootInfo ? [renderExtension(INFO_EXTENSION, rootInfo)] : []),
+        ...(Object.keys(securitySchemes).length > 0 ? [renderExtension(SECURITY_SCHEMES_EXTENSION, securitySchemes)] : []),
       ].join('\n'),
     )
   }

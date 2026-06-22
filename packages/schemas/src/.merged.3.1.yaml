@@ -1,7 +1,11 @@
 openapi: 3.1.0
 info:
   title: OA SDK API
+  description: OpenAPI 3.2 기반 API 관리 인프라
   version: 0.1.0
+  license:
+    name: MIT
+    identifier: MIT
 tags:
   - name: me
     description: 셀프 서비스 — 현재 인증된 사용자 자기 자원

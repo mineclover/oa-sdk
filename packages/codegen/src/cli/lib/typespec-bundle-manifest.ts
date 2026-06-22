@@ -4,6 +4,7 @@ export type TypeSpecOpenApiExtensionSchemaVersion =
   | 'oa-sdk.typespec-extensions.v1'
   | 'oa-sdk.typespec-extensions.v2'
   | 'oa-sdk.typespec-extensions.v3'
+  | 'oa-sdk.typespec-extensions.v4'
 
 export type TypeSpecBundleManifest = {
   schemaVersion: 'oa-sdk.typespec-bundle.v1'
@@ -73,7 +74,7 @@ export function parseTypeSpecBundleManifest(value: unknown, path = '<memory>'): 
         errors.push('compatibility.sidecarSchemaVersion must be oa-sdk.typespec-compat-sidecar.v1')
       }
       if (oaSdkExtensionSchemaVersion && !isTypeSpecOpenApiExtensionSchemaVersion(oaSdkExtensionSchemaVersion)) {
-        errors.push('compatibility.oaSdkExtensionSchemaVersion must be oa-sdk.typespec-extensions.v1, oa-sdk.typespec-extensions.v2, or oa-sdk.typespec-extensions.v3')
+        errors.push('compatibility.oaSdkExtensionSchemaVersion must be oa-sdk.typespec-extensions.v1, oa-sdk.typespec-extensions.v2, oa-sdk.typespec-extensions.v3, or oa-sdk.typespec-extensions.v4')
       }
     }
   }
@@ -152,6 +153,7 @@ function isTypeSpecOpenApiExtensionSchemaVersion(value: string): value is TypeSp
   return value === 'oa-sdk.typespec-extensions.v1'
     || value === 'oa-sdk.typespec-extensions.v2'
     || value === 'oa-sdk.typespec-extensions.v3'
+    || value === 'oa-sdk.typespec-extensions.v4'
 }
 
 function validateManifestRelativePath(path: string, key: string, errors: string[]): void {
