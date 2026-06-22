@@ -1,6 +1,6 @@
 # Authored Canonical TypeSpec Bundle
 
-This fixture is the G7 full canonical authored bundle candidate.
+This fixture is the accepted full canonical authored bundle evidence for ADR-009's TypeSpec-first schema authoring decision.
 
 It starts from the canonical `oa-gen tsp-export` scaffold for `packages/schemas/src/.merged.yaml`, then moves OA SDK compatibility sidecar semantics into TypeSpec `@extension(...)` metadata using `oa-sdk.typespec-extensions.v2`.
 
@@ -26,4 +26,4 @@ Required gate after regeneration:
 pnpm typespec:bundle-check -- --manifest docs/internal/typespec-roundtrip/fixtures/authored-canonical-bundle/oa-sdk.typespec-bundle.json --fail-on-breaking
 ```
 
-This fixture does not make TypeSpec the production schema source of truth by itself. It provides the full-canonical evidence required before ADR-009 can be promoted by G8.
+This fixture does not wire TypeSpec into the production schema build path by itself. ADR-009 is accepted, and the production migration remains a staged follow-up that must keep the existing OpenAPI path green until equivalent build, validation, and rollback gates land.
