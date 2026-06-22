@@ -70,6 +70,9 @@ export function parseTypeSpecBundleManifest(value: unknown, path = '<memory>'): 
       }
     }
   }
+  if (!sidecar && compatibility?.oaSdkExtensionSchemaVersion !== 'oa-sdk.typespec-extensions.v1') {
+    errors.push('sidecar-less TypeSpec bundle manifests must declare compatibility.oaSdkExtensionSchemaVersion')
+  }
   if (errors.length > 0 || !entrypoint) {
     throw new Error(`invalid TypeSpec bundle manifest ${path}: ${errors.join('; ')}`)
   }

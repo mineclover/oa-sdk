@@ -136,6 +136,30 @@ describe('authored TypeSpec compatibility bundle', () => {
     })
   })
 
+  it('rejects a sidecar-less manifest without an OA SDK TypeSpec extension schema declaration', () => {
+    const bundleDir = join(tmpDir, 'extension-bundle-without-schema-version')
+    cpSync(extensionFixtureDir, bundleDir, { recursive: true })
+    const manifestPath = join(bundleDir, 'oa-sdk.typespec-bundle.json')
+    const manifest = JSON.parse(readFileSync(manifestPath, 'utf8')) as Record<string, any>
+    delete manifest.compatibility.oaSdkExtensionSchemaVersion
+    writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, 'utf8')
+
+    const check = spawnSync('pnpm', [
+      'typespec:bundle-check',
+      '--',
+      '--manifest',
+      manifestPath,
+    ], {
+      cwd: rootDir,
+      encoding: 'utf8',
+    })
+
+    expect(check.status).not.toBe(0)
+    expect(`${check.stdout}\n${check.stderr}`).toContain(
+      'sidecar-less TypeSpec bundle manifests must declare compatibility.oaSdkExtensionSchemaVersion',
+    )
+  })
+
   it('rejects a manifest entrypoint that diverges from the TypeSpec project config', () => {
     const bundleDir = join(tmpDir, 'bundle')
     cpSync(fixtureDir, bundleDir, { recursive: true })

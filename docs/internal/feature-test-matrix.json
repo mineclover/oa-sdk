@@ -272,7 +272,7 @@
       "name": "TypeSpec roundtrip export",
       "category": "codegen",
       "package": "@oa-sdk/codegen",
-      "description": "OpenAPI artifacts can be exported to TypeSpec spike source plus OA SDK sidecar metadata, and authored .tsp + sidecar bundles can be compiled, restored, re-extracted for sidecar semantic stability, validated, diffed, and classified with diagnostic policy gates for TSP-first readiness.",
+      "description": "OpenAPI artifacts can be exported to TypeSpec spike source plus OA SDK sidecar metadata, and authored .tsp + sidecar or sidecar-less .tsp extension bundles can be compiled, restored, re-extracted for semantic stability, validated, diffed, and classified with diagnostic policy gates for TSP-first readiness.",
       "capabilities": [
         "OpenAPI to TypeSpec source export",
         "OpenAPI-owned TypeSpec compatibility sidecar",
@@ -280,6 +280,7 @@
         "generated TypeSpec bundle expected OpenAPI",
         "generated TypeSpec plus sidecar bundle check",
         "authored TypeSpec bundle manifest",
+        "oa-sdk.typespec-extensions.v1 schema",
         "sidecar-less authored TypeSpec extension bundle check",
         "tsp-bundle-check CLI bundle gate",
         "sidecar restore into TypeSpec-emitted OpenAPI",
@@ -308,6 +309,7 @@
         "docs/internal/typespec-roundtrip/fixtures/authored-bundle/main.tsp",
         "docs/internal/typespec-roundtrip/fixtures/authored-extension-bundle/oa-sdk.typespec-bundle.json",
         "docs/internal/typespec-roundtrip/fixtures/authored-extension-bundle/main.tsp",
+        "docs/internal/typespec-roundtrip/oa-sdk-typespec-extensions.v1.md",
         "docs/internal/typespec-roundtrip.plan.md"
       ],
       "commands": [

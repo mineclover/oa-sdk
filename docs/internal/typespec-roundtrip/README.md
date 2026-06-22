@@ -4,6 +4,8 @@ This folder contains versioned implementation plans for the TypeSpec roundtrip t
 
 The parent evaluation document is [`../typespec-roundtrip.plan.md`](../typespec-roundtrip.plan.md). It owns the current evidence and TSP-first declaration criteria.
 
+The sidecar-less authored bundle vocabulary is standardized in [`oa-sdk-typespec-extensions.v1.md`](./oa-sdk-typespec-extensions.v1.md).
+
 ## Versions
 
 | Target | Package | Plan | Status |

@@ -353,6 +353,7 @@ Purpose: prove that currently sidecar-owned OA SDK semantics can be authored ins
 Tasks:
 
 - Add a sidecar-less authored TypeSpec fixture that uses TypeSpec OpenAPI `@extension(...)` metadata.
+- Standardize the authored metadata shape in [`../oa-sdk-typespec-extensions.v1.md`](../oa-sdk-typespec-extensions.v1.md).
 - Encode parameter examples, response media examples, and unsupported security scheme metadata through `x-oa-sdk-operation-examples` and `x-oa-sdk-security-schemes`.
 - Allow `oa-sdk.typespec-bundle.v1` manifests to omit `sidecar` when `compatibility.oaSdkExtensionSchemaVersion` is present.
 - Convert emitted `x-oa-sdk-*` metadata to the same sidecar-equivalent restore entries used by the existing compatibility loop.
@@ -362,6 +363,7 @@ Gate:
 
 - `pnpm typespec:bundle-check -- --manifest docs/internal/typespec-roundtrip/fixtures/authored-extension-bundle/oa-sdk.typespec-bundle.json --fail-on-breaking` passes.
 - The bundle check report uses `compatibilitySource: typespec-extensions`.
+- Sidecar-less manifests declare `compatibility.oaSdkExtensionSchemaVersion: "oa-sdk.typespec-extensions.v1"`.
 - Sidecar-equivalent restore reports no missing targets.
 - Sidecar-equivalent re-extraction reports no semantic drift.
 - Restored OpenAPI validates and has no breaking diff against the expected OpenAPI fixture.
@@ -404,5 +406,5 @@ The version is ready when:
 - Generated `.tsp + sidecar` bundles are portable enough to be rechecked through `oa-sdk.typespec-bundle.v1` without the original OpenAPI artifact.
 - Generated bundles can include bundle-local expected OpenAPI and pass the same expected diff gate used by authored bundles.
 - Authored `.tsp + sidecar` fixtures are declared through `oa-sdk.typespec-bundle.v1` and pass the bundle check with every currently accepted sidecar entry kind represented.
-- Authored sidecar-less `.tsp` fixtures are declared through `oa-sdk.typespec-bundle.v1` and pass the bundle check with every currently accepted sidecar entry kind represented through TypeSpec extension metadata.
+- Authored sidecar-less `.tsp` fixtures are declared through `oa-sdk.typespec-bundle.v1`, conform to `oa-sdk.typespec-extensions.v1`, and pass the bundle check with every currently accepted sidecar entry kind represented through TypeSpec extension metadata.
 - Sidecar restore is semantically stable after re-extraction from restored OpenAPI, with no missing expected entries, unexpected actual entries, or value mismatches.
