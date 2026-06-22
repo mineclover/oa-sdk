@@ -54,6 +54,12 @@ jobs:
           pnpm schema:validate
           pnpm --filter @oa-sdk/schemas run test
 
+      - name: TypeSpec production migration gates
+        run: |
+          pnpm schema:typespec-check
+          pnpm schema:rollback-check
+          pnpm schema:downstream-check
+
       # ── Freshness check: generated files up to date? ───────
       - name: Schema freshness check
         run: |
