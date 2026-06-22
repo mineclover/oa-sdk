@@ -1,6 +1,6 @@
 # TypeSpec-First Decision Design
 
-Status: decision prep, not an ADR. G1 through G4 are implementation-backed.
+Status: decision prep, not an ADR. G1 through G5 are implementation-backed.
 
 This document locks the design direction for the remaining TypeSpec-first work that follows the `oa-sdk.typespec-extensions.v1` sidecar-less spike. It decides the next semantic scope, the authored fixture strategy, and the ADR evidence model without declaring TypeSpec-first yet.
 
@@ -241,6 +241,7 @@ G6 should be treated as tooling/workflow support, not as a schema decision. It m
 - The canonical roundtrip now reports 102 compatibility sidecar entries: 9 parameter examples, 13 request media examples, 79 response media examples, and 1 security scheme.
 - The canonical export diagnostics now include 13 accepted `request-body/examples-dropped` entries owned by `oa-sdk-openapi-example-sidecar`.
 - G4 is implemented by `docs/internal/typespec-roundtrip/authoring-ownership-guide.md`, which maps contract facts to TypeSpec-native syntax, OA SDK TypeSpec extension metadata, compatibility sidecar, or runtime data / adapter policy.
+- G5 is implemented by `docs/internal/architecture/009-typespec-first-authoring.md` as a conditional accept draft with current command evidence. It does not promote TypeSpec to the default production schema source of truth.
 
 ### Goal Gate Commands
 
@@ -264,6 +265,5 @@ Additional commands by goal:
 
 ## Next Work Order
 
-1. Run G5 as a conditional ADR draft.
-2. Run G6 and G7 before promoting the ADR beyond conditional accept.
-3. Run G8 to promote, revise, or reject the ADR based on full fixture evidence.
+1. Run G6 and G7 before promoting the ADR beyond conditional accept.
+2. Run G8 to promote, revise, or reject the ADR based on full fixture evidence.

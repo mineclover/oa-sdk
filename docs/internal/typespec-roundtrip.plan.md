@@ -24,6 +24,7 @@ Implemented source:
 - `docs/internal/typespec-roundtrip/oa-sdk-typespec-extensions.v1.md` — `oa-sdk.typespec-extensions.v1` vocabulary for sidecar-less authored TypeSpec bundles.
 - `docs/internal/typespec-roundtrip/oa-sdk-typespec-extensions.v2.md` — `oa-sdk.typespec-extensions.v2` request body examples vocabulary.
 - `docs/internal/typespec-roundtrip/authoring-ownership-guide.md` — maintainer-facing source-of-truth ownership map for TypeSpec-native syntax, OA SDK TypeSpec extensions, compatibility sidecars, and runtime data.
+- `docs/internal/architecture/009-typespec-first-authoring.md` — conditional TypeSpec-first authoring ADR draft for selected authored bundles.
 - `docs/internal/typespec-roundtrip/fixtures/authored-bundle/` — minimal authored bundle fixture proving the two-track input shape with `oa-sdk.typespec-bundle.v1`.
 - `docs/internal/typespec-roundtrip/fixtures/authored-extension-bundle/` — minimal sidecar-less authored bundle fixture proving OA SDK semantics can live in `.tsp` through TypeSpec OpenAPI extensions.
 - `docs/internal/typespec-roundtrip/fixtures/authored-representative-bundle/` — representative sidecar-less authored bundle fixture covering canonical users operations, pagination, request bodies, shared errors, union/composed schema shape, security requirements, and restored OA SDK extension metadata.
@@ -113,6 +114,7 @@ Current probe on `packages/schemas/src/.merged.yaml`:
 | Authored request body extension bundle check | pass, `.tsp` `oa-sdk.typespec-extensions.v2` metadata yields 1 operation, 1 request media example entry, 1 applied target, 0 missing targets |
 | Authored request body extension restored diff | 0 breaking changes across 0 modified operations |
 | Authoring ownership guide | pass, contract facts are mapped to TypeSpec-native syntax, OA SDK TypeSpec extensions, compatibility sidecars, or runtime data / adapter policy |
+| Conditional TypeSpec-first ADR draft | pass, `docs/internal/architecture/009-typespec-first-authoring.md` records conditional accept scope, evidence, guardrails, promotion path, and rollback rules |
 
 Diagnostic distribution:
 
@@ -143,6 +145,7 @@ Current endpoint diff:
 - The authored extension bundle fixture proves the first sidecar-less slice: an `oa-sdk.typespec-bundle.v1` manifest points only to `.tsp` plus expected OpenAPI, declares `compatibility.oaSdkExtensionSchemaVersion: "oa-sdk.typespec-extensions.v1"`, and OA SDK semantics are restored from `x-oa-sdk-operation-examples` and `x-oa-sdk-security-schemes` metadata emitted from TypeSpec `@extension(...)` decorators.
 - The authored representative bundle fixture proves G1/G2 of the TypeSpec-first goal roadmap: source selection is documented from canonical users operations/components, and a sidecar-less `.tsp` project covers pagination, request bodies, shared error responses, strict object sealing, union/composed schema shape, TypeSpec-native bearer security requirements, and restored OAuth2 metadata with stable re-extraction.
 - The authoring ownership guide proves G4 by giving maintainers a single map for deciding whether a contract fact belongs in TypeSpec-native syntax, an OA SDK TypeSpec extension, the compatibility sidecar, or runtime data / adapter policy.
+- The conditional ADR draft proves G5 by accepting TypeSpec as a first-class authoring surface only for selected bundles that pass manifest, ownership, restore, validation, expected diff, and re-extraction stability gates. The production canonical schema remains OpenAPI until G7/G8.
 
 ## Intersection
 
