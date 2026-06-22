@@ -281,6 +281,7 @@
         "generated TypeSpec plus sidecar bundle check",
         "authored TypeSpec bundle manifest",
         "oa-sdk.typespec-extensions.v1 schema",
+        "TSP-first decision design",
         "sidecar-less authored TypeSpec extension bundle check",
         "tsp-bundle-check CLI bundle gate",
         "sidecar restore into TypeSpec-emitted OpenAPI",
@@ -310,6 +311,7 @@
         "docs/internal/typespec-roundtrip/fixtures/authored-extension-bundle/oa-sdk.typespec-bundle.json",
         "docs/internal/typespec-roundtrip/fixtures/authored-extension-bundle/main.tsp",
         "docs/internal/typespec-roundtrip/oa-sdk-typespec-extensions.v1.md",
+        "docs/internal/typespec-roundtrip/tsp-first-decision-design.md",
         "docs/internal/typespec-roundtrip.plan.md"
       ],
       "commands": [

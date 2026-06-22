@@ -402,6 +402,7 @@ The version is ready when:
 - Metadata-only diagnostics are documented with owner and rationale. Current canonical evidence: `diagnosticPolicies` in the roundtrip report.
 - No TypeSpec-generated artifact becomes the canonical schema source yet.
 - Follow-up decision points are clear enough for a TSP-first ADR.
+- Follow-up decision design is recorded in [`../tsp-first-decision-design.md`](../tsp-first-decision-design.md).
 - Two-track compatibility can restore OpenAPI-owned sidecar semantics onto TypeSpec-emitted OpenAPI without breaking endpoint diff.
 - Generated `.tsp + sidecar` bundles are portable enough to be rechecked through `oa-sdk.typespec-bundle.v1` without the original OpenAPI artifact.
 - Generated bundles can include bundle-local expected OpenAPI and pass the same expected diff gate used by authored bundles.

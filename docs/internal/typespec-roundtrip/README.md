@@ -6,6 +6,8 @@ The parent evaluation document is [`../typespec-roundtrip.plan.md`](../typespec-
 
 The sidecar-less authored bundle vocabulary is standardized in [`oa-sdk-typespec-extensions.v1.md`](./oa-sdk-typespec-extensions.v1.md).
 
+The remaining TypeSpec-first decision design is tracked in [`tsp-first-decision-design.md`](./tsp-first-decision-design.md).
+
 ## Versions
 
 | Target | Package | Plan | Status |
