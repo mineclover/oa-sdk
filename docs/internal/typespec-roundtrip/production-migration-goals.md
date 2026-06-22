@@ -1,6 +1,6 @@
 # TypeSpec Production Migration Goals
 
-Status: G9-G10 implemented; G11-G12 planned. ADR-009 accepts TypeSpec-first schema authoring, but the production schema build path still uses the current OpenAPI fragments until rollback evidence lands.
+Status: G9-G11 implemented; G12 planned. ADR-009 accepts TypeSpec-first schema authoring, but the production schema build path still uses the current OpenAPI fragments until downstream evidence lands.
 
 This document extends the completed G1-G8 decision roadmap with production migration goals. It does not reopen the TypeSpec-first decision; it scopes the work required to make the accepted TypeSpec bundle production-authoritative.
 
@@ -95,6 +95,8 @@ Status: implemented by `pnpm schema:typespec-check` and `pnpm --filter @oa-sdk/s
 
 ### G11 - Rollback Gate
 
+Status: implemented by `pnpm schema:rollback-check` and `pnpm --filter @oa-sdk/schemas run rollback:check`.
+
 - Document the exact fallback command sequence for returning to the Definition Builder/OpenAPI path.
 - Prove rollback by running the TypeSpec gate, restoring the OpenAPI path, and then running `pnpm schema:validate` again.
 - Keep generated artifacts clearly marked as generated so rollback does not turn `.merged.yaml` into a hand-edited source.
@@ -122,7 +124,7 @@ Additional commands by goal:
 |---|---|
 | G9 | `pnpm typespec:create-canonical-fixture` and `pnpm typespec:bundle-check -- --manifest <production-bundle>/oa-sdk.typespec-bundle.json --fail-on-breaking` |
 | G10 | `pnpm schema:typespec-check`, `pnpm --filter @oa-sdk/schemas run typespec:check`, `pnpm schema:bundle`, and `pnpm schema:validate` |
-| G11 | The rollback command introduced by G11, plus the G10 gates before and after rollback simulation. |
+| G11 | `pnpm schema:rollback-check` and `pnpm --filter @oa-sdk/schemas run rollback:check` |
 | G12 | `pnpm --filter @oa-sdk/codegen test`, `pnpm --filter @oa-sdk/router test`, `pnpm --filter @oa-sdk/client test`, and `pnpm --filter @oa-sdk/mock-server test` |
 
 ## Completion Checklist
