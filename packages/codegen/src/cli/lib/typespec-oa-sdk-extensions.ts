@@ -9,24 +9,28 @@ type HttpMethod = 'get' | 'put' | 'post' | 'delete' | 'options' | 'head' | 'patc
 const HTTP_METHODS: readonly HttpMethod[] = ['get', 'put', 'post', 'delete', 'options', 'head', 'patch', 'trace', 'query']
 const OPERATION_EXAMPLES_EXTENSION = 'x-oa-sdk-operation-examples'
 const SECURITY_SCHEMES_EXTENSION = 'x-oa-sdk-security-schemes'
+const DEFAULT_EXTENSION_SCHEMA_VERSION: TypeSpecOpenApiExtensionSchemaVersion = 'oa-sdk.typespec-extensions.v1'
+
+export type TypeSpecOpenApiExtensionSchemaVersion =
+  | 'oa-sdk.typespec-extensions.v1'
+  | 'oa-sdk.typespec-extensions.v2'
 
 export type TypeSpecOpenApiExtensionRestoreResult = {
   document: OasDocument
   sidecar: TypeSpecCompatibilitySidecar
 }
 
-export function createTypeSpecCompatibilitySidecarFromOpenApiExtensions(document: OasDocument): TypeSpecCompatibilitySidecar {
+export function createTypeSpecCompatibilitySidecarFromOpenApiExtensions(
+  document: OasDocument,
+  options: { schemaVersion?: TypeSpecOpenApiExtensionSchemaVersion } = {},
+): TypeSpecCompatibilitySidecar {
   const entries: TypeSpecCompatibilitySidecarEntry[] = []
+  const schemaVersion = options.schemaVersion ?? DEFAULT_EXTENSION_SCHEMA_VERSION
   entries.push(...collectSecuritySchemeEntries(document))
-  entries.push(...collectOperationExampleEntries(document))
+  entries.push(...collectOperationExampleEntries(document, schemaVersion))
   return {
     schemaVersion: 'oa-sdk.typespec-compat-sidecar.v1',
-    counts: {
-      entries: entries.length,
-      parameterExamples: entries.filter(entry => entry.kind === 'parameter-examples').length,
-      responseMediaExamples: entries.filter(entry => entry.kind === 'response-media-examples').length,
-      securitySchemes: entries.filter(entry => entry.kind === 'security-scheme').length,
-    },
+    counts: countEntries(entries),
     entries,
   }
 }
@@ -56,7 +60,10 @@ function collectSecuritySchemeEntries(document: OasDocument): TypeSpecCompatibil
   }))
 }
 
-function collectOperationExampleEntries(document: OasDocument): TypeSpecCompatibilitySidecarEntry[] {
+function collectOperationExampleEntries(
+  document: OasDocument,
+  schemaVersion: TypeSpecOpenApiExtensionSchemaVersion,
+): TypeSpecCompatibilitySidecarEntry[] {
   const entries: TypeSpecCompatibilitySidecarEntry[] = []
   for (const [path, pathItemValue] of Object.entries(document.paths ?? {})) {
     if (!isRecord(pathItemValue)) continue
@@ -67,6 +74,9 @@ function collectOperationExampleEntries(document: OasDocument): TypeSpecCompatib
       const extension = (operation as Record<string, unknown>)[OPERATION_EXAMPLES_EXTENSION]
       if (!isRecord(extension)) continue
       entries.push(...collectParameterExampleEntries(extension.parameters, path, method))
+      if (schemaVersion === 'oa-sdk.typespec-extensions.v2') {
+        entries.push(...collectRequestExampleEntries(extension.requestBody, path, method))
+      }
       entries.push(...collectResponseExampleEntries(extension.responses, path, method))
     }
   }
@@ -101,6 +111,28 @@ function collectParameterExampleEntries(value: unknown, path: string, method: Ht
   return entries
 }
 
+function collectRequestExampleEntries(value: unknown, path: string, method: HttpMethod): TypeSpecCompatibilitySidecarEntry[] {
+  const entries: TypeSpecCompatibilitySidecarEntry[] = []
+  visitRecords(value, (record, pointerParts) => {
+    const mediaType = typeof record.mediaType === 'string' && record.mediaType.trim() !== ''
+      ? record.mediaType
+      : undefined
+    const examples = readExampleValue(record)
+    if (!mediaType || !examples) return
+    entries.push({
+      kind: 'request-media-examples',
+      pointer: operationExamplesPointer(path, method, 'requestBody', pointerParts),
+      target: {
+        path,
+        method,
+        mediaType,
+      },
+      value: examples,
+    })
+  })
+  return entries
+}
+
 function collectResponseExampleEntries(value: unknown, path: string, method: HttpMethod): TypeSpecCompatibilitySidecarEntry[] {
   const entries: TypeSpecCompatibilitySidecarEntry[] = []
   visitRecords(value, (record, pointerParts) => {
@@ -114,7 +146,7 @@ function collectResponseExampleEntries(value: unknown, path: string, method: Htt
     if (!statusCode || !mediaType || !examples) return
     entries.push({
       kind: 'response-media-examples',
-      pointer: `#/paths/${escapeJsonPointer(path)}/${method}/${escapeJsonPointer(OPERATION_EXAMPLES_EXTENSION)}/responses/${pointerParts.map(escapeJsonPointer).join('/')}`,
+      pointer: operationExamplesPointer(path, method, 'responses', pointerParts),
       target: {
         path,
         method,
@@ -125,6 +157,18 @@ function collectResponseExampleEntries(value: unknown, path: string, method: Htt
     })
   })
   return entries
+}
+
+function countEntries(entries: TypeSpecCompatibilitySidecarEntry[]): TypeSpecCompatibilitySidecar['counts'] {
+  const requestMediaExamples = entries.filter(entry => entry.kind === 'request-media-examples').length
+  const counts: TypeSpecCompatibilitySidecar['counts'] = {
+    entries: entries.length,
+    parameterExamples: entries.filter(entry => entry.kind === 'parameter-examples').length,
+    responseMediaExamples: entries.filter(entry => entry.kind === 'response-media-examples').length,
+    securitySchemes: entries.filter(entry => entry.kind === 'security-scheme').length,
+  }
+  if (requestMediaExamples > 0) counts.requestMediaExamples = requestMediaExamples
+  return counts
 }
 
 function readExampleValue(record: Record<string, unknown>): { example?: unknown; examples?: unknown } | null {
@@ -142,6 +186,13 @@ function visitRecords(value: unknown, visitor: (record: Record<string, unknown>,
   if (!isRecord(value)) return
   visitor(value, pointerParts)
   for (const [key, item] of Object.entries(value)) visitRecords(item, visitor, [...pointerParts, key])
+}
+
+function operationExamplesPointer(path: string, method: HttpMethod, section: string, pointerParts: string[]): string {
+  const suffix = pointerParts.length > 0
+    ? `/${pointerParts.map(escapeJsonPointer).join('/')}`
+    : ''
+  return `#/paths/${escapeJsonPointer(path)}/${method}/${escapeJsonPointer(OPERATION_EXAMPLES_EXTENSION)}/${section}${suffix}`
 }
 
 function normalizeSecurityScheme(value: unknown): unknown {

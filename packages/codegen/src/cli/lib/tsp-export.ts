@@ -397,6 +397,9 @@ class TypeSpecExporter {
     }
     const mediaTypeObject = this.resolveReference<OasMediaType>(content[mediaType], `${pointer}/content/${escapeJsonPointer(mediaType)}`)
     if (!mediaTypeObject) return null
+    if (mediaTypeObject.example !== undefined || mediaTypeObject.examples !== undefined) {
+      this.addDiagnostic('request-body/examples-dropped', `${pointer}/content/${escapeJsonPointer(mediaType)}`, 'Request body examples are not emitted to TypeSpec.')
+    }
     const schema = mediaTypeObject.schema
     if (!schema) {
       this.addDiagnostic('request-body/schema-missing', `${pointer}/content/${escapeJsonPointer(mediaType)}`, 'Request body media type has no schema.')

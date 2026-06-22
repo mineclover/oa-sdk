@@ -1,6 +1,6 @@
 # TypeSpec-First Decision Design
 
-Status: decision prep, not an ADR.
+Status: decision prep, not an ADR. G1 through G3 are implementation-backed.
 
 This document locks the design direction for the remaining TypeSpec-first work that follows the `oa-sdk.typespec-extensions.v1` sidecar-less spike. It decides the next semantic scope, the authored fixture strategy, and the ADR evidence model without declaring TypeSpec-first yet.
 
@@ -23,9 +23,9 @@ Decision: keep `oa-sdk.typespec-extensions.v1` frozen at the two implemented aut
 
 Do not stretch v1 to cover every future OA SDK metadata gap. Any field that changes restored OpenAPI output for a sidecar-less bundle requires a new manifest schema version, not a silent compatible addition.
 
-### v2 Candidate: Request Body Examples
+### v2 Accepted: Request Body Examples
 
-Request body examples are the first restore-bearing candidate for `oa-sdk.typespec-extensions.v2`.
+Request body examples are the first restore-bearing addition in `oa-sdk.typespec-extensions.v2`.
 
 Rationale:
 
@@ -33,7 +33,7 @@ Rationale:
 - They restore onto an OpenAPI-native target: `paths.<path>.<method>.requestBody.content.<mediaType>.example|examples`.
 - They are likely to affect mock-server request semantics and fixture readability.
 
-Proposed authored shape:
+Accepted authored shape:
 
 ```json
 {
@@ -47,13 +47,14 @@ Proposed authored shape:
 }
 ```
 
-This would live under the existing operation-level `x-oa-sdk-operation-examples` container, but only when the manifest declares a new extension schema version.
+This lives under the existing operation-level `x-oa-sdk-operation-examples` container, but only when the manifest declares `compatibility.oaSdkExtensionSchemaVersion: "oa-sdk.typespec-extensions.v2"`.
 
-Required gate before accepting:
+Acceptance evidence:
 
-- A sidecar-less fixture proves request body examples restore to OpenAPI-native request body media targets.
-- Re-extraction reports no missing expected entries, unexpected actual entries, or value mismatches.
-- Mock-server request example priority remains unchanged.
+- `docs/internal/typespec-roundtrip/fixtures/authored-request-body-extension-bundle/` proves request body examples restore to OpenAPI-native request body media targets.
+- `pnpm typespec:bundle-check -- --manifest docs/internal/typespec-roundtrip/fixtures/authored-request-body-extension-bundle/oa-sdk.typespec-bundle.json --fail-on-breaking` passes.
+- The fixture reports 1 request body media example entry, 1 applied restore target, and 1/1 sidecar re-extraction stability.
+- Mock-server request example priority is unchanged because v2 restores onto the same OpenAPI `requestBody.content.<mediaType>.example|examples` target the mock server already reads.
 
 ### Not An Extension-First Area: Visibility And Annotations
 
@@ -104,6 +105,7 @@ Tier 1: minimal conformance fixtures.
 
 - Existing location: `docs/internal/typespec-roundtrip/fixtures/authored-bundle/`
 - Existing location: `docs/internal/typespec-roundtrip/fixtures/authored-extension-bundle/`
+- Existing location: `docs/internal/typespec-roundtrip/fixtures/authored-request-body-extension-bundle/`
 - Purpose: lock schema and restore behavior.
 
 Tier 2: representative authored fixture.
@@ -234,6 +236,10 @@ G6 should be treated as tooling/workflow support, not as a schema decision. It m
 - G1 is implemented by `docs/internal/typespec-roundtrip/fixtures/authored-representative-bundle/README.md`.
 - G2 is implemented by `docs/internal/typespec-roundtrip/fixtures/authored-representative-bundle/` and passes `pnpm typespec:bundle-check -- --manifest docs/internal/typespec-roundtrip/fixtures/authored-representative-bundle/oa-sdk.typespec-bundle.json --fail-on-breaking`.
 - The representative bundle currently restores 6 sidecar-equivalent entries: 2 parameter examples, 3 response media examples, and 1 security scheme.
+- G3 is implemented by `oa-sdk.typespec-extensions.v2`, `request-media-examples` restore/re-extraction support, and `docs/internal/typespec-roundtrip/fixtures/authored-request-body-extension-bundle/`.
+- The v2 request body fixture restores 1 request media example, applies 1 target, and reports 1/1 expected plus 1/1 actual sidecar stability.
+- The canonical roundtrip now reports 102 compatibility sidecar entries: 9 parameter examples, 13 request media examples, 79 response media examples, and 1 security scheme.
+- The canonical export diagnostics now include 13 accepted `request-body/examples-dropped` entries owned by `oa-sdk-openapi-example-sidecar`.
 
 ### Goal Gate Commands
 
@@ -257,9 +263,7 @@ Additional commands by goal:
 
 ## Next Work Order
 
-1. Run G1 if source selection is still unclear; otherwise start G2.
-2. Run G2 and use its evidence to decide whether G3 is actually needed.
-3. Run G4 before drafting the ADR so maintainers have an authoring boundary.
-4. Run G5 as a conditional ADR draft.
-5. Run G6 and G7 before promoting the ADR beyond conditional accept.
-6. Run G8 to promote, revise, or reject the ADR based on full fixture evidence.
+1. Run G4 next so maintainers have a readable authoring boundary now that G1 through G3 are green.
+2. Run G5 as a conditional ADR draft.
+3. Run G6 and G7 before promoting the ADR beyond conditional accept.
+4. Run G8 to promote, revise, or reject the ADR based on full fixture evidence.

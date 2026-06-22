@@ -161,6 +161,8 @@ Generated OpenAPI-to-TypeSpec bundles may continue to use `oa-sdk.typespec-compa
 
 `oa-sdk.typespec-extensions.v1` is stable for the two extension names above.
 
+`oa-sdk.typespec-extensions.v2` is defined separately in [`oa-sdk-typespec-extensions.v2.md`](./oa-sdk-typespec-extensions.v2.md). v2 adds request body media examples without changing v1 restore behavior.
+
 Compatible changes:
 
 - Adding optional fields that are ignored by current consumers.

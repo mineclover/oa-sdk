@@ -1,0 +1,62 @@
+openapi: 3.2.0
+info:
+  title: Authored Request Body Extension Bundle API
+  version: 1.0.0
+tags: []
+paths:
+  /users:
+    post:
+      operationId: createUser
+      summary: Create user
+      parameters: []
+      responses:
+        "201":
+          description: The request has succeeded and a new resource has been created as a result.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateUserRequest"
+            examples:
+              default:
+                dataValue:
+                  email: bob@example.com
+                  name: Bob
+                serializedValue: '{"email":"bob@example.com","name":"Bob"}'
+components:
+  schemas:
+    CreateUserRequest:
+      type: object
+      required:
+        - email
+        - name
+      properties:
+        email:
+          type: string
+          format: email
+        name:
+          type: string
+          minLength: 1
+      unevaluatedProperties:
+        not: {}
+    User:
+      type: object
+      required:
+        - id
+        - email
+        - name
+      properties:
+        id:
+          type: string
+        email:
+          type: string
+          format: email
+        name:
+          type: string
+      unevaluatedProperties:
+        not: {}

@@ -87,12 +87,14 @@ export type TypeSpecBundleCheckReport = {
     compatibilitySidecar: {
       entries: number
       parameterExamples: number
+      requestMediaExamples?: number
       responseMediaExamples: number
       securitySchemes: number
     }
     reExtractedCompatibilitySidecar: {
       entries: number
       parameterExamples: number
+      requestMediaExamples?: number
       responseMediaExamples: number
       securitySchemes: number
     }
@@ -194,7 +196,12 @@ export async function checkTypeSpecBundle(
 
     const sidecar = bundle.sidecarPath
       ? parseTypeSpecCompatibilitySidecar(loadJson(bundle.sidecarPath))
-      : createTypeSpecCompatibilitySidecarFromOpenApiExtensions(emittedDocument)
+      : createTypeSpecCompatibilitySidecarFromOpenApiExtensions(
+        emittedDocument,
+        bundle.manifest?.compatibility?.oaSdkExtensionSchemaVersion
+          ? { schemaVersion: bundle.manifest.compatibility.oaSdkExtensionSchemaVersion }
+          : {},
+      )
     const restored = applyTypeSpecCompatibilitySidecar(stripTypeSpecOpenApiExtensions(emittedDocument), sidecar)
     mkdirSync(dirname(restoredPath), { recursive: true })
     writeFileSync(restoredPath, stringifyOpenApiYaml(restored.document))

@@ -264,6 +264,99 @@ describe('TypeSpec compatibility sidecar', () => {
     expect(emitted.paths).toEqual({})
   })
 
+  it('captures, restores, and re-extracts request body media examples', () => {
+    const source: OasDocument = {
+      openapi: '3.2.0',
+      info: { title: 'Source', version: '1.0.0' },
+      paths: {
+        '/users': {
+          post: {
+            operationId: 'createUser',
+            requestBody: { $ref: '#/components/requestBodies/CreateUserBody' },
+            responses: {
+              '201': { description: 'Created' },
+            },
+          },
+        },
+      },
+      components: {
+        requestBodies: {
+          CreateUserBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: { type: 'object' },
+                examples: {
+                  default: {
+                    dataValue: {
+                      email: 'alice@example.com',
+                      name: 'Alice',
+                    },
+                    serializedValue: '{"email":"alice@example.com","name":"Alice"}',
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    }
+    const emitted: OasDocument = {
+      openapi: '3.2.0',
+      info: { title: 'Source', version: '1.0.0' },
+      paths: {
+        '/users': {
+          post: {
+            operationId: 'createUser',
+            requestBody: {
+              required: true,
+              content: {
+                'application/json': {
+                  schema: { type: 'object' },
+                  example: { stale: true },
+                },
+              },
+            },
+            responses: {
+              '201': { description: 'Created' },
+            },
+          },
+        },
+      },
+    }
+
+    const sidecar = createTypeSpecCompatibilitySidecar(source)
+    const restored = applyTypeSpecCompatibilitySidecar(emitted, sidecar)
+
+    expect(sidecar.counts).toEqual({
+      entries: 1,
+      parameterExamples: 0,
+      requestMediaExamples: 1,
+      responseMediaExamples: 0,
+      securitySchemes: 0,
+    })
+    expect(restored.report.counts).toEqual({
+      entries: 1,
+      applied: 1,
+      missingTargets: 0,
+    })
+    const restoredJson = (restored.document as Record<string, any>).paths['/users'].post.requestBody.content['application/json']
+    expect(restoredJson.examples).toEqual(
+      (source.components as Record<string, any>).requestBodies.CreateUserBody.content['application/json'].examples,
+    )
+    expect(restoredJson.example).toBeUndefined()
+    const reExtracted = createTypeSpecCompatibilitySidecar(restored.document)
+    expect(compareTypeSpecCompatibilitySidecars(sidecar, reExtracted).counts).toEqual({
+      expectedEntries: 1,
+      actualEntries: 1,
+      expectedSatisfied: 1,
+      actualCovered: 1,
+      missingExpected: 0,
+      unexpectedActual: 0,
+      valueMismatches: 0,
+    })
+  })
+
   it('compares semantically equivalent sidecars after path-level parameter expansion', () => {
     const sharedParameterValue = {
       examples: {

@@ -90,11 +90,11 @@ Current probe on `packages/schemas/src/.merged.yaml`:
 | Generated bundle manifest | pass, `oa-sdk.typespec-bundle.v1` ties exported `main.tsp` to the generated compatibility sidecar |
 | Generated bundle expected OpenAPI | pass, `pnpm typespec:roundtrip -- --keep` and `oa-gen tsp-export --bundle-expected-openapi <expected.openapi.yaml>` write a bundle-local expected OpenAPI and link it from the manifest |
 | Generated bundle check | pass, `oa-gen tsp-bundle-check --manifest <generated>` compiles the generated `.tsp`, restores sidecar metadata, validates emitted/restored OpenAPI, and runs expected diff when `expectedOpenapi` is present |
-| Export diagnostics | 91 |
-| Export diagnostics gate | pass, 91 accepted and 0 unaccepted |
-| Compatibility sidecar | 89 entries: 79 response media examples, 9 parameter examples, 1 security scheme |
-| Sidecar restore | pass, 91 applied targets and 0 missing targets |
-| Sidecar re-extract stability | pass, 89/89 expected entries satisfied, 91/91 actual entries covered, 0 missing/unexpected/value mismatches |
+| Export diagnostics | 104 |
+| Export diagnostics gate | pass, 104 accepted and 0 unaccepted |
+| Compatibility sidecar | 102 entries: 79 response media examples, 13 request media examples, 9 parameter examples, 1 security scheme |
+| Sidecar restore | pass, 104 applied targets and 0 missing targets |
+| Sidecar re-extract stability | pass, 102/102 expected entries satisfied, 104/104 actual entries covered, 0 missing/unexpected/value mismatches |
 | Breaking diff | 0 breaking changes across 0 modified operations |
 | Restored breaking diff | 0 breaking changes across 0 modified operations |
 | Authored bundle manifest | pass, `oa-sdk.typespec-bundle.v1` resolves entrypoint, sidecar, expected OpenAPI, and compatibility metadata |
@@ -108,12 +108,15 @@ Current probe on `packages/schemas/src/.merged.yaml`:
 | Authored representative source selection | pass, fixture README maps selected canonical operations/components to coverage bullets |
 | Authored representative bundle check | pass, `.tsp` `x-oa-sdk-*` metadata yields 3 operations, 6 sidecar-equivalent entries, 6 applied targets, 0 missing targets |
 | Authored representative restored diff | 0 breaking changes across 0 modified operations |
+| Authored request body extension bundle check | pass, `.tsp` `oa-sdk.typespec-extensions.v2` metadata yields 1 operation, 1 request media example entry, 1 applied target, 0 missing targets |
+| Authored request body extension restored diff | 0 breaking changes across 0 modified operations |
 
 Diagnostic distribution:
 
 | Code | Count | Disposition | Owner |
 |---|---:|---|---|
 | `response/examples-dropped` | 79 | accepted externalized | `oa-sdk-openapi-example-sidecar` |
+| `request-body/examples-dropped` | 13 | accepted externalized | `oa-sdk-openapi-example-sidecar` |
 | `parameter/examples-dropped` | 11 | accepted externalized | `oa-sdk-openapi-example-sidecar` |
 | `components/security-scheme-dropped` | 1 | accepted metadata-only | `openapi-security-component-metadata` |
 
@@ -121,7 +124,7 @@ Diagnostic policy distribution:
 
 | Disposition | Accepted | Count |
 |---|---:|---:|
-| externalized | true | 90 |
+| externalized | true | 103 |
 | metadata-only | true | 1 |
 
 Current endpoint diff:

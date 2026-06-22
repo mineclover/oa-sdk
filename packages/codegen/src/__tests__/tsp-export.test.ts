@@ -63,6 +63,13 @@ describe('TypeSpec export spike', () => {
               content: {
                 'application/json': {
                   schema: { $ref: '#/components/schemas/CreateUserRequest' },
+                  examples: {
+                    default: {
+                      value: {
+                        email: 'bob@example.com',
+                      },
+                    },
+                  },
                 },
               },
             },
@@ -199,6 +206,7 @@ describe('TypeSpec export spike', () => {
     expect(diagnosticCodes).toEqual(
       expect.arrayContaining([
         'parameter/examples-dropped',
+        'request-body/examples-dropped',
         'response/examples-dropped',
       ]),
     )

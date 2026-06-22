@@ -4,6 +4,7 @@ import type {
   OasOperation,
   OasParameter,
   OasPathItem,
+  OasRequestBody,
   OasResponse,
   OasSecurityScheme,
   Referenceable,
@@ -17,6 +18,7 @@ const IDENTIFIER_RE = /^[A-Za-z_][A-Za-z0-9_]*$/
 
 export type TypeSpecCompatibilitySidecarEntry =
   | TypeSpecParameterExamplesSidecarEntry
+  | TypeSpecRequestExamplesSidecarEntry
   | TypeSpecResponseExamplesSidecarEntry
   | TypeSpecSecuritySchemeSidecarEntry
 
@@ -29,6 +31,21 @@ export type TypeSpecParameterExamplesSidecarEntry = {
     method?: HttpMethod
     name: string
     in: string
+  }
+  value: {
+    example?: unknown
+    examples?: unknown
+  }
+}
+
+export type TypeSpecRequestExamplesSidecarEntry = {
+  kind: 'request-media-examples'
+  pointer: string
+  sourcePointer?: string
+  target: {
+    path: string
+    method: HttpMethod
+    mediaType: string
   }
   value: {
     example?: unknown
@@ -66,6 +83,7 @@ export type TypeSpecCompatibilitySidecar = {
   counts: {
     entries: number
     parameterExamples: number
+    requestMediaExamples?: number
     responseMediaExamples: number
     securitySchemes: number
   }
@@ -315,6 +333,7 @@ function collectPathEntries(document: OasDocument): TypeSpecCompatibilitySidecar
         })
         if (entry) entries.push(entry)
       }
+      entries.push(...collectRequestExamplesEntries(document, operation, operationPointer, path, method))
       entries.push(...collectResponseExamplesEntries(document, operation, operationPointer, path, method))
     }
   }
@@ -342,6 +361,38 @@ function createParameterExamplesEntry(
     },
     value,
   }
+}
+
+function collectRequestExamplesEntries(
+  document: OasDocument,
+  operation: OasOperation,
+  operationPointer: string,
+  path: string,
+  method: HttpMethod,
+): TypeSpecCompatibilitySidecarEntry[] {
+  const requestPointer = `${operationPointer}/requestBody`
+  const requestBody = resolveReference<OasRequestBody>(document, operation.requestBody, requestPointer)
+  if (!requestBody) return []
+  const entries: TypeSpecCompatibilitySidecarEntry[] = []
+  for (const [mediaType, mediaValue] of Object.entries(requestBody.value.content ?? {})) {
+    const mediaPointer = `${requestPointer}/content/${escapeJsonPointer(mediaType)}`
+    const media = resolveReference<OasMediaType>(document, mediaValue, mediaPointer)
+    if (!media) continue
+    const value = exampleValue(media.value)
+    if (!value) continue
+    entries.push({
+      kind: 'request-media-examples',
+      pointer: mediaPointer,
+      ...(media.pointer !== mediaPointer ? { sourcePointer: media.pointer } : {}),
+      target: {
+        path,
+        method,
+        mediaType,
+      },
+      value,
+    })
+  }
+  return entries
 }
 
 function collectResponseExamplesEntries(
@@ -400,6 +451,9 @@ function applyEntry(
   if (entry.kind === 'parameter-examples') {
     return applyParameterExamples(document, entry, diagnostics)
   }
+  if (entry.kind === 'request-media-examples') {
+    return applyRequestExamples(document, entry)
+  }
   return applyResponseExamples(document, entry)
 }
 
@@ -450,6 +504,20 @@ function applyExamplesToParameterList(
     applied += 1
   }
   return applied
+}
+
+function applyRequestExamples(
+  document: OasDocument,
+  entry: TypeSpecRequestExamplesSidecarEntry,
+): number {
+  const pathItem = readPathItem(document, entry.target.path)
+  const operation = pathItem ? readOperation(pathItem, entry.target.method) : undefined
+  const requestBody = resolveMutableReference<OasRequestBody>(document, operation?.requestBody)
+  const mediaValue = requestBody?.content?.[entry.target.mediaType]
+  const media = resolveMutableReference<OasMediaType>(document, mediaValue)
+  if (!media) return 0
+  assignExamples(media, entry.value)
+  return 1
 }
 
 function applyResponseExamples(
@@ -521,11 +589,12 @@ function isTypeSpecEmittedSecurityScheme(name: string, scheme: OasSecurityScheme
 }
 
 function countEntries(entries: TypeSpecCompatibilitySidecarEntry[]): TypeSpecCompatibilitySidecar['counts'] {
+  const counts = countEntryKinds(entries)
+  const { requestMediaExamples, ...baseCounts } = counts
+  if (requestMediaExamples === 0) return baseCounts
   return {
-    entries: entries.length,
-    parameterExamples: entries.filter(entry => entry.kind === 'parameter-examples').length,
-    responseMediaExamples: entries.filter(entry => entry.kind === 'response-media-examples').length,
-    securitySchemes: entries.filter(entry => entry.kind === 'security-scheme').length,
+    ...baseCounts,
+    requestMediaExamples,
   }
 }
 
@@ -535,13 +604,15 @@ function validateSidecarEntry(value: unknown, path: string, errors: string[]): v
     return
   }
   if (!isSidecarEntryKind(value.kind)) {
-    errors.push(`${path}.kind must be parameter-examples, response-media-examples, or security-scheme`)
+    errors.push(`${path}.kind must be parameter-examples, request-media-examples, response-media-examples, or security-scheme`)
     return
   }
   requireString(value, 'pointer', `${path}.pointer`, errors)
   optionalString(value, 'sourcePointer', `${path}.sourcePointer`, errors)
   if (value.kind === 'parameter-examples') {
     validateParameterExamplesEntry(value, path, errors)
+  } else if (value.kind === 'request-media-examples') {
+    validateRequestExamplesEntry(value, path, errors)
   } else if (value.kind === 'response-media-examples') {
     validateResponseExamplesEntry(value, path, errors)
   } else {
@@ -561,6 +632,21 @@ function validateParameterExamplesEntry(
     optionalHttpMethod(entry.target, 'method', `${path}.target.method`, errors)
     requireString(entry.target, 'name', `${path}.target.name`, errors)
     requireString(entry.target, 'in', `${path}.target.in`, errors)
+  }
+  validateExamplesValue(entry.value, `${path}.value`, errors)
+}
+
+function validateRequestExamplesEntry(
+  entry: RecordValue,
+  path: string,
+  errors: string[],
+): void {
+  if (!isRecord(entry.target)) {
+    errors.push(`${path}.target must be an object`)
+  } else {
+    requireString(entry.target, 'path', `${path}.target.path`, errors)
+    requireHttpMethod(entry.target, 'method', `${path}.target.method`, errors)
+    requireString(entry.target, 'mediaType', `${path}.target.mediaType`, errors)
   }
   validateExamplesValue(entry.value, `${path}.value`, errors)
 }
@@ -616,6 +702,9 @@ function validateSidecarCounts(counts: RecordValue, entries: unknown[], errors: 
   const actual = countEntryKinds(entries)
   const expectedEntries = optionalNonNegativeInteger(counts, 'entries', 'counts.entries', errors)
   const expectedParameterExamples = optionalNonNegativeInteger(counts, 'parameterExamples', 'counts.parameterExamples', errors)
+  const expectedRequestMediaExamples = hasOwn(counts, 'requestMediaExamples')
+    ? optionalNonNegativeInteger(counts, 'requestMediaExamples', 'counts.requestMediaExamples', errors)
+    : undefined
   const expectedResponseMediaExamples = optionalNonNegativeInteger(counts, 'responseMediaExamples', 'counts.responseMediaExamples', errors)
   const expectedSecuritySchemes = optionalNonNegativeInteger(counts, 'securitySchemes', 'counts.securitySchemes', errors)
   if (expectedEntries !== undefined && expectedEntries !== actual.entries) {
@@ -623,6 +712,12 @@ function validateSidecarCounts(counts: RecordValue, entries: unknown[], errors: 
   }
   if (expectedParameterExamples !== undefined && expectedParameterExamples !== actual.parameterExamples) {
     errors.push(`counts.parameterExamples must equal ${actual.parameterExamples}`)
+  }
+  if (expectedRequestMediaExamples !== undefined && expectedRequestMediaExamples !== actual.requestMediaExamples) {
+    errors.push(`counts.requestMediaExamples must equal ${actual.requestMediaExamples}`)
+  }
+  if (expectedRequestMediaExamples === undefined && actual.requestMediaExamples > 0) {
+    errors.push(`counts.requestMediaExamples must equal ${actual.requestMediaExamples}`)
   }
   if (expectedResponseMediaExamples !== undefined && expectedResponseMediaExamples !== actual.responseMediaExamples) {
     errors.push(`counts.responseMediaExamples must equal ${actual.responseMediaExamples}`)
@@ -632,10 +727,19 @@ function validateSidecarCounts(counts: RecordValue, entries: unknown[], errors: 
   }
 }
 
-function countEntryKinds(entries: unknown[]): TypeSpecCompatibilitySidecar['counts'] {
+type EntryKindCounts = {
+  entries: number
+  parameterExamples: number
+  requestMediaExamples: number
+  responseMediaExamples: number
+  securitySchemes: number
+}
+
+function countEntryKinds(entries: unknown[]): EntryKindCounts {
   return {
     entries: entries.length,
     parameterExamples: entries.filter(entry => isRecord(entry) && entry.kind === 'parameter-examples').length,
+    requestMediaExamples: entries.filter(entry => isRecord(entry) && entry.kind === 'request-media-examples').length,
     responseMediaExamples: entries.filter(entry => isRecord(entry) && entry.kind === 'response-media-examples').length,
     securitySchemes: entries.filter(entry => isRecord(entry) && entry.kind === 'security-scheme').length,
   }
@@ -679,7 +783,10 @@ function optionalNonNegativeInteger(
 }
 
 function isSidecarEntryKind(value: unknown): value is TypeSpecCompatibilitySidecarEntry['kind'] {
-  return value === 'parameter-examples' || value === 'response-media-examples' || value === 'security-scheme'
+  return value === 'parameter-examples'
+    || value === 'request-media-examples'
+    || value === 'response-media-examples'
+    || value === 'security-scheme'
 }
 
 function entriesTargetCompatible(
@@ -694,6 +801,11 @@ function entriesTargetCompatible(
     return expected.target.path === actual.target.path
       && expected.target.method === actual.target.method
       && expected.target.statusCode === actual.target.statusCode
+      && expected.target.mediaType === actual.target.mediaType
+  }
+  if (expected.kind === 'request-media-examples' && actual.kind === 'request-media-examples') {
+    return expected.target.path === actual.target.path
+      && expected.target.method === actual.target.method
       && expected.target.mediaType === actual.target.mediaType
   }
   if (expected.kind === 'parameter-examples' && actual.kind === 'parameter-examples') {

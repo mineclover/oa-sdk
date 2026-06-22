@@ -353,6 +353,14 @@ function classifyExportDiagnostic(
       rationale: 'OA SDK response media examples remain OpenAPI-owned runtime mock data so examples/default/generateMinimal priority is not weakened by TypeSpec projection.',
     }
   }
+  if (diagnostic.code === 'request-body/examples-dropped') {
+    return {
+      disposition: 'externalized',
+      accepted: true,
+      owner: 'oa-sdk-openapi-example-sidecar',
+      rationale: 'OA SDK request body media examples remain OpenAPI-owned request mock data and are restored through request-media-examples sidecar semantics.',
+    }
+  }
   if (diagnostic.code === 'components/security-scheme-dropped') {
     const schemeName = securitySchemeNameFromPointer(diagnostic.pointer)
     if (schemeName && !isSecuritySchemeReferenced(sourceDocument, schemeName)) {

@@ -208,6 +208,14 @@ describe('TypeSpec roundtrip report', () => {
                 examples: { default: { value: 1 } },
               },
             ],
+            requestBody: {
+              content: {
+                'application/json': {
+                  schema: { type: 'object' },
+                  examples: { default: { value: { name: 'Alice' } } },
+                },
+              },
+            },
             responses: {
               '200': {
                 description: 'Users',
@@ -239,7 +247,7 @@ describe('TypeSpec roundtrip report', () => {
         componentSchemas: 0,
         generatedModels: 0,
         operations: 1,
-        diagnostics: 3,
+        diagnostics: 4,
       },
       diagnostics: [
         {
@@ -253,6 +261,12 @@ describe('TypeSpec roundtrip report', () => {
           code: 'response/examples-dropped',
           pointer: '#/paths/~1users/get/responses/200/content/application~1json',
           message: 'Response examples are not emitted.',
+        },
+        {
+          severity: 'warning',
+          code: 'request-body/examples-dropped',
+          pointer: '#/paths/~1users/get/requestBody/content/application~1json',
+          message: 'Request body examples are not emitted.',
         },
         {
           severity: 'warning',
@@ -281,7 +295,7 @@ describe('TypeSpec roundtrip report', () => {
 
     expect(report.gates.exportDiagnostics).toBe('pass')
     expect(report.diagnosticsByPolicy).toEqual([
-      { disposition: 'externalized', accepted: true, count: 2 },
+      { disposition: 'externalized', accepted: true, count: 3 },
       { disposition: 'metadata-only', accepted: true, count: 1 },
     ])
     expect(report.diagnosticPolicies).toEqual([
@@ -296,6 +310,15 @@ describe('TypeSpec roundtrip report', () => {
       },
       {
         code: 'parameter/examples-dropped',
+        count: 1,
+        policy: expect.objectContaining({
+          disposition: 'externalized',
+          accepted: true,
+          owner: 'oa-sdk-openapi-example-sidecar',
+        }),
+      },
+      {
+        code: 'request-body/examples-dropped',
         count: 1,
         policy: expect.objectContaining({
           disposition: 'externalized',

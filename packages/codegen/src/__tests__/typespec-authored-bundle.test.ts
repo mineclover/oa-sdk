@@ -17,6 +17,7 @@ const rootDir = resolve(pkgDir, '../..')
 const fixtureDir = resolve(rootDir, 'docs/internal/typespec-roundtrip/fixtures/authored-bundle')
 const extensionFixtureDir = resolve(rootDir, 'docs/internal/typespec-roundtrip/fixtures/authored-extension-bundle')
 const representativeFixtureDir = resolve(rootDir, 'docs/internal/typespec-roundtrip/fixtures/authored-representative-bundle')
+const requestBodyExtensionFixtureDir = resolve(rootDir, 'docs/internal/typespec-roundtrip/fixtures/authored-request-body-extension-bundle')
 const tmpBase = resolve(pkgDir, '.tmp-typespec-authored-bundle-test')
 
 let tmpDir: string
@@ -217,6 +218,81 @@ describe('authored TypeSpec compatibility bundle', () => {
       { $ref: '#/components/schemas/ValidationError' },
       { $ref: '#/components/schemas/ErrorMeta' },
     ])
+  })
+
+  it('checks a sidecar-less v2 authored .tsp bundle with request body examples', () => {
+    const reportPath = join(tmpDir, 'request-body-extension-bundle-report.json')
+    const restoredPath = join(tmpDir, 'request-body-extension-restored.yaml')
+    const check = spawnSync('pnpm', [
+      'typespec:bundle-check',
+      '--',
+      '--manifest',
+      join(requestBodyExtensionFixtureDir, 'oa-sdk.typespec-bundle.json'),
+      '--fail-on-breaking',
+      '--report',
+      reportPath,
+      '--output',
+      restoredPath,
+    ], {
+      cwd: rootDir,
+      encoding: 'utf8',
+    })
+    expect(check.status, `${check.stdout}\n${check.stderr}`).toBe(0)
+
+    const report = JSON.parse(readFileSync(reportPath, 'utf8')) as Record<string, any>
+    expect(report.bundle).toEqual({
+      source: 'manifest',
+      compatibilitySource: 'typespec-extensions',
+      schemaVersion: 'oa-sdk.typespec-bundle.v1',
+      compatibility: {
+        openapiVersion: '3.2.0',
+        oaSdkExtensionSchemaVersion: 'oa-sdk.typespec-extensions.v2',
+      },
+    })
+    expect(report.counts).toMatchObject({
+      emittedOperations: 1,
+      restoredOperations: 1,
+      expectedOperations: 1,
+      compatibilitySidecar: {
+        entries: 1,
+        parameterExamples: 0,
+        requestMediaExamples: 1,
+        responseMediaExamples: 0,
+        securitySchemes: 0,
+      },
+      restore: {
+        entries: 1,
+        applied: 1,
+        missingTargets: 0,
+      },
+      sidecarStability: {
+        expectedEntries: 1,
+        actualEntries: 1,
+        expectedSatisfied: 1,
+        actualCovered: 1,
+        missingExpected: 0,
+        unexpectedActual: 0,
+        valueMismatches: 0,
+      },
+    })
+    expect(report.gates).toEqual({
+      compatibilitySidecar: 'pass',
+      restoredValidation: 'pass',
+      expectedDiff: 'pass',
+    })
+
+    const { document: restored } = loadSpecWithPath(restoredPath)
+    const restoredDoc = restored as Record<string, any>
+    expect(restoredDoc.paths['/users'].post['x-oa-sdk-operation-examples']).toBeUndefined()
+    expect(restoredDoc.paths['/users'].post.requestBody.content['application/json'].examples).toEqual({
+      default: {
+        dataValue: {
+          email: 'bob@example.com',
+          name: 'Bob',
+        },
+        serializedValue: '{"email":"bob@example.com","name":"Bob"}',
+      },
+    })
   })
 
   it('rejects a sidecar-less manifest without an OA SDK TypeSpec extension schema declaration', () => {
