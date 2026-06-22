@@ -9,12 +9,12 @@
 ```
 core         ← 공유 유틸 (문자열, 코드젠, 포맷, 응답 상태, HTTP 서버)
 parser       ← core. OAS 3.2 파서 + IR + fold + lint + validate + query
-codegen      ← core + parser (+ router, client: optional peer). CLI 23 command modules + 17 governance manifest commands
+codegen      ← core + parser (+ router, client: optional peer). CLI 24 runtime command modules + 25 governance manifest command entities
 mock-server  ← core + parser. AJV 검증 + 어댑터 + 테스트 헬퍼
 router       ← core + parser. Hono/Express 스텁
 client       ← core + parser. fetch SDK + SSE
 typia-mock   ← core + parser (+ typia: peer). LLM 함수 호출 검증 서버
-schemas      ← 독립. OAS 소스 + merge + 3.1↔3.2 변환
+schemas      ← 독립. TypeSpec production source + generated OAS artifact + Definition Builder rollback + 3.1↔3.2 변환
 ```
 
 개발/CI 런타임 기준은 Node.js 25 이상이다. `packageManager`는 pnpm 10.30.3으로 고정하고, Node 타입 의존성도 25 계열과 맞춘다.
@@ -430,7 +430,7 @@ Builder WorkspaceIndex metadata는 SQLite schema를 늘리지 않고 기존 row�
 
 Schema composition is now TypeSpec-first. `packages/schemas/src/.merged.yaml` is generated from `packages/schemas/typespec/main.tsp` through the `oa-sdk.typespec-bundle.v1` manifest, OA SDK TypeSpec extension restore, expected/reference drift gates, and OpenAPI 3.2 validation. The OpenAPI/Definition Builder path remains available as an explicit rollback/reference path through `:openapi` commands; the legacy whole-domain merge script has been removed, and `src/domains/**/spec.yaml` files are archived historical/migration reference material.
 
-Current TypeSpec status: the production bundle emits 27 operations and 32 schemas, restores 193 OA SDK extension-derived semantic entries, and keeps 40 reviewed restored-vs-reference differences pinned by normalized value hash. `pnpm schema:validate` is the canonical gate: it builds parser/codegen, emits `.merged.yaml` through `schema:typespec-check`, downgrades to 3.1, runs Spectral/Redocly, and then runs strict `oa-gen validate --require-32`.
+Current TypeSpec status: the TypeSpec-restored production artifact has 27 operations and 28 schemas, restores 193 OA SDK extension-derived semantic entries, and keeps 0 reviewed restored-vs-reference differences in `accepted-restored-drift.json`. `pnpm schema:validate` is the canonical gate: it builds parser/codegen, emits `.merged.yaml` through `schema:typespec-check`, downgrades to 3.1, runs Spectral/Redocly, and then runs strict `oa-gen validate --require-32`.
 
 | 단계 | Production TypeSpec path |
 |------|-------------------------|
@@ -561,7 +561,7 @@ pnpm demo  # API 구조 + Mock 12시나리오 + 커버리지
 | Build | 7 패키지 + CI 스크립트 | tsup ESM 빌드 |
 | Typecheck | 7 패키지 + playground | tsc --noEmit strict |
 | Test | 8 패키지 + playground | vitest 1688 케이스 |
-| Schema validate | schemas + oa-gen | 도메인 병합 + 3.1 변환 + Spectral/Redocly + 3.2 자체 검증 표준 파이프라인 |
+| Schema validate | schemas + oa-gen | TypeSpec production source + OA SDK extension restore + 3.1 변환 + Spectral/Redocly + 3.2 자체 검증 표준 파이프라인 |
 | Freshness check | 산출물 | git diff --exit-code |
 | API index | docs ↔ code | root export 정합성 + codegen typegen option subpath 검증 |
 | Spec diff (PR) | base ↔ head | endpoint 변경 요약 |

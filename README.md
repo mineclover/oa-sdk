@@ -17,10 +17,10 @@ Zod Schema  ──▶  OpenAPI 3.2 Spec      ──▶ TypeScript 타입
 | 패키지 | 역할 |
 |--------|------|
 | `@oa-sdk/core` | 공유 유틸 (문자열, 코드젠, 포맷, 응답 상태) |
-| `@oa-sdk/schemas` | 도메인 분리 OAS 3.2 소스 + merge + 3.1↔3.2 변환 |
+| `@oa-sdk/schemas` | TypeSpec production source + generated OAS 3.2 artifact + Definition Builder rollback + 3.1 변환 |
 | `@oa-sdk/parser` | OAS 3.2 파서 + IR + fold + lint + validate + query |
 | `@oa-sdk/mock-server` | AJV Mock 서버 (MSW + Node HTTP) + Security + 테스트 헬퍼 |
-| `@oa-sdk/codegen` | Zod/Drizzle → OAS + Definition Builder target artifact + 외부 OpenAPI 수집/업그레이드 + OAS → TS 타입 + oa-gen CLI 21커맨드 |
+| `@oa-sdk/codegen` | Zod/Drizzle → OAS + Definition Builder target artifact + 외부 OpenAPI 수집/업그레이드 + OAS → TS 타입 + oa-gen CLI/governance command surface |
 | `@oa-sdk/router` | OAS → Hono/Express 라우터 스텁 |
 | `@oa-sdk/client` | OAS → fetch 클라이언트 SDK + SSE + 인증 미들웨어 + 재시도 |
 | `@oa-sdk/typia-mock` | typia ILlmApplication 기반 LLM 함수 호출 검증 서버 |
@@ -36,30 +36,33 @@ Zod Schema  ──▶  OpenAPI 3.2 Spec      ──▶ TypeScript 타입
 pnpm install
 
 # 스펙 관리
-pnpm --filter @oa-sdk/schemas run merge    # 도메인 병합
-oa-gen validate --spec .merged.yaml --require-32  # 관리 대상 계약 검증 (OpenAPI 3.2 strict gate)
-oa-gen validate --spec raw.yaml                    # intake/migration 호환 검증
-oa-gen lint --spec .merged.yaml            # 린트만
+pnpm schema:validate                       # TypeSpec production source → .merged.yaml + 3.1 downgrade + Spectral/Redocly + strict OAS 3.2
+pnpm schema:rollback-check                 # TypeSpec path와 Definition Builder rollback path 동시 검증
+pnpm schema:bundle                         # TypeSpec-derived 3.1 artifact를 dist/openapi.{yaml,json}로 번들
+pnpm --filter @oa-sdk/schemas run build:openapi # Definition Builder rollback/reference artifact 생성
+oa-gen validate --spec packages/schemas/src/.merged.yaml --require-32  # 관리 대상 계약 검증 (OpenAPI 3.2 strict gate)
+oa-gen validate --spec raw.yaml                                    # intake/migration 호환 검증
+oa-gen lint --spec packages/schemas/src/.merged.yaml               # 린트만
 oa-gen scaffold-governance --root apps/nestjs-ref --service nestjs-ref --profile nestjs-swagger --source-command "pnpm export:openapi"
 oa-gen scaffold-governance --root apps/fastapi-ref --service fastapi-ref --profile fastapi --source-command "uv run python scripts/export_openapi.py"
 oa-gen collect --spec contracts/openapi.raw.yaml --normalized contracts/openapi.normalized.yaml --upgraded contracts/openapi.upgraded.yaml --profile nestjs-swagger
 oa-gen normalize --spec contracts/openapi.raw.yaml --output contracts/openapi.normalized.yaml --profile nestjs-swagger
 oa-gen upgrade --spec contracts/openapi.normalized.yaml --output contracts/openapi.upgraded.yaml
-oa-gen diff --base old.yaml --head .merged.yaml --fail-on-breaking
-oa-gen check-artifact --head .merged.yaml --artifact dist/openapi.yaml
-oa-gen check-artifact --head .merged.yaml --target packages/schemas/src/targets/local-parity-api.yaml --artifact packages/schemas/src/.builder/local-parity-api.yaml
-oa-gen drift --runtime-openapi runtime.yaml --managed-openapi .merged.yaml
-oa-gen inventory --spec .merged.yaml --format markdown
+oa-gen diff --base old.yaml --head packages/schemas/src/.merged.yaml --fail-on-breaking
+oa-gen check-artifact --head packages/schemas/src/.merged.yaml --artifact packages/schemas/dist/openapi.yaml
+oa-gen check-artifact --head packages/schemas/src/.merged.yaml --target packages/schemas/src/targets/local-parity-api.yaml --artifact packages/schemas/src/.builder/local-parity-api.yaml
+oa-gen drift --runtime-openapi runtime.yaml --managed-openapi packages/schemas/src/.merged.yaml
+oa-gen inventory --spec packages/schemas/src/.merged.yaml --format markdown
 oa-gen behavior-query --behavior-db ./.oa-cache/behavior.sqlite --mode summary-by-behavior-decision-signal --format json
 oa-gen duplicate-review --fragments packages/schemas/src/fragments --format markdown
 oa-gen target-check --target packages/schemas/src/targets/public-api.yaml --must-include-path /health --must-exclude-path /admin
-oa-gen review --base old.yaml --head .merged.yaml --artifact dist/openapi.yaml
-oa-gen review-bundle --base old.yaml --head .merged.yaml --artifact dist/openapi.yaml --inventory --format markdown
+oa-gen review --base old.yaml --head packages/schemas/src/.merged.yaml --artifact packages/schemas/dist/openapi.yaml
+oa-gen review-bundle --base old.yaml --head packages/schemas/src/.merged.yaml --artifact packages/schemas/dist/openapi.yaml --inventory --format markdown
 
 # 코드 생성
-oa-gen typegen --spec .merged.yaml -o types.ts
-oa-gen router  --spec .merged.yaml -o router.ts --types-import './types'
-oa-gen client  --spec .merged.yaml -o client.ts --types-import './types'
+oa-gen typegen --spec packages/schemas/src/.merged.yaml -o types.ts
+oa-gen router  --spec packages/schemas/src/.merged.yaml -o router.ts --types-import './types'
+oa-gen client  --spec packages/schemas/src/.merged.yaml -o client.ts --types-import './types'
 oa-gen generate --drizzle-schema ./db/schema.ts --output ./domains/users/
 
 # Mock 테스트
