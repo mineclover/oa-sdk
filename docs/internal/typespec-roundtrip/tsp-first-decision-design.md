@@ -229,6 +229,12 @@ G5 should not claim accepted TypeSpec-first unless G7 is green. Before G7, the s
 
 G6 should be treated as tooling/workflow support, not as a schema decision. It must not silently convert unsupported sidecar semantics into comments or unvalidated extension payloads.
 
+### Current Goal Evidence
+
+- G1 is implemented by `docs/internal/typespec-roundtrip/fixtures/authored-representative-bundle/README.md`.
+- G2 is implemented by `docs/internal/typespec-roundtrip/fixtures/authored-representative-bundle/` and passes `pnpm typespec:bundle-check -- --manifest docs/internal/typespec-roundtrip/fixtures/authored-representative-bundle/oa-sdk.typespec-bundle.json --fail-on-breaking`.
+- The representative bundle currently restores 6 sidecar-equivalent entries: 2 parameter examples, 3 response media examples, and 1 security scheme.
+
 ### Goal Gate Commands
 
 Baseline commands for every implementation goal:

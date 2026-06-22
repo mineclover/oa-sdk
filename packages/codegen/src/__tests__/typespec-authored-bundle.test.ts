@@ -16,6 +16,7 @@ const pkgDir = resolve(__dirname, '../..')
 const rootDir = resolve(pkgDir, '../..')
 const fixtureDir = resolve(rootDir, 'docs/internal/typespec-roundtrip/fixtures/authored-bundle')
 const extensionFixtureDir = resolve(rootDir, 'docs/internal/typespec-roundtrip/fixtures/authored-extension-bundle')
+const representativeFixtureDir = resolve(rootDir, 'docs/internal/typespec-roundtrip/fixtures/authored-representative-bundle')
 const tmpBase = resolve(pkgDir, '.tmp-typespec-authored-bundle-test')
 
 let tmpDir: string
@@ -134,6 +135,88 @@ describe('authored TypeSpec compatibility bundle', () => {
     expect(restoredDoc.components.securitySchemes.oauth2.flows.authorizationCode.scopes).toEqual({
       'read:users': 'Read users',
     })
+  })
+
+  it('checks the representative sidecar-less authored .tsp bundle', () => {
+    const reportPath = join(tmpDir, 'representative-bundle-report.json')
+    const restoredPath = join(tmpDir, 'representative-restored.yaml')
+    const check = spawnSync('pnpm', [
+      'typespec:bundle-check',
+      '--',
+      '--manifest',
+      join(representativeFixtureDir, 'oa-sdk.typespec-bundle.json'),
+      '--fail-on-breaking',
+      '--report',
+      reportPath,
+      '--output',
+      restoredPath,
+    ], {
+      cwd: rootDir,
+      encoding: 'utf8',
+    })
+    expect(check.status, `${check.stdout}\n${check.stderr}`).toBe(0)
+
+    const report = JSON.parse(readFileSync(reportPath, 'utf8')) as Record<string, any>
+    expect(report.bundle).toEqual({
+      source: 'manifest',
+      compatibilitySource: 'typespec-extensions',
+      schemaVersion: 'oa-sdk.typespec-bundle.v1',
+      compatibility: {
+        openapiVersion: '3.2.0',
+        oaSdkExtensionSchemaVersion: 'oa-sdk.typespec-extensions.v1',
+      },
+    })
+    expect(report.counts).toMatchObject({
+      emittedOperations: 3,
+      restoredOperations: 3,
+      expectedOperations: 3,
+      compatibilitySidecar: {
+        entries: 6,
+        parameterExamples: 2,
+        responseMediaExamples: 3,
+        securitySchemes: 1,
+      },
+      restore: {
+        entries: 6,
+        applied: 6,
+        missingTargets: 0,
+      },
+      sidecarStability: {
+        expectedEntries: 6,
+        actualEntries: 6,
+        expectedSatisfied: 6,
+        actualCovered: 6,
+        missingExpected: 0,
+        unexpectedActual: 0,
+        valueMismatches: 0,
+      },
+    })
+    expect(report.gates).toEqual({
+      compatibilitySidecar: 'pass',
+      restoredValidation: 'pass',
+      expectedDiff: 'pass',
+    })
+
+    const { document: restored } = loadSpecWithPath(restoredPath)
+    const restoredDoc = restored as Record<string, any>
+    expect(restoredDoc['x-oa-sdk-security-schemes']).toBeUndefined()
+    expect(restoredDoc.paths['/users'].get['x-oa-sdk-operation-examples']).toBeUndefined()
+    expect(restoredDoc.paths['/users'].post['x-oa-sdk-operation-examples']).toBeUndefined()
+    expect(restoredDoc.paths['/users/{id}/reports'].post['x-oa-sdk-operation-examples']).toBeUndefined()
+    expect(restoredDoc.paths['/users'].get.parameters[0].examples.default).toEqual({
+      dataValue: 1,
+      serializedValue: 'page=1',
+    })
+    expect(restoredDoc.paths['/users'].get.responses['200'].content['application/json'].examples.default.dataValue.total).toBe(1)
+    expect(restoredDoc.components.securitySchemes.oauth2.flows.authorizationCode.scopes).toEqual({
+      read: 'Read access',
+      write: 'Write access',
+    })
+    expect(restoredDoc.paths['/users'].post.requestBody.content['application/json'].schema.$ref).toBe('#/components/schemas/CreateUserRequest')
+    expect(restoredDoc.components.schemas.Error.properties.details.items.anyOf).toEqual([
+      { $ref: '#/components/schemas/ValidationError' },
+      { $ref: '#/components/schemas/ErrorMeta' },
+    ])
   })
 
   it('rejects a sidecar-less manifest without an OA SDK TypeSpec extension schema declaration', () => {
