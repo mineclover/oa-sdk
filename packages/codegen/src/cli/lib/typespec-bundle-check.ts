@@ -28,6 +28,10 @@ import {
   type TypeSpecCompatibilitySidecarCompareReport,
 } from './typespec-sidecar.js'
 import {
+  createTypeSpecCompatibilitySidecarFromOpenApiExtensions,
+  stripTypeSpecOpenApiExtensions,
+} from './typespec-oa-sdk-extensions.js'
+import {
   classifyBreakingChanges,
   classifyNonBreakingChanges,
   diffEndpoints,
@@ -53,7 +57,7 @@ export type TypeSpecBundleConfig = {
   projectPath: string
   manifestPath?: string
   entrypointPath: string
-  sidecarPath: string
+  sidecarPath?: string
   expectedPath?: string
   manifest?: TypeSpecBundleManifest
 }
@@ -64,7 +68,7 @@ export type TypeSpecBundleCheckReport = {
     project: string
     manifest?: string
     entrypoint: string
-    sidecar: string
+    sidecar?: string
     emittedOpenapi: string
     restoredOpenapi: string
     expectedOpenapi?: string
@@ -72,6 +76,7 @@ export type TypeSpecBundleCheckReport = {
   }
   bundle: {
     source: TypeSpecBundleConfig['source']
+    compatibilitySource: 'sidecar' | 'typespec-extensions'
     schemaVersion?: TypeSpecBundleManifest['schemaVersion']
     compatibility?: TypeSpecBundleManifest['compatibility']
   }
@@ -166,7 +171,7 @@ export async function checkTypeSpecBundle(
   const projectPath = resolve(root, args.project ?? (explicitManifestPath ? dirname(explicitManifestPath) : defaultFixture))
   const bundle = loadBundleConfig(root, projectPath, args)
   assertFileExists(root, bundle.entrypointPath, 'bundle entrypoint')
-  assertFileExists(root, bundle.sidecarPath, 'bundle sidecar')
+  if (bundle.sidecarPath) assertFileExists(root, bundle.sidecarPath, 'bundle sidecar')
   if (bundle.expectedPath) assertFileExists(root, bundle.expectedPath, 'expected OpenAPI')
   const workspace = mkdtempSync(join(tmpdir(), 'oa-sdk-typespec-bundle-'))
   const outputDir = join(workspace, 'tsp-output')
@@ -187,8 +192,10 @@ export async function checkTypeSpecBundle(
       requireOpenApi32: true,
     })
 
-    const sidecar = parseTypeSpecCompatibilitySidecar(loadJson(bundle.sidecarPath))
-    const restored = applyTypeSpecCompatibilitySidecar(emittedDocument, sidecar)
+    const sidecar = bundle.sidecarPath
+      ? parseTypeSpecCompatibilitySidecar(loadJson(bundle.sidecarPath))
+      : createTypeSpecCompatibilitySidecarFromOpenApiExtensions(emittedDocument)
+    const restored = applyTypeSpecCompatibilitySidecar(stripTypeSpecOpenApiExtensions(emittedDocument), sidecar)
     mkdirSync(dirname(restoredPath), { recursive: true })
     writeFileSync(restoredPath, stringifyOpenApiYaml(restored.document))
     const restoredValidation = validateDocument(restored.document, {
@@ -246,7 +253,8 @@ export function printTypeSpecBundleCheckSummary(
   console.log(`  project: ${relative(root, report.paths.project)}`)
   if (report.paths.manifest) console.log(`  manifest: ${relative(root, report.paths.manifest)}`)
   console.log(`  entrypoint: ${relative(root, report.paths.entrypoint)}`)
-  console.log(`  sidecar: ${relative(root, report.paths.sidecar)}`)
+  if (report.paths.sidecar) console.log(`  sidecar: ${relative(root, report.paths.sidecar)}`)
+  console.log(`  compatibility source: ${report.bundle.compatibilitySource}`)
   console.log(`  emitted: ${relative(root, report.paths.emittedOpenapi)}`)
   console.log(`  restored: ${relative(root, report.paths.restoredOpenapi)}`)
   if (report.paths.expectedOpenapi) console.log(`  expected: ${relative(root, report.paths.expectedOpenapi)}`)
@@ -320,7 +328,7 @@ function createReport(input: {
       project: input.projectPath,
       ...(input.bundle.manifestPath ? { manifest: input.bundle.manifestPath } : {}),
       entrypoint: input.bundle.entrypointPath,
-      sidecar: input.bundle.sidecarPath,
+      ...(input.bundle.sidecarPath ? { sidecar: input.bundle.sidecarPath } : {}),
       emittedOpenapi: input.emittedPath,
       restoredOpenapi: input.restoredPath,
       ...(input.bundle.expectedPath ? { expectedOpenapi: input.bundle.expectedPath } : {}),
@@ -328,6 +336,7 @@ function createReport(input: {
     },
     bundle: {
       source: input.bundle.source,
+      compatibilitySource: input.bundle.sidecarPath ? 'sidecar' : 'typespec-extensions',
       ...(input.bundle.manifest ? { schemaVersion: input.bundle.manifest.schemaVersion } : {}),
       ...(input.bundle.manifest?.compatibility ? { compatibility: input.bundle.manifest.compatibility } : {}),
     },
@@ -392,14 +401,15 @@ function loadBundleConfig(root: string, projectPath: string, args: TypeSpecBundl
   const expectedPath = args.expected
     ? resolve(root, args.expected)
     : manifestPaths?.expectedOpenapiPath ?? (manifest ? undefined : join(projectPath, 'expected.openapi.yaml'))
+  const sidecarPath = args.sidecar
+    ? resolve(root, args.sidecar)
+    : manifestPaths?.sidecarPath ?? (manifest ? undefined : join(projectPath, 'oa-sdk.typespec-compat-sidecar.json'))
   return {
     source: manifest ? 'manifest' : 'defaults',
     projectPath,
     ...(manifestPath ? { manifestPath } : {}),
     entrypointPath: manifestPaths?.entrypointPath ?? join(projectPath, 'main.tsp'),
-    sidecarPath: args.sidecar
-      ? resolve(root, args.sidecar)
-      : manifestPaths?.sidecarPath ?? join(projectPath, 'oa-sdk.typespec-compat-sidecar.json'),
+    ...(sidecarPath ? { sidecarPath } : {}),
     ...(expectedPath ? { expectedPath } : {}),
     ...(manifest ? { manifest } : {}),
   }

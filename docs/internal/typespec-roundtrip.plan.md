@@ -13,6 +13,7 @@ Implemented source:
 - `packages/codegen/src/cli/lib/tsp-export.ts` — OpenAPI artifact to TypeSpec source exporter and diagnostics report.
 - `packages/codegen/src/cli/lib/typespec-bundle-manifest.ts` — `oa-sdk.typespec-bundle.v1` manifest creation, parsing, and bundle-local path resolution.
 - `packages/codegen/src/cli/lib/typespec-bundle-check.ts` — shared bundle manifest compile, sidecar restore/re-extract, validation, and expected diff gate.
+- `packages/codegen/src/cli/lib/typespec-oa-sdk-extensions.ts` — sidecar-equivalent OA SDK TypeSpec extension metadata extraction from emitted OpenAPI.
 - `packages/codegen/src/cli/lib/typespec-sidecar.ts` — OA SDK-owned TypeSpec compatibility sidecar creation, restore, and semantic stability comparison.
 - `packages/codegen/src/cli/lib/typespec-roundtrip-report.ts` — roundtrip report assembly, diagnostic ownership classification, and readiness gates.
 - `packages/codegen/src/cli/commands/tsp-export.ts` — `oa-gen tsp-export --spec <openapi.yaml> --output <main.tsp> --report <report.json> --sidecar <sidecar.json> --bundle-manifest <manifest.json>`.
@@ -21,6 +22,7 @@ Implemented source:
 - `scripts/typespec-roundtrip.ts` — reproducible probe for export, TypeSpec compile, emitted OpenAPI validation, and OpenAPI diff.
 - `scripts/typespec-bundle-check.ts` — repository wrapper around the shared `oa-gen tsp-bundle-check` implementation.
 - `docs/internal/typespec-roundtrip/fixtures/authored-bundle/` — minimal authored bundle fixture proving the two-track input shape with `oa-sdk.typespec-bundle.v1`.
+- `docs/internal/typespec-roundtrip/fixtures/authored-extension-bundle/` — minimal sidecar-less authored bundle fixture proving OA SDK semantics can live in `.tsp` through TypeSpec OpenAPI extensions.
 - `packages/codegen/src/__tests__/tsp-export.test.ts` — focused exporter coverage.
 - `packages/codegen/src/__tests__/typespec-sidecar.test.ts` — compatibility sidecar creation/restore coverage.
 - `packages/codegen/src/__tests__/typespec-authored-bundle.test.ts` — authored `.tsp + sidecar` compile/restore fixture coverage.
@@ -63,6 +65,7 @@ oa-gen tsp-restore --spec artifacts/typespec-emitted.yaml --sidecar artifacts/ty
 oa-gen tsp-bundle-check --manifest artifacts/oa-sdk.typespec-bundle.json --fail-on-breaking --report artifacts/typespec-generated-bundle-check-report.json
 pnpm typespec:bundle-check
 pnpm typespec:bundle-check -- --manifest docs/internal/typespec-roundtrip/fixtures/authored-bundle/oa-sdk.typespec-bundle.json
+pnpm typespec:bundle-check -- --manifest docs/internal/typespec-roundtrip/fixtures/authored-extension-bundle/oa-sdk.typespec-bundle.json --fail-on-breaking
 pnpm typespec:bundle-check -- --manifest artifacts/oa-sdk.typespec-bundle.json --fail-on-breaking --report artifacts/typespec-generated-bundle-check-report.json
 pnpm typespec:bundle-check -- --fail-on-breaking --report artifacts/typespec-bundle-check-report.json
 ```
@@ -96,6 +99,9 @@ Current probe on `packages/schemas/src/.merged.yaml`:
 | Authored sidecar re-extract stability | pass, 3/3 expected entries satisfied, 3/3 actual entries covered, 0 missing/unexpected/value mismatches |
 | Authored restored validation | pass, 0 warnings, 0 infos |
 | Authored restored breaking diff | 0 breaking changes across 0 modified operations |
+| Authored extension bundle manifest | pass, `oa-sdk.typespec-bundle.v1` resolves entrypoint and expected OpenAPI without a sidecar |
+| Authored extension bundle check | pass, `.tsp` `x-oa-sdk-*` metadata yields 1 operation, 3 sidecar-equivalent entries, 3 applied targets, 0 missing targets |
+| Authored extension restored diff | 0 breaking changes across 0 modified operations |
 
 Diagnostic distribution:
 
@@ -122,6 +128,7 @@ Current endpoint diff:
 - Generated `oa-sdk.typespec-bundle.v1` files are accepted directly by `oa-gen tsp-bundle-check --manifest <generated>`; `pnpm typespec:bundle-check -- --manifest <generated>` is the repository wrapper. When `expectedOpenapi` is declared through `--bundle-expected-openapi`, generated bundle checks also run the expected diff gate; without it, they still gate TypeSpec compile, sidecar restore/re-extract stability, and OA SDK OpenAPI validation.
 - The restored OpenAPI can be re-scanned into a sidecar with no semantic drift. The canonical fixture intentionally expands path-level parameter examples into operation-level targets, so expected and actual entry counts may differ while semantic coverage remains complete.
 - The authored bundle fixture proves the opposite direction as a first slice: an `oa-sdk.typespec-bundle.v1` manifest points to a hand-written `.tsp` structural contract plus authored `oa-sdk.typespec-compat-sidecar.v1`; the bundle compiles, restores OA SDK examples/security metadata, validates, and matches the expected OpenAPI endpoint surface with no breaking diff.
+- The authored extension bundle fixture proves the first sidecar-less slice: an `oa-sdk.typespec-bundle.v1` manifest points only to `.tsp` plus expected OpenAPI, and OA SDK semantics are restored from `x-oa-sdk-operation-examples` and `x-oa-sdk-security-schemes` metadata emitted from TypeSpec `@extension(...)` decorators.
 
 ## Intersection
 
@@ -144,7 +151,7 @@ This is enough to keep path and operation identity stable and to run a machine-r
 Before a TSP-first declaration, close or explicitly accept these gaps:
 
 1. OAuth2 component policy: the current unused OAuth2 scheme is classified as OpenAPI-side metadata and restored through the compatibility sidecar; any referenced unsupported security scheme remains contract-bearing until its sidecar semantics are explicitly accepted.
-2. Parameter and response media examples: OA SDK `dataValue` / `serializedValue` examples are externalized to the compatibility sidecar so mock-server priority is not weakened.
+2. Parameter and response media examples: OA SDK `dataValue` / `serializedValue` examples are externalized to the compatibility sidecar for generated bundles, and a sidecar-less authored fixture now proves they can also live in `.tsp` as OA SDK TypeSpec extension metadata without weakening mock-server priority.
 3. Untyped schema policy: `ValidationError.received` is the only accepted `unknown` escape hatch; any new untyped schema still emits `schema/type-unknown`.
 4. Visibility and annotations: map readOnly/writeOnly/annotations only after the OA SDK visibility policy is explicit.
 5. Component projection policy: keep the accepted extra TypeSpec schemas visible in the roundtrip report or eliminate them if they become confusing for release review.
@@ -160,6 +167,7 @@ Declare TSP-first only when:
 - The generated OpenAPI remains valid under OA SDK's OpenAPI 3.2 gate and downstream codegen/router/client/mock-server tests.
 - The compatibility sidecar schema is stable enough for authored `.tsp + sidecar` fixtures, not only generated sidecars.
 - Authored `.tsp + sidecar` fixtures are declared through `oa-sdk.typespec-bundle.v1`, pass `oa-gen tsp-bundle-check --fail-on-breaking` and the `pnpm typespec:bundle-check -- --fail-on-breaking` wrapper, and cover every sidecar entry kind that is accepted by policy.
+- Authored sidecar-less `.tsp` fixtures are declared through `oa-sdk.typespec-bundle.v1`, pass the same bundle check using `compatibility.oaSdkExtensionSchemaVersion`, and cover every previously sidecar-owned entry kind through `.tsp` extension metadata.
 - Generated `.tsp + sidecar` bundles can be re-read through the same manifest contract without relying on the original OpenAPI artifact.
 - Generated bundles can include a bundle-local expected OpenAPI artifact so the same manifest contract can prove restored diff stability, not only compile/restore validity.
 - Sidecar restore and re-extraction stability gates pass with no missing expected entries, unexpected actual entries, or value mismatches.

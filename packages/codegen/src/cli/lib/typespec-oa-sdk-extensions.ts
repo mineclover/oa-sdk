@@ -1,0 +1,181 @@
+import type { OasDocument, OasOperation } from '@oa-sdk/parser'
+import type {
+  TypeSpecCompatibilitySidecar,
+  TypeSpecCompatibilitySidecarEntry,
+} from './typespec-sidecar.js'
+
+type HttpMethod = 'get' | 'put' | 'post' | 'delete' | 'options' | 'head' | 'patch' | 'trace' | 'query'
+
+const HTTP_METHODS: readonly HttpMethod[] = ['get', 'put', 'post', 'delete', 'options', 'head', 'patch', 'trace', 'query']
+const OPERATION_EXAMPLES_EXTENSION = 'x-oa-sdk-operation-examples'
+const SECURITY_SCHEMES_EXTENSION = 'x-oa-sdk-security-schemes'
+
+export type TypeSpecOpenApiExtensionRestoreResult = {
+  document: OasDocument
+  sidecar: TypeSpecCompatibilitySidecar
+}
+
+export function createTypeSpecCompatibilitySidecarFromOpenApiExtensions(document: OasDocument): TypeSpecCompatibilitySidecar {
+  const entries: TypeSpecCompatibilitySidecarEntry[] = []
+  entries.push(...collectSecuritySchemeEntries(document))
+  entries.push(...collectOperationExampleEntries(document))
+  return {
+    schemaVersion: 'oa-sdk.typespec-compat-sidecar.v1',
+    counts: {
+      entries: entries.length,
+      parameterExamples: entries.filter(entry => entry.kind === 'parameter-examples').length,
+      responseMediaExamples: entries.filter(entry => entry.kind === 'response-media-examples').length,
+      securitySchemes: entries.filter(entry => entry.kind === 'security-scheme').length,
+    },
+    entries,
+  }
+}
+
+export function stripTypeSpecOpenApiExtensions(document: OasDocument): OasDocument {
+  const stripped = cloneJson(document) as OasDocument
+  delete (stripped as Record<string, unknown>)[SECURITY_SCHEMES_EXTENSION]
+  for (const pathItemValue of Object.values(stripped.paths ?? {})) {
+    if (!isRecord(pathItemValue)) continue
+    const pathItem = pathItemValue as Record<string, unknown>
+    for (const method of HTTP_METHODS) {
+      const operation = pathItem[method]
+      if (isRecord(operation)) delete operation[OPERATION_EXAMPLES_EXTENSION]
+    }
+  }
+  return stripped
+}
+
+function collectSecuritySchemeEntries(document: OasDocument): TypeSpecCompatibilitySidecarEntry[] {
+  const extension = (document as Record<string, unknown>)[SECURITY_SCHEMES_EXTENSION]
+  if (!isRecord(extension)) return []
+  return Object.entries(extension).map(([name, value]) => ({
+    kind: 'security-scheme',
+    pointer: `#/${escapeJsonPointer(SECURITY_SCHEMES_EXTENSION)}/${escapeJsonPointer(name)}`,
+    target: { name },
+    value: normalizeSecurityScheme(value),
+  }))
+}
+
+function collectOperationExampleEntries(document: OasDocument): TypeSpecCompatibilitySidecarEntry[] {
+  const entries: TypeSpecCompatibilitySidecarEntry[] = []
+  for (const [path, pathItemValue] of Object.entries(document.paths ?? {})) {
+    if (!isRecord(pathItemValue)) continue
+    const pathItem = pathItemValue as Record<string, unknown>
+    for (const method of HTTP_METHODS) {
+      const operation = pathItem[method] as OasOperation | undefined
+      if (!isRecord(operation)) continue
+      const extension = (operation as Record<string, unknown>)[OPERATION_EXAMPLES_EXTENSION]
+      if (!isRecord(extension)) continue
+      entries.push(...collectParameterExampleEntries(extension.parameters, path, method))
+      entries.push(...collectResponseExampleEntries(extension.responses, path, method))
+    }
+  }
+  return entries
+}
+
+function collectParameterExampleEntries(value: unknown, path: string, method: HttpMethod): TypeSpecCompatibilitySidecarEntry[] {
+  if (!isRecord(value)) return []
+  const entries: TypeSpecCompatibilitySidecarEntry[] = []
+  for (const [fallbackName, parameterValue] of Object.entries(value)) {
+    if (!isRecord(parameterValue)) continue
+    const parameterName = typeof parameterValue.name === 'string' && parameterValue.name.trim() !== ''
+      ? parameterValue.name
+      : fallbackName
+    const location = typeof parameterValue.in === 'string' && parameterValue.in.trim() !== ''
+      ? parameterValue.in
+      : 'query'
+    const examples = readExampleValue(parameterValue)
+    if (!examples) continue
+    entries.push({
+      kind: 'parameter-examples',
+      pointer: `#/paths/${escapeJsonPointer(path)}/${method}/${escapeJsonPointer(OPERATION_EXAMPLES_EXTENSION)}/parameters/${escapeJsonPointer(fallbackName)}`,
+      target: {
+        path,
+        method,
+        name: parameterName,
+        in: location,
+      },
+      value: examples,
+    })
+  }
+  return entries
+}
+
+function collectResponseExampleEntries(value: unknown, path: string, method: HttpMethod): TypeSpecCompatibilitySidecarEntry[] {
+  const entries: TypeSpecCompatibilitySidecarEntry[] = []
+  visitRecords(value, (record, pointerParts) => {
+    const statusCode = typeof record.statusCode === 'string' || typeof record.statusCode === 'number'
+      ? String(record.statusCode)
+      : undefined
+    const mediaType = typeof record.mediaType === 'string' && record.mediaType.trim() !== ''
+      ? record.mediaType
+      : undefined
+    const examples = readExampleValue(record)
+    if (!statusCode || !mediaType || !examples) return
+    entries.push({
+      kind: 'response-media-examples',
+      pointer: `#/paths/${escapeJsonPointer(path)}/${method}/${escapeJsonPointer(OPERATION_EXAMPLES_EXTENSION)}/responses/${pointerParts.map(escapeJsonPointer).join('/')}`,
+      target: {
+        path,
+        method,
+        statusCode,
+        mediaType,
+      },
+      value: examples,
+    })
+  })
+  return entries
+}
+
+function readExampleValue(record: Record<string, unknown>): { example?: unknown; examples?: unknown } | null {
+  const result: { example?: unknown; examples?: unknown } = {}
+  if (record.example !== undefined) result.example = cloneJson(record.example)
+  if (record.examples !== undefined) result.examples = cloneJson(record.examples)
+  return result.example !== undefined || result.examples !== undefined ? result : null
+}
+
+function visitRecords(value: unknown, visitor: (record: Record<string, unknown>, pointerParts: string[]) => void, pointerParts: string[] = []): void {
+  if (Array.isArray(value)) {
+    for (const [index, item] of value.entries()) visitRecords(item, visitor, [...pointerParts, String(index)])
+    return
+  }
+  if (!isRecord(value)) return
+  visitor(value, pointerParts)
+  for (const [key, item] of Object.entries(value)) visitRecords(item, visitor, [...pointerParts, key])
+}
+
+function normalizeSecurityScheme(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(normalizeSecurityScheme)
+  if (!isRecord(value)) return cloneJson(value)
+  const normalized: Record<string, unknown> = {}
+  for (const [key, item] of Object.entries(value)) {
+    if (key === 'scopes' && Array.isArray(item)) {
+      normalized.scopes = normalizeScopeList(item)
+      continue
+    }
+    normalized[key] = normalizeSecurityScheme(item)
+  }
+  return normalized
+}
+
+function normalizeScopeList(value: unknown[]): Record<string, string> {
+  const scopes: Record<string, string> = {}
+  for (const item of value) {
+    if (!isRecord(item) || typeof item.name !== 'string') continue
+    const description = typeof item.description === 'string' ? item.description : ''
+    scopes[item.name] = description
+  }
+  return scopes
+}
+
+function cloneJson<T>(value: T): T {
+  return JSON.parse(JSON.stringify(value)) as T
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+function escapeJsonPointer(value: string): string {
+  return value.replace(/~/g, '~0').replace(/\//g, '~1')
+}

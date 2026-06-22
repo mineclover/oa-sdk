@@ -280,6 +280,7 @@
         "generated TypeSpec bundle expected OpenAPI",
         "generated TypeSpec plus sidecar bundle check",
         "authored TypeSpec bundle manifest",
+        "sidecar-less authored TypeSpec extension bundle check",
         "tsp-bundle-check CLI bundle gate",
         "sidecar restore into TypeSpec-emitted OpenAPI",
         "sidecar semantic re-extraction stability report",
@@ -300,10 +301,13 @@
         "packages/codegen/src/__tests__/typespec-roundtrip-report.test.ts",
         "packages/codegen/src/cli/commands/tsp-bundle-check.ts",
         "packages/codegen/src/cli/lib/typespec-bundle-check.ts",
+        "packages/codegen/src/cli/lib/typespec-oa-sdk-extensions.ts",
         "scripts/typespec-roundtrip.ts",
         "scripts/typespec-bundle-check.ts",
         "docs/internal/typespec-roundtrip/fixtures/authored-bundle/oa-sdk.typespec-bundle.json",
         "docs/internal/typespec-roundtrip/fixtures/authored-bundle/main.tsp",
+        "docs/internal/typespec-roundtrip/fixtures/authored-extension-bundle/oa-sdk.typespec-bundle.json",
+        "docs/internal/typespec-roundtrip/fixtures/authored-extension-bundle/main.tsp",
         "docs/internal/typespec-roundtrip.plan.md"
       ],
       "commands": [

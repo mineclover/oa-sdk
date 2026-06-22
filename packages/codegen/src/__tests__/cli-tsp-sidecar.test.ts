@@ -151,6 +151,7 @@ describe('oa-gen TypeSpec sidecar CLI', () => {
     const bundleReport = JSON.parse(readFileSync(bundleReportPath, 'utf8')) as Record<string, any>
     expect(bundleReport.bundle).toEqual({
       source: 'manifest',
+      compatibilitySource: 'sidecar',
       schemaVersion: 'oa-sdk.typespec-bundle.v1',
       compatibility: {
         openapiVersion: '3.2.0',

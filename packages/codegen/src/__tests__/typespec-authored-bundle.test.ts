@@ -15,6 +15,7 @@ import { validateDocument } from '@oa-sdk/parser'
 const pkgDir = resolve(__dirname, '../..')
 const rootDir = resolve(pkgDir, '../..')
 const fixtureDir = resolve(rootDir, 'docs/internal/typespec-roundtrip/fixtures/authored-bundle')
+const extensionFixtureDir = resolve(rootDir, 'docs/internal/typespec-roundtrip/fixtures/authored-extension-bundle')
 const tmpBase = resolve(pkgDir, '.tmp-typespec-authored-bundle-test')
 
 let tmpDir: string
@@ -48,6 +49,7 @@ describe('authored TypeSpec compatibility bundle', () => {
     const report = JSON.parse(readFileSync(reportPath, 'utf8')) as Record<string, any>
     expect(report.bundle).toEqual({
       source: 'manifest',
+      compatibilitySource: 'sidecar',
       schemaVersion: 'oa-sdk.typespec-bundle.v1',
       compatibility: {
         openapiVersion: '3.2.0',
@@ -62,6 +64,75 @@ describe('authored TypeSpec compatibility bundle', () => {
       compatibilitySidecar: 'pass',
       restoredValidation: 'pass',
       expectedDiff: 'pass',
+    })
+  })
+
+  it('checks a sidecar-less authored .tsp bundle using OA SDK TypeSpec extension metadata', () => {
+    const reportPath = join(tmpDir, 'extension-bundle-report.json')
+    const restoredPath = join(tmpDir, 'extension-restored.yaml')
+    const check = spawnSync('pnpm', [
+      'typespec:bundle-check',
+      '--',
+      '--manifest',
+      join(extensionFixtureDir, 'oa-sdk.typespec-bundle.json'),
+      '--fail-on-breaking',
+      '--report',
+      reportPath,
+      '--output',
+      restoredPath,
+    ], {
+      cwd: rootDir,
+      encoding: 'utf8',
+    })
+    expect(check.status, `${check.stdout}\n${check.stderr}`).toBe(0)
+
+    const report = JSON.parse(readFileSync(reportPath, 'utf8')) as Record<string, any>
+    expect(report.bundle).toEqual({
+      source: 'manifest',
+      compatibilitySource: 'typespec-extensions',
+      schemaVersion: 'oa-sdk.typespec-bundle.v1',
+      compatibility: {
+        openapiVersion: '3.2.0',
+        oaSdkExtensionSchemaVersion: 'oa-sdk.typespec-extensions.v1',
+      },
+    })
+    expect(report.paths.manifest).toBe(join(extensionFixtureDir, 'oa-sdk.typespec-bundle.json'))
+    expect(report.paths.entrypoint).toBe(join(extensionFixtureDir, 'main.tsp'))
+    expect(report.paths.sidecar).toBeUndefined()
+    expect(report.gates).toEqual({
+      compatibilitySidecar: 'pass',
+      restoredValidation: 'pass',
+      expectedDiff: 'pass',
+    })
+    expect(report.counts.compatibilitySidecar).toEqual({
+      entries: 3,
+      parameterExamples: 1,
+      responseMediaExamples: 1,
+      securitySchemes: 1,
+    })
+
+    const { document: restored } = loadSpecWithPath(restoredPath)
+    const restoredDoc = restored as Record<string, any>
+    expect(restoredDoc['x-oa-sdk-security-schemes']).toBeUndefined()
+    expect(restoredDoc.paths['/users'].get['x-oa-sdk-operation-examples']).toBeUndefined()
+    expect(restoredDoc.paths['/users'].get.parameters[0].examples).toEqual({
+      default: {
+        dataValue: 1,
+        serializedValue: 'page=1',
+      },
+    })
+    expect(restoredDoc.paths['/users'].get.responses['200'].content['application/json'].examples).toEqual({
+      default: {
+        dataValue: [
+          {
+            id: 'usr_1',
+            name: 'Alice',
+          },
+        ],
+      },
+    })
+    expect(restoredDoc.components.securitySchemes.oauth2.flows.authorizationCode.scopes).toEqual({
+      'read:users': 'Read users',
     })
   })
 

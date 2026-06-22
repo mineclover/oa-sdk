@@ -344,6 +344,35 @@ Evidence:
 - Sidecar re-extraction reports `3/3` expected entries satisfied, `3/3` actual entries covered, and `0` missing expected entries, unexpected actual entries, or value mismatches.
 - Emitted, restored, and expected OpenAPI validation pass with `0` warnings and `0` infos, and restored breaking diff is `no`.
 
+## Phase 9 — Sidecar-Less TypeSpec Extension Bundle
+
+Status: implemented as a TSP-project-single-SSOT spike, not a full TSP-first declaration.
+
+Purpose: prove that currently sidecar-owned OA SDK semantics can be authored inside `.tsp` without a separate sidecar file.
+
+Tasks:
+
+- Add a sidecar-less authored TypeSpec fixture that uses TypeSpec OpenAPI `@extension(...)` metadata.
+- Encode parameter examples, response media examples, and unsupported security scheme metadata through `x-oa-sdk-operation-examples` and `x-oa-sdk-security-schemes`.
+- Allow `oa-sdk.typespec-bundle.v1` manifests to omit `sidecar` when `compatibility.oaSdkExtensionSchemaVersion` is present.
+- Convert emitted `x-oa-sdk-*` metadata to the same sidecar-equivalent restore entries used by the existing compatibility loop.
+- Strip restore-only `x-oa-sdk-*` metadata from the restored OpenAPI artifact before validation/diff output.
+
+Gate:
+
+- `pnpm typespec:bundle-check -- --manifest docs/internal/typespec-roundtrip/fixtures/authored-extension-bundle/oa-sdk.typespec-bundle.json --fail-on-breaking` passes.
+- The bundle check report uses `compatibilitySource: typespec-extensions`.
+- Sidecar-equivalent restore reports no missing targets.
+- Sidecar-equivalent re-extraction reports no semantic drift.
+- Restored OpenAPI validates and has no breaking diff against the expected OpenAPI fixture.
+
+Evidence:
+
+- The sidecar-less authored extension bundle reports `3` sidecar-equivalent entries: `1` parameter example, `1` response media example, and `1` security scheme.
+- Restore reports `3` applied targets and `0` missing targets.
+- Re-extraction reports `3/3` expected entries satisfied, `3/3` actual entries covered, and `0` missing expected entries, unexpected actual entries, or value mismatches.
+- Restored output contains OpenAPI `examples` and `components.securitySchemes.oauth2`, but no restore-only `x-oa-sdk-security-schemes` or `x-oa-sdk-operation-examples` metadata.
+
 ## Implementation Order
 
 Recommended order:
@@ -357,9 +386,10 @@ Recommended order:
 7. Phase 6 gate and decision prep.
 8. Phase 7 two-track compatibility sidecar.
 9. Phase 8 authored bundle check.
+10. Phase 9 sidecar-less TypeSpec extension bundle.
 
 Do not start with diff normalization. Normalize only after a concrete TypeSpec/OpenAPI equivalence has been proven with source/emitted examples.
-Generated bundle re-check belongs to Phase 7 because it proves generated bundle portability; Phase 8 separately proves authored input viability.
+Generated bundle re-check belongs to Phase 7 because it proves generated bundle portability; Phase 8 separately proves authored sidecar input viability; Phase 9 proves the first authored sidecar-less input slice.
 
 ## Exit Criteria For `@oa-sdk/codegen@0.3.0`
 
@@ -374,4 +404,5 @@ The version is ready when:
 - Generated `.tsp + sidecar` bundles are portable enough to be rechecked through `oa-sdk.typespec-bundle.v1` without the original OpenAPI artifact.
 - Generated bundles can include bundle-local expected OpenAPI and pass the same expected diff gate used by authored bundles.
 - Authored `.tsp + sidecar` fixtures are declared through `oa-sdk.typespec-bundle.v1` and pass the bundle check with every currently accepted sidecar entry kind represented.
+- Authored sidecar-less `.tsp` fixtures are declared through `oa-sdk.typespec-bundle.v1` and pass the bundle check with every currently accepted sidecar entry kind represented through TypeSpec extension metadata.
 - Sidecar restore is semantically stable after re-extraction from restored OpenAPI, with no missing expected entries, unexpected actual entries, or value mismatches.
