@@ -37,6 +37,8 @@ Current gate state: `pnpm typespec:roundtrip -- --fail-on-breaking` passes becau
 
 `@oa-sdk/codegen@0.3.0` ships the stable TypeSpec evaluation workflow used by the production source migration.
 
+Operational release note: this repository and its workspace packages are private. The `0.3.0` version is an internal milestone for the TypeSpec migration, not an npm publish trigger. The current publish/versioning/rollback procedure is recorded in [`../production-operations.md`](../production-operations.md).
+
 Expected user-visible surface:
 
 - `oa-gen tsp-export` remains the explicit conversion command and can write an OA SDK compatibility sidecar plus `oa-sdk.typespec-bundle.v1` manifest.

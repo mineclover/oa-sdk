@@ -4,7 +4,7 @@
 
 Status: evaluation complete. ADR-009 accepts TypeSpec-first schema authoring, and the production source-path switch is implemented with OpenAPI/Definition Builder rollback commands retained.
 
-Versioned implementation planning lives under [`typespec-roundtrip/`](./typespec-roundtrip/). The sidecar-less authored TypeSpec extension vocabulary is standardized in [`typespec-roundtrip/oa-sdk-typespec-extensions.v1.md`](./typespec-roundtrip/oa-sdk-typespec-extensions.v1.md). The completed TypeSpec-first decision design is tracked in [`typespec-roundtrip/tsp-first-decision-design.md`](./typespec-roundtrip/tsp-first-decision-design.md). The production migration goals G9-G12 and source-path switch are tracked in [`typespec-roundtrip/production-migration-goals.md`](./typespec-roundtrip/production-migration-goals.md). The `@oa-sdk/codegen` `0.3.0` closeout is tracked in [`typespec-roundtrip/v0.3.0/implementation-roadmap.plan.md`](./typespec-roundtrip/v0.3.0/implementation-roadmap.plan.md).
+Versioned implementation planning lives under [`typespec-roundtrip/`](./typespec-roundtrip/). The sidecar-less authored TypeSpec extension vocabulary is standardized in [`typespec-roundtrip/oa-sdk-typespec-extensions.v1.md`](./typespec-roundtrip/oa-sdk-typespec-extensions.v1.md). The completed TypeSpec-first decision design is tracked in [`typespec-roundtrip/tsp-first-decision-design.md`](./typespec-roundtrip/tsp-first-decision-design.md). The production migration goals G9-G15 and source-path switch are tracked in [`typespec-roundtrip/production-migration-goals.md`](./typespec-roundtrip/production-migration-goals.md). The current operating procedure is [`typespec-roundtrip/production-operations.md`](./typespec-roundtrip/production-operations.md). The `@oa-sdk/codegen` `0.3.0` closeout is tracked in [`typespec-roundtrip/v0.3.0/implementation-roadmap.plan.md`](./typespec-roundtrip/v0.3.0/implementation-roadmap.plan.md).
 
 ## Current Surfaces
 
@@ -36,7 +36,8 @@ Implemented source:
 - `docs/internal/typespec-roundtrip/oa-sdk-typespec-extensions.v5.md` — `oa-sdk.typespec-extensions.v5` reusable component identity vocabulary.
 - `docs/internal/typespec-roundtrip/authoring-ownership-guide.md` — maintainer-facing source-of-truth ownership map for TypeSpec-native syntax, OA SDK TypeSpec extensions, compatibility sidecars, and runtime data.
 - `docs/internal/typespec-roundtrip/sidecar-to-extension-migration.md` — G6 workflow for moving supported sidecar entries into TypeSpec extension metadata.
-- `docs/internal/typespec-roundtrip/production-migration-goals.md` — G9-G12 roadmap for wiring the accepted TypeSpec bundle into the production schema build path.
+- `docs/internal/typespec-roundtrip/production-migration-goals.md` — G9-G15 roadmap for wiring the accepted TypeSpec bundle into the production schema build path and burning restored-vs-reference drift down to zero.
+- `docs/internal/typespec-roundtrip/production-operations.md` — current publish, validation, versioning, rollback, and source-ownership runbook after the production migration.
 - `docs/internal/architecture/009-typespec-first-authoring.md` — accepted TypeSpec-first authoring ADR with staged production migration and rollback rules.
 - `docs/internal/typespec-roundtrip/fixtures/authored-bundle/` — minimal authored bundle fixture proving the two-track input shape with `oa-sdk.typespec-bundle.v1`.
 - `docs/internal/typespec-roundtrip/fixtures/authored-extension-bundle/` — minimal sidecar-less authored bundle fixture proving OA SDK semantics can live in `.tsp` through TypeSpec OpenAPI extensions.
@@ -207,7 +208,7 @@ During the staged production migration, keep these accepted gaps visible and clo
 5. Component projection policy: keep the accepted extra TypeSpec schemas visible in the roundtrip report or eliminate them if they become confusing for release review.
 6. Diff normalization: continue teaching OA SDK review tooling only proven TypeSpec-emitted shapes that are semantically equivalent, without suppressing real contract changes.
 
-The design direction for extension vNext, representative/full authored fixtures, and ADR outcomes is recorded in [`typespec-roundtrip/tsp-first-decision-design.md`](./typespec-roundtrip/tsp-first-decision-design.md). Maintainer authoring ownership is recorded in [`typespec-roundtrip/authoring-ownership-guide.md`](./typespec-roundtrip/authoring-ownership-guide.md).
+The historical design direction for extension vNext, representative/full authored fixtures, and ADR outcomes is recorded in [`typespec-roundtrip/tsp-first-decision-design.md`](./typespec-roundtrip/tsp-first-decision-design.md). Current production operations are recorded in [`typespec-roundtrip/production-operations.md`](./typespec-roundtrip/production-operations.md). Maintainer authoring ownership is recorded in [`typespec-roundtrip/authoring-ownership-guide.md`](./typespec-roundtrip/authoring-ownership-guide.md).
 
 ## Declaration Criteria
 

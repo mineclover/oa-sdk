@@ -22,6 +22,8 @@ OpenAPI/Definition Builder path는 제거하지 않고 explicit rollback/referen
 
 현재 accepted restored-vs-reference drift는 0 entries다. reusable component identity는 `oa-sdk.typespec-extensions.v5`로 복원했고, response wrapper projection schemas, component schema metadata drift, operation/path metadata drift를 TypeSpec authoring 및 restore normalization으로 제거했다.
 
+운영 정책은 `docs/internal/typespec-roundtrip/production-operations.md`로 분리했다. 현재 repo/package는 private이므로 `@oa-sdk/codegen` `0.3.0`은 npm publish 대상이 아니라 내부 milestone이며, rollback command 제거는 별도 deprecation/removal ADR 전까지 보류한다.
+
 ## 2026-04-28 — SQLite driver priority inverted: prefer node:sqlite
 
 `loadSqliteDriver()`가 `better-sqlite3` → `node:sqlite` 순서로 시도하던 정책을 뒤집어 `node:sqlite`(Node 22+ 내장)를 우선 시도하고 `better-sqlite3`는 fallback으로만 사용한다.

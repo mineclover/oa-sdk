@@ -4,13 +4,15 @@ Status: decision complete. G1 through G8 are implementation-backed, and ADR-009 
 
 This document records the completed TypeSpec-first decision path that followed the `oa-sdk.typespec-extensions.v1` sidecar-less spike. It captures the semantic scope, authored fixture strategy, ADR evidence model, and follow-up production migration boundary.
 
+Lifecycle note: this is a historical decision-design document, not the current operations runbook. The production migration continued through G9-G15 in [`production-migration-goals.md`](./production-migration-goals.md), and the current publish, versioning, validation, rollback, and source-ownership procedure lives in [`production-operations.md`](./production-operations.md).
+
 ## Scope
 
-The decisions here cover:
+The decisions here covered:
 
 1. Extension semantics outside `oa-sdk.typespec-extensions.v1`.
 2. The larger authored fixture needed before a TSP-first declaration.
-3. The ADR shape and evidence gates for a future TypeSpec-first decision.
+3. The ADR shape and evidence gates for the TypeSpec-first decision that became ADR-009.
 
 Push is intentionally out of scope for this track.
 
@@ -210,7 +212,7 @@ Accept is allowed only when:
 
 ## Goal Roadmap
 
-The remaining work should run as explicit goals instead of one broad "make TypeSpec-first happen" task. Each goal below has a concrete stopping point and should be committed independently.
+The decision work ran as explicit goals instead of one broad "make TypeSpec-first happen" task. Each goal below had a concrete stopping point and was committed independently.
 
 | Goal | Purpose | Depends on | Done when |
 |---|---|---|---|
@@ -270,9 +272,12 @@ Additional commands by goal:
 
 ## Next Work Order
 
-The TypeSpec-first decision track is complete through G8. Production migration now continues in [`production-migration-goals.md`](./production-migration-goals.md) as G9-G12:
+The TypeSpec-first decision track is complete through G8. Production migration continued in [`production-migration-goals.md`](./production-migration-goals.md) as G9-G15:
 
 1. G9: choose and document the production-owned TypeSpec bundle layout.
 2. G10: wire the schema build or validation path to TypeSpec bundle-check semantics.
 3. G11: add rollback evidence while keeping the OpenAPI/Definition Builder path green.
 4. G12: prove downstream parser/codegen/router/client/mock-server gates against the TypeSpec-derived artifact.
+5. G13: burn down response wrapper projection drift.
+6. G14: burn down component schema metadata drift.
+7. G15: burn down operation/path metadata drift.
