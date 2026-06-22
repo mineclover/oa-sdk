@@ -11,6 +11,10 @@ import {
 import { loadSpecWithPath } from '../cli/lib/load-spec.js'
 import { diffEndpoints, hasBreakingChanges } from '../cli/lib/openapi-breaking-diff.js'
 import { diffOpenApiDocuments, formatOpenApiDiff } from '../cli/lib/openapi-normalized-diff.js'
+import {
+  createAcceptedTypeSpecDriftReport,
+  loadAcceptedTypeSpecDriftEntries,
+} from './helpers/typespec-accepted-drift.js'
 import { validateDocument } from '@oa-sdk/parser'
 
 const pkgDir = resolve(__dirname, '../..')
@@ -297,15 +301,17 @@ describe('authored TypeSpec compatibility bundle', () => {
     })
   })
 
-  it('keeps the canonical authored fixture expected OpenAPI in sync with the production merged schema', () => {
+  it('keeps the canonical authored fixture within the accepted TypeSpec production drift', () => {
     const { document: productionDocument } = loadSpecWithPath(join(rootDir, 'packages/schemas/src/.merged.yaml'))
     const { document: fixtureDocument } = loadSpecWithPath(join(canonicalFixtureDir, 'expected.openapi.yaml'))
-    const diff = diffOpenApiDocuments(
-      productionDocument as Record<string, unknown>,
+    const drift = createAcceptedTypeSpecDriftReport(
       fixtureDocument as Record<string, unknown>,
+      productionDocument as Record<string, unknown>,
     )
 
-    expect(diff, formatOpenApiDiff(diff)).toEqual([])
+    expect(drift.entries, formatOpenApiDiff(drift.diff)).toEqual(
+      loadAcceptedTypeSpecDriftEntries(join(rootDir, 'packages/schemas/typespec/accepted-restored-drift.json')),
+    )
   })
 
   it('checks the sidecar-less canonical authored .tsp bundle', () => {

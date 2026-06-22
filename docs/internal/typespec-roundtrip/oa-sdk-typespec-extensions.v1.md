@@ -128,6 +128,7 @@ Rules:
 
 - Each root entry becomes a `security-scheme` compatibility entry.
 - The restored target is `components.securitySchemes.<schemeName>`.
+- A TypeSpec-native auth declaration such as `model bearerAuth is BearerAuth;` still owns operation auth semantics. A matching `x-oa-sdk-security-schemes.bearerAuth` entry may restore OpenAPI component metadata that TypeSpec's native bearer projection omits, such as `bearerFormat` and description.
 - Security scheme values are otherwise preserved as JSON-compatible values.
 - OAuth `scopes` may be authored as a TypeSpec-friendly array of `{ "name": string, "description": string }` records. The restore path normalizes that array to the OpenAPI scopes map, so scope names such as `read:users` do not depend on TypeSpec object key syntax.
 

@@ -4,9 +4,15 @@ import "@typespec/openapi";
 using Http;
 using OpenAPI;
 
-// Scaffolded by oa-gen tsp-export from the current OpenAPI artifact.
-// This is the G9 production TypeSpec source candidate; keep bundle-check green before G10 build wiring.
+// Scaffolded by oa-gen tsp-export and promoted to the production TypeSpec source.
+// Keep schema:typespec-check green before changing generated OpenAPI artifacts.
 @extension("x-oa-sdk-security-schemes", #{
+  bearerAuth: #{
+    type: "http",
+    scheme: "bearer",
+    bearerFormat: "JWT",
+    description: "JWT Bearer 토큰 인증"
+  },
   oauth2: #{
     type: "oauth2",
     description: "OAuth 2.0 인증 (Authorization Code + Device Authorization 지원)",
@@ -49,8 +55,8 @@ using OpenAPI;
     }
   }
 })
-@server("http://localhost:4010", "Mock server (@oa-sdk/mock-server)")
 @server("http://localhost:3000", "Local dev server")
+@server("http://localhost:4010", "Mock server (@oa-sdk/mock-server)")
 @service(#{ title: "OA SDK API" })
 @info(#{ version: "0.1.0" })
 @tagMetadata("health", #{ description: "서버 상태 확인" })

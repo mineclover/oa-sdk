@@ -10,7 +10,7 @@ Current boundary:
 - `packages/schemas/typespec/oa-sdk.typespec-bundle.json` is the bundle manifest and declares `oa-sdk.typespec-extensions.v2`.
 - `packages/schemas/typespec/expected.openapi.yaml` is the reviewed OpenAPI 3.2 reference artifact for diff gates.
 - `packages/schemas/typespec/accepted-restored-drift.json` pins the currently accepted TypeSpec-restored-vs-reference drift by normalized OpenAPI value hash.
-- Current accepted drift is reviewed as 63 hash-pinned entries: root metadata (1), server metadata (1), security metadata (10), path-level projection differences (22), and component projection differences (29).
+- Current accepted drift is reviewed as 61 hash-pinned entries: root metadata (1), explicit public operation security metadata (9), path-level projection differences (22), and component projection differences (29).
 - `packages/schemas/src/.merged.yaml` is generated from this bundle by `pnpm --filter @oa-sdk/schemas run build:typespec`, which is the default `validate`, `build`, `bundle`, and `preview` source path.
 - The OpenAPI/Definition Builder rollback path remains explicit through `pnpm schema:validate:openapi`, `pnpm schema:bundle:openapi`, `pnpm schema:preview:openapi`, and package-level `build:openapi` / `validate:openapi`.
 

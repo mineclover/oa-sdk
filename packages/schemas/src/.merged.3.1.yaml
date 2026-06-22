@@ -2261,7 +2261,9 @@ components:
   securitySchemes:
     bearerAuth:
       type: http
-      scheme: Bearer
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT Bearer 토큰 인증
     oauth2:
       type: oauth2
       description: OAuth 2.0 인증 (Authorization Code + Device Authorization 지원)
@@ -2275,9 +2277,7 @@ components:
             write: 쓰기 권한
             admin: 관리자 권한
 servers:
-  - url: http://localhost:3000
-    description: Local dev server
-    variables: {}
   - url: http://localhost:4010
     description: Mock server (@oa-sdk/mock-server)
-    variables: {}
+  - url: http://localhost:3000
+    description: Local dev server

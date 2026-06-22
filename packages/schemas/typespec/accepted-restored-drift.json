@@ -9,13 +9,6 @@
       "restoredSha256": "2c77430ff371b084e9eb668807fdbad753c04da5b8a1452bf46a5958b87ebdf9"
     },
     {
-      "category": "server",
-      "kind": "changed",
-      "pointer": "#/servers",
-      "productionSha256": "3e832ab268bc620f0286d81bd60a395bf58657f1d9368a5f5d7d78995871bc1e",
-      "restoredSha256": "a53e97650cf1a92d73033936df3b7bb5cbde09e8780e345fc98411cf1d90de0e"
-    },
-    {
       "category": "security",
       "kind": "removed",
       "pointer": "#/paths/~1auth~1forgot-password/post/security",
@@ -434,13 +427,6 @@
       "pointer": "#/components/schemas/ValidationError",
       "productionSha256": "bec6a1af86b3ea20c757dbb0463bbd9e8fbcb4d66cd478dbadc0a34c7bb130de",
       "restoredSha256": "0c5319feb9db9d5acffcb512206d79be9dde0f0c83407b5440cc504bec185360"
-    },
-    {
-      "category": "security",
-      "kind": "changed",
-      "pointer": "#/components/securitySchemes/bearerAuth",
-      "productionSha256": "39ca1a530a50705964a46974da6bfdd9ff7b76c0addd84f05f2f591f60cb00b3",
-      "restoredSha256": "73e1459c0625f8fccd1a266ff82fb8cc21a2c9e3c658a1ef9291bf3dc3993b7c"
     }
   ]
 }

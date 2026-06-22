@@ -39,7 +39,7 @@ import {
   formatMarkdown,
   type DiffResult,
 } from './openapi-breaking-diff.js'
-import { validateDocument } from '@oa-sdk/parser'
+import { validateDocument, type OasDocument } from '@oa-sdk/parser'
 
 export type TypeSpecBundleCheckArgs = {
   project?: string
@@ -203,17 +203,18 @@ export async function checkTypeSpecBundle(
           : {},
       )
     const restored = applyTypeSpecCompatibilitySidecar(stripTypeSpecOpenApiExtensions(emittedDocument), sidecar)
+    const restoredDocument = normalizeTypeSpecRestoredOpenApiDocument(restored.document)
     mkdirSync(dirname(restoredPath), { recursive: true })
-    writeFileSync(restoredPath, stringifyOpenApiYaml(restored.document))
-    const restoredValidation = validateDocument(restored.document, {
+    writeFileSync(restoredPath, stringifyOpenApiYaml(restoredDocument))
+    const restoredValidation = validateDocument(restoredDocument, {
       basePath: restoredPath,
       requireOpenApi32: true,
     })
 
     const expected = bundle.expectedPath ? loadExpected(bundle.expectedPath) : undefined
     const emittedDiff = expected ? diffEndpoints(expected.document, emittedDocument) : undefined
-    const restoredDiff = expected ? diffEndpoints(expected.document, restored.document) : undefined
-    const reExtractedSidecar = createTypeSpecCompatibilitySidecar(restored.document)
+    const restoredDiff = expected ? diffEndpoints(expected.document, restoredDocument) : undefined
+    const reExtractedSidecar = createTypeSpecCompatibilitySidecar(restoredDocument)
     const sidecarStability = compareTypeSpecCompatibilitySidecars(sidecar, reExtractedSidecar)
     const report = createReport({
       projectPath,
@@ -226,7 +227,7 @@ export async function checkTypeSpecBundle(
       restore: restored.report,
       sidecarStability,
       emittedDocument,
-      restoredDocument: restored.document,
+      restoredDocument,
       emittedValidation,
       restoredValidation,
       ...(expected ? { expected } : {}),
@@ -494,6 +495,20 @@ function normalizeBundleRelativePath(path: string): string {
 
 function createCompileArgs(projectPath: string, outputDir: string): string[] {
   return ['exec', 'tsp', 'compile', projectPath, '--output-dir', outputDir]
+}
+
+function normalizeTypeSpecRestoredOpenApiDocument(document: OasDocument): OasDocument {
+  const normalized = document
+  if (Array.isArray(normalized.servers)) {
+    for (const server of normalized.servers) {
+      if (!isRecord(server)) continue
+      const variables = server.variables
+      if (isRecord(variables) && Object.keys(variables).length === 0) {
+        delete server.variables
+      }
+    }
+  }
+  return normalized
 }
 
 function runProcess(command: string, args: string[], cwd: string): Promise<void> {

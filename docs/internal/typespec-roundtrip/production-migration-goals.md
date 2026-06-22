@@ -95,8 +95,8 @@ Status: implemented by `pnpm schema:typespec-check`, `pnpm schema:validate`, `pn
 - The gate must compare `packages/schemas/typespec/expected.openapi.yaml` with the reviewed reference using normalized OpenAPI diff so the TypeSpec bundle cannot drift silently.
 - The gate must also compare the TypeSpec-restored artifact with the reviewed reference and require the exact accepted drift set plus pinned normalized reference/restored value hashes from `packages/schemas/typespec/accepted-restored-drift.json`.
 - The accepted restored drift manifest blocks silent new drift after the source-path switch. It should burn down over time, but remaining drift is allowed only while hash-pinned and reviewed.
-- Current reviewed restored-vs-reference drift is 63 entries: `root/changed=1`, `server/changed=1`, `security/removed=9`, `security/changed=1`, `path/changed=22`, `component/removed=11`, `component/changed=14`, and `component/added=4`.
-- Drift burn-down order after the source-path switch is: metadata alignment (`info`, `servers`, unused security metadata), reusable component identity (`parameters`, shared responses), response wrapper projection schemas, then operation/path-level metadata differences. Do not refresh the manifest without reviewing that order and the normalized value hashes.
+- Current reviewed restored-vs-reference drift is 61 entries: `root/changed=1`, `security/removed=9`, `path/changed=22`, `component/removed=11`, `component/changed=14`, and `component/added=4`.
+- Drift burn-down order after the source-path switch is: remaining metadata alignment (`info`, explicit public operation security), reusable component identity (`parameters`, shared responses), response wrapper projection schemas, then operation/path-level metadata differences. Do not refresh the manifest without reviewing that order and the normalized value hashes.
 - `schema:validate`, `schema:bundle`, `schema:preview`, and package-level `build` now depend on the TypeSpec-derived artifact.
 - Preserve Definition Builder commands as the explicit rollback path until a separate removal decision.
 

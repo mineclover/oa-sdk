@@ -10,12 +10,17 @@ import { join, resolve } from 'node:path'
 import { parse as parseYaml } from 'yaml'
 import { validateOpenApiProjection } from '@oa-sdk/openapi-projection-contract'
 import { buildSpec } from '../cli/lib/build-spec.js'
-import { diffOpenApiDocuments } from '../cli/lib/openapi-normalized-diff.js'
+import { formatOpenApiDiff } from '../cli/lib/openapi-normalized-diff.js'
+import {
+  createAcceptedTypeSpecDriftReport,
+  loadAcceptedTypeSpecDriftEntries,
+} from './helpers/typespec-accepted-drift.js'
 
 const pkgDir = resolve(__dirname, '../..')
 const repoRoot = resolve(pkgDir, '../..')
 const schemasSrcDir = join(repoRoot, 'packages/schemas/src')
 const currentMergedPath = join(schemasSrcDir, '.merged.yaml')
+const acceptedTypeSpecDriftPath = join(repoRoot, 'packages/schemas/typespec/accepted-restored-drift.json')
 const tmpBase = resolve(pkgDir, '.tmp-builder-replacement-dry-run-test')
 
 let tmpDir: string
@@ -52,7 +57,8 @@ describe('definition builder replacement dry-run', () => {
     expect(resolve(outputPath)).not.toBe(resolve(currentMergedPath))
     expect(hash(after)).toBe(hash(before))
     expect(after).toBe(before)
-    expect(diffOpenApiDocuments(currentMerged, result.document)).toEqual([])
+    const drift = createAcceptedTypeSpecDriftReport(result.document, currentMerged)
+    expect(drift.entries, formatOpenApiDiff(drift.diff)).toEqual(loadAcceptedTypeSpecDriftEntries(acceptedTypeSpecDriftPath))
     expect(validateOpenApiProjection(result.projection)).toEqual({ valid: true, diagnostics: [] })
 
     expect(existsSync(outputPath)).toBe(true)

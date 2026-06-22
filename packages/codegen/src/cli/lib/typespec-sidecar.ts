@@ -586,10 +586,12 @@ function resolveLocalRef(document: OasDocument, ref: string): unknown {
 }
 
 function isTypeSpecEmittedSecurityScheme(name: string, scheme: OasSecurityScheme): boolean {
+  const keys = Object.keys(scheme)
   return scheme.type === 'http'
     && typeof scheme.scheme === 'string'
     && scheme.scheme.toLowerCase() === 'bearer'
     && IDENTIFIER_RE.test(name)
+    && keys.every(key => key === 'type' || key === 'scheme')
 }
 
 function countEntries(entries: TypeSpecCompatibilitySidecarEntry[]): TypeSpecCompatibilitySidecar['counts'] {
