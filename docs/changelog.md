@@ -2,6 +2,26 @@
 
 릴리스 단위가 아닌, 굵직한 surface 변경이 떨어졌을 때 한 항목으로 기록한다. 자세한 구현 상태는 [spec.md](./internal/spec.md), API 단일 소스는 [api-index.md](./internal/api-index.md), 기능↔테스트는 [feature-test-matrix.md](./internal/feature-test-matrix.md) 참조.
 
+## 2026-06-22 — TypeSpec-first schema source switch (`@oa-sdk/codegen` 0.3.0)
+
+ADR-009의 TypeSpec-first authoring 결정을 production schema build path에 반영했다. `packages/schemas/typespec/`가 production TypeSpec source bundle이고, 기본 `pnpm schema:validate`, `pnpm schema:bundle`, `pnpm schema:preview`, package-level `build`가 TypeSpec compile + OA SDK extension restore + expected/reference drift gate로 `packages/schemas/src/.merged.yaml`을 생성한다.
+
+OpenAPI/Definition Builder path는 제거하지 않고 explicit rollback/reference command로 유지한다:
+
+- `pnpm schema:validate:openapi`
+- `pnpm schema:bundle:openapi`
+- `pnpm schema:preview:openapi`
+- `pnpm --filter @oa-sdk/schemas run build:openapi`
+
+주요 게이트:
+
+- `pnpm schema:validate` — TypeSpec source path + downgrade + Spectral/Redocly + strict OA SDK OpenAPI 3.2 validate.
+- `pnpm schema:rollback-check` — TypeSpec gate와 OpenAPI/Definition Builder rollback gate 동시 검증.
+- `pnpm schema:downstream-check` — TypeSpec-restored artifact를 parser/codegen/router/client/mock-server와 synthetic webhook/header compile smoke에 통과.
+- `pnpm schema:bundle` — TypeSpec-derived 3.1 artifact를 `dist/openapi.{yaml,json}`으로 bundle.
+
+현재 accepted restored-vs-reference drift는 63 hash-pinned entries로 유지한다. burn-down 순서는 metadata alignment, reusable component identity, response wrapper projection schemas, operation/path metadata 순서다.
+
 ## 2026-04-28 — SQLite driver priority inverted: prefer node:sqlite
 
 `loadSqliteDriver()`가 `better-sqlite3` → `node:sqlite` 순서로 시도하던 정책을 뒤집어 `node:sqlite`(Node 22+ 내장)를 우선 시도하고 `better-sqlite3`는 fallback으로만 사용한다.

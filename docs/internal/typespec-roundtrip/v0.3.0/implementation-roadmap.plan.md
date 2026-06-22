@@ -1,22 +1,22 @@
 # TypeSpec Roundtrip v0.3.0 Implementation Roadmap
 
 > Target package version: `@oa-sdk/codegen` `0.3.0`.
-> Current package version: `@oa-sdk/codegen` `0.2.0`.
+> Current package version: `@oa-sdk/codegen` `0.3.0`.
 
-Status: implemented for the `0.3.0` evaluation track. The canonical roundtrip, two-track compatibility sidecar slices, sidecar-less canonical bundle, and ADR evidence are implemented through semantic re-extraction stability checks. ADR-009 now accepts TypeSpec-first schema authoring with a staged production migration.
+Status: completed for `0.3.0`. The canonical roundtrip, two-track compatibility sidecar slices, sidecar-less canonical bundle, ADR evidence, production TypeSpec source path, rollback gate, downstream gate, and source-path switch are implemented.
 
 ## Goal
 
-Turn the current TypeSpec export spike into a roundtrip readiness track for the next `@oa-sdk/codegen` minor version.
+Turn the TypeSpec export spike into the `@oa-sdk/codegen` `0.3.0` roundtrip readiness track and use its evidence to support TypeSpec-first production schema authoring.
 
-The `0.3.0` goal is:
+The `0.3.0` goal was:
 
 - keep the canonical OA SDK OpenAPI artifact as the source of truth during implementation,
 - reduce `OpenAPI -> TypeSpec -> OpenAPI` breaking diff to zero or to explicitly accepted differences,
 - classify every remaining exporter diagnostic as contract-bearing, metadata-only, or intentionally externalized,
-- produce enough evidence to decide whether a later release can declare TSP-first.
+- produce enough evidence to decide whether OA SDK can declare TSP-first and then wire the production source path once the decision is accepted.
 
-Non-goal for `0.3.0`: switching schema authoring to `.tsp` by default.
+Initial non-goal for `0.3.0`: switching schema authoring to `.tsp` before the evidence existed. Outcome: ADR-009 accepted TypeSpec-first authoring and the follow-up source-path switch now makes the TypeSpec production bundle the default schema source while retaining the OpenAPI/Definition Builder rollback path.
 
 ## Initial Baseline
 
@@ -35,7 +35,7 @@ Current gate state: `pnpm typespec:roundtrip -- --fail-on-breaking` passes becau
 
 ## Release Shape
 
-`@oa-sdk/codegen@0.3.0` should ship a stable evaluation workflow, not a default authoring migration.
+`@oa-sdk/codegen@0.3.0` ships the stable TypeSpec evaluation workflow used by the production source migration.
 
 Expected user-visible surface:
 
@@ -51,8 +51,8 @@ Expected docs:
 
 - Existing implemented behavior remains in `docs/internal/spec.md`.
 - Current evaluation summary remains in `docs/internal/typespec-roundtrip.plan.md`.
-- This roadmap owns `0.3.0` implementation sequencing.
-- ADR-009 records the accepted TypeSpec-first authoring decision; production build rewiring remains a separate migration.
+- This roadmap owns `0.3.0` implementation sequencing and release closeout.
+- ADR-009 records the accepted TypeSpec-first authoring decision; production build rewiring is implemented and documented in [`../production-migration-goals.md`](../production-migration-goals.md).
 
 ## Phase 0 — Probe Hardening
 
@@ -246,7 +246,7 @@ Evidence:
 
 ## Phase 6 — Readiness Gate And Decision Prep
 
-Status: implemented for the `0.3.0` evaluation track. This closes readiness evidence for the canonical fixture but does not promote `.tsp` to the canonical authoring source.
+Status: implemented for the `0.3.0` evaluation track. This closed readiness evidence for the canonical fixture and fed ADR-009 plus the production source-path switch.
 
 Purpose: make the release evidence clear enough to support the TypeSpec-first decision and its staged migration.
 
@@ -347,7 +347,7 @@ Evidence:
 
 ## Phase 9 — Sidecar-Less TypeSpec Extension Bundle
 
-Status: implemented as a TSP-project-single-SSOT spike, not a full TSP-first declaration.
+Status: implemented as the TSP-project-single-SSOT proof that fed the full TSP-first declaration.
 
 Purpose: prove that currently sidecar-owned OA SDK semantics can be authored inside `.tsp` without a separate sidecar file.
 
@@ -401,8 +401,8 @@ The version is ready when:
 - `pnpm typespec:roundtrip -- --fail-on-breaking` passes or all failures are accepted and machine-readable. Current canonical evidence: pass.
 - Contract-bearing exporter diagnostics are zero. Current canonical evidence: zero unaccepted diagnostics.
 - Metadata-only diagnostics are documented with owner and rationale. Current canonical evidence: `diagnosticPolicies` in the roundtrip report.
-- No TypeSpec-generated artifact becomes the canonical schema source yet.
-- Follow-up decision points are clear enough for a TSP-first ADR.
+- The production TypeSpec bundle is the default schema source, with OpenAPI/Definition Builder rollback commands retained.
+- Follow-up decision points are clear enough for continued drift burn-down and eventual rollback path removal review.
 - Follow-up decision design is recorded in [`../tsp-first-decision-design.md`](../tsp-first-decision-design.md).
 - Two-track compatibility can restore OpenAPI-owned sidecar semantics onto TypeSpec-emitted OpenAPI without breaking endpoint diff.
 - Generated `.tsp + sidecar` bundles are portable enough to be rechecked through `oa-sdk.typespec-bundle.v1` without the original OpenAPI artifact.

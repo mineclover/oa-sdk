@@ -4,7 +4,7 @@
 
 Status: evaluation complete. ADR-009 accepts TypeSpec-first schema authoring, and the production source-path switch is implemented with OpenAPI/Definition Builder rollback commands retained.
 
-Versioned implementation planning lives under [`typespec-roundtrip/`](./typespec-roundtrip/). The sidecar-less authored TypeSpec extension vocabulary is standardized in [`typespec-roundtrip/oa-sdk-typespec-extensions.v1.md`](./typespec-roundtrip/oa-sdk-typespec-extensions.v1.md). The completed TypeSpec-first decision design is tracked in [`typespec-roundtrip/tsp-first-decision-design.md`](./typespec-roundtrip/tsp-first-decision-design.md). The production migration goals G9-G12 and source-path switch are tracked in [`typespec-roundtrip/production-migration-goals.md`](./typespec-roundtrip/production-migration-goals.md). The next release housekeeping target is [`@oa-sdk/codegen` `0.3.0`](./typespec-roundtrip/v0.3.0/implementation-roadmap.plan.md), following the current `@oa-sdk/codegen` `0.2.0` package version.
+Versioned implementation planning lives under [`typespec-roundtrip/`](./typespec-roundtrip/). The sidecar-less authored TypeSpec extension vocabulary is standardized in [`typespec-roundtrip/oa-sdk-typespec-extensions.v1.md`](./typespec-roundtrip/oa-sdk-typespec-extensions.v1.md). The completed TypeSpec-first decision design is tracked in [`typespec-roundtrip/tsp-first-decision-design.md`](./typespec-roundtrip/tsp-first-decision-design.md). The production migration goals G9-G12 and source-path switch are tracked in [`typespec-roundtrip/production-migration-goals.md`](./typespec-roundtrip/production-migration-goals.md). The `@oa-sdk/codegen` `0.3.0` closeout is tracked in [`typespec-roundtrip/v0.3.0/implementation-roadmap.plan.md`](./typespec-roundtrip/v0.3.0/implementation-roadmap.plan.md).
 
 ## Current Surfaces
 
@@ -191,7 +191,7 @@ The first exporter pass shows a useful intersection:
 - Basic scalar constraints: format, min/max length, numeric min/max, pattern.
 - Schema and property documentation, JSON-compatible default values, deprecated markers, schema/property examples, and strict-object sealing via TypeSpec `...Record<never>;`.
 
-This is enough to keep path and operation identity stable and to run a machine-readable `0.3.0` readiness gate, but not enough by itself to claim TSP-first authoring.
+This was enough to keep path and operation identity stable and to run a machine-readable `0.3.0` readiness gate. The later canonical authored fixture, ADR-009, production source gates, rollback gate, and downstream gate provide the evidence for TSP-first production authoring.
 
 ## Difference Backlog
 

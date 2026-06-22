@@ -22,6 +22,6 @@ The production TypeSpec source bundle is [`../../../packages/schemas/typespec/`]
 
 | Target | Package | Plan | Status |
 |---|---|---|---|
-| `v0.3.0` | `@oa-sdk/codegen` | [`v0.3.0/implementation-roadmap.plan.md`](./v0.3.0/implementation-roadmap.plan.md) | in progress |
+| `v0.3.0` | `@oa-sdk/codegen` | [`v0.3.0/implementation-roadmap.plan.md`](./v0.3.0/implementation-roadmap.plan.md) | complete |
 
 Version folders are planning artifacts. They do not change package versions by themselves.
