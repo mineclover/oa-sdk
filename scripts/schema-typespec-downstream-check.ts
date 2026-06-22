@@ -105,11 +105,13 @@ try {
   })
   assertGeneratedSource('client', clientSource, 'export function createClient')
   await compileGeneratedConsumers({
+    fixtureName: 'production',
     typegenSource,
     honoRouterSource,
     expressRouterSource,
     clientSource,
   })
+  await compileSyntheticGeneratedConsumers({ codegen, router, client })
 
   const handlers = mockServer.createMswHandlers(spec)
   if (handlers.length < parsed.operations.length) {
@@ -123,6 +125,7 @@ try {
   console.log(`  codegen: ${lineCount(typegenSource)} typegen lines, ${typegenWarnings.length} warnings`)
   console.log(`  router: ${lineCount(honoRouterSource)} hono lines, ${lineCount(expressRouterSource)} express lines, compile pass`)
   console.log(`  client: ${lineCount(clientSource)} lines, compile pass`)
+  console.log('  synthetic: webhook/header generated TypeScript compile pass')
   console.log(`  mock-server: ${handlers.length} MSW handlers`)
   console.log('TypeSpec downstream check passed')
 } finally {
@@ -155,12 +158,13 @@ function assertGeneratedSource(label: string, source: string, requiredText: stri
 }
 
 async function compileGeneratedConsumers(input: {
+  fixtureName: string
   typegenSource: string
   honoRouterSource: string
   expressRouterSource: string
   clientSource: string
 }): Promise<void> {
-  const generatedDir = join(workspace, 'generated-consumers')
+  const generatedDir = join(workspace, 'generated-consumers', input.fixtureName)
   mkdirSync(generatedDir, { recursive: true })
   writeFileSync(join(generatedDir, 'types.ts'), input.typegenSource, 'utf8')
   writeFileSync(join(generatedDir, 'router-hono.ts'), input.honoRouterSource, 'utf8')
@@ -232,6 +236,106 @@ async function compileGeneratedConsumers(input: {
     '--project',
     join(generatedDir, 'tsconfig.json'),
   ])
+}
+
+async function compileSyntheticGeneratedConsumers(modules: {
+  codegen: { generateTypesFromSpec: (spec: Record<string, unknown>, options?: { banner?: boolean; warnings?: string[] }) => string }
+  router: { generateRouter: (spec: Record<string, unknown>, options?: { banner?: boolean; typesImport?: string; target?: 'hono' | 'express' }) => string }
+  client: { generateClient: (spec: Record<string, unknown>, options?: { banner?: boolean; typesImport?: string }) => string }
+}): Promise<void> {
+  const spec = syntheticDownstreamSpec()
+  const warnings: string[] = []
+  const typegenSource = modules.codegen.generateTypesFromSpec(spec, {
+    banner: false,
+    warnings,
+  })
+  if (warnings.length > 0) {
+    throw new Error(`synthetic codegen typegen warnings: ${warnings.join('; ')}`)
+  }
+  const honoRouterSource = modules.router.generateRouter(spec, {
+    banner: false,
+    typesImport: './types',
+  })
+  const expressRouterSource = modules.router.generateRouter(spec, {
+    banner: false,
+    target: 'express',
+    typesImport: './types',
+  })
+  const clientSource = modules.client.generateClient(spec, {
+    banner: false,
+    typesImport: './types',
+  })
+  assertGeneratedSource('synthetic typegen', typegenSource, 'export type WidgetCreatedWebhookBody')
+  assertGeneratedSource('synthetic hono router', honoRouterSource, 'WidgetCreatedWebhookBody')
+  await compileGeneratedConsumers({
+    fixtureName: 'synthetic',
+    typegenSource,
+    honoRouterSource,
+    expressRouterSource,
+    clientSource,
+  })
+}
+
+function syntheticDownstreamSpec(): Record<string, unknown> {
+  return {
+    openapi: '3.2.0',
+    info: { title: 'OA SDK downstream smoke fixture', version: '0.0.0' },
+    paths: {
+      '/widgets/{id}': {
+        get: {
+          operationId: 'getWidget',
+          parameters: [
+            { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
+            { name: 'includeMeta', in: 'query', schema: { type: 'boolean' } },
+          ],
+          responses: {
+            '200': {
+              description: 'OK',
+              headers: {
+                'X-Request-Id': { schema: { type: 'string' }, required: true },
+              },
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    required: ['id'],
+                    properties: {
+                      id: { type: 'string' },
+                      meta: { type: 'object', additionalProperties: true },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    webhooks: {
+      widgetCreated: {
+        post: {
+          operationId: 'widgetCreatedWebhook',
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['id'],
+                  properties: {
+                    id: { type: 'string' },
+                  },
+                },
+              },
+            },
+          },
+          responses: {
+            '200': { description: 'Acknowledged' },
+          },
+        },
+      },
+    },
+  }
 }
 
 function lineCount(source: string): number {

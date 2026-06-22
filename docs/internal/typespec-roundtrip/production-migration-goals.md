@@ -112,6 +112,7 @@ Status: implemented by `pnpm schema:downstream-check` and `pnpm --filter @oa-sdk
 - Run parser/codegen/router/client/mock-server checks against the TypeSpec-derived OpenAPI artifact, not only against the old `.merged.yaml`.
 - Import the built `dist` exports for downstream packages, so the gate exercises package output rather than only source modules.
 - Compile generated typegen, Hono router, Express router, and client TypeScript consumers so marker-only generation cannot pass with missing generated imports.
+- Compile a synthetic webhook/header fixture as well as the production artifact so downstream features that are absent from the current production OpenAPI still stay guarded.
 - Add or update focused commands in the feature matrix once the TypeSpec-derived artifact path is stable.
 - Treat mock-server example selection as a required smoke surface because `dataValue` / `serializedValue` semantics motivated the extension vocabulary.
 
@@ -146,4 +147,4 @@ The production migration is complete only when:
 - OA SDK OpenAPI 3.2 validation passes for emitted and restored output.
 - Restored-vs-production drift is eliminated or pinned in `packages/schemas/typespec/accepted-restored-drift.json` with reviewed normalized value hashes.
 - Extension or sidecar re-extraction is stable with no missing expected entries, unexpected actual entries, or value mismatches.
-- Downstream parser, codegen, router, client, generated TypeScript consumer compilation, and mock-server gates are green against the TypeSpec-derived artifact.
+- Downstream parser, codegen, router, client, generated TypeScript consumer compilation, synthetic webhook/header compilation, and mock-server gates are green against the TypeSpec-derived artifact.

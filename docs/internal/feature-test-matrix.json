@@ -272,7 +272,7 @@
       "name": "TypeSpec roundtrip export",
       "category": "codegen",
       "package": "@oa-sdk/codegen",
-      "description": "OpenAPI artifacts can be exported to TypeSpec spike source plus OA SDK sidecar metadata, and authored .tsp + sidecar or sidecar-less .tsp extension bundles can be compiled, restored, re-extracted for semantic stability, validated, diffed, classified with diagnostic policy gates, checked against hash-pinned production restored drift, and compiled through downstream generated consumers for TSP-first readiness.",
+      "description": "OpenAPI artifacts can be exported to TypeSpec spike source plus OA SDK sidecar metadata, and authored .tsp + sidecar or sidecar-less .tsp extension bundles can be compiled, restored, re-extracted for semantic stability, validated, diffed, classified with diagnostic policy gates, checked against hash-pinned production restored drift, and compiled through downstream generated consumers plus synthetic webhook/header consumers for TSP-first readiness.",
       "capabilities": [
         "OpenAPI to TypeSpec source export",
         "OpenAPI-owned TypeSpec compatibility sidecar",
@@ -292,6 +292,7 @@
     "production TypeSpec accepted restored drift manifest",
     "production TypeSpec rollback gate",
     "production TypeSpec downstream consumer gate",
+    "synthetic webhook/header downstream compile smoke",
     "sidecar-less authored TypeSpec extension bundle check",
     "representative authored TypeSpec extension bundle check",
     "request body authored TypeSpec extension bundle check",

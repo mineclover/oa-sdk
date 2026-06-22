@@ -46,6 +46,6 @@ Downstream G12 gate:
 pnpm schema:downstream-check
 ```
 
-The downstream gate writes a TypeSpec-restored production OpenAPI artifact, imports built package `dist` exports, feeds the artifact to parser validation, codegen typegen, router generation, client generation, and mock-server handler creation, and compiles generated typegen/router/client TypeScript consumers.
+The downstream gate writes a TypeSpec-restored production OpenAPI artifact, imports built package `dist` exports, feeds the artifact to parser validation, codegen typegen, router generation, client generation, and mock-server handler creation, and compiles generated typegen/router/client TypeScript consumers plus a synthetic webhook/header fixture.
 
 Do not make `schema:validate` or `schema:bundle` depend on this directory until the source-path switch is explicitly approved.

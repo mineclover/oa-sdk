@@ -26,7 +26,7 @@ Implemented source:
 - `scripts/typespec-create-authored-canonical-fixture.ts` — reproducible canonical authored fixture regeneration from the production merged OpenAPI schema.
 - `scripts/schema-typespec-check.ts` — G10 schema-level TypeSpec gate for the production bundle, current `.merged.yaml` freshness diff, and accepted restored drift hash manifest.
 - `scripts/schema-rollback-check.ts` — G11 rollback gate that proves the TypeSpec candidate and existing OpenAPI/Definition Builder path stay green together.
-- `scripts/schema-typespec-downstream-check.ts` — G12 downstream gate that imports built package exports, runs parser, codegen, router, client, and mock-server against the TypeSpec-derived production artifact, and compiles generated TypeScript consumers.
+- `scripts/schema-typespec-downstream-check.ts` — G12 downstream gate that imports built package exports, runs parser, codegen, router, client, and mock-server against the TypeSpec-derived production artifact, and compiles generated TypeScript consumers plus a synthetic webhook/header fixture.
 - `packages/schemas/typespec/` — G9 production-owned TypeSpec source layout candidate for the staged migration.
 - `packages/schemas/typespec/accepted-restored-drift.json` — G10 accepted TypeSpec-restored-vs-production drift manifest with normalized value hashes.
 - `docs/internal/typespec-roundtrip/oa-sdk-typespec-extensions.v1.md` — `oa-sdk.typespec-extensions.v1` vocabulary for sidecar-less authored TypeSpec bundles.
@@ -140,7 +140,7 @@ Current probe on `packages/schemas/src/.merged.yaml`:
 | Production TypeSpec source layout | pass, `packages/schemas/typespec/` exists as the G9 production-owned TypeSpec bundle candidate and passes standalone bundle-check |
 | Production TypeSpec schema check | pass, `pnpm schema:typespec-check` runs the production bundle check, verifies bundle-local expected OpenAPI against `packages/schemas/src/.merged.yaml`, and requires the TypeSpec-restored-vs-production diff to match `accepted-restored-drift.json` with 63 accepted hash-pinned entries |
 | Production TypeSpec rollback gate | pass, `pnpm schema:rollback-check` runs the TypeSpec production candidate gate and the existing OpenAPI/Definition Builder validation path before any production source-path switch |
-| Production TypeSpec downstream gate | pass, `pnpm schema:downstream-check` generates the TypeSpec-restored production OpenAPI artifact, imports built package `dist` exports, feeds it to parser validation, codegen typegen, router generation, client generation, and mock-server handler creation, and compiles generated typegen/router/client TypeScript consumers |
+| Production TypeSpec downstream gate | pass, `pnpm schema:downstream-check` generates the TypeSpec-restored production OpenAPI artifact, imports built package `dist` exports, feeds it to parser validation, codegen typegen, router generation, client generation, and mock-server handler creation, and compiles generated typegen/router/client TypeScript consumers plus a synthetic webhook/header fixture |
 
 Diagnostic distribution:
 
