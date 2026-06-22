@@ -1,6 +1,6 @@
 # TypeSpec Production Migration Goals
 
-Status: G9-G12 and the production source-path switch are implemented. ADR-009 accepts TypeSpec-first schema authoring, and default schema validation/build/bundle commands now emit production OpenAPI artifacts from the production TypeSpec bundle.
+Status: G9-G12 and the production source-path switch are implemented. ADR-009 accepts TypeSpec-first schema authoring, and default schema validation/build/bundle commands now emit production OpenAPI artifacts from the production TypeSpec bundle. G13-G15 track the remaining reviewed drift burn-down after the TypeSpec source switch.
 
 This document extends the completed G1-G8 decision roadmap with production migration goals. It does not reopen the TypeSpec-first decision; it scopes the work required to make the accepted TypeSpec bundle production-authoritative.
 
@@ -42,6 +42,9 @@ The migration must treat those OpenAPI artifacts as generated/verified outputs, 
 | G10 Schema build wiring | Connect the schema build or validation path to TypeSpec compile, OA SDK extension restore, expected diff, and OpenAPI 3.2 validation. | G9. | The selected schema command can validate the TypeSpec production bundle and either emits or verifies `packages/schemas/src/.merged.yaml` through the same bundle-check semantics. |
 | G11 Rollback gate | Keep the OpenAPI/Definition Builder path green and reversible while the TypeSpec path is authoritative. | G10. | A documented rollback command or procedure restores the last green OpenAPI path, and CI or local gates prove both rollback and TypeSpec paths before removing any old source path. |
 | G12 Downstream consumer gates | Prove parser, codegen, router, client, and mock-server behavior against the TypeSpec-derived production OpenAPI. | G10 and G11. | Focused downstream commands run against the TypeSpec-derived artifact, and the feature matrix lists the maintained commands before the migration is considered complete. |
+| G13 Response wrapper projection drift burn-down | Decide and implement the policy for TypeSpec-emitted response body projection schemas versus the old inline response schema shape. | G10-G12 and `oa-sdk.typespec-extensions.v5`. | The `component/added` projection artifacts and their path-level response schema `$ref` differences are either eliminated from `accepted-restored-drift.json` or documented as a stable projection policy with focused verifier coverage. |
+| G14 Component schema metadata parity | Burn down component-level schema differences that are not response wrapper projection artifacts. | G13 if it changes component shape; otherwise G10-G12. | The `component/changed` set is reduced by restoring or authoring the missing schema metadata, or each remaining entry is explicitly classified as TypeSpec/OpenAPI projection-equivalent with reviewed hashes. |
+| G15 Operation/path metadata parity | Burn down the remaining operation/path differences after response wrapper and component metadata decisions. | G13 and G14. | The `path/changed` set is eliminated or reduced to explicitly accepted operation/path metadata differences with stable gates and no downstream behavioral drift. |
 
 ## Recommended Production Layout
 
@@ -74,6 +77,8 @@ G10 should be the build wiring commit. It should preserve the explicit OpenAPI r
 G11 should be a rollback evidence commit. It should make the fallback path explicit enough that a failed TypeSpec migration can be repaired without guessing which file or command is authoritative.
 
 G12 should be a downstream verification commit. It should avoid broad unrelated refactors and should focus on the consumers named by ADR-009.
+
+G13-G15 should be independent drift burn-down commits. Each goal must update `packages/schemas/typespec/accepted-restored-drift.json` only after reviewing the normalized reference/restored values for the affected pointers.
 
 ## Per-Goal Implementation Notes
 
@@ -120,6 +125,34 @@ Status: implemented by `pnpm schema:downstream-check` and `pnpm --filter @oa-sdk
 - Add or update focused commands in the feature matrix once the TypeSpec-derived artifact path is stable.
 - Treat mock-server example selection as a required smoke surface because `dataValue` / `serializedValue` semantics motivated the extension vocabulary.
 
+### G13 - Response Wrapper Projection Drift Burn-Down
+
+Status: planned.
+
+- Current reviewed drift includes four `component/added` TypeSpec projection artifacts: `ErrorMeta`, `ListModerationReports200Body`, `ListMyRoleChanges200Body`, and `ListUsers200Body`.
+- The list response body artifacts also drive path-level differences where the reference OpenAPI keeps the success response schema inline and TypeSpec emits a named component `$ref`.
+- First decide whether the production `.tsp` should author those shapes in a way that emits inline response schemas, or whether the accepted projection shape is the canonical TypeSpec-first output.
+- If the projection shape is accepted, add focused verifier coverage so future projection component additions cannot grow silently.
+- If inline parity is restored, regenerate the TypeSpec artifact and remove the affected component/path entries from `accepted-restored-drift.json` in the same commit.
+
+### G14 - Component Schema Metadata Parity
+
+Status: planned.
+
+- Current reviewed drift includes 14 `component/changed` entries after reusable component identity restoration.
+- The first review pass should classify each changed schema as one of: missing `example` vs emitted `examples`, TypeSpec-emitted schema normalization, or true contract metadata loss.
+- Restore true metadata loss through TypeSpec-native authoring first. Use a new `oa-sdk.typespec-extensions` version only if the metadata restores onto an OpenAPI-native target and TypeSpec has no native authoring surface for it.
+- Do not refresh hashes for component changes until the classification is written down and the affected normalized values have been compared.
+
+### G15 - Operation/Path Metadata Parity
+
+Status: planned.
+
+- Current reviewed drift includes 22 `path/changed` entries.
+- Some path drift is expected to disappear with G13 because response schema projection changes the enclosing operation object hash.
+- After G13/G14, inspect only the remaining path entries and classify them by cause: parameter defaults such as explicit `required: false` / `explode: false`, operation object ordering-neutral normalization, response schema projection, or real metadata loss.
+- Any operation/path metadata that affects parser, codegen, mock-server, router, or client behavior must be restored or covered by downstream tests before its hash can remain accepted.
+
 ## Gate Commands
 
 Baseline commands for every production migration goal:
@@ -139,6 +172,9 @@ Additional commands by goal:
 | G10 | `pnpm schema:typespec-check`, `pnpm --filter @oa-sdk/schemas run typespec:check`, `pnpm schema:bundle`, and `pnpm schema:validate` |
 | G11 | `pnpm schema:rollback-check`, `pnpm schema:validate:openapi`, and `pnpm --filter @oa-sdk/schemas run rollback:check` |
 | G12 | `pnpm schema:downstream-check` and `pnpm --filter @oa-sdk/schemas run downstream:check` |
+| G13 | `pnpm schema:typespec-check`, `pnpm schema:validate`, and `pnpm --filter @oa-sdk/schemas run downstream:check` |
+| G14 | `pnpm schema:typespec-check`, `pnpm schema:validate`, and focused parser/codegen tests for any metadata that affects generated consumers |
+| G15 | `pnpm schema:typespec-check`, `pnpm schema:downstream-check`, and focused downstream tests for any operation/path metadata behavior |
 
 ## Completion Checklist
 
