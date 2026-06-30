@@ -79,6 +79,9 @@ jobs:
       - name: Feature test matrix consistency
         run: pnpm check:feature-tests
 
+      - name: Release policy consistency
+        run: pnpm check:release-policy
+
       # ── Spec diff (PR only) ────────────────────────────────
       - name: API spec diff
         if: github.event_name == 'pull_request'

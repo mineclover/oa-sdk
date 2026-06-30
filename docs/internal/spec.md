@@ -17,7 +17,8 @@ typia-mock   ← core + parser (+ typia: peer). LLM 함수 호출 검증 서버
 schemas      ← 독립. TypeSpec production source + generated OAS artifact + Definition Builder rollback + 3.1↔3.2 변환
 ```
 
-개발/CI 런타임 기준은 Node.js 25 이상이다. `packageManager`는 pnpm 10.30.3으로 고정하고, Node 타입 의존성도 25 계열과 맞춘다.
+개발/CI 런타임 기준은 Node.js 25 이상이다. 로컬 nvm 런타임은 `.nvmrc`의 `25`를 기준으로 맞춘다.
+`packageManager`는 pnpm 10.30.3으로 고정하고, Corepack으로 실행한다. Node 타입 의존성도 25 계열과 맞춘다.
 
 ---
 

@@ -7,5 +7,13 @@
   "access": "restricted",
   "baseBranch": "main",
   "updateInternalDependencies": "patch",
-  "ignore": []
+  "ignore": [
+    "@oa-sdk/infra-gitlab",
+    "@oa-sdk/orchestrator-gitlab",
+    "@oa-sdk/nestjs-ref",
+    "@oa-sdk/orchestrator-gitlab-ui",
+    "@oa-sdk/playground",
+    "@oa-sdk/preview",
+    "@oa-sdk/spec-lens-ui"
+  ]
 }

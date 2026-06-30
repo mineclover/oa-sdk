@@ -1,0 +1,36 @@
+{
+  "version": 1,
+  "changesets": {
+    "baseBranch": "main",
+    "access": "restricted",
+    "updateInternalDependencies": "patch",
+    "fixed": [],
+    "linked": []
+  },
+  "publish": {
+    "enabled": false
+  },
+  "releaseTracked": [
+    "@oa-sdk/openapi-projection-contract",
+    "@oa-sdk/core",
+    "@oa-sdk/parser",
+    "@oa-sdk/schemas",
+    "@oa-sdk/mock-server",
+    "@oa-sdk/codegen",
+    "@oa-sdk/router",
+    "@oa-sdk/client",
+    "@oa-sdk/typia-mock",
+    "@oa-sdk/personas",
+    "@oa-sdk/markdown-editor",
+    "@oa-sdk/spec-lens"
+  ],
+  "ignored": [
+    "@oa-sdk/infra-gitlab",
+    "@oa-sdk/orchestrator-gitlab",
+    "@oa-sdk/nestjs-ref",
+    "@oa-sdk/orchestrator-gitlab-ui",
+    "@oa-sdk/playground",
+    "@oa-sdk/preview",
+    "@oa-sdk/spec-lens-ui"
+  ]
+}
