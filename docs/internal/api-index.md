@@ -306,9 +306,9 @@ catalog/registry snapshot, semantic validator, compiler, CLI/gateway/publishing 
 | `createDpmValidationReport()` | `dpm/src/storage/report-repository.ts` | copy-only validation report builder that excludes unsafe payload fields |
 | `validationReportToGatewayJobReport()` | `dpm/src/storage/report-repository.ts` | stored report to gateway job report projection |
 | `createDpmReportRepository()` | `dpm/src/storage/report-repository.ts` | adapter-backed validation report repository factory |
-| `DpmGatewayOperationId` | `dpm/src/gateway/openapi-paths.ts` | DPM gateway operation id taxonomy |
+| `DpmGatewayOperationId` | `dpm/src/gateway/openapi-operation-ids.ts` | DPM gateway operation id taxonomy |
 | `DpmGatewayOpenApiDocument` | `dpm/src/gateway/openapi.ts` | DPM gateway OpenAPI 3.2 document type |
-| `DPM_GATEWAY_OPERATION_IDS` | `dpm/src/gateway/openapi-paths.ts` | required DPM gateway operation id list |
+| `DPM_GATEWAY_OPERATION_IDS` | `dpm/src/gateway/openapi-operation-ids.ts` | required DPM gateway operation id list |
 | `getDpmGatewayOpenApiDocument()` | `dpm/src/gateway/openapi.ts` | checked DPM gateway OpenAPI 3.2 artifact |
 | `DPM_PROFILE_PROPOSAL_REVIEW_STATUSES` | `dpm/src/gateway/profile-proposal.ts` | editor-safe profile proposal review lifecycle taxonomy |
 | `DpmProfileProposalReviewStatus` | `dpm/src/gateway/profile-proposal.ts` | editor-safe profile proposal review status union |

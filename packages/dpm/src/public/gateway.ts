@@ -3,7 +3,7 @@ export type {
 } from '../gateway/openapi.js'
 export type {
   DpmGatewayOperationId,
-} from '../gateway/openapi-paths.js'
+} from '../gateway/openapi-operation-ids.js'
 export type {
   DpmGatewayProfileAnalysisInput,
   DpmGatewayProfileAnalysisResult,
@@ -27,7 +27,7 @@ export {
 } from '../gateway/openapi.js'
 export {
   DPM_GATEWAY_OPERATION_IDS,
-} from '../gateway/openapi-paths.js'
+} from '../gateway/openapi-operation-ids.js'
 export {
   DPM_GATEWAY_RUNTIME_OPERATION_IDS,
   createDpmGatewayRuntime,

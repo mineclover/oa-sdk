@@ -360,6 +360,8 @@ Artifacts:
 - `packages/dpm/src/gateway/profile-openapi.ts`
 - `packages/dpm/src/gateway/profile-openapi-artifact-schemas.ts`
 - `packages/dpm/src/gateway/profile-openapi-analysis-schemas.ts`
+- `packages/dpm/src/gateway/openapi-operation.ts`
+- `packages/dpm/src/gateway/openapi-operation-ids.ts`
 - `packages/dpm/src/gateway/openapi-paths.ts`
 - `packages/dpm/test/gateway.test.ts`
 - `packages/dpm/test/gateway-taxonomy.test.ts`
