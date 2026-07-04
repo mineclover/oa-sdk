@@ -6,9 +6,15 @@ import {
   addKafkaEvidence,
   appendKafkaFieldProfile,
   appendKafkaRelationshipHint,
-  kafkaContainsEdge,
   kafkaCoordinate,
 } from './kafka-profile-graph.js'
+import {
+  appendKafkaHeaders,
+  appendKafkaKey,
+  appendKafkaMessageRateMetric,
+  appendKafkaPartitions,
+  appendKafkaSchema,
+} from './kafka-topic-sections.js'
 import type {
   DpmProfileEdge,
   DpmProfileEvidenceSource,
@@ -49,130 +55,22 @@ export function createKafkaTopicProfileArtifactInput(
     coordinate: kafkaCoordinate(sourceId, input.topic.name, '/topic'),
   })
 
-  for (const partition of [...input.topic.partitions].sort((left, right) => left - right)) {
-    const partitionEvidenceId = addKafkaEvidence(evidenceSources, {
-      id: `evidence:kafka:${input.topic.name}.partition.${partition}`,
-      sourceId,
-      connectorId,
-      path: `${input.topic.name}.partition.${partition}`,
-      pointer: `/partitions/${partition}`,
-    })
-    const partitionNodeId = `node:partition:${input.topic.name}.${partition}`
-    nodes.push({
-      id: partitionNodeId,
-      kind: 'partition',
-      label: `${input.topic.name}[${partition}]`,
-      coordinate: kafkaCoordinate(sourceId, `${input.topic.name}.partition.${partition}`, `/partitions/${partition}`),
-      dataType: 'partition',
-    })
-    edges.push(kafkaContainsEdge(input.topic.name, topicNodeId, partitionNodeId, partitionEvidenceId))
+  const sectionInput = {
+    topic: input.topic,
+    sourceId,
+    connectorId,
+    topicNodeId,
+    topicEvidenceId,
+    evidenceSources,
+    nodes,
+    edges,
+    metrics,
   }
-
-  if (input.topic.messageRateEstimate !== undefined) {
-    metrics.push({
-      id: `metric:${input.topic.name}.message_rate_estimate`,
-      kind: 'message_rate_estimate',
-      subjectId: topicNodeId,
-      value: input.topic.messageRateEstimate,
-      unit: 'messages_per_second',
-      evidenceIds: [topicEvidenceId],
-    })
-  }
-
-  if (input.topic.key) {
-    const keyEvidenceId = addKafkaEvidence(evidenceSources, {
-      id: `evidence:kafka:${input.topic.name}.key`,
-      sourceId,
-      connectorId,
-      path: `${input.topic.name}.key`,
-      pointer: '/key',
-    })
-    const keyNodeId = `node:key:${input.topic.name}`
-    nodes.push({
-      id: keyNodeId,
-      kind: 'message_key',
-      label: `${input.topic.name} key`,
-      coordinate: kafkaCoordinate(sourceId, `${input.topic.name}.key`, '/key'),
-      dataType: input.topic.key.dataType,
-    })
-    edges.push(kafkaContainsEdge(input.topic.name, topicNodeId, keyNodeId, keyEvidenceId))
-    if (input.topic.key.coverageRatio !== undefined) {
-      metrics.push({
-        id: `metric:${input.topic.name}.key_coverage`,
-        kind: 'key_coverage_ratio',
-        subjectId: keyNodeId,
-        value: input.topic.key.coverageRatio,
-        unit: 'ratio',
-        evidenceIds: [keyEvidenceId],
-      })
-    }
-  }
-
-  for (const header of [...(input.topic.headers ?? [])].sort((left, right) => left.name.localeCompare(right.name))) {
-    const headerEvidenceId = addKafkaEvidence(evidenceSources, {
-      id: `evidence:kafka:${input.topic.name}.header.${header.name}`,
-      sourceId,
-      connectorId,
-      path: `${input.topic.name}.header.${header.name}`,
-      pointer: `/headers/${header.name}`,
-    })
-    const headerNodeId = `node:header:${input.topic.name}.${header.name}`
-    nodes.push({
-      id: headerNodeId,
-      kind: 'message_header',
-      label: `header.${header.name}`,
-      coordinate: kafkaCoordinate(sourceId, `${input.topic.name}.header.${header.name}`, `/headers/${header.name}`),
-      dataType: header.dataType,
-    })
-    edges.push(kafkaContainsEdge(input.topic.name, topicNodeId, headerNodeId, headerEvidenceId))
-    if (header.presenceRatio !== undefined) {
-      metrics.push({
-        id: `metric:${input.topic.name}.header.${header.name}.presence`,
-        kind: 'presence_ratio',
-        subjectId: headerNodeId,
-        value: header.presenceRatio,
-        unit: 'ratio',
-        evidenceIds: [headerEvidenceId],
-      })
-    }
-  }
-
-  if (input.topic.schema) {
-    const schemaEvidenceId = addKafkaEvidence(evidenceSources, {
-      id: `evidence:kafka:${input.topic.name}.schema.${input.topic.schema.subject}`,
-      sourceId,
-      connectorId,
-      path: `${input.topic.name}.schema.${input.topic.schema.subject}`,
-      pointer: '/schema',
-      description: input.topic.schema.format,
-    })
-    const schemaNodeId = `node:schema-subject:${input.topic.schema.subject}`
-    nodes.push({
-      id: schemaNodeId,
-      kind: 'schema_subject',
-      label: input.topic.schema.subject,
-      coordinate: kafkaCoordinate(sourceId, `${input.topic.name}.schema.${input.topic.schema.subject}`, '/schema'),
-      dataType: input.topic.schema.format,
-      shape: {
-        latestVersion: Math.max(...input.topic.schema.versions),
-      },
-    })
-    edges.push({
-      id: `edge:${input.topic.name}.schema_version_of.${input.topic.schema.subject}`,
-      kind: 'schema_version_of',
-      fromNodeId: schemaNodeId,
-      toNodeId: topicNodeId,
-      evidenceIds: [schemaEvidenceId],
-    })
-    metrics.push({
-      id: `metric:${input.topic.name}.schema_version_count`,
-      kind: 'schema_version_count',
-      subjectId: schemaNodeId,
-      value: input.topic.schema.versions.length,
-      unit: 'versions',
-      evidenceIds: [schemaEvidenceId],
-    })
-  }
+  appendKafkaPartitions(sectionInput)
+  appendKafkaMessageRateMetric(sectionInput)
+  appendKafkaKey(sectionInput)
+  appendKafkaHeaders(sectionInput)
+  appendKafkaSchema(sectionInput)
 
   for (const field of input.topic.value.fields) {
     appendKafkaFieldProfile({
