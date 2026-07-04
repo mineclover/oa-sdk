@@ -74,6 +74,8 @@ Status: implemented 2026-07-01.
 
 Artifacts:
 - `packages/dpm/src/catalog/profiler-postgres.ts`
+- `packages/dpm/src/catalog/profiler-postgres-query.ts`
+- `packages/dpm/src/catalog/profiler-postgres-rows.ts`
 - `packages/dpm/test/catalog-profiler.test.ts`
 - read-only catalog SQL fixtures
 
@@ -95,11 +97,11 @@ Verification:
 
 Implementation notes:
 - `POSTGRES_CATALOG_PROFILE_SQL` reads `pg_catalog` metadata for selected schemas only and avoids
-  mutation statements.
+  mutation statements. Its SQL literal lives in `packages/dpm/src/catalog/profiler-postgres-query.ts`.
 - `profilePostgresCatalog()` requires an explicit query client and schema filter.
 - `postgresCatalogRowsToSnapshot()` maps profiled rows into the existing `CatalogSnapshot` shape,
   derives primary-key and unique-index candidates, and delegates freshness hashing to the existing
-  catalog normalization path.
+  catalog normalization path. The row mapper lives in `packages/dpm/src/catalog/profiler-postgres-rows.ts`.
 
 ### DPM-13 - Gateway Runtime Adapter
 
