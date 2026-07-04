@@ -41,6 +41,7 @@ export type {
   RegistryApprovalMetadata,
   RegistryConditionMetadata,
   RegistryEvidence,
+  RegistryOrphanPolicy,
   RegistryRelationship,
   RegistryRelationshipInput,
   RegistryRelationshipKind,
@@ -90,6 +91,7 @@ export type {
   DpmNamespaceBinding,
   DpmPlanFreshness,
   DpmPlanStaleReason,
+  DpmRelationshipStepCardinality,
   DpmRelationshipStep,
 } from './compiler/plan.js'
 export type {
@@ -172,6 +174,7 @@ export {
   createRelationshipDiscoveryReport,
 } from './discovery/report.js'
 export {
+  REGISTRY_ORPHAN_POLICIES,
   REGISTRY_RELATIONSHIP_KINDS,
   REGISTRY_RELATIONSHIP_STATUSES,
   REGISTRY_TRANSFORM_STRATEGIES,
@@ -195,6 +198,7 @@ export {
   DPM_COMPILED_PLAN_KIND,
   DPM_COMPILED_PLAN_VERSIONS,
   DPM_PLAN_STALE_REASONS,
+  DPM_RELATIONSHIP_STEP_CARDINALITIES,
   createPlanFreshness,
 } from './compiler/plan.js'
 export { compileDpmPlan } from './compiler/compile.js'

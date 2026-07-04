@@ -9,7 +9,11 @@ import {
   DPM_GATEWAY_OPERATION_IDS,
   DPM_MANIFEST_SCHEMA_ID,
   DPM_PLAN_STALE_REASONS,
+  DPM_RELATIONSHIP_STEP_CARDINALITIES,
+  REGISTRY_ORPHAN_POLICIES,
+  REGISTRY_RELATIONSHIP_KINDS,
   REGISTRY_RELATIONSHIP_STATUSES,
+  REGISTRY_TRANSFORM_STRATEGIES,
   getDpmGatewayOpenApiDocument,
 } from '../src/index.js'
 
@@ -92,6 +96,16 @@ describe('DPM gateway OpenAPI contract', () => {
     expect(registrySchema.properties.relationships.items.properties.status.enum).toEqual([
       ...REGISTRY_RELATIONSHIP_STATUSES,
     ])
+  })
+
+  it('projects relationship step runtime taxonomies into the gateway schema', () => {
+    const document = getDpmGatewayOpenApiDocument()
+    const relationshipStepSchema = document.components?.schemas?.DpmRelationshipStep as Record<string, any>
+
+    expect(relationshipStepSchema.properties.relationshipType.enum).toEqual([...REGISTRY_RELATIONSHIP_KINDS])
+    expect(relationshipStepSchema.properties.cardinality.enum).toEqual([...DPM_RELATIONSHIP_STEP_CARDINALITIES])
+    expect(relationshipStepSchema.properties.transformStrategy.enum).toEqual([...REGISTRY_TRANSFORM_STRATEGIES])
+    expect(relationshipStepSchema.properties.orphanPolicy.enum).toEqual([...REGISTRY_ORPHAN_POLICIES])
   })
 
   it('rejects empty objects for every non-opaque gateway component schema', () => {

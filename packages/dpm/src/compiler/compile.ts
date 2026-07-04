@@ -12,6 +12,7 @@ import {
   type DpmCompiledPlan,
   type DpmNamespaceBinding,
   type DpmPlanStaleReason,
+  type DpmRelationshipStepCardinality,
   type DpmRelationshipStep,
 } from './plan.js'
 
@@ -202,13 +203,13 @@ function getStaleReasons(input: {
   return reasons
 }
 
-function toCardinality(relationshipType: string): string {
+function toCardinality(relationshipType: string): DpmRelationshipStepCardinality {
   if (relationshipType === 'one_to_one') return 'one_to_one'
   if (relationshipType === 'one_to_many') return 'one_to_many'
   if (relationshipType === 'many_to_one') return 'many_to_one'
   if (relationshipType === 'many_to_many_edge') return 'many_to_many'
   if (relationshipType === 'self_reference') return 'self_reference'
-  return relationshipType
+  return relationshipType as DpmRelationshipStepCardinality
 }
 
 function asArray(value: unknown): unknown[] {

@@ -53,6 +53,7 @@ Last updated: 2026-07-04
 - [x] DPM-19 - Diagnostic Code Taxonomy Contract
 - [x] DPM-20 - Compiled Plan Taxonomy Contract
 - [x] DPM-21 - Workflow Response Taxonomy Contract
+- [x] DPM-22 - Relationship Step Taxonomy Contract
 
 ## Done Criteria
 

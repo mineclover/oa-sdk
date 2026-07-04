@@ -135,6 +135,8 @@ catalog/registry snapshot, semantic validator, compiler, CLI/gateway/publishing 
 | `RegistryRelationshipKind` | `dpm/src/registry/types.ts` | registry relationship kind taxonomy |
 | `REGISTRY_TRANSFORM_STRATEGIES` | `dpm/src/registry/types.ts` | runtime registry transform strategy taxonomy |
 | `RegistryTransformStrategy` | `dpm/src/registry/types.ts` | registry transform strategy taxonomy |
+| `REGISTRY_ORPHAN_POLICIES` | `dpm/src/registry/types.ts` | runtime registry orphan policy taxonomy used by TypeScript and OpenAPI |
+| `RegistryOrphanPolicy` | `dpm/src/registry/types.ts` | registry relationship orphan policy taxonomy |
 | `RegistryConditionMetadata` | `dpm/src/registry/types.ts` | context column, SQL condition, temporal condition metadata |
 | `RegistryEvidence` | `dpm/src/registry/types.ts` | registry relationship evidence entry |
 | `RegistryApprovalMetadata` | `dpm/src/registry/types.ts` | owner/reviewer/approval metadata |
@@ -193,6 +195,8 @@ catalog/registry snapshot, semantic validator, compiler, CLI/gateway/publishing 
 | `DpmCompiledPlanVersion` | `dpm/src/compiler/plan.ts` | compiled plan version taxonomy |
 | `DPM_PLAN_STALE_REASONS` | `dpm/src/compiler/plan.ts` | runtime compiled plan stale reason taxonomy used by TypeScript and OpenAPI |
 | `DpmPlanStaleReason` | `dpm/src/compiler/plan.ts` | compiled plan stale reason taxonomy |
+| `DPM_RELATIONSHIP_STEP_CARDINALITIES` | `dpm/src/compiler/plan.ts` | runtime relationship step cardinality taxonomy used by TypeScript and OpenAPI |
+| `DpmRelationshipStepCardinality` | `dpm/src/compiler/plan.ts` | compiled relationship step cardinality taxonomy |
 | `DpmPlanFreshness` | `dpm/src/compiler/plan.ts` | manifest, catalog, and registry freshness tuple |
 | `DpmNamespaceBinding` | `dpm/src/compiler/plan.ts` | namespace to entity, relationship, and column binding |
 | `DpmRelationshipStep` | `dpm/src/compiler/plan.ts` | approved relationship execution step |

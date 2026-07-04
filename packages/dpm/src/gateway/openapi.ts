@@ -1,9 +1,15 @@
 import {
   DPM_COMPILED_PLAN_VERSIONS,
   DPM_PLAN_STALE_REASONS,
+  DPM_RELATIONSHIP_STEP_CARDINALITIES,
 } from '../compiler/plan.js'
 import { DISCOVERY_CANDIDATE_RECOMMENDATIONS } from '../discovery/types.js'
-import { REGISTRY_RELATIONSHIP_STATUSES } from '../registry/types.js'
+import {
+  REGISTRY_ORPHAN_POLICIES,
+  REGISTRY_RELATIONSHIP_KINDS,
+  REGISTRY_RELATIONSHIP_STATUSES,
+  REGISTRY_TRANSFORM_STRATEGIES,
+} from '../registry/types.js'
 import { DPM_MANIFEST_SCHEMA_ID } from '../schema/index.js'
 import { DPM_DIAGNOSTIC_CODES } from '../validator/diagnostics.js'
 
@@ -313,13 +319,13 @@ function createDpmGatewayOpenApiDocument() {
           name: stringSchema(),
           registryIdentity: stringSchema(),
           registryStatus: { type: 'string', enum: ['approved'] },
-          relationshipType: stringSchema(),
-          cardinality: stringSchema(),
+          relationshipType: { type: 'string', enum: [...REGISTRY_RELATIONSHIP_KINDS] },
+          cardinality: { type: 'string', enum: [...DPM_RELATIONSHIP_STEP_CARDINALITIES] },
           parent: ref('DpmRelationshipEndpoint'),
           child: ref('DpmRelationshipEndpoint'),
           namespace: stringSchema(),
-          transformStrategy: stringSchema(),
-          orphanPolicy: stringSchema(),
+          transformStrategy: { type: 'string', enum: [...REGISTRY_TRANSFORM_STRATEGIES] },
+          orphanPolicy: { type: 'string', enum: [...REGISTRY_ORPHAN_POLICIES] },
         }),
         DpmRelationshipEndpoint: requiredObjectSchema({
           table: stringSchema(),

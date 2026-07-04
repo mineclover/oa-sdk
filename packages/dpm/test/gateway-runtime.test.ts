@@ -130,6 +130,25 @@ describe('DPM gateway runtime adapter', () => {
     }), 'DpmCompiledPlan unexpectedly accepted an unknown stale reason').toBe(false)
   })
 
+  it('rejects relationship step taxonomy values outside the DPM plan contract', async () => {
+    const runtime = createDpmGatewayRuntime()
+    const compile = await runtime.compileDpmManifest(createRuntimeInput())
+    const schema = compileGatewayComponentSchema('DpmRelationshipStep')
+    const step = compile.body.result.plan.relationshipSteps[0]
+
+    for (const [field, value] of [
+      ['relationshipType', 'unknown_relationship_type'],
+      ['cardinality', 'unknown_cardinality'],
+      ['transformStrategy', 'unknown_transform_strategy'],
+      ['orphanPolicy', 'unknown_orphan_policy'],
+    ] as const) {
+      expect(schema({
+        ...step,
+        [field]: value,
+      }), `DpmRelationshipStep unexpectedly accepted ${field}=${value}`).toBe(false)
+    }
+  })
+
   it('rejects incomplete gateway response payloads for core runtime schemas', () => {
     for (const schemaName of ['DpmValidationResult', 'DpmCompileResult', 'DpmDryRunResult']) {
       const schema = compileGatewayComponentSchema(schemaName)
