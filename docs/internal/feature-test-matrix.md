@@ -35,7 +35,7 @@ without checking behavior, add focused assertions or split the matrix row.
 | `dpm-manifest-schema` | `@oa-sdk/dpm` | relationship-first DPM manifest schema and fixture gates | `packages/dpm/test/schema.test.ts`, `smoke.test.ts` |
 | `dpm-catalog-snapshot` | `@oa-sdk/dpm` | PostgreSQL catalog snapshot normalization, OpenAPI projection adapter, freshness hash | `packages/dpm/test/catalog.test.ts` |
 | `dpm-postgres-catalog-profiler` | `@oa-sdk/dpm` | read-only PostgreSQL catalog profiler query and row-to-snapshot mapping | `packages/dpm/test/catalog-profiler.test.ts`, `packages/dpm/test/fixtures/catalog/profiler-postgres.sql` |
-| `dpm-profile-artifact` | `@oa-sdk/dpm` | source-neutral profile artifact schema, coordinates, nodes, edges, metrics, diagnostics, freshness | `packages/dpm/test/profile-schema.test.ts` |
+| `dpm-profile-artifact` | `@oa-sdk/dpm` | source-neutral profile artifact schema, coordinates, nodes, edges, metrics, diagnostics, freshness | `packages/dpm/test/profile-artifact.test.ts`, `packages/dpm/test/profile-schema.test.ts` |
 | `dpm-profile-connector` | `@oa-sdk/dpm` | connector output envelope, capability/evidence validation, connector/profile freshness | `packages/dpm/test/profile-connector.test.ts`, `packages/dpm/test/profile-connector-validation.test.ts` |
 | `dpm-kafka-profile-fixture` | `@oa-sdk/dpm` | fixture-backed Kafka topic/message flattening into profile artifact and connector result | `packages/dpm/test/profile-kafka.test.ts` |
 | `dpm-profile-analysis` | `@oa-sdk/dpm` | profile coverage, relationship hint proposals, key candidates, drift, and risk analysis | `packages/dpm/test/profile-analysis.test.ts` |

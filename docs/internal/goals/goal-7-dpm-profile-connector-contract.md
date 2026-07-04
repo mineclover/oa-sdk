@@ -116,6 +116,7 @@ Artifacts:
 - `packages/dpm/src/profile/types.ts`
 - `packages/dpm/src/profile/artifact.ts`
 - `packages/dpm/src/profile/schema.ts`
+- `packages/dpm/test/profile-artifact.test.ts`
 - `packages/dpm/test/profile-schema.test.ts`
 - `docs/internal/api-index.md`
 
@@ -137,7 +138,7 @@ Acceptance:
 - `check:api-index` recognizes the new public surface.
 
 Verification:
-- `pnpm --filter @oa-sdk/dpm exec vitest run test/profile-schema.test.ts`
+- `pnpm --filter @oa-sdk/dpm exec vitest run test/profile-artifact.test.ts test/profile-schema.test.ts`
 - `pnpm --filter @oa-sdk/dpm test`
 - `pnpm --filter @oa-sdk/dpm typecheck`
 - `pnpm build:scripts && pnpm check:api-index`

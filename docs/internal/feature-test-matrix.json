@@ -191,6 +191,7 @@
         "raw value exclusion"
       ],
       "testPaths": [
+        "packages/dpm/test/profile-artifact.test.ts",
         "packages/dpm/test/profile-schema.test.ts"
       ],
       "commands": [
