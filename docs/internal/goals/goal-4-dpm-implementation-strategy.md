@@ -268,6 +268,7 @@ Artifacts:
 - `packages/dpm/src/validator/manifest.ts`
 - `packages/dpm/src/validator/relationships.ts`
 - `packages/dpm/src/validator/relationship-registry.ts`
+- `packages/dpm/src/validator/relationship-registry-diagnostics.ts`
 - `packages/dpm/src/validator/relationship-types.ts`
 - `packages/dpm/src/validator/relationship-utils.ts`
 - `packages/dpm/test/validator.test.ts`

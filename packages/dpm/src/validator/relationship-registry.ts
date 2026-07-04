@@ -2,8 +2,11 @@ import type { RegistryRelationship, RegistrySnapshot } from '../registry/types.j
 import {
   createDpmDiagnostic,
   type DpmDiagnostic,
-  type DpmRegistryCoordinate,
 } from './diagnostics.js'
+import {
+  createRegistryCoordinate,
+  createRegistryMismatchDiagnostic,
+} from './relationship-registry-diagnostics.js'
 import type {
   ManifestRelationship,
   ManifestRelationshipEndpoint,
@@ -62,7 +65,7 @@ export function validateRelationshipRegistryApproval(input: {
       code: 'REL010',
       message: `Relationship ${name} is missing from registry snapshot.`,
       sourcePointer: `${input.pointer}/name`,
-      registryCoordinate: registryCoordinate(input.registry, name),
+      registryCoordinate: createRegistryCoordinate(input.registry, name),
     })]
   }
   if (approvedMatches.length === 0) {
@@ -71,7 +74,7 @@ export function validateRelationshipRegistryApproval(input: {
       code: 'REL006',
       message: `Relationship ${name} is not approved in registry snapshot.`,
       sourcePointer: `${input.pointer}/name`,
-      registryCoordinate: registryCoordinate(input.registry, name, registryMatches[0]),
+      registryCoordinate: createRegistryCoordinate(input.registry, name, registryMatches[0]),
     })]
   }
   if (approvedMatches.length > 1) {
@@ -80,7 +83,7 @@ export function validateRelationshipRegistryApproval(input: {
       code: 'REL012',
       message: `Relationship ${name} has multiple approved registry matches.`,
       sourcePointer: `${input.pointer}/name`,
-      registryCoordinate: registryCoordinate(input.registry, name, approvedMatches[0]),
+      registryCoordinate: createRegistryCoordinate(input.registry, name, approvedMatches[0]),
     })]
   }
 
@@ -194,34 +197,4 @@ function addEndpointMismatch(input: {
   const actualColumns = toStringArray(input.actual?.columns)
   if (actualTable === input.expected.table && sameColumns(actualColumns, input.expected.columns)) return
   input.diagnostics.push(createRegistryMismatchDiagnostic(input))
-}
-
-function createRegistryMismatchDiagnostic(input: {
-  registry: RegistrySnapshot
-  approved: RegistryRelationship
-  relationshipName: string
-  label: string
-  sourcePointer: string
-}): DpmDiagnostic {
-  return createDpmDiagnostic({
-    severity: 'error',
-    code: 'REL013',
-    message: `Relationship ${input.relationshipName} ${input.label} must match the approved registry snapshot.`,
-    sourcePointer: input.sourcePointer,
-    registryCoordinate: registryCoordinate(input.registry, input.relationshipName, input.approved),
-  })
-}
-
-function registryCoordinate(
-  registry: RegistrySnapshot,
-  relationshipName: string,
-  relationship?: RegistryRelationship,
-): DpmRegistryCoordinate {
-  return {
-    datasetId: registry.datasetId,
-    registryVersion: registry.registryVersion,
-    relationshipName,
-    ...(relationship?.version ? { relationshipVersion: relationship.version } : {}),
-    ...(relationship?.status ? { status: relationship.status } : {}),
-  }
 }
