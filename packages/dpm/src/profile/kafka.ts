@@ -16,10 +16,15 @@ import {
   type DpmProfileNode,
 } from './types.js'
 import type {
-  DpmKafkaMessageFieldFixture,
-  DpmKafkaRelationshipHintFixture,
   DpmKafkaTopicProfileFixture,
 } from './kafka-fixture-types.js'
+import {
+  addKafkaEvidence,
+  appendKafkaFieldProfile,
+  appendKafkaRelationshipHint,
+  kafkaContainsEdge,
+  kafkaCoordinate,
+} from './kafka-profile-graph.js'
 
 export function profileKafkaTopicFixture(input: DpmKafkaTopicProfileFixture): DpmProfileConnectorResult {
   const connectorId = input.connectorId ?? 'dpm.kafka.fixture'
@@ -31,7 +36,7 @@ export function profileKafkaTopicFixture(input: DpmKafkaTopicProfileFixture): Dp
   const edges: DpmProfileEdge[] = []
   const metrics: DpmProfileMetric[] = []
 
-  const topicEvidenceId = addEvidence(evidenceSources, {
+  const topicEvidenceId = addKafkaEvidence(evidenceSources, {
     id: `evidence:kafka:${input.topic.name}`,
     sourceId,
     connectorId,
@@ -48,7 +53,7 @@ export function profileKafkaTopicFixture(input: DpmKafkaTopicProfileFixture): Dp
   })
 
   for (const partition of [...input.topic.partitions].sort((left, right) => left - right)) {
-    const partitionEvidenceId = addEvidence(evidenceSources, {
+    const partitionEvidenceId = addKafkaEvidence(evidenceSources, {
       id: `evidence:kafka:${input.topic.name}.partition.${partition}`,
       sourceId,
       connectorId,
@@ -63,7 +68,7 @@ export function profileKafkaTopicFixture(input: DpmKafkaTopicProfileFixture): Dp
       coordinate: kafkaCoordinate(sourceId, `${input.topic.name}.partition.${partition}`, `/partitions/${partition}`),
       dataType: 'partition',
     })
-    edges.push(containsEdge(input.topic.name, topicNodeId, partitionNodeId, partitionEvidenceId))
+    edges.push(kafkaContainsEdge(input.topic.name, topicNodeId, partitionNodeId, partitionEvidenceId))
   }
 
   if (input.topic.messageRateEstimate !== undefined) {
@@ -78,7 +83,7 @@ export function profileKafkaTopicFixture(input: DpmKafkaTopicProfileFixture): Dp
   }
 
   if (input.topic.key) {
-    const keyEvidenceId = addEvidence(evidenceSources, {
+    const keyEvidenceId = addKafkaEvidence(evidenceSources, {
       id: `evidence:kafka:${input.topic.name}.key`,
       sourceId,
       connectorId,
@@ -93,7 +98,7 @@ export function profileKafkaTopicFixture(input: DpmKafkaTopicProfileFixture): Dp
       coordinate: kafkaCoordinate(sourceId, `${input.topic.name}.key`, '/key'),
       dataType: input.topic.key.dataType,
     })
-    edges.push(containsEdge(input.topic.name, topicNodeId, keyNodeId, keyEvidenceId))
+    edges.push(kafkaContainsEdge(input.topic.name, topicNodeId, keyNodeId, keyEvidenceId))
     if (input.topic.key.coverageRatio !== undefined) {
       metrics.push({
         id: `metric:${input.topic.name}.key_coverage`,
@@ -107,7 +112,7 @@ export function profileKafkaTopicFixture(input: DpmKafkaTopicProfileFixture): Dp
   }
 
   for (const header of [...(input.topic.headers ?? [])].sort((left, right) => left.name.localeCompare(right.name))) {
-    const headerEvidenceId = addEvidence(evidenceSources, {
+    const headerEvidenceId = addKafkaEvidence(evidenceSources, {
       id: `evidence:kafka:${input.topic.name}.header.${header.name}`,
       sourceId,
       connectorId,
@@ -122,7 +127,7 @@ export function profileKafkaTopicFixture(input: DpmKafkaTopicProfileFixture): Dp
       coordinate: kafkaCoordinate(sourceId, `${input.topic.name}.header.${header.name}`, `/headers/${header.name}`),
       dataType: header.dataType,
     })
-    edges.push(containsEdge(input.topic.name, topicNodeId, headerNodeId, headerEvidenceId))
+    edges.push(kafkaContainsEdge(input.topic.name, topicNodeId, headerNodeId, headerEvidenceId))
     if (header.presenceRatio !== undefined) {
       metrics.push({
         id: `metric:${input.topic.name}.header.${header.name}.presence`,
@@ -136,7 +141,7 @@ export function profileKafkaTopicFixture(input: DpmKafkaTopicProfileFixture): Dp
   }
 
   if (input.topic.schema) {
-    const schemaEvidenceId = addEvidence(evidenceSources, {
+    const schemaEvidenceId = addKafkaEvidence(evidenceSources, {
       id: `evidence:kafka:${input.topic.name}.schema.${input.topic.schema.subject}`,
       sourceId,
       connectorId,
@@ -173,7 +178,7 @@ export function profileKafkaTopicFixture(input: DpmKafkaTopicProfileFixture): Dp
   }
 
   for (const field of input.topic.value.fields) {
-    appendFieldProfile({
+    appendKafkaFieldProfile({
       topicName: input.topic.name,
       sourceId,
       connectorId,
@@ -189,7 +194,7 @@ export function profileKafkaTopicFixture(input: DpmKafkaTopicProfileFixture): Dp
   }
 
   for (const hint of [...(input.topic.relationshipHints ?? [])].sort((left, right) => left.id.localeCompare(right.id))) {
-    appendRelationshipHint({
+    appendKafkaRelationshipHint({
       topicName: input.topic.name,
       sourceId,
       connectorId,
@@ -242,167 +247,6 @@ export function profileKafkaTopicFixture(input: DpmKafkaTopicProfileFixture): Dp
     diagnostics: [],
     profileArtifact,
   })
-}
-
-type EvidenceInput = {
-  id: string
-  sourceId: string
-  connectorId: string
-  path: string
-  pointer: string
-  description?: string | undefined
-}
-
-type FieldAppendInput = {
-  topicName: string
-  sourceId: string
-  connectorId: string
-  parentNodeId: string
-  parentPath: string
-  parentPointer: string
-  field: DpmKafkaMessageFieldFixture
-  evidenceSources: Record<string, DpmProfileEvidenceSource>
-  nodes: DpmProfileNode[]
-  edges: DpmProfileEdge[]
-  metrics: DpmProfileMetric[]
-}
-
-type RelationshipHintAppendInput = {
-  topicName: string
-  sourceId: string
-  connectorId: string
-  hint: DpmKafkaRelationshipHintFixture
-  evidenceSources: Record<string, DpmProfileEvidenceSource>
-  nodes: DpmProfileNode[]
-  edges: DpmProfileEdge[]
-}
-
-function appendFieldProfile(input: FieldAppendInput): void {
-  const fieldPath = `${input.parentPath}.${input.field.name}`
-  const fieldPointer = `${input.parentPointer}/${input.field.name}`
-  const absolutePath = `${input.topicName}.${fieldPath}`
-  const evidenceId = addEvidence(input.evidenceSources, {
-    id: `evidence:kafka:${absolutePath}`,
-    sourceId: input.sourceId,
-    connectorId: input.connectorId,
-    path: absolutePath,
-    pointer: fieldPointer,
-  })
-  const fieldNodeId = fieldNodeIdFor(input.topicName, fieldPath)
-
-  input.nodes.push({
-    id: fieldNodeId,
-    kind: 'message_field',
-    label: fieldPath,
-    coordinate: kafkaCoordinate(input.sourceId, absolutePath, fieldPointer),
-    dataType: input.field.dataType,
-  })
-  input.edges.push(containsEdge(input.topicName, input.parentNodeId, fieldNodeId, evidenceId))
-
-  if (input.field.presenceRatio !== undefined) {
-    input.metrics.push({
-      id: `metric:${absolutePath}.presence`,
-      kind: 'presence_ratio',
-      subjectId: fieldNodeId,
-      value: input.field.presenceRatio,
-      unit: 'ratio',
-      evidenceIds: [evidenceId],
-    })
-  }
-  if (input.field.nullRatio !== undefined) {
-    input.metrics.push({
-      id: `metric:${absolutePath}.null`,
-      kind: 'null_ratio',
-      subjectId: fieldNodeId,
-      value: input.field.nullRatio,
-      unit: 'ratio',
-      evidenceIds: [evidenceId],
-    })
-  }
-
-  for (const child of input.field.fields ?? []) {
-    appendFieldProfile({
-      ...input,
-      parentNodeId: fieldNodeId,
-      parentPath: fieldPath,
-      parentPointer: fieldPointer,
-      field: child,
-    })
-  }
-}
-
-function appendRelationshipHint(input: RelationshipHintAppendInput): void {
-  const evidenceId = addEvidence(input.evidenceSources, {
-    id: `evidence:kafka:${input.topicName}.relationship_hint.${input.hint.id}`,
-    sourceId: input.sourceId,
-    connectorId: input.connectorId,
-    path: `${input.topicName}.relationshipHints.${input.hint.id}`,
-    pointer: `/relationshipHints/${input.hint.id}`,
-    description: input.hint.evidenceRef,
-  })
-  const hintNodeId = `node:relationship-hint:${input.hint.id}`
-  const fromNodeId = fieldNodeIdFor(input.topicName, input.hint.fromPath)
-
-  input.nodes.push({
-    id: hintNodeId,
-    kind: 'relationship_hint',
-    label: input.hint.label,
-    coordinate: {
-      kind: 'kafka_topic_bundle',
-      sourceId: input.sourceId,
-      path: `${input.topicName}.relationshipHints.${input.hint.id}`,
-      pointer: `/relationshipHints/${input.hint.id}`,
-      externalId: input.hint.toRef,
-    },
-    shape: {
-      fromPath: input.hint.fromPath,
-      toRef: input.hint.toRef,
-      ...(input.hint.evidenceRef ? { evidenceRef: input.hint.evidenceRef } : {}),
-    },
-  })
-  input.edges.push({
-    id: `edge:relationship-hint:${input.hint.id}`,
-    kind: 'candidate_relationship',
-    fromNodeId,
-    toNodeId: hintNodeId,
-    confidence: input.hint.confidence,
-    evidenceIds: [evidenceId],
-  })
-}
-
-function addEvidence(
-  evidenceSources: Record<string, DpmProfileEvidenceSource>,
-  input: EvidenceInput,
-): string {
-  evidenceSources[input.id] = {
-    coordinate: kafkaCoordinate(input.sourceId, input.path, input.pointer),
-    connectorId: input.connectorId,
-    ...(input.description ? { description: input.description } : {}),
-  }
-  return input.id
-}
-
-function kafkaCoordinate(sourceId: string, path: string, pointer: string) {
-  return {
-    kind: 'kafka_topic_bundle' as const,
-    sourceId,
-    path,
-    pointer,
-  }
-}
-
-function containsEdge(topicName: string, fromNodeId: string, toNodeId: string, evidenceId: string): DpmProfileEdge {
-  return {
-    id: `edge:${topicName}.contains.${toNodeId.replace(/^node:/, '')}`,
-    kind: 'contains',
-    fromNodeId,
-    toNodeId,
-    evidenceIds: [evidenceId],
-  }
-}
-
-function fieldNodeIdFor(topicName: string, fieldPath: string): string {
-  return `node:field:${topicName}.${fieldPath}`
 }
 
 function joinKafkaRef(clusterRef: string, topicName: string): string {
