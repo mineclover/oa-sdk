@@ -26,6 +26,28 @@ export type {
   PostgresCatalogRowsToSnapshotInput,
 } from './catalog/profiler-postgres.js'
 export type {
+  DpmProfileArtifact,
+  DpmProfileArtifactInput,
+  DpmProfileCaptureMode,
+  DpmProfileCoordinate,
+  DpmProfileDiagnostic,
+  DpmProfileDiagnosticFamily,
+  DpmProfileEdge,
+  DpmProfileEdgeKind,
+  DpmProfileEvidenceSource,
+  DpmProfileFreshness,
+  DpmProfileMetric,
+  DpmProfileMetricKind,
+  DpmProfileNode,
+  DpmProfileNodeKind,
+  DpmProfileSourceDescriptor,
+  DpmProfileSourceKind,
+} from './profile/types.js'
+export type {
+  DpmProfileArtifactSchemaIssue,
+  DpmProfileArtifactSchemaValidationResult,
+} from './profile/schema.js'
+export type {
   DiscoveryCandidateRecommendation,
   DiscoveryConfidenceLevel,
   DiscoveryEvidence,
@@ -164,6 +186,22 @@ export {
   postgresCatalogRowsToSnapshot,
   profilePostgresCatalog,
 } from './catalog/profiler-postgres.js'
+export {
+  DPM_PROFILE_ARTIFACT_KIND,
+  DPM_PROFILE_CAPTURE_MODES,
+  DPM_PROFILE_DIAGNOSTIC_FAMILIES,
+  DPM_PROFILE_EDGE_KINDS,
+  DPM_PROFILE_METRIC_KINDS,
+  DPM_PROFILE_NODE_KINDS,
+  DPM_PROFILE_SOURCE_KINDS,
+  computeDpmProfileFreshnessHash,
+  normalizeDpmProfileArtifact,
+} from './profile/types.js'
+export {
+  DPM_PROFILE_ARTIFACT_SCHEMA,
+  DPM_PROFILE_ARTIFACT_SCHEMA_ID,
+  validateDpmProfileArtifactSchema,
+} from './profile/schema.js'
 export {
   DISCOVERY_CANDIDATE_RECOMMENDATIONS,
   DISCOVERY_CONFIDENCE_LEVELS,

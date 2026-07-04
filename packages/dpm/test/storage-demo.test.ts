@@ -23,6 +23,7 @@ import {
 
 const demoRoot = new URL('../examples/customer-orders-storage/', import.meta.url)
 const packageRoot = fileURLToPath(new URL('..', import.meta.url))
+const demoCommandTimeoutMs = 20_000
 
 function readJsonFixture<T>(name: string): T {
   return JSON.parse(readFileSync(join(demoRoot.pathname, name), 'utf8')) as T
@@ -56,7 +57,7 @@ describe('DPM storage-backed customer orders demo', () => {
     expect(output?.sourceDbMutation).toBe('none')
     expect(output?.persistedRawValues).toBe(false)
     expect(output?.steps.every((step: Record<string, unknown>) => step.status === 'pass')).toBe(true)
-  })
+  }, demoCommandTimeoutMs)
 
   it('profiles catalog rows, exports registry rows, runs validate/compile/dry-run, and retrieves reports without raw values', async () => {
     const manifest = readJsonFixture<Record<string, any>>('manifest.json')

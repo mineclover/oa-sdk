@@ -110,7 +110,7 @@ Recommended initial taxonomies:
 
 ### DPM-23 - Profile Artifact Vocabulary
 
-Status: planned.
+Status: implemented 2026-07-04.
 
 Artifacts:
 - `packages/dpm/src/profile/types.ts`
@@ -140,6 +140,15 @@ Verification:
 - `pnpm --filter @oa-sdk/dpm test`
 - `pnpm --filter @oa-sdk/dpm typecheck`
 - `pnpm build:scripts && pnpm check:api-index`
+
+Implementation notes:
+- `DpmProfileArtifact` is implemented as a normalized source-neutral evidence graph with profile
+  identity, source descriptors, DPM-owned coordinates, nodes, edges, metrics, diagnostics, evidence
+  source map, and deterministic freshness hash.
+- Profile source/node/edge/metric/capture/diagnostic taxonomies are runtime constants used by both
+  TypeScript and JSON Schema.
+- The profile artifact JSON Schema rejects unknown taxonomy values, missing node provenance,
+  incomplete metrics, and raw top-level payload fields.
 
 ### DPM-24 - Connector Output Contract
 
