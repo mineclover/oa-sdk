@@ -1,122 +1,41 @@
 import type { CatalogSnapshot } from '../catalog/types.js'
-import type { RegistryRelationship, RegistrySnapshot } from '../registry/types.js'
 import {
   createDpmDiagnostic,
   type DpmDiagnostic,
-  type DpmRegistryCoordinate,
 } from './diagnostics.js'
+import {
+  validateRelationshipRegistryApproval,
+  validateRelationshipRegistryReference,
+} from './relationship-registry.js'
+import type {
+  RelationshipValidationInput,
+} from './relationship-types.js'
+import { sameColumns, toStringArray } from './relationship-utils.js'
 
-export type ManifestRelationshipEndpoint = {
-  table?: string
-  columns?: unknown
-}
-
-export type ManifestRelationship = {
-  name?: string
-  status?: string
-  type?: string
-  parent?: ManifestRelationshipEndpoint
-  child?: ManifestRelationshipEndpoint
-  namespace?: string
-  transform_strategy?: string
-  transformStrategy?: string
-  orphan_policy?: string
-  orphanPolicy?: string
-  condition_sql?: string
-  temporal_condition?: string
-  condition?: {
-    conditionSql?: string
-    temporalCondition?: string
-  }
-  canonical_key?: unknown
-  canonicalKey?: unknown
-}
-
-export type RelationshipRegistryReference = {
-  dataset_id?: string
-  datasetId?: string
-  registry_version?: string
-  registryVersion?: string
-}
-
-export type RelationshipValidationInput = {
-  relationships: readonly ManifestRelationship[]
-  scopeTables: readonly string[]
-  registryReference?: RelationshipRegistryReference
-  catalog: CatalogSnapshot
-  registry: RegistrySnapshot
-}
+export type {
+  ManifestRelationship,
+  ManifestRelationshipEndpoint,
+  RelationshipRegistryReference,
+  RelationshipValidationInput,
+} from './relationship-types.js'
 
 export function validateManifestRelationships(input: RelationshipValidationInput): DpmDiagnostic[] {
   const diagnostics: DpmDiagnostic[] = []
   const scopeTables = new Set(input.scopeTables)
   const catalogTables = new Set(input.catalog.tables.map(table => table.table))
-  const registryDatasetId = input.registryReference?.dataset_id ?? input.registryReference?.datasetId
-  const registryVersion = input.registryReference?.registry_version ?? input.registryReference?.registryVersion
-
-  if (registryDatasetId && registryDatasetId !== input.registry.datasetId) {
-    diagnostics.push(createDpmDiagnostic({
-      severity: 'error',
-      code: 'REL011',
-      message: `Manifest registry dataset ${registryDatasetId} does not match snapshot ${input.registry.datasetId}.`,
-      sourcePointer: '/relationship_registry/dataset_id',
-      registryCoordinate: {
-        datasetId: input.registry.datasetId,
-        registryVersion: input.registry.registryVersion,
-      },
-    }))
-  }
-  if (registryVersion && registryVersion !== input.registry.registryVersion) {
-    diagnostics.push(createDpmDiagnostic({
-      severity: 'error',
-      code: 'REL011',
-      message: `Manifest registry version ${registryVersion} does not match snapshot ${input.registry.registryVersion}.`,
-      sourcePointer: '/relationship_registry/registry_version',
-      registryCoordinate: {
-        datasetId: input.registry.datasetId,
-        registryVersion: input.registry.registryVersion,
-      },
-    }))
-  }
+  diagnostics.push(...validateRelationshipRegistryReference({
+    ...(input.registryReference ? { registryReference: input.registryReference } : {}),
+    registry: input.registry,
+  }))
 
   input.relationships.forEach((relationship, index) => {
     const pointer = `/relationships/${index}`
     const name = relationship.name ?? ''
-    const registryMatches = input.registry.relationships.filter(entry => entry.name === name)
-    const approvedMatches = input.registry.approvedRelationships.filter(entry => entry.name === name)
-
-    if (registryMatches.length === 0) {
-      diagnostics.push(createDpmDiagnostic({
-        severity: 'error',
-        code: 'REL010',
-        message: `Relationship ${name} is missing from registry snapshot.`,
-        sourcePointer: `${pointer}/name`,
-        registryCoordinate: registryCoordinate(input.registry, name),
-      }))
-    } else if (approvedMatches.length === 0) {
-      diagnostics.push(createDpmDiagnostic({
-        severity: 'error',
-        code: 'REL006',
-        message: `Relationship ${name} is not approved in registry snapshot.`,
-        sourcePointer: `${pointer}/name`,
-        registryCoordinate: registryCoordinate(input.registry, name, registryMatches[0]),
-      }))
-    } else if (approvedMatches.length > 1) {
-      diagnostics.push(createDpmDiagnostic({
-        severity: 'error',
-        code: 'REL012',
-        message: `Relationship ${name} has multiple approved registry matches.`,
-        sourcePointer: `${pointer}/name`,
-        registryCoordinate: registryCoordinate(input.registry, name, approvedMatches[0]),
-      }))
-    } else {
-      diagnostics.push(...validateApprovedRegistrySnapshot({
-        registry: input.registry,
-        relationship,
-        approved: approvedMatches[0]!,
-        pointer,
-      }))
-    }
+    diagnostics.push(...validateRelationshipRegistryApproval({
+      registry: input.registry,
+      relationship,
+      pointer,
+    }))
 
     const parent = relationship.parent
     const child = relationship.child
@@ -210,126 +129,6 @@ export function validateManifestRelationships(input: RelationshipValidationInput
   return diagnostics
 }
 
-function validateApprovedRegistrySnapshot(input: {
-  registry: RegistrySnapshot
-  relationship: ManifestRelationship
-  approved: RegistryRelationship
-  pointer: string
-}): DpmDiagnostic[] {
-  const diagnostics: DpmDiagnostic[] = []
-  const relationship = input.relationship
-  const approved = input.approved
-
-  addScalarMismatch({
-    diagnostics,
-    registry: input.registry,
-    approved,
-    relationshipName: relationship.name ?? '',
-    actual: relationship.type,
-    expected: approved.type,
-    label: 'type',
-    sourcePointer: `${input.pointer}/type`,
-  })
-  addEndpointMismatch({
-    diagnostics,
-    registry: input.registry,
-    approved,
-    relationshipName: relationship.name ?? '',
-    actual: relationship.parent,
-    expected: approved.parent,
-    label: 'parent',
-    sourcePointer: `${input.pointer}/parent`,
-  })
-  addEndpointMismatch({
-    diagnostics,
-    registry: input.registry,
-    approved,
-    relationshipName: relationship.name ?? '',
-    actual: relationship.child,
-    expected: approved.child,
-    label: 'child',
-    sourcePointer: `${input.pointer}/child`,
-  })
-  addScalarMismatch({
-    diagnostics,
-    registry: input.registry,
-    approved,
-    relationshipName: relationship.name ?? '',
-    actual: relationship.namespace,
-    expected: approved.namespace,
-    label: 'namespace',
-    sourcePointer: `${input.pointer}/namespace`,
-  })
-  addScalarMismatch({
-    diagnostics,
-    registry: input.registry,
-    approved,
-    relationshipName: relationship.name ?? '',
-    actual: relationship.transform_strategy ?? relationship.transformStrategy,
-    expected: approved.transformStrategy,
-    label: 'transform_strategy',
-    sourcePointer: `${input.pointer}/transform_strategy`,
-  })
-  addScalarMismatch({
-    diagnostics,
-    registry: input.registry,
-    approved,
-    relationshipName: relationship.name ?? '',
-    actual: relationship.orphan_policy ?? relationship.orphanPolicy,
-    expected: approved.orphanPolicy,
-    label: 'orphan_policy',
-    sourcePointer: `${input.pointer}/orphan_policy`,
-  })
-
-  return diagnostics
-}
-
-function addScalarMismatch(input: {
-  diagnostics: DpmDiagnostic[]
-  registry: RegistrySnapshot
-  approved: RegistryRelationship
-  relationshipName: string
-  actual: string | undefined
-  expected: string
-  label: string
-  sourcePointer: string
-}): void {
-  if (input.actual === input.expected) return
-  input.diagnostics.push(createRegistryMismatchDiagnostic(input))
-}
-
-function addEndpointMismatch(input: {
-  diagnostics: DpmDiagnostic[]
-  registry: RegistrySnapshot
-  approved: RegistryRelationship
-  relationshipName: string
-  actual: ManifestRelationshipEndpoint | undefined
-  expected: RegistryRelationship['parent']
-  label: string
-  sourcePointer: string
-}): void {
-  const actualTable = input.actual?.table
-  const actualColumns = toStringArray(input.actual?.columns)
-  if (actualTable === input.expected.table && sameColumns(actualColumns, input.expected.columns)) return
-  input.diagnostics.push(createRegistryMismatchDiagnostic(input))
-}
-
-function createRegistryMismatchDiagnostic(input: {
-  registry: RegistrySnapshot
-  approved: RegistryRelationship
-  relationshipName: string
-  label: string
-  sourcePointer: string
-}): DpmDiagnostic {
-  return createDpmDiagnostic({
-    severity: 'error',
-    code: 'REL013',
-    message: `Relationship ${input.relationshipName} ${input.label} must match the approved registry snapshot.`,
-    sourcePointer: input.sourcePointer,
-    registryCoordinate: registryCoordinate(input.registry, input.relationshipName, input.approved),
-  })
-}
-
 function validateColumnCompatibility(input: {
   catalog: CatalogSnapshot
   relationshipName: string
@@ -366,27 +165,4 @@ function hasUniqueParentKey(catalog: CatalogSnapshot, table: string, columns: re
     catalog.indexes.some(candidate => candidate.table === table && candidate.unique && sameColumns(candidate.columns, columns)) ||
     catalog.uniqueCandidates.some(candidate => candidate.table === table && sameColumns(candidate.columns, columns))
   )
-}
-
-function sameColumns(left: readonly string[], right: readonly string[]): boolean {
-  return left.length === right.length && left.every((column, index) => column === right[index])
-}
-
-function toStringArray(value: unknown): string[] {
-  if (!Array.isArray(value)) return []
-  return value.filter((entry): entry is string => typeof entry === 'string')
-}
-
-function registryCoordinate(
-  registry: RegistrySnapshot,
-  relationshipName: string,
-  relationship?: RegistryRelationship,
-): DpmRegistryCoordinate {
-  return {
-    datasetId: registry.datasetId,
-    registryVersion: registry.registryVersion,
-    relationshipName,
-    ...(relationship?.version ? { relationshipVersion: relationship.version } : {}),
-    ...(relationship?.status ? { status: relationship.status } : {}),
-  }
 }
