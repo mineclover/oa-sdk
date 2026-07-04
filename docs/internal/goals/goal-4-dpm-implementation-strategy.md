@@ -268,11 +268,15 @@ Goal id: `DPM-06` and `DPM-07`
 Artifacts:
 - `packages/dpm/src/validator/diagnostics.ts`
 - `packages/dpm/src/validator/manifest.ts`
+- `packages/dpm/src/validator/manifest-syntax.ts`
 - `packages/dpm/src/validator/relationships.ts`
 - `packages/dpm/src/validator/relationship-registry.ts`
 - `packages/dpm/src/validator/relationship-registry-diagnostics.ts`
 - `packages/dpm/src/validator/relationship-types.ts`
 - `packages/dpm/src/validator/relationship-utils.ts`
+- `packages/dpm/src/validator/safety.ts`
+- `packages/dpm/src/validator/validation-types.ts`
+- `packages/dpm/src/validator/value-utils.ts`
 - `packages/dpm/test/validator.test.ts`
 - `packages/dpm/test/validator-relationship.test.ts`
 - `packages/dpm/test/validator-safety.test.ts`

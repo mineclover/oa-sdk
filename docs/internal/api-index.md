@@ -258,8 +258,8 @@ catalog/registry snapshot, semantic validator, compiler, CLI/gateway/publishing 
 | `DpmDiagnostic` | `dpm/src/validator/diagnostics.ts` | deterministic semantic validation diagnostic |
 | `DpmValidationSummary` | `dpm/src/validator/diagnostics.ts` | error, warning, and info counts |
 | `DpmValidationResult` | `dpm/src/validator/diagnostics.ts` | semantic validation result envelope |
-| `DpmValidationPhase` | `dpm/src/validator/manifest.ts` | validate, compile, dry-run, or runtime phase |
-| `DpmValidationInput` | `dpm/src/validator/manifest.ts` | manifest plus catalog and registry snapshot validator input |
+| `DpmValidationPhase` | `dpm/src/validator/validation-types.ts` | validate, compile, dry-run, or runtime phase |
+| `DpmValidationInput` | `dpm/src/validator/validation-types.ts` | manifest plus catalog and registry snapshot validator input |
 | `validateDpmManifest()` | `dpm/src/validator/manifest.ts` | SYN syntax plus REL/SAF semantic diagnostics without source DB access |
 | `DPM_COMPILED_PLAN_KIND` | `dpm/src/compiler/plan.ts` | compiled plan kind literal |
 | `DPM_COMPILED_PLAN_VERSIONS` | `dpm/src/compiler/plan.ts` | runtime compiled plan version taxonomy used by TypeScript and OpenAPI |

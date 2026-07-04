@@ -56,7 +56,7 @@ export type {
 export type {
   DpmValidationInput,
   DpmValidationPhase,
-} from '../validator/manifest.js'
+} from '../validator/validation-types.js'
 export type {
   DpmColumnStep,
   DpmCompiledPlan,
