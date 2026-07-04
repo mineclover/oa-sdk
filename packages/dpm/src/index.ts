@@ -66,6 +66,21 @@ export type {
   DpmKafkaTopicProfileFixture,
 } from './profile/kafka.js'
 export type {
+  DpmProfileAnalysisCoverage,
+  DpmProfileAnalysisFreshness,
+  DpmProfileAnalysisInput,
+  DpmProfileAnalysisReport,
+  DpmProfileAnalysisSummary,
+  DpmProfileDriftSignal,
+  DpmProfileDriftSignalKind,
+  DpmProfileKeyCandidate,
+  DpmProfileKeyCandidateKind,
+  DpmProfileRelationshipHintProposal,
+  DpmProfileRelationshipHintStatus,
+  DpmProfileRiskIndicator,
+  DpmProfileRiskIndicatorKind,
+} from './profile/analyze.js'
+export type {
   DiscoveryCandidateRecommendation,
   DiscoveryConfidenceLevel,
   DiscoveryEvidence,
@@ -231,6 +246,15 @@ export {
 export {
   profileKafkaTopicFixture,
 } from './profile/kafka.js'
+export {
+  DPM_PROFILE_ANALYSIS_REPORT_KIND,
+  DPM_PROFILE_DRIFT_SIGNAL_KINDS,
+  DPM_PROFILE_KEY_CANDIDATE_KINDS,
+  DPM_PROFILE_RELATIONSHIP_HINT_STATUSES,
+  DPM_PROFILE_RISK_INDICATOR_KINDS,
+  computeDpmProfileAnalysisReportHash,
+  createDpmProfileAnalysisReport,
+} from './profile/analyze.js'
 export {
   DISCOVERY_CANDIDATE_RECOMMENDATIONS,
   DISCOVERY_CONFIDENCE_LEVELS,

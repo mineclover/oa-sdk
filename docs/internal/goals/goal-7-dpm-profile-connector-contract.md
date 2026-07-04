@@ -223,7 +223,7 @@ Implementation notes:
 
 ### DPM-26 - Profile Analysis Report
 
-Status: planned.
+Status: implemented 2026-07-04.
 
 Artifacts:
 - `packages/dpm/src/profile/analyze.ts`
@@ -245,6 +245,15 @@ Acceptance:
 Verification:
 - `pnpm --filter @oa-sdk/dpm exec vitest run test/profile-analysis.test.ts`
 - `pnpm --filter @oa-sdk/dpm test`
+
+Implementation notes:
+- `createDpmProfileAnalysisReport()` derives deterministic coverage, relationship hint proposals,
+  key candidates, drift signals, risk indicators, profile diagnostics, summary counts, and report
+  freshness from a normalized profile artifact.
+- Relationship hints are emitted as reviewer-safe `review` proposals with confidence and evidence
+  ids; they do not become registry relationships.
+- Risk indicators are derived from profile coordinates and metrics only, and do not expose raw
+  source values.
 
 ### DPM-27 - Profile Gateway And Editor Contract
 
