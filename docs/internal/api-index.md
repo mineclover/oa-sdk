@@ -78,9 +78,9 @@ catalog/registry snapshot, semantic validator, compiler, CLI/gateway/publishing 
 
 | Export | 정의 | 용도 |
 |------|------|------|
-| `DPM_PACKAGE_NAME` | `dpm/src/index.ts` | 패키지 identity smoke/export guard |
-| `DPM_BASELINE` | `dpm/src/index.ts` | DPM v1 relationship-first baseline marker |
-| `DPM_VERSION` | `dpm/src/index.ts` | DPM manifest v1 version literal |
+| `DPM_PACKAGE_NAME` | `dpm/src/public/package.ts` | 패키지 identity smoke/export guard |
+| `DPM_BASELINE` | `dpm/src/public/package.ts` | DPM v1 relationship-first baseline marker |
+| `DPM_VERSION` | `dpm/src/public/package.ts` | DPM manifest v1 version literal |
 | `DPM_MANIFEST_SCHEMA_ID` | `dpm/src/schema/index.ts` | JSON Schema `$id`와 package export 정합성 검증 |
 | `validateDpmManifestSchema()` | `dpm/src/schema/index.ts` | DPM manifest JSON Schema syntax gate |
 | `DpmBaseline` | `dpm/src/types.ts` | relationship-first baseline literal type |

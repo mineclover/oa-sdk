@@ -109,12 +109,13 @@ Artifacts:
 - `packages/dpm/tsconfig.json`
 - `packages/dpm/vitest.config.ts`
 - `packages/dpm/src/index.ts`
+- `packages/dpm/src/public/*.ts`
 - `packages/dpm/src/types.ts`
 - `packages/dpm/test/smoke.test.ts`
 
 Tasks:
 - Create `@oa-sdk/dpm` as a private workspace package.
-- Export only stable public types from `src/index.ts`.
+- Keep `src/index.ts` as the root entrypoint and group stable public exports through `src/public/*.ts`.
 - Add local `build`, `test`, `typecheck`, and `clean` scripts.
 - Add a smoke test that proves the package can be imported.
 - Do not add root build/test wiring until the package has meaningful gates.
