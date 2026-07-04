@@ -159,6 +159,8 @@ Goal id: `DPM-02`
 Artifacts:
 - `packages/dpm/src/catalog/types.ts`
 - `packages/dpm/src/catalog/snapshot.ts`
+- `packages/dpm/src/catalog/snapshot-copy.ts`
+- `packages/dpm/src/catalog/snapshot-ordering.ts`
 - `packages/dpm/src/catalog/freshness.ts`
 - `packages/dpm/src/catalog/postgres.ts`
 - `packages/dpm/src/catalog/projection.ts`
