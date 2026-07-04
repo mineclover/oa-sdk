@@ -4,7 +4,7 @@ import {
   DPM_PROFILE_KEY_CANDIDATE_KINDS,
   DPM_PROFILE_RELATIONSHIP_HINT_STATUSES,
   DPM_PROFILE_RISK_INDICATOR_KINDS,
-} from '../profile/analyze.js'
+} from '../profile/analysis-types.js'
 import {
   DPM_PROFILE_ARTIFACT_KIND,
   DPM_PROFILE_CAPTURE_MODES,

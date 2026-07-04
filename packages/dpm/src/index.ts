@@ -79,7 +79,7 @@ export type {
   DpmProfileRelationshipHintStatus,
   DpmProfileRiskIndicator,
   DpmProfileRiskIndicatorKind,
-} from './profile/analyze.js'
+} from './profile/analysis-types.js'
 export type {
   DiscoveryCandidateRecommendation,
   DiscoveryConfidenceLevel,
@@ -261,6 +261,8 @@ export {
   DPM_PROFILE_KEY_CANDIDATE_KINDS,
   DPM_PROFILE_RELATIONSHIP_HINT_STATUSES,
   DPM_PROFILE_RISK_INDICATOR_KINDS,
+} from './profile/analysis-types.js'
+export {
   computeDpmProfileAnalysisReportHash,
   createDpmProfileAnalysisReport,
 } from './profile/analyze.js'

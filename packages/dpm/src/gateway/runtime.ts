@@ -4,10 +4,12 @@ import { compileDpmPlan, type DpmCompileResult } from '../compiler/compile.js'
 import { createDpmDryRunReport, type DpmDryRunReport } from '../dry-run/report.js'
 import {
   createDpmProfileAnalysisReport,
-  type DpmProfileAnalysisInput,
-  type DpmProfileAnalysisReport,
-  type DpmProfileRelationshipHintProposal,
 } from '../profile/analyze.js'
+import type {
+  DpmProfileAnalysisInput,
+  DpmProfileAnalysisReport,
+  DpmProfileRelationshipHintProposal,
+} from '../profile/analysis-types.js'
 import type {
   DpmProfileArtifact,
   DpmProfileCoordinate,
