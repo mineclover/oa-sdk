@@ -7,11 +7,11 @@ import {
 } from './analysis-types.js'
 import {
   analyzeCoverage,
-  analyzeDriftSignals,
   analyzeKeyCandidates,
   analyzeRelationshipHints,
   analyzeRiskIndicators,
 } from './analysis-compute.js'
+import { analyzeDriftSignals } from './analysis-drift.js'
 import type { DpmProfileArtifact } from './types.js'
 
 export function createDpmProfileAnalysisReport(input: DpmProfileAnalysisInput): DpmProfileAnalysisReport {

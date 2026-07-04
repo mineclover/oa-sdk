@@ -235,6 +235,7 @@ Status: implemented 2026-07-04.
 Artifacts:
 - `packages/dpm/src/profile/analysis-types.ts`
 - `packages/dpm/src/profile/analysis-compute.ts`
+- `packages/dpm/src/profile/analysis-drift.ts`
 - `packages/dpm/src/profile/analyze.ts`
 - `packages/dpm/test/profile-analysis.test.ts`
 
