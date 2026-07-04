@@ -350,6 +350,8 @@ Artifacts:
 - `packages/dpm/src/gateway/profile-openapi.ts`
 - `packages/dpm/src/gateway/openapi-paths.ts`
 - `packages/dpm/test/gateway.test.ts`
+- `packages/dpm/test/gateway-taxonomy.test.ts`
+- `packages/dpm/test/gateway-schema-validation.test.ts`
 
 Tasks:
 - Model catalog profiling, relationship discovery, candidate import, approval, snapshot export,

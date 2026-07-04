@@ -278,6 +278,8 @@ Artifacts:
 - `packages/dpm/src/gateway/runtime-profile.ts`
 - `packages/dpm/src/gateway/runtime-response.ts`
 - `packages/dpm/test/gateway.test.ts`
+- `packages/dpm/test/gateway-taxonomy.test.ts`
+- `packages/dpm/test/gateway-schema-validation.test.ts`
 - `packages/dpm/test/gateway-runtime.test.ts`
 
 Tasks:
@@ -294,7 +296,7 @@ Acceptance:
 - Runtime outputs validate against gateway schemas.
 
 Verification:
-- `pnpm --filter @oa-sdk/dpm exec vitest run test/gateway.test.ts`
+- `pnpm --filter @oa-sdk/dpm exec vitest run test/gateway.test.ts test/gateway-taxonomy.test.ts test/gateway-schema-validation.test.ts`
 - `pnpm --filter @oa-sdk/dpm exec vitest run test/gateway-runtime.test.ts`
 - `pnpm --filter @oa-sdk/dpm test`
 
@@ -313,7 +315,7 @@ Implementation notes:
 ## Completion Evidence
 
 Completed 2026-07-04 with:
-- `corepack pnpm --filter @oa-sdk/dpm exec vitest run test/gateway.test.ts`
+- `corepack pnpm --filter @oa-sdk/dpm exec vitest run test/gateway.test.ts test/gateway-taxonomy.test.ts test/gateway-schema-validation.test.ts`
 - `corepack pnpm --filter @oa-sdk/dpm exec vitest run test/gateway-runtime.test.ts`
 - `corepack pnpm --filter @oa-sdk/dpm typecheck`
 - `corepack pnpm --filter @oa-sdk/dpm test`

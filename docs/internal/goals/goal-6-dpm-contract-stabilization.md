@@ -40,6 +40,7 @@ Status: implemented 2026-07-04.
 Artifacts:
 - `packages/dpm/src/gateway/openapi.ts`
 - `packages/dpm/test/gateway.test.ts`
+- `packages/dpm/test/gateway-schema-validation.test.ts`
 
 Tasks:
 - Reject empty objects for every non-opaque gateway component schema.
@@ -47,7 +48,7 @@ Tasks:
 - Add minimal valid request/response examples for gateway workflow schemas.
 
 Verification:
-- `pnpm --filter @oa-sdk/dpm exec vitest run test/gateway.test.ts`
+- `pnpm --filter @oa-sdk/dpm exec vitest run test/gateway.test.ts test/gateway-schema-validation.test.ts`
 - `pnpm --filter @oa-sdk/dpm test`
 
 ### DPM-17 - Runtime Nested Object Contract
@@ -73,7 +74,7 @@ Status: implemented 2026-07-04.
 
 Artifacts:
 - `packages/dpm/src/gateway/openapi.ts`
-- `packages/dpm/test/gateway.test.ts`
+- `packages/dpm/test/gateway-schema-validation.test.ts`
 - `packages/dpm/test/storage-report.test.ts`
 
 Tasks:
@@ -82,7 +83,7 @@ Tasks:
 - Validate storage-backed gateway job report outputs against the OpenAPI `DpmJobReport` schema.
 
 Verification:
-- `pnpm --filter @oa-sdk/dpm exec vitest run test/gateway.test.ts`
+- `pnpm --filter @oa-sdk/dpm exec vitest run test/gateway-schema-validation.test.ts`
 - `pnpm --filter @oa-sdk/dpm exec vitest run test/storage-report.test.ts`
 - `pnpm --filter @oa-sdk/dpm test`
 
@@ -130,7 +131,8 @@ Artifacts:
 - `packages/dpm/src/discovery/types.ts`
 - `packages/dpm/src/registry/types.ts`
 - `packages/dpm/src/gateway/openapi.ts`
-- `packages/dpm/test/gateway.test.ts`
+- `packages/dpm/test/gateway-taxonomy.test.ts`
+- `packages/dpm/test/gateway-schema-validation.test.ts`
 
 Tasks:
 - Promote discovery candidate recommendations and registry lifecycle statuses to runtime constants.
@@ -138,7 +140,7 @@ Tasks:
 - Reject unknown recommendation/status values from workflow response schemas.
 
 Verification:
-- `pnpm --filter @oa-sdk/dpm exec vitest run test/gateway.test.ts`
+- `pnpm --filter @oa-sdk/dpm exec vitest run test/gateway-taxonomy.test.ts test/gateway-schema-validation.test.ts`
 - `pnpm --filter @oa-sdk/dpm test`
 
 ### DPM-22 - Relationship Step Taxonomy Contract
@@ -150,7 +152,7 @@ Artifacts:
 - `packages/dpm/src/registry/types.ts`
 - `packages/dpm/src/gateway/openapi.ts`
 - `packages/dpm/test/gateway-runtime.test.ts`
-- `packages/dpm/test/gateway.test.ts`
+- `packages/dpm/test/gateway-taxonomy.test.ts`
 
 Tasks:
 - Promote relationship step cardinalities and registry orphan policies to runtime constants.
@@ -159,7 +161,7 @@ Tasks:
 
 Verification:
 - `pnpm --filter @oa-sdk/dpm exec vitest run test/gateway-runtime.test.ts`
-- `pnpm --filter @oa-sdk/dpm exec vitest run test/gateway.test.ts`
+- `pnpm --filter @oa-sdk/dpm exec vitest run test/gateway-taxonomy.test.ts`
 - `pnpm --filter @oa-sdk/dpm test`
 
 ## Verification Ladder
