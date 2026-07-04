@@ -15,6 +15,25 @@ generation, mock/runtime testing, diff/drift/freshness review를 연결한다. �
 
 ---
 
+## Implemented Core — Data Pseudonymization Manifest
+
+API 설계 범위를 DB 설계 연결까지 확장하는 privacy track이다. 핵심 결정은
+[Data Pseudonymization Manifest](../concepts/data-pseudonymization-manifest.md)를 독립 YAML
+DSL로 두고, OpenAPI는 manifest 등록/검증/컴파일/dry-run/실행/리포트 gateway API만
+설명하는 것이다.
+
+실행 계획은 [Data Pseudonymization Manifest PRD](../../tasks/prd-data-pseudonymization-manifest.md)를 따른다.
+이 track은 DB catalog snapshot 또는 OpenAPI projection envelope을 `catalog` 입력으로 소비하고,
+Relationship Registry의 approved snapshot으로 namespace binding을 확정한다. DPM은 entity,
+relationship-aware column transform, vault, quality gate, publishing 정책을 소유한다. Registry
+snapshot, compiled plan, runtime validation report, AI schema context는 generated/review artifact로
+취급한다.
+
+Goal 4의 relationship-first core loop는 `@oa-sdk/dpm`으로 구현되었다. Runtime/storage 후속은
+[Goal 5 — DPM Runtime/Storage Integration](./goals/goal-5-dpm-runtime-storage-integration.md)에 둔다.
+
+---
+
 ## 아키텍처 — SWC 스타일 Parse → Transform → Generate
 
 ```
@@ -94,6 +113,7 @@ packages/
   codegen/      ← Drizzle/Zod → OAS + typegen ✅
   router/       ← IR → 서버 라우터 스텁        ✅
   client/       ← IR → 클라이언트 SDK          ✅
+  dpm/          ← Relationship-first DPM       ✅
 ```
 
 ---

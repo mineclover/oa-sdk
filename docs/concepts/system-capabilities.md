@@ -23,8 +23,9 @@ oa-sdk의 기본 기능은 OpenAPI/JSON Schema 호환 입력을 수집해 하나
 - Definition Builder fragments become canonical definition nodes.
 - Python Pydantic DTOs become `ContractSpec.schemas`.
 - Projection producers can provide component bundles or operation contracts.
+- Pseudonymization workflows can consume DB catalog snapshots or OpenAPI projection envelopes as DPM catalog input, then bind approved relationships from a Relationship Registry.
 
-관련 정의: [OpenAPI Projection](./openapi-projection.md), [OpenAPI Contract](./contract-governance.md#openapi-contract)
+관련 정의: [OpenAPI Projection](./openapi-projection.md), [Data Pseudonymization Manifest](./data-pseudonymization-manifest.md), [OpenAPI Contract](./contract-governance.md#openapi-contract)
 
 ## Path Surface Management
 
@@ -97,6 +98,15 @@ generated contract를 mock/test/runtime check에 사용한다.
 - runtime drift checks through `oa-gen drift` and `oa-contract drift`
 
 관련 정의: [Runtime Adapter](./runtime-and-generation.md#runtime-adapter), [Drift](./contract-governance.md#drift)
+
+## Privacy And Pseudonymization
+
+DB 원본을 AI/분석용 target output으로 내보낼 때 source DB 범위, catalog snapshot,
+Relationship Registry snapshot, logical entity, relationship namespace binding, column transform,
+vault, validation, publishing 정책을 별도 manifest로 관리한다. OpenAPI는 이 manifest를
+등록/검증/실행하는 gateway API 계약에 머문다.
+
+관련 정의: [Data Pseudonymization Manifest](./data-pseudonymization-manifest.md), [Data Persona](./data-persona.md)
 
 ## Governance Metadata
 

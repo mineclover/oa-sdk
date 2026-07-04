@@ -71,6 +71,182 @@ OA SDK와 bun-graph-db가 각자의 source loader, repository, CLI, MCP, GraphQL
 
 ---
 
+## DPM Manifest (`@oa-sdk/dpm`)
+
+Relationship-first Data Pseudonymization Manifest의 package surface다. Manifest syntax gate,
+catalog/registry snapshot, semantic validator, compiler, CLI/gateway/publishing context를 포함한다.
+
+| Export | 정의 | 용도 |
+|------|------|------|
+| `DPM_PACKAGE_NAME` | `dpm/src/index.ts` | 패키지 identity smoke/export guard |
+| `DPM_BASELINE` | `dpm/src/index.ts` | DPM v1 relationship-first baseline marker |
+| `DPM_VERSION` | `dpm/src/index.ts` | DPM manifest v1 version literal |
+| `DPM_MANIFEST_SCHEMA_ID` | `dpm/src/schema/index.ts` | JSON Schema `$id`와 package export 정합성 검증 |
+| `validateDpmManifestSchema()` | `dpm/src/schema/index.ts` | DPM manifest JSON Schema syntax gate |
+| `DpmBaseline` | `dpm/src/types.ts` | relationship-first baseline literal type |
+| `DpmVersion` | `dpm/src/types.ts` | DPM manifest version literal type |
+| `DpmPackageMetadata` | `dpm/src/types.ts` | package metadata shape |
+| `DpmManifestSchemaIssue` | `dpm/src/schema/index.ts` | JSON Schema validation issue normalized for DPM diagnostics |
+| `DpmManifestSchemaValidationResult` | `dpm/src/schema/index.ts` | DPM manifest syntax validation result |
+| `CatalogSnapshot` | `dpm/src/catalog/types.ts` | DPM compiler가 소비할 normalized catalog snapshot |
+| `CatalogSnapshotInput` | `dpm/src/catalog/types.ts` | catalog snapshot normalization 입력 |
+| `CatalogSnapshotSource` | `dpm/src/catalog/types.ts` | PostgreSQL 또는 OpenAPI projection catalog source 구분 |
+| `CatalogFreshness` | `dpm/src/catalog/types.ts` | deterministic catalog freshness hash |
+| `CatalogSchema` | `dpm/src/catalog/types.ts` | DB schema entry |
+| `CatalogTable` | `dpm/src/catalog/types.ts` | table/view entry |
+| `CatalogColumn` | `dpm/src/catalog/types.ts` | column type/nullability/ordinal entry |
+| `CatalogPrimaryKey` | `dpm/src/catalog/types.ts` | primary key entry |
+| `CatalogForeignKey` | `dpm/src/catalog/types.ts` | FK-like structural catalog entry |
+| `CatalogIndex` | `dpm/src/catalog/types.ts` | index entry |
+| `CatalogUniqueCandidate` | `dpm/src/catalog/types.ts` | PK/unique/profiled unique candidate entry |
+| `CatalogDiagnostic` | `dpm/src/catalog/types.ts` | source-aware catalog diagnostic |
+| `PostgresCatalogSnapshotInput` | `dpm/src/catalog/types.ts` | PostgreSQL catalog snapshot constructor input |
+| `normalizeCatalogSnapshot()` | `dpm/src/catalog/types.ts` | catalog snapshot arrays/source maps를 deterministic internal model로 정규화 |
+| `computeCatalogFreshnessHash()` | `dpm/src/catalog/types.ts` | catalog structure freshness hash 계산 |
+| `createPostgresCatalogSnapshot()` | `dpm/src/catalog/postgres.ts` | PostgreSQL catalog input을 normalized catalog snapshot으로 변환 |
+| `POSTGRES_CATALOG_PROFILE_SQL` | `dpm/src/catalog/profiler-postgres.ts` | read-only PostgreSQL catalog profile query |
+| `PostgresCatalogProfileRecordKind` | `dpm/src/catalog/profiler-postgres.ts` | profiled PostgreSQL catalog row kind |
+| `PostgresCatalogProfileRow` | `dpm/src/catalog/profiler-postgres.ts` | raw profiler row returned by the catalog query adapter |
+| `PostgresCatalogProfilerClient` | `dpm/src/catalog/profiler-postgres.ts` | explicit query client boundary for PostgreSQL catalog profiling |
+| `PostgresCatalogProfilerInput` | `dpm/src/catalog/profiler-postgres.ts` | catalog profiler request with database, schema filter, client, and capture time |
+| `PostgresCatalogRowsToSnapshotInput` | `dpm/src/catalog/profiler-postgres.ts` | row-to-catalog-snapshot conversion input |
+| `profilePostgresCatalog()` | `dpm/src/catalog/profiler-postgres.ts` | query client를 통해 PostgreSQL catalog metadata를 읽고 DPM catalog snapshot으로 변환 |
+| `postgresCatalogRowsToSnapshot()` | `dpm/src/catalog/profiler-postgres.ts` | profiler rows를 기존 `CatalogSnapshot` contract로 변환 |
+| `catalogSnapshotFromOpenApiProjection()` | `dpm/src/catalog/projection.ts` | OpenAPI projection envelope를 structural catalog evidence로 변환 |
+| `DISCOVERY_REPORT_KIND` | `dpm/src/discovery/report.ts` | discovery report kind literal |
+| `DiscoveryEvidenceKind` | `dpm/src/discovery/types.ts` | candidate evidence source taxonomy |
+| `DiscoveryEvidence` | `dpm/src/discovery/types.ts` | reviewable relationship candidate evidence entry |
+| `DiscoveryThresholds` | `dpm/src/discovery/types.ts` | confidence/reject/orphan threshold contract |
+| `DiscoveryConfidenceLevel` | `dpm/src/discovery/types.ts` | high/review/low confidence classification |
+| `DiscoveryCandidateRecommendation` | `dpm/src/discovery/types.ts` | review/reject recommendation contract |
+| `RelationshipCandidateInput` | `dpm/src/discovery/types.ts` | candidate report authoring input |
+| `RelationshipCandidate` | `dpm/src/discovery/types.ts` | normalized non-executable relationship candidate |
+| `ExcludedRelationshipCandidate` | `dpm/src/discovery/types.ts` | excluded candidate reason entry |
+| `RelationshipDiscoveryReportInput` | `dpm/src/discovery/types.ts` | discovery report creation input |
+| `RelationshipDiscoveryReport` | `dpm/src/discovery/types.ts` | reviewable discovery report output |
+| `classifyRelationshipCandidate()` | `dpm/src/discovery/report.ts` | confidence score를 review/reject classification으로 변환 |
+| `createRelationshipDiscoveryReport()` | `dpm/src/discovery/report.ts` | candidate input을 non-executable review report로 정규화 |
+| `REGISTRY_SNAPSHOT_KIND` | `dpm/src/registry/snapshot.ts` | registry snapshot kind literal |
+| `RegistryRelationshipStatus` | `dpm/src/registry/types.ts` | candidate/proposed/approved/rejected/deprecated/superseded lifecycle status |
+| `RegistryRelationshipKind` | `dpm/src/registry/types.ts` | registry relationship kind taxonomy |
+| `RegistryTransformStrategy` | `dpm/src/registry/types.ts` | registry transform strategy taxonomy |
+| `RegistryConditionMetadata` | `dpm/src/registry/types.ts` | context column, SQL condition, temporal condition metadata |
+| `RegistryEvidence` | `dpm/src/registry/types.ts` | registry relationship evidence entry |
+| `RegistryApprovalMetadata` | `dpm/src/registry/types.ts` | owner/reviewer/approval metadata |
+| `RegistryRelationshipInput` | `dpm/src/registry/types.ts` | registry relationship authoring input |
+| `RegistryRelationship` | `dpm/src/registry/types.ts` | normalized relationship with identity and executable flag |
+| `RegistrySnapshotInput` | `dpm/src/registry/types.ts` | registry snapshot creation input |
+| `RegistrySnapshot` | `dpm/src/registry/types.ts` | versioned registry snapshot output |
+| `createRegistrySnapshot()` | `dpm/src/registry/snapshot.ts` | registry input을 stable versioned snapshot으로 정규화 |
+| `parseRegistrySnapshotYaml()` | `dpm/src/registry/snapshot.ts` | YAML review artifact를 registry snapshot으로 파싱 |
+| `selectApprovedRelationships()` | `dpm/src/registry/snapshot.ts` | approved executable relationship만 선택 |
+| `isExecutableRegistryRelationship()` | `dpm/src/registry/snapshot.ts` | registry status 실행 가능성 판별 |
+| `DPM_REGISTRY_STORAGE_SCHEMA_VERSION` | `dpm/src/storage/registry-schema.ts` | registry storage SQL compatibility/version marker |
+| `DPM_REGISTRY_STORAGE_SCHEMA_SQL` | `dpm/src/storage/registry-schema.ts` | Postgres canonical relationship registry schema SQL |
+| `DpmRegistrySnapshotExportRequest` | `dpm/src/storage/registry-repository.ts` | storage-backed registry snapshot export request |
+| `DpmRegistryRelationshipRowRequest` | `dpm/src/storage/registry-repository.ts` | storage reader dataset/version row request |
+| `DpmRegistryRelationshipRow` | `dpm/src/storage/registry-repository.ts` | canonical storage row shape for relationship registry records |
+| `DpmRegistryRowsToSnapshotInput` | `dpm/src/storage/registry-repository.ts` | row-to-snapshot export input |
+| `DpmRegistryStorageReader` | `dpm/src/storage/registry-repository.ts` | repository adapter boundary for listing registry rows |
+| `DpmRegistryRepository` | `dpm/src/storage/registry-repository.ts` | storage-backed snapshot export repository |
+| `createDpmRegistryRepository()` | `dpm/src/storage/registry-repository.ts` | row reader를 registry snapshot export repository로 감싼다 |
+| `registryRowsToSnapshot()` | `dpm/src/storage/registry-repository.ts` | storage rows를 기존 `RegistrySnapshot` contract로 변환 |
+| `CanonicalKeyValue` | `dpm/src/model/entity.ts` | canonical key value primitive |
+| `CanonicalKeyValueMap` | `dpm/src/model/entity.ts` | canonical key column value map |
+| `ModelEndpoint` | `dpm/src/model/entity.ts` | table and column endpoint for DPM model surfaces |
+| `TenantNamespaceInput` | `dpm/src/model/entity.ts` | tenant-scoped canonical key input |
+| `EntityKeyStrategyType` | `dpm/src/model/entity.ts` | single-column or composite entity key mode |
+| `EntityKeyStrategy` | `dpm/src/model/entity.ts` | entity root canonical key strategy |
+| `EntityTransform` | `dpm/src/model/entity.ts` | deterministic entity transform contract |
+| `EntityDeclarationInput` | `dpm/src/model/entity.ts` | entity declaration authoring input |
+| `EntityDeclaration` | `dpm/src/model/entity.ts` | normalized entity declaration with identity |
+| `createEntityDeclaration()` | `dpm/src/model/entity.ts` | entity root and namespace contract normalization |
+| `renderEntityCanonicalKey()` | `dpm/src/model/entity.ts` | deterministic entity canonical key rendering |
+| `LogicalRelationshipKind` | `dpm/src/model/relationship.ts` | logical relationship kind taxonomy |
+| `LogicalRelationshipOrphanPolicy` | `dpm/src/model/relationship.ts` | orphan policy taxonomy for logical relationships |
+| `LogicalRelationshipCardinality` | `dpm/src/model/relationship.ts` | logical relationship cardinality contract |
+| `LogicalRelationshipCondition` | `dpm/src/model/relationship.ts` | condition text and metadata contract |
+| `TemporalRelationshipInput` | `dpm/src/model/relationship.ts` | temporal valid-time declaration or absence reason |
+| `RelationshipCanonicalKeyStrategy` | `dpm/src/model/relationship.ts` | relationship canonical key component strategy |
+| `LogicalRelationshipInput` | `dpm/src/model/relationship.ts` | logical relationship authoring input |
+| `LogicalRelationship` | `dpm/src/model/relationship.ts` | normalized logical relationship model |
+| `createLogicalRelationship()` | `dpm/src/model/relationship.ts` | relationship predicate and temporal rule normalization |
+| `renderRelationshipCanonicalKey()` | `dpm/src/model/relationship.ts` | deterministic relationship canonical key rendering |
+| `DpmDiagnosticSeverity` | `dpm/src/validator/diagnostics.ts` | semantic validator severity taxonomy |
+| `DpmDiagnosticCode` | `dpm/src/validator/diagnostics.ts` | SYN/REL/SAF diagnostic code taxonomy |
+| `DpmCatalogCoordinate` | `dpm/src/validator/diagnostics.ts` | catalog coordinate attached to diagnostics |
+| `DpmRegistryCoordinate` | `dpm/src/validator/diagnostics.ts` | registry coordinate attached to diagnostics |
+| `DpmDiagnostic` | `dpm/src/validator/diagnostics.ts` | deterministic semantic validation diagnostic |
+| `DpmValidationSummary` | `dpm/src/validator/diagnostics.ts` | error, warning, and info counts |
+| `DpmValidationResult` | `dpm/src/validator/diagnostics.ts` | semantic validation result envelope |
+| `DpmValidationPhase` | `dpm/src/validator/manifest.ts` | validate, compile, dry-run, or runtime phase |
+| `DpmValidationInput` | `dpm/src/validator/manifest.ts` | manifest plus catalog and registry snapshot validator input |
+| `validateDpmManifest()` | `dpm/src/validator/manifest.ts` | SYN syntax plus REL/SAF semantic diagnostics without source DB access |
+| `DPM_COMPILED_PLAN_KIND` | `dpm/src/compiler/plan.ts` | compiled plan kind literal |
+| `DpmCompiledPlanVersion` | `dpm/src/compiler/plan.ts` | compiled plan version taxonomy |
+| `DpmPlanStaleReason` | `dpm/src/compiler/plan.ts` | compiled plan stale reason taxonomy |
+| `DpmPlanFreshness` | `dpm/src/compiler/plan.ts` | manifest, catalog, and registry freshness tuple |
+| `DpmNamespaceBinding` | `dpm/src/compiler/plan.ts` | namespace to entity, relationship, and column binding |
+| `DpmRelationshipStep` | `dpm/src/compiler/plan.ts` | approved relationship execution step |
+| `DpmColumnStep` | `dpm/src/compiler/plan.ts` | column transform execution step |
+| `DpmCompiledPlan` | `dpm/src/compiler/plan.ts` | relationship-first compiled execution plan |
+| `createPlanFreshness()` | `dpm/src/compiler/plan.ts` | compiled plan freshness tuple creation |
+| `DpmCompileInput` | `dpm/src/compiler/compile.ts` | compiler manifest, catalog, and registry input |
+| `DpmCompileSuccess` | `dpm/src/compiler/compile.ts` | successful compiler result |
+| `DpmCompileFailure` | `dpm/src/compiler/compile.ts` | compiler refusal result with diagnostics |
+| `DpmCompileResult` | `dpm/src/compiler/compile.ts` | compiler result union |
+| `compileDpmPlan()` | `dpm/src/compiler/compile.ts` | validator-gated compiled plan creation |
+| `DPM_DRY_RUN_REPORT_KIND` | `dpm/src/dry-run/report.ts` | dry-run report kind literal |
+| `DpmDryRunImpact` | `dpm/src/dry-run/report.ts` | dry-run impact count summary |
+| `DpmDryRunCategory` | `dpm/src/dry-run/report.ts` | dry-run impact category count |
+| `DpmDryRunInput` | `dpm/src/dry-run/report.ts` | dry-run report input |
+| `DpmDryRunReport` | `dpm/src/dry-run/report.ts` | raw-value-free dry-run report |
+| `createDpmDryRunReport()` | `dpm/src/dry-run/report.ts` | dry-run impact report creation |
+| `DPM_JOB_KIND` | `dpm/src/storage/job-repository.ts` | persisted DPM job row kind literal |
+| `DpmJobOperation` | `dpm/src/storage/job-repository.ts` | compile or dry-run persisted job operation taxonomy |
+| `DpmJobStatus` | `dpm/src/storage/job-repository.ts` | accepted, completed, or failed persisted job status |
+| `DpmJobRequest` | `dpm/src/storage/job-repository.ts` | job lookup request |
+| `DpmJobSaveInput` | `dpm/src/storage/job-repository.ts` | sanitized job persistence input |
+| `DpmJobRow` | `dpm/src/storage/job-repository.ts` | persisted job metadata row |
+| `DpmJobStorage` | `dpm/src/storage/job-repository.ts` | storage adapter boundary for persisted jobs |
+| `DpmJobRepository` | `dpm/src/storage/job-repository.ts` | job persistence repository surface |
+| `createDpmJobRow()` | `dpm/src/storage/job-repository.ts` | copy-only job row builder that excludes unsafe payload fields |
+| `createDpmJobRepository()` | `dpm/src/storage/job-repository.ts` | adapter-backed job persistence repository factory |
+| `DPM_VALIDATION_REPORT_KIND` | `dpm/src/storage/report-repository.ts` | persisted validation report row kind literal |
+| `DpmValidationReportStatus` | `dpm/src/storage/report-repository.ts` | completed or failed validation report status |
+| `DpmValidationReportRequest` | `dpm/src/storage/report-repository.ts` | validation report lookup request |
+| `DpmValidationReportSaveInput` | `dpm/src/storage/report-repository.ts` | sanitized validation report persistence input |
+| `DpmStoredValidationReport` | `dpm/src/storage/report-repository.ts` | persisted validation report row with diagnostics and summaries |
+| `DpmGatewayJobReport` | `dpm/src/storage/report-repository.ts` | gateway-compatible job report retrieval shape |
+| `DpmValidationReportStorage` | `dpm/src/storage/report-repository.ts` | storage adapter boundary for validation reports |
+| `DpmReportRepository` | `dpm/src/storage/report-repository.ts` | validation report persistence and retrieval repository surface |
+| `createDpmValidationReport()` | `dpm/src/storage/report-repository.ts` | copy-only validation report builder that excludes unsafe payload fields |
+| `validationReportToGatewayJobReport()` | `dpm/src/storage/report-repository.ts` | stored report to gateway job report projection |
+| `createDpmReportRepository()` | `dpm/src/storage/report-repository.ts` | adapter-backed validation report repository factory |
+| `DpmGatewayOperationId` | `dpm/src/gateway/openapi.ts` | DPM gateway operation id taxonomy |
+| `DpmGatewayOpenApiDocument` | `dpm/src/gateway/openapi.ts` | DPM gateway OpenAPI 3.2 document type |
+| `DPM_GATEWAY_OPERATION_IDS` | `dpm/src/gateway/openapi.ts` | required DPM gateway operation id list |
+| `getDpmGatewayOpenApiDocument()` | `dpm/src/gateway/openapi.ts` | checked DPM gateway OpenAPI 3.2 artifact |
+| `DPM_GATEWAY_RUNTIME_OPERATION_IDS` | `dpm/src/gateway/runtime.ts` | runtime-executable DPM gateway operation id list |
+| `DpmGatewayRuntimeOperationId` | `dpm/src/gateway/runtime.ts` | runtime operation id taxonomy |
+| `DpmGatewayRuntimeStatusCode` | `dpm/src/gateway/runtime.ts` | runtime success or blocking-diagnostic status code |
+| `DpmGatewayRuntimeCommand` | `dpm/src/gateway/runtime.ts` | CLI-compatible runtime command taxonomy |
+| `DpmGatewayRuntimeBody` | `dpm/src/gateway/runtime.ts` | runtime response body envelope |
+| `DpmGatewayRuntimeManifestInput` | `dpm/src/gateway/runtime.ts` | already-loaded manifest, catalog, registry, and estimated row input |
+| `DpmGatewayRuntimeResponse` | `dpm/src/gateway/runtime.ts` | gateway runtime response envelope |
+| `DpmGatewayRuntime` | `dpm/src/gateway/runtime.ts` | validate, compile, and dry-run runtime handler bundle |
+| `createDpmGatewayRuntime()` | `dpm/src/gateway/runtime.ts` | source-DB-free runtime adapter for manifest operations |
+| `DpmRelationshipMetadata` | `dpm/src/publishing/context.ts` | AI-publishable approved relationship metadata |
+| `DpmAiRelationshipContext` | `dpm/src/publishing/context.ts` | AI schema relationship context entry |
+| `DpmAiSchemaContext` | `dpm/src/publishing/context.ts` | read-only AI schema context envelope |
+| `DpmPhysicalForeignKeyRecommendation` | `dpm/src/publishing/context.ts` | recommendation-only physical FK output |
+| `DpmPublishingContextInput` | `dpm/src/publishing/context.ts` | publishing context creation input |
+| `DpmPublishingContext` | `dpm/src/publishing/context.ts` | relationship metadata and AI schema context output |
+| `DPM_PUBLISHING_CONTEXT_KIND` | `dpm/src/publishing/context.ts` | publishing context kind literal |
+| `createDpmPublishingContext()` | `dpm/src/publishing/context.ts` | publishing context generation from compiled plans |
+
+---
+
 ## 함수 (`@oa-sdk/parser`)
 
 | 함수 | 파일 | 용도 |

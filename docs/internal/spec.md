@@ -15,6 +15,7 @@ router       ← core + parser. Hono/Express 스텁
 client       ← core + parser. fetch SDK + SSE
 typia-mock   ← core + parser (+ typia: peer). LLM 함수 호출 검증 서버
 schemas      ← 독립. TypeSpec production source + generated OAS artifact + Definition Builder rollback + 3.1↔3.2 변환
+dpm          ← 독립. Relationship-first DPM manifest schema + fixture gate
 ```
 
 개발/CI 런타임 기준은 Node.js 25 이상이다. 로컬 nvm 런타임은 `.nvmrc`의 `25`를 기준으로 맞춘다.
@@ -28,7 +29,7 @@ schemas      ← 독립. TypeSpec production source + generated OAS artifact + D
 machine-readable SSOT다. 사람이 읽는 요약은
 [`feature-test-matrix.md`](./feature-test-matrix.md)에 둔다.
 
-현재 매핑은 24개 기능 그룹과 CLI spec drift guard를 포함한 테스트 경로 패턴을 관리한다.
+현재 매핑은 40개 기능 그룹과 CLI spec drift guard를 포함한 테스트 경로 패턴을 관리한다.
 
 ```bash
 pnpm check:feature-tests
@@ -230,6 +231,41 @@ oa-gen drift \
 | CLI incremental orchestration | `packages/codegen/src/cli/lib/incremental.ts` | `validate`/`typegen --incremental`과 `dev`가 동일한 scan → dirty detect → invalidate → full parser/codegen output → index refresh 경로를 사용. cache 실패나 cache miss는 출력 correctness에 영향을 주지 않고 full rebuild 결과가 우선 |
 
 `WorkspaceIndex`는 최적화와 영향도 계산을 위한 index layer이며, component 중복, `$ref` 해소, cycle diagnostic, type alias 생성의 최종 correctness는 현재 파일 내용으로 재계산하는 full parser/codegen 경로가 담당한다. SQLite open/read/write 오류는 no-op과 같은 full rebuild fallback으로 전환하고, 실패한 write transaction은 rollback된다.
+
+## `@oa-sdk/dpm` ✅
+
+| 기능 | 상세 |
+|------|------|
+| Package baseline | `packages/dpm`은 ADR-010 기준의 독립 private workspace package다. Root `build`, `test`, `typecheck` script에 포함된다. |
+| Manifest schema | `packages/dpm/src/schema/dpm-manifest.schema.json`이 DPM v1 JSON Schema source다. `$id`는 `DPM_MANIFEST_SCHEMA_ID` export와 smoke test로 고정하고 `validateDpmManifestSchema()`가 runtime syntax gate를 제공한다. |
+| Relationship-first fixtures | `packages/dpm/test/fixtures/valid/customer-orders.json`은 parent/child endpoint, approved relationship, entity namespace, relationship token column policy를 검증한다. |
+| Invalid fixture gate | `packages/dpm/test/fixtures/invalid/*.json`은 direct identifier keep, PII foreign identifier without relationship, legacy `from/to` relationship syntax, non-approved relationship execution을 차단한다. |
+| Catalog snapshot model | `packages/dpm/src/catalog/types.ts`가 schemas/tables/columns/PK/FK/index/unique candidate/source coordinate/freshness model을 소유한다. |
+| PostgreSQL catalog fixture | `packages/dpm/test/fixtures/catalog/postgres-commerce.json`은 PostgreSQL-first MVP catalog 구조를 검증한다. |
+| PostgreSQL catalog profiler | `packages/dpm/src/catalog/profiler-postgres.ts`는 명시적 query client와 schema filter로 `pg_catalog` metadata를 읽고 기존 `CatalogSnapshot` shape로 변환한다. Profiler는 source DB mutation 없이 schemas/tables/columns/PK/FK/index/unique candidate/source coordinate와 freshness hash를 만든다. |
+| Projection adapter | `packages/dpm/src/catalog/projection.ts`는 `OpenApiProjectionResult`를 structural catalog evidence로 변환하지만 relationship approval을 만들지 않는다. |
+| Catalog freshness | `computeCatalogFreshnessHash()`는 normalized catalog structure에서 deterministic `sha256:*` freshness hash를 만든다. |
+| Discovery report | `packages/dpm/src/discovery/report.ts`는 후보 relationship을 non-executable review report로 정규화한다. High-confidence 후보도 auto approve하지 않고 `recommendation: "review"`로 남긴다. |
+| Discovery evidence | `packages/dpm/test/fixtures/discovery/commerce-candidates.json`은 query log/ORM metadata evidence가 optional evidence block으로 보존되는지 검증한다. |
+| Registry snapshot | `packages/dpm/src/registry/snapshot.ts`는 YAML review artifact를 versioned registry snapshot으로 정규화하고 `approved` 관계만 executable로 표시한다. |
+| Registry lifecycle | `candidate`, `proposed`, `rejected`, `deprecated`, `superseded` 관계는 loadable history로 보존하지만 compiler 선택 대상에서는 제외한다. |
+| Registry storage schema | `packages/dpm/src/storage/registry-schema.ts`는 Postgres canonical relationship registry SQL을 제공한다. Schema는 `text`, `text[]`, `jsonb`, `timestamptz`, check constraint, dataset/version/name/version composite identity index, approved partial index를 사용한다. |
+| Registry storage repository | `packages/dpm/src/storage/registry-repository.ts`는 storage row reader에서 기존 `RegistrySnapshot` shape를 export한다. Row scope가 요청 dataset/version과 다르면 snapshot export를 거절하며 live source DB 없이 테스트된다. |
+| Entity model | `packages/dpm/src/model/entity.ts`는 entity를 child binding 없이 root key와 namespace contract로 정규화하고 single/composite/tenant-scoped canonical key를 deterministic하게 렌더링한다. |
+| Logical relationship model | `packages/dpm/src/model/relationship.ts`는 relationship kind, cardinality, predicate, temporal valid-time input, canonical key strategy를 정규화한다. Polymorphic 관계는 condition text가 필수이고 temporal 관계는 valid-time column 또는 documented absence가 필수다. |
+| Semantic validator | `packages/dpm/src/validator/manifest.ts`는 manifest, catalog snapshot, registry snapshot만으로 SYN/REL/SAF diagnostics를 생성한다. Diagnostics는 severity, code, message, source pointer, 가능한 catalog/registry coordinate를 포함한다. |
+| Validator relationship gates | `packages/dpm/src/validator/relationships.ts`는 stale registry reference, missing/non-approved/ambiguous registry relationship, approved registry snapshot mismatch, catalog scope/table/column/key mismatch, polymorphic/temporal/composite relationship requirements를 deterministic diagnostic으로 만든다. |
+| Validator safety gates | Validator는 direct identifier keep, PII foreign identifier without relationship, missing column relationship reference, namespace mismatch, raw PII keep leakage, non-runtime phase runtime-vault usage, missing relationship drift gate warning을 fixture-backed로 검증한다. |
+| Compiler | `packages/dpm/src/compiler/compile.ts`는 validator error가 있는 manifest를 plan 없이 거절하고, warning-only 입력은 relationship-first compiled plan으로 변환한다. Plan은 approved registry snapshot에서 relationship step semantics를 가져오며 namespace bindings, column steps, manifest/catalog/registry freshness tuple, stale reasons를 포함한다. |
+| Dry-run report | `packages/dpm/src/dry-run/report.ts`는 compiled plan에서 namespace, relationship, column, PII column, estimated rows impact categories를 만들며 raw sensitive sample values를 report에 보존하지 않는다. |
+| CLI surface | `packages/dpm/src/cli/index.ts`는 `oa-dpm validate`, `oa-dpm compile`, `oa-dpm dry-run` command를 제공한다. 첫 CLI 버전은 `--manifest`, `--catalog`, `--registry` 명시 경로만 읽고 source DB 네트워크 접근 없이 machine-readable JSON을 출력한다. Blocking SYN/REL/SAF error가 있으면 non-zero로 종료한다. |
+| Primary demo | `packages/dpm/examples/customer-orders`는 customer-orders manifest, catalog snapshot, relationship registry, estimated rows fixture로 `pnpm demo:dpm`을 실행한다. 데모는 validate, compile, dry-run happy path와 `SYN001`, `REL013`, `SAF012` guard를 source DB mutation 없이 확인한다. |
+| Storage-backed demo | `packages/dpm/examples/customer-orders-storage`는 fixture-backed catalog profile rows, registry storage rows, manifest, estimated rows, and `run-demo.mjs`로 profiler → registry export → validate → compile → dry-run → job/report persistence → gateway report retrieval을 검증한다. Root command는 `pnpm demo:dpm:storage`이며 live DB 없이 CI에서 재현 가능하다. |
+| Gateway contract | `packages/dpm/src/gateway/openapi.ts`는 OpenAPI 3.2 DPM gateway artifact를 제공한다. Operation set은 catalog profile, relationship discovery, candidate import, approval, registry snapshot export, manifest validate/compile/dry-run, execute job, validation report retrieval을 포함한다. Manifest policy body는 `DPM_MANIFEST_SCHEMA_ID` extension으로 JSON Schema source of truth를 참조하고 OpenAPI schema가 `entities`, `relationships`, `columns` policy semantics를 재소유하지 않는다. |
+| Gateway runtime adapter | `packages/dpm/src/gateway/runtime.ts`는 validate/compile/dry-run operation만 실행 가능한 runtime handler bundle로 제공한다. 입력은 이미 로드된 manifest, catalog, registry, optional estimated rows이며 파일 읽기, source DB 접속, execute-job/report API, vault/reverse token lookup surface를 포함하지 않는다. |
+| Job/report persistence | `packages/dpm/src/storage/job-repository.ts`와 `packages/dpm/src/storage/report-repository.ts`는 compile/dry-run job metadata, diagnostics, plan identity, freshness tuple, validation report refs, dry-run impact summaries를 adapter-backed row로 저장한다. 저장 row builder는 source credentials, vault material, reverse lookup maps, raw sensitive samples를 복사하지 않으며 `getJobReport()`는 gateway-compatible job report shape를 반환한다. |
+| Publishing context | `packages/dpm/src/publishing/context.ts`는 compiled plan에서 `relationshipMetadata`와 `aiSchemaContext`를 생성한다. Output은 join predicate, cardinality, namespace, descriptions, optional examples, read-only grant hints를 포함한다. Physical FK output은 `recommendation_only` + `mutation: none`으로만 제공하며 vault/reverse token lookup 정보를 포함하지 않는다. |
+| Verification | `pnpm --filter @oa-sdk/dpm build`, `pnpm --filter @oa-sdk/dpm test -- schema`, `pnpm --filter @oa-sdk/dpm test -- catalog`, `pnpm --filter @oa-sdk/dpm test -- catalog-profiler`, `pnpm --filter @oa-sdk/dpm test -- discovery`, `pnpm --filter @oa-sdk/dpm test -- registry`, `pnpm --filter @oa-sdk/dpm test -- storage-registry`, `pnpm --filter @oa-sdk/dpm test -- storage-report`, `pnpm --filter @oa-sdk/dpm test -- storage-demo`, `pnpm --filter @oa-sdk/dpm test -- model`, `pnpm --filter @oa-sdk/dpm test -- validator`, `pnpm --filter @oa-sdk/dpm test -- compiler`, `pnpm --filter @oa-sdk/dpm test -- dry-run`, `pnpm --filter @oa-sdk/dpm test -- cli`, `pnpm --filter @oa-sdk/dpm test -- demo`, `pnpm --filter @oa-sdk/dpm test -- gateway`, `pnpm --filter @oa-sdk/dpm test -- gateway-runtime`, `pnpm --filter @oa-sdk/dpm test -- publishing`, `pnpm --filter @oa-sdk/dpm typecheck`, `pnpm demo:dpm`, `pnpm demo:dpm:storage` |
 
 ## `@oa-sdk/router` ✅
 

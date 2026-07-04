@@ -1,10 +1,14 @@
 # 프로젝트 목표
 
+→ 진행 현황 체크리스트: [progress-index.md](./progress-index.md)
+
 | 목표/Phase | 상태 | 패키지 |
 |-----------|------|--------|
 | [Goal 1 — 스키마 관리](./goal-1-schemas.md) | ✅ | schemas |
 | [Goal 2 — 코드젠](./goal-2-codegen.md) | ✅ | codegen |
 | [Goal 3 — Mock 서버](./goal-3-mock-server.md) | ✅ | mock-server |
+| [Goal 4 — Relationship-First DPM Roadmap](./goal-4-dpm-relationship-first-roadmap.md) / [Implementation Strategy](./goal-4-dpm-implementation-strategy.md) | ✅ | dpm |
+| [Goal 5 — DPM Runtime/Storage Integration](./goal-5-dpm-runtime-storage-integration.md) | current | dpm |
 | Phase 3 — OAS 파서/IR | ✅ | parser |
 | Phase 4 — TS 타입 생성 | ✅ | codegen/typegen |
 | Phase 5 — 라우터 스텁 | ✅ | router |

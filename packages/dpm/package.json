@@ -1,0 +1,38 @@
+{
+  "name": "@oa-sdk/dpm",
+  "version": "0.1.0",
+  "description": "Relationship-first Data Pseudonymization Manifest toolkit",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "oa-dpm": "./dist/cli/index.js"
+  },
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup src/index.ts src/cli/index.ts --format esm --dts",
+    "demo": "corepack pnpm build && node examples/customer-orders/run-demo.mjs",
+    "demo:storage": "corepack pnpm build && node examples/customer-orders-storage/run-demo.mjs",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@oa-sdk/openapi-projection-contract": "workspace:*",
+    "ajv": "^8.17.0",
+    "yaml": "^2.8.3"
+  },
+  "devDependencies": {
+    "@types/node": "^25.0.0",
+    "tsup": "^8.0.0",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.4"
+  }
+}

@@ -58,7 +58,7 @@ oa-sdk is:
 oa-sdk is not:
 
 - a replacement for application business logic
-- a source of truth for database internals
+- the operational source of truth for database internals; DPM may reference catalog snapshots for pseudonymization governance
 - a place to manually patch generated artifacts
 - a framework runtime by itself
 

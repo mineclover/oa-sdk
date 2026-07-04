@@ -17,6 +17,10 @@ Source of truth는 계약을 사람이 고치는 원천이다.
 TS/JS 파이프라인에서는 보통 도메인 OpenAPI fragments, Definition Builder fragments,
 Zod/Drizzle projection 입력이 source of truth다. Python template에서는 Pydantic DTO와
 `ContractRegistry` 또는 checked-in `ContractSpec` JSON이 source of truth다.
+DB 가명처리 파이프라인에서는 Data Pseudonymization Manifest가 source DB 범위, catalog,
+entity, column transform, vault, validation, publishing 정책의 source of truth다. Logical
+relationship의 lifecycle source of truth는 Relationship Registry이며, DPM은 실행 시점의 approved
+relationship snapshot을 담는다.
 
 Generated OpenAPI, generated TypeScript, generated client/router, review report는 source
 of truth가 아니다.
@@ -32,6 +36,10 @@ Generated artifact는 source of truth에서 재생성 가능한 파일이다. �
 - generated router/client code
 - contract snapshot
 - review report
+- approved relationship registry snapshot
+- compiled pseudonymization plan
+- pseudonymization validation report
+- AI schema context
 
 Generated artifact는 review evidence로 쓰되, drift를 해결하기 위해 직접 수정하지 않는다.
 

@@ -30,6 +30,7 @@ check:release-policy`가 이 파일과 workspace package manifests, `.changeset/
 | `@oa-sdk/schemas` | `0.1.0` | TypeSpec production source and OpenAPI artifacts |
 | `@oa-sdk/mock-server` | `0.1.0` | Mock engine with MSW and Node HTTP adapters |
 | `@oa-sdk/codegen` | `0.3.0` | CLI, typegen, governance, and schema/code generation |
+| `@oa-sdk/dpm` | `0.1.0` | Relationship-first Data Pseudonymization Manifest toolkit |
 | `@oa-sdk/router` | `0.1.0` | Server router generation |
 | `@oa-sdk/client` | `0.1.0` | Fetch client generation |
 | `@oa-sdk/typia-mock` | `0.1.0` | typia-compatible mock validation surface |

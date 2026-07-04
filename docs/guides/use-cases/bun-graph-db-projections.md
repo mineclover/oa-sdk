@@ -8,6 +8,9 @@
 행동 수집/조회 관점의 개념 정의는 [Behavior ECS](../../concepts/behavior-ecs.md)를 따른다.
 
 bun-graph-db를 OpenAPI projection producer로 둔다. OA SDK는 producer에서 받은 artifact를 파일로 고정하고, 그 snapshot을 기준으로 `validate`, `typegen`, `client`, `mock-server`를 실행한다.
+DB 가명처리 설계에서는 같은 projection snapshot을 [Data Pseudonymization Manifest](../../concepts/data-pseudonymization-manifest.md)의
+`catalog` 입력으로 사용할 수 있다. Projection은 table 구조와 freshness를 제공하고, DPM은
+entity/relationship/column transform/vault/publishing 정책을 별도로 선언한다.
 
 ```txt
 bun-graph-db
@@ -308,5 +311,6 @@ Table runtime schema를 소비하는 generated artifact는 항상 `{ tableId 또
 → [코드젠 워크플로](./codegen-workflow.md)  
 → [CLI 세팅](../cli-setup.md)  
 → [OpenAPI Projection Contract](../../../packages/openapi-projection-contract/README.md)  
+→ [Data Pseudonymization Manifest](../../concepts/data-pseudonymization-manifest.md)\
 → [Shared SchemaEngine vocabulary](../../internal/architecture/007-shared-schema-engine-vocabulary.md)  
 → [bun-graph-db full document scope](../../../references/bun-graph-db/docs/development/FULL_OPENAPI_DOCUMENT_SCOPE.md)

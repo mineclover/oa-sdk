@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-06-21",
+  "updatedAt": "2026-07-01",
   "description": "Feature-to-test mapping for oa-sdk. Each feature lists representative automated coverage and the commands that maintain it.",
   "features": [
     {
@@ -101,6 +101,388 @@
       "commands": [
         "pnpm --filter @oa-sdk/openapi-projection-contract test",
         "pnpm --filter @oa-sdk/openapi-projection-contract typecheck"
+      ]
+    },
+    {
+      "id": "dpm-manifest-schema",
+      "name": "DPM manifest schema",
+      "category": "dpm",
+      "package": "@oa-sdk/dpm",
+      "description": "Relationship-first DPM manifest schema, stable schema id, and valid/invalid fixture gates.",
+      "capabilities": [
+        "DPM v1 schema identity",
+        "relationship-first manifest shape",
+        "direct identifier keep rejection",
+        "foreign identifier relationship requirement",
+        "legacy relationship from/to rejection",
+        "non-approved relationship rejection"
+      ],
+      "testPaths": [
+        "packages/dpm/test/schema.test.ts",
+        "packages/dpm/test/smoke.test.ts"
+      ],
+      "commands": [
+        "pnpm --filter @oa-sdk/dpm test",
+        "pnpm --filter @oa-sdk/dpm typecheck"
+      ]
+    },
+    {
+      "id": "dpm-catalog-snapshot",
+      "name": "DPM catalog snapshot",
+      "category": "dpm",
+      "package": "@oa-sdk/dpm",
+      "description": "PostgreSQL-first catalog snapshot normalization, OpenAPI projection structural evidence adapter, and deterministic freshness hash.",
+      "capabilities": [
+        "schema/table/column catalog model",
+        "primary key and foreign key entries",
+        "index and unique candidate entries",
+        "source coordinate preservation",
+        "OpenAPI projection structural evidence adapter",
+        "deterministic freshness hashing"
+      ],
+      "testPaths": [
+        "packages/dpm/test/catalog.test.ts"
+      ],
+      "commands": [
+        "pnpm --filter @oa-sdk/dpm test -- catalog",
+        "pnpm --filter @oa-sdk/dpm typecheck"
+      ]
+    },
+    {
+      "id": "dpm-postgres-catalog-profiler",
+      "name": "DPM PostgreSQL catalog profiler",
+      "category": "dpm",
+      "package": "@oa-sdk/dpm",
+      "description": "Read-only PostgreSQL catalog profiler query and row-to-snapshot mapping for the existing DPM catalog snapshot contract.",
+      "capabilities": [
+        "read-only pg_catalog query",
+        "explicit schema filter",
+        "explicit query client boundary",
+        "schema table column mapping",
+        "primary key and foreign key mapping",
+        "index and unique candidate mapping",
+        "deterministic freshness hashing",
+        "no live production database requirement"
+      ],
+      "testPaths": [
+        "packages/dpm/test/catalog-profiler.test.ts",
+        "packages/dpm/test/fixtures/catalog/profiler-postgres.sql",
+        "packages/dpm/test/fixtures/catalog/profiler-postgres-rows.json"
+      ],
+      "commands": [
+        "pnpm --filter @oa-sdk/dpm test -- catalog-profiler",
+        "pnpm --filter @oa-sdk/dpm typecheck"
+      ]
+    },
+    {
+      "id": "dpm-discovery-report",
+      "name": "DPM discovery report",
+      "category": "dpm",
+      "package": "@oa-sdk/dpm",
+      "description": "Relationship discovery candidate reports that preserve evidence without approving or executing relationships.",
+      "capabilities": [
+        "candidate relationship report shape",
+        "confidence classification",
+        "query log evidence preservation",
+        "ORM metadata evidence preservation",
+        "low-confidence rejection recommendation",
+        "auto approval disabled"
+      ],
+      "testPaths": [
+        "packages/dpm/test/discovery.test.ts"
+      ],
+      "commands": [
+        "pnpm --filter @oa-sdk/dpm test -- discovery",
+        "pnpm --filter @oa-sdk/dpm typecheck"
+      ]
+    },
+    {
+      "id": "dpm-registry-snapshot",
+      "name": "DPM registry snapshot",
+      "category": "dpm",
+      "package": "@oa-sdk/dpm",
+      "description": "Versioned relationship registry snapshots with YAML review artifacts and approved-only execution selection.",
+      "capabilities": [
+        "registry snapshot identity",
+        "relationship identity",
+        "approved relationship selection",
+        "non-executable lifecycle history",
+        "YAML review artifact parsing",
+        "stable ordering"
+      ],
+      "testPaths": [
+        "packages/dpm/test/registry.test.ts"
+      ],
+      "commands": [
+        "pnpm --filter @oa-sdk/dpm test -- registry",
+        "pnpm --filter @oa-sdk/dpm typecheck"
+      ]
+    },
+    {
+      "id": "dpm-registry-storage",
+      "name": "DPM registry storage",
+      "category": "dpm",
+      "package": "@oa-sdk/dpm",
+      "description": "Postgres canonical registry storage schema and row-reader export to the existing registry snapshot contract.",
+      "capabilities": [
+        "Postgres registry schema SQL",
+        "relationship lifecycle check constraints",
+        "composite identity index",
+        "approved partial index",
+        "storage row to registry snapshot export",
+        "dataset and registry version scope guard",
+        "no live source database requirement"
+      ],
+      "testPaths": [
+        "packages/dpm/test/storage-registry.test.ts",
+        "packages/dpm/test/fixtures/storage/registry-schema.sql"
+      ],
+      "commands": [
+        "pnpm --filter @oa-sdk/dpm test -- storage-registry",
+        "pnpm --filter @oa-sdk/dpm typecheck"
+      ]
+    },
+    {
+      "id": "dpm-model",
+      "name": "DPM entity and logical relationship model",
+      "category": "dpm",
+      "package": "@oa-sdk/dpm",
+      "description": "Entity root key contracts, logical relationship predicates, and deterministic canonical key rendering.",
+      "capabilities": [
+        "entity root key contract",
+        "single-column canonical key",
+        "composite canonical key",
+        "tenant-scoped canonical key",
+        "polymorphic predicate requirement",
+        "temporal valid-time requirement"
+      ],
+      "testPaths": [
+        "packages/dpm/test/model.test.ts"
+      ],
+      "commands": [
+        "pnpm --filter @oa-sdk/dpm test -- model",
+        "pnpm --filter @oa-sdk/dpm typecheck"
+      ]
+    },
+    {
+      "id": "dpm-semantic-validator",
+      "name": "DPM semantic validator",
+      "category": "dpm",
+      "package": "@oa-sdk/dpm",
+      "description": "Deterministic SYN, REL, and SAF diagnostics from manifest, catalog snapshot, and registry snapshot only.",
+      "capabilities": [
+        "SYN diagnostic family",
+        "REL diagnostic family",
+        "SAF diagnostic family",
+        "registry approval checks",
+        "approved registry snapshot mismatch checks",
+        "catalog relationship checks",
+        "namespace mismatch diagnostics",
+        "relationship drift gate warning"
+      ],
+      "testPaths": [
+        "packages/dpm/test/validator.test.ts"
+      ],
+      "commands": [
+        "pnpm --filter @oa-sdk/dpm test -- validator",
+        "pnpm --filter @oa-sdk/dpm typecheck"
+      ]
+    },
+    {
+      "id": "dpm-compiler-dry-run",
+      "name": "DPM compiler and dry-run",
+      "category": "dpm",
+      "package": "@oa-sdk/dpm",
+      "description": "Validator-gated compiled plans and raw-value-free dry-run impact reports.",
+      "capabilities": [
+        "validator-gated compilation",
+        "approved registry relationship steps only",
+        "namespace bindings",
+        "column steps",
+        "freshness stale marking",
+        "dry-run impact counts without raw values"
+      ],
+      "testPaths": [
+        "packages/dpm/test/compiler.test.ts",
+        "packages/dpm/test/dry-run.test.ts"
+      ],
+      "commands": [
+        "pnpm --filter @oa-sdk/dpm test -- compiler",
+        "pnpm --filter @oa-sdk/dpm test -- dry-run",
+        "pnpm --filter @oa-sdk/dpm typecheck"
+      ]
+    },
+    {
+      "id": "dpm-cli-surface",
+      "name": "DPM CLI surface",
+      "category": "dpm",
+      "package": "@oa-sdk/dpm",
+      "description": "Validate, compile, and dry-run CLI commands over explicit manifest, catalog snapshot, and registry snapshot paths with schema-gated validation.",
+      "capabilities": [
+        "validate command",
+        "compile command",
+        "dry-run command",
+        "explicit manifest path",
+        "explicit catalog snapshot path",
+        "explicit registry snapshot path",
+        "JSON Schema validation gate",
+        "machine-readable JSON output",
+        "non-zero blocking diagnostics exit"
+      ],
+      "testPaths": [
+        "packages/dpm/test/cli.test.ts"
+      ],
+      "commands": [
+        "pnpm --filter @oa-sdk/dpm build",
+        "pnpm --filter @oa-sdk/dpm test -- cli"
+      ]
+    },
+    {
+      "id": "dpm-primary-demo",
+      "name": "DPM primary customer orders demo",
+      "category": "dpm",
+      "package": "@oa-sdk/dpm",
+      "description": "Customer-orders primary CLI demo for validate, compile, dry-run, and guard scenarios without source DB access.",
+      "capabilities": [
+        "runnable customer-orders demo",
+        "validate compile dry-run happy path",
+        "estimated rows dry-run impact",
+        "JSON Schema guard demonstration",
+        "registry spoof guard demonstration",
+        "missing column relationship guard demonstration",
+        "no source DB access"
+      ],
+      "testPaths": [
+        "packages/dpm/test/demo.test.ts",
+        "packages/dpm/examples/customer-orders/README.md",
+        "packages/dpm/examples/customer-orders/run-demo.mjs"
+      ],
+      "commands": [
+        "pnpm --filter @oa-sdk/dpm test -- demo",
+        "pnpm --filter @oa-sdk/dpm run demo"
+      ]
+    },
+    {
+      "id": "dpm-storage-demo",
+      "name": "DPM storage-backed customer orders demo",
+      "category": "dpm",
+      "package": "@oa-sdk/dpm",
+      "description": "Storage-backed customer-orders demo for catalog profiling, registry export, validate/compile/dry-run, and report retrieval.",
+      "capabilities": [
+        "fixture-backed catalog profiling",
+        "storage-backed registry snapshot export",
+        "validate compile dry-run storage flow",
+        "job and report persistence smoke",
+        "gateway-compatible report retrieval",
+        "documented storage demo command",
+        "no source DB mutation",
+        "no raw sensitive value persistence"
+      ],
+      "testPaths": [
+        "packages/dpm/test/storage-demo.test.ts",
+        "packages/dpm/examples/customer-orders-storage/README.md",
+        "packages/dpm/examples/customer-orders-storage/run-demo.mjs"
+      ],
+      "commands": [
+        "pnpm --filter @oa-sdk/dpm test -- storage-demo",
+        "pnpm --filter @oa-sdk/dpm run demo:storage"
+      ]
+    },
+    {
+      "id": "dpm-gateway-contract",
+      "name": "DPM gateway contract",
+      "category": "dpm",
+      "package": "@oa-sdk/dpm",
+      "description": "OpenAPI 3.2 gateway contract for DPM lifecycle operations without owning manifest policy semantics.",
+      "capabilities": [
+        "OpenAPI 3.2 gateway artifact",
+        "catalog profiling operation",
+        "relationship discovery operation",
+        "candidate import and approval operations",
+        "registry snapshot export operation",
+        "manifest validate/compile/dry-run operations",
+        "execute job and report operations",
+        "manifest JSON Schema reference boundary",
+        "secret-bearing operation exclusion"
+      ],
+      "testPaths": [
+        "packages/dpm/test/gateway.test.ts"
+      ],
+      "commands": [
+        "pnpm --filter @oa-sdk/dpm test -- gateway",
+        "pnpm --filter @oa-sdk/dpm typecheck"
+      ]
+    },
+    {
+      "id": "dpm-gateway-runtime",
+      "name": "DPM gateway runtime",
+      "category": "dpm",
+      "package": "@oa-sdk/dpm",
+      "description": "Validate, compile, and dry-run gateway runtime handlers with CLI-equivalent machine-readable bodies and no source DB access.",
+      "capabilities": [
+        "runtime validate handler",
+        "runtime compile handler",
+        "runtime dry-run handler",
+        "CLI-equivalent command result body",
+        "blocking diagnostics status mapping",
+        "in-memory manifest catalog registry input",
+        "source DB and secret-bearing operation exclusion"
+      ],
+      "testPaths": [
+        "packages/dpm/test/gateway-runtime.test.ts"
+      ],
+      "commands": [
+        "pnpm --filter @oa-sdk/dpm test -- gateway-runtime",
+        "pnpm --filter @oa-sdk/dpm typecheck"
+      ]
+    },
+    {
+      "id": "dpm-job-report-storage",
+      "name": "DPM job and validation report storage",
+      "category": "dpm",
+      "package": "@oa-sdk/dpm",
+      "description": "Compile/dry-run job metadata and validation report persistence without raw or secret-bearing payloads.",
+      "capabilities": [
+        "compile and dry-run job rows",
+        "diagnostic persistence",
+        "plan identity persistence",
+        "freshness tuple persistence",
+        "validation report reference persistence",
+        "gateway-compatible job report retrieval",
+        "dry-run impact summary persistence",
+        "raw sample and secret exclusion"
+      ],
+      "testPaths": [
+        "packages/dpm/test/storage-report.test.ts"
+      ],
+      "commands": [
+        "pnpm --filter @oa-sdk/dpm test -- storage-report",
+        "pnpm --filter @oa-sdk/dpm typecheck"
+      ]
+    },
+    {
+      "id": "dpm-publishing-context",
+      "name": "DPM publishing context",
+      "category": "dpm",
+      "package": "@oa-sdk/dpm",
+      "description": "AI relationship metadata, read-only schema context, and recommendation-only physical FK output from compiled plans.",
+      "capabilities": [
+        "relationship metadata",
+        "AI schema context",
+        "join predicates",
+        "cardinality",
+        "namespace descriptions",
+        "examples",
+        "read-only grant hints",
+        "recommendation-only physical FK output",
+        "vault and reverse lookup exclusion"
+      ],
+      "testPaths": [
+        "packages/dpm/test/publishing.test.ts"
+      ],
+      "commands": [
+        "pnpm --filter @oa-sdk/dpm test -- publishing",
+        "pnpm --filter @oa-sdk/dpm typecheck"
       ]
     },
     {

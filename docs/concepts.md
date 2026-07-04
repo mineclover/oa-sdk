@@ -56,6 +56,14 @@
 
 정의: [OpenAPI Projection](./concepts/openapi-projection.md)
 
+## Data Persona
+
+정의: [Data Persona](./concepts/data-persona.md)
+
+## Data Pseudonymization Manifest
+
+정의: [Data Pseudonymization Manifest](./concepts/data-pseudonymization-manifest.md)
+
 ## CLI Governance Manifest
 
 정의: [CLI Governance](./concepts/cli-governance.md#cli-governance-manifest)

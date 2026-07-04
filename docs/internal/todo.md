@@ -3,7 +3,7 @@
 > 완료된 구현은 [spec.md](./spec.md), API 상세는 [api-index.md](./api-index.md)를 참조.
 > 정렬 기준: definition builder → ref correctness → 증분 workspace index → 코드 생성 정책 → 진단 UX → 공개 API → 런타임 활용 → 남은 OAS 스펙 순.
 > 증분 설계: [ADR-006 — SQLite 기반 증분 Workspace Index](./architecture/006-incremental-workspace-index.md)
-> 다음 PRD: 기본 기능 안정화 기준으로는 없음. 외부 연동 backlog는 [MCP OpenAPI Projection Tools](../../tasks/prd-mcp-openapi-projection-tools.md)를 참조.
+> 다음 PRD: DPM runtime/storage 후속은 [Data Pseudonymization Manifest](../../tasks/prd-data-pseudonymization-manifest.md)와 [Goal 5](./goals/goal-5-dpm-runtime-storage-integration.md)를 참조. 외부 연동 backlog는 [MCP OpenAPI Projection Tools](../../tasks/prd-mcp-openapi-projection-tools.md)를 참조.
 
 ---
 
@@ -13,6 +13,7 @@ Definition Builder PRD(US-001~014), Domain Backfill PRD(US-001~009), Aggregation
 
 현재 진짜 잔여 backlog:
 - cross-repo bun-graph-db/MCP projection export 연동 ([MCP OpenAPI Projection Tools](../../tasks/prd-mcp-openapi-projection-tools.md))
+- DPM runtime/storage/API-DB 연결 후속 track ([Goal 5](./goals/goal-5-dpm-runtime-storage-integration.md), [Data Pseudonymization Manifest](../../tasks/prd-data-pseudonymization-manifest.md))
 
 OA SDK 기본 기능 안정화 관점의 다음 작업은 신규 기능 구현보다 문서/게이트 drift 감시와 cross-repo MCP projection 연동이다.
 

@@ -17,6 +17,7 @@
     "@oa-sdk/schemas",
     "@oa-sdk/mock-server",
     "@oa-sdk/codegen",
+    "@oa-sdk/dpm",
     "@oa-sdk/router",
     "@oa-sdk/client",
     "@oa-sdk/typia-mock",

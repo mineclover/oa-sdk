@@ -93,6 +93,17 @@ reference는 페르소나 식별에 영향 X. 다만 reference 값이 다르면�
 
 위반 시 warn — 의무 명시했지만 능력 명시 안 함 = lying.
 
+### DPM과의 관계
+
+`pseudonymized` persona skill은 API audience가 가명 데이터만 보거나 다룬다는 계약상 의무다.
+[Data Pseudonymization Manifest](./data-pseudonymization-manifest.md)는 그 의무를 실제 DB
+catalog, approved relationship snapshot, namespace binding, column transform, vault, validation,
+publishing 정책으로 실행하는 별도 source of truth다.
+
+즉 persona row는 "누가 어떤 pseudonymized surface를 호출하는가"를 설명하고, DPM은 "그
+surface 뒤의 데이터셋이 어떤 logical relationship을 보존하며 가명처리되었고 어떤 validation
+report로 증명되는가"를 설명한다.
+
 ### links — 페르소나 간 관계 (v0.9)
 
 qa-sdk/definition-catalog의 `LinkType` 10종 중 페르소나 컨텍스트 의미 있는 3종 차용.

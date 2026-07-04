@@ -21,6 +21,7 @@ Zod Schema  ──▶  OpenAPI 3.2 Spec      ──▶ TypeScript 타입
 | `@oa-sdk/parser` | OAS 3.2 파서 + IR + fold + lint + validate + query |
 | `@oa-sdk/mock-server` | AJV Mock 서버 (MSW + Node HTTP) + Security + 테스트 헬퍼 |
 | `@oa-sdk/codegen` | Zod/Drizzle → OAS + Definition Builder target artifact + 외부 OpenAPI 수집/업그레이드 + OAS → TS 타입 + oa-gen CLI/governance command surface |
+| `@oa-sdk/dpm` | Relationship-first Data Pseudonymization Manifest schema + fixture gate ([Concept](./docs/concepts/data-pseudonymization-manifest.md)) |
 | `@oa-sdk/router` | OAS → Hono/Express 라우터 스텁 |
 | `@oa-sdk/client` | OAS → fetch 클라이언트 SDK + SSE + 인증 미들웨어 + 재시도 |
 | `@oa-sdk/typia-mock` | typia ILlmApplication 기반 LLM 함수 호출 검증 서버 |
@@ -84,6 +85,12 @@ pnpm --filter @oa-sdk/schemas run downgrade:3.1
 
 # 데모 (API 구조 + Mock 서버 12시나리오 + 커버리지)
 pnpm demo
+
+# DPM 데모 (가명처리 manifest 검증 + compile + dry-run)
+pnpm demo:dpm
+
+# DPM storage 데모 (catalog profiler + registry/job/report persistence)
+pnpm demo:dpm:storage
 ```
 
 ## 테스트에서 사용

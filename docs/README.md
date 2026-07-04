@@ -9,6 +9,8 @@
 | [Vision](./vision.md) | 핵심 철학과 주 목표 |
 | [Concepts](./concepts.md) | 공통 용어와 계약 경계 정의 |
 | [Behavior ECS](./concepts/behavior-ecs.md) | 행동 단위 Entity/Component/System 정의, representative use case, 기본 테스트 케이스 |
+| [Data Persona](./concepts/data-persona.md) | API audience, access obligation, privacy skill 매트릭스 |
+| [Data Pseudonymization Manifest](./concepts/data-pseudonymization-manifest.md) | DB catalog, 관계성, 컬럼별 가명처리 정책, gateway API 경계 |
 | [Quick Start](./guides/quick-start.md) | 5분 안에 전 파이프라인 체험 |
 | [Mock 테스팅](./guides/use-cases/mock-testing.md) | 프론트엔드 테스트에서 Mock 서버 활용 |
 | [코드젠 워크플로](./guides/use-cases/codegen-workflow.md) | Drizzle → OAS → TS → 라우터 → 클라이언트 |
