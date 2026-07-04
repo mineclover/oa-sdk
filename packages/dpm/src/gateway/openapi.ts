@@ -2,6 +2,8 @@ import {
   DPM_COMPILED_PLAN_VERSIONS,
   DPM_PLAN_STALE_REASONS,
 } from '../compiler/plan.js'
+import { DISCOVERY_CANDIDATE_RECOMMENDATIONS } from '../discovery/types.js'
+import { REGISTRY_RELATIONSHIP_STATUSES } from '../registry/types.js'
 import { DPM_MANIFEST_SCHEMA_ID } from '../schema/index.js'
 import { DPM_DIAGNOSTIC_CODES } from '../validator/diagnostics.js'
 
@@ -181,7 +183,7 @@ function createDpmGatewayOpenApiDocument() {
           reportRef: stringSchema(),
           candidates: arrayOf(requiredObjectSchema({
             name: stringSchema(),
-            recommendation: stringSchema(),
+            recommendation: { type: 'string', enum: [...DISCOVERY_CANDIDATE_RECOMMENDATIONS] },
           })),
         }),
         DpmCandidateImportRequest: requiredObjectSchema({
@@ -209,7 +211,7 @@ function createDpmGatewayOpenApiDocument() {
           registryVersion: stringSchema(),
           relationships: arrayOf(requiredObjectSchema({
             name: stringSchema(),
-            status: stringSchema(),
+            status: { type: 'string', enum: [...REGISTRY_RELATIONSHIP_STATUSES] },
           })),
         }),
         DpmManifestValidationRequest: requiredObjectSchema({

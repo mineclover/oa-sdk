@@ -1,24 +1,30 @@
 import type { SchemaSourceCoordinate } from '@oa-sdk/openapi-projection-contract'
 
-export type RegistryRelationshipStatus =
-  | 'candidate'
-  | 'proposed'
-  | 'approved'
-  | 'rejected'
-  | 'deprecated'
-  | 'superseded'
+export const REGISTRY_RELATIONSHIP_STATUSES = [
+  'candidate',
+  'proposed',
+  'approved',
+  'rejected',
+  'deprecated',
+  'superseded',
+] as const
 
-export type RegistryRelationshipKind =
-  | 'one_to_one'
-  | 'one_to_many'
-  | 'many_to_one'
-  | 'many_to_many_edge'
-  | 'self_reference'
-  | 'polymorphic'
-  | 'temporal'
-  | 'code_lookup'
+export const REGISTRY_RELATIONSHIP_KINDS = [
+  'one_to_one',
+  'one_to_many',
+  'many_to_one',
+  'many_to_many_edge',
+  'self_reference',
+  'polymorphic',
+  'temporal',
+  'code_lookup',
+] as const
 
-export type RegistryTransformStrategy = 'entity_token' | 'relationship_token' | 'keep_code'
+export const REGISTRY_TRANSFORM_STRATEGIES = ['entity_token', 'relationship_token', 'keep_code'] as const
+
+export type RegistryRelationshipStatus = typeof REGISTRY_RELATIONSHIP_STATUSES[number]
+export type RegistryRelationshipKind = typeof REGISTRY_RELATIONSHIP_KINDS[number]
+export type RegistryTransformStrategy = typeof REGISTRY_TRANSFORM_STRATEGIES[number]
 
 export type RegistryEndpoint = {
   table: string

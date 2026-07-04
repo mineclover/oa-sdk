@@ -3,11 +3,13 @@ import { describe, expect, it } from 'vitest'
 
 import { parseDocument } from '../../parser/src/index.js'
 import {
+  DISCOVERY_CANDIDATE_RECOMMENDATIONS,
   DPM_COMPILED_PLAN_VERSIONS,
   DPM_DIAGNOSTIC_CODES,
   DPM_GATEWAY_OPERATION_IDS,
   DPM_MANIFEST_SCHEMA_ID,
   DPM_PLAN_STALE_REASONS,
+  REGISTRY_RELATIONSHIP_STATUSES,
   getDpmGatewayOpenApiDocument,
 } from '../src/index.js'
 
@@ -77,6 +79,19 @@ describe('DPM gateway OpenAPI contract', () => {
 
     expect(compiledPlanSchema.properties.planVersion.enum).toEqual([...DPM_COMPILED_PLAN_VERSIONS])
     expect(compiledPlanSchema.properties.staleReasons.items.enum).toEqual([...DPM_PLAN_STALE_REASONS])
+  })
+
+  it('projects workflow response runtime taxonomies into the gateway schema', () => {
+    const document = getDpmGatewayOpenApiDocument()
+    const discoverySchema = document.components?.schemas?.DpmRelationshipDiscoveryReport as Record<string, any>
+    const registrySchema = document.components?.schemas?.DpmRegistrySnapshotResponse as Record<string, any>
+
+    expect(discoverySchema.properties.candidates.items.properties.recommendation.enum).toEqual([
+      ...DISCOVERY_CANDIDATE_RECOMMENDATIONS,
+    ])
+    expect(registrySchema.properties.relationships.items.properties.status.enum).toEqual([
+      ...REGISTRY_RELATIONSHIP_STATUSES,
+    ])
   })
 
   it('rejects empty objects for every non-opaque gateway component schema', () => {
@@ -195,5 +210,20 @@ describe('DPM gateway OpenAPI contract', () => {
       validationReportRef: 'dpm-report:job_001',
       diagnostics: [],
     }), JSON.stringify(schema.errors, null, 2)).toBe(true)
+  })
+
+  it('rejects workflow response taxonomy values outside DPM review and registry contracts', () => {
+    const discoverySchema = compileGatewayComponentSchema('DpmRelationshipDiscoveryReport')
+    const registrySchema = compileGatewayComponentSchema('DpmRegistrySnapshotResponse')
+
+    expect(discoverySchema({
+      reportRef: 'report://discovery',
+      candidates: [{ name: 'rel_orders_customer', recommendation: 'auto_approve' }],
+    }), 'DpmRelationshipDiscoveryReport unexpectedly accepted an unknown recommendation').toBe(false)
+    expect(registrySchema({
+      datasetId: 'commerce_ai',
+      registryVersion: 'reg-2026-07-01',
+      relationships: [{ name: 'rel_orders_customer', status: 'unknown_status' }],
+    }), 'DpmRegistrySnapshotResponse unexpectedly accepted an unknown relationship status').toBe(false)
   })
 })

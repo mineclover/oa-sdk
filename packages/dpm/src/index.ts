@@ -163,10 +163,19 @@ export {
   profilePostgresCatalog,
 } from './catalog/profiler-postgres.js'
 export {
+  DISCOVERY_CANDIDATE_RECOMMENDATIONS,
+  DISCOVERY_CONFIDENCE_LEVELS,
+} from './discovery/types.js'
+export {
   DISCOVERY_REPORT_KIND,
   classifyRelationshipCandidate,
   createRelationshipDiscoveryReport,
 } from './discovery/report.js'
+export {
+  REGISTRY_RELATIONSHIP_KINDS,
+  REGISTRY_RELATIONSHIP_STATUSES,
+  REGISTRY_TRANSFORM_STRATEGIES,
+} from './registry/types.js'
 export {
   REGISTRY_SNAPSHOT_KIND,
   createRegistrySnapshot,

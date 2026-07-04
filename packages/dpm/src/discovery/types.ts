@@ -25,8 +25,11 @@ export type DiscoveryThresholds = {
   maxOrphanRatioBlocking: number
 }
 
-export type DiscoveryConfidenceLevel = 'high' | 'review' | 'low'
-export type DiscoveryCandidateRecommendation = 'review' | 'reject'
+export const DISCOVERY_CONFIDENCE_LEVELS = ['high', 'review', 'low'] as const
+export const DISCOVERY_CANDIDATE_RECOMMENDATIONS = ['review', 'reject'] as const
+
+export type DiscoveryConfidenceLevel = typeof DISCOVERY_CONFIDENCE_LEVELS[number]
+export type DiscoveryCandidateRecommendation = typeof DISCOVERY_CANDIDATE_RECOMMENDATIONS[number]
 
 export type RelationshipDiscoveryEndpoint = {
   table: string

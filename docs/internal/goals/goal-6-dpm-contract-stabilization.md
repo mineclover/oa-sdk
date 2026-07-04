@@ -122,6 +122,25 @@ Verification:
 - `pnpm --filter @oa-sdk/dpm exec vitest run test/gateway-runtime.test.ts`
 - `pnpm --filter @oa-sdk/dpm test`
 
+### DPM-21 - Workflow Response Taxonomy Contract
+
+Status: implemented 2026-07-04.
+
+Artifacts:
+- `packages/dpm/src/discovery/types.ts`
+- `packages/dpm/src/registry/types.ts`
+- `packages/dpm/src/gateway/openapi.ts`
+- `packages/dpm/test/gateway.test.ts`
+
+Tasks:
+- Promote discovery candidate recommendations and registry lifecycle statuses to runtime constants.
+- Derive TypeScript taxonomy types from the same runtime constants used by OpenAPI.
+- Reject unknown recommendation/status values from workflow response schemas.
+
+Verification:
+- `pnpm --filter @oa-sdk/dpm exec vitest run test/gateway.test.ts`
+- `pnpm --filter @oa-sdk/dpm test`
+
 ## Verification Ladder
 
 | Stage | Gate |

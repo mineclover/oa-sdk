@@ -118,6 +118,8 @@ catalog/registry snapshot, semantic validator, compiler, CLI/gateway/publishing 
 | `DiscoveryEvidence` | `dpm/src/discovery/types.ts` | reviewable relationship candidate evidence entry |
 | `DiscoveryThresholds` | `dpm/src/discovery/types.ts` | confidence/reject/orphan threshold contract |
 | `DiscoveryConfidenceLevel` | `dpm/src/discovery/types.ts` | high/review/low confidence classification |
+| `DISCOVERY_CANDIDATE_RECOMMENDATIONS` | `dpm/src/discovery/types.ts` | runtime relationship candidate recommendation taxonomy used by TypeScript and OpenAPI |
+| `DISCOVERY_CONFIDENCE_LEVELS` | `dpm/src/discovery/types.ts` | runtime relationship candidate confidence taxonomy |
 | `DiscoveryCandidateRecommendation` | `dpm/src/discovery/types.ts` | review/reject recommendation contract |
 | `RelationshipCandidateInput` | `dpm/src/discovery/types.ts` | candidate report authoring input |
 | `RelationshipCandidate` | `dpm/src/discovery/types.ts` | normalized non-executable relationship candidate |
@@ -127,8 +129,11 @@ catalog/registry snapshot, semantic validator, compiler, CLI/gateway/publishing 
 | `classifyRelationshipCandidate()` | `dpm/src/discovery/report.ts` | confidence score를 review/reject classification으로 변환 |
 | `createRelationshipDiscoveryReport()` | `dpm/src/discovery/report.ts` | candidate input을 non-executable review report로 정규화 |
 | `REGISTRY_SNAPSHOT_KIND` | `dpm/src/registry/snapshot.ts` | registry snapshot kind literal |
+| `REGISTRY_RELATIONSHIP_STATUSES` | `dpm/src/registry/types.ts` | runtime registry lifecycle status taxonomy used by TypeScript and OpenAPI |
 | `RegistryRelationshipStatus` | `dpm/src/registry/types.ts` | candidate/proposed/approved/rejected/deprecated/superseded lifecycle status |
+| `REGISTRY_RELATIONSHIP_KINDS` | `dpm/src/registry/types.ts` | runtime registry relationship kind taxonomy |
 | `RegistryRelationshipKind` | `dpm/src/registry/types.ts` | registry relationship kind taxonomy |
+| `REGISTRY_TRANSFORM_STRATEGIES` | `dpm/src/registry/types.ts` | runtime registry transform strategy taxonomy |
 | `RegistryTransformStrategy` | `dpm/src/registry/types.ts` | registry transform strategy taxonomy |
 | `RegistryConditionMetadata` | `dpm/src/registry/types.ts` | context column, SQL condition, temporal condition metadata |
 | `RegistryEvidence` | `dpm/src/registry/types.ts` | registry relationship evidence entry |
