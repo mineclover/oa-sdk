@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 
 import { parseDocument } from '../../parser/src/index.js'
 import {
+  DPM_DIAGNOSTIC_CODES,
   DPM_GATEWAY_OPERATION_IDS,
   DPM_MANIFEST_SCHEMA_ID,
   getDpmGatewayOpenApiDocument,
@@ -59,6 +60,13 @@ describe('DPM gateway OpenAPI contract', () => {
     expect(manifestSchema.additionalProperties).toBe(true)
     expect(manifestSchema.properties).toBeUndefined()
     expect(compiledManifestPolicy({})).toBe(true)
+  })
+
+  it('projects the runtime diagnostic code taxonomy into the gateway schema', () => {
+    const document = getDpmGatewayOpenApiDocument()
+    const diagnosticSchema = document.components?.schemas?.DpmDiagnostic as Record<string, any>
+
+    expect(diagnosticSchema.properties.code.enum).toEqual([...DPM_DIAGNOSTIC_CODES])
   })
 
   it('rejects empty objects for every non-opaque gateway component schema', () => {

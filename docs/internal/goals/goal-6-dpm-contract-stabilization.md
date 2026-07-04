@@ -86,6 +86,24 @@ Verification:
 - `pnpm --filter @oa-sdk/dpm exec vitest run test/storage-report.test.ts`
 - `pnpm --filter @oa-sdk/dpm test`
 
+### DPM-19 - Diagnostic Code Taxonomy Contract
+
+Status: implemented 2026-07-04.
+
+Artifacts:
+- `packages/dpm/src/validator/diagnostics.ts`
+- `packages/dpm/src/gateway/openapi.ts`
+- `packages/dpm/test/gateway-runtime.test.ts`
+
+Tasks:
+- Promote the SYN/REL/SAF diagnostic code taxonomy to a runtime constant.
+- Derive `DpmDiagnosticCode` from the same runtime taxonomy used by OpenAPI.
+- Reject unknown diagnostic codes from the gateway `DpmDiagnostic` schema.
+
+Verification:
+- `pnpm --filter @oa-sdk/dpm exec vitest run test/gateway-runtime.test.ts`
+- `pnpm --filter @oa-sdk/dpm test`
+
 ## Verification Ladder
 
 | Stage | Gate |

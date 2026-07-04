@@ -224,6 +224,9 @@ export {
 } from './publishing/context.js'
 export { validateDpmManifest } from './validator/manifest.js'
 export {
+  DPM_DIAGNOSTIC_CODES,
+} from './validator/diagnostics.js'
+export {
   DPM_MANIFEST_SCHEMA_ID,
   validateDpmManifestSchema,
 } from './schema/index.js'

@@ -173,6 +173,7 @@ catalog/registry snapshot, semantic validator, compiler, CLI/gateway/publishing 
 | `createLogicalRelationship()` | `dpm/src/model/relationship.ts` | relationship predicate and temporal rule normalization |
 | `renderRelationshipCanonicalKey()` | `dpm/src/model/relationship.ts` | deterministic relationship canonical key rendering |
 | `DpmDiagnosticSeverity` | `dpm/src/validator/diagnostics.ts` | semantic validator severity taxonomy |
+| `DPM_DIAGNOSTIC_CODES` | `dpm/src/validator/diagnostics.ts` | runtime diagnostic code taxonomy used by TypeScript and OpenAPI |
 | `DpmDiagnosticCode` | `dpm/src/validator/diagnostics.ts` | SYN/REL/SAF diagnostic code taxonomy |
 | `DpmCatalogCoordinate` | `dpm/src/validator/diagnostics.ts` | catalog coordinate attached to diagnostics |
 | `DpmRegistryCoordinate` | `dpm/src/validator/diagnostics.ts` | registry coordinate attached to diagnostics |

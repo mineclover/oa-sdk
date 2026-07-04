@@ -170,6 +170,17 @@ describe('DPM gateway runtime adapter', () => {
     }), JSON.stringify(diagnosticSchema.errors, null, 2)).toBe(true)
   })
 
+  it('rejects diagnostic codes outside the DPM diagnostic taxonomy', () => {
+    const diagnosticSchema = compileGatewayComponentSchema('DpmDiagnostic')
+
+    expect(diagnosticSchema({
+      severity: 'error',
+      code: 'FOO999',
+      message: 'unknown code',
+      sourcePointer: '/relationships/0/name',
+    }), 'DpmDiagnostic unexpectedly accepted an unknown diagnostic code').toBe(false)
+  })
+
   it('returns blocking diagnostics as a structured runtime response', async () => {
     const runtime = createDpmGatewayRuntime()
     const input = createRuntimeInput()

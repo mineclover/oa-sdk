@@ -1,4 +1,5 @@
 import { DPM_MANIFEST_SCHEMA_ID } from '../schema/index.js'
+import { DPM_DIAGNOSTIC_CODES } from '../validator/diagnostics.js'
 
 export const DPM_GATEWAY_OPERATION_IDS = [
   'profileDpmCatalog',
@@ -346,7 +347,7 @@ function createDpmGatewayOpenApiDocument() {
         }),
         DpmDiagnostic: requiredObjectSchema({
           severity: { type: 'string', enum: ['error', 'warning', 'info'] },
-          code: stringSchema(),
+          code: { type: 'string', enum: [...DPM_DIAGNOSTIC_CODES] },
           message: stringSchema(),
           sourcePointer: stringSchema(),
           catalogCoordinate: informativeObjectSchema({

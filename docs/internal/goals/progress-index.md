@@ -50,6 +50,7 @@ Last updated: 2026-07-04
 - [x] DPM-16 - Gateway Component Requiredness
 - [x] DPM-17 - Runtime Nested Object Contract
 - [x] DPM-18 - Storage Report Gateway Contract
+- [x] DPM-19 - Diagnostic Code Taxonomy Contract
 
 ## Done Criteria
 
