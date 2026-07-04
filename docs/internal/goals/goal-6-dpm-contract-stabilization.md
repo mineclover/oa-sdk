@@ -57,7 +57,7 @@ Status: implemented 2026-07-04.
 
 Artifacts:
 - `packages/dpm/src/gateway/openapi.ts`
-- `packages/dpm/test/gateway-runtime.test.ts`
+- `packages/dpm/test/gateway-runtime-manifest.test.ts`
 
 Tasks:
 - Require all dry-run impact counters when `DpmDryRunResult.impact` is present.
@@ -65,7 +65,7 @@ Tasks:
 - Keep runtime compile and dry-run outputs schema-valid.
 
 Verification:
-- `pnpm --filter @oa-sdk/dpm exec vitest run test/gateway-runtime.test.ts`
+- `pnpm --filter @oa-sdk/dpm exec vitest run test/gateway-runtime-manifest.test.ts`
 - `pnpm --filter @oa-sdk/dpm test`
 
 ### DPM-18 - Storage Report Gateway Contract
@@ -94,7 +94,7 @@ Status: implemented 2026-07-04.
 Artifacts:
 - `packages/dpm/src/validator/diagnostics.ts`
 - `packages/dpm/src/gateway/openapi.ts`
-- `packages/dpm/test/gateway-runtime.test.ts`
+- `packages/dpm/test/gateway-runtime-manifest.test.ts`
 
 Tasks:
 - Promote the SYN/REL/SAF diagnostic code taxonomy to a runtime constant.
@@ -102,7 +102,7 @@ Tasks:
 - Reject unknown diagnostic codes from the gateway `DpmDiagnostic` schema.
 
 Verification:
-- `pnpm --filter @oa-sdk/dpm exec vitest run test/gateway-runtime.test.ts`
+- `pnpm --filter @oa-sdk/dpm exec vitest run test/gateway-runtime-manifest.test.ts`
 - `pnpm --filter @oa-sdk/dpm test`
 
 ### DPM-20 - Compiled Plan Taxonomy Contract
@@ -112,7 +112,7 @@ Status: implemented 2026-07-04.
 Artifacts:
 - `packages/dpm/src/compiler/plan.ts`
 - `packages/dpm/src/gateway/openapi.ts`
-- `packages/dpm/test/gateway-runtime.test.ts`
+- `packages/dpm/test/gateway-runtime-manifest.test.ts`
 
 Tasks:
 - Promote compiled plan versions and stale reasons to runtime constants.
@@ -120,7 +120,7 @@ Tasks:
 - Reject unknown plan versions and stale reasons from the gateway `DpmCompiledPlan` schema.
 
 Verification:
-- `pnpm --filter @oa-sdk/dpm exec vitest run test/gateway-runtime.test.ts`
+- `pnpm --filter @oa-sdk/dpm exec vitest run test/gateway-runtime-manifest.test.ts`
 - `pnpm --filter @oa-sdk/dpm test`
 
 ### DPM-21 - Workflow Response Taxonomy Contract
@@ -151,7 +151,7 @@ Artifacts:
 - `packages/dpm/src/compiler/plan.ts`
 - `packages/dpm/src/registry/types.ts`
 - `packages/dpm/src/gateway/openapi.ts`
-- `packages/dpm/test/gateway-runtime.test.ts`
+- `packages/dpm/test/gateway-runtime-manifest.test.ts`
 - `packages/dpm/test/gateway-taxonomy.test.ts`
 
 Tasks:
@@ -160,7 +160,7 @@ Tasks:
 - Reject unknown relationship type, cardinality, transform strategy, and orphan policy values from the gateway `DpmRelationshipStep` schema.
 
 Verification:
-- `pnpm --filter @oa-sdk/dpm exec vitest run test/gateway-runtime.test.ts`
+- `pnpm --filter @oa-sdk/dpm exec vitest run test/gateway-runtime-manifest.test.ts`
 - `pnpm --filter @oa-sdk/dpm exec vitest run test/gateway-taxonomy.test.ts`
 - `pnpm --filter @oa-sdk/dpm test`
 

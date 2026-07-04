@@ -112,6 +112,7 @@ Artifacts:
 - `packages/dpm/src/gateway/runtime-manifest.ts`
 - `packages/dpm/src/gateway/runtime-response.ts`
 - `packages/dpm/test/gateway-runtime.test.ts`
+- `packages/dpm/test/gateway-runtime-manifest.test.ts`
 
 Tasks:
 - Bind gateway operations to existing validate, compile, and dry-run implementation APIs.
