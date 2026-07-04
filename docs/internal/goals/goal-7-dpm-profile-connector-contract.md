@@ -152,7 +152,7 @@ Implementation notes:
 
 ### DPM-24 - Connector Output Contract
 
-Status: planned.
+Status: implemented 2026-07-04.
 
 Artifacts:
 - `packages/dpm/src/profile/connector.ts`
@@ -177,6 +177,16 @@ Acceptance:
 Verification:
 - `pnpm --filter @oa-sdk/dpm exec vitest run test/profile-connector.test.ts`
 - `pnpm --filter @oa-sdk/dpm typecheck`
+
+Implementation notes:
+- `DpmProfileConnectorResult` is implemented as a deterministic connector output envelope with
+  connector identity, source kind, capture mode, capability metadata, observed evidence kinds,
+  diagnostics, optional profile artifact, and run freshness hash.
+- Connector validation checks capability identity, supported source/capture modes, unsupported or
+  skipped observed evidence kinds, failed-result diagnostics, completed-result profile artifacts,
+  emitted profile artifact schema validity, and connector identity mismatch in emitted sources.
+- PostgreSQL catalog profiling and Kafka fixture evidence can both be represented through the same
+  connector result contract without changing the existing `CatalogSnapshot` compiler path.
 
 ### DPM-25 - Kafka Topic Profile Fixture Adapter
 

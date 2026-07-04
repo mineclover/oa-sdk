@@ -143,6 +143,19 @@ catalog/registry snapshot, semantic validator, compiler, CLI/gateway/publishing 
 | `DpmProfileArtifactSchemaIssue` | `dpm/src/profile/schema.ts` | profile artifact schema validation issue |
 | `DpmProfileArtifactSchemaValidationResult` | `dpm/src/profile/schema.ts` | profile artifact schema validation result |
 | `validateDpmProfileArtifactSchema()` | `dpm/src/profile/schema.ts` | profile artifact JSON Schema validation helper |
+| `DPM_PROFILE_CONNECTOR_RESULT_KIND` | `dpm/src/profile/connector.ts` | DPM profile connector result kind literal |
+| `DPM_PROFILE_CONNECTOR_STATUSES` | `dpm/src/profile/connector.ts` | connector result lifecycle status taxonomy |
+| `DPM_PROFILE_CONNECTOR_EVIDENCE_KINDS` | `dpm/src/profile/connector.ts` | observed connector evidence kind taxonomy |
+| `DpmProfileConnectorStatus` | `dpm/src/profile/connector.ts` | connector result status union |
+| `DpmProfileConnectorEvidenceKind` | `dpm/src/profile/connector.ts` | connector observed evidence kind union |
+| `DpmProfileConnectorCapabilities` | `dpm/src/profile/connector.ts` | connector capability metadata for source/capture/evidence support |
+| `DpmProfileConnectorFreshness` | `dpm/src/profile/connector.ts` | connector run hash plus profile/source freshness references |
+| `DpmProfileConnectorResult` | `dpm/src/profile/connector.ts` | normalized connector output envelope for profile artifacts and diagnostics |
+| `DpmProfileConnectorResultInput` | `dpm/src/profile/connector.ts` | connector result normalization input |
+| `DpmProfileConnectorValidationResult` | `dpm/src/profile/connector.ts` | connector result validation diagnostics envelope |
+| `normalizeDpmProfileConnectorResult()` | `dpm/src/profile/connector.ts` | connector output을 deterministic result envelope로 정규화 |
+| `computeDpmProfileConnectorRunHash()` | `dpm/src/profile/connector.ts` | connector result run hash 계산 |
+| `validateDpmProfileConnectorResult()` | `dpm/src/profile/connector.ts` | capabilities/observed evidence/profile artifact 정합성 검증 |
 | `DISCOVERY_REPORT_KIND` | `dpm/src/discovery/report.ts` | discovery report kind literal |
 | `DiscoveryEvidenceKind` | `dpm/src/discovery/types.ts` | candidate evidence source taxonomy |
 | `DiscoveryEvidence` | `dpm/src/discovery/types.ts` | reviewable relationship candidate evidence entry |

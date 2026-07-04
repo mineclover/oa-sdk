@@ -48,6 +48,15 @@ export type {
   DpmProfileArtifactSchemaValidationResult,
 } from './profile/schema.js'
 export type {
+  DpmProfileConnectorCapabilities,
+  DpmProfileConnectorEvidenceKind,
+  DpmProfileConnectorFreshness,
+  DpmProfileConnectorResult,
+  DpmProfileConnectorResultInput,
+  DpmProfileConnectorStatus,
+  DpmProfileConnectorValidationResult,
+} from './profile/connector.js'
+export type {
   DiscoveryCandidateRecommendation,
   DiscoveryConfidenceLevel,
   DiscoveryEvidence,
@@ -202,6 +211,14 @@ export {
   DPM_PROFILE_ARTIFACT_SCHEMA_ID,
   validateDpmProfileArtifactSchema,
 } from './profile/schema.js'
+export {
+  DPM_PROFILE_CONNECTOR_EVIDENCE_KINDS,
+  DPM_PROFILE_CONNECTOR_RESULT_KIND,
+  DPM_PROFILE_CONNECTOR_STATUSES,
+  computeDpmProfileConnectorRunHash,
+  normalizeDpmProfileConnectorResult,
+  validateDpmProfileConnectorResult,
+} from './profile/connector.js'
 export {
   DISCOVERY_CANDIDATE_RECOMMENDATIONS,
   DISCOVERY_CONFIDENCE_LEVELS,

@@ -60,7 +60,7 @@ Last updated: 2026-07-04
 ## Goal 7 DPM Units
 
 - [x] DPM-23 - Profile Artifact Vocabulary
-- [ ] DPM-24 - Connector Output Contract
+- [x] DPM-24 - Connector Output Contract
 - [ ] DPM-25 - Kafka Topic Profile Fixture Adapter
 - [ ] DPM-26 - Profile Analysis Report
 - [ ] DPM-27 - Profile Gateway And Editor Contract
