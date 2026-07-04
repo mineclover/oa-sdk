@@ -211,6 +211,7 @@ Goal id: `DPM-04`
 Artifacts:
 - `packages/dpm/src/registry/types.ts`
 - `packages/dpm/src/registry/snapshot.ts`
+- `packages/dpm/src/registry/registry-yaml.ts`
 - `packages/dpm/test/fixtures/registry/*.yaml`
 - `packages/dpm/test/registry.test.ts`
 
