@@ -43,7 +43,7 @@ without checking behavior, add focused assertions or split the matrix row.
 | `dpm-registry-snapshot` | `@oa-sdk/dpm` | versioned registry snapshots, YAML review artifacts, approved-only execution selection | `packages/dpm/test/registry.test.ts` |
 | `dpm-registry-storage` | `@oa-sdk/dpm` | Postgres canonical registry storage schema and row-reader export to the registry snapshot contract | `packages/dpm/test/storage-registry.test.ts`, `packages/dpm/test/fixtures/storage/registry-schema.sql` |
 | `dpm-model` | `@oa-sdk/dpm` | entity root key contracts, logical relationship predicates, canonical key rendering | `packages/dpm/test/model.test.ts` |
-| `dpm-semantic-validator` | `@oa-sdk/dpm` | SYN syntax plus REL/SAF semantic diagnostics from manifest, catalog snapshot, and registry snapshot | `packages/dpm/test/validator.test.ts` |
+| `dpm-semantic-validator` | `@oa-sdk/dpm` | SYN syntax plus REL/SAF semantic diagnostics from manifest, catalog snapshot, and registry snapshot | `packages/dpm/test/validator.test.ts`, `packages/dpm/test/validator-relationship.test.ts`, `packages/dpm/test/validator-safety.test.ts` |
 | `dpm-compiler-dry-run` | `@oa-sdk/dpm` | validator-gated compiled plans using approved registry relationship steps and raw-value-free dry-run impact reports | `packages/dpm/test/compiler.test.ts`, `packages/dpm/test/dry-run.test.ts` |
 | `dpm-cli-surface` | `@oa-sdk/dpm` | validate, compile, and dry-run CLI JSON output over explicit fixture paths with schema-gated validation | `packages/dpm/test/cli.test.ts` |
 | `dpm-primary-demo` | `@oa-sdk/dpm` | customer-orders primary CLI demo for validate, compile, dry-run, and guard scenarios without source DB access | `packages/dpm/test/demo.test.ts`, `packages/dpm/examples/customer-orders/README.md` |

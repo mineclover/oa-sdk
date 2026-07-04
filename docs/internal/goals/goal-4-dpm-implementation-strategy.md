@@ -271,6 +271,8 @@ Artifacts:
 - `packages/dpm/src/validator/relationship-types.ts`
 - `packages/dpm/src/validator/relationship-utils.ts`
 - `packages/dpm/test/validator.test.ts`
+- `packages/dpm/test/validator-relationship.test.ts`
+- `packages/dpm/test/validator-safety.test.ts`
 
 Tasks:
 - Add deterministic REL diagnostics for missing, stale, non-approved, ambiguous, and

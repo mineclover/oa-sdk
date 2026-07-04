@@ -380,7 +380,9 @@
         "relationship drift gate warning"
       ],
       "testPaths": [
-        "packages/dpm/test/validator.test.ts"
+        "packages/dpm/test/validator.test.ts",
+        "packages/dpm/test/validator-relationship.test.ts",
+        "packages/dpm/test/validator-safety.test.ts"
       ],
       "commands": [
         "pnpm --filter @oa-sdk/dpm test -- validator",
