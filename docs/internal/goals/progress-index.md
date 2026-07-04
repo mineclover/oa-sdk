@@ -6,7 +6,7 @@ Last updated: 2026-07-04
 
 ## Current
 
-- None selected. Define Goal 7 before starting the next implementation stream.
+- Goal 7 / DPM Profile/Connector Contract (current)
 
 ## Recently Completed
 
@@ -22,6 +22,7 @@ Last updated: 2026-07-04
 - [x] Goal 4 - Relationship-First DPM
 - [x] Goal 5 - DPM Runtime And Storage Integration
 - [x] Goal 6 - DPM Contract Stabilization
+- [ ] Goal 7 - DPM Profile/Connector Contract (current)
 
 ## Goal 4 DPM Units
 
@@ -55,6 +56,14 @@ Last updated: 2026-07-04
 - [x] DPM-20 - Compiled Plan Taxonomy Contract
 - [x] DPM-21 - Workflow Response Taxonomy Contract
 - [x] DPM-22 - Relationship Step Taxonomy Contract
+
+## Goal 7 DPM Units
+
+- [ ] DPM-23 - Profile Artifact Vocabulary
+- [ ] DPM-24 - Connector Output Contract
+- [ ] DPM-25 - Kafka Topic Profile Fixture Adapter
+- [ ] DPM-26 - Profile Analysis Report
+- [ ] DPM-27 - Profile Gateway And Editor Contract
 
 ## Done Criteria
 

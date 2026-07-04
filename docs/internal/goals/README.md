@@ -9,7 +9,8 @@
 | [Goal 3 — Mock 서버](./goal-3-mock-server.md) | ✅ | mock-server |
 | [Goal 4 — Relationship-First DPM Roadmap](./goal-4-dpm-relationship-first-roadmap.md) / [Implementation Strategy](./goal-4-dpm-implementation-strategy.md) | ✅ | dpm |
 | [Goal 5 — DPM Runtime/Storage Integration](./goal-5-dpm-runtime-storage-integration.md) | ✅ | dpm |
-| [Goal 6 — DPM Contract Stabilization](./goal-6-dpm-contract-stabilization.md) | current | dpm |
+| [Goal 6 — DPM Contract Stabilization](./goal-6-dpm-contract-stabilization.md) | ✅ | dpm |
+| [Goal 7 — DPM Profile/Connector Contract](./goal-7-dpm-profile-connector-contract.md) | current | dpm |
 | Phase 3 — OAS 파서/IR | ✅ | parser |
 | Phase 4 — TS 타입 생성 | ✅ | codegen/typegen |
 | Phase 5 — 라우터 스텁 | ✅ | router |
