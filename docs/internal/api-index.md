@@ -184,7 +184,9 @@ catalog/registry snapshot, semantic validator, compiler, CLI/gateway/publishing 
 | `DpmValidationInput` | `dpm/src/validator/manifest.ts` | manifest plus catalog and registry snapshot validator input |
 | `validateDpmManifest()` | `dpm/src/validator/manifest.ts` | SYN syntax plus REL/SAF semantic diagnostics without source DB access |
 | `DPM_COMPILED_PLAN_KIND` | `dpm/src/compiler/plan.ts` | compiled plan kind literal |
+| `DPM_COMPILED_PLAN_VERSIONS` | `dpm/src/compiler/plan.ts` | runtime compiled plan version taxonomy used by TypeScript and OpenAPI |
 | `DpmCompiledPlanVersion` | `dpm/src/compiler/plan.ts` | compiled plan version taxonomy |
+| `DPM_PLAN_STALE_REASONS` | `dpm/src/compiler/plan.ts` | runtime compiled plan stale reason taxonomy used by TypeScript and OpenAPI |
 | `DpmPlanStaleReason` | `dpm/src/compiler/plan.ts` | compiled plan stale reason taxonomy |
 | `DpmPlanFreshness` | `dpm/src/compiler/plan.ts` | manifest, catalog, and registry freshness tuple |
 | `DpmNamespaceBinding` | `dpm/src/compiler/plan.ts` | namespace to entity, relationship, and column binding |

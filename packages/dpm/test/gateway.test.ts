@@ -3,9 +3,11 @@ import { describe, expect, it } from 'vitest'
 
 import { parseDocument } from '../../parser/src/index.js'
 import {
+  DPM_COMPILED_PLAN_VERSIONS,
   DPM_DIAGNOSTIC_CODES,
   DPM_GATEWAY_OPERATION_IDS,
   DPM_MANIFEST_SCHEMA_ID,
+  DPM_PLAN_STALE_REASONS,
   getDpmGatewayOpenApiDocument,
 } from '../src/index.js'
 
@@ -67,6 +69,14 @@ describe('DPM gateway OpenAPI contract', () => {
     const diagnosticSchema = document.components?.schemas?.DpmDiagnostic as Record<string, any>
 
     expect(diagnosticSchema.properties.code.enum).toEqual([...DPM_DIAGNOSTIC_CODES])
+  })
+
+  it('projects compiled plan runtime taxonomies into the gateway schema', () => {
+    const document = getDpmGatewayOpenApiDocument()
+    const compiledPlanSchema = document.components?.schemas?.DpmCompiledPlan as Record<string, any>
+
+    expect(compiledPlanSchema.properties.planVersion.enum).toEqual([...DPM_COMPILED_PLAN_VERSIONS])
+    expect(compiledPlanSchema.properties.staleReasons.items.enum).toEqual([...DPM_PLAN_STALE_REASONS])
   })
 
   it('rejects empty objects for every non-opaque gateway component schema', () => {

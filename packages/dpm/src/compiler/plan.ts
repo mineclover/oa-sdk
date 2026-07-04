@@ -2,9 +2,14 @@ import type { CatalogSnapshot } from '../catalog/types.js'
 import type { RegistrySnapshot } from '../registry/types.js'
 
 export const DPM_COMPILED_PLAN_KIND = 'dpm.compiled-plan.v1' as const
+export const DPM_COMPILED_PLAN_VERSIONS = ['1.0'] as const
+export const DPM_PLAN_STALE_REASONS = [
+  'catalog_version_hash_changed',
+  'registry_version_changed',
+] as const
 
-export type DpmCompiledPlanVersion = '1.0'
-export type DpmPlanStaleReason = 'catalog_version_hash_changed' | 'registry_version_changed'
+export type DpmCompiledPlanVersion = typeof DPM_COMPILED_PLAN_VERSIONS[number]
+export type DpmPlanStaleReason = typeof DPM_PLAN_STALE_REASONS[number]
 
 export type DpmPlanFreshness = {
   manifestCatalogVersionHash?: string

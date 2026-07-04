@@ -184,6 +184,8 @@ export {
 } from './model/relationship.js'
 export {
   DPM_COMPILED_PLAN_KIND,
+  DPM_COMPILED_PLAN_VERSIONS,
+  DPM_PLAN_STALE_REASONS,
   createPlanFreshness,
 } from './compiler/plan.js'
 export { compileDpmPlan } from './compiler/compile.js'

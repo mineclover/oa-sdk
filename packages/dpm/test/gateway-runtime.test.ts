@@ -115,6 +115,21 @@ describe('DPM gateway runtime adapter', () => {
     expect(dryRunSchema(dryRun.body.result), JSON.stringify(dryRunSchema.errors, null, 2)).toBe(true)
   })
 
+  it('rejects compiled plan taxonomy values outside the DPM plan contract', async () => {
+    const runtime = createDpmGatewayRuntime()
+    const compile = await runtime.compileDpmManifest(createRuntimeInput())
+    const schema = compileGatewayComponentSchema('DpmCompiledPlan')
+
+    expect(schema({
+      ...compile.body.result.plan,
+      planVersion: '2.0',
+    }), 'DpmCompiledPlan unexpectedly accepted an unknown plan version').toBe(false)
+    expect(schema({
+      ...compile.body.result.plan,
+      staleReasons: ['unknown_stale_reason'],
+    }), 'DpmCompiledPlan unexpectedly accepted an unknown stale reason').toBe(false)
+  })
+
   it('rejects incomplete gateway response payloads for core runtime schemas', () => {
     for (const schemaName of ['DpmValidationResult', 'DpmCompileResult', 'DpmDryRunResult']) {
       const schema = compileGatewayComponentSchema(schemaName)

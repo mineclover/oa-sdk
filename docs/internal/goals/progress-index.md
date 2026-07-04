@@ -51,6 +51,7 @@ Last updated: 2026-07-04
 - [x] DPM-17 - Runtime Nested Object Contract
 - [x] DPM-18 - Storage Report Gateway Contract
 - [x] DPM-19 - Diagnostic Code Taxonomy Contract
+- [x] DPM-20 - Compiled Plan Taxonomy Contract
 
 ## Done Criteria
 

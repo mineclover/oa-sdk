@@ -104,6 +104,24 @@ Verification:
 - `pnpm --filter @oa-sdk/dpm exec vitest run test/gateway-runtime.test.ts`
 - `pnpm --filter @oa-sdk/dpm test`
 
+### DPM-20 - Compiled Plan Taxonomy Contract
+
+Status: implemented 2026-07-04.
+
+Artifacts:
+- `packages/dpm/src/compiler/plan.ts`
+- `packages/dpm/src/gateway/openapi.ts`
+- `packages/dpm/test/gateway-runtime.test.ts`
+
+Tasks:
+- Promote compiled plan versions and stale reasons to runtime constants.
+- Derive `DpmCompiledPlanVersion` and `DpmPlanStaleReason` from the same runtime taxonomies used by OpenAPI.
+- Reject unknown plan versions and stale reasons from the gateway `DpmCompiledPlan` schema.
+
+Verification:
+- `pnpm --filter @oa-sdk/dpm exec vitest run test/gateway-runtime.test.ts`
+- `pnpm --filter @oa-sdk/dpm test`
+
 ## Verification Ladder
 
 | Stage | Gate |

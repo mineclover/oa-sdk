@@ -1,3 +1,7 @@
+import {
+  DPM_COMPILED_PLAN_VERSIONS,
+  DPM_PLAN_STALE_REASONS,
+} from '../compiler/plan.js'
 import { DPM_MANIFEST_SCHEMA_ID } from '../schema/index.js'
 import { DPM_DIAGNOSTIC_CODES } from '../validator/diagnostics.js'
 
@@ -264,7 +268,7 @@ function createDpmGatewayOpenApiDocument() {
         }),
         DpmCompiledPlan: requiredObjectSchema({
           kind: { type: 'string', const: 'dpm.compiled-plan.v1' },
-          planVersion: stringSchema(),
+          planVersion: { type: 'string', enum: [...DPM_COMPILED_PLAN_VERSIONS] },
           identity: stringSchema(),
           manifestId: stringSchema(),
           datasetId: stringSchema(),
@@ -272,7 +276,7 @@ function createDpmGatewayOpenApiDocument() {
           manifestCatalogVersionHash: stringSchema(),
           freshness: ref('DpmPlanFreshness'),
           stale: { type: 'boolean' },
-          staleReasons: arrayOf(stringSchema()),
+          staleReasons: arrayOf({ type: 'string', enum: [...DPM_PLAN_STALE_REASONS] }),
           namespaceBindings: arrayOf(ref('DpmNamespaceBinding')),
           relationshipSteps: arrayOf(ref('DpmRelationshipStep')),
           columnSteps: arrayOf(ref('DpmColumnStep')),
