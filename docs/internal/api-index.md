@@ -138,8 +138,8 @@ catalog/registry snapshot, semantic validator, compiler, CLI/gateway/publishing 
 | `DpmProfileArtifactInput` | `dpm/src/profile/artifact.ts` | profile artifact normalization input |
 | `normalizeDpmProfileArtifact()` | `dpm/src/profile/artifact.ts` | profile arrays/source maps를 deterministic artifact로 정규화 |
 | `computeDpmProfileFreshnessHash()` | `dpm/src/profile/artifact.ts` | normalized profile evidence freshness hash 계산 |
-| `DPM_PROFILE_ARTIFACT_SCHEMA_ID` | `dpm/src/profile/schema.ts` | profile artifact JSON Schema `$id` |
-| `DPM_PROFILE_ARTIFACT_SCHEMA` | `dpm/src/profile/schema.ts` | DPM profile artifact JSON Schema |
+| `DPM_PROFILE_ARTIFACT_SCHEMA_ID` | `dpm/src/profile/schema-document.ts` | profile artifact JSON Schema `$id` |
+| `DPM_PROFILE_ARTIFACT_SCHEMA` | `dpm/src/profile/schema-document.ts` | DPM profile artifact JSON Schema |
 | `DpmProfileArtifactSchemaIssue` | `dpm/src/profile/schema.ts` | profile artifact schema validation issue |
 | `DpmProfileArtifactSchemaValidationResult` | `dpm/src/profile/schema.ts` | profile artifact schema validation result |
 | `validateDpmProfileArtifactSchema()` | `dpm/src/profile/schema.ts` | profile artifact JSON Schema validation helper |

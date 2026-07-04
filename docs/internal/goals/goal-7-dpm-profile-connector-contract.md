@@ -115,6 +115,7 @@ Status: implemented 2026-07-04.
 Artifacts:
 - `packages/dpm/src/profile/types.ts`
 - `packages/dpm/src/profile/artifact.ts`
+- `packages/dpm/src/profile/schema-document.ts`
 - `packages/dpm/src/profile/schema.ts`
 - `packages/dpm/test/profile-artifact.test.ts`
 - `packages/dpm/test/profile-schema.test.ts`
