@@ -52,6 +52,60 @@ Use these criteria before adding a field, connector, or API:
 | Does it change compiled output? | Add deterministic tests and freshness impact. | Treat it as display-only metadata. |
 | Can two sources express the same fact? | Normalize through shared nodes, edges, metrics, and diagnostics. | Add parallel fields for each source type. |
 
+## Stabilization Review
+
+The initial Goal 7 direction is correct, but implementation would drift unless three boundaries are
+locked before DPM-23 starts:
+
+1. Kafka evidence must not be forced into OpenAPI `SchemaSourceCoordinate`. Define a DPM-owned
+   profile coordinate that can point to DB catalog rows, OpenAPI projections, Kafka topics, message
+   schema fields, query log evidence, and manual imports.
+2. `DpmProfileArtifact` must have a minimum shape before connector work begins. Otherwise each
+   connector will invent its own identity, provenance, metric, and diagnostic vocabulary.
+3. Profile artifacts must not replace `CatalogSnapshot` in the compiler path during this goal.
+   A connector may emit profile evidence, and a profile-to-catalog adapter may be introduced later,
+   but the existing DPM compiler continues to consume manifest, catalog snapshot, and registry
+   snapshot contracts until an explicit migration unit says otherwise.
+
+## Contract Shape To Lock In DPM-23
+
+The first implementation unit should define the smallest stable vocabulary below. The concrete
+TypeScript and schema names may evolve, but these semantics should not be skipped.
+
+| Contract part | Required semantics |
+|---|---|
+| Artifact identity | `kind`, `profileId`, `datasetId`, `profileVersion`, `createdAt`, `freshness.versionHash` |
+| Source descriptor | source kind, connector id/version, source refs, capture mode, source freshness |
+| Profile coordinate | source-neutral coordinate for DB, projection, Kafka, query log, ORM, and manual evidence |
+| Nodes | stable id, kind, label, coordinate, optional type/shape metadata |
+| Edges | stable id, kind, from/to node ids, evidence pointers, confidence where applicable |
+| Metrics | stable id, metric kind, subject node/edge id, numeric/string value, unit, evidence pointer |
+| Diagnostics | severity, code, message, coordinate/evidence pointer, connector id where applicable |
+| Sources map | stable evidence id to source coordinate/provenance entry |
+
+Recommended initial taxonomies:
+
+| Taxonomy | Initial values |
+|---|---|
+| Source kind | `postgresql_catalog`, `openapi_projection`, `kafka_topic_bundle`, `query_log`, `orm_metadata`, `manual_import` |
+| Node kind | `dataset`, `schema`, `table`, `column`, `topic`, `partition`, `message_key`, `message_header`, `message_field`, `schema_subject`, `relationship_hint` |
+| Edge kind | `contains`, `references`, `derived_from`, `observed_in`, `same_shape_as`, `candidate_relationship`, `schema_version_of` |
+| Metric kind | `row_count_estimate`, `presence_ratio`, `null_ratio`, `distinct_ratio`, `uniqueness_ratio`, `inclusion_ratio`, `orphan_ratio`, `message_rate_estimate`, `key_coverage_ratio`, `schema_version_count` |
+| Diagnostic family | `PROF*` for profile artifact issues, `CONN*` for connector/capture issues |
+
+## Compatibility Rules
+
+1. `CatalogSnapshot` remains the compiler input for existing validate/compile/dry-run behavior.
+2. PostgreSQL catalog profiling may be wrapped as connector output, but its current snapshot output
+   must stay compatible with existing tests and runtime adapters.
+3. Kafka profile artifacts are evidence for analysis and relationship proposals, not executable
+   registry entries.
+4. OpenAPI projection evidence can be represented as profile nodes/edges, but the
+   `@oa-sdk/openapi-projection-contract` package remains the projection boundary and must not become
+   a DPM connector runtime.
+5. Profile analysis reports may create relationship hints and editor proposals; only the registry
+   approval lifecycle can create approved relationships.
+
 ## Implementation Units
 
 ### DPM-23 - Profile Artifact Vocabulary
@@ -68,16 +122,22 @@ Tasks:
 - Define `DpmProfileArtifact` as the normalized evidence container for source-neutral analysis.
 - Model profile identity, source kind, source refs, version hash, nodes, edges, metrics,
   diagnostics, and source coordinates.
+- Define a DPM-owned profile coordinate instead of overloading OpenAPI projection source
+  coordinates for Kafka and other non-OpenAPI sources.
+- Promote initial source/node/edge/metric/diagnostic taxonomies to runtime constants.
 - Keep raw values, source credentials, and token reverse lookup material out of the contract.
 - Export public types and runtime taxonomies through `@oa-sdk/dpm`.
 
 Acceptance:
 - Profile artifacts can represent at least DB table/column evidence and Kafka topic/message-field evidence.
-- Invalid source kinds, missing provenance, empty metric identity, and raw sample payload fields are rejected.
+- Invalid source kinds, missing provenance, empty metric identity, unknown taxonomy values, and raw
+  sample payload fields are rejected.
+- Freshness changes when normalized profile evidence changes.
 - `check:api-index` recognizes the new public surface.
 
 Verification:
 - `pnpm --filter @oa-sdk/dpm exec vitest run test/profile-schema.test.ts`
+- `pnpm --filter @oa-sdk/dpm test`
 - `pnpm --filter @oa-sdk/dpm typecheck`
 - `pnpm build:scripts && pnpm check:api-index`
 
@@ -94,6 +154,8 @@ Tasks:
   and capability metadata.
 - Separate connector capabilities from profile evidence so UI and automation can explain what was
   observed, skipped, or unsupported.
+- Include connector id/version, capture mode, supported evidence kinds, skipped evidence kinds, and
+  capture diagnostics in the result.
 - Add deterministic validation for connector output without requiring a live source.
 
 Acceptance:
@@ -101,6 +163,7 @@ Acceptance:
   existing profiler behavior.
 - Kafka/topic fixture profiling can use the same connector result shape.
 - Connector failures are diagnostic payloads, not thrown-away strings.
+- A connector result cannot claim unsupported evidence as observed evidence.
 
 Verification:
 - `pnpm --filter @oa-sdk/dpm exec vitest run test/profile-connector.test.ts`
@@ -144,6 +207,7 @@ Tasks:
   and privacy risk indicators.
 - Reuse DPM diagnostic severity/code conventions where practical while keeping profile analysis
   diagnostics distinct from manifest validation diagnostics.
+- Emit relationship hints as proposals with evidence pointers, not registry relationships.
 - Produce report payloads that can drive visualization and automated review.
 
 Acceptance:
@@ -168,11 +232,13 @@ Tasks:
 - Extend the DPM gateway contract with profile inspection, profile analysis, and proposal review
   payloads.
 - Model editor-safe patches as proposals or overrides rather than mutations to raw connector output.
+- Define proposal lifecycle values before accepting editor payloads.
 - Keep gateway schemas aligned with runtime profile and analysis contracts.
 
 Acceptance:
 - Gateway OpenAPI schemas reject incomplete profile analysis payloads.
 - Editor proposals can reference profile coordinates and relationship hints.
+- Proposal payloads cannot overwrite connector evidence directly.
 - Runtime outputs validate against gateway schemas.
 
 Verification:
