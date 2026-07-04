@@ -1,6 +1,6 @@
 # Goal 6 - DPM Contract Stabilization
 
-**Status: active 2026-07-04**
+**Status: complete 2026-07-04**
 
 > Predecessor: [Goal 5 - DPM Runtime/Storage Integration](./goal-5-dpm-runtime-storage-integration.md)\
 > Concept baseline: [Data Pseudonymization Manifest](../../concepts/data-pseudonymization-manifest.md)\
@@ -169,6 +169,12 @@ Verification:
 | focused contract | targeted vitest file for changed gateway/storage behavior |
 | package confidence | `pnpm --filter @oa-sdk/dpm test`, `typecheck`, `build` |
 | repo integration | `build:scripts`, `check:api-index`, `check:cli-spec`, `check:feature-tests`, `check:release-policy`, `git diff --check` |
+
+## Completion Evidence
+
+Completed on 2026-07-04 after DPM-16 through DPM-22 passed their focused
+contract tests, the DPM package test/typecheck/build gates, and the repo
+integration checks listed in the verification ladder.
 
 ## Done Criteria
 
