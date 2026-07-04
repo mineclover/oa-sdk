@@ -193,6 +193,7 @@ Implementation notes:
 Status: implemented 2026-07-04.
 
 Artifacts:
+- `packages/dpm/src/profile/kafka-fixture-types.ts`
 - `packages/dpm/src/profile/kafka.ts`
 - `packages/dpm/test/profile-kafka.test.ts`
 - fixture directory under `packages/dpm/test/fixtures/profile/`

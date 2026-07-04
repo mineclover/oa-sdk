@@ -64,7 +64,7 @@ export type {
   DpmKafkaSchemaFixture,
   DpmKafkaTopicFixture,
   DpmKafkaTopicProfileFixture,
-} from './profile/kafka.js'
+} from './profile/kafka-fixture-types.js'
 export type {
   DpmProfileAnalysisCoverage,
   DpmProfileAnalysisFreshness,

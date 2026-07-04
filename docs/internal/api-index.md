@@ -156,13 +156,13 @@ catalog/registry snapshot, semantic validator, compiler, CLI/gateway/publishing 
 | `normalizeDpmProfileConnectorResult()` | `dpm/src/profile/connector.ts` | connector output을 deterministic result envelope로 정규화 |
 | `computeDpmProfileConnectorRunHash()` | `dpm/src/profile/connector.ts` | connector result run hash 계산 |
 | `validateDpmProfileConnectorResult()` | `dpm/src/profile/connector.ts` | capabilities/observed evidence/profile artifact 정합성 검증 |
-| `DpmKafkaTopicProfileFixture` | `dpm/src/profile/kafka.ts` | fixture-backed Kafka topic profile adapter input |
-| `DpmKafkaTopicFixture` | `dpm/src/profile/kafka.ts` | Kafka topic shape, partitions, key/header/schema/value evidence fixture |
-| `DpmKafkaKeyFixture` | `dpm/src/profile/kafka.ts` | Kafka message key fixture metadata |
-| `DpmKafkaHeaderFixture` | `dpm/src/profile/kafka.ts` | Kafka message header fixture metadata |
-| `DpmKafkaSchemaFixture` | `dpm/src/profile/kafka.ts` | Kafka schema subject/version fixture metadata |
-| `DpmKafkaMessageFieldFixture` | `dpm/src/profile/kafka.ts` | nested Kafka message field fixture metadata |
-| `DpmKafkaRelationshipHintFixture` | `dpm/src/profile/kafka.ts` | non-executable Kafka relationship hint fixture metadata |
+| `DpmKafkaTopicProfileFixture` | `dpm/src/profile/kafka-fixture-types.ts` | fixture-backed Kafka topic profile adapter input |
+| `DpmKafkaTopicFixture` | `dpm/src/profile/kafka-fixture-types.ts` | Kafka topic shape, partitions, key/header/schema/value evidence fixture |
+| `DpmKafkaKeyFixture` | `dpm/src/profile/kafka-fixture-types.ts` | Kafka message key fixture metadata |
+| `DpmKafkaHeaderFixture` | `dpm/src/profile/kafka-fixture-types.ts` | Kafka message header fixture metadata |
+| `DpmKafkaSchemaFixture` | `dpm/src/profile/kafka-fixture-types.ts` | Kafka schema subject/version fixture metadata |
+| `DpmKafkaMessageFieldFixture` | `dpm/src/profile/kafka-fixture-types.ts` | nested Kafka message field fixture metadata |
+| `DpmKafkaRelationshipHintFixture` | `dpm/src/profile/kafka-fixture-types.ts` | non-executable Kafka relationship hint fixture metadata |
 | `profileKafkaTopicFixture()` | `dpm/src/profile/kafka.ts` | Kafka topic fixture를 profile artifact + connector result로 변환 |
 | `DPM_PROFILE_ANALYSIS_REPORT_KIND` | `dpm/src/profile/analysis-types.ts` | DPM profile analysis report kind literal |
 | `DPM_PROFILE_RELATIONSHIP_HINT_STATUSES` | `dpm/src/profile/analysis-types.ts` | relationship hint proposal lifecycle taxonomy |
