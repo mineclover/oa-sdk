@@ -399,14 +399,13 @@ function createDpmGatewayOpenApiDocument() {
           previousProfileVersionHash: stringSchema(),
         }, ['reportHash', 'profileVersionHash']),
         DpmProfileProposalReviewRequest: requiredObjectSchema({
-          proposalId: stringSchema(),
           status: { type: 'string', enum: [...DPM_PROFILE_PROPOSAL_REVIEW_STATUSES] },
           reviewedBy: stringSchema(),
           reason: stringSchema(),
           reviewedAt: stringSchema(),
           coordinate: ref('DpmProfileCoordinate'),
           relationshipHint: ref('DpmProfileRelationshipHintProposal'),
-        }, ['proposalId', 'status', 'reviewedBy', 'reason']),
+        }, ['status', 'reviewedBy', 'reason']),
         DpmProfileProposalReviewResponse: requiredObjectSchema({
           proposalId: stringSchema(),
           status: { type: 'string', enum: [...DPM_PROFILE_PROPOSAL_REVIEW_STATUSES] },

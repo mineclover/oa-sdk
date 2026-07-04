@@ -317,7 +317,7 @@ catalog/registry snapshot, semantic validator, compiler, CLI/gateway/publishing 
 | `DpmGatewayProfileInspectionResult` | `dpm/src/gateway/runtime.ts` | profile artifact inspection counts and diagnostics |
 | `DpmGatewayProfileAnalysisInput` | `dpm/src/gateway/runtime.ts` | loaded profile artifact analysis request |
 | `DpmGatewayProfileAnalysisResult` | `dpm/src/gateway/runtime.ts` | profile analysis gateway response result |
-| `DpmGatewayProfileProposalReviewInput` | `dpm/src/gateway/runtime.ts` | editor-safe profile proposal review request |
+| `DpmGatewayProfileProposalReviewInput` | `dpm/src/gateway/runtime.ts` | path-owned proposal id plus editor-safe profile proposal review decision |
 | `DpmGatewayProfileProposalReviewResult` | `dpm/src/gateway/runtime.ts` | editor-safe profile proposal review result |
 | `DpmGatewayRuntimeOperationId` | `dpm/src/gateway/runtime.ts` | runtime operation id taxonomy |
 | `DpmGatewayRuntimeStatusCode` | `dpm/src/gateway/runtime.ts` | runtime success or blocking-diagnostic status code |

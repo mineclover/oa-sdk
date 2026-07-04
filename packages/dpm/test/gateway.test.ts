@@ -273,7 +273,6 @@ describe('DPM gateway OpenAPI contract', () => {
       ['DpmProfileInspectionRequest', { profileArtifact }],
       ['DpmProfileAnalysisRequest', { profileArtifact }],
       ['DpmProfileProposalReviewRequest', {
-        proposalId: relationshipHint.id,
         status: 'accepted',
         reviewedBy: 'privacy-reviewer',
         reason: 'reviewed against catalog evidence',
@@ -437,5 +436,13 @@ describe('DPM gateway OpenAPI contract', () => {
       reviewedBy: 'privacy-reviewer',
       reason: 'reviewed against catalog evidence',
     }), 'DpmProfileProposalReviewRequest unexpectedly accepted the pre-decision relationship hint status').toBe(false)
+    expect(reviewRequestSchema({
+      proposalId: relationshipHint.id,
+      status: 'accepted',
+      reviewedBy: 'privacy-reviewer',
+      reason: 'reviewed against catalog evidence',
+      coordinate: profileCoordinate,
+      relationshipHint,
+    }), 'DpmProfileProposalReviewRequest unexpectedly accepted a duplicate body proposal id').toBe(false)
   })
 })
