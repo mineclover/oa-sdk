@@ -137,7 +137,7 @@ catalog/registry snapshot, semantic validator, compiler, CLI/gateway/publishing 
 | `DpmProfileArtifact` | `dpm/src/profile/types.ts` | normalized source-neutral profile evidence artifact |
 | `DpmProfileArtifactInput` | `dpm/src/profile/artifact.ts` | profile artifact normalization input |
 | `normalizeDpmProfileArtifact()` | `dpm/src/profile/artifact.ts` | profile arrays/source maps를 deterministic artifact로 정규화 |
-| `computeDpmProfileFreshnessHash()` | `dpm/src/profile/artifact.ts` | normalized profile evidence freshness hash 계산 |
+| `computeDpmProfileFreshnessHash()` | `dpm/src/profile/artifact-freshness.ts` | normalized profile evidence freshness hash 계산 |
 | `DPM_PROFILE_ARTIFACT_SCHEMA_ID` | `dpm/src/profile/schema-document.ts` | profile artifact JSON Schema `$id` |
 | `DPM_PROFILE_ARTIFACT_SCHEMA` | `dpm/src/profile/schema-document.ts` | DPM profile artifact JSON Schema |
 | `DpmProfileArtifactSchemaIssue` | `dpm/src/profile/schema.ts` | profile artifact schema validation issue |

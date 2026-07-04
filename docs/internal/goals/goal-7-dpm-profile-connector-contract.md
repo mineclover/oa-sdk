@@ -115,6 +115,9 @@ Status: implemented 2026-07-04.
 Artifacts:
 - `packages/dpm/src/profile/types.ts`
 - `packages/dpm/src/profile/artifact.ts`
+- `packages/dpm/src/profile/artifact-copy.ts`
+- `packages/dpm/src/profile/artifact-ordering.ts`
+- `packages/dpm/src/profile/artifact-freshness.ts`
 - `packages/dpm/src/profile/schema-document.ts`
 - `packages/dpm/src/profile/schema.ts`
 - `packages/dpm/test/profile-artifact.test.ts`
