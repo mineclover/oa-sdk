@@ -76,7 +76,9 @@ Artifacts:
 - `packages/dpm/src/catalog/profiler-postgres.ts`
 - `packages/dpm/src/catalog/profiler-postgres-query.ts`
 - `packages/dpm/src/catalog/profiler-postgres-row-types.ts`
+- `packages/dpm/src/catalog/profiler-postgres-row-utils.ts`
 - `packages/dpm/src/catalog/profiler-postgres-rows.ts`
+- `packages/dpm/src/catalog/profiler-postgres-sources.ts`
 - `packages/dpm/test/catalog-profiler.test.ts`
 - read-only catalog SQL fixtures
 
@@ -105,6 +107,8 @@ Implementation notes:
 - `postgresCatalogRowsToSnapshot()` maps profiled rows into the existing `CatalogSnapshot` shape,
   derives primary-key and unique-index candidates, and delegates freshness hashing to the existing
   catalog normalization path. The row mapper lives in `packages/dpm/src/catalog/profiler-postgres-rows.ts`.
+- `profiler-postgres-sources.ts` owns source map assembly, while `profiler-postgres-row-utils.ts`
+  owns required-field guards and DB source coordinate construction.
 
 ### DPM-13 - Gateway Runtime Adapter
 

@@ -1,10 +1,14 @@
-import type { SchemaSourceCoordinate } from '@oa-sdk/openapi-projection-contract'
-
 import { createPostgresCatalogSnapshot } from './postgres.js'
 import type {
   PostgresCatalogProfileRow,
   PostgresCatalogRowsToSnapshotInput,
 } from './profiler-postgres-row-types.js'
+import {
+  createPostgresDbSource,
+  postgresCatalogTableId,
+  requirePostgresCatalogField,
+} from './profiler-postgres-row-utils.js'
+import { createPostgresCatalogSourceMap } from './profiler-postgres-sources.js'
 import type {
   CatalogColumn,
   CatalogForeignKey,
@@ -47,7 +51,7 @@ export function postgresCatalogRowsToSnapshot(input: PostgresCatalogRowsToSnapsh
       ...primaryKeys.map(primaryKeyToUniqueCandidate),
       ...indexes.filter(index => index.unique).map(indexToUniqueCandidate),
     ],
-    sources: createSourceMap(input.rows),
+    sources: createPostgresCatalogSourceMap(input.rows),
   })
 }
 
@@ -55,51 +59,51 @@ function rowToSchema(row: PostgresCatalogProfileRow): CatalogSchema {
   return {
     name: row.schema_name,
     ...(row.schema_owner ? { owner: row.schema_owner } : {}),
-    source: dbSource('schema', row.schema_name, `#/schemas/${row.schema_name}`),
+    source: createPostgresDbSource('schema', row.schema_name, `#/schemas/${row.schema_name}`),
   }
 }
 
 function rowToTable(row: PostgresCatalogProfileRow): CatalogTable {
-  const table = tableId(row)
+  const table = postgresCatalogTableId(row)
   return {
     schema: row.schema_name,
-    name: requireField(row.table_name, row, 'table_name'),
+    name: requirePostgresCatalogField(row.table_name, row, 'table_name'),
     table,
-    kind: requireField(row.table_kind, row, 'table_kind'),
-    source: dbSource('table', table, `#/tables/${table}`),
+    kind: requirePostgresCatalogField(row.table_kind, row, 'table_kind'),
+    source: createPostgresDbSource('table', table, `#/tables/${table}`),
   }
 }
 
 function rowToColumn(row: PostgresCatalogProfileRow): CatalogColumn {
-  const table = tableId(row)
-  const columnName = requireField(row.column_name, row, 'column_name')
+  const table = postgresCatalogTableId(row)
+  const columnName = requirePostgresCatalogField(row.column_name, row, 'column_name')
   return {
     table,
     name: columnName,
-    dataType: requireField(row.data_type, row, 'data_type'),
-    nullable: requireField(row.is_nullable, row, 'is_nullable'),
-    ordinal: requireField(row.ordinal_position, row, 'ordinal_position'),
+    dataType: requirePostgresCatalogField(row.data_type, row, 'data_type'),
+    nullable: requirePostgresCatalogField(row.is_nullable, row, 'is_nullable'),
+    ordinal: requirePostgresCatalogField(row.ordinal_position, row, 'ordinal_position'),
     ...(row.default_value !== undefined ? { defaultValue: row.default_value } : {}),
-    source: dbSource('column', `${table}.${columnName}`, `#/columns/${table}.${columnName}`),
+    source: createPostgresDbSource('column', `${table}.${columnName}`, `#/columns/${table}.${columnName}`),
   }
 }
 
 function rowToPrimaryKey(
   row: PostgresCatalogProfileRow & Required<Pick<PostgresCatalogProfileRow, 'table_name' | 'constraint_name' | 'constraint_columns'>>,
 ): CatalogPrimaryKey {
-  const table = tableId(row)
+  const table = postgresCatalogTableId(row)
   return {
     table,
     name: row.constraint_name,
     columns: [...row.constraint_columns],
-    source: dbSource('constraint', `${table}.${row.constraint_name}`, `#/primaryKeys/${table}.${row.constraint_name}`),
+    source: createPostgresDbSource('constraint', `${table}.${row.constraint_name}`, `#/primaryKeys/${table}.${row.constraint_name}`),
   }
 }
 
 function rowToForeignKey(row: PostgresCatalogProfileRow): CatalogForeignKey {
-  const table = tableId(row)
-  const name = requireField(row.constraint_name, row, 'constraint_name')
-  const referencedTable = `${requireField(row.referenced_schema_name, row, 'referenced_schema_name')}.${requireField(
+  const table = postgresCatalogTableId(row)
+  const name = requirePostgresCatalogField(row.constraint_name, row, 'constraint_name')
+  const referencedTable = `${requirePostgresCatalogField(row.referenced_schema_name, row, 'referenced_schema_name')}.${requirePostgresCatalogField(
     row.referenced_table_name,
     row,
     'referenced_table_name',
@@ -108,20 +112,20 @@ function rowToForeignKey(row: PostgresCatalogProfileRow): CatalogForeignKey {
   return {
     table,
     name,
-    columns: [...requireField(row.constraint_columns, row, 'constraint_columns')],
+    columns: [...requirePostgresCatalogField(row.constraint_columns, row, 'constraint_columns')],
     referencedTable,
-    referencedColumns: [...requireField(row.referenced_columns, row, 'referenced_columns')],
+    referencedColumns: [...requirePostgresCatalogField(row.referenced_columns, row, 'referenced_columns')],
     enforced: true,
     ...(row.on_delete ? { onDelete: row.on_delete } : {}),
     ...(row.on_update ? { onUpdate: row.on_update } : {}),
-    source: dbSource('constraint', `${table}.${name}`, `#/foreignKeys/${table}.${name}`),
+    source: createPostgresDbSource('constraint', `${table}.${name}`, `#/foreignKeys/${table}.${name}`),
   }
 }
 
 function rowToIndex(
   row: PostgresCatalogProfileRow & Required<Pick<PostgresCatalogProfileRow, 'table_name' | 'index_name' | 'index_columns'>>,
 ): CatalogIndex {
-  const table = tableId(row)
+  const table = postgresCatalogTableId(row)
   return {
     table,
     name: row.index_name,
@@ -129,7 +133,7 @@ function rowToIndex(
     unique: row.index_unique === true,
     ...(row.index_method ? { method: row.index_method } : {}),
     ...(row.index_predicate ? { predicate: row.index_predicate } : {}),
-    source: dbSource('index', `${table}.${row.index_name}`, `#/indexes/${table}.${row.index_name}`),
+    source: createPostgresDbSource('index', `${table}.${row.index_name}`, `#/indexes/${table}.${row.index_name}`),
   }
 }
 
@@ -153,44 +157,4 @@ function indexToUniqueCandidate(index: CatalogIndex): CatalogUniqueCandidate {
     confidence: 1,
     ...(index.source ? { source: index.source } : {}),
   }
-}
-
-function createSourceMap(rows: readonly PostgresCatalogProfileRow[]) {
-  const sources: Record<string, SchemaSourceCoordinate> = {}
-
-  for (const row of rows) {
-    if (row.record_kind === 'schema') {
-      sources[`schema:${row.schema_name}`] = dbSource('schema', row.schema_name, `#/schemas/${row.schema_name}`)
-    }
-    if (row.table_name) {
-      const table = tableId(row)
-      sources[`table:${table}`] = dbSource('table', table, `#/tables/${table}`)
-    }
-    if (row.record_kind === 'column' && row.column_name) {
-      const column = `${tableId(row)}.${row.column_name}`
-      sources[`column:${column}`] = dbSource('column', column, `#/columns/${column}`)
-    }
-  }
-
-  return sources
-}
-
-function tableId(row: PostgresCatalogProfileRow): string {
-  return `${row.schema_name}.${requireField(row.table_name, row, 'table_name')}`
-}
-
-function dbSource(entity: string, id: string, pointer: string) {
-  return {
-    kind: 'db' as const,
-    entity,
-    id,
-    pointer,
-  }
-}
-
-function requireField<T>(value: T | undefined, row: PostgresCatalogProfileRow, field: string): T {
-  if (value === undefined) {
-    throw new Error(`PostgreSQL catalog ${row.record_kind} row for schema ${row.schema_name} is missing ${field}`)
-  }
-  return value
 }
