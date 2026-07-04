@@ -1,12 +1,12 @@
 # Goal Progress Index
 
-Last updated: 2026-07-01
+Last updated: 2026-07-04
 
 이 파일은 goal 진행 현황만 관리한다. 설계, 범위, 수용 기준은 각 goal 문서를 따른다.
 
 ## Current
 
-- No active goal. Goal 5 is complete.
+- Goal 6 / DPM Contract Stabilization (current)
 
 ## Recently Completed
 
@@ -20,6 +20,7 @@ Last updated: 2026-07-01
 - [x] Goal 3 - Mock Server
 - [x] Goal 4 - Relationship-First DPM
 - [x] Goal 5 - DPM Runtime And Storage Integration
+- [ ] Goal 6 - DPM Contract Stabilization (current)
 
 ## Goal 4 DPM Units
 
@@ -43,6 +44,12 @@ Last updated: 2026-07-01
 - [x] DPM-13 - Gateway Runtime Adapter
 - [x] DPM-14 - Job And Validation Report Persistence
 - [x] DPM-15 - Storage-Backed Demo And Smoke Gate
+
+## Goal 6 DPM Units
+
+- [x] DPM-16 - Gateway Component Requiredness
+- [x] DPM-17 - Runtime Nested Object Contract
+- [x] DPM-18 - Storage Report Gateway Contract
 
 ## Done Criteria
 

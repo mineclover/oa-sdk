@@ -236,7 +236,7 @@ function createDpmGatewayOpenApiDocument() {
         }),
         DpmJobReport: requiredObjectSchema({
           jobId: stringSchema(),
-          status: stringSchema(),
+          status: { type: 'string', enum: ['completed', 'failed'] },
           validationReportRef: stringSchema(),
           diagnostics: arrayOf(ref('DpmDiagnostic')),
         }),

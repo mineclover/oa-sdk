@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
+import Ajv2020 from 'ajv/dist/2020.js'
 import { describe, expect, it, vi } from 'vitest'
 
 import {
@@ -9,6 +10,7 @@ import {
   createDpmJobRepository,
   createDpmReportRepository,
   createPostgresCatalogSnapshot,
+  getDpmGatewayOpenApiDocument,
   parseRegistrySnapshotYaml,
   type DpmCompileInput,
   type DpmJobRow,
@@ -24,6 +26,12 @@ function readJsonFixture<T>(path: string): T {
 
 function readTextFixture(path: string): string {
   return readFileSync(join(fixturesRoot.pathname, path), 'utf8')
+}
+
+function compileGatewayComponentSchema(name: string) {
+  const ajv = new Ajv2020({ allErrors: true, strict: false })
+  ajv.addSchema(getDpmGatewayOpenApiDocument(), 'dpm-gateway')
+  return ajv.compile({ $ref: `dpm-gateway#/components/schemas/${name}` })
 }
 
 function createCompileInput(): DpmCompileInput {
@@ -169,6 +177,7 @@ describe('DPM job and validation report persistence', () => {
   })
 
   it('retrieves the gateway-compatible job report shape from stored validation reports', async () => {
+    const schema = compileGatewayComponentSchema('DpmJobReport')
     const storedReports = new Map<string, DpmStoredValidationReport>()
     const repository = createDpmReportRepository({
       upsertReport: async row => {
@@ -200,5 +209,6 @@ describe('DPM job and validation report persistence', () => {
       'validationReportRef',
       'diagnostics',
     ])
+    expect(schema(jobReport), JSON.stringify(schema.errors, null, 2)).toBe(true)
   })
 })
