@@ -107,6 +107,8 @@ Status: implemented 2026-07-01.
 
 Artifacts:
 - `packages/dpm/src/gateway/runtime.ts`
+- `packages/dpm/src/gateway/runtime-manifest.ts`
+- `packages/dpm/src/gateway/runtime-response.ts`
 - `packages/dpm/test/gateway-runtime.test.ts`
 
 Tasks:
@@ -125,7 +127,8 @@ Verification:
 - `pnpm --filter @oa-sdk/dpm typecheck`
 
 Implementation notes:
-- `createDpmGatewayRuntime()` exposes only validate, compile, and dry-run handlers.
+- Manifest runtime handlers for validate, compile, and dry-run live in
+  `packages/dpm/src/gateway/runtime-manifest.ts` and are composed by `createDpmGatewayRuntime()`.
 - Runtime handlers accept already-loaded manifest, catalog, registry, and optional estimated row
   inputs; they do not read files, connect to source databases, or expose execute-job/report APIs.
 - Runtime response bodies keep the same machine-readable `{ command, result }` shape as the CLI

@@ -272,6 +272,9 @@ Artifacts:
 - `packages/dpm/src/gateway/openapi.ts`
 - `packages/dpm/src/gateway/openapi-core-schemas.ts`
 - `packages/dpm/src/gateway/openapi-paths.ts`
+- `packages/dpm/src/gateway/runtime.ts`
+- `packages/dpm/src/gateway/runtime-profile.ts`
+- `packages/dpm/src/gateway/runtime-response.ts`
 - `packages/dpm/test/gateway.test.ts`
 - `packages/dpm/test/gateway-runtime.test.ts`
 
@@ -300,9 +303,10 @@ Implementation notes:
   analysis report taxonomies, and proposal review lifecycle values.
 - Proposal review payloads can reference profile coordinates and relationship hint proposals, but
   cannot carry raw evidence patches, profile artifact overwrites, or connector evidence mutations.
-- `createDpmGatewayRuntime()` now supports loaded profile inspection, analysis, and proposal review
-  responses that validate against the gateway schemas while preserving the existing manifest
-  validate/compile/dry-run runtime behavior.
+- `createDpmGatewayRuntime()` composes loaded profile inspection, analysis, and proposal review
+  handlers from `packages/dpm/src/gateway/runtime-profile.ts`; these responses validate against
+  the gateway schemas while preserving the existing manifest validate/compile/dry-run runtime
+  behavior.
 
 ## Completion Evidence
 
