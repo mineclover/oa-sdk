@@ -114,6 +114,7 @@ Status: implemented 2026-07-04.
 
 Artifacts:
 - `packages/dpm/src/profile/types.ts`
+- `packages/dpm/src/profile/artifact.ts`
 - `packages/dpm/src/profile/schema.ts`
 - `packages/dpm/test/profile-schema.test.ts`
 - `docs/internal/api-index.md`
@@ -143,8 +144,9 @@ Verification:
 
 Implementation notes:
 - `DpmProfileArtifact` is implemented as a normalized source-neutral evidence graph with profile
-  identity, source descriptors, DPM-owned coordinates, nodes, edges, metrics, diagnostics, evidence
-  source map, and deterministic freshness hash.
+  identity, source descriptors, DPM-owned coordinates, nodes, edges, metrics, diagnostics, and
+  evidence source map. Deterministic normalization and freshness hashing live in
+  `packages/dpm/src/profile/artifact.ts`.
 - Profile source/node/edge/metric/capture/diagnostic taxonomies are runtime constants used by both
   TypeScript and JSON Schema.
 - The profile artifact JSON Schema rejects unknown taxonomy values, missing node provenance,

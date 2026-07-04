@@ -8,6 +8,8 @@ import {
 import {
   normalizeDpmProfileArtifact,
   type DpmProfileArtifactInput,
+} from './artifact.js'
+import {
   type DpmProfileEdge,
   type DpmProfileEvidenceSource,
   type DpmProfileMetric,

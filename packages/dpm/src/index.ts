@@ -27,7 +27,6 @@ export type {
 } from './catalog/profiler-postgres.js'
 export type {
   DpmProfileArtifact,
-  DpmProfileArtifactInput,
   DpmProfileCaptureMode,
   DpmProfileCoordinate,
   DpmProfileDiagnostic,
@@ -43,6 +42,9 @@ export type {
   DpmProfileSourceDescriptor,
   DpmProfileSourceKind,
 } from './profile/types.js'
+export type {
+  DpmProfileArtifactInput,
+} from './profile/artifact.js'
 export type {
   DpmProfileArtifactSchemaIssue,
   DpmProfileArtifactSchemaValidationResult,
@@ -238,9 +240,11 @@ export {
   DPM_PROFILE_METRIC_KINDS,
   DPM_PROFILE_NODE_KINDS,
   DPM_PROFILE_SOURCE_KINDS,
+} from './profile/types.js'
+export {
   computeDpmProfileFreshnessHash,
   normalizeDpmProfileArtifact,
-} from './profile/types.js'
+} from './profile/artifact.js'
 export {
   DPM_PROFILE_ARTIFACT_SCHEMA,
   DPM_PROFILE_ARTIFACT_SCHEMA_ID,
