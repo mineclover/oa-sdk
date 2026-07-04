@@ -343,9 +343,12 @@ Verification:
 Goal id: `DPM-09`
 
 Artifacts:
-- `packages/dpm/src/gateway/typespec` or `packages/schemas/src/fragments/dpm/*.yaml`
-- generated or checked gateway OpenAPI artifact
-- gateway contract tests
+- `packages/dpm/src/gateway/openapi.ts`
+- `packages/dpm/src/gateway/openapi-core-schemas.ts`
+- `packages/dpm/src/gateway/openapi-execution-schemas.ts`
+- `packages/dpm/src/gateway/profile-openapi.ts`
+- `packages/dpm/src/gateway/openapi-paths.ts`
+- `packages/dpm/test/gateway.test.ts`
 
 Tasks:
 - Model catalog profiling, relationship discovery, candidate import, approval, snapshot export,
