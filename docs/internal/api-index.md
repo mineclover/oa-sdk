@@ -105,11 +105,11 @@ catalog/registry snapshot, semantic validator, compiler, CLI/gateway/publishing 
 | `computeCatalogFreshnessHash()` | `dpm/src/catalog/freshness.ts` | catalog structure freshness hash 계산 |
 | `createPostgresCatalogSnapshot()` | `dpm/src/catalog/postgres.ts` | PostgreSQL catalog input을 normalized catalog snapshot으로 변환 |
 | `POSTGRES_CATALOG_PROFILE_SQL` | `dpm/src/catalog/profiler-postgres.ts` | read-only PostgreSQL catalog profile query |
-| `PostgresCatalogProfileRecordKind` | `dpm/src/catalog/profiler-postgres.ts` | profiled PostgreSQL catalog row kind |
-| `PostgresCatalogProfileRow` | `dpm/src/catalog/profiler-postgres.ts` | raw profiler row returned by the catalog query adapter |
+| `PostgresCatalogProfileRecordKind` | `dpm/src/catalog/profiler-postgres-row-types.ts` | profiled PostgreSQL catalog row kind |
+| `PostgresCatalogProfileRow` | `dpm/src/catalog/profiler-postgres-row-types.ts` | raw profiler row returned by the catalog query adapter |
 | `PostgresCatalogProfilerClient` | `dpm/src/catalog/profiler-postgres.ts` | explicit query client boundary for PostgreSQL catalog profiling |
 | `PostgresCatalogProfilerInput` | `dpm/src/catalog/profiler-postgres.ts` | catalog profiler request with database, schema filter, client, and capture time |
-| `PostgresCatalogRowsToSnapshotInput` | `dpm/src/catalog/profiler-postgres.ts` | row-to-catalog-snapshot conversion input |
+| `PostgresCatalogRowsToSnapshotInput` | `dpm/src/catalog/profiler-postgres-row-types.ts` | row-to-catalog-snapshot conversion input |
 | `profilePostgresCatalog()` | `dpm/src/catalog/profiler-postgres.ts` | query client를 통해 PostgreSQL catalog metadata를 읽고 DPM catalog snapshot으로 변환 |
 | `postgresCatalogRowsToSnapshot()` | `dpm/src/catalog/profiler-postgres.ts` | profiler rows를 기존 `CatalogSnapshot` contract로 변환 |
 | `catalogSnapshotFromOpenApiProjection()` | `dpm/src/catalog/projection.ts` | OpenAPI projection envelope를 structural catalog evidence로 변환 |

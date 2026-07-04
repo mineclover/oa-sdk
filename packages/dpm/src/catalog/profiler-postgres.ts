@@ -1,8 +1,8 @@
 import { POSTGRES_CATALOG_PROFILE_SQL } from './profiler-postgres-query.js'
 import {
   postgresCatalogRowsToSnapshot,
-  type PostgresCatalogProfileRow,
 } from './profiler-postgres-rows.js'
+import type { PostgresCatalogProfileRow } from './profiler-postgres-row-types.js'
 import type { CatalogSnapshot } from './types.js'
 
 export { POSTGRES_CATALOG_PROFILE_SQL } from './profiler-postgres-query.js'
@@ -11,7 +11,7 @@ export type {
   PostgresCatalogProfileRecordKind,
   PostgresCatalogProfileRow,
   PostgresCatalogRowsToSnapshotInput,
-} from './profiler-postgres-rows.js'
+} from './profiler-postgres-row-types.js'
 
 export type PostgresCatalogProfilerClient = {
   query<T>(sql: string, parameters: readonly unknown[]): Promise<readonly T[] | { rows: readonly T[] }>
