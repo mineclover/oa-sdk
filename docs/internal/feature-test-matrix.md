@@ -35,6 +35,10 @@ without checking behavior, add focused assertions or split the matrix row.
 | `dpm-manifest-schema` | `@oa-sdk/dpm` | relationship-first DPM manifest schema and fixture gates | `packages/dpm/test/schema.test.ts`, `smoke.test.ts` |
 | `dpm-catalog-snapshot` | `@oa-sdk/dpm` | PostgreSQL catalog snapshot normalization, OpenAPI projection adapter, freshness hash | `packages/dpm/test/catalog.test.ts` |
 | `dpm-postgres-catalog-profiler` | `@oa-sdk/dpm` | read-only PostgreSQL catalog profiler query and row-to-snapshot mapping | `packages/dpm/test/catalog-profiler.test.ts`, `packages/dpm/test/fixtures/catalog/profiler-postgres.sql` |
+| `dpm-profile-artifact` | `@oa-sdk/dpm` | source-neutral profile artifact schema, coordinates, nodes, edges, metrics, diagnostics, freshness | `packages/dpm/test/profile-schema.test.ts` |
+| `dpm-profile-connector` | `@oa-sdk/dpm` | connector output envelope, capability/evidence validation, connector/profile freshness | `packages/dpm/test/profile-connector.test.ts` |
+| `dpm-kafka-profile-fixture` | `@oa-sdk/dpm` | fixture-backed Kafka topic/message flattening into profile artifact and connector result | `packages/dpm/test/profile-kafka.test.ts` |
+| `dpm-profile-analysis` | `@oa-sdk/dpm` | profile coverage, relationship hint proposals, key candidates, drift, and risk analysis | `packages/dpm/test/profile-analysis.test.ts` |
 | `dpm-discovery-report` | `@oa-sdk/dpm` | non-executable relationship discovery candidate reports and evidence preservation | `packages/dpm/test/discovery.test.ts` |
 | `dpm-registry-snapshot` | `@oa-sdk/dpm` | versioned registry snapshots, YAML review artifacts, approved-only execution selection | `packages/dpm/test/registry.test.ts` |
 | `dpm-registry-storage` | `@oa-sdk/dpm` | Postgres canonical registry storage schema and row-reader export to the registry snapshot contract | `packages/dpm/test/storage-registry.test.ts`, `packages/dpm/test/fixtures/storage/registry-schema.sql` |
@@ -44,8 +48,8 @@ without checking behavior, add focused assertions or split the matrix row.
 | `dpm-cli-surface` | `@oa-sdk/dpm` | validate, compile, and dry-run CLI JSON output over explicit fixture paths with schema-gated validation | `packages/dpm/test/cli.test.ts` |
 | `dpm-primary-demo` | `@oa-sdk/dpm` | customer-orders primary CLI demo for validate, compile, dry-run, and guard scenarios without source DB access | `packages/dpm/test/demo.test.ts`, `packages/dpm/examples/customer-orders/README.md` |
 | `dpm-storage-demo` | `@oa-sdk/dpm` | storage-backed customer-orders demo for catalog profiling, registry export, validate/compile/dry-run, and report retrieval | `packages/dpm/test/storage-demo.test.ts`, `packages/dpm/examples/customer-orders-storage/README.md` |
-| `dpm-gateway-contract` | `@oa-sdk/dpm` | OpenAPI 3.2 gateway contract for DPM lifecycle operations | `packages/dpm/test/gateway.test.ts` |
-| `dpm-gateway-runtime` | `@oa-sdk/dpm` | validate, compile, and dry-run gateway runtime handlers with CLI-equivalent machine-readable bodies and no source DB access | `packages/dpm/test/gateway-runtime.test.ts` |
+| `dpm-gateway-contract` | `@oa-sdk/dpm` | OpenAPI 3.2 gateway contract for DPM lifecycle and profile/editor operations | `packages/dpm/test/gateway.test.ts` |
+| `dpm-gateway-runtime` | `@oa-sdk/dpm` | profile inspection/analysis/proposal review plus validate, compile, and dry-run gateway runtime handlers without source access | `packages/dpm/test/gateway-runtime.test.ts` |
 | `dpm-job-report-storage` | `@oa-sdk/dpm` | compile/dry-run job metadata and validation report persistence without raw or secret-bearing payloads | `packages/dpm/test/storage-report.test.ts` |
 | `dpm-publishing-context` | `@oa-sdk/dpm` | AI relationship metadata, read-only schema context, and recommendation-only physical FK output | `packages/dpm/test/publishing.test.ts` |
 | `definition-builder` | `@oa-sdk/parser`, `@oa-sdk/codegen` | definition registry, target selection, emit, composition/provenance reports, workspace index | `packages/parser/src/__tests__/definition-*.test.ts`, `packages/codegen/src/__tests__/builder-*.test.ts` |

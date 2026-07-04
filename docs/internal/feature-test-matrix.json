@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-07-01",
+  "updatedAt": "2026-07-04",
   "description": "Feature-to-test mapping for oa-sdk. Each feature lists representative automated coverage and the commands that maintain it.",
   "features": [
     {
@@ -171,6 +171,103 @@
       ],
       "commands": [
         "pnpm --filter @oa-sdk/dpm test -- catalog-profiler",
+        "pnpm --filter @oa-sdk/dpm typecheck"
+      ]
+    },
+    {
+      "id": "dpm-profile-artifact",
+      "name": "DPM profile artifact",
+      "category": "dpm",
+      "package": "@oa-sdk/dpm",
+      "description": "Source-neutral profile artifact schema for flattened database, projection, event-stream, query-log, ORM, and manual evidence.",
+      "capabilities": [
+        "profile artifact identity",
+        "source-neutral coordinates",
+        "source descriptors",
+        "evidence source map",
+        "node edge metric graph",
+        "profile diagnostics",
+        "deterministic freshness hash",
+        "raw value exclusion"
+      ],
+      "testPaths": [
+        "packages/dpm/test/profile-schema.test.ts"
+      ],
+      "commands": [
+        "pnpm --filter @oa-sdk/dpm test -- profile-schema",
+        "pnpm --filter @oa-sdk/dpm typecheck"
+      ]
+    },
+    {
+      "id": "dpm-profile-connector",
+      "name": "DPM profile connector",
+      "category": "dpm",
+      "package": "@oa-sdk/dpm",
+      "description": "Connector output envelope and validation for source-neutral profile artifact production.",
+      "capabilities": [
+        "connector result identity",
+        "connector lifecycle statuses",
+        "capability declaration",
+        "observed evidence validation",
+        "profile artifact validation",
+        "connector diagnostics",
+        "deterministic run hash",
+        "source-neutral persistence boundary"
+      ],
+      "testPaths": [
+        "packages/dpm/test/profile-connector.test.ts"
+      ],
+      "commands": [
+        "pnpm --filter @oa-sdk/dpm test -- profile-connector",
+        "pnpm --filter @oa-sdk/dpm typecheck"
+      ]
+    },
+    {
+      "id": "dpm-kafka-profile-fixture",
+      "name": "DPM Kafka profile fixture",
+      "category": "dpm",
+      "package": "@oa-sdk/dpm",
+      "description": "Fixture-backed Kafka topic and message evidence flattening into a DPM profile artifact and connector result.",
+      "capabilities": [
+        "Kafka topic fixture input",
+        "partition key header schema nodes",
+        "nested message field flattening",
+        "field and topic metrics",
+        "relationship hint evidence",
+        "connector result output",
+        "no live Kafka requirement",
+        "raw sample exclusion"
+      ],
+      "testPaths": [
+        "packages/dpm/test/profile-kafka.test.ts",
+        "packages/dpm/test/fixtures/profile/kafka-orders-created.json"
+      ],
+      "commands": [
+        "pnpm --filter @oa-sdk/dpm test -- profile-kafka",
+        "pnpm --filter @oa-sdk/dpm typecheck"
+      ]
+    },
+    {
+      "id": "dpm-profile-analysis",
+      "name": "DPM profile analysis",
+      "category": "dpm",
+      "package": "@oa-sdk/dpm",
+      "description": "Deterministic profile analysis reports for coverage, relationship hint proposals, key candidates, drift, and risk signals.",
+      "capabilities": [
+        "coverage report",
+        "relationship hint proposals",
+        "key candidates",
+        "drift signals",
+        "risk indicators",
+        "diagnostic preservation",
+        "report freshness hash",
+        "automatic approval exclusion"
+      ],
+      "testPaths": [
+        "packages/dpm/test/profile-analysis.test.ts"
+      ],
+      "commands": [
+        "pnpm --filter @oa-sdk/dpm test -- profile-analysis",
         "pnpm --filter @oa-sdk/dpm typecheck"
       ]
     },
@@ -393,16 +490,20 @@
       "name": "DPM gateway contract",
       "category": "dpm",
       "package": "@oa-sdk/dpm",
-      "description": "OpenAPI 3.2 gateway contract for DPM lifecycle operations without owning manifest policy semantics.",
+      "description": "OpenAPI 3.2 gateway contract for DPM lifecycle and profile/editor operations without owning manifest policy semantics.",
       "capabilities": [
         "OpenAPI 3.2 gateway artifact",
         "catalog profiling operation",
+        "profile inspection operation",
+        "profile analysis operation",
+        "profile proposal review operation",
         "relationship discovery operation",
         "candidate import and approval operations",
         "registry snapshot export operation",
         "manifest validate/compile/dry-run operations",
         "execute job and report operations",
         "manifest JSON Schema reference boundary",
+        "editor evidence mutation exclusion",
         "secret-bearing operation exclusion"
       ],
       "testPaths": [
@@ -418,15 +519,19 @@
       "name": "DPM gateway runtime",
       "category": "dpm",
       "package": "@oa-sdk/dpm",
-      "description": "Validate, compile, and dry-run gateway runtime handlers with CLI-equivalent machine-readable bodies and no source DB access.",
+      "description": "Profile inspection, profile analysis, profile proposal review, validate, compile, and dry-run gateway runtime handlers with machine-readable bodies and no source access.",
       "capabilities": [
+        "runtime profile inspection handler",
+        "runtime profile analysis handler",
+        "runtime profile proposal review handler",
         "runtime validate handler",
         "runtime compile handler",
         "runtime dry-run handler",
         "CLI-equivalent command result body",
         "blocking diagnostics status mapping",
         "in-memory manifest catalog registry input",
-        "source DB and secret-bearing operation exclusion"
+        "loaded profile artifact input",
+        "source DB Kafka and secret-bearing operation exclusion"
       ],
       "testPaths": [
         "packages/dpm/test/gateway-runtime.test.ts"

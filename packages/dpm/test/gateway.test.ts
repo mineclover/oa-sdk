@@ -431,5 +431,11 @@ describe('DPM gateway OpenAPI contract', () => {
       reason: 'reviewed against catalog evidence',
       profileArtifact,
     }), 'DpmProfileProposalReviewRequest unexpectedly accepted a profile artifact overwrite').toBe(false)
+    expect(reviewRequestSchema({
+      proposalId: relationshipHint.id,
+      status: 'review',
+      reviewedBy: 'privacy-reviewer',
+      reason: 'reviewed against catalog evidence',
+    }), 'DpmProfileProposalReviewRequest unexpectedly accepted the pre-decision relationship hint status').toBe(false)
   })
 })
