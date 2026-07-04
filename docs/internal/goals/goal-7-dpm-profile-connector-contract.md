@@ -1,6 +1,6 @@
 # Goal 7 - DPM Profile/Connector Contract
 
-**Status: active 2026-07-04**
+**Status: complete 2026-07-04**
 
 > Predecessor: [Goal 6 - DPM Contract Stabilization](./goal-6-dpm-contract-stabilization.md)\
 > Concept baseline: [Data Pseudonymization Manifest](../../concepts/data-pseudonymization-manifest.md)\
@@ -257,7 +257,7 @@ Implementation notes:
 
 ### DPM-27 - Profile Gateway And Editor Contract
 
-Status: planned.
+Status: implemented 2026-07-04.
 
 Artifacts:
 - `packages/dpm/src/gateway/openapi.ts`
@@ -281,6 +281,31 @@ Verification:
 - `pnpm --filter @oa-sdk/dpm exec vitest run test/gateway.test.ts`
 - `pnpm --filter @oa-sdk/dpm exec vitest run test/gateway-runtime.test.ts`
 - `pnpm --filter @oa-sdk/dpm test`
+
+Implementation notes:
+- Gateway OpenAPI now exposes profile inspection, profile analysis, and profile proposal review
+  operations under `/dpm/profiles/*`.
+- Profile gateway component schemas project the DPM profile source/node/edge/metric taxonomies,
+  analysis report taxonomies, and proposal review lifecycle values.
+- Proposal review payloads can reference profile coordinates and relationship hint proposals, but
+  cannot carry raw evidence patches, profile artifact overwrites, or connector evidence mutations.
+- `createDpmGatewayRuntime()` now supports loaded profile inspection, analysis, and proposal review
+  responses that validate against the gateway schemas while preserving the existing manifest
+  validate/compile/dry-run runtime behavior.
+
+## Completion Evidence
+
+Completed 2026-07-04 with:
+- `corepack pnpm --filter @oa-sdk/dpm exec vitest run test/gateway.test.ts`
+- `corepack pnpm --filter @oa-sdk/dpm exec vitest run test/gateway-runtime.test.ts`
+- `corepack pnpm --filter @oa-sdk/dpm typecheck`
+- `corepack pnpm --filter @oa-sdk/dpm test`
+- `corepack pnpm build:scripts`
+- `corepack pnpm check:api-index`
+- `corepack pnpm check:cli-spec`
+- `corepack pnpm check:feature-tests`
+- `corepack pnpm check:release-policy`
+- `git diff --check`
 
 ## Breakpoints
 

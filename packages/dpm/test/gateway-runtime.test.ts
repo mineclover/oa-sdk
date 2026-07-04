@@ -6,10 +6,13 @@ import { describe, expect, it } from 'vitest'
 
 import {
   DPM_GATEWAY_RUNTIME_OPERATION_IDS,
+  DPM_PROFILE_PROPOSAL_REVIEW_STATUSES,
   createDpmGatewayRuntime,
   createPostgresCatalogSnapshot,
   getDpmGatewayOpenApiDocument,
   parseRegistrySnapshotYaml,
+  profileKafkaTopicFixture,
+  type DpmKafkaTopicProfileFixture,
 } from '../src/index.js'
 import { runDpmCli } from '../src/cli/index.js'
 
@@ -17,6 +20,7 @@ const fixturesRoot = new URL('./fixtures/', import.meta.url)
 const manifestPath = join(fixturesRoot.pathname, 'valid/customer-orders.json')
 const catalogPath = join(fixturesRoot.pathname, 'catalog/postgres-commerce.json')
 const registryPath = join(fixturesRoot.pathname, 'registry/commerce-registry.yaml')
+const kafkaProfilePath = join(fixturesRoot.pathname, 'profile/kafka-orders-created.json')
 
 function readJsonFixture<T>(path: string): T {
   return JSON.parse(readFileSync(path, 'utf8')) as T
@@ -34,6 +38,12 @@ function createRuntimeInput() {
   }
 }
 
+function createKafkaProfileArtifact() {
+  const result = profileKafkaTopicFixture(readJsonFixture<DpmKafkaTopicProfileFixture>(kafkaProfilePath))
+  if (!result.profileArtifact) throw new Error('expected Kafka profile artifact')
+  return result.profileArtifact
+}
+
 function compileGatewayComponentSchema(name: string) {
   const ajv = new Ajv2020({ allErrors: true, strict: false })
   ajv.addSchema(getDpmGatewayOpenApiDocument(), 'dpm-gateway')
@@ -41,12 +51,16 @@ function compileGatewayComponentSchema(name: string) {
 }
 
 describe('DPM gateway runtime adapter', () => {
-  it('exposes only validate, compile, and dry-run manifest operations', () => {
+  it('exposes only local profile and manifest runtime operations', () => {
     expect(DPM_GATEWAY_RUNTIME_OPERATION_IDS).toEqual([
+      'inspectDpmProfile',
+      'analyzeDpmProfile',
+      'reviewDpmProfileProposal',
       'validateDpmManifest',
       'compileDpmManifest',
       'dryRunDpmManifest',
     ])
+    expect(DPM_PROFILE_PROPOSAL_REVIEW_STATUSES).toEqual(['accepted', 'rejected', 'needs_changes'])
     expect(DPM_GATEWAY_RUNTIME_OPERATION_IDS).not.toContain('executeDpmJob')
     expect(DPM_GATEWAY_RUNTIME_OPERATION_IDS).not.toContain('getDpmValidationReport')
   })
@@ -113,6 +127,57 @@ describe('DPM gateway runtime adapter', () => {
 
     expect(compileSchema(compile.body.result), JSON.stringify(compileSchema.errors, null, 2)).toBe(true)
     expect(dryRunSchema(dryRun.body.result), JSON.stringify(dryRunSchema.errors, null, 2)).toBe(true)
+  })
+
+  it('keeps profile inspection and analysis outputs aligned with gateway response schemas', async () => {
+    const runtime = createDpmGatewayRuntime()
+    const profileArtifact = createKafkaProfileArtifact()
+
+    const inspection = await runtime.inspectDpmProfile({ profileArtifact })
+    const analysis = await runtime.analyzeDpmProfile({ profileArtifact })
+    const inspectionSchema = compileGatewayComponentSchema('DpmProfileInspectionResponse')
+    const analysisSchema = compileGatewayComponentSchema('DpmProfileAnalysisResponse')
+
+    expect(inspection.statusCode).toBe(200)
+    expect(inspection.body.command).toBe('inspect-profile')
+    expect(inspection.body.result.nodeCount).toBe(profileArtifact.nodes.length)
+    expect(inspection.body.result.edgeCount).toBe(profileArtifact.edges.length)
+    expect(inspection.body.result.metricCount).toBe(profileArtifact.metrics.length)
+    expect(inspectionSchema(inspection.body.result), JSON.stringify(inspectionSchema.errors, null, 2)).toBe(true)
+
+    expect(analysis.statusCode).toBe(200)
+    expect(analysis.body.command).toBe('analyze-profile')
+    expect(analysis.body.result.analysisReport.relationshipHints.length).toBeGreaterThan(0)
+    expect(analysisSchema(analysis.body.result), JSON.stringify(analysisSchema.errors, null, 2)).toBe(true)
+    expect(JSON.stringify(analysis.body.result)).not.toContain('rawSample')
+    expect(JSON.stringify(analysis.body.result)).not.toContain('C-001')
+  })
+
+  it('keeps profile proposal review output editor-safe and schema-valid', async () => {
+    const runtime = createDpmGatewayRuntime()
+    const profileArtifact = createKafkaProfileArtifact()
+    const analysis = await runtime.analyzeDpmProfile({ profileArtifact })
+    const relationshipHint = analysis.body.result.analysisReport.relationshipHints[0]
+    const coordinate = profileArtifact.nodes.find(node => node.id === relationshipHint?.fromNodeId)?.coordinate
+    if (!relationshipHint || !coordinate) throw new Error('expected relationship hint and source coordinate')
+
+    const response = await runtime.reviewDpmProfileProposal({
+      proposalId: relationshipHint.id,
+      status: 'accepted',
+      reviewedBy: 'privacy-reviewer',
+      reason: 'reviewed as a logical relationship candidate',
+      reviewedAt: '2026-07-04T00:00:00.000Z',
+      coordinate,
+      relationshipHint,
+    })
+    const reviewSchema = compileGatewayComponentSchema('DpmProfileProposalReviewResponse')
+
+    expect(response.statusCode).toBe(200)
+    expect(response.body.command).toBe('review-profile-proposal')
+    expect(reviewSchema(response.body.result), JSON.stringify(reviewSchema.errors, null, 2)).toBe(true)
+    expect(response.body.result).not.toHaveProperty('profileArtifact')
+    expect(response.body.result).not.toHaveProperty('evidenceSources')
+    expect(JSON.stringify(response.body.result)).not.toContain('rawSample')
   })
 
   it('rejects compiled plan taxonomy values outside the DPM plan contract', async () => {

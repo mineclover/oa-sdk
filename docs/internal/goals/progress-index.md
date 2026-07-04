@@ -6,10 +6,11 @@ Last updated: 2026-07-04
 
 ## Current
 
-- Goal 7 / DPM Profile/Connector Contract (current)
+- No current goal selected.
 
 ## Recently Completed
 
+- [x] Goal 7 / DPM Profile/Connector Contract (complete)
 - [x] Goal 6 / DPM Contract Stabilization (complete)
 - [x] Goal 5 / DPM Runtime And Storage Integration (complete)
 - [x] Goal 4 / Relationship-First DPM (complete)
@@ -22,7 +23,7 @@ Last updated: 2026-07-04
 - [x] Goal 4 - Relationship-First DPM
 - [x] Goal 5 - DPM Runtime And Storage Integration
 - [x] Goal 6 - DPM Contract Stabilization
-- [ ] Goal 7 - DPM Profile/Connector Contract (current)
+- [x] Goal 7 - DPM Profile/Connector Contract
 
 ## Goal 4 DPM Units
 
@@ -63,7 +64,7 @@ Last updated: 2026-07-04
 - [x] DPM-24 - Connector Output Contract
 - [x] DPM-25 - Kafka Topic Profile Fixture Adapter
 - [x] DPM-26 - Profile Analysis Report
-- [ ] DPM-27 - Profile Gateway And Editor Contract
+- [x] DPM-27 - Profile Gateway And Editor Contract
 
 ## Done Criteria
 

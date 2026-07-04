@@ -9,6 +9,15 @@ import {
   DPM_GATEWAY_OPERATION_IDS,
   DPM_MANIFEST_SCHEMA_ID,
   DPM_PLAN_STALE_REASONS,
+  DPM_PROFILE_DRIFT_SIGNAL_KINDS,
+  DPM_PROFILE_EDGE_KINDS,
+  DPM_PROFILE_KEY_CANDIDATE_KINDS,
+  DPM_PROFILE_METRIC_KINDS,
+  DPM_PROFILE_NODE_KINDS,
+  DPM_PROFILE_PROPOSAL_REVIEW_STATUSES,
+  DPM_PROFILE_RELATIONSHIP_HINT_STATUSES,
+  DPM_PROFILE_RISK_INDICATOR_KINDS,
+  DPM_PROFILE_SOURCE_KINDS,
   DPM_RELATIONSHIP_STEP_CARDINALITIES,
   REGISTRY_ORPHAN_POLICIES,
   REGISTRY_RELATIONSHIP_KINDS,
@@ -23,6 +32,96 @@ function compileGatewayComponentSchema(name: string) {
   return ajv.compile({ $ref: `dpm-gateway#/components/schemas/${name}` })
 }
 
+const profileCoordinate = {
+  kind: 'kafka_topic_bundle',
+  path: 'orders.created.value.customer.customer_no',
+  sourceId: 'source:kafka:orders.created',
+  pointer: '/value/customer/customer_no',
+  externalId: 'kafka://commerce/orders.created',
+}
+
+const profileArtifact = {
+  kind: 'dpm.profile.artifact.v1',
+  profileId: 'profile:kafka:orders.created',
+  datasetId: 'commerce_ai',
+  profileVersion: '2026-07-04',
+  createdAt: '2026-07-04T00:00:00.000Z',
+  sources: [{
+    id: 'source:kafka:orders.created',
+    kind: 'kafka_topic_bundle',
+    connectorId: 'dpm.kafka.fixture',
+    connectorVersion: '1.0.0',
+    refs: ['kafka://commerce/orders.created'],
+    captureMode: 'fixture',
+  }],
+  evidenceSources: {
+    'evidence:kafka:orders.created.customer_no': {
+      coordinate: profileCoordinate,
+      connectorId: 'dpm.kafka.fixture',
+    },
+  },
+  nodes: [{
+    id: 'node:field:orders.created.value.customer.customer_no',
+    kind: 'message_field',
+    label: 'value.customer.customer_no',
+    coordinate: profileCoordinate,
+    dataType: 'string',
+  }],
+  edges: [],
+  metrics: [],
+  diagnostics: [],
+  freshness: {
+    versionHash: 'sha256:profile',
+  },
+}
+
+const relationshipHint = {
+  id: 'proposal:edge:relationship-hint:orders-created-customer',
+  status: 'review',
+  fromNodeId: 'node:field:orders.created.value.customer.customer_no',
+  hintNodeId: 'node:relationship-hint:orders-created-customer',
+  targetRef: 'catalog://commerce/public.customers.customer_no',
+  confidence: 0.93,
+  evidenceIds: ['evidence:kafka:orders.created.customer_no'],
+  explanation: 'Review orders.created customer_no as a relationship hint.',
+}
+
+const profileAnalysisReport = {
+  kind: 'dpm.profile.analysis-report.v1',
+  reportId: 'profile-analysis:orders.created',
+  profileId: 'profile:kafka:orders.created',
+  datasetId: 'commerce_ai',
+  profileVersion: '2026-07-04',
+  analyzedAt: '2026-07-04T00:00:00.000Z',
+  profileVersionHash: 'sha256:profile',
+  coverage: {
+    sourceKindCounts: { kafka_topic_bundle: 1 },
+    nodeKindCounts: { message_field: 1 },
+    metricKindCounts: {},
+    measuredNodeCount: 0,
+    measuredNodeRatio: 0,
+  },
+  relationshipHints: [relationshipHint],
+  keyCandidates: [],
+  driftSignals: [],
+  riskIndicators: [],
+  diagnostics: [],
+  summary: {
+    nodeCount: 1,
+    edgeCount: 0,
+    metricCount: 0,
+    diagnosticCount: 0,
+    relationshipHintCount: 1,
+    keyCandidateCount: 0,
+    riskIndicatorCount: 0,
+    driftSignalCount: 0,
+  },
+  freshness: {
+    reportHash: 'sha256:analysis',
+    profileVersionHash: 'sha256:profile',
+  },
+}
+
 describe('DPM gateway OpenAPI contract', () => {
   it('parses as an OpenAPI 3.2 gateway artifact through the OA SDK parser path', () => {
     const document = getDpmGatewayOpenApiDocument()
@@ -32,7 +131,7 @@ describe('DPM gateway OpenAPI contract', () => {
     expect(parsed.operations.map(operation => operation.operationId).sort()).toEqual([
       ...DPM_GATEWAY_OPERATION_IDS,
     ].sort())
-    expect(parsed.operations).toHaveLength(10)
+    expect(parsed.operations).toHaveLength(13)
   })
 
   it('models the full DPM gateway workflow without exposing secret-bearing operations', () => {
@@ -45,6 +144,9 @@ describe('DPM gateway OpenAPI contract', () => {
       '/dpm/manifests/compile',
       '/dpm/manifests/dry-run',
       '/dpm/manifests/validate',
+      '/dpm/profiles/analyze',
+      '/dpm/profiles/inspect',
+      '/dpm/profiles/proposals/{proposalId}/review',
       '/dpm/registry/snapshots/{datasetId}/{registryVersion}',
       '/dpm/relationships/candidates/import',
       '/dpm/relationships/discover',
@@ -108,6 +210,31 @@ describe('DPM gateway OpenAPI contract', () => {
     expect(relationshipStepSchema.properties.orphanPolicy.enum).toEqual([...REGISTRY_ORPHAN_POLICIES])
   })
 
+  it('projects profile runtime taxonomies into the gateway schema', () => {
+    const document = getDpmGatewayOpenApiDocument()
+    const coordinateSchema = document.components?.schemas?.DpmProfileCoordinate as Record<string, any>
+    const sourceSchema = document.components?.schemas?.DpmProfileSourceDescriptor as Record<string, any>
+    const nodeSchema = document.components?.schemas?.DpmProfileNode as Record<string, any>
+    const edgeSchema = document.components?.schemas?.DpmProfileEdge as Record<string, any>
+    const metricSchema = document.components?.schemas?.DpmProfileMetric as Record<string, any>
+    const hintSchema = document.components?.schemas?.DpmProfileRelationshipHintProposal as Record<string, any>
+    const keySchema = document.components?.schemas?.DpmProfileKeyCandidate as Record<string, any>
+    const driftSchema = document.components?.schemas?.DpmProfileDriftSignal as Record<string, any>
+    const riskSchema = document.components?.schemas?.DpmProfileRiskIndicator as Record<string, any>
+    const reviewSchema = document.components?.schemas?.DpmProfileProposalReviewRequest as Record<string, any>
+
+    expect(coordinateSchema.properties.kind.enum).toEqual([...DPM_PROFILE_SOURCE_KINDS])
+    expect(sourceSchema.properties.kind.enum).toEqual([...DPM_PROFILE_SOURCE_KINDS])
+    expect(nodeSchema.properties.kind.enum).toEqual([...DPM_PROFILE_NODE_KINDS])
+    expect(edgeSchema.properties.kind.enum).toEqual([...DPM_PROFILE_EDGE_KINDS])
+    expect(metricSchema.properties.kind.enum).toEqual([...DPM_PROFILE_METRIC_KINDS])
+    expect(hintSchema.properties.status.enum).toEqual([...DPM_PROFILE_RELATIONSHIP_HINT_STATUSES])
+    expect(keySchema.properties.kind.enum).toEqual([...DPM_PROFILE_KEY_CANDIDATE_KINDS])
+    expect(driftSchema.properties.kind.enum).toEqual([...DPM_PROFILE_DRIFT_SIGNAL_KINDS])
+    expect(riskSchema.properties.kind.enum).toEqual([...DPM_PROFILE_RISK_INDICATOR_KINDS])
+    expect(reviewSchema.properties.status.enum).toEqual([...DPM_PROFILE_PROPOSAL_REVIEW_STATUSES])
+  })
+
   it('rejects empty objects for every non-opaque gateway component schema', () => {
     const document = getDpmGatewayOpenApiDocument()
     const schemaNames = Object.keys(document.components?.schemas ?? {})
@@ -122,6 +249,9 @@ describe('DPM gateway OpenAPI contract', () => {
   it('rejects incomplete request payloads for gateway write operations', () => {
     for (const schemaName of [
       'DpmCatalogProfileRequest',
+      'DpmProfileInspectionRequest',
+      'DpmProfileAnalysisRequest',
+      'DpmProfileProposalReviewRequest',
       'DpmRelationshipDiscoveryRequest',
       'DpmCandidateImportRequest',
       'DpmRelationshipApprovalRequest',
@@ -140,6 +270,16 @@ describe('DPM gateway OpenAPI contract', () => {
     const manifest = { dpm_version: '1.0' }
     const cases: Array<[string, Record<string, unknown>]> = [
       ['DpmCatalogProfileRequest', { datasetId: 'commerce_ai', catalogSourceRef: 'source://catalog', manifest }],
+      ['DpmProfileInspectionRequest', { profileArtifact }],
+      ['DpmProfileAnalysisRequest', { profileArtifact }],
+      ['DpmProfileProposalReviewRequest', {
+        proposalId: relationshipHint.id,
+        status: 'accepted',
+        reviewedBy: 'privacy-reviewer',
+        reason: 'reviewed against catalog evidence',
+        coordinate: profileCoordinate,
+        relationshipHint,
+      }],
       ['DpmRelationshipDiscoveryRequest', { manifest, catalogSnapshot: snapshotRef }],
       ['DpmCandidateImportRequest', { datasetId: 'commerce_ai', candidates: [{ name: 'rel_orders_customer', evidenceRef: 'evidence://rel' }] }],
       ['DpmRelationshipApprovalRequest', { owner: 'privacy', approvedBy: 'reviewer', reason: 'reviewed' }],
@@ -158,6 +298,9 @@ describe('DPM gateway OpenAPI contract', () => {
   it('rejects incomplete response payloads for gateway workflow schemas', () => {
     for (const schemaName of [
       'DpmCatalogProfileResponse',
+      'DpmProfileInspectionResponse',
+      'DpmProfileAnalysisResponse',
+      'DpmProfileProposalReviewResponse',
       'DpmRelationshipDiscoveryReport',
       'DpmCandidateImportResponse',
       'DpmRelationshipApprovalResponse',
@@ -182,6 +325,25 @@ describe('DPM gateway OpenAPI contract', () => {
         catalogSnapshotRef: 'catalog://commerce/v1',
         catalogVersionHash: 'sha256:test',
         diagnostics: [diagnostic],
+      }],
+      ['DpmProfileInspectionResponse', {
+        profileArtifact,
+        nodeCount: 1,
+        edgeCount: 0,
+        metricCount: 0,
+        diagnostics: [],
+      }],
+      ['DpmProfileAnalysisResponse', {
+        analysisReport: profileAnalysisReport,
+      }],
+      ['DpmProfileProposalReviewResponse', {
+        proposalId: relationshipHint.id,
+        status: 'accepted',
+        reviewedBy: 'privacy-reviewer',
+        reason: 'reviewed against catalog evidence',
+        coordinate: profileCoordinate,
+        relationshipHint,
+        diagnostics: [],
       }],
       ['DpmRelationshipDiscoveryReport', {
         reportRef: 'report://discovery',
@@ -239,5 +401,35 @@ describe('DPM gateway OpenAPI contract', () => {
       registryVersion: 'reg-2026-07-01',
       relationships: [{ name: 'rel_orders_customer', status: 'unknown_status' }],
     }), 'DpmRegistrySnapshotResponse unexpectedly accepted an unknown relationship status').toBe(false)
+  })
+
+  it('rejects incomplete profile analysis payloads and editor evidence mutation patches', () => {
+    const analysisRequestSchema = compileGatewayComponentSchema('DpmProfileAnalysisRequest')
+    const analysisResponseSchema = compileGatewayComponentSchema('DpmProfileAnalysisResponse')
+    const reviewRequestSchema = compileGatewayComponentSchema('DpmProfileProposalReviewRequest')
+
+    expect(analysisRequestSchema({
+      profileArtifact: {},
+    }), 'DpmProfileAnalysisRequest unexpectedly accepted an incomplete profile artifact').toBe(false)
+    expect(analysisResponseSchema({
+      analysisReport: {
+        kind: 'dpm.profile.analysis-report.v1',
+        reportId: 'profile-analysis:orders.created',
+      },
+    }), 'DpmProfileAnalysisResponse unexpectedly accepted an incomplete analysis report').toBe(false)
+    expect(reviewRequestSchema({
+      proposalId: relationshipHint.id,
+      status: 'accepted',
+      reviewedBy: 'privacy-reviewer',
+      reason: 'reviewed against catalog evidence',
+      rawPatch: { evidenceSources: {} },
+    }), 'DpmProfileProposalReviewRequest unexpectedly accepted a raw evidence patch').toBe(false)
+    expect(reviewRequestSchema({
+      proposalId: relationshipHint.id,
+      status: 'accepted',
+      reviewedBy: 'privacy-reviewer',
+      reason: 'reviewed against catalog evidence',
+      profileArtifact,
+    }), 'DpmProfileProposalReviewRequest unexpectedly accepted a profile artifact overwrite').toBe(false)
   })
 })

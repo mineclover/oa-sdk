@@ -310,15 +310,23 @@ catalog/registry snapshot, semantic validator, compiler, CLI/gateway/publishing 
 | `DpmGatewayOpenApiDocument` | `dpm/src/gateway/openapi.ts` | DPM gateway OpenAPI 3.2 document type |
 | `DPM_GATEWAY_OPERATION_IDS` | `dpm/src/gateway/openapi.ts` | required DPM gateway operation id list |
 | `getDpmGatewayOpenApiDocument()` | `dpm/src/gateway/openapi.ts` | checked DPM gateway OpenAPI 3.2 artifact |
+| `DPM_PROFILE_PROPOSAL_REVIEW_STATUSES` | `dpm/src/gateway/profile-proposal.ts` | editor-safe profile proposal review lifecycle taxonomy |
+| `DpmProfileProposalReviewStatus` | `dpm/src/gateway/profile-proposal.ts` | editor-safe profile proposal review status union |
 | `DPM_GATEWAY_RUNTIME_OPERATION_IDS` | `dpm/src/gateway/runtime.ts` | runtime-executable DPM gateway operation id list |
+| `DpmGatewayProfileInspectionInput` | `dpm/src/gateway/runtime.ts` | loaded profile artifact inspection request |
+| `DpmGatewayProfileInspectionResult` | `dpm/src/gateway/runtime.ts` | profile artifact inspection counts and diagnostics |
+| `DpmGatewayProfileAnalysisInput` | `dpm/src/gateway/runtime.ts` | loaded profile artifact analysis request |
+| `DpmGatewayProfileAnalysisResult` | `dpm/src/gateway/runtime.ts` | profile analysis gateway response result |
+| `DpmGatewayProfileProposalReviewInput` | `dpm/src/gateway/runtime.ts` | editor-safe profile proposal review request |
+| `DpmGatewayProfileProposalReviewResult` | `dpm/src/gateway/runtime.ts` | editor-safe profile proposal review result |
 | `DpmGatewayRuntimeOperationId` | `dpm/src/gateway/runtime.ts` | runtime operation id taxonomy |
 | `DpmGatewayRuntimeStatusCode` | `dpm/src/gateway/runtime.ts` | runtime success or blocking-diagnostic status code |
-| `DpmGatewayRuntimeCommand` | `dpm/src/gateway/runtime.ts` | CLI-compatible runtime command taxonomy |
+| `DpmGatewayRuntimeCommand` | `dpm/src/gateway/runtime.ts` | profile and manifest runtime command taxonomy |
 | `DpmGatewayRuntimeBody` | `dpm/src/gateway/runtime.ts` | runtime response body envelope |
 | `DpmGatewayRuntimeManifestInput` | `dpm/src/gateway/runtime.ts` | already-loaded manifest, catalog, registry, and estimated row input |
 | `DpmGatewayRuntimeResponse` | `dpm/src/gateway/runtime.ts` | gateway runtime response envelope |
-| `DpmGatewayRuntime` | `dpm/src/gateway/runtime.ts` | validate, compile, and dry-run runtime handler bundle |
-| `createDpmGatewayRuntime()` | `dpm/src/gateway/runtime.ts` | source-DB-free runtime adapter for manifest operations |
+| `DpmGatewayRuntime` | `dpm/src/gateway/runtime.ts` | loaded profile inspection/analysis/review plus validate, compile, and dry-run runtime handlers |
+| `createDpmGatewayRuntime()` | `dpm/src/gateway/runtime.ts` | source-DB-free runtime adapter for profile and manifest operations |
 | `DpmRelationshipMetadata` | `dpm/src/publishing/context.ts` | AI-publishable approved relationship metadata |
 | `DpmAiRelationshipContext` | `dpm/src/publishing/context.ts` | AI schema relationship context entry |
 | `DpmAiSchemaContext` | `dpm/src/publishing/context.ts` | read-only AI schema context envelope |

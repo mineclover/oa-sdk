@@ -2,11 +2,26 @@ import { createPostgresCatalogSnapshot } from '../catalog/postgres.js'
 import type { CatalogSnapshot, PostgresCatalogSnapshotInput } from '../catalog/types.js'
 import { compileDpmPlan, type DpmCompileResult } from '../compiler/compile.js'
 import { createDpmDryRunReport, type DpmDryRunReport } from '../dry-run/report.js'
+import {
+  createDpmProfileAnalysisReport,
+  type DpmProfileAnalysisInput,
+  type DpmProfileAnalysisReport,
+  type DpmProfileRelationshipHintProposal,
+} from '../profile/analyze.js'
+import type {
+  DpmProfileArtifact,
+  DpmProfileCoordinate,
+  DpmProfileDiagnostic,
+} from '../profile/types.js'
 import type { RegistrySnapshot } from '../registry/types.js'
 import { validateDpmManifest } from '../validator/manifest.js'
 import type { DpmValidationResult } from '../validator/diagnostics.js'
+import type { DpmProfileProposalReviewStatus } from './profile-proposal.js'
 
 export const DPM_GATEWAY_RUNTIME_OPERATION_IDS = [
+  'inspectDpmProfile',
+  'analyzeDpmProfile',
+  'reviewDpmProfileProposal',
   'validateDpmManifest',
   'compileDpmManifest',
   'dryRunDpmManifest',
@@ -14,7 +29,13 @@ export const DPM_GATEWAY_RUNTIME_OPERATION_IDS = [
 
 export type DpmGatewayRuntimeOperationId = typeof DPM_GATEWAY_RUNTIME_OPERATION_IDS[number]
 export type DpmGatewayRuntimeStatusCode = 200 | 400
-export type DpmGatewayRuntimeCommand = 'validate' | 'compile' | 'dry-run'
+export type DpmGatewayRuntimeCommand =
+  | 'inspect-profile'
+  | 'analyze-profile'
+  | 'review-profile-proposal'
+  | 'validate'
+  | 'compile'
+  | 'dry-run'
 
 export type DpmGatewayRuntimeBody<TResult> = {
   command: DpmGatewayRuntimeCommand
@@ -34,7 +55,55 @@ export type DpmGatewayRuntimeManifestInput = {
   estimatedRows?: Record<string, number>
 }
 
+export type DpmGatewayProfileInspectionInput = {
+  profileArtifact: DpmProfileArtifact
+}
+
+export type DpmGatewayProfileInspectionResult = {
+  profileArtifact: DpmProfileArtifact
+  nodeCount: number
+  edgeCount: number
+  metricCount: number
+  diagnostics: DpmProfileDiagnostic[]
+}
+
+export type DpmGatewayProfileAnalysisInput = DpmProfileAnalysisInput
+
+export type DpmGatewayProfileAnalysisResult = {
+  analysisReport: DpmProfileAnalysisReport
+}
+
+export type DpmGatewayProfileProposalReviewInput = {
+  proposalId: string
+  status: DpmProfileProposalReviewStatus
+  reviewedBy: string
+  reason: string
+  reviewedAt?: string
+  coordinate?: DpmProfileCoordinate
+  relationshipHint?: DpmProfileRelationshipHintProposal
+}
+
+export type DpmGatewayProfileProposalReviewResult = {
+  proposalId: string
+  status: DpmProfileProposalReviewStatus
+  reviewedBy: string
+  reason: string
+  reviewedAt?: string
+  coordinate?: DpmProfileCoordinate
+  relationshipHint?: DpmProfileRelationshipHintProposal
+  diagnostics: DpmProfileDiagnostic[]
+}
+
 export type DpmGatewayRuntime = {
+  inspectDpmProfile(
+    input: DpmGatewayProfileInspectionInput,
+  ): Promise<DpmGatewayRuntimeResponse<DpmGatewayProfileInspectionResult>>
+  analyzeDpmProfile(
+    input: DpmGatewayProfileAnalysisInput,
+  ): Promise<DpmGatewayRuntimeResponse<DpmGatewayProfileAnalysisResult>>
+  reviewDpmProfileProposal(
+    input: DpmGatewayProfileProposalReviewInput,
+  ): Promise<DpmGatewayRuntimeResponse<DpmGatewayProfileProposalReviewResult>>
   validateDpmManifest(input: DpmGatewayRuntimeManifestInput): Promise<DpmGatewayRuntimeResponse<DpmValidationResult>>
   compileDpmManifest(input: DpmGatewayRuntimeManifestInput): Promise<DpmGatewayRuntimeResponse<DpmCompileResult>>
   dryRunDpmManifest(input: DpmGatewayRuntimeManifestInput): Promise<DpmGatewayRuntimeResponse<DpmCompileResult | DpmDryRunReport>>
@@ -42,6 +111,47 @@ export type DpmGatewayRuntime = {
 
 export function createDpmGatewayRuntime(): DpmGatewayRuntime {
   return {
+    async inspectDpmProfile(input) {
+      return runtimeResponse({
+        operationId: 'inspectDpmProfile',
+        statusCode: 200,
+        command: 'inspect-profile',
+        result: {
+          profileArtifact: input.profileArtifact,
+          nodeCount: input.profileArtifact.nodes.length,
+          edgeCount: input.profileArtifact.edges.length,
+          metricCount: input.profileArtifact.metrics.length,
+          diagnostics: [...input.profileArtifact.diagnostics],
+        },
+      })
+    },
+    async analyzeDpmProfile(input) {
+      return runtimeResponse({
+        operationId: 'analyzeDpmProfile',
+        statusCode: 200,
+        command: 'analyze-profile',
+        result: {
+          analysisReport: createDpmProfileAnalysisReport(input),
+        },
+      })
+    },
+    async reviewDpmProfileProposal(input) {
+      return runtimeResponse({
+        operationId: 'reviewDpmProfileProposal',
+        statusCode: 200,
+        command: 'review-profile-proposal',
+        result: {
+          proposalId: input.proposalId,
+          status: input.status,
+          reviewedBy: input.reviewedBy,
+          reason: input.reason,
+          ...(input.reviewedAt ? { reviewedAt: input.reviewedAt } : {}),
+          ...(input.coordinate ? { coordinate: input.coordinate } : {}),
+          ...(input.relationshipHint ? { relationshipHint: input.relationshipHint } : {}),
+          diagnostics: [],
+        },
+      })
+    },
     async validateDpmManifest(input) {
       const result = validateDpmManifest({
         manifest: input.manifest,
