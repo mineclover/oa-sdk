@@ -241,6 +241,8 @@ Verification:
 Goal id: `DPM-05`
 
 Artifacts:
+- `packages/dpm/src/model/canonical-key.ts`
+- `packages/dpm/src/model/endpoint.ts`
 - `packages/dpm/src/model/entity.ts`
 - `packages/dpm/src/model/relationship.ts`
 - `packages/dpm/test/model.test.ts`

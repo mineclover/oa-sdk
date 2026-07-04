@@ -229,10 +229,10 @@ catalog/registry snapshot, semantic validator, compiler, CLI/gateway/publishing 
 | `DpmRegistryRepository` | `dpm/src/storage/registry-repository.ts` | storage-backed snapshot export repository |
 | `createDpmRegistryRepository()` | `dpm/src/storage/registry-repository.ts` | row reader를 registry snapshot export repository로 감싼다 |
 | `registryRowsToSnapshot()` | `dpm/src/storage/registry-repository.ts` | storage rows를 기존 `RegistrySnapshot` contract로 변환 |
-| `CanonicalKeyValue` | `dpm/src/model/entity.ts` | canonical key value primitive |
-| `CanonicalKeyValueMap` | `dpm/src/model/entity.ts` | canonical key column value map |
-| `ModelEndpoint` | `dpm/src/model/entity.ts` | table and column endpoint for DPM model surfaces |
-| `TenantNamespaceInput` | `dpm/src/model/entity.ts` | tenant-scoped canonical key input |
+| `CanonicalKeyValue` | `dpm/src/model/canonical-key.ts` | canonical key value primitive |
+| `CanonicalKeyValueMap` | `dpm/src/model/canonical-key.ts` | canonical key column value map |
+| `ModelEndpoint` | `dpm/src/model/endpoint.ts` | table and column endpoint for DPM model surfaces |
+| `TenantNamespaceInput` | `dpm/src/model/canonical-key.ts` | tenant-scoped canonical key input |
 | `EntityKeyStrategyType` | `dpm/src/model/entity.ts` | single-column or composite entity key mode |
 | `EntityKeyStrategy` | `dpm/src/model/entity.ts` | entity root canonical key strategy |
 | `EntityTransform` | `dpm/src/model/entity.ts` | deterministic entity transform contract |

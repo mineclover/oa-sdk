@@ -3,12 +3,14 @@ import type {
   RegistryTransformStrategy,
 } from '../registry/types.js'
 import {
-  copyEndpoint,
   renderCanonicalKeySegments,
   type CanonicalKeyValueMap,
-  type ModelEndpoint,
   type TenantNamespaceInput,
-} from './entity.js'
+} from './canonical-key.js'
+import {
+  copyEndpoint,
+  type ModelEndpoint,
+} from './endpoint.js'
 
 export type LogicalRelationshipKind = RegistryRelationshipInput['type']
 export type LogicalRelationshipOrphanPolicy = RegistryRelationshipInput['orphanPolicy']

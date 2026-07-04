@@ -26,13 +26,17 @@ export type {
 export type {
   CanonicalKeyValue,
   CanonicalKeyValueMap,
+  TenantNamespaceInput,
+} from '../model/canonical-key.js'
+export type {
+  ModelEndpoint,
+} from '../model/endpoint.js'
+export type {
   EntityDeclaration,
   EntityDeclarationInput,
   EntityKeyStrategy,
   EntityKeyStrategyType,
   EntityTransform,
-  ModelEndpoint,
-  TenantNamespaceInput,
 } from '../model/entity.js'
 export type {
   LogicalRelationship,
