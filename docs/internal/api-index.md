@@ -156,6 +156,14 @@ catalog/registry snapshot, semantic validator, compiler, CLI/gateway/publishing 
 | `normalizeDpmProfileConnectorResult()` | `dpm/src/profile/connector.ts` | connector output을 deterministic result envelope로 정규화 |
 | `computeDpmProfileConnectorRunHash()` | `dpm/src/profile/connector.ts` | connector result run hash 계산 |
 | `validateDpmProfileConnectorResult()` | `dpm/src/profile/connector.ts` | capabilities/observed evidence/profile artifact 정합성 검증 |
+| `DpmKafkaTopicProfileFixture` | `dpm/src/profile/kafka.ts` | fixture-backed Kafka topic profile adapter input |
+| `DpmKafkaTopicFixture` | `dpm/src/profile/kafka.ts` | Kafka topic shape, partitions, key/header/schema/value evidence fixture |
+| `DpmKafkaKeyFixture` | `dpm/src/profile/kafka.ts` | Kafka message key fixture metadata |
+| `DpmKafkaHeaderFixture` | `dpm/src/profile/kafka.ts` | Kafka message header fixture metadata |
+| `DpmKafkaSchemaFixture` | `dpm/src/profile/kafka.ts` | Kafka schema subject/version fixture metadata |
+| `DpmKafkaMessageFieldFixture` | `dpm/src/profile/kafka.ts` | nested Kafka message field fixture metadata |
+| `DpmKafkaRelationshipHintFixture` | `dpm/src/profile/kafka.ts` | non-executable Kafka relationship hint fixture metadata |
+| `profileKafkaTopicFixture()` | `dpm/src/profile/kafka.ts` | Kafka topic fixture를 profile artifact + connector result로 변환 |
 | `DISCOVERY_REPORT_KIND` | `dpm/src/discovery/report.ts` | discovery report kind literal |
 | `DiscoveryEvidenceKind` | `dpm/src/discovery/types.ts` | candidate evidence source taxonomy |
 | `DiscoveryEvidence` | `dpm/src/discovery/types.ts` | reviewable relationship candidate evidence entry |

@@ -57,6 +57,15 @@ export type {
   DpmProfileConnectorValidationResult,
 } from './profile/connector.js'
 export type {
+  DpmKafkaHeaderFixture,
+  DpmKafkaKeyFixture,
+  DpmKafkaMessageFieldFixture,
+  DpmKafkaRelationshipHintFixture,
+  DpmKafkaSchemaFixture,
+  DpmKafkaTopicFixture,
+  DpmKafkaTopicProfileFixture,
+} from './profile/kafka.js'
+export type {
   DiscoveryCandidateRecommendation,
   DiscoveryConfidenceLevel,
   DiscoveryEvidence,
@@ -219,6 +228,9 @@ export {
   normalizeDpmProfileConnectorResult,
   validateDpmProfileConnectorResult,
 } from './profile/connector.js'
+export {
+  profileKafkaTopicFixture,
+} from './profile/kafka.js'
 export {
   DISCOVERY_CANDIDATE_RECOMMENDATIONS,
   DISCOVERY_CONFIDENCE_LEVELS,

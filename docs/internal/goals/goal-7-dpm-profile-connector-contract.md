@@ -190,7 +190,7 @@ Implementation notes:
 
 ### DPM-25 - Kafka Topic Profile Fixture Adapter
 
-Status: planned.
+Status: implemented 2026-07-04.
 
 Artifacts:
 - `packages/dpm/src/profile/kafka.ts`
@@ -212,6 +212,14 @@ Acceptance:
 Verification:
 - `pnpm --filter @oa-sdk/dpm exec vitest run test/profile-kafka.test.ts`
 - `pnpm --filter @oa-sdk/dpm test`
+
+Implementation notes:
+- `profileKafkaTopicFixture()` maps fixture-only Kafka topic evidence into the DPM profile artifact
+  and connector result contracts without accepting a live Kafka client.
+- Topic, partition, key, header, schema subject, nested value field, metric, evidence source, and
+  relationship hint entries are emitted as normalized profile graph nodes/edges/metrics.
+- Relationship hints are represented as `relationship_hint` nodes and `candidate_relationship`
+  edges; they do not create approved registry relationships or alter the existing compiler path.
 
 ### DPM-26 - Profile Analysis Report
 
