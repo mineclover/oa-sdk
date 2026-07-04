@@ -351,6 +351,8 @@ Artifacts:
 - `packages/dpm/src/gateway/openapi-core-schemas.ts`
 - `packages/dpm/src/gateway/openapi-execution-schemas.ts`
 - `packages/dpm/src/gateway/profile-openapi.ts`
+- `packages/dpm/src/gateway/profile-openapi-artifact-schemas.ts`
+- `packages/dpm/src/gateway/profile-openapi-analysis-schemas.ts`
 - `packages/dpm/src/gateway/openapi-paths.ts`
 - `packages/dpm/test/gateway.test.ts`
 - `packages/dpm/test/gateway-taxonomy.test.ts`
