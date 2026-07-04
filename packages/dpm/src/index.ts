@@ -223,8 +223,10 @@ export type {
 } from './publishing/context.js'
 export {
   computeCatalogFreshnessHash,
+} from './catalog/freshness.js'
+export {
   normalizeCatalogSnapshot,
-} from './catalog/types.js'
+} from './catalog/snapshot.js'
 export { createPostgresCatalogSnapshot } from './catalog/postgres.js'
 export { catalogSnapshotFromOpenApiProjection } from './catalog/projection.js'
 export {

@@ -5,7 +5,7 @@ import type {
 } from '@oa-sdk/openapi-projection-contract'
 
 import type { CatalogDiagnostic, CatalogSchema, CatalogTable } from './types.js'
-import { normalizeCatalogSnapshot } from './types.js'
+import { normalizeCatalogSnapshot } from './snapshot.js'
 
 export type CatalogSnapshotFromProjectionOptions = {
   projectionRef?: string

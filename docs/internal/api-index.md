@@ -101,8 +101,8 @@ catalog/registry snapshot, semantic validator, compiler, CLI/gateway/publishing 
 | `CatalogUniqueCandidate` | `dpm/src/catalog/types.ts` | PK/unique/profiled unique candidate entry |
 | `CatalogDiagnostic` | `dpm/src/catalog/types.ts` | source-aware catalog diagnostic |
 | `PostgresCatalogSnapshotInput` | `dpm/src/catalog/types.ts` | PostgreSQL catalog snapshot constructor input |
-| `normalizeCatalogSnapshot()` | `dpm/src/catalog/types.ts` | catalog snapshot arrays/source maps를 deterministic internal model로 정규화 |
-| `computeCatalogFreshnessHash()` | `dpm/src/catalog/types.ts` | catalog structure freshness hash 계산 |
+| `normalizeCatalogSnapshot()` | `dpm/src/catalog/snapshot.ts` | catalog snapshot arrays/source maps를 deterministic internal model로 정규화 |
+| `computeCatalogFreshnessHash()` | `dpm/src/catalog/freshness.ts` | catalog structure freshness hash 계산 |
 | `createPostgresCatalogSnapshot()` | `dpm/src/catalog/postgres.ts` | PostgreSQL catalog input을 normalized catalog snapshot으로 변환 |
 | `POSTGRES_CATALOG_PROFILE_SQL` | `dpm/src/catalog/profiler-postgres.ts` | read-only PostgreSQL catalog profile query |
 | `PostgresCatalogProfileRecordKind` | `dpm/src/catalog/profiler-postgres.ts` | profiled PostgreSQL catalog row kind |

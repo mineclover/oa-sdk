@@ -1,5 +1,5 @@
 import type { PostgresCatalogSnapshotInput } from './types.js'
-import { normalizeCatalogSnapshot } from './types.js'
+import { normalizeCatalogSnapshot } from './snapshot.js'
 
 export function createPostgresCatalogSnapshot(input: PostgresCatalogSnapshotInput) {
   return normalizeCatalogSnapshot({
