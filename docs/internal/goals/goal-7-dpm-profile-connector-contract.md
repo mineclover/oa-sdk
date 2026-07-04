@@ -263,6 +263,7 @@ Status: implemented 2026-07-04.
 
 Artifacts:
 - `packages/dpm/src/gateway/openapi.ts`
+- `packages/dpm/src/gateway/openapi-paths.ts`
 - `packages/dpm/test/gateway.test.ts`
 - `packages/dpm/test/gateway-runtime.test.ts`
 

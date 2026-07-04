@@ -163,8 +163,10 @@ export type {
 } from './dry-run/report.js'
 export type {
   DpmGatewayOpenApiDocument,
-  DpmGatewayOperationId,
 } from './gateway/openapi.js'
+export type {
+  DpmGatewayOperationId,
+} from './gateway/openapi-paths.js'
 export type {
   DpmGatewayProfileAnalysisInput,
   DpmGatewayProfileAnalysisResult,
@@ -309,9 +311,11 @@ export {
   createDpmDryRunReport,
 } from './dry-run/report.js'
 export {
-  DPM_GATEWAY_OPERATION_IDS,
   getDpmGatewayOpenApiDocument,
 } from './gateway/openapi.js'
+export {
+  DPM_GATEWAY_OPERATION_IDS,
+} from './gateway/openapi-paths.js'
 export {
   DPM_GATEWAY_RUNTIME_OPERATION_IDS,
   createDpmGatewayRuntime,
