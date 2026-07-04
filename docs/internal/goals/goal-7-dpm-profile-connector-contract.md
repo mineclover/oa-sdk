@@ -161,6 +161,7 @@ Artifacts:
 - `packages/dpm/src/profile/connector-normalize.ts`
 - `packages/dpm/src/profile/connector-validation.ts`
 - `packages/dpm/test/profile-connector.test.ts`
+- `packages/dpm/test/profile-connector-validation.test.ts`
 
 Tasks:
 - Define a connector result contract that returns profile artifact, connector diagnostics, freshness,
@@ -179,7 +180,7 @@ Acceptance:
 - A connector result cannot claim unsupported evidence as observed evidence.
 
 Verification:
-- `pnpm --filter @oa-sdk/dpm exec vitest run test/profile-connector.test.ts`
+- `pnpm --filter @oa-sdk/dpm exec vitest run test/profile-connector.test.ts test/profile-connector-validation.test.ts`
 - `pnpm --filter @oa-sdk/dpm typecheck`
 
 Implementation notes:

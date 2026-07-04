@@ -215,7 +215,8 @@
         "source-neutral persistence boundary"
       ],
       "testPaths": [
-        "packages/dpm/test/profile-connector.test.ts"
+        "packages/dpm/test/profile-connector.test.ts",
+        "packages/dpm/test/profile-connector-validation.test.ts"
       ],
       "commands": [
         "pnpm --filter @oa-sdk/dpm test -- profile-connector",
