@@ -407,6 +407,11 @@ Goal id: `DPM-09`
 Artifacts:
 - `packages/dpm/src/gateway/openapi.ts`
 - `packages/dpm/src/gateway/openapi-core-schemas.ts`
+- `packages/dpm/src/gateway/openapi-common-schemas.ts`
+- `packages/dpm/src/gateway/openapi-catalog-schemas.ts`
+- `packages/dpm/src/gateway/openapi-relationship-schemas.ts`
+- `packages/dpm/src/gateway/openapi-manifest-schemas.ts`
+- `packages/dpm/src/gateway/openapi-job-schemas.ts`
 - `packages/dpm/src/gateway/openapi-execution-schemas.ts`
 - `packages/dpm/src/gateway/openapi-execution-plan-schemas.ts`
 - `packages/dpm/src/gateway/openapi-execution-dry-run-schemas.ts`
