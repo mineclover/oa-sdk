@@ -41,6 +41,8 @@ Status: implemented 2026-07-01.
 Artifacts:
 - `packages/dpm/src/storage/registry-schema.ts`
 - `packages/dpm/src/storage/registry-repository.ts`
+- `packages/dpm/src/storage/registry-repository-types.ts`
+- `packages/dpm/src/storage/registry-row-mapper.ts`
 - `packages/dpm/test/storage-registry.test.ts`
 - migration or SQL fixture under `packages/dpm/test/fixtures/storage/`
 
@@ -63,10 +65,13 @@ Verification:
 Implementation notes:
 - `DPM_REGISTRY_STORAGE_SCHEMA_SQL` defines the Postgres canonical schema using `text`,
   `timestamptz`, check constraints, a composite identity index, and an approved partial index.
+- `packages/dpm/src/storage/registry-repository-types.ts` owns storage row/request/repository
+  adapter vocabulary.
 - `createDpmRegistryRepository()` accepts a row reader so tests can verify export behavior without a
   live source database.
-- `registryRowsToSnapshot()` exports storage rows to the existing `RegistrySnapshot` contract and
-  rejects rows that do not match the requested dataset/version scope.
+- `registryRowsToSnapshot()` in `packages/dpm/src/storage/registry-row-mapper.ts` exports storage
+  rows to the existing `RegistrySnapshot` contract and rejects rows that do not match the requested
+  dataset/version scope.
 
 ### DPM-12 - PostgreSQL Catalog Profiler
 

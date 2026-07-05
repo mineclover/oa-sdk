@@ -221,14 +221,14 @@ catalog/registry snapshot, semantic validator, compiler, CLI/gateway/publishing 
 | `isExecutableRegistryRelationship()` | `dpm/src/registry/snapshot.ts` | registry status 실행 가능성 판별 |
 | `DPM_REGISTRY_STORAGE_SCHEMA_VERSION` | `dpm/src/storage/registry-schema.ts` | registry storage SQL compatibility/version marker |
 | `DPM_REGISTRY_STORAGE_SCHEMA_SQL` | `dpm/src/storage/registry-schema.ts` | Postgres canonical relationship registry schema SQL |
-| `DpmRegistrySnapshotExportRequest` | `dpm/src/storage/registry-repository.ts` | storage-backed registry snapshot export request |
-| `DpmRegistryRelationshipRowRequest` | `dpm/src/storage/registry-repository.ts` | storage reader dataset/version row request |
-| `DpmRegistryRelationshipRow` | `dpm/src/storage/registry-repository.ts` | canonical storage row shape for relationship registry records |
-| `DpmRegistryRowsToSnapshotInput` | `dpm/src/storage/registry-repository.ts` | row-to-snapshot export input |
-| `DpmRegistryStorageReader` | `dpm/src/storage/registry-repository.ts` | repository adapter boundary for listing registry rows |
-| `DpmRegistryRepository` | `dpm/src/storage/registry-repository.ts` | storage-backed snapshot export repository |
+| `DpmRegistrySnapshotExportRequest` | `dpm/src/storage/registry-repository-types.ts` | storage-backed registry snapshot export request |
+| `DpmRegistryRelationshipRowRequest` | `dpm/src/storage/registry-repository-types.ts` | storage reader dataset/version row request |
+| `DpmRegistryRelationshipRow` | `dpm/src/storage/registry-repository-types.ts` | canonical storage row shape for relationship registry records |
+| `DpmRegistryRowsToSnapshotInput` | `dpm/src/storage/registry-repository-types.ts` | row-to-snapshot export input |
+| `DpmRegistryStorageReader` | `dpm/src/storage/registry-repository-types.ts` | repository adapter boundary for listing registry rows |
+| `DpmRegistryRepository` | `dpm/src/storage/registry-repository-types.ts` | storage-backed snapshot export repository |
 | `createDpmRegistryRepository()` | `dpm/src/storage/registry-repository.ts` | row reader를 registry snapshot export repository로 감싼다 |
-| `registryRowsToSnapshot()` | `dpm/src/storage/registry-repository.ts` | storage rows를 기존 `RegistrySnapshot` contract로 변환 |
+| `registryRowsToSnapshot()` | `dpm/src/storage/registry-row-mapper.ts` | storage rows를 기존 `RegistrySnapshot` contract로 변환 |
 | `CanonicalKeyValue` | `dpm/src/model/canonical-key.ts` | canonical key value primitive |
 | `CanonicalKeyValueMap` | `dpm/src/model/canonical-key.ts` | canonical key column value map |
 | `ModelEndpoint` | `dpm/src/model/endpoint.ts` | table and column endpoint for DPM model surfaces |
