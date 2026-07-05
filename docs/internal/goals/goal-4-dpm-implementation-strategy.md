@@ -286,6 +286,7 @@ Artifacts:
 - `packages/dpm/src/registry/snapshot.ts`
 - `packages/dpm/src/registry/registry-identity.ts`
 - `packages/dpm/src/registry/registry-normalize.ts`
+- `packages/dpm/src/registry/registry-relationship-copy.ts`
 - `packages/dpm/src/registry/registry-executable.ts`
 - `packages/dpm/src/registry/registry-summary.ts`
 - `packages/dpm/src/registry/registry-yaml.ts`
