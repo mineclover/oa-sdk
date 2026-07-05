@@ -5,7 +5,7 @@ export type {
   DpmPublishingContext,
   DpmPublishingContextInput,
   DpmRelationshipMetadata,
-} from '../publishing/context.js'
+} from '../publishing/types.js'
 export {
   DPM_PUBLISHING_CONTEXT_KIND,
   createDpmPublishingContext,

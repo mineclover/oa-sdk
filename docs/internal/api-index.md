@@ -327,12 +327,12 @@ catalog/registry snapshot, semantic validator, compiler, CLI/gateway/publishing 
 | `DpmGatewayRuntimeResponse` | `dpm/src/gateway/runtime.ts` | gateway runtime response envelope |
 | `DpmGatewayRuntime` | `dpm/src/gateway/runtime.ts` | loaded profile inspection/analysis/review plus validate, compile, and dry-run runtime handlers |
 | `createDpmGatewayRuntime()` | `dpm/src/gateway/runtime.ts` | source-DB-free runtime adapter for profile and manifest operations |
-| `DpmRelationshipMetadata` | `dpm/src/publishing/context.ts` | AI-publishable approved relationship metadata |
-| `DpmAiRelationshipContext` | `dpm/src/publishing/context.ts` | AI schema relationship context entry |
-| `DpmAiSchemaContext` | `dpm/src/publishing/context.ts` | read-only AI schema context envelope |
-| `DpmPhysicalForeignKeyRecommendation` | `dpm/src/publishing/context.ts` | recommendation-only physical FK output |
-| `DpmPublishingContextInput` | `dpm/src/publishing/context.ts` | publishing context creation input |
-| `DpmPublishingContext` | `dpm/src/publishing/context.ts` | relationship metadata and AI schema context output |
+| `DpmRelationshipMetadata` | `dpm/src/publishing/types.ts` | AI-publishable approved relationship metadata |
+| `DpmAiRelationshipContext` | `dpm/src/publishing/types.ts` | AI schema relationship context entry |
+| `DpmAiSchemaContext` | `dpm/src/publishing/types.ts` | read-only AI schema context envelope |
+| `DpmPhysicalForeignKeyRecommendation` | `dpm/src/publishing/types.ts` | recommendation-only physical FK output |
+| `DpmPublishingContextInput` | `dpm/src/publishing/types.ts` | publishing context creation input |
+| `DpmPublishingContext` | `dpm/src/publishing/types.ts` | relationship metadata and AI schema context output |
 | `DPM_PUBLISHING_CONTEXT_KIND` | `dpm/src/publishing/context.ts` | publishing context kind literal |
 | `createDpmPublishingContext()` | `dpm/src/publishing/context.ts` | publishing context generation from compiled plans |
 
