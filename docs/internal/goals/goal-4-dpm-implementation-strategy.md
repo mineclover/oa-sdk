@@ -307,6 +307,11 @@ Goal id: `DPM-08`
 Artifacts:
 - `packages/dpm/src/compiler/plan.ts`
 - `packages/dpm/src/compiler/plan-builder.ts`
+- `packages/dpm/src/compiler/plan-column-steps.ts`
+- `packages/dpm/src/compiler/plan-namespace-bindings.ts`
+- `packages/dpm/src/compiler/plan-relationship-steps.ts`
+- `packages/dpm/src/compiler/plan-staleness.ts`
+- `packages/dpm/src/compiler/plan-value-utils.ts`
 - `packages/dpm/src/compiler/compile.ts`
 - `packages/dpm/src/dry-run/report.ts`
 - `packages/dpm/test/compiler.test.ts`
