@@ -1,6 +1,6 @@
 import type { SchemaSourceCoordinate } from '@oa-sdk/openapi-projection-contract'
 
-import type { CatalogSnapshotSource } from './types.js'
+import type { CatalogSnapshotSource } from './source-types.js'
 
 export function copySnapshotSource(source: CatalogSnapshotSource): CatalogSnapshotSource {
   if (source.kind === 'postgresql') {

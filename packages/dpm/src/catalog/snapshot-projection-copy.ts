@@ -1,5 +1,5 @@
 import { copySourceCoordinate } from './snapshot-source-copy.js'
-import type { CatalogProjectionEvidence } from './types.js'
+import type { CatalogProjectionEvidence } from './projection-types.js'
 
 export function copyProjectionEvidence(projection: CatalogProjectionEvidence): CatalogProjectionEvidence {
   return {

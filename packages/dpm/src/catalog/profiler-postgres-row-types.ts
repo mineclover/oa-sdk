@@ -1,4 +1,4 @@
-import type { CatalogTable } from './types.js'
+import type { CatalogTable } from './structure-types.js'
 
 export type PostgresCatalogProfileRecordKind =
   | 'schema'

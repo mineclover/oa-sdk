@@ -2,7 +2,7 @@ import type {
   CatalogIndex,
   CatalogPrimaryKey,
   CatalogUniqueCandidate,
-} from './types.js'
+} from './integrity-types.js'
 
 export function primaryKeyToUniqueCandidate(primaryKey: CatalogPrimaryKey): CatalogUniqueCandidate {
   return {

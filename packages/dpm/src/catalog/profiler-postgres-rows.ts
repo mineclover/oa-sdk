@@ -21,7 +21,7 @@ import {
 import { createPostgresCatalogSourceMap } from './profiler-postgres-sources.js'
 import type {
   CatalogSnapshot,
-} from './types.js'
+} from './snapshot-types.js'
 import {
   indexToUniqueCandidate,
   primaryKeyToUniqueCandidate,

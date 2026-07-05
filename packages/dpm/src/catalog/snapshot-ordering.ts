@@ -1,9 +1,9 @@
 import type {
   CatalogColumn,
-  CatalogDiagnostic,
   CatalogSchema,
   CatalogTable,
-} from './types.js'
+} from './structure-types.js'
+import type { CatalogDiagnostic } from './diagnostic-types.js'
 
 export function bySchema(left: CatalogSchema, right: CatalogSchema): number {
   return left.name.localeCompare(right.name)

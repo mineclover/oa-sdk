@@ -1,13 +1,15 @@
 import { copySourceCoordinate } from './snapshot-source-copy.js'
 import type {
   CatalogColumn,
+  CatalogSchema,
+  CatalogTable,
+} from './structure-types.js'
+import type {
   CatalogForeignKey,
   CatalogIndex,
   CatalogPrimaryKey,
-  CatalogSchema,
-  CatalogTable,
   CatalogUniqueCandidate,
-} from './types.js'
+} from './integrity-types.js'
 
 export function copySchema(schema: CatalogSchema): CatalogSchema {
   return {

@@ -158,6 +158,12 @@ Goal id: `DPM-02`
 
 Artifacts:
 - `packages/dpm/src/catalog/types.ts`
+- `packages/dpm/src/catalog/source-types.ts`
+- `packages/dpm/src/catalog/structure-types.ts`
+- `packages/dpm/src/catalog/integrity-types.ts`
+- `packages/dpm/src/catalog/diagnostic-types.ts`
+- `packages/dpm/src/catalog/projection-types.ts`
+- `packages/dpm/src/catalog/snapshot-types.ts`
 - `packages/dpm/src/catalog/snapshot.ts`
 - `packages/dpm/src/catalog/snapshot-copy.ts`
 - `packages/dpm/src/catalog/snapshot-diagnostic-copy.ts`

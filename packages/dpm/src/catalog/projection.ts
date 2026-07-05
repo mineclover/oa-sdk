@@ -4,7 +4,11 @@ import type {
   SchemaSourceCoordinate,
 } from '@oa-sdk/openapi-projection-contract'
 
-import type { CatalogDiagnostic, CatalogSchema, CatalogTable } from './types.js'
+import type { CatalogDiagnostic } from './diagnostic-types.js'
+import type {
+  CatalogSchema,
+  CatalogTable,
+} from './structure-types.js'
 import { normalizeCatalogSnapshot } from './snapshot.js'
 
 export type CatalogSnapshotFromProjectionOptions = {

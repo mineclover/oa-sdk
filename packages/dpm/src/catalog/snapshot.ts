@@ -23,7 +23,10 @@ import {
   byTable,
   byTableName,
 } from './snapshot-ordering.js'
-import type { CatalogSnapshot, CatalogSnapshotInput } from './types.js'
+import type {
+  CatalogSnapshot,
+  CatalogSnapshotInput,
+} from './snapshot-types.js'
 
 export function normalizeCatalogSnapshot(input: CatalogSnapshotInput): CatalogSnapshot {
   const structural = {

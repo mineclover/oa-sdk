@@ -1,7 +1,7 @@
 import type { SchemaDiagnostic } from '@oa-sdk/openapi-projection-contract'
 
 import { copySourceCoordinate } from './snapshot-source-copy.js'
-import type { CatalogDiagnostic } from './types.js'
+import type { CatalogDiagnostic } from './diagnostic-types.js'
 
 export function copyDiagnostic(diagnostic: CatalogDiagnostic | SchemaDiagnostic): CatalogDiagnostic {
   return {

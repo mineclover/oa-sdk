@@ -12,12 +12,14 @@ import type {
 } from './profiler-postgres-row-filters.js'
 import type {
   CatalogColumn,
+  CatalogSchema,
+  CatalogTable,
+} from './structure-types.js'
+import type {
   CatalogForeignKey,
   CatalogIndex,
   CatalogPrimaryKey,
-  CatalogSchema,
-  CatalogTable,
-} from './types.js'
+} from './integrity-types.js'
 
 export function rowToSchema(row: PostgresCatalogProfileRow): CatalogSchema {
   return {

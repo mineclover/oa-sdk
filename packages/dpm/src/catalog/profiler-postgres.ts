@@ -3,7 +3,7 @@ import {
   postgresCatalogRowsToSnapshot,
 } from './profiler-postgres-rows.js'
 import type { PostgresCatalogProfileRow } from './profiler-postgres-row-types.js'
-import type { CatalogSnapshot } from './types.js'
+import type { CatalogSnapshot } from './snapshot-types.js'
 
 export { POSTGRES_CATALOG_PROFILE_SQL } from './profiler-postgres-query.js'
 export { postgresCatalogRowsToSnapshot } from './profiler-postgres-rows.js'

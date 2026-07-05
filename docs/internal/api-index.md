@@ -88,19 +88,19 @@ catalog/registry snapshot, semantic validator, compiler, CLI/gateway/publishing 
 | `DpmPackageMetadata` | `dpm/src/types.ts` | package metadata shape |
 | `DpmManifestSchemaIssue` | `dpm/src/schema/index.ts` | JSON Schema validation issue normalized for DPM diagnostics |
 | `DpmManifestSchemaValidationResult` | `dpm/src/schema/index.ts` | DPM manifest syntax validation result |
-| `CatalogSnapshot` | `dpm/src/catalog/types.ts` | DPM compiler가 소비할 normalized catalog snapshot |
-| `CatalogSnapshotInput` | `dpm/src/catalog/types.ts` | catalog snapshot normalization 입력 |
-| `CatalogSnapshotSource` | `dpm/src/catalog/types.ts` | PostgreSQL 또는 OpenAPI projection catalog source 구분 |
-| `CatalogFreshness` | `dpm/src/catalog/types.ts` | deterministic catalog freshness hash |
-| `CatalogSchema` | `dpm/src/catalog/types.ts` | DB schema entry |
-| `CatalogTable` | `dpm/src/catalog/types.ts` | table/view entry |
-| `CatalogColumn` | `dpm/src/catalog/types.ts` | column type/nullability/ordinal entry |
-| `CatalogPrimaryKey` | `dpm/src/catalog/types.ts` | primary key entry |
-| `CatalogForeignKey` | `dpm/src/catalog/types.ts` | FK-like structural catalog entry |
-| `CatalogIndex` | `dpm/src/catalog/types.ts` | index entry |
-| `CatalogUniqueCandidate` | `dpm/src/catalog/types.ts` | PK/unique/profiled unique candidate entry |
-| `CatalogDiagnostic` | `dpm/src/catalog/types.ts` | source-aware catalog diagnostic |
-| `PostgresCatalogSnapshotInput` | `dpm/src/catalog/types.ts` | PostgreSQL catalog snapshot constructor input |
+| `CatalogSnapshot` | `dpm/src/catalog/snapshot-types.ts` | DPM compiler가 소비할 normalized catalog snapshot |
+| `CatalogSnapshotInput` | `dpm/src/catalog/snapshot-types.ts` | catalog snapshot normalization 입력 |
+| `CatalogSnapshotSource` | `dpm/src/catalog/source-types.ts` | PostgreSQL 또는 OpenAPI projection catalog source 구분 |
+| `CatalogFreshness` | `dpm/src/catalog/snapshot-types.ts` | deterministic catalog freshness hash |
+| `CatalogSchema` | `dpm/src/catalog/structure-types.ts` | DB schema entry |
+| `CatalogTable` | `dpm/src/catalog/structure-types.ts` | table/view entry |
+| `CatalogColumn` | `dpm/src/catalog/structure-types.ts` | column type/nullability/ordinal entry |
+| `CatalogPrimaryKey` | `dpm/src/catalog/integrity-types.ts` | primary key entry |
+| `CatalogForeignKey` | `dpm/src/catalog/integrity-types.ts` | FK-like structural catalog entry |
+| `CatalogIndex` | `dpm/src/catalog/integrity-types.ts` | index entry |
+| `CatalogUniqueCandidate` | `dpm/src/catalog/integrity-types.ts` | PK/unique/profiled unique candidate entry |
+| `CatalogDiagnostic` | `dpm/src/catalog/diagnostic-types.ts` | source-aware catalog diagnostic |
+| `PostgresCatalogSnapshotInput` | `dpm/src/catalog/snapshot-types.ts` | PostgreSQL catalog snapshot constructor input |
 | `normalizeCatalogSnapshot()` | `dpm/src/catalog/snapshot.ts` | catalog snapshot arrays/source maps를 deterministic internal model로 정규화 |
 | `computeCatalogFreshnessHash()` | `dpm/src/catalog/freshness.ts` | catalog structure freshness hash 계산 |
 | `createPostgresCatalogSnapshot()` | `dpm/src/catalog/postgres.ts` | PostgreSQL catalog input을 normalized catalog snapshot으로 변환 |
