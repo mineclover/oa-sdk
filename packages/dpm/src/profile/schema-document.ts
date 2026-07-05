@@ -6,30 +6,14 @@ import {
   DPM_PROFILE_NODE_KINDS,
   DPM_PROFILE_SOURCE_KINDS,
 } from './types.js'
+import {
+  evidenceIdsSchema,
+  nonEmptyStringSchema,
+  profileCoordinateSchema,
+  sha256Schema,
+} from './schema-fragments.js'
 
 export const DPM_PROFILE_ARTIFACT_SCHEMA_ID = 'https://oa-sdk.dev/schemas/dpm-profile-artifact.v1.json' as const
-
-const nonEmptyStringSchema = { type: 'string', minLength: 1 } as const
-const sha256Schema = { type: 'string', pattern: '^sha256:.+' } as const
-
-const profileCoordinateSchema = {
-  type: 'object',
-  additionalProperties: false,
-  properties: {
-    kind: { type: 'string', enum: DPM_PROFILE_SOURCE_KINDS },
-    sourceId: nonEmptyStringSchema,
-    path: nonEmptyStringSchema,
-    pointer: nonEmptyStringSchema,
-    externalId: nonEmptyStringSchema,
-  },
-  required: ['kind', 'path'],
-} as const
-
-const evidenceIdsSchema = {
-  type: 'array',
-  minItems: 1,
-  items: nonEmptyStringSchema,
-} as const
 
 export const DPM_PROFILE_ARTIFACT_SCHEMA = {
   $schema: 'https://json-schema.org/draft/2020-12/schema',

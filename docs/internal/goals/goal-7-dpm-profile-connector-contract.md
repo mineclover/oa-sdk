@@ -119,6 +119,7 @@ Artifacts:
 - `packages/dpm/src/profile/artifact-ordering.ts`
 - `packages/dpm/src/profile/artifact-freshness.ts`
 - `packages/dpm/src/profile/schema-document.ts`
+- `packages/dpm/src/profile/schema-fragments.ts`
 - `packages/dpm/src/profile/schema.ts`
 - `packages/dpm/test/profile-artifact.test.ts`
 - `packages/dpm/test/profile-schema.test.ts`
