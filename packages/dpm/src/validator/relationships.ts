@@ -5,8 +5,10 @@ import {
 } from './relationship-catalog-gates.js'
 import {
   validateRelationshipRegistryApproval,
+} from './relationship-registry-approval.js'
+import {
   validateRelationshipRegistryReference,
-} from './relationship-registry.js'
+} from './relationship-registry-reference.js'
 import { validateRelationshipShapeGates } from './relationship-shape-gates.js'
 import type {
   RelationshipValidationInput,
