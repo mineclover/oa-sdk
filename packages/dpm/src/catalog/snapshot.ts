@@ -3,19 +3,21 @@ import {
   copyDiagnostic,
 } from './snapshot-diagnostic-copy.js'
 import {
-  copyColumn,
   copyForeignKey,
   copyIndex,
   copyPrimaryKey,
-  copySchema,
-  copyTable,
   copyUniqueCandidate,
-} from './snapshot-copy.js'
+} from './snapshot-integrity-copy.js'
 import { copyProjectionEvidence } from './snapshot-projection-copy.js'
 import {
   copySnapshotSource,
   sortSourceMap,
 } from './snapshot-source-copy.js'
+import {
+  copyColumn,
+  copySchema,
+  copyTable,
+} from './snapshot-structure-copy.js'
 import {
   byColumn,
   byDiagnostic,

@@ -167,9 +167,11 @@ Artifacts:
 - `packages/dpm/src/catalog/snapshot.ts`
 - `packages/dpm/src/catalog/snapshot-copy.ts`
 - `packages/dpm/src/catalog/snapshot-diagnostic-copy.ts`
+- `packages/dpm/src/catalog/snapshot-integrity-copy.ts`
 - `packages/dpm/src/catalog/snapshot-ordering.ts`
 - `packages/dpm/src/catalog/snapshot-projection-copy.ts`
 - `packages/dpm/src/catalog/snapshot-source-copy.ts`
+- `packages/dpm/src/catalog/snapshot-structure-copy.ts`
 - `packages/dpm/src/catalog/freshness.ts`
 - `packages/dpm/src/catalog/postgres.ts`
 - `packages/dpm/src/catalog/projection.ts`
@@ -184,6 +186,8 @@ Tasks:
 - Add a PostgreSQL catalog snapshot shape as the MVP canonical fixture.
 - Add a projection adapter boundary for existing OpenAPI projection contract data.
 - Include a deterministic catalog freshness hash.
+- Keep structural catalog element copy and integrity element copy as separate
+  implementation boundaries.
 
 Exit criteria:
 - Catalog snapshot fixtures can be normalized into one internal model.
