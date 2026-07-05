@@ -199,7 +199,7 @@ catalog/registry snapshot, semantic validator, compiler, CLI/gateway/publishing 
 | `RelationshipDiscoveryReport` | `dpm/src/discovery/types.ts` | reviewable discovery report output |
 | `classifyRelationshipCandidate()` | `dpm/src/discovery/report.ts` | confidence score를 review/reject classification으로 변환 |
 | `createRelationshipDiscoveryReport()` | `dpm/src/discovery/report.ts` | candidate input을 non-executable review report로 정규화 |
-| `REGISTRY_SNAPSHOT_KIND` | `dpm/src/registry/snapshot.ts` | registry snapshot kind literal |
+| `REGISTRY_SNAPSHOT_KIND` | `dpm/src/registry/registry-identity.ts` | registry snapshot kind literal |
 | `REGISTRY_RELATIONSHIP_STATUSES` | `dpm/src/registry/types.ts` | runtime registry lifecycle status taxonomy used by TypeScript and OpenAPI |
 | `RegistryRelationshipStatus` | `dpm/src/registry/types.ts` | candidate/proposed/approved/rejected/deprecated/superseded lifecycle status |
 | `REGISTRY_RELATIONSHIP_KINDS` | `dpm/src/registry/types.ts` | runtime registry relationship kind taxonomy |
@@ -217,8 +217,8 @@ catalog/registry snapshot, semantic validator, compiler, CLI/gateway/publishing 
 | `RegistrySnapshot` | `dpm/src/registry/types.ts` | versioned registry snapshot output |
 | `createRegistrySnapshot()` | `dpm/src/registry/snapshot.ts` | registry input을 stable versioned snapshot으로 정규화 |
 | `parseRegistrySnapshotYaml()` | `dpm/src/registry/snapshot.ts` | YAML review artifact를 registry snapshot으로 파싱 |
-| `selectApprovedRelationships()` | `dpm/src/registry/snapshot.ts` | approved executable relationship만 선택 |
-| `isExecutableRegistryRelationship()` | `dpm/src/registry/snapshot.ts` | registry status 실행 가능성 판별 |
+| `selectApprovedRelationships()` | `dpm/src/registry/registry-executable.ts` | approved executable relationship만 선택 |
+| `isExecutableRegistryRelationship()` | `dpm/src/registry/registry-executable.ts` | registry status 실행 가능성 판별 |
 | `DPM_REGISTRY_STORAGE_SCHEMA_VERSION` | `dpm/src/storage/registry-schema.ts` | registry storage SQL compatibility/version marker |
 | `DPM_REGISTRY_STORAGE_SCHEMA_SQL` | `dpm/src/storage/registry-schema.ts` | Postgres canonical relationship registry schema SQL |
 | `DpmRegistrySnapshotExportRequest` | `dpm/src/storage/registry-repository-types.ts` | storage-backed registry snapshot export request |
