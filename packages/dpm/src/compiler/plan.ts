@@ -1,10 +1,8 @@
-import type { CatalogSnapshot } from '../catalog/types.js'
 import type {
   RegistryOrphanPolicy,
   RegistryRelationshipKind,
   RegistryTransformStrategy,
 } from '../registry/registry-taxonomy.js'
-import type { RegistrySnapshot } from '../registry/registry-snapshot-types.js'
 
 export const DPM_COMPILED_PLAN_KIND = 'dpm.compiled-plan.v1' as const
 export const DPM_COMPILED_PLAN_VERSIONS = ['1.0'] as const
@@ -86,17 +84,4 @@ export type DpmCompiledPlan = {
   namespaceBindings: DpmNamespaceBinding[]
   relationshipSteps: DpmRelationshipStep[]
   columnSteps: DpmColumnStep[]
-}
-
-export function createPlanFreshness(input: {
-  manifestCatalogVersionHash?: string
-  catalog: CatalogSnapshot
-  registry: RegistrySnapshot
-}): DpmPlanFreshness {
-  return {
-    ...(input.manifestCatalogVersionHash ? { manifestCatalogVersionHash: input.manifestCatalogVersionHash } : {}),
-    catalogVersionHash: input.catalog.freshness.versionHash,
-    registryVersion: input.registry.registryVersion,
-    registryIdentity: input.registry.identity,
-  }
 }

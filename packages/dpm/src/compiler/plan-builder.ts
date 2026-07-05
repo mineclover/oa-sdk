@@ -1,6 +1,7 @@
 import type { CatalogSnapshot } from '../catalog/types.js'
 import type { RegistrySnapshot } from '../registry/registry-snapshot-types.js'
 import { createColumnSteps } from './plan-column-steps.js'
+import { createPlanFreshness } from './plan-freshness.js'
 import { createNamespaceBindings } from './plan-namespace-bindings.js'
 import { createRelationshipSteps } from './plan-relationship-steps.js'
 import { getPlanStaleReasons } from './plan-staleness.js'
@@ -10,7 +11,6 @@ import {
 } from './plan-value-utils.js'
 import {
   DPM_COMPILED_PLAN_KIND,
-  createPlanFreshness,
   type DpmCompiledPlan,
 } from './plan.js'
 

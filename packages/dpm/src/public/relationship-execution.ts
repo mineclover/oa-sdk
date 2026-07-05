@@ -38,8 +38,8 @@ export {
   DPM_COMPILED_PLAN_VERSIONS,
   DPM_PLAN_STALE_REASONS,
   DPM_RELATIONSHIP_STEP_CARDINALITIES,
-  createPlanFreshness,
 } from '../compiler/plan.js'
+export { createPlanFreshness } from '../compiler/plan-freshness.js'
 export { compileDpmPlan } from '../compiler/compile.js'
 export {
   DPM_DRY_RUN_REPORT_KIND,

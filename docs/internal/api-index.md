@@ -273,7 +273,7 @@ catalog/registry snapshot, semantic validator, compiler, CLI/gateway/publishing 
 | `DpmRelationshipStep` | `dpm/src/compiler/plan.ts` | approved relationship execution step |
 | `DpmColumnStep` | `dpm/src/compiler/plan.ts` | column transform execution step |
 | `DpmCompiledPlan` | `dpm/src/compiler/plan.ts` | relationship-first compiled execution plan |
-| `createPlanFreshness()` | `dpm/src/compiler/plan.ts` | compiled plan freshness tuple creation |
+| `createPlanFreshness()` | `dpm/src/compiler/plan-freshness.ts` | compiled plan freshness tuple creation |
 | `DpmCompileInput` | `dpm/src/compiler/compile.ts` | compiler manifest, catalog, and registry input |
 | `DpmCompileSuccess` | `dpm/src/compiler/compile.ts` | successful compiler result |
 | `DpmCompileFailure` | `dpm/src/compiler/compile.ts` | compiler refusal result with diagnostics |

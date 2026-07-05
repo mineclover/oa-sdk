@@ -369,6 +369,7 @@ Artifacts:
 - `packages/dpm/src/compiler/plan.ts`
 - `packages/dpm/src/compiler/plan-builder.ts`
 - `packages/dpm/src/compiler/plan-column-steps.ts`
+- `packages/dpm/src/compiler/plan-freshness.ts`
 - `packages/dpm/src/compiler/plan-namespace-bindings.ts`
 - `packages/dpm/src/compiler/plan-relationship-steps.ts`
 - `packages/dpm/src/compiler/plan-staleness.ts`
@@ -381,6 +382,8 @@ Artifacts:
 Tasks:
 - Compile validated inputs into `namespace_bindings`, `relationship_steps`, `column_steps`,
   orphan handling, and freshness tuple.
+- Keep compiled plan vocabulary and freshness tuple assembly as separate implementation
+  boundaries.
 - Mark plans stale when manifest, catalog, or registry freshness changes.
 - Produce dry-run impact reports without raw sensitive values.
 
