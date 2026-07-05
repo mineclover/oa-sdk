@@ -327,6 +327,8 @@ Artifacts:
 - `packages/dpm/src/profile/analysis-drift-signal-types.ts`
 - `packages/dpm/src/profile/analysis-signal-types.ts`
 - `packages/dpm/src/profile/analysis-report-types.ts`
+- `packages/dpm/src/profile/analysis-report-signals.ts`
+- `packages/dpm/src/profile/analysis-report-structural.ts`
 - `packages/dpm/src/profile/analysis-report.ts`
 - `packages/dpm/src/profile/analysis-summary.ts`
 - `packages/dpm/src/profile/analysis-report-freshness.ts`
@@ -369,8 +371,11 @@ Verification:
 
 Implementation notes:
 - `createDpmProfileAnalysisReport()` assembles deterministic coverage, relationship hint proposals,
-  key candidates, drift signals, risk indicators, profile diagnostics, and summary counts from a
-  normalized profile artifact.
+  freshness envelope from a normalized profile artifact.
+- `analysis-report-signals.ts` owns deterministic coverage, relationship hint, key candidate,
+  drift signal, and risk indicator collection for the report.
+- `analysis-report-structural.ts` owns report identity, profile metadata, diagnostic ordering,
+  signal placement, and summary attachment before freshness is added.
 - `createDpmProfileAnalysisSummary()` owns diagnostic and signal count assembly, while
   `sortDpmProfileAnalysisDiagnostics()` owns deterministic diagnostic ordering.
 - `computeDpmProfileAnalysisReportHash()` owns stable report serialization and report freshness
