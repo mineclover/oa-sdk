@@ -1,13 +1,13 @@
 import {
   copyEndpoint,
-  type ModelEndpoint,
 } from './endpoint.js'
+import { requireNonEmpty } from './normalize-utils.js'
+import { normalizeRelationshipCanonicalKeyStrategy } from './relationship-canonical-key-strategy.js'
+import { normalizeRelationshipCondition } from './relationship-condition.js'
+import { copyTemporalRelationshipInput } from './relationship-temporal.js'
 import type {
   LogicalRelationship,
-  LogicalRelationshipCondition,
   LogicalRelationshipInput,
-  RelationshipCanonicalKeyStrategy,
-  TemporalRelationshipInput,
 } from './relationship-types.js'
 
 export function createLogicalRelationship(input: LogicalRelationshipInput): LogicalRelationship {
@@ -15,7 +15,7 @@ export function createLogicalRelationship(input: LogicalRelationshipInput): Logi
   requireNonEmpty(input.namespace, 'relationship.namespace')
   const parent = copyEndpoint(input.parent, 'relationship.parent')
   const child = copyEndpoint(input.child, 'relationship.child')
-  const condition = normalizeCondition(input.condition)
+  const condition = normalizeRelationshipCondition(input.condition)
 
   if (input.type === 'polymorphic' && !condition.conditionSql) {
     throw new Error('polymorphic relationships require conditionSql')
@@ -37,51 +37,8 @@ export function createLogicalRelationship(input: LogicalRelationshipInput): Logi
     transformStrategy: input.transformStrategy,
     orphanPolicy: input.orphanPolicy,
     condition,
-    ...(input.temporal ? { temporal: copyTemporal(input.temporal) } : {}),
-    canonicalKey: normalizeCanonicalKey(input.canonicalKey, child),
+    ...(input.temporal ? { temporal: copyTemporalRelationshipInput(input.temporal) } : {}),
+    canonicalKey: normalizeRelationshipCanonicalKeyStrategy(input.canonicalKey, child),
     identity: `relationship:${input.namespace}/${input.name}`,
   }
-}
-
-function normalizeCondition(
-  condition: LogicalRelationshipCondition | undefined,
-): LogicalRelationship['condition'] {
-  return {
-    contextColumns: [...(condition?.contextColumns ?? [])],
-    ...(condition?.conditionSql ? { conditionSql: condition.conditionSql } : {}),
-    ...(condition?.temporalCondition ? { temporalCondition: condition.temporalCondition } : {}),
-    ...(condition?.metadata ? { metadata: JSON.parse(JSON.stringify(condition.metadata)) as Record<string, unknown> } : {}),
-  }
-}
-
-function normalizeCanonicalKey(
-  strategy: RelationshipCanonicalKeyStrategy | undefined,
-  child: ModelEndpoint,
-): LogicalRelationship['canonicalKey'] {
-  const components = strategy?.components ?? child.columns
-  if (components.length === 0) {
-    throw new Error('relationship.canonicalKey.components must contain at least one column')
-  }
-  const separator = strategy?.separator ?? ':'
-  requireNonEmpty(separator, 'relationship.canonicalKey.separator')
-
-  return {
-    components: [...components],
-    separator,
-    ...(strategy?.tenant ? { tenant: { columns: [...strategy.tenant.columns] } } : {}),
-  }
-}
-
-function copyTemporal(temporal: TemporalRelationshipInput): TemporalRelationshipInput {
-  return {
-    ...(temporal.validTimeColumn ? { validTimeColumn: temporal.validTimeColumn } : {}),
-    ...(temporal.validTimeAbsentReason ? { validTimeAbsentReason: temporal.validTimeAbsentReason } : {}),
-  }
-}
-
-function requireNonEmpty(value: string, label: string): string {
-  if (value.length === 0) {
-    throw new Error(`${label} must be a non-empty string`)
-  }
-  return value
 }
