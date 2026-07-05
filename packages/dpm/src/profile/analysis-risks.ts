@@ -1,9 +1,11 @@
 import type { DpmProfileRiskIndicator } from './analysis-signal-types.js'
 import {
   byId,
+} from './analysis-ordering-utils.js'
+import {
   evidenceIdsForNode,
   isIdentifierLikeNode,
-} from './analysis-utils.js'
+} from './analysis-node-utils.js'
 import type { DpmProfileArtifact } from './profile-artifact-types.js'
 
 export function analyzeRiskIndicators(profile: DpmProfileArtifact): DpmProfileRiskIndicator[] {

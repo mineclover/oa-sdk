@@ -1,8 +1,10 @@
 import type { DpmProfileAnalysisCoverage } from './analysis-signal-types.js'
 import {
   countBy,
+} from './analysis-ordering-utils.js'
+import {
   roundRatio,
-} from './analysis-utils.js'
+} from './analysis-metric-utils.js'
 import type { DpmProfileArtifact } from './profile-artifact-types.js'
 
 export function analyzeCoverage(profile: DpmProfileArtifact): DpmProfileAnalysisCoverage {

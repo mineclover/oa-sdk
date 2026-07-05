@@ -1,8 +1,10 @@
 import type { DpmProfileRelationshipHintProposal } from './analysis-signal-types.js'
 import {
   byId,
+} from './analysis-ordering-utils.js'
+import {
   readStringShape,
-} from './analysis-utils.js'
+} from './analysis-node-utils.js'
 import type { DpmProfileArtifact } from './profile-artifact-types.js'
 
 export function analyzeRelationshipHints(profile: DpmProfileArtifact): DpmProfileRelationshipHintProposal[] {

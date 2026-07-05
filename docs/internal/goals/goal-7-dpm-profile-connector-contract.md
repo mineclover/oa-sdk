@@ -296,6 +296,9 @@ Artifacts:
 - `packages/dpm/src/profile/analysis-key-candidates.ts`
 - `packages/dpm/src/profile/analysis-risks.ts`
 - `packages/dpm/src/profile/analysis-utils.ts`
+- `packages/dpm/src/profile/analysis-node-utils.ts`
+- `packages/dpm/src/profile/analysis-metric-utils.ts`
+- `packages/dpm/src/profile/analysis-ordering-utils.ts`
 - `packages/dpm/src/profile/analysis-drift.ts`
 - `packages/dpm/src/profile/analysis-drift-freshness.ts`
 - `packages/dpm/src/profile/analysis-drift-nodes.ts`

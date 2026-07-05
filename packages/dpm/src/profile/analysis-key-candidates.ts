@@ -1,11 +1,15 @@
 import type { DpmProfileKeyCandidate } from './analysis-signal-types.js'
 import {
   byId,
+} from './analysis-ordering-utils.js'
+import {
   evidenceIdsForNode,
-  groupMetricsBySubject,
   isIdentifierLikeNode,
+} from './analysis-node-utils.js'
+import {
+  groupMetricsBySubject,
   roundRatio,
-} from './analysis-utils.js'
+} from './analysis-metric-utils.js'
 import type { DpmProfileArtifact } from './profile-artifact-types.js'
 
 export function analyzeKeyCandidates(profile: DpmProfileArtifact): DpmProfileKeyCandidate[] {
