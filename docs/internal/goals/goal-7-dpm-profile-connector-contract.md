@@ -135,7 +135,10 @@ Artifacts:
 - `packages/dpm/src/profile/artifact-source-version-hashes.ts`
 - `packages/dpm/src/profile/schema-document.ts`
 - `packages/dpm/src/profile/schema-fragments.ts`
+- `packages/dpm/src/profile/schema-diagnostic-section.ts`
+- `packages/dpm/src/profile/schema-freshness-section.ts`
 - `packages/dpm/src/profile/schema-graph-sections.ts`
+- `packages/dpm/src/profile/schema-metric-section.ts`
 - `packages/dpm/src/profile/schema-observation-sections.ts`
 - `packages/dpm/src/profile/schema-source-sections.ts`
 - `packages/dpm/src/profile/schema.ts`
