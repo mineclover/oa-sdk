@@ -414,6 +414,10 @@ Artifacts:
 - `packages/dpm/src/gateway/openapi-job-schemas.ts`
 - `packages/dpm/src/gateway/openapi-execution-schemas.ts`
 - `packages/dpm/src/gateway/openapi-execution-plan-schemas.ts`
+- `packages/dpm/src/gateway/openapi-execution-plan-envelope-schemas.ts`
+- `packages/dpm/src/gateway/openapi-execution-plan-namespace-schemas.ts`
+- `packages/dpm/src/gateway/openapi-execution-plan-relationship-schemas.ts`
+- `packages/dpm/src/gateway/openapi-execution-plan-column-schemas.ts`
 - `packages/dpm/src/gateway/openapi-execution-dry-run-schemas.ts`
 - `packages/dpm/src/gateway/openapi-validation-schemas.ts`
 - `packages/dpm/src/gateway/profile-openapi.ts`
