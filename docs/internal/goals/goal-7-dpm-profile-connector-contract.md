@@ -125,6 +125,8 @@ Artifacts:
 - `packages/dpm/src/profile/artifact-diagnostic-copy.ts`
 - `packages/dpm/src/profile/artifact-ordering.ts`
 - `packages/dpm/src/profile/artifact-freshness.ts`
+- `packages/dpm/src/profile/artifact-freshness-serialization.ts`
+- `packages/dpm/src/profile/artifact-source-version-hashes.ts`
 - `packages/dpm/src/profile/schema-document.ts`
 - `packages/dpm/src/profile/schema-fragments.ts`
 - `packages/dpm/src/profile/schema-graph-sections.ts`

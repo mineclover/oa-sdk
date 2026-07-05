@@ -4,7 +4,7 @@ import {
   DPM_PROFILE_ARTIFACT_KIND,
   type DpmProfileArtifact,
 } from './profile-artifact-types.js'
-import type { DpmProfileSourceDescriptor } from './profile-source-types.js'
+import { stableDpmProfileFreshnessStringify } from './artifact-freshness-serialization.js'
 
 export type DpmProfileFreshnessHashInput =
   | Omit<DpmProfileArtifact, 'freshness'>
@@ -29,37 +29,7 @@ export function computeDpmProfileFreshnessHash(input: DpmProfileFreshnessHashInp
         diagnostics: input.diagnostics,
       }
 
-  return `sha256:${createHash('sha256').update(stableStringify(structural)).digest('hex')}`
-}
-
-export function collectDpmProfileSourceVersionHashes(
-  sources: readonly DpmProfileSourceDescriptor[],
-  input?: Readonly<Record<string, string>>,
-): Record<string, string> {
-  const hashes: Record<string, string> = {}
-  for (const key of Object.keys(input ?? {}).sort()) {
-    const value = input?.[key]
-    if (value) hashes[key] = value
-  }
-  for (const source of sources) {
-    if (source.sourceVersionHash) hashes[source.id] = source.sourceVersionHash
-  }
-  return hashes
-}
-
-function stableStringify(value: unknown): string {
-  return JSON.stringify(sortValue(value))
-}
-
-function sortValue(value: unknown): unknown {
-  if (Array.isArray(value)) return value.map(sortValue)
-  if (!value || typeof value !== 'object') return value
-
-  const record = value as Record<string, unknown>
-  const sorted: Record<string, unknown> = {}
-  for (const key of Object.keys(record).sort()) {
-    const next = record[key]
-    if (next !== undefined) sorted[key] = sortValue(next)
-  }
-  return sorted
+  return `sha256:${createHash('sha256')
+    .update(stableDpmProfileFreshnessStringify(structural))
+    .digest('hex')}`
 }

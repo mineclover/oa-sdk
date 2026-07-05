@@ -11,13 +11,13 @@ import {
   sortEvidenceSources,
 } from './artifact-copy.js'
 import {
-  collectDpmProfileSourceVersionHashes,
   computeDpmProfileFreshnessHash,
 } from './artifact-freshness.js'
 import {
   byDiagnostic,
   byId,
 } from './artifact-ordering.js'
+import { collectDpmProfileSourceVersionHashes } from './artifact-source-version-hashes.js'
 
 export { computeDpmProfileFreshnessHash } from './artifact-freshness.js'
 
@@ -40,7 +40,10 @@ export function normalizeDpmProfileArtifact(input: DpmProfileArtifactInput): Dpm
     diagnostics: input.diagnostics.map(copyDiagnostic).sort(byDiagnostic),
   }
 
-  const sourceVersionHashes = collectDpmProfileSourceVersionHashes(structural.sources, input.sourceVersionHashes)
+  const sourceVersionHashes = collectDpmProfileSourceVersionHashes(
+    structural.sources,
+    input.sourceVersionHashes,
+  )
 
   return {
     ...structural,
