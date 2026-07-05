@@ -302,6 +302,11 @@ Artifacts:
 - `packages/dpm/src/profile/analysis-types.ts`
 - `packages/dpm/src/profile/analysis-taxonomy.ts`
 - `packages/dpm/src/profile/analysis-input-types.ts`
+- `packages/dpm/src/profile/analysis-coverage-types.ts`
+- `packages/dpm/src/profile/analysis-relationship-hint-types.ts`
+- `packages/dpm/src/profile/analysis-key-candidate-types.ts`
+- `packages/dpm/src/profile/analysis-risk-types.ts`
+- `packages/dpm/src/profile/analysis-drift-signal-types.ts`
 - `packages/dpm/src/profile/analysis-signal-types.ts`
 - `packages/dpm/src/profile/analysis-report-types.ts`
 - `packages/dpm/src/profile/analysis-report.ts`
@@ -352,6 +357,9 @@ Implementation notes:
   `sortDpmProfileAnalysisDiagnostics()` owns deterministic diagnostic ordering.
 - `computeDpmProfileAnalysisReportHash()` owns stable report serialization and report freshness
   hash calculation.
+- `packages/dpm/src/profile/analysis-signal-types.ts` remains the analysis signal compatibility
+  barrel, while coverage, relationship hint, key candidate, risk, and drift signal vocabulary live
+  in dedicated `analysis-*-types.ts` modules.
 - `analyzeDriftSignals()` orchestrates freshness/source, node, and metric drift signals without
   merging those signal categories into one implementation owner.
 - Relationship hints are emitted as reviewer-safe `review` proposals with confidence and evidence
