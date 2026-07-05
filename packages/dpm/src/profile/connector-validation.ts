@@ -1,4 +1,4 @@
-import type { DpmProfileConnectorResult } from './connector.js'
+import type { DpmProfileConnectorResult } from './connector-types.js'
 import { validateDpmProfileArtifactSchema } from './schema.js'
 import type { DpmProfileDiagnostic } from './profile-artifact-types.js'
 

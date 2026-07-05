@@ -4,7 +4,7 @@ import type {
   DpmProfileConnectorCapabilities,
   DpmProfileConnectorResult,
   DpmProfileConnectorResultInput,
-} from './connector.js'
+} from './connector-types.js'
 import type { DpmProfileDiagnostic } from './profile-artifact-types.js'
 
 export function createDpmProfileConnectorStructuralResult(

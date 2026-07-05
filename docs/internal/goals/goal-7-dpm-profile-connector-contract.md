@@ -176,6 +176,7 @@ Status: implemented 2026-07-04.
 
 Artifacts:
 - `packages/dpm/src/profile/connector.ts`
+- `packages/dpm/src/profile/connector-types.ts`
 - `packages/dpm/src/profile/connector-normalize.ts`
 - `packages/dpm/src/profile/connector-validation.ts`
 - `packages/dpm/test/profile-connector.test.ts`
