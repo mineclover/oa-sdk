@@ -210,6 +210,8 @@ Artifacts:
 - `packages/dpm/src/profile/kafka-fixture-types.ts`
 - `packages/dpm/src/profile/kafka.ts`
 - `packages/dpm/src/profile/kafka-topic-profile.ts`
+- `packages/dpm/src/profile/kafka-topic-source.ts`
+- `packages/dpm/src/profile/kafka-topic-root.ts`
 - `packages/dpm/src/profile/kafka-topic-key-headers.ts`
 - `packages/dpm/src/profile/kafka-topic-partitions.ts`
 - `packages/dpm/src/profile/kafka-topic-schema.ts`
@@ -241,6 +243,8 @@ Verification:
 Implementation notes:
 - `profileKafkaTopicFixture()` maps fixture-only Kafka topic evidence into the DPM profile artifact
   and connector result contracts without accepting a live Kafka client.
+- `kafka-topic-source.ts` owns source descriptor, Kafka ref, and fixture version hash construction;
+  `kafka-topic-root.ts` owns topic root evidence and node bootstrap.
 - `kafka-topic-sections.ts` re-exports section helpers; `kafka-topic-partitions.ts` emits partition
   nodes and topic message-rate metrics, `kafka-topic-key-headers.ts` emits key/header nodes and
   coverage/presence metrics, and `kafka-topic-schema.ts` emits schema subject nodes and schema

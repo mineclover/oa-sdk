@@ -1,13 +1,10 @@
-import { createHash } from 'node:crypto'
-
 import type { DpmProfileArtifactInput } from './artifact.js'
 import type { DpmKafkaTopicProfileFixture } from './kafka-fixture-types.js'
 import {
-  addKafkaEvidence,
   appendKafkaFieldProfile,
   appendKafkaRelationshipHint,
-  kafkaCoordinate,
 } from './kafka-profile-graph.js'
+import { appendKafkaTopicRoot } from './kafka-topic-root.js'
 import {
   appendKafkaHeaders,
   appendKafkaKey,
@@ -15,6 +12,9 @@ import {
   appendKafkaPartitions,
   appendKafkaSchema,
 } from './kafka-topic-sections.js'
+import {
+  createKafkaTopicSourceDescriptor,
+} from './kafka-topic-source.js'
 import type {
   DpmProfileEdge,
   DpmProfileEvidenceSource,
@@ -32,27 +32,23 @@ export function createKafkaTopicProfileArtifactInput(
   options: KafkaTopicProfileArtifactInputOptions,
 ): DpmProfileArtifactInput {
   const { input, connectorId, connectorVersion } = options
-  const sourceId = `source:kafka:${input.topic.name}`
-  const sourceVersionHash = computeKafkaFixtureVersionHash(input)
+  const source = createKafkaTopicSourceDescriptor({
+    fixture: input,
+    connectorId,
+    connectorVersion,
+  })
+  const sourceId = source.id
   const evidenceSources: Record<string, DpmProfileEvidenceSource> = {}
   const nodes: DpmProfileNode[] = []
   const edges: DpmProfileEdge[] = []
   const metrics: DpmProfileMetric[] = []
 
-  const topicEvidenceId = addKafkaEvidence(evidenceSources, {
-    id: `evidence:kafka:${input.topic.name}`,
+  const { topicEvidenceId, topicNodeId } = appendKafkaTopicRoot({
+    topic: input.topic,
     sourceId,
     connectorId,
-    path: input.topic.name,
-    pointer: '/topic',
-    description: `Kafka topic ${input.topic.name}`,
-  })
-  const topicNodeId = `node:topic:${input.topic.name}`
-  nodes.push({
-    id: topicNodeId,
-    kind: 'topic',
-    label: input.topic.name,
-    coordinate: kafkaCoordinate(sourceId, input.topic.name, '/topic'),
+    evidenceSources,
+    nodes,
   })
 
   const sectionInput = {
@@ -105,46 +101,11 @@ export function createKafkaTopicProfileArtifactInput(
     datasetId: input.datasetId,
     profileVersion: input.profileVersion,
     createdAt: input.createdAt,
-    sources: [
-      {
-        id: sourceId,
-        kind: 'kafka_topic_bundle',
-        connectorId,
-        connectorVersion,
-        refs: [joinKafkaRef(input.clusterRef, input.topic.name)],
-        captureMode: 'fixture',
-        sourceVersionHash,
-      },
-    ],
+    sources: [source],
     evidenceSources,
     nodes,
     edges,
     metrics,
     diagnostics: [],
   }
-}
-
-function joinKafkaRef(clusterRef: string, topicName: string): string {
-  return `${clusterRef.replace(/\/$/, '')}/${topicName}`
-}
-
-function computeKafkaFixtureVersionHash(input: DpmKafkaTopicProfileFixture): string {
-  return `sha256:${createHash('sha256').update(stableStringify(input)).digest('hex')}`
-}
-
-function stableStringify(value: unknown): string {
-  return JSON.stringify(sortValue(value))
-}
-
-function sortValue(value: unknown): unknown {
-  if (Array.isArray(value)) return value.map(sortValue)
-  if (!value || typeof value !== 'object') return value
-
-  const record = value as Record<string, unknown>
-  const sorted: Record<string, unknown> = {}
-  for (const key of Object.keys(record).sort()) {
-    const next = record[key]
-    if (next !== undefined) sorted[key] = sortValue(next)
-  }
-  return sorted
 }
