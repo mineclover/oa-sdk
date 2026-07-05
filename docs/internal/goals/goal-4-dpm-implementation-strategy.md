@@ -189,6 +189,9 @@ Artifacts:
 - `packages/dpm/src/catalog/profiler-postgres-row-mappers.ts`
 - `packages/dpm/src/catalog/profiler-postgres-structure-row-mappers.ts`
 - `packages/dpm/src/catalog/profiler-postgres-integrity-row-mappers.ts`
+- `packages/dpm/src/catalog/profiler-postgres-primary-key-row-mapper.ts`
+- `packages/dpm/src/catalog/profiler-postgres-foreign-key-row-mapper.ts`
+- `packages/dpm/src/catalog/profiler-postgres-index-row-mapper.ts`
 - `packages/dpm/src/catalog/profiler-postgres-unique-candidates.ts`
 - `packages/dpm/src/catalog/profiler-postgres-sources.ts`
 - `packages/dpm/src/catalog/profiler-postgres-row-utils.ts`
@@ -211,6 +214,8 @@ Tasks:
   implementation boundaries.
 - Keep PostgreSQL primary-key, foreign-key, and index record SQL fragments as separate
   implementation boundaries.
+- Keep PostgreSQL primary-key, foreign-key, and index row mappers as separate implementation
+  boundaries.
 
 Exit criteria:
 - Catalog snapshot fixtures can be normalized into one internal model.
