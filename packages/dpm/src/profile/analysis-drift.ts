@@ -1,6 +1,6 @@
 import type {
   DpmProfileDriftSignal,
-} from './analysis-types.js'
+} from './analysis-signal-types.js'
 import type { DpmProfileArtifact } from './profile-artifact-types.js'
 
 export function analyzeDriftSignals(

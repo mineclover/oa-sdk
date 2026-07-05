@@ -2,9 +2,9 @@ import { createHash } from 'node:crypto'
 
 import {
   DPM_PROFILE_ANALYSIS_REPORT_KIND,
-  type DpmProfileAnalysisInput,
   type DpmProfileAnalysisReport,
-} from './analysis-types.js'
+} from './analysis-report-types.js'
+import type { DpmProfileAnalysisInput } from './analysis-input-types.js'
 import {
   analyzeCoverage,
   analyzeKeyCandidates,

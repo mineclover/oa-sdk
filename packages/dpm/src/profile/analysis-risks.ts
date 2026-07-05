@@ -1,4 +1,4 @@
-import type { DpmProfileRiskIndicator } from './analysis-types.js'
+import type { DpmProfileRiskIndicator } from './analysis-signal-types.js'
 import {
   byId,
   evidenceIdsForNode,

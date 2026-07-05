@@ -1,10 +1,12 @@
 import {
   DPM_PROFILE_ANALYSIS_REPORT_KIND,
+} from '../profile/analysis-report-types.js'
+import {
   DPM_PROFILE_DRIFT_SIGNAL_KINDS,
   DPM_PROFILE_KEY_CANDIDATE_KINDS,
   DPM_PROFILE_RELATIONSHIP_HINT_STATUSES,
   DPM_PROFILE_RISK_INDICATOR_KINDS,
-} from '../profile/analysis-types.js'
+} from '../profile/analysis-taxonomy.js'
 import {
   DPM_PROFILE_METRIC_KINDS,
   DPM_PROFILE_NODE_KINDS,

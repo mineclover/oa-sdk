@@ -164,24 +164,24 @@ catalog/registry snapshot, semantic validator, compiler, CLI/gateway/publishing 
 | `DpmKafkaMessageFieldFixture` | `dpm/src/profile/kafka-fixture-types.ts` | nested Kafka message field fixture metadata |
 | `DpmKafkaRelationshipHintFixture` | `dpm/src/profile/kafka-fixture-types.ts` | non-executable Kafka relationship hint fixture metadata |
 | `profileKafkaTopicFixture()` | `dpm/src/profile/kafka.ts` | Kafka topic fixture를 profile artifact + connector result로 변환 |
-| `DPM_PROFILE_ANALYSIS_REPORT_KIND` | `dpm/src/profile/analysis-types.ts` | DPM profile analysis report kind literal |
-| `DPM_PROFILE_RELATIONSHIP_HINT_STATUSES` | `dpm/src/profile/analysis-types.ts` | relationship hint proposal lifecycle taxonomy |
-| `DPM_PROFILE_KEY_CANDIDATE_KINDS` | `dpm/src/profile/analysis-types.ts` | profile key candidate taxonomy |
-| `DPM_PROFILE_RISK_INDICATOR_KINDS` | `dpm/src/profile/analysis-types.ts` | profile analysis risk indicator taxonomy |
-| `DPM_PROFILE_DRIFT_SIGNAL_KINDS` | `dpm/src/profile/analysis-types.ts` | profile drift signal taxonomy |
-| `DpmProfileRelationshipHintStatus` | `dpm/src/profile/analysis-types.ts` | relationship hint proposal status union |
-| `DpmProfileKeyCandidateKind` | `dpm/src/profile/analysis-types.ts` | profile key candidate kind union |
-| `DpmProfileRiskIndicatorKind` | `dpm/src/profile/analysis-types.ts` | profile risk indicator kind union |
-| `DpmProfileDriftSignalKind` | `dpm/src/profile/analysis-types.ts` | profile drift signal kind union |
-| `DpmProfileAnalysisInput` | `dpm/src/profile/analysis-types.ts` | profile analysis request input |
-| `DpmProfileAnalysisCoverage` | `dpm/src/profile/analysis-types.ts` | source/node/metric coverage summary |
-| `DpmProfileRelationshipHintProposal` | `dpm/src/profile/analysis-types.ts` | reviewer-safe non-executable relationship hint proposal |
-| `DpmProfileKeyCandidate` | `dpm/src/profile/analysis-types.ts` | key/join candidate derived from profile evidence |
-| `DpmProfileRiskIndicator` | `dpm/src/profile/analysis-types.ts` | profile risk indicator without raw values |
-| `DpmProfileDriftSignal` | `dpm/src/profile/analysis-types.ts` | current-vs-previous profile drift signal |
-| `DpmProfileAnalysisSummary` | `dpm/src/profile/analysis-types.ts` | profile analysis report count summary |
-| `DpmProfileAnalysisFreshness` | `dpm/src/profile/analysis-types.ts` | analysis report freshness hash metadata |
-| `DpmProfileAnalysisReport` | `dpm/src/profile/analysis-types.ts` | coverage, relationship hints, key candidates, drift, risk, diagnostics report |
+| `DPM_PROFILE_ANALYSIS_REPORT_KIND` | `dpm/src/profile/analysis-report-types.ts` | DPM profile analysis report kind literal |
+| `DPM_PROFILE_RELATIONSHIP_HINT_STATUSES` | `dpm/src/profile/analysis-taxonomy.ts` | relationship hint proposal lifecycle taxonomy |
+| `DPM_PROFILE_KEY_CANDIDATE_KINDS` | `dpm/src/profile/analysis-taxonomy.ts` | profile key candidate taxonomy |
+| `DPM_PROFILE_RISK_INDICATOR_KINDS` | `dpm/src/profile/analysis-taxonomy.ts` | profile analysis risk indicator taxonomy |
+| `DPM_PROFILE_DRIFT_SIGNAL_KINDS` | `dpm/src/profile/analysis-taxonomy.ts` | profile drift signal taxonomy |
+| `DpmProfileRelationshipHintStatus` | `dpm/src/profile/analysis-taxonomy.ts` | relationship hint proposal status union |
+| `DpmProfileKeyCandidateKind` | `dpm/src/profile/analysis-taxonomy.ts` | profile key candidate kind union |
+| `DpmProfileRiskIndicatorKind` | `dpm/src/profile/analysis-taxonomy.ts` | profile risk indicator kind union |
+| `DpmProfileDriftSignalKind` | `dpm/src/profile/analysis-taxonomy.ts` | profile drift signal kind union |
+| `DpmProfileAnalysisInput` | `dpm/src/profile/analysis-input-types.ts` | profile analysis request input |
+| `DpmProfileAnalysisCoverage` | `dpm/src/profile/analysis-signal-types.ts` | source/node/metric coverage summary |
+| `DpmProfileRelationshipHintProposal` | `dpm/src/profile/analysis-signal-types.ts` | reviewer-safe non-executable relationship hint proposal |
+| `DpmProfileKeyCandidate` | `dpm/src/profile/analysis-signal-types.ts` | key/join candidate derived from profile evidence |
+| `DpmProfileRiskIndicator` | `dpm/src/profile/analysis-signal-types.ts` | profile risk indicator without raw values |
+| `DpmProfileDriftSignal` | `dpm/src/profile/analysis-signal-types.ts` | current-vs-previous profile drift signal |
+| `DpmProfileAnalysisSummary` | `dpm/src/profile/analysis-report-types.ts` | profile analysis report count summary |
+| `DpmProfileAnalysisFreshness` | `dpm/src/profile/analysis-report-types.ts` | analysis report freshness hash metadata |
+| `DpmProfileAnalysisReport` | `dpm/src/profile/analysis-report-types.ts` | coverage, relationship hints, key candidates, drift, risk, diagnostics report |
 | `createDpmProfileAnalysisReport()` | `dpm/src/profile/analyze.ts` | profile artifact를 deterministic analysis report로 변환 |
 | `computeDpmProfileAnalysisReportHash()` | `dpm/src/profile/analyze.ts` | profile analysis report hash 계산 |
 | `DISCOVERY_REPORT_KIND` | `dpm/src/discovery/report.ts` | discovery report kind literal |

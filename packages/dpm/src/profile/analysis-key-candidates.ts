@@ -1,4 +1,4 @@
-import type { DpmProfileKeyCandidate } from './analysis-types.js'
+import type { DpmProfileKeyCandidate } from './analysis-signal-types.js'
 import {
   byId,
   evidenceIdsForNode,

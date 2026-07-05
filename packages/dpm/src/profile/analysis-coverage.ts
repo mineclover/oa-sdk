@@ -1,4 +1,4 @@
-import type { DpmProfileAnalysisCoverage } from './analysis-types.js'
+import type { DpmProfileAnalysisCoverage } from './analysis-signal-types.js'
 import {
   countBy,
   roundRatio,

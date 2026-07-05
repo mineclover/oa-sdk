@@ -266,6 +266,10 @@ Status: implemented 2026-07-04.
 
 Artifacts:
 - `packages/dpm/src/profile/analysis-types.ts`
+- `packages/dpm/src/profile/analysis-taxonomy.ts`
+- `packages/dpm/src/profile/analysis-input-types.ts`
+- `packages/dpm/src/profile/analysis-signal-types.ts`
+- `packages/dpm/src/profile/analysis-report-types.ts`
 - `packages/dpm/src/profile/analysis-coverage.ts`
 - `packages/dpm/src/profile/analysis-compute.ts`
 - `packages/dpm/src/profile/analysis-hints.ts`

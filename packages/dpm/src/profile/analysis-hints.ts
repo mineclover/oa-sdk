@@ -1,4 +1,4 @@
-import type { DpmProfileRelationshipHintProposal } from './analysis-types.js'
+import type { DpmProfileRelationshipHintProposal } from './analysis-signal-types.js'
 import {
   byId,
   readStringShape,
