@@ -384,6 +384,10 @@ Artifacts:
 - `packages/dpm/src/validator/relationship-utils.ts`
 - `packages/dpm/src/validator/safety.ts`
 - `packages/dpm/src/validator/safety-column-gates.ts`
+- `packages/dpm/src/validator/safety-column-types.ts`
+- `packages/dpm/src/validator/safety-column-context.ts`
+- `packages/dpm/src/validator/safety-column-identifier-gates.ts`
+- `packages/dpm/src/validator/safety-column-relationship-gates.ts`
 - `packages/dpm/src/validator/safety-manifest-gates.ts`
 - `packages/dpm/src/validator/safety-types.ts`
 - `packages/dpm/src/validator/validation-types.ts`
@@ -403,7 +407,9 @@ Tasks:
   boundaries.
 - Add deterministic SAF diagnostics for direct identifier keep, unsafe foreign identifier,
   namespace mismatch, raw PII leakage, and vault-only operations in non-runtime phases.
-- Keep column-level SAF gates and manifest-level SAF gates as separate implementation boundaries.
+- Keep column-level SAF gate orchestration, context derivation, identifier/PII policy gates,
+  relationship/namespace policy gates, and manifest-level SAF gates as separate implementation
+  boundaries.
 - Keep `packages/dpm/src/validator/diagnostics.ts` as the compatibility barrel while diagnostic
   vocabulary, copy, and summary/sort helpers are owned by focused modules.
 - Include source pointer, severity, code, message, and catalog/registry coordinate where possible.
