@@ -2,8 +2,9 @@ import type {
   OpenApiProjectionResult,
 } from '@oa-sdk/openapi-projection-contract'
 
-import { collectProjectionSchemas, collectProjectionTables } from './projection-tables.js'
 import { toCatalogDiagnostic } from './projection-diagnostics.js'
+import { collectProjectionSchemas } from './projection-schemas.js'
+import { collectProjectionTables } from './projection-tables.js'
 import { normalizeCatalogSnapshot } from './snapshot.js'
 
 export type CatalogSnapshotFromProjectionOptions = {
