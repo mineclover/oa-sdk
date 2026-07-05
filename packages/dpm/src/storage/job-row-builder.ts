@@ -1,8 +1,6 @@
 import type { DpmPlanFreshness } from '../compiler/plan.js'
-import {
-  createDpmDiagnostic,
-  type DpmDiagnostic,
-} from '../validator/diagnostics.js'
+import { createDpmDiagnostic } from '../validator/diagnostic-copy.js'
+import type { DpmDiagnostic } from '../validator/diagnostic-types.js'
 import {
   DPM_JOB_KIND,
   type DpmJobRow,

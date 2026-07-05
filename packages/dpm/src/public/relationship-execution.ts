@@ -6,7 +6,7 @@ export type {
   DpmRegistryCoordinate,
   DpmValidationResult,
   DpmValidationSummary,
-} from '../validator/diagnostics.js'
+} from '../validator/diagnostic-types.js'
 export type {
   DpmValidationInput,
   DpmValidationPhase,
@@ -48,4 +48,4 @@ export {
 export { validateDpmManifest } from '../validator/manifest.js'
 export {
   DPM_DIAGNOSTIC_CODES,
-} from '../validator/diagnostics.js'
+} from '../validator/diagnostic-types.js'

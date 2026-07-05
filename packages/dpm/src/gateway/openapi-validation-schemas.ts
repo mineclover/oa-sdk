@@ -1,4 +1,4 @@
-import { DPM_DIAGNOSTIC_CODES } from '../validator/diagnostics.js'
+import { DPM_DIAGNOSTIC_CODES } from '../validator/diagnostic-types.js'
 import {
   arrayOf,
   informativeObjectSchema,

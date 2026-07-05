@@ -1,9 +1,11 @@
+import type {
+  DpmDiagnostic,
+  DpmValidationResult,
+} from './diagnostic-types.js'
 import {
   sortDpmDiagnostics,
   summarizeDpmDiagnostics,
-  type DpmDiagnostic,
-  type DpmValidationResult,
-} from './diagnostics.js'
+} from './diagnostic-summary.js'
 import { validateManifestSyntax } from './manifest-syntax.js'
 import {
   validateManifestRelationships,

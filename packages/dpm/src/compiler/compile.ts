@@ -1,5 +1,5 @@
 import type { CatalogSnapshot } from '../catalog/types.js'
-import type { DpmValidationResult } from '../validator/diagnostics.js'
+import type { DpmValidationResult } from '../validator/diagnostic-types.js'
 import {
   validateDpmManifest,
   type DpmValidationPhase,

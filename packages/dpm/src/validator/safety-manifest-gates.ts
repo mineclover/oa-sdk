@@ -1,7 +1,5 @@
-import {
-  createDpmDiagnostic,
-  type DpmDiagnostic,
-} from './diagnostics.js'
+import { createDpmDiagnostic } from './diagnostic-copy.js'
+import type { DpmDiagnostic } from './diagnostic-types.js'
 import type { DpmValidationPhase } from './validation-types.js'
 import {
   asArray,

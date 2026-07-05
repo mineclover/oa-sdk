@@ -250,14 +250,14 @@ catalog/registry snapshot, semantic validator, compiler, CLI/gateway/publishing 
 | `LogicalRelationship` | `dpm/src/model/relationship-types.ts` | normalized logical relationship model |
 | `createLogicalRelationship()` | `dpm/src/model/relationship-normalize.ts` | relationship predicate and temporal rule normalization |
 | `renderRelationshipCanonicalKey()` | `dpm/src/model/relationship-canonical-key.ts` | deterministic relationship canonical key rendering |
-| `DpmDiagnosticSeverity` | `dpm/src/validator/diagnostics.ts` | semantic validator severity taxonomy |
-| `DPM_DIAGNOSTIC_CODES` | `dpm/src/validator/diagnostics.ts` | runtime diagnostic code taxonomy used by TypeScript and OpenAPI |
-| `DpmDiagnosticCode` | `dpm/src/validator/diagnostics.ts` | SYN/REL/SAF diagnostic code taxonomy |
-| `DpmCatalogCoordinate` | `dpm/src/validator/diagnostics.ts` | catalog coordinate attached to diagnostics |
-| `DpmRegistryCoordinate` | `dpm/src/validator/diagnostics.ts` | registry coordinate attached to diagnostics |
-| `DpmDiagnostic` | `dpm/src/validator/diagnostics.ts` | deterministic semantic validation diagnostic |
-| `DpmValidationSummary` | `dpm/src/validator/diagnostics.ts` | error, warning, and info counts |
-| `DpmValidationResult` | `dpm/src/validator/diagnostics.ts` | semantic validation result envelope |
+| `DpmDiagnosticSeverity` | `dpm/src/validator/diagnostic-types.ts` | semantic validator severity taxonomy |
+| `DPM_DIAGNOSTIC_CODES` | `dpm/src/validator/diagnostic-types.ts` | runtime diagnostic code taxonomy used by TypeScript and OpenAPI |
+| `DpmDiagnosticCode` | `dpm/src/validator/diagnostic-types.ts` | SYN/REL/SAF diagnostic code taxonomy |
+| `DpmCatalogCoordinate` | `dpm/src/validator/diagnostic-types.ts` | catalog coordinate attached to diagnostics |
+| `DpmRegistryCoordinate` | `dpm/src/validator/diagnostic-types.ts` | registry coordinate attached to diagnostics |
+| `DpmDiagnostic` | `dpm/src/validator/diagnostic-types.ts` | deterministic semantic validation diagnostic |
+| `DpmValidationSummary` | `dpm/src/validator/diagnostic-types.ts` | error, warning, and info counts |
+| `DpmValidationResult` | `dpm/src/validator/diagnostic-types.ts` | semantic validation result envelope |
 | `DpmValidationPhase` | `dpm/src/validator/validation-types.ts` | validate, compile, dry-run, or runtime phase |
 | `DpmValidationInput` | `dpm/src/validator/validation-types.ts` | manifest plus catalog and registry snapshot validator input |
 | `validateDpmManifest()` | `dpm/src/validator/manifest.ts` | SYN syntax plus REL/SAF semantic diagnostics without source DB access |

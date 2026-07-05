@@ -1,6 +1,6 @@
 import type { DpmCompileResult } from '../compiler/compile.js'
 import type { DpmDryRunReport } from '../dry-run/report.js'
-import type { DpmValidationResult } from '../validator/diagnostics.js'
+import type { DpmValidationResult } from '../validator/diagnostic-types.js'
 import type { DpmGatewayRuntimeManifestInput } from './runtime-manifest-types.js'
 import type {
   DpmGatewayProfileAnalysisInput,

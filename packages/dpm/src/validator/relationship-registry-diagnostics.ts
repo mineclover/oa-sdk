@@ -1,10 +1,10 @@
 import type { RegistryRelationship } from '../registry/registry-relationship-types.js'
 import type { RegistrySnapshot } from '../registry/registry-snapshot-types.js'
-import {
-  createDpmDiagnostic,
-  type DpmDiagnostic,
-  type DpmRegistryCoordinate,
-} from './diagnostics.js'
+import { createDpmDiagnostic } from './diagnostic-copy.js'
+import type {
+  DpmDiagnostic,
+  DpmRegistryCoordinate,
+} from './diagnostic-types.js'
 
 export function createRegistryMismatchDiagnostic(input: {
   registry: RegistrySnapshot

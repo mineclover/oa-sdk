@@ -1,5 +1,5 @@
 import type { DpmPlanFreshness } from '../compiler/plan.js'
-import type { DpmDiagnostic } from '../validator/diagnostics.js'
+import type { DpmDiagnostic } from '../validator/diagnostic-types.js'
 
 export const DPM_JOB_KIND = 'dpm.job.v1' as const
 

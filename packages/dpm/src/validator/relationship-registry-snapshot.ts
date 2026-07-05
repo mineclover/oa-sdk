@@ -1,6 +1,6 @@
 import type { RegistryRelationship } from '../registry/registry-relationship-types.js'
 import type { RegistrySnapshot } from '../registry/registry-snapshot-types.js'
-import type { DpmDiagnostic } from './diagnostics.js'
+import type { DpmDiagnostic } from './diagnostic-types.js'
 import { createRegistryMismatchDiagnostic } from './relationship-registry-diagnostics.js'
 import type {
   ManifestRelationship,

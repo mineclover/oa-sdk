@@ -1,6 +1,6 @@
 import type { DpmPlanFreshness } from '../compiler/plan.js'
 import type { DpmDryRunCategory, DpmDryRunImpact } from '../dry-run/report.js'
-import type { DpmDiagnostic } from '../validator/diagnostics.js'
+import type { DpmDiagnostic } from '../validator/diagnostic-types.js'
 
 export const DPM_VALIDATION_REPORT_KIND = 'dpm.validation-report.v1' as const
 

@@ -1,6 +1,4 @@
-import {
-  type DpmDiagnostic,
-} from './diagnostics.js'
+import type { DpmDiagnostic } from './diagnostic-types.js'
 import {
   createRelationshipCatalogGateContext,
   validateRelationshipCatalogGates,

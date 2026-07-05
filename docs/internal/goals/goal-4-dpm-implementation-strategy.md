@@ -309,6 +309,9 @@ Goal id: `DPM-06` and `DPM-07`
 
 Artifacts:
 - `packages/dpm/src/validator/diagnostics.ts`
+- `packages/dpm/src/validator/diagnostic-types.ts`
+- `packages/dpm/src/validator/diagnostic-copy.ts`
+- `packages/dpm/src/validator/diagnostic-summary.ts`
 - `packages/dpm/src/validator/manifest.ts`
 - `packages/dpm/src/validator/manifest-syntax.ts`
 - `packages/dpm/src/validator/relationships.ts`
@@ -341,6 +344,8 @@ Tasks:
 - Add deterministic SAF diagnostics for direct identifier keep, unsafe foreign identifier,
   namespace mismatch, raw PII leakage, and vault-only operations in non-runtime phases.
 - Keep column-level SAF gates and manifest-level SAF gates as separate implementation boundaries.
+- Keep `packages/dpm/src/validator/diagnostics.ts` as the compatibility barrel while diagnostic
+  vocabulary, copy, and summary/sort helpers are owned by focused modules.
 - Include source pointer, severity, code, message, and catalog/registry coordinate where possible.
 
 Exit criteria:

@@ -1,8 +1,6 @@
 import type { CatalogSnapshot } from '../catalog/types.js'
-import {
-  createDpmDiagnostic,
-  type DpmDiagnostic,
-} from './diagnostics.js'
+import { createDpmDiagnostic } from './diagnostic-copy.js'
+import type { DpmDiagnostic } from './diagnostic-types.js'
 import {
   createRelationshipCatalogGateContext,
   type RelationshipCatalogGateContext,

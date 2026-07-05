@@ -1,8 +1,6 @@
 import type { RegistrySnapshot } from '../registry/registry-snapshot-types.js'
-import {
-  createDpmDiagnostic,
-  type DpmDiagnostic,
-} from './diagnostics.js'
+import { createDpmDiagnostic } from './diagnostic-copy.js'
+import type { DpmDiagnostic } from './diagnostic-types.js'
 import {
   createRegistryCoordinate,
 } from './relationship-registry-diagnostics.js'

@@ -1,4 +1,4 @@
-import type { DpmDiagnostic } from './diagnostics.js'
+import type { DpmDiagnostic } from './diagnostic-types.js'
 import { validateSafetyColumnGates } from './safety-column-gates.js'
 import { validateSafetyManifestGates } from './safety-manifest-gates.js'
 import type { DpmSafetyValidationInput } from './safety-types.js'
