@@ -410,6 +410,10 @@ Artifacts:
 - `packages/dpm/src/gateway/openapi-common-schemas.ts`
 - `packages/dpm/src/gateway/openapi-catalog-schemas.ts`
 - `packages/dpm/src/gateway/openapi-relationship-schemas.ts`
+- `packages/dpm/src/gateway/openapi-relationship-discovery-schemas.ts`
+- `packages/dpm/src/gateway/openapi-relationship-candidate-import-schemas.ts`
+- `packages/dpm/src/gateway/openapi-relationship-approval-schemas.ts`
+- `packages/dpm/src/gateway/openapi-relationship-registry-schemas.ts`
 - `packages/dpm/src/gateway/openapi-manifest-schemas.ts`
 - `packages/dpm/src/gateway/openapi-job-schemas.ts`
 - `packages/dpm/src/gateway/openapi-execution-schemas.ts`
