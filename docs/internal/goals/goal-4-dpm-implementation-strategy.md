@@ -385,6 +385,9 @@ Artifacts:
 - `packages/dpm/src/gateway/openapi.ts`
 - `packages/dpm/src/gateway/openapi-core-schemas.ts`
 - `packages/dpm/src/gateway/openapi-execution-schemas.ts`
+- `packages/dpm/src/gateway/openapi-execution-plan-schemas.ts`
+- `packages/dpm/src/gateway/openapi-execution-dry-run-schemas.ts`
+- `packages/dpm/src/gateway/openapi-validation-schemas.ts`
 - `packages/dpm/src/gateway/profile-openapi.ts`
 - `packages/dpm/src/gateway/profile-openapi-artifact-schemas.ts`
 - `packages/dpm/src/gateway/profile-openapi-analysis-schemas.ts`
@@ -399,6 +402,8 @@ Tasks:
 - Model catalog profiling, relationship discovery, candidate import, approval, snapshot export,
   manifest validate, compile, dry-run, execute job, and report operations.
 - Keep manifest policy JSON Schema as the manifest source of truth.
+- Keep compiled plan, dry-run result, and validation diagnostic component schemas as separate
+  implementation boundaries.
 - Ensure AI consumer operations never expose source DB credentials, vault keys, or token reverse lookup.
 
 Exit criteria:
