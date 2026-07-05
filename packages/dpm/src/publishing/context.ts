@@ -4,18 +4,24 @@ import { toDpmRelationshipMetadata } from './relationship-metadata.js'
 import type {
   DpmPublishingContext,
   DpmPublishingContextInput,
-} from './types.js'
+} from './context-types.js'
 
 export const DPM_PUBLISHING_CONTEXT_KIND = 'dpm.publishing-context.v1' as const
 
 export type {
   DpmAiRelationshipContext,
   DpmAiSchemaContext,
-  DpmPhysicalForeignKeyRecommendation,
+} from './ai-schema-types.js'
+export type {
   DpmPublishingContext,
   DpmPublishingContextInput,
+} from './context-types.js'
+export type {
+  DpmPhysicalForeignKeyRecommendation,
+} from './physical-fk-types.js'
+export type {
   DpmRelationshipMetadata,
-} from './types.js'
+} from './relationship-types.js'
 
 export function createDpmPublishingContext(input: DpmPublishingContextInput): DpmPublishingContext {
   const relationshipMetadata = input.plan.relationshipSteps.map(toDpmRelationshipMetadata)

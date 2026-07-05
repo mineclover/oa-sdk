@@ -1,8 +1,8 @@
 import type {
   DpmAiRelationshipContext,
   DpmAiSchemaContext,
-  DpmRelationshipMetadata,
-} from './types.js'
+} from './ai-schema-types.js'
+import type { DpmRelationshipMetadata } from './relationship-types.js'
 
 export type DpmAiSchemaContextInput = {
   datasetId: string

@@ -607,6 +607,10 @@ Goal id: `DPM-10`
 Artifacts:
 - `packages/dpm/src/publishing/context.ts`
 - `packages/dpm/src/publishing/types.ts`
+- `packages/dpm/src/publishing/context-types.ts`
+- `packages/dpm/src/publishing/relationship-types.ts`
+- `packages/dpm/src/publishing/ai-schema-types.ts`
+- `packages/dpm/src/publishing/physical-fk-types.ts`
 - `packages/dpm/src/publishing/relationship-metadata.ts`
 - `packages/dpm/src/publishing/ai-schema-context.ts`
 - `packages/dpm/src/publishing/physical-fk.ts`
@@ -617,8 +621,9 @@ Tasks:
 - Include join predicates, cardinality, namespace, descriptions, examples where enabled, and
   readonly grant hints.
 - Keep physical FK creation as a separate optional output, never a default mutation.
-- Keep relationship metadata, AI schema context, and physical FK recommendation mapping as
-  separate implementation boundaries.
+- Keep `packages/dpm/src/publishing/types.ts` as the compatibility barrel while publishing context,
+  relationship metadata, AI schema context, and physical FK recommendation vocabulary and mapping
+  remain separate implementation boundaries.
 
 Exit criteria:
 - AI context is generated only from validated relationships.

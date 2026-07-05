@@ -1,5 +1,5 @@
 import type { DpmRelationshipStep } from '../compiler/plan.js'
-import type { DpmRelationshipMetadata } from './types.js'
+import type { DpmRelationshipMetadata } from './relationship-types.js'
 
 export function toDpmRelationshipMetadata(step: DpmRelationshipStep): DpmRelationshipMetadata {
   return {
