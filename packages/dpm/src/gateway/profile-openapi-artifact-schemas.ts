@@ -1,106 +1,13 @@
-import {
-  DPM_PROFILE_ARTIFACT_KIND,
-  DPM_PROFILE_CAPTURE_MODES,
-  DPM_PROFILE_EDGE_KINDS,
-  DPM_PROFILE_METRIC_KINDS,
-  DPM_PROFILE_NODE_KINDS,
-  DPM_PROFILE_SOURCE_KINDS,
-} from '../profile/types.js'
-import {
-  arrayOf,
-  integerSchema,
-  numberSchema,
-  ratioSchema,
-  recordOf,
-  ref,
-  requiredObjectSchema,
-  stringSchema,
-} from './openapi-schema.js'
+import { createDpmProfileArtifactEnvelopeGatewaySchemas } from './profile-openapi-artifact-envelope-schemas.js'
+import { createDpmProfileGraphGatewaySchemas } from './profile-openapi-graph-schemas.js'
+import { createDpmProfileInspectionGatewaySchemas } from './profile-openapi-inspection-schemas.js'
+import { createDpmProfileSourceGatewaySchemas } from './profile-openapi-source-schemas.js'
 
 export function createDpmProfileArtifactGatewaySchemas() {
   return {
-    DpmProfileCoordinate: requiredObjectSchema({
-      kind: { type: 'string', enum: [...DPM_PROFILE_SOURCE_KINDS] },
-      path: stringSchema(),
-      sourceId: stringSchema(),
-      pointer: stringSchema(),
-      externalId: stringSchema(),
-    }, ['kind', 'path']),
-    DpmProfileSourceDescriptor: requiredObjectSchema({
-      id: stringSchema(),
-      kind: { type: 'string', enum: [...DPM_PROFILE_SOURCE_KINDS] },
-      connectorId: stringSchema(),
-      connectorVersion: stringSchema(),
-      refs: arrayOf(stringSchema()),
-      captureMode: { type: 'string', enum: [...DPM_PROFILE_CAPTURE_MODES] },
-      capturedAt: stringSchema(),
-      sourceVersionHash: stringSchema(),
-    }, ['id', 'kind', 'connectorId', 'connectorVersion', 'refs', 'captureMode']),
-    DpmProfileEvidenceSource: requiredObjectSchema({
-      coordinate: ref('DpmProfileCoordinate'),
-      connectorId: stringSchema(),
-      capturedAt: stringSchema(),
-      description: stringSchema(),
-    }, ['coordinate']),
-    DpmProfileNode: requiredObjectSchema({
-      id: stringSchema(),
-      kind: { type: 'string', enum: [...DPM_PROFILE_NODE_KINDS] },
-      label: stringSchema(),
-      coordinate: ref('DpmProfileCoordinate'),
-      dataType: stringSchema(),
-      shape: recordOf({ oneOf: [stringSchema(), numberSchema(), { type: 'boolean' }, { type: 'null' }] }),
-    }, ['id', 'kind', 'label', 'coordinate']),
-    DpmProfileEdge: requiredObjectSchema({
-      id: stringSchema(),
-      kind: { type: 'string', enum: [...DPM_PROFILE_EDGE_KINDS] },
-      fromNodeId: stringSchema(),
-      toNodeId: stringSchema(),
-      evidenceIds: arrayOf(stringSchema()),
-      confidence: ratioSchema(),
-    }, ['id', 'kind', 'fromNodeId', 'toNodeId', 'evidenceIds']),
-    DpmProfileMetric: requiredObjectSchema({
-      id: stringSchema(),
-      kind: { type: 'string', enum: [...DPM_PROFILE_METRIC_KINDS] },
-      subjectId: stringSchema(),
-      value: { oneOf: [numberSchema(), stringSchema()] },
-      unit: stringSchema(),
-      evidenceIds: arrayOf(stringSchema()),
-    }, ['id', 'kind', 'subjectId', 'value', 'evidenceIds']),
-    DpmProfileDiagnostic: requiredObjectSchema({
-      severity: { type: 'string', enum: ['error', 'warning', 'info'] },
-      code: { type: 'string', pattern: '^(PROF|CONN)[0-9]{3}$' },
-      message: stringSchema(),
-      connectorId: stringSchema(),
-      coordinate: ref('DpmProfileCoordinate'),
-      evidenceIds: arrayOf(stringSchema()),
-    }, ['severity', 'code', 'message']),
-    DpmProfileFreshness: requiredObjectSchema({
-      versionHash: stringSchema(),
-      sourceVersionHashes: recordOf(stringSchema()),
-    }, ['versionHash']),
-    DpmProfileArtifact: requiredObjectSchema({
-      kind: { type: 'string', const: DPM_PROFILE_ARTIFACT_KIND },
-      profileId: stringSchema(),
-      datasetId: stringSchema(),
-      profileVersion: stringSchema(),
-      createdAt: stringSchema(),
-      sources: arrayOf(ref('DpmProfileSourceDescriptor')),
-      evidenceSources: recordOf(ref('DpmProfileEvidenceSource')),
-      nodes: arrayOf(ref('DpmProfileNode')),
-      edges: arrayOf(ref('DpmProfileEdge')),
-      metrics: arrayOf(ref('DpmProfileMetric')),
-      diagnostics: arrayOf(ref('DpmProfileDiagnostic')),
-      freshness: ref('DpmProfileFreshness'),
-    }),
-    DpmProfileInspectionRequest: requiredObjectSchema({
-      profileArtifact: ref('DpmProfileArtifact'),
-    }),
-    DpmProfileInspectionResponse: requiredObjectSchema({
-      profileArtifact: ref('DpmProfileArtifact'),
-      nodeCount: integerSchema(),
-      edgeCount: integerSchema(),
-      metricCount: integerSchema(),
-      diagnostics: arrayOf(ref('DpmProfileDiagnostic')),
-    }),
+    ...createDpmProfileSourceGatewaySchemas(),
+    ...createDpmProfileGraphGatewaySchemas(),
+    ...createDpmProfileArtifactEnvelopeGatewaySchemas(),
+    ...createDpmProfileInspectionGatewaySchemas(),
   } as const
 }

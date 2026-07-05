@@ -418,7 +418,13 @@ Artifacts:
 - `packages/dpm/src/gateway/openapi-validation-schemas.ts`
 - `packages/dpm/src/gateway/profile-openapi.ts`
 - `packages/dpm/src/gateway/profile-openapi-artifact-schemas.ts`
+- `packages/dpm/src/gateway/profile-openapi-source-schemas.ts`
+- `packages/dpm/src/gateway/profile-openapi-graph-schemas.ts`
+- `packages/dpm/src/gateway/profile-openapi-artifact-envelope-schemas.ts`
+- `packages/dpm/src/gateway/profile-openapi-inspection-schemas.ts`
 - `packages/dpm/src/gateway/profile-openapi-analysis-schemas.ts`
+- `packages/dpm/src/gateway/profile-openapi-analysis-report-schemas.ts`
+- `packages/dpm/src/gateway/profile-openapi-analysis-signal-schemas.ts`
 - `packages/dpm/src/gateway/openapi-operation.ts`
 - `packages/dpm/src/gateway/openapi-operation-ids.ts`
 - `packages/dpm/src/gateway/openapi-paths.ts`
