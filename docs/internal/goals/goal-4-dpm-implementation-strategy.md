@@ -346,7 +346,11 @@ Verification:
 Goal id: `DPM-08A`
 
 Artifacts:
+- `packages/dpm/src/cli/args.ts`
 - `packages/dpm/src/cli/index.ts`
+- `packages/dpm/src/cli/inputs.ts`
+- `packages/dpm/src/cli/result.ts`
+- `packages/dpm/src/cli/types.ts`
 - `packages/dpm/test/cli.test.ts`
 
 Tasks:
