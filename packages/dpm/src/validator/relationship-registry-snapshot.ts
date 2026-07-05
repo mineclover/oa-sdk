@@ -1,12 +1,11 @@
 import type { RegistryRelationship } from '../registry/registry-relationship-types.js'
 import type { RegistrySnapshot } from '../registry/registry-snapshot-types.js'
 import type { DpmDiagnostic } from './diagnostic-types.js'
-import { createRegistryMismatchDiagnostic } from './relationship-registry-diagnostics.js'
-import type {
-  ManifestRelationship,
-  ManifestRelationshipEndpoint,
-} from './relationship-types.js'
-import { sameColumns, toStringArray } from './relationship-utils.js'
+import type { ManifestRelationship } from './relationship-types.js'
+import {
+  addRegistryEndpointMismatch,
+  addRegistryScalarMismatch,
+} from './relationship-registry-snapshot-mismatch.js'
 
 export function validateApprovedRegistrySnapshot(input: {
   registry: RegistrySnapshot
@@ -18,7 +17,7 @@ export function validateApprovedRegistrySnapshot(input: {
   const relationship = input.relationship
   const approved = input.approved
 
-  addScalarMismatch({
+  addRegistryScalarMismatch({
     diagnostics,
     registry: input.registry,
     approved,
@@ -28,7 +27,7 @@ export function validateApprovedRegistrySnapshot(input: {
     label: 'type',
     sourcePointer: `${input.pointer}/type`,
   })
-  addEndpointMismatch({
+  addRegistryEndpointMismatch({
     diagnostics,
     registry: input.registry,
     approved,
@@ -38,7 +37,7 @@ export function validateApprovedRegistrySnapshot(input: {
     label: 'parent',
     sourcePointer: `${input.pointer}/parent`,
   })
-  addEndpointMismatch({
+  addRegistryEndpointMismatch({
     diagnostics,
     registry: input.registry,
     approved,
@@ -48,7 +47,7 @@ export function validateApprovedRegistrySnapshot(input: {
     label: 'child',
     sourcePointer: `${input.pointer}/child`,
   })
-  addScalarMismatch({
+  addRegistryScalarMismatch({
     diagnostics,
     registry: input.registry,
     approved,
@@ -58,7 +57,7 @@ export function validateApprovedRegistrySnapshot(input: {
     label: 'namespace',
     sourcePointer: `${input.pointer}/namespace`,
   })
-  addScalarMismatch({
+  addRegistryScalarMismatch({
     diagnostics,
     registry: input.registry,
     approved,
@@ -68,7 +67,7 @@ export function validateApprovedRegistrySnapshot(input: {
     label: 'transform_strategy',
     sourcePointer: `${input.pointer}/transform_strategy`,
   })
-  addScalarMismatch({
+  addRegistryScalarMismatch({
     diagnostics,
     registry: input.registry,
     approved,
@@ -80,34 +79,4 @@ export function validateApprovedRegistrySnapshot(input: {
   })
 
   return diagnostics
-}
-
-function addScalarMismatch(input: {
-  diagnostics: DpmDiagnostic[]
-  registry: RegistrySnapshot
-  approved: RegistryRelationship
-  relationshipName: string
-  actual: string | undefined
-  expected: string
-  label: string
-  sourcePointer: string
-}): void {
-  if (input.actual === input.expected) return
-  input.diagnostics.push(createRegistryMismatchDiagnostic(input))
-}
-
-function addEndpointMismatch(input: {
-  diagnostics: DpmDiagnostic[]
-  registry: RegistrySnapshot
-  approved: RegistryRelationship
-  relationshipName: string
-  actual: ManifestRelationshipEndpoint | undefined
-  expected: RegistryRelationship['parent']
-  label: string
-  sourcePointer: string
-}): void {
-  const actualTable = input.actual?.table
-  const actualColumns = toStringArray(input.actual?.columns)
-  if (actualTable === input.expected.table && sameColumns(actualColumns, input.expected.columns)) return
-  input.diagnostics.push(createRegistryMismatchDiagnostic(input))
 }

@@ -322,6 +322,7 @@ Artifacts:
 - `packages/dpm/src/validator/relationship-catalog-key-gates.ts`
 - `packages/dpm/src/validator/relationship-registry.ts`
 - `packages/dpm/src/validator/relationship-registry-diagnostics.ts`
+- `packages/dpm/src/validator/relationship-registry-snapshot-mismatch.ts`
 - `packages/dpm/src/validator/relationship-registry-snapshot.ts`
 - `packages/dpm/src/validator/relationship-shape-gates.ts`
 - `packages/dpm/src/validator/relationship-types.ts`
@@ -341,6 +342,8 @@ Tasks:
   catalog-mismatched relationships.
 - Keep catalog relationship context, table scope gates, column compatibility gates, and parent
   key uniqueness gates as separate implementation boundaries.
+- Keep approved registry snapshot mismatch orchestration, scalar/endpoint comparison helpers,
+  and `REL013` diagnostic assembly as separate implementation boundaries.
 - Add deterministic SAF diagnostics for direct identifier keep, unsafe foreign identifier,
   namespace mismatch, raw PII leakage, and vault-only operations in non-runtime phases.
 - Keep column-level SAF gates and manifest-level SAF gates as separate implementation boundaries.
