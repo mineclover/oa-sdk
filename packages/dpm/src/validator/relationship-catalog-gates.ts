@@ -3,23 +3,20 @@ import {
   createDpmDiagnostic,
   type DpmDiagnostic,
 } from './diagnostics.js'
+import {
+  createRelationshipCatalogGateContext,
+  type RelationshipCatalogGateContext,
+} from './relationship-catalog-context.js'
+import { validateRelationshipCatalogColumnCompatibility } from './relationship-catalog-column-gates.js'
+import { validateRelationshipParentKeyGate } from './relationship-catalog-key-gates.js'
+import { validateRelationshipCatalogTableGates } from './relationship-catalog-table-gates.js'
 import type { ManifestRelationship } from './relationship-types.js'
-import { sameColumns, toStringArray } from './relationship-utils.js'
+import { toStringArray } from './relationship-utils.js'
 
-export type RelationshipCatalogGateContext = {
-  scopeTables: ReadonlySet<string>
-  catalogTables: ReadonlySet<string>
-}
-
-export function createRelationshipCatalogGateContext(input: {
-  catalog: CatalogSnapshot
-  scopeTables: readonly string[]
-}): RelationshipCatalogGateContext {
-  return {
-    scopeTables: new Set(input.scopeTables),
-    catalogTables: new Set(input.catalog.tables.map(table => table.table)),
-  }
-}
+export {
+  createRelationshipCatalogGateContext,
+  type RelationshipCatalogGateContext,
+} from './relationship-catalog-context.js'
 
 export function validateRelationshipCatalogGates(input: {
   catalog: CatalogSnapshot
@@ -35,35 +32,15 @@ export function validateRelationshipCatalogGates(input: {
   const childTable = child?.table
   const parentColumns = toStringArray(parent?.columns)
   const childColumns = toStringArray(child?.columns)
-  const parentTableUsable = Boolean(
-    parentTable &&
-    input.context.scopeTables.has(parentTable) &&
-    input.context.catalogTables.has(parentTable),
-  )
-  const childTableUsable = Boolean(
-    childTable &&
-    input.context.scopeTables.has(childTable) &&
-    input.context.catalogTables.has(childTable),
-  )
+  const tableGates = validateRelationshipCatalogTableGates({
+    context: input.context,
+    relationshipName: name,
+    pointer: input.pointer,
+    ...(parentTable ? { parentTable } : {}),
+    ...(childTable ? { childTable } : {}),
+  })
 
-  if (!parentTable || !input.context.scopeTables.has(parentTable) || !input.context.catalogTables.has(parentTable)) {
-    diagnostics.push(createDpmDiagnostic({
-      severity: 'error',
-      code: 'REL001',
-      message: `Relationship ${name} parent table must be in manifest scope and catalog snapshot.`,
-      sourcePointer: `${input.pointer}/parent/table`,
-      catalogCoordinate: { table: parentTable ?? '' },
-    }))
-  }
-  if (!childTable || !input.context.scopeTables.has(childTable) || !input.context.catalogTables.has(childTable)) {
-    diagnostics.push(createDpmDiagnostic({
-      severity: 'error',
-      code: 'REL002',
-      message: `Relationship ${name} child table must be in manifest scope and catalog snapshot.`,
-      sourcePointer: `${input.pointer}/child/table`,
-      catalogCoordinate: { table: childTable ?? '' },
-    }))
-  }
+  diagnostics.push(...tableGates.diagnostics)
   if (parentColumns.length !== childColumns.length) {
     diagnostics.push(createDpmDiagnostic({
       severity: 'error',
@@ -75,8 +52,8 @@ export function validateRelationshipCatalogGates(input: {
         columns: childColumns,
       },
     }))
-  } else if (parentTableUsable && childTableUsable) {
-    validateColumnCompatibility({
+  } else if (tableGates.parentTableUsable && tableGates.childTableUsable) {
+    diagnostics.push(...validateRelationshipCatalogColumnCompatibility({
       catalog: input.catalog,
       relationshipName: name,
       pointer: input.pointer,
@@ -84,60 +61,18 @@ export function validateRelationshipCatalogGates(input: {
       childTable: childTable ?? '',
       parentColumns,
       childColumns,
-      diagnostics,
-    })
+    }))
   }
 
-  if (parentTableUsable && parentTable && parentColumns.length > 0 && !hasUniqueParentKey(input.catalog, parentTable, parentColumns)) {
-    diagnostics.push(createDpmDiagnostic({
-      severity: 'error',
-      code: 'REL005',
-      message: `Relationship ${name} parent key must be a primary key, unique index, or unique candidate.`,
-      sourcePointer: `${input.pointer}/parent/columns`,
-      catalogCoordinate: {
-        table: parentTable,
-        columns: parentColumns,
-      },
+  if (tableGates.parentTableUsable && parentTable) {
+    diagnostics.push(...validateRelationshipParentKeyGate({
+      catalog: input.catalog,
+      relationshipName: name,
+      pointer: input.pointer,
+      parentTable,
+      parentColumns,
     }))
   }
 
   return diagnostics
-}
-
-function validateColumnCompatibility(input: {
-  catalog: CatalogSnapshot
-  relationshipName: string
-  pointer: string
-  parentTable: string
-  childTable: string
-  parentColumns: string[]
-  childColumns: string[]
-  diagnostics: DpmDiagnostic[]
-}): void {
-  input.parentColumns.forEach((parentColumn, index) => {
-    const childColumn = input.childColumns[index]
-    if (!childColumn) return
-    const parent = input.catalog.columns.find(column => column.table === input.parentTable && column.name === parentColumn)
-    const child = input.catalog.columns.find(column => column.table === input.childTable && column.name === childColumn)
-    if (!parent || !child || parent.dataType !== child.dataType) {
-      input.diagnostics.push(createDpmDiagnostic({
-        severity: 'error',
-        code: 'REL004',
-        message: `Relationship ${input.relationshipName} columns must exist and be type-compatible.`,
-        sourcePointer: `${input.pointer}/parent/columns/${index}`,
-        catalogCoordinate: {
-          table: input.parentTable,
-          column: parentColumn,
-        },
-      }))
-    }
-  })
-}
-
-function hasUniqueParentKey(catalog: CatalogSnapshot, table: string, columns: readonly string[]): boolean {
-  return (
-    catalog.primaryKeys.some(candidate => candidate.table === table && sameColumns(candidate.columns, columns)) ||
-    catalog.indexes.some(candidate => candidate.table === table && candidate.unique && sameColumns(candidate.columns, columns)) ||
-    catalog.uniqueCandidates.some(candidate => candidate.table === table && sameColumns(candidate.columns, columns))
-  )
 }

@@ -288,6 +288,10 @@ Artifacts:
 - `packages/dpm/src/validator/manifest-syntax.ts`
 - `packages/dpm/src/validator/relationships.ts`
 - `packages/dpm/src/validator/relationship-catalog-gates.ts`
+- `packages/dpm/src/validator/relationship-catalog-context.ts`
+- `packages/dpm/src/validator/relationship-catalog-table-gates.ts`
+- `packages/dpm/src/validator/relationship-catalog-column-gates.ts`
+- `packages/dpm/src/validator/relationship-catalog-key-gates.ts`
 - `packages/dpm/src/validator/relationship-registry.ts`
 - `packages/dpm/src/validator/relationship-registry-diagnostics.ts`
 - `packages/dpm/src/validator/relationship-registry-snapshot.ts`
@@ -304,6 +308,8 @@ Artifacts:
 Tasks:
 - Add deterministic REL diagnostics for missing, stale, non-approved, ambiguous, and
   catalog-mismatched relationships.
+- Keep catalog relationship context, table scope gates, column compatibility gates, and parent
+  key uniqueness gates as separate implementation boundaries.
 - Add deterministic SAF diagnostics for direct identifier keep, unsafe foreign identifier,
   namespace mismatch, raw PII leakage, and vault-only operations in non-runtime phases.
 - Include source pointer, severity, code, message, and catalog/registry coordinate where possible.
