@@ -191,6 +191,9 @@ Verification:
 Goal id: `DPM-03`
 
 Artifacts:
+- `packages/dpm/src/discovery/candidate.ts`
+- `packages/dpm/src/discovery/classification.ts`
+- `packages/dpm/src/discovery/copy.ts`
 - `packages/dpm/src/discovery/types.ts`
 - `packages/dpm/src/discovery/report.ts`
 - `packages/dpm/test/fixtures/discovery/*.json`
