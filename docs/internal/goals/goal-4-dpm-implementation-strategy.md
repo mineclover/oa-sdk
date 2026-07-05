@@ -281,6 +281,11 @@ Goal id: `DPM-04`
 Artifacts:
 - `packages/dpm/src/registry/types.ts`
 - `packages/dpm/src/registry/registry-taxonomy.ts`
+- `packages/dpm/src/registry/registry-approval-types.ts`
+- `packages/dpm/src/registry/registry-condition-types.ts`
+- `packages/dpm/src/registry/registry-endpoint-types.ts`
+- `packages/dpm/src/registry/registry-evidence-types.ts`
+- `packages/dpm/src/registry/registry-relationship-record-types.ts`
 - `packages/dpm/src/registry/registry-relationship-types.ts`
 - `packages/dpm/src/registry/registry-snapshot-types.ts`
 - `packages/dpm/src/registry/snapshot.ts`
@@ -309,8 +314,10 @@ Tasks:
 - Keep YAML parsing, relationship row mapping orchestration, endpoint section coercion,
   metadata coercion, status validation, and scalar/object guards as separate implementation
   boundaries.
-- Keep `packages/dpm/src/registry/types.ts` as the compatibility barrel while taxonomy,
-  relationship vocabulary, and snapshot envelope types are owned by focused modules.
+- Keep `packages/dpm/src/registry/types.ts` and
+  `packages/dpm/src/registry/registry-relationship-types.ts` as compatibility barrels while
+  taxonomy, endpoint, condition, evidence, approval, relationship record, and snapshot envelope
+  types are owned by focused modules.
 - Reserve Postgres schema design for the ADR or a later storage unit.
 
 Exit criteria:
