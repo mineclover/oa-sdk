@@ -309,6 +309,8 @@ Artifacts:
 - `packages/dpm/src/model/entity.ts`
 - `packages/dpm/src/model/entity-types.ts`
 - `packages/dpm/src/model/entity-normalize.ts`
+- `packages/dpm/src/model/entity-key-strategy.ts`
+- `packages/dpm/src/model/entity-transform.ts`
 - `packages/dpm/src/model/entity-canonical-key.ts`
 - `packages/dpm/src/model/relationship.ts`
 - `packages/dpm/src/model/relationship-types.ts`
@@ -327,6 +329,8 @@ Tasks:
   implementation boundaries.
 - Keep relationship condition, temporal input, and canonical key strategy normalization as separate
   implementation boundaries.
+- Keep entity root key strategy normalization and transform copy as separate implementation
+  boundaries.
 - Add canonical key tests for single key, composite key, tenant-scoped key, and polymorphic key.
 
 Exit criteria:
