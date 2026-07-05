@@ -208,7 +208,10 @@ Artifacts:
 - `packages/dpm/src/profile/kafka.ts`
 - `packages/dpm/src/profile/kafka-topic-profile.ts`
 - `packages/dpm/src/profile/kafka-topic-sections.ts`
+- `packages/dpm/src/profile/kafka-profile-evidence.ts`
+- `packages/dpm/src/profile/kafka-profile-fields.ts`
 - `packages/dpm/src/profile/kafka-profile-graph.ts`
+- `packages/dpm/src/profile/kafka-profile-hints.ts`
 - `packages/dpm/test/profile-kafka.test.ts`
 - fixture directory under `packages/dpm/test/fixtures/profile/`
 
@@ -232,7 +235,8 @@ Implementation notes:
 - `profileKafkaTopicFixture()` maps fixture-only Kafka topic evidence into the DPM profile artifact
   and connector result contracts without accepting a live Kafka client.
 - `kafka-topic-sections.ts` emits partition, key, header, schema subject, and topic metric entries;
-  `kafka-profile-graph.ts` emits nested value field and relationship hint graph entries.
+  `kafka-profile-fields.ts` emits nested value field graph entries, while `kafka-profile-hints.ts`
+  emits relationship hint graph entries through shared evidence helpers.
 - Relationship hints are represented as `relationship_hint` nodes and `candidate_relationship`
   edges; they do not create approved registry relationships or alter the existing compiler path.
 
