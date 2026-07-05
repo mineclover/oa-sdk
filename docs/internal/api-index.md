@@ -185,18 +185,18 @@ catalog/registry snapshot, semantic validator, compiler, CLI/gateway/publishing 
 | `createDpmProfileAnalysisReport()` | `dpm/src/profile/analyze.ts` | profile artifact를 deterministic analysis report로 변환 |
 | `computeDpmProfileAnalysisReportHash()` | `dpm/src/profile/analyze.ts` | profile analysis report hash 계산 |
 | `DISCOVERY_REPORT_KIND` | `dpm/src/discovery/report.ts` | discovery report kind literal |
-| `DiscoveryEvidenceKind` | `dpm/src/discovery/types.ts` | candidate evidence source taxonomy |
-| `DiscoveryEvidence` | `dpm/src/discovery/types.ts` | reviewable relationship candidate evidence entry |
-| `DiscoveryThresholds` | `dpm/src/discovery/types.ts` | confidence/reject/orphan threshold contract |
-| `DiscoveryConfidenceLevel` | `dpm/src/discovery/types.ts` | high/review/low confidence classification |
-| `DISCOVERY_CANDIDATE_RECOMMENDATIONS` | `dpm/src/discovery/types.ts` | runtime relationship candidate recommendation taxonomy used by TypeScript and OpenAPI |
-| `DISCOVERY_CONFIDENCE_LEVELS` | `dpm/src/discovery/types.ts` | runtime relationship candidate confidence taxonomy |
-| `DiscoveryCandidateRecommendation` | `dpm/src/discovery/types.ts` | review/reject recommendation contract |
-| `RelationshipCandidateInput` | `dpm/src/discovery/types.ts` | candidate report authoring input |
-| `RelationshipCandidate` | `dpm/src/discovery/types.ts` | normalized non-executable relationship candidate |
-| `ExcludedRelationshipCandidate` | `dpm/src/discovery/types.ts` | excluded candidate reason entry |
-| `RelationshipDiscoveryReportInput` | `dpm/src/discovery/types.ts` | discovery report creation input |
-| `RelationshipDiscoveryReport` | `dpm/src/discovery/types.ts` | reviewable discovery report output |
+| `DiscoveryEvidenceKind` | `dpm/src/discovery/discovery-taxonomy.ts` | candidate evidence source taxonomy |
+| `DiscoveryEvidence` | `dpm/src/discovery/discovery-candidate-types.ts` | reviewable relationship candidate evidence entry |
+| `DiscoveryThresholds` | `dpm/src/discovery/discovery-candidate-types.ts` | confidence/reject/orphan threshold contract |
+| `DiscoveryConfidenceLevel` | `dpm/src/discovery/discovery-taxonomy.ts` | high/review/low confidence classification |
+| `DISCOVERY_CANDIDATE_RECOMMENDATIONS` | `dpm/src/discovery/discovery-taxonomy.ts` | runtime relationship candidate recommendation taxonomy used by TypeScript and OpenAPI |
+| `DISCOVERY_CONFIDENCE_LEVELS` | `dpm/src/discovery/discovery-taxonomy.ts` | runtime relationship candidate confidence taxonomy |
+| `DiscoveryCandidateRecommendation` | `dpm/src/discovery/discovery-taxonomy.ts` | review/reject recommendation contract |
+| `RelationshipCandidateInput` | `dpm/src/discovery/discovery-candidate-types.ts` | candidate report authoring input |
+| `RelationshipCandidate` | `dpm/src/discovery/discovery-candidate-types.ts` | normalized non-executable relationship candidate |
+| `ExcludedRelationshipCandidate` | `dpm/src/discovery/discovery-candidate-types.ts` | excluded candidate reason entry |
+| `RelationshipDiscoveryReportInput` | `dpm/src/discovery/discovery-report-types.ts` | discovery report creation input |
+| `RelationshipDiscoveryReport` | `dpm/src/discovery/discovery-report-types.ts` | reviewable discovery report output |
 | `classifyRelationshipCandidate()` | `dpm/src/discovery/report.ts` | confidence score를 review/reject classification으로 변환 |
 | `createRelationshipDiscoveryReport()` | `dpm/src/discovery/report.ts` | candidate input을 non-executable review report로 정규화 |
 | `REGISTRY_SNAPSHOT_KIND` | `dpm/src/registry/registry-identity.ts` | registry snapshot kind literal |

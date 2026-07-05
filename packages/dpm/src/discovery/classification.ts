@@ -1,8 +1,10 @@
 import type {
   DiscoveryCandidateRecommendation,
   DiscoveryConfidenceLevel,
+} from './discovery-taxonomy.js'
+import type {
   DiscoveryThresholds,
-} from './types.js'
+} from './discovery-candidate-types.js'
 
 export const DEFAULT_DISCOVERY_THRESHOLDS: DiscoveryThresholds = {
   reviewMin: 0.9,

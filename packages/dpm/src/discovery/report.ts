@@ -1,7 +1,7 @@
 import type {
   RelationshipDiscoveryReport,
   RelationshipDiscoveryReportInput,
-} from './types.js'
+} from './discovery-report-types.js'
 import {
   normalizeDiscoveryThresholds,
 } from './classification.js'

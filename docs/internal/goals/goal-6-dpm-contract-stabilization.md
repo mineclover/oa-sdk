@@ -129,6 +129,7 @@ Status: implemented 2026-07-04.
 
 Artifacts:
 - `packages/dpm/src/discovery/types.ts`
+- `packages/dpm/src/discovery/discovery-taxonomy.ts`
 - `packages/dpm/src/registry/types.ts`
 - `packages/dpm/src/registry/registry-taxonomy.ts`
 - `packages/dpm/src/gateway/openapi.ts`

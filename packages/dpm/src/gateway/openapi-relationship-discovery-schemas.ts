@@ -1,4 +1,4 @@
-import { DISCOVERY_CANDIDATE_RECOMMENDATIONS } from '../discovery/types.js'
+import { DISCOVERY_CANDIDATE_RECOMMENDATIONS } from '../discovery/discovery-taxonomy.js'
 import {
   arrayOf,
   ref,
