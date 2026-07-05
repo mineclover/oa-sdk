@@ -291,6 +291,9 @@ Artifacts:
 - `packages/dpm/src/registry/registry-summary.ts`
 - `packages/dpm/src/registry/registry-yaml.ts`
 - `packages/dpm/src/registry/registry-yaml-relationship.ts`
+- `packages/dpm/src/registry/registry-yaml-relationship-approval.ts`
+- `packages/dpm/src/registry/registry-yaml-relationship-condition.ts`
+- `packages/dpm/src/registry/registry-yaml-relationship-evidence.ts`
 - `packages/dpm/src/registry/registry-yaml-relationship-metadata.ts`
 - `packages/dpm/src/registry/registry-yaml-relationship-sections.ts`
 - `packages/dpm/src/registry/registry-yaml-relationship-status.ts`
