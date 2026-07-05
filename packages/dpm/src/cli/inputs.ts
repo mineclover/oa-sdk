@@ -1,56 +1,25 @@
-import { readFileSync } from 'node:fs'
-
-import { parse } from 'yaml'
-
-import { createPostgresCatalogSnapshot } from '../catalog/postgres.js'
-import type {
-  CatalogSnapshot,
-  PostgresCatalogSnapshotInput,
-} from '../catalog/types.js'
-import { parseRegistrySnapshotYaml } from '../registry/snapshot.js'
-import type { RegistrySnapshot } from '../registry/registry-snapshot-types.js'
+import { readDpmCliCatalogSnapshot } from './input-catalog.js'
+import { readDpmCliEstimatedRows } from './input-estimated-rows.js'
+import { readDpmCliStructuredFile } from './input-file.js'
+import { readDpmCliRegistrySnapshot } from './input-registry.js'
+import type { DpmCliInputs } from './input-types.js'
 import type { DpmCliParsedArgs } from './types.js'
 
-export type DpmCliInputs = {
-  manifest: unknown
-  catalog: CatalogSnapshot
-  registry: RegistrySnapshot
-  estimatedRows?: Record<string, number>
-}
+export type { DpmCliInputs } from './input-types.js'
+export { readDpmCliCatalogSnapshot } from './input-catalog.js'
+export { readDpmCliEstimatedRows } from './input-estimated-rows.js'
+export {
+  readDpmCliStructuredFile,
+  readDpmCliTextFile,
+} from './input-file.js'
+export { readDpmCliRegistrySnapshot } from './input-registry.js'
 
 export function readDpmCliInputs(args: DpmCliParsedArgs): DpmCliInputs {
-  const estimatedRows = args.estimatedRowsPath ? readEstimatedRows(args.estimatedRowsPath) : undefined
+  const estimatedRows = args.estimatedRowsPath ? readDpmCliEstimatedRows(args.estimatedRowsPath) : undefined
   return {
-    manifest: readStructuredFile(args.manifestPath),
-    catalog: readCatalogSnapshot(args.catalogPath),
-    registry: parseRegistrySnapshotYaml(readFileSync(args.registryPath, 'utf8')),
+    manifest: readDpmCliStructuredFile(args.manifestPath),
+    catalog: readDpmCliCatalogSnapshot(args.catalogPath),
+    registry: readDpmCliRegistrySnapshot(args.registryPath),
     ...(estimatedRows ? { estimatedRows } : {}),
   }
-}
-
-function readCatalogSnapshot(path: string): CatalogSnapshot {
-  const raw = readStructuredFile(path) as Record<string, unknown>
-  if (raw.kind === 'dpm.catalog.snapshot.v1') {
-    return raw as CatalogSnapshot
-  }
-  return createPostgresCatalogSnapshot(raw as PostgresCatalogSnapshotInput)
-}
-
-function readEstimatedRows(path: string): Record<string, number> {
-  const raw = readStructuredFile(path)
-  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
-    throw new Error('--estimated-rows must point to an object file')
-  }
-  const rows: Record<string, number> = {}
-  for (const [table, count] of Object.entries(raw)) {
-    if (typeof count !== 'number') {
-      throw new Error(`estimated row count for ${table} must be a number`)
-    }
-    rows[table] = count
-  }
-  return rows
-}
-
-function readStructuredFile(path: string): unknown {
-  return parse(readFileSync(path, 'utf8')) as unknown
 }

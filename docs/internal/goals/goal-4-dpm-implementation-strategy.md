@@ -516,6 +516,11 @@ Goal id: `DPM-08A`
 Artifacts:
 - `packages/dpm/src/cli/args.ts`
 - `packages/dpm/src/cli/index.ts`
+- `packages/dpm/src/cli/input-catalog.ts`
+- `packages/dpm/src/cli/input-estimated-rows.ts`
+- `packages/dpm/src/cli/input-file.ts`
+- `packages/dpm/src/cli/input-registry.ts`
+- `packages/dpm/src/cli/input-types.ts`
 - `packages/dpm/src/cli/inputs.ts`
 - `packages/dpm/src/cli/result.ts`
 - `packages/dpm/src/cli/runner.ts`
@@ -527,6 +532,9 @@ Tasks:
 - Accept explicit manifest, catalog snapshot, and registry snapshot paths.
 - Print machine-readable JSON diagnostics by default.
 - Avoid DB network access in the first CLI version.
+- Keep `packages/dpm/src/cli/inputs.ts` as the CLI input assembly and compatibility surface while
+  structured file IO, catalog snapshot coercion, registry YAML parsing, estimated rows validation,
+  and input envelope vocabulary are owned by focused modules.
 
 Exit criteria:
 - CLI can validate fixture triplets.
