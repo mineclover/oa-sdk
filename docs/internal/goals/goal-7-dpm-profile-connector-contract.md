@@ -339,6 +339,9 @@ Artifacts:
 - `packages/dpm/src/gateway/runtime-types.ts`
 - `packages/dpm/src/gateway/runtime-factory.ts`
 - `packages/dpm/src/gateway/runtime-profile.ts`
+- `packages/dpm/src/gateway/runtime-profile-inspect.ts`
+- `packages/dpm/src/gateway/runtime-profile-analyze.ts`
+- `packages/dpm/src/gateway/runtime-profile-proposal-review.ts`
 - `packages/dpm/src/gateway/runtime-response.ts`
 - `packages/dpm/test/gateway.test.ts`
 - `packages/dpm/test/gateway-taxonomy.test.ts`
@@ -375,9 +378,11 @@ Implementation notes:
 - Proposal review payloads can reference profile coordinates and relationship hint proposals, but
   cannot carry raw evidence patches, profile artifact overwrites, or connector evidence mutations.
 - `packages/dpm/src/gateway/runtime-factory.ts:createDpmGatewayRuntime()` composes loaded profile
-  inspection, analysis, and proposal review handlers from `packages/dpm/src/gateway/runtime-profile.ts`;
-  these responses validate against the gateway schemas while preserving the existing manifest
-  validate/compile/dry-run runtime behavior.
+  inspection, analysis, and proposal review handlers through the
+  `packages/dpm/src/gateway/runtime-profile.ts` compatibility barrel. The concrete handlers are
+  owned by `runtime-profile-inspect.ts`, `runtime-profile-analyze.ts`, and
+  `runtime-profile-proposal-review.ts`; these responses validate against the gateway schemas while
+  preserving the existing manifest validate/compile/dry-run runtime behavior.
 
 ## Completion Evidence
 
