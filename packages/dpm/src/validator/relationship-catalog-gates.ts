@@ -1,15 +1,15 @@
 import type { CatalogSnapshot } from '../catalog/types.js'
-import { createDpmDiagnostic } from './diagnostic-copy.js'
 import type { DpmDiagnostic } from './diagnostic-types.js'
+import { validateRelationshipCatalogColumnCountGate } from './relationship-catalog-column-count-gates.js'
 import {
   createRelationshipCatalogGateContext,
   type RelationshipCatalogGateContext,
 } from './relationship-catalog-context.js'
 import { validateRelationshipCatalogColumnCompatibility } from './relationship-catalog-column-gates.js'
+import { createRelationshipCatalogEndpointContext } from './relationship-catalog-endpoints.js'
 import { validateRelationshipParentKeyGate } from './relationship-catalog-key-gates.js'
 import { validateRelationshipCatalogTableGates } from './relationship-catalog-table-gates.js'
 import type { ManifestRelationship } from './relationship-types.js'
-import { toStringArray } from './relationship-utils.js'
 
 export {
   createRelationshipCatalogGateContext,
@@ -23,52 +23,44 @@ export function validateRelationshipCatalogGates(input: {
   pointer: string
 }): DpmDiagnostic[] {
   const diagnostics: DpmDiagnostic[] = []
-  const name = input.relationship.name ?? ''
-  const parent = input.relationship.parent
-  const child = input.relationship.child
-  const parentTable = parent?.table
-  const childTable = child?.table
-  const parentColumns = toStringArray(parent?.columns)
-  const childColumns = toStringArray(child?.columns)
+  const relationship = createRelationshipCatalogEndpointContext(input.relationship)
   const tableGates = validateRelationshipCatalogTableGates({
     context: input.context,
-    relationshipName: name,
+    relationshipName: relationship.relationshipName,
     pointer: input.pointer,
-    ...(parentTable ? { parentTable } : {}),
-    ...(childTable ? { childTable } : {}),
+    ...(relationship.parentTable ? { parentTable: relationship.parentTable } : {}),
+    ...(relationship.childTable ? { childTable: relationship.childTable } : {}),
   })
 
   diagnostics.push(...tableGates.diagnostics)
-  if (parentColumns.length !== childColumns.length) {
-    diagnostics.push(createDpmDiagnostic({
-      severity: 'error',
-      code: 'REL003',
-      message: `Relationship ${name} parent and child columns must have the same length.`,
-      sourcePointer: `${input.pointer}/child/columns`,
-      catalogCoordinate: {
-        table: childTable ?? '',
-        columns: childColumns,
-      },
-    }))
-  } else if (tableGates.parentTableUsable && tableGates.childTableUsable) {
+  const columnCountGate = validateRelationshipCatalogColumnCountGate({
+    relationshipName: relationship.relationshipName,
+    pointer: input.pointer,
+    parentColumns: relationship.parentColumns,
+    childColumns: relationship.childColumns,
+    ...(relationship.childTable ? { childTable: relationship.childTable } : {}),
+  })
+  diagnostics.push(...columnCountGate.diagnostics)
+
+  if (columnCountGate.columnCountsMatch && tableGates.parentTableUsable && tableGates.childTableUsable) {
     diagnostics.push(...validateRelationshipCatalogColumnCompatibility({
       catalog: input.catalog,
-      relationshipName: name,
+      relationshipName: relationship.relationshipName,
       pointer: input.pointer,
-      parentTable: parentTable ?? '',
-      childTable: childTable ?? '',
-      parentColumns,
-      childColumns,
+      parentTable: relationship.parentTable ?? '',
+      childTable: relationship.childTable ?? '',
+      parentColumns: relationship.parentColumns,
+      childColumns: relationship.childColumns,
     }))
   }
 
-  if (tableGates.parentTableUsable && parentTable) {
+  if (tableGates.parentTableUsable && relationship.parentTable) {
     diagnostics.push(...validateRelationshipParentKeyGate({
       catalog: input.catalog,
-      relationshipName: name,
+      relationshipName: relationship.relationshipName,
       pointer: input.pointer,
-      parentTable,
-      parentColumns,
+      parentTable: relationship.parentTable,
+      parentColumns: relationship.parentColumns,
     }))
   }
 

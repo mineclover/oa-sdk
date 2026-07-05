@@ -370,7 +370,9 @@ Artifacts:
 - `packages/dpm/src/validator/relationships.ts`
 - `packages/dpm/src/validator/relationship-catalog-gates.ts`
 - `packages/dpm/src/validator/relationship-catalog-context.ts`
+- `packages/dpm/src/validator/relationship-catalog-endpoints.ts`
 - `packages/dpm/src/validator/relationship-catalog-table-gates.ts`
+- `packages/dpm/src/validator/relationship-catalog-column-count-gates.ts`
 - `packages/dpm/src/validator/relationship-catalog-column-gates.ts`
 - `packages/dpm/src/validator/relationship-catalog-key-gates.ts`
 - `packages/dpm/src/validator/relationship-registry.ts`
@@ -402,8 +404,9 @@ Artifacts:
 Tasks:
 - Add deterministic REL diagnostics for missing, stale, non-approved, ambiguous, and
   catalog-mismatched relationships.
-- Keep catalog relationship context, table scope gates, column compatibility gates, and parent
-  key uniqueness gates as separate implementation boundaries.
+- Keep catalog relationship execution ordering, scope context, endpoint input derivation, table scope
+  gates, column count gate, column compatibility gates, and parent key uniqueness gates as separate
+  implementation boundaries.
 - Keep approved registry snapshot mismatch ordering, type/metadata scalar gates, parent/child
   endpoint gates, scalar/endpoint comparison helpers, and `REL013` diagnostic assembly as separate
   implementation boundaries.
