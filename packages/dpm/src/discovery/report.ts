@@ -5,11 +5,9 @@ import type {
 import {
   normalizeDiscoveryThresholds,
 } from './classification.js'
-import {
-  compareDiscoveryEvidence,
-  copyDiscoveryEvidence,
-  copyExcludedRelationshipCandidate,
-} from './copy.js'
+import { copyDiscoveryEvidence } from './discovery-evidence-copy.js'
+import { compareDiscoveryEvidence } from './discovery-evidence-ordering.js'
+import { copyExcludedRelationshipCandidate } from './discovery-exclusion-copy.js'
 import { normalizeRelationshipCandidate } from './candidate.js'
 
 export { classifyRelationshipCandidate } from './classification.js'

@@ -1,9 +1,7 @@
 import { classifyRelationshipCandidate } from './classification.js'
-import {
-  compareDiscoveryEvidence,
-  copyDiscoveryEndpoint,
-  copyDiscoveryEvidence,
-} from './copy.js'
+import { copyDiscoveryEndpoint } from './discovery-endpoint-copy.js'
+import { copyDiscoveryEvidence } from './discovery-evidence-copy.js'
+import { compareDiscoveryEvidence } from './discovery-evidence-ordering.js'
 import type {
   RelationshipCandidate,
   RelationshipCandidateInput,
