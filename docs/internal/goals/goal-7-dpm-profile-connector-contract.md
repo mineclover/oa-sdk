@@ -223,6 +223,8 @@ Artifacts:
 - `packages/dpm/src/profile/kafka-topic-source.ts`
 - `packages/dpm/src/profile/kafka-topic-root.ts`
 - `packages/dpm/src/profile/kafka-topic-key-headers.ts`
+- `packages/dpm/src/profile/kafka-topic-key.ts`
+- `packages/dpm/src/profile/kafka-topic-headers.ts`
 - `packages/dpm/src/profile/kafka-topic-partitions.ts`
 - `packages/dpm/src/profile/kafka-topic-schema.ts`
 - `packages/dpm/src/profile/kafka-topic-section-types.ts`
@@ -260,9 +262,10 @@ Implementation notes:
 - `kafka-topic-source.ts` owns source descriptor, Kafka ref, and fixture version hash construction;
   `kafka-topic-root.ts` owns topic root evidence and node bootstrap.
 - `kafka-topic-sections.ts` re-exports section helpers; `kafka-topic-partitions.ts` emits partition
-  nodes and topic message-rate metrics, `kafka-topic-key-headers.ts` emits key/header nodes and
-  coverage/presence metrics, and `kafka-topic-schema.ts` emits schema subject nodes and schema
-  version metrics;
+  nodes and topic message-rate metrics, `kafka-topic-key-headers.ts` remains the key/header section
+  compatibility barrel, `kafka-topic-key.ts` emits key nodes and coverage metrics,
+  `kafka-topic-headers.ts` emits header nodes and presence metrics, and `kafka-topic-schema.ts`
+  emits schema subject nodes and schema version metrics;
   `kafka-profile-fields.ts` owns nested value field recursion orchestration, while
   `kafka-profile-field-context.ts`, `kafka-profile-field-nodes.ts`, and
   `kafka-profile-field-metrics.ts` separately own field context derivation, field node/edge append,
