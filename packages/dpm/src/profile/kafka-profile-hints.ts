@@ -1,59 +1,19 @@
-import type { DpmKafkaRelationshipHintFixture } from './kafka-fixture-types.js'
-import {
-  addKafkaEvidence,
-  kafkaFieldNodeIdFor,
-} from './kafka-profile-evidence.js'
-import type {
-  DpmProfileEdge,
-  DpmProfileNode,
-} from './profile-graph-types.js'
-import type { DpmProfileEvidenceSource } from './profile-source-types.js'
+import { createKafkaRelationshipHintEdge } from './kafka-profile-hint-edge.js'
+import { addKafkaRelationshipHintEvidence } from './kafka-profile-hint-evidence.js'
+import { createKafkaRelationshipHintNode } from './kafka-profile-hint-node.js'
+import type { KafkaRelationshipHintAppendInput } from './kafka-profile-hint-types.js'
 
-export type KafkaRelationshipHintAppendInput = {
-  topicName: string
-  sourceId: string
-  connectorId: string
-  hint: DpmKafkaRelationshipHintFixture
-  evidenceSources: Record<string, DpmProfileEvidenceSource>
-  nodes: DpmProfileNode[]
-  edges: DpmProfileEdge[]
-}
+export type {
+  KafkaRelationshipHintAppendInput,
+  KafkaRelationshipHintContext,
+} from './kafka-profile-hint-types.js'
 
 export function appendKafkaRelationshipHint(input: KafkaRelationshipHintAppendInput): void {
-  const evidenceId = addKafkaEvidence(input.evidenceSources, {
-    id: `evidence:kafka:${input.topicName}.relationship_hint.${input.hint.id}`,
-    sourceId: input.sourceId,
-    connectorId: input.connectorId,
-    path: `${input.topicName}.relationshipHints.${input.hint.id}`,
-    pointer: `/relationshipHints/${input.hint.id}`,
-    description: input.hint.evidenceRef,
-  })
-  const hintNodeId = `node:relationship-hint:${input.hint.id}`
-  const fromNodeId = kafkaFieldNodeIdFor(input.topicName, input.hint.fromPath)
+  const evidenceId = addKafkaRelationshipHintEvidence(input)
 
-  input.nodes.push({
-    id: hintNodeId,
-    kind: 'relationship_hint',
-    label: input.hint.label,
-    coordinate: {
-      kind: 'kafka_topic_bundle',
-      sourceId: input.sourceId,
-      path: `${input.topicName}.relationshipHints.${input.hint.id}`,
-      pointer: `/relationshipHints/${input.hint.id}`,
-      externalId: input.hint.toRef,
-    },
-    shape: {
-      fromPath: input.hint.fromPath,
-      toRef: input.hint.toRef,
-      ...(input.hint.evidenceRef ? { evidenceRef: input.hint.evidenceRef } : {}),
-    },
-  })
-  input.edges.push({
-    id: `edge:relationship-hint:${input.hint.id}`,
-    kind: 'candidate_relationship',
-    fromNodeId,
-    toNodeId: hintNodeId,
-    confidence: input.hint.confidence,
-    evidenceIds: [evidenceId],
-  })
+  input.nodes.push(createKafkaRelationshipHintNode(input))
+  input.edges.push(createKafkaRelationshipHintEdge({
+    ...input,
+    evidenceId,
+  }))
 }

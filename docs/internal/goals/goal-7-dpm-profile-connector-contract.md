@@ -259,6 +259,10 @@ Artifacts:
 - `packages/dpm/src/profile/kafka-profile-field-nodes.ts`
 - `packages/dpm/src/profile/kafka-profile-field-metrics.ts`
 - `packages/dpm/src/profile/kafka-profile-graph.ts`
+- `packages/dpm/src/profile/kafka-profile-hint-edge.ts`
+- `packages/dpm/src/profile/kafka-profile-hint-evidence.ts`
+- `packages/dpm/src/profile/kafka-profile-hint-node.ts`
+- `packages/dpm/src/profile/kafka-profile-hint-types.ts`
 - `packages/dpm/src/profile/kafka-profile-hints.ts`
 - `packages/dpm/test/profile-kafka.test.ts`
 - fixture directory under `packages/dpm/test/fixtures/profile/`
@@ -292,8 +296,11 @@ Implementation notes:
   `kafka-profile-fields.ts` owns nested value field recursion orchestration, while
   `kafka-profile-field-context.ts`, `kafka-profile-field-nodes.ts`, and
   `kafka-profile-field-metrics.ts` separately own field context derivation, field node/edge append,
-  and field metric append. `kafka-profile-hints.ts` emits relationship hint graph entries through
-  shared evidence helpers.
+  and field metric append. `kafka-profile-hints.ts` remains the relationship hint append
+  compatibility entrypoint, while `kafka-profile-hint-types.ts`,
+  `kafka-profile-hint-evidence.ts`, `kafka-profile-hint-node.ts`, and
+  `kafka-profile-hint-edge.ts` separately own hint input vocabulary, evidence source append, hint
+  node creation, and candidate edge creation.
 - Relationship hints are represented as `relationship_hint` nodes and `candidate_relationship`
   edges; they do not create approved registry relationships or alter the existing compiler path.
 
