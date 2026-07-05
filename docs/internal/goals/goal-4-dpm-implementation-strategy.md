@@ -413,6 +413,11 @@ Artifacts:
 - `packages/dpm/src/gateway/openapi-operation.ts`
 - `packages/dpm/src/gateway/openapi-operation-ids.ts`
 - `packages/dpm/src/gateway/openapi-paths.ts`
+- `packages/dpm/src/gateway/openapi-catalog-paths.ts`
+- `packages/dpm/src/gateway/openapi-profile-paths.ts`
+- `packages/dpm/src/gateway/openapi-relationship-paths.ts`
+- `packages/dpm/src/gateway/openapi-manifest-paths.ts`
+- `packages/dpm/src/gateway/openapi-job-paths.ts`
 - `packages/dpm/test/gateway.test.ts`
 - `packages/dpm/test/gateway-taxonomy.test.ts`
 - `packages/dpm/test/gateway-schema-validation.test.ts`
@@ -423,6 +428,8 @@ Tasks:
 - Keep manifest policy JSON Schema as the manifest source of truth.
 - Keep compiled plan, dry-run result, and validation diagnostic component schemas as separate
   implementation boundaries.
+- Keep catalog, profile, relationship, manifest, and job path groups as separate implementation
+  boundaries while preserving a single gateway path map assembly.
 - Ensure AI consumer operations never expose source DB credentials, vault keys, or token reverse lookup.
 
 Exit criteria:

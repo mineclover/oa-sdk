@@ -310,6 +310,7 @@ Artifacts:
 - `packages/dpm/src/gateway/openapi.ts`
 - `packages/dpm/src/gateway/openapi-core-schemas.ts`
 - `packages/dpm/src/gateway/openapi-paths.ts`
+- `packages/dpm/src/gateway/openapi-profile-paths.ts`
 - `packages/dpm/src/gateway/runtime.ts`
 - `packages/dpm/src/gateway/runtime-profile.ts`
 - `packages/dpm/src/gateway/runtime-response.ts`
