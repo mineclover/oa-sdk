@@ -255,12 +255,17 @@ Artifacts:
 - `packages/dpm/src/model/endpoint.ts`
 - `packages/dpm/src/model/entity.ts`
 - `packages/dpm/src/model/relationship.ts`
+- `packages/dpm/src/model/relationship-types.ts`
+- `packages/dpm/src/model/relationship-normalize.ts`
+- `packages/dpm/src/model/relationship-canonical-key.ts`
 - `packages/dpm/test/model.test.ts`
 
 Tasks:
 - Define entity root, single/composite key strategy, canonical key rendering, relationship kinds,
   cardinality, polymorphic predicates, temporal predicates, and tenant namespace inputs.
 - Keep v1 condition representation as text plus metadata unless the breakpoint chooses AST.
+- Keep logical relationship vocabulary, normalization, and canonical key rendering as separate
+  implementation boundaries.
 - Add canonical key tests for single key, composite key, tenant-scoped key, and polymorphic key.
 
 Exit criteria:

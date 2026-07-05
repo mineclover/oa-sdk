@@ -240,16 +240,16 @@ catalog/registry snapshot, semantic validator, compiler, CLI/gateway/publishing 
 | `EntityDeclaration` | `dpm/src/model/entity.ts` | normalized entity declaration with identity |
 | `createEntityDeclaration()` | `dpm/src/model/entity.ts` | entity root and namespace contract normalization |
 | `renderEntityCanonicalKey()` | `dpm/src/model/entity.ts` | deterministic entity canonical key rendering |
-| `LogicalRelationshipKind` | `dpm/src/model/relationship.ts` | logical relationship kind taxonomy |
-| `LogicalRelationshipOrphanPolicy` | `dpm/src/model/relationship.ts` | orphan policy taxonomy for logical relationships |
-| `LogicalRelationshipCardinality` | `dpm/src/model/relationship.ts` | logical relationship cardinality contract |
-| `LogicalRelationshipCondition` | `dpm/src/model/relationship.ts` | condition text and metadata contract |
-| `TemporalRelationshipInput` | `dpm/src/model/relationship.ts` | temporal valid-time declaration or absence reason |
-| `RelationshipCanonicalKeyStrategy` | `dpm/src/model/relationship.ts` | relationship canonical key component strategy |
-| `LogicalRelationshipInput` | `dpm/src/model/relationship.ts` | logical relationship authoring input |
-| `LogicalRelationship` | `dpm/src/model/relationship.ts` | normalized logical relationship model |
-| `createLogicalRelationship()` | `dpm/src/model/relationship.ts` | relationship predicate and temporal rule normalization |
-| `renderRelationshipCanonicalKey()` | `dpm/src/model/relationship.ts` | deterministic relationship canonical key rendering |
+| `LogicalRelationshipKind` | `dpm/src/model/relationship-types.ts` | logical relationship kind taxonomy |
+| `LogicalRelationshipOrphanPolicy` | `dpm/src/model/relationship-types.ts` | orphan policy taxonomy for logical relationships |
+| `LogicalRelationshipCardinality` | `dpm/src/model/relationship-types.ts` | logical relationship cardinality contract |
+| `LogicalRelationshipCondition` | `dpm/src/model/relationship-types.ts` | condition text and metadata contract |
+| `TemporalRelationshipInput` | `dpm/src/model/relationship-types.ts` | temporal valid-time declaration or absence reason |
+| `RelationshipCanonicalKeyStrategy` | `dpm/src/model/relationship-types.ts` | relationship canonical key component strategy |
+| `LogicalRelationshipInput` | `dpm/src/model/relationship-types.ts` | logical relationship authoring input |
+| `LogicalRelationship` | `dpm/src/model/relationship-types.ts` | normalized logical relationship model |
+| `createLogicalRelationship()` | `dpm/src/model/relationship-normalize.ts` | relationship predicate and temporal rule normalization |
+| `renderRelationshipCanonicalKey()` | `dpm/src/model/relationship-canonical-key.ts` | deterministic relationship canonical key rendering |
 | `DpmDiagnosticSeverity` | `dpm/src/validator/diagnostics.ts` | semantic validator severity taxonomy |
 | `DPM_DIAGNOSTIC_CODES` | `dpm/src/validator/diagnostics.ts` | runtime diagnostic code taxonomy used by TypeScript and OpenAPI |
 | `DpmDiagnosticCode` | `dpm/src/validator/diagnostics.ts` | SYN/REL/SAF diagnostic code taxonomy |

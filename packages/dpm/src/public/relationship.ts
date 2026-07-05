@@ -47,7 +47,7 @@ export type {
   LogicalRelationshipOrphanPolicy,
   RelationshipCanonicalKeyStrategy,
   TemporalRelationshipInput,
-} from '../model/relationship.js'
+} from '../model/relationship-types.js'
 export type {
   DpmCatalogCoordinate,
   DpmDiagnostic,
@@ -111,8 +111,10 @@ export {
 } from '../model/entity.js'
 export {
   createLogicalRelationship,
+} from '../model/relationship-normalize.js'
+export {
   renderRelationshipCanonicalKey,
-} from '../model/relationship.js'
+} from '../model/relationship-canonical-key.js'
 export {
   DPM_COMPILED_PLAN_KIND,
   DPM_COMPILED_PLAN_VERSIONS,
