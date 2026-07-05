@@ -178,7 +178,12 @@ Status: implemented 2026-07-04.
 
 Artifacts:
 - `packages/dpm/src/profile/connector.ts`
+- `packages/dpm/src/profile/connector-capability-types.ts`
+- `packages/dpm/src/profile/connector-freshness-types.ts`
+- `packages/dpm/src/profile/connector-result-types.ts`
+- `packages/dpm/src/profile/connector-taxonomy.ts`
 - `packages/dpm/src/profile/connector-types.ts`
+- `packages/dpm/src/profile/connector-validation-result-types.ts`
 - `packages/dpm/src/profile/connector-result.ts`
 - `packages/dpm/src/profile/connector-run-hash.ts`
 - `packages/dpm/src/profile/connector-normalize.ts`
@@ -211,6 +216,9 @@ Implementation notes:
 - `DpmProfileConnectorResult` is implemented as a deterministic connector output envelope with
   connector identity, source kind, capture mode, capability metadata, observed evidence kinds,
   diagnostics, optional profile artifact, and run freshness hash.
+- `packages/dpm/src/profile/connector-types.ts` remains the compatibility barrel, while connector
+  taxonomy, capability metadata, freshness references, result envelope, and validation result
+  vocabulary live in dedicated connector type modules.
 - Connector validation checks capability identity, supported source/capture modes, unsupported or
   skipped observed evidence kinds, failed-result diagnostics, completed-result profile artifacts,
   emitted profile artifact schema validity, and connector identity mismatch in emitted sources.
