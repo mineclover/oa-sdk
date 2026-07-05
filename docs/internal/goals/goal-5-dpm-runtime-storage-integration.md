@@ -46,6 +46,8 @@ Artifacts:
 - `packages/dpm/src/storage/registry-repository.ts`
 - `packages/dpm/src/storage/registry-repository-types.ts`
 - `packages/dpm/src/storage/registry-row-mapper.ts`
+- `packages/dpm/src/storage/registry-row-relationship.ts`
+- `packages/dpm/src/storage/registry-row-scope.ts`
 - `packages/dpm/test/storage-registry.test.ts`
 - migration or SQL fixture under `packages/dpm/test/fixtures/storage/`
 
@@ -73,8 +75,9 @@ Implementation notes:
   adapter vocabulary.
 - `createDpmRegistryRepository()` accepts a row reader so tests can verify export behavior without a
   live source database.
-- `registryRowsToSnapshot()` in `packages/dpm/src/storage/registry-row-mapper.ts` exports storage
-  rows to the existing `RegistrySnapshot` contract and rejects rows that do not match the requested
+- `registryRowsToSnapshot()` in `packages/dpm/src/storage/registry-row-mapper.ts` orchestrates storage
+  row export to the existing `RegistrySnapshot` contract, while `registry-row-relationship.ts` maps
+  rows to relationship inputs and `registry-row-scope.ts` rejects rows that do not match the requested
   dataset/version scope.
 
 ### DPM-12 - PostgreSQL Catalog Profiler
