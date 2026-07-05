@@ -171,6 +171,9 @@ Status: implemented 2026-07-01.
 Artifacts:
 - `packages/dpm/src/storage/job-repository.ts`
 - `packages/dpm/src/storage/report-repository.ts`
+- `packages/dpm/src/storage/report-repository-types.ts`
+- `packages/dpm/src/storage/report-row-builder.ts`
+- `packages/dpm/src/storage/report-gateway-projection.ts`
 - `packages/dpm/test/storage-report.test.ts`
 
 Tasks:
@@ -192,6 +195,10 @@ Verification:
 Implementation notes:
 - `createDpmJobRepository()` persists compile/dry-run job rows through an injected storage adapter
   and stores diagnostics, plan identity, freshness, and report references.
+- `packages/dpm/src/storage/report-repository-types.ts` owns validation report row/request/repository
+  vocabulary, `packages/dpm/src/storage/report-row-builder.ts` owns sanitized report row assembly,
+  and `packages/dpm/src/storage/report-gateway-projection.ts` owns gateway-compatible report
+  projection.
 - `createDpmReportRepository()` persists sanitized validation report rows and exposes
   `getJobReport()` with the gateway-compatible job report shape.
 - Job/report row builders copy only explicit metadata fields, preserving deterministic diagnostics

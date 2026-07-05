@@ -295,16 +295,16 @@ catalog/registry snapshot, semantic validator, compiler, CLI/gateway/publishing 
 | `DpmJobRepository` | `dpm/src/storage/job-repository.ts` | job persistence repository surface |
 | `createDpmJobRow()` | `dpm/src/storage/job-repository.ts` | copy-only job row builder that excludes unsafe payload fields |
 | `createDpmJobRepository()` | `dpm/src/storage/job-repository.ts` | adapter-backed job persistence repository factory |
-| `DPM_VALIDATION_REPORT_KIND` | `dpm/src/storage/report-repository.ts` | persisted validation report row kind literal |
-| `DpmValidationReportStatus` | `dpm/src/storage/report-repository.ts` | completed or failed validation report status |
-| `DpmValidationReportRequest` | `dpm/src/storage/report-repository.ts` | validation report lookup request |
-| `DpmValidationReportSaveInput` | `dpm/src/storage/report-repository.ts` | sanitized validation report persistence input |
-| `DpmStoredValidationReport` | `dpm/src/storage/report-repository.ts` | persisted validation report row with diagnostics and summaries |
-| `DpmGatewayJobReport` | `dpm/src/storage/report-repository.ts` | gateway-compatible job report retrieval shape |
-| `DpmValidationReportStorage` | `dpm/src/storage/report-repository.ts` | storage adapter boundary for validation reports |
-| `DpmReportRepository` | `dpm/src/storage/report-repository.ts` | validation report persistence and retrieval repository surface |
-| `createDpmValidationReport()` | `dpm/src/storage/report-repository.ts` | copy-only validation report builder that excludes unsafe payload fields |
-| `validationReportToGatewayJobReport()` | `dpm/src/storage/report-repository.ts` | stored report to gateway job report projection |
+| `DPM_VALIDATION_REPORT_KIND` | `dpm/src/storage/report-repository-types.ts` | persisted validation report row kind literal |
+| `DpmValidationReportStatus` | `dpm/src/storage/report-repository-types.ts` | completed or failed validation report status |
+| `DpmValidationReportRequest` | `dpm/src/storage/report-repository-types.ts` | validation report lookup request |
+| `DpmValidationReportSaveInput` | `dpm/src/storage/report-repository-types.ts` | sanitized validation report persistence input |
+| `DpmStoredValidationReport` | `dpm/src/storage/report-repository-types.ts` | persisted validation report row with diagnostics and summaries |
+| `DpmGatewayJobReport` | `dpm/src/storage/report-repository-types.ts` | gateway-compatible job report retrieval shape |
+| `DpmValidationReportStorage` | `dpm/src/storage/report-repository-types.ts` | storage adapter boundary for validation reports |
+| `DpmReportRepository` | `dpm/src/storage/report-repository-types.ts` | validation report persistence and retrieval repository surface |
+| `createDpmValidationReport()` | `dpm/src/storage/report-row-builder.ts` | copy-only validation report builder that excludes unsafe payload fields |
+| `validationReportToGatewayJobReport()` | `dpm/src/storage/report-gateway-projection.ts` | stored report to gateway job report projection |
 | `createDpmReportRepository()` | `dpm/src/storage/report-repository.ts` | adapter-backed validation report repository factory |
 | `DpmGatewayOperationId` | `dpm/src/gateway/openapi-operation-ids.ts` | DPM gateway operation id taxonomy |
 | `DpmGatewayOpenApiDocument` | `dpm/src/gateway/openapi.ts` | DPM gateway OpenAPI 3.2 document type |
