@@ -1,8 +1,8 @@
 import type {
-  DiscoveryEvidence,
-  ExcludedRelationshipCandidate,
   RelationshipDiscoveryEndpoint,
-} from './discovery-candidate-types.js'
+} from './discovery-endpoint-types.js'
+import type { DiscoveryEvidence } from './discovery-evidence-types.js'
+import type { ExcludedRelationshipCandidate } from './discovery-exclusion-types.js'
 
 export function copyDiscoveryEndpoint(endpoint: RelationshipDiscoveryEndpoint): RelationshipDiscoveryEndpoint {
   return {

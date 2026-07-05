@@ -5,13 +5,13 @@ import {
   copyDiscoveryEvidence,
 } from './copy.js'
 import type {
-  DiscoveryThresholds,
   RelationshipCandidate,
   RelationshipCandidateInput,
-} from './discovery-candidate-types.js'
+} from './discovery-relationship-candidate-types.js'
 import type {
   DiscoveryConfidenceLevel,
 } from './discovery-taxonomy.js'
+import type { DiscoveryThresholds } from './discovery-threshold-types.js'
 
 export function normalizeRelationshipCandidate(
   candidate: RelationshipCandidateInput,

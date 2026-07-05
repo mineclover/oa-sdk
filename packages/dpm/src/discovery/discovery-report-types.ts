@@ -1,10 +1,10 @@
 import type {
-  DiscoveryEvidence,
-  DiscoveryThresholds,
-  ExcludedRelationshipCandidate,
   RelationshipCandidate,
   RelationshipCandidateInput,
-} from './discovery-candidate-types.js'
+} from './discovery-relationship-candidate-types.js'
+import type { DiscoveryEvidence } from './discovery-evidence-types.js'
+import type { ExcludedRelationshipCandidate } from './discovery-exclusion-types.js'
+import type { DiscoveryThresholds } from './discovery-threshold-types.js'
 
 export type RelationshipDiscoveryReportInput = {
   datasetId: string

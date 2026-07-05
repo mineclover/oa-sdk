@@ -244,6 +244,11 @@ Artifacts:
 - `packages/dpm/src/discovery/types.ts`
 - `packages/dpm/src/discovery/discovery-taxonomy.ts`
 - `packages/dpm/src/discovery/discovery-candidate-types.ts`
+- `packages/dpm/src/discovery/discovery-evidence-types.ts`
+- `packages/dpm/src/discovery/discovery-threshold-types.ts`
+- `packages/dpm/src/discovery/discovery-endpoint-types.ts`
+- `packages/dpm/src/discovery/discovery-relationship-candidate-types.ts`
+- `packages/dpm/src/discovery/discovery-exclusion-types.ts`
 - `packages/dpm/src/discovery/discovery-report-types.ts`
 - `packages/dpm/src/discovery/report.ts`
 - `packages/dpm/test/fixtures/discovery/*.json`
@@ -252,8 +257,10 @@ Artifacts:
 Tasks:
 - Define candidate relationship identity, endpoints, evidence, confidence, warnings, and
   exclusion reason shape.
-- Keep `packages/dpm/src/discovery/types.ts` as the compatibility barrel while taxonomy,
-  candidate vocabulary, and report envelope types are owned by focused modules.
+- Keep `packages/dpm/src/discovery/types.ts` and
+  `packages/dpm/src/discovery/discovery-candidate-types.ts` as compatibility barrels while
+  taxonomy, evidence, thresholds, endpoints, candidate, exclusion, and report envelope types are
+  owned by focused modules.
 - Keep `auto_approve_enabled` false by default.
 - Support query log and ORM evidence as optional evidence blocks, not required MVP inputs.
 - Emit candidate reports that can be reviewed before registry import.
