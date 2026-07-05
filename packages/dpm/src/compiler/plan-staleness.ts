@@ -1,6 +1,6 @@
 import type { CatalogSnapshot } from '../catalog/types.js'
 import type { RegistrySnapshot } from '../registry/registry-snapshot-types.js'
-import type { DpmPlanStaleReason } from './plan.js'
+import type { DpmPlanStaleReason } from './plan-taxonomy.js'
 import { asString } from './plan-value-utils.js'
 
 export function getPlanStaleReasons(input: {

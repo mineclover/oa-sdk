@@ -1,9 +1,7 @@
 import type { RegistryRelationship } from '../registry/registry-relationship-types.js'
 import type { RegistrySnapshot } from '../registry/registry-snapshot-types.js'
-import type {
-  DpmRelationshipStep,
-  DpmRelationshipStepCardinality,
-} from './plan.js'
+import type { DpmRelationshipStep } from './plan-step-types.js'
+import type { DpmRelationshipStepCardinality } from './plan-taxonomy.js'
 import {
   asArray,
   asRecord,

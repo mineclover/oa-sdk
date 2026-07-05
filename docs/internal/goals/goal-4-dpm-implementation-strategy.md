@@ -410,12 +410,16 @@ Goal id: `DPM-08`
 
 Artifacts:
 - `packages/dpm/src/compiler/plan.ts`
+- `packages/dpm/src/compiler/plan-compiled-types.ts`
 - `packages/dpm/src/compiler/plan-builder.ts`
 - `packages/dpm/src/compiler/plan-column-steps.ts`
+- `packages/dpm/src/compiler/plan-freshness-types.ts`
 - `packages/dpm/src/compiler/plan-freshness.ts`
 - `packages/dpm/src/compiler/plan-namespace-bindings.ts`
 - `packages/dpm/src/compiler/plan-relationship-steps.ts`
 - `packages/dpm/src/compiler/plan-staleness.ts`
+- `packages/dpm/src/compiler/plan-step-types.ts`
+- `packages/dpm/src/compiler/plan-taxonomy.ts`
 - `packages/dpm/src/compiler/plan-value-utils.ts`
 - `packages/dpm/src/compiler/compile.ts`
 - `packages/dpm/src/dry-run/report.ts`
@@ -427,6 +431,8 @@ Tasks:
   orphan handling, and freshness tuple.
 - Keep compiled plan vocabulary and freshness tuple assembly as separate implementation
   boundaries.
+- Keep compiled plan taxonomy, freshness vocabulary, step vocabulary, and compiled plan envelope
+  as separate implementation boundaries.
 - Mark plans stale when manifest, catalog, or registry freshness changes.
 - Produce dry-run impact reports without raw sensitive values.
 

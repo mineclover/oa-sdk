@@ -1,7 +1,7 @@
 import type {
   DpmColumnStep,
   DpmRelationshipStep,
-} from './plan.js'
+} from './plan-step-types.js'
 import {
   asArray,
   asRecord,

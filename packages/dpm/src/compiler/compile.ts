@@ -6,7 +6,7 @@ import {
 } from '../validator/manifest.js'
 import type { RegistrySnapshot } from '../registry/registry-snapshot-types.js'
 import { createDpmCompiledPlan } from './plan-builder.js'
-import type { DpmCompiledPlan } from './plan.js'
+import type { DpmCompiledPlan } from './plan-compiled-types.js'
 
 export type DpmCompileInput = {
   manifest: unknown

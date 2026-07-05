@@ -1,6 +1,6 @@
 import type { CatalogSnapshot } from '../catalog/types.js'
 import type { RegistrySnapshot } from '../registry/registry-snapshot-types.js'
-import type { DpmPlanFreshness } from './plan.js'
+import type { DpmPlanFreshness } from './plan-freshness-types.js'
 
 export function createPlanFreshness(input: {
   manifestCatalogVersionHash?: string

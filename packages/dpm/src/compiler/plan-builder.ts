@@ -9,10 +9,8 @@ import {
   asRecord,
   asString,
 } from './plan-value-utils.js'
-import {
-  DPM_COMPILED_PLAN_KIND,
-  type DpmCompiledPlan,
-} from './plan.js'
+import { DPM_COMPILED_PLAN_KIND } from './plan-taxonomy.js'
+import type { DpmCompiledPlan } from './plan-compiled-types.js'
 
 export type DpmCompiledPlanBuilderInput = {
   manifest: unknown
