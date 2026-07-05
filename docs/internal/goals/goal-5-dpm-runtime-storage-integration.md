@@ -142,6 +142,10 @@ Artifacts:
 - `packages/dpm/src/gateway/runtime-types.ts`
 - `packages/dpm/src/gateway/runtime-factory.ts`
 - `packages/dpm/src/gateway/runtime-manifest.ts`
+- `packages/dpm/src/gateway/runtime-manifest-validate.ts`
+- `packages/dpm/src/gateway/runtime-manifest-compile.ts`
+- `packages/dpm/src/gateway/runtime-manifest-dry-run.ts`
+- `packages/dpm/src/gateway/runtime-manifest-catalog.ts`
 - `packages/dpm/src/gateway/runtime-response.ts`
 - `packages/dpm/test/gateway-runtime.test.ts`
 - `packages/dpm/test/gateway-runtime-manifest.test.ts`
@@ -162,8 +166,10 @@ Verification:
 - `pnpm --filter @oa-sdk/dpm typecheck`
 
 Implementation notes:
-- Manifest runtime handlers for validate, compile, and dry-run live in
-  `packages/dpm/src/gateway/runtime-manifest.ts` and are composed by
+- `packages/dpm/src/gateway/runtime-manifest.ts` remains the manifest runtime compatibility barrel.
+  Manifest runtime handlers live in `runtime-manifest-validate.ts`, `runtime-manifest-compile.ts`,
+  and `runtime-manifest-dry-run.ts`; loaded catalog snapshot resolution lives in
+  `runtime-manifest-catalog.ts`. They are composed by
   `packages/dpm/src/gateway/runtime-factory.ts:createDpmGatewayRuntime()`.
 - Runtime handlers accept already-loaded manifest, catalog, registry, and optional estimated row
   inputs; they do not read files, connect to source databases, or expose execute-job/report APIs.
