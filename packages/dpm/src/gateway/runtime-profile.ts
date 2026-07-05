@@ -6,8 +6,8 @@ import type {
   DpmGatewayProfileInspectionResult,
   DpmGatewayProfileProposalReviewInput,
   DpmGatewayProfileProposalReviewResult,
-  DpmGatewayRuntimeResponse,
-} from './runtime.js'
+} from './runtime-profile-types.js'
+import type { DpmGatewayRuntimeResponse } from './runtime-response-types.js'
 import { createDpmGatewayRuntimeResponse } from './runtime-response.js'
 
 export async function inspectDpmProfileRuntime(

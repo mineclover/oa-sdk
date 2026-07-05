@@ -6,8 +6,8 @@ import { validateDpmManifest } from '../validator/manifest.js'
 import type { DpmValidationResult } from '../validator/diagnostics.js'
 import type {
   DpmGatewayRuntimeManifestInput,
-  DpmGatewayRuntimeResponse,
-} from './runtime.js'
+} from './runtime-manifest-types.js'
+import type { DpmGatewayRuntimeResponse } from './runtime-response-types.js'
 import { createDpmGatewayRuntimeResponse } from './runtime-response.js'
 
 export async function validateDpmManifestRuntime(
