@@ -160,7 +160,10 @@ Artifacts:
 - `packages/dpm/src/catalog/types.ts`
 - `packages/dpm/src/catalog/snapshot.ts`
 - `packages/dpm/src/catalog/snapshot-copy.ts`
+- `packages/dpm/src/catalog/snapshot-diagnostic-copy.ts`
 - `packages/dpm/src/catalog/snapshot-ordering.ts`
+- `packages/dpm/src/catalog/snapshot-projection-copy.ts`
+- `packages/dpm/src/catalog/snapshot-source-copy.ts`
 - `packages/dpm/src/catalog/freshness.ts`
 - `packages/dpm/src/catalog/postgres.ts`
 - `packages/dpm/src/catalog/projection.ts`

@@ -1,37 +1,13 @@
-import type {
-  SchemaDiagnostic,
-  SchemaSourceCoordinate,
-} from '@oa-sdk/openapi-projection-contract'
-
+import { copySourceCoordinate } from './snapshot-source-copy.js'
 import type {
   CatalogColumn,
-  CatalogDiagnostic,
   CatalogForeignKey,
   CatalogIndex,
   CatalogPrimaryKey,
-  CatalogProjectionEvidence,
   CatalogSchema,
-  CatalogSnapshotSource,
   CatalogTable,
   CatalogUniqueCandidate,
 } from './types.js'
-
-export function copySnapshotSource(source: CatalogSnapshotSource): CatalogSnapshotSource {
-  if (source.kind === 'postgresql') {
-    return {
-      kind: 'postgresql',
-      database: source.database,
-      ...(source.capturedAt ? { capturedAt: source.capturedAt } : {}),
-    }
-  }
-
-  return {
-    kind: 'openapi_projection',
-    profile: source.profile,
-    projectionVersionHash: source.projectionVersionHash,
-    ...(source.projectionRef ? { projectionRef: source.projectionRef } : {}),
-  }
-}
 
 export function copySchema(schema: CatalogSchema): CatalogSchema {
   return {
@@ -107,63 +83,4 @@ export function copyUniqueCandidate(candidate: CatalogUniqueCandidate): CatalogU
     confidence: candidate.confidence,
     ...(candidate.source ? { source: copySourceCoordinate(candidate.source) } : {}),
   }
-}
-
-export function copyDiagnostic(diagnostic: CatalogDiagnostic | SchemaDiagnostic): CatalogDiagnostic {
-  return {
-    severity: diagnostic.severity,
-    code: diagnostic.code,
-    message: diagnostic.message,
-    ...(diagnostic.source ? { source: copySourceCoordinate(diagnostic.source) } : {}),
-  }
-}
-
-export function copyProjectionEvidence(projection: CatalogProjectionEvidence): CatalogProjectionEvidence {
-  return {
-    profile: projection.profile,
-    versionHash: projection.versionHash,
-    refs: projection.refs.map(ref => ({
-      from: ref.from,
-      ...(ref.to ? { to: ref.to } : {}),
-      ref: ref.ref,
-      kind: ref.kind,
-      source: copySourceCoordinate(ref.source),
-    })),
-    typeTargets: projection.typeTargets.map(target => ({
-      id: target.id,
-      name: target.name,
-      kind: target.kind,
-      ...(target.source ? { source: copySourceCoordinate(target.source) } : {}),
-    })),
-  }
-}
-
-export function copySourceCoordinate(source: SchemaSourceCoordinate): SchemaSourceCoordinate {
-  if (source.kind === 'file') {
-    return {
-      kind: 'file',
-      filePath: source.filePath,
-      pointer: source.pointer,
-      ...(source.line !== undefined ? { line: source.line } : {}),
-      ...(source.column !== undefined ? { column: source.column } : {}),
-    }
-  }
-
-  return {
-    kind: 'db',
-    entity: source.entity,
-    id: source.id,
-    pointer: source.pointer,
-  }
-}
-
-export function sortSourceMap(
-  sources: Readonly<Record<string, SchemaSourceCoordinate>>,
-): Record<string, SchemaSourceCoordinate> {
-  const sorted: Record<string, SchemaSourceCoordinate> = {}
-  for (const key of Object.keys(sources).sort()) {
-    const source = sources[key]
-    if (source) sorted[key] = copySourceCoordinate(source)
-  }
-  return sorted
 }

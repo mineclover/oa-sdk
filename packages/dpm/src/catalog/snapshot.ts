@@ -1,17 +1,21 @@
 import { computeCatalogFreshnessHash } from './freshness.js'
 import {
-  copyColumn,
   copyDiagnostic,
+} from './snapshot-diagnostic-copy.js'
+import {
+  copyColumn,
   copyForeignKey,
   copyIndex,
   copyPrimaryKey,
-  copyProjectionEvidence,
   copySchema,
-  copySnapshotSource,
   copyTable,
   copyUniqueCandidate,
-  sortSourceMap,
 } from './snapshot-copy.js'
+import { copyProjectionEvidence } from './snapshot-projection-copy.js'
+import {
+  copySnapshotSource,
+  sortSourceMap,
+} from './snapshot-source-copy.js'
 import {
   byColumn,
   byDiagnostic,
