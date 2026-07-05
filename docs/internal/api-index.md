@@ -233,13 +233,13 @@ catalog/registry snapshot, semantic validator, compiler, CLI/gateway/publishing 
 | `CanonicalKeyValueMap` | `dpm/src/model/canonical-key.ts` | canonical key column value map |
 | `ModelEndpoint` | `dpm/src/model/endpoint.ts` | table and column endpoint for DPM model surfaces |
 | `TenantNamespaceInput` | `dpm/src/model/canonical-key.ts` | tenant-scoped canonical key input |
-| `EntityKeyStrategyType` | `dpm/src/model/entity.ts` | single-column or composite entity key mode |
-| `EntityKeyStrategy` | `dpm/src/model/entity.ts` | entity root canonical key strategy |
-| `EntityTransform` | `dpm/src/model/entity.ts` | deterministic entity transform contract |
-| `EntityDeclarationInput` | `dpm/src/model/entity.ts` | entity declaration authoring input |
-| `EntityDeclaration` | `dpm/src/model/entity.ts` | normalized entity declaration with identity |
-| `createEntityDeclaration()` | `dpm/src/model/entity.ts` | entity root and namespace contract normalization |
-| `renderEntityCanonicalKey()` | `dpm/src/model/entity.ts` | deterministic entity canonical key rendering |
+| `EntityKeyStrategyType` | `dpm/src/model/entity-types.ts` | single-column or composite entity key mode |
+| `EntityKeyStrategy` | `dpm/src/model/entity-types.ts` | entity root canonical key strategy |
+| `EntityTransform` | `dpm/src/model/entity-types.ts` | deterministic entity transform contract |
+| `EntityDeclarationInput` | `dpm/src/model/entity-types.ts` | entity declaration authoring input |
+| `EntityDeclaration` | `dpm/src/model/entity-types.ts` | normalized entity declaration with identity |
+| `createEntityDeclaration()` | `dpm/src/model/entity-normalize.ts` | entity root and namespace contract normalization |
+| `renderEntityCanonicalKey()` | `dpm/src/model/entity-canonical-key.ts` | deterministic entity canonical key rendering |
 | `LogicalRelationshipKind` | `dpm/src/model/relationship-types.ts` | logical relationship kind taxonomy |
 | `LogicalRelationshipOrphanPolicy` | `dpm/src/model/relationship-types.ts` | orphan policy taxonomy for logical relationships |
 | `LogicalRelationshipCardinality` | `dpm/src/model/relationship-types.ts` | logical relationship cardinality contract |

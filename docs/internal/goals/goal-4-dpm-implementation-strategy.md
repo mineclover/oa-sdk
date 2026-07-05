@@ -260,6 +260,9 @@ Artifacts:
 - `packages/dpm/src/model/canonical-key.ts`
 - `packages/dpm/src/model/endpoint.ts`
 - `packages/dpm/src/model/entity.ts`
+- `packages/dpm/src/model/entity-types.ts`
+- `packages/dpm/src/model/entity-normalize.ts`
+- `packages/dpm/src/model/entity-canonical-key.ts`
 - `packages/dpm/src/model/relationship.ts`
 - `packages/dpm/src/model/relationship-types.ts`
 - `packages/dpm/src/model/relationship-normalize.ts`
