@@ -189,12 +189,16 @@ Status: implemented 2026-07-04.
 Artifacts:
 - `packages/dpm/src/profile/connector.ts`
 - `packages/dpm/src/profile/connector-capability-types.ts`
+- `packages/dpm/src/profile/connector-hash-input.ts`
 - `packages/dpm/src/profile/connector-freshness-types.ts`
 - `packages/dpm/src/profile/connector-result-types.ts`
+- `packages/dpm/src/profile/connector-source-version-hashes.ts`
+- `packages/dpm/src/profile/connector-structural-hash.ts`
 - `packages/dpm/src/profile/connector-taxonomy.ts`
 - `packages/dpm/src/profile/connector-types.ts`
 - `packages/dpm/src/profile/connector-validation-result-types.ts`
 - `packages/dpm/src/profile/connector-result.ts`
+- `packages/dpm/src/profile/connector-freshness.ts`
 - `packages/dpm/src/profile/connector-run-hash.ts`
 - `packages/dpm/src/profile/connector-normalize.ts`
 - `packages/dpm/src/profile/connector-validate.ts`
@@ -229,6 +233,10 @@ Implementation notes:
 - `packages/dpm/src/profile/connector-types.ts` remains the compatibility barrel, while connector
   taxonomy, capability metadata, freshness references, result envelope, and validation result
   vocabulary live in dedicated connector type modules.
+- `packages/dpm/src/profile/connector-freshness.ts` remains the freshness helper compatibility
+  barrel, while `connector-hash-input.ts`, `connector-structural-hash.ts`, and
+  `connector-source-version-hashes.ts` separately own hash input assembly, deterministic structural
+  hashing, and source version hash ordering.
 - Connector validation checks capability identity, supported source/capture modes, unsupported or
   skipped observed evidence kinds, failed-result diagnostics, completed-result profile artifacts,
   emitted profile artifact schema validity, and connector identity mismatch in emitted sources.

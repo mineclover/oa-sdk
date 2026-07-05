@@ -1,7 +1,9 @@
 import {
-  computeDpmProfileConnectorStructuralHash,
   createDpmProfileConnectorHashInput,
-} from './connector-freshness.js'
+} from './connector-hash-input.js'
+import {
+  computeDpmProfileConnectorStructuralHash,
+} from './connector-structural-hash.js'
 import {
   DPM_PROFILE_CONNECTOR_RESULT_KIND,
   type DpmProfileConnectorResult,

@@ -1,6 +1,6 @@
 import {
   sortDpmProfileConnectorSourceVersionHashes,
-} from './connector-freshness.js'
+} from './connector-source-version-hashes.js'
 import { createDpmProfileConnectorStructuralResult } from './connector-normalize.js'
 import { computeDpmProfileConnectorRunHash } from './connector-run-hash.js'
 import {
