@@ -179,6 +179,9 @@ Artifacts:
 - `packages/dpm/src/catalog/profiler-postgres-query-ctes.ts`
 - `packages/dpm/src/catalog/profiler-postgres-query-records.ts`
 - `packages/dpm/src/catalog/profiler-postgres-query-structure-records.ts`
+- `packages/dpm/src/catalog/profiler-postgres-query-schema-records.ts`
+- `packages/dpm/src/catalog/profiler-postgres-query-table-records.ts`
+- `packages/dpm/src/catalog/profiler-postgres-query-column-records.ts`
 - `packages/dpm/src/catalog/profiler-postgres-query-integrity-records.ts`
 - `packages/dpm/src/catalog/profiler-postgres-query-primary-key-records.ts`
 - `packages/dpm/src/catalog/profiler-postgres-query-foreign-key-records.ts`
@@ -212,6 +215,8 @@ Tasks:
 - Include a deterministic catalog freshness hash.
 - Keep structural catalog element copy and integrity element copy as separate
   implementation boundaries.
+- Keep PostgreSQL schema, table, and column record SQL fragments as separate implementation
+  boundaries.
 - Keep PostgreSQL primary-key, foreign-key, and index record SQL fragments as separate
   implementation boundaries.
 - Keep PostgreSQL primary-key, foreign-key, and index row mappers as separate implementation
