@@ -1,9 +1,9 @@
 import {
   computeDpmProfileConnectorStructuralHash,
   createDpmProfileConnectorHashInput,
-  createDpmProfileConnectorStructuralResult,
   sortDpmProfileConnectorSourceVersionHashes,
-} from './connector-normalize.js'
+} from './connector-freshness.js'
+import { createDpmProfileConnectorStructuralResult } from './connector-normalize.js'
 import {
   DPM_PROFILE_CONNECTOR_RESULT_KIND,
   type DpmProfileConnectorResult,
@@ -36,7 +36,11 @@ export function normalizeDpmProfileConnectorResult(input: DpmProfileConnectorRes
       runHash: computeDpmProfileConnectorRunHash(structural),
       ...(input.profileArtifact ? { profileVersionHash: input.profileArtifact.freshness.versionHash } : {}),
       ...(input.profileArtifact?.freshness.sourceVersionHashes
-        ? { sourceVersionHashes: sortDpmProfileConnectorSourceVersionHashes(input.profileArtifact.freshness.sourceVersionHashes) }
+        ? {
+            sourceVersionHashes: sortDpmProfileConnectorSourceVersionHashes(
+              input.profileArtifact.freshness.sourceVersionHashes,
+            ),
+          }
         : {}),
     },
   }
