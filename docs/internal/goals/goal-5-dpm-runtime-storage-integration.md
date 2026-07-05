@@ -44,10 +44,14 @@ Artifacts:
 - `packages/dpm/src/storage/registry-schema-table.ts`
 - `packages/dpm/src/storage/registry-schema-indexes.ts`
 - `packages/dpm/src/storage/registry-repository.ts`
+- `packages/dpm/src/storage/registry-repository-contract-types.ts`
+- `packages/dpm/src/storage/registry-repository-request-types.ts`
 - `packages/dpm/src/storage/registry-repository-types.ts`
+- `packages/dpm/src/storage/registry-rows-to-snapshot-types.ts`
 - `packages/dpm/src/storage/registry-row-mapper.ts`
 - `packages/dpm/src/storage/registry-row-relationship.ts`
 - `packages/dpm/src/storage/registry-row-scope.ts`
+- `packages/dpm/src/storage/registry-storage-row-types.ts`
 - `packages/dpm/test/storage-registry.test.ts`
 - migration or SQL fixture under `packages/dpm/test/fixtures/storage/`
 
@@ -71,8 +75,10 @@ Implementation notes:
 - `DPM_REGISTRY_STORAGE_SCHEMA_SQL` assembles the Postgres canonical schema from table and index
   DDL modules using `text`, `timestamptz`, check constraints, a composite identity index, and an
   approved partial index.
-- `packages/dpm/src/storage/registry-repository-types.ts` owns storage row/request/repository
-  adapter vocabulary.
+- `packages/dpm/src/storage/registry-repository-types.ts` remains the import compatibility barrel, while
+  request, storage row, rows-to-snapshot input, and repository adapter contract vocabulary live in
+  dedicated `registry-repository-request-types.ts`, `registry-storage-row-types.ts`,
+  `registry-rows-to-snapshot-types.ts`, and `registry-repository-contract-types.ts` modules.
 - `createDpmRegistryRepository()` accepts a row reader so tests can verify export behavior without a
   live source database.
 - `registryRowsToSnapshot()` in `packages/dpm/src/storage/registry-row-mapper.ts` orchestrates storage

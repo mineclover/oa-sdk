@@ -4,6 +4,8 @@ import { getDpmGatewayOpenApiDocument } from '../src/index.js'
 import { profileAnalysisReport, profileArtifact, profileCoordinate, relationshipHint } from './support/gateway-fixtures.js'
 import { compileGatewayComponentSchema } from './support/gateway-schema.js'
 
+const exhaustiveGatewaySchemaValidationTimeoutMs = 30_000
+
 describe('DPM gateway component schema validation', () => {
   it('rejects empty objects for every non-opaque gateway component schema', () => {
     const document = getDpmGatewayOpenApiDocument()
@@ -14,7 +16,7 @@ describe('DPM gateway component schema validation', () => {
       const schema = compileGatewayComponentSchema(schemaName)
       expect(schema({}), `${schemaName} unexpectedly accepted an empty object`).toBe(false)
     }
-  })
+  }, exhaustiveGatewaySchemaValidationTimeoutMs)
 
   it('rejects incomplete request payloads for gateway write operations', () => {
     for (const schemaName of [

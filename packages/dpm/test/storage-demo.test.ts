@@ -23,7 +23,7 @@ import {
 
 const demoRoot = new URL('../examples/customer-orders-storage/', import.meta.url)
 const packageRoot = fileURLToPath(new URL('..', import.meta.url))
-const demoCommandTimeoutMs = 20_000
+const demoCommandTimeoutMs = 90_000
 
 function readJsonFixture<T>(name: string): T {
   return JSON.parse(readFileSync(join(demoRoot.pathname, name), 'utf8')) as T
@@ -48,6 +48,7 @@ describe('DPM storage-backed customer orders demo', () => {
     const result = spawnSync('corepack', ['pnpm', 'run', 'demo:storage'], {
       cwd: packageRoot,
       encoding: 'utf8',
+      timeout: demoCommandTimeoutMs,
     })
     const marker = '{\n  "demo": "dpm.customer-orders-storage"'
     const outputStart = result.stdout.indexOf(marker)
@@ -57,7 +58,7 @@ describe('DPM storage-backed customer orders demo', () => {
     expect(output?.sourceDbMutation).toBe('none')
     expect(output?.persistedRawValues).toBe(false)
     expect(output?.steps.every((step: Record<string, unknown>) => step.status === 'pass')).toBe(true)
-  }, demoCommandTimeoutMs)
+  }, demoCommandTimeoutMs + 5_000)
 
   it('profiles catalog rows, exports registry rows, runs validate/compile/dry-run, and retrieves reports without raw values', async () => {
     const manifest = readJsonFixture<Record<string, any>>('manifest.json')

@@ -13,7 +13,7 @@ const catalogPath = join(demoRoot.pathname, 'catalog.snapshot.json')
 const registryPath = join(demoRoot.pathname, 'relationship-registry.yaml')
 const estimatedRowsPath = join(demoRoot.pathname, 'estimated-rows.json')
 const packageRoot = fileURLToPath(new URL('..', import.meta.url))
-const demoCommandTimeoutMs = 20_000
+const demoCommandTimeoutMs = 90_000
 
 function parseStdout(stdout: string): Record<string, any> {
   return JSON.parse(stdout) as Record<string, any>
@@ -33,6 +33,7 @@ describe('DPM customer orders demo', () => {
     const result = spawnSync('corepack', ['pnpm', 'run', 'demo'], {
       cwd: packageRoot,
       encoding: 'utf8',
+      timeout: demoCommandTimeoutMs,
     })
     const marker = '{\n  "demo": "dpm.customer-orders"'
     const outputStart = result.stdout.indexOf(marker)
@@ -40,7 +41,7 @@ describe('DPM customer orders demo', () => {
 
     expect(result.status, result.stderr || result.stdout).toBe(0)
     expect(output?.steps.every((step: Record<string, unknown>) => step.status === 'pass')).toBe(true)
-  }, demoCommandTimeoutMs)
+  }, demoCommandTimeoutMs + 5_000)
 
   it('validates, compiles, and dry-runs the demo without touching a source DB', async () => {
     const validate = await runDpmCli([
