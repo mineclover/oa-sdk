@@ -79,10 +79,13 @@ Artifacts:
 - `packages/dpm/src/catalog/profiler-postgres-query-integrity-records.ts`
 - `packages/dpm/src/catalog/profiler-postgres-query-records.ts`
 - `packages/dpm/src/catalog/profiler-postgres-query-structure-records.ts`
+- `packages/dpm/src/catalog/profiler-postgres-row-filters.ts`
+- `packages/dpm/src/catalog/profiler-postgres-row-mappers.ts`
 - `packages/dpm/src/catalog/profiler-postgres-row-types.ts`
 - `packages/dpm/src/catalog/profiler-postgres-row-utils.ts`
 - `packages/dpm/src/catalog/profiler-postgres-rows.ts`
 - `packages/dpm/src/catalog/profiler-postgres-sources.ts`
+- `packages/dpm/src/catalog/profiler-postgres-unique-candidates.ts`
 - `packages/dpm/test/catalog-profiler.test.ts`
 - read-only catalog SQL fixtures
 
@@ -114,7 +117,11 @@ Implementation notes:
   profiler facade.
 - `postgresCatalogRowsToSnapshot()` maps profiled rows into the existing `CatalogSnapshot` shape,
   derives primary-key and unique-index candidates, and delegates freshness hashing to the existing
-  catalog normalization path. The row mapper lives in `packages/dpm/src/catalog/profiler-postgres-rows.ts`.
+  catalog normalization path. The rows-to-snapshot orchestration lives in
+  `packages/dpm/src/catalog/profiler-postgres-rows.ts`, with row-kind filters in
+  `packages/dpm/src/catalog/profiler-postgres-row-filters.ts`, catalog element mappers in
+  `packages/dpm/src/catalog/profiler-postgres-row-mappers.ts`, and unique candidate derivation in
+  `packages/dpm/src/catalog/profiler-postgres-unique-candidates.ts`.
 - `profiler-postgres-sources.ts` owns source map assembly, while `profiler-postgres-row-utils.ts`
   owns required-field guards and DB source coordinate construction.
 
