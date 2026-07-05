@@ -1,7 +1,7 @@
 import {
   DPM_PROFILE_CAPTURE_MODES,
   DPM_PROFILE_SOURCE_KINDS,
-} from './types.js'
+} from './profile-taxonomy.js'
 import {
   nonEmptyStringSchema,
   profileCoordinateSchema,

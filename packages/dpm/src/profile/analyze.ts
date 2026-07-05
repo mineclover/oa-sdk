@@ -12,7 +12,7 @@ import {
   analyzeRiskIndicators,
 } from './analysis-compute.js'
 import { analyzeDriftSignals } from './analysis-drift.js'
-import type { DpmProfileArtifact } from './types.js'
+import type { DpmProfileArtifact } from './profile-artifact-types.js'
 
 export function createDpmProfileAnalysisReport(input: DpmProfileAnalysisInput): DpmProfileAnalysisReport {
   const coverage = analyzeCoverage(input.profileArtifact)

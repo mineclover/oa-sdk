@@ -1,6 +1,6 @@
 import {
   DPM_PROFILE_METRIC_KINDS,
-} from './types.js'
+} from './profile-taxonomy.js'
 import {
   evidenceIdsSchema,
   nonEmptyStringSchema,

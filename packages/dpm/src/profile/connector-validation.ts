@@ -1,6 +1,6 @@
 import type { DpmProfileConnectorResult } from './connector.js'
 import { validateDpmProfileArtifactSchema } from './schema.js'
-import type { DpmProfileDiagnostic } from './types.js'
+import type { DpmProfileDiagnostic } from './profile-artifact-types.js'
 
 export function collectDpmProfileConnectorDiagnostics(
   result: DpmProfileConnectorResult,

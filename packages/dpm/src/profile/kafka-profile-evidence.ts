@@ -1,8 +1,8 @@
 import type {
   DpmProfileCoordinate,
-  DpmProfileEdge,
   DpmProfileEvidenceSource,
-} from './types.js'
+} from './profile-source-types.js'
+import type { DpmProfileEdge } from './profile-graph-types.js'
 
 export type KafkaEvidenceInput = {
   id: string

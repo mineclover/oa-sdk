@@ -4,7 +4,7 @@ import {
   evidenceIdsForNode,
   isIdentifierLikeNode,
 } from './analysis-utils.js'
-import type { DpmProfileArtifact } from './types.js'
+import type { DpmProfileArtifact } from './profile-artifact-types.js'
 
 export function analyzeRiskIndicators(profile: DpmProfileArtifact): DpmProfileRiskIndicator[] {
   const risks = new Map<string, DpmProfileRiskIndicator>()

@@ -1,4 +1,4 @@
-import type { DpmProfileDiagnostic } from './types.js'
+import type { DpmProfileDiagnostic } from './profile-artifact-types.js'
 
 export function byId<T extends { id: string }>(left: T, right: T): number {
   return left.id.localeCompare(right.id)

@@ -1,9 +1,11 @@
 import type {
   DpmProfileArtifact,
+} from './profile-artifact-types.js'
+import type {
   DpmProfileMetricKind,
   DpmProfileNodeKind,
   DpmProfileSourceKind,
-} from './types.js'
+} from './profile-taxonomy.js'
 
 export const DPM_PROFILE_ANALYSIS_REPORT_KIND = 'dpm.profile.analysis-report.v1' as const
 

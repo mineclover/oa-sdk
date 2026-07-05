@@ -1,6 +1,6 @@
 import {
   DPM_PROFILE_SOURCE_KINDS,
-} from './types.js'
+} from './profile-taxonomy.js'
 
 export const nonEmptyStringSchema = { type: 'string', minLength: 1 } as const
 export const sha256Schema = { type: 'string', pattern: '^sha256:.+' } as const

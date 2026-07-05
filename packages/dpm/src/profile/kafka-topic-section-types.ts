@@ -3,10 +3,10 @@ import type {
 } from './kafka-fixture-types.js'
 import type {
   DpmProfileEdge,
-  DpmProfileEvidenceSource,
   DpmProfileMetric,
   DpmProfileNode,
-} from './types.js'
+} from './profile-graph-types.js'
+import type { DpmProfileEvidenceSource } from './profile-source-types.js'
 
 export type KafkaTopicSectionAppendInput = {
   topic: DpmKafkaTopicFixture

@@ -113,28 +113,28 @@ catalog/registry snapshot, semantic validator, compiler, CLI/gateway/publishing 
 | `profilePostgresCatalog()` | `dpm/src/catalog/profiler-postgres.ts` | query client를 통해 PostgreSQL catalog metadata를 읽고 DPM catalog snapshot으로 변환 |
 | `postgresCatalogRowsToSnapshot()` | `dpm/src/catalog/profiler-postgres.ts` | profiler rows를 기존 `CatalogSnapshot` contract로 변환 |
 | `catalogSnapshotFromOpenApiProjection()` | `dpm/src/catalog/projection.ts` | OpenAPI projection envelope를 structural catalog evidence로 변환 |
-| `DPM_PROFILE_ARTIFACT_KIND` | `dpm/src/profile/types.ts` | DPM profile artifact kind literal |
-| `DPM_PROFILE_SOURCE_KINDS` | `dpm/src/profile/types.ts` | source-neutral profile source taxonomy |
-| `DPM_PROFILE_NODE_KINDS` | `dpm/src/profile/types.ts` | profile graph node taxonomy |
-| `DPM_PROFILE_EDGE_KINDS` | `dpm/src/profile/types.ts` | profile graph edge taxonomy |
-| `DPM_PROFILE_METRIC_KINDS` | `dpm/src/profile/types.ts` | measurable profile metric taxonomy |
-| `DPM_PROFILE_CAPTURE_MODES` | `dpm/src/profile/types.ts` | connector capture mode taxonomy |
-| `DPM_PROFILE_DIAGNOSTIC_FAMILIES` | `dpm/src/profile/types.ts` | profile/connector diagnostic code family prefixes |
-| `DpmProfileSourceKind` | `dpm/src/profile/types.ts` | profile source kind union |
-| `DpmProfileNodeKind` | `dpm/src/profile/types.ts` | profile node kind union |
-| `DpmProfileEdgeKind` | `dpm/src/profile/types.ts` | profile edge kind union |
-| `DpmProfileMetricKind` | `dpm/src/profile/types.ts` | profile metric kind union |
-| `DpmProfileCaptureMode` | `dpm/src/profile/types.ts` | connector capture mode union |
-| `DpmProfileDiagnosticFamily` | `dpm/src/profile/types.ts` | profile diagnostic family union |
-| `DpmProfileCoordinate` | `dpm/src/profile/types.ts` | DPM-owned source-neutral coordinate for DB/projection/Kafka/query/ORM/manual evidence |
-| `DpmProfileSourceDescriptor` | `dpm/src/profile/types.ts` | connector/source identity, refs, capture mode, and source freshness metadata |
-| `DpmProfileEvidenceSource` | `dpm/src/profile/types.ts` | evidence id to coordinate/provenance entry |
-| `DpmProfileNode` | `dpm/src/profile/types.ts` | normalized profile graph node |
-| `DpmProfileEdge` | `dpm/src/profile/types.ts` | normalized profile graph edge with evidence pointers |
-| `DpmProfileMetric` | `dpm/src/profile/types.ts` | normalized profile metric for measurable evidence |
-| `DpmProfileDiagnostic` | `dpm/src/profile/types.ts` | profile/connector diagnostic entry |
-| `DpmProfileFreshness` | `dpm/src/profile/types.ts` | deterministic profile freshness hash and optional source hashes |
-| `DpmProfileArtifact` | `dpm/src/profile/types.ts` | normalized source-neutral profile evidence artifact |
+| `DPM_PROFILE_ARTIFACT_KIND` | `dpm/src/profile/profile-artifact-types.ts` | DPM profile artifact kind literal |
+| `DPM_PROFILE_SOURCE_KINDS` | `dpm/src/profile/profile-taxonomy.ts` | source-neutral profile source taxonomy |
+| `DPM_PROFILE_NODE_KINDS` | `dpm/src/profile/profile-taxonomy.ts` | profile graph node taxonomy |
+| `DPM_PROFILE_EDGE_KINDS` | `dpm/src/profile/profile-taxonomy.ts` | profile graph edge taxonomy |
+| `DPM_PROFILE_METRIC_KINDS` | `dpm/src/profile/profile-taxonomy.ts` | measurable profile metric taxonomy |
+| `DPM_PROFILE_CAPTURE_MODES` | `dpm/src/profile/profile-taxonomy.ts` | connector capture mode taxonomy |
+| `DPM_PROFILE_DIAGNOSTIC_FAMILIES` | `dpm/src/profile/profile-taxonomy.ts` | profile/connector diagnostic code family prefixes |
+| `DpmProfileSourceKind` | `dpm/src/profile/profile-taxonomy.ts` | profile source kind union |
+| `DpmProfileNodeKind` | `dpm/src/profile/profile-taxonomy.ts` | profile node kind union |
+| `DpmProfileEdgeKind` | `dpm/src/profile/profile-taxonomy.ts` | profile edge kind union |
+| `DpmProfileMetricKind` | `dpm/src/profile/profile-taxonomy.ts` | profile metric kind union |
+| `DpmProfileCaptureMode` | `dpm/src/profile/profile-taxonomy.ts` | connector capture mode union |
+| `DpmProfileDiagnosticFamily` | `dpm/src/profile/profile-taxonomy.ts` | profile diagnostic family union |
+| `DpmProfileCoordinate` | `dpm/src/profile/profile-source-types.ts` | DPM-owned source-neutral coordinate for DB/projection/Kafka/query/ORM/manual evidence |
+| `DpmProfileSourceDescriptor` | `dpm/src/profile/profile-source-types.ts` | connector/source identity, refs, capture mode, and source freshness metadata |
+| `DpmProfileEvidenceSource` | `dpm/src/profile/profile-source-types.ts` | evidence id to coordinate/provenance entry |
+| `DpmProfileNode` | `dpm/src/profile/profile-graph-types.ts` | normalized profile graph node |
+| `DpmProfileEdge` | `dpm/src/profile/profile-graph-types.ts` | normalized profile graph edge with evidence pointers |
+| `DpmProfileMetric` | `dpm/src/profile/profile-graph-types.ts` | normalized profile metric for measurable evidence |
+| `DpmProfileDiagnostic` | `dpm/src/profile/profile-artifact-types.ts` | profile/connector diagnostic entry |
+| `DpmProfileFreshness` | `dpm/src/profile/profile-artifact-types.ts` | deterministic profile freshness hash and optional source hashes |
+| `DpmProfileArtifact` | `dpm/src/profile/profile-artifact-types.ts` | normalized source-neutral profile evidence artifact |
 | `DpmProfileArtifactInput` | `dpm/src/profile/artifact.ts` | profile artifact normalization input |
 | `normalizeDpmProfileArtifact()` | `dpm/src/profile/artifact.ts` | profile arrays/source maps를 deterministic artifact로 정규화 |
 | `computeDpmProfileFreshnessHash()` | `dpm/src/profile/artifact-freshness.ts` | normalized profile evidence freshness hash 계산 |

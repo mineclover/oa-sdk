@@ -3,8 +3,8 @@ import { createHash } from 'node:crypto'
 import {
   DPM_PROFILE_ARTIFACT_KIND,
   type DpmProfileArtifact,
-  type DpmProfileSourceDescriptor,
-} from './types.js'
+} from './profile-artifact-types.js'
+import type { DpmProfileSourceDescriptor } from './profile-source-types.js'
 
 export type DpmProfileFreshnessHashInput =
   | Omit<DpmProfileArtifact, 'freshness'>

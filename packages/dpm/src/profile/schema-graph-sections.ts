@@ -1,7 +1,7 @@
 import {
   DPM_PROFILE_EDGE_KINDS,
   DPM_PROFILE_NODE_KINDS,
-} from './types.js'
+} from './profile-taxonomy.js'
 import {
   evidenceIdsSchema,
   nonEmptyStringSchema,

@@ -1,6 +1,6 @@
 import {
   DPM_PROFILE_ARTIFACT_KIND,
-} from './types.js'
+} from './profile-artifact-types.js'
 import {
   nonEmptyStringSchema,
 } from './schema-fragments.js'

@@ -6,7 +6,7 @@ import {
   isIdentifierLikeNode,
   roundRatio,
 } from './analysis-utils.js'
-import type { DpmProfileArtifact } from './types.js'
+import type { DpmProfileArtifact } from './profile-artifact-types.js'
 
 export function analyzeKeyCandidates(profile: DpmProfileArtifact): DpmProfileKeyCandidate[] {
   const candidates = new Map<string, DpmProfileKeyCandidate>()

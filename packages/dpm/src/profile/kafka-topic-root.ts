@@ -5,8 +5,10 @@ import {
 } from './kafka-profile-graph.js'
 import type {
   DpmProfileEvidenceSource,
+} from './profile-source-types.js'
+import type {
   DpmProfileNode,
-} from './types.js'
+} from './profile-graph-types.js'
 
 export type KafkaTopicRootAppendInput = {
   topic: DpmKafkaTopicFixture

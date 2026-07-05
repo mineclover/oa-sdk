@@ -1,8 +1,10 @@
 import type {
   DpmProfileArtifact,
+} from './profile-artifact-types.js'
+import type {
   DpmProfileMetric,
   DpmProfileNode,
-} from './types.js'
+} from './profile-graph-types.js'
 
 export function isIdentifierLikeNode(node: DpmProfileNode): boolean {
   if (node.kind !== 'column' && node.kind !== 'message_field' && node.kind !== 'message_key') return false

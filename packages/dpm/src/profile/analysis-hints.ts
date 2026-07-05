@@ -3,7 +3,7 @@ import {
   byId,
   readStringShape,
 } from './analysis-utils.js'
-import type { DpmProfileArtifact } from './types.js'
+import type { DpmProfileArtifact } from './profile-artifact-types.js'
 
 export function analyzeRelationshipHints(profile: DpmProfileArtifact): DpmProfileRelationshipHintProposal[] {
   const nodes = new Map(profile.nodes.map(node => [node.id, node]))

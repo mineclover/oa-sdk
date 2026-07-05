@@ -114,6 +114,10 @@ Status: implemented 2026-07-04.
 
 Artifacts:
 - `packages/dpm/src/profile/types.ts`
+- `packages/dpm/src/profile/profile-taxonomy.ts`
+- `packages/dpm/src/profile/profile-source-types.ts`
+- `packages/dpm/src/profile/profile-graph-types.ts`
+- `packages/dpm/src/profile/profile-artifact-types.ts`
 - `packages/dpm/src/profile/artifact.ts`
 - `packages/dpm/src/profile/artifact-copy.ts`
 - `packages/dpm/src/profile/artifact-ordering.ts`
@@ -156,8 +160,10 @@ Implementation notes:
   identity, source descriptors, DPM-owned coordinates, nodes, edges, metrics, diagnostics, and
   evidence source map. Deterministic normalization and freshness hashing live in
   `packages/dpm/src/profile/artifact.ts`.
-- Profile source/node/edge/metric/capture/diagnostic taxonomies are runtime constants used by both
-  TypeScript and JSON Schema.
+- Profile source/node/edge/metric/capture/diagnostic taxonomies live in
+  `packages/dpm/src/profile/profile-taxonomy.ts`; source coordinate/provenance, graph evidence, and
+  artifact envelope types are split across `profile-source-types.ts`, `profile-graph-types.ts`, and
+  `profile-artifact-types.ts`. `packages/dpm/src/profile/types.ts` remains the compatibility barrel.
 - The profile artifact JSON Schema rejects unknown taxonomy values, missing node provenance,
   incomplete metrics, and raw top-level payload fields.
 

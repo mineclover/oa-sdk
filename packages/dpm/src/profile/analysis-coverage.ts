@@ -3,7 +3,7 @@ import {
   countBy,
   roundRatio,
 } from './analysis-utils.js'
-import type { DpmProfileArtifact } from './types.js'
+import type { DpmProfileArtifact } from './profile-artifact-types.js'
 
 export function analyzeCoverage(profile: DpmProfileArtifact): DpmProfileAnalysisCoverage {
   const measuredNodeIds = new Set(profile.metrics.map(metric => metric.subjectId))

@@ -7,10 +7,12 @@ import {
 import { collectDpmProfileConnectorDiagnostics } from './connector-validation.js'
 import type {
   DpmProfileArtifact,
-  DpmProfileCaptureMode,
   DpmProfileDiagnostic,
+} from './profile-artifact-types.js'
+import type {
+  DpmProfileCaptureMode,
   DpmProfileSourceKind,
-} from './types.js'
+} from './profile-taxonomy.js'
 
 export const DPM_PROFILE_CONNECTOR_RESULT_KIND = 'dpm.profile.connector-result.v1' as const
 

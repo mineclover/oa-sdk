@@ -1,12 +1,14 @@
 import type {
   DpmProfileCoordinate,
-  DpmProfileDiagnostic,
-  DpmProfileEdge,
   DpmProfileEvidenceSource,
+  DpmProfileSourceDescriptor,
+} from './profile-source-types.js'
+import type {
+  DpmProfileEdge,
   DpmProfileMetric,
   DpmProfileNode,
-  DpmProfileSourceDescriptor,
-} from './types.js'
+} from './profile-graph-types.js'
+import type { DpmProfileDiagnostic } from './profile-artifact-types.js'
 
 export function copySourceDescriptor(source: DpmProfileSourceDescriptor): DpmProfileSourceDescriptor {
   return {

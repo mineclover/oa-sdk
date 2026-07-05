@@ -7,10 +7,10 @@ import {
 } from './kafka-profile-evidence.js'
 import type {
   DpmProfileEdge,
-  DpmProfileEvidenceSource,
   DpmProfileMetric,
   DpmProfileNode,
-} from './types.js'
+} from './profile-graph-types.js'
+import type { DpmProfileEvidenceSource } from './profile-source-types.js'
 
 export type KafkaFieldProfileAppendInput = {
   topicName: string

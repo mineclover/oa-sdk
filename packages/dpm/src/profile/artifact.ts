@@ -1,7 +1,7 @@
 import {
   DPM_PROFILE_ARTIFACT_KIND,
   type DpmProfileArtifact,
-} from './types.js'
+} from './profile-artifact-types.js'
 import {
   copyDiagnostic,
   copyEdge,
