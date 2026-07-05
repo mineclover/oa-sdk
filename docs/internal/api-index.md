@@ -183,7 +183,7 @@ catalog/registry snapshot, semantic validator, compiler, CLI/gateway/publishing 
 | `DpmProfileAnalysisFreshness` | `dpm/src/profile/analysis-report-types.ts` | analysis report freshness hash metadata |
 | `DpmProfileAnalysisReport` | `dpm/src/profile/analysis-report-types.ts` | coverage, relationship hints, key candidates, drift, risk, diagnostics report |
 | `createDpmProfileAnalysisReport()` | `dpm/src/profile/analyze.ts` | profile artifact를 deterministic analysis report로 변환 |
-| `computeDpmProfileAnalysisReportHash()` | `dpm/src/profile/analyze.ts` | profile analysis report hash 계산 |
+| `computeDpmProfileAnalysisReportHash()` | `dpm/src/profile/analysis-report-freshness.ts` | profile analysis report hash 계산 |
 | `DISCOVERY_REPORT_KIND` | `dpm/src/discovery/report.ts` | discovery report kind literal |
 | `DiscoveryEvidenceKind` | `dpm/src/discovery/discovery-taxonomy.ts` | candidate evidence source taxonomy |
 | `DiscoveryEvidence` | `dpm/src/discovery/discovery-candidate-types.ts` | reviewable relationship candidate evidence entry |

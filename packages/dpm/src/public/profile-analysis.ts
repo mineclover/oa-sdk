@@ -21,6 +21,8 @@ export {
   DPM_PROFILE_RISK_INDICATOR_KINDS,
 } from '../profile/analysis-types.js'
 export {
-  computeDpmProfileAnalysisReportHash,
   createDpmProfileAnalysisReport,
 } from '../profile/analyze.js'
+export {
+  computeDpmProfileAnalysisReportHash,
+} from '../profile/analysis-report-freshness.js'

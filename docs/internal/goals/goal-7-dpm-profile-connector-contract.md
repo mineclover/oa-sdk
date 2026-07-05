@@ -274,6 +274,7 @@ Artifacts:
 - `packages/dpm/src/profile/analysis-input-types.ts`
 - `packages/dpm/src/profile/analysis-signal-types.ts`
 - `packages/dpm/src/profile/analysis-report-types.ts`
+- `packages/dpm/src/profile/analysis-report-freshness.ts`
 - `packages/dpm/src/profile/analysis-coverage.ts`
 - `packages/dpm/src/profile/analysis-compute.ts`
 - `packages/dpm/src/profile/analysis-hints.ts`
@@ -291,6 +292,8 @@ Tasks:
   diagnostics distinct from manifest validation diagnostics.
 - Emit relationship hints as proposals with evidence pointers, not registry relationships.
 - Produce report payloads that can drive visualization and automated review.
+- Keep report orchestration and deterministic report hash serialization as separate
+  implementation boundaries.
 
 Acceptance:
 - Reports are deterministic for identical profile artifacts.
@@ -303,8 +306,10 @@ Verification:
 
 Implementation notes:
 - `createDpmProfileAnalysisReport()` derives deterministic coverage, relationship hint proposals,
-  key candidates, drift signals, risk indicators, profile diagnostics, summary counts, and report
-  freshness from a normalized profile artifact.
+  key candidates, drift signals, risk indicators, profile diagnostics, and summary counts from a
+  normalized profile artifact.
+- `computeDpmProfileAnalysisReportHash()` owns stable report serialization and report freshness
+  hash calculation.
 - Relationship hints are emitted as reviewer-safe `review` proposals with confidence and evidence
   ids; they do not become registry relationships.
 - Risk indicators are derived from profile coordinates and metrics only, and do not expose raw

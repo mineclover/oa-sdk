@@ -1,9 +1,8 @@
-import { createHash } from 'node:crypto'
-
 import {
   DPM_PROFILE_ANALYSIS_REPORT_KIND,
   type DpmProfileAnalysisReport,
 } from './analysis-report-types.js'
+import { computeDpmProfileAnalysisReportHash as computeReportHash } from './analysis-report-freshness.js'
 import type { DpmProfileAnalysisInput } from './analysis-input-types.js'
 import {
   analyzeCoverage,
@@ -50,36 +49,15 @@ export function createDpmProfileAnalysisReport(input: DpmProfileAnalysisInput): 
   return {
     ...structural,
     freshness: {
-      reportHash: computeDpmProfileAnalysisReportHash(structural),
+      reportHash: computeReportHash(structural),
       profileVersionHash: input.profileArtifact.freshness.versionHash,
       ...(input.previousProfileArtifact ? { previousProfileVersionHash: input.previousProfileArtifact.freshness.versionHash } : {}),
     },
   }
 }
 
-export function computeDpmProfileAnalysisReportHash(
-  input: Omit<DpmProfileAnalysisReport, 'freshness'>,
-): string {
-  return `sha256:${createHash('sha256').update(stableStringify(input)).digest('hex')}`
-}
+export { computeDpmProfileAnalysisReportHash } from './analysis-report-freshness.js'
 
 function byDiagnostic(left: DpmProfileArtifact['diagnostics'][number], right: DpmProfileArtifact['diagnostics'][number]): number {
   return `${left.severity}.${left.code}.${left.message}`.localeCompare(`${right.severity}.${right.code}.${right.message}`)
-}
-
-function stableStringify(value: unknown): string {
-  return JSON.stringify(sortValue(value))
-}
-
-function sortValue(value: unknown): unknown {
-  if (Array.isArray(value)) return value.map(sortValue)
-  if (!value || typeof value !== 'object') return value
-
-  const record = value as Record<string, unknown>
-  const sorted: Record<string, unknown> = {}
-  for (const key of Object.keys(record).sort()) {
-    const next = record[key]
-    if (next !== undefined) sorted[key] = sortValue(next)
-  }
-  return sorted
 }
