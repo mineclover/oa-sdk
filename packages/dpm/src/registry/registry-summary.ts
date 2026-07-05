@@ -1,8 +1,10 @@
 import type {
   RegistryRelationship,
-  RegistryRelationshipStatus,
-} from './types.js'
-import { REGISTRY_RELATIONSHIP_STATUSES } from './types.js'
+} from './registry-relationship-types.js'
+import {
+  REGISTRY_RELATIONSHIP_STATUSES,
+  type RegistryRelationshipStatus,
+} from './registry-taxonomy.js'
 
 export function createRegistrySnapshotSummary(input: {
   relationships: readonly RegistryRelationship[]

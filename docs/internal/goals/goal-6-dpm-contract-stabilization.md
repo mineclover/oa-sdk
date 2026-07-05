@@ -130,6 +130,7 @@ Status: implemented 2026-07-04.
 Artifacts:
 - `packages/dpm/src/discovery/types.ts`
 - `packages/dpm/src/registry/types.ts`
+- `packages/dpm/src/registry/registry-taxonomy.ts`
 - `packages/dpm/src/gateway/openapi.ts`
 - `packages/dpm/test/gateway-taxonomy.test.ts`
 - `packages/dpm/test/gateway-schema-validation.test.ts`
@@ -150,6 +151,7 @@ Status: implemented 2026-07-04.
 Artifacts:
 - `packages/dpm/src/compiler/plan.ts`
 - `packages/dpm/src/registry/types.ts`
+- `packages/dpm/src/registry/registry-taxonomy.ts`
 - `packages/dpm/src/gateway/openapi.ts`
 - `packages/dpm/test/gateway-runtime-manifest.test.ts`
 - `packages/dpm/test/gateway-taxonomy.test.ts`

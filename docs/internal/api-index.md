@@ -200,21 +200,21 @@ catalog/registry snapshot, semantic validator, compiler, CLI/gateway/publishing 
 | `classifyRelationshipCandidate()` | `dpm/src/discovery/report.ts` | confidence score를 review/reject classification으로 변환 |
 | `createRelationshipDiscoveryReport()` | `dpm/src/discovery/report.ts` | candidate input을 non-executable review report로 정규화 |
 | `REGISTRY_SNAPSHOT_KIND` | `dpm/src/registry/registry-identity.ts` | registry snapshot kind literal |
-| `REGISTRY_RELATIONSHIP_STATUSES` | `dpm/src/registry/types.ts` | runtime registry lifecycle status taxonomy used by TypeScript and OpenAPI |
-| `RegistryRelationshipStatus` | `dpm/src/registry/types.ts` | candidate/proposed/approved/rejected/deprecated/superseded lifecycle status |
-| `REGISTRY_RELATIONSHIP_KINDS` | `dpm/src/registry/types.ts` | runtime registry relationship kind taxonomy |
-| `RegistryRelationshipKind` | `dpm/src/registry/types.ts` | registry relationship kind taxonomy |
-| `REGISTRY_TRANSFORM_STRATEGIES` | `dpm/src/registry/types.ts` | runtime registry transform strategy taxonomy |
-| `RegistryTransformStrategy` | `dpm/src/registry/types.ts` | registry transform strategy taxonomy |
-| `REGISTRY_ORPHAN_POLICIES` | `dpm/src/registry/types.ts` | runtime registry orphan policy taxonomy used by TypeScript and OpenAPI |
-| `RegistryOrphanPolicy` | `dpm/src/registry/types.ts` | registry relationship orphan policy taxonomy |
-| `RegistryConditionMetadata` | `dpm/src/registry/types.ts` | context column, SQL condition, temporal condition metadata |
-| `RegistryEvidence` | `dpm/src/registry/types.ts` | registry relationship evidence entry |
-| `RegistryApprovalMetadata` | `dpm/src/registry/types.ts` | owner/reviewer/approval metadata |
-| `RegistryRelationshipInput` | `dpm/src/registry/types.ts` | registry relationship authoring input |
-| `RegistryRelationship` | `dpm/src/registry/types.ts` | normalized relationship with identity and executable flag |
-| `RegistrySnapshotInput` | `dpm/src/registry/types.ts` | registry snapshot creation input |
-| `RegistrySnapshot` | `dpm/src/registry/types.ts` | versioned registry snapshot output |
+| `REGISTRY_RELATIONSHIP_STATUSES` | `dpm/src/registry/registry-taxonomy.ts` | runtime registry lifecycle status taxonomy used by TypeScript and OpenAPI |
+| `RegistryRelationshipStatus` | `dpm/src/registry/registry-taxonomy.ts` | candidate/proposed/approved/rejected/deprecated/superseded lifecycle status |
+| `REGISTRY_RELATIONSHIP_KINDS` | `dpm/src/registry/registry-taxonomy.ts` | runtime registry relationship kind taxonomy |
+| `RegistryRelationshipKind` | `dpm/src/registry/registry-taxonomy.ts` | registry relationship kind taxonomy |
+| `REGISTRY_TRANSFORM_STRATEGIES` | `dpm/src/registry/registry-taxonomy.ts` | runtime registry transform strategy taxonomy |
+| `RegistryTransformStrategy` | `dpm/src/registry/registry-taxonomy.ts` | registry transform strategy taxonomy |
+| `REGISTRY_ORPHAN_POLICIES` | `dpm/src/registry/registry-taxonomy.ts` | runtime registry orphan policy taxonomy used by TypeScript and OpenAPI |
+| `RegistryOrphanPolicy` | `dpm/src/registry/registry-taxonomy.ts` | registry relationship orphan policy taxonomy |
+| `RegistryConditionMetadata` | `dpm/src/registry/registry-relationship-types.ts` | context column, SQL condition, temporal condition metadata |
+| `RegistryEvidence` | `dpm/src/registry/registry-relationship-types.ts` | registry relationship evidence entry |
+| `RegistryApprovalMetadata` | `dpm/src/registry/registry-relationship-types.ts` | owner/reviewer/approval metadata |
+| `RegistryRelationshipInput` | `dpm/src/registry/registry-relationship-types.ts` | registry relationship authoring input |
+| `RegistryRelationship` | `dpm/src/registry/registry-relationship-types.ts` | normalized relationship with identity and executable flag |
+| `RegistrySnapshotInput` | `dpm/src/registry/registry-snapshot-types.ts` | registry snapshot creation input |
+| `RegistrySnapshot` | `dpm/src/registry/registry-snapshot-types.ts` | versioned registry snapshot output |
 | `createRegistrySnapshot()` | `dpm/src/registry/snapshot.ts` | registry input을 stable versioned snapshot으로 정규화 |
 | `parseRegistrySnapshotYaml()` | `dpm/src/registry/snapshot.ts` | YAML review artifact를 registry snapshot으로 파싱 |
 | `selectApprovedRelationships()` | `dpm/src/registry/registry-executable.ts` | approved executable relationship만 선택 |

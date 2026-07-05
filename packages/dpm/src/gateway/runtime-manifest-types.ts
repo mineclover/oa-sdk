@@ -1,5 +1,5 @@
 import type { CatalogSnapshot, PostgresCatalogSnapshotInput } from '../catalog/types.js'
-import type { RegistrySnapshot } from '../registry/types.js'
+import type { RegistrySnapshot } from '../registry/registry-snapshot-types.js'
 
 export type DpmGatewayRuntimeManifestInput = {
   manifest: unknown

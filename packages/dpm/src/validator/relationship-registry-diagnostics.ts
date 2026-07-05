@@ -1,4 +1,5 @@
-import type { RegistryRelationship, RegistrySnapshot } from '../registry/types.js'
+import type { RegistryRelationship } from '../registry/registry-relationship-types.js'
+import type { RegistrySnapshot } from '../registry/registry-snapshot-types.js'
 import {
   createDpmDiagnostic,
   type DpmDiagnostic,

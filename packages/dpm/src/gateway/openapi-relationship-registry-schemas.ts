@@ -1,4 +1,4 @@
-import { REGISTRY_RELATIONSHIP_STATUSES } from '../registry/types.js'
+import { REGISTRY_RELATIONSHIP_STATUSES } from '../registry/registry-taxonomy.js'
 import {
   arrayOf,
   requiredObjectSchema,

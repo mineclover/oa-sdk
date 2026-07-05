@@ -229,6 +229,9 @@ Goal id: `DPM-04`
 
 Artifacts:
 - `packages/dpm/src/registry/types.ts`
+- `packages/dpm/src/registry/registry-taxonomy.ts`
+- `packages/dpm/src/registry/registry-relationship-types.ts`
+- `packages/dpm/src/registry/registry-snapshot-types.ts`
 - `packages/dpm/src/registry/snapshot.ts`
 - `packages/dpm/src/registry/registry-identity.ts`
 - `packages/dpm/src/registry/registry-normalize.ts`
@@ -247,6 +250,8 @@ Tasks:
 - Support YAML snapshot fixtures as deterministic review artifacts.
 - Keep YAML parsing, relationship row mapping, and scalar/object guards as separate
   implementation boundaries.
+- Keep `packages/dpm/src/registry/types.ts` as the compatibility barrel while taxonomy,
+  relationship vocabulary, and snapshot envelope types are owned by focused modules.
 - Reserve Postgres schema design for the ADR or a later storage unit.
 
 Exit criteria:

@@ -1,6 +1,6 @@
 import { parse } from 'yaml'
 
-import type { RegistrySnapshotInput } from './types.js'
+import type { RegistrySnapshotInput } from './registry-snapshot-types.js'
 import { toRegistryRelationshipInput } from './registry-yaml-relationship.js'
 import { optionalString, requireArray, requireRecord, requireString } from './registry-yaml-values.js'
 

@@ -4,11 +4,13 @@ import type {
   RegistryApprovalMetadata,
   RegistryEvidence,
   RegistryRelationshipInput,
+} from '../registry/registry-relationship-types.js'
+import type {
   RegistryRelationshipKind,
   RegistryRelationshipStatus,
-  RegistrySnapshot,
   RegistryTransformStrategy,
-} from '../registry/types.js'
+} from '../registry/registry-taxonomy.js'
+import type { RegistrySnapshot } from '../registry/registry-snapshot-types.js'
 
 export type DpmRegistrySnapshotExportRequest = {
   datasetId: string

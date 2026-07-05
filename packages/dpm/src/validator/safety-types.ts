@@ -1,4 +1,4 @@
-import type { RegistrySnapshot } from '../registry/types.js'
+import type { RegistrySnapshot } from '../registry/registry-snapshot-types.js'
 import type { DpmValidationPhase } from './validation-types.js'
 
 export type DpmSafetyValidationInput = {

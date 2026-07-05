@@ -8,7 +8,7 @@ import type {
   PostgresCatalogSnapshotInput,
 } from '../catalog/types.js'
 import { parseRegistrySnapshotYaml } from '../registry/snapshot.js'
-import type { RegistrySnapshot } from '../registry/types.js'
+import type { RegistrySnapshot } from '../registry/registry-snapshot-types.js'
 import type { DpmCliParsedArgs } from './types.js'
 
 export type DpmCliInputs = {

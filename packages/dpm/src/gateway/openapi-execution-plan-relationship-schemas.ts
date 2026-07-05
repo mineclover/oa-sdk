@@ -3,7 +3,7 @@ import {
   REGISTRY_ORPHAN_POLICIES,
   REGISTRY_RELATIONSHIP_KINDS,
   REGISTRY_TRANSFORM_STRATEGIES,
-} from '../registry/types.js'
+} from '../registry/registry-taxonomy.js'
 import {
   arrayOf,
   ref,

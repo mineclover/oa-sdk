@@ -2,9 +2,9 @@ import type { CatalogSnapshot } from '../catalog/types.js'
 import type {
   RegistryOrphanPolicy,
   RegistryRelationshipKind,
-  RegistrySnapshot,
   RegistryTransformStrategy,
-} from '../registry/types.js'
+} from '../registry/registry-taxonomy.js'
+import type { RegistrySnapshot } from '../registry/registry-snapshot-types.js'
 
 export const DPM_COMPILED_PLAN_KIND = 'dpm.compiled-plan.v1' as const
 export const DPM_COMPILED_PLAN_VERSIONS = ['1.0'] as const

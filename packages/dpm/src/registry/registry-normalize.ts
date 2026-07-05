@@ -7,8 +7,8 @@ import type {
   RegistryEvidence,
   RegistryRelationship,
   RegistryRelationshipInput,
-  RegistrySnapshotInput,
-} from './types.js'
+} from './registry-relationship-types.js'
+import type { RegistrySnapshotInput } from './registry-snapshot-types.js'
 
 export function normalizeRegistryRelationship(
   snapshot: Pick<RegistrySnapshotInput, 'datasetId' | 'registryVersion'>,

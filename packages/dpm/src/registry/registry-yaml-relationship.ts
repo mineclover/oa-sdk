@@ -4,9 +4,11 @@ import type {
   RegistryEndpoint,
   RegistryEvidence,
   RegistryRelationshipInput,
-  RegistryRelationshipStatus,
-} from './types.js'
-import { REGISTRY_RELATIONSHIP_STATUSES } from './types.js'
+} from './registry-relationship-types.js'
+import {
+  REGISTRY_RELATIONSHIP_STATUSES,
+  type RegistryRelationshipStatus,
+} from './registry-taxonomy.js'
 import { optionalNumber, optionalString, requireArray, requireRecord, requireString } from './registry-yaml-values.js'
 
 export function toRegistryRelationshipInput(raw: unknown): RegistryRelationshipInput {

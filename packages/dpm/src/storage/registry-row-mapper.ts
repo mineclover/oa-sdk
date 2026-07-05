@@ -1,8 +1,8 @@
 import { createRegistrySnapshot } from '../registry/snapshot.js'
 import type {
   RegistryRelationshipInput,
-  RegistrySnapshot,
-} from '../registry/types.js'
+} from '../registry/registry-relationship-types.js'
+import type { RegistrySnapshot } from '../registry/registry-snapshot-types.js'
 import type {
   DpmRegistryRelationshipRow,
   DpmRegistryRowsToSnapshotInput,

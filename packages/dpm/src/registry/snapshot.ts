@@ -11,7 +11,7 @@ import { createRegistrySnapshotSummary } from './registry-summary.js'
 import type {
   RegistrySnapshot,
   RegistrySnapshotInput,
-} from './types.js'
+} from './registry-snapshot-types.js'
 
 export {
   REGISTRY_SNAPSHOT_KIND,

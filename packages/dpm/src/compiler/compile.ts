@@ -4,7 +4,7 @@ import {
   validateDpmManifest,
   type DpmValidationPhase,
 } from '../validator/manifest.js'
-import type { RegistrySnapshot } from '../registry/types.js'
+import type { RegistrySnapshot } from '../registry/registry-snapshot-types.js'
 import { createDpmCompiledPlan } from './plan-builder.js'
 import type { DpmCompiledPlan } from './plan.js'
 
