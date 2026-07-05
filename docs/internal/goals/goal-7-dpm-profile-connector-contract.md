@@ -120,6 +120,9 @@ Artifacts:
 - `packages/dpm/src/profile/profile-artifact-types.ts`
 - `packages/dpm/src/profile/artifact.ts`
 - `packages/dpm/src/profile/artifact-copy.ts`
+- `packages/dpm/src/profile/artifact-source-copy.ts`
+- `packages/dpm/src/profile/artifact-graph-copy.ts`
+- `packages/dpm/src/profile/artifact-diagnostic-copy.ts`
 - `packages/dpm/src/profile/artifact-ordering.ts`
 - `packages/dpm/src/profile/artifact-freshness.ts`
 - `packages/dpm/src/profile/schema-document.ts`
