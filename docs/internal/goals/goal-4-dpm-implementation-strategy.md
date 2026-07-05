@@ -478,6 +478,8 @@ Artifacts:
 - `packages/dpm/src/compiler/plan-taxonomy.ts`
 - `packages/dpm/src/compiler/plan-value-utils.ts`
 - `packages/dpm/src/compiler/compile.ts`
+- `packages/dpm/src/dry-run/report-impact.ts`
+- `packages/dpm/src/dry-run/report-types.ts`
 - `packages/dpm/src/dry-run/report.ts`
 - `packages/dpm/test/compiler.test.ts`
 - `packages/dpm/test/dry-run.test.ts`
@@ -490,6 +492,8 @@ Tasks:
 - Keep compiled plan taxonomy, freshness vocabulary, step vocabulary, and compiled plan envelope
   as separate implementation boundaries.
 - Mark plans stale when manifest, catalog, or registry freshness changes.
+- Keep dry-run report vocabulary and impact/category calculation as separate implementation
+  boundaries.
 - Produce dry-run impact reports without raw sensitive values.
 
 Exit criteria:
