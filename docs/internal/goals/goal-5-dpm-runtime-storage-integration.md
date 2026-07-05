@@ -182,6 +182,8 @@ Status: implemented 2026-07-01.
 
 Artifacts:
 - `packages/dpm/src/storage/job-repository.ts`
+- `packages/dpm/src/storage/job-repository-types.ts`
+- `packages/dpm/src/storage/job-row-builder.ts`
 - `packages/dpm/src/storage/report-repository.ts`
 - `packages/dpm/src/storage/report-repository-types.ts`
 - `packages/dpm/src/storage/report-row-builder.ts`
@@ -205,6 +207,8 @@ Verification:
 - `pnpm --filter @oa-sdk/dpm typecheck`
 
 Implementation notes:
+- `packages/dpm/src/storage/job-repository-types.ts` owns compile/dry-run job row/request/repository
+  vocabulary, and `packages/dpm/src/storage/job-row-builder.ts` owns sanitized job row assembly.
 - `createDpmJobRepository()` persists compile/dry-run job rows through an injected storage adapter
   and stores diagnostics, plan identity, freshness, and report references.
 - `packages/dpm/src/storage/report-repository-types.ts` owns validation report row/request/repository

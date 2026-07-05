@@ -1,0 +1,42 @@
+import type { DpmPlanFreshness } from '../compiler/plan.js'
+import {
+  createDpmDiagnostic,
+  type DpmDiagnostic,
+} from '../validator/diagnostics.js'
+import {
+  DPM_JOB_KIND,
+  type DpmJobRow,
+  type DpmJobSaveInput,
+} from './job-repository-types.js'
+
+export function createDpmJobRow(input: DpmJobSaveInput): DpmJobRow {
+  return {
+    kind: DPM_JOB_KIND,
+    jobId: input.jobId,
+    operation: input.operation,
+    status: input.status,
+    datasetId: input.datasetId,
+    manifestId: input.manifestId,
+    ...(input.planIdentity ? { planIdentity: input.planIdentity } : {}),
+    ...(input.freshness ? { freshness: copyFreshness(input.freshness) } : {}),
+    diagnostics: copyDiagnostics(input.diagnostics ?? []),
+    ...(input.validationReportRef ? { validationReportRef: input.validationReportRef } : {}),
+    ...(input.createdAt ? { createdAt: input.createdAt } : {}),
+    ...(input.completedAt ? { completedAt: input.completedAt } : {}),
+  }
+}
+
+function copyDiagnostics(diagnostics: readonly DpmDiagnostic[]): DpmDiagnostic[] {
+  return diagnostics.map(diagnostic => createDpmDiagnostic(diagnostic))
+}
+
+function copyFreshness(freshness: DpmPlanFreshness): DpmPlanFreshness {
+  return {
+    ...(freshness.manifestCatalogVersionHash ? {
+      manifestCatalogVersionHash: freshness.manifestCatalogVersionHash,
+    } : {}),
+    catalogVersionHash: freshness.catalogVersionHash,
+    registryVersion: freshness.registryVersion,
+    registryIdentity: freshness.registryIdentity,
+  }
+}

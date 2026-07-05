@@ -285,15 +285,15 @@ catalog/registry snapshot, semantic validator, compiler, CLI/gateway/publishing 
 | `DpmDryRunInput` | `dpm/src/dry-run/report.ts` | dry-run report input |
 | `DpmDryRunReport` | `dpm/src/dry-run/report.ts` | raw-value-free dry-run report |
 | `createDpmDryRunReport()` | `dpm/src/dry-run/report.ts` | dry-run impact report creation |
-| `DPM_JOB_KIND` | `dpm/src/storage/job-repository.ts` | persisted DPM job row kind literal |
-| `DpmJobOperation` | `dpm/src/storage/job-repository.ts` | compile or dry-run persisted job operation taxonomy |
-| `DpmJobStatus` | `dpm/src/storage/job-repository.ts` | accepted, completed, or failed persisted job status |
-| `DpmJobRequest` | `dpm/src/storage/job-repository.ts` | job lookup request |
-| `DpmJobSaveInput` | `dpm/src/storage/job-repository.ts` | sanitized job persistence input |
-| `DpmJobRow` | `dpm/src/storage/job-repository.ts` | persisted job metadata row |
-| `DpmJobStorage` | `dpm/src/storage/job-repository.ts` | storage adapter boundary for persisted jobs |
-| `DpmJobRepository` | `dpm/src/storage/job-repository.ts` | job persistence repository surface |
-| `createDpmJobRow()` | `dpm/src/storage/job-repository.ts` | copy-only job row builder that excludes unsafe payload fields |
+| `DPM_JOB_KIND` | `dpm/src/storage/job-repository-types.ts` | persisted DPM job row kind literal |
+| `DpmJobOperation` | `dpm/src/storage/job-repository-types.ts` | compile or dry-run persisted job operation taxonomy |
+| `DpmJobStatus` | `dpm/src/storage/job-repository-types.ts` | accepted, completed, or failed persisted job status |
+| `DpmJobRequest` | `dpm/src/storage/job-repository-types.ts` | job lookup request |
+| `DpmJobSaveInput` | `dpm/src/storage/job-repository-types.ts` | sanitized job persistence input |
+| `DpmJobRow` | `dpm/src/storage/job-repository-types.ts` | persisted job metadata row |
+| `DpmJobStorage` | `dpm/src/storage/job-repository-types.ts` | storage adapter boundary for persisted jobs |
+| `DpmJobRepository` | `dpm/src/storage/job-repository-types.ts` | job persistence repository surface |
+| `createDpmJobRow()` | `dpm/src/storage/job-row-builder.ts` | copy-only job row builder that excludes unsafe payload fields |
 | `createDpmJobRepository()` | `dpm/src/storage/job-repository.ts` | adapter-backed job persistence repository factory |
 | `DPM_VALIDATION_REPORT_KIND` | `dpm/src/storage/report-repository-types.ts` | persisted validation report row kind literal |
 | `DpmValidationReportStatus` | `dpm/src/storage/report-repository-types.ts` | completed or failed validation report status |
