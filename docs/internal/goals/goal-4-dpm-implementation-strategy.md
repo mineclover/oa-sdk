@@ -132,6 +132,10 @@ Goal id: `DPM-01B`
 Artifacts:
 - `packages/dpm/src/schema/dpm-manifest.schema.json`
 - `packages/dpm/src/schema/index.ts`
+- `packages/dpm/src/schema/manifest-schema-id.ts`
+- `packages/dpm/src/schema/manifest-schema-issues.ts`
+- `packages/dpm/src/schema/manifest-schema-types.ts`
+- `packages/dpm/src/schema/manifest-schema-validation.ts`
 - `packages/dpm/test/fixtures/valid/*.json`
 - `packages/dpm/test/fixtures/invalid/*.json`
 - `packages/dpm/test/schema.test.ts`
@@ -147,6 +151,8 @@ Exit criteria:
 - Valid fixtures pass JSON Schema validation.
 - Invalid fixtures fail with stable fixture-specific assertions.
 - Schema does not require source DB credentials or vault configuration.
+- `packages/dpm/src/schema/index.ts` remains the schema import compatibility barrel while schema id,
+  validation result vocabulary, AJV validation, and issue formatting are owned by focused modules.
 
 Verification:
 - `pnpm --filter @oa-sdk/dpm test -- schema`
