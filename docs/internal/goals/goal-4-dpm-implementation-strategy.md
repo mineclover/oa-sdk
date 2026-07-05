@@ -174,28 +174,53 @@ Artifacts:
 - `packages/dpm/src/catalog/snapshot-structure-copy.ts`
 - `packages/dpm/src/catalog/freshness.ts`
 - `packages/dpm/src/catalog/postgres.ts`
+- `packages/dpm/src/catalog/profiler-postgres.ts`
+- `packages/dpm/src/catalog/profiler-postgres-query.ts`
+- `packages/dpm/src/catalog/profiler-postgres-query-ctes.ts`
+- `packages/dpm/src/catalog/profiler-postgres-query-records.ts`
+- `packages/dpm/src/catalog/profiler-postgres-query-structure-records.ts`
+- `packages/dpm/src/catalog/profiler-postgres-query-integrity-records.ts`
+- `packages/dpm/src/catalog/profiler-postgres-query-primary-key-records.ts`
+- `packages/dpm/src/catalog/profiler-postgres-query-foreign-key-records.ts`
+- `packages/dpm/src/catalog/profiler-postgres-query-index-records.ts`
+- `packages/dpm/src/catalog/profiler-postgres-row-types.ts`
+- `packages/dpm/src/catalog/profiler-postgres-rows.ts`
+- `packages/dpm/src/catalog/profiler-postgres-row-filters.ts`
+- `packages/dpm/src/catalog/profiler-postgres-row-mappers.ts`
+- `packages/dpm/src/catalog/profiler-postgres-structure-row-mappers.ts`
+- `packages/dpm/src/catalog/profiler-postgres-integrity-row-mappers.ts`
+- `packages/dpm/src/catalog/profiler-postgres-unique-candidates.ts`
+- `packages/dpm/src/catalog/profiler-postgres-sources.ts`
+- `packages/dpm/src/catalog/profiler-postgres-row-utils.ts`
 - `packages/dpm/src/catalog/projection.ts`
 - `packages/dpm/src/catalog/projection-tables.ts`
 - `packages/dpm/src/catalog/projection-diagnostics.ts`
 - `packages/dpm/test/fixtures/catalog/*.json`
 - `packages/dpm/test/catalog.test.ts`
+- `packages/dpm/test/catalog-profiler.test.ts`
 
 Tasks:
 - Model schemas, tables, columns, primary keys, foreign keys, unique candidates, indexes,
   nullability, and source coordinates.
 - Add a PostgreSQL catalog snapshot shape as the MVP canonical fixture.
+- Add a read-only PostgreSQL catalog profiler that maps `pg_catalog` evidence into the same
+  snapshot contract without source DB mutation.
 - Add a projection adapter boundary for existing OpenAPI projection contract data.
 - Include a deterministic catalog freshness hash.
 - Keep structural catalog element copy and integrity element copy as separate
   implementation boundaries.
+- Keep PostgreSQL primary-key, foreign-key, and index record SQL fragments as separate
+  implementation boundaries.
 
 Exit criteria:
 - Catalog snapshot fixtures can be normalized into one internal model.
+- PostgreSQL profiler SQL stays read-only and fixture-backed.
 - Projection input is structural evidence only and cannot approve a relationship.
 - Freshness hash changes when catalog structure changes.
 
 Verification:
 - `pnpm --filter @oa-sdk/dpm test -- catalog`
+- `pnpm --filter @oa-sdk/dpm test -- catalog-profiler`
 - `pnpm --filter @oa-sdk/dpm typecheck`
 
 ### Unit 4 - Relationship Discovery Report
