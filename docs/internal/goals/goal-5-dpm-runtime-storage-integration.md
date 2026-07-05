@@ -75,6 +75,10 @@ Status: implemented 2026-07-01.
 Artifacts:
 - `packages/dpm/src/catalog/profiler-postgres.ts`
 - `packages/dpm/src/catalog/profiler-postgres-query.ts`
+- `packages/dpm/src/catalog/profiler-postgres-query-ctes.ts`
+- `packages/dpm/src/catalog/profiler-postgres-query-integrity-records.ts`
+- `packages/dpm/src/catalog/profiler-postgres-query-records.ts`
+- `packages/dpm/src/catalog/profiler-postgres-query-structure-records.ts`
 - `packages/dpm/src/catalog/profiler-postgres-row-types.ts`
 - `packages/dpm/src/catalog/profiler-postgres-row-utils.ts`
 - `packages/dpm/src/catalog/profiler-postgres-rows.ts`
@@ -100,7 +104,11 @@ Verification:
 
 Implementation notes:
 - `POSTGRES_CATALOG_PROFILE_SQL` reads `pg_catalog` metadata for selected schemas only and avoids
-  mutation statements. Its SQL literal lives in `packages/dpm/src/catalog/profiler-postgres-query.ts`.
+  mutation statements. Its SQL composer lives in `packages/dpm/src/catalog/profiler-postgres-query.ts`,
+  with CTE fragments in `packages/dpm/src/catalog/profiler-postgres-query-ctes.ts`, record select
+  ordering in `packages/dpm/src/catalog/profiler-postgres-query-records.ts`, structure selects in
+  `packages/dpm/src/catalog/profiler-postgres-query-structure-records.ts`, and integrity selects in
+  `packages/dpm/src/catalog/profiler-postgres-query-integrity-records.ts`.
 - `profilePostgresCatalog()` requires an explicit query client and schema filter.
 - `profiler-postgres-row-types.ts` owns the raw profiler row vocabulary exposed through the public
   profiler facade.
