@@ -219,8 +219,8 @@ catalog/registry snapshot, semantic validator, compiler, CLI/gateway/publishing 
 | `parseRegistrySnapshotYaml()` | `dpm/src/registry/snapshot.ts` | YAML review artifact를 registry snapshot으로 파싱 |
 | `selectApprovedRelationships()` | `dpm/src/registry/registry-executable.ts` | approved executable relationship만 선택 |
 | `isExecutableRegistryRelationship()` | `dpm/src/registry/registry-executable.ts` | registry status 실행 가능성 판별 |
-| `DPM_REGISTRY_STORAGE_SCHEMA_VERSION` | `dpm/src/storage/registry-schema.ts` | registry storage SQL compatibility/version marker |
-| `DPM_REGISTRY_STORAGE_SCHEMA_SQL` | `dpm/src/storage/registry-schema.ts` | Postgres canonical relationship registry schema SQL |
+| `DPM_REGISTRY_STORAGE_SCHEMA_VERSION` | `dpm/src/storage/registry-schema-sql.ts` | registry storage SQL compatibility/version marker |
+| `DPM_REGISTRY_STORAGE_SCHEMA_SQL` | `dpm/src/storage/registry-schema-sql.ts` | Postgres canonical relationship registry schema SQL |
 | `DpmRegistrySnapshotExportRequest` | `dpm/src/storage/registry-repository-types.ts` | storage-backed registry snapshot export request |
 | `DpmRegistryRelationshipRowRequest` | `dpm/src/storage/registry-repository-types.ts` | storage reader dataset/version row request |
 | `DpmRegistryRelationshipRow` | `dpm/src/storage/registry-repository-types.ts` | canonical storage row shape for relationship registry records |

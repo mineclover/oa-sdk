@@ -40,6 +40,9 @@ Status: implemented 2026-07-01.
 
 Artifacts:
 - `packages/dpm/src/storage/registry-schema.ts`
+- `packages/dpm/src/storage/registry-schema-sql.ts`
+- `packages/dpm/src/storage/registry-schema-table.ts`
+- `packages/dpm/src/storage/registry-schema-indexes.ts`
 - `packages/dpm/src/storage/registry-repository.ts`
 - `packages/dpm/src/storage/registry-repository-types.ts`
 - `packages/dpm/src/storage/registry-row-mapper.ts`
@@ -63,8 +66,9 @@ Verification:
 - `pnpm --filter @oa-sdk/dpm typecheck`
 
 Implementation notes:
-- `DPM_REGISTRY_STORAGE_SCHEMA_SQL` defines the Postgres canonical schema using `text`,
-  `timestamptz`, check constraints, a composite identity index, and an approved partial index.
+- `DPM_REGISTRY_STORAGE_SCHEMA_SQL` assembles the Postgres canonical schema from table and index
+  DDL modules using `text`, `timestamptz`, check constraints, a composite identity index, and an
+  approved partial index.
 - `packages/dpm/src/storage/registry-repository-types.ts` owns storage row/request/repository
   adapter vocabulary.
 - `createDpmRegistryRepository()` accepts a row reader so tests can verify export behavior without a
