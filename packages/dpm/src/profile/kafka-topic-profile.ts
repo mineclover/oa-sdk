@@ -1,26 +1,7 @@
 import type { DpmProfileArtifactInput } from './artifact.js'
 import type { DpmKafkaTopicProfileFixture } from './kafka-fixture-types.js'
-import {
-  appendKafkaFieldProfile,
-  appendKafkaRelationshipHint,
-} from './kafka-profile-graph.js'
-import { appendKafkaTopicRoot } from './kafka-topic-root.js'
-import {
-  appendKafkaHeaders,
-  appendKafkaKey,
-  appendKafkaMessageRateMetric,
-  appendKafkaPartitions,
-  appendKafkaSchema,
-} from './kafka-topic-sections.js'
-import {
-  createKafkaTopicSourceDescriptor,
-} from './kafka-topic-source.js'
-import type {
-  DpmProfileEdge,
-  DpmProfileMetric,
-  DpmProfileNode,
-} from './profile-graph-types.js'
-import type { DpmProfileEvidenceSource } from './profile-source-types.js'
+import { createKafkaTopicProfileGraph } from './kafka-topic-profile-graph.js'
+import { createKafkaTopicSourceDescriptor } from './kafka-topic-source.js'
 
 export type KafkaTopicProfileArtifactInputOptions = {
   input: DpmKafkaTopicProfileFixture
@@ -38,63 +19,11 @@ export function createKafkaTopicProfileArtifactInput(
     connectorVersion,
   })
   const sourceId = source.id
-  const evidenceSources: Record<string, DpmProfileEvidenceSource> = {}
-  const nodes: DpmProfileNode[] = []
-  const edges: DpmProfileEdge[] = []
-  const metrics: DpmProfileMetric[] = []
-
-  const { topicEvidenceId, topicNodeId } = appendKafkaTopicRoot({
+  const graph = createKafkaTopicProfileGraph({
     topic: input.topic,
     sourceId,
     connectorId,
-    evidenceSources,
-    nodes,
   })
-
-  const sectionInput = {
-    topic: input.topic,
-    sourceId,
-    connectorId,
-    topicNodeId,
-    topicEvidenceId,
-    evidenceSources,
-    nodes,
-    edges,
-    metrics,
-  }
-  appendKafkaPartitions(sectionInput)
-  appendKafkaMessageRateMetric(sectionInput)
-  appendKafkaKey(sectionInput)
-  appendKafkaHeaders(sectionInput)
-  appendKafkaSchema(sectionInput)
-
-  for (const field of input.topic.value.fields) {
-    appendKafkaFieldProfile({
-      topicName: input.topic.name,
-      sourceId,
-      connectorId,
-      parentNodeId: topicNodeId,
-      parentPath: 'value',
-      parentPointer: '/value',
-      field,
-      evidenceSources,
-      nodes,
-      edges,
-      metrics,
-    })
-  }
-
-  for (const hint of [...(input.topic.relationshipHints ?? [])].sort((left, right) => left.id.localeCompare(right.id))) {
-    appendKafkaRelationshipHint({
-      topicName: input.topic.name,
-      sourceId,
-      connectorId,
-      hint,
-      evidenceSources,
-      nodes,
-      edges,
-    })
-  }
 
   return {
     profileId: input.profileId,
@@ -102,10 +31,10 @@ export function createKafkaTopicProfileArtifactInput(
     profileVersion: input.profileVersion,
     createdAt: input.createdAt,
     sources: [source],
-    evidenceSources,
-    nodes,
-    edges,
-    metrics,
+    evidenceSources: graph.evidenceSources,
+    nodes: graph.nodes,
+    edges: graph.edges,
+    metrics: graph.metrics,
     diagnostics: [],
   }
 }
