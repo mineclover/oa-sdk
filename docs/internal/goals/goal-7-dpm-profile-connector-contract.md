@@ -323,6 +323,11 @@ Artifacts:
 - `packages/dpm/src/gateway/profile-openapi-analysis-schemas.ts`
 - `packages/dpm/src/gateway/profile-openapi-analysis-report-schemas.ts`
 - `packages/dpm/src/gateway/profile-openapi-analysis-signal-schemas.ts`
+- `packages/dpm/src/gateway/profile-openapi-analysis-coverage-schemas.ts`
+- `packages/dpm/src/gateway/profile-openapi-analysis-relationship-hint-schemas.ts`
+- `packages/dpm/src/gateway/profile-openapi-analysis-key-candidate-schemas.ts`
+- `packages/dpm/src/gateway/profile-openapi-analysis-drift-schemas.ts`
+- `packages/dpm/src/gateway/profile-openapi-analysis-risk-schemas.ts`
 - `packages/dpm/src/gateway/openapi-paths.ts`
 - `packages/dpm/src/gateway/openapi-profile-paths.ts`
 - `packages/dpm/src/gateway/runtime.ts`
@@ -361,7 +366,8 @@ Implementation notes:
 - Profile gateway component schemas project the DPM profile source/node/edge/metric taxonomies,
   analysis report taxonomies, and proposal review lifecycle values. Artifact schema ownership is
   split into source, graph, artifact envelope, and inspection files; analysis schema ownership is
-  split into report envelope and analysis signal files.
+  split into report envelope plus coverage, relationship hint, key candidate, drift, and risk
+  signal files.
 - Proposal review payloads can reference profile coordinates and relationship hint proposals, but
   cannot carry raw evidence patches, profile artifact overwrites, or connector evidence mutations.
 - `packages/dpm/src/gateway/runtime-factory.ts:createDpmGatewayRuntime()` composes loaded profile
