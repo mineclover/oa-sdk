@@ -1,11 +1,9 @@
 import type { DpmPlanFreshness } from '../compiler/plan.js'
 import { createDpmDiagnostic } from '../validator/diagnostic-copy.js'
 import type { DpmDiagnostic } from '../validator/diagnostic-types.js'
-import {
-  DPM_JOB_KIND,
-  type DpmJobRow,
-  type DpmJobSaveInput,
-} from './job-repository-types.js'
+import type { DpmJobSaveInput } from './job-request-types.js'
+import type { DpmJobRow } from './job-row-types.js'
+import { DPM_JOB_KIND } from './job-taxonomy-types.js'
 
 export function createDpmJobRow(input: DpmJobSaveInput): DpmJobRow {
   return {

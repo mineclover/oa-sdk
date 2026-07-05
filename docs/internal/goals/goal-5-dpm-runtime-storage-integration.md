@@ -195,9 +195,18 @@ Status: implemented 2026-07-01.
 
 Artifacts:
 - `packages/dpm/src/storage/job-repository.ts`
+- `packages/dpm/src/storage/job-taxonomy-types.ts`
+- `packages/dpm/src/storage/job-request-types.ts`
+- `packages/dpm/src/storage/job-row-types.ts`
+- `packages/dpm/src/storage/job-repository-contract-types.ts`
 - `packages/dpm/src/storage/job-repository-types.ts`
 - `packages/dpm/src/storage/job-row-builder.ts`
 - `packages/dpm/src/storage/report-repository.ts`
+- `packages/dpm/src/storage/report-taxonomy-types.ts`
+- `packages/dpm/src/storage/report-request-types.ts`
+- `packages/dpm/src/storage/report-row-types.ts`
+- `packages/dpm/src/storage/report-gateway-types.ts`
+- `packages/dpm/src/storage/report-repository-contract-types.ts`
 - `packages/dpm/src/storage/report-repository-types.ts`
 - `packages/dpm/src/storage/report-row-builder.ts`
 - `packages/dpm/src/storage/report-row-diagnostics.ts`
@@ -223,12 +232,18 @@ Verification:
 - `pnpm --filter @oa-sdk/dpm typecheck`
 
 Implementation notes:
-- `packages/dpm/src/storage/job-repository-types.ts` owns compile/dry-run job row/request/repository
-  vocabulary, and `packages/dpm/src/storage/job-row-builder.ts` owns sanitized job row assembly.
+- `packages/dpm/src/storage/job-repository-types.ts` remains the import compatibility barrel, while
+  job taxonomy, request/save input, stored row, and repository adapter contract vocabulary live in
+  `job-taxonomy-types.ts`, `job-request-types.ts`, `job-row-types.ts`, and
+  `job-repository-contract-types.ts`.
+- `packages/dpm/src/storage/job-row-builder.ts` owns sanitized job row assembly.
 - `createDpmJobRepository()` persists compile/dry-run job rows through an injected storage adapter
   and stores diagnostics, plan identity, freshness, and report references.
-- `packages/dpm/src/storage/report-repository-types.ts` owns validation report row/request/repository
-  vocabulary, `packages/dpm/src/storage/report-row-builder.ts` owns sanitized report row assembly,
+- `packages/dpm/src/storage/report-repository-types.ts` remains the import compatibility barrel,
+  while validation report taxonomy, request/save input, stored row, gateway report, and repository
+  adapter contract vocabulary live in `report-taxonomy-types.ts`, `report-request-types.ts`,
+  `report-row-types.ts`, `report-gateway-types.ts`, and `report-repository-contract-types.ts`.
+- `packages/dpm/src/storage/report-row-builder.ts` owns sanitized report row assembly,
   `packages/dpm/src/storage/report-row-diagnostics.ts`, `packages/dpm/src/storage/report-row-freshness.ts`,
   and `packages/dpm/src/storage/report-row-impact.ts` own defensive report diagnostics, freshness,
   and dry-run summary copies, and `packages/dpm/src/storage/report-gateway-projection.ts` owns

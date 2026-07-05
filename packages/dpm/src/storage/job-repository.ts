@@ -1,19 +1,23 @@
 import type {
   DpmJobRepository,
   DpmJobStorage,
-} from './job-repository-types.js'
+} from './job-repository-contract-types.js'
 import { createDpmJobRow } from './job-row-builder.js'
 
-export { DPM_JOB_KIND } from './job-repository-types.js'
+export { DPM_JOB_KIND } from './job-taxonomy-types.js'
 export type {
   DpmJobOperation,
-  DpmJobRepository,
-  DpmJobRequest,
-  DpmJobRow,
-  DpmJobSaveInput,
   DpmJobStatus,
+} from './job-taxonomy-types.js'
+export type {
+  DpmJobRequest,
+  DpmJobSaveInput,
+} from './job-request-types.js'
+export type { DpmJobRow } from './job-row-types.js'
+export type {
+  DpmJobRepository,
   DpmJobStorage,
-} from './job-repository-types.js'
+} from './job-repository-contract-types.js'
 export { createDpmJobRow } from './job-row-builder.js'
 
 export function createDpmJobRepository(storage: DpmJobStorage): DpmJobRepository {

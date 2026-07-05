@@ -4,11 +4,9 @@ import {
   copyValidationReportImpact,
 } from './report-row-impact.js'
 import { copyValidationReportFreshness } from './report-row-freshness.js'
-import {
-  DPM_VALIDATION_REPORT_KIND,
-  type DpmStoredValidationReport,
-  type DpmValidationReportSaveInput,
-} from './report-repository-types.js'
+import type { DpmValidationReportSaveInput } from './report-request-types.js'
+import type { DpmStoredValidationReport } from './report-row-types.js'
+import { DPM_VALIDATION_REPORT_KIND } from './report-taxonomy-types.js'
 
 export { copyValidationReportDiagnostics } from './report-row-diagnostics.js'
 

@@ -1,11 +1,9 @@
 import {
   copyValidationReportDiagnostics,
 } from './report-row-diagnostics.js'
-import type {
-  DpmGatewayJobReport,
-  DpmStoredValidationReport,
-  DpmValidationReportRequest,
-} from './report-repository-types.js'
+import type { DpmGatewayJobReport } from './report-gateway-types.js'
+import type { DpmValidationReportRequest } from './report-request-types.js'
+import type { DpmStoredValidationReport } from './report-row-types.js'
 
 export function validationReportToGatewayJobReport(
   request: DpmValidationReportRequest,

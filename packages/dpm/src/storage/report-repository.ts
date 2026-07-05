@@ -2,21 +2,27 @@ import { validationReportToGatewayJobReport } from './report-gateway-projection.
 import type {
   DpmReportRepository,
   DpmValidationReportStorage,
-} from './report-repository-types.js'
+} from './report-repository-contract-types.js'
 import { createDpmValidationReport } from './report-row-builder.js'
 
 export {
   DPM_VALIDATION_REPORT_KIND,
-} from './report-repository-types.js'
+} from './report-taxonomy-types.js'
 export type {
-  DpmGatewayJobReport,
+  DpmValidationReportStatus,
+} from './report-taxonomy-types.js'
+export type { DpmGatewayJobReport } from './report-gateway-types.js'
+export type {
   DpmReportRepository,
-  DpmStoredValidationReport,
+  DpmValidationReportStorage,
+} from './report-repository-contract-types.js'
+export type {
   DpmValidationReportRequest,
   DpmValidationReportSaveInput,
-  DpmValidationReportStatus,
-  DpmValidationReportStorage,
-} from './report-repository-types.js'
+} from './report-request-types.js'
+export type {
+  DpmStoredValidationReport,
+} from './report-row-types.js'
 export { validationReportToGatewayJobReport } from './report-gateway-projection.js'
 export { createDpmValidationReport } from './report-row-builder.js'
 
