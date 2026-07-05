@@ -1,8 +1,10 @@
 import type { DpmProfileConnectorResult } from './connector-types.js'
 import {
   addDpmProfileConnectorCapabilityDiagnostics,
+} from './connector-validation-capability-gates.js'
+import {
   addDpmProfileConnectorPayloadDiagnostics,
-} from './connector-validation-gates.js'
+} from './connector-validation-payload-gates.js'
 import type { DpmProfileDiagnostic } from './profile-artifact-types.js'
 
 export function collectDpmProfileConnectorDiagnostics(
