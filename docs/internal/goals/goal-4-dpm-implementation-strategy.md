@@ -370,6 +370,9 @@ Goal id: `DPM-06` and `DPM-07`
 Artifacts:
 - `packages/dpm/src/validator/diagnostics.ts`
 - `packages/dpm/src/validator/diagnostic-types.ts`
+- `packages/dpm/src/validator/diagnostic-taxonomy.ts`
+- `packages/dpm/src/validator/diagnostic-coordinate-types.ts`
+- `packages/dpm/src/validator/diagnostic-result-types.ts`
 - `packages/dpm/src/validator/diagnostic-copy.ts`
 - `packages/dpm/src/validator/diagnostic-summary.ts`
 - `packages/dpm/src/validator/manifest.ts`

@@ -94,6 +94,9 @@ Status: implemented 2026-07-04.
 Artifacts:
 - `packages/dpm/src/validator/diagnostics.ts`
 - `packages/dpm/src/validator/diagnostic-types.ts`
+- `packages/dpm/src/validator/diagnostic-taxonomy.ts`
+- `packages/dpm/src/validator/diagnostic-coordinate-types.ts`
+- `packages/dpm/src/validator/diagnostic-result-types.ts`
 - `packages/dpm/src/gateway/openapi.ts`
 - `packages/dpm/test/gateway-runtime-manifest.test.ts`
 
