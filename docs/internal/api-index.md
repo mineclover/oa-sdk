@@ -153,9 +153,9 @@ catalog/registry snapshot, semantic validator, compiler, CLI/gateway/publishing 
 | `DpmProfileConnectorResult` | `dpm/src/profile/connector-types.ts` | normalized connector output envelope for profile artifacts and diagnostics |
 | `DpmProfileConnectorResultInput` | `dpm/src/profile/connector-types.ts` | connector result normalization input |
 | `DpmProfileConnectorValidationResult` | `dpm/src/profile/connector-types.ts` | connector result validation diagnostics envelope |
-| `normalizeDpmProfileConnectorResult()` | `dpm/src/profile/connector.ts` | connector output을 deterministic result envelope로 정규화 |
-| `computeDpmProfileConnectorRunHash()` | `dpm/src/profile/connector.ts` | connector result run hash 계산 |
-| `validateDpmProfileConnectorResult()` | `dpm/src/profile/connector.ts` | capabilities/observed evidence/profile artifact 정합성 검증 |
+| `normalizeDpmProfileConnectorResult()` | `dpm/src/profile/connector-result.ts` | connector output을 deterministic result envelope로 정규화 |
+| `computeDpmProfileConnectorRunHash()` | `dpm/src/profile/connector-run-hash.ts` | connector result run hash 계산 |
+| `validateDpmProfileConnectorResult()` | `dpm/src/profile/connector-validate.ts` | capabilities/observed evidence/profile artifact 정합성 검증 |
 | `DpmKafkaTopicProfileFixture` | `dpm/src/profile/kafka-fixture-types.ts` | fixture-backed Kafka topic profile adapter input |
 | `DpmKafkaTopicFixture` | `dpm/src/profile/kafka-fixture-types.ts` | Kafka topic shape, partitions, key/header/schema/value evidence fixture |
 | `DpmKafkaKeyFixture` | `dpm/src/profile/kafka-fixture-types.ts` | Kafka message key fixture metadata |
