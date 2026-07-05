@@ -229,6 +229,10 @@ Artifacts:
 - `packages/dpm/src/profile/kafka-topic-sections.ts`
 - `packages/dpm/src/profile/kafka-profile-evidence.ts`
 - `packages/dpm/src/profile/kafka-profile-fields.ts`
+- `packages/dpm/src/profile/kafka-profile-field-types.ts`
+- `packages/dpm/src/profile/kafka-profile-field-context.ts`
+- `packages/dpm/src/profile/kafka-profile-field-nodes.ts`
+- `packages/dpm/src/profile/kafka-profile-field-metrics.ts`
 - `packages/dpm/src/profile/kafka-profile-graph.ts`
 - `packages/dpm/src/profile/kafka-profile-hints.ts`
 - `packages/dpm/test/profile-kafka.test.ts`
@@ -259,8 +263,11 @@ Implementation notes:
   nodes and topic message-rate metrics, `kafka-topic-key-headers.ts` emits key/header nodes and
   coverage/presence metrics, and `kafka-topic-schema.ts` emits schema subject nodes and schema
   version metrics;
-  `kafka-profile-fields.ts` emits nested value field graph entries, while `kafka-profile-hints.ts`
-  emits relationship hint graph entries through shared evidence helpers.
+  `kafka-profile-fields.ts` owns nested value field recursion orchestration, while
+  `kafka-profile-field-context.ts`, `kafka-profile-field-nodes.ts`, and
+  `kafka-profile-field-metrics.ts` separately own field context derivation, field node/edge append,
+  and field metric append. `kafka-profile-hints.ts` emits relationship hint graph entries through
+  shared evidence helpers.
 - Relationship hints are represented as `relationship_hint` nodes and `candidate_relationship`
   edges; they do not create approved registry relationships or alter the existing compiler path.
 
