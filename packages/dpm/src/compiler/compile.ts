@@ -1,33 +1,16 @@
-import type { CatalogSnapshot } from '../catalog/types.js'
-import type { DpmValidationResult } from '../validator/diagnostic-types.js'
-import {
-  validateDpmManifest,
-  type DpmValidationPhase,
-} from '../validator/manifest.js'
-import type { RegistrySnapshot } from '../registry/registry-snapshot-types.js'
+import { validateDpmManifest } from '../validator/manifest.js'
 import { createDpmCompiledPlan } from './plan-builder.js'
-import type { DpmCompiledPlan } from './plan-compiled-types.js'
+import type {
+  DpmCompileInput,
+  DpmCompileResult,
+} from './compile-types.js'
 
-export type DpmCompileInput = {
-  manifest: unknown
-  catalog: CatalogSnapshot
-  registry: RegistrySnapshot
-  phase?: DpmValidationPhase
-}
-
-export type DpmCompileSuccess = {
-  ok: true
-  plan: DpmCompiledPlan
-  validation: DpmValidationResult
-}
-
-export type DpmCompileFailure = {
-  ok: false
-  diagnostics: DpmValidationResult['diagnostics']
-  validation: DpmValidationResult
-}
-
-export type DpmCompileResult = DpmCompileSuccess | DpmCompileFailure
+export type {
+  DpmCompileFailure,
+  DpmCompileInput,
+  DpmCompileResult,
+  DpmCompileSuccess,
+} from './compile-types.js'
 
 export function compileDpmPlan(input: DpmCompileInput): DpmCompileResult {
   const validation = validateDpmManifest({
