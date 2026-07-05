@@ -2,8 +2,10 @@ import { createHash } from 'node:crypto'
 
 import type {
   CatalogSnapshot,
+} from './snapshot-record-types.js'
+import type {
   CatalogSnapshotInput,
-} from './snapshot-types.js'
+} from './snapshot-input-types.js'
 
 export function computeCatalogFreshnessHash(
   input: Omit<CatalogSnapshot, 'freshness'> | Omit<CatalogSnapshotInput, 'sourceVersionHash'>,

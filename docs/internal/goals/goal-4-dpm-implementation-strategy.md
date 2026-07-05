@@ -163,6 +163,9 @@ Artifacts:
 - `packages/dpm/src/catalog/integrity-types.ts`
 - `packages/dpm/src/catalog/diagnostic-types.ts`
 - `packages/dpm/src/catalog/projection-types.ts`
+- `packages/dpm/src/catalog/snapshot-freshness-types.ts`
+- `packages/dpm/src/catalog/snapshot-input-types.ts`
+- `packages/dpm/src/catalog/snapshot-record-types.ts`
 - `packages/dpm/src/catalog/snapshot-types.ts`
 - `packages/dpm/src/catalog/snapshot.ts`
 - `packages/dpm/src/catalog/snapshot-copy.ts`

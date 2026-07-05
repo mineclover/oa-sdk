@@ -26,9 +26,11 @@ import {
   byTableName,
 } from './snapshot-ordering.js'
 import type {
-  CatalogSnapshot,
   CatalogSnapshotInput,
-} from './snapshot-types.js'
+} from './snapshot-input-types.js'
+import type {
+  CatalogSnapshot,
+} from './snapshot-record-types.js'
 
 export function normalizeCatalogSnapshot(input: CatalogSnapshotInput): CatalogSnapshot {
   const structural = {
