@@ -2,10 +2,10 @@ import type { RegistryRelationshipInput } from './registry-relationship-types.js
 import {
   toRegistryYamlApproval,
   toRegistryYamlCondition,
-  toRegistryYamlEndpoint,
   toRegistryYamlEvidence,
-  toRegistryYamlStatus,
-} from './registry-yaml-relationship-sections.js'
+} from './registry-yaml-relationship-metadata.js'
+import { toRegistryYamlEndpoint } from './registry-yaml-relationship-sections.js'
+import { toRegistryYamlStatus } from './registry-yaml-relationship-status.js'
 import {
   optionalNumber,
   optionalString,

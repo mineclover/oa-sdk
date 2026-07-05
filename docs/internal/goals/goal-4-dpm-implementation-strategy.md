@@ -273,7 +273,9 @@ Artifacts:
 - `packages/dpm/src/registry/registry-summary.ts`
 - `packages/dpm/src/registry/registry-yaml.ts`
 - `packages/dpm/src/registry/registry-yaml-relationship.ts`
+- `packages/dpm/src/registry/registry-yaml-relationship-metadata.ts`
 - `packages/dpm/src/registry/registry-yaml-relationship-sections.ts`
+- `packages/dpm/src/registry/registry-yaml-relationship-status.ts`
 - `packages/dpm/src/registry/registry-yaml-values.ts`
 - `packages/dpm/test/fixtures/registry/*.yaml`
 - `packages/dpm/test/registry.test.ts`
@@ -283,8 +285,9 @@ Tasks:
 - Model dataset id, relationship name, version, endpoints, condition metadata, namespace,
   transform strategy, orphan policy, evidence, owner, and approval metadata.
 - Support YAML snapshot fixtures as deterministic review artifacts.
-- Keep YAML parsing, relationship row mapping orchestration, row section coercion, and
-  scalar/object guards as separate implementation boundaries.
+- Keep YAML parsing, relationship row mapping orchestration, endpoint section coercion,
+  metadata coercion, status validation, and scalar/object guards as separate implementation
+  boundaries.
 - Keep `packages/dpm/src/registry/types.ts` as the compatibility barrel while taxonomy,
   relationship vocabulary, and snapshot envelope types are owned by focused modules.
 - Reserve Postgres schema design for the ADR or a later storage unit.
