@@ -282,6 +282,9 @@ Artifacts:
 - `packages/dpm/src/profile/analysis-risks.ts`
 - `packages/dpm/src/profile/analysis-utils.ts`
 - `packages/dpm/src/profile/analysis-drift.ts`
+- `packages/dpm/src/profile/analysis-drift-freshness.ts`
+- `packages/dpm/src/profile/analysis-drift-nodes.ts`
+- `packages/dpm/src/profile/analysis-drift-metrics.ts`
 - `packages/dpm/src/profile/analyze.ts`
 - `packages/dpm/test/profile-analysis.test.ts`
 
@@ -293,6 +296,8 @@ Tasks:
 - Emit relationship hints as proposals with evidence pointers, not registry relationships.
 - Produce report payloads that can drive visualization and automated review.
 - Keep report orchestration and deterministic report hash serialization as separate
+  implementation boundaries.
+- Keep profile drift orchestration, freshness/source drift, node drift, and metric drift as separate
   implementation boundaries.
 
 Acceptance:
@@ -310,6 +315,8 @@ Implementation notes:
   normalized profile artifact.
 - `computeDpmProfileAnalysisReportHash()` owns stable report serialization and report freshness
   hash calculation.
+- `analyzeDriftSignals()` orchestrates freshness/source, node, and metric drift signals without
+  merging those signal categories into one implementation owner.
 - Relationship hints are emitted as reviewer-safe `review` proposals with confidence and evidence
   ids; they do not become registry relationships.
 - Risk indicators are derived from profile coordinates and metrics only, and do not expose raw
