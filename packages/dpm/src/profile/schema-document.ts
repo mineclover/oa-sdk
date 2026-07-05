@@ -1,17 +1,22 @@
 import {
   DPM_PROFILE_ARTIFACT_KIND,
-  DPM_PROFILE_CAPTURE_MODES,
-  DPM_PROFILE_EDGE_KINDS,
-  DPM_PROFILE_METRIC_KINDS,
-  DPM_PROFILE_NODE_KINDS,
-  DPM_PROFILE_SOURCE_KINDS,
 } from './types.js'
 import {
-  evidenceIdsSchema,
   nonEmptyStringSchema,
-  profileCoordinateSchema,
-  sha256Schema,
 } from './schema-fragments.js'
+import {
+  profileEdgesSchema,
+  profileNodesSchema,
+} from './schema-graph-sections.js'
+import {
+  profileDiagnosticsSchema,
+  profileFreshnessSchema,
+  profileMetricsSchema,
+} from './schema-observation-sections.js'
+import {
+  profileEvidenceSourcesSchema,
+  profileSourcesSchema,
+} from './schema-source-sections.js'
 
 export const DPM_PROFILE_ARTIFACT_SCHEMA_ID = 'https://oa-sdk.dev/schemas/dpm-profile-artifact.v1.json' as const
 
@@ -26,130 +31,13 @@ export const DPM_PROFILE_ARTIFACT_SCHEMA = {
     datasetId: nonEmptyStringSchema,
     profileVersion: nonEmptyStringSchema,
     createdAt: nonEmptyStringSchema,
-    sources: {
-      type: 'array',
-      minItems: 1,
-      items: {
-        type: 'object',
-        additionalProperties: false,
-        properties: {
-          id: nonEmptyStringSchema,
-          kind: { type: 'string', enum: DPM_PROFILE_SOURCE_KINDS },
-          connectorId: nonEmptyStringSchema,
-          connectorVersion: nonEmptyStringSchema,
-          refs: {
-            type: 'array',
-            minItems: 1,
-            items: nonEmptyStringSchema,
-          },
-          captureMode: { type: 'string', enum: DPM_PROFILE_CAPTURE_MODES },
-          capturedAt: nonEmptyStringSchema,
-          sourceVersionHash: sha256Schema,
-        },
-        required: ['id', 'kind', 'connectorId', 'connectorVersion', 'refs', 'captureMode'],
-      },
-    },
-    evidenceSources: {
-      type: 'object',
-      minProperties: 1,
-      additionalProperties: {
-        type: 'object',
-        additionalProperties: false,
-        properties: {
-          coordinate: profileCoordinateSchema,
-          connectorId: nonEmptyStringSchema,
-          capturedAt: nonEmptyStringSchema,
-          description: nonEmptyStringSchema,
-        },
-        required: ['coordinate'],
-      },
-    },
-    nodes: {
-      type: 'array',
-      minItems: 1,
-      items: {
-        type: 'object',
-        additionalProperties: false,
-        properties: {
-          id: nonEmptyStringSchema,
-          kind: { type: 'string', enum: DPM_PROFILE_NODE_KINDS },
-          label: nonEmptyStringSchema,
-          coordinate: profileCoordinateSchema,
-          dataType: nonEmptyStringSchema,
-          shape: {
-            type: 'object',
-            additionalProperties: {
-              type: ['string', 'number', 'boolean', 'null'],
-            },
-          },
-        },
-        required: ['id', 'kind', 'label', 'coordinate'],
-      },
-    },
-    edges: {
-      type: 'array',
-      items: {
-        type: 'object',
-        additionalProperties: false,
-        properties: {
-          id: nonEmptyStringSchema,
-          kind: { type: 'string', enum: DPM_PROFILE_EDGE_KINDS },
-          fromNodeId: nonEmptyStringSchema,
-          toNodeId: nonEmptyStringSchema,
-          evidenceIds: evidenceIdsSchema,
-          confidence: { type: 'number', minimum: 0, maximum: 1 },
-        },
-        required: ['id', 'kind', 'fromNodeId', 'toNodeId', 'evidenceIds'],
-      },
-    },
-    metrics: {
-      type: 'array',
-      items: {
-        type: 'object',
-        additionalProperties: false,
-        properties: {
-          id: nonEmptyStringSchema,
-          kind: { type: 'string', enum: DPM_PROFILE_METRIC_KINDS },
-          subjectId: nonEmptyStringSchema,
-          value: { type: ['number', 'string'] },
-          unit: nonEmptyStringSchema,
-          evidenceIds: evidenceIdsSchema,
-        },
-        required: ['id', 'kind', 'subjectId', 'value', 'evidenceIds'],
-      },
-    },
-    diagnostics: {
-      type: 'array',
-      items: {
-        type: 'object',
-        additionalProperties: false,
-        properties: {
-          severity: { type: 'string', enum: ['error', 'warning', 'info'] },
-          code: { type: 'string', pattern: '^(PROF|CONN)[0-9]{3}$' },
-          message: nonEmptyStringSchema,
-          connectorId: nonEmptyStringSchema,
-          coordinate: profileCoordinateSchema,
-          evidenceIds: evidenceIdsSchema,
-        },
-        required: ['severity', 'code', 'message'],
-        anyOf: [
-          { required: ['coordinate'] },
-          { required: ['evidenceIds'] },
-        ],
-      },
-    },
-    freshness: {
-      type: 'object',
-      additionalProperties: false,
-      properties: {
-        versionHash: sha256Schema,
-        sourceVersionHashes: {
-          type: 'object',
-          additionalProperties: sha256Schema,
-        },
-      },
-      required: ['versionHash'],
-    },
+    sources: profileSourcesSchema,
+    evidenceSources: profileEvidenceSourcesSchema,
+    nodes: profileNodesSchema,
+    edges: profileEdgesSchema,
+    metrics: profileMetricsSchema,
+    diagnostics: profileDiagnosticsSchema,
+    freshness: profileFreshnessSchema,
   },
   required: [
     'kind',
