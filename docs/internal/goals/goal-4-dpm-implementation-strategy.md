@@ -383,8 +383,10 @@ Artifacts:
 - `packages/dpm/src/validator/relationship-catalog-context.ts`
 - `packages/dpm/src/validator/relationship-catalog-endpoints.ts`
 - `packages/dpm/src/validator/relationship-catalog-table-gates.ts`
+- `packages/dpm/src/validator/relationship-catalog-column-flow.ts`
 - `packages/dpm/src/validator/relationship-catalog-column-count-gates.ts`
 - `packages/dpm/src/validator/relationship-catalog-column-gates.ts`
+- `packages/dpm/src/validator/relationship-catalog-parent-key-flow.ts`
 - `packages/dpm/src/validator/relationship-catalog-key-gates.ts`
 - `packages/dpm/src/validator/relationship-registry.ts`
 - `packages/dpm/src/validator/relationship-registry-approval.ts`

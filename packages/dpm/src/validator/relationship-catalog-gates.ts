@@ -1,13 +1,12 @@
 import type { CatalogSnapshot } from '../catalog/types.js'
 import type { DpmDiagnostic } from './diagnostic-types.js'
-import { validateRelationshipCatalogColumnCountGate } from './relationship-catalog-column-count-gates.js'
+import { validateRelationshipCatalogColumnGates } from './relationship-catalog-column-flow.js'
 import {
   createRelationshipCatalogGateContext,
   type RelationshipCatalogGateContext,
 } from './relationship-catalog-context.js'
-import { validateRelationshipCatalogColumnCompatibility } from './relationship-catalog-column-gates.js'
 import { createRelationshipCatalogEndpointContext } from './relationship-catalog-endpoints.js'
-import { validateRelationshipParentKeyGate } from './relationship-catalog-key-gates.js'
+import { validateRelationshipCatalogParentKeyGate } from './relationship-catalog-parent-key-flow.js'
 import { validateRelationshipCatalogTableGates } from './relationship-catalog-table-gates.js'
 import type { ManifestRelationship } from './relationship-types.js'
 
@@ -33,36 +32,25 @@ export function validateRelationshipCatalogGates(input: {
   })
 
   diagnostics.push(...tableGates.diagnostics)
-  const columnCountGate = validateRelationshipCatalogColumnCountGate({
+  diagnostics.push(...validateRelationshipCatalogColumnGates({
+    catalog: input.catalog,
     relationshipName: relationship.relationshipName,
     pointer: input.pointer,
+    ...(relationship.parentTable ? { parentTable: relationship.parentTable } : {}),
+    ...(relationship.childTable ? { childTable: relationship.childTable } : {}),
     parentColumns: relationship.parentColumns,
     childColumns: relationship.childColumns,
-    ...(relationship.childTable ? { childTable: relationship.childTable } : {}),
-  })
-  diagnostics.push(...columnCountGate.diagnostics)
-
-  if (columnCountGate.columnCountsMatch && tableGates.parentTableUsable && tableGates.childTableUsable) {
-    diagnostics.push(...validateRelationshipCatalogColumnCompatibility({
-      catalog: input.catalog,
-      relationshipName: relationship.relationshipName,
-      pointer: input.pointer,
-      parentTable: relationship.parentTable ?? '',
-      childTable: relationship.childTable ?? '',
-      parentColumns: relationship.parentColumns,
-      childColumns: relationship.childColumns,
-    }))
-  }
-
-  if (tableGates.parentTableUsable && relationship.parentTable) {
-    diagnostics.push(...validateRelationshipParentKeyGate({
-      catalog: input.catalog,
-      relationshipName: relationship.relationshipName,
-      pointer: input.pointer,
-      parentTable: relationship.parentTable,
-      parentColumns: relationship.parentColumns,
-    }))
-  }
+    parentTableUsable: tableGates.parentTableUsable,
+    childTableUsable: tableGates.childTableUsable,
+  }))
+  diagnostics.push(...validateRelationshipCatalogParentKeyGate({
+    catalog: input.catalog,
+    relationshipName: relationship.relationshipName,
+    pointer: input.pointer,
+    ...(relationship.parentTable ? { parentTable: relationship.parentTable } : {}),
+    parentColumns: relationship.parentColumns,
+    parentTableUsable: tableGates.parentTableUsable,
+  }))
 
   return diagnostics
 }
