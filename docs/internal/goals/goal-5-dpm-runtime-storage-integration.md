@@ -200,6 +200,9 @@ Artifacts:
 - `packages/dpm/src/storage/report-repository.ts`
 - `packages/dpm/src/storage/report-repository-types.ts`
 - `packages/dpm/src/storage/report-row-builder.ts`
+- `packages/dpm/src/storage/report-row-diagnostics.ts`
+- `packages/dpm/src/storage/report-row-freshness.ts`
+- `packages/dpm/src/storage/report-row-impact.ts`
 - `packages/dpm/src/storage/report-gateway-projection.ts`
 - `packages/dpm/test/storage-report.test.ts`
 
@@ -226,8 +229,10 @@ Implementation notes:
   and stores diagnostics, plan identity, freshness, and report references.
 - `packages/dpm/src/storage/report-repository-types.ts` owns validation report row/request/repository
   vocabulary, `packages/dpm/src/storage/report-row-builder.ts` owns sanitized report row assembly,
-  and `packages/dpm/src/storage/report-gateway-projection.ts` owns gateway-compatible report
-  projection.
+  `packages/dpm/src/storage/report-row-diagnostics.ts`, `packages/dpm/src/storage/report-row-freshness.ts`,
+  and `packages/dpm/src/storage/report-row-impact.ts` own defensive report diagnostics, freshness,
+  and dry-run summary copies, and `packages/dpm/src/storage/report-gateway-projection.ts` owns
+  gateway-compatible report projection.
 - `createDpmReportRepository()` persists sanitized validation report rows and exposes
   `getJobReport()` with the gateway-compatible job report shape.
 - Job/report row builders copy only explicit metadata fields, preserving deterministic diagnostics

@@ -1,6 +1,6 @@
 import {
   copyValidationReportDiagnostics,
-} from './report-row-builder.js'
+} from './report-row-diagnostics.js'
 import type {
   DpmGatewayJobReport,
   DpmStoredValidationReport,
