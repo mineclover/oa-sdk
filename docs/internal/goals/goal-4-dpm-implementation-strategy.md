@@ -173,6 +173,8 @@ Artifacts:
 - `packages/dpm/src/catalog/freshness.ts`
 - `packages/dpm/src/catalog/postgres.ts`
 - `packages/dpm/src/catalog/projection.ts`
+- `packages/dpm/src/catalog/projection-tables.ts`
+- `packages/dpm/src/catalog/projection-diagnostics.ts`
 - `packages/dpm/test/fixtures/catalog/*.json`
 - `packages/dpm/test/catalog.test.ts`
 
