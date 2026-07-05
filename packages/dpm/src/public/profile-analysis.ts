@@ -22,7 +22,7 @@ export {
 } from '../profile/analysis-types.js'
 export {
   createDpmProfileAnalysisReport,
-} from '../profile/analyze.js'
+} from '../profile/analysis-report.js'
 export {
   computeDpmProfileAnalysisReportHash,
 } from '../profile/analysis-report-freshness.js'

@@ -1,4 +1,4 @@
-import { createDpmProfileAnalysisReport } from '../profile/analyze.js'
+import { createDpmProfileAnalysisReport } from '../profile/analysis-report.js'
 import type {
   DpmGatewayProfileAnalysisInput,
   DpmGatewayProfileAnalysisResult,

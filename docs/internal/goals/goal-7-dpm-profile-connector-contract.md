@@ -287,6 +287,8 @@ Artifacts:
 - `packages/dpm/src/profile/analysis-input-types.ts`
 - `packages/dpm/src/profile/analysis-signal-types.ts`
 - `packages/dpm/src/profile/analysis-report-types.ts`
+- `packages/dpm/src/profile/analysis-report.ts`
+- `packages/dpm/src/profile/analysis-summary.ts`
 - `packages/dpm/src/profile/analysis-report-freshness.ts`
 - `packages/dpm/src/profile/analysis-coverage.ts`
 - `packages/dpm/src/profile/analysis-compute.ts`
@@ -323,9 +325,11 @@ Verification:
 - `pnpm --filter @oa-sdk/dpm test`
 
 Implementation notes:
-- `createDpmProfileAnalysisReport()` derives deterministic coverage, relationship hint proposals,
+- `createDpmProfileAnalysisReport()` assembles deterministic coverage, relationship hint proposals,
   key candidates, drift signals, risk indicators, profile diagnostics, and summary counts from a
   normalized profile artifact.
+- `createDpmProfileAnalysisSummary()` owns diagnostic and signal count assembly, while
+  `sortDpmProfileAnalysisDiagnostics()` owns deterministic diagnostic ordering.
 - `computeDpmProfileAnalysisReportHash()` owns stable report serialization and report freshness
   hash calculation.
 - `analyzeDriftSignals()` orchestrates freshness/source, node, and metric drift signals without
