@@ -308,6 +308,9 @@ Artifacts:
 - `packages/dpm/src/validator/relationship-types.ts`
 - `packages/dpm/src/validator/relationship-utils.ts`
 - `packages/dpm/src/validator/safety.ts`
+- `packages/dpm/src/validator/safety-column-gates.ts`
+- `packages/dpm/src/validator/safety-manifest-gates.ts`
+- `packages/dpm/src/validator/safety-types.ts`
 - `packages/dpm/src/validator/validation-types.ts`
 - `packages/dpm/src/validator/value-utils.ts`
 - `packages/dpm/test/validator.test.ts`
@@ -321,6 +324,7 @@ Tasks:
   key uniqueness gates as separate implementation boundaries.
 - Add deterministic SAF diagnostics for direct identifier keep, unsafe foreign identifier,
   namespace mismatch, raw PII leakage, and vault-only operations in non-runtime phases.
+- Keep column-level SAF gates and manifest-level SAF gates as separate implementation boundaries.
 - Include source pointer, severity, code, message, and catalog/registry coordinate where possible.
 
 Exit criteria:
