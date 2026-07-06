@@ -300,7 +300,10 @@
         "auto approval disabled"
       ],
       "testPaths": [
-        "packages/dpm/test/discovery.test.ts"
+        "packages/dpm/test/discovery-candidate-rejection.test.ts",
+        "packages/dpm/test/discovery-classification.test.ts",
+        "packages/dpm/test/discovery-evidence.test.ts",
+        "packages/dpm/test/discovery-report.test.ts"
       ],
       "commands": [
         "pnpm --filter @oa-sdk/dpm test -- discovery",
