@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest'
 
 import { runDpmCli } from '../src/cli/index.js'
+import { expectedCliCompileRelationshipStepNames } from './support/cli-expected-fixtures.js'
+import { parseCliStdout } from './support/cli-io-fixtures.js'
 import {
   cliCatalogPath,
-  expectedCliCompileRelationshipStepNames,
   cliManifestPath,
   cliRegistryPath,
-  parseCliStdout,
-} from './support/cli-fixtures.js'
+} from './support/cli-path-fixtures.js'
 
 describe('DPM CLI compile command', () => {
   it('compiles fixture triplets with deterministic JSON output', async () => {

@@ -2,13 +2,15 @@ import { describe, expect, it } from 'vitest'
 
 import { runDpmCli } from '../src/cli/index.js'
 import {
-  cliCatalogPath,
   expectedCliValidateDiagnosticCodes,
   expectedCliValidateDiagnosticSummary,
+} from './support/cli-expected-fixtures.js'
+import { parseCliStdout } from './support/cli-io-fixtures.js'
+import {
+  cliCatalogPath,
   cliManifestPath,
   cliRegistryPath,
-  parseCliStdout,
-} from './support/cli-fixtures.js'
+} from './support/cli-path-fixtures.js'
 
 describe('DPM CLI validate command', () => {
   it('validates fixture triplets as machine-readable JSON without DB access', async () => {

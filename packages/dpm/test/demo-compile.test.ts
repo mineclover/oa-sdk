@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest'
 
 import { runDpmCli } from '../src/cli/index.js'
+import { expectedDemoCustomerNamespaceBinding } from './support/demo-expected-fixtures.js'
+import { parseDemoJsonStdout } from './support/demo-io-fixtures.js'
 import {
   demoCatalogPath,
-  expectedDemoCustomerNamespaceBinding,
   demoManifestPath,
   demoRegistryPath,
-  parseDemoJsonStdout,
-} from './support/demo-fixtures.js'
+} from './support/demo-path-fixtures.js'
 
 describe('DPM customer orders demo compile command', () => {
   it('compiles the primary demo into the expected relationship-first plan', async () => {

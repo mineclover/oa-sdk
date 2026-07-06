@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest'
 
 import { runDpmCli } from '../src/cli/index.js'
+import { parseCliStdout } from './support/cli-io-fixtures.js'
 import {
   cliCatalogPath,
   cliManifestPath,
   cliRegistryPath,
-  parseCliStdout,
-} from './support/cli-fixtures.js'
+} from './support/cli-path-fixtures.js'
 
 describe('DPM CLI dry-run command', () => {
   it('dry-runs fixture triplets with deterministic JSON output and no raw samples', async () => {

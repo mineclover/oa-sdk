@@ -2,11 +2,13 @@ import { describe, expect, it } from 'vitest'
 
 import { runDpmCli } from '../src/cli/index.js'
 import {
-  cliCatalogPath,
-  cliRegistryPath,
   parseCliStdout,
   writeTempCliJsonFixture,
-} from './support/cli-fixtures.js'
+} from './support/cli-io-fixtures.js'
+import {
+  cliCatalogPath,
+  cliRegistryPath,
+} from './support/cli-path-fixtures.js'
 
 describe('DPM CLI validate command — schema gate', () => {
   it('exits non-zero when the manifest fails the JSON Schema gate', async () => {

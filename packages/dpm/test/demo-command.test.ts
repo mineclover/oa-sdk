@@ -2,7 +2,7 @@ import { spawnSync } from 'node:child_process'
 
 import { describe, expect, it } from 'vitest'
 
-import { demoCommandTimeoutMs, demoPackageRoot } from './support/demo-fixtures.js'
+import { demoCommandTimeoutMs, demoPackageRoot } from './support/demo-path-fixtures.js'
 
 describe('DPM customer orders demo command', () => {
   it('runs the documented primary demo command', () => {

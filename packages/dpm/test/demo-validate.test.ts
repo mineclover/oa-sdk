@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest'
 
 import { runDpmCli } from '../src/cli/index.js'
+import { parseDemoJsonStdout } from './support/demo-io-fixtures.js'
 import {
   demoCatalogPath,
   demoManifestPath,
   demoRegistryPath,
-  parseDemoJsonStdout,
-} from './support/demo-fixtures.js'
+} from './support/demo-path-fixtures.js'
 
 describe('DPM customer orders demo validate command', () => {
   it('validates the primary demo without touching a source DB', async () => {

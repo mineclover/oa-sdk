@@ -2,12 +2,14 @@ import { describe, expect, it } from 'vitest'
 
 import { runDpmCli } from '../src/cli/index.js'
 import {
-  cliCatalogPath,
-  cliRegistryPath,
   parseCliStdout,
   readCliManifestFixture,
   writeTempCliJsonFixture,
-} from './support/cli-fixtures.js'
+} from './support/cli-io-fixtures.js'
+import {
+  cliCatalogPath,
+  cliRegistryPath,
+} from './support/cli-path-fixtures.js'
 
 describe('DPM CLI validate command — blocking diagnostics', () => {
   it('exits non-zero for blocking REL/SAF diagnostics', async () => {

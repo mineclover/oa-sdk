@@ -3,7 +3,7 @@ import { join } from 'node:path'
 
 import { describe, expect, it } from 'vitest'
 
-import { demoRoot } from './support/demo-fixtures.js'
+import { demoRoot } from './support/demo-path-fixtures.js'
 
 describe('DPM customer orders demo surface', () => {
   it('ships a runnable primary-use demo surface', () => {

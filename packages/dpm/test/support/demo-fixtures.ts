@@ -1,18 +1,13 @@
-import { join } from 'node:path'
-import { fileURLToPath } from 'node:url'
-
 export {
-  expectedCompiledCustomerNamespaceBinding as expectedDemoCustomerNamespaceBinding,
-} from './compiler-expected-fixtures.js'
-
-export const demoRoot = fileURLToPath(new URL('../../examples/customer-orders/', import.meta.url))
-export const demoManifestPath = join(demoRoot, 'manifest.json')
-export const demoCatalogPath = join(demoRoot, 'catalog.snapshot.json')
-export const demoRegistryPath = join(demoRoot, 'relationship-registry.yaml')
-export const demoEstimatedRowsPath = join(demoRoot, 'estimated-rows.json')
-export const demoPackageRoot = fileURLToPath(new URL('../..', import.meta.url))
-export const demoCommandTimeoutMs = 90_000
-
-export function parseDemoJsonStdout(stdout: string): Record<string, any> {
-  return JSON.parse(stdout) as Record<string, any>
-}
+  expectedDemoCustomerNamespaceBinding,
+} from './demo-expected-fixtures.js'
+export {
+  demoCatalogPath,
+  demoCommandTimeoutMs,
+  demoEstimatedRowsPath,
+  demoManifestPath,
+  demoPackageRoot,
+  demoRegistryPath,
+  demoRoot,
+} from './demo-path-fixtures.js'
+export { parseDemoJsonStdout } from './demo-io-fixtures.js'

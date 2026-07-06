@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest'
 
 import { runDpmCli } from '../src/cli/index.js'
+import { parseDemoJsonStdout } from './support/demo-io-fixtures.js'
 import {
   demoCatalogPath,
   demoEstimatedRowsPath,
   demoManifestPath,
   demoRegistryPath,
-  parseDemoJsonStdout,
-} from './support/demo-fixtures.js'
+} from './support/demo-path-fixtures.js'
 
 describe('DPM customer orders demo dry-run command', () => {
   it('dry-runs the primary demo as a raw-value-free impact report', async () => {
