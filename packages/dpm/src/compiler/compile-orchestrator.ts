@@ -3,7 +3,7 @@ import type {
   DpmCompileInput,
   DpmCompileResult,
 } from './compile-types.js'
-import { createDpmCompiledPlan } from './plan-builder.js'
+import { createDpmCompiledPlan } from './plan-assembler.js'
 
 export function compileDpmPlan(input: DpmCompileInput): DpmCompileResult {
   const validation = validateDpmManifest({
