@@ -1,30 +1,27 @@
-import type { CatalogSnapshot } from '../catalog/types.js'
-import type { RegistrySnapshot } from '../registry/registry-snapshot-types.js'
+import type { DpmCompiledPlanBuilderInput } from './plan-builder-types.js'
 import { createColumnSteps } from './plan-column-steps.js'
 import { createPlanFreshness } from './plan-freshness.js'
+import { readDpmPlanManifestMetadata } from './plan-manifest-metadata.js'
 import { createNamespaceBindings } from './plan-namespace-bindings.js'
 import { createRelationshipSteps } from './plan-relationship-steps.js'
 import { getPlanStaleReasons } from './plan-staleness.js'
-import {
-  asRecord,
-  asString,
-} from './plan-value-utils.js'
 import { DPM_COMPILED_PLAN_KIND } from './plan-taxonomy.js'
 import type { DpmCompiledPlan } from './plan-compiled-types.js'
 
-export type DpmCompiledPlanBuilderInput = {
-  manifest: unknown
-  catalog: CatalogSnapshot
-  registry: RegistrySnapshot
-}
+export type { DpmCompiledPlanBuilderInput } from './plan-builder-types.js'
 
 export function createDpmCompiledPlan(input: DpmCompiledPlanBuilderInput): DpmCompiledPlan {
-  const manifest = asRecord(input.manifest)
-  const metadata = asRecord(manifest.metadata)
-  const datasetId = asString(metadata.dataset_id) || input.registry.datasetId
-  const policyVersion = asString(metadata.policy_version) || 'unversioned'
-  const manifestId = `${datasetId}@${policyVersion}`
-  const manifestCatalogVersionHash = asString(asRecord(manifest.catalog).version_hash)
+  const {
+    manifest,
+    datasetId,
+    policyVersion,
+    manifestId,
+    manifestCatalogVersionHash,
+    registryReference,
+  } = readDpmPlanManifestMetadata({
+    manifest: input.manifest,
+    registry: input.registry,
+  })
   const freshness = createPlanFreshness({
     ...(manifestCatalogVersionHash ? { manifestCatalogVersionHash } : {}),
     catalog: input.catalog,
@@ -33,7 +30,7 @@ export function createDpmCompiledPlan(input: DpmCompiledPlanBuilderInput): DpmCo
   const staleReasons = getPlanStaleReasons({
     manifestCatalogVersionHash,
     catalog: input.catalog,
-    registryReference: asRecord(manifest.relationship_registry),
+    registryReference,
     registry: input.registry,
   })
   const relationshipSteps = createRelationshipSteps(manifest, input.registry)

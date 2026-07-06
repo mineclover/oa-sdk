@@ -476,10 +476,12 @@ Goal id: `DPM-08`
 Artifacts:
 - `packages/dpm/src/compiler/plan.ts`
 - `packages/dpm/src/compiler/plan-compiled-types.ts`
+- `packages/dpm/src/compiler/plan-builder-types.ts`
 - `packages/dpm/src/compiler/plan-builder.ts`
 - `packages/dpm/src/compiler/plan-column-steps.ts`
 - `packages/dpm/src/compiler/plan-freshness-types.ts`
 - `packages/dpm/src/compiler/plan-freshness.ts`
+- `packages/dpm/src/compiler/plan-manifest-metadata.ts`
 - `packages/dpm/src/compiler/plan-namespace-bindings.ts`
 - `packages/dpm/src/compiler/plan-relationship-steps.ts`
 - `packages/dpm/src/compiler/plan-staleness.ts`
@@ -502,6 +504,8 @@ Tasks:
 - Keep compiled plan taxonomy, freshness vocabulary, step vocabulary, and compiled plan envelope
   as separate implementation boundaries.
 - Keep compile input/result vocabulary separate from compile orchestration.
+- Keep compiled plan builder input and manifest metadata derivation separate from compiled plan
+  assembly.
 - Mark plans stale when manifest, catalog, or registry freshness changes.
 - Keep dry-run report vocabulary and impact/category calculation as separate implementation
   boundaries.
