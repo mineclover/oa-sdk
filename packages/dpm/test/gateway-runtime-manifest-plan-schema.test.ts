@@ -8,7 +8,7 @@ import {
 import {
   invalidCompiledPlanTaxonomyCases,
   invalidRelationshipStepTaxonomyCases,
-} from './support/gateway-runtime-manifest-schema-fixtures.js'
+} from './support/gateway-runtime-manifest-plan-taxonomy-fixtures.js'
 
 describe('DPM gateway manifest runtime plan schemas', () => {
   it('rejects compiled plan taxonomy values outside the DPM plan contract', async () => {
