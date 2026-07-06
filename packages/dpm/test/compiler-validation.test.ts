@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest'
 
 import { compileDpmPlan } from '../src/index.js'
+import { createCompileInput } from './support/compiler-input-fixtures.js'
 import {
   compilerValidationBlockingCases,
-  createCompileInput,
-} from './support/compiler-fixtures.js'
+} from './support/compiler-validation-fixtures.js'
 
 describe('DPM compiler validation gate', () => {
   it('refuses validator-blocking manifest cases without producing a plan', () => {

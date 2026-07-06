@@ -3,9 +3,11 @@ import { describe, expect, it } from 'vitest'
 import { compileDpmPlan } from '../src/index.js'
 import {
   createCompileInput,
+} from './support/compiler-input-fixtures.js'
+import {
   expectedCompiledCustomerNamespaceBinding,
   expectedCompiledRelationshipStepNames,
-} from './support/compiler-fixtures.js'
+} from './support/compiler-expected-fixtures.js'
 
 describe('DPM compiler plan assembly', () => {
   it('compiles a validated manifest into approved relationship-first plan steps', () => {

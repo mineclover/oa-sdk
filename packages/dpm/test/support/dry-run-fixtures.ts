@@ -4,7 +4,7 @@ import {
   type DpmCompiledPlan,
   type DpmDryRunReport,
 } from '../../src/index.js'
-import { createCompileInput } from './compiler-fixtures.js'
+import { createCompileInput } from './compiler-input-fixtures.js'
 
 export const DPM_DRY_RUN_UNSAFE_SAMPLE_VALUE = 'C-001'
 

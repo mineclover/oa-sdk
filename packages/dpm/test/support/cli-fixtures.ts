@@ -9,7 +9,7 @@ import {
 
 export {
   expectedCompiledRelationshipStepNames as expectedCliCompileRelationshipStepNames,
-} from './compiler-fixtures.js'
+} from './compiler-expected-fixtures.js'
 export {
   expectedValidManifestDiagnosticSummary as expectedCliValidateDiagnosticSummary,
   expectedValidManifestDiagnosticCodes as expectedCliValidateDiagnosticCodes,

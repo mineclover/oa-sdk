@@ -3,8 +3,10 @@ import { describe, expect, it } from 'vitest'
 import { compileDpmPlan } from '../src/index.js'
 import {
   createCompileInput,
+} from './support/compiler-input-fixtures.js'
+import {
   expectedCatalogStaleReasons,
-} from './support/compiler-fixtures.js'
+} from './support/compiler-expected-fixtures.js'
 
 describe('DPM compiler staleness', () => {
   it('marks compiled plans stale when manifest freshness differs from snapshots', () => {
