@@ -616,7 +616,8 @@
       ],
       "testPaths": [
         "packages/dpm/test/storage-report-job-repository.test.ts",
-        "packages/dpm/test/storage-report-repository.test.ts",
+        "packages/dpm/test/storage-report-repository-completed.test.ts",
+        "packages/dpm/test/storage-report-repository-failed.test.ts",
         "packages/dpm/test/storage-report-gateway-projection.test.ts"
       ],
       "commands": [

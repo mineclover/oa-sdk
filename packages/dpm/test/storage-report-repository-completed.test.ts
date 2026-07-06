@@ -10,7 +10,7 @@ import {
   createStorageReportCompileInput,
 } from './support/storage-report-fixtures.js'
 
-describe('DPM validation report repository', () => {
+describe('DPM validation report repository — completed reports', () => {
   it('stores dry-run report summaries without raw sensitive samples', async () => {
     const compiled = compileDpmPlan(createStorageReportCompileInput())
     if (!compiled.ok) throw new Error('expected compile success')
@@ -62,32 +62,5 @@ describe('DPM validation report repository', () => {
     })
     expect(JSON.stringify(report)).not.toContain('C-001')
     expect(JSON.stringify(report)).not.toContain('source-secret')
-  })
-
-  it('preserves deterministic diagnostics for failed validation reports', async () => {
-    const input = createStorageReportCompileInput()
-    const manifest = structuredClone(input.manifest) as Record<string, any>
-    manifest.columns[0].transform = { type: 'keep' }
-    const compiled = compileDpmPlan({
-      ...input,
-      manifest,
-    })
-    if (compiled.ok) throw new Error('expected compile failure')
-
-    const repository = createDpmReportRepository({
-      upsertReport: async () => undefined,
-      getValidationReport: async () => undefined,
-    })
-
-    const report = await repository.saveReport({
-      jobId: 'job_failed_001',
-      status: 'failed',
-      diagnostics: compiled.diagnostics,
-      createdAt: '2026-07-01T00:00:03.000Z',
-    })
-
-    expect(report.validationReportRef).toBe('dpm-report:job_failed_001')
-    expect(report.diagnostics).toEqual(compiled.diagnostics)
-    expect(report.diagnostics.map(diagnostic => diagnostic.code)).toContain('SAF001')
   })
 })
