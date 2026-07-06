@@ -2,8 +2,10 @@ import { describe, expect, it } from 'vitest'
 
 import {
   getDpmGatewaySchemaValue,
+} from './support/gateway-schema-lookup.js'
+import {
   profileTaxonomyProjectionCases,
-} from './support/gateway-taxonomy-fixtures.js'
+} from './support/gateway-taxonomy-profile-fixtures.js'
 import { formatSchemaPath } from './support/schema-path.js'
 
 describe('DPM gateway profile taxonomy projection', () => {

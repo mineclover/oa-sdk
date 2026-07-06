@@ -2,8 +2,10 @@ import { describe, expect, it } from 'vitest'
 
 import {
   diagnosticTaxonomyProjectionCases,
+} from './support/gateway-taxonomy-diagnostic-fixtures.js'
+import {
   getDpmGatewaySchemaValue,
-} from './support/gateway-taxonomy-fixtures.js'
+} from './support/gateway-schema-lookup.js'
 import { formatSchemaPath } from './support/schema-path.js'
 
 describe('DPM gateway diagnostic taxonomy projection', () => {
