@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest'
 
 import {
-  createReorderedCommerceRegistrySnapshot,
   readCommerceRegistrySnapshot,
-} from './support/registry-fixtures.js'
+} from './support/registry-yaml-fixtures.js'
+import {
+  createReorderedCommerceRegistrySnapshot,
+} from './support/registry-reorder-fixtures.js'
 
 describe('DPM relationship registry identity', () => {
   it('keeps snapshot identity stable for equivalent relationship ordering', () => {

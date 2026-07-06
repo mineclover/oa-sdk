@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  readCommerceRegistrySnapshot,
+} from './support/registry-yaml-fixtures.js'
+import {
   expectedCommerceDeprecatedRelationshipHistory,
   expectedCommerceRejectedRelationshipHistory,
   expectedCommerceSupersededRelationshipHistory,
-  readCommerceRegistrySnapshot,
-} from './support/registry-fixtures.js'
+} from './support/registry-projection-fixtures.js'
 
 describe('DPM relationship registry non-executable history', () => {
   it('loads rejected, deprecated, and superseded relationships as non-executable history', () => {

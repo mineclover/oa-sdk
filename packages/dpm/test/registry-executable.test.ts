@@ -2,10 +2,12 @@ import { describe, expect, it } from 'vitest'
 
 import { selectApprovedRelationships } from '../src/index.js'
 import {
+  readCommerceRegistrySnapshot,
+} from './support/registry-yaml-fixtures.js'
+import {
   expectedCommerceApprovedRelationshipNames,
   expectedCommerceNonExecutableStatuses,
-  readCommerceRegistrySnapshot,
-} from './support/registry-fixtures.js'
+} from './support/registry-projection-fixtures.js'
 
 describe('DPM relationship registry executable selection', () => {
   it('selects only approved relationships for compilation', () => {
