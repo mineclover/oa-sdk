@@ -4,8 +4,10 @@ import {
 } from './relationship-registry-snapshot-endpoint-gates.js'
 import {
   validateApprovedRegistrySnapshotMetadataScalarGates,
+} from './relationship-registry-snapshot-metadata-gates.js'
+import {
   validateApprovedRegistrySnapshotTypeGate,
-} from './relationship-registry-snapshot-scalar-gates.js'
+} from './relationship-registry-snapshot-type-gate.js'
 import type { ApprovedRegistrySnapshotInput } from './relationship-registry-snapshot-types.js'
 
 export function validateApprovedRegistrySnapshot(input: ApprovedRegistrySnapshotInput): DpmDiagnostic[] {
