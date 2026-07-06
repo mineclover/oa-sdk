@@ -1,4 +1,4 @@
-import type { DpmDryRunCategory, DpmDryRunImpact } from '../dry-run/report.js'
+import type { DpmDryRunCategory, DpmDryRunImpact } from '../dry-run/report-types.js'
 
 export function copyValidationReportImpact(impact: DpmDryRunImpact): DpmDryRunImpact {
   return {

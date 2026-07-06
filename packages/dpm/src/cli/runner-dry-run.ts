@@ -1,5 +1,5 @@
 import { compileDpmPlan } from '../compiler/compile.js'
-import { createDpmDryRunReport } from '../dry-run/report.js'
+import { createDpmDryRunReport } from '../dry-run/report-builder.js'
 import type { DpmCliInputs } from './input-types.js'
 import { createDpmCliJsonResult } from './result.js'
 import type { DpmCliResult } from './types.js'

@@ -32,7 +32,7 @@ export type {
   DpmDryRunImpact,
   DpmDryRunInput,
   DpmDryRunReport,
-} from '../dry-run/report.js'
+} from '../dry-run/report-types.js'
 export {
   DPM_COMPILED_PLAN_KIND,
   DPM_COMPILED_PLAN_VERSIONS,
@@ -43,8 +43,10 @@ export { createPlanFreshness } from '../compiler/plan-freshness.js'
 export { compileDpmPlan } from '../compiler/compile.js'
 export {
   DPM_DRY_RUN_REPORT_KIND,
+} from '../dry-run/report-types.js'
+export {
   createDpmDryRunReport,
-} from '../dry-run/report.js'
+} from '../dry-run/report-builder.js'
 export { validateDpmManifest } from '../validator/manifest.js'
 export {
   DPM_DIAGNOSTIC_CODES,

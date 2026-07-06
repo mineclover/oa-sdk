@@ -1,5 +1,5 @@
 import { parseDpmCliArgs } from './args.js'
-import { readDpmCliInputs } from './inputs.js'
+import { readDpmCliInputs } from './input-loader.js'
 import { runDpmCliCompileCommand } from './runner-compile.js'
 import { runDpmCliDryRunCommand } from './runner-dry-run.js'
 import { runDpmCliValidateCommand } from './runner-validate.js'

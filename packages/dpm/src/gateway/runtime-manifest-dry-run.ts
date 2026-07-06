@@ -1,5 +1,6 @@
 import { compileDpmPlan, type DpmCompileResult } from '../compiler/compile.js'
-import { createDpmDryRunReport, type DpmDryRunReport } from '../dry-run/report.js'
+import { createDpmDryRunReport } from '../dry-run/report-builder.js'
+import type { DpmDryRunReport } from '../dry-run/report-types.js'
 import type { DpmGatewayRuntimeManifestInput } from './runtime-manifest-types.js'
 import { createDpmGatewayRuntimeResponse } from './runtime-response.js'
 import type { DpmGatewayRuntimeResponse } from './runtime-response-types.js'

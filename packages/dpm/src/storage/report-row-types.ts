@@ -1,5 +1,5 @@
 import type { DpmPlanFreshness } from '../compiler/plan.js'
-import type { DpmDryRunCategory, DpmDryRunImpact } from '../dry-run/report.js'
+import type { DpmDryRunCategory, DpmDryRunImpact } from '../dry-run/report-types.js'
 import type { DpmDiagnostic } from '../validator/diagnostic-types.js'
 import type {
   DPM_VALIDATION_REPORT_KIND,
