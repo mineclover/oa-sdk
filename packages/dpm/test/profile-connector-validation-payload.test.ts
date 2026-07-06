@@ -4,7 +4,7 @@ import {
   normalizeDpmProfileConnectorResult,
   validateDpmProfileConnectorResult,
 } from '../src/index.js'
-import { createFailedKafkaProfileConnectorResult } from './support/profile-connector-result-fixtures.js'
+import { createFailedKafkaProfileConnectorResult } from './support/profile-connector-failed-result-fixtures.js'
 
 describe('DPM profile connector validation — payload gates', () => {
   it('keeps connector failures as diagnostic payloads', () => {

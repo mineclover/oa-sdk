@@ -12,7 +12,7 @@ import { createPostgresProfileArtifactInput } from './support/profile-connector-
 import {
   createKafkaProfileConnectorResult,
   createPostgresProfileConnectorResult,
-} from './support/profile-connector-result-fixtures.js'
+} from './support/profile-connector-completed-result-fixtures.js'
 
 describe('DPM profile connector output contract', () => {
   it('describes PostgreSQL catalog profiling as a connector output without changing catalog snapshots', () => {
