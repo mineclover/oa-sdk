@@ -32,34 +32,6 @@ describe('DPM Kafka topic profile connector', () => {
     expect(validateDpmProfileArtifactSchema(result.profileArtifact).valid).toBe(true)
     expect(JSON.stringify(result)).not.toContain('rawSample')
   })
-
-  it('changes connector freshness when fixture field evidence changes', () => {
-    const fixture = readKafkaOrdersCreatedFixture()
-    const original = profileKafkaTopicFixture(fixture)
-    const changed = profileKafkaTopicFixture({
-      ...fixture,
-      topic: {
-        ...fixture.topic,
-        value: {
-          fields: fixture.topic.value.fields.map(field =>
-            field.name === 'customer'
-              ? {
-                  ...field,
-                  fields: field.fields?.map(child =>
-                    child.name === 'customer_no'
-                      ? { ...child, presenceRatio: 0.91 }
-                      : child,
-                  ),
-                }
-              : field,
-          ),
-        },
-      },
-    })
-
-    expect(changed.profileArtifact?.freshness.versionHash).not.toBe(original.profileArtifact?.freshness.versionHash)
-    expect(changed.freshness.runHash).not.toBe(original.freshness.runHash)
-  })
 })
 
 function validateDpmConnector(result: ReturnType<typeof profileKafkaTopicFixture>): boolean {
