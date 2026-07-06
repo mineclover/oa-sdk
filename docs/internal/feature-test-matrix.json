@@ -170,6 +170,9 @@
         "packages/dpm/test/catalog-profiler-client.test.ts",
         "packages/dpm/test/catalog-profiler-query.test.ts",
         "packages/dpm/test/catalog-profiler-rows.test.ts",
+        "packages/dpm/test/catalog-profiler-structure-rows.test.ts",
+        "packages/dpm/test/catalog-profiler-integrity-rows.test.ts",
+        "packages/dpm/test/catalog-profiler-source-map.test.ts",
         "packages/dpm/test/catalog-profiler-freshness.test.ts",
         "packages/dpm/test/fixtures/catalog/profiler-postgres.sql",
         "packages/dpm/test/fixtures/catalog/profiler-postgres-rows.json"

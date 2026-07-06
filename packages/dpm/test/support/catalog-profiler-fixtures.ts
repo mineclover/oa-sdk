@@ -2,11 +2,22 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
 import type { PostgresCatalogProfileRow } from '../../src/index.js'
+import {
+  postgresCatalogRowsToSnapshot,
+} from '../../src/index.js'
 
 const fixturesRoot = new URL('../fixtures/catalog/', import.meta.url)
 
 export function readProfilerPostgresRowsFixture(): PostgresCatalogProfileRow[] {
   return readJsonFixture<PostgresCatalogProfileRow[]>('profiler-postgres-rows.json')
+}
+
+export function createProfilerPostgresSnapshot(input: { capturedAt?: string } = {}) {
+  return postgresCatalogRowsToSnapshot({
+    database: 'commerce',
+    capturedAt: input.capturedAt,
+    rows: readProfilerPostgresRowsFixture(),
+  })
 }
 
 export function readProfilerPostgresSqlFixture(): string {
