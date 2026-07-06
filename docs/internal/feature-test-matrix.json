@@ -392,7 +392,9 @@
       ],
       "testPaths": [
         "packages/dpm/test/validator.test.ts",
-        "packages/dpm/test/validator-relationship.test.ts",
+        "packages/dpm/test/validator-relationship-diagnostics.test.ts",
+        "packages/dpm/test/validator-relationship-registry-approval.test.ts",
+        "packages/dpm/test/validator-relationship-registry-snapshot.test.ts",
         "packages/dpm/test/validator-safety.test.ts"
       ],
       "commands": [
