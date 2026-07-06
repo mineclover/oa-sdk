@@ -5,28 +5,25 @@ import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
 import { runDpmCli } from '../src/cli/index.js'
+import {
+  cliCatalogPath,
+  cliManifestPath,
+  cliRegistryPath,
+  parseCliStdout,
+} from './support/cli-fixtures.js'
 
-const fixturesRoot = new URL('./fixtures/', import.meta.url)
-const manifestPath = join(fixturesRoot.pathname, 'valid/customer-orders.json')
-const catalogPath = join(fixturesRoot.pathname, 'catalog/postgres-commerce.json')
-const registryPath = join(fixturesRoot.pathname, 'registry/commerce-registry.yaml')
-
-function parseStdout(stdout: string): Record<string, any> {
-  return JSON.parse(stdout) as Record<string, any>
-}
-
-describe('DPM CLI', () => {
+describe('DPM CLI validate command', () => {
   it('validates fixture triplets as machine-readable JSON without DB access', async () => {
     const result = await runDpmCli([
       'validate',
       '--manifest',
-      manifestPath,
+      cliManifestPath,
       '--catalog',
-      catalogPath,
+      cliCatalogPath,
       '--registry',
-      registryPath,
+      cliRegistryPath,
     ])
-    const output = parseStdout(result.stdout)
+    const output = parseCliStdout(result.stdout)
 
     expect(result.exitCode).toBe(0)
     expect(result.stderr).toBe('')
@@ -38,7 +35,7 @@ describe('DPM CLI', () => {
 
   it('exits non-zero for blocking REL/SAF diagnostics', async () => {
     const tempDir = mkdtempSync(join(tmpdir(), 'oa-dpm-cli-'))
-    const manifest = JSON.parse(readFileSync(manifestPath, 'utf8')) as Record<string, any>
+    const manifest = JSON.parse(readFileSync(cliManifestPath, 'utf8')) as Record<string, any>
     manifest.columns[0].transform = { type: 'keep' }
     const invalidManifestPath = join(tempDir, 'invalid-manifest.json')
     writeFileSync(invalidManifestPath, JSON.stringify(manifest, null, 2))
@@ -48,11 +45,11 @@ describe('DPM CLI', () => {
       '--manifest',
       invalidManifestPath,
       '--catalog',
-      catalogPath,
+      cliCatalogPath,
       '--registry',
-      registryPath,
+      cliRegistryPath,
     ])
-    const output = parseStdout(result.stdout)
+    const output = parseCliStdout(result.stdout)
 
     expect(result.exitCode).toBe(1)
     expect(output.result.valid).toBe(false)
@@ -80,55 +77,14 @@ describe('DPM CLI', () => {
       '--manifest',
       malformedManifestPath,
       '--catalog',
-      catalogPath,
+      cliCatalogPath,
       '--registry',
-      registryPath,
+      cliRegistryPath,
     ])
-    const output = parseStdout(result.stdout)
+    const output = parseCliStdout(result.stdout)
 
     expect(result.exitCode).toBe(1)
     expect(output.result.valid).toBe(false)
     expect(output.result.diagnostics.map((diagnostic: any) => diagnostic.code)).toContain('SYN001')
-  })
-
-  it('compiles and dry-runs fixture triplets with deterministic JSON output', async () => {
-    const compile = await runDpmCli([
-      'compile',
-      '--manifest',
-      manifestPath,
-      '--catalog',
-      catalogPath,
-      '--registry',
-      registryPath,
-    ])
-    const compiled = parseStdout(compile.stdout)
-
-    expect(compile.exitCode).toBe(0)
-    expect(compiled.command).toBe('compile')
-    expect(compiled.result.ok).toBe(true)
-    expect(compiled.result.plan.stale).toBe(false)
-    expect(compiled.result.plan.relationshipSteps.map((step: any) => step.name)).toEqual(['rel_orders_customer'])
-
-    const dryRun = await runDpmCli([
-      'dry-run',
-      '--manifest',
-      manifestPath,
-      '--catalog',
-      catalogPath,
-      '--registry',
-      registryPath,
-    ])
-    const report = parseStdout(dryRun.stdout)
-
-    expect(dryRun.exitCode).toBe(0)
-    expect(report.command).toBe('dry-run')
-    expect(report.result.kind).toBe('dpm.dry-run-report.v1')
-    expect(report.result.impact).toMatchObject({
-      namespaces: 1,
-      relationships: 1,
-      columns: 2,
-      piiColumns: 2,
-    })
-    expect(JSON.stringify(report)).not.toContain('C-001')
   })
 })

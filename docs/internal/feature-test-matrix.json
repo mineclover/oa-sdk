@@ -446,7 +446,8 @@
         "non-zero blocking diagnostics exit"
       ],
       "testPaths": [
-        "packages/dpm/test/cli.test.ts"
+        "packages/dpm/test/cli-execution.test.ts",
+        "packages/dpm/test/cli-validate.test.ts"
       ],
       "commands": [
         "pnpm --filter @oa-sdk/dpm build",
