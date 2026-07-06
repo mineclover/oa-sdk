@@ -9,7 +9,7 @@ import {
 import { createDpmManifestValidationContext } from './manifest-context.js'
 import { validateManifestSyntax } from './manifest-syntax.js'
 import { validateManifestRelationships } from './relationship-validator.js'
-import { validateSafetyRules } from './safety.js'
+import { validateSafetyRules } from './safety-validator.js'
 import type { DpmValidationInput } from './validation-types.js'
 
 export function validateDpmManifest(input: DpmValidationInput): DpmValidationResult {
