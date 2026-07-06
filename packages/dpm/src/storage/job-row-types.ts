@@ -1,10 +1,8 @@
 import type { DpmPlanFreshness } from '../compiler/plan.js'
 import type { DpmDiagnostic } from '../validator/diagnostic-types.js'
-import type {
-  DPM_JOB_KIND,
-  DpmJobOperation,
-  DpmJobStatus,
-} from './job-taxonomy-types.js'
+import type { DPM_JOB_KIND } from './job-kind.js'
+import type { DpmJobOperation } from './job-operation-taxonomy.js'
+import type { DpmJobStatus } from './job-status-taxonomy.js'
 
 export type DpmJobRow = {
   kind: typeof DPM_JOB_KIND

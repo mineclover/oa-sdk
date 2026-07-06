@@ -3,7 +3,7 @@ import { createDpmDiagnostic } from '../validator/diagnostic-copy.js'
 import type { DpmDiagnostic } from '../validator/diagnostic-types.js'
 import type { DpmJobSaveInput } from './job-request-types.js'
 import type { DpmJobRow } from './job-row-types.js'
-import { DPM_JOB_KIND } from './job-taxonomy-types.js'
+import { DPM_JOB_KIND } from './job-kind.js'
 
 export function createDpmJobRow(input: DpmJobSaveInput): DpmJobRow {
   return {

@@ -1,4 +1,5 @@
-export const DPM_JOB_KIND = 'dpm.job.v1' as const
-
-export type DpmJobOperation = 'compile' | 'dry_run'
-export type DpmJobStatus = 'accepted' | 'completed' | 'failed'
+export { DPM_JOB_KIND } from './job-kind.js'
+export { DPM_JOB_OPERATIONS } from './job-operation-taxonomy.js'
+export type { DpmJobOperation } from './job-operation-taxonomy.js'
+export { DPM_JOB_STATUSES } from './job-status-taxonomy.js'
+export type { DpmJobStatus } from './job-status-taxonomy.js'

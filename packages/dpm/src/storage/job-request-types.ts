@@ -1,9 +1,7 @@
 import type { DpmPlanFreshness } from '../compiler/plan.js'
 import type { DpmDiagnostic } from '../validator/diagnostic-types.js'
-import type {
-  DpmJobOperation,
-  DpmJobStatus,
-} from './job-taxonomy-types.js'
+import type { DpmJobOperation } from './job-operation-taxonomy.js'
+import type { DpmJobStatus } from './job-status-taxonomy.js'
 
 export type DpmJobRequest = {
   jobId: string

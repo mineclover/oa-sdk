@@ -6,7 +6,7 @@ import {
 import { copyValidationReportFreshness } from './report-row-freshness.js'
 import type { DpmValidationReportSaveInput } from './report-request-types.js'
 import type { DpmStoredValidationReport } from './report-row-types.js'
-import { DPM_VALIDATION_REPORT_KIND } from './report-taxonomy-types.js'
+import { DPM_VALIDATION_REPORT_KIND } from './report-kind.js'
 
 export { copyValidationReportDiagnostics } from './report-row-diagnostics.js'
 

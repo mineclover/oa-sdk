@@ -1,5 +1,5 @@
 import type { DpmDiagnostic } from '../validator/diagnostic-types.js'
-import type { DpmValidationReportStatus } from './report-taxonomy-types.js'
+import type { DpmValidationReportStatus } from './report-status-taxonomy.js'
 
 export type DpmGatewayJobReport = {
   jobId: string

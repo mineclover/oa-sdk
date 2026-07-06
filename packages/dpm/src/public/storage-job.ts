@@ -11,4 +11,10 @@ export { createDpmJobRepository } from '../storage/job-repository-facade.js'
 export { createDpmJobRow } from '../storage/job-row-builder.js'
 export {
   DPM_JOB_KIND,
-} from '../storage/job-taxonomy-types.js'
+} from '../storage/job-kind.js'
+export {
+  DPM_JOB_OPERATIONS,
+} from '../storage/job-operation-taxonomy.js'
+export {
+  DPM_JOB_STATUSES,
+} from '../storage/job-status-taxonomy.js'

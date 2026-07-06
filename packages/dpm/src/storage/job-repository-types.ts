@@ -9,8 +9,16 @@ export type {
 export type { DpmJobRow } from './job-row-types.js'
 export {
   DPM_JOB_KIND,
-} from './job-taxonomy-types.js'
+} from './job-kind.js'
+export {
+  DPM_JOB_OPERATIONS,
+} from './job-operation-taxonomy.js'
+export {
+  DPM_JOB_STATUSES,
+} from './job-status-taxonomy.js'
 export type {
   DpmJobOperation,
+} from './job-operation-taxonomy.js'
+export type {
   DpmJobStatus,
-} from './job-taxonomy-types.js'
+} from './job-status-taxonomy.js'

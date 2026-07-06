@@ -1,3 +1,3 @@
-export const DPM_VALIDATION_REPORT_KIND = 'dpm.validation-report.v1' as const
-
-export type DpmValidationReportStatus = 'completed' | 'failed'
+export { DPM_VALIDATION_REPORT_KIND } from './report-kind.js'
+export { DPM_VALIDATION_REPORT_STATUSES } from './report-status-taxonomy.js'
+export type { DpmValidationReportStatus } from './report-status-taxonomy.js'

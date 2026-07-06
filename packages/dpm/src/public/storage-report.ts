@@ -12,4 +12,7 @@ export { createDpmReportRepository } from '../storage/report-repository-facade.j
 export { createDpmValidationReport } from '../storage/report-row-builder.js'
 export {
   DPM_VALIDATION_REPORT_KIND,
-} from '../storage/report-taxonomy-types.js'
+} from '../storage/report-kind.js'
+export {
+  DPM_VALIDATION_REPORT_STATUSES,
+} from '../storage/report-status-taxonomy.js'
