@@ -322,7 +322,10 @@
         "stable ordering"
       ],
       "testPaths": [
-        "packages/dpm/test/registry.test.ts"
+        "packages/dpm/test/registry-executable.test.ts",
+        "packages/dpm/test/registry-history.test.ts",
+        "packages/dpm/test/registry-identity.test.ts",
+        "packages/dpm/test/registry-snapshot-yaml.test.ts"
       ],
       "commands": [
         "pnpm --filter @oa-sdk/dpm test -- registry",
