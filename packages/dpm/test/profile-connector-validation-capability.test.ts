@@ -5,7 +5,7 @@ import {
   normalizeDpmProfileConnectorResult,
   validateDpmProfileConnectorResult,
 } from '../src/index.js'
-import { createKafkaProfileArtifactInput } from './support/profile-connector-artifact-inputs.js'
+import { createKafkaProfileArtifactInput } from './support/profile-connector-kafka-artifact-inputs.js'
 
 describe('DPM profile connector validation — capability gates', () => {
   it('rejects observed evidence kinds outside connector capabilities', () => {
