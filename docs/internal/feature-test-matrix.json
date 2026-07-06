@@ -241,7 +241,8 @@
         "raw sample exclusion"
       ],
       "testPaths": [
-        "packages/dpm/test/profile-kafka.test.ts",
+        "packages/dpm/test/profile-kafka-connector.test.ts",
+        "packages/dpm/test/profile-kafka-graph.test.ts",
         "packages/dpm/test/fixtures/profile/kafka-orders-created.json"
       ],
       "commands": [

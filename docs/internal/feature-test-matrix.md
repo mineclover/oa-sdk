@@ -37,7 +37,7 @@ without checking behavior, add focused assertions or split the matrix row.
 | `dpm-postgres-catalog-profiler` | `@oa-sdk/dpm` | read-only PostgreSQL catalog profiler query and row-to-snapshot mapping | `packages/dpm/test/catalog-profiler.test.ts`, `packages/dpm/test/fixtures/catalog/profiler-postgres.sql` |
 | `dpm-profile-artifact` | `@oa-sdk/dpm` | source-neutral profile artifact schema, coordinates, nodes, edges, metrics, diagnostics, freshness | `packages/dpm/test/profile-artifact.test.ts`, `packages/dpm/test/profile-schema.test.ts` |
 | `dpm-profile-connector` | `@oa-sdk/dpm` | connector output envelope, capability/evidence validation, connector/profile freshness | `packages/dpm/test/profile-connector.test.ts`, `packages/dpm/test/profile-connector-validation.test.ts` |
-| `dpm-kafka-profile-fixture` | `@oa-sdk/dpm` | fixture-backed Kafka topic/message flattening into profile artifact and connector result | `packages/dpm/test/profile-kafka.test.ts` |
+| `dpm-kafka-profile-fixture` | `@oa-sdk/dpm` | fixture-backed Kafka topic/message flattening into profile artifact and connector result | `packages/dpm/test/profile-kafka-connector.test.ts`, `packages/dpm/test/profile-kafka-graph.test.ts` |
 | `dpm-profile-analysis` | `@oa-sdk/dpm` | profile coverage, relationship hint proposals, key candidates, drift, and risk analysis | `packages/dpm/test/profile-analysis.test.ts` |
 | `dpm-discovery-report` | `@oa-sdk/dpm` | non-executable relationship discovery candidate reports and evidence preservation | `packages/dpm/test/discovery.test.ts` |
 | `dpm-registry-snapshot` | `@oa-sdk/dpm` | versioned registry snapshots, YAML review artifacts, approved-only execution selection | `packages/dpm/test/registry.test.ts` |

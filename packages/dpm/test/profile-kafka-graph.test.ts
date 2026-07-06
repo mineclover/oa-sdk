@@ -1,47 +1,15 @@
-import { readFileSync } from 'node:fs'
-import { join } from 'node:path'
-
 import { describe, expect, it } from 'vitest'
 
 import {
-  DPM_PROFILE_ARTIFACT_KIND,
-  DPM_PROFILE_CONNECTOR_RESULT_KIND,
   profileKafkaTopicFixture,
-  validateDpmProfileArtifactSchema,
-  validateDpmProfileConnectorResult,
-  type DpmKafkaTopicProfileFixture,
 } from '../src/index.js'
+import {
+  readKafkaOrdersCreatedFixture,
+} from './support/profile-kafka-fixtures.js'
 
-const profileFixturesRoot = new URL('./fixtures/profile/', import.meta.url)
-
-function readProfileFixture<T>(name: string): T {
-  return JSON.parse(readFileSync(join(profileFixturesRoot.pathname, name), 'utf8')) as T
-}
-
-describe('DPM Kafka topic profile fixture adapter', () => {
-  it('profiles Kafka fixture evidence without connecting to Kafka', () => {
-    const fixture = readProfileFixture<DpmKafkaTopicProfileFixture>('kafka-orders-created.json')
-    const result = profileKafkaTopicFixture(fixture)
-
-    expect(result.kind).toBe(DPM_PROFILE_CONNECTOR_RESULT_KIND)
-    expect(result.connectorId).toBe('dpm.kafka.fixture')
-    expect(result.sourceKind).toBe('kafka_topic_bundle')
-    expect(result.captureMode).toBe('fixture')
-    expect(result.status).toBe('completed')
-    expect(result.profileArtifact?.kind).toBe(DPM_PROFILE_ARTIFACT_KIND)
-    expect(result.profileArtifact?.sources[0]).toMatchObject({
-      id: 'source:kafka:orders.created',
-      kind: 'kafka_topic_bundle',
-      captureMode: 'fixture',
-      refs: ['kafka://commerce/orders.created'],
-    })
-    expect(validateDpmConnector(result)).toBe(true)
-    expect(validateDpmProfileArtifactSchema(result.profileArtifact).valid).toBe(true)
-    expect(JSON.stringify(result)).not.toContain('rawSample')
-  })
-
+describe('DPM Kafka topic profile graph', () => {
   it('flattens nested message fields into stable profile nodes and edges', () => {
-    const fixture = readProfileFixture<DpmKafkaTopicProfileFixture>('kafka-orders-created.json')
+    const fixture = readKafkaOrdersCreatedFixture()
     const profile = profileKafkaTopicFixture(fixture).profileArtifact
     if (!profile) throw new Error('expected Kafka profile artifact')
 
@@ -64,7 +32,7 @@ describe('DPM Kafka topic profile fixture adapter', () => {
   })
 
   it('emits partition, key, header, schema, and field metrics from fixture evidence', () => {
-    const fixture = readProfileFixture<DpmKafkaTopicProfileFixture>('kafka-orders-created.json')
+    const fixture = readKafkaOrdersCreatedFixture()
     const profile = profileKafkaTopicFixture(fixture).profileArtifact
     if (!profile) throw new Error('expected Kafka profile artifact')
 
@@ -104,7 +72,7 @@ describe('DPM Kafka topic profile fixture adapter', () => {
   })
 
   it('keeps relationship hints as profile suggestions, not approved registry entries', () => {
-    const fixture = readProfileFixture<DpmKafkaTopicProfileFixture>('kafka-orders-created.json')
+    const fixture = readKafkaOrdersCreatedFixture()
     const profile = profileKafkaTopicFixture(fixture).profileArtifact
     if (!profile) throw new Error('expected Kafka profile artifact')
     const serialized = JSON.stringify(profile)
@@ -123,38 +91,4 @@ describe('DPM Kafka topic profile fixture adapter', () => {
     expect(serialized).not.toContain('"status":"approved"')
     expect(serialized).not.toContain('registryVersion')
   })
-
-  it('changes connector freshness when fixture field evidence changes', () => {
-    const fixture = readProfileFixture<DpmKafkaTopicProfileFixture>('kafka-orders-created.json')
-    const original = profileKafkaTopicFixture(fixture)
-    const changed = profileKafkaTopicFixture({
-      ...fixture,
-      topic: {
-        ...fixture.topic,
-        value: {
-          fields: fixture.topic.value.fields.map(field =>
-            field.name === 'customer'
-              ? {
-                  ...field,
-                  fields: field.fields?.map(child =>
-                    child.name === 'customer_no'
-                      ? { ...child, presenceRatio: 0.91 }
-                      : child,
-                  ),
-                }
-              : field,
-          ),
-        },
-      },
-    })
-
-    expect(changed.profileArtifact?.freshness.versionHash).not.toBe(original.profileArtifact?.freshness.versionHash)
-    expect(changed.freshness.runHash).not.toBe(original.freshness.runHash)
-  })
 })
-
-function validateDpmConnector(result: ReturnType<typeof profileKafkaTopicFixture>): boolean {
-  const validation = validateDpmProfileConnectorResult(result)
-  expect(validation.diagnostics, JSON.stringify(validation.diagnostics, null, 2)).toEqual([])
-  return validation.valid
-}
