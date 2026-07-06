@@ -472,7 +472,11 @@
         "no source DB access"
       ],
       "testPaths": [
-        "packages/dpm/test/demo.test.ts",
+        "packages/dpm/test/demo-command.test.ts",
+        "packages/dpm/test/demo-compile.test.ts",
+        "packages/dpm/test/demo-dry-run.test.ts",
+        "packages/dpm/test/demo-surface.test.ts",
+        "packages/dpm/test/demo-validate.test.ts",
         "packages/dpm/examples/customer-orders/README.md",
         "packages/dpm/examples/customer-orders/run-demo.mjs"
       ],
