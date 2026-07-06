@@ -267,7 +267,12 @@
         "automatic approval exclusion"
       ],
       "testPaths": [
-        "packages/dpm/test/profile-analysis.test.ts"
+        "packages/dpm/test/profile-analysis-coverage.test.ts",
+        "packages/dpm/test/profile-analysis-drift.test.ts",
+        "packages/dpm/test/profile-analysis-key-candidates.test.ts",
+        "packages/dpm/test/profile-analysis-relationship-hints.test.ts",
+        "packages/dpm/test/profile-analysis-report.test.ts",
+        "packages/dpm/test/profile-analysis-risk.test.ts"
       ],
       "commands": [
         "pnpm --filter @oa-sdk/dpm test -- profile-analysis",
