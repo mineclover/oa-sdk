@@ -5,6 +5,7 @@ import {
   profilePostgresCatalog,
 } from '../src/index.js'
 import {
+  expectedProfilerPostgresTableNames,
   readProfilerPostgresRowsFixture,
 } from './support/catalog-profiler-fixtures.js'
 
@@ -21,6 +22,6 @@ describe('DPM PostgreSQL catalog profiler client facade', () => {
     })
 
     expect(query).toHaveBeenCalledWith(POSTGRES_CATALOG_PROFILE_SQL, [['public']])
-    expect(snapshot.tables.map(table => table.table)).toEqual(['public.customers', 'public.orders'])
+    expect(snapshot.tables.map(table => table.table)).toEqual([...expectedProfilerPostgresTableNames])
   })
 })
