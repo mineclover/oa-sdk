@@ -3,7 +3,7 @@ import type { DpmDiagnostic } from './diagnostic-types.js'
 import { validateRelationshipCatalogColumnCountGate } from './relationship-catalog-column-count-gates.js'
 import { validateRelationshipCatalogColumnCompatibility } from './relationship-catalog-column-gates.js'
 
-export function validateRelationshipCatalogColumnGates(input: {
+export type RelationshipCatalogColumnGateInput = {
   catalog: CatalogSnapshot
   relationshipName: string
   pointer: string
@@ -13,7 +13,11 @@ export function validateRelationshipCatalogColumnGates(input: {
   childColumns: readonly string[]
   parentTableUsable: boolean
   childTableUsable: boolean
-}): DpmDiagnostic[] {
+}
+
+export function validateRelationshipCatalogColumnGates(
+  input: RelationshipCatalogColumnGateInput,
+): DpmDiagnostic[] {
   const diagnostics: DpmDiagnostic[] = []
   const columnCountGate = validateRelationshipCatalogColumnCountGate({
     relationshipName: input.relationshipName,

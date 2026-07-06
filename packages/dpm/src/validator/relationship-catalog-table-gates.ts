@@ -11,13 +11,17 @@ export type RelationshipCatalogTableGateResult = {
   childTableUsable: boolean
 }
 
-export function validateRelationshipCatalogTableGates(input: {
+export type RelationshipCatalogTableGateInput = {
   context: RelationshipCatalogGateContext
   relationshipName: string
   pointer: string
   parentTable?: string
   childTable?: string
-}): RelationshipCatalogTableGateResult {
+}
+
+export function validateRelationshipCatalogTableGates(
+  input: RelationshipCatalogTableGateInput,
+): RelationshipCatalogTableGateResult {
   const diagnostics: DpmDiagnostic[] = []
   const parentTableUsable = isRelationshipCatalogTableUsable(input.context, input.parentTable)
   const childTableUsable = isRelationshipCatalogTableUsable(input.context, input.childTable)

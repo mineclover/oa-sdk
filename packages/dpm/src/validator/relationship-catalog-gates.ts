@@ -6,6 +6,11 @@ import {
   type RelationshipCatalogGateContext,
 } from './relationship-catalog-context.js'
 import { createRelationshipCatalogEndpointContext } from './relationship-catalog-endpoints.js'
+import {
+  createRelationshipCatalogColumnGateInput,
+  createRelationshipCatalogParentKeyGateInput,
+  createRelationshipCatalogTableGateInput,
+} from './relationship-catalog-gate-inputs.js'
 import { validateRelationshipCatalogParentKeyGate } from './relationship-catalog-parent-key-flow.js'
 import { validateRelationshipCatalogTableGates } from './relationship-catalog-table-gates.js'
 import type { ManifestRelationship } from './relationship-types.js'
@@ -23,34 +28,28 @@ export function validateRelationshipCatalogGates(input: {
 }): DpmDiagnostic[] {
   const diagnostics: DpmDiagnostic[] = []
   const relationship = createRelationshipCatalogEndpointContext(input.relationship)
-  const tableGates = validateRelationshipCatalogTableGates({
+  const tableGates = validateRelationshipCatalogTableGates(createRelationshipCatalogTableGateInput({
     context: input.context,
-    relationshipName: relationship.relationshipName,
+    relationship,
     pointer: input.pointer,
-    ...(relationship.parentTable ? { parentTable: relationship.parentTable } : {}),
-    ...(relationship.childTable ? { childTable: relationship.childTable } : {}),
-  })
+  }))
 
   diagnostics.push(...tableGates.diagnostics)
-  diagnostics.push(...validateRelationshipCatalogColumnGates({
+  const columnGateInput = createRelationshipCatalogColumnGateInput({
     catalog: input.catalog,
-    relationshipName: relationship.relationshipName,
+    relationship,
     pointer: input.pointer,
-    ...(relationship.parentTable ? { parentTable: relationship.parentTable } : {}),
-    ...(relationship.childTable ? { childTable: relationship.childTable } : {}),
-    parentColumns: relationship.parentColumns,
-    childColumns: relationship.childColumns,
-    parentTableUsable: tableGates.parentTableUsable,
-    childTableUsable: tableGates.childTableUsable,
-  }))
-  diagnostics.push(...validateRelationshipCatalogParentKeyGate({
+    tableGates,
+  })
+  diagnostics.push(...validateRelationshipCatalogColumnGates(columnGateInput))
+
+  const parentKeyGateInput = createRelationshipCatalogParentKeyGateInput({
     catalog: input.catalog,
-    relationshipName: relationship.relationshipName,
+    relationship,
     pointer: input.pointer,
-    ...(relationship.parentTable ? { parentTable: relationship.parentTable } : {}),
-    parentColumns: relationship.parentColumns,
-    parentTableUsable: tableGates.parentTableUsable,
-  }))
+    tableGates,
+  })
+  diagnostics.push(...validateRelationshipCatalogParentKeyGate(parentKeyGateInput))
 
   return diagnostics
 }
