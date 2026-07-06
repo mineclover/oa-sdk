@@ -1,7 +1,9 @@
 export {
   createUnsafeRelationshipDiagnosticInput,
+} from './validator-relationship-diagnostic-inputs.js'
+export {
   expectedUnsafeRelationshipDiagnosticCodes,
-} from './validator-relationship-diagnostic-fixtures.js'
+} from './validator-relationship-diagnostic-codes.js'
 export {
   createAmbiguousRegistryApprovalInput,
   createApprovedRegistrySnapshotMismatchInput,
