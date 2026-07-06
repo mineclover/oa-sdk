@@ -8,7 +8,7 @@ import {
 } from './diagnostic-summary.js'
 import { createDpmManifestValidationContext } from './manifest-context.js'
 import { validateManifestSyntax } from './manifest-syntax.js'
-import { validateManifestRelationships } from './relationships.js'
+import { validateManifestRelationships } from './relationship-validator.js'
 import { validateSafetyRules } from './safety.js'
 import type { DpmValidationInput } from './validation-types.js'
 
