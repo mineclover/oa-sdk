@@ -6,15 +6,22 @@ import {
   REGISTRY_RELATIONSHIP_KINDS,
   REGISTRY_TRANSFORM_STRATEGIES,
 } from '../src/index.js'
-import { getDpmGatewaySchema } from './support/gateway-taxonomy-fixtures.js'
+import { getDpmGatewaySchemaValue } from './support/gateway-taxonomy-fixtures.js'
+import { formatSchemaPath } from './support/schema-path.js'
+
+const relationshipStepTaxonomyProjectionCases = [
+  ['DpmRelationshipStep', ['properties', 'relationshipType', 'enum'], REGISTRY_RELATIONSHIP_KINDS],
+  ['DpmRelationshipStep', ['properties', 'cardinality', 'enum'], DPM_RELATIONSHIP_STEP_CARDINALITIES],
+  ['DpmRelationshipStep', ['properties', 'transformStrategy', 'enum'], REGISTRY_TRANSFORM_STRATEGIES],
+  ['DpmRelationshipStep', ['properties', 'orphanPolicy', 'enum'], REGISTRY_ORPHAN_POLICIES],
+] as const
 
 describe('DPM gateway relationship step taxonomy projection', () => {
   it('projects relationship step runtime taxonomies into the gateway schema', () => {
-    const relationshipStepSchema = getDpmGatewaySchema('DpmRelationshipStep')
-
-    expect(relationshipStepSchema.properties.relationshipType.enum).toEqual([...REGISTRY_RELATIONSHIP_KINDS])
-    expect(relationshipStepSchema.properties.cardinality.enum).toEqual([...DPM_RELATIONSHIP_STEP_CARDINALITIES])
-    expect(relationshipStepSchema.properties.transformStrategy.enum).toEqual([...REGISTRY_TRANSFORM_STRATEGIES])
-    expect(relationshipStepSchema.properties.orphanPolicy.enum).toEqual([...REGISTRY_ORPHAN_POLICIES])
+    for (const [schemaName, path, expected] of relationshipStepTaxonomyProjectionCases) {
+      expect(getDpmGatewaySchemaValue(schemaName, path), `${schemaName}.${formatSchemaPath(path)}`).toEqual([
+        ...expected,
+      ])
+    }
   })
 })
