@@ -21,3 +21,7 @@ export function createCompileInput(): DpmCompileInput {
     registry: parseRegistrySnapshotYaml(readDpmTextFixture('registry/commerce-registry.yaml')),
   }
 }
+
+export {
+  compilerValidationBlockingCases,
+} from './compiler-validation-fixtures.js'
