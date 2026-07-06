@@ -608,7 +608,9 @@
         "vault and reverse lookup exclusion"
       ],
       "testPaths": [
-        "packages/dpm/test/publishing.test.ts"
+        "packages/dpm/test/publishing-ai-schema.test.ts",
+        "packages/dpm/test/publishing-physical-fk.test.ts",
+        "packages/dpm/test/publishing-safety.test.ts"
       ],
       "commands": [
         "pnpm --filter @oa-sdk/dpm test -- publishing",
