@@ -1,6 +1,6 @@
 import type {
   GatewayWorkflowResponseSchemaName,
-} from './gateway-workflow-response-fixtures.js'
+} from './gateway-workflow-response-schema-fixtures.js'
 
 export const gatewayInvalidResponseTaxonomyCases: ReadonlyArray<
   readonly [GatewayWorkflowResponseSchemaName, Record<string, unknown>, string]
