@@ -141,7 +141,9 @@
         "deterministic freshness hashing"
       ],
       "testPaths": [
-        "packages/dpm/test/catalog.test.ts"
+        "packages/dpm/test/catalog-freshness.test.ts",
+        "packages/dpm/test/catalog-postgres.test.ts",
+        "packages/dpm/test/catalog-projection.test.ts"
       ],
       "commands": [
         "pnpm --filter @oa-sdk/dpm test -- catalog",
