@@ -531,6 +531,9 @@ Artifacts:
 - `packages/dpm/src/cli/input-types.ts`
 - `packages/dpm/src/cli/inputs.ts`
 - `packages/dpm/src/cli/result.ts`
+- `packages/dpm/src/cli/runner-compile.ts`
+- `packages/dpm/src/cli/runner-dry-run.ts`
+- `packages/dpm/src/cli/runner-validate.ts`
 - `packages/dpm/src/cli/runner.ts`
 - `packages/dpm/src/cli/types.ts`
 - `packages/dpm/test/cli.test.ts`
@@ -543,6 +546,8 @@ Tasks:
 - Keep `packages/dpm/src/cli/inputs.ts` as the CLI input assembly and compatibility surface while
   structured file IO, catalog snapshot coercion, registry YAML parsing, estimated rows validation,
   and input envelope vocabulary are owned by focused modules.
+- Keep `packages/dpm/src/cli/runner.ts` as the CLI parse/load/dispatch surface while validate,
+  compile, and dry-run command result assembly live in focused runner modules.
 
 Exit criteria:
 - CLI can validate fixture triplets.
