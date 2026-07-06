@@ -1,4 +1,5 @@
-import { compileDpmPlan, type DpmCompileResult } from '../compiler/compile.js'
+import type { DpmCompileResult } from '../compiler/compile-types.js'
+import { compileDpmPlan } from '../compiler/compile-orchestrator.js'
 import type { DpmGatewayRuntimeManifestInput } from './runtime-manifest-types.js'
 import { createDpmGatewayRuntimeResponse } from './runtime-response.js'
 import type { DpmGatewayRuntimeResponse } from './runtime-response-types.js'

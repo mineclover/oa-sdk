@@ -26,7 +26,7 @@ export type {
   DpmCompileInput,
   DpmCompileResult,
   DpmCompileSuccess,
-} from '../compiler/compile.js'
+} from '../compiler/compile-types.js'
 export type {
   DpmDryRunCategory,
   DpmDryRunImpact,
@@ -40,7 +40,7 @@ export {
   DPM_RELATIONSHIP_STEP_CARDINALITIES,
 } from '../compiler/plan.js'
 export { createPlanFreshness } from '../compiler/plan-freshness.js'
-export { compileDpmPlan } from '../compiler/compile.js'
+export { compileDpmPlan } from '../compiler/compile-orchestrator.js'
 export {
   DPM_DRY_RUN_REPORT_KIND,
 } from '../dry-run/report-types.js'

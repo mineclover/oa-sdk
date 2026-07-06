@@ -1,4 +1,4 @@
-import { compileDpmPlan } from '../compiler/compile.js'
+import { compileDpmPlan } from '../compiler/compile-orchestrator.js'
 import { createDpmDryRunReport } from '../dry-run/report-builder.js'
 import type { DpmCliInputs } from './input-types.js'
 import { createDpmCliJsonResult } from './result.js'

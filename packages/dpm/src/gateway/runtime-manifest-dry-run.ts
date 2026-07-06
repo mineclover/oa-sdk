@@ -1,4 +1,5 @@
-import { compileDpmPlan, type DpmCompileResult } from '../compiler/compile.js'
+import type { DpmCompileResult } from '../compiler/compile-types.js'
+import { compileDpmPlan } from '../compiler/compile-orchestrator.js'
 import { createDpmDryRunReport } from '../dry-run/report-builder.js'
 import type { DpmDryRunReport } from '../dry-run/report-types.js'
 import type { DpmGatewayRuntimeManifestInput } from './runtime-manifest-types.js'
