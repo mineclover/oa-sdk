@@ -561,7 +561,10 @@
       ],
       "testPaths": [
         "packages/dpm/test/gateway-runtime.test.ts",
-        "packages/dpm/test/gateway-runtime-manifest-schema.test.ts",
+        "packages/dpm/test/gateway-runtime-manifest-diagnostic-schema.test.ts",
+        "packages/dpm/test/gateway-runtime-manifest-plan-schema.test.ts",
+        "packages/dpm/test/gateway-runtime-manifest-response-schema.test.ts",
+        "packages/dpm/test/gateway-runtime-manifest-schema-parity.test.ts",
         "packages/dpm/test/gateway-runtime-manifest.test.ts",
         "packages/dpm/test/gateway-runtime-profile.test.ts"
       ],
