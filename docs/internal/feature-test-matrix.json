@@ -225,7 +225,8 @@
       ],
       "testPaths": [
         "packages/dpm/test/profile-connector.test.ts",
-        "packages/dpm/test/profile-connector-validation.test.ts"
+        "packages/dpm/test/profile-connector-validation-payload.test.ts",
+        "packages/dpm/test/profile-connector-validation-capability.test.ts"
       ],
       "commands": [
         "pnpm --filter @oa-sdk/dpm test -- profile-connector",
