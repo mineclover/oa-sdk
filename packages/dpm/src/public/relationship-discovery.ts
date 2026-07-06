@@ -19,7 +19,11 @@ export {
   DISCOVERY_CONFIDENCE_LEVELS,
 } from '../discovery/discovery-taxonomy.js'
 export {
-  DISCOVERY_REPORT_KIND,
   classifyRelationshipCandidate,
+} from '../discovery/classification.js'
+export {
   createRelationshipDiscoveryReport,
-} from '../discovery/report.js'
+} from '../discovery/report-builder.js'
+export {
+  DISCOVERY_REPORT_KIND,
+} from '../discovery/report-kind.js'

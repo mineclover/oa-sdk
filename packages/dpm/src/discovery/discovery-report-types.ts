@@ -4,6 +4,7 @@ import type {
 } from './discovery-relationship-candidate-types.js'
 import type { DiscoveryEvidence } from './discovery-evidence-types.js'
 import type { ExcludedRelationshipCandidate } from './discovery-exclusion-types.js'
+import type { DISCOVERY_REPORT_KIND } from './report-kind.js'
 import type { DiscoveryThresholds } from './discovery-threshold-types.js'
 
 export type RelationshipDiscoveryReportInput = {
@@ -16,7 +17,7 @@ export type RelationshipDiscoveryReportInput = {
 }
 
 export type RelationshipDiscoveryReport = {
-  kind: 'dpm.relationship.discovery-report.v1'
+  kind: typeof DISCOVERY_REPORT_KIND
   datasetId: string
   generatedAt?: string
   autoApproveEnabled: false
