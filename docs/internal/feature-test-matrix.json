@@ -246,7 +246,9 @@
       ],
       "testPaths": [
         "packages/dpm/test/profile-kafka-connector.test.ts",
-        "packages/dpm/test/profile-kafka-graph.test.ts",
+        "packages/dpm/test/profile-kafka-graph-fields.test.ts",
+        "packages/dpm/test/profile-kafka-graph-hints.test.ts",
+        "packages/dpm/test/profile-kafka-graph-sections.test.ts",
         "packages/dpm/test/fixtures/profile/kafka-orders-created.json"
       ],
       "commands": [
