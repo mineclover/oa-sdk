@@ -4,16 +4,18 @@ import {
   registryRowsToSnapshot,
 } from '../src/index.js'
 import {
+  STORAGE_REGISTRY_DATASET_ID,
+  STORAGE_REGISTRY_EXPORTED_AT,
+  STORAGE_REGISTRY_VERSION,
+  storageRegistryRows,
+} from './support/storage-registry-row-fixtures.js'
+import {
   expectedStorageRegistryApprovedRelationship,
   expectedStorageRegistryApprovedRelationshipNames,
   expectedStorageRegistryNonExecutableStatuses,
   expectedStorageRegistryRelationshipIdentities,
   expectedStorageRegistrySnapshotIdentity,
-  STORAGE_REGISTRY_DATASET_ID,
-  STORAGE_REGISTRY_EXPORTED_AT,
-  STORAGE_REGISTRY_VERSION,
-  storageRegistryRows,
-} from './support/storage-registry-fixtures.js'
+} from './support/storage-registry-projection-fixtures.js'
 
 describe('DPM registry storage row mapper', () => {
   it('exports storage rows to the existing registry snapshot contract', () => {

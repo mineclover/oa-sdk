@@ -25,7 +25,7 @@ import {
 } from './support/storage-demo-fixtures.js'
 import {
   expectedStorageRegistryApprovedRelationshipNames,
-} from './support/storage-registry-fixtures.js'
+} from './support/storage-registry-projection-fixtures.js'
 import { expectStorageReportPayloadExcludesUnsafeFragments } from './support/storage-report-fixtures.js'
 
 describe('DPM storage-backed customer orders demo pipeline', () => {

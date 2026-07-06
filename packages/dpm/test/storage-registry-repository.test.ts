@@ -5,7 +5,7 @@ import {
 } from '../src/index.js'
 import {
   storageRegistryRows,
-} from './support/storage-registry-fixtures.js'
+} from './support/storage-registry-row-fixtures.js'
 
 describe('DPM registry storage repository', () => {
   it('creates a repository that requests rows by dataset and registry version', async () => {

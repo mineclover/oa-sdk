@@ -5,7 +5,7 @@ import {
 } from '../src/storage/registry-row-scope.js'
 import {
   storageRegistryRows,
-} from './support/storage-registry-fixtures.js'
+} from './support/storage-registry-row-fixtures.js'
 
 describe('DPM registry storage row scope guard', () => {
   it('refuses storage rows outside the requested dataset or registry version', () => {
