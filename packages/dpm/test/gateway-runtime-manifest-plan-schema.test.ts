@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import { createDpmGatewayRuntime } from '../src/index.js'
 import { compileGatewayComponentSchema } from './support/gateway-schema.js'
-import { createRuntimeInput } from './support/gateway-runtime-fixtures.js'
+import { createRuntimeInput } from './support/gateway-runtime-manifest-fixtures.js'
 
 describe('DPM gateway manifest runtime plan schemas', () => {
   it('rejects compiled plan taxonomy values outside the DPM plan contract', async () => {

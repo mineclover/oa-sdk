@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { createDpmGatewayRuntime } from '../src/index.js'
-import { createBlockingRuntimeInput } from './support/gateway-runtime-fixtures.js'
+import { createBlockingRuntimeInput } from './support/gateway-runtime-manifest-fixtures.js'
 
 describe('DPM gateway manifest blocking diagnostic runtime response', () => {
   it('returns blocking diagnostics as a structured runtime response', async () => {

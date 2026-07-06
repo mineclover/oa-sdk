@@ -4,8 +4,6 @@ import { join } from 'node:path'
 import {
   createPostgresCatalogSnapshot,
   parseRegistrySnapshotYaml,
-  profileKafkaTopicFixture,
-  type DpmKafkaTopicProfileFixture,
 } from '../../src/index.js'
 
 const fixturesRoot = new URL('../fixtures/', import.meta.url)
@@ -13,7 +11,6 @@ const fixturesRoot = new URL('../fixtures/', import.meta.url)
 export const manifestPath = join(fixturesRoot.pathname, 'valid/customer-orders.json')
 export const catalogPath = join(fixturesRoot.pathname, 'catalog/postgres-commerce.json')
 export const registryPath = join(fixturesRoot.pathname, 'registry/commerce-registry.yaml')
-const kafkaProfilePath = join(fixturesRoot.pathname, 'profile/kafka-orders-created.json')
 type ManifestRuntimeCliCommand = 'validate' | 'compile' | 'dry-run'
 
 export function parseStdout(stdout: string): Record<string, any> {
@@ -48,12 +45,6 @@ export function createBlockingRuntimeInput() {
     ...input,
     manifest,
   }
-}
-
-export function createKafkaProfileArtifact() {
-  const result = profileKafkaTopicFixture(readJsonFixture<DpmKafkaTopicProfileFixture>(kafkaProfilePath))
-  if (!result.profileArtifact) throw new Error('expected Kafka profile artifact')
-  return result.profileArtifact
 }
 
 function readJsonFixture<T>(path: string): T {

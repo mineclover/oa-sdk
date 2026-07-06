@@ -6,7 +6,7 @@ import {
   createManifestRuntimeCliArgs,
   createRuntimeInput,
   parseStdout,
-} from './support/gateway-runtime-fixtures.js'
+} from './support/gateway-runtime-manifest-fixtures.js'
 
 describe('DPM gateway manifest compile runtime adapter', () => {
   it('serves compile with the same machine-readable body as the CLI', async () => {

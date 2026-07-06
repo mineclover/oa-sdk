@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import { createDpmGatewayRuntime } from '../src/index.js'
 import { compileGatewayComponentSchema } from './support/gateway-schema.js'
-import { createKafkaProfileArtifact } from './support/gateway-runtime-fixtures.js'
+import { createKafkaProfileArtifact } from './support/gateway-runtime-profile-fixtures.js'
 
 describe('DPM gateway profile runtime adapter', () => {
   it('keeps profile inspection and analysis outputs aligned with gateway response schemas', async () => {

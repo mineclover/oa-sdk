@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import { createDpmGatewayRuntime } from '../src/index.js'
 import { compileGatewayComponentSchema } from './support/gateway-schema.js'
-import { createRuntimeInput } from './support/gateway-runtime-fixtures.js'
+import { createRuntimeInput } from './support/gateway-runtime-manifest-fixtures.js'
 
 describe('DPM gateway manifest runtime schema parity', () => {
   it('keeps gateway response schemas aligned with actual runtime response payloads', async () => {
