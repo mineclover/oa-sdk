@@ -24,9 +24,13 @@ import {
 import { readStorageDemoPipelineFixtures } from './support/storage-demo-io-fixtures.js'
 import {
   createStorageDemoFixtureCatalog,
+} from './support/storage-demo-catalog-fixtures.js'
+import {
   createStorageDemoPersistenceRepositories,
+} from './support/storage-demo-memory-repository-fixtures.js'
+import {
   createStorageDemoRegistryRepository,
-} from './support/storage-demo-persistence-fixtures.js'
+} from './support/storage-demo-registry-repository-fixtures.js'
 import {
   expectedStorageRegistryApprovedRelationshipNames,
 } from './support/storage-registry-projection-fixtures.js'

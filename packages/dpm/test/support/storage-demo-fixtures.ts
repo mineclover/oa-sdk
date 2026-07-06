@@ -24,7 +24,11 @@ export {
 } from './storage-demo-io-fixtures.js'
 export {
   createStorageDemoFixtureCatalog,
+} from './storage-demo-catalog-fixtures.js'
+export {
   createStorageDemoPersistenceRepositories,
-  createStorageDemoRegistryRepository,
   type StorageDemoPersistenceRepositories,
-} from './storage-demo-persistence-fixtures.js'
+} from './storage-demo-memory-repository-fixtures.js'
+export {
+  createStorageDemoRegistryRepository,
+} from './storage-demo-registry-repository-fixtures.js'
