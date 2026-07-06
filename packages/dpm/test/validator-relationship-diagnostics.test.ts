@@ -4,7 +4,7 @@ import { validateDpmManifest } from '../src/index.js'
 import {
   createUnsafeRelationshipDiagnosticInput,
   expectedUnsafeRelationshipDiagnosticCodes,
-} from './support/validator-relationship-fixtures.js'
+} from './support/validator-relationship-diagnostic-fixtures.js'
 
 describe('DPM relationship validator diagnostics', () => {
   it('emits deterministic REL and SAF diagnostics for unsafe manifests', () => {
