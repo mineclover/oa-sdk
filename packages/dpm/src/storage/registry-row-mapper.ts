@@ -1,4 +1,4 @@
-import { createRegistrySnapshot } from '../registry/snapshot.js'
+import { createRegistrySnapshot } from '../registry/registry-snapshot-factory.js'
 import type { RegistrySnapshot } from '../registry/registry-snapshot-types.js'
 import type {
   DpmRegistryRowsToSnapshotInput,

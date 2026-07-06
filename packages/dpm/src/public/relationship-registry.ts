@@ -21,10 +21,10 @@ export {
   REGISTRY_RELATIONSHIP_STATUSES,
   REGISTRY_TRANSFORM_STRATEGIES,
 } from '../registry/registry-taxonomy.js'
+export { REGISTRY_SNAPSHOT_KIND } from '../registry/registry-identity.js'
 export {
-  REGISTRY_SNAPSHOT_KIND,
-  createRegistrySnapshot,
   isExecutableRegistryRelationship,
-  parseRegistrySnapshotYaml,
   selectApprovedRelationships,
-} from '../registry/snapshot.js'
+} from '../registry/registry-executable.js'
+export { createRegistrySnapshot } from '../registry/registry-snapshot-factory.js'
+export { parseRegistrySnapshotYaml } from '../registry/registry-snapshot-parser.js'
