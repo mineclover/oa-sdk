@@ -1,16 +1,20 @@
-import { readFileSync } from 'node:fs'
-import { join } from 'node:path'
-
 import {
   createPostgresCatalogSnapshot,
   parseRegistrySnapshotYaml,
 } from '../../src/index.js'
+import {
+  dpmFixturePath,
+  readDpmJsonFixture,
+  readDpmTextFixture,
+} from './fixture-io.js'
 
-const fixturesRoot = new URL('../fixtures/', import.meta.url)
+const manifestFixture = 'valid/customer-orders.json'
+const catalogFixture = 'catalog/postgres-commerce.json'
+const registryFixture = 'registry/commerce-registry.yaml'
 
-export const manifestPath = join(fixturesRoot.pathname, 'valid/customer-orders.json')
-export const catalogPath = join(fixturesRoot.pathname, 'catalog/postgres-commerce.json')
-export const registryPath = join(fixturesRoot.pathname, 'registry/commerce-registry.yaml')
+export const manifestPath = dpmFixturePath(manifestFixture)
+export const catalogPath = dpmFixturePath(catalogFixture)
+export const registryPath = dpmFixturePath(registryFixture)
 type ManifestRuntimeCliCommand = 'validate' | 'compile' | 'dry-run'
 
 export function parseStdout(stdout: string): Record<string, any> {
@@ -19,9 +23,9 @@ export function parseStdout(stdout: string): Record<string, any> {
 
 export function createRuntimeInput() {
   return {
-    manifest: readJsonFixture(manifestPath),
-    catalog: createPostgresCatalogSnapshot(readJsonFixture(catalogPath)),
-    registry: parseRegistrySnapshotYaml(readFileSync(registryPath, 'utf8')),
+    manifest: readDpmJsonFixture(manifestFixture),
+    catalog: createPostgresCatalogSnapshot(readDpmJsonFixture(catalogFixture)),
+    registry: parseRegistrySnapshotYaml(readDpmTextFixture(registryFixture)),
   }
 }
 
@@ -45,8 +49,4 @@ export function createBlockingRuntimeInput() {
     ...input,
     manifest,
   }
-}
-
-function readJsonFixture<T>(path: string): T {
-  return JSON.parse(readFileSync(path, 'utf8')) as T
 }

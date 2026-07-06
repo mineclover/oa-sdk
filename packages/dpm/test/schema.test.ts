@@ -1,17 +1,15 @@
 import Ajv2020 from 'ajv/dist/2020.js'
-import { describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
-import { join } from 'node:path'
+import { describe, expect, it } from 'vitest'
 
 import { DPM_MANIFEST_SCHEMA_ID } from '../src/index.js'
+import { readDpmJsonFixture } from './support/fixture-io.js'
 
-const fixturesRoot = new URL('./fixtures/', import.meta.url)
 const schemaUrl = new URL('../src/schema/dpm-manifest.schema.json', import.meta.url)
 const schema = JSON.parse(readFileSync(schemaUrl, 'utf8')) as Record<string, unknown>
 
 function readFixture(kind: 'valid' | 'invalid', name: string): unknown {
-  const fixturePath = join(fixturesRoot.pathname, kind, name)
-  return JSON.parse(readFileSync(fixturePath, 'utf8')) as unknown
+  return readDpmJsonFixture(`${kind}/${name}`)
 }
 
 describe('DPM manifest JSON Schema', () => {

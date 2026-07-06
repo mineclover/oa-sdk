@@ -1,15 +1,14 @@
-import { readFileSync } from 'node:fs'
-import { join } from 'node:path'
-
 import type { PostgresCatalogProfileRow } from '../../src/index.js'
 import {
   postgresCatalogRowsToSnapshot,
 } from '../../src/index.js'
-
-const fixturesRoot = new URL('../fixtures/catalog/', import.meta.url)
+import {
+  readDpmJsonFixture,
+  readDpmTextFixture,
+} from './fixture-io.js'
 
 export function readProfilerPostgresRowsFixture(): PostgresCatalogProfileRow[] {
-  return readJsonFixture<PostgresCatalogProfileRow[]>('profiler-postgres-rows.json')
+  return readDpmJsonFixture<PostgresCatalogProfileRow[]>('catalog/profiler-postgres-rows.json')
 }
 
 export function createProfilerPostgresSnapshot(input: { capturedAt?: string } = {}) {
@@ -21,13 +20,9 @@ export function createProfilerPostgresSnapshot(input: { capturedAt?: string } = 
 }
 
 export function readProfilerPostgresSqlFixture(): string {
-  return readFileSync(join(fixturesRoot.pathname, 'profiler-postgres.sql'), 'utf8')
+  return readDpmTextFixture('catalog/profiler-postgres.sql')
 }
 
 export function normalizeSql(sql: string): string {
   return sql.replace(/\s+/g, ' ').trim().toLowerCase()
-}
-
-function readJsonFixture<T>(name: string): T {
-  return JSON.parse(readFileSync(join(fixturesRoot.pathname, name), 'utf8')) as T
 }
