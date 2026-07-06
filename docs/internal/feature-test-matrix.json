@@ -568,7 +568,9 @@
         "raw sample and secret exclusion"
       ],
       "testPaths": [
-        "packages/dpm/test/storage-report.test.ts"
+        "packages/dpm/test/storage-report-job-repository.test.ts",
+        "packages/dpm/test/storage-report-repository.test.ts",
+        "packages/dpm/test/storage-report-gateway-projection.test.ts"
       ],
       "commands": [
         "pnpm --filter @oa-sdk/dpm test -- storage-report",
