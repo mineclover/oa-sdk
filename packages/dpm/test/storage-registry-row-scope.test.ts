@@ -3,20 +3,22 @@ import { describe, expect, it } from 'vitest'
 import {
   assertDpmRegistryRowMatchesSnapshot,
 } from '../src/storage/registry-row-scope.js'
+import { approvedStorageRegistryRelationshipRow } from './support/storage-registry-approved-row-fixtures.js'
 import {
-  storageRegistryRows,
-} from './support/storage-registry-row-fixtures.js'
+  STORAGE_REGISTRY_DATASET_ID,
+  STORAGE_REGISTRY_VERSION,
+} from './support/storage-registry-snapshot-fixtures.js'
 
 describe('DPM registry storage row scope guard', () => {
   it('refuses storage rows outside the requested dataset or registry version', () => {
     expect(() =>
       assertDpmRegistryRowMatchesSnapshot(
         {
-          datasetId: 'commerce_ai',
-          registryVersion: 'reg-2026-07-01',
+          datasetId: STORAGE_REGISTRY_DATASET_ID,
+          registryVersion: STORAGE_REGISTRY_VERSION,
         },
         {
-          ...storageRegistryRows[0],
+          ...approvedStorageRegistryRelationshipRow,
           datasetId: 'other_dataset',
         },
       ),

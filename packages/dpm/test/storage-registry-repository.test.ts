@@ -4,6 +4,11 @@ import {
   createDpmRegistryRepository,
 } from '../src/index.js'
 import {
+  STORAGE_REGISTRY_DATASET_ID,
+  STORAGE_REGISTRY_EXPORTED_AT,
+  STORAGE_REGISTRY_VERSION,
+} from './support/storage-registry-snapshot-fixtures.js'
+import {
   storageRegistryRows,
 } from './support/storage-registry-row-fixtures.js'
 
@@ -13,14 +18,14 @@ describe('DPM registry storage repository', () => {
     const repository = createDpmRegistryRepository({ listRelationshipRows })
 
     const snapshot = await repository.exportSnapshot({
-      datasetId: 'commerce_ai',
-      registryVersion: 'reg-2026-07-01',
-      exportedAt: '2026-07-01T00:00:00.000Z',
+      datasetId: STORAGE_REGISTRY_DATASET_ID,
+      registryVersion: STORAGE_REGISTRY_VERSION,
+      exportedAt: STORAGE_REGISTRY_EXPORTED_AT,
     })
 
     expect(listRelationshipRows).toHaveBeenCalledWith({
-      datasetId: 'commerce_ai',
-      registryVersion: 'reg-2026-07-01',
+      datasetId: STORAGE_REGISTRY_DATASET_ID,
+      registryVersion: STORAGE_REGISTRY_VERSION,
     })
     expect(snapshot.summary).toMatchObject({
       total: 2,

@@ -7,8 +7,8 @@ import {
   STORAGE_REGISTRY_DATASET_ID,
   STORAGE_REGISTRY_EXPORTED_AT,
   STORAGE_REGISTRY_VERSION,
-  storageRegistryRows,
-} from './support/storage-registry-row-fixtures.js'
+} from './support/storage-registry-snapshot-fixtures.js'
+import { storageRegistryRows } from './support/storage-registry-row-fixtures.js'
 import {
   expectedStorageRegistryApprovedRelationship,
   expectedStorageRegistryApprovedRelationshipNames,
