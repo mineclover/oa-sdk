@@ -5,8 +5,10 @@ import {
 } from '../src/index.js'
 import {
   createPublishingCompiledPlan,
+} from './support/publishing-plan-fixtures.js'
+import {
   expectedPublishingPhysicalForeignKeyRecommendations,
-} from './support/publishing-fixtures.js'
+} from './support/publishing-physical-fk-fixtures.js'
 
 describe('DPM publishing physical foreign key recommendations', () => {
   it('marks physical foreign key output as recommendations instead of mutations', () => {

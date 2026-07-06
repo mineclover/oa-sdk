@@ -5,7 +5,7 @@ import {
 } from '../src/index.js'
 import {
   createPublishingCompiledPlan,
-} from './support/publishing-fixtures.js'
+} from './support/publishing-plan-fixtures.js'
 
 describe('DPM publishing context safety', () => {
   it('excludes vault and reverse token lookup details from publishing context', () => {

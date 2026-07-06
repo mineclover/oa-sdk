@@ -5,10 +5,12 @@ import {
 } from '../src/index.js'
 import {
   createPublishingCompiledPlan,
+} from './support/publishing-plan-fixtures.js'
+import {
   expectedPublishingAiRelationshipContext,
   expectedPublishingReadonlyGrantHints,
   expectedPublishingRelationshipMetadata,
-} from './support/publishing-fixtures.js'
+} from './support/publishing-ai-schema-fixtures.js'
 
 describe('DPM publishing AI schema context', () => {
   it('publishes AI relationship context only from validated relationship steps', () => {
