@@ -551,7 +551,11 @@
         "packages/dpm/test/gateway-schema-response-required.test.ts",
         "packages/dpm/test/gateway-schema-response-taxonomy.test.ts",
         "packages/dpm/test/gateway.test.ts",
-        "packages/dpm/test/gateway-taxonomy.test.ts"
+        "packages/dpm/test/gateway-taxonomy-diagnostics.test.ts",
+        "packages/dpm/test/gateway-taxonomy-plan.test.ts",
+        "packages/dpm/test/gateway-taxonomy-profile.test.ts",
+        "packages/dpm/test/gateway-taxonomy-relationship-step.test.ts",
+        "packages/dpm/test/gateway-taxonomy-workflow.test.ts"
       ],
       "commands": [
         "pnpm --filter @oa-sdk/dpm test -- gateway",
