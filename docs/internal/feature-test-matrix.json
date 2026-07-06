@@ -531,7 +531,10 @@
         "packages/dpm/test/gateway-schema-components.test.ts",
         "packages/dpm/test/gateway-schema-profile-editor.test.ts",
         "packages/dpm/test/gateway-schema-requests.test.ts",
-        "packages/dpm/test/gateway-schema-responses.test.ts",
+        "packages/dpm/test/gateway-schema-response-job.test.ts",
+        "packages/dpm/test/gateway-schema-response-minimal.test.ts",
+        "packages/dpm/test/gateway-schema-response-required.test.ts",
+        "packages/dpm/test/gateway-schema-response-taxonomy.test.ts",
         "packages/dpm/test/gateway.test.ts",
         "packages/dpm/test/gateway-taxonomy.test.ts"
       ],
