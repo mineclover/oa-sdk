@@ -1,9 +1,7 @@
-import {
-  DPM_PROFILE_CONNECTOR_EVIDENCE_KINDS,
-  normalizeDpmProfileConnectorResult,
-  type DpmProfileConnectorResult,
-} from './connector.js'
 import { normalizeDpmProfileArtifact } from './artifact.js'
+import { DPM_PROFILE_CONNECTOR_EVIDENCE_KINDS } from './connector-evidence-taxonomy.js'
+import { normalizeDpmProfileConnectorResult } from './connector-result.js'
+import type { DpmProfileConnectorResult } from './connector-types.js'
 import type {
   DpmKafkaTopicProfileFixture,
 } from './kafka-fixture-types.js'

@@ -2,7 +2,7 @@ import type {
   DpmProfileCaptureMode,
   DpmProfileSourceKind,
 } from './profile-taxonomy.js'
-import type { DpmProfileConnectorEvidenceKind } from './connector-taxonomy.js'
+import type { DpmProfileConnectorEvidenceKind } from './connector-evidence-taxonomy.js'
 
 export type DpmProfileConnectorCapabilities = {
   connectorId: string

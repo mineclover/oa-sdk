@@ -4,10 +4,10 @@ import {
 import {
   computeDpmProfileConnectorStructuralHash,
 } from './connector-structural-hash.js'
-import {
-  DPM_PROFILE_CONNECTOR_RESULT_KIND,
-  type DpmProfileConnectorResult,
-  type DpmProfileConnectorResultInput,
+import { DPM_PROFILE_CONNECTOR_RESULT_KIND } from './connector-result-kind.js'
+import type {
+  DpmProfileConnectorResult,
+  DpmProfileConnectorResultInput,
 } from './connector-types.js'
 
 export function computeDpmProfileConnectorRunHash(
