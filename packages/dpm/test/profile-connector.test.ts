@@ -6,13 +6,13 @@ import {
   normalizeDpmProfileConnectorResult,
   type PostgresCatalogSnapshotInput,
 } from '../src/index.js'
+import { readCatalogFixture } from './support/catalog-fixtures.js'
+import { expectValidConnectorResult } from './support/profile-connector-assertions.js'
 import {
-  allEvidenceCapabilities,
   createKafkaProfileArtifactInput,
   createPostgresProfileArtifactInput,
-  expectValidConnectorResult,
-  readCatalogFixture,
-} from './support/profile-connector-fixtures.js'
+} from './support/profile-connector-artifact-inputs.js'
+import { allEvidenceCapabilities } from './support/profile-connector-capabilities.js'
 
 describe('DPM profile connector output contract', () => {
   it('describes PostgreSQL catalog profiling as a connector output without changing catalog snapshots', () => {

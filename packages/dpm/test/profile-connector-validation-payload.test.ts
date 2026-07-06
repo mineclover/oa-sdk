@@ -4,9 +4,7 @@ import {
   normalizeDpmProfileConnectorResult,
   validateDpmProfileConnectorResult,
 } from '../src/index.js'
-import {
-  allEvidenceCapabilities,
-} from './support/profile-connector-fixtures.js'
+import { allEvidenceCapabilities } from './support/profile-connector-capabilities.js'
 
 describe('DPM profile connector validation — payload gates', () => {
   it('keeps connector failures as diagnostic payloads', () => {

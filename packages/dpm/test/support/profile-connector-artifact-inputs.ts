@@ -1,39 +1,4 @@
-import { readFileSync } from 'node:fs'
-import { join } from 'node:path'
-
-import { expect } from 'vitest'
-
-import {
-  DPM_PROFILE_CONNECTOR_EVIDENCE_KINDS,
-  DPM_PROFILE_CONNECTOR_RESULT_KIND,
-  validateDpmProfileConnectorResult,
-  type DpmProfileArtifactInput,
-  type DpmProfileConnectorCapabilities,
-  type DpmProfileConnectorResult,
-} from '../../src/index.js'
-
-const catalogFixturesRoot = new URL('../fixtures/catalog/', import.meta.url)
-
-export function readCatalogFixture<T>(name: string): T {
-  const fixturePath = join(catalogFixturesRoot.pathname, name)
-  return JSON.parse(readFileSync(fixturePath, 'utf8')) as T
-}
-
-export function allEvidenceCapabilities(
-  connectorId: string,
-  connectorVersion: string,
-  sourceKind: DpmProfileConnectorCapabilities['sourceKinds'][number],
-  captureMode: DpmProfileConnectorCapabilities['captureModes'][number],
-): DpmProfileConnectorCapabilities {
-  return {
-    connectorId,
-    connectorVersion,
-    sourceKinds: [sourceKind],
-    captureModes: [captureMode],
-    supportedEvidenceKinds: [...DPM_PROFILE_CONNECTOR_EVIDENCE_KINDS],
-    skippedEvidenceKinds: [],
-  }
-}
+import type { DpmProfileArtifactInput } from '../../src/index.js'
 
 export function createPostgresProfileArtifactInput(): DpmProfileArtifactInput {
   return {
@@ -183,13 +148,4 @@ export function createKafkaProfileArtifactInput(): DpmProfileArtifactInput {
     ],
     diagnostics: [],
   }
-}
-
-export function expectValidConnectorResult(result: DpmProfileConnectorResult): void {
-  const validation = validateDpmProfileConnectorResult(result)
-
-  expect(result.kind).toBe(DPM_PROFILE_CONNECTOR_RESULT_KIND)
-  expect(result.freshness.runHash).toMatch(/^sha256:[a-f0-9]{64}$/)
-  expect(validation.diagnostics, JSON.stringify(validation.diagnostics, null, 2)).toEqual([])
-  expect(validation.valid).toBe(true)
 }
