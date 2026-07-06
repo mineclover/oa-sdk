@@ -47,7 +47,7 @@ export {
 export {
   createDpmDryRunReport,
 } from '../dry-run/report-builder.js'
-export { validateDpmManifest } from '../validator/manifest.js'
+export { validateDpmManifest } from '../validator/manifest-validator.js'
 export {
   DPM_DIAGNOSTIC_CODES,
 } from '../validator/diagnostic-types.js'

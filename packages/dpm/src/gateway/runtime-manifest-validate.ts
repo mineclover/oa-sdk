@@ -1,4 +1,4 @@
-import { validateDpmManifest } from '../validator/manifest.js'
+import { validateDpmManifest } from '../validator/manifest-validator.js'
 import type { DpmValidationResult } from '../validator/diagnostic-types.js'
 import type { DpmGatewayRuntimeManifestInput } from './runtime-manifest-types.js'
 import { createDpmGatewayRuntimeResponse } from './runtime-response.js'

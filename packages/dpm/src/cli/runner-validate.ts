@@ -1,4 +1,4 @@
-import { validateDpmManifest } from '../validator/manifest.js'
+import { validateDpmManifest } from '../validator/manifest-validator.js'
 import type { DpmCliInputs } from './input-types.js'
 import { createDpmCliJsonResult } from './result.js'
 import type { DpmCliResult } from './types.js'

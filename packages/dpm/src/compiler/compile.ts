@@ -1,4 +1,4 @@
-import { validateDpmManifest } from '../validator/manifest.js'
+import { validateDpmManifest } from '../validator/manifest-validator.js'
 import { createDpmCompiledPlan } from './plan-builder.js'
 import type {
   DpmCompileInput,
