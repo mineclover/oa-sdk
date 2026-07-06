@@ -174,6 +174,7 @@ Artifacts:
 - `packages/dpm/src/catalog/snapshot-record-types.ts`
 - `packages/dpm/src/catalog/snapshot-types.ts`
 - `packages/dpm/src/catalog/snapshot.ts`
+- `packages/dpm/src/catalog/snapshot-structural.ts`
 - `packages/dpm/src/catalog/snapshot-copy.ts`
 - `packages/dpm/src/catalog/snapshot-diagnostic-copy.ts`
 - `packages/dpm/src/catalog/snapshot-integrity-copy.ts`
@@ -222,6 +223,8 @@ Tasks:
   snapshot contract without source DB mutation.
 - Add a projection adapter boundary for existing OpenAPI projection contract data.
 - Include a deterministic catalog freshness hash.
+- Keep deterministic catalog structural assembly and freshness attachment as separate
+  implementation boundaries.
 - Keep structural catalog element copy and integrity element copy as separate
   implementation boundaries.
 - Keep PostgreSQL schema, table, and column record SQL fragments as separate implementation
