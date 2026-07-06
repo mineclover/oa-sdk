@@ -199,6 +199,8 @@ Artifacts:
 - `packages/dpm/src/catalog/profiler-postgres-row-types.ts`
 - `packages/dpm/src/catalog/profiler-postgres-rows.ts`
 - `packages/dpm/src/catalog/profiler-postgres-row-collections.ts`
+- `packages/dpm/src/catalog/profiler-postgres-structure-collections.ts`
+- `packages/dpm/src/catalog/profiler-postgres-integrity-collections.ts`
 - `packages/dpm/src/catalog/profiler-postgres-row-filters.ts`
 - `packages/dpm/src/catalog/profiler-postgres-row-mappers.ts`
 - `packages/dpm/src/catalog/profiler-postgres-structure-row-mappers.ts`
@@ -235,6 +237,8 @@ Tasks:
 - Keep PostgreSQL primary-key, foreign-key, and index row mappers as separate implementation
   boundaries.
 - Keep PostgreSQL row collection and rows-to-snapshot orchestration as separate implementation
+  boundaries.
+- Keep PostgreSQL structure row collection and integrity row collection as separate implementation
   boundaries.
 
 Exit criteria:
