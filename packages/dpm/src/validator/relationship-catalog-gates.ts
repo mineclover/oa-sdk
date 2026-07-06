@@ -8,9 +8,13 @@ import {
 import { createRelationshipCatalogEndpointContext } from './relationship-catalog-endpoints.js'
 import {
   createRelationshipCatalogColumnGateInput,
+} from './relationship-catalog-column-gate-input.js'
+import {
   createRelationshipCatalogParentKeyGateInput,
+} from './relationship-catalog-parent-key-gate-input.js'
+import {
   createRelationshipCatalogTableGateInput,
-} from './relationship-catalog-gate-inputs.js'
+} from './relationship-catalog-table-gate-input.js'
 import { validateRelationshipCatalogParentKeyGate } from './relationship-catalog-parent-key-flow.js'
 import { validateRelationshipCatalogTableGates } from './relationship-catalog-table-gates.js'
 import type { ManifestRelationship } from './relationship-types.js'
