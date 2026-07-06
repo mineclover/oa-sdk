@@ -550,6 +550,7 @@
       ],
       "testPaths": [
         "packages/dpm/test/gateway-runtime.test.ts",
+        "packages/dpm/test/gateway-runtime-manifest-schema.test.ts",
         "packages/dpm/test/gateway-runtime-manifest.test.ts",
         "packages/dpm/test/gateway-runtime-profile.test.ts"
       ],
