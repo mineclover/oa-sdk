@@ -1,43 +1,15 @@
-import { readFileSync } from 'node:fs'
-import { join } from 'node:path'
-
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 
 import {
-  POSTGRES_CATALOG_PROFILE_SQL,
   postgresCatalogRowsToSnapshot,
-  profilePostgresCatalog,
-  type PostgresCatalogProfileRow,
 } from '../src/index.js'
+import {
+  readProfilerPostgresRowsFixture,
+} from './support/catalog-profiler-fixtures.js'
 
-const fixturesRoot = new URL('./fixtures/catalog/', import.meta.url)
-
-function readFixture<T>(name: string): T {
-  return JSON.parse(readFileSync(join(fixturesRoot.pathname, name), 'utf8')) as T
-}
-
-function readTextFixture(name: string): string {
-  return readFileSync(join(fixturesRoot.pathname, name), 'utf8')
-}
-
-describe('DPM PostgreSQL catalog profiler', () => {
-  it('defines a read-only PostgreSQL catalog profile query', () => {
-    const sql = normalizeSql(POSTGRES_CATALOG_PROFILE_SQL)
-    const fixtureSql = normalizeSql(readTextFixture('profiler-postgres.sql'))
-
-    expect(sql).toBe(fixtureSql)
-    expect(sql).toContain('pg_catalog.pg_namespace')
-    expect(sql).toContain('pg_catalog.pg_class')
-    expect(sql).toContain('pg_catalog.pg_attribute')
-    expect(sql).toContain('pg_catalog.pg_constraint')
-    expect(sql).toContain('pg_catalog.pg_index')
-    expect(sql).toContain('pg_catalog.pg_get_expr')
-    expect(sql).toContain('n.nspname = any($1::text[])')
-    expect(sql).not.toMatch(/\b(insert|update|delete|drop|truncate|alter|create)\b/)
-  })
-
+describe('DPM PostgreSQL catalog profiler rows', () => {
   it('maps PostgreSQL catalog rows to the existing catalog snapshot contract', () => {
-    const rows = readFixture<PostgresCatalogProfileRow[]>('profiler-postgres-rows.json')
+    const rows = readProfilerPostgresRowsFixture()
     const snapshot = postgresCatalogRowsToSnapshot({
       database: 'commerce',
       capturedAt: '2026-07-01T00:00:00.000Z',
@@ -90,23 +62,8 @@ describe('DPM PostgreSQL catalog profiler', () => {
     expect(snapshot.freshness.versionHash).toMatch(/^sha256:[a-f0-9]{64}$/)
   })
 
-  it('profiles through an explicit read-only query client and schema filter', async () => {
-    const rows = readFixture<PostgresCatalogProfileRow[]>('profiler-postgres-rows.json')
-    const query = vi.fn(async () => rows)
-
-    const snapshot = await profilePostgresCatalog({
-      database: 'commerce',
-      capturedAt: '2026-07-01T00:00:00.000Z',
-      schemas: ['public'],
-      client: { query },
-    })
-
-    expect(query).toHaveBeenCalledWith(POSTGRES_CATALOG_PROFILE_SQL, [['public']])
-    expect(snapshot.tables.map(table => table.table)).toEqual(['public.customers', 'public.orders'])
-  })
-
   it('changes freshness when profiled structural rows change', () => {
-    const rows = readFixture<PostgresCatalogProfileRow[]>('profiler-postgres-rows.json')
+    const rows = readProfilerPostgresRowsFixture()
     const original = postgresCatalogRowsToSnapshot({ database: 'commerce', rows })
     const changed = postgresCatalogRowsToSnapshot({
       database: 'commerce',
@@ -120,7 +77,3 @@ describe('DPM PostgreSQL catalog profiler', () => {
     expect(changed.freshness.versionHash).not.toBe(original.freshness.versionHash)
   })
 })
-
-function normalizeSql(sql: string): string {
-  return sql.replace(/\s+/g, ' ').trim().toLowerCase()
-}

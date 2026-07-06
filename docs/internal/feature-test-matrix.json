@@ -165,7 +165,9 @@
         "no live production database requirement"
       ],
       "testPaths": [
-        "packages/dpm/test/catalog-profiler.test.ts",
+        "packages/dpm/test/catalog-profiler-client.test.ts",
+        "packages/dpm/test/catalog-profiler-query.test.ts",
+        "packages/dpm/test/catalog-profiler-rows.test.ts",
         "packages/dpm/test/fixtures/catalog/profiler-postgres.sql",
         "packages/dpm/test/fixtures/catalog/profiler-postgres-rows.json"
       ],
