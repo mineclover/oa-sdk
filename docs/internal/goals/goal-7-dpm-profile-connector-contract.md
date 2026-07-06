@@ -438,7 +438,9 @@ Artifacts:
 - `packages/dpm/test/gateway-taxonomy.test.ts`
 - `packages/dpm/test/gateway-schema-validation.test.ts`
 - `packages/dpm/test/gateway-runtime.test.ts`
-- `packages/dpm/test/gateway-runtime-profile.test.ts`
+- `packages/dpm/test/gateway-runtime-profile-inspection.test.ts`
+- `packages/dpm/test/gateway-runtime-profile-analysis.test.ts`
+- `packages/dpm/test/gateway-runtime-profile-proposal-review.test.ts`
 
 Tasks:
 - Extend the DPM gateway contract with profile inspection, profile analysis, and proposal review
@@ -455,7 +457,7 @@ Acceptance:
 
 Verification:
 - `pnpm --filter @oa-sdk/dpm exec vitest run test/gateway.test.ts test/gateway-taxonomy.test.ts test/gateway-schema-validation.test.ts`
-- `pnpm --filter @oa-sdk/dpm exec vitest run test/gateway-runtime.test.ts test/gateway-runtime-profile.test.ts`
+- `pnpm --filter @oa-sdk/dpm exec vitest run test/gateway-runtime.test.ts test/gateway-runtime-profile-inspection.test.ts test/gateway-runtime-profile-analysis.test.ts test/gateway-runtime-profile-proposal-review.test.ts`
 - `pnpm --filter @oa-sdk/dpm test`
 
 Implementation notes:
@@ -479,7 +481,7 @@ Implementation notes:
 
 Completed 2026-07-04 with:
 - `corepack pnpm --filter @oa-sdk/dpm exec vitest run test/gateway.test.ts test/gateway-taxonomy.test.ts test/gateway-schema-validation.test.ts`
-- `corepack pnpm --filter @oa-sdk/dpm exec vitest run test/gateway-runtime.test.ts test/gateway-runtime-profile.test.ts`
+- `corepack pnpm --filter @oa-sdk/dpm exec vitest run test/gateway-runtime.test.ts test/gateway-runtime-profile-inspection.test.ts test/gateway-runtime-profile-analysis.test.ts test/gateway-runtime-profile-proposal-review.test.ts`
 - `corepack pnpm --filter @oa-sdk/dpm typecheck`
 - `corepack pnpm --filter @oa-sdk/dpm test`
 - `corepack pnpm build:scripts`

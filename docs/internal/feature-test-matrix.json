@@ -600,7 +600,9 @@
         "packages/dpm/test/gateway-runtime-manifest-response-schema.test.ts",
         "packages/dpm/test/gateway-runtime-manifest-schema-parity.test.ts",
         "packages/dpm/test/gateway-runtime-manifest-validate.test.ts",
-        "packages/dpm/test/gateway-runtime-profile.test.ts"
+        "packages/dpm/test/gateway-runtime-profile-analysis.test.ts",
+        "packages/dpm/test/gateway-runtime-profile-inspection.test.ts",
+        "packages/dpm/test/gateway-runtime-profile-proposal-review.test.ts"
       ],
       "commands": [
         "pnpm --filter @oa-sdk/dpm test -- gateway-runtime",
