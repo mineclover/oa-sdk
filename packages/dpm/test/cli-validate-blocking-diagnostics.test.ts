@@ -1,0 +1,37 @@
+import { describe, expect, it } from 'vitest'
+
+import { runDpmCli } from '../src/cli/index.js'
+import {
+  cliCatalogPath,
+  cliRegistryPath,
+  parseCliStdout,
+  readCliManifestFixture,
+  writeTempCliJsonFixture,
+} from './support/cli-fixtures.js'
+
+describe('DPM CLI validate command — blocking diagnostics', () => {
+  it('exits non-zero for blocking REL/SAF diagnostics', async () => {
+    const manifest = readCliManifestFixture()
+    manifest.columns[0].transform = { type: 'keep' }
+    const invalidManifestPath = writeTempCliJsonFixture(
+      'oa-dpm-cli-',
+      'invalid-manifest.json',
+      manifest,
+    )
+
+    const result = await runDpmCli([
+      'validate',
+      '--manifest',
+      invalidManifestPath,
+      '--catalog',
+      cliCatalogPath,
+      '--registry',
+      cliRegistryPath,
+    ])
+    const output = parseCliStdout(result.stdout)
+
+    expect(result.exitCode).toBe(1)
+    expect(output.result.valid).toBe(false)
+    expect(output.result.diagnostics.map((diagnostic: any) => diagnostic.code)).toContain('SAF001')
+  })
+})
