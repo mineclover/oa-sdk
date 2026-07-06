@@ -6,8 +6,8 @@ import {
 import {
   createChangedPostgresCatalogSnapshot,
   createReorderedPostgresCatalogSnapshot,
-  readPostgresCatalogFixture,
-} from './support/catalog-postgres-fixtures.js'
+} from './support/catalog-postgres-freshness-fixtures.js'
+import { readPostgresCatalogFixture } from './support/catalog-postgres-input-fixtures.js'
 
 describe('DPM catalog snapshot freshness', () => {
   it('changes the freshness hash when catalog structure changes', () => {

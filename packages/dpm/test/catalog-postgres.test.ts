@@ -10,8 +10,8 @@ import {
   expectedPostgresCatalogSource,
   expectedPostgresCatalogTableNames,
   expectedPostgresCatalogUniqueCandidate,
-  readPostgresCatalogFixture,
-} from './support/catalog-postgres-fixtures.js'
+} from './support/catalog-postgres-expected-fixtures.js'
+import { readPostgresCatalogFixture } from './support/catalog-postgres-input-fixtures.js'
 
 describe('DPM PostgreSQL catalog snapshot', () => {
   it('normalizes a PostgreSQL catalog fixture into deterministic internal ordering', () => {
