@@ -8,7 +8,7 @@ export {
 } from './profile-taxonomy.js'
 export {
   DPM_PROFILE_ARTIFACT_KIND,
-} from './profile-artifact-types.js'
+} from './profile-artifact-kind.js'
 export type {
   DpmProfileCaptureMode,
   DpmProfileDiagnosticFamily,
@@ -29,6 +29,10 @@ export type {
 } from './profile-graph-types.js'
 export type {
   DpmProfileArtifact,
-  DpmProfileDiagnostic,
-  DpmProfileFreshness,
 } from './profile-artifact-types.js'
+export type {
+  DpmProfileDiagnostic,
+} from './profile-diagnostic-types.js'
+export type {
+  DpmProfileFreshness,
+} from './profile-freshness-types.js'

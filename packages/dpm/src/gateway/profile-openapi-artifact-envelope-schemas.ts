@@ -1,4 +1,4 @@
-import { DPM_PROFILE_ARTIFACT_KIND } from '../profile/types.js'
+import { DPM_PROFILE_ARTIFACT_KIND } from '../profile/profile-artifact-kind.js'
 import {
   arrayOf,
   recordOf,

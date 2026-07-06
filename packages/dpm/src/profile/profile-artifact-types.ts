@@ -1,6 +1,7 @@
-import type { DpmProfileDiagnosticFamily } from './profile-taxonomy.js'
+import type { DPM_PROFILE_ARTIFACT_KIND } from './profile-artifact-kind.js'
+import type { DpmProfileDiagnostic } from './profile-diagnostic-types.js'
+import type { DpmProfileFreshness } from './profile-freshness-types.js'
 import type {
-  DpmProfileCoordinate,
   DpmProfileEvidenceSource,
   DpmProfileSourceDescriptor,
 } from './profile-source-types.js'
@@ -10,21 +11,9 @@ import type {
   DpmProfileNode,
 } from './profile-graph-types.js'
 
-export const DPM_PROFILE_ARTIFACT_KIND = 'dpm.profile.artifact.v1' as const
-
-export type DpmProfileDiagnostic = {
-  severity: 'error' | 'warning' | 'info'
-  code: `${DpmProfileDiagnosticFamily}${string}`
-  message: string
-  connectorId?: string
-  coordinate?: DpmProfileCoordinate
-  evidenceIds?: string[]
-}
-
-export type DpmProfileFreshness = {
-  versionHash: string
-  sourceVersionHashes?: Record<string, string>
-}
+export { DPM_PROFILE_ARTIFACT_KIND } from './profile-artifact-kind.js'
+export type { DpmProfileDiagnostic } from './profile-diagnostic-types.js'
+export type { DpmProfileFreshness } from './profile-freshness-types.js'
 
 export type DpmProfileArtifact = {
   kind: typeof DPM_PROFILE_ARTIFACT_KIND

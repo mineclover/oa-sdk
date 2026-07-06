@@ -23,7 +23,6 @@ export type {
   DpmProfileArtifactSchemaValidationResult,
 } from '../profile/schema.js'
 export {
-  DPM_PROFILE_ARTIFACT_KIND,
   DPM_PROFILE_CAPTURE_MODES,
   DPM_PROFILE_DIAGNOSTIC_FAMILIES,
   DPM_PROFILE_EDGE_KINDS,
@@ -31,6 +30,9 @@ export {
   DPM_PROFILE_NODE_KINDS,
   DPM_PROFILE_SOURCE_KINDS,
 } from '../profile/types.js'
+export {
+  DPM_PROFILE_ARTIFACT_KIND,
+} from '../profile/profile-artifact-kind.js'
 export {
   computeDpmProfileFreshnessHash,
   normalizeDpmProfileArtifact,

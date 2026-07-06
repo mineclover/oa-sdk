@@ -11,10 +11,8 @@ import {
   byDiagnostic,
   byId,
 } from './artifact-ordering.js'
-import {
-  DPM_PROFILE_ARTIFACT_KIND,
-  type DpmProfileArtifact,
-} from './profile-artifact-types.js'
+import { DPM_PROFILE_ARTIFACT_KIND } from './profile-artifact-kind.js'
+import type { DpmProfileArtifact } from './profile-artifact-types.js'
 
 export function createDpmProfileArtifactStructural(
   input: DpmProfileArtifactInput,

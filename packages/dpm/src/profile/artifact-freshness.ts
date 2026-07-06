@@ -1,9 +1,7 @@
 import { createHash } from 'node:crypto'
 
-import {
-  DPM_PROFILE_ARTIFACT_KIND,
-  type DpmProfileArtifact,
-} from './profile-artifact-types.js'
+import { DPM_PROFILE_ARTIFACT_KIND } from './profile-artifact-kind.js'
+import type { DpmProfileArtifact } from './profile-artifact-types.js'
 import { stableDpmProfileFreshnessStringify } from './artifact-freshness-serialization.js'
 
 export type DpmProfileFreshnessHashInput =
