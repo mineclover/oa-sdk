@@ -8,7 +8,7 @@ import {
   storageDemoCommandTimeoutMs,
   storageDemoPackageRoot,
   storageDemoRoot,
-} from './support/storage-demo-fixtures.js'
+} from './support/storage-demo-path-fixtures.js'
 
 describe('DPM storage-backed customer orders demo command', () => {
   it('runs the documented storage demo command after a single catalog profiling pass', () => {

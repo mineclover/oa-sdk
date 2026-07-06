@@ -8,13 +8,6 @@ import {
   validateDpmManifest,
 } from '../src/index.js'
 import {
-  createExpectedStorageDemoJobReport,
-  createStorageDemoFixtureCatalog,
-  createStorageDemoPersistenceRepositories,
-  createStorageDemoRegistryRepository,
-  expectedStorageDemoDryRunImpact,
-  expectedStorageDemoValidationSummary,
-  readStorageDemoPipelineFixtures,
   storageDemoCapturedAt,
   storageDemoCompletedAt,
   storageDemoDatabase,
@@ -22,7 +15,18 @@ import {
   storageDemoSchemas,
   storageDemoUnsafeCustomerNoSample,
   storageDemoValidationReportRef,
-} from './support/storage-demo-fixtures.js'
+} from './support/storage-demo-constant-fixtures.js'
+import {
+  createExpectedStorageDemoJobReport,
+  expectedStorageDemoDryRunImpact,
+  expectedStorageDemoValidationSummary,
+} from './support/storage-demo-expected-fixtures.js'
+import { readStorageDemoPipelineFixtures } from './support/storage-demo-io-fixtures.js'
+import {
+  createStorageDemoFixtureCatalog,
+  createStorageDemoPersistenceRepositories,
+  createStorageDemoRegistryRepository,
+} from './support/storage-demo-persistence-fixtures.js'
 import {
   expectedStorageRegistryApprovedRelationshipNames,
 } from './support/storage-registry-projection-fixtures.js'

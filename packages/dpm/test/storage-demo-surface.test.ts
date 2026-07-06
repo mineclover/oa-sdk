@@ -3,7 +3,7 @@ import { join } from 'node:path'
 
 import { describe, expect, it } from 'vitest'
 
-import { storageDemoRoot } from './support/storage-demo-fixtures.js'
+import { storageDemoRoot } from './support/storage-demo-path-fixtures.js'
 
 describe('DPM storage-backed customer orders demo surface', () => {
   it('ships a reproducible fixture-backed storage demo surface', () => {
