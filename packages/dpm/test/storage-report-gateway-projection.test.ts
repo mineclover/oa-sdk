@@ -6,7 +6,7 @@ import {
 } from '../src/index.js'
 import {
   compileGatewayComponentSchema,
-} from './support/storage-report-fixtures.js'
+} from './support/gateway-schema.js'
 
 describe('DPM validation report gateway projection', () => {
   it('retrieves the gateway-compatible job report shape from stored validation reports', async () => {
