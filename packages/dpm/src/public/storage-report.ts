@@ -6,10 +6,10 @@ export type {
   DpmValidationReportSaveInput,
   DpmValidationReportStatus,
   DpmValidationReportStorage,
-} from '../storage/report-repository.js'
+} from '../storage/report-repository-types.js'
+export { validationReportToGatewayJobReport } from '../storage/report-gateway-projection.js'
+export { createDpmReportRepository } from '../storage/report-repository-facade.js'
+export { createDpmValidationReport } from '../storage/report-row-builder.js'
 export {
   DPM_VALIDATION_REPORT_KIND,
-  createDpmReportRepository,
-  createDpmValidationReport,
-  validationReportToGatewayJobReport,
-} from '../storage/report-repository.js'
+} from '../storage/report-taxonomy-types.js'

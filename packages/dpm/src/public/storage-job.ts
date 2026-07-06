@@ -6,9 +6,9 @@ export type {
   DpmJobSaveInput,
   DpmJobStatus,
   DpmJobStorage,
-} from '../storage/job-repository.js'
+} from '../storage/job-repository-types.js'
+export { createDpmJobRepository } from '../storage/job-repository-facade.js'
+export { createDpmJobRow } from '../storage/job-row-builder.js'
 export {
   DPM_JOB_KIND,
-  createDpmJobRepository,
-  createDpmJobRow,
-} from '../storage/job-repository.js'
+} from '../storage/job-taxonomy-types.js'
