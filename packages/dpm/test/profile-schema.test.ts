@@ -7,10 +7,8 @@ import {
   type DpmProfileArtifact,
 } from '../src/index.js'
 import { createKafkaProfileInput } from './support/profile-artifact-kafka-inputs.js'
-import {
-  profileArtifactSchemaRejectionCases,
-  profileArtifactSchemaTaxonomyProjectionCases,
-} from './support/profile-schema-fixtures.js'
+import { profileArtifactSchemaRejectionCases } from './support/profile-schema-rejection-fixtures.js'
+import { profileArtifactSchemaTaxonomyProjectionCases } from './support/profile-schema-taxonomy-fixtures.js'
 import {
   formatSchemaPath,
   getSchemaPathValue,

@@ -6,7 +6,7 @@ import {
   type DpmProfileArtifact,
 } from '../src/index.js'
 import { createKafkaProfileInput } from './support/profile-artifact-kafka-inputs.js'
-import { profileArtifactSchemaIssueCases } from './support/profile-schema-fixtures.js'
+import { profileArtifactSchemaIssueCases } from './support/profile-schema-issue-fixtures.js'
 
 describe('DPM profile artifact schema validation', () => {
   it('returns normalized schema issues for invalid profile artifacts', () => {
