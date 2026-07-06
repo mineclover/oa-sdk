@@ -11,7 +11,7 @@ import {
   validateDpmProfileArtifactSchema,
   type DpmProfileArtifact,
 } from '../src/index.js'
-import { createKafkaProfileInput } from './support/profile-artifact-fixtures.js'
+import { createKafkaProfileInput } from './support/profile-artifact-kafka-inputs.js'
 
 function compileProfileSchema() {
   const ajv = new Ajv2020({ allErrors: true, strict: false })

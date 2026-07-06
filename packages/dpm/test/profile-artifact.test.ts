@@ -5,10 +5,8 @@ import {
   normalizeDpmProfileArtifact,
   validateDpmProfileArtifactSchema,
 } from '../src/index.js'
-import {
-  createDbProfileInput,
-  createKafkaProfileInput,
-} from './support/profile-artifact-fixtures.js'
+import { createDbProfileInput } from './support/profile-artifact-db-inputs.js'
+import { createKafkaProfileInput } from './support/profile-artifact-kafka-inputs.js'
 
 describe('DPM profile artifact normalization', () => {
   it('normalizes DB and Kafka evidence into the same profile artifact contract', () => {
