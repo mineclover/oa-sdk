@@ -9,8 +9,7 @@ import {
   createCompletedStorageValidationReportInput,
   createStorageReportCompileInput,
   createStorageReportDryRunReport,
-  STORAGE_REPORT_UNSAFE_CUSTOMER_NO,
-  STORAGE_REPORT_UNSAFE_SOURCE_PASSWORD,
+  expectStorageReportPayloadExcludesUnsafeFragments,
 } from './support/storage-report-fixtures.js'
 
 describe('DPM validation report repository — completed reports', () => {
@@ -40,11 +39,6 @@ describe('DPM validation report repository — completed reports', () => {
       categories: dryRun.categories,
       diagnostics: compiled.validation.diagnostics,
     })
-    expect(JSON.stringify(report)).not.toContain(
-      STORAGE_REPORT_UNSAFE_CUSTOMER_NO,
-    )
-    expect(JSON.stringify(report)).not.toContain(
-      STORAGE_REPORT_UNSAFE_SOURCE_PASSWORD,
-    )
+    expectStorageReportPayloadExcludesUnsafeFragments(report)
   })
 })

@@ -16,6 +16,7 @@ import {
   type PostgresCatalogProfileRow,
 } from '../src/index.js'
 import { readStorageDemoJsonFixture } from './support/storage-demo-fixtures.js'
+import { expectStorageReportPayloadExcludesUnsafeFragments } from './support/storage-report-fixtures.js'
 
 describe('DPM storage-backed customer orders demo pipeline', () => {
   it('profiles catalog rows, exports registry rows, runs validate/compile/dry-run, and retrieves reports without raw values', async () => {
@@ -122,7 +123,6 @@ describe('DPM storage-backed customer orders demo pipeline', () => {
       validationReportRef: 'dpm-report:job_storage_demo_001',
       diagnostics: report.diagnostics,
     })
-    expect(JSON.stringify({ job, report, jobReport })).not.toContain('C-001')
-    expect(JSON.stringify({ job, report, jobReport })).not.toContain('source-secret')
+    expectStorageReportPayloadExcludesUnsafeFragments({ job, report, jobReport })
   })
 })

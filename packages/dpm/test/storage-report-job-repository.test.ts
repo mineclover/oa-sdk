@@ -8,10 +8,7 @@ import {
 import {
   createCompletedStorageJobInput,
   createStorageReportCompileInput,
-  STORAGE_REPORT_UNSAFE_CUSTOMER_NO,
-  STORAGE_REPORT_UNSAFE_SOURCE_PASSWORD,
-  STORAGE_REPORT_UNSAFE_TOKEN_LOOKUP_KEY,
-  STORAGE_REPORT_UNSAFE_VAULT_MATERIAL,
+  expectStorageReportPayloadExcludesUnsafeFragments,
 } from './support/storage-report-fixtures.js'
 
 describe('DPM job repository', () => {
@@ -42,17 +39,6 @@ describe('DPM job repository', () => {
       freshness: compiled.plan.freshness,
       diagnostics: compiled.validation.diagnostics,
     })
-    expect(JSON.stringify(row)).not.toContain(
-      STORAGE_REPORT_UNSAFE_SOURCE_PASSWORD,
-    )
-    expect(JSON.stringify(row)).not.toContain(
-      STORAGE_REPORT_UNSAFE_VAULT_MATERIAL,
-    )
-    expect(JSON.stringify(row)).not.toContain(
-      STORAGE_REPORT_UNSAFE_TOKEN_LOOKUP_KEY,
-    )
-    expect(JSON.stringify(row)).not.toContain(
-      STORAGE_REPORT_UNSAFE_CUSTOMER_NO,
-    )
+    expectStorageReportPayloadExcludesUnsafeFragments(row)
   })
 })
