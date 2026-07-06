@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest'
 
-import { readCommerceDiscoveryReport } from './support/discovery-fixtures.js'
+import {
+  expectedCommerceLowConfidenceWarningReasons,
+  readCommerceDiscoveryReport,
+} from './support/discovery-fixtures.js'
 
 describe('DPM relationship discovery candidate rejection', () => {
   it('marks low-confidence and ambiguous candidates for rejection instead of approval', () => {
@@ -15,6 +18,6 @@ describe('DPM relationship discovery candidate rejection', () => {
       recommendation: 'reject',
       executable: false,
     })
-    expect(lowConfidence?.warnings).toEqual(['ambiguous-status-column', 'low-confidence'])
+    expect(lowConfidence?.warnings).toEqual([...expectedCommerceLowConfidenceWarningReasons])
   })
 })

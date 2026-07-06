@@ -5,6 +5,9 @@ import {
 } from '../src/index.js'
 import {
   createPublishingCompiledPlan,
+  expectedPublishingAiRelationshipContext,
+  expectedPublishingReadonlyGrantHints,
+  expectedPublishingRelationshipMetadata,
 } from './support/publishing-fixtures.js'
 
 describe('DPM publishing AI schema context', () => {
@@ -20,29 +23,13 @@ describe('DPM publishing AI schema context', () => {
       plan.relationshipSteps.map(step => step.name),
     )
     expect(context.relationshipMetadata).toEqual([
-      expect.objectContaining({
-        name: 'rel_orders_customer',
-        namespace: 'customer',
-        cardinality: 'one_to_many',
-        joinPredicate: 'public.orders.customer_no = public.customers.customer_no',
-        readonly: true,
-      }),
+      expect.objectContaining(expectedPublishingRelationshipMetadata[0]),
     ])
-    expect(context.aiSchemaContext.relationships[0]).toMatchObject({
-      name: 'rel_orders_customer',
-      namespace: 'customer',
-      cardinality: 'one_to_many',
-      description: 'Join public.orders to public.customers through the customer namespace.',
-      examples: [
-        {
-          child: 'public.orders.customer_no',
-          parent: 'public.customers.customer_no',
-        },
-      ],
-    })
+    expect(context.aiSchemaContext.relationships[0]).toMatchObject(
+      expectedPublishingAiRelationshipContext,
+    )
     expect(context.aiSchemaContext.readonlyGrantHints).toEqual([
-      'Use read-only access to the pseudonymized target dataset.',
-      'Do not request source database, secret store, or token lookup access.',
+      ...expectedPublishingReadonlyGrantHints,
     ])
   })
 })

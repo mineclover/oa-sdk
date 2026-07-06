@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest'
 
 import { compileDpmPlan } from '../src/index.js'
-import { createCompileInput } from './support/compiler-fixtures.js'
+import {
+  createCompileInput,
+  expectedCatalogStaleReasons,
+} from './support/compiler-fixtures.js'
 
 describe('DPM compiler staleness', () => {
   it('marks compiled plans stale when manifest freshness differs from snapshots', () => {
@@ -17,6 +20,6 @@ describe('DPM compiler staleness', () => {
     expect(result.ok).toBe(true)
     if (!result.ok) throw new Error('expected stale compile success')
     expect(result.plan.stale).toBe(true)
-    expect(result.plan.staleReasons).toEqual(['catalog_version_hash_changed'])
+    expect(result.plan.staleReasons).toEqual([...expectedCatalogStaleReasons])
   })
 })

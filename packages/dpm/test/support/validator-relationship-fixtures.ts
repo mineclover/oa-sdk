@@ -1,6 +1,36 @@
 import type { DpmValidationInput } from '../../src/index.js'
 import { createValidationInput } from './validator-fixtures.js'
 
+export const expectedUnsafeRelationshipDiagnosticCodes = [
+  'REL001',
+  'REL003',
+  'REL006',
+  'REL010',
+  'REL011',
+  'SAF001',
+  'SAF002',
+  'SAF007',
+  'SAF009',
+  'SAF010',
+  'SAF011',
+  'SYN001',
+  'SYN001',
+  'SYN001',
+  'SYN001',
+  'SYN001',
+  'SYN001',
+] as const
+
+export const expectedAmbiguousRegistryApprovalDiagnosticCodes = [
+  'REL012',
+  'SAF007',
+] as const
+
+export const expectedApprovedRegistrySnapshotMismatchDiagnosticCodes = [
+  'REL013',
+  'SAF007',
+] as const
+
 export function createUnsafeRelationshipDiagnosticInput(): DpmValidationInput {
   const input = createValidationInput()
   const manifest = structuredClone(input.manifest) as Record<string, any>

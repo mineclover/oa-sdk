@@ -7,6 +7,10 @@ import {
 import {
   compileGatewayComponentSchema,
 } from './support/gateway-schema.js'
+import {
+  expectedGatewayJobReport,
+  expectedGatewayJobReportKeys,
+} from './support/storage-report-fixtures.js'
 
 describe('DPM validation report gateway projection', () => {
   it('retrieves the gateway-compatible job report shape from stored validation reports', async () => {
@@ -30,18 +34,8 @@ describe('DPM validation report gateway projection', () => {
       jobId: 'job_gateway_001',
     })
 
-    expect(jobReport).toEqual({
-      jobId: 'job_gateway_001',
-      status: 'completed',
-      validationReportRef: 'dpm-report:job_gateway_001',
-      diagnostics: [],
-    })
-    expect(Object.keys(jobReport ?? {})).toEqual([
-      'jobId',
-      'status',
-      'validationReportRef',
-      'diagnostics',
-    ])
+    expect(jobReport).toEqual(expectedGatewayJobReport)
+    expect(Object.keys(jobReport ?? {})).toEqual([...expectedGatewayJobReportKeys])
     expect(schema(jobReport), JSON.stringify(schema.errors, null, 2)).toBe(true)
   })
 })

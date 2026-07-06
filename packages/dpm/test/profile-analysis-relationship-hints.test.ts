@@ -5,6 +5,7 @@ import {
 } from '../src/index.js'
 import {
   createKafkaProfileArtifact,
+  expectedKafkaRelationshipHintEvidenceIds,
 } from './support/profile-analysis-fixtures.js'
 
 describe('DPM profile analysis relationship hints', () => {
@@ -23,9 +24,7 @@ describe('DPM profile analysis relationship hints', () => {
       targetRef: 'catalog://commerce/public.customers.customer_no',
       confidence: 0.93,
     })
-    expect(hint?.evidenceIds).toEqual([
-      'evidence:kafka:orders.created.relationship_hint.hint:orders-created-customer',
-    ])
+    expect(hint?.evidenceIds).toEqual([...expectedKafkaRelationshipHintEvidenceIds])
     expect(hint?.explanation).toContain('orders.created customer_no')
     expect(JSON.stringify(hint)).not.toContain('"status":"approved"')
     expect(JSON.stringify(report)).not.toContain('registryVersion')

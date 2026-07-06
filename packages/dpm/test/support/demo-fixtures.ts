@@ -1,6 +1,10 @@
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
+export {
+  expectedCompiledCustomerNamespaceBinding as expectedDemoCustomerNamespaceBinding,
+} from './compiler-fixtures.js'
+
 export const demoRoot = fileURLToPath(new URL('../../examples/customer-orders/', import.meta.url))
 export const demoManifestPath = join(demoRoot, 'manifest.json')
 export const demoCatalogPath = join(demoRoot, 'catalog.snapshot.json')

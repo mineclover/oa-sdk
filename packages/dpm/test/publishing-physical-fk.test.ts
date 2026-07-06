@@ -5,6 +5,7 @@ import {
 } from '../src/index.js'
 import {
   createPublishingCompiledPlan,
+  expectedPublishingPhysicalForeignKeyRecommendations,
 } from './support/publishing-fixtures.js'
 
 describe('DPM publishing physical foreign key recommendations', () => {
@@ -15,16 +16,7 @@ describe('DPM publishing physical foreign key recommendations', () => {
     })
 
     expect(context.physicalForeignKeyRecommendations).toEqual([
-      {
-        kind: 'physical_fk_recommendation',
-        relationship: 'rel_orders_customer',
-        childTable: 'public.orders',
-        childColumns: ['customer_no'],
-        parentTable: 'public.customers',
-        parentColumns: ['customer_no'],
-        applyMode: 'recommendation_only',
-        mutation: 'none',
-      },
+      ...expectedPublishingPhysicalForeignKeyRecommendations,
     ])
   })
 })

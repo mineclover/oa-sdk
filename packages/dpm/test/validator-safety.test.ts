@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest'
 
 import { validateDpmManifest } from '../src/index.js'
-import { createValidationInput } from './support/validator-fixtures.js'
+import {
+  createValidationInput,
+  expectedMissingRelationshipSafetyDiagnosticCodes,
+} from './support/validator-fixtures.js'
 
 describe('DPM validator safety gates', () => {
   it('rejects columns that reference a relationship absent from the manifest relationship set', () => {
@@ -16,7 +19,9 @@ describe('DPM validator safety gates', () => {
     })
 
     expect(result.valid).toBe(false)
-    expect(result.diagnostics.map(diagnostic => diagnostic.code)).toEqual(['SAF007', 'SAF012'])
+    expect(result.diagnostics.map(diagnostic => diagnostic.code)).toEqual([
+      ...expectedMissingRelationshipSafetyDiagnosticCodes,
+    ])
     expect(result.diagnostics.find(diagnostic => diagnostic.code === 'SAF012')).toMatchObject({
       sourcePointer: '/columns/1/relationship',
       registryCoordinate: {

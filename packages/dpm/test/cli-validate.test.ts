@@ -3,6 +3,8 @@ import { describe, expect, it } from 'vitest'
 import { runDpmCli } from '../src/cli/index.js'
 import {
   cliCatalogPath,
+  expectedCliValidateDiagnosticCodes,
+  expectedCliValidateDiagnosticSummary,
   cliManifestPath,
   cliRegistryPath,
   parseCliStdout,
@@ -25,7 +27,9 @@ describe('DPM CLI validate command', () => {
     expect(result.stderr).toBe('')
     expect(output.command).toBe('validate')
     expect(output.result.valid).toBe(true)
-    expect(output.result.summary).toEqual({ errors: 0, warnings: 1, infos: 0 })
-    expect(output.result.diagnostics.map((diagnostic: any) => diagnostic.code)).toEqual(['SAF007'])
+    expect(output.result.summary).toEqual(expectedCliValidateDiagnosticSummary)
+    expect(output.result.diagnostics.map((diagnostic: any) => diagnostic.code)).toEqual([
+      ...expectedCliValidateDiagnosticCodes,
+    ])
   })
 })

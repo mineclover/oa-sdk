@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { runDpmCli } from '../src/cli/index.js'
 import {
   cliCatalogPath,
+  expectedCliCompileRelationshipStepNames,
   cliManifestPath,
   cliRegistryPath,
   parseCliStdout,
@@ -25,6 +26,8 @@ describe('DPM CLI compile command', () => {
     expect(output.command).toBe('compile')
     expect(output.result.ok).toBe(true)
     expect(output.result.plan.stale).toBe(false)
-    expect(output.result.plan.relationshipSteps.map((step: any) => step.name)).toEqual(['rel_orders_customer'])
+    expect(output.result.plan.relationshipSteps.map((step: any) => step.name)).toEqual([
+      ...expectedCliCompileRelationshipStepNames,
+    ])
   })
 })

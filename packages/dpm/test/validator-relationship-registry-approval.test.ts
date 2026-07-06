@@ -5,6 +5,9 @@ import {
   validateDpmManifest,
 } from '../src/index.js'
 import { createValidationInput } from './support/validator-fixtures.js'
+import {
+  expectedAmbiguousRegistryApprovalDiagnosticCodes,
+} from './support/validator-relationship-fixtures.js'
 
 describe('DPM relationship validator registry approval gates', () => {
   it('flags ambiguous approved registry matches deterministically', () => {
@@ -34,6 +37,8 @@ describe('DPM relationship validator registry approval gates', () => {
     })
 
     expect(result.valid).toBe(false)
-    expect(result.diagnostics.map(diagnostic => diagnostic.code)).toEqual(['REL012', 'SAF007'])
+    expect(result.diagnostics.map(diagnostic => diagnostic.code)).toEqual([
+      ...expectedAmbiguousRegistryApprovalDiagnosticCodes,
+    ])
   })
 })

@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { runDpmCli } from '../src/cli/index.js'
 import {
   demoCatalogPath,
+  expectedDemoCustomerNamespaceBinding,
   demoManifestPath,
   demoRegistryPath,
   parseDemoJsonStdout,
@@ -25,11 +26,7 @@ describe('DPM customer orders demo compile command', () => {
     expect(compiled.result.ok).toBe(true)
     expect(compiled.result.plan.stale).toBe(false)
     expect(compiled.result.plan.namespaceBindings).toEqual([
-      expect.objectContaining({
-        namespace: 'customer',
-        relationships: ['rel_orders_customer'],
-        columns: ['public.customers.customer_no', 'public.orders.customer_no'],
-      }),
+      expect.objectContaining(expectedDemoCustomerNamespaceBinding),
     ])
   })
 })

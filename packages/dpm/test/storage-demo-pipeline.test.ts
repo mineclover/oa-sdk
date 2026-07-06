@@ -16,6 +16,9 @@ import {
   type PostgresCatalogProfileRow,
 } from '../src/index.js'
 import { readStorageDemoJsonFixture } from './support/storage-demo-fixtures.js'
+import {
+  expectedStorageRegistryApprovedRelationshipNames,
+} from './support/storage-registry-fixtures.js'
 import { expectStorageReportPayloadExcludesUnsafeFragments } from './support/storage-report-fixtures.js'
 
 describe('DPM storage-backed customer orders demo pipeline', () => {
@@ -106,7 +109,9 @@ describe('DPM storage-backed customer orders demo pipeline', () => {
     expect(catalogQuery).toHaveBeenCalledWith(POSTGRES_CATALOG_PROFILE_SQL, [['public']])
     expect(catalog).toEqual(fixtureCatalog)
     expect(validation.summary).toEqual({ errors: 0, warnings: 0, infos: 0 })
-    expect(registry.approvedRelationships.map(relationship => relationship.name)).toEqual(['rel_orders_customer'])
+    expect(registry.approvedRelationships.map(relationship => relationship.name)).toEqual([
+      ...expectedStorageRegistryApprovedRelationshipNames,
+    ])
     expect(compiled.plan.stale).toBe(false)
     expect(dryRun.impact).toEqual({
       namespaces: 1,

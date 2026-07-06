@@ -7,6 +7,10 @@ import {
   readKafkaOrdersCreatedFixture,
 } from './profile-kafka-fixtures.js'
 
+export const expectedKafkaRelationshipHintEvidenceIds = [
+  'evidence:kafka:orders.created.relationship_hint.hint:orders-created-customer',
+] as const
+
 export function createKafkaProfileArtifact(): DpmProfileArtifact {
   return createKafkaProfileArtifactFromFixture(readKafkaOrdersCreatedFixture())
 }

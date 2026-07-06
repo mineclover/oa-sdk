@@ -2,6 +2,9 @@ import { describe, expect, it } from 'vitest'
 
 import { validateDpmManifest } from '../src/index.js'
 import { createValidationInput } from './support/validator-fixtures.js'
+import {
+  expectedApprovedRegistrySnapshotMismatchDiagnosticCodes,
+} from './support/validator-relationship-fixtures.js'
 
 describe('DPM relationship validator registry snapshot gates', () => {
   it('rejects manifests that spoof an approved registry relationship by changing its approved namespace', () => {
@@ -15,7 +18,9 @@ describe('DPM relationship validator registry snapshot gates', () => {
     })
 
     expect(result.valid).toBe(false)
-    expect(result.diagnostics.map(diagnostic => diagnostic.code)).toEqual(['REL013', 'SAF007'])
+    expect(result.diagnostics.map(diagnostic => diagnostic.code)).toEqual([
+      ...expectedApprovedRegistrySnapshotMismatchDiagnosticCodes,
+    ])
     expect(result.diagnostics.find(diagnostic => diagnostic.code === 'REL013')).toMatchObject({
       sourcePointer: '/relationships/0/namespace',
       registryCoordinate: {

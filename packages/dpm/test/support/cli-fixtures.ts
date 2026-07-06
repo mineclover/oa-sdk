@@ -7,6 +7,14 @@ import {
   readDpmJsonFixture,
 } from './fixture-io.js'
 
+export {
+  expectedCompiledRelationshipStepNames as expectedCliCompileRelationshipStepNames,
+} from './compiler-fixtures.js'
+export {
+  expectedValidManifestDiagnosticSummary as expectedCliValidateDiagnosticSummary,
+  expectedValidManifestDiagnosticCodes as expectedCliValidateDiagnosticCodes,
+} from './validator-fixtures.js'
+
 export const cliManifestPath = dpmFixturePath('valid/customer-orders.json')
 export const cliCatalogPath = dpmFixturePath('catalog/postgres-commerce.json')
 export const cliRegistryPath = dpmFixturePath('registry/commerce-registry.yaml')

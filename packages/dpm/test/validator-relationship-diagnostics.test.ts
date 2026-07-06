@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { validateDpmManifest } from '../src/index.js'
 import {
   createUnsafeRelationshipDiagnosticInput,
+  expectedUnsafeRelationshipDiagnosticCodes,
 } from './support/validator-relationship-fixtures.js'
 
 describe('DPM relationship validator diagnostics', () => {
@@ -11,23 +12,7 @@ describe('DPM relationship validator diagnostics', () => {
 
     expect(result.valid).toBe(false)
     expect(result.diagnostics.map(diagnostic => diagnostic.code)).toEqual([
-      'REL001',
-      'REL003',
-      'REL006',
-      'REL010',
-      'REL011',
-      'SAF001',
-      'SAF002',
-      'SAF007',
-      'SAF009',
-      'SAF010',
-      'SAF011',
-      'SYN001',
-      'SYN001',
-      'SYN001',
-      'SYN001',
-      'SYN001',
-      'SYN001',
+      ...expectedUnsafeRelationshipDiagnosticCodes,
     ])
     expect(result.diagnostics.find(diagnostic => diagnostic.code === 'REL006')).toMatchObject({
       registryCoordinate: {
