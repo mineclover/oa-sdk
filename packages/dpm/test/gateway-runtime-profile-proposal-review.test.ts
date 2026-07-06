@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest'
 
 import { createDpmGatewayRuntime } from '../src/index.js'
+import { createKafkaProfileArtifact } from './support/gateway-runtime-profile-artifact-fixtures.js'
 import {
   GATEWAY_PROFILE_PROPOSAL_REVIEW_EXCLUDED_PROPERTIES,
   GATEWAY_PROFILE_RUNTIME_UNSAFE_RESULT_FRAGMENTS,
-  createKafkaProfileArtifact,
-} from './support/gateway-runtime-profile-fixtures.js'
+} from './support/gateway-runtime-profile-safety-fixtures.js'
 import { compileGatewayComponentSchema } from './support/gateway-schema.js'
 
 describe('DPM gateway profile proposal review runtime adapter', () => {

@@ -1,13 +1,7 @@
 export {
   createKafkaProfileArtifact,
-} from './profile-analysis-fixtures.js'
-
-export const GATEWAY_PROFILE_RUNTIME_UNSAFE_RESULT_FRAGMENTS = [
-  'rawSample',
-  'C-001',
-] as const
-
-export const GATEWAY_PROFILE_PROPOSAL_REVIEW_EXCLUDED_PROPERTIES = [
-  'profileArtifact',
-  'evidenceSources',
-] as const
+} from './gateway-runtime-profile-artifact-fixtures.js'
+export {
+  GATEWAY_PROFILE_PROPOSAL_REVIEW_EXCLUDED_PROPERTIES,
+  GATEWAY_PROFILE_RUNTIME_UNSAFE_RESULT_FRAGMENTS,
+} from './gateway-runtime-profile-safety-fixtures.js'
