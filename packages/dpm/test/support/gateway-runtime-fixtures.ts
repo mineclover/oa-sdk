@@ -14,6 +14,7 @@ export const manifestPath = join(fixturesRoot.pathname, 'valid/customer-orders.j
 export const catalogPath = join(fixturesRoot.pathname, 'catalog/postgres-commerce.json')
 export const registryPath = join(fixturesRoot.pathname, 'registry/commerce-registry.yaml')
 const kafkaProfilePath = join(fixturesRoot.pathname, 'profile/kafka-orders-created.json')
+type ManifestRuntimeCliCommand = 'validate' | 'compile' | 'dry-run'
 
 export function parseStdout(stdout: string): Record<string, any> {
   return JSON.parse(stdout) as Record<string, any>
@@ -24,6 +25,28 @@ export function createRuntimeInput() {
     manifest: readJsonFixture(manifestPath),
     catalog: createPostgresCatalogSnapshot(readJsonFixture(catalogPath)),
     registry: parseRegistrySnapshotYaml(readFileSync(registryPath, 'utf8')),
+  }
+}
+
+export function createManifestRuntimeCliArgs(command: ManifestRuntimeCliCommand): string[] {
+  return [
+    command,
+    '--manifest',
+    manifestPath,
+    '--catalog',
+    catalogPath,
+    '--registry',
+    registryPath,
+  ]
+}
+
+export function createBlockingRuntimeInput() {
+  const input = createRuntimeInput()
+  const manifest = structuredClone(input.manifest) as Record<string, any>
+  manifest.columns[0].transform = { type: 'keep' }
+  return {
+    ...input,
+    manifest,
   }
 }
 

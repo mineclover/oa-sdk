@@ -584,10 +584,13 @@
       "testPaths": [
         "packages/dpm/test/gateway-runtime.test.ts",
         "packages/dpm/test/gateway-runtime-manifest-diagnostic-schema.test.ts",
+        "packages/dpm/test/gateway-runtime-manifest-blocking-diagnostics.test.ts",
+        "packages/dpm/test/gateway-runtime-manifest-compile.test.ts",
+        "packages/dpm/test/gateway-runtime-manifest-dry-run.test.ts",
         "packages/dpm/test/gateway-runtime-manifest-plan-schema.test.ts",
         "packages/dpm/test/gateway-runtime-manifest-response-schema.test.ts",
         "packages/dpm/test/gateway-runtime-manifest-schema-parity.test.ts",
-        "packages/dpm/test/gateway-runtime-manifest.test.ts",
+        "packages/dpm/test/gateway-runtime-manifest-validate.test.ts",
         "packages/dpm/test/gateway-runtime-profile.test.ts"
       ],
       "commands": [
