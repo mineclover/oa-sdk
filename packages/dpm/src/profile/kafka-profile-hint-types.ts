@@ -1,4 +1,4 @@
-import type { DpmKafkaRelationshipHintFixture } from './kafka-fixture-types.js'
+import type { DpmKafkaRelationshipHintFixture } from './kafka-fixture-hint-types.js'
 import type {
   DpmProfileEdge,
   DpmProfileNode,

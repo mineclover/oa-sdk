@@ -1,4 +1,4 @@
-import type { DpmKafkaMessageFieldFixture } from './kafka-fixture-types.js'
+import type { DpmKafkaMessageFieldFixture } from './kafka-fixture-field-types.js'
 import type {
   DpmProfileEdge,
   DpmProfileMetric,

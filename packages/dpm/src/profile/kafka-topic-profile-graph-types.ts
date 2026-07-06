@@ -1,4 +1,4 @@
-import type { DpmKafkaTopicFixture } from './kafka-fixture-types.js'
+import type { DpmKafkaTopicFixture } from './kafka-fixture-topic-types.js'
 import type {
   DpmProfileEdge,
   DpmProfileMetric,

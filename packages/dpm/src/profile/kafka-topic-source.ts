@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto'
 
-import type { DpmKafkaTopicProfileFixture } from './kafka-fixture-types.js'
+import type { DpmKafkaTopicProfileFixture } from './kafka-fixture-profile-types.js'
 import type { DpmProfileSourceDescriptor } from './profile-source-types.js'
 
 export function kafkaTopicSourceId(topicName: string): string {

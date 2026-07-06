@@ -4,7 +4,7 @@ import { normalizeDpmProfileConnectorResult } from './connector-result.js'
 import type { DpmProfileConnectorResult } from './connector-types.js'
 import type {
   DpmKafkaTopicProfileFixture,
-} from './kafka-fixture-types.js'
+} from './kafka-fixture-profile-types.js'
 import { createKafkaTopicProfileArtifactInput } from './kafka-topic-profile.js'
 
 export function profileKafkaTopicFixture(input: DpmKafkaTopicProfileFixture): DpmProfileConnectorResult {

@@ -1,5 +1,5 @@
 import type { DpmProfileArtifactInput } from './artifact.js'
-import type { DpmKafkaTopicProfileFixture } from './kafka-fixture-types.js'
+import type { DpmKafkaTopicProfileFixture } from './kafka-fixture-profile-types.js'
 import { createKafkaTopicProfileGraph } from './kafka-topic-profile-graph.js'
 import { createKafkaTopicSourceDescriptor } from './kafka-topic-source.js'
 
