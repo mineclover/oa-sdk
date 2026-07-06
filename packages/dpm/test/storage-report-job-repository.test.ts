@@ -6,7 +6,12 @@ import {
   type DpmJobRow,
 } from '../src/index.js'
 import {
+  createCompletedStorageJobInput,
   createStorageReportCompileInput,
+  STORAGE_REPORT_UNSAFE_CUSTOMER_NO,
+  STORAGE_REPORT_UNSAFE_SOURCE_PASSWORD,
+  STORAGE_REPORT_UNSAFE_TOKEN_LOOKUP_KEY,
+  STORAGE_REPORT_UNSAFE_VAULT_MATERIAL,
 } from './support/storage-report-fixtures.js'
 
 describe('DPM job repository', () => {
@@ -20,23 +25,9 @@ describe('DPM job repository', () => {
       getJob: async () => undefined,
     })
 
-    const row = await repository.saveJob({
-      jobId: 'job_compile_001',
-      operation: 'compile',
-      status: 'completed',
-      datasetId: compiled.plan.datasetId,
-      manifestId: compiled.plan.manifestId,
-      planIdentity: compiled.plan.identity,
-      freshness: compiled.plan.freshness,
-      diagnostics: compiled.validation.diagnostics,
-      validationReportRef: 'dpm-report:job_compile_001',
-      createdAt: '2026-07-01T00:00:00.000Z',
-      completedAt: '2026-07-01T00:00:01.000Z',
-      sourceDbPassword: 'source-secret',
-      vaultMaterial: 'vault-secret',
-      tokenReverseLookup: { tok_001: 'C-001' },
-      rawSamples: { customer_no: 'C-001' },
-    } as any)
+    const row = await repository.saveJob(
+      createCompletedStorageJobInput(compiled),
+    )
 
     expect(upsertJob).toHaveBeenCalledWith(row)
     expect(row).toMatchObject({
@@ -51,9 +42,17 @@ describe('DPM job repository', () => {
       freshness: compiled.plan.freshness,
       diagnostics: compiled.validation.diagnostics,
     })
-    expect(JSON.stringify(row)).not.toContain('source-secret')
-    expect(JSON.stringify(row)).not.toContain('vault-secret')
-    expect(JSON.stringify(row)).not.toContain('tok_001')
-    expect(JSON.stringify(row)).not.toContain('C-001')
+    expect(JSON.stringify(row)).not.toContain(
+      STORAGE_REPORT_UNSAFE_SOURCE_PASSWORD,
+    )
+    expect(JSON.stringify(row)).not.toContain(
+      STORAGE_REPORT_UNSAFE_VAULT_MATERIAL,
+    )
+    expect(JSON.stringify(row)).not.toContain(
+      STORAGE_REPORT_UNSAFE_TOKEN_LOOKUP_KEY,
+    )
+    expect(JSON.stringify(row)).not.toContain(
+      STORAGE_REPORT_UNSAFE_CUSTOMER_NO,
+    )
   })
 })
