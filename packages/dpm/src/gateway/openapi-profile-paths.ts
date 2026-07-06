@@ -1,8 +1,8 @@
 import {
   gatewayOperation,
-  jsonRequestBody,
-  pathParameter,
 } from './openapi-operation.js'
+import { pathParameter } from './openapi-parameters.js'
+import { jsonRequestBody } from './openapi-request-body.js'
 
 export function createDpmProfileGatewayPaths() {
   return {

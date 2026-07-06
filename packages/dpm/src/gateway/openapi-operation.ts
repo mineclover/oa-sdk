@@ -1,6 +1,5 @@
 import {
   ref,
-  stringSchema,
 } from './openapi-schema.js'
 import type { DpmGatewayOperationId } from './openapi-operation-ids.js'
 
@@ -29,25 +28,5 @@ export function gatewayOperation(input: {
         },
       },
     },
-  }
-}
-
-export function jsonRequestBody(schemaName: string) {
-  return {
-    required: true,
-    content: {
-      'application/json': {
-        schema: ref(schemaName),
-      },
-    },
-  }
-}
-
-export function pathParameter(name: string) {
-  return {
-    name,
-    in: 'path',
-    required: true,
-    schema: stringSchema(),
   }
 }

@@ -1,7 +1,7 @@
 import {
   gatewayOperation,
-  jsonRequestBody,
 } from './openapi-operation.js'
+import { jsonRequestBody } from './openapi-request-body.js'
 
 export function createDpmCatalogGatewayPaths() {
   return {
