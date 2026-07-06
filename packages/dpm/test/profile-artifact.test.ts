@@ -12,8 +12,9 @@ describe('DPM profile artifact normalization', () => {
   it('normalizes DB and Kafka evidence into the same profile artifact contract', () => {
     const dbProfile = normalizeDpmProfileArtifact(createDbProfileInput())
     const kafkaProfile = normalizeDpmProfileArtifact(createKafkaProfileInput())
+    const profiles = [dbProfile, kafkaProfile] as const
 
-    for (const profile of [dbProfile, kafkaProfile]) {
+    for (const profile of profiles) {
       expect(profile.kind).toBe(DPM_PROFILE_ARTIFACT_KIND)
       expect(profile.freshness.versionHash).toMatch(/^sha256:[a-f0-9]{64}$/)
       expect(validateDpmProfileArtifactSchema(profile).valid).toBe(true)

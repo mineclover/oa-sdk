@@ -1,10 +1,11 @@
 import { describe, expect, it } from 'vitest'
 
 import { compileGatewayComponentSchema } from './support/gateway-schema.js'
+import { GATEWAY_RUNTIME_RESULT_SCHEMA_NAMES } from './support/gateway-runtime-manifest-fixtures.js'
 
 describe('DPM gateway manifest runtime response schemas', () => {
   it('rejects incomplete gateway response payloads for core runtime schemas', () => {
-    for (const schemaName of ['DpmValidationResult', 'DpmCompileResult', 'DpmDryRunResult']) {
+    for (const schemaName of GATEWAY_RUNTIME_RESULT_SCHEMA_NAMES) {
       const schema = compileGatewayComponentSchema(schemaName)
       expect(schema({}), `${schemaName} unexpectedly accepted an empty object`).toBe(false)
     }
