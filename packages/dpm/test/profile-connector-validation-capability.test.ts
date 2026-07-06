@@ -5,7 +5,7 @@ import {
   validateDpmProfileConnectorResult,
 } from '../src/index.js'
 import { createKafkaProfileArtifactInput } from './support/profile-connector-kafka-artifact-inputs.js'
-import { createKafkaProfileConnectorResult } from './support/profile-connector-completed-result-fixtures.js'
+import { createKafkaProfileConnectorResult } from './support/profile-connector-kafka-result-fixtures.js'
 
 describe('DPM profile connector validation — capability gates', () => {
   it('rejects observed evidence kinds outside connector capabilities', () => {

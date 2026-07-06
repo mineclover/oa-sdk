@@ -7,9 +7,11 @@ import {
 import {
   createPolymorphicCustomerActivityInput,
   createPolymorphicCustomerActivityWithPredicateInput,
+} from './support/model-relationship-polymorphic-fixtures.js'
+import {
   createTemporalProductPriceHistoryInput,
   createTemporalProductPriceHistoryWithValidTimeInput,
-} from './support/model-relationship-fixtures.js'
+} from './support/model-relationship-temporal-fixtures.js'
 
 describe('DPM logical relationship model', () => {
   it('requires polymorphic relationships to declare a predicate and includes it in the canonical key', () => {

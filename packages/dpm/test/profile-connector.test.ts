@@ -8,11 +8,9 @@ import {
 import { readCatalogFixture } from './support/catalog-fixture-io.js'
 import { expectValidConnectorResult } from './support/profile-connector-assertions.js'
 import { createKafkaProfileArtifactInput } from './support/profile-connector-kafka-artifact-inputs.js'
+import { createKafkaProfileConnectorResult } from './support/profile-connector-kafka-result-fixtures.js'
 import { createPostgresProfileArtifactInput } from './support/profile-connector-postgres-artifact-inputs.js'
-import {
-  createKafkaProfileConnectorResult,
-  createPostgresProfileConnectorResult,
-} from './support/profile-connector-completed-result-fixtures.js'
+import { createPostgresProfileConnectorResult } from './support/profile-connector-postgres-result-fixtures.js'
 
 describe('DPM profile connector output contract', () => {
   it('describes PostgreSQL catalog profiling as a connector output without changing catalog snapshots', () => {
