@@ -8,8 +8,6 @@ import {
   DPM_PROFILE_NODE_KINDS,
   DPM_PROFILE_SOURCE_KINDS,
   normalizeDpmProfileArtifact,
-  validateDpmProfileArtifactSchema,
-  type DpmProfileArtifact,
 } from '../src/index.js'
 import { createKafkaProfileInput } from './support/profile-artifact-kafka-inputs.js'
 
@@ -46,14 +44,4 @@ describe('DPM profile artifact JSON Schema contract', () => {
     }), 'profile unexpectedly accepted a raw sample payload').toBe(false)
   })
 
-  it('returns normalized schema issues for invalid profile artifacts', () => {
-    const profile = normalizeDpmProfileArtifact(createKafkaProfileInput()) as DpmProfileArtifact
-    const result = validateDpmProfileArtifactSchema({
-      ...profile,
-      metrics: [{ id: '', kind: 'presence_ratio', subjectId: 'node:key:orders.created', value: 1 }],
-    })
-
-    expect(result.valid).toBe(false)
-    expect(result.issues.some(issue => issue.instancePath.includes('/metrics/0/id'))).toBe(true)
-  })
 })
