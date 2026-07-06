@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 
-import { profileAnalysisReport, profileArtifact, profileCoordinate, relationshipHint } from './support/gateway-fixtures.js'
+import { profileAnalysisReport } from './support/gateway-analysis-fixtures.js'
+import { profileArtifact, profileCoordinate } from './support/gateway-profile-fixtures.js'
+import { relationshipHint } from './support/gateway-proposal-fixtures.js'
 import { compileGatewayComponentSchema } from './support/gateway-schema.js'
 
 describe('DPM gateway minimal response schemas', () => {
