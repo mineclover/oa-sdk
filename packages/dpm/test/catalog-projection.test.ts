@@ -6,7 +6,7 @@ import {
   expectedOpenApiProjectionCatalogTableNames,
   OPENAPI_PROJECTION_REF,
   readOpenApiProjectionCatalogFixture,
-} from './support/catalog-fixtures.js'
+} from './support/catalog-projection-fixtures.js'
 
 describe('DPM OpenAPI projection catalog adapter', () => {
   it('adapts an OpenAPI projection envelope as structural evidence only', () => {

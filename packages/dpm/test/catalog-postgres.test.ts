@@ -11,7 +11,7 @@ import {
   expectedPostgresCatalogTableNames,
   expectedPostgresCatalogUniqueCandidate,
   readPostgresCatalogFixture,
-} from './support/catalog-fixtures.js'
+} from './support/catalog-postgres-fixtures.js'
 
 describe('DPM PostgreSQL catalog snapshot', () => {
   it('normalizes a PostgreSQL catalog fixture into deterministic internal ordering', () => {
