@@ -417,7 +417,9 @@
         "dry-run impact counts without raw values"
       ],
       "testPaths": [
-        "packages/dpm/test/compiler.test.ts",
+        "packages/dpm/test/compiler-plan.test.ts",
+        "packages/dpm/test/compiler-staleness.test.ts",
+        "packages/dpm/test/compiler-validation.test.ts",
         "packages/dpm/test/dry-run.test.ts"
       ],
       "commands": [
