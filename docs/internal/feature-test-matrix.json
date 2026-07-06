@@ -520,9 +520,12 @@
         "secret-bearing operation exclusion"
       ],
       "testPaths": [
+        "packages/dpm/test/gateway-schema-components.test.ts",
+        "packages/dpm/test/gateway-schema-profile-editor.test.ts",
+        "packages/dpm/test/gateway-schema-requests.test.ts",
+        "packages/dpm/test/gateway-schema-responses.test.ts",
         "packages/dpm/test/gateway.test.ts",
-        "packages/dpm/test/gateway-taxonomy.test.ts",
-        "packages/dpm/test/gateway-schema-validation.test.ts"
+        "packages/dpm/test/gateway-taxonomy.test.ts"
       ],
       "commands": [
         "pnpm --filter @oa-sdk/dpm test -- gateway",
