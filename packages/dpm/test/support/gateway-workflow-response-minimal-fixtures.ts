@@ -8,6 +8,9 @@ import type {
   GatewayWorkflowResponseSchemaName,
 } from './gateway-workflow-response-schema-fixtures.js'
 
+type GatewayMinimalResponseCase =
+  readonly [GatewayWorkflowResponseSchemaName, Record<string, unknown>]
+
 const gatewayDiagnostic = {
   severity: 'info',
   code: 'SAF007',
@@ -15,9 +18,7 @@ const gatewayDiagnostic = {
   sourcePointer: '/quality_gates',
 }
 
-export const gatewayMinimalResponseCases: ReadonlyArray<
-  readonly [GatewayWorkflowResponseSchemaName, Record<string, unknown>]
-> = [
+export const gatewayMinimalResponseCases = [
   ['DpmCatalogProfileResponse', {
     catalogSnapshotRef: 'catalog://commerce/v1',
     catalogVersionHash: 'sha256:test',
@@ -63,4 +64,4 @@ export const gatewayMinimalResponseCases: ReadonlyArray<
     validationReportRef: 'dpm-report:job_001',
     diagnostics: [],
   }],
-]
+] as const satisfies readonly GatewayMinimalResponseCase[]

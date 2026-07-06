@@ -1,9 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
-import {
-  GATEWAY_WRITE_REQUEST_SCHEMA_NAMES,
-  gatewayMinimalRequestCases,
-} from './support/gateway-request-fixtures.js'
+import { gatewayMinimalRequestCases } from './support/gateway-request-minimal-fixtures.js'
+import { GATEWAY_WRITE_REQUEST_SCHEMA_NAMES } from './support/gateway-request-schema-fixtures.js'
 import { compileGatewayComponentSchema } from './support/gateway-schema.js'
 
 describe('DPM gateway request schemas', () => {

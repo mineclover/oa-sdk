@@ -15,9 +15,10 @@ export const invalidProfileAnalysisResponsePayload = {
   },
 }
 
-export const invalidProfileProposalReviewRequestPayloadCases: ReadonlyArray<
+type InvalidProfileProposalReviewRequestPayloadCase =
   readonly [string, Record<string, unknown>]
-> = [
+
+export const invalidProfileProposalReviewRequestPayloadCases = [
   ['raw evidence patch', {
     proposalId: relationshipHint.id,
     status: 'accepted',
@@ -46,4 +47,4 @@ export const invalidProfileProposalReviewRequestPayloadCases: ReadonlyArray<
     coordinate: profileCoordinate,
     relationshipHint,
   }],
-]
+] as const satisfies readonly InvalidProfileProposalReviewRequestPayloadCase[]

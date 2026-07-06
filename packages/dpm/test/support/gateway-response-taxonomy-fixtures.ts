@@ -2,9 +2,10 @@ import type {
   GatewayWorkflowResponseSchemaName,
 } from './gateway-workflow-response-schema-fixtures.js'
 
-export const gatewayInvalidResponseTaxonomyCases: ReadonlyArray<
+type GatewayInvalidResponseTaxonomyCase =
   readonly [GatewayWorkflowResponseSchemaName, Record<string, unknown>, string]
-> = [
+
+export const gatewayInvalidResponseTaxonomyCases = [
   ['DpmRelationshipDiscoveryReport', {
     reportRef: 'report://discovery',
     candidates: [{ name: 'rel_orders_customer', recommendation: 'auto_approve' }],
@@ -14,4 +15,4 @@ export const gatewayInvalidResponseTaxonomyCases: ReadonlyArray<
     registryVersion: 'reg-2026-07-01',
     relationships: [{ name: 'rel_orders_customer', status: 'unknown_status' }],
   }, 'unknown relationship status'],
-]
+] as const satisfies readonly GatewayInvalidResponseTaxonomyCase[]
