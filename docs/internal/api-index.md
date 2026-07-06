@@ -140,9 +140,9 @@ catalog/registry snapshot, semantic validator, compiler, CLI/gateway/publishing 
 | `computeDpmProfileFreshnessHash()` | `dpm/src/profile/artifact-freshness.ts` | normalized profile evidence freshness hash 계산 |
 | `DPM_PROFILE_ARTIFACT_SCHEMA_ID` | `dpm/src/profile/schema-document.ts` | profile artifact JSON Schema `$id` |
 | `DPM_PROFILE_ARTIFACT_SCHEMA` | `dpm/src/profile/schema-document.ts` | DPM profile artifact JSON Schema |
-| `DpmProfileArtifactSchemaIssue` | `dpm/src/profile/schema.ts` | profile artifact schema validation issue |
-| `DpmProfileArtifactSchemaValidationResult` | `dpm/src/profile/schema.ts` | profile artifact schema validation result |
-| `validateDpmProfileArtifactSchema()` | `dpm/src/profile/schema.ts` | profile artifact JSON Schema validation helper |
+| `DpmProfileArtifactSchemaIssue` | `dpm/src/profile/schema-types.ts` | profile artifact schema validation issue |
+| `DpmProfileArtifactSchemaValidationResult` | `dpm/src/profile/schema-types.ts` | profile artifact schema validation result |
+| `validateDpmProfileArtifactSchema()` | `dpm/src/profile/schema-validation.ts` | profile artifact JSON Schema validation helper |
 | `DPM_PROFILE_CONNECTOR_RESULT_KIND` | `dpm/src/profile/connector-types.ts` | DPM profile connector result kind literal |
 | `DPM_PROFILE_CONNECTOR_STATUSES` | `dpm/src/profile/connector-types.ts` | connector result lifecycle status taxonomy |
 | `DPM_PROFILE_CONNECTOR_EVIDENCE_KINDS` | `dpm/src/profile/connector-types.ts` | observed connector evidence kind taxonomy |

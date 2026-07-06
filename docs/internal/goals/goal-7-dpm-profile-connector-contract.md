@@ -141,6 +141,9 @@ Artifacts:
 - `packages/dpm/src/profile/schema-metric-section.ts`
 - `packages/dpm/src/profile/schema-observation-sections.ts`
 - `packages/dpm/src/profile/schema-source-sections.ts`
+- `packages/dpm/src/profile/schema-types.ts`
+- `packages/dpm/src/profile/schema-issues.ts`
+- `packages/dpm/src/profile/schema-validation.ts`
 - `packages/dpm/src/profile/schema.ts`
 - `packages/dpm/test/profile-artifact.test.ts`
 - `packages/dpm/test/profile-schema.test.ts`
