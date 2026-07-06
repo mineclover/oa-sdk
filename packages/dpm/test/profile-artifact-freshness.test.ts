@@ -5,9 +5,11 @@ import {
 } from '../src/index.js'
 import { createDbProfileInput } from './support/profile-artifact-db-inputs.js'
 import {
-  createReorderedDbProfileInput,
   profileArtifactFreshnessChangeCases,
-} from './support/profile-artifact-fixtures.js'
+} from './support/profile-artifact-freshness-fixtures.js'
+import {
+  createReorderedDbProfileInput,
+} from './support/profile-artifact-reorder-fixtures.js'
 
 describe('DPM profile artifact freshness', () => {
   it('changes freshness when normalized profile evidence changes', () => {

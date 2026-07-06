@@ -8,7 +8,7 @@ import {
 import {
   profileArtifactSourceCases,
   profileArtifactVersionHashPattern,
-} from './support/profile-artifact-fixtures.js'
+} from './support/profile-artifact-source-fixtures.js'
 
 describe('DPM profile artifact normalization', () => {
   it('normalizes DB and Kafka evidence into the same profile artifact contract', () => {
