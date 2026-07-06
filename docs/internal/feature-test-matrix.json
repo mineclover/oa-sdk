@@ -462,7 +462,8 @@
         "non-zero blocking diagnostics exit"
       ],
       "testPaths": [
-        "packages/dpm/test/cli-execution.test.ts",
+        "packages/dpm/test/cli-compile.test.ts",
+        "packages/dpm/test/cli-dry-run.test.ts",
         "packages/dpm/test/cli-validate.test.ts",
         "packages/dpm/test/cli-validate-blocking-diagnostics.test.ts",
         "packages/dpm/test/cli-validate-schema-gate.test.ts"
