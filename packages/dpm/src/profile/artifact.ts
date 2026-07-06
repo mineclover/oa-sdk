@@ -1,44 +1,16 @@
 import {
-  DPM_PROFILE_ARTIFACT_KIND,
-  type DpmProfileArtifact,
-} from './profile-artifact-types.js'
-import {
-  copyDiagnostic,
-  copyEdge,
-  copyMetric,
-  copyNode,
-  copySourceDescriptor,
-  sortEvidenceSources,
-} from './artifact-copy.js'
-import {
   computeDpmProfileFreshnessHash,
 } from './artifact-freshness.js'
-import {
-  byDiagnostic,
-  byId,
-} from './artifact-ordering.js'
+import type { DpmProfileArtifactInput } from './artifact-input-types.js'
+import { createDpmProfileArtifactStructural } from './artifact-structural.js'
 import { collectDpmProfileSourceVersionHashes } from './artifact-source-version-hashes.js'
+import type { DpmProfileArtifact } from './profile-artifact-types.js'
 
 export { computeDpmProfileFreshnessHash } from './artifact-freshness.js'
-
-export type DpmProfileArtifactInput = Omit<DpmProfileArtifact, 'kind' | 'freshness'> & {
-  sourceVersionHashes?: Readonly<Record<string, string>>
-}
+export type { DpmProfileArtifactInput } from './artifact-input-types.js'
 
 export function normalizeDpmProfileArtifact(input: DpmProfileArtifactInput): DpmProfileArtifact {
-  const structural: Omit<DpmProfileArtifact, 'freshness'> = {
-    kind: DPM_PROFILE_ARTIFACT_KIND,
-    profileId: input.profileId,
-    datasetId: input.datasetId,
-    profileVersion: input.profileVersion,
-    createdAt: input.createdAt,
-    sources: input.sources.map(copySourceDescriptor).sort(byId),
-    evidenceSources: sortEvidenceSources(input.evidenceSources),
-    nodes: input.nodes.map(copyNode).sort(byId),
-    edges: input.edges.map(copyEdge).sort(byId),
-    metrics: input.metrics.map(copyMetric).sort(byId),
-    diagnostics: input.diagnostics.map(copyDiagnostic).sort(byDiagnostic),
-  }
+  const structural = createDpmProfileArtifactStructural(input)
 
   const sourceVersionHashes = collectDpmProfileSourceVersionHashes(
     structural.sources,

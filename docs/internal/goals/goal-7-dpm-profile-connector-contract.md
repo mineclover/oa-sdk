@@ -124,7 +124,9 @@ Artifacts:
 - `packages/dpm/src/profile/profile-source-types.ts`
 - `packages/dpm/src/profile/profile-graph-types.ts`
 - `packages/dpm/src/profile/profile-artifact-types.ts`
+- `packages/dpm/src/profile/artifact-input-types.ts`
 - `packages/dpm/src/profile/artifact.ts`
+- `packages/dpm/src/profile/artifact-structural.ts`
 - `packages/dpm/src/profile/artifact-copy.ts`
 - `packages/dpm/src/profile/artifact-source-copy.ts`
 - `packages/dpm/src/profile/artifact-graph-copy.ts`
@@ -175,8 +177,9 @@ Verification:
 Implementation notes:
 - `DpmProfileArtifact` is implemented as a normalized source-neutral evidence graph with profile
   identity, source descriptors, DPM-owned coordinates, nodes, edges, metrics, diagnostics, and
-  evidence source map. Deterministic normalization and freshness hashing live in
-  `packages/dpm/src/profile/artifact.ts`.
+  evidence source map. Normalization input vocabulary, deterministic structural assembly, and
+  freshness attachment are split across `packages/dpm/src/profile/artifact-input-types.ts`,
+  `packages/dpm/src/profile/artifact-structural.ts`, and `packages/dpm/src/profile/artifact.ts`.
 - `packages/dpm/src/profile/profile-taxonomy.ts` remains the taxonomy compatibility barrel, while
   source, node, edge, metric, capture, and diagnostic taxonomy families live in dedicated
   `profile-*-taxonomy.ts` modules. Source coordinate/provenance, graph evidence, and artifact
