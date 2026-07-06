@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { gatewayInvalidResponseTaxonomyCases } from './support/gateway-response-fixtures.js'
+import { gatewayInvalidResponseTaxonomyCases } from './support/gateway-response-taxonomy-fixtures.js'
 import { compileGatewayComponentSchema } from './support/gateway-schema.js'
 
 describe('DPM gateway response taxonomy schemas', () => {

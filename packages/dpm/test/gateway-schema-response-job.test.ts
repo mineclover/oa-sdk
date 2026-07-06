@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { gatewayJobReportLifecycleStatusCases } from './support/gateway-response-fixtures.js'
+import { gatewayJobReportLifecycleStatusCases } from './support/gateway-job-response-fixtures.js'
 import { compileGatewayComponentSchema } from './support/gateway-schema.js'
 
 describe('DPM gateway job response schemas', () => {

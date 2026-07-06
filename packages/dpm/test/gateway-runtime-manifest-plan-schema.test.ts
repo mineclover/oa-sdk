@@ -4,9 +4,11 @@ import { createDpmGatewayRuntime } from '../src/index.js'
 import { compileGatewayComponentSchema } from './support/gateway-schema.js'
 import {
   createRuntimeInput,
+} from './support/gateway-runtime-manifest-fixtures.js'
+import {
   invalidCompiledPlanTaxonomyCases,
   invalidRelationshipStepTaxonomyCases,
-} from './support/gateway-runtime-manifest-fixtures.js'
+} from './support/gateway-runtime-manifest-schema-fixtures.js'
 
 describe('DPM gateway manifest runtime plan schemas', () => {
   it('rejects compiled plan taxonomy values outside the DPM plan contract', async () => {

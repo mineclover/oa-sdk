@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { compileGatewayComponentSchema } from './support/gateway-schema.js'
-import { GATEWAY_RUNTIME_RESULT_SCHEMA_NAMES } from './support/gateway-runtime-manifest-fixtures.js'
+import { GATEWAY_RUNTIME_RESULT_SCHEMA_NAMES } from './support/gateway-runtime-manifest-schema-fixtures.js'
 
 describe('DPM gateway manifest runtime response schemas', () => {
   it('rejects incomplete gateway response payloads for core runtime schemas', () => {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { GATEWAY_WORKFLOW_RESPONSE_SCHEMA_NAMES } from './support/gateway-response-fixtures.js'
+import { GATEWAY_WORKFLOW_RESPONSE_SCHEMA_NAMES } from './support/gateway-workflow-response-fixtures.js'
 import { compileGatewayComponentSchema } from './support/gateway-schema.js'
 
 describe('DPM gateway required response schemas', () => {

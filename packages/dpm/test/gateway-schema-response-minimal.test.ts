@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { gatewayMinimalResponseCases } from './support/gateway-response-fixtures.js'
+import { gatewayMinimalResponseCases } from './support/gateway-workflow-response-fixtures.js'
 import { compileGatewayComponentSchema } from './support/gateway-schema.js'
 
 describe('DPM gateway minimal response schemas', () => {
