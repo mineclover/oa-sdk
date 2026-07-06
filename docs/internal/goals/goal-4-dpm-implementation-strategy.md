@@ -487,6 +487,7 @@ Artifacts:
 - `packages/dpm/src/compiler/plan-freshness.ts`
 - `packages/dpm/src/compiler/plan-manifest-metadata.ts`
 - `packages/dpm/src/compiler/plan-namespace-bindings.ts`
+- `packages/dpm/src/compiler/plan-relationship-cardinality.ts`
 - `packages/dpm/src/compiler/plan-relationship-steps.ts`
 - `packages/dpm/src/compiler/plan-staleness.ts`
 - `packages/dpm/src/compiler/plan-step-types.ts`
@@ -510,6 +511,7 @@ Tasks:
 - Keep compile input/result vocabulary separate from compile orchestration.
 - Keep compiled plan builder input and manifest metadata derivation separate from compiled plan
   assembly.
+- Keep relationship step cardinality mapping separate from approved relationship step assembly.
 - Mark plans stale when manifest, catalog, or registry freshness changes.
 - Keep dry-run report vocabulary and impact/category calculation as separate implementation
   boundaries.

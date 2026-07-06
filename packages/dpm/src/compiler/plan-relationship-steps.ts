@@ -1,7 +1,7 @@
 import type { RegistryRelationship } from '../registry/registry-relationship-types.js'
 import type { RegistrySnapshot } from '../registry/registry-snapshot-types.js'
+import { toRelationshipStepCardinality } from './plan-relationship-cardinality.js'
 import type { DpmRelationshipStep } from './plan-step-types.js'
-import type { DpmRelationshipStepCardinality } from './plan-taxonomy.js'
 import {
   asArray,
   asRecord,
@@ -30,7 +30,7 @@ function toRelationshipStep(approved: RegistryRelationship): DpmRelationshipStep
     registryIdentity: approved.identity,
     registryStatus: 'approved',
     relationshipType: approved.type,
-    cardinality: toCardinality(approved.type),
+    cardinality: toRelationshipStepCardinality(approved.type),
     parent: {
       table: approved.parent.table,
       columns: [...approved.parent.columns],
@@ -43,13 +43,4 @@ function toRelationshipStep(approved: RegistryRelationship): DpmRelationshipStep
     transformStrategy: approved.transformStrategy,
     orphanPolicy: approved.orphanPolicy,
   }
-}
-
-function toCardinality(relationshipType: string): DpmRelationshipStepCardinality {
-  if (relationshipType === 'one_to_one') return 'one_to_one'
-  if (relationshipType === 'one_to_many') return 'one_to_many'
-  if (relationshipType === 'many_to_one') return 'many_to_one'
-  if (relationshipType === 'many_to_many_edge') return 'many_to_many'
-  if (relationshipType === 'self_reference') return 'self_reference'
-  return relationshipType as DpmRelationshipStepCardinality
 }
