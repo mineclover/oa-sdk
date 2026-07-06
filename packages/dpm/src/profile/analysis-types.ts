@@ -6,7 +6,7 @@ export {
 } from './analysis-taxonomy.js'
 export {
   DPM_PROFILE_ANALYSIS_REPORT_KIND,
-} from './analysis-report-types.js'
+} from './analysis-report-kind.js'
 export type {
   DpmProfileDriftSignalKind,
   DpmProfileKeyCandidateKind,
@@ -24,7 +24,11 @@ export type {
   DpmProfileRiskIndicator,
 } from './analysis-signal-types.js'
 export type {
-  DpmProfileAnalysisFreshness,
   DpmProfileAnalysisReport,
-  DpmProfileAnalysisSummary,
 } from './analysis-report-types.js'
+export type {
+  DpmProfileAnalysisFreshness,
+} from './analysis-report-freshness-types.js'
+export type {
+  DpmProfileAnalysisSummary,
+} from './analysis-summary-types.js'

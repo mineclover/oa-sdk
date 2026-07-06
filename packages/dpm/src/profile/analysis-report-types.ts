@@ -1,6 +1,8 @@
 import type {
   DpmProfileArtifact,
 } from './profile-artifact-types.js'
+import type { DPM_PROFILE_ANALYSIS_REPORT_KIND } from './analysis-report-kind.js'
+import type { DpmProfileAnalysisFreshness } from './analysis-report-freshness-types.js'
 import type {
   DpmProfileAnalysisCoverage,
   DpmProfileDriftSignal,
@@ -8,25 +10,11 @@ import type {
   DpmProfileRelationshipHintProposal,
   DpmProfileRiskIndicator,
 } from './analysis-signal-types.js'
+import type { DpmProfileAnalysisSummary } from './analysis-summary-types.js'
 
-export const DPM_PROFILE_ANALYSIS_REPORT_KIND = 'dpm.profile.analysis-report.v1' as const
-
-export type DpmProfileAnalysisSummary = {
-  nodeCount: number
-  edgeCount: number
-  metricCount: number
-  diagnosticCount: number
-  relationshipHintCount: number
-  keyCandidateCount: number
-  riskIndicatorCount: number
-  driftSignalCount: number
-}
-
-export type DpmProfileAnalysisFreshness = {
-  reportHash: string
-  profileVersionHash: string
-  previousProfileVersionHash?: string
-}
+export { DPM_PROFILE_ANALYSIS_REPORT_KIND } from './analysis-report-kind.js'
+export type { DpmProfileAnalysisFreshness } from './analysis-report-freshness-types.js'
+export type { DpmProfileAnalysisSummary } from './analysis-summary-types.js'
 
 export type DpmProfileAnalysisReport = {
   kind: typeof DPM_PROFILE_ANALYSIS_REPORT_KIND

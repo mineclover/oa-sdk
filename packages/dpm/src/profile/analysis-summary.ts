@@ -1,6 +1,6 @@
 import type {
   DpmProfileAnalysisSummary,
-} from './analysis-report-types.js'
+} from './analysis-summary-types.js'
 import type {
   DpmProfileDriftSignal,
   DpmProfileKeyCandidate,

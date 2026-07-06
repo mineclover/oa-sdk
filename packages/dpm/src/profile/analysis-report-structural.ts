@@ -1,8 +1,6 @@
 import type { DpmProfileAnalysisInput } from './analysis-input-types.js'
-import {
-  DPM_PROFILE_ANALYSIS_REPORT_KIND,
-  type DpmProfileAnalysisReport,
-} from './analysis-report-types.js'
+import { DPM_PROFILE_ANALYSIS_REPORT_KIND } from './analysis-report-kind.js'
+import type { DpmProfileAnalysisReport } from './analysis-report-types.js'
 import type { DpmProfileAnalysisReportSignals } from './analysis-report-signals.js'
 import {
   createDpmProfileAnalysisSummary,

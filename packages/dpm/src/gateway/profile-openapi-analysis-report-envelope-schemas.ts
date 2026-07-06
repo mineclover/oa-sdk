@@ -1,4 +1,4 @@
-import { DPM_PROFILE_ANALYSIS_REPORT_KIND } from '../profile/analysis-report-types.js'
+import { DPM_PROFILE_ANALYSIS_REPORT_KIND } from '../profile/analysis-report-kind.js'
 import {
   arrayOf,
   ref,
