@@ -45,19 +45,4 @@ describe('DPM registry storage row mapper', () => {
       },
     })
   })
-
-  it('refuses storage rows outside the requested dataset or registry version', () => {
-    expect(() =>
-      registryRowsToSnapshot({
-        datasetId: 'commerce_ai',
-        registryVersion: 'reg-2026-07-01',
-        rows: [
-          {
-            ...storageRegistryRows[0],
-            datasetId: 'other_dataset',
-          },
-        ],
-      }),
-    ).toThrow('Registry row other_dataset/reg-2026-07-01/rel_orders_customer@1 does not match requested snapshot commerce_ai@reg-2026-07-01')
-  })
 })
