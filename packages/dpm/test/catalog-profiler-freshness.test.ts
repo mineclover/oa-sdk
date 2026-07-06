@@ -5,7 +5,7 @@ import {
 } from '../src/index.js'
 import {
   readProfilerPostgresRowsFixture,
-} from './support/catalog-profiler-fixtures.js'
+} from './support/catalog-profiler-row-fixtures.js'
 
 describe('DPM PostgreSQL catalog profiler freshness', () => {
   it('changes freshness when profiled structural rows change', () => {

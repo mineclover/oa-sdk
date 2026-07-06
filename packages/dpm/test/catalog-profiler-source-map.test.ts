@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest'
 
 import {
-  createProfilerPostgresSnapshot,
   expectedProfilerPostgresOrdersSource,
-} from './support/catalog-profiler-fixtures.js'
+} from './support/catalog-profiler-expected-fixtures.js'
+import {
+  createProfilerPostgresSnapshot,
+} from './support/catalog-profiler-row-fixtures.js'
 
 describe('DPM PostgreSQL catalog profiler source map', () => {
   it('maps database source coordinates into catalog source pointers', () => {

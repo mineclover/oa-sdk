@@ -1,12 +1,14 @@
 import { describe, expect, it } from 'vitest'
 
 import {
-  createProfilerPostgresSnapshot,
   expectedProfilerPostgresForeignKey,
   expectedProfilerPostgresIndexSummaries,
   expectedProfilerPostgresPrimaryKeyNames,
   expectedProfilerPostgresUniqueCandidateSummaries,
-} from './support/catalog-profiler-fixtures.js'
+} from './support/catalog-profiler-expected-fixtures.js'
+import {
+  createProfilerPostgresSnapshot,
+} from './support/catalog-profiler-row-fixtures.js'
 
 describe('DPM PostgreSQL catalog profiler integrity rows', () => {
   it('maps primary keys, foreign keys, indexes, and unique candidates', () => {

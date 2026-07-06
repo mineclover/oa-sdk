@@ -4,7 +4,7 @@ import {
   createProfilerPostgresSnapshot,
   profilerCatalogFreshnessVersionHashPattern,
   PROFILER_POSTGRES_CAPTURED_AT,
-} from './support/catalog-profiler-fixtures.js'
+} from './support/catalog-profiler-row-fixtures.js'
 
 describe('DPM PostgreSQL catalog profiler rows', () => {
   it('maps PostgreSQL catalog rows to the catalog snapshot envelope', () => {

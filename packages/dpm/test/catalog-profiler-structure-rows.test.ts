@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest'
 
 import {
-  createProfilerPostgresSnapshot,
   expectedProfilerPostgresColumnSummaries,
   expectedProfilerPostgresTableNames,
-} from './support/catalog-profiler-fixtures.js'
+} from './support/catalog-profiler-expected-fixtures.js'
+import {
+  createProfilerPostgresSnapshot,
+} from './support/catalog-profiler-row-fixtures.js'
 
 describe('DPM PostgreSQL catalog profiler structure rows', () => {
   it('maps schema, table, and column rows to catalog snapshot structure', () => {

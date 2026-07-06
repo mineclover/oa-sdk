@@ -6,8 +6,10 @@ import {
 } from '../src/index.js'
 import {
   expectedProfilerPostgresTableNames,
+} from './support/catalog-profiler-expected-fixtures.js'
+import {
   readProfilerPostgresRowsFixture,
-} from './support/catalog-profiler-fixtures.js'
+} from './support/catalog-profiler-row-fixtures.js'
 
 describe('DPM PostgreSQL catalog profiler client facade', () => {
   it('profiles through an explicit read-only query client and schema filter', async () => {

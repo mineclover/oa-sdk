@@ -6,7 +6,7 @@ import {
 import {
   normalizeSql,
   readProfilerPostgresSqlFixture,
-} from './support/catalog-profiler-fixtures.js'
+} from './support/catalog-profiler-query-fixtures.js'
 
 describe('DPM PostgreSQL catalog profiler query', () => {
   it('defines a read-only PostgreSQL catalog profile query', () => {
