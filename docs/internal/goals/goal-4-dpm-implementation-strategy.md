@@ -409,6 +409,7 @@ Artifacts:
 - `packages/dpm/src/validator/manifest-context.ts`
 - `packages/dpm/src/validator/manifest-syntax.ts`
 - `packages/dpm/src/validator/relationships.ts`
+- `packages/dpm/src/validator/relationship-gate-runner.ts`
 - `packages/dpm/src/validator/relationship-catalog-gates.ts`
 - `packages/dpm/src/validator/relationship-catalog-context.ts`
 - `packages/dpm/src/validator/relationship-catalog-endpoints.ts`
@@ -449,6 +450,8 @@ Tasks:
   catalog-mismatched relationships.
 - Keep catalog relationship execution ordering, scope context, endpoint input derivation, table scope
   gates, column count gate, column compatibility gates, and parent key uniqueness gates as separate
+  implementation boundaries.
+- Keep relationship collection orchestration and per-relationship gate runner ordering as separate
   implementation boundaries.
 - Keep approved registry snapshot mismatch ordering, type/metadata scalar gates, parent/child
   endpoint gates, scalar/endpoint comparison helpers, and `REL013` diagnostic assembly as separate

@@ -1,15 +1,11 @@
 import type { DpmDiagnostic } from './diagnostic-types.js'
 import {
   createRelationshipCatalogGateContext,
-  validateRelationshipCatalogGates,
 } from './relationship-catalog-gates.js'
 import {
-  validateRelationshipRegistryApproval,
-} from './relationship-registry-approval.js'
-import {
-  validateRelationshipRegistryReference,
-} from './relationship-registry-reference.js'
-import { validateRelationshipShapeGates } from './relationship-shape-gates.js'
+  validateRelationshipItemGates,
+} from './relationship-gate-runner.js'
+import { validateRelationshipRegistryReference } from './relationship-registry-reference.js'
 import type {
   RelationshipValidationInput,
 } from './relationship-types.js'
@@ -34,19 +30,10 @@ export function validateManifestRelationships(input: RelationshipValidationInput
 
   input.relationships.forEach((relationship, index) => {
     const pointer = `/relationships/${index}`
-    diagnostics.push(...validateRelationshipRegistryApproval({
-      registry: input.registry,
-      relationship,
-      pointer,
-    }))
-
-    diagnostics.push(...validateRelationshipCatalogGates({
+    diagnostics.push(...validateRelationshipItemGates({
       catalog: input.catalog,
       context: catalogContext,
-      relationship,
-      pointer,
-    }))
-    diagnostics.push(...validateRelationshipShapeGates({
+      registry: input.registry,
       relationship,
       pointer,
     }))
