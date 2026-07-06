@@ -19,6 +19,12 @@ export type ProfileArtifactSchemaRejectionCase = {
   readonly createPayload: (profile: DpmProfileArtifact) => unknown
 }
 
+export type ProfileArtifactSchemaIssueCase = {
+  readonly label: string
+  readonly createPayload: (profile: DpmProfileArtifact) => unknown
+  readonly expectedInstancePathFragment: string
+}
+
 export const profileArtifactSchemaTaxonomyProjectionCases = [
   {
     label: 'source kinds',
@@ -70,3 +76,14 @@ export const profileArtifactSchemaRejectionCases = [
     }),
   },
 ] as const satisfies readonly ProfileArtifactSchemaRejectionCase[]
+
+export const profileArtifactSchemaIssueCases = [
+  {
+    label: 'empty metric id',
+    createPayload: (profile) => ({
+      ...profile,
+      metrics: [{ id: '', kind: 'presence_ratio', subjectId: 'node:key:orders.created', value: 1 }],
+    }),
+    expectedInstancePathFragment: '/metrics/0/id',
+  },
+] as const satisfies readonly ProfileArtifactSchemaIssueCase[]
