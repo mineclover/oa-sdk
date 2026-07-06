@@ -6,17 +6,10 @@ import {
   sortDpmDiagnostics,
   summarizeDpmDiagnostics,
 } from './diagnostic-summary.js'
+import { createDpmManifestValidationContext } from './manifest-context.js'
 import { validateManifestSyntax } from './manifest-syntax.js'
-import {
-  validateManifestRelationships,
-  type ManifestRelationship,
-  type RelationshipRegistryReference,
-} from './relationships.js'
+import { validateManifestRelationships } from './relationships.js'
 import { validateSafetyRules } from './safety.js'
-import {
-  asArray,
-  asRecord,
-} from './value-utils.js'
 import type { DpmValidationInput } from './validation-types.js'
 
 export type {
@@ -25,19 +18,18 @@ export type {
 } from './validation-types.js'
 
 export function validateDpmManifest(input: DpmValidationInput): DpmValidationResult {
-  const manifest = asRecord(input.manifest)
-  const registryReference = manifest.relationship_registry as RelationshipRegistryReference | undefined
+  const context = createDpmManifestValidationContext(input.manifest)
   const diagnostics: DpmDiagnostic[] = [
     ...validateManifestSyntax(input.manifest),
     ...validateManifestRelationships({
-      relationships: asArray(manifest.relationships) as ManifestRelationship[],
-      scopeTables: getScopeTables(manifest),
-      ...(registryReference ? { registryReference } : {}),
+      relationships: context.relationships,
+      scopeTables: context.scopeTables,
+      ...(context.registryReference ? { registryReference: context.registryReference } : {}),
       catalog: input.catalog,
       registry: input.registry,
     }),
     ...validateSafetyRules({
-      manifest,
+      manifest: context.manifest,
       registry: input.registry,
       phase: input.phase ?? 'validate',
     }),
@@ -50,8 +42,4 @@ export function validateDpmManifest(input: DpmValidationInput): DpmValidationRes
     diagnostics: sorted,
     summary,
   }
-}
-
-function getScopeTables(manifest: Record<string, unknown>): string[] {
-  return asArray(asRecord(manifest.scope).include_tables).filter((table): table is string => typeof table === 'string')
 }

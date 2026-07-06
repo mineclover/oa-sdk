@@ -406,6 +406,7 @@ Artifacts:
 - `packages/dpm/src/validator/diagnostic-copy.ts`
 - `packages/dpm/src/validator/diagnostic-summary.ts`
 - `packages/dpm/src/validator/manifest.ts`
+- `packages/dpm/src/validator/manifest-context.ts`
 - `packages/dpm/src/validator/manifest-syntax.ts`
 - `packages/dpm/src/validator/relationships.ts`
 - `packages/dpm/src/validator/relationship-catalog-gates.ts`
