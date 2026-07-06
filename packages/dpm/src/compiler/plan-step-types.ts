@@ -1,8 +1,12 @@
 import type {
   RegistryOrphanPolicy,
+} from '../registry/registry-orphan-policy-taxonomy.js'
+import type {
   RegistryRelationshipKind,
+} from '../registry/registry-relationship-kind-taxonomy.js'
+import type {
   RegistryTransformStrategy,
-} from '../registry/registry-taxonomy.js'
+} from '../registry/registry-transform-taxonomy.js'
 import type { DpmRelationshipStepCardinality } from './plan-taxonomy.js'
 
 export type DpmNamespaceBinding = {

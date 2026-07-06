@@ -1,4 +1,4 @@
-import type { RegistryRelationshipStatus } from './registry-taxonomy.js'
+import type { RegistryRelationshipStatus } from './registry-relationship-status-taxonomy.js'
 import type {
   RegistryRelationship,
   RegistryRelationshipInput,

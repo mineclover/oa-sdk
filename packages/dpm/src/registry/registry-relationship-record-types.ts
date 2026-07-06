@@ -2,10 +2,16 @@ import type { SchemaSourceCoordinate } from '@oa-sdk/openapi-projection-contract
 
 import type {
   RegistryOrphanPolicy,
+} from './registry-orphan-policy-taxonomy.js'
+import type {
   RegistryRelationshipKind,
+} from './registry-relationship-kind-taxonomy.js'
+import type {
   RegistryRelationshipStatus,
+} from './registry-relationship-status-taxonomy.js'
+import type {
   RegistryTransformStrategy,
-} from './registry-taxonomy.js'
+} from './registry-transform-taxonomy.js'
 import type { RegistryApprovalMetadata } from './registry-approval-types.js'
 import type { RegistryConditionMetadata } from './registry-condition-types.js'
 import type { RegistryEndpoint } from './registry-endpoint-types.js'

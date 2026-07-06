@@ -1,7 +1,7 @@
 import {
   REGISTRY_RELATIONSHIP_STATUSES,
   type RegistryRelationshipStatus,
-} from './registry-taxonomy.js'
+} from './registry-relationship-status-taxonomy.js'
 import { requireString } from './registry-yaml-values.js'
 
 export function toRegistryYamlStatus(value: unknown): RegistryRelationshipStatus {

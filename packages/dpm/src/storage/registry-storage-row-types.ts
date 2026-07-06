@@ -7,9 +7,13 @@ import type {
 } from '../registry/registry-relationship-types.js'
 import type {
   RegistryRelationshipKind,
+} from '../registry/registry-relationship-kind-taxonomy.js'
+import type {
   RegistryRelationshipStatus,
+} from '../registry/registry-relationship-status-taxonomy.js'
+import type {
   RegistryTransformStrategy,
-} from '../registry/registry-taxonomy.js'
+} from '../registry/registry-transform-taxonomy.js'
 
 export type DpmRegistryRelationshipRow = {
   datasetId: string

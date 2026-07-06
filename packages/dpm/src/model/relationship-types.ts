@@ -1,7 +1,7 @@
 import type {
   RegistryRelationshipInput,
 } from '../registry/registry-relationship-types.js'
-import type { RegistryTransformStrategy } from '../registry/registry-taxonomy.js'
+import type { RegistryTransformStrategy } from '../registry/registry-transform-taxonomy.js'
 import type { TenantNamespaceInput } from './canonical-key.js'
 import type { ModelEndpoint } from './endpoint.js'
 

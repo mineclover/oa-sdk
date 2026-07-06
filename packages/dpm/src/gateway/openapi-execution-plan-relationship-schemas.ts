@@ -1,9 +1,7 @@
 import { DPM_RELATIONSHIP_STEP_CARDINALITIES } from '../compiler/plan.js'
-import {
-  REGISTRY_ORPHAN_POLICIES,
-  REGISTRY_RELATIONSHIP_KINDS,
-  REGISTRY_TRANSFORM_STRATEGIES,
-} from '../registry/registry-taxonomy.js'
+import { REGISTRY_ORPHAN_POLICIES } from '../registry/registry-orphan-policy-taxonomy.js'
+import { REGISTRY_RELATIONSHIP_KINDS } from '../registry/registry-relationship-kind-taxonomy.js'
+import { REGISTRY_TRANSFORM_STRATEGIES } from '../registry/registry-transform-taxonomy.js'
 import {
   arrayOf,
   ref,
