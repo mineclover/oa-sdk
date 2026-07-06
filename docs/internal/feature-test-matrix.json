@@ -493,7 +493,9 @@
         "no raw sensitive value persistence"
       ],
       "testPaths": [
-        "packages/dpm/test/storage-demo.test.ts",
+        "packages/dpm/test/storage-demo-command.test.ts",
+        "packages/dpm/test/storage-demo-pipeline.test.ts",
+        "packages/dpm/test/storage-demo-surface.test.ts",
         "packages/dpm/examples/customer-orders-storage/README.md",
         "packages/dpm/examples/customer-orders-storage/run-demo.mjs"
       ],

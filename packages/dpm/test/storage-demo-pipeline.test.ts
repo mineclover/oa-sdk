@@ -1,8 +1,3 @@
-import { spawnSync } from 'node:child_process'
-import { existsSync, readFileSync } from 'node:fs'
-import { join } from 'node:path'
-import { fileURLToPath } from 'node:url'
-
 import { describe, expect, it, vi } from 'vitest'
 
 import {
@@ -20,51 +15,14 @@ import {
   type DpmStoredValidationReport,
   type PostgresCatalogProfileRow,
 } from '../src/index.js'
+import { readStorageDemoJsonFixture } from './support/storage-demo-fixtures.js'
 
-const demoRoot = new URL('../examples/customer-orders-storage/', import.meta.url)
-const packageRoot = fileURLToPath(new URL('..', import.meta.url))
-const demoCommandTimeoutMs = 90_000
-
-function readJsonFixture<T>(name: string): T {
-  return JSON.parse(readFileSync(join(demoRoot.pathname, name), 'utf8')) as T
-}
-
-describe('DPM storage-backed customer orders demo', () => {
-  it('ships a reproducible fixture-backed storage demo surface', () => {
-    expect(existsSync(join(demoRoot.pathname, 'README.md'))).toBe(true)
-    expect(existsSync(join(demoRoot.pathname, 'run-demo.mjs'))).toBe(true)
-    expect(existsSync(join(demoRoot.pathname, 'manifest.json'))).toBe(true)
-    expect(existsSync(join(demoRoot.pathname, 'catalog-profile-rows.json'))).toBe(true)
-    expect(existsSync(join(demoRoot.pathname, 'relationship-registry-rows.json'))).toBe(true)
-    expect(existsSync(join(demoRoot.pathname, 'estimated-rows.json'))).toBe(true)
-  })
-
-  it('runs the documented storage demo command after a single catalog profiling pass', () => {
-    const source = readFileSync(join(demoRoot.pathname, 'run-demo.mjs'), 'utf8')
-    const profileCalls = source.match(/\bprofilePostgresCatalog\s*\(/g) ?? []
-
-    expect(profileCalls).toHaveLength(1)
-
-    const result = spawnSync('corepack', ['pnpm', 'run', 'demo:storage'], {
-      cwd: packageRoot,
-      encoding: 'utf8',
-      timeout: demoCommandTimeoutMs,
-    })
-    const marker = '{\n  "demo": "dpm.customer-orders-storage"'
-    const outputStart = result.stdout.indexOf(marker)
-    const output = outputStart >= 0 ? JSON.parse(result.stdout.slice(outputStart)) : undefined
-
-    expect(result.status, result.stderr || result.stdout).toBe(0)
-    expect(output?.sourceDbMutation).toBe('none')
-    expect(output?.persistedRawValues).toBe(false)
-    expect(output?.steps.every((step: Record<string, unknown>) => step.status === 'pass')).toBe(true)
-  }, demoCommandTimeoutMs + 5_000)
-
+describe('DPM storage-backed customer orders demo pipeline', () => {
   it('profiles catalog rows, exports registry rows, runs validate/compile/dry-run, and retrieves reports without raw values', async () => {
-    const manifest = readJsonFixture<Record<string, any>>('manifest.json')
-    const catalogRows = readJsonFixture<PostgresCatalogProfileRow[]>('catalog-profile-rows.json')
-    const registryRows = readJsonFixture<DpmRegistryRelationshipRow[]>('relationship-registry-rows.json')
-    const estimatedRows = readJsonFixture<Record<string, number>>('estimated-rows.json')
+    const manifest = readStorageDemoJsonFixture<Record<string, any>>('manifest.json')
+    const catalogRows = readStorageDemoJsonFixture<PostgresCatalogProfileRow[]>('catalog-profile-rows.json')
+    const registryRows = readStorageDemoJsonFixture<DpmRegistryRelationshipRow[]>('relationship-registry-rows.json')
+    const estimatedRows = readStorageDemoJsonFixture<Record<string, number>>('estimated-rows.json')
     const catalogQuery = vi.fn(async () => catalogRows)
     const jobRows = new Map<string, DpmJobRow>()
     const reportRows = new Map<string, DpmStoredValidationReport>()
