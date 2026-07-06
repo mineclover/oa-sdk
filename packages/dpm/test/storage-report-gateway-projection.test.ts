@@ -10,7 +10,7 @@ import {
 import {
   expectedGatewayJobReport,
   expectedGatewayJobReportKeys,
-} from './support/storage-report-fixtures.js'
+} from './support/storage-report-gateway-fixtures.js'
 
 describe('DPM validation report gateway projection', () => {
   it('retrieves the gateway-compatible job report shape from stored validation reports', async () => {
