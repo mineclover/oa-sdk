@@ -358,7 +358,8 @@
         "temporal valid-time requirement"
       ],
       "testPaths": [
-        "packages/dpm/test/model.test.ts"
+        "packages/dpm/test/model-entity.test.ts",
+        "packages/dpm/test/model-relationship.test.ts"
       ],
       "commands": [
         "pnpm --filter @oa-sdk/dpm test -- model",
