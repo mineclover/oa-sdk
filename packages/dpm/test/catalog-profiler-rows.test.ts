@@ -61,19 +61,4 @@ describe('DPM PostgreSQL catalog profiler rows', () => {
     })
     expect(snapshot.freshness.versionHash).toMatch(/^sha256:[a-f0-9]{64}$/)
   })
-
-  it('changes freshness when profiled structural rows change', () => {
-    const rows = readProfilerPostgresRowsFixture()
-    const original = postgresCatalogRowsToSnapshot({ database: 'commerce', rows })
-    const changed = postgresCatalogRowsToSnapshot({
-      database: 'commerce',
-      rows: rows.map(row =>
-        row.record_kind === 'column' && row.table_name === 'orders' && row.column_name === 'amount'
-          ? { ...row, is_nullable: true }
-          : row,
-      ),
-    })
-
-    expect(changed.freshness.versionHash).not.toBe(original.freshness.versionHash)
-  })
 })

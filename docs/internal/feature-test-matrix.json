@@ -155,7 +155,7 @@
       "name": "DPM PostgreSQL catalog profiler",
       "category": "dpm",
       "package": "@oa-sdk/dpm",
-      "description": "Read-only PostgreSQL catalog profiler query and row-to-snapshot mapping for the existing DPM catalog snapshot contract.",
+      "description": "Read-only PostgreSQL catalog profiler query, row-to-snapshot mapping, and structural freshness for the existing DPM catalog snapshot contract.",
       "capabilities": [
         "read-only pg_catalog query",
         "explicit schema filter",
@@ -170,6 +170,7 @@
         "packages/dpm/test/catalog-profiler-client.test.ts",
         "packages/dpm/test/catalog-profiler-query.test.ts",
         "packages/dpm/test/catalog-profiler-rows.test.ts",
+        "packages/dpm/test/catalog-profiler-freshness.test.ts",
         "packages/dpm/test/fixtures/catalog/profiler-postgres.sql",
         "packages/dpm/test/fixtures/catalog/profiler-postgres-rows.json"
       ],
