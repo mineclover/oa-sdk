@@ -90,4 +90,37 @@ describe('DPM profile analysis report', () => {
     }))
     expect(report.summary.diagnosticCount).toBe(report.diagnostics.length)
   })
+
+  it('defensively copies profile diagnostics into analysis reports', () => {
+    const profile = createKafkaProfileArtifact()
+    const profileWithDiagnostic = {
+      ...profile,
+      diagnostics: [
+        {
+          severity: 'warning' as const,
+          code: 'PROF390' as const,
+          message: 'Original profile diagnostic.',
+          coordinate: {
+            kind: 'kafka_topic_bundle' as const,
+            path: 'orders.created.value.customer.customer_no',
+          },
+          evidenceIds: ['evidence:kafka:orders.created.value.customer.customer_no'],
+        },
+      ],
+    }
+    const report = createDpmProfileAnalysisReport({ profileArtifact: profileWithDiagnostic })
+
+    profileWithDiagnostic.diagnostics[0]!.message = 'Mutated after analysis.'
+    profileWithDiagnostic.diagnostics[0]!.coordinate!.path = 'mutated.after.analysis'
+    profileWithDiagnostic.diagnostics[0]!.evidenceIds!.push('evidence:kafka:mutated')
+
+    expect(report.diagnostics).toContainEqual(expect.objectContaining({
+      code: 'PROF390',
+      message: 'Original profile diagnostic.',
+      coordinate: expect.objectContaining({
+        path: 'orders.created.value.customer.customer_no',
+      }),
+      evidenceIds: ['evidence:kafka:orders.created.value.customer.customer_no'],
+    }))
+  })
 })

@@ -2,6 +2,7 @@ import type { DpmProfileAnalysisInput } from './analysis-input-types.js'
 import { DPM_PROFILE_ANALYSIS_REPORT_KIND } from './analysis-report-kind.js'
 import type { DpmProfileAnalysisReport } from './analysis-report-types.js'
 import type { DpmProfileAnalysisReportSignals } from './analysis-report-signals.js'
+import { copyDiagnostic } from './artifact-diagnostic-copy.js'
 import { createDpmProfileAnalysisGraphDiagnostics } from './analysis-graph-diagnostics.js'
 import {
   createDpmProfileAnalysisSummary,
@@ -15,7 +16,7 @@ export function createDpmProfileAnalysisStructuralReport(
   const diagnostics = sortDpmProfileAnalysisDiagnostics([
     ...input.profileArtifact.diagnostics,
     ...createDpmProfileAnalysisGraphDiagnostics(input.profileArtifact),
-  ])
+  ].map(copyDiagnostic))
 
   return {
     kind: DPM_PROFILE_ANALYSIS_REPORT_KIND,

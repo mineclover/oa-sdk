@@ -7,6 +7,7 @@ import {
   byConnectorDiagnostic,
   copyDpmProfileConnectorDiagnostic,
 } from './connector-diagnostic-copy.js'
+import { copyDpmProfileArtifact } from './artifact-envelope-copy.js'
 
 export function createDpmProfileConnectorStructuralResult(
   input: DpmProfileConnectorResultInput,
@@ -22,6 +23,6 @@ export function createDpmProfileConnectorStructuralResult(
     capabilities: copyDpmProfileConnectorCapabilities(input.capabilities),
     observedEvidenceKinds: [...input.observedEvidenceKinds].sort(),
     diagnostics: input.diagnostics.map(copyDpmProfileConnectorDiagnostic).sort(byConnectorDiagnostic),
-    ...(input.profileArtifact ? { profileArtifact: input.profileArtifact } : {}),
+    ...(input.profileArtifact ? { profileArtifact: copyDpmProfileArtifact(input.profileArtifact) } : {}),
   }
 }

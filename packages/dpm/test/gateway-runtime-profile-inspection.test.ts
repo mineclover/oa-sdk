@@ -21,4 +21,28 @@ describe('DPM gateway profile inspection runtime adapter', () => {
       JSON.stringify(inspectionSchema.errors, null, 2),
     ).toBe(true)
   })
+
+  it('returns a defensive profile artifact copy for editor inspection', async () => {
+    const runtime = createDpmGatewayRuntime()
+    const profileArtifact = createKafkaProfileArtifact()
+    const response = await runtime.inspectDpmProfile({ profileArtifact })
+    const firstNodeLabel = response.body.result.profileArtifact.nodes[0]?.label
+    const evidenceId = Object.keys(profileArtifact.evidenceSources)[0]!
+    const responseEvidencePath =
+      response.body.result.profileArtifact.evidenceSources[evidenceId]?.coordinate.path
+
+    profileArtifact.nodes[0]!.label = 'mutated after inspection'
+    profileArtifact.evidenceSources[evidenceId]!.coordinate.path = 'mutated.after.inspection'
+    profileArtifact.diagnostics.push({
+      severity: 'warning',
+      code: 'PROF999',
+      message: 'mutated after inspection',
+    })
+
+    expect(response.body.result.profileArtifact.nodes[0]?.label).toBe(firstNodeLabel)
+    expect(
+      response.body.result.profileArtifact.evidenceSources[evidenceId]?.coordinate.path,
+    ).toBe(responseEvidencePath)
+    expect(response.body.result.diagnostics.map(diagnostic => diagnostic.code)).not.toContain('PROF999')
+  })
 })

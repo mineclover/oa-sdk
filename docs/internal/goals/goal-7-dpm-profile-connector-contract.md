@@ -129,6 +129,7 @@ Artifacts:
 - `packages/dpm/src/profile/artifact.ts`
 - `packages/dpm/src/profile/artifact-structural.ts`
 - `packages/dpm/src/profile/artifact-copy.ts`
+- `packages/dpm/src/profile/artifact-envelope-copy.ts`
 - `packages/dpm/src/profile/artifact-source-copy.ts`
 - `packages/dpm/src/profile/artifact-graph-copy.ts`
 - `packages/dpm/src/profile/artifact-diagnostic-copy.ts`
@@ -192,6 +193,8 @@ Implementation notes:
 - `profile-graph-integrity.ts` collects profile source/graph/evidence integrity issues once so
   connector validation and analysis diagnostics map the same artifact facts to their own diagnostic
   families.
+- `artifact-envelope-copy.ts` owns full profile artifact defensive copy so connector and gateway
+  outputs behave as stable snapshots after construction.
 
 ### DPM-24 - Connector Output Contract
 
@@ -259,11 +262,15 @@ Implementation notes:
   barrel, while `connector-hash-input.ts`, `connector-structural-hash.ts`, and
   `connector-source-version-hashes.ts` separately own hash input assembly, deterministic structural
   hashing, and source version hash ordering.
+- Connector run hash helpers canonicalize their inputs through the same structural copy/order path
+  used by connector result normalization.
 - Connector validation checks capability identity, supported source/capture modes, unsupported or
   skipped observed evidence kinds, failed-result diagnostics, completed-result profile artifacts,
   emitted profile artifact schema validity, connector identity mismatch in emitted sources, and
   shared source/graph/evidence reference integrity. Schema-invalid artifacts stop at payload
   diagnostics before graph traversal.
+- Connector normalization defensively copies emitted profile artifacts before attaching them to the
+  result envelope.
 - PostgreSQL catalog profiling and Kafka fixture evidence can both be represented through the same
   connector result contract without changing the existing `CatalogSnapshot` compiler path.
 
@@ -408,6 +415,7 @@ Acceptance:
   and `relationship_hint` target node.
 - Analysis reports surface direct profile source/graph integrity issues as `PROF302` through
   `PROF306` diagnostics.
+- Analysis reports defensively copy profile and graph diagnostics before report freshness hashing.
 - Coverage counts measured node ratio from metrics whose subjects resolve to nodes; edge metrics do
   not inflate node coverage.
 - Risk indicators do not expose raw values.
@@ -424,6 +432,8 @@ Implementation notes:
 - `analysis-report-structural.ts` owns report identity, profile metadata, diagnostic ordering,
   graph integrity diagnostic attachment, signal placement, and summary attachment before freshness is
   added.
+- `analysis-report-structural.ts` defensively copies diagnostics so caller-side profile mutation
+  cannot alter an already-created analysis report.
 - `analysis-graph-diagnostics.ts` maps shared profile integrity issues to analysis diagnostics for
   duplicate source ids, duplicate graph ids, dangling edge node refs, missing metric subjects,
   missing source refs, and missing evidence refs.
@@ -500,6 +510,7 @@ Acceptance:
 - Editor proposals can reference profile coordinates and relationship hints.
 - Proposal payloads cannot overwrite connector evidence directly.
 - Runtime outputs validate against gateway schemas.
+- Profile inspection runtime returns a defensive profile artifact copy for editor consumption.
 
 Verification:
 - `pnpm --filter @oa-sdk/dpm exec vitest run test/gateway.test.ts test/gateway-taxonomy.test.ts test/gateway-schema-validation.test.ts`
@@ -522,6 +533,8 @@ Implementation notes:
   owned by `runtime-profile-inspect.ts`, `runtime-profile-analyze.ts`, and
   `runtime-profile-proposal-review.ts`; these responses validate against the gateway schemas while
   preserving the existing manifest validate/compile/dry-run runtime behavior.
+- Profile inspection runtime returns a copied profile artifact and diagnostics snapshot so later
+  caller-side mutation cannot alter an already-created inspection response.
 
 ## Completion Evidence
 

@@ -3,21 +3,24 @@ import type {
   DpmGatewayProfileInspectionResult,
 } from './runtime-profile-types.js'
 import type { DpmGatewayRuntimeResponse } from './runtime-response-types.js'
+import { copyDpmProfileArtifact } from '../profile/artifact-envelope-copy.js'
 import { createDpmGatewayRuntimeResponse } from './runtime-response.js'
 
 export async function inspectDpmProfileRuntime(
   input: DpmGatewayProfileInspectionInput,
 ): Promise<DpmGatewayRuntimeResponse<DpmGatewayProfileInspectionResult>> {
+  const profileArtifact = copyDpmProfileArtifact(input.profileArtifact)
+
   return createDpmGatewayRuntimeResponse({
     operationId: 'inspectDpmProfile',
     statusCode: 200,
     command: 'inspect-profile',
     result: {
-      profileArtifact: input.profileArtifact,
-      nodeCount: input.profileArtifact.nodes.length,
-      edgeCount: input.profileArtifact.edges.length,
-      metricCount: input.profileArtifact.metrics.length,
-      diagnostics: [...input.profileArtifact.diagnostics],
+      profileArtifact,
+      nodeCount: profileArtifact.nodes.length,
+      edgeCount: profileArtifact.edges.length,
+      metricCount: profileArtifact.metrics.length,
+      diagnostics: profileArtifact.diagnostics,
     },
   })
 }

@@ -4,6 +4,7 @@ export {
   copySourceDescriptor,
   sortEvidenceSources,
 } from './artifact-source-copy.js'
+export { copyDpmProfileArtifact } from './artifact-envelope-copy.js'
 export {
   copyEdge,
   copyMetric,
