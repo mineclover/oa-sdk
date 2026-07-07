@@ -198,7 +198,13 @@ category barrel을 가리킨다. `packages/dpm/test/package-subpath-import-smoke
 | `DpmProfileAnalysisReport` | `dpm/src/profile/analysis-report-types.ts` | coverage, relationship hints, key candidates, drift, risk, diagnostics report |
 | `createDpmProfileAnalysisReport()` | `dpm/src/profile/analysis-report.ts` | profile artifact를 deterministic analysis report로 변환 |
 | `computeDpmProfileAnalysisReportHash()` | `dpm/src/profile/analysis-report-freshness.ts` | profile analysis report hash 계산 |
+| `DpmProfileRelationshipEndpointResolverOptions` | `dpm/src/profile/analysis-relationship-candidate.ts` | profile hint endpoint resolution에서 소비자가 제공하는 child table mapping 옵션 |
+| `DpmProfileRelationshipEndpointResolverInput` | `dpm/src/profile/analysis-relationship-candidate.ts` | profile artifact와 relationship hint를 endpoint resolver에 전달하는 input |
+| `DpmProfileRelationshipEndpointResolution` | `dpm/src/profile/analysis-relationship-candidate.ts` | resolved parent/child discovery endpoints와 resolver warnings |
 | `DpmProfileRelationshipCandidateBridgeInput` | `dpm/src/profile/analysis-relationship-candidate.ts` | reviewer-supplied endpoint mapping input for profile hint to relationship candidate bridge |
+| `DpmProfileResolvedRelationshipCandidateBridgeInput` | `dpm/src/profile/analysis-relationship-candidate.ts` | profile hint endpoint resolver options를 포함한 resolved candidate bridge input |
+| `resolveDpmRelationshipCandidateEndpointsFromProfileHint()` | `dpm/src/profile/analysis-relationship-candidate.ts` | profile relationship hint의 targetRef/source coordinate와 consumer table mapping을 discovery endpoints로 변환 |
+| `createDpmRelationshipCandidateInputFromResolvedProfileHint()` | `dpm/src/profile/analysis-relationship-candidate.ts` | resolved profile hint endpoints를 사용해 import-ready relationship candidate input 생성 |
 | `createDpmRelationshipCandidateInputFromProfileHint()` | `dpm/src/profile/analysis-relationship-candidate.ts` | profile relationship hint proposal을 import-ready relationship candidate input으로 변환 |
 | `DISCOVERY_REPORT_KIND` | `dpm/src/discovery/report.ts` | discovery report kind literal |
 | `DiscoveryEvidenceKind` | `dpm/src/discovery/discovery-taxonomy.ts` | candidate evidence source taxonomy |

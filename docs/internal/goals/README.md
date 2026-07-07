@@ -41,6 +41,7 @@
 | [Goal 35 — DPM Approved Registry Uniqueness Guard](./goal-35-dpm-approved-registry-uniqueness-guard.md) | ✅ | dpm |
 | [Goal 36 — DPM Approved Registry Approval Metadata](./goal-36-dpm-approved-registry-approval-metadata.md) | ✅ | dpm |
 | [Goal 37 — DPM Profile Analysis Policy Provenance](./goal-37-dpm-profile-analysis-policy-provenance.md) | ✅ | dpm |
+| [Goal 38 — DPM Profile Hint Endpoint Resolution](./goal-38-dpm-profile-hint-endpoint-resolution.md) | ✅ | dpm |
 | Phase 3 — OAS 파서/IR | ✅ | parser |
 | Phase 4 — TS 타입 생성 | ✅ | codegen/typegen |
 | Phase 5 — 라우터 스텁 | ✅ | router |

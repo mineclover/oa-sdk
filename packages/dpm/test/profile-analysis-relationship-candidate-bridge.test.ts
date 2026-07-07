@@ -4,6 +4,8 @@ import {
   createDpmGatewayRuntime,
   createDpmProfileAnalysisReport,
   createDpmRelationshipCandidateInputFromProfileHint,
+  createDpmRelationshipCandidateInputFromResolvedProfileHint,
+  resolveDpmRelationshipCandidateEndpointsFromProfileHint,
 } from '../src/index.js'
 import {
   createKafkaProfileArtifact,
@@ -96,6 +98,113 @@ describe('DPM profile relationship candidate bridge', () => {
     })
     expect(JSON.stringify(imported.body.result)).not.toContain('"status":"approved"')
     expect(JSON.stringify(imported.body.result)).not.toContain('registryVersion')
+  })
+
+  it('resolves profile hint target and source coordinates into relationship endpoints', async () => {
+    const profileArtifact = createKafkaProfileArtifact()
+    const report = createDpmProfileAnalysisReport({ profileArtifact })
+    const relationshipHint = report.relationshipHints.find(candidate =>
+      candidate.id === 'proposal:edge:relationship-hint:hint:orders-created-customer'
+    )
+    if (!relationshipHint) throw new Error('expected explicit Kafka relationship hint')
+
+    const resolution = resolveDpmRelationshipCandidateEndpointsFromProfileHint({
+      profileArtifact,
+      relationshipHint,
+      childTableByPathPrefix: {
+        'orders.created': 'public.orders',
+      },
+    })
+    const candidateInput = createDpmRelationshipCandidateInputFromResolvedProfileHint({
+      profileArtifact,
+      relationshipHint,
+      relationshipName: 'rel_orders_customer',
+      childTableByPathPrefix: {
+        'orders.created': 'public.orders',
+      },
+      warnings: ['reviewer-mapped-from-profile'],
+    })
+    const runtime = createDpmGatewayRuntime()
+    const imported = await runtime.importDpmRelationshipCandidates({
+      datasetId: profileArtifact.datasetId,
+      candidates: [candidateInput],
+    })
+
+    expect(resolution).toEqual({
+      parent: {
+        table: 'public.customers',
+        columns: ['customer_no'],
+      },
+      child: {
+        table: 'public.orders',
+        columns: ['customer_no'],
+      },
+      warnings: [],
+    })
+    expect(candidateInput).toMatchObject({
+      relationshipName: 'rel_orders_customer',
+      parent: {
+        table: 'public.customers',
+        columns: ['customer_no'],
+      },
+      child: {
+        table: 'public.orders',
+        columns: ['customer_no'],
+      },
+      warnings: ['reviewer-mapped-from-profile'],
+      evidence: [
+        expect.objectContaining({
+          source: {
+            kind: 'db',
+            entity: 'profile_relationship_hint',
+            id: relationshipHint.id,
+            pointer: '/value/customer/customer_no',
+          },
+          metadata: expect.objectContaining({
+            targetRef: 'catalog://commerce/public.customers.customer_no',
+            sourceCoordinate: expect.objectContaining({
+              kind: 'kafka_topic_bundle',
+              path: 'orders.created.value.customer.customer_no',
+              pointer: '/value/customer/customer_no',
+            }),
+          }),
+        }),
+      ],
+    })
+    expect(imported.body.result.report.candidates).toContainEqual(expect.objectContaining({
+      relationshipName: 'rel_orders_customer',
+      recommendation: 'review',
+      executable: false,
+    }))
+  })
+
+  it('requires explicit target and child table evidence before endpoint resolution', () => {
+    const profileArtifact = createKafkaProfileArtifact()
+    const report = createDpmProfileAnalysisReport({ profileArtifact })
+    const relationshipHint = report.relationshipHints[0]
+    if (!relationshipHint) throw new Error('expected relationship hint')
+    const relationshipHintWithoutTargetRef = { ...relationshipHint }
+    delete relationshipHintWithoutTargetRef.targetRef
+
+    expect(() => resolveDpmRelationshipCandidateEndpointsFromProfileHint({
+      profileArtifact,
+      relationshipHint: relationshipHintWithoutTargetRef,
+      childTable: 'public.orders',
+    })).toThrow(/does not include targetRef/)
+
+    expect(() => resolveDpmRelationshipCandidateEndpointsFromProfileHint({
+      profileArtifact,
+      relationshipHint,
+    })).toThrow(/cannot resolve child table/)
+
+    expect(() => resolveDpmRelationshipCandidateEndpointsFromProfileHint({
+      profileArtifact,
+      relationshipHint: {
+        ...relationshipHint,
+        targetRef: 'https://catalog.example/public.customers.customer_no',
+      },
+      childTable: 'public.orders',
+    })).toThrow(/must use catalog:\/\/\.\.\. or schema\.table\.column/)
   })
 
   it('requires an existing profile source node before creating a relationship candidate', () => {

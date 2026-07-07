@@ -7,14 +7,19 @@ import {
   type CatalogSnapshot,
 } from '@oa-sdk/dpm/catalog'
 import {
+  createDpmRelationshipCandidateInputFromResolvedProfileHint,
   createDpmRelationshipCandidateInputFromProfileHint,
   computeDpmProfileAnalysisPolicyHash,
   DEFAULT_DPM_PROFILE_ANALYSIS_POLICY,
   DPM_PROFILE_ARTIFACT_KIND,
+  resolveDpmRelationshipCandidateEndpointsFromProfileHint,
   resolveDpmProfileAnalysisPolicy,
   type DpmProfileArtifact,
   type DpmProfileAnalysisPolicy,
+  type DpmProfileRelationshipEndpointResolution,
+  type DpmProfileRelationshipEndpointResolverInput,
   type DpmProfileRelationshipCandidateBridgeInput,
+  type DpmProfileResolvedRelationshipCandidateBridgeInput,
 } from '@oa-sdk/dpm/profile'
 import {
   REGISTRY_RELATIONSHIP_STATUSES,
@@ -44,7 +49,10 @@ type DpmSubpathTypeSmoke = {
   catalog?: CatalogSnapshot
   profile?: DpmProfileArtifact
   profileAnalysisPolicy?: DpmProfileAnalysisPolicy
+  profileRelationshipEndpointResolution?: DpmProfileRelationshipEndpointResolution
+  profileRelationshipEndpointResolver?: DpmProfileRelationshipEndpointResolverInput
   profileRelationshipCandidateBridge?: DpmProfileRelationshipCandidateBridgeInput
+  resolvedProfileRelationshipCandidateBridge?: DpmProfileResolvedRelationshipCandidateBridgeInput
   baseline?: DpmProfileBaselineSummary
   registryRelationshipSave?: DpmRegistryRelationshipSaveInput
   approvedRegistryApproval?: ApprovedRegistryApprovalMetadata
@@ -71,8 +79,10 @@ void [
   DPM_PROFILE_BASELINE_SELECTION_STRATEGIES,
   DPM_PUBLISHING_CONTEXT_KIND,
   computeCatalogFreshnessHash,
+  createDpmRelationshipCandidateInputFromResolvedProfileHint,
   createDpmRelationshipCandidateInputFromProfileHint,
   computeDpmProfileAnalysisPolicyHash,
+  resolveDpmRelationshipCandidateEndpointsFromProfileHint,
   resolveDpmProfileAnalysisPolicy,
   createDpmRegistryRelationshipRow,
   typeSmoke,

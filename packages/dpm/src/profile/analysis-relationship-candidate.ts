@@ -5,6 +5,7 @@ import type { RelationshipCandidateInput } from '../discovery/discovery-relation
 import type { DiscoveryRelationshipCandidateType } from '../discovery/discovery-taxonomy.js'
 import type { DpmProfileArtifact } from './profile-artifact-types.js'
 import type { DpmProfileRelationshipHintProposal } from './analysis-relationship-hint-types.js'
+import type { DpmProfileNode } from './profile-graph-types.js'
 import type { DpmProfileCoordinate } from './profile-source-types.js'
 
 export type DpmProfileRelationshipCandidateBridgeInput = {
@@ -19,13 +20,62 @@ export type DpmProfileRelationshipCandidateBridgeInput = {
   warnings?: string[]
 }
 
+export type DpmProfileRelationshipEndpointResolverOptions = {
+  childTable?: string
+  childTableBySourceId?: Record<string, string>
+  childTableByPathPrefix?: Record<string, string>
+}
+
+export type DpmProfileRelationshipEndpointResolverInput = {
+  profileArtifact: DpmProfileArtifact
+  relationshipHint: DpmProfileRelationshipHintProposal
+} & DpmProfileRelationshipEndpointResolverOptions
+
+export type DpmProfileRelationshipEndpointResolution = {
+  parent: RelationshipDiscoveryEndpoint
+  child: RelationshipDiscoveryEndpoint
+  warnings: string[]
+}
+
+export type DpmProfileResolvedRelationshipCandidateBridgeInput =
+  Omit<DpmProfileRelationshipCandidateBridgeInput, 'parent' | 'child'>
+  & DpmProfileRelationshipEndpointResolverOptions
+
+export function resolveDpmRelationshipCandidateEndpointsFromProfileHint(
+  input: DpmProfileRelationshipEndpointResolverInput,
+): DpmProfileRelationshipEndpointResolution {
+  const sourceNode = findRelationshipHintSourceNode(input.profileArtifact, input.relationshipHint)
+  const parent = parseRelationshipHintTargetEndpoint(input.relationshipHint)
+  const childTable = resolveRelationshipHintChildTable(input, sourceNode.coordinate)
+  const childColumn = resolveProfileCoordinateColumn(input.relationshipHint, sourceNode.coordinate)
+
+  return {
+    parent,
+    child: {
+      table: childTable,
+      columns: [childColumn],
+    },
+    warnings: [],
+  }
+}
+
+export function createDpmRelationshipCandidateInputFromResolvedProfileHint(
+  input: DpmProfileResolvedRelationshipCandidateBridgeInput,
+): RelationshipCandidateInput {
+  const resolution = resolveDpmRelationshipCandidateEndpointsFromProfileHint(input)
+
+  return createDpmRelationshipCandidateInputFromProfileHint({
+    ...input,
+    parent: resolution.parent,
+    child: resolution.child,
+    warnings: [...resolution.warnings, ...(input.warnings ?? [])],
+  })
+}
+
 export function createDpmRelationshipCandidateInputFromProfileHint(
   input: DpmProfileRelationshipCandidateBridgeInput,
 ): RelationshipCandidateInput {
-  const sourceNode = input.profileArtifact.nodes.find(node => node.id === input.relationshipHint.fromNodeId)
-  if (!sourceNode) {
-    throw new Error(`Profile relationship hint ${input.relationshipHint.id} references missing source node ${input.relationshipHint.fromNodeId}.`)
-  }
+  const sourceNode = findRelationshipHintSourceNode(input.profileArtifact, input.relationshipHint)
   const hintNode = input.relationshipHint.hintNodeId
     ? input.profileArtifact.nodes.find(node => node.id === input.relationshipHint.hintNodeId)
     : undefined
@@ -61,6 +111,18 @@ export function createDpmRelationshipCandidateInputFromProfileHint(
   }
 }
 
+function findRelationshipHintSourceNode(
+  profileArtifact: DpmProfileArtifact,
+  relationshipHint: DpmProfileRelationshipHintProposal,
+): DpmProfileNode {
+  const sourceNode = profileArtifact.nodes.find(node => node.id === relationshipHint.fromNodeId)
+  if (!sourceNode) {
+    throw new Error(`Profile relationship hint ${relationshipHint.id} references missing source node ${relationshipHint.fromNodeId}.`)
+  }
+
+  return sourceNode
+}
+
 function copyEndpoint(endpoint: RelationshipDiscoveryEndpoint): RelationshipDiscoveryEndpoint {
   return {
     table: endpoint.table,
@@ -88,6 +150,122 @@ function copyProfileCoordinate(coordinate: DpmProfileCoordinate): DpmProfileCoor
     ...(coordinate.pointer ? { pointer: coordinate.pointer } : {}),
     ...(coordinate.externalId ? { externalId: coordinate.externalId } : {}),
   }
+}
+
+function parseRelationshipHintTargetEndpoint(
+  relationshipHint: DpmProfileRelationshipHintProposal,
+): RelationshipDiscoveryEndpoint {
+  const targetRef = relationshipHint.targetRef?.trim()
+  if (!targetRef) {
+    throw new Error(`Profile relationship hint ${relationshipHint.id} does not include targetRef for endpoint resolution.`)
+  }
+
+  const endpointRef = normalizeCatalogTargetEndpointRef(relationshipHint, targetRef)
+  const parts = endpointRef.split('.').filter(part => part.length > 0)
+  if (parts.length < 3) {
+    throw new Error(
+      `Profile relationship hint ${relationshipHint.id} targetRef ${targetRef} must resolve to schema.table.column.`,
+    )
+  }
+  const column = parts.at(-1)
+  const table = parts.slice(0, -1).join('.')
+  if (!column || table.length === 0) {
+    throw new Error(
+      `Profile relationship hint ${relationshipHint.id} targetRef ${targetRef} must resolve to schema.table.column.`,
+    )
+  }
+
+  return {
+    table,
+    columns: [column],
+  }
+}
+
+function normalizeCatalogTargetEndpointRef(
+  relationshipHint: DpmProfileRelationshipHintProposal,
+  targetRef: string,
+): string {
+  try {
+    const url = new URL(targetRef)
+    if (url.protocol !== 'catalog:') {
+      throw new Error(
+        `Profile relationship hint ${relationshipHint.id} targetRef ${targetRef} must use catalog://... or schema.table.column.`,
+      )
+    }
+    const pathRef = decodeURIComponent(url.pathname.replace(/^\/+/, ''))
+    if (pathRef) return pathRef
+  } catch {
+    if (/^[A-Za-z][A-Za-z0-9+.-]*:\/\//.test(targetRef)) {
+      throw new Error(
+        `Profile relationship hint ${relationshipHint.id} targetRef ${targetRef} must use catalog://... or schema.table.column.`,
+      )
+    }
+    return targetRef
+  }
+
+  return targetRef
+}
+
+function resolveRelationshipHintChildTable(
+  input: DpmProfileRelationshipEndpointResolverInput,
+  coordinate: DpmProfileCoordinate,
+): string {
+  if (isNonEmptyString(input.childTable)) return input.childTable
+  if (coordinate.sourceId) {
+    const table = input.childTableBySourceId?.[coordinate.sourceId]
+    if (isNonEmptyString(table)) return table
+  }
+
+  const pathPrefixEntry = Object.entries(input.childTableByPathPrefix ?? {})
+    .filter(([prefix, table]) => isCoordinatePathPrefix(coordinate.path, prefix) && isNonEmptyString(table))
+    .sort(([left], [right]) => right.length - left.length)[0]
+  if (pathPrefixEntry) return pathPrefixEntry[1]
+
+  throw new Error(
+    `Profile relationship hint ${input.relationshipHint.id} cannot resolve child table; `
+    + 'provide childTable, childTableBySourceId, or childTableByPathPrefix.',
+  )
+}
+
+function resolveProfileCoordinateColumn(
+  relationshipHint: DpmProfileRelationshipHintProposal,
+  coordinate: DpmProfileCoordinate,
+): string {
+  const pointerColumn = coordinate.pointer ? lastJsonPointerSegment(coordinate.pointer) : undefined
+  if (pointerColumn) return pointerColumn
+
+  const pathColumn = lastPathSegment(coordinate.path)
+  if (pathColumn) return pathColumn
+
+  throw new Error(
+    `Profile relationship hint ${relationshipHint.id} cannot resolve child column from source coordinate ${coordinate.path}.`,
+  )
+}
+
+function lastJsonPointerSegment(pointer: string): string | undefined {
+  const lastSegment = pointer.split('/').filter(Boolean).at(-1)
+  if (!lastSegment) return undefined
+
+  return lastSegment.replace(/~1/g, '/').replace(/~0/g, '~')
+}
+
+function lastPathSegment(path: string): string | undefined {
+  const lastSegment = path.split('.').filter(Boolean).at(-1)
+  if (!lastSegment) return undefined
+
+  try {
+    return decodeURIComponent(lastSegment)
+  } catch {
+    return lastSegment
+  }
+}
+
+function isCoordinatePathPrefix(path: string, prefix: string): boolean {
+  return path === prefix || path.startsWith(`${prefix}.`)
+}
+
+function isNonEmptyString(value: unknown): value is string {
+  return typeof value === 'string' && value.trim().length > 0
 }
 
 function toIdentifier(value: string): string {

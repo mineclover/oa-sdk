@@ -17,7 +17,11 @@ export type {
   DpmProfileRiskIndicatorKind,
 } from '../profile/analysis-types.js'
 export type {
+  DpmProfileRelationshipEndpointResolution,
+  DpmProfileRelationshipEndpointResolverInput,
+  DpmProfileRelationshipEndpointResolverOptions,
   DpmProfileRelationshipCandidateBridgeInput,
+  DpmProfileResolvedRelationshipCandidateBridgeInput,
 } from '../profile/analysis-relationship-candidate.js'
 export {
   DPM_PROFILE_DRIFT_SIGNAL_KINDS,
@@ -36,7 +40,9 @@ export {
   createDpmProfileAnalysisReport,
 } from '../profile/analysis-report.js'
 export {
+  createDpmRelationshipCandidateInputFromResolvedProfileHint,
   createDpmRelationshipCandidateInputFromProfileHint,
+  resolveDpmRelationshipCandidateEndpointsFromProfileHint,
 } from '../profile/analysis-relationship-candidate.js'
 export {
   computeDpmProfileAnalysisReportHash,
