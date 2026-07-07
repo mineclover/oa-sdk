@@ -55,6 +55,30 @@ create table if not exists dpm.relationship_registry (
   )
 );
 
+create table if not exists dpm.relationship_registry_audit_events (
+  id bigint generated always as identity primary key,
+  event_id text not null,
+  event_type text not null,
+  dataset_id text not null,
+  registry_version text not null,
+  relationship_name text not null,
+  relationship_version text not null,
+  relationship_status text not null,
+  actor text not null,
+  reason text not null,
+  source_freshness_hash text,
+  approval jsonb not null,
+  source jsonb,
+  occurred_at timestamptz not null default now(),
+  created_at timestamptz not null default now(),
+  constraint dpm_relationship_registry_audit_event_type_check check (
+    event_type in ('relationship_approved')
+  ),
+  constraint dpm_relationship_registry_audit_status_check check (
+    relationship_status in ('candidate', 'proposed', 'approved', 'rejected', 'deprecated', 'superseded')
+  )
+);
+
 create unique index if not exists dpm_relationship_registry_identity_idx
   on dpm.relationship_registry (dataset_id, registry_version, relationship_name, relationship_version);
 
@@ -68,3 +92,14 @@ create unique index if not exists dpm_relationship_registry_approved_idx
 create index if not exists dpm_relationship_registry_supersession_idx
   on dpm.relationship_registry (dataset_id, supersedes, superseded_by)
   where supersedes is not null or superseded_by is not null;
+
+create unique index if not exists dpm_relationship_registry_audit_event_id_idx
+  on dpm.relationship_registry_audit_events (event_id);
+
+create index if not exists dpm_relationship_registry_audit_lookup_idx
+  on dpm.relationship_registry_audit_events (
+    dataset_id,
+    registry_version,
+    relationship_name,
+    occurred_at
+  );

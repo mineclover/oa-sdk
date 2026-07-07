@@ -10,6 +10,7 @@ Last updated: 2026-07-07
 
 ## Recently Completed
 
+- [x] Goal 40 / DPM Registry Approval Audit Events (complete)
 - [x] Goal 39 / DPM Profile Hint Approval Workflow (complete)
 - [x] Goal 38 / DPM Profile Hint Endpoint Resolution (complete)
 - [x] Goal 37 / DPM Profile Analysis Policy Provenance (complete)
@@ -88,6 +89,7 @@ Last updated: 2026-07-07
 - [x] Goal 37 - DPM Profile Analysis Policy Provenance
 - [x] Goal 38 - DPM Profile Hint Endpoint Resolution
 - [x] Goal 39 - DPM Profile Hint Approval Workflow
+- [x] Goal 40 - DPM Registry Approval Audit Events
 
 ## Goal 4 DPM Units
 
@@ -257,6 +259,10 @@ Last updated: 2026-07-07
 ## Goal 39 DPM Units
 
 - [x] DPM-59 - Profile Hint Approval Workflow
+
+## Goal 40 DPM Units
+
+- [x] DPM-60 - Registry Approval Audit Events
 
 ## Done Criteria
 

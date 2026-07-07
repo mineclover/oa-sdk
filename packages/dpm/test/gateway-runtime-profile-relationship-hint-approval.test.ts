@@ -4,6 +4,7 @@ import {
   createDpmGatewayRuntime,
   createDpmProfileAnalysisReport,
   createDpmRegistryRepository,
+  type DpmRegistryRelationshipAuditEventRow,
   type DpmRegistryRelationshipRow,
 } from '../src/index.js'
 import {
@@ -20,8 +21,12 @@ describe('DPM gateway profile relationship hint approval workflow', () => {
     )
     if (!relationshipHint) throw new Error('expected explicit Kafka relationship hint')
     const registryRows: DpmRegistryRelationshipRow[] = []
+    const auditEvents: DpmRegistryRelationshipAuditEventRow[] = []
     const upsertRelationshipRow = vi.fn((row: DpmRegistryRelationshipRow) => {
       registryRows.push(row)
+    })
+    const appendRelationshipAuditEvent = vi.fn((row: DpmRegistryRelationshipAuditEventRow) => {
+      auditEvents.push(row)
     })
     const listRelationshipRows = vi.fn(request =>
       registryRows.filter(row =>
@@ -30,6 +35,7 @@ describe('DPM gateway profile relationship hint approval workflow', () => {
     )
     const registryRepository = createDpmRegistryRepository({
       upsertRelationshipRow,
+      appendRelationshipAuditEvent,
       listRelationshipRows,
     })
 
@@ -102,6 +108,15 @@ describe('DPM gateway profile relationship hint approval workflow', () => {
       }),
     ])
     expect(upsertRelationshipRow).toHaveBeenCalledOnce()
+    expect(appendRelationshipAuditEvent).toHaveBeenCalledWith(expect.objectContaining({
+      eventType: 'relationship_approved',
+      relationshipName: 'rel_orders_customer',
+      relationshipStatus: 'approved',
+      actor: 'dpm-reviewer@example.com',
+      reason: 'Kafka profile hint was mapped to a customer relationship for pseudonymized analytics.',
+      sourceFreshnessHash: analysisReport.freshness.reportHash,
+    }))
+    expect(auditEvents).toHaveLength(1)
     expect(listRelationshipRows).toHaveBeenCalledWith({
       datasetId: profileArtifact.datasetId,
       registryVersion: 'registry-profile-workflow-v1',

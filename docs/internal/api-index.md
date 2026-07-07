@@ -252,18 +252,24 @@ category barrel을 가리킨다. `packages/dpm/test/package-subpath-import-smoke
 | `isExecutableRegistryRelationship()` | `dpm/src/registry/registry-executable.ts` | registry status 실행 가능성 판별 |
 | `DPM_REGISTRY_STORAGE_SCHEMA_VERSION` | `dpm/src/storage/registry-schema-sql.ts` | registry storage SQL compatibility/version marker |
 | `DPM_REGISTRY_STORAGE_SCHEMA_SQL` | `dpm/src/storage/registry-schema-sql.ts` | Postgres canonical relationship registry schema SQL |
+| `DPM_REGISTRY_RELATIONSHIP_AUDIT_EVENT_TYPES` | `dpm/src/storage/registry-audit-row-types.ts` | registry relationship audit event taxonomy |
 | `DpmRegistrySnapshotExportRequest` | `dpm/src/storage/registry-repository-types.ts` | storage-backed registry snapshot export request |
 | `DpmRegistryRelationshipRowRequest` | `dpm/src/storage/registry-repository-types.ts` | storage reader dataset/version row request |
+| `DpmRegistryRelationshipAuditEventRequest` | `dpm/src/storage/registry-repository-types.ts` | storage reader request for registry relationship audit events |
 | `DpmRegistryRelationshipSaveInput` | `dpm/src/storage/registry-repository-types.ts` | approved relationship payload to registry storage row save input |
+| `DpmRegistryRelationshipAuditEventRow` | `dpm/src/storage/registry-repository-types.ts` | append-only relationship approval audit event row |
+| `DpmRegistryRelationshipAuditEventType` | `dpm/src/storage/registry-repository-types.ts` | relationship audit event type union |
 | `DpmRegistryRelationshipRow` | `dpm/src/storage/registry-repository-types.ts` | canonical storage row shape for relationship registry records |
 | `DpmRegistryRowsToSnapshotInput` | `dpm/src/storage/registry-repository-types.ts` | row-to-snapshot export input |
 | `DpmRegistryStorageReader` | `dpm/src/storage/registry-repository-types.ts` | repository adapter boundary for listing registry rows |
-| `DpmRegistryStorage` | `dpm/src/storage/registry-repository-types.ts` | writable registry storage adapter boundary for upserting and listing registry rows |
+| `DpmRegistryStorage` | `dpm/src/storage/registry-repository-types.ts` | writable registry storage adapter boundary for upserting rows and optionally appending/listing audit events |
 | `DpmRegistryRepository` | `dpm/src/storage/registry-repository-types.ts` | storage-backed snapshot export repository |
-| `DpmRegistryWritableRepository` | `dpm/src/storage/registry-repository-types.ts` | registry repository with saveRelationship persistence bridge |
-| `createDpmRegistryRepository()` | `dpm/src/storage/registry-repository.ts` | row reader를 registry snapshot export repository로 감싸고, writer adapter에는 relationship save bridge를 제공한다 |
+| `DpmRegistryWritableRepository` | `dpm/src/storage/registry-repository-types.ts` | registry repository with saveRelationship persistence bridge and optional audit event listing |
+| `createDpmRegistryRepository()` | `dpm/src/storage/registry-repository.ts` | row reader를 registry snapshot export repository로 감싸고, writer adapter에는 relationship save bridge와 optional audit append bridge를 제공한다 |
 | `createDpmRegistryRelationshipRow()` | `dpm/src/storage/registry-row-relationship.ts` | registry relationship payload를 canonical registry storage row로 변환 |
 | `copyDpmRegistryRelationshipRow()` | `dpm/src/storage/registry-row-relationship.ts` | registry storage row adapter boundary defensive copy helper |
+| `createDpmRegistryRelationshipAuditEventRow()` | `dpm/src/storage/registry-audit-event.ts` | approved registry relationship row를 append-only approval audit event row로 변환 |
+| `copyDpmRegistryRelationshipAuditEventRow()` | `dpm/src/storage/registry-audit-event.ts` | registry audit event adapter boundary defensive copy helper |
 | `registryRowsToSnapshot()` | `dpm/src/storage/registry-row-mapper.ts` | storage rows를 기존 `RegistrySnapshot` contract로 변환 |
 | `CanonicalKeyValue` | `dpm/src/model/canonical-key.ts` | canonical key value primitive |
 | `CanonicalKeyValueMap` | `dpm/src/model/canonical-key.ts` | canonical key column value map |

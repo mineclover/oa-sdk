@@ -3,6 +3,8 @@ import { describe, expect, it, vi } from 'vitest'
 import {
   createDpmRegistryRepository,
   createDpmRegistryRelationshipRow,
+  DPM_REGISTRY_RELATIONSHIP_AUDIT_EVENT_TYPES,
+  type DpmRegistryRelationshipAuditEventRow,
   type DpmRegistryRelationshipRow,
   type ApprovedRegistryRelationshipInput,
   type DpmRegistryRelationshipSaveInput,
@@ -157,6 +159,122 @@ describe('DPM registry storage repository', () => {
     ])
   })
 
+  it('appends approved relationship audit events when the storage adapter supports them', async () => {
+    const rows: DpmRegistryRelationshipRow[] = []
+    const auditEvents: DpmRegistryRelationshipAuditEventRow[] = []
+    const upsertRelationshipRow = vi.fn((row: DpmRegistryRelationshipRow) => {
+      rows.push(row)
+    })
+    const appendRelationshipAuditEvent = vi.fn((row: DpmRegistryRelationshipAuditEventRow) => {
+      auditEvents.push(row)
+    })
+    const repository = createDpmRegistryRepository({
+      upsertRelationshipRow,
+      appendRelationshipAuditEvent,
+      listRelationshipRows: request =>
+        rows.filter(row =>
+          row.datasetId === request.datasetId && row.registryVersion === request.registryVersion,
+        ),
+      listRelationshipAuditEvents: request =>
+        auditEvents.filter(row =>
+          row.datasetId === request.datasetId
+          && row.registryVersion === request.registryVersion
+          && (!request.relationshipName || row.relationshipName === request.relationshipName),
+        ),
+    })
+    const relationship: ApprovedRegistryRelationshipInput = {
+      name: 'rel_orders_customer',
+      version: '2',
+      status: 'approved',
+      type: 'many_to_one',
+      parent: {
+        table: 'public.customers',
+        columns: ['customer_no'],
+      },
+      child: {
+        table: 'public.orders',
+        columns: ['customer_no'],
+      },
+      namespace: 'customer',
+      transformStrategy: 'relationship_token',
+      orphanPolicy: 'block',
+      confidenceScore: 0.98,
+      evidence: [
+        {
+          kind: 'service_code_hint',
+          message: 'Profile reviewer mapped orders.customer_no to customers.customer_no.',
+          score: 0.98,
+        },
+      ],
+      approval: {
+        owner: 'privacy-platform',
+        approvedBy: 'privacy-reviewer',
+        approvedAt: STORAGE_REGISTRY_EXPORTED_AT,
+        reason: 'Relationship is required for customer-scoped pseudonymization.',
+      },
+      source: {
+        kind: 'db',
+        entity: 'profile_relationship_hint',
+        id: 'proposal:orders-customer',
+        pointer: '/relationshipHints/orders-customer',
+      },
+    }
+
+    const saved = await repository.saveRelationship({
+      datasetId: STORAGE_REGISTRY_DATASET_ID,
+      registryVersion: STORAGE_REGISTRY_VERSION,
+      relationship,
+      auditEventId: 'audit:rel-orders-customer-approved',
+      sourceFreshnessHash: 'sha256:profile-analysis-v2',
+      createdAt: STORAGE_REGISTRY_EXPORTED_AT,
+      updatedAt: STORAGE_REGISTRY_EXPORTED_AT,
+    })
+    const appended = auditEvents[0]
+    if (!appended) throw new Error('expected appended relationship audit event')
+
+    saved.approval.reason = 'mutated saved row'
+    relationship.approval.reason = 'mutated relationship payload'
+    const listed = await repository.listRelationshipAuditEvents?.({
+      datasetId: STORAGE_REGISTRY_DATASET_ID,
+      registryVersion: STORAGE_REGISTRY_VERSION,
+      relationshipName: 'rel_orders_customer',
+    })
+    const listedEvent = listed?.[0]
+    if (!listedEvent) throw new Error('expected listed relationship audit event')
+    listedEvent.approval.reason = 'mutated listed event'
+
+    expect(DPM_REGISTRY_RELATIONSHIP_AUDIT_EVENT_TYPES).toEqual(['relationship_approved'])
+    expect(appendRelationshipAuditEvent).toHaveBeenCalledWith(expect.objectContaining({
+      eventId: 'audit:rel-orders-customer-approved',
+      eventType: 'relationship_approved',
+      datasetId: STORAGE_REGISTRY_DATASET_ID,
+      registryVersion: STORAGE_REGISTRY_VERSION,
+      relationshipName: 'rel_orders_customer',
+      relationshipVersion: '2',
+      relationshipStatus: 'approved',
+      actor: 'privacy-reviewer',
+      reason: 'Relationship is required for customer-scoped pseudonymization.',
+      occurredAt: STORAGE_REGISTRY_EXPORTED_AT,
+      sourceFreshnessHash: 'sha256:profile-analysis-v2',
+    }))
+    expect(appended).not.toBe(listedEvent)
+    expect(appended.approval.reason).toBe('Relationship is required for customer-scoped pseudonymization.')
+    expect(listedEvent).toMatchObject({
+      approval: {
+        owner: 'privacy-platform',
+        approvedBy: 'privacy-reviewer',
+        approvedAt: STORAGE_REGISTRY_EXPORTED_AT,
+        reason: 'mutated listed event',
+      },
+      source: {
+        kind: 'db',
+        entity: 'profile_relationship_hint',
+        id: 'proposal:orders-customer',
+        pointer: '/relationshipHints/orders-customer',
+      },
+    })
+  })
+
   it('rejects non-approved relationship payloads at the save boundary', async () => {
     const repository = createDpmRegistryRepository({
       upsertRelationshipRow: vi.fn(),
@@ -243,9 +361,11 @@ describe('DPM registry storage repository', () => {
 
   it('rejects another approved version for the same relationship name before adapter mutation', async () => {
     const upsertRelationshipRow = vi.fn()
+    const appendRelationshipAuditEvent = vi.fn()
     const listRelationshipRows = vi.fn(() => storageRegistryRows)
     const repository = createDpmRegistryRepository({
       upsertRelationshipRow,
+      appendRelationshipAuditEvent,
       listRelationshipRows,
     })
     const relationship: ApprovedRegistryRelationshipInput = {
@@ -286,5 +406,6 @@ describe('DPM registry storage repository', () => {
       registryVersion: STORAGE_REGISTRY_VERSION,
     })
     expect(upsertRelationshipRow).not.toHaveBeenCalled()
+    expect(appendRelationshipAuditEvent).not.toHaveBeenCalled()
   })
 })

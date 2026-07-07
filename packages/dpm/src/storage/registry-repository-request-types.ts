@@ -11,10 +11,19 @@ export type DpmRegistryRelationshipRowRequest = {
   registryVersion: string
 }
 
+export type DpmRegistryRelationshipAuditEventRequest = {
+  datasetId: string
+  registryVersion: string
+  relationshipName?: string
+}
+
 export type DpmRegistryRelationshipSaveInput = {
   datasetId: string
   registryVersion: string
   relationship: ApprovedRegistryRelationshipInput
+  auditEventId?: string
+  auditOccurredAt?: string
+  auditCreatedAt?: string
   sourceFreshnessHash?: string
   createdAt?: string
   updatedAt?: string

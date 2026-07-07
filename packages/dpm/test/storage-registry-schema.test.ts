@@ -17,6 +17,7 @@ describe('DPM registry storage schema', () => {
     expect(sql).toBe(fixtureSql)
     expect(sql).toContain('create schema if not exists dpm')
     expect(sql).toContain('create table if not exists dpm.relationship_registry')
+    expect(sql).toContain('create table if not exists dpm.relationship_registry_audit_events')
     expect(sql).toContain('id bigint generated always as identity primary key')
     expect(sql).toContain('dataset_id text not null')
     expect(sql).toContain('registry_version text not null')
@@ -32,6 +33,10 @@ describe('DPM registry storage schema', () => {
     expect(sql).toContain('on dpm.relationship_registry (dataset_id, registry_version, relationship_name, relationship_version)')
     expect(sql).toContain('create unique index if not exists dpm_relationship_registry_approved_idx')
     expect(sql).toContain("where status = 'approved'")
+    expect(sql).toContain('constraint dpm_relationship_registry_audit_event_type_check check')
+    expect(sql).toContain("event_type in ('relationship_approved')")
+    expect(sql).toContain('create unique index if not exists dpm_relationship_registry_audit_event_id_idx')
+    expect(sql).toContain('create index if not exists dpm_relationship_registry_audit_lookup_idx')
   })
 })
 

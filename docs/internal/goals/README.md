@@ -43,6 +43,7 @@
 | [Goal 37 — DPM Profile Analysis Policy Provenance](./goal-37-dpm-profile-analysis-policy-provenance.md) | ✅ | dpm |
 | [Goal 38 — DPM Profile Hint Endpoint Resolution](./goal-38-dpm-profile-hint-endpoint-resolution.md) | ✅ | dpm |
 | [Goal 39 — DPM Profile Hint Approval Workflow](./goal-39-dpm-profile-hint-approval-workflow.md) | ✅ | dpm |
+| [Goal 40 — DPM Registry Approval Audit Events](./goal-40-dpm-registry-approval-audit-events.md) | ✅ | dpm |
 | Phase 3 — OAS 파서/IR | ✅ | parser |
 | Phase 4 — TS 타입 생성 | ✅ | codegen/typegen |
 | Phase 5 — 라우터 스텁 | ✅ | router |

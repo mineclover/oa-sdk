@@ -1,4 +1,7 @@
 export type {
+  DpmRegistryRelationshipAuditEventRequest,
+  DpmRegistryRelationshipAuditEventRow,
+  DpmRegistryRelationshipAuditEventType,
   DpmRegistryRelationshipRow,
   DpmRegistryRelationshipRowRequest,
   DpmRegistryRelationshipSaveInput,
@@ -14,7 +17,10 @@ export {
   DPM_REGISTRY_STORAGE_SCHEMA_VERSION,
 } from '../storage/registry-schema.js'
 export {
+  DPM_REGISTRY_RELATIONSHIP_AUDIT_EVENT_TYPES,
+  copyDpmRegistryRelationshipAuditEventRow,
   createDpmRegistryRepository,
+  createDpmRegistryRelationshipAuditEventRow,
   createDpmRegistryRelationshipRow,
   copyDpmRegistryRelationshipRow,
   registryRowsToSnapshot,

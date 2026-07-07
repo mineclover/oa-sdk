@@ -5,6 +5,10 @@ import type {
   DpmRegistryStorageReader,
   DpmRegistryWritableRepository,
 } from './registry-repository-types.js'
+import {
+  copyDpmRegistryRelationshipAuditEventRow,
+  createDpmRegistryRelationshipAuditEventRow,
+} from './registry-audit-event.js'
 import { registryRowsToSnapshot } from './registry-row-mapper.js'
 import {
   copyDpmRegistryRelationshipRow,
@@ -12,6 +16,9 @@ import {
 } from './registry-row-relationship.js'
 
 export type {
+  DpmRegistryRelationshipAuditEventRequest,
+  DpmRegistryRelationshipAuditEventRow,
+  DpmRegistryRelationshipAuditEventType,
   DpmRegistryRelationshipRow,
   DpmRegistryRelationshipSaveInput,
   DpmRegistryRelationshipRowRequest,
@@ -22,6 +29,14 @@ export type {
   DpmRegistryStorageReader,
   DpmRegistryWritableRepository,
 } from './registry-repository-types.js'
+export {
+  DPM_REGISTRY_RELATIONSHIP_AUDIT_EVENT_TYPES,
+} from './registry-audit-row-types.js'
+export {
+  copyDpmRegistryRelationshipAuditEventRow,
+  createDpmRegistryRelationshipAuditEventRow,
+  type DpmRegistryRelationshipAuditEventInput,
+} from './registry-audit-event.js'
 export { registryRowsToSnapshot } from './registry-row-mapper.js'
 export {
   copyDpmRegistryRelationshipRow,
@@ -51,7 +66,7 @@ export function createDpmRegistryRepository(
     return repository
   }
 
-  return {
+  const writableRepository: DpmRegistryWritableRepository = {
     ...repository,
     async saveRelationship(input: DpmRegistryRelationshipSaveInput) {
       const row = createDpmRegistryRelationshipRow(input)
@@ -61,9 +76,26 @@ export function createDpmRegistryRepository(
       })
       assertNoConflictingApprovedRegistryRelationshipRow(row, existingRows)
       await reader.upsertRelationshipRow(copyDpmRegistryRelationshipRow(row))
+      if (reader.appendRelationshipAuditEvent) {
+        const auditEvent = createDpmRegistryRelationshipAuditEventRow({
+          relationshipRow: row,
+          ...(input.auditEventId ? { eventId: input.auditEventId } : {}),
+          ...(input.auditOccurredAt ? { occurredAt: input.auditOccurredAt } : {}),
+          ...(input.auditCreatedAt ? { createdAt: input.auditCreatedAt } : {}),
+        })
+        await reader.appendRelationshipAuditEvent(copyDpmRegistryRelationshipAuditEventRow(auditEvent))
+      }
       return row
     },
   }
+  if (reader.listRelationshipAuditEvents) {
+    writableRepository.listRelationshipAuditEvents = async request => {
+      const events = await reader.listRelationshipAuditEvents?.(request)
+      return [...(events ?? [])].map(copyDpmRegistryRelationshipAuditEventRow)
+    }
+  }
+
+  return writableRepository
 }
 
 function isDpmRegistryStorage(reader: DpmRegistryStorageReader): reader is DpmRegistryStorage {
