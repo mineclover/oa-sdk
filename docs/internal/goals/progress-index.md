@@ -10,6 +10,7 @@ Last updated: 2026-07-07
 
 ## Recently Completed
 
+- [x] Goal 30 / DPM Relationship Workflow Consumer Smoke (complete)
 - [x] Goal 29 / DPM Candidate Import Review Report Runtime (complete)
 - [x] Goal 28 / DPM Registry Snapshot Export Runtime Adapter (complete)
 - [x] Goal 27 / DPM Relationship Approval Runtime Adapter (complete)
@@ -68,6 +69,7 @@ Last updated: 2026-07-07
 - [x] Goal 27 - DPM Relationship Approval Runtime Adapter
 - [x] Goal 28 - DPM Registry Snapshot Export Runtime Adapter
 - [x] Goal 29 - DPM Candidate Import Review Report Runtime
+- [x] Goal 30 - DPM Relationship Workflow Consumer Smoke
 
 ## Goal 4 DPM Units
 
@@ -197,6 +199,10 @@ Last updated: 2026-07-07
 ## Goal 29 DPM Units
 
 - [x] DPM-49 - Candidate Import Review Report Runtime
+
+## Goal 30 DPM Units
+
+- [x] DPM-50 - Relationship Workflow Consumer Smoke
 
 ## Done Criteria
 

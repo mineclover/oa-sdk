@@ -655,7 +655,7 @@
       "name": "DPM gateway runtime",
       "category": "dpm",
       "package": "@oa-sdk/dpm",
-      "description": "Profile inspection, profile analysis, profile baseline summary listing, profile proposal review, relationship discovery/import/approval/export, validate, compile, and dry-run gateway runtime handlers with machine-readable bodies and no source access.",
+      "description": "Profile inspection, profile analysis, profile baseline summary listing, profile proposal review, relationship discovery/import/approval/export, relationship workflow OpenAPI-to-runtime-to-compile consumer smoke, validate, compile, and dry-run gateway runtime handlers with machine-readable bodies and no source access.",
       "capabilities": [
         "runtime profile inspection handler",
         "runtime profile analysis handler",
@@ -671,6 +671,7 @@
         "runtime relationship candidate import report handler",
         "runtime relationship approval payload handler",
         "runtime registry snapshot export handler",
+        "relationship workflow consumer compile-ready registry smoke",
         "runtime validate handler",
         "runtime compile handler",
         "runtime dry-run handler",

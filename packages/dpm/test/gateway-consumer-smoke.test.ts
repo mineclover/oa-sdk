@@ -3,14 +3,19 @@ import { describe, expect, it, vi } from 'vitest'
 import {
   createDpmProfileBaselineRow,
   createDpmGatewayRuntime,
+  createRegistrySnapshot,
   getDpmGatewayOpenApiDocument,
   resolveDpmGatewayManifestRuntimeInput,
+  resolveDpmGatewayRelationshipDiscoveryRuntimeInput,
   summarizeDpmProfileBaselineRow,
+  type DpmGatewayRelationshipDiscoveryRequest,
   type DpmGatewayRuntime,
   type DpmGatewayRuntimeManifestInput,
   type DpmGatewayRuntimeOperationId,
   type DpmGatewayRuntimeResponse,
   type DpmGatewayManifestRequest,
+  type RelationshipCandidate,
+  type RelationshipCandidateInput,
 } from '../src/index.js'
 import { compileGatewayComponentSchema } from './support/gateway-schema.js'
 import { createRuntimeInput } from './support/gateway-runtime-manifest-fixtures.js'
@@ -115,6 +120,211 @@ describe('DPM gateway consumer smoke', () => {
     expect(JSON.stringify(dryRun.body.result)).not.toContain('C-001')
   })
 
+  it('routes the documented relationship workflow into a compile-ready registry snapshot', async () => {
+    const document = getDpmGatewayOpenApiDocument()
+    const runtime = createDpmGatewayRuntime()
+    const loadedInput = createRuntimeInput()
+    const discoveryOperation = document.paths['/dpm/relationships/discover'].post
+    const discoveryRequestSchemaName = extractRequestSchemaName(discoveryOperation)
+    const discoveryResponseSchemaName = extractResponseSchemaName(discoveryOperation)
+    const discoveryRequest = createRelationshipDiscoveryRequest(loadedInput)
+    const discoveryRequestSchema = compileGatewayComponentSchema(discoveryRequestSchemaName)
+    const discoveryResponseSchema = compileGatewayComponentSchema(discoveryResponseSchemaName)
+    const discoveryInput = await resolveDpmGatewayRelationshipDiscoveryRuntimeInput({
+      request: discoveryRequest,
+      resolver: createRelationshipDiscoverySnapshotResolver(loadedInput),
+    })
+
+    const discovery = await runtime.discoverDpmRelationships(discoveryInput)
+    const discoveryCandidate = discovery.body.result.candidates[0]
+    if (!discoveryCandidate) throw new Error('expected a discovered relationship candidate')
+
+    expect(discoveryOperation.operationId).toBe('discoverDpmRelationships')
+    expect(discoveryRequestSchemaName).toBe('DpmRelationshipDiscoveryRequest')
+    expect(discoveryResponseSchemaName).toBe('DpmRelationshipDiscoveryReport')
+    expect(discoveryRequestSchema(discoveryRequest), JSON.stringify(discoveryRequestSchema.errors, null, 2)).toBe(true)
+    expect(discovery.operationId).toBe('discoverDpmRelationships')
+    expect(discovery.statusCode).toBe(200)
+    expect(discovery.body.command).toBe('discover-relationships')
+    expect(
+      discoveryResponseSchema(discovery.body.result),
+      JSON.stringify(discoveryResponseSchema.errors, null, 2),
+    ).toBe(true)
+    expect(discoveryCandidate).toMatchObject({
+      executable: false,
+      recommendation: 'review',
+      relationshipName: 'rel_orders_customer_no',
+    })
+
+    const importOperation = document.paths['/dpm/relationships/candidates/import'].post
+    const importRequestSchemaName = extractRequestSchemaName(importOperation)
+    const importResponseSchemaName = extractResponseSchemaName(importOperation)
+    const importRequest = {
+      datasetId: discovery.body.result.datasetId,
+      ...(discovery.body.result.generatedAt ? { generatedAt: discovery.body.result.generatedAt } : {}),
+      thresholds: discovery.body.result.thresholds,
+      candidates: discovery.body.result.candidates.map(toRelationshipCandidateInput),
+      exclusions: discovery.body.result.exclusions,
+    }
+    const importRequestSchema = compileGatewayComponentSchema(importRequestSchemaName)
+    const importResponseSchema = compileGatewayComponentSchema(importResponseSchemaName)
+    const imported = await runtime.importDpmRelationshipCandidates(importRequest)
+    const reviewCandidate = imported.body.result.report.candidates[0]
+    if (!reviewCandidate) throw new Error('expected an imported review candidate')
+
+    expect(importOperation.operationId).toBe('importDpmRelationshipCandidates')
+    expect(importRequestSchemaName).toBe('DpmCandidateImportRequest')
+    expect(importResponseSchemaName).toBe('DpmCandidateImportResponse')
+    expect(importRequestSchema(importRequest), JSON.stringify(importRequestSchema.errors, null, 2)).toBe(true)
+    expect(imported.operationId).toBe('importDpmRelationshipCandidates')
+    expect(imported.statusCode).toBe(200)
+    expect(imported.body.command).toBe('import-relationship-candidates')
+    expect(
+      importResponseSchema(imported.body.result),
+      JSON.stringify(importResponseSchema.errors, null, 2),
+    ).toBe(true)
+    expect(imported.body.result).toMatchObject({
+      imported: 1,
+      rejected: 0,
+      report: {
+        datasetId: 'commerce_ai',
+        summary: {
+          reviewCount: 1,
+          rejectCount: 0,
+        },
+      },
+    })
+
+    const approvalOperation = document.paths['/dpm/relationships/{relationshipName}/approve'].post
+    const approvalRequestSchemaName = extractRequestSchemaName(approvalOperation)
+    const approvalResponseSchemaName = extractResponseSchemaName(approvalOperation)
+    const approvalRequest = {
+      candidate: reviewCandidate,
+      version: '1',
+      namespace: 'customer',
+      transformStrategy: 'entity_token',
+      orphanPolicy: 'block',
+      owner: 'privacy-platform',
+      approvedBy: 'privacy-reviewer',
+      reason: 'Customer relationship is required for AI analytics joins.',
+      approvedAt: '2026-07-07T00:00:00.000Z',
+    } as const
+    const approvalRequestSchema = compileGatewayComponentSchema(approvalRequestSchemaName)
+    const approvalResponseSchema = compileGatewayComponentSchema(approvalResponseSchemaName)
+    const approval = await runtime.approveDpmRelationshipCandidate({
+      relationshipName: 'rel_orders_customer',
+      ...approvalRequest,
+    })
+
+    expect(approvalOperation.operationId).toBe('approveDpmRelationshipCandidate')
+    expect(approvalRequestSchemaName).toBe('DpmRelationshipApprovalRequest')
+    expect(approvalResponseSchemaName).toBe('DpmRelationshipApprovalResponse')
+    expect(approvalRequestSchema(approvalRequest), JSON.stringify(approvalRequestSchema.errors, null, 2)).toBe(true)
+    expect(approval.operationId).toBe('approveDpmRelationshipCandidate')
+    expect(approval.statusCode).toBe(200)
+    expect(approval.body.command).toBe('approve-relationship-candidate')
+    expect(
+      approvalResponseSchema(approval.body.result),
+      JSON.stringify(approvalResponseSchema.errors, null, 2),
+    ).toBe(true)
+    expect(approval.body.result).toMatchObject({
+      relationshipName: 'rel_orders_customer',
+      status: 'approved',
+      relationship: {
+        name: 'rel_orders_customer',
+        parent: reviewCandidate.parent,
+        child: reviewCandidate.child,
+      },
+    })
+
+    const registrySnapshot = createRegistrySnapshot({
+      datasetId: discovery.body.result.datasetId,
+      registryVersion: loadedInput.registry.registryVersion,
+      exportedAt: '2026-07-07T00:05:00.000Z',
+      relationships: [approval.body.result.relationship],
+    })
+    const registryOperation = document.paths['/dpm/registry/snapshots/{datasetId}/{registryVersion}'].get
+    const registryResponseSchemaName = extractResponseSchemaName(registryOperation)
+    const registryResponseSchema = compileGatewayComponentSchema(registryResponseSchemaName)
+    const exportSnapshot = vi.fn(async request => {
+      expect(request).toEqual({
+        datasetId: 'commerce_ai',
+        registryVersion: loadedInput.registry.registryVersion,
+      })
+      return registrySnapshot
+    })
+    const exportedRegistry = await runtime.exportDpmRegistrySnapshot({
+      datasetId: 'commerce_ai',
+      registryVersion: loadedInput.registry.registryVersion,
+      registryRepository: {
+        exportSnapshot,
+      },
+    })
+
+    expect(registryOperation.operationId).toBe('exportDpmRegistrySnapshot')
+    expect(registryResponseSchemaName).toBe('DpmRegistrySnapshotResponse')
+    expect(exportedRegistry.operationId).toBe('exportDpmRegistrySnapshot')
+    expect(exportedRegistry.statusCode).toBe(200)
+    expect(exportedRegistry.body.command).toBe('export-registry-snapshot')
+    expect(
+      registryResponseSchema(exportedRegistry.body.result),
+      JSON.stringify(registryResponseSchema.errors, null, 2),
+    ).toBe(true)
+    expect(exportedRegistry.body.result.approvedRelationships).toEqual([
+      expect.objectContaining({
+        name: 'rel_orders_customer',
+        executable: true,
+      }),
+    ])
+    expect(exportSnapshot).toHaveBeenCalledOnce()
+
+    const compileInputSource: DpmGatewayRuntimeManifestInput = {
+      ...loadedInput,
+      registry: exportedRegistry.body.result,
+    }
+    const compileOperation = document.paths['/dpm/manifests/compile'].post
+    const compileResponseSchemaName = extractResponseSchemaName(compileOperation)
+    const compileResponseSchema = compileGatewayComponentSchema(compileResponseSchemaName)
+    const compileInput = await resolveDpmGatewayManifestRuntimeInput({
+      request: createManifestRequest(compileInputSource),
+      resolver: createManifestSnapshotResolver(compileInputSource),
+    })
+    const compile = await runtime.compileDpmManifest(compileInput)
+
+    expect(compileOperation.operationId).toBe('compileDpmManifest')
+    expect(compile.operationId).toBe('compileDpmManifest')
+    expect(compile.statusCode).toBe(200)
+    expect(compile.body.command).toBe('compile')
+    expect(
+      compileResponseSchema(compile.body.result),
+      JSON.stringify(compileResponseSchema.errors, null, 2),
+    ).toBe(true)
+    expect(compile.body.result.ok).toBe(true)
+    if (!compile.body.result.ok) throw new Error('expected compile success from relationship workflow registry')
+    expect(compile.body.result.plan.relationshipSteps).toEqual([
+      expect.objectContaining({
+        name: 'rel_orders_customer',
+        registryStatus: 'approved',
+        namespace: 'customer',
+      }),
+    ])
+    expect(compile.body.result.plan.columnSteps).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          columnRef: 'public.customers.customer_no',
+          relationship: 'rel_orders_customer',
+          namespace: 'customer',
+        }),
+        expect.objectContaining({
+          columnRef: 'public.orders.customer_no',
+          relationship: 'rel_orders_customer',
+          namespace: 'customer',
+        }),
+      ]),
+    )
+    expect(JSON.stringify(compile.body.result)).not.toContain('C-001')
+  })
+
   it('routes the documented profile baseline summary operation to a schema-valid runtime response', async () => {
     const document = getDpmGatewayOpenApiDocument()
     const runtime = createDpmGatewayRuntime()
@@ -206,6 +416,19 @@ function extractComponentName(refPath: string | undefined): string {
   return refPath.slice(prefix.length)
 }
 
+function toRelationshipCandidateInput(candidate: RelationshipCandidate): RelationshipCandidateInput {
+  return {
+    id: candidate.id,
+    relationshipName: candidate.relationshipName,
+    type: candidate.type,
+    parent: candidate.parent,
+    child: candidate.child,
+    confidenceScore: candidate.confidence.score,
+    evidence: candidate.evidence,
+    warnings: candidate.warnings,
+  }
+}
+
 function createManifestRequest(input: DpmGatewayRuntimeManifestInput): DpmGatewayManifestRequest {
   return {
     manifest: input.manifest,
@@ -219,6 +442,30 @@ function createManifestRequest(input: DpmGatewayRuntimeManifestInput): DpmGatewa
       ref: 'registry://commerce/v1',
       versionHash: input.registry.registryVersion,
     },
+  }
+}
+
+function createRelationshipDiscoveryRequest(
+  input: DpmGatewayRuntimeManifestInput,
+): DpmGatewayRelationshipDiscoveryRequest {
+  return {
+    manifest: input.manifest,
+    catalogSnapshot: {
+      ref: 'catalog://commerce/v1',
+      versionHash: input.catalog.kind === 'dpm.catalog.snapshot.v1'
+        ? input.catalog.freshness.versionHash
+        : 'sha256:postgres-input',
+    },
+  }
+}
+
+function createRelationshipDiscoverySnapshotResolver(input: DpmGatewayRuntimeManifestInput) {
+  const request = createRelationshipDiscoveryRequest(input)
+  return {
+    resolveCatalogSnapshot: vi.fn(snapshot => {
+      expect(snapshot).toEqual(request.catalogSnapshot)
+      return input.catalog
+    }),
   }
 }
 
