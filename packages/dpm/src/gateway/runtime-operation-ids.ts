@@ -1,6 +1,7 @@
 export const DPM_GATEWAY_RUNTIME_OPERATION_IDS = [
   'inspectDpmProfile',
   'analyzeDpmProfile',
+  'listDpmProfileBaselineSummaries',
   'reviewDpmProfileProposal',
   'validateDpmManifest',
   'compileDpmManifest',

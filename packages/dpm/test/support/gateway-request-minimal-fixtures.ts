@@ -17,6 +17,7 @@ export const gatewayMinimalRequestCases = [
   ['DpmCatalogProfileRequest', { datasetId: 'commerce_ai', catalogSourceRef: 'source://catalog', manifest }],
   ['DpmProfileInspectionRequest', { profileArtifact }],
   ['DpmProfileAnalysisRequest', { profileArtifact }],
+  ['DpmProfileBaselineSummaryListRequest', { datasetId: 'commerce_ai', profileId: 'profile:kafka:orders-created' }],
   ['DpmProfileProposalReviewRequest', {
     status: 'accepted',
     reviewedBy: 'privacy-reviewer',

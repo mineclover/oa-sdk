@@ -346,6 +346,8 @@ catalog/registry snapshot, semantic validator, compiler, CLI/gateway/publishing 
 | `DpmGatewayProfileInspectionResult` | `dpm/src/gateway/runtime-profile-types.ts` | profile artifact inspection counts and diagnostics |
 | `DpmGatewayProfileAnalysisInput` | `dpm/src/gateway/runtime-profile-types.ts` | loaded profile artifact analysis request |
 | `DpmGatewayProfileAnalysisResult` | `dpm/src/gateway/runtime-profile-types.ts` | profile analysis gateway response result |
+| `DpmGatewayProfileBaselineSummaryListInput` | `dpm/src/gateway/runtime-profile-types.ts` | loaded profile baseline summary list request backed by a consumer repository |
+| `DpmGatewayProfileBaselineSummaryListResult` | `dpm/src/gateway/runtime-profile-types.ts` | body-free profile baseline summary list gateway result |
 | `DpmGatewayProfileProposalReviewInput` | `dpm/src/gateway/runtime-profile-types.ts` | path-owned proposal id plus editor-safe profile proposal review decision |
 | `DpmGatewayProfileProposalReviewResult` | `dpm/src/gateway/runtime-profile-types.ts` | editor-safe profile proposal review result |
 | `DpmGatewayRuntimeOperationId` | `dpm/src/gateway/runtime-operation-ids.ts` | runtime operation id taxonomy |
@@ -361,7 +363,7 @@ catalog/registry snapshot, semantic validator, compiler, CLI/gateway/publishing 
 | `DpmGatewayProfileAnalysisResolvedRequest` | `dpm/src/gateway/runtime-profile-analysis-request.ts` | resolved profile analysis runtime input plus selected body-free baseline summary metadata |
 | `DpmGatewayProfileAnalysisBaselineResolver` | `dpm/src/gateway/runtime-profile-analysis-request.ts` | consumer-supplied profile baseline row resolver for profile analysis requests |
 | `DpmGatewayRuntimeResponse` | `dpm/src/gateway/runtime-response-types.ts` | gateway runtime response envelope |
-| `DpmGatewayRuntime` | `dpm/src/gateway/runtime-types.ts` | loaded profile inspection/analysis/review plus validate, compile, and dry-run runtime handlers |
+| `DpmGatewayRuntime` | `dpm/src/gateway/runtime-types.ts` | loaded profile inspection/analysis/baseline summary/review plus validate, compile, and dry-run runtime handlers |
 | `resolveDpmGatewayManifestRuntimeInput()` | `dpm/src/gateway/runtime-manifest-request.ts` | converts OpenAPI manifest request refs into loaded runtime manifest input through a snapshot resolver |
 | `resolveDpmGatewayProfileAnalysisRequest()` | `dpm/src/gateway/runtime-profile-analysis-request.ts` | converts profile analysis baseline refs into loaded runtime input and selected baseline summary metadata |
 | `resolveDpmGatewayProfileAnalysisRuntimeInput()` | `dpm/src/gateway/runtime-profile-analysis-request.ts` | converts profile analysis baseline refs into loaded runtime profile analysis input through a profile baseline resolver |

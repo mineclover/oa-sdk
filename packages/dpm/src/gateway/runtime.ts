@@ -21,6 +21,8 @@ export type {
 export type {
   DpmGatewayProfileAnalysisInput,
   DpmGatewayProfileAnalysisResult,
+  DpmGatewayProfileBaselineSummaryListInput,
+  DpmGatewayProfileBaselineSummaryListResult,
   DpmGatewayProfileInspectionInput,
   DpmGatewayProfileInspectionResult,
   DpmGatewayProfileProposalReviewInput,

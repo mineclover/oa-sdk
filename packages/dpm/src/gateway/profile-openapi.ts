@@ -6,12 +6,14 @@ import {
 } from './openapi-schema.js'
 import { createDpmProfileAnalysisGatewaySchemas } from './profile-openapi-analysis-schemas.js'
 import { createDpmProfileArtifactGatewaySchemas } from './profile-openapi-artifact-schemas.js'
+import { createDpmProfileBaselineGatewaySchemas } from './profile-openapi-baseline-schemas.js'
 import { DPM_PROFILE_PROPOSAL_REVIEW_STATUSES } from './profile-proposal.js'
 
 export function createDpmProfileGatewaySchemas() {
   return {
     ...createDpmProfileArtifactGatewaySchemas(),
     ...createDpmProfileAnalysisGatewaySchemas(),
+    ...createDpmProfileBaselineGatewaySchemas(),
     DpmProfileProposalReviewRequest: requiredObjectSchema({
       status: { type: 'string', enum: [...DPM_PROFILE_PROPOSAL_REVIEW_STATUSES] },
       reviewedBy: stringSchema(),

@@ -6,6 +6,7 @@ export const GATEWAY_OPENAPI_PATHS = [
   '/dpm/manifests/dry-run',
   '/dpm/manifests/validate',
   '/dpm/profiles/analyze',
+  '/dpm/profiles/baselines/summaries',
   '/dpm/profiles/inspect',
   '/dpm/profiles/proposals/{proposalId}/review',
   '/dpm/registry/snapshots/{datasetId}/{registryVersion}',

@@ -5,6 +5,8 @@ export type {
   DpmGatewayProfileAnalysisResolvedRequest,
   DpmGatewayProfileAnalysisResult,
   DpmGatewayProfileBaselineRef,
+  DpmGatewayProfileBaselineSummaryListInput,
+  DpmGatewayProfileBaselineSummaryListResult,
   DpmGatewayProfileInspectionInput,
   DpmGatewayProfileInspectionResult,
   DpmGatewayProfileProposalReviewInput,

@@ -4,6 +4,7 @@ export type DpmGatewayRuntimeStatusCode = 200 | 400
 export type DpmGatewayRuntimeCommand =
   | 'inspect-profile'
   | 'analyze-profile'
+  | 'list-profile-baseline-summaries'
   | 'review-profile-proposal'
   | 'validate'
   | 'compile'

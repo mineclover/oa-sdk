@@ -24,6 +24,15 @@ export function createDpmProfileGatewayPaths() {
         responseSchema: 'DpmProfileAnalysisResponse',
       }),
     },
+    '/dpm/profiles/baselines/summaries': {
+      post: gatewayOperation({
+        operationId: 'listDpmProfileBaselineSummaries',
+        tags: ['profiles'],
+        summary: 'List body-free profile baseline summaries for history and editor selection.',
+        requestBody: jsonRequestBody('DpmProfileBaselineSummaryListRequest'),
+        responseSchema: 'DpmProfileBaselineSummaryListResponse',
+      }),
+    },
     '/dpm/profiles/proposals/{proposalId}/review': {
       post: gatewayOperation({
         operationId: 'reviewDpmProfileProposal',

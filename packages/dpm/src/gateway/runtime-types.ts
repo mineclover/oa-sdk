@@ -5,6 +5,8 @@ import type { DpmGatewayRuntimeManifestInput } from './runtime-manifest-types.js
 import type {
   DpmGatewayProfileAnalysisInput,
   DpmGatewayProfileAnalysisResult,
+  DpmGatewayProfileBaselineSummaryListInput,
+  DpmGatewayProfileBaselineSummaryListResult,
   DpmGatewayProfileInspectionInput,
   DpmGatewayProfileInspectionResult,
   DpmGatewayProfileProposalReviewInput,
@@ -19,6 +21,9 @@ export type DpmGatewayRuntime = {
   analyzeDpmProfile(
     input: DpmGatewayProfileAnalysisInput,
   ): Promise<DpmGatewayRuntimeResponse<DpmGatewayProfileAnalysisResult>>
+  listDpmProfileBaselineSummaries(
+    input: DpmGatewayProfileBaselineSummaryListInput,
+  ): Promise<DpmGatewayRuntimeResponse<DpmGatewayProfileBaselineSummaryListResult>>
   reviewDpmProfileProposal(
     input: DpmGatewayProfileProposalReviewInput,
   ): Promise<DpmGatewayRuntimeResponse<DpmGatewayProfileProposalReviewResult>>

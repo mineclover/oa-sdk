@@ -149,10 +149,12 @@ await recordStep('compare profile artifact with previous measurement baseline', 
     measurementRunHash: previousResult.freshness.runHash,
     storedAt: '2026-07-07T00:05:00.000Z',
   })
-  const baselineHistory = await profileBaselineRepository.listProfileBaselineSummaries({
+  const baselineHistoryResponse = await runtime.listDpmProfileBaselineSummaries({
     datasetId: profileArtifact.datasetId,
     profileId: profileArtifact.profileId,
+    profileBaselineRepository,
   })
+  const baselineHistory = baselineHistoryResponse.body.result.baselineSummaries
   const resolvedRequest = await resolveDpmGatewayProfileAnalysisRequest({
     request: {
       profileArtifact,
@@ -193,6 +195,7 @@ await recordStep('compare profile artifact with previous measurement baseline', 
 
   return {
     command: response.body.command,
+    baselineHistoryCommand: baselineHistoryResponse.body.command,
     baselineRef: selectedBaseline.baselineRef,
     baselineMeasurementId: selectedBaseline.measurementId,
     baselineMeasuredAt: selectedBaseline.measuredAt,

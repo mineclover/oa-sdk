@@ -2,6 +2,7 @@ export const GATEWAY_WORKFLOW_RESPONSE_SCHEMA_NAMES = [
   'DpmCatalogProfileResponse',
   'DpmProfileInspectionResponse',
   'DpmProfileAnalysisResponse',
+  'DpmProfileBaselineSummaryListResponse',
   'DpmProfileProposalReviewResponse',
   'DpmRelationshipDiscoveryReport',
   'DpmCandidateImportResponse',

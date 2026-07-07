@@ -9,6 +9,7 @@ Kafka topic fixture
   -> gateway inspect profile
   -> gateway analyze profile
   -> store previous profile baseline
+  -> gateway list body-free baseline summaries
   -> gateway select latest previous baseline and compare previous/current profile
   -> gateway review relationship hint proposal
 ```
@@ -32,7 +33,7 @@ The demo proves:
 - SDK consumers can create a frozen read-only profile artifact snapshot for editor baselines.
 - Gateway inspection returns profile counts for editor use.
 - Profile analysis emits relationship hint proposals, key candidates, risk indicators, and coverage metrics.
-- Profile analysis selects the latest stored previous measurement baseline, preserves measurement id/run metadata, exposes a body-free baseline history summary, compares it with the current artifact, and emits drift signals.
+- Profile analysis lists body-free baseline history summaries through the gateway, selects the latest stored previous measurement baseline, preserves measurement id/run metadata, compares it with the current artifact, and emits drift signals.
 - Proposal review can accept or request changes on hints without mutating connector evidence.
 - A mismatched proposal review is rejected with `PROF201`.
 - Runtime profile snapshots are defensive copies.

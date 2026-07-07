@@ -1,6 +1,7 @@
 export const expectedGatewayRuntimeOperationIds = [
   'inspectDpmProfile',
   'analyzeDpmProfile',
+  'listDpmProfileBaselineSummaries',
   'reviewDpmProfileProposal',
   'validateDpmManifest',
   'compileDpmManifest',

@@ -8,6 +8,11 @@ import type {
   DpmProfileCoordinate,
   DpmProfileDiagnostic,
 } from '../profile/types.js'
+import type {
+  DpmProfileBaselineListRequest,
+  DpmProfileBaselineRepository,
+  DpmProfileBaselineSummary,
+} from '../storage/profile-baseline-repository.js'
 import type { DpmProfileProposalReviewStatus } from './profile-proposal.js'
 
 export type DpmGatewayProfileInspectionInput = {
@@ -26,6 +31,14 @@ export type DpmGatewayProfileAnalysisInput = DpmProfileAnalysisInput
 
 export type DpmGatewayProfileAnalysisResult = {
   analysisReport: DpmProfileAnalysisReport
+}
+
+export type DpmGatewayProfileBaselineSummaryListInput = DpmProfileBaselineListRequest & {
+  profileBaselineRepository: Pick<DpmProfileBaselineRepository, 'listProfileBaselineSummaries'>
+}
+
+export type DpmGatewayProfileBaselineSummaryListResult = {
+  baselineSummaries: DpmProfileBaselineSummary[]
 }
 
 export type DpmGatewayProfileProposalReviewInput = {

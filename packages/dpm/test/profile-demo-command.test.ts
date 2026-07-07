@@ -32,6 +32,7 @@ describe('DPM Kafka profile demo command', () => {
     expect(baselineStep?.summary?.baselineMeasurementId).toEqual(expect.stringMatching(/^sha256:/))
     expect(baselineStep?.summary?.baselineMeasuredAt).toBe('2026-07-07T00:00:00.000Z')
     expect(baselineStep?.summary?.baselineMeasurementRunHash).toEqual(expect.stringMatching(/^sha256:/))
+    expect(baselineStep?.summary?.baselineHistoryCommand).toBe('list-profile-baseline-summaries')
     expect(baselineStep?.summary?.baselineHistory).toEqual([
       expect.objectContaining({
         baselineRef: baselineStep?.summary?.baselineRef,
