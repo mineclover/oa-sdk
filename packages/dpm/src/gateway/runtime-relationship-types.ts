@@ -4,6 +4,7 @@ import type {
 } from '../catalog/types.js'
 import type {
   DiscoveryThresholds,
+  ExcludedRelationshipCandidate,
   RelationshipCandidate,
   RelationshipCandidateInput,
   RelationshipDiscoveryReport,
@@ -39,12 +40,16 @@ export type DpmGatewayRelationshipDiscoveryResult = RelationshipDiscoveryReport
 
 export type DpmGatewayCandidateImportInput = {
   datasetId: string
+  generatedAt?: string
+  thresholds?: Partial<DiscoveryThresholds>
   candidates: RelationshipCandidateInput[]
+  exclusions?: ExcludedRelationshipCandidate[]
 }
 
 export type DpmGatewayCandidateImportResult = {
   imported: number
   rejected: number
+  report: RelationshipDiscoveryReport
 }
 
 export type DpmGatewayRelationshipApprovalInput = {

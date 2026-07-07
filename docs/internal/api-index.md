@@ -372,7 +372,7 @@ category barrel을 가리킨다. `packages/dpm/test/package-subpath-import-smoke
 | `DpmGatewayRelationshipDiscoveryInput` | `dpm/src/gateway/runtime-relationship-types.ts` | loaded manifest and catalog input for catalog-derived relationship discovery |
 | `DpmGatewayRelationshipDiscoveryResult` | `dpm/src/gateway/runtime-relationship-types.ts` | schema-valid relationship discovery report result |
 | `DpmGatewayCandidateImportInput` | `dpm/src/gateway/runtime-relationship-types.ts` | relationship candidate import request input |
-| `DpmGatewayCandidateImportResult` | `dpm/src/gateway/runtime-relationship-types.ts` | relationship candidate import review/reject count result |
+| `DpmGatewayCandidateImportResult` | `dpm/src/gateway/runtime-relationship-types.ts` | relationship candidate import count plus normalized review report result |
 | `DpmGatewayRelationshipApprovalInput` | `dpm/src/gateway/runtime-relationship-types.ts` | relationship candidate approval input with registry policy fields |
 | `DpmGatewayRelationshipApprovalResult` | `dpm/src/gateway/runtime-relationship-types.ts` | approved registry relationship payload result |
 | `DpmGatewayRegistrySnapshotExportInput` | `dpm/src/gateway/runtime-relationship-types.ts` | repository-backed registry snapshot export runtime input |
@@ -396,7 +396,7 @@ category barrel을 가리킨다. `packages/dpm/test/package-subpath-import-smoke
 | `resolveDpmGatewayProfileAnalysisRequest()` | `dpm/src/gateway/runtime-profile-analysis-request.ts` | converts profile analysis baseline refs into loaded runtime input and selected baseline summary metadata |
 | `resolveDpmGatewayProfileAnalysisRuntimeInput()` | `dpm/src/gateway/runtime-profile-analysis-request.ts` | converts profile analysis baseline refs into loaded runtime profile analysis input through a profile baseline resolver |
 | `discoverDpmRelationshipsRuntime()` | `dpm/src/gateway/runtime-relationship-discover.ts` | source-DB-free relationship discovery runtime handler from loaded manifest/catalog evidence |
-| `importDpmRelationshipCandidatesRuntime()` | `dpm/src/gateway/runtime-relationship-candidate-import.ts` | relationship candidate import runtime handler returning review/reject counts without registry mutation |
+| `importDpmRelationshipCandidatesRuntime()` | `dpm/src/gateway/runtime-relationship-candidate-import.ts` | relationship candidate import runtime handler returning counts and a normalized review report without registry mutation |
 | `approveDpmRelationshipCandidateRuntime()` | `dpm/src/gateway/runtime-relationship-approve.ts` | relationship candidate approval runtime handler returning an approved registry relationship payload without storage mutation |
 | `exportDpmRegistrySnapshotRuntime()` | `dpm/src/gateway/runtime-relationship-registry-export.ts` | repository-backed registry snapshot export runtime handler returning schema-valid registry snapshots |
 | `createDpmGatewayRuntime()` | `dpm/src/gateway/runtime-factory.ts` | source-DB-free runtime adapter for profile, relationship, registry export, and manifest operations |

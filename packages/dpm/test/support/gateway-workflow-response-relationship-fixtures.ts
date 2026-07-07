@@ -36,7 +36,11 @@ const approvedRegistryRelationshipInput: RegistryRelationshipInput = {
 
 export const gatewayRelationshipMinimalResponseCases = [
   ['DpmRelationshipDiscoveryReport', readCommerceDiscoveryReport()],
-  ['DpmCandidateImportResponse', { imported: 1, rejected: 0 }],
+  ['DpmCandidateImportResponse', {
+    imported: 1,
+    rejected: 0,
+    report: readCommerceDiscoveryReport(),
+  }],
   ['DpmRelationshipApprovalResponse', {
     relationshipName: 'rel_orders_customer',
     status: 'approved',

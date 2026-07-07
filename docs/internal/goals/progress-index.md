@@ -10,6 +10,7 @@ Last updated: 2026-07-07
 
 ## Recently Completed
 
+- [x] Goal 29 / DPM Candidate Import Review Report Runtime (complete)
 - [x] Goal 28 / DPM Registry Snapshot Export Runtime Adapter (complete)
 - [x] Goal 27 / DPM Relationship Approval Runtime Adapter (complete)
 - [x] Goal 26 / DPM Relationship Discovery Runtime Adapter (complete)
@@ -66,6 +67,7 @@ Last updated: 2026-07-07
 - [x] Goal 26 - DPM Relationship Discovery Runtime Adapter
 - [x] Goal 27 - DPM Relationship Approval Runtime Adapter
 - [x] Goal 28 - DPM Registry Snapshot Export Runtime Adapter
+- [x] Goal 29 - DPM Candidate Import Review Report Runtime
 
 ## Goal 4 DPM Units
 
@@ -191,6 +193,10 @@ Last updated: 2026-07-07
 ## Goal 28 DPM Units
 
 - [x] DPM-48 - Registry Snapshot Export Runtime Adapter
+
+## Goal 29 DPM Units
+
+- [x] DPM-49 - Candidate Import Review Report Runtime
 
 ## Done Criteria
 

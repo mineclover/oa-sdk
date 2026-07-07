@@ -668,7 +668,7 @@
         "runtime relationship discovery request resolver",
         "runtime catalog-derived relationship discovery handler",
         "runtime manifest-scoped relationship discovery",
-        "runtime relationship candidate import count handler",
+        "runtime relationship candidate import report handler",
         "runtime relationship approval payload handler",
         "runtime registry snapshot export handler",
         "runtime validate handler",

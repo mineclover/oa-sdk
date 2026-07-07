@@ -89,21 +89,50 @@ describe('DPM gateway relationship discovery runtime adapter', () => {
 
     const response = await runtime.importDpmRelationshipCandidates({
       datasetId: input.datasetId,
+      generatedAt: input.generatedAt,
+      thresholds: input.thresholds,
       candidates: input.candidates,
+      exclusions: input.exclusions,
     })
 
     expect(operation.operationId).toBe('importDpmRelationshipCandidates')
     expect(response.operationId).toBe('importDpmRelationshipCandidates')
     expect(response.statusCode).toBe(200)
     expect(response.body.command).toBe('import-relationship-candidates')
-    expect(response.body.result).toEqual({
+    expect(response.body.result).toMatchObject({
       imported: 1,
       rejected: 1,
+      report: {
+        kind: 'dpm.relationship.discovery-report.v1',
+        datasetId: input.datasetId,
+        generatedAt: input.generatedAt,
+        exclusions: input.exclusions,
+        summary: {
+          candidateCount: 2,
+          reviewCount: 1,
+          rejectCount: 1,
+          excludedCount: 1,
+        },
+      },
     })
+    expect(response.body.result.report.candidates).toEqual([
+      expect.objectContaining({
+        id: 'candidate:orders_customer',
+        recommendation: 'review',
+        executable: false,
+      }),
+      expect.objectContaining({
+        id: 'candidate:orders_status',
+        recommendation: 'reject',
+        executable: false,
+        warnings: ['ambiguous-status-column', 'low-confidence'],
+      }),
+    ])
     expect(
       responseSchema(response.body.result),
       JSON.stringify(responseSchema.errors, null, 2),
     ).toBe(true)
+    expect(JSON.stringify(response.body.result)).not.toContain('"status":"approved"')
   })
 
   it('keeps catalog-derived discovery inside manifest scope', async () => {

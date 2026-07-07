@@ -13,7 +13,10 @@ export async function importDpmRelationshipCandidatesRuntime(
 ): Promise<DpmGatewayRuntimeResponse<DpmGatewayCandidateImportResult>> {
   const report = createRelationshipDiscoveryReport({
     datasetId: input.datasetId,
+    ...(input.generatedAt ? { generatedAt: input.generatedAt } : {}),
+    ...(input.thresholds ? { thresholds: input.thresholds } : {}),
     candidates: input.candidates,
+    ...(input.exclusions ? { exclusions: input.exclusions } : {}),
   })
 
   return createDpmGatewayRuntimeResponse({
@@ -23,6 +26,7 @@ export async function importDpmRelationshipCandidatesRuntime(
     result: {
       imported: report.summary.reviewCount,
       rejected: report.summary.rejectCount,
+      report,
     },
   })
 }
