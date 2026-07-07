@@ -38,7 +38,9 @@ export type DpmRegistryAuditEventReader = {
 }
 
 type DpmRegistryStorageAuditEventCapabilities = {
-  appendRelationshipAuditEvent?(row: DpmRegistryRelationshipAuditEventRow): Promise<void> | void
+  appendRelationshipAuditEvent?(
+    row: DpmRegistryRelationshipAuditEventRow,
+  ): Promise<DpmRegistryRelationshipAuditEventRow | void> | DpmRegistryRelationshipAuditEventRow | void
   listRelationshipAuditEvents?(
     request: DpmRegistryRelationshipAuditEventRequest,
   ): Promise<readonly DpmRegistryRelationshipAuditEventRow[]> | readonly DpmRegistryRelationshipAuditEventRow[]

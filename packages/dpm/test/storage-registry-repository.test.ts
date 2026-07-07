@@ -288,6 +288,71 @@ describe('DPM registry storage repository', () => {
     })
   })
 
+  it('returns the audit event row produced by a split append adapter', async () => {
+    const rows: DpmRegistryRelationshipRow[] = []
+    const upsertRelationshipRow = vi.fn((row: DpmRegistryRelationshipRow) => {
+      rows.push(row)
+    })
+    const appendRelationshipAuditEvent = vi.fn((row: DpmRegistryRelationshipAuditEventRow) => ({
+      ...row,
+      eventId: 'audit:adapter-confirmed-rel-orders-customer-approved',
+      createdAt: '2026-07-01T00:00:02.000Z',
+    }))
+    const repository = createDpmRegistryRepository({
+      upsertRelationshipRow,
+      appendRelationshipAuditEvent,
+      listRelationshipRows: request =>
+        rows.filter(row =>
+          row.datasetId === request.datasetId && row.registryVersion === request.registryVersion,
+        ),
+    })
+    const relationship: ApprovedRegistryRelationshipInput = {
+      name: 'rel_orders_customer',
+      version: '5',
+      status: 'approved',
+      type: 'many_to_one',
+      parent: {
+        table: 'public.customers',
+        columns: ['customer_no'],
+      },
+      child: {
+        table: 'public.orders',
+        columns: ['customer_no'],
+      },
+      namespace: 'customer',
+      transformStrategy: 'relationship_token',
+      orphanPolicy: 'block',
+      approval: {
+        owner: 'privacy-platform',
+        approvedBy: 'privacy-reviewer',
+        approvedAt: STORAGE_REGISTRY_EXPORTED_AT,
+        reason: 'Relationship is required for customer-scoped pseudonymization.',
+      },
+    }
+
+    const saveResult = await repository.saveRelationshipWithAuditEvent?.({
+      datasetId: STORAGE_REGISTRY_DATASET_ID,
+      registryVersion: STORAGE_REGISTRY_VERSION,
+      relationship,
+      auditEventId: 'audit:requested-rel-orders-customer-approved',
+      createdAt: STORAGE_REGISTRY_EXPORTED_AT,
+      updatedAt: STORAGE_REGISTRY_EXPORTED_AT,
+    })
+    if (!saveResult?.approvalAuditEvent) {
+      throw new Error('expected save result with adapter-confirmed approval audit event')
+    }
+
+    expect(appendRelationshipAuditEvent).toHaveBeenCalledWith(expect.objectContaining({
+      eventId: 'audit:requested-rel-orders-customer-approved',
+      relationshipVersion: '5',
+    }))
+    expect(saveResult.approvalAuditEvent).toMatchObject({
+      eventId: 'audit:adapter-confirmed-rel-orders-customer-approved',
+      relationshipVersion: '5',
+      createdAt: '2026-07-01T00:00:02.000Z',
+    })
+  })
+
   it('uses an atomic relationship approval commit hook when the storage adapter supports it', async () => {
     const rows: DpmRegistryRelationshipRow[] = []
     const auditEvents: DpmRegistryRelationshipAuditEventRow[] = []

@@ -55,7 +55,7 @@ export function createDpmPostgresRegistryStorage(
       return commitDpmPostgresRegistryRelationshipApproval(client, input)
     },
     async appendRelationshipAuditEvent(row) {
-      await appendDpmPostgresRegistryRelationshipAuditEvent(client, row)
+      return appendDpmPostgresRegistryRelationshipAuditEvent(client, row)
     },
     async listRelationshipAuditEvents(request) {
       return listDpmPostgresRegistryRelationshipAuditEvents(client, request)

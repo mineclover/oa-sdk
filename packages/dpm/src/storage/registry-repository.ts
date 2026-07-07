@@ -133,10 +133,12 @@ export function createDpmRegistryRepository(
     }
     await storage.upsertRelationshipRow(copyDpmRegistryRelationshipRow(row))
     if (storage.appendRelationshipAuditEvent && auditEvent) {
-      await storage.appendRelationshipAuditEvent(copyDpmRegistryRelationshipAuditEventRow(auditEvent))
+      const appendedAuditEvent = await storage.appendRelationshipAuditEvent(
+        copyDpmRegistryRelationshipAuditEventRow(auditEvent),
+      )
       return {
         relationshipRow: copyDpmRegistryRelationshipRow(row),
-        approvalAuditEvent: copyDpmRegistryRelationshipAuditEventRow(auditEvent),
+        approvalAuditEvent: copyDpmRegistryRelationshipAuditEventRow(appendedAuditEvent ?? auditEvent),
       }
     }
     return {

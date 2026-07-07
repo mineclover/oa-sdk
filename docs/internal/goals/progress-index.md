@@ -10,6 +10,7 @@ Last updated: 2026-07-08
 
 ## Recently Completed
 
+- [x] Goal 50 / DPM Registry Split Append Audit Return (complete)
 - [x] Goal 49 / DPM Storage Demo Schema Bootstrap (complete)
 - [x] Goal 48 / DPM Registry Schema Apply Helper (complete)
 - [x] Goal 47 / DPM Postgres Registry Consumer Demo (complete)
@@ -108,6 +109,7 @@ Last updated: 2026-07-08
 - [x] Goal 47 - DPM Postgres Registry Consumer Demo
 - [x] Goal 48 - DPM Registry Schema Apply Helper
 - [x] Goal 49 - DPM Storage Demo Schema Bootstrap
+- [x] Goal 50 - DPM Registry Split Append Audit Return
 
 ## Goal 4 DPM Units
 
@@ -317,6 +319,10 @@ Last updated: 2026-07-08
 ## Goal 49 DPM Units
 
 - [x] DPM-69 - Storage Demo Schema Bootstrap
+
+## Goal 50 DPM Units
+
+- [x] DPM-70 - Split Append Audit Return
 
 ## Done Criteria
 
