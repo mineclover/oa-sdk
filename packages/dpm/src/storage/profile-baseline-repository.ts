@@ -40,6 +40,7 @@ export {
 export {
   copyDpmProfileBaselineSummaries,
   copyDpmProfileBaselineSummary,
+  assertDpmProfileBaselineSummary,
   summarizeDpmProfileBaselineRow,
   summarizeDpmProfileBaselineRows,
 } from './profile-baseline-summary.js'

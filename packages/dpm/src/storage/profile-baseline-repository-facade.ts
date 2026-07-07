@@ -42,10 +42,10 @@ export function createDpmProfileBaselineRepository(
     },
     async selectPreviousProfileBaseline(request) {
       if (storage.listProfileBaselineSummaries) {
-        const summaries = await storage.listProfileBaselineSummaries({
+        const summaries = copyDpmProfileBaselineSummaries(await storage.listProfileBaselineSummaries({
           datasetId: request.profileArtifact.datasetId,
           profileId: request.profileArtifact.profileId,
-        })
+        }))
         const selectedSummary = selectDpmPreviousProfileBaselineSummary({
           profileArtifact: request.profileArtifact,
           baselineSummaries: summaries,

@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 
 import {
+  assertDpmProfileBaselineSummary,
   DPM_PROFILE_BASELINE_KIND,
   createDpmProfileAnalysisReport,
   createDpmProfileBaselineRepository,
@@ -297,6 +298,45 @@ describe('DPM profile baseline repository', () => {
     expect(adapterSummary.analysisSummary?.relationshipHintCount).toBe(analysisReport.summary.relationshipHintCount)
     expect(JSON.stringify(repositorySummaries)).not.toContain('profileArtifact')
     expect(JSON.stringify(repositorySummaries)).not.toContain('analysisReport')
+  })
+
+  it('rejects invalid storage-provided profile baseline summaries at the repository boundary', async () => {
+    const profileArtifact = createKafkaProfileArtifact()
+    const row = createDpmProfileBaselineRow({
+      profileArtifact,
+      analysisReport: createDpmProfileAnalysisReport({ profileArtifact }),
+      storedAt: '2026-07-07T00:05:00.000Z',
+    })
+    const validSummary = summarizeDpmProfileBaselineRow(row)
+    const inconsistentSummary = {
+      ...validSummary,
+      hasAnalysisReport: false,
+    }
+    const negativeCountSummary = {
+      ...validSummary,
+      profileSummary: {
+        ...validSummary.profileSummary,
+        nodeCount: -1,
+      },
+    }
+    const repository = createDpmProfileBaselineRepository({
+      upsertProfileBaseline: async () => undefined,
+      getProfileBaseline: async () => row,
+      listProfileBaselines: async () => [row],
+      listProfileBaselineSummaries: async () => [inconsistentSummary],
+    })
+
+    expect(() => assertDpmProfileBaselineSummary(inconsistentSummary))
+      .toThrow('profile baseline summary is invalid: analysisSummary')
+    expect(() => assertDpmProfileBaselineSummary(negativeCountSummary))
+      .toThrow('profile baseline summary is invalid: profileSummary.nodeCount')
+    await expect(repository.listProfileBaselineSummaries({
+      datasetId: row.datasetId,
+      profileId: row.profileId,
+    })).rejects.toThrow('profile baseline summary is invalid: analysisSummary')
+    await expect(repository.selectPreviousProfileBaseline({
+      profileArtifact,
+    })).rejects.toThrow('profile baseline summary is invalid: analysisSummary')
   })
 
   it('selects the latest previous baseline through summaries before loading the selected row body', async () => {

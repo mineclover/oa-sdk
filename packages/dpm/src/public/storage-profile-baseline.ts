@@ -16,6 +16,7 @@ export type {
 export {
   DPM_PROFILE_BASELINE_KIND,
   DPM_PROFILE_BASELINE_SELECTION_STRATEGIES,
+  assertDpmProfileBaselineSummary,
   createDpmProfileBaselineMeasurementId,
   copyDpmProfileBaselineSummaries,
   copyDpmProfileBaselineSummary,

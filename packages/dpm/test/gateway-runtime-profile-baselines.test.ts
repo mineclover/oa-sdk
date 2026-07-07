@@ -72,6 +72,34 @@ describe('DPM gateway profile baseline runtime adapter', () => {
     expectStorageReportPayloadExcludesUnsafeFragments(response.body.result)
   })
 
+  it('rejects invalid profile baseline summaries before producing gateway responses', async () => {
+    const runtime = createDpmGatewayRuntime()
+    const profileArtifact = createKafkaProfileArtifact()
+    const row = createDpmProfileBaselineRow({ profileArtifact })
+    const summary = summarizeDpmProfileBaselineRow(row)
+
+    await expect(runtime.listDpmProfileBaselineSummaries({
+      datasetId: row.datasetId,
+      profileId: row.profileId,
+      profileBaselineRepository: {
+        listProfileBaselineSummaries: async () => [{
+          ...summary,
+          hasAnalysisReport: false,
+          analysisSummary: {
+            nodeCount: 0,
+            edgeCount: 0,
+            metricCount: 0,
+            diagnosticCount: 0,
+            relationshipHintCount: 0,
+            keyCandidateCount: 0,
+            riskIndicatorCount: 0,
+            driftSignalCount: 0,
+          },
+        }],
+      },
+    })).rejects.toThrow('profile baseline summary is invalid: analysisSummary')
+  })
+
   it('rejects non-positive profile baseline summary list limits before adapter access', async () => {
     const runtime = createDpmGatewayRuntime()
     const listProfileBaselineSummaries = vi.fn(async () => [])
