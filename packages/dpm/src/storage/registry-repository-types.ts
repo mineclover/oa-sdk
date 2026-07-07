@@ -1,4 +1,8 @@
 export type {
+  DpmPostgresRegistryClient,
+  DpmPostgresRegistryQueryClient,
+} from './registry-postgres-storage.js'
+export type {
   DpmRegistryRelationshipApprovalCommitInput,
   DpmRegistryRelationshipApprovalCommitResult,
   DpmRegistryRelationshipSaveResult,

@@ -43,9 +43,17 @@ import {
   type DpmGatewayRuntime,
 } from '@oa-sdk/dpm/gateway'
 import {
+  appendDpmPostgresRegistryRelationshipAuditEvent,
+  commitDpmPostgresRegistryRelationshipApproval,
+  createDpmPostgresRegistryStorage,
   createDpmRegistryRelationshipRow,
   DPM_REGISTRY_RELATIONSHIP_AUDIT_EVENT_TYPES,
   DPM_PROFILE_BASELINE_SELECTION_STRATEGIES,
+  listDpmPostgresRegistryRelationshipAuditEvents,
+  listDpmPostgresRegistryRelationshipRows,
+  upsertDpmPostgresRegistryRelationshipRow,
+  type DpmPostgresRegistryClient,
+  type DpmPostgresRegistryQueryClient,
   type DpmRegistryAuditEventReader,
   type DpmRegistryRelationshipApprovalCommitInput,
   type DpmRegistryRelationshipApprovalCommitResult,
@@ -78,6 +86,8 @@ type DpmSubpathTypeSmoke = {
   baseline?: DpmProfileBaselineSummary
   registryAuditEvent?: DpmRegistryRelationshipAuditEventRow
   registryAuditEventReader?: DpmRegistryAuditEventReader
+  postgresRegistryClient?: DpmPostgresRegistryClient
+  postgresRegistryQueryClient?: DpmPostgresRegistryQueryClient
   registryRelationshipApprovalCommitInput?: DpmRegistryRelationshipApprovalCommitInput
   registryRelationshipApprovalCommitResult?: DpmRegistryRelationshipApprovalCommitResult
   registryRelationshipSave?: DpmRegistryRelationshipSaveInput
@@ -115,5 +125,11 @@ void [
   listDpmRegistryRelationshipAuditEventsRuntime,
   DPM_REGISTRY_RELATIONSHIP_AUDIT_EVENT_TYPES,
   createDpmRegistryRelationshipRow,
+  createDpmPostgresRegistryStorage,
+  listDpmPostgresRegistryRelationshipRows,
+  upsertDpmPostgresRegistryRelationshipRow,
+  commitDpmPostgresRegistryRelationshipApproval,
+  appendDpmPostgresRegistryRelationshipAuditEvent,
+  listDpmPostgresRegistryRelationshipAuditEvents,
   typeSmoke,
 ]

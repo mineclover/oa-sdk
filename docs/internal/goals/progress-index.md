@@ -10,6 +10,7 @@ Last updated: 2026-07-08
 
 ## Recently Completed
 
+- [x] Goal 46 / DPM Postgres Registry Storage Adapter (complete)
 - [x] Goal 45 / DPM Registry Write Receipt Audit Link (complete)
 - [x] Goal 44 / DPM Registry Approval Commit Hook (complete)
 - [x] Goal 43 / DPM Registry Write Receipt Gateway Boundary (complete)
@@ -100,6 +101,7 @@ Last updated: 2026-07-08
 - [x] Goal 43 - DPM Registry Write Receipt Gateway Boundary
 - [x] Goal 44 - DPM Registry Approval Commit Hook
 - [x] Goal 45 - DPM Registry Write Receipt Audit Link
+- [x] Goal 46 - DPM Postgres Registry Storage Adapter
 
 ## Goal 4 DPM Units
 
@@ -293,6 +295,10 @@ Last updated: 2026-07-08
 ## Goal 45 DPM Units
 
 - [x] DPM-65 - Registry Write Receipt Audit Link
+
+## Goal 46 DPM Units
+
+- [x] DPM-66 - Postgres Registry Storage Adapter
 
 ## Done Criteria
 

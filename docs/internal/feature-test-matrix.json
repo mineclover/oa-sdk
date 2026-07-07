@@ -426,9 +426,14 @@
       "name": "DPM registry storage",
       "category": "dpm",
       "package": "@oa-sdk/dpm",
-      "description": "Postgres canonical registry storage schema, approved-only payload persistence bridge, atomic approval commit hook, append-only approval audit events, approved metadata completeness guard, single approved relationship name guard, and row export to the existing registry snapshot contract.",
+      "description": "Postgres canonical registry storage schema, dependency-free Postgres registry storage adapter, Postgres row hydration guards, approved-only payload persistence bridge, atomic approval commit hook, append-only approval audit events, approved metadata completeness guard, single approved relationship name guard, and row export to the existing registry snapshot contract.",
       "capabilities": [
         "Postgres registry schema SQL",
+        "Postgres registry storage adapter",
+        "Postgres registry row query mapping",
+        "Postgres registry row hydration guards",
+        "Postgres transaction-backed approval commit",
+        "Postgres approval audit timeline query",
         "relationship lifecycle check constraints",
         "composite identity index",
         "approved partial unique index",
@@ -448,6 +453,7 @@
       ],
       "testPaths": [
         "packages/dpm/test/storage-registry-schema.test.ts",
+        "packages/dpm/test/storage-registry-postgres.test.ts",
         "packages/dpm/test/storage-registry-row-mapper.test.ts",
         "packages/dpm/test/storage-registry-repository.test.ts",
         "packages/dpm/test/fixtures/storage/registry-schema.sql"

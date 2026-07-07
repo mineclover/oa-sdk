@@ -253,6 +253,8 @@ category barrel을 가리킨다. `packages/dpm/test/package-subpath-import-smoke
 | `DPM_REGISTRY_STORAGE_SCHEMA_VERSION` | `dpm/src/storage/registry-schema-sql.ts` | registry storage SQL compatibility/version marker |
 | `DPM_REGISTRY_STORAGE_SCHEMA_SQL` | `dpm/src/storage/registry-schema-sql.ts` | Postgres canonical relationship registry schema SQL |
 | `DPM_REGISTRY_RELATIONSHIP_AUDIT_EVENT_TYPES` | `dpm/src/storage/registry-audit-row-types.ts` | registry relationship audit event taxonomy |
+| `DpmPostgresRegistryQueryClient` | `dpm/src/storage/registry-postgres-storage.ts` | dependency-free Postgres query client boundary for registry storage SQL |
+| `DpmPostgresRegistryClient` | `dpm/src/storage/registry-postgres-storage.ts` | Postgres registry query client with transaction callback for atomic approval commits |
 | `DpmRegistrySnapshotExportRequest` | `dpm/src/storage/registry-repository-types.ts` | storage-backed registry snapshot export request |
 | `DpmRegistryRelationshipRowRequest` | `dpm/src/storage/registry-repository-types.ts` | storage reader dataset/version row request |
 | `DpmRegistryRelationshipAuditEventRequest` | `dpm/src/storage/registry-repository-types.ts` | storage reader request for registry relationship audit events |
@@ -270,6 +272,12 @@ category barrel을 가리킨다. `packages/dpm/test/package-subpath-import-smoke
 | `DpmRegistryRepository` | `dpm/src/storage/registry-repository-types.ts` | storage-backed snapshot export repository |
 | `DpmRegistryWritableRepository` | `dpm/src/storage/registry-repository-types.ts` | registry repository with saveRelationship persistence bridge, optional audit-aware save result bridge, and optional audit event listing |
 | `createDpmRegistryRepository()` | `dpm/src/storage/registry-repository.ts` | row reader를 registry snapshot export repository로 감싸고, writer adapter에는 relationship save bridge, audit-aware save result bridge, optional atomic approval commit bridge, optional audit append bridge를 제공한다 |
+| `createDpmPostgresRegistryStorage()` | `dpm/src/storage/registry-postgres-storage.ts` | dependency-free Postgres registry storage adapter with transaction-backed approval commits |
+| `listDpmPostgresRegistryRelationshipRows()` | `dpm/src/storage/registry-postgres-storage.ts` | Postgres relationship registry row query helper |
+| `upsertDpmPostgresRegistryRelationshipRow()` | `dpm/src/storage/registry-postgres-storage.ts` | Postgres relationship registry row upsert helper |
+| `commitDpmPostgresRegistryRelationshipApproval()` | `dpm/src/storage/registry-postgres-storage.ts` | Postgres relationship row and approval audit event commit helper that wraps the provided transaction callback |
+| `appendDpmPostgresRegistryRelationshipAuditEvent()` | `dpm/src/storage/registry-postgres-storage.ts` | Postgres approval audit event insert helper |
+| `listDpmPostgresRegistryRelationshipAuditEvents()` | `dpm/src/storage/registry-postgres-storage.ts` | Postgres approval audit timeline query helper |
 | `createDpmRegistryRelationshipRow()` | `dpm/src/storage/registry-row-relationship.ts` | registry relationship payload를 canonical registry storage row로 변환 |
 | `copyDpmRegistryRelationshipRow()` | `dpm/src/storage/registry-row-relationship.ts` | registry storage row adapter boundary defensive copy helper |
 | `createDpmRegistryRelationshipAuditEventRow()` | `dpm/src/storage/registry-audit-event.ts` | approved registry relationship row를 append-only approval audit event row로 변환 |

@@ -17,6 +17,10 @@ import {
 } from './registry-row-relationship.js'
 
 export type {
+  DpmPostgresRegistryClient,
+  DpmPostgresRegistryQueryClient,
+} from './registry-postgres-storage.js'
+export type {
   DpmRegistryRelationshipApprovalCommitInput,
   DpmRegistryRelationshipApprovalCommitResult,
   DpmRegistryRelationshipSaveResult,
@@ -47,6 +51,14 @@ export {
   copyDpmRegistryRelationshipRow,
   createDpmRegistryRelationshipRow,
 } from './registry-row-relationship.js'
+export {
+  appendDpmPostgresRegistryRelationshipAuditEvent,
+  commitDpmPostgresRegistryRelationshipApproval,
+  createDpmPostgresRegistryStorage,
+  listDpmPostgresRegistryRelationshipAuditEvents,
+  listDpmPostgresRegistryRelationshipRows,
+  upsertDpmPostgresRegistryRelationshipRow,
+} from './registry-postgres-storage.js'
 
 export function createDpmRegistryRepository(storage: DpmRegistryStorage): DpmRegistryWritableRepository
 export function createDpmRegistryRepository(reader: DpmRegistryStorageReader): DpmRegistryRepository

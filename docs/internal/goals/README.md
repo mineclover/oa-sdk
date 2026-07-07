@@ -49,6 +49,7 @@
 | [Goal 43 — DPM Registry Write Receipt Gateway Boundary](./goal-43-dpm-registry-write-receipt-gateway-boundary.md) | ✅ | dpm |
 | [Goal 44 — DPM Registry Approval Commit Hook](./goal-44-dpm-registry-approval-commit-hook.md) | ✅ | dpm |
 | [Goal 45 — DPM Registry Write Receipt Audit Link](./goal-45-dpm-registry-write-receipt-audit-link.md) | ✅ | dpm |
+| [Goal 46 — DPM Postgres Registry Storage Adapter](./goal-46-dpm-postgres-registry-storage-adapter.md) | ✅ | dpm |
 | Phase 3 — OAS 파서/IR | ✅ | parser |
 | Phase 4 — TS 타입 생성 | ✅ | codegen/typegen |
 | Phase 5 — 라우터 스텁 | ✅ | router |
