@@ -131,7 +131,7 @@
       "name": "DPM package surface",
       "category": "dpm",
       "package": "@oa-sdk/dpm",
-      "description": "Root and category-level package exports for library consumers that want focused DPM contract imports, including a built-package public subpath workflow smoke.",
+      "description": "Root and category-level package exports for library consumers that want focused DPM contract imports, including built-package public subpath workflow success and blocking smoke coverage.",
       "capabilities": [
         "root DPM package entrypoint",
         "package metadata subpath export",
@@ -146,6 +146,7 @@
         "built package subpath runtime import smoke",
         "built package subpath declaration consumer smoke",
         "built package public subpath workflow smoke",
+        "built package public subpath blocking smoke",
         "package-local consumer surface guide",
         "pack dry-run file boundary smoke",
         "pack README documentation inclusion",
@@ -444,7 +445,7 @@
       "name": "DPM registry storage",
       "category": "dpm",
       "package": "@oa-sdk/dpm",
-      "description": "Postgres canonical registry storage schema, dependency-free schema apply helper, dependency-free Postgres registry storage adapter, Postgres row hydration guards, approved-only payload persistence bridge, structured approved unique conflict errors, atomic approval commit hook, append-only approval audit events, approved metadata completeness guard, single approved relationship name guard, and row export to the existing registry snapshot contract.",
+      "description": "Postgres canonical registry storage schema, dependency-free schema apply helper, dependency-free Postgres registry storage adapter, Postgres row hydration guards, approved-only payload persistence bridge, structured approved conflict errors across Postgres unique-index and repository guards, atomic approval commit hook, append-only approval audit events, approved metadata completeness guard, single approved relationship name guard, and row export to the existing registry snapshot contract.",
       "capabilities": [
         "Postgres registry schema SQL",
         "Postgres registry schema apply helper",
@@ -457,6 +458,7 @@
         "composite identity index",
         "approved partial unique index",
         "approved partial unique index conflict error mapping",
+        "repository approved relationship conflict error mapping",
         "append-only relationship approval audit table",
         "approval audit event identity index",
         "storage row to registry snapshot export",
@@ -711,7 +713,7 @@
       "name": "DPM gateway runtime",
       "category": "dpm",
       "package": "@oa-sdk/dpm",
-      "description": "Profile inspection, profile analysis with policy override forwarding, profile baseline summary listing, profile proposal review, documented profile hint approval workflow with blocking diagnostics including registry storage approved-conflict blocking, relationship discovery/import/approval/export, registry approval audit event timeline listing, review-only approval guard, relationship workflow OpenAPI-to-runtime-to-persist-to-compile consumer smoke, validate, compile, and dry-run gateway runtime handlers with machine-readable bodies and no source access.",
+      "description": "Profile inspection, profile analysis with policy override forwarding, profile baseline summary listing, profile proposal review, documented profile hint approval workflow with blocking diagnostics including registry storage approved-conflict blocking across Postgres and split repository guards, relationship discovery/import/approval/export, registry approval audit event timeline listing, review-only approval guard, relationship workflow OpenAPI-to-runtime-to-persist-to-compile consumer smoke, validate, compile, and dry-run gateway runtime handlers with machine-readable bodies and no source access.",
       "capabilities": [
         "runtime profile inspection handler",
         "runtime profile analysis handler",

@@ -64,6 +64,7 @@
 | [Goal 58 — DPM Approved Registry Conflict Contract](./goal-58-dpm-approved-registry-conflict-contract.md) | ✅ | dpm |
 | [Goal 59 — DPM Registry Snapshot Approval Metadata Guard](./goal-59-dpm-registry-snapshot-approval-metadata-guard.md) | ✅ | dpm |
 | [Goal 60 — DPM Package Consumer Workflow Smoke](./goal-60-dpm-package-consumer-workflow-smoke.md) | ✅ | dpm |
+| [Goal 61 — DPM Registry Conflict Blocking Stabilization](./goal-61-dpm-registry-conflict-blocking-stabilization.md) | ✅ | dpm |
 | Phase 3 — OAS 파서/IR | ✅ | parser |
 | Phase 4 — TS 타입 생성 | ✅ | codegen/typegen |
 | Phase 5 — 라우터 스텁 | ✅ | router |

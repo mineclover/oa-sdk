@@ -10,6 +10,7 @@ Last updated: 2026-07-08
 
 ## Recently Completed
 
+- [x] Goal 61 / DPM Registry Conflict Blocking Stabilization (complete)
 - [x] Goal 60 / DPM Package Consumer Workflow Smoke (complete)
 - [x] Goal 59 / DPM Registry Snapshot Approval Metadata Guard (complete)
 - [x] Goal 58 / DPM Approved Registry Conflict Contract (complete)
@@ -130,6 +131,7 @@ Last updated: 2026-07-08
 - [x] Goal 58 - DPM Approved Registry Conflict Contract
 - [x] Goal 59 - DPM Registry Snapshot Approval Metadata Guard
 - [x] Goal 60 - DPM Package Consumer Workflow Smoke
+- [x] Goal 61 - DPM Registry Conflict Blocking Stabilization
 
 ## Goal 4 DPM Units
 
@@ -383,6 +385,10 @@ Last updated: 2026-07-08
 ## Goal 60 DPM Units
 
 - [x] DPM-80 - Public Subpath Consumer Workflow Smoke
+
+## Goal 61 DPM Units
+
+- [x] DPM-81 - Repository Conflict Blocking Contract
 
 ## Done Criteria
 

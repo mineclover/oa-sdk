@@ -15,6 +15,12 @@ import {
   copyDpmRegistryRelationshipRow,
   createDpmRegistryRelationshipRow,
 } from './registry-row-relationship.js'
+import {
+  DpmRegistryApprovedRelationshipConflictError,
+} from './registry-storage-errors.js'
+
+const DPM_REGISTRY_REPOSITORY_APPROVED_RELATIONSHIP_CONFLICT_CONSTRAINT =
+  'dpm_registry_repository_single_approved_relationship_name'
 
 export type {
   DpmPostgresRegistryClient,
@@ -175,8 +181,11 @@ function assertNoConflictingApprovedRegistryRelationshipRow(
   )
   if (!conflictingApproved) return
 
-  throw new Error(
-    `DPM registry saveRelationship already has an approved relationship named ${row.relationshipName}: `
-    + `existing version ${conflictingApproved.relationshipVersion}, attempted version ${row.relationshipVersion}.`,
-  )
+  throw new DpmRegistryApprovedRelationshipConflictError({
+    datasetId: row.datasetId,
+    registryVersion: row.registryVersion,
+    relationshipName: row.relationshipName,
+    relationshipVersion: row.relationshipVersion,
+    constraint: DPM_REGISTRY_REPOSITORY_APPROVED_RELATIONSHIP_CONFLICT_CONSTRAINT,
+  })
 }

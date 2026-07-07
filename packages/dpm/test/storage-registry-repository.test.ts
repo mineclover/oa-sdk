@@ -1,9 +1,12 @@
 import { describe, expect, it, vi } from 'vitest'
 
 import {
+  DPM_REGISTRY_APPROVED_RELATIONSHIP_CONFLICT_ERROR_CODE,
   createDpmRegistryRepository,
   createDpmRegistryRelationshipRow,
+  DpmRegistryApprovedRelationshipConflictError,
   DPM_REGISTRY_RELATIONSHIP_AUDIT_EVENT_TYPES,
+  isDpmRegistryApprovedRelationshipConflictError,
   type DpmRegistryRelationshipAuditEventRow,
   type DpmRegistryRelationshipRow,
   type ApprovedRegistryRelationshipInput,
@@ -666,15 +669,30 @@ describe('DPM registry storage repository', () => {
       },
     }
 
-    await expect(repository.saveRelationship({
-      datasetId: STORAGE_REGISTRY_DATASET_ID,
-      registryVersion: STORAGE_REGISTRY_VERSION,
-      relationship,
-    }))
-      .rejects
-      .toThrow(
-        'DPM registry saveRelationship already has an approved relationship named rel_orders_customer: existing version 1, attempted version 2.',
-      )
+    try {
+      await repository.saveRelationship({
+        datasetId: STORAGE_REGISTRY_DATASET_ID,
+        registryVersion: STORAGE_REGISTRY_VERSION,
+        relationship,
+      })
+      throw new Error('expected approved relationship conflict')
+    } catch (error) {
+      expect(error).toBeInstanceOf(DpmRegistryApprovedRelationshipConflictError)
+      expect(isDpmRegistryApprovedRelationshipConflictError(error)).toBe(true)
+      if (!isDpmRegistryApprovedRelationshipConflictError(error)) throw error
+      expect(error).toMatchObject({
+        name: 'DpmRegistryApprovedRelationshipConflictError',
+        code: DPM_REGISTRY_APPROVED_RELATIONSHIP_CONFLICT_ERROR_CODE,
+        datasetId: STORAGE_REGISTRY_DATASET_ID,
+        registryVersion: STORAGE_REGISTRY_VERSION,
+        relationshipName: 'rel_orders_customer',
+        relationshipVersion: '2',
+        constraint: 'dpm_registry_repository_single_approved_relationship_name',
+        message: 'DPM registry already has an approved relationship named rel_orders_customer '
+          + `for dataset ${STORAGE_REGISTRY_DATASET_ID} registry ${STORAGE_REGISTRY_VERSION}; `
+          + 'attempted version 2 conflicts with dpm_registry_repository_single_approved_relationship_name.',
+      })
+    }
     expect(listRelationshipRows).toHaveBeenCalledWith({
       datasetId: STORAGE_REGISTRY_DATASET_ID,
       registryVersion: STORAGE_REGISTRY_VERSION,
