@@ -10,6 +10,8 @@ import {
   listDpmProfileBaselineSummariesRuntime,
   reviewDpmProfileProposalRuntime,
 } from './runtime-profile.js'
+import { importDpmRelationshipCandidatesRuntime } from './runtime-relationship-candidate-import.js'
+import { discoverDpmRelationshipsRuntime } from './runtime-relationship-discover.js'
 
 export function createDpmGatewayRuntime(): DpmGatewayRuntime {
   return {
@@ -17,6 +19,8 @@ export function createDpmGatewayRuntime(): DpmGatewayRuntime {
     analyzeDpmProfile: analyzeDpmProfileRuntime,
     listDpmProfileBaselineSummaries: listDpmProfileBaselineSummariesRuntime,
     reviewDpmProfileProposal: reviewDpmProfileProposalRuntime,
+    discoverDpmRelationships: discoverDpmRelationshipsRuntime,
+    importDpmRelationshipCandidates: importDpmRelationshipCandidatesRuntime,
     validateDpmManifest: validateDpmManifestRuntime,
     compileDpmManifest: compileDpmManifestRuntime,
     dryRunDpmManifest: dryRunDpmManifestRuntime,

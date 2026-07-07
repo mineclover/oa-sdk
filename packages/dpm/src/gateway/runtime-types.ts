@@ -12,6 +12,12 @@ import type {
   DpmGatewayProfileProposalReviewInput,
   DpmGatewayProfileProposalReviewResult,
 } from './runtime-profile-types.js'
+import type {
+  DpmGatewayCandidateImportInput,
+  DpmGatewayCandidateImportResult,
+  DpmGatewayRelationshipDiscoveryInput,
+  DpmGatewayRelationshipDiscoveryResult,
+} from './runtime-relationship-types.js'
 import type { DpmGatewayRuntimeResponse } from './runtime-response-types.js'
 
 export type DpmGatewayRuntime = {
@@ -27,6 +33,12 @@ export type DpmGatewayRuntime = {
   reviewDpmProfileProposal(
     input: DpmGatewayProfileProposalReviewInput,
   ): Promise<DpmGatewayRuntimeResponse<DpmGatewayProfileProposalReviewResult>>
+  discoverDpmRelationships(
+    input: DpmGatewayRelationshipDiscoveryInput,
+  ): Promise<DpmGatewayRuntimeResponse<DpmGatewayRelationshipDiscoveryResult>>
+  importDpmRelationshipCandidates(
+    input: DpmGatewayCandidateImportInput,
+  ): Promise<DpmGatewayRuntimeResponse<DpmGatewayCandidateImportResult>>
   validateDpmManifest(input: DpmGatewayRuntimeManifestInput): Promise<DpmGatewayRuntimeResponse<DpmValidationResult>>
   compileDpmManifest(input: DpmGatewayRuntimeManifestInput): Promise<DpmGatewayRuntimeResponse<DpmCompileResult>>
   dryRunDpmManifest(input: DpmGatewayRuntimeManifestInput): Promise<DpmGatewayRuntimeResponse<DpmCompileResult | DpmDryRunReport>>

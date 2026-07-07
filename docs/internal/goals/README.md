@@ -26,6 +26,10 @@
 | [Goal 20 — DPM Category Subpath Exports](./goal-20-dpm-category-subpath-exports.md) | ✅ | dpm |
 | [Goal 21 — DPM Subpath Consumer Smoke](./goal-21-dpm-subpath-consumer-smoke.md) | ✅ | dpm |
 | [Goal 22 — DPM Pack Boundary Smoke](./goal-22-dpm-pack-boundary-smoke.md) | ✅ | dpm |
+| [Goal 23 — DPM Gateway Blocking Response Contract](./goal-23-dpm-gateway-blocking-response-contract.md) | ✅ | dpm |
+| [Goal 24 — DPM Measured Relationship Proposals](./goal-24-dpm-measured-relationship-proposals.md) | ✅ | dpm |
+| [Goal 25 — DPM Discovery Gateway Candidate Contract](./goal-25-dpm-discovery-gateway-candidate-contract.md) | ✅ | dpm |
+| [Goal 26 — DPM Relationship Discovery Runtime Adapter](./goal-26-dpm-relationship-discovery-runtime-adapter.md) | ✅ | dpm |
 | Phase 3 — OAS 파서/IR | ✅ | parser |
 | Phase 4 — TS 타입 생성 | ✅ | codegen/typegen |
 | Phase 5 — 라우터 스텁 | ✅ | router |

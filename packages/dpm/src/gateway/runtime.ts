@@ -14,6 +14,14 @@ export type {
   DpmGatewayRuntimeManifestInput,
 } from './runtime-manifest-types.js'
 export type {
+  DpmGatewayCandidateImportInput,
+  DpmGatewayCandidateImportResult,
+  DpmGatewayRelationshipDiscoveryInput,
+  DpmGatewayRelationshipDiscoveryRequest,
+  DpmGatewayRelationshipDiscoveryResult,
+  DpmGatewayRelationshipDiscoverySnapshotResolver,
+} from './runtime-relationship-types.js'
+export type {
   DpmGatewayManifestRequest,
   DpmGatewayManifestSnapshotResolver,
   DpmGatewaySnapshotRef,
@@ -44,6 +52,15 @@ export {
   resolveDpmGatewayManifestRuntimeInput,
 } from './runtime-manifest-request.js'
 export {
+  resolveDpmGatewayRelationshipDiscoveryRuntimeInput,
+} from './runtime-relationship-request.js'
+export {
   resolveDpmGatewayProfileAnalysisRequest,
   resolveDpmGatewayProfileAnalysisRuntimeInput,
 } from './runtime-profile-analysis-request.js'
+export {
+  discoverDpmRelationshipsRuntime,
+} from './runtime-relationship-discover.js'
+export {
+  importDpmRelationshipCandidatesRuntime,
+} from './runtime-relationship-candidate-import.js'

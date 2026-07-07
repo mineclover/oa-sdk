@@ -10,6 +10,7 @@ Last updated: 2026-07-07
 
 ## Recently Completed
 
+- [x] Goal 26 / DPM Relationship Discovery Runtime Adapter (complete)
 - [x] Goal 25 / DPM Discovery Gateway Candidate Contract (complete)
 - [x] Goal 24 / DPM Measured Relationship Proposals (complete)
 - [x] Goal 23 / DPM Gateway Blocking Response Contract (complete)
@@ -60,6 +61,7 @@ Last updated: 2026-07-07
 - [x] Goal 23 - DPM Gateway Blocking Response Contract
 - [x] Goal 24 - DPM Measured Relationship Proposals
 - [x] Goal 25 - DPM Discovery Gateway Candidate Contract
+- [x] Goal 26 - DPM Relationship Discovery Runtime Adapter
 
 ## Goal 4 DPM Units
 
@@ -173,6 +175,10 @@ Last updated: 2026-07-07
 ## Goal 25 DPM Units
 
 - [x] DPM-45 - Relationship Discovery Gateway Candidate Contract
+
+## Goal 26 DPM Units
+
+- [x] DPM-46 - Relationship Discovery Runtime Adapter
 
 ## Done Criteria
 

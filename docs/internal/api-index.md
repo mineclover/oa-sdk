@@ -211,8 +211,10 @@ category barrel을 가리킨다. `packages/dpm/test/package-subpath-import-smoke
 | `ExcludedRelationshipCandidate` | `dpm/src/discovery/discovery-exclusion-types.ts` | excluded candidate reason entry |
 | `RelationshipDiscoveryReportInput` | `dpm/src/discovery/discovery-report-types.ts` | discovery report creation input |
 | `RelationshipDiscoveryReport` | `dpm/src/discovery/discovery-report-types.ts` | reviewable discovery report output |
+| `RelationshipDiscoveryCatalogInput` | `dpm/src/discovery/catalog-relationship-candidates.ts` | catalog-derived relationship discovery input |
 | `classifyRelationshipCandidate()` | `dpm/src/discovery/report.ts` | confidence score를 review/reject classification으로 변환 |
 | `createRelationshipDiscoveryReport()` | `dpm/src/discovery/report.ts` | candidate input을 non-executable review report로 정규화 |
+| `createRelationshipDiscoveryReportFromCatalog()` | `dpm/src/discovery/catalog-relationship-candidates.ts` | catalog foreign key evidence를 non-executable review report로 정규화 |
 | `REGISTRY_SNAPSHOT_KIND` | `dpm/src/registry/registry-identity.ts` | registry snapshot kind literal |
 | `REGISTRY_RELATIONSHIP_STATUSES` | `dpm/src/registry/registry-taxonomy.ts` | runtime registry lifecycle status taxonomy used by TypeScript and OpenAPI |
 | `RegistryRelationshipStatus` | `dpm/src/registry/registry-taxonomy.ts` | candidate/proposed/approved/rejected/deprecated/superseded lifecycle status |
@@ -365,9 +367,15 @@ category barrel을 가리킨다. `packages/dpm/test/package-subpath-import-smoke
 | `DpmGatewayProfileBaselineSummaryListResult` | `dpm/src/gateway/runtime-profile-types.ts` | body-free profile baseline summary list gateway result |
 | `DpmGatewayProfileProposalReviewInput` | `dpm/src/gateway/runtime-profile-types.ts` | path-owned proposal id plus editor-safe profile proposal review decision |
 | `DpmGatewayProfileProposalReviewResult` | `dpm/src/gateway/runtime-profile-types.ts` | editor-safe profile proposal review result |
+| `DpmGatewayRelationshipDiscoveryRequest` | `dpm/src/gateway/runtime-relationship-types.ts` | OpenAPI relationship discovery request with catalog snapshot ref |
+| `DpmGatewayRelationshipDiscoverySnapshotResolver` | `dpm/src/gateway/runtime-relationship-types.ts` | consumer-supplied catalog snapshot resolver for relationship discovery requests |
+| `DpmGatewayRelationshipDiscoveryInput` | `dpm/src/gateway/runtime-relationship-types.ts` | loaded manifest and catalog input for catalog-derived relationship discovery |
+| `DpmGatewayRelationshipDiscoveryResult` | `dpm/src/gateway/runtime-relationship-types.ts` | schema-valid relationship discovery report result |
+| `DpmGatewayCandidateImportInput` | `dpm/src/gateway/runtime-relationship-types.ts` | relationship candidate import request input |
+| `DpmGatewayCandidateImportResult` | `dpm/src/gateway/runtime-relationship-types.ts` | relationship candidate import review/reject count result |
 | `DpmGatewayRuntimeOperationId` | `dpm/src/gateway/runtime-operation-ids.ts` | runtime operation id taxonomy |
 | `DpmGatewayRuntimeStatusCode` | `dpm/src/gateway/runtime-response-types.ts` | runtime success or blocking-diagnostic status code |
-| `DpmGatewayRuntimeCommand` | `dpm/src/gateway/runtime-response-types.ts` | profile and manifest runtime command taxonomy |
+| `DpmGatewayRuntimeCommand` | `dpm/src/gateway/runtime-response-types.ts` | profile, relationship, and manifest runtime command taxonomy |
 | `DpmGatewayRuntimeBody` | `dpm/src/gateway/runtime-response-types.ts` | runtime response body envelope |
 | `DpmGatewayRuntimeManifestInput` | `dpm/src/gateway/runtime-manifest-types.ts` | already-loaded manifest, catalog, registry, and estimated row input |
 | `DpmGatewaySnapshotRef` | `dpm/src/gateway/runtime-manifest-request-types.ts` | OpenAPI request snapshot ref passed to runtime snapshot resolvers |
@@ -378,11 +386,14 @@ category barrel을 가리킨다. `packages/dpm/test/package-subpath-import-smoke
 | `DpmGatewayProfileAnalysisResolvedRequest` | `dpm/src/gateway/runtime-profile-analysis-request.ts` | resolved profile analysis runtime input plus selected body-free baseline summary metadata |
 | `DpmGatewayProfileAnalysisBaselineResolver` | `dpm/src/gateway/runtime-profile-analysis-request.ts` | consumer-supplied profile baseline row resolver for profile analysis requests |
 | `DpmGatewayRuntimeResponse` | `dpm/src/gateway/runtime-response-types.ts` | gateway runtime response envelope |
-| `DpmGatewayRuntime` | `dpm/src/gateway/runtime-types.ts` | loaded profile inspection/analysis/baseline summary/review plus validate, compile, and dry-run runtime handlers |
+| `DpmGatewayRuntime` | `dpm/src/gateway/runtime-types.ts` | loaded profile, relationship discovery/import, validate, compile, and dry-run runtime handlers |
 | `resolveDpmGatewayManifestRuntimeInput()` | `dpm/src/gateway/runtime-manifest-request.ts` | converts OpenAPI manifest request refs into loaded runtime manifest input through a snapshot resolver |
+| `resolveDpmGatewayRelationshipDiscoveryRuntimeInput()` | `dpm/src/gateway/runtime-relationship-request.ts` | converts OpenAPI relationship discovery request refs into loaded runtime input through a catalog snapshot resolver |
 | `resolveDpmGatewayProfileAnalysisRequest()` | `dpm/src/gateway/runtime-profile-analysis-request.ts` | converts profile analysis baseline refs into loaded runtime input and selected baseline summary metadata |
 | `resolveDpmGatewayProfileAnalysisRuntimeInput()` | `dpm/src/gateway/runtime-profile-analysis-request.ts` | converts profile analysis baseline refs into loaded runtime profile analysis input through a profile baseline resolver |
-| `createDpmGatewayRuntime()` | `dpm/src/gateway/runtime-factory.ts` | source-DB-free runtime adapter for profile and manifest operations |
+| `discoverDpmRelationshipsRuntime()` | `dpm/src/gateway/runtime-relationship-discover.ts` | source-DB-free relationship discovery runtime handler from loaded manifest/catalog evidence |
+| `importDpmRelationshipCandidatesRuntime()` | `dpm/src/gateway/runtime-relationship-candidate-import.ts` | relationship candidate import runtime handler returning review/reject counts without registry mutation |
+| `createDpmGatewayRuntime()` | `dpm/src/gateway/runtime-factory.ts` | source-DB-free runtime adapter for profile, relationship, and manifest operations |
 | `DpmRelationshipMetadata` | `dpm/src/publishing/types.ts` | AI-publishable approved relationship metadata |
 | `DpmAiRelationshipContext` | `dpm/src/publishing/types.ts` | AI schema relationship context entry |
 | `DpmAiSchemaContext` | `dpm/src/publishing/types.ts` | read-only AI schema context envelope |

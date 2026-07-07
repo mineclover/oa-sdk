@@ -365,9 +365,11 @@
       "name": "DPM discovery report",
       "category": "dpm",
       "package": "@oa-sdk/dpm",
-      "description": "Relationship discovery candidate reports that preserve evidence without approving or executing relationships.",
+      "description": "Relationship discovery candidate reports that preserve candidate or catalog evidence without approving or executing relationships.",
       "capabilities": [
         "candidate relationship report shape",
+        "catalog foreign key candidate derivation",
+        "manifest-scoped catalog candidate filtering",
         "full candidate input/output gateway contract",
         "confidence classification",
         "query log evidence preservation",
@@ -379,7 +381,8 @@
         "packages/dpm/test/discovery-candidate-rejection.test.ts",
         "packages/dpm/test/discovery-classification.test.ts",
         "packages/dpm/test/discovery-evidence.test.ts",
-        "packages/dpm/test/discovery-report.test.ts"
+        "packages/dpm/test/discovery-report.test.ts",
+        "packages/dpm/test/gateway-runtime-relationship-discovery.test.ts"
       ],
       "commands": [
         "pnpm --filter @oa-sdk/dpm test -- discovery",
@@ -651,7 +654,7 @@
       "name": "DPM gateway runtime",
       "category": "dpm",
       "package": "@oa-sdk/dpm",
-      "description": "Profile inspection, profile analysis, profile baseline summary listing, profile proposal review, validate, compile, and dry-run gateway runtime handlers with machine-readable bodies and no source access.",
+      "description": "Profile inspection, profile analysis, profile baseline summary listing, profile proposal review, relationship discovery/import, validate, compile, and dry-run gateway runtime handlers with machine-readable bodies and no source access.",
       "capabilities": [
         "runtime profile inspection handler",
         "runtime profile analysis handler",
@@ -661,6 +664,10 @@
         "runtime profile baseline resolved summary",
         "runtime profile baseline summary list handler",
         "runtime profile baseline positive selection limit",
+        "runtime relationship discovery request resolver",
+        "runtime catalog-derived relationship discovery handler",
+        "runtime manifest-scoped relationship discovery",
+        "runtime relationship candidate import count handler",
         "runtime validate handler",
         "runtime compile handler",
         "runtime dry-run handler",
@@ -681,6 +688,7 @@
         "packages/dpm/test/gateway-runtime-manifest-response-schema.test.ts",
         "packages/dpm/test/gateway-runtime-manifest-schema-parity.test.ts",
         "packages/dpm/test/gateway-runtime-manifest-validate.test.ts",
+        "packages/dpm/test/gateway-runtime-relationship-discovery.test.ts",
         "packages/dpm/test/gateway-consumer-smoke.test.ts",
         "packages/dpm/test/gateway-runtime-profile-baselines.test.ts",
         "packages/dpm/test/gateway-runtime-profile-analysis.test.ts",

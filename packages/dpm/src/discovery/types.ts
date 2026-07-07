@@ -24,3 +24,6 @@ export type {
   RelationshipDiscoveryReport,
   RelationshipDiscoveryReportInput,
 } from './discovery-report-types.js'
+export type {
+  RelationshipDiscoveryCatalogInput,
+} from './catalog-relationship-candidates.js'

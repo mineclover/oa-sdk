@@ -11,7 +11,7 @@ import {
 } from './support/gateway-runtime-fixtures.js'
 
 describe('DPM gateway runtime adapter', () => {
-  it('exposes only local profile and manifest runtime operations', () => {
+  it('exposes only local profile, relationship discovery, and manifest runtime operations', () => {
     expect(DPM_GATEWAY_RUNTIME_OPERATION_IDS).toEqual([...expectedGatewayRuntimeOperationIds])
     expect(DPM_PROFILE_PROPOSAL_REVIEW_STATUSES).toEqual([
       ...expectedProfileProposalReviewStatuses,

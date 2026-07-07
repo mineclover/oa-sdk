@@ -16,6 +16,9 @@ export type {
   RelationshipDiscoveryReport,
   RelationshipDiscoveryReportInput,
 } from '../discovery/discovery-report-types.js'
+export type {
+  RelationshipDiscoveryCatalogInput,
+} from '../discovery/catalog-relationship-candidates.js'
 export {
   DISCOVERY_CANDIDATE_RECOMMENDATIONS,
   DISCOVERY_CONFIDENCE_LEVELS,
@@ -29,6 +32,9 @@ export {
 export {
   createRelationshipDiscoveryReport,
 } from '../discovery/report-builder.js'
+export {
+  createRelationshipDiscoveryReportFromCatalog,
+} from '../discovery/catalog-relationship-candidates.js'
 export {
   DISCOVERY_REPORT_KIND,
 } from '../discovery/report-kind.js'
