@@ -9,6 +9,8 @@ export type {
   DiscoveryCandidateRecommendation,
   DiscoveryConfidenceLevel,
   DiscoveryEvidenceKind,
+  DiscoveryExcludedCandidateReason,
+  DiscoveryRelationshipCandidateType,
 } from '../discovery/discovery-taxonomy.js'
 export type {
   RelationshipDiscoveryReport,
@@ -17,6 +19,9 @@ export type {
 export {
   DISCOVERY_CANDIDATE_RECOMMENDATIONS,
   DISCOVERY_CONFIDENCE_LEVELS,
+  DISCOVERY_EVIDENCE_KINDS,
+  DISCOVERY_EXCLUDED_CANDIDATE_REASONS,
+  DISCOVERY_RELATIONSHIP_CANDIDATE_TYPES,
 } from '../discovery/discovery-taxonomy.js'
 export {
   classifyRelationshipCandidate,

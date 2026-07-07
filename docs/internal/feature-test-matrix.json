@@ -368,6 +368,7 @@
       "description": "Relationship discovery candidate reports that preserve evidence without approving or executing relationships.",
       "capabilities": [
         "candidate relationship report shape",
+        "full candidate input/output gateway contract",
         "confidence classification",
         "query log evidence preservation",
         "ORM metadata evidence preservation",
@@ -614,6 +615,7 @@
         "profile baseline summary list operation",
         "profile proposal review operation",
         "relationship discovery operation",
+        "full relationship candidate discovery/import schemas",
         "candidate import and approval operations",
         "registry snapshot export operation",
         "manifest validate/compile/dry-run operations",

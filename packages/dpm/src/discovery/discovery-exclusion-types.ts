@@ -1,8 +1,9 @@
 import type { SchemaSourceCoordinate } from '@oa-sdk/openapi-projection-contract'
+import type { DiscoveryExcludedCandidateReason } from './discovery-taxonomy.js'
 
 export type ExcludedRelationshipCandidate = {
   id: string
-  reason: 'excluded_column_pattern' | 'type_mismatch' | 'metric_like_column' | 'insufficient_evidence'
+  reason: DiscoveryExcludedCandidateReason
   message: string
   source?: SchemaSourceCoordinate
 }

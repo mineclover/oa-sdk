@@ -195,12 +195,17 @@ category barrel을 가리킨다. `packages/dpm/test/package-subpath-import-smoke
 | `computeDpmProfileAnalysisReportHash()` | `dpm/src/profile/analysis-report-freshness.ts` | profile analysis report hash 계산 |
 | `DISCOVERY_REPORT_KIND` | `dpm/src/discovery/report.ts` | discovery report kind literal |
 | `DiscoveryEvidenceKind` | `dpm/src/discovery/discovery-taxonomy.ts` | candidate evidence source taxonomy |
+| `DISCOVERY_EVIDENCE_KINDS` | `dpm/src/discovery/discovery-taxonomy.ts` | runtime discovery evidence kind taxonomy used by TypeScript and OpenAPI |
+| `DISCOVERY_RELATIONSHIP_CANDIDATE_TYPES` | `dpm/src/discovery/discovery-taxonomy.ts` | runtime discovery relationship candidate type taxonomy |
+| `DISCOVERY_EXCLUDED_CANDIDATE_REASONS` | `dpm/src/discovery/discovery-taxonomy.ts` | runtime discovery exclusion reason taxonomy |
 | `DiscoveryEvidence` | `dpm/src/discovery/discovery-evidence-types.ts` | reviewable relationship candidate evidence entry |
 | `DiscoveryThresholds` | `dpm/src/discovery/discovery-threshold-types.ts` | confidence/reject/orphan threshold contract |
 | `DiscoveryConfidenceLevel` | `dpm/src/discovery/discovery-taxonomy.ts` | high/review/low confidence classification |
 | `DISCOVERY_CANDIDATE_RECOMMENDATIONS` | `dpm/src/discovery/discovery-taxonomy.ts` | runtime relationship candidate recommendation taxonomy used by TypeScript and OpenAPI |
 | `DISCOVERY_CONFIDENCE_LEVELS` | `dpm/src/discovery/discovery-taxonomy.ts` | runtime relationship candidate confidence taxonomy |
 | `DiscoveryCandidateRecommendation` | `dpm/src/discovery/discovery-taxonomy.ts` | review/reject recommendation contract |
+| `DiscoveryRelationshipCandidateType` | `dpm/src/discovery/discovery-taxonomy.ts` | relationship candidate type union |
+| `DiscoveryExcludedCandidateReason` | `dpm/src/discovery/discovery-taxonomy.ts` | discovery exclusion reason union |
 | `RelationshipCandidateInput` | `dpm/src/discovery/discovery-relationship-candidate-types.ts` | candidate report authoring input |
 | `RelationshipCandidate` | `dpm/src/discovery/discovery-relationship-candidate-types.ts` | normalized non-executable relationship candidate |
 | `ExcludedRelationshipCandidate` | `dpm/src/discovery/discovery-exclusion-types.ts` | excluded candidate reason entry |

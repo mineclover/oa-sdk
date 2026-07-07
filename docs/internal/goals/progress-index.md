@@ -10,6 +10,7 @@ Last updated: 2026-07-07
 
 ## Recently Completed
 
+- [x] Goal 25 / DPM Discovery Gateway Candidate Contract (complete)
 - [x] Goal 24 / DPM Measured Relationship Proposals (complete)
 - [x] Goal 23 / DPM Gateway Blocking Response Contract (complete)
 - [x] Goal 22 / DPM Pack Boundary Smoke (complete)
@@ -58,6 +59,7 @@ Last updated: 2026-07-07
 - [x] Goal 22 - DPM Pack Boundary Smoke
 - [x] Goal 23 - DPM Gateway Blocking Response Contract
 - [x] Goal 24 - DPM Measured Relationship Proposals
+- [x] Goal 25 - DPM Discovery Gateway Candidate Contract
 
 ## Goal 4 DPM Units
 
@@ -167,6 +169,10 @@ Last updated: 2026-07-07
 ## Goal 24 DPM Units
 
 - [x] DPM-44 - Measurement-Derived Relationship Review Proposals
+
+## Goal 25 DPM Units
+
+- [x] DPM-45 - Relationship Discovery Gateway Candidate Contract
 
 ## Done Criteria
 

@@ -23,6 +23,10 @@ export function readDiscoveryFixture<T>(name: string): T {
 
 export function readCommerceDiscoveryReport(): RelationshipDiscoveryReport {
   return createRelationshipDiscoveryReport(
-    readDiscoveryFixture<RelationshipDiscoveryReportInput>('commerce-candidates.json'),
+    readCommerceDiscoveryReportInput(),
   )
+}
+
+export function readCommerceDiscoveryReportInput(): RelationshipDiscoveryReportInput {
+  return readDiscoveryFixture<RelationshipDiscoveryReportInput>('commerce-candidates.json')
 }

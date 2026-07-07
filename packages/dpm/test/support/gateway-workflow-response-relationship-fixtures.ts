@@ -1,12 +1,12 @@
 import type {
   GatewayMinimalResponseCase,
 } from './gateway-workflow-response-case-types.js'
+import {
+  readCommerceDiscoveryReport,
+} from './discovery-fixtures.js'
 
 export const gatewayRelationshipMinimalResponseCases = [
-  ['DpmRelationshipDiscoveryReport', {
-    reportRef: 'report://discovery',
-    candidates: [{ name: 'rel_orders_customer', recommendation: 'review' }],
-  }],
+  ['DpmRelationshipDiscoveryReport', readCommerceDiscoveryReport()],
   ['DpmCandidateImportResponse', { imported: 1, rejected: 0 }],
   ['DpmRelationshipApprovalResponse', {
     relationshipName: 'rel_orders_customer',
@@ -18,4 +18,3 @@ export const gatewayRelationshipMinimalResponseCases = [
     relationships: [{ name: 'rel_orders_customer', status: 'approved' }],
   }],
 ] as const satisfies readonly GatewayMinimalResponseCase[]
-
