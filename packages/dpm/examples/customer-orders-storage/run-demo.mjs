@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url'
 
 import {
   POSTGRES_CATALOG_PROFILE_SQL,
+  applyDpmRegistryStorageSchema,
   compileDpmPlan,
   createDpmDryRunReport,
   createDpmJobRepository,
@@ -52,11 +53,12 @@ const catalog = await recordStep('profile catalog rows through explicit query cl
   }
 })
 
-const registry = await recordStep('export approved registry snapshot from Postgres registry adapter', async () => {
+const registry = await recordStep('bootstrap schema and export approved registry snapshot from Postgres registry adapter', async () => {
   const postgresRegistryClient = createFixturePostgresRegistryClient({
     relationshipRows: registryRows,
     auditEvents: registryAuditEvents,
   })
+  const schemaApply = await applyDpmRegistryStorageSchema(postgresRegistryClient)
   const repository = createDpmRegistryRepository(
     createDpmPostgresRegistryStorage(postgresRegistryClient),
   )
@@ -72,11 +74,15 @@ const registry = await recordStep('export approved registry snapshot from Postgr
   return {
     value: snapshot,
     summary: {
+      schemaVersion: schemaApply.schemaVersion,
+      appliedSchemaBlocks: schemaApply.appliedBlockCount,
       storageAdapter: 'postgres-registry',
       approvedRelationships: snapshot.approvedRelationships.map(relationship => relationship.name),
       nonExecutable: snapshot.nonExecutableRelationships.length,
       approvalAuditEvents: auditEvents?.map(event => event.eventId) ?? [],
-      postgresQueries: postgresRegistryClient.queryCalls.map(call => call.table),
+      postgresQueries: postgresRegistryClient.queryCalls
+        .filter(call => call.table !== 'dpm.registry_storage_schema')
+        .map(call => call.table),
     },
   }
 })
@@ -202,6 +208,10 @@ function createFixturePostgresRegistryClient({ relationshipRows, auditEvents }) 
   const client = {
     queryCalls,
     async query(sql, params) {
+      if (isRegistrySchemaSql(sql)) {
+        queryCalls.push({ table: 'dpm.registry_storage_schema', sql, params })
+        return { rows: [] }
+      }
       if (sql.includes('from dpm.relationship_registry_audit_events')) {
         queryCalls.push({ table: 'dpm.relationship_registry_audit_events', sql, params })
         const [datasetId, registryVersion, relationshipName] = params
@@ -231,6 +241,14 @@ function createFixturePostgresRegistryClient({ relationshipRows, auditEvents }) 
   }
 
   return client
+}
+
+function isRegistrySchemaSql(sql) {
+  const normalized = sql.trim().toLowerCase()
+  return normalized.startsWith('create schema')
+    || normalized.startsWith('create table')
+    || normalized.startsWith('create unique index')
+    || normalized.startsWith('create index')
 }
 
 function toPostgresRelationshipDbRow(row) {

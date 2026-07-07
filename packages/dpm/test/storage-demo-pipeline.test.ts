@@ -1,7 +1,9 @@
 import { describe, expect, it, vi } from 'vitest'
 
 import {
+  DPM_REGISTRY_STORAGE_SCHEMA_SQL_BLOCKS,
   POSTGRES_CATALOG_PROFILE_SQL,
+  applyDpmRegistryStorageSchema,
   compileDpmPlan,
   createDpmDryRunReport,
   profilePostgresCatalog,
@@ -62,6 +64,7 @@ describe('DPM storage-backed customer orders demo pipeline', () => {
       client: registryPostgresClient,
       repository: registryRepository,
     } = createStorageDemoPostgresRegistryRepository(registryRows, registryAuditEvents)
+    const schemaApply = await applyDpmRegistryStorageSchema(registryPostgresClient)
     const registry = await registryRepository.exportSnapshot({
       datasetId: manifest.relationship_registry.dataset_id,
       registryVersion: manifest.relationship_registry.registry_version,
@@ -113,8 +116,17 @@ describe('DPM storage-backed customer orders demo pipeline', () => {
 
     expect(catalogQuery).toHaveBeenCalledWith(POSTGRES_CATALOG_PROFILE_SQL, [[...storageDemoSchemas]])
     expect(catalog).toEqual(fixtureCatalog)
-    expect(registryPostgresClient.queryCalls[0]?.sql).toContain('from dpm.relationship_registry')
-    expect(registryPostgresClient.queryCalls[1]?.sql).toContain('from dpm.relationship_registry_audit_events')
+    expect(schemaApply.appliedBlockCount).toBe(DPM_REGISTRY_STORAGE_SCHEMA_SQL_BLOCKS.length)
+    expect(registryPostgresClient.queryCalls.slice(0, DPM_REGISTRY_STORAGE_SCHEMA_SQL_BLOCKS.length))
+      .toEqual(DPM_REGISTRY_STORAGE_SCHEMA_SQL_BLOCKS.map(sql => ({
+        sql,
+        params: [],
+      })))
+    const firstRegistryQueryIndex = DPM_REGISTRY_STORAGE_SCHEMA_SQL_BLOCKS.length
+    expect(registryPostgresClient.queryCalls[firstRegistryQueryIndex]?.sql)
+      .toContain('from dpm.relationship_registry')
+    expect(registryPostgresClient.queryCalls[firstRegistryQueryIndex + 1]?.sql)
+      .toContain('from dpm.relationship_registry_audit_events')
     expect(auditEvents?.map(event => event.eventId)).toEqual([
       'audit:storage-demo:rel-orders-customer-approved',
     ])

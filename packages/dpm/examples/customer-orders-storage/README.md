@@ -5,6 +5,7 @@ This demo shows the storage-backed DPM loop with fixture-backed storage adapters
 ```text
 PostgreSQL catalog profile rows + relationship registry rows + manifest
   -> catalog profiler
+  -> registry schema bootstrap
   -> Postgres registry storage adapter
   -> registry snapshot export + approval audit timeline read
   -> validate
@@ -30,12 +31,14 @@ The demo is CI-reproducible and does not require a live database. It uses checke
 `catalog-profile-rows.json` as the output of the read-only PostgreSQL catalog profiler and
 `relationship-registry-rows.json` plus `relationship-registry-audit-events.json` as the durable
 registry storage fixture. A fixture query client returns Postgres-shaped rows through
-`createDpmPostgresRegistryStorage()` so the demo exercises the same adapter boundary that a
-product service would bind to its own database client.
+`applyDpmRegistryStorageSchema()` and `createDpmPostgresRegistryStorage()` so the demo exercises
+the same bootstrap and adapter boundary that a product service would bind to its own database
+client.
 
 The smoke output proves:
 
 - catalog profiling uses an explicit read-only query client,
+- registry schema bootstrap applies the canonical DPM registry schema blocks,
 - approved registry rows export to the existing registry snapshot contract through the Postgres
   registry storage adapter,
 - approval audit events read back through the same adapter boundary,

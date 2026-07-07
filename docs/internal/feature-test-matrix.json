@@ -604,9 +604,10 @@
       "name": "DPM storage-backed customer orders demo",
       "category": "dpm",
       "package": "@oa-sdk/dpm",
-      "description": "Storage-backed customer-orders demo for catalog profiling, Postgres registry adapter export, approval audit timeline readback, validate/compile/dry-run, and report retrieval.",
+      "description": "Storage-backed customer-orders demo for catalog profiling, registry schema bootstrap, Postgres registry adapter export, approval audit timeline readback, validate/compile/dry-run, and report retrieval.",
       "capabilities": [
         "fixture-backed catalog profiling",
+        "registry schema bootstrap smoke",
         "Postgres registry adapter consumer binding",
         "storage-backed registry snapshot export",
         "approval audit timeline readback",

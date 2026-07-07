@@ -43,6 +43,9 @@ export function createStorageDemoPostgresRegistryClient(
     queryCalls,
     async query<T>(sql: string, params: readonly unknown[]) {
       queryCalls.push({ sql, params })
+      if (isRegistrySchemaSql(sql)) {
+        return { rows: [] as readonly T[] }
+      }
       if (sql.includes('from dpm.relationship_registry_audit_events')) {
         const [datasetId, registryVersion, relationshipName] = params
         const rows = auditEventDbRows.filter(row =>
@@ -72,6 +75,14 @@ export function createStorageDemoPostgresRegistryClient(
   }
 
   return client
+}
+
+function isRegistrySchemaSql(sql: string): boolean {
+  const normalized = sql.trim().toLowerCase()
+  return normalized.startsWith('create schema')
+    || normalized.startsWith('create table')
+    || normalized.startsWith('create unique index')
+    || normalized.startsWith('create index')
 }
 
 function toPostgresRelationshipDbRow(row: DpmRegistryRelationshipRow): Record<string, unknown> {
