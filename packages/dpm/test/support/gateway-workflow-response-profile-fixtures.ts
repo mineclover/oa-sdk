@@ -103,6 +103,7 @@ export const gatewayProfileMinimalResponseCases = [
       relationshipVersion: '1',
       relationshipIdentity: 'commerce_ai/rel_orders_customer@1',
       status: 'approved',
+      approvalAuditEventId: 'audit:profile-hint:rel-orders-customer-approved',
     },
     registrySnapshot: createRegistrySnapshot({
       datasetId: 'commerce_ai',

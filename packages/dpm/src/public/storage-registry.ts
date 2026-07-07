@@ -5,6 +5,7 @@ export type {
   DpmRegistryRelationshipAuditEventRow,
   DpmRegistryRelationshipAuditEventType,
   DpmRegistryRelationshipRow,
+  DpmRegistryRelationshipSaveResult,
   DpmRegistryRelationshipRowRequest,
   DpmRegistryRelationshipSaveInput,
   DpmRegistryAuditEventReader,

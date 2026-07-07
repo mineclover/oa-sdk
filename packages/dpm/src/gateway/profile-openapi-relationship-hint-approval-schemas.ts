@@ -38,6 +38,7 @@ export function createDpmProfileRelationshipHintApprovalGatewaySchemas() {
         approvedBy: stringSchema(),
         reason: stringSchema(),
         approvedAt: stringSchema(),
+        auditEventId: stringSchema(),
         generatedAt: stringSchema(),
         exportedAt: stringSchema(),
         createdAt: stringSchema(),

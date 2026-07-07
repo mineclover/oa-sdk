@@ -87,6 +87,7 @@ export function createDpmGatewayRelationshipRegistrySchemas() {
       relationshipVersion: stringSchema(),
       relationshipIdentity: stringSchema(),
       status: { type: 'string', enum: [...REGISTRY_RELATIONSHIP_STATUSES] },
+      approvalAuditEventId: stringSchema(),
       sourceFreshnessHash: stringSchema(),
       savedAt: stringSchema(),
     }, [

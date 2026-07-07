@@ -259,6 +259,7 @@ category barrel을 가리킨다. `packages/dpm/test/package-subpath-import-smoke
 | `DpmRegistryRelationshipSaveInput` | `dpm/src/storage/registry-repository-types.ts` | approved relationship payload to registry storage row save input |
 | `DpmRegistryRelationshipApprovalCommitInput` | `dpm/src/storage/registry-repository-types.ts` | storage adapter payload for atomically committing an approved relationship row with its audit event |
 | `DpmRegistryRelationshipApprovalCommitResult` | `dpm/src/storage/registry-repository-types.ts` | storage adapter result for an atomic approved relationship row and audit event commit |
+| `DpmRegistryRelationshipSaveResult` | `dpm/src/storage/registry-repository-types.ts` | repository save result containing the saved relationship row and actual persisted approval audit event when available |
 | `DpmRegistryRelationshipAuditEventRow` | `dpm/src/storage/registry-repository-types.ts` | append-only relationship approval audit event row |
 | `DpmRegistryRelationshipAuditEventType` | `dpm/src/storage/registry-repository-types.ts` | relationship audit event type union |
 | `DpmRegistryRelationshipRow` | `dpm/src/storage/registry-repository-types.ts` | canonical storage row shape for relationship registry records |
@@ -267,8 +268,8 @@ category barrel을 가리킨다. `packages/dpm/test/package-subpath-import-smoke
 | `DpmRegistryAuditEventReader` | `dpm/src/storage/registry-repository-types.ts` | read-only adapter boundary for listing registry approval audit events |
 | `DpmRegistryStorage` | `dpm/src/storage/registry-repository-types.ts` | writable registry storage adapter boundary for split row upserts or atomic approval commits, plus optional audit event append/listing |
 | `DpmRegistryRepository` | `dpm/src/storage/registry-repository-types.ts` | storage-backed snapshot export repository |
-| `DpmRegistryWritableRepository` | `dpm/src/storage/registry-repository-types.ts` | registry repository with saveRelationship persistence bridge and optional audit event listing |
-| `createDpmRegistryRepository()` | `dpm/src/storage/registry-repository.ts` | row reader를 registry snapshot export repository로 감싸고, writer adapter에는 relationship save bridge, optional atomic approval commit bridge, optional audit append bridge를 제공한다 |
+| `DpmRegistryWritableRepository` | `dpm/src/storage/registry-repository-types.ts` | registry repository with saveRelationship persistence bridge, optional audit-aware save result bridge, and optional audit event listing |
+| `createDpmRegistryRepository()` | `dpm/src/storage/registry-repository.ts` | row reader를 registry snapshot export repository로 감싸고, writer adapter에는 relationship save bridge, audit-aware save result bridge, optional atomic approval commit bridge, optional audit append bridge를 제공한다 |
 | `createDpmRegistryRelationshipRow()` | `dpm/src/storage/registry-row-relationship.ts` | registry relationship payload를 canonical registry storage row로 변환 |
 | `copyDpmRegistryRelationshipRow()` | `dpm/src/storage/registry-row-relationship.ts` | registry storage row adapter boundary defensive copy helper |
 | `createDpmRegistryRelationshipAuditEventRow()` | `dpm/src/storage/registry-audit-event.ts` | approved registry relationship row를 append-only approval audit event row로 변환 |
@@ -404,9 +405,9 @@ category barrel을 가리킨다. `packages/dpm/test/package-subpath-import-smoke
 | `DpmGatewayCandidateImportResult` | `dpm/src/gateway/runtime-relationship-types.ts` | relationship candidate import count plus normalized review report result |
 | `DpmGatewayRelationshipApprovalInput` | `dpm/src/gateway/runtime-relationship-types.ts` | relationship candidate approval input with registry policy fields |
 | `DpmGatewayRelationshipApprovalResult` | `dpm/src/gateway/runtime-relationship-types.ts` | approved registry relationship payload result |
-| `DpmGatewayProfileRelationshipHintApprovalInput` | `dpm/src/gateway/runtime-relationship-types.ts` | profile relationship hint approval workflow input with endpoint resolver, approval, and writable registry repository fields |
+| `DpmGatewayProfileRelationshipHintApprovalInput` | `dpm/src/gateway/runtime-relationship-types.ts` | profile relationship hint approval workflow input with endpoint resolver, approval, optional audit event id, and writable registry repository fields |
 | `DpmGatewayProfileRelationshipHintApprovalRequest` | `dpm/src/gateway/runtime-relationship-types.ts` | OpenAPI profile relationship hint approval request body before path-owned relationship name and runtime repository injection |
-| `DpmGatewayRegistryRelationshipWriteReceipt` | `dpm/src/gateway/runtime-relationship-types.ts` | logical registry write receipt for gateway responses without exposing storage row shape |
+| `DpmGatewayRegistryRelationshipWriteReceipt` | `dpm/src/gateway/runtime-relationship-types.ts` | logical registry write receipt for gateway responses, including optional persisted approval audit event id, without exposing storage row shape |
 | `DpmGatewayProfileRelationshipHintApprovalSuccessResult` | `dpm/src/gateway/runtime-relationship-types.ts` | schema-valid profile hint approval success result with candidate import, approved relationship, write receipt, and exported registry snapshot |
 | `DpmGatewayProfileRelationshipHintApprovalBlockingResult` | `dpm/src/gateway/runtime-relationship-types.ts` | schema-valid profile hint approval blocking result with relationship name and profile diagnostics |
 | `DpmGatewayProfileRelationshipHintApprovalResult` | `dpm/src/gateway/runtime-relationship-types.ts` | profile hint approval success or blocking result discriminated by status |

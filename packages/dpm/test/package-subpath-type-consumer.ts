@@ -51,6 +51,7 @@ import {
   type DpmRegistryRelationshipApprovalCommitResult,
   type DpmRegistryRelationshipAuditEventRow,
   type DpmRegistryRelationshipSaveInput,
+  type DpmRegistryRelationshipSaveResult,
   type DpmRegistryWritableRepository,
   type DpmProfileBaselineSummary,
 } from '@oa-sdk/dpm/storage'
@@ -80,6 +81,7 @@ type DpmSubpathTypeSmoke = {
   registryRelationshipApprovalCommitInput?: DpmRegistryRelationshipApprovalCommitInput
   registryRelationshipApprovalCommitResult?: DpmRegistryRelationshipApprovalCommitResult
   registryRelationshipSave?: DpmRegistryRelationshipSaveInput
+  registryRelationshipSaveResult?: DpmRegistryRelationshipSaveResult
   approvedRegistryApproval?: ApprovedRegistryApprovalMetadata
   approvedRegistryRelationship?: ApprovedRegistryRelationshipInput
   registryRepository?: DpmRegistryWritableRepository

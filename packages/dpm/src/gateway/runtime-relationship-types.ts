@@ -93,6 +93,7 @@ export type DpmGatewayProfileRelationshipHintApprovalInput =
     approvedBy: string
     reason: string
     approvedAt?: string
+    auditEventId?: string
     generatedAt?: string
     exportedAt?: string
     createdAt?: string
@@ -113,6 +114,7 @@ export type DpmGatewayRegistryRelationshipWriteReceipt = {
   relationshipVersion: string
   relationshipIdentity: string
   status: RegistryRelationshipStatus
+  approvalAuditEventId?: string
   sourceFreshnessHash?: string
   savedAt?: string
 }

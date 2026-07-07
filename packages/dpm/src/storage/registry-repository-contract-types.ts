@@ -20,6 +20,11 @@ export type DpmRegistryRelationshipApprovalCommitResult = {
   auditEvent: DpmRegistryRelationshipAuditEventRow
 }
 
+export type DpmRegistryRelationshipSaveResult = {
+  relationshipRow: DpmRegistryRelationshipRow
+  approvalAuditEvent?: DpmRegistryRelationshipAuditEventRow
+}
+
 export type DpmRegistryStorageReader = {
   listRelationshipRows(
     request: DpmRegistryRelationshipRowRequest,
@@ -63,6 +68,9 @@ export type DpmRegistryRepository = {
 
 export type DpmRegistryWritableRepository = DpmRegistryRepository & {
   saveRelationship(input: DpmRegistryRelationshipSaveInput): Promise<DpmRegistryRelationshipRow>
+  saveRelationshipWithAuditEvent?(
+    input: DpmRegistryRelationshipSaveInput,
+  ): Promise<DpmRegistryRelationshipSaveResult>
   listRelationshipAuditEvents?(
     request: DpmRegistryRelationshipAuditEventRequest,
   ): Promise<readonly DpmRegistryRelationshipAuditEventRow[]>

@@ -1,6 +1,6 @@
 # Goal Progress Index
 
-Last updated: 2026-07-07
+Last updated: 2026-07-08
 
 이 파일은 goal 진행 현황만 관리한다. 설계, 범위, 수용 기준은 각 goal 문서를 따른다.
 
@@ -10,6 +10,7 @@ Last updated: 2026-07-07
 
 ## Recently Completed
 
+- [x] Goal 45 / DPM Registry Write Receipt Audit Link (complete)
 - [x] Goal 44 / DPM Registry Approval Commit Hook (complete)
 - [x] Goal 43 / DPM Registry Write Receipt Gateway Boundary (complete)
 - [x] Goal 42 / DPM Profile Hint Approval Gateway Contract (complete)
@@ -98,6 +99,7 @@ Last updated: 2026-07-07
 - [x] Goal 42 - DPM Profile Hint Approval Gateway Contract
 - [x] Goal 43 - DPM Registry Write Receipt Gateway Boundary
 - [x] Goal 44 - DPM Registry Approval Commit Hook
+- [x] Goal 45 - DPM Registry Write Receipt Audit Link
 
 ## Goal 4 DPM Units
 
@@ -287,6 +289,10 @@ Last updated: 2026-07-07
 ## Goal 44 DPM Units
 
 - [x] DPM-64 - Registry Approval Commit Hook
+
+## Goal 45 DPM Units
+
+- [x] DPM-65 - Registry Write Receipt Audit Link
 
 ## Done Criteria
 

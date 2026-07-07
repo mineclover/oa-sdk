@@ -220,7 +220,7 @@ describe('DPM registry storage repository', () => {
       },
     }
 
-    const saved = await repository.saveRelationship({
+    const saveResult = await repository.saveRelationshipWithAuditEvent?.({
       datasetId: STORAGE_REGISTRY_DATASET_ID,
       registryVersion: STORAGE_REGISTRY_VERSION,
       relationship,
@@ -229,10 +229,15 @@ describe('DPM registry storage repository', () => {
       createdAt: STORAGE_REGISTRY_EXPORTED_AT,
       updatedAt: STORAGE_REGISTRY_EXPORTED_AT,
     })
+    if (!saveResult) throw new Error('expected save result with approval audit event')
+    const saved = saveResult.relationshipRow
+    const returnedAuditEvent = saveResult.approvalAuditEvent
     const appended = auditEvents[0]
     if (!appended) throw new Error('expected appended relationship audit event')
+    if (!returnedAuditEvent) throw new Error('expected returned relationship audit event')
 
     saved.approval.reason = 'mutated saved row'
+    returnedAuditEvent.reason = 'mutated returned audit event'
     relationship.approval.reason = 'mutated relationship payload'
     const listed = await repository.listRelationshipAuditEvents?.({
       datasetId: STORAGE_REGISTRY_DATASET_ID,
@@ -244,6 +249,12 @@ describe('DPM registry storage repository', () => {
     listedEvent.approval.reason = 'mutated listed event'
 
     expect(DPM_REGISTRY_RELATIONSHIP_AUDIT_EVENT_TYPES).toEqual(['relationship_approved'])
+    expect(returnedAuditEvent).toMatchObject({
+      eventId: 'audit:rel-orders-customer-approved',
+      eventType: 'relationship_approved',
+      relationshipName: 'rel_orders_customer',
+      relationshipVersion: '2',
+    })
     expect(appendRelationshipAuditEvent).toHaveBeenCalledWith(expect.objectContaining({
       eventId: 'audit:rel-orders-customer-approved',
       eventType: 'relationship_approved',
@@ -258,6 +269,8 @@ describe('DPM registry storage repository', () => {
       sourceFreshnessHash: 'sha256:profile-analysis-v2',
     }))
     expect(appended).not.toBe(listedEvent)
+    expect(appended).not.toBe(returnedAuditEvent)
+    expect(appended.reason).toBe('Relationship is required for customer-scoped pseudonymization.')
     expect(appended.approval.reason).toBe('Relationship is required for customer-scoped pseudonymization.')
     expect(listedEvent).toMatchObject({
       approval: {

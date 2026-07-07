@@ -1,6 +1,7 @@
 export type {
   DpmRegistryRelationshipApprovalCommitInput,
   DpmRegistryRelationshipApprovalCommitResult,
+  DpmRegistryRelationshipSaveResult,
   DpmRegistryAuditEventReader,
   DpmRegistryRepository,
   DpmRegistryStorage,

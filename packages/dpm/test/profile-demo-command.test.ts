@@ -79,7 +79,9 @@ describe('DPM Kafka profile demo command', () => {
       relationshipName: 'rel_orders_customer',
       registryVersion: 'registry-profile-demo-v1',
       relationshipIdentity: 'commerce_ai/rel_orders_customer@1',
+      approvalAuditEventId: 'audit:profile-demo:rel-orders-customer-approved',
       sourceFreshnessHash: expect.stringMatching(/^sha256:/),
+      auditEventCount: 1,
       approvedRelationships: ['rel_orders_customer'],
       nonExecutableRelationships: 0,
     })

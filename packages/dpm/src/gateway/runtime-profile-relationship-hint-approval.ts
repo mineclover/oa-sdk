@@ -74,14 +74,20 @@ export async function approveDpmProfileRelationshipHintRuntime(
     reason: input.reason,
     ...(input.approvedAt ? { approvedAt: input.approvedAt } : {}),
   })
-  const savedRelationship = await input.registryRepository.saveRelationship({
+  const saveInput = {
     datasetId: input.profileArtifact.datasetId,
     registryVersion: input.registryVersion,
     relationship: approvalResponse.body.result.relationship,
+    ...(input.auditEventId ? { auditEventId: input.auditEventId } : {}),
     ...(input.sourceFreshnessHash ? { sourceFreshnessHash: input.sourceFreshnessHash } : {}),
     ...(input.createdAt ? { createdAt: input.createdAt } : {}),
     ...(input.updatedAt ? { updatedAt: input.updatedAt } : {}),
-  })
+  }
+  const savedRelationshipResult = input.registryRepository.saveRelationshipWithAuditEvent
+    ? await input.registryRepository.saveRelationshipWithAuditEvent(saveInput)
+    : {
+        relationshipRow: await input.registryRepository.saveRelationship(saveInput),
+      }
   const registrySnapshotResponse = await exportDpmRegistrySnapshotRuntime({
     datasetId: input.profileArtifact.datasetId,
     registryVersion: input.registryVersion,
@@ -100,7 +106,12 @@ export async function approveDpmProfileRelationshipHintRuntime(
       reviewCandidate,
       candidateImport: candidateImportResponse.body.result,
       relationship: approvalResponse.body.result.relationship,
-      relationshipWriteReceipt: createRelationshipWriteReceipt(savedRelationship),
+      relationshipWriteReceipt: createRelationshipWriteReceipt({
+        ...savedRelationshipResult.relationshipRow,
+        ...(savedRelationshipResult.approvalAuditEvent
+          ? { approvalAuditEventId: savedRelationshipResult.approvalAuditEvent.eventId }
+          : {}),
+      }),
       registrySnapshot: registrySnapshotResponse.body.result,
     },
   })
@@ -112,6 +123,7 @@ function createRelationshipWriteReceipt(input: {
   relationshipName: string
   relationshipVersion: string
   status: DpmGatewayRegistryRelationshipWriteReceipt['status']
+  approvalAuditEventId?: string
   sourceFreshnessHash?: string
   createdAt?: string
   updatedAt?: string
@@ -130,6 +142,7 @@ function createRelationshipWriteReceipt(input: {
       input.relationshipVersion,
     ),
     status: input.status,
+    ...(input.approvalAuditEventId ? { approvalAuditEventId: input.approvalAuditEventId } : {}),
     ...(input.sourceFreshnessHash ? { sourceFreshnessHash: input.sourceFreshnessHash } : {}),
     ...(savedAt ? { savedAt } : {}),
   }

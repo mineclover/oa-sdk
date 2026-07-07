@@ -30,6 +30,7 @@ const fixture = JSON.parse(readFileSync(fixturePath, 'utf8'))
 const runtime = createDpmGatewayRuntime()
 const profileBaselineRows = new Map()
 const registryRows = []
+const registryAuditEvents = []
 const profileBaselineRepository = createDpmProfileBaselineRepository({
   upsertProfileBaseline: row => profileBaselineRows.set(row.baselineRef, row),
   getProfileBaseline: request => profileBaselineRows.get(request.baselineRef),
@@ -42,9 +43,19 @@ const registryRepository = createDpmRegistryRepository({
   upsertRelationshipRow(row) {
     registryRows.push(row)
   },
+  appendRelationshipAuditEvent(row) {
+    registryAuditEvents.push(row)
+  },
   listRelationshipRows(request) {
     return registryRows.filter(row =>
       row.datasetId === request.datasetId && row.registryVersion === request.registryVersion,
+    )
+  },
+  listRelationshipAuditEvents(request) {
+    return registryAuditEvents.filter(row =>
+      row.datasetId === request.datasetId
+      && row.registryVersion === request.registryVersion
+      && (!request.relationshipName || row.relationshipName === request.relationshipName),
     )
   },
 })
@@ -310,6 +321,7 @@ await recordStep('approve candidate and return registry write receipt', async ()
     approvedBy: 'dpm-reviewer@example.com',
     reason: 'Kafka profile hint was mapped to a customer relationship for pseudonymized analytics.',
     approvedAt: '2026-07-07T00:10:00.000Z',
+    auditEventId: 'audit:profile-demo:rel-orders-customer-approved',
     sourceFreshnessHash: analysisReport.freshness.reportHash,
     createdAt: '2026-07-07T00:10:00.000Z',
     updatedAt: '2026-07-07T00:10:00.000Z',
@@ -323,8 +335,19 @@ await recordStep('approve candidate and return registry write receipt', async ()
   assertEqual(receipt.relationshipName, 'rel_orders_customer', 'write receipt relationship name')
   assertEqual(receipt.status, 'approved', 'write receipt relationship status')
   assertEqual(receipt.relationshipIdentity, 'commerce_ai/rel_orders_customer@1', 'write receipt relationship identity')
+  assertEqual(
+    receipt.approvalAuditEventId,
+    'audit:profile-demo:rel-orders-customer-approved',
+    'write receipt approval audit event id',
+  )
   assertEqual(registrySnapshot.approvedRelationships.length, 1, 'exported approved relationship count')
   assertEqual(registrySnapshot.approvedRelationships[0]?.name, 'rel_orders_customer', 'exported relationship name')
+  assertEqual(registryAuditEvents.length, 1, 'approval audit event count')
+  assertEqual(
+    registryAuditEvents[0]?.eventId,
+    'audit:profile-demo:rel-orders-customer-approved',
+    'stored approval audit event id',
+  )
   assertNoUnsafeFragments(JSON.stringify(registrySnapshot))
 
   return {
@@ -334,7 +357,9 @@ await recordStep('approve candidate and return registry write receipt', async ()
     relationshipName: receipt.relationshipName,
     registryVersion: receipt.registryVersion,
     relationshipIdentity: receipt.relationshipIdentity,
+    approvalAuditEventId: receipt.approvalAuditEventId,
     sourceFreshnessHash: receipt.sourceFreshnessHash,
+    auditEventCount: registryAuditEvents.length,
     approvedRelationships: registrySnapshot.approvedRelationships.map(relationship => relationship.name),
     nonExecutableRelationships: registrySnapshot.nonExecutableRelationships.length,
   }

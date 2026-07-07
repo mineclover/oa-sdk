@@ -467,14 +467,25 @@ describe('DPM gateway consumer smoke', () => {
     )
     if (!relationshipHint) throw new Error('expected explicit Kafka relationship hint')
     const registryRows: DpmRegistryRelationshipRow[] = []
+    const auditEvents: DpmRegistryRelationshipAuditEventRow[] = []
     const upsertRelationshipRow = vi.fn((row: DpmRegistryRelationshipRow) => {
       registryRows.push(row)
     })
+    const appendRelationshipAuditEvent = vi.fn((row: DpmRegistryRelationshipAuditEventRow) => {
+      auditEvents.push(row)
+    })
     const registryRepository = createDpmRegistryRepository({
       upsertRelationshipRow,
+      appendRelationshipAuditEvent,
       listRelationshipRows: request =>
         registryRows.filter(row =>
           row.datasetId === request.datasetId && row.registryVersion === request.registryVersion,
+        ),
+      listRelationshipAuditEvents: request =>
+        auditEvents.filter(row =>
+          row.datasetId === request.datasetId
+          && row.registryVersion === request.registryVersion
+          && (!request.relationshipName || row.relationshipName === request.relationshipName),
         ),
     })
     const request = {
@@ -492,6 +503,7 @@ describe('DPM gateway consumer smoke', () => {
       approvedBy: 'privacy-reviewer',
       reason: 'Kafka profile hint was approved for customer-scoped pseudonymization.',
       approvedAt: '2026-07-07T00:10:00.000Z',
+      auditEventId: 'audit:profile-hint:consumer-smoke-rel-orders-customer-approved',
       exportedAt: '2026-07-07T00:11:00.000Z',
       createdAt: '2026-07-07T00:10:00.000Z',
       updatedAt: '2026-07-07T00:10:00.000Z',
@@ -514,6 +526,11 @@ describe('DPM gateway consumer smoke', () => {
     expect(response.statusCode).toBe(200)
     expect(response.body.command).toBe('approve-profile-relationship-hint')
     expect(upsertRelationshipRow).toHaveBeenCalledOnce()
+    expect(appendRelationshipAuditEvent).toHaveBeenCalledWith(expect.objectContaining({
+      eventId: 'audit:profile-hint:consumer-smoke-rel-orders-customer-approved',
+      relationshipName: 'rel_orders_customer',
+      relationshipStatus: 'approved',
+    }))
     expect(
       responseSchema(response.body.result),
       JSON.stringify(responseSchema.errors, null, 2),
@@ -527,6 +544,7 @@ describe('DPM gateway consumer smoke', () => {
         registryVersion: 'registry-profile-workflow-v1',
         relationshipName: 'rel_orders_customer',
         relationshipIdentity: `${profileArtifact.datasetId}/rel_orders_customer@1`,
+        approvalAuditEventId: 'audit:profile-hint:consumer-smoke-rel-orders-customer-approved',
       },
     })
     expect(JSON.stringify(response.body.result)).not.toContain('C-001')
