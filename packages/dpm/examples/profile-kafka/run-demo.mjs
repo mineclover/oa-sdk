@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url'
 
 import {
   createDpmGatewayRuntime,
+  createDpmProfileArtifactSnapshot,
   profileKafkaTopicFixture,
   validateDpmProfileArtifactSchema,
   validateDpmProfileConnectorResult,
@@ -52,6 +53,31 @@ await recordStep('flatten Kafka topic fixture into profile artifact', async () =
 })
 
 const profileArtifact = required(connectorResult.profileArtifact, 'expected profile artifact after connector step')
+
+await recordStep('create read-only SDK profile artifact snapshot', async () => {
+  const probeResult = profileKafkaTopicFixture(fixture)
+  const probeProfile = required(probeResult.profileArtifact, 'expected probe profile artifact')
+  const snapshot = createDpmProfileArtifactSnapshot(probeProfile)
+  const firstNodeLabel = snapshot.nodes[0]?.label
+  const evidenceId = Object.keys(probeProfile.evidenceSources)[0]
+  const evidencePath = snapshot.evidenceSources[evidenceId]?.coordinate.path
+
+  probeProfile.nodes[0].label = 'mutated after SDK snapshot'
+  probeProfile.evidenceSources[evidenceId].coordinate.path = 'mutated.after.sdk.snapshot'
+
+  assertEqual(snapshot.nodes[0]?.label, firstNodeLabel, 'SDK snapshot node label')
+  assertEqual(snapshot.evidenceSources[evidenceId]?.coordinate.path, evidencePath, 'SDK snapshot evidence path')
+  assertEqual(Object.isFrozen(snapshot), true, 'SDK snapshot root frozen')
+  assertEqual(Object.isFrozen(snapshot.nodes), true, 'SDK snapshot node collection frozen')
+  assertEqual(Object.isFrozen(snapshot.nodes[0]), true, 'SDK snapshot node frozen')
+
+  return {
+    profileVersionHash: snapshot.freshness.versionHash,
+    nodeLabel: snapshot.nodes[0]?.label,
+    evidencePath,
+    frozen: Object.isFrozen(snapshot),
+  }
+})
 
 await recordStep('inspect profile artifact for editor runtime', async () => {
   const response = await runtime.inspectDpmProfile({ profileArtifact })

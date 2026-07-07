@@ -5,6 +5,7 @@ This demo shows the profile-first DPM loop without connecting to Kafka:
 ```text
 Kafka topic fixture
   -> profileKafkaTopicFixture
+  -> createDpmProfileArtifactSnapshot
   -> gateway inspect profile
   -> gateway analyze profile
   -> gateway review relationship hint proposal
@@ -26,6 +27,7 @@ The demo proves:
 
 - Kafka topic, key, header, schema, nested message field, metric, and relationship hint evidence is flattened into a DPM profile artifact.
 - Connector and profile artifact validation pass without live Kafka access.
+- SDK consumers can create a frozen read-only profile artifact snapshot for editor baselines.
 - Gateway inspection returns profile counts for editor use.
 - Profile analysis emits relationship hint proposals, key candidates, risk indicators, and coverage metrics.
 - Proposal review can accept or request changes on hints without mutating connector evidence.

@@ -20,8 +20,14 @@ describe('DPM Kafka profile demo command', () => {
 
     expect(result.status, result.stderr || result.stdout).toBe(0)
     expect(output?.steps.every((step: Record<string, unknown>) => step.status === 'pass')).toBe(true)
+    expect(
+      output?.steps.find((step: { name: string }) =>
+        step.name === 'create read-only SDK profile artifact snapshot'
+      )?.summary?.frozen,
+    ).toBe(true)
     expect(output?.steps.map((step: { name: string }) => step.name)).toEqual([
       'flatten Kafka topic fixture into profile artifact',
+      'create read-only SDK profile artifact snapshot',
       'inspect profile artifact for editor runtime',
       'analyze profile artifact into review signals',
       'review relationship hint proposal without registry mutation',
