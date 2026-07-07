@@ -6,6 +6,7 @@ import {
   evidenceIdsSchema,
   nonEmptyStringSchema,
   profileCoordinateSchema,
+  safeProfileShapeSchema,
 } from './schema-fragments.js'
 
 export const profileNodesSchema = {
@@ -20,12 +21,7 @@ export const profileNodesSchema = {
       label: nonEmptyStringSchema,
       coordinate: profileCoordinateSchema,
       dataType: nonEmptyStringSchema,
-      shape: {
-        type: 'object',
-        additionalProperties: {
-          type: ['string', 'number', 'boolean', 'null'],
-        },
-      },
+      shape: safeProfileShapeSchema,
     },
     required: ['id', 'kind', 'label', 'coordinate'],
   },

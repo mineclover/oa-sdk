@@ -8,6 +8,21 @@ export const invalidProfileAnalysisRequestPayload = {
   profileArtifact: {},
 }
 
+export const invalidProfileAnalysisRequestUnsafeShapePayload = {
+  profileArtifact: {
+    ...profileArtifact,
+    nodes: [
+      {
+        ...profileArtifact.nodes[0]!,
+        shape: {
+          rawSample: 'C-001',
+        },
+      },
+      ...profileArtifact.nodes.slice(1),
+    ],
+  },
+}
+
 export const invalidProfileAnalysisResponsePayload = {
   analysisReport: {
     kind: 'dpm.profile.analysis-report.v1',

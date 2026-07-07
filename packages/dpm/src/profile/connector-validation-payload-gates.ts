@@ -6,7 +6,7 @@ import { validateDpmProfileArtifactSchema } from './schema.js'
 export function addDpmProfileConnectorPayloadDiagnostics(
   diagnostics: DpmProfileDiagnostic[],
   result: DpmProfileConnectorResult,
-): void {
+): boolean {
   if (result.status === 'failed' && result.diagnostics.length === 0) {
     diagnostics.push(connectorDiagnostic(
       'CONN105',
@@ -23,7 +23,7 @@ export function addDpmProfileConnectorPayloadDiagnostics(
     ))
   }
 
-  if (!result.profileArtifact) return
+  if (!result.profileArtifact) return false
 
   const artifactSchemaResult = validateDpmProfileArtifactSchema(result.profileArtifact)
   if (!artifactSchemaResult.valid) {
@@ -32,6 +32,7 @@ export function addDpmProfileConnectorPayloadDiagnostics(
       `Connector ${result.connectorId} emitted an invalid profile artifact.`,
       result.connectorId,
     ))
+    return false
   }
 
   const mismatchedSource = result.profileArtifact.sources.find(source =>
@@ -44,4 +45,6 @@ export function addDpmProfileConnectorPayloadDiagnostics(
       result.connectorId,
     ))
   }
+
+  return true
 }

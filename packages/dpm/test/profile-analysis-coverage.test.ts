@@ -17,4 +17,29 @@ describe('DPM profile analysis coverage', () => {
     expect(report.coverage.metricKindCounts.presence_ratio).toBeGreaterThanOrEqual(4)
     expect(report.coverage.measuredNodeRatio).toBeGreaterThan(0)
   })
+
+  it('does not count edge metrics as measured nodes', () => {
+    const profile = createKafkaProfileArtifact()
+    const baseline = createDpmProfileAnalysisReport({ profileArtifact: profile })
+    const edge = profile.edges[0]!
+    const report = createDpmProfileAnalysisReport({
+      profileArtifact: {
+        ...profile,
+        metrics: [
+          ...profile.metrics,
+          {
+            id: `metric:${edge.id}:orphan_ratio`,
+            kind: 'orphan_ratio',
+            subjectId: edge.id,
+            value: 0.05,
+            unit: 'ratio',
+            evidenceIds: edge.evidenceIds,
+          },
+        ],
+      },
+    })
+
+    expect(report.coverage.measuredNodeCount).toBe(baseline.coverage.measuredNodeCount)
+    expect(report.coverage.measuredNodeRatio).toBeLessThanOrEqual(1)
+  })
 })

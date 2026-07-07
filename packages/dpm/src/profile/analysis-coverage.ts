@@ -8,7 +8,12 @@ import {
 import type { DpmProfileArtifact } from './profile-artifact-types.js'
 
 export function analyzeCoverage(profile: DpmProfileArtifact): DpmProfileAnalysisCoverage {
-  const measuredNodeIds = new Set(profile.metrics.map(metric => metric.subjectId))
+  const nodeIds = new Set(profile.nodes.map(node => node.id))
+  const measuredNodeIds = new Set(
+    profile.metrics
+      .map(metric => metric.subjectId)
+      .filter(subjectId => nodeIds.has(subjectId)),
+  )
 
   return {
     sourceKindCounts: countBy(profile.sources, source => source.kind),

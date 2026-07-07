@@ -3,15 +3,26 @@ import {
   DPM_PROFILE_METRIC_KINDS,
   DPM_PROFILE_NODE_KINDS,
 } from '../profile/types.js'
+import { unsafeProfileShapeKeyPattern } from '../profile/schema-fragments.js'
 import {
   arrayOf,
   numberSchema,
   ratioSchema,
-  recordOf,
   ref,
   requiredObjectSchema,
   stringSchema,
 } from './openapi-schema.js'
+
+const profileShapeGatewaySchema = {
+  type: 'object',
+  propertyNames: {
+    type: 'string',
+    not: { pattern: unsafeProfileShapeKeyPattern },
+  },
+  additionalProperties: {
+    oneOf: [stringSchema(), numberSchema(), { type: 'boolean' }, { type: 'null' }],
+  },
+} as const
 
 export function createDpmProfileGraphGatewaySchemas() {
   return {
@@ -21,7 +32,7 @@ export function createDpmProfileGraphGatewaySchemas() {
       label: stringSchema(),
       coordinate: ref('DpmProfileCoordinate'),
       dataType: stringSchema(),
-      shape: recordOf({ oneOf: [stringSchema(), numberSchema(), { type: 'boolean' }, { type: 'null' }] }),
+      shape: profileShapeGatewaySchema,
     }, ['id', 'kind', 'label', 'coordinate']),
     DpmProfileEdge: requiredObjectSchema({
       id: stringSchema(),

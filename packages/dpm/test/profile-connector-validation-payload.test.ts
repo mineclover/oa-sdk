@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import {
   normalizeDpmProfileArtifact,
   normalizeDpmProfileConnectorResult,
+  type DpmProfileConnectorResult,
   validateDpmProfileConnectorResult,
 } from '../src/index.js'
 import { createKafkaProfileArtifactInput } from './support/profile-connector-kafka-artifact-inputs.js'
@@ -31,6 +32,10 @@ describe('DPM profile connector validation — payload gates', () => {
     const baseInput = createKafkaProfileArtifactInput()
     const profileArtifact = normalizeDpmProfileArtifact({
       ...baseInput,
+      sources: [
+        ...baseInput.sources,
+        baseInput.sources[0]!,
+      ],
       evidenceSources: {
         ...baseInput.evidenceSources,
         'evidence:kafka:missing-source': {
@@ -87,5 +92,35 @@ describe('DPM profile connector validation — payload gates', () => {
       'CONN112',
       'CONN113',
     ]))
+    expect(validation.diagnostics).toContainEqual(expect.objectContaining({
+      code: 'CONN109',
+      message: `Profile artifact contains duplicate source id ${baseInput.sources[0]!.id}.`,
+    }))
+  })
+
+  it('returns diagnostics instead of throwing for schema-invalid profile artifacts', () => {
+    const profileArtifact = normalizeDpmProfileArtifact(createKafkaProfileArtifactInput())
+    const result = createKafkaProfileConnectorResult({ profileArtifact })
+    const invalidResult = {
+      ...result,
+      profileArtifact: {
+        ...profileArtifact,
+        nodes: [
+          {
+            id: 'node:field:missing-provenance',
+            kind: 'message_field',
+            label: 'missing provenance',
+          },
+        ],
+      },
+    } as unknown as DpmProfileConnectorResult
+    let validation: ReturnType<typeof validateDpmProfileConnectorResult> | undefined
+
+    expect(() => {
+      validation = validateDpmProfileConnectorResult(invalidResult)
+    }).not.toThrow()
+    expect(validation?.valid).toBe(false)
+    expect(validation?.diagnostics.map(diagnostic => diagnostic.code)).toContain('CONN107')
+    expect(validation?.diagnostics.map(diagnostic => diagnostic.code)).not.toContain('CONN113')
   })
 })

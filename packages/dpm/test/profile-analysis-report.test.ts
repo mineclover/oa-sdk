@@ -25,6 +25,10 @@ describe('DPM profile analysis report', () => {
     const report = createDpmProfileAnalysisReport({
       profileArtifact: {
         ...profile,
+        sources: [
+          ...profile.sources,
+          profile.sources[0]!,
+        ],
         evidenceSources: {
           ...profile.evidenceSources,
           'evidence:kafka:missing-source': {
@@ -80,6 +84,10 @@ describe('DPM profile analysis report', () => {
       'PROF305',
       'PROF306',
     ]))
+    expect(report.diagnostics).toContainEqual(expect.objectContaining({
+      code: 'PROF303',
+      message: `Profile artifact contains duplicate source id ${profile.sources[0]!.id}.`,
+    }))
     expect(report.summary.diagnosticCount).toBe(report.diagnostics.length)
   })
 })

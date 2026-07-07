@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import {
   invalidProfileAnalysisRequestPayload,
+  invalidProfileAnalysisRequestUnsafeShapePayload,
   invalidProfileAnalysisResponsePayload,
   invalidProfileProposalReviewRequestPayloadCases,
 } from './support/gateway-profile-editor-fixtures.js'
@@ -16,6 +17,10 @@ describe('DPM gateway profile editor schemas', () => {
     expect(
       analysisRequestSchema(invalidProfileAnalysisRequestPayload),
       'DpmProfileAnalysisRequest unexpectedly accepted an incomplete profile artifact',
+    ).toBe(false)
+    expect(
+      analysisRequestSchema(invalidProfileAnalysisRequestUnsafeShapePayload),
+      'DpmProfileAnalysisRequest unexpectedly accepted an unsafe profile shape key',
     ).toBe(false)
     expect(
       analysisResponseSchema(invalidProfileAnalysisResponsePayload),

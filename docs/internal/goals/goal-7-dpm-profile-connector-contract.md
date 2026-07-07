@@ -124,6 +124,7 @@ Artifacts:
 - `packages/dpm/src/profile/profile-source-types.ts`
 - `packages/dpm/src/profile/profile-graph-types.ts`
 - `packages/dpm/src/profile/profile-artifact-types.ts`
+- `packages/dpm/src/profile/profile-graph-integrity.ts`
 - `packages/dpm/src/profile/artifact-input-types.ts`
 - `packages/dpm/src/profile/artifact.ts`
 - `packages/dpm/src/profile/artifact-structural.ts`
@@ -186,7 +187,11 @@ Implementation notes:
   envelope types are split across `profile-source-types.ts`, `profile-graph-types.ts`, and
   `profile-artifact-types.ts`. `packages/dpm/src/profile/types.ts` remains the compatibility barrel.
 - The profile artifact JSON Schema rejects unknown taxonomy values, missing node provenance,
-  incomplete metrics, and raw top-level payload fields.
+  incomplete metrics, raw top-level payload fields, and unsafe `shape` metadata keys such as
+  raw/sample/payload/secret/token/vault hints.
+- `profile-graph-integrity.ts` collects profile source/graph/evidence integrity issues once so
+  connector validation and analysis diagnostics map the same artifact facts to their own diagnostic
+  families.
 
 ### DPM-24 - Connector Output Contract
 
@@ -233,8 +238,11 @@ Acceptance:
 - Kafka/topic fixture profiling can use the same connector result shape.
 - Connector failures are diagnostic payloads, not thrown-away strings.
 - A connector result cannot claim unsupported evidence as observed evidence.
-- A schema-valid profile artifact with duplicate graph ids, dangling node refs, missing metric
-  subjects, missing evidence refs, or missing source refs is rejected by connector validation.
+- A schema-valid profile artifact with duplicate source ids, duplicate graph ids, dangling node
+  refs, missing metric subjects, missing evidence refs, or missing source refs is rejected by
+  connector validation.
+- A schema-invalid profile artifact returns `CONN107` and does not continue into graph integrity
+  traversal as if the payload were typed.
 
 Verification:
 - `pnpm --filter @oa-sdk/dpm exec vitest run test/profile-connector.test.ts test/profile-connector-validation-payload.test.ts test/profile-connector-validation-capability.test.ts`
@@ -254,7 +262,8 @@ Implementation notes:
 - Connector validation checks capability identity, supported source/capture modes, unsupported or
   skipped observed evidence kinds, failed-result diagnostics, completed-result profile artifacts,
   emitted profile artifact schema validity, connector identity mismatch in emitted sources, and
-  graph/evidence/source reference integrity.
+  shared source/graph/evidence reference integrity. Schema-invalid artifacts stop at payload
+  diagnostics before graph traversal.
 - PostgreSQL catalog profiling and Kafka fixture evidence can both be represented through the same
   connector result contract without changing the existing `CatalogSnapshot` compiler path.
 
@@ -397,8 +406,10 @@ Acceptance:
 - Relationship hints include confidence, evidence pointers, and reviewer-safe explanations.
 - Relationship hint proposals are emitted only when the candidate edge resolves both its source node
   and `relationship_hint` target node.
-- Analysis reports surface direct profile graph integrity issues as `PROF302` through `PROF306`
-  diagnostics.
+- Analysis reports surface direct profile source/graph integrity issues as `PROF302` through
+  `PROF306` diagnostics.
+- Coverage counts measured node ratio from metrics whose subjects resolve to nodes; edge metrics do
+  not inflate node coverage.
 - Risk indicators do not expose raw values.
 
 Verification:
@@ -413,8 +424,9 @@ Implementation notes:
 - `analysis-report-structural.ts` owns report identity, profile metadata, diagnostic ordering,
   graph integrity diagnostic attachment, signal placement, and summary attachment before freshness is
   added.
-- `analysis-graph-diagnostics.ts` owns direct analysis diagnostics for duplicate graph ids, dangling
-  edge node refs, missing metric subjects, missing source refs, and missing evidence refs.
+- `analysis-graph-diagnostics.ts` maps shared profile integrity issues to analysis diagnostics for
+  duplicate source ids, duplicate graph ids, dangling edge node refs, missing metric subjects,
+  missing source refs, and missing evidence refs.
 - `createDpmProfileAnalysisSummary()` owns diagnostic and signal count assembly, while
   `sortDpmProfileAnalysisDiagnostics()` owns deterministic diagnostic ordering.
 - `computeDpmProfileAnalysisReportHash()` owns stable report serialization and report freshness

@@ -16,8 +16,8 @@ export function collectDpmProfileConnectorDiagnostics(
   const diagnostics: DpmProfileDiagnostic[] = []
 
   addDpmProfileConnectorCapabilityDiagnostics(diagnostics, result)
-  addDpmProfileConnectorPayloadDiagnostics(diagnostics, result)
-  addDpmProfileConnectorGraphDiagnostics(diagnostics, result)
+  const canValidateGraph = addDpmProfileConnectorPayloadDiagnostics(diagnostics, result)
+  if (canValidateGraph) addDpmProfileConnectorGraphDiagnostics(diagnostics, result)
 
   return diagnostics
 }

@@ -29,4 +29,18 @@ export const profileArtifactSchemaRejectionCases = [
       rawSample: { customer_no: 'C-001' },
     }),
   },
+  {
+    label: 'raw sample shape key',
+    createPayload: (profile) => ({
+      ...profile,
+      nodes: [
+        {
+          ...profile.nodes[0]!,
+          shape: {
+            rawSample: 'C-001',
+          },
+        },
+      ],
+    }),
+  },
 ] as const satisfies readonly ProfileArtifactSchemaRejectionCase[]
