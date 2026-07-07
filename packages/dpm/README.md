@@ -36,6 +36,14 @@ Profile analysis produces review proposals. It does not auto-approve relationshi
 
 Use `@oa-sdk/dpm/storage` when product code needs registry rows, approval audit events, job/report rows, or profile baseline history. Use `@oa-sdk/dpm/publishing` to project compiled relationship metadata into AI-readable context without exposing source database credentials, token vault material, raw payload samples, or reverse token lookup APIs.
 
+## Operating Strategy
+
+Treat the package smokes and demos as representative product flow gates. When stabilizing DPM behavior, prefer extending an existing flow gate over adding one test per internal readback.
+
+Add separate focused tests when the change affects a public API/export contract, privacy or safety boundary, storage adapter divergence, real regression, or schema/taxonomy contract. Otherwise, leave naturally covered approval, audit, conflict, and snapshot readbacks inside the representative workflow that already owns the product path.
+
+The internal decision rule is tracked in [Goal 63](../../docs/internal/goals/goal-63-dpm-product-flow-operating-strategy.md).
+
 ## Safety Boundaries
 
 - Connectors produce evidence; approved registry snapshots remain the execution source of truth.
