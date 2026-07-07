@@ -12,6 +12,7 @@ export function createDpmManifestGatewayPaths() {
         summary: 'Validate a DPM manifest against catalog and registry snapshots.',
         requestBody: jsonRequestBody('DpmManifestValidationRequest'),
         responseSchema: 'DpmValidationResult',
+        blockingResponseSchema: 'DpmValidationResult',
       }),
     },
     '/dpm/manifests/compile': {
@@ -21,6 +22,7 @@ export function createDpmManifestGatewayPaths() {
         summary: 'Compile a validated DPM manifest into an execution plan.',
         requestBody: jsonRequestBody('DpmManifestCompileRequest'),
         responseSchema: 'DpmCompileResult',
+        blockingResponseSchema: 'DpmCompileResult',
       }),
     },
     '/dpm/manifests/dry-run': {
@@ -30,6 +32,7 @@ export function createDpmManifestGatewayPaths() {
         summary: 'Create a dry-run impact report from a compiled DPM plan.',
         requestBody: jsonRequestBody('DpmManifestDryRunRequest'),
         responseSchema: 'DpmDryRunResult',
+        blockingResponseSchema: 'DpmCompileResult',
       }),
     },
   } as const

@@ -79,6 +79,9 @@ jobs:
       - name: Feature test matrix consistency
         run: pnpm check:feature-tests
 
+      - name: DPM package surface smoke
+        run: pnpm check:dpm-surface
+
       - name: Release policy consistency
         run: pnpm check:release-policy
 

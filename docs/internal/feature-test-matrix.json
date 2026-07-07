@@ -145,7 +145,8 @@
         "built package subpath runtime import smoke",
         "built package subpath declaration consumer smoke",
         "pack dry-run file boundary smoke",
-        "clean build stale dist sentinel rejection"
+        "clean build stale dist sentinel rejection",
+        "root CI package surface smoke"
       ],
       "testPaths": [
         "packages/dpm/test/package-subpath-exports.test.ts",
@@ -157,6 +158,7 @@
         "pnpm --filter @oa-sdk/dpm exec vitest run test/package-subpath-exports.test.ts",
         "pnpm --filter @oa-sdk/dpm run smoke:subpaths",
         "pnpm --filter @oa-sdk/dpm run smoke:pack",
+        "pnpm check:dpm-surface",
         "pnpm --filter @oa-sdk/dpm typecheck"
       ]
     },
@@ -615,6 +617,7 @@
         "registry snapshot export operation",
         "manifest validate/compile/dry-run operations",
         "execute job and report operations",
+        "documented blocking 400 response schemas",
         "manifest JSON Schema reference boundary",
         "editor evidence mutation exclusion",
         "secret-bearing operation exclusion"
@@ -627,6 +630,7 @@
         "packages/dpm/test/gateway-schema-response-minimal.test.ts",
         "packages/dpm/test/gateway-schema-response-required.test.ts",
         "packages/dpm/test/gateway-schema-response-taxonomy.test.ts",
+        "packages/dpm/test/gateway-blocking-response-contract.test.ts",
         "packages/dpm/test/gateway.test.ts",
         "packages/dpm/test/gateway-taxonomy-diagnostics.test.ts",
         "packages/dpm/test/gateway-taxonomy-plan.test.ts",

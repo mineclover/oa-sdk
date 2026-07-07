@@ -43,6 +43,7 @@
     "check:api-index": "node scripts/dist/check-api-index.js",
     "check:cli-spec": "node --import tsx scripts/check-cli-spec.ts",
     "check:feature-tests": "node --import tsx scripts/check-feature-test-matrix.ts",
+    "check:dpm-surface": "corepack pnpm --filter @oa-sdk/dpm run smoke:subpaths && corepack pnpm --filter @oa-sdk/dpm run smoke:pack",
     "check:release-policy": "node --import tsx scripts/check-release-policy.ts",
     "spec:diff": "node scripts/dist/spec-diff.js",
     "typespec:roundtrip": "node --import tsx scripts/typespec-roundtrip.ts",

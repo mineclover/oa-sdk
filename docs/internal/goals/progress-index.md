@@ -10,6 +10,7 @@ Last updated: 2026-07-07
 
 ## Recently Completed
 
+- [x] Goal 23 / DPM Gateway Blocking Response Contract (complete)
 - [x] Goal 22 / DPM Pack Boundary Smoke (complete)
 - [x] Goal 21 / DPM Subpath Consumer Smoke (complete)
 - [x] Goal 20 / DPM Category Subpath Exports (complete)
@@ -54,6 +55,7 @@ Last updated: 2026-07-07
 - [x] Goal 20 - DPM Category Subpath Exports
 - [x] Goal 21 - DPM Subpath Consumer Smoke
 - [x] Goal 22 - DPM Pack Boundary Smoke
+- [x] Goal 23 - DPM Gateway Blocking Response Contract
 
 ## Goal 4 DPM Units
 
@@ -155,6 +157,10 @@ Last updated: 2026-07-07
 ## Goal 22 DPM Units
 
 - [x] DPM-42 - Clean Build And Pack Dry-Run Boundary
+
+## Goal 23 DPM Units
+
+- [x] DPM-43 - Gateway Blocking Response Contract
 
 ## Done Criteria
 

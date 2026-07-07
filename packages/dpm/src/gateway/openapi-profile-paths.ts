@@ -41,6 +41,7 @@ export function createDpmProfileGatewayPaths() {
         parameters: [pathParameter('proposalId')],
         requestBody: jsonRequestBody('DpmProfileProposalReviewRequest'),
         responseSchema: 'DpmProfileProposalReviewResponse',
+        blockingResponseSchema: 'DpmProfileProposalReviewResponse',
       }),
     },
   } as const
