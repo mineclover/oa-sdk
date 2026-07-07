@@ -18,6 +18,7 @@ export function createKafkaTopicProfileGraph(input: KafkaTopicProfileGraphInput)
     nodes: [],
     edges: [],
     metrics: [],
+    diagnostics: [],
   }
 
   const { topicEvidenceId, topicNodeId } = appendKafkaTopicRoot({

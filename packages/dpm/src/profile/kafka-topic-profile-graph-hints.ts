@@ -14,6 +14,7 @@ export function appendKafkaTopicProfileGraphRelationshipHints(input: KafkaTopicP
       evidenceSources: input.evidenceSources,
       nodes: input.nodes,
       edges: input.edges,
+      diagnostics: input.diagnostics,
     })
   }
 }

@@ -258,6 +258,11 @@ Artifacts:
 - `packages/dpm/src/profile/kafka-fixture-types.ts`
 - `packages/dpm/src/profile/kafka.ts`
 - `packages/dpm/src/profile/kafka-topic-profile.ts`
+- `packages/dpm/src/profile/kafka-topic-profile-graph.ts`
+- `packages/dpm/src/profile/kafka-topic-profile-graph-types.ts`
+- `packages/dpm/src/profile/kafka-topic-profile-graph-sections.ts`
+- `packages/dpm/src/profile/kafka-topic-profile-graph-fields.ts`
+- `packages/dpm/src/profile/kafka-topic-profile-graph-hints.ts`
 - `packages/dpm/src/profile/kafka-topic-source.ts`
 - `packages/dpm/src/profile/kafka-topic-root.ts`
 - `packages/dpm/src/profile/kafka-topic-key-headers.ts`
@@ -271,15 +276,21 @@ Artifacts:
 - `packages/dpm/src/profile/kafka-profile-fields.ts`
 - `packages/dpm/src/profile/kafka-profile-field-types.ts`
 - `packages/dpm/src/profile/kafka-profile-field-context.ts`
+- `packages/dpm/src/profile/kafka-profile-path.ts`
 - `packages/dpm/src/profile/kafka-profile-field-nodes.ts`
 - `packages/dpm/src/profile/kafka-profile-field-metrics.ts`
 - `packages/dpm/src/profile/kafka-profile-graph.ts`
+- `packages/dpm/src/profile/kafka-profile-hint-diagnostic.ts`
 - `packages/dpm/src/profile/kafka-profile-hint-edge.ts`
 - `packages/dpm/src/profile/kafka-profile-hint-evidence.ts`
 - `packages/dpm/src/profile/kafka-profile-hint-node.ts`
 - `packages/dpm/src/profile/kafka-profile-hint-types.ts`
 - `packages/dpm/src/profile/kafka-profile-hints.ts`
-- `packages/dpm/test/profile-kafka.test.ts`
+- `packages/dpm/test/profile-kafka-connector.test.ts`
+- `packages/dpm/test/profile-kafka-connector-freshness.test.ts`
+- `packages/dpm/test/profile-kafka-graph-fields.test.ts`
+- `packages/dpm/test/profile-kafka-graph-sections.test.ts`
+- `packages/dpm/test/profile-kafka-graph-hints.test.ts`
 - fixture directory under `packages/dpm/test/fixtures/profile/`
 
 Tasks:
@@ -293,9 +304,11 @@ Acceptance:
 - The adapter does not connect to Kafka or consume live messages.
 - Nested JSON/Avro-like field paths can be flattened into stable coordinates.
 - Relationship hints remain suggestions and do not become approved registry entries.
+- Relationship hints whose `fromPath` does not resolve to a flattened field node become profile
+  diagnostics and do not create dangling `candidate_relationship` edges or reviewer proposals.
 
 Verification:
-- `pnpm --filter @oa-sdk/dpm exec vitest run test/profile-kafka.test.ts`
+- `pnpm --filter @oa-sdk/dpm exec vitest run test/profile-kafka-graph-hints.test.ts test/profile-analysis-relationship-hints.test.ts test/profile-kafka-connector.test.ts`
 - `pnpm --filter @oa-sdk/dpm test`
 
 Implementation notes:
@@ -313,11 +326,13 @@ Implementation notes:
   `kafka-profile-field-metrics.ts` separately own field context derivation, field node/edge append,
   and field metric append. `kafka-profile-hints.ts` remains the relationship hint append
   compatibility entrypoint, while `kafka-profile-hint-types.ts`,
-  `kafka-profile-hint-evidence.ts`, `kafka-profile-hint-node.ts`, and
-  `kafka-profile-hint-edge.ts` separately own hint input vocabulary, evidence source append, hint
-  node creation, and candidate edge creation.
+  `kafka-profile-hint-evidence.ts`, `kafka-profile-hint-node.ts`,
+  `kafka-profile-hint-edge.ts`, and `kafka-profile-hint-diagnostic.ts` separately own hint input
+  vocabulary, evidence source append, hint node creation, candidate edge creation, and unresolved
+  source field diagnostics.
 - Relationship hints are represented as `relationship_hint` nodes and `candidate_relationship`
-  edges; they do not create approved registry relationships or alter the existing compiler path.
+  edges only when the hinted source field node exists; they do not create approved registry
+  relationships or alter the existing compiler path.
 
 ### DPM-26 - Profile Analysis Report
 

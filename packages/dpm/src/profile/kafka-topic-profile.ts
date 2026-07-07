@@ -35,6 +35,6 @@ export function createKafkaTopicProfileArtifactInput(
     nodes: graph.nodes,
     edges: graph.edges,
     metrics: graph.metrics,
-    diagnostics: [],
+    diagnostics: graph.diagnostics,
   }
 }

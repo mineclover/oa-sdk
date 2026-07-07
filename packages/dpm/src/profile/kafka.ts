@@ -31,7 +31,14 @@ export function profileKafkaTopicFixture(input: DpmKafkaTopicProfileFixture): Dp
       supportedEvidenceKinds: [...DPM_PROFILE_CONNECTOR_EVIDENCE_KINDS],
       skippedEvidenceKinds: [],
     },
-    observedEvidenceKinds: ['source', 'evidence_source', 'node', 'edge', 'metric'],
+    observedEvidenceKinds: [
+      'source',
+      'evidence_source',
+      'node',
+      'edge',
+      'metric',
+      ...(profileArtifact.diagnostics.length > 0 ? ['diagnostic' as const] : []),
+    ],
     diagnostics: [],
     profileArtifact,
   })

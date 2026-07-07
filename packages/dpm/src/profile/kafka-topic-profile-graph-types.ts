@@ -1,4 +1,5 @@
 import type { DpmKafkaTopicFixture } from './kafka-fixture-topic-types.js'
+import type { DpmProfileDiagnostic } from './profile-artifact-types.js'
 import type {
   DpmProfileEdge,
   DpmProfileMetric,
@@ -17,6 +18,7 @@ export type KafkaTopicProfileGraph = {
   nodes: DpmProfileNode[]
   edges: DpmProfileEdge[]
   metrics: DpmProfileMetric[]
+  diagnostics: DpmProfileDiagnostic[]
 }
 
 export type KafkaTopicProfileGraphContext = KafkaTopicProfileGraphInput & KafkaTopicProfileGraph & {

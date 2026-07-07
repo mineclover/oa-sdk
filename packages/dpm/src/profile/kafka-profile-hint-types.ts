@@ -3,6 +3,7 @@ import type {
   DpmProfileEdge,
   DpmProfileNode,
 } from './profile-graph-types.js'
+import type { DpmProfileDiagnostic } from './profile-artifact-types.js'
 import type { DpmProfileEvidenceSource } from './profile-source-types.js'
 
 export type KafkaRelationshipHintContext = {
@@ -16,4 +17,5 @@ export type KafkaRelationshipHintAppendInput = KafkaRelationshipHintContext & {
   evidenceSources: Record<string, DpmProfileEvidenceSource>
   nodes: DpmProfileNode[]
   edges: DpmProfileEdge[]
+  diagnostics: DpmProfileDiagnostic[]
 }
