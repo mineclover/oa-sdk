@@ -9,7 +9,6 @@ import {
   createDpmProfileBaselineRepository,
   profileKafkaTopicFixture,
   resolveDpmGatewayProfileAnalysisRuntimeInput,
-  summarizeDpmProfileBaselineRows,
   validateDpmProfileArtifactSchema,
   validateDpmProfileConnectorResult,
 } from '../../dist/index.js'
@@ -150,10 +149,10 @@ await recordStep('compare profile artifact with previous measurement baseline', 
     measurementRunHash: previousResult.freshness.runHash,
     storedAt: '2026-07-07T00:05:00.000Z',
   })
-  const baselineHistory = summarizeDpmProfileBaselineRows(await profileBaselineRepository.listProfileBaselines({
+  const baselineHistory = await profileBaselineRepository.listProfileBaselineSummaries({
     datasetId: profileArtifact.datasetId,
     profileId: profileArtifact.profileId,
-  }))
+  })
   const runtimeInput = await resolveDpmGatewayProfileAnalysisRuntimeInput({
     request: {
       profileArtifact,

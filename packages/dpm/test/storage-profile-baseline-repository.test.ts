@@ -182,11 +182,32 @@ describe('DPM profile baseline repository', () => {
       measurementRunHash: 'sha256:summary-run',
       storedAt: '2026-07-07T00:05:00.000Z',
     })
+    const listProfileBaselines = vi.fn((request: DpmProfileBaselineListRequest) =>
+      [row].filter(candidate =>
+        candidate.datasetId === request.datasetId
+        && candidate.profileId === request.profileId
+      )
+    )
+    const repository = createDpmProfileBaselineRepository({
+      upsertProfileBaseline: async () => undefined,
+      getProfileBaseline: async () => row,
+      listProfileBaselines,
+    })
 
     const summary = summarizeDpmProfileBaselineRow(row)
     const summaries = summarizeDpmProfileBaselineRows([row])
+    const repositorySummaries = await repository.listProfileBaselineSummaries({
+      datasetId: row.datasetId,
+      profileId: row.profileId,
+      limit: 1,
+    })
     summary.analysisSummary!.relationshipHintCount = 999
 
+    expect(listProfileBaselines).toHaveBeenCalledWith({
+      datasetId: row.datasetId,
+      profileId: row.profileId,
+      limit: 1,
+    })
     expect(summary).toMatchObject({
       kind: DPM_PROFILE_BASELINE_KIND,
       baselineRef: row.baselineRef,
@@ -211,8 +232,11 @@ describe('DPM profile baseline repository', () => {
     expect(summary.analysisSummary?.driftSignalCount).toBe(analysisReport.summary.driftSignalCount)
     expect(analysisReport.summary.relationshipHintCount).not.toBe(999)
     expect(summaries).toHaveLength(1)
+    expect(repositorySummaries).toEqual(summaries)
     expect(JSON.stringify(summary)).not.toContain('profileArtifact')
     expect(JSON.stringify(summary)).not.toContain('analysisReport')
+    expect(JSON.stringify(repositorySummaries)).not.toContain('profileArtifact')
+    expect(JSON.stringify(repositorySummaries)).not.toContain('analysisReport')
     expectStorageReportPayloadExcludesUnsafeFragments(summary)
   })
 

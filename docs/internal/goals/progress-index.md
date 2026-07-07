@@ -10,6 +10,7 @@ Last updated: 2026-07-07
 
 ## Recently Completed
 
+- [x] Goal 13 / DPM Profile Baseline Summary Repository (complete)
 - [x] Goal 12 / DPM Profile Baseline History Summary (complete)
 - [x] Goal 11 / DPM Profile Baseline Measurement History (complete)
 - [x] Goal 10 / DPM Profile Baseline Selection (complete)
@@ -34,6 +35,7 @@ Last updated: 2026-07-07
 - [x] Goal 10 - DPM Profile Baseline Selection
 - [x] Goal 11 - DPM Profile Baseline Measurement History
 - [x] Goal 12 - DPM Profile Baseline History Summary
+- [x] Goal 13 - DPM Profile Baseline Summary Repository
 
 ## Goal 4 DPM Units
 
@@ -95,6 +97,10 @@ Last updated: 2026-07-07
 ## Goal 12 DPM Units
 
 - [x] DPM-32 - Body-Free Profile Baseline History Summary
+
+## Goal 13 DPM Units
+
+- [x] DPM-33 - Repository-Backed Profile Baseline Summary Listing
 
 ## Done Criteria
 

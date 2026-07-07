@@ -301,6 +301,7 @@
         "profile baseline row identity",
         "same-version profile baseline measurement identity",
         "body-free profile baseline history summary",
+        "repository-backed profile baseline summary listing",
         "profile artifact persistence",
         "analysis report persistence",
         "profile and report freshness references",

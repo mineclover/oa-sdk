@@ -301,6 +301,8 @@ DPM profile baseline measurement identity invariant: `packages/dpm/src/storage/p
 
 DPM profile baseline history summary invariant: `packages/dpm/src/storage/profile-baseline-summary.ts` projects baseline rows into body-free history summaries for list/UI surfaces. Summaries keep identity, measurement metadata, freshness hashes, profile counts, and optional analysis summary, but do not expose stored `profileArtifact` or `analysisReport` bodies.
 
+DPM profile baseline repository summary invariant: `packages/dpm/src/storage/profile-baseline-repository-facade.ts` exposes `listProfileBaselineSummaries()` as the repository-backed path for baseline history list surfaces. The storage adapter contract remains row-based; the SDK repository composes storage listing with the body-free summary projection.
+
 ## `@oa-sdk/router` ✅
 
 Hono/Express 스텁. `OasDocument | ParsedDocument` 입력. typegen 타입 import, JSDoc, 204.

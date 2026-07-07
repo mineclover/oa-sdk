@@ -324,7 +324,7 @@ catalog/registry snapshot, semantic validator, compiler, CLI/gateway/publishing 
 | `DpmProfileBaselineSelectionStrategy` | `dpm/src/storage/profile-baseline-repository.ts` | profile baseline selection strategy union |
 | `DpmPreviousProfileBaselineSelectionInput` | `dpm/src/storage/profile-baseline-repository.ts` | direct selector input for latest previous profile baseline selection |
 | `DpmProfileBaselineStorage` | `dpm/src/storage/profile-baseline-repository.ts` | storage adapter boundary for profile baselines |
-| `DpmProfileBaselineRepository` | `dpm/src/storage/profile-baseline-repository.ts` | profile baseline persistence and retrieval repository surface |
+| `DpmProfileBaselineRepository` | `dpm/src/storage/profile-baseline-repository.ts` | profile baseline persistence, retrieval, selection, and body-free summary repository surface |
 | `createDpmProfileBaselineRow()` | `dpm/src/storage/profile-baseline-repository.ts` | copy-only profile baseline row builder with profile/report consistency guard |
 | `copyDpmProfileBaselineRow()` | `dpm/src/storage/profile-baseline-repository.ts` | profile baseline row copy helper that preserves stored metadata |
 | `createDpmProfileBaselineMeasurementId()` | `dpm/src/storage/profile-baseline-repository.ts` | deterministic profile baseline measurement identity helper |
