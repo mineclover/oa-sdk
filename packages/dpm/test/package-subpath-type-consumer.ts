@@ -8,6 +8,7 @@ import {
 } from '@oa-sdk/dpm/catalog'
 import {
   createDpmRelationshipCandidateInputFromProfileHint,
+  computeDpmProfileAnalysisPolicyHash,
   DEFAULT_DPM_PROFILE_ANALYSIS_POLICY,
   DPM_PROFILE_ARTIFACT_KIND,
   resolveDpmProfileAnalysisPolicy,
@@ -71,6 +72,7 @@ void [
   DPM_PUBLISHING_CONTEXT_KIND,
   computeCatalogFreshnessHash,
   createDpmRelationshipCandidateInputFromProfileHint,
+  computeDpmProfileAnalysisPolicyHash,
   resolveDpmProfileAnalysisPolicy,
   createDpmRegistryRelationshipRow,
   typeSmoke,

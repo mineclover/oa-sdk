@@ -3,6 +3,7 @@ import type {
 } from './profile-artifact-types.js'
 import type { DPM_PROFILE_ANALYSIS_REPORT_KIND } from './analysis-report-kind.js'
 import type { DpmProfileAnalysisFreshness } from './analysis-report-freshness-types.js'
+import type { DpmProfileAnalysisPolicy } from './analysis-policy-types.js'
 import type {
   DpmProfileAnalysisCoverage,
   DpmProfileDriftSignal,
@@ -24,6 +25,7 @@ export type DpmProfileAnalysisReport = {
   profileVersion: string
   analyzedAt: string
   profileVersionHash: string
+  analysisPolicy: DpmProfileAnalysisPolicy
   coverage: DpmProfileAnalysisCoverage
   relationshipHints: DpmProfileRelationshipHintProposal[]
   keyCandidates: DpmProfileKeyCandidate[]

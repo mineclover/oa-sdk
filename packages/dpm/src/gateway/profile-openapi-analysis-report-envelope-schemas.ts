@@ -16,6 +16,7 @@ export function createDpmProfileAnalysisReportEnvelopeGatewaySchemas() {
       profileVersion: stringSchema(),
       analyzedAt: stringSchema(),
       profileVersionHash: stringSchema(),
+      analysisPolicy: ref('DpmProfileAnalysisPolicy'),
       coverage: ref('DpmProfileAnalysisCoverage'),
       relationshipHints: arrayOf(ref('DpmProfileRelationshipHintProposal')),
       keyCandidates: arrayOf(ref('DpmProfileKeyCandidate')),

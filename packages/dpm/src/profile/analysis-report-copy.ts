@@ -1,6 +1,7 @@
 import type { DpmProfileAnalysisCoverage } from './analysis-coverage-types.js'
 import type { DpmProfileAnalysisFreshness } from './analysis-report-freshness-types.js'
 import type { DpmProfileAnalysisReport } from './analysis-report-types.js'
+import type { DpmProfileAnalysisPolicy } from './analysis-policy-types.js'
 import type { DpmProfileAnalysisSummary } from './analysis-summary-types.js'
 import { sortDpmProfileAnalysisDiagnostics } from './analysis-summary.js'
 import type {
@@ -23,6 +24,7 @@ export function copyDpmProfileAnalysisReport(
     profileVersion: report.profileVersion,
     analyzedAt: report.analyzedAt,
     profileVersionHash: report.profileVersionHash,
+    analysisPolicy: copyAnalysisPolicy(report.analysisPolicy),
     coverage: copyCoverage(report.coverage),
     relationshipHints: report.relationshipHints.map(copyRelationshipHint).sort(byId),
     keyCandidates: report.keyCandidates.map(copyKeyCandidate).sort(byId),
@@ -114,10 +116,15 @@ function copyFreshness(freshness: DpmProfileAnalysisFreshness): DpmProfileAnalys
   return {
     reportHash: freshness.reportHash,
     profileVersionHash: freshness.profileVersionHash,
+    analysisPolicyHash: freshness.analysisPolicyHash,
     ...(freshness.previousProfileVersionHash ? {
       previousProfileVersionHash: freshness.previousProfileVersionHash,
     } : {}),
   }
+}
+
+function copyAnalysisPolicy(policy: DpmProfileAnalysisPolicy): DpmProfileAnalysisPolicy {
+  return { ...policy }
 }
 
 function copyCountMap<T extends string>(

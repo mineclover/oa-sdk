@@ -7,6 +7,7 @@ import {
   analyzeRiskIndicators,
 } from './analysis-compute.js'
 import { resolveDpmProfileAnalysisPolicy } from './analysis-policy.js'
+import type { DpmProfileAnalysisPolicy } from './analysis-policy-types.js'
 import { analyzeDriftSignals } from './analysis-drift.js'
 
 export type DpmProfileAnalysisReportSignals = Pick<
@@ -16,8 +17,9 @@ export type DpmProfileAnalysisReportSignals = Pick<
 
 export function createDpmProfileAnalysisReportSignals(
   input: DpmProfileAnalysisInput,
+  resolvedPolicy?: DpmProfileAnalysisPolicy,
 ): DpmProfileAnalysisReportSignals {
-  const policy = resolveDpmProfileAnalysisPolicy(input.policy)
+  const policy = resolvedPolicy ?? resolveDpmProfileAnalysisPolicy(input.policy)
 
   return {
     coverage: analyzeCoverage(input.profileArtifact),

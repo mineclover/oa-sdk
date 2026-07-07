@@ -25,6 +25,7 @@ export {
   DPM_PROFILE_RELATIONSHIP_HINT_SOURCES,
   DPM_PROFILE_RELATIONSHIP_HINT_STATUSES,
   DPM_PROFILE_RISK_INDICATOR_KINDS,
+  computeDpmProfileAnalysisPolicyHash,
   DEFAULT_DPM_PROFILE_ANALYSIS_POLICY,
   resolveDpmProfileAnalysisPolicy,
 } from '../profile/analysis-types.js'

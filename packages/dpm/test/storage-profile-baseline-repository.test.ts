@@ -59,8 +59,10 @@ describe('DPM profile baseline repository', () => {
 
     profileArtifact.nodes[0]!.label = 'mutated after profile baseline save'
     analysisReport.driftSignals[0]!.explanation = 'Mutated after profile baseline save.'
+    analysisReport.analysisPolicy.measuredRelationshipConfidenceCap = 0
     row.profileArtifact.nodes[0]!.label = 'mutated returned row after profile baseline save'
     row.analysisReport!.driftSignals[0]!.explanation = 'Mutated returned row after profile baseline save.'
+    row.analysisReport!.analysisPolicy.measuredRelationshipPresenceThreshold = 0
 
     expect(upsertProfileBaseline).toHaveBeenCalledWith(adapterRow)
     expect(adapterRow).not.toBe(row)
@@ -79,20 +81,24 @@ describe('DPM profile baseline repository', () => {
     )
     expect(row.profileArtifact.nodes[0]?.label).not.toBe('mutated after profile baseline save')
     expect(row.analysisReport?.driftSignals[0]?.explanation).not.toBe('Mutated after profile baseline save.')
+    expect(row.analysisReport?.analysisPolicy.measuredRelationshipConfidenceCap).not.toBe(0)
     expect(adapterRow.profileArtifact.nodes[0]?.label)
       .not.toBe('mutated returned row after profile baseline save')
     expect(adapterRow.analysisReport?.driftSignals[0]?.explanation)
       .not.toBe('Mutated returned row after profile baseline save.')
+    expect(adapterRow.analysisReport?.analysisPolicy.measuredRelationshipPresenceThreshold).not.toBe(0)
     expectStorageReportPayloadExcludesUnsafeFragments(row)
 
     const retrieved = await repository.getProfileBaseline({ baselineRef: row.baselineRef })
     retrieved!.profileArtifact.nodes[0]!.label = 'mutated after baseline get'
     retrieved!.analysisReport!.driftSignals[0]!.explanation = 'Mutated after baseline get.'
+    retrieved!.analysisReport!.analysisPolicy.highNullRiskThreshold = 0
 
     expect(getProfileBaseline).toHaveBeenCalledWith({ baselineRef: row.baselineRef })
     expect(storedRows.get(row.baselineRef)?.profileArtifact.nodes[0]?.label).not.toBe('mutated after baseline get')
     expect(storedRows.get(row.baselineRef)?.analysisReport?.driftSignals[0]?.explanation)
       .not.toBe('Mutated after baseline get.')
+    expect(storedRows.get(row.baselineRef)?.analysisReport?.analysisPolicy.highNullRiskThreshold).not.toBe(0)
 
     const listed = await repository.listProfileBaselines({
       datasetId: profileArtifact.datasetId,

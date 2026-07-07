@@ -8,7 +8,8 @@ export function createDpmProfileAnalysisFreshnessGatewaySchemas() {
     DpmProfileAnalysisFreshness: requiredObjectSchema({
       reportHash: stringSchema(),
       profileVersionHash: stringSchema(),
+      analysisPolicyHash: stringSchema(),
       previousProfileVersionHash: stringSchema(),
-    }, ['reportHash', 'profileVersionHash']),
+    }, ['reportHash', 'profileVersionHash', 'analysisPolicyHash']),
   } as const
 }

@@ -9,6 +9,7 @@ export {
   DPM_PROFILE_ANALYSIS_REPORT_KIND,
 } from './analysis-report-kind.js'
 export {
+  computeDpmProfileAnalysisPolicyHash,
   DEFAULT_DPM_PROFILE_ANALYSIS_POLICY,
   resolveDpmProfileAnalysisPolicy,
 } from './analysis-policy.js'

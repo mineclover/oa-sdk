@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import {
   DEFAULT_DPM_PROFILE_ANALYSIS_POLICY,
+  computeDpmProfileAnalysisPolicyHash,
   createDpmGatewayRuntime,
   createDpmProfileAnalysisReport,
   resolveDpmGatewayProfileAnalysisRequest,
@@ -50,6 +51,21 @@ describe('DPM profile analysis policy', () => {
       id: 'proposal:measured:node:field:orders.created.value.customer.customer_no:identifier_like_field',
       confidence: 0.7,
     }))
+    expect(strictReport.analysisPolicy).toEqual({
+      ...DEFAULT_DPM_PROFILE_ANALYSIS_POLICY,
+      measuredRelationshipPresenceThreshold: 0.998,
+    })
+    expect(tunedReport.analysisPolicy).toEqual({
+      ...DEFAULT_DPM_PROFILE_ANALYSIS_POLICY,
+      measuredRelationshipPresenceThreshold: 0.9,
+      measuredRelationshipConfidenceCap: 0.7,
+    })
+    expect(strictReport.freshness.analysisPolicyHash)
+      .toBe(computeDpmProfileAnalysisPolicyHash(strictReport.analysisPolicy))
+    expect(tunedReport.freshness.analysisPolicyHash)
+      .toBe(computeDpmProfileAnalysisPolicyHash(tunedReport.analysisPolicy))
+    expect(tunedReport.freshness.analysisPolicyHash).not.toBe(strictReport.freshness.analysisPolicyHash)
+    expect(tunedReport.freshness.reportHash).not.toBe(strictReport.freshness.reportHash)
   })
 
   it('lets consumers tune risk thresholds and identifier fallback confidence', () => {
@@ -111,6 +127,9 @@ describe('DPM profile analysis policy', () => {
 
     expect(requestSchema(request), JSON.stringify(requestSchema.errors, null, 2)).toBe(true)
     expect(resolved.runtimeInput.policy).toEqual(request.policy)
+    expect(response.body.result.analysisReport.analysisPolicy).toMatchObject(request.policy)
+    expect(response.body.result.analysisReport.freshness.analysisPolicyHash)
+      .toBe(computeDpmProfileAnalysisPolicyHash(response.body.result.analysisReport.analysisPolicy))
     expect(response.body.result.analysisReport.relationshipHints).toContainEqual(expect.objectContaining({
       id: 'proposal:measured:node:field:orders.created.value.customer.customer_no:identifier_like_field',
       confidence: 0.7,

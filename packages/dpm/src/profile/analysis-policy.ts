@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto'
+
 import type {
   DpmProfileAnalysisPolicy,
   DpmProfileAnalysisPolicyInput,
@@ -37,6 +39,14 @@ export function resolveDpmProfileAnalysisPolicy(
   }
 
   return policy
+}
+
+export function computeDpmProfileAnalysisPolicyHash(
+  input: DpmProfileAnalysisPolicyInput | undefined,
+): string {
+  return `sha256:${createHash('sha256')
+    .update(JSON.stringify(resolveDpmProfileAnalysisPolicy(input)))
+    .digest('hex')}`
 }
 
 function assertDpmProfileAnalysisPolicyRatio(

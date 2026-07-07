@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest'
 
 import {
   DPM_PROFILE_ANALYSIS_REPORT_KIND,
+  DEFAULT_DPM_PROFILE_ANALYSIS_POLICY,
+  computeDpmProfileAnalysisPolicyHash,
   createDpmProfileAnalysisReport,
 } from '../src/index.js'
 import {
@@ -15,7 +17,10 @@ describe('DPM profile analysis report', () => {
     const second = createDpmProfileAnalysisReport({ profileArtifact: profile })
 
     expect(first.kind).toBe(DPM_PROFILE_ANALYSIS_REPORT_KIND)
+    expect(first.analysisPolicy).toEqual(DEFAULT_DPM_PROFILE_ANALYSIS_POLICY)
     expect(first.freshness.reportHash).toMatch(/^sha256:[a-f0-9]{64}$/)
+    expect(first.freshness.analysisPolicyHash)
+      .toBe(computeDpmProfileAnalysisPolicyHash(DEFAULT_DPM_PROFILE_ANALYSIS_POLICY))
     expect(second.freshness.reportHash).toBe(first.freshness.reportHash)
     expect(second.summary).toEqual(first.summary)
   })

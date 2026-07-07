@@ -10,6 +10,7 @@ Last updated: 2026-07-07
 
 ## Recently Completed
 
+- [x] Goal 37 / DPM Profile Analysis Policy Provenance (complete)
 - [x] Goal 36 / DPM Approved Registry Approval Metadata (complete)
 - [x] Goal 35 / DPM Approved Registry Uniqueness Guard (complete)
 - [x] Goal 34 / DPM Approved Registry Save Guard (complete)
@@ -82,6 +83,7 @@ Last updated: 2026-07-07
 - [x] Goal 34 - DPM Approved Registry Save Guard
 - [x] Goal 35 - DPM Approved Registry Uniqueness Guard
 - [x] Goal 36 - DPM Approved Registry Approval Metadata
+- [x] Goal 37 - DPM Profile Analysis Policy Provenance
 
 ## Goal 4 DPM Units
 
@@ -239,6 +241,10 @@ Last updated: 2026-07-07
 ## Goal 36 DPM Units
 
 - [x] DPM-56 - Approved Registry Approval Metadata
+
+## Goal 37 DPM Units
+
+- [x] DPM-57 - Profile Analysis Policy Provenance
 
 ## Done Criteria
 
