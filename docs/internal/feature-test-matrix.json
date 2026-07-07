@@ -302,6 +302,7 @@
         "same-version profile baseline measurement identity",
         "body-free profile baseline history summary",
         "repository-backed profile baseline summary listing",
+        "storage adapter profile baseline summary-only projection",
         "profile artifact persistence",
         "analysis report persistence",
         "profile and report freshness references",

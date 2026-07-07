@@ -37,6 +37,8 @@ export {
   createDpmProfileBaselineRow,
 } from './profile-baseline-row-builder.js'
 export {
+  copyDpmProfileBaselineSummaries,
+  copyDpmProfileBaselineSummary,
   summarizeDpmProfileBaselineRow,
   summarizeDpmProfileBaselineRows,
 } from './profile-baseline-summary.js'

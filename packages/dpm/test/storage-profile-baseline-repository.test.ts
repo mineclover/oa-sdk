@@ -240,6 +240,64 @@ describe('DPM profile baseline repository', () => {
     expectStorageReportPayloadExcludesUnsafeFragments(summary)
   })
 
+  it('uses storage-provided profile baseline summaries without loading row bodies', async () => {
+    const profileArtifact = createKafkaProfileArtifact()
+    const previousProfileArtifact = createKafkaProfileArtifactWithCustomerNoPresence(0.91)
+    const analysisReport = createDpmProfileAnalysisReport({
+      profileArtifact,
+      previousProfileArtifact,
+    })
+    const row = createDpmProfileBaselineRow({
+      profileArtifact,
+      analysisReport,
+      measuredAt: '2026-07-07T00:00:00.000Z',
+      measurementRunHash: 'sha256:summary-only-run',
+      storedAt: '2026-07-07T00:05:00.000Z',
+    })
+    const adapterSummary = summarizeDpmProfileBaselineRow(row)
+    const listProfileBaselines = vi.fn(() => {
+      throw new Error('profile baseline row bodies should not be loaded for summary-only adapters')
+    })
+    const listProfileBaselineSummaries = vi.fn((request: DpmProfileBaselineListRequest) =>
+      [adapterSummary].filter(summary =>
+        summary.datasetId === request.datasetId
+        && summary.profileId === request.profileId
+      )
+    )
+    const repository = createDpmProfileBaselineRepository({
+      upsertProfileBaseline: async () => undefined,
+      getProfileBaseline: async () => row,
+      listProfileBaselines,
+      listProfileBaselineSummaries,
+    })
+
+    const repositorySummaries = await repository.listProfileBaselineSummaries({
+      datasetId: row.datasetId,
+      profileId: row.profileId,
+      limit: 1,
+    })
+    repositorySummaries[0]!.profileSummary.nodeCount = 999
+    repositorySummaries[0]!.analysisSummary!.relationshipHintCount = 999
+
+    expect(listProfileBaselineSummaries).toHaveBeenCalledWith({
+      datasetId: row.datasetId,
+      profileId: row.profileId,
+      limit: 1,
+    })
+    expect(listProfileBaselines).not.toHaveBeenCalled()
+    expect(repositorySummaries).toEqual([
+      expect.objectContaining({
+        baselineRef: row.baselineRef,
+        measurementId: row.measurementId,
+        hasAnalysisReport: true,
+      }),
+    ])
+    expect(adapterSummary.profileSummary.nodeCount).toBe(profileArtifact.nodes.length)
+    expect(adapterSummary.analysisSummary?.relationshipHintCount).toBe(analysisReport.summary.relationshipHintCount)
+    expect(JSON.stringify(repositorySummaries)).not.toContain('profileArtifact')
+    expect(JSON.stringify(repositorySummaries)).not.toContain('analysisReport')
+  })
+
   it('preserves adapter row metadata when analysis report bodies are omitted', async () => {
     const profileArtifact = createKafkaProfileArtifact()
     const previousProfileArtifact = createKafkaProfileArtifactWithCustomerNoPresence(0.91)

@@ -16,6 +16,8 @@ export {
   DPM_PROFILE_BASELINE_KIND,
   DPM_PROFILE_BASELINE_SELECTION_STRATEGIES,
   createDpmProfileBaselineMeasurementId,
+  copyDpmProfileBaselineSummaries,
+  copyDpmProfileBaselineSummary,
   copyDpmProfileBaselineRow,
   createDpmProfileBaselineRepository,
   createDpmProfileBaselineRow,

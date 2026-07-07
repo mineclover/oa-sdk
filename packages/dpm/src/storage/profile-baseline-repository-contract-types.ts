@@ -15,6 +15,9 @@ export type DpmProfileBaselineStorage = {
   listProfileBaselines(
     request: DpmProfileBaselineListRequest,
   ): Promise<readonly DpmProfileBaselineRow[]> | readonly DpmProfileBaselineRow[]
+  listProfileBaselineSummaries?(
+    request: DpmProfileBaselineListRequest,
+  ): Promise<readonly DpmProfileBaselineSummary[]> | readonly DpmProfileBaselineSummary[]
 }
 
 export type DpmProfileBaselineRepository = {

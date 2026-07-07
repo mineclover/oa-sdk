@@ -7,7 +7,10 @@ import {
   createDpmProfileBaselineRow,
 } from './profile-baseline-row-builder.js'
 import { selectDpmPreviousProfileBaseline } from './profile-baseline-selector.js'
-import { summarizeDpmProfileBaselineRows } from './profile-baseline-summary.js'
+import {
+  copyDpmProfileBaselineSummaries,
+  summarizeDpmProfileBaselineRows,
+} from './profile-baseline-summary.js'
 
 export function createDpmProfileBaselineRepository(
   storage: DpmProfileBaselineStorage,
@@ -27,6 +30,10 @@ export function createDpmProfileBaselineRepository(
       return rows.map(copyDpmProfileBaselineRow)
     },
     async listProfileBaselineSummaries(request) {
+      if (storage.listProfileBaselineSummaries) {
+        const summaries = await storage.listProfileBaselineSummaries(request)
+        return copyDpmProfileBaselineSummaries(summaries)
+      }
       const rows = await storage.listProfileBaselines(request)
       return summarizeDpmProfileBaselineRows(rows)
     },

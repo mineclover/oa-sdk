@@ -329,6 +329,8 @@ catalog/registry snapshot, semantic validator, compiler, CLI/gateway/publishing 
 | `copyDpmProfileBaselineRow()` | `dpm/src/storage/profile-baseline-repository.ts` | profile baseline row copy helper that preserves stored metadata |
 | `createDpmProfileBaselineMeasurementId()` | `dpm/src/storage/profile-baseline-repository.ts` | deterministic profile baseline measurement identity helper |
 | `renderDpmProfileBaselineRef()` | `dpm/src/storage/profile-baseline-repository.ts` | profile baseline ref renderer that includes measurement identity when present |
+| `copyDpmProfileBaselineSummary()` | `dpm/src/storage/profile-baseline-repository.ts` | body-free profile baseline summary copy helper |
+| `copyDpmProfileBaselineSummaries()` | `dpm/src/storage/profile-baseline-repository.ts` | body-free profile baseline summary list copy helper |
 | `summarizeDpmProfileBaselineRow()` | `dpm/src/storage/profile-baseline-repository.ts` | body-free profile baseline row summary projection |
 | `summarizeDpmProfileBaselineRows()` | `dpm/src/storage/profile-baseline-repository.ts` | body-free profile baseline history summary projection |
 | `selectDpmPreviousProfileBaseline()` | `dpm/src/storage/profile-baseline-repository.ts` | deterministic latest previous profile baseline selector |
