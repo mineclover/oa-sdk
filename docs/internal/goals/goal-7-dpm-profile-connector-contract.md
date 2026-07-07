@@ -368,9 +368,10 @@ Implementation notes:
   `kafka-profile-field-metrics.ts` separately own field context derivation, field node/edge append,
   and field metric append. `kafka-profile-hints.ts` remains the relationship hint append
   compatibility entrypoint, while `kafka-profile-hint-types.ts`,
-  `kafka-profile-hint-evidence.ts`, `kafka-profile-hint-node.ts`,
-  `kafka-profile-hint-edge.ts`, and `kafka-profile-hint-diagnostic.ts` separately own hint input
-  vocabulary, evidence source append, hint node creation, candidate edge creation, and unresolved
+  `kafka-profile-hint-evidence.ts`, `kafka-profile-hint-identity.ts`,
+  `kafka-profile-hint-node.ts`, `kafka-profile-hint-edge.ts`, and
+  `kafka-profile-hint-diagnostic.ts` separately own hint input vocabulary, evidence source append,
+  safe graph/evidence identity derivation, hint node creation, candidate edge creation, and unresolved
   source field diagnostics.
 - Relationship hints are represented as `relationship_hint` nodes and `candidate_relationship`
   edges only when the hinted source field node exists; they do not create approved registry

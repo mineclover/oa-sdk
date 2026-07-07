@@ -2,6 +2,10 @@ import {
   kafkaCoordinate,
   kafkaFieldNodeIdFor,
 } from './kafka-profile-evidence.js'
+import {
+  kafkaRelationshipHintPath,
+  kafkaRelationshipHintPointer,
+} from './kafka-profile-hint-identity.js'
 import type { KafkaRelationshipHintContext } from './kafka-profile-hint-types.js'
 import type { DpmProfileDiagnostic } from './profile-artifact-types.js'
 
@@ -23,8 +27,8 @@ export function createUnresolvedKafkaRelationshipHintSourceDiagnostic(
     connectorId: input.connectorId,
     coordinate: kafkaCoordinate(
       input.sourceId,
-      `${input.topicName}.relationshipHints.${input.hint.id}`,
-      `/relationshipHints/${input.hint.id}`,
+      kafkaRelationshipHintPath(input),
+      kafkaRelationshipHintPointer(input),
     ),
     evidenceIds: [input.evidenceId],
   }

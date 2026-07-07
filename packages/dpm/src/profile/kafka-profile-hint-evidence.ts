@@ -1,6 +1,11 @@
 import {
   addKafkaEvidence,
 } from './kafka-profile-evidence.js'
+import {
+  kafkaRelationshipHintEvidenceId,
+  kafkaRelationshipHintPath,
+  kafkaRelationshipHintPointer,
+} from './kafka-profile-hint-identity.js'
 import type { KafkaRelationshipHintContext } from './kafka-profile-hint-types.js'
 import type { DpmProfileEvidenceSource } from './profile-source-types.js'
 
@@ -10,11 +15,11 @@ export type KafkaRelationshipHintEvidenceInput = KafkaRelationshipHintContext & 
 
 export function addKafkaRelationshipHintEvidence(input: KafkaRelationshipHintEvidenceInput): string {
   return addKafkaEvidence(input.evidenceSources, {
-    id: `evidence:kafka:${input.topicName}.relationship_hint.${input.hint.id}`,
+    id: kafkaRelationshipHintEvidenceId(input),
     sourceId: input.sourceId,
     connectorId: input.connectorId,
-    path: `${input.topicName}.relationshipHints.${input.hint.id}`,
-    pointer: `/relationshipHints/${input.hint.id}`,
+    path: kafkaRelationshipHintPath(input),
+    pointer: kafkaRelationshipHintPointer(input),
     description: input.hint.evidenceRef,
   })
 }
