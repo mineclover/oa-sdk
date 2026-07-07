@@ -14,7 +14,7 @@ Goal 39 introduced the product workflow that turns a profile relationship hint i
 |---|---|
 | OpenAPI profile relationship hint approval path | hosted HTTP server implementation |
 | request body schema excluding path-owned relationship name and runtime repository | transaction manager or database-specific adapter |
-| success response schema with candidate import, approved relationship, saved row, and registry snapshot | UI approval screen |
+| success response schema with candidate import, approved relationship, write receipt, and registry snapshot | UI approval screen |
 | blocking response schema for endpoint resolution and non-reviewable candidate diagnostics | automatic relationship approval |
 | consumer smoke from OpenAPI schema refs to runtime response | source DB/Kafka access |
 
@@ -53,7 +53,7 @@ Acceptance:
 - OpenAPI exposes `POST /dpm/profiles/relationship-hints/{relationshipName}/approve`.
 - Request schema excludes runtime-only repository injection and path-owned relationship name.
 - Request schema requires at least one child table resolver input.
-- Success response validates candidate import, review candidate, approved relationship, saved registry row, and exported registry snapshot.
+- Success response validates candidate import, review candidate, approved relationship, logical registry write receipt, and exported registry snapshot.
 - Blocking response validates endpoint resolution failures as `PROF202` and non-reviewable candidate failures as `PROF203`.
 - Runtime returns blocking responses before registry mutation for non-reviewable candidates.
 - Consumer smoke proves OpenAPI schema refs can route to the runtime and receive a schema-valid registry save/snapshot response.

@@ -113,12 +113,16 @@ describe('DPM gateway profile relationship hint approval workflow', () => {
         status: 'approved',
         namespace: 'customer',
       },
-      savedRelationship: {
+      relationshipWriteReceipt: {
+        kind: 'dpm.relationship.registry-write-receipt.v1',
         datasetId: profileArtifact.datasetId,
         registryVersion: 'registry-profile-workflow-v1',
         relationshipName: 'rel_orders_customer',
+        relationshipVersion: '1',
+        relationshipIdentity: `${profileArtifact.datasetId}/rel_orders_customer@1`,
         status: 'approved',
         sourceFreshnessHash: analysisReport.freshness.reportHash,
+        savedAt: '2026-07-07T00:10:00.000Z',
       },
     })
     expect(response.body.result.registrySnapshot.approvedRelationships).toEqual([

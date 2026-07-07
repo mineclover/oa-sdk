@@ -3,6 +3,9 @@ import {
 } from '../profile/analysis-relationship-candidate.js'
 import type { DpmProfileDiagnostic } from '../profile/types.js'
 import {
+  createRegistryRelationshipIdentity,
+} from '../registry/registry-identity.js'
+import {
   approveDpmRelationshipCandidateRuntime,
 } from './runtime-relationship-approve.js'
 import {
@@ -14,6 +17,7 @@ import {
 import type {
   DpmGatewayProfileRelationshipHintApprovalInput,
   DpmGatewayProfileRelationshipHintApprovalResult,
+  DpmGatewayRegistryRelationshipWriteReceipt,
 } from './runtime-relationship-types.js'
 import {
   createDpmGatewayRuntimeResponse,
@@ -96,10 +100,39 @@ export async function approveDpmProfileRelationshipHintRuntime(
       reviewCandidate,
       candidateImport: candidateImportResponse.body.result,
       relationship: approvalResponse.body.result.relationship,
-      savedRelationship,
+      relationshipWriteReceipt: createRelationshipWriteReceipt(savedRelationship),
       registrySnapshot: registrySnapshotResponse.body.result,
     },
   })
+}
+
+function createRelationshipWriteReceipt(input: {
+  datasetId: string
+  registryVersion: string
+  relationshipName: string
+  relationshipVersion: string
+  status: DpmGatewayRegistryRelationshipWriteReceipt['status']
+  sourceFreshnessHash?: string
+  createdAt?: string
+  updatedAt?: string
+}): DpmGatewayRegistryRelationshipWriteReceipt {
+  const savedAt = input.updatedAt ?? input.createdAt
+
+  return {
+    kind: 'dpm.relationship.registry-write-receipt.v1',
+    datasetId: input.datasetId,
+    registryVersion: input.registryVersion,
+    relationshipName: input.relationshipName,
+    relationshipVersion: input.relationshipVersion,
+    relationshipIdentity: createRegistryRelationshipIdentity(
+      input.datasetId,
+      input.relationshipName,
+      input.relationshipVersion,
+    ),
+    status: input.status,
+    ...(input.sourceFreshnessHash ? { sourceFreshnessHash: input.sourceFreshnessHash } : {}),
+    ...(savedAt ? { savedAt } : {}),
+  }
 }
 
 function tryCreateCandidateInput(

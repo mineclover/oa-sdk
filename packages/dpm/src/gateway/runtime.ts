@@ -25,6 +25,7 @@ export type {
   DpmGatewayProfileRelationshipHintApprovalRequest,
   DpmGatewayProfileRelationshipHintApprovalResult,
   DpmGatewayProfileRelationshipHintApprovalSuccessResult,
+  DpmGatewayRegistryRelationshipWriteReceipt,
   DpmGatewayRelationshipApprovalInput,
   DpmGatewayRelationshipApprovalResult,
   DpmGatewayRelationshipDiscoveryInput,

@@ -521,10 +521,12 @@ describe('DPM gateway consumer smoke', () => {
     expect(response.body.result).toMatchObject({
       relationshipName: 'rel_orders_customer',
       status: 'approved',
-      savedRelationship: {
+      relationshipWriteReceipt: {
+        kind: 'dpm.relationship.registry-write-receipt.v1',
         datasetId: profileArtifact.datasetId,
         registryVersion: 'registry-profile-workflow-v1',
         relationshipName: 'rel_orders_customer',
+        relationshipIdentity: `${profileArtifact.datasetId}/rel_orders_customer@1`,
       },
     })
     expect(JSON.stringify(response.body.result)).not.toContain('C-001')

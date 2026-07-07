@@ -404,7 +404,8 @@ category barrel을 가리킨다. `packages/dpm/test/package-subpath-import-smoke
 | `DpmGatewayRelationshipApprovalResult` | `dpm/src/gateway/runtime-relationship-types.ts` | approved registry relationship payload result |
 | `DpmGatewayProfileRelationshipHintApprovalInput` | `dpm/src/gateway/runtime-relationship-types.ts` | profile relationship hint approval workflow input with endpoint resolver, approval, and writable registry repository fields |
 | `DpmGatewayProfileRelationshipHintApprovalRequest` | `dpm/src/gateway/runtime-relationship-types.ts` | OpenAPI profile relationship hint approval request body before path-owned relationship name and runtime repository injection |
-| `DpmGatewayProfileRelationshipHintApprovalSuccessResult` | `dpm/src/gateway/runtime-relationship-types.ts` | schema-valid profile hint approval success result with candidate import, approved relationship, saved row, and exported registry snapshot |
+| `DpmGatewayRegistryRelationshipWriteReceipt` | `dpm/src/gateway/runtime-relationship-types.ts` | logical registry write receipt for gateway responses without exposing storage row shape |
+| `DpmGatewayProfileRelationshipHintApprovalSuccessResult` | `dpm/src/gateway/runtime-relationship-types.ts` | schema-valid profile hint approval success result with candidate import, approved relationship, write receipt, and exported registry snapshot |
 | `DpmGatewayProfileRelationshipHintApprovalBlockingResult` | `dpm/src/gateway/runtime-relationship-types.ts` | schema-valid profile hint approval blocking result with relationship name and profile diagnostics |
 | `DpmGatewayProfileRelationshipHintApprovalResult` | `dpm/src/gateway/runtime-relationship-types.ts` | profile hint approval success or blocking result discriminated by status |
 | `DpmGatewayRegistrySnapshotExportInput` | `dpm/src/gateway/runtime-relationship-types.ts` | repository-backed registry snapshot export runtime input |

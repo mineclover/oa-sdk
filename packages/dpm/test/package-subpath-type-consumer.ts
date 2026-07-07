@@ -39,6 +39,7 @@ import {
   type DpmGatewayRegistryAuditEventListResult,
   type DpmGatewayProfileRelationshipHintApprovalInput,
   type DpmGatewayProfileRelationshipHintApprovalSuccessResult,
+  type DpmGatewayRegistryRelationshipWriteReceipt,
   type DpmGatewayRuntime,
 } from '@oa-sdk/dpm/gateway'
 import {
@@ -68,6 +69,7 @@ type DpmSubpathTypeSmoke = {
   profileRelationshipHintApprovalRequest?: DpmGatewayProfileRelationshipHintApprovalRequest
   profileRelationshipHintApprovalSuccess?: DpmGatewayProfileRelationshipHintApprovalSuccessResult
   profileRelationshipHintApprovalBlocking?: DpmGatewayProfileRelationshipHintApprovalBlockingResult
+  registryRelationshipWriteReceipt?: DpmGatewayRegistryRelationshipWriteReceipt
   registryAuditEventList?: DpmGatewayRegistryAuditEventListInput
   registryAuditEventListResult?: DpmGatewayRegistryAuditEventListResult
   baseline?: DpmProfileBaselineSummary

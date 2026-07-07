@@ -69,7 +69,7 @@ export function createDpmProfileRelationshipHintApprovalGatewaySchemas() {
       reviewCandidate: ref('DpmRelationshipCandidate'),
       candidateImport: ref('DpmCandidateImportResponse'),
       relationship: ref('DpmApprovedRegistryRelationship'),
-      savedRelationship: ref('DpmRegistryRelationshipStorageRow'),
+      relationshipWriteReceipt: ref('DpmRegistryRelationshipWriteReceipt'),
       registrySnapshot: ref('DpmRegistrySnapshotResponse'),
     }),
     DpmProfileRelationshipHintApprovalBlockingResponse: requiredObjectSchema({

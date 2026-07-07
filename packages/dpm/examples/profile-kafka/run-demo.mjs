@@ -293,7 +293,7 @@ await recordStep('bridge relationship hint into candidate import review', async 
   }
 })
 
-await recordStep('approve candidate and persist registry row', async () => {
+await recordStep('approve candidate and return registry write receipt', async () => {
   const response = await runtime.approveDpmProfileRelationshipHint({
     profileArtifact,
     relationshipHint,
@@ -316,12 +316,13 @@ await recordStep('approve candidate and persist registry row', async () => {
     exportedAt: '2026-07-07T00:11:00.000Z',
     registryRepository,
   })
-  const saved = response.body.result.savedRelationship
+  const receipt = response.body.result.relationshipWriteReceipt
   const registrySnapshot = response.body.result.registrySnapshot
 
   assertEqual(response.statusCode, 200, 'profile relationship hint approval workflow status code')
-  assertEqual(saved.relationshipName, 'rel_orders_customer', 'saved relationship name')
-  assertEqual(saved.status, 'approved', 'saved relationship status')
+  assertEqual(receipt.relationshipName, 'rel_orders_customer', 'write receipt relationship name')
+  assertEqual(receipt.status, 'approved', 'write receipt relationship status')
+  assertEqual(receipt.relationshipIdentity, 'commerce_ai/rel_orders_customer@1', 'write receipt relationship identity')
   assertEqual(registrySnapshot.approvedRelationships.length, 1, 'exported approved relationship count')
   assertEqual(registrySnapshot.approvedRelationships[0]?.name, 'rel_orders_customer', 'exported relationship name')
   assertNoUnsafeFragments(JSON.stringify(registrySnapshot))
@@ -330,9 +331,10 @@ await recordStep('approve candidate and persist registry row', async () => {
     workflowCommand: response.body.command,
     imported: response.body.result.candidateImport.imported,
     rejected: response.body.result.candidateImport.rejected,
-    relationshipName: saved.relationshipName,
-    registryVersion: saved.registryVersion,
-    sourceFreshnessHash: saved.sourceFreshnessHash,
+    relationshipName: receipt.relationshipName,
+    registryVersion: receipt.registryVersion,
+    relationshipIdentity: receipt.relationshipIdentity,
+    sourceFreshnessHash: receipt.sourceFreshnessHash,
     approvedRelationships: registrySnapshot.approvedRelationships.map(relationship => relationship.name),
     nonExecutableRelationships: registrySnapshot.nonExecutableRelationships.length,
   }

@@ -46,6 +46,7 @@
 | [Goal 40 — DPM Registry Approval Audit Events](./goal-40-dpm-registry-approval-audit-events.md) | ✅ | dpm |
 | [Goal 41 — DPM Registry Audit Event Timeline Runtime](./goal-41-dpm-registry-audit-event-timeline-runtime.md) | ✅ | dpm |
 | [Goal 42 — DPM Profile Hint Approval Gateway Contract](./goal-42-dpm-profile-hint-approval-gateway-contract.md) | ✅ | dpm |
+| [Goal 43 — DPM Registry Write Receipt Gateway Boundary](./goal-43-dpm-registry-write-receipt-gateway-boundary.md) | ✅ | dpm |
 | Phase 3 — OAS 파서/IR | ✅ | parser |
 | Phase 4 — TS 타입 생성 | ✅ | codegen/typegen |
 | Phase 5 — 라우터 스텁 | ✅ | router |

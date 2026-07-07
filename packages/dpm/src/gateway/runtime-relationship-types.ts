@@ -15,12 +15,12 @@ import type {
 import type { DpmProfileDiagnostic } from '../profile/types.js'
 import type {
   ApprovedRegistryRelationshipInput,
+  RegistryRelationshipStatus,
   RegistryOrphanPolicy,
   RegistryTransformStrategy,
   RegistrySnapshot,
 } from '../registry/types.js'
 import type {
-  DpmRegistryRelationshipRow,
   DpmRegistryRelationshipAuditEventRequest,
   DpmRegistryRelationshipAuditEventRow,
   DpmRegistryAuditEventReader,
@@ -105,6 +105,18 @@ export type DpmGatewayProfileRelationshipHintApprovalInput =
 export type DpmGatewayProfileRelationshipHintApprovalRequest =
   Omit<DpmGatewayProfileRelationshipHintApprovalInput, 'relationshipName' | 'registryRepository'>
 
+export type DpmGatewayRegistryRelationshipWriteReceipt = {
+  kind: 'dpm.relationship.registry-write-receipt.v1'
+  datasetId: string
+  registryVersion: string
+  relationshipName: string
+  relationshipVersion: string
+  relationshipIdentity: string
+  status: RegistryRelationshipStatus
+  sourceFreshnessHash?: string
+  savedAt?: string
+}
+
 export type DpmGatewayProfileRelationshipHintApprovalSuccessResult = {
   relationshipName: string
   status: 'approved'
@@ -112,7 +124,7 @@ export type DpmGatewayProfileRelationshipHintApprovalSuccessResult = {
   reviewCandidate: RelationshipCandidate
   candidateImport: DpmGatewayCandidateImportResult
   relationship: ApprovedRegistryRelationshipInput
-  savedRelationship: DpmRegistryRelationshipRow
+  relationshipWriteReceipt: DpmGatewayRegistryRelationshipWriteReceipt
   registrySnapshot: RegistrySnapshot
 }
 
