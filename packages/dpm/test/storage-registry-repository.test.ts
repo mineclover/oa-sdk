@@ -2,8 +2,10 @@ import { describe, expect, it, vi } from 'vitest'
 
 import {
   createDpmRegistryRepository,
+  createDpmRegistryRelationshipRow,
   type DpmRegistryRelationshipRow,
-  type RegistryRelationshipInput,
+  type ApprovedRegistryRelationshipInput,
+  type DpmRegistryRelationshipSaveInput,
 } from '../src/index.js'
 import {
   STORAGE_REGISTRY_DATASET_ID,
@@ -48,7 +50,7 @@ describe('DPM registry storage repository', () => {
           row.datasetId === request.datasetId && row.registryVersion === request.registryVersion,
         ),
     })
-    const relationship: RegistryRelationshipInput = {
+    const relationship: ApprovedRegistryRelationshipInput = {
       name: 'rel_orders_customer',
       version: '2',
       status: 'approved',
@@ -153,5 +155,45 @@ describe('DPM registry storage repository', () => {
         },
       }),
     ])
+  })
+
+  it('rejects non-approved relationship payloads at the save boundary', async () => {
+    const repository = createDpmRegistryRepository({
+      upsertRelationshipRow: vi.fn(),
+      listRelationshipRows: () => [],
+    })
+    const rejectedRelationship = {
+      name: 'rel_orders_status',
+      version: '1',
+      status: 'rejected',
+      type: 'code_lookup',
+      parent: {
+        table: 'public.order_statuses',
+        columns: ['status_code'],
+      },
+      child: {
+        table: 'public.orders',
+        columns: ['status'],
+      },
+      namespace: 'order_status',
+      transformStrategy: 'keep_code',
+      orphanPolicy: 'warn',
+      approval: {
+        owner: 'privacy-team',
+        reviewedBy: 'dpo@example.com',
+        reason: 'Ambiguous operational status candidate.',
+      },
+    }
+    const saveInput = {
+      datasetId: STORAGE_REGISTRY_DATASET_ID,
+      registryVersion: STORAGE_REGISTRY_VERSION,
+      relationship: rejectedRelationship,
+    } as unknown as DpmRegistryRelationshipSaveInput
+
+    await expect(repository.saveRelationship(saveInput))
+      .rejects
+      .toThrow('DPM registry saveRelationship only accepts approved relationships: rel_orders_status is rejected.')
+    expect(() => createDpmRegistryRelationshipRow(saveInput))
+      .toThrow('DPM registry saveRelationship only accepts approved relationships: rel_orders_status is rejected.')
   })
 })

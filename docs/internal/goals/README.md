@@ -37,6 +37,7 @@
 | [Goal 31 — DPM Profile Relationship Candidate Bridge](./goal-31-dpm-profile-relationship-candidate-bridge.md) | ✅ | dpm |
 | [Goal 32 — DPM Registry Approval Persistence Bridge](./goal-32-dpm-registry-approval-persistence-bridge.md) | ✅ | dpm |
 | [Goal 33 — DPM Profile Analysis Policy Contract](./goal-33-dpm-profile-analysis-policy-contract.md) | ✅ | dpm |
+| [Goal 34 — DPM Approved Registry Save Guard](./goal-34-dpm-approved-registry-save-guard.md) | ✅ | dpm |
 | Phase 3 — OAS 파서/IR | ✅ | parser |
 | Phase 4 — TS 타입 생성 | ✅ | codegen/typegen |
 | Phase 5 — 라우터 스텁 | ✅ | router |

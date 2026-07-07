@@ -10,8 +10,8 @@ import type {
   RelationshipDiscoveryReport,
 } from '../discovery/types.js'
 import type {
+  ApprovedRegistryRelationshipInput,
   RegistryOrphanPolicy,
-  RegistryRelationshipInput,
   RegistryTransformStrategy,
   RegistrySnapshot,
 } from '../registry/types.js'
@@ -68,7 +68,7 @@ export type DpmGatewayRelationshipApprovalInput = {
 export type DpmGatewayRelationshipApprovalResult = {
   relationshipName: string
   status: 'approved'
-  relationship: RegistryRelationshipInput
+  relationship: ApprovedRegistryRelationshipInput
 }
 
 export type DpmGatewayRegistrySnapshotExportInput = {

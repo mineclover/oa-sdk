@@ -55,6 +55,7 @@ export function createDpmRegistryRelationshipRow(
   input: DpmRegistryRelationshipSaveInput,
 ): DpmRegistryRelationshipRow {
   const relationship = input.relationship
+  assertApprovedRegistryRelationshipSaveInput(input)
   const condition = relationship.condition ?? { contextColumns: [] }
 
   return {
@@ -83,6 +84,19 @@ export function createDpmRegistryRelationshipRow(
     ...(input.sourceFreshnessHash ? { sourceFreshnessHash: input.sourceFreshnessHash } : {}),
     ...(input.createdAt ? { createdAt: input.createdAt } : {}),
     ...(input.updatedAt ? { updatedAt: input.updatedAt } : {}),
+  }
+}
+
+function assertApprovedRegistryRelationshipSaveInput(input: {
+  relationship: {
+    name: string
+    status: string
+  }
+}): void {
+  if (input.relationship.status !== 'approved') {
+    throw new Error(
+      `DPM registry saveRelationship only accepts approved relationships: ${input.relationship.name} is ${input.relationship.status}.`,
+    )
   }
 }
 

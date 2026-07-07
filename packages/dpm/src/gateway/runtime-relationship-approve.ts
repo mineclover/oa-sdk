@@ -1,5 +1,5 @@
 import { copyDiscoverySourceCoordinate } from '../discovery/discovery-source-copy.js'
-import type { RegistryEvidence, RegistryRelationshipInput } from '../registry/registry-relationship-types.js'
+import type { ApprovedRegistryRelationshipInput, RegistryEvidence } from '../registry/registry-relationship-types.js'
 import type {
   DpmGatewayRelationshipApprovalInput,
   DpmGatewayRelationshipApprovalResult,
@@ -10,7 +10,7 @@ import type { DpmGatewayRuntimeResponse } from './runtime-response-types.js'
 export async function approveDpmRelationshipCandidateRuntime(
   input: DpmGatewayRelationshipApprovalInput,
 ): Promise<DpmGatewayRuntimeResponse<DpmGatewayRelationshipApprovalResult>> {
-  const relationship: RegistryRelationshipInput = {
+  const relationship: ApprovedRegistryRelationshipInput = {
     name: input.relationshipName,
     version: input.version,
     status: 'approved',

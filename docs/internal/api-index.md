@@ -234,6 +234,7 @@ category barrel을 가리킨다. `packages/dpm/test/package-subpath-import-smoke
 | `RegistryEvidence` | `dpm/src/registry/registry-relationship-types.ts` | registry relationship evidence entry |
 | `RegistryApprovalMetadata` | `dpm/src/registry/registry-relationship-types.ts` | owner/reviewer/approval metadata |
 | `RegistryRelationshipInput` | `dpm/src/registry/registry-relationship-types.ts` | registry relationship authoring input |
+| `ApprovedRegistryRelationshipInput` | `dpm/src/registry/registry-relationship-types.ts` | approved registry relationship payload for write paths |
 | `RegistryRelationship` | `dpm/src/registry/registry-relationship-types.ts` | normalized relationship with identity and executable flag |
 | `RegistrySnapshotInput` | `dpm/src/registry/registry-snapshot-types.ts` | registry snapshot creation input |
 | `RegistrySnapshot` | `dpm/src/registry/registry-snapshot-types.ts` | versioned registry snapshot output |
@@ -245,7 +246,7 @@ category barrel을 가리킨다. `packages/dpm/test/package-subpath-import-smoke
 | `DPM_REGISTRY_STORAGE_SCHEMA_SQL` | `dpm/src/storage/registry-schema-sql.ts` | Postgres canonical relationship registry schema SQL |
 | `DpmRegistrySnapshotExportRequest` | `dpm/src/storage/registry-repository-types.ts` | storage-backed registry snapshot export request |
 | `DpmRegistryRelationshipRowRequest` | `dpm/src/storage/registry-repository-types.ts` | storage reader dataset/version row request |
-| `DpmRegistryRelationshipSaveInput` | `dpm/src/storage/registry-repository-types.ts` | approved/reviewed relationship payload to registry storage row save input |
+| `DpmRegistryRelationshipSaveInput` | `dpm/src/storage/registry-repository-types.ts` | approved relationship payload to registry storage row save input |
 | `DpmRegistryRelationshipRow` | `dpm/src/storage/registry-repository-types.ts` | canonical storage row shape for relationship registry records |
 | `DpmRegistryRowsToSnapshotInput` | `dpm/src/storage/registry-repository-types.ts` | row-to-snapshot export input |
 | `DpmRegistryStorageReader` | `dpm/src/storage/registry-repository-types.ts` | repository adapter boundary for listing registry rows |

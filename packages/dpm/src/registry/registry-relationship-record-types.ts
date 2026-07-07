@@ -36,6 +36,10 @@ export type RegistryRelationshipInput = {
   source?: SchemaSourceCoordinate
 }
 
+export type ApprovedRegistryRelationshipInput = RegistryRelationshipInput & {
+  status: 'approved'
+}
+
 export type RegistryRelationship = RegistryRelationshipInput & {
   identity: string
   executable: boolean
