@@ -2,6 +2,7 @@ export const DPM_PROFILE_RELATIONSHIP_HINT_STATUSES = ['review'] as const
 export const DPM_PROFILE_KEY_CANDIDATE_KINDS = ['message_key', 'identifier_like_field'] as const
 export const DPM_PROFILE_RISK_INDICATOR_KINDS = ['identifier_like_field', 'high_null_ratio', 'low_presence_ratio'] as const
 export const DPM_PROFILE_DRIFT_SIGNAL_KINDS = [
+  'profile_identity_mismatch',
   'profile_hash_changed',
   'node_added',
   'node_removed',

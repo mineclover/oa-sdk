@@ -27,4 +27,30 @@ describe('DPM gateway profile analysis runtime adapter', () => {
       expect(serialized).not.toContain(unsafeFragment)
     }
   })
+
+  it('keeps profile identity mismatch drift schema-valid', async () => {
+    const runtime = createDpmGatewayRuntime()
+    const profileArtifact = createKafkaProfileArtifact()
+    const previousProfileArtifact = {
+      ...profileArtifact,
+      datasetId: 'other_dataset',
+      profileId: 'profile:kafka:other-orders-created',
+    }
+    const response = await runtime.analyzeDpmProfile({
+      profileArtifact,
+      previousProfileArtifact,
+    })
+    const analysisSchema = compileGatewayComponentSchema('DpmProfileAnalysisResponse')
+
+    expect(response.statusCode).toBe(200)
+    expect(
+      analysisSchema(response.body.result),
+      JSON.stringify(analysisSchema.errors, null, 2),
+    ).toBe(true)
+    expect(response.body.result.analysisReport.driftSignals).toContainEqual(expect.objectContaining({
+      kind: 'profile_identity_mismatch',
+      previousValue: 'other_dataset:profile:kafka:other-orders-created',
+      currentValue: `${profileArtifact.datasetId}:${profileArtifact.profileId}`,
+    }))
+  })
 })

@@ -349,6 +349,7 @@ Artifacts:
 - `packages/dpm/src/profile/analysis-metric-utils.ts`
 - `packages/dpm/src/profile/analysis-ordering-utils.ts`
 - `packages/dpm/src/profile/analysis-drift.ts`
+- `packages/dpm/src/profile/analysis-drift-identity.ts`
 - `packages/dpm/src/profile/analysis-drift-freshness.ts`
 - `packages/dpm/src/profile/analysis-drift-nodes.ts`
 - `packages/dpm/src/profile/analysis-drift-metrics.ts`
@@ -390,8 +391,9 @@ Implementation notes:
 - `packages/dpm/src/profile/analysis-signal-types.ts` remains the analysis signal compatibility
   barrel, while coverage, relationship hint, key candidate, risk, and drift signal vocabulary live
   in dedicated `analysis-*-types.ts` modules.
-- `analyzeDriftSignals()` orchestrates freshness/source, node, and metric drift signals without
-  merging those signal categories into one implementation owner.
+- `analyzeDriftSignals()` orchestrates identity, freshness/source, node, and metric drift signals without
+  merging those signal categories into one implementation owner. If previous/current dataset or profile
+  identity differs, it emits only `profile_identity_mismatch` instead of mixing unrelated node/metric drift.
 - Relationship hints are emitted as reviewer-safe `review` proposals with confidence and evidence
   ids; they do not become registry relationships.
 - Risk indicators are derived from profile coordinates and metrics only, and do not expose raw
