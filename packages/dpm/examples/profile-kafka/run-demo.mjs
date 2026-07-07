@@ -7,6 +7,7 @@ import {
   createDpmGatewayRuntime,
   createDpmProfileArtifactSnapshot,
   createDpmProfileBaselineRepository,
+  createDpmRegistryRepository,
   createDpmRelationshipCandidateInputFromProfileHint,
   profileKafkaTopicFixture,
   resolveDpmGatewayProfileAnalysisRequest,
@@ -28,6 +29,7 @@ const unsafeFragments = [
 const fixture = JSON.parse(readFileSync(fixturePath, 'utf8'))
 const runtime = createDpmGatewayRuntime()
 const profileBaselineRows = new Map()
+const registryRows = []
 const profileBaselineRepository = createDpmProfileBaselineRepository({
   upsertProfileBaseline: row => profileBaselineRows.set(row.baselineRef, row),
   getProfileBaseline: request => profileBaselineRows.get(request.baselineRef),
@@ -35,6 +37,16 @@ const profileBaselineRepository = createDpmProfileBaselineRepository({
     [...profileBaselineRows.values()]
       .filter(row => row.datasetId === request.datasetId && row.profileId === request.profileId)
       .slice(0, request.limit),
+})
+const registryRepository = createDpmRegistryRepository({
+  upsertRelationshipRow(row) {
+    registryRows.push(row)
+  },
+  listRelationshipRows(request) {
+    return registryRows.filter(row =>
+      row.datasetId === request.datasetId && row.registryVersion === request.registryVersion,
+    )
+  },
 })
 const steps = []
 let connectorResult
@@ -220,6 +232,7 @@ const relationshipHint = required(
   analysisReport.relationshipHints[0],
   'expected at least one relationship hint',
 )
+let importedRelationshipCandidate
 
 await recordStep('review relationship hint proposal without registry mutation', async () => {
   const response = await runtime.reviewDpmProfileProposal({
@@ -264,6 +277,7 @@ await recordStep('bridge relationship hint into candidate import review', async 
     response.body.result.report.candidates[0],
     'expected imported profile relationship candidate',
   )
+  importedRelationshipCandidate = importedCandidate
 
   assertEqual(response.statusCode, 200, 'profile candidate import status code')
   assertEqual(response.body.result.imported, 1, 'profile candidate import count')
@@ -278,6 +292,56 @@ await recordStep('bridge relationship hint into candidate import review', async 
     relationshipName: importedCandidate.relationshipName,
     recommendation: importedCandidate.recommendation,
     executable: importedCandidate.executable,
+  }
+})
+
+await recordStep('approve candidate and persist registry row', async () => {
+  const candidate = required(
+    importedRelationshipCandidate,
+    'expected imported relationship candidate before approval',
+  )
+  const approval = await runtime.approveDpmRelationshipCandidate({
+    relationshipName: candidate.relationshipName,
+    candidate,
+    version: '1',
+    namespace: 'customer',
+    transformStrategy: 'relationship_token',
+    orphanPolicy: 'block',
+    owner: 'privacy-platform',
+    approvedBy: 'dpm-reviewer@example.com',
+    reason: 'Kafka profile hint was mapped to a customer relationship for pseudonymized analytics.',
+    approvedAt: '2026-07-07T00:10:00.000Z',
+  })
+  const saved = await registryRepository.saveRelationship({
+    datasetId: profileArtifact.datasetId,
+    registryVersion: 'registry-profile-demo-v1',
+    relationship: approval.body.result.relationship,
+    sourceFreshnessHash: analysisReport.freshness.reportHash,
+    createdAt: '2026-07-07T00:10:00.000Z',
+    updatedAt: '2026-07-07T00:10:00.000Z',
+  })
+  const exported = await runtime.exportDpmRegistrySnapshot({
+    datasetId: profileArtifact.datasetId,
+    registryVersion: 'registry-profile-demo-v1',
+    exportedAt: '2026-07-07T00:11:00.000Z',
+    registryRepository,
+  })
+
+  assertEqual(approval.statusCode, 200, 'profile candidate approval status code')
+  assertEqual(saved.relationshipName, candidate.relationshipName, 'saved relationship name')
+  assertEqual(saved.status, 'approved', 'saved relationship status')
+  assertEqual(exported.body.result.approvedRelationships.length, 1, 'exported approved relationship count')
+  assertEqual(exported.body.result.approvedRelationships[0]?.name, candidate.relationshipName, 'exported relationship name')
+  assertNoUnsafeFragments(JSON.stringify(exported.body.result))
+
+  return {
+    approvalCommand: approval.body.command,
+    exportCommand: exported.body.command,
+    relationshipName: saved.relationshipName,
+    registryVersion: saved.registryVersion,
+    sourceFreshnessHash: saved.sourceFreshnessHash,
+    approvedRelationships: exported.body.result.approvedRelationships.map(relationship => relationship.name),
+    nonExecutableRelationships: exported.body.result.nonExecutableRelationships.length,
   }
 })
 

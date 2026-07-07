@@ -69,6 +69,18 @@ describe('DPM Kafka profile demo command', () => {
       recommendation: 'review',
       executable: false,
     })
+    const approvalStep = output?.steps.find((step: { name: string }) =>
+      step.name === 'approve candidate and persist registry row'
+    )
+    expect(approvalStep?.summary).toMatchObject({
+      approvalCommand: 'approve-relationship-candidate',
+      exportCommand: 'export-registry-snapshot',
+      relationshipName: 'rel_orders_customer',
+      registryVersion: 'registry-profile-demo-v1',
+      sourceFreshnessHash: expect.stringMatching(/^sha256:/),
+      approvedRelationships: ['rel_orders_customer'],
+      nonExecutableRelationships: 0,
+    })
     expect(output?.steps.map((step: { name: string }) => step.name)).toEqual([
       'flatten Kafka topic fixture into profile artifact',
       'create read-only SDK profile artifact snapshot',
@@ -77,6 +89,7 @@ describe('DPM Kafka profile demo command', () => {
       'compare profile artifact with previous measurement baseline',
       'review relationship hint proposal without registry mutation',
       'bridge relationship hint into candidate import review',
+      'approve candidate and persist registry row',
       'reject mismatched proposal review target',
       'preserve inspection snapshot after caller mutation',
     ])

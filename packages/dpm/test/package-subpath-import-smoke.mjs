@@ -23,7 +23,8 @@ const checks = [
     && typeof profileModule.createDpmRelationshipCandidateInputFromProfileHint === 'function'],
   ['relationship', typeof relationshipModule.createLogicalRelationship === 'function'],
   ['gateway', typeof gatewayModule.createDpmGatewayRuntime === 'function'],
-  ['storage', typeof storageModule.createDpmProfileBaselineRepository === 'function'],
+  ['storage', typeof storageModule.createDpmProfileBaselineRepository === 'function'
+    && typeof storageModule.createDpmRegistryRelationshipRow === 'function'],
   ['publishing', typeof publishingModule.createDpmPublishingContext === 'function'],
 ]
 

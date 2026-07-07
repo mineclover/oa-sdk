@@ -3,11 +3,12 @@ import { describe, expect, it, vi } from 'vitest'
 import {
   createDpmProfileBaselineRow,
   createDpmGatewayRuntime,
-  createRegistrySnapshot,
+  createDpmRegistryRepository,
   getDpmGatewayOpenApiDocument,
   resolveDpmGatewayManifestRuntimeInput,
   resolveDpmGatewayRelationshipDiscoveryRuntimeInput,
   summarizeDpmProfileBaselineRow,
+  type DpmRegistryRelationshipRow,
   type DpmGatewayRelationshipDiscoveryRequest,
   type DpmGatewayRuntime,
   type DpmGatewayRuntimeManifestInput,
@@ -237,28 +238,35 @@ describe('DPM gateway consumer smoke', () => {
       },
     })
 
-    const registrySnapshot = createRegistrySnapshot({
-      datasetId: discovery.body.result.datasetId,
-      registryVersion: loadedInput.registry.registryVersion,
-      exportedAt: '2026-07-07T00:05:00.000Z',
-      relationships: [approval.body.result.relationship],
-    })
     const registryOperation = document.paths['/dpm/registry/snapshots/{datasetId}/{registryVersion}'].get
     const registryResponseSchemaName = extractResponseSchemaName(registryOperation)
     const registryResponseSchema = compileGatewayComponentSchema(registryResponseSchemaName)
-    const exportSnapshot = vi.fn(async request => {
-      expect(request).toEqual({
-        datasetId: 'commerce_ai',
-        registryVersion: loadedInput.registry.registryVersion,
-      })
-      return registrySnapshot
+    const registryRows: DpmRegistryRelationshipRow[] = []
+    const upsertRelationshipRow = vi.fn((row: DpmRegistryRelationshipRow) => {
+      registryRows.push(row)
+    })
+    const listRelationshipRows = vi.fn(request =>
+      registryRows.filter(row =>
+        row.datasetId === request.datasetId && row.registryVersion === request.registryVersion,
+      ),
+    )
+    const registryRepository = createDpmRegistryRepository({
+      upsertRelationshipRow,
+      listRelationshipRows,
+    })
+    const savedRelationship = await registryRepository.saveRelationship({
+      datasetId: discovery.body.result.datasetId,
+      registryVersion: loadedInput.registry.registryVersion,
+      relationship: approval.body.result.relationship,
+      sourceFreshnessHash: loadedInput.catalog.freshness.versionHash,
+      createdAt: '2026-07-07T00:05:00.000Z',
+      updatedAt: '2026-07-07T00:05:00.000Z',
     })
     const exportedRegistry = await runtime.exportDpmRegistrySnapshot({
       datasetId: 'commerce_ai',
       registryVersion: loadedInput.registry.registryVersion,
-      registryRepository: {
-        exportSnapshot,
-      },
+      exportedAt: '2026-07-07T00:05:00.000Z',
+      registryRepository,
     })
 
     expect(registryOperation.operationId).toBe('exportDpmRegistrySnapshot')
@@ -276,7 +284,17 @@ describe('DPM gateway consumer smoke', () => {
         executable: true,
       }),
     ])
-    expect(exportSnapshot).toHaveBeenCalledOnce()
+    expect(savedRelationship).toMatchObject({
+      datasetId: 'commerce_ai',
+      registryVersion: loadedInput.registry.registryVersion,
+      relationshipName: 'rel_orders_customer',
+      status: 'approved',
+    })
+    expect(upsertRelationshipRow).toHaveBeenCalledOnce()
+    expect(listRelationshipRows).toHaveBeenCalledWith({
+      datasetId: 'commerce_ai',
+      registryVersion: loadedInput.registry.registryVersion,
+    })
 
     const compileInputSource: DpmGatewayRuntimeManifestInput = {
       ...loadedInput,

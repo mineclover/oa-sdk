@@ -13,6 +13,7 @@ Kafka topic fixture
   -> gateway select latest previous baseline and compare previous/current profile
   -> gateway review relationship hint proposal
   -> bridge reviewer-mapped relationship hint into candidate import review
+  -> approve candidate, persist registry row, and export registry snapshot
 ```
 
 Run it from the repository root:
@@ -37,6 +38,7 @@ The demo proves:
 - Profile analysis lists body-free baseline history summaries through the gateway, selects the latest stored previous measurement baseline, preserves measurement id/run metadata, compares it with the current artifact, and emits drift signals.
 - Proposal review can accept or request changes on hints without mutating connector evidence.
 - Reviewer-mapped profile relationship hints can be bridged into non-executable relationship candidate import review.
+- Approved relationship candidates can be persisted as registry rows and exported as executable registry snapshots without live Kafka or source DB access.
 - A mismatched proposal review is rejected with `PROF201`.
 - Runtime profile snapshots are defensive copies.
 

@@ -23,7 +23,10 @@ import {
   type DpmGatewayRuntime,
 } from '@oa-sdk/dpm/gateway'
 import {
+  createDpmRegistryRelationshipRow,
   DPM_PROFILE_BASELINE_SELECTION_STRATEGIES,
+  type DpmRegistryRelationshipSaveInput,
+  type DpmRegistryWritableRepository,
   type DpmProfileBaselineSummary,
 } from '@oa-sdk/dpm/storage'
 import {
@@ -36,6 +39,8 @@ type DpmSubpathTypeSmoke = {
   profile?: DpmProfileArtifact
   profileRelationshipCandidateBridge?: DpmProfileRelationshipCandidateBridgeInput
   baseline?: DpmProfileBaselineSummary
+  registryRelationshipSave?: DpmRegistryRelationshipSaveInput
+  registryRepository?: DpmRegistryWritableRepository
   publishing?: DpmPublishingContext
 }
 
@@ -57,5 +62,6 @@ void [
   DPM_PUBLISHING_CONTEXT_KIND,
   computeCatalogFreshnessHash,
   createDpmRelationshipCandidateInputFromProfileHint,
+  createDpmRegistryRelationshipRow,
   typeSmoke,
 ]

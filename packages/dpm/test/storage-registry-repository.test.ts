@@ -2,6 +2,8 @@ import { describe, expect, it, vi } from 'vitest'
 
 import {
   createDpmRegistryRepository,
+  type DpmRegistryRelationshipRow,
+  type RegistryRelationshipInput,
 } from '../src/index.js'
 import {
   STORAGE_REGISTRY_DATASET_ID,
@@ -32,5 +34,124 @@ describe('DPM registry storage repository', () => {
       approved: 1,
       nonExecutable: 1,
     })
+  })
+
+  it('persists approved relationship payloads as canonical storage rows before export', async () => {
+    const rows: DpmRegistryRelationshipRow[] = []
+    const upsertRelationshipRow = vi.fn((row: DpmRegistryRelationshipRow) => {
+      rows.push(row)
+    })
+    const repository = createDpmRegistryRepository({
+      upsertRelationshipRow,
+      listRelationshipRows: request =>
+        rows.filter(row =>
+          row.datasetId === request.datasetId && row.registryVersion === request.registryVersion,
+        ),
+    })
+    const relationship: RegistryRelationshipInput = {
+      name: 'rel_orders_customer',
+      version: '2',
+      status: 'approved',
+      type: 'many_to_one',
+      parent: {
+        table: 'public.customers',
+        columns: ['customer_no'],
+      },
+      child: {
+        table: 'public.orders',
+        columns: ['customer_no'],
+      },
+      namespace: 'customer',
+      transformStrategy: 'relationship_token',
+      orphanPolicy: 'block',
+      condition: {
+        contextColumns: ['tenant_id'],
+        conditionSql: 'orders.tenant_id = customers.tenant_id',
+      },
+      confidenceScore: 0.98,
+      evidence: [
+        {
+          kind: 'service_code_hint',
+          message: 'Profile reviewer mapped orders.customer_no to customers.customer_no.',
+          score: 0.98,
+          metadata: {
+            profileId: 'profile:kafka-orders-created',
+            evidenceIds: ['evidence:kafka:orders.created.relationship_hint.customer'],
+          },
+        },
+      ],
+      approval: {
+        owner: 'privacy-platform',
+        approvedBy: 'privacy-reviewer',
+        approvedAt: STORAGE_REGISTRY_EXPORTED_AT,
+        reason: 'Relationship is required for customer-scoped pseudonymization.',
+      },
+      source: {
+        kind: 'db',
+        entity: 'profile_relationship_hint',
+        id: 'proposal:orders-customer',
+        pointer: '/relationshipHints/orders-customer',
+      },
+    }
+
+    const saved = await repository.saveRelationship({
+      datasetId: STORAGE_REGISTRY_DATASET_ID,
+      registryVersion: STORAGE_REGISTRY_VERSION,
+      relationship,
+      sourceFreshnessHash: 'sha256:profile-analysis-v2',
+      createdAt: STORAGE_REGISTRY_EXPORTED_AT,
+      updatedAt: STORAGE_REGISTRY_EXPORTED_AT,
+    })
+    const stored = rows[0]
+    const returnedEvidence = saved.evidence[0]
+    if (!stored) throw new Error('expected stored relationship row')
+    if (!returnedEvidence) throw new Error('expected returned relationship evidence')
+
+    relationship.parent.columns.push('mutated-parent')
+    returnedEvidence.message = 'mutated returned row'
+    saved.parentColumns.push('mutated-returned-row')
+
+    expect(upsertRelationshipRow).toHaveBeenCalledWith(expect.objectContaining({
+      datasetId: STORAGE_REGISTRY_DATASET_ID,
+      registryVersion: STORAGE_REGISTRY_VERSION,
+      relationshipName: 'rel_orders_customer',
+      relationshipVersion: '2',
+      status: 'approved',
+      relationshipType: 'many_to_one',
+      contextColumns: ['tenant_id'],
+      conditionSql: 'orders.tenant_id = customers.tenant_id',
+      sourceFreshnessHash: 'sha256:profile-analysis-v2',
+    }))
+    expect(stored).not.toBe(saved)
+    expect(stored).toMatchObject({
+      parentColumns: ['customer_no'],
+      evidence: [
+        expect.objectContaining({
+          message: 'Profile reviewer mapped orders.customer_no to customers.customer_no.',
+          metadata: {
+            profileId: 'profile:kafka-orders-created',
+            evidenceIds: ['evidence:kafka:orders.created.relationship_hint.customer'],
+          },
+        }),
+      ],
+    })
+
+    const snapshot = await repository.exportSnapshot({
+      datasetId: STORAGE_REGISTRY_DATASET_ID,
+      registryVersion: STORAGE_REGISTRY_VERSION,
+      exportedAt: STORAGE_REGISTRY_EXPORTED_AT,
+    })
+
+    expect(snapshot.approvedRelationships).toEqual([
+      expect.objectContaining({
+        name: 'rel_orders_customer',
+        version: '2',
+        executable: true,
+        parent: {
+          table: 'public.customers',
+          columns: ['customer_no'],
+        },
+      }),
+    ])
   })
 })
