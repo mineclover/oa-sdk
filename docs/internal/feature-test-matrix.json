@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-07-07",
+  "updatedAt": "2026-07-08",
   "description": "Feature-to-test mapping for oa-sdk. Each feature lists representative automated coverage and the commands that maintain it.",
   "features": [
     {
@@ -270,16 +270,20 @@
       ]
     },
     {
-      "id": "dpm-kafka-profile-fixture",
-      "name": "DPM Kafka profile fixture",
+      "id": "dpm-kafka-profile-connector",
+      "name": "DPM Kafka profile connector",
       "category": "dpm",
       "package": "@oa-sdk/dpm",
-      "description": "Fixture-backed Kafka topic and message evidence flattening into a DPM profile artifact and connector result.",
+      "description": "Captured Kafka topic bundle and fixture-backed Kafka message evidence flattening into a DPM profile artifact and connector result.",
       "capabilities": [
-        "Kafka topic fixture input",
+        "captured Kafka topic bundle input",
+        "fixture compatibility wrapper",
         "partition key header schema nodes",
         "nested message field flattening",
         "field and topic metrics",
+        "source evidence hash stability across profile reruns",
+        "escaped Kafka section coordinates",
+        "empty schema version diagnostics",
         "relationship hint evidence",
         "connector result output",
         "no live Kafka requirement",

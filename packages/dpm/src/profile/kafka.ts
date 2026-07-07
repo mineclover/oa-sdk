@@ -5,15 +5,25 @@ import type { DpmProfileConnectorResult } from './connector-types.js'
 import type {
   DpmKafkaTopicProfileFixture,
 } from './kafka-fixture-profile-types.js'
+import {
+  DPM_KAFKA_TOPIC_PROFILE_CAPTURE_MODES,
+  type DpmKafkaTopicProfileInput,
+} from './kafka-topic-profile-input-types.js'
 import { createKafkaTopicProfileArtifactInput } from './kafka-topic-profile.js'
 
-export function profileKafkaTopicFixture(input: DpmKafkaTopicProfileFixture): DpmProfileConnectorResult {
-  const connectorId = input.connectorId ?? 'dpm.kafka.fixture'
-  const connectorVersion = input.connectorVersion ?? '0.1.0'
+export const DPM_KAFKA_TOPIC_PROFILE_CONNECTOR_ID = 'dpm.kafka.topic-profile' as const
+export const DPM_KAFKA_TOPIC_PROFILE_CONNECTOR_VERSION = '0.1.0' as const
+export const DPM_KAFKA_TOPIC_FIXTURE_CONNECTOR_ID = 'dpm.kafka.fixture' as const
+
+export function profileKafkaTopic(input: DpmKafkaTopicProfileInput): DpmProfileConnectorResult {
+  const connectorId = input.connectorId ?? DPM_KAFKA_TOPIC_PROFILE_CONNECTOR_ID
+  const connectorVersion = input.connectorVersion ?? DPM_KAFKA_TOPIC_PROFILE_CONNECTOR_VERSION
+  const captureMode = input.captureMode ?? 'snapshot'
   const profileArtifactInput = createKafkaTopicProfileArtifactInput({
     input,
     connectorId,
     connectorVersion,
+    captureMode,
   })
   const profileArtifact = normalizeDpmProfileArtifact(profileArtifactInput)
 
@@ -21,13 +31,13 @@ export function profileKafkaTopicFixture(input: DpmKafkaTopicProfileFixture): Dp
     connectorId,
     connectorVersion,
     sourceKind: 'kafka_topic_bundle',
-    captureMode: 'fixture',
+    captureMode,
     status: 'completed',
     capabilities: {
       connectorId,
       connectorVersion,
       sourceKinds: ['kafka_topic_bundle'],
-      captureModes: ['fixture'],
+      captureModes: [...DPM_KAFKA_TOPIC_PROFILE_CAPTURE_MODES],
       supportedEvidenceKinds: [...DPM_PROFILE_CONNECTOR_EVIDENCE_KINDS],
       skippedEvidenceKinds: [],
     },
@@ -41,5 +51,14 @@ export function profileKafkaTopicFixture(input: DpmKafkaTopicProfileFixture): Dp
     ],
     diagnostics: [],
     profileArtifact,
+  })
+}
+
+export function profileKafkaTopicFixture(input: DpmKafkaTopicProfileFixture): DpmProfileConnectorResult {
+  return profileKafkaTopic({
+    ...input,
+    connectorId: input.connectorId ?? DPM_KAFKA_TOPIC_FIXTURE_CONNECTOR_ID,
+    connectorVersion: input.connectorVersion ?? DPM_KAFKA_TOPIC_PROFILE_CONNECTOR_VERSION,
+    captureMode: 'fixture',
   })
 }

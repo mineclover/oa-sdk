@@ -20,8 +20,10 @@ const checks = [
   ['package', packageModule.DPM_PACKAGE_NAME === '@oa-sdk/dpm'],
   ['catalog', typeof catalogModule.normalizeCatalogSnapshot === 'function'],
   ['profile', typeof profileModule.normalizeDpmProfileArtifact === 'function'
+    && typeof profileModule.profileKafkaTopic === 'function'
     && typeof profileModule.createDpmRelationshipCandidateInputFromProfileHint === 'function'
     && typeof profileModule.resolveDpmProfileAnalysisPolicy === 'function'
+    && Array.isArray(profileModule.DPM_KAFKA_TOPIC_PROFILE_CAPTURE_MODES)
     && profileModule.DEFAULT_DPM_PROFILE_ANALYSIS_POLICY.measuredRelationshipPresenceThreshold === 0.95],
   ['relationship', typeof relationshipModule.createLogicalRelationship === 'function'],
   ['gateway', typeof gatewayModule.createDpmGatewayRuntime === 'function'

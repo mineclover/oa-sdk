@@ -1,4 +1,4 @@
-import type { DpmKafkaTopicFixture } from './kafka-fixture-topic-types.js'
+import type { DpmKafkaTopic } from './kafka-topic-profile-input-types.js'
 import {
   addKafkaEvidence,
   kafkaCoordinate,
@@ -11,7 +11,7 @@ import type {
 } from './profile-graph-types.js'
 
 export type KafkaTopicRootAppendInput = {
-  topic: DpmKafkaTopicFixture
+  topic: DpmKafkaTopic
   sourceId: string
   connectorId: string
   evidenceSources: Record<string, DpmProfileEvidenceSource>

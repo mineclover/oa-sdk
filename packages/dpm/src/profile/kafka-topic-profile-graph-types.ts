@@ -1,4 +1,4 @@
-import type { DpmKafkaTopicFixture } from './kafka-fixture-topic-types.js'
+import type { DpmKafkaTopic } from './kafka-topic-profile-input-types.js'
 import type { DpmProfileDiagnostic } from './profile-artifact-types.js'
 import type {
   DpmProfileEdge,
@@ -8,7 +8,7 @@ import type {
 import type { DpmProfileEvidenceSource } from './profile-source-types.js'
 
 export type KafkaTopicProfileGraphInput = {
-  topic: DpmKafkaTopicFixture
+  topic: DpmKafkaTopic
   sourceId: string
   connectorId: string
 }

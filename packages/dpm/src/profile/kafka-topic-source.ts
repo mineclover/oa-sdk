@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto'
 
-import type { DpmKafkaTopicProfileFixture } from './kafka-fixture-profile-types.js'
+import type { DpmKafkaTopicProfileInput } from './kafka-topic-profile-input-types.js'
 import type { DpmProfileSourceDescriptor } from './profile-source-types.js'
 
 export function kafkaTopicSourceId(topicName: string): string {
@@ -8,19 +8,20 @@ export function kafkaTopicSourceId(topicName: string): string {
 }
 
 export function createKafkaTopicSourceDescriptor(input: {
-  fixture: DpmKafkaTopicProfileFixture
+  profile: DpmKafkaTopicProfileInput
   connectorId: string
   connectorVersion: string
+  captureMode: DpmKafkaTopicProfileInput['captureMode']
 }): DpmProfileSourceDescriptor {
-  const { fixture, connectorId, connectorVersion } = input
+  const { profile, connectorId, connectorVersion, captureMode } = input
   return {
-    id: kafkaTopicSourceId(fixture.topic.name),
+    id: kafkaTopicSourceId(profile.topic.name),
     kind: 'kafka_topic_bundle',
     connectorId,
     connectorVersion,
-    refs: [joinKafkaRef(fixture.clusterRef, fixture.topic.name)],
-    captureMode: 'fixture',
-    sourceVersionHash: computeKafkaFixtureVersionHash(fixture),
+    refs: [joinKafkaRef(profile.clusterRef, profile.topic.name)],
+    captureMode: captureMode ?? 'snapshot',
+    sourceVersionHash: computeKafkaProfileVersionHash(profile),
   }
 }
 
@@ -28,8 +29,11 @@ function joinKafkaRef(clusterRef: string, topicName: string): string {
   return `${clusterRef.replace(/\/$/, '')}/${topicName}`
 }
 
-function computeKafkaFixtureVersionHash(input: DpmKafkaTopicProfileFixture): string {
-  return `sha256:${createHash('sha256').update(stableStringify(input)).digest('hex')}`
+function computeKafkaProfileVersionHash(input: DpmKafkaTopicProfileInput): string {
+  return `sha256:${createHash('sha256').update(stableStringify({
+    clusterRef: input.clusterRef,
+    topic: input.topic,
+  })).digest('hex')}`
 }
 
 function stableStringify(value: unknown): string {

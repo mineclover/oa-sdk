@@ -10,6 +10,7 @@ Last updated: 2026-07-08
 
 ## Recently Completed
 
+- [x] Goal 51 / DPM Kafka Topic Profile Connector Contract (complete)
 - [x] Goal 50 / DPM Registry Split Append Audit Return (complete)
 - [x] Goal 49 / DPM Storage Demo Schema Bootstrap (complete)
 - [x] Goal 48 / DPM Registry Schema Apply Helper (complete)
@@ -110,6 +111,7 @@ Last updated: 2026-07-08
 - [x] Goal 48 - DPM Registry Schema Apply Helper
 - [x] Goal 49 - DPM Storage Demo Schema Bootstrap
 - [x] Goal 50 - DPM Registry Split Append Audit Return
+- [x] Goal 51 - DPM Kafka Topic Profile Connector Contract
 
 ## Goal 4 DPM Units
 
@@ -323,6 +325,10 @@ Last updated: 2026-07-08
 ## Goal 50 DPM Units
 
 - [x] DPM-70 - Split Append Audit Return
+
+## Goal 51 DPM Units
+
+- [x] DPM-71 - Kafka Topic Profile Connector Contract
 
 ## Done Criteria
 

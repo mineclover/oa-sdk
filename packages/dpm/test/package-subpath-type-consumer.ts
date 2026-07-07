@@ -11,15 +11,20 @@ import {
   createDpmRelationshipCandidateInputFromProfileHint,
   computeDpmProfileAnalysisPolicyHash,
   DEFAULT_DPM_PROFILE_ANALYSIS_POLICY,
+  DPM_KAFKA_TOPIC_PROFILE_CAPTURE_MODES,
+  DPM_KAFKA_TOPIC_PROFILE_CONNECTOR_ID,
   DPM_PROFILE_ARTIFACT_KIND,
   resolveDpmRelationshipCandidateEndpointsFromProfileHint,
   resolveDpmProfileAnalysisPolicy,
+  profileKafkaTopic,
   type DpmProfileArtifact,
   type DpmProfileAnalysisPolicy,
   type DpmProfileRelationshipEndpointResolution,
   type DpmProfileRelationshipEndpointResolverInput,
   type DpmProfileRelationshipCandidateBridgeInput,
   type DpmProfileResolvedRelationshipCandidateBridgeInput,
+  type DpmKafkaTopicProfileInput,
+  type DpmKafkaTopicProfileCaptureMode,
 } from '@oa-sdk/dpm/profile'
 import {
   REGISTRY_RELATIONSHIP_STATUSES,
@@ -80,6 +85,8 @@ type DpmSubpathTypeSmoke = {
   profileRelationshipEndpointResolver?: DpmProfileRelationshipEndpointResolverInput
   profileRelationshipCandidateBridge?: DpmProfileRelationshipCandidateBridgeInput
   resolvedProfileRelationshipCandidateBridge?: DpmProfileResolvedRelationshipCandidateBridgeInput
+  kafkaTopicProfile?: DpmKafkaTopicProfileInput
+  kafkaTopicProfileCaptureMode?: DpmKafkaTopicProfileCaptureMode
   profileRelationshipHintApproval?: DpmGatewayProfileRelationshipHintApprovalInput
   profileRelationshipHintApprovalRequest?: DpmGatewayProfileRelationshipHintApprovalRequest
   profileRelationshipHintApprovalSuccess?: DpmGatewayProfileRelationshipHintApprovalSuccessResult
@@ -118,7 +125,10 @@ void [
   getDpmGatewayOpenApiDocument().paths,
   DPM_GATEWAY_RUNTIME_OPERATION_IDS,
   DPM_PROFILE_ARTIFACT_KIND,
+  DPM_KAFKA_TOPIC_PROFILE_CAPTURE_MODES,
+  DPM_KAFKA_TOPIC_PROFILE_CONNECTOR_ID,
   DEFAULT_DPM_PROFILE_ANALYSIS_POLICY,
+  profileKafkaTopic,
   DPM_PROFILE_BASELINE_SELECTION_STRATEGIES,
   DPM_PUBLISHING_CONTEXT_KIND,
   computeCatalogFreshnessHash,

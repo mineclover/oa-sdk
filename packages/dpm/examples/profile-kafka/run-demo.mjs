@@ -4,12 +4,14 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import {
+  DPM_KAFKA_TOPIC_PROFILE_CONNECTOR_ID,
+  DPM_KAFKA_TOPIC_PROFILE_CONNECTOR_VERSION,
   createDpmGatewayRuntime,
   createDpmProfileArtifactSnapshot,
   createDpmProfileBaselineRepository,
   createDpmRegistryRepository,
   createDpmRelationshipCandidateInputFromProfileHint,
-  profileKafkaTopicFixture,
+  profileKafkaTopic,
   resolveDpmGatewayProfileAnalysisRequest,
   validateDpmProfileArtifactSchema,
   validateDpmProfileConnectorResult,
@@ -62,8 +64,8 @@ const registryRepository = createDpmRegistryRepository({
 const steps = []
 let connectorResult
 
-await recordStep('flatten Kafka topic fixture into profile artifact', async () => {
-  const result = profileKafkaTopicFixture(fixture)
+await recordStep('flatten captured Kafka topic bundle into profile artifact', async () => {
+  const result = profileKafkaTopicBundle(fixture)
   const profileArtifact = required(result.profileArtifact, 'expected Kafka profile artifact')
   const artifactValidation = validateDpmProfileArtifactSchema(profileArtifact)
   const connectorValidation = validateDpmProfileConnectorResult(result)
@@ -90,7 +92,7 @@ await recordStep('flatten Kafka topic fixture into profile artifact', async () =
 const profileArtifact = required(connectorResult.profileArtifact, 'expected profile artifact after connector step')
 
 await recordStep('create read-only SDK profile artifact snapshot', async () => {
-  const probeResult = profileKafkaTopicFixture(fixture)
+  const probeResult = profileKafkaTopicBundle(fixture)
   const probeProfile = required(probeResult.profileArtifact, 'expected probe profile artifact')
   const snapshot = createDpmProfileArtifactSnapshot(probeProfile)
   const firstNodeLabel = snapshot.nodes[0]?.label
@@ -161,7 +163,7 @@ await recordStep('analyze profile artifact into review signals', async () => {
 
 await recordStep('compare profile artifact with previous measurement baseline', async () => {
   const previousFixture = createFixtureWithCustomerNoPresence(fixture, 0.91)
-  const previousResult = profileKafkaTopicFixture(previousFixture)
+  const previousResult = profileKafkaTopicBundle(previousFixture)
   const previousProfileArtifact = required(previousResult.profileArtifact, 'expected previous profile artifact')
   const previousAnalysisResponse = await runtime.analyzeDpmProfile({
     profileArtifact: previousProfileArtifact,
@@ -388,7 +390,7 @@ await recordStep('reject mismatched proposal review target', async () => {
 })
 
 await recordStep('preserve inspection snapshot after caller mutation', async () => {
-  const probeResult = profileKafkaTopicFixture(fixture)
+  const probeResult = profileKafkaTopicBundle(fixture)
   const probeProfile = required(probeResult.profileArtifact, 'expected probe profile artifact')
   const response = await runtime.inspectDpmProfile({ profileArtifact: probeProfile })
   const firstNodeLabel = response.body.result.profileArtifact.nodes[0]?.label
@@ -413,7 +415,7 @@ await recordStep('preserve inspection snapshot after caller mutation', async () 
 
 console.log(JSON.stringify({
   demo: 'dpm.profile-kafka',
-  description: 'Fixture-backed Kafka profile flattening, analysis, and editor review without live Kafka access.',
+  description: 'Captured Kafka topic bundle profiling, analysis, and editor review without live Kafka access.',
   steps,
 }, null, 2))
 
@@ -454,6 +456,15 @@ function createFixtureWithCustomerNoPresence(input, presenceRatio) {
       },
     },
   }
+}
+
+function profileKafkaTopicBundle(input) {
+  return profileKafkaTopic({
+    ...input,
+    connectorId: DPM_KAFKA_TOPIC_PROFILE_CONNECTOR_ID,
+    connectorVersion: DPM_KAFKA_TOPIC_PROFILE_CONNECTOR_VERSION,
+    captureMode: 'snapshot',
+  })
 }
 
 function assertEqual(actual, expected, label) {

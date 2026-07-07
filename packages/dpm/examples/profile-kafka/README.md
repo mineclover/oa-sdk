@@ -3,8 +3,8 @@
 This demo shows the profile-first DPM loop without connecting to Kafka:
 
 ```text
-Kafka topic fixture
-  -> profileKafkaTopicFixture
+Captured Kafka topic bundle fixture
+  -> profileKafkaTopic
   -> createDpmProfileArtifactSnapshot
   -> gateway inspect profile
   -> gateway analyze profile
@@ -30,7 +30,7 @@ pnpm --filter @oa-sdk/dpm run demo:profile
 
 The demo proves:
 
-- Kafka topic, key, header, schema, nested message field, metric, and relationship hint evidence is flattened into a DPM profile artifact.
+- Captured Kafka topic, key, header, schema, nested message field, metric, and relationship hint evidence is flattened into a DPM profile artifact.
 - Connector and profile artifact validation pass without live Kafka access.
 - SDK consumers can create a frozen read-only profile artifact snapshot for editor baselines.
 - Gateway inspection returns profile counts for editor use.
@@ -42,5 +42,5 @@ The demo proves:
 - A mismatched proposal review is rejected with `PROF201`.
 - Runtime profile snapshots are defensive copies.
 
-The fixture intentionally contains only shape and metric evidence. It does not contain message
-payload samples, source credentials, or token reverse lookup material.
+The checked-in fixture intentionally contains only captured shape and metric evidence. It does not
+contain message payload samples, source credentials, or token reverse lookup material.

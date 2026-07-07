@@ -86,7 +86,7 @@ describe('DPM Kafka profile demo command', () => {
       nonExecutableRelationships: 0,
     })
     expect(output?.steps.map((step: { name: string }) => step.name)).toEqual([
-      'flatten Kafka topic fixture into profile artifact',
+      'flatten captured Kafka topic bundle into profile artifact',
       'create read-only SDK profile artifact snapshot',
       'inspect profile artifact for editor runtime',
       'analyze profile artifact into review signals',

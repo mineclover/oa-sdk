@@ -6,6 +6,7 @@ import type {
   DpmProfileMetric,
   DpmProfileNode,
 } from './profile-graph-types.js'
+import type { DpmProfileDiagnostic } from './profile-artifact-types.js'
 import type { DpmProfileEvidenceSource } from './profile-source-types.js'
 
 export type KafkaTopicSectionAppendInput = {
@@ -18,4 +19,5 @@ export type KafkaTopicSectionAppendInput = {
   nodes: DpmProfileNode[]
   edges: DpmProfileEdge[]
   metrics: DpmProfileMetric[]
+  diagnostics: DpmProfileDiagnostic[]
 }

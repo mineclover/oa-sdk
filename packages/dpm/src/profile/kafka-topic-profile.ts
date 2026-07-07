@@ -1,22 +1,24 @@
 import type { DpmProfileArtifactInput } from './artifact.js'
-import type { DpmKafkaTopicProfileFixture } from './kafka-fixture-profile-types.js'
+import type { DpmKafkaTopicProfileInput } from './kafka-topic-profile-input-types.js'
 import { createKafkaTopicProfileGraph } from './kafka-topic-profile-graph.js'
 import { createKafkaTopicSourceDescriptor } from './kafka-topic-source.js'
 
 export type KafkaTopicProfileArtifactInputOptions = {
-  input: DpmKafkaTopicProfileFixture
+  input: DpmKafkaTopicProfileInput
   connectorId: string
   connectorVersion: string
+  captureMode: DpmKafkaTopicProfileInput['captureMode']
 }
 
 export function createKafkaTopicProfileArtifactInput(
   options: KafkaTopicProfileArtifactInputOptions,
 ): DpmProfileArtifactInput {
-  const { input, connectorId, connectorVersion } = options
+  const { input, connectorId, connectorVersion, captureMode } = options
   const source = createKafkaTopicSourceDescriptor({
-    fixture: input,
+    profile: input,
     connectorId,
     connectorVersion,
+    captureMode,
   })
   const sourceId = source.id
   const graph = createKafkaTopicProfileGraph({

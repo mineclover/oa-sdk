@@ -351,9 +351,10 @@ Verification:
 - `pnpm --filter @oa-sdk/dpm test`
 
 Implementation notes:
-- `profileKafkaTopicFixture()` maps fixture-only Kafka topic evidence into the DPM profile artifact
+- `profileKafkaTopic()` maps captured Kafka topic bundle evidence into the DPM profile artifact
   and connector result contracts without accepting a live Kafka client.
-- `kafka-topic-source.ts` owns source descriptor, Kafka ref, and fixture version hash construction;
+- `profileKafkaTopicFixture()` remains a fixture capture mode compatibility wrapper for tests.
+- `kafka-topic-source.ts` owns source descriptor, Kafka ref, and source version hash construction;
   `kafka-topic-root.ts` owns topic root evidence and node bootstrap.
 - `kafka-topic-sections.ts` re-exports section helpers; `kafka-topic-partitions.ts` emits partition
   nodes and topic message-rate metrics, `kafka-topic-key-headers.ts` remains the key/header section
