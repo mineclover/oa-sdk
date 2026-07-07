@@ -5,6 +5,9 @@ import {
   kafkaRelationshipHintEdgeId,
   kafkaRelationshipHintNodeId,
 } from './kafka-profile-hint-identity.js'
+import {
+  kafkaRelationshipHintSourcePath,
+} from './kafka-profile-hint-source.js'
 import type { KafkaRelationshipHintContext } from './kafka-profile-hint-types.js'
 import type { DpmProfileEdge } from './profile-graph-types.js'
 
@@ -16,7 +19,7 @@ export function createKafkaRelationshipHintEdge(input: KafkaRelationshipHintEdge
   return {
     id: kafkaRelationshipHintEdgeId(input),
     kind: 'candidate_relationship',
-    fromNodeId: kafkaFieldNodeIdFor(input.topicName, input.hint.fromPath),
+    fromNodeId: kafkaFieldNodeIdFor(input.topicName, kafkaRelationshipHintSourcePath(input)),
     toNodeId: kafkaRelationshipHintNodeId(input),
     confidence: input.hint.confidence,
     evidenceIds: [input.evidenceId],

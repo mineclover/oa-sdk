@@ -4,6 +4,9 @@ import {
   kafkaRelationshipHintPath,
   kafkaRelationshipHintPointer,
 } from './kafka-profile-hint-identity.js'
+import {
+  kafkaRelationshipHintSourcePath,
+} from './kafka-profile-hint-source.js'
 import type { DpmProfileNode } from './profile-graph-types.js'
 
 export function createKafkaRelationshipHintNode(input: KafkaRelationshipHintContext): DpmProfileNode {
@@ -19,7 +22,8 @@ export function createKafkaRelationshipHintNode(input: KafkaRelationshipHintCont
       externalId: input.hint.toRef,
     },
     shape: {
-      fromPath: input.hint.fromPath,
+      fromPath: kafkaRelationshipHintSourcePath(input),
+      ...(input.hint.fromPointer ? { fromPointer: input.hint.fromPointer } : {}),
       toRef: input.hint.toRef,
       ...(input.hint.evidenceRef ? { evidenceRef: input.hint.evidenceRef } : {}),
     },

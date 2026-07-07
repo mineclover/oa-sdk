@@ -106,7 +106,7 @@ const specialFieldFixture = {
       {
         id: 'hint:special-field',
         label: 'special field candidate',
-        fromPath: 'value.customer%2Eno.id%2Fvalue%7Eraw',
+        fromPointer: '/value/customer.no/id~1value~0raw',
         toRef: 'catalog://customers/customer_id',
         confidence: 0.88,
       },

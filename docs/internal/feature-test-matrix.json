@@ -286,6 +286,7 @@
         "source evidence hash stability across profile reruns",
         "escaped Kafka section coordinates",
         "escaped Kafka relationship hint identities",
+        "relationship hint JSON Pointer source selectors",
         "empty schema version diagnostics",
         "relationship hint evidence",
         "connector result output",

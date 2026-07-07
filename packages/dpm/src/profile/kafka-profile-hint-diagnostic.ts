@@ -6,6 +6,10 @@ import {
   kafkaRelationshipHintPath,
   kafkaRelationshipHintPointer,
 } from './kafka-profile-hint-identity.js'
+import {
+  kafkaRelationshipHintSourcePath,
+  kafkaRelationshipHintSourceRef,
+} from './kafka-profile-hint-source.js'
 import type { KafkaRelationshipHintContext } from './kafka-profile-hint-types.js'
 import type { DpmProfileDiagnostic } from './profile-artifact-types.js'
 
@@ -14,7 +18,7 @@ export type UnresolvedKafkaRelationshipHintSourceDiagnosticInput = KafkaRelation
 }
 
 export function kafkaRelationshipHintSourceNodeId(input: KafkaRelationshipHintContext): string {
-  return kafkaFieldNodeIdFor(input.topicName, input.hint.fromPath)
+  return kafkaFieldNodeIdFor(input.topicName, kafkaRelationshipHintSourcePath(input))
 }
 
 export function createUnresolvedKafkaRelationshipHintSourceDiagnostic(
@@ -23,7 +27,7 @@ export function createUnresolvedKafkaRelationshipHintSourceDiagnostic(
   return {
     severity: 'warning',
     code: 'PROF301',
-    message: `Kafka relationship hint ${input.hint.id} references unresolved source field ${input.hint.fromPath}.`,
+    message: `Kafka relationship hint ${input.hint.id} references unresolved source field ${kafkaRelationshipHintSourceRef(input)}.`,
     connectorId: input.connectorId,
     coordinate: kafkaCoordinate(
       input.sourceId,

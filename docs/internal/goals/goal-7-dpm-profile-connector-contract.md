@@ -343,6 +343,9 @@ Acceptance:
 - Relationship hints remain suggestions and do not become approved registry entries.
 - Relationship hints whose `fromPath` does not resolve to a flattened field node become profile
   diagnostics and do not create dangling `candidate_relationship` edges or reviewer proposals.
+- Relationship hints can use `fromPointer` to identify source fields without precomputing escaped
+  flattened paths; if both `fromPath` and `fromPointer` are supplied, they must resolve to the same
+  canonical source path.
 
 Verification:
 - `pnpm --filter @oa-sdk/dpm exec vitest run test/profile-kafka-graph-hints.test.ts test/profile-analysis-relationship-hints.test.ts test/profile-kafka-connector.test.ts`
@@ -369,10 +372,10 @@ Implementation notes:
   and field metric append. `kafka-profile-hints.ts` remains the relationship hint append
   compatibility entrypoint, while `kafka-profile-hint-types.ts`,
   `kafka-profile-hint-evidence.ts`, `kafka-profile-hint-identity.ts`,
-  `kafka-profile-hint-node.ts`, `kafka-profile-hint-edge.ts`, and
-  `kafka-profile-hint-diagnostic.ts` separately own hint input vocabulary, evidence source append,
-  safe graph/evidence identity derivation, hint node creation, candidate edge creation, and unresolved
-  source field diagnostics.
+  `kafka-profile-hint-source.ts`, `kafka-profile-hint-node.ts`,
+  `kafka-profile-hint-edge.ts`, and `kafka-profile-hint-diagnostic.ts` separately own hint input
+  vocabulary, evidence source append, safe graph/evidence identity derivation, source selector
+  normalization, hint node creation, candidate edge creation, and unresolved source field diagnostics.
 - Relationship hints are represented as `relationship_hint` nodes and `candidate_relationship`
   edges only when the hinted source field node exists; they do not create approved registry
   relationships or alter the existing compiler path.

@@ -10,6 +10,7 @@ Last updated: 2026-07-08
 
 ## Recently Completed
 
+- [x] Goal 54 / DPM Kafka Relationship Hint Source Pointer (complete)
 - [x] Goal 53 / DPM Kafka Relationship Hint Safe Identity (complete)
 - [x] Goal 52 / DPM Kafka Topic Profile Input Validation (complete)
 - [x] Goal 51 / DPM Kafka Topic Profile Connector Contract (complete)
@@ -116,6 +117,7 @@ Last updated: 2026-07-08
 - [x] Goal 51 - DPM Kafka Topic Profile Connector Contract
 - [x] Goal 52 - DPM Kafka Topic Profile Input Validation
 - [x] Goal 53 - DPM Kafka Relationship Hint Safe Identity
+- [x] Goal 54 - DPM Kafka Relationship Hint Source Pointer
 
 ## Goal 4 DPM Units
 
@@ -341,6 +343,10 @@ Last updated: 2026-07-08
 ## Goal 53 DPM Units
 
 - [x] DPM-73 - Kafka Relationship Hint Safe Identity
+
+## Goal 54 DPM Units
+
+- [x] DPM-74 - Kafka Relationship Hint Source Pointer
 
 ## Done Criteria
 

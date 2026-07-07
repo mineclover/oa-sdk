@@ -57,6 +57,7 @@
 | [Goal 51 — DPM Kafka Topic Profile Connector Contract](./goal-51-dpm-kafka-topic-profile-connector-contract.md) | ✅ | dpm |
 | [Goal 52 — DPM Kafka Topic Profile Input Validation](./goal-52-dpm-kafka-topic-profile-input-validation.md) | ✅ | dpm |
 | [Goal 53 — DPM Kafka Relationship Hint Safe Identity](./goal-53-dpm-kafka-relationship-hint-safe-identity.md) | ✅ | dpm |
+| [Goal 54 — DPM Kafka Relationship Hint Source Pointer](./goal-54-dpm-kafka-relationship-hint-source-pointer.md) | ✅ | dpm |
 | Phase 3 — OAS 파서/IR | ✅ | parser |
 | Phase 4 — TS 타입 생성 | ✅ | codegen/typegen |
 | Phase 5 — 라우터 스텁 | ✅ | router |

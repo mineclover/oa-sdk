@@ -1,6 +1,10 @@
 import {
   DPM_KAFKA_TOPIC_PROFILE_CAPTURE_MODES,
 } from './kafka-topic-profile-input-types.js'
+import {
+  isKafkaProfileJsonPointer,
+  kafkaProfilePathFromPointer,
+} from './kafka-profile-hint-source.js'
 import type { DpmProfileDiagnostic } from './profile-artifact-types.js'
 
 export type DpmKafkaTopicProfileInputValidationOptions = {
@@ -138,11 +142,39 @@ function validateRelationshipHints(context: ValidationContext, topic: Record<str
 
     requireNonEmptyString(context, hintRecord, 'id', `${path}.relationshipHints[${index}].id`)
     requireNonEmptyString(context, hintRecord, 'label', `${path}.relationshipHints[${index}].label`)
-    requireNonEmptyString(context, hintRecord, 'fromPath', `${path}.relationshipHints[${index}].fromPath`)
+    validateRelationshipHintSourceSelector(context, hintRecord, `${path}.relationshipHints[${index}]`)
     requireNonEmptyString(context, hintRecord, 'toRef', `${path}.relationshipHints[${index}].toRef`)
     optionalNonEmptyString(context, hintRecord, 'evidenceRef', `${path}.relationshipHints[${index}].evidenceRef`)
     requireRatio(context, hintRecord, 'confidence', `${path}.relationshipHints[${index}].confidence`)
   })
+}
+
+function validateRelationshipHintSourceSelector(
+  context: ValidationContext,
+  hintRecord: Record<string, unknown>,
+  path: string,
+): void {
+  optionalNonEmptyString(context, hintRecord, 'fromPath', `${path}.fromPath`)
+  optionalNonEmptyString(context, hintRecord, 'fromPointer', `${path}.fromPointer`)
+
+  const fromPath = hintRecord.fromPath
+  const fromPointer = hintRecord.fromPointer
+  const hasFromPath = isNonEmptyString(fromPath)
+  const hasFromPointer = isNonEmptyString(fromPointer)
+  if (!hasFromPath && !hasFromPointer) {
+    addDiagnostic(context, path, 'Kafka relationship hint must include fromPath or fromPointer.')
+    return
+  }
+
+  if (!hasFromPointer) return
+  if (!isKafkaProfileJsonPointer(fromPointer)) {
+    addDiagnostic(context, `${path}.fromPointer`, 'Kafka relationship hint fromPointer must be a JSON Pointer starting with "/".')
+    return
+  }
+
+  if (hasFromPath && kafkaProfilePathFromPointer(fromPointer) !== fromPath) {
+    addDiagnostic(context, path, 'Kafka relationship hint fromPath and fromPointer must resolve to the same field path.')
+  }
 }
 
 function validateCaptureMode(context: ValidationContext, captureMode: unknown): void {

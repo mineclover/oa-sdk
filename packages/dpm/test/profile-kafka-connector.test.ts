@@ -118,6 +118,89 @@ describe('DPM Kafka topic profile connector', () => {
     expect(validateDpmConnector(result)).toBe(true)
   })
 
+  it('accepts relationship hint source selectors as JSON pointers', () => {
+    const fixture = readKafkaOrdersCreatedFixture()
+    const input = {
+      ...fixture,
+      topic: {
+        ...fixture.topic,
+        relationshipHints: [{
+          id: 'hint:pointer-source',
+          label: 'orders.created customer pointer source',
+          fromPointer: '/value/customer/customer_no',
+          toRef: 'catalog://commerce/public.customers.customer_no',
+          confidence: 0.84,
+        }],
+      },
+    }
+
+    const validation = validateDpmKafkaTopicProfileInput(input)
+    const result = profileKafkaTopic(input)
+
+    expect(validation.valid).toBe(true)
+    expect(result.status).toBe('completed')
+    expect(result.profileArtifact?.edges).toContainEqual(expect.objectContaining({
+      id: 'edge:relationship-hint:hint:pointer-source',
+      kind: 'candidate_relationship',
+      fromNodeId: 'node:field:orders.created.value.customer.customer_no',
+    }))
+    expect(result.profileArtifact?.nodes).toContainEqual(expect.objectContaining({
+      id: 'node:relationship-hint:hint:pointer-source',
+      shape: expect.objectContaining({
+        fromPath: 'value.customer.customer_no',
+        fromPointer: '/value/customer/customer_no',
+      }),
+    }))
+    expect(validateDpmConnector(result)).toBe(true)
+  })
+
+  it('rejects ambiguous relationship hint source selectors before graph generation', () => {
+    const fixture = readKafkaOrdersCreatedFixture()
+    const withoutSourceSelector = {
+      ...fixture,
+      topic: {
+        ...fixture.topic,
+        relationshipHints: [{
+          id: 'hint:missing-selector',
+          label: 'missing selector',
+          toRef: 'catalog://commerce/public.customers.customer_no',
+          confidence: 0.84,
+        }],
+      },
+    }
+    const mismatchedSelectors = {
+      ...fixture,
+      topic: {
+        ...fixture.topic,
+        relationshipHints: [{
+          id: 'hint:mismatched-selector',
+          label: 'mismatched selector',
+          fromPath: 'value.customer.customer_no',
+          fromPointer: '/value/customer/tenant_id',
+          toRef: 'catalog://commerce/public.customers.customer_no',
+          confidence: 0.84,
+        }],
+      },
+    }
+
+    expect(validateDpmKafkaTopicProfileInput(withoutSourceSelector).diagnostics)
+      .toContainEqual(expect.objectContaining({
+        code: 'CONN201',
+        coordinate: expect.objectContaining({
+          path: 'dpm.kafka.topic-profile.input.topic.relationshipHints[0]',
+        }),
+      }))
+    expect(profileKafkaTopic(withoutSourceSelector as Parameters<typeof profileKafkaTopic>[0]).status).toBe('failed')
+    expect(validateDpmKafkaTopicProfileInput(mismatchedSelectors).diagnostics)
+      .toContainEqual(expect.objectContaining({
+        code: 'CONN201',
+        coordinate: expect.objectContaining({
+          path: 'dpm.kafka.topic-profile.input.topic.relationshipHints[0]',
+        }),
+      }))
+    expect(profileKafkaTopic(mismatchedSelectors).status).toBe('failed')
+  })
+
   it('does not throw when fixture callers pass a malformed runtime value', () => {
     const result = profileKafkaTopicFixture(undefined as Parameters<typeof profileKafkaTopicFixture>[0])
 
