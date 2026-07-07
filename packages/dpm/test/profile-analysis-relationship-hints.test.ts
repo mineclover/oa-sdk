@@ -29,4 +29,42 @@ describe('DPM profile analysis relationship hints', () => {
     expect(JSON.stringify(hint)).not.toContain('"status":"approved"')
     expect(JSON.stringify(report)).not.toContain('registryVersion')
   })
+
+  it('does not promote unresolved candidate relationship edges into reviewer proposals', () => {
+    const profileArtifact = createKafkaProfileArtifact()
+    const report = createDpmProfileAnalysisReport({
+      profileArtifact: {
+        ...profileArtifact,
+        edges: [
+          ...profileArtifact.edges,
+          {
+            id: 'edge:relationship-hint:missing-source',
+            kind: 'candidate_relationship',
+            fromNodeId: 'node:field:orders.created.value.customer.missing_field',
+            toNodeId: 'node:relationship-hint:hint:orders-created-customer',
+            confidence: 0.72,
+            evidenceIds: [...expectedKafkaRelationshipHintEvidenceIds],
+          },
+          {
+            id: 'edge:relationship-hint:missing-hint-node',
+            kind: 'candidate_relationship',
+            fromNodeId: 'node:field:orders.created.value.customer.customer_no',
+            toNodeId: 'node:relationship-hint:missing',
+            confidence: 0.71,
+            evidenceIds: [...expectedKafkaRelationshipHintEvidenceIds],
+          },
+        ],
+      },
+    })
+
+    expect(report.relationshipHints).toContainEqual(expect.objectContaining({
+      id: 'proposal:edge:relationship-hint:hint:orders-created-customer',
+    }))
+    expect(report.relationshipHints).not.toContainEqual(expect.objectContaining({
+      id: 'proposal:edge:relationship-hint:missing-source',
+    }))
+    expect(report.relationshipHints).not.toContainEqual(expect.objectContaining({
+      id: 'proposal:edge:relationship-hint:missing-hint-node',
+    }))
+  })
 })

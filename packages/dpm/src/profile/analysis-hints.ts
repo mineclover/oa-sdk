@@ -6,14 +6,19 @@ import {
   readStringShape,
 } from './analysis-node-utils.js'
 import type { DpmProfileArtifact } from './profile-artifact-types.js'
+import type {
+  DpmProfileEdge,
+  DpmProfileNode,
+} from './profile-graph-types.js'
 
 export function analyzeRelationshipHints(profile: DpmProfileArtifact): DpmProfileRelationshipHintProposal[] {
   const nodes = new Map(profile.nodes.map(node => [node.id, node]))
 
   return profile.edges
     .filter(edge => edge.kind === 'candidate_relationship')
+    .filter(edge => isResolvableRelationshipHintEdge(edge, nodes))
     .map(edge => {
-      const hintNode = nodes.get(edge.toNodeId)
+      const hintNode = nodes.get(edge.toNodeId)!
       const targetRef = readStringShape(hintNode, 'toRef') ?? hintNode?.coordinate.externalId
       return {
         id: `proposal:${edge.id}`,
@@ -27,4 +32,14 @@ export function analyzeRelationshipHints(profile: DpmProfileArtifact): DpmProfil
       }
     })
     .sort(byId)
+}
+
+function isResolvableRelationshipHintEdge(
+  edge: DpmProfileEdge,
+  nodes: ReadonlyMap<string, DpmProfileNode>,
+): boolean {
+  const sourceNode = nodes.get(edge.fromNodeId)
+  const hintNode = nodes.get(edge.toNodeId)
+
+  return Boolean(sourceNode && hintNode?.kind === 'relationship_hint')
 }

@@ -394,6 +394,8 @@ Tasks:
 Acceptance:
 - Reports are deterministic for identical profile artifacts.
 - Relationship hints include confidence, evidence pointers, and reviewer-safe explanations.
+- Relationship hint proposals are emitted only when the candidate edge resolves both its source node
+  and `relationship_hint` target node.
 - Risk indicators do not expose raw values.
 
 Verification:
@@ -418,7 +420,8 @@ Implementation notes:
   merging those signal categories into one implementation owner. If previous/current dataset or profile
   identity differs, it emits only `profile_identity_mismatch` instead of mixing unrelated node/metric drift.
 - Relationship hints are emitted as reviewer-safe `review` proposals with confidence and evidence
-  ids; they do not become registry relationships.
+  ids only when the candidate edge resolves to an existing source node and `relationship_hint` target
+  node; they do not become registry relationships.
 - Risk indicators are derived from profile coordinates and metrics only, and do not expose raw
   source values.
 
