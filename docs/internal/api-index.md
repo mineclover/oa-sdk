@@ -183,6 +183,10 @@ category barrel을 가리킨다. `packages/dpm/test/package-subpath-import-smoke
 | `DpmProfileRiskIndicatorKind` | `dpm/src/profile/analysis-taxonomy.ts` | profile risk indicator kind union |
 | `DpmProfileDriftSignalKind` | `dpm/src/profile/analysis-taxonomy.ts` | profile drift signal kind union |
 | `DpmProfileAnalysisInput` | `dpm/src/profile/analysis-input-types.ts` | profile analysis request input |
+| `DpmProfileAnalysisPolicy` | `dpm/src/profile/analysis-policy-types.ts` | profile analysis threshold and confidence policy |
+| `DpmProfileAnalysisPolicyInput` | `dpm/src/profile/analysis-policy-types.ts` | partial profile analysis policy override input |
+| `DEFAULT_DPM_PROFILE_ANALYSIS_POLICY` | `dpm/src/profile/analysis-policy.ts` | default profile analysis threshold policy preserving existing behavior |
+| `resolveDpmProfileAnalysisPolicy()` | `dpm/src/profile/analysis-policy.ts` | partial policy override resolver with ratio validation |
 | `DpmProfileAnalysisCoverage` | `dpm/src/profile/analysis-signal-types.ts` | source/node/metric coverage summary |
 | `DpmProfileRelationshipHintProposal` | `dpm/src/profile/analysis-signal-types.ts` | reviewer-safe non-executable relationship hint proposal |
 | `DpmProfileKeyCandidate` | `dpm/src/profile/analysis-signal-types.ts` | key/join candidate derived from profile evidence |

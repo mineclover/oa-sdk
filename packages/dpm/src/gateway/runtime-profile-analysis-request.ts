@@ -38,6 +38,7 @@ export async function resolveDpmGatewayProfileAnalysisRequest(input: {
       ...(previousProfile.previousProfileArtifact
         ? { previousProfileArtifact: previousProfile.previousProfileArtifact }
         : {}),
+      ...(input.request.policy ? { policy: input.request.policy } : {}),
       ...(input.request.reportId ? { reportId: input.request.reportId } : {}),
       ...(input.request.analyzedAt ? { analyzedAt: input.request.analyzedAt } : {}),
     },

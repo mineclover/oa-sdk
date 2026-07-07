@@ -10,9 +10,16 @@ import {
   groupMetricsBySubject,
   roundRatio,
 } from './analysis-metric-utils.js'
+import {
+  DEFAULT_DPM_PROFILE_ANALYSIS_POLICY,
+  type DpmProfileAnalysisPolicy,
+} from './analysis-policy.js'
 import type { DpmProfileArtifact } from './profile-artifact-types.js'
 
-export function analyzeKeyCandidates(profile: DpmProfileArtifact): DpmProfileKeyCandidate[] {
+export function analyzeKeyCandidates(
+  profile: DpmProfileArtifact,
+  policy: DpmProfileAnalysisPolicy = DEFAULT_DPM_PROFILE_ANALYSIS_POLICY,
+): DpmProfileKeyCandidate[] {
   const candidates = new Map<string, DpmProfileKeyCandidate>()
   const nodes = new Map(profile.nodes.map(node => [node.id, node]))
   const metricsBySubject = groupMetricsBySubject(profile.metrics)
@@ -33,7 +40,9 @@ export function analyzeKeyCandidates(profile: DpmProfileArtifact): DpmProfileKey
     if (!isIdentifierLikeNode(node)) continue
     const metrics = metricsBySubject.get(node.id) ?? []
     const presence = metrics.find(metric => metric.kind === 'presence_ratio' && typeof metric.value === 'number')
-    const confidence = typeof presence?.value === 'number' ? roundRatio(presence.value) : 0.6
+    const confidence = typeof presence?.value === 'number'
+      ? roundRatio(presence.value)
+      : policy.identifierKeyCandidateFallbackConfidence
     candidates.set(`key-candidate:${node.id}:identifier_like_field`, {
       id: `key-candidate:${node.id}:identifier_like_field`,
       kind: 'identifier_like_field',

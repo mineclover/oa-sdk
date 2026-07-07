@@ -8,8 +8,11 @@ import {
 } from '@oa-sdk/dpm/catalog'
 import {
   createDpmRelationshipCandidateInputFromProfileHint,
+  DEFAULT_DPM_PROFILE_ANALYSIS_POLICY,
   DPM_PROFILE_ARTIFACT_KIND,
+  resolveDpmProfileAnalysisPolicy,
   type DpmProfileArtifact,
+  type DpmProfileAnalysisPolicy,
   type DpmProfileRelationshipCandidateBridgeInput,
 } from '@oa-sdk/dpm/profile'
 import {
@@ -37,6 +40,7 @@ import {
 type DpmSubpathTypeSmoke = {
   catalog?: CatalogSnapshot
   profile?: DpmProfileArtifact
+  profileAnalysisPolicy?: DpmProfileAnalysisPolicy
   profileRelationshipCandidateBridge?: DpmProfileRelationshipCandidateBridgeInput
   baseline?: DpmProfileBaselineSummary
   registryRelationshipSave?: DpmRegistryRelationshipSaveInput
@@ -58,10 +62,12 @@ void [
   getDpmGatewayOpenApiDocument().paths,
   DPM_GATEWAY_RUNTIME_OPERATION_IDS,
   DPM_PROFILE_ARTIFACT_KIND,
+  DEFAULT_DPM_PROFILE_ANALYSIS_POLICY,
   DPM_PROFILE_BASELINE_SELECTION_STRATEGIES,
   DPM_PUBLISHING_CONTEXT_KIND,
   computeCatalogFreshnessHash,
   createDpmRelationshipCandidateInputFromProfileHint,
+  resolveDpmProfileAnalysisPolicy,
   createDpmRegistryRelationshipRow,
   typeSmoke,
 ]

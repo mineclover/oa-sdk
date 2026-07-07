@@ -11,6 +11,10 @@ import {
   groupMetricsBySubject,
   roundRatio,
 } from './analysis-metric-utils.js'
+import {
+  DEFAULT_DPM_PROFILE_ANALYSIS_POLICY,
+  type DpmProfileAnalysisPolicy,
+} from './analysis-policy.js'
 import type { DpmProfileArtifact } from './profile-artifact-types.js'
 import type {
   DpmProfileEdge,
@@ -18,7 +22,10 @@ import type {
   DpmProfileNode,
 } from './profile-graph-types.js'
 
-export function analyzeRelationshipHints(profile: DpmProfileArtifact): DpmProfileRelationshipHintProposal[] {
+export function analyzeRelationshipHints(
+  profile: DpmProfileArtifact,
+  policy: DpmProfileAnalysisPolicy = DEFAULT_DPM_PROFILE_ANALYSIS_POLICY,
+): DpmProfileRelationshipHintProposal[] {
   const nodes = new Map(profile.nodes.map(node => [node.id, node]))
   const explicitSourceNodeIds = new Set(
     profile.edges
@@ -48,7 +55,7 @@ export function analyzeRelationshipHints(profile: DpmProfileArtifact): DpmProfil
 
   return [
     ...explicitHints,
-    ...analyzeMeasuredRelationshipCandidates(profile, nodes, explicitSourceNodeIds),
+    ...analyzeMeasuredRelationshipCandidates(profile, nodes, explicitSourceNodeIds, policy),
   ].sort(byId)
 }
 
@@ -66,6 +73,7 @@ function analyzeMeasuredRelationshipCandidates(
   profile: DpmProfileArtifact,
   nodes: ReadonlyMap<string, DpmProfileNode>,
   explicitSourceNodeIds: ReadonlySet<string>,
+  policy: DpmProfileAnalysisPolicy,
 ): DpmProfileRelationshipHintProposal[] {
   const metricsBySubject = groupMetricsBySubject(profile.metrics)
   const candidates: DpmProfileRelationshipHintProposal[] = []
@@ -74,7 +82,10 @@ function analyzeMeasuredRelationshipCandidates(
     if (explicitSourceNodeIds.has(node.id)) continue
     if (!isMeasuredRelationshipCandidateNode(node)) continue
 
-    const presence = measuredPresenceMetric(metricsBySubject.get(node.id) ?? [])
+    const presence = measuredPresenceMetric(
+      metricsBySubject.get(node.id) ?? [],
+      policy.measuredRelationshipPresenceThreshold,
+    )
     if (!presence) continue
 
     candidates.push({
@@ -82,7 +93,7 @@ function analyzeMeasuredRelationshipCandidates(
       status: 'review',
       source: 'measured_key_candidate',
       fromNodeId: node.id,
-      confidence: roundRatio(Math.min(0.9, presence.value)),
+      confidence: roundRatio(Math.min(policy.measuredRelationshipConfidenceCap, presence.value)),
       evidenceIds: [...(presence.evidenceIds.length > 0
         ? presence.evidenceIds
         : evidenceIdsForNode(profile, node.id))].sort(),
@@ -97,10 +108,13 @@ function isMeasuredRelationshipCandidateNode(node: DpmProfileNode): boolean {
   return (node.kind === 'message_field' || node.kind === 'column') && isIdentifierLikeNode(node)
 }
 
-function measuredPresenceMetric(metrics: readonly DpmProfileMetric[]): (DpmProfileMetric & { value: number }) | undefined {
+function measuredPresenceMetric(
+  metrics: readonly DpmProfileMetric[],
+  threshold: number,
+): (DpmProfileMetric & { value: number }) | undefined {
   return metrics.find((metric): metric is DpmProfileMetric & { value: number } =>
     metric.kind === 'presence_ratio' &&
     typeof metric.value === 'number' &&
-    metric.value >= 0.95
+    metric.value >= threshold
   )
 }

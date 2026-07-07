@@ -10,6 +10,7 @@ Last updated: 2026-07-07
 
 ## Recently Completed
 
+- [x] Goal 33 / DPM Profile Analysis Policy Contract (complete)
 - [x] Goal 32 / DPM Registry Approval Persistence Bridge (complete)
 - [x] Goal 31 / DPM Profile Relationship Candidate Bridge (complete)
 - [x] Goal 30 / DPM Relationship Workflow Consumer Smoke (complete)
@@ -74,6 +75,7 @@ Last updated: 2026-07-07
 - [x] Goal 30 - DPM Relationship Workflow Consumer Smoke
 - [x] Goal 31 - DPM Profile Relationship Candidate Bridge
 - [x] Goal 32 - DPM Registry Approval Persistence Bridge
+- [x] Goal 33 - DPM Profile Analysis Policy Contract
 
 ## Goal 4 DPM Units
 
@@ -215,6 +217,10 @@ Last updated: 2026-07-07
 ## Goal 32 DPM Units
 
 - [x] DPM-52 - Registry Approval Persistence Bridge
+
+## Goal 33 DPM Units
+
+- [x] DPM-53 - Profile Analysis Policy Contract
 
 ## Done Criteria
 

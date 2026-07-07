@@ -20,7 +20,9 @@ const checks = [
   ['package', packageModule.DPM_PACKAGE_NAME === '@oa-sdk/dpm'],
   ['catalog', typeof catalogModule.normalizeCatalogSnapshot === 'function'],
   ['profile', typeof profileModule.normalizeDpmProfileArtifact === 'function'
-    && typeof profileModule.createDpmRelationshipCandidateInputFromProfileHint === 'function'],
+    && typeof profileModule.createDpmRelationshipCandidateInputFromProfileHint === 'function'
+    && typeof profileModule.resolveDpmProfileAnalysisPolicy === 'function'
+    && profileModule.DEFAULT_DPM_PROFILE_ANALYSIS_POLICY.measuredRelationshipPresenceThreshold === 0.95],
   ['relationship', typeof relationshipModule.createLogicalRelationship === 'function'],
   ['gateway', typeof gatewayModule.createDpmGatewayRuntime === 'function'],
   ['storage', typeof storageModule.createDpmProfileBaselineRepository === 'function'

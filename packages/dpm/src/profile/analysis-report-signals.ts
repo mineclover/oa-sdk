@@ -6,6 +6,7 @@ import {
   analyzeRelationshipHints,
   analyzeRiskIndicators,
 } from './analysis-compute.js'
+import { resolveDpmProfileAnalysisPolicy } from './analysis-policy.js'
 import { analyzeDriftSignals } from './analysis-drift.js'
 
 export type DpmProfileAnalysisReportSignals = Pick<
@@ -16,11 +17,13 @@ export type DpmProfileAnalysisReportSignals = Pick<
 export function createDpmProfileAnalysisReportSignals(
   input: DpmProfileAnalysisInput,
 ): DpmProfileAnalysisReportSignals {
+  const policy = resolveDpmProfileAnalysisPolicy(input.policy)
+
   return {
     coverage: analyzeCoverage(input.profileArtifact),
-    relationshipHints: analyzeRelationshipHints(input.profileArtifact),
-    keyCandidates: analyzeKeyCandidates(input.profileArtifact),
+    relationshipHints: analyzeRelationshipHints(input.profileArtifact, policy),
+    keyCandidates: analyzeKeyCandidates(input.profileArtifact, policy),
     driftSignals: analyzeDriftSignals(input.profileArtifact, input.previousProfileArtifact),
-    riskIndicators: analyzeRiskIndicators(input.profileArtifact),
+    riskIndicators: analyzeRiskIndicators(input.profileArtifact, policy),
   }
 }

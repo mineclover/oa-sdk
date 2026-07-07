@@ -1,5 +1,8 @@
 import type { DpmProfileArtifact } from '../profile/types.js'
 import type {
+  DpmProfileAnalysisPolicyInput,
+} from '../profile/analysis-types.js'
+import type {
   DpmProfileBaselineRepository,
   DpmProfileBaselineSelectionStrategy,
   DpmProfileBaselineSummary,
@@ -16,6 +19,7 @@ export type DpmGatewayProfileAnalysisRequest = {
   profileArtifact: DpmProfileArtifact
   previousProfileArtifact?: DpmProfileArtifact
   previousProfileBaseline?: DpmGatewayProfileBaselineRef
+  policy?: DpmProfileAnalysisPolicyInput
   reportId?: string
   analyzedAt?: string
 }

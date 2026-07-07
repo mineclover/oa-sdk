@@ -2,7 +2,9 @@ import {
   DPM_PROFILE_BASELINE_SELECTION_STRATEGIES,
 } from '../storage/profile-baseline-selection-taxonomy.js'
 import {
+  informativeObjectSchema,
   integerSchema,
+  ratioSchema,
   ref,
   requiredObjectSchema,
   stringSchema,
@@ -27,11 +29,19 @@ export function createDpmProfileAnalysisExchangeGatewaySchemas() {
         }, ['selectionStrategy']),
       ],
     },
+    DpmProfileAnalysisPolicy: informativeObjectSchema({
+      measuredRelationshipPresenceThreshold: ratioSchema(),
+      measuredRelationshipConfidenceCap: ratioSchema(),
+      lowPresenceRiskThreshold: ratioSchema(),
+      highNullRiskThreshold: ratioSchema(),
+      identifierKeyCandidateFallbackConfidence: ratioSchema(),
+    }),
     DpmProfileAnalysisRequest: {
       ...requiredObjectSchema({
         profileArtifact: ref('DpmProfileArtifact'),
         previousProfileArtifact: ref('DpmProfileArtifact'),
         previousProfileBaseline: ref('DpmProfileBaselineRef'),
+        policy: ref('DpmProfileAnalysisPolicy'),
         reportId: stringSchema(),
         analyzedAt: stringSchema(),
       }, ['profileArtifact']),
