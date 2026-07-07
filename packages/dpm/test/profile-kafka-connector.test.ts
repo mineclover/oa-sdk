@@ -7,6 +7,7 @@ import {
   DPM_PROFILE_CONNECTOR_RESULT_KIND,
   profileKafkaTopic,
   profileKafkaTopicFixture,
+  validateDpmKafkaTopicProfileInput,
   validateDpmProfileArtifactSchema,
   validateDpmProfileConnectorResult,
 } from '../src/index.js'
@@ -60,6 +61,75 @@ describe('DPM Kafka topic profile connector', () => {
     expect(validateDpmConnector(result)).toBe(true)
     expect(validateDpmProfileArtifactSchema(result.profileArtifact).valid).toBe(true)
     expect(JSON.stringify(result)).not.toContain('rawSample')
+  })
+
+  it('returns failed connector diagnostics for malformed captured Kafka topic input', () => {
+    const fixture = readKafkaOrdersCreatedFixture()
+    const malformedInput = {
+      ...fixture,
+      captureMode: 'live_consumer',
+      topic: {
+        ...fixture.topic,
+        partitions: [0, -1],
+        headers: [{
+          name: 'correlation_id',
+          dataType: 'string',
+          presenceRatio: 1.2,
+        }],
+        value: {
+          fields: [{
+            name: 'customer_no',
+            dataType: 'string',
+            presenceRatio: Number.NaN,
+          }],
+        },
+        relationshipHints: [{
+          id: 'hint:bad-confidence',
+          label: 'bad confidence',
+          fromPath: 'value.customer_no',
+          toRef: 'catalog://commerce/public.customers.customer_no',
+          confidence: 2,
+        }],
+      },
+    }
+
+    const validation = validateDpmKafkaTopicProfileInput(malformedInput)
+    const result = profileKafkaTopic(malformedInput as Parameters<typeof profileKafkaTopic>[0])
+
+    expect(validation.valid).toBe(false)
+    expect(validation.diagnostics.map(diagnostic => diagnostic.code)).toEqual([
+      'CONN201',
+      'CONN201',
+      'CONN201',
+      'CONN201',
+      'CONN201',
+    ])
+    expect(result.kind).toBe(DPM_PROFILE_CONNECTOR_RESULT_KIND)
+    expect(result.status).toBe('failed')
+    expect(result.captureMode).toBe('snapshot')
+    expect(result.profileArtifact).toBeUndefined()
+    expect(result.diagnostics.map(diagnostic => diagnostic.coordinate?.path)).toEqual(expect.arrayContaining([
+      'dpm.kafka.topic-profile.input.captureMode',
+      'dpm.kafka.topic-profile.input.topic.partitions[1]',
+      'dpm.kafka.topic-profile.input.topic.headers[0].presenceRatio',
+      'dpm.kafka.topic-profile.input.topic.value.fields[0].presenceRatio',
+      'dpm.kafka.topic-profile.input.topic.relationshipHints[0].confidence',
+    ]))
+    expect(validateDpmConnector(result)).toBe(true)
+  })
+
+  it('does not throw when fixture callers pass a malformed runtime value', () => {
+    const result = profileKafkaTopicFixture(undefined as Parameters<typeof profileKafkaTopicFixture>[0])
+
+    expect(result.connectorId).toBe('dpm.kafka.fixture')
+    expect(result.captureMode).toBe('fixture')
+    expect(result.status).toBe('failed')
+    expect(result.profileArtifact).toBeUndefined()
+    expect(result.diagnostics.map(diagnostic => diagnostic.coordinate?.path)).toEqual(expect.arrayContaining([
+      'dpm.kafka.topic-profile.input.topic',
+      'dpm.kafka.topic-profile.input.profileId',
+    ]))
+    expect(validateDpmConnector(result)).toBe(true)
   })
 })
 

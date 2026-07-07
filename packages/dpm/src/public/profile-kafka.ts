@@ -15,6 +15,10 @@ export type {
   DpmKafkaTopicProfileCaptureMode,
   DpmKafkaTopicProfileInput,
 } from '../profile/kafka-topic-profile-input-types.js'
+export type {
+  DpmKafkaTopicProfileInputValidationOptions,
+  DpmKafkaTopicProfileInputValidationResult,
+} from '../profile/kafka-topic-profile-input-validation.js'
 export type { DpmKafkaTopicProfileFixture } from '../profile/kafka-fixture-profile-types.js'
 export type {
   DpmKafkaTopicFixture,
@@ -29,3 +33,6 @@ export {
   profileKafkaTopic,
   profileKafkaTopicFixture,
 } from '../profile/kafka.js'
+export {
+  validateDpmKafkaTopicProfileInput,
+} from '../profile/kafka-topic-profile-input-validation.js'

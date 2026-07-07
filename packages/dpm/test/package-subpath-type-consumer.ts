@@ -17,6 +17,7 @@ import {
   resolveDpmRelationshipCandidateEndpointsFromProfileHint,
   resolveDpmProfileAnalysisPolicy,
   profileKafkaTopic,
+  validateDpmKafkaTopicProfileInput,
   type DpmProfileArtifact,
   type DpmProfileAnalysisPolicy,
   type DpmProfileRelationshipEndpointResolution,
@@ -25,6 +26,7 @@ import {
   type DpmProfileResolvedRelationshipCandidateBridgeInput,
   type DpmKafkaTopicProfileInput,
   type DpmKafkaTopicProfileCaptureMode,
+  type DpmKafkaTopicProfileInputValidationResult,
 } from '@oa-sdk/dpm/profile'
 import {
   REGISTRY_RELATIONSHIP_STATUSES,
@@ -87,6 +89,7 @@ type DpmSubpathTypeSmoke = {
   resolvedProfileRelationshipCandidateBridge?: DpmProfileResolvedRelationshipCandidateBridgeInput
   kafkaTopicProfile?: DpmKafkaTopicProfileInput
   kafkaTopicProfileCaptureMode?: DpmKafkaTopicProfileCaptureMode
+  kafkaTopicProfileInputValidation?: DpmKafkaTopicProfileInputValidationResult
   profileRelationshipHintApproval?: DpmGatewayProfileRelationshipHintApprovalInput
   profileRelationshipHintApprovalRequest?: DpmGatewayProfileRelationshipHintApprovalRequest
   profileRelationshipHintApprovalSuccess?: DpmGatewayProfileRelationshipHintApprovalSuccessResult
@@ -129,6 +132,7 @@ void [
   DPM_KAFKA_TOPIC_PROFILE_CONNECTOR_ID,
   DEFAULT_DPM_PROFILE_ANALYSIS_POLICY,
   profileKafkaTopic,
+  validateDpmKafkaTopicProfileInput,
   DPM_PROFILE_BASELINE_SELECTION_STRATEGIES,
   DPM_PUBLISHING_CONTEXT_KIND,
   computeCatalogFreshnessHash,

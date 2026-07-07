@@ -171,11 +171,14 @@ category barrel을 가리킨다. `packages/dpm/test/package-subpath-import-smoke
 | `DpmKafkaSchema` | `dpm/src/profile/kafka-topic-profile-input-types.ts` | captured Kafka schema subject/version metadata |
 | `DpmKafkaMessageField` | `dpm/src/profile/kafka-topic-profile-input-types.ts` | captured nested Kafka message field metadata |
 | `DpmKafkaRelationshipHint` | `dpm/src/profile/kafka-topic-profile-input-types.ts` | captured non-executable Kafka relationship hint metadata |
+| `DpmKafkaTopicProfileInputValidationOptions` | `dpm/src/profile/kafka-topic-profile-input-validation.ts` | Kafka topic profile input validation options |
+| `DpmKafkaTopicProfileInputValidationResult` | `dpm/src/profile/kafka-topic-profile-input-validation.ts` | Kafka topic profile input validation diagnostics envelope |
 | `DPM_KAFKA_TOPIC_PROFILE_CAPTURE_MODES` | `dpm/src/profile/kafka-topic-profile-input-types.ts` | Kafka topic profile connector capture mode taxonomy |
 | `DPM_KAFKA_TOPIC_PROFILE_CONNECTOR_ID` | `dpm/src/profile/kafka.ts` | default product Kafka topic profile connector id |
 | `DPM_KAFKA_TOPIC_PROFILE_CONNECTOR_VERSION` | `dpm/src/profile/kafka.ts` | default product Kafka topic profile connector version |
 | `DPM_KAFKA_TOPIC_FIXTURE_CONNECTOR_ID` | `dpm/src/profile/kafka.ts` | default fixture Kafka topic profile connector id |
 | `profileKafkaTopic()` | `dpm/src/profile/kafka.ts` | captured Kafka topic bundle을 profile artifact + connector result로 변환 |
+| `validateDpmKafkaTopicProfileInput()` | `dpm/src/profile/kafka-topic-profile-input-validation.ts` | captured Kafka topic bundle input을 graph 생성 전 검증 |
 | `DpmKafkaTopicProfileFixture` | `dpm/src/profile/kafka-fixture-types.ts` | fixture-backed Kafka topic profile adapter input |
 | `DpmKafkaTopicFixture` | `dpm/src/profile/kafka-fixture-types.ts` | Kafka topic shape, partitions, key/header/schema/value evidence fixture |
 | `DpmKafkaKeyFixture` | `dpm/src/profile/kafka-fixture-types.ts` | Kafka message key fixture metadata |

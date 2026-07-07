@@ -10,6 +10,7 @@ Last updated: 2026-07-08
 
 ## Recently Completed
 
+- [x] Goal 52 / DPM Kafka Topic Profile Input Validation (complete)
 - [x] Goal 51 / DPM Kafka Topic Profile Connector Contract (complete)
 - [x] Goal 50 / DPM Registry Split Append Audit Return (complete)
 - [x] Goal 49 / DPM Storage Demo Schema Bootstrap (complete)
@@ -112,6 +113,7 @@ Last updated: 2026-07-08
 - [x] Goal 49 - DPM Storage Demo Schema Bootstrap
 - [x] Goal 50 - DPM Registry Split Append Audit Return
 - [x] Goal 51 - DPM Kafka Topic Profile Connector Contract
+- [x] Goal 52 - DPM Kafka Topic Profile Input Validation
 
 ## Goal 4 DPM Units
 
@@ -329,6 +331,10 @@ Last updated: 2026-07-08
 ## Goal 51 DPM Units
 
 - [x] DPM-71 - Kafka Topic Profile Connector Contract
+
+## Goal 52 DPM Units
+
+- [x] DPM-72 - Kafka Topic Profile Input Validation
 
 ## Done Criteria
 

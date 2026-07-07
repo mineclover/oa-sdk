@@ -21,6 +21,7 @@ const checks = [
   ['catalog', typeof catalogModule.normalizeCatalogSnapshot === 'function'],
   ['profile', typeof profileModule.normalizeDpmProfileArtifact === 'function'
     && typeof profileModule.profileKafkaTopic === 'function'
+    && typeof profileModule.validateDpmKafkaTopicProfileInput === 'function'
     && typeof profileModule.createDpmRelationshipCandidateInputFromProfileHint === 'function'
     && typeof profileModule.resolveDpmProfileAnalysisPolicy === 'function'
     && Array.isArray(profileModule.DPM_KAFKA_TOPIC_PROFILE_CAPTURE_MODES)

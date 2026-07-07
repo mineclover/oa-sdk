@@ -55,6 +55,7 @@
 | [Goal 49 — DPM Storage Demo Schema Bootstrap](./goal-49-dpm-storage-demo-schema-bootstrap.md) | ✅ | dpm |
 | [Goal 50 — DPM Registry Split Append Audit Return](./goal-50-dpm-registry-split-append-audit-return.md) | ✅ | dpm |
 | [Goal 51 — DPM Kafka Topic Profile Connector Contract](./goal-51-dpm-kafka-topic-profile-connector-contract.md) | ✅ | dpm |
+| [Goal 52 — DPM Kafka Topic Profile Input Validation](./goal-52-dpm-kafka-topic-profile-input-validation.md) | ✅ | dpm |
 | Phase 3 — OAS 파서/IR | ✅ | parser |
 | Phase 4 — TS 타입 생성 | ✅ | codegen/typegen |
 | Phase 5 — 라우터 스텁 | ✅ | router |

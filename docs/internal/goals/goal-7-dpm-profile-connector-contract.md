@@ -354,6 +354,8 @@ Implementation notes:
 - `profileKafkaTopic()` maps captured Kafka topic bundle evidence into the DPM profile artifact
   and connector result contracts without accepting a live Kafka client.
 - `profileKafkaTopicFixture()` remains a fixture capture mode compatibility wrapper for tests.
+- `kafka-topic-profile-input-validation.ts` validates captured topic bundle input before graph
+  generation; malformed inputs return `CONN201` diagnostics through a failed connector result.
 - `kafka-topic-source.ts` owns source descriptor, Kafka ref, and source version hash construction;
   `kafka-topic-root.ts` owns topic root evidence and node bootstrap.
 - `kafka-topic-sections.ts` re-exports section helpers; `kafka-topic-partitions.ts` emits partition

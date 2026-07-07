@@ -277,6 +277,8 @@
       "description": "Captured Kafka topic bundle and fixture-backed Kafka message evidence flattening into a DPM profile artifact and connector result.",
       "capabilities": [
         "captured Kafka topic bundle input",
+        "captured Kafka topic input validation",
+        "failed connector result for malformed input",
         "fixture compatibility wrapper",
         "partition key header schema nodes",
         "nested message field flattening",
