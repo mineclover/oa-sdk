@@ -241,6 +241,8 @@ oa-gen drift \
 
 DPM package surface CI invariant: root `pnpm check:dpm-surface` runs the DPM built subpath consumer smoke, public subpath workflow smoke, and pack boundary smoke, and CI executes that root gate after feature-test matrix consistency so package export regressions are proven, not only listed in the matrix.
 
+DPM product flow operating strategy: future DPM work should prefer representative flow gates over one-goal-per-assertion stabilization. [Goal 63](./goals/goal-63-dpm-product-flow-operating-strategy.md) owns the decision rule: add separate narrow tests for public API contracts, privacy/safety boundaries, storage/adapter divergence, real regressions, or schema/taxonomy contracts; otherwise let naturally covered readbacks remain inside representative workflow smoke instead of minting new goals.
+
 | Manifest schema | `packages/dpm/src/schema/dpm-manifest.schema.json`이 DPM v1 JSON Schema source다. `packages/dpm/src/schema/index.ts`는 schema import 호환 barrel로 남고, `manifest-schema-id.ts`, `manifest-schema-types.ts`, `manifest-schema-validation.ts`, `manifest-schema-issues.ts`는 schema id, validation result vocabulary, AJV runtime syntax gate, issue formatting을 각각 소유한다. `$id`는 `DPM_MANIFEST_SCHEMA_ID` export와 smoke test로 고정하고 `validateDpmManifestSchema()`가 runtime syntax gate를 제공한다. |
 | Fixture IO test support | `packages/dpm/test/support/fixture-io.ts`는 shared DPM test fixture root, absolute fixture path, JSON/text fixture reader를 소유한다. Domain-specific support module은 semantic fixture assembly만 유지한다. |
 | Manifest schema test support | `packages/dpm/test/support/manifest-schema-fixtures.ts`는 manifest schema valid fixture names, invalid fixture expected path const case arrays, manifest schema fixture reader를 소유한다. |
