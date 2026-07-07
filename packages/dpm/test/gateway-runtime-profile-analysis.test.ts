@@ -1,7 +1,15 @@
 import { describe, expect, it } from 'vitest'
 
-import { createDpmGatewayRuntime } from '../src/index.js'
-import { createKafkaProfileArtifact } from './support/gateway-runtime-profile-artifact-fixtures.js'
+import {
+  createDpmGatewayRuntime,
+  createDpmProfileBaselineRepository,
+  resolveDpmGatewayProfileAnalysisRuntimeInput,
+  type DpmProfileBaselineRow,
+} from '../src/index.js'
+import {
+  createKafkaProfileArtifact,
+  createKafkaProfileArtifactWithCustomerNoPresence,
+} from './support/profile-analysis-fixtures.js'
 import {
   GATEWAY_PROFILE_RUNTIME_UNSAFE_RESULT_FRAGMENTS,
 } from './support/gateway-runtime-profile-safety-fixtures.js'
@@ -86,5 +94,75 @@ describe('DPM gateway profile analysis runtime adapter', () => {
     expect(response.body.result.analysisReport.diagnostics).toContainEqual(expect.objectContaining({
       code: 'PROF306',
     }))
+  })
+
+  it('resolves previous profile artifacts from stored baseline refs before runtime analysis', async () => {
+    const runtime = createDpmGatewayRuntime()
+    const rows = new Map<string, DpmProfileBaselineRow>()
+    const profileBaselineRepository = createDpmProfileBaselineRepository({
+      upsertProfileBaseline: row => rows.set(row.baselineRef, row),
+      getProfileBaseline: request => rows.get(request.baselineRef),
+      listProfileBaselines: () => [...rows.values()],
+    })
+    const profileArtifact = createKafkaProfileArtifact()
+    const previousProfileArtifact = createKafkaProfileArtifactWithCustomerNoPresence(0.91)
+    const baseline = await profileBaselineRepository.saveProfileBaseline({
+      profileArtifact: previousProfileArtifact,
+      storedAt: '2026-07-07T00:00:00.000Z',
+    })
+    const requestSchema = compileGatewayComponentSchema('DpmProfileAnalysisRequest')
+
+    const runtimeInput = await resolveDpmGatewayProfileAnalysisRuntimeInput({
+      request: {
+        profileArtifact,
+        previousProfileBaseline: { baselineRef: baseline.baselineRef },
+      },
+      profileBaselineRepository,
+    })
+    const response = await runtime.analyzeDpmProfile(runtimeInput)
+
+    expect(
+      requestSchema({
+        profileArtifact,
+        previousProfileBaseline: { baselineRef: baseline.baselineRef },
+      }),
+      JSON.stringify(requestSchema.errors, null, 2),
+    ).toBe(true)
+    expect(runtimeInput.previousProfileArtifact?.freshness.versionHash)
+      .toBe(previousProfileArtifact.freshness.versionHash)
+    expect(response.statusCode).toBe(200)
+    expect(response.body.result.analysisReport.freshness.previousProfileVersionHash)
+      .toBe(previousProfileArtifact.freshness.versionHash)
+    expect(response.body.result.analysisReport.driftSignals).toContainEqual(expect.objectContaining({
+      kind: 'metric_value_changed',
+      metricId: 'metric:orders.created.value.customer.customer_no.presence',
+      previousValue: 0.91,
+      currentValue: 0.997,
+    }))
+  })
+
+  it('rejects unresolved or ambiguous profile baseline analysis requests', async () => {
+    const profileArtifact = createKafkaProfileArtifact()
+    const previousProfileArtifact = createKafkaProfileArtifactWithCustomerNoPresence(0.91)
+    const profileBaselineRepository = {
+      getProfileBaseline: async () => undefined,
+    }
+
+    await expect(resolveDpmGatewayProfileAnalysisRuntimeInput({
+      request: {
+        profileArtifact,
+        previousProfileBaseline: { baselineRef: 'missing-profile-baseline' },
+      },
+      profileBaselineRepository,
+    })).rejects.toThrow('profile baseline not found: missing-profile-baseline')
+
+    await expect(resolveDpmGatewayProfileAnalysisRuntimeInput({
+      request: {
+        profileArtifact,
+        previousProfileArtifact,
+        previousProfileBaseline: { baselineRef: 'ambiguous-profile-baseline' },
+      },
+      profileBaselineRepository,
+    })).rejects.toThrow('either previousProfileArtifact or previousProfileBaseline')
   })
 })

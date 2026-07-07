@@ -10,6 +10,7 @@ Last updated: 2026-07-07
 
 ## Recently Completed
 
+- [x] Goal 9 / DPM Profile Baseline Analysis Resolver (complete)
 - [x] Goal 8 / DPM Profile Baseline Storage (complete)
 - [x] Goal 7 / DPM Profile/Connector Contract (complete)
 - [x] Goal 6 / DPM Contract Stabilization (complete)
@@ -26,6 +27,7 @@ Last updated: 2026-07-07
 - [x] Goal 6 - DPM Contract Stabilization
 - [x] Goal 7 - DPM Profile/Connector Contract
 - [x] Goal 8 - DPM Profile Baseline Storage
+- [x] Goal 9 - DPM Profile Baseline Analysis Resolver
 
 ## Goal 4 DPM Units
 
@@ -71,6 +73,10 @@ Last updated: 2026-07-07
 ## Goal 8 DPM Units
 
 - [x] DPM-28 - Profile Baseline Repository
+
+## Goal 9 DPM Units
+
+- [x] DPM-29 - Profile Baseline Analysis Resolver
 
 ## Done Criteria
 

@@ -28,6 +28,8 @@ describe('DPM Kafka profile demo command', () => {
     const baselineStep = output?.steps.find((step: { name: string }) =>
       step.name === 'compare profile artifact with previous measurement baseline'
     )
+    expect(baselineStep?.summary?.baselineRef).toContain('dpm-profile-baseline:')
+    expect(baselineStep?.summary?.baselineReportHash).toEqual(expect.any(String))
     expect(baselineStep?.summary?.driftSignalCount).toBeGreaterThan(0)
     expect(baselineStep?.summary?.driftKinds).toEqual(expect.arrayContaining([
       'profile_hash_changed',

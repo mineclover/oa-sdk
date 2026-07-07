@@ -1,6 +1,9 @@
 export type {
+  DpmGatewayProfileAnalysisBaselineResolver,
   DpmGatewayProfileAnalysisInput,
+  DpmGatewayProfileAnalysisRequest,
   DpmGatewayProfileAnalysisResult,
+  DpmGatewayProfileBaselineRef,
   DpmGatewayProfileInspectionInput,
   DpmGatewayProfileInspectionResult,
   DpmGatewayProfileProposalReviewInput,
@@ -20,4 +23,5 @@ export {
   DPM_GATEWAY_RUNTIME_OPERATION_IDS,
   createDpmGatewayRuntime,
   resolveDpmGatewayManifestRuntimeInput,
+  resolveDpmGatewayProfileAnalysisRuntimeInput,
 } from '../gateway/runtime.js'

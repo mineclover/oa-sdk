@@ -6,7 +6,9 @@ import { fileURLToPath } from 'node:url'
 import {
   createDpmGatewayRuntime,
   createDpmProfileArtifactSnapshot,
+  createDpmProfileBaselineRepository,
   profileKafkaTopicFixture,
+  resolveDpmGatewayProfileAnalysisRuntimeInput,
   validateDpmProfileArtifactSchema,
   validateDpmProfileConnectorResult,
 } from '../../dist/index.js'
@@ -24,6 +26,15 @@ const unsafeFragments = [
 
 const fixture = JSON.parse(readFileSync(fixturePath, 'utf8'))
 const runtime = createDpmGatewayRuntime()
+const profileBaselineRows = new Map()
+const profileBaselineRepository = createDpmProfileBaselineRepository({
+  upsertProfileBaseline: row => profileBaselineRows.set(row.baselineRef, row),
+  getProfileBaseline: request => profileBaselineRows.get(request.baselineRef),
+  listProfileBaselines: request =>
+    [...profileBaselineRows.values()]
+      .filter(row => row.datasetId === request.datasetId && row.profileId === request.profileId)
+      .slice(0, request.limit),
+})
 const steps = []
 let connectorResult
 
@@ -128,10 +139,22 @@ await recordStep('compare profile artifact with previous measurement baseline', 
   const previousFixture = createFixtureWithCustomerNoPresence(fixture, 0.91)
   const previousResult = profileKafkaTopicFixture(previousFixture)
   const previousProfileArtifact = required(previousResult.profileArtifact, 'expected previous profile artifact')
-  const response = await runtime.analyzeDpmProfile({
-    profileArtifact,
-    previousProfileArtifact,
+  const previousAnalysisResponse = await runtime.analyzeDpmProfile({
+    profileArtifact: previousProfileArtifact,
   })
+  const baseline = await profileBaselineRepository.saveProfileBaseline({
+    profileArtifact: previousProfileArtifact,
+    analysisReport: previousAnalysisResponse.body.result.analysisReport,
+    storedAt: '2026-07-07T00:00:00.000Z',
+  })
+  const runtimeInput = await resolveDpmGatewayProfileAnalysisRuntimeInput({
+    request: {
+      profileArtifact,
+      previousProfileBaseline: { baselineRef: baseline.baselineRef },
+    },
+    profileBaselineRepository,
+  })
+  const response = await runtime.analyzeDpmProfile(runtimeInput)
   const report = response.body.result.analysisReport
   const driftKinds = report.driftSignals.map(signal => signal.kind)
   const customerPresenceDrift = required(
@@ -158,6 +181,8 @@ await recordStep('compare profile artifact with previous measurement baseline', 
 
   return {
     command: response.body.command,
+    baselineRef: baseline.baselineRef,
+    baselineReportHash: baseline.reportHash,
     currentProfileVersionHash: report.freshness.profileVersionHash,
     previousProfileVersionHash: report.freshness.previousProfileVersionHash,
     driftSignalCount: report.driftSignals.length,

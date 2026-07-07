@@ -606,6 +606,7 @@
         "runtime profile inspection handler",
         "runtime profile analysis handler",
         "runtime profile proposal review handler",
+        "runtime profile baseline ref resolver",
         "runtime validate handler",
         "runtime compile handler",
         "runtime dry-run handler",

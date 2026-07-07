@@ -27,6 +27,11 @@ export type {
   DpmGatewayProfileProposalReviewResult,
 } from './runtime-profile-types.js'
 export type {
+  DpmGatewayProfileAnalysisBaselineResolver,
+  DpmGatewayProfileAnalysisRequest,
+  DpmGatewayProfileBaselineRef,
+} from './runtime-profile-analysis-request.js'
+export type {
   DpmGatewayRuntime,
 } from './runtime-types.js'
 export {
@@ -35,3 +40,6 @@ export {
 export {
   resolveDpmGatewayManifestRuntimeInput,
 } from './runtime-manifest-request.js'
+export {
+  resolveDpmGatewayProfileAnalysisRuntimeInput,
+} from './runtime-profile-analysis-request.js'

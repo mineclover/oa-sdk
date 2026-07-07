@@ -342,9 +342,13 @@ catalog/registry snapshot, semantic validator, compiler, CLI/gateway/publishing 
 | `DpmGatewaySnapshotRef` | `dpm/src/gateway/runtime-manifest-request-types.ts` | OpenAPI request snapshot ref passed to runtime snapshot resolvers |
 | `DpmGatewayManifestRequest` | `dpm/src/gateway/runtime-manifest-request-types.ts` | OpenAPI manifest request body shape for validate, compile, and dry-run runtime resolution |
 | `DpmGatewayManifestSnapshotResolver` | `dpm/src/gateway/runtime-manifest-request-types.ts` | consumer-supplied snapshot resolver for catalog and registry refs |
+| `DpmGatewayProfileBaselineRef` | `dpm/src/gateway/runtime-profile-analysis-request.ts` | OpenAPI profile analysis request ref for a stored profile baseline |
+| `DpmGatewayProfileAnalysisRequest` | `dpm/src/gateway/runtime-profile-analysis-request.ts` | OpenAPI profile analysis request body shape before baseline resolution |
+| `DpmGatewayProfileAnalysisBaselineResolver` | `dpm/src/gateway/runtime-profile-analysis-request.ts` | consumer-supplied profile baseline row resolver for profile analysis requests |
 | `DpmGatewayRuntimeResponse` | `dpm/src/gateway/runtime-response-types.ts` | gateway runtime response envelope |
 | `DpmGatewayRuntime` | `dpm/src/gateway/runtime-types.ts` | loaded profile inspection/analysis/review plus validate, compile, and dry-run runtime handlers |
 | `resolveDpmGatewayManifestRuntimeInput()` | `dpm/src/gateway/runtime-manifest-request.ts` | converts OpenAPI manifest request refs into loaded runtime manifest input through a snapshot resolver |
+| `resolveDpmGatewayProfileAnalysisRuntimeInput()` | `dpm/src/gateway/runtime-profile-analysis-request.ts` | converts profile analysis baseline refs into loaded runtime profile analysis input through a profile baseline resolver |
 | `createDpmGatewayRuntime()` | `dpm/src/gateway/runtime-factory.ts` | source-DB-free runtime adapter for profile and manifest operations |
 | `DpmRelationshipMetadata` | `dpm/src/publishing/types.ts` | AI-publishable approved relationship metadata |
 | `DpmAiRelationshipContext` | `dpm/src/publishing/types.ts` | AI schema relationship context entry |

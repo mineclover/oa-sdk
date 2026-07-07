@@ -6,9 +6,13 @@ import {
 
 export function createDpmProfileAnalysisExchangeGatewaySchemas() {
   return {
+    DpmProfileBaselineRef: requiredObjectSchema({
+      baselineRef: stringSchema(),
+    }),
     DpmProfileAnalysisRequest: requiredObjectSchema({
       profileArtifact: ref('DpmProfileArtifact'),
       previousProfileArtifact: ref('DpmProfileArtifact'),
+      previousProfileBaseline: ref('DpmProfileBaselineRef'),
       reportId: stringSchema(),
       analyzedAt: stringSchema(),
     }, ['profileArtifact']),
