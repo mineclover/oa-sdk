@@ -286,6 +286,8 @@ catalog/registry snapshot, semantic validator, compiler, CLI/gateway/publishing 
 | `DpmDryRunReport` | `dpm/src/dry-run/report.ts` | raw-value-free dry-run report |
 | `createDpmDryRunReport()` | `dpm/src/dry-run/report.ts` | dry-run impact report creation |
 | `DPM_JOB_KIND` | `dpm/src/storage/job-repository-types.ts` | persisted DPM job row kind literal |
+| `DPM_JOB_OPERATIONS` | `dpm/src/storage/job-operation-taxonomy.ts` | persisted DPM job operation taxonomy |
+| `DPM_JOB_STATUSES` | `dpm/src/storage/job-status-taxonomy.ts` | persisted DPM job status taxonomy |
 | `DpmJobOperation` | `dpm/src/storage/job-repository-types.ts` | compile or dry-run persisted job operation taxonomy |
 | `DpmJobStatus` | `dpm/src/storage/job-repository-types.ts` | accepted, completed, or failed persisted job status |
 | `DpmJobRequest` | `dpm/src/storage/job-repository-types.ts` | job lookup request |
@@ -296,6 +298,7 @@ catalog/registry snapshot, semantic validator, compiler, CLI/gateway/publishing 
 | `createDpmJobRow()` | `dpm/src/storage/job-row-builder.ts` | copy-only job row builder that excludes unsafe payload fields |
 | `createDpmJobRepository()` | `dpm/src/storage/job-repository.ts` | adapter-backed job persistence repository factory |
 | `DPM_VALIDATION_REPORT_KIND` | `dpm/src/storage/report-repository-types.ts` | persisted validation report row kind literal |
+| `DPM_VALIDATION_REPORT_STATUSES` | `dpm/src/storage/report-status-taxonomy.ts` | persisted validation report status taxonomy |
 | `DpmValidationReportStatus` | `dpm/src/storage/report-repository-types.ts` | completed or failed validation report status |
 | `DpmValidationReportRequest` | `dpm/src/storage/report-repository-types.ts` | validation report lookup request |
 | `DpmValidationReportSaveInput` | `dpm/src/storage/report-repository-types.ts` | sanitized validation report persistence input |
@@ -324,8 +327,12 @@ catalog/registry snapshot, semantic validator, compiler, CLI/gateway/publishing 
 | `DpmGatewayRuntimeCommand` | `dpm/src/gateway/runtime-response-types.ts` | profile and manifest runtime command taxonomy |
 | `DpmGatewayRuntimeBody` | `dpm/src/gateway/runtime-response-types.ts` | runtime response body envelope |
 | `DpmGatewayRuntimeManifestInput` | `dpm/src/gateway/runtime-manifest-types.ts` | already-loaded manifest, catalog, registry, and estimated row input |
+| `DpmGatewaySnapshotRef` | `dpm/src/gateway/runtime-manifest-request-types.ts` | OpenAPI request snapshot ref passed to runtime snapshot resolvers |
+| `DpmGatewayManifestRequest` | `dpm/src/gateway/runtime-manifest-request-types.ts` | OpenAPI manifest request body shape for validate, compile, and dry-run runtime resolution |
+| `DpmGatewayManifestSnapshotResolver` | `dpm/src/gateway/runtime-manifest-request-types.ts` | consumer-supplied snapshot resolver for catalog and registry refs |
 | `DpmGatewayRuntimeResponse` | `dpm/src/gateway/runtime-response-types.ts` | gateway runtime response envelope |
 | `DpmGatewayRuntime` | `dpm/src/gateway/runtime-types.ts` | loaded profile inspection/analysis/review plus validate, compile, and dry-run runtime handlers |
+| `resolveDpmGatewayManifestRuntimeInput()` | `dpm/src/gateway/runtime-manifest-request.ts` | converts OpenAPI manifest request refs into loaded runtime manifest input through a snapshot resolver |
 | `createDpmGatewayRuntime()` | `dpm/src/gateway/runtime-factory.ts` | source-DB-free runtime adapter for profile and manifest operations |
 | `DpmRelationshipMetadata` | `dpm/src/publishing/types.ts` | AI-publishable approved relationship metadata |
 | `DpmAiRelationshipContext` | `dpm/src/publishing/types.ts` | AI schema relationship context entry |

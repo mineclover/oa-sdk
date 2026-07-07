@@ -14,6 +14,11 @@ export type {
   DpmGatewayRuntimeManifestInput,
 } from './runtime-manifest-types.js'
 export type {
+  DpmGatewayManifestRequest,
+  DpmGatewayManifestSnapshotResolver,
+  DpmGatewaySnapshotRef,
+} from './runtime-manifest-request.js'
+export type {
   DpmGatewayProfileAnalysisInput,
   DpmGatewayProfileAnalysisResult,
   DpmGatewayProfileInspectionInput,
@@ -27,3 +32,6 @@ export type {
 export {
   createDpmGatewayRuntime,
 } from './runtime-factory.js'
+export {
+  resolveDpmGatewayManifestRuntimeInput,
+} from './runtime-manifest-request.js'

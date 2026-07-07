@@ -1,10 +1,14 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import {
   createDpmGatewayRuntime,
   getDpmGatewayOpenApiDocument,
+  resolveDpmGatewayManifestRuntimeInput,
   type DpmGatewayRuntime,
+  type DpmGatewayRuntimeManifestInput,
   type DpmGatewayRuntimeOperationId,
+  type DpmGatewayRuntimeResponse,
+  type DpmGatewayManifestRequest,
 } from '../src/index.js'
 import { compileGatewayComponentSchema } from './support/gateway-schema.js'
 import { createRuntimeInput } from './support/gateway-runtime-manifest-fixtures.js'
@@ -17,7 +21,11 @@ type ManifestConsumerOperation = {
   command: 'validate' | 'compile' | 'dry-run'
   path: '/dpm/manifests/validate' | '/dpm/manifests/compile' | '/dpm/manifests/dry-run'
   requestSchemaName: 'DpmManifestValidationRequest' | 'DpmManifestCompileRequest' | 'DpmManifestDryRunRequest'
-  invoke: (runtime: DpmGatewayRuntime) => DpmGatewayRuntime[keyof DpmGatewayRuntime]
+  createRequest: (input: DpmGatewayRuntimeManifestInput) => DpmGatewayManifestRequest
+  invoke: (
+    runtime: DpmGatewayRuntime,
+    input: DpmGatewayRuntimeManifestInput,
+  ) => Promise<DpmGatewayRuntimeResponse<unknown>>
 }
 
 const manifestConsumerOperations = [
@@ -26,21 +34,29 @@ const manifestConsumerOperations = [
     command: 'validate',
     path: '/dpm/manifests/validate',
     requestSchemaName: 'DpmManifestValidationRequest',
-    invoke: runtime => runtime.validateDpmManifest,
+    createRequest: createManifestRequest,
+    invoke: (runtime, input) => runtime.validateDpmManifest(input),
   },
   {
     operationId: 'compileDpmManifest',
     command: 'compile',
     path: '/dpm/manifests/compile',
     requestSchemaName: 'DpmManifestCompileRequest',
-    invoke: runtime => runtime.compileDpmManifest,
+    createRequest: createManifestRequest,
+    invoke: (runtime, input) => runtime.compileDpmManifest(input),
   },
   {
     operationId: 'dryRunDpmManifest',
     command: 'dry-run',
     path: '/dpm/manifests/dry-run',
     requestSchemaName: 'DpmManifestDryRunRequest',
-    invoke: runtime => runtime.dryRunDpmManifest,
+    createRequest: input => ({
+      ...createManifestRequest(input),
+      estimatedRows: {
+        'public.orders': 7000,
+      },
+    }),
+    invoke: (runtime, input) => runtime.dryRunDpmManifest(input),
   },
 ] as const satisfies readonly ManifestConsumerOperation[]
 
@@ -54,10 +70,18 @@ describe('DPM gateway consumer smoke', () => {
       expect(operation.operationId).toBe(operationCase.operationId)
       expect(extractRequestSchemaName(operation)).toBe(operationCase.requestSchemaName)
 
+      const loadedInput = createRuntimeInput()
+      const request = operationCase.createRequest(loadedInput)
+      const requestSchema = compileGatewayComponentSchema(operationCase.requestSchemaName)
+      const runtimeInput = await resolveDpmGatewayManifestRuntimeInput({
+        request,
+        resolver: createManifestSnapshotResolver(loadedInput),
+      })
       const responseSchemaName = extractResponseSchemaName(operation)
-      const response = await operationCase.invoke(runtime)(createRuntimeInput())
+      const response = await operationCase.invoke(runtime, runtimeInput)
       const responseSchema = compileGatewayComponentSchema(responseSchemaName)
 
+      expect(requestSchema(request), JSON.stringify(requestSchema.errors, null, 2)).toBe(true)
       expect(response.operationId).toBe(operationCase.operationId)
       expect(response.statusCode).toBe(200)
       expect(response.body.command).toBe(operationCase.command)
@@ -123,4 +147,34 @@ function extractComponentName(refPath: string | undefined): string {
     throw new Error(`Expected component schema ref, got ${refPath ?? '<missing>'}`)
   }
   return refPath.slice(prefix.length)
+}
+
+function createManifestRequest(input: DpmGatewayRuntimeManifestInput): DpmGatewayManifestRequest {
+  return {
+    manifest: input.manifest,
+    catalogSnapshot: {
+      ref: 'catalog://commerce/v1',
+      versionHash: input.catalog.kind === 'dpm.catalog.snapshot.v1'
+        ? input.catalog.freshness.versionHash
+        : 'sha256:postgres-input',
+    },
+    registrySnapshot: {
+      ref: 'registry://commerce/v1',
+      versionHash: input.registry.registryVersion,
+    },
+  }
+}
+
+function createManifestSnapshotResolver(input: DpmGatewayRuntimeManifestInput) {
+  const request = createManifestRequest(input)
+  return {
+    resolveCatalogSnapshot: vi.fn(snapshot => {
+      expect(snapshot).toEqual(request.catalogSnapshot)
+      return input.catalog
+    }),
+    resolveRegistrySnapshot: vi.fn(snapshot => {
+      expect(snapshot).toEqual(request.registrySnapshot)
+      return input.registry
+    }),
+  }
 }
