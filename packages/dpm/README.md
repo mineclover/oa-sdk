@@ -51,8 +51,12 @@ Package surface regressions are covered by:
 
 ```bash
 pnpm --filter @oa-sdk/dpm run smoke:subpaths
+pnpm --filter @oa-sdk/dpm run smoke:consumer-workflow
 pnpm --filter @oa-sdk/dpm run smoke:pack
 ```
+
+`smoke:consumer-workflow` imports the built `@oa-sdk/dpm/profile`, `@oa-sdk/dpm/gateway`, and
+`@oa-sdk/dpm/storage` subpaths and runs a captured Kafka profile-to-registry approval flow.
 
 Product-oriented profile review is exercised by:
 

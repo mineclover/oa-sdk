@@ -131,7 +131,7 @@
       "name": "DPM package surface",
       "category": "dpm",
       "package": "@oa-sdk/dpm",
-      "description": "Root and category-level package exports for library consumers that want focused DPM contract imports.",
+      "description": "Root and category-level package exports for library consumers that want focused DPM contract imports, including a built-package public subpath workflow smoke.",
       "capabilities": [
         "root DPM package entrypoint",
         "package metadata subpath export",
@@ -145,6 +145,7 @@
         "tsup category entrypoint coverage",
         "built package subpath runtime import smoke",
         "built package subpath declaration consumer smoke",
+        "built package public subpath workflow smoke",
         "package-local consumer surface guide",
         "pack dry-run file boundary smoke",
         "pack README documentation inclusion",
@@ -155,12 +156,14 @@
         "packages/dpm/test/package-subpath-exports.test.ts",
         "packages/dpm/test/package-subpath-import-smoke.mjs",
         "packages/dpm/test/package-subpath-type-consumer.ts",
+        "packages/dpm/test/package-consumer-workflow-smoke.mjs",
         "packages/dpm/test/package-pack-smoke.mjs",
         "packages/dpm/README.md"
       ],
       "commands": [
         "pnpm --filter @oa-sdk/dpm exec vitest run test/package-subpath-exports.test.ts",
         "pnpm --filter @oa-sdk/dpm run smoke:subpaths",
+        "pnpm --filter @oa-sdk/dpm run smoke:consumer-workflow",
         "pnpm --filter @oa-sdk/dpm run smoke:pack",
         "pnpm check:dpm-surface",
         "pnpm --filter @oa-sdk/dpm typecheck"

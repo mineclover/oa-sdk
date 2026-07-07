@@ -10,6 +10,7 @@ Last updated: 2026-07-08
 
 ## Recently Completed
 
+- [x] Goal 60 / DPM Package Consumer Workflow Smoke (complete)
 - [x] Goal 59 / DPM Registry Snapshot Approval Metadata Guard (complete)
 - [x] Goal 58 / DPM Approved Registry Conflict Contract (complete)
 - [x] Goal 57 / DPM Package Consumer Surface Guide (complete)
@@ -128,6 +129,7 @@ Last updated: 2026-07-08
 - [x] Goal 57 - DPM Package Consumer Surface Guide
 - [x] Goal 58 - DPM Approved Registry Conflict Contract
 - [x] Goal 59 - DPM Registry Snapshot Approval Metadata Guard
+- [x] Goal 60 - DPM Package Consumer Workflow Smoke
 
 ## Goal 4 DPM Units
 
@@ -377,6 +379,10 @@ Last updated: 2026-07-08
 ## Goal 59 DPM Units
 
 - [x] DPM-79 - Registry Snapshot Approval Metadata Guard
+
+## Goal 60 DPM Units
+
+- [x] DPM-80 - Public Subpath Consumer Workflow Smoke
 
 ## Done Criteria
 
