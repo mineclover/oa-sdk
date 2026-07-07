@@ -278,6 +278,7 @@
       "capabilities": [
         "captured Kafka topic bundle input",
         "captured Kafka topic input validation",
+        "bounded invalid captureMode diagnostic preview",
         "failed connector result for malformed input",
         "fixture compatibility wrapper",
         "partition key header schema nodes",

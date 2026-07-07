@@ -10,6 +10,7 @@ Last updated: 2026-07-08
 
 ## Recently Completed
 
+- [x] Goal 56 / DPM Kafka Invalid Capture Mode Audit (complete)
 - [x] Goal 55 / DPM Profile Hint Target Catalog Authority (complete)
 - [x] Goal 54 / DPM Kafka Relationship Hint Source Pointer (complete)
 - [x] Goal 53 / DPM Kafka Relationship Hint Safe Identity (complete)
@@ -120,6 +121,7 @@ Last updated: 2026-07-08
 - [x] Goal 53 - DPM Kafka Relationship Hint Safe Identity
 - [x] Goal 54 - DPM Kafka Relationship Hint Source Pointer
 - [x] Goal 55 - DPM Profile Hint Target Catalog Authority
+- [x] Goal 56 - DPM Kafka Invalid Capture Mode Audit
 
 ## Goal 4 DPM Units
 
@@ -353,6 +355,10 @@ Last updated: 2026-07-08
 ## Goal 55 DPM Units
 
 - [x] DPM-75 - Profile Hint Target Catalog Authority
+
+## Goal 56 DPM Units
+
+- [x] DPM-76 - Kafka Invalid Capture Mode Audit
 
 ## Done Criteria
 

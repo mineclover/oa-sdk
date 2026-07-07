@@ -21,6 +21,8 @@ type ValidationContext = {
   diagnostics: DpmProfileDiagnostic[]
 }
 
+const invalidCaptureModePreviewLength = 64
+
 export function validateDpmKafkaTopicProfileInput(
   input: unknown,
   options: DpmKafkaTopicProfileInputValidationOptions = {},
@@ -189,8 +191,33 @@ function validateCaptureMode(context: ValidationContext, captureMode: unknown): 
   addDiagnostic(
     context,
     'captureMode',
-    `Kafka topic profile captureMode must be one of: ${DPM_KAFKA_TOPIC_PROFILE_CAPTURE_MODES.join(', ')}.`,
+    `Kafka topic profile captureMode ${describeInvalidCaptureMode(captureMode)} must be one of: ${DPM_KAFKA_TOPIC_PROFILE_CAPTURE_MODES.join(', ')}.`,
   )
+}
+
+function describeInvalidCaptureMode(captureMode: unknown): string {
+  if (typeof captureMode === 'string') return previewInvalidCaptureModeString(captureMode)
+  if (captureMode === null) return 'null'
+  if (Array.isArray(captureMode)) return 'array'
+  return typeof captureMode
+}
+
+function previewInvalidCaptureModeString(value: string): string {
+  const chars = [...value]
+  const truncated = chars.length > invalidCaptureModePreviewLength
+  const preview = chars.slice(0, invalidCaptureModePreviewLength).join('')
+  return `"${escapeDiagnosticString(preview)}${truncated ? '...' : ''}"${truncated ? ' (truncated)' : ''}`
+}
+
+function escapeDiagnosticString(value: string): string {
+  return value
+    .replace(/\\/g, '\\\\')
+    .replace(/"/g, '\\"')
+    .replace(/\n/g, '\\n')
+    .replace(/\r/g, '\\r')
+    .replace(/\t/g, '\\t')
+    .replace(/[\u0000-\u001F\u007F]/g, char =>
+      `\\u${char.charCodeAt(0).toString(16).toUpperCase().padStart(4, '0')}`)
 }
 
 function requireRecordProperty(

@@ -41,6 +41,7 @@ Artifacts:
 Acceptance:
 - `validateDpmKafkaTopicProfileInput()` is exported from the profile public surface.
 - Malformed captured Kafka topic input returns `valid: false` with `CONN201` diagnostics.
+- Invalid `captureMode` diagnostics preserve short rejected string values and escape/truncate unsafe previews.
 - `profileKafkaTopic()` returns `status: "failed"` with no `profileArtifact` for malformed input.
 - Failed Kafka connector results still pass the generic connector result validator.
 - Fixture wrapper callers that pass malformed runtime values get a failed result instead of a thrown exception.

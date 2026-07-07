@@ -108,6 +108,13 @@ describe('DPM Kafka topic profile connector', () => {
     expect(result.status).toBe('failed')
     expect(result.captureMode).toBe('snapshot')
     expect(result.profileArtifact).toBeUndefined()
+    expect(result.diagnostics).toContainEqual(expect.objectContaining({
+      code: 'CONN201',
+      message: 'Kafka topic profile captureMode "live_consumer" must be one of: fixture, snapshot, read_only, manual.',
+      coordinate: expect.objectContaining({
+        path: 'dpm.kafka.topic-profile.input.captureMode',
+      }),
+    }))
     expect(result.diagnostics.map(diagnostic => diagnostic.coordinate?.path)).toEqual(expect.arrayContaining([
       'dpm.kafka.topic-profile.input.captureMode',
       'dpm.kafka.topic-profile.input.topic.partitions[1]',
@@ -116,6 +123,26 @@ describe('DPM Kafka topic profile connector', () => {
       'dpm.kafka.topic-profile.input.topic.relationshipHints[0].confidence',
     ]))
     expect(validateDpmConnector(result)).toBe(true)
+  })
+
+  it('escapes and bounds invalid captureMode diagnostic previews', () => {
+    const fixture = readKafkaOrdersCreatedFixture()
+    const invalidCaptureMode = `live\nconsumer\t${'x'.repeat(80)}`
+    const validation = validateDpmKafkaTopicProfileInput({
+      ...fixture,
+      captureMode: invalidCaptureMode,
+    })
+    const diagnostic = validation.diagnostics.find(item =>
+      item.coordinate?.path === 'dpm.kafka.topic-profile.input.captureMode'
+    )
+
+    expect(diagnostic).toMatchObject({
+      code: 'CONN201',
+      message: expect.stringContaining('"live\\nconsumer\\t'),
+    })
+    expect(diagnostic?.message).toContain('(truncated)')
+    expect(diagnostic?.message).not.toContain('live\nconsumer')
+    expect(diagnostic?.message.length).toBeLessThan(180)
   })
 
   it('accepts relationship hint source selectors as JSON pointers', () => {
