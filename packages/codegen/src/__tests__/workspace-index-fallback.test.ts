@@ -12,7 +12,7 @@ import type { WorkspaceFileRecord } from '../workspace-index.js'
 
 /**
  * These tests force `loadSqliteDriver()` to walk past the preferred
- * `better-sqlite3` driver into the `node:sqlite` fallback (and, separately,
+ * `node:sqlite` driver into the optional `better-sqlite3` fallback (and, separately,
  * past both drivers into the diagnostic error path) so the production
  * fallback chain has real coverage.
  *
@@ -65,6 +65,16 @@ function expectNodeSqliteAvailable(): void {
         error instanceof Error ? error.message : String(error)
       }`,
     )
+  }
+}
+
+function canRequireBetterSqlite3(): boolean {
+  const r = createRequire(import.meta.url)
+  try {
+    r('better-sqlite3')
+    return true
+  } catch {
+    return false
   }
 }
 
@@ -202,6 +212,8 @@ describe('SQLiteWorkspaceIndex fallback driver chain', () => {
   })
 
   it('falls back to better-sqlite3 when node:sqlite cannot be required (older Node simulation)', () => {
+    if (!canRequireBetterSqlite3()) return
+
     patchModuleLoad(new Set(['node:sqlite']))
 
     const driver = loadSqliteDriver()
