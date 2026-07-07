@@ -1,0 +1,218 @@
+#!/usr/bin/env node
+import { readFileSync } from 'node:fs'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
+
+import {
+  createDpmGatewayRuntime,
+  profileKafkaTopicFixture,
+  validateDpmProfileArtifactSchema,
+  validateDpmProfileConnectorResult,
+} from '../../dist/index.js'
+
+const demoDir = dirname(fileURLToPath(import.meta.url))
+const fixturePath = join(demoDir, 'kafka-orders-created.json')
+const unsafeFragments = [
+  'rawSample',
+  'payloadSample',
+  'credential',
+  'secret',
+  'reverseLookup',
+  'vaultMaterial',
+]
+
+const fixture = JSON.parse(readFileSync(fixturePath, 'utf8'))
+const runtime = createDpmGatewayRuntime()
+const steps = []
+let connectorResult
+
+await recordStep('flatten Kafka topic fixture into profile artifact', async () => {
+  const result = profileKafkaTopicFixture(fixture)
+  const profileArtifact = required(result.profileArtifact, 'expected Kafka profile artifact')
+  const artifactValidation = validateDpmProfileArtifactSchema(profileArtifact)
+  const connectorValidation = validateDpmProfileConnectorResult(result)
+
+  assertEqual(result.status, 'completed', 'connector status')
+  assertEqual(result.sourceKind, 'kafka_topic_bundle', 'connector source kind')
+  assertEqual(artifactValidation.valid, true, 'profile artifact schema validity')
+  assertEqual(connectorValidation.valid, true, 'connector result validity')
+  assertNoUnsafeFragments(JSON.stringify(result))
+  connectorResult = result
+
+  return {
+    connectorId: result.connectorId,
+    runHash: result.freshness.runHash,
+    profileVersionHash: profileArtifact.freshness.versionHash,
+    sourceKinds: profileArtifact.sources.map(source => source.kind),
+    nodeCount: profileArtifact.nodes.length,
+    edgeCount: profileArtifact.edges.length,
+    metricCount: profileArtifact.metrics.length,
+    diagnosticCount: profileArtifact.diagnostics.length,
+  }
+})
+
+const profileArtifact = required(connectorResult.profileArtifact, 'expected profile artifact after connector step')
+
+await recordStep('inspect profile artifact for editor runtime', async () => {
+  const response = await runtime.inspectDpmProfile({ profileArtifact })
+
+  assertEqual(response.statusCode, 200, 'profile inspection status code')
+  assertEqual(response.body.result.nodeCount, profileArtifact.nodes.length, 'inspection node count')
+  assertEqual(response.body.result.edgeCount, profileArtifact.edges.length, 'inspection edge count')
+  assertEqual(response.body.result.metricCount, profileArtifact.metrics.length, 'inspection metric count')
+  assertNoUnsafeFragments(JSON.stringify(response.body.result))
+
+  return {
+    command: response.body.command,
+    nodeCount: response.body.result.nodeCount,
+    edgeCount: response.body.result.edgeCount,
+    metricCount: response.body.result.metricCount,
+  }
+})
+
+let analysisReport
+
+await recordStep('analyze profile artifact into review signals', async () => {
+  const response = await runtime.analyzeDpmProfile({ profileArtifact })
+  const report = response.body.result.analysisReport
+
+  assertEqual(response.statusCode, 200, 'profile analysis status code')
+  assertGreaterThan(report.relationshipHints.length, 0, 'relationship hint count')
+  assertGreaterThan(report.keyCandidates.length, 0, 'key candidate count')
+  assertGreaterThan(report.riskIndicators.length, 0, 'risk indicator count')
+  assertNoUnsafeFragments(JSON.stringify(report))
+  analysisReport = report
+
+  return {
+    command: response.body.command,
+    reportHash: report.freshness.reportHash,
+    relationshipHints: report.relationshipHints.map(hint => ({
+      id: hint.id,
+      status: hint.status,
+      confidence: hint.confidence,
+      targetRef: hint.targetRef,
+    })),
+    keyCandidateCount: report.keyCandidates.length,
+    riskIndicatorCount: report.riskIndicators.length,
+    measuredNodeRatio: report.coverage.measuredNodeRatio,
+  }
+})
+
+const relationshipHint = required(
+  analysisReport.relationshipHints[0],
+  'expected at least one relationship hint',
+)
+
+await recordStep('review relationship hint proposal without registry mutation', async () => {
+  const response = await runtime.reviewDpmProfileProposal({
+    proposalId: relationshipHint.id,
+    status: 'needs_changes',
+    reviewedBy: 'dpm-reviewer@example.com',
+    reason: 'Needs registry approval before execution.',
+    relationshipHint,
+  })
+
+  assertEqual(response.statusCode, 200, 'proposal review status code')
+  assertEqual(response.body.result.diagnostics.length, 0, 'proposal review diagnostics')
+  assertEqual(response.body.result.relationshipHint?.id, relationshipHint.id, 'review relationship hint id')
+
+  return {
+    command: response.body.command,
+    proposalId: response.body.result.proposalId,
+    status: response.body.result.status,
+    diagnostics: response.body.result.diagnostics.map(diagnostic => diagnostic.code),
+  }
+})
+
+await recordStep('reject mismatched proposal review target', async () => {
+  const response = await runtime.reviewDpmProfileProposal({
+    proposalId: 'proposal:wrong-target',
+    status: 'accepted',
+    reviewedBy: 'dpm-reviewer@example.com',
+    reason: 'Intentional mismatch guard.',
+    relationshipHint,
+  })
+
+  assertEqual(response.statusCode, 400, 'mismatched proposal review status code')
+  assertContains(
+    response.body.result.diagnostics.map(diagnostic => diagnostic.code),
+    'PROF201',
+    'mismatch diagnostic codes',
+  )
+
+  return {
+    command: response.body.command,
+    diagnostics: response.body.result.diagnostics.map(diagnostic => diagnostic.code),
+  }
+})
+
+await recordStep('preserve inspection snapshot after caller mutation', async () => {
+  const probeResult = profileKafkaTopicFixture(fixture)
+  const probeProfile = required(probeResult.profileArtifact, 'expected probe profile artifact')
+  const response = await runtime.inspectDpmProfile({ profileArtifact: probeProfile })
+  const firstNodeLabel = response.body.result.profileArtifact.nodes[0]?.label
+  const evidenceId = Object.keys(probeProfile.evidenceSources)[0]
+  const evidencePath = response.body.result.profileArtifact.evidenceSources[evidenceId]?.coordinate.path
+
+  probeProfile.nodes[0].label = 'mutated after inspection'
+  probeProfile.evidenceSources[evidenceId].coordinate.path = 'mutated.after.inspection'
+
+  assertEqual(response.body.result.profileArtifact.nodes[0]?.label, firstNodeLabel, 'snapshot node label')
+  assertEqual(
+    response.body.result.profileArtifact.evidenceSources[evidenceId]?.coordinate.path,
+    evidencePath,
+    'snapshot evidence path',
+  )
+
+  return {
+    nodeLabel: response.body.result.profileArtifact.nodes[0]?.label,
+    evidencePath,
+  }
+})
+
+console.log(JSON.stringify({
+  demo: 'dpm.profile-kafka',
+  description: 'Fixture-backed Kafka profile flattening, analysis, and editor review without live Kafka access.',
+  steps,
+}, null, 2))
+
+async function recordStep(name, run) {
+  const summary = await run()
+  steps.push({
+    name,
+    status: 'pass',
+    summary,
+  })
+  return summary
+}
+
+function required(value, message) {
+  if (!value) throw new Error(message)
+  return value
+}
+
+function assertEqual(actual, expected, label) {
+  if (actual !== expected) {
+    throw new Error(`${label}: expected ${JSON.stringify(expected)}, received ${JSON.stringify(actual)}`)
+  }
+}
+
+function assertGreaterThan(actual, threshold, label) {
+  if (!(actual > threshold)) {
+    throw new Error(`${label}: expected > ${threshold}, received ${actual}`)
+  }
+}
+
+function assertContains(values, expected, label) {
+  if (!values.includes(expected)) {
+    throw new Error(`${label}: expected ${expected} in ${JSON.stringify(values)}`)
+  }
+}
+
+function assertNoUnsafeFragments(serialized) {
+  for (const unsafe of unsafeFragments) {
+    if (serialized.includes(unsafe)) {
+      throw new Error(`unsafe fragment leaked into profile demo output: ${unsafe}`)
+    }
+  }
+}

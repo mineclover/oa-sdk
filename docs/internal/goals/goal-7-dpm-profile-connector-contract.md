@@ -315,6 +315,9 @@ Artifacts:
 - `packages/dpm/test/profile-kafka-graph-fields.test.ts`
 - `packages/dpm/test/profile-kafka-graph-sections.test.ts`
 - `packages/dpm/test/profile-kafka-graph-hints.test.ts`
+- `packages/dpm/examples/profile-kafka/`
+- `packages/dpm/test/profile-demo-surface.test.ts`
+- `packages/dpm/test/profile-demo-command.test.ts`
 - fixture directory under `packages/dpm/test/fixtures/profile/`
 
 Tasks:
@@ -333,6 +336,8 @@ Acceptance:
 
 Verification:
 - `pnpm --filter @oa-sdk/dpm exec vitest run test/profile-kafka-graph-hints.test.ts test/profile-analysis-relationship-hints.test.ts test/profile-kafka-connector.test.ts`
+- `pnpm --filter @oa-sdk/dpm exec vitest run test/profile-demo-surface.test.ts test/profile-demo-command.test.ts`
+- `pnpm demo:dpm:profile`
 - `pnpm --filter @oa-sdk/dpm test`
 
 Implementation notes:
@@ -357,6 +362,9 @@ Implementation notes:
 - Relationship hints are represented as `relationship_hint` nodes and `candidate_relationship`
   edges only when the hinted source field node exists; they do not create approved registry
   relationships or alter the existing compiler path.
+- `packages/dpm/examples/profile-kafka/run-demo.mjs` exercises the public package API for
+  fixture-backed Kafka flattening, gateway inspection, gateway analysis, proposal review, mismatch
+  guard diagnostics, and inspection snapshot copy proof without live Kafka access.
 
 ### DPM-26 - Profile Analysis Report
 
