@@ -53,4 +53,38 @@ describe('DPM gateway profile analysis runtime adapter', () => {
       currentValue: `${profileArtifact.datasetId}:${profileArtifact.profileId}`,
     }))
   })
+
+  it('keeps profile graph integrity diagnostics schema-valid', async () => {
+    const runtime = createDpmGatewayRuntime()
+    const profileArtifact = createKafkaProfileArtifact()
+    const response = await runtime.analyzeDpmProfile({
+      profileArtifact: {
+        ...profileArtifact,
+        edges: [
+          ...profileArtifact.edges,
+          {
+            id: 'edge:relationship-hint:missing-source',
+            kind: 'candidate_relationship',
+            fromNodeId: 'node:field:orders.created.value.customer.missing_field',
+            toNodeId: 'node:relationship-hint:hint:orders-created-customer',
+            confidence: 0.72,
+            evidenceIds: ['evidence:kafka:missing-edge'],
+          },
+        ],
+      },
+    })
+    const analysisSchema = compileGatewayComponentSchema('DpmProfileAnalysisResponse')
+
+    expect(response.statusCode).toBe(200)
+    expect(
+      analysisSchema(response.body.result),
+      JSON.stringify(analysisSchema.errors, null, 2),
+    ).toBe(true)
+    expect(response.body.result.analysisReport.diagnostics).toContainEqual(expect.objectContaining({
+      code: 'PROF302',
+    }))
+    expect(response.body.result.analysisReport.diagnostics).toContainEqual(expect.objectContaining({
+      code: 'PROF306',
+    }))
+  })
 })

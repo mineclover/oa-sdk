@@ -19,4 +19,67 @@ describe('DPM profile analysis report', () => {
     expect(second.freshness.reportHash).toBe(first.freshness.reportHash)
     expect(second.summary).toEqual(first.summary)
   })
+
+  it('surfaces profile graph integrity diagnostics during analysis', () => {
+    const profile = createKafkaProfileArtifact()
+    const report = createDpmProfileAnalysisReport({
+      profileArtifact: {
+        ...profile,
+        evidenceSources: {
+          ...profile.evidenceSources,
+          'evidence:kafka:missing-source': {
+            coordinate: {
+              kind: 'kafka_topic_bundle',
+              sourceId: 'source:kafka:missing',
+              path: 'orders.created.missing-source',
+            },
+          },
+        },
+        nodes: [
+          ...profile.nodes,
+          profile.nodes[0]!,
+        ],
+        edges: [
+          ...profile.edges,
+          {
+            id: 'edge:relationship-hint:missing-source',
+            kind: 'candidate_relationship',
+            fromNodeId: 'node:field:orders.created.value.customer.missing_field',
+            toNodeId: 'node:relationship-hint:hint:orders-created-customer',
+            confidence: 0.72,
+            evidenceIds: ['evidence:kafka:missing-edge'],
+          },
+        ],
+        metrics: [
+          ...profile.metrics,
+          {
+            id: 'metric:orders.created.missing-field.presence',
+            kind: 'presence_ratio',
+            subjectId: 'node:field:orders.created.value.customer.missing_field',
+            value: 0.8,
+            unit: 'ratio',
+            evidenceIds: ['evidence:kafka:missing-metric'],
+          },
+        ],
+        diagnostics: [
+          {
+            severity: 'warning',
+            code: 'PROF301',
+            message: 'Fixture diagnostic references missing evidence.',
+            evidenceIds: ['evidence:kafka:missing-diagnostic'],
+          },
+        ],
+      },
+    })
+
+    expect(report.diagnostics.map(diagnostic => diagnostic.code)).toEqual(expect.arrayContaining([
+      'PROF301',
+      'PROF302',
+      'PROF303',
+      'PROF304',
+      'PROF305',
+      'PROF306',
+    ]))
+    expect(report.summary.diagnosticCount).toBe(report.diagnostics.length)
+  })
 })

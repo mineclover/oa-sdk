@@ -362,6 +362,7 @@ Artifacts:
 - `packages/dpm/src/profile/analysis-report.ts`
 - `packages/dpm/src/profile/analysis-summary.ts`
 - `packages/dpm/src/profile/analysis-report-freshness.ts`
+- `packages/dpm/src/profile/analysis-graph-diagnostics.ts`
 - `packages/dpm/src/profile/analysis-coverage.ts`
 - `packages/dpm/src/profile/analysis-compute.ts`
 - `packages/dpm/src/profile/analysis-hints.ts`
@@ -396,6 +397,8 @@ Acceptance:
 - Relationship hints include confidence, evidence pointers, and reviewer-safe explanations.
 - Relationship hint proposals are emitted only when the candidate edge resolves both its source node
   and `relationship_hint` target node.
+- Analysis reports surface direct profile graph integrity issues as `PROF302` through `PROF306`
+  diagnostics.
 - Risk indicators do not expose raw values.
 
 Verification:
@@ -408,7 +411,10 @@ Implementation notes:
 - `analysis-report-signals.ts` owns deterministic coverage, relationship hint, key candidate,
   drift signal, and risk indicator collection for the report.
 - `analysis-report-structural.ts` owns report identity, profile metadata, diagnostic ordering,
-  signal placement, and summary attachment before freshness is added.
+  graph integrity diagnostic attachment, signal placement, and summary attachment before freshness is
+  added.
+- `analysis-graph-diagnostics.ts` owns direct analysis diagnostics for duplicate graph ids, dangling
+  edge node refs, missing metric subjects, missing source refs, and missing evidence refs.
 - `createDpmProfileAnalysisSummary()` owns diagnostic and signal count assembly, while
   `sortDpmProfileAnalysisDiagnostics()` owns deterministic diagnostic ordering.
 - `computeDpmProfileAnalysisReportHash()` owns stable report serialization and report freshness
