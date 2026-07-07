@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import {
   createDpmGatewayRuntime,
   createDpmProfileBaselineRepository,
+  resolveDpmGatewayProfileAnalysisRequest,
   resolveDpmGatewayProfileAnalysisRuntimeInput,
   type DpmProfileBaselineRow,
 } from '../src/index.js'
@@ -112,13 +113,14 @@ describe('DPM gateway profile analysis runtime adapter', () => {
     })
     const requestSchema = compileGatewayComponentSchema('DpmProfileAnalysisRequest')
 
-    const runtimeInput = await resolveDpmGatewayProfileAnalysisRuntimeInput({
+    const resolved = await resolveDpmGatewayProfileAnalysisRequest({
       request: {
         profileArtifact,
         previousProfileBaseline: { baselineRef: baseline.baselineRef },
       },
       profileBaselineRepository,
     })
+    const runtimeInput = resolved.runtimeInput
     const response = await runtime.analyzeDpmProfile(runtimeInput)
 
     expect(
@@ -130,6 +132,19 @@ describe('DPM gateway profile analysis runtime adapter', () => {
     ).toBe(true)
     expect(runtimeInput.previousProfileArtifact?.freshness.versionHash)
       .toBe(previousProfileArtifact.freshness.versionHash)
+    expect(resolved.previousProfileBaselineSummary).toMatchObject({
+      baselineRef: baseline.baselineRef,
+      datasetId: previousProfileArtifact.datasetId,
+      profileId: previousProfileArtifact.profileId,
+      profileVersionHash: previousProfileArtifact.freshness.versionHash,
+      hasAnalysisReport: false,
+      profileSummary: {
+        nodeCount: previousProfileArtifact.nodes.length,
+        edgeCount: previousProfileArtifact.edges.length,
+        metricCount: previousProfileArtifact.metrics.length,
+        diagnosticCount: previousProfileArtifact.diagnostics.length,
+      },
+    })
     expect(response.statusCode).toBe(200)
     expect(response.body.result.analysisReport.freshness.previousProfileVersionHash)
       .toBe(previousProfileArtifact.freshness.versionHash)
@@ -164,13 +179,13 @@ describe('DPM gateway profile analysis runtime adapter', () => {
       profileArtifact: olderProfileArtifact,
       storedAt: '2026-07-06T00:00:00.000Z',
     })
-    await profileBaselineRepository.saveProfileBaseline({
+    const latestPreviousBaseline = await profileBaselineRepository.saveProfileBaseline({
       profileArtifact: previousProfileArtifact,
       storedAt: '2026-07-07T00:00:00.000Z',
     })
     const requestSchema = compileGatewayComponentSchema('DpmProfileAnalysisRequest')
 
-    const runtimeInput = await resolveDpmGatewayProfileAnalysisRuntimeInput({
+    const resolved = await resolveDpmGatewayProfileAnalysisRequest({
       request: {
         profileArtifact,
         previousProfileBaseline: {
@@ -180,6 +195,7 @@ describe('DPM gateway profile analysis runtime adapter', () => {
       },
       profileBaselineRepository,
     })
+    const runtimeInput = resolved.runtimeInput
     const response = await runtime.analyzeDpmProfile(runtimeInput)
 
     expect(
@@ -196,6 +212,11 @@ describe('DPM gateway profile analysis runtime adapter', () => {
       .toBe(previousProfileArtifact.freshness.versionHash)
     expect(runtimeInput.previousProfileArtifact?.freshness.versionHash)
       .not.toBe(profileArtifact.freshness.versionHash)
+    expect(resolved.previousProfileBaselineSummary).toMatchObject({
+      baselineRef: latestPreviousBaseline.baselineRef,
+      profileVersionHash: previousProfileArtifact.freshness.versionHash,
+      storedAt: '2026-07-07T00:00:00.000Z',
+    })
     expect(response.statusCode).toBe(200)
     expect(response.body.result.analysisReport.driftSignals).toContainEqual(expect.objectContaining({
       kind: 'metric_value_changed',
@@ -229,6 +250,11 @@ describe('DPM gateway profile analysis runtime adapter', () => {
       },
       profileBaselineRepository,
     })).rejects.toThrow('either previousProfileArtifact or previousProfileBaseline')
+    expect(requestSchema({
+      profileArtifact,
+      previousProfileArtifact,
+      previousProfileBaseline: { baselineRef: 'ambiguous-profile-baseline' },
+    })).toBe(false)
 
     await expect(resolveDpmGatewayProfileAnalysisRuntimeInput({
       request: {
@@ -263,6 +289,24 @@ describe('DPM gateway profile analysis runtime adapter', () => {
       previousProfileBaseline: {
         baselineRef: 'baseline-with-unused-limit',
         limit: 1,
+      },
+    })).toBe(false)
+
+    await expect(resolveDpmGatewayProfileAnalysisRuntimeInput({
+      request: {
+        profileArtifact,
+        previousProfileBaseline: {
+          selectionStrategy: 'latest_previous',
+          limit: 0,
+        },
+      },
+      profileBaselineRepository,
+    })).rejects.toThrow('limit must be a positive integer')
+    expect(requestSchema({
+      profileArtifact,
+      previousProfileBaseline: {
+        selectionStrategy: 'latest_previous',
+        limit: 0,
       },
     })).toBe(false)
 

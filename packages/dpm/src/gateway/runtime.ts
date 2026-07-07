@@ -28,6 +28,7 @@ export type {
 } from './runtime-profile-types.js'
 export type {
   DpmGatewayProfileAnalysisBaselineResolver,
+  DpmGatewayProfileAnalysisResolvedRequest,
   DpmGatewayProfileAnalysisRequest,
   DpmGatewayProfileBaselineRef,
 } from './runtime-profile-analysis-request.js'
@@ -41,5 +42,6 @@ export {
   resolveDpmGatewayManifestRuntimeInput,
 } from './runtime-manifest-request.js'
 export {
+  resolveDpmGatewayProfileAnalysisRequest,
   resolveDpmGatewayProfileAnalysisRuntimeInput,
 } from './runtime-profile-analysis-request.js'

@@ -20,17 +20,25 @@ export function createDpmProfileAnalysisExchangeGatewaySchemas() {
             type: 'string',
             enum: [...DPM_PROFILE_BASELINE_SELECTION_STRATEGIES],
           },
-          limit: integerSchema(),
+          limit: {
+            ...integerSchema(),
+            minimum: 1,
+          },
         }, ['selectionStrategy']),
       ],
     },
-    DpmProfileAnalysisRequest: requiredObjectSchema({
-      profileArtifact: ref('DpmProfileArtifact'),
-      previousProfileArtifact: ref('DpmProfileArtifact'),
-      previousProfileBaseline: ref('DpmProfileBaselineRef'),
-      reportId: stringSchema(),
-      analyzedAt: stringSchema(),
-    }, ['profileArtifact']),
+    DpmProfileAnalysisRequest: {
+      ...requiredObjectSchema({
+        profileArtifact: ref('DpmProfileArtifact'),
+        previousProfileArtifact: ref('DpmProfileArtifact'),
+        previousProfileBaseline: ref('DpmProfileBaselineRef'),
+        reportId: stringSchema(),
+        analyzedAt: stringSchema(),
+      }, ['profileArtifact']),
+      not: {
+        required: ['previousProfileArtifact', 'previousProfileBaseline'],
+      },
+    },
     DpmProfileAnalysisResponse: requiredObjectSchema({
       analysisReport: ref('DpmProfileAnalysisReport'),
     }),

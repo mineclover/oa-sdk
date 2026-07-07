@@ -8,7 +8,7 @@ import {
   createDpmProfileArtifactSnapshot,
   createDpmProfileBaselineRepository,
   profileKafkaTopicFixture,
-  resolveDpmGatewayProfileAnalysisRuntimeInput,
+  resolveDpmGatewayProfileAnalysisRequest,
   validateDpmProfileArtifactSchema,
   validateDpmProfileConnectorResult,
 } from '../../dist/index.js'
@@ -153,14 +153,18 @@ await recordStep('compare profile artifact with previous measurement baseline', 
     datasetId: profileArtifact.datasetId,
     profileId: profileArtifact.profileId,
   })
-  const runtimeInput = await resolveDpmGatewayProfileAnalysisRuntimeInput({
+  const resolvedRequest = await resolveDpmGatewayProfileAnalysisRequest({
     request: {
       profileArtifact,
       previousProfileBaseline: { selectionStrategy: 'latest_previous' },
     },
     profileBaselineRepository,
   })
-  const response = await runtime.analyzeDpmProfile(runtimeInput)
+  const selectedBaseline = required(
+    resolvedRequest.previousProfileBaselineSummary,
+    'expected selected previous profile baseline summary',
+  )
+  const response = await runtime.analyzeDpmProfile(resolvedRequest.runtimeInput)
   const report = response.body.result.analysisReport
   const driftKinds = report.driftSignals.map(signal => signal.kind)
   const customerPresenceDrift = required(
@@ -172,6 +176,8 @@ await recordStep('compare profile artifact with previous measurement baseline', 
   )
 
   assertEqual(response.statusCode, 200, 'profile baseline analysis status code')
+  assertEqual(selectedBaseline.baselineRef, baseline.baselineRef, 'selected profile baseline ref')
+  assertEqual(selectedBaseline.measurementId, baseline.measurementId, 'selected profile baseline measurement id')
   assertEqual(report.freshness.profileVersionHash, profileArtifact.freshness.versionHash, 'current profile version hash')
   assertEqual(
     report.freshness.previousProfileVersionHash,
@@ -187,13 +193,14 @@ await recordStep('compare profile artifact with previous measurement baseline', 
 
   return {
     command: response.body.command,
-    baselineRef: baseline.baselineRef,
-    baselineMeasurementId: baseline.measurementId,
-    baselineMeasuredAt: baseline.measuredAt,
-    baselineMeasurementRunHash: baseline.measurementRunHash,
+    baselineRef: selectedBaseline.baselineRef,
+    baselineMeasurementId: selectedBaseline.measurementId,
+    baselineMeasuredAt: selectedBaseline.measuredAt,
+    baselineMeasurementRunHash: selectedBaseline.measurementRunHash,
+    selectedBaselineSummary: selectedBaseline,
     baselineHistory,
     baselineSelectionStrategy: 'latest_previous',
-    baselineReportHash: baseline.reportHash,
+    baselineReportHash: selectedBaseline.reportHash,
     currentProfileVersionHash: report.freshness.profileVersionHash,
     previousProfileVersionHash: report.freshness.previousProfileVersionHash,
     driftSignalCount: report.driftSignals.length,

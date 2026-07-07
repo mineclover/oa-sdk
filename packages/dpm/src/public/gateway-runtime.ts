@@ -2,6 +2,7 @@ export type {
   DpmGatewayProfileAnalysisBaselineResolver,
   DpmGatewayProfileAnalysisInput,
   DpmGatewayProfileAnalysisRequest,
+  DpmGatewayProfileAnalysisResolvedRequest,
   DpmGatewayProfileAnalysisResult,
   DpmGatewayProfileBaselineRef,
   DpmGatewayProfileInspectionInput,
@@ -23,5 +24,6 @@ export {
   DPM_GATEWAY_RUNTIME_OPERATION_IDS,
   createDpmGatewayRuntime,
   resolveDpmGatewayManifestRuntimeInput,
+  resolveDpmGatewayProfileAnalysisRequest,
   resolveDpmGatewayProfileAnalysisRuntimeInput,
 } from '../gateway/runtime.js'

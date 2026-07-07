@@ -2,7 +2,9 @@ import type { DpmProfileArtifact } from '../profile/types.js'
 import type {
   DpmProfileBaselineRepository,
   DpmProfileBaselineSelectionStrategy,
+  DpmProfileBaselineSummary,
 } from '../storage/profile-baseline-repository.js'
+import type { DpmGatewayProfileAnalysisInput } from './runtime-profile-types.js'
 
 export type DpmGatewayProfileBaselineRef = {
   baselineRef?: string
@@ -16,6 +18,11 @@ export type DpmGatewayProfileAnalysisRequest = {
   previousProfileBaseline?: DpmGatewayProfileBaselineRef
   reportId?: string
   analyzedAt?: string
+}
+
+export type DpmGatewayProfileAnalysisResolvedRequest = {
+  runtimeInput: DpmGatewayProfileAnalysisInput
+  previousProfileBaselineSummary?: DpmProfileBaselineSummary
 }
 
 export type DpmGatewayProfileAnalysisBaselineResolver =

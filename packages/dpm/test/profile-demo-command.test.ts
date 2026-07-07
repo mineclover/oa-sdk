@@ -43,6 +43,11 @@ describe('DPM Kafka profile demo command', () => {
         }),
       }),
     ])
+    expect(baselineStep?.summary?.selectedBaselineSummary).toEqual(expect.objectContaining({
+      baselineRef: baselineStep?.summary?.baselineRef,
+      measurementId: baselineStep?.summary?.baselineMeasurementId,
+      hasAnalysisReport: true,
+    }))
     expect(baselineStep?.summary?.baselineSelectionStrategy).toBe('latest_previous')
     expect(baselineStep?.summary?.baselineReportHash).toEqual(expect.any(String))
     expect(baselineStep?.summary?.driftSignalCount).toBeGreaterThan(0)
