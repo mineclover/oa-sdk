@@ -23,6 +23,7 @@
 | [Goal 17 — DPM Profile Baseline Summary-First Selection](./goal-17-dpm-profile-baseline-summary-first-selection.md) | ✅ | dpm |
 | [Goal 18 — DPM Profile Baseline Summary Invariants](./goal-18-dpm-profile-baseline-summary-invariants.md) | ✅ | dpm |
 | [Goal 19 — DPM Profile Baseline Summary Consumer Smoke](./goal-19-dpm-profile-baseline-summary-consumer-smoke.md) | ✅ | dpm |
+| [Goal 20 — DPM Category Subpath Exports](./goal-20-dpm-category-subpath-exports.md) | ✅ | dpm |
 | Phase 3 — OAS 파서/IR | ✅ | parser |
 | Phase 4 — TS 타입 생성 | ✅ | codegen/typegen |
 | Phase 5 — 라우터 스텁 | ✅ | router |

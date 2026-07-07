@@ -127,6 +127,32 @@
       ]
     },
     {
+      "id": "dpm-package-surface",
+      "name": "DPM package surface",
+      "category": "dpm",
+      "package": "@oa-sdk/dpm",
+      "description": "Root and category-level package exports for library consumers that want focused DPM contract imports.",
+      "capabilities": [
+        "root DPM package entrypoint",
+        "package metadata subpath export",
+        "catalog subpath export",
+        "profile subpath export",
+        "relationship subpath export",
+        "gateway subpath export",
+        "storage subpath export",
+        "publishing subpath export",
+        "tsup category entrypoint coverage"
+      ],
+      "testPaths": [
+        "packages/dpm/test/package-subpath-exports.test.ts"
+      ],
+      "commands": [
+        "pnpm --filter @oa-sdk/dpm exec vitest run test/package-subpath-exports.test.ts",
+        "pnpm --filter @oa-sdk/dpm build",
+        "pnpm --filter @oa-sdk/dpm typecheck"
+      ]
+    },
+    {
       "id": "dpm-catalog-snapshot",
       "name": "DPM catalog snapshot",
       "category": "dpm",

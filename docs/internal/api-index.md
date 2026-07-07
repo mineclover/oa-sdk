@@ -75,6 +75,9 @@ OA SDK와 bun-graph-db가 각자의 source loader, repository, CLI, MCP, GraphQL
 
 Relationship-first Data Pseudonymization Manifest의 package surface다. Manifest syntax gate,
 catalog/registry snapshot, semantic validator, compiler, CLI/gateway/publishing context를 포함한다.
+지원 subpath는 package exports의 `.`, `./package`, `./catalog`, `./profile`, `./relationship`,
+`./gateway`, `./storage`, `./publishing`이며 각 subpath는 `packages/dpm/src/public/*.ts`
+category barrel을 가리킨다.
 
 | Export | 정의 | 용도 |
 |------|------|------|

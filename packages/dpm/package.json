@@ -11,13 +11,41 @@
     ".": {
       "import": "./dist/index.js",
       "types": "./dist/index.d.ts"
+    },
+    "./package": {
+      "import": "./dist/public/package.js",
+      "types": "./dist/public/package.d.ts"
+    },
+    "./catalog": {
+      "import": "./dist/public/catalog.js",
+      "types": "./dist/public/catalog.d.ts"
+    },
+    "./profile": {
+      "import": "./dist/public/profile.js",
+      "types": "./dist/public/profile.d.ts"
+    },
+    "./relationship": {
+      "import": "./dist/public/relationship.js",
+      "types": "./dist/public/relationship.d.ts"
+    },
+    "./gateway": {
+      "import": "./dist/public/gateway.js",
+      "types": "./dist/public/gateway.d.ts"
+    },
+    "./storage": {
+      "import": "./dist/public/storage.js",
+      "types": "./dist/public/storage.d.ts"
+    },
+    "./publishing": {
+      "import": "./dist/public/publishing.js",
+      "types": "./dist/public/publishing.d.ts"
     }
   },
   "files": [
     "dist"
   ],
   "scripts": {
-    "build": "tsup src/index.ts src/cli/index.ts --format esm --dts",
+    "build": "tsup src/index.ts src/cli/index.ts src/public/package.ts src/public/catalog.ts src/public/profile.ts src/public/relationship.ts src/public/gateway.ts src/public/storage.ts src/public/publishing.ts --format esm --dts",
     "demo": "corepack pnpm build && node examples/customer-orders/run-demo.mjs",
     "demo:storage": "corepack pnpm build && node examples/customer-orders-storage/run-demo.mjs",
     "demo:profile": "corepack pnpm build && node examples/profile-kafka/run-demo.mjs",
