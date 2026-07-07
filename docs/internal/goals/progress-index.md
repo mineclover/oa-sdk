@@ -10,6 +10,7 @@ Last updated: 2026-07-07
 
 ## Recently Completed
 
+- [x] Goal 44 / DPM Registry Approval Commit Hook (complete)
 - [x] Goal 43 / DPM Registry Write Receipt Gateway Boundary (complete)
 - [x] Goal 42 / DPM Profile Hint Approval Gateway Contract (complete)
 - [x] Goal 41 / DPM Registry Audit Event Timeline Runtime (complete)
@@ -96,6 +97,7 @@ Last updated: 2026-07-07
 - [x] Goal 41 - DPM Registry Audit Event Timeline Runtime
 - [x] Goal 42 - DPM Profile Hint Approval Gateway Contract
 - [x] Goal 43 - DPM Registry Write Receipt Gateway Boundary
+- [x] Goal 44 - DPM Registry Approval Commit Hook
 
 ## Goal 4 DPM Units
 
@@ -281,6 +283,10 @@ Last updated: 2026-07-07
 ## Goal 43 DPM Units
 
 - [x] DPM-63 - Registry Write Receipt Gateway Boundary
+
+## Goal 44 DPM Units
+
+- [x] DPM-64 - Registry Approval Commit Hook
 
 ## Done Criteria
 

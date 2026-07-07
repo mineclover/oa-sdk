@@ -1,4 +1,6 @@
 export type {
+  DpmRegistryRelationshipApprovalCommitInput,
+  DpmRegistryRelationshipApprovalCommitResult,
   DpmRegistryRelationshipAuditEventRequest,
   DpmRegistryRelationshipAuditEventRow,
   DpmRegistryRelationshipAuditEventType,

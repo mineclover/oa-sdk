@@ -47,6 +47,8 @@ import {
   DPM_REGISTRY_RELATIONSHIP_AUDIT_EVENT_TYPES,
   DPM_PROFILE_BASELINE_SELECTION_STRATEGIES,
   type DpmRegistryAuditEventReader,
+  type DpmRegistryRelationshipApprovalCommitInput,
+  type DpmRegistryRelationshipApprovalCommitResult,
   type DpmRegistryRelationshipAuditEventRow,
   type DpmRegistryRelationshipSaveInput,
   type DpmRegistryWritableRepository,
@@ -75,6 +77,8 @@ type DpmSubpathTypeSmoke = {
   baseline?: DpmProfileBaselineSummary
   registryAuditEvent?: DpmRegistryRelationshipAuditEventRow
   registryAuditEventReader?: DpmRegistryAuditEventReader
+  registryRelationshipApprovalCommitInput?: DpmRegistryRelationshipApprovalCommitInput
+  registryRelationshipApprovalCommitResult?: DpmRegistryRelationshipApprovalCommitResult
   registryRelationshipSave?: DpmRegistryRelationshipSaveInput
   approvedRegistryApproval?: ApprovedRegistryApprovalMetadata
   approvedRegistryRelationship?: ApprovedRegistryRelationshipInput

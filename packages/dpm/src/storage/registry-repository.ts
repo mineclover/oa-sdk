@@ -16,6 +16,8 @@ import {
 } from './registry-row-relationship.js'
 
 export type {
+  DpmRegistryRelationshipApprovalCommitInput,
+  DpmRegistryRelationshipApprovalCommitResult,
   DpmRegistryRelationshipAuditEventRequest,
   DpmRegistryRelationshipAuditEventRow,
   DpmRegistryRelationshipAuditEventType,
@@ -76,14 +78,26 @@ export function createDpmRegistryRepository(
         registryVersion: input.registryVersion,
       })
       assertNoConflictingApprovedRegistryRelationshipRow(row, existingRows)
-      await reader.upsertRelationshipRow(copyDpmRegistryRelationshipRow(row))
-      if (reader.appendRelationshipAuditEvent) {
-        const auditEvent = createDpmRegistryRelationshipAuditEventRow({
-          relationshipRow: row,
-          ...(input.auditEventId ? { eventId: input.auditEventId } : {}),
-          ...(input.auditOccurredAt ? { occurredAt: input.auditOccurredAt } : {}),
-          ...(input.auditCreatedAt ? { createdAt: input.auditCreatedAt } : {}),
+      const auditEvent = reader.commitRelationshipApproval || reader.appendRelationshipAuditEvent
+        ? createDpmRegistryRelationshipAuditEventRow({
+            relationshipRow: row,
+            ...(input.auditEventId ? { eventId: input.auditEventId } : {}),
+            ...(input.auditOccurredAt ? { occurredAt: input.auditOccurredAt } : {}),
+            ...(input.auditCreatedAt ? { createdAt: input.auditCreatedAt } : {}),
+          })
+        : undefined
+      if (reader.commitRelationshipApproval && auditEvent) {
+        const committed = await reader.commitRelationshipApproval({
+          relationshipRow: copyDpmRegistryRelationshipRow(row),
+          auditEvent: copyDpmRegistryRelationshipAuditEventRow(auditEvent),
         })
+        return copyDpmRegistryRelationshipRow(committed.relationshipRow)
+      }
+      if (!reader.upsertRelationshipRow) {
+        throw new Error('DPM registry writable storage must provide upsertRelationshipRow or commitRelationshipApproval.')
+      }
+      await reader.upsertRelationshipRow(copyDpmRegistryRelationshipRow(row))
+      if (reader.appendRelationshipAuditEvent && auditEvent) {
         await reader.appendRelationshipAuditEvent(copyDpmRegistryRelationshipAuditEventRow(auditEvent))
       }
       return row
@@ -100,7 +114,11 @@ export function createDpmRegistryRepository(
 }
 
 function isDpmRegistryStorage(reader: DpmRegistryStorageReader): reader is DpmRegistryStorage {
-  return 'upsertRelationshipRow' in reader && typeof reader.upsertRelationshipRow === 'function'
+  return (
+    'upsertRelationshipRow' in reader && typeof reader.upsertRelationshipRow === 'function'
+  ) || (
+    'commitRelationshipApproval' in reader && typeof reader.commitRelationshipApproval === 'function'
+  )
 }
 
 function assertNoConflictingApprovedRegistryRelationshipRow(
