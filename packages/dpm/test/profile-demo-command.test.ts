@@ -25,11 +25,24 @@ describe('DPM Kafka profile demo command', () => {
         step.name === 'create read-only SDK profile artifact snapshot'
       )?.summary?.frozen,
     ).toBe(true)
+    const baselineStep = output?.steps.find((step: { name: string }) =>
+      step.name === 'compare profile artifact with previous measurement baseline'
+    )
+    expect(baselineStep?.summary?.driftSignalCount).toBeGreaterThan(0)
+    expect(baselineStep?.summary?.driftKinds).toEqual(expect.arrayContaining([
+      'profile_hash_changed',
+      'metric_value_changed',
+    ]))
+    expect(baselineStep?.summary?.customerPresence).toMatchObject({
+      previousValue: 0.91,
+      currentValue: 0.997,
+    })
     expect(output?.steps.map((step: { name: string }) => step.name)).toEqual([
       'flatten Kafka topic fixture into profile artifact',
       'create read-only SDK profile artifact snapshot',
       'inspect profile artifact for editor runtime',
       'analyze profile artifact into review signals',
+      'compare profile artifact with previous measurement baseline',
       'review relationship hint proposal without registry mutation',
       'reject mismatched proposal review target',
       'preserve inspection snapshot after caller mutation',

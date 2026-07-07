@@ -374,8 +374,8 @@ Implementation notes:
   relationships or alter the existing compiler path.
 - `packages/dpm/examples/profile-kafka/run-demo.mjs` exercises the public package API for
   fixture-backed Kafka flattening, SDK read-only profile artifact snapshot creation, gateway
-  inspection, gateway analysis, proposal review, mismatch guard diagnostics, and inspection
-  snapshot copy proof without live Kafka access.
+  inspection, gateway analysis, previous/current profile baseline drift comparison, proposal
+  review, mismatch guard diagnostics, and inspection snapshot copy proof without live Kafka access.
 
 ### DPM-26 - Profile Analysis Report
 

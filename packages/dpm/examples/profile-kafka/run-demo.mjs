@@ -124,6 +124,51 @@ await recordStep('analyze profile artifact into review signals', async () => {
   }
 })
 
+await recordStep('compare profile artifact with previous measurement baseline', async () => {
+  const previousFixture = createFixtureWithCustomerNoPresence(fixture, 0.91)
+  const previousResult = profileKafkaTopicFixture(previousFixture)
+  const previousProfileArtifact = required(previousResult.profileArtifact, 'expected previous profile artifact')
+  const response = await runtime.analyzeDpmProfile({
+    profileArtifact,
+    previousProfileArtifact,
+  })
+  const report = response.body.result.analysisReport
+  const driftKinds = report.driftSignals.map(signal => signal.kind)
+  const customerPresenceDrift = required(
+    report.driftSignals.find(signal =>
+      signal.kind === 'metric_value_changed'
+      && signal.metricId === 'metric:orders.created.value.customer.customer_no.presence'
+    ),
+    'expected customer_no presence metric drift signal',
+  )
+
+  assertEqual(response.statusCode, 200, 'profile baseline analysis status code')
+  assertEqual(report.freshness.profileVersionHash, profileArtifact.freshness.versionHash, 'current profile version hash')
+  assertEqual(
+    report.freshness.previousProfileVersionHash,
+    previousProfileArtifact.freshness.versionHash,
+    'previous profile version hash',
+  )
+  assertGreaterThan(report.driftSignals.length, 0, 'profile drift signal count')
+  assertContains(driftKinds, 'profile_hash_changed', 'profile drift kinds')
+  assertContains(driftKinds, 'metric_value_changed', 'profile drift kinds')
+  assertEqual(customerPresenceDrift.previousValue, 0.91, 'customer_no previous presence')
+  assertEqual(customerPresenceDrift.currentValue, 0.997, 'customer_no current presence')
+  assertNoUnsafeFragments(JSON.stringify(report))
+
+  return {
+    command: response.body.command,
+    currentProfileVersionHash: report.freshness.profileVersionHash,
+    previousProfileVersionHash: report.freshness.previousProfileVersionHash,
+    driftSignalCount: report.driftSignals.length,
+    driftKinds,
+    customerPresence: {
+      previousValue: customerPresenceDrift.previousValue,
+      currentValue: customerPresenceDrift.currentValue,
+    },
+  }
+})
+
 const relationshipHint = required(
   analysisReport.relationshipHints[0],
   'expected at least one relationship hint',
@@ -215,6 +260,30 @@ async function recordStep(name, run) {
 function required(value, message) {
   if (!value) throw new Error(message)
   return value
+}
+
+function createFixtureWithCustomerNoPresence(input, presenceRatio) {
+  return {
+    ...input,
+    topic: {
+      ...input.topic,
+      value: {
+        ...input.topic.value,
+        fields: input.topic.value.fields.map(field =>
+          field.name === 'customer'
+            ? {
+                ...field,
+                fields: field.fields?.map(child =>
+                  child.name === 'customer_no'
+                    ? { ...child, presenceRatio }
+                    : child
+                ),
+              }
+            : field
+        ),
+      },
+    },
+  }
 }
 
 function assertEqual(actual, expected, label) {
