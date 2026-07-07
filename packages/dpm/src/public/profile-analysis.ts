@@ -14,6 +14,9 @@ export type {
   DpmProfileRiskIndicator,
   DpmProfileRiskIndicatorKind,
 } from '../profile/analysis-types.js'
+export type {
+  DpmProfileRelationshipCandidateBridgeInput,
+} from '../profile/analysis-relationship-candidate.js'
 export {
   DPM_PROFILE_DRIFT_SIGNAL_KINDS,
   DPM_PROFILE_KEY_CANDIDATE_KINDS,
@@ -27,6 +30,9 @@ export {
 export {
   createDpmProfileAnalysisReport,
 } from '../profile/analysis-report.js'
+export {
+  createDpmRelationshipCandidateInputFromProfileHint,
+} from '../profile/analysis-relationship-candidate.js'
 export {
   computeDpmProfileAnalysisReportHash,
 } from '../profile/analysis-report-freshness.js'

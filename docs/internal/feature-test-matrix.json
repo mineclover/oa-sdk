@@ -303,11 +303,12 @@
       "name": "DPM profile analysis",
       "category": "dpm",
       "package": "@oa-sdk/dpm",
-      "description": "Deterministic profile analysis reports for coverage, relationship hint proposals, key candidates, drift, and risk signals.",
+      "description": "Deterministic profile analysis reports for coverage, relationship hint proposals, reviewer-mapped relationship candidate bridge, key candidates, drift, and risk signals.",
       "capabilities": [
         "coverage report",
         "relationship hint proposals",
         "measurement-derived relationship review proposals",
+        "reviewer-mapped relationship candidate bridge",
         "key candidates",
         "drift signals",
         "risk indicators",
@@ -319,6 +320,7 @@
         "packages/dpm/test/profile-analysis-coverage.test.ts",
         "packages/dpm/test/profile-analysis-drift.test.ts",
         "packages/dpm/test/profile-analysis-key-candidates.test.ts",
+        "packages/dpm/test/profile-analysis-relationship-candidate-bridge.test.ts",
         "packages/dpm/test/profile-analysis-relationship-hints.test.ts",
         "packages/dpm/test/profile-analysis-report.test.ts",
         "packages/dpm/test/profile-analysis-risk.test.ts"

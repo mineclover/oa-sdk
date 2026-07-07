@@ -193,6 +193,8 @@ category barrel을 가리킨다. `packages/dpm/test/package-subpath-import-smoke
 | `DpmProfileAnalysisReport` | `dpm/src/profile/analysis-report-types.ts` | coverage, relationship hints, key candidates, drift, risk, diagnostics report |
 | `createDpmProfileAnalysisReport()` | `dpm/src/profile/analysis-report.ts` | profile artifact를 deterministic analysis report로 변환 |
 | `computeDpmProfileAnalysisReportHash()` | `dpm/src/profile/analysis-report-freshness.ts` | profile analysis report hash 계산 |
+| `DpmProfileRelationshipCandidateBridgeInput` | `dpm/src/profile/analysis-relationship-candidate.ts` | reviewer-supplied endpoint mapping input for profile hint to relationship candidate bridge |
+| `createDpmRelationshipCandidateInputFromProfileHint()` | `dpm/src/profile/analysis-relationship-candidate.ts` | profile relationship hint proposal을 import-ready relationship candidate input으로 변환 |
 | `DISCOVERY_REPORT_KIND` | `dpm/src/discovery/report.ts` | discovery report kind literal |
 | `DiscoveryEvidenceKind` | `dpm/src/discovery/discovery-taxonomy.ts` | candidate evidence source taxonomy |
 | `DISCOVERY_EVIDENCE_KINDS` | `dpm/src/discovery/discovery-taxonomy.ts` | runtime discovery evidence kind taxonomy used by TypeScript and OpenAPI |

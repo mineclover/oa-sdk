@@ -60,6 +60,15 @@ describe('DPM Kafka profile demo command', () => {
       previousValue: 0.91,
       currentValue: 0.997,
     })
+    const bridgeStep = output?.steps.find((step: { name: string }) =>
+      step.name === 'bridge relationship hint into candidate import review'
+    )
+    expect(bridgeStep?.summary).toMatchObject({
+      command: 'import-relationship-candidates',
+      relationshipName: 'rel_orders_customer',
+      recommendation: 'review',
+      executable: false,
+    })
     expect(output?.steps.map((step: { name: string }) => step.name)).toEqual([
       'flatten Kafka topic fixture into profile artifact',
       'create read-only SDK profile artifact snapshot',
@@ -67,6 +76,7 @@ describe('DPM Kafka profile demo command', () => {
       'analyze profile artifact into review signals',
       'compare profile artifact with previous measurement baseline',
       'review relationship hint proposal without registry mutation',
+      'bridge relationship hint into candidate import review',
       'reject mismatched proposal review target',
       'preserve inspection snapshot after caller mutation',
     ])

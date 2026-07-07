@@ -7,8 +7,10 @@ import {
   type CatalogSnapshot,
 } from '@oa-sdk/dpm/catalog'
 import {
+  createDpmRelationshipCandidateInputFromProfileHint,
   DPM_PROFILE_ARTIFACT_KIND,
   type DpmProfileArtifact,
+  type DpmProfileRelationshipCandidateBridgeInput,
 } from '@oa-sdk/dpm/profile'
 import {
   REGISTRY_RELATIONSHIP_STATUSES,
@@ -32,6 +34,7 @@ import {
 type DpmSubpathTypeSmoke = {
   catalog?: CatalogSnapshot
   profile?: DpmProfileArtifact
+  profileRelationshipCandidateBridge?: DpmProfileRelationshipCandidateBridgeInput
   baseline?: DpmProfileBaselineSummary
   publishing?: DpmPublishingContext
 }
@@ -53,5 +56,6 @@ void [
   DPM_PROFILE_BASELINE_SELECTION_STRATEGIES,
   DPM_PUBLISHING_CONTEXT_KIND,
   computeCatalogFreshnessHash,
+  createDpmRelationshipCandidateInputFromProfileHint,
   typeSmoke,
 ]

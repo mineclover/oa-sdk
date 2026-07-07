@@ -7,6 +7,7 @@ import {
   createDpmGatewayRuntime,
   createDpmProfileArtifactSnapshot,
   createDpmProfileBaselineRepository,
+  createDpmRelationshipCandidateInputFromProfileHint,
   profileKafkaTopicFixture,
   resolveDpmGatewayProfileAnalysisRequest,
   validateDpmProfileArtifactSchema,
@@ -238,6 +239,45 @@ await recordStep('review relationship hint proposal without registry mutation', 
     proposalId: response.body.result.proposalId,
     status: response.body.result.status,
     diagnostics: response.body.result.diagnostics.map(diagnostic => diagnostic.code),
+  }
+})
+
+await recordStep('bridge relationship hint into candidate import review', async () => {
+  const candidate = createDpmRelationshipCandidateInputFromProfileHint({
+    profileArtifact,
+    relationshipHint,
+    relationshipName: 'rel_orders_customer',
+    parent: {
+      table: 'public.customers',
+      columns: ['customer_no'],
+    },
+    child: {
+      table: 'public.orders',
+      columns: ['customer_no'],
+    },
+  })
+  const response = await runtime.importDpmRelationshipCandidates({
+    datasetId: profileArtifact.datasetId,
+    candidates: [candidate],
+  })
+  const importedCandidate = required(
+    response.body.result.report.candidates[0],
+    'expected imported profile relationship candidate',
+  )
+
+  assertEqual(response.statusCode, 200, 'profile candidate import status code')
+  assertEqual(response.body.result.imported, 1, 'profile candidate import count')
+  assertEqual(response.body.result.rejected, 0, 'profile candidate rejected count')
+  assertEqual(importedCandidate.relationshipName, 'rel_orders_customer', 'profile candidate relationship name')
+  assertEqual(importedCandidate.executable, false, 'profile candidate executable flag')
+  assertNoUnsafeFragments(JSON.stringify(response.body.result))
+
+  return {
+    command: response.body.command,
+    candidateId: importedCandidate.id,
+    relationshipName: importedCandidate.relationshipName,
+    recommendation: importedCandidate.recommendation,
+    executable: importedCandidate.executable,
   }
 })
 

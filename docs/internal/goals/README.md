@@ -34,6 +34,7 @@
 | [Goal 28 — DPM Registry Snapshot Export Runtime Adapter](./goal-28-dpm-registry-snapshot-export-runtime-adapter.md) | ✅ | dpm |
 | [Goal 29 — DPM Candidate Import Review Report Runtime](./goal-29-dpm-candidate-import-review-report-runtime.md) | ✅ | dpm |
 | [Goal 30 — DPM Relationship Workflow Consumer Smoke](./goal-30-dpm-relationship-workflow-consumer-smoke.md) | ✅ | dpm |
+| [Goal 31 — DPM Profile Relationship Candidate Bridge](./goal-31-dpm-profile-relationship-candidate-bridge.md) | ✅ | dpm |
 | Phase 3 — OAS 파서/IR | ✅ | parser |
 | Phase 4 — TS 타입 생성 | ✅ | codegen/typegen |
 | Phase 5 — 라우터 스텁 | ✅ | router |
