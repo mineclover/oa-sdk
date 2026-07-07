@@ -3,6 +3,9 @@ import {
   addDpmProfileConnectorCapabilityDiagnostics,
 } from './connector-validation-capability-gates.js'
 import {
+  addDpmProfileConnectorGraphDiagnostics,
+} from './connector-validation-graph-gates.js'
+import {
   addDpmProfileConnectorPayloadDiagnostics,
 } from './connector-validation-payload-gates.js'
 import type { DpmProfileDiagnostic } from './profile-artifact-types.js'
@@ -14,6 +17,7 @@ export function collectDpmProfileConnectorDiagnostics(
 
   addDpmProfileConnectorCapabilityDiagnostics(diagnostics, result)
   addDpmProfileConnectorPayloadDiagnostics(diagnostics, result)
+  addDpmProfileConnectorGraphDiagnostics(diagnostics, result)
 
   return diagnostics
 }

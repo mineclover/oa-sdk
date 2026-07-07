@@ -209,6 +209,11 @@ Artifacts:
 - `packages/dpm/src/profile/connector-normalize.ts`
 - `packages/dpm/src/profile/connector-validate.ts`
 - `packages/dpm/src/profile/connector-validation.ts`
+- `packages/dpm/src/profile/connector-validation-gates.ts`
+- `packages/dpm/src/profile/connector-validation-capability-gates.ts`
+- `packages/dpm/src/profile/connector-validation-payload-gates.ts`
+- `packages/dpm/src/profile/connector-validation-graph-gates.ts`
+- `packages/dpm/src/profile/connector-validation-diagnostic.ts`
 - `packages/dpm/test/profile-connector.test.ts`
 - `packages/dpm/test/profile-connector-validation-payload.test.ts`
 - `packages/dpm/test/profile-connector-validation-capability.test.ts`
@@ -228,6 +233,8 @@ Acceptance:
 - Kafka/topic fixture profiling can use the same connector result shape.
 - Connector failures are diagnostic payloads, not thrown-away strings.
 - A connector result cannot claim unsupported evidence as observed evidence.
+- A schema-valid profile artifact with duplicate graph ids, dangling node refs, missing metric
+  subjects, missing evidence refs, or missing source refs is rejected by connector validation.
 
 Verification:
 - `pnpm --filter @oa-sdk/dpm exec vitest run test/profile-connector.test.ts test/profile-connector-validation-payload.test.ts test/profile-connector-validation-capability.test.ts`
@@ -246,7 +253,8 @@ Implementation notes:
   hashing, and source version hash ordering.
 - Connector validation checks capability identity, supported source/capture modes, unsupported or
   skipped observed evidence kinds, failed-result diagnostics, completed-result profile artifacts,
-  emitted profile artifact schema validity, and connector identity mismatch in emitted sources.
+  emitted profile artifact schema validity, connector identity mismatch in emitted sources, and
+  graph/evidence/source reference integrity.
 - PostgreSQL catalog profiling and Kafka fixture evidence can both be represented through the same
   connector result contract without changing the existing `CatalogSnapshot` compiler path.
 

@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  normalizeDpmProfileArtifact,
   normalizeDpmProfileConnectorResult,
   validateDpmProfileConnectorResult,
 } from '../src/index.js'
+import { createKafkaProfileArtifactInput } from './support/profile-connector-kafka-artifact-inputs.js'
+import { createKafkaProfileConnectorResult } from './support/profile-connector-kafka-result-fixtures.js'
 import { createFailedKafkaProfileConnectorResult } from './support/profile-connector-failed-result-fixtures.js'
 
 describe('DPM profile connector validation — payload gates', () => {
@@ -22,5 +25,67 @@ describe('DPM profile connector validation — payload gates', () => {
         diagnostic => diagnostic.code,
       ),
     ).toContain('CONN105')
+  })
+
+  it('rejects schema-valid profile artifacts with broken graph references', () => {
+    const baseInput = createKafkaProfileArtifactInput()
+    const profileArtifact = normalizeDpmProfileArtifact({
+      ...baseInput,
+      evidenceSources: {
+        ...baseInput.evidenceSources,
+        'evidence:kafka:missing-source': {
+          coordinate: {
+            kind: 'kafka_topic_bundle',
+            sourceId: 'source:kafka:missing',
+            path: 'orders.created.missing-source',
+          },
+          connectorId: 'dpm.kafka.fixture',
+        },
+      },
+      nodes: [
+        ...baseInput.nodes,
+        baseInput.nodes[0]!,
+      ],
+      edges: [
+        ...baseInput.edges,
+        {
+          id: 'edge:orders.created.contains.missing-field',
+          kind: 'contains',
+          fromNodeId: 'node:kafka:missing-topic',
+          toNodeId: 'node:kafka:missing-field',
+          evidenceIds: ['evidence:kafka:missing-field'],
+        },
+      ],
+      metrics: [
+        ...baseInput.metrics,
+        {
+          id: 'metric:orders.created.missing-field.presence',
+          kind: 'presence_ratio',
+          subjectId: 'node:kafka:missing-field',
+          value: 0.8,
+          unit: 'ratio',
+          evidenceIds: ['evidence:kafka:missing-metric'],
+        },
+      ],
+      diagnostics: [
+        {
+          severity: 'warning',
+          code: 'PROF301',
+          message: 'Fixture diagnostic references missing evidence.',
+          evidenceIds: ['evidence:kafka:missing-diagnostic'],
+        },
+      ],
+    })
+    const result = createKafkaProfileConnectorResult({ profileArtifact })
+    const validation = validateDpmProfileConnectorResult(result)
+
+    expect(validation.valid).toBe(false)
+    expect(validation.diagnostics.map(diagnostic => diagnostic.code)).toEqual(expect.arrayContaining([
+      'CONN109',
+      'CONN110',
+      'CONN111',
+      'CONN112',
+      'CONN113',
+    ]))
   })
 })
