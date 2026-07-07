@@ -18,6 +18,8 @@ export type {
   DpmGatewayCandidateImportResult,
   DpmGatewayRegistrySnapshotExportInput,
   DpmGatewayRegistrySnapshotExportResult,
+  DpmGatewayProfileRelationshipHintApprovalInput,
+  DpmGatewayProfileRelationshipHintApprovalResult,
   DpmGatewayRelationshipApprovalInput,
   DpmGatewayRelationshipApprovalResult,
   DpmGatewayRelationshipDiscoveryInput,
@@ -71,6 +73,9 @@ export {
 export {
   approveDpmRelationshipCandidateRuntime,
 } from './runtime-relationship-approve.js'
+export {
+  approveDpmProfileRelationshipHintRuntime,
+} from './runtime-profile-relationship-hint-approval.js'
 export {
   exportDpmRegistrySnapshotRuntime,
 } from './runtime-relationship-registry-export.js'

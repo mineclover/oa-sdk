@@ -89,4 +89,28 @@ describe('DPM gateway relationship approval runtime adapter', () => {
     expect(response.body.result.relationship.evidence?.[0]?.source).toEqual(responseEvidenceSource)
     expect(response.body.result.relationship.evidence?.[0]?.metadata).toEqual(responseEvidenceMetadata)
   })
+
+  it('rejects non-review relationship candidates before creating approved payloads', async () => {
+    const runtime = createDpmGatewayRuntime()
+    const discovery = await runtime.discoverDpmRelationships(createRuntimeInput())
+    const candidate = discovery.body.result.candidates[0]
+    if (!candidate) throw new Error('expected a relationship candidate')
+
+    await expect(runtime.approveDpmRelationshipCandidate({
+      relationshipName: 'rel_orders_customer',
+      candidate: {
+        ...candidate,
+        recommendation: 'reject',
+      },
+      version: '1',
+      namespace: 'customer',
+      transformStrategy: 'entity_token',
+      orphanPolicy: 'block',
+      owner: 'privacy-platform',
+      approvedBy: 'privacy-reviewer',
+      reason: 'Rejected candidates should not become approved relationships.',
+    })).rejects.toThrow(
+      `DPM relationship approval requires a reviewable candidate: ${candidate.id} is reject.`,
+    )
+  })
 })

@@ -17,6 +17,8 @@ import type {
   DpmGatewayCandidateImportResult,
   DpmGatewayRegistrySnapshotExportInput,
   DpmGatewayRegistrySnapshotExportResult,
+  DpmGatewayProfileRelationshipHintApprovalInput,
+  DpmGatewayProfileRelationshipHintApprovalResult,
   DpmGatewayRelationshipApprovalInput,
   DpmGatewayRelationshipApprovalResult,
   DpmGatewayRelationshipDiscoveryInput,
@@ -46,6 +48,9 @@ export type DpmGatewayRuntime = {
   approveDpmRelationshipCandidate(
     input: DpmGatewayRelationshipApprovalInput,
   ): Promise<DpmGatewayRuntimeResponse<DpmGatewayRelationshipApprovalResult>>
+  approveDpmProfileRelationshipHint(
+    input: DpmGatewayProfileRelationshipHintApprovalInput,
+  ): Promise<DpmGatewayRuntimeResponse<DpmGatewayProfileRelationshipHintApprovalResult>>
   exportDpmRegistrySnapshot(
     input: DpmGatewayRegistrySnapshotExportInput,
   ): Promise<DpmGatewayRuntimeResponse<DpmGatewayRegistrySnapshotExportResult>>

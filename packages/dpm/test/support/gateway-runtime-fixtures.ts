@@ -6,6 +6,7 @@ export const expectedGatewayRuntimeOperationIds = [
   'discoverDpmRelationships',
   'importDpmRelationshipCandidates',
   'approveDpmRelationshipCandidate',
+  'approveDpmProfileRelationshipHint',
   'exportDpmRegistrySnapshot',
   'validateDpmManifest',
   'compileDpmManifest',

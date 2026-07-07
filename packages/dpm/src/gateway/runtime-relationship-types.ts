@@ -10,12 +10,19 @@ import type {
   RelationshipDiscoveryReport,
 } from '../discovery/types.js'
 import type {
+  DpmProfileResolvedRelationshipCandidateBridgeInput,
+} from '../profile/analysis-relationship-candidate.js'
+import type {
   ApprovedRegistryRelationshipInput,
   RegistryOrphanPolicy,
   RegistryTransformStrategy,
   RegistrySnapshot,
 } from '../registry/types.js'
-import type { DpmRegistryRepository } from '../storage/registry-repository-types.js'
+import type {
+  DpmRegistryRelationshipRow,
+  DpmRegistryRepository,
+  DpmRegistryWritableRepository,
+} from '../storage/registry-repository-types.js'
 import type { DpmGatewaySnapshotRef } from './runtime-manifest-request-types.js'
 
 export type DpmGatewayRelationshipDiscoveryRequest = {
@@ -69,6 +76,37 @@ export type DpmGatewayRelationshipApprovalResult = {
   relationshipName: string
   status: 'approved'
   relationship: ApprovedRegistryRelationshipInput
+}
+
+export type DpmGatewayProfileRelationshipHintApprovalInput =
+  DpmProfileResolvedRelationshipCandidateBridgeInput & {
+    registryVersion: string
+    version: string
+    namespace: string
+    transformStrategy: RegistryTransformStrategy
+    orphanPolicy: RegistryOrphanPolicy
+    owner: string
+    approvedBy: string
+    reason: string
+    approvedAt?: string
+    generatedAt?: string
+    exportedAt?: string
+    createdAt?: string
+    updatedAt?: string
+    sourceFreshnessHash?: string
+    thresholds?: Partial<DiscoveryThresholds>
+    registryRepository: DpmRegistryWritableRepository
+  }
+
+export type DpmGatewayProfileRelationshipHintApprovalResult = {
+  relationshipName: string
+  status: 'approved'
+  candidateInput: RelationshipCandidateInput
+  reviewCandidate: RelationshipCandidate
+  candidateImport: DpmGatewayCandidateImportResult
+  relationship: ApprovedRegistryRelationshipInput
+  savedRelationship: DpmRegistryRelationshipRow
+  registrySnapshot: RegistrySnapshot
 }
 
 export type DpmGatewayRegistrySnapshotExportInput = {

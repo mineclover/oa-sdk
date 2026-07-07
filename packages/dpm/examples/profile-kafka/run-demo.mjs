@@ -232,7 +232,6 @@ const relationshipHint = required(
   analysisReport.relationshipHints[0],
   'expected at least one relationship hint',
 )
-let importedRelationshipCandidate
 
 await recordStep('review relationship hint proposal without registry mutation', async () => {
   const response = await runtime.reviewDpmProfileProposal({
@@ -277,7 +276,6 @@ await recordStep('bridge relationship hint into candidate import review', async 
     response.body.result.report.candidates[0],
     'expected imported profile relationship candidate',
   )
-  importedRelationshipCandidate = importedCandidate
 
   assertEqual(response.statusCode, 200, 'profile candidate import status code')
   assertEqual(response.body.result.imported, 1, 'profile candidate import count')
@@ -296,13 +294,14 @@ await recordStep('bridge relationship hint into candidate import review', async 
 })
 
 await recordStep('approve candidate and persist registry row', async () => {
-  const candidate = required(
-    importedRelationshipCandidate,
-    'expected imported relationship candidate before approval',
-  )
-  const approval = await runtime.approveDpmRelationshipCandidate({
-    relationshipName: candidate.relationshipName,
-    candidate,
+  const response = await runtime.approveDpmProfileRelationshipHint({
+    profileArtifact,
+    relationshipHint,
+    relationshipName: 'rel_orders_customer',
+    childTableByPathPrefix: {
+      'orders.created': 'public.orders',
+    },
+    registryVersion: 'registry-profile-demo-v1',
     version: '1',
     namespace: 'customer',
     transformStrategy: 'relationship_token',
@@ -311,37 +310,31 @@ await recordStep('approve candidate and persist registry row', async () => {
     approvedBy: 'dpm-reviewer@example.com',
     reason: 'Kafka profile hint was mapped to a customer relationship for pseudonymized analytics.',
     approvedAt: '2026-07-07T00:10:00.000Z',
-  })
-  const saved = await registryRepository.saveRelationship({
-    datasetId: profileArtifact.datasetId,
-    registryVersion: 'registry-profile-demo-v1',
-    relationship: approval.body.result.relationship,
     sourceFreshnessHash: analysisReport.freshness.reportHash,
     createdAt: '2026-07-07T00:10:00.000Z',
     updatedAt: '2026-07-07T00:10:00.000Z',
-  })
-  const exported = await runtime.exportDpmRegistrySnapshot({
-    datasetId: profileArtifact.datasetId,
-    registryVersion: 'registry-profile-demo-v1',
     exportedAt: '2026-07-07T00:11:00.000Z',
     registryRepository,
   })
+  const saved = response.body.result.savedRelationship
+  const registrySnapshot = response.body.result.registrySnapshot
 
-  assertEqual(approval.statusCode, 200, 'profile candidate approval status code')
-  assertEqual(saved.relationshipName, candidate.relationshipName, 'saved relationship name')
+  assertEqual(response.statusCode, 200, 'profile relationship hint approval workflow status code')
+  assertEqual(saved.relationshipName, 'rel_orders_customer', 'saved relationship name')
   assertEqual(saved.status, 'approved', 'saved relationship status')
-  assertEqual(exported.body.result.approvedRelationships.length, 1, 'exported approved relationship count')
-  assertEqual(exported.body.result.approvedRelationships[0]?.name, candidate.relationshipName, 'exported relationship name')
-  assertNoUnsafeFragments(JSON.stringify(exported.body.result))
+  assertEqual(registrySnapshot.approvedRelationships.length, 1, 'exported approved relationship count')
+  assertEqual(registrySnapshot.approvedRelationships[0]?.name, 'rel_orders_customer', 'exported relationship name')
+  assertNoUnsafeFragments(JSON.stringify(registrySnapshot))
 
   return {
-    approvalCommand: approval.body.command,
-    exportCommand: exported.body.command,
+    workflowCommand: response.body.command,
+    imported: response.body.result.candidateImport.imported,
+    rejected: response.body.result.candidateImport.rejected,
     relationshipName: saved.relationshipName,
     registryVersion: saved.registryVersion,
     sourceFreshnessHash: saved.sourceFreshnessHash,
-    approvedRelationships: exported.body.result.approvedRelationships.map(relationship => relationship.name),
-    nonExecutableRelationships: exported.body.result.nonExecutableRelationships.length,
+    approvedRelationships: registrySnapshot.approvedRelationships.map(relationship => relationship.name),
+    nonExecutableRelationships: registrySnapshot.nonExecutableRelationships.length,
   }
 })
 

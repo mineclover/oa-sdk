@@ -12,6 +12,7 @@ import {
 } from './runtime-profile.js'
 import { importDpmRelationshipCandidatesRuntime } from './runtime-relationship-candidate-import.js'
 import { approveDpmRelationshipCandidateRuntime } from './runtime-relationship-approve.js'
+import { approveDpmProfileRelationshipHintRuntime } from './runtime-profile-relationship-hint-approval.js'
 import { discoverDpmRelationshipsRuntime } from './runtime-relationship-discover.js'
 import { exportDpmRegistrySnapshotRuntime } from './runtime-relationship-registry-export.js'
 
@@ -24,6 +25,7 @@ export function createDpmGatewayRuntime(): DpmGatewayRuntime {
     discoverDpmRelationships: discoverDpmRelationshipsRuntime,
     importDpmRelationshipCandidates: importDpmRelationshipCandidatesRuntime,
     approveDpmRelationshipCandidate: approveDpmRelationshipCandidateRuntime,
+    approveDpmProfileRelationshipHint: approveDpmProfileRelationshipHintRuntime,
     exportDpmRegistrySnapshot: exportDpmRegistrySnapshotRuntime,
     validateDpmManifest: validateDpmManifestRuntime,
     compileDpmManifest: compileDpmManifestRuntime,

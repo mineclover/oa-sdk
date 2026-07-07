@@ -29,8 +29,10 @@ import {
 } from '@oa-sdk/dpm/relationship'
 import {
   DPM_GATEWAY_RUNTIME_OPERATION_IDS,
+  approveDpmProfileRelationshipHintRuntime,
   createDpmGatewayRuntime,
   getDpmGatewayOpenApiDocument,
+  type DpmGatewayProfileRelationshipHintApprovalInput,
   type DpmGatewayRuntime,
 } from '@oa-sdk/dpm/gateway'
 import {
@@ -53,6 +55,7 @@ type DpmSubpathTypeSmoke = {
   profileRelationshipEndpointResolver?: DpmProfileRelationshipEndpointResolverInput
   profileRelationshipCandidateBridge?: DpmProfileRelationshipCandidateBridgeInput
   resolvedProfileRelationshipCandidateBridge?: DpmProfileResolvedRelationshipCandidateBridgeInput
+  profileRelationshipHintApproval?: DpmGatewayProfileRelationshipHintApprovalInput
   baseline?: DpmProfileBaselineSummary
   registryRelationshipSave?: DpmRegistryRelationshipSaveInput
   approvedRegistryApproval?: ApprovedRegistryApprovalMetadata
@@ -84,6 +87,7 @@ void [
   computeDpmProfileAnalysisPolicyHash,
   resolveDpmRelationshipCandidateEndpointsFromProfileHint,
   resolveDpmProfileAnalysisPolicy,
+  approveDpmProfileRelationshipHintRuntime,
   createDpmRegistryRelationshipRow,
   typeSmoke,
 ]

@@ -73,8 +73,9 @@ describe('DPM Kafka profile demo command', () => {
       step.name === 'approve candidate and persist registry row'
     )
     expect(approvalStep?.summary).toMatchObject({
-      approvalCommand: 'approve-relationship-candidate',
-      exportCommand: 'export-registry-snapshot',
+      workflowCommand: 'approve-profile-relationship-hint',
+      imported: 1,
+      rejected: 0,
       relationshipName: 'rel_orders_customer',
       registryVersion: 'registry-profile-demo-v1',
       sourceFreshnessHash: expect.stringMatching(/^sha256:/),

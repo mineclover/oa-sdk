@@ -15,6 +15,8 @@ export type {
   DpmGatewayCandidateImportResult,
   DpmGatewayRegistrySnapshotExportInput,
   DpmGatewayRegistrySnapshotExportResult,
+  DpmGatewayProfileRelationshipHintApprovalInput,
+  DpmGatewayProfileRelationshipHintApprovalResult,
   DpmGatewayRelationshipApprovalInput,
   DpmGatewayRelationshipApprovalResult,
   DpmGatewayRelationshipDiscoveryInput,
@@ -42,5 +44,6 @@ export {
   discoverDpmRelationshipsRuntime,
   importDpmRelationshipCandidatesRuntime,
   approveDpmRelationshipCandidateRuntime,
+  approveDpmProfileRelationshipHintRuntime,
   exportDpmRegistrySnapshotRuntime,
 } from '../gateway/runtime.js'

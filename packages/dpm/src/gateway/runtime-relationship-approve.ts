@@ -10,6 +10,13 @@ import type { DpmGatewayRuntimeResponse } from './runtime-response-types.js'
 export async function approveDpmRelationshipCandidateRuntime(
   input: DpmGatewayRelationshipApprovalInput,
 ): Promise<DpmGatewayRuntimeResponse<DpmGatewayRelationshipApprovalResult>> {
+  if (input.candidate.recommendation !== 'review') {
+    throw new Error(
+      `DPM relationship approval requires a reviewable candidate: `
+      + `${input.candidate.id} is ${input.candidate.recommendation}.`,
+    )
+  }
+
   const relationship: ApprovedRegistryRelationshipInput = {
     name: input.relationshipName,
     version: input.version,

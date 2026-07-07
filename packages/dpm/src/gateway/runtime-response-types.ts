@@ -9,6 +9,7 @@ export type DpmGatewayRuntimeCommand =
   | 'discover-relationships'
   | 'import-relationship-candidates'
   | 'approve-relationship-candidate'
+  | 'approve-profile-relationship-hint'
   | 'export-registry-snapshot'
   | 'validate'
   | 'compile'
