@@ -128,6 +128,7 @@ Artifacts:
 - `packages/dpm/src/profile/artifact-input-types.ts`
 - `packages/dpm/src/profile/artifact.ts`
 - `packages/dpm/src/profile/artifact-structural.ts`
+- `packages/dpm/src/profile/artifact-snapshot.ts`
 - `packages/dpm/src/profile/artifact-copy.ts`
 - `packages/dpm/src/profile/artifact-envelope-copy.ts`
 - `packages/dpm/src/profile/artifact-source-copy.ts`
@@ -150,6 +151,7 @@ Artifacts:
 - `packages/dpm/src/profile/schema-validation.ts`
 - `packages/dpm/src/profile/schema.ts`
 - `packages/dpm/test/profile-artifact.test.ts`
+- `packages/dpm/test/profile-artifact-snapshot.test.ts`
 - `packages/dpm/test/profile-schema.test.ts`
 - `docs/internal/api-index.md`
 
@@ -162,16 +164,21 @@ Tasks:
 - Promote initial source/node/edge/metric/diagnostic taxonomies to runtime constants.
 - Keep raw values, source credentials, and token reverse lookup material out of the contract.
 - Export public types and runtime taxonomies through `@oa-sdk/dpm`.
+- Provide an explicit SDK helper for frozen profile artifact snapshots without exposing a generic
+  deep-readonly utility as public API.
 
 Acceptance:
 - Profile artifacts can represent at least DB table/column evidence and Kafka topic/message-field evidence.
 - Invalid source kinds, missing provenance, empty metric identity, unknown taxonomy values, and raw
   sample payload fields are rejected.
 - Freshness changes when normalized profile evidence changes.
+- SDK consumers can create a defensive, deeply frozen profile artifact snapshot that is isolated
+  from later caller-side mutations.
 - `check:api-index` recognizes the new public surface.
 
 Verification:
 - `pnpm --filter @oa-sdk/dpm exec vitest run test/profile-artifact.test.ts test/profile-schema.test.ts`
+- `pnpm --filter @oa-sdk/dpm exec vitest run test/profile-artifact-snapshot.test.ts`
 - `pnpm --filter @oa-sdk/dpm test`
 - `pnpm --filter @oa-sdk/dpm typecheck`
 - `pnpm build:scripts && pnpm check:api-index`
@@ -195,6 +202,9 @@ Implementation notes:
   families.
 - `artifact-envelope-copy.ts` owns full profile artifact defensive copy so connector and gateway
   outputs behave as stable snapshots after construction.
+- `artifact-snapshot.ts` reuses the defensive artifact copy path, deep freezes the copied profile,
+  and exposes only `DpmProfileArtifactSnapshot` plus `createDpmProfileArtifactSnapshot()` through
+  `@oa-sdk/dpm` so product editors can keep read-only measurement baselines.
 
 ### DPM-24 - Connector Output Contract
 

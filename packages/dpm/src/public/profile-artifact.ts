@@ -22,6 +22,9 @@ export type {
   DpmProfileArtifactSchemaIssue,
   DpmProfileArtifactSchemaValidationResult,
 } from '../profile/schema.js'
+export type {
+  DpmProfileArtifactSnapshot,
+} from '../profile/artifact-snapshot.js'
 export {
   DPM_PROFILE_CAPTURE_MODES,
   DPM_PROFILE_DIAGNOSTIC_FAMILIES,
@@ -37,6 +40,9 @@ export {
   computeDpmProfileFreshnessHash,
   normalizeDpmProfileArtifact,
 } from '../profile/artifact.js'
+export {
+  createDpmProfileArtifactSnapshot,
+} from '../profile/artifact-snapshot.js'
 export {
   DPM_PROFILE_ARTIFACT_SCHEMA,
   DPM_PROFILE_ARTIFACT_SCHEMA_ID,

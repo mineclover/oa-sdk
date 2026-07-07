@@ -31,6 +31,9 @@ export type {
   DpmProfileArtifact,
 } from './profile-artifact-types.js'
 export type {
+  DpmProfileArtifactSnapshot,
+} from './artifact-snapshot.js'
+export type {
   DpmProfileDiagnostic,
 } from './profile-diagnostic-types.js'
 export type {

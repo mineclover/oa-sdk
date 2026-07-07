@@ -135,8 +135,10 @@ catalog/registry snapshot, semantic validator, compiler, CLI/gateway/publishing 
 | `DpmProfileDiagnostic` | `dpm/src/profile/profile-artifact-types.ts` | profile/connector diagnostic entry |
 | `DpmProfileFreshness` | `dpm/src/profile/profile-artifact-types.ts` | deterministic profile freshness hash and optional source hashes |
 | `DpmProfileArtifact` | `dpm/src/profile/profile-artifact-types.ts` | normalized source-neutral profile evidence artifact |
+| `DpmProfileArtifactSnapshot` | `dpm/src/profile/artifact-snapshot.ts` | readonly frozen profile artifact snapshot type for SDK consumers |
 | `DpmProfileArtifactInput` | `dpm/src/profile/artifact-input-types.ts` | profile artifact normalization input |
 | `normalizeDpmProfileArtifact()` | `dpm/src/profile/artifact.ts` | profile arrays/source maps를 deterministic artifact로 정규화 |
+| `createDpmProfileArtifactSnapshot()` | `dpm/src/profile/artifact-snapshot.ts` | defensive copied and frozen profile artifact snapshot 생성 |
 | `computeDpmProfileFreshnessHash()` | `dpm/src/profile/artifact-freshness.ts` | normalized profile evidence freshness hash 계산 |
 | `DPM_PROFILE_ARTIFACT_SCHEMA_ID` | `dpm/src/profile/schema-document.ts` | profile artifact JSON Schema `$id` |
 | `DPM_PROFILE_ARTIFACT_SCHEMA` | `dpm/src/profile/schema-document.ts` | DPM profile artifact JSON Schema |
