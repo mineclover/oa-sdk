@@ -1,4 +1,8 @@
 import {
+  DPM_PROFILE_BASELINE_SELECTION_STRATEGIES,
+} from '../storage/profile-baseline-selection-taxonomy.js'
+import {
+  integerSchema,
   ref,
   requiredObjectSchema,
   stringSchema,
@@ -6,9 +10,20 @@ import {
 
 export function createDpmProfileAnalysisExchangeGatewaySchemas() {
   return {
-    DpmProfileBaselineRef: requiredObjectSchema({
-      baselineRef: stringSchema(),
-    }),
+    DpmProfileBaselineRef: {
+      oneOf: [
+        requiredObjectSchema({
+          baselineRef: stringSchema(),
+        }),
+        requiredObjectSchema({
+          selectionStrategy: {
+            type: 'string',
+            enum: [...DPM_PROFILE_BASELINE_SELECTION_STRATEGIES],
+          },
+          limit: integerSchema(),
+        }, ['selectionStrategy']),
+      ],
+    },
     DpmProfileAnalysisRequest: requiredObjectSchema({
       profileArtifact: ref('DpmProfileArtifact'),
       previousProfileArtifact: ref('DpmProfileArtifact'),

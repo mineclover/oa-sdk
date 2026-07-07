@@ -5,6 +5,7 @@ import {
   createDpmProfileAnalysisReport,
   createDpmProfileBaselineRepository,
   createDpmProfileBaselineRow,
+  selectDpmPreviousProfileBaseline,
   type DpmProfileBaselineListRequest,
   type DpmProfileBaselineRequest,
   type DpmProfileBaselineRow,
@@ -150,6 +151,61 @@ describe('DPM profile baseline repository', () => {
     expect(retrieved?.previousProfileVersionHash).toBe(row.previousProfileVersionHash)
     expect(listed).toEqual([metadataOnlyRow])
     expect(listed[0]).not.toBe(metadataOnlyRow)
+  })
+
+  it('selects the latest previous baseline from the same profile history', async () => {
+    const storedRows = new Map<string, DpmProfileBaselineRow>()
+    const listProfileBaselines = vi.fn((request: DpmProfileBaselineListRequest) =>
+      [...storedRows.values()].filter(row =>
+        row.datasetId === request.datasetId
+        && row.profileId === request.profileId
+      ).slice(0, request.limit)
+    )
+    const repository = createDpmProfileBaselineRepository({
+      upsertProfileBaseline: row => storedRows.set(row.baselineRef, row),
+      getProfileBaseline: request => storedRows.get(request.baselineRef),
+      listProfileBaselines,
+    })
+    const currentProfileArtifact = createKafkaProfileArtifact()
+    const olderProfileArtifact = createKafkaProfileArtifactWithCustomerNoPresence(0.88)
+    const latestPreviousProfileArtifact = createKafkaProfileArtifactWithCustomerNoPresence(0.91)
+    const currentBaseline = await repository.saveProfileBaseline({
+      profileArtifact: currentProfileArtifact,
+      storedAt: '2026-07-08T00:00:00.000Z',
+    })
+    const olderBaseline = await repository.saveProfileBaseline({
+      profileArtifact: olderProfileArtifact,
+      storedAt: '2026-07-06T00:00:00.000Z',
+    })
+    const latestPreviousBaseline = await repository.saveProfileBaseline({
+      profileArtifact: latestPreviousProfileArtifact,
+      storedAt: '2026-07-07T00:00:00.000Z',
+    })
+
+    const selected = await repository.selectPreviousProfileBaseline({
+      profileArtifact: currentProfileArtifact,
+      limit: 1,
+    })
+    selected!.profileArtifact.nodes[0]!.label = 'mutated selected previous baseline'
+
+    expect(listProfileBaselines).toHaveBeenLastCalledWith({
+      datasetId: currentProfileArtifact.datasetId,
+      profileId: currentProfileArtifact.profileId,
+    })
+    expect(selected?.baselineRef).toBe(latestPreviousBaseline.baselineRef)
+    expect(selected?.baselineRef).not.toBe(currentBaseline.baselineRef)
+    expect(selected?.baselineRef).not.toBe(olderBaseline.baselineRef)
+    expect(storedRows.get(latestPreviousBaseline.baselineRef)?.profileArtifact.nodes[0]?.label)
+      .not.toBe('mutated selected previous baseline')
+
+    const directlySelected = selectDpmPreviousProfileBaseline({
+      profileArtifact: currentProfileArtifact,
+      baselines: [...storedRows.values()],
+      limit: 1,
+    })
+
+    expect(directlySelected).toEqual(latestPreviousBaseline)
+    expect(directlySelected).not.toBe(storedRows.get(latestPreviousBaseline.baselineRef))
   })
 
   it('rejects analysis reports that do not belong to the stored profile artifact', async () => {

@@ -11,6 +11,12 @@ export type DpmProfileBaselineListRequest = {
   limit?: number
 }
 
+export type DpmProfileBaselineSelectionRequest = {
+  profileArtifact: DpmProfileArtifact
+  limit?: number
+  includeCurrentProfileVersionHash?: boolean
+}
+
 export type DpmProfileBaselineSaveInput = {
   baselineRef?: string
   profileArtifact: DpmProfileArtifact

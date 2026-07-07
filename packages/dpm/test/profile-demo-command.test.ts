@@ -29,6 +29,7 @@ describe('DPM Kafka profile demo command', () => {
       step.name === 'compare profile artifact with previous measurement baseline'
     )
     expect(baselineStep?.summary?.baselineRef).toContain('dpm-profile-baseline:')
+    expect(baselineStep?.summary?.baselineSelectionStrategy).toBe('latest_previous')
     expect(baselineStep?.summary?.baselineReportHash).toEqual(expect.any(String))
     expect(baselineStep?.summary?.driftSignalCount).toBeGreaterThan(0)
     expect(baselineStep?.summary?.driftKinds).toEqual(expect.arrayContaining([
