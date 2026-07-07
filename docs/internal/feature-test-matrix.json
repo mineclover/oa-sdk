@@ -415,11 +415,12 @@
       "name": "DPM registry snapshot",
       "category": "dpm",
       "package": "@oa-sdk/dpm",
-      "description": "Versioned relationship registry snapshots with YAML review artifacts and approved-only execution selection.",
+      "description": "Versioned relationship registry snapshots with YAML review artifacts, approved-only execution selection, and approved metadata execution guard.",
       "capabilities": [
         "registry snapshot identity",
         "relationship identity",
         "approved relationship selection",
+        "approved metadata execution guard",
         "non-executable lifecycle history",
         "YAML review artifact parsing",
         "stable ordering"

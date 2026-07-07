@@ -39,6 +39,7 @@ Use `@oa-sdk/dpm/storage` when product code needs registry rows, approval audit 
 ## Safety Boundaries
 
 - Connectors produce evidence; approved registry snapshots remain the execution source of truth.
+- Approved registry snapshots require complete approval metadata before a relationship can become executable.
 - PostgreSQL catalog profiling is read-only catalog evidence collection.
 - Kafka profile fixtures contain captured shape and metrics, not message payload samples.
 - Physical foreign-key output is recommendation-only and does not mutate a target database.

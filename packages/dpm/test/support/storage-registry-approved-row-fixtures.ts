@@ -33,6 +33,7 @@ export const approvedStorageRegistryRelationshipRow: DpmRegistryRelationshipRow 
     owner: 'privacy-team',
     approvedBy: 'dpo@example.com',
     approvedAt: STORAGE_REGISTRY_EXPORTED_AT,
+    reason: 'Relationship is required for customer-scoped pseudonymization.',
   },
   sourceFreshnessHash: 'sha256:storage-catalog-v1',
 }

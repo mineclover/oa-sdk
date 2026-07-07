@@ -6,6 +6,9 @@ import {
   copyRegistryApproval,
   copyRegistryEvidence,
 } from '../registry/registry-relationship-copy.js'
+import {
+  assertApprovedRegistryRelationshipApprovalMetadata,
+} from '../registry/registry-approved-relationship-metadata.js'
 import type { DpmRegistryRelationshipSaveInput } from './registry-repository-request-types.js'
 import type {
   DpmRegistryRelationshipRow,
@@ -102,19 +105,11 @@ function assertApprovedRegistryRelationshipSaveInput(input: {
       `DPM registry saveRelationship only accepts approved relationships: ${input.relationship.name} is ${input.relationship.status}.`,
     )
   }
-  const missingFields = [
-    ...(!isNonEmptyString(input.relationship.approval?.approvedBy) ? ['approval.approvedBy'] : []),
-    ...(!isNonEmptyString(input.relationship.approval?.reason) ? ['approval.reason'] : []),
-  ]
-  if (missingFields.length > 0) {
-    throw new Error(
-      `DPM registry saveRelationship approved relationship ${input.relationship.name} is missing ${missingFields.join(', ')}.`,
-    )
-  }
-}
-
-function isNonEmptyString(value: unknown): value is string {
-  return typeof value === 'string' && value.trim().length > 0
+  assertApprovedRegistryRelationshipApprovalMetadata({
+    context: 'saveRelationship',
+    relationshipName: input.relationship.name,
+    approval: input.relationship.approval,
+  })
 }
 
 export function copyDpmRegistryRelationshipRow(

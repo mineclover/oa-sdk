@@ -32,5 +32,6 @@ export const expectedStorageRegistryApprovedRelationship = {
   approval: {
     owner: 'privacy-team',
     approvedBy: 'dpo@example.com',
+    reason: 'Relationship is required for customer-scoped pseudonymization.',
   },
 } as const

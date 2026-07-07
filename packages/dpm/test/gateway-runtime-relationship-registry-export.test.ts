@@ -106,6 +106,7 @@ describe('DPM gateway registry snapshot export runtime adapter', () => {
       approval: {
         owner: 'privacy-team',
         approvedBy: 'dpo@example.com',
+        reason: 'Relationship is required for customer-scoped pseudonymization.',
       },
     }
     const repositorySnapshot = createRegistrySnapshot({
