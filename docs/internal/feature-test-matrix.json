@@ -143,16 +143,20 @@
         "publishing subpath export",
         "tsup category entrypoint coverage",
         "built package subpath runtime import smoke",
-        "built package subpath declaration consumer smoke"
+        "built package subpath declaration consumer smoke",
+        "pack dry-run file boundary smoke",
+        "clean build stale dist sentinel rejection"
       ],
       "testPaths": [
         "packages/dpm/test/package-subpath-exports.test.ts",
         "packages/dpm/test/package-subpath-import-smoke.mjs",
-        "packages/dpm/test/package-subpath-type-consumer.ts"
+        "packages/dpm/test/package-subpath-type-consumer.ts",
+        "packages/dpm/test/package-pack-smoke.mjs"
       ],
       "commands": [
         "pnpm --filter @oa-sdk/dpm exec vitest run test/package-subpath-exports.test.ts",
         "pnpm --filter @oa-sdk/dpm run smoke:subpaths",
+        "pnpm --filter @oa-sdk/dpm run smoke:pack",
         "pnpm --filter @oa-sdk/dpm typecheck"
       ]
     },

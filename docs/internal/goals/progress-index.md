@@ -10,6 +10,7 @@ Last updated: 2026-07-07
 
 ## Recently Completed
 
+- [x] Goal 22 / DPM Pack Boundary Smoke (complete)
 - [x] Goal 21 / DPM Subpath Consumer Smoke (complete)
 - [x] Goal 20 / DPM Category Subpath Exports (complete)
 - [x] Goal 19 / DPM Profile Baseline Summary Consumer Smoke (complete)
@@ -52,6 +53,7 @@ Last updated: 2026-07-07
 - [x] Goal 19 - DPM Profile Baseline Summary Consumer Smoke
 - [x] Goal 20 - DPM Category Subpath Exports
 - [x] Goal 21 - DPM Subpath Consumer Smoke
+- [x] Goal 22 - DPM Pack Boundary Smoke
 
 ## Goal 4 DPM Units
 
@@ -149,6 +151,10 @@ Last updated: 2026-07-07
 ## Goal 21 DPM Units
 
 - [x] DPM-41 - Built DPM Subpath Runtime And Type Consumer Smoke
+
+## Goal 22 DPM Units
+
+- [x] DPM-42 - Clean Build And Pack Dry-Run Boundary
 
 ## Done Criteria
 
