@@ -16,6 +16,8 @@ export type {
 export type {
   DpmGatewayCandidateImportInput,
   DpmGatewayCandidateImportResult,
+  DpmGatewayRelationshipApprovalInput,
+  DpmGatewayRelationshipApprovalResult,
   DpmGatewayRelationshipDiscoveryInput,
   DpmGatewayRelationshipDiscoveryRequest,
   DpmGatewayRelationshipDiscoveryResult,
@@ -64,3 +66,6 @@ export {
 export {
   importDpmRelationshipCandidatesRuntime,
 } from './runtime-relationship-candidate-import.js'
+export {
+  approveDpmRelationshipCandidateRuntime,
+} from './runtime-relationship-approve.js'

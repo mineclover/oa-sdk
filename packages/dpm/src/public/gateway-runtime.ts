@@ -13,6 +13,8 @@ export type {
   DpmGatewayProfileProposalReviewResult,
   DpmGatewayCandidateImportInput,
   DpmGatewayCandidateImportResult,
+  DpmGatewayRelationshipApprovalInput,
+  DpmGatewayRelationshipApprovalResult,
   DpmGatewayRelationshipDiscoveryInput,
   DpmGatewayRelationshipDiscoveryRequest,
   DpmGatewayRelationshipDiscoveryResult,
@@ -37,4 +39,5 @@ export {
   resolveDpmGatewayProfileAnalysisRuntimeInput,
   discoverDpmRelationshipsRuntime,
   importDpmRelationshipCandidatesRuntime,
+  approveDpmRelationshipCandidateRuntime,
 } from '../gateway/runtime.js'

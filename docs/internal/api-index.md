@@ -373,6 +373,8 @@ category barrel을 가리킨다. `packages/dpm/test/package-subpath-import-smoke
 | `DpmGatewayRelationshipDiscoveryResult` | `dpm/src/gateway/runtime-relationship-types.ts` | schema-valid relationship discovery report result |
 | `DpmGatewayCandidateImportInput` | `dpm/src/gateway/runtime-relationship-types.ts` | relationship candidate import request input |
 | `DpmGatewayCandidateImportResult` | `dpm/src/gateway/runtime-relationship-types.ts` | relationship candidate import review/reject count result |
+| `DpmGatewayRelationshipApprovalInput` | `dpm/src/gateway/runtime-relationship-types.ts` | relationship candidate approval input with registry policy fields |
+| `DpmGatewayRelationshipApprovalResult` | `dpm/src/gateway/runtime-relationship-types.ts` | approved registry relationship payload result |
 | `DpmGatewayRuntimeOperationId` | `dpm/src/gateway/runtime-operation-ids.ts` | runtime operation id taxonomy |
 | `DpmGatewayRuntimeStatusCode` | `dpm/src/gateway/runtime-response-types.ts` | runtime success or blocking-diagnostic status code |
 | `DpmGatewayRuntimeCommand` | `dpm/src/gateway/runtime-response-types.ts` | profile, relationship, and manifest runtime command taxonomy |
@@ -393,6 +395,7 @@ category barrel을 가리킨다. `packages/dpm/test/package-subpath-import-smoke
 | `resolveDpmGatewayProfileAnalysisRuntimeInput()` | `dpm/src/gateway/runtime-profile-analysis-request.ts` | converts profile analysis baseline refs into loaded runtime profile analysis input through a profile baseline resolver |
 | `discoverDpmRelationshipsRuntime()` | `dpm/src/gateway/runtime-relationship-discover.ts` | source-DB-free relationship discovery runtime handler from loaded manifest/catalog evidence |
 | `importDpmRelationshipCandidatesRuntime()` | `dpm/src/gateway/runtime-relationship-candidate-import.ts` | relationship candidate import runtime handler returning review/reject counts without registry mutation |
+| `approveDpmRelationshipCandidateRuntime()` | `dpm/src/gateway/runtime-relationship-approve.ts` | relationship candidate approval runtime handler returning an approved registry relationship payload without storage mutation |
 | `createDpmGatewayRuntime()` | `dpm/src/gateway/runtime-factory.ts` | source-DB-free runtime adapter for profile, relationship, and manifest operations |
 | `DpmRelationshipMetadata` | `dpm/src/publishing/types.ts` | AI-publishable approved relationship metadata |
 | `DpmAiRelationshipContext` | `dpm/src/publishing/types.ts` | AI schema relationship context entry |

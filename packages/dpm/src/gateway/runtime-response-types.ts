@@ -8,6 +8,7 @@ export type DpmGatewayRuntimeCommand =
   | 'review-profile-proposal'
   | 'discover-relationships'
   | 'import-relationship-candidates'
+  | 'approve-relationship-candidate'
   | 'validate'
   | 'compile'
   | 'dry-run'

@@ -10,6 +10,7 @@ Last updated: 2026-07-07
 
 ## Recently Completed
 
+- [x] Goal 27 / DPM Relationship Approval Runtime Adapter (complete)
 - [x] Goal 26 / DPM Relationship Discovery Runtime Adapter (complete)
 - [x] Goal 25 / DPM Discovery Gateway Candidate Contract (complete)
 - [x] Goal 24 / DPM Measured Relationship Proposals (complete)
@@ -62,6 +63,7 @@ Last updated: 2026-07-07
 - [x] Goal 24 - DPM Measured Relationship Proposals
 - [x] Goal 25 - DPM Discovery Gateway Candidate Contract
 - [x] Goal 26 - DPM Relationship Discovery Runtime Adapter
+- [x] Goal 27 - DPM Relationship Approval Runtime Adapter
 
 ## Goal 4 DPM Units
 
@@ -179,6 +181,10 @@ Last updated: 2026-07-07
 ## Goal 26 DPM Units
 
 - [x] DPM-46 - Relationship Discovery Runtime Adapter
+
+## Goal 27 DPM Units
+
+- [x] DPM-47 - Relationship Approval Runtime Adapter
 
 ## Done Criteria
 

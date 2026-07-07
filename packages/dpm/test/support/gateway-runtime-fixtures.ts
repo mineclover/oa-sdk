@@ -5,6 +5,7 @@ export const expectedGatewayRuntimeOperationIds = [
   'reviewDpmProfileProposal',
   'discoverDpmRelationships',
   'importDpmRelationshipCandidates',
+  'approveDpmRelationshipCandidate',
   'validateDpmManifest',
   'compileDpmManifest',
   'dryRunDpmManifest',
@@ -17,7 +18,6 @@ export const expectedProfileProposalReviewStatuses = [
 ] as const
 
 export const excludedGatewayRuntimeOperationIds = [
-  'approveDpmRelationshipCandidate',
   'exportDpmRegistrySnapshot',
   'executeDpmJob',
   'getDpmValidationReport',

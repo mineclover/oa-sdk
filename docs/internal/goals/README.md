@@ -30,6 +30,7 @@
 | [Goal 24 — DPM Measured Relationship Proposals](./goal-24-dpm-measured-relationship-proposals.md) | ✅ | dpm |
 | [Goal 25 — DPM Discovery Gateway Candidate Contract](./goal-25-dpm-discovery-gateway-candidate-contract.md) | ✅ | dpm |
 | [Goal 26 — DPM Relationship Discovery Runtime Adapter](./goal-26-dpm-relationship-discovery-runtime-adapter.md) | ✅ | dpm |
+| [Goal 27 — DPM Relationship Approval Runtime Adapter](./goal-27-dpm-relationship-approval-runtime-adapter.md) | ✅ | dpm |
 | Phase 3 — OAS 파서/IR | ✅ | parser |
 | Phase 4 — TS 타입 생성 | ✅ | codegen/typegen |
 | Phase 5 — 라우터 스텁 | ✅ | router |

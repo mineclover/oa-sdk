@@ -15,6 +15,8 @@ import type {
 import type {
   DpmGatewayCandidateImportInput,
   DpmGatewayCandidateImportResult,
+  DpmGatewayRelationshipApprovalInput,
+  DpmGatewayRelationshipApprovalResult,
   DpmGatewayRelationshipDiscoveryInput,
   DpmGatewayRelationshipDiscoveryResult,
 } from './runtime-relationship-types.js'
@@ -39,6 +41,9 @@ export type DpmGatewayRuntime = {
   importDpmRelationshipCandidates(
     input: DpmGatewayCandidateImportInput,
   ): Promise<DpmGatewayRuntimeResponse<DpmGatewayCandidateImportResult>>
+  approveDpmRelationshipCandidate(
+    input: DpmGatewayRelationshipApprovalInput,
+  ): Promise<DpmGatewayRuntimeResponse<DpmGatewayRelationshipApprovalResult>>
   validateDpmManifest(input: DpmGatewayRuntimeManifestInput): Promise<DpmGatewayRuntimeResponse<DpmValidationResult>>
   compileDpmManifest(input: DpmGatewayRuntimeManifestInput): Promise<DpmGatewayRuntimeResponse<DpmCompileResult>>
   dryRunDpmManifest(input: DpmGatewayRuntimeManifestInput): Promise<DpmGatewayRuntimeResponse<DpmCompileResult | DpmDryRunReport>>

@@ -5,6 +5,7 @@ export const DPM_GATEWAY_RUNTIME_OPERATION_IDS = [
   'reviewDpmProfileProposal',
   'discoverDpmRelationships',
   'importDpmRelationshipCandidates',
+  'approveDpmRelationshipCandidate',
   'validateDpmManifest',
   'compileDpmManifest',
   'dryRunDpmManifest',
