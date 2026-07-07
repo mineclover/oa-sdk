@@ -56,8 +56,9 @@ function copyProfileRelationshipHintProposal(
   return {
     id: relationshipHint.id,
     status: relationshipHint.status,
+    source: relationshipHint.source,
     fromNodeId: relationshipHint.fromNodeId,
-    hintNodeId: relationshipHint.hintNodeId,
+    ...(relationshipHint.hintNodeId ? { hintNodeId: relationshipHint.hintNodeId } : {}),
     ...(relationshipHint.targetRef ? { targetRef: relationshipHint.targetRef } : {}),
     confidence: relationshipHint.confidence,
     evidenceIds: [...relationshipHint.evidenceIds].sort(),

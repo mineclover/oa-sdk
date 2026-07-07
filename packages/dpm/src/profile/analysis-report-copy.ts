@@ -50,8 +50,9 @@ function copyRelationshipHint(
   return {
     id: hint.id,
     status: hint.status,
+    source: hint.source,
     fromNodeId: hint.fromNodeId,
-    hintNodeId: hint.hintNodeId,
+    ...(hint.hintNodeId ? { hintNodeId: hint.hintNodeId } : {}),
     ...(hint.targetRef ? { targetRef: hint.targetRef } : {}),
     confidence: hint.confidence,
     evidenceIds: [...hint.evidenceIds].sort(),

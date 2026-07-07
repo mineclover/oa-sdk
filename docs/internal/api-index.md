@@ -173,10 +173,12 @@ category barrel을 가리킨다. `packages/dpm/test/package-subpath-import-smoke
 | `profileKafkaTopicFixture()` | `dpm/src/profile/kafka.ts` | Kafka topic fixture를 profile artifact + connector result로 변환 |
 | `DPM_PROFILE_ANALYSIS_REPORT_KIND` | `dpm/src/profile/analysis-report-types.ts` | DPM profile analysis report kind literal |
 | `DPM_PROFILE_RELATIONSHIP_HINT_STATUSES` | `dpm/src/profile/analysis-taxonomy.ts` | relationship hint proposal lifecycle taxonomy |
+| `DPM_PROFILE_RELATIONSHIP_HINT_SOURCES` | `dpm/src/profile/analysis-taxonomy.ts` | relationship hint proposal evidence source taxonomy |
 | `DPM_PROFILE_KEY_CANDIDATE_KINDS` | `dpm/src/profile/analysis-taxonomy.ts` | profile key candidate taxonomy |
 | `DPM_PROFILE_RISK_INDICATOR_KINDS` | `dpm/src/profile/analysis-taxonomy.ts` | profile analysis risk indicator taxonomy |
 | `DPM_PROFILE_DRIFT_SIGNAL_KINDS` | `dpm/src/profile/analysis-taxonomy.ts` | profile drift signal taxonomy |
 | `DpmProfileRelationshipHintStatus` | `dpm/src/profile/analysis-taxonomy.ts` | relationship hint proposal status union |
+| `DpmProfileRelationshipHintSource` | `dpm/src/profile/analysis-taxonomy.ts` | relationship hint proposal source union |
 | `DpmProfileKeyCandidateKind` | `dpm/src/profile/analysis-taxonomy.ts` | profile key candidate kind union |
 | `DpmProfileRiskIndicatorKind` | `dpm/src/profile/analysis-taxonomy.ts` | profile risk indicator kind union |
 | `DpmProfileDriftSignalKind` | `dpm/src/profile/analysis-taxonomy.ts` | profile drift signal kind union |

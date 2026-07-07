@@ -10,6 +10,7 @@ Last updated: 2026-07-07
 
 ## Recently Completed
 
+- [x] Goal 24 / DPM Measured Relationship Proposals (complete)
 - [x] Goal 23 / DPM Gateway Blocking Response Contract (complete)
 - [x] Goal 22 / DPM Pack Boundary Smoke (complete)
 - [x] Goal 21 / DPM Subpath Consumer Smoke (complete)
@@ -56,6 +57,7 @@ Last updated: 2026-07-07
 - [x] Goal 21 - DPM Subpath Consumer Smoke
 - [x] Goal 22 - DPM Pack Boundary Smoke
 - [x] Goal 23 - DPM Gateway Blocking Response Contract
+- [x] Goal 24 - DPM Measured Relationship Proposals
 
 ## Goal 4 DPM Units
 
@@ -161,6 +163,10 @@ Last updated: 2026-07-07
 ## Goal 23 DPM Units
 
 - [x] DPM-43 - Gateway Blocking Response Contract
+
+## Goal 24 DPM Units
+
+- [x] DPM-44 - Measurement-Derived Relationship Review Proposals
 
 ## Done Criteria
 
