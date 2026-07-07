@@ -10,6 +10,7 @@ Last updated: 2026-07-07
 
 ## Recently Completed
 
+- [x] Goal 21 / DPM Subpath Consumer Smoke (complete)
 - [x] Goal 20 / DPM Category Subpath Exports (complete)
 - [x] Goal 19 / DPM Profile Baseline Summary Consumer Smoke (complete)
 - [x] Goal 18 / DPM Profile Baseline Summary Invariants (complete)
@@ -50,6 +51,7 @@ Last updated: 2026-07-07
 - [x] Goal 18 - DPM Profile Baseline Summary Invariants
 - [x] Goal 19 - DPM Profile Baseline Summary Consumer Smoke
 - [x] Goal 20 - DPM Category Subpath Exports
+- [x] Goal 21 - DPM Subpath Consumer Smoke
 
 ## Goal 4 DPM Units
 
@@ -143,6 +145,10 @@ Last updated: 2026-07-07
 ## Goal 20 DPM Units
 
 - [x] DPM-40 - DPM Category Package Subpath Surface
+
+## Goal 21 DPM Units
+
+- [x] DPM-41 - Built DPM Subpath Runtime And Type Consumer Smoke
 
 ## Done Criteria
 

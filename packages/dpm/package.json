@@ -46,6 +46,7 @@
   ],
   "scripts": {
     "build": "tsup src/index.ts src/cli/index.ts src/public/package.ts src/public/catalog.ts src/public/profile.ts src/public/relationship.ts src/public/gateway.ts src/public/storage.ts src/public/publishing.ts --format esm --dts",
+    "smoke:subpaths": "corepack pnpm build && node test/package-subpath-import-smoke.mjs && tsc --noEmit --target ES2022 --module NodeNext --moduleResolution NodeNext --strict --skipLibCheck --types node test/package-subpath-type-consumer.ts",
     "demo": "corepack pnpm build && node examples/customer-orders/run-demo.mjs",
     "demo:storage": "corepack pnpm build && node examples/customer-orders-storage/run-demo.mjs",
     "demo:profile": "corepack pnpm build && node examples/profile-kafka/run-demo.mjs",
