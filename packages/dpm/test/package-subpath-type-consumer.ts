@@ -32,6 +32,9 @@ import {
   approveDpmProfileRelationshipHintRuntime,
   createDpmGatewayRuntime,
   getDpmGatewayOpenApiDocument,
+  listDpmRegistryRelationshipAuditEventsRuntime,
+  type DpmGatewayRegistryAuditEventListInput,
+  type DpmGatewayRegistryAuditEventListResult,
   type DpmGatewayProfileRelationshipHintApprovalInput,
   type DpmGatewayRuntime,
 } from '@oa-sdk/dpm/gateway'
@@ -39,6 +42,7 @@ import {
   createDpmRegistryRelationshipRow,
   DPM_REGISTRY_RELATIONSHIP_AUDIT_EVENT_TYPES,
   DPM_PROFILE_BASELINE_SELECTION_STRATEGIES,
+  type DpmRegistryAuditEventReader,
   type DpmRegistryRelationshipAuditEventRow,
   type DpmRegistryRelationshipSaveInput,
   type DpmRegistryWritableRepository,
@@ -58,8 +62,11 @@ type DpmSubpathTypeSmoke = {
   profileRelationshipCandidateBridge?: DpmProfileRelationshipCandidateBridgeInput
   resolvedProfileRelationshipCandidateBridge?: DpmProfileResolvedRelationshipCandidateBridgeInput
   profileRelationshipHintApproval?: DpmGatewayProfileRelationshipHintApprovalInput
+  registryAuditEventList?: DpmGatewayRegistryAuditEventListInput
+  registryAuditEventListResult?: DpmGatewayRegistryAuditEventListResult
   baseline?: DpmProfileBaselineSummary
   registryAuditEvent?: DpmRegistryRelationshipAuditEventRow
+  registryAuditEventReader?: DpmRegistryAuditEventReader
   registryRelationshipSave?: DpmRegistryRelationshipSaveInput
   approvedRegistryApproval?: ApprovedRegistryApprovalMetadata
   approvedRegistryRelationship?: ApprovedRegistryRelationshipInput
@@ -91,6 +98,7 @@ void [
   resolveDpmRelationshipCandidateEndpointsFromProfileHint,
   resolveDpmProfileAnalysisPolicy,
   approveDpmProfileRelationshipHintRuntime,
+  listDpmRegistryRelationshipAuditEventsRuntime,
   DPM_REGISTRY_RELATIONSHIP_AUDIT_EVENT_TYPES,
   createDpmRegistryRelationshipRow,
   typeSmoke,

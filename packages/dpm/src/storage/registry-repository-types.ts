@@ -1,4 +1,5 @@
 export type {
+  DpmRegistryAuditEventReader,
   DpmRegistryRepository,
   DpmRegistryStorage,
   DpmRegistryStorageReader,

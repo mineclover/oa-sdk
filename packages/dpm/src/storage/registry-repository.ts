@@ -22,6 +22,7 @@ export type {
   DpmRegistryRelationshipRow,
   DpmRegistryRelationshipSaveInput,
   DpmRegistryRelationshipRowRequest,
+  DpmRegistryAuditEventReader,
   DpmRegistryRepository,
   DpmRegistryRowsToSnapshotInput,
   DpmRegistrySnapshotExportRequest,

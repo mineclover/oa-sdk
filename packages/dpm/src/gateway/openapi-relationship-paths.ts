@@ -43,5 +43,14 @@ export function createDpmRelationshipGatewayPaths() {
         responseSchema: 'DpmRegistrySnapshotResponse',
       }),
     },
+    '/dpm/registry/audit-events/list': {
+      post: gatewayOperation({
+        operationId: 'listDpmRegistryRelationshipAuditEvents',
+        tags: ['relationships'],
+        summary: 'List append-only relationship registry approval audit events.',
+        requestBody: jsonRequestBody('DpmRegistryAuditEventListRequest'),
+        responseSchema: 'DpmRegistryAuditEventListResponse',
+      }),
+    },
   } as const
 }

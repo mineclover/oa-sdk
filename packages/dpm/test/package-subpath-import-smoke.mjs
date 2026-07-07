@@ -24,9 +24,11 @@ const checks = [
     && typeof profileModule.resolveDpmProfileAnalysisPolicy === 'function'
     && profileModule.DEFAULT_DPM_PROFILE_ANALYSIS_POLICY.measuredRelationshipPresenceThreshold === 0.95],
   ['relationship', typeof relationshipModule.createLogicalRelationship === 'function'],
-  ['gateway', typeof gatewayModule.createDpmGatewayRuntime === 'function'],
+  ['gateway', typeof gatewayModule.createDpmGatewayRuntime === 'function'
+    && typeof gatewayModule.listDpmRegistryRelationshipAuditEventsRuntime === 'function'],
   ['storage', typeof storageModule.createDpmProfileBaselineRepository === 'function'
-    && typeof storageModule.createDpmRegistryRelationshipRow === 'function'],
+    && typeof storageModule.createDpmRegistryRelationshipRow === 'function'
+    && Array.isArray(storageModule.DPM_REGISTRY_RELATIONSHIP_AUDIT_EVENT_TYPES)],
   ['publishing', typeof publishingModule.createDpmPublishingContext === 'function'],
 ]
 

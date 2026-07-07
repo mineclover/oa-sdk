@@ -16,6 +16,12 @@ export type DpmRegistryStorageReader = {
   ): Promise<readonly DpmRegistryRelationshipRow[]> | readonly DpmRegistryRelationshipRow[]
 }
 
+export type DpmRegistryAuditEventReader = {
+  listRelationshipAuditEvents(
+    request: DpmRegistryRelationshipAuditEventRequest,
+  ): Promise<readonly DpmRegistryRelationshipAuditEventRow[]> | readonly DpmRegistryRelationshipAuditEventRow[]
+}
+
 export type DpmRegistryStorage = DpmRegistryStorageReader & {
   upsertRelationshipRow(row: DpmRegistryRelationshipRow): Promise<void> | void
   appendRelationshipAuditEvent?(row: DpmRegistryRelationshipAuditEventRow): Promise<void> | void

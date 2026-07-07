@@ -10,6 +10,7 @@ Last updated: 2026-07-07
 
 ## Recently Completed
 
+- [x] Goal 41 / DPM Registry Audit Event Timeline Runtime (complete)
 - [x] Goal 40 / DPM Registry Approval Audit Events (complete)
 - [x] Goal 39 / DPM Profile Hint Approval Workflow (complete)
 - [x] Goal 38 / DPM Profile Hint Endpoint Resolution (complete)
@@ -90,6 +91,7 @@ Last updated: 2026-07-07
 - [x] Goal 38 - DPM Profile Hint Endpoint Resolution
 - [x] Goal 39 - DPM Profile Hint Approval Workflow
 - [x] Goal 40 - DPM Registry Approval Audit Events
+- [x] Goal 41 - DPM Registry Audit Event Timeline Runtime
 
 ## Goal 4 DPM Units
 

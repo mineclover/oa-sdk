@@ -9,6 +9,7 @@ export const GATEWAY_OPENAPI_PATHS = [
   '/dpm/profiles/baselines/summaries',
   '/dpm/profiles/inspect',
   '/dpm/profiles/proposals/{proposalId}/review',
+  '/dpm/registry/audit-events/list',
   '/dpm/registry/snapshots/{datasetId}/{registryVersion}',
   '/dpm/relationships/candidates/import',
   '/dpm/relationships/discover',

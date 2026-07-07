@@ -9,6 +9,7 @@ import {
   resolveDpmGatewayRelationshipDiscoveryRuntimeInput,
   summarizeDpmProfileBaselineRow,
   type DpmRegistryRelationshipRow,
+  type DpmRegistryRelationshipAuditEventRow,
   type DpmGatewayRelationshipDiscoveryRequest,
   type DpmGatewayRuntime,
   type DpmGatewayRuntimeManifestInput,
@@ -242,17 +243,30 @@ describe('DPM gateway consumer smoke', () => {
     const registryResponseSchemaName = extractResponseSchemaName(registryOperation)
     const registryResponseSchema = compileGatewayComponentSchema(registryResponseSchemaName)
     const registryRows: DpmRegistryRelationshipRow[] = []
+    const auditEvents: DpmRegistryRelationshipAuditEventRow[] = []
     const upsertRelationshipRow = vi.fn((row: DpmRegistryRelationshipRow) => {
       registryRows.push(row)
+    })
+    const appendRelationshipAuditEvent = vi.fn((row: DpmRegistryRelationshipAuditEventRow) => {
+      auditEvents.push(row)
     })
     const listRelationshipRows = vi.fn(request =>
       registryRows.filter(row =>
         row.datasetId === request.datasetId && row.registryVersion === request.registryVersion,
       ),
     )
+    const listRelationshipAuditEvents = vi.fn(request =>
+      auditEvents.filter(row =>
+        row.datasetId === request.datasetId
+        && row.registryVersion === request.registryVersion
+        && (!request.relationshipName || row.relationshipName === request.relationshipName),
+      ),
+    )
     const registryRepository = createDpmRegistryRepository({
       upsertRelationshipRow,
+      appendRelationshipAuditEvent,
       listRelationshipRows,
+      listRelationshipAuditEvents,
     })
     const savedRelationship = await registryRepository.saveRelationship({
       datasetId: discovery.body.result.datasetId,
@@ -295,6 +309,49 @@ describe('DPM gateway consumer smoke', () => {
       datasetId: 'commerce_ai',
       registryVersion: loadedInput.registry.registryVersion,
     })
+    expect(appendRelationshipAuditEvent).toHaveBeenCalledWith(expect.objectContaining({
+      eventType: 'relationship_approved',
+      relationshipName: 'rel_orders_customer',
+      relationshipStatus: 'approved',
+      actor: 'privacy-reviewer',
+    }))
+
+    const auditOperation = document.paths['/dpm/registry/audit-events/list'].post
+    const auditRequestSchemaName = extractRequestSchemaName(auditOperation)
+    const auditResponseSchemaName = extractResponseSchemaName(auditOperation)
+    const auditRequest = {
+      datasetId: 'commerce_ai',
+      registryVersion: loadedInput.registry.registryVersion,
+      relationshipName: 'rel_orders_customer',
+    }
+    const auditRequestSchema = compileGatewayComponentSchema(auditRequestSchemaName)
+    const auditResponseSchema = compileGatewayComponentSchema(auditResponseSchemaName)
+    const auditTimeline = await runtime.listDpmRegistryRelationshipAuditEvents({
+      ...auditRequest,
+      registryAuditEventRepository: {
+        listRelationshipAuditEvents,
+      },
+    })
+
+    expect(auditOperation.operationId).toBe('listDpmRegistryRelationshipAuditEvents')
+    expect(auditRequestSchemaName).toBe('DpmRegistryAuditEventListRequest')
+    expect(auditResponseSchemaName).toBe('DpmRegistryAuditEventListResponse')
+    expect(auditRequestSchema(auditRequest), JSON.stringify(auditRequestSchema.errors, null, 2)).toBe(true)
+    expect(auditTimeline.operationId).toBe('listDpmRegistryRelationshipAuditEvents')
+    expect(auditTimeline.statusCode).toBe(200)
+    expect(auditTimeline.body.command).toBe('list-registry-audit-events')
+    expect(listRelationshipAuditEvents).toHaveBeenCalledWith(auditRequest)
+    expect(
+      auditResponseSchema(auditTimeline.body.result),
+      JSON.stringify(auditResponseSchema.errors, null, 2),
+    ).toBe(true)
+    expect(auditTimeline.body.result.auditEvents).toEqual([
+      expect.objectContaining({
+        eventType: 'relationship_approved',
+        relationshipName: 'rel_orders_customer',
+        relationshipStatus: 'approved',
+      }),
+    ])
 
     const compileInputSource: DpmGatewayRuntimeManifestInput = {
       ...loadedInput,

@@ -20,6 +20,9 @@ import type {
 } from '../registry/types.js'
 import type {
   DpmRegistryRelationshipRow,
+  DpmRegistryRelationshipAuditEventRequest,
+  DpmRegistryRelationshipAuditEventRow,
+  DpmRegistryAuditEventReader,
   DpmRegistryRepository,
   DpmRegistryWritableRepository,
 } from '../storage/registry-repository-types.js'
@@ -117,3 +120,12 @@ export type DpmGatewayRegistrySnapshotExportInput = {
 }
 
 export type DpmGatewayRegistrySnapshotExportResult = RegistrySnapshot
+
+export type DpmGatewayRegistryAuditEventListInput =
+  DpmRegistryRelationshipAuditEventRequest & {
+    registryAuditEventRepository: DpmRegistryAuditEventReader
+  }
+
+export type DpmGatewayRegistryAuditEventListResult = {
+  auditEvents: DpmRegistryRelationshipAuditEventRow[]
+}

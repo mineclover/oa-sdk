@@ -16,6 +16,8 @@ export type {
 export type {
   DpmGatewayCandidateImportInput,
   DpmGatewayCandidateImportResult,
+  DpmGatewayRegistryAuditEventListInput,
+  DpmGatewayRegistryAuditEventListResult,
   DpmGatewayRegistrySnapshotExportInput,
   DpmGatewayRegistrySnapshotExportResult,
   DpmGatewayProfileRelationshipHintApprovalInput,
@@ -79,3 +81,6 @@ export {
 export {
   exportDpmRegistrySnapshotRuntime,
 } from './runtime-relationship-registry-export.js'
+export {
+  listDpmRegistryRelationshipAuditEventsRuntime,
+} from './runtime-relationship-registry-audit-events.js'

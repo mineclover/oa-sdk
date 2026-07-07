@@ -46,6 +46,10 @@ export const gatewayMinimalRequestCases = [
     approvedBy: 'reviewer',
     reason: 'reviewed',
   }],
+  ['DpmRegistryAuditEventListRequest', {
+    datasetId: 'commerce_ai',
+    registryVersion: 'reg-2026-07-01',
+  }],
   ['DpmManifestValidationRequest', { manifest, catalogSnapshot: snapshotRef, registrySnapshot: snapshotRef }],
   ['DpmManifestCompileRequest', { manifest, catalogSnapshot: snapshotRef, registrySnapshot: snapshotRef }],
   ['DpmManifestDryRunRequest', { manifest, catalogSnapshot: snapshotRef, registrySnapshot: snapshotRef }],

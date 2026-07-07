@@ -15,6 +15,8 @@ import type {
 import type {
   DpmGatewayCandidateImportInput,
   DpmGatewayCandidateImportResult,
+  DpmGatewayRegistryAuditEventListInput,
+  DpmGatewayRegistryAuditEventListResult,
   DpmGatewayRegistrySnapshotExportInput,
   DpmGatewayRegistrySnapshotExportResult,
   DpmGatewayProfileRelationshipHintApprovalInput,
@@ -54,6 +56,9 @@ export type DpmGatewayRuntime = {
   exportDpmRegistrySnapshot(
     input: DpmGatewayRegistrySnapshotExportInput,
   ): Promise<DpmGatewayRuntimeResponse<DpmGatewayRegistrySnapshotExportResult>>
+  listDpmRegistryRelationshipAuditEvents(
+    input: DpmGatewayRegistryAuditEventListInput,
+  ): Promise<DpmGatewayRuntimeResponse<DpmGatewayRegistryAuditEventListResult>>
   validateDpmManifest(input: DpmGatewayRuntimeManifestInput): Promise<DpmGatewayRuntimeResponse<DpmValidationResult>>
   compileDpmManifest(input: DpmGatewayRuntimeManifestInput): Promise<DpmGatewayRuntimeResponse<DpmCompileResult>>
   dryRunDpmManifest(input: DpmGatewayRuntimeManifestInput): Promise<DpmGatewayRuntimeResponse<DpmCompileResult | DpmDryRunReport>>

@@ -262,6 +262,7 @@ category barrel을 가리킨다. `packages/dpm/test/package-subpath-import-smoke
 | `DpmRegistryRelationshipRow` | `dpm/src/storage/registry-repository-types.ts` | canonical storage row shape for relationship registry records |
 | `DpmRegistryRowsToSnapshotInput` | `dpm/src/storage/registry-repository-types.ts` | row-to-snapshot export input |
 | `DpmRegistryStorageReader` | `dpm/src/storage/registry-repository-types.ts` | repository adapter boundary for listing registry rows |
+| `DpmRegistryAuditEventReader` | `dpm/src/storage/registry-repository-types.ts` | read-only adapter boundary for listing registry approval audit events |
 | `DpmRegistryStorage` | `dpm/src/storage/registry-repository-types.ts` | writable registry storage adapter boundary for upserting rows and optionally appending/listing audit events |
 | `DpmRegistryRepository` | `dpm/src/storage/registry-repository-types.ts` | storage-backed snapshot export repository |
 | `DpmRegistryWritableRepository` | `dpm/src/storage/registry-repository-types.ts` | registry repository with saveRelationship persistence bridge and optional audit event listing |
@@ -405,6 +406,8 @@ category barrel을 가리킨다. `packages/dpm/test/package-subpath-import-smoke
 | `DpmGatewayProfileRelationshipHintApprovalResult` | `dpm/src/gateway/runtime-relationship-types.ts` | profile hint approval workflow result with candidate import, approved relationship, saved row, and exported registry snapshot |
 | `DpmGatewayRegistrySnapshotExportInput` | `dpm/src/gateway/runtime-relationship-types.ts` | repository-backed registry snapshot export runtime input |
 | `DpmGatewayRegistrySnapshotExportResult` | `dpm/src/gateway/runtime-relationship-types.ts` | schema-valid registry snapshot export runtime result |
+| `DpmGatewayRegistryAuditEventListInput` | `dpm/src/gateway/runtime-relationship-types.ts` | repository-backed registry approval audit event timeline list runtime input |
+| `DpmGatewayRegistryAuditEventListResult` | `dpm/src/gateway/runtime-relationship-types.ts` | schema-valid registry approval audit event timeline list result |
 | `DpmGatewayRuntimeOperationId` | `dpm/src/gateway/runtime-operation-ids.ts` | runtime operation id taxonomy |
 | `DpmGatewayRuntimeStatusCode` | `dpm/src/gateway/runtime-response-types.ts` | runtime success or blocking-diagnostic status code |
 | `DpmGatewayRuntimeCommand` | `dpm/src/gateway/runtime-response-types.ts` | profile, relationship, and manifest runtime command taxonomy |
@@ -428,7 +431,8 @@ category barrel을 가리킨다. `packages/dpm/test/package-subpath-import-smoke
 | `approveDpmRelationshipCandidateRuntime()` | `dpm/src/gateway/runtime-relationship-approve.ts` | relationship candidate approval runtime handler returning an approved registry relationship payload without storage mutation and rejecting non-review candidates |
 | `approveDpmProfileRelationshipHintRuntime()` | `dpm/src/gateway/runtime-profile-relationship-hint-approval.ts` | product workflow helper that resolves a profile hint, imports a review candidate, approves it, saves the approved row, and exports the registry snapshot |
 | `exportDpmRegistrySnapshotRuntime()` | `dpm/src/gateway/runtime-relationship-registry-export.ts` | repository-backed registry snapshot export runtime handler returning schema-valid registry snapshots |
-| `createDpmGatewayRuntime()` | `dpm/src/gateway/runtime-factory.ts` | source-DB-free runtime adapter for profile, relationship, profile hint approval, registry export, and manifest operations |
+| `listDpmRegistryRelationshipAuditEventsRuntime()` | `dpm/src/gateway/runtime-relationship-registry-audit-events.ts` | repository-backed registry approval audit event timeline runtime handler returning schema-valid copied events |
+| `createDpmGatewayRuntime()` | `dpm/src/gateway/runtime-factory.ts` | source-DB-free runtime adapter for profile, relationship, profile hint approval, registry export, registry audit timeline, and manifest operations |
 | `DpmRelationshipMetadata` | `dpm/src/publishing/types.ts` | AI-publishable approved relationship metadata |
 | `DpmAiRelationshipContext` | `dpm/src/publishing/types.ts` | AI schema relationship context entry |
 | `DpmAiSchemaContext` | `dpm/src/publishing/types.ts` | read-only AI schema context envelope |

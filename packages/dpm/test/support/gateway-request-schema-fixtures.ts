@@ -7,6 +7,7 @@ export const GATEWAY_WRITE_REQUEST_SCHEMA_NAMES = [
   'DpmRelationshipDiscoveryRequest',
   'DpmCandidateImportRequest',
   'DpmRelationshipApprovalRequest',
+  'DpmRegistryAuditEventListRequest',
   'DpmManifestValidationRequest',
   'DpmManifestCompileRequest',
   'DpmManifestDryRunRequest',

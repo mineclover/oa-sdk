@@ -3,6 +3,9 @@ import { REGISTRY_RELATIONSHIP_KINDS } from '../registry/registry-relationship-k
 import { REGISTRY_RELATIONSHIP_STATUSES } from '../registry/registry-relationship-status-taxonomy.js'
 import { REGISTRY_TRANSFORM_STRATEGIES } from '../registry/registry-transform-taxonomy.js'
 import {
+  DPM_REGISTRY_RELATIONSHIP_AUDIT_EVENT_TYPES,
+} from '../storage/registry-audit-row-types.js'
+import {
   arrayOf,
   countRecordSchema,
   integerSchema,
@@ -39,6 +42,42 @@ export function createDpmGatewayRelationshipRegistrySchemas() {
       'approvedRelationships',
       'nonExecutableRelationships',
       'summary',
+    ]),
+    DpmRegistryAuditEventListRequest: requiredObjectSchema({
+      datasetId: stringSchema(),
+      registryVersion: stringSchema(),
+      relationshipName: stringSchema(),
+    }, ['datasetId', 'registryVersion']),
+    DpmRegistryAuditEventListResponse: requiredObjectSchema({
+      auditEvents: arrayOf(ref('DpmRegistryRelationshipAuditEvent')),
+    }),
+    DpmRegistryRelationshipAuditEvent: requiredObjectSchema({
+      eventId: stringSchema(),
+      eventType: { type: 'string', enum: [...DPM_REGISTRY_RELATIONSHIP_AUDIT_EVENT_TYPES] },
+      datasetId: stringSchema(),
+      registryVersion: stringSchema(),
+      relationshipName: stringSchema(),
+      relationshipVersion: stringSchema(),
+      relationshipStatus: { type: 'string', enum: [...REGISTRY_RELATIONSHIP_STATUSES] },
+      actor: stringSchema(),
+      reason: stringSchema(),
+      occurredAt: stringSchema(),
+      sourceFreshnessHash: stringSchema(),
+      approval: ref('DpmRegistryApprovalMetadata'),
+      source: ref('DpmDiscoverySourceCoordinate'),
+      createdAt: stringSchema(),
+    }, [
+      'eventId',
+      'eventType',
+      'datasetId',
+      'registryVersion',
+      'relationshipName',
+      'relationshipVersion',
+      'relationshipStatus',
+      'actor',
+      'reason',
+      'occurredAt',
+      'approval',
     ]),
     DpmRegistryRelationship: requiredObjectSchema({
       name: stringSchema(),

@@ -8,6 +8,7 @@ export const GATEWAY_WORKFLOW_RESPONSE_SCHEMA_NAMES = [
   'DpmCandidateImportResponse',
   'DpmRelationshipApprovalResponse',
   'DpmRegistrySnapshotResponse',
+  'DpmRegistryAuditEventListResponse',
   'DpmExecuteJobResponse',
   'DpmJobReport',
 ] as const

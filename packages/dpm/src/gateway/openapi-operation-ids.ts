@@ -8,6 +8,7 @@ export const DPM_GATEWAY_OPERATION_IDS = [
   'importDpmRelationshipCandidates',
   'approveDpmRelationshipCandidate',
   'exportDpmRegistrySnapshot',
+  'listDpmRegistryRelationshipAuditEvents',
   'validateDpmManifest',
   'compileDpmManifest',
   'dryRunDpmManifest',
