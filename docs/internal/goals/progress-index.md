@@ -1,6 +1,6 @@
 # Goal Progress Index
 
-Last updated: 2026-07-04
+Last updated: 2026-07-07
 
 이 파일은 goal 진행 현황만 관리한다. 설계, 범위, 수용 기준은 각 goal 문서를 따른다.
 
@@ -10,6 +10,7 @@ Last updated: 2026-07-04
 
 ## Recently Completed
 
+- [x] Goal 8 / DPM Profile Baseline Storage (complete)
 - [x] Goal 7 / DPM Profile/Connector Contract (complete)
 - [x] Goal 6 / DPM Contract Stabilization (complete)
 - [x] Goal 5 / DPM Runtime And Storage Integration (complete)
@@ -24,6 +25,7 @@ Last updated: 2026-07-04
 - [x] Goal 5 - DPM Runtime And Storage Integration
 - [x] Goal 6 - DPM Contract Stabilization
 - [x] Goal 7 - DPM Profile/Connector Contract
+- [x] Goal 8 - DPM Profile Baseline Storage
 
 ## Goal 4 DPM Units
 
@@ -65,6 +67,10 @@ Last updated: 2026-07-04
 - [x] DPM-25 - Kafka Topic Profile Fixture Adapter
 - [x] DPM-26 - Profile Analysis Report
 - [x] DPM-27 - Profile Gateway And Editor Contract
+
+## Goal 8 DPM Units
+
+- [x] DPM-28 - Profile Baseline Repository
 
 ## Done Criteria
 

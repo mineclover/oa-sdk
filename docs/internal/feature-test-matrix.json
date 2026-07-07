@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-07-04",
+  "updatedAt": "2026-07-07",
   "description": "Feature-to-test mapping for oa-sdk. Each feature lists representative automated coverage and the commands that maintain it.",
   "features": [
     {
@@ -288,6 +288,31 @@
       ],
       "commands": [
         "pnpm --filter @oa-sdk/dpm test -- profile-analysis",
+        "pnpm --filter @oa-sdk/dpm typecheck"
+      ]
+    },
+    {
+      "id": "dpm-profile-baseline-storage",
+      "name": "DPM profile baseline storage",
+      "category": "dpm",
+      "package": "@oa-sdk/dpm",
+      "description": "Profile artifact and analysis report baseline persistence for repeatable current-vs-previous drift comparisons.",
+      "capabilities": [
+        "profile baseline row identity",
+        "profile artifact persistence",
+        "analysis report persistence",
+        "profile and report freshness references",
+        "adapter-backed save get list repository",
+        "defensive copy on save and retrieval",
+        "metadata-only adapter row projection",
+        "mismatched report rejection",
+        "raw sample and secret exclusion"
+      ],
+      "testPaths": [
+        "packages/dpm/test/storage-profile-baseline-repository.test.ts"
+      ],
+      "commands": [
+        "pnpm --filter @oa-sdk/dpm test -- storage-profile-baseline",
         "pnpm --filter @oa-sdk/dpm typecheck"
       ]
     },

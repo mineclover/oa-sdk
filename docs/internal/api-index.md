@@ -311,6 +311,16 @@ catalog/registry snapshot, semantic validator, compiler, CLI/gateway/publishing 
 | `createDpmValidationReport()` | `dpm/src/storage/report-row-builder.ts` | copy-only validation report builder that excludes unsafe payload fields |
 | `validationReportToGatewayJobReport()` | `dpm/src/storage/report-gateway-projection.ts` | stored report to gateway job report projection |
 | `createDpmReportRepository()` | `dpm/src/storage/report-repository.ts` | adapter-backed validation report repository factory |
+| `DPM_PROFILE_BASELINE_KIND` | `dpm/src/storage/profile-baseline-repository.ts` | persisted profile baseline row kind literal |
+| `DpmProfileBaselineRequest` | `dpm/src/storage/profile-baseline-repository.ts` | profile baseline lookup request |
+| `DpmProfileBaselineListRequest` | `dpm/src/storage/profile-baseline-repository.ts` | profile baseline list request for dataset/profile history |
+| `DpmProfileBaselineSaveInput` | `dpm/src/storage/profile-baseline-repository.ts` | profile artifact and optional analysis report persistence input |
+| `DpmProfileBaselineRow` | `dpm/src/storage/profile-baseline-repository.ts` | persisted profile baseline artifact/report row |
+| `DpmProfileBaselineStorage` | `dpm/src/storage/profile-baseline-repository.ts` | storage adapter boundary for profile baselines |
+| `DpmProfileBaselineRepository` | `dpm/src/storage/profile-baseline-repository.ts` | profile baseline persistence and retrieval repository surface |
+| `createDpmProfileBaselineRow()` | `dpm/src/storage/profile-baseline-repository.ts` | copy-only profile baseline row builder with profile/report consistency guard |
+| `copyDpmProfileBaselineRow()` | `dpm/src/storage/profile-baseline-repository.ts` | profile baseline row copy helper that preserves stored metadata |
+| `createDpmProfileBaselineRepository()` | `dpm/src/storage/profile-baseline-repository.ts` | adapter-backed profile baseline repository factory |
 | `DpmGatewayOperationId` | `dpm/src/gateway/openapi-operation-ids.ts` | DPM gateway operation id taxonomy |
 | `DpmGatewayOpenApiDocument` | `dpm/src/gateway/openapi.ts` | DPM gateway OpenAPI 3.2 document type |
 | `DPM_GATEWAY_OPERATION_IDS` | `dpm/src/gateway/openapi-operation-ids.ts` | required DPM gateway operation id list |
