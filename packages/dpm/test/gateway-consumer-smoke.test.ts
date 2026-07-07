@@ -1,9 +1,11 @@
 import { describe, expect, it, vi } from 'vitest'
 
 import {
+  createDpmProfileBaselineRow,
   createDpmGatewayRuntime,
   getDpmGatewayOpenApiDocument,
   resolveDpmGatewayManifestRuntimeInput,
+  summarizeDpmProfileBaselineRow,
   type DpmGatewayRuntime,
   type DpmGatewayRuntimeManifestInput,
   type DpmGatewayRuntimeOperationId,
@@ -12,6 +14,9 @@ import {
 } from '../src/index.js'
 import { compileGatewayComponentSchema } from './support/gateway-schema.js'
 import { createRuntimeInput } from './support/gateway-runtime-manifest-fixtures.js'
+import {
+  createKafkaProfileArtifactWithCustomerNoPresence,
+} from './support/profile-analysis-fixtures.js'
 
 type ManifestConsumerOperation = {
   operationId: Extract<
@@ -108,6 +113,58 @@ describe('DPM gateway consumer smoke', () => {
       },
     })
     expect(JSON.stringify(dryRun.body.result)).not.toContain('C-001')
+  })
+
+  it('routes the documented profile baseline summary operation to a schema-valid runtime response', async () => {
+    const document = getDpmGatewayOpenApiDocument()
+    const runtime = createDpmGatewayRuntime()
+    const operation = document.paths['/dpm/profiles/baselines/summaries'].post
+    const requestSchemaName = extractRequestSchemaName(operation)
+    const responseSchemaName = extractResponseSchemaName(operation)
+    const baseline = createDpmProfileBaselineRow({
+      profileArtifact: createKafkaProfileArtifactWithCustomerNoPresence(0.91),
+      measuredAt: '2026-07-07T00:00:00.000Z',
+      measurementRunHash: 'sha256:consumer-smoke-run',
+      storedAt: '2026-07-07T00:05:00.000Z',
+    })
+    const adapterSummary = summarizeDpmProfileBaselineRow(baseline)
+    const request = {
+      datasetId: baseline.datasetId,
+      profileId: baseline.profileId,
+      limit: 1,
+    }
+    const listProfileBaselineSummaries = vi.fn(async () => [adapterSummary])
+    const requestSchema = compileGatewayComponentSchema(requestSchemaName)
+    const responseSchema = compileGatewayComponentSchema(responseSchemaName)
+
+    const response = await runtime.listDpmProfileBaselineSummaries({
+      ...request,
+      profileBaselineRepository: {
+        listProfileBaselineSummaries,
+      },
+    })
+
+    expect(operation.operationId).toBe('listDpmProfileBaselineSummaries')
+    expect(requestSchemaName).toBe('DpmProfileBaselineSummaryListRequest')
+    expect(responseSchemaName).toBe('DpmProfileBaselineSummaryListResponse')
+    expect(requestSchema(request), JSON.stringify(requestSchema.errors, null, 2)).toBe(true)
+    expect(response.operationId).toBe('listDpmProfileBaselineSummaries')
+    expect(response.statusCode).toBe(200)
+    expect(response.body.command).toBe('list-profile-baseline-summaries')
+    expect(listProfileBaselineSummaries).toHaveBeenCalledWith(request)
+    expect(
+      responseSchema(response.body.result),
+      JSON.stringify(responseSchema.errors, null, 2),
+    ).toBe(true)
+    expect(response.body.result.baselineSummaries).toEqual([
+      expect.objectContaining({
+        baselineRef: baseline.baselineRef,
+        measurementId: baseline.measurementId,
+        hasAnalysisReport: false,
+      }),
+    ])
+    expect(JSON.stringify(response.body.result)).not.toContain('profileArtifact')
+    expect(JSON.stringify(response.body.result)).not.toContain('analysisReport')
   })
 })
 

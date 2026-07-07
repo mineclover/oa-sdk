@@ -10,6 +10,7 @@ Last updated: 2026-07-07
 
 ## Recently Completed
 
+- [x] Goal 19 / DPM Profile Baseline Summary Consumer Smoke (complete)
 - [x] Goal 18 / DPM Profile Baseline Summary Invariants (complete)
 - [x] Goal 17 / DPM Profile Baseline Summary-First Selection (complete)
 - [x] Goal 16 / DPM Profile Baseline Summary Gateway (complete)
@@ -46,6 +47,7 @@ Last updated: 2026-07-07
 - [x] Goal 16 - DPM Profile Baseline Summary Gateway
 - [x] Goal 17 - DPM Profile Baseline Summary-First Selection
 - [x] Goal 18 - DPM Profile Baseline Summary Invariants
+- [x] Goal 19 - DPM Profile Baseline Summary Consumer Smoke
 
 ## Goal 4 DPM Units
 
@@ -131,6 +133,10 @@ Last updated: 2026-07-07
 ## Goal 18 DPM Units
 
 - [x] DPM-38 - Profile Baseline Summary Invariant Guard
+
+## Goal 19 DPM Units
+
+- [x] DPM-39 - Profile Baseline Summary Consumer Gateway Smoke
 
 ## Done Criteria
 
