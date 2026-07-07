@@ -30,7 +30,7 @@ describe('DPM registry storage schema', () => {
     expect(sql).toContain('constraint dpm_relationship_registry_orphan_policy_check check')
     expect(sql).toContain('create unique index if not exists dpm_relationship_registry_identity_idx')
     expect(sql).toContain('on dpm.relationship_registry (dataset_id, registry_version, relationship_name, relationship_version)')
-    expect(sql).toContain('create index if not exists dpm_relationship_registry_approved_idx')
+    expect(sql).toContain('create unique index if not exists dpm_relationship_registry_approved_idx')
     expect(sql).toContain("where status = 'approved'")
   })
 })

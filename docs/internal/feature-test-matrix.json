@@ -423,15 +423,16 @@
       "name": "DPM registry storage",
       "category": "dpm",
       "package": "@oa-sdk/dpm",
-      "description": "Postgres canonical registry storage schema, approved-only payload persistence bridge, and row export to the existing registry snapshot contract.",
+      "description": "Postgres canonical registry storage schema, approved-only payload persistence bridge, single approved relationship name guard, and row export to the existing registry snapshot contract.",
       "capabilities": [
         "Postgres registry schema SQL",
         "relationship lifecycle check constraints",
         "composite identity index",
-        "approved partial index",
+        "approved partial unique index",
         "storage row to registry snapshot export",
         "approved-only relationship payload to storage row save bridge",
         "non-approved save boundary rejection",
+        "single approved relationship name guard",
         "writable repository adapter defensive copy boundary",
         "dataset and registry version scope guard",
         "no live source database requirement"

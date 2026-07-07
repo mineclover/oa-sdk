@@ -196,4 +196,51 @@ describe('DPM registry storage repository', () => {
     expect(() => createDpmRegistryRelationshipRow(saveInput))
       .toThrow('DPM registry saveRelationship only accepts approved relationships: rel_orders_status is rejected.')
   })
+
+  it('rejects another approved version for the same relationship name before adapter mutation', async () => {
+    const upsertRelationshipRow = vi.fn()
+    const listRelationshipRows = vi.fn(() => storageRegistryRows)
+    const repository = createDpmRegistryRepository({
+      upsertRelationshipRow,
+      listRelationshipRows,
+    })
+    const relationship: ApprovedRegistryRelationshipInput = {
+      name: 'rel_orders_customer',
+      version: '2',
+      status: 'approved',
+      type: 'many_to_one',
+      parent: {
+        table: 'public.customers',
+        columns: ['customer_no'],
+      },
+      child: {
+        table: 'public.orders',
+        columns: ['customer_no'],
+      },
+      namespace: 'customer',
+      transformStrategy: 'relationship_token',
+      orphanPolicy: 'block',
+      approval: {
+        owner: 'privacy-team',
+        approvedBy: 'dpo@example.com',
+        approvedAt: STORAGE_REGISTRY_EXPORTED_AT,
+        reason: 'New version should supersede before becoming active.',
+      },
+    }
+
+    await expect(repository.saveRelationship({
+      datasetId: STORAGE_REGISTRY_DATASET_ID,
+      registryVersion: STORAGE_REGISTRY_VERSION,
+      relationship,
+    }))
+      .rejects
+      .toThrow(
+        'DPM registry saveRelationship already has an approved relationship named rel_orders_customer: existing version 1, attempted version 2.',
+      )
+    expect(listRelationshipRows).toHaveBeenCalledWith({
+      datasetId: STORAGE_REGISTRY_DATASET_ID,
+      registryVersion: STORAGE_REGISTRY_VERSION,
+    })
+    expect(upsertRelationshipRow).not.toHaveBeenCalled()
+  })
 })
