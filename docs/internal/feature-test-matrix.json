@@ -131,7 +131,7 @@
       "name": "DPM package surface",
       "category": "dpm",
       "package": "@oa-sdk/dpm",
-      "description": "Root and category-level package exports for library consumers that want focused DPM contract imports, including built-package public subpath workflow success and blocking smoke coverage.",
+      "description": "Root and category-level package exports for library consumers that want focused DPM contract imports, including built-package public subpath workflow success, audit readback, and blocking smoke coverage.",
       "capabilities": [
         "root DPM package entrypoint",
         "package metadata subpath export",
@@ -146,6 +146,7 @@
         "built package subpath runtime import smoke",
         "built package subpath declaration consumer smoke",
         "built package public subpath workflow smoke",
+        "built package public subpath audit readback smoke",
         "built package public subpath blocking smoke",
         "package-local consumer surface guide",
         "pack dry-run file boundary smoke",

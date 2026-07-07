@@ -127,6 +127,25 @@ assertEqual(
 assertEqual(registryRows.length, 1, 'registry row count')
 assertEqual(registryAuditEvents.length, 1, 'registry audit event count')
 
+const auditTimelineResponse = await runtime.listDpmRegistryRelationshipAuditEvents({
+  datasetId: profileArtifact.datasetId,
+  registryVersion: 'registry-consumer-workflow-v1',
+  relationshipName: 'rel_orders_customer',
+  registryAuditEventRepository: registryRepository,
+})
+
+assertEqual(auditTimelineResponse.statusCode, 200, 'approval audit timeline status code')
+assertEqual(
+  auditTimelineResponse.body.result.auditEvents[0]?.eventId,
+  'audit:consumer-workflow:rel-orders-customer-approved',
+  'approval audit timeline event id',
+)
+assertEqual(
+  auditTimelineResponse.body.result.auditEvents[0]?.relationshipVersion,
+  '1',
+  'approval audit timeline relationship version',
+)
+
 const blockingResponse = await runtime.approveDpmProfileRelationshipHint({
   profileArtifact,
   relationshipHint,
@@ -160,11 +179,24 @@ assertEqual(
 )
 assertEqual(registryRows.length, 1, 'registry row count after conflict')
 assertEqual(registryAuditEvents.length, 1, 'registry audit event count after conflict')
+const auditTimelineAfterConflictResponse = await runtime.listDpmRegistryRelationshipAuditEvents({
+  datasetId: profileArtifact.datasetId,
+  registryVersion: 'registry-consumer-workflow-v1',
+  relationshipName: 'rel_orders_customer',
+  registryAuditEventRepository: registryRepository,
+})
+assertEqual(
+  auditTimelineAfterConflictResponse.body.result.auditEvents.length,
+  1,
+  'approval audit timeline count after conflict',
+)
 assertNoUnsafeFragments(JSON.stringify({
   connectorResult,
   analysis: analysisResponse.body.result,
   approval: approvalResponse.body.result,
+  auditTimeline: auditTimelineResponse.body.result,
   blocking: blockingResponse.body.result,
+  auditTimelineAfterConflict: auditTimelineAfterConflictResponse.body.result,
 }))
 
 console.log(JSON.stringify({
@@ -179,6 +211,7 @@ console.log(JSON.stringify({
   relationshipName: approvalResponse.body.result.relationshipName,
   registryVersion: approvalResponse.body.result.relationshipWriteReceipt.registryVersion,
   approvalAuditEventId: approvalResponse.body.result.relationshipWriteReceipt.approvalAuditEventId,
+  auditEventCount: auditTimelineAfterConflictResponse.body.result.auditEvents.length,
   blockingDiagnosticCode: blockingResponse.body.result.diagnostics[0]?.code,
 }, null, 2))
 
