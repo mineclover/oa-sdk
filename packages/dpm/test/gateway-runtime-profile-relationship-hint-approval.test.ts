@@ -53,6 +53,7 @@ describe('DPM gateway profile relationship hint approval workflow', () => {
       childTableByPathPrefix: {
         'orders.created': 'public.orders',
       },
+      targetCatalogAuthority: 'commerce',
       registryVersion: 'registry-profile-workflow-v1',
       version: '1',
       namespace: 'customer',
@@ -91,6 +92,7 @@ describe('DPM gateway profile relationship hint approval workflow', () => {
       relationshipName: 'rel_orders_customer',
       status: 'approved',
       candidateInput: {
+        warnings: ['target-ref-catalog-authority:commerce'],
         relationshipName: 'rel_orders_customer',
         parent: {
           table: 'public.customers',
@@ -102,6 +104,7 @@ describe('DPM gateway profile relationship hint approval workflow', () => {
         },
       },
       reviewCandidate: {
+        warnings: ['target-ref-catalog-authority:commerce'],
         recommendation: 'review',
         executable: false,
       },
@@ -202,6 +205,58 @@ describe('DPM gateway profile relationship hint approval workflow', () => {
       .not
       .toHaveProperty('approvalAuditEventId')
     expect(upsertRelationshipRow).toHaveBeenCalledOnce()
+  })
+
+  it('returns a blocking response for mismatched target catalog authority before registry mutation', async () => {
+    const runtime = createDpmGatewayRuntime()
+    const profileArtifact = createKafkaProfileArtifact()
+    const analysisReport = createDpmProfileAnalysisReport({ profileArtifact })
+    const relationshipHint = analysisReport.relationshipHints.find(candidate =>
+      candidate.id === 'proposal:edge:relationship-hint:hint:orders-created-customer'
+    )
+    if (!relationshipHint) throw new Error('expected explicit Kafka relationship hint')
+    const registryRows: DpmRegistryRelationshipRow[] = []
+    const upsertRelationshipRow = vi.fn((row: DpmRegistryRelationshipRow) => {
+      registryRows.push(row)
+    })
+    const registryRepository = createDpmRegistryRepository({
+      upsertRelationshipRow,
+      listRelationshipRows: () => registryRows,
+    })
+
+    const response = await runtime.approveDpmProfileRelationshipHint({
+      profileArtifact,
+      relationshipHint,
+      relationshipName: 'rel_orders_customer',
+      childTableByPathPrefix: {
+        'orders.created': 'public.orders',
+      },
+      targetCatalogAuthority: 'billing',
+      registryVersion: 'registry-profile-workflow-v1',
+      version: '1',
+      namespace: 'customer',
+      transformStrategy: 'relationship_token',
+      orphanPolicy: 'block',
+      owner: 'privacy-platform',
+      approvedBy: 'dpm-reviewer@example.com',
+      reason: 'Wrong catalog authority should not be approved.',
+      registryRepository,
+    })
+
+    expect(response.statusCode).toBe(400)
+    expect(response.body.result).toMatchObject({
+      relationshipName: 'rel_orders_customer',
+      status: 'blocked',
+      diagnostics: [
+        expect.objectContaining({
+          severity: 'error',
+          code: 'PROF202',
+          message: expect.stringContaining('does not match expected target catalog authority billing'),
+        }),
+      ],
+    })
+    expect(upsertRelationshipRow).not.toHaveBeenCalled()
+    expect(registryRows).toEqual([])
   })
 
   it('returns a blocking response for low-confidence profile hint candidates before registry mutation', async () => {

@@ -22,6 +22,7 @@ import {
   type DpmProfileAnalysisPolicy,
   type DpmProfileRelationshipEndpointResolution,
   type DpmProfileRelationshipEndpointResolverInput,
+  type DpmProfileRelationshipTargetRefResolution,
   type DpmProfileRelationshipCandidateBridgeInput,
   type DpmProfileResolvedRelationshipCandidateBridgeInput,
   type DpmKafkaTopicProfileInput,
@@ -118,6 +119,10 @@ const packageName: '@oa-sdk/dpm' = DPM_PACKAGE_NAME
 const manifestVersion: DpmVersion = '1.0'
 const gatewayRuntime: DpmGatewayRuntime = createDpmGatewayRuntime()
 const registryStatus: RegistryRelationshipStatus = REGISTRY_RELATIONSHIP_STATUSES[0]
+const targetRefResolution: DpmProfileRelationshipTargetRefResolution = {
+  endpointRef: 'public.customers.customer_no',
+  catalogAuthority: 'commerce',
+}
 const typeSmoke: DpmSubpathTypeSmoke = {}
 
 void [
@@ -153,5 +158,6 @@ void [
   commitDpmPostgresRegistryRelationshipApproval,
   appendDpmPostgresRegistryRelationshipAuditEvent,
   listDpmPostgresRegistryRelationshipAuditEvents,
+  targetRefResolution,
   typeSmoke,
 ]

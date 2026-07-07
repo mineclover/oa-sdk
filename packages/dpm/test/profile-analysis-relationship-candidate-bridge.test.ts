@@ -111,6 +111,7 @@ describe('DPM profile relationship candidate bridge', () => {
     const resolution = resolveDpmRelationshipCandidateEndpointsFromProfileHint({
       profileArtifact,
       relationshipHint,
+      targetCatalogAuthority: 'commerce',
       childTableByPathPrefix: {
         'orders.created': 'public.orders',
       },
@@ -119,6 +120,7 @@ describe('DPM profile relationship candidate bridge', () => {
       profileArtifact,
       relationshipHint,
       relationshipName: 'rel_orders_customer',
+      targetCatalogAuthority: 'commerce',
       childTableByPathPrefix: {
         'orders.created': 'public.orders',
       },
@@ -139,7 +141,11 @@ describe('DPM profile relationship candidate bridge', () => {
         table: 'public.orders',
         columns: ['customer_no'],
       },
-      warnings: [],
+      warnings: ['target-ref-catalog-authority:commerce'],
+      targetRef: {
+        endpointRef: 'public.customers.customer_no',
+        catalogAuthority: 'commerce',
+      },
     })
     expect(candidateInput).toMatchObject({
       relationshipName: 'rel_orders_customer',
@@ -151,7 +157,10 @@ describe('DPM profile relationship candidate bridge', () => {
         table: 'public.orders',
         columns: ['customer_no'],
       },
-      warnings: ['reviewer-mapped-from-profile'],
+      warnings: [
+        'reviewer-mapped-from-profile',
+        'target-ref-catalog-authority:commerce',
+      ],
       evidence: [
         expect.objectContaining({
           source: {
@@ -162,6 +171,8 @@ describe('DPM profile relationship candidate bridge', () => {
           },
           metadata: expect.objectContaining({
             targetRef: 'catalog://commerce/public.customers.customer_no',
+            targetRefCatalogAuthority: 'commerce',
+            targetRefEndpointPath: 'public.customers.customer_no',
             sourceCoordinate: expect.objectContaining({
               kind: 'kafka_topic_bundle',
               path: 'orders.created.value.customer.customer_no',
@@ -196,6 +207,13 @@ describe('DPM profile relationship candidate bridge', () => {
       profileArtifact,
       relationshipHint,
     })).toThrow(/cannot resolve child table/)
+
+    expect(() => resolveDpmRelationshipCandidateEndpointsFromProfileHint({
+      profileArtifact,
+      relationshipHint,
+      targetCatalogAuthority: 'billing',
+      childTable: 'public.orders',
+    })).toThrow(/does not match expected target catalog authority/)
 
     expect(() => resolveDpmRelationshipCandidateEndpointsFromProfileHint({
       profileArtifact,

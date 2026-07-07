@@ -217,6 +217,7 @@ category barrel을 가리킨다. `packages/dpm/test/package-subpath-import-smoke
 | `DpmProfileRelationshipEndpointResolverOptions` | `dpm/src/profile/analysis-relationship-candidate.ts` | profile hint endpoint resolution에서 소비자가 제공하는 child table mapping 옵션 |
 | `DpmProfileRelationshipEndpointResolverInput` | `dpm/src/profile/analysis-relationship-candidate.ts` | profile artifact와 relationship hint를 endpoint resolver에 전달하는 input |
 | `DpmProfileRelationshipEndpointResolution` | `dpm/src/profile/analysis-relationship-candidate.ts` | resolved parent/child discovery endpoints와 resolver warnings |
+| `DpmProfileRelationshipTargetRefResolution` | `dpm/src/profile/analysis-relationship-candidate.ts` | parsed profile hint targetRef endpoint path and optional catalog authority |
 | `DpmProfileRelationshipCandidateBridgeInput` | `dpm/src/profile/analysis-relationship-candidate.ts` | reviewer-supplied endpoint mapping input for profile hint to relationship candidate bridge |
 | `DpmProfileResolvedRelationshipCandidateBridgeInput` | `dpm/src/profile/analysis-relationship-candidate.ts` | profile hint endpoint resolver options를 포함한 resolved candidate bridge input |
 | `resolveDpmRelationshipCandidateEndpointsFromProfileHint()` | `dpm/src/profile/analysis-relationship-candidate.ts` | profile relationship hint의 targetRef/source coordinate와 consumer table mapping을 discovery endpoints로 변환 |

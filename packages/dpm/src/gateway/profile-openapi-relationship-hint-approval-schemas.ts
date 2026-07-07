@@ -25,6 +25,7 @@ export function createDpmProfileRelationshipHintApprovalGatewaySchemas() {
         childTable: stringSchema(),
         childTableBySourceId: recordOf(stringSchema()),
         childTableByPathPrefix: recordOf(stringSchema()),
+        targetCatalogAuthority: stringSchema(),
         type: { type: 'string', enum: [...DISCOVERY_RELATIONSHIP_CANDIDATE_TYPES] },
         candidateId: stringSchema(),
         confidenceScore: ratioSchema(),

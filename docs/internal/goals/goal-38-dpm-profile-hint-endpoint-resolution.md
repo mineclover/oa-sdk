@@ -18,6 +18,7 @@ evidence is strong enough, while keeping topic/source-to-table mapping under con
 | In scope | Out of scope |
 |---|---|
 | parse explicit `targetRef` into parent `schema.table` + column endpoint | automatic approval |
+| preserve and validate `catalog://authority/...` target authority | automatic catalog lookup |
 | derive child column from profile source coordinate pointer/path | registry mutation |
 | require consumer-provided child table mapping | implicit topic-to-table inference |
 | expose resolved bridge helper through `@oa-sdk/dpm/profile` | source DB/Kafka access |
@@ -41,6 +42,8 @@ Artifacts:
 
 Acceptance:
 - `resolveDpmRelationshipCandidateEndpointsFromProfileHint()` parses `catalog://.../schema.table.column` target refs into parent relationship discovery endpoints.
+- Resolver preserves `catalog://authority/...` authority in targetRef resolution metadata and candidate warnings.
+- Optional `targetCatalogAuthority` rejects mismatched catalog target refs before candidate import.
 - Resolver derives the child column from the profile source coordinate pointer/path.
 - Resolver requires one explicit child table mapping path: `childTable`, `childTableBySourceId`, or `childTableByPathPrefix`.
 - `createDpmRelationshipCandidateInputFromResolvedProfileHint()` creates the existing import-ready non-executable relationship candidate input using resolved endpoints.

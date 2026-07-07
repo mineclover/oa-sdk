@@ -319,6 +319,7 @@
         "relationship hint proposals",
         "measurement-derived relationship review proposals",
         "profile hint endpoint resolution from targetRef and source coordinates",
+        "profile hint targetRef catalog authority preservation",
         "reviewer-mapped relationship candidate bridge",
         "key candidates",
         "drift signals",

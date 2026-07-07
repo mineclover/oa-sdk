@@ -24,6 +24,7 @@ export type DpmProfileRelationshipEndpointResolverOptions = {
   childTable?: string
   childTableBySourceId?: Record<string, string>
   childTableByPathPrefix?: Record<string, string>
+  targetCatalogAuthority?: string
 }
 
 export type DpmProfileRelationshipEndpointResolverInput = {
@@ -35,6 +36,12 @@ export type DpmProfileRelationshipEndpointResolution = {
   parent: RelationshipDiscoveryEndpoint
   child: RelationshipDiscoveryEndpoint
   warnings: string[]
+  targetRef?: DpmProfileRelationshipTargetRefResolution
+}
+
+export type DpmProfileRelationshipTargetRefResolution = {
+  endpointRef: string
+  catalogAuthority?: string
 }
 
 export type DpmProfileResolvedRelationshipCandidateBridgeInput =
@@ -45,17 +52,21 @@ export function resolveDpmRelationshipCandidateEndpointsFromProfileHint(
   input: DpmProfileRelationshipEndpointResolverInput,
 ): DpmProfileRelationshipEndpointResolution {
   const sourceNode = findRelationshipHintSourceNode(input.profileArtifact, input.relationshipHint)
-  const parent = parseRelationshipHintTargetEndpoint(input.relationshipHint)
+  const targetRef = parseRelationshipHintTargetEndpoint({
+    relationshipHint: input.relationshipHint,
+    ...(input.targetCatalogAuthority ? { expectedCatalogAuthority: input.targetCatalogAuthority } : {}),
+  })
   const childTable = resolveRelationshipHintChildTable(input, sourceNode.coordinate)
   const childColumn = resolveProfileCoordinateColumn(input.relationshipHint, sourceNode.coordinate)
 
   return {
-    parent,
+    parent: targetRef.endpoint,
     child: {
       table: childTable,
       columns: [childColumn],
     },
-    warnings: [],
+    warnings: targetRef.warnings,
+    targetRef: targetRef.resolution,
   }
 }
 
@@ -80,6 +91,7 @@ export function createDpmRelationshipCandidateInputFromProfileHint(
     ? input.profileArtifact.nodes.find(node => node.id === input.relationshipHint.hintNodeId)
     : undefined
   const confidenceScore = input.confidenceScore ?? input.relationshipHint.confidence
+  const targetRefMetadata = targetRefMetadataForCandidate(input.relationshipHint.targetRef)
 
   return {
     id: input.candidateId ?? `candidate:profile:${toIdentifier(input.relationshipHint.id)}`,
@@ -102,6 +114,7 @@ export function createDpmRelationshipCandidateInputFromProfileHint(
         fromNodeId: input.relationshipHint.fromNodeId,
         ...(input.relationshipHint.hintNodeId ? { hintNodeId: input.relationshipHint.hintNodeId } : {}),
         ...(input.relationshipHint.targetRef ? { targetRef: input.relationshipHint.targetRef } : {}),
+        ...(targetRefMetadata ? targetRefMetadata : {}),
         evidenceIds: [...input.relationshipHint.evidenceIds].sort(),
         sourceCoordinate: copyProfileCoordinate(sourceNode.coordinate),
         ...(hintNode ? { hintCoordinate: copyProfileCoordinate(hintNode.coordinate) } : {}),
@@ -152,15 +165,32 @@ function copyProfileCoordinate(coordinate: DpmProfileCoordinate): DpmProfileCoor
   }
 }
 
-function parseRelationshipHintTargetEndpoint(
-  relationshipHint: DpmProfileRelationshipHintProposal,
-): RelationshipDiscoveryEndpoint {
+function parseRelationshipHintTargetEndpoint(input: {
+  relationshipHint: DpmProfileRelationshipHintProposal
+  expectedCatalogAuthority?: string
+}): {
+  endpoint: RelationshipDiscoveryEndpoint
+  resolution: DpmProfileRelationshipTargetRefResolution
+  warnings: string[]
+} {
+  const { relationshipHint } = input
   const targetRef = relationshipHint.targetRef?.trim()
   if (!targetRef) {
     throw new Error(`Profile relationship hint ${relationshipHint.id} does not include targetRef for endpoint resolution.`)
   }
 
-  const endpointRef = normalizeCatalogTargetEndpointRef(relationshipHint, targetRef)
+  const resolution = normalizeCatalogTargetEndpointRef(relationshipHint, targetRef)
+  if (
+    input.expectedCatalogAuthority &&
+    resolution.catalogAuthority &&
+    resolution.catalogAuthority !== input.expectedCatalogAuthority
+  ) {
+    throw new Error(
+      `Profile relationship hint ${relationshipHint.id} targetRef ${targetRef} catalog authority `
+      + `${resolution.catalogAuthority} does not match expected target catalog authority ${input.expectedCatalogAuthority}.`,
+    )
+  }
+  const endpointRef = resolution.endpointRef
   const parts = endpointRef.split('.').filter(part => part.length > 0)
   if (parts.length < 3) {
     throw new Error(
@@ -176,15 +206,19 @@ function parseRelationshipHintTargetEndpoint(
   }
 
   return {
-    table,
-    columns: [column],
+    endpoint: {
+      table,
+      columns: [column],
+    },
+    resolution,
+    warnings: targetCatalogAuthorityWarnings(resolution),
   }
 }
 
 function normalizeCatalogTargetEndpointRef(
   relationshipHint: DpmProfileRelationshipHintProposal,
   targetRef: string,
-): string {
+): DpmProfileRelationshipTargetRefResolution {
   try {
     const url = new URL(targetRef)
     if (url.protocol !== 'catalog:') {
@@ -193,17 +227,51 @@ function normalizeCatalogTargetEndpointRef(
       )
     }
     const pathRef = decodeURIComponent(url.pathname.replace(/^\/+/, ''))
-    if (pathRef) return pathRef
+    if (pathRef) {
+      return {
+        endpointRef: pathRef,
+        ...(url.host ? { catalogAuthority: url.host } : {}),
+      }
+    }
   } catch {
     if (/^[A-Za-z][A-Za-z0-9+.-]*:\/\//.test(targetRef)) {
       throw new Error(
         `Profile relationship hint ${relationshipHint.id} targetRef ${targetRef} must use catalog://... or schema.table.column.`,
       )
     }
-    return targetRef
+    return {
+      endpointRef: targetRef,
+    }
   }
 
-  return targetRef
+  return {
+    endpointRef: targetRef,
+  }
+}
+
+function targetRefMetadataForCandidate(targetRef: string | undefined): Record<string, string> | undefined {
+  if (!targetRef) return undefined
+
+  try {
+    const url = new URL(targetRef)
+    if (url.protocol !== 'catalog:') return undefined
+
+    const endpointRef = decodeURIComponent(url.pathname.replace(/^\/+/, ''))
+    return {
+      ...(url.host ? { targetRefCatalogAuthority: url.host } : {}),
+      ...(endpointRef ? { targetRefEndpointPath: endpointRef } : {}),
+    }
+  } catch {
+    return undefined
+  }
+}
+
+function targetCatalogAuthorityWarnings(
+  resolution: DpmProfileRelationshipTargetRefResolution,
+): string[] {
+  return resolution.catalogAuthority
+    ? [`target-ref-catalog-authority:${resolution.catalogAuthority}`]
+    : []
 }
 
 function resolveRelationshipHintChildTable(

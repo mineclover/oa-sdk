@@ -20,6 +20,7 @@ export type {
   DpmProfileRelationshipEndpointResolution,
   DpmProfileRelationshipEndpointResolverInput,
   DpmProfileRelationshipEndpointResolverOptions,
+  DpmProfileRelationshipTargetRefResolution,
   DpmProfileRelationshipCandidateBridgeInput,
   DpmProfileResolvedRelationshipCandidateBridgeInput,
 } from '../profile/analysis-relationship-candidate.js'
