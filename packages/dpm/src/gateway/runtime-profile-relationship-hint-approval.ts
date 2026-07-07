@@ -1,6 +1,7 @@
 import {
   createDpmRelationshipCandidateInputFromResolvedProfileHint,
 } from '../profile/analysis-relationship-candidate.js'
+import type { DpmProfileDiagnostic } from '../profile/types.js'
 import {
   approveDpmRelationshipCandidateRuntime,
 } from './runtime-relationship-approve.js'
@@ -24,26 +25,37 @@ import type {
 export async function approveDpmProfileRelationshipHintRuntime(
   input: DpmGatewayProfileRelationshipHintApprovalInput,
 ): Promise<DpmGatewayRuntimeResponse<DpmGatewayProfileRelationshipHintApprovalResult>> {
-  const candidateInput = createDpmRelationshipCandidateInputFromResolvedProfileHint(input)
+  const candidateInput = tryCreateCandidateInput(input)
+  if (!candidateInput.ok) {
+    return createProfileRelationshipHintApprovalBlockingResponse({
+      relationshipName: input.relationshipName,
+      code: 'PROF202',
+      message: candidateInput.message,
+    })
+  }
   const candidateImportResponse = await importDpmRelationshipCandidatesRuntime({
     datasetId: input.profileArtifact.datasetId,
     ...(input.generatedAt ? { generatedAt: input.generatedAt } : {}),
     ...(input.thresholds ? { thresholds: input.thresholds } : {}),
-    candidates: [candidateInput],
+    candidates: [candidateInput.value],
   })
   const reviewCandidate = candidateImportResponse.body.result.report.candidates.find(candidate =>
-    candidate.id === candidateInput.id
+    candidate.id === candidateInput.value.id
   )
   if (!reviewCandidate) {
-    throw new Error(
-      `DPM profile relationship hint approval could not import candidate ${candidateInput.id}.`,
-    )
+    return createProfileRelationshipHintApprovalBlockingResponse({
+      relationshipName: input.relationshipName,
+      code: 'PROF203',
+      message: `DPM profile relationship hint approval could not import candidate ${candidateInput.value.id}.`,
+    })
   }
   if (reviewCandidate.recommendation !== 'review') {
-    throw new Error(
-      `DPM profile relationship hint approval requires a reviewable candidate: `
-      + `${reviewCandidate.id} is ${reviewCandidate.recommendation}.`,
-    )
+    return createProfileRelationshipHintApprovalBlockingResponse({
+      relationshipName: input.relationshipName,
+      code: 'PROF203',
+      message: 'DPM profile relationship hint approval requires a reviewable candidate: '
+        + `${reviewCandidate.id} is ${reviewCandidate.recommendation}.`,
+    })
   }
 
   const approvalResponse = await approveDpmRelationshipCandidateRuntime({
@@ -80,12 +92,52 @@ export async function approveDpmProfileRelationshipHintRuntime(
     result: {
       relationshipName: input.relationshipName,
       status: 'approved',
-      candidateInput,
+      candidateInput: candidateInput.value,
       reviewCandidate,
       candidateImport: candidateImportResponse.body.result,
       relationship: approvalResponse.body.result.relationship,
       savedRelationship,
       registrySnapshot: registrySnapshotResponse.body.result,
+    },
+  })
+}
+
+function tryCreateCandidateInput(
+  input: DpmGatewayProfileRelationshipHintApprovalInput,
+): { ok: true; value: ReturnType<typeof createDpmRelationshipCandidateInputFromResolvedProfileHint> }
+  | { ok: false; message: string } {
+  try {
+    return {
+      ok: true,
+      value: createDpmRelationshipCandidateInputFromResolvedProfileHint(input),
+    }
+  } catch (error) {
+    return {
+      ok: false,
+      message: error instanceof Error
+        ? error.message
+        : 'DPM profile relationship hint approval could not resolve the candidate endpoint.',
+    }
+  }
+}
+
+function createProfileRelationshipHintApprovalBlockingResponse(input: {
+  relationshipName: string
+  code: DpmProfileDiagnostic['code']
+  message: string
+}): DpmGatewayRuntimeResponse<DpmGatewayProfileRelationshipHintApprovalResult> {
+  return createDpmGatewayRuntimeResponse({
+    operationId: 'approveDpmProfileRelationshipHint',
+    statusCode: 400,
+    command: 'approve-profile-relationship-hint',
+    result: {
+      relationshipName: input.relationshipName,
+      status: 'blocked',
+      diagnostics: [{
+        severity: 'error',
+        code: input.code,
+        message: input.message,
+      }],
     },
   })
 }

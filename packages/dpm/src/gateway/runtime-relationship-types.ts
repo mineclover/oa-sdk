@@ -12,6 +12,7 @@ import type {
 import type {
   DpmProfileResolvedRelationshipCandidateBridgeInput,
 } from '../profile/analysis-relationship-candidate.js'
+import type { DpmProfileDiagnostic } from '../profile/types.js'
 import type {
   ApprovedRegistryRelationshipInput,
   RegistryOrphanPolicy,
@@ -101,7 +102,10 @@ export type DpmGatewayProfileRelationshipHintApprovalInput =
     registryRepository: DpmRegistryWritableRepository
   }
 
-export type DpmGatewayProfileRelationshipHintApprovalResult = {
+export type DpmGatewayProfileRelationshipHintApprovalRequest =
+  Omit<DpmGatewayProfileRelationshipHintApprovalInput, 'relationshipName' | 'registryRepository'>
+
+export type DpmGatewayProfileRelationshipHintApprovalSuccessResult = {
   relationshipName: string
   status: 'approved'
   candidateInput: RelationshipCandidateInput
@@ -111,6 +115,16 @@ export type DpmGatewayProfileRelationshipHintApprovalResult = {
   savedRelationship: DpmRegistryRelationshipRow
   registrySnapshot: RegistrySnapshot
 }
+
+export type DpmGatewayProfileRelationshipHintApprovalBlockingResult = {
+  relationshipName: string
+  status: 'blocked'
+  diagnostics: DpmProfileDiagnostic[]
+}
+
+export type DpmGatewayProfileRelationshipHintApprovalResult =
+  | DpmGatewayProfileRelationshipHintApprovalSuccessResult
+  | DpmGatewayProfileRelationshipHintApprovalBlockingResult
 
 export type DpmGatewayRegistrySnapshotExportInput = {
   datasetId: string

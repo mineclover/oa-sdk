@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest'
 import {
   createDpmProfileBaselineRow,
   createDpmGatewayRuntime,
+  createDpmProfileAnalysisReport,
   createDpmRegistryRepository,
   getDpmGatewayOpenApiDocument,
   resolveDpmGatewayManifestRuntimeInput,
@@ -22,6 +23,7 @@ import {
 import { compileGatewayComponentSchema } from './support/gateway-schema.js'
 import { createRuntimeInput } from './support/gateway-runtime-manifest-fixtures.js'
 import {
+  createKafkaProfileArtifact,
   createKafkaProfileArtifactWithCustomerNoPresence,
 } from './support/profile-analysis-fixtures.js'
 
@@ -450,6 +452,82 @@ describe('DPM gateway consumer smoke', () => {
     ])
     expect(JSON.stringify(response.body.result)).not.toContain('profileArtifact')
     expect(JSON.stringify(response.body.result)).not.toContain('analysisReport')
+  })
+
+  it('routes the documented profile hint approval operation to a schema-valid runtime response', async () => {
+    const document = getDpmGatewayOpenApiDocument()
+    const runtime = createDpmGatewayRuntime()
+    const operation = document.paths['/dpm/profiles/relationship-hints/{relationshipName}/approve'].post
+    const requestSchemaName = extractRequestSchemaName(operation)
+    const responseSchemaName = extractResponseSchemaName(operation)
+    const profileArtifact = createKafkaProfileArtifact()
+    const analysisReport = createDpmProfileAnalysisReport({ profileArtifact })
+    const relationshipHint = analysisReport.relationshipHints.find(candidate =>
+      candidate.id === 'proposal:edge:relationship-hint:hint:orders-created-customer'
+    )
+    if (!relationshipHint) throw new Error('expected explicit Kafka relationship hint')
+    const registryRows: DpmRegistryRelationshipRow[] = []
+    const upsertRelationshipRow = vi.fn((row: DpmRegistryRelationshipRow) => {
+      registryRows.push(row)
+    })
+    const registryRepository = createDpmRegistryRepository({
+      upsertRelationshipRow,
+      listRelationshipRows: request =>
+        registryRows.filter(row =>
+          row.datasetId === request.datasetId && row.registryVersion === request.registryVersion,
+        ),
+    })
+    const request = {
+      profileArtifact,
+      relationshipHint,
+      childTableByPathPrefix: {
+        'orders.created': 'public.orders',
+      },
+      registryVersion: 'registry-profile-workflow-v1',
+      version: '1',
+      namespace: 'customer',
+      transformStrategy: 'relationship_token',
+      orphanPolicy: 'block',
+      owner: 'privacy-platform',
+      approvedBy: 'privacy-reviewer',
+      reason: 'Kafka profile hint was approved for customer-scoped pseudonymization.',
+      approvedAt: '2026-07-07T00:10:00.000Z',
+      exportedAt: '2026-07-07T00:11:00.000Z',
+      createdAt: '2026-07-07T00:10:00.000Z',
+      updatedAt: '2026-07-07T00:10:00.000Z',
+      sourceFreshnessHash: analysisReport.freshness.reportHash,
+    } as const
+    const requestSchema = compileGatewayComponentSchema(requestSchemaName)
+    const responseSchema = compileGatewayComponentSchema(responseSchemaName)
+
+    const response = await runtime.approveDpmProfileRelationshipHint({
+      ...request,
+      relationshipName: 'rel_orders_customer',
+      registryRepository,
+    })
+
+    expect(operation.operationId).toBe('approveDpmProfileRelationshipHint')
+    expect(requestSchemaName).toBe('DpmProfileRelationshipHintApprovalRequest')
+    expect(responseSchemaName).toBe('DpmProfileRelationshipHintApprovalResponse')
+    expect(requestSchema(request), JSON.stringify(requestSchema.errors, null, 2)).toBe(true)
+    expect(response.operationId).toBe('approveDpmProfileRelationshipHint')
+    expect(response.statusCode).toBe(200)
+    expect(response.body.command).toBe('approve-profile-relationship-hint')
+    expect(upsertRelationshipRow).toHaveBeenCalledOnce()
+    expect(
+      responseSchema(response.body.result),
+      JSON.stringify(responseSchema.errors, null, 2),
+    ).toBe(true)
+    expect(response.body.result).toMatchObject({
+      relationshipName: 'rel_orders_customer',
+      status: 'approved',
+      savedRelationship: {
+        datasetId: profileArtifact.datasetId,
+        registryVersion: 'registry-profile-workflow-v1',
+        relationshipName: 'rel_orders_customer',
+      },
+    })
+    expect(JSON.stringify(response.body.result)).not.toContain('C-001')
   })
 })
 

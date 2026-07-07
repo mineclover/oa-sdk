@@ -403,7 +403,10 @@ category barrel을 가리킨다. `packages/dpm/test/package-subpath-import-smoke
 | `DpmGatewayRelationshipApprovalInput` | `dpm/src/gateway/runtime-relationship-types.ts` | relationship candidate approval input with registry policy fields |
 | `DpmGatewayRelationshipApprovalResult` | `dpm/src/gateway/runtime-relationship-types.ts` | approved registry relationship payload result |
 | `DpmGatewayProfileRelationshipHintApprovalInput` | `dpm/src/gateway/runtime-relationship-types.ts` | profile relationship hint approval workflow input with endpoint resolver, approval, and writable registry repository fields |
-| `DpmGatewayProfileRelationshipHintApprovalResult` | `dpm/src/gateway/runtime-relationship-types.ts` | profile hint approval workflow result with candidate import, approved relationship, saved row, and exported registry snapshot |
+| `DpmGatewayProfileRelationshipHintApprovalRequest` | `dpm/src/gateway/runtime-relationship-types.ts` | OpenAPI profile relationship hint approval request body before path-owned relationship name and runtime repository injection |
+| `DpmGatewayProfileRelationshipHintApprovalSuccessResult` | `dpm/src/gateway/runtime-relationship-types.ts` | schema-valid profile hint approval success result with candidate import, approved relationship, saved row, and exported registry snapshot |
+| `DpmGatewayProfileRelationshipHintApprovalBlockingResult` | `dpm/src/gateway/runtime-relationship-types.ts` | schema-valid profile hint approval blocking result with relationship name and profile diagnostics |
+| `DpmGatewayProfileRelationshipHintApprovalResult` | `dpm/src/gateway/runtime-relationship-types.ts` | profile hint approval success or blocking result discriminated by status |
 | `DpmGatewayRegistrySnapshotExportInput` | `dpm/src/gateway/runtime-relationship-types.ts` | repository-backed registry snapshot export runtime input |
 | `DpmGatewayRegistrySnapshotExportResult` | `dpm/src/gateway/runtime-relationship-types.ts` | schema-valid registry snapshot export runtime result |
 | `DpmGatewayRegistryAuditEventListInput` | `dpm/src/gateway/runtime-relationship-types.ts` | repository-backed registry approval audit event timeline list runtime input |

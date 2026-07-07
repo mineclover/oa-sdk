@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest'
 
 import {
   createDpmGatewayRuntime,
+  createDpmRegistryRepository,
   getDpmGatewayOpenApiDocument,
+  type DpmRegistryRelationshipRow,
 } from '../src/index.js'
 import { compileGatewayComponentSchema } from './support/gateway-schema.js'
 import { createBlockingRuntimeInput } from './support/gateway-runtime-manifest-fixtures.js'
@@ -32,6 +34,12 @@ const blockingResponseCases = [
     method: 'post',
     operationId: 'reviewDpmProfileProposal',
     schemaName: 'DpmProfileProposalReviewResponse',
+  },
+  {
+    path: '/dpm/profiles/relationship-hints/{relationshipName}/approve',
+    method: 'post',
+    operationId: 'approveDpmProfileRelationshipHint',
+    schemaName: 'DpmProfileRelationshipHintApprovalBlockingResponse',
   },
 ] as const
 
@@ -111,6 +119,51 @@ describe('DPM gateway blocking response contract', () => {
     expect(response.statusCode).toBe(400)
     expect(responseSchema(response.body.result), JSON.stringify(responseSchema.errors, null, 2)).toBe(true)
     expect(diagnosticCodes(response.body.result)).toContain('PROF201')
+  })
+
+  it('validates profile relationship hint approval blocking runtime responses against the documented 400 schema', async () => {
+    const runtime = createDpmGatewayRuntime()
+    const profileArtifact = createKafkaProfileArtifact()
+    const analysis = await runtime.analyzeDpmProfile({ profileArtifact })
+    const relationshipHint = analysis.body.result.analysisReport.relationshipHints[0]
+    if (!relationshipHint) throw new Error('expected relationship hint')
+    const registryRows: DpmRegistryRelationshipRow[] = []
+    const registryRepository = createDpmRegistryRepository({
+      upsertRelationshipRow: row => {
+        registryRows.push(row)
+      },
+      listRelationshipRows: () => registryRows,
+    })
+
+    const response = await runtime.approveDpmProfileRelationshipHint({
+      profileArtifact,
+      relationshipHint,
+      relationshipName: 'rel_orders_customer',
+      childTableByPathPrefix: {
+        'orders.created': 'public.orders',
+      },
+      confidenceScore: 0.5,
+      registryVersion: 'registry-profile-workflow-v1',
+      version: '1',
+      namespace: 'customer',
+      transformStrategy: 'relationship_token',
+      orphanPolicy: 'block',
+      owner: 'privacy-platform',
+      approvedBy: 'privacy-reviewer',
+      reason: 'Low confidence should not be approved.',
+      registryRepository,
+    })
+    const operation = getOperation(
+      getDpmGatewayOpenApiDocument(),
+      '/dpm/profiles/relationship-hints/{relationshipName}/approve',
+      'post',
+    )
+    const responseSchema = compileGatewayComponentSchema(extractResponseSchemaName(operation, '400'))
+
+    expect(response.statusCode).toBe(400)
+    expect(responseSchema(response.body.result), JSON.stringify(responseSchema.errors, null, 2)).toBe(true)
+    expect(diagnosticCodes(response.body.result)).toContain('PROF203')
+    expect(registryRows).toEqual([])
   })
 })
 

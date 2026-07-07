@@ -4,6 +4,7 @@ export const DPM_GATEWAY_OPERATION_IDS = [
   'analyzeDpmProfile',
   'listDpmProfileBaselineSummaries',
   'reviewDpmProfileProposal',
+  'approveDpmProfileRelationshipHint',
   'discoverDpmRelationships',
   'importDpmRelationshipCandidates',
   'approveDpmRelationshipCandidate',

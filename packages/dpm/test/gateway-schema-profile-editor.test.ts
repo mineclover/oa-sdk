@@ -4,6 +4,7 @@ import {
   invalidProfileAnalysisRequestPayload,
   invalidProfileAnalysisRequestUnsafeShapePayload,
   invalidProfileAnalysisResponsePayload,
+  invalidProfileRelationshipHintApprovalRequestPayloadCases,
   invalidProfileProposalReviewRequestPayloadCases,
 } from './support/gateway-profile-editor-fixtures.js'
 import { compileGatewayComponentSchema } from './support/gateway-schema.js'
@@ -13,6 +14,7 @@ describe('DPM gateway profile editor schemas', () => {
     const analysisRequestSchema = compileGatewayComponentSchema('DpmProfileAnalysisRequest')
     const analysisResponseSchema = compileGatewayComponentSchema('DpmProfileAnalysisResponse')
     const reviewRequestSchema = compileGatewayComponentSchema('DpmProfileProposalReviewRequest')
+    const hintApprovalRequestSchema = compileGatewayComponentSchema('DpmProfileRelationshipHintApprovalRequest')
 
     expect(
       analysisRequestSchema(invalidProfileAnalysisRequestPayload),
@@ -31,6 +33,12 @@ describe('DPM gateway profile editor schemas', () => {
       expect(
         reviewRequestSchema(payload),
         `DpmProfileProposalReviewRequest unexpectedly accepted ${label}`,
+      ).toBe(false)
+    }
+    for (const [label, payload] of invalidProfileRelationshipHintApprovalRequestPayloadCases) {
+      expect(
+        hintApprovalRequestSchema(payload),
+        `DpmProfileRelationshipHintApprovalRequest unexpectedly accepted ${label}`,
       ).toBe(false)
     }
   })

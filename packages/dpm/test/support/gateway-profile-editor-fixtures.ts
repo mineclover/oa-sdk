@@ -33,6 +33,9 @@ export const invalidProfileAnalysisResponsePayload = {
 type InvalidProfileProposalReviewRequestPayloadCase =
   readonly [string, Record<string, unknown>]
 
+type InvalidProfileRelationshipHintApprovalRequestPayloadCase =
+  readonly [string, Record<string, unknown>]
+
 export const invalidProfileProposalReviewRequestPayloadCases = [
   ['raw evidence patch', {
     proposalId: relationshipHint.id,
@@ -63,3 +66,18 @@ export const invalidProfileProposalReviewRequestPayloadCases = [
     relationshipHint,
   }],
 ] as const satisfies readonly InvalidProfileProposalReviewRequestPayloadCase[]
+
+export const invalidProfileRelationshipHintApprovalRequestPayloadCases = [
+  ['missing child table resolver', {
+    profileArtifact,
+    relationshipHint,
+    registryVersion: 'registry-profile-workflow-v1',
+    version: '1',
+    namespace: 'customer',
+    transformStrategy: 'relationship_token',
+    orphanPolicy: 'block',
+    owner: 'privacy-platform',
+    approvedBy: 'privacy-reviewer',
+    reason: 'reviewed relationship hint',
+  }],
+] as const satisfies readonly InvalidProfileRelationshipHintApprovalRequestPayloadCase[]

@@ -31,6 +31,21 @@ export const gatewayMinimalRequestCases = [
     coordinate: profileCoordinate,
     relationshipHint,
   }],
+  ['DpmProfileRelationshipHintApprovalRequest', {
+    profileArtifact,
+    relationshipHint,
+    childTableByPathPrefix: {
+      'orders.created': 'public.orders',
+    },
+    registryVersion: 'registry-profile-workflow-v1',
+    version: '1',
+    namespace: 'customer',
+    transformStrategy: 'relationship_token',
+    orphanPolicy: 'block',
+    owner: 'privacy-platform',
+    approvedBy: 'privacy-reviewer',
+    reason: 'reviewed relationship hint',
+  }],
   ['DpmRelationshipDiscoveryRequest', { manifest, catalogSnapshot: snapshotRef }],
   ['DpmCandidateImportRequest', {
     datasetId: 'commerce_ai',

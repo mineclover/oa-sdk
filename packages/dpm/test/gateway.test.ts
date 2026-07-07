@@ -19,7 +19,7 @@ describe('DPM gateway OpenAPI contract', () => {
     expect(parsed.operations.map(operation => operation.operationId).sort()).toEqual([
       ...DPM_GATEWAY_OPERATION_IDS,
     ].sort())
-    expect(parsed.operations).toHaveLength(15)
+    expect(parsed.operations).toHaveLength(16)
   })
 
   it('models the full DPM gateway workflow without exposing secret-bearing operations', () => {

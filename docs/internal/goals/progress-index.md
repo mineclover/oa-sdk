@@ -10,6 +10,7 @@ Last updated: 2026-07-07
 
 ## Recently Completed
 
+- [x] Goal 42 / DPM Profile Hint Approval Gateway Contract (complete)
 - [x] Goal 41 / DPM Registry Audit Event Timeline Runtime (complete)
 - [x] Goal 40 / DPM Registry Approval Audit Events (complete)
 - [x] Goal 39 / DPM Profile Hint Approval Workflow (complete)
@@ -92,6 +93,7 @@ Last updated: 2026-07-07
 - [x] Goal 39 - DPM Profile Hint Approval Workflow
 - [x] Goal 40 - DPM Registry Approval Audit Events
 - [x] Goal 41 - DPM Registry Audit Event Timeline Runtime
+- [x] Goal 42 - DPM Profile Hint Approval Gateway Contract
 
 ## Goal 4 DPM Units
 
@@ -265,6 +267,14 @@ Last updated: 2026-07-07
 ## Goal 40 DPM Units
 
 - [x] DPM-60 - Registry Approval Audit Events
+
+## Goal 41 DPM Units
+
+- [x] DPM-61 - Registry Audit Event Timeline Runtime
+
+## Goal 42 DPM Units
+
+- [x] DPM-62 - Profile Hint Approval Gateway Contract
 
 ## Done Criteria
 

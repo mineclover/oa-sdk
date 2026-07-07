@@ -33,9 +33,12 @@ import {
   createDpmGatewayRuntime,
   getDpmGatewayOpenApiDocument,
   listDpmRegistryRelationshipAuditEventsRuntime,
+  type DpmGatewayProfileRelationshipHintApprovalRequest,
+  type DpmGatewayProfileRelationshipHintApprovalBlockingResult,
   type DpmGatewayRegistryAuditEventListInput,
   type DpmGatewayRegistryAuditEventListResult,
   type DpmGatewayProfileRelationshipHintApprovalInput,
+  type DpmGatewayProfileRelationshipHintApprovalSuccessResult,
   type DpmGatewayRuntime,
 } from '@oa-sdk/dpm/gateway'
 import {
@@ -62,6 +65,9 @@ type DpmSubpathTypeSmoke = {
   profileRelationshipCandidateBridge?: DpmProfileRelationshipCandidateBridgeInput
   resolvedProfileRelationshipCandidateBridge?: DpmProfileResolvedRelationshipCandidateBridgeInput
   profileRelationshipHintApproval?: DpmGatewayProfileRelationshipHintApprovalInput
+  profileRelationshipHintApprovalRequest?: DpmGatewayProfileRelationshipHintApprovalRequest
+  profileRelationshipHintApprovalSuccess?: DpmGatewayProfileRelationshipHintApprovalSuccessResult
+  profileRelationshipHintApprovalBlocking?: DpmGatewayProfileRelationshipHintApprovalBlockingResult
   registryAuditEventList?: DpmGatewayRegistryAuditEventListInput
   registryAuditEventListResult?: DpmGatewayRegistryAuditEventListResult
   baseline?: DpmProfileBaselineSummary

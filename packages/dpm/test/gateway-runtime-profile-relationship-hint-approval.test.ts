@@ -4,9 +4,12 @@ import {
   createDpmGatewayRuntime,
   createDpmProfileAnalysisReport,
   createDpmRegistryRepository,
+  getDpmGatewayOpenApiDocument,
+  type DpmGatewayProfileRelationshipHintApprovalRequest,
   type DpmRegistryRelationshipAuditEventRow,
   type DpmRegistryRelationshipRow,
 } from '../src/index.js'
+import { compileGatewayComponentSchema } from './support/gateway-schema.js'
 import {
   createKafkaProfileArtifact,
 } from './support/profile-analysis-fixtures.js'
@@ -38,11 +41,15 @@ describe('DPM gateway profile relationship hint approval workflow', () => {
       appendRelationshipAuditEvent,
       listRelationshipRows,
     })
-
-    const response = await runtime.approveDpmProfileRelationshipHint({
+    const operation = getDpmGatewayOpenApiDocument()
+      .paths['/dpm/profiles/relationship-hints/{relationshipName}/approve'].post
+    const requestSchemaName = extractRequestSchemaName(operation)
+    const responseSchemaName = extractResponseSchemaName(operation)
+    const requestSchema = compileGatewayComponentSchema(requestSchemaName)
+    const responseSchema = compileGatewayComponentSchema(responseSchemaName)
+    const request = {
       profileArtifact,
       relationshipHint,
-      relationshipName: 'rel_orders_customer',
       childTableByPathPrefix: {
         'orders.created': 'public.orders',
       },
@@ -60,12 +67,25 @@ describe('DPM gateway profile relationship hint approval workflow', () => {
       createdAt: '2026-07-07T00:10:00.000Z',
       updatedAt: '2026-07-07T00:10:00.000Z',
       sourceFreshnessHash: analysisReport.freshness.reportHash,
+    } satisfies DpmGatewayProfileRelationshipHintApprovalRequest
+
+    const response = await runtime.approveDpmProfileRelationshipHint({
+      ...request,
+      relationshipName: 'rel_orders_customer',
       registryRepository,
     })
 
+    expect(operation.operationId).toBe('approveDpmProfileRelationshipHint')
+    expect(requestSchemaName).toBe('DpmProfileRelationshipHintApprovalRequest')
+    expect(responseSchemaName).toBe('DpmProfileRelationshipHintApprovalResponse')
+    expect(requestSchema(request), JSON.stringify(requestSchema.errors, null, 2)).toBe(true)
     expect(response.operationId).toBe('approveDpmProfileRelationshipHint')
     expect(response.statusCode).toBe(200)
     expect(response.body.command).toBe('approve-profile-relationship-hint')
+    expect(
+      responseSchema(response.body.result),
+      JSON.stringify(responseSchema.errors, null, 2),
+    ).toBe(true)
     expect(response.body.result).toMatchObject({
       relationshipName: 'rel_orders_customer',
       status: 'approved',
@@ -124,7 +144,7 @@ describe('DPM gateway profile relationship hint approval workflow', () => {
     expect(JSON.stringify(response.body.result.registrySnapshot)).not.toContain('C-001')
   })
 
-  it('rejects low-confidence profile hint candidates before registry mutation', async () => {
+  it('returns a blocking response for low-confidence profile hint candidates before registry mutation', async () => {
     const runtime = createDpmGatewayRuntime()
     const profileArtifact = createKafkaProfileArtifact()
     const analysisReport = createDpmProfileAnalysisReport({ profileArtifact })
@@ -140,8 +160,13 @@ describe('DPM gateway profile relationship hint approval workflow', () => {
       upsertRelationshipRow,
       listRelationshipRows: () => registryRows,
     })
+    const operation = getDpmGatewayOpenApiDocument()
+      .paths['/dpm/profiles/relationship-hints/{relationshipName}/approve'].post
+    const responseSchema = compileGatewayComponentSchema(
+      extractBlockingResponseSchemaName(operation),
+    )
 
-    await expect(runtime.approveDpmProfileRelationshipHint({
+    const response = await runtime.approveDpmProfileRelationshipHint({
       profileArtifact,
       relationshipHint,
       relationshipName: 'rel_orders_customer',
@@ -158,11 +183,80 @@ describe('DPM gateway profile relationship hint approval workflow', () => {
       approvedBy: 'dpm-reviewer@example.com',
       reason: 'Low confidence should not be approved.',
       registryRepository,
-    })).rejects.toThrow(
-      'DPM profile relationship hint approval requires a reviewable candidate: '
-      + 'candidate:profile:proposal_edge_relationship_hint_hint_orders_created_customer is reject.',
-    )
+    })
+
+    expect(response.statusCode).toBe(400)
+    expect(response.body.result).toMatchObject({
+      relationshipName: 'rel_orders_customer',
+      status: 'blocked',
+      diagnostics: [
+        expect.objectContaining({
+          severity: 'error',
+          code: 'PROF203',
+          message: 'DPM profile relationship hint approval requires a reviewable candidate: '
+            + 'candidate:profile:proposal_edge_relationship_hint_hint_orders_created_customer is reject.',
+        }),
+      ],
+    })
+    expect(
+      responseSchema(response.body.result),
+      JSON.stringify(responseSchema.errors, null, 2),
+    ).toBe(true)
     expect(upsertRelationshipRow).not.toHaveBeenCalled()
     expect(registryRows).toEqual([])
   })
 })
+
+function extractRequestSchemaName(operation: {
+  requestBody?: {
+    content?: {
+      'application/json'?: {
+        schema?: {
+          $ref?: string
+        }
+      }
+    }
+  }
+}): string {
+  return extractComponentName(operation.requestBody?.content?.['application/json']?.schema?.$ref)
+}
+
+function extractResponseSchemaName(operation: {
+  responses: {
+    '200': {
+      content: {
+        'application/json': {
+          schema: {
+            $ref: string
+          }
+        }
+      }
+    }
+  }
+}): string {
+  return extractComponentName(operation.responses['200'].content['application/json'].schema.$ref)
+}
+
+function extractBlockingResponseSchemaName(operation: {
+  responses: {
+    '400': {
+      content: {
+        'application/json': {
+          schema: {
+            $ref: string
+          }
+        }
+      }
+    }
+  }
+}): string {
+  return extractComponentName(operation.responses['400'].content['application/json'].schema.$ref)
+}
+
+function extractComponentName(refPath: string | undefined): string {
+  const prefix = '#/components/schemas/'
+  if (!refPath?.startsWith(prefix)) {
+    throw new Error(`Unexpected schema ref: ${refPath}`)
+  }
+  return refPath.slice(prefix.length)
+}

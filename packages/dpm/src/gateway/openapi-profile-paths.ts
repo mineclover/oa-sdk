@@ -44,5 +44,16 @@ export function createDpmProfileGatewayPaths() {
         blockingResponseSchema: 'DpmProfileProposalReviewResponse',
       }),
     },
+    '/dpm/profiles/relationship-hints/{relationshipName}/approve': {
+      post: gatewayOperation({
+        operationId: 'approveDpmProfileRelationshipHint',
+        tags: ['profiles', 'relationships'],
+        summary: 'Approve a profile relationship hint into the relationship registry.',
+        parameters: [pathParameter('relationshipName')],
+        requestBody: jsonRequestBody('DpmProfileRelationshipHintApprovalRequest'),
+        responseSchema: 'DpmProfileRelationshipHintApprovalResponse',
+        blockingResponseSchema: 'DpmProfileRelationshipHintApprovalBlockingResponse',
+      }),
+    },
   } as const
 }
