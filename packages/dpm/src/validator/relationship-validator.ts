@@ -1,7 +1,7 @@
 import type { DpmDiagnostic } from './diagnostic-types.js'
 import {
   createRelationshipCatalogGateContext,
-} from './relationship-catalog-gates.js'
+} from './relationship-catalog-context.js'
 import {
   validateRelationshipItemGates,
 } from './relationship-gate-runner.js'

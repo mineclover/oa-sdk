@@ -3,8 +3,10 @@ import type { RegistrySnapshot } from '../registry/registry-snapshot-types.js'
 import type { DpmDiagnostic } from './diagnostic-types.js'
 import {
   validateRelationshipCatalogGates,
-  type RelationshipCatalogGateContext,
-} from './relationship-catalog-gates.js'
+} from './relationship-catalog-gate-sequence.js'
+import type {
+  RelationshipCatalogGateContext,
+} from './relationship-catalog-context.js'
 import { validateRelationshipRegistryApproval } from './relationship-registry-approval.js'
 import { validateRelationshipShapeGates } from './relationship-shape-gates.js'
 import type { ManifestRelationship } from './relationship-types.js'
