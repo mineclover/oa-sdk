@@ -6,6 +6,9 @@ import {
   createRegistryRelationshipIdentity,
 } from '../registry/registry-identity.js'
 import {
+  isDpmRegistryApprovedRelationshipConflictError,
+} from '../storage/registry-storage-errors.js'
+import {
   approveDpmRelationshipCandidateRuntime,
 } from './runtime-relationship-approve.js'
 import {
@@ -25,6 +28,18 @@ import {
 import type {
   DpmGatewayRuntimeResponse,
 } from './runtime-response-types.js'
+
+type ProfileRelationshipHintApprovalSaveInput =
+  Parameters<DpmGatewayProfileRelationshipHintApprovalInput['registryRepository']['saveRelationship']>[0]
+
+type ProfileRelationshipHintApprovalSaveResult =
+  Awaited<
+    ReturnType<
+      NonNullable<
+        DpmGatewayProfileRelationshipHintApprovalInput['registryRepository']['saveRelationshipWithAuditEvent']
+      >
+    >
+  >
 
 export async function approveDpmProfileRelationshipHintRuntime(
   input: DpmGatewayProfileRelationshipHintApprovalInput,
@@ -83,11 +98,14 @@ export async function approveDpmProfileRelationshipHintRuntime(
     ...(input.createdAt ? { createdAt: input.createdAt } : {}),
     ...(input.updatedAt ? { updatedAt: input.updatedAt } : {}),
   }
-  const savedRelationshipResult = input.registryRepository.saveRelationshipWithAuditEvent
-    ? await input.registryRepository.saveRelationshipWithAuditEvent(saveInput)
-    : {
-        relationshipRow: await input.registryRepository.saveRelationship(saveInput),
-      }
+  const savedRelationshipResult = await trySaveRelationshipWithAuditEvent(input, saveInput)
+  if (!savedRelationshipResult.ok) {
+    return createProfileRelationshipHintApprovalBlockingResponse({
+      relationshipName: input.relationshipName,
+      code: 'PROF204',
+      message: savedRelationshipResult.message,
+    })
+  }
   const registrySnapshotResponse = await exportDpmRegistrySnapshotRuntime({
     datasetId: input.profileArtifact.datasetId,
     registryVersion: input.registryVersion,
@@ -107,14 +125,47 @@ export async function approveDpmProfileRelationshipHintRuntime(
       candidateImport: candidateImportResponse.body.result,
       relationship: approvalResponse.body.result.relationship,
       relationshipWriteReceipt: createRelationshipWriteReceipt({
-        ...savedRelationshipResult.relationshipRow,
-        ...(savedRelationshipResult.approvalAuditEvent
-          ? { approvalAuditEventId: savedRelationshipResult.approvalAuditEvent.eventId }
+        ...savedRelationshipResult.value.relationshipRow,
+        ...(savedRelationshipResult.value.approvalAuditEvent
+          ? { approvalAuditEventId: savedRelationshipResult.value.approvalAuditEvent.eventId }
           : {}),
       }),
       registrySnapshot: registrySnapshotResponse.body.result,
     },
   })
+}
+
+async function trySaveRelationshipWithAuditEvent(
+  input: DpmGatewayProfileRelationshipHintApprovalInput,
+  saveInput: ProfileRelationshipHintApprovalSaveInput,
+): Promise<
+  | {
+    ok: true
+    value: ProfileRelationshipHintApprovalSaveResult
+  }
+  | {
+    ok: false
+    message: string
+  }
+> {
+  try {
+    const value = input.registryRepository.saveRelationshipWithAuditEvent
+      ? await input.registryRepository.saveRelationshipWithAuditEvent(saveInput)
+      : {
+          relationshipRow: await input.registryRepository.saveRelationship(saveInput),
+        }
+
+    return { ok: true, value }
+  } catch (error) {
+    if (isDpmRegistryApprovedRelationshipConflictError(error)) {
+      return {
+        ok: false,
+        message: error.message,
+      }
+    }
+
+    throw error
+  }
 }
 
 function createRelationshipWriteReceipt(input: {

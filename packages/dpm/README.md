@@ -42,7 +42,7 @@ Use `@oa-sdk/dpm/storage` when product code needs registry rows, approval audit 
 - PostgreSQL catalog profiling is read-only catalog evidence collection.
 - Kafka profile fixtures contain captured shape and metrics, not message payload samples.
 - Physical foreign-key output is recommendation-only and does not mutate a target database.
-- Split registry storage adapters are convenient for tests and simple integrations. Production approval flows should prefer an atomic commit adapter or database constraints that reject concurrent approved-version conflicts.
+- Split registry storage adapters are convenient for tests and simple integrations. Production approval flows should prefer an atomic commit adapter or database constraints that reject concurrent approved-version conflicts. The PostgreSQL adapter maps approved unique-index conflicts to `DpmRegistryApprovedRelationshipConflictError` so product flows can return deterministic blocking diagnostics.
 
 ## Verification
 

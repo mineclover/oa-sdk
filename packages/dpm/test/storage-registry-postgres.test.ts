@@ -1,10 +1,13 @@
 import { describe, expect, it, vi } from 'vitest'
 
 import {
+  DPM_REGISTRY_APPROVED_RELATIONSHIP_CONFLICT_ERROR_CODE,
+  DpmRegistryApprovedRelationshipConflictError,
   appendDpmPostgresRegistryRelationshipAuditEvent,
   commitDpmPostgresRegistryRelationshipApproval,
   createDpmPostgresRegistryStorage,
   createDpmRegistryRepository,
+  isDpmRegistryApprovedRelationshipConflictError,
   listDpmPostgresRegistryRelationshipAuditEvents,
   listDpmPostgresRegistryRelationshipRows,
   upsertDpmPostgresRegistryRelationshipRow,
@@ -154,6 +157,63 @@ describe('DPM Postgres registry storage adapter', () => {
       relationshipName: 'rel_orders_customer',
       relationshipVersion: '2',
     })
+  })
+
+  it('maps approved relationship unique index conflicts to structured DPM storage errors', async () => {
+    const conflict = Object.assign(
+      new Error('duplicate key value violates unique constraint "dpm_relationship_registry_approved_idx"'),
+      {
+        code: '23505',
+        constraint: 'dpm_relationship_registry_approved_idx',
+      },
+    )
+    const client = {
+      query: vi.fn(async () => {
+        throw conflict
+      }),
+    }
+
+    try {
+      await upsertDpmPostgresRegistryRelationshipRow(client, approvedRelationshipRow)
+      throw new Error('expected approved relationship conflict')
+    } catch (error) {
+      expect(error).toBeInstanceOf(DpmRegistryApprovedRelationshipConflictError)
+      expect(isDpmRegistryApprovedRelationshipConflictError(error)).toBe(true)
+      if (!isDpmRegistryApprovedRelationshipConflictError(error)) throw error
+      expect(error).toMatchObject({
+        name: 'DpmRegistryApprovedRelationshipConflictError',
+        code: DPM_REGISTRY_APPROVED_RELATIONSHIP_CONFLICT_ERROR_CODE,
+        datasetId: 'commerce_ai',
+        registryVersion: 'reg-2026-07-01',
+        relationshipName: 'rel_orders_customer',
+        relationshipVersion: '2',
+        constraint: 'dpm_relationship_registry_approved_idx',
+        message: 'DPM registry already has an approved relationship named rel_orders_customer '
+          + 'for dataset commerce_ai registry reg-2026-07-01; '
+          + 'attempted version 2 conflicts with dpm_relationship_registry_approved_idx.',
+      })
+      expect((error as Error & { cause?: unknown }).cause).toBe(conflict)
+    }
+  })
+
+  it('rethrows non-approved-index Postgres errors unchanged', async () => {
+    const originalError = Object.assign(
+      new Error('duplicate key value violates unique constraint "some_other_idx"'),
+      {
+        code: '23505',
+        constraint: 'some_other_idx',
+      },
+    )
+    const client = {
+      query: vi.fn(async () => {
+        throw originalError
+      }),
+    }
+
+    await expect(upsertDpmPostgresRegistryRelationshipRow(
+      client,
+      approvedRelationshipRow,
+    )).rejects.toBe(originalError)
   })
 
   it('commits approval rows and audit events inside the provided transaction', async () => {

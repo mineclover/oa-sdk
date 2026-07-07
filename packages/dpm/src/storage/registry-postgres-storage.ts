@@ -28,6 +28,9 @@ import {
 import {
   copyDpmRegistryRelationshipRow,
 } from './registry-row-relationship.js'
+import {
+  DpmRegistryApprovedRelationshipConflictError,
+} from './registry-storage-errors.js'
 
 type QueryResult<T> = readonly T[] | { rows: readonly T[] }
 
@@ -81,10 +84,7 @@ export async function upsertDpmPostgresRegistryRelationshipRow(
   client: DpmPostgresRegistryQueryClient,
   row: DpmRegistryRelationshipRow,
 ): Promise<DpmRegistryRelationshipRow> {
-  const result = await client.query<DpmPostgresRegistryRelationshipDbRow>(
-    DPM_POSTGRES_REGISTRY_RELATIONSHIP_UPSERT_SQL,
-    relationshipRowParameters(row),
-  )
+  const result = await queryPostgresRegistryRelationshipUpsert(client, row)
   const saved = rowsFromQueryResult(result)[0]
   if (!saved) {
     throw new Error(`DPM Postgres registry relationship upsert returned no row for ${row.relationshipName}.`)
@@ -283,6 +283,8 @@ returning
   created_at,
   updated_at`
 
+const DPM_POSTGRES_REGISTRY_APPROVED_UNIQUE_INDEX = 'dpm_relationship_registry_approved_idx'
+
 const DPM_POSTGRES_REGISTRY_AUDIT_EVENT_SELECT = `select
   event_id,
   event_type,
@@ -422,6 +424,54 @@ function relationshipRowParameters(row: DpmRegistryRelationshipRow): readonly un
     input.createdAt ?? null,
     input.updatedAt ?? null,
   ]
+}
+
+async function queryPostgresRegistryRelationshipUpsert(
+  client: DpmPostgresRegistryQueryClient,
+  row: DpmRegistryRelationshipRow,
+): Promise<QueryResult<DpmPostgresRegistryRelationshipDbRow>> {
+  try {
+    return await client.query<DpmPostgresRegistryRelationshipDbRow>(
+      DPM_POSTGRES_REGISTRY_RELATIONSHIP_UPSERT_SQL,
+      relationshipRowParameters(row),
+    )
+  } catch (error) {
+    if (isPostgresApprovedRelationshipConflict(error)) {
+      throw createPostgresApprovedRelationshipConflictError(row, error)
+    }
+
+    throw error
+  }
+}
+
+function createPostgresApprovedRelationshipConflictError(
+  row: DpmRegistryRelationshipRow,
+  cause: unknown,
+): Error {
+  return new DpmRegistryApprovedRelationshipConflictError({
+    datasetId: row.datasetId,
+    registryVersion: row.registryVersion,
+    relationshipName: row.relationshipName,
+    relationshipVersion: row.relationshipVersion,
+    constraint: DPM_POSTGRES_REGISTRY_APPROVED_UNIQUE_INDEX,
+  }, cause)
+}
+
+function isPostgresApprovedRelationshipConflict(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false
+  const record = error as {
+    code?: unknown
+    constraint?: unknown
+    message?: unknown
+  }
+
+  return record.code === '23505' && (
+    record.constraint === DPM_POSTGRES_REGISTRY_APPROVED_UNIQUE_INDEX ||
+    (
+      typeof record.message === 'string' &&
+      record.message.includes(DPM_POSTGRES_REGISTRY_APPROVED_UNIQUE_INDEX)
+    )
+  )
 }
 
 function auditEventParameters(row: DpmRegistryRelationshipAuditEventRow): readonly unknown[] {

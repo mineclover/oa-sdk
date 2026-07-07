@@ -14,6 +14,8 @@ export type {
   DpmRegistryRelationshipSaveInput,
   DpmPostgresRegistryClient,
   DpmPostgresRegistryQueryClient,
+  DpmRegistryApprovedRelationshipConflictDetails,
+  DpmRegistryApprovedRelationshipConflictErrorCode,
   DpmRegistryAuditEventReader,
   DpmRegistryRepository,
   DpmRegistryRowsToSnapshotInput,
@@ -29,7 +31,9 @@ export {
   DPM_REGISTRY_STORAGE_SCHEMA_VERSION,
 } from '../storage/registry-schema.js'
 export {
+  DPM_REGISTRY_APPROVED_RELATIONSHIP_CONFLICT_ERROR_CODE,
   DPM_REGISTRY_RELATIONSHIP_AUDIT_EVENT_TYPES,
+  DpmRegistryApprovedRelationshipConflictError,
   copyDpmRegistryRelationshipAuditEventRow,
   createDpmRegistryRepository,
   createDpmRegistryRelationshipAuditEventRow,
@@ -41,5 +45,6 @@ export {
   commitDpmPostgresRegistryRelationshipApproval,
   appendDpmPostgresRegistryRelationshipAuditEvent,
   listDpmPostgresRegistryRelationshipAuditEvents,
+  isDpmRegistryApprovedRelationshipConflictError,
   registryRowsToSnapshot,
 } from '../storage/registry-repository.js'

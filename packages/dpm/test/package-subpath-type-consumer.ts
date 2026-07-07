@@ -51,13 +51,16 @@ import {
   type DpmGatewayRuntime,
 } from '@oa-sdk/dpm/gateway'
 import {
+  DPM_REGISTRY_APPROVED_RELATIONSHIP_CONFLICT_ERROR_CODE,
   appendDpmPostgresRegistryRelationshipAuditEvent,
   applyDpmRegistryStorageSchema,
   commitDpmPostgresRegistryRelationshipApproval,
   createDpmPostgresRegistryStorage,
   createDpmRegistryRelationshipRow,
+  DpmRegistryApprovedRelationshipConflictError,
   DPM_REGISTRY_STORAGE_SCHEMA_SQL_BLOCKS,
   DPM_REGISTRY_RELATIONSHIP_AUDIT_EVENT_TYPES,
+  isDpmRegistryApprovedRelationshipConflictError,
   DPM_PROFILE_BASELINE_SELECTION_STRATEGIES,
   listDpmPostgresRegistryRelationshipAuditEvents,
   listDpmPostgresRegistryRelationshipRows,
@@ -74,6 +77,8 @@ import {
   type DpmRegistryRelationshipSaveResult,
   type DpmRegistryWritableRepository,
   type DpmProfileBaselineSummary,
+  type DpmRegistryApprovedRelationshipConflictDetails,
+  type DpmRegistryApprovedRelationshipConflictErrorCode,
 } from '@oa-sdk/dpm/storage'
 import {
   DPM_PUBLISHING_CONTEXT_KIND,
@@ -109,6 +114,8 @@ type DpmSubpathTypeSmoke = {
   registryRelationshipApprovalCommitResult?: DpmRegistryRelationshipApprovalCommitResult
   registryRelationshipSave?: DpmRegistryRelationshipSaveInput
   registryRelationshipSaveResult?: DpmRegistryRelationshipSaveResult
+  registryApprovedConflictDetails?: DpmRegistryApprovedRelationshipConflictDetails
+  registryApprovedConflictCode?: DpmRegistryApprovedRelationshipConflictErrorCode
   approvedRegistryApproval?: ApprovedRegistryApprovalMetadata
   approvedRegistryRelationship?: ApprovedRegistryRelationshipInput
   registryRepository?: DpmRegistryWritableRepository
@@ -133,6 +140,7 @@ void [
   getDpmGatewayOpenApiDocument().paths,
   DPM_GATEWAY_RUNTIME_OPERATION_IDS,
   DPM_PROFILE_ARTIFACT_KIND,
+  DPM_REGISTRY_APPROVED_RELATIONSHIP_CONFLICT_ERROR_CODE,
   DPM_KAFKA_TOPIC_PROFILE_CAPTURE_MODES,
   DPM_KAFKA_TOPIC_PROFILE_CONNECTOR_ID,
   DEFAULT_DPM_PROFILE_ANALYSIS_POLICY,
@@ -150,7 +158,9 @@ void [
   listDpmRegistryRelationshipAuditEventsRuntime,
   DPM_REGISTRY_STORAGE_SCHEMA_SQL_BLOCKS,
   applyDpmRegistryStorageSchema,
+  DpmRegistryApprovedRelationshipConflictError,
   DPM_REGISTRY_RELATIONSHIP_AUDIT_EVENT_TYPES,
+  isDpmRegistryApprovedRelationshipConflictError,
   createDpmRegistryRelationshipRow,
   createDpmPostgresRegistryStorage,
   listDpmPostgresRegistryRelationshipRows,

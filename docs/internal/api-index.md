@@ -273,6 +273,11 @@ category barrel을 가리킨다. `packages/dpm/test/package-subpath-import-smoke
 | `DpmRegistryStorageSchemaQueryClient` | `dpm/src/storage/registry-schema-apply.ts` | dependency-free query client boundary for applying registry storage schema SQL blocks |
 | `DpmRegistryStorageSchemaApplyResult` | `dpm/src/storage/registry-schema-apply.ts` | registry storage schema apply result with schema version and applied block count |
 | `applyDpmRegistryStorageSchema()` | `dpm/src/storage/registry-schema-apply.ts` | applies ordered registry storage schema SQL blocks through an explicit query client |
+| `DPM_REGISTRY_APPROVED_RELATIONSHIP_CONFLICT_ERROR_CODE` | `dpm/src/storage/registry-storage-errors.ts` | stable storage error code for approved relationship uniqueness conflicts |
+| `DpmRegistryApprovedRelationshipConflictError` | `dpm/src/storage/registry-storage-errors.ts` | structured storage error containing dataset, registry, relationship, version, and constraint context |
+| `isDpmRegistryApprovedRelationshipConflictError()` | `dpm/src/storage/registry-storage-errors.ts` | runtime type guard for approved relationship uniqueness conflict errors |
+| `DpmRegistryApprovedRelationshipConflictDetails` | `dpm/src/storage/registry-storage-errors.ts` | context payload for constructing approved relationship uniqueness conflict errors |
+| `DpmRegistryApprovedRelationshipConflictErrorCode` | `dpm/src/storage/registry-storage-errors.ts` | type literal for the approved relationship uniqueness conflict error code |
 | `DPM_REGISTRY_RELATIONSHIP_AUDIT_EVENT_TYPES` | `dpm/src/storage/registry-audit-row-types.ts` | registry relationship audit event taxonomy |
 | `DpmPostgresRegistryQueryClient` | `dpm/src/storage/registry-postgres-storage.ts` | dependency-free Postgres query client boundary for registry storage SQL |
 | `DpmPostgresRegistryClient` | `dpm/src/storage/registry-postgres-storage.ts` | Postgres registry query client with transaction callback for atomic approval commits |

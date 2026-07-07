@@ -38,6 +38,10 @@ export type {
   DpmRegistryStorageReader,
   DpmRegistryWritableRepository,
 } from './registry-repository-types.js'
+export type {
+  DpmRegistryApprovedRelationshipConflictDetails,
+  DpmRegistryApprovedRelationshipConflictErrorCode,
+} from './registry-storage-errors.js'
 export {
   DPM_REGISTRY_RELATIONSHIP_AUDIT_EVENT_TYPES,
 } from './registry-audit-row-types.js'
@@ -59,6 +63,11 @@ export {
   listDpmPostgresRegistryRelationshipRows,
   upsertDpmPostgresRegistryRelationshipRow,
 } from './registry-postgres-storage.js'
+export {
+  DPM_REGISTRY_APPROVED_RELATIONSHIP_CONFLICT_ERROR_CODE,
+  DpmRegistryApprovedRelationshipConflictError,
+  isDpmRegistryApprovedRelationshipConflictError,
+} from './registry-storage-errors.js'
 
 export function createDpmRegistryRepository(storage: DpmRegistryStorage): DpmRegistryWritableRepository
 export function createDpmRegistryRepository(reader: DpmRegistryStorageReader): DpmRegistryRepository

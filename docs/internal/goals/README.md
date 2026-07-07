@@ -61,6 +61,7 @@
 | [Goal 55 — DPM Profile Hint Target Catalog Authority](./goal-55-dpm-profile-hint-target-catalog-authority.md) | ✅ | dpm |
 | [Goal 56 — DPM Kafka Invalid Capture Mode Audit](./goal-56-dpm-kafka-invalid-capture-mode-audit.md) | ✅ | dpm |
 | [Goal 57 — DPM Package Consumer Surface Guide](./goal-57-dpm-package-consumer-surface-guide.md) | ✅ | dpm |
+| [Goal 58 — DPM Approved Registry Conflict Contract](./goal-58-dpm-approved-registry-conflict-contract.md) | ✅ | dpm |
 | Phase 3 — OAS 파서/IR | ✅ | parser |
 | Phase 4 — TS 타입 생성 | ✅ | codegen/typegen |
 | Phase 5 — 라우터 스텁 | ✅ | router |

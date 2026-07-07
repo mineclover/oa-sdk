@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 
 import {
+  DpmRegistryApprovedRelationshipConflictError,
   createDpmGatewayRuntime,
   createDpmProfileAnalysisReport,
   createDpmRegistryRepository,
@@ -205,6 +206,74 @@ describe('DPM gateway profile relationship hint approval workflow', () => {
       .not
       .toHaveProperty('approvalAuditEventId')
     expect(upsertRelationshipRow).toHaveBeenCalledOnce()
+  })
+
+  it('returns a blocking response when registry storage detects an approved relationship conflict', async () => {
+    const runtime = createDpmGatewayRuntime()
+    const profileArtifact = createKafkaProfileArtifact()
+    const analysisReport = createDpmProfileAnalysisReport({ profileArtifact })
+    const relationshipHint = analysisReport.relationshipHints.find(candidate =>
+      candidate.id === 'proposal:edge:relationship-hint:hint:orders-created-customer'
+    )
+    if (!relationshipHint) throw new Error('expected explicit Kafka relationship hint')
+    const conflict = new DpmRegistryApprovedRelationshipConflictError({
+      datasetId: profileArtifact.datasetId,
+      registryVersion: 'registry-profile-workflow-v1',
+      relationshipName: 'rel_orders_customer',
+      relationshipVersion: '2',
+      constraint: 'dpm_relationship_registry_approved_idx',
+    })
+    const upsertRelationshipRow = vi.fn(async () => {
+      throw conflict
+    })
+    const appendRelationshipAuditEvent = vi.fn()
+    const registryRepository = createDpmRegistryRepository({
+      upsertRelationshipRow,
+      appendRelationshipAuditEvent,
+      listRelationshipRows: () => [],
+    })
+    const operation = getDpmGatewayOpenApiDocument()
+      .paths['/dpm/profiles/relationship-hints/{relationshipName}/approve'].post
+    const responseSchema = compileGatewayComponentSchema(
+      extractBlockingResponseSchemaName(operation),
+    )
+
+    const response = await runtime.approveDpmProfileRelationshipHint({
+      profileArtifact,
+      relationshipHint,
+      relationshipName: 'rel_orders_customer',
+      childTableByPathPrefix: {
+        'orders.created': 'public.orders',
+      },
+      registryVersion: 'registry-profile-workflow-v1',
+      version: '2',
+      namespace: 'customer',
+      transformStrategy: 'relationship_token',
+      orphanPolicy: 'block',
+      owner: 'privacy-platform',
+      approvedBy: 'dpm-reviewer@example.com',
+      reason: 'Concurrent approved version should be blocked.',
+      registryRepository,
+    })
+
+    expect(response.statusCode).toBe(400)
+    expect(response.body.result).toMatchObject({
+      relationshipName: 'rel_orders_customer',
+      status: 'blocked',
+      diagnostics: [
+        expect.objectContaining({
+          severity: 'error',
+          code: 'PROF204',
+          message: conflict.message,
+        }),
+      ],
+    })
+    expect(
+      responseSchema(response.body.result),
+      JSON.stringify(responseSchema.errors, null, 2),
+    ).toBe(true)
+    expect(upsertRelationshipRow).toHaveBeenCalledOnce()
+    expect(appendRelationshipAuditEvent).not.toHaveBeenCalled()
   })
 
   it('returns a blocking response for mismatched target catalog authority before registry mutation', async () => {

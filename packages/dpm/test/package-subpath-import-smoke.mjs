@@ -31,8 +31,11 @@ const checks = [
     && typeof gatewayModule.listDpmRegistryRelationshipAuditEventsRuntime === 'function'],
   ['storage', typeof storageModule.createDpmProfileBaselineRepository === 'function'
     && typeof storageModule.createDpmRegistryRelationshipRow === 'function'
+    && typeof storageModule.DpmRegistryApprovedRelationshipConflictError === 'function'
+    && typeof storageModule.isDpmRegistryApprovedRelationshipConflictError === 'function'
     && typeof storageModule.applyDpmRegistryStorageSchema === 'function'
     && Array.isArray(storageModule.DPM_REGISTRY_STORAGE_SCHEMA_SQL_BLOCKS)
+    && storageModule.DPM_REGISTRY_APPROVED_RELATIONSHIP_CONFLICT_ERROR_CODE === 'DPM_REGISTRY_APPROVED_RELATIONSHIP_CONFLICT'
     && Array.isArray(storageModule.DPM_REGISTRY_RELATIONSHIP_AUDIT_EVENT_TYPES)],
   ['publishing', typeof publishingModule.createDpmPublishingContext === 'function'],
 ]
