@@ -11,6 +11,7 @@ export type {
   DpmProfileBaselineArtifactSummary,
   DpmProfileBaselineSummary,
   DpmPreviousProfileBaselineSelectionInput,
+  DpmPreviousProfileBaselineSummarySelectionInput,
 } from '../storage/profile-baseline-repository.js'
 export {
   DPM_PROFILE_BASELINE_KIND,
@@ -23,6 +24,7 @@ export {
   createDpmProfileBaselineRow,
   renderDpmProfileBaselineRef,
   selectDpmPreviousProfileBaseline,
+  selectDpmPreviousProfileBaselineSummary,
   summarizeDpmProfileBaselineRow,
   summarizeDpmProfileBaselineRows,
 } from '../storage/profile-baseline-repository.js'

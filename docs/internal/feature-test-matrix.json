@@ -303,6 +303,7 @@
         "body-free profile baseline history summary",
         "repository-backed profile baseline summary listing",
         "storage adapter profile baseline summary-only projection",
+        "summary-first latest previous baseline selection",
         "profile artifact persistence",
         "analysis report persistence",
         "profile and report freshness references",

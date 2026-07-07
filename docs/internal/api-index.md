@@ -323,6 +323,7 @@ catalog/registry snapshot, semantic validator, compiler, CLI/gateway/publishing 
 | `DPM_PROFILE_BASELINE_SELECTION_STRATEGIES` | `dpm/src/storage/profile-baseline-repository.ts` | profile baseline selection strategy taxonomy |
 | `DpmProfileBaselineSelectionStrategy` | `dpm/src/storage/profile-baseline-repository.ts` | profile baseline selection strategy union |
 | `DpmPreviousProfileBaselineSelectionInput` | `dpm/src/storage/profile-baseline-repository.ts` | direct selector input for latest previous profile baseline selection |
+| `DpmPreviousProfileBaselineSummarySelectionInput` | `dpm/src/storage/profile-baseline-repository.ts` | body-free summary selector input for latest previous profile baseline selection |
 | `DpmProfileBaselineStorage` | `dpm/src/storage/profile-baseline-repository.ts` | storage adapter boundary for profile baselines |
 | `DpmProfileBaselineRepository` | `dpm/src/storage/profile-baseline-repository.ts` | profile baseline persistence, retrieval, selection, and body-free summary repository surface |
 | `createDpmProfileBaselineRow()` | `dpm/src/storage/profile-baseline-repository.ts` | copy-only profile baseline row builder with profile/report consistency guard |
@@ -334,6 +335,7 @@ catalog/registry snapshot, semantic validator, compiler, CLI/gateway/publishing 
 | `summarizeDpmProfileBaselineRow()` | `dpm/src/storage/profile-baseline-repository.ts` | body-free profile baseline row summary projection |
 | `summarizeDpmProfileBaselineRows()` | `dpm/src/storage/profile-baseline-repository.ts` | body-free profile baseline history summary projection |
 | `selectDpmPreviousProfileBaseline()` | `dpm/src/storage/profile-baseline-repository.ts` | deterministic latest previous profile baseline selector |
+| `selectDpmPreviousProfileBaselineSummary()` | `dpm/src/storage/profile-baseline-repository.ts` | deterministic latest previous profile baseline summary selector |
 | `createDpmProfileBaselineRepository()` | `dpm/src/storage/profile-baseline-repository.ts` | adapter-backed profile baseline repository factory |
 | `DpmGatewayOperationId` | `dpm/src/gateway/openapi-operation-ids.ts` | DPM gateway operation id taxonomy |
 | `DpmGatewayOpenApiDocument` | `dpm/src/gateway/openapi.ts` | DPM gateway OpenAPI 3.2 document type |

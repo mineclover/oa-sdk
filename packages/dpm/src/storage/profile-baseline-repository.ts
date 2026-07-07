@@ -12,6 +12,7 @@ export type {
 } from './profile-baseline-selection-taxonomy.js'
 export type {
   DpmPreviousProfileBaselineSelectionInput,
+  DpmPreviousProfileBaselineSummarySelectionInput,
 } from './profile-baseline-selector.js'
 export type {
   DpmProfileBaselineRepository,
@@ -42,5 +43,8 @@ export {
   summarizeDpmProfileBaselineRow,
   summarizeDpmProfileBaselineRows,
 } from './profile-baseline-summary.js'
-export { selectDpmPreviousProfileBaseline } from './profile-baseline-selector.js'
+export {
+  selectDpmPreviousProfileBaseline,
+  selectDpmPreviousProfileBaselineSummary,
+} from './profile-baseline-selector.js'
 export { createDpmProfileBaselineRepository } from './profile-baseline-repository-facade.js'

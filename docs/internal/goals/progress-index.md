@@ -10,6 +10,7 @@ Last updated: 2026-07-07
 
 ## Recently Completed
 
+- [x] Goal 17 / DPM Profile Baseline Summary-First Selection (complete)
 - [x] Goal 16 / DPM Profile Baseline Summary Gateway (complete)
 - [x] Goal 15 / DPM Profile Baseline Summary Storage Projection (complete)
 - [x] Goal 14 / DPM Profile Baseline Resolution Summary (complete)
@@ -42,6 +43,7 @@ Last updated: 2026-07-07
 - [x] Goal 14 - DPM Profile Baseline Resolution Summary
 - [x] Goal 15 - DPM Profile Baseline Summary Storage Projection
 - [x] Goal 16 - DPM Profile Baseline Summary Gateway
+- [x] Goal 17 - DPM Profile Baseline Summary-First Selection
 
 ## Goal 4 DPM Units
 
@@ -119,6 +121,10 @@ Last updated: 2026-07-07
 ## Goal 16 DPM Units
 
 - [x] DPM-36 - Profile Baseline Summary Gateway Operation
+
+## Goal 17 DPM Units
+
+- [x] DPM-37 - Summary-First Previous Baseline Selection
 
 ## Done Criteria
 

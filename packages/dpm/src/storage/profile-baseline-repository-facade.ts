@@ -6,7 +6,10 @@ import {
   copyDpmProfileBaselineRow,
   createDpmProfileBaselineRow,
 } from './profile-baseline-row-builder.js'
-import { selectDpmPreviousProfileBaseline } from './profile-baseline-selector.js'
+import {
+  selectDpmPreviousProfileBaseline,
+  selectDpmPreviousProfileBaselineSummary,
+} from './profile-baseline-selector.js'
 import {
   copyDpmProfileBaselineSummaries,
   summarizeDpmProfileBaselineRows,
@@ -38,6 +41,25 @@ export function createDpmProfileBaselineRepository(
       return summarizeDpmProfileBaselineRows(rows)
     },
     async selectPreviousProfileBaseline(request) {
+      if (storage.listProfileBaselineSummaries) {
+        const summaries = await storage.listProfileBaselineSummaries({
+          datasetId: request.profileArtifact.datasetId,
+          profileId: request.profileArtifact.profileId,
+        })
+        const selectedSummary = selectDpmPreviousProfileBaselineSummary({
+          profileArtifact: request.profileArtifact,
+          baselineSummaries: summaries,
+          ...(request.limit !== undefined ? { limit: request.limit } : {}),
+          ...(request.includeCurrentProfileVersionHash !== undefined
+            ? { includeCurrentProfileVersionHash: request.includeCurrentProfileVersionHash }
+            : {}),
+        })
+        if (!selectedSummary) return undefined
+
+        const row = await storage.getProfileBaseline({ baselineRef: selectedSummary.baselineRef })
+        return row ? copyDpmProfileBaselineRow(row) : undefined
+      }
+
       const rows = await storage.listProfileBaselines({
         datasetId: request.profileArtifact.datasetId,
         profileId: request.profileArtifact.profileId,

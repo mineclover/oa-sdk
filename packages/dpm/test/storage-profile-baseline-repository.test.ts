@@ -7,6 +7,7 @@ import {
   createDpmProfileBaselineRow,
   createDpmProfileBaselineMeasurementId,
   selectDpmPreviousProfileBaseline,
+  selectDpmPreviousProfileBaselineSummary,
   summarizeDpmProfileBaselineRow,
   summarizeDpmProfileBaselineRows,
   type DpmProfileBaselineListRequest,
@@ -298,6 +299,71 @@ describe('DPM profile baseline repository', () => {
     expect(JSON.stringify(repositorySummaries)).not.toContain('analysisReport')
   })
 
+  it('selects the latest previous baseline through summaries before loading the selected row body', async () => {
+    const storedRows = new Map<string, DpmProfileBaselineRow>()
+    const profileArtifact = createKafkaProfileArtifact()
+    const olderProfileArtifact = createKafkaProfileArtifactWithCustomerNoPresence(0.88)
+    const latestPreviousProfileArtifact = createKafkaProfileArtifactWithCustomerNoPresence(0.91)
+    const currentBaseline = createDpmProfileBaselineRow({
+      profileArtifact,
+      storedAt: '2026-07-08T00:00:00.000Z',
+    })
+    const olderBaseline = createDpmProfileBaselineRow({
+      profileArtifact: olderProfileArtifact,
+      storedAt: '2026-07-06T00:00:00.000Z',
+    })
+    const latestPreviousBaseline = createDpmProfileBaselineRow({
+      profileArtifact: latestPreviousProfileArtifact,
+      storedAt: '2026-07-07T00:00:00.000Z',
+    })
+    for (const row of [currentBaseline, olderBaseline, latestPreviousBaseline]) {
+      storedRows.set(row.baselineRef, row)
+    }
+    const summaries = [
+      summarizeDpmProfileBaselineRow(currentBaseline),
+      summarizeDpmProfileBaselineRow(olderBaseline),
+      summarizeDpmProfileBaselineRow(latestPreviousBaseline),
+    ]
+    const getProfileBaseline = vi.fn((request: DpmProfileBaselineRequest) =>
+      storedRows.get(request.baselineRef)
+    )
+    const listProfileBaselines = vi.fn(() => {
+      throw new Error('profile baseline row bodies should not be listed for summary-first selection')
+    })
+    const listProfileBaselineSummaries = vi.fn((request: DpmProfileBaselineListRequest) =>
+      summaries.filter(summary =>
+        summary.datasetId === request.datasetId
+        && summary.profileId === request.profileId
+      )
+    )
+    const repository = createDpmProfileBaselineRepository({
+      upsertProfileBaseline: async () => undefined,
+      getProfileBaseline,
+      listProfileBaselines,
+      listProfileBaselineSummaries,
+    })
+
+    const selected = await repository.selectPreviousProfileBaseline({
+      profileArtifact,
+      limit: 1,
+    })
+    selected!.profileArtifact.nodes[0]!.label = 'mutated summary-first selected previous baseline'
+
+    expect(listProfileBaselineSummaries).toHaveBeenCalledWith({
+      datasetId: profileArtifact.datasetId,
+      profileId: profileArtifact.profileId,
+    })
+    expect(listProfileBaselines).not.toHaveBeenCalled()
+    expect(getProfileBaseline).toHaveBeenCalledWith({
+      baselineRef: latestPreviousBaseline.baselineRef,
+    })
+    expect(selected?.baselineRef).toBe(latestPreviousBaseline.baselineRef)
+    expect(selected?.baselineRef).not.toBe(currentBaseline.baselineRef)
+    expect(selected?.baselineRef).not.toBe(olderBaseline.baselineRef)
+    expect(storedRows.get(latestPreviousBaseline.baselineRef)?.profileArtifact.nodes[0]?.label)
+      .not.toBe('mutated summary-first selected previous baseline')
+  })
+
   it('preserves adapter row metadata when analysis report bodies are omitted', async () => {
     const profileArtifact = createKafkaProfileArtifact()
     const previousProfileArtifact = createKafkaProfileArtifactWithCustomerNoPresence(0.91)
@@ -396,9 +462,19 @@ describe('DPM profile baseline repository', () => {
       baselines: [...storedRows.values()],
       limit: 1,
     })
+    const directlySelectedSummary = selectDpmPreviousProfileBaselineSummary({
+      profileArtifact: currentProfileArtifact,
+      baselineSummaries: [...storedRows.values()].map(summarizeDpmProfileBaselineRow),
+      limit: 1,
+    })
+    directlySelectedSummary!.profileSummary.nodeCount = 999
 
     expect(directlySelected).toEqual(latestPreviousBaseline)
     expect(directlySelected).not.toBe(storedRows.get(latestPreviousBaseline.baselineRef))
+    expect(directlySelectedSummary?.baselineRef).toBe(latestPreviousBaseline.baselineRef)
+    expect(directlySelectedSummary?.baselineRef).not.toBe(currentBaseline.baselineRef)
+    expect(summarizeDpmProfileBaselineRow(latestPreviousBaseline).profileSummary.nodeCount)
+      .toBe(latestPreviousProfileArtifact.nodes.length)
   })
 
   it('rejects analysis reports that do not belong to the stored profile artifact', async () => {
