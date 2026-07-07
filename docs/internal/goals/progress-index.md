@@ -10,6 +10,7 @@ Last updated: 2026-07-08
 
 ## Recently Completed
 
+- [x] Goal 57 / DPM Package Consumer Surface Guide (complete)
 - [x] Goal 56 / DPM Kafka Invalid Capture Mode Audit (complete)
 - [x] Goal 55 / DPM Profile Hint Target Catalog Authority (complete)
 - [x] Goal 54 / DPM Kafka Relationship Hint Source Pointer (complete)
@@ -122,6 +123,7 @@ Last updated: 2026-07-08
 - [x] Goal 54 - DPM Kafka Relationship Hint Source Pointer
 - [x] Goal 55 - DPM Profile Hint Target Catalog Authority
 - [x] Goal 56 - DPM Kafka Invalid Capture Mode Audit
+- [x] Goal 57 - DPM Package Consumer Surface Guide
 
 ## Goal 4 DPM Units
 
@@ -359,6 +361,10 @@ Last updated: 2026-07-08
 ## Goal 56 DPM Units
 
 - [x] DPM-76 - Kafka Invalid Capture Mode Audit
+
+## Goal 57 DPM Units
+
+- [x] DPM-77 - Package Consumer Surface Guide
 
 ## Done Criteria
 

@@ -144,7 +144,9 @@
         "tsup category entrypoint coverage",
         "built package subpath runtime import smoke",
         "built package subpath declaration consumer smoke",
+        "package-local consumer surface guide",
         "pack dry-run file boundary smoke",
+        "pack README documentation inclusion",
         "clean build stale dist sentinel rejection",
         "root CI package surface smoke"
       ],
@@ -152,7 +154,8 @@
         "packages/dpm/test/package-subpath-exports.test.ts",
         "packages/dpm/test/package-subpath-import-smoke.mjs",
         "packages/dpm/test/package-subpath-type-consumer.ts",
-        "packages/dpm/test/package-pack-smoke.mjs"
+        "packages/dpm/test/package-pack-smoke.mjs",
+        "packages/dpm/README.md"
       ],
       "commands": [
         "pnpm --filter @oa-sdk/dpm exec vitest run test/package-subpath-exports.test.ts",

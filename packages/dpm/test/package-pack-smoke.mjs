@@ -14,7 +14,10 @@ const packResult = JSON.parse(
 )
 
 const files = new Set(packResult[0].files.map(file => file.path))
-const expectedFiles = new Set(['package.json'])
+const expectedFiles = new Set([
+  'package.json',
+  'README.md',
+])
 
 for (const exported of Object.values(manifest.exports)) {
   expectedFiles.add(stripRelativePrefix(exported.import))
@@ -28,6 +31,7 @@ for (const binPath of Object.values(manifest.bin ?? {})) {
 const missingFiles = [...expectedFiles].filter(file => !files.has(file))
 const invalidFiles = [...files].filter(file =>
   file !== 'package.json'
+  && file !== 'README.md'
   && !file.startsWith('dist/')
 )
 
