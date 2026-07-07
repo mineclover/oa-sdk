@@ -91,6 +91,10 @@ function assertApprovedRegistryRelationshipSaveInput(input: {
   relationship: {
     name: string
     status: string
+    approval?: {
+      approvedBy?: unknown
+      reason?: unknown
+    }
   }
 }): void {
   if (input.relationship.status !== 'approved') {
@@ -98,6 +102,19 @@ function assertApprovedRegistryRelationshipSaveInput(input: {
       `DPM registry saveRelationship only accepts approved relationships: ${input.relationship.name} is ${input.relationship.status}.`,
     )
   }
+  const missingFields = [
+    ...(!isNonEmptyString(input.relationship.approval?.approvedBy) ? ['approval.approvedBy'] : []),
+    ...(!isNonEmptyString(input.relationship.approval?.reason) ? ['approval.reason'] : []),
+  ]
+  if (missingFields.length > 0) {
+    throw new Error(
+      `DPM registry saveRelationship approved relationship ${input.relationship.name} is missing ${missingFields.join(', ')}.`,
+    )
+  }
+}
+
+function isNonEmptyString(value: unknown): value is string {
+  return typeof value === 'string' && value.trim().length > 0
 }
 
 export function copyDpmRegistryRelationshipRow(

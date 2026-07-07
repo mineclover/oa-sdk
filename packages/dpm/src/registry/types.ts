@@ -23,6 +23,7 @@ export type {
   RegistryTransformStrategy,
 } from './registry-transform-taxonomy.js'
 export type {
+  ApprovedRegistryApprovalMetadata,
   ApprovedRegistryRelationshipInput,
   RegistryApprovalMetadata,
   RegistryConditionMetadata,

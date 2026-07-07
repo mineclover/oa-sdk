@@ -17,6 +17,7 @@ import {
 } from '@oa-sdk/dpm/profile'
 import {
   REGISTRY_RELATIONSHIP_STATUSES,
+  type ApprovedRegistryApprovalMetadata,
   type ApprovedRegistryRelationshipInput,
   type RegistryRelationshipStatus,
 } from '@oa-sdk/dpm/relationship'
@@ -45,6 +46,7 @@ type DpmSubpathTypeSmoke = {
   profileRelationshipCandidateBridge?: DpmProfileRelationshipCandidateBridgeInput
   baseline?: DpmProfileBaselineSummary
   registryRelationshipSave?: DpmRegistryRelationshipSaveInput
+  approvedRegistryApproval?: ApprovedRegistryApprovalMetadata
   approvedRegistryRelationship?: ApprovedRegistryRelationshipInput
   registryRepository?: DpmRegistryWritableRepository
   publishing?: DpmPublishingContext

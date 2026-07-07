@@ -233,6 +233,7 @@ category barrel을 가리킨다. `packages/dpm/test/package-subpath-import-smoke
 | `RegistryConditionMetadata` | `dpm/src/registry/registry-relationship-types.ts` | context column, SQL condition, temporal condition metadata |
 | `RegistryEvidence` | `dpm/src/registry/registry-relationship-types.ts` | registry relationship evidence entry |
 | `RegistryApprovalMetadata` | `dpm/src/registry/registry-relationship-types.ts` | owner/reviewer/approval metadata |
+| `ApprovedRegistryApprovalMetadata` | `dpm/src/registry/registry-relationship-types.ts` | approved relationship approval metadata for write paths |
 | `RegistryRelationshipInput` | `dpm/src/registry/registry-relationship-types.ts` | registry relationship authoring input |
 | `ApprovedRegistryRelationshipInput` | `dpm/src/registry/registry-relationship-types.ts` | approved registry relationship payload for write paths |
 | `RegistryRelationship` | `dpm/src/registry/registry-relationship-types.ts` | normalized relationship with identity and executable flag |

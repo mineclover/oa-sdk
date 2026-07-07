@@ -39,6 +39,7 @@
 | [Goal 33 — DPM Profile Analysis Policy Contract](./goal-33-dpm-profile-analysis-policy-contract.md) | ✅ | dpm |
 | [Goal 34 — DPM Approved Registry Save Guard](./goal-34-dpm-approved-registry-save-guard.md) | ✅ | dpm |
 | [Goal 35 — DPM Approved Registry Uniqueness Guard](./goal-35-dpm-approved-registry-uniqueness-guard.md) | ✅ | dpm |
+| [Goal 36 — DPM Approved Registry Approval Metadata](./goal-36-dpm-approved-registry-approval-metadata.md) | ✅ | dpm |
 | Phase 3 — OAS 파서/IR | ✅ | parser |
 | Phase 4 — TS 타입 생성 | ✅ | codegen/typegen |
 | Phase 5 — 라우터 스텁 | ✅ | router |

@@ -12,7 +12,10 @@ import type {
 import type {
   RegistryTransformStrategy,
 } from './registry-transform-taxonomy.js'
-import type { RegistryApprovalMetadata } from './registry-approval-types.js'
+import type {
+  ApprovedRegistryApprovalMetadata,
+  RegistryApprovalMetadata,
+} from './registry-approval-types.js'
 import type { RegistryConditionMetadata } from './registry-condition-types.js'
 import type { RegistryEndpoint } from './registry-endpoint-types.js'
 import type { RegistryEvidence } from './registry-evidence-types.js'
@@ -36,8 +39,9 @@ export type RegistryRelationshipInput = {
   source?: SchemaSourceCoordinate
 }
 
-export type ApprovedRegistryRelationshipInput = RegistryRelationshipInput & {
+export type ApprovedRegistryRelationshipInput = Omit<RegistryRelationshipInput, 'approval' | 'status'> & {
   status: 'approved'
+  approval: ApprovedRegistryApprovalMetadata
 }
 
 export type RegistryRelationship = RegistryRelationshipInput & {

@@ -197,6 +197,50 @@ describe('DPM registry storage repository', () => {
       .toThrow('DPM registry saveRelationship only accepts approved relationships: rel_orders_status is rejected.')
   })
 
+  it('rejects approved relationship payloads with incomplete approval metadata at the save boundary', async () => {
+    const upsertRelationshipRow = vi.fn()
+    const repository = createDpmRegistryRepository({
+      upsertRelationshipRow,
+      listRelationshipRows: () => [],
+    })
+    const relationship = {
+      name: 'rel_orders_customer',
+      version: '1',
+      status: 'approved',
+      type: 'many_to_one',
+      parent: {
+        table: 'public.customers',
+        columns: ['customer_no'],
+      },
+      child: {
+        table: 'public.orders',
+        columns: ['customer_no'],
+      },
+      namespace: 'customer',
+      transformStrategy: 'relationship_token',
+      orphanPolicy: 'block',
+      approval: {
+        owner: 'privacy-team',
+      },
+    }
+    const saveInput = {
+      datasetId: STORAGE_REGISTRY_DATASET_ID,
+      registryVersion: STORAGE_REGISTRY_VERSION,
+      relationship,
+    } as unknown as DpmRegistryRelationshipSaveInput
+
+    await expect(repository.saveRelationship(saveInput))
+      .rejects
+      .toThrow(
+        'DPM registry saveRelationship approved relationship rel_orders_customer is missing approval.approvedBy, approval.reason.',
+      )
+    expect(() => createDpmRegistryRelationshipRow(saveInput))
+      .toThrow(
+        'DPM registry saveRelationship approved relationship rel_orders_customer is missing approval.approvedBy, approval.reason.',
+      )
+    expect(upsertRelationshipRow).not.toHaveBeenCalled()
+  })
+
   it('rejects another approved version for the same relationship name before adapter mutation', async () => {
     const upsertRelationshipRow = vi.fn()
     const listRelationshipRows = vi.fn(() => storageRegistryRows)

@@ -6,3 +6,8 @@ export type RegistryApprovalMetadata = {
   reviewedAt?: string
   reason?: string
 }
+
+export type ApprovedRegistryApprovalMetadata = RegistryApprovalMetadata & {
+  approvedBy: string
+  reason: string
+}
