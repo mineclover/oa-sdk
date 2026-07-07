@@ -20,6 +20,10 @@ export type {
 export type {
   DpmProfileBaselineRow,
 } from './profile-baseline-row-types.js'
+export type {
+  DpmProfileBaselineArtifactSummary,
+  DpmProfileBaselineSummary,
+} from './profile-baseline-summary-types.js'
 export { DPM_PROFILE_BASELINE_KIND } from './profile-baseline-kind.js'
 export {
   createDpmProfileBaselineMeasurementId,
@@ -32,5 +36,9 @@ export {
   copyDpmProfileBaselineRow,
   createDpmProfileBaselineRow,
 } from './profile-baseline-row-builder.js'
+export {
+  summarizeDpmProfileBaselineRow,
+  summarizeDpmProfileBaselineRows,
+} from './profile-baseline-summary.js'
 export { selectDpmPreviousProfileBaseline } from './profile-baseline-selector.js'
 export { createDpmProfileBaselineRepository } from './profile-baseline-repository-facade.js'

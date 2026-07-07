@@ -300,6 +300,7 @@
       "capabilities": [
         "profile baseline row identity",
         "same-version profile baseline measurement identity",
+        "body-free profile baseline history summary",
         "profile artifact persistence",
         "analysis report persistence",
         "profile and report freshness references",

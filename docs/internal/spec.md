@@ -299,6 +299,8 @@ DPM profile baseline selection invariant: `previousProfileBaseline` resolution a
 
 DPM profile baseline measurement identity invariant: `packages/dpm/src/storage/profile-baseline-measurement-identity.ts` owns deterministic measurement id creation and baseline ref rendering. Without measurement metadata, default refs remain profile-version refs; with `measuredAt`, `measurementRunHash`, or explicit `measurementId`, the generated default ref includes the measurement id so same-version measurements can remain distinct history rows.
 
+DPM profile baseline history summary invariant: `packages/dpm/src/storage/profile-baseline-summary.ts` projects baseline rows into body-free history summaries for list/UI surfaces. Summaries keep identity, measurement metadata, freshness hashes, profile counts, and optional analysis summary, but do not expose stored `profileArtifact` or `analysisReport` bodies.
+
 ## `@oa-sdk/router` ✅
 
 Hono/Express 스텁. `OasDocument | ParsedDocument` 입력. typegen 타입 import, JSDoc, 204.

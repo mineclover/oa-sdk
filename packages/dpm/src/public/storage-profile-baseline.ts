@@ -8,6 +8,8 @@ export type {
   DpmProfileBaselineSelectionStrategy,
   DpmProfileBaselineSaveInput,
   DpmProfileBaselineStorage,
+  DpmProfileBaselineArtifactSummary,
+  DpmProfileBaselineSummary,
   DpmPreviousProfileBaselineSelectionInput,
 } from '../storage/profile-baseline-repository.js'
 export {
@@ -19,4 +21,6 @@ export {
   createDpmProfileBaselineRow,
   renderDpmProfileBaselineRef,
   selectDpmPreviousProfileBaseline,
+  summarizeDpmProfileBaselineRow,
+  summarizeDpmProfileBaselineRows,
 } from '../storage/profile-baseline-repository.js'

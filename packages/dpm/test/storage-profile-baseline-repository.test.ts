@@ -7,6 +7,8 @@ import {
   createDpmProfileBaselineRow,
   createDpmProfileBaselineMeasurementId,
   selectDpmPreviousProfileBaseline,
+  summarizeDpmProfileBaselineRow,
+  summarizeDpmProfileBaselineRows,
   type DpmProfileBaselineListRequest,
   type DpmProfileBaselineRequest,
   type DpmProfileBaselineRow,
@@ -164,6 +166,54 @@ describe('DPM profile baseline repository', () => {
       firstMeasurement.baselineRef,
       secondMeasurement.baselineRef,
     ])
+  })
+
+  it('projects profile baseline history rows into body-free summaries', async () => {
+    const profileArtifact = createKafkaProfileArtifact()
+    const previousProfileArtifact = createKafkaProfileArtifactWithCustomerNoPresence(0.91)
+    const analysisReport = createDpmProfileAnalysisReport({
+      profileArtifact,
+      previousProfileArtifact,
+    })
+    const row = createDpmProfileBaselineRow({
+      profileArtifact,
+      analysisReport,
+      measuredAt: '2026-07-07T00:00:00.000Z',
+      measurementRunHash: 'sha256:summary-run',
+      storedAt: '2026-07-07T00:05:00.000Z',
+    })
+
+    const summary = summarizeDpmProfileBaselineRow(row)
+    const summaries = summarizeDpmProfileBaselineRows([row])
+    summary.analysisSummary!.relationshipHintCount = 999
+
+    expect(summary).toMatchObject({
+      kind: DPM_PROFILE_BASELINE_KIND,
+      baselineRef: row.baselineRef,
+      datasetId: row.datasetId,
+      profileId: row.profileId,
+      profileVersion: row.profileVersion,
+      profileVersionHash: row.profileVersionHash,
+      measurementId: row.measurementId,
+      measuredAt: '2026-07-07T00:00:00.000Z',
+      measurementRunHash: 'sha256:summary-run',
+      reportHash: analysisReport.freshness.reportHash,
+      previousProfileVersionHash: previousProfileArtifact.freshness.versionHash,
+      storedAt: '2026-07-07T00:05:00.000Z',
+      hasAnalysisReport: true,
+      profileSummary: {
+        nodeCount: profileArtifact.nodes.length,
+        edgeCount: profileArtifact.edges.length,
+        metricCount: profileArtifact.metrics.length,
+        diagnosticCount: profileArtifact.diagnostics.length,
+      },
+    })
+    expect(summary.analysisSummary?.driftSignalCount).toBe(analysisReport.summary.driftSignalCount)
+    expect(analysisReport.summary.relationshipHintCount).not.toBe(999)
+    expect(summaries).toHaveLength(1)
+    expect(JSON.stringify(summary)).not.toContain('profileArtifact')
+    expect(JSON.stringify(summary)).not.toContain('analysisReport')
+    expectStorageReportPayloadExcludesUnsafeFragments(summary)
   })
 
   it('preserves adapter row metadata when analysis report bodies are omitted', async () => {

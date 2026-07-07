@@ -32,7 +32,7 @@ The demo proves:
 - SDK consumers can create a frozen read-only profile artifact snapshot for editor baselines.
 - Gateway inspection returns profile counts for editor use.
 - Profile analysis emits relationship hint proposals, key candidates, risk indicators, and coverage metrics.
-- Profile analysis selects the latest stored previous measurement baseline, preserves measurement id/run metadata, compares it with the current artifact, and emits drift signals.
+- Profile analysis selects the latest stored previous measurement baseline, preserves measurement id/run metadata, exposes a body-free baseline history summary, compares it with the current artifact, and emits drift signals.
 - Proposal review can accept or request changes on hints without mutating connector evidence.
 - A mismatched proposal review is rejected with `PROF201`.
 - Runtime profile snapshots are defensive copies.
