@@ -1,4 +1,8 @@
 export type {
+  DpmRegistryStorageSchemaApplyResult,
+  DpmRegistryStorageSchemaQueryClient,
+} from '../storage/registry-schema.js'
+export type {
   DpmRegistryRelationshipApprovalCommitInput,
   DpmRegistryRelationshipApprovalCommitResult,
   DpmRegistryRelationshipAuditEventRequest,
@@ -19,6 +23,8 @@ export type {
   DpmRegistryWritableRepository,
 } from '../storage/registry-repository.js'
 export {
+  applyDpmRegistryStorageSchema,
+  DPM_REGISTRY_STORAGE_SCHEMA_SQL_BLOCKS,
   DPM_REGISTRY_STORAGE_SCHEMA_SQL,
   DPM_REGISTRY_STORAGE_SCHEMA_VERSION,
 } from '../storage/registry-schema.js'

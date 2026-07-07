@@ -10,6 +10,7 @@ Last updated: 2026-07-08
 
 ## Recently Completed
 
+- [x] Goal 48 / DPM Registry Schema Apply Helper (complete)
 - [x] Goal 47 / DPM Postgres Registry Consumer Demo (complete)
 - [x] Goal 46 / DPM Postgres Registry Storage Adapter (complete)
 - [x] Goal 45 / DPM Registry Write Receipt Audit Link (complete)
@@ -104,6 +105,7 @@ Last updated: 2026-07-08
 - [x] Goal 45 - DPM Registry Write Receipt Audit Link
 - [x] Goal 46 - DPM Postgres Registry Storage Adapter
 - [x] Goal 47 - DPM Postgres Registry Consumer Demo
+- [x] Goal 48 - DPM Registry Schema Apply Helper
 
 ## Goal 4 DPM Units
 
@@ -305,6 +307,10 @@ Last updated: 2026-07-08
 ## Goal 47 DPM Units
 
 - [x] DPM-67 - Postgres Registry Consumer Demo
+
+## Goal 48 DPM Units
+
+- [x] DPM-68 - Registry Schema Apply Helper
 
 ## Done Criteria
 

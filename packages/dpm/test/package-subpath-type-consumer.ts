@@ -44,9 +44,11 @@ import {
 } from '@oa-sdk/dpm/gateway'
 import {
   appendDpmPostgresRegistryRelationshipAuditEvent,
+  applyDpmRegistryStorageSchema,
   commitDpmPostgresRegistryRelationshipApproval,
   createDpmPostgresRegistryStorage,
   createDpmRegistryRelationshipRow,
+  DPM_REGISTRY_STORAGE_SCHEMA_SQL_BLOCKS,
   DPM_REGISTRY_RELATIONSHIP_AUDIT_EVENT_TYPES,
   DPM_PROFILE_BASELINE_SELECTION_STRATEGIES,
   listDpmPostgresRegistryRelationshipAuditEvents,
@@ -55,6 +57,8 @@ import {
   type DpmPostgresRegistryClient,
   type DpmPostgresRegistryQueryClient,
   type DpmRegistryAuditEventReader,
+  type DpmRegistryStorageSchemaApplyResult,
+  type DpmRegistryStorageSchemaQueryClient,
   type DpmRegistryRelationshipApprovalCommitInput,
   type DpmRegistryRelationshipApprovalCommitResult,
   type DpmRegistryRelationshipAuditEventRow,
@@ -86,6 +90,8 @@ type DpmSubpathTypeSmoke = {
   baseline?: DpmProfileBaselineSummary
   registryAuditEvent?: DpmRegistryRelationshipAuditEventRow
   registryAuditEventReader?: DpmRegistryAuditEventReader
+  registryStorageSchemaClient?: DpmRegistryStorageSchemaQueryClient
+  registryStorageSchemaApplyResult?: DpmRegistryStorageSchemaApplyResult
   postgresRegistryClient?: DpmPostgresRegistryClient
   postgresRegistryQueryClient?: DpmPostgresRegistryQueryClient
   registryRelationshipApprovalCommitInput?: DpmRegistryRelationshipApprovalCommitInput
@@ -123,6 +129,8 @@ void [
   resolveDpmProfileAnalysisPolicy,
   approveDpmProfileRelationshipHintRuntime,
   listDpmRegistryRelationshipAuditEventsRuntime,
+  DPM_REGISTRY_STORAGE_SCHEMA_SQL_BLOCKS,
+  applyDpmRegistryStorageSchema,
   DPM_REGISTRY_RELATIONSHIP_AUDIT_EVENT_TYPES,
   createDpmRegistryRelationshipRow,
   createDpmPostgresRegistryStorage,

@@ -251,7 +251,11 @@ category barrel을 가리킨다. `packages/dpm/test/package-subpath-import-smoke
 | `selectApprovedRelationships()` | `dpm/src/registry/registry-executable.ts` | approved executable relationship만 선택 |
 | `isExecutableRegistryRelationship()` | `dpm/src/registry/registry-executable.ts` | registry status 실행 가능성 판별 |
 | `DPM_REGISTRY_STORAGE_SCHEMA_VERSION` | `dpm/src/storage/registry-schema-sql.ts` | registry storage SQL compatibility/version marker |
+| `DPM_REGISTRY_STORAGE_SCHEMA_SQL_BLOCKS` | `dpm/src/storage/registry-schema-sql.ts` | ordered Postgres registry storage schema SQL blocks |
 | `DPM_REGISTRY_STORAGE_SCHEMA_SQL` | `dpm/src/storage/registry-schema-sql.ts` | Postgres canonical relationship registry schema SQL |
+| `DpmRegistryStorageSchemaQueryClient` | `dpm/src/storage/registry-schema-apply.ts` | dependency-free query client boundary for applying registry storage schema SQL blocks |
+| `DpmRegistryStorageSchemaApplyResult` | `dpm/src/storage/registry-schema-apply.ts` | registry storage schema apply result with schema version and applied block count |
+| `applyDpmRegistryStorageSchema()` | `dpm/src/storage/registry-schema-apply.ts` | applies ordered registry storage schema SQL blocks through an explicit query client |
 | `DPM_REGISTRY_RELATIONSHIP_AUDIT_EVENT_TYPES` | `dpm/src/storage/registry-audit-row-types.ts` | registry relationship audit event taxonomy |
 | `DpmPostgresRegistryQueryClient` | `dpm/src/storage/registry-postgres-storage.ts` | dependency-free Postgres query client boundary for registry storage SQL |
 | `DpmPostgresRegistryClient` | `dpm/src/storage/registry-postgres-storage.ts` | Postgres registry query client with transaction callback for atomic approval commits |

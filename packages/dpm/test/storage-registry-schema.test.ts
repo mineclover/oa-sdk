@@ -4,6 +4,9 @@ import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
 import {
+  applyDpmRegistryStorageSchema,
+  DPM_REGISTRY_STORAGE_SCHEMA_SQL_BLOCKS,
+  DPM_REGISTRY_STORAGE_SCHEMA_VERSION,
   DPM_REGISTRY_STORAGE_SCHEMA_SQL,
 } from '../src/index.js'
 
@@ -37,6 +40,26 @@ describe('DPM registry storage schema', () => {
     expect(sql).toContain("event_type in ('relationship_approved')")
     expect(sql).toContain('create unique index if not exists dpm_relationship_registry_audit_event_id_idx')
     expect(sql).toContain('create index if not exists dpm_relationship_registry_audit_lookup_idx')
+    expect(DPM_REGISTRY_STORAGE_SCHEMA_SQL_BLOCKS.join('\n\n')).toBe(DPM_REGISTRY_STORAGE_SCHEMA_SQL)
+  })
+
+  it('applies the Postgres schema blocks through an explicit query client', async () => {
+    const calls: { sql: string, parameters: readonly unknown[] }[] = []
+
+    const result = await applyDpmRegistryStorageSchema({
+      query(sql, parameters) {
+        calls.push({ sql, parameters })
+      },
+    })
+
+    expect(result).toEqual({
+      schemaVersion: DPM_REGISTRY_STORAGE_SCHEMA_VERSION,
+      appliedBlockCount: DPM_REGISTRY_STORAGE_SCHEMA_SQL_BLOCKS.length,
+    })
+    expect(calls).toEqual(DPM_REGISTRY_STORAGE_SCHEMA_SQL_BLOCKS.map(sql => ({
+      sql,
+      parameters: [],
+    })))
   })
 })
 
