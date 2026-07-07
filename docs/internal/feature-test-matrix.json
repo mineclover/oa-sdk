@@ -603,10 +603,12 @@
       "name": "DPM storage-backed customer orders demo",
       "category": "dpm",
       "package": "@oa-sdk/dpm",
-      "description": "Storage-backed customer-orders demo for catalog profiling, registry export, validate/compile/dry-run, and report retrieval.",
+      "description": "Storage-backed customer-orders demo for catalog profiling, Postgres registry adapter export, approval audit timeline readback, validate/compile/dry-run, and report retrieval.",
       "capabilities": [
         "fixture-backed catalog profiling",
+        "Postgres registry adapter consumer binding",
         "storage-backed registry snapshot export",
+        "approval audit timeline readback",
         "validate compile dry-run storage flow",
         "job and report persistence smoke",
         "gateway-compatible report retrieval",
@@ -618,7 +620,9 @@
         "packages/dpm/test/storage-demo-command.test.ts",
         "packages/dpm/test/storage-demo-pipeline.test.ts",
         "packages/dpm/test/storage-demo-surface.test.ts",
+        "packages/dpm/test/support/storage-demo-postgres-registry-fixtures.ts",
         "packages/dpm/examples/customer-orders-storage/README.md",
+        "packages/dpm/examples/customer-orders-storage/relationship-registry-audit-events.json",
         "packages/dpm/examples/customer-orders-storage/run-demo.mjs"
       ],
       "commands": [

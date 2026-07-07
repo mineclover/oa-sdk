@@ -8,6 +8,7 @@ import {
   compileDpmPlan,
   createDpmDryRunReport,
   createDpmJobRepository,
+  createDpmPostgresRegistryStorage,
   createDpmReportRepository,
   createDpmRegistryRepository,
   profilePostgresCatalog,
@@ -19,6 +20,7 @@ const demoDir = dirname(fileURLToPath(import.meta.url))
 const manifest = readJson('manifest.json')
 const catalogRows = readJson('catalog-profile-rows.json')
 const registryRows = readJson('relationship-registry-rows.json')
+const registryAuditEvents = readJson('relationship-registry-audit-events.json')
 const estimatedRows = readJson('estimated-rows.json')
 const jobRows = new Map()
 const reportRows = new Map()
@@ -50,24 +52,31 @@ const catalog = await recordStep('profile catalog rows through explicit query cl
   }
 })
 
-const registry = await recordStep('export approved registry snapshot from storage rows', async () => {
-  const repository = createDpmRegistryRepository({
-    listRelationshipRows(request) {
-      return registryRows.filter(row =>
-        row.datasetId === request.datasetId && row.registryVersion === request.registryVersion,
-      )
-    },
+const registry = await recordStep('export approved registry snapshot from Postgres registry adapter', async () => {
+  const postgresRegistryClient = createFixturePostgresRegistryClient({
+    relationshipRows: registryRows,
+    auditEvents: registryAuditEvents,
   })
+  const repository = createDpmRegistryRepository(
+    createDpmPostgresRegistryStorage(postgresRegistryClient),
+  )
   const snapshot = await repository.exportSnapshot({
     datasetId: manifest.relationship_registry.dataset_id,
     registryVersion: manifest.relationship_registry.registry_version,
     exportedAt: '2026-07-01T00:00:00.000Z',
   })
+  const auditEvents = await repository.listRelationshipAuditEvents?.({
+    datasetId: manifest.relationship_registry.dataset_id,
+    registryVersion: manifest.relationship_registry.registry_version,
+  })
   return {
     value: snapshot,
     summary: {
+      storageAdapter: 'postgres-registry',
       approvedRelationships: snapshot.approvedRelationships.map(relationship => relationship.name),
       nonExecutable: snapshot.nonExecutableRelationships.length,
+      approvalAuditEvents: auditEvents?.map(event => event.eventId) ?? [],
+      postgresQueries: postgresRegistryClient.queryCalls.map(call => call.table),
     },
   }
 })
@@ -184,6 +193,93 @@ async function recordStep(name, run) {
 
 function readJson(name) {
   return JSON.parse(readFileSync(join(demoDir, name), 'utf8'))
+}
+
+function createFixturePostgresRegistryClient({ relationshipRows, auditEvents }) {
+  const relationshipDbRows = relationshipRows.map(toPostgresRelationshipDbRow)
+  const auditEventDbRows = auditEvents.map(toPostgresAuditEventDbRow)
+  const queryCalls = []
+  const client = {
+    queryCalls,
+    async query(sql, params) {
+      if (sql.includes('from dpm.relationship_registry_audit_events')) {
+        queryCalls.push({ table: 'dpm.relationship_registry_audit_events', sql, params })
+        const [datasetId, registryVersion, relationshipName] = params
+        return {
+          rows: auditEventDbRows.filter(row =>
+            row.dataset_id === datasetId
+            && row.registry_version === registryVersion
+            && (relationshipName === null || row.relationship_name === relationshipName),
+          ),
+        }
+      }
+      if (sql.includes('from dpm.relationship_registry')) {
+        queryCalls.push({ table: 'dpm.relationship_registry', sql, params })
+        const [datasetId, registryVersion] = params
+        return {
+          rows: relationshipDbRows.filter(row =>
+            row.dataset_id === datasetId && row.registry_version === registryVersion,
+          ),
+        }
+      }
+
+      throw new Error('unexpected storage demo Postgres registry query')
+    },
+    async transaction(operation) {
+      return operation(client)
+    },
+  }
+
+  return client
+}
+
+function toPostgresRelationshipDbRow(row) {
+  return {
+    dataset_id: row.datasetId,
+    registry_version: row.registryVersion,
+    relationship_name: row.relationshipName,
+    relationship_version: row.relationshipVersion,
+    status: row.status,
+    relationship_type: row.relationshipType,
+    parent_table: row.parentTable,
+    parent_columns: row.parentColumns,
+    child_table: row.childTable,
+    child_columns: row.childColumns,
+    namespace: row.namespace,
+    transform_strategy: row.transformStrategy,
+    orphan_policy: row.orphanPolicy,
+    context_columns: row.contextColumns,
+    condition_sql: row.conditionSql ?? null,
+    temporal_condition: row.temporalCondition ?? null,
+    confidence_score: row.confidenceScore ?? null,
+    evidence: row.evidence,
+    approval: row.approval,
+    supersedes: row.supersedes ?? null,
+    superseded_by: row.supersededBy ?? null,
+    source: row.source ?? null,
+    source_freshness_hash: row.sourceFreshnessHash ?? null,
+    created_at: row.createdAt ?? null,
+    updated_at: row.updatedAt ?? null,
+  }
+}
+
+function toPostgresAuditEventDbRow(row) {
+  return {
+    event_id: row.eventId,
+    event_type: row.eventType,
+    dataset_id: row.datasetId,
+    registry_version: row.registryVersion,
+    relationship_name: row.relationshipName,
+    relationship_version: row.relationshipVersion,
+    relationship_status: row.relationshipStatus,
+    actor: row.actor,
+    reason: row.reason,
+    source_freshness_hash: row.sourceFreshnessHash ?? null,
+    approval: row.approval,
+    source: row.source ?? null,
+    occurred_at: row.occurredAt,
+    created_at: row.createdAt ?? null,
+  }
 }
 
 function assertEqual(actual, expected, label) {

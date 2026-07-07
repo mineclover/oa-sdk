@@ -32,3 +32,10 @@ export {
 export {
   createStorageDemoRegistryRepository,
 } from './storage-demo-registry-repository-fixtures.js'
+export {
+  createStorageDemoPostgresRegistryClient,
+  createStorageDemoPostgresRegistryRepository,
+  type StorageDemoPostgresRegistryClient,
+  type StorageDemoPostgresRegistryQueryCall,
+  type StorageDemoPostgresRegistryRepositoryFixture,
+} from './storage-demo-postgres-registry-fixtures.js'

@@ -16,6 +16,7 @@ describe('DPM storage-backed customer orders demo command', () => {
     const profileCalls = source.match(/\bprofilePostgresCatalog\s*\(/g) ?? []
 
     expect(profileCalls).toHaveLength(1)
+    expect(source).toContain('createDpmPostgresRegistryStorage')
 
     const result = spawnSync('corepack', ['pnpm', 'run', 'demo:storage'], {
       cwd: storageDemoPackageRoot,
@@ -30,5 +31,9 @@ describe('DPM storage-backed customer orders demo command', () => {
     expect(output?.sourceDbMutation).toBe('none')
     expect(output?.persistedRawValues).toBe(false)
     expect(output?.steps.every((step: Record<string, unknown>) => step.status === 'pass')).toBe(true)
+    expect(output?.steps[1]?.summary.storageAdapter).toBe('postgres-registry')
+    expect(output?.steps[1]?.summary.approvalAuditEvents).toEqual([
+      'audit:storage-demo:rel-orders-customer-approved',
+    ])
   }, storageDemoCommandTimeoutMs + 5_000)
 })

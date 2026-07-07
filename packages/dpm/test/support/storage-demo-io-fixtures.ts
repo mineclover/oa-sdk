@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
 import type {
+  DpmRegistryRelationshipAuditEventRow,
   DpmRegistryRelationshipRow,
   PostgresCatalogProfileRow,
 } from '../../src/index.js'
@@ -11,6 +12,7 @@ export type StorageDemoPipelineFixtures = {
   manifest: Record<string, any>
   catalogRows: PostgresCatalogProfileRow[]
   registryRows: DpmRegistryRelationshipRow[]
+  registryAuditEvents: DpmRegistryRelationshipAuditEventRow[]
   estimatedRows: Record<string, number>
 }
 
@@ -24,6 +26,9 @@ export function readStorageDemoPipelineFixtures(): StorageDemoPipelineFixtures {
     catalogRows: readStorageDemoJsonFixture<PostgresCatalogProfileRow[]>('catalog-profile-rows.json'),
     registryRows: readStorageDemoJsonFixture<DpmRegistryRelationshipRow[]>(
       'relationship-registry-rows.json',
+    ),
+    registryAuditEvents: readStorageDemoJsonFixture<DpmRegistryRelationshipAuditEventRow[]>(
+      'relationship-registry-audit-events.json',
     ),
     estimatedRows: readStorageDemoJsonFixture<Record<string, number>>('estimated-rows.json'),
   }

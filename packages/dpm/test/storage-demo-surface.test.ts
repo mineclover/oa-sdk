@@ -12,6 +12,7 @@ describe('DPM storage-backed customer orders demo surface', () => {
     expect(existsSync(join(storageDemoRoot, 'manifest.json'))).toBe(true)
     expect(existsSync(join(storageDemoRoot, 'catalog-profile-rows.json'))).toBe(true)
     expect(existsSync(join(storageDemoRoot, 'relationship-registry-rows.json'))).toBe(true)
+    expect(existsSync(join(storageDemoRoot, 'relationship-registry-audit-events.json'))).toBe(true)
     expect(existsSync(join(storageDemoRoot, 'estimated-rows.json'))).toBe(true)
   })
 })

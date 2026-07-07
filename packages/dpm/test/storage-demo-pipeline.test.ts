@@ -29,8 +29,8 @@ import {
   createStorageDemoPersistenceRepositories,
 } from './support/storage-demo-memory-repository-fixtures.js'
 import {
-  createStorageDemoRegistryRepository,
-} from './support/storage-demo-registry-repository-fixtures.js'
+  createStorageDemoPostgresRegistryRepository,
+} from './support/storage-demo-postgres-registry-fixtures.js'
 import {
   expectedStorageRegistryApprovedRelationshipNames,
 } from './support/storage-registry-projection-fixtures.js'
@@ -38,7 +38,13 @@ import { expectStorageReportPayloadExcludesUnsafeFragments } from './support/sto
 
 describe('DPM storage-backed customer orders demo pipeline', () => {
   it('profiles catalog rows, exports registry rows, runs validate/compile/dry-run, and retrieves reports without raw values', async () => {
-    const { manifest, catalogRows, registryRows, estimatedRows } = readStorageDemoPipelineFixtures()
+    const {
+      manifest,
+      catalogRows,
+      registryRows,
+      registryAuditEvents,
+      estimatedRows,
+    } = readStorageDemoPipelineFixtures()
     const catalogQuery = vi.fn(async () => catalogRows)
     const { jobRows, reportRows, jobRepository, reportRepository } =
       createStorageDemoPersistenceRepositories()
@@ -52,10 +58,18 @@ describe('DPM storage-backed customer orders demo pipeline', () => {
     const fixtureCatalog = createStorageDemoFixtureCatalog(catalogRows)
     manifest.catalog.version_hash = catalog.freshness.versionHash
 
-    const registry = await createStorageDemoRegistryRepository(registryRows).exportSnapshot({
+    const {
+      client: registryPostgresClient,
+      repository: registryRepository,
+    } = createStorageDemoPostgresRegistryRepository(registryRows, registryAuditEvents)
+    const registry = await registryRepository.exportSnapshot({
       datasetId: manifest.relationship_registry.dataset_id,
       registryVersion: manifest.relationship_registry.registry_version,
       exportedAt: storageDemoCapturedAt,
+    })
+    const auditEvents = await registryRepository.listRelationshipAuditEvents?.({
+      datasetId: manifest.relationship_registry.dataset_id,
+      registryVersion: manifest.relationship_registry.registry_version,
     })
 
     const validation = validateDpmManifest({ manifest, catalog, registry })
@@ -99,6 +113,11 @@ describe('DPM storage-backed customer orders demo pipeline', () => {
 
     expect(catalogQuery).toHaveBeenCalledWith(POSTGRES_CATALOG_PROFILE_SQL, [[...storageDemoSchemas]])
     expect(catalog).toEqual(fixtureCatalog)
+    expect(registryPostgresClient.queryCalls[0]?.sql).toContain('from dpm.relationship_registry')
+    expect(registryPostgresClient.queryCalls[1]?.sql).toContain('from dpm.relationship_registry_audit_events')
+    expect(auditEvents?.map(event => event.eventId)).toEqual([
+      'audit:storage-demo:rel-orders-customer-approved',
+    ])
     expect(validation.summary).toEqual(expectedStorageDemoValidationSummary)
     expect(registry.approvedRelationships.map(relationship => relationship.name)).toEqual([
       ...expectedStorageRegistryApprovedRelationshipNames,
