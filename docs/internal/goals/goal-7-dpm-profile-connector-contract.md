@@ -554,6 +554,8 @@ Implementation notes:
   preserving the existing manifest validate/compile/dry-run runtime behavior.
 - Profile inspection runtime returns a copied profile artifact and diagnostics snapshot so later
   caller-side mutation cannot alter an already-created inspection response.
+- Profile proposal review runtime copies response coordinates, relationship hint proposals, and
+  diagnostic evidence ids so editor-side mutation cannot alter an already-created review response.
 
 ## Completion Evidence
 

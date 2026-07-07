@@ -30,6 +30,17 @@ describe('DPM gateway profile proposal review runtime adapter', () => {
 
     expect(response.statusCode).toBe(200)
     expect(response.body.command).toBe('review-profile-proposal')
+    const responseCoordinatePath = response.body.result.coordinate?.path
+    const responseEvidenceIds = [...(response.body.result.relationshipHint?.evidenceIds ?? [])]
+    const responseExplanation = response.body.result.relationshipHint?.explanation
+
+    coordinate.path = 'mutated.after.proposal.review'
+    relationshipHint.evidenceIds.push('evidence:mutated-after-review')
+    relationshipHint.explanation = 'mutated after proposal review'
+
+    expect(response.body.result.coordinate?.path).toBe(responseCoordinatePath)
+    expect(response.body.result.relationshipHint?.evidenceIds).toEqual(responseEvidenceIds)
+    expect(response.body.result.relationshipHint?.explanation).toBe(responseExplanation)
     expect(
       reviewSchema(response.body.result),
       JSON.stringify(reviewSchema.errors, null, 2),
@@ -63,6 +74,11 @@ describe('DPM gateway profile proposal review runtime adapter', () => {
       relationshipHint,
     })
     const reviewSchema = compileGatewayComponentSchema('DpmProfileProposalReviewResponse')
+    const responseDiagnosticCoordinate = response.body.result.diagnostics[0]?.coordinate
+    const responseDiagnosticEvidenceIds = [...(response.body.result.diagnostics[0]?.evidenceIds ?? [])]
+
+    relationshipHint.evidenceIds.push('evidence:mutated-after-rejection')
+    coordinate.path = 'mutated.after.rejected.proposal.review'
 
     expect(response.statusCode).toBe(400)
     expect(
@@ -72,9 +88,11 @@ describe('DPM gateway profile proposal review runtime adapter', () => {
     expect(response.body.result.diagnostics).toContainEqual(expect.objectContaining({
       severity: 'error',
       code: 'PROF201',
-      coordinate,
-      evidenceIds: relationshipHint.evidenceIds,
+      coordinate: responseDiagnosticCoordinate,
+      evidenceIds: responseDiagnosticEvidenceIds,
     }))
+    expect(response.body.result.diagnostics[0]?.evidenceIds).toEqual(responseDiagnosticEvidenceIds)
+    expect(response.body.result.diagnostics[0]?.coordinate?.path).not.toBe(coordinate.path)
 
     const serialized = JSON.stringify(response.body.result)
     for (const unsafeFragment of GATEWAY_PROFILE_RUNTIME_UNSAFE_RESULT_FRAGMENTS) {
