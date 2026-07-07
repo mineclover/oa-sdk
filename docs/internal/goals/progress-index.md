@@ -10,6 +10,7 @@ Last updated: 2026-07-07
 
 ## Recently Completed
 
+- [x] Goal 28 / DPM Registry Snapshot Export Runtime Adapter (complete)
 - [x] Goal 27 / DPM Relationship Approval Runtime Adapter (complete)
 - [x] Goal 26 / DPM Relationship Discovery Runtime Adapter (complete)
 - [x] Goal 25 / DPM Discovery Gateway Candidate Contract (complete)
@@ -64,6 +65,7 @@ Last updated: 2026-07-07
 - [x] Goal 25 - DPM Discovery Gateway Candidate Contract
 - [x] Goal 26 - DPM Relationship Discovery Runtime Adapter
 - [x] Goal 27 - DPM Relationship Approval Runtime Adapter
+- [x] Goal 28 - DPM Registry Snapshot Export Runtime Adapter
 
 ## Goal 4 DPM Units
 
@@ -185,6 +187,10 @@ Last updated: 2026-07-07
 ## Goal 27 DPM Units
 
 - [x] DPM-47 - Relationship Approval Runtime Adapter
+
+## Goal 28 DPM Units
+
+- [x] DPM-48 - Registry Snapshot Export Runtime Adapter
 
 ## Done Criteria
 

@@ -1,4 +1,7 @@
 import {
+  copyDiscoverySourceCoordinate,
+} from '../discovery/discovery-source-copy.js'
+import {
   createRegistryRelationshipIdentity,
 } from './registry-identity.js'
 import {
@@ -32,5 +35,6 @@ export function normalizeRegistryRelationship(
     },
     evidence: [...(relationship.evidence ?? [])].map(copyRegistryEvidence).sort(byRegistryEvidence),
     approval: copyRegistryApproval(relationship.approval),
+    ...(relationship.source ? { source: copyDiscoverySourceCoordinate(relationship.source) } : {}),
   }
 }

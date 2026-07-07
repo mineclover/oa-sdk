@@ -13,6 +13,7 @@ import {
 import { importDpmRelationshipCandidatesRuntime } from './runtime-relationship-candidate-import.js'
 import { approveDpmRelationshipCandidateRuntime } from './runtime-relationship-approve.js'
 import { discoverDpmRelationshipsRuntime } from './runtime-relationship-discover.js'
+import { exportDpmRegistrySnapshotRuntime } from './runtime-relationship-registry-export.js'
 
 export function createDpmGatewayRuntime(): DpmGatewayRuntime {
   return {
@@ -23,6 +24,7 @@ export function createDpmGatewayRuntime(): DpmGatewayRuntime {
     discoverDpmRelationships: discoverDpmRelationshipsRuntime,
     importDpmRelationshipCandidates: importDpmRelationshipCandidatesRuntime,
     approveDpmRelationshipCandidate: approveDpmRelationshipCandidateRuntime,
+    exportDpmRegistrySnapshot: exportDpmRegistrySnapshotRuntime,
     validateDpmManifest: validateDpmManifestRuntime,
     compileDpmManifest: compileDpmManifestRuntime,
     dryRunDpmManifest: dryRunDpmManifestRuntime,

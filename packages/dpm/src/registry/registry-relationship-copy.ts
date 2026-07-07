@@ -3,6 +3,7 @@ import type {
   RegistryEndpoint,
   RegistryEvidence,
 } from './registry-relationship-types.js'
+import { copyDiscoverySourceCoordinate } from '../discovery/discovery-source-copy.js'
 
 export function copyRegistryEndpoint(endpoint: RegistryEndpoint): RegistryEndpoint {
   return {
@@ -16,7 +17,7 @@ export function copyRegistryEvidence(evidence: RegistryEvidence): RegistryEviden
     kind: evidence.kind,
     message: evidence.message,
     ...(evidence.score !== undefined ? { score: evidence.score } : {}),
-    ...(evidence.source ? { source: evidence.source } : {}),
+    ...(evidence.source ? { source: copyDiscoverySourceCoordinate(evidence.source) } : {}),
     ...(evidence.metadata ? { metadata: JSON.parse(JSON.stringify(evidence.metadata)) as Record<string, unknown> } : {}),
   }
 }

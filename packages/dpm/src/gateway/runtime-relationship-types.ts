@@ -12,7 +12,9 @@ import type {
   RegistryOrphanPolicy,
   RegistryRelationshipInput,
   RegistryTransformStrategy,
+  RegistrySnapshot,
 } from '../registry/types.js'
+import type { DpmRegistryRepository } from '../storage/registry-repository-types.js'
 import type { DpmGatewaySnapshotRef } from './runtime-manifest-request-types.js'
 
 export type DpmGatewayRelationshipDiscoveryRequest = {
@@ -63,3 +65,12 @@ export type DpmGatewayRelationshipApprovalResult = {
   status: 'approved'
   relationship: RegistryRelationshipInput
 }
+
+export type DpmGatewayRegistrySnapshotExportInput = {
+  datasetId: string
+  registryVersion: string
+  exportedAt?: string
+  registryRepository: DpmRegistryRepository
+}
+
+export type DpmGatewayRegistrySnapshotExportResult = RegistrySnapshot

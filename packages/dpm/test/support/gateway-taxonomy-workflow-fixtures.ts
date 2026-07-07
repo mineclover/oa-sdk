@@ -40,8 +40,8 @@ export const workflowTaxonomyProjectionCases = [
     DISCOVERY_EXCLUDED_CANDIDATE_REASONS,
   ],
   [
-    'DpmRegistrySnapshotResponse',
-    ['properties', 'relationships', 'items', 'properties', 'status', 'enum'],
+    'DpmRegistryRelationship',
+    ['properties', 'status', 'enum'],
     REGISTRY_RELATIONSHIP_STATUSES,
   ],
 ] as const satisfies readonly GatewayTaxonomyProjectionCase[]

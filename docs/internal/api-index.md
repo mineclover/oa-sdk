@@ -375,6 +375,8 @@ category barrel을 가리킨다. `packages/dpm/test/package-subpath-import-smoke
 | `DpmGatewayCandidateImportResult` | `dpm/src/gateway/runtime-relationship-types.ts` | relationship candidate import review/reject count result |
 | `DpmGatewayRelationshipApprovalInput` | `dpm/src/gateway/runtime-relationship-types.ts` | relationship candidate approval input with registry policy fields |
 | `DpmGatewayRelationshipApprovalResult` | `dpm/src/gateway/runtime-relationship-types.ts` | approved registry relationship payload result |
+| `DpmGatewayRegistrySnapshotExportInput` | `dpm/src/gateway/runtime-relationship-types.ts` | repository-backed registry snapshot export runtime input |
+| `DpmGatewayRegistrySnapshotExportResult` | `dpm/src/gateway/runtime-relationship-types.ts` | schema-valid registry snapshot export runtime result |
 | `DpmGatewayRuntimeOperationId` | `dpm/src/gateway/runtime-operation-ids.ts` | runtime operation id taxonomy |
 | `DpmGatewayRuntimeStatusCode` | `dpm/src/gateway/runtime-response-types.ts` | runtime success or blocking-diagnostic status code |
 | `DpmGatewayRuntimeCommand` | `dpm/src/gateway/runtime-response-types.ts` | profile, relationship, and manifest runtime command taxonomy |
@@ -388,7 +390,7 @@ category barrel을 가리킨다. `packages/dpm/test/package-subpath-import-smoke
 | `DpmGatewayProfileAnalysisResolvedRequest` | `dpm/src/gateway/runtime-profile-analysis-request.ts` | resolved profile analysis runtime input plus selected body-free baseline summary metadata |
 | `DpmGatewayProfileAnalysisBaselineResolver` | `dpm/src/gateway/runtime-profile-analysis-request.ts` | consumer-supplied profile baseline row resolver for profile analysis requests |
 | `DpmGatewayRuntimeResponse` | `dpm/src/gateway/runtime-response-types.ts` | gateway runtime response envelope |
-| `DpmGatewayRuntime` | `dpm/src/gateway/runtime-types.ts` | loaded profile, relationship discovery/import, validate, compile, and dry-run runtime handlers |
+| `DpmGatewayRuntime` | `dpm/src/gateway/runtime-types.ts` | loaded profile, relationship discovery/import/approval/export, validate, compile, and dry-run runtime handlers |
 | `resolveDpmGatewayManifestRuntimeInput()` | `dpm/src/gateway/runtime-manifest-request.ts` | converts OpenAPI manifest request refs into loaded runtime manifest input through a snapshot resolver |
 | `resolveDpmGatewayRelationshipDiscoveryRuntimeInput()` | `dpm/src/gateway/runtime-relationship-request.ts` | converts OpenAPI relationship discovery request refs into loaded runtime input through a catalog snapshot resolver |
 | `resolveDpmGatewayProfileAnalysisRequest()` | `dpm/src/gateway/runtime-profile-analysis-request.ts` | converts profile analysis baseline refs into loaded runtime input and selected baseline summary metadata |
@@ -396,7 +398,8 @@ category barrel을 가리킨다. `packages/dpm/test/package-subpath-import-smoke
 | `discoverDpmRelationshipsRuntime()` | `dpm/src/gateway/runtime-relationship-discover.ts` | source-DB-free relationship discovery runtime handler from loaded manifest/catalog evidence |
 | `importDpmRelationshipCandidatesRuntime()` | `dpm/src/gateway/runtime-relationship-candidate-import.ts` | relationship candidate import runtime handler returning review/reject counts without registry mutation |
 | `approveDpmRelationshipCandidateRuntime()` | `dpm/src/gateway/runtime-relationship-approve.ts` | relationship candidate approval runtime handler returning an approved registry relationship payload without storage mutation |
-| `createDpmGatewayRuntime()` | `dpm/src/gateway/runtime-factory.ts` | source-DB-free runtime adapter for profile, relationship, and manifest operations |
+| `exportDpmRegistrySnapshotRuntime()` | `dpm/src/gateway/runtime-relationship-registry-export.ts` | repository-backed registry snapshot export runtime handler returning schema-valid registry snapshots |
+| `createDpmGatewayRuntime()` | `dpm/src/gateway/runtime-factory.ts` | source-DB-free runtime adapter for profile, relationship, registry export, and manifest operations |
 | `DpmRelationshipMetadata` | `dpm/src/publishing/types.ts` | AI-publishable approved relationship metadata |
 | `DpmAiRelationshipContext` | `dpm/src/publishing/types.ts` | AI schema relationship context entry |
 | `DpmAiSchemaContext` | `dpm/src/publishing/types.ts` | read-only AI schema context envelope |

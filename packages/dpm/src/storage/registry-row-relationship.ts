@@ -1,6 +1,7 @@
 import type {
   RegistryRelationshipInput,
 } from '../registry/registry-relationship-types.js'
+import { copyDiscoverySourceCoordinate } from '../discovery/discovery-source-copy.js'
 import type {
   DpmRegistryRelationshipRow,
 } from './registry-repository-types.js'
@@ -41,6 +42,6 @@ export function dpmRegistryRowToRelationshipInput(
     approval: { ...row.approval },
     ...(row.supersedes ? { supersedes: row.supersedes } : {}),
     ...(row.supersededBy ? { supersededBy: row.supersededBy } : {}),
-    ...(row.source ? { source: row.source } : {}),
+    ...(row.source ? { source: copyDiscoverySourceCoordinate(row.source) } : {}),
   }
 }
