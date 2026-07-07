@@ -14,6 +14,7 @@
 | [Goal 8 — DPM Profile Baseline Storage](./goal-8-dpm-profile-baseline-storage.md) | ✅ | dpm |
 | [Goal 9 — DPM Profile Baseline Analysis Resolver](./goal-9-dpm-profile-baseline-analysis-resolver.md) | ✅ | dpm |
 | [Goal 10 — DPM Profile Baseline Selection](./goal-10-dpm-profile-baseline-selection.md) | ✅ | dpm |
+| [Goal 11 — DPM Profile Baseline Measurement History](./goal-11-dpm-profile-baseline-measurement-history.md) | ✅ | dpm |
 | Phase 3 — OAS 파서/IR | ✅ | parser |
 | Phase 4 — TS 타입 생성 | ✅ | codegen/typegen |
 | Phase 5 — 라우터 스텁 | ✅ | router |

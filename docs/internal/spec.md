@@ -297,6 +297,8 @@ Gateway consumer smoke: `packages/dpm/test/gateway-consumer-smoke.test.ts`는 Op
 
 DPM profile baseline selection invariant: `previousProfileBaseline` resolution accepts exactly one of `baselineRef` or `selectionStrategy`; `limit` is valid only with a selection strategy. `latest_previous` ordering and candidate limits are applied inside `packages/dpm/src/storage/profile-baseline-selector.ts`, so storage adapters do not need to return rows pre-sorted for correctness.
 
+DPM profile baseline measurement identity invariant: `packages/dpm/src/storage/profile-baseline-measurement-identity.ts` owns deterministic measurement id creation and baseline ref rendering. Without measurement metadata, default refs remain profile-version refs; with `measuredAt`, `measurementRunHash`, or explicit `measurementId`, the generated default ref includes the measurement id so same-version measurements can remain distinct history rows.
+
 ## `@oa-sdk/router` ✅
 
 Hono/Express 스텁. `OasDocument | ParsedDocument` 입력. typegen 타입 import, JSDoc, 204.

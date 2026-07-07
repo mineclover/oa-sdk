@@ -3,6 +3,10 @@ import type { DpmProfileAnalysisReport } from '../profile/analysis-report-types.
 import { copyDpmProfileArtifact } from '../profile/artifact-envelope-copy.js'
 import type { DpmProfileArtifact } from '../profile/profile-artifact-types.js'
 import { DPM_PROFILE_BASELINE_KIND } from './profile-baseline-kind.js'
+import {
+  createDpmProfileBaselineMeasurementId,
+  renderDpmProfileBaselineRef,
+} from './profile-baseline-measurement-identity.js'
 import type { DpmProfileBaselineSaveInput } from './profile-baseline-request-types.js'
 import type { DpmProfileBaselineRow } from './profile-baseline-row-types.js'
 
@@ -14,14 +18,27 @@ export function createDpmProfileBaselineRow(
   const analysisReport = input.analysisReport
     ? copyDpmProfileAnalysisReport(input.analysisReport)
     : undefined
+  const measurementId = createDpmProfileBaselineMeasurementId({
+    profileArtifact,
+    ...(analysisReport ? { analysisReport } : {}),
+    ...(input.measurementId ? { measurementId: input.measurementId } : {}),
+    ...(input.measuredAt ? { measuredAt: input.measuredAt } : {}),
+    ...(input.measurementRunHash ? { measurementRunHash: input.measurementRunHash } : {}),
+  })
 
   return {
     kind: DPM_PROFILE_BASELINE_KIND,
-    baselineRef: input.baselineRef ?? renderDefaultBaselineRef(profileArtifact),
+    baselineRef: input.baselineRef ?? renderDpmProfileBaselineRef({
+      profileArtifact,
+      ...(measurementId ? { measurementId } : {}),
+    }),
     datasetId: profileArtifact.datasetId,
     profileId: profileArtifact.profileId,
     profileVersion: profileArtifact.profileVersion,
     profileVersionHash: profileArtifact.freshness.versionHash,
+    ...(measurementId ? { measurementId } : {}),
+    ...(input.measuredAt ? { measuredAt: input.measuredAt } : {}),
+    ...(input.measurementRunHash ? { measurementRunHash: input.measurementRunHash } : {}),
     ...(analysisReport ? { reportHash: analysisReport.freshness.reportHash } : {}),
     ...(analysisReport?.freshness.previousProfileVersionHash ? {
       previousProfileVersionHash: analysisReport.freshness.previousProfileVersionHash,
@@ -47,6 +64,9 @@ export function copyDpmProfileBaselineRow(row: DpmProfileBaselineRow): DpmProfil
     profileId: row.profileId,
     profileVersion: row.profileVersion,
     profileVersionHash: row.profileVersionHash,
+    ...(row.measurementId !== undefined ? { measurementId: row.measurementId } : {}),
+    ...(row.measuredAt !== undefined ? { measuredAt: row.measuredAt } : {}),
+    ...(row.measurementRunHash !== undefined ? { measurementRunHash: row.measurementRunHash } : {}),
     ...(row.reportHash !== undefined ? { reportHash: row.reportHash } : {}),
     ...(row.previousProfileVersionHash !== undefined
       ? { previousProfileVersionHash: row.previousProfileVersionHash }
@@ -113,13 +133,4 @@ function assertAnalysisReportMetadataMatchesRow(
       ? undefined
       : 'previousProfileVersionHash',
   ]
-}
-
-function renderDefaultBaselineRef(profileArtifact: DpmProfileArtifact): string {
-  return [
-    'dpm-profile-baseline',
-    profileArtifact.datasetId,
-    profileArtifact.profileId,
-    profileArtifact.freshness.versionHash,
-  ].join(':')
 }

@@ -19,6 +19,9 @@ export type DpmProfileBaselineSelectionRequest = {
 
 export type DpmProfileBaselineSaveInput = {
   baselineRef?: string
+  measurementId?: string
+  measuredAt?: string
+  measurementRunHash?: string
   profileArtifact: DpmProfileArtifact
   analysisReport?: DpmProfileAnalysisReport
   storedAt?: string

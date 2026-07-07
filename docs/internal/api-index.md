@@ -314,6 +314,7 @@ catalog/registry snapshot, semantic validator, compiler, CLI/gateway/publishing 
 | `DPM_PROFILE_BASELINE_KIND` | `dpm/src/storage/profile-baseline-repository.ts` | persisted profile baseline row kind literal |
 | `DpmProfileBaselineRequest` | `dpm/src/storage/profile-baseline-repository.ts` | profile baseline lookup request |
 | `DpmProfileBaselineListRequest` | `dpm/src/storage/profile-baseline-repository.ts` | profile baseline list request for dataset/profile history |
+| `DpmProfileBaselineMeasurementIdentityInput` | `dpm/src/storage/profile-baseline-repository.ts` | profile baseline measurement identity hash input |
 | `DpmProfileBaselineSelectionRequest` | `dpm/src/storage/profile-baseline-repository.ts` | profile baseline selection request for current profile analysis |
 | `DpmProfileBaselineSaveInput` | `dpm/src/storage/profile-baseline-repository.ts` | profile artifact and optional analysis report persistence input |
 | `DpmProfileBaselineRow` | `dpm/src/storage/profile-baseline-repository.ts` | persisted profile baseline artifact/report row |
@@ -324,6 +325,8 @@ catalog/registry snapshot, semantic validator, compiler, CLI/gateway/publishing 
 | `DpmProfileBaselineRepository` | `dpm/src/storage/profile-baseline-repository.ts` | profile baseline persistence and retrieval repository surface |
 | `createDpmProfileBaselineRow()` | `dpm/src/storage/profile-baseline-repository.ts` | copy-only profile baseline row builder with profile/report consistency guard |
 | `copyDpmProfileBaselineRow()` | `dpm/src/storage/profile-baseline-repository.ts` | profile baseline row copy helper that preserves stored metadata |
+| `createDpmProfileBaselineMeasurementId()` | `dpm/src/storage/profile-baseline-repository.ts` | deterministic profile baseline measurement identity helper |
+| `renderDpmProfileBaselineRef()` | `dpm/src/storage/profile-baseline-repository.ts` | profile baseline ref renderer that includes measurement identity when present |
 | `selectDpmPreviousProfileBaseline()` | `dpm/src/storage/profile-baseline-repository.ts` | deterministic latest previous profile baseline selector |
 | `createDpmProfileBaselineRepository()` | `dpm/src/storage/profile-baseline-repository.ts` | adapter-backed profile baseline repository factory |
 | `DpmGatewayOperationId` | `dpm/src/gateway/openapi-operation-ids.ts` | DPM gateway operation id taxonomy |

@@ -9,6 +9,9 @@ export type DpmProfileBaselineRow = {
   profileId: string
   profileVersion: string
   profileVersionHash: string
+  measurementId?: string
+  measuredAt?: string
+  measurementRunHash?: string
   reportHash?: string
   previousProfileVersionHash?: string
   profileArtifact: DpmProfileArtifact

@@ -5,6 +5,7 @@ import {
   createDpmProfileAnalysisReport,
   createDpmProfileBaselineRepository,
   createDpmProfileBaselineRow,
+  createDpmProfileBaselineMeasurementId,
   selectDpmPreviousProfileBaseline,
   type DpmProfileBaselineListRequest,
   type DpmProfileBaselineRequest,
@@ -103,6 +104,66 @@ describe('DPM profile baseline repository', () => {
     expect(listed).toHaveLength(1)
     expect(listed[0]).toEqual(adapterRow)
     expect(listed[0]).not.toBe(adapterRow)
+  })
+
+  it('keeps same-version measurement baselines addressable as distinct history rows', async () => {
+    const storedRows = new Map<string, DpmProfileBaselineRow>()
+    const repository = createDpmProfileBaselineRepository({
+      upsertProfileBaseline: row => storedRows.set(row.baselineRef, row),
+      getProfileBaseline: request => storedRows.get(request.baselineRef),
+      listProfileBaselines: request =>
+        [...storedRows.values()].filter(row =>
+          row.datasetId === request.datasetId
+          && row.profileId === request.profileId
+        ),
+    })
+    const profileArtifact = createKafkaProfileArtifact()
+    const analysisReport = createDpmProfileAnalysisReport({ profileArtifact })
+
+    const firstMeasurement = await repository.saveProfileBaseline({
+      profileArtifact,
+      analysisReport,
+      measuredAt: '2026-07-07T00:00:00.000Z',
+      measurementRunHash: 'sha256:previous-run-a',
+      storedAt: '2026-07-07T00:05:00.000Z',
+    })
+    const secondMeasurement = await repository.saveProfileBaseline({
+      profileArtifact,
+      analysisReport,
+      measuredAt: '2026-07-07T01:00:00.000Z',
+      measurementRunHash: 'sha256:previous-run-b',
+      storedAt: '2026-07-07T01:05:00.000Z',
+    })
+
+    expect(firstMeasurement.measurementId).toBe(createDpmProfileBaselineMeasurementId({
+      profileArtifact,
+      analysisReport,
+      measuredAt: '2026-07-07T00:00:00.000Z',
+      measurementRunHash: 'sha256:previous-run-a',
+    }))
+    expect(firstMeasurement.measurementId).toEqual(expect.stringMatching(/^sha256:/))
+    expect(secondMeasurement.measurementId).toEqual(expect.stringMatching(/^sha256:/))
+    expect(firstMeasurement.measurementId).not.toBe(secondMeasurement.measurementId)
+    expect(firstMeasurement.baselineRef).toBe(
+      `dpm-profile-baseline:${profileArtifact.datasetId}:${profileArtifact.profileId}:`
+      + `${profileArtifact.freshness.versionHash}:${firstMeasurement.measurementId}`,
+    )
+    expect(secondMeasurement.baselineRef).not.toBe(firstMeasurement.baselineRef)
+    expect(storedRows.size).toBe(2)
+
+    const retrieved = await repository.getProfileBaseline({ baselineRef: firstMeasurement.baselineRef })
+    const listed = await repository.listProfileBaselines({
+      datasetId: profileArtifact.datasetId,
+      profileId: profileArtifact.profileId,
+    })
+
+    expect(retrieved?.measurementId).toBe(firstMeasurement.measurementId)
+    expect(retrieved?.measuredAt).toBe('2026-07-07T00:00:00.000Z')
+    expect(retrieved?.measurementRunHash).toBe('sha256:previous-run-a')
+    expect(listed.map(row => row.baselineRef)).toEqual([
+      firstMeasurement.baselineRef,
+      secondMeasurement.baselineRef,
+    ])
   })
 
   it('preserves adapter row metadata when analysis report bodies are omitted', async () => {

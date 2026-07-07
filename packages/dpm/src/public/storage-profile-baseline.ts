@@ -1,5 +1,6 @@
 export type {
   DpmProfileBaselineListRequest,
+  DpmProfileBaselineMeasurementIdentityInput,
   DpmProfileBaselineRepository,
   DpmProfileBaselineRequest,
   DpmProfileBaselineRow,
@@ -12,8 +13,10 @@ export type {
 export {
   DPM_PROFILE_BASELINE_KIND,
   DPM_PROFILE_BASELINE_SELECTION_STRATEGIES,
+  createDpmProfileBaselineMeasurementId,
   copyDpmProfileBaselineRow,
   createDpmProfileBaselineRepository,
   createDpmProfileBaselineRow,
+  renderDpmProfileBaselineRef,
   selectDpmPreviousProfileBaseline,
 } from '../storage/profile-baseline-repository.js'

@@ -5,6 +5,9 @@ export type {
   DpmProfileBaselineSaveInput,
 } from './profile-baseline-request-types.js'
 export type {
+  DpmProfileBaselineMeasurementIdentityInput,
+} from './profile-baseline-measurement-identity.js'
+export type {
   DpmProfileBaselineSelectionStrategy,
 } from './profile-baseline-selection-taxonomy.js'
 export type {
@@ -18,6 +21,10 @@ export type {
   DpmProfileBaselineRow,
 } from './profile-baseline-row-types.js'
 export { DPM_PROFILE_BASELINE_KIND } from './profile-baseline-kind.js'
+export {
+  createDpmProfileBaselineMeasurementId,
+  renderDpmProfileBaselineRef,
+} from './profile-baseline-measurement-identity.js'
 export {
   DPM_PROFILE_BASELINE_SELECTION_STRATEGIES,
 } from './profile-baseline-selection-taxonomy.js'
