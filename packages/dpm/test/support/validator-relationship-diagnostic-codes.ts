@@ -10,6 +10,7 @@ export const expectedUnsafeRelationshipDiagnosticCodes = [
   'SAF009',
   'SAF010',
   'SAF011',
+  'SAF013',
   'SYN001',
   'SYN001',
   'SYN001',

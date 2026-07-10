@@ -20,6 +20,25 @@ export const compilerValidationBlockingCases = [
     },
   },
   {
+    label: 'identical policies for the same table and column',
+    expectedDiagnosticCode: 'SAF013',
+    mutateManifest: manifest => {
+      manifest.columns.push(structuredClone(manifest.columns[0]))
+    },
+  },
+  {
+    label: 'conflicting policies for the same table and column',
+    expectedDiagnosticCode: 'SAF013',
+    mutateManifest: manifest => {
+      manifest.columns.push({
+        ...structuredClone(manifest.columns[0]),
+        role: 'business_metric',
+        pii: false,
+        transform: { type: 'keep' },
+      })
+    },
+  },
+  {
     label: 'approved registry name with changed relationship semantics',
     expectedDiagnosticCode: 'REL013',
     mutateManifest: manifest => {

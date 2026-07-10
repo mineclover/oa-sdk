@@ -6,11 +6,20 @@ import { createBlockingRuntimeInput } from './support/gateway-runtime-manifest-f
 describe('DPM gateway manifest blocking diagnostic runtime response', () => {
   it('returns blocking diagnostics as a structured runtime response', async () => {
     const runtime = createDpmGatewayRuntime()
-    const response = await runtime.validateDpmManifest(createBlockingRuntimeInput())
+    const input = createBlockingRuntimeInput()
+    const response = await runtime.validateDpmManifest(input)
+    const compileResponse = await runtime.compileDpmManifest(input)
 
     expect(response.statusCode).toBe(400)
     expect(response.body.command).toBe('validate')
     expect(response.body.result.valid).toBe(false)
-    expect(response.body.result.diagnostics.map((diagnostic: any) => diagnostic.code)).toContain('SAF001')
+    expect(response.body.result.diagnostics).toContainEqual(expect.objectContaining({
+      code: 'SAF013',
+      sourcePointer: '/columns/3',
+    }))
+    expect(compileResponse.statusCode).toBe(400)
+    expect(compileResponse.body.command).toBe('compile')
+    expect(compileResponse.body.result.ok).toBe(false)
+    expect('plan' in compileResponse.body.result).toBe(false)
   })
 })

@@ -44,7 +44,12 @@ export function createManifestRuntimeCliArgs(command: ManifestRuntimeCliCommand)
 export function createBlockingRuntimeInput() {
   const input = createRuntimeInput()
   const manifest = structuredClone(input.manifest) as Record<string, any>
-  manifest.columns[0].transform = { type: 'keep' }
+  manifest.columns.push({
+    ...structuredClone(manifest.columns[0]),
+    role: 'business_metric',
+    pii: false,
+    transform: { type: 'keep' },
+  })
   return {
     ...input,
     manifest,

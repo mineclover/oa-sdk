@@ -14,7 +14,7 @@ import {
 describe('DPM CLI validate command — blocking diagnostics', () => {
   it('exits non-zero for blocking REL/SAF diagnostics', async () => {
     const manifest = readCliManifestFixture()
-    manifest.columns[0].transform = { type: 'keep' }
+    manifest.columns.push(structuredClone(manifest.columns[0]))
     const invalidManifestPath = writeTempCliJsonFixture(
       'oa-dpm-cli-',
       'invalid-manifest.json',
@@ -34,6 +34,9 @@ describe('DPM CLI validate command — blocking diagnostics', () => {
 
     expect(result.exitCode).toBe(1)
     expect(output.result.valid).toBe(false)
-    expect(output.result.diagnostics.map((diagnostic: any) => diagnostic.code)).toContain('SAF001')
+    expect(output.result.diagnostics).toContainEqual(expect.objectContaining({
+      code: 'SAF013',
+      sourcePointer: '/columns/3',
+    }))
   })
 })

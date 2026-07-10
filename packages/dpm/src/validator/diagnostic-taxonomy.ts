@@ -27,6 +27,7 @@ export const DPM_DIAGNOSTIC_CODES = [
   'SAF010',
   'SAF011',
   'SAF012',
+  'SAF013',
 ] as const
 
 export type DpmDiagnosticCode = typeof DPM_DIAGNOSTIC_CODES[number]
