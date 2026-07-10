@@ -61,11 +61,13 @@ project:
   manifestPath: packages/schemas/typespec/oa-sdk.typespec-bundle.json
 ```
 
-TypeSpec project는 현재 bundle 변경 후보 수집과 cache boundary까지 구현되어
-있다. Historical TypeSpec compile/restore snapshot은 별도 builder adapter가
-완료된 뒤 server target으로 승격한다.
+TypeSpec project는 historical entries를 격리 workspace로 재구성하고 고정
+`@typespec/openapi3` 설정으로 compile한 뒤 OA SDK extension/sidecar restore,
+validation, expected diff를 통과한 OpenAPI를 snapshot으로 저장한다. revision에
+포함된 emitter config는 실행하지 않는다.
 
 **설정 파일이 없으면** 다음 경로를 자동 감지한다:
+- `packages/schemas/typespec/oa-sdk.typespec-bundle.json` (production, 최우선)
 - `packages/schemas/src/targets/book-notebook-api.yaml`
 - `packages/schemas/src/targets/admin-api.yaml`
 
@@ -136,6 +138,9 @@ gitlab:
 | 대상 | `targetConfig.name` (hover 시 전체 경로) |
 | 프래그먼트 | `fragmentsDir` 마지막 3 세그먼트 (hover 시 전체 경로) |
 | 소스 | `local-git` / `github` / `gitlab` + branch |
+
+TypeSpec project에서는 대상에 manifest, 프래그먼트 위치에 `sourceRoot`를
+표시한다.
 
 여러 스펙을 관리하는 프로젝트에서 어떤 타겟을 보고 있는지 한눈에 확인할 수 있다.
 
@@ -277,7 +282,8 @@ scope / domain 드롭다운과 검색창으로 필터링 가능하다. 행을 �
 ┌─ Infrastructure ───────────────────────────────────────┐
 │  SpecSourcePort    GithubAdapter / LocalGitAdapter /   │
 │                    GitlabAdapter / GithubApiAdapter     │
-│  SnapshotBuilderPort   SnapshotBuilder                 │
+│  SnapshotBuilderPort   SnapshotBuilder /               │
+│                        TypeSpecBundleSnapshotBuilder   │
 │  CachePort         SqliteCache                         │
 │    Write Side : snapshots, diffs, fragment_blobs       │
 │    Read Model : timeline_entries, path_entries         │
@@ -287,10 +293,26 @@ scope / domain 드롭다운과 검색창으로 필터링 가능하다. 행을 �
 CQRS 패턴 적용. `POST /refresh`, `DELETE /api/cache`만 쓰기이고, 나머지는 전부 Read Model 또는 캐시에서 읽는다.
 
 **캐시 키 격리 v2**: `SpecProjectKey`는 project kind, source root,
-manifest/target digest, builder version, snapshot schema version을 포함한다.
+manifest/target digest, builder version, snapshot schema version과 adapter별
+repository/project coordinate + branch/ref observation identity를 포함한다.
+TypeSpec project는 codegen-owned compiler/http/openapi/openapi3 version,
+restore contract, source/artifact/compiler resource policy도 fingerprint에 포함한다.
 snapshot, diff, timeline, path read model이 모두 같은 project key로 격리되므로
 동일 revision이라도 target/manifest 또는 builder가 바뀌면 이전 diff를 재사용하지 않는다.
 project identity가 없던 v1 SQLite cache는 안전하게 폐기한 뒤 Git history에서 재구축한다.
+
+**TypeSpec source admission**: revision content를 읽기 전에 모든 adapter는
+codegen-owned `oa-sdk.spec-lens.source-read-budget.v1`을 요구한다. Canonical 상한은
+256 files, 2 MiB/file, 16 MiB total, concurrency 4이며 더 엄격한 budget만 허용한다.
+Local Git/GitHub는 size metadata를 preflight하고, GitLab은 raw response의
+`Content-Length`를 per-file 선제 거부에 사용하면서 stream/running aggregate를 실제
+bytes로 제한하며, file-diff는 stat과 realpath containment 뒤 bounded read한다. 한
+파일이라도 실패하면 partial snapshot을 만들지 않고 revision 전체가 실패하며,
+codegen은 AST/compile admission에서 같은 budget을 두 번째로 검증한다. GitLab은
+모든 body에 per-file ceiling을 예약하고 full reservation이 불가능한 마지막 body만
+남은 aggregate를 독점한다. 전역 EOF/overflow probe는 cap 밖에서 최대 1 byte만
+소비하며 저장하지 않는다. 실패 시 header-pending fetch와 active/queued read를 모두
+중단하고 worker 정리를 기다린다.
 
 ---
 
@@ -306,12 +328,15 @@ POST /refresh
       local-git:  git ls-tree + git show
       github:     git ls-tree + git show (로컬 clone)
       gitlab:     GitLab Tree API + Files API
-  → SnapshotBuilder.build()           oa-gen 파이프라인 인메모리 실행
+  → no-limit refresh: unreachable cache/read-model rows transaction reconcile
+  → SnapshotBuilder.build()
+      definition-builder: oa-gen 파이프라인 인메모리 실행
+      typespec-bundle: isolated compile → OA SDK restore/validation/diff gates
   → SqliteCache.saveSnapshot()        Write Side 저장 (fragment_blobs dedup)
   → SnapshotBuilder.diff()            인접 revision 간 diff 계산
   → SqliteCache.saveDiff()            Write Side 저장
   → SqliteCache.upsertTimelineEntry() Read Model 갱신 (timeline_entries)
-  → SqliteCache.upsertPathEntries()   Read Model 갱신 (path_entries)
+  → SqliteCache.replacePathEntries()  Read Model 교체 (path_entries)
 ```
 
 ---

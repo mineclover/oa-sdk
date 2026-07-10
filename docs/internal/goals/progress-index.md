@@ -1,6 +1,6 @@
 # Goal Progress Index
 
-Last updated: 2026-07-08
+Last updated: 2026-07-10
 
 이 파일은 goal 진행 현황만 관리한다. 설계, 범위, 수용 기준은 각 goal 문서를 따른다.
 
@@ -10,6 +10,10 @@ Last updated: 2026-07-08
 
 ## Recently Completed
 
+- [x] Goal 67 / DPM Canonical Key Typed Encoding v2 (complete)
+- [x] Goal 66 / spec-lens TypeSpec Observability and Cache v2 (complete)
+- [x] Goal 65 / Browser Ref Completeness Contract (complete)
+- [x] Goal 64 / DPM Column Policy Uniqueness (complete)
 - [x] Goal 63 / DPM Product Flow Operating Strategy (complete)
 - [x] Goal 62 / DPM Package Consumer Audit Readback Smoke (complete)
 - [x] Goal 61 / DPM Registry Conflict Blocking Stabilization (complete)
@@ -136,6 +140,10 @@ Last updated: 2026-07-08
 - [x] Goal 61 - DPM Registry Conflict Blocking Stabilization
 - [x] Goal 62 - DPM Package Consumer Audit Readback Smoke
 - [x] Goal 63 - DPM Product Flow Operating Strategy
+- [x] Goal 64 - DPM Column Policy Uniqueness
+- [x] Goal 65 - Browser Ref Completeness Contract
+- [x] Goal 66 - spec-lens TypeSpec Observability and Cache v2
+- [x] Goal 67 - DPM Canonical Key Typed Encoding v2
 
 ## Goal 4 DPM Units
 
@@ -401,6 +409,14 @@ Last updated: 2026-07-08
 ## Goal 63 DPM Units
 
 - [x] DPM-83 - Product Flow Gate Operating Strategy
+
+## Goal 64 DPM Units
+
+- [x] DPM-84 - Column Policy Uniqueness Contract
+
+## Goal 67 DPM Units
+
+- [x] DPM-85 - Canonical Key Typed Encoding v2
 
 ## Done Criteria
 

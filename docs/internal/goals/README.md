@@ -67,6 +67,10 @@
 | [Goal 61 — DPM Registry Conflict Blocking Stabilization](./goal-61-dpm-registry-conflict-blocking-stabilization.md) | ✅ | dpm |
 | [Goal 62 — DPM Package Consumer Audit Readback Smoke](./goal-62-dpm-package-consumer-audit-readback-smoke.md) | ✅ | dpm |
 | [Goal 63 — DPM Product Flow Operating Strategy](./goal-63-dpm-product-flow-operating-strategy.md) | ✅ | dpm |
+| [Goal 64 — DPM Column Policy Uniqueness](./goal-64-dpm-column-policy-uniqueness.md) | ✅ | dpm |
+| [Goal 65 — Browser Ref Completeness Contract](./goal-65-browser-ref-completeness-contract.md) | ✅ | parser, client, router |
+| [Goal 66 — spec-lens TypeSpec Observability and Cache v2](./goal-66-spec-lens-typespec-observability-v2.md) | ✅ | spec-lens, codegen |
+| [Goal 67 — DPM Canonical Key Typed Encoding v2](./goal-67-dpm-canonical-key-typed-v2.md) | ✅ | dpm |
 | Phase 3 — OAS 파서/IR | ✅ | parser |
 | Phase 4 — TS 타입 생성 | ✅ | codegen/typegen |
 | Phase 5 — 라우터 스텁 | ✅ | router |

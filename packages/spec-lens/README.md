@@ -42,9 +42,20 @@ project:
   manifestPath: packages/schemas/typespec/oa-sdk.typespec-bundle.json
 ```
 
-현재 안전 마일스톤은 TypeSpec bundle의 `.tsp` / JSON / YAML 변경 후보 수집과
-project cache 격리까지 제공한다. Historical compile/restore snapshot은
-`TypeSpecBundleSnapshotBuilder` 후속 구현 전까지 server 실행 대상이 아니다.
+TypeSpec bundle은 historical revision마다 격리된 임시 workspace에서 컴파일한
+뒤 OA SDK extension/sidecar restore·validation·expected diff를 거쳐
+`spec-lens.snapshot.v2`로 저장한다. revision의 `tspconfig`는 실행하지 않으며,
+고정 `@typespec/openapi3` config와 검토된 TypeSpec import allowlist만 사용한다.
+Revision content read에는 codegen-owned `oa-sdk.spec-lens.source-read-budget.v1`이
+필수다. Canonical 상한은 256 files, 2 MiB/file, 16 MiB total, concurrency 4이고
+adapter와 codegen admission이 같은 policy를 각각 검증한다. TypeSpec read는
+개별 파일을 skip하지 않으므로 count/size/stream/root containment/read failure 중
+하나라도 발생하면 partial snapshot 없이 revision 전체가 실패한다. GitLab은
+`Content-Length`를 aggregate accounting의 신뢰값으로 사용하지 않고 모든 body에
+per-file ceiling을 예약한다. full reservation이 불가능한 마지막 body만 남은 capacity를
+독점한다. Tracker-global EOF/overflow probe는 file 또는 aggregate cap 밖에서 최대
+1 byte만 소비하며 그 byte는 저장하지 않는다. 실패 시 header-pending fetch를 abort하고
+active reader와 queued read를 중단한 뒤 worker 정리를 기다린다.
 
 ---
 
@@ -75,7 +86,7 @@ src/
 │   │   ├── gitlab/       GitlabAdapter (REST API + PRIVATE-TOKEN)
 │   │   ├── local-git/    LocalGitAdapter
 │   │   └── file/         FileDiffAdapter (두 디렉터리 직접 비교)
-│   ├── snapshot-engine/  SnapshotBuilder (oa-gen 파이프라인 인메모리)
+│   ├── snapshot-engine/  Definition Builder + TypeSpec bundle snapshot builders
 │   └── cache/sqlite/     SqliteCache + cache-key
 └── presentation/http/ Hono HTTP 서버
     └── server.ts
@@ -117,12 +128,18 @@ pnpm test
 
 | 파일 | 커버 범위 |
 |------|---------|
-| `cache-key.test.ts` | project source/digest/builder/schema identity와 legacy config 호환 |
-| `sqlite-cache.test.ts` | project별 snapshot/diff/read-model 격리, v1 cache invalidation, 라운드트립 |
+| `cache-key.test.ts` | project build + repository/ref observation identity와 legacy config 호환 |
+| `sqlite-cache.test.ts` | project 격리, nested fail-closed decode, full-history reconcile, v1 invalidation |
 | `snapshot-builder-diff.test.ts` | diff 통계, affectedFragments, null spec 핸들링 |
-| `local-git-adapter.test.ts` | 실제 repo 및 synthetic TypeSpec-only revision 관측 검증 |
+| `local-git-adapter.test.ts` | 실제 repo, TypeSpec-only revision, detached-HEAD SHA pinning |
+| `file-diff-adapter.test.ts` | stat-before-read, count/size budget, root-escaping symlink rejection |
+| `github-api-source-read-budget.test.ts` | tree size preflight, bounded blob response/decoded size, concurrency, whole-revision failure |
+| `gitlab-source-budget.test.ts` | file count, raw Content-Length/stream/aggregate cap, concurrency |
+| `source-read-budget.test.ts` | required/canonical/stricter/upward budget contract와 queued-read stop |
 | `get-graph-query.test.ts` | 노드 빌드, 엣지 해석, self-loop 제외 |
 | `refresh-timeline.test.ts` | full workflow, lastChanged 최신 우선, 빌드 실패 처리 |
+| `typespec-bundle-snapshot-builder.test.ts` | TypeSpec revision compile, timeline/cache reuse, failure state |
+| `revision-pagination.test.ts` | GitHub/GitLab authoritative full-history pagination과 bounded limit |
 | `query-handlers.test.ts` | GetDiff / GetPaths / GetSnapshot / GetTimeline 핸들러 |
 | `gitlab-adapter.integration.test.ts` | listRevisions / getFileEntries / 연속 revision content drift / 401 auth 에러 (env-gated, GitLab 인스턴스 필요) |
 
@@ -149,6 +166,7 @@ pnpm --filter @oa-sdk/spec-lens test -- src/__tests__/gitlab-adapter.integration
 ## 알려진 제약
 
 - cache schema v2는 project identity가 없는 v1 DB를 열 때 기존 cache/read model을 폐기하고 Git history에서 재구축한다.
-- TypeSpec bundle source adapter는 `.tsp` 변경을 관측하지만 historical compile/restore snapshot adapter는 다음 마일스톤이다.
+- TypeSpec output pointer를 원본 `.tsp` 선언으로 매핑하는 compiler provenance는 아직 없다. Snapshot/graph에는 reachable source-file evidence를 노출하고 path projection은 저장하지 않으며 API/UI는 명시적 `unavailable` 상태를 표시한다.
+- revision 후보는 `project.sourceRoot` 변경 단위다. sourceRoot 밖 lockfile/emitter 의존성은 명시적 `watchPaths` 계약이 도입되기 전에는 관측하지 않는다.
 - `source: github` 의 `GithubAdapter`는 bare clone 후 로컬 git으로 동작한다. git CLI가 없는 환경에서는 `GithubApiAdapter`를 직접 사용한다.
 - `source: gitlab` 은 REST API 방식. self-hosted GitLab은 GitHub처럼 좁은 API rate limit이 없으므로 bare-clone 변환은 도입하지 않았다 — rate limit 압력이 실제로 발생하면 재고려.

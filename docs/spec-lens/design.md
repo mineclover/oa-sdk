@@ -1,6 +1,8 @@
 # spec-lens Design
 
-OpenAPI 스펙 변경 이력 관리·관측 도구. oa-sdk가 관리하는 definition fragments의 커밋별 변화를 수집하고, path provenance·diff·fragment 그래프를 시각화한다.
+OpenAPI 스펙 변경 이력 관리·관측 도구. oa-sdk가 관리하는 Definition Builder
+rollback source와 production TypeSpec bundle의 커밋별 변화를 수집하고,
+snapshot·diff·provenance evidence·source 그래프를 시각화한다.
 
 ---
 
@@ -108,12 +110,12 @@ type SpecRevision = {
 }
 ```
 
-### SpecFileEntry — fragment 파일 하나의 내용
+### SpecFileEntry — project source 파일 하나의 내용
 
 ```typescript
 type SpecFileEntry = {
-  relativePath: string   // fragmentsDir 기준 상대 경로
-  content: string        // 원본 YAML/JSON 텍스트
+  relativePath: string   // project.sourceRoot 기준 상대 경로
+  content: string        // 원본 TSP/YAML/JSON 텍스트
   contentHash: string    // sha256(content)
 }
 ```
@@ -123,16 +125,40 @@ type SpecFileEntry = {
 ```typescript
 // wire 타입 (API 응답)
 type SpecSnapshot = {
-  schemaVersion: 'spec-lens.snapshot.v1'
+  schemaVersion: 'spec-lens.snapshot.v2'
+  projectKey: string
+  projectKind: 'definition-builder' | 'typespec-bundle'
+  sourceRoot: string
   revision: SpecRevision
-  fragmentsDir: string
-  targetPath: string
   spec: Record<string, unknown> | null
-  provenance: BuildSpecProvenanceMap     // @oa-sdk/codegen/spec-lens 재사용
-  composition: BuildSpecCompositionReport
   diagnostics: SpecSnapshotDiagnostic[]
   builtAt: number
   entries?: SpecFileEntry[]              // ?include=entries 파라미터 시만 포함
+}
+
+type DefinitionBuilderSpecSnapshot = SpecSnapshot & {
+  projectKind: 'definition-builder'
+  provenance: {
+    status: 'available'
+    kind: 'definition-builder'
+    entries: BuildSpecProvenanceMap
+  }
+  fragmentsDir: string
+  targetPath: string
+  targetConfigDigest: string
+  composition: BuildSpecCompositionReport
+}
+
+type TypeSpecBundleSpecSnapshot = SpecSnapshot & {
+  projectKind: 'typespec-bundle'
+  manifestPath: string
+  provenance: {
+    status: 'unavailable'
+    kind: 'typespec-source-files'
+    reason: 'output-pointer-mapping-unavailable'
+    sourceFiles: Array<{ relativePath: string; contentHash: string }>
+    compile: SpecLensTypeSpecCompileEvidence
+  }
 }
 
 // storage 타입 (SQLite 저장)
@@ -145,12 +171,16 @@ type SpecSnapshotStored = Omit<SpecSnapshot, 'entries'> & {
 
 ```typescript
 type SpecTimelineDiff = {
-  schemaVersion: 'spec-lens.diff.v1'
+  schemaVersion: 'spec-lens.diff.v2'
+  projectKey: string
+  projectKind: 'definition-builder' | 'typespec-bundle'
   baseRevision: SpecRevision
   headRevision: SpecRevision
   normalizedDiff: OpenApiNormalizedDiffEntry[]   // @oa-sdk/codegen 재사용
   breakingDiff: ContractDiffChange[]             // @oa-sdk/codegen 재사용
-  provenanceDiff: BuildSpecProvenanceDiffEntry[] // @oa-sdk/codegen 재사용
+  provenanceDiff:
+    | { status: 'available'; kind: 'definition-builder'; entries: BuildSpecProvenanceDiffEntry[] }
+    | { status: 'unavailable'; kind: 'typespec-source-files'; affectedSourceFiles: string[] }
   affectedFragments: string[]
   stats: {
     pathsAdded: number; pathsRemoved: number; pathsChanged: number
@@ -199,42 +229,77 @@ type SpecPathEntry = {
 interface SpecSourcePort {
   readonly kind: SpecSourceKind
 
+  resolveObservationIdentity(ref?: string): Promise<SpecObservationIdentity>
+
   listRevisions(options: {
-    fragmentsDir: string
+    sourceRoot?: string
+    fragmentsDir?: string // deprecated compatibility alias
+    sourceKind?: 'definition-builder' | 'typespec-bundle'
     branch?: string
     limit?: number
     since?: number  // unix epoch ms
     until?: number
   }): Promise<SpecRevision[]>
 
-  getFileEntries(options: {
-    revision: SpecRevision
-    fragmentsDir: string
-  }): Promise<SpecFileEntry[]>
-
-  getChangedFiles(options: {
-    baseRevision: SpecRevision
-    headRevision: SpecRevision
-    fragmentsDir: string
-  }): Promise<string[]>
+  getFileEntries(options: GetFileEntriesOptions): Promise<SpecFileEntry[]>
 }
+
+type SpecSourceReadBudget = {
+  schemaVersion: 'oa-sdk.spec-lens.source-read-budget.v1'
+  maxFiles: number
+  maxFileBytes: number
+  maxTotalBytes: number
+  maxConcurrency: number
+}
+
+type GetFileEntriesOptions = {
+  revision: SpecRevision
+  sourceRoot?: string
+  fragmentsDir?: string // deprecated compatibility alias
+} & (
+  | { sourceKind?: 'definition-builder'; readBudget?: never }
+  | { sourceKind: 'typespec-bundle'; readBudget: SpecSourceReadBudget }
+)
 ```
+
+TypeSpec read budget의 단일 소유자는 codegen이다. Refresh handler는 그 SSOT를
+source adapter에 명시적으로 전달하고, adapter는 credential lookup이나 content
+I/O보다 먼저 schema와 ceiling을 검증한다. Canonical ceiling은 256 files,
+2 MiB/file, 16 MiB total, concurrency 4이며 더 엄격한 값만 허용한다. Local Git은
+`ls-tree -l` size를 `show` 전에, GitHub API는 tree size와 bounded blob HTTP/decoded
+size를, GitLab은 raw `Content-Length`/stream/running aggregate를, FileDiff는
+realpath containment와 stat size를 각각 enforcement에 사용한다. TypeSpec에서는
+개별 파일 skip 없이 revision 전체를 실패시키며, codegen compile admission도
+같은 budget을 재확인한다. Definition Builder의 기존 best-effort adapter semantics는
+변경하지 않는다. GitLab `Content-Length`는 per-file ceiling 선제 거부에만 사용하고
+aggregate accounting에서는 신뢰하지 않는다. 각 body는 per-file ceiling을 예약하고
+실제 bytes만 commit해 unused capacity를 release한다. Full reservation이 불가능한
+마지막 body는 남은 capacity를 독점한다. Tracker-global byte-oriented EOF/overflow
+probe만 cap 확인용 1 byte를 추가 소비할 수 있으며, 이 byte는 결과에 admit/store하지
+않는다. 실패는 최초 오류를 고정하고 header-pending fetch를 abort하며 active reader와
+queued lease를 취소한 뒤 모든 worker가 정리될 때까지 기다린다.
 
 ### SnapshotBuilderPort — 스펙 빌드 계약
 
 ```typescript
 // application/ports/snapshot-builder.port.ts
-interface SnapshotBuilderPort {
-  build(options: {
-    revision: SpecRevision
-    entries: SpecFileEntry[]
-    fragmentsDir: string
-    targetConfig: DefinitionTargetConfig
-  }): Promise<SpecSnapshot>
+interface SnapshotBuilderPort<K extends SpecProjectSourceKind> {
+  build(options: BuildSnapshotOptions<K>): Promise<SpecSnapshotByKind[K]>
 
-  diff(base: SpecSnapshot, head: SpecSnapshot): SpecTimelineDiff
+  diff(base: SpecSnapshotStored, head: SpecSnapshotStored): SpecTimelineDiff
 }
 ```
+
+`definition-builder`는 기존 in-memory emitter를 사용한다. `typespec-bundle`은
+historical entries를 격리 workspace에 재구성하고 revision의 `tspconfig`를
+폐기한 뒤 `@typespec/openapi3` 3.2 emitter config를 생성한다. 공식 compiler
+AST parser의 parse diagnostics가 없어야 하며 도달 가능한
+sourceRoot 내부 상대 `.tsp` import와 `@typespec/http`, `@typespec/openapi`만
+허용하고 기존 codegen bundle-check의 restore/validation/expected-diff 경로를
+재사용한다. Codegen 자체 dependency에서 compiler/emitter package와 CLI를
+resolve하고 source/artifact/timeout/output/heap limit를 적용한다.
+Source read budget은 toolchain/compile evidence와 project fingerprint에도 포함되어
+policy가 다른 cache namespace의 결과가 섞이지 않게 한다.
 
 ### CachePort — 저장소 계약
 
@@ -247,14 +312,17 @@ interface CachePort {
 
   // Read Model (갱신은 Sync Worker만)
   upsertTimelineEntry(entry: SpecTimelineEntry): Promise<void>
-  upsertPathEntries(revisionId: string, entries: SpecPathEntry[]): Promise<void>
+  replacePathEntries(projectKey: string, entries: SpecPathEntry[]): Promise<void>
 
   // Read
   listTimeline(options: { fragmentsDir: string; limit?: number }): Promise<SpecTimelineEntry[]>
-  getSnapshot(revisionId: string): Promise<SpecSnapshotStored | null>
+  getSnapshotByRevision(revisionId: string, projectKey: string, expectedToolchainFingerprint?: string): Promise<SpecSnapshotStored | null>
   getDiff(baseId: string, headId: string): Promise<SpecTimelineDiff | null>
   listPaths(options: { fragmentsDir: string; scope?: string; domain?: string }): Promise<SpecPathEntry[]>
   getFragmentBlob(contentHash: string): Promise<string | null>
+
+  // no-limit authoritative history에만 사용
+  reconcileReachableRevisions(projectKey: string, revisionIds: readonly string[]): Promise<void>
 }
 ```
 
@@ -328,21 +396,28 @@ export { createBuildSpecProvenanceMap, createBuildSpecCompositionReport, diffOpe
 ## 캐시 키 설계
 
 ```typescript
-// infrastructure/cache/sqlite/cache-key.ts
-type CacheKeyInput = {
-  revisionId: string
-  fragmentsDir: string
-  targetConfigDigest: string  // 정규화 JSON → sha256
-  codegenVersion: string      // @oa-sdk/codegen 패키지 버전
-  schemaVersion: string       // 'spec-lens.snapshot.v1'
+type SpecProjectKeyInput = {
+  sourceKind: 'definition-builder' | 'typespec-bundle'
+  sourceRoot: string
+  manifestOrTargetDigest: string
+  builderVersion: string
+  snapshotSchemaVersion: 'spec-lens.snapshot.v2'
+  observation: {
+    adapterKind: 'local-git' | 'github' | 'gitlab' | 'file'
+    repository: string  // credential-free normalized coordinate
+    ref: string         // branch/ref
+  }
+  toolchainFingerprint: string
 }
 
-function buildCacheKey(input: CacheKeyInput): string
-// sha256(JSON.stringify(sorted(input)))
+function buildSpecProjectKey(input: SpecProjectKeyInput): string
 ```
 
+- snapshot key: `projectKey + revision SHA`
+- diff/read-model key: 동일한 `projectKey`
+- v1 cache는 위 identity를 복원할 수 없으므로 v2 open 시 폐기 후 재구축
 - branch HEAD listing: 짧은 TTL (force-push/rebase 대응)
-- revision SHA 기반 snapshot: `cacheKey` hit 시 영구
+- revision SHA 기반 snapshot: 같은 project identity 안에서만 재사용
 
 ---
 
@@ -364,26 +439,24 @@ CREATE TABLE snapshot_entries (
 
 CREATE TABLE snapshots (
   cache_key     TEXT PRIMARY KEY,
+  project_key   TEXT NOT NULL,
   revision_id   TEXT NOT NULL,
-  fragments_dir TEXT NOT NULL,
-  target_path   TEXT NOT NULL,
   data          TEXT NOT NULL,  -- JSON(SpecSnapshotStored, entries 제외)
   built_at      INTEGER NOT NULL
 );
 
 CREATE TABLE diffs (
+  project_key      TEXT NOT NULL,
   base_revision_id TEXT NOT NULL,
   head_revision_id TEXT NOT NULL,
-  fragments_dir    TEXT NOT NULL,
-  target_path      TEXT NOT NULL,
   data             TEXT NOT NULL,  -- JSON(SpecTimelineDiff)
-  PRIMARY KEY (base_revision_id, head_revision_id, fragments_dir, target_path)
+  PRIMARY KEY (project_key, base_revision_id, head_revision_id)
 );
 
 -- Read Model: Sync Worker가 갱신, Query는 여기만 조회
 CREATE TABLE timeline_entries (
+  project_key       TEXT NOT NULL,
   revision_id        TEXT NOT NULL,
-  fragments_dir      TEXT NOT NULL,
   short_id           TEXT NOT NULL,
   timestamp          INTEGER NOT NULL,
   message            TEXT NOT NULL,
@@ -394,11 +467,11 @@ CREATE TABLE timeline_entries (
   paths_removed      INTEGER NOT NULL DEFAULT 0,
   paths_changed      INTEGER NOT NULL DEFAULT 0,
   breaking_changes   INTEGER NOT NULL DEFAULT 0,
-  PRIMARY KEY (revision_id, fragments_dir)
+  PRIMARY KEY (project_key, revision_id)
 );
 
 CREATE TABLE path_entries (
-  fragments_dir           TEXT NOT NULL,
+  project_key             TEXT NOT NULL,
   path                    TEXT NOT NULL,
   methods                 TEXT NOT NULL,  -- JSON array
   canonical_id            TEXT NOT NULL,
@@ -408,8 +481,10 @@ CREATE TABLE path_entries (
   content_hash            TEXT NOT NULL,
   last_changed_revision   TEXT NOT NULL,
   last_changed_timestamp  INTEGER NOT NULL,
-  PRIMARY KEY (fragments_dir, path)
+  PRIMARY KEY (project_key, path)
 );
+
+PRAGMA user_version = 2;
 ```
 
 ---
@@ -417,15 +492,29 @@ CREATE TABLE path_entries (
 ## HTTP 서버 (Hono)
 
 ```typescript
-type SpecLensServerConfig = {
-  adapter: SpecSourcePort
-  fragmentsDir: string
-  targetPath: string
+type SpecLensServerCommon = {
+  source: SpecSourcePort
+  cache: CachePort
   branch?: string
   port?: number
-  dbPath?: string
   uiDir?: string  // 정적 파일 위치 (빌드된 apps/spec-lens)
 }
+
+type SpecLensServerConfig =
+  | SpecLensServerCommon & {
+      kind: 'definition-builder'
+      project: DefinitionBuilderProjectIdentity
+      builder: SnapshotBuilderPort<'definition-builder'>
+      fragmentsDir: string
+      targetPath: string
+      targetConfig: DefinitionTargetConfig
+    }
+  | SpecLensServerCommon & {
+      kind: 'typespec-bundle'
+      project: TypeSpecBundleProjectIdentity
+      builder: SnapshotBuilderPort<'typespec-bundle'>
+      manifestPath: string
+    }
 ```
 
 | Method | Path | Handler | 반환 |
@@ -435,7 +524,7 @@ type SpecLensServerConfig = {
 | `GET` | `/api/snapshot/:id` | GetSnapshotHandler | `SpecSnapshot` |
 | `GET` | `/api/snapshot/:id?include=entries` | GetSnapshotHandler | `SpecSnapshot + entries` |
 | `GET` | `/api/diff/:baseId/:headId` | GetDiffHandler | `SpecTimelineDiff` |
-| `GET` | `/api/paths` | GetPathsHandler | `SpecPathEntry[]` (Read Model) |
+| `GET` | `/api/paths` | GetPathsHandler | `available { entries } \| unavailable { reason }` |
 | `GET` | `/api/graph` | GetGraphHandler | `{ nodes, edges }` |
 | `GET` | `/ui/*` | serveStatic | React 앱 |
 
@@ -454,7 +543,7 @@ type SpecLensServerConfig = {
 |----|-----------|---------|
 | **Timeline** | `GET /api/timeline` (Read Model) | 커밋 목록, +/- 배지, ⚡breaking 배지, 클릭 → Diff |
 | **Diff** | `GET /api/diff/:base/:head` | 좌(base)/우(head) Monaco diff, breaking changes 탭 |
-| **Path Provenance** | `GET /api/paths` (Read Model) | path 테이블, scope/domain 필터, last changed |
+| **Path Provenance** | `GET /api/paths` (Read Model) | Definition Builder path table 또는 TypeSpec unavailable 상태 |
 | **Fragment Graph** | `GET /api/graph` | D3 force-graph, $ref 엣지, scope별 색상 |
 
 ---
