@@ -5,6 +5,7 @@ import type {
   EntityDeclaration,
   EntityKeyStrategy,
 } from './entity-types.js'
+import { resolveDpmCanonicalKeyEncodingVersion } from './canonical-key-encoding.js'
 import { requireNonEmpty } from './normalize-utils.js'
 
 export function normalizeEntityKeyStrategy(
@@ -35,6 +36,10 @@ export function normalizeEntityKeyStrategy(
     type: strategy.type,
     canonicalColumns,
     separator,
+    encodingVersion: resolveDpmCanonicalKeyEncodingVersion(
+      strategy.encodingVersion,
+      'entity.keyStrategy.encodingVersion',
+    ),
     ...(tenant ? { tenant } : {}),
   }
 }

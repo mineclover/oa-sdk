@@ -9,6 +9,11 @@ import type {
   DpmRegistryRelationshipAuditEventRow,
 } from './registry-audit-row-types.js'
 import type { DpmRegistryRelationshipRow } from './registry-storage-row-types.js'
+import type {
+  DpmRegistryCanonicalKeyEncodingClaimInput,
+  DpmRegistryCanonicalKeyEncodingContract,
+  DpmRegistryCanonicalKeyEncodingContractRequest,
+} from './registry-encoding-contract-types.js'
 
 export type DpmRegistryRelationshipApprovalCommitInput = {
   relationshipRow: DpmRegistryRelationshipRow
@@ -29,6 +34,12 @@ export type DpmRegistryStorageReader = {
   listRelationshipRows(
     request: DpmRegistryRelationshipRowRequest,
   ): Promise<readonly DpmRegistryRelationshipRow[]> | readonly DpmRegistryRelationshipRow[]
+  /** Reads the durable registry-wide encoding authority when the adapter supports v2 contracts. */
+  readCanonicalKeyEncodingContract?(
+    request: DpmRegistryCanonicalKeyEncodingContractRequest,
+  ): Promise<DpmRegistryCanonicalKeyEncodingContract | undefined>
+    | DpmRegistryCanonicalKeyEncodingContract
+    | undefined
 }
 
 export type DpmRegistryAuditEventReader = {
@@ -46,8 +57,16 @@ type DpmRegistryStorageAuditEventCapabilities = {
   ): Promise<readonly DpmRegistryRelationshipAuditEventRow[]> | readonly DpmRegistryRelationshipAuditEventRow[]
 }
 
+type DpmRegistryStorageCanonicalKeyEncodingCapabilities = {
+  /** Must atomically create the coordinate contract or reject a conflicting version. */
+  claimCanonicalKeyEncodingVersion?(
+    input: DpmRegistryCanonicalKeyEncodingClaimInput,
+  ): Promise<DpmRegistryCanonicalKeyEncodingContract> | DpmRegistryCanonicalKeyEncodingContract
+}
+
 type DpmRegistrySplitWriteStorage = DpmRegistryStorageReader
   & DpmRegistryStorageAuditEventCapabilities
+  & DpmRegistryStorageCanonicalKeyEncodingCapabilities
   & {
     upsertRelationshipRow(row: DpmRegistryRelationshipRow): Promise<void> | void
     commitRelationshipApproval?: never
@@ -55,6 +74,7 @@ type DpmRegistrySplitWriteStorage = DpmRegistryStorageReader
 
 type DpmRegistryApprovalCommitStorage = DpmRegistryStorageReader
   & DpmRegistryStorageAuditEventCapabilities
+  & DpmRegistryStorageCanonicalKeyEncodingCapabilities
   & {
     commitRelationshipApproval(
       input: DpmRegistryRelationshipApprovalCommitInput,

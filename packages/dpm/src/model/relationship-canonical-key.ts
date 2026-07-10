@@ -16,5 +16,6 @@ export function renderRelationshipCanonicalKey(
     ...(predicate ? { predicate } : {}),
     columns: relationship.canonicalKey.components,
     values,
+    encodingVersion: relationship.canonicalKey.encodingVersion,
   })
 }

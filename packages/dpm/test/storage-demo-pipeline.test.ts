@@ -126,6 +126,8 @@ describe('DPM storage-backed customer orders demo pipeline', () => {
     expect(registryPostgresClient.queryCalls[firstRegistryQueryIndex]?.sql)
       .toContain('from dpm.relationship_registry')
     expect(registryPostgresClient.queryCalls[firstRegistryQueryIndex + 1]?.sql)
+      .toContain('from dpm.relationship_registry_contracts')
+    expect(registryPostgresClient.queryCalls[firstRegistryQueryIndex + 2]?.sql)
       .toContain('from dpm.relationship_registry_audit_events')
     expect(auditEvents?.map(event => event.eventId)).toEqual([
       'audit:storage-demo:rel-orders-customer-approved',

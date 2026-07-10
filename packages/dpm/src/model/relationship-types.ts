@@ -3,6 +3,7 @@ import type {
 } from '../registry/registry-relationship-types.js'
 import type { RegistryTransformStrategy } from '../registry/registry-transform-taxonomy.js'
 import type { TenantNamespaceInput } from './canonical-key.js'
+import type { DpmCanonicalKeyEncodingVersion } from './canonical-key-encoding.js'
 import type { ModelEndpoint } from './endpoint.js'
 
 export type LogicalRelationshipKind = RegistryRelationshipInput['type']
@@ -25,6 +26,7 @@ export type RelationshipCanonicalKeyStrategy = {
   components: string[]
   separator?: string
   tenant?: TenantNamespaceInput
+  encodingVersion?: DpmCanonicalKeyEncodingVersion
 }
 
 export type LogicalRelationshipInput = {
@@ -48,5 +50,6 @@ export type LogicalRelationship = LogicalRelationshipInput & {
   }
   canonicalKey: RelationshipCanonicalKeyStrategy & {
     separator: string
+    encodingVersion: DpmCanonicalKeyEncodingVersion
   }
 }

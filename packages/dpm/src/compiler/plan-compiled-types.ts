@@ -1,3 +1,4 @@
+import type { DpmCanonicalKeyEncodingVersion } from '../model/canonical-key-encoding.js'
 import type { DpmPlanFreshness } from './plan-freshness-types.js'
 import type {
   DPM_COMPILED_PLAN_KIND,
@@ -17,6 +18,7 @@ export type DpmCompiledPlan = {
   manifestId: string
   datasetId: string
   policyVersion: string
+  canonicalKeyEncodingVersion: DpmCanonicalKeyEncodingVersion
   manifestCatalogVersionHash?: string
   freshness: DpmPlanFreshness
   stale: boolean

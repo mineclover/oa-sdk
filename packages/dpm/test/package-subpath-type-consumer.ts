@@ -30,9 +30,16 @@ import {
   type DpmKafkaTopicProfileInputValidationResult,
 } from '@oa-sdk/dpm/profile'
 import {
+  DPM_CANONICAL_KEY_ENCODING_VERSIONS,
+  DPM_DEFAULT_CANONICAL_KEY_ENCODING_VERSION,
+  assertDpmCanonicalKeyEncodingVersionMatchesPlan,
+  renderEntityCanonicalKeyForPlan,
+  renderRelationshipCanonicalKeyForPlan,
   REGISTRY_RELATIONSHIP_STATUSES,
   type ApprovedRegistryApprovalMetadata,
   type ApprovedRegistryRelationshipInput,
+  type DpmCanonicalKeyEncodingVersion,
+  type DpmCanonicalKeyEncodingPlan,
   type RegistryRelationshipStatus,
 } from '@oa-sdk/dpm/relationship'
 import {
@@ -67,6 +74,9 @@ import {
   upsertDpmPostgresRegistryRelationshipRow,
   type DpmPostgresRegistryClient,
   type DpmPostgresRegistryQueryClient,
+  type DpmRegistryCanonicalKeyEncodingClaimInput,
+  type DpmRegistryCanonicalKeyEncodingContract,
+  type DpmRegistryCanonicalKeyEncodingContractRequest,
   type DpmRegistryAuditEventReader,
   type DpmRegistryStorageSchemaApplyResult,
   type DpmRegistryStorageSchemaQueryClient,
@@ -110,6 +120,9 @@ type DpmSubpathTypeSmoke = {
   registryStorageSchemaApplyResult?: DpmRegistryStorageSchemaApplyResult
   postgresRegistryClient?: DpmPostgresRegistryClient
   postgresRegistryQueryClient?: DpmPostgresRegistryQueryClient
+  registryEncodingClaim?: DpmRegistryCanonicalKeyEncodingClaimInput
+  registryEncodingContract?: DpmRegistryCanonicalKeyEncodingContract
+  registryEncodingContractRequest?: DpmRegistryCanonicalKeyEncodingContractRequest
   registryRelationshipApprovalCommitInput?: DpmRegistryRelationshipApprovalCommitInput
   registryRelationshipApprovalCommitResult?: DpmRegistryRelationshipApprovalCommitResult
   registryRelationshipSave?: DpmRegistryRelationshipSaveInput
@@ -118,6 +131,8 @@ type DpmSubpathTypeSmoke = {
   registryApprovedConflictCode?: DpmRegistryApprovedRelationshipConflictErrorCode
   approvedRegistryApproval?: ApprovedRegistryApprovalMetadata
   approvedRegistryRelationship?: ApprovedRegistryRelationshipInput
+  canonicalKeyEncodingVersion?: DpmCanonicalKeyEncodingVersion
+  canonicalKeyEncodingPlan?: DpmCanonicalKeyEncodingPlan
   registryRepository?: DpmRegistryWritableRepository
   publishing?: DpmPublishingContext
 }
@@ -126,6 +141,11 @@ const packageName: '@oa-sdk/dpm' = DPM_PACKAGE_NAME
 const manifestVersion: DpmVersion = '1.0'
 const gatewayRuntime: DpmGatewayRuntime = createDpmGatewayRuntime()
 const registryStatus: RegistryRelationshipStatus = REGISTRY_RELATIONSHIP_STATUSES[0]
+const canonicalKeyEncodingVersion: DpmCanonicalKeyEncodingVersion =
+  DPM_DEFAULT_CANONICAL_KEY_ENCODING_VERSION
+const canonicalKeyEncodingPlan: DpmCanonicalKeyEncodingPlan = {
+  canonicalKeyEncodingVersion,
+}
 const targetRefResolution: DpmProfileRelationshipTargetRefResolution = {
   endpointRef: 'public.customers.customer_no',
   catalogAuthority: 'commerce',
@@ -137,9 +157,15 @@ void [
   manifestVersion,
   gatewayRuntime,
   registryStatus,
+  canonicalKeyEncodingVersion,
+  canonicalKeyEncodingPlan,
+  assertDpmCanonicalKeyEncodingVersionMatchesPlan,
+  renderEntityCanonicalKeyForPlan,
+  renderRelationshipCanonicalKeyForPlan,
   getDpmGatewayOpenApiDocument().paths,
   DPM_GATEWAY_RUNTIME_OPERATION_IDS,
   DPM_PROFILE_ARTIFACT_KIND,
+  DPM_CANONICAL_KEY_ENCODING_VERSIONS,
   DPM_REGISTRY_APPROVED_RELATIONSHIP_CONFLICT_ERROR_CODE,
   DPM_KAFKA_TOPIC_PROFILE_CAPTURE_MODES,
   DPM_KAFKA_TOPIC_PROFILE_CONNECTOR_ID,

@@ -1,4 +1,7 @@
 import type {
+  DpmRegistryCanonicalKeyEncodingClaimInput,
+  DpmRegistryCanonicalKeyEncodingContract,
+  DpmRegistryCanonicalKeyEncodingContractRequest,
   DpmRegistryRelationshipApprovalCommitInput,
   DpmRegistryRelationshipApprovalCommitResult,
   DpmRegistryRelationshipAuditEventRow,
@@ -19,6 +22,10 @@ import {
 import {
   REGISTRY_TRANSFORM_STRATEGIES,
 } from '../registry/registry-transform-taxonomy.js'
+import {
+  resolveDpmCanonicalKeyEncodingVersion,
+  type DpmCanonicalKeyEncodingVersion,
+} from '../model/canonical-key-encoding.js'
 import {
   copyDpmRegistryRelationshipAuditEventRow,
 } from './registry-audit-event.js'
@@ -48,6 +55,12 @@ export function createDpmPostgresRegistryStorage(
   client: DpmPostgresRegistryClient,
 ): DpmRegistryStorage {
   return {
+    async readCanonicalKeyEncodingContract(request) {
+      return readDpmPostgresRegistryCanonicalKeyEncodingContract(client, request)
+    },
+    async claimCanonicalKeyEncodingVersion(input) {
+      return claimDpmPostgresRegistryCanonicalKeyEncodingVersion(client, input)
+    },
     async listRelationshipRows(request) {
       return listDpmPostgresRegistryRelationshipRows(client, request)
     },
@@ -64,6 +77,36 @@ export function createDpmPostgresRegistryStorage(
       return listDpmPostgresRegistryRelationshipAuditEvents(client, request)
     },
   }
+}
+
+async function readDpmPostgresRegistryCanonicalKeyEncodingContract(
+  client: DpmPostgresRegistryQueryClient,
+  request: DpmRegistryCanonicalKeyEncodingContractRequest,
+): Promise<DpmRegistryCanonicalKeyEncodingContract | undefined> {
+  const result = await client.query<DpmPostgresRegistryEncodingContractDbRow>(
+    DPM_POSTGRES_REGISTRY_ENCODING_CONTRACT_SELECT_SQL,
+    [request.datasetId, request.registryVersion],
+  )
+  const row = rowsFromQueryResult(result)[0]
+  return row ? postgresRegistryEncodingContractToSdk(row) : undefined
+}
+
+async function claimDpmPostgresRegistryCanonicalKeyEncodingVersion(
+  client: DpmPostgresRegistryQueryClient,
+  input: DpmRegistryCanonicalKeyEncodingClaimInput,
+): Promise<DpmRegistryCanonicalKeyEncodingContract> {
+  const result = await client.query<DpmPostgresRegistryEncodingContractDbRow>(
+    DPM_POSTGRES_REGISTRY_ENCODING_CONTRACT_CLAIM_SQL,
+    [input.datasetId, input.registryVersion, input.canonicalKeyEncodingVersion],
+  )
+  const row = rowsFromQueryResult(result)[0]
+  if (!row) {
+    throw new Error(
+      `DPM registry ${input.datasetId}@${input.registryVersion} could not atomically claim `
+      + `canonical key encoding ${input.canonicalKeyEncodingVersion}.`,
+    )
+  }
+  return postgresRegistryEncodingContractToSdk(row)
 }
 
 export async function listDpmPostgresRegistryRelationshipRows(
@@ -156,6 +199,7 @@ order by occurred_at asc, event_id asc`,
 const DPM_POSTGRES_REGISTRY_RELATIONSHIP_SELECT = `select
   dataset_id,
   registry_version,
+  canonical_key_encoding_version,
   relationship_name,
   relationship_version,
   status,
@@ -181,9 +225,45 @@ const DPM_POSTGRES_REGISTRY_RELATIONSHIP_SELECT = `select
   updated_at
 from dpm.relationship_registry`
 
-const DPM_POSTGRES_REGISTRY_RELATIONSHIP_UPSERT_SQL = `insert into dpm.relationship_registry (
+const DPM_POSTGRES_REGISTRY_ENCODING_CONTRACT_SELECT_SQL = `select
   dataset_id,
   registry_version,
+  canonical_key_encoding_version,
+  created_at,
+  updated_at
+from dpm.relationship_registry_contracts
+where dataset_id = $1 and registry_version = $2`
+
+const DPM_POSTGRES_REGISTRY_ENCODING_CONTRACT_CLAIM_SQL = `insert into dpm.relationship_registry_contracts (
+  dataset_id,
+  registry_version,
+  canonical_key_encoding_version
+) values ($1, $2, $3)
+on conflict (dataset_id, registry_version)
+do update set updated_at = now()
+where dpm.relationship_registry_contracts.canonical_key_encoding_version = excluded.canonical_key_encoding_version
+returning
+  dataset_id,
+  registry_version,
+  canonical_key_encoding_version,
+  created_at,
+  updated_at`
+
+const DPM_POSTGRES_REGISTRY_RELATIONSHIP_UPSERT_SQL = `with claimed_registry_contract as (
+  insert into dpm.relationship_registry_contracts (
+    dataset_id,
+    registry_version,
+    canonical_key_encoding_version
+  ) values ($1, $2, $3)
+  on conflict (dataset_id, registry_version)
+  do update set updated_at = now()
+  where dpm.relationship_registry_contracts.canonical_key_encoding_version = excluded.canonical_key_encoding_version
+  returning dataset_id, registry_version, canonical_key_encoding_version
+)
+insert into dpm.relationship_registry (
+  dataset_id,
+  registry_version,
+  canonical_key_encoding_version,
   relationship_name,
   relationship_version,
   status,
@@ -207,7 +287,7 @@ const DPM_POSTGRES_REGISTRY_RELATIONSHIP_UPSERT_SQL = `insert into dpm.relations
   source_freshness_hash,
   created_at,
   updated_at
-) values (
+) select
   $1,
   $2,
   $3,
@@ -215,25 +295,26 @@ const DPM_POSTGRES_REGISTRY_RELATIONSHIP_UPSERT_SQL = `insert into dpm.relations
   $5,
   $6,
   $7,
-  $8::text[],
-  $9,
-  $10::text[],
-  $11,
+  $8,
+  $9::text[],
+  $10,
+  $11::text[],
   $12,
   $13,
-  $14::text[],
-  $15,
+  $14,
+  $15::text[],
   $16,
   $17,
-  $18::jsonb,
+  $18,
   $19::jsonb,
-  $20,
+  $20::jsonb,
   $21,
-  $22::jsonb,
-  $23,
-  coalesce($24::timestamptz, now()),
-  coalesce($25::timestamptz, now())
-)
+  $22,
+  $23::jsonb,
+  $24,
+  coalesce($25::timestamptz, now()),
+  coalesce($26::timestamptz, now())
+from claimed_registry_contract
 on conflict (dataset_id, registry_version, relationship_name, relationship_version)
 do update set
   status = excluded.status,
@@ -256,9 +337,11 @@ do update set
   source = excluded.source,
   source_freshness_hash = excluded.source_freshness_hash,
   updated_at = excluded.updated_at
+where dpm.relationship_registry.canonical_key_encoding_version = excluded.canonical_key_encoding_version
 returning
   dataset_id,
   registry_version,
+  canonical_key_encoding_version,
   relationship_name,
   relationship_version,
   status,
@@ -352,6 +435,7 @@ returning
 type DpmPostgresRegistryRelationshipDbRow = {
   dataset_id: string
   registry_version: string
+  canonical_key_encoding_version?: DpmCanonicalKeyEncodingVersion | null
   relationship_name: string
   relationship_version: string
   status: DpmRegistryRelationshipRow['status']
@@ -373,6 +457,14 @@ type DpmPostgresRegistryRelationshipDbRow = {
   superseded_by?: string | null
   source?: unknown
   source_freshness_hash?: string | null
+  created_at?: string | Date | null
+  updated_at?: string | Date | null
+}
+
+type DpmPostgresRegistryEncodingContractDbRow = {
+  dataset_id: string
+  registry_version: string
+  canonical_key_encoding_version: DpmCanonicalKeyEncodingVersion
   created_at?: string | Date | null
   updated_at?: string | Date | null
 }
@@ -400,6 +492,7 @@ function relationshipRowParameters(row: DpmRegistryRelationshipRow): readonly un
   return [
     input.datasetId,
     input.registryVersion,
+    input.canonicalKeyEncodingVersion,
     input.relationshipName,
     input.relationshipVersion,
     input.status,
@@ -501,6 +594,10 @@ function postgresRegistryRelationshipRowToSdk(
   return {
     datasetId: row.dataset_id,
     registryVersion: row.registry_version,
+    canonicalKeyEncodingVersion: resolveDpmCanonicalKeyEncodingVersion(
+      row.canonical_key_encoding_version ?? undefined,
+      'Postgres registry row canonical_key_encoding_version',
+    ),
     relationshipName: row.relationship_name,
     relationshipVersion: row.relationship_version,
     status: parseEnum(
@@ -543,6 +640,21 @@ function postgresRegistryRelationshipRowToSdk(
     ...(row.created_at ? { createdAt: toIsoString(row.created_at) } : {}),
     ...(row.updated_at ? { updatedAt: toIsoString(row.updated_at) } : {}),
   } as DpmRegistryRelationshipRow
+}
+
+function postgresRegistryEncodingContractToSdk(
+  row: DpmPostgresRegistryEncodingContractDbRow,
+): DpmRegistryCanonicalKeyEncodingContract {
+  return {
+    datasetId: row.dataset_id,
+    registryVersion: row.registry_version,
+    canonicalKeyEncodingVersion: resolveDpmCanonicalKeyEncodingVersion(
+      row.canonical_key_encoding_version,
+      'Postgres registry contract canonical_key_encoding_version',
+    ),
+    ...(row.created_at ? { createdAt: toIsoString(row.created_at) } : {}),
+    ...(row.updated_at ? { updatedAt: toIsoString(row.updated_at) } : {}),
+  }
 }
 
 function postgresRegistryAuditEventRowToSdk(

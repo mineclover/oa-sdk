@@ -1,3 +1,4 @@
+import type { DpmCanonicalKeyEncodingVersion } from '../model/canonical-key-encoding.js'
 import type { RegistryRelationshipStatus } from './registry-relationship-status-taxonomy.js'
 import type {
   RegistryRelationship,
@@ -7,6 +8,7 @@ import type {
 export type RegistrySnapshotInput = {
   datasetId: string
   registryVersion: string
+  canonicalKeyEncodingVersion?: DpmCanonicalKeyEncodingVersion
   exportedAt?: string
   relationships: RegistryRelationshipInput[]
 }
@@ -16,6 +18,7 @@ export type RegistrySnapshot = {
   identity: string
   datasetId: string
   registryVersion: string
+  canonicalKeyEncodingVersion: DpmCanonicalKeyEncodingVersion
   exportedAt?: string
   relationships: RegistryRelationship[]
   approvedRelationships: RegistryRelationship[]

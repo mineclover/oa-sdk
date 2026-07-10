@@ -23,6 +23,7 @@ describe('DPM logical relationship model', () => {
       createPolymorphicCustomerActivityWithPredicateInput(),
     )
 
+    expect(relationship.canonicalKey.encodingVersion).toBe('string-v1')
     expect(renderRelationshipCanonicalKey(relationship, { object_id: 'C-001' })).toBe(
       'customer:predicate=object_type%20%3D%20%27CUSTOMER%27:object_id=C-001',
     )

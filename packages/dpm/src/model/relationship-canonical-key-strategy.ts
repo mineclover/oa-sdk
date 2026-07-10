@@ -1,6 +1,7 @@
 import type {
   ModelEndpoint,
 } from './endpoint.js'
+import { resolveDpmCanonicalKeyEncodingVersion } from './canonical-key-encoding.js'
 import { requireNonEmpty } from './normalize-utils.js'
 import type {
   LogicalRelationship,
@@ -21,6 +22,10 @@ export function normalizeRelationshipCanonicalKeyStrategy(
   return {
     components: [...components],
     separator,
+    encodingVersion: resolveDpmCanonicalKeyEncodingVersion(
+      strategy?.encodingVersion,
+      'relationship.canonicalKey.encodingVersion',
+    ),
     ...(strategy?.tenant ? { tenant: { columns: [...strategy.tenant.columns] } } : {}),
   }
 }

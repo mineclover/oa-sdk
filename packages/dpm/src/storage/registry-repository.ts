@@ -1,11 +1,15 @@
 import type {
   DpmRegistryRelationshipSaveInput,
   DpmRegistryRelationshipSaveResult,
+  DpmRegistryRelationshipRow,
   DpmRegistryRepository,
   DpmRegistryStorage,
   DpmRegistryStorageReader,
   DpmRegistryWritableRepository,
 } from './registry-repository-types.js'
+import {
+  DPM_DEFAULT_CANONICAL_KEY_ENCODING_VERSION,
+} from '../model/canonical-key-encoding.js'
 import {
   copyDpmRegistryRelationshipAuditEventRow,
   createDpmRegistryRelationshipAuditEventRow,
@@ -18,6 +22,9 @@ import {
 import {
   DpmRegistryApprovedRelationshipConflictError,
 } from './registry-storage-errors.js'
+import {
+  resolveDpmRegistryRowsCanonicalKeyEncodingVersion,
+} from './registry-row-canonical-key-encoding.js'
 
 const DPM_REGISTRY_REPOSITORY_APPROVED_RELATIONSHIP_CONFLICT_CONSTRAINT =
   'dpm_registry_repository_single_approved_relationship_name'
@@ -27,6 +34,9 @@ export type {
   DpmPostgresRegistryQueryClient,
 } from './registry-postgres-storage.js'
 export type {
+  DpmRegistryCanonicalKeyEncodingClaimInput,
+  DpmRegistryCanonicalKeyEncodingContract,
+  DpmRegistryCanonicalKeyEncodingContractRequest,
   DpmRegistryRelationshipApprovalCommitInput,
   DpmRegistryRelationshipApprovalCommitResult,
   DpmRegistryRelationshipSaveResult,
@@ -82,13 +92,18 @@ export function createDpmRegistryRepository(
 ): DpmRegistryRepository | DpmRegistryWritableRepository {
   const repository: DpmRegistryRepository = {
     async exportSnapshot(request) {
-      const rows = await reader.listRelationshipRows({
+      const coordinate = {
         datasetId: request.datasetId,
         registryVersion: request.registryVersion,
-      })
+      }
+      const [rows, registryContract] = await Promise.all([
+        reader.listRelationshipRows(coordinate),
+        reader.readCanonicalKeyEncodingContract?.(coordinate),
+      ])
 
       return registryRowsToSnapshot({
         ...request,
+        ...(registryContract ? { registryContract } : {}),
         rows,
       })
     },
@@ -120,10 +135,12 @@ export function createDpmRegistryRepository(
     input: DpmRegistryRelationshipSaveInput,
   ): Promise<DpmRegistryRelationshipSaveResult> {
     const row = createDpmRegistryRelationshipRow(input)
+    await claimRegistryCanonicalKeyEncodingVersion(storage, row)
     const existingRows = await reader.listRelationshipRows({
       datasetId: input.datasetId,
       registryVersion: input.registryVersion,
     })
+    assertRegistryCanonicalKeyEncodingMatchesExistingRows(row, existingRows)
     assertNoConflictingApprovedRegistryRelationshipRow(row, existingRows)
     const auditEvent = storage.commitRelationshipApproval || storage.appendRelationshipAuditEvent
       ? createDpmRegistryRelationshipAuditEventRow({
@@ -162,6 +179,51 @@ export function createDpmRegistryRepository(
   }
 }
 
+async function claimRegistryCanonicalKeyEncodingVersion(
+  storage: DpmRegistryStorage,
+  row: ReturnType<typeof createDpmRegistryRelationshipRow>,
+): Promise<void> {
+  const claim = storage.claimCanonicalKeyEncodingVersion
+  const read = storage.readCanonicalKeyEncodingContract
+  if (!claim || !read) {
+    if (row.canonicalKeyEncodingVersion === DPM_DEFAULT_CANONICAL_KEY_ENCODING_VERSION) return
+    throw new Error(
+      'DPM typed-v2 registry saves require storage with atomic '
+      + 'claimCanonicalKeyEncodingVersion and readCanonicalKeyEncodingContract capabilities.',
+    )
+  }
+
+  const contract = await claim({
+    datasetId: row.datasetId,
+    registryVersion: row.registryVersion,
+    canonicalKeyEncodingVersion: row.canonicalKeyEncodingVersion,
+  })
+  if (
+    contract.datasetId !== row.datasetId
+    || contract.registryVersion !== row.registryVersion
+    || contract.canonicalKeyEncodingVersion !== row.canonicalKeyEncodingVersion
+  ) {
+    throw new Error(
+      `DPM registry encoding claim returned ${contract.datasetId}@${contract.registryVersion} `
+      + `${contract.canonicalKeyEncodingVersion}; expected ${row.datasetId}@${row.registryVersion} `
+      + `${row.canonicalKeyEncodingVersion}.`,
+    )
+  }
+}
+
+function assertRegistryCanonicalKeyEncodingMatchesExistingRows(
+  row: ReturnType<typeof createDpmRegistryRelationshipRow>,
+  existingRows: readonly DpmRegistryRelationshipRow[],
+): void {
+  const existingEncodingVersion = resolveDpmRegistryRowsCanonicalKeyEncodingVersion(existingRows)
+  if (!existingEncodingVersion || existingEncodingVersion === row.canonicalKeyEncodingVersion) return
+
+  throw new Error(
+    `DPM registry ${row.datasetId}@${row.registryVersion} stores canonical key encoding `
+    + `${existingEncodingVersion}; cannot save ${row.canonicalKeyEncodingVersion}.`,
+  )
+}
+
 function isDpmRegistryStorage(reader: DpmRegistryStorageReader): reader is DpmRegistryStorage {
   return (
     'upsertRelationshipRow' in reader && typeof reader.upsertRelationshipRow === 'function'
@@ -172,7 +234,7 @@ function isDpmRegistryStorage(reader: DpmRegistryStorageReader): reader is DpmRe
 
 function assertNoConflictingApprovedRegistryRelationshipRow(
   row: ReturnType<typeof createDpmRegistryRelationshipRow>,
-  existingRows: readonly ReturnType<typeof createDpmRegistryRelationshipRow>[],
+  existingRows: readonly DpmRegistryRelationshipRow[],
 ): void {
   const conflictingApproved = existingRows.find(existing =>
     existing.status === 'approved'

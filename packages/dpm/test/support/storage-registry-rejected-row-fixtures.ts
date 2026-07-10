@@ -9,6 +9,7 @@ import {
 export const rejectedStorageRegistryRelationshipRow: DpmRegistryRelationshipRow = {
   datasetId: STORAGE_REGISTRY_DATASET_ID,
   registryVersion: STORAGE_REGISTRY_VERSION,
+  canonicalKeyEncodingVersion: 'string-v1',
   relationshipName: 'rel_orders_status',
   relationshipVersion: '1',
   status: 'rejected',

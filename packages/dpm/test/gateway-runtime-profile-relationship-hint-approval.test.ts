@@ -26,6 +26,11 @@ describe('DPM gateway profile relationship hint approval workflow', () => {
     if (!relationshipHint) throw new Error('expected explicit Kafka relationship hint')
     const registryRows: DpmRegistryRelationshipRow[] = []
     const auditEvents: DpmRegistryRelationshipAuditEventRow[] = []
+    let registryContract: {
+      datasetId: string
+      registryVersion: string
+      canonicalKeyEncodingVersion: 'string-v1' | 'typed-v2'
+    } | undefined
     const upsertRelationshipRow = vi.fn((row: DpmRegistryRelationshipRow) => {
       registryRows.push(row)
     })
@@ -38,6 +43,11 @@ describe('DPM gateway profile relationship hint approval workflow', () => {
       ),
     )
     const registryRepository = createDpmRegistryRepository({
+      claimCanonicalKeyEncodingVersion: input => {
+        registryContract = { ...input }
+        return registryContract
+      },
+      readCanonicalKeyEncodingContract: () => registryContract,
       upsertRelationshipRow,
       appendRelationshipAuditEvent,
       listRelationshipRows,
@@ -56,6 +66,7 @@ describe('DPM gateway profile relationship hint approval workflow', () => {
       },
       targetCatalogAuthority: 'commerce',
       registryVersion: 'registry-profile-workflow-v1',
+      canonicalKeyEncodingVersion: 'typed-v2',
       version: '1',
       namespace: 'customer',
       transformStrategy: 'relationship_token',
@@ -137,6 +148,8 @@ describe('DPM gateway profile relationship hint approval workflow', () => {
         executable: true,
       }),
     ])
+    expect(registryRows[0]?.canonicalKeyEncodingVersion).toBe('typed-v2')
+    expect(response.body.result.registrySnapshot.canonicalKeyEncodingVersion).toBe('typed-v2')
     expect(upsertRelationshipRow).toHaveBeenCalledOnce()
     expect(appendRelationshipAuditEvent).toHaveBeenCalledWith(expect.objectContaining({
       eventId: 'audit:profile-hint:rel-orders-customer-approved',

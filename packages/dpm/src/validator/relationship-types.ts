@@ -32,6 +32,8 @@ export type RelationshipRegistryReference = {
   datasetId?: string
   registry_version?: string
   registryVersion?: string
+  canonical_key_encoding_version?: string
+  canonicalKeyEncodingVersion?: string
 }
 
 export type RelationshipValidationInput = {

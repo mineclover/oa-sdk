@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import {
   createRegistrySnapshot,
+  DPM_DEFAULT_CANONICAL_KEY_ENCODING_VERSION,
   parseRegistrySnapshotYaml,
   REGISTRY_SNAPSHOT_KIND,
   selectApprovedRelationships,
@@ -11,6 +12,7 @@ import {
 } from '../src/index.js'
 import {
   readCommerceRegistrySnapshot,
+  readRegistryFixture,
 } from './support/registry-yaml-fixtures.js'
 import {
   expectedCommerceRegistryIdentity,
@@ -24,10 +26,30 @@ describe('DPM relationship registry snapshot YAML', () => {
 
     expect(snapshot.kind).toBe(REGISTRY_SNAPSHOT_KIND)
     expect(snapshot.identity).toBe(expectedCommerceRegistryIdentity)
+    expect(snapshot.canonicalKeyEncodingVersion)
+      .toBe(DPM_DEFAULT_CANONICAL_KEY_ENCODING_VERSION)
     expect(snapshot.relationships.map(relationship => relationship.identity)).toEqual([
       ...expectedCommerceRegistryRelationshipIdentities,
     ])
     expect(snapshot.summary.byStatus).toMatchObject(expectedCommerceRegistrySummaryByStatus)
+  })
+
+  it('loads explicit typed-v2 registry snapshots and rejects unknown encoding versions', () => {
+    const legacyYaml = readRegistryFixture('commerce-registry.yaml')
+    const typedV2 = parseRegistrySnapshotYaml(
+      legacyYaml.replace(
+        'registry_version: reg-2026-07-01',
+        'registry_version: reg-2026-07-01\ncanonical_key_encoding_version: typed-v2',
+      ),
+    )
+
+    expect(typedV2.canonicalKeyEncodingVersion).toBe('typed-v2')
+    expect(() => parseRegistrySnapshotYaml(
+      legacyYaml.replace(
+        'registry_version: reg-2026-07-01',
+        'registry_version: reg-2026-07-01\ncanonical_key_encoding_version: typed-v3',
+      ),
+    )).toThrow('must be one of string-v1, typed-v2')
   })
 
   it('rejects approved YAML relationships without complete approval metadata', () => {
@@ -119,6 +141,7 @@ function createManualIncompleteApprovedSnapshot(): RegistrySnapshot {
     identity: 'commerce_ai@reg-2026-07-01',
     datasetId: 'commerce_ai',
     registryVersion: 'reg-2026-07-01',
+    canonicalKeyEncodingVersion: 'string-v1',
     relationships: [relationship],
     approvedRelationships: [],
     nonExecutableRelationships: [],

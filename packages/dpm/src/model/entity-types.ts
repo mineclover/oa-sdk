@@ -1,4 +1,5 @@
 import type { TenantNamespaceInput } from './canonical-key.js'
+import type { DpmCanonicalKeyEncodingVersion } from './canonical-key-encoding.js'
 import type { ModelEndpoint } from './endpoint.js'
 
 export type EntityKeyStrategyType = 'single_column' | 'composite'
@@ -8,6 +9,7 @@ export type EntityKeyStrategy = {
   canonicalColumns: string[]
   separator?: string
   tenant?: TenantNamespaceInput
+  encodingVersion?: DpmCanonicalKeyEncodingVersion
 }
 
 export type EntityTransform = {
@@ -29,5 +31,6 @@ export type EntityDeclaration = EntityDeclarationInput & {
   identity: string
   keyStrategy: EntityKeyStrategy & {
     separator: string
+    encodingVersion: DpmCanonicalKeyEncodingVersion
   }
 }

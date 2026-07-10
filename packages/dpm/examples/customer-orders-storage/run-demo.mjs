@@ -203,6 +203,7 @@ function readJson(name) {
 
 function createFixturePostgresRegistryClient({ relationshipRows, auditEvents }) {
   const relationshipDbRows = relationshipRows.map(toPostgresRelationshipDbRow)
+  const registryContractDbRows = toPostgresRegistryContractDbRows(relationshipRows)
   const auditEventDbRows = auditEvents.map(toPostgresAuditEventDbRow)
   const queryCalls = []
   const client = {
@@ -220,6 +221,15 @@ function createFixturePostgresRegistryClient({ relationshipRows, auditEvents }) 
             row.dataset_id === datasetId
             && row.registry_version === registryVersion
             && (relationshipName === null || row.relationship_name === relationshipName),
+          ),
+        }
+      }
+      if (sql.includes('from dpm.relationship_registry_contracts')) {
+        queryCalls.push({ table: 'dpm.relationship_registry_contracts', sql, params })
+        const [datasetId, registryVersion] = params
+        return {
+          rows: registryContractDbRows.filter(row =>
+            row.dataset_id === datasetId && row.registry_version === registryVersion,
           ),
         }
       }
@@ -243,18 +253,33 @@ function createFixturePostgresRegistryClient({ relationshipRows, auditEvents }) 
   return client
 }
 
+function toPostgresRegistryContractDbRows(rows) {
+  const contracts = new Map()
+  for (const row of rows) {
+    const key = `${row.datasetId}\u0000${row.registryVersion}`
+    contracts.set(key, {
+      dataset_id: row.datasetId,
+      registry_version: row.registryVersion,
+      canonical_key_encoding_version: row.canonicalKeyEncodingVersion ?? 'string-v1',
+    })
+  }
+  return [...contracts.values()]
+}
+
 function isRegistrySchemaSql(sql) {
   const normalized = sql.trim().toLowerCase()
   return normalized.startsWith('create schema')
     || normalized.startsWith('create table')
     || normalized.startsWith('create unique index')
     || normalized.startsWith('create index')
+    || normalized.startsWith('alter table')
 }
 
 function toPostgresRelationshipDbRow(row) {
   return {
     dataset_id: row.datasetId,
     registry_version: row.registryVersion,
+    canonical_key_encoding_version: row.canonicalKeyEncodingVersion ?? null,
     relationship_name: row.relationshipName,
     relationship_version: row.relationshipVersion,
     status: row.status,

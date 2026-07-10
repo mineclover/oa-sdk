@@ -41,6 +41,15 @@ describe('DPM registry storage repository', () => {
       approved: 1,
       nonExecutable: 1,
     })
+    expect(snapshot.canonicalKeyEncodingVersion).toBe('string-v1')
+
+    await expect(repository.exportSnapshot({
+      datasetId: STORAGE_REGISTRY_DATASET_ID,
+      registryVersion: STORAGE_REGISTRY_VERSION,
+      expectedCanonicalKeyEncodingVersion: 'typed-v2',
+    })).rejects.toThrow(
+      'expected canonical key encoding typed-v2, but stored rows use string-v1',
+    )
   })
 
   it('persists approved relationship payloads as canonical storage rows before export', async () => {
@@ -131,6 +140,7 @@ describe('DPM registry storage repository', () => {
     }))
     expect(stored).not.toBe(saved)
     expect(stored).toMatchObject({
+      canonicalKeyEncodingVersion: 'string-v1',
       parentColumns: ['customer_no'],
       evidence: [
         expect.objectContaining({
@@ -160,6 +170,73 @@ describe('DPM registry storage repository', () => {
         },
       }),
     ])
+
+    await expect(repository.saveRelationship({
+      datasetId: STORAGE_REGISTRY_DATASET_ID,
+      registryVersion: STORAGE_REGISTRY_VERSION,
+      canonicalKeyEncodingVersion: 'typed-v2',
+      relationship: {
+        ...relationship,
+        name: 'rel_orders_customer_typed',
+        version: '1',
+        parent: {
+          ...relationship.parent,
+          columns: ['customer_no'],
+        },
+      },
+    })).rejects.toThrow(
+      'typed-v2 registry saves require storage with atomic claimCanonicalKeyEncodingVersion',
+    )
+  })
+
+  it('atomically chooses one encoding during concurrent first writes', async () => {
+    const rows: DpmRegistryRelationshipRow[] = []
+    let registryContract: {
+      datasetId: string
+      registryVersion: string
+      canonicalKeyEncodingVersion: 'string-v1' | 'typed-v2'
+    } | undefined
+    const repository = createDpmRegistryRepository({
+      async claimCanonicalKeyEncodingVersion(input) {
+        await Promise.resolve()
+        if (!registryContract) {
+          registryContract = { ...input }
+          return registryContract
+        }
+        if (registryContract.canonicalKeyEncodingVersion !== input.canonicalKeyEncodingVersion) {
+          throw new Error(
+            `atomic registry contract already stores ${registryContract.canonicalKeyEncodingVersion}`,
+          )
+        }
+        return registryContract
+      },
+      readCanonicalKeyEncodingContract: () => registryContract,
+      listRelationshipRows: request => rows.filter(row =>
+        row.datasetId === request.datasetId && row.registryVersion === request.registryVersion
+      ),
+      upsertRelationshipRow: row => {
+        rows.push(row)
+      },
+    })
+
+    const [typedWrite, legacyWrite] = await Promise.allSettled([
+      repository.saveRelationship({
+        datasetId: STORAGE_REGISTRY_DATASET_ID,
+        registryVersion: 'registry-concurrent-first-write',
+        canonicalKeyEncodingVersion: 'typed-v2',
+        relationship: createApprovedRelationship('rel_typed_first', '1'),
+      }),
+      repository.saveRelationship({
+        datasetId: STORAGE_REGISTRY_DATASET_ID,
+        registryVersion: 'registry-concurrent-first-write',
+        relationship: createApprovedRelationship('rel_legacy_first', '1'),
+      }),
+    ])
+
+    expect([typedWrite.status, legacyWrite.status].sort()).toEqual(['fulfilled', 'rejected'])
+    expect(registryContract?.canonicalKeyEncodingVersion).toBe('typed-v2')
+    expect(rows).toHaveLength(1)
+    expect(rows[0]?.canonicalKeyEncodingVersion).toBe('typed-v2')
   })
 
   it('appends approved relationship audit events when the storage adapter supports them', async () => {
@@ -499,7 +576,17 @@ describe('DPM registry storage repository', () => {
   it('creates a writable repository for atomic-only relationship approval storage adapters', async () => {
     const rows: DpmRegistryRelationshipRow[] = []
     const auditEvents: DpmRegistryRelationshipAuditEventRow[] = []
+    let registryContract: {
+      datasetId: string
+      registryVersion: string
+      canonicalKeyEncodingVersion: 'string-v1' | 'typed-v2'
+    } | undefined
     const repository = createDpmRegistryRepository({
+      claimCanonicalKeyEncodingVersion: input => {
+        registryContract = { ...input }
+        return registryContract
+      },
+      readCanonicalKeyEncodingContract: () => registryContract,
       commitRelationshipApproval: input => {
         rows.push(input.relationshipRow)
         auditEvents.push(input.auditEvent)
@@ -514,6 +601,7 @@ describe('DPM registry storage repository', () => {
     await repository.saveRelationship({
       datasetId: STORAGE_REGISTRY_DATASET_ID,
       registryVersion: STORAGE_REGISTRY_VERSION,
+      canonicalKeyEncodingVersion: 'typed-v2',
       relationship: {
         name: 'rel_orders_customer',
         version: '4',
@@ -543,6 +631,7 @@ describe('DPM registry storage repository', () => {
     })
 
     expect(rows).toHaveLength(1)
+    expect(rows[0]?.canonicalKeyEncodingVersion).toBe('typed-v2')
     expect(auditEvents).toEqual([
       expect.objectContaining({
         eventId: 'audit:rel-orders-customer-approved-atomic-only',
@@ -701,3 +790,31 @@ describe('DPM registry storage repository', () => {
     expect(appendRelationshipAuditEvent).not.toHaveBeenCalled()
   })
 })
+
+function createApprovedRelationship(
+  name: string,
+  version: string,
+): ApprovedRegistryRelationshipInput {
+  return {
+    name,
+    version,
+    status: 'approved',
+    type: 'many_to_one',
+    parent: {
+      table: 'public.customers',
+      columns: ['customer_no'],
+    },
+    child: {
+      table: 'public.orders',
+      columns: ['customer_no'],
+    },
+    namespace: 'customer',
+    transformStrategy: 'relationship_token',
+    orphanPolicy: 'block',
+    approval: {
+      owner: 'privacy-platform',
+      approvedBy: 'privacy-reviewer',
+      reason: 'Relationship is required for customer-scoped pseudonymization.',
+    },
+  }
+}

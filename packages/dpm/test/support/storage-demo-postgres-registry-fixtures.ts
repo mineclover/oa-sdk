@@ -37,6 +37,7 @@ export function createStorageDemoPostgresRegistryClient(
   auditEvents: DpmRegistryRelationshipAuditEventRow[] = [],
 ): StorageDemoPostgresRegistryClient {
   const relationshipDbRows = relationshipRows.map(toPostgresRelationshipDbRow)
+  const registryContractDbRows = toPostgresRegistryContractDbRows(relationshipRows)
   const auditEventDbRows = auditEvents.map(toPostgresAuditEventDbRow)
   const queryCalls: StorageDemoPostgresRegistryQueryCall[] = []
   const client: StorageDemoPostgresRegistryClient = {
@@ -52,6 +53,14 @@ export function createStorageDemoPostgresRegistryClient(
           row.dataset_id === datasetId
           && row.registry_version === registryVersion
           && (relationshipName === null || row.relationship_name === relationshipName)
+        )
+
+        return { rows: rows as readonly T[] }
+      }
+      if (sql.includes('from dpm.relationship_registry_contracts')) {
+        const [datasetId, registryVersion] = params
+        const rows = registryContractDbRows.filter(row =>
+          row.dataset_id === datasetId && row.registry_version === registryVersion
         )
 
         return { rows: rows as readonly T[] }
@@ -77,18 +86,37 @@ export function createStorageDemoPostgresRegistryClient(
   return client
 }
 
+function toPostgresRegistryContractDbRows(
+  rows: readonly DpmRegistryRelationshipRow[],
+): Record<string, unknown>[] {
+  const contracts = new Map<string, Record<string, unknown>>()
+  for (const row of rows) {
+    const key = `${row.datasetId}\u0000${row.registryVersion}`
+    contracts.set(key, {
+      dataset_id: row.datasetId,
+      registry_version: row.registryVersion,
+      canonical_key_encoding_version: row.canonicalKeyEncodingVersion ?? 'string-v1',
+    })
+  }
+  return [...contracts.values()]
+}
+
 function isRegistrySchemaSql(sql: string): boolean {
   const normalized = sql.trim().toLowerCase()
   return normalized.startsWith('create schema')
     || normalized.startsWith('create table')
     || normalized.startsWith('create unique index')
     || normalized.startsWith('create index')
+    || normalized.startsWith('alter table')
+    || normalized.startsWith('update dpm.relationship_registry')
+    || normalized.startsWith('do $$')
 }
 
 function toPostgresRelationshipDbRow(row: DpmRegistryRelationshipRow): Record<string, unknown> {
   return {
     dataset_id: row.datasetId,
     registry_version: row.registryVersion,
+    canonical_key_encoding_version: row.canonicalKeyEncodingVersion ?? null,
     relationship_name: row.relationshipName,
     relationship_version: row.relationshipVersion,
     status: row.status,

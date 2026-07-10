@@ -13,6 +13,7 @@ import type {
   DpmProfileResolvedRelationshipCandidateBridgeInput,
 } from '../profile/analysis-relationship-candidate.js'
 import type { DpmProfileDiagnostic } from '../profile/types.js'
+import type { DpmCanonicalKeyEncodingVersion } from '../model/canonical-key-encoding.js'
 import type {
   ApprovedRegistryRelationshipInput,
   RegistryRelationshipStatus,
@@ -85,6 +86,7 @@ export type DpmGatewayRelationshipApprovalResult = {
 export type DpmGatewayProfileRelationshipHintApprovalInput =
   DpmProfileResolvedRelationshipCandidateBridgeInput & {
     registryVersion: string
+    canonicalKeyEncodingVersion?: DpmCanonicalKeyEncodingVersion
     version: string
     namespace: string
     transformStrategy: RegistryTransformStrategy
@@ -143,6 +145,7 @@ export type DpmGatewayProfileRelationshipHintApprovalResult =
 export type DpmGatewayRegistrySnapshotExportInput = {
   datasetId: string
   registryVersion: string
+  expectedCanonicalKeyEncodingVersion?: DpmCanonicalKeyEncodingVersion
   exportedAt?: string
   registryRepository: DpmRegistryRepository
 }

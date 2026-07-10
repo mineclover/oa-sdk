@@ -1,4 +1,7 @@
 import { validateDpmManifest } from '../validator/manifest-validator.js'
+import {
+  normalizeRegistrySnapshotCanonicalKeyEncodingVersion,
+} from '../registry/registry-snapshot-encoding.js'
 import type {
   DpmCompileInput,
   DpmCompileResult,
@@ -6,11 +9,15 @@ import type {
 import { createDpmCompiledPlan } from './plan-assembler.js'
 
 export function compileDpmPlan(input: DpmCompileInput): DpmCompileResult {
+  const normalizedInput = {
+    ...input,
+    registry: normalizeRegistrySnapshotCanonicalKeyEncodingVersion(input.registry),
+  }
   const validation = validateDpmManifest({
-    manifest: input.manifest,
-    catalog: input.catalog,
-    registry: input.registry,
-    phase: input.phase ?? 'compile',
+    manifest: normalizedInput.manifest,
+    catalog: normalizedInput.catalog,
+    registry: normalizedInput.registry,
+    phase: normalizedInput.phase ?? 'compile',
   })
   if (validation.summary.errors > 0) {
     return {
@@ -23,6 +30,6 @@ export function compileDpmPlan(input: DpmCompileInput): DpmCompileResult {
   return {
     ok: true,
     validation,
-    plan: createDpmCompiledPlan(input),
+    plan: createDpmCompiledPlan(normalizedInput),
   }
 }

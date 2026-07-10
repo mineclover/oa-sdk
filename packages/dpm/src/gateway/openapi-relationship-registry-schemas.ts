@@ -1,3 +1,4 @@
+import { DPM_CANONICAL_KEY_ENCODING_VERSIONS } from '../model/canonical-key-encoding.js'
 import { REGISTRY_ORPHAN_POLICIES } from '../registry/registry-orphan-policy-taxonomy.js'
 import { REGISTRY_RELATIONSHIP_KINDS } from '../registry/registry-relationship-kind-taxonomy.js'
 import { REGISTRY_RELATIONSHIP_STATUSES } from '../registry/registry-relationship-status-taxonomy.js'
@@ -23,6 +24,10 @@ export function createDpmGatewayRelationshipRegistrySchemas() {
       identity: stringSchema(),
       datasetId: stringSchema(),
       registryVersion: stringSchema(),
+      canonicalKeyEncodingVersion: {
+        type: 'string',
+        enum: [...DPM_CANONICAL_KEY_ENCODING_VERSIONS],
+      },
       exportedAt: stringSchema(),
       relationships: arrayOf(ref('DpmRegistryRelationship')),
       approvedRelationships: arrayOf(ref('DpmRegistryRelationship')),
@@ -38,6 +43,7 @@ export function createDpmGatewayRelationshipRegistrySchemas() {
       'identity',
       'datasetId',
       'registryVersion',
+      'canonicalKeyEncodingVersion',
       'relationships',
       'approvedRelationships',
       'nonExecutableRelationships',

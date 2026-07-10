@@ -75,6 +75,7 @@ describe('DPM Postgres registry storage adapter', () => {
       expect.objectContaining({
         datasetId: STORAGE_REGISTRY_DATASET_ID,
         registryVersion: STORAGE_REGISTRY_VERSION,
+        canonicalKeyEncodingVersion: 'string-v1',
         relationshipName: 'rel_orders_customer',
         relationshipVersion: '2',
         evidence: approvedRelationshipRow.evidence,
@@ -83,6 +84,45 @@ describe('DPM Postgres registry storage adapter', () => {
         updatedAt: STORAGE_REGISTRY_EXPORTED_AT,
       }),
     ])
+  })
+
+  it('atomically claims and reads authoritative registry encoding contracts', async () => {
+    const contractRow = toEncodingContractDbRow('typed-v2')
+    const client = createQueuedPostgresClient([
+      [contractRow],
+      [contractRow],
+    ])
+    const storage = createDpmPostgresRegistryStorage(client)
+    if (!storage.claimCanonicalKeyEncodingVersion || !storage.readCanonicalKeyEncodingContract) {
+      throw new Error('expected Postgres encoding contract capabilities')
+    }
+
+    const claimed = await storage.claimCanonicalKeyEncodingVersion({
+      datasetId: STORAGE_REGISTRY_DATASET_ID,
+      registryVersion: STORAGE_REGISTRY_VERSION,
+      canonicalKeyEncodingVersion: 'typed-v2',
+    })
+    const read = await storage.readCanonicalKeyEncodingContract({
+      datasetId: STORAGE_REGISTRY_DATASET_ID,
+      registryVersion: STORAGE_REGISTRY_VERSION,
+    })
+
+    expect(client.query.mock.calls[0]?.[0]).toContain(
+      'insert into dpm.relationship_registry_contracts',
+    )
+    expect(client.query.mock.calls[0]?.[0]).toContain(
+      'on conflict (dataset_id, registry_version)',
+    )
+    expect(client.query.mock.calls[0]?.[1]).toEqual([
+      STORAGE_REGISTRY_DATASET_ID,
+      STORAGE_REGISTRY_VERSION,
+      'typed-v2',
+    ])
+    expect(client.query.mock.calls[1]?.[0]).toContain(
+      'from dpm.relationship_registry_contracts',
+    )
+    expect(claimed.canonicalKeyEncodingVersion).toBe('typed-v2')
+    expect(read?.canonicalKeyEncodingVersion).toBe('typed-v2')
   })
 
   it('rejects invalid Postgres relationship taxonomy while hydrating rows', async () => {
@@ -97,6 +137,33 @@ describe('DPM Postgres registry storage adapter', () => {
       datasetId: STORAGE_REGISTRY_DATASET_ID,
       registryVersion: STORAGE_REGISTRY_VERSION,
     })).rejects.toThrow('invalid relationship status')
+  })
+
+  it('hydrates pre-v2 Postgres rows without the encoding column as string-v1', async () => {
+    const legacyRow = toRelationshipDbRow(approvedRelationshipRow) as Record<string, unknown>
+    delete legacyRow.canonical_key_encoding_version
+    const client = createQueuedPostgresClient([[legacyRow]])
+
+    const rows = await listDpmPostgresRegistryRelationshipRows(client, {
+      datasetId: STORAGE_REGISTRY_DATASET_ID,
+      registryVersion: STORAGE_REGISTRY_VERSION,
+    })
+
+    expect(rows[0]?.canonicalKeyEncodingVersion).toBe('string-v1')
+  })
+
+  it('rejects unknown persisted canonical key encoding versions', async () => {
+    const client = createQueuedPostgresClient([[
+      {
+        ...toRelationshipDbRow(approvedRelationshipRow),
+        canonical_key_encoding_version: 'typed-v3',
+      },
+    ]])
+
+    await expect(listDpmPostgresRegistryRelationshipRows(client, {
+      datasetId: STORAGE_REGISTRY_DATASET_ID,
+      registryVersion: STORAGE_REGISTRY_VERSION,
+    })).rejects.toThrow('must be one of string-v1, typed-v2')
   })
 
   it('rejects invalid Postgres relationship evidence while hydrating rows', async () => {
@@ -129,9 +196,18 @@ describe('DPM Postgres registry storage adapter', () => {
     )
 
     expect(client.query.mock.calls[0]?.[0]).toContain('insert into dpm.relationship_registry')
+    expect(client.query.mock.calls[0]?.[0]).toContain('with claimed_registry_contract as')
+    expect(client.query.mock.calls[0]?.[0]).toContain(
+      'insert into dpm.relationship_registry_contracts',
+    )
+    expect(client.query.mock.calls[0]?.[0]).toContain('canonical_key_encoding_version')
+    expect(client.query.mock.calls[0]?.[0]).toContain(
+      'where dpm.relationship_registry.canonical_key_encoding_version = excluded.canonical_key_encoding_version',
+    )
     expect(client.query.mock.calls[0]?.[1]).toEqual(expect.arrayContaining([
       STORAGE_REGISTRY_DATASET_ID,
       STORAGE_REGISTRY_VERSION,
+      'string-v1',
       'rel_orders_customer',
       '2',
       'approved',
@@ -280,8 +356,8 @@ describe('DPM Postgres registry storage adapter', () => {
       [toAuditEventDbRow(approvalAuditEvent)],
     ])
     const client = createQueuedPostgresClient([
+      [toEncodingContractDbRow('string-v1')],
       [],
-      [toRelationshipDbRow(approvedRelationshipRow)],
     ], transactionClient)
     const storage = createDpmPostgresRegistryStorage(client)
     const repository = createDpmRegistryRepository(storage)
@@ -391,6 +467,7 @@ function toRelationshipDbRow(
   return {
     dataset_id: row.datasetId,
     registry_version: row.registryVersion,
+    canonical_key_encoding_version: row.canonicalKeyEncodingVersion ?? null,
     relationship_name: row.relationshipName,
     relationship_version: row.relationshipVersion,
     status: row.status,
@@ -414,6 +491,18 @@ function toRelationshipDbRow(
     source_freshness_hash: row.sourceFreshnessHash ?? null,
     created_at: date(row.createdAt),
     updated_at: date(row.updatedAt),
+  }
+}
+
+function toEncodingContractDbRow(
+  canonicalKeyEncodingVersion: 'string-v1' | 'typed-v2',
+) {
+  return {
+    dataset_id: STORAGE_REGISTRY_DATASET_ID,
+    registry_version: STORAGE_REGISTRY_VERSION,
+    canonical_key_encoding_version: canonicalKeyEncodingVersion,
+    created_at: STORAGE_REGISTRY_EXPORTED_AT,
+    updated_at: STORAGE_REGISTRY_EXPORTED_AT,
   }
 }
 

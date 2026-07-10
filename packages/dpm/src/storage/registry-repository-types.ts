@@ -23,6 +23,11 @@ export type {
   DpmRegistryRelationshipAuditEventType,
 } from './registry-audit-row-types.js'
 export type {
+  DpmRegistryCanonicalKeyEncodingClaimInput,
+  DpmRegistryCanonicalKeyEncodingContract,
+  DpmRegistryCanonicalKeyEncodingContractRequest,
+} from './registry-encoding-contract-types.js'
+export type {
   DpmRegistryRowsToSnapshotInput,
 } from './registry-rows-to-snapshot-types.js'
 export type {

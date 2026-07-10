@@ -9,6 +9,10 @@ import {
 import {
   assertApprovedRegistryRelationshipApprovalMetadata,
 } from '../registry/registry-approved-relationship-metadata.js'
+import {
+  resolveDpmCanonicalKeyEncodingVersion,
+  type DpmCanonicalKeyEncodingVersion,
+} from '../model/canonical-key-encoding.js'
 import type { DpmRegistryRelationshipSaveInput } from './registry-repository-request-types.js'
 import type {
   DpmRegistryRelationshipRow,
@@ -56,7 +60,9 @@ export function dpmRegistryRowToRelationshipInput(
 
 export function createDpmRegistryRelationshipRow(
   input: DpmRegistryRelationshipSaveInput,
-): DpmRegistryRelationshipRow {
+): DpmRegistryRelationshipRow & {
+  canonicalKeyEncodingVersion: DpmCanonicalKeyEncodingVersion
+} {
   const relationship = input.relationship
   assertApprovedRegistryRelationshipSaveInput(input)
   const condition = relationship.condition ?? { contextColumns: [] }
@@ -64,6 +70,10 @@ export function createDpmRegistryRelationshipRow(
   return {
     datasetId: input.datasetId,
     registryVersion: input.registryVersion,
+    canonicalKeyEncodingVersion: resolveDpmCanonicalKeyEncodingVersion(
+      input.canonicalKeyEncodingVersion,
+      'registry relationship save canonicalKeyEncodingVersion',
+    ),
     relationshipName: relationship.name,
     relationshipVersion: relationship.version,
     status: relationship.status,
@@ -114,10 +124,16 @@ function assertApprovedRegistryRelationshipSaveInput(input: {
 
 export function copyDpmRegistryRelationshipRow(
   row: DpmRegistryRelationshipRow,
-): DpmRegistryRelationshipRow {
+): DpmRegistryRelationshipRow & {
+  canonicalKeyEncodingVersion: DpmCanonicalKeyEncodingVersion
+} {
   return {
     datasetId: row.datasetId,
     registryVersion: row.registryVersion,
+    canonicalKeyEncodingVersion: resolveDpmCanonicalKeyEncodingVersion(
+      row.canonicalKeyEncodingVersion,
+      'registry relationship row canonicalKeyEncodingVersion',
+    ),
     relationshipName: row.relationshipName,
     relationshipVersion: row.relationshipVersion,
     status: row.status,

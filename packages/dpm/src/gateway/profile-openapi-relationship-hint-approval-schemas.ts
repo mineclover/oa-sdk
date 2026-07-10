@@ -2,6 +2,9 @@ import {
   DISCOVERY_RELATIONSHIP_CANDIDATE_TYPES,
 } from '../discovery/discovery-taxonomy.js'
 import {
+  DPM_CANONICAL_KEY_ENCODING_VERSIONS,
+} from '../model/canonical-key-encoding.js'
+import {
   REGISTRY_ORPHAN_POLICIES,
 } from '../registry/registry-orphan-policy-taxonomy.js'
 import {
@@ -31,6 +34,10 @@ export function createDpmProfileRelationshipHintApprovalGatewaySchemas() {
         confidenceScore: ratioSchema(),
         warnings: arrayOf(stringSchema()),
         registryVersion: stringSchema(),
+        canonicalKeyEncodingVersion: {
+          type: 'string',
+          enum: [...DPM_CANONICAL_KEY_ENCODING_VERSIONS],
+        },
         version: stringSchema(),
         namespace: stringSchema(),
         transformStrategy: { type: 'string', enum: [...REGISTRY_TRANSFORM_STRATEGIES] },

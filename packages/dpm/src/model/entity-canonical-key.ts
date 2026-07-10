@@ -14,5 +14,6 @@ export function renderEntityCanonicalKey(
     tenantColumns: entity.keyStrategy.tenant?.columns ?? [],
     columns: entity.keyStrategy.canonicalColumns,
     values,
+    encodingVersion: entity.keyStrategy.encodingVersion,
   })
 }

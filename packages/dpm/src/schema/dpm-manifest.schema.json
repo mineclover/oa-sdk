@@ -100,6 +100,11 @@
       "type": "string",
       "minLength": 1
     },
+    "canonicalKeyEncodingVersion": {
+      "type": "string",
+      "enum": ["string-v1", "typed-v2"],
+      "default": "string-v1"
+    },
     "identifier": {
       "type": "string",
       "pattern": "^[A-Za-z][A-Za-z0-9_]*$"
@@ -242,6 +247,9 @@
         },
         "registry_version": {
           "$ref": "#/$defs/nonEmptyString"
+        },
+        "canonical_key_encoding_version": {
+          "$ref": "#/$defs/canonicalKeyEncodingVersion"
         },
         "status_filter": {
           "type": "array",

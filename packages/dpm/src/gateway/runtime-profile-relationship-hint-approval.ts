@@ -92,6 +92,9 @@ export async function approveDpmProfileRelationshipHintRuntime(
   const saveInput = {
     datasetId: input.profileArtifact.datasetId,
     registryVersion: input.registryVersion,
+    ...(input.canonicalKeyEncodingVersion
+      ? { canonicalKeyEncodingVersion: input.canonicalKeyEncodingVersion }
+      : {}),
     relationship: approvalResponse.body.result.relationship,
     ...(input.auditEventId ? { auditEventId: input.auditEventId } : {}),
     ...(input.sourceFreshnessHash ? { sourceFreshnessHash: input.sourceFreshnessHash } : {}),
@@ -109,6 +112,9 @@ export async function approveDpmProfileRelationshipHintRuntime(
   const registrySnapshotResponse = await exportDpmRegistrySnapshotRuntime({
     datasetId: input.profileArtifact.datasetId,
     registryVersion: input.registryVersion,
+    ...(input.canonicalKeyEncodingVersion
+      ? { expectedCanonicalKeyEncodingVersion: input.canonicalKeyEncodingVersion }
+      : {}),
     ...(input.exportedAt ? { exportedAt: input.exportedAt } : {}),
     registryRepository: input.registryRepository,
   })

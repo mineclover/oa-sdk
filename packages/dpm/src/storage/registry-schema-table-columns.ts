@@ -1,6 +1,7 @@
 export const DPM_REGISTRY_STORAGE_TABLE_COLUMNS_SQL = `  id bigint generated always as identity primary key,
   dataset_id text not null,
   registry_version text not null,
+  canonical_key_encoding_version text not null default 'string-v1',
   relationship_name text not null,
   relationship_version text not null,
   status text not null,

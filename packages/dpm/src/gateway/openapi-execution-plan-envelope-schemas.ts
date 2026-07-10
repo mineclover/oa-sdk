@@ -2,6 +2,7 @@ import {
   DPM_COMPILED_PLAN_VERSIONS,
   DPM_PLAN_STALE_REASONS,
 } from '../compiler/plan.js'
+import { DPM_CANONICAL_KEY_ENCODING_VERSIONS } from '../model/canonical-key-encoding.js'
 import {
   arrayOf,
   ref,
@@ -18,6 +19,10 @@ export function createDpmGatewayCompiledPlanEnvelopeSchemas() {
       manifestId: stringSchema(),
       datasetId: stringSchema(),
       policyVersion: stringSchema(),
+      canonicalKeyEncodingVersion: {
+        type: 'string',
+        enum: [...DPM_CANONICAL_KEY_ENCODING_VERSIONS],
+      },
       manifestCatalogVersionHash: stringSchema(),
       freshness: ref('DpmPlanFreshness'),
       stale: { type: 'boolean' },
@@ -32,6 +37,7 @@ export function createDpmGatewayCompiledPlanEnvelopeSchemas() {
       'manifestId',
       'datasetId',
       'policyVersion',
+      'canonicalKeyEncodingVersion',
       'freshness',
       'stale',
       'staleReasons',
@@ -44,6 +50,15 @@ export function createDpmGatewayCompiledPlanEnvelopeSchemas() {
       catalogVersionHash: stringSchema(),
       registryVersion: stringSchema(),
       registryIdentity: stringSchema(),
-    }, ['catalogVersionHash', 'registryVersion', 'registryIdentity']),
+      canonicalKeyEncodingVersion: {
+        type: 'string',
+        enum: [...DPM_CANONICAL_KEY_ENCODING_VERSIONS],
+      },
+    }, [
+      'catalogVersionHash',
+      'registryVersion',
+      'registryIdentity',
+      'canonicalKeyEncodingVersion',
+    ]),
   } as const
 }

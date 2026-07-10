@@ -8,5 +8,6 @@ export function copyValidationReportFreshness(freshness: DpmPlanFreshness): DpmP
     catalogVersionHash: freshness.catalogVersionHash,
     registryVersion: freshness.registryVersion,
     registryIdentity: freshness.registryIdentity,
+    canonicalKeyEncodingVersion: freshness.canonicalKeyEncodingVersion,
   }
 }

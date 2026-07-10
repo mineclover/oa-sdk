@@ -3,6 +3,9 @@ import type {
   DpmValidationResult,
 } from './diagnostic-types.js'
 import {
+  normalizeRegistrySnapshotCanonicalKeyEncodingVersion,
+} from '../registry/registry-snapshot-encoding.js'
+import {
   sortDpmDiagnostics,
   summarizeDpmDiagnostics,
 } from './diagnostic-summary.js'
@@ -13,6 +16,7 @@ import { validateSafetyRules } from './safety-validator.js'
 import type { DpmValidationInput } from './validation-types.js'
 
 export function validateDpmManifest(input: DpmValidationInput): DpmValidationResult {
+  const registry = normalizeRegistrySnapshotCanonicalKeyEncodingVersion(input.registry)
   const context = createDpmManifestValidationContext(input.manifest)
   const diagnostics: DpmDiagnostic[] = [
     ...validateManifestSyntax(input.manifest),
@@ -22,11 +26,11 @@ export function validateDpmManifest(input: DpmValidationInput): DpmValidationRes
       ...(context.metadataDatasetId ? { metadataDatasetId: context.metadataDatasetId } : {}),
       ...(context.registryReference ? { registryReference: context.registryReference } : {}),
       catalog: input.catalog,
-      registry: input.registry,
+      registry,
     }),
     ...validateSafetyRules({
       manifest: context.manifest,
-      registry: input.registry,
+      registry,
       phase: input.phase ?? 'validate',
     }),
   ]

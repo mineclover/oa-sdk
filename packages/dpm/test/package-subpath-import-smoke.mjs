@@ -26,7 +26,14 @@ const checks = [
     && typeof profileModule.resolveDpmProfileAnalysisPolicy === 'function'
     && Array.isArray(profileModule.DPM_KAFKA_TOPIC_PROFILE_CAPTURE_MODES)
     && profileModule.DEFAULT_DPM_PROFILE_ANALYSIS_POLICY.measuredRelationshipPresenceThreshold === 0.95],
-  ['relationship', typeof relationshipModule.createLogicalRelationship === 'function'],
+  ['relationship', typeof relationshipModule.createLogicalRelationship === 'function'
+    && relationshipModule.DPM_DEFAULT_CANONICAL_KEY_ENCODING_VERSION === 'string-v1'
+    && relationshipModule.DPM_CANONICAL_KEY_ENCODING_VERSIONS.join(',') === 'string-v1,typed-v2'
+    && typeof relationshipModule.assertDpmCanonicalKeyEncodingVersionMatchesPlan === 'function'
+    && typeof relationshipModule.renderEntityCanonicalKeyForPlan === 'function'
+    && typeof relationshipModule.renderRelationshipCanonicalKeyForPlan === 'function'
+    && renderBuiltTypedV2Golden(relationshipModule)
+      === 'typed-v2|n|8:customer|c|11:customer_no|n|1:1'],
   ['gateway', typeof gatewayModule.createDpmGatewayRuntime === 'function'
     && typeof gatewayModule.listDpmRegistryRelationshipAuditEventsRuntime === 'function'],
   ['storage', typeof storageModule.createDpmProfileBaselineRepository === 'function'
@@ -49,3 +56,25 @@ if (failures.length > 0) {
 }
 
 console.log('DPM subpath imports OK')
+
+function renderBuiltTypedV2Golden(relationshipModule) {
+  const entity = relationshipModule.createEntityDeclaration({
+    name: 'customer',
+    namespace: 'customer',
+    root: {
+      table: 'public.customers',
+      columns: ['customer_no'],
+    },
+    keyStrategy: {
+      type: 'single_column',
+      canonicalColumns: ['customer_no'],
+      encodingVersion: 'typed-v2',
+    },
+    transform: {
+      type: 'deterministic_token',
+      namespace: 'customer',
+      reversible: true,
+    },
+  })
+  return relationshipModule.renderEntityCanonicalKey(entity, { customer_no: 1 })
+}

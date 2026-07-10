@@ -1,6 +1,9 @@
 export const DPM_REGISTRY_STORAGE_TABLE_CHECKS_SQL = `  constraint dpm_relationship_registry_status_check check (
     status in ('candidate', 'proposed', 'approved', 'rejected', 'deprecated', 'superseded')
   ),
+  constraint dpm_relationship_registry_canonical_key_encoding_check check (
+    canonical_key_encoding_version in ('string-v1', 'typed-v2')
+  ),
   constraint dpm_relationship_registry_type_check check (
     relationship_type in (
       'one_to_one',

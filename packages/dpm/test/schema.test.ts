@@ -26,6 +26,20 @@ describe('DPM manifest JSON Schema', () => {
     }
   })
 
+  it('accepts explicit typed-v2 registry references and rejects unknown encoding versions', () => {
+    const typedV2 = structuredClone(
+      readManifestSchemaFixture('valid', 'customer-orders.json'),
+    ) as Record<string, any>
+    typedV2.relationship_registry.canonical_key_encoding_version = 'typed-v2'
+    expect(validate(typedV2), JSON.stringify(validate.errors, null, 2)).toBe(true)
+
+    const unknown = structuredClone(typedV2)
+    unknown.relationship_registry.canonical_key_encoding_version = 'typed-v3'
+    expect(validate(unknown)).toBe(false)
+    expect((validate.errors ?? []).map(error => error.instancePath))
+      .toContain('/relationship_registry/canonical_key_encoding_version')
+  })
+
   it.each(manifestSchemaInvalidFixtureCases)('rejects invalid fixture %s', (fixtureName, expectedPath) => {
     const valid = validate(readManifestSchemaFixture('invalid', fixtureName))
     const errorPaths = (validate.errors ?? []).map((error) => error.instancePath)

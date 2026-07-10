@@ -16,6 +16,8 @@ describe('DPM compiler plan assembly', () => {
     expect(result.ok).toBe(true)
     if (!result.ok) throw new Error('expected compile success')
     expect(result.plan.kind).toBe('dpm.compiled-plan.v1')
+    expect(result.plan.identity).toBe('compiled-plan:commerce_ai@2026.07.01:reg-2026-07-01')
+    expect(result.plan.canonicalKeyEncodingVersion).toBe('string-v1')
     expect(result.plan.stale).toBe(false)
     expect(result.plan.relationshipSteps.map(step => step.name)).toEqual([
       ...expectedCompiledRelationshipStepNames,
@@ -27,6 +29,7 @@ describe('DPM compiler plan assembly', () => {
     expect(result.plan.freshness).toMatchObject({
       catalogVersionHash: result.plan.manifestCatalogVersionHash,
       registryVersion: 'reg-2026-07-01',
+      canonicalKeyEncodingVersion: 'string-v1',
     })
   })
 })

@@ -3,6 +3,9 @@ export type {
   DpmRegistryStorageSchemaQueryClient,
 } from '../storage/registry-schema.js'
 export type {
+  DpmRegistryCanonicalKeyEncodingClaimInput,
+  DpmRegistryCanonicalKeyEncodingContract,
+  DpmRegistryCanonicalKeyEncodingContractRequest,
   DpmRegistryRelationshipApprovalCommitInput,
   DpmRegistryRelationshipApprovalCommitResult,
   DpmRegistryRelationshipAuditEventRequest,

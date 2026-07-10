@@ -5,6 +5,7 @@ import type {
   RegistryEvidence,
   RegistryRelationshipInput,
 } from '../registry/registry-relationship-types.js'
+import type { DpmCanonicalKeyEncodingVersion } from '../model/canonical-key-encoding.js'
 import type {
   RegistryRelationshipKind,
 } from '../registry/registry-relationship-kind-taxonomy.js'
@@ -18,6 +19,7 @@ import type {
 export type DpmRegistryRelationshipRow = {
   datasetId: string
   registryVersion: string
+  canonicalKeyEncodingVersion?: DpmCanonicalKeyEncodingVersion
   relationshipName: string
   relationshipVersion: string
   status: RegistryRelationshipStatus

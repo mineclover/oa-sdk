@@ -6,6 +6,7 @@ type InvalidRelationshipStepTaxonomyCase =
 
 export const invalidCompiledPlanTaxonomyCases = [
   ['planVersion', '2.0'],
+  ['canonicalKeyEncodingVersion', 'typed-v3'],
   ['staleReasons', ['unknown_stale_reason']],
 ] as const satisfies readonly InvalidCompiledPlanTaxonomyCase[]
 

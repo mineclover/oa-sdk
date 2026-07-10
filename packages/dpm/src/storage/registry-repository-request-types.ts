@@ -1,8 +1,10 @@
+import type { DpmCanonicalKeyEncodingVersion } from '../model/canonical-key-encoding.js'
 import type { ApprovedRegistryRelationshipInput } from '../registry/registry-relationship-types.js'
 
 export type DpmRegistrySnapshotExportRequest = {
   datasetId: string
   registryVersion: string
+  expectedCanonicalKeyEncodingVersion?: DpmCanonicalKeyEncodingVersion
   exportedAt?: string
 }
 
@@ -20,6 +22,7 @@ export type DpmRegistryRelationshipAuditEventRequest = {
 export type DpmRegistryRelationshipSaveInput = {
   datasetId: string
   registryVersion: string
+  canonicalKeyEncodingVersion?: DpmCanonicalKeyEncodingVersion
   relationship: ApprovedRegistryRelationshipInput
   auditEventId?: string
   auditOccurredAt?: string

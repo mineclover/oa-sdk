@@ -1,6 +1,7 @@
 import {
   isExecutableRegistryRelationship,
 } from './registry-executable.js'
+import { resolveDpmCanonicalKeyEncodingVersion } from '../model/canonical-key-encoding.js'
 import {
   createRegistrySnapshotIdentity,
   REGISTRY_SNAPSHOT_KIND,
@@ -13,6 +14,10 @@ import type {
 import { createRegistrySnapshotSummary } from './registry-summary.js'
 
 export function createRegistrySnapshot(input: RegistrySnapshotInput): RegistrySnapshot {
+  const canonicalKeyEncodingVersion = resolveDpmCanonicalKeyEncodingVersion(
+    input.canonicalKeyEncodingVersion,
+    'registry snapshot canonicalKeyEncodingVersion',
+  )
   const relationships = input.relationships
     .map(relationship => normalizeRegistryRelationship(input, relationship))
     .sort((left, right) => left.identity.localeCompare(right.identity))
@@ -21,9 +26,14 @@ export function createRegistrySnapshot(input: RegistrySnapshotInput): RegistrySn
 
   return {
     kind: REGISTRY_SNAPSHOT_KIND,
-    identity: createRegistrySnapshotIdentity(input.datasetId, input.registryVersion),
+    identity: createRegistrySnapshotIdentity(
+      input.datasetId,
+      input.registryVersion,
+      canonicalKeyEncodingVersion,
+    ),
     datasetId: input.datasetId,
     registryVersion: input.registryVersion,
+    canonicalKeyEncodingVersion,
     ...(input.exportedAt ? { exportedAt: input.exportedAt } : {}),
     relationships,
     approvedRelationships,

@@ -281,6 +281,9 @@ category barrel을 가리킨다. `packages/dpm/test/package-subpath-import-smoke
 | `DPM_REGISTRY_RELATIONSHIP_AUDIT_EVENT_TYPES` | `dpm/src/storage/registry-audit-row-types.ts` | registry relationship audit event taxonomy |
 | `DpmPostgresRegistryQueryClient` | `dpm/src/storage/registry-postgres-storage.ts` | dependency-free Postgres query client boundary for registry storage SQL |
 | `DpmPostgresRegistryClient` | `dpm/src/storage/registry-postgres-storage.ts` | Postgres registry query client with transaction callback for atomic approval commits |
+| `DpmRegistryCanonicalKeyEncodingContractRequest` | `dpm/src/storage/registry-encoding-contract-types.ts` | dataset and registry-version coordinate for reading the authoritative canonical-key encoding contract |
+| `DpmRegistryCanonicalKeyEncodingClaimInput` | `dpm/src/storage/registry-encoding-contract-types.ts` | atomic canonical-key encoding version claim for one dataset and registry version |
+| `DpmRegistryCanonicalKeyEncodingContract` | `dpm/src/storage/registry-encoding-contract-types.ts` | persisted authoritative canonical-key encoding contract with optional storage timestamps |
 | `DpmRegistrySnapshotExportRequest` | `dpm/src/storage/registry-repository-types.ts` | storage-backed registry snapshot export request |
 | `DpmRegistryRelationshipRowRequest` | `dpm/src/storage/registry-repository-types.ts` | storage reader dataset/version row request |
 | `DpmRegistryRelationshipAuditEventRequest` | `dpm/src/storage/registry-repository-types.ts` | storage reader request for registry relationship audit events |
@@ -311,6 +314,11 @@ category barrel을 가리킨다. `packages/dpm/test/package-subpath-import-smoke
 | `registryRowsToSnapshot()` | `dpm/src/storage/registry-row-mapper.ts` | storage rows를 기존 `RegistrySnapshot` contract로 변환 |
 | `CanonicalKeyValue` | `dpm/src/model/canonical-key.ts` | canonical key value primitive |
 | `CanonicalKeyValueMap` | `dpm/src/model/canonical-key.ts` | canonical key column value map |
+| `DpmCanonicalKeyEncodingVersion` | `dpm/src/model/canonical-key-encoding.ts` | string-v1 / typed-v2 canonical key identity contract |
+| `DPM_CANONICAL_KEY_ENCODING_VERSIONS` | `dpm/src/model/canonical-key-encoding.ts` | supported canonical key encoding version tuple |
+| `DPM_DEFAULT_CANONICAL_KEY_ENCODING_VERSION` | `dpm/src/model/canonical-key-encoding.ts` | compatibility-window default string-v1 marker |
+| `isDpmCanonicalKeyEncodingVersion()` | `dpm/src/model/canonical-key-encoding.ts` | unknown encoding version runtime type guard |
+| `resolveDpmCanonicalKeyEncodingVersion()` | `dpm/src/model/canonical-key-encoding.ts` | omitted version defaulting and unsupported version rejection |
 | `ModelEndpoint` | `dpm/src/model/endpoint.ts` | table and column endpoint for DPM model surfaces |
 | `TenantNamespaceInput` | `dpm/src/model/canonical-key.ts` | tenant-scoped canonical key input |
 | `EntityKeyStrategyType` | `dpm/src/model/entity-types.ts` | single-column or composite entity key mode |
@@ -320,6 +328,9 @@ category barrel을 가리킨다. `packages/dpm/test/package-subpath-import-smoke
 | `EntityDeclaration` | `dpm/src/model/entity-types.ts` | normalized entity declaration with identity |
 | `createEntityDeclaration()` | `dpm/src/model/entity-normalize.ts` | entity root and namespace contract normalization |
 | `renderEntityCanonicalKey()` | `dpm/src/model/entity-canonical-key.ts` | deterministic entity canonical key rendering |
+| `DpmCanonicalKeyEncodingPlan` | `dpm/src/model/plan-aware-canonical-key.ts` | compiled-plan canonical key encoding projection |
+| `assertDpmCanonicalKeyEncodingVersionMatchesPlan()` | `dpm/src/model/plan-aware-canonical-key.ts` | renderer strategy와 compiled plan encoding 불일치 차단 |
+| `renderEntityCanonicalKeyForPlan()` | `dpm/src/model/plan-aware-canonical-key.ts` | plan encoding을 검증한 entity canonical key rendering |
 | `LogicalRelationshipKind` | `dpm/src/model/relationship-types.ts` | logical relationship kind taxonomy |
 | `LogicalRelationshipOrphanPolicy` | `dpm/src/model/relationship-types.ts` | orphan policy taxonomy for logical relationships |
 | `LogicalRelationshipCardinality` | `dpm/src/model/relationship-types.ts` | logical relationship cardinality contract |
@@ -330,6 +341,7 @@ category barrel을 가리킨다. `packages/dpm/test/package-subpath-import-smoke
 | `LogicalRelationship` | `dpm/src/model/relationship-types.ts` | normalized logical relationship model |
 | `createLogicalRelationship()` | `dpm/src/model/relationship-normalize.ts` | relationship predicate and temporal rule normalization |
 | `renderRelationshipCanonicalKey()` | `dpm/src/model/relationship-canonical-key.ts` | deterministic relationship canonical key rendering |
+| `renderRelationshipCanonicalKeyForPlan()` | `dpm/src/model/plan-aware-canonical-key.ts` | plan encoding을 검증한 relationship canonical key rendering |
 | `DpmDiagnosticSeverity` | `dpm/src/validator/diagnostic-taxonomy.ts` | semantic validator severity taxonomy |
 | `DPM_DIAGNOSTIC_CODES` | `dpm/src/validator/diagnostic-taxonomy.ts` | runtime diagnostic code taxonomy used by TypeScript and OpenAPI |
 | `DpmDiagnosticCode` | `dpm/src/validator/diagnostic-taxonomy.ts` | SYN/REL/SAF diagnostic code taxonomy |

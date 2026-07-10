@@ -34,5 +34,6 @@ function copyFreshness(freshness: DpmPlanFreshness): DpmPlanFreshness {
     catalogVersionHash: freshness.catalogVersionHash,
     registryVersion: freshness.registryVersion,
     registryIdentity: freshness.registryIdentity,
+    canonicalKeyEncodingVersion: freshness.canonicalKeyEncodingVersion,
   }
 }

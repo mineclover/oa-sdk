@@ -1,6 +1,7 @@
 import {
   gatewayOperation,
 } from './openapi-operation.js'
+import { DPM_CANONICAL_KEY_ENCODING_VERSIONS } from '../model/canonical-key-encoding.js'
 import { pathParameter } from './openapi-parameters.js'
 import { jsonRequestBody } from './openapi-request-body.js'
 
@@ -39,7 +40,19 @@ export function createDpmRelationshipGatewayPaths() {
         operationId: 'exportDpmRegistrySnapshot',
         tags: ['relationships'],
         summary: 'Export an approved relationship registry snapshot.',
-        parameters: [pathParameter('datasetId'), pathParameter('registryVersion')],
+        parameters: [
+          pathParameter('datasetId'),
+          pathParameter('registryVersion'),
+          {
+            name: 'expectedCanonicalKeyEncodingVersion',
+            in: 'query',
+            required: false,
+            schema: {
+              type: 'string',
+              enum: [...DPM_CANONICAL_KEY_ENCODING_VERSIONS],
+            },
+          },
+        ],
         responseSchema: 'DpmRegistrySnapshotResponse',
       }),
     },

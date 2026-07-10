@@ -30,11 +30,21 @@ describe('DPM gateway registry snapshot export runtime adapter', () => {
     const response = await runtime.exportDpmRegistrySnapshot({
       datasetId: STORAGE_REGISTRY_DATASET_ID,
       registryVersion: STORAGE_REGISTRY_VERSION,
+      expectedCanonicalKeyEncodingVersion: 'string-v1',
       exportedAt: STORAGE_REGISTRY_EXPORTED_AT,
       registryRepository,
     })
 
     expect(operation.operationId).toBe('exportDpmRegistrySnapshot')
+    expect(operation.parameters).toContainEqual(expect.objectContaining({
+      name: 'expectedCanonicalKeyEncodingVersion',
+      in: 'query',
+      required: false,
+      schema: {
+        type: 'string',
+        enum: ['string-v1', 'typed-v2'],
+      },
+    }))
     expect(listRelationshipRows).toHaveBeenCalledWith({
       datasetId: STORAGE_REGISTRY_DATASET_ID,
       registryVersion: STORAGE_REGISTRY_VERSION,
@@ -112,6 +122,7 @@ describe('DPM gateway registry snapshot export runtime adapter', () => {
     const repositorySnapshot = createRegistrySnapshot({
       datasetId: STORAGE_REGISTRY_DATASET_ID,
       registryVersion: STORAGE_REGISTRY_VERSION,
+      canonicalKeyEncodingVersion: 'typed-v2',
       relationships: [relationshipInput],
     })
     const registryRepository = {
@@ -133,6 +144,7 @@ describe('DPM gateway registry snapshot export runtime adapter', () => {
     }
 
     expect(response.body.result).not.toBe(repositorySnapshot)
+    expect(response.body.result.canonicalKeyEncodingVersion).toBe('typed-v2')
     expect(response.body.result.relationships[0]?.evidence[0]?.message).toBe(
       'orders.customer_no references customers.customer_no',
     )
@@ -144,5 +156,44 @@ describe('DPM gateway registry snapshot export runtime adapter', () => {
       kind: 'db',
       pointer: '#/relationships/rel_orders_customer',
     })
+  })
+
+  it('rejects custom repository snapshots that violate the expected encoding assertion', async () => {
+    const runtime = createDpmGatewayRuntime()
+    const registryRepository = {
+      exportSnapshot: vi.fn(async () => createRegistrySnapshot({
+        datasetId: STORAGE_REGISTRY_DATASET_ID,
+        registryVersion: STORAGE_REGISTRY_VERSION,
+        relationships: [],
+      })),
+    }
+
+    await expect(runtime.exportDpmRegistrySnapshot({
+      datasetId: STORAGE_REGISTRY_DATASET_ID,
+      registryVersion: STORAGE_REGISTRY_VERSION,
+      expectedCanonicalKeyEncodingVersion: 'typed-v2',
+      registryRepository,
+    })).rejects.toThrow(
+      'expected canonical key encoding typed-v2, but repository returned string-v1',
+    )
+  })
+
+  it('rejects custom repository snapshots with an encoding-incompatible identity', async () => {
+    const runtime = createDpmGatewayRuntime()
+    const mismatched = createRegistrySnapshot({
+      datasetId: STORAGE_REGISTRY_DATASET_ID,
+      registryVersion: STORAGE_REGISTRY_VERSION,
+      canonicalKeyEncodingVersion: 'typed-v2',
+      relationships: [],
+    })
+    mismatched.identity = `${mismatched.datasetId}@${mismatched.registryVersion}`
+
+    await expect(runtime.exportDpmRegistrySnapshot({
+      datasetId: STORAGE_REGISTRY_DATASET_ID,
+      registryVersion: STORAGE_REGISTRY_VERSION,
+      registryRepository: {
+        exportSnapshot: vi.fn(async () => mismatched),
+      },
+    })).rejects.toThrow('does not match canonical key encoding typed-v2')
   })
 })
