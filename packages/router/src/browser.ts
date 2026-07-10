@@ -6,7 +6,7 @@
  */
 
 import type { OasDocument, OasResponse, ParsedDocument } from '@oa-sdk/parser/browser'
-import { isParsedDocument, parseDocument } from '@oa-sdk/parser/browser'
+import { assertParsedDocumentComplete, isParsedDocument, parseDocument } from '@oa-sdk/parser/browser'
 import { toColonPath, pascalCase, collectTypeNames, formatGeneratedTs, pickDefaultStatus } from '@oa-sdk/core/browser'
 
 export type RouterTarget = 'hono' | 'express'
@@ -27,6 +27,7 @@ export type RouterOptions = {
  */
 export function generateRouter(spec: OasDocument | ParsedDocument, options: RouterOptions = {}): string {
   const doc = isParsedDocument(spec) ? spec : parseDocument(spec)
+  assertParsedDocumentComplete(doc, '@oa-sdk/router/browser generateRouter')
   const { target = 'hono', typesImport, banner = true } = options
   const lines: string[] = []
 

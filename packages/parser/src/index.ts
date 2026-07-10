@@ -19,8 +19,20 @@ export type {
   RouteIndex,
   MatchResult,
   ParsedDocument,
+  CompleteParsedDocument,
+  ParsedDocumentRefDiagnosticCode,
+  ParsedDocumentRefDiagnostic,
+  ParsedDocumentRefResolutionScope,
+  ParsedDocumentRefResolution,
 } from './types.js'
-export { isParsedDocument } from './parsed-document.js'
+export {
+  IncompleteParsedDocumentError,
+  assertParsedDocumentComplete,
+  createParsedDocumentRefResolution,
+  isParsedDocument,
+  isParsedDocumentComplete,
+} from './parsed-document.js'
+export type { CreateParsedDocumentRefResolutionOptions } from './parsed-document.js'
 
 // ─── 풀 문서 파서 ─────────────────────────────────────────────────────────
 export { parseDocument } from './parse.js'

@@ -21,6 +21,43 @@ describe('generateRouter — hono', () => {
     expect(generateBrowserRouter(parsed)).toContain("app.get('/users'")
   })
 
+  it('generates the same internally referenced route in Node and browser entrypoints', () => {
+    const spec = doc({
+      paths: { '/users': { $ref: '#/components/pathItems/Users' } },
+      components: {
+        pathItems: {
+          Users: {
+            get: {
+              operationId: 'listUsers',
+              responses: { '200': { description: 'OK' } },
+            },
+          },
+        },
+      },
+    })
+
+    expect(generateRouter(spec)).toContain("app.get('/users'")
+    expect(generateBrowserRouter(spec)).toContain("app.get('/users'")
+  })
+
+  it.each([
+    doc({ paths: { '/missing': { $ref: '#/components/pathItems/Missing' } } }),
+    doc({ paths: { '/external': { $ref: './paths.yaml#/Users' } } }),
+    doc({
+      components: {
+        schemas: {
+          Node: {
+            type: 'object',
+            properties: { child: { $ref: '#/components/schemas/Node' } },
+          },
+        },
+      },
+    }),
+  ])('rejects incomplete ref input in Node and browser entrypoints', (spec) => {
+    expect(() => generateRouter(spec)).toThrow(/requires complete \$ref resolution/)
+    expect(() => generateBrowserRouter(spec)).toThrow(/requires complete \$ref resolution/)
+  })
+
   it('기본 GET 라우트', () => {
     const code = generateRouter(doc({
       paths: {

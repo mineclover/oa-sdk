@@ -5,7 +5,7 @@
  */
 
 import type { OasDocument, OasResponse, OasSchema, ParsedDocument } from '@oa-sdk/parser/browser'
-import { isParsedDocument, parseDocument, resolveServerUrl } from '@oa-sdk/parser/browser'
+import { assertParsedDocumentComplete, isParsedDocument, parseDocument, resolveServerUrl } from '@oa-sdk/parser/browser'
 import { pascalCase, collectTypeNames, formatGeneratedTs } from '@oa-sdk/core/browser'
 
 export type ClientOptions = {
@@ -22,6 +22,7 @@ export type ClientOptions = {
  */
 export function generateClient(spec: OasDocument | ParsedDocument, options: ClientOptions = {}): string {
   const doc = isParsedDocument(spec) ? spec : parseDocument(spec)
+  assertParsedDocumentComplete(doc, '@oa-sdk/client/browser generateClient')
   const { typesImport, banner = true } = options
   const lines: string[] = []
 

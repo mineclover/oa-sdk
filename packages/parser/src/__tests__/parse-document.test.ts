@@ -284,6 +284,7 @@ describe('parseDocument', () => {
       const schema = content['schema'] as Record<string, unknown>
       expect(schema['type']).toBe('object')
       expect((schema['properties'] as Record<string, unknown>)['id']).toEqual({ type: 'string' })
+      expect(result.resolution).toEqual({ status: 'complete', scope: 'all', diagnostics: [] })
     } finally {
       rmSync(tmp, { recursive: true, force: true })
     }

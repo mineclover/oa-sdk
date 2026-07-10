@@ -15,10 +15,23 @@ export type {
   RouteIndex,
   MatchResult,
   ParsedDocument,
+  CompleteParsedDocument,
+  ParsedDocumentRefDiagnosticCode,
+  ParsedDocumentRefDiagnostic,
+  ParsedDocumentRefResolutionScope,
+  ParsedDocumentRefResolution,
 } from './types.js'
-export { isParsedDocument } from './parsed-document.js'
+export {
+  IncompleteParsedDocumentError,
+  assertParsedDocumentComplete,
+  createParsedDocumentRefResolution,
+  isParsedDocument,
+  isParsedDocumentComplete,
+} from './parsed-document.js'
+export type { CreateParsedDocumentRefResolutionOptions } from './parsed-document.js'
 
-export { parseResolvedDocument as parseDocument } from './parse-core.js'
+export { parseDocument } from './parse-browser.js'
+export type { BrowserParseDocumentOptions } from './parse-browser.js'
 export { loadSchema } from './schema-loader-browser.js'
 export { matchRoute, HTTP_METHODS } from './route-match.js'
 
@@ -26,7 +39,7 @@ export { foldSchema } from './fold.js'
 export type { SchemaAlgebra } from './fold.js'
 
 export { SchemaFolder } from './folder.js'
-export { derefInternalSpec } from './deref-internal.js'
+export { derefInternalSpec, derefInternalSpecWithDiagnostics } from './deref-internal.js'
 export type { InternalDerefCycleStrategy, InternalDerefOptions } from './deref-internal.js'
 
 export { findOperation, findByTag, findByPath, getSchema, getTag, groupByTag, describeApi, resolveServerUrl } from './query.js'

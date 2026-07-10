@@ -8,10 +8,15 @@
  */
 
 import type { OasDocument } from './oas32-types.js'
-import type { ParsedDocument } from './types.js'
+import type {
+  ParsedDocument,
+  ParsedDocumentRefDiagnostic,
+  ParsedDocumentRefResolutionScope,
+} from './types.js'
 import { runPipeline, DEFAULT_PASSES, createDerefPass, type SpecPass } from './pipeline.js'
 import type { DerefCycleStrategy, DerefDiagnostic, DerefOptions } from './deref.js'
 import { parseResolvedDocument } from './parse-core.js'
+import { createParsedDocumentRefResolution } from './parsed-document.js'
 
 export type ParseDocumentOptions = {
   passes?: SpecPass[]
@@ -29,15 +34,35 @@ export type ParseDocumentOptions = {
  */
 export function parseDocument(
   doc: OasDocument,
-  passesOrOptions: SpecPass[] | ParseDocumentOptions = DEFAULT_PASSES,
+  passesOrOptions: SpecPass[] | ParseDocumentOptions | undefined = undefined,
 ): ParsedDocument {
-  const passes = resolvePasses(passesOrOptions)
-  const resolved = runPipeline(doc, passes) as OasDocument
-  return parseResolvedDocument(resolved, doc)
+  const plan = createParsePlan(doc, passesOrOptions)
+  const resolved = runPipeline(doc, plan.passes) as OasDocument
+  const resolution = createParsedDocumentRefResolution({
+    document: resolved,
+    scope: plan.scope,
+    diagnostics: plan.diagnostics,
+  })
+  return parseResolvedDocument(resolved, doc, resolution)
 }
 
-function resolvePasses(passesOrOptions: SpecPass[] | ParseDocumentOptions): SpecPass[] {
-  if (Array.isArray(passesOrOptions)) return passesOrOptions
+type ParsePlan = {
+  passes: SpecPass[]
+  scope: ParsedDocumentRefResolutionScope
+  diagnostics: ParsedDocumentRefDiagnostic[]
+}
+
+function createParsePlan(
+  doc: OasDocument,
+  passesOrOptions: SpecPass[] | ParseDocumentOptions | undefined,
+): ParsePlan {
+  if (passesOrOptions === undefined || passesOrOptions === DEFAULT_PASSES) {
+    return createDefaultDerefPlan()
+  }
+
+  if (Array.isArray(passesOrOptions)) {
+    return createCustomPassPlan(doc, passesOrOptions)
+  }
 
   const {
     passes,
@@ -47,14 +72,47 @@ function resolvePasses(passesOrOptions: SpecPass[] | ParseDocumentOptions): Spec
     onDerefDiagnostic,
   } = passesOrOptions
 
-  if (passes) return passes
-  if (basePath || cycleStrategy || derefDiagnostics || onDerefDiagnostic) {
-    const derefOptions: DerefOptions = {}
-    if (basePath !== undefined) derefOptions.basePath = basePath
-    if (cycleStrategy !== undefined) derefOptions.cycleStrategy = cycleStrategy
-    if (derefDiagnostics !== undefined) derefOptions.diagnostics = derefDiagnostics
-    if (onDerefDiagnostic !== undefined) derefOptions.onDiagnostic = onDerefDiagnostic
-    return [createDerefPass(derefOptions)]
+  if (passes) {
+    return passes === DEFAULT_PASSES
+      ? createDefaultDerefPlan()
+      : createCustomPassPlan(doc, passes)
   }
-  return DEFAULT_PASSES
+
+  const diagnostics: DerefDiagnostic[] = []
+  const derefOptions: DerefOptions = { diagnostics }
+  if (basePath !== undefined) derefOptions.basePath = basePath
+  if (cycleStrategy !== undefined) derefOptions.cycleStrategy = cycleStrategy
+  if (derefDiagnostics !== undefined || onDerefDiagnostic !== undefined) {
+    derefOptions.onDiagnostic = (diagnostic) => {
+      derefDiagnostics?.push(diagnostic)
+      onDerefDiagnostic?.(diagnostic)
+    }
+  }
+  return {
+    passes: [createDerefPass(derefOptions)],
+    scope: basePath !== undefined ? 'all' : 'internal',
+    diagnostics,
+  }
+}
+
+function createDefaultDerefPlan(): ParsePlan {
+  const diagnostics: DerefDiagnostic[] = []
+  return {
+    passes: [createDerefPass({ diagnostics })],
+    scope: 'internal',
+    diagnostics,
+  }
+}
+
+function createCustomPassPlan(doc: OasDocument, passes: SpecPass[]): ParsePlan {
+  const diagnostics = createParsedDocumentRefResolution({
+    document: doc,
+    scope: 'custom',
+  }).diagnostics
+
+  return {
+    passes,
+    scope: 'custom',
+    diagnostics: [...diagnostics],
+  }
 }

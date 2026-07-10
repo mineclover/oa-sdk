@@ -491,6 +491,10 @@ category barrel을 가리킨다. `packages/dpm/test/package-subpath-import-smoke
 |------|------|------|
 | `parseDocument()` | `parse.ts` | OAS 문서 → ParsedDocument IR (정식 진입점) |
 | `isParsedDocument()` | `parsed-document.ts` | raw OAS와 Map-backed `ParsedDocument` IR을 구분하는 runtime type guard |
+| `isParsedDocumentComplete()` | `parsed-document.ts` | `$ref` resolution evidence가 complete인 `ParsedDocument`를 좁히는 runtime type guard |
+| `assertParsedDocumentComplete()` | `parsed-document.ts` | partial 또는 legacy metadata-less IR이 생성기로 전달되는 것을 차단하는 assertion |
+| `IncompleteParsedDocumentError` | `parsed-document.ts` | 불완전 IR 소비 시 resolution diagnostic을 보존하는 명시적 오류 |
+| `createParsedDocumentRefResolution()` | `parsed-document.ts` | resolver diagnostic과 잔존 `$ref`를 complete/partial evidence로 정규화 |
 | `loadSchema()` | `schema-loader.ts` | OAS 문서 → RouteIndex (레거시 호환) |
 | `matchRoute()` | `schema-loader.ts` | RouteIndex에서 경로+메서드 매칭 |
 | `HTTP_METHODS` | `schema-loader.ts` | HTTP 메서드 상수 배열 |
@@ -545,6 +549,12 @@ category barrel을 가리킨다. `packages/dpm/test/package-subpath-import-smoke
 |------|------|------|
 | `SpecPass` | `pipeline.ts` | 파이프라인 패스 함수 타입 |
 | `ParseDocumentOptions` | `parse.ts` | `parseDocument()` basePath/deref diagnostic 옵션 |
+| `CompleteParsedDocument` | `types.ts` | complete resolution evidence를 필수로 가진 생성기 안전 IR |
+| `ParsedDocumentRefResolution` | `types.ts` | `$ref` 해소 status, scope, diagnostic evidence |
+| `ParsedDocumentRefDiagnostic` | `types.ts` | missing/cycle/external/unsupported ref 진단과 source coordinate |
+| `ParsedDocumentRefDiagnosticCode` | `types.ts` | parser completeness diagnostic 코드 union |
+| `ParsedDocumentRefResolutionScope` | `types.ts` | internal / all / custom resolver scope |
+| `CreateParsedDocumentRefResolutionOptions` | `parsed-document.ts` | resolution evidence 생성 입력 |
 | `SchemaAlgebra` | `fold.ts` | fold 패턴 대수 인터페이스 |
 | `DerefOptions` | `deref.ts` | deref basePath/diagnostic 옵션 |
 | `DerefCycleStrategy` | `deref.ts` | 순환 `$ref` 처리 전략 (`empty-schema` / `preserve-ref`) |

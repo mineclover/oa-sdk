@@ -15,12 +15,18 @@ import type {
   Referenceable,
 } from './oas32-types.js'
 import type { HttpMethod, OperationEntry, ParsedDocument, RouteIndex } from './types.js'
+import type { ParsedDocumentRefResolution } from './types.js'
+import { createParsedDocumentRefResolution } from './parsed-document.js'
 
 const STANDARD_METHODS: HttpMethod[] = [
   'get', 'post', 'put', 'patch', 'delete', 'head', 'options', 'trace', 'query',
 ]
 
-export function parseResolvedDocument(resolved: OasDocument, raw: OasDocument = resolved): ParsedDocument {
+export function parseResolvedDocument(
+  resolved: OasDocument,
+  raw: OasDocument = resolved,
+  resolution?: ParsedDocumentRefResolution,
+): ParsedDocument {
   const operations: OperationEntry[] = []
   const routes: RouteIndex = new Map()
 
@@ -79,6 +85,10 @@ export function parseResolvedDocument(resolved: OasDocument, raw: OasDocument = 
     },
     webhooks,
     raw,
+    resolution: resolution ?? createParsedDocumentRefResolution({
+      document: resolved,
+      scope: 'custom',
+    }),
   }
 }
 

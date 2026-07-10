@@ -63,6 +63,43 @@ describe('generateClient', () => {
     expect(generateBrowserClient(parsed)).toContain('async listUsers(')
   })
 
+  it('generates the same internally referenced operation in Node and browser entrypoints', () => {
+    const spec = doc({
+      paths: { '/users': { $ref: '#/components/pathItems/Users' } },
+      components: {
+        pathItems: {
+          Users: {
+            get: {
+              operationId: 'listUsers',
+              responses: { '200': { description: 'OK' } },
+            },
+          },
+        },
+      },
+    })
+
+    expect(generateClient(spec)).toContain('async listUsers(')
+    expect(generateBrowserClient(spec)).toContain('async listUsers(')
+  })
+
+  it.each([
+    doc({ paths: { '/missing': { $ref: '#/components/pathItems/Missing' } } }),
+    doc({ paths: { '/external': { $ref: './paths.yaml#/Users' } } }),
+    doc({
+      components: {
+        schemas: {
+          Node: {
+            type: 'object',
+            properties: { child: { $ref: '#/components/schemas/Node' } },
+          },
+        },
+      },
+    }),
+  ])('rejects incomplete ref input in Node and browser entrypoints', (spec) => {
+    expect(() => generateClient(spec)).toThrow(/requires complete \$ref resolution/)
+    expect(() => generateBrowserClient(spec)).toThrow(/requires complete \$ref resolution/)
+  })
+
   it('GET 메서드 생성', () => {
     const code = generateClient(doc({
       paths: {
