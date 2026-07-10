@@ -5,6 +5,7 @@ import type { SpecGraph, SpecSnapshotStored } from '../../domain/index.js'
 export type GetGraphQuery = {
   revisionId: string
   projectKey: string
+  toolchainFingerprint: string
 }
 
 export class GetGraphHandler {
@@ -14,6 +15,7 @@ export class GetGraphHandler {
     const stored = await this.cache.getSnapshotByRevision(
       query.revisionId,
       query.projectKey,
+      query.toolchainFingerprint,
     )
     if (stored === null) return null
 
@@ -22,8 +24,24 @@ export class GetGraphHandler {
 }
 
 function buildGraph(snapshot: SpecSnapshotStored): SpecGraph {
-  const nodes = Object.entries(snapshot.provenance).flatMap(([pointer, entry]) => {
-    if (typeof entry.canonicalId !== 'string') return []
+  if (snapshot.projectKind === 'typespec-bundle') {
+    return {
+      nodes: snapshot.provenance.sourceFiles.map(source => ({
+        id: `source-file:${source.relativePath}`,
+        kind: 'source-file',
+        scope: 'typespec',
+        domain: 'unavailable',
+        localName: source.relativePath,
+        sourcePath: source.relativePath,
+        contentHash: source.contentHash,
+      })),
+      edges: [],
+    }
+  }
+
+  const provenance = snapshot.provenance.entries
+  const nodes = Object.entries(provenance).flatMap(([pointer, entry]) => {
+    if (!isRecord(entry) || typeof entry.canonicalId !== 'string') return []
     const parts = entry.canonicalId.split(':')
     const kindPart = parts[0] ?? ''
     const pathPart = parts[1] ?? ''
@@ -46,7 +64,7 @@ function buildGraph(snapshot: SpecSnapshotStored): SpecGraph {
   // Deduplicate nodes by canonicalId
   const nodeMap = new Map(nodes.map(n => [n.id, n]))
 
-  const edges = buildEdgesFromSpec(snapshot.spec, snapshot.provenance)
+  const edges = buildEdgesFromSpec(snapshot.spec, provenance)
 
   return {
     nodes: [...nodeMap.values()],
@@ -63,12 +81,18 @@ function buildEdgesFromSpec(
   // Map output JSON pointer → canonicalId (e.g. "#/components/schemas/User" → "schema:public/users/User")
   const pointerToId = new Map<string, string>()
   for (const [ptr, entry] of Object.entries(provenance)) {
-    pointerToId.set(ptr, entry.canonicalId)
+    if (isRecord(entry) && typeof entry.canonicalId === 'string') {
+      pointerToId.set(ptr, entry.canonicalId)
+    }
   }
 
   const edges: SpecGraph['edges'] = []
   collectRefs(spec, '#', edges, undefined, new WeakSet(), pointerToId)
   return edges
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
 function collectRefs(

@@ -4,6 +4,7 @@ import type {
   BuildSpecProvenanceMap,
   ContractDiffChange,
   OpenApiNormalizedDiffEntry,
+  SpecLensTypeSpecCompileEvidence,
 } from '@oa-sdk/codegen/spec-lens'
 
 export type SpecSourceKind = 'github' | 'gitlab' | 'local-git' | 'file'
@@ -33,6 +34,22 @@ export type SpecSnapshotDiagnostic = {
   sourcePath?: string
 }
 
+export type DefinitionBuilderProvenance = {
+  status: 'available'
+  kind: 'definition-builder'
+  entries: BuildSpecProvenanceMap
+}
+
+export type TypeSpecBundleProvenance = {
+  status: 'unavailable'
+  kind: 'typespec-source-files'
+  reason: 'output-pointer-mapping-unavailable'
+  sourceFiles: Array<{ relativePath: string; contentHash: string }>
+  compile: SpecLensTypeSpecCompileEvidence
+}
+
+export type SpecProvenance = DefinitionBuilderProvenance | TypeSpecBundleProvenance
+
 type SpecSnapshotBase = {
   schemaVersion: 'spec-lens.snapshot.v2'
   projectKey: string
@@ -40,7 +57,6 @@ type SpecSnapshotBase = {
   sourceRoot: string
   revision: SpecRevision
   spec: Record<string, unknown> | null
-  provenance: BuildSpecProvenanceMap
   diagnostics: SpecSnapshotDiagnostic[]
   builtAt: number
   entries?: SpecFileEntry[]
@@ -48,6 +64,7 @@ type SpecSnapshotBase = {
 
 export type DefinitionBuilderSpecSnapshot = SpecSnapshotBase & {
   projectKind: 'definition-builder'
+  provenance: DefinitionBuilderProvenance
   fragmentsDir: string
   targetPath: string
   targetConfigDigest: string
@@ -56,6 +73,7 @@ export type DefinitionBuilderSpecSnapshot = SpecSnapshotBase & {
 
 export type TypeSpecBundleSpecSnapshot = SpecSnapshotBase & {
   projectKind: 'typespec-bundle'
+  provenance: TypeSpecBundleProvenance
   manifestPath: string
 }
 
@@ -71,14 +89,13 @@ export type SpecSnapshotStored =
   | StoredSnapshot<DefinitionBuilderSpecSnapshot>
   | StoredSnapshot<TypeSpecBundleSpecSnapshot>
 
-export type SpecTimelineDiff = {
+type SpecTimelineDiffBase = {
   schemaVersion: 'spec-lens.diff.v2'
   projectKey: string
   baseRevision: SpecRevision
   headRevision: SpecRevision
   normalizedDiff: OpenApiNormalizedDiffEntry[]
   breakingDiff: ContractDiffChange[]
-  provenanceDiff: BuildSpecProvenanceDiffEntry[]
   affectedFragments: string[]
   stats: {
     pathsAdded: number
@@ -90,6 +107,27 @@ export type SpecTimelineDiff = {
     breakingChanges: number
   }
 }
+
+export type DefinitionBuilderSpecTimelineDiff = SpecTimelineDiffBase & {
+  projectKind: 'definition-builder'
+  provenanceDiff: {
+    status: 'available'
+    kind: 'definition-builder'
+    entries: BuildSpecProvenanceDiffEntry[]
+  }
+}
+
+export type TypeSpecBundleSpecTimelineDiff = SpecTimelineDiffBase & {
+  projectKind: 'typespec-bundle'
+  provenanceDiff: {
+    status: 'unavailable'
+    kind: 'typespec-source-files'
+    reason: 'output-pointer-mapping-unavailable'
+    affectedSourceFiles: string[]
+  }
+}
+
+export type SpecTimelineDiff = DefinitionBuilderSpecTimelineDiff | TypeSpecBundleSpecTimelineDiff
 
 // Read Model: 타임라인 목록 화면용 (비정규화)
 export type SpecTimelineEntry = {
@@ -116,6 +154,18 @@ export type SpecPathEntry = {
   lastChangedRevisionId: string
   lastChangedTimestamp: number
 }
+
+export type SpecPathsResult =
+  | {
+      status: 'available'
+      projectKind: 'definition-builder'
+      entries: SpecPathEntry[]
+    }
+  | {
+      status: 'unavailable'
+      projectKind: 'typespec-bundle'
+      reason: 'output-pointer-mapping-unavailable'
+    }
 
 export type SpecGraphNode = {
   id: string

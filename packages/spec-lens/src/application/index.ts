@@ -27,5 +27,6 @@ export type {
 export type {
   GetFileEntriesOptions,
   ListRevisionsOptions,
+  SpecSourceReadBudget,
   SpecSourcePort,
 } from './ports/spec-source.port.js'

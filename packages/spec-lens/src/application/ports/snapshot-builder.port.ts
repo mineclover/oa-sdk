@@ -4,12 +4,14 @@ import type {
   TypeSpecBundleProjectIdentity,
 } from '../../domain/project.js'
 import type {
+  DefinitionBuilderSpecSnapshot,
   SpecFileEntry,
   SpecRevision,
-  SpecSnapshot,
   SpecSnapshotStored,
   SpecTimelineDiff,
+  TypeSpecBundleSpecSnapshot,
 } from '../../domain/index.js'
+import type { SpecProjectSourceKind } from '../../domain/project.js'
 
 type BuildSnapshotCommon = {
   revision: SpecRevision
@@ -32,12 +34,24 @@ export type TypeSpecBundleBuildSnapshotOptions = BuildSnapshotCommon & {
   manifestPath: string
 }
 
-export type BuildSnapshotOptions =
-  | DefinitionBuilderBuildSnapshotOptions
-  | TypeSpecBundleBuildSnapshotOptions
+type BuildSnapshotOptionsByKind = {
+  'definition-builder': DefinitionBuilderBuildSnapshotOptions
+  'typespec-bundle': TypeSpecBundleBuildSnapshotOptions
+}
 
-export interface SnapshotBuilderPort {
-  build(options: BuildSnapshotOptions): Promise<SpecSnapshot>
+type SpecSnapshotByKind = {
+  'definition-builder': DefinitionBuilderSpecSnapshot
+  'typespec-bundle': TypeSpecBundleSpecSnapshot
+}
+
+export type BuildSnapshotOptions<
+  K extends SpecProjectSourceKind = SpecProjectSourceKind,
+> = BuildSnapshotOptionsByKind[K]
+
+export interface SnapshotBuilderPort<
+  K extends SpecProjectSourceKind = SpecProjectSourceKind,
+> {
+  build(options: BuildSnapshotOptions<K>): Promise<SpecSnapshotByKind[K]>
   // Accepts stored snapshots so entryRefs is available for affected-file computation.
   diff(base: SpecSnapshotStored, head: SpecSnapshotStored): SpecTimelineDiff
 }

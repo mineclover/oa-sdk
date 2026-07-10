@@ -29,7 +29,7 @@ function makeStored(id: string): SpecSnapshotStored {
     targetPath: '/t',
     targetConfigDigest: 'd',
     spec: { openapi: '3.1.0', paths: {} },
-    provenance: {} as never,
+    provenance: { status: 'available', kind: 'definition-builder', entries: {} },
     composition: {} as never,
     diagnostics: [],
     builtAt: 1000,
@@ -41,11 +41,12 @@ function makeDiff(baseId: string, headId: string): SpecTimelineDiff {
   return {
     schemaVersion: 'spec-lens.diff.v2',
     projectKey: 'project-a',
+    projectKind: 'definition-builder',
     baseRevision: makeRevision(baseId),
     headRevision: makeRevision(headId),
     normalizedDiff: [],
     breakingDiff: [],
-    provenanceDiff: [],
+    provenanceDiff: { status: 'available', kind: 'definition-builder', entries: [] },
     affectedFragments: [],
     stats: { pathsAdded: 0, pathsRemoved: 0, pathsChanged: 0, schemasAdded: 0, schemasRemoved: 0, schemasChanged: 0, breakingChanges: 0 },
   }
@@ -74,7 +75,7 @@ function makePathEntry(path: string): SpecPathEntry {
   }
 }
 
-const BASE_OPTIONS = { projectKey: 'project-a' }
+const BASE_OPTIONS = { projectKey: 'project-a', toolchainFingerprint: 'toolchain-a' }
 
 // ── GetDiffHandler ─────────────────────────────────────────────────────────
 
@@ -164,9 +165,9 @@ describe('GetPathsHandler', () => {
     const cache = makeCache(entries)
     const handler = new GetPathsHandler(cache)
 
-    const result = await handler.handle({ projectKey: 'project-a' })
+    const result = await handler.handle({ projectKey: 'project-a', projectKind: 'definition-builder' })
 
-    expect(result).toEqual(entries)
+    expect(result).toEqual({ status: 'available', projectKind: 'definition-builder', entries })
     expect(cache.listPaths).toHaveBeenCalledWith({ projectKey: 'project-a' })
   })
 
@@ -174,7 +175,7 @@ describe('GetPathsHandler', () => {
     const cache = makeCache([])
     const handler = new GetPathsHandler(cache)
 
-    await handler.handle({ projectKey: 'project-a', scope: 'public' })
+    await handler.handle({ projectKey: 'project-a', projectKind: 'definition-builder', scope: 'public' })
 
     expect(cache.listPaths).toHaveBeenCalledWith({ projectKey: 'project-a', scope: 'public' })
   })
@@ -183,7 +184,7 @@ describe('GetPathsHandler', () => {
     const cache = makeCache([])
     const handler = new GetPathsHandler(cache)
 
-    await handler.handle({ projectKey: 'project-a', domain: 'users' })
+    await handler.handle({ projectKey: 'project-a', projectKind: 'definition-builder', domain: 'users' })
 
     expect(cache.listPaths).toHaveBeenCalledWith({ projectKey: 'project-a', domain: 'users' })
   })
@@ -192,11 +193,26 @@ describe('GetPathsHandler', () => {
     const cache = makeCache([])
     const handler = new GetPathsHandler(cache)
 
-    await handler.handle({ projectKey: 'project-a' })
+    await handler.handle({ projectKey: 'project-a', projectKind: 'definition-builder' })
 
     const call = (cache.listPaths as ReturnType<typeof vi.fn>).mock.calls[0]?.[0]
     expect(call).not.toHaveProperty('scope')
     expect(call).not.toHaveProperty('domain')
+  })
+
+  it('returns an explicit unavailable envelope for TypeSpec without querying path rows', async () => {
+    const cache = makeCache([makePathEntry('/stale')])
+    const handler = new GetPathsHandler(cache)
+
+    expect(await handler.handle({
+      projectKey: 'project-typespec',
+      projectKind: 'typespec-bundle',
+    })).toEqual({
+      status: 'unavailable',
+      projectKind: 'typespec-bundle',
+      reason: 'output-pointer-mapping-unavailable',
+    })
+    expect(cache.listPaths).not.toHaveBeenCalled()
   })
 })
 

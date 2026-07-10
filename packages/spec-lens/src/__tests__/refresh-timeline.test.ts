@@ -20,7 +20,7 @@ function makeStored(id: string, spec: Record<string, unknown> = {}): SpecSnapsho
     targetPath: '/t',
     targetConfigDigest: 'd',
     spec,
-    provenance: {},
+    provenance: { status: 'available', kind: 'definition-builder', entries: {} },
     composition: {} as never,
     diagnostics: [],
     builtAt: 1000,
@@ -32,11 +32,12 @@ function makeDiff(partial: Partial<SpecTimelineDiff['stats']> = {}, normalizedDi
   return {
     schemaVersion: 'spec-lens.diff.v2',
     projectKey: 'project-a',
+    projectKind: 'definition-builder',
     baseRevision: makeRevision('base'),
     headRevision: makeRevision('head'),
     normalizedDiff,
     breakingDiff: [],
-    provenanceDiff: [],
+    provenanceDiff: { status: 'available', kind: 'definition-builder', entries: [] },
     affectedFragments: [],
     stats: {
       pathsAdded: 0, pathsRemoved: 0, pathsChanged: 0,
@@ -56,6 +57,12 @@ const OPTIONS = {
     manifestOrTargetDigest: 'd',
     builderVersion: 'spec-lens.definition-builder.v1',
     snapshotSchemaVersion: 'spec-lens.snapshot.v2',
+    toolchainFingerprint: 'oa-sdk.definition-builder.toolchain.v1',
+    observation: {
+      adapterKind: 'local-git',
+      repository: 'file:///repo-a',
+      ref: 'main',
+    },
   } as const,
   fragmentsDir: '/f',
   targetPath: '/t',
@@ -78,6 +85,7 @@ describe('RefreshTimelineHandler', () => {
       diff: vi.fn().mockReturnValue(makeDiff()),
     } as unknown as SnapshotBuilderPort
 
+    const reconcileReachableRevisions = vi.fn().mockResolvedValue(undefined)
     const cache: CachePort = {
       getSnapshotByRevision: vi.fn().mockImplementation((id: string) =>
         Promise.resolve(id === 'r1' ? cached : null)),
@@ -85,7 +93,8 @@ describe('RefreshTimelineHandler', () => {
       saveDiff: vi.fn().mockResolvedValue(undefined),
       getDiff: vi.fn().mockResolvedValue(null),
       upsertTimelineEntry: vi.fn().mockResolvedValue(undefined),
-      upsertPathEntries: vi.fn().mockResolvedValue(undefined),
+      replacePathEntries: vi.fn().mockResolvedValue(undefined),
+      reconcileReachableRevisions,
     } as unknown as CachePort
 
     const handler = new RefreshTimelineHandler(source, builder, cache)
@@ -103,6 +112,29 @@ describe('RefreshTimelineHandler', () => {
       sourceRoot: '/f',
       sourceKind: 'definition-builder',
     }))
+    expect(reconcileReachableRevisions).toHaveBeenCalledWith('project-a', ['r1', 'r2', 'r3'])
+  })
+
+  it('never prunes from an explicitly bounded revision window', async () => {
+    const reconcileReachableRevisions = vi.fn().mockResolvedValue(undefined)
+    const source = {
+      listRevisions: vi.fn().mockResolvedValue([]),
+      getFileEntries: vi.fn(),
+    } as unknown as SpecSourcePort
+    const cache = {
+      reconcileReachableRevisions,
+      replacePathEntries: vi.fn().mockResolvedValue(undefined),
+    } as unknown as CachePort
+    const handler = new RefreshTimelineHandler(
+      source,
+      { build: vi.fn(), diff: vi.fn() } as unknown as SnapshotBuilderPort,
+      cache,
+    )
+
+    await handler.handle({ ...OPTIONS, limit: 2 })
+
+    expect(source.listRevisions).toHaveBeenCalledWith(expect.objectContaining({ limit: 2 }))
+    expect(reconcileReachableRevisions).not.toHaveBeenCalled()
   })
 
   it('records build failure as snapshotCached=false timeline entry', async () => {
@@ -125,7 +157,8 @@ describe('RefreshTimelineHandler', () => {
       saveDiff: vi.fn(),
       getDiff: vi.fn().mockResolvedValue(null),
       upsertTimelineEntry,
-      upsertPathEntries: vi.fn().mockResolvedValue(undefined),
+      replacePathEntries: vi.fn().mockResolvedValue(undefined),
+      reconcileReachableRevisions: vi.fn().mockResolvedValue(undefined),
     } as unknown as CachePort
 
     const handler = new RefreshTimelineHandler(source, builder, cache)
@@ -156,7 +189,11 @@ describe('RefreshTimelineHandler', () => {
       },
     }
 
-    const prov = { '#/paths/~1users': { canonicalId: 'path:public/users/Users', kind: 'path', sourcePath: 'f.yaml', sourcePointer: '#', contentHash: 'h' } } as never
+    const prov = {
+      status: 'available' as const,
+      kind: 'definition-builder' as const,
+      entries: { '#/paths/~1users': { canonicalId: 'path:public/users/Users', kind: 'path', sourcePath: 'f.yaml', sourcePointer: '#', contentHash: 'h' } },
+    } as never
     const stored1 = { ...makeStored('r1', spec), revision: r1, provenance: prov }
     const stored2 = { ...makeStored('r2', spec), revision: r2, provenance: prov }
     const stored3 = { ...makeStored('r3', spec), revision: r3, provenance: prov }
@@ -175,7 +212,7 @@ describe('RefreshTimelineHandler', () => {
     } as unknown as SnapshotBuilderPort
 
     const storedMap: Record<string, SpecSnapshotStored> = { r1: stored1, r2: stored2, r3: stored3 }
-    const upsertPathEntries = vi.fn().mockResolvedValue(undefined)
+    const replacePathEntries = vi.fn().mockResolvedValue(undefined)
     const cache: CachePort = {
       getSnapshotByRevision: vi.fn().mockImplementation((id: string) =>
         Promise.resolve(storedMap[id] ?? null)),
@@ -187,14 +224,15 @@ describe('RefreshTimelineHandler', () => {
         return Promise.resolve(null)
       }),
       upsertTimelineEntry: vi.fn().mockResolvedValue(undefined),
-      upsertPathEntries,
+      replacePathEntries,
+      reconcileReachableRevisions: vi.fn().mockResolvedValue(undefined),
     } as unknown as CachePort
 
     const handler = new RefreshTimelineHandler(source, builder, cache)
     await handler.handle(OPTIONS)
 
-    expect(upsertPathEntries).toHaveBeenCalled()
-    const pathEntries = upsertPathEntries.mock.calls[0]?.[1] as Array<{ path: string; lastChangedRevisionId: string }>
+    expect(replacePathEntries).toHaveBeenCalled()
+    const pathEntries = replacePathEntries.mock.calls[0]?.[1] as Array<{ path: string; lastChangedRevisionId: string }>
     const usersEntry = pathEntries?.find(e => e.path === '/users')
     expect(usersEntry?.lastChangedRevisionId).toBe('r1')
   })
@@ -221,7 +259,8 @@ describe('RefreshTimelineHandler', () => {
       saveDiff: vi.fn().mockResolvedValue(undefined),
       getDiff: vi.fn().mockResolvedValue(null),
       upsertTimelineEntry: vi.fn().mockResolvedValue(undefined),
-      upsertPathEntries: vi.fn().mockResolvedValue(undefined),
+      replacePathEntries: vi.fn().mockResolvedValue(undefined),
+      reconcileReachableRevisions: vi.fn().mockResolvedValue(undefined),
     } as unknown as CachePort
 
     const handler = new RefreshTimelineHandler(source, builder, cache)

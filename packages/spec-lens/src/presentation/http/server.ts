@@ -13,24 +13,44 @@ import { GetTimelineHandler } from '../../application/queries/get-timeline.query
 import type { CachePort } from '../../application/ports/cache.port.js'
 import type { SnapshotBuilderPort } from '../../application/ports/snapshot-builder.port.js'
 import type { SpecSourcePort } from '../../application/ports/spec-source.port.js'
-import type { DefinitionBuilderProjectIdentity } from '../../domain/project.js'
+import type {
+  DefinitionBuilderProjectIdentity,
+  TypeSpecBundleProjectIdentity,
+} from '../../domain/project.js'
 
-export type SpecLensServerConfig = {
-  project: DefinitionBuilderProjectIdentity
+type SpecLensServerCommon = {
   source: SpecSourcePort
   cache: CachePort
-  builder: SnapshotBuilderPort
-  fragmentsDir: string
-  targetPath: string
-  targetConfig: DefinitionTargetConfig
   branch?: string
   port?: number
   uiDir?: string  // 빌드된 apps/spec-lens 정적 파일 경로
 }
 
+export type DefinitionBuilderSpecLensServerConfig = SpecLensServerCommon & {
+  kind: 'definition-builder'
+  project: DefinitionBuilderProjectIdentity
+  builder: SnapshotBuilderPort<'definition-builder'>
+  fragmentsDir: string
+  targetPath: string
+  targetConfig: DefinitionTargetConfig
+}
+
+export type TypeSpecBundleSpecLensServerConfig = SpecLensServerCommon & {
+  kind: 'typespec-bundle'
+  project: TypeSpecBundleProjectIdentity
+  builder: SnapshotBuilderPort<'typespec-bundle'>
+  manifestPath: string
+}
+
+export type SpecLensServerConfig =
+  | DefinitionBuilderSpecLensServerConfig
+  | TypeSpecBundleSpecLensServerConfig
+
 export function createSpecLensServer(config: SpecLensServerConfig): Hono {
   const app = new Hono()
-  const targetConfigDigest = buildTargetConfigDigest(config.targetConfig)
+  const targetConfigDigest = config.kind === 'definition-builder'
+    ? buildTargetConfigDigest(config.targetConfig)
+    : undefined
 
   const refresh = new RefreshTimelineHandler(config.source, config.builder, config.cache)
   const getTimeline = new GetTimelineHandler(config.cache)
@@ -43,16 +63,26 @@ export function createSpecLensServer(config: SpecLensServerConfig): Hono {
 
   // 🔵 Query: GetConfig (server identity — which target is being observed)
   app.get('/api/config', (c) => {
-    return c.json({
+    const common = {
       projectKey: config.project.projectKey,
+      toolchainFingerprint: config.project.toolchainFingerprint,
       projectKind: config.project.sourceKind,
       projectSourceRoot: config.project.sourceRoot,
-      targetName: config.targetConfig.name,
-      targetPath: config.targetPath,
-      fragmentsDir: config.fragmentsDir,
+      observation: config.project.observation,
       sourceKind: config.source.kind,
       ...(config.branch !== undefined ? { branch: config.branch } : {}),
-    })
+    }
+    return c.json(config.kind === 'definition-builder'
+      ? {
+          ...common,
+          targetName: config.targetConfig.name,
+          targetPath: config.targetPath,
+          fragmentsDir: config.fragmentsDir,
+        }
+      : {
+          ...common,
+          manifestPath: config.manifestPath,
+        })
   })
 
   app.onError((err, c) => {
@@ -66,15 +96,22 @@ export function createSpecLensServer(config: SpecLensServerConfig): Hono {
     if ('syncRepo' in config.source && typeof config.source.syncRepo === 'function') {
       await (config.source.syncRepo as (branch?: string) => Promise<void>)(config.branch)
     }
-    const result = await refresh.handle({
-      kind: 'definition-builder',
-      project: config.project,
-      fragmentsDir: config.fragmentsDir,
-      targetPath: config.targetPath,
-      targetConfig: config.targetConfig,
-      targetConfigDigest,
-      ...(config.branch !== undefined ? { branch: config.branch } : {}),
-    })
+    const result = config.kind === 'definition-builder'
+      ? await refresh.handle({
+          kind: 'definition-builder',
+          project: config.project,
+          fragmentsDir: config.fragmentsDir,
+          targetPath: config.targetPath,
+          targetConfig: config.targetConfig,
+          targetConfigDigest: targetConfigDigest!,
+          ...(config.branch !== undefined ? { branch: config.branch } : {}),
+        })
+      : await refresh.handle({
+          kind: 'typespec-bundle',
+          project: config.project,
+          manifestPath: config.manifestPath,
+          ...(config.branch !== undefined ? { branch: config.branch } : {}),
+        })
     return c.json(result)
   })
 
@@ -96,6 +133,7 @@ export function createSpecLensServer(config: SpecLensServerConfig): Hono {
     const snapshot = await getSnapshot.handle({
       revisionId,
       projectKey: config.project.projectKey,
+      toolchainFingerprint: config.project.toolchainFingerprint,
       includeEntries,
     })
     if (snapshot === null) return c.json({ error: 'not found' }, 404)
@@ -110,6 +148,7 @@ export function createSpecLensServer(config: SpecLensServerConfig): Hono {
       baseRevisionId: baseId,
       headRevisionId: headId,
       projectKey: config.project.projectKey,
+      toolchainFingerprint: config.project.toolchainFingerprint,
     })
     if (diff === null) return c.json({ error: 'not found' }, 404)
     return c.json(diff)
@@ -121,6 +160,7 @@ export function createSpecLensServer(config: SpecLensServerConfig): Hono {
     const domain = c.req.query('domain')
     const paths = await getPaths.handle({
       projectKey: config.project.projectKey,
+      projectKind: config.kind,
       ...(scope !== undefined ? { scope } : {}),
       ...(domain !== undefined ? { domain } : {}),
     })
@@ -140,12 +180,14 @@ export function createSpecLensServer(config: SpecLensServerConfig): Hono {
       const graph = await getGraph.handle({
         revisionId: latest.revision.id,
         projectKey: config.project.projectKey,
+        toolchainFingerprint: config.project.toolchainFingerprint,
       })
       return c.json(graph ?? { nodes: [], edges: [] })
     }
     const graph = await getGraph.handle({
       revisionId,
       projectKey: config.project.projectKey,
+      toolchainFingerprint: config.project.toolchainFingerprint,
     })
     if (graph === null) return c.json({ error: 'not found' }, 404)
     return c.json(graph)

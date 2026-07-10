@@ -97,6 +97,7 @@ const en = {
   pathsColSourceFile: 'Source File',
   pathsColLastChanged: 'Last Changed',
   pathsEmpty: 'No paths found. Run a Refresh to build snapshots.',
+  pathsUnavailableTypeSpec: 'Output-pointer provenance is unavailable for TypeSpec bundles. Reachable source-file evidence remains available in snapshots and diffs.',
   pathsDetailCanonicalId: 'Canonical ID',
   pathsDetailSourceFile: 'Source File',
   pathsDetailContentHash: 'Content Hash',

@@ -1,5 +1,8 @@
 import type { SpecFileEntry, SpecRevision, SpecSourceKind } from '../../domain/index.js'
-import type { SpecProjectSourceKind } from '../../domain/project.js'
+import type { SpecObservationIdentity, SpecProjectSourceKind } from '../../domain/project.js'
+import type { SpecLensTypeSpecSourceReadBudget } from '@oa-sdk/codegen/spec-lens'
+
+export type SpecSourceReadBudget = SpecLensTypeSpecSourceReadBudget
 
 export type ListRevisionsOptions = {
   sourceRoot?: string
@@ -12,18 +15,33 @@ export type ListRevisionsOptions = {
   until?: number  // unix epoch ms
 }
 
-export type GetFileEntriesOptions = {
+type GetFileEntriesOptionsBase = {
   revision: SpecRevision
   sourceRoot?: string
   /** @deprecated Use sourceRoot. */
   fragmentsDir?: string
-  sourceKind?: SpecProjectSourceKind
 }
+
+export type GetFileEntriesOptions =
+  | GetFileEntriesOptionsBase & {
+      sourceKind?: 'definition-builder'
+      readBudget?: never
+    }
+  | GetFileEntriesOptionsBase & {
+      sourceKind: 'typespec-bundle'
+      readBudget: SpecSourceReadBudget
+    }
 
 export interface SpecSourcePort {
   readonly kind: SpecSourceKind
 
-  // sourceRoot를 건드린 커밋 목록, newest first
+  // Stable repository/project coordinate plus the tracked branch/ref. This is
+  // part of the project cache identity and must not contain credentials.
+  resolveObservationIdentity(ref?: string): Promise<SpecObservationIdentity>
+
+  // sourceRoot를 건드린 커밋 목록, newest first. `limit`이 없으면 전체
+  // reachable history를 반환하는 authoritative 계약이며 cache reconcile에 사용된다.
+  // `limit`이 있으면 bounded window이고 prune 근거로 사용하면 안 된다.
   listRevisions(options: ListRevisionsOptions): Promise<SpecRevision[]>
 
   // 특정 revision의 project source 전체 파일 내용

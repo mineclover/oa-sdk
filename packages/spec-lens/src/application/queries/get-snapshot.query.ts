@@ -4,6 +4,7 @@ import type { SpecFileEntry, SpecSnapshot, SpecSnapshotStored } from '../../doma
 export type GetSnapshotQuery = {
   revisionId: string
   projectKey: string
+  toolchainFingerprint: string
   includeEntries?: boolean
 }
 
@@ -14,6 +15,7 @@ export class GetSnapshotHandler {
     const stored = await this.cache.getSnapshotByRevision(
       query.revisionId,
       query.projectKey,
+      query.toolchainFingerprint,
     )
     if (stored === null) return null
 

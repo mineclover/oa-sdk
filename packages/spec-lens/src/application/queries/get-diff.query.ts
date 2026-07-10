@@ -6,6 +6,7 @@ export type GetDiffQuery = {
   baseRevisionId: string
   headRevisionId: string
   projectKey: string
+  toolchainFingerprint: string
 }
 
 export class GetDiffHandler {
@@ -15,14 +16,14 @@ export class GetDiffHandler {
   ) {}
 
   async handle(query: GetDiffQuery): Promise<SpecTimelineDiff | null> {
-    const { baseRevisionId, headRevisionId, projectKey } = query
+    const { baseRevisionId, headRevisionId, projectKey, toolchainFingerprint } = query
     const cached = await this.cache.getDiff(baseRevisionId, headRevisionId, projectKey)
     if (cached !== null) return cached
 
     // On-demand compute if not cached
     const [base, head] = await Promise.all([
-      this.cache.getSnapshotByRevision(baseRevisionId, projectKey),
-      this.cache.getSnapshotByRevision(headRevisionId, projectKey),
+      this.cache.getSnapshotByRevision(baseRevisionId, projectKey, toolchainFingerprint),
+      this.cache.getSnapshotByRevision(headRevisionId, projectKey, toolchainFingerprint),
     ])
     if (base === null || head === null) return null
 

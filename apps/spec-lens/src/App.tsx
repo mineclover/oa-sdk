@@ -83,18 +83,18 @@ export function App() {
           >
             <TargetInfoRow label={t('configTarget')}>
               <span
-                title={serverConfig.targetPath}
+                title={serverConfig.projectKind === 'definition-builder' ? serverConfig.targetPath : serverConfig.manifestPath}
                 style={{ fontWeight: 600, fontSize: 'var(--text-sm)', color: 'var(--fg-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
               >
-                {serverConfig.targetName}
+                {serverConfig.projectKind === 'definition-builder' ? serverConfig.targetName : shortPath(serverConfig.manifestPath)}
               </span>
             </TargetInfoRow>
             <TargetInfoRow label={t('configFragments')}>
               <span
-                title={serverConfig.fragmentsDir}
+                title={serverConfig.projectKind === 'definition-builder' ? serverConfig.fragmentsDir : serverConfig.projectSourceRoot}
                 style={{ fontFamily: 'monospace', fontSize: 'var(--text-xs)', color: 'var(--fg-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
               >
-                {shortPath(serverConfig.fragmentsDir)}
+                {shortPath(serverConfig.projectKind === 'definition-builder' ? serverConfig.fragmentsDir : serverConfig.projectSourceRoot)}
               </span>
             </TargetInfoRow>
             <TargetInfoRow label={t('configSource')}>

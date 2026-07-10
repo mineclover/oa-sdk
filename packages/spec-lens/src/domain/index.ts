@@ -1,10 +1,14 @@
 export type {
   DefinitionBuilderSpecSnapshot,
+  DefinitionBuilderSpecTimelineDiff,
+  DefinitionBuilderProvenance,
   SpecFileEntry,
   SpecGraph,
   SpecGraphEdge,
   SpecGraphNode,
   SpecPathEntry,
+  SpecPathsResult,
+  SpecProvenance,
   SpecRevision,
   SpecSnapshot,
   SpecSnapshotDiagnostic,
@@ -13,9 +17,12 @@ export type {
   SpecTimelineDiff,
   SpecTimelineEntry,
   TypeSpecBundleSpecSnapshot,
+  TypeSpecBundleSpecTimelineDiff,
+  TypeSpecBundleProvenance,
 } from './types.js'
 export {
   DEFINITION_BUILDER_VERSION,
+  DEFINITION_BUILDER_TOOLCHAIN_FINGERPRINT,
   SPEC_LENS_DIFF_SCHEMA_VERSION,
   SPEC_LENS_SNAPSHOT_SCHEMA_VERSION,
   TYPESPEC_BUNDLE_BUILDER_VERSION,
@@ -32,6 +39,8 @@ export type {
   SpecProjectIdentity,
   SpecProjectKeyInput,
   SpecProjectSourceKind,
+  SpecObservationAdapterKind,
+  SpecObservationIdentity,
   TypeSpecBundleProjectConfig,
   TypeSpecBundleProjectIdentity,
 } from './project.js'

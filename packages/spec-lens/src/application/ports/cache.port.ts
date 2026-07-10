@@ -33,15 +33,20 @@ export interface CachePort {
 
   // Read Model 갱신 (Sync Worker 전용)
   upsertTimelineEntry(entry: SpecTimelineEntry, projectKey: string): Promise<void>
-  upsertPathEntries(projectKey: string, entries: SpecPathEntry[]): Promise<void>
+  replacePathEntries(projectKey: string, entries: SpecPathEntry[]): Promise<void>
 
   // Read
   listTimeline(options: ListTimelineOptions): Promise<SpecTimelineEntry[]>
-  getSnapshotByRevision(revisionId: string, projectKey: string): Promise<SpecSnapshotStored | null>
+  getSnapshotByRevision(
+    revisionId: string,
+    projectKey: string,
+    expectedToolchainFingerprint?: string,
+  ): Promise<SpecSnapshotStored | null>
   getDiff(baseRevisionId: string, headRevisionId: string, projectKey: string): Promise<SpecTimelineDiff | null>
   listPaths(options: ListPathsOptions): Promise<SpecPathEntry[]>
   getFragmentBlob(contentHash: string): Promise<string | null>
 
   // Maintenance
+  reconcileReachableRevisions(projectKey: string, revisionIds: readonly string[]): Promise<void>
   clearCache(projectKey: string): Promise<ClearCacheResult>
 }

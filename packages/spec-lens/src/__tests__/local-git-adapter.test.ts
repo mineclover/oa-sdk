@@ -1,14 +1,17 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
+import { resolveSpecLensTypeSpecSourceReadBudget } from '@oa-sdk/codegen/spec-lens'
 import { LocalGitAdapter } from '../infrastructure/source-adapters/local-git/local-git.adapter.js'
+import type { GetFileEntriesOptions } from '../application/ports/spec-source.port.js'
 import { resolve } from 'node:path'
 import { join } from 'node:path'
 import { execFileSync } from 'node:child_process'
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 
 // Uses the actual oa-sdk repo as a test fixture
 const REPO_PATH = resolve(import.meta.dirname, '../../../../')
 const FRAGMENTS_DIR = 'packages/schemas/src/fragments'
+const TYPESPEC_READ_BUDGET = resolveSpecLensTypeSpecSourceReadBudget()
 
 describe('LocalGitAdapter', () => {
   const adapter = new LocalGitAdapter({ repoPath: REPO_PATH })
@@ -85,6 +88,11 @@ describe('LocalGitAdapter', () => {
       git(repoPath, ['commit', '-m', 'change TypeSpec only'])
 
       const typespec = new LocalGitAdapter({ repoPath })
+      expect(await typespec.resolveObservationIdentity()).toEqual({
+        adapterKind: 'local-git',
+        repository: `file://${realpathSync(repoPath)}`,
+        ref: 'main',
+      })
       const revisions = await typespec.listRevisions({
         sourceRoot: 'packages/schemas/typespec',
         sourceKind: 'typespec-bundle',
@@ -98,6 +106,7 @@ describe('LocalGitAdapter', () => {
         revision: revisions[0]!,
         sourceRoot: 'packages/schemas/typespec',
         sourceKind: 'typespec-bundle',
+        readBudget: TYPESPEC_READ_BUDGET,
       })
       expect(entries.map(entry => entry.relativePath).sort()).toEqual([
         'main.tsp',
@@ -107,8 +116,181 @@ describe('LocalGitAdapter', () => {
       rmSync(repoPath, { recursive: true, force: true })
     }
   })
+
+  it('pins detached HEAD to an explicit commit identity across later checkout movement', async () => {
+    const repoPath = mkdtempSync(join(tmpdir(), 'spec-lens-detached-source-'))
+    try {
+      git(repoPath, ['init', '-b', 'main'])
+      git(repoPath, ['config', 'user.email', 'spec-lens@example.test'])
+      git(repoPath, ['config', 'user.name', 'Spec Lens Test'])
+      mkdirSync(join(repoPath, 'fragments'), { recursive: true })
+      writeFileSync(join(repoPath, 'fragments', 'api.yaml'), 'version: 1\n')
+      git(repoPath, ['add', '.'])
+      git(repoPath, ['commit', '-m', 'first'])
+      const first = gitOutput(repoPath, ['rev-parse', 'HEAD'])
+      writeFileSync(join(repoPath, 'fragments', 'api.yaml'), 'version: 2\n')
+      git(repoPath, ['add', '.'])
+      git(repoPath, ['commit', '-m', 'second'])
+
+      git(repoPath, ['checkout', '--detach', first])
+      const detached = new LocalGitAdapter({ repoPath })
+      expect(await detached.resolveObservationIdentity()).toMatchObject({
+        adapterKind: 'local-git',
+        ref: `detached:${first}`,
+      })
+
+      git(repoPath, ['checkout', 'main'])
+      const revisions = await detached.listRevisions({ sourceRoot: 'fragments' })
+      expect(revisions.map(revision => revision.id)).toEqual([first])
+      expect(revisions[0]?.sourceRef).toBe(`detached:${first}`)
+    } finally {
+      rmSync(repoPath, { recursive: true, force: true })
+    }
+  })
+
+  it('requires the canonical TypeSpec read budget before accessing git', async () => {
+    const typespec = new LocalGitAdapter({ repoPath: REPO_PATH })
+    const gitSpy = vi.spyOn(typespec, 'git')
+
+    await expect(typespec.getFileEntries({
+      revision: fakeRevision(),
+      sourceRoot: 'bundle',
+      sourceKind: 'typespec-bundle',
+    } as unknown as GetFileEntriesOptions)).rejects.toThrow(
+      'TypeSpec source reads require an explicit readBudget',
+    )
+    expect(gitSpy).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    {
+      constraint: 'file count',
+      sizes: Array.from({ length: TYPESPEC_READ_BUDGET.maxFiles + 1 }, () => 0),
+      expectedError: 'file count',
+    },
+    {
+      constraint: 'per-file bytes',
+      sizes: [TYPESPEC_READ_BUDGET.maxFileBytes + 1],
+      expectedError: `exceeds ${TYPESPEC_READ_BUDGET.maxFileBytes} bytes`,
+    },
+    {
+      constraint: 'aggregate bytes',
+      sizes: Array.from(
+        { length: Math.floor(TYPESPEC_READ_BUDGET.maxTotalBytes / TYPESPEC_READ_BUDGET.maxFileBytes) + 1 },
+        () => TYPESPEC_READ_BUDGET.maxFileBytes,
+      ),
+      expectedError: 'aggregate bytes exceed limit',
+    },
+  ])('prevalidates TypeSpec $constraint metadata before any git show', async ({ sizes, expectedError }) => {
+    const typespec = new LocalGitAdapter({ repoPath: REPO_PATH })
+    const gitSpy = vi.spyOn(typespec, 'git').mockImplementation(async args => {
+      if (args[0] === 'ls-tree') return sizedTreeOutput(sizes)
+      throw new Error('git show must not run before source budget validation')
+    })
+
+    await expect(typespec.getFileEntries({
+      revision: fakeRevision(),
+      sourceRoot: 'bundle',
+      sourceKind: 'typespec-bundle',
+      readBudget: TYPESPEC_READ_BUDGET,
+    })).rejects.toThrow(expectedError)
+    expect(gitSpy.mock.calls.filter(([args]) => args[0] === 'show')).toHaveLength(0)
+    expect(gitSpy.mock.calls[0]?.[1]).toBe(
+      Math.min(TYPESPEC_READ_BUDGET.maxTotalBytes, 4 * 1024 * 1024),
+    )
+  })
+
+  it('fails closed when a TypeSpec blob is missing numeric ls-tree size metadata', async () => {
+    const typespec = new LocalGitAdapter({ repoPath: REPO_PATH })
+    const objectId = 'b'.repeat(40)
+    const gitSpy = vi.spyOn(typespec, 'git').mockImplementation(async args => {
+      if (args[0] === 'ls-tree') {
+        return `100644 blob ${objectId} -\tbundle/main.tsp\0`
+      }
+      throw new Error('git show must not run for invalid metadata')
+    })
+
+    await expect(typespec.getFileEntries({
+      revision: fakeRevision(),
+      sourceRoot: 'bundle',
+      sourceKind: 'typespec-bundle',
+      readBudget: TYPESPEC_READ_BUDGET,
+    })).rejects.toThrow('missing or invalid blob size')
+    expect(gitSpy.mock.calls.filter(([args]) => args[0] === 'show')).toHaveLength(0)
+  })
+
+  it('bounds concurrent TypeSpec git show reads and their output buffers', async () => {
+    const typespec = new LocalGitAdapter({ repoPath: REPO_PATH })
+    const fileCount = TYPESPEC_READ_BUDGET.maxConcurrency + 3
+    let activeReads = 0
+    let maxActiveReads = 0
+    const gitSpy = vi.spyOn(typespec, 'git').mockImplementation(async args => {
+      if (args[0] === 'ls-tree') {
+        return sizedTreeOutput(Array.from({ length: fileCount }, () => 1))
+      }
+      if (args[0] !== 'show') throw new Error(`unexpected git operation: ${String(args[0])}`)
+      activeReads += 1
+      maxActiveReads = Math.max(maxActiveReads, activeReads)
+      await new Promise(resolveDelay => setTimeout(resolveDelay, 10))
+      activeReads -= 1
+      return 'x'
+    })
+
+    const entries = await typespec.getFileEntries({
+      revision: fakeRevision(),
+      sourceRoot: 'bundle',
+      sourceKind: 'typespec-bundle',
+      readBudget: TYPESPEC_READ_BUDGET,
+    })
+
+    expect(entries).toHaveLength(fileCount)
+    expect(maxActiveReads).toBe(TYPESPEC_READ_BUDGET.maxConcurrency)
+    const showCalls = gitSpy.mock.calls.filter(([args]) => args[0] === 'show')
+    expect(showCalls).toHaveLength(fileCount)
+    for (const [, maxBuffer] of showCalls) {
+      expect(maxBuffer).toBeGreaterThan(TYPESPEC_READ_BUDGET.maxFileBytes)
+      expect(maxBuffer).toBeLessThanOrEqual(TYPESPEC_READ_BUDGET.maxFileBytes + 64 * 1024)
+    }
+  })
+
+  it('rejects the whole TypeSpec revision when any git show fails', async () => {
+    const typespec = new LocalGitAdapter({ repoPath: REPO_PATH })
+    vi.spyOn(typespec, 'git').mockImplementation(async args => {
+      if (args[0] === 'ls-tree') return sizedTreeOutput([1, 1])
+      if (args[1]?.endsWith('file-1.tsp')) throw new Error('simulated blob read failure')
+      return 'x'
+    })
+
+    await expect(typespec.getFileEntries({
+      revision: fakeRevision(),
+      sourceRoot: 'bundle',
+      sourceKind: 'typespec-bundle',
+      readBudget: TYPESPEC_READ_BUDGET,
+    })).rejects.toThrow('simulated blob read failure')
+  })
 })
+
+function fakeRevision() {
+  return {
+    id: 'a'.repeat(40),
+    shortId: 'aaaaaaa',
+    timestamp: 0,
+    message: 'fixture revision',
+    source: 'local-git' as const,
+  }
+}
+
+function sizedTreeOutput(sizes: readonly number[]): string {
+  const objectId = 'b'.repeat(40)
+  return sizes
+    .map((size, index) => `100644 blob ${objectId} ${size}\tbundle/file-${index}.tsp\0`)
+    .join('')
+}
 
 function git(cwd: string, args: string[]): void {
   execFileSync('git', args, { cwd, stdio: 'ignore' })
+}
+
+function gitOutput(cwd: string, args: string[]): string {
+  return execFileSync('git', args, { cwd, encoding: 'utf8' }).trim()
 }

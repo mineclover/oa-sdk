@@ -21,7 +21,7 @@ function makeStored(
     fragmentsDir: '/f',
     targetPath: 'api',
     spec,
-    provenance: {},
+    provenance: { status: 'available', kind: 'definition-builder', entries: {} },
     composition: {} as never,
     diagnostics: [],
     builtAt: 1000,

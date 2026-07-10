@@ -1,12 +1,16 @@
 export type {
   DefinitionBuilderProjectConfig,
   DefinitionBuilderProjectIdentity,
+  DefinitionBuilderProvenance,
   DefinitionBuilderSpecSnapshot,
+  DefinitionBuilderSpecTimelineDiff,
   SpecFileEntry,
   SpecGraph,
   SpecGraphEdge,
   SpecGraphNode,
   SpecPathEntry,
+  SpecPathsResult,
+  SpecProvenance,
   SpecRevision,
   SpecSnapshot,
   SpecSnapshotDiagnostic,
@@ -16,14 +20,19 @@ export type {
   SpecProjectIdentity,
   SpecProjectKeyInput,
   SpecProjectSourceKind,
+  SpecObservationAdapterKind,
+  SpecObservationIdentity,
   SpecTimelineDiff,
   SpecTimelineEntry,
   TypeSpecBundleProjectConfig,
   TypeSpecBundleProjectIdentity,
+  TypeSpecBundleProvenance,
   TypeSpecBundleSpecSnapshot,
+  TypeSpecBundleSpecTimelineDiff,
 } from './domain/index.js'
 export {
   DEFINITION_BUILDER_VERSION,
+  DEFINITION_BUILDER_TOOLCHAIN_FINGERPRINT,
   SPEC_LENS_DIFF_SCHEMA_VERSION,
   SPEC_LENS_SNAPSHOT_SCHEMA_VERSION,
   TYPESPEC_BUNDLE_BUILDER_VERSION,
@@ -53,6 +62,7 @@ export type {
   GetTimelineQuery,
   ListPathsOptions,
   ListRevisionsOptions,
+  SpecSourceReadBudget,
   ListTimelineOptions,
   RefreshTimelineOptions,
   RefreshTimelineResult,
@@ -73,6 +83,7 @@ export {
   GitlabTokenProvider,
   LocalGitAdapter,
   SnapshotBuilder,
+  TypeSpecBundleSnapshotBuilder,
   selectSnapshotBuilder,
   SqliteCache,
   buildTargetConfigDigest,
@@ -86,7 +97,12 @@ export type {
   TokenProvider,
   TokenProviderConfig,
   SnapshotBuilderSelection,
+  TypeSpecBundleCompiler,
 } from './infrastructure/index.js'
 
 export { createSpecLensServer, serveSpecLens } from './presentation/http/server.js'
-export type { SpecLensServerConfig } from './presentation/http/server.js'
+export type {
+  DefinitionBuilderSpecLensServerConfig,
+  SpecLensServerConfig,
+  TypeSpecBundleSpecLensServerConfig,
+} from './presentation/http/server.js'

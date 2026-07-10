@@ -1,4 +1,4 @@
-import { spawn } from 'node:child_process'
+import { spawn, spawnSync } from 'node:child_process'
 import {
   existsSync,
   lstatSync,
@@ -6,6 +6,8 @@ import {
   mkdtempSync,
   readFileSync,
   readdirSync,
+  realpathSync,
+  statSync,
   rmSync,
   symlinkSync,
   writeFileSync,
@@ -139,6 +141,33 @@ export type TypeSpecBundleCheckResult = {
   restoredDiff?: DiffResult
 }
 
+export type TypeSpecCompileRequest = {
+  projectPath: string
+  outputDir: string
+  cwd: string
+  timeoutMs: number
+  maxOutputBytes: number
+  maxOldSpaceSizeMb: number
+  compilerCliPath: string
+}
+
+export type TypeSpecCompileRunner = (request: TypeSpecCompileRequest) => Promise<void>
+
+export type TypeSpecBundleCheckOptions = {
+  root?: string
+  compile?: TypeSpecCompileRunner
+  compileTimeoutMs?: number
+  compileMaxOutputBytes?: number
+  compileMaxOldSpaceSizeMb?: number
+  compilerCliPath?: string
+  maxArtifactBytes?: number
+}
+
+export const DEFAULT_TYPESPEC_COMPILE_TIMEOUT_MS = 60_000
+export const DEFAULT_TYPESPEC_COMPILE_MAX_OUTPUT_BYTES = 256 * 1024
+export const DEFAULT_TYPESPEC_COMPILE_MAX_OLD_SPACE_SIZE_MB = 512
+const PROCESS_TERMINATION_GRACE_MS = 250
+
 type DiffSummary = {
   added: number
   removed: number
@@ -170,7 +199,7 @@ export function parseTypeSpecBundleCheckArgs(rawArgs: string[]): TypeSpecBundleC
 
 export async function checkTypeSpecBundle(
   args: TypeSpecBundleCheckArgs,
-  options: { root?: string } = {},
+  options: TypeSpecBundleCheckOptions = {},
 ): Promise<TypeSpecBundleCheckResult> {
   const root = resolve(options.root ?? process.cwd())
   const explicitManifestPath = args.manifest ? resolve(root, args.manifest) : undefined
@@ -183,14 +212,36 @@ export async function checkTypeSpecBundle(
   const outputDir = join(workspace, 'tsp-output')
   const emittedPath = join(outputDir, '@typespec', 'openapi3', 'openapi.yaml')
   const restoredPath = args.output ? resolve(root, args.output) : join(workspace, 'openapi.restored.yaml')
+  const maxArtifactBytes = options.maxArtifactBytes === undefined
+    ? undefined
+    : requirePositiveInteger(options.maxArtifactBytes, 'maxArtifactBytes')
 
   try {
     const compileProjectPath = prepareCompileProject(root, bundle, workspace)
-    await runProcess('pnpm', createCompileArgs(compileProjectPath, outputDir), root)
+    const compile = options.compile ?? runTypeSpecCompile
+    await compile({
+      projectPath: compileProjectPath,
+      outputDir,
+      cwd: root,
+      timeoutMs: requirePositiveInteger(
+        options.compileTimeoutMs ?? DEFAULT_TYPESPEC_COMPILE_TIMEOUT_MS,
+        'compileTimeoutMs',
+      ),
+      maxOutputBytes: requirePositiveInteger(
+        options.compileMaxOutputBytes ?? DEFAULT_TYPESPEC_COMPILE_MAX_OUTPUT_BYTES,
+        'compileMaxOutputBytes',
+      ),
+      maxOldSpaceSizeMb: requirePositiveInteger(
+        options.compileMaxOldSpaceSizeMb ?? DEFAULT_TYPESPEC_COMPILE_MAX_OLD_SPACE_SIZE_MB,
+        'compileMaxOldSpaceSizeMb',
+      ),
+      compilerCliPath: resolveCompilerCliPath(options.compilerCliPath, root),
+    })
 
     if (!existsSync(emittedPath)) {
       throw new Error(`TypeSpec compile did not emit ${emittedPath}`)
     }
+    assertArtifactSize(emittedPath, 'emitted OpenAPI', maxArtifactBytes)
 
     const { document: emittedDocument } = loadSpecWithPath(emittedPath)
     const emittedValidation = validateDocument(emittedDocument, {
@@ -198,6 +249,7 @@ export async function checkTypeSpecBundle(
       requireOpenApi32: true,
     })
 
+    if (bundle.sidecarPath) assertArtifactSize(bundle.sidecarPath, 'compatibility sidecar', maxArtifactBytes)
     const sidecar = bundle.sidecarPath
       ? parseTypeSpecCompatibilitySidecar(loadJson(bundle.sidecarPath))
       : createTypeSpecCompatibilitySidecarFromOpenApiExtensions(
@@ -208,13 +260,16 @@ export async function checkTypeSpecBundle(
       )
     const restored = applyTypeSpecCompatibilitySidecar(stripTypeSpecOpenApiExtensions(emittedDocument), sidecar)
     const restoredDocument = normalizeTypeSpecRestoredOpenApiDocument(restored.document)
+    const restoredYaml = stringifyOpenApiYaml(restoredDocument)
+    assertArtifactTextSize(restoredYaml, 'restored OpenAPI', maxArtifactBytes)
     mkdirSync(dirname(restoredPath), { recursive: true })
-    writeFileSync(restoredPath, stringifyOpenApiYaml(restoredDocument))
+    writeFileSync(restoredPath, restoredYaml)
     const restoredValidation = validateDocument(restoredDocument, {
       basePath: restoredPath,
       requireOpenApi32: true,
     })
 
+    if (bundle.expectedPath) assertArtifactSize(bundle.expectedPath, 'expected OpenAPI', maxArtifactBytes)
     const expected = bundle.expectedPath ? loadExpected(bundle.expectedPath) : undefined
     const emittedDiff = expected ? diffEndpoints(expected.document, emittedDocument) : undefined
     const restoredDiff = expected ? diffEndpoints(expected.document, restoredDocument) : undefined
@@ -252,6 +307,21 @@ export async function checkTypeSpecBundle(
   } finally {
     if (args.keep !== true) rmSync(workspace, { recursive: true, force: true })
   }
+}
+
+export async function runTypeSpecCompile(request: TypeSpecCompileRequest): Promise<void> {
+  const maxOldSpaceSizeMb = requirePositiveInteger(request.maxOldSpaceSizeMb, 'maxOldSpaceSizeMb')
+  await runBoundedProcess({
+    command: process.execPath,
+    args: [
+      `--max-old-space-size=${maxOldSpaceSizeMb}`,
+      request.compilerCliPath,
+      ...createCompileArgs(request.projectPath, request.outputDir),
+    ],
+    cwd: request.cwd,
+    timeoutMs: request.timeoutMs,
+    maxOutputBytes: request.maxOutputBytes,
+  })
 }
 
 export function printTypeSpecBundleCheckSummary(
@@ -498,7 +568,25 @@ function normalizeBundleRelativePath(path: string): string {
 }
 
 function createCompileArgs(projectPath: string, outputDir: string): string[] {
-  return ['exec', 'tsp', 'compile', projectPath, '--output-dir', outputDir]
+  return ['compile', projectPath, '--output-dir', outputDir]
+}
+
+function resolveCompilerCliPath(explicitPath: string | undefined, startPath: string): string {
+  if (explicitPath !== undefined) {
+    const resolved = realpathSync(explicitPath)
+    if (!existsSync(resolved)) throw new Error(`TypeSpec compiler CLI does not exist: ${explicitPath}`)
+    return resolved
+  }
+  let current = resolve(startPath)
+  while (true) {
+    const candidate = join(current, 'node_modules', '@typespec', 'compiler', 'cmd', 'tsp.js')
+    if (existsSync(candidate)) return realpathSync(candidate)
+    const parent = dirname(current)
+    if (parent === current) {
+      throw new Error(`@typespec/compiler CLI does not exist at or above ${startPath}`)
+    }
+    current = parent
+  }
 }
 
 function normalizeTypeSpecRestoredOpenApiDocument(document: OasDocument): OasDocument {
@@ -649,18 +737,165 @@ function cloneJson<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T
 }
 
-function runProcess(command: string, args: string[], cwd: string): Promise<void> {
+export type BoundedProcessRequest = {
+  command: string
+  args: string[]
+  cwd: string
+  timeoutMs: number
+  maxOutputBytes: number
+}
+
+export function runBoundedProcess(request: BoundedProcessRequest): Promise<void> {
   return new Promise((resolveProcess, rejectProcess) => {
-    const child = spawn(command, args, { cwd, stdio: 'inherit' })
-    child.on('error', rejectProcess)
-    child.on('close', code => {
-      if (code === 0) {
-        resolveProcess()
+    const timeoutMs = requirePositiveInteger(request.timeoutMs, 'timeoutMs')
+    const maxOutputBytes = requirePositiveInteger(request.maxOutputBytes, 'maxOutputBytes')
+    const useProcessGroup = process.platform !== 'win32'
+    const child = spawn(request.command, request.args, {
+      cwd: request.cwd,
+      stdio: ['ignore', 'pipe', 'pipe'],
+      detached: useProcessGroup,
+    })
+    const output: Buffer[] = []
+    let outputBytes = 0
+    let truncated = false
+    let timedOut = false
+    let settled = false
+    let forceKillTimer: ReturnType<typeof setTimeout> | undefined
+
+    const collect = (chunk: Buffer | string): void => {
+      const bytes = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)
+      const remaining = maxOutputBytes - outputBytes
+      if (remaining > 0) {
+        const retained = bytes.subarray(0, remaining)
+        output.push(retained)
+        outputBytes += retained.length
+      }
+      if (bytes.length > remaining) truncated = true
+    }
+    child.stdout?.on('data', collect)
+    child.stderr?.on('data', collect)
+
+    const timeout = setTimeout(() => {
+      timedOut = true
+      if (process.platform === 'win32') {
+        try {
+          // taskkill must receive the still-live parent PID so `/t` can find
+          // and terminate descendants before the parent disappears.
+          terminateProcessTree(child.pid, 'SIGKILL', false)
+          finish(timeoutError())
+        } catch (error) {
+          finish(error instanceof Error ? error : new Error(String(error)))
+        }
         return
       }
-      rejectProcess(new Error(`Command failed with exit code ${code}: ${command} ${args.join(' ')}`))
+      try {
+        terminateProcessTree(child.pid, 'SIGTERM', useProcessGroup)
+      } catch (error) {
+        finish(error instanceof Error ? error : new Error(String(error)))
+        return
+      }
+      forceKillTimer = setTimeout(
+        () => {
+          try {
+            terminateProcessTree(child.pid, 'SIGKILL', useProcessGroup)
+            forceKillTimer = undefined
+            finish(timeoutError())
+          } catch (error) {
+            forceKillTimer = undefined
+            finish(error instanceof Error ? error : new Error(String(error)))
+          }
+        },
+        PROCESS_TERMINATION_GRACE_MS,
+      )
+    }, timeoutMs)
+
+    const capturedDetails = (): string => {
+      const captured = Buffer.concat(output).toString('utf8').trim()
+      if (captured.length > 0) {
+        return `\n${captured}${truncated ? `\n[output truncated at ${maxOutputBytes} bytes]` : ''}`
+      }
+      return truncated ? `\n[output truncated at ${maxOutputBytes} bytes]` : ''
+    }
+    const timeoutError = (): Error => new Error(
+      `Command timed out after ${timeoutMs}ms: ${request.command} ${request.args.join(' ')}${capturedDetails()}`,
+    )
+
+    const finish = (error?: Error): void => {
+      if (settled) return
+      settled = true
+      clearTimeout(timeout)
+      if (forceKillTimer) clearTimeout(forceKillTimer)
+      if (error) rejectProcess(error)
+      else resolveProcess()
+    }
+
+    child.on('error', error => {
+      if (!timedOut) finish(error)
+    })
+    child.on('close', code => {
+      // A SIGTERM-ignoring descendant can outlive the direct child. Do not
+      // settle until the grace timer has delivered SIGKILL to the full group.
+      if (timedOut) {
+        return
+      }
+      if (code === 0) {
+        finish()
+        return
+      }
+      finish(new Error(`Command failed with exit code ${code}: ${request.command} ${request.args.join(' ')}${capturedDetails()}`))
     })
   })
+}
+
+function terminateProcessTree(
+  pid: number | undefined,
+  signal: NodeJS.Signals,
+  useProcessGroup: boolean,
+): void {
+  if (pid === undefined) return
+  if (process.platform === 'win32') {
+    if (signal === 'SIGKILL') {
+      const result = spawnSync('taskkill', ['/pid', String(pid), '/t', '/f'], {
+        windowsHide: true,
+        stdio: 'ignore',
+      })
+      if (result.error) throw result.error
+      if (result.status !== 0) {
+        throw new Error(`taskkill failed for process tree ${pid} with exit code ${result.status}`)
+      }
+      return
+    }
+    try {
+      process.kill(pid, signal)
+    } catch (error) {
+      if (!isRecord(error) || error.code !== 'ESRCH') throw error
+    }
+    return
+  }
+  try {
+    process.kill(useProcessGroup ? -pid : pid, signal)
+  } catch (error) {
+    if (!isRecord(error) || error.code !== 'ESRCH') throw error
+  }
+}
+
+function requirePositiveInteger(value: number, label: string): number {
+  if (!Number.isSafeInteger(value) || value <= 0) {
+    throw new Error(`${label} must be a positive safe integer`)
+  }
+  return value
+}
+
+function assertArtifactSize(path: string, label: string, maxBytes: number | undefined): void {
+  if (maxBytes === undefined) return
+  const size = statSync(path).size
+  if (size > maxBytes) throw new Error(`${label} exceeds artifact limit ${maxBytes} bytes: ${size}`)
+}
+
+function assertArtifactTextSize(content: string, label: string, maxBytes: number | undefined): void {
+  if (maxBytes === undefined) return
+  const size = Buffer.byteLength(content)
+  if (size > maxBytes) throw new Error(`${label} exceeds artifact limit ${maxBytes} bytes: ${size}`)
 }
 
 function assertFileExists(root: string, path: string, label: string): void {

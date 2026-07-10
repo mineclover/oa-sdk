@@ -1,3 +1,4 @@
+import { resolveSpecLensTypeSpecSourceReadBudget } from '@oa-sdk/codegen/spec-lens'
 import type { DefinitionTargetConfig } from '@oa-sdk/parser'
 import type { CachePort } from '../ports/cache.port.js'
 import type { SnapshotBuilderPort } from '../ports/snapshot-builder.port.js'
@@ -48,7 +49,8 @@ type BuildResult = {
   error: Error | null
 }
 
-const BUILD_CONCURRENCY = 4
+const DEFINITION_BUILDER_BUILD_CONCURRENCY = 4
+const TYPESPEC_BUNDLE_BUILD_CONCURRENCY = 1
 
 export class RefreshTimelineHandler {
   constructor(
@@ -67,6 +69,14 @@ export class RefreshTimelineHandler {
       ...(branch !== undefined ? { branch } : {}),
       ...(limit !== undefined ? { limit } : {}),
     })
+    // A no-limit source query is the authoritative reachable history contract.
+    // Bounded windows must never prune data outside the requested window.
+    if (limit === undefined) {
+      await this.cache.reconcileReachableRevisions(
+        projectKey,
+        revisions.map(revision => revision.id),
+      )
+    }
     const errors: RefreshTimelineResult['errors'] = []
     let builtSnapshots = 0
 
@@ -74,7 +84,11 @@ export class RefreshTimelineHandler {
     const cacheResults = await Promise.all(
       revisions.map(async revision => {
         try {
-          const cached = await this.cache.getSnapshotByRevision(revision.id, projectKey)
+          const cached = await this.cache.getSnapshotByRevision(
+            revision.id,
+            projectKey,
+            project.toolchainFingerprint,
+          )
           return { revision, cached }
         } catch {
           return { revision, cached: null }
@@ -85,16 +99,26 @@ export class RefreshTimelineHandler {
     const newRevisions = cacheResults.filter(r => r.cached === null).length
 
     // Step 2: build cache misses in parallel (concurrency limited)
+    const buildConcurrency = options.kind === 'typespec-bundle'
+      ? TYPESPEC_BUNDLE_BUILD_CONCURRENCY
+      : DEFINITION_BUILDER_BUILD_CONCURRENCY
     const buildResults = await withConcurrency<BuildResult>(
       cacheResults
         .filter(r => r.cached === null)
         .map(({ revision }) => async () => {
           try {
-            const entries = await this.source.getFileEntries({
-              revision,
-              sourceRoot: project.sourceRoot,
-              sourceKind: project.sourceKind,
-            })
+            const entries = options.kind === 'typespec-bundle'
+              ? await this.source.getFileEntries({
+                  revision,
+                  sourceRoot: project.sourceRoot,
+                  sourceKind: 'typespec-bundle',
+                  readBudget: resolveSpecLensTypeSpecSourceReadBudget(),
+                })
+              : await this.source.getFileEntries({
+                  revision,
+                  sourceRoot: project.sourceRoot,
+                  sourceKind: 'definition-builder',
+                })
             const snapshot = options.kind === 'definition-builder'
               ? await this.builder.build({
                   kind: 'definition-builder',
@@ -126,7 +150,7 @@ export class RefreshTimelineHandler {
             }
           }
         }),
-      BUILD_CONCURRENCY,
+      buildConcurrency,
     )
 
     // Step 3: save successful builds sequentially (SQLite allows 1 writer)
@@ -218,13 +242,25 @@ export class RefreshTimelineHandler {
   ): Promise<void> {
     // Use the latest snapshot that was successfully built
     const latestEntry = snapshots.find(s => s.stored !== null && s.stored.spec !== null)
-    if (latestEntry === undefined || latestEntry.stored === null) return
+    if (latestEntry === undefined || latestEntry.stored === null) {
+      await this.cache.replacePathEntries(projectKey, [])
+      return
+    }
     const latestSpec = latestEntry.stored.spec
     if (latestSpec === null) return
 
     const latest = latestEntry.stored
+    if (latest.projectKind === 'typespec-bundle') {
+      // Output-pointer provenance is explicitly unavailable for TypeSpec. Do
+      // not manufacture Definition Builder canonical IDs for the path index.
+      await this.cache.replacePathEntries(projectKey, [])
+      return
+    }
     const specPaths = latestSpec['paths'] as Record<string, unknown> | undefined
-    if (specPaths === undefined) return
+    if (specPaths === undefined) {
+      await this.cache.replacePathEntries(projectKey, [])
+      return
+    }
 
     // Walk diffs newest→oldest; first occurrence of each path = most recent change
     const lastChanged = new Map<string, { revisionId: string; timestamp: number }>()
@@ -262,7 +298,7 @@ export class RefreshTimelineHandler {
     for (const [apiPath, pathItem] of Object.entries(specPaths)) {
       if (typeof pathItem !== 'object' || pathItem === null) continue
       const pointer = `#/paths/${encodeJsonPointerSegment(apiPath)}`
-      const provenanceEntry = latest.provenance[pointer]
+      const provenanceEntry = latest.provenance.entries[pointer]
       if (provenanceEntry === undefined) continue
 
       const canonicalId = provenanceEntry.canonicalId
@@ -288,9 +324,7 @@ export class RefreshTimelineHandler {
       })
     }
 
-    if (pathEntries.length > 0) {
-      await this.cache.upsertPathEntries(projectKey, pathEntries)
-    }
+    await this.cache.replacePathEntries(projectKey, pathEntries)
   }
 }
 

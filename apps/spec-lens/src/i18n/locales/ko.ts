@@ -100,6 +100,7 @@ const ko: KoKeys = {
   pathsColSourceFile: '소스 파일',
   pathsColLastChanged: '마지막 변경',
   pathsEmpty: '경로가 없습니다. 새로고침을 실행하세요.',
+  pathsUnavailableTypeSpec: 'TypeSpec 번들은 출력 포인터 출처를 제공하지 않습니다. 도달 가능한 소스 파일 증거는 스냅샷과 diff에서 확인할 수 있습니다.',
   pathsDetailCanonicalId: 'Canonical ID',
   pathsDetailSourceFile: '소스 파일',
   pathsDetailContentHash: '콘텐츠 해시',

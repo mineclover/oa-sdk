@@ -45,3 +45,15 @@ export {
   type Endpoint,
   type HttpMethod,
 } from '../cli/lib/openapi-breaking-diff.js'
+
+export {
+  compileTypeSpecBundleForSpecLens,
+  resolveSpecLensTypeSpecSourceReadBudget,
+  resolveSpecLensTypeSpecToolchain,
+  type CompileTypeSpecBundleForSpecLensOptions,
+  type CompileTypeSpecBundleForSpecLensResult,
+  type SpecLensTypeSpecCompileEvidence,
+  type SpecLensTypeSpecSourceEntry,
+  type SpecLensTypeSpecSourceReadBudget,
+  type SpecLensTypeSpecToolchainEvidence,
+} from '../cli/lib/typespec-spec-lens.js'

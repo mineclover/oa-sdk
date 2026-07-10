@@ -23,7 +23,7 @@ function makeStored(
     targetPath: '/t',
     targetConfigDigest: 'd',
     spec,
-    provenance: provenance as never,
+    provenance: { status: 'available', kind: 'definition-builder', entries: provenance } as never,
     composition: {} as never,
     diagnostics: [],
     builtAt: 1000,
@@ -31,12 +31,47 @@ function makeStored(
   }
 }
 
-const QUERY = { revisionId: 'abc', projectKey: 'project-a' }
+const QUERY = { revisionId: 'abc', projectKey: 'project-a', toolchainFingerprint: 'toolchain-a' }
 
 describe('GetGraphHandler', () => {
   it('returns null when snapshot not cached', async () => {
     const handler = new GetGraphHandler(makeCache(null))
     expect(await handler.handle(QUERY)).toBeNull()
+  })
+
+  it('returns TypeSpec source-file evidence without manufacturing canonical nodes', async () => {
+    const stored: SpecSnapshotStored = {
+      schemaVersion: 'spec-lens.snapshot.v2',
+      projectKey: 'project-a',
+      projectKind: 'typespec-bundle',
+      sourceRoot: 'typespec',
+      manifestPath: 'typespec/bundle.json',
+      revision: { id: 'abc', shortId: 'abc', timestamp: 1000, message: 'test', source: 'local-git' },
+      spec: { openapi: '3.2.0', paths: {} },
+      provenance: {
+        status: 'unavailable',
+        kind: 'typespec-source-files',
+        reason: 'output-pointer-mapping-unavailable',
+        sourceFiles: [{ relativePath: 'main.tsp', contentHash: 'h-main' }],
+        compile: {} as never,
+      },
+      diagnostics: [],
+      builtAt: 1000,
+      entryRefs: [{ relativePath: 'main.tsp', contentHash: 'h-main' }],
+    }
+    const graph = await new GetGraphHandler(makeCache(stored)).handle(QUERY)
+    expect(graph).toEqual({
+      nodes: [{
+        id: 'source-file:main.tsp',
+        kind: 'source-file',
+        scope: 'typespec',
+        domain: 'unavailable',
+        localName: 'main.tsp',
+        sourcePath: 'main.tsp',
+        contentHash: 'h-main',
+      }],
+      edges: [],
+    })
   })
 
   it('builds nodes from provenance', async () => {

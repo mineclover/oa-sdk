@@ -16,8 +16,9 @@ import {
   lookupDefinitionSourceLocation,
 } from '@oa-sdk/codegen/spec-lens'
 import type { SnapshotBuilderPort } from '../../application/ports/snapshot-builder.port.js'
-import type { BuildSnapshotOptions } from '../../application/ports/snapshot-builder.port.js'
+import type { DefinitionBuilderBuildSnapshotOptions } from '../../application/ports/snapshot-builder.port.js'
 import type {
+  DefinitionBuilderSpecSnapshot,
   SpecFileEntry,
   SpecSnapshot,
   SpecSnapshotDiagnostic,
@@ -29,11 +30,8 @@ import {
   SPEC_LENS_SNAPSHOT_SCHEMA_VERSION,
 } from '../../domain/project.js'
 
-export class SnapshotBuilder implements SnapshotBuilderPort {
-  async build(options: BuildSnapshotOptions): Promise<SpecSnapshot> {
-    if (options.kind !== 'definition-builder') {
-      throw new Error('SnapshotBuilder only accepts definition-builder projects; select a TypeSpec bundle builder')
-    }
+export class SnapshotBuilder implements SnapshotBuilderPort<'definition-builder'> {
+  async build(options: DefinitionBuilderBuildSnapshotOptions): Promise<DefinitionBuilderSpecSnapshot> {
     const { project, revision, entries, fragmentsDir, targetPath, targetConfig, targetConfigDigest } = options
 
     const fragments = loadDefinitionFragmentsFromEntries(entries, fragmentsDir)
@@ -62,7 +60,11 @@ export class SnapshotBuilder implements SnapshotBuilderPort {
     const valid = diagnostics.every(d => d.severity !== 'error')
     const spec: Record<string, unknown> | null = valid ? emitted.document : null
 
-    const provenance = valid ? createBuildSpecProvenanceMap(selection) : {}
+    const provenance = {
+      status: 'available',
+      kind: 'definition-builder',
+      entries: valid ? createBuildSpecProvenanceMap(selection) : {},
+    } as const
     const composition = createBuildSpecCompositionReport({
       targetPath,
       fragmentsDir,
@@ -93,13 +95,14 @@ export class SnapshotBuilder implements SnapshotBuilderPort {
     if (base.projectKey !== head.projectKey) {
       throw new Error('cannot diff snapshots from different spec projects')
     }
+    if (base.projectKind !== head.projectKind) {
+      throw new Error('cannot diff snapshots from different project kinds')
+    }
     const baseSpec = base.spec ?? {}
     const headSpec = head.spec ?? {}
 
     const normalizedDiff = diffOpenApiDocuments(baseSpec, headSpec)
     const breakingDiff = classifyBreakingChanges(diffEndpoints(baseSpec, headSpec))
-    const provenanceDiff = diffBuildSpecProvenanceMaps(base.provenance, head.provenance)
-
     const affectedFragments = this.resolveAffectedFragments(base.entryRefs, head.entryRefs)
 
     const pathsAdded = normalizedDiff.filter((d) => d.category === 'path' && d.kind === 'added').length
@@ -109,14 +112,13 @@ export class SnapshotBuilder implements SnapshotBuilderPort {
     const schemasRemoved = normalizedDiff.filter((d) => d.category === 'component' && d.kind === 'removed').length
     const schemasChanged = normalizedDiff.filter((d) => d.category === 'component' && d.kind === 'changed').length
 
-    return {
+    const common = {
       schemaVersion: SPEC_LENS_DIFF_SCHEMA_VERSION,
       projectKey: head.projectKey,
       baseRevision: base.revision,
       headRevision: head.revision,
       normalizedDiff,
       breakingDiff,
-      provenanceDiff,
       affectedFragments,
       stats: {
         pathsAdded,
@@ -126,6 +128,29 @@ export class SnapshotBuilder implements SnapshotBuilderPort {
         schemasRemoved,
         schemasChanged,
         breakingChanges: breakingDiff.length,
+      },
+    }
+
+    if (base.projectKind === 'definition-builder' && head.projectKind === 'definition-builder') {
+      return {
+        ...common,
+        projectKind: 'definition-builder',
+        provenanceDiff: {
+          status: 'available',
+          kind: 'definition-builder',
+          entries: diffBuildSpecProvenanceMaps(base.provenance.entries, head.provenance.entries),
+        },
+      }
+    }
+
+    return {
+      ...common,
+      projectKind: 'typespec-bundle',
+      provenanceDiff: {
+        status: 'unavailable',
+        kind: 'typespec-source-files',
+        reason: 'output-pointer-mapping-unavailable',
+        affectedSourceFiles: affectedFragments,
       },
     }
   }

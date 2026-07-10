@@ -86,19 +86,44 @@ export type ClearCacheResult = {
   deletedBlobs: number
 }
 
-export type SpecSnapshot = {
-  schemaVersion: 'spec-lens.snapshot.v1'
+type SpecSnapshotBase = {
+  schemaVersion: 'spec-lens.snapshot.v2'
+  projectKey: string
+  projectKind: 'definition-builder' | 'typespec-bundle'
+  sourceRoot: string
   revision: SpecRevision
-  fragmentsDir: string
-  targetPath: string
-  targetConfigDigest: string
   spec: Record<string, unknown> | null
-  provenance: Record<string, ProvenanceEntry>
-  composition: SpecCompositionReport
   diagnostics: Array<{ code: string; severity: 'error' | 'warning' | 'info'; message: string; pointer?: string; sourcePath?: string }>
   builtAt: number
   entries?: SpecFileEntry[]
 }
+
+export type DefinitionBuilderSpecSnapshot = SpecSnapshotBase & {
+  projectKind: 'definition-builder'
+  fragmentsDir: string
+  targetPath: string
+  targetConfigDigest: string
+  provenance: {
+    status: 'available'
+    kind: 'definition-builder'
+    entries: Record<string, ProvenanceEntry>
+  }
+  composition: SpecCompositionReport
+}
+
+export type TypeSpecBundleSpecSnapshot = SpecSnapshotBase & {
+  projectKind: 'typespec-bundle'
+  manifestPath: string
+  provenance: {
+    status: 'unavailable'
+    kind: 'typespec-source-files'
+    reason: 'output-pointer-mapping-unavailable'
+    sourceFiles: Array<{ relativePath: string; contentHash: string }>
+    compile: Record<string, unknown>
+  }
+}
+
+export type SpecSnapshot = DefinitionBuilderSpecSnapshot | TypeSpecBundleSpecSnapshot
 
 export type DiffEntry = {
   category: string
@@ -114,13 +139,13 @@ export type BreakingChange = {
   severity: 'breaking' | 'non-breaking'
 }
 
-export type SpecTimelineDiff = {
-  schemaVersion: string
+type SpecTimelineDiffBase = {
+  schemaVersion: 'spec-lens.diff.v2'
+  projectKey: string
   baseRevision: SpecRevision
   headRevision: SpecRevision
   normalizedDiff: DiffEntry[]
   breakingDiff: BreakingChange[]
-  provenanceDiff: ProvenanceDiffEntry[]
   affectedFragments: string[]
   stats: {
     pathsAdded: number
@@ -133,6 +158,23 @@ export type SpecTimelineDiff = {
   }
 }
 
+export type DefinitionBuilderSpecTimelineDiff = SpecTimelineDiffBase & {
+  projectKind: 'definition-builder'
+  provenanceDiff: { status: 'available'; kind: 'definition-builder'; entries: ProvenanceDiffEntry[] }
+}
+
+export type TypeSpecBundleSpecTimelineDiff = SpecTimelineDiffBase & {
+  projectKind: 'typespec-bundle'
+  provenanceDiff: {
+    status: 'unavailable'
+    kind: 'typespec-source-files'
+    reason: 'output-pointer-mapping-unavailable'
+    affectedSourceFiles: string[]
+  }
+}
+
+export type SpecTimelineDiff = DefinitionBuilderSpecTimelineDiff | TypeSpecBundleSpecTimelineDiff
+
 export type SpecPathEntry = {
   path: string
   methods: string[]
@@ -144,6 +186,14 @@ export type SpecPathEntry = {
   lastChangedRevisionId: string
   lastChangedTimestamp: number
 }
+
+export type SpecPathsResult =
+  | { status: 'available'; projectKind: 'definition-builder'; entries: SpecPathEntry[] }
+  | {
+      status: 'unavailable'
+      projectKind: 'typespec-bundle'
+      reason: 'output-pointer-mapping-unavailable'
+    }
 
 export type SpecGraph = {
   nodes: Array<{
@@ -162,13 +212,33 @@ export type SpecGraph = {
   }>
 }
 
-export type SpecServerConfig = {
-  targetName: string
-  targetPath: string
-  fragmentsDir: string
+type SpecServerConfigBase = {
+  projectKey: string
+  toolchainFingerprint: string
+  projectKind: 'definition-builder' | 'typespec-bundle'
+  projectSourceRoot: string
+  observation: {
+    adapterKind: SpecSourceKind
+    repository: string
+    ref: string
+  }
   sourceKind: SpecSourceKind
   branch?: string
 }
+
+export type DefinitionBuilderServerConfig = SpecServerConfigBase & {
+  projectKind: 'definition-builder'
+  targetName: string
+  targetPath: string
+  fragmentsDir: string
+}
+
+export type TypeSpecBundleServerConfig = SpecServerConfigBase & {
+  projectKind: 'typespec-bundle'
+  manifestPath: string
+}
+
+export type SpecServerConfig = DefinitionBuilderServerConfig | TypeSpecBundleServerConfig
 
 async function apiFetch<T>(path: string): Promise<T> {
   let res: Response
@@ -205,7 +275,7 @@ export const api = {
     if (scope) params.set('scope', scope)
     if (domain) params.set('domain', domain)
     const qs = params.toString()
-    return apiFetch<SpecPathEntry[]>(`/api/paths${qs ? `?${qs}` : ''}`)
+    return apiFetch<SpecPathsResult>(`/api/paths${qs ? `?${qs}` : ''}`)
   },
 
   graph: (revisionId?: string) =>

@@ -7,6 +7,7 @@ import { Select } from '../components/Select.js'
 import { Spinner } from '../components/Spinner.js'
 import { useTranslation } from 'react-i18next'
 import { formatRelativeTimeCompact } from '../i18n/index.js'
+import { PathAvailabilityNotice } from '../components/PathAvailabilityNotice.js'
 
 const METHOD_COLORS: Record<string, string> = {
   get: 'var(--blue)',
@@ -44,10 +45,11 @@ export function PathProvenance() {
   const [domainFilter, setDomainFilter] = useState('')
   const [search, setSearch] = useState('')
 
-  const { data: paths, isLoading } = useQuery({
+  const { data: pathsResult, isLoading } = useQuery({
     queryKey: ['paths', scopeFilter, domainFilter],
     queryFn: () => api.paths(scopeFilter || undefined, domainFilter || undefined),
   })
+  const paths = pathsResult?.status === 'available' ? pathsResult.entries : undefined
 
   const allScopes = [...new Set(paths?.map(p => p.scope) ?? [])].sort()
   const allDomains = [...new Set(paths?.map(p => p.domain) ?? [])].sort()
@@ -99,6 +101,8 @@ export function PathProvenance() {
         <div style={{ display: 'flex', justifyContent: 'center', padding: 48 }}>
           <Spinner size={24} />
         </div>
+      ) : pathsResult?.status === 'unavailable' ? (
+        <PathAvailabilityNotice message={t('pathsUnavailableTypeSpec')} />
       ) : (
         <div style={{ overflowX: 'auto', overflowY: 'auto', flex: 1 }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>

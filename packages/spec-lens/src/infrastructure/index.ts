@@ -1,6 +1,8 @@
 export { SnapshotBuilder } from './snapshot-engine/snapshot-builder.js'
 export { selectSnapshotBuilder } from './snapshot-engine/snapshot-builder-selection.js'
 export type { SnapshotBuilderSelection } from './snapshot-engine/snapshot-builder-selection.js'
+export { TypeSpecBundleSnapshotBuilder } from './snapshot-engine/typespec-bundle-snapshot-builder.js'
+export type { TypeSpecBundleCompiler } from './snapshot-engine/typespec-bundle-snapshot-builder.js'
 export { SqliteCache } from './cache/sqlite/sqlite-cache.js'
 export { buildTargetConfigDigest } from './cache/sqlite/cache-key.js'
 export { GithubAdapter } from './source-adapters/github/github.adapter.js'

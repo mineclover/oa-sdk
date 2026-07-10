@@ -10,6 +10,7 @@ import type {
 } from '../../../application/ports/spec-source.port.js'
 import type { SpecFileEntry, SpecRevision } from '../../../domain/index.js'
 import type { TokenProvider } from './token-provider.js'
+import { normalizeCredentialFreeRemote } from '../observation-identity.js'
 
 const execFileAsync = promisify(execFile)
 
@@ -31,6 +32,7 @@ export class GithubAdapter implements SpecSourcePort {
   private readonly repoPath: string
   private readonly cloneBase: string
   private readonly repoKey: string
+  private readonly observationRepository: string
   private readonly local: LocalGitAdapter
 
   constructor(private readonly config: GithubAdapterConfig) {
@@ -39,7 +41,16 @@ export class GithubAdapter implements SpecSourcePort {
     this.repoPath = join(cacheDir, config.owner, config.repo)
     this.cloneBase = `${host}/${config.owner}/${config.repo}.git`
     this.repoKey = `${host.replace('https://', '')}/${config.owner}/${config.repo}`
+    this.observationRepository = `${normalizeCredentialFreeRemote(host)}/${config.owner.toLowerCase()}/${config.repo.toLowerCase()}`
     this.local = new LocalGitAdapter({ repoPath: this.repoPath })
+  }
+
+  async resolveObservationIdentity(ref?: string) {
+    return {
+      adapterKind: this.kind,
+      repository: this.observationRepository,
+      ref: ref ?? this.config.branch ?? 'default',
+    } as const
   }
 
   async listRevisions(options: ListRevisionsOptions): Promise<SpecRevision[]> {
