@@ -5,21 +5,28 @@ import { parse as parseYaml } from 'yaml'
 import { loadDefinitionTargetConfig } from '@oa-sdk/codegen/spec-lens'
 import { buildTargetConfigDigest } from './infrastructure/cache/sqlite/cache-key.js'
 import { SqliteCache } from './infrastructure/cache/sqlite/sqlite-cache.js'
-import { SnapshotBuilder } from './infrastructure/snapshot-engine/snapshot-builder.js'
+import { selectSnapshotBuilder } from './infrastructure/snapshot-engine/snapshot-builder-selection.js'
 import { GithubAdapter } from './infrastructure/source-adapters/github/github.adapter.js'
 import { GitlabAdapter } from './infrastructure/source-adapters/gitlab/gitlab.adapter.js'
 import { DefaultTokenProvider } from './infrastructure/source-adapters/github/token-provider.js'
 import { GitlabTokenProvider } from './infrastructure/source-adapters/gitlab/gitlab-token-provider.js'
 import { LocalGitAdapter } from './infrastructure/source-adapters/local-git/local-git.adapter.js'
 import { serveSpecLens } from './presentation/http/server.js'
+import {
+  buildManifestOrTargetDigest,
+  createSpecProjectIdentity,
+  digestText,
+  resolveSpecProjectConfig,
+} from './domain/project.js'
 
 type CliConfig = {
   source: 'github' | 'gitlab' | 'local-git'
   github?: { owner: string; repo: string; branch?: string; host?: string; repoCache?: string }
   gitlab?: { host?: string; projectId: string | number }
   localGit?: { repoPath?: string }
-  fragmentsDir: string
-  targetPath: string
+  project?: unknown
+  fragmentsDir?: string
+  targetPath?: string
   port?: number
   dbPath?: string
   branch?: string
@@ -59,8 +66,11 @@ function autoDetectConfig(): CliConfig {
       return {
         source: 'local-git',
         localGit: { repoPath: process.cwd() },
-        fragmentsDir: fragmentsDir.replace(process.cwd() + '/', ''),
-        targetPath: rel,
+        project: {
+          kind: 'definition-builder',
+          sourceRoot: fragmentsDir.replace(process.cwd() + '/', ''),
+          targetPath: rel,
+        },
         port: 4891,
         dbPath: '.spec-lens.db',
       }
@@ -70,30 +80,56 @@ function autoDetectConfig(): CliConfig {
     'No spec-lens.config.yaml found and could not auto-detect target.\n' +
     'Create spec-lens.config.yaml in your project root. See example:\n\n' +
     'source: local-git\n' +
-    'fragmentsDir: packages/schemas/src/fragments\n' +
-    'targetPath: packages/schemas/src/targets/book-notebook-api.yaml\n' +
+    'project:\n' +
+    '  kind: definition-builder\n' +
+    '  sourceRoot: packages/schemas/src/fragments\n' +
+    '  targetPath: packages/schemas/src/targets/book-notebook-api.yaml\n' +
     'port: 4891\n',
   )
 }
 
 async function main() {
   const cfg = findConfig() ?? autoDetectConfig()
+  const projectConfig = resolveSpecProjectConfig(cfg)
   const port = cfg.port ?? 4891
   const dbPath = resolve(process.cwd(), cfg.dbPath ?? '.spec-lens.db')
-  // fragmentsDir: keep as configured (repo-relative) — remote adapters require relative paths
-  const fragmentsDir = cfg.fragmentsDir.replace(/\/$/, '')
-  const targetPath = resolve(process.cwd(), cfg.targetPath)
+
+  if (projectConfig.kind === 'typespec-bundle') {
+    const manifestPath = resolve(process.cwd(), projectConfig.manifestPath)
+    if (!existsSync(manifestPath)) throw new Error(`TypeSpec bundle manifest does not exist: ${projectConfig.manifestPath}`)
+    const project = createSpecProjectIdentity(
+      projectConfig,
+      buildManifestOrTargetDigest(projectConfig.manifestPath, digestText(readFileSync(manifestPath, 'utf8'))),
+    )
+    const selection = selectSnapshotBuilder(projectConfig)
+    if (selection.status === 'pending') {
+      throw new Error(`TypeSpec bundle project recognized (${project.projectKey.slice(0, 12)}). ${selection.message}`)
+    }
+    throw new Error('unexpected ready TypeSpec snapshot builder without a TypeSpec server runtime')
+  }
+
+  // sourceRoot stays repo-relative because remote adapters require relative paths.
+  const fragmentsDir = projectConfig.sourceRoot
+  const targetPath = resolve(process.cwd(), projectConfig.targetPath)
+  const targetConfig = loadDefinitionTargetConfig(targetPath)
+  const targetConfigDigest = buildTargetConfigDigest(targetConfig)
+  const project = createSpecProjectIdentity(
+    projectConfig,
+    buildManifestOrTargetDigest(projectConfig.targetPath, targetConfigDigest),
+  )
+  const builderSelection = selectSnapshotBuilder(projectConfig)
+  if (builderSelection.status !== 'ready') throw new Error(builderSelection.message)
 
   console.log('spec-lens server starting…')
   console.log(`  source:       ${cfg.source}`)
+  console.log(`  project:      ${project.sourceKind} (${project.projectKey.slice(0, 12)})`)
   console.log(`  fragmentsDir: ${fragmentsDir}`)
   console.log(`  targetPath:   ${targetPath}`)
   console.log(`  db:           ${dbPath}`)
   console.log(`  port:         ${port}`)
 
-  const targetConfig = loadDefinitionTargetConfig(targetPath)
   const cache = new SqliteCache(dbPath)
-  const builder = new SnapshotBuilder()
+  const builder = builderSelection.builder
 
   let source
   if (cfg.source === 'github') {
@@ -122,6 +158,7 @@ async function main() {
   }
 
   serveSpecLens({
+    project,
     source,
     cache,
     builder,

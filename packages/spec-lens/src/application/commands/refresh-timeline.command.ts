@@ -3,15 +3,34 @@ import type { CachePort } from '../ports/cache.port.js'
 import type { SnapshotBuilderPort } from '../ports/snapshot-builder.port.js'
 import type { SpecSourcePort } from '../ports/spec-source.port.js'
 import type { SpecFileEntry, SpecRevision, SpecSnapshotStored } from '../../domain/index.js'
+import type {
+  DefinitionBuilderProjectIdentity,
+  TypeSpecBundleProjectIdentity,
+} from '../../domain/project.js'
 
-export type RefreshTimelineOptions = {
+type RefreshTimelineCommon = {
+  branch?: string
+  limit?: number
+}
+
+export type DefinitionBuilderRefreshTimelineOptions = RefreshTimelineCommon & {
+  kind: 'definition-builder'
+  project: DefinitionBuilderProjectIdentity
   fragmentsDir: string
   targetPath: string
   targetConfig: DefinitionTargetConfig
   targetConfigDigest: string
-  branch?: string
-  limit?: number
 }
+
+export type TypeSpecBundleRefreshTimelineOptions = RefreshTimelineCommon & {
+  kind: 'typespec-bundle'
+  project: TypeSpecBundleProjectIdentity
+  manifestPath: string
+}
+
+export type RefreshTimelineOptions =
+  | DefinitionBuilderRefreshTimelineOptions
+  | TypeSpecBundleRefreshTimelineOptions
 
 export type RefreshTimelineResult = {
   newRevisions: number
@@ -39,10 +58,12 @@ export class RefreshTimelineHandler {
   ) {}
 
   async handle(options: RefreshTimelineOptions): Promise<RefreshTimelineResult> {
-    const { fragmentsDir, targetPath, targetConfig, targetConfigDigest, branch, limit } = options
+    const { project, branch, limit } = options
+    const { projectKey } = project
 
     const revisions = await this.source.listRevisions({
-      fragmentsDir,
+      sourceRoot: project.sourceRoot,
+      sourceKind: project.sourceKind,
       ...(branch !== undefined ? { branch } : {}),
       ...(limit !== undefined ? { limit } : {}),
     })
@@ -53,7 +74,7 @@ export class RefreshTimelineHandler {
     const cacheResults = await Promise.all(
       revisions.map(async revision => {
         try {
-          const cached = await this.cache.getSnapshotByRevision(revision.id, fragmentsDir, targetPath, targetConfigDigest)
+          const cached = await this.cache.getSnapshotByRevision(revision.id, projectKey)
           return { revision, cached }
         } catch {
           return { revision, cached: null }
@@ -69,10 +90,30 @@ export class RefreshTimelineHandler {
         .filter(r => r.cached === null)
         .map(({ revision }) => async () => {
           try {
-            const entries = await this.source.getFileEntries({ revision, fragmentsDir })
-            const snapshot = await this.builder.build({
-              revision, entries, fragmentsDir, targetPath, targetConfig, targetConfigDigest,
+            const entries = await this.source.getFileEntries({
+              revision,
+              sourceRoot: project.sourceRoot,
+              sourceKind: project.sourceKind,
             })
+            const snapshot = options.kind === 'definition-builder'
+              ? await this.builder.build({
+                  kind: 'definition-builder',
+                  project: options.project,
+                  revision,
+                  entries,
+                  fragmentsDir: options.fragmentsDir,
+                  targetPath: options.targetPath,
+                  targetConfig: options.targetConfig,
+                  targetConfigDigest: options.targetConfigDigest,
+                })
+              : await this.builder.build({
+                  kind: 'typespec-bundle',
+                  project: options.project,
+                  revision,
+                  entries,
+                  sourceRoot: options.project.sourceRoot,
+                  manifestPath: options.manifestPath,
+                })
             const entryRefs = entries.map(e => ({ relativePath: e.relativePath, contentHash: e.contentHash }))
             const stored: SpecSnapshotStored = { ...snapshot, entryRefs }
             return { revision, stored, entries, error: null }
@@ -107,16 +148,15 @@ export class RefreshTimelineHandler {
       return { revision, stored: built?.stored ?? null }
     })
 
-    await this.computeDiffsAndUpdateReadModel(snapshots, fragmentsDir, targetPath, errors)
-    await this.populatePathEntries(snapshots, fragmentsDir, targetPath)
+    await this.computeDiffsAndUpdateReadModel(snapshots, projectKey, errors)
+    await this.populatePathEntries(snapshots, projectKey)
 
     return { newRevisions, builtSnapshots, errors }
   }
 
   private async computeDiffsAndUpdateReadModel(
     snapshots: SnapshotEntry[],
-    fragmentsDir: string,
-    targetPath: string,
+    projectKey: string,
     errors: RefreshTimelineResult['errors'],
   ): Promise<void> {
     for (let i = 0; i < snapshots.length; i++) {
@@ -131,16 +171,16 @@ export class RefreshTimelineHandler {
           affectedFiles: [],
           snapshotCached: false,
           diffStats: { pathsAdded: 0, pathsRemoved: 0, pathsChanged: 0, breakingChanges: 0 },
-        }, fragmentsDir, targetPath)
+        }, projectKey)
         continue
       }
 
       if (base !== undefined && base.stored !== null) {
         try {
-          const existing = await this.cache.getDiff(base.revision.id, head.revision.id, fragmentsDir, targetPath)
+          const existing = await this.cache.getDiff(base.revision.id, head.revision.id, projectKey)
           const diff = existing ?? this.builder.diff(base.stored, head.stored)
           if (existing === null) {
-            await this.cache.saveDiff(diff, fragmentsDir, targetPath)
+            await this.cache.saveDiff(diff, projectKey)
           }
           // Always write Read Model regardless of cache hit
           await this.cache.upsertTimelineEntry({
@@ -153,7 +193,7 @@ export class RefreshTimelineHandler {
               pathsChanged: diff.stats.pathsChanged,
               breakingChanges: diff.stats.breakingChanges,
             },
-          }, fragmentsDir, targetPath)
+          }, projectKey)
         } catch (error) {
           errors.push({
             revisionId: head.revision.id,
@@ -167,15 +207,14 @@ export class RefreshTimelineHandler {
           affectedFiles: [],
           snapshotCached: true,
           diffStats: { pathsAdded: 0, pathsRemoved: 0, pathsChanged: 0, breakingChanges: 0 },
-        }, fragmentsDir, targetPath)
+        }, projectKey)
       }
     }
   }
 
   private async populatePathEntries(
     snapshots: SnapshotEntry[],
-    fragmentsDir: string,
-    targetPath: string,
+    projectKey: string,
   ): Promise<void> {
     // Use the latest snapshot that was successfully built
     const latestEntry = snapshots.find(s => s.stored !== null && s.stored.spec !== null)
@@ -195,7 +234,7 @@ export class RefreshTimelineHandler {
       const base = snapshots[i + 1]
       if (head === undefined || base === undefined || head.stored === null || base.stored === null) continue
 
-      const diff = await this.cache.getDiff(base.revision.id, head.revision.id, fragmentsDir, targetPath)
+      const diff = await this.cache.getDiff(base.revision.id, head.revision.id, projectKey)
       if (diff === null) continue
 
       for (const entry of diff.normalizedDiff) {
@@ -250,7 +289,7 @@ export class RefreshTimelineHandler {
     }
 
     if (pathEntries.length > 0) {
-      await this.cache.upsertPathEntries(fragmentsDir, targetPath, pathEntries)
+      await this.cache.upsertPathEntries(projectKey, pathEntries)
     }
   }
 }

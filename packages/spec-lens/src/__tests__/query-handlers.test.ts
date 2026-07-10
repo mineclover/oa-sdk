@@ -20,7 +20,10 @@ function makeRevision(id: string) {
 
 function makeStored(id: string): SpecSnapshotStored {
   return {
-    schemaVersion: 'spec-lens.snapshot.v1',
+    schemaVersion: 'spec-lens.snapshot.v2',
+    projectKey: 'project-a',
+    projectKind: 'definition-builder',
+    sourceRoot: '/f',
     revision: makeRevision(id),
     fragmentsDir: '/f',
     targetPath: '/t',
@@ -36,7 +39,8 @@ function makeStored(id: string): SpecSnapshotStored {
 
 function makeDiff(baseId: string, headId: string): SpecTimelineDiff {
   return {
-    schemaVersion: 'spec-lens.diff.v1',
+    schemaVersion: 'spec-lens.diff.v2',
+    projectKey: 'project-a',
     baseRevision: makeRevision(baseId),
     headRevision: makeRevision(headId),
     normalizedDiff: [],
@@ -70,7 +74,7 @@ function makePathEntry(path: string): SpecPathEntry {
   }
 }
 
-const BASE_OPTIONS = { fragmentsDir: '/f', targetPath: '/t', targetConfigDigest: 'd' }
+const BASE_OPTIONS = { projectKey: 'project-a' }
 
 // ── GetDiffHandler ─────────────────────────────────────────────────────────
 
@@ -160,35 +164,35 @@ describe('GetPathsHandler', () => {
     const cache = makeCache(entries)
     const handler = new GetPathsHandler(cache)
 
-    const result = await handler.handle({ fragmentsDir: '/f', targetPath: '/t' })
+    const result = await handler.handle({ projectKey: 'project-a' })
 
     expect(result).toEqual(entries)
-    expect(cache.listPaths).toHaveBeenCalledWith({ fragmentsDir: '/f', targetPath: '/t' })
+    expect(cache.listPaths).toHaveBeenCalledWith({ projectKey: 'project-a' })
   })
 
   it('forwards scope filter', async () => {
     const cache = makeCache([])
     const handler = new GetPathsHandler(cache)
 
-    await handler.handle({ fragmentsDir: '/f', targetPath: '/t', scope: 'public' })
+    await handler.handle({ projectKey: 'project-a', scope: 'public' })
 
-    expect(cache.listPaths).toHaveBeenCalledWith({ fragmentsDir: '/f', targetPath: '/t', scope: 'public' })
+    expect(cache.listPaths).toHaveBeenCalledWith({ projectKey: 'project-a', scope: 'public' })
   })
 
   it('forwards domain filter', async () => {
     const cache = makeCache([])
     const handler = new GetPathsHandler(cache)
 
-    await handler.handle({ fragmentsDir: '/f', targetPath: '/t', domain: 'users' })
+    await handler.handle({ projectKey: 'project-a', domain: 'users' })
 
-    expect(cache.listPaths).toHaveBeenCalledWith({ fragmentsDir: '/f', targetPath: '/t', domain: 'users' })
+    expect(cache.listPaths).toHaveBeenCalledWith({ projectKey: 'project-a', domain: 'users' })
   })
 
   it('omits undefined filters', async () => {
     const cache = makeCache([])
     const handler = new GetPathsHandler(cache)
 
-    await handler.handle({ fragmentsDir: '/f', targetPath: '/t' })
+    await handler.handle({ projectKey: 'project-a' })
 
     const call = (cache.listPaths as ReturnType<typeof vi.fn>).mock.calls[0]?.[0]
     expect(call).not.toHaveProperty('scope')
@@ -267,7 +271,7 @@ describe('GetTimelineHandler', () => {
     const cache = makeCache(entries)
     const handler = new GetTimelineHandler(cache)
 
-    const result = await handler.handle({ fragmentsDir: '/f', targetPath: '/t' })
+    const result = await handler.handle({ projectKey: 'project-a' })
 
     expect(result).toEqual(entries)
   })
@@ -276,16 +280,16 @@ describe('GetTimelineHandler', () => {
     const cache = makeCache([])
     const handler = new GetTimelineHandler(cache)
 
-    await handler.handle({ fragmentsDir: '/f', targetPath: '/t', limit: 50 })
+    await handler.handle({ projectKey: 'project-a', limit: 50 })
 
-    expect(cache.listTimeline).toHaveBeenCalledWith({ fragmentsDir: '/f', targetPath: '/t', limit: 50 })
+    expect(cache.listTimeline).toHaveBeenCalledWith({ projectKey: 'project-a', limit: 50 })
   })
 
   it('omits limit when not provided', async () => {
     const cache = makeCache([])
     const handler = new GetTimelineHandler(cache)
 
-    await handler.handle({ fragmentsDir: '/f', targetPath: '/t' })
+    await handler.handle({ projectKey: 'project-a' })
 
     const call = (cache.listTimeline as ReturnType<typeof vi.fn>).mock.calls[0]?.[0]
     expect(call).not.toHaveProperty('limit')

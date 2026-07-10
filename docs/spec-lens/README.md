@@ -1,8 +1,11 @@
 # spec-lens
 
-OpenAPI 스펙 변경 이력 관리·관측 도구. oa-sdk가 관리하는 definition fragments의 커밋별 변화를 수집하고, 브라우저 UI에서 diff·provenance·fragment 의존 그래프를 시각화한다.
+OpenAPI 스펙 변경 이력 관리·관측 도구. Definition Builder rollback project와
+TypeSpec production project의 source 변경을 수집하고, 브라우저 UI에서
+diff·provenance·source 의존 그래프를 시각화한다.
 
-> **추적 범위**: spec-lens는 `fragmentsDir`로 설정된 경로를 건드린 커밋만 타임라인에 표시한다. 앱 코드 변경 커밋은 잡히지 않는다. 이것이 의도된 동작이다 — OpenAPI 스펙 변경 이력에 집중한다.
+> **추적 범위**: spec-lens는 `project.sourceRoot`를 건드린 커밋만 타임라인
+> 후보로 표시한다. 앱 코드 변경 커밋은 잡히지 않는다.
 
 ---
 
@@ -39,11 +42,28 @@ open http://localhost:5174
 # spec-lens.config.yaml
 
 source: local-git           # local-git | github | gitlab
-fragmentsDir: packages/schemas/src/fragments
-targetPath: packages/schemas/src/targets/book-notebook-api.yaml
+project:
+  kind: definition-builder
+  sourceRoot: packages/schemas/src/fragments
+  targetPath: packages/schemas/src/targets/book-notebook-api.yaml
 port: 4891
 dbPath: .spec-lens.db
 ```
+
+기존 top-level `fragmentsDir` / `targetPath`도 호환된다. TypeSpec production
+bundle 식별 설정은 아래와 같다.
+
+```yaml
+source: local-git
+project:
+  kind: typespec-bundle
+  sourceRoot: packages/schemas/typespec
+  manifestPath: packages/schemas/typespec/oa-sdk.typespec-bundle.json
+```
+
+TypeSpec project는 현재 bundle 변경 후보 수집과 cache boundary까지 구현되어
+있다. Historical TypeSpec compile/restore snapshot은 별도 builder adapter가
+완료된 뒤 server target으로 승격한다.
 
 **설정 파일이 없으면** 다음 경로를 자동 감지한다:
 - `packages/schemas/src/targets/book-notebook-api.yaml`
@@ -266,7 +286,11 @@ scope / domain 드롭다운과 검색창으로 필터링 가능하다. 행을 �
 
 CQRS 패턴 적용. `POST /refresh`, `DELETE /api/cache`만 쓰기이고, 나머지는 전부 Read Model 또는 캐시에서 읽는다.
 
-**캐시 키 격리**: revision SHA + fragmentsDir + targetPath + targetConfigDigest(target.yaml 해시) 조합으로 캐시 키를 구성한다. target.yaml이 바뀌면 동일 revision이라도 새 스냅샷을 빌드한다.
+**캐시 키 격리 v2**: `SpecProjectKey`는 project kind, source root,
+manifest/target digest, builder version, snapshot schema version을 포함한다.
+snapshot, diff, timeline, path read model이 모두 같은 project key로 격리되므로
+동일 revision이라도 target/manifest 또는 builder가 바뀌면 이전 diff를 재사용하지 않는다.
+project identity가 없던 v1 SQLite cache는 안전하게 폐기한 뒤 Git history에서 재구축한다.
 
 ---
 
@@ -275,7 +299,7 @@ CQRS 패턴 적용. `POST /refresh`, `DELETE /api/cache`만 쓰기이고, 나머
 ```
 POST /refresh
   → adapter.listRevisions()
-      local-git:  git log -- fragmentsDir
+      local-git:  git log -- project.sourceRoot
       github:     git fetch → git log (bare clone 로컬 실행)
       gitlab:     GitLab Commits API
   → adapter.getFileEntries()          (revision별)

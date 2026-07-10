@@ -1,4 +1,7 @@
--- Write Side: 정밀 데이터
+-- spec-lens cache schema v2. Existing v1 data is intentionally invalidated
+-- because it cannot prove project/compiler isolation.
+
+-- Write Side: content-addressed source data
 CREATE TABLE IF NOT EXISTS fragment_blobs (
   content_hash TEXT PRIMARY KEY,
   content      TEXT NOT NULL
@@ -12,53 +15,48 @@ CREATE TABLE IF NOT EXISTS snapshot_entries (
 );
 
 CREATE TABLE IF NOT EXISTS snapshots (
-  cache_key            TEXT PRIMARY KEY,
-  revision_id          TEXT NOT NULL,
-  fragments_dir        TEXT NOT NULL,
-  target_path          TEXT NOT NULL,
-  target_config_digest TEXT NOT NULL DEFAULT '',
-  data                 TEXT NOT NULL,
-  built_at             INTEGER NOT NULL
+  cache_key   TEXT PRIMARY KEY,
+  project_key TEXT NOT NULL,
+  revision_id TEXT NOT NULL,
+  data        TEXT NOT NULL,
+  built_at    INTEGER NOT NULL
 );
 
-CREATE INDEX IF NOT EXISTS snapshots_revision_idx
-  ON snapshots (revision_id, fragments_dir, target_path);
+CREATE UNIQUE INDEX IF NOT EXISTS snapshots_project_revision_idx
+  ON snapshots (project_key, revision_id);
 
 CREATE TABLE IF NOT EXISTS diffs (
+  project_key      TEXT NOT NULL,
   base_revision_id TEXT NOT NULL,
   head_revision_id TEXT NOT NULL,
-  fragments_dir    TEXT NOT NULL,
-  target_path      TEXT NOT NULL,
   data             TEXT NOT NULL,
-  PRIMARY KEY (base_revision_id, head_revision_id, fragments_dir, target_path)
+  PRIMARY KEY (project_key, base_revision_id, head_revision_id)
 );
 
--- Read Model: Sync Worker가 갱신, Query는 여기만 조회
+-- Read Model: Sync Worker writes, Query handlers read
 CREATE TABLE IF NOT EXISTS timeline_entries (
-  revision_id        TEXT NOT NULL,
-  fragments_dir      TEXT NOT NULL,
-  target_path        TEXT NOT NULL,
-  short_id           TEXT NOT NULL,
-  timestamp          INTEGER NOT NULL,
-  message            TEXT NOT NULL,
-  author             TEXT,
-  source             TEXT NOT NULL,
-  source_ref         TEXT,
-  affected_files     TEXT NOT NULL DEFAULT '[]',
-  snapshot_cached    INTEGER NOT NULL DEFAULT 0,
-  paths_added        INTEGER NOT NULL DEFAULT 0,
-  paths_removed      INTEGER NOT NULL DEFAULT 0,
-  paths_changed      INTEGER NOT NULL DEFAULT 0,
-  breaking_changes   INTEGER NOT NULL DEFAULT 0,
-  PRIMARY KEY (revision_id, fragments_dir, target_path)
+  project_key       TEXT NOT NULL,
+  revision_id       TEXT NOT NULL,
+  short_id          TEXT NOT NULL,
+  timestamp         INTEGER NOT NULL,
+  message           TEXT NOT NULL,
+  author            TEXT,
+  source            TEXT NOT NULL,
+  source_ref        TEXT,
+  affected_files    TEXT NOT NULL DEFAULT '[]',
+  snapshot_cached   INTEGER NOT NULL DEFAULT 0,
+  paths_added       INTEGER NOT NULL DEFAULT 0,
+  paths_removed     INTEGER NOT NULL DEFAULT 0,
+  paths_changed     INTEGER NOT NULL DEFAULT 0,
+  breaking_changes  INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (project_key, revision_id)
 );
 
 CREATE INDEX IF NOT EXISTS timeline_entries_ts_idx
-  ON timeline_entries (fragments_dir, target_path, timestamp DESC);
+  ON timeline_entries (project_key, timestamp DESC);
 
 CREATE TABLE IF NOT EXISTS path_entries (
-  fragments_dir           TEXT NOT NULL,
-  target_path             TEXT NOT NULL,
+  project_key             TEXT NOT NULL,
   path                    TEXT NOT NULL,
   methods                 TEXT NOT NULL DEFAULT '[]',
   canonical_id            TEXT NOT NULL,
@@ -68,8 +66,10 @@ CREATE TABLE IF NOT EXISTS path_entries (
   content_hash            TEXT NOT NULL,
   last_changed_revision   TEXT NOT NULL,
   last_changed_timestamp  INTEGER NOT NULL,
-  PRIMARY KEY (fragments_dir, target_path, path)
+  PRIMARY KEY (project_key, path)
 );
 
 CREATE INDEX IF NOT EXISTS path_entries_filter_idx
-  ON path_entries (fragments_dir, target_path, scope, domain);
+  ON path_entries (project_key, scope, domain);
+
+PRAGMA user_version = 2;

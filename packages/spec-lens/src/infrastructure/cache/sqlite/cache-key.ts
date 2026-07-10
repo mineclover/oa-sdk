@@ -1,24 +1,15 @@
 import { createHash } from 'node:crypto'
 import type { DefinitionTargetConfig } from '@oa-sdk/parser'
-
-export type CacheKeyInput = {
-  revisionId: string
-  fragmentsDir: string
-  targetConfigDigest: string
-  codegenVersion: string
-  schemaVersion: string
-}
-
-export function buildCacheKey(input: CacheKeyInput): string {
-  const sorted = {
-    codegenVersion: input.codegenVersion,
-    fragmentsDir: input.fragmentsDir,
-    revisionId: input.revisionId,
-    schemaVersion: input.schemaVersion,
-    targetConfigDigest: input.targetConfigDigest,
-  }
-  return createHash('sha256').update(JSON.stringify(sorted)).digest('hex')
-}
+export {
+  buildManifestOrTargetDigest,
+  buildSpecProjectKey,
+  createSpecProjectIdentity,
+  digestText,
+} from '../../../domain/project.js'
+export type {
+  SpecProjectIdentity,
+  SpecProjectKeyInput,
+} from '../../../domain/project.js'
 
 export function buildTargetConfigDigest(config: DefinitionTargetConfig): string {
   const normalized = sortDeep(config)

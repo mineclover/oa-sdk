@@ -11,7 +11,10 @@ function makeRevision(id: string, timestamp = 1000): SpecRevision {
 
 function makeStored(id: string, spec: Record<string, unknown> = {}): SpecSnapshotStored {
   return {
-    schemaVersion: 'spec-lens.snapshot.v1',
+    schemaVersion: 'spec-lens.snapshot.v2',
+    projectKey: 'project-a',
+    projectKind: 'definition-builder',
+    sourceRoot: '/f',
     revision: makeRevision(id),
     fragmentsDir: '/f',
     targetPath: '/t',
@@ -27,7 +30,8 @@ function makeStored(id: string, spec: Record<string, unknown> = {}): SpecSnapsho
 
 function makeDiff(partial: Partial<SpecTimelineDiff['stats']> = {}, normalizedDiff: SpecTimelineDiff['normalizedDiff'] = []): SpecTimelineDiff {
   return {
-    schemaVersion: 'spec-lens.diff.v1',
+    schemaVersion: 'spec-lens.diff.v2',
+    projectKey: 'project-a',
     baseRevision: makeRevision('base'),
     headRevision: makeRevision('head'),
     normalizedDiff,
@@ -44,6 +48,15 @@ function makeDiff(partial: Partial<SpecTimelineDiff['stats']> = {}, normalizedDi
 }
 
 const OPTIONS = {
+  kind: 'definition-builder' as const,
+  project: {
+    projectKey: 'project-a',
+    sourceKind: 'definition-builder',
+    sourceRoot: '/f',
+    manifestOrTargetDigest: 'd',
+    builderVersion: 'spec-lens.definition-builder.v1',
+    snapshotSchemaVersion: 'spec-lens.snapshot.v2',
+  } as const,
   fragmentsDir: '/f',
   targetPath: '/t',
   targetConfig: {} as never,
@@ -82,6 +95,14 @@ describe('RefreshTimelineHandler', () => {
     expect(result.newRevisions).toBe(2)
     expect(result.builtSnapshots).toBe(2)
     expect(result.errors).toHaveLength(0)
+    expect(source.listRevisions).toHaveBeenCalledWith({
+      sourceRoot: '/f',
+      sourceKind: 'definition-builder',
+    })
+    expect(source.getFileEntries).toHaveBeenCalledWith(expect.objectContaining({
+      sourceRoot: '/f',
+      sourceKind: 'definition-builder',
+    }))
   })
 
   it('records build failure as snapshotCached=false timeline entry', async () => {
@@ -114,8 +135,7 @@ describe('RefreshTimelineHandler', () => {
     expect(result.errors[0]?.message).toBe('parse failed')
     expect(upsertTimelineEntry).toHaveBeenCalledWith(
       expect.objectContaining({ snapshotCached: false }),
-      '/f',
-      '/t',
+      'project-a',
     )
   })
 
@@ -174,7 +194,7 @@ describe('RefreshTimelineHandler', () => {
     await handler.handle(OPTIONS)
 
     expect(upsertPathEntries).toHaveBeenCalled()
-    const pathEntries = upsertPathEntries.mock.calls[0]?.[2] as Array<{ path: string; lastChangedRevisionId: string }>
+    const pathEntries = upsertPathEntries.mock.calls[0]?.[1] as Array<{ path: string; lastChangedRevisionId: string }>
     const usersEntry = pathEntries?.find(e => e.path === '/users')
     expect(usersEntry?.lastChangedRevisionId).toBe('r1')
   })

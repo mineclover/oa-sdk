@@ -24,10 +24,17 @@ import type {
   SpecSnapshotStored,
   SpecTimelineDiff,
 } from '../../domain/index.js'
+import {
+  SPEC_LENS_DIFF_SCHEMA_VERSION,
+  SPEC_LENS_SNAPSHOT_SCHEMA_VERSION,
+} from '../../domain/project.js'
 
 export class SnapshotBuilder implements SnapshotBuilderPort {
   async build(options: BuildSnapshotOptions): Promise<SpecSnapshot> {
-    const { revision, entries, fragmentsDir, targetPath, targetConfig, targetConfigDigest } = options
+    if (options.kind !== 'definition-builder') {
+      throw new Error('SnapshotBuilder only accepts definition-builder projects; select a TypeSpec bundle builder')
+    }
+    const { project, revision, entries, fragmentsDir, targetPath, targetConfig, targetConfigDigest } = options
 
     const fragments = loadDefinitionFragmentsFromEntries(entries, fragmentsDir)
     const registry = createDefinitionRegistry(fragments.nodes, {
@@ -66,7 +73,10 @@ export class SnapshotBuilder implements SnapshotBuilderPort {
     })
 
     return {
-      schemaVersion: 'spec-lens.snapshot.v1',
+      schemaVersion: SPEC_LENS_SNAPSHOT_SCHEMA_VERSION,
+      projectKey: project.projectKey,
+      projectKind: 'definition-builder',
+      sourceRoot: project.sourceRoot,
       revision,
       fragmentsDir,
       targetPath,
@@ -80,6 +90,9 @@ export class SnapshotBuilder implements SnapshotBuilderPort {
   }
 
   diff(base: SpecSnapshotStored, head: SpecSnapshotStored): SpecTimelineDiff {
+    if (base.projectKey !== head.projectKey) {
+      throw new Error('cannot diff snapshots from different spec projects')
+    }
     const baseSpec = base.spec ?? {}
     const headSpec = head.spec ?? {}
 
@@ -97,7 +110,8 @@ export class SnapshotBuilder implements SnapshotBuilderPort {
     const schemasChanged = normalizedDiff.filter((d) => d.category === 'component' && d.kind === 'changed').length
 
     return {
-      schemaVersion: 'spec-lens.diff.v1',
+      schemaVersion: SPEC_LENS_DIFF_SCHEMA_VERSION,
+      projectKey: head.projectKey,
       baseRevision: base.revision,
       headRevision: head.revision,
       normalizedDiff,

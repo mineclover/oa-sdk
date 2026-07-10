@@ -14,7 +14,10 @@ function makeStored(
   provenance: Record<string, unknown>,
 ): SpecSnapshotStored {
   return {
-    schemaVersion: 'spec-lens.snapshot.v1',
+    schemaVersion: 'spec-lens.snapshot.v2',
+    projectKey: 'project-a',
+    projectKind: 'definition-builder',
+    sourceRoot: '/f',
     revision: { id: 'abc', shortId: 'abc', timestamp: 1000, message: 'test', source: 'local-git' },
     fragmentsDir: '/f',
     targetPath: '/t',
@@ -28,7 +31,7 @@ function makeStored(
   }
 }
 
-const QUERY = { revisionId: 'abc', fragmentsDir: '/f', targetPath: '/t', targetConfigDigest: 'd' }
+const QUERY = { revisionId: 'abc', projectKey: 'project-a' }
 
 describe('GetGraphHandler', () => {
   it('returns null when snapshot not cached', async () => {

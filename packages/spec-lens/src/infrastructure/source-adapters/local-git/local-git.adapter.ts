@@ -7,6 +7,7 @@ import type {
   SpecSourcePort,
 } from '../../../application/ports/spec-source.port.js'
 import type { SpecFileEntry, SpecRevision } from '../../../domain/index.js'
+import { isSpecProjectFile, resolveSpecSourceRoot } from '../source-file-policy.js'
 
 const execFileAsync = promisify(execFile)
 
@@ -23,12 +24,13 @@ export class LocalGitAdapter implements SpecSourcePort {
 
   async listRevisions(options: ListRevisionsOptions): Promise<SpecRevision[]> {
     const branch = options.branch ?? this.config.branch
+    const sourceRoot = resolveSpecSourceRoot(options)
     const args = ['log', '--format=%H%n%aI%n%s%n%an%n%x00']
     if (branch !== undefined) args.push(branch)
     if (options.since !== undefined) args.push(`--since=${new Date(options.since).toISOString()}`)
     if (options.until !== undefined) args.push(`--until=${new Date(options.until).toISOString()}`)
     if (options.limit !== undefined) args.push(`-${Math.max(1, Math.floor(options.limit))}`)
-    args.push('--', options.fragmentsDir)
+    args.push('--', sourceRoot)
 
     const output = await this.git(args)
     const revisions = parseGitLog(output)
@@ -38,7 +40,7 @@ export class LocalGitAdapter implements SpecSourcePort {
 
   async getFileEntries(options: GetFileEntriesOptions): Promise<SpecFileEntry[]> {
     const { revision } = options
-    const dir = normalizeDir(options.fragmentsDir)
+    const dir = normalizeDir(resolveSpecSourceRoot(options))
     const prefix = dir ? dir + '/' : ''
 
     const listOutput = await this.git(['ls-tree', '-r', '--name-only', revision.id, '--', dir])
@@ -46,10 +48,10 @@ export class LocalGitAdapter implements SpecSourcePort {
     const filePaths = listOutput
       .split('\n')
       .map(p => p.trim())
-      .filter(p => p.length > 0 && isDefinitionFile(p))
+      .filter(p => p.length > 0 && isSpecProjectFile(p, options.sourceKind))
 
     if (filePaths.length === 0) {
-      console.warn(`[spec-lens] No definition files found in '${dir}' at ${revision.id.slice(0, 7)} — check fragmentsDir config`)
+      console.warn(`[spec-lens] No project source files found in '${dir}' at ${revision.id.slice(0, 7)} — check sourceRoot config`)
     }
 
     const settled = await Promise.allSettled(
@@ -85,7 +87,9 @@ function parseGitLog(output: string): SpecRevision[] {
   const chunks = output.split('\0').filter(c => c.trim().length > 0)
 
   for (const chunk of chunks) {
-    const lines = chunk.split('\n')
+    // git places a newline after each NUL-delimited record. Without removing it,
+    // every record after the first starts with an empty SHA line and is dropped.
+    const lines = chunk.replace(/^\n+/, '').split('\n')
     const sha = lines[0]?.trim()
     const dateStr = lines[1]?.trim()
     const message = lines[2]?.trim()
@@ -109,10 +113,6 @@ function parseGitLog(output: string): SpecRevision[] {
 
 function normalizeDir(dir: string): string {
   return dir.replace(/^\//, '').replace(/\/$/, '')
-}
-
-function isDefinitionFile(filePath: string): boolean {
-  return filePath.endsWith('.yaml') || filePath.endsWith('.yml') || filePath.endsWith('.json')
 }
 
 function sha256(content: string): string {

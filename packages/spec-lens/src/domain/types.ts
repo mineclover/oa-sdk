@@ -33,29 +33,47 @@ export type SpecSnapshotDiagnostic = {
   sourcePath?: string
 }
 
-// Wire type: API 응답용 (entries는 ?include=entries 시만 포함)
-export type SpecSnapshot = {
-  schemaVersion: 'spec-lens.snapshot.v1'
+type SpecSnapshotBase = {
+  schemaVersion: 'spec-lens.snapshot.v2'
+  projectKey: string
+  projectKind: 'definition-builder' | 'typespec-bundle'
+  sourceRoot: string
   revision: SpecRevision
-  fragmentsDir: string
-  targetPath: string
-  targetConfigDigest: string
   spec: Record<string, unknown> | null
   provenance: BuildSpecProvenanceMap
-  composition: BuildSpecCompositionReport
   diagnostics: SpecSnapshotDiagnostic[]
   builtAt: number
   entries?: SpecFileEntry[]
 }
 
-// Storage type: SQLite 저장용 (entries는 snapshot_entries 테이블로 분리)
-export type SpecSnapshotStored = Omit<SpecSnapshot, 'entries'> & {
-  entryRefs: Array<{ relativePath: string; contentHash: string }>
-  targetConfigDigest: string  // buildTargetConfigDigest(targetConfig) — 캐시 키 격리
+export type DefinitionBuilderSpecSnapshot = SpecSnapshotBase & {
+  projectKind: 'definition-builder'
+  fragmentsDir: string
+  targetPath: string
+  targetConfigDigest: string
+  composition: BuildSpecCompositionReport
 }
 
+export type TypeSpecBundleSpecSnapshot = SpecSnapshotBase & {
+  projectKind: 'typespec-bundle'
+  manifestPath: string
+}
+
+// Wire type: API response (entries appears only with ?include=entries).
+export type SpecSnapshot = DefinitionBuilderSpecSnapshot | TypeSpecBundleSpecSnapshot
+
+type StoredSnapshot<T extends SpecSnapshot> = Omit<T, 'entries'> & {
+  entryRefs: Array<{ relativePath: string; contentHash: string }>
+}
+
+// Storage type: SQLite stores entries in snapshot_entries.
+export type SpecSnapshotStored =
+  | StoredSnapshot<DefinitionBuilderSpecSnapshot>
+  | StoredSnapshot<TypeSpecBundleSpecSnapshot>
+
 export type SpecTimelineDiff = {
-  schemaVersion: 'spec-lens.diff.v1'
+  schemaVersion: 'spec-lens.diff.v2'
+  projectKey: string
   baseRevision: SpecRevision
   headRevision: SpecRevision
   normalizedDiff: OpenApiNormalizedDiffEntry[]

@@ -5,9 +5,7 @@ import type { SpecTimelineDiff } from '../../domain/index.js'
 export type GetDiffQuery = {
   baseRevisionId: string
   headRevisionId: string
-  fragmentsDir: string
-  targetPath: string
-  targetConfigDigest: string
+  projectKey: string
 }
 
 export class GetDiffHandler {
@@ -17,19 +15,19 @@ export class GetDiffHandler {
   ) {}
 
   async handle(query: GetDiffQuery): Promise<SpecTimelineDiff | null> {
-    const { baseRevisionId, headRevisionId, fragmentsDir, targetPath, targetConfigDigest } = query
-    const cached = await this.cache.getDiff(baseRevisionId, headRevisionId, fragmentsDir, targetPath)
+    const { baseRevisionId, headRevisionId, projectKey } = query
+    const cached = await this.cache.getDiff(baseRevisionId, headRevisionId, projectKey)
     if (cached !== null) return cached
 
     // On-demand compute if not cached
     const [base, head] = await Promise.all([
-      this.cache.getSnapshotByRevision(baseRevisionId, fragmentsDir, targetPath, targetConfigDigest),
-      this.cache.getSnapshotByRevision(headRevisionId, fragmentsDir, targetPath, targetConfigDigest),
+      this.cache.getSnapshotByRevision(baseRevisionId, projectKey),
+      this.cache.getSnapshotByRevision(headRevisionId, projectKey),
     ])
     if (base === null || head === null) return null
 
     const diff = this.builder.diff(base, head)
-    await this.cache.saveDiff(diff, fragmentsDir, targetPath)
+    await this.cache.saveDiff(diff, projectKey)
     return diff
   }
 }

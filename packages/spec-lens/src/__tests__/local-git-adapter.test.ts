@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import { LocalGitAdapter } from '../infrastructure/source-adapters/local-git/local-git.adapter.js'
 import { resolve } from 'node:path'
+import { join } from 'node:path'
+import { execFileSync } from 'node:child_process'
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 
 // Uses the actual oa-sdk repo as a test fixture
 const REPO_PATH = resolve(import.meta.dirname, '../../../../')
@@ -61,4 +65,50 @@ describe('LocalGitAdapter', () => {
       expect(entry.relativePath.startsWith(FRAGMENTS_DIR)).toBe(false)
     }
   })
+
+  it('observes TypeSpec bundle-only revisions and includes .tsp sources', async () => {
+    const repoPath = mkdtempSync(join(tmpdir(), 'spec-lens-typespec-source-'))
+    try {
+      git(repoPath, ['init', '-b', 'main'])
+      git(repoPath, ['config', 'user.email', 'spec-lens@example.test'])
+      git(repoPath, ['config', 'user.name', 'Spec Lens Test'])
+      const bundleDir = join(repoPath, 'packages/schemas/typespec')
+      mkdirSync(bundleDir, { recursive: true })
+      writeFileSync(join(bundleDir, 'main.tsp'), '@service(#{ title: "v1" }) namespace Test;\n')
+      writeFileSync(join(bundleDir, 'oa-sdk.typespec-bundle.json'), '{"schemaVersion":"oa-sdk.typespec-bundle.v1","entrypoint":"main.tsp"}\n')
+      writeFileSync(join(bundleDir, 'notes.md'), 'not a bundle input\n')
+      git(repoPath, ['add', '.'])
+      git(repoPath, ['commit', '-m', 'add TypeSpec bundle'])
+
+      writeFileSync(join(bundleDir, 'main.tsp'), '@service(#{ title: "v2" }) namespace Test;\n')
+      git(repoPath, ['add', 'packages/schemas/typespec/main.tsp'])
+      git(repoPath, ['commit', '-m', 'change TypeSpec only'])
+
+      const typespec = new LocalGitAdapter({ repoPath })
+      const revisions = await typespec.listRevisions({
+        sourceRoot: 'packages/schemas/typespec',
+        sourceKind: 'typespec-bundle',
+      })
+      expect(revisions.map(revision => revision.message)).toEqual([
+        'change TypeSpec only',
+        'add TypeSpec bundle',
+      ])
+
+      const entries = await typespec.getFileEntries({
+        revision: revisions[0]!,
+        sourceRoot: 'packages/schemas/typespec',
+        sourceKind: 'typespec-bundle',
+      })
+      expect(entries.map(entry => entry.relativePath).sort()).toEqual([
+        'main.tsp',
+        'oa-sdk.typespec-bundle.json',
+      ])
+    } finally {
+      rmSync(repoPath, { recursive: true, force: true })
+    }
+  })
 })
+
+function git(cwd: string, args: string[]): void {
+  execFileSync('git', args, { cwd, stdio: 'ignore' })
+}

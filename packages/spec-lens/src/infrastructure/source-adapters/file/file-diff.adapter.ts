@@ -1,12 +1,13 @@
 import { createHash } from 'node:crypto'
 import { readdirSync, readFileSync, statSync } from 'node:fs'
-import { extname, join, relative } from 'node:path'
+import { join, relative } from 'node:path'
 import type {
   GetFileEntriesOptions,
   ListRevisionsOptions,
   SpecSourcePort,
 } from '../../../application/ports/spec-source.port.js'
 import type { SpecFileEntry, SpecRevision } from '../../../domain/index.js'
+import { isSpecProjectFile } from '../source-file-policy.js'
 
 export type FileDiffAdapterConfig = {
   basePath: string
@@ -49,12 +50,15 @@ export class FileDiffAdapter implements SpecSourcePort {
       ? this.config.headPath
       : this.config.basePath
 
-    return scanDirectory(rootPath)
+    return scanDirectory(rootPath, options.sourceKind)
   }
 
 }
 
-function scanDirectory(rootPath: string): SpecFileEntry[] {
+function scanDirectory(
+  rootPath: string,
+  sourceKind: GetFileEntriesOptions['sourceKind'],
+): SpecFileEntry[] {
   const entries: SpecFileEntry[] = []
 
   function visit(dir: string): void {
@@ -65,8 +69,7 @@ function scanDirectory(rootPath: string): SpecFileEntry[] {
         continue
       }
       if (!entry.isFile()) continue
-      const ext = extname(entry.name)
-      if (ext !== '.yaml' && ext !== '.yml' && ext !== '.json') continue
+      if (!isSpecProjectFile(entry.name, sourceKind)) continue
 
       const content = readFileSync(fullPath, 'utf8')
       entries.push({

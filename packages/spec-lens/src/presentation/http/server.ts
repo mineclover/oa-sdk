@@ -13,8 +13,10 @@ import { GetTimelineHandler } from '../../application/queries/get-timeline.query
 import type { CachePort } from '../../application/ports/cache.port.js'
 import type { SnapshotBuilderPort } from '../../application/ports/snapshot-builder.port.js'
 import type { SpecSourcePort } from '../../application/ports/spec-source.port.js'
+import type { DefinitionBuilderProjectIdentity } from '../../domain/project.js'
 
 export type SpecLensServerConfig = {
+  project: DefinitionBuilderProjectIdentity
   source: SpecSourcePort
   cache: CachePort
   builder: SnapshotBuilderPort
@@ -42,6 +44,9 @@ export function createSpecLensServer(config: SpecLensServerConfig): Hono {
   // 🔵 Query: GetConfig (server identity — which target is being observed)
   app.get('/api/config', (c) => {
     return c.json({
+      projectKey: config.project.projectKey,
+      projectKind: config.project.sourceKind,
+      projectSourceRoot: config.project.sourceRoot,
       targetName: config.targetConfig.name,
       targetPath: config.targetPath,
       fragmentsDir: config.fragmentsDir,
@@ -62,6 +67,8 @@ export function createSpecLensServer(config: SpecLensServerConfig): Hono {
       await (config.source.syncRepo as (branch?: string) => Promise<void>)(config.branch)
     }
     const result = await refresh.handle({
+      kind: 'definition-builder',
+      project: config.project,
       fragmentsDir: config.fragmentsDir,
       targetPath: config.targetPath,
       targetConfig: config.targetConfig,
@@ -76,8 +83,7 @@ export function createSpecLensServer(config: SpecLensServerConfig): Hono {
     const rawLimit = Number(c.req.query('limit'))
     const limit = Number.isFinite(rawLimit) && rawLimit > 0 ? Math.floor(rawLimit) : 100
     const entries = await getTimeline.handle({
-      fragmentsDir: config.fragmentsDir,
-      targetPath: config.targetPath,
+      projectKey: config.project.projectKey,
       limit,
     })
     return c.json(entries)
@@ -89,9 +95,7 @@ export function createSpecLensServer(config: SpecLensServerConfig): Hono {
     const includeEntries = c.req.query('include') === 'entries'
     const snapshot = await getSnapshot.handle({
       revisionId,
-      fragmentsDir: config.fragmentsDir,
-      targetPath: config.targetPath,
-      targetConfigDigest,
+      projectKey: config.project.projectKey,
       includeEntries,
     })
     if (snapshot === null) return c.json({ error: 'not found' }, 404)
@@ -105,9 +109,7 @@ export function createSpecLensServer(config: SpecLensServerConfig): Hono {
     const diff = await getDiff.handle({
       baseRevisionId: baseId,
       headRevisionId: headId,
-      fragmentsDir: config.fragmentsDir,
-      targetPath: config.targetPath,
-      targetConfigDigest,
+      projectKey: config.project.projectKey,
     })
     if (diff === null) return c.json({ error: 'not found' }, 404)
     return c.json(diff)
@@ -118,8 +120,7 @@ export function createSpecLensServer(config: SpecLensServerConfig): Hono {
     const scope = c.req.query('scope')
     const domain = c.req.query('domain')
     const paths = await getPaths.handle({
-      fragmentsDir: config.fragmentsDir,
-      targetPath: config.targetPath,
+      projectKey: config.project.projectKey,
       ...(scope !== undefined ? { scope } : {}),
       ...(domain !== undefined ? { domain } : {}),
     })
@@ -131,25 +132,20 @@ export function createSpecLensServer(config: SpecLensServerConfig): Hono {
     const revisionId = c.req.query('revision')
     if (revisionId === undefined) {
       const timeline = await getTimeline.handle({
-        fragmentsDir: config.fragmentsDir,
-        targetPath: config.targetPath,
+        projectKey: config.project.projectKey,
         limit: 1,
       })
       const latest = timeline[0]
       if (latest === undefined) return c.json({ nodes: [], edges: [] })
       const graph = await getGraph.handle({
         revisionId: latest.revision.id,
-        fragmentsDir: config.fragmentsDir,
-        targetPath: config.targetPath,
-        targetConfigDigest,
+        projectKey: config.project.projectKey,
       })
       return c.json(graph ?? { nodes: [], edges: [] })
     }
     const graph = await getGraph.handle({
       revisionId,
-      fragmentsDir: config.fragmentsDir,
-      targetPath: config.targetPath,
-      targetConfigDigest,
+      projectKey: config.project.projectKey,
     })
     if (graph === null) return c.json({ error: 'not found' }, 404)
     return c.json(graph)
@@ -157,7 +153,7 @@ export function createSpecLensServer(config: SpecLensServerConfig): Hono {
 
   // 🔴 Command: ClearCache
   app.delete('/api/cache', async (c) => {
-    const result = await config.cache.clearCache(config.fragmentsDir, config.targetPath)
+    const result = await config.cache.clearCache(config.project.projectKey)
     return c.json(result)
   })
 

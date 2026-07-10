@@ -13,6 +13,7 @@ import type {
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const SCHEMA_SQL = readFileSync(join(__dirname, 'schema.sql'), 'utf8')
+const STORAGE_SCHEMA_VERSION = 2
 const require = createRequire(import.meta.url)
 
 export class SqliteCache implements CachePort {
@@ -26,7 +27,12 @@ export class SqliteCache implements CachePort {
     this.db.exec('PRAGMA journal_mode = WAL')
     this.db.exec('PRAGMA busy_timeout = 5000')
     this.db.exec('PRAGMA foreign_keys = ON')
-    this.db.exec(SCHEMA_SQL)
+    try {
+      initializeSchema(this.db)
+    } catch (error) {
+      this.db.close()
+      throw error
+    }
   }
 
   async saveSnapshot(snapshot: SpecSnapshotStored, entries: SpecFileEntry[]): Promise<void> {
@@ -41,44 +47,43 @@ export class SqliteCache implements CachePort {
         ).run(cacheKey, entry.relativePath, entry.contentHash)
       }
       this.db.prepare(`
-        INSERT OR REPLACE INTO snapshots (cache_key, revision_id, fragments_dir, target_path, target_config_digest, data, built_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+        INSERT OR REPLACE INTO snapshots (cache_key, project_key, revision_id, data, built_at)
+        VALUES (?, ?, ?, ?, ?)
       `).run(
         cacheKey,
+        snapshot.projectKey,
         snapshot.revision.id,
-        snapshot.fragmentsDir,
-        snapshot.targetPath,
-        snapshot.targetConfigDigest,
         JSON.stringify(snapshot),
         snapshot.builtAt,
       )
     })
   }
 
-  async saveDiff(diff: SpecTimelineDiff, fragmentsDir: string, targetPath: string): Promise<void> {
+  async saveDiff(diff: SpecTimelineDiff, projectKey: string): Promise<void> {
+    if (diff.projectKey !== projectKey) {
+      throw new Error('diff projectKey does not match cache projectKey')
+    }
     this.db.prepare(`
-      INSERT OR REPLACE INTO diffs (base_revision_id, head_revision_id, fragments_dir, target_path, data)
-      VALUES (?, ?, ?, ?, ?)
+      INSERT OR REPLACE INTO diffs (project_key, base_revision_id, head_revision_id, data)
+      VALUES (?, ?, ?, ?)
     `).run(
+      projectKey,
       diff.baseRevision.id,
       diff.headRevision.id,
-      fragmentsDir,
-      targetPath,
       JSON.stringify(diff),
     )
   }
 
-  async upsertTimelineEntry(entry: SpecTimelineEntry, fragmentsDir: string, targetPath: string): Promise<void> {
+  async upsertTimelineEntry(entry: SpecTimelineEntry, projectKey: string): Promise<void> {
     this.db.prepare(`
       INSERT OR REPLACE INTO timeline_entries
-        (revision_id, fragments_dir, target_path, short_id, timestamp, message, author,
+        (project_key, revision_id, short_id, timestamp, message, author,
          source, source_ref, affected_files, snapshot_cached,
          paths_added, paths_removed, paths_changed, breaking_changes)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
+      projectKey,
       entry.revision.id,
-      fragmentsDir,
-      targetPath,
       entry.revision.shortId,
       entry.revision.timestamp,
       entry.revision.message,
@@ -94,17 +99,16 @@ export class SqliteCache implements CachePort {
     )
   }
 
-  async upsertPathEntries(fragmentsDir: string, targetPath: string, entries: SpecPathEntry[]): Promise<void> {
+  async upsertPathEntries(projectKey: string, entries: SpecPathEntry[]): Promise<void> {
     runTransaction(this.db, () => {
       for (const entry of entries) {
         this.db.prepare(`
           INSERT OR REPLACE INTO path_entries
-            (fragments_dir, target_path, path, methods, canonical_id, scope, domain,
+            (project_key, path, methods, canonical_id, scope, domain,
              source_file, content_hash, last_changed_revision, last_changed_timestamp)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `).run(
-          fragmentsDir,
-          targetPath,
+          projectKey,
           entry.path,
           JSON.stringify(entry.methods),
           entry.canonicalId,
@@ -122,23 +126,21 @@ export class SqliteCache implements CachePort {
   async listTimeline(options: ListTimelineOptions): Promise<SpecTimelineEntry[]> {
     const rows = this.db.prepare(`
       SELECT * FROM timeline_entries
-      WHERE fragments_dir = ? AND target_path = ?
+      WHERE project_key = ?
       ORDER BY timestamp DESC
       LIMIT ?
-    `).all(options.fragmentsDir, options.targetPath, options.limit ?? 100) as TimelineRow[]
+    `).all(options.projectKey, options.limit ?? 100) as TimelineRow[]
 
     return rows.map(rowToTimelineEntry)
   }
 
   async getSnapshotByRevision(
     revisionId: string,
-    fragmentsDir: string,
-    targetPath: string,
-    targetConfigDigest: string,
+    projectKey: string,
   ): Promise<SpecSnapshotStored | null> {
     const row = this.db.prepare(
-      'SELECT data FROM snapshots WHERE revision_id = ? AND fragments_dir = ? AND target_path = ? AND target_config_digest = ? LIMIT 1',
-    ).get(revisionId, fragmentsDir, targetPath, targetConfigDigest) as { data: string } | undefined
+      'SELECT data FROM snapshots WHERE revision_id = ? AND project_key = ? LIMIT 1',
+    ).get(revisionId, projectKey) as { data: string } | undefined
     if (row === undefined) return null
     let snapshot: SpecSnapshotStored
     try {
@@ -146,19 +148,18 @@ export class SqliteCache implements CachePort {
     } catch {
       return null
     }
-    if (snapshot.schemaVersion !== 'spec-lens.snapshot.v1') return null
+    if (snapshot.schemaVersion !== 'spec-lens.snapshot.v2' || snapshot.projectKey !== projectKey) return null
     return snapshot
   }
 
   async getDiff(
     baseRevisionId: string,
     headRevisionId: string,
-    fragmentsDir: string,
-    targetPath: string,
+    projectKey: string,
   ): Promise<SpecTimelineDiff | null> {
     const row = this.db.prepare(
-      'SELECT data FROM diffs WHERE base_revision_id = ? AND head_revision_id = ? AND fragments_dir = ? AND target_path = ?',
-    ).get(baseRevisionId, headRevisionId, fragmentsDir, targetPath) as { data: string } | undefined
+      'SELECT data FROM diffs WHERE base_revision_id = ? AND head_revision_id = ? AND project_key = ?',
+    ).get(baseRevisionId, headRevisionId, projectKey) as { data: string } | undefined
     if (row === undefined) return null
     let diff: SpecTimelineDiff
     try {
@@ -166,13 +167,13 @@ export class SqliteCache implements CachePort {
     } catch {
       return null
     }
-    if (diff.schemaVersion !== 'spec-lens.diff.v1') return null
+    if (diff.schemaVersion !== 'spec-lens.diff.v2' || diff.projectKey !== projectKey) return null
     return diff
   }
 
   async listPaths(options: ListPathsOptions): Promise<SpecPathEntry[]> {
-    let query = 'SELECT * FROM path_entries WHERE fragments_dir = ? AND target_path = ?'
-    const params: (string | number)[] = [options.fragmentsDir, options.targetPath]
+    let query = 'SELECT * FROM path_entries WHERE project_key = ?'
+    const params: (string | number)[] = [options.projectKey]
 
     if (options.scope !== undefined) {
       query += ' AND scope = ?'
@@ -195,24 +196,24 @@ export class SqliteCache implements CachePort {
     return row?.content ?? null
   }
 
-  async clearCache(fragmentsDir: string, targetPath: string): Promise<ClearCacheResult> {
+  async clearCache(projectKey: string): Promise<ClearCacheResult> {
     return runTransaction(this.db, (): ClearCacheResult => {
       // snapshot_entries first — must precede snapshots deletion to avoid orphans
       const entries = this.db.prepare(
-        'DELETE FROM snapshot_entries WHERE cache_key IN (SELECT cache_key FROM snapshots WHERE fragments_dir = ? AND target_path = ?)',
-      ).run(fragmentsDir, targetPath)
+        'DELETE FROM snapshot_entries WHERE cache_key IN (SELECT cache_key FROM snapshots WHERE project_key = ?)',
+      ).run(projectKey)
       const snapshots = this.db.prepare(
-        'DELETE FROM snapshots WHERE fragments_dir = ? AND target_path = ?',
-      ).run(fragmentsDir, targetPath)
+        'DELETE FROM snapshots WHERE project_key = ?',
+      ).run(projectKey)
       const diffs = this.db.prepare(
-        'DELETE FROM diffs WHERE fragments_dir = ? AND target_path = ?',
-      ).run(fragmentsDir, targetPath)
+        'DELETE FROM diffs WHERE project_key = ?',
+      ).run(projectKey)
       const timeline = this.db.prepare(
-        'DELETE FROM timeline_entries WHERE fragments_dir = ? AND target_path = ?',
-      ).run(fragmentsDir, targetPath)
+        'DELETE FROM timeline_entries WHERE project_key = ?',
+      ).run(projectKey)
       const paths = this.db.prepare(
-        'DELETE FROM path_entries WHERE fragments_dir = ? AND target_path = ?',
-      ).run(fragmentsDir, targetPath)
+        'DELETE FROM path_entries WHERE project_key = ?',
+      ).run(projectKey)
       // Remove fragment_blobs that are no longer referenced by any snapshot_entry
       const blobs = this.db.prepare(
         'DELETE FROM fragment_blobs WHERE content_hash NOT IN (SELECT DISTINCT content_hash FROM snapshot_entries)',
@@ -233,7 +234,7 @@ export class SqliteCache implements CachePort {
   }
 
   private snapshotCacheKey(snapshot: SpecSnapshotStored): string {
-    return `${snapshot.revision.id}:${snapshot.fragmentsDir}:${snapshot.targetPath}:${snapshot.targetConfigDigest}`
+    return `${snapshot.projectKey}:${snapshot.revision.id}`
   }
 }
 
@@ -264,6 +265,31 @@ type NodeSqliteModule = {
 
 type BetterSqliteModule = {
   (path: string): SqliteDatabase
+}
+
+function initializeSchema(db: SqliteDatabase): void {
+  const row = db.prepare('PRAGMA user_version').get() as { user_version?: unknown } | undefined
+  const currentVersion = typeof row?.user_version === 'number' ? row.user_version : 0
+  if (currentVersion > STORAGE_SCHEMA_VERSION) {
+    throw new Error(`spec-lens cache schema ${currentVersion} is newer than supported schema ${STORAGE_SCHEMA_VERSION}`)
+  }
+
+  if (currentVersion === STORAGE_SCHEMA_VERSION) {
+    db.exec(SCHEMA_SQL)
+    return
+  }
+
+  runTransaction(db, () => {
+    db.exec(`
+      DROP TABLE IF EXISTS snapshot_entries;
+      DROP TABLE IF EXISTS diffs;
+      DROP TABLE IF EXISTS timeline_entries;
+      DROP TABLE IF EXISTS path_entries;
+      DROP TABLE IF EXISTS snapshots;
+      DROP TABLE IF EXISTS fragment_blobs;
+    `)
+    db.exec(SCHEMA_SQL)
+  })
 }
 
 function loadSpecLensSqliteDriver(): SqliteDriver {
@@ -317,8 +343,6 @@ function errorMessage(error: unknown): string {
 
 type TimelineRow = {
   revision_id: string
-  fragments_dir: string
-  target_path: string
   short_id: string
   timestamp: number
   message: string
@@ -334,8 +358,6 @@ type TimelineRow = {
 }
 
 type PathRow = {
-  fragments_dir: string
-  target_path: string
   path: string
   methods: string
   canonical_id: string

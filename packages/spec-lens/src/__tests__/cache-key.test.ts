@@ -1,65 +1,104 @@
 import { describe, expect, it } from 'vitest'
 import type { DefinitionTargetConfig } from '@oa-sdk/parser'
-import { buildCacheKey, buildTargetConfigDigest } from '../infrastructure/cache/sqlite/cache-key.js'
+import { buildTargetConfigDigest } from '../infrastructure/cache/sqlite/cache-key.js'
+import {
+  SPEC_LENS_SNAPSHOT_SCHEMA_VERSION,
+  buildSpecProjectKey,
+  createSpecProjectIdentity,
+  resolveSpecProjectConfig,
+  type SpecProjectKeyInput,
+} from '../domain/project.js'
+import { selectSnapshotBuilder } from '../infrastructure/snapshot-engine/snapshot-builder-selection.js'
 
 function makeConfig(overrides: Partial<DefinitionTargetConfig> = {}): DefinitionTargetConfig {
   return { name: 'api', scopes: [], domains: [], servers: [], includePaths: [], ...overrides }
 }
 
-describe('buildCacheKey', () => {
+describe('SpecProjectKey', () => {
+  const base: SpecProjectKeyInput = {
+    sourceKind: 'typespec-bundle',
+    sourceRoot: 'packages/schemas/typespec',
+    manifestOrTargetDigest: 'manifest-a',
+    builderVersion: 'typespec-builder.v1',
+    snapshotSchemaVersion: SPEC_LENS_SNAPSHOT_SCHEMA_VERSION,
+  }
+
   it('returns a 64-char hex string', () => {
-    const key = buildCacheKey({
-      revisionId: 'abc123',
-      fragmentsDir: '/fragments',
-      targetConfigDigest: 'digest',
-      codegenVersion: '0.2.0',
-      schemaVersion: 'spec-lens.snapshot.v1',
-    })
+    const key = buildSpecProjectKey(base)
     expect(key).toMatch(/^[0-9a-f]{64}$/)
   })
 
   it('is deterministic for the same input', () => {
-    const input = {
-      revisionId: 'abc123',
-      fragmentsDir: '/fragments',
-      targetConfigDigest: 'digest',
-      codegenVersion: '0.2.0',
-      schemaVersion: 'spec-lens.snapshot.v1',
-    }
-    expect(buildCacheKey(input)).toBe(buildCacheKey(input))
+    expect(buildSpecProjectKey(base)).toBe(buildSpecProjectKey(base))
   })
 
-  it('differs when revisionId changes', () => {
-    const base = {
-      revisionId: 'aaa',
-      fragmentsDir: '/f',
-      targetConfigDigest: 'd',
-      codegenVersion: '1',
-      schemaVersion: 'v1',
-    }
-    expect(buildCacheKey(base)).not.toBe(buildCacheKey({ ...base, revisionId: 'bbb' }))
+  it('differs for every project build identity field', () => {
+    const key = buildSpecProjectKey(base)
+    expect(buildSpecProjectKey({ ...base, sourceKind: 'definition-builder' })).not.toBe(key)
+    expect(buildSpecProjectKey({ ...base, sourceRoot: 'other' })).not.toBe(key)
+    expect(buildSpecProjectKey({ ...base, manifestOrTargetDigest: 'manifest-b' })).not.toBe(key)
+    expect(buildSpecProjectKey({ ...base, builderVersion: 'typespec-builder.v2' })).not.toBe(key)
+    expect(buildSpecProjectKey({ ...base, snapshotSchemaVersion: 'spec-lens.snapshot.v3' })).not.toBe(key)
   })
 
-  it('differs when targetConfigDigest changes', () => {
-    const base = {
-      revisionId: 'aaa',
-      fragmentsDir: '/f',
-      targetConfigDigest: 'd1',
-      codegenVersion: '1',
-      schemaVersion: 'v1',
-    }
-    expect(buildCacheKey(base)).not.toBe(buildCacheKey({ ...base, targetConfigDigest: 'd2' }))
+  it('normalizes equivalent source roots', () => {
+    expect(buildSpecProjectKey(base)).toBe(buildSpecProjectKey({ ...base, sourceRoot: './packages/schemas/typespec/' }))
   })
 
-  it('differs when codegenVersion changes', () => {
-    const base = {
-      revisionId: 'aaa',
-      fragmentsDir: '/f',
-      targetConfigDigest: 'd',
-      codegenVersion: '0.1.0',
-      schemaVersion: 'v1',
-    }
-    expect(buildCacheKey(base)).not.toBe(buildCacheKey({ ...base, codegenVersion: '0.2.0' }))
+  it('creates identities for both project kinds', () => {
+    const definition = createSpecProjectIdentity({
+      kind: 'definition-builder',
+      sourceRoot: 'fragments',
+      targetPath: 'targets/public.yaml',
+    }, 'target-digest')
+    const typespec = createSpecProjectIdentity({
+      kind: 'typespec-bundle',
+      sourceRoot: 'typespec',
+      manifestPath: 'typespec/oa-sdk.typespec-bundle.json',
+    }, 'manifest-digest')
+    expect(definition.sourceKind).toBe('definition-builder')
+    expect(typespec.sourceKind).toBe('typespec-bundle')
+    expect(definition.projectKey).not.toBe(typespec.projectKey)
+  })
+})
+
+describe('resolveSpecProjectConfig', () => {
+  it('preserves legacy fragmentsDir/targetPath config', () => {
+    expect(resolveSpecProjectConfig({ fragmentsDir: 'fragments/', targetPath: 'target.yaml' })).toEqual({
+      kind: 'definition-builder',
+      sourceRoot: 'fragments',
+      targetPath: 'target.yaml',
+    })
+  })
+
+  it('accepts a TypeSpec bundle project', () => {
+    expect(resolveSpecProjectConfig({
+      project: {
+        kind: 'typespec-bundle',
+        sourceRoot: 'packages/schemas/typespec',
+        manifestPath: 'packages/schemas/typespec/oa-sdk.typespec-bundle.json',
+      },
+    })).toEqual({
+      kind: 'typespec-bundle',
+      sourceRoot: 'packages/schemas/typespec',
+      manifestPath: 'packages/schemas/typespec/oa-sdk.typespec-bundle.json',
+    })
+  })
+
+  it('leaves a replaceable builder-selection seam for TypeSpec snapshots', () => {
+    expect(selectSnapshotBuilder({
+      kind: 'definition-builder',
+      sourceRoot: 'fragments',
+      targetPath: 'target.yaml',
+    }).status).toBe('ready')
+    expect(selectSnapshotBuilder({
+      kind: 'typespec-bundle',
+      sourceRoot: 'typespec',
+      manifestPath: 'typespec/oa-sdk.typespec-bundle.json',
+    })).toMatchObject({
+      status: 'pending',
+      adapterName: 'TypeSpecBundleSnapshotBuilder',
+    })
   })
 })
 

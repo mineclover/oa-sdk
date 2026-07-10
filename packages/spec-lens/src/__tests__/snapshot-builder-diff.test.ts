@@ -12,7 +12,10 @@ function makeStored(
   entryRefs: Array<{ relativePath: string; contentHash: string }> = [],
 ): SpecSnapshotStored {
   return {
-    schemaVersion: 'spec-lens.snapshot.v1',
+    schemaVersion: 'spec-lens.snapshot.v2',
+    projectKey: 'project-a',
+    projectKind: 'definition-builder',
+    sourceRoot: '/f',
     targetConfigDigest: 'test-digest',
     revision: makeRevision(id),
     fragmentsDir: '/f',
@@ -118,5 +121,11 @@ describe('SnapshotBuilder.diff', () => {
     const head = makeStored('head', EMPTY_SPEC)
     ;(head as { spec: null }).spec = null
     expect(() => builder.diff(base, head)).not.toThrow()
+  })
+
+  it('rejects a cross-project diff', () => {
+    const base = makeStored('base', EMPTY_SPEC)
+    const head = { ...makeStored('head', EMPTY_SPEC), projectKey: 'project-b' }
+    expect(() => builder.diff(base, head)).toThrow('different spec projects')
   })
 })

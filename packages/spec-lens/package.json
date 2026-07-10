@@ -11,7 +11,7 @@
     }
   },
   "scripts": {
-    "build": "tsup src/index.ts --format esm --dts",
+    "build": "tsup src/index.ts --format esm --dts && cp src/infrastructure/cache/sqlite/schema.sql dist/schema.sql",
     "build:ui": "pnpm --filter @oa-sdk/spec-lens-ui run build",
     "dev": "tsup src/index.ts --format esm --dts --watch",
     "test": "vitest run",

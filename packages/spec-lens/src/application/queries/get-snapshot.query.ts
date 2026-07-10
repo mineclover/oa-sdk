@@ -3,9 +3,7 @@ import type { SpecFileEntry, SpecSnapshot, SpecSnapshotStored } from '../../doma
 
 export type GetSnapshotQuery = {
   revisionId: string
-  fragmentsDir: string
-  targetPath: string
-  targetConfigDigest: string
+  projectKey: string
   includeEntries?: boolean
 }
 
@@ -15,9 +13,7 @@ export class GetSnapshotHandler {
   async handle(query: GetSnapshotQuery): Promise<SpecSnapshot | null> {
     const stored = await this.cache.getSnapshotByRevision(
       query.revisionId,
-      query.fragmentsDir,
-      query.targetPath,
-      query.targetConfigDigest,
+      query.projectKey,
     )
     if (stored === null) return null
 

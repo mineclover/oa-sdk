@@ -1,4 +1,5 @@
 export type {
+  DefinitionBuilderSpecSnapshot,
   SpecFileEntry,
   SpecGraph,
   SpecGraphEdge,
@@ -11,4 +12,26 @@ export type {
   SpecSourceKind,
   SpecTimelineDiff,
   SpecTimelineEntry,
+  TypeSpecBundleSpecSnapshot,
 } from './types.js'
+export {
+  DEFINITION_BUILDER_VERSION,
+  SPEC_LENS_DIFF_SCHEMA_VERSION,
+  SPEC_LENS_SNAPSHOT_SCHEMA_VERSION,
+  TYPESPEC_BUNDLE_BUILDER_VERSION,
+  buildManifestOrTargetDigest,
+  buildSpecProjectKey,
+  createSpecProjectIdentity,
+  digestText,
+  resolveSpecProjectConfig,
+} from './project.js'
+export type {
+  DefinitionBuilderProjectConfig,
+  DefinitionBuilderProjectIdentity,
+  SpecProjectConfig,
+  SpecProjectIdentity,
+  SpecProjectKeyInput,
+  SpecProjectSourceKind,
+  TypeSpecBundleProjectConfig,
+  TypeSpecBundleProjectIdentity,
+} from './project.js'

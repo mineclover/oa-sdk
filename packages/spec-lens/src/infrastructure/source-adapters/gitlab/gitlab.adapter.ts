@@ -6,6 +6,7 @@ import type {
 } from '../../../application/ports/spec-source.port.js'
 import type { SpecFileEntry, SpecRevision } from '../../../domain/index.js'
 import type { TokenProvider } from '../github/token-provider.js'
+import { isSpecProjectFile, resolveSpecSourceRoot } from '../source-file-policy.js'
 
 export type GitlabAdapterConfig = {
   /** GitLab instance base URL. Default: 'https://gitlab.com' */
@@ -43,8 +44,9 @@ export class GitlabAdapter implements SpecSourcePort {
 
   async listRevisions(options: ListRevisionsOptions): Promise<SpecRevision[]> {
     const token = await this.config.tokenProvider.getToken(this.projectKey)
+    const sourceRoot = resolveSpecSourceRoot(options)
     const params = new URLSearchParams({
-      path: options.fragmentsDir,
+      path: sourceRoot,
       per_page: String(options.limit ?? 50),
     })
     if (options.branch !== undefined) params.set('ref_name', options.branch)
@@ -59,7 +61,8 @@ export class GitlabAdapter implements SpecSourcePort {
 
   async getFileEntries(options: GetFileEntriesOptions): Promise<SpecFileEntry[]> {
     const token = await this.config.tokenProvider.getToken(this.projectKey)
-    const { revision, fragmentsDir } = options
+    const { revision } = options
+    const sourceRoot = resolveSpecSourceRoot(options)
     const projectPath = encodeURIComponent(String(this.config.projectId))
 
     // GitLab tree API returns max 100 items — paginate until exhausted
@@ -67,7 +70,7 @@ export class GitlabAdapter implements SpecSourcePort {
     let page = 1
     while (true) {
       const params = new URLSearchParams({
-        path: fragmentsDir,
+        path: sourceRoot,
         ref: revision.id,
         recursive: 'true',
         per_page: '100',
@@ -80,9 +83,9 @@ export class GitlabAdapter implements SpecSourcePort {
       page++
     }
 
-    const fileItems = allItems.filter(item => item.type === 'blob' && isDefinitionFile(item.path))
+    const fileItems = allItems.filter(item => item.type === 'blob' && isSpecProjectFile(item.path, options.sourceKind))
 
-    const prefix = fragmentsDir.replace(/\/$/, '') + '/'
+    const prefix = sourceRoot.replace(/\/$/, '') + '/'
     const settled = await Promise.allSettled(
       fileItems.map(async item => {
         const relativePath = item.path.startsWith(prefix) ? item.path.slice(prefix.length) : item.path
@@ -152,8 +155,4 @@ export class GitlabAdapter implements SpecSourcePort {
 
 function sha256(content: string): string {
   return createHash('sha256').update(content).digest('hex')
-}
-
-function isDefinitionFile(filePath: string): boolean {
-  return filePath.endsWith('.yaml') || filePath.endsWith('.yml') || filePath.endsWith('.json')
 }

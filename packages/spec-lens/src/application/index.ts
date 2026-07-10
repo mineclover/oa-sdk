@@ -1,5 +1,10 @@
 export { RefreshTimelineHandler } from './commands/refresh-timeline.command.js'
-export type { RefreshTimelineOptions, RefreshTimelineResult } from './commands/refresh-timeline.command.js'
+export type {
+  DefinitionBuilderRefreshTimelineOptions,
+  RefreshTimelineOptions,
+  RefreshTimelineResult,
+  TypeSpecBundleRefreshTimelineOptions,
+} from './commands/refresh-timeline.command.js'
 
 export { GetDiffHandler } from './queries/get-diff.query.js'
 export { GetGraphHandler } from './queries/get-graph.query.js'
@@ -13,7 +18,12 @@ export type { GetSnapshotQuery } from './queries/get-snapshot.query.js'
 export type { GetTimelineQuery } from './queries/get-timeline.query.js'
 
 export type { CachePort, ListPathsOptions, ListTimelineOptions } from './ports/cache.port.js'
-export type { BuildSnapshotOptions, SnapshotBuilderPort } from './ports/snapshot-builder.port.js'
+export type {
+  BuildSnapshotOptions,
+  DefinitionBuilderBuildSnapshotOptions,
+  SnapshotBuilderPort,
+  TypeSpecBundleBuildSnapshotOptions,
+} from './ports/snapshot-builder.port.js'
 export type {
   GetFileEntriesOptions,
   ListRevisionsOptions,

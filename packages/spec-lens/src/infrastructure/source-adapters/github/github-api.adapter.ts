@@ -6,6 +6,7 @@ import type {
 } from '../../../application/ports/spec-source.port.js'
 import type { SpecFileEntry, SpecRevision } from '../../../domain/index.js'
 import type { TokenProvider } from './token-provider.js'
+import { isSpecProjectFile, resolveSpecSourceRoot } from '../source-file-policy.js'
 
 export type GithubApiAdapterConfig = {
   owner: string
@@ -47,8 +48,9 @@ export class GithubApiAdapter implements SpecSourcePort {
 
   async listRevisions(options: ListRevisionsOptions): Promise<SpecRevision[]> {
     const token = await this.config.tokenProvider.getToken(this.repoKey)
+    const sourceRoot = resolveSpecSourceRoot(options)
     const params = new URLSearchParams({
-      path: options.fragmentsDir,
+      path: sourceRoot,
       per_page: String(options.limit ?? 50),
     })
     if (options.branch !== undefined) params.set('sha', options.branch)
@@ -64,7 +66,8 @@ export class GithubApiAdapter implements SpecSourcePort {
 
   async getFileEntries(options: GetFileEntriesOptions): Promise<SpecFileEntry[]> {
     const token = await this.config.tokenProvider.getToken(this.repoKey)
-    const { revision, fragmentsDir } = options
+    const { revision } = options
+    const sourceRoot = resolveSpecSourceRoot(options)
 
     const commitUrl = `${this.apiBase}/repos/${this.config.owner}/${this.config.repo}/commits/${revision.id}`
     const commit = await this.fetchJson<{ commit: { tree: { sha: string } } }>(commitUrl, token)
@@ -75,14 +78,14 @@ export class GithubApiAdapter implements SpecSourcePort {
     if (tree.truncated) {
       throw new Error(
         `Git tree truncated at commit ${revision.id}. The repo is too large for recursive tree fetch. ` +
-        `Use a more specific fragmentsDir or contact repo maintainers.`,
+        `Use a more specific sourceRoot or contact repo maintainers.`,
       )
     }
 
-    const normalized = fragmentsDir.replace(/^\//, '').replace(/\/$/, '')
+    const normalized = sourceRoot.replace(/^\//, '').replace(/\/$/, '')
     const prefix = normalized === '' ? '' : normalized + '/'
     const fileItems = tree.tree.filter(
-      item => item.type === 'blob' && item.path.startsWith(prefix) && isDefinitionFile(item.path),
+      item => item.type === 'blob' && item.path.startsWith(prefix) && isSpecProjectFile(item.path, options.sourceKind),
     )
 
     return withConcurrency(
@@ -144,10 +147,6 @@ export class GithubApiAdapter implements SpecSourcePort {
 
 function sha256(content: string): string {
   return createHash('sha256').update(content).digest('hex')
-}
-
-function isDefinitionFile(filePath: string): boolean {
-  return filePath.endsWith('.yaml') || filePath.endsWith('.yml') || filePath.endsWith('.json')
 }
 
 async function withConcurrency<T>(tasks: Array<() => Promise<T>>, limit: number): Promise<T[]> {

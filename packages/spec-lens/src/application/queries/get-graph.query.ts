@@ -4,9 +4,7 @@ import type { SpecGraph, SpecSnapshotStored } from '../../domain/index.js'
 
 export type GetGraphQuery = {
   revisionId: string
-  fragmentsDir: string
-  targetPath: string
-  targetConfigDigest: string
+  projectKey: string
 }
 
 export class GetGraphHandler {
@@ -15,9 +13,7 @@ export class GetGraphHandler {
   async handle(query: GetGraphQuery): Promise<SpecGraph | null> {
     const stored = await this.cache.getSnapshotByRevision(
       query.revisionId,
-      query.fragmentsDir,
-      query.targetPath,
-      query.targetConfigDigest,
+      query.projectKey,
     )
     if (stored === null) return null
 

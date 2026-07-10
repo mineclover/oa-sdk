@@ -1,6 +1,7 @@
 # @oa-sdk/spec-lens
 
-OpenAPI 스펙 변경 이력 관리·관측 서버 패키지.
+OpenAPI 스펙 변경 이력 관리·관측 서버 패키지. Definition Builder rollback
+project와 TypeSpec production project를 구분하는 project identity를 제공한다.
 
 git 소스(GitHub / GitLab / 로컬 git)에서 definition fragments 변경 이력을 수집하고, 커밋별 스냅샷 빌드·diff 계산·Read Model 갱신을 수행하며, Hono HTTP API로 제공한다. 브라우저 UI(`apps/spec-lens`)가 이 API를 소비한다.
 
@@ -22,11 +23,28 @@ node dist/cli.js
 
 ```yaml
 source: local-git
-fragmentsDir: packages/schemas/src/fragments
-targetPath: packages/schemas/src/targets/book-notebook-api.yaml
+project:
+  kind: definition-builder
+  sourceRoot: packages/schemas/src/fragments
+  targetPath: packages/schemas/src/targets/book-notebook-api.yaml
 port: 4891
 dbPath: .spec-lens.db
 ```
+
+기존 top-level `fragmentsDir` / `targetPath` 설정도 동일한
+`definition-builder` project로 변환되어 계속 동작한다. TypeSpec production
+bundle은 다음 판별 설정으로 식별한다.
+
+```yaml
+project:
+  kind: typespec-bundle
+  sourceRoot: packages/schemas/typespec
+  manifestPath: packages/schemas/typespec/oa-sdk.typespec-bundle.json
+```
+
+현재 안전 마일스톤은 TypeSpec bundle의 `.tsp` / JSON / YAML 변경 후보 수집과
+project cache 격리까지 제공한다. Historical compile/restore snapshot은
+`TypeSpecBundleSnapshotBuilder` 후속 구현 전까지 server 실행 대상이 아니다.
 
 ---
 
@@ -99,10 +117,10 @@ pnpm test
 
 | 파일 | 커버 범위 |
 |------|---------|
-| `cache-key.test.ts` | 캐시 키 결정성, 파라미터별 격리 |
-| `sqlite-cache.test.ts` | save/load 라운드트립, isolation, upsert, limit |
+| `cache-key.test.ts` | project source/digest/builder/schema identity와 legacy config 호환 |
+| `sqlite-cache.test.ts` | project별 snapshot/diff/read-model 격리, v1 cache invalidation, 라운드트립 |
 | `snapshot-builder-diff.test.ts` | diff 통계, affectedFragments, null spec 핸들링 |
-| `local-git-adapter.test.ts` | 실제 repo 기반 통합 검증 |
+| `local-git-adapter.test.ts` | 실제 repo 및 synthetic TypeSpec-only revision 관측 검증 |
 | `get-graph-query.test.ts` | 노드 빌드, 엣지 해석, self-loop 제외 |
 | `refresh-timeline.test.ts` | full workflow, lastChanged 최신 우선, 빌드 실패 처리 |
 | `query-handlers.test.ts` | GetDiff / GetPaths / GetSnapshot / GetTimeline 핸들러 |
@@ -130,6 +148,7 @@ pnpm --filter @oa-sdk/spec-lens test -- src/__tests__/gitlab-adapter.integration
 
 ## 알려진 제약
 
-- `fragment_blobs` 테이블은 content-addressable이므로 `clearCache` 시 삭제하지 않는다. 장기 운영 시 미참조 blob이 누적될 수 있으나 중복 저장은 없다.
+- cache schema v2는 project identity가 없는 v1 DB를 열 때 기존 cache/read model을 폐기하고 Git history에서 재구축한다.
+- TypeSpec bundle source adapter는 `.tsp` 변경을 관측하지만 historical compile/restore snapshot adapter는 다음 마일스톤이다.
 - `source: github` 의 `GithubAdapter`는 bare clone 후 로컬 git으로 동작한다. git CLI가 없는 환경에서는 `GithubApiAdapter`를 직접 사용한다.
 - `source: gitlab` 은 REST API 방식. self-hosted GitLab은 GitHub처럼 좁은 API rate limit이 없으므로 bare-clone 변환은 도입하지 않았다 — rate limit 압력이 실제로 발생하면 재고려.
