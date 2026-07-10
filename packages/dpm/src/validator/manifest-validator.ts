@@ -19,6 +19,7 @@ export function validateDpmManifest(input: DpmValidationInput): DpmValidationRes
     ...validateManifestRelationships({
       relationships: context.relationships,
       scopeTables: context.scopeTables,
+      ...(context.metadataDatasetId ? { metadataDatasetId: context.metadataDatasetId } : {}),
       ...(context.registryReference ? { registryReference: context.registryReference } : {}),
       catalog: input.catalog,
       registry: input.registry,

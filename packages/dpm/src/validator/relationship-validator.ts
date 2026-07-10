@@ -17,6 +17,7 @@ export function validateManifestRelationships(input: RelationshipValidationInput
     scopeTables: input.scopeTables,
   })
   diagnostics.push(...validateRelationshipRegistryReference({
+    ...(input.metadataDatasetId ? { metadataDatasetId: input.metadataDatasetId } : {}),
     ...(input.registryReference ? { registryReference: input.registryReference } : {}),
     registry: input.registry,
   }))

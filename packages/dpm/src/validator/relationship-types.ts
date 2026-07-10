@@ -37,6 +37,7 @@ export type RelationshipRegistryReference = {
 export type RelationshipValidationInput = {
   relationships: readonly ManifestRelationship[]
   scopeTables: readonly string[]
+  metadataDatasetId?: string
   registryReference?: RelationshipRegistryReference
   catalog: CatalogSnapshot
   registry: RegistrySnapshot

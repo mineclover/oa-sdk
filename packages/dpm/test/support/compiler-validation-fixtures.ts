@@ -6,6 +6,13 @@ export type CompilerValidationBlockingCase = {
 
 export const compilerValidationBlockingCases = [
   {
+    label: 'manifest metadata dataset that differs from the approved registry snapshot',
+    expectedDiagnosticCode: 'REL011',
+    mutateManifest: manifest => {
+      manifest.metadata.dataset_id = 'other_tenant'
+    },
+  },
+  {
     label: 'unsafe direct identifier keep transform',
     expectedDiagnosticCode: 'SAF001',
     mutateManifest: manifest => {
