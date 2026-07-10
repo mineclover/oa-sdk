@@ -20,6 +20,7 @@ export type {
   MatchResult,
   ParsedDocument,
 } from './types.js'
+export { isParsedDocument } from './parsed-document.js'
 
 // ─── 풀 문서 파서 ─────────────────────────────────────────────────────────
 export { parseDocument } from './parse.js'

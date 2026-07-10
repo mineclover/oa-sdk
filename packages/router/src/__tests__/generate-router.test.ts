@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest'
+import { parseDocument } from '@oa-sdk/parser'
 import { generateRouter } from '../generate-router.js'
+import { generateRouter as generateBrowserRouter } from '../browser.js'
 import type { OasDocument } from '@oa-sdk/parser'
 
 function doc(overrides: Partial<OasDocument> = {}): OasDocument {
@@ -7,6 +9,18 @@ function doc(overrides: Partial<OasDocument> = {}): OasDocument {
 }
 
 describe('generateRouter — hono', () => {
+  it('accepts ParsedDocument IR in Node and browser entrypoints', () => {
+    const spec = doc({
+      paths: {
+        '/users': { get: { operationId: 'listUsers', responses: { '200': { description: 'OK' } } } },
+      },
+    })
+    const parsed = parseDocument(spec)
+
+    expect(generateRouter(parsed)).toContain("app.get('/users'")
+    expect(generateBrowserRouter(parsed)).toContain("app.get('/users'")
+  })
+
   it('기본 GET 라우트', () => {
     const code = generateRouter(doc({
       paths: {

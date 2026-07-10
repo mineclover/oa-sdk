@@ -16,6 +16,7 @@ export type {
   MatchResult,
   ParsedDocument,
 } from './types.js'
+export { isParsedDocument } from './parsed-document.js'
 
 export { parseResolvedDocument as parseDocument } from './parse-core.js'
 export { loadSchema } from './schema-loader-browser.js'

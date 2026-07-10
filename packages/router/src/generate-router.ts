@@ -6,7 +6,7 @@
  */
 
 import type { OasDocument, OasRequestBody, OasResponse, ParsedDocument } from '@oa-sdk/parser'
-import { parseDocument, DEFAULT_PASSES } from '@oa-sdk/parser'
+import { isParsedDocument, parseDocument, DEFAULT_PASSES } from '@oa-sdk/parser'
 import { toColonPath, pascalCase, collectTypeNames, formatGeneratedTs, pickDefaultStatus } from '@oa-sdk/core'
 
 export type RouterTarget = 'hono' | 'express'
@@ -26,9 +26,9 @@ export type RouterOptions = {
  * OAS 원본 문서 또는 ParsedDocument IR에서 서버 라우터 스텁을 생성합니다.
  */
 export function generateRouter(spec: OasDocument | ParsedDocument, options: RouterOptions = {}): string {
-  const doc: ParsedDocument = 'openapi' in spec
-    ? parseDocument(spec as OasDocument, options.basePath ? { basePath: options.basePath } : DEFAULT_PASSES)
-    : spec
+  const doc = isParsedDocument(spec)
+    ? spec
+    : parseDocument(spec, options.basePath ? { basePath: options.basePath } : DEFAULT_PASSES)
   const { target = 'hono', typesImport, banner = true } = options
   const lines: string[] = []
 

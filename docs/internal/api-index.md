@@ -490,6 +490,7 @@ category barrel을 가리킨다. `packages/dpm/test/package-subpath-import-smoke
 | 함수 | 파일 | 용도 |
 |------|------|------|
 | `parseDocument()` | `parse.ts` | OAS 문서 → ParsedDocument IR (정식 진입점) |
+| `isParsedDocument()` | `parsed-document.ts` | raw OAS와 Map-backed `ParsedDocument` IR을 구분하는 runtime type guard |
 | `loadSchema()` | `schema-loader.ts` | OAS 문서 → RouteIndex (레거시 호환) |
 | `matchRoute()` | `schema-loader.ts` | RouteIndex에서 경로+메서드 매칭 |
 | `HTTP_METHODS` | `schema-loader.ts` | HTTP 메서드 상수 배열 |

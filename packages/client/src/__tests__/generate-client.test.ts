@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest'
+import { parseDocument } from '@oa-sdk/parser'
 import { generateClient } from '../generate-client.js'
+import { generateClient as generateBrowserClient } from '../browser.js'
 import type { OasDocument } from '@oa-sdk/parser'
 import { ModuleKind, ScriptTarget, transpileModule } from 'typescript'
 
@@ -49,6 +51,18 @@ function headersSpec(): OasDocument {
 }
 
 describe('generateClient', () => {
+  it('accepts ParsedDocument IR in Node and browser entrypoints', () => {
+    const spec = doc({
+      paths: {
+        '/users': { get: { operationId: 'listUsers', responses: { '200': { description: 'OK' } } } },
+      },
+    })
+    const parsed = parseDocument(spec)
+
+    expect(generateClient(parsed)).toContain('async listUsers(')
+    expect(generateBrowserClient(parsed)).toContain('async listUsers(')
+  })
+
   it('GET 메서드 생성', () => {
     const code = generateClient(doc({
       paths: {

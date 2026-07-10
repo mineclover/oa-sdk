@@ -5,7 +5,7 @@
  */
 
 import type { OasDocument, OasRequestBody, OasResponse, OasSchema, ParsedDocument } from '@oa-sdk/parser'
-import { parseDocument, resolveServerUrl, DEFAULT_PASSES } from '@oa-sdk/parser'
+import { isParsedDocument, parseDocument, resolveServerUrl, DEFAULT_PASSES } from '@oa-sdk/parser'
 import { pascalCase, collectTypeNames, formatGeneratedTs } from '@oa-sdk/core'
 
 export type ClientOptions = {
@@ -21,9 +21,9 @@ export type ClientOptions = {
  * OAS 원본 문서에서 fetch 클라이언트 SDK를 생성합니다.
  */
 export function generateClient(spec: OasDocument | ParsedDocument, options: ClientOptions = {}): string {
-  const doc: ParsedDocument = 'openapi' in spec
-    ? parseDocument(spec as OasDocument, options.basePath ? { basePath: options.basePath } : DEFAULT_PASSES)
-    : spec
+  const doc = isParsedDocument(spec)
+    ? spec
+    : parseDocument(spec, options.basePath ? { basePath: options.basePath } : DEFAULT_PASSES)
   const { typesImport, banner = true } = options
   const lines: string[] = []
 
