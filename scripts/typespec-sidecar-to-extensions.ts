@@ -10,6 +10,10 @@ import {
   convertTypeSpecSidecarToExtensions,
   type TypeSpecSidecarToExtensionsOptions,
 } from '../packages/codegen/src/cli/lib/typespec-sidecar-to-extensions.js'
+import {
+  formatTypeSpecOpenApiExtensionSchemaVersions,
+  isTypeSpecOpenApiExtensionSchemaVersion,
+} from '../packages/codegen/src/cli/lib/typespec-extension-schema-version.js'
 import { parseTypeSpecCompatibilitySidecar } from '../packages/codegen/src/cli/lib/typespec-sidecar.js'
 
 type Args = {
@@ -97,8 +101,10 @@ function parseArgs(rawArgs: string[]): Args {
     }
     if (arg === '--extension-schema-version') {
       const value = readValue(inputArgs, index, arg)
-      if (value !== 'oa-sdk.typespec-extensions.v1' && value !== 'oa-sdk.typespec-extensions.v2') {
-        throw new Error('--extension-schema-version must be oa-sdk.typespec-extensions.v1 or oa-sdk.typespec-extensions.v2')
+      if (!isTypeSpecOpenApiExtensionSchemaVersion(value)) {
+        throw new Error(
+          `--extension-schema-version must be ${formatTypeSpecOpenApiExtensionSchemaVersions()}`,
+        )
       }
       args.extensionSchemaVersion = value
       index += 1
@@ -132,6 +138,6 @@ Options:
   --output, -o <path>                 Write TypeSpec @extension snippets.
   --remaining-sidecar <path>          Write entries that still need sidecar ownership.
   --report <path>                     Write conversion report JSON.
-  --extension-schema-version <value>  oa-sdk.typespec-extensions.v1 or oa-sdk.typespec-extensions.v2.
+  --extension-schema-version <value>  ${formatTypeSpecOpenApiExtensionSchemaVersions()}.
 `)
 }

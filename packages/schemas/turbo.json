@@ -1,0 +1,27 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "extends": ["//"],
+  "tasks": {
+    "build": {
+      "dependsOn": ["^build"],
+      "inputs": [
+        "src/**",
+        "!src/.builder/**",
+        "!src/.merged*",
+        "typespec/**",
+        "scripts/**",
+        ".spectral.yaml",
+        "redocly.yaml",
+        "package.json",
+        "$TURBO_ROOT$/package.json",
+        "$TURBO_ROOT$/scripts/schema-typespec-check.ts"
+      ],
+      "outputs": [
+        "dist/**",
+        "src/.merged.yaml",
+        "src/.merged.3.1.yaml",
+        "src/.merged.3.1.meta.json"
+      ]
+    }
+  }
+}

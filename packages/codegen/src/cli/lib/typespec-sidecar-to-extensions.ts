@@ -13,7 +13,7 @@ import {
   type TypeSpecRootInfoSidecarEntry,
   type TypeSpecSecuritySchemeSidecarEntry,
 } from './typespec-sidecar.js'
-import type { TypeSpecOpenApiExtensionSchemaVersion } from './typespec-oa-sdk-extensions.js'
+import type { TypeSpecOpenApiExtensionSchemaVersion } from './typespec-extension-schema-version.js'
 
 type HttpMethod = TypeSpecRequestExamplesSidecarEntry['target']['method']
 type RecordValue = Record<string, unknown>

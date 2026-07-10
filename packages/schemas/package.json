@@ -31,7 +31,7 @@
     "build:openapi": "pnpm build:merged && pnpm downgrade:3.1",
     "build:full": "pnpm validate && pnpm bundle",
     "upgrade:3.2": "node --import tsx scripts/upgrade-3.2.ts",
-    "dev": "nodemon --watch src --ext yaml --ignore src/.merged.yaml --exec 'pnpm bundle'",
+    "dev": "nodemon --watch typespec --watch src --ext tsp,json,yaml,yml --ignore 'src/.merged*' --ignore 'src/.builder/**' --exec 'corepack pnpm bundle'",
     "test": "vitest run",
     "clean": "rm -rf dist src/.merged.yaml src/.merged.3.1.yaml src/.merged.3.1.meta.json"
   },

@@ -1,5 +1,8 @@
 import type { OasDocument, OasOperation } from '@oa-sdk/parser'
 import type {
+  TypeSpecOpenApiExtensionSchemaVersion,
+} from './typespec-extension-schema-version.js'
+import type {
   TypeSpecCompatibilitySidecar,
   TypeSpecCompatibilitySidecarEntry,
 } from './typespec-sidecar.js'
@@ -16,12 +19,9 @@ const OPERATION_SECURITY_EXTENSION = 'x-oa-sdk-operation-security'
 const SECURITY_SCHEMES_EXTENSION = 'x-oa-sdk-security-schemes'
 const DEFAULT_EXTENSION_SCHEMA_VERSION: TypeSpecOpenApiExtensionSchemaVersion = 'oa-sdk.typespec-extensions.v1'
 
-export type TypeSpecOpenApiExtensionSchemaVersion =
-  | 'oa-sdk.typespec-extensions.v1'
-  | 'oa-sdk.typespec-extensions.v2'
-  | 'oa-sdk.typespec-extensions.v3'
-  | 'oa-sdk.typespec-extensions.v4'
-  | 'oa-sdk.typespec-extensions.v5'
+export type {
+  TypeSpecOpenApiExtensionSchemaVersion,
+} from './typespec-extension-schema-version.js'
 
 export type TypeSpecOpenApiExtensionRestoreResult = {
   document: OasDocument

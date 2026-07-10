@@ -1,11 +1,13 @@
 import { dirname, isAbsolute, normalize, relative, resolve } from 'node:path'
+import {
+  formatTypeSpecOpenApiExtensionSchemaVersions,
+  isTypeSpecOpenApiExtensionSchemaVersion,
+  type TypeSpecOpenApiExtensionSchemaVersion,
+} from './typespec-extension-schema-version.js'
 
-export type TypeSpecOpenApiExtensionSchemaVersion =
-  | 'oa-sdk.typespec-extensions.v1'
-  | 'oa-sdk.typespec-extensions.v2'
-  | 'oa-sdk.typespec-extensions.v3'
-  | 'oa-sdk.typespec-extensions.v4'
-  | 'oa-sdk.typespec-extensions.v5'
+export type {
+  TypeSpecOpenApiExtensionSchemaVersion,
+} from './typespec-extension-schema-version.js'
 
 export type TypeSpecBundleManifest = {
   schemaVersion: 'oa-sdk.typespec-bundle.v1'
@@ -63,19 +65,28 @@ export function parseTypeSpecBundleManifest(value: unknown, path = '<memory>'): 
     } else {
       const openapiVersion = optionalString(value.compatibility, 'openapiVersion', errors)
       const sidecarSchemaVersion = optionalString(value.compatibility, 'sidecarSchemaVersion', errors)
-      const oaSdkExtensionSchemaVersion = optionalString(value.compatibility, 'oaSdkExtensionSchemaVersion', errors)
+      const declaredOaSdkExtensionSchemaVersion = optionalString(
+        value.compatibility,
+        'oaSdkExtensionSchemaVersion',
+        errors,
+      )
+      const oaSdkExtensionSchemaVersion = isTypeSpecOpenApiExtensionSchemaVersion(
+        declaredOaSdkExtensionSchemaVersion,
+      )
+        ? declaredOaSdkExtensionSchemaVersion
+        : undefined
       compatibility = {
         ...(openapiVersion ? { openapiVersion } : {}),
         ...(sidecarSchemaVersion ? { sidecarSchemaVersion } : {}),
-        ...(oaSdkExtensionSchemaVersion
-          ? { oaSdkExtensionSchemaVersion: oaSdkExtensionSchemaVersion as TypeSpecOpenApiExtensionSchemaVersion }
-          : {}),
+        ...(oaSdkExtensionSchemaVersion ? { oaSdkExtensionSchemaVersion } : {}),
       }
       if (sidecarSchemaVersion && sidecarSchemaVersion !== 'oa-sdk.typespec-compat-sidecar.v1') {
         errors.push('compatibility.sidecarSchemaVersion must be oa-sdk.typespec-compat-sidecar.v1')
       }
-      if (oaSdkExtensionSchemaVersion && !isTypeSpecOpenApiExtensionSchemaVersion(oaSdkExtensionSchemaVersion)) {
-        errors.push('compatibility.oaSdkExtensionSchemaVersion must be oa-sdk.typespec-extensions.v1, oa-sdk.typespec-extensions.v2, oa-sdk.typespec-extensions.v3, oa-sdk.typespec-extensions.v4, or oa-sdk.typespec-extensions.v5')
+      if (declaredOaSdkExtensionSchemaVersion && !oaSdkExtensionSchemaVersion) {
+        errors.push(
+          `compatibility.oaSdkExtensionSchemaVersion must be ${formatTypeSpecOpenApiExtensionSchemaVersions()}`,
+        )
       }
     }
   }
@@ -148,14 +159,6 @@ function optionalString(record: Record<string, unknown>, key: string, errors: st
     return undefined
   }
   return value
-}
-
-function isTypeSpecOpenApiExtensionSchemaVersion(value: string): value is TypeSpecOpenApiExtensionSchemaVersion {
-  return value === 'oa-sdk.typespec-extensions.v1'
-    || value === 'oa-sdk.typespec-extensions.v2'
-    || value === 'oa-sdk.typespec-extensions.v3'
-    || value === 'oa-sdk.typespec-extensions.v4'
-    || value === 'oa-sdk.typespec-extensions.v5'
 }
 
 function validateManifestRelativePath(path: string, key: string, errors: string[]): void {
