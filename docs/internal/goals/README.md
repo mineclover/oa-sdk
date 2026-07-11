@@ -2,6 +2,29 @@
 
 → 진행 현황 체크리스트: [progress-index.md](./progress-index.md)
 
+## 현재 목표 운영 범위
+
+제품 범위의 SSOT는 [`../platform-scope.md`](../platform-scope.md)다. 앞으로 active feature
+goal의 기본 범위는 다음 Core Platform 여섯 패키지다.
+
+`@oa-sdk/core`, `@oa-sdk/openapi-projection-contract`, `@oa-sdk/schemas`,
+`@oa-sdk/parser`, `@oa-sdk/codegen`, `@oa-sdk/spec-lens`
+
+`router`, `client`, `mock-server`를 포함해 Core Platform 밖의 신규 feature goal은 구현 전에
+명시적인 scope-reactivation decision을 요구한다. 결정에는 사용자 문제, Core Mission과의 관계,
+소유자와 유지 비용, release/CI 책임, monorepo 유지 또는 extraction 방향을 기록한다.
+
+`dpm`, `personas`, `typia-mock`, `markdown-editor`는 maintenance-only다. 별도 decision이 없는
+상태에서 허용되는 goal은 security, compatibility, migration/extraction에 한정한다.
+`infra-gitlab`, `orchestrator-gitlab`과 app/reference workspace는 Core roadmap 밖의 incubating 또는
+consumer surface다.
+
+아래 완료 목록은 구현 이력이다. 과거 goal의 완료 상태는 현재 active product scope나 신규 기능
+투자 승인을 뜻하지 않는다. 특히 Goal 4~64와 Goal 67의 DPM 결과물은 보존하되 maintenance-only
+policy를 적용한다.
+
+## 완료 목표 이력
+
 | 목표/Phase | 상태 | 패키지 |
 |-----------|------|--------|
 | [Goal 1 — 스키마 관리](./goal-1-schemas.md) | ✅ | schemas |

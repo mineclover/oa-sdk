@@ -1,60 +1,70 @@
 # Release Management
 
-이 문서는 package-level versioning과 patch note 운영의 기준이다. 구현 현황의 SSOT는
-[`spec.md`](./spec.md), API surface의 SSOT는 [`api-index.md`](./api-index.md), 큰 surface 변경
-기록은 [`../changelog.md`](../changelog.md)에 둔다.
+이 문서는 package-level versioning과 patch note 운영의 기준이다. 제품 범위의 SSOT는
+[`platform-scope.md`](./platform-scope.md), 구현 현황의 SSOT는 [`spec.md`](./spec.md), API
+surface의 SSOT는 [`api-index.md`](./api-index.md), 큰 surface 변경 기록은
+[`../changelog.md`](../changelog.md)에 둔다.
 
-Machine-readable policy는 [`release-policy.json`](./release-policy.json)이다. `pnpm
+Machine-readable policy는 version 2의 [`release-policy.json`](./release-policy.json)이다. `pnpm
 check:release-policy`가 이 파일과 workspace package manifests, `.changeset/config.json`, 이 문서의
 정합성을 검증한다.
 
 ## Current State
 
 - Root package는 private monorepo이며 Changesets가 설치되어 있다.
-- 모든 workspace package/app은 현재 `private: true`다. 따라서 현재 `pnpm release`는 npm publish
-  파이프라인으로 보기보다, package version intent와 patch note 초안을 관리하기 위한 장치다.
+- 모든 workspace package/app은 현재 `private: true`다. `pnpm release`는 Core와 Downstream만
+  build한 뒤 `changeset publish`를 호출하지만, publish readiness가 닫혀 있으므로 공개 npm 배포
+  명령으로 사용하지 않는다. Version intent와 patch note 초안은 `pnpm changeset`과
+  `pnpm version-packages`로 관리한다.
 - 실제 publish를 열기 전에는 package별 `files`, `publishConfig`, repository/license metadata, public
   dependency contract를 별도 readiness로 확인한다.
 - Internal dependencies는 모두 `workspace:` protocol을 사용한다. Changesets config는 내부 의존성
   bump를 `patch`로 전파한다.
+- Release policy v2는 9개 release-tracked package와 11개 ignored workspace를 관리한다. Release
+  tracking은 제품 scope와 일치시키되, Core Platform과 Downstream Integration을 서로 다른
+  architecture tier로 유지한다.
 
 ## Release-Tracked Packages
 
-아래 패키지는 package-level versioning 후보로 유지한다.
+아래 9개 패키지는 package-level versioning 후보로 유지한다. Core Platform 여섯 패키지가
+schema/spec 관리 제품을 소유하고, Downstream Integration 세 패키지는 그 계약의 소비 가능성을
+증명한다.
 
-| Package | Current version | Role |
-| --- | ---: | --- |
-| `@oa-sdk/openapi-projection-contract` | `0.1.0` | OpenAPI projection contract types and validation |
-| `@oa-sdk/core` | `0.1.0` | Shared utilities and browser-safe core helpers |
-| `@oa-sdk/parser` | `0.1.0` | OpenAPI 3.2 parser, IR, query, browser entrypoint |
-| `@oa-sdk/schemas` | `0.1.0` | TypeSpec production source and OpenAPI artifacts |
-| `@oa-sdk/mock-server` | `0.1.0` | Mock engine with MSW and Node HTTP adapters |
-| `@oa-sdk/codegen` | `0.3.0` | CLI, typegen, governance, and schema/code generation |
-| `@oa-sdk/dpm` | `0.1.0` | Relationship-first Data Pseudonymization Manifest toolkit |
-| `@oa-sdk/router` | `0.1.0` | Server router generation |
-| `@oa-sdk/client` | `0.1.0` | Fetch client generation |
-| `@oa-sdk/typia-mock` | `0.1.0` | typia-compatible mock validation surface |
-| `@oa-sdk/personas` | `0.1.0` | Data Persona registry and validator |
-| `@oa-sdk/markdown-editor` | `0.1.0` | Reusable Markdown/GLFM editor helpers |
-| `@oa-sdk/spec-lens` | `0.1.0` | Spec history and observation package |
+| Tier | Package | Current version | Role |
+| --- | --- | ---: | --- |
+| Core Platform | `@oa-sdk/core` | `0.1.0` | Shared utilities and browser-safe core helpers |
+| Core Platform | `@oa-sdk/openapi-projection-contract` | `0.1.0` | OpenAPI projection contract types and validation |
+| Core Platform | `@oa-sdk/schemas` | `0.1.0` | TypeSpec production source and OpenAPI artifacts |
+| Core Platform | `@oa-sdk/parser` | `0.1.0` | OpenAPI 3.2 parser, IR, query, browser entrypoint |
+| Core Platform | `@oa-sdk/codegen` | `0.3.0` | CLI, typegen, governance, and schema/code generation |
+| Core Platform | `@oa-sdk/spec-lens` | `0.1.0` | Spec history and observation package |
+| Downstream Integration | `@oa-sdk/router` | `0.1.0` | Server router generation |
+| Downstream Integration | `@oa-sdk/client` | `0.1.0` | Fetch client generation |
+| Downstream Integration | `@oa-sdk/mock-server` | `0.1.0` | Mock engine with MSW and Node HTTP adapters |
 
 ## Ignored Workspaces
 
-아래 workspace는 Changesets release 대상에서 제외한다. 앱, reference implementation, local infra,
-incubating GitLab orchestration surface라 package-level npm release note와 분리한다.
+아래 11개 workspace는 Changesets release 대상에서 제외한다. Maintenance-only package는
+보안·호환·migration만 수행하고, incubating package와 app/reference workspace는 Core release와
+분리한다. Ignored는 삭제나 검증 중단을 뜻하지 않으며 active feature investment가 아님을 뜻한다.
 
-| Workspace | Reason |
-| --- | --- |
-| `@oa-sdk/infra-gitlab` | Local/Pulumi infrastructure preset, currently `0.0.0` incubating |
-| `@oa-sdk/orchestrator-gitlab` | GitLab orchestration MVP, currently `0.0.0` incubating |
-| `@oa-sdk/nestjs-ref` | Reference implementation app |
-| `@oa-sdk/orchestrator-gitlab-ui` | Vite app, not a library package |
-| `@oa-sdk/playground` | Integration playground |
-| `@oa-sdk/preview` | Preview app |
-| `@oa-sdk/spec-lens-ui` | UI app paired with `@oa-sdk/spec-lens` |
+| Tier | Workspace | Reason |
+| --- | --- | --- |
+| Maintenance-only | `@oa-sdk/dpm` | Data-governance separation candidate; security, compatibility, migration only |
+| Maintenance-only | `@oa-sdk/personas` | Data-governance separation candidate; security, compatibility, migration only |
+| Maintenance-only | `@oa-sdk/typia-mock` | Experiment/archive candidate; security, compatibility, migration only |
+| Maintenance-only | `@oa-sdk/markdown-editor` | Agent-ops separation candidate; security, compatibility, migration only |
+| Incubating | `@oa-sdk/infra-gitlab` | Local/Pulumi infrastructure preset, currently `0.0.0` |
+| Incubating | `@oa-sdk/orchestrator-gitlab` | GitLab orchestration MVP, currently `0.0.0` |
+| App/reference | `@oa-sdk/nestjs-ref` | Reference implementation app |
+| App/reference | `@oa-sdk/orchestrator-gitlab-ui` | Vite app, not a library package |
+| App/reference | `@oa-sdk/playground` | Integration playground |
+| App/reference | `@oa-sdk/preview` | Preview app |
+| App/reference | `@oa-sdk/spec-lens-ui` | UI app paired with `@oa-sdk/spec-lens` |
 
-If one of these becomes a public package, remove it from `.changeset/config.json` and give it an
-explicit versioning policy first.
+새 non-core feature나 public package 승격은 구현 전에
+[`platform-scope.md`](./platform-scope.md)의 scope-reactivation decision을 먼저 기록하고,
+승인된 경우에만 `.changeset/config.json`과 release policy를 함께 변경한다.
 
 ## Versioning Policy
 
@@ -66,6 +76,7 @@ explicit versioning policy first.
 - A package version bump should correspond to a package-level contract change, not every internal
   implementation commit.
 - Browser subpath exports are part of the public contract for packages that expose them.
+- Maintenance-only, incubating, app/reference workspace에는 새 feature Changeset을 만들지 않는다.
 
 ## Patch Note Policy
 

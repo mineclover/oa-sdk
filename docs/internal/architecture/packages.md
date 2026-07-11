@@ -1,26 +1,34 @@
 # 패키지 구조
 
+제품 범위와 신규 작업 승인 기준은 [`../platform-scope.md`](../platform-scope.md)가 소유한다.
+이 문서는 현재 물리 package 구조와 dependency boundary를 설명한다. Scope 분류 변경으로
+directory, package name, import path를 즉시 바꾸지는 않는다.
+
 ```
 oa-sdk/
   packages/
-    openapi-projection-contract/ @oa-sdk/openapi-projection-contract OAS projection contract + validation
-    core/          @oa-sdk/core         공유 유틸 (pascalCase, toColonPath, collectTypeNames)
-    parser/        @oa-sdk/parser       OAS 3.2 파서 + IR + fold + lint + query
-    schemas/       @oa-sdk/schemas      TypeSpec production source + Definition Builder rollback + OAS artifact 검증
-    dpm/           @oa-sdk/dpm          Relationship-first Data Pseudonymization Manifest toolkit
-    personas/      @oa-sdk/personas     Data Persona trait registry + persona matrix + validator
-    mock-server/   @oa-sdk/mock-server  AJV Mock 서버 (MSW + Node HTTP) + 테스트 헬퍼
-    codegen/       @oa-sdk/codegen      Zod/Drizzle → OAS + typegen + CLI
-    router/        @oa-sdk/router       OAS → Hono/Express 라우터 스텁
-    client/        @oa-sdk/client       OAS → fetch 클라이언트 SDK + 인증 + 재시도
-    typia-mock/    @oa-sdk/typia-mock   typia ILlmApplication 검증 서버
-    spec-lens/     @oa-sdk/spec-lens    OpenAPI spec change history + observation
-    markdown-editor/ @oa-sdk/markdown-editor GLFM editor helpers + serialization
-    orchestrator-gitlab/ @oa-sdk/orchestrator-gitlab GitLab-native coding-agent orchestration
-    infra-gitlab/  @oa-sdk/infra-gitlab GitLab CE/Runner infrastructure preset
+    openapi-projection-contract/ @oa-sdk/openapi-projection-contract OAS projection contract + validation [core]
+    core/          @oa-sdk/core         공유 유틸 (pascalCase, toColonPath, collectTypeNames) [core]
+    parser/        @oa-sdk/parser       OAS 3.2 파서 + IR + fold + lint + query [core]
+    schemas/       @oa-sdk/schemas      TypeSpec production source + Definition Builder rollback + OAS artifact 검증 [core]
+    codegen/       @oa-sdk/codegen      Zod/Drizzle → OAS + typegen + CLI [core]
+    spec-lens/     @oa-sdk/spec-lens    OpenAPI spec change history + observation [core]
+    mock-server/   @oa-sdk/mock-server  AJV Mock 서버 (MSW + Node HTTP) + 테스트 헬퍼 [downstream]
+    router/        @oa-sdk/router       OAS → Hono/Express 라우터 스텁 [downstream]
+    client/        @oa-sdk/client       OAS → fetch 클라이언트 SDK + 인증 + 재시도 [downstream]
+    dpm/           @oa-sdk/dpm          Relationship-first Data Pseudonymization Manifest toolkit [maintenance]
+    personas/      @oa-sdk/personas     Data Persona trait registry + persona matrix + validator [maintenance]
+    typia-mock/    @oa-sdk/typia-mock   typia ILlmApplication 검증 서버 [maintenance]
+    markdown-editor/ @oa-sdk/markdown-editor GLFM editor helpers + serialization [maintenance]
+    orchestrator-gitlab/ @oa-sdk/orchestrator-gitlab GitLab-native coding-agent orchestration [incubating]
+    infra-gitlab/  @oa-sdk/infra-gitlab GitLab CE/Runner infrastructure preset [incubating]
   apps/
-    playground/    통합 테스트 + 데모
-    preview/       @oa-sdk/preview  Vite 프리뷰 웹앱 (SW mock + 코드 생성)
+    nestjs-ref/    @oa-sdk/nestjs-ref NestJS reference implementation
+    orchestrator-gitlab-ui/ @oa-sdk/orchestrator-gitlab-ui orchestration UI
+    playground/    @oa-sdk/playground 통합 테스트 + 데모
+    preview/       @oa-sdk/preview Vite 프리뷰 웹앱 (SW mock + 코드 생성)
+    spec-lens/     @oa-sdk/spec-lens-ui spec observation UI
+    fastapi-ref/   pnpm workspace가 아닌 FastAPI reference implementation
   docs/
     guides/        유저 가이드 (use-cases 포함)
     internal/      프로젝트 관리 SSOT
@@ -29,40 +37,63 @@ oa-sdk/
 
 ## 패키지 카테고리
 
-| 카테고리 | 패키지 | 소유 범위 |
+| Scope tier | 패키지 | 소유 범위 |
 |---|---|---|
-| API 계약/스펙 SSOT | `@oa-sdk/schemas`, `@oa-sdk/parser`, `@oa-sdk/openapi-projection-contract`, `@oa-sdk/codegen` | TypeSpec/OpenAPI 계약, projection envelope, 파싱/검증/생성 |
-| 논리 데이터 계약 | `@oa-sdk/dpm`, `@oa-sdk/personas` | 물리 DB schema를 변경하지 않고 catalog snapshot, logical entity, relationship registry, 가명처리 policy와 API audience 의무를 정의 |
-| 실행/소비자 산출물 | `@oa-sdk/router`, `@oa-sdk/client`, `@oa-sdk/mock-server`, `@oa-sdk/typia-mock` | API 계약을 라우터, fetch client, mock runtime, LLM function validation server로 투영 |
-| 거버넌스/관측 | `@oa-sdk/spec-lens` | 스펙 변경 이력, diff, drift 관측 |
-| 운영/도구성 | `@oa-sdk/core`, `@oa-sdk/markdown-editor`, `@oa-sdk/orchestrator-gitlab`, `@oa-sdk/infra-gitlab` | 공통 유틸, 편집 보조, GitLab 오케스트레이션, 인프라 preset |
+| Core Platform | `@oa-sdk/core`, `@oa-sdk/openapi-projection-contract`, `@oa-sdk/schemas`, `@oa-sdk/parser`, `@oa-sdk/codegen`, `@oa-sdk/spec-lens` | schema/spec SSOT, 외부 projection 경계, 파싱/검증/생성, 변경 이력 관측 |
+| Downstream Integration | `@oa-sdk/router`, `@oa-sdk/client`, `@oa-sdk/mock-server` | Core 계약을 server stub, fetch client, mock runtime으로 투영하고 소비 가능성을 증명 |
+| Maintenance-only | `@oa-sdk/dpm`, `@oa-sdk/personas`, `@oa-sdk/typia-mock`, `@oa-sdk/markdown-editor` | 기존 계약의 security, compatibility, migration 유지. 신규 기능은 scope reactivation 전까지 금지 |
+| Incubating | `@oa-sdk/infra-gitlab`, `@oa-sdk/orchestrator-gitlab` | `0.0.0` 내부 GitLab infra/orchestration 실험. Core release와 분리 |
+| Apps/reference | `@oa-sdk/nestjs-ref`, `@oa-sdk/orchestrator-gitlab-ui`, `@oa-sdk/playground`, `@oa-sdk/preview`, `@oa-sdk/spec-lens-ui` | reference, E2E, preview, UI consumer surface. library ownership 없음 |
 
 `@oa-sdk/dpm`은 API 스펙 패키지의 확장이 아니라 논리 데이터 계약 패키지다. DB catalog나
 OpenAPI projection은 구조적 evidence로만 소비하고, approved relationship과 namespace 정책은
 DPM manifest와 Relationship Registry가 소유한다. 물리 FK 생성, DB migration, production data
 rewrite는 기본 책임이 아니며, 필요하면 recommendation 또는 별도 runtime phase로 분리한다.
 
+`@oa-sdk/personas`도 data-governance domain에 속하고, `@oa-sdk/typia-mock`은 독립 experiment,
+`@oa-sdk/markdown-editor`는 agent-ops 도구다. 이 package들이 OpenAPI를 입력으로 사용하거나
+Core utility에 의존하더라도 Core Platform ownership을 갖지는 않는다.
+
 ## 의존 그래프
 
 ```
 openapi-projection-contract (0 의존)
 core (0 의존)
-  ↓
-parser ← core + openapi-projection-contract
-  ↓
+schemas      ← parser (build-time TypeSpec validation; source/artifact ownership remains independent)
+parser       ← core + openapi-projection-contract
 codegen      ← core + parser + openapi-projection-contract (+ router, client: optional peer — CLI 전용)
+spec-lens    ← parser + codegen
+
+-- downstream integration boundary --
 mock-server  ← core + parser
 router       ← core + parser
 client       ← core + parser
-typia-mock   ← core + parser (+ typia: peer)
-schemas      ← 독립
-personas     ← 독립
+
+-- maintenance/incubating boundary --
 dpm          ← openapi-projection-contract
-spec-lens    ← parser + codegen
+personas     ← 독립
+typia-mock   ← core + parser (+ typia: peer)
 markdown-editor ← 독립
 orchestrator-gitlab ← 독립
 infra-gitlab ← 독립
 ```
+
+Dependency direction과 product ownership은 동일한 개념이 아니다. Maintenance-only package가
+Core package를 import해도 Core roadmap에 포함되지 않으며, Core package는 새 기능을 위해
+maintenance/incubating package에 의존해서는 안 된다.
+
+## 향후 분리 경계
+
+현재 물리 경계는 그대로 유지한다. 향후 extraction을 실행할 때는 다음 묶음을 우선 검토한다.
+
+| 후보 | 이동 대상 | 현재 호환 경계 |
+|---|---|---|
+| `data-governance` | `@oa-sdk/dpm`, `@oa-sdk/personas` | projection contract와 OpenAPI artifact interface |
+| `agent-ops` | `@oa-sdk/infra-gitlab`, `@oa-sdk/orchestrator-gitlab`, `@oa-sdk/markdown-editor`, `@oa-sdk/orchestrator-gitlab-ui` | package exports와 HTTP/document contracts |
+| experiment/archive | `@oa-sdk/typia-mock` | public entrypoint와 optional typia peer contract |
+
+Extraction 전 migration은 package name/import compatibility와 소비자 검증을 보존해야 한다.
+신규 non-core feature를 이유로 extraction을 미루거나 package 간 역의존을 추가하지 않는다.
 
 ## 패키지별 주요 파일
 

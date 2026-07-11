@@ -1,5 +1,8 @@
 {
-  "version": 1,
+  "version": 2,
+  "primaryMission": "schema-spec-management",
+  "primaryTrack": "corePlatform",
+  "scopeDocument": "docs/internal/platform-scope.md",
   "changesets": {
     "baseBranch": "main",
     "access": "restricted",
@@ -10,22 +13,74 @@
   "publish": {
     "enabled": false
   },
+  "tracks": {
+    "corePlatform": {
+      "policy": "active",
+      "release": "release-tracked",
+      "workspaces": [
+        "@oa-sdk/core",
+        "@oa-sdk/openapi-projection-contract",
+        "@oa-sdk/schemas",
+        "@oa-sdk/parser",
+        "@oa-sdk/codegen",
+        "@oa-sdk/spec-lens"
+      ]
+    },
+    "downstream": {
+      "policy": "compatibility",
+      "release": "release-tracked",
+      "workspaces": [
+        "@oa-sdk/router",
+        "@oa-sdk/client",
+        "@oa-sdk/mock-server"
+      ]
+    },
+    "maintenance": {
+      "policy": "maintenance-only",
+      "release": "ignored",
+      "workspaces": [
+        "@oa-sdk/dpm",
+        "@oa-sdk/personas",
+        "@oa-sdk/typia-mock",
+        "@oa-sdk/markdown-editor"
+      ]
+    },
+    "incubating": {
+      "policy": "explicit-reactivation",
+      "release": "ignored",
+      "workspaces": [
+        "@oa-sdk/infra-gitlab",
+        "@oa-sdk/orchestrator-gitlab"
+      ]
+    },
+    "applications": {
+      "policy": "support-only",
+      "release": "ignored",
+      "workspaces": [
+        "@oa-sdk/nestjs-ref",
+        "@oa-sdk/orchestrator-gitlab-ui",
+        "@oa-sdk/playground",
+        "@oa-sdk/preview",
+        "@oa-sdk/spec-lens-ui"
+      ]
+    }
+  },
   "releaseTracked": [
-    "@oa-sdk/openapi-projection-contract",
     "@oa-sdk/core",
-    "@oa-sdk/parser",
+    "@oa-sdk/openapi-projection-contract",
     "@oa-sdk/schemas",
-    "@oa-sdk/mock-server",
+    "@oa-sdk/parser",
     "@oa-sdk/codegen",
-    "@oa-sdk/dpm",
+    "@oa-sdk/spec-lens",
     "@oa-sdk/router",
     "@oa-sdk/client",
-    "@oa-sdk/typia-mock",
-    "@oa-sdk/personas",
-    "@oa-sdk/markdown-editor",
-    "@oa-sdk/spec-lens"
+    "@oa-sdk/mock-server"
   ],
   "ignored": [
+    "@oa-sdk/dpm",
+    "@oa-sdk/personas",
+    "@oa-sdk/typia-mock",
+    "@oa-sdk/markdown-editor",
     "@oa-sdk/infra-gitlab",
     "@oa-sdk/orchestrator-gitlab",
     "@oa-sdk/nestjs-ref",

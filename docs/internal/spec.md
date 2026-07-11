@@ -2,21 +2,39 @@
 
 > 개념 정의: [Concepts](../concepts.md) / API 상세: [api-index.md](./api-index.md) / OAS 커버리지: [oas32-coverage.md](./oas32-coverage.md) / 기능별 테스트: [feature-test-matrix.md](./feature-test-matrix.md)
 
+> 제품 범위와 신규 작업 승인 기준: [Platform Scope](./platform-scope.md). 이 문서의 `✅`는
+> 구현·검증 현황을 뜻하며 active product scope나 신규 feature 투자 승인을 뜻하지 않는다.
+
 ---
 
 ## 패키지 구조
 
 ```
-core         ← 공유 유틸 (문자열, 코드젠, 포맷, 응답 상태, HTTP 서버)
-parser       ← core. OAS 3.2 파서 + IR + fold + lint + validate + query
-codegen      ← core + parser (+ router, client: optional peer). CLI 24 runtime command modules + 25 governance manifest command entities
-mock-server  ← core + parser. AJV 검증 + 어댑터 + 테스트 헬퍼
-router       ← core + parser. Hono/Express 스텁
-client       ← core + parser. fetch SDK + SSE
-typia-mock   ← core + parser (+ typia: peer). LLM 함수 호출 검증 서버
-schemas      ← 독립. TypeSpec production source + generated OAS artifact + Definition Builder rollback + 3.1↔3.2 변환
-dpm          ← 독립. Relationship-first DPM manifest schema + fixture gate
+Core Platform
+  core                        공유 기반 유틸리티
+  openapi-projection-contract 외부 schema producer projection 경계
+  schemas                     TypeSpec/OpenAPI schema SSOT와 artifact
+  parser                      OAS 3.2 파서, IR, ref, lint, validate, query
+  codegen                     build, 변환, governance CLI와 typegen
+  spec-lens                   revision, diff, timeline, provenance 관측
+
+Downstream Integration
+  router                      Hono/Express typed stub
+  client                      typed fetch SDK와 SSE
+  mock-server                 AJV mock engine, adapter, test helper
+
+Maintenance-only
+  dpm, personas, typia-mock, markdown-editor
+
+Incubating / Apps and references
+  infra-gitlab, orchestrator-gitlab / nestjs-ref, orchestrator-gitlab-ui,
+  playground, preview, spec-lens-ui
 ```
+
+Core Platform은 schema/spec 관리 방향을 소유한다. Downstream은 그 계약을 소비해 검증하지만
+Core 자체는 아니다. Maintenance-only는 security, compatibility, migration만 허용하며 새 기능은
+scope-reactivation decision이 필요하다. 이번 분류는 논리적 ownership과 release 경계를 바꾸며
+현재 package directory와 import path는 유지한다.
 
 개발/CI 런타임 기준은 Node.js 25 이상이다. 로컬 nvm 런타임은 `.nvmrc`의 `25`를 기준으로 맞춘다.
 `packageManager`는 pnpm 10.30.3으로 고정하고, Corepack으로 실행한다. Node 타입 의존성도 25 계열과 맞춘다.
@@ -244,14 +262,20 @@ oa-gen drift \
 
 ## `@oa-sdk/dpm` ✅
 
+> Maintenance-only separation candidate. 아래 내용은 현재 구현과 compatibility proof를 기록한다.
+> 신규 DPM feature goal은 [Platform Scope](./platform-scope.md)의 reactivation decision 없이는
+> 시작하지 않는다.
+
 | 기능 | 상세 |
 |------|------|
-| Package baseline | `packages/dpm`은 ADR-010 기준의 독립 private workspace package다. Root `build`, `test`, `typecheck` script에 포함된다. Package build는 `dist`를 먼저 삭제한 뒤 entrypoints를 생성해 stale output이 pack 후보에 남지 않게 한다. |
+| Package baseline | `packages/dpm`은 ADR-010 기준의 독립 private workspace package다. Root의 명시적 `build:maintenance`, `test:maintenance`, `typecheck:maintenance`와 CI maintenance 단계에 포함되며 기본 Core 명령에서는 제외된다. Package build는 `dist`를 먼저 삭제한 뒤 entrypoints를 생성해 stale output이 pack 후보에 남지 않게 한다. |
 | Public package surface | `packages/dpm/src/index.ts`는 root package entrypoint로 남되 package, catalog, profile, relationship, gateway, storage, publishing category barrels만 re-export한다. Root import는 compatibility aggregate이고 신규 소비자 import 판단 기준은 `packages/dpm/README.md`가 소유하며, focused product code는 `@oa-sdk/dpm/profile`, `@oa-sdk/dpm/storage` 같은 package subpath를 우선 사용한다. `packages/dpm/package.json`은 같은 category barrels를 `@oa-sdk/dpm/package`, `@oa-sdk/dpm/catalog`, `@oa-sdk/dpm/profile`, `@oa-sdk/dpm/relationship`, `@oa-sdk/dpm/gateway`, `@oa-sdk/dpm/storage`, `@oa-sdk/dpm/publishing` subpath로 공개하고, `packages/dpm/test/package-subpath-exports.test.ts`가 export map과 tsup entrypoint 정합성을 고정한다. `pnpm --filter @oa-sdk/dpm run smoke:subpaths`는 build 후 `packages/dpm/test/package-subpath-import-smoke.mjs`의 runtime import와 `packages/dpm/test/package-subpath-type-consumer.ts`의 declaration 소비를 함께 검증한다. `pnpm --filter @oa-sdk/dpm run smoke:consumer-workflow`는 built `@oa-sdk/dpm/profile`, `/gateway`, `/storage` subpath만으로 captured Kafka profile-to-registry approval, approval audit timeline readback, approved-conflict blocking flow를 실행한다. `pnpm --filter @oa-sdk/dpm run smoke:pack`은 stale dist sentinel을 심은 뒤 clean build와 `npm pack --dry-run --json`으로 README/package/export/bin 파일 포함 및 source/test/example 제외를 검증한다. Public export grouping은 `packages/dpm/src/public/*.ts`가 소유한다. `packages/dpm/src/public/catalog.ts`는 catalog category compatibility barrel로 남고 `catalog-snapshot.ts`, `catalog-postgres.ts`, `catalog-projection.ts`가 catalog public surface를 하위 category별로 소유한다. `packages/dpm/src/public/profile.ts`는 profile category compatibility barrel로 남고 `profile-artifact.ts`, `profile-connector.ts`, `profile-kafka.ts`, `profile-analysis.ts`가 profile public surface를 하위 category별로 소유한다. `packages/dpm/src/public/relationship.ts`는 relationship category compatibility barrel로 남으며 `relationship-discovery.ts`, `relationship-registry.ts`, `relationship-model.ts`, `relationship-execution.ts`가 relationship public surface를 하위 category별로 소유한다. `packages/dpm/src/public/gateway.ts`는 gateway category compatibility barrel로 남고 `gateway-contract.ts`, `gateway-runtime.ts`, `gateway-profile-proposal.ts`가 gateway public surface를 하위 category별로 소유한다. `packages/dpm/src/public/storage.ts`는 storage category compatibility barrel로 남고 `storage-job.ts`, `storage-report.ts`, `storage-registry.ts`, `storage-profile-baseline.ts`가 storage public surface를 하위 category별로 소유한다. Behavior/source of truth는 각 domain implementation module이 계속 소유한다. |
 
 DPM package surface CI invariant: root `pnpm check:dpm-surface` runs the DPM built subpath consumer smoke, public subpath workflow smoke, and pack boundary smoke, and CI executes that root gate after feature-test matrix consistency so package export regressions are proven, not only listed in the matrix.
 
-DPM product flow operating strategy: future DPM work should prefer representative flow gates over one-goal-per-assertion stabilization. [Goal 63](./goals/goal-63-dpm-product-flow-operating-strategy.md) owns the decision rule: add separate narrow tests for public API contracts, privacy/safety boundaries, storage/adapter divergence, real regressions, or schema/taxonomy contracts; otherwise let naturally covered readbacks remain inside representative workflow smoke instead of minting new goals.
+DPM product flow operating strategy는 [Goal 63](./goals/goal-63-dpm-product-flow-operating-strategy.md)에
+구현 당시의 안정화 원칙으로 보존한다. 현재 maintenance 작업에서는 representative flow gate를
+재사용하되, 이 기록을 신규 feature goal의 근거로 사용하지 않는다.
 
 | Manifest schema | `packages/dpm/src/schema/dpm-manifest.schema.json`이 DPM v1 JSON Schema source다. `packages/dpm/src/schema/index.ts`는 schema import 호환 barrel로 남고, `manifest-schema-id.ts`, `manifest-schema-types.ts`, `manifest-schema-validation.ts`, `manifest-schema-issues.ts`는 schema id, validation result vocabulary, AJV runtime syntax gate, issue formatting을 각각 소유한다. `$id`는 `DPM_MANIFEST_SCHEMA_ID` export와 smoke test로 고정하고 `validateDpmManifestSchema()`가 runtime syntax gate를 제공한다. |
 | Fixture IO test support | `packages/dpm/test/support/fixture-io.ts`는 shared DPM test fixture root, absolute fixture path, JSON/text fixture reader를 소유한다. Domain-specific support module은 semantic fixture assembly만 유지한다. |
@@ -343,6 +367,9 @@ NDJSON vs SSE 스트림 분리 + `resolveServerUrl` 서버 변수 해소.
 ClientMiddleware (`onRequest`/`onResponse`/`onError`) 인터셉터. 문서화된 응답 헤더가 있으면 기존 body 반환 메서드는 유지하고 `withResponse.<operation>()`에서 `{ body, headers, response }`를 반환하며 `headers`는 `XxxResponseHeaders` 타입과 case-insensitive lookup을 사용. Webhook 페이로드 타입 생성.
 
 ## `@oa-sdk/typia-mock` ✅
+
+> Maintenance-only experiment/archive candidate. 아래 구현 surface는 security, compatibility,
+> migration 범위에서만 유지한다.
 
 | 기능 | 상세 |
 |------|------|
@@ -657,9 +684,9 @@ pnpm demo  # API 구조 + Mock 12시나리오 + 커버리지
 
 | Step | 대상 | 동작 |
 |------|------|------|
-| Build | 7 패키지 + CI 스크립트 | tsup ESM 빌드 |
-| Typecheck | 7 패키지 + playground | tsc --noEmit strict |
-| Test | 8 패키지 + playground | vitest 1688 케이스 |
+| Build | Core → Downstream → Maintenance → Internal 실행 그룹 + CI 스크립트 | policy track별 package build |
+| Typecheck | Core → Downstream → Maintenance → Internal 실행 그룹 | track별 strict typecheck |
+| Test | Core → Downstream → Maintenance → Internal 실행 그룹 | track별 test. Core의 child-process/tsc tests는 package 간 직렬 실행 |
 | Schema validate | schemas + oa-gen | TypeSpec production source + OA SDK extension restore + 3.1 변환 + Spectral/Redocly + 3.2 자체 검증 표준 파이프라인 |
 | Freshness check | 산출물 | git diff --exit-code |
 | API index | docs ↔ code | root export 정합성 + codegen typegen option subpath 검증 |
@@ -669,15 +696,8 @@ pnpm demo  # API 구조 + Mock 12시나리오 + 커버리지
 
 ## 테스트
 
-| 패키지 | 케이스 |
-|--------|--------|
-| core | 52 |
-| parser | 237 |
-| codegen | 541 |
-| mock-server | 580 |
-| playground | 114 |
-| router | 36 |
-| client | 39 |
-| schemas | 78 |
-| typia-mock | 53 |
-| **합계** | **1730** |
+정적 테스트 개수는 이 문서에 복제하지 않는다. 기능별 대표 경로와 유지 명령의 SSOT는
+[`feature-test-matrix.md`](./feature-test-matrix.md)와
+[`feature-test-matrix.json`](./feature-test-matrix.json)이다. Workspace 범위별 실행은
+`test:core`, `test:downstream`, `test:maintenance`, `test:internal`을 사용하고 전체 회귀는
+`test:all`을 명시적으로 실행한다.

@@ -8,6 +8,10 @@
   "baseBranch": "main",
   "updateInternalDependencies": "patch",
   "ignore": [
+    "@oa-sdk/dpm",
+    "@oa-sdk/personas",
+    "@oa-sdk/typia-mock",
+    "@oa-sdk/markdown-editor",
     "@oa-sdk/infra-gitlab",
     "@oa-sdk/orchestrator-gitlab",
     "@oa-sdk/nestjs-ref",

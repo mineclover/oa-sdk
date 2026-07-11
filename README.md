@@ -5,6 +5,11 @@ OpenAPI 3.2 contract를 중심으로 한 API governance 인프라 모노레포.
 OpenAPI artifact로 통합하고, metadata와 전체 path surface를 관리하며,
 검증·비교·생성·mock/runtime 테스트·review gate까지 연결합니다.
 
+현재 제품의 핵심은 `@oa-sdk/core` 위에서 schema/spec source, projection contract,
+파싱·검증·생성, 변경 이력 관측을 연결하는 여섯 패키지의 Core Platform입니다.
+상세한 범위와 신규 작업 승인 기준은
+[`docs/internal/platform-scope.md`](./docs/internal/platform-scope.md)를 따릅니다.
+
 ```
 Drizzle ORM ──▶                        ──▶ Mock Server
 Zod Schema  ──▶  OpenAPI 3.2 Spec      ──▶ TypeScript 타입
@@ -14,25 +19,71 @@ Zod Schema  ──▶  OpenAPI 3.2 Spec      ──▶ TypeScript 타입
 
 ## 패키지
 
+패키지 릴리스 대상과 제외 workspace의 machine-readable 기준은
+[`docs/internal/release-policy.json`](./docs/internal/release-policy.json)에 둔다.
+
+### Core Platform
+
 | 패키지 | 역할 |
 |--------|------|
-| `@oa-sdk/core` | 공유 유틸 (문자열, 코드젠, 포맷, 응답 상태) |
-| `@oa-sdk/schemas` | TypeSpec production source + generated OAS 3.2 artifact + Definition Builder rollback + 3.1 변환 |
-| `@oa-sdk/parser` | OAS 3.2 파서 + IR + fold + lint + validate + query |
-| `@oa-sdk/mock-server` | AJV Mock 서버 (MSW + Node HTTP) + Security + 테스트 헬퍼 |
-| `@oa-sdk/codegen` | Zod/Drizzle → OAS + Definition Builder target artifact + 외부 OpenAPI 수집/업그레이드 + OAS → TS 타입 + oa-gen CLI/governance command surface |
-| `@oa-sdk/dpm` | Relationship-first Data Pseudonymization Manifest schema + fixture gate ([Concept](./docs/concepts/data-pseudonymization-manifest.md)) |
-| `@oa-sdk/router` | OAS → Hono/Express 라우터 스텁 |
-| `@oa-sdk/client` | OAS → fetch 클라이언트 SDK + SSE + 인증 미들웨어 + 재시도 |
-| `@oa-sdk/typia-mock` | typia ILlmApplication 기반 LLM 함수 호출 검증 서버 |
-| `@oa-sdk/personas` | OpenAPI 위 persona 매트릭스 — 84 페르소나 / 9 trait dimension / 8 CLI / e2e roleplay 자동 생성 ([Concept](./docs/concepts/data-persona.md)) |
-| `@oa-sdk/infra-gitlab` | Pulumi preset — 로컬 Docker에 GitLab CE Omnibus + Runner 기동 ([README](./packages/infra-gitlab/README.md) · [Operations](./packages/infra-gitlab/OPERATIONS.md) · [TODO](./docs/internal/todo.md#infra-gitlab-잔여-항목)). 자율 코딩 에이전트(Symphony 계열)용 DevOps substrate Phase 1. |
-| `@oa-sdk/orchestrator-gitlab` | GitLab-네이티브 코딩 에이전트 오케스트레이터 — Symphony SPEC을 디자인 레퍼런스로 차용한 자체 구현. label 기반 이슈 디스패치 + 격리 워크스페이스 + multi-agent (Codex/Claude/custom). Phase A MVP ([README](./packages/orchestrator-gitlab/README.md) · [PRD](./packages/orchestrator-gitlab/docs/prd-phase-a.md) · [TODO](./docs/internal/todo.md#orchestrator-gitlab-잔여-항목)). |
+| `@oa-sdk/core` | 문자열, 포맷, 상태, codegen 보조 등 여러 패키지가 공유하는 기반 유틸리티 |
+| `@oa-sdk/schemas` | TypeSpec production source, generated OpenAPI 3.2 artifact, Definition Builder rollback, 3.1 변환의 schema source package |
+| `@oa-sdk/openapi-projection-contract` | Zod/Drizzle/외부 schema 조각을 OpenAPI로 투영할 때 공유하는 projection contract 타입층 |
+| `@oa-sdk/parser` | OpenAPI 3.2 parse/IR/transform/fold/lint/validate/query pipeline |
+| `@oa-sdk/codegen` | `oa-gen` CLI, Definition Builder target artifact, OpenAPI 수집/정규화/업그레이드/diff/review, typegen/router/client 생성, Zod/Drizzle projection bridge |
+| `@oa-sdk/spec-lens` | OpenAPI spec change history observation과 review surface 관리 |
+
+### Downstream Integration Libraries
+
+Core 계약을 소비하고 end-to-end 사용 가능성을 검증하는 release-tracked 계층입니다.
+
+| 패키지 | 역할 |
+|--------|------|
+| `@oa-sdk/mock-server` | OpenAPI-native mock engine, AJV validation, Security, MSW/Node HTTP adapters, 테스트 client/coverage helper |
+| `@oa-sdk/router` | OAS 3.2 spec에서 Hono/Express typed server router stub 생성 |
+| `@oa-sdk/client` | OAS 3.2 spec에서 typed fetch client SDK, SSE, 인증/재시도 표면 생성 |
+
+### Maintenance-only Separation Candidates
+
+아래 패키지는 현재 경로와 import 호환성을 유지하되 security, compatibility, migration만
+수행합니다. 새 기능은 명시적인 scope-reactivation decision이 있어야 합니다.
+
+| 패키지 | 역할 |
+|--------|------|
+| `@oa-sdk/dpm` | Relationship-first Data Pseudonymization Manifest schema와 fixture gate를 포함한 toolkit. catalog/profile/Kafka evidence를 review, approval, audit, registry/storage/gateway/publishing workflow로 연결 ([Concept](./docs/concepts/data-pseudonymization-manifest.md)) |
+| `@oa-sdk/personas` | OpenAPI 위 persona matrix와 trait registry. 84 persona, 9 trait dimension, 8 CLI, roleplay/e2e governance와 test 자동 생성 ([Concept](./docs/concepts/data-persona.md)) |
+| `@oa-sdk/typia-mock` | typia `ILlmApplication` 기반 LLM function-call validation/mock server |
+| `@oa-sdk/markdown-editor` | Markdown editor syntax helper와 GitLab Flavored Markdown serialization |
+
+### Incubating Packages
+
+| 패키지 | 역할 |
+|--------|------|
+| `@oa-sdk/infra-gitlab` | 로컬 Docker 기반 GitLab CE Omnibus + Runner Pulumi preset. 자율 코딩 에이전트 orchestration용 DevOps substrate Phase 1 ([README](./packages/infra-gitlab/README.md) · [Operations](./packages/infra-gitlab/OPERATIONS.md) · [TODO](./docs/internal/todo.md#infra-gitlab-잔여-항목)) |
+| `@oa-sdk/orchestrator-gitlab` | Symphony SPEC을 디자인 레퍼런스로 차용한 GitLab-native 자체 구현 Phase A MVP. label 기반 이슈 디스패치와 격리 workspace에서 Codex/Claude/custom agent를 실행하고 GitLab notes로 보고 ([README](./packages/orchestrator-gitlab/README.md) · [PRD](./packages/orchestrator-gitlab/docs/prd-phase-a.md) · [TODO](./docs/internal/todo.md#orchestrator-gitlab-잔여-항목)) |
+
+### Apps And Reference Workspaces
+
+| Workspace | 역할 |
+|--------|------|
+| `@oa-sdk/orchestrator-gitlab-ui` | GitLab orchestrator용 UI app |
+| `@oa-sdk/nestjs-ref` | NestJS Swagger 산출물을 oa-sdk governance로 수집/정규화하는 reference implementation |
+| `@oa-sdk/playground` | schema pipeline과 mock server end-to-end 검증 playground |
+| `@oa-sdk/preview` | preview app workspace |
+| `@oa-sdk/spec-lens-ui` | `@oa-sdk/spec-lens`와 연결되는 UI app |
+
+`apps/fastapi-ref`는 pnpm package가 아닌 FastAPI reference implementation이며 release policy
+manifest 밖에서 관리합니다. 이번 scope 정리는 논리적 분류만 바꾸며 package 경로와 import
+경로는 변경하지 않습니다.
 
 ## 사용 방법
 
 개발/CI 기준 런타임은 Node.js 25 이상이며, nvm 사용자는 `.nvmrc` 기준으로 맞춘다.
 패키지 매니저는 `packageManager`에 고정된 pnpm 10.30.3을 사용합니다.
+
+Root의 `pnpm build`, `pnpm test`, `pnpm typecheck`는 Core Platform만 검증한다. 전체
+monorepo 검증은 각각 `build:all`, `test:all`, `typecheck:all`을 사용하고, 경계별 검증은
+`:downstream`, `:maintenance`, `:internal` 명령을 명시적으로 선택한다.
 
 ```bash
 nvm install
@@ -117,6 +168,7 @@ console.log(describeApi(parseDocument(spec)))
 | 문서 | |
 |------|-|
 | [Vision](./docs/vision.md) | 핵심 철학과 주 목표 |
+| [Platform Scope](./docs/internal/platform-scope.md) | Core Platform, maintenance, 분리 경계와 신규 작업 승인 기준 |
 | [Concepts](./docs/concepts.md) | 공통 용어와 계약 경계 |
 | [Quick Start](./docs/guides/quick-start.md) | 5분 파이프라인 체험 |
 | [OpenAPI Governance Workflow](./docs/guides/use-cases/openapi-governance-workflow.md) | target sidecar + PR review gate |

@@ -34,19 +34,46 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       # ── Build ──────────────────────────────────────────────
-      - name: Build packages
-        run: pnpm build:all
+      - name: Build core platform
+        run: pnpm build:core
+
+      - name: Build downstream SDKs
+        run: pnpm build:downstream
+
+      - name: Build maintenance packages
+        run: pnpm build:maintenance
+
+      - name: Build internal workspaces
+        run: pnpm build:internal
 
       - name: Build CI scripts
         run: pnpm build:scripts
 
       # ── Typecheck ──────────────────────────────────────────
-      - name: Type check
-        run: pnpm typecheck:all
+      - name: Typecheck core platform
+        run: pnpm typecheck:core
+
+      - name: Typecheck downstream SDKs
+        run: pnpm typecheck:downstream
+
+      - name: Typecheck maintenance packages
+        run: pnpm typecheck:maintenance
+
+      - name: Typecheck internal workspaces
+        run: pnpm typecheck:internal
 
       # ── Test ───────────────────────────────────────────────
-      - name: Test
-        run: pnpm test:all
+      - name: Test core platform
+        run: pnpm test:core
+
+      - name: Test downstream SDKs
+        run: pnpm test:downstream
+
+      - name: Test maintenance packages
+        run: pnpm test:maintenance
+
+      - name: Test internal workspaces
+        run: pnpm test:internal
 
       # ── Schema validation ──────────────────────────────────
       - name: Schema validate
@@ -82,8 +109,8 @@ jobs:
       - name: DPM package surface smoke
         run: pnpm check:dpm-surface
 
-      - name: Release policy consistency
-        run: pnpm check:release-policy
+      - name: Workspace scope and release policy
+        run: pnpm check:workspace-scope
 
       # ── Spec diff (PR only) ────────────────────────────────
       - name: API spec diff
