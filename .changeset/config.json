@@ -11,11 +11,7 @@
     "@oa-sdk/dpm",
     "@oa-sdk/personas",
     "@oa-sdk/typia-mock",
-    "@oa-sdk/markdown-editor",
-    "@oa-sdk/infra-gitlab",
-    "@oa-sdk/orchestrator-gitlab",
     "@oa-sdk/nestjs-ref",
-    "@oa-sdk/orchestrator-gitlab-ui",
     "@oa-sdk/playground",
     "@oa-sdk/preview",
     "@oa-sdk/spec-lens-ui"

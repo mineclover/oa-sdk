@@ -43,7 +43,7 @@ jobs:
       - name: Build maintenance packages
         run: pnpm build:maintenance
 
-      - name: Build internal workspaces
+      - name: Build application and reference workspaces
         run: pnpm build:internal
 
       - name: Build CI scripts
@@ -59,7 +59,7 @@ jobs:
       - name: Typecheck maintenance packages
         run: pnpm typecheck:maintenance
 
-      - name: Typecheck internal workspaces
+      - name: Typecheck application and reference workspaces
         run: pnpm typecheck:internal
 
       # ── Test ───────────────────────────────────────────────
@@ -72,7 +72,7 @@ jobs:
       - name: Test maintenance packages
         run: pnpm test:maintenance
 
-      - name: Test internal workspaces
+      - name: Test application and reference workspaces
         run: pnpm test:internal
 
       # ── Schema validation ──────────────────────────────────

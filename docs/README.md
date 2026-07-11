@@ -55,7 +55,3 @@
 ## OAS 3.2 참조
 
 [references/oas32/](./references/oas32/) — 공식 스펙 15개 챕터 + 부록
-
-## GitLab Markdown 참조
-
-[references/glfm/](./references/glfm/) — GitLab Flavored Markdown 기반 문서 편집 기준

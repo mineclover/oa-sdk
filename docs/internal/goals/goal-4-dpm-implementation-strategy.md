@@ -59,7 +59,7 @@ integration, and physical DB mutation remain outside Goal 4. Those follow-ups st
 | Logical data contract | `@oa-sdk/dpm`, `@oa-sdk/personas` | Own relationship-first manifest policy, catalog snapshot interpretation, logical entity namespace, approved relationship registry, and pseudonymized data audience obligations. |
 | Runtime/consumer outputs | `@oa-sdk/router`, `@oa-sdk/client`, `@oa-sdk/mock-server`, `@oa-sdk/typia-mock` | Consume the gateway OpenAPI artifact after the DPM core loop is stable. They do not decide relationship approval or namespace policy. |
 | Governance/observation | `@oa-sdk/spec-lens` | Can observe gateway/spec drift and release review history. It does not replace DPM freshness, REL/SAF diagnostics, or compiled-plan validation. |
-| Operations/tooling | `@oa-sdk/core`, `@oa-sdk/markdown-editor`, `@oa-sdk/orchestrator-gitlab`, `@oa-sdk/infra-gitlab` | Provide supporting utilities or workflow infrastructure only. They are outside the DPM policy boundary. |
+| Operations/tooling | `@oa-sdk/core`; externally owned `markdown-editor` and `gitlab-agent-ops` repositories | Provide supporting utilities or workflow infrastructure only. They are outside the DPM policy boundary. |
 
 The package split follows a no-physical-mutation default:
 

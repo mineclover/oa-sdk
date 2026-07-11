@@ -53,28 +53,31 @@ Core 계약을 소비하고 end-to-end 사용 가능성을 검증하는 release-
 | `@oa-sdk/dpm` | Relationship-first Data Pseudonymization Manifest schema와 fixture gate를 포함한 toolkit. catalog/profile/Kafka evidence를 review, approval, audit, registry/storage/gateway/publishing workflow로 연결 ([Concept](./docs/concepts/data-pseudonymization-manifest.md)) |
 | `@oa-sdk/personas` | OpenAPI 위 persona matrix와 trait registry. 84 persona, 9 trait dimension, 8 CLI, roleplay/e2e governance와 test 자동 생성 ([Concept](./docs/concepts/data-persona.md)) |
 | `@oa-sdk/typia-mock` | typia `ILlmApplication` 기반 LLM function-call validation/mock server |
-| `@oa-sdk/markdown-editor` | Markdown editor syntax helper와 GitLab Flavored Markdown serialization |
-
-### Incubating Packages
-
-| 패키지 | 역할 |
-|--------|------|
-| `@oa-sdk/infra-gitlab` | 로컬 Docker 기반 GitLab CE Omnibus + Runner Pulumi preset. 자율 코딩 에이전트 orchestration용 DevOps substrate Phase 1 ([README](./packages/infra-gitlab/README.md) · [Operations](./packages/infra-gitlab/OPERATIONS.md) · [TODO](./docs/internal/todo.md#infra-gitlab-잔여-항목)) |
-| `@oa-sdk/orchestrator-gitlab` | Symphony SPEC을 디자인 레퍼런스로 차용한 GitLab-native 자체 구현 Phase A MVP. label 기반 이슈 디스패치와 격리 workspace에서 Codex/Claude/custom agent를 실행하고 GitLab notes로 보고 ([README](./packages/orchestrator-gitlab/README.md) · [PRD](./packages/orchestrator-gitlab/docs/prd-phase-a.md) · [TODO](./docs/internal/todo.md#orchestrator-gitlab-잔여-항목)) |
 
 ### Apps And Reference Workspaces
 
 | Workspace | 역할 |
 |--------|------|
-| `@oa-sdk/orchestrator-gitlab-ui` | GitLab orchestrator용 UI app |
 | `@oa-sdk/nestjs-ref` | NestJS Swagger 산출물을 oa-sdk governance로 수집/정규화하는 reference implementation |
 | `@oa-sdk/playground` | schema pipeline과 mock server end-to-end 검증 playground |
 | `@oa-sdk/preview` | preview app workspace |
 | `@oa-sdk/spec-lens-ui` | `@oa-sdk/spec-lens`와 연결되는 UI app |
 
 `apps/fastapi-ref`는 pnpm package가 아닌 FastAPI reference implementation이며 release policy
-manifest 밖에서 관리합니다. 이번 scope 정리는 논리적 분류만 바꾸며 package 경로와 import
-경로는 변경하지 않습니다.
+manifest 밖에서 관리합니다.
+
+### Extracted Products
+
+2026-07-11에 비핵심 제품을 독립 Git 저장소로 물리 분리했습니다.
+
+| 저장소 | 소유 책임 |
+|--------|----------|
+| `markdown-editor` | `@oa-sdk/markdown-editor`, GLFM reference, editor PRD와 자체 build/test/release 경계 |
+| `gitlab-agent-ops` | `@oa-sdk/infra-gitlab`, `@oa-sdk/orchestrator-gitlab`, `@oa-sdk/orchestrator-gitlab-ui`, GitLab 운영·context 설계 문서 |
+
+두 저장소는 `oa-sdk` workspace, release policy, CI에서 제외됩니다. `gitlab-agent-ops`는 별도
+저장소인 `markdown-editor`를 submodule/workspace dependency로 소비하며 Markdown source를 복제해
+소유하지 않습니다. 기존 `@oa-sdk/*` package name은 배포 namespace 결정 전까지 호환용으로 유지합니다.
 
 ## 사용 방법
 
@@ -83,7 +86,8 @@ manifest 밖에서 관리합니다. 이번 scope 정리는 논리적 분류만 �
 
 Root의 `pnpm build`, `pnpm test`, `pnpm typecheck`는 Core Platform만 검증한다. 전체
 monorepo 검증은 각각 `build:all`, `test:all`, `typecheck:all`을 사용하고, 경계별 검증은
-`:downstream`, `:maintenance`, `:internal` 명령을 명시적으로 선택한다.
+`:downstream`, `:maintenance`, `:internal` 명령을 명시적으로 선택한다. `:internal`은 남아 있는
+application/reference workspace만 검증한다.
 
 ```bash
 nvm install

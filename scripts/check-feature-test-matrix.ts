@@ -33,6 +33,7 @@ const skippedDirectories = new Set([
   '.turbo',
   '.next',
   '.oa-cache',
+  '.pnpm-store',
   'coverage',
   'dist',
   'node_modules',

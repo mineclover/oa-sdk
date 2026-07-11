@@ -2,6 +2,18 @@
 
 릴리스 단위가 아닌, 굵직한 surface 변경이 떨어졌을 때 한 항목으로 기록한다. 자세한 구현 상태는 [spec.md](./internal/spec.md), API 단일 소스는 [api-index.md](./internal/api-index.md), 기능↔테스트는 [feature-test-matrix.md](./internal/feature-test-matrix.md) 참조.
 
+## 2026-07-11 — Markdown과 GitLab agent operations 저장소 분리
+
+Core schema/spec management가 아닌 제품 surface를 두 독립 Git 저장소로 물리 추출했다.
+
+- `markdown-editor`: `@oa-sdk/markdown-editor`, GLFM reference, editor PRD와 자체 CI/lockfile을 소유한다.
+- `gitlab-agent-ops`: `@oa-sdk/infra-gitlab`, `@oa-sdk/orchestrator-gitlab`, `@oa-sdk/orchestrator-gitlab-ui`, GitLab context 설계와 운영 백로그를 소유한다. Markdown source는 복제하지 않고 `markdown-editor` submodule을 소비한다.
+
+추출 이력은 각 저장소에 보존했다. `oa-sdk`에서는 네 workspace와 관련 product 문서를 제거하고,
+release policy를 version 3의 네 track으로 축소했다: Core Platform 6, Downstream 3,
+Maintenance 3, Applications 4. Changesets는 기존 9개 release-tracked package와 남은 7개 ignored
+workspace만 관리한다. `spec-lens`의 GitLab source adapter는 spec observation 책임이므로 Core에 유지한다.
+
 ## 2026-06-22 — TypeSpec-first schema source switch (`@oa-sdk/codegen` 0.3.0)
 
 ADR-009의 TypeSpec-first authoring 결정을 production schema build path에 반영했다. `packages/schemas/typespec/`가 production TypeSpec source bundle이고, 기본 `pnpm schema:validate`, `pnpm schema:bundle`, `pnpm schema:preview`, package-level `build`가 TypeSpec compile + OA SDK extension restore + expected/reference drift gate로 `packages/schemas/src/.merged.yaml`을 생성한다.

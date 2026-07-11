@@ -24,17 +24,16 @@ Downstream Integration
   mock-server                 AJV mock engine, adapter, test helper
 
 Maintenance-only
-  dpm, personas, typia-mock, markdown-editor
+  dpm, personas, typia-mock
 
-Incubating / Apps and references
-  infra-gitlab, orchestrator-gitlab / nestjs-ref, orchestrator-gitlab-ui,
-  playground, preview, spec-lens-ui
+Apps and references
+  nestjs-ref, playground, preview, spec-lens-ui
 ```
 
 Core Platform은 schema/spec 관리 방향을 소유한다. Downstream은 그 계약을 소비해 검증하지만
 Core 자체는 아니다. Maintenance-only는 security, compatibility, migration만 허용하며 새 기능은
-scope-reactivation decision이 필요하다. 이번 분류는 논리적 ownership과 release 경계를 바꾸며
-현재 package directory와 import path는 유지한다.
+scope-reactivation decision이 필요하다. Markdown editor와 GitLab agent operations 제품은 각각
+`markdown-editor`, `gitlab-agent-ops` 독립 저장소가 소유한다.
 
 개발/CI 런타임 기준은 Node.js 25 이상이다. 로컬 nvm 런타임은 `.nvmrc`의 `25`를 기준으로 맞춘다.
 `packageManager`는 pnpm 10.30.3으로 고정하고, Corepack으로 실행한다. Node 타입 의존성도 25 계열과 맞춘다.
@@ -684,9 +683,9 @@ pnpm demo  # API 구조 + Mock 12시나리오 + 커버리지
 
 | Step | 대상 | 동작 |
 |------|------|------|
-| Build | Core → Downstream → Maintenance → Internal 실행 그룹 + CI 스크립트 | policy track별 package build |
-| Typecheck | Core → Downstream → Maintenance → Internal 실행 그룹 | track별 strict typecheck |
-| Test | Core → Downstream → Maintenance → Internal 실행 그룹 | track별 test. Core의 child-process/tsc tests는 package 간 직렬 실행 |
+| Build | Core → Downstream → Maintenance → Applications 실행 그룹 + CI 스크립트 | policy track별 package build |
+| Typecheck | Core → Downstream → Maintenance → Applications 실행 그룹 | track별 strict typecheck |
+| Test | Core → Downstream → Maintenance → Applications 실행 그룹 | track별 test. Core의 child-process/tsc tests는 package 간 직렬 실행 |
 | Schema validate | schemas + oa-gen | TypeSpec production source + OA SDK extension restore + 3.1 변환 + Spectral/Redocly + 3.2 자체 검증 표준 파이프라인 |
 | Freshness check | 산출물 | git diff --exit-code |
 | API index | docs ↔ code | root export 정합성 + codegen typegen option subpath 검증 |

@@ -1,5 +1,5 @@
 {
-  "version": 2,
+  "version": 3,
   "primaryMission": "schema-spec-management",
   "primaryTrack": "corePlatform",
   "scopeDocument": "docs/internal/platform-scope.md",
@@ -41,16 +41,7 @@
       "workspaces": [
         "@oa-sdk/dpm",
         "@oa-sdk/personas",
-        "@oa-sdk/typia-mock",
-        "@oa-sdk/markdown-editor"
-      ]
-    },
-    "incubating": {
-      "policy": "explicit-reactivation",
-      "release": "ignored",
-      "workspaces": [
-        "@oa-sdk/infra-gitlab",
-        "@oa-sdk/orchestrator-gitlab"
+        "@oa-sdk/typia-mock"
       ]
     },
     "applications": {
@@ -58,7 +49,6 @@
       "release": "ignored",
       "workspaces": [
         "@oa-sdk/nestjs-ref",
-        "@oa-sdk/orchestrator-gitlab-ui",
         "@oa-sdk/playground",
         "@oa-sdk/preview",
         "@oa-sdk/spec-lens-ui"
@@ -80,11 +70,7 @@
     "@oa-sdk/dpm",
     "@oa-sdk/personas",
     "@oa-sdk/typia-mock",
-    "@oa-sdk/markdown-editor",
-    "@oa-sdk/infra-gitlab",
-    "@oa-sdk/orchestrator-gitlab",
     "@oa-sdk/nestjs-ref",
-    "@oa-sdk/orchestrator-gitlab-ui",
     "@oa-sdk/playground",
     "@oa-sdk/preview",
     "@oa-sdk/spec-lens-ui"

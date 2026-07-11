@@ -10,7 +10,6 @@ type TrackPolicy =
   | 'active'
   | 'compatibility'
   | 'maintenance-only'
-  | 'explicit-reactivation'
   | 'support-only'
 type TrackRelease = 'release-tracked' | 'ignored'
 
@@ -73,7 +72,6 @@ const TRACK_RULES = {
   corePlatform: { policy: 'active', release: 'release-tracked' },
   downstream: { policy: 'compatibility', release: 'release-tracked' },
   maintenance: { policy: 'maintenance-only', release: 'ignored' },
-  incubating: { policy: 'explicit-reactivation', release: 'ignored' },
   applications: { policy: 'support-only', release: 'ignored' },
 } as const satisfies Record<string, { policy: TrackPolicy; release: TrackRelease }>
 type TrackName = keyof typeof TRACK_RULES
@@ -83,7 +81,6 @@ const ALLOWED_TRACK_POLICIES = new Set<TrackPolicy>([
   'active',
   'compatibility',
   'maintenance-only',
-  'explicit-reactivation',
   'support-only',
 ])
 const ALLOWED_TRACK_RELEASES = new Set<TrackRelease>(['release-tracked', 'ignored'])
@@ -91,7 +88,7 @@ const TRACK_SCRIPT_GROUPS = {
   core: ['corePlatform'],
   downstream: ['downstream'],
   maintenance: ['maintenance'],
-  internal: ['incubating', 'applications'],
+  internal: ['applications'],
 } as const satisfies Record<string, readonly TrackName[]>
 const TRACK_TASKS = ['build', 'test', 'typecheck'] as const
 
@@ -160,8 +157,8 @@ function readWorkspacePackages(): WorkspacePackage[] {
 }
 
 function validatePolicyShape(policy: ReleasePolicy, issues: string[]): void {
-  if (policy.version !== 2) {
-    issues.push('docs/internal/release-policy.json: version must be 2')
+  if (policy.version !== 3) {
+    issues.push('docs/internal/release-policy.json: version must be 3')
   }
   if (policy.primaryMission !== PRIMARY_MISSION) {
     issues.push(
@@ -464,7 +461,7 @@ function validateWorkspaceManifests(
 
     if (tracked.has(name)) {
       if (manifest.version === '0.0.0') {
-        issues.push(`${label}: release-tracked workspaces must not use incubating version 0.0.0`)
+        issues.push(`${label}: release-tracked workspaces must not use version 0.0.0`)
       }
       if (!manifest.exports) {
         issues.push(`${label}: release-tracked workspaces must declare package exports`)

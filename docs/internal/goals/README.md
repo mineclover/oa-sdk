@@ -14,10 +14,10 @@ goal의 기본 범위는 다음 Core Platform 여섯 패키지다.
 명시적인 scope-reactivation decision을 요구한다. 결정에는 사용자 문제, Core Mission과의 관계,
 소유자와 유지 비용, release/CI 책임, monorepo 유지 또는 extraction 방향을 기록한다.
 
-`dpm`, `personas`, `typia-mock`, `markdown-editor`는 maintenance-only다. 별도 decision이 없는
+`dpm`, `personas`, `typia-mock`은 maintenance-only다. 별도 decision이 없는
 상태에서 허용되는 goal은 security, compatibility, migration/extraction에 한정한다.
-`infra-gitlab`, `orchestrator-gitlab`과 app/reference workspace는 Core roadmap 밖의 incubating 또는
-consumer surface다.
+App/reference workspace는 Core roadmap 밖의 consumer surface다. Markdown editor와 GitLab agent
+operations의 신규 목표는 각각 `markdown-editor`, `gitlab-agent-ops` 저장소에서 관리한다.
 
 아래 완료 목록은 구현 이력이다. 과거 goal의 완료 상태는 현재 active product scope나 신규 기능
 투자 승인을 뜻하지 않는다. 특히 Goal 4~64와 Goal 67의 DPM 결과물은 보존하되 maintenance-only

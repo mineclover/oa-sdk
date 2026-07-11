@@ -1,8 +1,7 @@
 # 패키지 구조
 
 제품 범위와 신규 작업 승인 기준은 [`../platform-scope.md`](../platform-scope.md)가 소유한다.
-이 문서는 현재 물리 package 구조와 dependency boundary를 설명한다. Scope 분류 변경으로
-directory, package name, import path를 즉시 바꾸지는 않는다.
+이 문서는 현재 물리 package 구조와 dependency boundary를 설명한다.
 
 ```
 oa-sdk/
@@ -19,12 +18,8 @@ oa-sdk/
     dpm/           @oa-sdk/dpm          Relationship-first Data Pseudonymization Manifest toolkit [maintenance]
     personas/      @oa-sdk/personas     Data Persona trait registry + persona matrix + validator [maintenance]
     typia-mock/    @oa-sdk/typia-mock   typia ILlmApplication 검증 서버 [maintenance]
-    markdown-editor/ @oa-sdk/markdown-editor GLFM editor helpers + serialization [maintenance]
-    orchestrator-gitlab/ @oa-sdk/orchestrator-gitlab GitLab-native coding-agent orchestration [incubating]
-    infra-gitlab/  @oa-sdk/infra-gitlab GitLab CE/Runner infrastructure preset [incubating]
   apps/
     nestjs-ref/    @oa-sdk/nestjs-ref NestJS reference implementation
-    orchestrator-gitlab-ui/ @oa-sdk/orchestrator-gitlab-ui orchestration UI
     playground/    @oa-sdk/playground 통합 테스트 + 데모
     preview/       @oa-sdk/preview Vite 프리뷰 웹앱 (SW mock + 코드 생성)
     spec-lens/     @oa-sdk/spec-lens-ui spec observation UI
@@ -41,18 +36,17 @@ oa-sdk/
 |---|---|---|
 | Core Platform | `@oa-sdk/core`, `@oa-sdk/openapi-projection-contract`, `@oa-sdk/schemas`, `@oa-sdk/parser`, `@oa-sdk/codegen`, `@oa-sdk/spec-lens` | schema/spec SSOT, 외부 projection 경계, 파싱/검증/생성, 변경 이력 관측 |
 | Downstream Integration | `@oa-sdk/router`, `@oa-sdk/client`, `@oa-sdk/mock-server` | Core 계약을 server stub, fetch client, mock runtime으로 투영하고 소비 가능성을 증명 |
-| Maintenance-only | `@oa-sdk/dpm`, `@oa-sdk/personas`, `@oa-sdk/typia-mock`, `@oa-sdk/markdown-editor` | 기존 계약의 security, compatibility, migration 유지. 신규 기능은 scope reactivation 전까지 금지 |
-| Incubating | `@oa-sdk/infra-gitlab`, `@oa-sdk/orchestrator-gitlab` | `0.0.0` 내부 GitLab infra/orchestration 실험. Core release와 분리 |
-| Apps/reference | `@oa-sdk/nestjs-ref`, `@oa-sdk/orchestrator-gitlab-ui`, `@oa-sdk/playground`, `@oa-sdk/preview`, `@oa-sdk/spec-lens-ui` | reference, E2E, preview, UI consumer surface. library ownership 없음 |
+| Maintenance-only | `@oa-sdk/dpm`, `@oa-sdk/personas`, `@oa-sdk/typia-mock` | 기존 계약의 security, compatibility, migration 유지. 신규 기능은 scope reactivation 전까지 금지 |
+| Apps/reference | `@oa-sdk/nestjs-ref`, `@oa-sdk/playground`, `@oa-sdk/preview`, `@oa-sdk/spec-lens-ui` | reference, E2E, preview, UI consumer surface. library ownership 없음 |
 
 `@oa-sdk/dpm`은 API 스펙 패키지의 확장이 아니라 논리 데이터 계약 패키지다. DB catalog나
 OpenAPI projection은 구조적 evidence로만 소비하고, approved relationship과 namespace 정책은
 DPM manifest와 Relationship Registry가 소유한다. 물리 FK 생성, DB migration, production data
 rewrite는 기본 책임이 아니며, 필요하면 recommendation 또는 별도 runtime phase로 분리한다.
 
-`@oa-sdk/personas`도 data-governance domain에 속하고, `@oa-sdk/typia-mock`은 독립 experiment,
-`@oa-sdk/markdown-editor`는 agent-ops 도구다. 이 package들이 OpenAPI를 입력으로 사용하거나
-Core utility에 의존하더라도 Core Platform ownership을 갖지는 않는다.
+`@oa-sdk/personas`도 data-governance domain에 속하고, `@oa-sdk/typia-mock`은 독립 experiment다.
+이 package들이 OpenAPI를 입력으로 사용하거나 Core utility에 의존하더라도 Core Platform
+ownership을 갖지는 않는다.
 
 ## 의존 그래프
 
@@ -69,27 +63,24 @@ mock-server  ← core + parser
 router       ← core + parser
 client       ← core + parser
 
--- maintenance/incubating boundary --
+-- maintenance boundary --
 dpm          ← openapi-projection-contract
 personas     ← 독립
 typia-mock   ← core + parser (+ typia: peer)
-markdown-editor ← 독립
-orchestrator-gitlab ← 독립
-infra-gitlab ← 독립
 ```
 
 Dependency direction과 product ownership은 동일한 개념이 아니다. Maintenance-only package가
 Core package를 import해도 Core roadmap에 포함되지 않으며, Core package는 새 기능을 위해
-maintenance/incubating package에 의존해서는 안 된다.
+maintenance package에 의존해서는 안 된다.
 
 ## 향후 분리 경계
 
-현재 물리 경계는 그대로 유지한다. 향후 extraction을 실행할 때는 다음 묶음을 우선 검토한다.
+Markdown editor와 GitLab agent operations는 2026-07-11에 각각 `markdown-editor`와
+`gitlab-agent-ops` 저장소로 추출했다. 현재 monorepo에 남은 후보는 다음과 같다.
 
 | 후보 | 이동 대상 | 현재 호환 경계 |
 |---|---|---|
 | `data-governance` | `@oa-sdk/dpm`, `@oa-sdk/personas` | projection contract와 OpenAPI artifact interface |
-| `agent-ops` | `@oa-sdk/infra-gitlab`, `@oa-sdk/orchestrator-gitlab`, `@oa-sdk/markdown-editor`, `@oa-sdk/orchestrator-gitlab-ui` | package exports와 HTTP/document contracts |
 | experiment/archive | `@oa-sdk/typia-mock` | public entrypoint와 optional typia peer contract |
 
 Extraction 전 migration은 package name/import compatibility와 소비자 검증을 보존해야 한다.
@@ -230,33 +221,3 @@ Extraction 전 migration은 package name/import compatibility와 소비자 검�
 | `src/infrastructure/` | GitHub/GitLab/local file source adapters, SQLite cache |
 | `src/presentation/http/server.ts` | HTTP presentation adapter |
 | `src/cli.ts` | spec observation CLI entry |
-
-### @oa-sdk/markdown-editor
-
-| 파일 | 역할 |
-|------|------|
-| `src/glfm/` | GitLab Flavored Markdown autocomplete, snippets, Plate serialization |
-| `src/plate/` | Plate editor preset and commands |
-| `src/core/` | editor persistence and shared types |
-| `themes/*.css` | reusable editor themes |
-
-### @oa-sdk/orchestrator-gitlab
-
-| 파일 | 역할 |
-|------|------|
-| `src/cli.ts` | orchestrator CLI entry |
-| `src/orchestrator.ts` | GitLab issue polling and orchestration loop |
-| `src/agents/` | Codex, Claude, echo, subprocess agent adapters |
-| `src/workspace.ts` | isolated workspace management |
-| `src/gitlab-client.ts` | GitLab API client |
-| `src/context-search.ts` | project context search |
-
-### @oa-sdk/infra-gitlab
-
-| 파일 | 역할 |
-|------|------|
-| `src/index.ts` | Pulumi GitLab CE/Runner local Docker preset |
-| `src/k3s/` | k3s target configuration and runner resources |
-| `src/cloud-vm/` | cloud VM target configuration and user-data |
-| `src/network.ts` | network resource helpers |
-| `scripts/register-runner*.sh` | GitLab runner registration scripts |

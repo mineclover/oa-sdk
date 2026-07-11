@@ -5,7 +5,7 @@
 surface의 SSOT는 [`api-index.md`](./api-index.md), 큰 surface 변경 기록은
 [`../changelog.md`](../changelog.md)에 둔다.
 
-Machine-readable policy는 version 2의 [`release-policy.json`](./release-policy.json)이다. `pnpm
+Machine-readable policy는 version 3의 [`release-policy.json`](./release-policy.json)이다. `pnpm
 check:release-policy`가 이 파일과 workspace package manifests, `.changeset/config.json`, 이 문서의
 정합성을 검증한다.
 
@@ -20,7 +20,7 @@ check:release-policy`가 이 파일과 workspace package manifests, `.changeset/
   dependency contract를 별도 readiness로 확인한다.
 - Internal dependencies는 모두 `workspace:` protocol을 사용한다. Changesets config는 내부 의존성
   bump를 `patch`로 전파한다.
-- Release policy v2는 9개 release-tracked package와 11개 ignored workspace를 관리한다. Release
+- Release policy v3는 9개 release-tracked package와 7개 ignored workspace를 관리한다. Release
   tracking은 제품 scope와 일치시키되, Core Platform과 Downstream Integration을 서로 다른
   architecture tier로 유지한다.
 
@@ -44,23 +44,23 @@ schema/spec 관리 제품을 소유하고, Downstream Integration 세 패키지�
 
 ## Ignored Workspaces
 
-아래 11개 workspace는 Changesets release 대상에서 제외한다. Maintenance-only package는
-보안·호환·migration만 수행하고, incubating package와 app/reference workspace는 Core release와
-분리한다. Ignored는 삭제나 검증 중단을 뜻하지 않으며 active feature investment가 아님을 뜻한다.
+아래 7개 workspace는 Changesets release 대상에서 제외한다. Maintenance-only package는
+보안·호환·migration만 수행하고, app/reference workspace는 Core release와 분리한다. Ignored는
+삭제나 검증 중단을 뜻하지 않으며 active feature investment가 아님을 뜻한다.
 
 | Tier | Workspace | Reason |
 | --- | --- | --- |
 | Maintenance-only | `@oa-sdk/dpm` | Data-governance separation candidate; security, compatibility, migration only |
 | Maintenance-only | `@oa-sdk/personas` | Data-governance separation candidate; security, compatibility, migration only |
 | Maintenance-only | `@oa-sdk/typia-mock` | Experiment/archive candidate; security, compatibility, migration only |
-| Maintenance-only | `@oa-sdk/markdown-editor` | Agent-ops separation candidate; security, compatibility, migration only |
-| Incubating | `@oa-sdk/infra-gitlab` | Local/Pulumi infrastructure preset, currently `0.0.0` |
-| Incubating | `@oa-sdk/orchestrator-gitlab` | GitLab orchestration MVP, currently `0.0.0` |
 | App/reference | `@oa-sdk/nestjs-ref` | Reference implementation app |
-| App/reference | `@oa-sdk/orchestrator-gitlab-ui` | Vite app, not a library package |
 | App/reference | `@oa-sdk/playground` | Integration playground |
 | App/reference | `@oa-sdk/preview` | Preview app |
 | App/reference | `@oa-sdk/spec-lens-ui` | UI app paired with `@oa-sdk/spec-lens` |
+
+`@oa-sdk/markdown-editor`, `@oa-sdk/infra-gitlab`, `@oa-sdk/orchestrator-gitlab`,
+`@oa-sdk/orchestrator-gitlab-ui`는 각각 `markdown-editor`와 `gitlab-agent-ops` 저장소로 추출되어
+이 manifest와 Changesets lifecycle의 대상이 아니다.
 
 새 non-core feature나 public package 승격은 구현 전에
 [`platform-scope.md`](./platform-scope.md)의 scope-reactivation decision을 먼저 기록하고,
@@ -72,11 +72,12 @@ schema/spec 관리 제품을 소유하고, Downstream Integration 세 패키지�
   release contract requires lockstep versions.
 - `@oa-sdk/codegen` may stay ahead of the runtime packages because it owns CLI and schema production
   workflow milestones.
-- `0.0.0` means incubating/internal with no release semantics.
+- Release-tracked workspace는 `0.0.0`을 사용할 수 없다. Ignored workspace의 version은 release
+  readiness를 뜻하지 않는다.
 - A package version bump should correspond to a package-level contract change, not every internal
   implementation commit.
 - Browser subpath exports are part of the public contract for packages that expose them.
-- Maintenance-only, incubating, app/reference workspace에는 새 feature Changeset을 만들지 않는다.
+- Maintenance-only와 app/reference workspace에는 새 feature Changeset을 만들지 않는다.
 
 ## Patch Note Policy
 
