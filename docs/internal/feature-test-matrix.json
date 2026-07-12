@@ -880,7 +880,7 @@
       "name": "Definition duplicate review",
       "category": "governance",
       "package": "@oa-sdk/codegen",
-      "description": "oa-gen duplicate-review reports Definition Builder duplicate identity risks as compact markdown or stable JSON, with semantic alias suppression and error-only non-zero exits.",
+      "description": "oa-gen duplicate-review reports Definition Builder duplicate identity risks as compact markdown or stable JSON, with report/review/ci policy decisions, repeatable targets and checks, configurable severity thresholds, and semantic alias suppression.",
       "capabilities": [
         "duplicate canonical id findings",
         "same content hash candidates",
@@ -888,7 +888,10 @@
         "target-local output name collision candidates",
         "semantic alias suppression",
         "markdown and JSON CLI reports",
-        "error-level exit policy"
+        "report/review/ci policy decisions",
+        "repeatable target and check options",
+        "configurable fail-on threshold",
+        "review-bundle decision integration"
       ],
       "testPaths": [
         "packages/codegen/src/__tests__/duplicate-review.test.ts",
@@ -1401,16 +1404,21 @@
       "name": "Governance docs and drift guards",
       "category": "governance",
       "package": "root",
-      "description": "API index drift checks and feature-to-test matrix maintenance.",
+      "description": "API index, CLI manifest, Markdown link/CLI example, and feature-to-test matrix drift checks.",
       "capabilities": [
         "API index export drift detection",
         "CLI ECS manifest drift detection",
+        "Markdown local link validation",
+        "fenced oa-gen example validation",
         "feature-to-test matrix validation",
         "internal SSOT links"
       ],
       "testPaths": [
         "scripts/check-api-index.ts",
         "scripts/check-cli-spec.ts",
+        "scripts/check-docs.ts",
+        "scripts/lib/validation-gates.ts",
+        "scripts/test-validation-gates.ts",
         "scripts/check-feature-test-matrix.ts",
         "docs/vision.md",
         "docs/concepts.md",
@@ -1419,6 +1427,7 @@
         "docs/cli-spec/cli-command.schema.json",
         "docs/cli-spec/oa-contract.governance.json",
         "docs/cli-spec/oa-gen.governance.json",
+        "docs/guides/duplicate-review.md",
         "docs/internal/spec.md",
         "docs/internal/api-index.md",
         "docs/internal/feature-test-matrix.md",
@@ -1427,6 +1436,8 @@
       "commands": [
         "pnpm build:scripts && pnpm check:api-index",
         "pnpm check:cli-spec",
+        "pnpm test:docs-gates",
+        "pnpm check:docs",
         "pnpm check:feature-tests"
       ]
     }

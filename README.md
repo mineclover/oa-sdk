@@ -114,7 +114,8 @@ oa-gen check-artifact --head packages/schemas/src/.merged.yaml --target packages
 oa-gen drift --runtime-openapi runtime.yaml --managed-openapi packages/schemas/src/.merged.yaml
 oa-gen inventory --spec packages/schemas/src/.merged.yaml --format markdown
 oa-gen behavior-query --behavior-db ./.oa-cache/behavior.sqlite --mode summary-by-behavior-decision-signal --format json
-oa-gen duplicate-review --fragments packages/schemas/src/fragments --format markdown
+oa-gen duplicate-review --fragments packages/schemas/src/fragments --policy report --format markdown
+oa-gen duplicate-review --fragments packages/schemas/src/fragments --policy ci --target packages/schemas/src/targets/public-api.yaml --format json
 oa-gen target-check --target packages/schemas/src/targets/public-api.yaml --must-include-path /health --must-exclude-path /admin
 oa-gen review --base old.yaml --head packages/schemas/src/.merged.yaml --artifact packages/schemas/dist/openapi.yaml
 oa-gen review-bundle --base old.yaml --head packages/schemas/src/.merged.yaml --artifact packages/schemas/dist/openapi.yaml --inventory --format markdown
@@ -176,6 +177,7 @@ console.log(describeApi(parseDocument(spec)))
 | [Concepts](./docs/concepts.md) | 공통 용어와 계약 경계 |
 | [Quick Start](./docs/guides/quick-start.md) | 5분 파이프라인 체험 |
 | [OpenAPI Governance Workflow](./docs/guides/use-cases/openapi-governance-workflow.md) | target sidecar + PR review gate |
+| [Duplicate Review](./docs/guides/duplicate-review.md) | fragment 중복 탐지 정책과 CI gate |
 | [NestJS Swagger / FastAPI Governance](./docs/guides/use-cases/nestjs-swagger-governance.md) | NestJS Swagger 또는 FastAPI 산출물 수집 + normalized/upgraded artifact (apps/nestjs-ref, apps/fastapi-ref) |
 | [Service Governance Template](./docs/guides/openapi-governance-service-template.md) | 서비스별 OpenAPI governance 설정 템플릿 |
 | [Path Fragment Conventions](./docs/guides/path-fragment-conventions.md) | path 폴더/ID/feedback 좌표 규칙 |

@@ -11,12 +11,12 @@
 export function pickDefaultStatus(responses: Record<string, unknown>): number {
   const keys = Object.keys(responses)
 
-  const exact = keys.filter(k => /^\d{3}$/.test(k)).map(Number).sort((a, b) => a - b)
+  const exact = keys.filter(k => /^[1-5]\d{2}$/.test(k)).map(Number).sort((a, b) => a - b)
   const ok2xx = exact.find(c => c >= 200 && c < 300)
   if (ok2xx !== undefined) return ok2xx
   if (exact.length > 0) return exact[0]!
 
-  const ranges = keys.filter(k => /^\dXX$/i.test(k)).sort()
+  const ranges = keys.filter(k => /^[1-5]XX$/i.test(k)).sort()
   const range2xx = ranges.find(k => k[0] === '2')
   if (range2xx) return 200
   if (ranges.length > 0) return parseInt(ranges[0]![0]! + '00', 10)

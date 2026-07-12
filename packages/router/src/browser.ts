@@ -7,7 +7,7 @@
 
 import type { OasDocument, OasResponse, ParsedDocument } from '@oa-sdk/parser/browser'
 import { assertParsedDocumentComplete, isParsedDocument, parseDocument } from '@oa-sdk/parser/browser'
-import { toColonPath, pascalCase, collectTypeNames, formatGeneratedTs, pickDefaultStatus } from '@oa-sdk/core/browser'
+import { toColonPath, createOperationTypeNameMap, collectTypeNames, formatGeneratedTs, pickDefaultStatus } from '@oa-sdk/core/browser'
 
 export type RouterTarget = 'hono' | 'express'
 
@@ -30,6 +30,7 @@ export function generateRouter(spec: OasDocument | ParsedDocument, options: Rout
   assertParsedDocumentComplete(doc, '@oa-sdk/router/browser generateRouter')
   const { target = 'hono', typesImport, banner = true } = options
   const lines: string[] = []
+  const operationNames = createOperationTypeNameMap([...doc.operations, ...doc.webhooks])
 
   if (banner) {
     lines.push('// Auto-generated router stub from OpenAPI spec. Do not edit.')
@@ -45,7 +46,7 @@ export function generateRouter(spec: OasDocument | ParsedDocument, options: Rout
   }
 
   if (typesImport) {
-    const typeNames = collectTypeNames([...doc.operations, ...doc.webhooks])
+    const typeNames = collectTypeNames([...doc.operations, ...doc.webhooks], operationNames)
     if (typeNames.length > 0) {
       lines.push(`import type { ${typeNames.join(', ')} } from '${typesImport}'`)
     }
@@ -81,7 +82,7 @@ export function generateRouter(spec: OasDocument | ParsedDocument, options: Rout
   // routes
   for (const op of doc.operations) {
     if (!op.operationId) continue
-    const baseName = pascalCase(op.operationId)
+    const baseName = operationNames.get(op.operationId)!
     const method = op.method
     const path = target === 'hono' ? toColonPath(op.openApiPath) : toColonPath(op.openApiPath)
 
@@ -182,7 +183,7 @@ export function generateRouter(spec: OasDocument | ParsedDocument, options: Rout
     lines.push('')
     for (const op of doc.webhooks) {
       if (!op.operationId) continue
-      const baseName = pascalCase(op.operationId)
+      const baseName = operationNames.get(op.operationId)!
       const method = op.method
       const path = target === 'hono' ? toColonPath(op.openApiPath) : toColonPath(op.openApiPath)
 

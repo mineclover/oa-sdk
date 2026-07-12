@@ -4,7 +4,7 @@
  * typegen, router, client에서 공통으로 사용하는 타입 이름 수집 등.
  */
 
-import { pascalCase } from './strings.js'
+import { toTypeScriptIdentifier } from './strings.js'
 
 /**
  * operations에서 typegen이 생성할 타입 이름을 수집합니다.
@@ -15,11 +15,11 @@ export function collectTypeNames(operations: ReadonlyArray<{
   parameters: ReadonlyArray<{ in: string }>
   requestBody?: unknown
   responses: Record<string, unknown>
-}>): string[] {
+}>, operationNames?: ReadonlyMap<string, string>): string[] {
   const names: string[] = []
   for (const op of operations) {
     if (!op.operationId) continue
-    const base = pascalCase(op.operationId)
+    const base = operationNames?.get(op.operationId) ?? toTypeScriptIdentifier(op.operationId)
     if (op.parameters.some(p => p.in === 'path')) names.push(`${base}PathParams`)
     if (op.parameters.some(p => p.in === 'query')) names.push(`${base}QueryParams`)
     if (hasGeneratedRequestBodyType(op.requestBody)) names.push(`${base}Body`)

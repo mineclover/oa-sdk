@@ -48,4 +48,17 @@ describe('formatGeneratedTs', () => {
     expect(lines[1]).toMatch(/^\s{2}foo/)
     expect(lines[2]).toMatch(/^\s{2}baz/)
   })
+
+  it('문자열 또는 주석의 delimiter는 블록 깊이에 반영하지 않는다', () => {
+    const code = formatGeneratedTs('export type Example = {\nnote: "literal { brace"\n// } comment\nnext: string\n}')
+    const lines = code.split('\n')
+    expect(lines[1]).toBe('  note: "literal { brace"')
+    expect(lines[2]).toBe('// } comment')
+    expect(lines[3]).toBe('  next: string')
+  })
+
+  it('multiline array의 닫는 bracket도 indent를 되돌린다', () => {
+    const code = formatGeneratedTs('const value = [\n{\nname: string\n}\n]\nconst done = true')
+    expect(code.split('\n')[5]).toBe('const done = true')
+  })
 })

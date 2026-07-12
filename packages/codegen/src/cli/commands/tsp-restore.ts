@@ -56,7 +56,7 @@ export const tspRestore: Command = {
     }
 
     writeOutput(optStr(args, 'output'), stringifyOpenApiYaml(restored.document), 'TypeSpec sidecar restored OpenAPI')
-    if (report) console.log(`✅ TypeSpec sidecar restore report: ${report}`)
-    if (stabilityReport) console.log(`✅ TypeSpec sidecar stability report: ${stabilityReport}`)
+    if (report) console.error(`✅ TypeSpec sidecar restore report: ${report}`)
+    if (stabilityReport) console.error(`✅ TypeSpec sidecar stability report: ${stabilityReport}`)
   },
 }

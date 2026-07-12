@@ -83,4 +83,8 @@ describe('pickDefaultStatus', () => {
   it('범위가 default보다 우선', () => {
     expect(pickDefaultStatus({ default: {}, '4XX': {} })).toBe(400)
   })
+
+  it('OAS 범위를 벗어난 status key는 무시한다', () => {
+    expect(pickDefaultStatus({ '600': {}, '000': {}, '6XX': {} })).toBe(200)
+  })
 })

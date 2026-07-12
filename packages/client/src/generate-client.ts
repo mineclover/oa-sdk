@@ -6,7 +6,7 @@
 
 import type { OasDocument, OasRequestBody, OasResponse, OasSchema, ParsedDocument } from '@oa-sdk/parser'
 import { assertParsedDocumentComplete, isParsedDocument, parseDocument, resolveServerUrl } from '@oa-sdk/parser'
-import { pascalCase, collectTypeNames, formatGeneratedTs } from '@oa-sdk/core'
+import { createOperationTypeNameMap, toOperationMethodName, collectTypeNames, formatGeneratedTs } from '@oa-sdk/core'
 
 export type ClientOptions = {
   /** typegen 타입 import 경로 (예: './types') */
@@ -29,6 +29,7 @@ export function generateClient(spec: OasDocument | ParsedDocument, options: Clie
   assertParsedDocumentComplete(doc, '@oa-sdk/client generateClient')
   const { typesImport, banner = true } = options
   const lines: string[] = []
+  const operationNames = createOperationTypeNameMap([...doc.operations, ...doc.webhooks])
 
   if (banner) {
     lines.push('// Auto-generated client SDK from OpenAPI spec. Do not edit.')
@@ -38,7 +39,7 @@ export function generateClient(spec: OasDocument | ParsedDocument, options: Clie
 
   // types import
   if (typesImport) {
-    const typeNames = collectTypeNames(doc.operations)
+    const typeNames = collectTypeNames(doc.operations, operationNames)
     if (typeNames.length > 0) {
       lines.push(`import type { ${typeNames.join(', ')} } from '${typesImport}'`)
       lines.push('')
@@ -375,7 +376,8 @@ export function generateClient(spec: OasDocument | ParsedDocument, options: Clie
   lines.push('  return {')
   for (const op of doc.operations) {
     if (!op.operationId) continue
-    const baseName = pascalCase(op.operationId)
+    const baseName = operationNames.get(op.operationId)!
+    const methodName = toOperationMethodName(baseName)
     const method = op.method.toUpperCase()
 
     // build path with template
@@ -419,7 +421,7 @@ export function generateClient(spec: OasDocument | ParsedDocument, options: Clie
 
     if (streamFormat) {
       const helperName = streamFormat === 'sse' ? 'streamSse' : 'streamNdjson'
-      lines.push(`    async *${op.operationId}(${params.join(', ')}): ${returnType} {`)
+      lines.push(`    async *${methodName}(${params.join(', ')}): ${returnType} {`)
       if (needsValidation) {
         lines.push(`      if (config.validate) {`)
         for (const p of pathParams) {
@@ -434,7 +436,7 @@ export function generateClient(spec: OasDocument | ParsedDocument, options: Clie
       lines.push(`      yield* ${helperName}('${method}', ${pathExpr}${streamOpts})`)
       lines.push(`    },`)
     } else {
-      lines.push(`    async ${op.operationId}(${params.join(', ')}): ${returnType} {`)
+      lines.push(`    async ${methodName}(${params.join(', ')}): ${returnType} {`)
       if (needsValidation) {
         lines.push(`      if (config.validate) {`)
         for (const p of pathParams) {
@@ -458,7 +460,8 @@ export function generateClient(spec: OasDocument | ParsedDocument, options: Clie
     lines.push('    withResponse: {')
     for (const op of responseHeaderOperations) {
       if (!op.operationId) continue
-      const baseName = pascalCase(op.operationId)
+      const baseName = operationNames.get(op.operationId)!
+      const methodName = toOperationMethodName(baseName)
       const method = op.method.toUpperCase()
       const pathParams = op.parameters.filter(p => p.in === 'path')
       const queryParams = op.parameters.filter(p => p.in === 'query')
@@ -487,7 +490,7 @@ export function generateClient(spec: OasDocument | ParsedDocument, options: Clie
       if (op.summary || op.description) {
         lines.push(`      /** ${op.summary ?? op.description} */`)
       }
-      lines.push(`      async ${op.operationId}(${params.join(', ')}): Promise<ClientResponse<${bodyType}, ${headersType}>> {`)
+      lines.push(`      async ${methodName}(${params.join(', ')}): Promise<ClientResponse<${bodyType}, ${headersType}>> {`)
       lines.push(`        return requestResponse<${bodyType}, ${headersType}>('${method}', ${pathExpr}, ${optsArg}, ${headerSpecs})`)
       lines.push(`      },`)
       lines.push('')
@@ -503,7 +506,7 @@ export function generateClient(spec: OasDocument | ParsedDocument, options: Clie
     lines.push('// ─── Webhook Types ─────────────────────────────────────────────')
     for (const op of doc.webhooks) {
       if (!op.operationId) continue
-      const baseName = pascalCase(op.operationId)
+      const baseName = operationNames.get(op.operationId)!
       const typeName = `${baseName}Webhook`
 
       // JSDoc

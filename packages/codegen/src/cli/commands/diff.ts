@@ -8,6 +8,7 @@ import {
 } from '../lib/openapi-breaking-diff.js'
 import { commandById, optionDescription } from '../spec/ecs.js'
 import { oaGenGovernanceManifest } from '../spec/oa-gen-governance.js'
+import { CliExitError } from '../lib/errors.js'
 
 const diffSpec = commandById(oaGenGovernanceManifest, 'diff')
 
@@ -35,6 +36,6 @@ export const diff: Command = {
     const head = loadSpecWithPath(str(args, 'head'))
     const result = diffEndpoints(base.document, head.document)
     console.log(formatMarkdown(result))
-    if (bool(args, 'fail-on-breaking') && hasBreakingChanges(result)) process.exit(1)
+    if (bool(args, 'fail-on-breaking') && hasBreakingChanges(result)) throw new CliExitError(1)
   },
 }

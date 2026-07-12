@@ -7,6 +7,7 @@ import {
 } from '../lib/metadata-registry.js'
 import type { Command } from '../lib/types.js'
 import { bool, optStr, str } from '../lib/args.js'
+import { CliExitError } from '../lib/errors.js'
 import { loadSpecWithPath } from '../lib/load-spec.js'
 import {
   createMetadataRegistryDiffReview,
@@ -219,8 +220,9 @@ export const reviewBundle: Command = {
       }))
       behaviorRecorder.close?.()
 
-      if (bundle.summary.recommendation === 'REQUEST_CHANGES') process.exit(1)
+      if (bundle.summary.recommendation === 'REQUEST_CHANGES') throw new CliExitError(1)
     } catch (error) {
+      if (error instanceof CliExitError) throw error
       const targetKey = `${basePathArg}|${headPathArg}|${artifactPathArg}`
       await behaviorRecorder.record(createBehaviorRecord({
         behaviorType: 'publish_review_bundle',

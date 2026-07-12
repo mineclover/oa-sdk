@@ -58,9 +58,9 @@ architecture/ (설계 결정)
 
 ```markdown
 <!-- 유저 가이드에서 -->
-→ [API 상세](../../internal/api-index.md)
-→ [에러 코드 목록](../../internal/spec.md)
-→ [OAS 커버리지](../../internal/oas32-coverage.md)
+→ [API 상세](../internal/api-index.md)
+→ [에러 코드 목록](../internal/spec.md)
+→ [OAS 커버리지](../internal/oas32-coverage.md)
 ```
 
 SSOT에 상세가 있으므로 유저 가이드에서 동일 정보를 반복하지 않습니다.

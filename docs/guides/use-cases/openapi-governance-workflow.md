@@ -85,27 +85,26 @@ oa-gen inventory \
 ## 3. Duplicate review 실행
 
 Duplicate review는 중복 후보를 보고만 한다. 자동 병합하지 않는다.
+정책별 검사 범위, 종료 코드, 다중 target 사용법은
+[Duplicate Review 가이드](../duplicate-review.md)를 기준으로 한다.
 
 ```bash
 oa-gen duplicate-review \
   --fragments packages/schemas/src/fragments \
+  --policy review \
   --target packages/schemas/src/targets/local-parity-api.yaml \
   --format markdown
 
 oa-gen duplicate-review \
   --fragments packages/schemas/src/fragments \
+  --policy ci \
   --target packages/schemas/src/targets/local-parity-api.yaml \
   --format json \
   > artifacts/openapi-governance/duplicate-review.json
 ```
 
-Exit policy:
-
-- duplicate canonical id: error, non-zero
-- target output name collision: target context가 있으면 error, non-zero
-- same content hash: info
-- same local name with different shape: warning
-- `metadata.semanticAliasOf`: info, intended alias pair만 same-content warning에서 제외
+`review`는 모든 후보를 PR comment에 남기고, `ci`는 target-local canonical ID/output name
+충돌만 기본 gate로 사용한다. 추가 후보를 gate에 포함하려면 `--check`과 `--fail-on`을 명시한다.
 
 ## 4. Target path coverage gate
 
@@ -237,8 +236,8 @@ oa-gen review-bundle \
 
 Recommendation policy:
 
-- `REQUEST_CHANGES`: breaking change, stale artifact, runtime drift/check failure, duplicate-review error
-- `COMMENT`: non-breaking change, optional findings, incomplete freshness check
+- `REQUEST_CHANGES`: breaking change, stale artifact, runtime drift/check failure, duplicate-review policy decision `REQUEST_CHANGES`
+- `COMMENT`: non-breaking change, optional findings, incomplete freshness check, duplicate-review policy decision `COMMENT`
 - `APPROVE`: clean required checks
 
 ## CI 예시
@@ -258,6 +257,7 @@ oa-gen target-check \
 
 oa-gen duplicate-review \
   --fragments packages/schemas/src/fragments \
+  --policy ci \
   --target packages/schemas/src/targets/local-parity-api.yaml
 ```
 

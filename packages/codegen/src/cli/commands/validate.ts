@@ -10,6 +10,7 @@ import {
   recordCliIncrementalIndex,
 } from '../lib/incremental.js'
 import type { WorkspaceDiagnosticRecord } from '../../workspace-index.js'
+import { CliExitError } from '../lib/errors.js'
 
 export const validate: Command = {
   name: 'validate',
@@ -29,10 +30,10 @@ export const validate: Command = {
       specPath,
       ...(cacheDir ? { cacheDir } : {}),
     })
-    const { document: doc, path: resolvedSpecPath, raw } = loadSpecWithPath(specPath)
-    const sourceLocations = createCliSourceLocationResolver({ filePath: resolvedSpecPath, raw })
 
     try {
+      const { document: doc, path: resolvedSpecPath, raw } = loadSpecWithPath(specPath)
+      const sourceLocations = createCliSourceLocationResolver({ filePath: resolvedSpecPath, raw })
       console.log('━━━ Step 1: 파싱 + 구조 검증 ━━━')
       const result = validateDocument(doc, {
         basePath: resolvedSpecPath,
@@ -81,7 +82,7 @@ export const validate: Command = {
         )),
       })
 
-      if (!result.valid) process.exit(1)
+      if (!result.valid) throw new CliExitError(1)
     } finally {
       closeCliIncrementalRun(incremental)
     }

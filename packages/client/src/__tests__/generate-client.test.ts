@@ -51,6 +51,19 @@ function headersSpec(): OasDocument {
 }
 
 describe('generateClient', () => {
+  it('typegen과 같은 operationId 정규화 규칙을 사용한다', () => {
+    const code = generateClient(doc({
+      paths: {
+        '/a': { get: { operationId: 'get.user', responses: { '200': { description: 'OK' } } } },
+        '/b': { get: { operationId: 'list-users', responses: { '200': { description: 'OK' } } } },
+        '/c': { get: { operationId: 'list_users', responses: { '200': { description: 'OK' } } } },
+      },
+    }), { typesImport: './types' })
+    expect(code).toContain('async getUser(')
+    expect(code).toContain('async listUsers(')
+    expect(code).toContain('async listUsers2(')
+  })
+
   it('accepts ParsedDocument IR in Node and browser entrypoints', () => {
     const spec = doc({
       paths: {

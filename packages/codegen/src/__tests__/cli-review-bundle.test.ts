@@ -516,6 +516,14 @@ function duplicateReviewReport(): DefinitionDuplicateReviewResult {
   return {
     schemaVersion: 'oa-gen.duplicate-review.v1',
     valid: true,
+    decision: 'APPROVE',
+    policy: {
+      name: 'review',
+      checks: ['canonical-id', 'content-hash', 'local-name', 'output-name', 'semantic-alias'],
+      failOn: 'error',
+      targetRequired: false,
+      enforceable: true,
+    },
     fragmentsDir: 'fragments',
     targets: [{ name: 'public-api', targetPath: 'targets/public.yaml' }],
     diagnostics: [],

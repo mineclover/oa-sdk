@@ -15,6 +15,7 @@
 | [Mock 테스팅](./guides/use-cases/mock-testing.md) | 프론트엔드 테스트에서 Mock 서버 활용 |
 | [코드젠 워크플로](./guides/use-cases/codegen-workflow.md) | Drizzle → OAS → TS → 라우터 → 클라이언트 |
 | [OpenAPI Governance Workflow](./guides/use-cases/openapi-governance-workflow.md) | target artifact sidecar, duplicate review, target-check, drift, review bundle |
+| [Duplicate Review](./guides/duplicate-review.md) | fragment 중복 탐지 정책, CI gate, review-bundle 연동 |
 | [OpenAPI Governance Service Template](./guides/openapi-governance-service-template.md) | 서비스별 governance 설정 템플릿 |
 | [OpenAPI 3.2 Contract Management](./guides/openapi32-contract-management.md) | oa-sdk 계약 관리 원칙과 OpenAPI 3.2 strict gate |
 | [NestJS Swagger / FastAPI Governance](./guides/use-cases/nestjs-swagger-governance.md) | NestJS Swagger / FastAPI 산출물 → oa-sdk 계약 관리 레퍼런스 (apps/nestjs-ref, apps/fastapi-ref) |

@@ -90,7 +90,7 @@ describe('oa-gen duplicate-review', () => {
     expect(result.stdout).not.toContain('### Diagnostics')
   })
 
-  it('exits non-zero for duplicate canonical id errors', () => {
+  it('keeps default report mode non-blocking and review mode blocking for duplicate canonical ids', () => {
     writeFragment('schema/public/book/Book.yaml', {
       id: 'schema:public/book/Book',
       content: {
@@ -110,10 +110,23 @@ describe('oa-gen duplicate-review', () => {
       },
     })
 
+    const discoveryResult = runCli([
+      'duplicate-review',
+      '--fragments',
+      join(tmpDir, 'fragments'),
+      '--format',
+      'json',
+    ])
+    expect(discoveryResult.status).toBe(0)
+    const discoveryReport = JSON.parse(discoveryResult.stdout) as DefinitionDuplicateReviewResult
+    expect(discoveryReport.decision).toBe('APPROVE')
+
     const result = runCli([
       'duplicate-review',
       '--fragments',
       join(tmpDir, 'fragments'),
+      '--policy',
+      'review',
       '--format',
       'json',
     ])
@@ -127,6 +140,56 @@ describe('oa-gen duplicate-review', () => {
       join(tmpDir, 'fragments/schema/public/book/Book.yaml'),
       join(tmpDir, 'fragments/schema/public/book/BookDuplicate.yaml'),
     ])
+  })
+
+  it('accepts repeated targets and requires them for ci policy', () => {
+    writeSameContentCandidates()
+    const firstTarget = writeTarget('first.yaml', {
+      name: 'first',
+      scopes: ['public'],
+      domains: ['book'],
+      servers: [],
+      includePaths: [],
+      includeDefinitions: ['schema:public/book/Book'],
+    })
+    const secondTarget = writeTarget('second.yaml', {
+      name: 'second',
+      scopes: ['public'],
+      domains: ['archive'],
+      servers: [],
+      includePaths: [],
+      includeDefinitions: ['schema:public/archive/BookSnapshot'],
+    })
+
+    const result = runCli([
+      'duplicate-review',
+      '--fragments', join(tmpDir, 'fragments'),
+      '--policy', 'ci',
+      '--target', firstTarget,
+      '--target', secondTarget,
+      '--format', 'json',
+    ])
+    expect(result.status).toBe(0)
+    const report = JSON.parse(result.stdout) as DefinitionDuplicateReviewResult
+    expect(report.policy).toEqual(expect.objectContaining({
+      name: 'ci',
+      checks: ['canonical-id', 'output-name'],
+      targetRequired: true,
+    }))
+    expect(report.targets.map(target => target.name)).toEqual(['first', 'second'])
+
+    const missingTarget = runCli([
+      'duplicate-review',
+      '--fragments', join(tmpDir, 'fragments'),
+      '--policy', 'ci',
+      '--format', 'json',
+    ])
+    expect(missingTarget.status).toBe(1)
+    const missingTargetReport = JSON.parse(missingTarget.stdout) as DefinitionDuplicateReviewResult
+    expect(missingTargetReport.decision).toBe('REQUEST_CHANGES')
+    expect(missingTargetReport.diagnostics).toContainEqual(expect.objectContaining({
+      code: 'definition-duplicate-review/target-required',
+    }))
   })
 })
 
@@ -150,6 +213,12 @@ function writeSameContentCandidates(): void {
 
 function writeFragment(relativePath: string, value: unknown): void {
   writeYaml(join(tmpDir, 'fragments', relativePath), value)
+}
+
+function writeTarget(relativePath: string, value: unknown): string {
+  const filePath = join(tmpDir, 'targets', relativePath)
+  writeYaml(filePath, value)
+  return filePath
 }
 
 function writeYaml(filePath: string, value: unknown): void {

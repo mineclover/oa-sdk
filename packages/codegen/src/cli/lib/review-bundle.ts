@@ -413,9 +413,12 @@ function createSummary(input: {
   } else if (metadataRegistryDiffIncomplete) {
     reasons.push('metadata registry diff was not fully checked')
   }
-  if (input.duplicateReview !== undefined && !input.duplicateReview.valid) {
+  const duplicateReviewDecision = input.duplicateReview === undefined
+    ? undefined
+    : decisionForDuplicateReview(input.duplicateReview)
+  if (duplicateReviewDecision === 'REQUEST_CHANGES') {
     reasons.push('duplicate review has error-level findings or diagnostics')
-  } else if (input.duplicateReview !== undefined && input.duplicateReview.summary.findingCount > 0) {
+  } else if (duplicateReviewDecision === 'COMMENT') {
     reasons.push('duplicate review has findings')
   }
   if (input.nonBreaking.length > 0) {
@@ -468,20 +471,34 @@ function recommend(input: {
   metadataRegistryDiff: ReviewBundleMetadataRegistryDiff | undefined
   duplicateReview: DefinitionDuplicateReviewResult | undefined
 }): ReviewBundleRecommendation {
+  const duplicateReviewDecision = input.duplicateReview === undefined
+    ? undefined
+    : decisionForDuplicateReview(input.duplicateReview)
   return recommendReviewOutcome({
     hasBlocking: input.breaking.length > 0
       || input.artifactFreshness.fresh === false
       || input.runtimeDrift?.drift === true
       || (input.metadataRegistry !== undefined && metadataRegistryHasErrors(input.metadataRegistry))
-      || input.duplicateReview?.valid === false,
+      || duplicateReviewDecision === 'REQUEST_CHANGES',
     hasAdvisory: input.nonBreaking.length > 0
       || !input.artifactFreshness.checked
       || input.provenanceDiff?.changed === true
       || isOptionalSidecarDiffIncomplete(input.provenanceDiff)
       || input.metadataRegistryDiff?.changed === true
       || isOptionalSidecarDiffIncomplete(input.metadataRegistryDiff)
-      || (input.duplicateReview !== undefined && input.duplicateReview.summary.findingCount > 0),
+      || duplicateReviewDecision === 'COMMENT',
   })
+}
+
+function decisionForDuplicateReview(
+  report: DefinitionDuplicateReviewResult,
+): DefinitionDuplicateReviewResult['decision'] {
+  // Reports created before policy-aware duplicate review retain the previous
+  // interpretation when consumed by a newer review-bundle command.
+  const decision = (report as Partial<DefinitionDuplicateReviewResult>).decision
+  if (decision !== undefined) return decision
+  if (!report.valid) return 'REQUEST_CHANGES'
+  return report.summary.findingCount > 0 ? 'COMMENT' : 'APPROVE'
 }
 
 function changeLines(changes: readonly ContractDiffChange[]): string[] {

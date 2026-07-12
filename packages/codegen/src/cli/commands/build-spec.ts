@@ -1,6 +1,7 @@
 import { resolve } from 'node:path'
 import type { Command } from '../lib/types.js'
 import { optStr, str } from '../lib/args.js'
+import { CliExitError } from '../lib/errors.js'
 import { buildSpec, type BuildSpecDiagnostic } from '../lib/build-spec.js'
 import {
   createBehaviorRecord,
@@ -129,8 +130,9 @@ export const buildSpecCommand: Command = {
         console.error(formatDiagnostic(diagnostic))
       }
       behaviorRecorder.close?.()
-      process.exit(1)
+      throw new CliExitError(1)
     } catch (error) {
+      if (error instanceof CliExitError) throw error
       await behaviorRecorder.record(createBehaviorRecord({
         behaviorType: 'build_openapi_target',
         status: 'failed',

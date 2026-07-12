@@ -9,13 +9,14 @@ export function formatGeneratedTs(code: string, indent = '  '): string {
   const lines = code.split('\n')
   const result: string[] = []
   let level = 0
+  let inBlockComment = false
 
   for (const raw of lines) {
     const trimmed = raw.trim()
     if (!trimmed) { result.push(''); continue }
 
-    const opens = (trimmed.match(/\{/g) ?? []).length + (trimmed.match(/\(/g) ?? []).length
-    const closes = (trimmed.match(/\}/g) ?? []).length + (trimmed.match(/\)/g) ?? []).length
+    const { opens, closes, blockComment } = countStructuralDelimiters(trimmed, inBlockComment)
+    inBlockComment = blockComment
 
     // } 로 시작하면 레벨 감소 먼저
     if (trimmed.startsWith('}') || trimmed.startsWith(']') || trimmed.startsWith(')')) {
@@ -39,4 +40,37 @@ export function formatGeneratedTs(code: string, indent = '  '): string {
   }
 
   return result.join('\n')
+}
+
+function countStructuralDelimiters(line: string, startsInBlockComment: boolean): {
+  opens: number
+  closes: number
+  blockComment: boolean
+} {
+  let opens = 0
+  let closes = 0
+  let blockComment = startsInBlockComment
+  let quote: '"' | "'" | '`' | null = null
+
+  for (let index = 0; index < line.length; index++) {
+    const char = line[index]!
+    const next = line[index + 1]
+
+    if (blockComment) {
+      if (char === '*' && next === '/') { blockComment = false; index++ }
+      continue
+    }
+    if (quote) {
+      if (char === '\\') { index++; continue }
+      if (char === quote) quote = null
+      continue
+    }
+    if (char === '/' && next === '/') break
+    if (char === '/' && next === '*') { blockComment = true; index++; continue }
+    if (char === '"' || char === "'" || char === '`') { quote = char; continue }
+    if (char === '{' || char === '(' || char === '[') opens++
+    if (char === '}' || char === ')' || char === ']') closes++
+  }
+
+  return { opens, closes, blockComment }
 }

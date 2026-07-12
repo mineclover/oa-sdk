@@ -99,6 +99,7 @@ describe('definition duplicate review analyzer', () => {
     const result = analyzeDefinitionDuplicateReview({
       fragmentsDir: join(tmpDir, 'fragments'),
       targetPaths: [targetPath],
+      policy: 'review',
     })
 
     expect(snapshotFragments()).toEqual(before)
@@ -207,6 +208,65 @@ describe('definition duplicate review analyzer', () => {
     ])
     expect(result.findings.filter(entry => entry.code === 'definition-duplicate-review/semantic-alias'))
       .toHaveLength(1)
+  })
+
+  it('keeps the target-less default as a non-blocking discovery report', () => {
+    writeFragment('schema/public/book/Book.yaml', {
+      id: 'schema:public/book/Book',
+      content: { type: 'string' },
+    })
+    writeFragment('schema/public/book/BookDuplicate.yaml', {
+      id: 'schema:public/book/Book',
+      content: { type: 'integer' },
+    })
+
+    const result = analyzeDefinitionDuplicateReview({
+      fragmentsDir: join(tmpDir, 'fragments'),
+    })
+
+    expect(result.policy).toEqual({
+      name: 'report',
+      checks: ['canonical-id', 'content-hash', 'local-name', 'output-name', 'semantic-alias'],
+      failOn: 'none',
+      targetRequired: false,
+      enforceable: false,
+    })
+    expect(result.summary.errors).toBeGreaterThan(0)
+    expect(result.valid).toBe(true)
+    expect(result.decision).toBe('APPROVE')
+    expect(result.diagnostics).toContainEqual(expect.objectContaining({
+      code: 'definition-registry/duplicate-id',
+    }))
+  })
+
+  it('requires targets only for the ci policy and lets checks and thresholds be selected', () => {
+    writeFragment('schema/public/book/Book.yaml', {
+      id: 'schema:public/book/Book',
+      content: { type: 'string' },
+    })
+    writeFragment('schema/public/notebook/Book.yaml', {
+      id: 'schema:public/notebook/Book',
+      content: { type: 'integer' },
+    })
+
+    const ci = analyzeDefinitionDuplicateReview({
+      fragmentsDir: join(tmpDir, 'fragments'),
+      policy: 'ci',
+    })
+    expect(ci.decision).toBe('REQUEST_CHANGES')
+    expect(ci.diagnostics).toContainEqual(expect.objectContaining({
+      code: 'definition-duplicate-review/target-required',
+    }))
+
+    const review = analyzeDefinitionDuplicateReview({
+      fragmentsDir: join(tmpDir, 'fragments'),
+      policy: 'review',
+      checks: ['local-name'],
+      failOn: 'warning',
+    })
+    expect(review.findings).toHaveLength(1)
+    expect(review.findings[0]?.code).toBe('definition-duplicate-review/same-local-name-different-shape')
+    expect(review.decision).toBe('REQUEST_CHANGES')
   })
 })
 

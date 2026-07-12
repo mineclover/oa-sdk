@@ -625,7 +625,24 @@ export const oaGenGovernanceManifest = {
             name: 'target',
             type: 'string',
             short: 't',
-            description: 'target-local output name collision을 확인할 Definition Builder target config 경로',
+            multiple: true,
+            description: '반복 지정 가능한 Definition Builder target config 경로; 실제 target-local output name collision을 확인',
+          },
+          {
+            name: 'policy',
+            type: 'string',
+            description: 'report | review | ci (기본: report; ci는 --target 필요)',
+          },
+          {
+            name: 'check',
+            type: 'string',
+            multiple: true,
+            description: '반복 지정 가능한 canonical-id | content-hash | local-name | output-name | semantic-alias 검사 선택',
+          },
+          {
+            name: 'fail-on',
+            type: 'string',
+            description: 'none | error | warning | info (기본: report는 none, review/ci는 error)',
           },
           {
             name: 'format',
@@ -674,11 +691,13 @@ export const oaGenGovernanceManifest = {
           {
             name: 'must-include-path',
             type: 'string',
+            multiple: true,
             description: 'emitted OpenAPI paths에 반드시 포함되어야 하는 path assertion (반복 가능)',
           },
           {
             name: 'must-exclude-path',
             type: 'string',
+            multiple: true,
             description: 'emitted OpenAPI paths에 포함되면 안 되는 path assertion (반복 가능)',
           },
           {
@@ -812,6 +831,7 @@ export const oaGenGovernanceManifest = {
           {
             name: 'runtime-header',
             type: 'string',
+            multiple: true,
             description: 'runtime OpenAPI URL fetch에 추가할 HTTP header. 예: "Authorization: Bearer $TOKEN" (반복 가능)',
           },
           {

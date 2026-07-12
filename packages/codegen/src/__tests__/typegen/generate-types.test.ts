@@ -116,6 +116,22 @@ describe('generateTypes — schemas', () => {
   })
 })
 
+describe('generateTypes — operation identifier safety', () => {
+  it('문법상 안전하지 않거나 충돌하는 operationId를 고유한 타입 이름으로 정규화한다', () => {
+    const output = generateTypesFromSpec(doc({
+      paths: {
+        '/a': { get: { operationId: 'get.user', responses: { '200': { description: 'OK' } } } },
+        '/b': { get: { operationId: 'list-users', responses: { '200': { description: 'OK' } } } },
+        '/c': { get: { operationId: 'list_users', responses: { '200': { description: 'OK' } } } },
+      },
+    }))
+    expect(output).toContain('export type GetUserOp')
+    expect(output).toContain('export type ListUsersOp')
+    expect(output).toContain('export type ListUsers2Op')
+    expect(output).not.toContain('Get.user')
+  })
+})
+
 describe('analyzeExternalSchemaRefs', () => {
   it('외부 schema 이름 충돌을 조회한다', () => {
     const tmp = mkdtempSync(join(tmpdir(), 'oa-sdk-typegen-'))

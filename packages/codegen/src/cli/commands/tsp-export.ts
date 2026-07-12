@@ -48,9 +48,9 @@ export const tspExport: Command = {
     if (bundleExpectedOpenapi) writeOpenApiYaml(bundleExpectedOpenapi, document)
     if (bundleManifest && bundleManifestPayload) writeJson(bundleManifest, bundleManifestPayload)
     writeOutput(output, result.source, 'TypeSpec export')
-    if (report) console.log(`✅ TypeSpec export report: ${report}`)
-    if (sidecar) console.log(`✅ TypeSpec compatibility sidecar: ${sidecar}`)
-    if (bundleExpectedOpenapi) console.log(`✅ TypeSpec bundle expected OpenAPI: ${bundleExpectedOpenapi}`)
-    if (bundleManifest) console.log(`✅ TypeSpec bundle manifest: ${bundleManifest}`)
+    if (report) console.error(`✅ TypeSpec export report: ${report}`)
+    if (sidecar) console.error(`✅ TypeSpec compatibility sidecar: ${sidecar}`)
+    if (bundleExpectedOpenapi) console.error(`✅ TypeSpec bundle expected OpenAPI: ${bundleExpectedOpenapi}`)
+    if (bundleManifest) console.error(`✅ TypeSpec bundle manifest: ${bundleManifest}`)
   },
 }

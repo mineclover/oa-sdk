@@ -163,9 +163,12 @@ bash scripts/openapi-governance.sh all
 
 > Definition Builder mode only. External-artifact services skip this section — there are no fragments to dedupe.
 
+정책 선택과 추가 `--check`/`--fail-on` 설정은 [Duplicate Review 가이드](./duplicate-review.md)를 따른다.
+
 ```bash
 oa-gen duplicate-review \
   --fragments {path-to-fragments} \
+  --policy ci \
   --target {path-to-target.yaml} \
   --format json \
   > "$OUT/$SERVICE.duplicate-review.json"

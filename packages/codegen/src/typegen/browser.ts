@@ -15,7 +15,7 @@ import type {
   OasLink,
 } from '@oa-sdk/parser/browser'
 import { parseDocument } from '@oa-sdk/parser/browser'
-import { pascalCase, formatGeneratedTs } from '@oa-sdk/core/browser'
+import { createOperationTypeNameMap, formatGeneratedTs } from '@oa-sdk/core/browser'
 import { schemaToTs, type SchemaToTsOptions } from './schema-to-ts.js'
 
 export type BrowserTypegenOptions = {
@@ -53,6 +53,7 @@ export function generateTypes(doc: TypegenDocument, options: BrowserTypegenOptio
   const schemaOpts: SchemaToTsOptions = { includeAnnotations }
   if (options.refNameOverrides !== undefined) schemaOpts.refNameOverrides = options.refNameOverrides
   const lines: string[] = []
+  const operationNames = createOperationTypeNameMap([...doc.operations, ...(doc.webhooks ?? [])])
 
   if (banner) {
     lines.push('// Auto-generated from OpenAPI spec. Do not edit.')
@@ -75,7 +76,7 @@ export function generateTypes(doc: TypegenDocument, options: BrowserTypegenOptio
 
   for (const op of [...doc.operations, ...(doc.webhooks ?? [])]) {
     if (!op.operationId) continue
-    const baseName = pascalCase(op.operationId)
+    const baseName = operationNames.get(op.operationId)!
 
     const opDoc = (op as { summary?: string; description?: string })
     const opComment = opDoc.summary ?? opDoc.description

@@ -927,6 +927,9 @@ Governance manifest: `packages/codegen/src/cli/spec/oa-gen-governance.ts` 및 `d
 | 함수 | 파일 | 용도 |
 |------|------|------|
 | `pascalCase()` | `strings.ts` | snake_case/kebab-case → PascalCase |
+| `toTypeScriptIdentifier()` | `strings.ts` | 외부 문자열 → 안전한 TypeScript 식별자 |
+| `createOperationTypeNameMap()` | `strings.ts` | operationId → 충돌 없는 타입 이름 맵 |
+| `toOperationMethodName()` | `strings.ts` | operation 타입 이름 → lowerCamelCase SDK 메서드 이름 |
 | `escapeKey()` | `strings.ts` | 비식별자 키 → 따옴표 이스케이프 |
 | `toColonPath()` | `strings.ts` | `/users/{id}` → `/users/:id` |
 | `collectTypeNames()` | `codegen-utils.ts` | operations → typegen 타입 이름 수집 (ResponseHeaders 포함) |

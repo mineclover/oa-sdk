@@ -1,11 +1,15 @@
 import type { Command } from '../lib/types.js'
-import { optStr, str } from '../lib/args.js'
+import { choice, optStr, optStrArray, str } from '../lib/args.js'
 import {
   analyzeDefinitionDuplicateReview,
   formatDefinitionDuplicateReviewMarkdown,
+  type DefinitionDuplicateReviewCheck,
+  type DefinitionDuplicateReviewFailOn,
+  type DefinitionDuplicateReviewPolicy,
 } from '../lib/duplicate-review.js'
 import { commandById, optionDescription } from '../spec/ecs.js'
 import { oaGenGovernanceManifest } from '../spec/oa-gen-governance.js'
+import { CliExitError } from '../lib/errors.js'
 
 type DuplicateReviewFormat = 'markdown' | 'json'
 
@@ -23,7 +27,21 @@ export const duplicateReview: Command = {
     target: {
       type: 'string',
       short: 't',
+      multiple: true,
       description: optionDescription(duplicateReviewSpec, 'target'),
+    },
+    policy: {
+      type: 'string',
+      description: optionDescription(duplicateReviewSpec, 'policy'),
+    },
+    check: {
+      type: 'string',
+      multiple: true,
+      description: optionDescription(duplicateReviewSpec, 'check'),
+    },
+    'fail-on': {
+      type: 'string',
+      description: optionDescription(duplicateReviewSpec, 'fail-on'),
     },
     format: {
       type: 'string',
@@ -32,10 +50,15 @@ export const duplicateReview: Command = {
     },
   },
   async run(args) {
-    const targetPath = optStr(args, 'target')
+    const policy = choice<DefinitionDuplicateReviewPolicy>(args, 'policy', ['report', 'review', 'ci'], 'report')
+    const checks = readChecks(optStrArray(args, 'check'))
+    const failOn = choice<DefinitionDuplicateReviewFailOn>(args, 'fail-on', ['none', 'error', 'warning', 'info'], policy === 'report' ? 'none' : 'error')
     const report = analyzeDefinitionDuplicateReview({
       fragmentsDir: str(args, 'fragments'),
-      ...(targetPath ? { targetPaths: [targetPath] } : {}),
+      targetPaths: optStrArray(args, 'target'),
+      policy,
+      ...(checks.length > 0 ? { checks } : {}),
+      failOn,
     })
     const format = readFormat(optStr(args, 'format'))
 
@@ -45,8 +68,26 @@ export const duplicateReview: Command = {
       process.stdout.write(`${formatDefinitionDuplicateReviewMarkdown(report)}\n`)
     }
 
-    if (!report.valid) process.exit(1)
+    if (!report.valid) throw new CliExitError(1)
   },
+}
+
+function readChecks(values: readonly string[]): DefinitionDuplicateReviewCheck[] {
+  const validChecks: readonly DefinitionDuplicateReviewCheck[] = [
+    'canonical-id',
+    'content-hash',
+    'local-name',
+    'output-name',
+    'semantic-alias',
+  ]
+  const checks: DefinitionDuplicateReviewCheck[] = []
+  for (const value of values) {
+    if (!(validChecks as readonly string[]).includes(value)) {
+      throw new Error(`--check 값은 ${validChecks.join(' | ')} 중 하나여야 합니다: ${value}`)
+    }
+    checks.push(value as DefinitionDuplicateReviewCheck)
+  }
+  return checks
 }
 
 function readFormat(format: string | undefined): DuplicateReviewFormat {

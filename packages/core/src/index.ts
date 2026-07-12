@@ -6,7 +6,7 @@
  */
 
 // 문자열 변환
-export { pascalCase, escapeKey, toColonPath } from './strings.js'
+export { pascalCase, toTypeScriptIdentifier, createOperationTypeNameMap, toOperationMethodName, escapeKey, toColonPath } from './strings.js'
 
 // 코드 생성 유틸
 export { collectTypeNames } from './codegen-utils.js'

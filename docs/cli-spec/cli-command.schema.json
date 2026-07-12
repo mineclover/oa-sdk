@@ -72,6 +72,7 @@
         "name": { "type": "string", "minLength": 1 },
         "type": { "enum": ["boolean", "string"] },
         "required": { "type": "boolean" },
+        "multiple": { "type": "boolean" },
         "short": { "type": "string", "minLength": 1, "maxLength": 1 },
         "positional": { "type": "boolean" },
         "position": { "type": "integer", "minimum": 0 },

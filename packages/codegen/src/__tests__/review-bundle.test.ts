@@ -137,6 +137,46 @@ describe('review bundle aggregator', () => {
       'nonBreakingChanges',
     ])
   })
+
+  it('uses duplicate-review policy decisions instead of treating report-only findings as advisory', () => {
+    const spec = reviewSpec('string')
+    const duplicateReview = duplicateReviewReport({
+      valid: true,
+      decision: 'APPROVE',
+      policy: {
+        name: 'report',
+        checks: ['content-hash'],
+        failOn: 'none',
+        targetRequired: false,
+        enforceable: false,
+      },
+      summary: {
+        fragmentCount: 2,
+        targetCount: 0,
+        findingCount: 1,
+        diagnosticCount: 0,
+        errors: 0,
+        warnings: 0,
+        infos: 1,
+        findingsByCode: {
+          'definition-duplicate-review/duplicate-canonical-id': 0,
+          'definition-duplicate-review/same-content-hash': 1,
+          'definition-duplicate-review/same-local-name-different-shape': 0,
+          'definition-duplicate-review/output-name-collision': 0,
+          'definition-duplicate-review/semantic-alias': 0,
+        },
+      },
+    })
+
+    const bundle = createReviewBundle({
+      base: { document: spec, path: 'base.yaml' },
+      head: { document: spec, path: 'head.yaml' },
+      artifact: { document: spec, path: 'artifact.yaml' },
+      duplicateReview,
+    })
+
+    expect(bundle.summary.recommendation).toBe('APPROVE')
+  })
 })
 
 function reviewSpec(
@@ -228,10 +268,20 @@ function compositionReport(): BuildSpecCompositionReport {
   }
 }
 
-function duplicateReviewReport(): DefinitionDuplicateReviewResult {
+function duplicateReviewReport(
+  overrides: Partial<DefinitionDuplicateReviewResult> = {},
+): DefinitionDuplicateReviewResult {
   return {
     schemaVersion: 'oa-gen.duplicate-review.v1',
     valid: false,
+    decision: 'REQUEST_CHANGES',
+    policy: {
+      name: 'review',
+      checks: ['canonical-id', 'content-hash', 'local-name', 'output-name', 'semantic-alias'],
+      failOn: 'error',
+      targetRequired: false,
+      enforceable: true,
+    },
     fragmentsDir: 'fragments',
     targets: [{ name: 'public-api', targetPath: 'targets/public.yaml' }],
     diagnostics: [],
@@ -252,6 +302,7 @@ function duplicateReviewReport(): DefinitionDuplicateReviewResult {
         'definition-duplicate-review/semantic-alias': 0,
       },
     },
+    ...overrides,
   }
 }
 

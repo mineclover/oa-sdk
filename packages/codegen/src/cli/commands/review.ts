@@ -1,6 +1,7 @@
 import type { Command } from '../lib/types.js'
 import { loadSpecWithPath } from '../lib/load-spec.js'
 import { optStr, str } from '../lib/args.js'
+import { CliExitError } from '../lib/errors.js'
 import { writeOutput } from '../lib/output.js'
 import { createCliSourceLocationResolver } from '../lib/source-locations.js'
 import { loadOpenApiOrTarget } from '../lib/target-openapi.js'
@@ -213,8 +214,9 @@ export const review: Command = {
 
       writeOutput(optStr(args, 'output'), payload, 'OpenAPI review report')
       behaviorRecorder.close?.()
-      if (report.recommendation === 'REQUEST_CHANGES') process.exit(1)
+      if (report.recommendation === 'REQUEST_CHANGES') throw new CliExitError(1)
     } catch (error) {
+      if (error instanceof CliExitError) throw error
       await behaviorRecorder.record(createBehaviorRecord({
         behaviorType: 'review_openapi_change',
         status: 'failed',

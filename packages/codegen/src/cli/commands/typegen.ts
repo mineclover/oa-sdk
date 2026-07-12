@@ -1,7 +1,7 @@
 import type { Command } from '../lib/types.js'
 import { loadSpecWithPath } from '../lib/load-spec.js'
 import { writeOutput } from '../lib/output.js'
-import { bool, str, optStr } from '../lib/args.js'
+import { bool, choice, str, optStr } from '../lib/args.js'
 import {
   closeCliIncrementalRun,
   createCliIncrementalRun,
@@ -29,9 +29,9 @@ export const typegen: Command = {
       specPath,
       ...(cacheDir ? { cacheDir } : {}),
     })
-    const { document: doc, path: resolvedSpecPath } = loadSpecWithPath(specPath)
-    const style: 'interface' | 'type' = optStr(args, 'style') === 'interface' ? 'interface' : 'type'
     try {
+      const { document: doc, path: resolvedSpecPath } = loadSpecWithPath(specPath)
+      const style = choice(args, 'style', ['type', 'interface'] as const, 'type')
       const warnings: string[] = []
       const externalAnalysis = analyzeExternalSchemaRefs(doc, resolvedSpecPath)
       const ts = generateTypesFromSpec(doc, { style, basePath: resolvedSpecPath, warnings, externalAnalysis })

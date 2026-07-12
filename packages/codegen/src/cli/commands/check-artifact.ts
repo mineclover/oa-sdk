@@ -8,6 +8,7 @@ import {
 } from '../lib/openapi-normalized-diff.js'
 import { commandById, optionDescription } from '../spec/ecs.js'
 import { oaGenGovernanceManifest } from '../spec/oa-gen-governance.js'
+import { CliExitError } from '../lib/errors.js'
 
 type OutputFormat = 'human' | 'json'
 
@@ -66,7 +67,7 @@ export const checkArtifact: Command = {
       console.log(formatOpenApiDiff(payload.differences))
     }
 
-    if (!payload.fresh) process.exit(1)
+    if (!payload.fresh) throw new CliExitError(1)
   },
 }
 

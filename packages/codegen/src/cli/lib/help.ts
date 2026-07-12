@@ -54,3 +54,27 @@ export function generateHelp(commands: Command[]): string {
   lines.push('')
   return lines.join('\n')
 }
+
+/** 단일 명령의 usage와 옵션을 출력합니다. */
+export function generateCommandHelp(command: Command): string {
+  const required = Object.entries(command.options)
+    .filter(([, option]) => option.required)
+    .map(([name, option]) => `--${name}${option.short ? `, -${option.short}` : ''} <${name}>`)
+    .join(' ')
+  const lines = [
+    `oa-gen ${command.name}${required ? ` ${required}` : ''} [options]`,
+    '',
+    command.description,
+    '',
+    'Options:',
+  ]
+  for (const [name, option] of Object.entries(command.options)) {
+    const value = option.type === 'boolean' ? '' : ` <${name}>`
+    const requiredLabel = option.required ? ' (required)' : ''
+    lines.push(`  --${name}${option.short ? `, -${option.short}` : ''}${value}${requiredLabel}`)
+    lines.push(`      ${option.description}`)
+  }
+  lines.push('  --help, -h')
+  lines.push('      Show this command help.')
+  return lines.join('\n')
+}

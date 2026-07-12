@@ -56,6 +56,7 @@ export function createHttpServer(
 ): HttpServerHandle {
   const { port = 0, host = '127.0.0.1' } = options
   let httpServer: Server | null = null
+  let startPromise: Promise<void> | null = null
   let actualPort = port
 
   return {
@@ -64,22 +65,40 @@ export function createHttpServer(
     },
 
     start(): Promise<void> {
-      return new Promise((resolve, reject) => {
-        httpServer = createServer((req, res) => {
+      if (httpServer) return startPromise ?? Promise.resolve()
+
+      const server = createServer((req, res) => {
           handler(req, res).catch((err) => {
             writeJson(res, 500, { error: { code: 'INTERNAL_ERROR', message: String(err), details: [] } })
           })
-        })
-        httpServer.listen(port, host, () => {
-          const addr = httpServer!.address()
+      })
+      httpServer = server
+      startPromise = new Promise((resolve, reject) => {
+        const onError = (error: Error) => {
+          if (httpServer === server) httpServer = null
+          startPromise = null
+          reject(error)
+        }
+        server.once('error', onError)
+        server.listen(port, host, () => {
+          server.off('error', onError)
+          const addr = server.address()
           if (addr && typeof addr === 'object') actualPort = addr.port
+          startPromise = null
           resolve()
         })
-        httpServer.once('error', reject)
       })
+      return startPromise
     },
 
-    stop(): Promise<void> {
+    async stop(): Promise<void> {
+      if (startPromise) {
+        try {
+          await startPromise
+        } catch {
+          return
+        }
+      }
       return new Promise((resolve, reject) => {
         if (!httpServer) return resolve()
         const srv = httpServer
@@ -95,7 +114,7 @@ export function createHttpServer(
 
 /** JSON 응답 쓰기 */
 export function writeJson(res: ServerResponse, status: number, body: unknown): void {
-  const payload = JSON.stringify(body)
+  const payload = JSON.stringify(body) ?? 'null'
   res.writeHead(status, {
     'Content-Type': 'application/json',
     'Content-Length': Buffer.byteLength(payload),

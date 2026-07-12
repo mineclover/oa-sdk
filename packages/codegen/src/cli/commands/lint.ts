@@ -3,6 +3,7 @@ import { loadSpecWithPath } from '../lib/load-spec.js'
 import { formatLintLocation } from '../lib/diagnostics.js'
 import { createCliSourceLocationResolver } from '../lib/source-locations.js'
 import { str } from '../lib/args.js'
+import { CliExitError } from '../lib/errors.js'
 
 export const lint: Command = {
   name: 'lint',
@@ -33,6 +34,6 @@ export const lint: Command = {
     const infos = results.filter(r => r.severity === 'info')
     console.log(`\n${errors.length} errors, ${warnings.length} warnings, ${infos.length} infos`)
 
-    if (errors.length > 0) process.exit(1)
+    if (errors.length > 0) throw new CliExitError(1)
   },
 }

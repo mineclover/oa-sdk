@@ -2,7 +2,8 @@ import { writeFileSync, existsSync, mkdirSync, watch, type FSWatcher } from 'nod
 import { resolve, join } from 'node:path'
 import type { Command } from '../lib/types.js'
 import { tryImport } from '../lib/try-import.js'
-import { str, optStr } from '../lib/args.js'
+import { choice, str, optStr } from '../lib/args.js'
+import { CliExitError } from '../lib/errors.js'
 import { loadSpecWithPath } from '../lib/load-spec.js'
 import {
   closeCliIncrementalRun,
@@ -26,13 +27,13 @@ export const dev: Command = {
     const resolvedSpec = resolve(process.cwd(), specPath)
     const resolvedOutput = resolve(process.cwd(), optStr(args, 'output') ?? './generated')
     const typesImport = optStr(args, 'types-import') ?? './types'
-    const style: 'interface' | 'type' = optStr(args, 'style') === 'interface' ? 'interface' : 'type'
-    const target: 'express' | 'hono' = optStr(args, 'target') === 'express' ? 'express' : 'hono'
+    const style = choice(args, 'style', ['type', 'interface'] as const, 'type')
+    const target = choice(args, 'target', ['hono', 'express'] as const, 'hono')
     const cacheDir = optStr(args, 'cache-dir')
 
     if (!existsSync(resolvedSpec)) {
       console.error(`오류: 스펙 파일을 찾을 수 없습니다: ${resolvedSpec}`)
-      process.exit(1)
+      throw new CliExitError(1)
     }
 
     const watchers = new Map<string, FSWatcher>()
@@ -111,7 +112,7 @@ export const dev: Command = {
     process.on('SIGINT', () => {
       if (debounce) clearTimeout(debounce)
       for (const watcher of watchers.values()) watcher.close()
-      process.exit(0)
+      process.exitCode = 0
     })
   },
 }

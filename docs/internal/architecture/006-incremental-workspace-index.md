@@ -185,10 +185,9 @@ having n > 1;
 oa-gen validate --spec .merged.yaml --incremental --cache-dir .oa-cache
 oa-gen typegen --spec .merged.yaml -o types.ts --incremental --cache-dir .oa-cache
 oa-gen dev --spec .merged.yaml --cache-dir .oa-cache
-oa-gen cache clear --cache-dir .oa-cache
 ```
 
-`dev` watch mode는 안정화 후 기본 증분 사용을 검토할 수 있다. 단발 `validate`/`typegen`은 full mode를 기본으로 유지한다.
+`dev` watch mode는 안정화 후 기본 증분 사용을 검토할 수 있다. 단발 `validate`/`typegen`은 full mode를 기본으로 유지한다. cache schema/options/driver mismatch와 DB 오류는 명시적 cache command 없이 full rebuild fallback으로 처리한다.
 
 ## SQLite driver 정책
 

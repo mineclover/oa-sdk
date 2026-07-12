@@ -1,6 +1,7 @@
 import type { Command } from '../lib/types.js'
 import { loadSpecWithPath } from '../lib/load-spec.js'
 import { optStr, optStrArray, str } from '../lib/args.js'
+import { CliExitError } from '../lib/errors.js'
 import { parse as parseYaml } from 'yaml'
 import {
   diffOpenApiDocuments,
@@ -154,7 +155,7 @@ export const drift: Command = {
         }))
         writeDriftFailure(payload, format)
         behaviorRecorder.close?.()
-        process.exit(1)
+        throw new CliExitError(1)
       }
 
       const issues = diffOpenApiDocuments(managed.document, runtime.document)
@@ -227,8 +228,9 @@ export const drift: Command = {
       }
 
       behaviorRecorder.close?.()
-      if (issues.length > 0) process.exit(1)
+      if (issues.length > 0) throw new CliExitError(1)
     } catch (error) {
+      if (error instanceof CliExitError) throw error
       const targetKey = `${managedPath}|${runtimePath ?? runtimeUrl ?? 'unknown-runtime'}`
       await behaviorRecorder.record(createBehaviorRecord({
         behaviorType: 'sync_runtime_openapi',

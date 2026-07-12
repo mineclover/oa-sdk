@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { pascalCase, escapeKey, toColonPath } from '../strings.js'
+import { createOperationTypeNameMap, pascalCase, toTypeScriptIdentifier, escapeKey, toColonPath } from '../strings.js'
 
 describe('pascalCase', () => {
   it('snake_case', () => expect(pascalCase('user_name')).toBe('UserName'))
@@ -22,6 +22,31 @@ describe('escapeKey', () => {
   it('contains space', () => expect(escapeKey('my key')).toBe("'my key'"))
   it("single quote가 포함된 키 이스케이프", () => {
     expect(escapeKey("it's")).toBe("'it\\'s'")
+  })
+})
+
+describe('toTypeScriptIdentifier', () => {
+  it('operationId의 문법상 안전하지 않은 문자를 제거한다', () => {
+    expect(toTypeScriptIdentifier('get.user/v1')).toBe('GetUserV1')
+  })
+
+  it('숫자로 시작하는 식별자에는 안전한 접두어를 붙인다', () => {
+    expect(toTypeScriptIdentifier('2026-users')).toBe('Operation2026Users')
+  })
+})
+
+describe('createOperationTypeNameMap', () => {
+  it('동일한 정규화 결과에는 문서 순서와 무관하게 suffix를 붙인다', () => {
+    const names = createOperationTypeNameMap([
+      { operationId: 'list_users' },
+      { operationId: 'list-users' },
+    ])
+    const reversed = createOperationTypeNameMap([
+      { operationId: 'list-users' },
+      { operationId: 'list_users' },
+    ])
+    expect([...names.entries()]).toEqual([...reversed.entries()])
+    expect(new Set(names.values())).toEqual(new Set(['ListUsers', 'ListUsers2']))
   })
 })
 

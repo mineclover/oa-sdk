@@ -41,6 +41,7 @@ export type CliOptionComponent = {
   name: string
   type: 'boolean' | 'string'
   required?: boolean
+  multiple?: boolean
   short?: string
   positional?: boolean
   position?: number

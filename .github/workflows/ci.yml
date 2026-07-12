@@ -103,6 +103,11 @@ jobs:
       - name: CLI spec consistency
         run: pnpm check:cli-spec
 
+      - name: Documentation consistency
+        run: |
+          pnpm test:docs-gates
+          pnpm check:docs
+
       - name: Feature test matrix consistency
         run: pnpm check:feature-tests
 

@@ -5,6 +5,7 @@ import type { CodegenConfig } from '../../config.js'
 import type { OutputOptions } from '../../types.js'
 import { generateComponents } from '../../generator.js'
 import { optStr } from '../lib/args.js'
+import { CliExitError } from '../lib/errors.js'
 
 export const generate: Command = {
   name: 'generate',
@@ -26,7 +27,7 @@ export const generate: Command = {
       await runConfig(configPath, args)
     } else {
       console.error('오류: --config 또는 --drizzle-schema 옵션이 필요합니다')
-      process.exit(1)
+      throw new CliExitError(1)
     }
   },
 }
@@ -48,7 +49,7 @@ async function runDrizzle(schemaPath: string, args: Args): Promise<void> {
 
   if (result.components.length === 0) {
     console.warn('⚠️  Drizzle 테이블을 찾을 수 없습니다.')
-    process.exit(1)
+    throw new CliExitError(1)
   }
 
   console.log(`✅ ${result.components.length}개 스키마, ${result.files.length}개 파일 생성:`)
@@ -60,7 +61,7 @@ async function runConfig(configPath: string, args: Args): Promise<void> {
   const resolvedConfig = resolve(process.cwd(), configPath)
   if (!existsSync(resolvedConfig)) {
     console.error(`오류: 설정 파일을 찾을 수 없습니다: ${resolvedConfig}`)
-    process.exit(1)
+    throw new CliExitError(1)
   }
 
   const mod = await import(resolvedConfig) as { default?: CodegenConfig } | CodegenConfig
@@ -68,7 +69,7 @@ async function runConfig(configPath: string, args: Args): Promise<void> {
 
   if (!config?.schemas) {
     console.error('오류: 설정 파일에 schemas 필드가 없습니다')
-    process.exit(1)
+    throw new CliExitError(1)
   }
 
   const genOptions: OutputOptions = { output: optStr(args, 'output') ?? config.output ?? '.' }

@@ -6,6 +6,7 @@ import {
 } from '../lib/target-coverage.js'
 import { commandById, optionDescription } from '../spec/ecs.js'
 import { oaGenGovernanceManifest } from '../spec/oa-gen-governance.js'
+import { CliExitError } from '../lib/errors.js'
 
 type TargetCheckFormat = 'markdown' | 'json'
 
@@ -63,7 +64,7 @@ export const targetCheck: Command = {
       process.stdout.write(`${formatTargetCoverageMarkdown(report)}\n`)
     }
 
-    if (!report.valid) process.exit(1)
+    if (!report.valid) throw new CliExitError(1)
   },
 }
 

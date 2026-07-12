@@ -18,7 +18,7 @@ import type {
 } from '@oa-sdk/parser'
 import { isRelativeRef, parseDocument, resolveRefGraph } from '@oa-sdk/parser'
 import { schemaToTs, type SchemaToTsOptions } from './schema-to-ts.js'
-import { pascalCase, formatGeneratedTs } from '@oa-sdk/core'
+import { pascalCase, createOperationTypeNameMap, formatGeneratedTs } from '@oa-sdk/core'
 import { createHash } from 'node:crypto'
 import { basename, extname } from 'node:path'
 
@@ -110,6 +110,7 @@ export function generateTypes(doc: TypegenDocument, options: TypegenOptions = {}
   const schemaOpts: SchemaToTsOptions = { includeAnnotations }
   if (options.refNameOverrides !== undefined) schemaOpts.refNameOverrides = options.refNameOverrides
   const lines: string[] = []
+  const operationNames = createOperationTypeNameMap([...doc.operations, ...(doc.webhooks ?? [])])
 
   if (banner) {
     lines.push('// Auto-generated from OpenAPI spec. Do not edit.')
@@ -135,7 +136,7 @@ export function generateTypes(doc: TypegenDocument, options: TypegenOptions = {}
   // 2. operations/webhooks → 요청/응답 타입
   for (const op of [...doc.operations, ...(doc.webhooks ?? [])]) {
     if (!op.operationId) continue
-    const baseName = pascalCase(op.operationId)
+    const baseName = operationNames.get(op.operationId)!
 
     // operation summary → JSDoc
     const opDoc = (op as { summary?: string; description?: string })
@@ -521,9 +522,10 @@ const NON_SCHEMA_OAS_ROOT_SEGMENTS = new Set([
 function collectGeneratedOperationTypeNames(spec: OasDocument): Set<string> {
   const names = new Set<string>()
   const doc = parseDocument(spec, [])
+  const operationNames = createOperationTypeNameMap([...doc.operations, ...doc.webhooks])
   for (const op of [...doc.operations, ...doc.webhooks]) {
     if (!op.operationId) continue
-    const baseName = pascalCase(op.operationId)
+    const baseName = operationNames.get(op.operationId)!
     const pathParams = op.parameters.filter(p => p.in === 'path')
     if (pathParams.length > 0) names.add(`${baseName}PathParams`)
     const queryParams = op.parameters.filter(p => p.in === 'query')

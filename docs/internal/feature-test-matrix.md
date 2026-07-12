@@ -56,7 +56,7 @@ without checking behavior, add focused assertions or split the matrix row.
 | `dpm-publishing-context` | `@oa-sdk/dpm` | AI relationship metadata, read-only schema context, and recommendation-only physical FK output | `packages/dpm/test/publishing-ai-schema.test.ts`, `packages/dpm/test/publishing-physical-fk.test.ts`, `packages/dpm/test/publishing-safety.test.ts` |
 | `definition-builder` | `@oa-sdk/parser`, `@oa-sdk/codegen` | definition registry, target selection, emit, composition/provenance reports, workspace index | `packages/parser/src/__tests__/definition-*.test.ts`, `packages/codegen/src/__tests__/builder-*.test.ts` |
 | `schema-authoring-workflow` | `@oa-sdk/schemas` | merge, fixture, upgrade, downgrade scripts | `packages/schemas/scripts/__tests__/merge.test.ts`, `upgrade.test.ts`, `downgrade.test.ts` |
-| `definition-duplicate-review` | `@oa-sdk/codegen` | Definition Builder duplicate identity risk reports | `packages/codegen/src/__tests__/duplicate-review.test.ts`, `cli-duplicate-review.test.ts` |
+| `definition-duplicate-review` | `@oa-sdk/codegen` | Definition Builder duplicate identity reports with report/review/ci policy decisions, repeatable target/check options, configurable severity thresholds, and review-bundle integration | `packages/codegen/src/__tests__/duplicate-review.test.ts`, `cli-duplicate-review.test.ts`, `review-bundle.test.ts`, `cli-review-bundle.test.ts` |
 | `target-check` | `@oa-sdk/codegen` | emitted OpenAPI path include/exclude assertions | `packages/codegen/src/__tests__/target-coverage.test.ts`, `cli-target-check.test.ts` |
 | `zod-drizzle-to-oas` | `@oa-sdk/codegen` | Zod and Drizzle schema generation | `packages/codegen/src/__tests__/zod-to-schema.test.ts`, `packages/codegen/src/__tests__/drizzle/*.test.ts` |
 | `source-adapter-boundaries` | `@oa-sdk/codegen` | normalized source fragments for Zod, Drizzle, Projection envelopes, Python snapshots, and file-backed inputs | `packages/codegen/src/__tests__/codegen-source-adapters.test.ts`, `source-file-adapters.test.ts`, `openapi-source-fragments.test.ts` |
@@ -73,7 +73,7 @@ without checking behavior, add focused assertions or split the matrix row.
 | `playground-pipeline` | `playground` | cross-package E2E workflows | `apps/playground/tests/e2e-pipeline.test.ts`, `codegen-pipeline.test.ts` |
 | `external-openapi-governance-scaffold` | `@oa-sdk/codegen` | scaffold-governance/collect/normalize/upgrade for third-party OpenAPI artifact intake (NestJS Swagger, FastAPI) | `packages/codegen/src/__tests__/openapi-collect.test.ts`, `openapi-governance-scaffold.test.ts`, `cli-openapi-collect.test.ts`, `apps/{nestjs-ref,fastapi-ref}/scripts/openapi-governance.sh` |
 | `python-contract-governance-template` | `templates/python-interface-monorepo` | Python contract governance toolkit | `packages/interface-contracts/tests/*.py`, `packages/interface-cli/tests/test_cli.py` |
-| `governance-docs` | root | docs, CLI spec, and test-matrix drift guards | `scripts/check-api-index.ts`, `scripts/check-cli-spec.ts`, `scripts/check-feature-test-matrix.ts`, `docs/internal/feature-test-matrix.md` |
+| `governance-docs` | root | docs, CLI spec, reusable Markdown link/CLI example gates, and test-matrix drift guards | `scripts/check-api-index.ts`, `scripts/check-cli-spec.ts`, `scripts/check-docs.ts`, `scripts/lib/validation-gates.ts`, `scripts/test-validation-gates.ts`, `scripts/check-feature-test-matrix.ts`, `docs/internal/feature-test-matrix.md` |
 
 ## Check
 

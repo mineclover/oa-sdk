@@ -196,6 +196,7 @@ oa-gen drift \
 # Definition Builder fallback/reference governance
 oa-gen duplicate-review \
   --fragments packages/schemas/src/fragments \
+  --policy ci \
   --target packages/schemas/src/targets/local-parity-api.yaml \
   --format markdown
 oa-gen target-check \

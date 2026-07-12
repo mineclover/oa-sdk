@@ -24,6 +24,9 @@ git submodule update --init --recursive
 API 변경 PR에서는 [OpenAPI Governance Workflow](./use-cases/openapi-governance-workflow.md)를
 기본 흐름으로 사용한다.
 
+`duplicate-review`의 정책 선택, 다중 target, severity override는
+[Duplicate Review 가이드](./duplicate-review.md)를 기준으로 한다.
+
 | 명령 | 목적 |
 |---|---|
 | `oa-gen build-spec` | Definition Builder target artifact와 diagnostics/collision/composition/provenance/metadata sidecar 생성 |
@@ -33,7 +36,7 @@ API 변경 PR에서는 [OpenAPI Governance Workflow](./use-cases/openapi-governa
 | `oa-gen upgrade` | OpenAPI 3.0/3.1 문서를 OpenAPI 3.2 analysis artifact로 파생 |
 | `oa-gen inventory` | OpenAPI path/operation/component/security surface 요약 |
 | `oa-gen behavior-query` | behavior SQLite projection을 filtered recent/latest와 summary-by-* 기준으로 조회 (`--status`, `--decision-signal`, `latest-by-decision-signal`, `behavior+decision` composite summary 지원) |
-| `oa-gen duplicate-review` | fragment duplicate identity risk와 semantic alias 검토 |
+| `oa-gen duplicate-review` | 정책 기반 fragment 중복 탐지 및 실제 target output-name 충돌 검토 |
 | `oa-gen target-check` | target 또는 artifact path include/exclude assertion 검증 |
 | `oa-gen drift` | runtime OpenAPI 파일 또는 URL과 managed OpenAPI drift 비교, optional behavior logging |
 | `oa-gen review` | diff, validation, artifact freshness, optional provenance/metadata diff report, optional behavior logging |
@@ -53,6 +56,7 @@ oa-gen check-artifact \
 
 oa-gen duplicate-review \
   --fragments packages/schemas/src/fragments \
+  --policy ci \
   --target packages/schemas/src/targets/local-parity-api.yaml
 
 oa-gen target-check \
@@ -91,9 +95,10 @@ bash apps/fastapi-ref/scripts/openapi-governance.sh all
 
 | 명령 | 검사 대상 |
 |---|---|
-| `pnpm check:cli-spec` | `oa-gen` / `oa-contract` governance manifest와 `docs/cli-spec/*.json` 정합성 (현재 22 entities) |
+| `pnpm check:cli-spec` | `oa-gen` / `oa-contract` governance manifest와 `docs/cli-spec/*.json` 정합성 |
 | `pnpm check:api-index` | 패키지 export ↔ `docs/internal/api-index.md` drift |
-| `pnpm check:feature-tests` | `docs/internal/feature-test-matrix.{md,json}` 항목 ↔ 실제 테스트 경로 (현재 23 features / 88 paths) |
+| `pnpm check:docs` | 전체 Markdown local link와 fenced `oa-gen` 명령/옵션 drift |
+| `pnpm check:feature-tests` | `docs/internal/feature-test-matrix.{md,json}` 항목 ↔ 실제 테스트 경로 |
 | `pnpm schema:validate` | TypeSpec production bundle로 `.merged.yaml` 생성 후 downgrade-3.1 / spectral / redocly / strict OpenAPI 3.2 validate 실행 |
 | `pnpm schema:validate:openapi` | OpenAPI/Definition Builder rollback path로 `.merged.yaml` 생성 후 동일 검증 실행 |
 
@@ -170,4 +175,4 @@ rules:
       function: truthy
 ```
 
-> OAS 3.2 관련 Spectral 규칙 비활성화 배경 → [ADR-005](../architecture/005-spectral-redocly-split.md)
+> OAS 3.2 관련 Spectral 규칙 비활성화 배경 → [ADR-005](../internal/architecture/005-spectral-redocly-split.md)

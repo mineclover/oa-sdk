@@ -51,23 +51,29 @@ export function createCliIncrementalRun(options: CliIncrementalRunOptions): CliI
   if (options.enabled && fallbackReason) {
     console.warn(`⚠️  SQLite workspace index unavailable; falling back to full rebuild: ${fallbackReason}`)
   }
-  const externalRefFiles = options.enabled ? listWorkspaceExternalRefFiles(index) : []
-  const scannedFiles = scanWorkspaceFiles({
-    entrySpecs: [resolvedSpecPath],
-    externalRefFiles,
-    parserVersion: CLI_WORKSPACE_INDEX_VERSION,
-    runId,
-  })
-  const dirty = detectWorkspaceDirtyFiles(index, scannedFiles)
-  if (options.enabled) invalidateWorkspaceDirtyFiles(index, dirty)
+  try {
+    const externalRefFiles = options.enabled ? listWorkspaceExternalRefFiles(index) : []
+    const scannedFiles = scanWorkspaceFiles({
+      entrySpecs: [resolvedSpecPath],
+      externalRefFiles,
+      parserVersion: CLI_WORKSPACE_INDEX_VERSION,
+      runId,
+    })
+    const dirty = detectWorkspaceDirtyFiles(index, scannedFiles)
+    if (options.enabled) invalidateWorkspaceDirtyFiles(index, dirty)
 
-  return {
-    enabled: options.enabled,
-    resolvedSpecPath,
-    runId,
-    index,
-    scannedFiles,
-    dirty,
+    return {
+      enabled: options.enabled,
+      resolvedSpecPath,
+      runId,
+      index,
+      scannedFiles,
+      dirty,
+    }
+  } catch (error) {
+    const maybeClosable = index as WorkspaceIndex & { close?: () => void }
+    maybeClosable.close?.()
+    throw error
   }
 }
 

@@ -22,10 +22,26 @@ import {
 
 export const DEFINITION_DUPLICATE_REVIEW_SCHEMA_VERSION = 'oa-gen.duplicate-review.v1'
 
+export type DefinitionDuplicateReviewPolicy = 'report' | 'review' | 'ci'
+
+export type DefinitionDuplicateReviewCheck =
+  | 'canonical-id'
+  | 'content-hash'
+  | 'local-name'
+  | 'output-name'
+  | 'semantic-alias'
+
+export type DefinitionDuplicateReviewFailOn = 'none' | DefinitionDuplicateReviewSeverity
+
+export type DefinitionDuplicateReviewDecision = 'APPROVE' | 'COMMENT' | 'REQUEST_CHANGES'
+
 export type DefinitionDuplicateReviewOptions = {
   fragmentsDir: string
   targetPaths?: readonly string[]
   targets?: readonly DefinitionDuplicateReviewTargetInput[]
+  policy?: DefinitionDuplicateReviewPolicy
+  checks?: readonly DefinitionDuplicateReviewCheck[]
+  failOn?: DefinitionDuplicateReviewFailOn
 }
 
 export type DefinitionDuplicateReviewTargetInput = {
@@ -86,6 +102,13 @@ export type DefinitionDuplicateReviewDiagnostic =
   | DefinitionRegistryDiagnostic
   | DefinitionTargetDiagnostic
   | DefinitionOutputNameDiagnostic
+  | DefinitionDuplicateReviewPolicyDiagnostic
+
+export type DefinitionDuplicateReviewPolicyDiagnostic = {
+  code: 'definition-duplicate-review/target-required'
+  severity: 'error'
+  message: string
+}
 
 export type DefinitionDuplicateReviewSummary = {
   fragmentCount: number
@@ -101,6 +124,14 @@ export type DefinitionDuplicateReviewSummary = {
 export type DefinitionDuplicateReviewResult = {
   schemaVersion: typeof DEFINITION_DUPLICATE_REVIEW_SCHEMA_VERSION
   valid: boolean
+  decision: DefinitionDuplicateReviewDecision
+  policy: {
+    name: DefinitionDuplicateReviewPolicy
+    checks: DefinitionDuplicateReviewCheck[]
+    failOn: DefinitionDuplicateReviewFailOn
+    targetRequired: boolean
+    enforceable: boolean
+  }
   fragmentsDir: string
   targets: Array<{ name: string; targetPath?: string }>
   diagnostics: DefinitionDuplicateReviewDiagnostic[]
@@ -117,9 +148,26 @@ type OutputNameContext = {
   collisionReport: DefinitionOutputNameCollisionReportEntry[]
 }
 
+const DEFAULT_CHECKS: readonly DefinitionDuplicateReviewCheck[] = [
+  'canonical-id',
+  'content-hash',
+  'local-name',
+  'output-name',
+  'semantic-alias',
+]
+
+const FINDING_CHECK: Record<DefinitionDuplicateReviewFindingCode, DefinitionDuplicateReviewCheck> = {
+  'definition-duplicate-review/duplicate-canonical-id': 'canonical-id',
+  'definition-duplicate-review/same-content-hash': 'content-hash',
+  'definition-duplicate-review/same-local-name-different-shape': 'local-name',
+  'definition-duplicate-review/output-name-collision': 'output-name',
+  'definition-duplicate-review/semantic-alias': 'semantic-alias',
+}
+
 export function analyzeDefinitionDuplicateReview(
   options: DefinitionDuplicateReviewOptions,
 ): DefinitionDuplicateReviewResult {
+  const policy = resolvePolicy(options)
   const fragmentsDir = resolve(process.cwd(), options.fragmentsDir)
   const fragments = loadDefinitionFragments(fragmentsDir)
   const registry = createDefinitionRegistry(fragments.nodes, {
@@ -135,19 +183,29 @@ export function analyzeDefinitionDuplicateReview(
     ...registry.diagnostics,
     ...outputNameContexts.flatMap(context => context.diagnostics),
   ]
+  if (policy.targetRequired && targetInputs.length === 0) {
+    diagnostics.push({
+      code: 'definition-duplicate-review/target-required',
+      severity: 'error',
+      message: `duplicate-review --policy ${policy.name} requires at least one --target.`,
+    })
+  }
   const findings = [
     ...collectDuplicateCanonicalIdFindings(fragments.nodes),
     ...collectSameContentHashFindings(fragments.nodes, registry.semanticAliases),
     ...collectSameLocalNameDifferentShapeFindings(fragments.nodes),
     ...collectOutputNameCollisionFindings(outputNameContexts),
     ...collectSemanticAliasFindings(registry.semanticAliases, registry.nodeById),
-  ].sort(compareFindings)
+  ].filter(finding => policy.checks.includes(FINDING_CHECK[finding.code])).sort(compareFindings)
   const summary = createSummary(fragments.nodes.length, targetInputs.length, findings, diagnostics)
-  const valid = summary.errors === 0
+  const decision = createDecision(findings, diagnostics, policy.failOn)
+  const valid = decision !== 'REQUEST_CHANGES'
 
   return {
     schemaVersion: DEFINITION_DUPLICATE_REVIEW_SCHEMA_VERSION,
     valid,
+    decision,
+    policy,
     fragmentsDir,
     targets: outputNameContexts
       .filter(context => context.targetName !== 'all-fragments')
@@ -159,6 +217,54 @@ export function analyzeDefinitionDuplicateReview(
     findings,
     summary,
   }
+}
+
+function resolvePolicy(options: DefinitionDuplicateReviewOptions): DefinitionDuplicateReviewResult['policy'] {
+  const name = options.policy ?? 'report'
+  const checks = uniqueChecks(options.checks ?? defaultChecksForPolicy(name))
+  const failOn = options.failOn ?? (name === 'report' ? 'none' : 'error')
+  return {
+    name,
+    checks,
+    failOn,
+    targetRequired: name === 'ci',
+    enforceable: failOn !== 'none',
+  }
+}
+
+function defaultChecksForPolicy(
+  policy: DefinitionDuplicateReviewPolicy,
+): readonly DefinitionDuplicateReviewCheck[] {
+  if (policy === 'ci') return ['canonical-id', 'output-name']
+  return DEFAULT_CHECKS
+}
+
+function uniqueChecks(checks: readonly DefinitionDuplicateReviewCheck[]): DefinitionDuplicateReviewCheck[] {
+  return [...new Set(checks)].sort()
+}
+
+function createDecision(
+  findings: readonly DefinitionDuplicateReviewFinding[],
+  diagnostics: readonly DefinitionDuplicateReviewDiagnostic[],
+  failOn: DefinitionDuplicateReviewFailOn,
+): DefinitionDuplicateReviewDecision {
+  if (failOn === 'none') return 'APPROVE'
+  const entries = [...findings, ...diagnostics]
+  if (entries.some(entry => meetsFailureThreshold(entry.severity, failOn))) return 'REQUEST_CHANGES'
+  return entries.length > 0 ? 'COMMENT' : 'APPROVE'
+}
+
+function meetsFailureThreshold(
+  severity: DefinitionDuplicateReviewSeverity,
+  failOn: DefinitionDuplicateReviewSeverity,
+): boolean {
+  return severityRank(severity) >= severityRank(failOn)
+}
+
+function severityRank(severity: DefinitionDuplicateReviewSeverity): number {
+  if (severity === 'error') return 3
+  if (severity === 'warning') return 2
+  return 1
 }
 
 function loadTargetInputs(options: DefinitionDuplicateReviewOptions): DefinitionDuplicateReviewTargetInput[] {
@@ -188,7 +294,10 @@ function createOutputNameContexts(
       targetName: 'all-fragments',
       synthetic: true,
       nodeById: nodeMap(nodes),
-      diagnostics: [...allocation.diagnostics],
+      // A synthetic all-fragments allocation is useful for discovery but is not
+      // a real generation boundary. Its allocation diagnostics must not turn a
+      // target-less report into a CI failure.
+      diagnostics: [],
       collisionReport: [...allocation.collisionReport],
     }]
   }
@@ -503,6 +612,7 @@ export function formatDefinitionDuplicateReviewMarkdown(
     '',
     `Fragments: \`${markdownCode(report.fragmentsDir)}\``,
     targetLine(report),
+    `Policy: \`${markdownCode(report.policy.name)}\` (checks: ${report.policy.checks.map(check => `\`${markdownCode(check)}\``).join(', ') || 'none'}; fail on: \`${markdownCode(report.policy.failOn)}\`; decision: **${markdownText(report.decision)}**)`,
     `Summary: ${report.summary.findingCount} findings, ${report.summary.diagnosticCount} diagnostics, ${report.summary.errors} errors, ${report.summary.warnings} warnings, ${report.summary.infos} infos.`,
     '',
     '### Findings',

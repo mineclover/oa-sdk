@@ -35,6 +35,7 @@ type CliOptionComponent = {
   name: string
   type: string
   required?: boolean
+  multiple?: boolean
   short?: string
   positional?: boolean
   position?: number
@@ -140,6 +141,9 @@ function compareTsCommandImplementation(
       }
       if (implementationOption.required !== manifestOption.required) {
         issues.push(`oa-gen:${manifestCommand.name}: option ${optionName} required drift`)
+      }
+      if (implementationOption.multiple !== manifestOption.multiple) {
+        issues.push(`oa-gen:${manifestCommand.name}: option ${optionName} multiple drift`)
       }
       if (implementationOption.short !== manifestOption.short) {
         issues.push(`oa-gen:${manifestCommand.name}: option ${optionName} short flag drift`)
