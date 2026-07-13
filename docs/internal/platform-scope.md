@@ -32,6 +32,27 @@ Core Platform은 다음 여섯 패키지다.
 | `@oa-sdk/codegen` | schema/spec build, normalize, diff/review, type generation과 governance CLI |
 | `@oa-sdk/spec-lens` | spec revision, diff, timeline, provenance와 source observation |
 
+## Architecture Governance Boundary
+
+oa-sdk는 실행 가능한 API 계약과 그 계약의 생성·검증·변경 이력을 소유한다. 전체 서비스
+아키텍처의 의도와 계층 관계까지 소유하지 않는다.
+
+| 책임 | 소유 시스템 |
+| --- | --- |
+| TypeSpec/Zod/Drizzle → OpenAPI artifact | oa-sdk |
+| OpenAPI 정규화·검증·diff·drift·codegen·mock | oa-sdk |
+| API·BFF·UI·DB·ADR·Rule·lifecycle 관계 | archi-adr |
+| 조직 architecture standards와 계층 정책 | archi-adr |
+| 연계 | OpenAPI/SQL/provenance artifact + CI gate |
+
+`archi-adr`는 oa-sdk의 생성 artifact를 source artifact로 소비할 수 있지만, oa-sdk가
+`archi-adr`의 YAML 모델을 workspace dependency로 가져오거나 archi-adr의 BFF/UI/ADR
+그래프를 재구현하는 것을 기본 경로로 삼지 않는다. 두 저장소를 함께 사용할 때 권장 흐름은
+`oa-sdk build/validate/diff → artifact 고정 → archi-adr SourceArtifactDefinition/implements →
+archi-adr validate/render`다.
+
+상호 경계의 반대편 기준은 `archi-adr/docs/project/current-spec.txt`다.
+
 ## Scope Tiers
 
 | Tier | Workspaces | Policy |
