@@ -66,7 +66,8 @@ flowchart LR
   G5 --> G6["Phase 6 semantic binding"]
   G6 --> G7["Phase 7 neutral artifact and provenance"]
   G7 --> G8["Phase 8 search, edit and authoring"]
-  G8 --> G9["Phase 9 extraction rehearsal"]
+  G0 --> G9["Phase 9 extraction rehearsal"]
+  G7 --> G9
   G0 --> G10["Phase 10 external data-plane ownership"]
   G7 --> G10
 ```
@@ -74,7 +75,9 @@ flowchart LR
 The completed goals are prerequisites, not competing roadmap branches. No new semantic
 binding implementation should bypass Phase 0, and no data-plane runtime should be added to
 the current `@oa-sdk/dpm` maintenance-only package without a separate ownership decision. Phase 10
-is a separate external branch; extraction rehearsal is not evidence of production runtime readiness.
+is a separate external branch. Phase 8 and Phase 9 are parallel owner-gated branches after the
+neutral artifact: extraction rehearsal does not wait for the future search/edit control plane,
+and local extraction is not evidence of production runtime readiness.
 
 ## Gap register
 
