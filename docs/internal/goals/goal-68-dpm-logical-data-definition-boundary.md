@@ -1,6 +1,6 @@
 # Goal 68 — DPM Logical Data Definition and Extraction Boundary
 
-**Status: active — 68.0·68.1 complete; 68.2 semantic binding validation is in progress**
+**Status: active — 68.0·68.1·68.2 complete; 68.3 compiler and provenance integration is in progress**
 
 > Predecessor: [Goal 67 — DPM Canonical Key Typed Encoding v2](./goal-67-dpm-canonical-key-typed-v2.md)<br>
 > Architecture boundary: [Package Architecture](../architecture/packages.md)<br>
@@ -53,8 +53,8 @@ flowchart LR
   canonical data-value encoding are different contracts and must not be conflated.
 - A published logical DPM field needs a rename-safe object id. Its dataset/namespace/entity/field
   coordinate is a locator and may change through an explicit alias, deprecation, or supersession
-  transition. The structural slice currently derives `field:<entity>/<field>` and does not yet
-  satisfy this rule.
+  transition. The frozen v1.0 compatibility slice still derives `field:<entity>/<field>`;
+  v1.1 carries the explicit object/revision contract.
 - An entity name alone is not a globally safe reference. Resolution must include the declared
   dataset and namespace scope; the existing entity identity format is `entity:<namespace>/<name>`.
 - A DB object is identified by catalog snapshot identity/freshness plus table and column;
@@ -75,8 +75,8 @@ flowchart LR
 | Level | Responsibility | Current state |
 |---|---|---|
 | Syntax | JSON Schema shape, enums, required properties | Implemented |
-| Model-local | identity construction, duplicate fields/bindings, pointer form | Implemented for the structural slice |
-| Cross-object | entity membership, catalog membership, API pointer/hash/provenance match | Roadmap 68.2 |
+| Model-local | identity construction, duplicate fields/bindings, pointer form | Implemented for v1.0/v1.1 |
+| Cross-object | entity membership, catalog membership, API pointer/hash/provenance match | Implemented for v1.1 with deterministic DAT diagnostics; neutral artifact integration remains 68.3 |
 | Compile-time | binding freshness in plan and blocking stale references | Roadmap 68.3 |
 | Runtime | actual tokenization, vault, row counts, join integrity, post-run report | Outside this goal; existing runtime/storage goals remain authoritative |
 
@@ -136,12 +136,12 @@ condition.
 |---|---|---|
 | Logical ownership | Aligned | DPM already owns `EntityDeclaration`, `LogicalRelationship`, manifest policy, and registry lifecycle. |
 | Separate identities | Aligned for v1.1 | `DpmEntityRef`, object id, revision id, locator, binding id, catalog identity, API target identity, and Goal 67 value encoding are separate contracts; v1.0 remains a frozen compatibility shape. |
-| API provenance | Contract aligned; semantic verification pending | Canonical API identity is artifact id + version hash + JSON Pointer and excludes `operationId`; artifact/provenance resolution remains 68.2. |
-| DB authority | Contract aligned; catalog membership pending | v1.1 `storage_ref` carries snapshot identity, freshness hash, and optional source coordinate; selected-snapshot membership remains 68.2. |
+| API provenance | Aligned for supplied artifacts | Canonical API identity excludes `operationId`; validator verifies artifact hash, pointer, operation, and provenance version; neutral trace artifact remains 68.3. |
+| DB authority | Aligned for selected catalog | v1.1 `storage_ref` membership, snapshot freshness, and optional source coordinate are validated; compiled freshness propagation remains 68.3. |
 | Field origin | Aligned for v1.1 | Origin is explicit and model/schema gates enforce persisted storage and non-persisted absence rules. |
 | Reverse binding uniqueness | Aligned for v1.1 | Binding edge ids are separate from API target identities and model normalization rejects one artifact/version/pointer target assigned to multiple fields. |
 | Wire-version stability | Aligned for temporary execution | `data_definitions` `1.0` is frozen as compatibility; `1.1` is experimental until extraction. |
-| Semantic enforcement | Not yet aligned | JSON Schema and model normalizers validate shape; manifest validator/compiler do not yet validate entity, catalog, and API binding references together. |
+| Semantic enforcement | Aligned for v1.1 | `validateDpmDataBindings()` participates in validate and compile gates; compiler freshness and neutral artifact integration remain 68.3. |
 | Core dependency direction | Aligned | New surface stays under DPM; Core packages do not depend on maintenance-only DPM. |
 | Extraction readiness | Partially aligned | `@oa-sdk/dpm/data` is a clean public seam, but repository metadata, artifact versioning, external owner, and migration contract remain undefined. |
 | Governance policy | Aligned for temporary execution | The monorepo scope-reactivation decision is recorded; external ownership remains the Goal 68.4 exit condition. |
@@ -190,7 +190,7 @@ Exit criteria:
 - changing only `operationId` does not change canonical API object or binding identity;
 - identity golden vectors cover dataset/namespace scope, rename, pointer escaping, and version changes.
 
-### 68.2 — Semantic binding validation
+### 68.2 — Semantic binding validation ✅
 
 Deliverables:
 
@@ -212,7 +212,7 @@ Exit criteria:
 - approved Relationship Registry semantics remain the only source of relationship
   execution authority.
 
-### 68.3 — Compiler and artifact integration
+### 68.3 — Compiler and artifact integration (in progress)
 
 Deliverables:
 
@@ -296,6 +296,11 @@ Representative exit criteria:
 - `packages/dpm/test/model-data-definition.test.ts` contains identity golden vectors and
   negative cardinality/origin/lifecycle checks; `schema-data-definitions.test.ts` covers
   v1.0/v1.1 schema acceptance and rejection.
+- `packages/dpm/src/validator/data-binding-validator.ts` validates v1.1 entity membership,
+  catalog freshness/table/column/source coordinates, API artifact hash/pointer/operation,
+  provenance version, and reverse binding cardinality with `DAT` diagnostics.
+- `packages/dpm/test/validator-data-binding.test.ts` proves valid OpenAPI → DPM → catalog
+  resolution and deterministic stale/missing/mismatch blocking diagnostics.
 
 ## Verification gates
 

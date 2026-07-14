@@ -24,6 +24,12 @@ export function createDpmGatewayValidationSchemas() {
       code: { type: 'string', enum: [...DPM_DIAGNOSTIC_CODES] },
       message: stringSchema(),
       sourcePointer: stringSchema(),
+      apiCoordinate: informativeObjectSchema({
+        artifactId: stringSchema(),
+        versionHash: stringSchema(),
+        pointer: stringSchema(),
+        operationId: stringSchema(),
+      }),
       catalogCoordinate: informativeObjectSchema({
         table: stringSchema(),
         column: stringSchema(),

@@ -7,6 +7,10 @@ import {
   type CatalogSnapshot,
 } from '@oa-sdk/dpm/catalog'
 import {
+  createDpmIdentityDataDefinitions,
+  type DpmIdentityDataDefinitions,
+} from '@oa-sdk/dpm/data'
+import {
   createDpmRelationshipCandidateInputFromResolvedProfileHint,
   createDpmRelationshipCandidateInputFromProfileHint,
   computeDpmProfileAnalysisPolicyHash,
@@ -135,6 +139,7 @@ type DpmSubpathTypeSmoke = {
   canonicalKeyEncodingPlan?: DpmCanonicalKeyEncodingPlan
   registryRepository?: DpmRegistryWritableRepository
   publishing?: DpmPublishingContext
+  dataDefinitions?: DpmIdentityDataDefinitions
 }
 
 const packageName: '@oa-sdk/dpm' = DPM_PACKAGE_NAME
@@ -151,6 +156,17 @@ const targetRefResolution: DpmProfileRelationshipTargetRefResolution = {
   catalogAuthority: 'commerce',
 }
 const typeSmoke: DpmSubpathTypeSmoke = {}
+const dataDefinitions = createDpmIdentityDataDefinitions({
+  version: '1.1',
+  fields: [{
+    objectId: 'customer-number',
+    revisionId: 'customer-number-rev-1',
+    entity: { datasetId: 'commerce_ai', namespace: 'customer', name: 'customer' },
+    name: 'customerNo',
+    type: 'string',
+    origin: 'api_only',
+  }],
+})
 
 void [
   packageName,
@@ -174,6 +190,7 @@ void [
   validateDpmKafkaTopicProfileInput,
   DPM_PROFILE_BASELINE_SELECTION_STRATEGIES,
   DPM_PUBLISHING_CONTEXT_KIND,
+  dataDefinitions,
   computeCatalogFreshnessHash,
   createDpmRelationshipCandidateInputFromResolvedProfileHint,
   createDpmRelationshipCandidateInputFromProfileHint,

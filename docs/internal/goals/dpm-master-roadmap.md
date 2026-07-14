@@ -25,8 +25,8 @@ capability는 Goal 68의 contract boundary와 구분하며, owner 결정 전에 
 ```text
 relationship-first DPM core       = implemented and tested
 logical data/API/DB shape         = structural compatibility slice
-ownership and implementation site = next decision gate
-cross-object semantic binding     = first authorized contract slice
+ownership and implementation site = temporary monorepo site (external extraction exit)
+cross-object semantic binding     = implemented and tested for v1.1
 search/edit/authoring control     = scope-gated follow-on capability
 production pseudonymization       = outside current oa-sdk boundary
 ```
@@ -51,8 +51,8 @@ production pseudonymization       = outside current oa-sdk boundary
 | 3. Approval and durability | Goals 23, 27–30, 32, 34–50, 58, 59, 61, 63 | gateway workflow, registry approval, storage, audit and reports | Implemented within declared boundary | no production token/vault/data-plane execution |
 | 4. Public package contract | Goals 20–22, 57, 60, 62 | subpaths, pack boundary, consumer workflow, docs and contract checks | Implemented | external repository compatibility still unproven |
 | 5. Logical identity contract | Goal 68.1 | stable object/revision identity, namespace-safe refs, binding cardinality | Implemented in temporary monorepo site | external extraction owner and final wire stability |
-| 6. Semantic binding | Goal 68.2 | entity/API/catalog resolution and deterministic diagnostics | In progress in temporary monorepo site | depends on authoritative API and catalog artifacts |
-| 7. Neutral artifact and provenance | Goal 68.3 | binding freshness, compiled plan, trace/review links, read-model source | Planned and scope-gated | depends on Phase 6 and projection/provenance contract |
+| 6. Semantic binding | Goal 68.2 | entity/API/catalog resolution and deterministic diagnostics | Implemented in temporary monorepo site | neutral artifact and compiled freshness remain |
+| 7. Neutral artifact and provenance | Goal 68.3 | binding freshness, compiled plan, trace/review links, read-model source | In progress in temporary monorepo site | depends on Phase 6 and projection/provenance contract |
 | 8. Search, edit and authoring control plane | Future owner-authorized product slice | cross-identity search, draft/revision/publish, diff, rollback and authoring helpers | Future; not an active goal | depends on Phase 7 and product/release ownership |
 | 9. Extraction rehearsal | Goal 68.4 | external consumer, migration, compatibility adapter | Planned and scope-gated | depends on owner decision and stable public artifact |
 | 10. Data-plane runtime | Future external/runtime program | vault, tokenization worker, row rewrite, post-run integrity | Explicitly outside current roadmap | requires separate runtime owner, security model, and deployment authority |

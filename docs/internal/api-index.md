@@ -389,13 +389,18 @@ category barrel을 가리킨다. `packages/dpm/test/package-subpath-import-smoke
 | `DPM_DIAGNOSTIC_CODES` | `dpm/src/validator/diagnostic-taxonomy.ts` | runtime diagnostic code taxonomy used by TypeScript and OpenAPI |
 | `DpmDiagnosticCode` | `dpm/src/validator/diagnostic-taxonomy.ts` | SYN/REL/SAF diagnostic code taxonomy |
 | `DpmCatalogCoordinate` | `dpm/src/validator/diagnostic-coordinate-types.ts` | catalog coordinate attached to diagnostics |
+| `DpmApiCoordinate` | `dpm/src/validator/diagnostic-coordinate-types.ts` | API artifact/version/pointer coordinate attached to DAT diagnostics |
 | `DpmRegistryCoordinate` | `dpm/src/validator/diagnostic-coordinate-types.ts` | registry coordinate attached to diagnostics |
 | `DpmDiagnostic` | `dpm/src/validator/diagnostic-result-types.ts` | deterministic semantic validation diagnostic |
 | `DpmValidationSummary` | `dpm/src/validator/diagnostic-result-types.ts` | error, warning, and info counts |
 | `DpmValidationResult` | `dpm/src/validator/diagnostic-result-types.ts` | semantic validation result envelope |
 | `DpmValidationPhase` | `dpm/src/validator/validation-types.ts` | validate, compile, dry-run, or runtime phase |
 | `DpmValidationInput` | `dpm/src/validator/validation-types.ts` | manifest plus catalog and registry snapshot validator input |
+| `DpmApiArtifactInput` | `dpm/src/validator/data-binding-types.ts` | OpenAPI artifact document and optional provenance input for semantic binding |
+| `DpmApiArtifactProvenance` | `dpm/src/validator/data-binding-types.ts` | artifact version and source coordinate provenance |
 | `validateDpmManifest()` | `dpm/src/validator/manifest.ts` | SYN syntax plus REL/SAF semantic diagnostics without source DB access |
+| `validateDpmDataBindings()` | `dpm/src/validator/data-binding-validator.ts` | DAT entity/catalog/API/provenance binding validation |
+| `computeDpmApiArtifactVersionHash()` | `dpm/src/validator/data-binding-validator.ts` | deterministic OpenAPI artifact version hash |
 | `DPM_COMPILED_PLAN_KIND` | `dpm/src/compiler/plan.ts` | compiled plan kind literal |
 | `DPM_COMPILED_PLAN_VERSIONS` | `dpm/src/compiler/plan.ts` | runtime compiled plan version taxonomy used by TypeScript and OpenAPI |
 | `DpmCompiledPlanVersion` | `dpm/src/compiler/plan.ts` | compiled plan version taxonomy |

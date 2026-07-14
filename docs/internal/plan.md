@@ -34,7 +34,8 @@ Goal 4의 relationship-first core loop는 `@oa-sdk/dpm`으로 구현되었다. R
 
 현재 `data_definitions` 구조와 `@oa-sdk/dpm/data` public seam은 논리 field/API/DB object
 식별을 분리하는 compatibility slice로 추가되었다. namespace-safe identity contract는 Goal 68.1로
-완료했으며 실제 artifact/catalog semantic binding과
+완료했고 artifact/catalog semantic binding은 Goal 68.2로 완료했으며, 이제 neutral artifact와
+compiled provenance 통합을
 외부 DPM extraction은 scope-gated [Goal 68](./goals/goal-68-dpm-logical-data-definition-boundary.md)을
 따른다.
 

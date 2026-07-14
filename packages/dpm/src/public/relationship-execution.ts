@@ -1,4 +1,5 @@
 export type {
+  DpmApiCoordinate,
   DpmCatalogCoordinate,
   DpmDiagnostic,
   DpmDiagnosticCode,
@@ -7,6 +8,10 @@ export type {
   DpmValidationResult,
   DpmValidationSummary,
 } from '../validator/diagnostic-types.js'
+export type {
+  DpmApiArtifactInput,
+  DpmApiArtifactProvenance,
+} from '../validator/data-binding-types.js'
 export type {
   DpmValidationInput,
   DpmValidationPhase,
@@ -48,6 +53,10 @@ export {
   createDpmDryRunReport,
 } from '../dry-run/report-builder.js'
 export { validateDpmManifest } from '../validator/manifest-validator.js'
+export {
+  computeDpmApiArtifactVersionHash,
+  validateDpmDataBindings,
+} from '../validator/data-binding-validator.js'
 export {
   DPM_DIAGNOSTIC_CODES,
 } from '../validator/diagnostic-types.js'

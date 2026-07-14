@@ -6,6 +6,7 @@ export type {
   DpmDiagnosticSeverity,
 } from './diagnostic-taxonomy.js'
 export type {
+  DpmApiCoordinate,
   DpmCatalogCoordinate,
   DpmRegistryCoordinate,
 } from './diagnostic-coordinate-types.js'

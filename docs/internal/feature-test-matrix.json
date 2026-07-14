@@ -546,6 +546,12 @@
         "SYN diagnostic family",
         "REL diagnostic family",
         "SAF diagnostic family",
+        "DAT logical data binding diagnostics",
+        "DPM entity membership checks",
+        "catalog table/column and freshness checks",
+        "API artifact hash/pointer/operation checks",
+        "API provenance version checks",
+        "reverse API binding cardinality checks",
         "registry approval checks",
         "approved registry snapshot mismatch checks",
         "catalog relationship checks",
@@ -557,7 +563,8 @@
         "packages/dpm/test/validator-relationship-diagnostics.test.ts",
         "packages/dpm/test/validator-relationship-registry-approval.test.ts",
         "packages/dpm/test/validator-relationship-registry-snapshot.test.ts",
-        "packages/dpm/test/validator-safety.test.ts"
+        "packages/dpm/test/validator-safety.test.ts",
+        "packages/dpm/test/validator-data-binding.test.ts"
       ],
       "commands": [
         "pnpm --filter @oa-sdk/dpm test -- validator",

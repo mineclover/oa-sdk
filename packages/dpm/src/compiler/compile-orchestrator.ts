@@ -17,6 +17,7 @@ export function compileDpmPlan(input: DpmCompileInput): DpmCompileResult {
     manifest: normalizedInput.manifest,
     catalog: normalizedInput.catalog,
     registry: normalizedInput.registry,
+    ...(normalizedInput.apiArtifacts ? { apiArtifacts: normalizedInput.apiArtifacts } : {}),
     phase: normalizedInput.phase ?? 'compile',
   })
   if (validation.summary.errors > 0) {

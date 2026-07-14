@@ -11,3 +11,10 @@ export type DpmRegistryCoordinate = {
   relationshipVersion?: string
   status?: string
 }
+
+export type DpmApiCoordinate = {
+  artifactId?: string
+  versionHash?: string
+  pointer?: string
+  operationId?: string
+}

@@ -1,4 +1,5 @@
 import type {
+  DpmApiCoordinate,
   DpmCatalogCoordinate,
   DpmRegistryCoordinate,
 } from './diagnostic-coordinate-types.js'
@@ -12,6 +13,7 @@ export type DpmDiagnostic = {
   code: DpmDiagnosticCode
   message: string
   sourcePointer: string
+  apiCoordinate?: DpmApiCoordinate
   catalogCoordinate?: DpmCatalogCoordinate
   registryCoordinate?: DpmRegistryCoordinate
 }
