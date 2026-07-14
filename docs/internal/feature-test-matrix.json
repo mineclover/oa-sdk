@@ -145,6 +145,7 @@
         "publishing subpath export",
         "tsup category entrypoint coverage",
         "built package subpath runtime import smoke",
+        "packed artifact external consumer extraction smoke",
         "built package subpath declaration consumer smoke",
         "built package public subpath workflow smoke",
         "built package public subpath audit readback smoke",
@@ -159,6 +160,8 @@
         "packages/dpm/test/package-subpath-exports.test.ts",
         "packages/dpm/test/package-subpath-import-smoke.mjs",
         "packages/dpm/test/package-subpath-type-consumer.ts",
+        "packages/dpm/test/package-extraction-smoke.mjs",
+        "packages/dpm/test/external-consumer-fixture.mjs",
         "packages/dpm/test/package-consumer-workflow-smoke.mjs",
         "packages/dpm/test/package-pack-smoke.mjs",
         "packages/dpm/README.md"
@@ -166,6 +169,7 @@
       "commands": [
         "pnpm --filter @oa-sdk/dpm exec vitest run test/package-subpath-exports.test.ts",
         "pnpm --filter @oa-sdk/dpm run smoke:subpaths",
+        "pnpm --filter @oa-sdk/dpm run smoke:extraction",
         "pnpm --filter @oa-sdk/dpm run smoke:consumer-workflow",
         "pnpm --filter @oa-sdk/dpm run smoke:pack",
         "pnpm check:dpm-surface",
