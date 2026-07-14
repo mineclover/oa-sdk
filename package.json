@@ -57,7 +57,7 @@
     "check:docs": "node --import tsx scripts/check-docs.ts",
     "test:docs-gates": "node --import tsx scripts/test-validation-gates.ts",
     "check:feature-tests": "node --import tsx scripts/check-feature-test-matrix.ts",
-    "check:dpm-surface": "corepack pnpm --filter @oa-sdk/dpm run smoke:subpaths && corepack pnpm --filter @oa-sdk/dpm run smoke:consumer-workflow && corepack pnpm --filter @oa-sdk/dpm run smoke:pack",
+    "check:dpm-surface": "corepack pnpm --filter @oa-sdk/dpm run smoke:subpaths && corepack pnpm --filter @oa-sdk/dpm run smoke:extraction && corepack pnpm --filter @oa-sdk/dpm run smoke:consumer-workflow && corepack pnpm --filter @oa-sdk/dpm run smoke:pack",
     "check:release-policy": "node --import tsx scripts/check-release-policy.ts",
     "check:workspace-scope": "pnpm check:release-policy",
     "spec:diff": "node scripts/dist/spec-diff.js",
