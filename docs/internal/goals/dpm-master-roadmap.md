@@ -84,6 +84,10 @@ Current `@oa-sdk/dpm` is private, maintenance-only, and marked as a data-governa
 candidate. The external DPM environment is not represented by a remote, submodule, or checked-in
 consumer in this repository.
 
+The 2026-07-15 read-only repository audit found only the `mineclover/oa-sdk` origin configured in
+this worktree. This does not prove that a private external repository does not exist; it records
+that the canonical location, owner, and sign-off have not been supplied to this repository.
+
 Required decision:
 
 - external DPM environment is canonical and this package becomes a compatibility adapter; or

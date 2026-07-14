@@ -25,6 +25,13 @@ published.
 The local evidence proves extraction readiness for review. It does not prove registry publication,
 external repository ownership, or acceptance of the experimental v1.1 wire shape.
 
+## Current repository audit
+
+As of 2026-07-15, this worktree has only the `mineclover/oa-sdk` origin configured and contains no
+external `data-governance` remote, submodule, checked-in consumer, or owner sign-off. This is an
+inventory result, not a claim that a private external repository cannot exist; the owner must
+provide its canonical location and acceptance record before the transition rule can change.
+
 ## External owner acceptance gates
 
 The owner should check each item in the target `data-governance` environment and attach the
