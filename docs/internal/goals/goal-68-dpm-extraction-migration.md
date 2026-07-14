@@ -4,6 +4,9 @@
 
 > Parent: [Goal 68 — DPM Logical Data Definition and Extraction Boundary](./goal-68-dpm-logical-data-definition-boundary.md)
 
+The owner handoff gates and empty sign-off record are tracked in the
+[Goal 68.4 External Extraction Acceptance Checklist](./goal-68-extraction-acceptance-checklist.md).
+
 This document is the temporary migration contract for moving the DPM contract plane from the
 maintenance-only monorepo package to a future external `data-governance` owner. It defines what
 can be copied or adapted, what must remain byte/version compatible, and how to roll back without
@@ -79,6 +82,7 @@ If external extraction or a consumer migration fails:
 - Clean runtime consumer fixture: `packages/dpm/test/external-consumer-fixture.mjs`.
 - Clean declaration consumer fixture: `packages/dpm/test/external-consumer-type-fixture.ts`,
   compiled with `tsc --noEmit` against the packed package's public declarations.
+- Owner handoff checklist: `docs/internal/goals/goal-68-extraction-acceptance-checklist.md`.
 - Public package/type smoke: `packages/dpm/test/package-subpath-import-smoke.mjs` and
   `packages/dpm/test/package-subpath-type-consumer.ts`.
 - The owner acceptance, registry publication, and canonical-document move remain intentionally

@@ -228,7 +228,8 @@ The local packed artifact and clean runtime/declaration consumer evidence live i
 `packages/dpm/test/package-extraction-smoke.mjs`, with fixtures in
 `packages/dpm/test/external-consumer-fixture.mjs` and
 `packages/dpm/test/external-consumer-type-fixture.ts`; migration and rollback rules live in
-[Goal 68 Extraction Migration and Rollback Contract](./goal-68-dpm-extraction-migration.md).
+[Goal 68 Extraction Migration and Rollback Contract](./goal-68-dpm-extraction-migration.md), and
+the owner-gated handoff is recorded in the [Goal 68.4 External Extraction Acceptance Checklist](./goal-68-extraction-acceptance-checklist.md).
 
 ### Phase 10 — Separate external runtime program
 

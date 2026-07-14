@@ -242,7 +242,8 @@ Deliverables:
 
 The local packed-artifact rehearsal and temporary migration/rollback contract are recorded in
 [Goal 68 Extraction Migration and Rollback Contract](./goal-68-dpm-extraction-migration.md). The
-external owner, registry publication metadata, and canonical-document move remain pending.
+owner handoff gates are listed in the [Goal 68.4 External Extraction Acceptance Checklist](./goal-68-extraction-acceptance-checklist.md);
+the external owner, registry publication metadata, and canonical-document move remain pending.
 
 Exit criteria:
 

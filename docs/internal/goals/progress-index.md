@@ -7,7 +7,7 @@ DPM phase 순서와 gap 정렬은 [DPM Master Roadmap](./dpm-master-roadmap.md)�
 
 ## Current
 
-- Goal 68 is active under the recorded temporary monorepo reactivation. DPM-86 through DPM-89 are complete and the local DPM-90 packed-consumer rehearsal, including runtime and declaration consumers, is complete; external owner acceptance, publication metadata, and canonical-document migration remain pending.
+- Goal 68 is active under the recorded temporary monorepo reactivation. DPM-86 through DPM-89 are complete and the local DPM-90 packed-consumer rehearsal, including runtime and declaration consumers, is complete; the owner acceptance checklist is prepared, while external owner acceptance, publication metadata, and canonical-document migration remain pending.
 
 ## Recently Completed
 

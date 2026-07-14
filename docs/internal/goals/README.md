@@ -29,7 +29,7 @@ policy를 적용한다.
 
 | 목표 | 상태 | 패키지 |
 |---|---|---|
-| [Goal 68 — DPM Logical Data Definition and Extraction Boundary](./goal-68-dpm-logical-data-definition-boundary.md) | 진행 중 — 68.0~68.3 완료, 68.4 packed runtime/declaration extraction rehearsal 완료, external owner 대기 | dpm / data-governance |
+| [Goal 68 — DPM Logical Data Definition and Extraction Boundary](./goal-68-dpm-logical-data-definition-boundary.md) | 진행 중 — 68.0~68.3 완료, 68.4 packed runtime/declaration rehearsal 및 owner handoff checklist 완료, external owner 대기 | dpm / data-governance |
 
 ## 완료 목표 이력
 

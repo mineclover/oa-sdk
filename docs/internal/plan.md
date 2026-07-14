@@ -43,7 +43,7 @@ Goal 간 선행 관계와 잔여 gap은 [DPM Master Roadmap](./goals/dpm-master-
 temporary monorepo reactivation decision 후 68.1 identity contract, 68.2 semantic binding,
 68.3 neutral artifact/provenance integration을 완료했고 68.4 local packed-consumer rehearsal도 runtime 및 declaration consumer까지 통과했다. `data_definitions` 1.0은 구조적 호환성 계약으로 동결하고, 1.1 identity contract는
 외부 extraction owner acceptance 전까지 experimental로 취급한다. migration/rollback 규칙은
-[Goal 68 extraction contract](./goals/goal-68-dpm-extraction-migration.md)에 기록했다. 검색, draft/edit/publish, diff/rollback, 작성 편의성은 stable
+[Goal 68 extraction contract](./goals/goal-68-dpm-extraction-migration.md)에 기록했고 owner handoff gate는 [Goal 68.4 acceptance checklist](./goals/goal-68-extraction-acceptance-checklist.md)에 정리했다. 검색, draft/edit/publish, diff/rollback, 작성 편의성은 stable
 neutral artifact 위에 두는 별도의 owner-authorized control-plane capability이며 아직 active
 goal은 아니다.
 
