@@ -74,9 +74,14 @@ Package surface regressions are covered by:
 
 ```bash
 pnpm --filter @oa-sdk/dpm run smoke:subpaths
+pnpm --filter @oa-sdk/dpm run smoke:extraction
 pnpm --filter @oa-sdk/dpm run smoke:consumer-workflow
 pnpm --filter @oa-sdk/dpm run smoke:pack
 ```
+
+`smoke:extraction` packages the built artifact with a clean production dependency tree and runs
+runtime, declaration, and rollback consumers through the public package boundary. It is a local
+extraction rehearsal; it does not claim registry publication or external owner acceptance.
 
 `smoke:consumer-workflow` imports the built `@oa-sdk/dpm/profile`, `@oa-sdk/dpm/gateway`, and
 `@oa-sdk/dpm/storage` subpaths and runs a captured Kafka profile-to-registry approval flow plus
