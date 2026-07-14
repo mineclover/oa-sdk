@@ -14,6 +14,8 @@ import { fileURLToPath } from 'node:url'
 
 const packageDir = fileURLToPath(new URL('..', import.meta.url))
 const fixturePath = fileURLToPath(new URL('./external-consumer-fixture.mjs', import.meta.url))
+const typeFixturePath = fileURLToPath(new URL('./external-consumer-type-fixture.ts', import.meta.url))
+const tscPath = fileURLToPath(new URL('../node_modules/.bin/tsc', import.meta.url))
 const tempDir = mkdtempSync(join(tmpdir(), 'oa-sdk-dpm-extraction-'))
 const packageArchiveDir = join(tempDir, 'archive')
 const packedPackageDir = join(tempDir, 'packed-package')
@@ -62,6 +64,7 @@ try {
   rmSync(packageInstallDir, { recursive: true, force: true })
   symlinkSync('../../..', packageInstallDir, 'dir')
   copyFileSync(fixturePath, join(consumerDir, 'consumer.mjs'))
+  copyFileSync(typeFixturePath, join(consumerDir, 'consumer-type-fixture.ts'))
 
   const manifest = JSON.parse(readFileSync(join(consumerDir, 'package.json'), 'utf8'))
   if (manifest.name !== '@oa-sdk/dpm') throw new Error('packed package name does not match @oa-sdk/dpm')
@@ -75,10 +78,26 @@ try {
   }).trim()
   const result = JSON.parse(output)
   if (result.status !== 'ok') throw new Error('external consumer fixture did not complete')
+  execFileSync(tscPath, [
+    '--noEmit',
+    '--target',
+    'ES2022',
+    '--module',
+    'NodeNext',
+    '--moduleResolution',
+    'NodeNext',
+    '--strict',
+    '--skipLibCheck',
+    'consumer-type-fixture.ts',
+  ], {
+    cwd: consumerDir,
+    encoding: 'utf8',
+  })
   console.log(JSON.stringify({
     status: 'ok',
     archive: archiveName,
     consumer: result,
+    declarationConsumer: 'ok',
   }, null, 2))
 } finally {
   rmSync(tempDir, { recursive: true, force: true })

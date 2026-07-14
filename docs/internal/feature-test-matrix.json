@@ -162,6 +162,7 @@
         "packages/dpm/test/package-subpath-type-consumer.ts",
         "packages/dpm/test/package-extraction-smoke.mjs",
         "packages/dpm/test/external-consumer-fixture.mjs",
+        "packages/dpm/test/external-consumer-type-fixture.ts",
         "packages/dpm/test/package-consumer-workflow-smoke.mjs",
         "packages/dpm/test/package-pack-smoke.mjs",
         "packages/dpm/README.md"
