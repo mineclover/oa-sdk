@@ -23,6 +23,14 @@ operations의 신규 목표는 각각 `markdown-editor`, `gitlab-agent-ops` 저�
 투자 승인을 뜻하지 않는다. 특히 Goal 4~64와 Goal 67의 DPM 결과물은 보존하되 maintenance-only
 policy를 적용한다.
 
+## Scope-gated next candidate
+
+통합 순서와 goal 간 gap은 [DPM Master Roadmap](./dpm-master-roadmap.md)을 기준으로 한다.
+
+| 목표 | 상태 | 패키지 |
+|---|---|---|
+| [Goal 68 — DPM Logical Data Definition and Extraction Boundary](./goal-68-dpm-logical-data-definition-boundary.md) | 제안됨 — 68.0 owner/implementation-site decision gate가 다음 대상 | dpm / data-governance |
+
 ## 완료 목표 이력
 
 | 목표/Phase | 상태 | 패키지 |

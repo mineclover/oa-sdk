@@ -1,12 +1,13 @@
 # Goal Progress Index
 
-Last updated: 2026-07-10
+Last updated: 2026-07-14
 
-이 파일은 goal 진행 현황만 관리한다. 설계, 범위, 수용 기준은 각 goal 문서를 따른다.
+이 파일은 goal 진행 현황만 관리한다. 설계, 범위, 수용 기준은 각 goal 문서를 따르며,
+DPM phase 순서와 gap 정렬은 [DPM Master Roadmap](./dpm-master-roadmap.md)을 따른다.
 
 ## Current
 
-- No current goal selected.
+- No active feature goal selected. The next DPM action is Goal 68.0, the owner and implementation-site decision gate. Goal 68.1–68.4 remain conditional on that decision.
 
 ## Recently Completed
 
@@ -417,6 +418,14 @@ Last updated: 2026-07-10
 ## Goal 67 DPM Units
 
 - [x] DPM-85 - Canonical Key Typed Encoding v2
+
+## Goal 68 DPM Units
+
+- [ ] DPM-86 - Ownership and compatibility freeze (next decision gate)
+- [ ] DPM-87 - Namespace-safe identity contract (conditional on DPM-86)
+- [ ] DPM-88 - Semantic API/catalog binding validation (conditional on DPM-86)
+- [ ] DPM-89 - Compiler and provenance artifact integration (conditional on DPM-86)
+- [ ] DPM-90 - External extraction rehearsal (conditional on DPM-86)
 
 ## Done Criteria
 

@@ -32,6 +32,17 @@ snapshot, compiled plan, runtime validation report, AI schema context는 generat
 Goal 4의 relationship-first core loop는 `@oa-sdk/dpm`으로 구현되었다. Runtime/storage 후속은
 [Goal 5 — DPM Runtime/Storage Integration](./goals/goal-5-dpm-runtime-storage-integration.md)에 둔다.
 
+현재 `data_definitions` 구조와 `@oa-sdk/dpm/data` public seam은 논리 field/API/DB object
+식별을 분리하는 compatibility slice로 추가되었다. 실제 artifact/catalog semantic binding과
+외부 DPM extraction은 scope-gated [Goal 68](./goals/goal-68-dpm-logical-data-definition-boundary.md)을
+따른다.
+
+Goal 간 선행 관계와 잔여 gap은 [DPM Master Roadmap](./goals/dpm-master-roadmap.md)을
+통합 기준으로 사용한다. Goal 4~67은 완료된 capability history이며, Goal 68 이후 semantic
+binding/provenance/extraction은 68.0 owner/implementation-site decision 후에만 진행한다. 검색,
+draft/edit/publish, diff/rollback, 작성 편의성은 stable neutral artifact 위에 두는 별도의
+owner-authorized control-plane capability이며 아직 active goal은 아니다.
+
 ---
 
 ## 아키텍처 — SWC 스타일 Parse → Transform → Generate

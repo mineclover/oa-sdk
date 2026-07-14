@@ -1,0 +1,278 @@
+# Goal 68 — DPM Logical Data Definition and Extraction Boundary
+
+**Status: proposed — 68.0 is the next decision gate; 68.1–68.4 require an authorized owner and implementation site**
+
+> Predecessor: [Goal 67 — DPM Canonical Key Typed Encoding v2](./goal-67-dpm-canonical-key-typed-v2.md)<br>
+> Architecture boundary: [Package Architecture](../architecture/packages.md)<br>
+> DPM baseline: [Relationship-First DPM Roadmap](./goal-4-dpm-relationship-first-roadmap.md)<br>
+> Concept: [Data Pseudonymization Manifest](../../concepts/data-pseudonymization-manifest.md)
+
+## Purpose
+
+DPM already owns logical entities, approved relationships, namespace policy, catalog
+evidence, and pseudonymization policy. This goal adds the missing explicit data-field
+layer while preserving the boundary between three different object systems:
+
+```text
+API artifact object  ── API binding ──> logical DPM data field ── storage binding ──> DB catalog object
+```
+
+The goal is not to make OpenAPI or DB catalog a DPM replacement. It is to make the
+relationship between their independently identified objects reviewable, versioned, and
+extractable to the future external data-governance environment.
+
+Goal 68 owns this contract plane only. Cross-identity search, draft/edit/publish lifecycle,
+and authoring convenience are a follow-on control-plane capability after the neutral artifact
+is stable; they are not silently included in the Goal 68 compiler scope.
+
+## Expressive boundary
+
+DPM owns the logical data contract and the explicit bindings to external evidence. It
+does not become a second OpenAPI schema registry or a database migration system.
+
+```mermaid
+flowchart LR
+  API[OpenAPI artifact object] -->|artifact ref + JSON Pointer| DPM[DPM logical data definition]
+  DB[DB catalog object] -->|catalog ref + table/column| DPM
+  DPM --> R[approved relationship registry]
+  DPM --> P[compiled plan / review artifacts]
+```
+
+| Layer | DPM may express | DPM must not express |
+|---|---|---|
+| Logical data | entity, namespace, field identity, semantic type, nullability, description, derived/computed field | an entire relational schema, arbitrary warehouse ontology, or raw data values |
+| Relationship | approved logical parent/child relationship, cardinality, namespace, condition, orphan policy | relationship approval inferred from names or projection shape alone |
+| DB catalog | reference to a catalog snapshot and physical table/column evidence | DDL, migration, row rewrite, live credentials, or physical FK mutation |
+| API artifact | artifact id, version hash, operation id, JSON Pointer, request/response direction | OpenAPI schema authoring, embedded policy body, or `operationId`-only identity |
+| Binding | logical field ↔ API object and logical field ↔ DB object edges | an implicit API ↔ DB edge based on matching names |
+| Runtime | compiled-plan inputs, freshness/provenance references, validation/report metadata | vault runtime, token reverse lookup, production execution, or legal anonymization claims |
+
+### Identity and reference rules
+
+- Logical object id, immutable revision id, human-readable locator, binding edge id, and Goal 67
+  canonical data-value encoding are different contracts and must not be conflated.
+- A published logical DPM field needs a rename-safe object id. Its dataset/namespace/entity/field
+  coordinate is a locator and may change through an explicit alias, deprecation, or supersession
+  transition. The structural slice currently derives `field:<entity>/<field>` and does not yet
+  satisfy this rule.
+- An entity name alone is not a globally safe reference. Resolution must include the declared
+  dataset and namespace scope; the existing entity identity format is `entity:<namespace>/<name>`.
+- A DB object is identified by catalog snapshot identity/freshness plus table and column;
+  `table` and `column` without the catalog context are only a human-readable coordinate.
+- An API object is identified by artifact id, JSON Pointer, and version hash. `operationId`
+  is optional navigation metadata and must not participate in canonical API object identity.
+- A draft API binding may carry an unresolved version while being edited, but a published or
+  compilable binding must carry and verify its artifact version hash.
+- A logical field may have multiple API bindings across artifacts and operations. One
+  artifact/version/pointer may bind to at most one logical field unless a future explicit
+  projection/alias relation is added.
+- A field declares an origin of `persisted`, `derived`, `computed`, or `api_only`. `storage_ref`
+  may be absent only for a non-persisted origin. A field that claims to represent persisted DB
+  data must carry a resolvable catalog binding.
+
+### Validation levels
+
+| Level | Responsibility | Current state |
+|---|---|---|
+| Syntax | JSON Schema shape, enums, required properties | Implemented |
+| Model-local | identity construction, duplicate fields/bindings, pointer form | Implemented for the structural slice |
+| Cross-object | entity membership, catalog membership, API pointer/hash/provenance match | Roadmap 68.2 |
+| Compile-time | binding freshness in plan and blocking stale references | Roadmap 68.3 |
+| Runtime | actual tokenization, vault, row counts, join integrity, post-run report | Outside this goal; existing runtime/storage goals remain authoritative |
+
+## Governance gate
+
+`@oa-sdk/dpm` is currently a private, maintenance-only workspace and a candidate for
+`data-governance` extraction. Therefore this is a compatibility/migration boundary goal,
+not an approved new Core Platform feature. Before semantic expansion, record one of:
+
+1. the external DPM environment/repository as the canonical owner, with this package as
+   a compatibility adapter; or
+2. a scope-reactivation decision that temporarily authorizes DPM feature work in this
+   monorepo and defines its release/maintenance owner.
+
+Until that decision is recorded, only schema compatibility, extraction preparation, and
+regression hardening are in scope. This includes schema/model parity, deterministic local checks
+for already-declared rules, compatibility adapters, and package/extraction smoke. New persisted
+schemas, cross-repository resolvers, gateway workflows, search services, and edit/publish workflows
+are feature expansion and remain blocked.
+
+The decision also selects where subsequent work runs:
+
+- if the external DPM environment is canonical, Goal 68.1–68.4 run there and this package remains
+  a compatibility adapter; or
+- if scope reactivation is approved, Goal 68.1–68.4 may run temporarily in this monorepo with
+  explicit release/CI ownership and an exit condition.
+
+## Review verdict of the current implementation
+
+| Area | Verdict | Evidence / remaining issue |
+|---|---|---|
+| Logical ownership | Aligned | DPM already owns `EntityDeclaration`, `LogicalRelationship`, manifest policy, and registry lifecycle. |
+| Separate identities | Partially aligned | `field:`, `db:`, and `api:` helpers plus `data_definitions` exist; stable object id, revision id, dataset/namespace scope, and catalog snapshot identity are not yet separated. |
+| API provenance | Partially aligned | Artifact id, operation id, JSON Pointer, and optional version hash are carried, but `operationId` currently participates in the helper identity and no resolver checks the pointer/hash against an actual OpenAPI artifact or provenance sidecar. |
+| DB authority | Partially aligned | `storage_ref` names `table` and `column`, but does not prove membership in a catalog snapshot or carry catalog freshness/source coordinate. |
+| Field origin | Not yet aligned | The contract describes persisted, derived, computed, and API-only fields, but the structural slice has no origin discriminator with which to enforce storage requirements. |
+| Reverse binding uniqueness | Not yet aligned | Duplicate edge identities are rejected, but the same API artifact/version/pointer can still be assigned to different logical fields. |
+| Wire-version stability | Decision pending | `data_definitions.version` currently uses `1.0`, while compatibility authority and the experimental-or-frozen status are deferred to 68.0. |
+| Semantic enforcement | Not yet aligned | JSON Schema and model normalizers validate shape; manifest validator/compiler do not yet validate entity, catalog, and API binding references together. |
+| Core dependency direction | Aligned | New surface stays under DPM; Core packages do not depend on maintenance-only DPM. |
+| Extraction readiness | Partially aligned | `@oa-sdk/dpm/data` is a clean public seam, but repository metadata, artifact versioning, external owner, and migration contract remain undefined. |
+| Governance policy | Not aligned for feature expansion | Maintenance-only policy requires scope reactivation or an external-owner decision before further feature investment. |
+
+## Roadmap
+
+### 68.0 — Ownership and compatibility freeze
+
+Deliverables:
+
+- record the external DPM repository/environment or scope-reactivation decision;
+- freeze the `data_definitions` wire version and compatibility policy;
+- decide whether the current `1.0` marker is frozen or explicitly experimental before external use;
+- define whether `@oa-sdk/dpm` remains a private mirror, becomes an adapter, or is
+  extracted;
+- add repository/license/publish metadata only when extraction is approved.
+
+Exit criteria:
+
+- one canonical owner is named;
+- no Core package imports DPM policy types;
+- the migration path for `@oa-sdk/dpm/data` imports is documented.
+
+### 68.1 — Identity contract completion
+
+Deliverables:
+
+- use a namespace-safe `DpmEntityRef` rather than an entity name-only reference;
+- define a rename-safe logical object id and keep it separate from revision id, human locator,
+  binding edge id, DB/API identity, and canonical data-value encoding;
+- include dataset and namespace resolution scope in entity/field references;
+- extend the DB reference with catalog snapshot identity, freshness hash, and source
+  coordinate where available;
+- define canonical API object identity as artifact id + version hash + pointer, with
+  `operationId` retained only as navigation metadata;
+- specify whether a binding identity changes on artifact version changes;
+- declare field origin as persisted, derived, computed, or API-only;
+- define reverse binding cardinality plus rename, alias, deprecation, and supersession rules.
+
+Exit criteria:
+
+- same-named entities in different namespaces cannot collide;
+- same-named entities in different datasets cannot collide when artifacts are indexed together;
+- a logical object rename does not silently create an unrelated object or orphan existing bindings;
+- DB and API references can be resolved without guessing from a field name;
+- changing only `operationId` does not change canonical API object or binding identity;
+- identity golden vectors cover dataset/namespace scope, rename, pointer escaping, and version changes.
+
+### 68.2 — Semantic binding validation
+
+Deliverables:
+
+- validate every logical field against a declared DPM entity;
+- validate every `storage_ref` against the selected catalog snapshot;
+- validate every API pointer against the referenced OpenAPI artifact;
+- verify the artifact version hash and, when present, provenance sidecar/source
+  coordinate;
+- reject one API artifact/version/pointer bound to multiple logical fields unless an explicit
+  future projection/alias relation authorizes it;
+- enforce persisted-origin/storage binding and non-persisted-origin rules;
+- add deterministic `DAT` diagnostics with manifest source pointers and catalog/API
+  coordinates.
+
+Exit criteria:
+
+- malformed or stale API/DB references block compile;
+- structural catalog evidence remains evidence, not relationship approval;
+- approved Relationship Registry semantics remain the only source of relationship
+  execution authority.
+
+### 68.3 — Compiler and artifact integration
+
+Deliverables:
+
+- include data-field/API/DB binding references in compiled-plan freshness and output;
+- expose a neutral binding artifact that `codegen` can consume without importing DPM
+  policy internals;
+- make the neutral artifact immutable and sufficient to source a future cross-identity read model
+  without coupling search consumers to DPM compiler internals;
+- connect source-coordinate/provenance links to behavior trace records;
+- add an end-to-end fixture: OpenAPI artifact → API binding → DPM field → catalog column.
+
+Exit criteria:
+
+- a binding is reproducible from artifact ids and hashes;
+- API-to-DB direct inference is impossible without an explicit DPM field binding;
+- trace and review output can identify all three objects independently.
+
+### 68.4 — Extraction rehearsal
+
+Deliverables:
+
+- build the DPM package from the public subpath contract in a clean consumer fixture;
+- test package-name/import compatibility for an external repository;
+- define schema/artifact migration and rollback rules;
+- move the canonical DPM roadmap and ownership docs to the external environment when
+  the owner is confirmed.
+
+Exit criteria:
+
+- external consumer smoke passes without monorepo path assumptions;
+- old `@oa-sdk/dpm` imports have a documented compatibility window;
+- the monorepo package can be reduced to an adapter without changing API/Core ownership.
+
+## Owner-authorized follow-on control plane
+
+After Goal 68.3 produces a stable neutral artifact, the selected owner may activate one
+product-slice-sized control-plane goal covering the user workflow rather than creating one goal per
+endpoint. This is future capability, not an active goal before 68.0 completes.
+
+Required capability:
+
+- exact lookup and deterministic filtered search by logical object id/locator, API pointer, DB
+  coordinate, semantic type, sensitivity, owner, and lifecycle state;
+- reverse lookup and where-used across logical, API, DB, relationship, policy, and trace identities;
+- immutable published revisions, editable drafts, and base-revision optimistic concurrency;
+- validate preview, semantic diff, breaking-change classification, rename/deprecate/supersede,
+  publish approval, audit readback, and rollback;
+- CLI/library import, export, explain, bulk edit, and machine-readable diagnostic quick fixes.
+
+Representative exit criteria:
+
+- one binding can be found from its logical id, API pointer, or DB coordinate;
+- published revisions cannot be mutated in place and a stale draft base is rejected;
+- breaking changes and rename/deprecation effects are visible before publish;
+- one public consumer flow proves import/edit/validate/publish/search/audit readback without deep imports.
+
+## Explicit non-goals
+
+- DPM does not become the OpenAPI schema source of truth.
+- DPM does not infer API-to-DB mappings from matching names alone.
+- Catalog projection does not approve logical relationships.
+- Goal 68 does not itself add a searchable registry, editor UI, or draft/publish service; it emits
+  the contract and neutral artifact on which the follow-on control plane depends.
+- This goal does not add physical DB migrations, token-vault runtime, or production data
+  rewrite behavior.
+
+## Current implementation evidence
+
+- `packages/dpm/src/model/data-types.ts` defines logical field, DB column, API object,
+  and API binding types.
+- `packages/dpm/src/model/data-normalize.ts` provides distinct identity helpers and
+  model-boundary checks.
+- `packages/dpm/src/schema/dpm-manifest.schema.json` defines the optional
+  `data_definitions` manifest section.
+- `packages/dpm/src/public/data.ts` and the `@oa-sdk/dpm/data` export establish the
+  extraction-oriented public seam.
+- Focused schema/model tests and package subpath smoke tests cover the structural slice.
+
+## Verification gates
+
+```bash
+pnpm --filter @oa-sdk/dpm test
+pnpm --filter @oa-sdk/dpm typecheck
+pnpm --filter @oa-sdk/dpm smoke:subpaths
+pnpm check:api-index
+pnpm check:feature-tests
+pnpm check:docs
+git diff --check
+```
