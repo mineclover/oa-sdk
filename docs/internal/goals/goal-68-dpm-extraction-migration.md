@@ -1,6 +1,6 @@
 # Goal 68 Extraction Migration and Rollback Contract
 
-**Status: private owner repository rehearsal pushed 2026-07-15; external owner acceptance pending**
+**Status: private owner repository, CI, and document gate verified 2026-07-15; formal external owner acceptance pending**
 
 > Parent: [Goal 68 — DPM Logical Data Definition and Extraction Boundary](./goal-68-dpm-logical-data-definition-boundary.md)
 

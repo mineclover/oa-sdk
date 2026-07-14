@@ -232,7 +232,7 @@ This phase is a future owner-authorized capability, not an active goal before Ph
 
 ### Phase 9 — Extraction rehearsal (Goal 68.4, owner-gated)
 
-Local rehearsal complete; external owner and migration acceptance pending:
+Private external rehearsal, owner CI, and owner-document link verification are complete; formal owner and migration acceptance remain pending:
 
 - clean external consumer build and package smoke;
 - import/package migration contract;
