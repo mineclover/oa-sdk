@@ -54,7 +54,7 @@ production pseudonymization       = outside current oa-sdk boundary
 | 6. Semantic binding | Goal 68.2 | entity/API/catalog resolution and deterministic diagnostics | Implemented in monorepo and mirrored to private owner candidate | formal external wire ownership and compatibility window |
 | 7. Neutral artifact and provenance | Goal 68.3 | binding freshness, compiled plan, trace/review links, read-model source | Implemented in monorepo and mirrored to private owner candidate | formal external wire ownership and compatibility window |
 | 8. Search, edit and authoring control plane | Future owner-authorized product slice | cross-identity search, draft/revision/publish, diff, rollback and authoring helpers | Future; not an active goal | depends on Phase 7 and product/release ownership |
-| 9. Extraction rehearsal | Goal 68.4 | external consumer, migration, compatibility adapter | Private external repository packed-consumer rehearsal passed; owner acceptance pending | release policy, compatibility window, and canonical migration sign-off |
+| 9. Extraction rehearsal | Goal 68.4 | external consumer, migration, compatibility adapter | Private external repository packed-consumer rehearsal and owner CI passed | release policy, compatibility window, and canonical migration sign-off |
 | 10. Data-plane runtime | Future external/runtime program | vault, tokenization worker, row rewrite, post-run integrity | Explicitly outside current roadmap | requires separate runtime owner, security model, and deployment authority |
 
 ## Dependency order
@@ -90,9 +90,12 @@ candidate. A private external owner candidate now exists at
 
 The repository was created and pushed on 2026-07-15. Its external workspace passed the DPM
 build, typecheck, boundary check, 120 test files/269 tests, package subpath and declaration
-checks, packed consumer, workflow consumer, rollback consumer, and pack dry-run. This establishes
-the extraction rehearsal and repository location; it does not yet establish the formal release
-authority, compatibility window, public publication policy, or final canonical sign-off.
+checks, packed consumer, workflow consumer, rollback consumer, and pack dry-run. The owner
+decision record and Node 25/pnpm 10.30.3 CI are also pushed; workflow run
+[29350009558](https://github.com/mineclover/data-governance/actions/runs/29350009558) passed for
+commit `34dff0f`. This establishes the extraction rehearsal and repository location; it does not
+yet establish the formal release authority, compatibility window, public publication policy, or
+final canonical sign-off.
 
 Required decision:
 

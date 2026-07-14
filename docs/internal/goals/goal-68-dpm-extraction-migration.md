@@ -93,5 +93,8 @@ If external extraction or a consumer migration fails:
 - External owner repository rehearsal: `mineclover/data-governance` commit `7f1fb3f`; its DPM
   build/typecheck/boundary checks, 120 test files/269 tests, packed runtime/declaration/rollback
   consumers, workflow consumer, and pack dry-run passed.
+- Interim owner decision record: `docs/internal/goals/owner-decision-record.md`. Owner CI
+  workflow [29350009558](https://github.com/mineclover/data-governance/actions/runs/29350009558)
+  passed for commit `34dff0f` with Node 25 and pnpm 10.30.3.
 - Formal owner acceptance, registry publication, compatibility-window decision, and canonical
   adapter transition remain intentionally pending; they are not implied by the rehearsal.

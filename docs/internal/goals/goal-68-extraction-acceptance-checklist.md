@@ -1,6 +1,6 @@
 # Goal 68.4 — External Extraction Acceptance Checklist
 
-**Status: private owner repository created and rehearsed; formal external owner acceptance pending**
+**Status: private owner repository and CI verified; formal external owner acceptance pending**
 
 > Parent: [Goal 68 — DPM Logical Data Definition and Extraction Boundary](./goal-68-dpm-logical-data-definition-boundary.md)
 >
@@ -28,6 +28,8 @@ external repository ownership, or acceptance of the experimental v1.1 wire shape
 The private owner repository rehearsal is now also complete: commit `7f1fb3f` in
 [`mineclover/data-governance`](https://github.com/mineclover/data-governance) passed the external
 build, typecheck, boundary, unit, packed runtime/declaration/rollback, workflow, and pack checks.
+The owner CI workflow also passed for commit `34dff0f` in
+[workflow run 29350009558](https://github.com/mineclover/data-governance/actions/runs/29350009558).
 
 ## Current repository audit
 
@@ -72,7 +74,7 @@ Complete this section in the owner environment; an empty record is intentional i
 | Accepted `data_definitions` versions | pending |
 | Accepted artifact kind/version | pending |
 | Compatibility window and deprecation release | pending |
-| Canonical-document location | pending |
+| Canonical-document location | Interim record at `docs/internal/goals/owner-decision-record.md`; formal canonical link pending |
 | Rollback fixture / review link | external rehearsal passed in `7f1fb3f`; formal review/sign-off pending |
 
 ## Transition rule

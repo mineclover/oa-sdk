@@ -1,6 +1,6 @@
 # Goal 68 — DPM Logical Data Definition and Extraction Boundary
 
-**Status: active — 68.0·68.1·68.2·68.3 complete; 68.4 private external rehearsal pushed, formal owner acceptance pending**
+**Status: active — 68.0·68.1·68.2·68.3 complete; 68.4 private external rehearsal and owner CI passed, formal acceptance pending**
 
 > Predecessor: [Goal 67 — DPM Canonical Key Typed Encoding v2](./goal-67-dpm-canonical-key-typed-v2.md)<br>
 > Architecture boundary: [Package Architecture](../architecture/packages.md)<br>
@@ -26,7 +26,9 @@ and authoring convenience are a follow-on control-plane capability after the neu
 is stable; they are not silently included in the Goal 68 compiler scope.
 
 Private owner candidate: [`mineclover/data-governance`](https://github.com/mineclover/data-governance)
-(created 2026-07-15; initial extraction commit `7f1fb3f`; repository is private).
+(created 2026-07-15; initial extraction commit `7f1fb3f`; repository is private). The interim
+decision is recorded in `docs/internal/goals/owner-decision-record.md` and its CI passed in
+workflow [29350009558](https://github.com/mineclover/data-governance/actions/runs/29350009558).
 
 ## Expressive boundary
 
@@ -256,8 +258,9 @@ Deliverables:
 The local packed-artifact runtime, declaration, and rollback rehearsal plus the temporary migration/rollback contract are recorded in
 [Goal 68 Extraction Migration and Rollback Contract](./goal-68-dpm-extraction-migration.md). The
 owner handoff gates are listed in the [Goal 68.4 External Extraction Acceptance Checklist](./goal-68-extraction-acceptance-checklist.md).
-The private external rehearsal is complete, while the external owner sign-off, registry publication
-metadata, compatibility window, and canonical-document transition remain pending.
+The private external rehearsal and owner CI are complete, while the external owner sign-off,
+registry publication metadata, compatibility window, and canonical-document transition remain
+pending.
 
 Exit criteria:
 
