@@ -12,6 +12,8 @@ export function compileDpmPlan(input: DpmCompileInput): DpmCompileResult {
   const normalizedInput = {
     ...input,
     registry: normalizeRegistrySnapshotCanonicalKeyEncodingVersion(input.registry),
+    ...(input.behaviorTraceLinks ? { behaviorTraceLinks: input.behaviorTraceLinks } : {}),
+    ...(input.reviewLinks ? { reviewLinks: input.reviewLinks } : {}),
   }
   const validation = validateDpmManifest({
     manifest: normalizedInput.manifest,

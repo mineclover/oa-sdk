@@ -9,6 +9,7 @@ import {
 import {
   createDpmIdentityDataDefinitions,
   type DpmIdentityDataDefinitions,
+  type DpmNeutralDataBindingArtifact,
 } from '@oa-sdk/dpm/data'
 import {
   createDpmRelationshipCandidateInputFromResolvedProfileHint,
@@ -140,6 +141,7 @@ type DpmSubpathTypeSmoke = {
   registryRepository?: DpmRegistryWritableRepository
   publishing?: DpmPublishingContext
   dataDefinitions?: DpmIdentityDataDefinitions
+  neutralDataBindingArtifact?: DpmNeutralDataBindingArtifact
 }
 
 const packageName: '@oa-sdk/dpm' = DPM_PACKAGE_NAME

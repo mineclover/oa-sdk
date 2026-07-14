@@ -24,7 +24,7 @@ capability는 Goal 68의 contract boundary와 구분하며, owner 결정 전에 
 
 ```text
 relationship-first DPM core       = implemented and tested
-logical data/API/DB shape         = structural compatibility slice
+logical data/API/DB shape         = v1.1 identity, semantic binding, and neutral artifact implemented
 ownership and implementation site = temporary monorepo site (external extraction exit)
 cross-object semantic binding     = implemented and tested for v1.1
 search/edit/authoring control     = scope-gated follow-on capability
@@ -35,8 +35,8 @@ production pseudonymization       = outside current oa-sdk boundary
 
 | Product purpose | Current coverage | Remaining capability |
 |---|---|---|
-| Spec management | logical entity/relationship, structural field definition, validation and compilation | immutable revision, diff, lifecycle, breaking-change classification |
-| Unique-key management | column coordinate uniqueness and versioned canonical-key encoding | rename-safe object id, revision id, locator, binding id separation |
+| Spec management | logical entity/relationship, explicit field identity, semantic validation, compilation, and neutral artifact | immutable revision, diff, lifecycle, breaking-change classification |
+| Unique-key management | column coordinate uniqueness, versioned canonical-key encoding, and separate object/revision/locator/binding identities | final external wire ownership and migration compatibility |
 | Search | profile summary and registry/audit readback | cross-identity lookup, filtered search, reverse lookup and where-used |
 | Edit | proposal review and relationship approval | data-definition draft, validate preview, publish, deprecate and rollback |
 | Convenience | public subpaths, package smoke and representative consumer flows | import/export, explain, bulk edit and machine-readable quick fixes |
@@ -51,8 +51,8 @@ production pseudonymization       = outside current oa-sdk boundary
 | 3. Approval and durability | Goals 23, 27–30, 32, 34–50, 58, 59, 61, 63 | gateway workflow, registry approval, storage, audit and reports | Implemented within declared boundary | no production token/vault/data-plane execution |
 | 4. Public package contract | Goals 20–22, 57, 60, 62 | subpaths, pack boundary, consumer workflow, docs and contract checks | Implemented | external repository compatibility still unproven |
 | 5. Logical identity contract | Goal 68.1 | stable object/revision identity, namespace-safe refs, binding cardinality | Implemented in temporary monorepo site | external extraction owner and final wire stability |
-| 6. Semantic binding | Goal 68.2 | entity/API/catalog resolution and deterministic diagnostics | Implemented in temporary monorepo site | neutral artifact and compiled freshness remain |
-| 7. Neutral artifact and provenance | Goal 68.3 | binding freshness, compiled plan, trace/review links, read-model source | In progress in temporary monorepo site | depends on Phase 6 and projection/provenance contract |
+| 6. Semantic binding | Goal 68.2 | entity/API/catalog resolution and deterministic diagnostics | Implemented in temporary monorepo site | external extraction owner and final wire stability |
+| 7. Neutral artifact and provenance | Goal 68.3 | binding freshness, compiled plan, trace/review links, read-model source | Implemented in temporary monorepo site | external extraction owner, migration contract, and final wire stability |
 | 8. Search, edit and authoring control plane | Future owner-authorized product slice | cross-identity search, draft/revision/publish, diff, rollback and authoring helpers | Future; not an active goal | depends on Phase 7 and product/release ownership |
 | 9. Extraction rehearsal | Goal 68.4 | external consumer, migration, compatibility adapter | Planned and scope-gated | depends on owner decision and stable public artifact |
 | 10. Data-plane runtime | Future external/runtime program | vault, tokenization worker, row rewrite, post-run integrity | Explicitly outside current roadmap | requires separate runtime owner, security model, and deployment authority |
@@ -113,9 +113,11 @@ Blocking phases: 6–9.
 
 The binding needs a neutral artifact contract that can be consumed by codegen/trace/review tooling
 without making Core depend on DPM policy internals. Its freshness tuple must include the DPM data
-definition version, catalog snapshot hash, and API artifact/provenance version.
+definition version, catalog snapshot hash, and API artifact/provenance version. Goal 68.3 now
+provides this as an immutable `DpmNeutralDataBindingArtifact`; extraction and final wire ownership
+remain in Phase 9.
 
-Blocking phases: 7–9.
+Blocking phase: 9.
 
 ### G-05 — Spec lifecycle and change classification
 
@@ -191,7 +193,7 @@ Complete Goal 68.2:
 
 ### Phase 7 — Neutral artifact, compiler and provenance (Goal 68.3)
 
-Complete Goal 68.3:
+Completed Goal 68.3:
 
 - include binding freshness in compiled plan identity;
 - emit an immutable neutral binding artifact that can source a future read model;
@@ -213,9 +215,9 @@ flow rather than endpoint-sized micro-goals:
 
 This phase is a future owner-authorized capability, not an active goal before Phase 0 completes.
 
-### Phase 9 — Extraction rehearsal (Goal 68.4)
+### Phase 9 — Extraction rehearsal (Goal 68.4, owner-gated)
 
-Complete Goal 68.4:
+Pending external owner and migration decision:
 
 - clean external consumer build and package smoke;
 - import/package migration contract;

@@ -8,11 +8,19 @@ export function createDpmCompiledPlanIdentity(input: {
   manifestId: string
   registryVersion: string
   canonicalKeyEncodingVersion: DpmCanonicalKeyEncodingVersion
+  dataBindingFreshnessHash?: string
 }): string {
   const legacyIdentity = `compiled-plan:${input.manifestId}:${input.registryVersion}`
-  return input.canonicalKeyEncodingVersion === DPM_DEFAULT_CANONICAL_KEY_ENCODING_VERSION
-    ? legacyIdentity
-    : 'dpm.compiled-plan.typed-v2'
-      + `|m|${frameWellFormedUtf8(input.manifestId, 'compiled plan manifestId')}`
-      + `|r|${frameWellFormedUtf8(input.registryVersion, 'compiled plan registryVersion')}`
+  if (
+    input.canonicalKeyEncodingVersion === DPM_DEFAULT_CANONICAL_KEY_ENCODING_VERSION
+    && !input.dataBindingFreshnessHash
+  ) {
+    return legacyIdentity
+  }
+  const typedIdentity = 'dpm.compiled-plan.typed-v2'
+    + `|m|${frameWellFormedUtf8(input.manifestId, 'compiled plan manifestId')}`
+    + `|r|${frameWellFormedUtf8(input.registryVersion, 'compiled plan registryVersion')}`
+  return input.dataBindingFreshnessHash
+    ? typedIdentity + `|d|${frameWellFormedUtf8(input.dataBindingFreshnessHash, 'compiled plan data binding freshness hash')}`
+    : typedIdentity
 }

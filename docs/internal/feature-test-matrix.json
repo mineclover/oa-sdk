@@ -136,6 +136,7 @@
         "root DPM package entrypoint",
         "package metadata subpath export",
         "catalog subpath export",
+        "data subpath neutral artifact consumer type seam",
         "profile subpath export",
         "relationship subpath export",
         "gateway subpath export",
@@ -186,7 +187,8 @@
         "artifact/version/pointer API identity excluding operationId",
         "persisted/derived/computed/api_only origin policy",
         "alias and supersession lifecycle checks",
-        "reverse API binding cardinality"
+        "reverse API binding cardinality",
+        "immutable neutral binding artifact and provenance links"
       ],
       "testPaths": [
         "packages/dpm/test/model-data-definition.test.ts",
@@ -541,7 +543,7 @@
       "name": "DPM semantic validator",
       "category": "dpm",
       "package": "@oa-sdk/dpm",
-      "description": "Deterministic SYN, REL, and SAF diagnostics from manifest, catalog snapshot, and registry snapshot only.",
+      "description": "Deterministic SYN, REL, SAF, and DAT diagnostics from manifest, catalog snapshot, registry snapshot, API artifact, and provenance inputs.",
       "capabilities": [
         "SYN diagnostic family",
         "REL diagnostic family",
@@ -576,19 +578,23 @@
       "name": "DPM compiler and dry-run",
       "category": "dpm",
       "package": "@oa-sdk/dpm",
-      "description": "Validator-gated compiled plans and raw-value-free dry-run impact reports.",
+      "description": "Validator-gated compiled plans with data-binding freshness and neutral provenance artifacts, plus raw-value-free dry-run impact reports.",
       "capabilities": [
         "validator-gated compilation",
         "approved registry relationship steps only",
         "namespace bindings",
         "column steps",
         "freshness stale marking",
+        "data-field/API/DB binding freshness in compiled plans",
+        "immutable neutral data binding artifact",
+        "behavior trace and review record links",
         "dry-run impact counts without raw values"
       ],
       "testPaths": [
         "packages/dpm/test/compiler-plan.test.ts",
         "packages/dpm/test/compiler-staleness.test.ts",
         "packages/dpm/test/compiler-validation.test.ts",
+        "packages/dpm/test/validator-data-binding.test.ts",
         "packages/dpm/test/dry-run.test.ts"
       ],
       "commands": [

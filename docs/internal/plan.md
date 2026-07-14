@@ -34,15 +34,14 @@ Goal 4의 relationship-first core loop는 `@oa-sdk/dpm`으로 구현되었다. R
 
 현재 `data_definitions` 구조와 `@oa-sdk/dpm/data` public seam은 논리 field/API/DB object
 식별을 분리하는 compatibility slice로 추가되었다. namespace-safe identity contract는 Goal 68.1로
-완료했고 artifact/catalog semantic binding은 Goal 68.2로 완료했으며, 이제 neutral artifact와
-compiled provenance 통합을
-외부 DPM extraction은 scope-gated [Goal 68](./goals/goal-68-dpm-logical-data-definition-boundary.md)을
-따른다.
+완료했고 artifact/catalog semantic binding은 Goal 68.2로 완료했다. Goal 68.3의 neutral
+artifact와 compiled provenance 통합도 완료했으며, 외부 DPM extraction은 scope-gated
+[Goal 68](./goals/goal-68-dpm-logical-data-definition-boundary.md)을 따른다.
 
 Goal 간 선행 관계와 잔여 gap은 [DPM Master Roadmap](./goals/dpm-master-roadmap.md)을
 통합 기준으로 사용한다. Goal 4~67은 완료된 capability history이며, Goal 68은 2026-07-14
-temporary monorepo reactivation decision 후 68.1 identity contract와 68.2 semantic binding을
-진행한다. `data_definitions` 1.0은 구조적 호환성 계약으로 동결하고, 1.1 identity contract는
+temporary monorepo reactivation decision 후 68.1 identity contract, 68.2 semantic binding,
+68.3 neutral artifact/provenance integration을 완료했다. `data_definitions` 1.0은 구조적 호환성 계약으로 동결하고, 1.1 identity contract는
 외부 extraction 전까지 experimental로 취급한다. 검색, draft/edit/publish, diff/rollback, 작성 편의성은 stable
 neutral artifact 위에 두는 별도의 owner-authorized control-plane capability이며 아직 active
 goal은 아니다.

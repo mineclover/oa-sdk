@@ -30,7 +30,10 @@ The manifest schema version is exposed through `DPM_VERSION`. It is the DPM cont
 Use `@oa-sdk/dpm/data` for the logical data definition layer. A DPM field identity is
 separate from its optional database `storageRef` and from an API artifact pointer; API
 bindings make that relationship explicit without making an OpenAPI operation or database
-column the data definition itself.
+column the data definition itself. The compiler emits the immutable
+`DpmNeutralDataBindingArtifact` with binding freshness and source/provenance links so
+code-generation and review consumers can read the contract without importing DPM policy
+internals.
 
 The frozen `data_definitions` `1.0` shape is retained for structural consumers. The
 experimental `1.1` model helpers (`createDpmIdentityDataDefinitions()` and related identity

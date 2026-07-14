@@ -8,6 +8,7 @@ import {
 import {
   createValidationInput,
 } from './support/validator-fixtures.js'
+import { compileGatewayComponentSchema } from './support/gateway-schema.js'
 
 describe('DPM semantic data binding validator', () => {
   it('resolves v1.1 logical, catalog, and API bindings without name inference', () => {
@@ -152,6 +153,87 @@ describe('DPM semantic data binding validator', () => {
     expect(result.diagnostics).toEqual(expect.arrayContaining([
       expect.objectContaining({ code: 'DAT007' }),
     ]))
+  })
+
+  it('emits an immutable neutral artifact and carries binding freshness into plan identity', () => {
+    const { input, apiArtifacts } = createIdentityBindingInput()
+    const first = compileDpmPlan({
+      ...input,
+      apiArtifacts,
+      behaviorTraceLinks: [{
+        behaviorId: 'bhv_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+        traceId: 'trace_build_customer_api',
+        recordRef: 'behavior://bhv_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+      }],
+      reviewLinks: [{
+        reviewId: 'review_customer_api_v1',
+        recordRef: 'review://customer-api/v1',
+      }],
+    })
+
+    expect(first.ok).toBe(true)
+    if (!first.ok) throw new Error('expected neutral artifact compile success')
+    const artifact = first.plan.dataBindingArtifact
+    expect(artifact).toBeDefined()
+    if (!artifact) throw new Error('expected neutral data binding artifact')
+    expect(artifact.kind).toBe('dpm.data-binding-artifact.v1')
+    expect(artifact.version).toBe('1.0')
+    expect(artifact.fields).toHaveLength(1)
+    expect(artifact.fields[0]).toEqual(expect.objectContaining({
+      objectId: 'customer-number',
+      locator: {
+        datasetId: 'commerce_ai',
+        namespace: 'customer',
+        entity: 'customer',
+        field: 'customerNo',
+      },
+      storage: expect.objectContaining({
+        table: 'public.customers',
+        column: 'customer_no',
+      }),
+    }))
+    expect(artifact.apiBindings[0]).toEqual(expect.objectContaining({
+      bindingId: 'customer-number-response',
+      targetIdentity: expect.stringContaining('api:commerce-api@sha256%3A'),
+    }))
+    expect(artifact.provenance.behaviorTraces).toEqual([
+      expect.objectContaining({
+        behaviorId: 'bhv_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+        traceId: 'trace_build_customer_api',
+      }),
+    ])
+    expect(artifact.provenance.reviews).toEqual([
+      expect.objectContaining({ reviewId: 'review_customer_api_v1' }),
+    ])
+    expect(Object.isFrozen(artifact)).toBe(true)
+    expect(Object.isFrozen(artifact.fields)).toBe(true)
+    expect(compileGatewayComponentSchema('DpmNeutralDataBindingArtifact')(artifact)).toBe(true)
+    expect(compileGatewayComponentSchema('DpmCompiledPlan')(first.plan)).toBe(true)
+    expect(first.plan.freshness.dataBindingFreshness).toEqual(artifact.freshness)
+    expect(first.plan.identity).toContain('|d|')
+
+    const changedDocument = structuredClone(apiArtifacts[0].document) as Record<string, any>
+    changedDocument.info = { version: '2.0.0' }
+    const changedHash = computeDpmApiArtifactVersionHash(changedDocument)
+    const changedManifest = structuredClone(input.manifest) as Record<string, any>
+    changedManifest.data_definitions.api_bindings[0].api.version_hash = changedHash
+    const second = compileDpmPlan({
+      ...input,
+      manifest: changedManifest,
+      apiArtifacts: [{
+        ...apiArtifacts[0],
+        document: changedDocument,
+        provenance: {
+          ...apiArtifacts[0].provenance!,
+          versionHash: changedHash,
+        },
+      }],
+    })
+
+    expect(second.ok).toBe(true)
+    if (!second.ok) throw new Error('expected changed artifact compile success')
+    expect(second.plan.identity).not.toBe(first.plan.identity)
+    expect(second.plan.freshness.dataBindingFreshness?.apiArtifacts[0]?.versionHash).toBe(changedHash)
   })
 })
 

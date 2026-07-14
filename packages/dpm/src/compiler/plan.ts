@@ -1,6 +1,10 @@
 export type { DpmCompiledPlan } from './plan-compiled-types.js'
 export type { DpmPlanFreshness } from './plan-freshness-types.js'
 export type {
+  DpmDataBindingFreshness,
+  DpmNeutralDataBindingArtifact,
+} from '../model/data-artifact-types.js'
+export type {
   DpmColumnStep,
   DpmNamespaceBinding,
   DpmRelationshipStep,

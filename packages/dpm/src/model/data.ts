@@ -28,6 +28,24 @@ export type {
   DpmIdentityDataFieldRef,
   DpmIdentityDatabaseColumnRef,
 } from './data-identity-types.js'
+export type {
+  DpmDataBindingApiArtifactFreshness,
+  DpmDataBindingApiArtifactLink,
+  DpmDataBindingBehaviorTraceLink,
+  DpmDataBindingFreshness,
+  DpmDataBindingReviewLink,
+  DpmNeutralDataBindingApi,
+  DpmNeutralDataBindingApiBinding,
+  DpmNeutralDataBindingArtifact,
+  DpmNeutralDataBindingArtifactVersion,
+  DpmNeutralDataBindingField,
+  DpmNeutralDataBindingProvenance,
+  DpmNeutralDataBindingStorage,
+} from './data-artifact-types.js'
+export {
+  DPM_NEUTRAL_DATA_BINDING_ARTIFACT_KIND,
+  DPM_NEUTRAL_DATA_BINDING_ARTIFACT_VERSIONS,
+} from './data-artifact-types.js'
 export {
   createDpmApiBinding,
   createDpmApiBindingIdentity,

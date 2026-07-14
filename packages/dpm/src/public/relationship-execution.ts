@@ -13,6 +13,20 @@ export type {
   DpmApiArtifactProvenance,
 } from '../validator/data-binding-types.js'
 export type {
+  DpmDataBindingApiArtifactFreshness,
+  DpmDataBindingApiArtifactLink,
+  DpmDataBindingBehaviorTraceLink,
+  DpmDataBindingFreshness,
+  DpmDataBindingReviewLink,
+  DpmNeutralDataBindingApi,
+  DpmNeutralDataBindingApiBinding,
+  DpmNeutralDataBindingArtifact,
+  DpmNeutralDataBindingArtifactVersion,
+  DpmNeutralDataBindingField,
+  DpmNeutralDataBindingProvenance,
+  DpmNeutralDataBindingStorage,
+} from '../model/data-artifact-types.js'
+export type {
   DpmValidationInput,
   DpmValidationPhase,
 } from '../validator/validation-types.js'
@@ -57,6 +71,7 @@ export {
   computeDpmApiArtifactVersionHash,
   validateDpmDataBindings,
 } from '../validator/data-binding-validator.js'
+export { createDpmNeutralDataBindingArtifact } from '../compiler/data-binding-artifact.js'
 export {
   DPM_DIAGNOSTIC_CODES,
 } from '../validator/diagnostic-types.js'

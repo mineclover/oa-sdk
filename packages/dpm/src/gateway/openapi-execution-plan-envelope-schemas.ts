@@ -24,6 +24,7 @@ export function createDpmGatewayCompiledPlanEnvelopeSchemas() {
         enum: [...DPM_CANONICAL_KEY_ENCODING_VERSIONS],
       },
       manifestCatalogVersionHash: stringSchema(),
+      dataBindingArtifact: ref('DpmNeutralDataBindingArtifact'),
       freshness: ref('DpmPlanFreshness'),
       stale: { type: 'boolean' },
       staleReasons: arrayOf({ type: 'string', enum: [...DPM_PLAN_STALE_REASONS] }),
@@ -54,6 +55,7 @@ export function createDpmGatewayCompiledPlanEnvelopeSchemas() {
         type: 'string',
         enum: [...DPM_CANONICAL_KEY_ENCODING_VERSIONS],
       },
+      dataBindingFreshness: ref('DpmDataBindingFreshness'),
     }, [
       'catalogVersionHash',
       'registryVersion',

@@ -1,4 +1,5 @@
 import type { CatalogSnapshot } from '../catalog/types.js'
+import type { DpmDataBindingFreshness } from '../model/data-artifact-types.js'
 import type { RegistrySnapshot } from '../registry/registry-snapshot-types.js'
 import {
   normalizeRegistrySnapshotCanonicalKeyEncodingVersion,
@@ -9,6 +10,7 @@ export function createPlanFreshness(input: {
   manifestCatalogVersionHash?: string
   catalog: CatalogSnapshot
   registry: RegistrySnapshot
+  dataBindingFreshness?: DpmDataBindingFreshness
 }): DpmPlanFreshness {
   const registry = normalizeRegistrySnapshotCanonicalKeyEncodingVersion(input.registry)
   return {
@@ -19,5 +21,6 @@ export function createPlanFreshness(input: {
     registryVersion: registry.registryVersion,
     registryIdentity: registry.identity,
     canonicalKeyEncodingVersion: registry.canonicalKeyEncodingVersion,
+    ...(input.dataBindingFreshness ? { dataBindingFreshness: input.dataBindingFreshness } : {}),
   }
 }

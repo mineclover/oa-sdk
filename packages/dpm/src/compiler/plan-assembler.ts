@@ -1,6 +1,7 @@
 import type { DpmCompiledPlanBuilderInput } from './plan-builder-types.js'
 import type { DpmCompiledPlan } from './plan-compiled-types.js'
 import { createColumnSteps } from './plan-column-steps.js'
+import { createDpmNeutralDataBindingArtifact } from './data-binding-artifact.js'
 import { createPlanFreshness } from './plan-freshness.js'
 import { createDpmCompiledPlanIdentity } from './plan-identity.js'
 import { readDpmPlanManifestMetadata } from './plan-manifest-metadata.js'
@@ -25,10 +26,18 @@ export function createDpmCompiledPlan(input: DpmCompiledPlanBuilderInput): DpmCo
     manifest: input.manifest,
     registry,
   })
+  const dataBindingArtifact = createDpmNeutralDataBindingArtifact({
+    manifest,
+    catalog: input.catalog,
+    ...(input.apiArtifacts ? { apiArtifacts: input.apiArtifacts } : {}),
+    ...(input.behaviorTraceLinks ? { behaviorTraceLinks: input.behaviorTraceLinks } : {}),
+    ...(input.reviewLinks ? { reviewLinks: input.reviewLinks } : {}),
+  })
   const freshness = createPlanFreshness({
     ...(manifestCatalogVersionHash ? { manifestCatalogVersionHash } : {}),
     catalog: input.catalog,
     registry,
+    ...(dataBindingArtifact ? { dataBindingFreshness: dataBindingArtifact.freshness } : {}),
   })
   const staleReasons = getPlanStaleReasons({
     manifestCatalogVersionHash,
@@ -47,6 +56,7 @@ export function createDpmCompiledPlan(input: DpmCompiledPlanBuilderInput): DpmCo
       manifestId,
       registryVersion: registry.registryVersion,
       canonicalKeyEncodingVersion,
+      ...(dataBindingArtifact ? { dataBindingFreshnessHash: dataBindingArtifact.freshness.identityHash } : {}),
     }),
     manifestId,
     datasetId,
@@ -54,6 +64,7 @@ export function createDpmCompiledPlan(input: DpmCompiledPlanBuilderInput): DpmCo
     canonicalKeyEncodingVersion,
     ...(manifestCatalogVersionHash ? { manifestCatalogVersionHash } : {}),
     freshness,
+    ...(dataBindingArtifact ? { dataBindingArtifact } : {}),
     stale: staleReasons.length > 0,
     staleReasons,
     namespaceBindings: createNamespaceBindings(manifest, relationshipSteps, columnSteps),

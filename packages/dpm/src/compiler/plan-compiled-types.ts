@@ -1,4 +1,5 @@
 import type { DpmCanonicalKeyEncodingVersion } from '../model/canonical-key-encoding.js'
+import type { DpmNeutralDataBindingArtifact } from '../model/data-artifact-types.js'
 import type { DpmPlanFreshness } from './plan-freshness-types.js'
 import type {
   DPM_COMPILED_PLAN_KIND,
@@ -21,6 +22,7 @@ export type DpmCompiledPlan = {
   canonicalKeyEncodingVersion: DpmCanonicalKeyEncodingVersion
   manifestCatalogVersionHash?: string
   freshness: DpmPlanFreshness
+  dataBindingArtifact?: DpmNeutralDataBindingArtifact
   stale: boolean
   staleReasons: DpmPlanStaleReason[]
   namespaceBindings: DpmNamespaceBinding[]

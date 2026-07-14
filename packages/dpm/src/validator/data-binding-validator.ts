@@ -23,7 +23,7 @@ export function validateDpmDataBindings(input: {
 
   let definitions: ReturnType<typeof createDpmIdentityDataDefinitions>
   try {
-    definitions = createDpmIdentityDataDefinitions(readIdentityDataDefinitions(wire))
+    definitions = createDpmIdentityDataDefinitions(readDpmIdentityDataDefinitions(wire))
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
     return [createDataDiagnostic({
@@ -199,7 +199,7 @@ export function computeDpmApiArtifactVersionHash(document: unknown): string {
   return `sha256:${createHash('sha256').update(stable).digest('hex')}`
 }
 
-function readIdentityDataDefinitions(wire: Record<string, unknown>): DpmIdentityDataDefinitionsInput {
+export function readDpmIdentityDataDefinitions(wire: Record<string, unknown>): DpmIdentityDataDefinitionsInput {
   return {
     version: '1.1',
     fields: asArray(wire.fields).map(field => {

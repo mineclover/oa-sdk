@@ -136,6 +136,21 @@ category barrel을 가리킨다. `packages/dpm/test/package-subpath-import-smoke
 | `createDpmDataFieldObjectIdentity()` | `dpm/src/model/data-identity-normalize.ts` | rename-safe logical object identity renderer |
 | `createDpmApiObjectCanonicalIdentity()` | `dpm/src/model/data-identity-normalize.ts` | artifact/version/pointer canonical API identity renderer |
 | `createDpmIdentityDatabaseColumnIdentity()` | `dpm/src/model/data-identity-normalize.ts` | catalog-qualified DB identity renderer |
+| `DPM_NEUTRAL_DATA_BINDING_ARTIFACT_KIND` | `dpm/src/model/data-artifact-types.ts` | immutable neutral logical/API/catalog binding artifact kind |
+| `DPM_NEUTRAL_DATA_BINDING_ARTIFACT_VERSIONS` | `dpm/src/model/data-artifact-types.ts` | neutral binding artifact wire-version taxonomy |
+| `DpmDataBindingFreshness` | `dpm/src/model/data-artifact-types.ts` | data definition, catalog snapshot, API artifact, and provenance freshness tuple |
+| `DpmDataBindingApiArtifactFreshness` | `dpm/src/model/data-artifact-types.ts` | API artifact version and optional provenance version entry in freshness |
+| `DpmDataBindingApiArtifactLink` | `dpm/src/model/data-artifact-types.ts` | API artifact hash and source-coordinate provenance link |
+| `DpmNeutralDataBindingArtifact` | `dpm/src/model/data-artifact-types.ts` | policy-neutral logical field/API/DB binding output for codegen, trace, review, and future read models |
+| `DpmNeutralDataBindingArtifactVersion` | `dpm/src/model/data-artifact-types.ts` | neutral binding artifact version literal union |
+| `DpmNeutralDataBindingField` | `dpm/src/model/data-artifact-types.ts` | logical field identity, locator, lifecycle, origin, and optional storage binding output |
+| `DpmNeutralDataBindingStorage` | `dpm/src/model/data-artifact-types.ts` | catalog-qualified DB column binding output |
+| `DpmNeutralDataBindingApi` | `dpm/src/model/data-artifact-types.ts` | canonical API object identity and coordinate output |
+| `DpmNeutralDataBindingApiBinding` | `dpm/src/model/data-artifact-types.ts` | logical field to API object binding edge output |
+| `DpmNeutralDataBindingProvenance` | `dpm/src/model/data-artifact-types.ts` | API, catalog, behavior trace, and review provenance link envelope |
+| `DpmDataBindingBehaviorTraceLink` | `dpm/src/model/data-artifact-types.ts` | behavior record and trace lineage link accepted by the compiler |
+| `DpmDataBindingReviewLink` | `dpm/src/model/data-artifact-types.ts` | review record link accepted by the compiler |
+| `createDpmNeutralDataBindingArtifact()` | `dpm/src/compiler/data-binding-artifact.ts` | deterministic immutable v1.1 binding artifact builder |
 | `CatalogSnapshot` | `dpm/src/catalog/snapshot-types.ts` | DPM compiler가 소비할 normalized catalog snapshot |
 | `CatalogSnapshotInput` | `dpm/src/catalog/snapshot-types.ts` | catalog snapshot normalization 입력 |
 | `CatalogSnapshotSource` | `dpm/src/catalog/source-types.ts` | PostgreSQL 또는 OpenAPI projection catalog source 구분 |

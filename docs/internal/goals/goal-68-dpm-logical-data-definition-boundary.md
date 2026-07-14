@@ -1,6 +1,6 @@
 # Goal 68 — DPM Logical Data Definition and Extraction Boundary
 
-**Status: active — 68.0·68.1·68.2 complete; 68.3 compiler and provenance integration is in progress**
+**Status: active — 68.0·68.1·68.2·68.3 complete; 68.4 extraction is pending external owner confirmation**
 
 > Predecessor: [Goal 67 — DPM Canonical Key Typed Encoding v2](./goal-67-dpm-canonical-key-typed-v2.md)<br>
 > Architecture boundary: [Package Architecture](../architecture/packages.md)<br>
@@ -76,8 +76,8 @@ flowchart LR
 |---|---|---|
 | Syntax | JSON Schema shape, enums, required properties | Implemented |
 | Model-local | identity construction, duplicate fields/bindings, pointer form | Implemented for v1.0/v1.1 |
-| Cross-object | entity membership, catalog membership, API pointer/hash/provenance match | Implemented for v1.1 with deterministic DAT diagnostics; neutral artifact integration remains 68.3 |
-| Compile-time | binding freshness in plan and blocking stale references | Roadmap 68.3 |
+| Cross-object | entity membership, catalog membership, API pointer/hash/provenance match | Implemented for v1.1 with deterministic DAT diagnostics |
+| Compile-time | binding freshness in plan and blocking stale references | Implemented for v1.1; stale or unverifiable bindings block compile |
 | Runtime | actual tokenization, vault, row counts, join integrity, post-run report | Outside this goal; existing runtime/storage goals remain authoritative |
 
 ## Governance gate
@@ -136,12 +136,12 @@ condition.
 |---|---|---|
 | Logical ownership | Aligned | DPM already owns `EntityDeclaration`, `LogicalRelationship`, manifest policy, and registry lifecycle. |
 | Separate identities | Aligned for v1.1 | `DpmEntityRef`, object id, revision id, locator, binding id, catalog identity, API target identity, and Goal 67 value encoding are separate contracts; v1.0 remains a frozen compatibility shape. |
-| API provenance | Aligned for supplied artifacts | Canonical API identity excludes `operationId`; validator verifies artifact hash, pointer, operation, and provenance version; neutral trace artifact remains 68.3. |
-| DB authority | Aligned for selected catalog | v1.1 `storage_ref` membership, snapshot freshness, and optional source coordinate are validated; compiled freshness propagation remains 68.3. |
+| API provenance | Aligned for supplied artifacts | Canonical API identity excludes `operationId`; validator verifies artifact hash, pointer, operation, and provenance version; compiled output preserves the API artifact link. |
+| DB authority | Aligned for selected catalog | v1.1 `storage_ref` membership, snapshot freshness, and optional source coordinate are validated and propagated into the neutral artifact and plan freshness. |
 | Field origin | Aligned for v1.1 | Origin is explicit and model/schema gates enforce persisted storage and non-persisted absence rules. |
 | Reverse binding uniqueness | Aligned for v1.1 | Binding edge ids are separate from API target identities and model normalization rejects one artifact/version/pointer target assigned to multiple fields. |
 | Wire-version stability | Aligned for temporary execution | `data_definitions` `1.0` is frozen as compatibility; `1.1` is experimental until extraction. |
-| Semantic enforcement | Aligned for v1.1 | `validateDpmDataBindings()` participates in validate and compile gates; compiler freshness and neutral artifact integration remain 68.3. |
+| Semantic enforcement | Aligned for v1.1 | `validateDpmDataBindings()` participates in validate and compile gates; compiled plan identity includes neutral binding freshness. |
 | Core dependency direction | Aligned | New surface stays under DPM; Core packages do not depend on maintenance-only DPM. |
 | Extraction readiness | Partially aligned | `@oa-sdk/dpm/data` is a clean public seam, but repository metadata, artifact versioning, external owner, and migration contract remain undefined. |
 | Governance policy | Aligned for temporary execution | The monorepo scope-reactivation decision is recorded; external ownership remains the Goal 68.4 exit condition. |
@@ -212,7 +212,7 @@ Exit criteria:
 - approved Relationship Registry semantics remain the only source of relationship
   execution authority.
 
-### 68.3 — Compiler and artifact integration (in progress)
+### 68.3 — Compiler and artifact integration ✅
 
 Deliverables:
 
@@ -300,7 +300,13 @@ Representative exit criteria:
   catalog freshness/table/column/source coordinates, API artifact hash/pointer/operation,
   provenance version, and reverse binding cardinality with `DAT` diagnostics.
 - `packages/dpm/test/validator-data-binding.test.ts` proves valid OpenAPI → DPM → catalog
-  resolution and deterministic stale/missing/mismatch blocking diagnostics.
+  resolution, deterministic stale/missing/mismatch blocking diagnostics, immutable neutral
+  artifact output, compiled freshness identity, and trace/review links.
+- `packages/dpm/src/model/data-artifact-types.ts` defines the policy-neutral artifact, freshness,
+  API/catalog provenance, behavior trace, and review link contract.
+- `packages/dpm/src/compiler/data-binding-artifact.ts` builds a deterministic deep-frozen artifact;
+  `packages/dpm/src/gateway/openapi-execution-plan-data-binding-schemas.ts` keeps the compiled
+  output gateway-compatible.
 
 ## Verification gates
 
