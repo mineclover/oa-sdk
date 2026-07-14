@@ -76,7 +76,9 @@ If external extraction or a consumer migration fails:
 ## Evidence
 
 - Local packed-artifact rehearsal: `packages/dpm/test/package-extraction-smoke.mjs`.
-- Clean consumer fixture: `packages/dpm/test/external-consumer-fixture.mjs`.
+- Clean runtime consumer fixture: `packages/dpm/test/external-consumer-fixture.mjs`.
+- Clean declaration consumer fixture: `packages/dpm/test/external-consumer-type-fixture.ts`,
+  compiled with `tsc --noEmit` against the packed package's public declarations.
 - Public package/type smoke: `packages/dpm/test/package-subpath-import-smoke.mjs` and
   `packages/dpm/test/package-subpath-type-consumer.ts`.
 - The owner acceptance, registry publication, and canonical-document move remain intentionally

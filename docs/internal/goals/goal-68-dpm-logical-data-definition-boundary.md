@@ -313,7 +313,11 @@ Representative exit criteria:
   output gateway-compatible.
 - `packages/dpm/test/package-extraction-smoke.mjs` packages the built DPM artifact, combines it
   with a production dependency tree in a clean temporary consumer, and verifies package-name
-  imports without monorepo source paths.
+  imports without monorepo source paths plus TypeScript declaration consumption from the packed
+  public `@oa-sdk/dpm/data` entry point.
+- `packages/dpm/test/external-consumer-fixture.mjs` and
+  `packages/dpm/test/external-consumer-type-fixture.ts` provide the clean runtime and declaration
+  consumer fixtures used by the extraction rehearsal.
 - `docs/internal/goals/goal-68-dpm-extraction-migration.md` defines the temporary version,
   compatibility-window, migration, and rollback contract.
 

@@ -1,13 +1,13 @@
 # Goal Progress Index
 
-Last updated: 2026-07-14
+Last updated: 2026-07-15
 
 이 파일은 goal 진행 현황만 관리한다. 설계, 범위, 수용 기준은 각 goal 문서를 따르며,
 DPM phase 순서와 gap 정렬은 [DPM Master Roadmap](./dpm-master-roadmap.md)을 따른다.
 
 ## Current
 
-- Goal 68 is active under the recorded temporary monorepo reactivation. DPM-86 through DPM-89 are complete and the local DPM-90 packed-consumer rehearsal is complete; external owner acceptance, publication metadata, and canonical-document migration remain pending.
+- Goal 68 is active under the recorded temporary monorepo reactivation. DPM-86 through DPM-89 are complete and the local DPM-90 packed-consumer rehearsal, including runtime and declaration consumers, is complete; external owner acceptance, publication metadata, and canonical-document migration remain pending.
 
 ## Recently Completed
 

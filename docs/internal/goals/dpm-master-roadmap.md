@@ -1,6 +1,6 @@
 # DPM Master Roadmap — Capability and Gap Alignment
 
-**Status: planning baseline 2026-07-14**
+**Status: planning baseline 2026-07-15**
 
 > Relationship-first baseline: [Goal 4](./goal-4-dpm-relationship-first-roadmap.md)<br>
 > Control-plane runtime/storage baseline: [Goal 5](./goal-5-dpm-runtime-storage-integration.md)<br>
@@ -224,8 +224,10 @@ Local rehearsal complete; external owner and migration acceptance pending:
 - repository/license/release metadata when authorized;
 - adapter fallback and rollback window.
 
-The local packed artifact and clean consumer evidence live in
-`packages/dpm/test/package-extraction-smoke.mjs`; migration and rollback rules live in
+The local packed artifact and clean runtime/declaration consumer evidence live in
+`packages/dpm/test/package-extraction-smoke.mjs`, with fixtures in
+`packages/dpm/test/external-consumer-fixture.mjs` and
+`packages/dpm/test/external-consumer-type-fixture.ts`; migration and rollback rules live in
 [Goal 68 Extraction Migration and Rollback Contract](./goal-68-dpm-extraction-migration.md).
 
 ### Phase 10 — Separate external runtime program
