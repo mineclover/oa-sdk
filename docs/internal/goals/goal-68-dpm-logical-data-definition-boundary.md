@@ -27,8 +27,10 @@ is stable; they are not silently included in the Goal 68 compiler scope.
 
 Private owner candidate: [`mineclover/data-governance`](https://github.com/mineclover/data-governance)
 (created 2026-07-15; initial extraction commit `7f1fb3f`; repository is private). The interim
-decision is recorded in the [external owner decision record](https://github.com/mineclover/data-governance/blob/main/docs/internal/goals/owner-decision-record.md) and its CI passed in
-workflow [29350009558](https://github.com/mineclover/data-governance/actions/runs/29350009558).
+decision is recorded in the [external owner decision record](https://github.com/mineclover/data-governance/blob/main/docs/internal/goals/owner-decision-record.md); GitHub Issues are enabled at
+`https://github.com/mineclover/data-governance/issues`, and its latest CI passed in
+workflow [29352088888](https://github.com/mineclover/data-governance/actions/runs/29352088888) for
+commit `0c14ad9`.
 
 ## Expressive boundary
 

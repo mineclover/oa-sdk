@@ -1,6 +1,6 @@
 # Goal 68 Extraction Migration and Rollback Contract
 
-**Status: private owner repository, CI, and document gate verified 2026-07-15; formal external owner acceptance pending**
+**Status: private owner repository, CI, document gate, and issue/review location verified 2026-07-15; formal external owner acceptance pending**
 
 > Parent: [Goal 68 — DPM Logical Data Definition and Extraction Boundary](./goal-68-dpm-logical-data-definition-boundary.md)
 
@@ -93,8 +93,9 @@ If external extraction or a consumer migration fails:
 - External owner repository rehearsal: `mineclover/data-governance` commit `7f1fb3f`; its DPM
   build/typecheck/boundary checks, 120 test files/269 tests, packed runtime/declaration/rollback
   consumers, workflow consumer, and pack dry-run passed.
-- Interim owner decision record: [external owner decision record](https://github.com/mineclover/data-governance/blob/main/docs/internal/goals/owner-decision-record.md). Owner CI
-  workflow [29350009558](https://github.com/mineclover/data-governance/actions/runs/29350009558)
-  passed for commit `34dff0f` with Node 25 and pnpm 10.30.3.
+- Interim owner decision record: [external owner decision record](https://github.com/mineclover/data-governance/blob/main/docs/internal/goals/owner-decision-record.md). GitHub Issues are enabled at
+  `https://github.com/mineclover/data-governance/issues` as the current issue/review location.
+  Owner CI workflow [29352088888](https://github.com/mineclover/data-governance/actions/runs/29352088888)
+  passed for commit `0c14ad9` with Node 25 and pnpm 10.30.3.
 - Formal owner acceptance, registry publication, compatibility-window decision, and canonical
   adapter transition remain intentionally pending; they are not implied by the rehearsal.

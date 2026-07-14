@@ -7,7 +7,7 @@ DPM phase 순서와 gap 정렬은 [DPM Master Roadmap](./dpm-master-roadmap.md)�
 
 ## Current
 
-- Goal 68 is active under the recorded temporary monorepo reactivation. DPM-86 through DPM-89 are complete, and DPM-90 has been extracted and pushed to the private `mineclover/data-governance` repository at commit `7f1fb3f`; its external runtime, declaration, rollback, workflow, pack rehearsal, owner CI, and self-contained owner-document link gate passed. Formal owner/release acceptance, publication metadata, compatibility-window definition, and canonical-document sign-off remain pending.
+- Goal 68 is active under the recorded temporary monorepo reactivation. DPM-86 through DPM-89 are complete, and DPM-90 has been extracted and pushed to the private `mineclover/data-governance` repository at commit `7f1fb3f`; its external runtime, declaration, rollback, workflow, pack rehearsal, owner CI, self-contained owner-document link gate, and GitHub Issues review location passed/are enabled as recorded by owner commit `0c14ad9` and workflow `29352088888`. Formal owner/release acceptance, publication metadata, compatibility-window definition, and canonical-document sign-off remain pending.
 
 ## Recently Completed
 
@@ -425,7 +425,7 @@ DPM phase 순서와 gap 정렬은 [DPM Master Roadmap](./dpm-master-roadmap.md)�
 - [x] DPM-87 - Namespace-safe identity contract
 - [x] DPM-88 - Semantic API/catalog binding validation
 - [x] DPM-89 - Compiler and provenance artifact integration
-- [ ] DPM-90 - External extraction rehearsal (private repository pushed and external runtime/declaration/rollback/workflow/pack rehearsal plus owner CI complete; pending formal owner acceptance, release policy, and canonical migration)
+- [ ] DPM-90 - External extraction rehearsal (private repository pushed and external runtime/declaration/rollback/workflow/pack rehearsal plus owner CI and issue/review location recorded; pending formal owner acceptance, release policy, and canonical migration)
 
 ## Done Criteria
 
