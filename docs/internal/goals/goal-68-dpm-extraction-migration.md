@@ -82,6 +82,9 @@ If external extraction or a consumer migration fails:
 - Clean runtime consumer fixture: `packages/dpm/test/external-consumer-fixture.mjs`.
 - Clean declaration consumer fixture: `packages/dpm/test/external-consumer-type-fixture.ts`,
   compiled with `tsc --noEmit` against the packed package's public declarations.
+- Clean rollback consumer fixture: `packages/dpm/test/external-consumer-rollback-fixture.mjs`,
+  proving stale rollout rejection, new plan identity for changed freshness, and restoration from
+  preserved inputs.
 - Owner handoff checklist: `docs/internal/goals/goal-68-extraction-acceptance-checklist.md`.
 - Public package/type smoke: `packages/dpm/test/package-subpath-import-smoke.mjs` and
   `packages/dpm/test/package-subpath-type-consumer.ts`.

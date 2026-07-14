@@ -240,7 +240,7 @@ Deliverables:
 - move the canonical DPM roadmap and ownership docs to the external environment when
   the owner is confirmed.
 
-The local packed-artifact rehearsal and temporary migration/rollback contract are recorded in
+The local packed-artifact runtime, declaration, and rollback rehearsal plus the temporary migration/rollback contract are recorded in
 [Goal 68 Extraction Migration and Rollback Contract](./goal-68-dpm-extraction-migration.md). The
 owner handoff gates are listed in the [Goal 68.4 External Extraction Acceptance Checklist](./goal-68-extraction-acceptance-checklist.md);
 the external owner, registry publication metadata, and canonical-document move remain pending.
@@ -319,6 +319,8 @@ Representative exit criteria:
 - `packages/dpm/test/external-consumer-fixture.mjs` and
   `packages/dpm/test/external-consumer-type-fixture.ts` provide the clean runtime and declaration
   consumer fixtures used by the extraction rehearsal.
+- `packages/dpm/test/external-consumer-rollback-fixture.mjs` proves stale rollout rejection, changed
+  freshness identity, and rollback from preserved inputs through the packed public package.
 - `docs/internal/goals/goal-68-dpm-extraction-migration.md` defines the temporary version,
   compatibility-window, migration, and rollback contract.
 
