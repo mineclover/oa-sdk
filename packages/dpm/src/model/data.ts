@@ -11,6 +11,23 @@ export type {
   DpmDataFieldType,
   DpmDatabaseColumnRef,
 } from './data-types.js'
+export type {
+  DpmCatalogSnapshotRef,
+  DpmDataFieldLocator,
+  DpmDataSourceCoordinate,
+  DpmEntityRef,
+  DpmFieldLifecycle,
+  DpmFieldOrigin,
+  DpmIdentityApiBinding,
+  DpmIdentityApiBindingInput,
+  DpmIdentityApiObjectRef,
+  DpmIdentityDataDefinitions,
+  DpmIdentityDataDefinitionsInput,
+  DpmIdentityDataFieldDeclaration,
+  DpmIdentityDataFieldDeclarationInput,
+  DpmIdentityDataFieldRef,
+  DpmIdentityDatabaseColumnRef,
+} from './data-identity-types.js'
 export {
   createDpmApiBinding,
   createDpmApiBindingIdentity,
@@ -20,3 +37,15 @@ export {
   createDpmDataField,
   createDpmDataFieldIdentity,
 } from './data-normalize.js'
+export {
+  createDpmApiObjectCanonicalIdentity,
+  createDpmDataFieldLocator,
+  createDpmDataFieldObjectIdentity,
+  createDpmEntityRefIdentity,
+  createDpmIdentityApiBinding,
+  createDpmIdentityApiBindingIdentity,
+  createDpmIdentityDataDefinitions,
+  createDpmIdentityDataField,
+  createDpmIdentityDatabaseColumnIdentity,
+  renderDpmDataFieldLocator,
+} from './data-identity-normalize.js'

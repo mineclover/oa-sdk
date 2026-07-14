@@ -203,18 +203,24 @@ Registry의 핵심 필드는 다음이다.
 ### Logical data definitions and API bindings
 
 DPM also owns the logical data-field layer that connects an API contract to a physical
-database address without conflating their identifiers. The optional `data_definitions`
-manifest section contains:
+database address without conflating their identifiers. The frozen `data_definitions` `1.0`
+section remains a structural compatibility shape. The experimental `1.1` shape adds:
 
-- `fields`: stable logical field identities such as `field:customer/customerNo`, with an
-  optional `storage_ref` pointing to a catalog table/column.
-- `api_bindings`: references from a logical field to an OpenAPI artifact, operation, JSON
-  pointer, and optional projection version hash.
+- a namespace-safe `entity` reference with `dataset_id`, `namespace`, and entity `name`;
+- a caller-owned rename-safe `object_id`, an immutable `revision_id`, and a human-readable
+  locator that can change through aliases;
+- `origin` (`persisted`, `derived`, `computed`, or `api_only`) and lifecycle/supersession
+  metadata;
+- a `storage_ref` whose `catalog` carries snapshot identity, freshness hash, and optional
+  source coordinate;
+- `api_bindings` with an independent `binding_id` and a canonical API identity made from
+  artifact id, version hash, and JSON Pointer.
 
-The three identities remain separate: the logical field is the DPM object, `storage_ref`
-is a database catalog address, and `api` is an OpenAPI artifact address. The binding is
-the explicit relationship between them; neither an API `operationId` nor a database
-column name is treated as the data definition's primary identity.
+The three object identities remain separate: the logical field is the DPM object, `storage_ref`
+is a database catalog address, and `api` is an OpenAPI artifact address. `operation_id` is
+navigation metadata only; changing it does not change canonical API identity. A catalog or API
+version change changes the referenced evidence identity, while the logical object id and binding
+edge id remain explicit independent values.
 
 Entity는 관계 컬럼 목록을 직접 들지 않는다. Entity는 root key와 namespace contract만 정의하고,
 child column binding은 `relationships`가 소유한다.

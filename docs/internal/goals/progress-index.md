@@ -7,7 +7,7 @@ DPM phase 순서와 gap 정렬은 [DPM Master Roadmap](./dpm-master-roadmap.md)�
 
 ## Current
 
-- Goal 68 is active under the recorded temporary monorepo reactivation. DPM-86 is complete; DPM-87 identity contract is the current unit. Goal 68.4 remains dependent on an external `data-governance` owner.
+- Goal 68 is active under the recorded temporary monorepo reactivation. DPM-86 and DPM-87 are complete; DPM-88 semantic API/catalog binding validation is the current unit. Goal 68.4 remains dependent on an external `data-governance` owner.
 
 ## Recently Completed
 
@@ -422,7 +422,8 @@ DPM phase 순서와 gap 정렬은 [DPM Master Roadmap](./dpm-master-roadmap.md)�
 ## Goal 68 DPM Units
 
 - [x] DPM-86 - Ownership and compatibility freeze (temporary monorepo reactivation)
-- [ ] DPM-87 - Namespace-safe identity contract (current)
+- [x] DPM-87 - Namespace-safe identity contract
+- [ ] DPM-88 - Semantic API/catalog binding validation (current)
 - [ ] DPM-88 - Semantic API/catalog binding validation (conditional on DPM-86)
 - [ ] DPM-89 - Compiler and provenance artifact integration (conditional on DPM-86)
 - [ ] DPM-90 - External extraction rehearsal (conditional on DPM-86)

@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-07-08",
+  "updatedAt": "2026-07-14",
   "description": "Feature-to-test mapping for oa-sdk. Each feature lists representative automated coverage and the commands that maintain it.",
   "features": [
     {
@@ -169,6 +169,33 @@
         "pnpm --filter @oa-sdk/dpm run smoke:pack",
         "pnpm check:dpm-surface",
         "pnpm --filter @oa-sdk/dpm typecheck"
+      ]
+    },
+    {
+      "id": "dpm-logical-data-definition",
+      "name": "DPM logical data definition identity contract",
+      "category": "dpm",
+      "package": "@oa-sdk/dpm",
+      "description": "Frozen v1.0 structural data definitions plus experimental v1.1 namespace-safe logical object, revision, catalog, API binding, origin, lifecycle, alias, and reverse-cardinality contract.",
+      "capabilities": [
+        "frozen data_definitions v1.0 compatibility shape",
+        "experimental data_definitions v1.1 schema",
+        "dataset and namespace-safe entity references",
+        "rename-safe object and immutable revision ids",
+        "catalog snapshot and freshness identity",
+        "artifact/version/pointer API identity excluding operationId",
+        "persisted/derived/computed/api_only origin policy",
+        "alias and supersession lifecycle checks",
+        "reverse API binding cardinality"
+      ],
+      "testPaths": [
+        "packages/dpm/test/model-data-definition.test.ts",
+        "packages/dpm/test/schema-data-definitions.test.ts"
+      ],
+      "commands": [
+        "pnpm --filter @oa-sdk/dpm exec vitest run test/model-data-definition.test.ts test/schema-data-definitions.test.ts",
+        "pnpm --filter @oa-sdk/dpm typecheck",
+        "pnpm --filter @oa-sdk/dpm run smoke:subpaths"
       ]
     },
     {

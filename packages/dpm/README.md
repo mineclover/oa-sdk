@@ -32,6 +32,12 @@ separate from its optional database `storageRef` and from an API artifact pointe
 bindings make that relationship explicit without making an OpenAPI operation or database
 column the data definition itself.
 
+The frozen `data_definitions` `1.0` shape is retained for structural consumers. The
+experimental `1.1` model helpers (`createDpmIdentityDataDefinitions()` and related identity
+renderers) require dataset/namespace scope, explicit object and revision ids, origin/lifecycle
+metadata, catalog freshness context, and versioned API pointers. `operationId` remains navigation
+metadata and is excluded from canonical API identity.
+
 ### Kafka profile review
 
 Use `@oa-sdk/dpm/profile` to convert a captured Kafka topic bundle into a profile connector result. The Kafka connector validates malformed input before graph creation, returns failed connector results as diagnostics, and keeps failed envelopes compatible with the generic connector validator.

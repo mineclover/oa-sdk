@@ -111,6 +111,31 @@ category barrel을 가리킨다. `packages/dpm/test/package-subpath-import-smoke
 | `createDpmDatabaseColumnIdentity()` | `dpm/src/model/data-normalize.ts` | DB catalog column identity renderer |
 | `createDpmApiObjectIdentity()` | `dpm/src/model/data-normalize.ts` | OpenAPI artifact object identity renderer |
 | `createDpmApiBindingIdentity()` | `dpm/src/model/data-normalize.ts` | field/API relationship identity renderer |
+| `DpmFieldOrigin` | `dpm/src/model/data-identity-types.ts` | persisted/derived/computed/API-only field origin taxonomy |
+| `DpmFieldLifecycle` | `dpm/src/model/data-identity-types.ts` | active/deprecated/superseded field lifecycle |
+| `DpmEntityRef` | `dpm/src/model/data-identity-types.ts` | dataset/namespace/name-safe logical entity reference |
+| `DpmDataFieldLocator` | `dpm/src/model/data-identity-types.ts` | human-readable dataset/namespace/entity/field locator |
+| `DpmDataSourceCoordinate` | `dpm/src/model/data-identity-types.ts` | file/DB source coordinate for catalog evidence |
+| `DpmCatalogSnapshotRef` | `dpm/src/model/data-identity-types.ts` | catalog snapshot identity, freshness hash, and source coordinate |
+| `DpmIdentityDatabaseColumnRef` | `dpm/src/model/data-identity-types.ts` | catalog-qualified physical table/column reference |
+| `DpmIdentityApiObjectRef` | `dpm/src/model/data-identity-types.ts` | artifact/version/JSON Pointer API identity reference |
+| `DpmIdentityDataFieldDeclaration` | `dpm/src/model/data-identity-types.ts` | identity-complete logical field definition |
+| `DpmIdentityDataFieldDeclarationInput` | `dpm/src/model/data-identity-types.ts` | identity-complete logical field input |
+| `DpmIdentityDataFieldRef` | `dpm/src/model/data-identity-types.ts` | logical object/revision reference used by v1.1 API bindings |
+| `DpmIdentityApiBindingInput` | `dpm/src/model/data-identity-types.ts` | identity-complete API binding input |
+| `DpmIdentityApiBinding` | `dpm/src/model/data-identity-types.ts` | independent binding edge and API target contract |
+| `DpmIdentityDataDefinitions` | `dpm/src/model/data-identity-types.ts` | experimental v1.1 data definitions normalized contract |
+| `DpmIdentityDataDefinitionsInput` | `dpm/src/model/data-identity-types.ts` | experimental v1.1 data definitions input |
+| `createDpmIdentityDataDefinitions()` | `dpm/src/model/data-identity-normalize.ts` | v1.1 identity contract normalization and cardinality checks |
+| `createDpmIdentityDataField()` | `dpm/src/model/data-identity-normalize.ts` | origin, lifecycle, alias, and identity validation |
+| `createDpmIdentityApiBinding()` | `dpm/src/model/data-identity-normalize.ts` | versioned API binding normalization |
+| `createDpmIdentityApiBindingIdentity()` | `dpm/src/model/data-identity-normalize.ts` | independent binding edge identity renderer |
+| `createDpmEntityRefIdentity()` | `dpm/src/model/data-identity-normalize.ts` | namespace-safe entity identity renderer |
+| `createDpmDataFieldLocator()` | `dpm/src/model/data-identity-normalize.ts` | scoped logical field locator constructor |
+| `renderDpmDataFieldLocator()` | `dpm/src/model/data-identity-normalize.ts` | deterministic field locator renderer |
+| `createDpmDataFieldObjectIdentity()` | `dpm/src/model/data-identity-normalize.ts` | rename-safe logical object identity renderer |
+| `createDpmApiObjectCanonicalIdentity()` | `dpm/src/model/data-identity-normalize.ts` | artifact/version/pointer canonical API identity renderer |
+| `createDpmIdentityDatabaseColumnIdentity()` | `dpm/src/model/data-identity-normalize.ts` | catalog-qualified DB identity renderer |
 | `CatalogSnapshot` | `dpm/src/catalog/snapshot-types.ts` | DPM compiler가 소비할 normalized catalog snapshot |
 | `CatalogSnapshotInput` | `dpm/src/catalog/snapshot-types.ts` | catalog snapshot normalization 입력 |
 | `CatalogSnapshotSource` | `dpm/src/catalog/source-types.ts` | PostgreSQL 또는 OpenAPI projection catalog source 구분 |

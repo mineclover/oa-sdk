@@ -103,7 +103,7 @@ export function createDpmDatabaseColumnIdentity(ref: DpmDatabaseColumnRef): stri
 export function createDpmApiObjectIdentity(api: DpmApiBinding['api']): string {
   requireNonEmpty(api.artifactId, 'api object.artifactId')
   requireNonEmpty(api.pointer, 'api object.pointer')
-  return `api:${api.artifactId}${api.operationId ? `#operation:${api.operationId}` : ''}:${api.pointer}${api.versionHash ? `@${api.versionHash}` : ''}`
+  return `api:${api.artifactId}${api.versionHash ? `@${api.versionHash}` : ''}:${api.pointer}`
 }
 
 function copyDataFieldRef(ref: DpmDataFieldRef): DpmDataFieldRef {

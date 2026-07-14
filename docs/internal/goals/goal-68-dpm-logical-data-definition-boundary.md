@@ -1,6 +1,6 @@
 # Goal 68 — DPM Logical Data Definition and Extraction Boundary
 
-**Status: active — 68.0 temporary monorepo reactivation recorded 2026-07-14; 68.1 is in progress**
+**Status: active — 68.0·68.1 complete; 68.2 semantic binding validation is in progress**
 
 > Predecessor: [Goal 67 — DPM Canonical Key Typed Encoding v2](./goal-67-dpm-canonical-key-typed-v2.md)<br>
 > Architecture boundary: [Package Architecture](../architecture/packages.md)<br>
@@ -135,11 +135,11 @@ condition.
 | Area | Verdict | Evidence / remaining issue |
 |---|---|---|
 | Logical ownership | Aligned | DPM already owns `EntityDeclaration`, `LogicalRelationship`, manifest policy, and registry lifecycle. |
-| Separate identities | Partially aligned | `field:`, `db:`, and `api:` helpers plus `data_definitions` exist; stable object id, revision id, dataset/namespace scope, and catalog snapshot identity are not yet separated. |
-| API provenance | Partially aligned | Artifact id, operation id, JSON Pointer, and optional version hash are carried, but `operationId` currently participates in the helper identity and no resolver checks the pointer/hash against an actual OpenAPI artifact or provenance sidecar. |
-| DB authority | Partially aligned | `storage_ref` names `table` and `column`, but does not prove membership in a catalog snapshot or carry catalog freshness/source coordinate. |
-| Field origin | Not yet aligned | The contract describes persisted, derived, computed, and API-only fields, but the structural slice has no origin discriminator with which to enforce storage requirements. |
-| Reverse binding uniqueness | Not yet aligned | Duplicate edge identities are rejected, but the same API artifact/version/pointer can still be assigned to different logical fields. |
+| Separate identities | Aligned for v1.1 | `DpmEntityRef`, object id, revision id, locator, binding id, catalog identity, API target identity, and Goal 67 value encoding are separate contracts; v1.0 remains a frozen compatibility shape. |
+| API provenance | Contract aligned; semantic verification pending | Canonical API identity is artifact id + version hash + JSON Pointer and excludes `operationId`; artifact/provenance resolution remains 68.2. |
+| DB authority | Contract aligned; catalog membership pending | v1.1 `storage_ref` carries snapshot identity, freshness hash, and optional source coordinate; selected-snapshot membership remains 68.2. |
+| Field origin | Aligned for v1.1 | Origin is explicit and model/schema gates enforce persisted storage and non-persisted absence rules. |
+| Reverse binding uniqueness | Aligned for v1.1 | Binding edge ids are separate from API target identities and model normalization rejects one artifact/version/pointer target assigned to multiple fields. |
 | Wire-version stability | Aligned for temporary execution | `data_definitions` `1.0` is frozen as compatibility; `1.1` is experimental until extraction. |
 | Semantic enforcement | Not yet aligned | JSON Schema and model normalizers validate shape; manifest validator/compiler do not yet validate entity, catalog, and API binding references together. |
 | Core dependency direction | Aligned | New surface stays under DPM; Core packages do not depend on maintenance-only DPM. |
@@ -165,7 +165,7 @@ Exit criteria:
 - no Core package imports DPM policy types;
 - the migration path for `@oa-sdk/dpm/data` imports is documented.
 
-### 68.1 — Identity contract completion (in progress)
+### 68.1 — Identity contract completion ✅
 
 Deliverables:
 
@@ -285,11 +285,17 @@ Representative exit criteria:
   and API binding types.
 - `packages/dpm/src/model/data-normalize.ts` provides distinct identity helpers and
   model-boundary checks.
+- `packages/dpm/src/model/data-identity-types.ts` defines the experimental v1.1
+  namespace/object/revision/locator/origin/lifecycle contract.
+- `packages/dpm/src/model/data-identity-normalize.ts` enforces rename-safe identities,
+  catalog-qualified storage, API target cardinality, aliases, and supersession rules.
 - `packages/dpm/src/schema/dpm-manifest.schema.json` defines the optional
-  `data_definitions` manifest section.
+  frozen v1.0 and experimental v1.1 `data_definitions` manifest sections.
 - `packages/dpm/src/public/data.ts` and the `@oa-sdk/dpm/data` export establish the
   extraction-oriented public seam.
-- Focused schema/model tests and package subpath smoke tests cover the structural slice.
+- `packages/dpm/test/model-data-definition.test.ts` contains identity golden vectors and
+  negative cardinality/origin/lifecycle checks; `schema-data-definitions.test.ts` covers
+  v1.0/v1.1 schema acceptance and rejection.
 
 ## Verification gates
 
