@@ -1,6 +1,6 @@
 # Goal 68 — DPM Logical Data Definition and Extraction Boundary
 
-**Status: proposed — 68.0 is the next decision gate; 68.1–68.4 require an authorized owner and implementation site**
+**Status: active — 68.0 temporary monorepo reactivation recorded 2026-07-14; 68.1 is in progress**
 
 > Predecessor: [Goal 67 — DPM Canonical Key Typed Encoding v2](./goal-67-dpm-canonical-key-typed-v2.md)<br>
 > Architecture boundary: [Package Architecture](../architecture/packages.md)<br>
@@ -104,6 +104,32 @@ The decision also selects where subsequent work runs:
 - if scope reactivation is approved, Goal 68.1–68.4 may run temporarily in this monorepo with
   explicit release/CI ownership and an exit condition.
 
+## 68.0 decision record
+
+The current roadmap execution request records the scope-reactivation branch:
+
+- temporary canonical implementation site: `mineclover/oa-sdk/packages/dpm`;
+- temporary owner: `mineclover/oa-sdk` maintainers, including release/CI responsibility for
+  the maintenance track;
+- package policy: private, non-published, and still outside Core Platform feature scope;
+- allowed work: Goal 68 contract, compatibility, deterministic validation, provenance, and
+  extraction preparation;
+- explicit non-goals: production data-plane runtime and the future search/edit/authoring
+  control plane;
+- exit condition: an external `data-governance` owner/repository accepts the neutral artifact,
+  migration contract, and compatibility window so this package can become an adapter.
+
+Wire compatibility is frozen by version:
+
+| Wire version | Policy | Scope |
+|---|---|---|
+| `data_definitions` `1.0` | Frozen compatibility contract | Existing structural field, storage, and API binding shape. |
+| `data_definitions` `1.1` | Experimental in this monorepo | Namespace-safe logical identity, catalog context, lifecycle, origin, and cardinality rules. |
+
+This decision completes 68.0 for temporary in-repository execution but does not claim that an
+external canonical owner has been selected. Goal 68.4 remains dependent on that external exit
+condition.
+
 ## Review verdict of the current implementation
 
 | Area | Verdict | Evidence / remaining issue |
@@ -114,15 +140,15 @@ The decision also selects where subsequent work runs:
 | DB authority | Partially aligned | `storage_ref` names `table` and `column`, but does not prove membership in a catalog snapshot or carry catalog freshness/source coordinate. |
 | Field origin | Not yet aligned | The contract describes persisted, derived, computed, and API-only fields, but the structural slice has no origin discriminator with which to enforce storage requirements. |
 | Reverse binding uniqueness | Not yet aligned | Duplicate edge identities are rejected, but the same API artifact/version/pointer can still be assigned to different logical fields. |
-| Wire-version stability | Decision pending | `data_definitions.version` currently uses `1.0`, while compatibility authority and the experimental-or-frozen status are deferred to 68.0. |
+| Wire-version stability | Aligned for temporary execution | `data_definitions` `1.0` is frozen as compatibility; `1.1` is experimental until extraction. |
 | Semantic enforcement | Not yet aligned | JSON Schema and model normalizers validate shape; manifest validator/compiler do not yet validate entity, catalog, and API binding references together. |
 | Core dependency direction | Aligned | New surface stays under DPM; Core packages do not depend on maintenance-only DPM. |
 | Extraction readiness | Partially aligned | `@oa-sdk/dpm/data` is a clean public seam, but repository metadata, artifact versioning, external owner, and migration contract remain undefined. |
-| Governance policy | Not aligned for feature expansion | Maintenance-only policy requires scope reactivation or an external-owner decision before further feature investment. |
+| Governance policy | Aligned for temporary execution | The monorepo scope-reactivation decision is recorded; external ownership remains the Goal 68.4 exit condition. |
 
 ## Roadmap
 
-### 68.0 — Ownership and compatibility freeze
+### 68.0 — Ownership and compatibility freeze ✅
 
 Deliverables:
 
@@ -135,11 +161,11 @@ Deliverables:
 
 Exit criteria:
 
-- one canonical owner is named;
+- one temporary canonical owner and implementation site are named;
 - no Core package imports DPM policy types;
 - the migration path for `@oa-sdk/dpm/data` imports is documented.
 
-### 68.1 — Identity contract completion
+### 68.1 — Identity contract completion (in progress)
 
 Deliverables:
 

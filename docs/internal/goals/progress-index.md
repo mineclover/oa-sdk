@@ -7,7 +7,7 @@ DPM phase 순서와 gap 정렬은 [DPM Master Roadmap](./dpm-master-roadmap.md)�
 
 ## Current
 
-- No active feature goal selected. The next DPM action is Goal 68.0, the owner and implementation-site decision gate. Goal 68.1–68.4 remain conditional on that decision.
+- Goal 68 is active under the recorded temporary monorepo reactivation. DPM-86 is complete; DPM-87 identity contract is the current unit. Goal 68.4 remains dependent on an external `data-governance` owner.
 
 ## Recently Completed
 
@@ -421,8 +421,8 @@ DPM phase 순서와 gap 정렬은 [DPM Master Roadmap](./dpm-master-roadmap.md)�
 
 ## Goal 68 DPM Units
 
-- [ ] DPM-86 - Ownership and compatibility freeze (next decision gate)
-- [ ] DPM-87 - Namespace-safe identity contract (conditional on DPM-86)
+- [x] DPM-86 - Ownership and compatibility freeze (temporary monorepo reactivation)
+- [ ] DPM-87 - Namespace-safe identity contract (current)
 - [ ] DPM-88 - Semantic API/catalog binding validation (conditional on DPM-86)
 - [ ] DPM-89 - Compiler and provenance artifact integration (conditional on DPM-86)
 - [ ] DPM-90 - External extraction rehearsal (conditional on DPM-86)

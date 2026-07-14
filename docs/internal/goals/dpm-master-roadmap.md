@@ -45,12 +45,12 @@ production pseudonymization       = outside current oa-sdk boundary
 
 | Phase | Goal history | Capability | Current status | Gap after phase |
 |---|---|---|---|---|
-| 0. Governance | ADR-010, release policy, package architecture, Goal 68.0 | DPM package ownership, implementation site and safety boundary | Decision pending | canonical external owner and feature-investment authority unresolved |
+| 0. Governance | ADR-010, release policy, package architecture, Goal 68.0 | DPM package ownership, implementation site and safety boundary | Temporary monorepo reactivation recorded | external `data-governance` owner and extraction exit still unresolved |
 | 1. Relationship contract | Goals 4–6, 64, 67 | manifest, entity, relationship, column policy, validator, compiler, typed identity | Implemented | logical field identity is not yet cross-bound to API/catalog |
 | 2. Evidence and proposal | Goals 7–19, 24–26, 31, 33, 37, 38, 51–56 | catalog/profile evidence, discovery proposals, thresholds, provenance, endpoint resolution | Implemented | evidence does not itself become data binding or relationship approval |
 | 3. Approval and durability | Goals 23, 27–30, 32, 34–50, 58, 59, 61, 63 | gateway workflow, registry approval, storage, audit and reports | Implemented within declared boundary | no production token/vault/data-plane execution |
 | 4. Public package contract | Goals 20–22, 57, 60, 62 | subpaths, pack boundary, consumer workflow, docs and contract checks | Implemented | external repository compatibility still unproven |
-| 5. Logical identity contract | Goal 68.1 | stable object/revision identity, namespace-safe refs, binding cardinality | Structural slice only; implementation gated by Phase 0 | owner, identity scope, alias and wire-version policy |
+| 5. Logical identity contract | Goal 68.1 | stable object/revision identity, namespace-safe refs, binding cardinality | In progress in temporary monorepo site | external extraction owner, alias migration, and final wire stability |
 | 6. Semantic binding | Goal 68.2 | entity/API/catalog resolution and deterministic diagnostics | Planned and scope-gated | depends on Phase 5 and authoritative artifacts |
 | 7. Neutral artifact and provenance | Goal 68.3 | binding freshness, compiled plan, trace/review links, read-model source | Planned and scope-gated | depends on Phase 6 and projection/provenance contract |
 | 8. Search, edit and authoring control plane | Future owner-authorized product slice | cross-identity search, draft/revision/publish, diff, rollback and authoring helpers | Future; not an active goal | depends on Phase 7 and product/release ownership |
@@ -153,11 +153,11 @@ Blocking phase: 10 only.
 
 ### Phase 0 — Ownership and compatibility decision (Goal 68.0)
 
-Resolve G-01 and freeze the `data_definitions` wire version, owner, package compatibility policy,
-and extraction direction. Until this decision is recorded, only schema/model compatibility, local
-deterministic validation of already-declared rules, extraction preparation, and regression hardening
-are permitted. New persisted schemas, gateway workflows, cross-repository resolvers, search services,
-and edit workflows are feature expansion and remain blocked.
+Resolve G-01 and freeze the `data_definitions` compatibility policy, owner, package compatibility
+policy, and extraction direction. The 2026-07-14 decision records a temporary monorepo owner and
+implementation site: `1.0` remains the frozen structural adapter contract, while `1.1` is an
+experimental identity contract. New persisted schemas, gateway workflows, cross-repository
+resolvers, search services, and edit workflows remain blocked.
 
 The decision selects the implementation site:
 

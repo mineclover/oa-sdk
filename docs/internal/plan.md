@@ -38,10 +38,12 @@ Goal 4의 relationship-first core loop는 `@oa-sdk/dpm`으로 구현되었다. R
 따른다.
 
 Goal 간 선행 관계와 잔여 gap은 [DPM Master Roadmap](./goals/dpm-master-roadmap.md)을
-통합 기준으로 사용한다. Goal 4~67은 완료된 capability history이며, Goal 68 이후 semantic
-binding/provenance/extraction은 68.0 owner/implementation-site decision 후에만 진행한다. 검색,
-draft/edit/publish, diff/rollback, 작성 편의성은 stable neutral artifact 위에 두는 별도의
-owner-authorized control-plane capability이며 아직 active goal은 아니다.
+통합 기준으로 사용한다. Goal 4~67은 완료된 capability history이며, Goal 68은 2026-07-14
+temporary monorepo reactivation decision 후 68.1 identity contract부터 진행한다. `data_definitions`
+1.0은 구조적 호환성 계약으로 동결하고, 1.1 identity contract는 외부 extraction 전까지
+experimental로 취급한다. 검색, draft/edit/publish, diff/rollback, 작성 편의성은 stable
+neutral artifact 위에 두는 별도의 owner-authorized control-plane capability이며 아직 active
+goal은 아니다.
 
 ---
 

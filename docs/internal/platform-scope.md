@@ -90,6 +90,26 @@ scope-reactivation decision을 남겨야 한다. 최소한 다음 내용을 기�
 결정이 없으면 non-core feature request는 착수하지 않고 backlog에도 active goal로 올리지
 않는다. 버그 수정처럼 보이는 요청도 실제로 새 capability를 추가하면 feature로 분류한다.
 
+### DPM temporary reactivation — 2026-07-14
+
+The roadmap execution request for Goal 68 records a temporary scope reactivation for
+`@oa-sdk/dpm` in this monorepo. The current canonical implementation site is
+`mineclover/oa-sdk/packages/dpm`; the package remains private and is still excluded from
+the Core Platform release track.
+
+| Decision item | Recorded decision |
+| --- | --- |
+| User problem | Preserve a reviewable logical data/API/DB binding contract while preparing DPM extraction. |
+| Owner | `mineclover/oa-sdk` maintainers temporarily own the implementation, review, and compatibility adapter. |
+| Release/CI | Maintenance track checks (`build:maintenance`, `test:maintenance`, `typecheck:maintenance`, and DPM surface smoke) remain authoritative; no publish is enabled. |
+| Location | Implement the authorized Goal 68 contract temporarily in this monorepo under `packages/dpm`. |
+| Exit condition | An external `data-governance` owner/repository is named, the public artifact and migration window are accepted, and this package can be reduced to an adapter. |
+| Boundary | No production vault, tokenization worker, row rewrite, physical FK mutation, or control-plane search/edit/publish workflow is activated by this decision. |
+
+The existing `data_definitions` `1.0` shape is frozen as a structural compatibility contract.
+Goal 68.1 introduces an explicitly experimental `1.1` identity contract in the same public
+subpath; `1.1` is not an external stability promise until the extraction exit condition is met.
+
 ## Repository Separation
 
 2026-07-11에 Markdown editor와 GitLab agent operations 제품을 각각 `markdown-editor`와
