@@ -74,7 +74,7 @@ Complete this section in the owner environment; an empty record is intentional i
 | Accepted `data_definitions` versions | pending |
 | Accepted artifact kind/version | pending |
 | Compatibility window and deprecation release | pending |
-| Canonical-document location | Interim record at `docs/internal/goals/owner-decision-record.md`; formal canonical link pending |
+| Canonical-document location | [Interim external owner record](https://github.com/mineclover/data-governance/blob/main/docs/internal/goals/owner-decision-record.md); formal canonical link pending |
 | Rollback fixture / review link | external rehearsal passed in `7f1fb3f`; formal review/sign-off pending |
 
 ## Transition rule
