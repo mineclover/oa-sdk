@@ -95,7 +95,7 @@ If external extraction or a consumer migration fails:
   consumers, workflow consumer, and pack dry-run passed.
 - Interim owner decision record: [external owner decision record](https://github.com/mineclover/data-governance/blob/main/docs/internal/goals/owner-decision-record.md). GitHub Issues are enabled at
   `https://github.com/mineclover/data-governance/issues` as the current issue/review location.
-  Owner CI workflow [29352088888](https://github.com/mineclover/data-governance/actions/runs/29352088888)
-  passed for commit `0c14ad9` with Node 25 and pnpm 10.30.3.
+  Owner CI workflow [29352690749](https://github.com/mineclover/data-governance/actions/runs/29352690749)
+  passed for commit `beabf42` with Node 25 and pnpm 10.30.3.
 - Formal owner acceptance, registry publication, compatibility-window decision, and canonical
   adapter transition remain intentionally pending; they are not implied by the rehearsal.

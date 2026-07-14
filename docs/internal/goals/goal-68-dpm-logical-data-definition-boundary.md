@@ -29,8 +29,8 @@ Private owner candidate: [`mineclover/data-governance`](https://github.com/minec
 (created 2026-07-15; initial extraction commit `7f1fb3f`; repository is private). The interim
 decision is recorded in the [external owner decision record](https://github.com/mineclover/data-governance/blob/main/docs/internal/goals/owner-decision-record.md); GitHub Issues are enabled at
 `https://github.com/mineclover/data-governance/issues`, and its latest CI passed in
-workflow [29352088888](https://github.com/mineclover/data-governance/actions/runs/29352088888) for
-commit `0c14ad9`.
+workflow [29352690749](https://github.com/mineclover/data-governance/actions/runs/29352690749) for
+commit `beabf42`.
 
 ## Expressive boundary
 
@@ -147,7 +147,7 @@ consumer workflow, rollback, and pack dry-run checks. The `oa-sdk` package remai
 compatibility/source implementation until the external acceptance record names release authority,
 compatibility window, publication policy, and the final canonical-document transition. The
 interim owner document set is self-contained and its `check:docs` gate passed in workflow
-[29351099635](https://github.com/mineclover/data-governance/actions/runs/29351099635).
+[29352690749](https://github.com/mineclover/data-governance/actions/runs/29352690749).
 
 ## Review verdict of the current implementation
 

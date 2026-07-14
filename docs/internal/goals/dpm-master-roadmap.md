@@ -92,8 +92,8 @@ The repository was created and pushed on 2026-07-15. Its external workspace pass
 build, typecheck, boundary check, 120 test files/269 tests, package subpath and declaration
 checks, packed consumer, workflow consumer, rollback consumer, and pack dry-run. The owner
 decision record and Node 25/pnpm 10.30.3 CI are also pushed; the latest workflow run
-[29352088888](https://github.com/mineclover/data-governance/actions/runs/29352088888) passed for
-commit `0c14ad9`. GitHub Issues are enabled as the current issue/review location. This
+[29352690749](https://github.com/mineclover/data-governance/actions/runs/29352690749) passed for
+commit `beabf42`. GitHub Issues are enabled as the current issue/review location. This
 establishes the extraction rehearsal and repository location; it does not yet establish the
 formal release authority, compatibility window, public publication policy, or final canonical
 sign-off. The owner document set is self-contained and its `check:docs` gate passed in the same
