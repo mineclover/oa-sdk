@@ -1,6 +1,6 @@
 # Goal 68.4 — External Extraction Acceptance Checklist
 
-**Status: local evidence complete; external owner acceptance pending**
+**Status: private owner repository created and rehearsed; formal external owner acceptance pending**
 
 > Parent: [Goal 68 — DPM Logical Data Definition and Extraction Boundary](./goal-68-dpm-logical-data-definition-boundary.md)
 >
@@ -25,12 +25,19 @@ published.
 The local evidence proves extraction readiness for review. It does not prove registry publication,
 external repository ownership, or acceptance of the experimental v1.1 wire shape.
 
+The private owner repository rehearsal is now also complete: commit `7f1fb3f` in
+[`mineclover/data-governance`](https://github.com/mineclover/data-governance) passed the external
+build, typecheck, boundary, unit, packed runtime/declaration/rollback, workflow, and pack checks.
+
 ## Current repository audit
 
-As of 2026-07-15, this worktree has only the `mineclover/oa-sdk` origin configured and contains no
-external `data-governance` remote, submodule, checked-in consumer, or owner sign-off. This is an
-inventory result, not a claim that a private external repository cannot exist; the owner must
-provide its canonical location and acceptance record before the transition rule can change.
+As of 2026-07-15, the external private owner candidate is
+[`mineclover/data-governance`](https://github.com/mineclover/data-governance), with initial
+extraction commit `7f1fb3fe1597053d8eec769492b517523569953a` pushed to `main`. The `oa-sdk`
+worktree intentionally keeps only its original `mineclover/oa-sdk` origin; the external repository
+is a separate owner workspace, not a submodule or a second remote in this consumer repository.
+Formal release authority, compatibility window, publication policy, and canonical sign-off remain
+open.
 
 ## External owner acceptance gates
 
@@ -59,14 +66,14 @@ Complete this section in the owner environment; an empty record is intentional i
 
 | Decision | Recorded value |
 |---|---|
-| Canonical repository | pending |
-| Owner / release authority | pending |
+| Canonical repository | `https://github.com/mineclover/data-governance` (private; initial commit `7f1fb3f`) |
+| Owner / release authority | `mineclover`; release authority confirmation pending |
 | Public package and registry | pending |
 | Accepted `data_definitions` versions | pending |
 | Accepted artifact kind/version | pending |
 | Compatibility window and deprecation release | pending |
 | Canonical-document location | pending |
-| Rollback fixture / review link | pending |
+| Rollback fixture / review link | external rehearsal passed in `7f1fb3f`; formal review/sign-off pending |
 
 ## Transition rule
 

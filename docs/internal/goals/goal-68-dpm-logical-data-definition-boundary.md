@@ -1,6 +1,6 @@
 # Goal 68 — DPM Logical Data Definition and Extraction Boundary
 
-**Status: active — 68.0·68.1·68.2·68.3 complete; 68.4 local rehearsal complete, external owner acceptance pending**
+**Status: active — 68.0·68.1·68.2·68.3 complete; 68.4 private external rehearsal pushed, formal owner acceptance pending**
 
 > Predecessor: [Goal 67 — DPM Canonical Key Typed Encoding v2](./goal-67-dpm-canonical-key-typed-v2.md)<br>
 > Architecture boundary: [Package Architecture](../architecture/packages.md)<br>
@@ -24,6 +24,9 @@ extractable to the future external data-governance environment.
 Goal 68 owns this contract plane only. Cross-identity search, draft/edit/publish lifecycle,
 and authoring convenience are a follow-on control-plane capability after the neutral artifact
 is stable; they are not silently included in the Goal 68 compiler scope.
+
+Private owner candidate: [`mineclover/data-governance`](https://github.com/mineclover/data-governance)
+(created 2026-07-15; initial extraction commit `7f1fb3f`; repository is private).
 
 ## Expressive boundary
 
@@ -126,9 +129,19 @@ Wire compatibility is frozen by version:
 | `data_definitions` `1.0` | Frozen compatibility contract | Existing structural field, storage, and API binding shape. |
 | `data_definitions` `1.1` | Experimental in this monorepo | Namespace-safe logical identity, catalog context, lifecycle, origin, and cardinality rules. |
 
-This decision completes 68.0 for temporary in-repository execution but does not claim that an
-external canonical owner has been selected. Goal 68.4 remains dependent on that external exit
-condition.
+This decision completes 68.0 for temporary in-repository execution. The private owner candidate
+and initial extraction push now establish the external rehearsal location, but do not by themselves
+complete formal canonical-owner, release-authority, or compatibility-window acceptance.
+
+## 68.4 private owner repository transition record
+
+On 2026-07-15, the owner created the private
+[`mineclover/data-governance`](https://github.com/mineclover/data-governance) repository and pushed
+the DPM extraction as commit `7f1fb3fe1597053d8eec769492b517523569953a`. The external workspace
+passed build, typecheck, boundary, DPM unit, package subpath, declaration, packed consumer,
+consumer workflow, rollback, and pack dry-run checks. The `oa-sdk` package remains the
+compatibility/source implementation until the external acceptance record names release authority,
+compatibility window, publication policy, and the final canonical-document transition.
 
 ## Review verdict of the current implementation
 
@@ -143,8 +156,8 @@ condition.
 | Wire-version stability | Aligned for temporary execution | `data_definitions` `1.0` is frozen as compatibility; `1.1` is experimental until extraction. |
 | Semantic enforcement | Aligned for v1.1 | `validateDpmDataBindings()` participates in validate and compile gates; compiled plan identity includes neutral binding freshness. |
 | Core dependency direction | Aligned | New surface stays under DPM; Core packages do not depend on maintenance-only DPM. |
-| Extraction readiness | Partially aligned | Public subpaths and a packed clean-consumer rehearsal pass; the migration/rollback contract is drafted, but repository metadata, registry publication, and external owner acceptance remain pending. |
-| Governance policy | Aligned for temporary execution | The monorepo scope-reactivation decision is recorded; external ownership remains the Goal 68.4 exit condition. |
+| Extraction readiness | Aligned for private rehearsal | The private owner candidate is pushed and its external packed runtime/declaration/rollback rehearsal passes; repository release metadata, registry publication, and formal owner acceptance remain pending. |
+| Governance policy | Aligned for transition review | The monorepo scope-reactivation decision is recorded and the private owner candidate exists; formal canonical-owner and release-authority acceptance remains the Goal 68.4 exit condition. |
 
 ## Roadmap
 
@@ -242,8 +255,9 @@ Deliverables:
 
 The local packed-artifact runtime, declaration, and rollback rehearsal plus the temporary migration/rollback contract are recorded in
 [Goal 68 Extraction Migration and Rollback Contract](./goal-68-dpm-extraction-migration.md). The
-owner handoff gates are listed in the [Goal 68.4 External Extraction Acceptance Checklist](./goal-68-extraction-acceptance-checklist.md);
-the external owner, registry publication metadata, and canonical-document move remain pending.
+owner handoff gates are listed in the [Goal 68.4 External Extraction Acceptance Checklist](./goal-68-extraction-acceptance-checklist.md).
+The private external rehearsal is complete, while the external owner sign-off, registry publication
+metadata, compatibility window, and canonical-document transition remain pending.
 
 Exit criteria:
 
