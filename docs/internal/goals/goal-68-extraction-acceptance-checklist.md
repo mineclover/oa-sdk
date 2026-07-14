@@ -21,6 +21,7 @@ published.
 | Public package boundary | `packages/dpm/package.json` declares the root and category subpaths; package-name imports do not use monorepo source or deep chunk paths. |
 | Root surface gate | `check:dpm-surface` includes `smoke:extraction` alongside subpath, workflow, and pack-boundary checks. |
 | Compatibility and rollback rules | [Goal 68 Extraction Migration and Rollback Contract](./goal-68-dpm-extraction-migration.md) defines v1.0/v1.1, artifact markers, migration order, and rollback behavior. |
+| Owner document/CI gate | The private owner document set passes `check:docs` and the full owner CI workflow in [run 29351099635](https://github.com/mineclover/data-governance/actions/runs/29351099635). |
 
 The local evidence proves extraction readiness for review. It does not prove registry publication,
 external repository ownership, or acceptance of the experimental v1.1 wire shape.

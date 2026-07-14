@@ -95,7 +95,8 @@ decision record and Node 25/pnpm 10.30.3 CI are also pushed; workflow run
 [29350009558](https://github.com/mineclover/data-governance/actions/runs/29350009558) passed for
 commit `34dff0f`. This establishes the extraction rehearsal and repository location; it does not
 yet establish the formal release authority, compatibility window, public publication policy, or
-final canonical sign-off.
+final canonical sign-off. The owner document set is self-contained and its `check:docs` gate
+passed in workflow [29351099635](https://github.com/mineclover/data-governance/actions/runs/29351099635).
 
 Required decision:
 

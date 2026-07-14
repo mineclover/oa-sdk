@@ -143,7 +143,9 @@ the DPM extraction as commit `7f1fb3fe1597053d8eec769492b517523569953a`. The ext
 passed build, typecheck, boundary, DPM unit, package subpath, declaration, packed consumer,
 consumer workflow, rollback, and pack dry-run checks. The `oa-sdk` package remains the
 compatibility/source implementation until the external acceptance record names release authority,
-compatibility window, publication policy, and the final canonical-document transition.
+compatibility window, publication policy, and the final canonical-document transition. The
+interim owner document set is self-contained and its `check:docs` gate passed in workflow
+[29351099635](https://github.com/mineclover/data-governance/actions/runs/29351099635).
 
 ## Review verdict of the current implementation
 

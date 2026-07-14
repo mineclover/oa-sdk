@@ -7,7 +7,7 @@ DPM phase 순서와 gap 정렬은 [DPM Master Roadmap](./dpm-master-roadmap.md)�
 
 ## Current
 
-- Goal 68 is active under the recorded temporary monorepo reactivation. DPM-86 through DPM-89 are complete, and DPM-90 has been extracted and pushed to the private `mineclover/data-governance` repository at commit `7f1fb3f`; its external runtime, declaration, rollback, workflow, pack rehearsal, and owner CI passed. Formal owner/release acceptance, publication metadata, compatibility-window definition, and canonical-document migration remain pending.
+- Goal 68 is active under the recorded temporary monorepo reactivation. DPM-86 through DPM-89 are complete, and DPM-90 has been extracted and pushed to the private `mineclover/data-governance` repository at commit `7f1fb3f`; its external runtime, declaration, rollback, workflow, pack rehearsal, owner CI, and self-contained owner-document link gate passed. Formal owner/release acceptance, publication metadata, compatibility-window definition, and canonical-document sign-off remain pending.
 
 ## Recently Completed
 
