@@ -28,7 +28,7 @@ is stable; they are not silently included in the Goal 68 compiler scope.
 Private owner candidate: [`mineclover/data-governance`](https://github.com/mineclover/data-governance)
 (created 2026-07-15; initial extraction commit `7f1fb3f`; repository is private). The interim
 decision is recorded in the [external owner decision record](https://github.com/mineclover/data-governance/blob/main/docs/internal/goals/owner-decision-record.md); GitHub Issues are enabled at
-`https://github.com/mineclover/data-governance/issues`, and its latest CI passed in
+`https://github.com/mineclover/data-governance/issues`, and its owner CI passed in
 workflow [29353177517](https://github.com/mineclover/data-governance/actions/runs/29353177517) for
 commit `60c6c36`; the structured owner acceptance form is available at
 [`dpm-owner-acceptance.yml`](https://github.com/mineclover/data-governance/blob/main/.github/ISSUE_TEMPLATE/dpm-owner-acceptance.yml).

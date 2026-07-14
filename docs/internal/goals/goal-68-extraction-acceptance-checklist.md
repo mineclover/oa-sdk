@@ -29,7 +29,7 @@ external repository ownership, or acceptance of the experimental v1.1 wire shape
 The private owner repository rehearsal is now also complete: commit `7f1fb3f` in
 [`mineclover/data-governance`](https://github.com/mineclover/data-governance) passed the external
 build, typecheck, boundary, unit, packed runtime/declaration/rollback, workflow, and pack checks.
-The latest owner CI workflow passed for commit `60c6c36` in
+The owner CI workflow for the structured acceptance form passed for commit `60c6c36` in
 [workflow run 29353177517](https://github.com/mineclover/data-governance/actions/runs/29353177517).
 GitHub Issues are enabled at
 `https://github.com/mineclover/data-governance/issues` as the current issue/review location.

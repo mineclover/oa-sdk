@@ -91,7 +91,8 @@ candidate. A private external owner candidate now exists at
 The repository was created and pushed on 2026-07-15. Its external workspace passed the DPM
 build, typecheck, boundary check, 120 test files/269 tests, package subpath and declaration
 checks, packed consumer, workflow consumer, rollback consumer, and pack dry-run. The owner
-decision record and Node 25/pnpm 10.30.3 CI are also pushed; the latest workflow run
+decision record and Node 25/pnpm 10.30.3 CI are also pushed; the owner workflow for the structured
+acceptance form
 [29353177517](https://github.com/mineclover/data-governance/actions/runs/29353177517) passed for
 commit `60c6c36`. GitHub Issues and the structured Goal 68.4 acceptance form are enabled as the
 current issue/review workflow. This
