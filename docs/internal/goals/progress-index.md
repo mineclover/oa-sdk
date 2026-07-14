@@ -7,7 +7,7 @@ DPM phase 순서와 gap 정렬은 [DPM Master Roadmap](./dpm-master-roadmap.md)�
 
 ## Current
 
-- Goal 68 is active under the recorded temporary monorepo reactivation. DPM-86 through DPM-89 are complete; DPM-90 extraction rehearsal is pending an external `data-governance` owner and migration decision.
+- Goal 68 is active under the recorded temporary monorepo reactivation. DPM-86 through DPM-89 are complete and the local DPM-90 packed-consumer rehearsal is complete; external owner acceptance, publication metadata, and canonical-document migration remain pending.
 
 ## Recently Completed
 
@@ -425,7 +425,7 @@ DPM phase 순서와 gap 정렬은 [DPM Master Roadmap](./dpm-master-roadmap.md)�
 - [x] DPM-87 - Namespace-safe identity contract
 - [x] DPM-88 - Semantic API/catalog binding validation
 - [x] DPM-89 - Compiler and provenance artifact integration
-- [ ] DPM-90 - External extraction rehearsal (pending external owner and migration decision)
+- [ ] DPM-90 - External extraction rehearsal (local packed-consumer rehearsal complete; pending external owner acceptance and canonical migration)
 
 ## Done Criteria
 

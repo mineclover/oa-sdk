@@ -52,9 +52,9 @@ production pseudonymization       = outside current oa-sdk boundary
 | 4. Public package contract | Goals 20–22, 57, 60, 62 | subpaths, pack boundary, consumer workflow, docs and contract checks | Implemented | external repository compatibility still unproven |
 | 5. Logical identity contract | Goal 68.1 | stable object/revision identity, namespace-safe refs, binding cardinality | Implemented in temporary monorepo site | external extraction owner and final wire stability |
 | 6. Semantic binding | Goal 68.2 | entity/API/catalog resolution and deterministic diagnostics | Implemented in temporary monorepo site | external extraction owner and final wire stability |
-| 7. Neutral artifact and provenance | Goal 68.3 | binding freshness, compiled plan, trace/review links, read-model source | Implemented in temporary monorepo site | external extraction owner, migration contract, and final wire stability |
+| 7. Neutral artifact and provenance | Goal 68.3 | binding freshness, compiled plan, trace/review links, read-model source | Implemented in temporary monorepo site | external extraction owner and final wire stability |
 | 8. Search, edit and authoring control plane | Future owner-authorized product slice | cross-identity search, draft/revision/publish, diff, rollback and authoring helpers | Future; not an active goal | depends on Phase 7 and product/release ownership |
-| 9. Extraction rehearsal | Goal 68.4 | external consumer, migration, compatibility adapter | Planned and scope-gated | depends on owner decision and stable public artifact |
+| 9. Extraction rehearsal | Goal 68.4 | external consumer, migration, compatibility adapter | Local packed-consumer rehearsal implemented; external owner-gated | depends on external owner acceptance and stable public artifact |
 | 10. Data-plane runtime | Future external/runtime program | vault, tokenization worker, row rewrite, post-run integrity | Explicitly outside current roadmap | requires separate runtime owner, security model, and deployment authority |
 
 ## Dependency order
@@ -217,12 +217,16 @@ This phase is a future owner-authorized capability, not an active goal before Ph
 
 ### Phase 9 — Extraction rehearsal (Goal 68.4, owner-gated)
 
-Pending external owner and migration decision:
+Local rehearsal complete; external owner and migration acceptance pending:
 
 - clean external consumer build and package smoke;
 - import/package migration contract;
 - repository/license/release metadata when authorized;
 - adapter fallback and rollback window.
+
+The local packed artifact and clean consumer evidence live in
+`packages/dpm/test/package-extraction-smoke.mjs`; migration and rollback rules live in
+[Goal 68 Extraction Migration and Rollback Contract](./goal-68-dpm-extraction-migration.md).
 
 ### Phase 10 — Separate external runtime program
 

@@ -1,6 +1,6 @@
 # Goal 68 — DPM Logical Data Definition and Extraction Boundary
 
-**Status: active — 68.0·68.1·68.2·68.3 complete; 68.4 extraction is pending external owner confirmation**
+**Status: active — 68.0·68.1·68.2·68.3 complete; 68.4 local rehearsal complete, external owner acceptance pending**
 
 > Predecessor: [Goal 67 — DPM Canonical Key Typed Encoding v2](./goal-67-dpm-canonical-key-typed-v2.md)<br>
 > Architecture boundary: [Package Architecture](../architecture/packages.md)<br>
@@ -143,7 +143,7 @@ condition.
 | Wire-version stability | Aligned for temporary execution | `data_definitions` `1.0` is frozen as compatibility; `1.1` is experimental until extraction. |
 | Semantic enforcement | Aligned for v1.1 | `validateDpmDataBindings()` participates in validate and compile gates; compiled plan identity includes neutral binding freshness. |
 | Core dependency direction | Aligned | New surface stays under DPM; Core packages do not depend on maintenance-only DPM. |
-| Extraction readiness | Partially aligned | `@oa-sdk/dpm/data` is a clean public seam, but repository metadata, artifact versioning, external owner, and migration contract remain undefined. |
+| Extraction readiness | Partially aligned | Public subpaths and a packed clean-consumer rehearsal pass; the migration/rollback contract is drafted, but repository metadata, registry publication, and external owner acceptance remain pending. |
 | Governance policy | Aligned for temporary execution | The monorepo scope-reactivation decision is recorded; external ownership remains the Goal 68.4 exit condition. |
 
 ## Roadmap
@@ -240,6 +240,10 @@ Deliverables:
 - move the canonical DPM roadmap and ownership docs to the external environment when
   the owner is confirmed.
 
+The local packed-artifact rehearsal and temporary migration/rollback contract are recorded in
+[Goal 68 Extraction Migration and Rollback Contract](./goal-68-dpm-extraction-migration.md). The
+external owner, registry publication metadata, and canonical-document move remain pending.
+
 Exit criteria:
 
 - external consumer smoke passes without monorepo path assumptions;
@@ -307,6 +311,11 @@ Representative exit criteria:
 - `packages/dpm/src/compiler/data-binding-artifact.ts` builds a deterministic deep-frozen artifact;
   `packages/dpm/src/gateway/openapi-execution-plan-data-binding-schemas.ts` keeps the compiled
   output gateway-compatible.
+- `packages/dpm/test/package-extraction-smoke.mjs` packages the built DPM artifact, combines it
+  with a production dependency tree in a clean temporary consumer, and verifies package-name
+  imports without monorepo source paths.
+- `docs/internal/goals/goal-68-dpm-extraction-migration.md` defines the temporary version,
+  compatibility-window, migration, and rollback contract.
 
 ## Verification gates
 
