@@ -10,6 +10,7 @@ Prefer package subpaths for new consumers. The root `@oa-sdk/dpm` entrypoint rem
 |---|---|---|
 | `@oa-sdk/dpm/package` | package metadata and manifest schema validation | `src/public/package.ts` |
 | `@oa-sdk/dpm/catalog` | catalog snapshots, PostgreSQL catalog profiling, OpenAPI projection adapters | `src/public/catalog.ts` |
+| `@oa-sdk/dpm/data` | logical data fields and explicit API/database object bindings | `src/public/data.ts` |
 | `@oa-sdk/dpm/profile` | profile artifacts, Kafka topic profiling, connector validation, profile analysis | `src/public/profile.ts` |
 | `@oa-sdk/dpm/relationship` | relationship discovery, registry snapshots, model helpers, validation/compile/dry-run | `src/public/relationship.ts` |
 | `@oa-sdk/dpm/gateway` | OpenAPI contract document and in-process runtime helpers | `src/public/gateway.ts` |
@@ -25,6 +26,11 @@ Prefer package subpaths for new consumers. The root `@oa-sdk/dpm` entrypoint rem
 Use `@oa-sdk/dpm/catalog` to build or load catalog evidence, then use `@oa-sdk/dpm/relationship` to validate, compile, and dry-run a manifest against an approved registry snapshot.
 
 The manifest schema version is exposed through `DPM_VERSION`. It is the DPM contract baseline, not the npm package version in `package.json`.
+
+Use `@oa-sdk/dpm/data` for the logical data definition layer. A DPM field identity is
+separate from its optional database `storageRef` and from an API artifact pointer; API
+bindings make that relationship explicit without making an OpenAPI operation or database
+column the data definition itself.
 
 ### Kafka profile review
 

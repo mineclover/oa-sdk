@@ -75,7 +75,7 @@ OA SDK와 bun-graph-db가 각자의 source loader, repository, CLI, MCP, GraphQL
 
 Relationship-first Data Pseudonymization Manifest의 package surface다. Manifest syntax gate,
 catalog/registry snapshot, semantic validator, compiler, CLI/gateway/publishing context를 포함한다.
-지원 subpath는 package exports의 `.`, `./package`, `./catalog`, `./profile`, `./relationship`,
+지원 subpath는 package exports의 `.`, `./package`, `./catalog`, `./data`, `./profile`, `./relationship`,
 `./gateway`, `./storage`, `./publishing`이며 각 subpath는 `packages/dpm/src/public/*.ts`
 category barrel을 가리킨다. `packages/dpm/test/package-subpath-import-smoke.mjs`와
 `packages/dpm/test/package-subpath-type-consumer.ts`는 build된 package subpath의 runtime/declaration
@@ -93,6 +93,24 @@ category barrel을 가리킨다. `packages/dpm/test/package-subpath-import-smoke
 | `DpmPackageMetadata` | `dpm/src/types.ts` | package metadata shape |
 | `DpmManifestSchemaIssue` | `dpm/src/schema/index.ts` | JSON Schema validation issue normalized for DPM diagnostics |
 | `DpmManifestSchemaValidationResult` | `dpm/src/schema/index.ts` | DPM manifest syntax validation result |
+| `DpmDataFieldType` | `dpm/src/model/data-types.ts` | logical data field type taxonomy |
+| `DpmDataFieldDeclaration` | `dpm/src/model/data-types.ts` | logical field definition with optional DB storage reference |
+| `DpmDataFieldDeclarationInput` | `dpm/src/model/data-types.ts` | logical field definition input |
+| `DpmDataFieldRef` | `dpm/src/model/data-types.ts` | logical DPM field reference used by API bindings |
+| `DpmDatabaseColumnRef` | `dpm/src/model/data-types.ts` | physical DB catalog table/column reference |
+| `DpmApiObjectRef` | `dpm/src/model/data-types.ts` | OpenAPI artifact/pointer/version reference |
+| `DpmApiBindingDirection` | `dpm/src/model/data-types.ts` | request/response/both binding direction |
+| `DpmApiBinding` | `dpm/src/model/data-types.ts` | logical field to API object binding |
+| `DpmApiBindingInput` | `dpm/src/model/data-types.ts` | API binding input |
+| `DpmDataDefinitions` | `dpm/src/model/data-types.ts` | normalized logical data definitions and API bindings |
+| `DpmDataDefinitionsInput` | `dpm/src/model/data-types.ts` | data definition normalization input |
+| `createDpmDataField()` | `dpm/src/model/data-normalize.ts` | logical field normalization and identity creation |
+| `createDpmDataDefinitions()` | `dpm/src/model/data-normalize.ts` | data definitions normalization and reference checks |
+| `createDpmApiBinding()` | `dpm/src/model/data-normalize.ts` | API binding normalization and pointer checks |
+| `createDpmDataFieldIdentity()` | `dpm/src/model/data-normalize.ts` | logical field identity renderer |
+| `createDpmDatabaseColumnIdentity()` | `dpm/src/model/data-normalize.ts` | DB catalog column identity renderer |
+| `createDpmApiObjectIdentity()` | `dpm/src/model/data-normalize.ts` | OpenAPI artifact object identity renderer |
+| `createDpmApiBindingIdentity()` | `dpm/src/model/data-normalize.ts` | field/API relationship identity renderer |
 | `CatalogSnapshot` | `dpm/src/catalog/snapshot-types.ts` | DPM compiler가 소비할 normalized catalog snapshot |
 | `CatalogSnapshotInput` | `dpm/src/catalog/snapshot-types.ts` | catalog snapshot normalization 입력 |
 | `CatalogSnapshotSource` | `dpm/src/catalog/source-types.ts` | PostgreSQL 또는 OpenAPI projection catalog source 구분 |

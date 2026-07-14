@@ -1,5 +1,6 @@
 export * from './public/package.js'
 export * from './public/catalog.js'
+export * from './public/data.js'
 export * from './public/profile.js'
 export * from './public/relationship.js'
 export * from './public/gateway.js'

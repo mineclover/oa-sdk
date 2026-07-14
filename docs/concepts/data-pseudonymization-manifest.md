@@ -200,6 +200,22 @@ Registry의 핵심 필드는 다음이다.
 
 ## Entity Model
 
+### Logical data definitions and API bindings
+
+DPM also owns the logical data-field layer that connects an API contract to a physical
+database address without conflating their identifiers. The optional `data_definitions`
+manifest section contains:
+
+- `fields`: stable logical field identities such as `field:customer/customerNo`, with an
+  optional `storage_ref` pointing to a catalog table/column.
+- `api_bindings`: references from a logical field to an OpenAPI artifact, operation, JSON
+  pointer, and optional projection version hash.
+
+The three identities remain separate: the logical field is the DPM object, `storage_ref`
+is a database catalog address, and `api` is an OpenAPI artifact address. The binding is
+the explicit relationship between them; neither an API `operationId` nor a database
+column name is treated as the data definition's primary identity.
+
 Entity는 관계 컬럼 목록을 직접 들지 않는다. Entity는 root key와 namespace contract만 정의하고,
 child column binding은 `relationships`가 소유한다.
 

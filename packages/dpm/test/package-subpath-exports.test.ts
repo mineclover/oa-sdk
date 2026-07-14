@@ -13,6 +13,7 @@ type DpmPackageManifest = {
 const dpmPublicSubpathExportCases = [
   ['package', './dist/public/package.js', './dist/public/package.d.ts'],
   ['catalog', './dist/public/catalog.js', './dist/public/catalog.d.ts'],
+  ['data', './dist/public/data.js', './dist/public/data.d.ts'],
   ['profile', './dist/public/profile.js', './dist/public/profile.d.ts'],
   ['relationship', './dist/public/relationship.js', './dist/public/relationship.d.ts'],
   ['gateway', './dist/public/gateway.js', './dist/public/gateway.d.ts'],

@@ -1,6 +1,7 @@
 const [
   packageModule,
   catalogModule,
+  dataModule,
   profileModule,
   relationshipModule,
   gatewayModule,
@@ -9,6 +10,7 @@ const [
 ] = await Promise.all([
   import('@oa-sdk/dpm/package'),
   import('@oa-sdk/dpm/catalog'),
+  import('@oa-sdk/dpm/data'),
   import('@oa-sdk/dpm/profile'),
   import('@oa-sdk/dpm/relationship'),
   import('@oa-sdk/dpm/gateway'),
@@ -19,6 +21,9 @@ const [
 const checks = [
   ['package', packageModule.DPM_PACKAGE_NAME === '@oa-sdk/dpm'],
   ['catalog', typeof catalogModule.normalizeCatalogSnapshot === 'function'],
+  ['data', typeof dataModule.createDpmDataDefinitions === 'function'
+    && typeof dataModule.createDpmApiBinding === 'function'
+    && typeof dataModule.createDpmDataFieldIdentity === 'function'],
   ['profile', typeof profileModule.normalizeDpmProfileArtifact === 'function'
     && typeof profileModule.profileKafkaTopic === 'function'
     && typeof profileModule.validateDpmKafkaTopicProfileInput === 'function'
