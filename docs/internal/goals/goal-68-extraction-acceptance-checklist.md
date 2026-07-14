@@ -1,6 +1,6 @@
 # Goal 68.4 — External Extraction Acceptance Checklist
 
-**Status: private owner repository, CI, and issue/review location verified; formal external owner acceptance pending**
+**Status: private owner repository, CI, and structured issue/review workflow verified; formal external owner acceptance pending**
 
 > Parent: [Goal 68 — DPM Logical Data Definition and Extraction Boundary](./goal-68-dpm-logical-data-definition-boundary.md)
 >
@@ -21,7 +21,7 @@ published.
 | Public package boundary | `packages/dpm/package.json` declares the root and category subpaths; package-name imports do not use monorepo source or deep chunk paths. |
 | Root surface gate | `check:dpm-surface` includes `smoke:extraction` alongside subpath, workflow, and pack-boundary checks. |
 | Compatibility and rollback rules | [Goal 68 Extraction Migration and Rollback Contract](./goal-68-dpm-extraction-migration.md) defines v1.0/v1.1, artifact markers, migration order, and rollback behavior. |
-| Owner document/CI gate | The private owner document set passes `check:docs` and the full owner CI workflow in [run 29352690749](https://github.com/mineclover/data-governance/actions/runs/29352690749) for commit `beabf42`. |
+| Owner document/CI gate | The private owner document set passes `check:docs` and the full owner CI workflow in [run 29353177517](https://github.com/mineclover/data-governance/actions/runs/29353177517) for commit `60c6c36`. |
 
 The local evidence proves extraction readiness for review. It does not prove registry publication,
 external repository ownership, or acceptance of the experimental v1.1 wire shape.
@@ -29,10 +29,12 @@ external repository ownership, or acceptance of the experimental v1.1 wire shape
 The private owner repository rehearsal is now also complete: commit `7f1fb3f` in
 [`mineclover/data-governance`](https://github.com/mineclover/data-governance) passed the external
 build, typecheck, boundary, unit, packed runtime/declaration/rollback, workflow, and pack checks.
-The latest owner CI workflow passed for commit `beabf42` in
-[workflow run 29352690749](https://github.com/mineclover/data-governance/actions/runs/29352690749).
+The latest owner CI workflow passed for commit `60c6c36` in
+[workflow run 29353177517](https://github.com/mineclover/data-governance/actions/runs/29353177517).
 GitHub Issues are enabled at
 `https://github.com/mineclover/data-governance/issues` as the current issue/review location.
+The structured owner acceptance form is available at
+[`dpm-owner-acceptance.yml`](https://github.com/mineclover/data-governance/blob/main/.github/ISSUE_TEMPLATE/dpm-owner-acceptance.yml).
 
 ## Current repository audit
 

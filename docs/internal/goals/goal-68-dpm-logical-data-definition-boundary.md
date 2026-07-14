@@ -1,6 +1,6 @@
 # Goal 68 — DPM Logical Data Definition and Extraction Boundary
 
-**Status: active — 68.0·68.1·68.2·68.3 complete; 68.4 private external rehearsal and owner CI passed, formal acceptance pending**
+**Status: active — 68.0·68.1·68.2·68.3 complete; 68.4 private external rehearsal, owner CI, and structured review workflow verified, formal acceptance pending**
 
 > Predecessor: [Goal 67 — DPM Canonical Key Typed Encoding v2](./goal-67-dpm-canonical-key-typed-v2.md)<br>
 > Architecture boundary: [Package Architecture](../architecture/packages.md)<br>
@@ -29,8 +29,9 @@ Private owner candidate: [`mineclover/data-governance`](https://github.com/minec
 (created 2026-07-15; initial extraction commit `7f1fb3f`; repository is private). The interim
 decision is recorded in the [external owner decision record](https://github.com/mineclover/data-governance/blob/main/docs/internal/goals/owner-decision-record.md); GitHub Issues are enabled at
 `https://github.com/mineclover/data-governance/issues`, and its latest CI passed in
-workflow [29352690749](https://github.com/mineclover/data-governance/actions/runs/29352690749) for
-commit `beabf42`.
+workflow [29353177517](https://github.com/mineclover/data-governance/actions/runs/29353177517) for
+commit `60c6c36`; the structured owner acceptance form is available at
+[`dpm-owner-acceptance.yml`](https://github.com/mineclover/data-governance/blob/main/.github/ISSUE_TEMPLATE/dpm-owner-acceptance.yml).
 
 ## Expressive boundary
 
@@ -147,7 +148,7 @@ consumer workflow, rollback, and pack dry-run checks. The `oa-sdk` package remai
 compatibility/source implementation until the external acceptance record names release authority,
 compatibility window, publication policy, and the final canonical-document transition. The
 interim owner document set is self-contained and its `check:docs` gate passed in workflow
-[29352690749](https://github.com/mineclover/data-governance/actions/runs/29352690749).
+[29353177517](https://github.com/mineclover/data-governance/actions/runs/29353177517).
 
 ## Review verdict of the current implementation
 

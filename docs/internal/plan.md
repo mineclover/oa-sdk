@@ -45,7 +45,7 @@ Goal 간 선행 관계와 잔여 gap은 [DPM Master Roadmap](./goals/dpm-master-
 temporary monorepo reactivation decision 후 68.1 identity contract, 68.2 semantic binding,
 68.3 neutral artifact/provenance integration을 완료했고 68.4 private
 `mineclover/data-governance` repository push와 external packed-consumer rehearsal도 runtime,
-declaration, rollback, workflow, pack, owner CI, and owner `check:docs` gate까지 통과했다. GitHub Issues가 현재 issue/review 위치로 활성화되어 있다. Interim owner decision은 [external owner decision record](https://github.com/mineclover/data-governance/blob/main/docs/internal/goals/owner-decision-record.md)에 기록했다. `data_definitions` 1.0은 구조적 호환성
+declaration, rollback, workflow, pack, owner CI, and owner `check:docs` gate까지 통과했다. GitHub Issues와 structured Goal 68.4 acceptance form이 현재 issue/review workflow로 준비되어 있다. Interim owner decision은 [external owner decision record](https://github.com/mineclover/data-governance/blob/main/docs/internal/goals/owner-decision-record.md)에 기록했다. `data_definitions` 1.0은 구조적 호환성
 계약으로 동결하고, 1.1 identity contract는 외부 extraction owner acceptance 전까지
 experimental로 취급한다. migration/rollback 규칙은
 [Goal 68 extraction contract](./goals/goal-68-dpm-extraction-migration.md)에 기록했고 owner handoff gate는 [Goal 68.4 acceptance checklist](./goals/goal-68-extraction-acceptance-checklist.md)에 정리했다. 검색, draft/edit/publish, diff/rollback, 작성 편의성은 stable
