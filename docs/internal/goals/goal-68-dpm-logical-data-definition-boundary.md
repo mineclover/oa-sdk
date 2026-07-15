@@ -29,7 +29,7 @@ Private owner: [`mineclover/data-governance`](https://github.com/mineclover/data
 (created 2026-07-15; the initial extraction is recorded in the canonical repository history; repository is private). The accepted
 decision is recorded in the [external owner decision record](https://github.com/mineclover/data-governance/blob/main/docs/internal/goals/owner-decision-record.md) and [Goal 68.4 owner acceptance issue](https://github.com/mineclover/data-governance/issues/1); GitHub Issues are enabled at
 `https://github.com/mineclover/data-governance/issues`, and its owner CI passed in
-workflow [29426919031](https://github.com/mineclover/data-governance/actions/runs/29426919031) for
+workflow [29427810791](https://github.com/mineclover/data-governance/actions/runs/29427810791) for
 the selected private source ref; the structured owner acceptance form is available at
 [`dpm-owner-acceptance.yml`](https://github.com/mineclover/data-governance/blob/main/.github/ISSUE_TEMPLATE/dpm-owner-acceptance.yml).
 
@@ -142,7 +142,7 @@ consumer workflow, rollback, and pack dry-run checks. The `oa-sdk` package remai
 compatibility/source implementation until the first accepted owner artifact release (`T1`), then
 becomes a forwarding adapter for one subsequent compatibility release. The accepted owner document
 set is self-contained and its `check:docs` gate passed in workflow
-[29426919031](https://github.com/mineclover/data-governance/actions/runs/29426919031), including
+[29427810791](https://github.com/mineclover/data-governance/actions/runs/29427810791), including
 the T1 tag release gate definition.
 
 ## Review verdict of the current implementation

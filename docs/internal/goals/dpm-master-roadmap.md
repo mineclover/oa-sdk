@@ -93,7 +93,7 @@ build, typecheck, boundary check, 120 test files/269 tests, package subpath and 
 checks, packed consumer, workflow consumer, rollback consumer, and pack dry-run. The owner
 decision record and Node 25/pnpm 10.30.3 CI are also pushed; the owner workflow for the structured
 acceptance form and T1 release gate
-[29426919031](https://github.com/mineclover/data-governance/actions/runs/29426919031) passed for
+[29427810791](https://github.com/mineclover/data-governance/actions/runs/29427810791) passed for
 the selected private source ref. GitHub Issues, the structured Goal 68.4 acceptance form, the compatibility
 window, and canonical document ownership are recorded in [Issue #1](https://github.com/mineclover/data-governance/issues/1).
 The private owner handoff is complete; the recommended future package target is `@mineclover/dpm`,

@@ -105,7 +105,7 @@ If external extraction or a consumer migration fails:
   build/typecheck/boundary checks, 120 test files/269 tests, packed runtime/declaration/rollback
   consumers, workflow consumer, and pack dry-run passed.
 - Owner decision record: [external owner decision record](https://github.com/mineclover/data-governance/blob/main/docs/internal/goals/owner-decision-record.md). The private owner acceptance is recorded in [Issue #1](https://github.com/mineclover/data-governance/issues/1).
-  Owner CI workflow [29426919031](https://github.com/mineclover/data-governance/actions/runs/29426919031)
+  Owner CI workflow [29427810791](https://github.com/mineclover/data-governance/actions/runs/29427810791)
   passed for the selected private source ref with Node 25 and pnpm 10.30.3; the structured acceptance form is
   [dpm-owner-acceptance.yml](https://github.com/mineclover/data-governance/blob/main/.github/ISSUE_TEMPLATE/dpm-owner-acceptance.yml).
 - Private owner acceptance, compatibility-window decision, canonical document ownership, and
