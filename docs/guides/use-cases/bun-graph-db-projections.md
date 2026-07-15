@@ -313,4 +313,4 @@ Table runtime schema를 소비하는 generated artifact는 항상 `{ tableId 또
 → [OpenAPI Projection Contract](../../../packages/openapi-projection-contract/README.md)  
 → [Data Pseudonymization Manifest](../../concepts/data-pseudonymization-manifest.md)\
 → [Shared SchemaEngine vocabulary](../../internal/architecture/007-shared-schema-engine-vocabulary.md)  
-→ [bun-graph-db full document scope](../../../references/bun-graph-db/docs/development/FULL_OPENAPI_DOCUMENT_SCOPE.md)
+→ [bun-graph-db full document scope](https://github.com/mineclover/bun-graph-db/blob/main/docs/development/FULL_OPENAPI_DOCUMENT_SCOPE.md)
