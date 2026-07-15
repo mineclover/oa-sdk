@@ -54,6 +54,16 @@ declaration, rollback, workflow, pack, owner CI, and owner `check:docs` gate까�
 neutral artifact 위에 두는 별도의 owner-authorized control-plane capability이며 아직 active
 goal은 아니다.
 
+## 권장 public-release 정책
+
+현재는 repository와 package를 private으로 유지한다. 공개 전환의 기본 패키지명은
+`@mineclover/dpm`으로 검토하고, 기존 `@oa-sdk/dpm`은 compatibility adapter로 유지한다.
+`T1`은 `main`의 owner-approved SemVer tag 또는 GitHub Release 중 정확한 release commit에
+owner CI가 성공한 경우로만 인정한다. 일반 commit, branch build, private rehearsal은 `T1`이
+아니다. `T1` 전에는 public package metadata, license, registry publication을 추가하지 않는다.
+`T1` 이후에는 기존 import를 1회 compatibility release 동안 유지하고 deprecation notice를
+추가하며, 제거는 별도 승인된 major release로만 진행한다.
+
 ---
 
 ## 아키텍처 — SWC 스타일 Parse → Transform → Generate

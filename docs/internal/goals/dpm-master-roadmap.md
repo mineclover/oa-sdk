@@ -96,8 +96,9 @@ acceptance form
 [29353981154](https://github.com/mineclover/data-governance/actions/runs/29353981154) passed for
 commit `c1fb9a9`. GitHub Issues, the structured Goal 68.4 acceptance form, the compatibility
 window, and canonical document ownership are recorded in [Issue #1](https://github.com/mineclover/data-governance/issues/1).
-The private owner handoff is complete; public package metadata, registry publication, and breaking
-removal remain separately gated. No scope reactivation is authorized.
+The private owner handoff is complete; the recommended future package target is `@mineclover/dpm`,
+while public package metadata, registry publication, and breaking removal remain separately gated by
+an owner-approved `T1` release. No scope reactivation is authorized.
 
 Blocking phases: 5–10.
 
