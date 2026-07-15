@@ -16,7 +16,7 @@ silently changing logical data identity.
 ## Current boundary
 
 - The source implementation remains `mineclover/oa-sdk/packages/dpm` during the compatibility
-  window. The private external owner contains the initial extraction at commit `7f1fb3f`;
+  window. The private external owner records the initial extraction in its repository history;
   this package becomes a compatibility adapter at the first accepted external owner artifact
   release (`T1`), after which the existing import surface remains supported for one subsequent
   compatibility release.
@@ -31,10 +31,10 @@ silently changing logical data identity.
 
 ## T1 release gate
 
-`T1` is the first owner-approved SemVer tag or GitHub Release on `main` whose exact release commit
-has a successful owner CI run. A private commit, branch build, or extraction rehearsal does not
-constitute `T1`. The recommended future public package target is `@mineclover/dpm`; it remains
-unpublished until registry, license, and publication policy receive separate approval.
+`T1` is the first owner-approved SemVer tag or GitHub Release on `main` whose release-gate workflow
+passes. A private branch build or extraction rehearsal does not constitute `T1`. The recommended
+future public package target is `@mineclover/dpm`; it remains unpublished until registry, license,
+and publication policy receive separate approval.
 
 ## Version migration rules
 
@@ -101,12 +101,12 @@ If external extraction or a consumer migration fails:
 - Owner handoff checklist: `docs/internal/goals/goal-68-extraction-acceptance-checklist.md`.
 - Public package/type smoke: `packages/dpm/test/package-subpath-import-smoke.mjs` and
   `packages/dpm/test/package-subpath-type-consumer.ts`.
-- External owner repository rehearsal: `mineclover/data-governance` commit `7f1fb3f`; its DPM
+- External owner repository rehearsal: `mineclover/data-governance` history; its DPM
   build/typecheck/boundary checks, 120 test files/269 tests, packed runtime/declaration/rollback
   consumers, workflow consumer, and pack dry-run passed.
 - Owner decision record: [external owner decision record](https://github.com/mineclover/data-governance/blob/main/docs/internal/goals/owner-decision-record.md). The private owner acceptance is recorded in [Issue #1](https://github.com/mineclover/data-governance/issues/1).
-  Owner CI workflow [29381266646](https://github.com/mineclover/data-governance/actions/runs/29381266646)
-  passed for commit `03c4436` with Node 25 and pnpm 10.30.3; the structured acceptance form is
+  Owner CI workflow [29426919031](https://github.com/mineclover/data-governance/actions/runs/29426919031)
+  passed for the selected private source ref with Node 25 and pnpm 10.30.3; the structured acceptance form is
   [dpm-owner-acceptance.yml](https://github.com/mineclover/data-governance/blob/main/.github/ISSUE_TEMPLATE/dpm-owner-acceptance.yml).
 - Private owner acceptance, compatibility-window decision, canonical document ownership, and
   rollback sign-off are recorded in the owner decision record and Issue #1. Registry publication

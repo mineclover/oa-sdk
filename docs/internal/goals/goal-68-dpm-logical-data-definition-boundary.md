@@ -26,11 +26,11 @@ and authoring convenience are a follow-on control-plane capability after the neu
 is stable; they are not silently included in the Goal 68 compiler scope.
 
 Private owner: [`mineclover/data-governance`](https://github.com/mineclover/data-governance)
-(created 2026-07-15; initial extraction commit `7f1fb3f`; repository is private). The accepted
+(created 2026-07-15; the initial extraction is recorded in the canonical repository history; repository is private). The accepted
 decision is recorded in the [external owner decision record](https://github.com/mineclover/data-governance/blob/main/docs/internal/goals/owner-decision-record.md) and [Goal 68.4 owner acceptance issue](https://github.com/mineclover/data-governance/issues/1); GitHub Issues are enabled at
 `https://github.com/mineclover/data-governance/issues`, and its owner CI passed in
-workflow [29381266646](https://github.com/mineclover/data-governance/actions/runs/29381266646) for
-commit `03c4436`; the structured owner acceptance form is available at
+workflow [29426919031](https://github.com/mineclover/data-governance/actions/runs/29426919031) for
+the selected private source ref; the structured owner acceptance form is available at
 [`dpm-owner-acceptance.yml`](https://github.com/mineclover/data-governance/blob/main/.github/ISSUE_TEMPLATE/dpm-owner-acceptance.yml).
 
 ## Expressive boundary
@@ -136,13 +136,13 @@ registry publication and breaking removal remain separate gates.
 
 On 2026-07-15, the owner created the private
 [`mineclover/data-governance`](https://github.com/mineclover/data-governance) repository and pushed
-the DPM extraction as commit `7f1fb3fe1597053d8eec769492b517523569953a`. The external workspace
+the DPM extraction, recorded in the canonical repository history. The external workspace
 passed build, typecheck, boundary, DPM unit, package subpath, declaration, packed consumer,
 consumer workflow, rollback, and pack dry-run checks. The `oa-sdk` package remains the
 compatibility/source implementation until the first accepted owner artifact release (`T1`), then
 becomes a forwarding adapter for one subsequent compatibility release. The accepted owner document
 set is self-contained and its `check:docs` gate passed in workflow
-[29381266646](https://github.com/mineclover/data-governance/actions/runs/29381266646), including
+[29426919031](https://github.com/mineclover/data-governance/actions/runs/29426919031), including
 the T1 tag release gate definition.
 
 ## Review verdict of the current implementation

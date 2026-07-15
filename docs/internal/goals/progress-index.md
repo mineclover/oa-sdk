@@ -1,13 +1,13 @@
 # Goal Progress Index
 
-Last updated: 2026-07-15
+Last updated: 2026-07-16
 
 이 파일은 goal 진행 현황만 관리한다. 설계, 범위, 수용 기준은 각 goal 문서를 따르며,
 DPM phase 순서와 gap 정렬은 [DPM Master Roadmap](./dpm-master-roadmap.md)을 따른다.
 
 ## Current
 
-- Goal 68 is active with private owner acceptance recorded. DPM-86 through DPM-90 are complete; DPM-90 is backed by the private `mineclover/data-governance` repository, owner commit `03c4436`, owner workflow `29381266646`, external runtime/declaration/rollback/workflow/pack rehearsal, owner `check:docs`, T1 release-gate verification, and [Goal 68.4 Issue #1](https://github.com/mineclover/data-governance/issues/1). The external owner is canonical for the extraction contract; public registry publication and breaking removal remain separately gated.
+- Goal 68 is active with private owner acceptance recorded. DPM-86 through DPM-90 are complete; DPM-90 is backed by the private `mineclover/data-governance` repository, owner workflow `29426919031`, external runtime/declaration/rollback/workflow/pack rehearsal, owner `check:docs`, T1 release-gate verification, and [Goal 68.4 Issue #1](https://github.com/mineclover/data-governance/issues/1). The external owner is canonical for the extraction contract; public registry publication and breaking removal remain separately gated.
 
 ## Recently Completed
 

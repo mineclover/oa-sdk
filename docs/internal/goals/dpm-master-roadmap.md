@@ -85,16 +85,16 @@ and local extraction is not evidence of production runtime readiness.
 
 Current `@oa-sdk/dpm` is private, maintenance-only, and marked as a data-governance extraction
 candidate. A private external owner now exists at
-`https://github.com/mineclover/data-governance` and has received the initial extraction commit
-`7f1fb3fe1597053d8eec769492b517523569953a`.
+`https://github.com/mineclover/data-governance` and records the initial extraction in its
+canonical repository history.
 
 The repository was created and pushed on 2026-07-15. Its external workspace passed the DPM
 build, typecheck, boundary check, 120 test files/269 tests, package subpath and declaration
 checks, packed consumer, workflow consumer, rollback consumer, and pack dry-run. The owner
 decision record and Node 25/pnpm 10.30.3 CI are also pushed; the owner workflow for the structured
 acceptance form and T1 release gate
-[29381266646](https://github.com/mineclover/data-governance/actions/runs/29381266646) passed for
-commit `03c4436`. GitHub Issues, the structured Goal 68.4 acceptance form, the compatibility
+[29426919031](https://github.com/mineclover/data-governance/actions/runs/29426919031) passed for
+the selected private source ref. GitHub Issues, the structured Goal 68.4 acceptance form, the compatibility
 window, and canonical document ownership are recorded in [Issue #1](https://github.com/mineclover/data-governance/issues/1).
 The private owner handoff is complete; the recommended future package target is `@mineclover/dpm`,
 while public package metadata, registry publication, and breaking removal remain separately gated by
