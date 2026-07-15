@@ -117,7 +117,10 @@ describe('oa-gen TypeSpec sidecar CLI', () => {
       '--bundle-expected-openapi', bundleExpectedOpenapiPath,
     ])
     expect(exportResult.status).toBe(0)
-    expect(exportResult.stderr).toBe('')
+    expect(exportResult.stdout).toContain(`TypeSpec export: ${tspPath}`)
+    expect(exportResult.stderr).toContain(`TypeSpec compatibility sidecar: ${sidecarPath}`)
+    expect(exportResult.stderr).toContain(`TypeSpec bundle expected OpenAPI: ${bundleExpectedOpenapiPath}`)
+    expect(exportResult.stderr).toContain(`TypeSpec bundle manifest: ${bundleManifestPath}`)
     expect(existsSync(tspPath)).toBe(true)
 
     const sidecar = JSON.parse(readFileSync(sidecarPath, 'utf8')) as TypeSpecCompatibilitySidecar
@@ -172,7 +175,9 @@ describe('oa-gen TypeSpec sidecar CLI', () => {
       '--stability-report', stabilityReportPath,
     ])
     expect(restoreResult.status).toBe(0)
-    expect(restoreResult.stderr).toBe('')
+    expect(restoreResult.stdout).toContain(`TypeSpec sidecar restored OpenAPI: ${restoredPath}`)
+    expect(restoreResult.stderr).toContain(`TypeSpec sidecar restore report: ${restoreReportPath}`)
+    expect(restoreResult.stderr).toContain(`TypeSpec sidecar stability report: ${stabilityReportPath}`)
 
     const report = JSON.parse(readFileSync(restoreReportPath, 'utf8')) as TypeSpecCompatibilityRestoreReport
     expect(report.counts).toEqual({
