@@ -7,7 +7,7 @@ DPM phase 순서와 gap 정렬은 [DPM Master Roadmap](./dpm-master-roadmap.md)�
 
 ## Current
 
-- Goal 68 is active under the recorded temporary monorepo reactivation. DPM-86 through DPM-89 are complete, and DPM-90 has been extracted and pushed to the private `mineclover/data-governance` repository at commit `7f1fb3f`; its external runtime, declaration, rollback, workflow, pack rehearsal, owner CI, self-contained owner-document link gate, and structured GitHub Issues review workflow passed/are enabled as recorded by owner commit `60c6c36` and workflow `29353177517`. Formal owner/release acceptance, publication metadata, compatibility-window definition, and canonical-document sign-off remain pending.
+- Goal 68 is active with private owner acceptance recorded. DPM-86 through DPM-90 are complete; DPM-90 is backed by the private `mineclover/data-governance` repository, owner commit `c1fb9a9`, owner workflow `29353981154`, external runtime/declaration/rollback/workflow/pack rehearsal, owner `check:docs`, and [Goal 68.4 Issue #1](https://github.com/mineclover/data-governance/issues/1). The external owner is canonical for the extraction contract; public registry publication and breaking removal remain separately gated.
 
 ## Recently Completed
 
@@ -425,7 +425,7 @@ DPM phase 순서와 gap 정렬은 [DPM Master Roadmap](./dpm-master-roadmap.md)�
 - [x] DPM-87 - Namespace-safe identity contract
 - [x] DPM-88 - Semantic API/catalog binding validation
 - [x] DPM-89 - Compiler and provenance artifact integration
-- [ ] DPM-90 - External extraction rehearsal (private repository pushed and external runtime/declaration/rollback/workflow/pack rehearsal plus owner CI and issue/review location recorded; pending formal owner acceptance, release policy, and canonical migration)
+- [x] DPM-90 - External extraction rehearsal and private owner acceptance (private repository, owner decision, compatibility window, canonical document ownership, rollback sign-off, and CI-backed runtime/declaration/rollback/workflow/pack rehearsal recorded; public release remains disabled)
 
 ## Done Criteria
 
