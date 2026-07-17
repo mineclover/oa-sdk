@@ -718,6 +718,41 @@ describe('validate', () => {
   })
 })
 
+// ── reference-check ────────────────────────────────────────
+
+describe('reference-check', () => {
+  it('reports oa-sdk as authoritative and keeps Apitomy divergence informational', () => {
+    const out = cli(`reference-check -s ${specPath} --format json`)
+    const report = JSON.parse(out) as {
+      schemaVersion?: string
+      authoritative?: string
+      reference?: string
+      status?: string
+      primary?: { valid?: boolean }
+      metadata?: {
+        providerPackage?: string
+        providerVersion?: string
+        inputHash?: string
+        capabilities?: string[]
+      }
+      differences?: Array<{ kind?: string }>
+      serialization?: { checked?: boolean; equal?: boolean }
+    }
+
+    expect(report.schemaVersion).toBe('oa-gen.apitomy-reference.v1')
+    expect(report.authoritative).toBe('oa-sdk')
+    expect(report.reference).toBe('apitomy')
+    expect(report.primary?.valid).toBe(true)
+    expect(['match', 'divergent']).toContain(report.status)
+    expect(report.metadata?.providerPackage).toBe('@apitomy/data-models')
+    expect(report.metadata?.providerVersion).toBe('3.1.3')
+    expect(report.metadata?.inputHash).toMatch(/^sha256:[0-9a-f]{64}$/)
+    expect(report.metadata?.capabilities).toEqual(expect.arrayContaining(['read', 'write', 'validate']))
+    expect(report.serialization).toEqual({ checked: true, equal: true })
+    expect(report.differences).toEqual(expect.any(Array))
+  })
+})
+
 // ── inventory ───────────────────────────────────────────────
 
 describe('inventory', () => {

@@ -128,6 +128,46 @@ export const oaGenGovernanceManifest = {
       },
     },
     {
+      id: 'reference-check',
+      kind: 'command',
+      name: 'reference-check',
+      summary: 'Apitomy를 비권위적 reference로 사용해 oa-sdk 검증 결과를 비교',
+      components: {
+        options: [
+          {
+            name: 'spec',
+            type: 'string',
+            short: 's',
+            required: true,
+            description: 'OAS spec 파일 경로',
+          },
+          {
+            name: 'require-32',
+            type: 'boolean',
+            description: 'oa-sdk 관리 계약으로 OpenAPI 3.2.x 버전을 강제',
+          },
+          {
+            name: 'format',
+            type: 'string',
+            short: 'f',
+            description: '출력 형식 (markdown 또는 json)',
+          },
+        ],
+        inputs: [
+          { name: 'spec', kind: 'openapi-document', required: true, option: 'spec' },
+        ],
+        checks: [],
+        reports: [
+          { formats: ['markdown'], schema: 'oa-gen.apitomy-reference.v1' },
+          { formats: ['json'], schema: 'oa-gen.apitomy-reference.v1' },
+        ],
+        exitPolicy: {
+          success: ['APPROVE', 'COMMENT'],
+          failure: ['REQUEST_CHANGES'],
+        },
+      },
+    },
+    {
       id: 'normalize',
       kind: 'command',
       name: 'normalize',
