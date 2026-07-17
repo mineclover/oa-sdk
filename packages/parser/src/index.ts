@@ -176,4 +176,4 @@ export type { LintResult, LintSeverity, LintOptions } from './lint.js'
 
 // ─── Validate ─────────────────────────────────────────────────────────────
 export { validateDocument } from './validate.js'
-export type { ValidationResult } from './validate.js'
+export type { ValidateDocumentOptions, ValidationResult } from './validate.js'

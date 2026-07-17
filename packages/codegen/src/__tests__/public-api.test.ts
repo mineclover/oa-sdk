@@ -154,7 +154,7 @@ browserGenerateTypesFromSpec({
   it('keeps deep typegen modules out of package exports', () => {
     const packageJson = readPackageJson()
 
-    expect(Object.keys(packageJson.exports).sort()).toEqual(['.', './drizzle', './spec-lens', './typegen', './typegen/browser'])
+    expect(Object.keys(packageJson.exports).sort()).toEqual(['.', './apitomy', './drizzle', './spec-lens', './typegen', './typegen/browser'])
     expect(packageJson.exports).not.toHaveProperty('./typegen/generate-types')
     expect(packageJson.exports).not.toHaveProperty('./typegen/schema-to-ts')
   })

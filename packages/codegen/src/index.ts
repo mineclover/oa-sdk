@@ -31,6 +31,14 @@ export {
   formatScaffoldResult,
   scaffoldOpenApiGovernance,
 } from './cli/lib/openapi-governance-scaffold.js'
+export {
+  APITOMY_DATA_MODELS_PACKAGE,
+  APITOMY_REFERENCE_ADAPTER_VERSION,
+  ApitomyReferenceError,
+  createApitomyReferenceAdapter,
+  createApitomyReferenceAdapterFromModule,
+  loadApitomyDataModels,
+} from './apitomy/index.js'
 
 export type { OasSchema } from './zod-to-schema.js'
 export type { CodegenConfig } from './config.js'
@@ -56,6 +64,21 @@ export type {
   OpenApiGovernanceScaffoldOptions,
   OpenApiGovernanceScaffoldResult,
 } from './cli/lib/openapi-governance-scaffold.js'
+export type {
+  ApitomyReferenceAdapter,
+  ApitomyReferenceAdapterOptions,
+  ApitomyReferenceCompareOptions,
+  ApitomyReferenceComparison,
+  ApitomyReferenceDiagnosticDifference,
+  ApitomyReferenceDifferenceKind,
+  ApitomyReferenceDocument,
+  ApitomyReferenceErrorCode,
+  ApitomyReferenceLibrary,
+  ApitomyReferenceMetadata,
+  ApitomyReferenceModule,
+  ApitomyReferenceSerialization,
+  ApitomyReferenceValidationProblem,
+} from './apitomy/index.js'
 export type {
   WorkspaceComponentFilter,
   WorkspaceComponentRecord,
