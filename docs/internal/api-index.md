@@ -76,7 +76,7 @@ OA SDK와 bun-graph-db가 각자의 source loader, repository, CLI, MCP, GraphQL
 Relationship-first Data Pseudonymization Manifest의 package surface다. Manifest syntax gate,
 catalog/registry snapshot, semantic validator, compiler, CLI/gateway/publishing context를 포함한다.
 지원 subpath는 package exports의 `.`, `./package`, `./catalog`, `./data`, `./profile`, `./relationship`,
-`./gateway`, `./storage`, `./publishing`이며 각 subpath는 `packages/dpm/src/public/*.ts`
+`./gateway`, `./storage`, `./publishing`, `./execution`이며 각 subpath는 `packages/dpm/src/public/*.ts`
 category barrel을 가리킨다. `packages/dpm/test/package-subpath-import-smoke.mjs`와
 `packages/dpm/test/package-subpath-type-consumer.ts`는 build된 package subpath의 runtime/declaration
 소비를 검증하고, `packages/dpm/test/package-pack-smoke.mjs`는 dry-run package 파일 경계를 검증한다.
@@ -440,6 +440,17 @@ category barrel을 가리킨다. `packages/dpm/test/package-subpath-import-smoke
 | `DpmDryRunInput` | `dpm/src/dry-run/report.ts` | dry-run report input |
 | `DpmDryRunReport` | `dpm/src/dry-run/report.ts` | raw-value-free dry-run report |
 | `createDpmDryRunReport()` | `dpm/src/dry-run/report.ts` | dry-run impact report creation |
+| `DpmExecutionKey` | `dpm/src/execution/execution-types.ts` | caller-supplied ephemeral key material type for in-memory execution |
+| `DpmExecutionRow` | `dpm/src/execution/execution-types.ts` | caller-owned table row input for in-memory execution |
+| `DpmExecutionInput` | `dpm/src/execution/execution-types.ts` | compiled plan plus in-memory row batch execution input |
+| `DpmExecutionOptions` | `dpm/src/execution/execution-types.ts` | token/hash key and redaction output options; key material is not persisted |
+| `DpmExecutionDiagnostic` | `dpm/src/execution/execution-types.ts` | raw-value-free execution diagnostic |
+| `DpmExecutionIntegrity` | `dpm/src/execution/execution-types.ts` | post-run relationship integrity summary |
+| `DpmExecutionReport` | `dpm/src/execution/execution-types.ts` | raw-value-free in-memory execution report |
+| `DpmExecutionResult` | `dpm/src/execution/execution-types.ts` | fail-closed execution result union |
+| `DpmExecutionSuccess` | `dpm/src/execution/execution-types.ts` | successful transformed row batch result |
+| `DpmExecutionFailure` | `dpm/src/execution/execution-types.ts` | execution refusal with diagnostics and no output rows |
+| `executeDpmRows()` | `dpm/src/execution/in-memory-executor.ts` | caller-owned in-memory transform adapter with keyed token/hash, orphan checks, and relationship integrity; no DB/vault access |
 | `DPM_JOB_KIND` | `dpm/src/storage/job-repository-types.ts` | persisted DPM job row kind literal |
 | `DPM_JOB_OPERATIONS` | `dpm/src/storage/job-operation-taxonomy.ts` | persisted DPM job operation taxonomy |
 | `DPM_JOB_STATUSES` | `dpm/src/storage/job-status-taxonomy.ts` | persisted DPM job status taxonomy |

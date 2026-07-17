@@ -64,6 +64,10 @@
 
 정의: [Data Pseudonymization Manifest](./concepts/data-pseudonymization-manifest.md)
 
+## DPM Execution Runtime
+
+정의: [DPM Execution Runtime Design](./concepts/dpm-execution-runtime.md)
+
 ## CLI Governance Manifest
 
 정의: [CLI Governance](./concepts/cli-governance.md#cli-governance-manifest)

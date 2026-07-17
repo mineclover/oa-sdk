@@ -99,6 +99,11 @@ import {
   DPM_PUBLISHING_CONTEXT_KIND,
   type DpmPublishingContext,
 } from '@oa-sdk/dpm/publishing'
+import {
+  executeDpmRows,
+  type DpmExecutionOptions,
+  type DpmExecutionResult,
+} from '@oa-sdk/dpm/execution'
 
 type DpmSubpathTypeSmoke = {
   catalog?: CatalogSnapshot
@@ -142,6 +147,8 @@ type DpmSubpathTypeSmoke = {
   publishing?: DpmPublishingContext
   dataDefinitions?: DpmIdentityDataDefinitions
   neutralDataBindingArtifact?: DpmNeutralDataBindingArtifact
+  executionOptions?: DpmExecutionOptions
+  executionResult?: DpmExecutionResult
 }
 
 const packageName: '@oa-sdk/dpm' = DPM_PACKAGE_NAME
@@ -193,6 +200,7 @@ void [
   DPM_PROFILE_BASELINE_SELECTION_STRATEGIES,
   DPM_PUBLISHING_CONTEXT_KIND,
   dataDefinitions,
+  executeDpmRows,
   computeCatalogFreshnessHash,
   createDpmRelationshipCandidateInputFromResolvedProfileHint,
   createDpmRelationshipCandidateInputFromProfileHint,

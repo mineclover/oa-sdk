@@ -32,6 +32,13 @@ snapshot, compiled plan, runtime validation report, AI schema context는 generat
 Goal 4의 relationship-first core loop는 `@oa-sdk/dpm`으로 구현되었다. Runtime/storage 후속은
 [Goal 5 — DPM Runtime/Storage Integration](./goals/goal-5-dpm-runtime-storage-integration.md)에 둔다.
 
+후속 구현의 첫 bounded data-plane slice는 `@oa-sdk/dpm/execution`의 `executeDpmRows()`다.
+이 adapter는 caller-owned in-memory row batch에 compiled plan을 적용하고, caller가 전달한
+ephemeral HMAC key로 relationship token/hash를 생성하며, orphan policy와 parent/child 변환
+일관성을 검증한다. 결과 report에는 raw value나 key material을 포함하지 않고, 오류가 있으면
+output row를 반환하지 않는다. DB 연결, vault resolver, production row rewrite는 여전히 별도
+단계로 남아 있다.
+
 현재 `data_definitions` 구조와 `@oa-sdk/dpm/data` public seam은 논리 field/API/DB object
 식별을 분리하는 compatibility slice로 추가되었다. namespace-safe identity contract는 Goal 68.1로
 완료했고 artifact/catalog semantic binding은 Goal 68.2로 완료했다. Goal 68.3의 neutral

@@ -16,6 +16,7 @@ Prefer package subpaths for new consumers. The root `@oa-sdk/dpm` entrypoint rem
 | `@oa-sdk/dpm/gateway` | OpenAPI contract document and in-process runtime helpers | `src/public/gateway.ts` |
 | `@oa-sdk/dpm/storage` | job, report, registry, and profile baseline repositories/adapters | `src/public/storage.ts` |
 | `@oa-sdk/dpm/publishing` | AI schema context and physical foreign-key recommendation projections | `src/public/publishing.ts` |
+| `@oa-sdk/dpm/execution` | caller-owned in-memory row transforms and post-run relationship integrity checks | `src/public/execution.ts` |
 
 `package.json` publishes the same subpaths and `src/index.ts` re-exports the category barrels for compatibility.
 
@@ -50,6 +51,23 @@ Profile analysis produces review proposals. It does not auto-approve relationshi
 ### Persistence and publishing
 
 Use `@oa-sdk/dpm/storage` when product code needs registry rows, approval audit events, job/report rows, or profile baseline history. Use `@oa-sdk/dpm/publishing` to project compiled relationship metadata into AI-readable context without exposing source database credentials, token vault material, raw payload samples, or reverse token lookup APIs.
+
+### In-memory execution boundary
+
+Use `@oa-sdk/dpm/execution` for fixture, preview, and adapter-level execution of an already compiled plan:
+
+```ts
+const result = executeDpmRows(
+  { plan, rows: [{ table: 'public.customers', values: { customer_no: 'c-001' } }] },
+  { tokenKey: ephemeralTokenKey },
+)
+```
+
+The adapter applies supported column transforms, preserves relationship tokens across parent/child
+rows, checks orphan policy and relationship integrity, and fails closed without returning output rows
+when execution is unsafe. It does not connect to a database, resolve a vault reference, persist rows,
+or expose key material in reports. `generalize` and polymorphic relationship token execution remain
+explicitly blocked until their policy contracts are defined.
 
 ## Operating Strategy
 
