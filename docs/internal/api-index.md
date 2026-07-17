@@ -709,6 +709,7 @@ category barrel을 가리킨다. `packages/dpm/test/package-subpath-import-smoke
 | `LintResult` | `lint.ts` | 린트 결과. source file/pointer와 YAML line/column metadata 포함 가능 |
 | `LintSeverity` | `lint.ts` | 린트 심각도 |
 | `LintOptions` | `lint.ts` | 린트 옵션. basePath와 optional source location lookup 지원 |
+| `ValidateDocumentOptions` | `validate.ts` | validation gate 옵션. basePath/source location과 OpenAPI 3.2 strict 여부 지원 |
 | `ValidationResult` | `validate.ts` | 검증 결과 |
 
 ---
@@ -716,7 +717,7 @@ category barrel을 가리킨다. `packages/dpm/test/package-subpath-import-smoke
 ## 함수 (`@oa-sdk/codegen`)
 
 Typegen 공개 surface는 root entry(`@oa-sdk/codegen`)와 typegen sub-entry(`@oa-sdk/codegen/typegen`)에서 동일하게 지원한다.
-지원 subpath는 package exports의 `.`, `./drizzle`, `./spec-lens`, `./typegen`, `./typegen/browser`뿐이며 `typegen/generate-types.ts`와 `typegen/schema-to-ts.ts`는 문서상 코드 위치일 뿐 package deep import로 공개하지 않는다.
+지원 subpath는 package exports의 `.`, `./apitomy`, `./drizzle`, `./spec-lens`, `./typegen`, `./typegen/browser`이며 `typegen/generate-types.ts`와 `typegen/schema-to-ts.ts`는 문서상 코드 위치일 뿐 package deep import로 공개하지 않는다.
 `./typegen/browser`는 이미 로드된 OpenAPI 객체를 위한 브라우저 안전 surface이며, 외부 파일 `$ref` 분석과 `basePath` 처리는 Node용 `./typegen`에 남긴다.
 
 | 함수 | 파일 | 용도 |
@@ -744,6 +745,11 @@ Typegen 공개 surface는 root entry(`@oa-sdk/codegen`)와 typegen sub-entry(`@o
 | `scaffoldOpenApiGovernance()` | `cli/lib/openapi-governance-scaffold.ts` | 서비스 root에 `openapi-governance.config.json`, `scripts/openapi-governance.sh`, `openapi-governance.md`와 contracts/scripts/src 디렉토리를 생성 |
 | `formatScaffoldResult()` | `cli/lib/openapi-governance-scaffold.ts` | scaffold 결과의 root 디렉토리와 생성 파일 목록을 사용자 친화 텍스트로 렌더링 |
 | `fingerprintGovernanceConfig()` | `cli/lib/openapi-governance-scaffold.ts` | profile/source/artifacts/consumers를 안정 정렬 후 sha256 16자로 해시. rendered 스크립트와 config drift 감지에 사용 |
+| `createApitomyReferenceAdapter()` | `apitomy/index.ts` | 주입된 Apitomy Library를 비권위적 JSON/YAML I/O, validation 비교, OAS 3.x → oa-sdk IR probe로 연결 |
+| `createApitomyReferenceAdapterFromModule()` | `apitomy/index.ts` | Apitomy 모듈의 named/default Library export를 reference adapter로 래핑 |
+| `loadApitomyDataModels()` | `apitomy/index.ts` | optional `@apitomy/data-models`를 동적으로 로드하고 미설치 시 actionable error를 반환 |
+| `APITOMY_DATA_MODELS_PACKAGE` | `apitomy/index.ts` | optional Apitomy package specifier 상수 |
+| `APITOMY_REFERENCE_ADAPTER_VERSION` | `apitomy/index.ts` | reference 비교 리포트의 adapter contract version |
 
 ### 타입 (`@oa-sdk/codegen`)
 
@@ -758,6 +764,20 @@ Typegen 공개 surface는 root entry(`@oa-sdk/codegen`)와 typegen sub-entry(`@o
 | `TypegenOptions` | `typegen/generate-types.ts` | public typegen 옵션. `@oa-sdk/codegen`과 `@oa-sdk/codegen/typegen`에서 모두 export |
 | TypegenOptions | `typegen/browser.ts` | 브라우저 안전 subentry의 typegen 옵션. banner/style/includeAnnotations/refNameOverrides만 지원하며 basePath 외부 ref 분석 옵션은 포함하지 않음 |
 | `SchemaToTsOptions` | `typegen/schema-to-ts.ts` | public `schemaToTs()` 옵션. `@oa-sdk/codegen`과 `@oa-sdk/codegen/typegen`에서 모두 export |
+| `ApitomyReferenceAdapter` | `apitomy/index.ts` | Apitomy document I/O, reference validation, oa-sdk lint/IR 비교 probe, optional transform 계약 |
+| `ApitomyReferenceAdapterOptions` | `apitomy/index.ts` | OAS 3.2 reference boundary와 Apitomy NodePath 변환 hook 옵션 |
+| `ApitomyReferenceCompareOptions` | `apitomy/index.ts` | oa-sdk primary validation과 Apitomy reference validation 비교 옵션 |
+| `ApitomyReferenceComparison` | `apitomy/index.ts` | oa-sdk primary, Apitomy reference, 일치/차이 진단을 함께 담는 비교 결과 |
+| `ApitomyReferenceDifferenceKind` | `apitomy/index.ts` | semantic match, provider-only, path mapping, unsupported reference, serialization loss 차이 분류 |
+| `ApitomyReferenceDiagnosticDifference` | `apitomy/index.ts` | 분류된 primary/reference 진단 pair와 위치·메시지 |
+| `ApitomyReferenceMetadata` | `apitomy/index.ts` | adapter/provider version, input hash, OAS version, capabilities 재현성 메타데이터 |
+| `ApitomyReferenceSerialization` | `apitomy/index.ts` | source object 대비 reference serialization round-trip 확인 결과 |
+| `ApitomyReferenceError` | `apitomy/index.ts` | optional dependency/capability/input/output/document reference 경계 오류 |
+| `ApitomyReferenceErrorCode` | `apitomy/index.ts` | Apitomy reference probe 오류 taxonomy |
+| `ApitomyReferenceModule` | `apitomy/index.ts` | Library와 optional ModelType를 포함한 동적 module shape |
+| `ApitomyReferenceDocument` | `apitomy/index.ts` | Apitomy document object를 opaque reference 값으로 다루는 타입 |
+| `ApitomyReferenceLibrary` | `apitomy/index.ts` | compile-time dependency 없이 필요한 Apitomy Library 최소 structural contract |
+| `ApitomyReferenceValidationProblem` | `apitomy/index.ts` | Apitomy native validation problem의 reference shape |
 | `ExternalSchemaRefAnalysis` | `typegen/generate-types.ts` | 외부 schema-position `$ref` alias 분석 결과 |
 | `ExternalSchemaTypeAlias` | `typegen/generate-types.ts` | 외부 schema alias의 source pointer/ref/type name/content hash metadata |
 | `ExternalSchemaRefDiagnostic` | `typegen/generate-types.ts` | 외부 `$ref` 이름 충돌/operation 타입 충돌/unsupported pointer/해소 실패 diagnostic. sourceFilePath/sourcePointer + filePath/pointer 포함 가능 |

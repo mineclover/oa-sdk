@@ -186,8 +186,19 @@ Extraction 전 migration은 package name/import compatibility와 소비자 검�
 | `src/drizzle/extractor.ts` | Drizzle 테이블 감지 |
 | `src/drizzle/converter.ts` | Drizzle → Zod 변환 |
 | `src/cli/index.ts` | oa-gen CLI 디스패치 (커맨드 모듈 기반) |
-| `src/cli/commands/*.ts` | 7개 커맨드 모듈 (generate/typegen/router/client/lint/validate/dev) |
+| `src/cli/commands/*.ts` | oa-gen 커맨드 모듈과 optional `reference-check` probe |
 | `src/cli/lib/*.ts` | CLI 공유 유틸 (types, args, load-spec, output, help, run, try-import) |
+| `src/apitomy/index.ts` | 선택적 `@apitomy/data-models` reference adapter — 문서 I/O, 비교 진단, OAS 3.x → oa-sdk ParsedDocument probe |
+| `src/cli/commands/reference-check.ts` | oa-sdk primary 결과와 Apitomy reference 결과를 비교하는 명시적 opt-in CLI |
+
+Apitomy reference 계층은 `@oa-sdk/codegen/apitomy` subpath로 노출된다. Apitomy Data Models는
+optional peer이며, 설치되지 않은 환경에서도 `@oa-sdk/codegen`의 기본 build/test/typecheck가
+동작해야 한다. `@apitomy/data-models@3.1.3`는 실제 reference fixture를 실행하기 위한
+dev dependency일 뿐 runtime 판정 의존성이 아니다. 이 계층은 Apitomy 문서 모델을 source of truth로 승격하지 않고, 현재
+OpenAPI 3.2 parser/IR·governance pipeline과 결과를 비교하는 thin reference adapter만 소유한다.
+검증 gate는 항상 oa-sdk 결과가 소유하며, 명시적 `reference-check`에서만 Apitomy 결과를 함께
+관찰한다. 상세 결정은
+[ADR-011](./011-apitomy-compatibility-boundary.md)을 따른다.
 
 ### @oa-sdk/router
 

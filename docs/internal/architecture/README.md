@@ -18,3 +18,4 @@
 | [008-browser-runtime-entrypoints.md](./008-browser-runtime-entrypoints.md) | 브라우저 런타임 엔트리포인트와 후속 재구조화 제안 |
 | [009-typespec-first-authoring.md](./009-typespec-first-authoring.md) | TypeSpec-first authoring 수용 — production source switch + rollback 유지 |
 | [010-dpm-relationship-first.md](./010-dpm-relationship-first.md) | Relationship-first DPM 구현 기준선 |
+| [011-apitomy-compatibility-boundary.md](./011-apitomy-compatibility-boundary.md) | Apitomy Data Models 비권위적 reference 경계와 도입 순서 |

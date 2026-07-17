@@ -103,6 +103,7 @@ pnpm --filter @oa-sdk/schemas run build:openapi # Definition Builder rollback/re
 oa-gen validate --spec packages/schemas/src/.merged.yaml --require-32  # 관리 대상 계약 검증 (OpenAPI 3.2 strict gate)
 oa-gen validate --spec raw.yaml                                    # intake/migration 호환 검증
 oa-gen lint --spec packages/schemas/src/.merged.yaml               # 린트만
+oa-gen reference-check --spec packages/schemas/src/.merged.yaml    # Apitomy reference 비교 (비권위적, optional dependency)
 oa-gen scaffold-governance --root apps/nestjs-ref --service nestjs-ref --profile nestjs-swagger --source-command "pnpm export:openapi"
 oa-gen scaffold-governance --root apps/fastapi-ref --service fastapi-ref --profile fastapi --source-command "uv run python scripts/export_openapi.py"
 oa-gen collect --spec contracts/openapi.raw.yaml --normalized contracts/openapi.normalized.yaml --upgraded contracts/openapi.upgraded.yaml --profile nestjs-swagger
@@ -119,6 +120,9 @@ oa-gen duplicate-review --fragments packages/schemas/src/fragments --policy ci -
 oa-gen target-check --target packages/schemas/src/targets/public-api.yaml --must-include-path /health --must-exclude-path /admin
 oa-gen review --base old.yaml --head packages/schemas/src/.merged.yaml --artifact packages/schemas/dist/openapi.yaml
 oa-gen review-bundle --base old.yaml --head packages/schemas/src/.merged.yaml --artifact packages/schemas/dist/openapi.yaml --inventory --format markdown
+
+# reference-check는 oa-sdk 판정은 유지하고, Apitomy provider/version·입력 hash·capability·
+# serialization 확인과 차이 taxonomy를 보조 리포트로 남긴다.
 
 # 코드 생성
 oa-gen typegen --spec packages/schemas/src/.merged.yaml -o types.ts

@@ -1159,7 +1159,7 @@
       "name": "Codegen CLI workflow",
       "category": "cli",
       "package": "@oa-sdk/codegen",
-      "description": "oa-gen generate/typegen/router/client/build-spec/lint/validate/inventory/behavior-query/diff/check-artifact/drift/review/review-bundle/dev command behavior, including build-spec sidecar reports, behavior logging, metadata registry, behavior query, runtime URL drift input, provenance review, metadata/provenance diff, and PR review bundle aggregation.",
+      "description": "oa-gen generate/typegen/router/client/build-spec/lint/validate/reference-check/inventory/behavior-query/diff/check-artifact/drift/review/review-bundle/dev command behavior, including build-spec sidecar reports, behavior logging, metadata registry, behavior query, runtime URL drift input, provenance review, metadata/provenance diff, PR review bundle aggregation, and non-authoritative Apitomy reference comparison.",
       "capabilities": [
         "generate",
         "typegen",
@@ -1173,6 +1173,7 @@
         "behavior query",
         "lint",
         "validate",
+        "reference-check",
         "inventory",
         "diff",
         "check-artifact",
@@ -1195,6 +1196,30 @@
       ],
       "commands": [
         "pnpm --filter @oa-sdk/codegen test"
+      ]
+    },
+    {
+      "id": "apitomy-reference-boundary",
+      "name": "Apitomy reference boundary",
+      "category": "governance",
+      "package": "@oa-sdk/codegen",
+      "description": "Apitomy Data Models를 비권위적 reference로 연결해 OpenAPI 3.2 validation 차이, provider limitation, serialization loss, 입력 재현성 메타데이터를 관찰한다.",
+      "capabilities": [
+        "optional Apitomy loading",
+        "reference-only validation comparison",
+        "difference taxonomy",
+        "provider/input metadata",
+        "versioned OAS 3.1/3.2 fixtures"
+      ],
+      "testPaths": [
+        "packages/codegen/src/apitomy/index.test.ts",
+        "packages/codegen/src/apitomy/fixtures/oas31/minimal.yaml",
+        "packages/codegen/src/apitomy/fixtures/oas32/reference-unknown-fields.yaml",
+        "packages/codegen/src/__tests__/cli-scenarios.test.ts"
+      ],
+      "commands": [
+        "pnpm --filter @oa-sdk/codegen test",
+        "pnpm --filter @oa-sdk/codegen typecheck"
       ]
     },
     {
