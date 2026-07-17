@@ -123,6 +123,59 @@ describe('behavior recorder', () => {
     expect(result).toEqual({ valid: true, issues: [] })
   })
 
+  it('preserves source provenance and trace lineage metadata on a behavior span', () => {
+    const record = createBehaviorRecord({
+      behaviorType: 'build_openapi_target',
+      behaviorId: 'bhv_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+      parentBehaviorId: 'bhv_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+      correlationId: 'corr_build_public_api',
+      causationId: 'bhv_cccccccccccccccccccccccccccccccc',
+      status: 'executing',
+      components: {
+        target: {
+          targetType: 'definition-target',
+          targetKey: 'public-api',
+          targetPath: 'targets/public-api.yaml',
+          canonicalId: 'path:public/books/BooksPath',
+          sourcePath: 'fragments/path/public/books/BooksPath.yaml',
+          sourcePointer: '#/content',
+          contentHash: 'sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+        },
+        input: {
+          targetPath: 'targets/public-api.yaml',
+          provenancePath: 'artifacts/public-api.provenance.json',
+        },
+        context: {
+          source: 'oa-gen.cli',
+          command: 'build-spec',
+          requestId: 'req_build_public_api',
+          traceId: 'trace_build_public_api',
+          environment: 'test',
+        },
+      },
+    })
+
+    expect(validateBehaviorRecord(record)).toEqual({ valid: true, issues: [] })
+    expect(record).toEqual(expect.objectContaining({
+      behaviorId: 'bhv_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+      parentBehaviorId: 'bhv_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+      correlationId: 'corr_build_public_api',
+      causationId: 'bhv_cccccccccccccccccccccccccccccccc',
+      components: expect.objectContaining({
+        context: expect.objectContaining({ traceId: 'trace_build_public_api' }),
+        target: expect.objectContaining({
+          canonicalId: 'path:public/books/BooksPath',
+          sourcePath: 'fragments/path/public/books/BooksPath.yaml',
+          sourcePointer: '#/content',
+          contentHash: 'sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+        }),
+        input: expect.objectContaining({
+          provenancePath: 'artifacts/public-api.provenance.json',
+        }),
+      }),
+    }))
+  })
+
   it('accepts registered decision payloads and exception-style result payloads', () => {
     const result = validateBehaviorRecord(createBehaviorRecord({
       behaviorType: 'review_openapi_change',
@@ -1060,5 +1113,140 @@ describe('behavior recorder', () => {
     }))).toThrow('Invalid behavior status transition: succeeded -> executing')
 
     recorder.close?.()
+  })
+
+  it('persists source-backed trace span lineage across a behavior lifecycle', async () => {
+    const dbPath = join(tmpDir, 'behavior-provenance-trace.sqlite')
+    const recorder = createBehaviorRecorderFromOptions({ sqlitePath: dbPath })
+    const identityKey = createBehaviorIdentityKey({
+      behaviorType: 'build_openapi_target',
+      parts: { targetKey: 'public-api', targetType: 'definition-target' },
+    })
+    const target = {
+      targetType: 'definition-target',
+      targetKey: 'public-api',
+      targetPath: 'targets/public-api.yaml',
+      canonicalId: 'path:public/books/BooksPath',
+      sourcePath: 'fragments/path/public/books/BooksPath.yaml',
+      sourcePointer: '#/content',
+      contentHash: 'sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+    }
+    const context = {
+      source: 'oa-gen.cli',
+      command: 'build-spec',
+      requestId: 'req_build_public_api',
+      traceId: 'trace_build_public_api',
+      environment: 'test',
+    }
+    const input = {
+      targetPath: 'targets/public-api.yaml',
+      provenancePath: 'artifacts/public-api.provenance.json',
+    }
+
+    const received = createBehaviorRecord({
+      behaviorType: 'build_openapi_target',
+      behaviorId: 'bhv_11111111111111111111111111111111',
+      identityKey,
+      correlationId: 'corr_build_public_api',
+      occurredAt: '2026-07-14T06:00:00.000Z',
+      status: 'received',
+      components: { target, input, context },
+    })
+    const executing = createBehaviorRecord({
+      behaviorType: 'build_openapi_target',
+      behaviorId: 'bhv_22222222222222222222222222222222',
+      identityKey,
+      parentBehaviorId: received.behaviorId,
+      correlationId: 'corr_build_public_api',
+      causationId: received.behaviorId,
+      previousStatus: received.status,
+      occurredAt: '2026-07-14T06:00:01.000Z',
+      status: 'executing',
+      components: { target, input, context },
+    })
+    const succeeded = createBehaviorRecord({
+      behaviorType: 'build_openapi_target',
+      behaviorId: 'bhv_33333333333333333333333333333333',
+      identityKey,
+      parentBehaviorId: executing.behaviorId,
+      correlationId: 'corr_build_public_api',
+      causationId: executing.behaviorId,
+      previousStatus: executing.status,
+      occurredAt: '2026-07-14T06:00:02.000Z',
+      status: 'succeeded',
+      components: {
+        target,
+        input,
+        context,
+        result: {
+          valid: true,
+          fragmentCount: 1,
+          selectedNodeCount: 1,
+          errors: 0,
+          warnings: 0,
+          infos: 0,
+          errorCodes: [],
+          outputPath: 'artifacts/public-api.yaml',
+        },
+      },
+    })
+
+    await recorder.record(received)
+    await recorder.record(executing)
+    await recorder.record(succeeded)
+    recorder.close?.()
+
+    const db = loadSqliteDriver().open(dbPath)
+    try {
+      const rows = db.prepare(`
+        SELECT record_json
+        FROM behavior_records
+        WHERE identity_key = ?
+        ORDER BY occurred_at ASC, created_at ASC
+      `).all(identityKey) as Array<{ record_json: string }>
+      const latestProjection = db.prepare(`
+        SELECT behavior_id, summary_json
+        FROM behavior_projections
+        WHERE projection_key = ?
+      `).get(`identity:${identityKey}`)
+
+      expect(rows).toHaveLength(3)
+      expect(rows.map(row => JSON.parse(row.record_json))).toEqual([
+        expect.objectContaining({
+          behaviorId: received.behaviorId,
+          status: 'received',
+          correlationId: 'corr_build_public_api',
+          components: expect.objectContaining({
+            context: expect.objectContaining({ traceId: 'trace_build_public_api' }),
+            target: expect.objectContaining({ sourcePointer: '#/content' }),
+          }),
+        }),
+        expect.objectContaining({
+          behaviorId: executing.behaviorId,
+          status: 'executing',
+          parentBehaviorId: received.behaviorId,
+          causationId: received.behaviorId,
+        }),
+        expect.objectContaining({
+          behaviorId: succeeded.behaviorId,
+          status: 'succeeded',
+          parentBehaviorId: executing.behaviorId,
+          causationId: executing.behaviorId,
+          components: expect.objectContaining({
+            input: expect.objectContaining({ provenancePath: 'artifacts/public-api.provenance.json' }),
+            target: expect.objectContaining({
+              sourcePath: 'fragments/path/public/books/BooksPath.yaml',
+              contentHash: 'sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+            }),
+          }),
+        }),
+      ])
+      expect(latestProjection).toEqual(expect.objectContaining({
+        behavior_id: succeeded.behaviorId,
+        summary_json: expect.stringContaining('"status":"succeeded"'),
+      }))
+    } finally {
+      db.close()
+    }
   })
 })
