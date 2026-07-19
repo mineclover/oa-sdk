@@ -14,6 +14,7 @@
     "build": "tsup",
     "dev": "tsup --watch",
     "test": "vitest run",
+    "test:ci": "vitest run --maxWorkers 1 --no-file-parallelism",
     "typecheck": "tsc --noEmit",
     "clean": "rm -rf dist"
   },

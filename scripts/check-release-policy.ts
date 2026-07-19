@@ -109,7 +109,7 @@ function main(): void {
 
   validatePolicyShape(policy, issues)
   validateChangesetsConfig(policy, changesetsConfig, issues)
-  validateRootScripts(policy, rootPackage, issues)
+  validateRootScripts(policy, rootPackage, workspacePackages, issues)
   validateWorkspaceCoverage(policy, workspacePackages, issues)
   validateTrackDependencyBoundaries(policy, workspacePackages, issues)
   validateWorkspaceManifests(policy, workspacePackages, issues)
@@ -359,9 +359,15 @@ function validateWorkspaceCoverage(
 function validateRootScripts(
   policy: ReleasePolicy,
   rootPackage: PackageJson,
+  workspacePackages: WorkspacePackage[],
   issues: string[],
 ): void {
   const scripts = rootPackage.scripts ?? {}
+  const workspaceByName = new Map(
+    workspacePackages
+      .map(workspacePackage => [workspacePackage.manifest.name, workspacePackage] as const)
+      .filter(([name]) => name !== undefined),
+  )
 
   for (const task of TRACK_TASKS) {
     const expectedDefault = `corepack pnpm ${task}:core`
@@ -377,9 +383,11 @@ function validateRootScripts(
         continue
       }
 
-      const expectedWorkspaces = trackNames.flatMap((trackName) =>
-        getTrackWorkspaces(policy, trackName),
-      )
+      const expectedWorkspaces = trackNames
+        .flatMap((trackName) => getTrackWorkspaces(policy, trackName))
+        .filter(workspaceName => task !== 'test'
+          || (workspaceByName.get(workspaceName)?.manifest.scripts?.test !== undefined
+            && workspaceByName.get(workspaceName)?.manifest.scripts?.['test:ci'] !== undefined))
       const filters = readTurboFilters(command, task, scriptName, issues)
       if (!sameStringSet(filters, expectedWorkspaces)) {
         issues.push(

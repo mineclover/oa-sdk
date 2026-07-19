@@ -12,6 +12,7 @@ oa-sdk/
     schemas/       @oa-sdk/schemas      TypeSpec production source + Definition Builder rollback + OAS artifact 검증 [core]
     codegen/       @oa-sdk/codegen      Zod/Drizzle → OAS + typegen + CLI [core]
     spec-lens/     @oa-sdk/spec-lens    OpenAPI spec change history + observation [core]
+    spec-lens-contract/ @oa-sdk/spec-lens-contract browser-safe spec-lens HTTP contract [core]
     mock-server/   @oa-sdk/mock-server  AJV Mock 서버 (MSW + Node HTTP) + 테스트 헬퍼 [downstream]
     router/        @oa-sdk/router       OAS → Hono/Express 라우터 스텁 [downstream]
     client/        @oa-sdk/client       OAS → fetch 클라이언트 SDK + 인증 + 재시도 [downstream]
@@ -34,7 +35,7 @@ oa-sdk/
 
 | Scope tier | 패키지 | 소유 범위 |
 |---|---|---|
-| Core Platform | `@oa-sdk/core`, `@oa-sdk/openapi-projection-contract`, `@oa-sdk/schemas`, `@oa-sdk/parser`, `@oa-sdk/codegen`, `@oa-sdk/spec-lens` | schema/spec SSOT, 외부 projection 경계, 파싱/검증/생성, 변경 이력 관측 |
+| Core Platform | `@oa-sdk/core`, `@oa-sdk/openapi-projection-contract`, `@oa-sdk/schemas`, `@oa-sdk/parser`, `@oa-sdk/codegen`, `@oa-sdk/spec-lens`, `@oa-sdk/spec-lens-contract` | schema/spec SSOT, 외부 projection 경계, 파싱/검증/생성, 변경 이력 관측과 wire contract |
 | Downstream Integration | `@oa-sdk/router`, `@oa-sdk/client`, `@oa-sdk/mock-server` | Core 계약을 server stub, fetch client, mock runtime으로 투영하고 소비 가능성을 증명 |
 | Maintenance-only | `@oa-sdk/dpm`, `@oa-sdk/personas`, `@oa-sdk/typia-mock` | 기존 계약의 security, compatibility, migration 유지. 신규 기능은 scope reactivation 전까지 금지 |
 | Apps/reference | `@oa-sdk/nestjs-ref`, `@oa-sdk/playground`, `@oa-sdk/preview`, `@oa-sdk/spec-lens-ui` | reference, E2E, preview, UI consumer surface. library ownership 없음 |
@@ -57,6 +58,7 @@ schemas      ← parser (build-time TypeSpec validation; source/artifact ownersh
 parser       ← core + openapi-projection-contract
 codegen      ← core + parser + openapi-projection-contract (+ router, client: optional peer — CLI 전용)
 spec-lens    ← parser + codegen
+spec-lens-contract (0 의존)
 
 -- downstream integration boundary --
 mock-server  ← core + parser
@@ -232,3 +234,12 @@ OpenAPI 3.2 parser/IR·governance pipeline과 결과를 비교하는 thin refere
 | `src/infrastructure/` | GitHub/GitLab/local file source adapters, SQLite cache |
 | `src/presentation/http/server.ts` | HTTP presentation adapter |
 | `src/cli.ts` | spec observation CLI entry |
+
+### @oa-sdk/spec-lens-contract
+
+| 파일 | 역할 |
+|------|------|
+| `src/index.ts` | spec-lens HTTP response types, schema versions, browser-safe response guards |
+
+`@oa-sdk/spec-lens` backend와 `apps/spec-lens` UI가 공유한다. Node/SQLite/Hono 의존성은 이
+계약 패키지에 들어가지 않으며, UI는 복제된 wire type 대신 이 패키지를 import한다.

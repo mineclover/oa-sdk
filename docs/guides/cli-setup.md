@@ -155,9 +155,9 @@ pnpm mock:start
 ## Definition Builder fallback 환경 프로필
 
 ```bash
-pnpm --filter @oa-sdk/schemas run build:merged            # local fallback/reference
-pnpm --filter @oa-sdk/schemas run build:merged:staging    # staging
-pnpm --filter @oa-sdk/schemas run build:merged:production # production
+pnpm schema:build:openapi            # local fallback/reference
+pnpm schema:build:openapi:staging    # staging
+pnpm schema:build:openapi:production # production
 ```
 
 Target config: `packages/schemas/src/targets/{local,staging,production}-parity-api.yaml`

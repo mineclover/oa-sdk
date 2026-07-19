@@ -6,7 +6,7 @@ OpenAPI artifact로 통합하고, metadata와 전체 path surface를 관리하�
 검증·비교·생성·mock/runtime 테스트·review gate까지 연결합니다.
 
 현재 제품의 핵심은 `@oa-sdk/core` 위에서 schema/spec source, projection contract,
-파싱·검증·생성, 변경 이력 관측을 연결하는 여섯 패키지의 Core Platform입니다.
+파싱·검증·생성, 변경 이력 관측과 wire contract를 연결하는 일곱 패키지의 Core Platform입니다.
 상세한 범위와 신규 작업 승인 기준은
 [`docs/internal/platform-scope.md`](./docs/internal/platform-scope.md)를 따릅니다.
 
@@ -32,6 +32,7 @@ Zod Schema  ──▶  OpenAPI 3.2 Spec      ──▶ TypeScript 타입
 | `@oa-sdk/parser` | OpenAPI 3.2 parse/IR/transform/fold/lint/validate/query pipeline |
 | `@oa-sdk/codegen` | `oa-gen` CLI, Definition Builder target artifact, OpenAPI 수집/정규화/업그레이드/diff/review, typegen/router/client 생성, Zod/Drizzle projection bridge |
 | `@oa-sdk/spec-lens` | OpenAPI spec change history observation과 review surface 관리 |
+| `@oa-sdk/spec-lens-contract` | spec-lens HTTP wire contract와 browser-safe response types |
 
 ### Downstream Integration Libraries
 
@@ -81,7 +82,7 @@ manifest 밖에서 관리합니다.
 
 ## 사용 방법
 
-개발/CI 기준 런타임은 Node.js 25 이상이며, nvm 사용자는 `.nvmrc` 기준으로 맞춘다.
+개발/CI 기준 런타임은 Node.js 25.x이며, nvm 사용자는 `.nvmrc` 기준으로 맞춘다.
 패키지 매니저는 `packageManager`에 고정된 pnpm 10.30.3을 사용합니다.
 
 Root의 `pnpm build`, `pnpm test`, `pnpm typecheck`는 Core Platform만 검증한다. 전체

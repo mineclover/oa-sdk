@@ -8,6 +8,7 @@
     "demo": "tsx scripts/demo.ts",
     "dev": "tsx src/index.ts",
     "test": "vitest run",
+    "test:ci": "vitest run --maxWorkers 1 --no-file-parallelism",
     "test:watch": "vitest",
     "schema:validate": "pnpm --filter @oa-sdk/schemas run validate",
     "schema:preview": "pnpm --filter @oa-sdk/schemas run preview",

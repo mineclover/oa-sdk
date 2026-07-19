@@ -71,6 +71,21 @@ OA SDK와 bun-graph-db가 각자의 source loader, repository, CLI, MCP, GraphQL
 
 ---
 
+## Spec Lens HTTP Wire Contract (`@oa-sdk/spec-lens-contract`)
+
+Backend HTTP adapters and the browser UI consume this dependency-light contract. The UI must import
+these response types and guards instead of defining a second wire model in `apps/spec-lens`.
+
+| Export | 정의 | 용도 |
+|------|------|------|
+| `SpecLensApiResponseMap` | `spec-lens-contract/src/index.ts` | endpoint key와 response shape의 typed mapping |
+| `SpecSnapshot` / `SpecTimelineDiff` | `spec-lens-contract/src/index.ts` | snapshot·diff의 project-kind discriminated union |
+| `SpecServerConfig` | `spec-lens-contract/src/index.ts` | 관측 대상과 source adapter identity |
+| `isSpecLensResponse()` | `spec-lens-contract/src/index.ts` | UI boundary에서 JSON response shape를 runtime 검증 |
+| `SPEC_LENS_*_SCHEMA_VERSION` | `spec-lens-contract/src/index.ts` | snapshot/diff wire schema version 고정 |
+
+---
+
 ## DPM Manifest (`@oa-sdk/dpm`)
 
 Relationship-first Data Pseudonymization Manifest의 package surface다. Manifest syntax gate,

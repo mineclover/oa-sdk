@@ -15,12 +15,14 @@
     "build:ui": "pnpm --filter @oa-sdk/spec-lens-ui run build",
     "dev": "tsup src/index.ts --format esm --dts --watch",
     "test": "vitest run",
+    "test:ci": "vitest run --maxWorkers 1 --no-file-parallelism",
     "typecheck": "tsc --noEmit",
     "clean": "rm -rf dist"
   },
   "dependencies": {
     "@hono/node-server": "^2.0.0",
     "@oa-sdk/codegen": "workspace:*",
+    "@oa-sdk/spec-lens-contract": "workspace:*",
     "@oa-sdk/parser": "workspace:*",
     "hono": "^4.7.11"
   },

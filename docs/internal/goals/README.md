@@ -5,10 +5,10 @@
 ## 현재 목표 운영 범위
 
 제품 범위의 SSOT는 [`../platform-scope.md`](../platform-scope.md)다. 앞으로 active feature
-goal의 기본 범위는 다음 Core Platform 여섯 패키지다.
+goal의 기본 범위는 다음 Core Platform 일곱 패키지다.
 
 `@oa-sdk/core`, `@oa-sdk/openapi-projection-contract`, `@oa-sdk/schemas`,
-`@oa-sdk/parser`, `@oa-sdk/codegen`, `@oa-sdk/spec-lens`
+`@oa-sdk/parser`, `@oa-sdk/codegen`, `@oa-sdk/spec-lens`, `@oa-sdk/spec-lens-contract`
 
 `router`, `client`, `mock-server`를 포함해 Core Platform 밖의 신규 feature goal은 구현 전에
 명시적인 scope-reactivation decision을 요구한다. 결정에는 사용자 문제, Core Mission과의 관계,

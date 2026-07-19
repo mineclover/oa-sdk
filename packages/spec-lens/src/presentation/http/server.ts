@@ -3,6 +3,16 @@ import { serveStatic } from '@hono/node-server/serve-static'
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import type { DefinitionTargetConfig } from '@oa-sdk/parser'
+import type {
+  ClearCacheResult,
+  RefreshResult,
+  SpecGraph,
+  SpecPathsResult,
+  SpecServerConfig,
+  SpecSnapshot,
+  SpecTimelineDiff,
+  SpecTimelineEntry,
+} from '@oa-sdk/spec-lens-contract'
 import { buildTargetConfigDigest } from '../../infrastructure/cache/sqlite/cache-key.js'
 import { RefreshTimelineHandler } from '../../application/commands/refresh-timeline.command.js'
 import { GetDiffHandler } from '../../application/queries/get-diff.query.js'
@@ -66,23 +76,25 @@ export function createSpecLensServer(config: SpecLensServerConfig): Hono {
     const common = {
       projectKey: config.project.projectKey,
       toolchainFingerprint: config.project.toolchainFingerprint,
-      projectKind: config.project.sourceKind,
       projectSourceRoot: config.project.sourceRoot,
       observation: config.project.observation,
       sourceKind: config.source.kind,
       ...(config.branch !== undefined ? { branch: config.branch } : {}),
     }
-    return c.json(config.kind === 'definition-builder'
+    const response: SpecServerConfig = config.kind === 'definition-builder'
       ? {
           ...common,
+          projectKind: 'definition-builder',
           targetName: config.targetConfig.name,
           targetPath: config.targetPath,
           fragmentsDir: config.fragmentsDir,
         }
       : {
-          ...common,
-          manifestPath: config.manifestPath,
-        })
+        ...common,
+        projectKind: 'typespec-bundle',
+        manifestPath: config.manifestPath,
+      }
+    return c.json(response)
   })
 
   app.onError((err, c) => {
@@ -112,14 +124,15 @@ export function createSpecLensServer(config: SpecLensServerConfig): Hono {
           manifestPath: config.manifestPath,
           ...(config.branch !== undefined ? { branch: config.branch } : {}),
         })
-    return c.json(result)
+    const response: RefreshResult = result
+    return c.json(response)
   })
 
   // 🔵 Query: GetTimeline (Read Model)
   app.get('/api/timeline', async (c) => {
     const rawLimit = Number(c.req.query('limit'))
     const limit = Number.isFinite(rawLimit) && rawLimit > 0 ? Math.floor(rawLimit) : 100
-    const entries = await getTimeline.handle({
+    const entries: SpecTimelineEntry[] = await getTimeline.handle({
       projectKey: config.project.projectKey,
       limit,
     })
@@ -130,7 +143,7 @@ export function createSpecLensServer(config: SpecLensServerConfig): Hono {
   app.get('/api/snapshot/:revisionId', async (c) => {
     const revisionId = c.req.param('revisionId')
     const includeEntries = c.req.query('include') === 'entries'
-    const snapshot = await getSnapshot.handle({
+    const snapshot: SpecSnapshot | null = await getSnapshot.handle({
       revisionId,
       projectKey: config.project.projectKey,
       toolchainFingerprint: config.project.toolchainFingerprint,
@@ -144,7 +157,7 @@ export function createSpecLensServer(config: SpecLensServerConfig): Hono {
   app.get('/api/diff/:baseId/:headId', async (c) => {
     const baseId = c.req.param('baseId')
     const headId = c.req.param('headId')
-    const diff = await getDiff.handle({
+    const diff: SpecTimelineDiff | null = await getDiff.handle({
       baseRevisionId: baseId,
       headRevisionId: headId,
       projectKey: config.project.projectKey,
@@ -158,7 +171,7 @@ export function createSpecLensServer(config: SpecLensServerConfig): Hono {
   app.get('/api/paths', async (c) => {
     const scope = c.req.query('scope')
     const domain = c.req.query('domain')
-    const paths = await getPaths.handle({
+    const paths: SpecPathsResult = await getPaths.handle({
       projectKey: config.project.projectKey,
       projectKind: config.kind,
       ...(scope !== undefined ? { scope } : {}),
@@ -177,14 +190,14 @@ export function createSpecLensServer(config: SpecLensServerConfig): Hono {
       })
       const latest = timeline[0]
       if (latest === undefined) return c.json({ nodes: [], edges: [] })
-      const graph = await getGraph.handle({
+      const graph: SpecGraph | null = await getGraph.handle({
         revisionId: latest.revision.id,
         projectKey: config.project.projectKey,
         toolchainFingerprint: config.project.toolchainFingerprint,
       })
       return c.json(graph ?? { nodes: [], edges: [] })
     }
-    const graph = await getGraph.handle({
+    const graph: SpecGraph | null = await getGraph.handle({
       revisionId,
       projectKey: config.project.projectKey,
       toolchainFingerprint: config.project.toolchainFingerprint,
@@ -195,7 +208,7 @@ export function createSpecLensServer(config: SpecLensServerConfig): Hono {
 
   // 🔴 Command: ClearCache
   app.delete('/api/cache', async (c) => {
-    const result = await config.cache.clearCache(config.project.projectKey)
+    const result: ClearCacheResult = await config.cache.clearCache(config.project.projectKey)
     return c.json(result)
   })
 

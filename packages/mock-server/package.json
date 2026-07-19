@@ -27,6 +27,7 @@
     "dev": "tsup --watch",
     "start": "node dist/cli/index.js",
     "test": "vitest run",
+    "test:ci": "vitest run --maxWorkers 1 --no-file-parallelism",
     "typecheck": "tsc --noEmit",
     "clean": "rm -rf dist"
   },

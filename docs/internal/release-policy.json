@@ -23,7 +23,8 @@
         "@oa-sdk/schemas",
         "@oa-sdk/parser",
         "@oa-sdk/codegen",
-        "@oa-sdk/spec-lens"
+        "@oa-sdk/spec-lens",
+        "@oa-sdk/spec-lens-contract"
       ]
     },
     "downstream": {
@@ -62,6 +63,7 @@
     "@oa-sdk/parser",
     "@oa-sdk/codegen",
     "@oa-sdk/spec-lens",
+    "@oa-sdk/spec-lens-contract",
     "@oa-sdk/router",
     "@oa-sdk/client",
     "@oa-sdk/mock-server"

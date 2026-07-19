@@ -16,6 +16,7 @@
   "scripts": {
     "build": "tsup src/index.ts --format esm --dts",
     "test": "pnpm build && vitest run",
+    "test:ci": "pnpm build && vitest run --maxWorkers 1 --no-file-parallelism",
     "typecheck": "tsc --noEmit",
     "clean": "rm -rf dist"
   },

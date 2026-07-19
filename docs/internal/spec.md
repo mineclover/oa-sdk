@@ -17,6 +17,7 @@ Core Platform
   parser                      OAS 3.2 파서, IR, ref, lint, validate, query
   codegen                     build, 변환, governance CLI와 typegen
   spec-lens                   revision, diff, timeline, provenance 관측
+  spec-lens-contract          spec-lens browser-safe HTTP wire contract
 
 Downstream Integration
   router                      Hono/Express typed stub
@@ -35,7 +36,7 @@ Core 자체는 아니다. Maintenance-only는 security, compatibility, migration
 scope-reactivation decision이 필요하다. Markdown editor와 GitLab agent operations 제품은 각각
 `markdown-editor`, `gitlab-agent-ops` 독립 저장소가 소유한다.
 
-개발/CI 런타임 기준은 Node.js 25 이상이다. 로컬 nvm 런타임은 `.nvmrc`의 `25`를 기준으로 맞춘다.
+개발/CI 런타임 기준은 Node.js 25.x다. 로컬 nvm 런타임은 `.nvmrc`의 `25`를 기준으로 맞춘다.
 `packageManager`는 pnpm 10.30.3으로 고정하고, Corepack으로 실행한다. Node 타입 의존성도 25 계열과 맞춘다.
 
 ---

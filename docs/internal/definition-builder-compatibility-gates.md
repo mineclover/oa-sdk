@@ -41,14 +41,18 @@ and infos unless a future policy explicitly allows informational findings.
 The same builder path supports environment variants:
 
 ```bash
-pnpm --filter @oa-sdk/schemas run build:merged
-pnpm --filter @oa-sdk/schemas run build:merged:staging
-pnpm --filter @oa-sdk/schemas run build:merged:production
+pnpm schema:build:openapi
+pnpm schema:build:openapi:staging
+pnpm schema:build:openapi:production
 ```
 
 Each command selects a target config under `packages/schemas/src/targets/` and
 writes the selected artifact to `src/.merged.yaml` for downstream validation or
 bundling.
+
+The package-level `build:merged*` commands explicitly prepare the parser and
+codegen CLI first, so both these root commands and direct package invocation are
+safe on a clean checkout.
 
 ## Required Invariants
 

@@ -26,6 +26,7 @@
     "wizard": "node --import tsx scripts/wizard.ts",
     "check": "pnpm --filter @oa-sdk/schemas run build:merged && pnpm bind && pnpm validate",
     "test": "vitest run",
+    "test:ci": "vitest run --maxWorkers 1 --no-file-parallelism",
     "typecheck": "tsc --noEmit",
     "clean": "rm -rf dist"
   },

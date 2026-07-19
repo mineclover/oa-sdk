@@ -17,8 +17,13 @@
     },
     "test": {
       "dependsOn": ["^build"],
-      "inputs": ["src/**", "test/**", "tests/**"],
+      "inputs": ["src/**", "test/**", "tests/**", "vitest.config.*", "vite.config.*", "tsconfig*.json"],
       "outputs": ["coverage/**"]
+    },
+    "test:ci": {
+      "dependsOn": ["^build"],
+      "inputs": ["src/**", "test/**", "tests/**", "vitest.config.*", "vite.config.*", "tsconfig*.json"],
+      "outputs": []
     },
     "dev": {
       "persistent": true,

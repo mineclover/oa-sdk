@@ -20,13 +20,13 @@ check:release-policy`가 이 파일과 workspace package manifests, `.changeset/
   dependency contract를 별도 readiness로 확인한다.
 - Internal dependencies는 모두 `workspace:` protocol을 사용한다. Changesets config는 내부 의존성
   bump를 `patch`로 전파한다.
-- Release policy v3는 9개 release-tracked package와 7개 ignored workspace를 관리한다. Release
+- Release policy v3는 10개 release-tracked package와 7개 ignored workspace를 관리한다. Release
   tracking은 제품 scope와 일치시키되, Core Platform과 Downstream Integration을 서로 다른
   architecture tier로 유지한다.
 
 ## Release-Tracked Packages
 
-아래 9개 패키지는 package-level versioning 후보로 유지한다. Core Platform 여섯 패키지가
+아래 10개 패키지는 package-level versioning 후보로 유지한다. Core Platform 일곱 패키지가
 schema/spec 관리 제품을 소유하고, Downstream Integration 세 패키지는 그 계약의 소비 가능성을
 증명한다.
 
@@ -38,6 +38,7 @@ schema/spec 관리 제품을 소유하고, Downstream Integration 세 패키지�
 | Core Platform | `@oa-sdk/parser` | `0.1.0` | OpenAPI 3.2 parser, IR, query, browser entrypoint |
 | Core Platform | `@oa-sdk/codegen` | `0.3.0` | CLI, typegen, governance, and schema/code generation |
 | Core Platform | `@oa-sdk/spec-lens` | `0.1.0` | Spec history and observation package |
+| Core Platform | `@oa-sdk/spec-lens-contract` | `0.1.0` | Browser-safe spec-lens HTTP wire contract |
 | Downstream Integration | `@oa-sdk/router` | `0.1.0` | Server router generation |
 | Downstream Integration | `@oa-sdk/client` | `0.1.0` | Fetch client generation |
 | Downstream Integration | `@oa-sdk/mock-server` | `0.1.0` | Mock engine with MSW and Node HTTP adapters |

@@ -64,16 +64,16 @@ jobs:
 
       # ── Test ───────────────────────────────────────────────
       - name: Test core platform
-        run: pnpm test:core
+        run: pnpm test:core:ci
 
       - name: Test downstream SDKs
-        run: pnpm test:downstream
+        run: pnpm test:downstream:ci
 
       - name: Test maintenance packages
-        run: pnpm test:maintenance
+        run: pnpm test:maintenance:ci
 
-      - name: Test application and reference workspaces
-        run: pnpm test:internal
+      - name: Test application workspaces
+        run: pnpm test:internal:ci
 
       # ── Schema validation ──────────────────────────────────
       - name: Schema validate
@@ -102,6 +102,9 @@ jobs:
 
       - name: CLI spec consistency
         run: pnpm check:cli-spec
+
+      - name: Codegen boundary consistency
+        run: pnpm check:codegen-boundaries
 
       - name: Documentation consistency
         run: |

@@ -8,10 +8,12 @@
     "build": "vite build",
     "preview": "vite preview",
     "test": "vitest run",
+    "test:ci": "vitest run --maxWorkers 1 --no-file-parallelism",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@monaco-editor/react": "^4.7.0",
+    "@oa-sdk/spec-lens-contract": "workspace:*",
     "@tanstack/react-query": "^5.80.6",
     "d3": "^7.9.0",
     "i18next": "^26.0.8",
