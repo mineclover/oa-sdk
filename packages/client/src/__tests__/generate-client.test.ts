@@ -368,7 +368,7 @@ describe('generateClient', () => {
       expect(code).toContain('export type CheckAuthorizationClientError = ClientError<CheckAuthorizationErrorByStatus[403], 403>')
       expect(code).toContain('export function isCheckAuthorizationClientError(error: unknown): error is CheckAuthorizationClientError')
       expect(code).toContain('const body = await __readOaErrorBody(res)')
-      expect(code).toContain('const err = new ClientError(res.status, body, res)')
+      expect(code).toMatch(/const err = new ClientError\(res\.status, body, res(?:, operationId)?\)/)
     }
   })
 
@@ -479,6 +479,153 @@ describe('generateClient', () => {
 
       expect(thrown.status).toBe(403)
       expect(thrown.body).toEqual({ allowed: false })
+    } finally {
+      globalThis.fetch = originalFetch
+    }
+  })
+
+  it('operation retry 정책으로 읽기성 POST만 재시도한다', async () => {
+    const spec = doc({
+      paths: {
+        '/authorization/check': {
+          post: {
+            operationId: 'checkAuthorization',
+            'x-oa-sdk-retryable': true,
+            requestBody: { content: { 'application/json': { schema: { type: 'object' } } } },
+            responses: { '200': { description: 'OK', content: { 'application/json': { schema: { type: 'object' } } } }, '503': { description: 'Unavailable', content: { 'application/json': { schema: { type: 'object' } } } } },
+          },
+        },
+        '/authorization/relationships': {
+          post: {
+            operationId: 'writeRelationships',
+            requestBody: { content: { 'application/json': { schema: { type: 'object' } } } },
+            responses: { '200': { description: 'OK', content: { 'application/json': { schema: { type: 'object' } } } }, '503': { description: 'Unavailable', content: { 'application/json': { schema: { type: 'object' } } } } },
+          },
+        },
+      },
+    })
+    const originalFetch = globalThis.fetch
+    let calls = 0
+    globalThis.fetch = (async () => {
+      calls += 1
+      return calls === 1
+        ? new Response(JSON.stringify({ error: 'temporary' }), { status: 503 })
+        : new Response(JSON.stringify({ ok: true }), { status: 200 })
+    }) as typeof fetch
+
+    try {
+      const { createClient } = await importGeneratedClient(generateClient(spec, { typesImport: './types' }))
+      const client = createClient({ baseUrl: 'https://example.test', retry: { maxRetries: 1, baseDelay: 0 } }) as {
+        checkAuthorization(body: unknown): Promise<unknown>
+        writeRelationships(body: unknown): Promise<unknown>
+      }
+      await expect(client.checkAuthorization({})).resolves.toEqual({ ok: true })
+      expect(calls).toBe(2)
+
+      calls = 0
+      await expect(client.writeRelationships({})).rejects.toMatchObject({ status: 503 })
+      expect(calls).toBe(1)
+    } finally {
+      globalThis.fetch = originalFetch
+    }
+  })
+
+  it('validate가 request schema 제약을 검사하고 fetch 전에 실패한다', async () => {
+    const originalFetch = globalThis.fetch
+    let calls = 0
+    globalThis.fetch = (async () => {
+      calls += 1
+      return new Response(JSON.stringify({ ok: true }), { status: 200 })
+    }) as typeof fetch
+
+    try {
+      const { createClient } = await importGeneratedClient(generateClient(doc({
+        paths: {
+          '/relationships/query': {
+            post: {
+              operationId: 'queryRelationships',
+              requestBody: {
+                required: true,
+                content: {
+                  'application/json': {
+                    schema: {
+                      type: 'object',
+                      required: ['pageSize'],
+                      properties: { pageSize: { type: 'integer', minimum: 1, maximum: 100 } },
+                    },
+                  },
+                },
+              },
+              responses: { '200': { description: 'OK', content: { 'application/json': { schema: { type: 'object' } } } } },
+            },
+          },
+        },
+      }), { typesImport: './types' }))
+      const client = createClient({ baseUrl: 'https://example.test', validate: true }) as { queryRelationships(body: unknown): Promise<unknown> }
+
+      await expect(client.queryRelationships({ pageSize: 0 })).rejects.toThrow('Invalid body')
+      expect(calls).toBe(0)
+      await expect(client.queryRelationships({ pageSize: 50 })).resolves.toEqual({ ok: true })
+      expect(calls).toBe(1)
+    } finally {
+      globalThis.fetch = originalFetch
+    }
+  })
+
+  it('error body guard가 status별 body와 operation identity를 함께 검사한다', async () => {
+    const spec = doc({
+      paths: {
+        '/authorization/check': {
+          post: {
+            operationId: 'checkAuthorization',
+            requestBody: { content: { 'application/json': { schema: { type: 'object' } } } },
+            responses: {
+              '200': { description: 'OK', content: { 'application/json': { schema: { type: 'object' } } } },
+              '403': { description: 'Denied', content: { 'application/json': { schema: { oneOf: [
+                { type: 'object', required: ['allowed'], properties: { allowed: { const: false } } },
+                { type: 'object', required: ['error'], properties: { error: { type: 'string' } } },
+              ] } } } },
+            },
+          },
+        },
+      },
+    })
+    const generated = await importGeneratedClient(generateClient(spec, { typesImport: './types' })) as unknown as {
+      createClient: (config?: unknown) => Record<string, unknown>
+      isCheckAuthorizationErrorBody: (body: unknown, status?: number) => boolean
+      isCheckAuthorizationClientError: (error: unknown, status?: number) => boolean
+    }
+    expect(generated.isCheckAuthorizationErrorBody({ allowed: false }, 403)).toBe(true)
+    expect(generated.isCheckAuthorizationErrorBody({ error: 'ACTOR_MISMATCH' }, 403)).toBe(true)
+    expect(generated.isCheckAuthorizationErrorBody({ allowed: 'false' }, 403)).toBe(false)
+
+    const originalFetch = globalThis.fetch
+    globalThis.fetch = (async () => new Response(JSON.stringify({ allowed: false }), { status: 403 })) as typeof fetch
+    try {
+      const client = generated.createClient({ baseUrl: 'https://example.test' }) as { checkAuthorization(body: unknown): Promise<unknown> }
+      const thrown = await client.checkAuthorization({}).catch(error => error)
+      expect((thrown as { operationId?: string }).operationId).toBe('checkAuthorization')
+      expect(generated.isCheckAuthorizationClientError(thrown, 403)).toBe(true)
+    } finally {
+      globalThis.fetch = originalFetch
+    }
+  })
+
+  it('성공 응답 JSON parse 실패는 retry하지 않는다', async () => {
+    const originalFetch = globalThis.fetch
+    let calls = 0
+    globalThis.fetch = (async () => {
+      calls += 1
+      return new Response('not-json', { status: 200 })
+    }) as typeof fetch
+
+    try {
+      const { createClient } = await importGeneratedClient(generateClient(doc({
+        paths: { '/health': { get: { operationId: 'getHealth', responses: { '200': { description: 'OK', content: { 'application/json': { schema: { type: 'object' } } } } } } } },
+      })))
+      const client = createClient({ baseUrl: 'https://example.test', retry: { maxRetries: 2, baseDelay: 0 } }) as { getHealth(): Promise<unknown> }
+      await expect(client.getHealth()).rejects.toThrow()
+      expect(calls).toBe(1)
     } finally {
       globalThis.fetch = originalFetch
     }

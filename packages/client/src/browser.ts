@@ -7,6 +7,7 @@
 import type { OasDocument, OasResponse, OasSchema, ParsedDocument } from '@oa-sdk/parser/browser'
 import { assertParsedDocumentComplete, isParsedDocument, parseDocument, resolveServerUrl } from '@oa-sdk/parser/browser'
 import { createOperationTypeNameMap, toOperationMethodName, collectTypeNames, getGeneratedErrorResponseKeys, formatGeneratedTs } from '@oa-sdk/core/browser'
+import { appendClientErrorGuard, appendRuntimeValidationHelpers, getErrorValidationEntries, isOperationRetryable, requestValidationLines, serializeValidationSchema } from './generator-shared.js'
 
 export type ClientOptions = {
   /** typegen 타입 import 경로 (예: './types') */
@@ -67,15 +68,20 @@ export function generateClient(spec: OasDocument | ParsedDocument, options: Clie
   lines.push(`  readonly status: TStatus`)
   lines.push(`  readonly body: TBody`)
   lines.push(`  readonly response: Response`)
-  lines.push(`  constructor(status: TStatus, body: TBody, response: Response) {`)
+  lines.push(`  readonly operationId?: string`)
+  lines.push(`  constructor(status: TStatus, body: TBody, response: Response, operationId?: string) {`)
   lines.push('    super(`${status} ${response.statusText}`)')
   lines.push(`    this.name = 'ClientError'`)
   lines.push(`    this.status = status`)
   lines.push(`    this.body = body`)
   lines.push(`    this.response = response`)
+  lines.push(`    this.operationId = operationId`)
   lines.push(`  }`)
   lines.push(`}`)
   lines.push('')
+
+  appendRuntimeValidationHelpers(lines)
+  appendClientErrorGuard(lines)
 
   if (typesImport) {
     for (const op of doc.operations) {
@@ -88,14 +94,37 @@ export function generateClient(spec: OasDocument | ParsedDocument, options: Clie
         .map(key => `ClientError<${baseName}ErrorByStatus[${key}], ${key}>`)
       if (errorKeys.includes('default')) variants.push(`ClientError<${baseName}ErrorByStatus[number], number>`)
       lines.push(`export type ${baseName}ClientError = ${variants.join(' | ')}`)
-      lines.push(`export function is${baseName}ClientError(error: unknown): error is ${baseName}ClientError {`)
-      lines.push(`  if (!(error instanceof ClientError)) return false`)
-      if (errorKeys.includes('default')) {
-        lines.push(`  return true`)
-      } else {
-        const statusKeys = errorKeys.filter(key => /^[45]\d{2}$/.test(key))
-        lines.push(`  return [${statusKeys.join(', ')}].includes(error.status)`)
+      const errorEntries = getErrorValidationEntries(op.responses)
+      const allSchemas = errorEntries
+        .map(entry => serializeValidationSchema(entry.schema))
+        .filter((schema): schema is string => schema !== undefined)
+      lines.push(`export function is${baseName}ErrorBody(body: unknown): body is ${baseName}Error;`)
+      lines.push(`export function is${baseName}ErrorBody(body: unknown, status?: number): body is ${baseName}Error;`)
+      for (const entry of errorEntries.filter(entry => /^[45]\d{2}$/.test(entry.key))) {
+        const schema = serializeValidationSchema(entry.schema)
+        if (schema) lines.push(`export function is${baseName}ErrorBody(body: unknown, status: ${entry.key}): body is ${baseName}ErrorByStatus[${entry.key}];`)
       }
+      lines.push(`export function is${baseName}ErrorBody(body: unknown, status?: number): body is ${baseName}Error {`)
+      lines.push(`  if (status !== undefined) {`)
+      lines.push(`    switch (status) {`)
+      for (const entry of errorEntries.filter(entry => /^[45]\d{2}$/.test(entry.key))) {
+        const schema = serializeValidationSchema(entry.schema)
+        if (schema) lines.push(`      case ${entry.key}: return __oaSchemaMatches(body, ${schema})`)
+      }
+      lines.push(`      default: break`)
+      lines.push(`    }`)
+      lines.push(`  }`)
+      lines.push(`  return [${allSchemas.join(', ')}].some(schema => __oaSchemaMatches(body, schema))`)
+      lines.push(`}`)
+      lines.push(`export function is${baseName}ClientError(error: unknown): error is ${baseName}ClientError;`)
+      lines.push(`export function is${baseName}ClientError(error: unknown, status?: number): error is ${baseName}ClientError;`)
+      for (const entry of errorEntries.filter(entry => /^[45]\d{2}$/.test(entry.key))) {
+        lines.push(`export function is${baseName}ClientError(error: unknown, status: ${entry.key}): error is ClientError<${baseName}ErrorByStatus[${entry.key}], ${entry.key}>;`)
+      }
+      lines.push(`export function is${baseName}ClientError(error: unknown, status?: number): error is ${baseName}ClientError {`)
+      lines.push(`  if (!isClientError(error) || error.operationId !== ${JSON.stringify(op.operationId)}) return false`)
+      lines.push(`  if (status !== undefined && error.status !== status) return false`)
+      lines.push(`  return is${baseName}ErrorBody(error.body, status ?? error.status)`)
       lines.push(`}`)
     }
     if (doc.operations.some(op => op.operationId && getGeneratedErrorResponseKeys(op.responses).length > 0)) lines.push('')
@@ -196,6 +225,12 @@ export function generateClient(spec: OasDocument | ParsedDocument, options: Clie
   lines.push(`    return 1000`)
   lines.push(`  }`)
   lines.push('')
+  lines.push(`  function notifyError(error: Error): void {`)
+  lines.push(`    for (const mw of config.middleware ?? []) {`)
+  lines.push(`      if (mw.onError) mw.onError(error)`)
+  lines.push(`    }`)
+  lines.push(`  }`)
+  lines.push('')
 
   // fetch helper with retry + timeout
   lines.push(`  type __OaHeaderValueType = 'string' | 'number' | 'integer' | 'boolean' | 'array'`)
@@ -253,7 +288,7 @@ export function generateClient(spec: OasDocument | ParsedDocument, options: Clie
   lines.push(`  }`)
   lines.push('')
 
-  lines.push(`  async function requestResponse<T, THeaders extends object = Record<string, never>>(method: string, path: string, options?: { body?: unknown; query?: Record<string, unknown>; headers?: Record<string, string> }, responseHeaders?: readonly __OaHeaderSpec[]): Promise<ClientResponse<T, THeaders>> {`)
+  lines.push(`  async function requestResponse<T, THeaders extends object = Record<string, never>>(method: string, path: string, options?: { body?: unknown; query?: Record<string, unknown>; headers?: Record<string, string> }, responseHeaders?: readonly __OaHeaderSpec[], retryable = false, operationId?: string): Promise<ClientResponse<T, THeaders>> {`)
   lines.push(`    const url = new URL(path, baseUrl)`)
   lines.push(`    if (options?.query) {`)
   lines.push(`      for (const [k, v] of Object.entries(options.query)) {`)
@@ -270,46 +305,61 @@ export function generateClient(spec: OasDocument | ParsedDocument, options: Clie
   lines.push(`    }`)
   lines.push(`    let lastError: Error | undefined`)
   lines.push(`    for (let attempt = 0; attempt <= maxRetries; attempt++) {`)
+  lines.push(`      const controller = timeoutMs ? new AbortController() : undefined`)
+  lines.push(`      const timer = controller ? setTimeout(() => controller.abort(), timeoutMs) : undefined`)
+  lines.push(`      const fetchInit = controller ? { ...init, signal: controller.signal } : init`)
+  lines.push(`      let res: Response`)
   lines.push(`      try {`)
-  lines.push(`        const controller = timeoutMs ? new AbortController() : undefined`)
-  lines.push(`        const timer = controller ? setTimeout(() => controller.abort(), timeoutMs) : undefined`)
-  lines.push(`        const fetchInit = controller ? { ...init, signal: controller.signal } : init`)
-  lines.push(`        let res = await fetch(url.toString(), fetchInit)`)
-  lines.push(`        if (timer) clearTimeout(timer)`)
-  lines.push(`        for (const mw of config.middleware ?? []) {`)
-  lines.push(`          if (mw.onResponse) res = await mw.onResponse(res)`)
-  lines.push(`        }`)
-  lines.push(`        if (!res.ok) {`)
-  lines.push(`          if (res.status >= 500 && attempt < maxRetries) {`)
-  lines.push(`            const retryAfter = res.headers.get('Retry-After')`)
-  lines.push(`            const delay = retryAfter ? parseRetryAfter(retryAfter) : baseDelay * 2 ** attempt`)
-  lines.push(`            await new Promise(r => setTimeout(r, delay))`)
-  lines.push(`            continue`)
-  lines.push(`          }`)
-  lines.push(`          const body = await __readOaErrorBody(res)`)
-  lines.push(`          const err = new ClientError(res.status, body, res)`)
-  lines.push(`          for (const mw of config.middleware ?? []) {`)
-  lines.push(`            if (mw.onError) mw.onError(err)`)
-  lines.push(`          }`)
-  lines.push(`          throw err`)
-  lines.push(`        }`)
-  lines.push(`        const headers = responseHeaders ? __readOaResponseHeaders<THeaders>(res.headers, responseHeaders) : {} as THeaders`)
-  lines.push(`        if (res.status === 204) return { body: undefined as T, headers, response: res }`)
-  lines.push(`        return (res.json() as Promise<T>).then(body => ({ body, headers, response: res }))`)
+  lines.push(`        res = await fetch(url.toString(), fetchInit)`)
   lines.push(`      } catch (err) {`)
+  lines.push(`        if (timer) clearTimeout(timer)`)
   lines.push(`        lastError = err instanceof Error ? err : new Error(String(err))`)
-  lines.push(`        if (err instanceof ClientError) throw err`)
-  lines.push(`        if (attempt < maxRetries) {`)
+  lines.push(`        if (retryable && attempt < maxRetries) {`)
   lines.push(`          await new Promise(r => setTimeout(r, baseDelay * 2 ** attempt))`)
   lines.push(`          continue`)
   lines.push(`        }`)
+  lines.push(`        notifyError(lastError)`)
+  lines.push(`        throw lastError`)
+  lines.push(`      }`)
+  lines.push(`      if (timer) clearTimeout(timer)`)
+  lines.push(`      try {`)
+  lines.push(`        for (const mw of config.middleware ?? []) {`)
+  lines.push(`          if (mw.onResponse) res = await mw.onResponse(res)`)
+  lines.push(`        }`)
+  lines.push(`      } catch (err) {`)
+  lines.push(`        const error = err instanceof Error ? err : new Error(String(err))`)
+  lines.push(`        notifyError(error)`)
+  lines.push(`        throw error`)
+  lines.push(`      }`)
+  lines.push(`      if (!res.ok) {`)
+  lines.push(`        if (retryable && res.status >= 500 && attempt < maxRetries) {`)
+  lines.push(`          await res.body?.cancel()`)
+  lines.push(`          const retryAfter = res.headers.get('Retry-After')`)
+  lines.push(`          const delay = retryAfter ? parseRetryAfter(retryAfter) : baseDelay * 2 ** attempt`)
+  lines.push(`          await new Promise(r => setTimeout(r, delay))`)
+  lines.push(`          continue`)
+  lines.push(`        }`)
+  lines.push(`        const body = await __readOaErrorBody(res)`)
+  lines.push(`        const err = new ClientError(res.status, body, res, operationId)`)
+  lines.push(`        notifyError(err)`)
+  lines.push(`        throw err`)
+  lines.push(`      }`)
+  lines.push(`      const headers = responseHeaders ? __readOaResponseHeaders<THeaders>(res.headers, responseHeaders) : {} as THeaders`)
+  lines.push(`      if (res.status === 204) return { body: undefined as T, headers, response: res }`)
+  lines.push(`      try {`)
+  lines.push(`        const body = await res.json() as T`)
+  lines.push(`        return { body, headers, response: res }`)
+  lines.push(`      } catch (err) {`)
+  lines.push(`        const error = err instanceof Error ? err : new Error(String(err))`)
+  lines.push(`        notifyError(error)`)
+  lines.push(`        throw error`)
   lines.push(`      }`)
   lines.push(`    }`)
   lines.push(`    throw lastError ?? new Error('Request failed')`)
   lines.push(`  }`)
   lines.push('')
-  lines.push(`  async function request<T>(method: string, path: string, options?: { body?: unknown; query?: Record<string, unknown>; headers?: Record<string, string> }): Promise<T> {`)
-  lines.push(`    return (await requestResponse<T>(method, path, options)).body`)
+  lines.push(`  async function request<T>(method: string, path: string, options?: { body?: unknown; query?: Record<string, unknown>; headers?: Record<string, string> }, retryable = false, operationId?: string): Promise<T> {`)
+  lines.push(`    return (await requestResponse<T>(method, path, options, undefined, retryable, operationId)).body`)
   lines.push(`  }`)
   lines.push('')
 
@@ -319,7 +369,7 @@ export function generateClient(spec: OasDocument | ParsedDocument, options: Clie
 
   // SSE stream helper (only if needed)
   if (needsSse) {
-    lines.push(`  async function* streamSse<T>(method: string, path: string, options?: { query?: Record<string, unknown>; headers?: Record<string, string> }): AsyncGenerator<T> {`)
+    lines.push(`  async function* streamSse<T>(method: string, path: string, options?: { query?: Record<string, unknown>; headers?: Record<string, string> }, operationId?: string): AsyncGenerator<T> {`)
     lines.push(`    const url = new URL(path, baseUrl)`)
     lines.push(`    if (options?.query) {`)
     lines.push(`      for (const [k, v] of Object.entries(options.query)) {`)
@@ -343,10 +393,8 @@ export function generateClient(spec: OasDocument | ParsedDocument, options: Clie
     lines.push(`    }`)
     lines.push(`    if (!res.ok) {`)
     lines.push(`      const body = await __readOaErrorBody(res)`)
-    lines.push(`      const err = new ClientError(res.status, body, res)`)
-    lines.push(`      for (const mw of config.middleware ?? []) {`)
-    lines.push(`        if (mw.onError) mw.onError(err)`)
-    lines.push(`      }`)
+    lines.push(`      const err = new ClientError(res.status, body, res, operationId)`)
+    lines.push(`      notifyError(err)`)
     lines.push(`      throw err`)
     lines.push(`    }`)
     lines.push(`    if (!res.body) return`)
@@ -371,7 +419,7 @@ export function generateClient(spec: OasDocument | ParsedDocument, options: Clie
 
   // NDJSON stream helper (only if needed)
   if (needsNdjson) {
-    lines.push(`  async function* streamNdjson<T>(method: string, path: string, options?: { query?: Record<string, unknown>; headers?: Record<string, string> }): AsyncGenerator<T> {`)
+    lines.push(`  async function* streamNdjson<T>(method: string, path: string, options?: { query?: Record<string, unknown>; headers?: Record<string, string> }, operationId?: string): AsyncGenerator<T> {`)
     lines.push(`    const url = new URL(path, baseUrl)`)
     lines.push(`    if (options?.query) {`)
     lines.push(`      for (const [k, v] of Object.entries(options.query)) {`)
@@ -395,10 +443,8 @@ export function generateClient(spec: OasDocument | ParsedDocument, options: Clie
     lines.push(`    }`)
     lines.push(`    if (!res.ok) {`)
     lines.push(`      const body = await __readOaErrorBody(res)`)
-    lines.push(`      const err = new ClientError(res.status, body, res)`)
-    lines.push(`      for (const mw of config.middleware ?? []) {`)
-    lines.push(`        if (mw.onError) mw.onError(err)`)
-    lines.push(`      }`)
+    lines.push(`      const err = new ClientError(res.status, body, res, operationId)`)
+    lines.push(`      notifyError(err)`)
     lines.push(`      throw err`)
     lines.push(`    }`)
     lines.push(`    if (!res.body) return`)
@@ -462,43 +508,24 @@ export function generateClient(spec: OasDocument | ParsedDocument, options: Clie
       pathExpr = `'${op.openApiPath}'`
     }
 
-    // validation block (path params + required body)
-    const bodyRequired = hasBody && (op.requestBody as Record<string, unknown>)?.required === true
-    const needsValidation = pathParams.length > 0 || bodyRequired
+    const retryable = isOperationRetryable(op)
+    const validation = requestValidationLines(op)
 
     if (streamFormat) {
       const helperName = streamFormat === 'sse' ? 'streamSse' : 'streamNdjson'
       lines.push(`    async *${methodName}(${params.join(', ')}): ${returnType} {`)
-      if (needsValidation) {
-        lines.push(`      if (config.validate) {`)
-        for (const p of pathParams) {
-          lines.push(`        if (params.${p.name} === undefined) throw new Error('Missing required path parameter: ${p.name}')`)
-        }
-        if (bodyRequired) {
-          lines.push(`        if (body === undefined) throw new Error('Missing required request body')`)
-        }
-        lines.push(`      }`)
-      }
+      lines.push(...requestValidationLines(op, '      '))
       const streamOpts = queryParams.length > 0 ? `, { query: query as Record<string, unknown> }` : ''
-      lines.push(`      yield* ${helperName}('${method}', ${pathExpr}${streamOpts})`)
+      lines.push(`      yield* ${helperName}('${method}', ${pathExpr}${streamOpts}, ${JSON.stringify(op.operationId)})`)
       lines.push(`    },`)
     } else {
       lines.push(`    async ${methodName}(${params.join(', ')}): ${returnType} {`)
-      if (needsValidation) {
-        lines.push(`      if (config.validate) {`)
-        for (const p of pathParams) {
-          lines.push(`        if (params.${p.name} === undefined) throw new Error('Missing required path parameter: ${p.name}')`)
-        }
-        if (bodyRequired) {
-          lines.push(`        if (body === undefined) throw new Error('Missing required request body')`)
-        }
-        lines.push(`      }`)
-      }
+      lines.push(...validation)
       const fetchOpts: string[] = []
       if (hasBody) fetchOpts.push('body')
       if (queryParams.length > 0) fetchOpts.push('query: query as Record<string, unknown>')
-      const optsArg = fetchOpts.length > 0 ? `, { ${fetchOpts.join(', ')} }` : ''
-      lines.push(`      return request('${method}', ${pathExpr}${optsArg})`)
+      const optsArg = fetchOpts.length > 0 ? `, { ${fetchOpts.join(', ')} }` : ', undefined'
+      lines.push(`      return request('${method}', ${pathExpr}${optsArg}, ${retryable}, ${JSON.stringify(op.operationId)})`)
       lines.push(`    },`)
     }
     lines.push('')
@@ -529,12 +556,14 @@ export function generateClient(spec: OasDocument | ParsedDocument, options: Clie
       if (queryParams.length > 0) fetchOpts.push('query: query as Record<string, unknown>')
       const optsArg = fetchOpts.length > 0 ? `{ ${fetchOpts.join(', ')} }` : 'undefined'
       const headerSpecs = formatHeaderSpecs(responseHeadersToReadSpecs(op.responses))
+      const retryable = isOperationRetryable(op)
 
       if (op.summary || op.description) {
         lines.push(`      /** ${op.summary ?? op.description} */`)
       }
       lines.push(`      async ${methodName}(${params.join(', ')}): Promise<ClientResponse<${bodyType}, ${headersType}>> {`)
-      lines.push(`        return requestResponse<${bodyType}, ${headersType}>('${method}', ${pathExpr}, ${optsArg}, ${headerSpecs})`)
+      lines.push(...requestValidationLines(op, '        '))
+      lines.push(`        return requestResponse<${bodyType}, ${headersType}>('${method}', ${pathExpr}, ${optsArg}, ${headerSpecs}, ${retryable}, ${JSON.stringify(op.operationId)})`)
       lines.push(`      },`)
       lines.push('')
     }

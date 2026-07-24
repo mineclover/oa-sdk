@@ -111,21 +111,29 @@ import { isCheckAuthorizationClientError } from './generated/client'
 try {
   await client.checkAuthorization(request)
 } catch (error) {
-  if (!isCheckAuthorizationClientError(error)) throw error
-
-  if (error.status === 403 && 'allowed' in error.body) {
+  if (isCheckAuthorizationClientError(error, 403)) {
+    if ('allowed' in error.body) {
     // AuthorizationDeniedDecision: 권한 판정 결과를 업무 흐름에서 처리
     console.log(error.body.reasonCode, error.body.trace)
-  } else if (error.status === 403 && 'error' in error.body) {
+    } else if ('error' in error.body) {
     // actor mismatch / tenant scope 등 접근 정책 오류
     console.log(error.body.error, error.body.message)
+    }
+    return
   }
+  throw error
 }
 ```
 
 `ClientError`는 `status`, 파싱된 `body`, 원본 `response`를 보존한다. 공통 네트워크
 오류나 문서에 선언되지 않은 오류는 operation-specific guard를 통과하지 않으므로,
-호출자 공통 오류 처리기로 넘겨야 한다.
+호출자 공통 오류 처리기로 넘겨야 한다. `is...ClientError(error, status)`를 사용하면
+status별 body 타입과 runtime schema를 함께 좁힐 수 있다.
+
+생성 client의 `config.validate: true`는 required field와 JSON Schema의 기본 제약을
+fetch 전에 검사한다. retry는 GET/HEAD/OPTIONS/DELETE에만 기본 적용되며, POST/PUT/PATCH는
+operation에 `x-oa-sdk-retryable: true`를 선언한 경우에만 재시도한다. 관계 쓰기처럼
+중복 실행 위험이 있는 operation은 명시하지 않는다.
 
 ## 5. 발견된 모순과 사용성 이슈
 

@@ -37,6 +37,21 @@ describe('parseDocument', () => {
     expect(result.operations.map(o => o.operationId).sort()).toEqual(['createUser', 'listUsers'])
   })
 
+  it('오퍼레이션 x-* extension을 downstream IR에 보존', () => {
+    const result = parseDocument(doc({
+      paths: {
+        '/check': {
+          post: {
+            operationId: 'checkAuthorization',
+            'x-oa-sdk-retryable': true,
+            responses: { '200': { description: 'OK' } },
+          },
+        },
+      },
+    }))
+    expect(result.operations[0]?.['x-oa-sdk-retryable']).toBe(true)
+  })
+
   it('RouteIndex에 올바르게 인덱싱', () => {
     const result = parseDocument(doc({
       paths: {

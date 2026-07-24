@@ -53,6 +53,8 @@ export type OperationEntry = {
   servers: OasServer[]
   callbacks: Record<string, OasCallback>
   externalDocs?: OasExternalDocs
+  /** OpenAPI x-* operation extensions retained for downstream generators. */
+  [key: `x-${string}`]: unknown
 }
 
 // ─── Route Index ───────────────────────────────────────────────────────────

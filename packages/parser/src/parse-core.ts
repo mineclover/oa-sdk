@@ -184,6 +184,9 @@ function buildEntry(
     entry.requestBody = op.requestBody as OasRequestBody
   }
   if (op.externalDocs !== undefined) entry.externalDocs = op.externalDocs
+  for (const [key, value] of Object.entries(op)) {
+    if (key.startsWith('x-')) (entry as Record<string, unknown>)[key] = value
+  }
 
   return entry
 }

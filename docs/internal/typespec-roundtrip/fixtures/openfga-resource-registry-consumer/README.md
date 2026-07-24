@@ -22,6 +22,10 @@ consumer surface를 OA SDK 기본 스펙에 표현해보는 분석용 bundle이�
 ## 실행
 
 ```bash
+corepack pnpm tsx docs/internal/typespec-roundtrip/fixtures/openfga-resource-registry-consumer/generate-operation-keys.ts \
+  --catalog-dir /Users/junwoobang/workflow/openfga-resource-registry-demo/catalog \
+  --output docs/internal/typespec-roundtrip/fixtures/openfga-resource-registry-consumer/catalog-operation-keys.tsp
+
 pnpm typespec:bundle-check -- \
   --manifest docs/internal/typespec-roundtrip/fixtures/openfga-resource-registry-consumer/oa-sdk.typespec-bundle.json \
   --output /tmp/oa-sdk-openfga-registry.openapi.yaml \
@@ -61,11 +65,32 @@ generated client가 모든 non-2xx 응답을 `ClientError`로 throw하도록 정
 - client generated surface에는 `CheckAuthorizationClientError` alias와
   `isCheckAuthorizationClientError` guard가 추가되어 catch 구문에서 해당 union을
   재사용할 수 있다.
+- `isCheckAuthorizationErrorBody(body, 403)`와 `isCheckAuthorizationClientError(error, 403)`는
+  status별 schema까지 runtime에서 확인하므로, 잘못된 body를 업무 오류로 잘못 좁히지 않는다.
+- `ClientError`에는 `operationId`가 포함되어 동일 status를 사용하는 다른 operation의 오류가
+  operation-specific guard를 통과하지 않는다.
 
-호출자는 operation-specific error alias를 사용해 `error.status`를 먼저 좁힌 뒤,
-403에서는 `error.body`에 `allowed`가 있는지 확인해 denied decision과 access error를
-구분한 뒤 `reasonCode`, `trace`를 처리한다.
-HTTP status별 body 자체를 runtime에서 검증하는 것은 별도 validation 옵션의 책임으로 남긴다.
+호출자는 operation-specific error guard에 status를 함께 넘겨 denied decision과 access
+error를 구분한다.
+
+```ts
+try {
+  await client.checkAuthorization(request)
+} catch (error) {
+  if (isCheckAuthorizationClientError(error, 403)) {
+    if ('allowed' in error.body) {
+      console.log(error.body.reasonCode, error.body.trace)
+    } else {
+      console.log(error.body.error, error.body.message)
+    }
+  }
+}
+```
+
+`config.validate: true`를 사용하면 required field, enum/const, 숫자·문자열 범위,
+객체·배열 제약을 fetch 전에 검사한다. 5xx retry는 GET/HEAD/OPTIONS/DELETE만 기본
+활성화되며, 읽기성 POST처럼 안전성이 확인된 operation만 `x-oa-sdk-retryable: true`로
+명시한다.
 
 ### 아직 표현되지 않는 정책
 
@@ -73,11 +98,19 @@ HTTP status별 body 자체를 runtime에서 검증하는 것은 별도 validatio
   OpenAPI에 드러나지 않는다.
 - `authorization-admin` role, tenant scope, 최초 tenant tuple 예외는 route security보다
   강한 runtime policy인데 generated router/client에는 전달되지 않는다.
-- `operationKey`는 catalog가 소유하는 동적 문자열이다. 현재 fixture에서는 `string`으로
-  두었으므로 catalog 변경과 API client 타입이 자동으로 연결되지 않는다.
+- `operationKey`는 `catalog-operation-keys.tsp`의 union으로 관리한다. 현재 fixture는
+  후보 catalog의 5개 key를 반영하므로 잘못된 operation key를 compile-time에 차단한다.
+  catalog 변경 시 이 generated shadow alias를 갱신해야 한다.
 - generated router는 path/body/type skeleton을 만들지만 후보의 OpenFGA runtime 호출,
   tenant scope, telemetry, idempotency 정책을 구현하지 않는다. 따라서 실제 Fastify route의
   대체물이 아니라 contract/type boundary로 사용해야 한다.
+
+### Runtime parity decisions
+
+- Request models use `Record<never>` intentionally. The consumer runtime rejects unknown
+  request fields so the Fastify parser and generated contract have the same sealing rule.
+- `RelationshipQueryResponse.continuationToken` is optional because the final page may omit
+  a continuation token. Consumers should continue only when the field is present.
 
 ## 검증 결과
 

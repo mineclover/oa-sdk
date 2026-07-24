@@ -1,5 +1,6 @@
 import "@typespec/http";
 import "@typespec/openapi";
+import "./catalog-operation-keys.tsp";
 
 using Http;
 using OpenAPI;
@@ -60,7 +61,7 @@ model CanonicalRelationship {
 
 @doc("Runtime binding for one declared operation.")
 model RuntimeOperationBinding {
-  operationKey: string;
+  operationKey: OperationKey;
   decision: AuthorizationMode;
   relation?: string;
   risk: Risk;
@@ -114,7 +115,7 @@ model DecisionTrace {
 model AuthorizationDecision {
   allowed: boolean;
   reasonCode: ReasonCode;
-  operationKey: string;
+  operationKey: OperationKey;
   actor: CanonicalObjectRef;
   resource: CanonicalObjectRef;
   relation?: string;
@@ -126,7 +127,7 @@ model AuthorizationDecision {
 model AuthorizationDeniedDecision {
   allowed: false;
   reasonCode: DenyReasonCode;
-  operationKey: string;
+  operationKey: OperationKey;
   actor: CanonicalObjectRef;
   resource: CanonicalObjectRef;
   relation?: string;
@@ -143,7 +144,7 @@ model AuthorizationDeniedDecision {
 })
 model AuthorizationCheckRequest {
   actor?: CanonicalObjectRef;
-  operationKey: string;
+  operationKey: OperationKey;
   resource: CanonicalObjectRef;
   context?: Record<unknown>;
   ...Record<never>;
@@ -216,7 +217,7 @@ model RelationshipDeleteResponse {
 
 model RelationshipQueryResponse {
   tuples: Tuple[];
-  continuationToken: string;
+  continuationToken?: string;
   ...Record<never>;
 }
 
@@ -301,6 +302,7 @@ op listResourceTypes(): ResourceTypes200Response;
 @useAuth(bearerAuth)
 @operationId("checkAuthorization")
 @summary("Evaluate an authorization operation")
+@extension("x-oa-sdk-retryable", true)
 op checkAuthorization(
   @body body: AuthorizationCheckRequest,
 ): AuthorizationCheck200Response | AuthorizationCheck403Response | BadRequestResponse | UnauthorizedResponse | ServiceUnavailableResponse;
@@ -331,6 +333,7 @@ op deleteRelationships(
 @useAuth(bearerAuth)
 @operationId("queryRelationships")
 @summary("Read stored direct relationships")
+@extension("x-oa-sdk-retryable", true)
 op queryRelationships(
   @body body: RelationshipQueryRequest,
 ): RelationshipQuery200Response | BadRequestResponse | UnauthorizedResponse | ForbiddenResponse | ServiceUnavailableResponse;
