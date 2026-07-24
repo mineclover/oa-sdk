@@ -167,7 +167,10 @@ Extraction 전 migration은 package name/import compatibility와 소비자 검�
 
 | 파일 | 역할 |
 |------|------|
-| `src/core/request-validator.ts` | AJV 검증 + Security + style/explode |
+| `src/core/request-validator.ts` | 요청 검증 orchestration, content type, parameter/body/XML/multipart 처리 |
+| `src/core/request-validation/schema-compiler.ts` | AJV compiler/cache와 schema validation error 정규화 |
+| `src/core/request-validation/security.ts` | OAS security requirement의 credential-presence 검증과 cookie 파싱 |
+| `src/core/request-validation/parameters.ts` | deserialized parameter의 primitive coercion과 schema validation |
 | `src/core/response-picker.ts` | 응답 선택 + headers 전달 |
 | `src/core/generate.ts` | 최소 값 생성 (Faker 미사용) |
 | `src/core/stream.ts` | SSE/NDJSON 스트리밍 |
@@ -206,15 +209,21 @@ OpenAPI 3.2 parser/IR·governance pipeline과 결과를 비교하는 thin refere
 
 | 파일 | 역할 |
 |------|------|
-| `src/generate-router.ts` | OAS → Hono/Express 라우터 |
-| `src/browser.ts` | 브라우저 안전 라우터 생성 entry. in-memory spec만 처리하고 Node parser pipeline은 import하지 않음 |
+| `src/generate-router.ts` | Node entry: external `$ref`를 포함한 OAS 입력을 파싱 후 renderer 호출 |
+| `src/generate-router-renderer.ts` | browser-safe 공통 OAS → Hono/Express 라우터 renderer |
+| `src/browser.ts` | browser entry: in-memory spec만 파싱 후 공통 renderer 호출 |
 
 ### @oa-sdk/client
 
 | 파일 | 역할 |
 |------|------|
-| `src/generate-client.ts` | OAS → fetch createClient() + SSE + 인증 미들웨어 + retry/timeout + validate |
-| `src/browser.ts` | 브라우저 안전 클라이언트 생성 entry. in-memory spec만 처리하고 Node parser pipeline은 import하지 않음 |
+| `src/generate-client.ts` | Node entry: external `$ref`를 포함한 OAS 입력을 파싱 후 renderer 호출 |
+| `src/generate-client-renderer.ts` | browser-safe 공통 fetch client renderer |
+| `src/runtime-schema.ts` | generated client의 경량 runtime schema와 schema serialization |
+| `src/request-contract.ts` | request body/parameter validation 코드 생성 |
+| `src/error-contract.ts` | typed ClientError guard와 error schema entry 생성 |
+| `src/retry-policy.ts` | operation retryability 결정 |
+| `src/browser.ts` | browser entry: in-memory spec만 파싱 후 공통 renderer 호출 |
 
 ### @oa-sdk/typia-mock
 

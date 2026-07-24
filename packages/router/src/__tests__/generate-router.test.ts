@@ -47,8 +47,12 @@ describe('generateRouter — hono', () => {
       },
     })
 
-    expect(generateRouter(spec)).toContain("app.get('/users'")
-    expect(generateBrowserRouter(spec)).toContain("app.get('/users'")
+    const nodeOutput = generateRouter(spec)
+    const browserOutput = generateBrowserRouter(spec)
+
+    expect(nodeOutput).toContain("app.get('/users'")
+    expect(browserOutput).toContain("app.get('/users'")
+    expect(nodeOutput).toBe(browserOutput)
   })
 
   it.each([

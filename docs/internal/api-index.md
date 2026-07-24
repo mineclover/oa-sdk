@@ -1042,6 +1042,8 @@ Governance manifest: `packages/codegen/src/cli/spec/oa-gen-governance.ts` 및 `d
 | `escapeKey()` | `strings.ts` | 비식별자 키 → 따옴표 이스케이프 |
 | `toColonPath()` | `strings.ts` | `/users/{id}` → `/users/:id` |
 | `collectTypeNames()` | `codegen-utils.ts` | operations → typegen 타입 이름 수집 (ResponseHeaders 포함) |
+| `hasGeneratedErrorType()` | `codegen-utils.ts` | 4xx/5xx/default JSON error body의 typegen 생성 여부 판정 |
+| `getGeneratedErrorResponseKeys()` | `codegen-utils.ts` | typegen/client가 공유하는 문서화된 JSON error response status key 수집 |
 | `formatGeneratedTs()` | `format.ts` | 생성 코드 자동 들여쓰기 |
 | `pickDefaultStatus()` | `response-utils.ts` | OAS responses → 기본 상태 코드 (범위/default 지원) |
 | `createHttpServer()` | `http.ts` | 범용 Node HTTP 서버 생성 (handler → HttpServerHandle) |

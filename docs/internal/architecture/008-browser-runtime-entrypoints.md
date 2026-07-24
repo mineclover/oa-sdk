@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted for the current browser-safe public surface. The shared renderer extraction below is a proposed follow-up.
+Accepted. The browser-safe public surface and the shared renderer extraction are implemented.
 
 ## Context
 
@@ -32,21 +32,19 @@ Package roots remain the Node/tooling-complete surfaces. Browser code should not
 - Python Playwright smoke covers Load Example, type/router/client generation, Mock Test tab, Service Worker start, `/pets` request, `200 OK`, example response body, and no console errors.
 - Focused package gates cover parser/router/client/mock-server/codegen/spec-lens tests plus CLI spec and persona checks.
 
-## Proposed Follow-up Restructure
+## Implemented Renderer Boundary
 
-The current router/client browser entries duplicate the root generator implementation to preserve the Node root `basePath` behavior while unblocking preview. The maintainable target shape is:
+Router/client Node and browser entries now share a renderer and differ only at the parsing boundary.
 
-1. Extract pure renderers:
-   - `packages/router/src/render-router.ts`
-   - `packages/client/src/render-client.ts`
-   - optional `packages/codegen/src/typegen/render-types.ts`
-2. Keep environment adapters thin:
-   - root entries parse with Node/full parser when `basePath` or external ref analysis is needed.
-   - browser entries parse with `@oa-sdk/parser/browser`.
-   - both call the same renderer.
-3. Add export drift guards for every package with browser subpaths.
-4. Promote the Playwright preview smoke into a checked test script once the repo chooses a browser-test dependency strategy.
-5. Keep docs aligned through `spec.md`, `api-index.md`, `feature-test-matrix.md`, and this ADR whenever a public subpath is added.
+1. Pure renderers live in `packages/router/src/generate-router-renderer.ts` and `packages/client/src/generate-client-renderer.ts`.
+2. Root entries parse with the Node parser and alone expose `basePath` for filesystem-backed external `$ref` resolution.
+3. Browser entries parse only in-memory input through `@oa-sdk/parser/browser`, then call the same renderer.
+4. Browser option types do not expose `basePath`; this prevents an option that cannot have an effect in a browser bundle.
+5. Node/browser generation parity is asserted by focused router/client tests for internally referenced documents.
+
+The client renderer also separates generated runtime schema support, request validation, error contracts, and retry policy into focused internal modules. This keeps a change to one generated concern from requiring changes in platform adapters.
+
+`@oa-sdk/codegen/typegen/browser` still has a separate renderer because Node typegen additionally owns filesystem-backed external schema analysis. It remains a follow-up candidate only after its output contract is normalized.
 
 ## Non-goals
 

@@ -124,6 +124,12 @@ export function generateTypes(doc: TypegenDocument, options: BrowserTypegenOptio
       lines.push('')
     }
 
+    const errorByStatusType = errorResponseByStatusToTs(op.responses, schemaOpts)
+    if (errorByStatusType && !schemaNames.has(`${baseName}ErrorByStatus`)) {
+      lines.push(`export type ${baseName}ErrorByStatus = ${errorByStatusType}`)
+      lines.push('')
+    }
+
     const bundleFields: string[] = []
     bundleFields.push(`  method: '${op.method}'`)
     bundleFields.push(`  path: '${op.openApiPath}'`)
@@ -175,11 +181,14 @@ function responseToTs(responses: Record<string, OasResponse>, schemaOpts: Schema
   return schemaToTs(mediaType.schema, schemaOpts)
 }
 
-function errorResponseToTs(responses: Record<string, OasResponse>, schemaOpts: SchemaToTsOptions): string | null {
+type GeneratedErrorResponse = { key: string; type: string }
+
+function generatedErrorResponsesToTs(responses: Record<string, OasResponse>, schemaOpts: SchemaToTsOptions): GeneratedErrorResponse[] {
   const errorCodes = Object.keys(responses)
     .filter(k => /^[45]\d{2}$/.test(k))
     .sort()
   const candidates = [...errorCodes, 'default']
+  const entries: GeneratedErrorResponse[] = []
   for (const key of candidates) {
     const response = responses[key]
     if (!response?.content) continue
@@ -187,9 +196,37 @@ function errorResponseToTs(responses: Record<string, OasResponse>, schemaOpts: S
     if (!jsonContent || '$ref' in jsonContent) continue
     const mediaType = jsonContent as { schema?: OasSchema }
     if (!mediaType.schema) continue
-    return schemaToTs(mediaType.schema, schemaOpts)
+    entries.push({ key, type: schemaToTs(mediaType.schema, schemaOpts) })
   }
-  return null
+  return entries
+}
+
+function errorResponseToTs(responses: Record<string, OasResponse>, schemaOpts: SchemaToTsOptions): string | null {
+  const types: string[] = []
+  for (const { type } of generatedErrorResponsesToTs(responses, schemaOpts)) {
+    for (const member of splitNamedUnion(type)) if (!types.includes(member)) types.push(member)
+  }
+  return types.length > 0 ? types.join(' | ') : null
+}
+
+function splitNamedUnion(type: string): string[] {
+  return /^[A-Za-z_$][\w$]*(?:\s*\|\s*[A-Za-z_$][\w$]*)+$/.test(type)
+    ? type.split(/\s*\|\s*/)
+    : [type]
+}
+
+function errorResponseByStatusToTs(responses: Record<string, OasResponse>, schemaOpts: SchemaToTsOptions): string | null {
+  const entries = generatedErrorResponsesToTs(responses, schemaOpts)
+  if (entries.length === 0) return null
+  const lines = ['{']
+  const fallback = entries.find(entry => entry.key === 'default')
+  if (fallback) {
+    const types = [...new Set(entries.map(entry => entry.type))]
+    lines.push(`  [status: number]: ${types.join(' | ')}`)
+  }
+  for (const { key, type } of entries) if (key !== 'default') lines.push(`  ${key}: ${type}`)
+  lines.push('}')
+  return lines.join('\n')
 }
 
 function responseHeadersToTs(responses: Record<string, OasResponse>, schemaOpts: SchemaToTsOptions): string | null {

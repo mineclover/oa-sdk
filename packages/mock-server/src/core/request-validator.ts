@@ -1,5 +1,3 @@
-import Ajv from 'ajv'
-import addFormats from 'ajv-formats'
 import type {
   OasEncoding,
   OasMediaType,
@@ -10,8 +8,10 @@ import type {
   OasSecurityRequirement,
   RouteIndex,
 } from '@oa-sdk/parser'
-import { classifyAjvErrors } from '../errors/classifier.js'
 import type { MockErrorDetail, MockValidationResult } from '../errors/types.js'
+import { compileSchema, runSchemaValidation, schemaCompileError } from './request-validation/schema-compiler.js'
+import { validateParameterValue } from './request-validation/parameters.js'
+import { parseCookies, validateSecurity } from './request-validation/security.js'
 import {
   collectUnsupportedXmlFeatures,
   isXmlMediaType,
@@ -20,11 +20,6 @@ import {
   type XmlUnsupportedFeature,
 } from './xml.js'
 
-const ajv = new Ajv({ allErrors: true, strict: false, verbose: true, discriminator: true })
-addFormats(ajv)
-
-// 스키마 객체 참조 → 컴파일된 validate 함수 캐시 (매 요청마다 재컴파일 방지)
-const validatorCache = new WeakMap<object, ReturnType<typeof ajv.compile>>()
 const multipartPartsSymbol = Symbol.for('@oa-sdk/mock-server.multipart-parts')
 
 export type RequestParts = {
@@ -102,7 +97,7 @@ export function validateRequest(
   // 2. 파라미터 검증 (path / query / header)
   for (const param of params) {
     const raw = extractParamValue(param, parts)
-    const paramErrors = validateParameter(param, raw)
+    const paramErrors = validateParameterValue(param, raw)
     errors.push(...paramErrors)
   }
 
@@ -284,24 +279,6 @@ function defaultStyle(location: string): string {
   }
 }
 
-function validateParameter(param: OasParameter, value: unknown): MockErrorDetail[] {
-  const path = `/${param.in}/${param.name}`
-
-  if (value === undefined || value === null) {
-    if (param.required) {
-      return [{ path, code: 'MISSING_REQUIRED_FIELD', message: `필수 파라미터 누락: '${param.name}'`, stage: 'validate' }]
-    }
-    return []
-  }
-
-  const schema = param.schema as OasSchema | undefined
-  if (!schema) return []
-
-  // query/path params는 문자열로 들어오므로 타입에 맞게 강제 변환
-  const coerced = coerce(value, schema)
-  return runAjv(coerced, schema, path)
-}
-
 // ─── Body ───────────────────────────────────────────────────────────────────
 
 function validateBody(
@@ -319,7 +296,7 @@ function validateBody(
     const prepared = prepareMultipartBody(body, mediaType)
     return [
       ...prepared.errors,
-      ...runAjv(prepared.body, mediaType.schema, '/body'),
+      ...runSchemaValidation(prepared.body, mediaType.schema, '/body'),
     ]
   }
 
@@ -330,7 +307,7 @@ function validateBody(
     if (!mediaType.schema) return []
     const prepared = prepareXmlBody(body, mediaType.schema)
     if (prepared.errors.length > 0) return prepared.errors
-    return runAjv(prepared.body, mediaType.schema, '/body')
+    return runSchemaValidation(prepared.body, mediaType.schema, '/body')
   }
 
   const raw = requestBody.content?.[normalized]
@@ -338,7 +315,7 @@ function validateBody(
   const mediaType = raw as { schema?: OasSchema }
   if (!mediaType.schema) return []
 
-  return runAjv(body, mediaType.schema, '/body')
+  return runSchemaValidation(body, mediaType.schema, '/body')
 }
 
 // ─── XML body support ───────────────────────────────────────────────────────
@@ -757,146 +734,6 @@ function multipartEncodingError(
     expected,
     received,
     stage: 'parse',
-  }
-}
-
-// ─── AJV runner ─────────────────────────────────────────────────────────────
-
-function runAjv(data: unknown, schema: OasSchema, basePath: string): MockErrorDetail[] {
-  const compiled = compileSchema(schema, basePath)
-  if (!compiled.ok) return [compiled.error]
-
-  const validate = compiled.validator
-  const valid = validate(data)
-  if (valid) return []
-
-  return classifyAjvErrors(validate.errors ?? []).map(e => ({
-    ...e,
-    path: e.path === '/' ? basePath : `${basePath}${e.path}`,
-  }))
-}
-
-type CompileResult =
-  | { ok: true; validator: ReturnType<typeof ajv.compile> }
-  | { ok: false; error: MockErrorDetail }
-
-function compileSchema(schema: OasSchema, basePath: string): CompileResult {
-  const cached = validatorCache.get(schema)
-  if (cached) return { ok: true, validator: cached }
-
-  try {
-    const validate = ajv.compile(schema)
-    validatorCache.set(schema, validate)
-    return { ok: true, validator: validate }
-  } catch (err) {
-    return {
-      ok: false,
-      error: schemaCompileError(basePath, err instanceof Error ? err.message : String(err)),
-    }
-  }
-}
-
-function schemaCompileError(path: string, expected: string): MockErrorDetail {
-  return {
-    path,
-    code: 'SCHEMA_COMPILE_ERROR',
-    message: '요청 검증 스키마를 컴파일할 수 없습니다',
-    expected,
-    stage: 'validate',
-  }
-}
-
-// ─── Type coercion ──────────────────────────────────────────────────────────
-
-function parseCookies(cookieHeader: string): Record<string, string> {
-  const result: Record<string, string> = {}
-  for (const pair of cookieHeader.split(';')) {
-    const eq = pair.indexOf('=')
-    if (eq === -1) continue
-    const key = pair.slice(0, eq).trim()
-    if (key) result[key] = pair.slice(eq + 1).trim()
-  }
-  return result
-}
-
-// ─── Security ───────────────────────────────────────────────────────────────
-
-/**
- * OAS security 요구사항 검증.
- * 토큰 유효성은 검증하지 않음 — 자격 증명이 존재하는지만 확인.
- * OR 의미론: requirements 배열 중 하나만 만족하면 통과.
- */
-function validateSecurity(
-  parts: RequestParts,
-  requirements: OasSecurityRequirement[],
-  schemes: Record<string, OasSecurityScheme>,
-): MockErrorDetail[] {
-  // 빈 requirements = 인증 불필요
-  if (requirements.length === 0) return []
-
-  // OR 의미론: requirements 중 하나라도 만족하면 통과
-  for (const req of requirements) {
-    // 빈 객체 = 인증 불필요 (OAS spec)
-    const schemeNames = Object.keys(req)
-    if (schemeNames.length === 0) return []
-
-    const allSatisfied = schemeNames.every(name => {
-      const scheme = schemes[name]
-      if (!scheme) return false
-      return checkSchemePresence(parts, scheme)
-    })
-
-    if (allSatisfied) return []
-  }
-
-  return [{
-    path: '/security',
-    code: 'MISSING_REQUIRED_FIELD',
-    message: '인증 자격 증명이 필요합니다',
-    expected: requirements.map(r => Object.keys(r).join(' + ')).join(' 또는 '),
-    stage: 'validate' as const,
-  }]
-}
-
-function checkSchemePresence(parts: RequestParts, scheme: OasSecurityScheme): boolean {
-  switch (scheme.type) {
-    case 'http': {
-      const auth = parts.headers['authorization'] ?? ''
-      if (scheme.scheme === 'bearer') return auth.toLowerCase().startsWith('bearer ')
-      if (scheme.scheme === 'basic') return auth.toLowerCase().startsWith('basic ')
-      return auth.length > 0
-    }
-    case 'apiKey': {
-      const location = scheme.in ?? 'header'
-      const name = scheme.name ?? ''
-      if (location === 'header') return (parts.headers[name.toLowerCase()] ?? '').length > 0
-      if (location === 'query') return parts.queryParams[name] !== undefined
-      if (location === 'cookie') return parseCookies(parts.headers['cookie'] ?? '')[name] !== undefined
-      return false
-    }
-    case 'openIdConnect':
-    case 'oauth2':
-      // OAuth2/OIDC는 bearer 토큰 존재만 확인
-      return (parts.headers['authorization'] ?? '').toLowerCase().startsWith('bearer ')
-    case 'mutualTLS':
-      // mTLS는 mock에서 검증 불가 — 항상 통과
-      return true
-    default:
-      return true
-  }
-}
-
-/** URL params는 항상 string — 스키마 타입에 따라 변환 후 검증 */
-function coerce(value: unknown, schema: OasSchema): unknown {
-  if (typeof value !== 'string') return value
-  switch (schema.type) {
-    case 'integer': {
-      const n = Number(value)
-      return Number.isNaN(n) ? value : Number.isInteger(n) ? n : value
-    }
-    case 'number': return Number.isNaN(Number(value)) ? value : parseFloat(value)
-    case 'boolean': return value === 'true' ? true : value === 'false' ? false : value
-    default: return value
   }
 }
 

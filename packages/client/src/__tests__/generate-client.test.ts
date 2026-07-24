@@ -91,8 +91,12 @@ describe('generateClient', () => {
       },
     })
 
-    expect(generateClient(spec)).toContain('async listUsers(')
-    expect(generateBrowserClient(spec)).toContain('async listUsers(')
+    const nodeOutput = generateClient(spec)
+    const browserOutput = generateBrowserClient(spec)
+
+    expect(nodeOutput).toContain('async listUsers(')
+    expect(browserOutput).toContain('async listUsers(')
+    expect(nodeOutput).toBe(browserOutput)
   })
 
   it.each([
