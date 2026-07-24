@@ -12,6 +12,9 @@ The current sidecar-to-extension migration workflow is documented in [`sidecar-t
 
 The current full canonical authored fixture is [`fixtures/authored-canonical-bundle/`](./fixtures/authored-canonical-bundle/).
 
+The OpenFGA resource registry consumer analysis fixture is [`fixtures/openfga-resource-registry-consumer/`](./fixtures/openfga-resource-registry-consumer/).
+It is a shadow contract for the external demo service and is not part of the production schema bundle.
+
 The TypeSpec-first decision design and completed G1-G8 evidence are tracked in [`tsp-first-decision-design.md`](./tsp-first-decision-design.md).
 
 The production migration goals G9-G15 and source-path switch are tracked in [`production-migration-goals.md`](./production-migration-goals.md).

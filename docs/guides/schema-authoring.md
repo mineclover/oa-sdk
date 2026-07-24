@@ -3,12 +3,19 @@
 ## 새 API 작성 경로
 
 Production schema authoring is TypeSpec-first. 기본 경로에서는
-`packages/schemas/typespec/main.tsp`와 같은 TypeSpec bundle source를 수정한 뒤
+`packages/schemas/typespec/main.tsp` entrypoint가 import하는 domain `.tsp` source를 수정한 뒤
 `pnpm schema:validate`로 production OpenAPI artifact를 재생성/검증한다.
+
+도메인 배치는 `common.tsp`(공통 인증/에러), `auth.tsp`(인증), `health.tsp`(상태/버전),
+`me.tsp`(셀프 서비스), `users.tsp`(사용자/관리/모더레이션)이다. 새 operation은 해당
+도메인 파일에 추가하고, 새 파일을 만들면 `main.tsp`의 import와 bundle gate를 같이 확인한다.
 
 OpenAPI fragments are retained as the Definition Builder rollback/reference path.
 아래 fragment workflow를 사용할 때는 기본 TypeSpec artifact가 아니라 rollback path를
 검증하는 것이므로 `pnpm schema:validate:openapi`를 실행한다.
+
+기본 스펙의 source/artifact/사용처 구분은 [기본 스펙 사용 기준](./basic-spec-usage.md)을
+먼저 따른다.
 
 ## OpenAPI fragment fallback 추가
 
@@ -409,9 +416,15 @@ components:
 
 ## `$ref` 작성 규칙
 
+참조 문법은 입력 층에 따라 다르다. Definition Builder fragment에서는 source identity를
+보존하기 위해 `oa://kind/scope/domain/name`을 사용하고, 조립된 OpenAPI artifact나 외부
+OpenAPI 문서에서는 `#/components/...` 또는 지원되는 상대 file ref를 사용한다. 두 문법을
+같은 파일의 규칙으로 간주하지 않는다.
+
 ### 내부 `$ref`
 
-내부 참조는 `#/components/...` 형태를 기본으로 사용합니다. 누락된 내부 참조는 `oa-gen lint`와 `oa-gen validate`에서 `refs/valid-ref` 오류로 보고됩니다.
+조립된 OpenAPI artifact의 내부 참조는 `#/components/...` 형태를 기본으로 사용합니다. 누락된
+내부 참조는 `oa-gen lint`와 `oa-gen validate`에서 `refs/valid-ref` 오류로 보고됩니다.
 
 ```yaml
 schema:

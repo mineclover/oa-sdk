@@ -14,9 +14,12 @@ oa-sdk에서 OpenAPI contract는 생성물만이 아니라 검증, 타입 생성
 
 Source of truth는 계약을 사람이 고치는 원천이다.
 
-TS/JS 파이프라인에서는 보통 도메인 OpenAPI fragments, Definition Builder fragments,
-Zod/Drizzle projection 입력이 source of truth다. Python template에서는 Pydantic DTO와
-`ContractRegistry` 또는 checked-in `ContractSpec` JSON이 source of truth다.
+OA SDK production schema pipeline에서는 `packages/schemas/typespec/`의 TypeSpec bundle이
+source of truth다. `packages/schemas/src/.merged.yaml`은 그 source에서 생성한 OpenAPI 3.2
+canonical artifact이며, `src/fragments`와 `src/targets`는 Definition Builder rollback/reference
+경로다. Zod/Drizzle projection은 외부 producer가 OA SDK로 계약을 넘길 때의 source이고, Python
+template에서는 Pydantic DTO와 `ContractRegistry` 또는 checked-in `ContractSpec` JSON이 source of
+truth다.
 DB 가명처리 파이프라인에서는 Data Pseudonymization Manifest가 source DB 범위, catalog,
 entity, column transform, vault, validation, publishing 정책의 source of truth다. Logical
 relationship의 lifecycle source of truth는 Relationship Registry이며, DPM은 실행 시점의 approved

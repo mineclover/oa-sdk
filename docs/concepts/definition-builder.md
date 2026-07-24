@@ -33,6 +33,7 @@ Definition Builder는 OpenAPI document를 직접 편집하는 대신 canonical d
 - **OpenAPI artifact emission**: selected definitions are emitted as complete OpenAPI 3.2
   target artifacts, then consumed by validation, diff, typegen, client, router, and mock tools.
 
-구현 상세와 현재 상태는 [spec.md](../internal/spec.md#openapi-definition-builder-계획)와
+구현 상세와 현재 상태는 [기본 스펙 사용 기준](../guides/basic-spec-usage.md)과
+[spec.md](../internal/spec.md#openapi-definition-builder-rollbackreference-implementation)와
 [definition-builder-compatibility-gates.md](../internal/definition-builder-compatibility-gates.md)를
 참조한다.

@@ -2,8 +2,8 @@
 
 ## 상태
 
-대체됨. 현재 `.merged.yaml` 생성은 Definition Builder target config와
-fragments가 담당한다.
+대체됨. 현재 production `.merged.yaml` 생성은 TypeSpec bundle이 담당하며,
+Definition Builder target config와 fragments는 rollback/reference 경로에 남아 있다.
 
 ## 컨텍스트
 
@@ -31,4 +31,5 @@ OAS 3.1에서 `paths` 값으로 `$ref` 허용이 비표준 → Spectral `oas3-sc
 - 도메인별 독립 파일 관리
 - 새 도메인 추가 = `src/domains/{name}/spec.yaml` 파일 하나
 - `openapi.yaml`은 info + tags만 담당 (거의 변경 없음)
-- 현재 신규 스키마 authoring은 `src/fragments/**`와 `src/targets/**`를 사용한다.
+- 현재 production authoring은 `packages/schemas/typespec/**`를 사용한다.
+- `src/fragments/**`와 `src/targets/**`는 Definition Builder rollback/reference path다.

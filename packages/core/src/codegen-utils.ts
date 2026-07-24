@@ -26,9 +26,33 @@ export function collectTypeNames(operations: ReadonlyArray<{
     if (hasGeneratedResponseType(op.responses)) {
       names.push(`${base}Response`)
     }
+    if (hasGeneratedErrorType(op.responses)) {
+      names.push(`${base}Error`)
+      names.push(`${base}ErrorByStatus`)
+    }
     if (hasGeneratedResponseHeaders(op.responses)) names.push(`${base}ResponseHeaders`)
   }
   return names
+}
+
+/** 4xx/5xx/default JSON response가 있으면 operation error 타입을 생성합니다. */
+export function hasGeneratedErrorType(responses: Record<string, unknown>): boolean {
+  return getGeneratedErrorResponseKeys(responses).length > 0
+}
+
+/** typegen/client가 공유하는 JSON error response key 목록입니다. */
+export function getGeneratedErrorResponseKeys(responses: Record<string, unknown>): string[] {
+  const errorCodes = Object.keys(responses)
+    .filter(k => /^[45]\d{2}$/.test(k))
+    .sort()
+  const keys: string[] = []
+  for (const key of [...errorCodes, 'default']) {
+    const response = responses[key]
+    if (!isRecord(response)) continue
+    const content = readRecord(response.content)
+    if (hasJsonSchemaMedia(content['application/json'])) keys.push(key)
+  }
+  return keys
 }
 
 function hasGeneratedRequestBodyType(requestBody: unknown): boolean {

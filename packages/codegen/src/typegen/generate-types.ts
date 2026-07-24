@@ -188,6 +188,12 @@ export function generateTypes(doc: TypegenDocument, options: TypegenOptions = {}
       lines.push('')
     }
 
+    const errorByStatusType = errorResponseByStatusToTs(op.responses, schemaOpts)
+    if (errorByStatusType && !schemaNames.has(`${baseName}ErrorByStatus`)) {
+      lines.push(`export type ${baseName}ErrorByStatus = ${errorByStatusType}`)
+      lines.push('')
+    }
+
     // Operation 묶음 타입
     const bundleFields: string[] = []
     bundleFields.push(`  method: '${op.method}'`)
@@ -255,12 +261,14 @@ function responseToTs(responses: Record<string, OasResponse>, schemaOpts: Schema
 }
 
 
-function errorResponseToTs(responses: Record<string, OasResponse>, schemaOpts: SchemaToTsOptions): string | null {
-  // Find the first 4xx or 5xx response with a JSON schema, or fall back to 'default'
+type GeneratedErrorResponse = { key: string; type: string }
+
+function generatedErrorResponsesToTs(responses: Record<string, OasResponse>, schemaOpts: SchemaToTsOptions): GeneratedErrorResponse[] {
   const errorCodes = Object.keys(responses)
     .filter(k => /^[45]\d{2}$/.test(k))
     .sort()
   const candidates = [...errorCodes, 'default']
+  const entries: GeneratedErrorResponse[] = []
   for (const key of candidates) {
     const response = responses[key]
     if (!response?.content) continue
@@ -268,9 +276,49 @@ function errorResponseToTs(responses: Record<string, OasResponse>, schemaOpts: S
     if (!jsonContent || '$ref' in jsonContent) continue
     const mediaType = jsonContent as { schema?: OasSchema }
     if (!mediaType.schema) continue
-    return schemaToTs(mediaType.schema, schemaOpts)
+    const type = schemaToTs(mediaType.schema, schemaOpts)
+    entries.push({ key, type })
   }
-  return null
+  return entries
+}
+
+function errorResponseToTs(responses: Record<string, OasResponse>, schemaOpts: SchemaToTsOptions): string | null {
+  // Preserve all distinct 4xx/5xx/default JSON bodies. A denied authorization
+  // decision may be a typed 403 body while validation/auth failures use Error.
+  const types: string[] = []
+  for (const { type } of generatedErrorResponsesToTs(responses, schemaOpts)) {
+    for (const member of splitNamedUnion(type)) {
+      if (!types.includes(member)) types.push(member)
+    }
+  }
+  return types.length > 0 ? types.join(' | ') : null
+}
+
+function splitNamedUnion(type: string): string[] {
+  return /^[A-Za-z_$][\w$]*(?:\s*\|\s*[A-Za-z_$][\w$]*)+$/.test(type)
+    ? type.split(/\s*\|\s*/)
+    : [type]
+}
+
+function errorResponseByStatusToTs(responses: Record<string, OasResponse>, schemaOpts: SchemaToTsOptions): string | null {
+  const entries = generatedErrorResponsesToTs(responses, schemaOpts)
+  if (entries.length === 0) return null
+
+  const lines = ['{']
+  const defaultEntry = entries.find(entry => entry.key === 'default')
+  if (defaultEntry) {
+    const fallbackTypes: string[] = []
+    for (const { type } of entries) {
+      if (!fallbackTypes.includes(type)) fallbackTypes.push(type)
+    }
+    lines.push(`  [status: number]: ${fallbackTypes.join(' | ')}`)
+  }
+  for (const { key, type } of entries) {
+    if (key === 'default') continue
+    lines.push(`  ${key}: ${type}`)
+  }
+  lines.push('}')
+  return lines.join('\n')
 }
 
 function responseHeadersToTs(responses: Record<string, OasResponse>, schemaOpts: SchemaToTsOptions): string | null {

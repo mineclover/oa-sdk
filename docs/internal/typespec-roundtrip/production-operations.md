@@ -68,6 +68,10 @@ Removal can be considered only after all of these are true:
 ### Source Ownership
 
 - Production schema authoring source: `packages/schemas/typespec/`.
+- Bundle entrypoint: `main.tsp` owns root service/component metadata and imports `common.tsp`,
+  `auth.tsp`, `health.tsp`, `me.tsp`, and `users.tsp`.
+- Domain ownership: `common` owns shared auth/error models; each remaining module owns its domain
+  models, response wrappers, and operations.
 - Generated production OpenAPI artifacts: `packages/schemas/src/.merged.yaml`, `packages/schemas/src/.merged.3.1.yaml`, and `packages/schemas/src/.merged.3.1.meta.json`.
 - Historical/evidence fixtures: `docs/internal/typespec-roundtrip/fixtures/`.
 - Rollback/reference OpenAPI fragments: `packages/schemas/src/domains`, `packages/schemas/src/fragments`, `packages/schemas/src/profiles`, and `packages/schemas/src/targets`.

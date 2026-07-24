@@ -1,6 +1,6 @@
 # Spec — 현재 구현 현황
 
-> 개념 정의: [Concepts](../concepts.md) / API 상세: [api-index.md](./api-index.md) / OAS 커버리지: [oas32-coverage.md](./oas32-coverage.md) / 기능별 테스트: [feature-test-matrix.md](./feature-test-matrix.md)
+> 개념 정의: [Concepts](../concepts.md) / 기본 사용 기준: [basic-spec-usage.md](../guides/basic-spec-usage.md) / API 상세: [api-index.md](./api-index.md) / OAS 커버리지: [oas32-coverage.md](./oas32-coverage.md) / 기능별 테스트: [feature-test-matrix.md](./feature-test-matrix.md)
 
 > 제품 범위와 신규 작업 승인 기준: [Platform Scope](./platform-scope.md). 이 문서의 `✅`는
 > 구현·검증 현황을 뜻하며 active product scope나 신규 feature 투자 승인을 뜻하지 않는다.
@@ -383,9 +383,11 @@ ClientMiddleware (`onRequest`/`onResponse`/`onError`) 인터셉터. 문서화된
 
 도메인 분리 + 환경 프로필 + merge. 중복 path/component 기본 오류. `downgrade:3.1` (사이드카 무손실) + `upgrade:3.2`.
 
-### OpenAPI Definition Builder 계획
+### OpenAPI Definition Builder rollback/reference implementation
 
-다음 단계는 OpenAPI 문서를 authoring source가 아니라 build artifact로 다루는 definition builder다.
+OpenAPI 문서는 production authoring source가 아니라 build artifact로 다룬다. 현재 production
+authoring source는 TypeSpec이며, Definition Builder는 OpenAPI fragment 기반 rollback/reference
+implementation으로 유지한다.
 개별 schema/path/operation/parameter/response/server fragment는 canonical identity를 갖고, 출력 OpenAPI component name은 target별 naming policy가 결정한다.
 
 #### Canonical ID grammar (US-001)
@@ -509,7 +511,7 @@ OAS 3.2 content fields는 필터링하지 않고 fragment content를 보존한�
 
 Renamed definitions는 output document root extension `x-oa-sdk-definition-aliases`에 alias metadata로 포함한다. Result sidecar report도 `aliases`, `renamedAliases`, `collisionReport`, `rewrites`를 제공해 source canonical id와 target-local output name을 추적할 수 있다.
 
-Fixture target `packages/schemas/src/targets/book-notebook-api.yaml`은 `/books/{bookId}/notes`와 `/notebooks/{notebookId}/notes`를 함께 include해 `schema:public/book/Note`와 `schema:public/notebook/Note` source-name collision이 emitted components에서 `BookNote`/`NotebookNote`로 분리되는 것을 검증한다. 기존 `.merged.yaml`은 이 story에서 교체하지 않고 기존 merge pipeline과 병렬로 둔다.
+Fixture target `packages/schemas/src/targets/book-notebook-api.yaml`은 `/books/{bookId}/notes`와 `/notebooks/{notebookId}/notes`를 함께 include해 `schema:public/book/Note`와 `schema:public/notebook/Note` source-name collision이 emitted components에서 `BookNote`/`NotebookNote`로 분리되는 것을 검증한다. Production `.merged.yaml`은 이 story에서 교체하지 않고 TypeSpec pipeline과 병렬인 rollback/reference artifact로 둔다.
 
 #### Definition builder CLI (US-012)
 
@@ -554,13 +556,13 @@ Builder WorkspaceIndex metadata는 SQLite schema를 늘리지 않고 기존 row�
 
 #### TypeSpec as Canonical Schema Pipeline
 
-Schema composition is now TypeSpec-first. `packages/schemas/src/.merged.yaml` is generated from `packages/schemas/typespec/main.tsp` through the `oa-sdk.typespec-bundle.v1` manifest, OA SDK TypeSpec extension restore, expected/reference drift gates, and OpenAPI 3.2 validation. The OpenAPI/Definition Builder path remains available as an explicit rollback/reference path through `:openapi` commands; the legacy whole-domain merge script has been removed, and `src/domains/**/spec.yaml` files are archived historical/migration reference material.
+Schema composition is now TypeSpec-first. `packages/schemas/src/.merged.yaml` is generated from the `packages/schemas/typespec/main.tsp` entrypoint and its domain modules through the `oa-sdk.typespec-bundle.v1` manifest, OA SDK TypeSpec extension restore, expected/reference drift gates, and OpenAPI 3.2 validation. The OpenAPI/Definition Builder path remains available as an explicit rollback/reference path through `:openapi` commands; the legacy whole-domain merge script has been removed, and `src/domains/**/spec.yaml` files are archived historical/migration reference material.
 
 Current TypeSpec status: the TypeSpec-restored production artifact has 27 operations and 28 schemas, restores 193 OA SDK extension-derived semantic entries, and keeps 0 reviewed restored-vs-reference differences in `accepted-restored-drift.json`. `pnpm schema:validate` is the canonical gate: it builds parser/codegen, emits `.merged.yaml` through `schema:typespec-check`, downgrades to 3.1, runs Spectral/Redocly, and then runs strict `oa-gen validate --require-32`.
 
 | 단계 | Production TypeSpec path |
 |------|-------------------------|
-| Source layout | `packages/schemas/typespec/main.tsp` plus `oa-sdk.typespec-bundle.json` |
+| Source layout | `packages/schemas/typespec/main.tsp` entrypoint + `common/auth/health/me/users.tsp` domain modules + `oa-sdk.typespec-bundle.json` |
 | Composition command | `pnpm --filter @oa-sdk/schemas run build` writes `src/.merged.yaml` through `build:typespec` |
 | Default root gates | `pnpm schema:validate`, `pnpm schema:bundle`, and `pnpm schema:preview` |
 | Rollback path | `pnpm schema:validate:openapi`, `pnpm schema:bundle:openapi`, `pnpm schema:preview:openapi`, and package-level `build:openapi` |
@@ -591,7 +593,7 @@ Production schema requirements now become ongoing governance requirements:
 | OpenAPI emit | `emitDefinitionOpenApiDocument()`가 selected target을 OAS 3.2 document로 materialize하고 rewritten local `$ref`만 허용. Alias metadata는 root extension 또는 result sidecar report로 제공 |
 | Definition builder CLI | `oa-gen build-spec --target ... --output ... --diagnostics ... --collision-report ... --composition-report ... --provenance ... --metadata-registry ...`가 target OpenAPI artifact와 machine-readable sidecar를 생성. Duplicate canonical id 또는 unresolved source ref는 non-zero exit |
 | Builder WorkspaceIndex metadata | fragment file/hash/id/ref metadata와 target config → direct path root edge를 기존 `WorkspaceIndex` row로 저장. 변경 감지는 full rebuild correctness를 유지하면서 affected target 계산에만 사용 |
-| Migration | `packages/schemas/scripts/merge.ts`는 제거됨. `packages/schemas/src/.merged.yaml`은 target config + fragments에서 `oa-gen build-spec`로 생성 |
+| Migration | `packages/schemas/scripts/merge.ts`는 제거됨. Production `.merged.yaml`은 TypeSpec bundle에서 생성되고, rollback `.merged.yaml`은 target config + fragments에서 `oa-gen build-spec`로 생성 |
 
 패키지 책임: `@oa-sdk/schemas`는 fragment layout/target config/fixtures/migration을 소유하고, `@oa-sdk/parser`는 validation/source/ref graph primitive를 제공하며, `@oa-sdk/codegen`은 `oa-gen build-spec` CLI와 WorkspaceIndex 연동을 소유한다.
 
@@ -607,10 +609,10 @@ pnpm --filter @oa-sdk/schemas run build            # TypeSpec production artifac
 pnpm schema:validate                               # TypeSpec restore + 3.1 변환 + Spectral/Redocly + oa-gen validate
 pnpm schema:validate:openapi                       # Definition Builder rollback/reference path 검증
 oa-gen build-spec --target packages/schemas/src/targets/book-notebook-api.yaml -o artifacts/book-notebook-api.yaml --diagnostics artifacts/book-notebook-api.diagnostics.json --collision-report artifacts/book-notebook-api.collisions.json --composition-report artifacts/book-notebook-api.composition.json --provenance artifacts/book-notebook-api.provenance.json --metadata-registry artifacts/book-notebook-api.metadata.json
-oa-gen validate --spec .merged.yaml                # 종합 검증
-oa-gen validate --spec .merged.yaml --incremental --cache-dir .oa-cache
-oa-gen lint --spec .merged.yaml                    # 린트만
-oa-gen inventory --spec .merged.yaml --format markdown
+oa-gen validate --spec packages/schemas/src/.merged.yaml                # 종합 검증
+oa-gen validate --spec packages/schemas/src/.merged.yaml --incremental --cache-dir .oa-cache
+oa-gen lint --spec packages/schemas/src/.merged.yaml                    # 린트만
+oa-gen inventory --spec packages/schemas/src/.merged.yaml --format markdown
 oa-gen duplicate-review --fragments packages/schemas/src/fragments --policy report --format markdown
 oa-gen duplicate-review --fragments packages/schemas/src/fragments --policy ci --target packages/schemas/src/targets/public-api.yaml --format json
 oa-gen tsp-export --spec packages/schemas/src/.merged.yaml --output artifacts/main.tsp --report artifacts/tsp-export-report.json
@@ -623,18 +625,18 @@ pnpm typespec:bundle-check                         # repo wrapper for oa-gen tsp
 pnpm typespec:bundle-check -- --manifest docs/internal/typespec-roundtrip/fixtures/authored-bundle/oa-sdk.typespec-bundle.json
 pnpm typespec:bundle-check -- --manifest artifacts/oa-sdk.typespec-bundle.json --report artifacts/typespec-generated-bundle-check-report.json
 pnpm typespec:bundle-check -- --fail-on-breaking --report artifacts/typespec-bundle-check-report.json
-oa-gen drift --runtime-openapi-url http://localhost:3000/openapi.json --managed-openapi .merged.yaml --format json
+oa-gen drift --runtime-openapi-url http://localhost:3000/openapi.json --managed-openapi packages/schemas/src/.merged.yaml --format json
 pnpm --filter @oa-sdk/schemas run downgrade:3.1    # 3.1 변환 (Swagger UI 호환)
 ```
 
 ### 코드 생성
 ```bash
-oa-gen typegen --spec .merged.yaml -o types.ts     # TS 타입
-oa-gen typegen --spec .merged.yaml -o types.ts --incremental --cache-dir .oa-cache
-oa-gen router  --spec .merged.yaml -o router.ts --types-import './types'
-oa-gen client  --spec .merged.yaml -o client.ts --types-import './types'
+oa-gen typegen --spec packages/schemas/src/.merged.yaml -o types.ts     # TS 타입
+oa-gen typegen --spec packages/schemas/src/.merged.yaml -o types.ts --incremental --cache-dir .oa-cache
+oa-gen router  --spec packages/schemas/src/.merged.yaml -o router.ts --types-import './types'
+oa-gen client  --spec packages/schemas/src/.merged.yaml -o client.ts --types-import './types'
 oa-gen generate --drizzle-schema ./db/schema.ts --output ./domains/users/
-oa-gen dev --spec .merged.yaml --cache-dir .oa-cache
+oa-gen dev --spec packages/schemas/src/.merged.yaml --cache-dir .oa-cache
 ```
 
 ### 테스트

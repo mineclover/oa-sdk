@@ -9,7 +9,7 @@
 export { pascalCase, toTypeScriptIdentifier, createOperationTypeNameMap, toOperationMethodName, escapeKey, toColonPath } from './strings.js'
 
 // 코드 생성 유틸
-export { collectTypeNames } from './codegen-utils.js'
+export { collectTypeNames, hasGeneratedErrorType, getGeneratedErrorResponseKeys } from './codegen-utils.js'
 
 // 코드 포매팅
 export { formatGeneratedTs } from './format.js'

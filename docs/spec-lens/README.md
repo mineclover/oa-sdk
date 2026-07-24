@@ -1,7 +1,7 @@
 # spec-lens
 
-OpenAPI 스펙 변경 이력 관리·관측 도구. Definition Builder rollback project와
-TypeSpec production project의 source 변경을 수집하고, 브라우저 UI에서
+OpenAPI 스펙 변경 이력 관리·관측 도구. TypeSpec production project와
+Definition Builder rollback project의 source 변경을 수집하고, 브라우저 UI에서
 diff·provenance·source 의존 그래프를 시각화한다.
 
 > **추적 범위**: spec-lens는 `project.sourceRoot`를 건드린 커밋만 타임라인
@@ -136,7 +136,7 @@ gitlab:
 | 항목 | 내용 |
 |------|------|
 | 대상 | `targetConfig.name` (hover 시 전체 경로) |
-| 프래그먼트 | `fragmentsDir` 마지막 3 세그먼트 (hover 시 전체 경로) |
+| 소스 루트 | `project.sourceRoot` 마지막 3 세그먼트 (hover 시 전체 경로) |
 | 소스 | `local-git` / `github` / `gitlab` + branch |
 
 TypeSpec project에서는 대상에 manifest, 프래그먼트 위치에 `sourceRoot`를
@@ -148,7 +148,8 @@ TypeSpec project에서는 대상에 manifest, 프래그먼트 위치에 `sourceR
 
 ### Timeline
 
-커밋 목록을 최신순으로 표시한다. **`fragmentsDir`을 건드린 커밋만 표시**된다.
+커밋 목록을 최신순으로 표시한다. **`project.sourceRoot`를 건드린 커밋만 표시**된다.
+TypeSpec production project에서는 기본적으로 `packages/schemas/typespec` 변경만 후보가 된다.
 
 | 요소 | 설명 |
 |------|------|

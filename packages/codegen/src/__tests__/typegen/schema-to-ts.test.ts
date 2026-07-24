@@ -26,6 +26,11 @@ describe('schemaToTs — enum / const', () => {
   it('numeric enum', () => {
     expect(schemaToTs({ enum: [0, 1, 2] })).toBe('0 | 1 | 2')
   })
+
+  it('boolean enum/const → boolean literal union', () => {
+    expect(schemaToTs({ type: 'boolean', enum: [false] })).toBe('false')
+    expect(schemaToTs({ type: 'boolean', const: false })).toBe('false')
+  })
   it('const string', () => {
     expect(schemaToTs({ const: 'active' })).toBe("'active'")
   })
@@ -293,6 +298,35 @@ describe('schemaToTs — additionalProperties', () => {
       additionalProperties: false,
     })
     expect(result).toContain('id')
+    expect(result).not.toContain('[key: string]')
+  })
+
+  it('unevaluatedProperties schema (OAS 3.2 map) → Record<string, T>', () => {
+    const result = schemaToTs({
+      type: 'object',
+      unevaluatedProperties: { type: 'string' },
+    })
+    expect(result).toBe('Record<string, string>')
+  })
+
+  it('properties + unevaluatedProperties → typed index signature', () => {
+    const result = schemaToTs({
+      type: 'object',
+      properties: { id: { type: 'string' } },
+      required: ['id'],
+      unevaluatedProperties: { type: 'integer' },
+    })
+    expect(result).toContain('id: string')
+    expect(result).toContain('[key: string]: number')
+  })
+
+  it('unevaluatedProperties: { not: {} } → sealed object without index signature', () => {
+    const result = schemaToTs({
+      type: 'object',
+      properties: { id: { type: 'string' } },
+      unevaluatedProperties: { not: {} },
+    })
+    expect(result).toContain('id?: string')
     expect(result).not.toContain('[key: string]')
   })
 })

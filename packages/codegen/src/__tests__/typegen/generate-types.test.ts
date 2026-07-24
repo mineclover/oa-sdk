@@ -930,6 +930,31 @@ describe('generateTypes — Error response types', () => {
     expect(output).toContain('error: string')
   })
 
+  it('복수 에러 응답 body를 하나의 Error union으로 보존한다', () => {
+    const spec = {
+      openapi: '3.2.0', info: { title: 'Test', version: '0.0.0' },
+      paths: {
+        '/authorization/check': {
+          post: {
+            operationId: 'checkAuthorization',
+            responses: {
+              '200': { description: 'Allowed', content: { 'application/json': { schema: { type: 'object' } } } },
+              '400': { description: 'Bad Request', content: { 'application/json': { schema: { type: 'object', properties: { error: { type: 'string' } } } } } },
+              '403': { description: 'Denied', content: { 'application/json': { schema: { type: 'object', properties: { allowed: { type: 'boolean' } } } } } },
+            },
+          },
+        },
+      },
+    }
+    const output = generateTypes(parseDocument(spec as any))
+    expect(output).toContain('export type CheckAuthorizationError = {')
+    expect(output).toContain('} | {')
+    expect(output).toContain('export type CheckAuthorizationErrorByStatus = {')
+    expect(output).toContain('403: {')
+    expect(output).toContain('error?: string')
+    expect(output).toContain('allowed?: boolean')
+  })
+
   it('Error 타입이 Op 번들에 포함', () => {
     const spec = {
       openapi: '3.2.0', info: { title: 'Test', version: '0.0.0' },

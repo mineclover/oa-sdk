@@ -346,6 +346,143 @@ describe('generateClient', () => {
       globalThis.fetch = originalFetch
     }
   })
+
+  it('403 AuthorizationDecision을 보존하는 typed client error를 Node/Browser에 생성한다', () => {
+    const spec = doc({
+      paths: {
+        '/authorization/check': {
+          post: {
+            operationId: 'checkAuthorization',
+            requestBody: { content: { 'application/json': { schema: { type: 'object' } } } },
+            responses: {
+              '200': { description: 'Allowed', content: { 'application/json': { schema: { type: 'object' } } } },
+              '403': { description: 'Denied', content: { 'application/json': { schema: { type: 'object', properties: { allowed: { type: 'boolean' } } } } } },
+            },
+          },
+        },
+      },
+    })
+
+    for (const code of [generateClient(spec, { typesImport: './types' }), generateBrowserClient(spec, { typesImport: './types' })]) {
+      expect(code).toContain('export class ClientError<TBody = unknown, TStatus extends number = number>')
+      expect(code).toContain('export type CheckAuthorizationClientError = ClientError<CheckAuthorizationErrorByStatus[403], 403>')
+      expect(code).toContain('export function isCheckAuthorizationClientError(error: unknown): error is CheckAuthorizationClientError')
+      expect(code).toContain('const body = await __readOaErrorBody(res)')
+      expect(code).toContain('const err = new ClientError(res.status, body, res)')
+    }
+  })
+
+  it('403 응답 body/status/response를 ClientError로 전달한다', async () => {
+    const originalFetch = globalThis.fetch
+    globalThis.fetch = (async () => new Response(JSON.stringify({ allowed: false, reasonCode: 'OPENFGA_DENY' }), {
+      status: 403,
+      statusText: 'Forbidden',
+      headers: { 'content-type': 'application/json' },
+    })) as typeof fetch
+
+    try {
+      const { createClient } = await importGeneratedClient(generateClient(doc({
+        paths: {
+          '/authorization/check': {
+            post: {
+              operationId: 'checkAuthorization',
+              requestBody: { content: { 'application/json': { schema: { type: 'object' } } } },
+              responses: {
+                '200': { description: 'Allowed', content: { 'application/json': { schema: { type: 'object' } } } },
+                '403': { description: 'Denied', content: { 'application/json': { schema: { type: 'object' } } } },
+              },
+            },
+          },
+        },
+      })))
+      const client = createClient({ baseUrl: 'https://example.test' }) as { checkAuthorization(body: unknown): Promise<unknown> }
+
+      const thrown = await client.checkAuthorization({ operationKey: 'sales.order.read' }).catch(error => error) as {
+        name: string
+        status: number
+        body: unknown
+        response: Response
+      }
+      expect(thrown).toMatchObject({
+        name: 'ClientError',
+        status: 403,
+        body: { allowed: false, reasonCode: 'OPENFGA_DENY' },
+      })
+      expect(thrown.response.bodyUsed).toBe(false)
+      await expect(thrown.response.json()).resolves.toEqual({ allowed: false, reasonCode: 'OPENFGA_DENY' })
+    } finally {
+      globalThis.fetch = originalFetch
+    }
+  })
+
+  it('403 ClientError는 retry 설정이 있어도 재시도하지 않는다', async () => {
+    const originalFetch = globalThis.fetch
+    let calls = 0
+    globalThis.fetch = (async () => {
+      calls += 1
+      return new Response(JSON.stringify({ allowed: false }), {
+        status: 403,
+        statusText: 'Forbidden',
+        headers: { 'content-type': 'application/json' },
+      })
+    }) as typeof fetch
+
+    try {
+      const { createClient } = await importGeneratedClient(generateClient(doc({
+        paths: {
+          '/authorization/check': {
+            post: {
+              operationId: 'checkAuthorization',
+              requestBody: { content: { 'application/json': { schema: { type: 'object' } } } },
+              responses: {
+                '200': { description: 'Allowed', content: { 'application/json': { schema: { type: 'object' } } } },
+                '403': { description: 'Denied', content: { 'application/json': { schema: { type: 'object' } } } },
+              },
+            },
+          },
+        },
+      })))
+      const client = createClient({ baseUrl: 'https://example.test', retry: { maxRetries: 2, baseDelay: 0 } }) as { checkAuthorization(body: unknown): Promise<unknown> }
+
+      await client.checkAuthorization({ operationKey: 'sales.order.read' }).catch(() => undefined)
+      expect(calls).toBe(1)
+    } finally {
+      globalThis.fetch = originalFetch
+    }
+  })
+
+  it('browser generated client도 403 decision body를 보존한다', async () => {
+    const originalFetch = globalThis.fetch
+    globalThis.fetch = (async () => new Response(JSON.stringify({ allowed: false }), {
+      status: 403,
+      statusText: 'Forbidden',
+      headers: { 'content-type': 'application/json' },
+    })) as typeof fetch
+
+    try {
+      const { createClient } = await importGeneratedClient(generateBrowserClient(doc({
+        paths: {
+          '/authorization/check': {
+            post: {
+              operationId: 'checkAuthorization',
+              requestBody: { content: { 'application/json': { schema: { type: 'object' } } } },
+              responses: {
+                '200': { description: 'Allowed', content: { 'application/json': { schema: { type: 'object' } } } },
+                '403': { description: 'Denied', content: { 'application/json': { schema: { type: 'object' } } } },
+              },
+            },
+          },
+        },
+      })))
+      const client = createClient({ baseUrl: 'https://example.test' }) as { checkAuthorization(body: unknown): Promise<unknown> }
+      const thrown = await client.checkAuthorization({ operationKey: 'sales.order.read' }).catch(error => error) as { status: number; body: unknown }
+
+      expect(thrown.status).toBe(403)
+      expect(thrown.body).toEqual({ allowed: false })
+    } finally {
+      globalThis.fetch = originalFetch
+    }
+  })
 })
 
 describe('generateClient — webhooks', () => {

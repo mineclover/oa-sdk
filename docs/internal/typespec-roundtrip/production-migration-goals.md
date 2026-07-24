@@ -65,6 +65,11 @@ G9 should start from a production-owned bundle directory, separate from evidence
 packages/schemas/typespec/
   README.md
   main.tsp
+  common.tsp
+  auth.tsp
+  health.tsp
+  me.tsp
+  users.tsp
   tspconfig.yaml
   oa-sdk.typespec-bundle.json
   expected.openapi.yaml

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { collectTypeNames } from '../codegen-utils.js'
+import { collectTypeNames, getGeneratedErrorResponseKeys, hasGeneratedErrorType } from '../codegen-utils.js'
 
 describe('collectTypeNames', () => {
   it('path params → PathParams', () => {
@@ -38,6 +38,35 @@ describe('collectTypeNames', () => {
     }])
     expect(names).toContain('CreateUserBody')
     expect(names).toContain('CreateUserResponse')
+  })
+
+  it('typed 4xx response → Error 타입을 수집', () => {
+    const names = collectTypeNames([{
+      operationId: 'checkAuthorization',
+      parameters: [],
+      responses: {
+        '200': { content: { 'application/json': { schema: { type: 'object' } } } },
+        '403': { content: { 'application/json': { schema: { type: 'object' } } } },
+      },
+    }])
+    expect(names).toContain('CheckAuthorizationError')
+    expect(names).toContain('CheckAuthorizationErrorByStatus')
+  })
+
+  it('hasGeneratedErrorType는 4xx/5xx JSON 응답만 감지', () => {
+    expect(hasGeneratedErrorType({
+      '403': { content: { 'application/json': { schema: { type: 'object' } } } },
+    })).toBe(true)
+    expect(hasGeneratedErrorType({ '204': {} })).toBe(false)
+  })
+
+  it('getGeneratedErrorResponseKeys는 typed error status 순서를 보존', () => {
+    expect(getGeneratedErrorResponseKeys({
+      '503': { content: { 'application/json': { schema: { type: 'object' } } } },
+      '403': { content: { 'application/json': { schema: { type: 'object' } } } },
+      '400': { content: { 'application/json': { schema: { type: 'object' } } } },
+      '401': {},
+    })).toEqual(['400', '403', '503'])
   })
 
   it('204 without JSON schema → Response 제외', () => {

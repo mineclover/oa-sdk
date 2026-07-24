@@ -6,7 +6,14 @@ This bundle is the production-owned TypeSpec authoring source accepted by ADR-00
 
 Current boundary:
 
-- `packages/schemas/typespec/main.tsp` is the TypeSpec authoring source for the production schema.
+- `packages/schemas/typespec/main.tsp` is the bundle entrypoint. It owns root-level service metadata,
+  shared component metadata, and imports the domain modules.
+- `packages/schemas/typespec/common.tsp` owns shared authentication models and common error models.
+- `packages/schemas/typespec/auth.tsp` owns authentication models, responses, and operations.
+- `packages/schemas/typespec/health.tsp` owns health/version models, responses, and operations.
+- `packages/schemas/typespec/me.tsp` owns self-service models, responses, and operations.
+- `packages/schemas/typespec/users.tsp` owns user administration, moderation, and user-facing models,
+  responses, and operations.
 - `packages/schemas/typespec/oa-sdk.typespec-bundle.json` is the bundle manifest and declares `oa-sdk.typespec-extensions.v5`.
 - `packages/schemas/typespec/expected.openapi.yaml` is the reviewed OpenAPI 3.2 reference artifact for diff gates.
 - `packages/schemas/typespec/accepted-restored-drift.json` pins any accepted TypeSpec-restored-vs-reference drift by normalized OpenAPI value hash.

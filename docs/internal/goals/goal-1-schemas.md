@@ -1,14 +1,14 @@
 # Goal 1 — 모듈형 스키마 관리
 
-**상태: ✅ 구현 완료**
+**상태: ✅ 구현 완료 (현재는 rollback/reference 운영 기록)**
 
 > 현재 production schema source는 ADR-009 이후 TypeSpec-first입니다. 이 문서는
 > Definition Builder 기반 OpenAPI fragment path의 구현 기록과 rollback/reference
 > 운영 표면을 설명합니다.
 
-## 목표
+## 역사적 목표
 
-- OpenAPI 3.2.0을 단일 소스로 관리
+- OpenAPI 3.2.0 계약을 단일 artifact로 관리
 - 도메인 단위 분리로 팀별 독립 작업 가능
 - 환경별(local / staging / production) 서버 주소를 별도 프로필로 관리
 - Spectral(스타일) + Redocly(구조) 이중 검증
@@ -32,7 +32,7 @@ packages/schemas/src/
 
 ### 빌드 규칙
 
-`pnpm --filter @oa-sdk/schemas run build:merged` 실행 시 Definition Builder가:
+Definition Builder rollback/reference 경로에서 `pnpm --filter @oa-sdk/schemas run build:merged` 실행 시:
 1. `targets/local-parity-api.yaml`의 root metadata, servers, tags, includePaths를 읽음
 2. `fragments/**/*.yaml`를 canonical id registry로 로드
 3. include path와 retained definitions에서 시작해 `$ref` graph를 재귀 선택

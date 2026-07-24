@@ -48,8 +48,8 @@ export type CreateUserOp = { method: 'post'; path: '/users'; body: CreateUserBod
 ## 4. 라우터 + 클라이언트 생성
 
 ```bash
-oa-gen router --spec .merged.yaml --types-import './types' -o router.ts
-oa-gen client --spec .merged.yaml --types-import './types' -o client.ts
+oa-gen router --spec packages/schemas/src/.merged.yaml --types-import './types' -o router.ts
+oa-gen client --spec packages/schemas/src/.merged.yaml --types-import './types' -o client.ts
 ```
 
 ## 5. Mock 서버 테스트
@@ -108,4 +108,5 @@ pnpm --filter @oa-sdk/schemas run downgrade:3.1
 → [코드젠 워크플로](./use-cases/codegen-workflow.md) — 전체 파이프라인
 → [테스트 피드백](./use-cases/test-feedback.md) — 에러 분석 + API 탐색
 → [CLI 세팅](./cli-setup.md) — 전 커맨드 상세
+→ [기본 스펙 사용 기준](./basic-spec-usage.md) — source/artifact/사용처와 구조 경계
 → [API 인덱스](../internal/api-index.md) — 타입·함수 SSOT

@@ -1,9 +1,9 @@
 # @oa-sdk/spec-lens
 
-OpenAPI 스펙 변경 이력 관리·관측 서버 패키지. Definition Builder rollback
-project와 TypeSpec production project를 구분하는 project identity를 제공한다.
+OpenAPI 스펙 변경 이력 관리·관측 서버 패키지. TypeSpec production project와
+Definition Builder rollback project를 구분하는 project identity를 제공한다.
 
-git 소스(GitHub / GitLab / 로컬 git)에서 definition fragments 변경 이력을 수집하고, 커밋별 스냅샷 빌드·diff 계산·Read Model 갱신을 수행하며, Hono HTTP API로 제공한다. 브라우저 UI(`apps/spec-lens`)가 이 API를 소비한다.
+git 소스(GitHub / GitLab / 로컬 git)에서 project source 변경 이력을 수집하고, 커밋별 스냅샷 빌드·diff 계산·Read Model 갱신을 수행하며, Hono HTTP API로 제공한다. 브라우저 UI(`apps/spec-lens`)가 이 API를 소비한다.
 
 **전체 사용 가이드**: [`docs/spec-lens/README.md`](../../docs/spec-lens/README.md)
 

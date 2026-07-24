@@ -6,7 +6,7 @@
 
 import type { OasDocument, OasResponse, OasSchema, ParsedDocument } from '@oa-sdk/parser/browser'
 import { assertParsedDocumentComplete, isParsedDocument, parseDocument, resolveServerUrl } from '@oa-sdk/parser/browser'
-import { createOperationTypeNameMap, toOperationMethodName, collectTypeNames, formatGeneratedTs } from '@oa-sdk/core/browser'
+import { createOperationTypeNameMap, toOperationMethodName, collectTypeNames, getGeneratedErrorResponseKeys, formatGeneratedTs } from '@oa-sdk/core/browser'
 
 export type ClientOptions = {
   /** typegen 타입 import 경로 (예: './types') */
@@ -62,6 +62,44 @@ export function generateClient(spec: OasDocument | ParsedDocument, options: Clie
   lines.push(`  response: Response`)
   lines.push(`}`)
   lines.push('')
+
+  lines.push(`export class ClientError<TBody = unknown, TStatus extends number = number> extends Error {`)
+  lines.push(`  readonly status: TStatus`)
+  lines.push(`  readonly body: TBody`)
+  lines.push(`  readonly response: Response`)
+  lines.push(`  constructor(status: TStatus, body: TBody, response: Response) {`)
+  lines.push('    super(`${status} ${response.statusText}`)')
+  lines.push(`    this.name = 'ClientError'`)
+  lines.push(`    this.status = status`)
+  lines.push(`    this.body = body`)
+  lines.push(`    this.response = response`)
+  lines.push(`  }`)
+  lines.push(`}`)
+  lines.push('')
+
+  if (typesImport) {
+    for (const op of doc.operations) {
+      if (!op.operationId) continue
+      const baseName = operationNames.get(op.operationId)!
+      const errorKeys = getGeneratedErrorResponseKeys(op.responses)
+      if (errorKeys.length === 0) continue
+      const variants = errorKeys
+        .filter(key => /^[45]\d{2}$/.test(key))
+        .map(key => `ClientError<${baseName}ErrorByStatus[${key}], ${key}>`)
+      if (errorKeys.includes('default')) variants.push(`ClientError<${baseName}ErrorByStatus[number], number>`)
+      lines.push(`export type ${baseName}ClientError = ${variants.join(' | ')}`)
+      lines.push(`export function is${baseName}ClientError(error: unknown): error is ${baseName}ClientError {`)
+      lines.push(`  if (!(error instanceof ClientError)) return false`)
+      if (errorKeys.includes('default')) {
+        lines.push(`  return true`)
+      } else {
+        const statusKeys = errorKeys.filter(key => /^[45]\d{2}$/.test(key))
+        lines.push(`  return [${statusKeys.join(', ')}].includes(error.status)`)
+      }
+      lines.push(`}`)
+    }
+    if (doc.operations.some(op => op.operationId && getGeneratedErrorResponseKeys(op.responses).length > 0)) lines.push('')
+  }
 
   // auth middleware factories (from securitySchemes)
   for (const [name, scheme] of Object.entries(doc.securitySchemes)) {
@@ -204,6 +242,17 @@ export function generateClient(spec: OasDocument | ParsedDocument, options: Clie
   lines.push(`  }`)
   lines.push('')
 
+  lines.push(`  async function __readOaErrorBody(response: Response): Promise<unknown> {`)
+  lines.push(`    try {`)
+  lines.push(`      const raw = await response.clone().text()`)
+  lines.push(`      if (!raw) return undefined`)
+  lines.push(`      try { return JSON.parse(raw) } catch { return raw }`)
+  lines.push(`    } catch {`)
+  lines.push(`      return undefined`)
+  lines.push(`    }`)
+  lines.push(`  }`)
+  lines.push('')
+
   lines.push(`  async function requestResponse<T, THeaders extends object = Record<string, never>>(method: string, path: string, options?: { body?: unknown; query?: Record<string, unknown>; headers?: Record<string, string> }, responseHeaders?: readonly __OaHeaderSpec[]): Promise<ClientResponse<T, THeaders>> {`)
   lines.push(`    const url = new URL(path, baseUrl)`)
   lines.push(`    if (options?.query) {`)
@@ -237,7 +286,8 @@ export function generateClient(spec: OasDocument | ParsedDocument, options: Clie
   lines.push(`            await new Promise(r => setTimeout(r, delay))`)
   lines.push(`            continue`)
   lines.push(`          }`)
-  lines.push(`          const err = new Error(\`\${res.status} \${res.statusText}\`)`)
+  lines.push(`          const body = await __readOaErrorBody(res)`)
+  lines.push(`          const err = new ClientError(res.status, body, res)`)
   lines.push(`          for (const mw of config.middleware ?? []) {`)
   lines.push(`            if (mw.onError) mw.onError(err)`)
   lines.push(`          }`)
@@ -248,6 +298,7 @@ export function generateClient(spec: OasDocument | ParsedDocument, options: Clie
   lines.push(`        return (res.json() as Promise<T>).then(body => ({ body, headers, response: res }))`)
   lines.push(`      } catch (err) {`)
   lines.push(`        lastError = err instanceof Error ? err : new Error(String(err))`)
+  lines.push(`        if (err instanceof ClientError) throw err`)
   lines.push(`        if (attempt < maxRetries) {`)
   lines.push(`          await new Promise(r => setTimeout(r, baseDelay * 2 ** attempt))`)
   lines.push(`          continue`)
@@ -291,7 +342,8 @@ export function generateClient(spec: OasDocument | ParsedDocument, options: Clie
     lines.push(`      if (mw.onResponse) res = await mw.onResponse(res)`)
     lines.push(`    }`)
     lines.push(`    if (!res.ok) {`)
-    lines.push(`      const err = new Error(\`\${res.status} \${res.statusText}\`)`)
+    lines.push(`      const body = await __readOaErrorBody(res)`)
+    lines.push(`      const err = new ClientError(res.status, body, res)`)
     lines.push(`      for (const mw of config.middleware ?? []) {`)
     lines.push(`        if (mw.onError) mw.onError(err)`)
     lines.push(`      }`)
@@ -342,7 +394,8 @@ export function generateClient(spec: OasDocument | ParsedDocument, options: Clie
     lines.push(`      if (mw.onResponse) res = await mw.onResponse(res)`)
     lines.push(`    }`)
     lines.push(`    if (!res.ok) {`)
-    lines.push(`      const err = new Error(\`\${res.status} \${res.statusText}\`)`)
+    lines.push(`      const body = await __readOaErrorBody(res)`)
+    lines.push(`      const err = new ClientError(res.status, body, res)`)
     lines.push(`      for (const mw of config.middleware ?? []) {`)
     lines.push(`        if (mw.onError) mw.onError(err)`)
     lines.push(`      }`)

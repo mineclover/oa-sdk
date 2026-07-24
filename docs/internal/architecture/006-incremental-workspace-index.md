@@ -182,9 +182,9 @@ having n > 1;
 초기에는 opt-in만 허용한다.
 
 ```bash
-oa-gen validate --spec .merged.yaml --incremental --cache-dir .oa-cache
-oa-gen typegen --spec .merged.yaml -o types.ts --incremental --cache-dir .oa-cache
-oa-gen dev --spec .merged.yaml --cache-dir .oa-cache
+oa-gen validate --spec packages/schemas/src/.merged.yaml --incremental --cache-dir .oa-cache
+oa-gen typegen --spec packages/schemas/src/.merged.yaml -o types.ts --incremental --cache-dir .oa-cache
+oa-gen dev --spec packages/schemas/src/.merged.yaml --cache-dir .oa-cache
 ```
 
 `dev` watch mode는 안정화 후 기본 증분 사용을 검토할 수 있다. 단발 `validate`/`typegen`은 full mode를 기본으로 유지한다. cache schema/options/driver mismatch와 DB 오류는 명시적 cache command 없이 full rebuild fallback으로 처리한다.

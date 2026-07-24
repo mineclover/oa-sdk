@@ -26,7 +26,9 @@ export const typescriptAlgebra: SchemaAlgebra<string> = {
   number:  (s) => withNullable(s, s.enum
     ? s.enum.map(v => String(v)).join(' | ')
     : 'number'),
-  boolean: (s) => withNullable(s, 'boolean'),
+  boolean: (s) => withNullable(s, s.enum
+    ? s.enum.map(v => String(v)).join(' | ')
+    : s.const !== undefined ? String(s.const) : 'boolean'),
   null:    () => 'null',
 
   object(s, props) {
@@ -40,12 +42,14 @@ export const typescriptAlgebra: SchemaAlgebra<string> = {
       return `${jsdoc}  ${ro}${escapeKey(key)}${opt}: ${type}`
     })
 
-    // additionalProperties handling
-    const addProps = s.additionalProperties
+    // additionalProperties is the OAS 3.0/3.1 spelling. TypeSpec's OAS 3.2
+    // emitter uses unevaluatedProperties for Record<T>; preserve that value
+    // shape instead of widening generated maps to Record<string, unknown>.
+    const addProps = s.additionalProperties ?? s.unevaluatedProperties
     if (addProps === true) {
       if (fields.length === 0) return 'Record<string, unknown>'
       fields.push('  [key: string]: unknown')
-    } else if (addProps && typeof addProps === 'object') {
+    } else if (addProps && typeof addProps === 'object' && !isNeverSchema(addProps)) {
       const addType = foldSchema(addProps as OasSchema, typescriptAlgebra)
       if (fields.length === 0) return `Record<string, ${addType}>`
       fields.push(`  [key: string]: ${addType}`)
@@ -172,11 +176,22 @@ function stripExamples(schema: OasSchema): OasSchema {
   if (result.additionalProperties && typeof result.additionalProperties === 'object') {
     result.additionalProperties = stripExamples(result.additionalProperties)
   }
+  if (result.unevaluatedProperties && typeof result.unevaluatedProperties === 'object') {
+    result.unevaluatedProperties = stripExamples(result.unevaluatedProperties)
+  }
   if (result.then) result.then = stripExamples(result.then)
   if (result.else) result.else = stripExamples(result.else)
   if (result.if) result.if = stripExamples(result.if)
 
   return result
+}
+
+function isNeverSchema(schema: OasSchema | boolean): boolean {
+  return typeof schema === 'object'
+    && schema !== null
+    && typeof schema.not === 'object'
+    && schema.not !== null
+    && Object.keys(schema.not).length === 0
 }
 
 // ─── 헬퍼 ──────────────────────────────────────────────────────────────────

@@ -13,6 +13,7 @@
 | [Data Pseudonymization Manifest](./concepts/data-pseudonymization-manifest.md) | DB catalog, 관계성, 컬럼별 가명처리 정책, gateway API 경계 |
 | [DPM Execution Runtime Design](./concepts/dpm-execution-runtime.md) | compiled plan 이후 row transform, vault, target writer, integrity gate 설계 |
 | [Quick Start](./guides/quick-start.md) | 5분 안에 전 파이프라인 체험 |
+| [기본 스펙 사용 기준](./guides/basic-spec-usage.md) | TypeSpec source와 생성 OpenAPI artifact의 사용처·소유권·구조 |
 | [Mock 테스팅](./guides/use-cases/mock-testing.md) | 프론트엔드 테스트에서 Mock 서버 활용 |
 | [코드젠 워크플로](./guides/use-cases/codegen-workflow.md) | Drizzle → OAS → TS → 라우터 → 클라이언트 |
 | [OpenAPI Governance Workflow](./guides/use-cases/openapi-governance-workflow.md) | target artifact sidecar, duplicate review, target-check, drift, review bundle |
@@ -25,7 +26,7 @@
 | [테스트 피드백](./guides/use-cases/test-feedback.md) | 커버리지 + 검증 피드백 루프 |
 | [CLI 세팅](./guides/cli-setup.md) | 설치 + CLI 명령어 |
 | [Mock 서버](./guides/mock-server-usage.md) | MSW / Node HTTP |
-| [스키마 작성](./guides/schema-authoring.md) | 도메인 분리 spec.yaml |
+| [스키마 작성](./guides/schema-authoring.md) | TypeSpec production authoring과 Definition Builder rollback fragment |
 | [SchemaAlgebra](./guides/schema-algebra.md) | fold 패턴 확장 |
 | [Preview App](../apps/preview/) | 브라우저 수동 프리뷰. 자동 E2E 보증은 [playground](../apps/playground/)가 담당 |
 | [spec-lens](./spec-lens/README.md) | 커밋별 OpenAPI 변경 이력 관측 도구 — Timeline, Diff, Path Provenance, Fragment Graph |
