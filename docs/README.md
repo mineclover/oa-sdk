@@ -1,6 +1,15 @@
 # oa-sdk 문서
 
-최근 체크포인트: [Changelog](./changelog.md) (가장 최근: 2026-04-28 — SQLite driver priority inversion: prefer node:sqlite).
+문서 기준 체크포인트: [문서·스펙 거버넌스](./spec-governance/README.md) (2026-07-24). 제품 변경
+이력은 [Changelog](./changelog.md)에서 관리한다 (가장 최근 제품 항목: 2026-04-28 — SQLite
+driver priority inversion: prefer node:sqlite).
+
+## 문서 거버넌스
+
+작업 시작 시 [`.ai/spec-loader.yaml`](../.ai/spec-loader.yaml)을 읽고, 공식 문서 기준은
+[문서·스펙 거버넌스](./spec-governance/README.md)를 따른다. 기존 구현·계획 SSOT는
+`docs/internal/`에 그대로 두며, 거버넌스 디렉터리는 문서의 소유권·품질·검증·변경 절차만
+관리한다.
 
 ## 유저 가이드
 
@@ -13,7 +22,9 @@
 | [Data Pseudonymization Manifest](./concepts/data-pseudonymization-manifest.md) | DB catalog, 관계성, 컬럼별 가명처리 정책, gateway API 경계 |
 | [DPM Execution Runtime Design](./concepts/dpm-execution-runtime.md) | compiled plan 이후 row transform, vault, target writer, integrity gate 설계 |
 | [Quick Start](./guides/quick-start.md) | 5분 안에 전 파이프라인 체험 |
+| [System Onboarding](./guides/system-onboarding.md) | 저장소 목적, 정본 선택, 변경 경로와 검증 게이트 |
 | [기본 스펙 사용 기준](./guides/basic-spec-usage.md) | TypeSpec source와 생성 OpenAPI artifact의 사용처·소유권·구조 |
+| [TypeSpec Authoring Conventions](./guides/typespec-authoring-conventions.md) | TypeSpec source, approved snapshot, extension ownership과 validation 흐름 |
 | [Mock 테스팅](./guides/use-cases/mock-testing.md) | 프론트엔드 테스트에서 Mock 서버 활용 |
 | [코드젠 워크플로](./guides/use-cases/codegen-workflow.md) | Drizzle → OAS → TS → 라우터 → 클라이언트 |
 | [OpenAPI Governance Workflow](./guides/use-cases/openapi-governance-workflow.md) | target artifact sidecar, duplicate review, target-check, drift, review bundle |

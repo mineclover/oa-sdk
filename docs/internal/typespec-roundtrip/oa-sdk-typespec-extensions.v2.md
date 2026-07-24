@@ -4,13 +4,17 @@ Status: accepted for request body media examples, dated 2026-06-22.
 
 Schema version: `oa-sdk.typespec-extensions.v2`.
 
+Lifecycle note: this decision predates the production source-path switch. The current default
+production source is `packages/schemas/typespec/`; the current promotion and validation procedure
+is maintained in [`production-operations.md`](./production-operations.md).
+
 v2 extends [`oa-sdk.typespec-extensions.v1`](./oa-sdk-typespec-extensions.v1.md) with request body media examples. The v1 vocabulary remains frozen for sidecar-less bundles that only restore parameter examples, response media examples, and security scheme metadata.
 
 ## Decision
 
 Accept `oa-sdk.typespec-extensions.v2` as the narrow restore-bearing extension schema for OA SDK request body media examples.
 
-This decision does not make TypeSpec the default production schema source of truth. It only means a sidecar-less authored TypeSpec bundle may own request body `example` / `examples` semantics through `x-oa-sdk-operation-examples.requestBody` when its manifest declares `compatibility.oaSdkExtensionSchemaVersion: "oa-sdk.typespec-extensions.v2"`.
+At the time of this decision, it did not make TypeSpec the default production schema source of truth. It only meant a sidecar-less authored TypeSpec bundle could own request body `example` / `examples` semantics through `x-oa-sdk-operation-examples.requestBody` when its manifest declared `compatibility.oaSdkExtensionSchemaVersion: "oa-sdk.typespec-extensions.v2"`.
 
 No other metadata family is accepted into v2. Explicit public operation security is standardized separately in [`oa-sdk-typespec-extensions.v3.md`](./oa-sdk-typespec-extensions.v3.md).
 

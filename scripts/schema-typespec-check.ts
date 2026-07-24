@@ -20,6 +20,7 @@ import {
   stableOpenApiStringify,
   type OpenApiNormalizedDiffEntry,
 } from '../packages/codegen/src/cli/lib/openapi-normalized-diff.js'
+import { recoverPendingSnapshotPromotions } from './lib/typespec-snapshot-promotion.js'
 
 type Args = {
   manifest: string
@@ -50,6 +51,9 @@ const SHA256_HEX_PATTERN = /^[a-f0-9]{64}$/
 
 const root = resolve(process.cwd())
 const args = parseArgs(process.argv.slice(2))
+for (const recovered of recoverPendingSnapshotPromotions(root)) {
+  console.log(`Recovered pending TypeSpec snapshot promotion: ${recovered}`)
+}
 const workspace = mkdtempSync(join(tmpdir(), 'oa-sdk-schema-typespec-check-'))
 const restoredOutputPath = args.output ?? join(workspace, 'typespec-restored.openapi.yaml')
 
@@ -131,10 +135,10 @@ function parseArgs(rawArgs: string[]): Args {
   }
   return {
     manifest: readOption(rawArgs, '--manifest') ?? 'packages/schemas/typespec/oa-sdk.typespec-bundle.json',
-    expectedOpenapi: readOption(rawArgs, '--expected-openapi') ?? 'packages/schemas/typespec/expected.openapi.yaml',
+    expectedOpenapi: readOption(rawArgs, '--expected-openapi') ?? 'packages/schemas/typespec/approved.openapi.yaml',
     productionOpenapi: readOption(rawArgs, '--reference-openapi')
       ?? readOption(rawArgs, '--production-openapi')
-      ?? 'packages/schemas/typespec/expected.openapi.yaml',
+      ?? 'packages/schemas/typespec/approved.openapi.yaml',
     acceptedRestoredDrift: readOption(rawArgs, '--accepted-restored-drift') ?? 'packages/schemas/typespec/accepted-restored-drift.json',
     ...(readOption(rawArgs, '--report') ? { report: readOption(rawArgs, '--report') } : {}),
     ...(readOption(rawArgs, '--output') ? { output: readOption(rawArgs, '--output') } : {}),
@@ -328,8 +332,8 @@ function printUsage(): void {
 
 Options:
   --manifest <path>            TypeSpec bundle manifest. Defaults to packages/schemas/typespec/oa-sdk.typespec-bundle.json.
-  --expected-openapi <path>    Bundle-local expected OpenAPI. Defaults to packages/schemas/typespec/expected.openapi.yaml.
-  --reference-openapi <path>   Reviewed OpenAPI reference for restored drift. Defaults to packages/schemas/typespec/expected.openapi.yaml.
+  --expected-openapi <path>    Bundle-local approved OpenAPI snapshot. Defaults to packages/schemas/typespec/approved.openapi.yaml.
+  --reference-openapi <path>   Reviewed OpenAPI snapshot for restored drift. Defaults to packages/schemas/typespec/approved.openapi.yaml.
   --production-openapi <path>  Deprecated alias for --reference-openapi.
   --accepted-restored-drift <path>
                                Accepted restored-vs-reference drift manifest. Defaults to packages/schemas/typespec/accepted-restored-drift.json.

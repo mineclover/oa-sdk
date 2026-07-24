@@ -8,6 +8,7 @@ packages/schemas/src/.builder/
 .ralph-tui/
 coverage/
 .oa-cache/
+.oa-sdk/
 *.local
 .env
 .env.*

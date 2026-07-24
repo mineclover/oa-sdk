@@ -1,5 +1,6 @@
 import "@typespec/http";
 import "@typespec/openapi";
+import "./version.tsp";
 import "./common.tsp";
 import "./auth.tsp";
 import "./health.tsp";
@@ -298,7 +299,7 @@ using OpenAPI;
 @extension("x-oa-sdk-info", #{
   title: "OA SDK API",
   description: "OpenAPI 3.2 기반 API 관리 인프라",
-  version: "0.1.0",
+  version: ContractVersion,
   license: #{
     name: "MIT",
     identifier: "MIT"
@@ -356,7 +357,7 @@ using OpenAPI;
 @server("http://localhost:3000", "Local dev server")
 @server("http://localhost:4010", "Mock server (@oa-sdk/mock-server)")
 @service(#{ title: "OA SDK API" })
-@info(#{ version: "0.1.0" })
+@info(#{ version: ContractVersion })
 @tagMetadata("health", #{ description: "서버 상태 확인" })
 @tagMetadata("users", #{ description: "사용자 관리" })
 @tagMetadata("auth", #{ description: "인증 — 토큰 발급/갱신/폐기" })

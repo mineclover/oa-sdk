@@ -21,6 +21,7 @@
     "validate": "pnpm build:typespec && pnpm downgrade:3.1 && pnpm validate:spectral && pnpm validate:redocly",
     "validate:openapi": "pnpm build:merged && pnpm downgrade:3.1 && pnpm validate:spectral && pnpm validate:redocly",
     "typespec:check": "pnpm --dir ../.. schema:typespec-check",
+    "typespec:approve-reference": "pnpm --dir ../.. schema:approve-typespec-reference",
     "rollback:check": "pnpm --dir ../.. schema:rollback-check",
     "downstream:check": "pnpm --dir ../.. schema:downstream-check",
     "bundle": "pnpm build:typespec && pnpm downgrade:3.1 && redocly bundle src/.merged.3.1.yaml --output dist/openapi.yaml && redocly bundle src/.merged.3.1.yaml --output dist/openapi.json",

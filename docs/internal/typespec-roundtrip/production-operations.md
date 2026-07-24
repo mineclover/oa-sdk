@@ -1,6 +1,6 @@
 # TypeSpec Production Operations
 
-Status: active operations guide for the TypeSpec-first production schema path. Last reviewed 2026-06-22.
+Status: active operations guide for the TypeSpec-first production schema path. Last reviewed 2026-07-24.
 
 This document records the operating decisions after the TypeSpec-first production migration and G13-G15 drift burn-down. It is intentionally narrower than the design and migration goal documents: it says what maintainers should do now.
 
@@ -12,6 +12,8 @@ This document records the operating decisions after the TypeSpec-first productio
 - `@oa-sdk/codegen` `0.3.0` is the internal milestone that owns the TypeSpec roundtrip, bundle-check, sidecar, and production source-path work.
 - Do not bump beyond `0.3.0` just to mark the G13-G15 drift burn-down. The milestone is already documented as complete, and the drift burn-down closes the same production switch scope.
 - A future public npm release requires a separate packaging decision: remove or revise `private: true`, add changesets, confirm package exports, and run the full build/test/publish dry run.
+- The public API contract version is `OaSdkApi.ContractVersion` in `packages/schemas/typespec/version.tsp`, emitted as OpenAPI `info.version`. It is SemVer-governed independently of package versions; before `1.0.0`, incompatible consumer changes advance `0.MINOR`.
+- Bundle (`oa-sdk.typespec-bundle.v1`), extension (`oa-sdk.typespec-extensions.v*`), candidate, and accepted-drift `schemaVersion` values version their own machine-readable formats. They must not be used as API-release numbers.
 
 ### Publish Flow
 
@@ -73,10 +75,47 @@ Removal can be considered only after all of these are true:
 - Domain ownership: `common` owns shared auth/error models; each remaining module owns its domain
   models, response wrappers, and operations.
 - Generated production OpenAPI artifacts: `packages/schemas/src/.merged.yaml`, `packages/schemas/src/.merged.3.1.yaml`, and `packages/schemas/src/.merged.3.1.meta.json`.
+- Approved contract snapshot: `packages/schemas/typespec/approved.openapi.yaml`. It is generated from the TypeSpec-restored artifact and updated only through `pnpm schema:approve-typespec-reference -- --write` after reviewing its normalized diff.
 - Historical/evidence fixtures: `docs/internal/typespec-roundtrip/fixtures/`.
 - Rollback/reference OpenAPI fragments: `packages/schemas/src/domains`, `packages/schemas/src/fragments`, `packages/schemas/src/profiles`, and `packages/schemas/src/targets`.
 
-Do not treat the generated OpenAPI artifacts as hand-authored source. Update `.tsp` first, then regenerate through the TypeSpec gate.
+Do not treat generated OpenAPI artifacts or the approved snapshot as hand-authored source. Update `.tsp` first, inspect `pnpm schema:approve-typespec-reference`, then accept the reviewed snapshot with `--write` and regenerate through the TypeSpec gate.
+
+### Snapshot Promotion
+
+The approval command is deliberately two-stage:
+
+```bash
+pnpm schema:approve-typespec-reference
+pnpm schema:approve-typespec-reference -- --write
+```
+
+The first command retains a candidate under the ignored path
+`.oa-sdk/typespec-candidates/<manifest-hash>/`. Its metadata records the manifest, the
+bundle-root source hash (all nested `.tsp` files, TypeSpec config, bundle manifest, and
+compatibility sidecar), the current approved snapshot hash, and the generated candidate hash. Review
+the normalized diff before the second command.
+
+`--write` can update only the `expectedOpenapi` path declared in the supplied manifest;
+it does not fall back to the production snapshot. The command rechecks the source and
+approved snapshot hashes immediately before promotion, so a changed review baseline or
+source requires a new candidate.
+
+If `accepted-restored-drift.json` has entries, promotion stops. Review whether the drift
+is genuinely resolved, then promote and reset both artifacts explicitly:
+
+```bash
+pnpm schema:approve-typespec-reference -- --write --clear-accepted-restored-drift
+```
+
+Commit the approved snapshot and the cleared drift manifest together. A nonempty drift
+manifest with a newly promoted snapshot would fail the normal TypeSpec drift gate.
+
+For this paired write, the approval command persists an ignored recovery journal under
+`.oa-sdk/typespec-snapshot-promotions/` before modifying either file. If execution is
+interrupted, the next approval or `schema:typespec-check` finishes the recorded pair
+only after both recorded payloads and on-disk hashes are recognized; otherwise it stops
+before replacing either file.
 
 ## Post-Publish Checks
 

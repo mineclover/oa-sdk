@@ -4,7 +4,7 @@
 
 Status: evaluation complete. ADR-009 accepts TypeSpec-first schema authoring, and the production source-path switch is implemented with OpenAPI/Definition Builder rollback commands retained.
 
-Versioned implementation planning lives under [`typespec-roundtrip/`](./typespec-roundtrip/). The sidecar-less authored TypeSpec extension vocabulary is standardized in [`typespec-roundtrip/oa-sdk-typespec-extensions.v1.md`](./typespec-roundtrip/oa-sdk-typespec-extensions.v1.md). The completed TypeSpec-first decision design is tracked in [`typespec-roundtrip/tsp-first-decision-design.md`](./typespec-roundtrip/tsp-first-decision-design.md). The production migration goals G9-G15 and source-path switch are tracked in [`typespec-roundtrip/production-migration-goals.md`](./typespec-roundtrip/production-migration-goals.md). The current operating procedure is [`typespec-roundtrip/production-operations.md`](./typespec-roundtrip/production-operations.md). The `@oa-sdk/codegen` `0.3.0` closeout is tracked in [`typespec-roundtrip/v0.3.0/implementation-roadmap.plan.md`](./typespec-roundtrip/v0.3.0/implementation-roadmap.plan.md).
+Versioned implementation planning lives under [`typespec-roundtrip/`](./typespec-roundtrip/). The sidecar-less authored TypeSpec extension vocabulary is standardized in [`typespec-roundtrip/oa-sdk-typespec-extensions.v1.md`](./typespec-roundtrip/oa-sdk-typespec-extensions.v1.md). The completed TypeSpec-first decision design is tracked in [`typespec-roundtrip/tsp-first-decision-design.md`](./typespec-roundtrip/tsp-first-decision-design.md). The production migration goals G9-G15 and source-path switch are tracked in [`typespec-roundtrip/production-migration-goals.md`](./typespec-roundtrip/production-migration-goals.md). The current operating procedure is [`typespec-roundtrip/production-operations.md`](./typespec-roundtrip/production-operations.md), and maintainer authoring rules are in [`../guides/typespec-authoring-conventions.md`](../guides/typespec-authoring-conventions.md). The `@oa-sdk/codegen` `0.3.0` closeout is tracked in [`typespec-roundtrip/v0.3.0/implementation-roadmap.plan.md`](./typespec-roundtrip/v0.3.0/implementation-roadmap.plan.md).
 
 ## Current Surfaces
 
@@ -25,9 +25,13 @@ Implemented source:
 - `scripts/typespec-sidecar-to-extensions.ts` — repository wrapper for the sidecar-to-extension migration helper.
 - `scripts/typespec-create-authored-canonical-fixture.ts` — reproducible canonical authored fixture regeneration from the production merged OpenAPI schema.
 - `scripts/schema-typespec-check.ts` — schema-level TypeSpec gate for the production bundle, reviewed reference diff, and accepted restored drift hash manifest.
+- `scripts/schema-approve-typespec-reference.ts` — manifest-bound candidate review and explicit approved snapshot promotion command.
+- `scripts/lib/typespec-snapshot-promotion.ts` — paired snapshot/drift journal, hash-checked recovery, and manual-change conflict guard.
 - `scripts/schema-rollback-check.ts` — rollback gate that proves the TypeSpec source and OpenAPI/Definition Builder path stay green together.
 - `scripts/schema-typespec-downstream-check.ts` — G12 downstream gate that imports built package exports, runs parser, codegen, router, client, and mock-server against the TypeSpec-derived production artifact, and compiles generated TypeScript consumers plus a synthetic webhook/header fixture.
 - `packages/schemas/typespec/` — production-owned TypeSpec source layout.
+- `packages/schemas/typespec/version.tsp` — single TypeSpec source for the API contract version emitted as OpenAPI `info.version`.
+- `packages/schemas/typespec/approved.openapi.yaml` — committed approved snapshot; never hand-edit.
 - `packages/schemas/typespec/accepted-restored-drift.json` — accepted TypeSpec-restored-vs-reference drift manifest with normalized value hashes.
 - `docs/internal/typespec-roundtrip/oa-sdk-typespec-extensions.v1.md` — `oa-sdk.typespec-extensions.v1` vocabulary for sidecar-less authored TypeSpec bundles.
 - `docs/internal/typespec-roundtrip/oa-sdk-typespec-extensions.v2.md` — `oa-sdk.typespec-extensions.v2` request body examples vocabulary.
@@ -49,6 +53,7 @@ Implemented source:
 - `packages/codegen/src/__tests__/typespec-authored-bundle.test.ts` — authored `.tsp + sidecar` compile/restore fixture coverage.
 - `packages/codegen/src/__tests__/openapi-breaking-diff.test.ts` — proven TypeSpec/OpenAPI shape equivalence coverage.
 - `packages/codegen/src/__tests__/typespec-roundtrip-report.test.ts` — machine-readable report and diagnostic policy coverage.
+- `packages/codegen/src/__tests__/schema-approve-typespec-reference.test.ts` — manifest isolation, drift reset, journal recovery, conflict, and payload-integrity coverage.
 
 Toolchain:
 
@@ -56,7 +61,28 @@ Toolchain:
 - The OpenAPI emitter is configured for OpenAPI `3.2.0`.
 - Reference: TypeSpec OpenAPI emitter usage and options are documented at <https://typespec.io/docs/emitters/openapi3/reference/emitter/>.
 
-## Roundtrip Loop
+## Current Production Closeout (2026-07-24)
+
+The evaluation and G9-G15 migration are complete. The maintained production workflow is:
+
+1. Edit `.tsp` and `version.tsp` only.
+2. Run `pnpm schema:approve-typespec-reference` and inspect the local candidate/diff.
+3. Run `pnpm schema:approve-typespec-reference -- --write` after review; use `--clear-accepted-restored-drift` only when the drift reset is reviewed with the snapshot.
+4. Run `pnpm schema:validate`; run `pnpm schema:downstream-check` for operation or consumer changes.
+
+The approval command is manifest-scoped, persists candidates under ignored `.oa-sdk/`,
+and uses a hash-checked recovery journal for paired snapshot/drift writes. The authoritative
+contract and governance details are cross-referenced in [`docs/internal/spec.md`](./spec.md),
+the [authoring conventions](../guides/typespec-authoring-conventions.md), and the
+[production operations runbook](./typespec-roundtrip/production-operations.md).
+
+Latest verified production evidence: 27 operations, 28 schemas, 193 restored semantic
+entries, zero accepted restored drift, successful TypeSpec/schema validation, downstream
+consumer generation, documentation validation, and feature-test matrix validation. The
+detailed historical G1-G8/G9-G15 evidence below remains a decision record; use the closeout
+workflow and current gates for new changes.
+
+## Historical Roundtrip Evaluation Loop
 
 The evaluation loop must preserve both specs instead of forcing one vocabulary to pretend it is the other:
 
@@ -100,7 +126,11 @@ pnpm schema:downstream-check
 
 The default probe is a visibility command: it exits 0 when export, TypeSpec compile, and OA SDK validation pass, even if semantic diff remains. `--fail-on-breaking` is the readiness gate; the current canonical artifact passes it, and future semantic regressions must either be removed or explicitly accepted by policy.
 
-## Current Evidence
+## Historical Evidence (decision record)
+
+The following measurements document the original evaluation and migration decisions. They
+are retained for traceability; the current production closeout above is the operational
+source for present-day status.
 
 Current probe on `packages/schemas/src/.merged.yaml`:
 

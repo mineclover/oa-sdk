@@ -1,6 +1,6 @@
 # 기본 스펙 사용 기준
 
-Status: active operating guide. Last reviewed 2026-07-23.
+Status: active operating guide. Last reviewed 2026-07-24.
 
 이 문서에서 말하는 “기본 스펙”은 사람이 직접 수정하는 원천과 각 소비자가
 읽는 계약 artifact를 구분한 운영 단위다. 현재 production 기준은 TypeSpec-first이며,
@@ -12,7 +12,7 @@ OpenAPI 3.2는 내부 소비자가 공유하는 canonical contract artifact다.
 |---|---|---:|
 | Production authoring source | `packages/schemas/typespec/main.tsp` entrypoint와 domain `.tsp` 모듈, bundle manifest | 수정 |
 | Production bundle identity | `packages/schemas/typespec/oa-sdk.typespec-bundle.json` | 의미 변경 시 수정 |
-| Reviewed reference | `packages/schemas/typespec/expected.openapi.yaml` | 의도한 계약 변경 검토 후 수정 |
+| Approved snapshot | `packages/schemas/typespec/approved.openapi.yaml` | 생성·검토 후 승인 명령으로만 갱신 |
 | Canonical OpenAPI artifact | `packages/schemas/src/.merged.yaml` (OpenAPI 3.2) | 금지, 생성물 |
 | Compatibility artifact | `packages/schemas/src/.merged.3.1.yaml`, `.meta.json` | 금지, 생성물 |
 | Package bundle | `packages/schemas/dist/openapi.{yaml,json}` (현재 3.1 호환 출력) | 금지, 생성물 |
@@ -23,6 +23,7 @@ OpenAPI 3.2는 내부 소비자가 공유하는 canonical contract artifact다.
 핵심 규칙은 다음과 같다.
 
 - `.tsp`와 manifest를 먼저 수정한다. `.merged*`, `dist/openapi*`, sidecar report를 직접 고치지 않는다.
+- `approved.openapi.yaml`은 사람이 작성하지 않는다. TypeSpec restored OpenAPI를 검토한 뒤 `pnpm schema:approve-typespec-reference -- --write`로만 갱신한다.
 - 내부 parser, codegen, router, client, mock-server는 `.merged.yaml`을 기본 입력으로 사용한다.
 - Swagger UI나 OpenAPI 3.1 전용 도구가 필요하면 `.merged.3.1.yaml` 또는 `dist/openapi.*`를 사용한다.
 - fragments/targets와 `build-spec`는 현재 production authoring 경로가 아니라 Definition Builder rollback/reference 경로다.
@@ -32,7 +33,8 @@ OpenAPI 3.2는 내부 소비자가 공유하는 canonical contract artifact다.
 
 | 사용처 | 입력 | 출력/검증 | 권장 명령 또는 API |
 |---|---|---|---|
-| 계약 작성 | `typespec/main.tsp` + domain `.tsp` 모듈 | bundle-check, expected diff | `pnpm schema:validate` |
+| 계약 작성 | `packages/schemas/typespec/main.tsp` + domain `.tsp` 모듈 | bundle-check, approved snapshot diff | `pnpm schema:validate` |
+| 승인 snapshot 갱신 | TypeSpec restored OpenAPI | normalized diff를 검토한 생성 snapshot | `pnpm schema:approve-typespec-reference -- --write` |
 | 계약 strict 검증 | `.merged.yaml` | OpenAPI 3.2 validation, Spectral, Redocly | `pnpm schema:validate` |
 | 타입/라우터/클라이언트 생성 | `.merged.yaml` | generated TypeScript | `oa-gen typegen/router/client` |
 | Mock 및 통합 테스트 | `.merged.yaml` | MSW/Node HTTP handlers, request/response validation | `pnpm mock:start`, playground |
@@ -50,7 +52,7 @@ OpenAPI 3.2는 내부 소비자가 공유하는 canonical contract artifact다.
 
 ```text
 TypeSpec source
-  → bundle-check / expected diff
+  → bundle-check / approved snapshot diff
   → .merged.yaml (OpenAPI 3.2)
   → validate / diff / typegen / router / client / mock / spec-lens snapshot
   → .merged.3.1.yaml 또는 dist/openapi.* (호환 출력)
@@ -60,7 +62,7 @@ TypeSpec source
 
 1. 변경 대상에 따라 `packages/schemas/typespec/{common,auth,health,me,users}.tsp`를 수정한다. root service metadata나 공유 component registry를 바꿀 때만 `main.tsp`를 수정한다.
 2. OpenAPI native 의미를 TypeSpec으로 표현할 수 없으면 [authoring ownership guide](../internal/typespec-roundtrip/authoring-ownership-guide.md)에 따라 native syntax, OA SDK extension, compatibility sidecar 중 하나를 선택한다.
-3. 계약 변경이면 `expected.openapi.yaml`과 변경 이유를 함께 검토한다.
+3. 계약 변경이면 먼저 `pnpm schema:approve-typespec-reference`로 생성될 normalized diff를 확인한다. 검토가 끝난 경우에만 `--write`로 `approved.openapi.yaml`을 갱신한다.
 4. `pnpm schema:validate`를 실행한다.
 5. downstream 사용이 필요한 변경이면 `pnpm schema:downstream-check`를 실행한다.
 6. 검증된 `.merged.yaml`을 codegen, mock, review, spec-lens의 입력으로 사용한다.
@@ -77,7 +79,7 @@ packages/schemas/
 │   ├── me.tsp                           # self-service domain
 │   ├── users.tsp                         # users/admin/moderation domain
 │   ├── oa-sdk.typespec-bundle.json     # bundle identity + extension version
-│   ├── expected.openapi.yaml            # reviewed reference
+│   ├── approved.openapi.yaml            # TypeSpec에서 생성한 reviewed snapshot
 │   └── accepted-restored-drift.json     # reviewed exception set
 ├── src/
 │   ├── .merged.yaml                     # generated OpenAPI 3.2 input
@@ -135,19 +137,23 @@ fetch 전에 검사한다. retry는 GET/HEAD/OPTIONS/DELETE에만 기본 적용�
 operation에 `x-oa-sdk-retryable: true`를 선언한 경우에만 재시도한다. 관계 쓰기처럼
 중복 실행 위험이 있는 operation은 명시하지 않는다.
 
-## 5. 발견된 모순과 사용성 이슈
+## 5. 이전 혼선과 현재 결정
 
-### 정리한 문서 모순
+다음 혼선은 현재 정본과 게이트를 기준으로 정리되었다.
 
-- 일부 문서는 fragments를 현재 source of truth처럼 설명하고, 다른 문서는 TypeSpec-first라고 설명한다.
-- Definition Builder 구현이 `spec.md`에서 아직 “계획”으로 보인다.
-- `schema:bundle`의 3.1 출력과 `.merged.yaml`의 3.2 역할이 한눈에 구분되지 않는다.
-- fragment 내부의 `oa://...` source ref와 조립된 OpenAPI의 `#/components/...` ref 규칙이 한 문서에 섞여 있다.
-- spec-lens의 설명이 `fragmentsDir` 중심이라 TypeSpec bundle 관측 범위를 놓치기 쉽다.
+- Production authoring source는 `packages/schemas/typespec/`로 고정하고, fragments/targets는
+  명시적인 rollback/reference 경로로 구분했다.
+- `.merged.yaml`은 TypeSpec에서 생성하는 3.2 입력이고, `.merged.3.1.yaml`과 `dist/openapi.*`는
+  호환 출력이라는 역할을 표와 검증 명령에 명시했다.
+- `oa://...` source identity와 OpenAPI `#/components/...` output ref는 각각 source/출력
+  좌표로 분리해 설명한다.
+- spec-lens는 TypeSpec bundle source를 관측할 수 있으며, 관련 테스트와 feature matrix에
+  그 표면을 기록했다.
 
-이번 정렬에서 위 상위 문서의 기준을 이 문서와 일치시킨다.
+문서·스펙 기준의 소유권과 변경 기록은 [문서·스펙 거버넌스](../spec-governance/README.md)와
+[`decision-log.md`](../spec-governance/decision-log.md)에 둔다.
 
-### 남아 있는 구조적 사용성 이슈
+## 6. 남아 있는 구조적 결정
 
 1. **root metadata와 domain source의 경계가 다르다.** 도메인 model/response/operation은 모듈로
    나뉘었지만 `x-oa-sdk-components`, service/info, server, tag metadata는 `main.tsp`에 남아 있다.
@@ -163,15 +169,12 @@ operation에 `x-oa-sdk-retryable: true`를 선언한 경우에만 재시도한�
    emitter 설정, extension implementation 변경은 현재 자동 timeline 후보가 아니다. 관련 변경을
    함께 검토할 때는 별도 watchPaths 계약이 필요하다.
 
-## 6. 다음 구조 정렬 순서
-
-| 우선순위 | 작업 | 완료 기준 |
+| 상태 | 결정/후속 작업 | 완료 기준 |
 |---|---|---|
-| P0 | 문서와 command naming을 이 운영 기준에 맞춤 | docs/API/CLI gates 통과, source ownership 단일화 |
-| P1 | TypeSpec domain import 구조 유지 | 신규 도메인은 module + `main.tsp` import + normalized diff/downstream gate를 함께 갱신 |
-| P1 | staging/production target ownership 결정 | TypeSpec overlay 또는 target artifact 중 하나를 명시 |
-| P1 | extension authoring helper/example 추가 | 예시 1개를 ownership guide 없이도 작성 가능 |
-| P2 | spec-lens `watchPaths` 도입 검토 | source와 build/runtime dependency 변경을 같은 revision evidence로 연결 |
+| 유지 | TypeSpec domain import 구조 | 신규 도메인은 module + `main.tsp` import + normalized diff/downstream gate를 함께 갱신 |
+| 미결정 | staging/production target ownership | TypeSpec overlay 또는 target artifact 중 하나를 별도 결정 기록으로 명시 |
+| 개선 후보 | extension authoring helper/example | ownership guide를 보지 않아도 되는 대표 예시와 helper 추가 |
+| 개선 후보 | spec-lens `watchPaths` | source와 build/runtime dependency 변경을 같은 revision evidence로 연결 |
 
 새 사용처는 이 문서의 사용처 표에 먼저 추가하고, 해당 입력 artifact와 성공 gate가 정해진
 뒤에 패키지나 adapter를 확장한다.

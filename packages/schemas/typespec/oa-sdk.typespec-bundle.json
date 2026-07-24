@@ -1,7 +1,7 @@
 {
   "schemaVersion": "oa-sdk.typespec-bundle.v1",
   "entrypoint": "main.tsp",
-  "expectedOpenapi": "expected.openapi.yaml",
+  "expectedOpenapi": "approved.openapi.yaml",
   "compatibility": {
     "openapiVersion": "3.2.0",
     "oaSdkExtensionSchemaVersion": "oa-sdk.typespec-extensions.v5"

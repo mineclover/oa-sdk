@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted, dated 2026-06-22. Production source-path switch implemented with OpenAPI/Definition Builder rollback retained.
+Accepted, dated 2026-06-22. Production source-path switch implemented with OpenAPI/Definition Builder rollback retained. Current promotion, versioning, and recovery operations are maintained in the production operations runbook.
 
 TypeSpec is accepted as the OA SDK schema authoring source of truth for production schema artifacts. The OpenAPI fragments remain in place as an explicit Definition Builder rollback/reference path through `:openapi` commands.
 
@@ -29,7 +29,7 @@ Adopt TypeSpec-first schema authoring.
 The accepted production migration target is a TypeSpec bundle that satisfies all of the following:
 
 1. The bundle has an `oa-sdk.typespec-bundle.v1` manifest.
-2. The bundle includes a bundle-local `expected.openapi.yaml`.
+2. The production bundle includes a bundle-local generated approved snapshot, declared through `expectedOpenapi` in its manifest.
 3. The bundle passes `pnpm typespec:bundle-check -- --manifest <bundle>/oa-sdk.typespec-bundle.json --fail-on-breaking`.
 4. All contract facts follow `docs/internal/typespec-roundtrip/authoring-ownership-guide.md`.
 5. Sidecar-less bundles declare `compatibility.oaSdkExtensionSchemaVersion`.
@@ -97,7 +97,7 @@ G8 outcome:
 
 Rollback must remain available after the source-path switch:
 
-1. Keep or restore the bundle-local `expected.openapi.yaml`.
+1. Keep or restore the bundle-local approved OpenAPI snapshot.
 2. Move unsupported extension-owned facts back into `oa-sdk.typespec-compat-sidecar.v1`.
 3. Stop treating a TypeSpec bundle as production-authoritative until `tsp-bundle-check --fail-on-breaking` is green again.
 4. Regenerate the production OpenAPI artifact from the last green OpenAPI/Definition Builder source with `pnpm schema:validate:openapi` while TypeSpec failures are being repaired.
@@ -109,6 +109,8 @@ Rollback must remain available after the source-path switch:
 - `docs/internal/typespec-roundtrip/tsp-first-decision-design.md`
 - `docs/internal/typespec-roundtrip/production-migration-goals.md`
 - `docs/internal/typespec-roundtrip/production-operations.md`
+- `docs/guides/typespec-authoring-conventions.md`
+- `docs/internal/spec.md` — current canonical pipeline and gate contract
 - `docs/internal/typespec-roundtrip/authoring-ownership-guide.md`
 - `docs/internal/typespec-roundtrip/sidecar-to-extension-migration.md`
 - `docs/internal/typespec-roundtrip/oa-sdk-typespec-extensions.v1.md`

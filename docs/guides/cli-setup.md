@@ -98,6 +98,7 @@ bash apps/fastapi-ref/scripts/openapi-governance.sh all
 | `pnpm check:cli-spec` | `oa-gen` / `oa-contract` governance manifest와 `docs/cli-spec/*.json` 정합성 |
 | `pnpm check:api-index` | 패키지 export ↔ `docs/internal/api-index.md` drift |
 | `pnpm check:docs` | 전체 Markdown local link와 fenced `oa-gen` 명령/옵션 drift |
+| `pnpm check:spec-governance` | `.ai/spec-loader.yaml`의 공식 기준 경로·형식 정합성 |
 | `pnpm check:feature-tests` | `docs/internal/feature-test-matrix.{md,json}` 항목 ↔ 실제 테스트 경로 |
 | `pnpm schema:validate` | TypeSpec production bundle로 `.merged.yaml` 생성 후 downgrade-3.1 / spectral / redocly / strict OpenAPI 3.2 validate 실행 |
 | `pnpm schema:validate:openapi` | OpenAPI/Definition Builder rollback path로 `.merged.yaml` 생성 후 동일 검증 실행 |
@@ -110,8 +111,10 @@ bash apps/fastapi-ref/scripts/openapi-governance.sh all
 pnpm schema:validate
 ```
 
-내부적으로 세 단계를 순차 실행:
-1. `schema:typespec-check` — TypeSpec compile + OA SDK extension restore + expected/reference drift gate → `src/.merged.yaml`
+루트 명령은 먼저 parser와 codegen CLI를 빌드한 뒤 아래 스키마 파이프라인을 실행한다.
+
+내부적으로 다음 파이프라인을 순차 실행:
+1. `schema:typespec-check` — TypeSpec compile + OA SDK extension restore + approved snapshot drift gate → `src/.merged.yaml`
 2. `downgrade:3.1` — OpenAPI 3.2 artifact에서 Redocly-compatible 3.1 artifact 생성
 3. `spectral lint .merged.yaml` — 스타일 가이드 검사
 4. `redocly lint .merged.3.1.yaml` — $ref 유효성 + 스펙 준수 검사
@@ -121,6 +124,22 @@ OpenAPI/Definition Builder fallback을 검증하려면 다음 명령을 사용�
 
 ```bash
 pnpm schema:validate:openapi
+```
+
+### 승인 snapshot 갱신
+
+TypeSpec 계약 변경은 먼저 gitignore된 `.oa-sdk/typespec-candidates/`에 생성한
+후보의 normalized diff를 검토한다.
+
+```bash
+pnpm schema:approve-typespec-reference
+```
+
+검토가 끝난 경우에만 다음 명령으로 manifest가 가리키는 `approved.openapi.yaml`을
+갱신한다. 이 파일은 직접 수정하지 않는다.
+
+```bash
+pnpm schema:approve-typespec-reference -- --write
 ```
 
 ### 스키마 번들링

@@ -1,0 +1,50 @@
+schemaVersion: oa-sdk.spec-loader.v1
+project: oa-sdk
+
+# 작업 시작 시 먼저 읽는 공식 문서 진입점이다. 이 파일은 기준을 복제하지 않고
+# 기준 문서의 위치와 작업별 추가 읽기 대상을 선언한다.
+governance:
+  root: docs/spec-governance
+  entrypoint: docs/spec-governance/README.md
+  required:
+    - docs/spec-governance/README.md
+    - docs/spec-governance/project-profile.md
+    - docs/spec-governance/document-policy.md
+    - docs/spec-governance/change-control.md
+
+sourceOfTruth:
+  productScope: docs/internal/platform-scope.md
+  implementation: docs/internal/spec.md
+  roadmap: docs/internal/plan.md
+  apiSurface: docs/internal/api-index.md
+  featureTests: docs/internal/feature-test-matrix.md
+  userScenarios: docs/internal/user-scenario-tests.md
+  contractAuthoring: packages/schemas/typespec/
+  approvedContractSnapshot: packages/schemas/typespec/approved.openapi.yaml
+  contractConvention: docs/guides/typespec-authoring-conventions.md
+  governanceHistory: docs/spec-governance/decision-log.md
+
+conditional:
+  contract:
+    - docs/guides/typespec-authoring-conventions.md
+    - docs/internal/architecture/009-typespec-first-authoring.md
+    - docs/internal/typespec-roundtrip/production-operations.md
+  cliOrManifest:
+    - docs/cli-spec/README.md
+    - docs/guides/cli-setup.md
+  packageApi:
+    - docs/internal/architecture/packages.md
+    - docs/internal/api-index.md
+  release:
+    - docs/internal/release-management.md
+    - docs/internal/release-policy.json
+
+validation:
+  docs: pnpm check:docs
+  featureTraceability: pnpm check:feature-tests
+  contractBaseline: pnpm schema:typespec-check
+  contractValidation: pnpm schema:validate
+  downstreamContract: pnpm schema:downstream-check
+  releasePolicy: pnpm check:release-policy
+
+changeProcedure: docs/spec-governance/change-control.md
