@@ -1,11 +1,15 @@
-import type { SpecFileEntry, SpecRevision, SpecSourceKind } from '../../domain/index.js'
-import type { SpecObservationIdentity, SpecProjectSourceKind } from '../../domain/project.js'
+import type { SpecFileEntry, SpecLensObservedInputEvidence, SpecRevision, SpecSourceKind } from '../../domain/index.js'
+import type { SpecObservationIdentity, SpecProjectSourceKind, TypeSpecObservationInput } from '../../domain/project.js'
 import type { SpecLensTypeSpecSourceReadBudget } from '@oa-sdk/codegen/spec-lens'
 
 export type SpecSourceReadBudget = SpecLensTypeSpecSourceReadBudget
 
 export type ListRevisionsOptions = {
   sourceRoot?: string
+  /** Additional repo-relative paths that invalidate a project observation. */
+  watchPaths?: string[]
+  /** Typed replacement for watchPaths; all classes contribute revision candidates. */
+  observationInputs?: readonly TypeSpecObservationInput[]
   /** @deprecated Use sourceRoot. */
   fragmentsDir?: string
   sourceKind?: SpecProjectSourceKind
@@ -32,6 +36,11 @@ export type GetFileEntriesOptions =
       readBudget: SpecSourceReadBudget
     }
 
+export type GetObservationInputEvidenceOptions = {
+  revision: SpecRevision
+  inputs: Array<TypeSpecObservationInput & { class: 'evidence-only' }>
+}
+
 export interface SpecSourcePort {
   readonly kind: SpecSourceKind
 
@@ -46,4 +55,7 @@ export interface SpecSourcePort {
 
   // 특정 revision의 project source 전체 파일 내용
   getFileEntries(options: GetFileEntriesOptions): Promise<SpecFileEntry[]>
+
+  // Non-source evidence inputs are read as data only. They are never compiler entries.
+  getObservationInputEvidence(options: GetObservationInputEvidenceOptions): Promise<SpecLensObservedInputEvidence[]>
 }

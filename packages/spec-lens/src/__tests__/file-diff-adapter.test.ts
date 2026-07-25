@@ -122,6 +122,22 @@ describe('FileDiffAdapter TypeSpec source reads', () => {
       fixture.cleanup()
     }
   })
+
+  it('marks an evidence-only directory unreadable', async () => {
+    const fixture = createFixture()
+    try {
+      mkdirSync(join(fixture.headPath, 'toolchain'))
+      const [headRevision] = await fixture.adapter.listRevisions({})
+      await expect(fixture.adapter.getObservationInputEvidence({
+        revision: headRevision!,
+        inputs: [{ path: 'toolchain', class: 'evidence-only' }],
+      })).resolves.toEqual([{
+        path: 'toolchain', class: 'evidence-only', availability: 'unreadable', reason: 'evidence input is not a file',
+      }])
+    } finally {
+      fixture.cleanup()
+    }
+  })
 })
 
 function createFixture() {

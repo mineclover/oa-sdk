@@ -8,8 +8,10 @@ For source ownership and versioning rules, see the [TypeSpec authoring conventio
 
 Current boundary:
 
-- `packages/schemas/typespec/main.tsp` is the bundle entrypoint. It owns root-level service metadata,
-  shared component metadata, and imports the domain modules.
+- `packages/schemas/typespec/main.tsp` is the bundle composition root and imports metadata and domain modules.
+- `packages/schemas/typespec/metadata/service.tsp` owns service/info/server/tag metadata;
+  `metadata/security.tsp` owns security-scheme metadata; and
+  `metadata/common-components.tsp` owns reusable component metadata for `OaSdkApi`.
 - `packages/schemas/typespec/version.tsp` owns `ContractVersion`, the single source for the emitted OpenAPI `info.version`.
 - `packages/schemas/typespec/common.tsp` owns shared authentication models and common error models.
 - `packages/schemas/typespec/auth.tsp` owns authentication models, responses, and operations.
@@ -63,6 +65,11 @@ If a reviewed `accepted-restored-drift.json` has entries, promotion requires
 together.
 
 Reusable parameter/response component identity is restored through `oa-sdk.typespec-extensions.v5`; response wrapper projection schemas and component schema metadata drift have been eliminated through TypeSpec authoring, and operation/path metadata drift is eliminated through TypeSpec-restored OpenAPI normalization.
+
+Environment-specific deployment artifacts are derived only after restoring this bundle. The server-only
+profiles in `oa-sdk.typespec-projections.json` can be generated with
+`pnpm schema:project-typespec:local`, `pnpm schema:project-typespec:staging`, or
+`pnpm schema:project-typespec:production`; they are ignored build artifacts, never approved snapshots.
 
 `ContractVersion` is independent from workspace package versions, bundle/extension schema versions,
 and deployment metadata returned by `GET /version`. See the [authoring conventions](../../../docs/guides/typespec-authoring-conventions.md#versioning) for bump rules.

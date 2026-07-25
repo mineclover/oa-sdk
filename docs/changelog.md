@@ -2,6 +2,41 @@
 
 릴리스 단위가 아닌, 굵직한 surface 변경이 떨어졌을 때 한 항목으로 기록한다. 자세한 구현 상태는 [spec.md](./internal/spec.md), API 단일 소스는 [api-index.md](./internal/api-index.md), 기능↔테스트는 [feature-test-matrix.md](./internal/feature-test-matrix.md) 참조.
 
+## 2026-07-25 — TypeSpec external observation evidence
+
+spec-lens의 외부 경로 관측을 typed `observationInputs`로 승격했다.
+
+- `candidate-only`는 revision 후보만 확장하고, `evidence-only`는 revision별 SHA-256 또는
+  `missing`/`unreadable` 상태를 TypeSpec snapshot provenance에 보존한다.
+- Local Git, GitHub, GitLab, file-diff adapter는 evidence를 data로만 bounded read한다. 이 입력은
+  compiler entry, revision `tspconfig`, arbitrary emitter config로 절대 승격되지 않는다.
+- 입력은 최대 16개이며, evidence는 파일 최대 4개(각 2 MiB, 총 8 MiB)를 adapter당 동시 2개씩
+  읽는다. directory evidence는 `unreadable`로, 없는 경로는 `missing`으로 남긴다.
+- 기존 `watchPaths`는 `candidate-only` 호환 별칭으로 유지한다. 실제 TypeSpec emitter fixture와
+  adapter/cache/contract 회귀 테스트로 이 경계를 검증한다.
+
+## 2026-07-24 — TypeSpec ownership, trusted helpers, and deployment projections
+
+Production TypeSpec source의 composition/metadata/runtime 관측 경계를 명시적으로
+분리했다.
+
+- `main.tsp`는 composition root로 축소하고, service/info/server/tag,
+  security scheme, reusable component metadata를 각각 `typespec/metadata/`의 owner
+  module로 이동했다.
+- `@oa-sdk/typespec-decorators`는 arbitrary JSON extension helper 대신 v5 response
+  component reference를 검증하는 좁은 `@oaUseResponseComponent` helper를 제공한다.
+  spec-lens는 이 trusted package의 source/lib/dist digest를 toolchain evidence에 포함한다.
+- `oa-sdk.typespec-projections.json`과 `schema:project-typespec:{local,staging,production}`은
+  restored TypeSpec contract에서 `servers`만 바꾼 gitignored deployment artifact를 만든다.
+  이 projection은 승인 snapshot 또는 두 번째 contract source가 아니다.
+- spec-lens TypeSpec project는 `observationInputs`로 lockfile, root package, trusted decorator
+  package 변경을 관측한다. `evidence-only` lockfile은 hash/status provenance만 남기며, 모든
+  observed path와 revision `tspconfig`는 compiler workspace에 실행/주입하지 않는다.
+
+현재 기본 자동 감지 TypeSpec project의 `observationInputs`는 `package.json`, `pnpm-lock.yaml`,
+`packages/typespec-decorators`다. 운영 절차는 [TypeSpec authoring conventions](./guides/typespec-authoring-conventions.md),
+[basic spec usage](./guides/basic-spec-usage.md), [spec-lens](./spec-lens/README.md)에 정리했다.
+
 ## 2026-07-11 — Markdown과 GitLab agent operations 저장소 분리
 
 Core schema/spec management가 아닌 제품 surface를 두 독립 Git 저장소로 물리 추출했다.

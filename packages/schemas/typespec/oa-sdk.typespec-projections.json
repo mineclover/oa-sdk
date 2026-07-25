@@ -1,0 +1,21 @@
+{
+  "schemaVersion": "oa-sdk.typespec-projections.v1",
+  "profiles": {
+    "local": {
+      "servers": [
+        { "url": "http://localhost:4010", "description": "Mock server (@oa-sdk/mock-server)" },
+        { "url": "http://localhost:3000", "description": "Local dev server" }
+      ]
+    },
+    "staging": {
+      "servers": [
+        { "url": "https://api.staging.example.com/v1", "description": "Staging" }
+      ]
+    },
+    "production": {
+      "servers": [
+        { "url": "https://api.example.com/v1", "description": "Production" }
+      ]
+    }
+  }
+}

@@ -187,10 +187,16 @@ function assertUnchangedBundleSource(directory: string, expectedSha256: string):
 }
 
 function hashBundleSource(directory: string): string {
-  const sourceFiles = collectBundleSourceFiles(directory)
+  const bundleFiles = collectBundleSourceFiles(directory)
+  const sourceFiles = [
+    ...bundleFiles.map(file => ({ directory, file })),
+    ...(bundleImportsTrustedDecorators(directory, bundleFiles)
+      ? collectTrustedDecoratorSourceFiles(root).map(file => ({ directory: root, file }))
+      : []),
+  ]
   const hash = createHash('sha256')
-  for (const file of sourceFiles) {
-    const path = join(directory, file)
+  for (const { directory: sourceDirectory, file } of sourceFiles.sort((left, right) => left.file.localeCompare(right.file))) {
+    const path = join(sourceDirectory, file)
     if (!statSync(path).isFile()) continue
     hash.update(file)
     hash.update('\0')
@@ -198,6 +204,27 @@ function hashBundleSource(directory: string): string {
     hash.update('\0')
   }
   return hash.digest('hex')
+}
+
+function bundleImportsTrustedDecorators(directory: string, files: readonly string[]): boolean {
+  return files.some(file => file.endsWith('.tsp')
+    && readFileSync(join(directory, file), 'utf8').includes('import "@oa-sdk/typespec-decorators"'))
+}
+
+function collectTrustedDecoratorSourceFiles(rootDirectory: string): string[] {
+  const directory = join(rootDirectory, 'packages/typespec-decorators')
+  const files = [
+    'package.json',
+    'tsconfig.json',
+    'lib/main.tsp',
+    'lib/decorators.tsp',
+    'src/decorators.ts',
+    'src/index.ts',
+    'src/lib.ts',
+  ]
+  return files
+    .filter(file => existsSync(join(directory, file)))
+    .map(file => join('packages/typespec-decorators', file))
 }
 
 function collectBundleSourceFiles(directory: string, prefix = ''): string[] {

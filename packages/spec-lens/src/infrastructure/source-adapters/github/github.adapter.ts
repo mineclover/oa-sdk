@@ -5,10 +5,11 @@ import { promisify } from 'node:util'
 import { LocalGitAdapter } from '../local-git/local-git.adapter.js'
 import type {
   GetFileEntriesOptions,
+  GetObservationInputEvidenceOptions,
   ListRevisionsOptions,
   SpecSourcePort,
 } from '../../../application/ports/spec-source.port.js'
-import type { SpecFileEntry, SpecRevision } from '../../../domain/index.js'
+import type { SpecFileEntry, SpecLensObservedInputEvidence, SpecRevision } from '../../../domain/index.js'
 import type { TokenProvider } from './token-provider.js'
 import { normalizeCredentialFreeRemote } from '../observation-identity.js'
 
@@ -63,6 +64,10 @@ export class GithubAdapter implements SpecSourcePort {
 
   async getFileEntries(options: GetFileEntriesOptions): Promise<SpecFileEntry[]> {
     return this.local.getFileEntries(options)
+  }
+
+  async getObservationInputEvidence(options: GetObservationInputEvidenceOptions): Promise<SpecLensObservedInputEvidence[]> {
+    return this.local.getObservationInputEvidence(options)
   }
 
   /** Exposed for explicit pre-fetch (e.g. health checks). */

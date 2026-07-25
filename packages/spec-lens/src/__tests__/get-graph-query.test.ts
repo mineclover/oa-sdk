@@ -53,6 +53,7 @@ describe('GetGraphHandler', () => {
         kind: 'typespec-source-files',
         reason: 'output-pointer-mapping-unavailable',
         sourceFiles: [{ relativePath: 'main.tsp', contentHash: 'h-main' }],
+        observedInputs: [],
         compile: {} as never,
       },
       diagnostics: [],

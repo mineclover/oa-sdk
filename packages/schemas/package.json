@@ -39,6 +39,7 @@
   },
   "devDependencies": {
     "@oa-sdk/parser": "workspace:*",
+    "@oa-sdk/typespec-decorators": "workspace:*",
     "@redocly/cli": "^2.28.1",
     "@stoplight/spectral-cli": "^6.15.1",
     "nodemon": "^3.1.0",

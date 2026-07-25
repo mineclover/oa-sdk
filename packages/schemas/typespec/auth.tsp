@@ -1,8 +1,10 @@
 import "@typespec/http";
 import "@typespec/openapi";
+import "@oa-sdk/typespec-decorators";
 
 using Http;
 using OpenAPI;
+using OaSdkTypeSpec;
 
 namespace OaSdkApi;
 
@@ -277,22 +279,9 @@ model ResetPassword422Response {
     }
   }
 })
-@extension("x-oa-sdk-operation-component-refs", #{
-  responses: #[
-    #{
-      statusCode: "400",
-      ref: "#/components/responses/BadRequest"
-    },
-    #{
-      statusCode: "422",
-      ref: "#/components/responses/UnprocessableEntity"
-    },
-    #{
-      statusCode: "429",
-      ref: "#/components/responses/TooManyRequests"
-    }
-  ]
-})
+@oaUseResponseComponent("400", "BadRequest")
+@oaUseResponseComponent("422", "UnprocessableEntity")
+@oaUseResponseComponent("429", "TooManyRequests")
 op forgotPassword(
   @body body: ForgotPasswordRequest,
 ): ForgotPassword204Response | ForgotPassword400Response | ForgotPassword422Response | ForgotPassword429Response;

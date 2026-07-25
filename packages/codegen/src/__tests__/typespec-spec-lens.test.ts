@@ -89,6 +89,9 @@ describe('compileTypeSpecBundleForSpecLens', () => {
           '@typespec/openapi': '1.13.0',
           '@typespec/openapi3': '1.13.0',
         },
+        trustedLibraryDigests: {
+          '@oa-sdk/typespec-decorators': expect.stringMatching(/^[a-f0-9]{64}$/),
+        },
         restoreContract: 'oa-sdk.codegen.typespec-restore.v1',
         isolationPolicy: 'oa-sdk.spec-lens.typespec-isolation.v2',
         resourcePolicy: {
@@ -102,7 +105,7 @@ describe('compileTypeSpecBundleForSpecLens', () => {
       compiler: {
         configSource: 'generated-allowlist',
         emitter: '@typespec/openapi3',
-        packageImports: ['@typespec/http', '@typespec/openapi'],
+        packageImports: ['@oa-sdk/typespec-decorators', '@typespec/http', '@typespec/openapi'],
         resources: {
           timeoutMs: 60_000,
           maxOutputBytes: 256 * 1024,

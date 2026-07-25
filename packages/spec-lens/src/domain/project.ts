@@ -7,6 +7,12 @@ export const DEFINITION_BUILDER_VERSION = 'spec-lens.definition-builder.v1' as c
 export const TYPESPEC_BUNDLE_BUILDER_VERSION = 'spec-lens.typespec-bundle.v2' as const
 export const DEFINITION_BUILDER_TOOLCHAIN_FINGERPRINT =
   'oa-sdk.definition-builder.toolchain.v1' as const
+export const MAX_TYPESPEC_OBSERVATION_INPUTS = 16
+export const MAX_TYPESPEC_EVIDENCE_INPUTS = 4
+export const MAX_TYPESPEC_EVIDENCE_INPUT_BYTES = 2 * 1024 * 1024
+export const MAX_TYPESPEC_EVIDENCE_CONCURRENCY = 2
+export const MAX_TYPESPEC_EVIDENCE_TOTAL_BYTES =
+  MAX_TYPESPEC_EVIDENCE_INPUTS * MAX_TYPESPEC_EVIDENCE_INPUT_BYTES
 
 export type SpecProjectSourceKind = 'definition-builder' | 'typespec-bundle'
 export type SpecObservationAdapterKind = 'github' | 'gitlab' | 'local-git' | 'file'
@@ -27,6 +33,41 @@ export type TypeSpecBundleProjectConfig = {
   kind: 'typespec-bundle'
   sourceRoot: string
   manifestPath: string
+  /** @deprecated Use observationInputs with class: 'candidate-only'. */
+  watchPaths?: string[]
+  /** Explicit, bounded repo-relative inputs observed with a TypeSpec revision. */
+  observationInputs?: readonly TypeSpecObservationInput[]
+}
+
+export type TypeSpecObservationInputClass = 'candidate-only' | 'evidence-only'
+
+export type TypeSpecObservationInput = Readonly<{
+  path: string
+  class: TypeSpecObservationInputClass
+}>
+
+/**
+ * Ergonomic config surface for external TypeSpec observations. It is normalized
+ * to TypeSpecObservationInput before it reaches project identity or adapters.
+ */
+export type TypeSpecObservationConfig = Readonly<{
+  candidates?: readonly string[]
+  evidence?: readonly string[]
+}>
+
+export function assertTypeSpecObservationInputLimits(
+  inputs: readonly TypeSpecObservationInput[],
+): void {
+  if (inputs.length > MAX_TYPESPEC_OBSERVATION_INPUTS) {
+    throw new Error(`project.observationInputs must not exceed ${MAX_TYPESPEC_OBSERVATION_INPUTS} entries`)
+  }
+  const evidenceInputs = inputs.filter(input => input.class === 'evidence-only')
+  if (evidenceInputs.length > MAX_TYPESPEC_EVIDENCE_INPUTS) {
+    throw new Error(
+      `project.evidence-only inputs must not exceed ${MAX_TYPESPEC_EVIDENCE_INPUTS} entries ` +
+      `(${MAX_TYPESPEC_EVIDENCE_TOTAL_BYTES} byte aggregate budget)`,
+    )
+  }
 }
 
 export type SpecProjectConfig = DefinitionBuilderProjectConfig | TypeSpecBundleProjectConfig
@@ -51,6 +92,7 @@ export type DefinitionBuilderProjectIdentity = SpecProjectIdentityBase & {
 
 export type TypeSpecBundleProjectIdentity = SpecProjectIdentityBase & {
   sourceKind: 'typespec-bundle'
+  observationInputs?: readonly TypeSpecObservationInput[]
 }
 
 export type SpecProjectIdentity = DefinitionBuilderProjectIdentity | TypeSpecBundleProjectIdentity
@@ -90,10 +132,16 @@ export function createSpecProjectIdentity(
   observation: SpecObservationIdentity,
   toolchainFingerprint?: string,
 ): SpecProjectIdentity {
+  const observationInputs = config.kind === 'typespec-bundle' && config.observationInputs !== undefined
+    ? normalizeObservationInputs(config.observationInputs)
+    : undefined
+  if (observationInputs !== undefined) assertTypeSpecObservationInputLimits(observationInputs)
   const input: SpecProjectKeyInput = {
     sourceKind: config.kind,
     sourceRoot: normalizeSourceRoot(config.sourceRoot),
-    manifestOrTargetDigest,
+    manifestOrTargetDigest: observationInputs !== undefined
+      ? sha256(JSON.stringify({ manifestOrTargetDigest, observationInputs }))
+      : manifestOrTargetDigest,
     builderVersion: config.kind === 'typespec-bundle'
       ? TYPESPEC_BUNDLE_BUILDER_VERSION
       : DEFINITION_BUILDER_VERSION,
@@ -105,6 +153,9 @@ export function createSpecProjectIdentity(
   }
   return {
     ...input,
+    ...(observationInputs !== undefined
+      ? { observationInputs }
+      : {}),
     projectKey: buildSpecProjectKey(input),
   } as SpecProjectIdentity
 }
@@ -152,13 +203,92 @@ function parseProject(value: unknown): SpecProjectConfig {
       'project.manifestPath',
     )
     assertPathInsideSourceRoot(sourceRoot, manifestPath, 'project.manifestPath')
+    const observationInputs = parseObservationInputs(
+      value.observation,
+      value.observationInputs,
+      value.watchPaths,
+    )
     return {
       kind: 'typespec-bundle',
       sourceRoot,
       manifestPath,
+      ...(observationInputs !== undefined ? { observationInputs } : {}),
     }
   }
   throw new Error('project.kind must be definition-builder or typespec-bundle')
+}
+
+function parseObservationInputs(
+  observation: unknown,
+  typedInputs: unknown,
+  legacyWatchPaths: unknown,
+): TypeSpecObservationInput[] | undefined {
+  const configuredSurfaces = [observation, typedInputs, legacyWatchPaths]
+    .filter(value => value !== undefined)
+  if (configuredSurfaces.length > 1) {
+    throw new Error('use only one of project.observation, project.observationInputs, or project.watchPaths')
+  }
+  if (observation !== undefined) return parseSimpleObservation(observation)
+  if (typedInputs === undefined) return parseLegacyWatchPaths(legacyWatchPaths)
+  if (!Array.isArray(typedInputs)) throw new Error('project.observationInputs must be an array')
+  const inputs = typedInputs.map((input, index) => {
+    if (!isRecord(input)) throw new Error(`project.observationInputs[${index}] must be an object`)
+    const inputClass = input.class
+    if (inputClass !== 'candidate-only' && inputClass !== 'evidence-only') {
+      throw new Error(`project.observationInputs[${index}].class must be candidate-only or evidence-only`)
+    }
+    const path = normalizeRepoRelativePath(
+      requireNonEmptyString(input.path, `project.observationInputs[${index}].path`),
+      `project.observationInputs[${index}].path`,
+    )
+    return { path, class: inputClass } as const
+  })
+  return normalizeAndAssertObservationInputs(inputs)
+}
+
+function parseSimpleObservation(value: unknown): TypeSpecObservationInput[] {
+  if (!isRecord(value)) throw new Error('project.observation must be an object')
+  const candidates = parseObservationPaths(value.candidates, 'project.observation.candidates')
+  const evidence = parseObservationPaths(value.evidence, 'project.observation.evidence')
+  return normalizeAndAssertObservationInputs([
+    ...candidates.map(path => ({ path, class: 'candidate-only' as const })),
+    ...evidence.map(path => ({ path, class: 'evidence-only' as const })),
+  ])
+}
+
+function parseObservationPaths(value: unknown, path: string): string[] {
+  if (value === undefined) return []
+  if (!Array.isArray(value)) throw new Error(`${path} must be an array of repo-relative paths`)
+  return value.map((entry, index) => normalizeRepoRelativePath(
+    requireNonEmptyString(entry, `${path}[${index}]`),
+    `${path}[${index}]`,
+  ))
+}
+
+function parseLegacyWatchPaths(value: unknown): TypeSpecObservationInput[] | undefined {
+  if (value === undefined) return undefined
+  if (!Array.isArray(value)) throw new Error('project.watchPaths must be an array of repo-relative paths')
+  return normalizeAndAssertObservationInputs(value.map((path, index) => ({
+    path: normalizeRepoRelativePath(
+      requireNonEmptyString(path, `project.watchPaths[${index}]`),
+      `project.watchPaths[${index}]`,
+    ),
+    class: 'candidate-only' as const,
+  })))
+}
+
+function normalizeObservationInputs(inputs: readonly TypeSpecObservationInput[]): TypeSpecObservationInput[] {
+  const sorted = [...inputs].sort((left, right) => left.path.localeCompare(right.path))
+  if (sorted.some((input, index) => index > 0 && input.path === sorted[index - 1]?.path)) {
+    throw new Error('project observation input paths must not contain duplicates')
+  }
+  return sorted
+}
+
+function normalizeAndAssertObservationInputs(inputs: readonly TypeSpecObservationInput[]): TypeSpecObservationInput[] {
+  const normalized = normalizeObservationInputs(inputs)
+  assertTypeSpecObservationInputLimits(normalized)
+  return normalized
 }
 
 function requireNonEmptyString(value: unknown, path: string): string {

@@ -1,12 +1,18 @@
 import { createHash } from 'node:crypto'
 import type {
   GetFileEntriesOptions,
+  GetObservationInputEvidenceOptions,
   ListRevisionsOptions,
   SpecSourcePort,
 } from '../../../application/ports/spec-source.port.js'
-import type { SpecFileEntry, SpecRevision } from '../../../domain/index.js'
+import type { SpecFileEntry, SpecLensObservedInputEvidence, SpecRevision } from '../../../domain/index.js'
+import {
+  assertTypeSpecObservationInputLimits,
+  MAX_TYPESPEC_EVIDENCE_CONCURRENCY,
+  MAX_TYPESPEC_EVIDENCE_INPUT_BYTES,
+} from '../../../domain/project.js'
 import type { TokenProvider } from './token-provider.js'
-import { isSpecProjectFile, resolveSpecSourceRoot } from '../source-file-policy.js'
+import { isSpecProjectFile, resolveSpecObservationPaths, resolveSpecSourceRoot } from '../source-file-policy.js'
 import { normalizeCredentialFreeRemote } from '../observation-identity.js'
 import {
   assertSizedSourceCandidates,
@@ -66,31 +72,32 @@ export class GithubApiAdapter implements SpecSourcePort {
 
   async listRevisions(options: ListRevisionsOptions): Promise<SpecRevision[]> {
     const token = await this.config.tokenProvider.getToken(this.repoKey)
-    const sourceRoot = resolveSpecSourceRoot(options)
+    const observationPaths = resolveSpecObservationPaths(options)
     const limit = normalizeRevisionLimit(options.limit)
     const perPage = Math.min(100, limit ?? 100)
-    const commits: GithubCommit[] = []
-    let page = 1
-    while (true) {
-      const params = new URLSearchParams({
-        path: sourceRoot,
-        per_page: String(perPage),
-        page: String(page),
-      })
-      if (options.branch !== undefined) params.set('sha', options.branch)
-      if (options.since !== undefined) params.set('since', new Date(options.since).toISOString())
-      if (options.until !== undefined) params.set('until', new Date(options.until).toISOString())
-
-      const url = `${this.apiBase}/repos/${this.config.owner}/${this.config.repo}/commits?${params}`
-      const batch = await this.fetchJson<GithubCommit[]>(url, token)
-      commits.push(...batch)
-      if (batch.length < perPage || (limit !== undefined && commits.length >= limit)) break
-      page++
+    const revisions = new Map<string, SpecRevision>()
+    for (const path of observationPaths) {
+      let page = 1
+      let seen = 0
+      while (true) {
+        const params = new URLSearchParams({ path, per_page: String(perPage), page: String(page) })
+        if (options.branch !== undefined) params.set('sha', options.branch)
+        if (options.since !== undefined) params.set('since', new Date(options.since).toISOString())
+        if (options.until !== undefined) params.set('until', new Date(options.until).toISOString())
+        const url = `${this.apiBase}/repos/${this.config.owner}/${this.config.repo}/commits?${params}`
+        const batch = await this.fetchJson<GithubCommit[]>(url, token)
+        for (const commit of batch) {
+          const revision = this.toRevision(commit, options.branch)
+          revisions.set(revision.id, revision)
+        }
+        seen += batch.length
+        if (batch.length < perPage || (limit !== undefined && seen >= limit)) break
+        page++
+      }
     }
-
-    const branch = options.branch
-    return (limit === undefined ? commits : commits.slice(0, limit))
-      .map(c => this.toRevision(c, branch))
+    return [...revisions.values()]
+      .sort((left, right) => right.timestamp - left.timestamp || right.id.localeCompare(left.id))
+      .slice(0, limit)
   }
 
   async getFileEntries(options: GetFileEntriesOptions): Promise<SpecFileEntry[]> {
@@ -174,6 +181,73 @@ export class GithubApiAdapter implements SpecSourcePort {
       }),
       10,
     )
+  }
+
+  async getObservationInputEvidence(options: GetObservationInputEvidenceOptions): Promise<SpecLensObservedInputEvidence[]> {
+    assertTypeSpecObservationInputLimits(options.inputs)
+    const token = await this.config.tokenProvider.getToken(this.repoKey)
+    const entries = await withSourceReadConcurrency(options.inputs.map(input => async () => {
+      const encodedPath = input.path.split('/').map(segment => encodeURIComponent(segment)).join('/')
+      const url = `${this.apiBase}/repos/${this.config.owner}/${this.config.repo}/contents/${encodedPath}?ref=${encodeURIComponent(options.revision.id)}`
+      try {
+        const response = await fetch(url, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Accept': 'application/vnd.github+json',
+            'X-GitHub-Api-Version': '2022-11-28',
+          },
+        })
+        if (response.status === 404) {
+          return { path: input.path, class: 'evidence-only' as const, availability: 'missing' as const }
+        }
+        if (!response.ok) {
+          return {
+            path: input.path,
+            class: 'evidence-only' as const,
+            availability: 'unreadable' as const,
+            reason: `GitHub evidence read failed (${response.status})`,
+          }
+        }
+        const { text } = await readResponseTextBounded(
+          response,
+          githubBlobJsonByteCap(MAX_TYPESPEC_EVIDENCE_INPUT_BYTES),
+          `GitHub evidence input ${input.path}`,
+        )
+        const payload = JSON.parse(text) as { content?: string; encoding?: string; type?: string }
+        if (payload.type !== 'file' || typeof payload.content !== 'string' || payload.encoding !== 'base64') {
+          return {
+            path: input.path,
+            class: 'evidence-only' as const,
+            availability: 'unreadable' as const,
+            reason: 'GitHub evidence input is not a base64 file',
+          }
+        }
+        const bytes = Buffer.from(payload.content.replace(/\n/g, ''), 'base64')
+        if (bytes.byteLength > MAX_TYPESPEC_EVIDENCE_INPUT_BYTES) {
+          return {
+            path: input.path,
+            class: 'evidence-only' as const,
+            availability: 'unreadable' as const,
+            reason: `GitHub evidence input exceeds ${MAX_TYPESPEC_EVIDENCE_INPUT_BYTES} bytes`,
+          }
+        }
+        const content = bytes.toString('utf8')
+        return {
+          path: input.path,
+          class: 'evidence-only' as const,
+          availability: 'available' as const,
+          contentHash: sha256(content),
+        }
+      } catch (error) {
+        return {
+          path: input.path,
+          class: 'evidence-only' as const,
+          availability: 'unreadable' as const,
+          reason: error instanceof Error ? error.message : String(error),
+        }
+      }
+    }), MAX_TYPESPEC_EVIDENCE_CONCURRENCY)
+    return entries.sort((left, right) => left.path.localeCompare(right.path))
   }
 
   private toRevision(commit: GithubCommit, branch?: string): SpecRevision {

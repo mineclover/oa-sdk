@@ -13,11 +13,16 @@ import {
 import { isAbsolute, join, relative, resolve, sep } from 'node:path'
 import type {
   GetFileEntriesOptions,
+  GetObservationInputEvidenceOptions,
   ListRevisionsOptions,
   SpecSourceReadBudget,
   SpecSourcePort,
 } from '../../../application/ports/spec-source.port.js'
-import type { SpecFileEntry, SpecRevision } from '../../../domain/index.js'
+import type { SpecFileEntry, SpecLensObservedInputEvidence, SpecRevision } from '../../../domain/index.js'
+import {
+  assertTypeSpecObservationInputLimits,
+  MAX_TYPESPEC_EVIDENCE_INPUT_BYTES,
+} from '../../../domain/project.js'
 import { isSpecProjectFile } from '../source-file-policy.js'
 import { resolveSourceReadBudget } from '../source-read-budget.js'
 
@@ -74,6 +79,58 @@ export class FileDiffAdapter implements SpecSourcePort {
     return scanDirectory(rootPath, options.sourceKind, budget)
   }
 
+  async getObservationInputEvidence(options: GetObservationInputEvidenceOptions): Promise<SpecLensObservedInputEvidence[]> {
+    assertTypeSpecObservationInputLimits(options.inputs)
+    const rootPath = options.revision.id === this.headRevision.id
+      ? this.config.headPath
+      : this.config.basePath
+    return options.inputs.map(input => readFileEvidence(rootPath, input.path))
+      .sort((left, right) => left.path.localeCompare(right.path))
+  }
+
+}
+
+function readFileEvidence(rootPath: string, inputPath: string): SpecLensObservedInputEvidence {
+  try {
+    const root = realpathSync(resolve(rootPath))
+    const candidate = resolve(root, inputPath)
+    const pathFromRoot = relative(root, candidate)
+    if (pathFromRoot === '..' || pathFromRoot.startsWith(`..${sep}`) || isAbsolute(pathFromRoot)) {
+      return { path: inputPath, class: 'evidence-only', availability: 'unreadable', reason: 'evidence input escapes file comparison root' }
+    }
+    const realPath = realpathSync(candidate)
+    const realRelative = relative(root, realPath)
+    if (realRelative === '..' || realRelative.startsWith(`..${sep}`) || isAbsolute(realRelative)) {
+      return { path: inputPath, class: 'evidence-only', availability: 'unreadable', reason: 'evidence input resolves outside file comparison root' }
+    }
+    const stat = statSync(realPath)
+    if (!stat.isFile()) {
+      return { path: inputPath, class: 'evidence-only', availability: 'unreadable', reason: 'evidence input is not a file' }
+    }
+    if (stat.size > MAX_TYPESPEC_EVIDENCE_INPUT_BYTES) {
+      return {
+        path: inputPath,
+        class: 'evidence-only',
+        availability: 'unreadable',
+        reason: `evidence input exceeds ${MAX_TYPESPEC_EVIDENCE_INPUT_BYTES} bytes`,
+      }
+    }
+    return {
+      path: inputPath,
+      class: 'evidence-only',
+      availability: 'available',
+      contentHash: sha256(readFileSync(realPath, 'utf8')),
+    }
+  } catch (error) {
+    const code = error instanceof Error && 'code' in error ? String((error as NodeJS.ErrnoException).code) : ''
+    if (code === 'ENOENT') return { path: inputPath, class: 'evidence-only', availability: 'missing' }
+    return {
+      path: inputPath,
+      class: 'evidence-only',
+      availability: 'unreadable',
+      reason: error instanceof Error ? error.message : String(error),
+    }
+  }
 }
 
 function scanDirectory(

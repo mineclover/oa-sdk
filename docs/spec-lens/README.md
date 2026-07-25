@@ -4,8 +4,8 @@ OpenAPI 스펙 변경 이력 관리·관측 도구. TypeSpec production project�
 Definition Builder rollback project의 source 변경을 수집하고, 브라우저 UI에서
 diff·provenance·source 의존 그래프를 시각화한다.
 
-> **추적 범위**: spec-lens는 `project.sourceRoot`를 건드린 커밋만 타임라인
-> 후보로 표시한다. 앱 코드 변경 커밋은 잡히지 않는다.
+> **추적 범위**: spec-lens는 `project.sourceRoot`와 TypeSpec project의 명시적
+> `observation`으로 선언한 외부 경로를 건드린 커밋만 타임라인 후보로 표시한다. 앱 코드 변경 커밋은 잡히지 않는다.
 
 ---
 
@@ -59,12 +59,27 @@ project:
   kind: typespec-bundle
   sourceRoot: packages/schemas/typespec
   manifestPath: packages/schemas/typespec/oa-sdk.typespec-bundle.json
+  # sourceRoot 밖에서 compiler/runtime 재현성에 영향을 주는 경로만 추가한다.
+  observation:
+    evidence: [package.json, pnpm-lock.yaml]
+    candidates: [packages/typespec-decorators]
 ```
 
 TypeSpec project는 historical entries를 격리 workspace로 재구성하고 고정
 `@typespec/openapi3` 설정으로 compile한 뒤 OA SDK extension/sidecar restore,
 validation, expected diff를 통과한 OpenAPI를 snapshot으로 저장한다. revision에
 포함된 emitter config는 실행하지 않는다.
+
+`observation`은 기본 설정 표면이다. `candidates`는 파일 또는 디렉터리의 TypeSpec snapshot
+재검증 후보를 추가하고, `evidence`는 파일의 revision별 hash 또는 missing/unreadable 상태를
+provenance에 남긴다. 어느 경우도 historical compiler에 임의 설정을 실행시키지 않는다.
+입력 목록은 project identity에 포함되므로 목록 변경은 별도 cache namespace를 만든다.
+
+전체 입력은 최대 16개이고, evidence는 최대 4개(파일당 2 MiB, 합계 최대 8 MiB, 동시 읽기 2개)다.
+이는 운영 안전장치이며 일반적으로 설정할 값이 아니다. 초과했다면 관측 대상을 묶거나 불필요한
+경로를 제거한다. 고급 통합에서는 `observationInputs`로 동일한 값을 `{ path, class }` 형태로
+직접 줄 수 있다. 기존 `watchPaths`는 `candidate-only` 호환 alias이며, `observation`,
+`observationInputs`, `watchPaths` 중 하나만 사용한다.
 
 **설정 파일이 없으면** 다음 경로를 자동 감지한다:
 - `packages/schemas/typespec/oa-sdk.typespec-bundle.json` (production, 최우선)
@@ -148,8 +163,9 @@ TypeSpec project에서는 대상에 manifest, 프래그먼트 위치에 `sourceR
 
 ### Timeline
 
-커밋 목록을 최신순으로 표시한다. **`project.sourceRoot`를 건드린 커밋만 표시**된다.
-TypeSpec production project에서는 기본적으로 `packages/schemas/typespec` 변경만 후보가 된다.
+커밋 목록을 최신순으로 표시한다. **`project.sourceRoot` 또는 `observation` 입력을 건드린 커밋만 표시**된다.
+TypeSpec production project에서는 기본적으로 `packages/schemas/typespec` 변경만 후보가 되고,
+설정한 lockfile·package manifest 변경도 재검증 후보가 된다.
 
 | 요소 | 설명 |
 |------|------|

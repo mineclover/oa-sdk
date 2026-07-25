@@ -4,11 +4,17 @@ import { realpathSync } from 'node:fs'
 import { promisify } from 'node:util'
 import type {
   GetFileEntriesOptions,
+  GetObservationInputEvidenceOptions,
   ListRevisionsOptions,
   SpecSourcePort,
 } from '../../../application/ports/spec-source.port.js'
-import type { SpecFileEntry, SpecRevision } from '../../../domain/index.js'
-import { isSpecProjectFile, resolveSpecSourceRoot } from '../source-file-policy.js'
+import type { SpecFileEntry, SpecLensObservedInputEvidence, SpecRevision } from '../../../domain/index.js'
+import {
+  assertTypeSpecObservationInputLimits,
+  MAX_TYPESPEC_EVIDENCE_CONCURRENCY,
+  MAX_TYPESPEC_EVIDENCE_INPUT_BYTES,
+} from '../../../domain/project.js'
+import { isSpecProjectFile, resolveSpecObservationPaths, resolveSpecSourceRoot } from '../source-file-policy.js'
 import {
   assertSizedSourceCandidates,
   resolveSourceReadBudget,
@@ -43,7 +49,7 @@ export class LocalGitAdapter implements SpecSourcePort {
 
   async listRevisions(options: ListRevisionsOptions): Promise<SpecRevision[]> {
     const tracked = await this.resolveTrackedRef(options.branch)
-    const sourceRoot = resolveSpecSourceRoot(options)
+    const observationPaths = resolveSpecObservationPaths(options)
     const args = ['log', '--format=%H%n%aI%n%s%n%an%n%x00']
     args.push(tracked.selector)
     if (options.since !== undefined) args.push(`--since=${new Date(options.since).toISOString()}`)
@@ -54,7 +60,7 @@ export class LocalGitAdapter implements SpecSourcePort {
       }
       args.push(`-${options.limit}`)
     }
-    args.push('--', sourceRoot)
+    args.push('--', ...observationPaths)
 
     const output = await this.git(args)
     const revisions = parseGitLog(output)
@@ -125,6 +131,55 @@ export class LocalGitAdapter implements SpecSourcePort {
       }
     }
     return entries
+  }
+
+  async getObservationInputEvidence(options: GetObservationInputEvidenceOptions): Promise<SpecLensObservedInputEvidence[]> {
+    assertTypeSpecObservationInputLimits(options.inputs)
+    return withSourceReadConcurrency(options.inputs.map(input => async () => {
+      try {
+        const objectType = (await this.git(
+          ['cat-file', '-t', `${options.revision.id}:${input.path}`],
+          GIT_SHOW_BUFFER_MARGIN_BYTES,
+        )).trim()
+        if (objectType !== 'blob') {
+          return {
+            path: input.path,
+            class: 'evidence-only' as const,
+            availability: 'unreadable' as const,
+            reason: 'local Git evidence input is not a file',
+          }
+        }
+      } catch {
+        return { path: input.path, class: 'evidence-only' as const, availability: 'missing' as const }
+      }
+      try {
+        const content = await this.git(
+          ['show', `${options.revision.id}:${input.path}`],
+          MAX_TYPESPEC_EVIDENCE_INPUT_BYTES + GIT_SHOW_BUFFER_MARGIN_BYTES,
+        )
+        if (Buffer.byteLength(content) > MAX_TYPESPEC_EVIDENCE_INPUT_BYTES) {
+          return {
+            path: input.path,
+            class: 'evidence-only' as const,
+            availability: 'unreadable' as const,
+            reason: `local Git evidence input exceeds ${MAX_TYPESPEC_EVIDENCE_INPUT_BYTES} bytes`,
+          }
+        }
+        return {
+          path: input.path,
+          class: 'evidence-only' as const,
+          availability: 'available' as const,
+          contentHash: sha256(content),
+        }
+      } catch (error) {
+        return {
+          path: input.path,
+          class: 'evidence-only' as const,
+          availability: 'unreadable' as const,
+          reason: error instanceof Error ? error.message : String(error),
+        }
+      }
+    }), MAX_TYPESPEC_EVIDENCE_CONCURRENCY).then(entries => entries.sort((left, right) => left.path.localeCompare(right.path)))
   }
 
   async git(args: string[], maxBuffer = DEFAULT_GIT_MAX_BUFFER_BYTES): Promise<string> {

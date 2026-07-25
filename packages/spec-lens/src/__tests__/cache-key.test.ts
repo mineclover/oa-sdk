@@ -3,6 +3,8 @@ import type { DefinitionTargetConfig } from '@oa-sdk/parser'
 import { buildTargetConfigDigest } from '../infrastructure/cache/sqlite/cache-key.js'
 import {
   SPEC_LENS_SNAPSHOT_SCHEMA_VERSION,
+  MAX_TYPESPEC_EVIDENCE_INPUTS,
+  MAX_TYPESPEC_OBSERVATION_INPUTS,
   buildSpecProjectKey,
   createSpecProjectIdentity,
   resolveSpecProjectConfig,
@@ -114,6 +116,86 @@ describe('resolveSpecProjectConfig', () => {
     })
   })
 
+  it('maps legacy watch paths to candidate-only inputs and scopes them into the project identity', () => {
+    const watched = resolveSpecProjectConfig({
+      project: {
+        kind: 'typespec-bundle',
+        sourceRoot: 'packages/schemas/typespec',
+        manifestPath: 'packages/schemas/typespec/oa-sdk.typespec-bundle.json',
+        watchPaths: ['pnpm-lock.yaml', 'package.json'],
+      },
+    })
+    expect(watched).toMatchObject({
+      observationInputs: [
+        { path: 'package.json', class: 'candidate-only' },
+        { path: 'pnpm-lock.yaml', class: 'candidate-only' },
+      ],
+    })
+    if (watched.kind !== 'typespec-bundle') throw new Error('expected TypeSpec bundle')
+    const withoutWatch = createSpecProjectIdentity({
+      kind: 'typespec-bundle',
+      sourceRoot: watched.sourceRoot,
+      manifestPath: watched.manifestPath,
+    }, 'manifest-digest', { adapterKind: 'local-git', repository: 'file:///repo-a', ref: 'main' }, 'a'.repeat(64))
+    const withWatch = createSpecProjectIdentity(watched, 'manifest-digest', { adapterKind: 'local-git', repository: 'file:///repo-a', ref: 'main' }, 'a'.repeat(64))
+    expect(withWatch.projectKey).not.toBe(withoutWatch.projectKey)
+  })
+
+  it('maps the simple observation config to typed inputs and scopes it into the project identity', () => {
+    const project = resolveSpecProjectConfig({
+      project: {
+        kind: 'typespec-bundle',
+        sourceRoot: 'packages/schemas/typespec',
+        manifestPath: 'packages/schemas/typespec/oa-sdk.typespec-bundle.json',
+        observation: {
+          candidates: ['packages/typespec-decorators'],
+          evidence: ['pnpm-lock.yaml', 'package.json'],
+        },
+      },
+    })
+    expect(project).toMatchObject({
+      observationInputs: [
+        { path: 'package.json', class: 'evidence-only' },
+        { path: 'packages/typespec-decorators', class: 'candidate-only' },
+        { path: 'pnpm-lock.yaml', class: 'evidence-only' },
+      ],
+    })
+    if (project.kind !== 'typespec-bundle') throw new Error('expected TypeSpec bundle')
+    const observation = { adapterKind: 'local-git', repository: 'file:///repo-a', ref: 'main' } as const
+    const baseline = createSpecProjectIdentity({
+      kind: 'typespec-bundle', sourceRoot: project.sourceRoot, manifestPath: project.manifestPath,
+    }, 'manifest-digest', observation, 'a'.repeat(64))
+    const observed = createSpecProjectIdentity(project, 'manifest-digest', observation, 'a'.repeat(64))
+    expect(observed.projectKey).not.toBe(baseline.projectKey)
+  })
+
+  it('accepts explicit evidence-only inputs and isolates their project identity', () => {
+    const project = resolveSpecProjectConfig({
+      project: {
+        kind: 'typespec-bundle',
+        sourceRoot: 'packages/schemas/typespec',
+        manifestPath: 'packages/schemas/typespec/oa-sdk.typespec-bundle.json',
+        observationInputs: [
+          { path: 'pnpm-lock.yaml', class: 'evidence-only' },
+          { path: 'packages/typespec-decorators', class: 'candidate-only' },
+        ],
+      },
+    })
+    expect(project).toMatchObject({
+      observationInputs: [
+        { path: 'packages/typespec-decorators', class: 'candidate-only' },
+        { path: 'pnpm-lock.yaml', class: 'evidence-only' },
+      ],
+    })
+    if (project.kind !== 'typespec-bundle') throw new Error('expected TypeSpec bundle')
+    const inputObservation = { adapterKind: 'local-git', repository: 'file:///repo-a', ref: 'main' } as const
+    const baseline = createSpecProjectIdentity({
+      kind: 'typespec-bundle', sourceRoot: project.sourceRoot, manifestPath: project.manifestPath,
+    }, 'manifest-digest', inputObservation, 'a'.repeat(64))
+    const observed = createSpecProjectIdentity(project, 'manifest-digest', inputObservation, 'a'.repeat(64))
+    expect(observed.projectKey).not.toBe(baseline.projectKey)
+  })
+
   it('selects a kind-correlated ready builder for TypeSpec snapshots', () => {
     expect(selectSnapshotBuilder({
       kind: 'definition-builder',
@@ -145,6 +227,52 @@ describe('resolveSpecProjectConfig', () => {
         manifestPath: 'packages/schemas/other/bundle.json',
       },
     })).toThrow('must name a file inside project.sourceRoot')
+    expect(() => resolveSpecProjectConfig({
+      project: {
+        kind: 'typespec-bundle',
+        sourceRoot: 'packages/schemas/typespec',
+        manifestPath: 'packages/schemas/typespec/oa-sdk.typespec-bundle.json',
+        watchPaths: ['../pnpm-lock.yaml'],
+      },
+    })).toThrow('must stay inside the repository')
+    expect(() => resolveSpecProjectConfig({
+      project: {
+        kind: 'typespec-bundle',
+        sourceRoot: 'packages/schemas/typespec',
+        manifestPath: 'packages/schemas/typespec/oa-sdk.typespec-bundle.json',
+        watchPaths: ['package.json'],
+        observationInputs: [{ path: 'pnpm-lock.yaml', class: 'evidence-only' }],
+      },
+    })).toThrow('use only one of project.observation, project.observationInputs, or project.watchPaths')
+    expect(() => resolveSpecProjectConfig({
+      project: {
+        kind: 'typespec-bundle',
+        sourceRoot: 'packages/schemas/typespec',
+        manifestPath: 'packages/schemas/typespec/oa-sdk.typespec-bundle.json',
+        observation: { evidence: ['pnpm-lock.yaml'] },
+        observationInputs: [{ path: 'package.json', class: 'evidence-only' }],
+      },
+    })).toThrow('use only one of project.observation, project.observationInputs, or project.watchPaths')
+    expect(() => resolveSpecProjectConfig({
+      project: {
+        kind: 'typespec-bundle',
+        sourceRoot: 'packages/schemas/typespec',
+        manifestPath: 'packages/schemas/typespec/oa-sdk.typespec-bundle.json',
+        observationInputs: Array.from({ length: MAX_TYPESPEC_OBSERVATION_INPUTS + 1 }, (_, index) => ({
+          path: `observed/input-${index}.json`, class: 'candidate-only',
+        })),
+      },
+    })).toThrow(`must not exceed ${MAX_TYPESPEC_OBSERVATION_INPUTS} entries`)
+    expect(() => resolveSpecProjectConfig({
+      project: {
+        kind: 'typespec-bundle',
+        sourceRoot: 'packages/schemas/typespec',
+        manifestPath: 'packages/schemas/typespec/oa-sdk.typespec-bundle.json',
+        observationInputs: Array.from({ length: MAX_TYPESPEC_EVIDENCE_INPUTS + 1 }, (_, index) => ({
+          path: `observed/evidence-${index}.json`, class: 'evidence-only',
+        })),
+      },
+    })).toThrow(`must not exceed ${MAX_TYPESPEC_EVIDENCE_INPUTS} entries`)
   })
 })
 

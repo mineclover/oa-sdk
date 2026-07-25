@@ -10,7 +10,8 @@ evidence.
 
 | Contract fact | Authoring location | Rule |
 |---|---|---|
-| Service metadata and reusable component registry | `packages/schemas/typespec/main.tsp` | Change only for root-level concerns. |
+| Service metadata | `packages/schemas/typespec/metadata/service.tsp` | Change only for root-level concerns; `main.tsp` remains the composition root. |
+| Reusable component registry | `packages/schemas/typespec/metadata/common-components.tsp` | Keep component identity separate from domain models and operations. |
 | API contract version | `packages/schemas/typespec/version.tsp` (`ContractVersion`) | The only source for `info.version`; do not derive it from package or build versions. |
 | Domain models, response wrappers, operations | matching domain `.tsp` module | Prefer TypeSpec-native syntax. |
 | OpenAPI facts the emitter cannot preserve | OA SDK TypeSpec extension | Use a versioned, documented extension; do not encode semantics in comments. |
@@ -68,9 +69,12 @@ Use the following order of preference.
 4. Propose a versioned extension design before adding a new restore-bearing field.
 
 Do not put a generic `@extension` payload directly into a new operation when a
-shared authoring helper exists. Until helpers cover an extension family, keep
-the payload adjacent to its operation and add a focused example or test that
-proves the restored OpenAPI result.
+shared authoring helper exists. `@oa-sdk/typespec-decorators` currently owns
+the narrow v5 response-component helper `@oaUseResponseComponent`; it validates
+the status/component shape and does not accept arbitrary extension keys or JSON.
+Until a helper covers an extension family, keep the payload adjacent to its
+operation and add a focused example or test that proves the restored OpenAPI
+result.
 
 ## Required Review Evidence
 

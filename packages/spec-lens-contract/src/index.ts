@@ -182,10 +182,14 @@ export type SpecLensTypeSpecToolchainEvidence = {
   schemaVersion: typeof SPEC_LENS_TYPESPEC_TOOLCHAIN_EVIDENCE_SCHEMA_VERSION
   fingerprint: string
   packages: {
+    '@oa-sdk/typespec-decorators': string
     '@typespec/compiler': string
     '@typespec/http': string
     '@typespec/openapi': string
     '@typespec/openapi3': string
+  }
+  trustedLibraryDigests: {
+    '@oa-sdk/typespec-decorators': string
   }
   restoreContract: typeof SPEC_LENS_TYPESPEC_RESTORE_CONTRACT_VERSION
   isolationPolicy: typeof SPEC_LENS_TYPESPEC_ISOLATION_POLICY_VERSION
@@ -231,6 +235,15 @@ export type SpecLensTypeSpecCompileEvidence = {
   }
 }
 
+/** A non-source repository input observed while rebuilding a TypeSpec revision. */
+export type SpecLensObservedInputEvidence = {
+  path: string
+  class: 'evidence-only'
+  availability: 'available' | 'missing' | 'unreadable'
+  contentHash?: string
+  reason?: string
+}
+
 export type SpecSnapshotBase = {
   schemaVersion: typeof SPEC_LENS_SNAPSHOT_SCHEMA_VERSION
   projectKey: string
@@ -264,6 +277,7 @@ export type TypeSpecBundleSpecSnapshot = SpecSnapshotBase & {
     kind: 'typespec-source-files'
     reason: 'output-pointer-mapping-unavailable'
     sourceFiles: Array<{ relativePath: string; contentHash: string }>
+    observedInputs: SpecLensObservedInputEvidence[]
     compile: SpecLensTypeSpecCompileEvidence
   }
 }
@@ -540,7 +554,28 @@ function isTypeSpecBundleProvenance(value: unknown): boolean {
     && value.kind === 'typespec-source-files'
     && value.reason === 'output-pointer-mapping-unavailable'
     && isSourceFileReferenceArray(value.sourceFiles)
+    && isObservedInputEvidenceArray(value.observedInputs)
     && isCompileEvidence(value.compile)
+}
+
+function isObservedInputEvidenceArray(value: unknown): value is SpecLensObservedInputEvidence[] {
+  if (!Array.isArray(value)) return false
+  let previousPath = ''
+  for (const entry of value) {
+    if (!isRecord(entry)
+      || !isString(entry.path)
+      || entry.class !== 'evidence-only'
+      || (entry.availability !== 'available' && entry.availability !== 'missing' && entry.availability !== 'unreadable')
+      || (entry.contentHash !== undefined && !isString(entry.contentHash))
+      || (entry.reason !== undefined && !isString(entry.reason))
+      || entry.path <= previousPath
+      || (entry.availability === 'available' && entry.contentHash === undefined)
+      || (entry.availability !== 'available' && entry.contentHash !== undefined)) {
+      return false
+    }
+    previousPath = entry.path
+  }
+  return true
 }
 
 function isTimelineDiff(value: Record<string, unknown>): value is SpecTimelineDiff {
@@ -900,10 +935,13 @@ function isToolchainEvidence(value: unknown): value is SpecLensTypeSpecToolchain
     || value.schemaVersion !== SPEC_LENS_TYPESPEC_TOOLCHAIN_EVIDENCE_SCHEMA_VERSION
     || !isString(value.fingerprint)
     || !isRecord(value.packages)
+    || !isString(value.packages['@oa-sdk/typespec-decorators'])
     || !isString(value.packages['@typespec/compiler'])
     || !isString(value.packages['@typespec/http'])
     || !isString(value.packages['@typespec/openapi'])
     || !isString(value.packages['@typespec/openapi3'])
+    || !isRecord(value.trustedLibraryDigests)
+    || !isString(value.trustedLibraryDigests['@oa-sdk/typespec-decorators'])
     || value.restoreContract !== SPEC_LENS_TYPESPEC_RESTORE_CONTRACT_VERSION
     || value.isolationPolicy !== SPEC_LENS_TYPESPEC_ISOLATION_POLICY_VERSION
     || !isRecord(value.resourcePolicy)) {

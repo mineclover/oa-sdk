@@ -11,6 +11,7 @@ import type {
   SpecSnapshotDiagnostic,
   SpecSnapshotStored,
   SpecTimelineDiff,
+  SpecLensObservedInputEvidence,
   TypeSpecBundleSpecSnapshot,
 } from '../../domain/index.js'
 import { SPEC_LENS_SNAPSHOT_SCHEMA_VERSION } from '../../domain/project.js'
@@ -80,6 +81,7 @@ export class TypeSpecBundleSnapshotBuilder implements SnapshotBuilderPort<'types
         kind: 'typespec-source-files',
         reason: 'output-pointer-mapping-unavailable',
         sourceFiles,
+        observedInputs: normalizeObservedInputs(options.observedInputs),
         compile: compiled.evidence,
       },
       diagnostics,
@@ -94,4 +96,8 @@ export class TypeSpecBundleSnapshotBuilder implements SnapshotBuilderPort<'types
 
 function normalizePath(value: string): string {
   return value.replaceAll('\\', '/').replace(/^\.\//, '')
+}
+
+function normalizeObservedInputs(entries: readonly SpecLensObservedInputEvidence[]) {
+  return [...entries].sort((left, right) => left.path.localeCompare(right.path))
 }

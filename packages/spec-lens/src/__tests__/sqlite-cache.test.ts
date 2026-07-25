@@ -124,6 +124,7 @@ function makeTypeSpecSnapshot(id: string): SpecSnapshotStored {
       kind: 'typespec-source-files',
       reason: 'output-pointer-mapping-unavailable',
       sourceFiles: [{ relativePath: 'main.tsp', contentHash: 'tsp-hash' }],
+      observedInputs: [],
       compile: {
         schemaVersion: 'oa-sdk.spec-lens.typespec-compile.v1',
         manifestSchemaVersion: 'oa-sdk.typespec-bundle.v1',
@@ -134,10 +135,14 @@ function makeTypeSpecSnapshot(id: string): SpecSnapshotStored {
           schemaVersion: 'oa-sdk.spec-lens.typespec-toolchain.v1',
           fingerprint: TEST_TOOLCHAIN_FINGERPRINT,
           packages: {
+            '@oa-sdk/typespec-decorators': '0.1.0',
             '@typespec/compiler': '1.13.0',
             '@typespec/http': '1.13.0',
             '@typespec/openapi': '1.13.0',
             '@typespec/openapi3': '1.13.0',
+          },
+          trustedLibraryDigests: {
+            '@oa-sdk/typespec-decorators': 'a'.repeat(64),
           },
           restoreContract: 'oa-sdk.codegen.typespec-restore.v1',
           isolationPolicy: 'oa-sdk.spec-lens.typespec-isolation.v2',
@@ -153,7 +158,7 @@ function makeTypeSpecSnapshot(id: string): SpecSnapshotStored {
           configSource: 'generated-allowlist',
           emitter: '@typespec/openapi3',
           openapiVersion: '3.2.0',
-          packageImports: ['@typespec/http', '@typespec/openapi'],
+          packageImports: ['@oa-sdk/typespec-decorators', '@typespec/http', '@typespec/openapi'],
           resources: {
             timeoutMs: 60_000,
             maxOutputBytes: 256 * 1024,

@@ -2,9 +2,11 @@ import {
   existsSync,
   mkdirSync,
   mkdtempSync,
+  readdirSync,
   readFileSync,
   realpathSync,
   rmSync,
+  statSync,
   symlinkSync,
   writeFileSync,
 } from 'node:fs'
@@ -26,11 +28,13 @@ import {
 import { parseTypeSpecBundleManifest } from './typespec-bundle-manifest.js'
 
 export const SPEC_LENS_TYPESPEC_PACKAGE_IMPORT_ALLOWLIST = [
+  '@oa-sdk/typespec-decorators',
   '@typespec/http',
   '@typespec/openapi',
 ] as const
 
 export const SPEC_LENS_TYPESPEC_RUNTIME_PACKAGE_ALLOWLIST = [
+  '@oa-sdk/typespec-decorators',
   '@typespec/http',
   '@typespec/openapi',
   '@typespec/openapi3',
@@ -63,10 +67,14 @@ export type SpecLensTypeSpecToolchainEvidence = {
   schemaVersion: 'oa-sdk.spec-lens.typespec-toolchain.v1'
   fingerprint: string
   packages: {
+    '@oa-sdk/typespec-decorators': string
     '@typespec/compiler': string
     '@typespec/http': string
     '@typespec/openapi': string
     '@typespec/openapi3': string
+  }
+  trustedLibraryDigests: {
+    '@oa-sdk/typespec-decorators': string
   }
   restoreContract: typeof SPEC_LENS_TYPESPEC_RESTORE_CONTRACT_VERSION
   isolationPolicy: typeof SPEC_LENS_TYPESPEC_ISOLATION_POLICY_VERSION
@@ -408,13 +416,18 @@ function createSpecLensTypeSpecToolchainEvidence(
   hostRuntime: SpecLensTypeSpecHostRuntime,
 ): SpecLensTypeSpecToolchainEvidence {
   const packages = {
+    '@oa-sdk/typespec-decorators': readHostPackageVersion(hostRuntime.packagePaths['@oa-sdk/typespec-decorators'], '@oa-sdk/typespec-decorators'),
     '@typespec/compiler': readHostPackageVersion(hostRuntime.packagePaths['@typespec/compiler'], '@typespec/compiler'),
     '@typespec/http': readHostPackageVersion(hostRuntime.packagePaths['@typespec/http'], '@typespec/http'),
     '@typespec/openapi': readHostPackageVersion(hostRuntime.packagePaths['@typespec/openapi'], '@typespec/openapi'),
     '@typespec/openapi3': readHostPackageVersion(hostRuntime.packagePaths['@typespec/openapi3'], '@typespec/openapi3'),
   }
+  const trustedLibraryDigests = {
+    '@oa-sdk/typespec-decorators': digestTrustedTypeSpecLibrary(hostRuntime.packagePaths['@oa-sdk/typespec-decorators']),
+  }
   const payload = {
     packages,
+    trustedLibraryDigests,
     restoreContract: SPEC_LENS_TYPESPEC_RESTORE_CONTRACT_VERSION,
     isolationPolicy: SPEC_LENS_TYPESPEC_ISOLATION_POLICY_VERSION,
     resourcePolicy: {
@@ -430,6 +443,28 @@ function createSpecLensTypeSpecToolchainEvidence(
     fingerprint: createHash('sha256').update(JSON.stringify(payload)).digest('hex'),
     ...payload,
   }
+}
+
+function digestTrustedTypeSpecLibrary(packagePath: string): string {
+  const files = ['package.json', ...collectFiles(join(packagePath, 'lib'), 'lib'), ...collectFiles(join(packagePath, 'dist'), 'dist')]
+  const hash = createHash('sha256')
+  for (const relativePath of files.sort()) {
+    hash.update(relativePath)
+    hash.update('\0')
+    hash.update(readFileSync(join(packagePath, relativePath)))
+    hash.update('\0')
+  }
+  return hash.digest('hex')
+}
+
+function collectFiles(directory: string, prefix: string): string[] {
+  if (!existsSync(directory)) return []
+  return readdirSync(directory, { withFileTypes: true }).flatMap(entry => {
+    const relativePath = join(prefix, entry.name)
+    const fullPath = join(directory, entry.name)
+    if (entry.isDirectory()) return collectFiles(fullPath, relativePath)
+    return entry.isFile() && statSync(fullPath).isFile() ? [relativePath] : []
+  })
 }
 
 function assertSourceEntriesBounded(entries: readonly SpecLensTypeSpecSourceEntry[]): void {
@@ -463,11 +498,11 @@ function materializeAllowlistedTypeSpecPackages(
   hostRuntime: SpecLensTypeSpecHostRuntime,
   projectPath: string,
 ): void {
-  const scopePath = join(projectPath, 'node_modules', '@typespec')
-  mkdirSync(scopePath, { recursive: true })
   for (const packageName of SPEC_LENS_TYPESPEC_RUNTIME_PACKAGE_ALLOWLIST) {
     const packagePath = hostRuntime.packagePaths[packageName]
-    symlinkSync(packagePath, join(scopePath, packageName.slice('@typespec/'.length)), 'dir')
+    const destination = join(projectPath, 'node_modules', ...packageName.split('/'))
+    mkdirSync(dirname(destination), { recursive: true })
+    symlinkSync(packagePath, destination, 'dir')
   }
 }
 

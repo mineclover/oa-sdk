@@ -70,7 +70,7 @@ Removal can be considered only after all of these are true:
 ### Source Ownership
 
 - Production schema authoring source: `packages/schemas/typespec/`.
-- Bundle entrypoint: `main.tsp` owns root service/component metadata and imports `common.tsp`,
+- Bundle entrypoint: `main.tsp` is the composition root; `metadata/service.tsp`, `metadata/security.tsp`, and `metadata/common-components.tsp` own root metadata and `main.tsp` imports `common.tsp`,
   `auth.tsp`, `health.tsp`, `me.tsp`, and `users.tsp`.
 - Domain ownership: `common` owns shared auth/error models; each remaining module owns its domain
   models, response wrappers, and operations.
@@ -92,9 +92,10 @@ pnpm schema:approve-typespec-reference -- --write
 
 The first command retains a candidate under the ignored path
 `.oa-sdk/typespec-candidates/<manifest-hash>/`. Its metadata records the manifest, the
-bundle-root source hash (all nested `.tsp` files, TypeSpec config, bundle manifest, and
-compatibility sidecar), the current approved snapshot hash, and the generated candidate hash. Review
-the normalized diff before the second command.
+bundle-root source hash (all nested `.tsp` files, TypeSpec config, bundle manifest,
+compatibility sidecar, and—when imported—the trusted decorator package source), the current
+approved snapshot hash, and the generated candidate hash. Review the normalized diff before the
+second command.
 
 `--write` can update only the `expectedOpenapi` path declared in the supplied manifest;
 it does not fall back to the production snapshot. The command rechecks the source and

@@ -10,7 +10,7 @@ const rootDir = resolve(pkgDir, '../..')
 const fixtureDir = resolve(rootDir, 'docs/internal/typespec-roundtrip/fixtures/authored-extension-bundle')
 const productionSnapshotPath = resolve(rootDir, 'packages/schemas/typespec/approved.openapi.yaml')
 const contractVersionPath = resolve(rootDir, 'packages/schemas/typespec/version.tsp')
-const mainTypeSpecPath = resolve(rootDir, 'packages/schemas/typespec/main.tsp')
+const serviceMetadataPath = resolve(rootDir, 'packages/schemas/typespec/metadata/service.tsp')
 const approvalScriptPath = resolve(rootDir, 'scripts/schema-approve-typespec-reference.ts')
 const schemaCheckScriptPath = resolve(rootDir, 'scripts/schema-typespec-check.ts')
 const tmpBase = resolve(pkgDir, '.tmp-schema-approve-typespec-reference-test')
@@ -34,12 +34,12 @@ describe('schema:approve-typespec-reference', () => {
   it('emits the API contract version from the dedicated TypeSpec declaration', () => {
     const versionSource = readFileSync(contractVersionPath, 'utf8')
     const version = versionSource.match(/const ContractVersion = "([^"]+)";/)?.[1]
-    const mainTypeSpec = readFileSync(mainTypeSpecPath, 'utf8')
+    const serviceMetadata = readFileSync(serviceMetadataPath, 'utf8')
     const { document } = loadSpecWithPath(productionSnapshotPath)
 
     expect(version).toMatch(/^\d+\.\d+\.\d+$/)
-    expect(mainTypeSpec).toContain('version: ContractVersion')
-    expect(mainTypeSpec).toContain('@info(#{ version: ContractVersion })')
+    expect(serviceMetadata).toContain('version: ContractVersion')
+    expect(serviceMetadata).toContain('@info(#{ version: ContractVersion })')
     expect((document as { info?: { version?: string } }).info?.version).toBe(version)
   })
 

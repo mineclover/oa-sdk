@@ -66,6 +66,9 @@ export class RefreshTimelineHandler {
     const revisions = await this.source.listRevisions({
       sourceRoot: project.sourceRoot,
       sourceKind: project.sourceKind,
+      ...(options.kind === 'typespec-bundle' && options.project.observationInputs !== undefined
+        ? { observationInputs: options.project.observationInputs }
+        : {}),
       ...(branch !== undefined ? { branch } : {}),
       ...(limit !== undefined ? { limit } : {}),
     })
@@ -119,6 +122,13 @@ export class RefreshTimelineHandler {
                   sourceRoot: project.sourceRoot,
                   sourceKind: 'definition-builder',
                 })
+            const observedInputs = options.kind === 'typespec-bundle'
+              ? await this.source.getObservationInputEvidence({
+                  revision,
+                  inputs: (options.project.observationInputs ?? [])
+                    .filter((input): input is typeof input & { class: 'evidence-only' } => input.class === 'evidence-only'),
+                })
+              : []
             const snapshot = options.kind === 'definition-builder'
               ? await this.builder.build({
                   kind: 'definition-builder',
@@ -137,6 +147,7 @@ export class RefreshTimelineHandler {
                   entries,
                   sourceRoot: options.project.sourceRoot,
                   manifestPath: options.manifestPath,
+                  observedInputs,
                 })
             const entryRefs = entries.map(e => ({ relativePath: e.relativePath, contentHash: e.contentHash }))
             const stored: SpecSnapshotStored = { ...snapshot, entryRefs }

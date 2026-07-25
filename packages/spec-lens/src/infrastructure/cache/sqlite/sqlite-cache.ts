@@ -535,6 +535,7 @@ function decodeStoredSnapshot(
     || value.provenance.kind !== 'typespec-source-files'
     || value.provenance.reason !== 'output-pointer-mapping-unavailable'
     || !isSourceFileEvidence(value.provenance.sourceFiles)
+    || !isObservedInputEvidence(value.provenance.observedInputs)
     || !isTypeSpecCompileEvidence(value.provenance.compile)
     || (expectedToolchainFingerprint !== undefined
       && value.provenance.compile.toolchain.fingerprint !== expectedToolchainFingerprint)
@@ -757,6 +758,26 @@ function isCompositionSourceRefs(value: unknown): boolean {
   ))
 }
 
+function isObservedInputEvidence(value: unknown): boolean {
+  if (!Array.isArray(value)) return false
+  let previousPath = ''
+  for (const entry of value) {
+    if (!isRecord(entry)
+      || typeof entry.path !== 'string'
+      || entry.class !== 'evidence-only'
+      || !['available', 'missing', 'unreadable'].includes(String(entry.availability))
+      || (entry.contentHash !== undefined && typeof entry.contentHash !== 'string')
+      || (entry.reason !== undefined && typeof entry.reason !== 'string')
+      || entry.path <= previousPath
+      || (entry.availability === 'available' && typeof entry.contentHash !== 'string')
+      || (entry.availability !== 'available' && entry.contentHash !== undefined)) {
+      return false
+    }
+    previousPath = entry.path
+  }
+  return true
+}
+
 function isTypeSpecCompileEvidence(value: unknown): value is SpecLensTypeSpecCompileEvidence {
   return isRecord(value)
     && value.schemaVersion === 'oa-sdk.spec-lens.typespec-compile.v1'
@@ -770,7 +791,7 @@ function isTypeSpecCompileEvidence(value: unknown): value is SpecLensTypeSpecCom
     && value.compiler.emitter === '@typespec/openapi3'
     && value.compiler.openapiVersion === '3.2.0'
     && isStringArray(value.compiler.packageImports)
-    && sameStrings(value.compiler.packageImports, ['@typespec/http', '@typespec/openapi'])
+    && sameStrings(value.compiler.packageImports, ['@oa-sdk/typespec-decorators', '@typespec/http', '@typespec/openapi'])
     && isRecord(value.compiler.resources)
     && isNonNegativeInteger(value.compiler.resources.timeoutMs)
     && Number(value.compiler.resources.timeoutMs) > 0
@@ -797,10 +818,13 @@ function isTypeSpecToolchain(value: unknown): boolean {
     && typeof value.fingerprint === 'string'
     && /^[a-f0-9]{64}$/.test(value.fingerprint)
     && isRecord(value.packages)
+    && typeof value.packages['@oa-sdk/typespec-decorators'] === 'string'
     && typeof value.packages['@typespec/compiler'] === 'string'
     && typeof value.packages['@typespec/http'] === 'string'
     && typeof value.packages['@typespec/openapi'] === 'string'
     && typeof value.packages['@typespec/openapi3'] === 'string'
+    && isRecord(value.trustedLibraryDigests)
+    && typeof value.trustedLibraryDigests['@oa-sdk/typespec-decorators'] === 'string'
     && value.restoreContract === 'oa-sdk.codegen.typespec-restore.v1'
     && value.isolationPolicy === 'oa-sdk.spec-lens.typespec-isolation.v2'
     && isRecord(value.resourcePolicy)

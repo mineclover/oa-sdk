@@ -6,6 +6,7 @@ import type {
 import type {
   DefinitionBuilderSpecSnapshot,
   SpecFileEntry,
+  SpecLensObservedInputEvidence,
   SpecRevision,
   SpecSnapshotStored,
   SpecTimelineDiff,
@@ -32,6 +33,7 @@ export type TypeSpecBundleBuildSnapshotOptions = BuildSnapshotCommon & {
   project: TypeSpecBundleProjectIdentity
   sourceRoot: string
   manifestPath: string
+  observedInputs: SpecLensObservedInputEvidence[]
 }
 
 type BuildSnapshotOptionsByKind = {

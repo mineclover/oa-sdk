@@ -4,7 +4,12 @@ This folder contains versioned implementation plans for the TypeSpec roundtrip t
 
 The parent evaluation document is [`../typespec-roundtrip.plan.md`](../typespec-roundtrip.plan.md). It owns the current evidence and TSP-first declaration criteria.
 
-The sidecar-less authored bundle vocabulary is standardized in [`oa-sdk-typespec-extensions.v1.md`](./oa-sdk-typespec-extensions.v1.md) and [`oa-sdk-typespec-extensions.v2.md`](./oa-sdk-typespec-extensions.v2.md).
+The sidecar-less authored bundle vocabulary is standardized in
+[`oa-sdk-typespec-extensions.v1.md`](./oa-sdk-typespec-extensions.v1.md),
+[`v2`](./oa-sdk-typespec-extensions.v2.md),
+[`v3`](./oa-sdk-typespec-extensions.v3.md),
+[`v4`](./oa-sdk-typespec-extensions.v4.md), and
+[`v5`](./oa-sdk-typespec-extensions.v5.md).
 
 The current authoring source-of-truth boundary is summarized in [`authoring-ownership-guide.md`](./authoring-ownership-guide.md).
 
@@ -20,6 +25,10 @@ The TypeSpec-first decision design and completed G1-G8 evidence are tracked in [
 The production migration goals G9-G15 and source-path switch are tracked in [`production-migration-goals.md`](./production-migration-goals.md).
 
 The current publish, validation, versioning, rollback, and source-ownership procedure is tracked in [`production-operations.md`](./production-operations.md).
+
+The proposed follow-up design for historical external-input evidence, semantic
+environment profiles, typed helper lifecycle, and automation-guidance alignment
+is tracked in [`feedback-followup-design.md`](./feedback-followup-design.md).
 
 The production TypeSpec source bundle is [`../../../packages/schemas/typespec/`](../../../packages/schemas/typespec/).
 

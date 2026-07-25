@@ -1,12 +1,18 @@
 import { createHash } from 'node:crypto'
 import type {
   GetFileEntriesOptions,
+  GetObservationInputEvidenceOptions,
   ListRevisionsOptions,
   SpecSourcePort,
 } from '../../../application/ports/spec-source.port.js'
-import type { SpecFileEntry, SpecRevision } from '../../../domain/index.js'
+import type { SpecFileEntry, SpecLensObservedInputEvidence, SpecRevision } from '../../../domain/index.js'
+import {
+  assertTypeSpecObservationInputLimits,
+  MAX_TYPESPEC_EVIDENCE_CONCURRENCY,
+  MAX_TYPESPEC_EVIDENCE_INPUT_BYTES,
+} from '../../../domain/project.js'
 import type { TokenProvider } from '../github/token-provider.js'
-import { isSpecProjectFile, resolveSpecSourceRoot } from '../source-file-policy.js'
+import { isSpecProjectFile, resolveSpecObservationPaths, resolveSpecSourceRoot } from '../source-file-policy.js'
 import { normalizeCredentialFreeRemote } from '../observation-identity.js'
 import {
   createStreamingSourceReadTracker,
@@ -62,30 +68,32 @@ export class GitlabAdapter implements SpecSourcePort {
 
   async listRevisions(options: ListRevisionsOptions): Promise<SpecRevision[]> {
     const token = await this.config.tokenProvider.getToken(this.projectKey)
-    const sourceRoot = resolveSpecSourceRoot(options)
+    const observationPaths = resolveSpecObservationPaths(options)
     const limit = normalizeRevisionLimit(options.limit)
     const perPage = Math.min(100, limit ?? 100)
-    const commits: GitlabCommit[] = []
-    let page = 1
-    while (true) {
-      const params = new URLSearchParams({
-        path: sourceRoot,
-        per_page: String(perPage),
-        page: String(page),
-      })
-      if (options.branch !== undefined) params.set('ref_name', options.branch)
-      if (options.since !== undefined) params.set('since', new Date(options.since).toISOString())
-      if (options.until !== undefined) params.set('until', new Date(options.until).toISOString())
-
-      const url = `${this.apiBase}/projects/${encodeURIComponent(String(this.config.projectId))}/repository/commits?${params}`
-      const batch = await this.fetchJson<GitlabCommit[]>(url, token)
-      commits.push(...batch)
-      if (batch.length < perPage || (limit !== undefined && commits.length >= limit)) break
-      page++
+    const revisions = new Map<string, SpecRevision>()
+    for (const path of observationPaths) {
+      let page = 1
+      let seen = 0
+      while (true) {
+        const params = new URLSearchParams({ path, per_page: String(perPage), page: String(page) })
+        if (options.branch !== undefined) params.set('ref_name', options.branch)
+        if (options.since !== undefined) params.set('since', new Date(options.since).toISOString())
+        if (options.until !== undefined) params.set('until', new Date(options.until).toISOString())
+        const url = `${this.apiBase}/projects/${encodeURIComponent(String(this.config.projectId))}/repository/commits?${params}`
+        const batch = await this.fetchJson<GitlabCommit[]>(url, token)
+        for (const commit of batch) {
+          const revision = this.toRevision(commit, options.branch)
+          revisions.set(revision.id, revision)
+        }
+        seen += batch.length
+        if (batch.length < perPage || (limit !== undefined && seen >= limit)) break
+        page++
+      }
     }
-    const branch = options.branch
-    return (limit === undefined ? commits : commits.slice(0, limit))
-      .map(c => this.toRevision(c, branch))
+    return [...revisions.values()]
+      .sort((left, right) => right.timestamp - left.timestamp || right.id.localeCompare(left.id))
+      .slice(0, limit)
   }
 
   async getFileEntries(options: GetFileEntriesOptions): Promise<SpecFileEntry[]> {
@@ -166,6 +174,90 @@ export class GitlabAdapter implements SpecSourcePort {
       }
     }
     return entries
+  }
+
+  async getObservationInputEvidence(options: GetObservationInputEvidenceOptions): Promise<SpecLensObservedInputEvidence[]> {
+    assertTypeSpecObservationInputLimits(options.inputs)
+    const token = await this.config.tokenProvider.getToken(this.projectKey)
+    const projectPath = encodeURIComponent(String(this.config.projectId))
+    const entries = await withSourceReadConcurrency(options.inputs.map(input => async () => {
+      const url = `${this.apiBase}/projects/${projectPath}/repository/files/${encodeURIComponent(input.path)}/raw?ref=${encodeURIComponent(options.revision.id)}`
+      try {
+        const response = await fetch(url, { headers: { 'PRIVATE-TOKEN': token } })
+        if (response.status === 404) {
+          return this.classifyMissingEvidenceInput(input.path, options.revision.id, token, projectPath)
+        }
+        if (!response.ok) {
+          return {
+            path: input.path,
+            class: 'evidence-only' as const,
+            availability: 'unreadable' as const,
+            reason: `GitLab evidence read failed (${response.status})`,
+          }
+        }
+        const { text: content } = await readResponseTextBounded(
+          response,
+          MAX_TYPESPEC_EVIDENCE_INPUT_BYTES,
+          `GitLab evidence input ${input.path}`,
+        )
+        return {
+          path: input.path,
+          class: 'evidence-only' as const,
+          availability: 'available' as const,
+          contentHash: sha256(content),
+        }
+      } catch (error) {
+        return {
+          path: input.path,
+          class: 'evidence-only' as const,
+          availability: 'unreadable' as const,
+          reason: error instanceof Error ? error.message : String(error),
+        }
+      }
+    }), MAX_TYPESPEC_EVIDENCE_CONCURRENCY)
+    return entries.sort((left, right) => left.path.localeCompare(right.path))
+  }
+
+  private async classifyMissingEvidenceInput(
+    inputPath: string,
+    revisionId: string,
+    token: string,
+    projectPath: string,
+  ): Promise<SpecLensObservedInputEvidence> {
+    const params = new URLSearchParams({ path: inputPath, ref: revisionId, per_page: '1' })
+    const url = `${this.apiBase}/projects/${projectPath}/repository/tree?${params}`
+    try {
+      const response = await fetch(url, { headers: { 'PRIVATE-TOKEN': token } })
+      if (response.status === 404) {
+        return { path: inputPath, class: 'evidence-only', availability: 'missing' }
+      }
+      if (!response.ok) {
+        return {
+          path: inputPath,
+          class: 'evidence-only',
+          availability: 'unreadable',
+          reason: `GitLab evidence directory check failed (${response.status})`,
+        }
+      }
+      const { text } = await readResponseTextBounded(response, 64 * 1024, `GitLab evidence directory check ${inputPath}`)
+      const entries = JSON.parse(text) as unknown
+      if (Array.isArray(entries) && entries.length > 0) {
+        return {
+          path: inputPath,
+          class: 'evidence-only',
+          availability: 'unreadable',
+          reason: 'GitLab evidence input is a directory, but evidence-only requires a file',
+        }
+      }
+      return { path: inputPath, class: 'evidence-only', availability: 'missing' }
+    } catch (error) {
+      return {
+        path: inputPath,
+        class: 'evidence-only',
+        availability: 'unreadable',
+        reason: error instanceof Error ? error.message : String(error),
+      }
+    }
   }
 
   private async fetchFileContent(

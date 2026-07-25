@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
+import { createHash } from 'node:crypto'
 import { resolveSpecLensTypeSpecSourceReadBudget } from '@oa-sdk/codegen/spec-lens'
 import { LocalGitAdapter } from '../infrastructure/source-adapters/local-git/local-git.adapter.js'
 import type { GetFileEntriesOptions } from '../application/ports/spec-source.port.js'
@@ -87,6 +88,10 @@ describe('LocalGitAdapter', () => {
       git(repoPath, ['add', 'packages/schemas/typespec/main.tsp'])
       git(repoPath, ['commit', '-m', 'change TypeSpec only'])
 
+      writeFileSync(join(repoPath, 'pnpm-lock.yaml'), 'lockfileVersion: 9\n')
+      git(repoPath, ['add', 'pnpm-lock.yaml'])
+      git(repoPath, ['commit', '-m', 'update toolchain lockfile'])
+
       const typespec = new LocalGitAdapter({ repoPath })
       expect(await typespec.resolveObservationIdentity()).toEqual({
         adapterKind: 'local-git',
@@ -102,6 +107,17 @@ describe('LocalGitAdapter', () => {
         'add TypeSpec bundle',
       ])
 
+      const watchedRevisions = await typespec.listRevisions({
+        sourceRoot: 'packages/schemas/typespec',
+        sourceKind: 'typespec-bundle',
+        watchPaths: ['pnpm-lock.yaml'],
+      })
+      expect(watchedRevisions.map(revision => revision.message)).toEqual([
+        'update toolchain lockfile',
+        'change TypeSpec only',
+        'add TypeSpec bundle',
+      ])
+
       const entries = await typespec.getFileEntries({
         revision: revisions[0]!,
         sourceRoot: 'packages/schemas/typespec',
@@ -112,6 +128,32 @@ describe('LocalGitAdapter', () => {
         'main.tsp',
         'oa-sdk.typespec-bundle.json',
       ])
+      expect(await typespec.getObservationInputEvidence({
+        revision: watchedRevisions[0]!,
+        inputs: [{ path: 'pnpm-lock.yaml', class: 'evidence-only' }],
+      })).toEqual([{
+        path: 'pnpm-lock.yaml',
+        class: 'evidence-only',
+        availability: 'available',
+        contentHash: createHash('sha256').update('lockfileVersion: 9\n').digest('hex'),
+      }])
+      expect(await typespec.getObservationInputEvidence({
+        revision: revisions[0]!,
+        inputs: [{ path: 'pnpm-lock.yaml', class: 'evidence-only' }],
+      })).toEqual([{
+        path: 'pnpm-lock.yaml',
+        class: 'evidence-only',
+        availability: 'missing',
+      }])
+      expect(await typespec.getObservationInputEvidence({
+        revision: watchedRevisions[0]!,
+        inputs: [{ path: 'packages', class: 'evidence-only' }],
+      })).toEqual([{
+        path: 'packages',
+        class: 'evidence-only',
+        availability: 'unreadable',
+        reason: 'local Git evidence input is not a file',
+      }])
     } finally {
       rmSync(repoPath, { recursive: true, force: true })
     }

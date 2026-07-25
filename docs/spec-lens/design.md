@@ -235,6 +235,15 @@ interface SpecSourcePort {
     sourceRoot?: string
     fragmentsDir?: string // deprecated compatibility alias
     sourceKind?: 'definition-builder' | 'typespec-bundle'
+    observation?: {
+      candidates?: string[] // file/directory revision candidates
+      evidence?: string[] // file hashes/status only
+    }
+    observationInputs?: Array<{
+      path: string // candidate-only: file/directory; evidence-only: file
+      class: 'candidate-only' | 'evidence-only'
+    } // advanced typed config
+    watchPaths?: string[] // deprecated candidate-only compatibility alias
     branch?: string
     limit?: number
     since?: number  // unix epoch ms
@@ -294,12 +303,24 @@ interface SnapshotBuilderPort<K extends SpecProjectSourceKind> {
 historical entries를 격리 workspace에 재구성하고 revision의 `tspconfig`를
 폐기한 뒤 `@typespec/openapi3` 3.2 emitter config를 생성한다. 공식 compiler
 AST parser의 parse diagnostics가 없어야 하며 도달 가능한
-sourceRoot 내부 상대 `.tsp` import와 `@typespec/http`, `@typespec/openapi`만
-허용하고 기존 codegen bundle-check의 restore/validation/expected-diff 경로를
-재사용한다. Codegen 자체 dependency에서 compiler/emitter package와 CLI를
-resolve하고 source/artifact/timeout/output/heap limit를 적용한다.
+sourceRoot 내부 상대 `.tsp` import와 `@typespec/http`, `@typespec/openapi`,
+검토된 `@oa-sdk/typespec-decorators`만 허용하고 기존 codegen bundle-check의
+restore/validation/expected-diff 경로를 재사용한다. trusted decorator package는
+source/lib/dist digest를 toolchain fingerprint에 포함한다. Codegen 자체 dependency에서
+compiler/emitter package와 CLI를 resolve하고 source/artifact/timeout/output/heap limit를 적용한다.
 Source read budget은 toolchain/compile evidence와 project fingerprint에도 포함되어
 policy가 다른 cache namespace의 결과가 섞이지 않게 한다.
+
+`observation`은 TypeSpec `sourceRoot` 밖의 repo-relative 관측 입력을 위한 기본 설정 표면이다.
+`candidates`는 파일 또는 디렉터리의 후보 발견만 수행하고, `evidence`는 파일의 revision별
+content hash 또는 `missing`/`unreadable` 상태를 snapshot provenance에 기록한다. 내부적으로는
+정렬된 typed `observationInputs`로 정규화되며 선언 목록은 project identity에 포함된다.
+
+전체 입력은 최대 16개다. evidence는 최대 4개(파일당 2 MiB, 합계 최대 8 MiB, 동시 읽기 2개)로
+제한한다. 어느 입력도 historical compiler workspace에 주입하지 않으며, `tspconfig`나 arbitrary
+emitter config를 실행시키지 않는 fail-closed trust boundary를 유지한다. `observationInputs`는
+고급 통합용 typed surface이고, `watchPaths`는 `candidate-only`의 호환 별칭이다. 세 표면은 동시에
+사용할 수 없다.
 
 ### CachePort — 저장소 계약
 
@@ -516,6 +537,11 @@ type SpecLensServerConfig =
       manifestPath: string
     }
 ```
+
+TypeSpec project에 observation input이 있으면 manifest digest와 정렬된 input class/path 목록을
+함께 hash해 cache namespace를 분리한다. 각 source adapter는 source root와 observation input의
+commit union을 timestamp/id 순으로 deduplicate한다. `evidence-only` envelope는 snapshot provenance에
+보존하지만 compiler source나 cache blob으로 승격하지 않는다.
 
 | Method | Path | Handler | 반환 |
 |--------|------|---------|------|

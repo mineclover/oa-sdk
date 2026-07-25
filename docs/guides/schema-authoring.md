@@ -7,8 +7,15 @@ Production schema authoring is TypeSpec-first. 기본 경로에서는
 `pnpm schema:validate`로 production OpenAPI artifact를 재생성/검증한다.
 
 도메인 배치는 `common.tsp`(공통 인증/에러), `auth.tsp`(인증), `health.tsp`(상태/버전),
-`me.tsp`(셀프 서비스), `users.tsp`(사용자/관리/모더레이션)이다. 새 operation은 해당
-도메인 파일에 추가하고, 새 파일을 만들면 `main.tsp`의 import와 bundle gate를 같이 확인한다.
+`me.tsp`(셀프 서비스), `users.tsp`(사용자/관리/모더레이션)이다. `metadata/service.tsp`는
+service/info/server/tag, `metadata/security.tsp`는 security scheme,
+`metadata/common-components.tsp`는 reusable component registry를 소유한다. 새 operation은
+해당 도메인 파일에 추가하고, 새 파일을 만들면 `main.tsp`의 import와 bundle gate를 같이 확인한다.
+
+`main.tsp`는 계약 사실을 직접 담지 않는 composition root다. emitter가 보존하지 못하는
+operation component response reference는 `@oa-sdk/typespec-decorators`의
+`@oaUseResponseComponent`처럼 좁은 typed helper를 우선 사용한다. 임의 JSON을 받는
+generic extension helper는 추가하지 않는다.
 
 OpenAPI fragments are retained as the Definition Builder rollback/reference path.
 아래 fragment workflow를 사용할 때는 기본 TypeSpec artifact가 아니라 rollback path를
@@ -16,6 +23,22 @@ OpenAPI fragments are retained as the Definition Builder rollback/reference path
 
 기본 스펙의 source/artifact/사용처 구분은 [기본 스펙 사용 기준](./basic-spec-usage.md)을
 먼저 따른다.
+
+## TypeSpec 배포 환경 projection
+
+배포별 server URL이 필요한 경우에는 TypeSpec contract를 수정하거나 Definition Builder
+target을 production source처럼 사용하지 않는다. restored TypeSpec contract에 server 값만
+적용하는 profile을 사용한다.
+
+```bash
+pnpm schema:project-typespec:local
+pnpm schema:project-typespec:staging
+pnpm schema:project-typespec:production
+```
+
+profile은 `packages/schemas/typespec/oa-sdk.typespec-projections.json`에 있고 결과는
+`packages/schemas/src/.projected/`의 gitignored artifact다. path, schema, security,
+response 같은 계약 의미를 profile에서 바꾸면 안 된다.
 
 ## OpenAPI fragment fallback 추가
 

@@ -40,6 +40,9 @@ project:
   kind: typespec-bundle
   sourceRoot: packages/schemas/typespec
   manifestPath: packages/schemas/typespec/oa-sdk.typespec-bundle.json
+  observation:
+    evidence: [package.json, pnpm-lock.yaml]
+    candidates: [packages/typespec-decorators]
 ```
 
 TypeSpec bundle은 historical revision마다 격리된 임시 workspace에서 컴파일한
@@ -56,6 +59,17 @@ per-file ceiling을 예약한다. full reservation이 불가능한 마지막 bod
 독점한다. Tracker-global EOF/overflow probe는 file 또는 aggregate cap 밖에서 최대
 1 byte만 소비하며 그 byte는 저장하지 않는다. 실패 시 header-pending fetch를 abort하고
 active reader와 queued read를 중단한 뒤 worker 정리를 기다린다.
+
+`observation`은 source root 밖의 명시적 repo-relative 관측 입력을 위한 기본 설정 표면이다.
+`candidates`는 파일 또는 디렉터리 경로를 재검증 후보로 추가하고, `evidence`는 파일의 revision별
+content hash 또는 missing/unreadable 상태를 TypeSpec snapshot provenance에 기록한다. 어느 경우도
+historical compiler에 임의 config나 source를 주입하지 않는다. 목록 자체는 project identity에 포함된다.
+
+전체 입력은 최대 16개이고 evidence는 최대 4개(파일당 2 MiB, 합계 최대 8 MiB, 동시 읽기 2개)다.
+이는 운영 안전장치이며 일반적으로 설정할 값이 아니다. 초과했다면 관측 대상을 묶거나 불필요한 경로를
+제거한다. 고급 통합은 `observationInputs`에 `{ path, class }`를 직접 지정할 수 있고, 기존
+`watchPaths`는 `candidate-only` 호환 alias다. `observation`, `observationInputs`, `watchPaths`는
+동시에 사용할 수 없다.
 
 ---
 
@@ -167,6 +181,6 @@ pnpm --filter @oa-sdk/spec-lens test -- src/__tests__/gitlab-adapter.integration
 
 - cache schema v2는 project identity가 없는 v1 DB를 열 때 기존 cache/read model을 폐기하고 Git history에서 재구축한다.
 - TypeSpec output pointer를 원본 `.tsp` 선언으로 매핑하는 compiler provenance는 아직 없다. Snapshot/graph에는 reachable source-file evidence를 노출하고 path projection은 저장하지 않으며 API/UI는 명시적 `unavailable` 상태를 표시한다.
-- revision 후보는 `project.sourceRoot` 변경 단위다. sourceRoot 밖 lockfile/emitter 의존성은 명시적 `watchPaths` 계약이 도입되기 전에는 관측하지 않는다.
+- revision 후보는 `project.sourceRoot`와 명시적 `observation` 입력 변경 단위다. 선언하지 않은 sourceRoot 밖 입력은 관측하지 않는다.
 - `source: github` 의 `GithubAdapter`는 bare clone 후 로컬 git으로 동작한다. git CLI가 없는 환경에서는 `GithubApiAdapter`를 직접 사용한다.
 - `source: gitlab` 은 REST API 방식. self-hosted GitLab은 GitHub처럼 좁은 API rate limit이 없으므로 bare-clone 변환은 도입하지 않았다 — rate limit 압력이 실제로 발생하면 재고려.

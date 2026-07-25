@@ -1,6 +1,7 @@
 node_modules
 dist/
 packages/schemas/src/.merged.yaml
+packages/schemas/src/.projected/
 packages/schemas/src/.merged.persona.yaml
 packages/schemas/src/.builder/
 .turbo/

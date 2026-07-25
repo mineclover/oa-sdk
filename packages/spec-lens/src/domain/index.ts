@@ -6,6 +6,7 @@ export type {
   SpecGraph,
   SpecGraphEdge,
   SpecGraphNode,
+  SpecLensObservedInputEvidence,
   SpecPathEntry,
   SpecPathsResult,
   SpecProvenance,
@@ -41,6 +42,8 @@ export type {
   SpecProjectSourceKind,
   SpecObservationAdapterKind,
   SpecObservationIdentity,
+  TypeSpecObservationInput,
+  TypeSpecObservationInputClass,
   TypeSpecBundleProjectConfig,
   TypeSpecBundleProjectIdentity,
 } from './project.js'

@@ -171,6 +171,22 @@ pnpm mock:start
 
 기본 포트: `4010`
 
+## TypeSpec 배포 환경 projection
+
+TypeSpec production contract에서 server URL만 달리한 deployment artifact가 필요하면
+다음 명령을 사용한다. profile은 restored contract를 입력으로 하며 approved snapshot이나
+Definition Builder fallback을 갱신하지 않는다.
+
+```bash
+pnpm schema:project-typespec:local
+pnpm schema:project-typespec:staging
+pnpm schema:project-typespec:production
+```
+
+입력 profile은 `packages/schemas/typespec/oa-sdk.typespec-projections.json`이고 출력은
+`packages/schemas/src/.projected/<profile>.openapi.yaml`이다. profile이 바꿀 수 있는
+필드는 `servers`뿐이다.
+
 ## Definition Builder fallback 환경 프로필
 
 ```bash

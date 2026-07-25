@@ -17,6 +17,7 @@ const projectConfig = {
   kind: 'typespec-bundle',
   sourceRoot: 'packages/schemas/typespec',
   manifestPath: 'packages/schemas/typespec/oa-sdk.typespec-bundle.json',
+  observationInputs: [{ path: 'pnpm-lock.yaml', class: 'evidence-only' }],
 } as const
 const TEST_TOOLCHAIN_FINGERPRINT = 'a'.repeat(64)
 const project = createSpecProjectIdentity(projectConfig, 'manifest-digest', {
@@ -78,6 +79,9 @@ describe('TypeSpecBundleSnapshotBuilder', () => {
         kind: 'typespec-source-files',
         reason: 'output-pointer-mapping-unavailable',
         sourceFiles: [{ relativePath: 'main.tsp', contentHash: 'main-r2' }],
+        observedInputs: [{
+          path: 'pnpm-lock.yaml', class: 'evidence-only', availability: 'available', contentHash: 'input-r2',
+        }],
       },
     })
     const diff = await cache.getDiff('r1', 'r2', project.projectKey)
@@ -190,6 +194,9 @@ function makeSource(
     resolveObservationIdentity: vi.fn().mockResolvedValue(project.observation),
     listRevisions: vi.fn().mockResolvedValue(revisions),
     getFileEntries: vi.fn(async ({ revision }: { revision: SpecRevision }) => entries(revision)),
+    getObservationInputEvidence: vi.fn(async ({ revision }: { revision: SpecRevision }) => [{
+      path: 'pnpm-lock.yaml', class: 'evidence-only' as const, availability: 'available' as const, contentHash: `input-${revision.id}`,
+    }]),
   }
 }
 
@@ -210,10 +217,14 @@ function compileResult(path: string) {
         schemaVersion: 'oa-sdk.spec-lens.typespec-toolchain.v1' as const,
         fingerprint: TEST_TOOLCHAIN_FINGERPRINT,
         packages: {
+          '@oa-sdk/typespec-decorators': '0.1.0',
           '@typespec/compiler': '1.13.0',
           '@typespec/http': '1.13.0',
           '@typespec/openapi': '1.13.0',
           '@typespec/openapi3': '1.13.0',
+        },
+        trustedLibraryDigests: {
+          '@oa-sdk/typespec-decorators': 'a'.repeat(64),
         },
         restoreContract: 'oa-sdk.codegen.typespec-restore.v1' as const,
         isolationPolicy: 'oa-sdk.spec-lens.typespec-isolation.v2' as const,
@@ -229,7 +240,7 @@ function compileResult(path: string) {
         configSource: 'generated-allowlist' as const,
         emitter: '@typespec/openapi3' as const,
         openapiVersion: '3.2.0' as const,
-        packageImports: ['@typespec/http', '@typespec/openapi'],
+        packageImports: ['@oa-sdk/typespec-decorators', '@typespec/http', '@typespec/openapi'],
         resources: {
           timeoutMs: 60_000,
           maxOutputBytes: 256 * 1024,

@@ -66,6 +66,10 @@ function autoDetectConfig(): CliConfig {
         kind: 'typespec-bundle',
         sourceRoot: 'packages/schemas/typespec',
         manifestPath: productionTypeSpecManifest,
+        observation: {
+          evidence: ['package.json', 'pnpm-lock.yaml'],
+          candidates: ['packages/typespec-decorators'],
+        },
       },
       port: 4891,
       dbPath: '.spec-lens.db',
@@ -103,6 +107,9 @@ function autoDetectConfig(): CliConfig {
     '  kind: typespec-bundle\n' +
     '  sourceRoot: packages/schemas/typespec\n' +
     '  manifestPath: packages/schemas/typespec/oa-sdk.typespec-bundle.json\n' +
+    '  observation:\n' +
+    '    evidence: [package.json, pnpm-lock.yaml]\n' +
+    '    candidates: [packages/typespec-decorators]\n' +
     'port: 4891\n',
   )
 }
@@ -132,6 +139,9 @@ async function main() {
     console.log(`  project:      ${project.sourceKind} (${project.projectKey.slice(0, 12)})`)
     console.log(`  sourceRoot:   ${projectConfig.sourceRoot}`)
     console.log(`  manifestPath: ${projectConfig.manifestPath}`)
+    if (projectConfig.observationInputs?.length) {
+      console.log(`  inputs:       ${projectConfig.observationInputs.map(input => `${input.class}:${input.path}`).join(', ')}`)
+    }
     console.log(`  toolchain:    ${toolchain.fingerprint.slice(0, 12)}`)
     console.log(`  observation:  ${observation.repository}#${observation.ref}`)
     console.log(`  db:           ${dbPath}`)

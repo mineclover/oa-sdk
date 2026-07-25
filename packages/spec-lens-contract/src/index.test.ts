@@ -48,6 +48,7 @@ function validTypeSpecSnapshot() {
       kind: 'typespec-source-files',
       reason: 'output-pointer-mapping-unavailable',
       sourceFiles: [{ relativePath: 'typespec/main.tsp', contentHash: 'hash' }],
+      observedInputs: [],
       compile: {
         schemaVersion: 'oa-sdk.spec-lens.typespec-compile.v1',
         manifestSchemaVersion: 'oa-sdk.typespec-bundle.v1',
@@ -58,10 +59,14 @@ function validTypeSpecSnapshot() {
           schemaVersion: 'oa-sdk.spec-lens.typespec-toolchain.v1',
           fingerprint: 'fingerprint',
           packages: {
+            '@oa-sdk/typespec-decorators': '0.1.0',
             '@typespec/compiler': '1.0.0',
             '@typespec/http': '1.0.0',
             '@typespec/openapi': '1.0.0',
             '@typespec/openapi3': '1.0.0',
+          },
+          trustedLibraryDigests: {
+            '@oa-sdk/typespec-decorators': 'a'.repeat(64),
           },
           restoreContract: 'oa-sdk.codegen.typespec-restore.v1',
           isolationPolicy: 'oa-sdk.spec-lens.typespec-isolation.v2',

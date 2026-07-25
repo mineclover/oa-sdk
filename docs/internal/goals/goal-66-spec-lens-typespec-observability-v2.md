@@ -121,10 +121,10 @@ selection boundary:
 - TypeSpec output-pointer provenance remains unavailable. Source-file evidence
   is honest and query-safe, but precise path/component-to-`.tsp` mapping needs a
   future compiler source-map contract.
-- Revision candidates are currently selected at `project.sourceRoot`
-  granularity. The compiler narrows inputs to manifest references and reachable
-  local imports, but an outside-root lockfile/emitter dependency is not watched
-  without a future explicit `watchPaths` contract.
+- Revision candidates include `project.sourceRoot` and declared bounded
+  `observationInputs`. `candidate-only` inputs are discovery-only, while
+  `evidence-only` inputs record a hash/status envelope without becoming a
+  compiler input. A trusted historical toolchain registry remains future work.
 - Rebuilding a long timeline is more expensive than migrating unsafe v1 rows,
   but invalidation is required because the missing project/compiler identity
   cannot be reconstructed reliably.
