@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-07-14",
+  "updatedAt": "2026-07-26",
   "description": "Feature-to-test mapping for oa-sdk. Each feature lists representative automated coverage and the commands that maintain it.",
   "features": [
     {
@@ -1026,14 +1026,16 @@
       "name": "OpenAPI to TypeScript type generation",
       "category": "codegen",
       "package": "@oa-sdk/codegen",
-      "description": "Operation, response, header, link, schema, external ref, and annotation-aware TypeScript generation.",
+      "description": "Deterministic TS 5-compatible operation, response, header, link, schema, external ref, and annotation-aware declaration generation, with isolated TS 7/ttsc consumer compatibility validation.",
       "capabilities": [
         "generateTypes",
         "schemaToTs",
         "external schema aliasing",
         "response headers",
         "response links",
-        "annotations"
+        "annotations",
+        "TS 5 baseline declaration compatibility",
+        "isolated TS 7/ttsc consumer compatibility"
       ],
       "testPaths": [
         "packages/codegen/src/__tests__/typegen/*.test.ts",
@@ -1042,7 +1044,8 @@
       ],
       "commands": [
         "pnpm --filter @oa-sdk/codegen test",
-        "pnpm --filter @oa-sdk/codegen typecheck"
+        "pnpm --filter @oa-sdk/codegen typecheck",
+        "pnpm check:ts7"
       ]
     },
     {

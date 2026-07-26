@@ -134,6 +134,7 @@ marker.
 | ZodLazy → $ref | 재귀 스키마 지원 (refs 컨텍스트 기반) |
 | Drizzle → Zod → OAS | pgTable/mysqlTable/sqliteTable, select/insert/update |
 | typegen | OAS → 결정적 표준 TS 선언 ($ref 참조, JSDoc, ResponseHeaders, ResponseLinks, Op 묶음 타입, Error 타입, tsc·ttsc 검증) |
+| TypeScript compatibility lanes | workspace source/공개 선언은 고정된 TS 5.9.3 baseline으로 관리한다. TS 7.0.2 + `ttsc`는 private fixture에서 생성 선언 소비 호환성만 검증하며 기본 `tsc` 또는 공개 `.d.ts` surface를 대체하지 않는다. 운영 기준은 [typescript-compatibility.md](../guides/typescript-compatibility.md)에 둔다. |
 | typegen 제약 JSDoc | format/min/max/pattern → `@format`/`@minimum` 등 JSDoc 태그 |
 | typegen readOnly | `readOnly: true` → `readonly` 수식어 |
 | typegen deprecated | `deprecated: true` → `@deprecated` JSDoc |

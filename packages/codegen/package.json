@@ -38,6 +38,7 @@
     "dev": "tsup src/index.ts --format esm --dts --watch",
     "test": "vitest run --maxWorkers 2",
     "test:ci": "vitest run --maxWorkers 1 --no-file-parallelism",
+    "test:ts7": "vitest run src/__tests__/typegen/compile-check.test.ts --maxWorkers 1 --no-file-parallelism",
     "typecheck": "tsc --noEmit",
     "clean": "rm -rf dist"
   },
@@ -62,7 +63,7 @@
     "@types/node": "^25.0.0",
     "drizzle-orm": "1.0.0-beta.20",
     "tsup": "^8.0.0",
-    "typescript": "^5.9.3",
+    "typescript": "5.9.3",
     "vitest": "^4.1.4"
   },
   "peerDependencies": {
