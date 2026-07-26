@@ -5,30 +5,43 @@
 import { describe, it, expect } from 'vitest'
 import { execFileSync } from 'node:child_process'
 import { createRequire } from 'node:module'
-import { mkdirSync, writeFileSync, readFileSync, rmSync, existsSync } from 'node:fs'
+import { mkdtempSync, writeFileSync, readFileSync, rmSync, existsSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { parse as parseYaml } from 'yaml'
 import { generateTypesFromSpec } from '../../typegen/generate-types.js'
 import type { OasDocument } from '@oa-sdk/parser'
 
 const pkgDir = resolve(__dirname, '../../..')
-const tmpDir = join(pkgDir, '.tmp-compile-test')
 const require = createRequire(import.meta.url)
 const tscBin = require.resolve('typescript/bin/tsc')
 const ttscFixtureDir = resolve(pkgDir, '../ttsc-compile-fixture')
 const ttscRequire = createRequire(join(ttscFixtureDir, 'package.json'))
 const ttscBin = join(dirname(ttscRequire.resolve('ttsc/package.json')), 'lib/launcher/ttsc.js')
-const ttscConfigPath = join(ttscFixtureDir, '.tmp-codegen-compile-check.json')
+let tmpDir = ''
+let ttscConfigDir = ''
+let ttscConfigPath = ''
 
 function cleanup() {
-  if (existsSync(tmpDir)) rmSync(tmpDir, { recursive: true })
-  if (existsSync(ttscConfigPath)) rmSync(ttscConfigPath)
+  if (tmpDir && existsSync(tmpDir)) rmSync(tmpDir, { recursive: true })
+  if (ttscConfigDir && existsSync(ttscConfigDir)) rmSync(ttscConfigDir, { recursive: true })
+  tmpDir = ''
+  ttscConfigDir = ''
+  ttscConfigPath = ''
+}
+
+function createTempProjects() {
+  cleanup()
+  tmpDir = mkdtempSync(join(tmpdir(), 'oa-sdk-codegen-compile-'))
+  // Keep this config underneath the fixture so ttsc resolves the fixture's
+  // TypeScript 7 package instead of the TypeScript 5 package under codegen.
+  ttscConfigDir = mkdtempSync(join(ttscFixtureDir, '.tmp-codegen-compile-'))
+  ttscConfigPath = join(ttscConfigDir, 'tsconfig.json')
 }
 
 describe('typegen — TypeScript compiler compatibility', () => {
   it('인라인 spec → 생성 타입이 tsc와 ttsc를 통과', () => {
-    cleanup()
-    mkdirSync(tmpDir, { recursive: true })
+    createTempProjects()
 
     const spec: OasDocument = {
       openapi: '3.2.0',
@@ -123,8 +136,7 @@ const response: ListUsersResponse = [user]
       return
     }
 
-    cleanup()
-    mkdirSync(tmpDir, { recursive: true })
+    createTempProjects()
 
     const raw = readFileSync(specPath, 'utf8')
     const doc = parseYaml(raw) as OasDocument
