@@ -133,7 +133,7 @@ marker.
 | Zod 4 → OAS | discriminator, nullable, enum, 전 타입 커버리지 |
 | ZodLazy → $ref | 재귀 스키마 지원 (refs 컨텍스트 기반) |
 | Drizzle → Zod → OAS | pgTable/mysqlTable/sqliteTable, select/insert/update |
-| typegen | OAS → TS ($ref 참조, JSDoc, ResponseHeaders, ResponseLinks, Op 묶음 타입, Error 타입, tsc 검증) |
+| typegen | OAS → 결정적 표준 TS 선언 ($ref 참조, JSDoc, ResponseHeaders, ResponseLinks, Op 묶음 타입, Error 타입, tsc·ttsc 검증) |
 | typegen 제약 JSDoc | format/min/max/pattern → `@format`/`@minimum` 등 JSDoc 태그 |
 | typegen readOnly | `readOnly: true` → `readonly` 수식어 |
 | typegen deprecated | `deprecated: true` → `@deprecated` JSDoc |

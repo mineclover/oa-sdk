@@ -1,0 +1,10 @@
+{
+  "name": "@oa-sdk/ttsc-compile-fixture",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Isolated TypeScript Go runtime used by @oa-sdk/codegen compile checks",
+  "devDependencies": {
+    "ttsc": "0.22.0",
+    "typescript": "7.0.2"
+  }
+}

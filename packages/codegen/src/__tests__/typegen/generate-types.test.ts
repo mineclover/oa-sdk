@@ -4,6 +4,8 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { analyzeExternalSchemaRefs, generateTypes, generateTypesFromSpec } from '../../typegen/generate-types.js'
+import { generateTypesFromSpec as generateBrowserTypesFromSpec } from '../../typegen/browser.js'
+import { compareTypegenKeys } from '../../typegen/stable-order.js'
 
 function doc(overrides: Partial<OasDocument> = {}): OasDocument {
   return {
@@ -61,6 +63,93 @@ describe('generateTypes — schemas', () => {
     const ts = generateTypes(parsed)
     expect(ts).toContain('export type User =')
     expect(ts).toContain('export type Post =')
+  })
+
+  it('동일한 계약은 source key 순서와 무관하게 같은 선언을 생성한다', () => {
+    const first = doc({
+      components: {
+        schemas: {
+          Zebra: {
+            type: 'object',
+            properties: { zebra: { type: 'string' }, ant: { type: 'string' } },
+          },
+          Ant: { type: 'string' },
+        },
+      },
+      paths: {
+        '/zebra': {
+          get: {
+            operationId: 'getZebra',
+            parameters: [
+              { name: 'z', in: 'query', schema: { type: 'string' } },
+              { name: 'a', in: 'query', schema: { type: 'string' } },
+            ],
+            responses: {
+              '200': {
+                description: 'ok',
+                headers: {
+                  Zebra: { schema: { type: 'string' } },
+                  Ant: { schema: { type: 'string' } },
+                },
+              },
+            },
+          },
+        },
+        '/ant': { get: { operationId: 'getAnt', responses: { '204': { description: 'ok' } } } },
+      },
+    })
+    const reordered = doc({
+      components: {
+        schemas: {
+          Ant: { type: 'string' },
+          Zebra: {
+            type: 'object',
+            properties: { ant: { type: 'string' }, zebra: { type: 'string' } },
+          },
+        },
+      },
+      paths: {
+        '/ant': { get: { operationId: 'getAnt', responses: { '204': { description: 'ok' } } } },
+        '/zebra': {
+          get: {
+            operationId: 'getZebra',
+            parameters: [
+              { name: 'a', in: 'query', schema: { type: 'string' } },
+              { name: 'z', in: 'query', schema: { type: 'string' } },
+            ],
+            responses: {
+              '200': {
+                description: 'ok',
+                headers: {
+                  Ant: { schema: { type: 'string' } },
+                  Zebra: { schema: { type: 'string' } },
+                },
+              },
+            },
+          },
+        },
+      },
+    })
+
+    expect(generateTypesFromSpec(first)).toBe(generateTypesFromSpec(reordered))
+    expect(generateBrowserTypesFromSpec(first)).toBe(generateBrowserTypesFromSpec(reordered))
+  })
+
+  it('생성 선언의 키 정렬은 호스트 로케일과 무관한 코드 포인트 순서를 쓴다', () => {
+    expect(['å', 'z', 'ä'].sort(compareTypegenKeys)).toEqual(['z', 'ä', 'å'])
+
+    const output = generateTypesFromSpec(doc({
+      components: {
+        schemas: {
+          å: { type: 'string' },
+          z: { type: 'string' },
+          ä: { type: 'string' },
+        },
+      },
+    }))
+
+    expect(output.indexOf('export type z')).toBeLessThan(output.indexOf('export type ä'))
+    expect(output.indexOf('export type ä')).toBeLessThan(output.indexOf('export type å'))
   })
 
   it('$ref sibling의 구조 정보가 타입 생성에 반영된다', () => {

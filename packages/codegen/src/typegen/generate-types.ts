@@ -18,6 +18,7 @@ import type {
 } from '@oa-sdk/parser'
 import { isRelativeRef, parseDocument, resolveRefGraph } from '@oa-sdk/parser'
 import { schemaToTs, type SchemaToTsOptions } from './schema-to-ts.js'
+import { compareTypegenKeys } from './stable-order.js'
 import { pascalCase, createOperationTypeNameMap, formatGeneratedTs } from '@oa-sdk/core'
 import { createHash } from 'node:crypto'
 import { basename, extname } from 'node:path'
@@ -110,7 +111,8 @@ export function generateTypes(doc: TypegenDocument, options: TypegenOptions = {}
   const schemaOpts: SchemaToTsOptions = { includeAnnotations }
   if (options.refNameOverrides !== undefined) schemaOpts.refNameOverrides = options.refNameOverrides
   const lines: string[] = []
-  const operationNames = createOperationTypeNameMap([...doc.operations, ...(doc.webhooks ?? [])])
+  const operations = sortTypegenOperations([...doc.operations, ...(doc.webhooks ?? [])])
+  const operationNames = createOperationTypeNameMap(operations)
 
   if (banner) {
     lines.push('// Auto-generated from OpenAPI spec. Do not edit.')
@@ -122,7 +124,7 @@ export function generateTypes(doc: TypegenDocument, options: TypegenOptions = {}
   const schemaNames = new Set(Object.keys(doc.schemas))
 
   // 1. components/schemas → 타입 선언
-  for (const [name, schema] of Object.entries(doc.schemas)) {
+  for (const [name, schema] of Object.entries(doc.schemas).sort(([left], [right]) => compareTypegenKeys(left, right))) {
     const tsType = schemaToTs(schema, schemaOpts)
     if (schema.description) lines.push(`/** ${schema.description} */`)
     if (style === 'interface' && tsType.startsWith('{')) {
@@ -134,7 +136,7 @@ export function generateTypes(doc: TypegenDocument, options: TypegenOptions = {}
   }
 
   // 2. operations/webhooks → 요청/응답 타입
-  for (const op of [...doc.operations, ...(doc.webhooks ?? [])]) {
+  for (const op of operations) {
     if (!op.operationId) continue
     const baseName = operationNames.get(op.operationId)!
 
@@ -142,13 +144,13 @@ export function generateTypes(doc: TypegenDocument, options: TypegenOptions = {}
     const opDoc = (op as { summary?: string; description?: string })
     const opComment = opDoc.summary ?? opDoc.description
 
-    const pathParams = op.parameters.filter(p => p.in === 'path')
+    const pathParams = sortParameters(op.parameters.filter(p => p.in === 'path'))
     if (pathParams.length > 0 && !schemaNames.has(`${baseName}PathParams`)) {
       lines.push(`export type ${baseName}PathParams = ${paramsToTs(pathParams, schemaOpts)}`)
       lines.push('')
     }
 
-    const queryParams = op.parameters.filter(p => p.in === 'query')
+    const queryParams = sortParameters(op.parameters.filter(p => p.in === 'query'))
     if (queryParams.length > 0 && !schemaNames.has(`${baseName}QueryParams`)) {
       lines.push(`export type ${baseName}QueryParams = ${paramsToTs(queryParams, schemaOpts)}`)
       lines.push('')
@@ -210,6 +212,18 @@ export function generateTypes(doc: TypegenDocument, options: TypegenOptions = {}
   }
 
   return formatGeneratedTs(lines.join('\n'))
+}
+
+function sortTypegenOperations(operations: readonly TypegenOperation[]): TypegenOperation[] {
+  return [...operations].sort((left, right) =>
+    compareTypegenKeys(left.operationId ?? '', right.operationId ?? '') ||
+    compareTypegenKeys(left.openApiPath, right.openApiPath) ||
+    compareTypegenKeys(left.method, right.method),
+  )
+}
+
+function sortParameters(parameters: readonly OasParameter[]): OasParameter[] {
+  return [...parameters].sort((left, right) => compareTypegenKeys(left.name, right.name))
 }
 
 /**
@@ -325,6 +339,7 @@ function responseHeadersToTs(responses: Record<string, OasResponse>, schemaOpts:
   const response = pickSuccessResponse(responses)
   if (!response?.headers) return null
   const entries = Object.entries(response.headers)
+    .sort(([left], [right]) => compareTypegenKeys(left, right))
     .filter(([, h]) => !('$ref' in h))
     .map(([name, h]) => {
       const header = h as { schema?: OasSchema; required?: boolean }
@@ -340,6 +355,7 @@ function responseLinksToTs(responses: Record<string, OasResponse>): string | nul
   const response = pickSuccessResponse(responses)
   if (!response?.links) return null
   const entries = Object.entries(response.links)
+    .sort(([left], [right]) => compareTypegenKeys(left, right))
     .filter(([, link]) => !('$ref' in link))
     .map(([name, link]) => `  ${propertyNameToTs(name)}: ${linkToTs(link as OasLink)}`)
   if (entries.length === 0) return null
@@ -393,7 +409,7 @@ export function analyzeExternalSchemaRefs(spec: OasDocument, basePath: string): 
   const schemaNodes = graph.nodes
     .filter(node => isSchemaRefNode(node))
     .filter((node, index, nodes) => nodes.findIndex(n => refIdentity(n) === refIdentity(node)) === index)
-    .sort((a, b) => refIdentity(a).localeCompare(refIdentity(b))) as RefGraphNodeWithSource[]
+    .sort((a, b) => compareTypegenKeys(refIdentity(a), refIdentity(b))) as RefGraphNodeWithSource[]
   const diagnostics: ExternalSchemaRefDiagnostic[] = []
   const schemas: Record<string, OasSchema> = {}
   const refNameOverrides: Record<string, string> = {}

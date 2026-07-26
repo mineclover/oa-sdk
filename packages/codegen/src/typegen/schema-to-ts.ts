@@ -17,6 +17,7 @@
 
 import { foldSchema, type SchemaAlgebra, type OasSchema } from '@oa-sdk/parser/browser'
 import { escapeKey } from '@oa-sdk/core/browser'
+import { compareTypegenKeys } from './stable-order.js'
 
 export const typescriptAlgebra: SchemaAlgebra<string> = {
   string:  (s) => withNullable(s, resolveStringType(s)),
@@ -34,7 +35,7 @@ export const typescriptAlgebra: SchemaAlgebra<string> = {
   object(s, props) {
     const required = new Set(s.required ?? [])
     const propSchemas = (s.properties ?? {}) as Record<string, OasSchema>
-    const fields = Object.entries(props).map(([key, type]) => {
+    const fields = Object.entries(props).sort(([left], [right]) => compareTypegenKeys(left, right)).map(([key, type]) => {
       const opt = required.has(key) ? '' : '?'
       const ps = propSchemas[key] as OasSchema & Record<string, unknown> | undefined
       const ro = ps?.readOnly ? 'readonly ' : ''
