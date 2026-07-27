@@ -586,7 +586,7 @@ export const oaGenGovernanceManifest = {
             name: 'mode',
             type: 'string',
             required: true,
-            description: 'recent | recent-failures | latest-failure-by-type | latest-by-type | latest-by-identity | latest-by-target | latest-by-decision-signal | latest-by-recommendation | summary-by-type | summary-by-status | summary-by-target-type | summary-by-behavior-status | summary-by-behavior-decision-signal | summary-by-decision-signal | summary-by-recommendation',
+            description: 'recent | recent-failures | latest-failure-by-type | latest-by-type | latest-by-identity | latest-by-target | latest-by-decision-signal | latest-by-recommendation | summary-by-type | summary-by-status | summary-by-target-type | summary-by-behavior-status | summary-by-behavior-decision-signal | summary-by-decision-signal | summary-by-recommendation | metrics-summary',
           },
           {
             name: 'behavior-type',
@@ -1009,6 +1009,52 @@ export const oaGenGovernanceManifest = {
       },
     },
     {
+      id: 'parallel-evidence',
+      kind: 'command',
+      name: 'parallel-evidence',
+      summary: 'TypeSpec 계약과 ttsc 구현 provenance의 pointer coverage metric 리포트',
+      components: {
+        options: [
+          {
+            name: 'typespec-provenance',
+            type: 'string',
+            required: true,
+            description: 'TypeSpec declaration-to-output provenance JSON 경로',
+          },
+          {
+            name: 'ttsc-provenance',
+            type: 'string',
+            required: true,
+            description: 'ttsc implementation provenance JSON 경로',
+          },
+          {
+            name: 'baseline',
+            type: 'string',
+            description: '이전 oa-sdk.parallel-evidence-report.v1 또는 metrics JSON 경로',
+          },
+          {
+            name: 'format',
+            type: 'string',
+            short: 'f',
+            description: 'markdown | json (기본: markdown)',
+          },
+        ],
+        inputs: [
+          { name: 'typespec-provenance', kind: 'typespec-provenance', required: true, option: 'typespec-provenance' },
+          { name: 'ttsc-provenance', kind: 'ttsc-provenance', required: true, option: 'ttsc-provenance' },
+          { name: 'baseline', kind: 'parallel-evidence-metrics', required: false, option: 'baseline' },
+        ],
+        checks: ['parallel-evidence', 'parallel-evidence-metrics'],
+        reports: [
+          { formats: ['markdown', 'json'], schema: 'oa-sdk.parallel-evidence-report.v1' },
+        ],
+        exitPolicy: {
+          success: ['APPROVE'],
+          failure: ['REQUEST_CHANGES'],
+        },
+      },
+    },
+    {
       id: 'review-bundle',
       kind: 'command',
       name: 'review-bundle',
@@ -1089,6 +1135,16 @@ export const oaGenGovernanceManifest = {
             description: 'oa-gen duplicate-review --format json 출력 파일 경로',
           },
           {
+            name: 'typespec-provenance',
+            type: 'string',
+            description: 'TypeSpec declaration-to-output provenance JSON 경로 (--ttsc-provenance와 함께 필요)',
+          },
+          {
+            name: 'ttsc-provenance',
+            type: 'string',
+            description: 'ttsc implementation provenance JSON 경로 (--typespec-provenance와 함께 필요)',
+          },
+          {
             name: 'format',
             type: 'string',
             short: 'f',
@@ -1107,8 +1163,10 @@ export const oaGenGovernanceManifest = {
           { name: 'base-metadata-registry', kind: 'metadata-registry-report', required: false, option: 'base-metadata-registry' },
           { name: 'head-metadata-registry', kind: 'metadata-registry-report', required: false, option: 'head-metadata-registry' },
           { name: 'duplicate-review', kind: 'duplicate-review-report', required: false, option: 'duplicate-review' },
+          { name: 'typespec-provenance', kind: 'typespec-provenance', required: false, option: 'typespec-provenance' },
+          { name: 'ttsc-provenance', kind: 'ttsc-provenance', required: false, option: 'ttsc-provenance' },
         ],
-        checks: ['breaking-diff', 'artifact-freshness', 'runtime-drift', 'inventory', 'composition', 'metadata-registry', 'duplicate-review'],
+        checks: ['breaking-diff', 'artifact-freshness', 'runtime-drift', 'inventory', 'composition', 'metadata-registry', 'duplicate-review', 'parallel-evidence'],
         reports: [
           { formats: ['markdown', 'json'], schema: 'oa-gen.review-bundle.v1' },
         ],

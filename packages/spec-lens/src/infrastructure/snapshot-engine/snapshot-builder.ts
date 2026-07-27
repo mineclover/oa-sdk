@@ -143,6 +143,20 @@ export class SnapshotBuilder implements SnapshotBuilderPort<'definition-builder'
       }
     }
 
+    if (base.projectKind === 'typespec-bundle'
+      && head.projectKind === 'typespec-bundle'
+      && base.provenance.status === 'available'
+      && head.provenance.status === 'available') {
+      return {
+        ...common,
+        projectKind: 'typespec-bundle',
+        provenanceDiff: {
+          status: 'available',
+          kind: 'typespec-source-ast',
+          entries: diffBuildSpecProvenanceMaps(base.provenance.entries, head.provenance.entries),
+        },
+      }
+    }
     return {
       ...common,
       projectKind: 'typespec-bundle',

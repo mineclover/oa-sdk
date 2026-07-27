@@ -21,6 +21,11 @@ import {
   type ReviewBundleRuntimeDriftReport,
 } from '../lib/review-bundle.js'
 import {
+  buildParallelEvidence,
+  parseTtscContractProvenance,
+  parseTypeSpecRefProvenance,
+} from '../lib/parallel-evidence.js'
+import {
   bundleRecommendationDecisionReason,
   createReviewBundleBehaviorResult,
   recommendationDecisionSignal,
@@ -91,6 +96,14 @@ export const reviewBundle: Command = {
       type: 'string',
       description: optionDescription(reviewBundleSpec, 'duplicate-review'),
     },
+    'typespec-provenance': {
+      type: 'string',
+      description: optionDescription(reviewBundleSpec, 'typespec-provenance'),
+    },
+    'ttsc-provenance': {
+      type: 'string',
+      description: optionDescription(reviewBundleSpec, 'ttsc-provenance'),
+    },
     'behavior-log': {
       type: 'string',
       description: 'append-only behavior JSONL 출력 파일 경로',
@@ -117,6 +130,11 @@ export const reviewBundle: Command = {
     const baseMetadataRegistryPath = optStr(args, 'base-metadata-registry')
     const headMetadataRegistryPath = optStr(args, 'head-metadata-registry')
     const duplicateReviewPath = optStr(args, 'duplicate-review')
+    const typeSpecProvenancePath = optStr(args, 'typespec-provenance')
+    const ttscProvenancePath = optStr(args, 'ttsc-provenance')
+    if ((typeSpecProvenancePath === undefined) !== (ttscProvenancePath === undefined)) {
+      throw new Error('--typespec-provenance and --ttsc-provenance must be provided together')
+    }
     const behaviorLogPath = optStr(args, 'behavior-log')
     const behaviorDbPath = optStr(args, 'behavior-db')
     const behaviorRecorder = createBehaviorRecorderFromOptions({
@@ -161,6 +179,14 @@ export const reviewBundle: Command = {
         ...(duplicateReviewPath !== undefined
           ? { duplicateReview: readJsonReport<DefinitionDuplicateReviewResult>(duplicateReviewPath) }
           : {}),
+        ...(typeSpecProvenancePath !== undefined && ttscProvenancePath !== undefined
+          ? {
+              parallelEvidence: buildParallelEvidence({
+                contract: parseTypeSpecRefProvenance(readJsonReport<unknown>(typeSpecProvenancePath)),
+                implementation: parseTtscContractProvenance(readJsonReport<unknown>(ttscProvenancePath)),
+              }),
+            }
+          : {}),
       })
       const format = readFormat(optStr(args, 'format'))
       const targetKey = `${base.path}|${head.path}|${artifact.path}`
@@ -198,6 +224,8 @@ export const reviewBundle: Command = {
             ...(baseMetadataRegistryPath ? { baseMetadataRegistryPath } : {}),
             ...(headMetadataRegistryPath ? { headMetadataRegistryPath } : {}),
             ...(duplicateReviewPath ? { duplicateReviewPath } : {}),
+            ...(typeSpecProvenancePath ? { typeSpecProvenancePath } : {}),
+            ...(ttscProvenancePath ? { ttscProvenancePath } : {}),
             includeInventory: bool(args, 'inventory'),
           },
           context: {
@@ -215,6 +243,7 @@ export const reviewBundle: Command = {
           },
           metrics: {
             durationMs: Date.now() - startedAt,
+            ...parallelEvidenceBehaviorMetrics(bundle),
           },
         },
       }))
@@ -251,6 +280,8 @@ export const reviewBundle: Command = {
             ...(baseMetadataRegistryPath ? { baseMetadataRegistryPath } : {}),
             ...(headMetadataRegistryPath ? { headMetadataRegistryPath } : {}),
             ...(duplicateReviewPath ? { duplicateReviewPath } : {}),
+            ...(typeSpecProvenancePath ? { typeSpecProvenancePath } : {}),
+            ...(ttscProvenancePath ? { ttscProvenancePath } : {}),
             includeInventory: bool(args, 'inventory'),
           },
           context: {
@@ -277,6 +308,23 @@ export const reviewBundle: Command = {
       throw error
     }
   },
+}
+
+function parallelEvidenceBehaviorMetrics(bundle: ReturnType<typeof createReviewBundle>): Record<string, number> {
+  const metrics = bundle.sections.parallelEvidence?.report.metrics
+  if (metrics === undefined) return {}
+  return {
+    parallelEvidenceMatchedPointers: metrics.pointers.matched,
+    parallelEvidenceContractPointers: metrics.pointers.contract,
+    parallelEvidenceImplementationPointers: metrics.pointers.implementation,
+    parallelEvidenceContractCoverageRatio: metrics.pointers.contractCoverageRatio,
+    parallelEvidenceImplementationCoverageRatio: metrics.pointers.implementationCoverageRatio,
+    parallelEvidenceContractTargetResolved: metrics.relations.contractTargetResolved,
+    parallelEvidenceImplementationTargetResolved: metrics.relations.implementationTargetResolved,
+    parallelEvidenceDirectShapes: metrics.implementationShapes.direct,
+    parallelEvidencePolicyRequiredShapes: metrics.implementationShapes.policyRequired,
+    parallelEvidenceUnsupportedShapes: metrics.implementationShapes.unsupported,
+  }
 }
 
 function readFormat(format: string | undefined): ReviewBundleFormat {

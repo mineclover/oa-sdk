@@ -45,6 +45,7 @@ export type ReviewBundleBehaviorIncludedState = {
   metadataRegistryChanges: number | null
   duplicateReviewIncluded: boolean
   duplicateReviewValid: boolean | null
+  parallelEvidenceIncluded: boolean
   checksIncomplete: boolean
 }
 
@@ -169,6 +170,7 @@ export function createReviewBundleIncludedState(
     metadataRegistryChanges: number | null
     duplicateReviewIncluded: boolean
     duplicateReviewValid: boolean | null
+    parallelEvidenceIncluded: boolean
     checksIncomplete: boolean
   },
 ): ReviewBundleBehaviorIncludedState {
@@ -187,6 +189,7 @@ export function createReviewBundleIncludedState(
     metadataRegistryChanges: input.metadataRegistryChanges,
     duplicateReviewIncluded: input.duplicateReviewIncluded,
     duplicateReviewValid: input.duplicateReviewValid,
+    parallelEvidenceIncluded: input.parallelEvidenceIncluded,
     checksIncomplete: input.checksIncomplete,
   }
 }
@@ -249,6 +252,7 @@ export function createReviewBundleBehaviorResult(
       metadataRegistryChanges: bundle.summary.metadataRegistryChanges,
       duplicateReviewIncluded: bundle.summary.duplicateReviewIncluded,
       duplicateReviewValid: bundle.summary.duplicateReviewValid,
+      parallelEvidenceIncluded: bundle.summary.parallelEvidenceIncluded,
       checksIncomplete: bundle.summary.checksIncomplete,
     }),
   }

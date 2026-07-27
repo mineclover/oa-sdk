@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://oa-sdk.dev/schemas/parallel-evidence-report.v1.schema.json",
+  "title": "OA SDK parallel provenance metric report v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "evidence", "metrics"],
+  "properties": {
+    "schemaVersion": { "const": "oa-sdk.parallel-evidence-report.v1" },
+    "evidence": { "$ref": "parallel-evidence.v1.schema.json" },
+    "metrics": { "$ref": "parallel-evidence.v1.schema.json#/$defs/metrics" },
+    "baseline": { "$ref": "#/$defs/delta" }
+  },
+  "$defs": {
+    "delta": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schemaVersion", "baselineSchemaVersion", "changed", "values"],
+      "properties": {
+        "schemaVersion": { "const": "oa-sdk.parallel-evidence-metric-delta.v1" },
+        "baselineSchemaVersion": { "const": "oa-sdk.parallel-evidence-metrics.v1" },
+        "changed": { "type": "boolean" },
+        "values": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["baseline", "current", "delta"],
+            "properties": {
+              "baseline": { "type": "number" },
+              "current": { "type": "number" },
+              "delta": { "type": "number" }
+            }
+          }
+        }
+      }
+    }
+  }
+}

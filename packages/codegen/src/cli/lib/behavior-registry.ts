@@ -204,6 +204,8 @@ const publishReviewBundleInputSchema = z.object({
   baseMetadataRegistryPath: z.string().min(1).optional(),
   headMetadataRegistryPath: z.string().min(1).optional(),
   duplicateReviewPath: z.string().min(1).optional(),
+  typeSpecProvenancePath: z.string().min(1).optional(),
+  ttscProvenancePath: z.string().min(1).optional(),
   includeInventory: z.boolean(),
 }).passthrough()
 
@@ -227,6 +229,9 @@ const publishReviewBundleResultSchema = z.object({
   metadataRegistryChanges: nullableNonNegativeInt,
   duplicateReviewIncluded: z.boolean(),
   duplicateReviewValid: z.boolean().nullable(),
+  // Older persisted review-bundle behavior records predate this observational
+  // section. New command output always sets it; retain read compatibility.
+  parallelEvidenceIncluded: z.boolean().optional(),
   checksIncomplete: z.boolean(),
 }).passthrough().or(z.object({
   errorMessage: z.string().min(1),

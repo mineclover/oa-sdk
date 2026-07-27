@@ -261,12 +261,13 @@ export class RefreshTimelineHandler {
     if (latestSpec === null) return
 
     const latest = latestEntry.stored
-    if (latest.projectKind === 'typespec-bundle') {
-      // Output-pointer provenance is explicitly unavailable for TypeSpec. Do
-      // not manufacture Definition Builder canonical IDs for the path index.
+    if (latest.provenance.status !== 'available') {
+      // Older TypeSpec snapshots only retain source-file evidence. Do not
+      // manufacture output pointers or canonical IDs from that fallback.
       await this.cache.replacePathEntries(projectKey, [])
       return
     }
+    const provenanceEntries = latest.provenance.entries
     const specPaths = latestSpec['paths'] as Record<string, unknown> | undefined
     if (specPaths === undefined) {
       await this.cache.replacePathEntries(projectKey, [])
@@ -309,7 +310,7 @@ export class RefreshTimelineHandler {
     for (const [apiPath, pathItem] of Object.entries(specPaths)) {
       if (typeof pathItem !== 'object' || pathItem === null) continue
       const pointer = `#/paths/${encodeJsonPointerSegment(apiPath)}`
-      const provenanceEntry = latest.provenance.entries[pointer]
+      const provenanceEntry = provenanceEntries[pointer]
       if (provenanceEntry === undefined) continue
 
       const canonicalId = provenanceEntry.canonicalId

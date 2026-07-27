@@ -182,6 +182,67 @@ describe('oa-gen review-bundle', () => {
     expect(bundle.sections.duplicateReview?.report).toEqual(duplicateReview)
   })
 
+  it('joins TypeSpec and ttsc provenance as review-only parallel evidence', () => {
+    const spec = reviewSpec('string')
+    const basePath = writeYaml('base.yaml', spec)
+    const headPath = writeYaml('head.yaml', spec)
+    const artifactPath = writeYaml('artifact.yaml', spec)
+    const typeSpecProvenancePath = writeJson('typespec-provenance.json', typeSpecProvenanceArtifact())
+    const ttscProvenancePath = writeJson('ttsc-provenance.json', ttscProvenanceArtifact())
+    const behaviorLogPath = writeJsonlPath('parallel-evidence.behavior.jsonl')
+
+    const result = runCli([
+      'review-bundle',
+      '--base', basePath,
+      '--head', headPath,
+      '--artifact', artifactPath,
+      '--typespec-provenance', typeSpecProvenancePath,
+      '--ttsc-provenance', ttscProvenancePath,
+      '--behavior-log', behaviorLogPath,
+      '--format', 'json',
+    ])
+
+    expect(result.status).toBe(0)
+    const bundle = JSON.parse(result.stdout) as ReviewBundle
+    expect(bundle.summary.parallelEvidenceIncluded).toBe(true)
+    expect(bundle.summary.recommendation).toBe('APPROVE')
+    expect(bundle.sections.parallelEvidence?.report).toMatchObject({
+      contractAuthority: 'typespec',
+      purpose: 'review-evidence-only',
+      summary: { matchedPointers: 1 },
+    })
+    const record = readJsonl(behaviorLogPath)[0] as {
+      components?: { metrics?: Record<string, number> }
+    }
+    expect(record.components?.metrics).toEqual(expect.objectContaining({
+      parallelEvidenceMatchedPointers: 1,
+      parallelEvidenceContractCoverageRatio: 1,
+      parallelEvidenceImplementationCoverageRatio: 1,
+      parallelEvidenceDirectShapes: 1,
+    }))
+  })
+
+  it('rejects an unpaired parallel provenance input', () => {
+    const spec = reviewSpec('string')
+    const basePath = writeYaml('base.yaml', spec)
+    const headPath = writeYaml('head.yaml', spec)
+    const artifactPath = writeYaml('artifact.yaml', spec)
+    const typeSpecProvenancePath = writeJson('typespec-provenance.json', typeSpecProvenanceArtifact())
+
+    const result = runCli([
+      'review-bundle',
+      '--base', basePath,
+      '--head', headPath,
+      '--artifact', artifactPath,
+      '--typespec-provenance', typeSpecProvenancePath,
+    ])
+
+    expect(result.status).toBe(1)
+    expect(`${result.stdout}\n${result.stderr}`).toContain(
+      '--typespec-provenance and --ttsc-provenance must be provided together',
+    )
+  })
+
   it('includes metadata registry diff when base and head sidecars are provided', () => {
     const spec = reviewSpec('string')
     const basePath = writeYaml('base.yaml', spec)
@@ -630,6 +691,55 @@ function provenanceDiffReport(base = 'base.provenance.json', head = 'head.proven
         message: 'Provenance changed for #/paths/~1pets.',
       },
     ],
+  }
+}
+
+function typeSpecProvenanceArtifact(): Record<string, unknown> {
+  return {
+    schemaVersion: 'oa-sdk.typespec-ref-provenance.v1',
+    provenanceKind: 'typespec-source-ast',
+    inputs: {},
+    declarations: [{
+      id: 'model:models.tsp:Pet',
+      kind: 'model',
+      symbol: 'Pet',
+      source: sourceRange('models.tsp', 1),
+    }],
+    edges: [{
+      kind: 'emits',
+      declarationId: 'model:models.tsp:Pet',
+      outputPointer: '#/components/schemas/Pet',
+    }],
+    exclusions: [],
+  }
+}
+
+function ttscProvenanceArtifact(): Record<string, unknown> {
+  return {
+    schemaVersion: 'ttsc-contract-provenance.v2',
+    inputs: { toolchain: { typescript: '7.0.2' } },
+    declarations: [{
+      id: 'schema:contracts.ts:Pet',
+      kind: 'schema',
+      astKind: 'InterfaceDeclaration',
+      symbol: 'Pet',
+      source: sourceRange('contracts.ts', 1),
+      shape: { features: ['object'], typeSpecProjection: 'direct' },
+    }],
+    edges: [{
+      kind: 'emits',
+      declarationId: 'schema:contracts.ts:Pet',
+      outputPointer: '#/components/schemas/Pet',
+    }],
+    diagnostics: [],
+  }
+}
+
+function sourceRange(file: string, line: number): Record<string, unknown> {
+  return {
+    file,
+    start: { line, column: 1 },
+    end: { line, column: 2 },
   }
 }
 

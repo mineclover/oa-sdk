@@ -26,6 +26,18 @@ export {
 } from './cli/lib/openapi-collect.js'
 export { exportOpenApiToTypeSpec } from './cli/lib/tsp-export.js'
 export {
+  buildParallelEvidence,
+  createParallelEvidenceMetricDelta,
+  createParallelEvidenceMetrics,
+  createParallelEvidenceReport,
+  PARALLEL_EVIDENCE_METRICS_SCHEMA_VERSION,
+  PARALLEL_EVIDENCE_REPORT_SCHEMA_VERSION,
+  PARALLEL_EVIDENCE_SCHEMA_VERSION,
+  parseParallelEvidenceMetrics,
+  parseTtscContractProvenance,
+  parseTypeSpecRefProvenance,
+} from './cli/lib/parallel-evidence.js'
+export {
   createOpenApiGovernanceInterface,
   fingerprintGovernanceConfig,
   formatScaffoldResult,
@@ -64,6 +76,20 @@ export type {
   OpenApiGovernanceScaffoldOptions,
   OpenApiGovernanceScaffoldResult,
 } from './cli/lib/openapi-governance-scaffold.js'
+export type {
+  ParallelEvidenceArtifactInput,
+  ParallelEvidenceDeclaration,
+  ParallelEvidenceMetricDeltaV1,
+  ParallelEvidenceMetricsV1,
+  ParallelEvidenceRelation,
+  ParallelEvidenceReportV1,
+  ParallelEvidenceRole,
+  ParallelEvidenceSourceRange,
+  ParallelEvidenceSubject,
+  ParallelEvidenceSubjectStatus,
+  ParallelEvidenceV1,
+  TtscContractProvenanceV2,
+} from './cli/lib/parallel-evidence.js'
 export type {
   ApitomyReferenceAdapter,
   ApitomyReferenceAdapterOptions,

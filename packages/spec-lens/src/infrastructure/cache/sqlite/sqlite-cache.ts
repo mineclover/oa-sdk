@@ -531,21 +531,26 @@ function decodeStoredSnapshot(
       || value.composition.target.fragmentsDir !== value.fragmentsDir) {
       return null
     }
-  } else if (value.provenance.status !== 'unavailable'
-    || value.provenance.kind !== 'typespec-source-files'
-    || value.provenance.reason !== 'output-pointer-mapping-unavailable'
-    || !isSourceFileEvidence(value.provenance.sourceFiles)
-    || !isObservedInputEvidence(value.provenance.observedInputs)
-    || !isTypeSpecCompileEvidence(value.provenance.compile)
-    || (expectedToolchainFingerprint !== undefined
-      && value.provenance.compile.toolchain.fingerprint !== expectedToolchainFingerprint)
-    || !sameStrings(
-      value.provenance.compile.sourceFiles,
-      value.provenance.sourceFiles.map(entry => entry.relativePath),
+  } else {
+    const provenance = value.provenance
+    const provenanceValid = (
+      provenance.status === 'available'
+      && provenance.kind === 'typespec-source-ast'
+      && isProvenanceMap(provenance.entries)
+    ) || (
+      provenance.status === 'unavailable'
+      && provenance.kind === 'typespec-source-files'
+      && provenance.reason === 'output-pointer-mapping-unavailable'
     )
-    || !sourceFileEvidenceMatchesEntries(value.provenance.sourceFiles, value.entryRefs)
-    || typeof value.manifestPath !== 'string') {
-    return null
+    if (!provenanceValid
+      || !isSourceFileEvidence(provenance.sourceFiles)
+      || !isObservedInputEvidence(provenance.observedInputs)
+      || !isTypeSpecCompileEvidence(provenance.compile)
+      || (expectedToolchainFingerprint !== undefined
+        && provenance.compile.toolchain.fingerprint !== expectedToolchainFingerprint)
+      || !sameStrings(provenance.compile.sourceFiles, provenance.sourceFiles.map(entry => entry.relativePath))
+      || !sourceFileEvidenceMatchesEntries(provenance.sourceFiles, value.entryRefs)
+      || typeof value.manifestPath !== 'string') return null
   }
 
   return value as SpecSnapshotStored
@@ -578,12 +583,20 @@ function decodeStoredDiff(
       || !isProvenanceDiff(value.provenanceDiff.entries)) {
       return null
     }
-  } else if (value.provenanceDiff.status !== 'unavailable'
-    || value.provenanceDiff.kind !== 'typespec-source-files'
-    || value.provenanceDiff.reason !== 'output-pointer-mapping-unavailable'
-    || !isStringArray(value.provenanceDiff.affectedSourceFiles)
-    || !sameStrings(value.provenanceDiff.affectedSourceFiles, value.affectedFragments)) {
-    return null
+  } else {
+    const provenanceDiff = value.provenanceDiff
+    const provenanceValid = (
+      provenanceDiff.status === 'available'
+      && provenanceDiff.kind === 'typespec-source-ast'
+      && isProvenanceDiff(provenanceDiff.entries)
+    ) || (
+      provenanceDiff.status === 'unavailable'
+      && provenanceDiff.kind === 'typespec-source-files'
+      && provenanceDiff.reason === 'output-pointer-mapping-unavailable'
+      && isStringArray(provenanceDiff.affectedSourceFiles)
+      && sameStrings(provenanceDiff.affectedSourceFiles, value.affectedFragments)
+    )
+    if (!provenanceValid) return null
   }
   return value as SpecTimelineDiff
 }

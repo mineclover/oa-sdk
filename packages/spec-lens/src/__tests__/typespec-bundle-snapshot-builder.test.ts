@@ -75,9 +75,14 @@ describe('TypeSpecBundleSnapshotBuilder', () => {
     expect(snapshot).toMatchObject({
       projectKind: 'typespec-bundle',
       provenance: {
-        status: 'unavailable',
-        kind: 'typespec-source-files',
-        reason: 'output-pointer-mapping-unavailable',
+        status: 'available',
+        kind: 'typespec-source-ast',
+        entries: expect.objectContaining({
+          '#/paths/~1v2': expect.objectContaining({
+            canonicalId: 'operation:typespec/main.tsp/getTest',
+            sourcePath: 'main.tsp',
+          }),
+        }),
         sourceFiles: [{ relativePath: 'main.tsp', contentHash: 'main-r2' }],
         observedInputs: [{
           path: 'pnpm-lock.yaml', class: 'evidence-only', availability: 'available', contentHash: 'input-r2',
@@ -88,14 +93,19 @@ describe('TypeSpecBundleSnapshotBuilder', () => {
     expect(diff).toMatchObject({
       projectKind: 'typespec-bundle',
       provenanceDiff: {
-        status: 'unavailable',
-        kind: 'typespec-source-files',
-        affectedSourceFiles: ['main.tsp'],
+        status: 'available',
+        kind: 'typespec-source-ast',
+        entries: expect.any(Array),
       },
       stats: { pathsAdded: 1, pathsRemoved: 1 },
     })
     expect(await cache.listTimeline({ projectKey: project.projectKey })).toHaveLength(2)
-    expect(await cache.listPaths({ projectKey: project.projectKey })).toEqual([])
+    expect(await cache.listPaths({ projectKey: project.projectKey })).toEqual([expect.objectContaining({
+      path: '/v2',
+      methods: ['get'],
+      canonicalId: 'operation:typespec/main.tsp/getTest',
+      sourceFile: 'main.tsp',
+    })])
   })
 
   it('leaves a failed compile as an explicit uncached timeline error', async () => {
@@ -258,6 +268,28 @@ function compileResult(path: string) {
         compatibilitySidecar: 'pass' as const,
         restoredValidation: 'pass' as const,
       },
+    },
+    provenance: {
+      schemaVersion: 'oa-sdk.typespec-ref-provenance.v1' as const,
+      provenanceKind: 'typespec-source-ast' as const,
+      inputs: {
+        sourceRoot: '.',
+        sourceSha256: 'a'.repeat(64),
+        restoredOpenApiSha256: 'b'.repeat(64),
+        toolchainFingerprint: 'c'.repeat(64),
+      },
+      declarations: [{
+        id: 'operation:main.tsp:getTest',
+        kind: 'operation' as const,
+        symbol: 'getTest',
+        source: { file: 'main.tsp', start: { line: 1, column: 1 }, end: { line: 1, column: 10 } },
+      }],
+      edges: [{
+        kind: 'emits' as const,
+        declarationId: 'operation:main.tsp:getTest',
+        outputPointer: `#/paths/${path.replaceAll('/', '~1')}/get`,
+      }],
+      exclusions: [],
     },
   }
 }

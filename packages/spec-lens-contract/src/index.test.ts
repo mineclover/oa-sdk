@@ -13,6 +13,7 @@ describe('@oa-sdk/spec-lens-contract', () => {
 
   it('guards the response shapes used by the UI boundary', () => {
     expect(isSpecLensResponse('snapshot', validTypeSpecSnapshot())).toBe(true)
+    expect(isSpecLensResponse('snapshot', validTypeSpecAstSnapshot())).toBe(true)
     expect(isSpecLensResponse('snapshot', {
       ...validTypeSpecSnapshot(),
       revision: undefined,
@@ -23,6 +24,11 @@ describe('@oa-sdk/spec-lens-contract', () => {
       nodes: [{ id: 'schema:public/users/User', kind: 'schema' }],
       edges: [],
     })).toBe(false)
+    expect(isSpecLensResponse('paths', {
+      status: 'available',
+      projectKind: 'typespec-bundle',
+      entries: [],
+    })).toBe(true)
   })
 })
 
@@ -113,6 +119,29 @@ function validTypeSpecSnapshot() {
           restoredValidation: 'pass',
         },
       },
+    },
+  }
+}
+
+function validTypeSpecAstSnapshot() {
+  const snapshot = validTypeSpecSnapshot()
+  return {
+    ...snapshot,
+    provenance: {
+      status: 'available',
+      kind: 'typespec-source-ast',
+      entries: {
+        '#/paths/~1users': {
+          canonicalId: 'operation:typespec/main.tsp/listUsers',
+          kind: 'operation',
+          sourcePath: 'main.tsp',
+          sourcePointer: '#L1:C1',
+          contentHash: 'hash',
+        },
+      },
+      sourceFiles: snapshot.provenance.sourceFiles,
+      observedInputs: snapshot.provenance.observedInputs,
+      compile: snapshot.provenance.compile,
     },
   }
 }

@@ -30,6 +30,14 @@ The proposed follow-up design for historical external-input evidence, semantic
 environment profiles, typed helper lifecycle, and automation-guidance alignment
 is tracked in [`feedback-followup-design.md`](./feedback-followup-design.md).
 
+The proposed declaration-to-restored-OpenAPI `$ref` provenance artifact,
+validation gates, and staged CI adoption are tracked in
+[`declaration-ref-provenance-validation-plan.md`](./declaration-ref-provenance-validation-plan.md).
+
+The proposed logical-ERD TypeSpec profile, neutral artifact, catalog evidence,
+and provenance/diff rollout are tracked in
+[`logical-erd-typespec-profile.plan.md`](./logical-erd-typespec-profile.plan.md).
+
 The production TypeSpec source bundle is [`../../../packages/schemas/typespec/`](../../../packages/schemas/typespec/).
 
 ## Versions

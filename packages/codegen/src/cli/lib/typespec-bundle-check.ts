@@ -34,6 +34,11 @@ import {
   stripTypeSpecOpenApiExtensions,
 } from './typespec-oa-sdk-extensions.js'
 import {
+  buildTypeSpecRefProvenance,
+  type TypeSpecRefProvenanceReport,
+  type TypeSpecRefProvenanceV1,
+} from './typespec-ref-provenance.js'
+import {
   classifyBreakingChanges,
   classifyNonBreakingChanges,
   diffEndpoints,
@@ -53,6 +58,7 @@ export type TypeSpecBundleCheckArgs = {
   sidecar?: string
   expected?: string
   output?: string
+  provenance?: string
   report?: string
   keep?: boolean
   failOnBreaking?: boolean
@@ -134,10 +140,12 @@ export type TypeSpecBundleCheckReport = {
     restoredValidation: 'pass' | 'fail'
     expectedDiff?: 'pass' | 'fail'
   }
+  provenance: TypeSpecRefProvenanceReport
 }
 
 export type TypeSpecBundleCheckResult = {
   report: TypeSpecBundleCheckReport
+  provenance: TypeSpecRefProvenanceV1
   restoredDiff?: DiffResult
 }
 
@@ -184,6 +192,7 @@ export function parseTypeSpecBundleCheckArgs(rawArgs: string[]): TypeSpecBundleC
   const sidecar = readOption(rawArgs, '--sidecar')
   const expected = readOption(rawArgs, '--expected')
   const output = readOption(rawArgs, '--output')
+  const provenance = readOption(rawArgs, '--provenance')
   const report = readOption(rawArgs, '--report')
   return {
     ...(project ? { project } : {}),
@@ -191,6 +200,7 @@ export function parseTypeSpecBundleCheckArgs(rawArgs: string[]): TypeSpecBundleC
     ...(sidecar ? { sidecar } : {}),
     ...(expected ? { expected } : {}),
     ...(output ? { output } : {}),
+    ...(provenance ? { provenance } : {}),
     ...(report ? { report } : {}),
     keep: rawArgs.includes('--keep'),
     failOnBreaking: rawArgs.includes('--fail-on-breaking'),
@@ -268,6 +278,16 @@ export async function checkTypeSpecBundle(
       basePath: restoredPath,
       requireOpenApi32: true,
     })
+    const provenance = buildTypeSpecRefProvenance({
+      sourceRoot: bundle.projectPath,
+      restoredDocument,
+      sidecar,
+    })
+    if (args.provenance) {
+      const provenancePath = resolve(root, args.provenance)
+      mkdirSync(dirname(provenancePath), { recursive: true })
+      writeFileSync(provenancePath, `${JSON.stringify(provenance.artifact, null, 2)}\n`)
+    }
 
     if (bundle.expectedPath) assertArtifactSize(bundle.expectedPath, 'expected OpenAPI', maxArtifactBytes)
     const expected = bundle.expectedPath ? loadExpected(bundle.expectedPath) : undefined
@@ -289,6 +309,7 @@ export async function checkTypeSpecBundle(
       restoredDocument,
       emittedValidation,
       restoredValidation,
+      provenance: provenance.report,
       ...(expected ? { expected } : {}),
       ...(emittedDiff ? { emittedDiff } : {}),
       ...(restoredDiff ? { restoredDiff } : {}),
@@ -302,6 +323,7 @@ export async function checkTypeSpecBundle(
 
     return {
       report,
+      provenance: provenance.artifact,
       ...(restoredDiff ? { restoredDiff } : {}),
     }
   } finally {
@@ -345,6 +367,7 @@ export function printTypeSpecBundleCheckSummary(
   console.log(`  sidecar re-extract: ${report.counts.sidecarStability.expectedSatisfied}/${report.counts.sidecarStability.expectedEntries} expected, ${report.counts.sidecarStability.actualCovered}/${report.counts.sidecarStability.actualEntries} actual covered`)
   console.log(`  emitted validation: ${report.validation.emitted.summary}`)
   console.log(`  restored validation: ${report.validation.restored.summary}`)
+  console.log(`  TypeSpec ref provenance: ${report.provenance.valid ? 'pass' : 'fail'} (${report.provenance.counts.coveredPublicPointers}/${report.provenance.counts.publicPointers} public, ${report.provenance.counts.coveredRefNodes}/${report.provenance.counts.refNodes} refs)`)
   if (report.validation.expected) console.log(`  expected validation: ${report.validation.expected.summary}`)
   if (report.diff) {
     console.log(`  emitted breaking diff: ${report.diff.emitted.breaking > 0 ? 'yes' : 'no'}`)
@@ -399,6 +422,7 @@ function createReport(input: {
   restoredDocument: Record<string, unknown>
   emittedValidation: { valid: boolean; summary: string }
   restoredValidation: { valid: boolean; summary: string }
+  provenance: TypeSpecRefProvenanceReport
   expected?: { document: Record<string, unknown>; validation: { valid: boolean; summary: string } }
   emittedDiff?: DiffResult
   restoredDiff?: DiffResult
@@ -454,6 +478,7 @@ function createReport(input: {
       restoredValidation: input.restoredValidation.valid ? 'pass' : 'fail',
       ...(input.restoredDiff ? { expectedDiff: restoredBreaking === 0 ? 'pass' : 'fail' } : {}),
     },
+    provenance: input.provenance,
   }
 }
 

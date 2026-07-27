@@ -75,6 +75,41 @@ describe('GetGraphHandler', () => {
     })
   })
 
+  it('builds a TypeSpec graph from available AST provenance', async () => {
+    const stored: SpecSnapshotStored = {
+      schemaVersion: 'spec-lens.snapshot.v2',
+      projectKey: 'project-a',
+      projectKind: 'typespec-bundle',
+      sourceRoot: 'typespec',
+      manifestPath: 'typespec/bundle.json',
+      revision: { id: 'abc', shortId: 'abc', timestamp: 1000, message: 'test', source: 'local-git' },
+      spec: { openapi: '3.2.0', paths: {} },
+      provenance: {
+        status: 'available',
+        kind: 'typespec-source-ast',
+        entries: {
+          '#/components/schemas/User': {
+            canonicalId: 'schema:typespec/main.tsp/User',
+            kind: 'schema',
+            sourcePath: 'main.tsp',
+            sourcePointer: '#L1:C1',
+            contentHash: 'h-main',
+          },
+        },
+        sourceFiles: [{ relativePath: 'main.tsp', contentHash: 'h-main' }],
+        observedInputs: [],
+        compile: {} as never,
+      },
+      diagnostics: [],
+      builtAt: 1000,
+      entryRefs: [{ relativePath: 'main.tsp', contentHash: 'h-main' }],
+    }
+    const graph = await new GetGraphHandler(makeCache(stored)).handle(QUERY)
+    expect(graph?.nodes).toEqual([expect.objectContaining({
+      id: 'schema:typespec/main.tsp/User', sourcePath: 'main.tsp',
+    })])
+  })
+
   it('builds nodes from provenance', async () => {
     const stored = makeStored(
       { openapi: '3.1.0', paths: {}, components: {} },

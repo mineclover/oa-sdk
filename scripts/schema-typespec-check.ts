@@ -29,6 +29,7 @@ type Args = {
   acceptedRestoredDrift: string
   report?: string
   output?: string
+  provenance?: string
   keep?: boolean
 }
 
@@ -65,6 +66,7 @@ try {
     failOnBreaking: true,
     ...(args.report ? { report: args.report } : {}),
     ...(args.keep ? { keep: true } : {}),
+    ...(args.provenance ? { provenance: args.provenance } : {}),
   })
   printTypeSpecBundleCheckSummary(bundleResult)
 
@@ -142,6 +144,7 @@ function parseArgs(rawArgs: string[]): Args {
     acceptedRestoredDrift: readOption(rawArgs, '--accepted-restored-drift') ?? 'packages/schemas/typespec/accepted-restored-drift.json',
     ...(readOption(rawArgs, '--report') ? { report: readOption(rawArgs, '--report') } : {}),
     ...(readOption(rawArgs, '--output') ? { output: readOption(rawArgs, '--output') } : {}),
+    ...(readOption(rawArgs, '--provenance') ? { provenance: readOption(rawArgs, '--provenance') } : {}),
     keep: rawArgs.includes('--keep'),
   }
 }

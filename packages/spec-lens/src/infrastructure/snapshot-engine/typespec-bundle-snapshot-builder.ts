@@ -12,6 +12,7 @@ import type {
   SpecSnapshotStored,
   SpecTimelineDiff,
   SpecLensObservedInputEvidence,
+  SpecProvenanceMap,
   TypeSpecBundleSpecSnapshot,
 } from '../../domain/index.js'
 import { SPEC_LENS_SNAPSHOT_SCHEMA_VERSION } from '../../domain/project.js'
@@ -48,11 +49,14 @@ export class TypeSpecBundleSnapshotBuilder implements SnapshotBuilderPort<'types
       return { relativePath, contentHash: entry.contentHash }
     })
 
-    const diagnostics: SpecSnapshotDiagnostic[] = [{
-      code: 'TYPESPEC_POINTER_PROVENANCE_UNAVAILABLE',
-      severity: 'info',
-      message: 'TypeSpec output-pointer provenance is unavailable; reachable source-file evidence is recorded instead.',
-    }]
+    const provenanceEntries = createTypeSpecProvenanceMap(compiled.provenance, entryByPath)
+    const diagnostics: SpecSnapshotDiagnostic[] = provenanceEntries === undefined
+      ? [{
+          code: 'TYPESPEC_POINTER_PROVENANCE_UNAVAILABLE',
+          severity: 'info',
+          message: 'TypeSpec output-pointer provenance is unavailable; reachable source-file evidence is recorded instead.',
+        }]
+      : []
     if (!compiled.evidence.validation.emitted.valid) {
       diagnostics.push({
         code: 'TYPESPEC_EMITTED_VALIDATION_WARNING',
@@ -76,14 +80,23 @@ export class TypeSpecBundleSnapshotBuilder implements SnapshotBuilderPort<'types
       revision: options.revision,
       manifestPath: options.manifestPath,
       spec: compiled.document,
-      provenance: {
-        status: 'unavailable',
-        kind: 'typespec-source-files',
-        reason: 'output-pointer-mapping-unavailable',
-        sourceFiles,
-        observedInputs: normalizeObservedInputs(options.observedInputs),
-        compile: compiled.evidence,
-      },
+      provenance: provenanceEntries === undefined
+        ? {
+            status: 'unavailable',
+            kind: 'typespec-source-files',
+            reason: 'output-pointer-mapping-unavailable',
+            sourceFiles,
+            observedInputs: normalizeObservedInputs(options.observedInputs),
+            compile: compiled.evidence,
+          }
+        : {
+            status: 'available',
+            kind: 'typespec-source-ast',
+            entries: provenanceEntries,
+            sourceFiles,
+            observedInputs: normalizeObservedInputs(options.observedInputs),
+            compile: compiled.evidence,
+          },
       diagnostics,
       builtAt: Date.now(),
     }
@@ -100,4 +113,52 @@ function normalizePath(value: string): string {
 
 function normalizeObservedInputs(entries: readonly SpecLensObservedInputEvidence[]) {
   return [...entries].sort((left, right) => left.path.localeCompare(right.path))
+}
+
+function createTypeSpecProvenanceMap(
+  provenance: CompileTypeSpecBundleForSpecLensResult['provenance'],
+  entryByPath: Map<string, { contentHash: string }>,
+): SpecProvenanceMap | undefined {
+  if (provenance.provenanceKind !== 'typespec-source-ast') return undefined
+  const declarations = new Map(provenance.declarations.map(declaration => [declaration.id, declaration]))
+  const entries: SpecProvenanceMap = {}
+  for (const edge of provenance.edges) {
+    if (edge.kind !== 'emits' && edge.kind !== 'restores') continue
+    if (entries[edge.outputPointer] !== undefined && edge.kind === 'restores') continue
+    const declaration = declarations.get(edge.declarationId)
+    if (!declaration) return undefined
+    const sourcePath = normalizePath(declaration.source.file)
+    const entry = entryByPath.get(sourcePath)
+    if (!entry) return undefined
+    const kind: 'schema' | 'operation' | 'response' | 'parameter' | 'securityScheme' = declaration.kind === 'model'
+      ? 'schema'
+      : declaration.kind === 'operation'
+        ? 'operation'
+        : inferOpenApiKind(edge.outputPointer)
+    const provenanceEntry: SpecProvenanceMap[string] = {
+      canonicalId: `${kind}:typespec/${sourcePath.replaceAll('/', '_')}/${declaration.symbol}`,
+      kind,
+      sourcePath,
+      sourcePointer: `#L${declaration.source.start.line}:C${declaration.source.start.column}`,
+      contentHash: entry.contentHash,
+    }
+    entries[edge.outputPointer] = provenanceEntry
+    const pathPointer = outputPathItemPointer(edge.outputPointer)
+    if (pathPointer !== undefined && entries[pathPointer] === undefined) {
+      entries[pathPointer] = provenanceEntry
+    }
+  }
+  return Object.keys(entries).length > 0 ? entries : undefined
+}
+
+function outputPathItemPointer(pointer: string): string | undefined {
+  const match = /^(#\/paths\/[^/]+)\/(get|post|put|patch|delete|head|options|trace)$/.exec(pointer)
+  return match?.[1]
+}
+
+function inferOpenApiKind(pointer: string): 'response' | 'parameter' | 'securityScheme' | 'operation' {
+  if (pointer.startsWith('#/components/responses/')) return 'response'
+  if (pointer.startsWith('#/components/parameters/')) return 'parameter'
+  if (pointer.startsWith('#/components/securitySchemes/')) return 'securityScheme'
+  return 'operation'
 }

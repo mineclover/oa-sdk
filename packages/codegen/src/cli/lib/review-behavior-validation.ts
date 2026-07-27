@@ -134,6 +134,25 @@ function validateReviewSidecarRelations(input: {
     ))
   }
 
+  if (input.commandName === 'review-bundle') {
+    const hasTypeSpecProvenance = readString(input.components.input, 'typeSpecProvenancePath') !== undefined
+    const hasTtscProvenance = readString(input.components.input, 'ttscProvenancePath') !== undefined
+    if (hasTypeSpecProvenance !== hasTtscProvenance) {
+      issues.push(issue(
+        'components.input',
+        'review-bundle parallel evidence requires both typeSpecProvenancePath and ttscProvenancePath',
+      ))
+    }
+    const parallelEvidenceIncluded = readBoolean(input.components.result, 'parallelEvidenceIncluded')
+    if (parallelEvidenceIncluded !== undefined
+      && parallelEvidenceIncluded !== (hasTypeSpecProvenance && hasTtscProvenance)) {
+      issues.push(issue(
+        'components.result.parallelEvidenceIncluded',
+        'review-bundle result.parallelEvidenceIncluded must reflect complete parallel evidence inputs',
+      ))
+    }
+  }
+
   const metadataPathState = readSidecarPairState(input.components, 'baseMetadataRegistryPath', 'headMetadataRegistryPath')
   const metadataChecked = readBoolean(input.components.result, 'metadataRegistryChecked')
   if (metadataChecked !== undefined && metadataChecked !== (metadataPathState === 'complete')) {

@@ -142,6 +142,7 @@ export function generateTypes(doc: TypegenDocument, options: BrowserTypegenOptio
     if (headersType) bundleFields.push(`  responseHeaders: ${baseName}ResponseHeaders`)
     if (linksType) bundleFields.push(`  responseLinks: ${baseName}ResponseLinks`)
     if (errorType) bundleFields.push(`  error?: ${baseName}Error`)
+    lines.push(`/** @oaOperation ${op.method.toUpperCase()} ${op.openApiPath} */`)
     lines.push(`export type ${baseName}Op = {\n${bundleFields.join('\n')}\n}`)
     lines.push('')
   }

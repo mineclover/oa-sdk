@@ -37,6 +37,7 @@ import {
 } from './openapi-normalized-diff.js'
 import { type ArtifactFreshnessSection } from './artifact-freshness.js'
 import { createArtifactReview } from './artifact-review.js'
+import type { ParallelEvidenceV1 } from './parallel-evidence.js'
 
 export const REVIEW_BUNDLE_SCHEMA_VERSION = 'oa-gen.review-bundle.v1'
 export const REVIEW_BUNDLE_DIFF_SCHEMA_VERSION = 'oa-gen.review-bundle.diff.v1'
@@ -101,6 +102,7 @@ export type ReviewBundleSections = {
   metadataRegistry?: ReviewBundleReportSection<BuildSpecMetadataRegistry>
   metadataRegistryDiff?: ReviewBundleReportSection<ReviewBundleMetadataRegistryDiff>
   duplicateReview?: ReviewBundleReportSection<DefinitionDuplicateReviewResult>
+  parallelEvidence?: ReviewBundleReportSection<ParallelEvidenceV1>
   nonBreakingChanges: ReviewBundleNonBreakingChangesSection
 }
 
@@ -123,6 +125,7 @@ export type ReviewBundleSummary = {
   metadataRegistryChanges: number | null
   duplicateReviewIncluded: boolean
   duplicateReviewValid: boolean | null
+  parallelEvidenceIncluded: boolean
   checksIncomplete: boolean
 }
 
@@ -150,6 +153,7 @@ export type CreateReviewBundleOptions = {
   metadataRegistry?: BuildSpecMetadataRegistry
   metadataRegistryDiff?: ReviewBundleMetadataRegistryDiff
   duplicateReview?: DefinitionDuplicateReviewResult
+  parallelEvidence?: ParallelEvidenceV1
 }
 
 export function createReviewBundle(options: CreateReviewBundleOptions): ReviewBundle {
@@ -211,6 +215,9 @@ export function createReviewBundle(options: CreateReviewBundleOptions): ReviewBu
     ...(options.duplicateReview !== undefined
       ? { duplicateReview: { included: true, report: options.duplicateReview } }
       : {}),
+    ...(options.parallelEvidence !== undefined
+      ? { parallelEvidence: { included: true, report: options.parallelEvidence } }
+      : {}),
     nonBreakingChanges: {
       schemaVersion: REVIEW_BUNDLE_DIFF_SCHEMA_VERSION,
       base: options.base.path ?? null,
@@ -229,6 +236,7 @@ export function createReviewBundle(options: CreateReviewBundleOptions): ReviewBu
     metadataRegistry: options.metadataRegistry,
     metadataRegistryDiff: options.metadataRegistryDiff,
     duplicateReview: options.duplicateReview,
+    parallelEvidenceIncluded: options.parallelEvidence !== undefined,
   })
 
   return {
@@ -293,6 +301,7 @@ export function formatReviewBundleMarkdown(bundle: ReviewBundle): string {
     `- Metadata registry: ${bundle.summary.metadataRegistryIncluded ? (bundle.summary.metadataRegistryValid ?? 'included') : 'not included'}`,
     `- Metadata registry changes: ${bundle.summary.metadataRegistryChanges ?? 'not checked'}`,
     `- Duplicate review: ${bundle.summary.duplicateReviewValid ?? 'not included'}`,
+    `- Parallel evidence: ${bundle.summary.parallelEvidenceIncluded ? 'included' : 'not included'}`,
   ]
   if (bundle.summary.reasons.length > 0) {
     lines.push(
@@ -360,6 +369,13 @@ export function formatReviewBundleMarkdown(bundle: ReviewBundle): string {
       ...duplicateReviewLines(bundle.sections.duplicateReview.report),
     )
   }
+  if (bundle.sections.parallelEvidence !== undefined) {
+    lines.push(
+      '',
+      '## Parallel Evidence',
+      ...parallelEvidenceLines(bundle.sections.parallelEvidence.report),
+    )
+  }
 
   lines.push(
     '',
@@ -381,6 +397,7 @@ function createSummary(input: {
   metadataRegistry: BuildSpecMetadataRegistry | undefined
   metadataRegistryDiff: ReviewBundleMetadataRegistryDiff | undefined
   duplicateReview: DefinitionDuplicateReviewResult | undefined
+  parallelEvidenceIncluded: boolean
 }): ReviewBundleSummary {
   const reasons: string[] = []
   const provenanceDiffIncomplete = isOptionalSidecarDiffIncomplete(input.provenanceDiff)
@@ -455,6 +472,7 @@ function createSummary(input: {
     metadataRegistryChanges: optionalSidecarDiffChangeCount(input.metadataRegistryDiff),
     duplicateReviewIncluded: input.duplicateReview !== undefined,
     duplicateReviewValid: input.duplicateReview?.valid ?? null,
+    parallelEvidenceIncluded: input.parallelEvidenceIncluded,
     checksIncomplete: !input.artifactFreshness.checked
       || provenanceDiffIncomplete
       || metadataRegistryDiffIncomplete,
@@ -622,5 +640,17 @@ function duplicateReviewLines(report: DefinitionDuplicateReviewResult): string[]
     `- Errors: ${report.summary.errors}`,
     `- Warnings: ${report.summary.warnings}`,
     `- Infos: ${report.summary.infos}`,
+  ]
+}
+
+function parallelEvidenceLines(report: ParallelEvidenceV1): string[] {
+  return [
+    `- Contract authority: ${markdownText(report.contractAuthority)}`,
+    `- Matched pointers: ${report.summary.matchedPointers}`,
+    `- Contract-only pointers: ${report.summary.contractOnlyPointers}`,
+    `- Implementation-only pointers: ${report.summary.implementationOnlyPointers}`,
+    `- Contract relations: ${report.summary.contractRelations}`,
+    `- Implementation relations: ${report.summary.implementationRelations}`,
+    '- This section is review evidence only; it does not change the review recommendation.',
   ]
 }

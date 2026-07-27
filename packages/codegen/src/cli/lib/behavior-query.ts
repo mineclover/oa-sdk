@@ -20,6 +20,7 @@ export type BehaviorQueryMode =
   | 'summary-by-behavior-decision-signal'
   | 'summary-by-decision-signal'
   | 'summary-by-recommendation'
+  | 'metrics-summary'
 
 export type BehaviorQueryFilters = {
   behaviorType?: string
@@ -39,12 +40,23 @@ export type BehaviorQueryReport = {
   count: number
   entries: BehaviorProjectionEntry[]
   aggregations: BehaviorQueryAggregationBucket[]
+  metricSummaries: BehaviorQueryMetricSummary[]
 }
 
 export type BehaviorQueryAggregationBucket = {
   key: string
   count: number
   dimensions?: Record<string, string>
+}
+
+export type BehaviorQueryMetricSummary = {
+  name: string
+  count: number
+  min: number
+  max: number
+  average: number
+  latest: number
+  latestOccurredAt: string
 }
 
 export function queryBehavior(options: {
@@ -71,6 +83,7 @@ export function queryBehavior(options: {
       count: result.count,
       entries: result.entries,
       aggregations: result.aggregations,
+      metricSummaries: result.metricSummaries,
     }
   } finally {
     reader.close()
@@ -94,6 +107,7 @@ function queryEntries(
   count: number
   entries: BehaviorProjectionEntry[]
   aggregations: BehaviorQueryAggregationBucket[]
+  metricSummaries: BehaviorQueryMetricSummary[]
 } {
   const entries = (() => {
     switch (options.mode) {
@@ -139,6 +153,7 @@ function queryEntries(
       case 'summary-by-behavior-decision-signal':
       case 'summary-by-decision-signal':
       case 'summary-by-recommendation':
+      case 'metrics-summary':
         return reader.listAll()
     }
   })()
@@ -158,6 +173,16 @@ function queryEntries(
       count: filtered.length,
       entries: [],
       aggregations,
+      metricSummaries: [],
+    }
+  }
+  if (options.mode === 'metrics-summary') {
+    if (options.behaviorType === undefined) throw new Error('--behavior-type is required for metrics-summary')
+    return {
+      count: filtered.length,
+      entries: [],
+      aggregations: [],
+      metricSummaries: buildMetricSummaries(filtered),
     }
   }
   if (options.mode === 'recent' || options.mode === 'recent-failures') {
@@ -165,13 +190,42 @@ function queryEntries(
       count: Math.min(filtered.length, options.limit ?? 20),
       entries: filtered.slice(0, options.limit ?? 20),
       aggregations: [],
+      metricSummaries: [],
     }
   }
   return {
     count: filtered.length,
     entries: filtered,
     aggregations: [],
+    metricSummaries: [],
   }
+}
+
+function buildMetricSummaries(entries: BehaviorProjectionEntry[]): BehaviorQueryMetricSummary[] {
+  const values = new Map<string, Array<{ value: number; occurredAt: string }>>()
+  for (const entry of entries) {
+    const metrics = entry.record.components.metrics
+    if (metrics === undefined) continue
+    for (const [name, value] of Object.entries(metrics)) {
+      if (typeof value !== 'number' || !Number.isFinite(value)) continue
+      const list = values.get(name) ?? []
+      list.push({ value, occurredAt: entry.occurredAt })
+      values.set(name, list)
+    }
+  }
+  return [...values.entries()].map(([name, samples]) => {
+    const ordered = [...samples].sort((left, right) => right.occurredAt.localeCompare(left.occurredAt))
+    const numbers = samples.map(sample => sample.value)
+    return {
+      name,
+      count: numbers.length,
+      min: Math.min(...numbers),
+      max: Math.max(...numbers),
+      average: numbers.reduce((sum, value) => sum + value, 0) / numbers.length,
+      latest: ordered[0]!.value,
+      latestOccurredAt: ordered[0]!.occurredAt,
+    }
+  }).sort((left, right) => left.name.localeCompare(right.name))
 }
 
 function buildAggregations(
@@ -326,6 +380,17 @@ export function formatBehaviorQueryMarkdown(report: BehaviorQueryReport): string
             .join(', ')
         return `| \`${bucket.key}\` | ${bucket.count} | ${dimensions === '—' ? '—' : `\`${dimensions}\``} |`
       }),
+    )
+    return lines.join('\n')
+  }
+  if (report.metricSummaries.length > 0) {
+    lines.push(
+      '',
+      '| Metric | Count | Min | Max | Average | Latest | Latest At |',
+      '| --- | --- | --- | --- | --- | --- | --- |',
+      ...report.metricSummaries.map(summary => (
+        `| \`${summary.name}\` | ${summary.count} | ${summary.min} | ${summary.max} | ${summary.average} | ${summary.latest} | \`${summary.latestOccurredAt}\` |`
+      )),
     )
     return lines.join('\n')
   }

@@ -936,6 +936,7 @@ describe('generateTypes — Op 번들 타입', () => {
       },
     }))
     const ts = generateTypes(parsed)
+    expect(ts).toContain('/** @oaOperation GET /users/{id} */')
     expect(ts).toContain('export type GetUserOp =')
     expect(ts).toContain("method: 'get'")
     expect(ts).toContain("path: '/users/{id}'")
@@ -966,6 +967,7 @@ describe('generateTypes — Op 번들 타입', () => {
       },
     }))
     const ts = generateTypes(parsed)
+    expect(ts).toContain('/** @oaOperation POST /users */')
     expect(ts).toContain('export type CreateUserOp =')
     expect(ts).toContain("method: 'post'")
     expect(ts).toContain("path: '/users'")
@@ -987,6 +989,7 @@ describe('generateTypes — Op 번들 타입', () => {
       },
     }))
     const ts = generateTypes(parsed)
+    expect(ts).toContain('/** @oaOperation GET /health */')
     expect(ts).toContain('export type HealthCheckOp =')
     expect(ts).toContain("method: 'get'")
     expect(ts).toContain("path: '/health'")

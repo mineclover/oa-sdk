@@ -272,14 +272,21 @@ export type DefinitionBuilderSpecSnapshot = SpecSnapshotBase & {
 export type TypeSpecBundleSpecSnapshot = SpecSnapshotBase & {
   projectKind: 'typespec-bundle'
   manifestPath: string
-  provenance: {
+  provenance: ({
+    status: 'available'
+    kind: 'typespec-source-ast'
+    entries: SpecProvenanceMap
+    sourceFiles: Array<{ relativePath: string; contentHash: string }>
+    observedInputs: SpecLensObservedInputEvidence[]
+    compile: SpecLensTypeSpecCompileEvidence
+  } | {
     status: 'unavailable'
     kind: 'typespec-source-files'
     reason: 'output-pointer-mapping-unavailable'
     sourceFiles: Array<{ relativePath: string; contentHash: string }>
     observedInputs: SpecLensObservedInputEvidence[]
     compile: SpecLensTypeSpecCompileEvidence
-  }
+  })
 }
 
 export type SpecSnapshot = DefinitionBuilderSpecSnapshot | TypeSpecBundleSpecSnapshot
@@ -333,12 +340,16 @@ export type DefinitionBuilderSpecTimelineDiff = SpecTimelineDiffBase & {
 
 export type TypeSpecBundleSpecTimelineDiff = SpecTimelineDiffBase & {
   projectKind: 'typespec-bundle'
-  provenanceDiff: {
+  provenanceDiff: ({
+    status: 'available'
+    kind: 'typespec-source-ast'
+    entries: SpecProvenanceDiffEntry[]
+  } | {
     status: 'unavailable'
     kind: 'typespec-source-files'
     reason: 'output-pointer-mapping-unavailable'
     affectedSourceFiles: string[]
-  }
+  })
 }
 
 export type SpecTimelineDiff = DefinitionBuilderSpecTimelineDiff | TypeSpecBundleSpecTimelineDiff
@@ -368,7 +379,7 @@ export type SpecPathEntry = {
 }
 
 export type SpecPathsResult =
-  | { status: 'available'; projectKind: 'definition-builder'; entries: SpecPathEntry[] }
+  | { status: 'available'; projectKind: SpecLensProjectKind; entries: SpecPathEntry[] }
   | { status: 'unavailable'; projectKind: 'typespec-bundle'; reason: 'output-pointer-mapping-unavailable' }
 
 export type SpecGraphNode = {
@@ -550,6 +561,12 @@ function isDefinitionBuilderProvenance(value: unknown): boolean {
 
 function isTypeSpecBundleProvenance(value: unknown): boolean {
   if (!isRecord(value)) return false
+  if (value.status === 'available' && value.kind === 'typespec-source-ast') {
+    return isProvenanceMap(value.entries)
+      && isSourceFileReferenceArray(value.sourceFiles)
+      && isObservedInputEvidenceArray(value.observedInputs)
+      && isCompileEvidence(value.compile)
+  }
   return value.status === 'unavailable'
     && value.kind === 'typespec-source-files'
     && value.reason === 'output-pointer-mapping-unavailable'
@@ -598,8 +615,11 @@ function isTimelineDiff(value: Record<string, unknown>): value is SpecTimelineDi
       && isProvenanceDiffEntryArray(value.provenanceDiff.entries)
   }
 
-  return isRecord(value.provenanceDiff)
-    && value.provenanceDiff.status === 'unavailable'
+  if (!isRecord(value.provenanceDiff)) return false
+  if (value.provenanceDiff.status === 'available' && value.provenanceDiff.kind === 'typespec-source-ast') {
+    return isProvenanceDiffEntryArray(value.provenanceDiff.entries)
+  }
+  return value.provenanceDiff.status === 'unavailable'
     && value.provenanceDiff.kind === 'typespec-source-files'
     && value.provenanceDiff.reason === 'output-pointer-mapping-unavailable'
     && isStringArray(value.provenanceDiff.affectedSourceFiles)
@@ -607,7 +627,7 @@ function isTimelineDiff(value: Record<string, unknown>): value is SpecTimelineDi
 
 function isPathsResult(value: Record<string, unknown>): value is SpecPathsResult {
   if (value.status === 'available') {
-    return value.projectKind === 'definition-builder'
+    return (value.projectKind === 'definition-builder' || value.projectKind === 'typespec-bundle')
       && isPathEntryArray(value.entries)
   }
   return value.status === 'unavailable'

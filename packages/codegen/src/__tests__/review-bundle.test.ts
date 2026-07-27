@@ -9,6 +9,7 @@ import {
 } from '../cli/lib/review-bundle.js'
 import type { ReviewBundleProvenanceDiff } from '../cli/lib/review-bundle.js'
 import { createOpenApiInventory } from '../cli/lib/openapi-inventory.js'
+import type { ParallelEvidenceV1 } from '../cli/lib/parallel-evidence.js'
 
 describe('review bundle aggregator', () => {
   it('creates a recommendation-first JSON model with separately inspectable sections', () => {
@@ -136,6 +137,24 @@ describe('review bundle aggregator', () => {
       'duplicateReview',
       'nonBreakingChanges',
     ])
+  })
+
+  it('keeps parallel provenance evidence observational and out of the recommendation policy', () => {
+    const spec = reviewSpec('string')
+    const parallelEvidence = parallelEvidenceReport()
+    const bundle = createReviewBundle({
+      base: { document: spec, path: 'base.yaml' },
+      head: { document: spec, path: 'head.yaml' },
+      artifact: { document: spec, path: 'artifact.yaml' },
+      parallelEvidence,
+    })
+
+    expect(bundle.summary.recommendation).toBe('APPROVE')
+    expect(bundle.summary.parallelEvidenceIncluded).toBe(true)
+    expect(bundle.sections.parallelEvidence?.report).toEqual(parallelEvidence)
+    expect(formatReviewBundleMarkdown(bundle)).toContain(
+      'This section is review evidence only; it does not change the review recommendation.',
+    )
   })
 
   it('uses duplicate-review policy decisions instead of treating report-only findings as advisory', () => {
@@ -375,5 +394,55 @@ function provenanceDiffReport(): ReviewBundleProvenanceDiff {
         message: 'Provenance changed for #/paths/~1pets.',
       },
     ],
+  }
+}
+
+function parallelEvidenceReport(): ParallelEvidenceV1 {
+  return {
+    schemaVersion: 'oa-sdk.parallel-evidence.v1',
+    purpose: 'review-evidence-only',
+    contractAuthority: 'typespec',
+    artifacts: [],
+    subjects: [],
+    relations: [],
+    summary: {
+      matchedPointers: 0,
+      contractOnlyPointers: 0,
+      implementationOnlyPointers: 0,
+      contractRelations: 0,
+      implementationRelations: 0,
+    },
+    metrics: {
+      schemaVersion: 'oa-sdk.parallel-evidence-metrics.v1',
+      pointers: {
+        contract: 0,
+        implementation: 0,
+        union: 0,
+        matched: 0,
+        contractCoverageRatio: 0,
+        implementationCoverageRatio: 0,
+        unionCoverageRatio: 0,
+      },
+      declarations: {
+        contractTotal: 0,
+        contractEmitting: 0,
+        implementationTotal: 0,
+        implementationEmitting: 0,
+        implementationShapeAnnotated: 0,
+      },
+      relations: {
+        contractTotal: 0,
+        implementationTotal: 0,
+        contractTargetResolved: 0,
+        implementationTargetResolved: 0,
+      },
+      implementationShapes: {
+        direct: 0,
+        policyRequired: 0,
+        unsupported: 0,
+        unclassified: 0,
+        features: {},
+      },
+    },
   }
 }

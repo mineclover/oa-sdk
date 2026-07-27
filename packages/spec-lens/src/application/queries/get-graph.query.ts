@@ -25,6 +25,9 @@ export class GetGraphHandler {
 
 function buildGraph(snapshot: SpecSnapshotStored): SpecGraph {
   if (snapshot.projectKind === 'typespec-bundle') {
+    if (snapshot.provenance.status === 'available') {
+      return buildGraphFromProvenance(snapshot.spec, snapshot.provenance.entries)
+    }
     return {
       nodes: snapshot.provenance.sourceFiles.map(source => ({
         id: `source-file:${source.relativePath}`,
@@ -39,7 +42,13 @@ function buildGraph(snapshot: SpecSnapshotStored): SpecGraph {
     }
   }
 
-  const provenance = snapshot.provenance.entries
+  return buildGraphFromProvenance(snapshot.spec, snapshot.provenance.entries)
+}
+
+function buildGraphFromProvenance(
+  spec: Record<string, unknown> | null,
+  provenance: BuildSpecProvenanceMap,
+): SpecGraph {
   const nodes = Object.entries(provenance).flatMap(([pointer, entry]) => {
     if (!isRecord(entry) || typeof entry.canonicalId !== 'string') return []
     const parts = entry.canonicalId.split(':')
@@ -64,7 +73,7 @@ function buildGraph(snapshot: SpecSnapshotStored): SpecGraph {
   // Deduplicate nodes by canonicalId
   const nodeMap = new Map(nodes.map(n => [n.id, n]))
 
-  const edges = buildEdgesFromSpec(snapshot.spec, provenance)
+  const edges = buildEdgesFromSpec(spec, provenance)
 
   return {
     nodes: [...nodeMap.values()],

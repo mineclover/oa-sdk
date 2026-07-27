@@ -857,7 +857,7 @@
             "name": "mode",
             "type": "string",
             "required": true,
-            "description": "recent | recent-failures | latest-failure-by-type | latest-by-type | latest-by-identity | latest-by-target | latest-by-decision-signal | latest-by-recommendation | summary-by-type | summary-by-status | summary-by-target-type | summary-by-behavior-status | summary-by-behavior-decision-signal | summary-by-decision-signal | summary-by-recommendation"
+            "description": "recent | recent-failures | latest-failure-by-type | latest-by-type | latest-by-identity | latest-by-target | latest-by-decision-signal | latest-by-recommendation | summary-by-type | summary-by-status | summary-by-target-type | summary-by-behavior-status | summary-by-behavior-decision-signal | summary-by-decision-signal | summary-by-recommendation | metrics-summary"
           },
           {
             "name": "behavior-type",
@@ -950,29 +950,29 @@
             "required": true,
             "description": "definition fragments 디렉토리"
           },
-        {
-          "name": "target",
-          "type": "string",
-          "short": "t",
-          "multiple": true,
-          "description": "반복 지정 가능한 Definition Builder target config 경로; 실제 target-local output name collision을 확인"
-        },
-        {
-          "name": "policy",
-          "type": "string",
-          "description": "report | review | ci (기본: report; ci는 --target 필요)"
-        },
-        {
-          "name": "check",
-          "type": "string",
-          "multiple": true,
-          "description": "반복 지정 가능한 canonical-id | content-hash | local-name | output-name | semantic-alias 검사 선택"
-        },
-        {
-          "name": "fail-on",
-          "type": "string",
-          "description": "none | error | warning | info (기본: report는 none, review/ci는 error)"
-        },
+          {
+            "name": "target",
+            "type": "string",
+            "short": "t",
+            "multiple": true,
+            "description": "반복 지정 가능한 Definition Builder target config 경로; 실제 target-local output name collision을 확인"
+          },
+          {
+            "name": "policy",
+            "type": "string",
+            "description": "report | review | ci (기본: report; ci는 --target 필요)"
+          },
+          {
+            "name": "check",
+            "type": "string",
+            "multiple": true,
+            "description": "반복 지정 가능한 canonical-id | content-hash | local-name | output-name | semantic-alias 검사 선택"
+          },
+          {
+            "name": "fail-on",
+            "type": "string",
+            "description": "none | error | warning | info (기본: report는 none, review/ci는 error)"
+          },
           {
             "name": "format",
             "type": "string",
@@ -1471,6 +1471,80 @@
       }
     },
     {
+      "id": "parallel-evidence",
+      "kind": "command",
+      "name": "parallel-evidence",
+      "summary": "TypeSpec 계약과 ttsc 구현 provenance의 pointer coverage metric 리포트",
+      "components": {
+        "options": [
+          {
+            "name": "typespec-provenance",
+            "type": "string",
+            "required": true,
+            "description": "TypeSpec declaration-to-output provenance JSON 경로"
+          },
+          {
+            "name": "ttsc-provenance",
+            "type": "string",
+            "required": true,
+            "description": "ttsc implementation provenance JSON 경로"
+          },
+          {
+            "name": "baseline",
+            "type": "string",
+            "description": "이전 oa-sdk.parallel-evidence-report.v1 또는 metrics JSON 경로"
+          },
+          {
+            "name": "format",
+            "type": "string",
+            "short": "f",
+            "description": "markdown | json (기본: markdown)"
+          }
+        ],
+        "inputs": [
+          {
+            "name": "typespec-provenance",
+            "kind": "typespec-provenance",
+            "required": true,
+            "option": "typespec-provenance"
+          },
+          {
+            "name": "ttsc-provenance",
+            "kind": "ttsc-provenance",
+            "required": true,
+            "option": "ttsc-provenance"
+          },
+          {
+            "name": "baseline",
+            "kind": "parallel-evidence-metrics",
+            "required": false,
+            "option": "baseline"
+          }
+        ],
+        "checks": [
+          "parallel-evidence",
+          "parallel-evidence-metrics"
+        ],
+        "reports": [
+          {
+            "formats": [
+              "markdown",
+              "json"
+            ],
+            "schema": "oa-sdk.parallel-evidence-report.v1"
+          }
+        ],
+        "exitPolicy": {
+          "success": [
+            "APPROVE"
+          ],
+          "failure": [
+            "REQUEST_CHANGES"
+          ]
+        }
+      }
+    },
+    {
       "id": "review-bundle",
       "kind": "command",
       "name": "review-bundle",
@@ -1551,6 +1625,16 @@
             "description": "oa-gen duplicate-review --format json 출력 파일 경로"
           },
           {
+            "name": "typespec-provenance",
+            "type": "string",
+            "description": "TypeSpec declaration-to-output provenance JSON 경로 (--ttsc-provenance와 함께 필요)"
+          },
+          {
+            "name": "ttsc-provenance",
+            "type": "string",
+            "description": "ttsc implementation provenance JSON 경로 (--typespec-provenance와 함께 필요)"
+          },
+          {
             "name": "format",
             "type": "string",
             "short": "f",
@@ -1623,6 +1707,18 @@
             "kind": "duplicate-review-report",
             "required": false,
             "option": "duplicate-review"
+          },
+          {
+            "name": "typespec-provenance",
+            "kind": "typespec-provenance",
+            "required": false,
+            "option": "typespec-provenance"
+          },
+          {
+            "name": "ttsc-provenance",
+            "kind": "ttsc-provenance",
+            "required": false,
+            "option": "ttsc-provenance"
           }
         ],
         "checks": [
@@ -1632,7 +1728,8 @@
           "inventory",
           "composition",
           "metadata-registry",
-          "duplicate-review"
+          "duplicate-review",
+          "parallel-evidence"
         ],
         "reports": [
           {

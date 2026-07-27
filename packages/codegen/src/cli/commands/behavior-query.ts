@@ -112,6 +112,7 @@ function readMode(mode: string): BehaviorQueryMode {
     || mode === 'summary-by-behavior-decision-signal'
     || mode === 'summary-by-decision-signal'
     || mode === 'summary-by-recommendation'
+    || mode === 'metrics-summary'
   ) {
     return mode
   }

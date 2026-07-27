@@ -25,6 +25,7 @@ import {
   shouldFailTypeSpecBundleCheck,
   type TypeSpecCompileRunner,
 } from './typespec-bundle-check.js'
+import type { TypeSpecRefProvenanceV1 } from './typespec-ref-provenance.js'
 import { parseTypeSpecBundleManifest } from './typespec-bundle-manifest.js'
 
 export const SPEC_LENS_TYPESPEC_PACKAGE_IMPORT_ALLOWLIST = [
@@ -144,6 +145,7 @@ export type SpecLensTypeSpecCompileEvidence = {
 export type CompileTypeSpecBundleForSpecLensResult = {
   document: Record<string, unknown>
   evidence: SpecLensTypeSpecCompileEvidence
+  provenance: TypeSpecRefProvenanceV1
 }
 
 /**
@@ -238,6 +240,7 @@ export async function compileTypeSpecBundleForSpecLens(
     if (!isRecord(document)) throw new Error('TypeSpec restored OpenAPI must be an object')
     return {
       document,
+      provenance: result.provenance,
       evidence: {
         schemaVersion: 'oa-sdk.spec-lens.typespec-compile.v1',
         manifestSchemaVersion: manifest.schemaVersion,

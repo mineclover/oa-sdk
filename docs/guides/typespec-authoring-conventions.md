@@ -38,6 +38,11 @@ When a contract version changes, include the owning `.tsp` change, reviewed appr
 snapshot, and an API-diff summary in the same pull request. A changed snapshot with no
 consumer-visible contract change does not require a version bump.
 
+Pull-request CI also compares the base and head approved snapshots. A breaking API diff
+fails CI unless `ContractVersion` has the required semantic-version bump: major after
+1.0, or minor while the contract is below 1.0. The gate is
+`pnpm schema:check-contract-version -- --base-ref <git-ref>`.
+
 ## Contract Change Workflow
 
 1. Update the smallest owning `.tsp` module. Keep models and HTTP semantics in native TypeSpec whenever the emitter preserves them.
@@ -80,6 +85,10 @@ result.
 
 - The approved snapshot diff is intentional.
 - `pnpm schema:typespec-check` passes after the snapshot update.
+- `pnpm schema:typespec-provenance-check` passes: every production operation,
+  reusable component, and `$ref` source has a TypeSpec AST declaration or
+  versioned extension restore owner. The local artifact is evidence, not a
+  second authoring source.
 - `accepted-restored-drift.json` is empty, or every entry is reviewed and
   hash-pinned for the exact restored/reference values.
 - A promotion that supersedes accepted restored drift uses

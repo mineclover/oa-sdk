@@ -24,6 +24,7 @@ import { tspExport } from './commands/tsp-export.js'
 import { tspRestore } from './commands/tsp-restore.js'
 import { tspBundleCheck } from './commands/tsp-bundle-check.js'
 import { referenceCheck } from './commands/reference-check.js'
+import { parallelEvidence } from './commands/parallel-evidence.js'
 
 export const commands: Command[] = [
   generate,
@@ -51,4 +52,5 @@ export const commands: Command[] = [
   drift,
   review,
   reviewBundle,
+  parallelEvidence,
 ]

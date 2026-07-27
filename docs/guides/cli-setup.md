@@ -35,12 +35,13 @@ API 변경 PR에서는 [OpenAPI Governance Workflow](./use-cases/openapi-governa
 | `oa-gen normalize` | 외부 OpenAPI 문서를 stable diff 가능한 governance artifact로 정규화 |
 | `oa-gen upgrade` | OpenAPI 3.0/3.1 문서를 OpenAPI 3.2 analysis artifact로 파생 |
 | `oa-gen inventory` | OpenAPI path/operation/component/security surface 요약 |
-| `oa-gen behavior-query` | behavior SQLite projection을 filtered recent/latest와 summary-by-* 기준으로 조회 (`--status`, `--decision-signal`, `latest-by-decision-signal`, `behavior+decision` composite summary 지원) |
+| `oa-gen parallel-evidence` | TypeSpec 계약 provenance와 ttsc 구현 provenance의 pointer coverage·reference resolution·shape taxonomy metric 및 baseline delta 출력 |
+| `oa-gen behavior-query` | behavior SQLite projection을 filtered recent/latest와 summary-by-* 기준으로 조회하고, `metrics-summary`로 behavior type별 수치 metric의 min/max/average/latest를 조회 |
 | `oa-gen duplicate-review` | 정책 기반 fragment 중복 탐지 및 실제 target output-name 충돌 검토 |
 | `oa-gen target-check` | target 또는 artifact path include/exclude assertion 검증 |
 | `oa-gen drift` | runtime OpenAPI 파일 또는 URL과 managed OpenAPI drift 비교, optional behavior logging |
 | `oa-gen review` | diff, validation, artifact freshness, optional provenance/metadata diff report, optional behavior logging |
-| `oa-gen review-bundle` | PR comment용 aggregate review report 생성 (optional provenance/metadata diff + behavior logging 포함) |
+| `oa-gen review-bundle` | PR comment용 aggregate review report 생성 (optional provenance/metadata diff, TypeSpec/ttsc parallel evidence metric, behavior logging 포함) |
 
 최소 PR gate 예시:
 

@@ -84,6 +84,7 @@ jobs:
       - name: TypeSpec production migration gates
         run: |
           pnpm schema:typespec-check
+          pnpm schema:typespec-provenance-check
           pnpm schema:rollback-check
           pnpm schema:downstream-check
 
@@ -123,4 +124,6 @@ jobs:
       # ── Spec diff (PR only) ────────────────────────────────
       - name: API spec diff
         if: github.event_name == 'pull_request'
-        run: pnpm spec:diff -- --git origin/${{ github.base_ref }} >> "$GITHUB_STEP_SUMMARY"
+        run: |
+          pnpm spec:diff -- --git origin/${{ github.base_ref }} >> "$GITHUB_STEP_SUMMARY"
+          pnpm schema:check-contract-version -- --base-ref origin/${{ github.base_ref }} >> "$GITHUB_STEP_SUMMARY"

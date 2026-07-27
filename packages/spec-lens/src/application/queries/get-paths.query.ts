@@ -13,18 +13,11 @@ export class GetPathsHandler {
   constructor(private readonly cache: CachePort) {}
 
   async handle(query: GetPathsQuery): Promise<SpecPathsResult> {
-    if (query.projectKind === 'typespec-bundle') {
-      return {
-        status: 'unavailable',
-        projectKind: 'typespec-bundle',
-        reason: 'output-pointer-mapping-unavailable',
-      }
-    }
     const entries = await this.cache.listPaths({
       projectKey: query.projectKey,
       ...(query.scope !== undefined ? { scope: query.scope } : {}),
       ...(query.domain !== undefined ? { domain: query.domain } : {}),
     })
-    return { status: 'available', projectKind: 'definition-builder', entries }
+    return { status: 'available', projectKind: query.projectKind, entries }
   }
 }

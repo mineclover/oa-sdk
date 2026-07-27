@@ -10,6 +10,7 @@ export type {
   SpecPathEntry,
   SpecPathsResult,
   SpecProvenance,
+  SpecProvenanceMap,
   SpecRevision,
   SpecSnapshot,
   SpecSnapshotDiagnostic,

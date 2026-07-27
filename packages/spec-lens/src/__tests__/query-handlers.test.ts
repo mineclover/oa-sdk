@@ -200,19 +200,19 @@ describe('GetPathsHandler', () => {
     expect(call).not.toHaveProperty('domain')
   })
 
-  it('returns an explicit unavailable envelope for TypeSpec without querying path rows', async () => {
-    const cache = makeCache([makePathEntry('/stale')])
+  it('returns TypeSpec path rows when AST provenance populated the path index', async () => {
+    const cache = makeCache([makePathEntry('/users')])
     const handler = new GetPathsHandler(cache)
 
     expect(await handler.handle({
       projectKey: 'project-typespec',
       projectKind: 'typespec-bundle',
     })).toEqual({
-      status: 'unavailable',
+      status: 'available',
       projectKind: 'typespec-bundle',
-      reason: 'output-pointer-mapping-unavailable',
+      entries: [makePathEntry('/users')],
     })
-    expect(cache.listPaths).not.toHaveBeenCalled()
+    expect(cache.listPaths).toHaveBeenCalledWith({ projectKey: 'project-typespec' })
   })
 })
 

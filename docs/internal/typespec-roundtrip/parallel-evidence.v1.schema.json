@@ -1,0 +1,190 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://oa-sdk.dev/schemas/parallel-evidence.v1.schema.json",
+  "title": "OA SDK parallel provenance evidence v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "purpose", "contractAuthority", "artifacts", "subjects", "relations", "summary", "metrics"],
+  "properties": {
+    "schemaVersion": { "const": "oa-sdk.parallel-evidence.v1" },
+    "purpose": { "const": "review-evidence-only" },
+    "contractAuthority": { "const": "typespec" },
+    "artifacts": { "type": "array", "minItems": 2, "items": { "$ref": "#/$defs/artifact" } },
+    "subjects": { "type": "array", "items": { "$ref": "#/$defs/subject" } },
+    "relations": { "type": "array", "items": { "$ref": "#/$defs/relation" } },
+    "summary": { "$ref": "#/$defs/summary" },
+    "metrics": { "$ref": "#/$defs/metrics" }
+  },
+  "$defs": {
+    "role": { "enum": ["contract-authority", "implementation-observation"] },
+    "sourceRange": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["file", "start", "end"],
+      "properties": {
+        "file": { "type": "string", "minLength": 1 },
+        "start": { "$ref": "#/$defs/position" },
+        "end": { "$ref": "#/$defs/position" }
+      }
+    },
+    "position": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["line", "column"],
+      "properties": {
+        "line": { "type": "integer", "minimum": 1 },
+        "column": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sourceId", "role", "artifactSchemaVersion", "provenanceKind", "sha256"],
+      "properties": {
+        "sourceId": { "type": "string", "minLength": 1 },
+        "role": { "$ref": "#/$defs/role" },
+        "artifactSchemaVersion": { "type": "string", "minLength": 1 },
+        "provenanceKind": { "type": "string", "minLength": 1 },
+        "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+      }
+    },
+    "declaration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sourceId", "role", "declarationId", "kind", "symbol"],
+      "properties": {
+        "sourceId": { "type": "string", "minLength": 1 },
+        "role": { "$ref": "#/$defs/role" },
+        "declarationId": { "type": "string", "minLength": 1 },
+        "kind": { "type": "string", "minLength": 1 },
+        "symbol": { "type": "string", "minLength": 1 },
+        "source": { "$ref": "#/$defs/sourceRange" },
+        "observations": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "astKind": { "type": "string", "minLength": 1 },
+            "typeShape": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["features", "typeSpecProjection"],
+              "properties": {
+                "features": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+                "typeSpecProjection": { "enum": ["direct", "policy-required", "unsupported"] }
+              }
+            }
+          }
+        }
+      }
+    },
+    "subject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "outputPointer", "status", "contract", "implementation"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^openapi-pointer:" },
+        "outputPointer": { "type": "string", "pattern": "^#/" },
+        "status": { "enum": ["matched-pointer", "contract-only", "implementation-only"] },
+        "contract": { "type": "array", "items": { "$ref": "#/$defs/declaration" } },
+        "implementation": { "type": "array", "items": { "$ref": "#/$defs/declaration" } }
+      }
+    },
+    "locator": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "declarationId": { "type": "string", "minLength": 1 },
+        "subjectId": { "type": "string", "pattern": "^openapi-pointer:" },
+        "ref": { "type": "string", "minLength": 1 }
+      }
+    },
+    "relation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sourceId", "role", "kind", "source", "target"],
+      "properties": {
+        "sourceId": { "type": "string", "minLength": 1 },
+        "role": { "$ref": "#/$defs/role" },
+        "kind": { "enum": ["openapi-ref", "type-ref"] },
+        "source": { "$ref": "#/$defs/locator" },
+        "target": { "$ref": "#/$defs/locator" }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["matchedPointers", "contractOnlyPointers", "implementationOnlyPointers", "contractRelations", "implementationRelations"],
+      "properties": {
+        "matchedPointers": { "type": "integer", "minimum": 0 },
+        "contractOnlyPointers": { "type": "integer", "minimum": 0 },
+        "implementationOnlyPointers": { "type": "integer", "minimum": 0 },
+        "contractRelations": { "type": "integer", "minimum": 0 },
+        "implementationRelations": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "metrics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schemaVersion", "pointers", "declarations", "relations", "implementationShapes"],
+      "properties": {
+        "schemaVersion": { "const": "oa-sdk.parallel-evidence-metrics.v1" },
+        "pointers": { "$ref": "#/$defs/pointerMetrics" },
+        "declarations": { "$ref": "#/$defs/declarationMetrics" },
+        "relations": { "$ref": "#/$defs/relationMetrics" },
+        "implementationShapes": { "$ref": "#/$defs/shapeMetrics" }
+      }
+    },
+    "pointerMetrics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["contract", "implementation", "union", "matched", "contractCoverageRatio", "implementationCoverageRatio", "unionCoverageRatio"],
+      "properties": {
+        "contract": { "type": "integer", "minimum": 0 },
+        "implementation": { "type": "integer", "minimum": 0 },
+        "union": { "type": "integer", "minimum": 0 },
+        "matched": { "type": "integer", "minimum": 0 },
+        "contractCoverageRatio": { "type": "number", "minimum": 0, "maximum": 1 },
+        "implementationCoverageRatio": { "type": "number", "minimum": 0, "maximum": 1 },
+        "unionCoverageRatio": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    },
+    "declarationMetrics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["contractTotal", "contractEmitting", "implementationTotal", "implementationEmitting", "implementationShapeAnnotated"],
+      "properties": {
+        "contractTotal": { "type": "integer", "minimum": 0 },
+        "contractEmitting": { "type": "integer", "minimum": 0 },
+        "implementationTotal": { "type": "integer", "minimum": 0 },
+        "implementationEmitting": { "type": "integer", "minimum": 0 },
+        "implementationShapeAnnotated": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "relationMetrics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["contractTotal", "implementationTotal", "contractTargetResolved", "implementationTargetResolved"],
+      "properties": {
+        "contractTotal": { "type": "integer", "minimum": 0 },
+        "implementationTotal": { "type": "integer", "minimum": 0 },
+        "contractTargetResolved": { "type": "integer", "minimum": 0 },
+        "implementationTargetResolved": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "shapeMetrics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["direct", "policyRequired", "unsupported", "unclassified", "features"],
+      "properties": {
+        "direct": { "type": "integer", "minimum": 0 },
+        "policyRequired": { "type": "integer", "minimum": 0 },
+        "unsupported": { "type": "integer", "minimum": 0 },
+        "unclassified": { "type": "integer", "minimum": 0 },
+        "features": {
+          "type": "object",
+          "additionalProperties": { "type": "integer", "minimum": 0 }
+        }
+      }
+    }
+  }
+}
