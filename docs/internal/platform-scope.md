@@ -61,7 +61,7 @@ archi-adr validate/render`다.
 | --- | --- | --- |
 | Core Platform | `core`, `openapi-projection-contract`, `schemas`, `parser`, `codegen`, `spec-lens`, `spec-lens-contract` | 제품 방향과 신규 기능 투자의 기본 범위 |
 | Downstream Integration | `router`, `client`, `mock-server` | Core 계약을 소비하고 end-to-end로 증명하는 release-tracked integration surface |
-| Maintenance-only | `dpm`, `personas`, `typia-mock` | security, compatibility, migration 작업만 허용하는 분리 후보 |
+| Maintenance-only | `dpm`, `personas`, `typia-mock`, `logical-erd-contract`, `typespec-erd` | security, compatibility, migration 작업만 허용하는 분리 후보 또는 승인된 독립 prototype |
 | Apps and references | `nestjs-ref`, `playground`, `preview`, `spec-lens-ui` | 배포 라이브러리가 아닌 검증, reference, UI workspace |
 
 Downstream Integration은 Core Platform 자체가 아니다. 이 계층의 API와 테스트는 Core 계약의
@@ -111,6 +111,21 @@ the Core Platform release track.
 The existing `data_definitions` `1.0` shape is frozen as a structural compatibility contract.
 Goal 68.1 introduces an explicitly experimental `1.1` identity contract in the same public
 subpath; `1.1` is not an external stability promise until the extraction exit condition is met.
+
+### TypeSpec logical ERD prototype reactivation — 2026-07-28
+
+The TypeSpec logical-ERD prototype is an explicitly bounded reactivation under
+`packages/logical-erd-contract` and `packages/typespec-erd`. It does not reactivate DPM,
+OpenAPI code generation, or physical database mutation scope.
+
+| Decision item | Recorded decision |
+| --- | --- |
+| User problem | Declare logical entities, fields, keys, and relationships with stable IDs and review their provenance/diff. |
+| Owner | OA SDK maintainers own the prototype artifact and TypeSpec compiler integration. |
+| Release/CI | Maintenance track builds, typechecks, and tests both packages; both remain private until an artifact compatibility and external distribution decision. |
+| Authority | TypeSpec owns logical intent. DB catalog/migration remains physical authority. DPM is an optional future consumer, not a dependency or persistence owner. |
+| Exit condition | A versioned `oa-sdk.logical-erd.v1` adoption decision defines public package ownership, catalog adapter contract, and review-gate integration. |
+| Boundary | No DDL/migration/FK mutation, no generic metadata extension, no DPM persistence schema change, and no dependency from public `@oa-sdk/codegen`. |
 
 ## Repository Separation
 

@@ -1002,12 +1002,13 @@
       "name": "OpenAPI source adapter boundaries",
       "category": "codegen",
       "package": "@oa-sdk/codegen",
-      "description": "Zod, Drizzle, OpenAPI Projection envelope, Python ContractSpec snapshot, and file-backed source inputs normalize into OpenApiSourceFragment concepts.",
+      "description": "Explicitly registered Zod, Drizzle, OpenAPI Projection envelope, Python ContractSpec snapshot, and file-backed source inputs normalize into OpenApiSourceFragment concepts.",
       "capabilities": [
         "Zod schema source fragments",
         "Drizzle table schema source fragments",
         "OpenAPI Projection envelope metadata preservation",
         "Python ContractSpec snapshot JSON fragments",
+        "trusted application-owned source adapter registry",
         "shared OpenAPI document fragment collection",
         "file-backed Definition Builder/OpenAPI/JSON Schema adapters"
       ],
@@ -1392,6 +1393,54 @@
       ]
     },
     {
+      "id": "logical-erd-contract",
+      "name": "Logical ERD neutral artifact contract",
+      "category": "schema-governance",
+      "package": "@oa-sdk/logical-erd-contract",
+      "description": "Deterministic oa-sdk.logical-erd.v1 artifact normalization, stable semantic identity, endpoint validation, and breaking-change-aware diff without a TypeSpec, DPM, OpenAPI, or database dependency.",
+      "capabilities": [
+        "stable logical artifact identity",
+        "entity/field/relationship endpoint invariants",
+        "rename-safe locator diff",
+        "breaking and potentially-breaking logical diff classification",
+        "DPM-independent neutral contract boundary"
+      ],
+      "testPaths": [
+        "packages/logical-erd-contract/src/contract.test.ts",
+        "packages/logical-erd-contract/README.md"
+      ],
+      "commands": [
+        "pnpm --filter @oa-sdk/logical-erd-contract test",
+        "pnpm --filter @oa-sdk/logical-erd-contract typecheck"
+      ]
+    },
+    {
+      "id": "typespec-logical-erd",
+      "name": "TypeSpec logical ERD declaration and provenance",
+      "category": "schema-governance",
+      "package": "@oa-sdk/typespec-erd",
+      "description": "Typed TypeSpec entity/field/key/relationship decorators, compiler diagnostics, source-span provenance emission, and package-local oa-erd emit/check/diff tooling without OpenAPI or physical DB mutation.",
+      "capabilities": [
+        "typed TypeSpec logical ERD decorators",
+        "stable dataset/entity/field/relationship IDs",
+        "source-span and decorator-span provenance",
+        "missing stable field-ID compiler diagnostic",
+        "oa-erd emit/check/diff CLI",
+        "no DPM, OpenAPI, DDL, migration, or physical FK dependency"
+      ],
+      "testPaths": [
+        "packages/typespec-erd/src/emitter.test.ts",
+        "packages/typespec-erd/src/cli.test.ts",
+        "packages/typespec-erd/README.md",
+        "docs/guides/typespec-logical-erd-authoring.md",
+        "docs/internal/typespec-roundtrip/logical-erd-typespec-profile.plan.md"
+      ],
+      "commands": [
+        "pnpm --filter @oa-sdk/typespec-erd test",
+        "pnpm --filter @oa-sdk/typespec-erd typecheck"
+      ]
+    },
+    {
       "id": "typia-mock",
       "name": "Typia LLM mock validation server",
       "category": "mocking",
@@ -1439,15 +1488,17 @@
       "name": "External OpenAPI governance scaffold",
       "category": "governance",
       "package": "@oa-sdk/codegen",
-      "description": "oa-gen scaffold-governance/collect/normalize/upgrade for services that consume third-party OpenAPI artifacts (NestJS Swagger, FastAPI, etc.) — generated artifact interface, normalize/upgrade transforms, and rendered governance shell script.",
+      "description": "oa-gen scaffold-governance/collect/normalize/upgrade for services that consume third-party OpenAPI artifacts (NestJS Swagger, FastAPI, etc.) — standalone CLI invocation, reviewed-baseline CI evidence scaffold, explicit generated-TypeScript ownership policy, normalize/upgrade transforms, rendered governance shell script, and packed CLI distribution boundary.",
       "capabilities": [
         "scaffold-governance",
-        "scaffold artifact interface (oa-gen.openapi-governance.v1)",
-        "rendered openapi-governance.sh script (collect/check/review/review-bundle/typegen/inventory/validate-upgraded/drift/update-baseline/all)",
+        "scaffold artifact interface (oa-gen.openapi-governance.v2 with standalone CLI and CI baseline policy)",
+        "rendered openapi-governance.sh script (collect/check/review/review-bundle/typegen/inventory/validate-upgraded/drift/update-baseline/ci/all)",
+        "typegen policy (verify-only or tracked commit-required freshness gate) enforced by ci and all",
         "rendered openapi-governance.md doc",
+        "install-manager-neutral GitHub Actions governance workflow",
         "runtime URL validation at scaffold time",
         "OA_GEN env override without glob expansion",
-        "git rev-parse repo root detection with fallback",
+        "config-owned standalone OA_GEN default without monorepo path discovery",
         "missing-baseline guard with update-baseline hint",
         "config fingerprint embed",
         "drift extra-args forwarding",
@@ -1465,11 +1516,14 @@
         "apps/nestjs-ref/openapi-governance.config.json",
         "apps/nestjs-ref/scripts/openapi-governance.sh",
         "apps/fastapi-ref/openapi-governance.config.json",
-        "apps/fastapi-ref/scripts/openapi-governance.sh"
+        "apps/fastapi-ref/scripts/openapi-governance.sh",
+        "packages/codegen/scripts/package-pack-smoke.mjs",
+        "packages/codegen/README.md"
       ],
       "commands": [
         "pnpm --filter @oa-sdk/codegen test",
-        "pnpm --filter @oa-sdk/codegen typecheck"
+        "pnpm --filter @oa-sdk/codegen typecheck",
+        "pnpm --filter @oa-sdk/codegen smoke:pack"
       ]
     },
     {
@@ -1507,12 +1561,13 @@
       "name": "Governance docs and drift guards",
       "category": "governance",
       "package": "root",
-      "description": "API index, CLI manifest, Markdown link/CLI example, spec-governance loader, and feature-to-test matrix drift checks.",
+      "description": "API index, CLI manifest, Markdown link/CLI example/complete command-reference, spec-governance loader, and feature-to-test matrix drift checks.",
       "capabilities": [
         "API index export drift detection",
         "CLI ECS manifest drift detection",
         "Markdown local link validation",
         "fenced oa-gen example validation",
+        "complete oa-gen command-reference coverage validation",
         "spec-governance loader path validation",
         "feature-to-test matrix validation",
         "internal SSOT links"
@@ -1532,6 +1587,8 @@
         "docs/cli-spec/cli-command.schema.json",
         "docs/cli-spec/oa-contract.governance.json",
         "docs/cli-spec/oa-gen.governance.json",
+        "docs/guides/cli-command-reference.md",
+        "docs/guides/library-entrypoints.md",
         "docs/guides/duplicate-review.md",
         "docs/internal/spec.md",
         "docs/internal/api-index.md",

@@ -28,6 +28,7 @@ driver priority inversion: prefer node:sqlite).
 | [TypeScript 호환성](./guides/typescript-compatibility.md) | TS 5 baseline과 TS 7/`ttsc` enhanced 생성 선언 검증 경계 |
 | [Mock 테스팅](./guides/use-cases/mock-testing.md) | 프론트엔드 테스트에서 Mock 서버 활용 |
 | [코드젠 워크플로](./guides/use-cases/codegen-workflow.md) | Drizzle → OAS → TS → 라우터 → 클라이언트 |
+| [TypeSpec 논리 ERD prototype](./guides/typespec-logical-erd-authoring.md) | 논리 entity/field/relationship artifact와 provenance; 물리 DB와 분리 |
 | [OpenAPI Governance Workflow](./guides/use-cases/openapi-governance-workflow.md) | target artifact sidecar, duplicate review, target-check, drift, review bundle |
 | [Duplicate Review](./guides/duplicate-review.md) | fragment 중복 탐지 정책, CI gate, review-bundle 연동 |
 | [OpenAPI Governance Service Template](./guides/openapi-governance-service-template.md) | 서비스별 governance 설정 템플릿 |

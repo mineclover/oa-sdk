@@ -1,6 +1,10 @@
 # TypeSpec 논리 ERD 프로필 — 구현 계획
 
-> **초안 — 구현 승인 전 설계 문서.** 이 문서는 `oa-sdk` 저장소의 현재 소스와 내부 문서 근거로 작성했다. 구현 시작 전 데이터 거버넌스 owner와의 경계 승인이 필요하다.
+> **Prototype in progress — not yet an adoption contract.** `@oa-sdk/logical-erd-contract`와
+> `@oa-sdk/typespec-erd`의 독립 artifact/emitter/CLI slice와 portable JSON Schema gate는
+> 구현되어 있다. Catalog adapter, DPM bridge, review-bundle integration, external distribution은
+> owner-approved adoption 전까지 구현 대상이 아니다. DPM contract와의 현재 compatibility
+> verdict는 [compatibility assessment](./logical-erd-dpm-compatibility-assessment.md)를 따른다.
 
 ## 0. 설계 한눈에 보기
 
@@ -9,7 +13,7 @@
 | 변경 목적 | TypeSpec로 논리 ERD의 엔터티·필드·키·관계를 선언하고, 선언 위치까지 추적 가능한 중립 artifact와 diff를 만든다. |
 | 영향 영역 | 새 TypeSpec ERD library/compiler emitter, 중립 artifact/CLI, DPM adapter contract, catalog comparison, provenance/review tooling. |
 | 권위 분리 | TypeSpec은 **논리** 모델의 선언 권위다. 실제 DB catalog/migration은 **물리** 모델의 권위이며, 이 기능은 DB를 변경하지 않는다. |
-| 가장 큰 위험 | 기존 DPM의 논리 identity/relationship registry와 별도 식별 체계를 만들어 같은 관계를 이중 관리하는 것. |
+| 가장 큰 위험 | ERD 논리 관계와 DPM의 선택적 pseudonymization execution policy를 같은 registry로 오인하여 권위를 뒤섞는 것. |
 | 구현 시작점 | 독립 `@oa-sdk/typespec-erd` prototype → `oa-sdk.logical-erd.v1` artifact → DPM/DB evidence adapter 순서. |
 
 ## 1. 입력·근거·제약
@@ -18,7 +22,7 @@
 
 | 근거 | 확인된 사실 | 설계에 주는 제약 |
 | --- | --- | --- |
-| `docs/internal/goals/dpm-master-roadmap.md` | 논리 entity/relationship, API artifact, DB catalog object를 독립 identity로 묶는 DPM 경계가 이미 존재한다. | ERD가 새 canonical registry를 만들면 안 된다. |
+| `docs/internal/goals/dpm-master-roadmap.md` | DPM은 pseudonymization에 필요한 logical/API/catalog evidence와 execution policy를 묶는다. | ERD entity/key/relationship authority를 DPM으로 이전하거나 자동 mapping하지 않는다. |
 | `packages/dpm/src/model/data-identity-types.ts` | `objectId`, `revisionId`, dataset/namespace/entity/field locator, catalog snapshot, API pointer/version을 분리한다. | ERD artifact도 논리 ID, source locator, 물리/API binding을 섞지 않는다. |
 | `packages/dpm/src/model/relationship-types.ts` | 명시적 parent/child endpoint, cardinality, namespace, composite-key 정책을 제공한다. | 관계는 이름 추론이 아니라 선언과 endpoint 검증으로만 만든다. |
 | `packages/typespec-decorators/src/decorators.ts` | 현 library는 좁은 OpenAPI operation extension만 허용한다. | ERD 메타데이터를 기존 API OpenAPI extension에 끼워 넣지 않는다. |
@@ -50,7 +54,7 @@
 flowchart LR
   TSP["TypeSpec ERD source\n(logical intent)"] --> E["ERD compiler / emitter"]
   E --> A["oa-sdk.logical-erd.v1\nimmutable artifact + source provenance"]
-  A --> D["DPM identity / relationship adapter\n(owner-approved)"]
+  A --> D["Optional DPM field/policy projection\n(owner-approved when needed)"]
   DB["Physical DB / migration\nphysical authority"] --> C["Read-only catalog snapshot"]
   C --> V["Conformance validator"]
   A --> V
@@ -69,7 +73,7 @@ flowchart LR
 | 논리 entity/field/key/relation | TypeSpec ERD source | stable logical ID, cardinality, requiredness, key semantics, source provenance 선언 | table/column naming을 canonical truth로 채택 |
 | 물리 table/column/FK/index/migration | DB catalog와 migration repository | catalog snapshot과 대조하여 match/mismatch/unknown을 보고 | DB/DDL/migration/foreign key를 생성·수정 |
 | API DTO/operation | production TypeSpec/OpenAPI bundle | opt-in binding edge를 검증하고 provenance에 연결 | ERD entity를 API schema로 자동 추론 |
-| data governance lifecycle | canonical DPM owner | ERD artifact를 DPM identity/relationship vocabulary로 normalize | owner 승인 없이 DPM wire contract 또는 persistence 변경 |
+| pseudonymization lifecycle | canonical DPM owner | selected ERD field를 DPM identity/policy vocabulary로 explicit projection | owner 승인 없이 DPM wire contract 또는 persistence 변경; ERD relationship authority 획득 |
 
 ### 3-2. 패키지와 artifact 경계
 
@@ -78,7 +82,7 @@ flowchart LR
 | TypeSpec authoring library | `packages/typespec-erd/` → `@oa-sdk/typespec-erd` | decorators, diagnostics, compiler state, `.tsp` declarations, source-provenance emitter | `@typespec/compiler`; OpenAPI emitter에 의존하지 않음 |
 | neutral contract | `packages/logical-erd-contract/` → `@oa-sdk/logical-erd-contract` | `oa-sdk.logical-erd.v1` JSON Schema/TS types, stable serialization, semantic diff vocabulary | no DPM runtime dependency |
 | CLI/review integration | `packages/codegen/src/cli/commands/erd-*.ts` | emit, check, diff, catalog compare, review-bundle input adapter | neutral contract and TypeSpec library |
-| DPM compatibility adapter | canonical `mineclover/data-governance` owner | neutral artifact → data identity/relationship registry mapping and owner lifecycle | owner-owned only; oa-sdk has fixture-level compatibility test only |
+| DPM compatibility adapter | canonical `mineclover/data-governance` owner | selected neutral field → data identity/policy mapping and owner lifecycle | owner-owned only; ERD relationship 자동 mapping 금지 |
 
 새 library를 기존 `@oa-sdk/typespec-decorators`에 합치지 않는다. 기존 package는 OpenAPI operation extension의 좁은 보안 경계를 유지해야 하며, ERD의 entity/relation semantics를 넣으면 API artifact의 의미와 review diff가 혼합된다.
 
@@ -92,7 +96,7 @@ import "@oa-sdk/typespec-erd";
 using OaSdkErd;
 
 @dataset("commerce")
-namespace Commerce;
+namespace Commerce {
 
 @entity("commerce.sales.customer")
 model Customer {
@@ -118,7 +122,8 @@ model Order {
 
 @relationship("commerce.sales.order-customer", Order.customerId, Customer.id,
               "many-to-one")
-namespace Commerce;
+namespace Relationships {}
+}
 ```
 
 | 선언 | 의미 | 초기에 required인가 | 비고 |
@@ -126,9 +131,9 @@ namespace Commerce;
 | `@dataset(id)` | logical dataset scope | 예 | namespace/path와 분리된 canonical scope |
 | `@entity(id)` | rename-safe logical entity ID | 예 | model 이름은 locator/UI name일 뿐 canonical ID가 아님 |
 | `@field(id)` | rename-safe field ID | 예 | v1에서는 TypeSpec property name만으로 ID를 만들지 않음 |
-| `@primaryKey`, `@unique` | logical key constraint | 아니오 | composite key는 explicit ordered component declaration 추가 |
+| `@primaryKey`, `@unique` | logical key constraint | 아니오 | `@primaryKey(groupId, order)`가 ordered composite primary-key component를 명시 |
 | `@foreignKey(target)` | candidate field endpoint | 아니오 | DB FK를 생성하지 않음; `@relationship`과 모순 시 diagnostic |
-| `@relationship(id, from, to, cardinality)` | 명시적 relationship edge | 예 (관계를 표현할 때) | one-to-one, one-to-many, many-to-one, many-to-many만 v1 |
+| `@relationship(id, from, to, cardinality)` | 명시적 relationship edge | 예 (관계를 표현할 때) | one-to-one, one-to-many, many-to-one만 직접 지원; N:N은 join entity의 두 directed relation으로 표현 |
 | `@apiBinding(...)` | API artifact pointer/provenance에 대한 opt-in edge | 아니오 | API DTO 자동 동치는 금지 |
 | `@physicalHint(...)` | 사람이 읽는 table/column 후보 | 아니오 | canonical physical ID가 아니며 catalog evidence로만 확인 |
 
@@ -194,7 +199,7 @@ catalog check은 SQL 실행/DDL/migration을 절대 수행하지 않는다. 결�
 | --- | --- | --- |
 | OpenAPI emission | 없음 | ERD library는 OpenAPI emitter를 호출·변경하지 않는다. |
 | existing TypeScript typegen | 직접 변경 없음 | ERD object를 TS DTO로 자동 생성하지 않는다. 필요해지면 별도 codegen proposal. |
-| DPM neutral/data artifact | adapter 추가 | owner 승인 후 logical field/relationship identity로 mapping; DPM의 identity vocabulary를 복제하지 않음. |
+| DPM neutral/data artifact | optional field adapter | owner 승인 후 selected logical field identity/policy로 explicit mapping; relationship는 별도 use case 없이는 projection하지 않음. |
 | review bundle/provenance | optional input 확장 | existing API ↔ TS pointer metric와 ERD relation coverage를 별도 metric family로 기록한다. |
 | DB/migration tools | mutation 없음 | catalog adapter는 read-only evidence input만 소비한다. |
 
@@ -274,23 +279,23 @@ exit: source file 재정렬/formatting은 semantic diff가 empty이고, property
 
 exit: DB에 실제 mutation 없이 fixture로 confirmed/mismatch/unknown 세 결과를 모두 재현한다.
 
-### Phase 4 — DPM/API provenance bridge and review gate
+### Phase 4 — DPM field-policy/API provenance bridge and review gate
 
 예상 파일:
 
-- external owner: logical ERD → DPM identity/relationship adapter and owner tests
+- external owner: selected logical ERD field → DPM identity/policy adapter and owner tests
 - `packages/codegen/src/cli/commands/review-bundle.ts` input extension
 - `packages/codegen/src/cli/lib/parallel-evidence.ts` ERD metric family
 - `docs/internal/typespec-roundtrip/` review contract update
 
 구현:
 
-1. owner-approved adapter가 DPM data field object/revision/locator와 relationship registry edge로 mapping한다. mapping을 oa-sdk에서 independent state로 persist하지 않는다.
+1. owner-approved adapter가 선택된 ERD field만 DPM data field object/revision/locator 및 pseudonymization policy vocabulary로 explicit mapping한다. mapping을 oa-sdk에서 independent state로 persist하지 않는다. ERD relationship은 이 bridge의 입력·출력이 아니며, 관계 인지 가명화는 별도 승인된 use case로 제안한다.
 2. optional API binding은 existing TypeSpec/OpenAPI provenance artifact를 exact pointer/version hash로 resolve한다. operationId는 navigation hint만 사용한다.
 3. review bundle은 API↔TS and ERD↔catalog/API metric를 섞지 않고 separate metric namespaces와 thresholds로 표시한다.
-4. false green을 막기 위해 unbound entity/relationship을 coverage denominator에서 제외하지 않는다. 별도 `unbound_count`로 기록한다.
+4. false green을 막기 위해 DPM projection 대상으로 선언한 field 중 unbound field를 coverage denominator에서 제외하지 않는다. 별도 `unbound_count`로 기록한다. ERD entity/relationship의 source provenance coverage는 ERD review metric에서 독립적으로 유지한다.
 
-exit: 하나의 fixture에서 `.tsp` line → ERD relation → catalog coordinate/API pointer → review result를 역추적할 수 있다.
+exit: 하나의 fixture에서 `.tsp` line → selected ERD field → DPM catalog coordinate/API pointer → review result를 역추적할 수 있다. 관계 source provenance와 logical relation review는 TypeSpec ERD artifact/review만으로 역추적할 수 있다.
 
 ### Phase 5 — onboarding, CI, adoption pilot
 
@@ -333,8 +338,8 @@ exit: 하나의 fixture에서 `.tsp` line → ERD relation → catalog coordinat
 | relationship semantics | 1:1, 1:N, N:1, composite, unbound/invalid endpoint fixtures | CI block |
 | provenance | every emitted entity/field/relation has source span | review bundle gate block |
 | catalog conformance | confirmed/mismatch/unbound/unknown fixture | policy gate, no mutation |
-| bridge coverage | declared relation total, resolved relation total, unbound total, ambiguous total | metric regression visible; denominator must remain declared total |
-| compatibility | DPM adapter fixture and existing TypeSpec/OpenAPI/TS evidence tests unchanged | owner/CI block |
+| DPM field bridge coverage | declared projection field total, resolved field total, unbound total, ambiguous total | metric regression visible; denominator must remain declared projection total |
+| compatibility | DPM field adapter fixture and existing TypeSpec/OpenAPI/TS evidence tests unchanged | owner/CI block |
 
 제안 metric record:
 
@@ -346,6 +351,9 @@ erd.provenance_covered_relationships / erd.declared_relationships
 erd.catalog_confirmed_relationships / erd.declared_relationships
 erd.catalog_mismatch_relationships
 erd.unbound_relationships
+erd.dpm_projection_declared_fields
+erd.dpm_projection_resolved_fields / erd.dpm_projection_declared_fields
+erd.dpm_projection_unbound_fields
 erd.api_binding_resolved / erd.api_binding_declared
 ```
 
@@ -358,7 +366,7 @@ erd.api_binding_resolved / erd.api_binding_declared
 | TypeSpec library | `lib/main.tsp`가 declaration entrypoint, TS는 typed decorators/diagnostics | existing `packages/typespec-decorators` pattern |
 | decorator scope | narrow typed decorator + explicit diagnostic | existing `$oaUseResponseComponent`의 narrow-extension policy |
 | identity | stable ID / revision hash / human locator / physical/API binding 분리 | DPM identity types/normalizer |
-| relation | explicit endpoints, cardinality, ordered composite components | DPM relationship normalizer |
+| relation | explicit endpoints, cardinality, ordered composite components | TypeSpec ERD semantic validator and review artifact |
 | physical boundary | snapshot evidence only, no mutation code path | DPM roadmap/plan |
 | tests | fixture compile + golden artifact/diff + focused CLI tests | existing package/CLI test style |
 | generated files | generated artifact is review evidence, source replacement 아님 | existing TypeSpec provenance/review-bundle model |
@@ -378,7 +386,7 @@ erd.api_binding_resolved / erd.api_binding_declared
 | TypeSpec ERD | `packages/typespec-erd/**` | decorators, diagnostics, AST provenance emitter | Phase 0 vocabulary approval |
 | neutral artifact | `packages/logical-erd-contract/**` | v1 schema, normalization, semantic diff | TypeSpec prototype passes fixtures |
 | CLI/review | `packages/codegen/src/cli/**` | emit/check/diff/catalog-check/review input | artifact contract frozen |
-| DPM bridge | canonical external owner repo | identity/relationship adapter, lifecycle policy | explicit owner authorization |
+| DPM bridge | canonical external owner repo | selected field identity/policy adapter and catalog evidence | explicit owner authorization |
 | documentation | `docs/guides/**`, feature matrix | onboarding, extension decision table, CI commands | pilot behavior verified |
 
 ## 10. 구현 착수 전 결정 요청
