@@ -1,0 +1,44 @@
+{
+  "schemaVersion": "oa-sdk.artifact-compatibility-policy.v1",
+  "supportWindow": {
+    "policy": "current-major-schema-only",
+    "deprecatedSchemaHandling": "reject-with-migration-guide"
+  },
+  "artifacts": [
+    {
+      "artifact": "typespec-ref-provenance",
+      "currentSchemaVersion": "oa-sdk.typespec-ref-provenance.v1",
+      "supportedSchemaVersions": ["oa-sdk.typespec-ref-provenance.v1"],
+      "stability": "stable",
+      "migration": { "whenUnsupported": "regenerate-from-source", "guide": "docs/internal/typespec-roundtrip/parallel-evidence-contract.md" }
+    },
+    {
+      "artifact": "parallel-evidence",
+      "currentSchemaVersion": "oa-sdk.parallel-evidence.v1",
+      "supportedSchemaVersions": ["oa-sdk.parallel-evidence.v1"],
+      "stability": "stable",
+      "migration": { "whenUnsupported": "regenerate-from-source", "guide": "docs/internal/typespec-roundtrip/parallel-evidence-contract.md" }
+    },
+    {
+      "artifact": "parallel-evidence-report",
+      "currentSchemaVersion": "oa-sdk.parallel-evidence-report.v1",
+      "supportedSchemaVersions": ["oa-sdk.parallel-evidence-report.v1"],
+      "stability": "stable",
+      "migration": { "whenUnsupported": "regenerate-from-source", "guide": "docs/internal/typespec-roundtrip/parallel-evidence-contract.md" }
+    },
+    {
+      "artifact": "openapi-governance-config",
+      "currentSchemaVersion": "oa-gen.openapi-governance.v2",
+      "supportedSchemaVersions": ["oa-gen.openapi-governance.v2"],
+      "stability": "stable",
+      "migration": { "whenUnsupported": "run-config-scaffold", "guide": "docs/guides/openapi-governance-service-template.md" }
+    },
+    {
+      "artifact": "ttsc-contract-provenance",
+      "currentSchemaVersion": "ttsc-contract-provenance.v2",
+      "supportedSchemaVersions": ["ttsc-contract-provenance.v2"],
+      "stability": "external",
+      "migration": { "whenUnsupported": "regenerate-from-source", "guide": "docs/internal/typespec-roundtrip/parallel-evidence-contract.md" }
+    }
+  ]
+}

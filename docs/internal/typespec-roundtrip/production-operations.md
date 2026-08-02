@@ -8,10 +8,10 @@ This document records the operating decisions after the TypeSpec-first productio
 
 ### Release And Versioning
 
-- The repository root and workspace packages are private. `changeset publish` is not the current release mechanism for this TypeSpec migration.
+- The repository root and most workspace packages are private. `@oa-sdk/codegen`과 그 runtime dependency closure는 public npm distribution candidate지만, `changeset publish`는 npm authorization과 release approval 없이는 실행하지 않는다.
 - `@oa-sdk/codegen` `0.3.0` is the internal milestone that owns the TypeSpec roundtrip, bundle-check, sidecar, and production source-path work.
 - Do not bump beyond `0.3.0` just to mark the G13-G15 drift burn-down. The milestone is already documented as complete, and the drift burn-down closes the same production switch scope.
-- A future public npm release requires a separate packaging decision: remove or revise `private: true`, add changesets, confirm package exports, and run the full build/test/publish dry run.
+- A registry release requires package-specific approval, a Changeset, confirmed exports, and the full build/test/pack smoke. The current TypeSpec migration milestone itself does not require a version bump.
 - The public API contract version is `OaSdkApi.ContractVersion` in `packages/schemas/typespec/version.tsp`, emitted as OpenAPI `info.version`. It is SemVer-governed independently of package versions; before `1.0.0`, incompatible consumer changes advance `0.MINOR`.
 - Bundle (`oa-sdk.typespec-bundle.v1`), extension (`oa-sdk.typespec-extensions.v*`), candidate, and accepted-drift `schemaVersion` values version their own machine-readable formats. They must not be used as API-release numbers.
 

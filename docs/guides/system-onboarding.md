@@ -24,11 +24,23 @@ pnpm check:spec-governance
 | 구현된 기능 | [`spec.md`](../internal/spec.md) | package source/test, 완료 후 SSOT |
 | API 타입·함수 export | [`api-index.md`](../internal/api-index.md) | owning package source |
 | TypeSpec API 계약 | [authoring conventions](./typespec-authoring-conventions.md) | `packages/schemas/typespec/**/*.tsp` |
-| 사용자 명령/운영 흐름 | 이 문서와 [CLI setup](./cli-setup.md) | 가이드 또는 운영 runbook |
+| 사용자 명령/운영 흐름 | [CLI 명령 레퍼런스](./cli-command-reference.md) | 가이드 또는 운영 runbook |
+| library import/패키지 경계 | [라이브러리 진입점 지도](./library-entrypoints.md) | package root export와 owning package source |
 | 아직 결정되지 않은 일 | [`plan.md`](../internal/plan.md) | `*.plan.md`, `goals/`, ADR |
 
 TypeSpec 계약은 `.tsp`를 수정한다. `approved.openapi.yaml`, `.merged*.yaml`, `dist/`는
 생성·검토 artifact이므로 직접 수정하지 않는다.
+
+### 명령과 라이브러리 선택 순서
+
+1. **계약을 바꾸는가?** `schema:approve-typespec-reference`와 TypeSpec authoring 경로를
+   사용한다. CLI로 생성한 OpenAPI는 production TypeSpec source를 대체하지 않는다.
+2. **이미 있는 OpenAPI를 소비하는가?** typegen/router/client/mock 중 consumer를
+   [CLI 명령 레퍼런스](./cli-command-reference.md)에서 고른다.
+3. **외부 서비스 artifact를 수집·비교하는가?** `scaffold-governance` → `collect` →
+   `review-bundle` 흐름을 선택한다.
+4. **코드 import가 필요한가?** [라이브러리 진입점 지도](./library-entrypoints.md)에서
+   public package/subpath를 고르고 API index의 symbol을 확인한다.
 
 ## 3. TypeSpec 선언은 어디까지 유효한가
 

@@ -12,12 +12,20 @@ Its machine-readable transport schemas are
 [`parallel-evidence.v1.schema.json`](./parallel-evidence.v1.schema.json) and
 the baseline-capable
 [`parallel-evidence-report.v1.schema.json`](./parallel-evidence-report.v1.schema.json).
-The current adapters are:
+The maintained CLI adapter is:
 
 | Source | Input artifact | Role |
 | --- | --- | --- |
 | TypeSpec | `oa-sdk.typespec-ref-provenance.v1` | `contract-authority` |
 | ttsc | `ttsc-contract-provenance.v2` | `implementation-observation` |
+
+The library also exposes `ImplementationProvenanceAdapter`: a trusted
+application can supply another implementation extractor when its artifact has
+explicit emitted OpenAPI pointers, resolved `type-ref` edges, declaration
+source spans, and the same shape taxonomy. This is a composition API, not a
+dynamic CLI module loader. The `oa-gen` CLI intentionally continues to accept
+the maintained `--ttsc-provenance` artifact only, so an unreviewed extractor
+cannot become part of a CI contract path through configuration.
 
 The envelope always sets `contractAuthority: "typespec"` and
 `purpose: "review-evidence-only"`. No consumer may use the envelope to write
@@ -72,7 +80,7 @@ derived OpenAPI pointer unless its producer supplies one, so it remains a
 relation anchored by its declaration id. This avoids false schema ownership
 created from property-name or symbol-name heuristics.
 
-ttsc `shape` evidence (`union`, `intersection`, `generic-instantiation`,
+Implementation `shape` evidence (`union`, `intersection`, `generic-instantiation`,
 `utility-type`, `conditional`, and similar) is carried as an implementation
 observation. Its `typeSpecProjection` is a review cue only:
 
@@ -105,10 +113,10 @@ its operation bundle aliases.
 
 The reference implementation is
 `packages/codegen/src/cli/lib/parallel-evidence.ts`. It accepts an existing
-TypeSpec provenance artifact and a structurally compatible external ttsc
-artifact. Keeping the ttsc input structural, rather than importing the
-`samchon` package, prevents either repository from becoming a build-time
-dependency or an authority for the other.
+TypeSpec provenance artifact and an implementation-provenance adapter with a
+structural artifact. Keeping the maintained ttsc input structural, rather than
+importing the `samchon` package, prevents either repository from becoming a
+build-time dependency or an authority for the other.
 
 Use this report in a PR/review bundle after both producer artifacts have been
 generated:

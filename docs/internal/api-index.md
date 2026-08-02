@@ -756,7 +756,33 @@ Typegen 공개 surface는 root entry(`@oa-sdk/codegen`)와 typegen sub-entry(`@o
 | `stringifyOpenApiYaml()` | `cli/lib/openapi-collect.ts` | normalized OpenAPI 문서를 YAML anchor 없이 stable한 YAML 문자열로 직렬화 |
 | `createOpenApiCollectReport()` | `cli/lib/openapi-collect.ts` | profile/raw/normalized/upgraded 경로와 upgrade report를 묶은 collect report payload 생성 |
 | `exportOpenApiToTypeSpec()` | `cli/lib/tsp-export.ts` | OpenAPI artifact를 TypeSpec spike source와 diagnostics report로 변환. schema/property docs, defaults, examples, deprecated, strict-object sealing, tag metadata, response headers, bearer auth를 TypeSpec source에 반영 |
-| `createOpenApiGovernanceInterface()` | `cli/lib/openapi-governance-scaffold.ts` | 외부 OpenAPI 서비스용 artifact interface(`oa-gen.openapi-governance.v1`) payload 생성 |
+| `findArtifactCompatibility()` | `cli/lib/artifact-compatibility-policy.ts` | 이름으로 공개 artifact schema 지원·migration 정책 항목을 찾는다 |
+| `supportsArtifactSchemaVersion()` | `cli/lib/artifact-compatibility-policy.ts` | artifact의 입력 schema version이 현재 지원 창에 포함되는지 확인한다 |
+| `ARTIFACT_COMPATIBILITY_POLICY_SCHEMA_VERSION` | `cli/lib/artifact-compatibility-policy.ts` | artifact 호환성 정책 wire schema version |
+| `OA_SDK_ARTIFACT_COMPATIBILITY_POLICY_V1` | `cli/lib/artifact-compatibility-policy.ts` | provenance, parallel evidence, governance config의 현재 schema·migration support policy |
+| `adaptZodSchemas()` | `cli/lib/source-adapters.ts` | Zod schema map을 OpenAPI source fragment로 변환 |
+| `adaptDrizzleTables()` | `cli/lib/source-adapters.ts` | Drizzle table projection을 OpenAPI source fragment로 변환 |
+| `adaptOpenApiProjectionEnvelope()` | `cli/lib/source-adapters.ts` | OpenAPI Projection envelope을 metadata 보존 source fragment로 변환 |
+| `adaptPythonContractSpecSnapshot()` | `cli/lib/source-adapters.ts` | Python ContractSpec JSON snapshot을 runtime 의존 없이 source fragment로 변환 |
+| `createBuiltInCodegenSourceAdapterRegistry()` | `cli/lib/source-adapters.ts` | Zod/Drizzle/Projection/Python의 유지보수 adapter를 명시 등록한 registry 생성 |
+| `CodegenSourceAdapterRegistry` | `cli/lib/source-adapters.ts` | 애플리케이션이 신뢰한 source adapter를 명시 등록·호출하는 composition boundary |
+| `zodSchemaSourceAdapter` | `cli/lib/source-adapters.ts` | maintained Zod source adapter object |
+| `drizzleTableSourceAdapter` | `cli/lib/source-adapters.ts` | maintained Drizzle source adapter object |
+| `openApiProjectionEnvelopeSourceAdapter` | `cli/lib/source-adapters.ts` | maintained Projection envelope source adapter object |
+| `pythonContractSpecSnapshotSourceAdapter` | `cli/lib/source-adapters.ts` | maintained Python ContractSpec snapshot source adapter object |
+| `buildParallelEvidence()` | `cli/lib/parallel-evidence.ts` | TypeSpec authority artifact와 명시 implementation adapter를 exact OpenAPI pointer로 join |
+| `buildParallelEvidenceFromArtifacts()` | `cli/lib/parallel-evidence.ts` | unknown artifact pair를 TypeSpec parser와 selected implementation adapter로 parse한 뒤 join |
+| `createParallelEvidenceMetrics()` | `cli/lib/parallel-evidence.ts` | joined evidence의 deterministic coverage/relation/shape metric 생성 |
+| `createParallelEvidenceMetricDelta()` | `cli/lib/parallel-evidence.ts` | baseline/current metric의 stable numeric delta 생성 |
+| `createParallelEvidenceReport()` | `cli/lib/parallel-evidence.ts` | evidence와 optional baseline을 durable report envelope으로 구성 |
+| `parseTypeSpecRefProvenance()` | `cli/lib/parallel-evidence.ts` | TypeSpec contract provenance boundary parser |
+| `parseTtscContractProvenance()` | `cli/lib/parallel-evidence.ts` | maintained ttsc implementation provenance boundary parser |
+| `parseParallelEvidenceMetrics()` | `cli/lib/parallel-evidence.ts` | metric 또는 prior report에서 metric snapshot을 읽는다 |
+| `ttscContractProvenanceAdapter` | `cli/lib/parallel-evidence.ts` | oa-gen CLI가 기본으로 사용하는 maintained ttsc implementation adapter |
+| `PARALLEL_EVIDENCE_SCHEMA_VERSION` | `cli/lib/parallel-evidence.ts` | review-only parallel evidence envelope schema version |
+| `PARALLEL_EVIDENCE_METRICS_SCHEMA_VERSION` | `cli/lib/parallel-evidence.ts` | deterministic parallel evidence metric schema version |
+| `PARALLEL_EVIDENCE_REPORT_SCHEMA_VERSION` | `cli/lib/parallel-evidence.ts` | baseline-capable parallel evidence report schema version |
+| `createOpenApiGovernanceInterface()` | `cli/lib/openapi-governance-scaffold.ts` | 외부 OpenAPI 서비스용 artifact interface(`oa-gen.openapi-governance.v2`), 독립 CLI/CI baseline payload 생성 |
 | `scaffoldOpenApiGovernance()` | `cli/lib/openapi-governance-scaffold.ts` | 서비스 root에 `openapi-governance.config.json`, `scripts/openapi-governance.sh`, `openapi-governance.md`와 contracts/scripts/src 디렉토리를 생성 |
 | `formatScaffoldResult()` | `cli/lib/openapi-governance-scaffold.ts` | scaffold 결과의 root 디렉토리와 생성 파일 목록을 사용자 친화 텍스트로 렌더링 |
 | `fingerprintGovernanceConfig()` | `cli/lib/openapi-governance-scaffold.ts` | profile/source/artifacts/consumers를 안정 정렬 후 sha256 16자로 해시. rendered 스크립트와 config drift 감지에 사용 |
@@ -826,9 +852,36 @@ Typegen 공개 surface는 root entry(`@oa-sdk/codegen`)와 typegen sub-entry(`@o
 | `TspExportReport` | `cli/lib/tsp-export.ts` | `oa-gen.tsp-export-report.v1` report payload. counts와 warning diagnostics를 포함 |
 | `TspExportDiagnostic` | `cli/lib/tsp-export.ts` | TypeSpec export 중 의미 손실 또는 미구현 mapping을 기록하는 warning diagnostic |
 | `TspExportDiagnosticSeverity` | `cli/lib/tsp-export.ts` | 현재 TypeSpec export diagnostic severity union |
-| `OpenApiGovernanceInterface` | `cli/lib/openapi-governance-scaffold.ts` | 외부 OpenAPI 서비스용 artifact interface(`oa-gen.openapi-governance.v1`) payload 타입 |
-| `OpenApiGovernanceScaffoldOptions` | `cli/lib/openapi-governance-scaffold.ts` | scaffold root/service/profile/source-command/runtime URL/force overwrite 옵션 |
+| `OpenApiGovernanceInterface` | `cli/lib/openapi-governance-scaffold.ts` | 외부 OpenAPI 서비스용 artifact interface(`oa-gen.openapi-governance.v2`) payload 타입 |
+| `OpenApiGovernanceScaffoldOptions` | `cli/lib/openapi-governance-scaffold.ts` | scaffold root/service/profile/source-command/runtime URL/standalone oaGenCommand/typegen policy/force overwrite 옵션 |
 | `OpenApiGovernanceScaffoldResult` | `cli/lib/openapi-governance-scaffold.ts` | scaffold 결과의 rootDir와 생성된 파일 절대 경로 목록 |
+| `OpenApiGovernanceTypegenPolicy` | `cli/lib/openapi-governance-scaffold.ts` | `verify-only` 또는 `commit-required` generated TypeScript CI ownership 정책 |
+| `ArtifactCompatibilityEntry` | `cli/lib/artifact-compatibility-policy.ts` | artifact별 current/supported schema, stability, deterministic migration 경로 |
+| `ArtifactCompatibilityPolicyV1` | `cli/lib/artifact-compatibility-policy.ts` | OA SDK machine-readable artifact support window policy |
+| `CodegenSourceAdapter` | `cli/lib/source-adapters.ts` | source input을 normalized OpenAPI fragment로 만드는 application-owned adapter contract |
+| `CodegenSourceAdapterOptions` | `cli/lib/source-adapters.ts` | source path/pointer/metadata 공통 adapter 옵션 |
+| `CodegenSourceAdapterResult` | `cli/lib/source-adapters.ts` | source fragment와 adapter diagnostic 반환 envelope |
+| `DrizzleTableSourceAdapterInput` | `cli/lib/source-adapters.ts` | Drizzle tables/schema types/naming을 묶은 registry adapter 입력 |
+| `DrizzleTableSourceAdapterOptions` | `cli/lib/source-adapters.ts` | Drizzle source adapter 공통 옵션 alias |
+| `OpenApiProjectionEnvelopeAdapterOptions` | `cli/lib/source-adapters.ts` | Projection envelope source adapter 공통 옵션 alias |
+| `PythonContractSpecSnapshotAdapterOptions` | `cli/lib/source-adapters.ts` | Python ContractSpec snapshot source adapter 공통 옵션 alias |
+| `ZodSchemaSourceAdapterOptions` | `cli/lib/source-adapters.ts` | Zod schema source adapter 공통 옵션 alias |
+| `ImplementationProvenanceAdapter` | `cli/lib/parallel-evidence.ts` | trusted implementation extractor의 source id/provenance kind/parser composition contract |
+| `ImplementationProvenanceArtifact` | `cli/lib/parallel-evidence.ts` | explicit emits/type-ref edge를 제공해야 하는 implementation provenance structural minimum |
+| `ImplementationProvenanceDeclaration` | `cli/lib/parallel-evidence.ts` | implementation declaration AST kind/source span/optional projection shape |
+| `ImplementationProvenanceEdge` | `cli/lib/parallel-evidence.ts` | implementation emits 또는 resolved type-ref edge |
+| `ParallelEvidenceArtifactInput` | `cli/lib/parallel-evidence.ts` | joined source artifact의 role/schema/provenance/hash identity |
+| `ParallelEvidenceDeclaration` | `cli/lib/parallel-evidence.ts` | contract 또는 implementation declaration의 review-safe normalized shape |
+| `ParallelEvidenceMetricDeltaV1` | `cli/lib/parallel-evidence.ts` | baseline/current metric의 stable numeric delta envelope |
+| `ParallelEvidenceMetricsV1` | `cli/lib/parallel-evidence.ts` | pointer/declaration/relation/shape trend metric schema |
+| `ParallelEvidenceRelation` | `cli/lib/parallel-evidence.ts` | source-specific OpenAPI ref 또는 implementation type-ref relation |
+| `ParallelEvidenceReportV1` | `cli/lib/parallel-evidence.ts` | joined evidence와 optional baseline metric delta report |
+| `ParallelEvidenceRole` | `cli/lib/parallel-evidence.ts` | contract-authority 또는 implementation-observation source role |
+| `ParallelEvidenceSourceRange` | `cli/lib/parallel-evidence.ts` | provenance source file line/column range |
+| `ParallelEvidenceSubject` | `cli/lib/parallel-evidence.ts` | exact OpenAPI pointer로 조인된 declaration review subject |
+| `ParallelEvidenceSubjectStatus` | `cli/lib/parallel-evidence.ts` | matched-pointer/contract-only/implementation-only subject status |
+| `ParallelEvidenceV1` | `cli/lib/parallel-evidence.ts` | TypeSpec authority를 보존하는 review-only joined evidence envelope |
+| `TtscContractProvenanceV2` | `cli/lib/parallel-evidence.ts` | maintained ttsc artifact structural contract |
 
 ### 내부 함수 (`@oa-sdk/codegen` — index 미노출)
 
@@ -922,7 +975,7 @@ Typegen 공개 surface는 root entry(`@oa-sdk/codegen`)와 typegen sub-entry(`@o
 | `normalize` | `packages/codegen/src/cli/commands/normalize.ts`, `packages/codegen/src/cli/lib/openapi-collect.ts` | 외부 OpenAPI 산출물의 의미를 바꾸지 않고 noise 제거, stable ordering, YAML anchor 제거를 적용해 diff 가능한 governance artifact를 생성한다 |
 | `review` | `packages/codegen/src/cli/commands/review.ts`, `packages/codegen/src/cli/lib/review-report.ts`, `packages/codegen/src/cli/lib/artifact-review.ts`, `packages/codegen/src/cli/lib/review-sidecar-diff.ts`, `packages/codegen/src/cli/lib/review-markdown.ts`, `packages/codegen/src/cli/lib/review-policy.ts`, `packages/codegen/src/cli/lib/provenance-report.ts`, `packages/codegen/src/cli/lib/metadata-registry.ts`, `packages/codegen/src/cli/lib/behavior-registry.ts` | base/head OpenAPI diff, validation, artifact freshness를 묶고 선택적으로 base/head provenance sidecar와 metadata registry sidecar 변경 entries를 report에 포함 |
 | `review-bundle` | `packages/codegen/src/cli/commands/review-bundle.ts`, `packages/codegen/src/cli/lib/review-bundle.ts`, `packages/codegen/src/cli/lib/artifact-review.ts`, `packages/codegen/src/cli/lib/review-sidecar-diff.ts`, `packages/codegen/src/cli/lib/review-markdown.ts`, `packages/codegen/src/cli/lib/review-policy.ts`, `packages/codegen/src/cli/lib/provenance-report.ts`, `packages/codegen/src/cli/lib/metadata-registry.ts`, `packages/codegen/src/cli/lib/behavior-recorder.ts`, `packages/codegen/src/cli/lib/behavior-registry.ts` | base/head OpenAPI diff와 artifact freshness를 필수 section으로 묶고 선택적으로 inventory, runtime drift JSON, provenance diff, composition report JSON, metadata registry JSON, metadata registry diff, duplicate-review JSON을 stable nested section으로 포함하며 behavior JSONL/SQLite record를 append할 수 있다 |
-| `scaffold-governance` | `packages/codegen/src/cli/commands/scaffold-governance.ts`, `packages/codegen/src/cli/lib/openapi-governance-scaffold.ts` | 외부 OpenAPI 서비스 루트에 `openapi-governance.config.json`, `scripts/openapi-governance.sh`, `openapi-governance.md`를 생성해 oa-sdk 기능별 artifact interface를 표준화한다 |
+| `scaffold-governance` | `packages/codegen/src/cli/commands/scaffold-governance.ts`, `packages/codegen/src/cli/lib/openapi-governance-scaffold.ts` | 외부 OpenAPI 서비스 루트에 config, script, docs, CI artifact/baseline workflow를 생성해 독립 실행 가능한 artifact interface를 표준화한다 |
 | `target-check` | `packages/codegen/src/cli/commands/target-check.ts`, `packages/codegen/src/cli/lib/target-coverage.ts` | Definition Builder target config 또는 generated OpenAPI artifact의 emitted path surface를 include/exclude assertion으로 검증하고 실패 시 non-zero 종료 |
 | `tsp-export` | `packages/codegen/src/cli/commands/tsp-export.ts`, `packages/codegen/src/cli/lib/tsp-export.ts`, `packages/codegen/src/cli/lib/typespec-sidecar.ts`, `packages/codegen/src/cli/lib/typespec-bundle-manifest.ts` | OpenAPI YAML/JSON artifact를 TypeSpec spike source, diagnostics JSON, optional OA SDK compatibility sidecar, optional bundle-local expected OpenAPI, optional `oa-sdk.typespec-bundle.v1` manifest로 변환 |
 | `tsp-bundle-check` | `packages/codegen/src/cli/commands/tsp-bundle-check.ts`, `packages/codegen/src/cli/lib/typespec-bundle-check.ts`, `packages/codegen/src/cli/lib/typespec-bundle-manifest.ts`, `packages/codegen/src/cli/lib/typespec-sidecar.ts`, `packages/codegen/src/cli/lib/typespec-oa-sdk-extensions.ts` | authored/generated `oa-sdk.typespec-bundle.v1` manifest를 TypeSpec compile, sidecar 또는 `oa-sdk.typespec-extensions.v1`/`v2` metadata restore/re-extract stability, OpenAPI validation, optional expected diff gate로 검증 |

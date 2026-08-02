@@ -1,0 +1,111 @@
+# oa-gen CLI 명령 레퍼런스
+
+`oa-gen`은 OpenAPI artifact 생성, TypeSpec roundtrip, 코드 생성, 외부 서비스
+governance, 변경 검토를 한 CLI에 모은다. 이 문서는 현재 구현된 **26개 기능 명령**의
+단일 색인이다. 옵션의 정확한 형식은 항상 `oa-gen <command> --help`가 정본이다.
+
+저장소에서 직접 실행할 때는 먼저 CLI를 빌드한다.
+
+```bash
+pnpm --filter @oa-sdk/codegen build
+node packages/codegen/dist/cli/index.js --help
+```
+
+설치된 package binary를 사용할 수 있는 환경에서는 위의 `node .../index.js`를 `oa-gen`으로
+바꾸면 된다. 아래의 `입력`은 최소 시작점이며, `--help`는 모든 선택 옵션과 조건부 옵션을
+보여 준다.
+
+## 먼저 목적을 고르기
+
+| 목적 | 시작 명령 | 다음 문서 |
+| --- | --- | --- |
+| production TypeSpec 계약을 수정·승인 | `pnpm schema:approve-typespec-reference`, `pnpm schema:validate` | [시스템 온보딩](./system-onboarding.md), [TypeSpec 규칙](./typespec-authoring-conventions.md) |
+| 기존 OpenAPI에서 타입·서버·클라이언트를 생성 | `oa-gen typegen`, `router`, `client` | [Quick Start](./quick-start.md) |
+| 외부 NestJS/FastAPI OpenAPI를 관리 | `oa-gen scaffold-governance`, `collect`, `review-bundle` | [OpenAPI Governance Workflow](./use-cases/openapi-governance-workflow.md) |
+| Definition Builder rollback/reference artifact를 검사 | `oa-gen build-spec`, `duplicate-review`, `target-check` | [CLI setup](./cli-setup.md) |
+| contract ↔ implementation evidence를 검토 | `oa-gen parallel-evidence`, `review-bundle` | [parallel evidence 계약](../internal/typespec-roundtrip/parallel-evidence-contract.md) |
+
+## 전체 명령 색인
+
+| 명령 | 언제 쓰는가 | 최소 입력 | 결과 / 다음 단계 |
+| --- | --- | --- | --- |
+| `oa-gen generate` | config 또는 Drizzle schema에서 OpenAPI를 생성할 때 | `--config` 또는 `--drizzle-schema` | schema artifact; 생성 전용 흐름 |
+| `oa-gen typegen` | OpenAPI에서 TypeScript 선언을 만들 때 | `--spec <openapi>` | type declarations; `--incremental`은 cache를 사용 |
+| `oa-gen router` | OpenAPI 기반 Hono/Express router stub이 필요할 때 | `--spec <openapi>` | router source; `--target hono\|express` |
+| `oa-gen client` | OpenAPI 기반 typed fetch client가 필요할 때 | `--spec <openapi>` | client source |
+| `oa-gen dev` | spec 변경을 감시하며 생성물을 갱신할 때 | `--spec <openapi>` | watch process; 종료 전까지 실행 |
+| `oa-gen lint` | OpenAPI의 OA SDK lint만 빠르게 확인할 때 | `--spec <openapi>` | diagnostic; strict production gate는 `schema:validate` |
+| `oa-gen validate` | OpenAPI 파싱·구조·3.1 호환을 확인할 때 | `--spec <openapi>` | human diagnostic; managed contract는 `--require-32` |
+| `oa-gen build-spec` | fragments와 target으로 reference OpenAPI를 만들 때 | `--target <target.yaml>` | OpenAPI와 diagnostics/provenance/metadata sidecars |
+| `oa-gen normalize` | 외부 OpenAPI를 stable governance artifact로 정규화할 때 | `--spec <openapi>` | normalized artifact |
+| `oa-gen upgrade` | 외부 OpenAPI 3.0/3.1을 3.2 analysis artifact로 볼 때 | `--spec <openapi>` | upgraded artifact와 optional report |
+| `oa-gen collect` | raw 보존·normalize·upgrade를 한 번에 수행할 때 | `--spec`, `--raw`, `--normalized`, `--upgraded` | external intake artifact set |
+| `oa-gen tsp-export` | OpenAPI를 TypeSpec spike/bundle로 변환해 볼 때 | `--spec <openapi>` | `.tsp`, report, optional sidecar/manifest |
+| `oa-gen tsp-restore` | emitted OpenAPI에 compatibility sidecar를 다시 적용할 때 | `--spec <emitted> --sidecar <sidecar>` | restored OpenAPI와 stability report |
+| `oa-gen tsp-bundle-check` | authored/generated TypeSpec bundle의 compile/restore/diff를 검사할 때 | `--manifest <manifest.json>` | bundle report; `--fail-on-breaking`은 expected diff gate |
+| `oa-gen reference-check` | Apitomy와 OA SDK 진단을 비권위적 비교로 확인할 때 | `--spec <openapi>` | markdown/JSON comparison; 계약 권위는 바꾸지 않음 |
+| `oa-gen scaffold-governance` | 외부 서비스에 독립 CLI·CI baseline governance scaffold를 만들 때 | `--root <dir> --service <name>` | config/script/docs/GitHub workflow; `--profile`, `--oa-gen-command`, `--typegen-policy` 선택 |
+| `oa-gen inventory` | OpenAPI path, operation, component, security surface를 요약할 때 | `--spec <openapi>` | markdown/JSON inventory |
+| `oa-gen behavior-query` | behavior SQLite projection을 검색·집계할 때 | `--behavior-db <sqlite> --mode <mode>` | query report; 조건부 옵션은 아래 표 참조 |
+| `oa-gen duplicate-review` | Definition fragment의 duplicate identity/collision을 검토할 때 | `--fragments <dir>` | report/review/ci policy report |
+| `oa-gen target-check` | target 또는 artifact가 필요한/금지 path를 만족하는지 확인할 때 | `--target <target>` 또는 `--artifact <openapi>` | assertion report; 두 source는 one-of |
+| `oa-gen diff` | base/head OpenAPI의 consumer-visible 변경을 분류할 때 | `--base <openapi> --head <openapi>` | change report; `--fail-on-breaking` 가능 |
+| `oa-gen check-artifact` | generated artifact freshness를 확인할 때 | `--head <openapi> --artifact <openapi>` | freshness decision |
+| `oa-gen drift` | runtime OpenAPI와 managed OpenAPI를 비교할 때 | `--managed-openapi` + `--runtime-openapi` 또는 URL | drift report; runtime source는 one-of |
+| `oa-gen review` | diff·validation·freshness를 묶어 검토할 때 | `--base <openapi> --head <openapi>` | review report; optional sidecar/behavior input |
+| `oa-gen review-bundle` | PR용 aggregate review report를 만들 때 | `--base --head --artifact` | recommendation + optional inventory/drift/provenance/parallel evidence |
+| `oa-gen parallel-evidence` | TypeSpec contract provenance와 ttsc observation을 pointer로 조인할 때 | `--typespec-provenance --ttsc-provenance` | 기본 ttsc adapter; 라이브러리에서는 다른 implementation adapter도 조합 가능 |
+
+## behavior-query 조건부 옵션
+
+모든 mode에 `--behavior-db`와 `--mode`가 필요하다. 아래 mode에서는 추가 selector가
+없으면 명시적 오류로 종료한다.
+
+| mode | 추가 필수 옵션 |
+| --- | --- |
+| `latest-failure-by-type`, `latest-by-type`, `metrics-summary` | `--behavior-type <type>` |
+| `latest-by-identity` | `--identity-key <key>` |
+| `latest-by-target` | `--target-type <type> --target-key <key>` |
+| `latest-by-decision-signal` | `--decision-signal <signal>` |
+| `latest-by-recommendation` | `--recommendation <APPROVE\|COMMENT\|REQUEST_CHANGES>` |
+
+예를 들어 review bundle metric만 집계하려면 다음처럼 실행한다.
+
+```bash
+oa-gen behavior-query \
+  --behavior-db .oa-sdk/review-metrics.sqlite \
+  --mode metrics-summary \
+  --behavior-type publish_review_bundle \
+  --format json
+```
+
+## TypeSpec ↔ TypeScript evidence 예시
+
+두 provenance artifact가 **같은 OpenAPI artifact 계열**에서 나와야 coverage가 의미를
+갖는다. 서로 다른 서비스/버전을 조인해 낮은 ratio가 나오더라도 CLI failure가 아니라
+review evidence다.
+
+```bash
+oa-gen parallel-evidence \
+  --typespec-provenance .oa-sdk/typespec-candidates/declaration-ref-provenance.json \
+  --ttsc-provenance .artifacts/ttsc-contract-provenance.json \
+  --format json
+
+oa-gen review-bundle \
+  --base contracts/baseline.openapi.yaml \
+  --head contracts/current.openapi.yaml \
+  --artifact contracts/current.generated.openapi.yaml \
+  --typespec-provenance .oa-sdk/typespec-candidates/declaration-ref-provenance.json \
+  --ttsc-provenance .artifacts/ttsc-contract-provenance.json \
+  --format markdown
+```
+
+`parallel-evidence`는 TypeSpec의 계약 권위를 변경하거나 coverage threshold를 강제하지
+않는다. CI에서의 기준선 비교와 승인 정책은 consumer workflow가 결정한다.
+
+## 검증 명령과의 관계
+
+- production TypeSpec 변경: `pnpm schema:approve-typespec-reference` → 검토 →
+  `pnpm schema:validate` → 필요 시 `pnpm schema:downstream-check`.
+- 문서/CLI 수정: `pnpm check:docs`, `pnpm check:cli-spec`.
+- 전체 명령 옵션: `oa-gen <command> --help`.

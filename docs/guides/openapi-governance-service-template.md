@@ -10,7 +10,10 @@ oa-gen scaffold-governance \
   --service {service-name} \
   --profile generic \
   --source-command "{command-that-writes-contracts/openapi.raw.yaml}" \
-  --runtime-openapi-url http://localhost:{port}/openapi.json
+  --runtime-openapi-url http://localhost:{port}/openapi.json \
+  --oa-gen-command "oa-gen" \
+  --oa-gen-setup-command "{service-specific-install-or-build-command}" \
+  --typegen-policy verify-only
 ```
 
 NestJS Swagger 서비스는 `--profile nestjs-swagger`를 사용한다.
@@ -49,7 +52,7 @@ Choose one primary source mode.
 
 ```json
 {
-  "schemaVersion": "oa-gen.openapi-governance.v1",
+  "schemaVersion": "oa-gen.openapi-governance.v2",
   "artifacts": {
     "raw": "contracts/openapi.raw.yaml",
     "normalized": "contracts/openapi.normalized.yaml",
@@ -65,12 +68,52 @@ Choose one primary source mode.
     "inventory": "artifacts.upgraded",
     "validate": "artifacts.upgraded",
     "driftManaged": "artifacts.normalized"
+  },
+  "tooling": {
+    "oaGenCommand": "oa-gen",
+    "installation": "path-command",
+    "setupCommand": "{service-specific-install-or-build-command}"
+  },
+  "automation": {
+    "artifactDirectory": ".oa-sdk/governance",
+    "reviewBundle": ".oa-sdk/governance/review-bundle.md",
+    "typegen": {
+      "policy": "verify-only"
+    },
+    "baseline": {
+      "source": "artifacts.normalized",
+      "promotion": "reviewed-commit"
+    }
   }
 }
 ```
 
 Use `normalized` for contract stability and breaking-change review. Use `upgraded`
 for OpenAPI 3.2 inventory, validation, and analysis features.
+
+`tooling.oaGenCommand` is the service-local default and can be overridden by
+`OA_GEN` in developer shells or CI. `tooling.setupCommand` is optional trusted
+shell input that the generated CI uses to install or build that command. The generated scaffold never resolves an
+OA SDK monorepo path. `automation.artifactDirectory` is uploaded by the
+generated GitHub Actions template; baseline promotion remains a reviewed commit
+even though `update-baseline` performs the local file copy.
+
+`automation.typegen.policy` makes generated-TypeScript ownership explicit. Use
+`verify-only` when the file is an ignored build artifact: CI must generate it successfully,
+but does not require a commit. Use `commit-required` only when the generated file is a
+reviewed source artifact: the CI target verifies both Git tracking and a clean diff after
+generation. `ci` always runs typegen, so the policy cannot silently be bypassed by using the
+CI entrypoint instead of `all`.
+
+### v1 → v2 migration
+
+`oa-gen.openapi-governance.v1` is not read as a live configuration. Re-run the
+scaffold with `--force`, explicitly supplying the service's `--oa-gen-command`
+and, where CI must prepare it, `--oa-gen-setup-command`; select `--typegen-policy` explicitly
+when the generated artifact is committed. This rewrites only the
+config, rendered script, service guide, and generated workflow; it does not
+rewrite the committed OpenAPI baseline. Review the resulting baseline policy
+and CI shell command in the same pull request.
 
 ## Path Ownership
 
@@ -306,7 +349,8 @@ oa-gen target-check \
 - [ ] `openapi-governance.config.json` artifact paths and `consumers` mapping reflect the service layout (re-run scaffold with `--force` after editing the source-of-truth fields).
 - [ ] `contracts/v1.openapi.yaml` baseline is committed (initial baseline via `bash scripts/openapi-governance.sh update-baseline`).
 - [ ] Raw / normalized / upgraded / collect-report / generated-types paths are gitignored.
-- [ ] CI runs `bash scripts/openapi-governance.sh all` (collect → check → review → typegen → validate-upgraded) plus `inventory` / `review-bundle` as needed.
+- [ ] CI runs `bash scripts/openapi-governance.sh ci` (collect → baseline review bundle → validate-upgraded → typegen) and uploads `.oa-sdk/governance`; use `all` locally.
+- [ ] `automation.typegen.policy` is `verify-only` for ignored generated files, or `commit-required` with a tracked, freshness-checked file.
 - [ ] Authenticated runtime drift uses `bash scripts/openapi-governance.sh drift --runtime-header "Authorization: Bearer $TOKEN"`.
 
 ### Definition Builder services

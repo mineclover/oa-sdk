@@ -30,7 +30,7 @@ Keep these version channels independent.
 |---|---|---|
 | API contract | `ContractVersion` in `version.tsp`, emitted as OpenAPI `info.version` | Semantic versioning: major for incompatible consumer changes, minor for backward-compatible additions, patch for backward-compatible corrections. Before 1.0, an incompatible change advances `0.MINOR`. |
 | Workspace package | package `version` plus Changesets/release policy | Package distribution lifecycle; it must not be changed merely because the API snapshot changed. |
-| TypeSpec bundle/extension/candidate/drift schemas | their explicit `schemaVersion` fields | Bump only when that artifact's machine-readable format becomes incompatible; it is not the API version. |
+| TypeSpec bundle/extension/candidate/drift and cross-repo evidence schemas | their explicit `schemaVersion` fields plus [artifact compatibility policy](../cli-spec/oa-sdk-artifact-compatibility-policy.v1.json) | Bump only when that artifact's machine-readable format becomes incompatible; it is not the API version. Keep only the current major schema supported unless the policy explicitly lists a reader migration. |
 | Approved snapshot | Git commit plus content hash | No semantic version of its own. Regenerate through the approval command only after a reviewed contract change. |
 | Runtime build information | deployment environment, returned by `GET /version` | Deployment identity; its example value must not drive `ContractVersion`. |
 

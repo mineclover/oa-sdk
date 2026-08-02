@@ -19,6 +19,10 @@ git submodule update --init --recursive
 
 ## 주요 워크플로우
 
+전체 26개 기능 명령의 목적, 최소 입력, 출력, 조건부 옵션은
+[CLI 명령 레퍼런스](./cli-command-reference.md)가 소유한다. 이 문서는 production schema와
+OpenAPI governance에서 자주 쓰는 workflow만 빠르게 안내한다.
+
 ### OpenAPI governance checks
 
 API 변경 PR에서는 [OpenAPI Governance Workflow](./use-cases/openapi-governance-workflow.md)를
@@ -35,13 +39,17 @@ API 변경 PR에서는 [OpenAPI Governance Workflow](./use-cases/openapi-governa
 | `oa-gen normalize` | 외부 OpenAPI 문서를 stable diff 가능한 governance artifact로 정규화 |
 | `oa-gen upgrade` | OpenAPI 3.0/3.1 문서를 OpenAPI 3.2 analysis artifact로 파생 |
 | `oa-gen inventory` | OpenAPI path/operation/component/security surface 요약 |
-| `oa-gen parallel-evidence` | TypeSpec 계약 provenance와 ttsc 구현 provenance의 pointer coverage·reference resolution·shape taxonomy metric 및 baseline delta 출력 |
+| `oa-gen parallel-evidence` | TypeSpec 계약 provenance와 implementation provenance adapter의 pointer coverage·reference resolution·shape taxonomy metric 및 baseline delta 출력 |
 | `oa-gen behavior-query` | behavior SQLite projection을 filtered recent/latest와 summary-by-* 기준으로 조회하고, `metrics-summary`로 behavior type별 수치 metric의 min/max/average/latest를 조회 |
 | `oa-gen duplicate-review` | 정책 기반 fragment 중복 탐지 및 실제 target output-name 충돌 검토 |
 | `oa-gen target-check` | target 또는 artifact path include/exclude assertion 검증 |
 | `oa-gen drift` | runtime OpenAPI 파일 또는 URL과 managed OpenAPI drift 비교, optional behavior logging |
 | `oa-gen review` | diff, validation, artifact freshness, optional provenance/metadata diff report, optional behavior logging |
 | `oa-gen review-bundle` | PR comment용 aggregate review report 생성 (optional provenance/metadata diff, TypeSpec/ttsc parallel evidence metric, behavior logging 포함) |
+
+`behavior-query`의 `metrics-summary`와 `latest-*-by-type` mode는 반드시
+`--behavior-type`을 함께 전달해야 한다. 다른 mode의 selector 조건은
+[CLI 명령 레퍼런스](./cli-command-reference.md#behavior-query-조건부-옵션)를 따른다.
 
 최소 PR gate 예시:
 
@@ -75,7 +83,9 @@ oa-gen scaffold-governance \
   --service nestjs-ref \
   --profile nestjs-swagger \
   --source-command "pnpm export:openapi" \
-  --runtime-openapi-url http://localhost:3000/openapi.json
+  --runtime-openapi-url http://localhost:3000/openapi.json \
+  --oa-gen-command "oa-gen" \
+  --oa-gen-setup-command "pnpm install --frozen-lockfile"
 
 bash apps/nestjs-ref/scripts/openapi-governance.sh all
 
@@ -85,7 +95,9 @@ oa-gen scaffold-governance \
   --service fastapi-ref \
   --profile fastapi \
   --source-command "uv run python scripts/export_openapi.py" \
-  --runtime-openapi-url http://localhost:8000/openapi.json
+  --runtime-openapi-url http://localhost:8000/openapi.json \
+  --oa-gen-command "oa-gen" \
+  --oa-gen-setup-command "pnpm install --frozen-lockfile"
 
 bash apps/fastapi-ref/scripts/openapi-governance.sh all
 ```

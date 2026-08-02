@@ -107,6 +107,8 @@ pnpm --filter @oa-sdk/schemas run downgrade:3.1
 → [Mock 테스팅](./use-cases/mock-testing.md) — 테스트 패턴 + 커버리지 추적
 → [코드젠 워크플로](./use-cases/codegen-workflow.md) — 전체 파이프라인
 → [테스트 피드백](./use-cases/test-feedback.md) — 에러 분석 + API 탐색
-→ [CLI 세팅](./cli-setup.md) — 전 커맨드 상세
+→ [CLI 명령 레퍼런스](./cli-command-reference.md) — 전체 명령과 조건부 옵션
+→ [CLI 세팅](./cli-setup.md) — production/OpenAPI governance workflow
+→ [라이브러리 진입점 지도](./library-entrypoints.md) — package와 public import 경계
 → [기본 스펙 사용 기준](./basic-spec-usage.md) — source/artifact/사용처와 구조 경계
 → [API 인덱스](../internal/api-index.md) — 타입·함수 SSOT

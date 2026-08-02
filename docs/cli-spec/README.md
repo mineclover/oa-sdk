@@ -13,6 +13,11 @@ Core terminology is defined in
 manifest in
 `templates/python-interface-monorepo/packages/interface-cli/src/oa_interface_cli/cli_spec.json`.
 
+`docs/cli-spec/oa-sdk-artifact-compatibility-policy.v1.json` is the
+machine-readable support and migration declaration for provenance, parallel
+evidence, and governance-config artifacts. It is mirrored by
+`packages/codegen/src/cli/lib/artifact-compatibility-policy.ts`.
+
 ## Ownership
 
 The typed TypeScript manifest is the authoring source for `oa-gen` command
