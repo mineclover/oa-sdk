@@ -231,7 +231,7 @@ catalog check은 SQL 실행/DDL/migration을 절대 수행하지 않는다. 결�
 - `packages/typespec-erd/package.json`, `lib/main.tsp`, `lib/decorators.tsp`
 - `packages/typespec-erd/src/lib.ts`, `src/decorators.ts`, `src/index.ts`
 - `packages/typespec-erd/src/semantic-validation.ts`, `src/provenance.ts`
-- `packages/typespec-erd/src/*.test.ts`, `test/fixtures/*.tsp`
+- `packages/typespec-erd/src/*.test.ts`, `packages/typespec-erd/examples/*.tsp`
 
 구현:
 
@@ -384,7 +384,7 @@ erd.api_binding_resolved / erd.api_binding_declared
 | 영역 | 예상 파일 | 핵심 변경 | 선행 조건 |
 | --- | --- | --- | --- |
 | TypeSpec ERD | `packages/typespec-erd/**` | decorators, diagnostics, AST provenance emitter | Phase 0 vocabulary approval |
-| neutral artifact | `packages/logical-erd-contract/**` | v1 schema, normalization, semantic diff | TypeSpec prototype passes fixtures |
+| neutral artifact | `packages/logical-erd-contract/**` | v1 schema, normalization, semantic diff | TypeSpec prototype passes examples |
 | CLI/review | `packages/codegen/src/cli/**` | emit/check/diff/catalog-check/review input | artifact contract frozen |
 | DPM bridge | canonical external owner repo | selected field identity/policy adapter and catalog evidence | explicit owner authorization |
 | documentation | `docs/guides/**`, feature matrix | onboarding, extension decision table, CI commands | pilot behavior verified |

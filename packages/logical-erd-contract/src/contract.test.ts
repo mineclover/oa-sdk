@@ -19,9 +19,9 @@ function artifact(fieldName = 'customerId', required = true) {
 }
 
 describe('logical ERD contract', () => {
-  it('keeps the CRDT control-plane compatibility fixture schema- and semantically-valid', () => {
+  it('keeps the CRDT control-plane example schema- and semantically-valid', () => {
     const fixture = JSON.parse(readFileSync(
-      new URL('../fixtures/crdt-base-control-plane.logical-erd.v1.json', import.meta.url),
+      new URL('../examples/crdt-base-control-plane/logical-erd.v1.json', import.meta.url),
       'utf8',
     ))
     expect(validateLogicalErdArtifactSchema(fixture)).toEqual([])

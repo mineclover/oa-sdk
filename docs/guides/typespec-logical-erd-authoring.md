@@ -72,6 +72,9 @@ span, optional semantic diff, and optional catalog status (`confirmed`, `mismatc
 `unknown`). The catalog JSON is structural so the DPM owner can supply its read-only evidence
 without creating a package dependency; its `artifactId` must exactly match the ERD artifact.
 
+For a complete small scenario, see the
+[`TypeSpec logical ERD commerce example`](../../packages/typespec-erd/examples/commerce/README.md).
+
 ## Current prototype limits
 
 - No DB connection, catalog comparison, DDL, migration, or FK mutation.

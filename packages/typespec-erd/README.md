@@ -40,3 +40,9 @@ dependency on a private ERD prototype.
 subjects, TypeSpec provenance coverage, an optional logical diff, and optional
 read-only catalog evidence. It cannot author TypeSpec, emit DPM data, or change
 a database.
+
+## Example
+
+[`examples/commerce`](./examples/commerce/) is the canonical small scenario for
+the emitter. It demonstrates a composite key, a logical foreign-key candidate,
+an explicit relationship, and emitted source provenance without a database.

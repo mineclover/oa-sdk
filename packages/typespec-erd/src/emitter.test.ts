@@ -20,42 +20,9 @@ describe('@oa-sdk/typespec-erd emitter', () => {
     symlinkSync(join(workspaceRoot, 'node_modules', '@typespec'), join(nodeModules, '@typespec'), 'dir')
     symlinkSync(join(workspaceRoot, 'packages', 'logical-erd-contract'), join(nodeModules, '@oa-sdk', 'logical-erd-contract'), 'dir')
     symlinkSync(join(workspaceRoot, 'packages', 'typespec-erd'), join(nodeModules, '@oa-sdk', 'typespec-erd'), 'dir')
-    writeFileSync(join(directory, 'main.tsp'), `
-import "@oa-sdk/typespec-erd";
-using OaSdkErd;
-
-@dataset("commerce")
-namespace Commerce {
-
-@entity("commerce.customer")
-model Customer {
-  @field("commerce.customer.id")
-  @primaryKey
-  id: string;
-}
-
-@entity("commerce.order")
-model Order {
-  @field("commerce.order.id")
-  @primaryKey("commerce.order.primary", 1)
-  id: string;
-
-  @field("commerce.order.customer-id")
-  @primaryKey("commerce.order.primary", 2)
-  @foreignKey(Customer.id)
-  customerId: string;
-}
-
-@relationship("commerce.order-customer", Order.customerId, Customer.id, "many-to-one")
-namespace Relationships {}
-}
-`)
-    writeFileSync(join(directory, 'tspconfig.yaml'), `
-kind: project
-entrypoint: main.tsp
-emit:
-  - "@oa-sdk/typespec-erd"
-`)
+    const exampleDir = join(workspaceRoot, 'packages', 'typespec-erd', 'examples', 'commerce')
+    writeFileSync(join(directory, 'main.tsp'), readFileSync(join(exampleDir, 'main.tsp'), 'utf8'))
+    writeFileSync(join(directory, 'tspconfig.yaml'), readFileSync(join(exampleDir, 'tspconfig.yaml'), 'utf8'))
     try {
       execFileSync(join(workspaceRoot, 'node_modules', '.bin', 'tsp'), ['compile', directory, '--output-dir', join(directory, 'output')], { cwd: directory, encoding: 'utf8' })
     } catch (error) {

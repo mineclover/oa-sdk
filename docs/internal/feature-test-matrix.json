@@ -1407,7 +1407,8 @@
       ],
       "testPaths": [
         "packages/logical-erd-contract/src/contract.test.ts",
-        "packages/logical-erd-contract/README.md"
+        "packages/logical-erd-contract/README.md",
+        "packages/logical-erd-contract/examples/crdt-base-control-plane/README.md"
       ],
       "commands": [
         "pnpm --filter @oa-sdk/logical-erd-contract test",
@@ -1432,6 +1433,7 @@
         "packages/typespec-erd/src/emitter.test.ts",
         "packages/typespec-erd/src/cli.test.ts",
         "packages/typespec-erd/README.md",
+        "packages/typespec-erd/examples/commerce/README.md",
         "docs/guides/typespec-logical-erd-authoring.md",
         "docs/internal/typespec-roundtrip/logical-erd-typespec-profile.plan.md"
       ],

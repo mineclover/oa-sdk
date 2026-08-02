@@ -2,7 +2,7 @@
 /**
  * oa-sdk 풀 파이프라인 데모
  *
- * 실행: pnpm --filter playground run demo
+ * 실행: pnpm --filter @oa-sdk/playground run demo
  */
 
 import { readFileSync } from 'fs'

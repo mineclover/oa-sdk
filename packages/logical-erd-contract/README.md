@@ -32,10 +32,10 @@ const semanticIssues = wireIssues.length === 0
 The artifact hash is a revision/evidence identity. It never replaces the stable
 dataset, entity, field, or relationship IDs declared by the author.
 
-## Cross-workspace compatibility fixture
+## Cross-workspace compatibility example
 
-`fixtures/crdt-base-control-plane.logical-erd.v1.json` is a schema-valid,
-provenance-bearing control-plane fixture shared with the CRDT ERD bridge tests.
+`examples/crdt-base-control-plane/logical-erd.v1.json` is a schema-valid,
+provenance-bearing control-plane example shared with the CRDT ERD bridge tests.
 It fixes the wire-level expectations only: an import consumer must still create
 reviewable commands against its own current revision and must not treat this
-fixture as a DPM policy, physical catalog snapshot, or database migration.
+example as a DPM policy, physical catalog snapshot, or database migration.
