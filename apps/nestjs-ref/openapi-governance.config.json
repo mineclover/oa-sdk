@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "oa-gen.openapi-governance.v1",
+  "schemaVersion": "oa-gen.openapi-governance.v2",
   "service": "nestjs-ref",
   "profile": "nestjs-swagger",
   "source": {
@@ -22,5 +22,21 @@
     "inventory": "artifacts.upgraded",
     "validate": "artifacts.upgraded",
     "driftManaged": "artifacts.normalized"
+  },
+  "tooling": {
+    "oaGenCommand": "node ../../packages/codegen/dist/cli/index.js",
+    "installation": "path-command",
+    "setupCommand": "pnpm --filter @oa-sdk/codegen build"
+  },
+  "automation": {
+    "artifactDirectory": ".oa-sdk/governance",
+    "reviewBundle": ".oa-sdk/governance/review-bundle.md",
+    "typegen": {
+      "policy": "verify-only"
+    },
+    "baseline": {
+      "source": "artifacts.normalized",
+      "promotion": "reviewed-commit"
+    }
   }
 }

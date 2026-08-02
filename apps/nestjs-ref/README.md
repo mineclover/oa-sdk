@@ -10,8 +10,8 @@ NestJS Swagger → oa-sdk governance 레퍼런스 구현. 외부 OpenAPI 산출�
 - `src/` — NestJS 10 + Swagger 7 앱(users, health 컨트롤러).
 - `scripts/export-openapi.ts` — `SwaggerModule.createDocument()`로 `contracts/openapi.raw.{yaml,json}` 출력.
 - `scripts/openapi-governance.sh` — `oa-gen scaffold-governance`가 생성한 표준 진입점.
-- `openapi-governance.config.json` — artifact interface와 consumer 매핑(`oa-gen.openapi-governance.v1`).
-- `openapi-governance.md` — 서비스별 governance 설정 문서.
+- `openapi-governance.config.json` — artifact interface, consumer 매핑, 독립 CLI/CI baseline 정책(`oa-gen.openapi-governance.v2`).
+- `openapi-governance.md` — 서비스별 governance 설정 문서. 실제 PR gate는 repository-root `.github/workflows/ci.yml`의 `governance-references` job이 소유한다(하위 앱 디렉터리의 workflow는 GitHub Actions가 실행하지 않음).
 - `contracts/v1.openapi.yaml` — 커밋된 baseline. 나머지 `contracts/openapi.{raw,normalized,upgraded}.{yaml,json}`과 `src/generated/`는 gitignore.
 
 ## 사용
@@ -28,6 +28,7 @@ bash scripts/openapi-governance.sh inventory
 bash scripts/openapi-governance.sh drift                                                  # localhost:3000 OpenAPI와 비교
 bash scripts/openapi-governance.sh drift --runtime-header "Authorization: Bearer $TOKEN"  # 인증된 runtime URL
 bash scripts/openapi-governance.sh update-baseline                                        # 의도된 변경 후 baseline 갱신
+bash scripts/openapi-governance.sh ci                                                     # review evidence artifact + strict validation
 ```
 
 `drift` 케이스는 추가 인자를 그대로 `oa-gen drift`에 전달하므로 `--runtime-header`, `--behavior-log`, `--format json` 등을 자유롭게 붙일 수 있다.
@@ -41,10 +42,12 @@ bash scripts/openapi-governance.sh update-baseline                              
 | `pnpm governance:check` | `... check` (baseline freshness 단독) |
 | `pnpm governance:review` | `... review` |
 | `pnpm governance:review-bundle` | `... review-bundle` |
+| `pnpm governance:ci` | CI target (review bundle + validation + typegen) |
 | `pnpm governance:inventory` | `... inventory` |
 | `pnpm governance:validate-upgraded` | `... validate-upgraded` |
 | `pnpm governance:drift` | `... drift`(추가 인자 forwarding은 셸 직접 호출 사용) |
 | `pnpm governance:update-baseline` | `... update-baseline` |
+| `bash scripts/openapi-governance.sh ci` | review bundle을 `.oa-sdk/governance`에 남기는 CI target |
 
 설치된 `oa-gen`을 쓰려면 `OA_GEN=oa-gen bash scripts/openapi-governance.sh all`. 첫 실행 시 baseline이 없으면 `update-baseline`을 가리키는 안내가 출력된다. 스크립트 헤더의 `# config fingerprint: <hash>` 라인이 현재 `openapi-governance.config.json`과 어긋나면 `--force` 재스캐폴드 신호다.
 
@@ -59,5 +62,8 @@ node packages/codegen/dist/cli/index.js scaffold-governance \
   --profile nestjs-swagger \
   --source-command "pnpm export:openapi" \
   --runtime-openapi-url "http://localhost:3000/openapi.json" \
+  --oa-gen-command "node ../../packages/codegen/dist/cli/index.js" \
+  --oa-gen-setup-command "pnpm --filter @oa-sdk/codegen build" \
+  --typegen-policy verify-only \
   --force
 ```

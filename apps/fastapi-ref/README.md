@@ -11,8 +11,8 @@ FastAPI → oa-sdk governance 레퍼런스 구현. 외부 OpenAPI 산출물을 o
 - `src/` — FastAPI 0.115 + Pydantic 2 앱(users, health 라우트).
 - `scripts/export_openapi.py` — `app.openapi()`로 `contracts/openapi.raw.{yaml,json}` 출력.
 - `scripts/openapi-governance.sh` — `oa-gen scaffold-governance --profile fastapi`가 생성한 표준 진입점.
-- `openapi-governance.config.json` — artifact interface와 consumer 매핑(`oa-gen.openapi-governance.v1`).
-- `openapi-governance.md` — 서비스별 governance 설정 문서.
+- `openapi-governance.config.json` — artifact interface, consumer 매핑, 독립 CLI/CI baseline 정책(`oa-gen.openapi-governance.v2`).
+- `openapi-governance.md` — 서비스별 governance 설정 문서. 실제 PR gate는 repository-root `.github/workflows/ci.yml`의 `governance-references` job이 소유한다(하위 앱 디렉터리의 workflow는 GitHub Actions가 실행하지 않음).
 - `contracts/v1.openapi.yaml` — 커밋된 baseline. 나머지 `contracts/openapi.{raw,normalized,upgraded}.{yaml,json}`과 `src/generated/`는 gitignore.
 
 ## 사용
@@ -30,6 +30,7 @@ bash scripts/openapi-governance.sh inventory
 bash scripts/openapi-governance.sh drift                                                  # localhost:8000 OpenAPI와 비교
 bash scripts/openapi-governance.sh drift --runtime-header "Authorization: Bearer $TOKEN"  # 인증된 runtime URL
 bash scripts/openapi-governance.sh update-baseline                                        # 의도된 변경 후 baseline 갱신
+bash scripts/openapi-governance.sh ci                                                     # review evidence artifact + strict validation
 ```
 
 `drift` 케이스는 추가 인자를 그대로 `oa-gen drift`에 전달한다. 첫 실행 시 baseline이 없으면 `update-baseline`을 가리키는 안내가 출력된다. 스크립트 헤더의 `# config fingerprint: <hash>` 라인이 현재 `openapi-governance.config.json`과 어긋나면 `--force` 재스캐폴드 신호다.
@@ -45,6 +46,9 @@ node packages/codegen/dist/cli/index.js scaffold-governance \
   --profile fastapi \
   --source-command "uv run python scripts/export_openapi.py" \
   --runtime-openapi-url "http://localhost:8000/openapi.json" \
+  --oa-gen-command "node ../../packages/codegen/dist/cli/index.js" \
+  --oa-gen-setup-command "pnpm --filter @oa-sdk/codegen build" \
+  --typegen-policy verify-only \
   --force
 ```
 

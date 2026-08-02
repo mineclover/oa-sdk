@@ -118,6 +118,9 @@ jobs:
       - name: DPM package surface smoke
         run: pnpm check:dpm-surface
 
+      - name: OA Gen package surface smoke
+        run: pnpm --filter @oa-sdk/codegen run smoke:pack
+
       - name: Workspace scope and release policy
         run: pnpm check:workspace-scope
 
@@ -127,3 +130,60 @@ jobs:
         run: |
           pnpm spec:diff -- --git origin/${{ github.base_ref }} >> "$GITHUB_STEP_SUMMARY"
           pnpm schema:check-contract-version -- --base-ref origin/${{ github.base_ref }} >> "$GITHUB_STEP_SUMMARY"
+
+  governance-references:
+    name: OpenAPI governance reference gates
+    needs: ci
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: false
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.30.3
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 25
+          cache: pnpm
+
+      - uses: astral-sh/setup-uv@v6
+
+      - name: Install workspace dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build OA Gen CLI
+        run: pnpm --filter @oa-sdk/codegen build
+
+      - name: Run NestJS reference governance
+        working-directory: apps/nestjs-ref
+        env:
+          OA_GEN: node ../../packages/codegen/dist/cli/index.js
+        run: bash scripts/openapi-governance.sh ci
+
+      - name: Run FastAPI reference governance
+        working-directory: apps/fastapi-ref
+        env:
+          OA_GEN: node ../../packages/codegen/dist/cli/index.js
+        run: |
+          uv sync
+          bash scripts/openapi-governance.sh ci
+
+      - name: Upload NestJS governance evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nestjs-ref-openapi-governance
+          path: apps/nestjs-ref/.oa-sdk/governance
+          if-no-files-found: warn
+
+      - name: Upload FastAPI governance evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fastapi-ref-openapi-governance
+          path: apps/fastapi-ref/.oa-sdk/governance
+          if-no-files-found: warn

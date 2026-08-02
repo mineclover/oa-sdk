@@ -13,6 +13,7 @@
     "governance:check": "bash scripts/openapi-governance.sh check",
     "governance:review": "bash scripts/openapi-governance.sh review",
     "governance:review-bundle": "bash scripts/openapi-governance.sh review-bundle",
+    "governance:ci": "bash scripts/openapi-governance.sh ci",
     "governance:inventory": "bash scripts/openapi-governance.sh inventory",
     "governance:validate-upgraded": "bash scripts/openapi-governance.sh validate-upgraded",
     "governance:drift": "bash scripts/openapi-governance.sh drift",
