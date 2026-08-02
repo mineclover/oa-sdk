@@ -14,6 +14,7 @@ import { formatOpenApiDiff } from '../cli/lib/openapi-normalized-diff.js'
 import {
   createAcceptedTypeSpecDriftReport,
   loadAcceptedTypeSpecDriftEntries,
+  projectOpenApiDocumentToSurface,
 } from './helpers/typespec-accepted-drift.js'
 
 const pkgDir = resolve(__dirname, '../..')
@@ -57,7 +58,8 @@ describe('definition builder replacement dry-run', () => {
     expect(resolve(outputPath)).not.toBe(resolve(currentMergedPath))
     expect(hash(after)).toBe(hash(before))
     expect(after).toBe(before)
-    const drift = createAcceptedTypeSpecDriftReport(result.document, currentMerged)
+    const paritySurface = projectOpenApiDocumentToSurface(currentMerged, result.document)
+    const drift = createAcceptedTypeSpecDriftReport(result.document, paritySurface)
     expect(drift.entries, formatOpenApiDiff(drift.diff)).toEqual(loadAcceptedTypeSpecDriftEntries(acceptedTypeSpecDriftPath))
     expect(validateOpenApiProjection(result.projection)).toEqual({ valid: true, diagnostics: [] })
 

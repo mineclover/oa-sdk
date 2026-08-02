@@ -14,6 +14,7 @@ import { diffOpenApiDocuments, formatOpenApiDiff } from '../cli/lib/openapi-norm
 import {
   createAcceptedTypeSpecDriftReport,
   loadAcceptedTypeSpecDriftEntries,
+  projectOpenApiDocumentToSurface,
 } from './helpers/typespec-accepted-drift.js'
 import { validateDocument } from '@oa-sdk/parser'
 
@@ -304,9 +305,13 @@ describe('authored TypeSpec compatibility bundle', () => {
   it('keeps the canonical authored fixture within the accepted TypeSpec production drift', () => {
     const { document: productionDocument } = loadSpecWithPath(join(rootDir, 'packages/schemas/src/.merged.yaml'))
     const { document: fixtureDocument } = loadSpecWithPath(join(canonicalFixtureDir, 'expected.openapi.yaml'))
+    const fixtureSurface = projectOpenApiDocumentToSurface(
+      productionDocument as Record<string, unknown>,
+      fixtureDocument as Record<string, unknown>,
+    )
     const drift = createAcceptedTypeSpecDriftReport(
       fixtureDocument as Record<string, unknown>,
-      productionDocument as Record<string, unknown>,
+      fixtureSurface,
     )
 
     expect(drift.entries, formatOpenApiDiff(drift.diff)).toEqual(

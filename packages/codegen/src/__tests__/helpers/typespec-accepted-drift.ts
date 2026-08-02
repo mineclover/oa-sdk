@@ -42,6 +42,37 @@ export function createAcceptedTypeSpecDriftReport(
   }
 }
 
+/**
+ * Compare a document against a compatibility fixture's owned surface without
+ * treating newer production-only paths or components as fixture drift.
+ */
+export function projectOpenApiDocumentToSurface(
+  document: Record<string, unknown>,
+  surface: Record<string, unknown>,
+): Record<string, unknown> {
+  const projected = structuredClone(surface)
+  const documentPaths = isRecord(document.paths) ? document.paths : {}
+  const surfacePaths = isRecord(surface.paths) ? surface.paths : {}
+  projected.paths = Object.fromEntries(
+    Object.keys(surfacePaths).map(path => [path, documentPaths[path] ?? surfacePaths[path]]),
+  )
+
+  if (isRecord(surface.components)) {
+    const documentComponents = isRecord(document.components) ? document.components : {}
+    projected.components = Object.fromEntries(
+      Object.entries(surface.components).map(([section, values]) => {
+        if (!isRecord(values)) return [section, values]
+        const documentValues = isRecord(documentComponents[section]) ? documentComponents[section] : {}
+        return [section, Object.fromEntries(
+          Object.keys(values).map(name => [name, documentValues[name] ?? values[name]]),
+        )]
+      }),
+    )
+  }
+
+  return projected
+}
+
 function hashOpenApiValue(value: unknown, pointer: string): string {
   return createHash('sha256').update(stableOpenApiStringify(value, pointer)).digest('hex')
 }
