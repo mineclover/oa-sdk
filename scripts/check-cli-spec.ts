@@ -9,6 +9,7 @@ import { existsSync, readFileSync } from 'node:fs'
 import { join, relative, resolve } from 'node:path'
 import { commands as oaGenCommands } from '../packages/codegen/src/cli/commands.js'
 import { oaGenGovernanceManifest } from '../packages/codegen/src/cli/spec/oa-gen-governance.js'
+import { OA_SDK_ARTIFACT_COMPATIBILITY_POLICY_V1 } from '../packages/codegen/src/cli/lib/artifact-compatibility-policy.js'
 import type { Command } from '../packages/codegen/src/cli/lib/types.js'
 
 type CliCommandManifest = {
@@ -51,6 +52,7 @@ type CliInputComponent = {
 
 const root = resolve(process.cwd())
 const schemaPath = join(root, 'docs/cli-spec/cli-command.schema.json')
+const artifactCompatibilityPolicyPath = join(root, 'docs/cli-spec/oa-sdk-artifact-compatibility-policy.v1.json')
 const manifestSpecs = [
   {
     label: 'oa-gen',
@@ -102,6 +104,12 @@ function main(): void {
       )
     }
     if (spec.label === 'oa-gen') compareTsCommandImplementation(manifest, oaGenCommands, issues)
+  }
+
+  if (!existsSync(artifactCompatibilityPolicyPath)) {
+    issues.push(`missing artifact compatibility policy: ${relative(root, artifactCompatibilityPolicyPath)}`)
+  } else if (stableJson(readAnyJson(artifactCompatibilityPolicyPath)) !== stableJson(OA_SDK_ARTIFACT_COMPATIBILITY_POLICY_V1)) {
+    issues.push(`${relative(root, artifactCompatibilityPolicyPath)} drifted from OA_SDK_ARTIFACT_COMPATIBILITY_POLICY_V1`)
   }
 
   if (issues.length > 0) {
@@ -176,6 +184,10 @@ function readMirror(filePath: string): CliCommandManifest {
     throw new Error(`missing mirror manifest: ${relative(root, filePath)}`)
   }
   return readJson(filePath)
+}
+
+function readAnyJson(filePath: string): unknown {
+  return JSON.parse(readFileSync(filePath, 'utf8'))
 }
 
 function validateManifest(manifest: CliCommandManifest, issues: string[]): void {

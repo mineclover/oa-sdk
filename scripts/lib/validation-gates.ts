@@ -1,5 +1,5 @@
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
-import { dirname, relative, resolve } from 'node:path'
+import { dirname, join, relative, resolve } from 'node:path'
 
 export type ValidationGateIssue = {
   gate: string
@@ -26,6 +26,18 @@ export type MarkdownLinkGateOptions = {
 export type CliExampleGateOptions = MarkdownLinkGateOptions & {
   executable: string
   commands: readonly DocumentedCliCommand[]
+}
+
+export type CliReferenceGateOptions = {
+  root: string
+  file: string
+  executable: string
+  commands: readonly DocumentedCliCommand[]
+}
+
+export type PackageEntrypointGateOptions = {
+  root: string
+  file: string
 }
 
 const skippedDirectories = new Set([
@@ -133,6 +145,125 @@ export function createCliExampleGate(options: CliExampleGateOptions): Validation
   }
 }
 
+/**
+ * Require one dedicated Markdown command-reference table to list every live
+ * command exactly once. Examples validate invocation syntax; this gate closes
+ * the separate gap where a valid command has no discoverable onboarding entry.
+ */
+export function createCliReferenceGate(options: CliReferenceGateOptions): ValidationGate {
+  return {
+    name: 'cli-reference-coverage',
+    validate() {
+      if (!existsSync(options.file)) {
+        return [{
+          gate: 'cli-reference-coverage',
+          file: relative(options.root, options.file),
+          line: 1,
+          message: 'missing CLI command reference document',
+        }]
+      }
+
+      const issues: ValidationGateIssue[] = []
+      const content = readFileSync(options.file, 'utf8')
+      const known = new Set(options.commands.map(command => command.name))
+      const seen = new Map<string, number>()
+      const pattern = new RegExp(
+        '^\\|\\s*`' + escapeRegExp(options.executable) + '\\s+([a-z][a-z-]*)`\\s*\\|',
+        'gm',
+      )
+      for (const match of content.matchAll(pattern)) {
+        const name = match[1]!
+        const line = lineNumber(content, match.index ?? 0)
+        if (!known.has(name)) {
+          issues.push({
+            gate: 'cli-reference-coverage',
+            file: relative(options.root, options.file),
+            line,
+            message: `unknown ${options.executable} command in reference: ${name}`,
+          })
+          continue
+        }
+        if (seen.has(name)) {
+          issues.push({
+            gate: 'cli-reference-coverage',
+            file: relative(options.root, options.file),
+            line,
+            message: `duplicate ${options.executable} command in reference: ${name}`,
+          })
+          continue
+        }
+        seen.set(name, line)
+      }
+      for (const command of options.commands) {
+        if (seen.has(command.name)) continue
+        issues.push({
+          gate: 'cli-reference-coverage',
+          file: relative(options.root, options.file),
+          line: 1,
+          message: `missing ${options.executable} command in reference: ${command.name}`,
+        })
+      }
+      return issues
+    },
+  }
+}
+
+/** Keep the library-entrypoint map complete as workspace packages are added. */
+export function createPackageEntrypointGate(options: PackageEntrypointGateOptions): ValidationGate {
+  return {
+    name: 'package-entrypoint-coverage',
+    validate() {
+      if (!existsSync(options.file)) {
+        return [{
+          gate: 'package-entrypoint-coverage',
+          file: relative(options.root, options.file),
+          line: 1,
+          message: 'missing library entrypoint document',
+        }]
+      }
+
+      const issues: ValidationGateIssue[] = []
+      const content = readFileSync(options.file, 'utf8')
+      const known = readWorkspacePackageNames(options.root)
+      const seen = new Map<string, number>()
+      const pattern = /^\|\s*`(@oa-sdk\/[a-z0-9-]+)`\s*\|/gm
+      for (const match of content.matchAll(pattern)) {
+        const name = match[1]!
+        const line = lineNumber(content, match.index ?? 0)
+        if (!known.has(name)) {
+          issues.push({
+            gate: 'package-entrypoint-coverage',
+            file: relative(options.root, options.file),
+            line,
+            message: `unknown workspace package in entrypoint map: ${name}`,
+          })
+          continue
+        }
+        if (seen.has(name)) {
+          issues.push({
+            gate: 'package-entrypoint-coverage',
+            file: relative(options.root, options.file),
+            line,
+            message: `duplicate workspace package in entrypoint map: ${name}`,
+          })
+          continue
+        }
+        seen.set(name, line)
+      }
+      for (const name of known) {
+        if (seen.has(name)) continue
+        issues.push({
+          gate: 'package-entrypoint-coverage',
+          file: relative(options.root, options.file),
+          line: 1,
+          message: `missing workspace package in entrypoint map: ${name}`,
+        })
+      }
+      return issues
+    },
+  }
+}
+
 function readFencedShellCommands(
   content: string,
   executable: string,
@@ -200,6 +331,24 @@ function optionName(token: string): { kind: 'long' | 'short'; value: string } | 
   }
   if (/^-[A-Za-z]$/.test(token)) return { kind: 'short', value: token.slice(1) }
   return undefined
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+function readWorkspacePackageNames(root: string): Set<string> {
+  const packagesDirectory = join(root, 'packages')
+  return new Set(
+    readdirSync(packagesDirectory)
+      .map(directory => join(packagesDirectory, directory, 'package.json'))
+      .filter(existsSync)
+      .map(packageJsonPath => {
+        const parsed = JSON.parse(readFileSync(packageJsonPath, 'utf8')) as { name?: unknown }
+        return parsed.name
+      })
+      .filter((name): name is string => typeof name === 'string' && name.length > 0),
+  )
 }
 
 function issue(root: string, file: string, line: number, message: string): ValidationGateIssue {

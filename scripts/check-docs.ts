@@ -10,7 +10,9 @@ import { resolve } from 'node:path'
 import { commands } from '../packages/codegen/src/cli/commands.js'
 import {
   createCliExampleGate,
+  createCliReferenceGate,
   createMarkdownLocalLinkGate,
+  createPackageEntrypointGate,
   listMarkdownFiles,
   runValidationGates,
 } from './lib/validation-gates.js'
@@ -20,6 +22,16 @@ const files = listMarkdownFiles(root)
 const issues = runValidationGates([
   createMarkdownLocalLinkGate({ root, files }),
   createCliExampleGate({ root, files, executable: 'oa-gen', commands }),
+  createCliReferenceGate({
+    root,
+    file: resolve(root, 'docs/guides/cli-command-reference.md'),
+    executable: 'oa-gen',
+    commands,
+  }),
+  createPackageEntrypointGate({
+    root,
+    file: resolve(root, 'docs/guides/library-entrypoints.md'),
+  }),
 ])
 
 if (issues.length > 0) {
@@ -29,5 +41,7 @@ if (issues.length > 0) {
   }
   process.exitCode = 1
 } else {
-  console.log(`Documentation OK: ${files.length} Markdown files, local links and oa-gen examples checked.`)
+  console.log(
+    `Documentation OK: ${files.length} Markdown files, local links, oa-gen examples, and command/package entrypoint coverage checked.`,
+  )
 }
