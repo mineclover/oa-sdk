@@ -1,0 +1,128 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://oa-sdk.dev/schema/logical-erd/oa-sdk.logical-erd.v1.schema.json",
+  "title": "OA SDK logical ERD artifact v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["kind", "artifactId", "source", "datasets", "entities", "relationships", "provenance"],
+  "properties": {
+    "kind": { "const": "oa-sdk.logical-erd.v1" },
+    "artifactId": { "type": "string", "pattern": "^logical-erd:[^@]+@sha256:[a-f0-9]{64}$" },
+    "source": { "$ref": "#/$defs/source" },
+    "datasets": { "type": "array", "items": { "$ref": "#/$defs/dataset" } },
+    "entities": { "type": "array", "items": { "$ref": "#/$defs/entity" } },
+    "relationships": { "type": "array", "items": { "$ref": "#/$defs/relationship" } },
+    "provenance": { "type": "array", "items": { "$ref": "#/$defs/provenance" } }
+  },
+  "$defs": {
+    "nonEmptyString": { "type": "string", "minLength": 1 },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["files"],
+      "properties": {
+        "package": { "$ref": "#/$defs/nonEmptyString" },
+        "files": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["path"],
+            "properties": {
+              "path": { "$ref": "#/$defs/nonEmptyString" },
+              "hash": { "$ref": "#/$defs/nonEmptyString" }
+            }
+          }
+        }
+      }
+    },
+    "dataset": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "locator"],
+      "properties": {
+        "id": { "$ref": "#/$defs/nonEmptyString" },
+        "locator": { "$ref": "#/$defs/nonEmptyString" }
+      }
+    },
+    "entity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "datasetId", "locator", "fields"],
+      "properties": {
+        "id": { "$ref": "#/$defs/nonEmptyString" },
+        "datasetId": { "$ref": "#/$defs/nonEmptyString" },
+        "locator": { "$ref": "#/$defs/nonEmptyString" },
+        "fields": { "type": "array", "items": { "$ref": "#/$defs/field" } }
+      }
+    },
+    "field": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "type", "required", "primaryKey", "unique"],
+      "properties": {
+        "id": { "$ref": "#/$defs/nonEmptyString" },
+        "name": { "$ref": "#/$defs/nonEmptyString" },
+        "type": { "$ref": "#/$defs/nonEmptyString" },
+        "required": { "type": "boolean" },
+        "primaryKey": { "type": "boolean" },
+        "primaryKeyPart": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["groupId", "order"],
+          "properties": {
+            "groupId": { "$ref": "#/$defs/nonEmptyString" },
+            "order": { "type": "integer", "minimum": 1 }
+          }
+        },
+        "unique": { "type": "boolean" },
+        "foreignKey": { "$ref": "#/$defs/endpoint" }
+      }
+    },
+    "endpoint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["entityId", "fieldId"],
+      "properties": {
+        "entityId": { "$ref": "#/$defs/nonEmptyString" },
+        "fieldId": { "$ref": "#/$defs/nonEmptyString" }
+      }
+    },
+    "relationship": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "from", "to", "cardinality"],
+      "properties": {
+        "id": { "$ref": "#/$defs/nonEmptyString" },
+        "from": { "$ref": "#/$defs/endpoint" },
+        "to": { "$ref": "#/$defs/endpoint" },
+        "cardinality": { "enum": ["one-to-one", "one-to-many", "many-to-one"] }
+      }
+    },
+    "span": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["file", "line", "column", "endLine", "endColumn"],
+      "properties": {
+        "file": { "$ref": "#/$defs/nonEmptyString" },
+        "line": { "type": "integer", "minimum": 1 },
+        "column": { "type": "integer", "minimum": 1 },
+        "endLine": { "type": "integer", "minimum": 1 },
+        "endColumn": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["subject", "span"],
+      "properties": {
+        "subject": {
+          "type": "string",
+          "pattern": "^(dataset|entity|field|relationship):.+$"
+        },
+        "span": { "$ref": "#/$defs/span" },
+        "decoratorSpan": { "$ref": "#/$defs/span" }
+      }
+    }
+  }
+}

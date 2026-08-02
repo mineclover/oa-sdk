@@ -1,0 +1,115 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://oa-sdk.dev/schema/logical-erd/oa-sdk.logical-erd-review.v1.schema.json",
+  "title": "OA SDK logical ERD review evidence v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["kind", "purpose", "artifactId", "subjects", "summary"],
+  "properties": {
+    "kind": { "const": "oa-sdk.logical-erd-review.v1" },
+    "purpose": { "const": "review-evidence-only" },
+    "artifactId": { "type": "string", "pattern": "^logical-erd:[^@]+@sha256:[a-f0-9]{64}$" },
+    "subjects": { "type": "array", "items": { "$ref": "#/$defs/subject" } },
+    "summary": { "$ref": "#/$defs/summary" },
+    "diff": { "$ref": "#/$defs/diff" }
+  },
+  "$defs": {
+    "nonEmptyString": { "type": "string", "minLength": 1 },
+    "span": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["file", "line", "column", "endLine", "endColumn"],
+      "properties": {
+        "file": { "$ref": "#/$defs/nonEmptyString" },
+        "line": { "type": "integer", "minimum": 1 },
+        "column": { "type": "integer", "minimum": 1 },
+        "endLine": { "type": "integer", "minimum": 1 },
+        "endColumn": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["subject", "span"],
+      "properties": {
+        "subject": { "type": "string", "pattern": "^(dataset|entity|field|relationship):.+$" },
+        "span": { "$ref": "#/$defs/span" },
+        "decoratorSpan": { "$ref": "#/$defs/span" }
+      }
+    },
+    "catalogEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "reason"],
+      "properties": {
+        "status": { "enum": ["confirmed", "mismatch", "unbound", "unknown"] },
+        "reason": { "$ref": "#/$defs/nonEmptyString" }
+      }
+    },
+    "subject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["subject", "provenance"],
+      "properties": {
+        "subject": { "type": "string", "pattern": "^(dataset|entity|field|relationship):.+$" },
+        "provenance": { "type": "array", "items": { "$ref": "#/$defs/provenance" } },
+        "catalogEvidence": { "$ref": "#/$defs/catalogEvidence" }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["subjects", "provenanceCovered", "provenanceCoverageRatio", "catalogEvidence"],
+      "properties": {
+        "subjects": { "type": "integer", "minimum": 0 },
+        "provenanceCovered": { "type": "integer", "minimum": 0 },
+        "provenanceCoverageRatio": { "type": "number", "minimum": 0, "maximum": 1 },
+        "catalogEvidence": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["confirmed", "mismatch", "unbound", "unknown"],
+          "properties": {
+            "confirmed": { "type": "integer", "minimum": 0 },
+            "mismatch": { "type": "integer", "minimum": 0 },
+            "unbound": { "type": "integer", "minimum": 0 },
+            "unknown": { "type": "integer", "minimum": 0 }
+          }
+        }
+      }
+    },
+    "change": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["subject", "id", "kind", "severity", "details"],
+      "properties": {
+        "subject": { "enum": ["dataset", "entity", "field", "relationship"] },
+        "id": { "$ref": "#/$defs/nonEmptyString" },
+        "kind": { "enum": ["added", "removed", "changed", "renamed"] },
+        "severity": { "enum": ["additive", "non-breaking", "potentially-breaking", "breaking"] },
+        "details": { "$ref": "#/$defs/nonEmptyString" }
+      }
+    },
+    "diff": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "baseArtifactId", "nextArtifactId", "changes", "summary"],
+      "properties": {
+        "kind": { "const": "oa-sdk.logical-erd-diff.v1" },
+        "baseArtifactId": { "type": "string" },
+        "nextArtifactId": { "type": "string" },
+        "changes": { "type": "array", "items": { "$ref": "#/$defs/change" } },
+        "summary": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["additive", "non-breaking", "potentially-breaking", "breaking"],
+          "properties": {
+            "additive": { "type": "integer", "minimum": 0 },
+            "non-breaking": { "type": "integer", "minimum": 0 },
+            "potentially-breaking": { "type": "integer", "minimum": 0 },
+            "breaking": { "type": "integer", "minimum": 0 }
+          }
+        }
+      }
+    }
+  }
+}

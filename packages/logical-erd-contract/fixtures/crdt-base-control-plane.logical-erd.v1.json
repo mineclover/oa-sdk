@@ -1,0 +1,95 @@
+{
+  "kind": "oa-sdk.logical-erd.v1",
+  "artifactId": "logical-erd:suggestions@sha256:29b7352ec793a98e7fcf95bf41532fceaa68569ddc7f1c8dc05f5c77d9d74f1b",
+  "source": {
+    "package": "@crdt-base/erd-oa-sdk-bridge-fixture",
+    "files": [
+      {
+        "hash": "sha256:control-plane-fixture-v1",
+        "path": "control-plane.tsp"
+      }
+    ]
+  },
+  "datasets": [
+    {
+      "id": "suggestions",
+      "locator": "Suggestions"
+    }
+  ],
+  "entities": [
+    {
+      "id": "suggestions.room",
+      "datasetId": "suggestions",
+      "locator": "Suggestions.Room",
+      "fields": [
+        {
+          "id": "suggestions.room.id",
+          "name": "id",
+          "type": "string",
+          "required": true,
+          "primaryKey": true,
+          "unique": true
+        },
+        {
+          "id": "suggestions.room.slug",
+          "name": "slug",
+          "type": "string",
+          "required": true,
+          "primaryKey": false,
+          "unique": true
+        },
+        {
+          "id": "suggestions.room.tenant-id",
+          "name": "tenantId",
+          "type": "string",
+          "required": true,
+          "primaryKey": false,
+          "unique": false,
+          "foreignKey": {
+            "entityId": "suggestions.tenant",
+            "fieldId": "suggestions.tenant.id"
+          }
+        }
+      ]
+    },
+    {
+      "id": "suggestions.tenant",
+      "datasetId": "suggestions",
+      "locator": "Suggestions.Tenant",
+      "fields": [
+        {
+          "id": "suggestions.tenant.id",
+          "name": "id",
+          "type": "string",
+          "required": true,
+          "primaryKey": true,
+          "unique": true
+        }
+      ]
+    }
+  ],
+  "relationships": [
+    {
+      "id": "suggestions.room-tenant",
+      "from": {
+        "entityId": "suggestions.room",
+        "fieldId": "suggestions.room.tenant-id"
+      },
+      "to": {
+        "entityId": "suggestions.tenant",
+        "fieldId": "suggestions.tenant.id"
+      },
+      "cardinality": "many-to-one"
+    }
+  ],
+  "provenance": [
+    { "subject": "dataset:suggestions", "span": { "file": "control-plane.tsp", "line": 4, "column": 1, "endLine": 4, "endColumn": 25 } },
+    { "subject": "entity:suggestions.room", "span": { "file": "control-plane.tsp", "line": 12, "column": 1, "endLine": 22, "endColumn": 1 } },
+    { "subject": "entity:suggestions.tenant", "span": { "file": "control-plane.tsp", "line": 6, "column": 1, "endLine": 10, "endColumn": 1 } },
+    { "subject": "field:suggestions.room.id", "span": { "file": "control-plane.tsp", "line": 14, "column": 3, "endLine": 15, "endColumn": 14 } },
+    { "subject": "field:suggestions.room.slug", "span": { "file": "control-plane.tsp", "line": 21, "column": 3, "endLine": 22, "endColumn": 16 } },
+    { "subject": "field:suggestions.room.tenant-id", "span": { "file": "control-plane.tsp", "line": 17, "column": 3, "endLine": 19, "endColumn": 20 } },
+    { "subject": "field:suggestions.tenant.id", "span": { "file": "control-plane.tsp", "line": 8, "column": 3, "endLine": 9, "endColumn": 14 } },
+    { "subject": "relationship:suggestions.room-tenant", "span": { "file": "control-plane.tsp", "line": 25, "column": 1, "endLine": 25, "endColumn": 98 } }
+  ]
+}
