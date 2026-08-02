@@ -2,26 +2,131 @@ openapi: 3.2.0
 info:
   title: OA SDK API
   description: OpenAPI 3.2 기반 API 관리 인프라
-  version: 0.1.0
+  version: 0.2.0
   license:
     name: MIT
     identifier: MIT
-servers:
-  - url: http://localhost:4010
-    description: Mock server (@oa-sdk/mock-server)
-  - url: http://localhost:3000
-    description: Local dev server
+tags:
+  - name: world-model
+    description: World Model Kernel — World bootstrap, stimulus ingress, revision-pinned projection query
+  - name: me
+    description: 셀프 서비스 — 현재 인증된 사용자 자기 자원
+  - name: auth
+    description: 인증 — 토큰 발급/갱신/폐기
+  - name: users
+    description: 사용자 관리
+  - name: health
+    description: 서버 상태 확인
 paths:
+  /admin/users/export:
+    post:
+      operationId: requestUsersExport
+      summary: 사용자 PII bulk export 작업 요청
+      description: |
+        data-eng ETL surface. 사용자 PII bulk export를 비동기 job으로 등록하고
+        ExportJob을 반환합니다. non-admin perspective로 소비되는 export는
+        pseudonymization이 필수이며 기본값도 pseudonymize=true입니다. 호출은 audited.
+      responses:
+        "202":
+          description: bulk export job 등록 완료
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExportJob"
+              examples:
+                default:
+                  dataValue:
+                    jobId: 00000000-0000-0000-0000-000000000201
+                    status: queued
+                    requestedAt: 2026-05-04T00:00:00.000Z
+                  serializedValue: '{"jobId":"00000000-0000-0000-0000-000000000201","status":"queued","requestedAt":"2026-05-04T00:00:00.000Z"}'
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+      tags:
+        - users
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminUsersExportRequest"
+            examples:
+              default:
+                dataValue:
+                  format: json
+                  pseudonymize: true
+                serializedValue: '{"format":"json","pseudonymize":true}'
+      security:
+        - bearerAuth: []
+  /admin/users/{id}/purge:
+    post:
+      operationId: purgeUser
+      summary: 사용자 영구 삭제
+      description: |
+        site-admin authority only. deleteUser와 달리 30일 soft-delete window를
+        우회하는 hard purge입니다. legal hold override 여부와 사유를 감사 로그에
+        남기며 호출은 audited.
+      responses:
+        "204":
+          description: 영구 삭제 완료 (본문 없음)
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+      tags:
+        - users
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PurgeUserRequest"
+            examples:
+              default:
+                dataValue:
+                  reason: confirmed policy violation
+                  legalHoldOverride: false
+                serializedValue: '{"reason":"confirmed policy violation","legalHoldOverride":false}'
+      security:
+        - bearerAuth: []
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: 영구 삭제 대상 사용자 UUID
+        schema:
+          type: string
+          format: uuid
+        examples:
+          default:
+            dataValue: 00000000-0000-0000-0000-000000000001
+            serializedValue: 00000000-0000-0000-0000-000000000001
   /auth/forgot-password:
     post:
-      tags:
-        - auth
       operationId: forgotPassword
       summary: 비밀번호 재설정 토큰 발송 (공개)
       description: |
         이메일로 reset 토큰 링크를 발송합니다. 이메일이 시스템에 없어도 동일한 204를
         반환 (enumeration 방지). 인증 불필요.
-      security: []
+      responses:
+        "204":
+          description: 토큰 발송 처리 완료 (본문 없음)
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+      tags:
+        - auth
       requestBody:
         required: true
         content:
@@ -33,35 +138,12 @@ paths:
                 dataValue:
                   email: alice@example.com
                 serializedValue: '{"email":"alice@example.com"}'
-      responses:
-        "204":
-          description: 토큰 발송 처리 완료 (본문 없음)
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "422":
-          $ref: "#/components/responses/UnprocessableEntity"
-        "429":
-          $ref: "#/components/responses/TooManyRequests"
+      security: []
   /auth/login:
     post:
-      tags:
-        - auth
       operationId: login
       summary: 로그인 (공개)
       description: 이메일과 비밀번호를 검증하고 access/refresh 토큰 페어를 발급합니다. 인증 불필요.
-      security: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/LoginRequest"
-            examples:
-              default:
-                dataValue:
-                  email: alice@example.com
-                  password: secure1234
-                serializedValue: '{"email":"alice@example.com","password":"secure1234"}'
       responses:
         "200":
           description: 로그인 성공
@@ -91,39 +173,40 @@ paths:
           $ref: "#/components/responses/UnprocessableEntity"
         "429":
           $ref: "#/components/responses/TooManyRequests"
-  /auth/logout:
-    post:
       tags:
         - auth
-      operationId: logout
-      summary: 로그아웃
-      description: 현재 access 토큰과 연결된 세션을 종료합니다. 응답 본문 없음.
-      security:
-        - bearerAuth: []
-      responses:
-        "204":
-          description: 로그아웃 완료 (본문 없음)
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-  /auth/refresh:
-    post:
-      tags:
-        - auth
-      operationId: refreshToken
-      summary: 토큰 갱신 (공개)
-      description: 유효한 refresh 토큰으로 새 access 토큰 페어를 발급합니다. access 토큰 인증 불필요.
-      security: []
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/RefreshRequest"
+              $ref: "#/components/schemas/LoginRequest"
             examples:
               default:
                 dataValue:
-                  refreshToken: rt_login_0001
-                serializedValue: '{"refreshToken":"rt_login_0001"}'
+                  email: alice@example.com
+                  password: secure1234
+                serializedValue: '{"email":"alice@example.com","password":"secure1234"}'
+      security: []
+  /auth/logout:
+    post:
+      operationId: logout
+      summary: 로그아웃
+      description: 현재 access 토큰과 연결된 세션을 종료합니다. 응답 본문 없음.
+      responses:
+        "204":
+          description: 로그아웃 완료 (본문 없음)
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+      tags:
+        - auth
+      security:
+        - bearerAuth: []
+  /auth/refresh:
+    post:
+      operationId: refreshToken
+      summary: 토큰 갱신 (공개)
+      description: 유효한 refresh 토큰으로 새 access 토큰 페어를 발급합니다. access 토큰 인증 불필요.
       responses:
         "200":
           description: 갱신된 토큰 페어
@@ -142,27 +225,25 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "422":
           $ref: "#/components/responses/UnprocessableEntity"
-  /auth/register:
-    post:
       tags:
         - auth
-      operationId: register
-      summary: 회원가입 (공개)
-      description: 이메일·이름·비밀번호로 신규 사용자 계정을 만들고 토큰 페어를 반환합니다. 인증 불필요.
-      security: []
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/RegisterRequest"
+              $ref: "#/components/schemas/RefreshRequest"
             examples:
               default:
                 dataValue:
-                  email: greg@example.com
-                  name: Greg
-                  password: secure1234
-                serializedValue: '{"email":"greg@example.com","name":"Greg","password":"secure1234"}'
+                  refreshToken: rt_login_0001
+                serializedValue: '{"refreshToken":"rt_login_0001"}'
+      security: []
+  /auth/register:
+    post:
+      operationId: register
+      summary: 회원가입 (공개)
+      description: 이메일·이름·비밀번호로 신규 사용자 계정을 만들고 토큰 페어를 반환합니다. 인증 불필요.
       responses:
         "201":
           description: 회원가입 + 토큰 발급
@@ -192,14 +273,38 @@ paths:
           $ref: "#/components/responses/UnprocessableEntity"
         "429":
           $ref: "#/components/responses/TooManyRequests"
-  /auth/reset-password:
-    post:
       tags:
         - auth
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterRequest"
+            examples:
+              default:
+                dataValue:
+                  email: greg@example.com
+                  name: Greg
+                  password: secure1234
+                serializedValue: '{"email":"greg@example.com","name":"Greg","password":"secure1234"}'
+      security: []
+  /auth/reset-password:
+    post:
       operationId: resetPassword
       summary: 비밀번호 재설정 (공개)
       description: forgot-password로 발급받은 reset 토큰과 새 비밀번호로 갱신.
-      security: []
+      responses:
+        "204":
+          description: 비밀번호 갱신 완료 (본문 없음)
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+      tags:
+        - auth
       requestBody:
         required: true
         content:
@@ -212,23 +317,12 @@ paths:
                   token: rt_reset_0001
                   newPassword: evenmoresecure5678
                 serializedValue: '{"token":"rt_reset_0001","newPassword":"evenmoresecure5678"}'
-      responses:
-        "204":
-          description: 비밀번호 갱신 완료 (본문 없음)
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "422":
-          $ref: "#/components/responses/UnprocessableEntity"
+      security: []
   /health:
     get:
       operationId: getHealth
       summary: 서버 상태 확인
       description: 서버가 정상 동작 중인지 확인하는 헬스체크 엔드포인트
-      tags:
-        - health
-      security: []
       responses:
         "200":
           description: 서버 정상
@@ -245,6 +339,9 @@ paths:
                   serializedValue: '{"status":"ok","timestamp":"2026-04-04T00:00:00.000Z"}'
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
+      tags:
+        - health
+      security: []
   /health/ready:
     get:
       operationId: getReadiness
@@ -253,9 +350,6 @@ paths:
         Kubernetes readiness probe / 배포 게이트용. 의존 시스템(DB, queue 등)
         검증 결과를 포함. `getHealth`(liveness)와 별개 — liveness는 프로세스
         살아있음만, readiness는 트래픽을 받을 준비가 됐는지 확인.
-      tags:
-        - health
-      security: []
       responses:
         "200":
           description: 트래픽 수용 가능
@@ -278,52 +372,115 @@ paths:
                   serializedValue: '{"status":"ready","timestamp":"2026-05-04T00:00:00.000Z","dependencies":[{"name":"postgres","status":"ok","latencyMs":3},{"name":"redis","status":"ok","latencyMs":1}]}'
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
+      tags:
+        - health
+      security: []
   /health/stream:
     get:
       operationId: streamHealthEvents
       summary: 서버 상태 실시간 스트림
       description: SSE로 서버 상태 변화를 실시간으로 구독
-      tags:
-        - health
-      security: []
       responses:
         "200":
           description: SSE 이벤트 스트림
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
-  /version:
-    get:
-      operationId: getVersion
-      summary: 빌드/배포 정보 조회
-      description: 현재 실행 중인 빌드의 git sha, 빌드 시각, 배포 버전.
       tags:
         - health
       security: []
+  /me:
+    get:
+      operationId: getMe
+      summary: 내 정보 조회
+      description: 현재 access 토큰으로 식별되는 사용자의 정보를 반환합니다.
       responses:
         "200":
-          description: 빌드 정보
+          description: 내 사용자 정보
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/BuildInfo"
+                $ref: "#/components/schemas/User"
               examples:
                 default:
                   dataValue:
-                    version: 0.1.0
-                    gitSha: a0ca91100000000000000000000000000000000
-                    builtAt: 2026-05-04T00:00:00.000Z
-                  serializedValue: '{"version":"0.1.0","gitSha":"a0ca91100000000000000000000000000000000","builtAt":"2026-05-04T00:00:00.000Z"}'
-  /me/change-password:
-    post:
+                    id: 00000000-0000-0000-0000-000000000001
+                    email: alice@example.com
+                    name: Alice
+                    role: user
+                    createdAt: 2024-01-01T00:00:00.000Z
+        "401":
+          $ref: "#/components/responses/Unauthorized"
       tags:
         - me
+      security:
+        - bearerAuth: []
+    delete:
+      operationId: deleteMyAccount
+      summary: 셀프 계정 탈퇴 (soft-delete)
+      description: |
+        본인 계정 비활성화. PIPA/GDPR right-to-erasure 대응. 30일 이내 복구 가능,
+        이후 영구 파기. 응답 본문 없음.
+      responses:
+        "204":
+          description: 탈퇴 처리 완료 (본문 없음)
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+      tags:
+        - me
+      security:
+        - bearerAuth: []
+    patch:
+      operationId: updateMe
+      summary: 내 정보 수정 (부분 업데이트)
+      description: |
+        현재 사용자의 name 등 프로필을 수정합니다. role은 셀프 변경 불가 — admin이
+        /users/{id} 를 통해서만 변경할 수 있습니다.
+      responses:
+        "200":
+          description: 수정된 내 사용자 정보
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+      tags:
+        - me
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateMeRequest"
+            examples:
+              default:
+                dataValue:
+                  name: Alice (self-edit)
+                serializedValue: '{"name":"Alice (self-edit)"}'
+      security:
+        - bearerAuth: []
+  /me/change-password:
+    post:
       operationId: changeMyPassword
       summary: 내 비밀번호 변경
       description: |
         현재 비밀번호 검증 후 새 비밀번호로 교체합니다. 성공 시 기존 refresh 토큰은
         무효화될 수 있으므로 클라이언트는 재로그인 또는 refresh 흐름을 다시 시작해야 합니다.
-      security:
-        - bearerAuth: []
+      responses:
+        "204":
+          description: 비밀번호 변경 완료 (본문 없음)
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+      tags:
+        - me
       requestBody:
         required: true
         content:
@@ -336,37 +493,15 @@ paths:
                   currentPassword: secure1234
                   newPassword: evenmoresecure5678
                 serializedValue: '{"currentPassword":"secure1234","newPassword":"evenmoresecure5678"}'
-      responses:
-        "204":
-          description: 비밀번호 변경 완료 (본문 없음)
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "422":
-          $ref: "#/components/responses/UnprocessableEntity"
+      security:
+        - bearerAuth: []
   /me/export:
     post:
-      tags:
-        - me
       operationId: requestMyDataExport
       summary: 내 데이터 export 작업 요청
       description: |
         GDPR 정보주체 이동권 대응. 비동기 job 생성 후 jobId 반환. 완료 시 별도
         알림 또는 polling으로 다운로드 URL 획득. 동시 진행 1건 제한.
-      security:
-        - bearerAuth: []
-      requestBody:
-        required: false
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/ExportRequest"
-            examples:
-              default:
-                dataValue:
-                  format: json
-                serializedValue: '{"format":"json"}'
       responses:
         "202":
           description: export job 등록 완료
@@ -385,15 +520,26 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "429":
           $ref: "#/components/responses/TooManyRequests"
-  /me/onboarding:
-    get:
       tags:
         - me
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ExportRequest"
+            examples:
+              default:
+                dataValue:
+                  format: json
+                serializedValue: '{"format":"json"}'
+      security:
+        - bearerAuth: []
+  /me/onboarding:
+    get:
       operationId: getOnboardingChecklist
       summary: 온보딩 체크리스트 조회
       description: 첫 로그인 시 표시할 가이드 체크리스트. 진행률은 user state에 따름.
-      security:
-        - bearerAuth: []
       responses:
         "200":
           description: 체크리스트
@@ -415,92 +561,17 @@ paths:
                     초대","completed":false}]}'
         "401":
           $ref: "#/components/responses/Unauthorized"
-  /me:
-    get:
       tags:
         - me
-      operationId: getMe
-      summary: 내 정보 조회
-      description: 현재 access 토큰으로 식별되는 사용자의 정보를 반환합니다.
       security:
         - bearerAuth: []
-      responses:
-        "200":
-          description: 내 사용자 정보
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/User"
-              examples:
-                default:
-                  dataValue:
-                    id: 00000000-0000-0000-0000-000000000001
-                    email: alice@example.com
-                    name: Alice
-                    role: user
-                    createdAt: 2024-01-01T00:00:00.000Z
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-    patch:
-      tags:
-        - me
-      operationId: updateMe
-      summary: 내 정보 수정 (부분 업데이트)
-      description: |
-        현재 사용자의 name 등 프로필을 수정합니다. role은 셀프 변경 불가 — admin이
-        /users/{id} 를 통해서만 변경할 수 있습니다.
-      security:
-        - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/UpdateMeRequest"
-            examples:
-              default:
-                dataValue:
-                  name: Alice (self-edit)
-                serializedValue: '{"name":"Alice (self-edit)"}'
-      responses:
-        "200":
-          description: 수정된 내 사용자 정보
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/User"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "422":
-          $ref: "#/components/responses/UnprocessableEntity"
-    delete:
-      tags:
-        - me
-      operationId: deleteMyAccount
-      summary: 셀프 계정 탈퇴 (soft-delete)
-      description: |
-        본인 계정 비활성화. PIPA/GDPR right-to-erasure 대응. 30일 이내 복구 가능,
-        이후 영구 파기. 응답 본문 없음.
-      security:
-        - bearerAuth: []
-      responses:
-        "204":
-          description: 탈퇴 처리 완료 (본문 없음)
-        "401":
-          $ref: "#/components/responses/Unauthorized"
   /me/role-changes:
     get:
-      tags:
-        - me
       operationId: listMyRoleChanges
       summary: 내 역할 변경 이력 조회
       description: |
         admin이 내 역할을 변경한 이력 일람. target-of-action 페르소나의 surface.
         변경 시점·이전/현재 역할·변경자·사유 포함.
-      security:
-        - bearerAuth: []
       parameters:
         - $ref: "#/components/parameters/Page"
         - $ref: "#/components/parameters/Limit"
@@ -511,9 +582,6 @@ paths:
             application/json:
               schema:
                 type: object
-                required:
-                  - items
-                  - total
                 properties:
                   items:
                     type: array
@@ -522,6 +590,9 @@ paths:
                   total:
                     type: integer
                     minimum: 0
+                required:
+                  - items
+                  - total
                 example:
                   items:
                     - id: 00000000-0000-0000-0000-000000000100
@@ -544,108 +615,17 @@ paths:
                     total: 1
         "401":
           $ref: "#/components/responses/Unauthorized"
-  /admin/users/export:
-    post:
       tags:
-        - users
-      operationId: requestUsersExport
-      summary: 사용자 PII bulk export 작업 요청
-      description: |
-        data-eng ETL surface. 사용자 PII bulk export를 비동기 job으로 등록하고
-        ExportJob을 반환합니다. non-admin perspective로 소비되는 export는
-        pseudonymization이 필수이며 기본값도 pseudonymize=true입니다. 호출은 audited.
+        - me
       security:
         - bearerAuth: []
-      requestBody:
-        required: false
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/AdminUsersExportRequest"
-            examples:
-              default:
-                dataValue:
-                  format: json
-                  pseudonymize: true
-                serializedValue: '{"format":"json","pseudonymize":true}'
-      responses:
-        "202":
-          description: bulk export job 등록 완료
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ExportJob"
-              examples:
-                default:
-                  dataValue:
-                    jobId: 00000000-0000-0000-0000-000000000201
-                    status: queued
-                    requestedAt: 2026-05-04T00:00:00.000Z
-                  serializedValue: '{"jobId":"00000000-0000-0000-0000-000000000201","status":"queued","requestedAt":"2026-05-04T00:00:00.000Z"}'
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "429":
-          $ref: "#/components/responses/TooManyRequests"
-  /admin/users/{id}/purge:
-    parameters:
-      - name: id
-        in: path
-        required: true
-        description: 영구 삭제 대상 사용자 UUID
-        schema:
-          type: string
-          format: uuid
-        examples:
-          default:
-            dataValue: 00000000-0000-0000-0000-000000000001
-            serializedValue: 00000000-0000-0000-0000-000000000001
-    post:
-      tags:
-        - users
-      operationId: purgeUser
-      summary: 사용자 영구 삭제
-      description: |
-        site-admin authority only. deleteUser와 달리 30일 soft-delete window를
-        우회하는 hard purge입니다. legal hold override 여부와 사유를 감사 로그에
-        남기며 호출은 audited.
-      security:
-        - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/PurgeUserRequest"
-            examples:
-              default:
-                dataValue:
-                  reason: confirmed policy violation
-                  legalHoldOverride: false
-                serializedValue: '{"reason":"confirmed policy violation","legalHoldOverride":false}'
-      responses:
-        "204":
-          description: 영구 삭제 완료 (본문 없음)
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "404":
-          $ref: "#/components/responses/NotFound"
   /moderation/reports:
     get:
-      tags:
-        - users
       operationId: listModerationReports
       summary: 신고 큐 조회 (운영자)
       description: |
         운영자(moderator) 전용. 처리 대기/처리 중 신고 일람. status 필터로
         open/under-review/resolved 등 분기.
-      security:
-        - bearerAuth: []
       parameters:
         - $ref: "#/components/parameters/Page"
         - $ref: "#/components/parameters/Limit"
@@ -666,9 +646,6 @@ paths:
             application/json:
               schema:
                 type: object
-                required:
-                  - items
-                  - total
                 properties:
                   items:
                     type: array
@@ -677,6 +654,9 @@ paths:
                   total:
                     type: integer
                     minimum: 0
+                required:
+                  - items
+                  - total
                 example:
                   items:
                     - id: 00000000-0000-0000-0000-000000000300
@@ -701,27 +681,119 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "403":
           $ref: "#/components/responses/Forbidden"
-  /users/{id}:
-    parameters:
-      - name: id
-        in: path
-        required: true
-        description: 사용자 UUID
-        schema:
-          type: string
-          format: uuid
-        examples:
-          default:
-            dataValue: 00000000-0000-0000-0000-000000000001
-            serializedValue: 00000000-0000-0000-0000-000000000001
-    get:
       tags:
         - users
+      security:
+        - bearerAuth: []
+  /users:
+    get:
+      operationId: listUsers
+      summary: 사용자 목록 조회
+      description: 페이지네이션과 역할 필터를 지원하는 사용자 목록 API
+      parameters:
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Limit"
+        - name: role
+          in: query
+          description: 역할 필터
+          schema:
+            type: string
+            enum:
+              - admin
+              - user
+              - guest
+      responses:
+        "200":
+          description: 사용자 목록
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/User"
+                  total:
+                    type: integer
+                    minimum: 0
+                required:
+                  - items
+                  - total
+                example:
+                  items:
+                    - id: 00000000-0000-0000-0000-000000000001
+                      email: alice@example.com
+                      name: Alice
+                      role: user
+                      createdAt: 2024-01-01T00:00:00.000Z
+                  total: 1
+              examples:
+                default:
+                  dataValue:
+                    items:
+                      - id: 00000000-0000-0000-0000-000000000001
+                        email: alice@example.com
+                        name: Alice
+                        role: user
+                        createdAt: 2024-01-01T00:00:00.000Z
+                    total: 1
+                  serializedValue: '{"items":[{"id":"00000000-0000-0000-0000-000000000001","email":"alice@example.com","name":"Alice","role":"user","createdAt":"2024-01-01T00:00:00.000Z"}],"total":1}'
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+      tags:
+        - users
+      security:
+        - bearerAuth: []
+    post:
+      operationId: createUser
+      summary: 사용자 생성
+      description: 이메일, 이름, 비밀번호를 받아 새 사용자를 생성합니다
+      responses:
+        "201":
+          description: 사용자 생성 완료
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+              examples:
+                default:
+                  dataValue:
+                    id: 00000000-0000-0000-0000-000000000002
+                    email: bob@example.com
+                    name: Bob
+                    role: user
+                    createdAt: 2024-01-01T00:00:00.000Z
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+      tags:
+        - users
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateUserRequest"
+            examples:
+              default:
+                dataValue:
+                  email: bob@example.com
+                  name: Bob
+                  password: secure1234
+                serializedValue: '{"email":"bob@example.com","name":"Bob","password":"secure1234"}'
+      security:
+        - bearerAuth: []
+  /users/{id}:
+    get:
       operationId: getUserById
       summary: 사용자 단건 조회
       description: UUID로 특정 사용자의 상세 정보를 조회합니다
-      security:
-        - bearerAuth: []
       responses:
         "200":
           description: 사용자 정보
@@ -741,25 +813,29 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
-    patch:
       tags:
         - users
+      security:
+        - bearerAuth: []
+    delete:
+      operationId: deleteUser
+      summary: 사용자 삭제
+      description: UUID로 특정 사용자를 삭제합니다. 복구 불가.
+      responses:
+        "204":
+          description: 삭제 완료 (본문 없음)
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+      tags:
+        - users
+      security:
+        - bearerAuth: []
+    patch:
       operationId: updateUser
       summary: 사용자 수정 (부분 업데이트)
       description: 이름, 역할 등 사용자 정보를 부분적으로 수정합니다
-      security:
-        - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/UpdateUserRequest"
-            examples:
-              default:
-                dataValue:
-                  name: Alice Updated
-                serializedValue: '{"name":"Alice Updated"}'
       responses:
         "200":
           description: 수정된 사용자 정보
@@ -785,22 +861,21 @@ paths:
           $ref: "#/components/responses/NotFound"
         "422":
           $ref: "#/components/responses/UnprocessableEntity"
-    delete:
       tags:
         - users
-      operationId: deleteUser
-      summary: 사용자 삭제
-      description: UUID로 특정 사용자를 삭제합니다. 복구 불가.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateUserRequest"
+            examples:
+              default:
+                dataValue:
+                  name: Alice Updated
+                serializedValue: '{"name":"Alice Updated"}'
       security:
         - bearerAuth: []
-      responses:
-        "204":
-          description: 삭제 완료 (본문 없음)
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "404":
-          $ref: "#/components/responses/NotFound"
-  /users/{id}/public:
     parameters:
       - name: id
         in: path
@@ -813,16 +888,13 @@ paths:
           default:
             dataValue: 00000000-0000-0000-0000-000000000001
             serializedValue: 00000000-0000-0000-0000-000000000001
+  /users/{id}/public:
     get:
-      tags:
-        - users
       operationId: getPublicUserProfile
       summary: 공개 프로필 조회
       description: |
         다른 user의 공개 가시 정보(이름, 역할). email/createdAt 등 PII 미포함.
         멘션·검색 결과 등에서 사용. user/scoped:read 이상 필요.
-      security:
-        - bearerAuth: []
       responses:
         "200":
           description: 공개 프로필
@@ -841,37 +913,29 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
-  /users/{id}/reports:
+      tags:
+        - users
+      security:
+        - bearerAuth: []
     parameters:
       - name: id
         in: path
         required: true
-        description: 신고 대상 사용자 UUID
+        description: 사용자 UUID
         schema:
           type: string
           format: uuid
+        examples:
+          default:
+            dataValue: 00000000-0000-0000-0000-000000000001
+            serializedValue: 00000000-0000-0000-0000-000000000001
+  /users/{id}/reports:
     post:
-      tags:
-        - users
       operationId: reportUser
       summary: 사용자 신고
       description: |
         혐오·스팸·사기 등 정책 위반 사용자를 운영자에게 신고. 신고자는 인증된
         user. 동일 신고자→대상 페어는 24시간 내 1회로 rate-limit.
-      security:
-        - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/ReportRequest"
-            examples:
-              default:
-                dataValue:
-                  reason: harassment
-                  details: 공격적 메시지 반복 발신
-                serializedValue: '{"reason":"harassment","details":"공격적 메시지 반복 발신"}'
       responses:
         "201":
           description: 신고 접수 완료
@@ -897,116 +961,425 @@ paths:
           $ref: "#/components/responses/UnprocessableEntity"
         "429":
           $ref: "#/components/responses/TooManyRequests"
-  /users:
-    get:
       tags:
         - users
-      operationId: listUsers
-      summary: 사용자 목록 조회
-      description: 페이지네이션과 역할 필터를 지원하는 사용자 목록 API
-      security:
-        - bearerAuth: []
-      parameters:
-        - $ref: "#/components/parameters/Page"
-        - $ref: "#/components/parameters/Limit"
-        - name: role
-          in: query
-          description: 역할 필터
-          schema:
-            type: string
-            enum:
-              - admin
-              - user
-              - guest
-      responses:
-        "200":
-          description: 사용자 목록
-          content:
-            application/json:
-              schema:
-                type: object
-                required:
-                  - items
-                  - total
-                properties:
-                  items:
-                    type: array
-                    items:
-                      $ref: "#/components/schemas/User"
-                  total:
-                    type: integer
-                    minimum: 0
-                example:
-                  items:
-                    - id: 00000000-0000-0000-0000-000000000001
-                      email: alice@example.com
-                      name: Alice
-                      role: user
-                      createdAt: 2024-01-01T00:00:00.000Z
-                  total: 1
-              examples:
-                default:
-                  dataValue:
-                    items:
-                      - id: 00000000-0000-0000-0000-000000000001
-                        email: alice@example.com
-                        name: Alice
-                        role: user
-                        createdAt: 2024-01-01T00:00:00.000Z
-                    total: 1
-                  serializedValue: '{"items":[{"id":"00000000-0000-0000-0000-000000000001","email":"alice@example.com","name":"Alice","role":"user","createdAt":"2024-01-01T00:00:00.000Z"}],"total":1}'
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-    post:
-      tags:
-        - users
-      operationId: createUser
-      summary: 사용자 생성
-      description: 이메일, 이름, 비밀번호를 받아 새 사용자를 생성합니다
-      security:
-        - bearerAuth: []
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/CreateUserRequest"
+              $ref: "#/components/schemas/ReportRequest"
             examples:
               default:
                 dataValue:
-                  email: bob@example.com
-                  name: Bob
-                  password: secure1234
-                serializedValue: '{"email":"bob@example.com","name":"Bob","password":"secure1234"}'
+                  reason: harassment
+                  details: 공격적 메시지 반복 발신
+                serializedValue: '{"reason":"harassment","details":"공격적 메시지 반복 발신"}'
+      security:
+        - bearerAuth: []
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: 신고 대상 사용자 UUID
+        schema:
+          type: string
+          format: uuid
+  /version:
+    get:
+      operationId: getVersion
+      summary: 빌드/배포 정보 조회
+      description: 현재 실행 중인 빌드의 git sha, 빌드 시각, 배포 버전.
       responses:
-        "201":
-          description: 사용자 생성 완료
+        "200":
+          description: 빌드 정보
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/User"
+                $ref: "#/components/schemas/BuildInfo"
               examples:
                 default:
                   dataValue:
-                    id: 00000000-0000-0000-0000-000000000002
-                    email: bob@example.com
-                    name: Bob
-                    role: user
-                    createdAt: 2024-01-01T00:00:00.000Z
-        "400":
-          $ref: "#/components/responses/BadRequest"
+                    version: 0.1.0
+                    gitSha: a0ca91100000000000000000000000000000000
+                    builtAt: 2026-05-04T00:00:00.000Z
+                  serializedValue: '{"version":"0.1.0","gitSha":"a0ca91100000000000000000000000000000000","builtAt":"2026-05-04T00:00:00.000Z"}'
+      tags:
+        - health
+      security: []
+  /world-model/execution-profiles:
+    get:
+      operationId: listExecutionProfiles
+      summary: 선택 가능한 실행 profile 목록
+      responses:
+        "200":
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ExecutionProfileSummary"
+                required:
+                  - items
         "401":
-          $ref: "#/components/responses/Unauthorized"
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+      tags:
+        - world-model
+      security:
+        - bearerAuth: []
+  /worlds:
+    post:
+      operationId: createWorld
+      summary: 새 World bootstrap
+      responses:
+        "201":
+          description: The request has succeeded and a new resource has been created as a result.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorldHead"
+        "400":
+          description: The server could not understand the request due to invalid syntax.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: The request conflicts with the current state of the server.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
         "422":
-          $ref: "#/components/responses/UnprocessableEntity"
-        "500":
-          $ref: "#/components/responses/InternalServerError"
-webhooks: {}
+          description: Client error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+      tags:
+        - world-model
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateWorldRequest"
+      security:
+        - bearerAuth: []
+  /worlds/{worldId}:
+    get:
+      operationId: getWorldHead
+      summary: World control head 조회
+      responses:
+        "200":
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorldHead"
+        "401":
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: The server cannot find the requested resource.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+      tags:
+        - world-model
+      security:
+        - bearerAuth: []
+    parameters:
+      - name: worldId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+  /worlds/{worldId}/actions:
+    post:
+      operationId: submitWorldAction
+      summary: Action stimulus 제출
+      responses:
+        "202":
+          description: The request has been accepted for processing, but processing has not yet completed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StimulusAccepted"
+        "400":
+          description: The server could not understand the request due to invalid syntax.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: The server cannot find the requested resource.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: The request conflicts with the current state of the server.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "422":
+          description: Client error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+      tags:
+        - world-model
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SubmitActionRequest"
+      security:
+        - bearerAuth: []
+    parameters:
+      - name: worldId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+  /worlds/{worldId}/projection-bundles/{bundleId}:
+    get:
+      operationId: getWorldProjectionBundle
+      summary: Revision-pinned semantic projection bundle 조회
+      parameters:
+        - name: revision
+          in: query
+          schema:
+            type: integer
+            format: int64
+            minimum: 0
+      responses:
+        "200":
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProjectionBundleEnvelope"
+        "401":
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: The server cannot find the requested resource.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "422":
+          description: Client error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+      tags:
+        - world-model
+      security:
+        - bearerAuth: []
+    parameters:
+      - name: worldId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: bundleId
+        in: path
+        required: true
+        schema:
+          type: string
+  /worlds/{worldId}/projections/{projectionId}:
+    get:
+      operationId: getWorldProjection
+      summary: Revision-pinned semantic projection 조회
+      parameters:
+        - name: revision
+          in: query
+          schema:
+            type: integer
+            format: int64
+            minimum: 0
+      responses:
+        "200":
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProjectionEnvelope"
+        "401":
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: The server cannot find the requested resource.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "422":
+          description: Client error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+      tags:
+        - world-model
+      security:
+        - bearerAuth: []
+    parameters:
+      - name: worldId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: projectionId
+        in: path
+        required: true
+        schema:
+          type: string
+  /worlds/{worldId}/time-advances:
+    post:
+      operationId: submitWorldTimeAdvance
+      summary: Logical time advance stimulus 제출
+      responses:
+        "202":
+          description: The request has been accepted for processing, but processing has not yet completed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StimulusAccepted"
+        "400":
+          description: The server could not understand the request due to invalid syntax.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: The server cannot find the requested resource.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: The request conflicts with the current state of the server.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "422":
+          description: Client error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+      tags:
+        - world-model
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SubmitTimeAdvanceRequest"
+      security:
+        - bearerAuth: []
+    parameters:
+      - name: worldId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
 components:
   schemas:
+    AdminUsersExportRequest:
+      type: object
+      properties:
+        format:
+          type: string
+          enum:
+            - json
+            - csv
+          default: json
+        pseudonymize:
+          type: boolean
+          default: true
+      description: |
+        사용자 PII bulk export 요청. data-eng ETL surface이며 non-admin
+        perspective에서는 pseudonymization이 필수입니다.
+      additionalProperties: false
+    AdvanceByLogicalDuration:
+      type: object
+      required:
+        - kind
+        - duration
+      properties:
+        kind:
+          type: string
+          enum:
+            - by-duration
+        duration:
+          type: string
+      description: 현재 logical time에서 duration만큼 전진하는 요청
+    AdvanceToLogicalTime:
+      type: object
+      required:
+        - kind
+        - targetLogicalTime
+      properties:
+        kind:
+          type: string
+          enum:
+            - to-logical-time
+        targetLogicalTime:
+          type: string
+      description: 현재 logical time에서 target instant까지 전진하는 요청
     AuthSession:
       type: object
-      description: 사용자 + 토큰 페어 — 가입/로그인 응답 단위
       required:
         - user
         - tokens
@@ -1015,6 +1388,7 @@ components:
           $ref: "#/components/schemas/User"
         tokens:
           $ref: "#/components/schemas/TokenPair"
+      description: 사용자 + 토큰 페어 — 가입/로그인 응답 단위
       example:
         user:
           id: 00000000-0000-0000-0000-000000000001
@@ -1027,40 +1401,44 @@ components:
           refreshToken: rt_example_0001
           tokenType: Bearer
           expiresIn: 3600
-    ForgotPasswordRequest:
+    BuildInfo:
       type: object
-      description: 비밀번호 재설정 토큰 발송 요청
       required:
-        - email
+        - version
+        - gitSha
+        - builtAt
       properties:
-        email:
+        version:
           type: string
-          format: email
-    LoginRequest:
+          description: semver 또는 빌드 식별 라벨
+        gitSha:
+          type: string
+          minLength: 7
+          description: 커밋 해시
+        builtAt:
+          type: string
+          format: date-time
+      description: 현재 실행 중인 빌드 정보
+      example:
+        version: 0.1.0
+        gitSha: a0ca911
+        builtAt: 2026-05-04T00:00:00.000Z
+    ChangePasswordRequest:
       type: object
-      description: 로그인 요청
       required:
-        - email
-        - password
+        - currentPassword
+        - newPassword
       properties:
-        email:
-          type: string
-          format: email
-        password:
+        currentPassword:
           type: string
           minLength: 1
-    RefreshRequest:
-      type: object
-      description: 토큰 갱신 요청
-      required:
-        - refreshToken
-      properties:
-        refreshToken:
+        newPassword:
           type: string
-          minLength: 1
-    RegisterRequest:
+          minLength: 8
+          description: 최소 8자 이상
+      description: 비밀번호 변경 요청
+    CreateUserRequest:
       type: object
-      description: 회원가입 요청
       required:
         - email
         - name
@@ -1077,70 +1455,30 @@ components:
           type: string
           minLength: 8
           description: 최소 8자 이상
-    ResetPasswordRequest:
+      description: 사용자 생성 요청
+    CreateWorldRequest:
       type: object
-      description: 비밀번호 재설정 요청
       required:
-        - token
-        - newPassword
+        - worldId
+        - modelRef
+        - executionProfile
+        - bootstrapSpecRef
       properties:
-        token:
+        worldId:
+          type: string
+          format: uuid
+        modelRef:
+          $ref: "#/components/schemas/ModelRef"
+        executionProfile:
+          $ref: "#/components/schemas/ExecutionProfileRef"
+        bootstrapSpecRef:
           type: string
           minLength: 1
-        newPassword:
+          description: 모델이 해석하는 초기 scenario/configuration reference
+        runSeedMaterial:
           type: string
-          minLength: 8
-          description: 최소 8자 이상
-    TokenPair:
-      type: object
-      description: access/refresh 토큰 페어
-      required:
-        - accessToken
-        - refreshToken
-        - tokenType
-        - expiresIn
-      properties:
-        accessToken:
-          type: string
-          description: bearerAuth 헤더에 사용할 JWT
-        refreshToken:
-          type: string
-          description: /auth/refresh 호출에 사용할 장기 토큰
-        tokenType:
-          type: string
-          enum:
-            - Bearer
-        expiresIn:
-          type: integer
-          minimum: 1
-          description: accessToken 만료까지 남은 초
-      example:
-        accessToken: eyJhbGciOi...example
-        refreshToken: rt_example_0001
-        tokenType: Bearer
-        expiresIn: 3600
-    BuildInfo:
-      type: object
-      description: 현재 실행 중인 빌드 정보
-      required:
-        - version
-        - gitSha
-        - builtAt
-      properties:
-        version:
-          type: string
-          description: semver 또는 빌드 식별 라벨
-        gitSha:
-          type: string
-          minLength: 7
-          description: 커밋 해시
-        builtAt:
-          type: string
-          format: date-time
-      example:
-        version: 0.1.0
-        gitSha: a0ca911
-        builtAt: 2026-05-04T00:00:00.000Z
+          description: 선택적 replay seed material. 없으면 provider가 생성한 값을 WorldControlState에 고정합니다.
+      description: 새 World bootstrap 요청. 생성 뒤 ModelRef와 ExecutionProfileRef는 normal Stimulus로 바꿀 수 없습니다.
     DependencyStatus:
       type: object
       required:
@@ -1160,68 +1498,108 @@ components:
           minimum: 0
         message:
           type: string
-    HealthStatus:
+    Error:
       type: object
       required:
-        - status
-        - timestamp
+        - code
+        - message
       properties:
-        status:
+        code:
           type: string
           enum:
-            - ok
-        timestamp:
+            - BAD_REQUEST
+            - UNAUTHORIZED
+            - FORBIDDEN
+            - NOT_FOUND
+            - CONFLICT
+            - SCHEMA_VALIDATION_FAILED
+            - RATE_LIMITED
+            - INTERNAL_SERVER_ERROR
+            - SERVICE_UNAVAILABLE
+          description: 머신 리더블 에러 코드 (페르소나 시나리오의 expected assertion 단위)
+          example: NOT_FOUND
+        message:
           type: string
-          format: date-time
-      examples:
-        - status: ok
-          timestamp: 2026-04-04T00:00:00.000Z
-      example:
-        status: ok
-        timestamp: 2026-04-04T00:00:00.000Z
-    ReadinessReport:
-      type: object
-      description: readiness probe 결과 — 의존 시스템 검증 포함
-      required:
-        - status
-        - timestamp
-        - dependencies
-      properties:
-        status:
-          type: string
-          enum:
-            - ready
-            - not-ready
-        timestamp:
-          type: string
-          format: date-time
-        dependencies:
+          description: 사람이 읽을 수 있는 에러 설명
+          example: 요청한 리소스를 찾을 수 없습니다
+        details:
           type: array
           items:
-            $ref: "#/components/schemas/DependencyStatus"
+            $ref: "#/components/schemas/ValidationError"
+        _meta:
+          type: object
+          properties:
+            operationId:
+              type: string
+            requestId:
+              type: string
+              format: uuid
+      description: 표준 에러 응답 스키마
+      examples:
+        - code: NOT_FOUND
+          message: 요청한 리소스를 찾을 수 없습니다
       example:
-        status: ready
-        timestamp: 2026-05-04T00:00:00.000Z
-        dependencies:
-          - name: postgres
-            status: ok
-    ChangePasswordRequest:
+        code: NOT_FOUND
+        message: 요청한 리소스를 찾을 수 없습니다
+    ExecutionProfileRef:
       type: object
-      description: 비밀번호 변경 요청
       required:
-        - currentPassword
-        - newPassword
+        - profileId
+        - version
+        - semanticFingerprint
       properties:
-        currentPassword:
+        profileId:
           type: string
           minLength: 1
-        newPassword:
+        version:
           type: string
-          minLength: 8
-          description: 최소 8자 이상
+          minLength: 1
+        semanticFingerprint:
+          type: string
+          minLength: 1
+      description: World에 고정할 실행 provider 조합의 정확한 식별자
+    ExecutionProfileSummary:
+      type: object
+      required:
+        - profile
+        - persistenceRecovery
+        - numericSemantics
+        - decisionRandom
+        - commitIsolation
+        - conformanceProfiles
+      properties:
+        profile:
+          $ref: "#/components/schemas/ExecutionProfileRef"
+        persistenceRecovery:
+          type: string
+          enum:
+            - volatile
+            - snapshot-journal
+            - durable-outbox
+        numericSemantics:
+          type: string
+          enum:
+            - fixed-decimal
+            - rational
+            - strict-binary-float
+        decisionRandom:
+          type: string
+          enum:
+            - counter-derived
+            - seeded-stream
+        commitIsolation:
+          type: string
+          enum:
+            - single-writer
+            - optimistic-revision-cas
+            - serializable-transaction
+        conformanceProfiles:
+          type: array
+          items:
+            type: string
+      description: 선택 가능한 실행 profile의 공개 요약
     ExportJob:
       type: object
-      description: export job 상태
       required:
         - jobId
         - status
@@ -1244,13 +1622,13 @@ components:
           type: string
           format: uri
           description: status가 ready일 때만 제공
+      description: export job 상태
       example:
         jobId: 00000000-0000-0000-0000-000000000200
         status: queued
         requestedAt: 2026-05-04T00:00:00.000Z
     ExportRequest:
       type: object
-      description: 데이터 export 요청
       properties:
         format:
           type: string
@@ -1258,9 +1636,67 @@ components:
             - json
             - csv
           default: json
+      description: 데이터 export 요청
+    ForgotPasswordRequest:
+      type: object
+      required:
+        - email
+      properties:
+        email:
+          type: string
+          format: email
+      description: 비밀번호 재설정 토큰 발송 요청
+    HealthStatus:
+      type: object
+      required:
+        - status
+        - timestamp
+      properties:
+        status:
+          type: string
+          enum:
+            - ok
+        timestamp:
+          type: string
+          format: date-time
+      examples:
+        - status: ok
+          timestamp: 2026-04-04T00:00:00.000Z
+      example:
+        status: ok
+        timestamp: 2026-04-04T00:00:00.000Z
+    LoginRequest:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 1
+      description: 로그인 요청
+    ModelRef:
+      type: object
+      required:
+        - modelId
+        - version
+        - semanticFingerprint
+      properties:
+        modelId:
+          type: string
+          minLength: 1
+        version:
+          type: string
+          minLength: 1
+        semanticFingerprint:
+          type: string
+          minLength: 1
+      description: 게시된 World Model artifact의 정확한 식별자
     OnboardingChecklist:
       type: object
-      description: 온보딩 가이드 체크리스트
       required:
         - items
       properties:
@@ -1268,6 +1704,7 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/OnboardingItem"
+      description: 온보딩 가이드 체크리스트
       example:
         items:
           - id: complete-profile
@@ -1288,86 +1725,65 @@ components:
           type: boolean
         hint:
           type: string
-    RoleChangeEvent:
+    ProjectionBundleEnvelope:
       type: object
-      description: 역할 변경 이력 단건
       required:
-        - id
-        - changedAt
-        - previousRole
-        - newRole
-        - changedBy
+        - worldId
+        - modelRef
+        - sourceRevision
+        - bundleId
+        - status
+        - projections
       properties:
-        id:
+        worldId:
           type: string
           format: uuid
-        changedAt:
+        modelRef:
+          $ref: "#/components/schemas/ModelRef"
+        sourceRevision:
+          type: integer
+          format: int64
+          minimum: 0
+        bundleId:
           type: string
-          format: date-time
-        previousRole:
+          minLength: 1
+        status:
           type: string
           enum:
-            - admin
-            - user
-            - guest
-        newRole:
-          type: string
-          enum:
-            - admin
-            - user
-            - guest
-        changedBy:
+            - complete
+            - incomplete
+            - stale
+        projections:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProjectionEnvelope"
+      description: 같은 revision에서 함께 읽어야 하는 semantic projection bundle
+    ProjectionEnvelope:
+      type: object
+      required:
+        - worldId
+        - modelRef
+        - sourceRevision
+        - projectionId
+        - value
+      properties:
+        worldId:
           type: string
           format: uuid
-          description: 변경을 수행한 admin의 UUID
-        reason:
-          type: string
-    UpdateMeRequest:
-      type: object
-      description: 셀프 프로필 수정 — role은 포함 불가 (admin 전용)
-      properties:
-        name:
-          type: string
-          minLength: 1
-          maxLength: 100
-    AdminUsersExportRequest:
-      type: object
-      description: |
-        사용자 PII bulk export 요청. data-eng ETL surface이며 non-admin
-        perspective에서는 pseudonymization이 필수입니다.
-      additionalProperties: false
-      properties:
-        format:
-          type: string
-          enum:
-            - json
-            - csv
-          default: json
-        pseudonymize:
-          type: boolean
-          default: true
-    CreateUserRequest:
-      type: object
-      description: 사용자 생성 요청
-      required:
-        - email
-        - name
-        - password
-      properties:
-        email:
-          type: string
-          format: email
-        name:
+        modelRef:
+          $ref: "#/components/schemas/ModelRef"
+        sourceRevision:
+          type: integer
+          format: int64
+          minimum: 0
+        projectionId:
           type: string
           minLength: 1
-          maxLength: 100
-        password:
-          type: string
-          minLength: 8
-          description: 최소 8자 이상
+        value:
+          description: PublishedModel이 선언한 projection result의 typed JSON representation
+      description: 특정 source revision에서 materialize한 semantic projection
     PublicUserProfile:
       type: object
-      description: 공개 프로필 — PII 비포함 (email/createdAt 제외)
       required:
         - id
         - name
@@ -1386,16 +1802,15 @@ components:
             - admin
             - user
             - guest
+      description: 공개 프로필 — PII 비포함 (email/createdAt 제외)
       example:
         id: 00000000-0000-0000-0000-000000000001
         name: Alice
         role: user
     PurgeUserRequest:
       type: object
-      description: site-admin 사용자 hard purge 요청. deleteUser soft-delete와 구분됩니다.
       required:
         - reason
-      additionalProperties: false
       properties:
         reason:
           type: string
@@ -1404,11 +1819,66 @@ components:
           description: 영구 삭제 감사 사유
         legalHoldOverride:
           type: boolean
-          default: false
           description: legal hold 예외 승인 여부
+          default: false
+      description: site-admin 사용자 hard purge 요청. deleteUser soft-delete와 구분됩니다.
+      additionalProperties: false
+    ReadinessReport:
+      type: object
+      required:
+        - status
+        - timestamp
+        - dependencies
+      properties:
+        status:
+          type: string
+          enum:
+            - ready
+            - not-ready
+        timestamp:
+          type: string
+          format: date-time
+        dependencies:
+          type: array
+          items:
+            $ref: "#/components/schemas/DependencyStatus"
+      description: readiness probe 결과 — 의존 시스템 검증 포함
+      example:
+        status: ready
+        timestamp: 2026-05-04T00:00:00.000Z
+        dependencies:
+          - name: postgres
+            status: ok
+    RefreshRequest:
+      type: object
+      required:
+        - refreshToken
+      properties:
+        refreshToken:
+          type: string
+          minLength: 1
+      description: 토큰 갱신 요청
+    RegisterRequest:
+      type: object
+      required:
+        - email
+        - name
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        password:
+          type: string
+          minLength: 8
+          description: 최소 8자 이상
+      description: 회원가입 요청
     Report:
       type: object
-      description: 신고 단건
       required:
         - id
         - targetUserId
@@ -1450,6 +1920,7 @@ components:
         resolvedAt:
           type: string
           format: date-time
+      description: 신고 단건
       example:
         id: 00000000-0000-0000-0000-000000000300
         targetUserId: 00000000-0000-0000-0000-000000000001
@@ -1459,7 +1930,6 @@ components:
         createdAt: 2026-05-04T00:00:00.000Z
     ReportRequest:
       type: object
-      description: 신고 요청 본문
       required:
         - reason
       properties:
@@ -1475,9 +1945,165 @@ components:
         details:
           type: string
           maxLength: 1000
+      description: 신고 요청 본문
+    ResetPasswordRequest:
+      type: object
+      required:
+        - token
+        - newPassword
+      properties:
+        token:
+          type: string
+          minLength: 1
+        newPassword:
+          type: string
+          minLength: 8
+          description: 최소 8자 이상
+      description: 비밀번호 재설정 요청
+    RoleChangeEvent:
+      type: object
+      required:
+        - id
+        - changedAt
+        - previousRole
+        - newRole
+        - changedBy
+      properties:
+        id:
+          type: string
+          format: uuid
+        changedAt:
+          type: string
+          format: date-time
+        previousRole:
+          type: string
+          enum:
+            - admin
+            - user
+            - guest
+        newRole:
+          type: string
+          enum:
+            - admin
+            - user
+            - guest
+        changedBy:
+          type: string
+          format: uuid
+          description: 변경을 수행한 admin의 UUID
+        reason:
+          type: string
+      description: 역할 변경 이력 단건
+    StimulusAccepted:
+      type: object
+      required:
+        - stimulusId
+        - worldId
+        - status
+        - acceptedAtRevision
+        - acceptedLogicalTime
+      properties:
+        stimulusId:
+          type: string
+          format: uuid
+        worldId:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum:
+            - accepted
+            - duplicate
+        acceptedAtRevision:
+          type: integer
+          format: int64
+          minimum: 0
+        acceptedLogicalTime:
+          type: string
+      description: Agenda가 받아들인 Stimulus. 이 응답은 Transaction commit 성공을 뜻하지 않습니다.
+    SubmitActionRequest:
+      type: object
+      required:
+        - stimulusId
+        - actionTypeId
+        - roles
+      properties:
+        stimulusId:
+          type: string
+          format: uuid
+        actionTypeId:
+          type: string
+          minLength: 1
+        roles:
+          type: object
+          unevaluatedProperties:
+            type: string
+          description: ActionRoleDefinition stable ID에서 active Entity UUID로의 binding
+        parameters:
+          type: object
+          unevaluatedProperties: {}
+          description: ActionParameterDefinition stable ID에서 typed JSON value로의 binding
+        correlationId:
+          type: string
+        causationId:
+          type: string
+      description: 외부 Action 의도를 SimulationAgenda에 넣기 위한 typed envelope. role/parameter의 상세 contract는 World의 PublishedModel이 검증합니다.
+    SubmitTimeAdvanceRequest:
+      type: object
+      required:
+        - stimulusId
+        - request
+      properties:
+        stimulusId:
+          type: string
+          format: uuid
+        request:
+          anyOf:
+            - $ref: "#/components/schemas/AdvanceToLogicalTime"
+            - $ref: "#/components/schemas/AdvanceByLogicalDuration"
+        correlationId:
+          type: string
+        causationId:
+          type: string
+      description: TimeAdvanceRequest envelope. 한 요청은 target instant 또는 duration 중 하나만 가집니다.
+    TokenPair:
+      type: object
+      required:
+        - accessToken
+        - refreshToken
+        - tokenType
+        - expiresIn
+      properties:
+        accessToken:
+          type: string
+          description: bearerAuth 헤더에 사용할 JWT
+        refreshToken:
+          type: string
+          description: /auth/refresh 호출에 사용할 장기 토큰
+        tokenType:
+          type: string
+          enum:
+            - Bearer
+        expiresIn:
+          type: integer
+          minimum: 1
+          description: accessToken 만료까지 남은 초
+      description: access/refresh 토큰 페어
+      example:
+        accessToken: eyJhbGciOi...example
+        refreshToken: rt_example_0001
+        tokenType: Bearer
+        expiresIn: 3600
+    UpdateMeRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+      description: 셀프 프로필 수정 — role은 포함 불가 (admin 전용)
     UpdateUserRequest:
       type: object
-      description: 사용자 수정 요청 (부분 업데이트 — 모든 필드 optional)
       properties:
         name:
           type: string
@@ -1489,9 +2115,9 @@ components:
             - admin
             - user
             - guest
+      description: 사용자 수정 요청 (부분 업데이트 — 모든 필드 optional)
     User:
       type: object
-      description: 사용자 정보
       required:
         - id
         - email
@@ -1518,6 +2144,7 @@ components:
         createdAt:
           type: string
           format: date-time
+      description: 사용자 정보
       examples:
         - id: 00000000-0000-0000-0000-000000000001
           email: alice@example.com
@@ -1530,52 +2157,8 @@ components:
         name: Alice
         role: user
         createdAt: 2024-01-01T00:00:00.000Z
-    Error:
-      type: object
-      description: 표준 에러 응답 스키마
-      required:
-        - code
-        - message
-      properties:
-        code:
-          type: string
-          description: 머신 리더블 에러 코드 (페르소나 시나리오의 expected assertion 단위)
-          enum:
-            - BAD_REQUEST
-            - UNAUTHORIZED
-            - FORBIDDEN
-            - NOT_FOUND
-            - CONFLICT
-            - SCHEMA_VALIDATION_FAILED
-            - RATE_LIMITED
-            - INTERNAL_SERVER_ERROR
-            - SERVICE_UNAVAILABLE
-          example: NOT_FOUND
-        message:
-          type: string
-          description: 사람이 읽을 수 있는 에러 설명
-          example: 요청한 리소스를 찾을 수 없습니다
-        details:
-          type: array
-          items:
-            $ref: "#/components/schemas/ValidationError"
-        _meta:
-          type: object
-          properties:
-            operationId:
-              type: string
-            requestId:
-              type: string
-              format: uuid
-      examples:
-        - code: NOT_FOUND
-          message: 요청한 리소스를 찾을 수 없습니다
-      example:
-        code: NOT_FOUND
-        message: 요청한 리소스를 찾을 수 없습니다
     ValidationError:
       type: object
-      description: 필드 수준 유효성 검사 에러
       required:
         - path
         - message
@@ -1592,6 +2175,91 @@ components:
         expected:
           type: string
           example: string with format 'email'
+      description: 필드 수준 유효성 검사 에러
+    WorldHead:
+      type: object
+      required:
+        - worldId
+        - modelRef
+        - executionProfile
+        - revision
+        - logicalTime
+        - lifecycle
+      properties:
+        worldId:
+          type: string
+          format: uuid
+        modelRef:
+          $ref: "#/components/schemas/ModelRef"
+        executionProfile:
+          $ref: "#/components/schemas/ExecutionProfileRef"
+        revision:
+          type: integer
+          format: int64
+          minimum: 0
+        logicalTime:
+          type: string
+          description: 모델이 선언한 형식으로 직렬화한 현재 logical time
+        lifecycle:
+          type: string
+          enum:
+            - created
+            - active
+            - inactive
+            - ended
+      description: World의 public control head. Domain Property와 raw StateObject graph는 포함하지 않습니다.
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT Bearer 토큰 인증
+    oauth2:
+      type: oauth2
+      description: OAuth 2.0 인증 (Authorization Code + Device Authorization 지원)
+      flows:
+        authorizationCode:
+          authorizationUrl: https://auth.example.com/authorize
+          tokenUrl: https://auth.example.com/token
+          refreshUrl: https://auth.example.com/token
+          oauth2MetadataUrl: https://auth.example.com/.well-known/oauth-authorization-server
+          scopes:
+            read: 읽기 권한
+            write: 쓰기 권한
+            admin: 관리자 권한
+        deviceAuthorization:
+          deviceAuthorizationUrl: https://auth.example.com/device/code
+          tokenUrl: https://auth.example.com/token
+          oauth2MetadataUrl: https://auth.example.com/.well-known/oauth-authorization-server
+          scopes:
+            read: 읽기 권한
+            write: 쓰기 권한
+  parameters:
+    Limit:
+      name: limit
+      in: query
+      description: 페이지당 항목 수
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+      examples:
+        default:
+          dataValue: 20
+          serializedValue: limit=20
+    Page:
+      name: page
+      in: query
+      description: 페이지 번호 (1-based)
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+      examples:
+        default:
+          dataValue: 1
+          serializedValue: page=1
   responses:
     BadRequest:
       description: 잘못된 요청 — 요청 형식 또는 파라미터 오류
@@ -1708,83 +2376,8 @@ components:
                 code: SCHEMA_VALIDATION_FAILED
                 message: 요청 본문이 스키마 유효성 검사를 통과하지 못했습니다
               serializedValue: '{"code":"SCHEMA_VALIDATION_FAILED","message":"요청 본문이 스키마 유효성 검사를 통과하지 못했습니다"}'
-  parameters:
-    Limit:
-      name: limit
-      in: query
-      description: 페이지당 항목 수
-      schema:
-        type: integer
-        minimum: 1
-        maximum: 100
-        default: 20
-      examples:
-        default:
-          dataValue: 20
-          serializedValue: limit=20
-    Page:
-      name: page
-      in: query
-      description: 페이지 번호 (1-based)
-      schema:
-        type: integer
-        minimum: 1
-        default: 1
-      examples:
-        default:
-          dataValue: 1
-          serializedValue: page=1
-  requestBodies: {}
-  headers: {}
-  links: {}
-  callbacks: {}
-  securitySchemes:
-    bearerAuth:
-      type: http
-      scheme: bearer
-      bearerFormat: JWT
-      description: JWT Bearer 토큰 인증
-    oauth2:
-      type: oauth2
-      description: OAuth 2.0 인증 (Authorization Code + Device Authorization 지원)
-      flows:
-        authorizationCode:
-          authorizationUrl: https://auth.example.com/authorize
-          tokenUrl: https://auth.example.com/token
-          refreshUrl: https://auth.example.com/token
-          oauth2MetadataUrl: https://auth.example.com/.well-known/oauth-authorization-server
-          scopes:
-            read: 읽기 권한
-            write: 쓰기 권한
-            admin: 관리자 권한
-        deviceAuthorization:
-          deviceAuthorizationUrl: https://auth.example.com/device/code
-          tokenUrl: https://auth.example.com/token
-          oauth2MetadataUrl: https://auth.example.com/.well-known/oauth-authorization-server
-          scopes:
-            read: 읽기 권한
-            write: 쓰기 권한
-tags:
-  - name: health
-    description: 서버 상태 확인
-  - name: users
-    description: 사용자 관리
-  - name: auth
-    description: 인증 — 토큰 발급/갱신/폐기
-  - name: me
-    description: 셀프 서비스 — 현재 인증된 사용자 자기 자원
-x-oa-sdk-definition-aliases:
-  - id: securityScheme:shared/common/BearerAuth
-    kind: securityScheme
-    scope: shared
-    domain: common
-    localName: BearerAuth
-    outputName: bearerAuth
-    reason: explicit-alias
-  - id: securityScheme:shared/common/OAuth2
-    kind: securityScheme
-    scope: shared
-    domain: common
-    localName: OAuth2
-    outputName: oauth2
-    reason: explicit-alias
+servers:
+  - url: http://localhost:4010
+    description: Mock server (@oa-sdk/mock-server)
+  - url: http://localhost:3000
+    description: Local dev server

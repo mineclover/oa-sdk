@@ -8,5 +8,6 @@ import "./auth.tsp";
 import "./health.tsp";
 import "./me.tsp";
 import "./users.tsp";
+import "./world-model.tsp";
 
 namespace OaSdkApi;

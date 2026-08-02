@@ -19,4 +19,5 @@ using OpenAPI;
 @tagMetadata("users", #{ description: "사용자 관리" })
 @tagMetadata("auth", #{ description: "인증 — 토큰 발급/갱신/폐기" })
 @tagMetadata("me", #{ description: "셀프 서비스 — 현재 인증된 사용자 자기 자원" })
+@tagMetadata("world-model", #{ description: "World Model Kernel — World bootstrap, stimulus ingress, revision-pinned projection query" })
 namespace OaSdkApi;

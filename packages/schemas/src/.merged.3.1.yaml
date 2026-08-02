@@ -2,11 +2,13 @@ openapi: 3.1.0
 info:
   title: OA SDK API
   description: OpenAPI 3.2 기반 API 관리 인프라
-  version: 0.1.0
+  version: 0.2.0
   license:
     name: MIT
     identifier: MIT
 tags:
+  - name: world-model
+    description: World Model Kernel — World bootstrap, stimulus ingress, revision-pinned projection query
   - name: me
     description: 셀프 서비스 — 현재 인증된 사용자 자기 자원
   - name: auth
@@ -979,6 +981,333 @@ paths:
       tags:
         - health
       security: []
+  /world-model/execution-profiles:
+    get:
+      operationId: listExecutionProfiles
+      summary: 선택 가능한 실행 profile 목록
+      responses:
+        "200":
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ExecutionProfileSummary"
+                required:
+                  - items
+        "401":
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+      tags:
+        - world-model
+      security:
+        - bearerAuth: []
+  /worlds:
+    post:
+      operationId: createWorld
+      summary: 새 World bootstrap
+      responses:
+        "201":
+          description: The request has succeeded and a new resource has been created as a result.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorldHead"
+        "400":
+          description: The server could not understand the request due to invalid syntax.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: The request conflicts with the current state of the server.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "422":
+          description: Client error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+      tags:
+        - world-model
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateWorldRequest"
+      security:
+        - bearerAuth: []
+  /worlds/{worldId}:
+    get:
+      operationId: getWorldHead
+      summary: World control head 조회
+      responses:
+        "200":
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorldHead"
+        "401":
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: The server cannot find the requested resource.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+      tags:
+        - world-model
+      security:
+        - bearerAuth: []
+    parameters:
+      - name: worldId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+  /worlds/{worldId}/actions:
+    post:
+      operationId: submitWorldAction
+      summary: Action stimulus 제출
+      responses:
+        "202":
+          description: The request has been accepted for processing, but processing has not yet completed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StimulusAccepted"
+        "400":
+          description: The server could not understand the request due to invalid syntax.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: The server cannot find the requested resource.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: The request conflicts with the current state of the server.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "422":
+          description: Client error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+      tags:
+        - world-model
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SubmitActionRequest"
+      security:
+        - bearerAuth: []
+    parameters:
+      - name: worldId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+  /worlds/{worldId}/projection-bundles/{bundleId}:
+    get:
+      operationId: getWorldProjectionBundle
+      summary: Revision-pinned semantic projection bundle 조회
+      parameters:
+        - name: revision
+          in: query
+          schema:
+            type: integer
+            format: int64
+            minimum: 0
+      responses:
+        "200":
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProjectionBundleEnvelope"
+        "401":
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: The server cannot find the requested resource.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "422":
+          description: Client error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+      tags:
+        - world-model
+      security:
+        - bearerAuth: []
+    parameters:
+      - name: worldId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: bundleId
+        in: path
+        required: true
+        schema:
+          type: string
+  /worlds/{worldId}/projections/{projectionId}:
+    get:
+      operationId: getWorldProjection
+      summary: Revision-pinned semantic projection 조회
+      parameters:
+        - name: revision
+          in: query
+          schema:
+            type: integer
+            format: int64
+            minimum: 0
+      responses:
+        "200":
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProjectionEnvelope"
+        "401":
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: The server cannot find the requested resource.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "422":
+          description: Client error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+      tags:
+        - world-model
+      security:
+        - bearerAuth: []
+    parameters:
+      - name: worldId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: projectionId
+        in: path
+        required: true
+        schema:
+          type: string
+  /worlds/{worldId}/time-advances:
+    post:
+      operationId: submitWorldTimeAdvance
+      summary: Logical time advance stimulus 제출
+      responses:
+        "202":
+          description: The request has been accepted for processing, but processing has not yet completed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StimulusAccepted"
+        "400":
+          description: The server could not understand the request due to invalid syntax.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: The server cannot find the requested resource.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: The request conflicts with the current state of the server.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "422":
+          description: Client error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+      tags:
+        - world-model
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SubmitTimeAdvanceRequest"
+      security:
+        - bearerAuth: []
+    parameters:
+      - name: worldId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
 components:
   schemas:
     AdminUsersExportRequest:
@@ -997,6 +1326,32 @@ components:
         사용자 PII bulk export 요청. data-eng ETL surface이며 non-admin
         perspective에서는 pseudonymization이 필수입니다.
       additionalProperties: false
+    AdvanceByLogicalDuration:
+      type: object
+      required:
+        - kind
+        - duration
+      properties:
+        kind:
+          type: string
+          enum:
+            - by-duration
+        duration:
+          type: string
+      description: 현재 logical time에서 duration만큼 전진하는 요청
+    AdvanceToLogicalTime:
+      type: object
+      required:
+        - kind
+        - targetLogicalTime
+      properties:
+        kind:
+          type: string
+          enum:
+            - to-logical-time
+        targetLogicalTime:
+          type: string
+      description: 현재 logical time에서 target instant까지 전진하는 요청
     AuthSession:
       type: object
       required:
@@ -1075,6 +1430,29 @@ components:
           minLength: 8
           description: 최소 8자 이상
       description: 사용자 생성 요청
+    CreateWorldRequest:
+      type: object
+      required:
+        - worldId
+        - modelRef
+        - executionProfile
+        - bootstrapSpecRef
+      properties:
+        worldId:
+          type: string
+          format: uuid
+        modelRef:
+          $ref: "#/components/schemas/ModelRef"
+        executionProfile:
+          $ref: "#/components/schemas/ExecutionProfileRef"
+        bootstrapSpecRef:
+          type: string
+          minLength: 1
+          description: 모델이 해석하는 초기 scenario/configuration reference
+        runSeedMaterial:
+          type: string
+          description: 선택적 replay seed material. 없으면 provider가 생성한 값을 WorldControlState에 고정합니다.
+      description: 새 World bootstrap 요청. 생성 뒤 ModelRef와 ExecutionProfileRef는 normal Stimulus로 바꿀 수 없습니다.
     DependencyStatus:
       type: object
       required:
@@ -1137,6 +1515,63 @@ components:
       example:
         code: NOT_FOUND
         message: 요청한 리소스를 찾을 수 없습니다
+    ExecutionProfileRef:
+      type: object
+      required:
+        - profileId
+        - version
+        - semanticFingerprint
+      properties:
+        profileId:
+          type: string
+          minLength: 1
+        version:
+          type: string
+          minLength: 1
+        semanticFingerprint:
+          type: string
+          minLength: 1
+      description: World에 고정할 실행 provider 조합의 정확한 식별자
+    ExecutionProfileSummary:
+      type: object
+      required:
+        - profile
+        - persistenceRecovery
+        - numericSemantics
+        - decisionRandom
+        - commitIsolation
+        - conformanceProfiles
+      properties:
+        profile:
+          $ref: "#/components/schemas/ExecutionProfileRef"
+        persistenceRecovery:
+          type: string
+          enum:
+            - volatile
+            - snapshot-journal
+            - durable-outbox
+        numericSemantics:
+          type: string
+          enum:
+            - fixed-decimal
+            - rational
+            - strict-binary-float
+        decisionRandom:
+          type: string
+          enum:
+            - counter-derived
+            - seeded-stream
+        commitIsolation:
+          type: string
+          enum:
+            - single-writer
+            - optimistic-revision-cas
+            - serializable-transaction
+        conformanceProfiles:
+          type: array
+          items:
+            type: string
+      description: 선택 가능한 실행 profile의 공개 요약
     ExportJob:
       type: object
       required:
@@ -1217,6 +1652,23 @@ components:
           type: string
           minLength: 1
       description: 로그인 요청
+    ModelRef:
+      type: object
+      required:
+        - modelId
+        - version
+        - semanticFingerprint
+      properties:
+        modelId:
+          type: string
+          minLength: 1
+        version:
+          type: string
+          minLength: 1
+        semanticFingerprint:
+          type: string
+          minLength: 1
+      description: 게시된 World Model artifact의 정확한 식별자
     OnboardingChecklist:
       type: object
       required:
@@ -1247,6 +1699,63 @@ components:
           type: boolean
         hint:
           type: string
+    ProjectionBundleEnvelope:
+      type: object
+      required:
+        - worldId
+        - modelRef
+        - sourceRevision
+        - bundleId
+        - status
+        - projections
+      properties:
+        worldId:
+          type: string
+          format: uuid
+        modelRef:
+          $ref: "#/components/schemas/ModelRef"
+        sourceRevision:
+          type: integer
+          format: int64
+          minimum: 0
+        bundleId:
+          type: string
+          minLength: 1
+        status:
+          type: string
+          enum:
+            - complete
+            - incomplete
+            - stale
+        projections:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProjectionEnvelope"
+      description: 같은 revision에서 함께 읽어야 하는 semantic projection bundle
+    ProjectionEnvelope:
+      type: object
+      required:
+        - worldId
+        - modelRef
+        - sourceRevision
+        - projectionId
+        - value
+      properties:
+        worldId:
+          type: string
+          format: uuid
+        modelRef:
+          $ref: "#/components/schemas/ModelRef"
+        sourceRevision:
+          type: integer
+          format: int64
+          minimum: 0
+        projectionId:
+          type: string
+          minLength: 1
+        value:
+          description: PublishedModel이 선언한 projection result의 typed JSON representation
+      description: 특정 source revision에서 materialize한 semantic projection
     PublicUserProfile:
       type: object
       required:
@@ -1459,6 +1968,78 @@ components:
         reason:
           type: string
       description: 역할 변경 이력 단건
+    StimulusAccepted:
+      type: object
+      required:
+        - stimulusId
+        - worldId
+        - status
+        - acceptedAtRevision
+        - acceptedLogicalTime
+      properties:
+        stimulusId:
+          type: string
+          format: uuid
+        worldId:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum:
+            - accepted
+            - duplicate
+        acceptedAtRevision:
+          type: integer
+          format: int64
+          minimum: 0
+        acceptedLogicalTime:
+          type: string
+      description: Agenda가 받아들인 Stimulus. 이 응답은 Transaction commit 성공을 뜻하지 않습니다.
+    SubmitActionRequest:
+      type: object
+      required:
+        - stimulusId
+        - actionTypeId
+        - roles
+      properties:
+        stimulusId:
+          type: string
+          format: uuid
+        actionTypeId:
+          type: string
+          minLength: 1
+        roles:
+          type: object
+          unevaluatedProperties:
+            type: string
+          description: ActionRoleDefinition stable ID에서 active Entity UUID로의 binding
+        parameters:
+          type: object
+          unevaluatedProperties: {}
+          description: ActionParameterDefinition stable ID에서 typed JSON value로의 binding
+        correlationId:
+          type: string
+        causationId:
+          type: string
+      description: 외부 Action 의도를 SimulationAgenda에 넣기 위한 typed envelope. role/parameter의 상세 contract는 World의 PublishedModel이 검증합니다.
+    SubmitTimeAdvanceRequest:
+      type: object
+      required:
+        - stimulusId
+        - request
+      properties:
+        stimulusId:
+          type: string
+          format: uuid
+        request:
+          anyOf:
+            - $ref: "#/components/schemas/AdvanceToLogicalTime"
+            - $ref: "#/components/schemas/AdvanceByLogicalDuration"
+        correlationId:
+          type: string
+        causationId:
+          type: string
+      description: TimeAdvanceRequest envelope. 한 요청은 target instant 또는 duration 중 하나만 가집니다.
     TokenPair:
       type: object
       required:
@@ -1569,6 +2150,38 @@ components:
           type: string
           example: string with format 'email'
       description: 필드 수준 유효성 검사 에러
+    WorldHead:
+      type: object
+      required:
+        - worldId
+        - modelRef
+        - executionProfile
+        - revision
+        - logicalTime
+        - lifecycle
+      properties:
+        worldId:
+          type: string
+          format: uuid
+        modelRef:
+          $ref: "#/components/schemas/ModelRef"
+        executionProfile:
+          $ref: "#/components/schemas/ExecutionProfileRef"
+        revision:
+          type: integer
+          format: int64
+          minimum: 0
+        logicalTime:
+          type: string
+          description: 모델이 선언한 형식으로 직렬화한 현재 logical time
+        lifecycle:
+          type: string
+          enum:
+            - created
+            - active
+            - inactive
+            - ended
+      description: World의 public control head. Domain Property와 raw StateObject graph는 포함하지 않습니다.
   securitySchemes:
     bearerAuth:
       type: http
