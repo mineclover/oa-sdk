@@ -9,7 +9,7 @@ Prefer package subpaths for new consumers. The root `@oa-sdk/dpm` entrypoint rem
 | Import | Use for | Source owner |
 |---|---|---|
 | `@oa-sdk/dpm/package` | package metadata and manifest schema validation | `src/public/package.ts` |
-| `@oa-sdk/dpm/catalog` | catalog snapshots, PostgreSQL catalog profiling, OpenAPI projection adapters | `src/public/catalog.ts` |
+| `@oa-sdk/dpm/catalog` | catalog snapshots, PostgreSQL catalog profiling, Cloudflare D1 snapshot provenance, OpenAPI projection adapters | `src/public/catalog.ts` |
 | `@oa-sdk/dpm/data` | logical data fields and explicit API/database object bindings | `src/public/data.ts` |
 | `@oa-sdk/dpm/profile` | profile artifacts, Kafka topic profiling, connector validation, profile analysis | `src/public/profile.ts` |
 | `@oa-sdk/dpm/relationship` | relationship discovery, registry snapshots, model helpers, validation/compile/dry-run | `src/public/relationship.ts` |
@@ -82,6 +82,7 @@ The internal decision rule is tracked in [Goal 63](../../docs/internal/goals/goa
 - Connectors produce evidence; approved registry snapshots remain the execution source of truth.
 - Approved registry snapshots require complete approval metadata before a relationship can become executable.
 - PostgreSQL catalog profiling is read-only catalog evidence collection.
+- `cloudflare_d1` identifies a caller-captured, read-only D1 structural snapshot; this package does not connect to D1 or mutate it.
 - Kafka profile fixtures contain captured shape and metrics, not message payload samples.
 - Physical foreign-key output is recommendation-only and does not mutate a target database.
 - Split registry storage adapters are convenient for tests and simple integrations. Production approval flows should prefer an atomic commit adapter or database constraints that reject concurrent approved-version conflicts. The PostgreSQL adapter maps approved unique-index conflicts to `DpmRegistryApprovedRelationshipConflictError` so product flows can return deterministic blocking diagnostics.

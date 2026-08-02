@@ -39,9 +39,9 @@ function readDiscoveryDatasetId(
     }
   }
 
-  return catalog.source.kind === 'postgresql'
-    ? catalog.source.database
-    : catalog.source.projectionRef ?? catalog.source.projectionVersionHash
+  if (catalog.source.kind === 'postgresql') return catalog.source.database
+  if (catalog.source.kind === 'cloudflare_d1') return catalog.source.databaseId ?? catalog.source.database
+  return catalog.source.projectionRef ?? catalog.source.projectionVersionHash
 }
 
 function readDiscoveryScopeTables(manifest: unknown): string[] {

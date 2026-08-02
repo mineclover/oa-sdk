@@ -40,6 +40,14 @@ describe('DPM manifest JSON Schema', () => {
       .toContain('/relationship_registry/canonical_key_encoding_version')
   })
 
+  it('accepts a Cloudflare D1 catalog snapshot reference', () => {
+    const d1 = structuredClone(
+      readManifestSchemaFixture('valid', 'customer-orders.json'),
+    ) as Record<string, any>
+    d1.source.kind = 'cloudflare_d1'
+    expect(validate(d1), JSON.stringify(validate.errors, null, 2)).toBe(true)
+  })
+
   it.each(manifestSchemaInvalidFixtureCases)('rejects invalid fixture %s', (fixtureName, expectedPath) => {
     const valid = validate(readManifestSchemaFixture('invalid', fixtureName))
     const errorPaths = (validate.errors ?? []).map((error) => error.instancePath)

@@ -158,7 +158,7 @@
       "required": ["kind", "snapshot_ref"],
       "properties": {
         "kind": {
-          "enum": ["postgresql", "sqlite_fixture", "catalog_snapshot"]
+          "enum": ["postgresql", "cloudflare_d1", "sqlite_fixture", "catalog_snapshot"]
         },
         "snapshot_ref": {
           "$ref": "#/$defs/nonEmptyString"

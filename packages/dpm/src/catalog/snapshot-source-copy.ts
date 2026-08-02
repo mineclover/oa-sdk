@@ -11,6 +11,16 @@ export function copySnapshotSource(source: CatalogSnapshotSource): CatalogSnapsh
     }
   }
 
+  if (source.kind === 'cloudflare_d1') {
+    return {
+      kind: 'cloudflare_d1',
+      database: source.database,
+      ...(source.databaseId ? { databaseId: source.databaseId } : {}),
+      ...(source.accountId ? { accountId: source.accountId } : {}),
+      ...(source.capturedAt ? { capturedAt: source.capturedAt } : {}),
+    }
+  }
+
   return {
     kind: 'openapi_projection',
     profile: source.profile,

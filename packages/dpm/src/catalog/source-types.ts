@@ -9,6 +9,14 @@ export type CatalogSnapshotSource =
       capturedAt?: string
     }
   | {
+      /** Read-only structural snapshot captured from a Cloudflare D1 database. */
+      kind: 'cloudflare_d1'
+      database: string
+      databaseId?: string
+      accountId?: string
+      capturedAt?: string
+    }
+  | {
       kind: 'openapi_projection'
       profile: OpenApiProjectionProfile
       projectionVersionHash: string
