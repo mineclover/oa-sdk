@@ -10,8 +10,8 @@ consumer surface를 OA SDK 기본 스펙에 표현해보는 분석용 bundle이�
 |---|---|---|
 | `GET /health` | `getHealth` | generated response가 실제 release/model 식별자를 보존하는지 |
 | `GET /resource-types` | `listResourceTypes` | catalog가 runtime에서 만드는 동적 object map을 스키마화할 수 있는지 |
-| `POST /authorization/check` | `checkAuthorization` | `operationKey`가 catalog-owned dynamic value이고 allow/deny decision과 같은 403 정책 오류를 함께 표현하는지 |
-| `POST /authorization/relationships` | `writeRelationships` | batch tuple, idempotency flag, 인증/role 오류를 한 계약으로 표현하는지 |
+| `POST /authorization/check` | `checkAuthorization` | `platform` 경계와 `operationKey`가 catalog-owned dynamic value이고 allow/deny decision과 같은 403 정책 오류를 함께 표현하는지 |
+| `POST /authorization/relationships` | `writeRelationships` | batch tuple, idempotency flag, 인증/OpenFGA platform 관리 오류를 한 계약으로 표현하는지 |
 | `DELETE /authorization/relationships` | `deleteRelationships` | 같은 body shape를 가진 다른 HTTP method와 generated client parity |
 | `POST /authorization/relationships/query` | `queryRelationships` | pagination, optional relation/subject filter, provider tuple projection |
 
@@ -96,13 +96,14 @@ try {
 
 - `Bearer` 인증은 security scheme으로 표현되지만 legacy token과 Keycloak OIDC의 선택 규칙은
   OpenAPI에 드러나지 않는다.
-- `authorization-admin` role, tenant scope, 최초 tenant tuple 예외는 route security보다
-  강한 runtime policy인데 generated router/client에는 전달되지 않는다.
+- Keycloak 가입·enabled 상태와 OpenFGA platform membership의 분리는 route security보다
+  강한 runtime policy인데 generated router/client에는 전달되지 않는다. 모든 protected
+  request의 `platform` body field는 계약에 표현되지만 ownership path 검증은 runtime이 맡는다.
 - `operationKey`는 `catalog-operation-keys.tsp`의 union으로 관리한다. 현재 fixture는
-  후보 catalog의 5개 key를 반영하므로 잘못된 operation key를 compile-time에 차단한다.
+  후보 catalog의 24개 key를 반영하므로 잘못된 operation key를 compile-time에 차단한다.
   catalog 변경 시 이 generated shadow alias를 갱신해야 한다.
 - generated router는 path/body/type skeleton을 만들지만 후보의 OpenFGA runtime 호출,
-  tenant scope, telemetry, idempotency 정책을 구현하지 않는다. 따라서 실제 Fastify route의
+  platform ownership scope, telemetry, idempotency 정책을 구현하지 않는다. 따라서 실제 Fastify route의
   대체물이 아니라 contract/type boundary로 사용해야 한다.
 
 ### Runtime parity decisions

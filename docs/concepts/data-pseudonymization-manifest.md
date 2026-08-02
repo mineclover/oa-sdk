@@ -42,6 +42,10 @@ snapshot이나 projection evidence로 읽고, DPM은 그 위에 logical entity, 
 namespace, column transform 정책을 얹는다. 따라서 DPM의 기본 산출물은 DB migration이 아니라
 compiled pseudonymization plan, validation report, publishing context, AI schema context다.
 
+`cloudflare_d1` source kind는 Cloudflare D1에서 **호출자가 읽기 전용으로 캡처한** structural
+snapshot의 출처를 표현한다. DPM이 D1 연결을 생성하거나 schema/row를 변경하지 않으며, D1
+snapshot은 PostgreSQL catalog evidence와 동일하게 version hash를 가진 별도 evidence여야 한다.
+
 ```text
 Physical DB schema
   -> catalog snapshot / projection evidence

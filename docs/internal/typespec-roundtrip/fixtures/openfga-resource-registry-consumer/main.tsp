@@ -7,7 +7,7 @@ using OpenAPI;
 
 @server("http://localhost:3001", "Local registry server")
 @service(#{ title: "OpenFGA Resource Registry API" })
-@info(#{ version: "0.1.0" })
+@info(#{ version: "0.2.0" })
 @tagMetadata("system", #{ description: "Registry health and catalog visibility" })
 @tagMetadata("authorization", #{ description: "Authorization checks and relationship management" })
 namespace OpenFgaResourceRegistryConsumerApi;
@@ -38,6 +38,14 @@ alias Risk = "read" | "write" | "high";
 @example(#{ typeKey: "identity.user", objectId: "01J00000000000000000000001" })
 model CanonicalObjectRef {
   typeKey: string;
+  objectId: string;
+  ...Record<never>;
+}
+
+@doc("OpenFGA authorization boundary selected by every protected request.")
+@example(#{ typeKey: "platform.platform", objectId: "01J00000000000000000000000" })
+model PlatformRef {
+  typeKey: "platform.platform";
   objectId: string;
   ...Record<never>;
 }
@@ -138,12 +146,14 @@ model AuthorizationDeniedDecision {
 @doc("Authorization check request. operationKey is catalog-owned and is not a free-form action name.")
 @example(#{
   actor: #{ typeKey: "identity.user", objectId: "01J00000000000000000000001" },
+  platform: #{ typeKey: "platform.platform", objectId: "01J00000000000000000000000" },
   operationKey: "sales.order.read",
   resource: #{ typeKey: "sales.order", objectId: "01J00000000000000000000005" },
   context: #{ tenant: "tenant-1" }
 })
 model AuthorizationCheckRequest {
   actor?: CanonicalObjectRef;
+  platform: PlatformRef;
   operationKey: OperationKey;
   resource: CanonicalObjectRef;
   context?: Record<unknown>;
@@ -152,6 +162,8 @@ model AuthorizationCheckRequest {
 
 @doc("Batch relationship write request.")
 @example(#{
+  actor: #{ typeKey: "identity.user", objectId: "01J00000000000000000000001" },
+  platform: #{ typeKey: "platform.platform", objectId: "01J00000000000000000000000" },
   relationships: #[#{
     subject: #{ typeKey: "identity.user", objectId: "01J00000000000000000000001" },
     relation: "owner",
@@ -159,6 +171,8 @@ model AuthorizationCheckRequest {
   }]
 })
 model RelationshipWriteRequest {
+  actor?: CanonicalObjectRef;
+  platform: PlatformRef;
   relationships: CanonicalRelationship[];
   ignoreDuplicates?: boolean = true;
   ...Record<never>;
@@ -166,6 +180,8 @@ model RelationshipWriteRequest {
 
 @doc("Batch relationship delete request.")
 model RelationshipDeleteRequest {
+  actor?: CanonicalObjectRef;
+  platform: PlatformRef;
   relationships: CanonicalRelationship[];
   ignoreMissing?: boolean = true;
   ...Record<never>;
@@ -173,6 +189,8 @@ model RelationshipDeleteRequest {
 
 @doc("Stored direct relationship query.")
 model RelationshipQueryRequest {
+  actor?: CanonicalObjectRef;
+  platform: PlatformRef;
   resource: CanonicalObjectRef;
   relation?: string;
   subject?: CanonicalSubjectRef;
