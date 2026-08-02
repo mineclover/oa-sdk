@@ -29,7 +29,7 @@ describe('openapi governance scaffold', () => {
     })
 
     expect(config).toMatchObject({
-      schemaVersion: 'oa-gen.openapi-governance.v1',
+      schemaVersion: 'oa-gen.openapi-governance.v2',
       artifacts: {
         raw: 'contracts/openapi.raw.yaml',
         normalized: 'contracts/openapi.normalized.yaml',
@@ -41,6 +41,11 @@ describe('openapi governance scaffold', () => {
         inventory: 'artifacts.upgraded',
         validate: 'artifacts.upgraded',
       },
+      tooling: { oaGenCommand: 'oa-gen', installation: 'path-command' },
+      automation: expect.objectContaining({
+        artifactDirectory: '.oa-sdk/governance',
+        typegen: { policy: 'verify-only' },
+      }),
     })
   })
 
@@ -57,6 +62,7 @@ describe('openapi governance scaffold', () => {
       '/openapi-governance.config.json',
       '/scripts/openapi-governance.sh',
       '/openapi-governance.md',
+      '/.github/workflows/openapi-governance.yml',
     ])
     expect(existsSync(join(tmpDir, 'contracts'))).toBe(true)
     expect(existsSync(join(tmpDir, 'src/generated'))).toBe(true)
@@ -65,20 +71,30 @@ describe('openapi governance scaffold', () => {
     expect(config.service).toBe('orders')
     const script = readFileSync(join(tmpDir, 'scripts/openapi-governance.sh'), 'utf8')
     expect(script).toContain('validate-upgraded')
-    expect(script).toContain('"${OA_GEN_CMD[@]}" collect')
-    expect(script).toContain('git -C "$APP_DIR" rev-parse --show-toplevel')
+    expect(script).toContain('oa_gen collect')
+    expect(script).toContain('(cd "$APP_DIR" && "${OA_GEN_CMD[@]}" "$@")')
+    expect(script).not.toContain('git -C "$APP_DIR" rev-parse --show-toplevel')
+    expect(script).toContain('read -ra OA_GEN_CMD <<< "${OA_GEN:-oa-gen}"')
     expect(script).toContain('require_baseline()')
     expect(script).toContain("hint: run '$0 update-baseline'")
-    expect(script).toContain('Override the oa-gen invocation by setting OA_GEN')
-    expect(script).toContain('read -ra OA_GEN_CMD <<< "${OA_GEN}"')
+    expect(script).toContain('Override it per invocation by setting OA_GEN')
     expect(script).toContain('source_openapi runs the --source-command captured at scaffold time as')
     expect(script).toContain('review-bundle')
+    expect(script).toContain('  ci)')
+    expect(script).toContain('CI_REVIEW_BUNDLE')
+    expect(script).toContain('generate_types()')
+    expect(script).toContain('verify-only: generation must succeed')
     expect(script).toContain('--inventory')
     expect(script).toContain('shift || true')
     expect(script).toMatch(/drift --runtime-openapi-url[^\n]*"\$@"/)
     const doc = readFileSync(join(tmpDir, 'openapi-governance.md'), 'utf8')
     expect(doc).toContain('OpenAPI 3.2 analysis artifact')
     expect(doc).toContain('`all` runs the PR gate pipeline')
+    expect(doc).toContain('install-manager-neutral template')
+    const workflow = readFileSync(join(tmpDir, '.github/workflows/openapi-governance.yml'), 'utf8')
+    expect(workflow).toContain("OA_GEN: 'oa-gen'")
+    expect(workflow).toContain('actions/upload-artifact@v4')
+    expect(workflow).toContain('bash scripts/openapi-governance.sh ci')
   })
 
   it('refuses to overwrite existing scaffold without --force', () => {
@@ -107,6 +123,26 @@ describe('openapi governance scaffold', () => {
     expect(script).toContain('test -f "$RAW" || { echo "missing raw OpenAPI artifact: $RAW"; exit 1; }')
   })
 
+  it('renders an explicit service-owned CLI setup command into the CI template', () => {
+    scaffoldOpenApiGovernance({
+      rootDir: tmpDir,
+      service: 'orders',
+      profile: 'generic',
+      oaGenCommand: 'pnpm exec oa-gen',
+      oaGenSetupCommand: 'pnpm install --frozen-lockfile',
+    })
+    const config = JSON.parse(readFileSync(join(tmpDir, 'openapi-governance.config.json'), 'utf8')) as {
+      tooling: { oaGenCommand: string; setupCommand: string | null }
+    }
+    expect(config.tooling).toEqual({
+      oaGenCommand: 'pnpm exec oa-gen',
+      installation: 'path-command',
+      setupCommand: 'pnpm install --frozen-lockfile',
+    })
+    const workflow = readFileSync(join(tmpDir, '.github/workflows/openapi-governance.yml'), 'utf8')
+    expect(workflow).toContain('run: |\n          pnpm install --frozen-lockfile')
+  })
+
   it('renders shell variables that follow consumers map exactly', () => {
     scaffoldOpenApiGovernance({
       rootDir: tmpDir,
@@ -123,6 +159,30 @@ describe('openapi governance scaffold', () => {
     // inventory + validate read upgraded
     expect(script).toContain('inventory --spec "${UPGRADED}"')
     expect(script).toContain('validate --spec "${UPGRADED}"')
+  })
+
+  it('enforces a tracked, fresh generated artifact when commit-required is selected', () => {
+    scaffoldOpenApiGovernance({
+      rootDir: tmpDir,
+      service: 'orders',
+      profile: 'generic',
+      typegenPolicy: 'commit-required',
+    })
+    const config = JSON.parse(readFileSync(join(tmpDir, 'openapi-governance.config.json'), 'utf8')) as {
+      automation: { typegen: { policy: string } }
+    }
+    expect(config.automation.typegen.policy).toBe('commit-required')
+    const script = readFileSync(join(tmpDir, 'scripts/openapi-governance.sh'), 'utf8')
+    expect(script).toContain('git -C "$APP_DIR" ls-files --error-unmatch "src/generated/api-types.ts"')
+    expect(script).toContain('generated type artifact is stale: src/generated/api-types.ts')
+  })
+
+  it('rejects unsupported type generation policies', () => {
+    expect(() => createOpenApiGovernanceInterface({
+      service: 'orders',
+      profile: 'generic',
+      typegenPolicy: 'invalid' as 'verify-only',
+    })).toThrow(/invalid --typegen-policy/)
   })
 
   it('embeds a config fingerprint in the script header that matches helper output', () => {

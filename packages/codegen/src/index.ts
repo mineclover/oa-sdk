@@ -26,7 +26,26 @@ export {
 } from './cli/lib/openapi-collect.js'
 export { exportOpenApiToTypeSpec } from './cli/lib/tsp-export.js'
 export {
+  ARTIFACT_COMPATIBILITY_POLICY_SCHEMA_VERSION,
+  OA_SDK_ARTIFACT_COMPATIBILITY_POLICY_V1,
+  findArtifactCompatibility,
+  supportsArtifactSchemaVersion,
+} from './cli/lib/artifact-compatibility-policy.js'
+export {
+  CodegenSourceAdapterRegistry,
+  adaptDrizzleTables,
+  adaptOpenApiProjectionEnvelope,
+  adaptPythonContractSpecSnapshot,
+  adaptZodSchemas,
+  createBuiltInCodegenSourceAdapterRegistry,
+  drizzleTableSourceAdapter,
+  openApiProjectionEnvelopeSourceAdapter,
+  pythonContractSpecSnapshotSourceAdapter,
+  zodSchemaSourceAdapter,
+} from './cli/lib/source-adapters.js'
+export {
   buildParallelEvidence,
+  buildParallelEvidenceFromArtifacts,
   createParallelEvidenceMetricDelta,
   createParallelEvidenceMetrics,
   createParallelEvidenceReport,
@@ -36,6 +55,7 @@ export {
   parseParallelEvidenceMetrics,
   parseTtscContractProvenance,
   parseTypeSpecRefProvenance,
+  ttscContractProvenanceAdapter,
 } from './cli/lib/parallel-evidence.js'
 export {
   createOpenApiGovernanceInterface,
@@ -53,6 +73,20 @@ export {
 } from './apitomy/index.js'
 
 export type { OasSchema } from './zod-to-schema.js'
+export type {
+  ArtifactCompatibilityEntry,
+  ArtifactCompatibilityPolicyV1,
+} from './cli/lib/artifact-compatibility-policy.js'
+export type {
+  CodegenSourceAdapter,
+  CodegenSourceAdapterOptions,
+  CodegenSourceAdapterResult,
+  DrizzleTableSourceAdapterInput,
+  DrizzleTableSourceAdapterOptions,
+  OpenApiProjectionEnvelopeAdapterOptions,
+  PythonContractSpecSnapshotAdapterOptions,
+  ZodSchemaSourceAdapterOptions,
+} from './cli/lib/source-adapters.js'
 export type { CodegenConfig } from './config.js'
 export type { ExternalSchemaRefAnalysis, ExternalSchemaRefDiagnostic, ExternalSchemaRefDiagnosticCode, ExternalSchemaTypeAlias, TypegenOptions } from './typegen/generate-types.js'
 export type { SchemaToTsOptions } from './typegen/schema-to-ts.js'
@@ -75,6 +109,7 @@ export type {
   OpenApiGovernanceInterface,
   OpenApiGovernanceScaffoldOptions,
   OpenApiGovernanceScaffoldResult,
+  OpenApiGovernanceTypegenPolicy,
 } from './cli/lib/openapi-governance-scaffold.js'
 export type {
   ParallelEvidenceArtifactInput,
@@ -88,6 +123,10 @@ export type {
   ParallelEvidenceSubject,
   ParallelEvidenceSubjectStatus,
   ParallelEvidenceV1,
+  ImplementationProvenanceAdapter,
+  ImplementationProvenanceArtifact,
+  ImplementationProvenanceDeclaration,
+  ImplementationProvenanceEdge,
   TtscContractProvenanceV2,
 } from './cli/lib/parallel-evidence.js'
 export type {

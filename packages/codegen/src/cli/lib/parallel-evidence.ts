@@ -135,33 +135,70 @@ export type ParallelEvidenceReportV1 = {
   baseline?: ParallelEvidenceMetricDeltaV1
 }
 
-export type TtscContractProvenanceV2 = {
+export type ImplementationProvenanceDeclaration = {
+  id: string
+  kind: 'schema' | 'property' | 'operation'
+  astKind: string
+  symbol: string
+  source: ParallelEvidenceSourceRange
+  shape?: {
+    features: readonly string[]
+    typeSpecProjection: 'direct' | 'policy-required' | 'unsupported'
+  }
+}
+
+export type ImplementationProvenanceEdge =
+  | { kind: 'emits'; declarationId: string; outputPointer: string }
+  | { kind: 'type-ref'; declarationId: string; targetDeclarationId: string }
+
+/**
+ * Structural minimum for an implementation-side provenance producer. This is
+ * intentionally narrower than an AST format: any extractor may retain extra
+ * fields, but it must provide explicit OpenAPI pointer emission and resolved
+ * declaration references before it can participate in the review join.
+ */
+export type ImplementationProvenanceArtifact = {
+  schemaVersion: string
+  declarations: readonly ImplementationProvenanceDeclaration[]
+  edges: readonly ImplementationProvenanceEdge[]
+}
+
+/**
+ * Adapter contract for a trusted implementation provenance extractor. The
+ * adapter is a library composition point, not a dynamically loaded CLI plugin;
+ * this avoids turning unreviewed module loading into a contract-authoring path.
+ */
+export type ImplementationProvenanceAdapter<TArtifact extends ImplementationProvenanceArtifact = ImplementationProvenanceArtifact> = {
+  sourceId: string
+  provenanceKind: string
+  parse(value: unknown): TArtifact
+}
+
+export type TtscContractProvenanceV2 = ImplementationProvenanceArtifact & {
   schemaVersion: 'ttsc-contract-provenance.v2'
   inputs: { toolchain: { typescript: string } }
-  declarations: Array<{
-    id: string
-    kind: 'schema' | 'property' | 'operation'
-    astKind: string
-    symbol: string
-    source: ParallelEvidenceSourceRange
-    shape?: {
-      features: readonly string[]
-      typeSpecProjection: 'direct' | 'policy-required' | 'unsupported'
-    }
-  }>
-  edges: Array<
-    | { kind: 'emits'; declarationId: string; outputPointer: string }
-    | { kind: 'type-ref'; declarationId: string; targetDeclarationId: string }
-  >
   diagnostics: readonly unknown[]
 }
 
-export function buildParallelEvidence(input: {
+export const ttscContractProvenanceAdapter: ImplementationProvenanceAdapter<TtscContractProvenanceV2> = {
+  sourceId: 'ttsc',
+  provenanceKind: 'typescript-go-ast-checker',
+  parse: parseTtscContractProvenance,
+}
+
+export function buildParallelEvidence<TImplementation extends ImplementationProvenanceArtifact>(input: {
   contract: TypeSpecRefProvenanceV1
-  implementation: TtscContractProvenanceV2
+  implementation: TImplementation
+  /** Defaults to the maintained ttsc adapter for backwards-compatible CLI behavior. */
+  implementationAdapter?: ImplementationProvenanceAdapter<TImplementation>
 }): ParallelEvidenceV1 {
-  if (input.implementation.schemaVersion !== 'ttsc-contract-provenance.v2') {
-    throw new Error(`Unsupported ttsc provenance schema: ${input.implementation.schemaVersion}`)
+  const implementationAdapter = input.implementationAdapter
+    ?? (ttscContractProvenanceAdapter as unknown as ImplementationProvenanceAdapter<TImplementation>)
+  if (!isStableSourceId(implementationAdapter.sourceId)) {
+    throw new Error(`Invalid implementation provenance source id: ${implementationAdapter.sourceId}`)
+  }
+  if (implementationAdapter.provenanceKind.length === 0) {
+    throw new Error('Implementation provenance adapter must declare a provenance kind.')
   }
 
   const subjects = new Map<string, { outputPointer: string; contract: ParallelEvidenceDeclaration[]; implementation: ParallelEvidenceDeclaration[] }>()
@@ -200,12 +237,12 @@ export function buildParallelEvidence(input: {
     const declaration = implementationDeclarations.get(edge.declarationId)
     if (!declaration) continue
     implementationPointers.set(declaration.id, edge.outputPointer)
-    addSubject(edge.outputPointer, normalizeImplementationDeclaration(declaration))
+    addSubject(edge.outputPointer, normalizeImplementationDeclaration(declaration, implementationAdapter.sourceId))
   }
   for (const edge of input.implementation.edges) {
     if (edge.kind !== 'type-ref') continue
     relations.push({
-      sourceId: 'ttsc',
+      sourceId: implementationAdapter.sourceId,
       role: 'implementation-observation',
       kind: 'type-ref',
       source: {
@@ -260,10 +297,10 @@ export function buildParallelEvidence(input: {
         sha256: sha256(stableStringify(input.contract)),
       },
       {
-        sourceId: 'ttsc',
+        sourceId: implementationAdapter.sourceId,
         role: 'implementation-observation',
         artifactSchemaVersion: input.implementation.schemaVersion,
-        provenanceKind: 'typescript-go-ast-checker',
+        provenanceKind: implementationAdapter.provenanceKind,
         sha256: sha256(stableStringify(input.implementation)),
       },
     ],
@@ -274,10 +311,27 @@ export function buildParallelEvidence(input: {
   }
 }
 
+/**
+ * Parse and join cross-repository artifacts through an explicitly selected
+ * implementation adapter. This is the integration entrypoint for a custom
+ * extractor; the CLI keeps using the maintained ttsc adapter instead.
+ */
+export function buildParallelEvidenceFromArtifacts<TImplementation extends ImplementationProvenanceArtifact>(input: {
+  contract: unknown
+  implementation: unknown
+  implementationAdapter: ImplementationProvenanceAdapter<TImplementation>
+}): ParallelEvidenceV1 {
+  return buildParallelEvidence({
+    contract: parseTypeSpecRefProvenance(input.contract),
+    implementation: input.implementationAdapter.parse(input.implementation),
+    implementationAdapter: input.implementationAdapter,
+  })
+}
+
 /** Build a deterministic, trend-safe metric snapshot from a joined evidence graph. */
 export function createParallelEvidenceMetrics(input: {
   contract: TypeSpecRefProvenanceV1
-  implementation: TtscContractProvenanceV2
+  implementation: ImplementationProvenanceArtifact
   subjects: readonly ParallelEvidenceSubject[]
   relations: readonly ParallelEvidenceRelation[]
 }): ParallelEvidenceMetricsV1 {
@@ -428,9 +482,12 @@ function normalizeContractDeclaration(declaration: TypeSpecRefProvenanceV1['decl
   }
 }
 
-function normalizeImplementationDeclaration(declaration: TtscContractProvenanceV2['declarations'][number]): ParallelEvidenceDeclaration {
+function normalizeImplementationDeclaration(
+  declaration: ImplementationProvenanceDeclaration,
+  sourceId: string,
+): ParallelEvidenceDeclaration {
   return {
-    sourceId: 'ttsc',
+    sourceId,
     role: 'implementation-observation',
     declarationId: declaration.id,
     kind: declaration.kind,
@@ -445,6 +502,10 @@ function normalizeImplementationDeclaration(declaration: TtscContractProvenanceV
 
 function pointerSubjectId(pointer: string): `openapi-pointer:${string}` {
   return `openapi-pointer:${pointer}`
+}
+
+function isStableSourceId(value: string): boolean {
+  return /^[a-z][a-z0-9-]*$/.test(value)
 }
 
 function compareDeclarations(left: ParallelEvidenceDeclaration, right: ParallelEvidenceDeclaration): number {

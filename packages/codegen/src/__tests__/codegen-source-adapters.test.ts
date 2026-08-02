@@ -15,10 +15,39 @@ import {
   adaptOpenApiProjectionEnvelope,
   adaptPythonContractSpecSnapshot,
   adaptZodSchemas,
+  CodegenSourceAdapterRegistry,
+  createBuiltInCodegenSourceAdapterRegistry,
 } from '../cli/lib/source-adapters.js'
 import { createOpenApiSourceContentHash } from '../cli/lib/openapi-source-fragments.js'
 
 describe('codegen source adapters', () => {
+  it('composes maintained and application-owned adapters through an explicit registry', async () => {
+    const registry = createBuiltInCodegenSourceAdapterRegistry()
+    expect(registry.list().map(adapter => adapter.id)).toEqual([
+      'drizzle',
+      'openapi-projection-envelope',
+      'python-contract-spec-snapshot',
+      'zod',
+    ])
+
+    registry.register({
+      id: 'fixture-source',
+      adapt: (input: { name: string }) => ({
+        fragments: [{
+          id: `fixture:${input.name}`,
+          kind: 'schema',
+          content: { type: 'string' },
+          contentHash: 'fixture',
+          metadata: { sourceAdapter: 'fixture-source' },
+        }],
+        diagnostics: [],
+      }),
+    })
+    expect((await registry.adapt('fixture-source', { name: 'Widget' })).fragments[0]?.id).toBe('fixture:Widget')
+    expect(() => registry.register({ id: 'fixture-source', adapt: () => ({ fragments: [], diagnostics: [] }) })).toThrow(/already registered/)
+    expect(() => new CodegenSourceAdapterRegistry().register({ id: 'Bad_Name', adapt: () => ({ fragments: [], diagnostics: [] }) })).toThrow(/invalid source adapter id/)
+  })
+
   it('adapts Zod schemas into normalized schema fragments', () => {
     const schemas = {
       User: z.object({

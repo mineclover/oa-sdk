@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import {
   buildParallelEvidence,
+  buildParallelEvidenceFromArtifacts,
   createParallelEvidenceMetricDelta,
   createParallelEvidenceReport,
   parseParallelEvidenceMetrics,
+  type ImplementationProvenanceArtifact,
   type TtscContractProvenanceV2,
 } from '../cli/lib/parallel-evidence.js'
 import type { TypeSpecRefProvenanceV1 } from '../cli/lib/typespec-ref-provenance.js'
@@ -95,6 +97,32 @@ describe('parallel provenance evidence', () => {
       schemaVersion: 'oa-sdk.parallel-evidence-metrics.v1',
       pointers: {},
     })).toThrow('parallel evidence metrics declarations must be an object')
+  })
+
+  it('accepts a trusted non-ttsc implementation adapter without changing TypeSpec authority', () => {
+    const implementation: ImplementationProvenanceArtifact = {
+      ...implementationArtifact(),
+      schemaVersion: 'example-ts-ast-provenance.v1',
+    }
+    const result = buildParallelEvidenceFromArtifacts({
+      contract: contractArtifact(),
+      implementation,
+      implementationAdapter: {
+        sourceId: 'example-ts-ast',
+        provenanceKind: 'typescript-compiler-api',
+        parse: value => value as ImplementationProvenanceArtifact,
+      },
+    })
+
+    expect(result.contractAuthority).toBe('typespec')
+    expect(result.artifacts).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        sourceId: 'example-ts-ast',
+        artifactSchemaVersion: 'example-ts-ast-provenance.v1',
+        provenanceKind: 'typescript-compiler-api',
+      }),
+    ]))
+    expect(result.subjects.find(subject => subject.outputPointer === '#/components/schemas/Widget')?.implementation[0]?.sourceId).toBe('example-ts-ast')
   })
 })
 

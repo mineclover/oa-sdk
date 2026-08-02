@@ -36,10 +36,99 @@ export type CodegenSourceAdapterOptions = {
   metadata?: OpenApiSourceFragmentMetadata
 }
 
+/**
+ * Stable integration boundary for a source that can contribute OpenAPI source
+ * fragments. Adapters own interpretation of their input; the code generator
+ * only consumes the normalized fragment result.
+ */
+export type CodegenSourceAdapter<
+  TInput = unknown,
+  TOptions extends CodegenSourceAdapterOptions = CodegenSourceAdapterOptions,
+  TDiagnostic extends OpenApiSourceAdapterDiagnostic = OpenApiSourceAdapterDiagnostic,
+> = {
+  /** Globally unique, stable adapter identifier (for example `zod`). */
+  id: string
+  adapt(input: TInput, options?: TOptions): CodegenSourceAdapterResult<TDiagnostic> | Promise<CodegenSourceAdapterResult<TDiagnostic>>
+}
+
+/**
+ * A deliberately small registry for application-owned adapters. It does not
+ * load modules or execute configuration: applications register trusted
+ * adapters at composition time, which keeps source interpretation explicit.
+ */
+export class CodegenSourceAdapterRegistry {
+  private readonly adapters = new Map<string, CodegenSourceAdapter>()
+
+  register(adapter: CodegenSourceAdapter): this {
+    if (!/^[a-z][a-z0-9-]*$/.test(adapter.id)) {
+      throw new Error(`invalid source adapter id: ${adapter.id}. Use lowercase letters, digits, and hyphens.`)
+    }
+    if (this.adapters.has(adapter.id)) {
+      throw new Error(`source adapter already registered: ${adapter.id}`)
+    }
+    this.adapters.set(adapter.id, adapter)
+    return this
+  }
+
+  get(id: string): CodegenSourceAdapter | undefined {
+    return this.adapters.get(id)
+  }
+
+  list(): readonly CodegenSourceAdapter[] {
+    return [...this.adapters.values()].sort((left, right) => left.id.localeCompare(right.id))
+  }
+
+  async adapt(
+    id: string,
+    input: unknown,
+    options: CodegenSourceAdapterOptions = {},
+  ): Promise<CodegenSourceAdapterResult> {
+    const adapter = this.adapters.get(id)
+    if (!adapter) throw new Error(`unknown source adapter: ${id}`)
+    return await adapter.adapt(input, options)
+  }
+}
+
 export type ZodSchemaSourceAdapterOptions = CodegenSourceAdapterOptions
 export type DrizzleTableSourceAdapterOptions = CodegenSourceAdapterOptions
 export type OpenApiProjectionEnvelopeAdapterOptions = CodegenSourceAdapterOptions
 export type PythonContractSpecSnapshotAdapterOptions = CodegenSourceAdapterOptions
+
+export type DrizzleTableSourceAdapterInput = {
+  tables: ExtractedTable[]
+  schemaTypes: DrizzleSchemaType[]
+  naming: TableNaming
+}
+
+/** Built-ins are exported as adapters so consumers can compose one registry. */
+export const zodSchemaSourceAdapter: CodegenSourceAdapter<Record<string, z.ZodTypeAny>, ZodSchemaSourceAdapterOptions> = {
+  id: 'zod',
+  adapt: adaptZodSchemas,
+}
+
+export const drizzleTableSourceAdapter: CodegenSourceAdapter<DrizzleTableSourceAdapterInput, DrizzleTableSourceAdapterOptions> = {
+  id: 'drizzle',
+  adapt: ({ tables, schemaTypes, naming }, options) => adaptDrizzleTables(tables, schemaTypes, naming, options),
+}
+
+export const openApiProjectionEnvelopeSourceAdapter: CodegenSourceAdapter<unknown, OpenApiProjectionEnvelopeAdapterOptions> = {
+  id: 'openapi-projection-envelope',
+  adapt: adaptOpenApiProjectionEnvelope,
+}
+
+export const pythonContractSpecSnapshotSourceAdapter: CodegenSourceAdapter<unknown, PythonContractSpecSnapshotAdapterOptions> = {
+  id: 'python-contract-spec-snapshot',
+  adapt: adaptPythonContractSpecSnapshot,
+}
+
+/** Create a registry containing the OA SDK maintained source adapters. */
+export function createBuiltInCodegenSourceAdapterRegistry(): CodegenSourceAdapterRegistry {
+  return new CodegenSourceAdapterRegistry()
+    .register(zodSchemaSourceAdapter)
+    .register(drizzleTableSourceAdapter)
+    .register(openApiProjectionEnvelopeSourceAdapter)
+    .register(pythonContractSpecSnapshotSourceAdapter)
+}
 
 export type OpenApiProjectionEnvelopeAdapterDiagnostic =
   OpenApiSourceAdapterDiagnostic<'openapi-projection-envelope/invalid-envelope', 'error'>
