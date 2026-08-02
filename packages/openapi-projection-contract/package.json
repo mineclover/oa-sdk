@@ -2,7 +2,7 @@
   "name": "@oa-sdk/openapi-projection-contract",
   "version": "0.1.0",
   "description": "Shared OpenAPI projection contract types for schema projection adapters",
-  "private": true,
+  "private": false,
   "type": "module",
   "exports": {
     ".": {
@@ -13,6 +13,13 @@
   "files": [
     "dist"
   ],
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
   "scripts": {
     "build": "tsup src/index.ts --format esm --dts",
     "test": "pnpm build && vitest run",

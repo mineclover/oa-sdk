@@ -12,21 +12,24 @@ check:release-policy`가 이 파일과 workspace package manifests, `.changeset/
 ## Current State
 
 - Root package는 private monorepo이며 Changesets가 설치되어 있다.
-- 모든 workspace package/app은 현재 `private: true`다. `pnpm release`는 Core와 Downstream만
-  build한 뒤 `changeset publish`를 호출하지만, publish readiness가 닫혀 있으므로 공개 npm 배포
-  명령으로 사용하지 않는다. Version intent와 patch note 초안은 `pnpm changeset`과
-  `pnpm version-packages`로 관리한다.
-- 실제 publish를 열기 전에는 package별 `files`, `publishConfig`, repository/license metadata, public
-  dependency contract를 별도 readiness로 확인한다.
+- Root monorepo와 app/reference workspace는 private이다. `pnpm release`는 Core와 Downstream만
+  build한 뒤 `changeset publish`를 호출하지만, registry publish는 여전히 승인·credential-gated다.
+  Version intent와 patch note 초안은 `pnpm changeset`과 `pnpm version-packages`로 관리한다.
+- `@oa-sdk/core`, `@oa-sdk/openapi-projection-contract`, `@oa-sdk/typespec-decorators`,
+  `@oa-sdk/parser`, `@oa-sdk/codegen`은
+  public npm **distribution candidate**다. 이 네 패키지는 `dist`만 pack하고 provenance를
+  요구하며, codegen pack smoke가 실제 tarball에서 export/bin과 workspace protocol 제거를 검증한다.
+- 다른 release-tracked package는 아직 private이다. `publish.enabled: false`는 자동/일괄 publish를
+  닫는 정책이며, distribution candidate의 실제 배포에는 npm 권한과 별도 release 승인이 필요하다.
 - Internal dependencies는 모두 `workspace:` protocol을 사용한다. Changesets config는 내부 의존성
   bump를 `patch`로 전파한다.
-- Release policy v3는 10개 release-tracked package와 7개 ignored workspace를 관리한다. Release
+- Release policy v3는 10개 release-tracked package와 10개 ignored workspace를 관리한다. Release
   tracking은 제품 scope와 일치시키되, Core Platform과 Downstream Integration을 서로 다른
   architecture tier로 유지한다.
 
 ## Release-Tracked Packages
 
-아래 10개 패키지는 package-level versioning 후보로 유지한다. Core Platform 일곱 패키지가
+아래 11개 패키지는 package-level versioning 후보로 유지한다. Core Platform 여덟 패키지가
 schema/spec 관리 제품을 소유하고, Downstream Integration 세 패키지는 그 계약의 소비 가능성을
 증명한다.
 
@@ -34,6 +37,7 @@ schema/spec 관리 제품을 소유하고, Downstream Integration 세 패키지�
 | --- | --- | ---: | --- |
 | Core Platform | `@oa-sdk/core` | `0.1.0` | Shared utilities and browser-safe core helpers |
 | Core Platform | `@oa-sdk/openapi-projection-contract` | `0.1.0` | OpenAPI projection contract types and validation |
+| Core Platform | `@oa-sdk/typespec-decorators` | `0.1.0` | Versioned OA SDK TypeSpec decorators used by production schema source |
 | Core Platform | `@oa-sdk/schemas` | `0.1.0` | TypeSpec production source and OpenAPI artifacts |
 | Core Platform | `@oa-sdk/parser` | `0.1.0` | OpenAPI 3.2 parser, IR, query, browser entrypoint |
 | Core Platform | `@oa-sdk/codegen` | `0.3.0` | CLI, typegen, governance, and schema/code generation |
@@ -45,7 +49,7 @@ schema/spec 관리 제품을 소유하고, Downstream Integration 세 패키지�
 
 ## Ignored Workspaces
 
-아래 7개 workspace는 Changesets release 대상에서 제외한다. Maintenance-only package는
+아래 10개 workspace는 Changesets release 대상에서 제외한다. Maintenance-only package는
 보안·호환·migration만 수행하고, app/reference workspace는 Core release와 분리한다. Ignored는
 삭제나 검증 중단을 뜻하지 않으며 active feature investment가 아님을 뜻한다.
 
@@ -54,6 +58,9 @@ schema/spec 관리 제품을 소유하고, Downstream Integration 세 패키지�
 | Maintenance-only | `@oa-sdk/dpm` | Data-governance separation candidate; security, compatibility, migration only |
 | Maintenance-only | `@oa-sdk/personas` | Data-governance separation candidate; security, compatibility, migration only |
 | Maintenance-only | `@oa-sdk/typia-mock` | Experiment/archive candidate; security, compatibility, migration only |
+| Maintenance-only | `@oa-sdk/logical-erd-contract` | Private TypeSpec ERD prototype's neutral artifact contract; no DPM or physical DB dependency |
+| Maintenance-only | `@oa-sdk/typespec-erd` | Private TypeSpec ERD prototype and `oa-erd` CLI; no OpenAPI/codegen runtime dependency |
+| Maintenance-only | `@oa-sdk/ttsc-compile-fixture` | Isolated TS 7 compiler fixture; policy-tracked but excluded from bulk build/test/typecheck tasks because it has no package task surface |
 | App/reference | `@oa-sdk/nestjs-ref` | Reference implementation app |
 | App/reference | `@oa-sdk/playground` | Integration playground |
 | App/reference | `@oa-sdk/preview` | Preview app |
@@ -96,8 +103,8 @@ pnpm changeset status --verbose
 pnpm version-packages
 ```
 
-Run `pnpm release` only after publish readiness is explicitly confirmed. With the current all-private
-package state, publish is intentionally closed.
+Run `pnpm release` only after registry authorization and the package-specific release approval are
+explicitly confirmed. The distribution candidates are pack-ready, not automatically published.
 
 Policy gate:
 
@@ -107,7 +114,7 @@ pnpm check:release-policy
 
 ## Publish Readiness Checklist
 
-Before changing any package from `private: true` to public:
+Before adding a distribution candidate or publishing one:
 
 - Confirm the package belongs in the release-tracked list.
 - Add or verify `files` so the package publishes only intended artifacts.

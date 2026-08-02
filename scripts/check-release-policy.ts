@@ -34,6 +34,8 @@ type ReleasePolicy = {
   publish: {
     enabled: boolean
   }
+  distributionCandidates: string[]
+  bulkTaskExcluded: string[]
   tracks: Record<string, WorkspaceTrack>
   releaseTracked: string[]
   ignored: string[]
@@ -49,6 +51,11 @@ type PackageJson = {
   devDependencies?: Record<string, string>
   peerDependencies?: Record<string, string>
   optionalDependencies?: Record<string, string>
+  files?: string[]
+  publishConfig?: {
+    access?: string
+    provenance?: boolean
+  }
 }
 
 type WorkspacePackage = {
@@ -179,6 +186,26 @@ function validatePolicyShape(policy: ReleasePolicy, issues: string[]): void {
   }
   if (policy.publish?.enabled !== false) {
     issues.push('docs/internal/release-policy.json: publish.enabled must remain false')
+  }
+
+  if (!Array.isArray(policy.distributionCandidates) || policy.distributionCandidates.length === 0) {
+    issues.push('docs/internal/release-policy.json: distributionCandidates must be a non-empty array')
+  } else {
+    const tracked = new Set(getWorkspacesByRelease(policy, 'release-tracked'))
+    const candidates = new Set<string>()
+    for (const name of policy.distributionCandidates) {
+      if (!tracked.has(name)) {
+        issues.push(`docs/internal/release-policy.json: distribution candidate must be release-tracked: ${name}`)
+      }
+      if (candidates.has(name)) {
+        issues.push(`docs/internal/release-policy.json: duplicate distribution candidate: ${name}`)
+      }
+      candidates.add(name)
+    }
+  }
+
+  if (!Array.isArray(policy.bulkTaskExcluded)) {
+    issues.push('docs/internal/release-policy.json: bulkTaskExcluded must be an array')
   }
 
   if (!isRecord(policy.tracks)) {
@@ -385,6 +412,7 @@ function validateRootScripts(
 
       const expectedWorkspaces = trackNames
         .flatMap((trackName) => getTrackWorkspaces(policy, trackName))
+        .filter(workspaceName => !policy.bulkTaskExcluded.includes(workspaceName))
         .filter(workspaceName => task !== 'test'
           || (workspaceByName.get(workspaceName)?.manifest.scripts?.test !== undefined
             && workspaceByName.get(workspaceName)?.manifest.scripts?.['test:ci'] !== undefined))
@@ -453,6 +481,8 @@ function validateWorkspaceManifests(
 ): void {
   const tracked = new Set(getWorkspacesByRelease(policy, 'release-tracked'))
   const ignored = new Set(getWorkspacesByRelease(policy, 'ignored'))
+  const distributionCandidates = new Set(policy.distributionCandidates)
+  const bulkTaskExcluded = new Set(policy.bulkTaskExcluded)
 
   for (const workspacePackage of workspacePackages) {
     const { manifest } = workspacePackage
@@ -463,8 +493,23 @@ function validateWorkspaceManifests(
       issues.push(`${label}: version must be a semver string`)
     }
 
-    if (!policy.publish.enabled && manifest.private !== true) {
+    if (!policy.publish.enabled && !distributionCandidates.has(name) && manifest.private !== true) {
       issues.push(`${label}: private must remain true while release-policy publish.enabled is false`)
+    }
+
+    if (distributionCandidates.has(name)) {
+      if (manifest.private === true) issues.push(`${label}: distribution candidate must not be private`)
+      if (!manifest.files?.includes('dist')) issues.push(`${label}: distribution candidate must publish dist via files`)
+      if (manifest.publishConfig?.access !== policy.changesets.access || manifest.publishConfig.provenance !== true) {
+        issues.push(`${label}: distribution candidate must match release-policy access and require provenance`)
+      }
+      for (const [sectionName, dependencies] of Object.entries(getRuntimeDependencySections(manifest))) {
+        for (const dependencyName of Object.keys(dependencies)) {
+          if (dependencyName.startsWith('@oa-sdk/') && !distributionCandidates.has(dependencyName)) {
+            issues.push(`${label}: ${sectionName} dependency ${dependencyName} is not a distribution candidate`)
+          }
+        }
+      }
     }
 
     if (tracked.has(name)) {
@@ -480,7 +525,18 @@ function validateWorkspaceManifests(
       issues.push(`${label}: ignored workspaces must remain private`)
     }
 
+    if (bulkTaskExcluded.has(name) && !ignored.has(name)) {
+      issues.push(`${label}: bulk-task excluded workspace must be ignored`)
+    }
+
     validateInternalDependencySpecs(label, manifest, issues)
+  }
+}
+
+function getRuntimeDependencySections(manifest: PackageJson): Record<string, Record<string, string>> {
+  return {
+    dependencies: manifest.dependencies ?? {},
+    optionalDependencies: manifest.optionalDependencies ?? {},
   }
 }
 
@@ -538,6 +594,12 @@ function validateReleaseDoc(policy: ReleasePolicy, releaseDoc: string, issues: s
     issues.push(
       `docs/internal/release-management.md: must reference scopeDocument ${policy.scopeDocument}`,
     )
+  }
+
+  for (const name of policy.bulkTaskExcluded) {
+    if (!releaseDoc.includes(`\`${name}\``)) {
+      issues.push(`docs/internal/release-management.md: missing bulk-task exclusion mention for ${name}`)
+    }
   }
 }
 

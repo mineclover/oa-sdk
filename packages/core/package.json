@@ -2,8 +2,18 @@
   "name": "@oa-sdk/core",
   "version": "0.1.0",
   "description": "Shared utilities across oa-sdk packages",
-  "private": true,
+  "private": false,
   "type": "module",
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
   "exports": {
     ".": {
       "import": "./dist/index.js",

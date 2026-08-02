@@ -5,7 +5,7 @@
   "scopeDocument": "docs/internal/platform-scope.md",
   "changesets": {
     "baseBranch": "main",
-    "access": "restricted",
+    "access": "public",
     "updateInternalDependencies": "patch",
     "fixed": [],
     "linked": []
@@ -13,6 +13,16 @@
   "publish": {
     "enabled": false
   },
+  "distributionCandidates": [
+    "@oa-sdk/core",
+    "@oa-sdk/openapi-projection-contract",
+    "@oa-sdk/typespec-decorators",
+    "@oa-sdk/parser",
+    "@oa-sdk/codegen"
+  ],
+  "bulkTaskExcluded": [
+    "@oa-sdk/ttsc-compile-fixture"
+  ],
   "tracks": {
     "corePlatform": {
       "policy": "active",
@@ -20,11 +30,12 @@
       "workspaces": [
         "@oa-sdk/core",
         "@oa-sdk/openapi-projection-contract",
+        "@oa-sdk/spec-lens-contract",
+        "@oa-sdk/typespec-decorators",
         "@oa-sdk/schemas",
         "@oa-sdk/parser",
         "@oa-sdk/codegen",
-        "@oa-sdk/spec-lens",
-        "@oa-sdk/spec-lens-contract"
+        "@oa-sdk/spec-lens"
       ]
     },
     "downstream": {
@@ -42,7 +53,10 @@
       "workspaces": [
         "@oa-sdk/dpm",
         "@oa-sdk/personas",
-        "@oa-sdk/typia-mock"
+        "@oa-sdk/typia-mock",
+        "@oa-sdk/logical-erd-contract",
+        "@oa-sdk/typespec-erd",
+        "@oa-sdk/ttsc-compile-fixture"
       ]
     },
     "applications": {
@@ -59,11 +73,12 @@
   "releaseTracked": [
     "@oa-sdk/core",
     "@oa-sdk/openapi-projection-contract",
+    "@oa-sdk/spec-lens-contract",
+    "@oa-sdk/typespec-decorators",
     "@oa-sdk/schemas",
     "@oa-sdk/parser",
     "@oa-sdk/codegen",
     "@oa-sdk/spec-lens",
-    "@oa-sdk/spec-lens-contract",
     "@oa-sdk/router",
     "@oa-sdk/client",
     "@oa-sdk/mock-server"
@@ -72,6 +87,9 @@
     "@oa-sdk/dpm",
     "@oa-sdk/personas",
     "@oa-sdk/typia-mock",
+    "@oa-sdk/logical-erd-contract",
+    "@oa-sdk/typespec-erd",
+    "@oa-sdk/ttsc-compile-fixture",
     "@oa-sdk/nestjs-ref",
     "@oa-sdk/playground",
     "@oa-sdk/preview",
