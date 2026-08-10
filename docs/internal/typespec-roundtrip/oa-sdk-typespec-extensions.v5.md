@@ -2,7 +2,9 @@
 
 Schema version: `oa-sdk.typespec-extensions.v5`.
 
-v5 extends [`oa-sdk.typespec-extensions.v4`](./oa-sdk-typespec-extensions.v4.md) with reusable OpenAPI component identity restoration for shared parameters and responses. v1 through v4 remain unchanged for sidecar-less bundles that do not need to restore `components.parameters`, `components.responses`, or operation usage `$ref` identity.
+v5 is the sole supported OA SDK TypeSpec extension vocabulary. It restores operation examples,
+security scheme metadata, explicit public-operation security, root `info` metadata, reusable
+parameter/response catalogs, and operation-level component reference identity.
 
 ## Decision
 
@@ -49,7 +51,7 @@ These entries restore operation usage identity after TypeSpec compile, so reusab
 
 ## Restore Semantics
 
-The restore loop is the same as v4, with two additional recognized extension families:
+The restore loop recognizes the full v5 extension vocabulary:
 
 1. Compile TypeSpec to OpenAPI.
 2. Convert recognized `x-oa-sdk-*` metadata into in-memory `oa-sdk.typespec-compat-sidecar.v1` entries, including component catalog and operation reference entries.

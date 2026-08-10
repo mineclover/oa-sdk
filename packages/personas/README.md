@@ -7,7 +7,7 @@
 ## Quick start
 
 ```bash
-# 한 방에 — schemas merge → bind → validate
+# 한 방에 — TypeSpec build → bind → validate
 pnpm --filter @oa-sdk/personas check
 
 # 또는 단계별

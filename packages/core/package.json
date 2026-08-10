@@ -1,6 +1,6 @@
 {
   "name": "@oa-sdk/core",
-  "version": "0.1.0",
+  "version": "0.1.2",
   "description": "Shared utilities across oa-sdk packages",
   "private": false,
   "type": "module",

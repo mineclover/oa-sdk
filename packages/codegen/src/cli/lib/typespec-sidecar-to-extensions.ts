@@ -24,7 +24,7 @@ const OPERATION_COMPONENT_REFS_EXTENSION = 'x-oa-sdk-operation-component-refs'
 const OPERATION_EXAMPLES_EXTENSION = 'x-oa-sdk-operation-examples'
 const OPERATION_SECURITY_EXTENSION = 'x-oa-sdk-operation-security'
 const SECURITY_SCHEMES_EXTENSION = 'x-oa-sdk-security-schemes'
-const DEFAULT_EXTENSION_SCHEMA_VERSION: TypeSpecOpenApiExtensionSchemaVersion = 'oa-sdk.typespec-extensions.v2'
+const DEFAULT_EXTENSION_SCHEMA_VERSION: TypeSpecOpenApiExtensionSchemaVersion = 'oa-sdk.typespec-extensions.v5'
 const IDENTIFIER_RE = /^[A-Za-z_][A-Za-z0-9_]*$/
 
 export type TypeSpecSidecarToExtensionsOptions = {
@@ -232,11 +232,10 @@ function convertRootInfoEntry(
     setRootInfo: (value: RecordValue) => void
   },
 ): { converted: true; report: TypeSpecSidecarConvertedEntry } | { converted: false; reason: string } {
-  if (context.extensionSchemaVersion !== 'oa-sdk.typespec-extensions.v4'
-    && context.extensionSchemaVersion !== 'oa-sdk.typespec-extensions.v5') {
+  if (context.extensionSchemaVersion !== 'oa-sdk.typespec-extensions.v5') {
     return {
       converted: false,
-      reason: 'root info metadata requires oa-sdk.typespec-extensions.v4 or later',
+      reason: 'root info metadata requires oa-sdk.typespec-extensions.v5',
     }
   }
   if (!canRenderTypeSpecValue(entry.value)) {
@@ -363,13 +362,10 @@ function convertRequestEntry(
     operationGroups: Map<string, OperationExtensionGroup>
   },
 ): { converted: true; report: TypeSpecSidecarConvertedEntry } | { converted: false; reason: string } {
-  if (context.extensionSchemaVersion !== 'oa-sdk.typespec-extensions.v2'
-    && context.extensionSchemaVersion !== 'oa-sdk.typespec-extensions.v3'
-    && context.extensionSchemaVersion !== 'oa-sdk.typespec-extensions.v4'
-    && context.extensionSchemaVersion !== 'oa-sdk.typespec-extensions.v5') {
+  if (context.extensionSchemaVersion !== 'oa-sdk.typespec-extensions.v5') {
     return {
       converted: false,
-      reason: 'request body media examples require oa-sdk.typespec-extensions.v2 or later',
+      reason: 'request body media examples require oa-sdk.typespec-extensions.v5',
     }
   }
   const value = {
@@ -401,12 +397,10 @@ function convertOperationSecurityEntry(
     operationGroups: Map<string, OperationExtensionGroup>
   },
 ): { converted: true; report: TypeSpecSidecarConvertedEntry } | { converted: false; reason: string } {
-  if (context.extensionSchemaVersion !== 'oa-sdk.typespec-extensions.v3'
-    && context.extensionSchemaVersion !== 'oa-sdk.typespec-extensions.v4'
-    && context.extensionSchemaVersion !== 'oa-sdk.typespec-extensions.v5') {
+  if (context.extensionSchemaVersion !== 'oa-sdk.typespec-extensions.v5') {
     return {
       converted: false,
-      reason: 'operation security overrides require oa-sdk.typespec-extensions.v3 or later',
+      reason: 'operation security overrides require oa-sdk.typespec-extensions.v5',
     }
   }
   if (!Array.isArray(entry.value) || entry.value.length !== 0) {

@@ -16,10 +16,10 @@ projection을 수용하며, 파싱·검증·생성·mock·변경 이력 관측�
 
 | 항목 | 관찰값 | 의미 |
 |---|---:|---|
-| package workspace | 13개 디렉터리, 17개 manifest | Core·Downstream·Maintenance·앱 경계가 필요 |
-| app workspace | 5개 | 제품 코드와 검증/reference surface를 구분해야 함 |
-| Markdown 문서 | 약 200개 (현재 docs gate 197개) | 링크·중복·상태 표기가 품질 위험 |
-| root script | 약 17개 파일과 다수의 package 명령 | 변경 유형별 검증 선택이 필요 |
+| package workspace | package 17개 + pnpm app 4개, 총 21개 manifest | Core·Downstream·Maintenance·앱 경계가 필요 |
+| app workspace | 5개(이 중 FastAPI reference 1개는 pnpm 밖) | 제품 코드와 검증/reference surface를 구분해야 함 |
+| Markdown 문서 | 현재 docs gate 216개 | 링크·중복·상태 표기가 품질 위험 |
+| root script | 75개 | 변경 유형별 검증 선택이 필요 |
 | 계약 artifact | TypeSpec source + approved OpenAPI snapshot + downstream 생성물 | source와 파생물의 소유권을 분리해야 함 |
 
 ## 위험도

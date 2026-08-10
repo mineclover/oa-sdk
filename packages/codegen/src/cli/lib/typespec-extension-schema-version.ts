@@ -1,8 +1,4 @@
 export const TYPESPEC_OPENAPI_EXTENSION_SCHEMA_VERSIONS = [
-  'oa-sdk.typespec-extensions.v1',
-  'oa-sdk.typespec-extensions.v2',
-  'oa-sdk.typespec-extensions.v3',
-  'oa-sdk.typespec-extensions.v4',
   'oa-sdk.typespec-extensions.v5',
 ] as const
 
@@ -22,5 +18,6 @@ export function isTypeSpecOpenApiExtensionSchemaVersion(
 
 export function formatTypeSpecOpenApiExtensionSchemaVersions(): string {
   const values = TYPESPEC_OPENAPI_EXTENSION_SCHEMA_VERSIONS
+  if (values.length === 1) return values[0]!
   return `${values.slice(0, -1).join(', ')}, or ${values.at(-1)}`
 }

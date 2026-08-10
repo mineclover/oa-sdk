@@ -136,7 +136,7 @@ For HTTP messages, this is purely a serialization concern, and no more of a prob
 
 However, because examples and values modeled with `content` do not incorporate the header name, for these fields `Set-Cookie` MUST be handled by placing each value on a separate line, without the header name or the `:` delimiter.
 
-Note also that any URI percent-encoding, base64 encoding, or other escaping MUST be performed prior to supplying the data to OAS tooling; see [Appendix D](appendix-d-serializing-headers-and-cookies) for details.
+Note also that any URI percent-encoding, base64 encoding, or other escaping MUST be performed prior to supplying the data to OAS tooling; see [Appendix D](./appendices/d-headers-cookies.md) for details.
 
 The following example shows two different ways to describe `Set-Cookie` headers that require cookies named `"lang"` and `"foo"`, as well as a `"urlSafeData"` cookie that is expected to be percent-encoded.  The first uses `content` in order to show exactly how such examples are formatted, but also notes the limitations of schema constraints with multi-line text.  The second shows the use of `style: "simple"`, which produces the same serialized example text (with each line corresponding to one `Set-Cookie:` line in the HTTP response), but allows schema constraints on each cookie; note that the percent-encoding is already applied in the `dataValue` field of the example:
 

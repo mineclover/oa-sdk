@@ -245,7 +245,7 @@ describe('TypeSpec sidecar-to-extension migration', () => {
     expect(result.snippets).toContain('ref: "#/components/responses/Unauthorized"')
   })
 
-  it('keeps request media examples in the sidecar when targeting v1 extensions', () => {
+  it('converts request media examples with the default v5 extensions', () => {
     const sidecar = parseTypeSpecCompatibilitySidecar({
       schemaVersion: 'oa-sdk.typespec-compat-sidecar.v1',
       counts: {
@@ -265,20 +265,17 @@ describe('TypeSpec sidecar-to-extension migration', () => {
       ],
     })
 
-    const result = convertTypeSpecSidecarToExtensions(sidecar, {
-      extensionSchemaVersion: 'oa-sdk.typespec-extensions.v1',
-    })
+    const result = convertTypeSpecSidecarToExtensions(sidecar)
 
-    expect(result.report.counts.convertedEntries).toBe(0)
-    expect(result.report.counts.remainingEntries).toBe(1)
-    expect(result.report.remaining[0]?.reason).toContain('oa-sdk.typespec-extensions.v2')
+    expect(result.report.counts.convertedEntries).toBe(1)
+    expect(result.report.counts.remainingEntries).toBe(0)
     expect(result.remainingSidecar.counts).toEqual({
-      entries: 1,
+      entries: 0,
       parameterExamples: 0,
-      requestMediaExamples: 1,
       responseMediaExamples: 0,
       securitySchemes: 0,
     })
+    expect(result.snippets).toContain('requestBody: #{')
   })
 
   it('keeps non-renderable example values in the sidecar instead of comments', () => {

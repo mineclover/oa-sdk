@@ -14,8 +14,8 @@ spec.md (구현 현황 — 무엇이 작동하는가)
   ├─ → api-index.md (각 함수/타입 상세)
   ├─ → oas32-coverage.md (OAS 기능별 커버리지)
   ├─ → definition-builder-compatibility-gates.md (builder parity validation gates)
-  ├─ → typespec-roundtrip.plan.md (TypeSpec 전환 가능성 평가)
-  ├─ → typespec-roundtrip/ (버전별 TypeSpec roundtrip 구현 계획)
+  ├─ → typespec-roundtrip/production-operations.md (TypeSpec 운영·승격 절차)
+  ├─ → typespec-roundtrip/ (현재 TypeSpec authoring·검증 자료)
   ├─ → release-management.md + release-policy.json (package versioning + patch note 운영)
   └─ → traceability.md (스펙↔코드 매핑)
 
@@ -47,8 +47,8 @@ architecture/ (설계 결정)
 | [oas32-coverage.md](./oas32-coverage.md) | OAS 3.2 기능별 지원 매트릭스 | 새 기능 구현 시 |
 | [domain-merge-inventory.md](./domain-merge-inventory.md) | legacy domain merge input checklist | legacy source reference 확인 시 |
 | [definition-builder-compatibility-gates.md](./definition-builder-compatibility-gates.md) | builder validation/downstream gates and accepted differences | builder workflow 변경 시 |
-| [typespec-roundtrip.plan.md](./typespec-roundtrip.plan.md) | TypeSpec roundtrip 평가 루프, 교집합/차집합, TSP-first 선언 기준 | TypeSpec export/roundtrip 결과 변경 시 |
-| [typespec-roundtrip/](./typespec-roundtrip/) | TypeSpec roundtrip 버전별 구현 로드맵 | TypeSpec 관련 다음 패키지 버전 계획 변경 시 |
+| [typespec-roundtrip/production-operations.md](./typespec-roundtrip/production-operations.md) | TypeSpec 운영·승격·rollback 및 source ownership 절차 | TypeSpec production 절차 변경 시 |
+| [typespec-roundtrip/](./typespec-roundtrip/) | 현재 TypeSpec authoring·extension·검증 자료 | TypeSpec contract 또는 검증 변경 시 |
 | [release-management.md](./release-management.md) + [release-policy.json](./release-policy.json) | package-level versioning, Changesets 대상, patch note 운영 기준과 검증 manifest | 패키지 공개/릴리즈/패치노트 정책 변경 시 |
 | [traceability.md](./traceability.md) | 공식 스펙 § → 타입 → 코드 매핑 | 파일 추가/이동 시 |
 | [plan.md](./plan.md) | 로드맵 + 아키텍처 | Phase 완료/추가 시 |

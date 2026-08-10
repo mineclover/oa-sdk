@@ -1,5 +1,5 @@
 {
-  "version": 3,
+  "version": 4,
   "primaryMission": "schema-spec-management",
   "primaryTrack": "corePlatform",
   "scopeDocument": "docs/internal/platform-scope.md",

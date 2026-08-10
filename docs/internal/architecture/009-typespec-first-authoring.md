@@ -6,7 +6,7 @@ Accepted, dated 2026-06-22. Production source-path switch implemented with OpenA
 
 TypeSpec is accepted as the OA SDK schema authoring source of truth for production schema artifacts. The OpenAPI fragments remain in place as an explicit Definition Builder rollback/reference path through `:openapi` commands.
 
-Operational policy is tracked in `docs/internal/typespec-roundtrip/production-operations.md`: `@oa-sdk/codegen` `0.3.0` is the private internal milestone, publish requires a clean fast-forwardable branch and green gates, and rollback command removal requires a separate deprecation/removal ADR.
+Operational policy is tracked in `docs/internal/typespec-roundtrip/production-operations.md`: `@oa-sdk/codegen` `0.3.0` was the private internal migration milestone; the current `0.5.0` distribution candidate requires a clean committed source revision, green gates, and artifact promotion. Rollback command removal still requires a separate deprecation/removal ADR.
 
 ## Context
 
@@ -16,8 +16,8 @@ The evaluation has now completed these prerequisite slices:
 
 - Representative source selection for authored TypeSpec coverage.
 - A representative sidecar-less authored bundle covering canonical users operations and semantic families.
-- `oa-sdk.typespec-extensions.v1` for parameter examples, response media examples, and security scheme metadata.
-- `oa-sdk.typespec-extensions.v2` for request body media examples.
+- `oa-sdk.typespec-extensions.v5` for parameter examples, response media examples, and security scheme metadata.
+- `oa-sdk.typespec-extensions.v5` for request body media examples.
 - A maintainer authoring ownership guide that maps contract facts to TypeSpec-native syntax, OA SDK TypeSpec extensions, compatibility sidecars, or runtime data / adapter policy.
 
 The final architecture decision can now be made: the full canonical authored bundle exists as a sidecar-less v2 fixture, and sidecar-to-extension migration has been applied to the canonical sidecar semantics.
@@ -46,14 +46,14 @@ Current evidence was collected on 2026-06-22.
 |---|---|
 | `pnpm typespec:roundtrip -- --fail-on-breaking --report /tmp/oa-sdk-g5-typespec-roundtrip-report.json` | pass; operations `27 -> 27`; component schemas `28 -> 32`; export diagnostics `104`, all accepted; compatibility sidecar `102` entries; restore `104` applied targets and `0` missing; sidecar stability `102/102` expected and `104/104` actual covered; breaking diff `0`. |
 | `pnpm typespec:bundle-check -- --manifest docs/internal/typespec-roundtrip/fixtures/authored-bundle/oa-sdk.typespec-bundle.json --fail-on-breaking --report /tmp/oa-sdk-g5-authored-bundle-report.json` | pass; `.tsp + sidecar`; `3` sidecar entries; restore `3` applied and `0` missing; stability `3/3`. |
-| `pnpm typespec:bundle-check -- --manifest docs/internal/typespec-roundtrip/fixtures/authored-extension-bundle/oa-sdk.typespec-bundle.json --fail-on-breaking --report /tmp/oa-sdk-g5-authored-extension-report.json` | pass; sidecar-less `oa-sdk.typespec-extensions.v1`; `3` sidecar-equivalent entries; restore `3` applied and `0` missing; stability `3/3`. |
+| `pnpm typespec:bundle-check -- --manifest docs/internal/typespec-roundtrip/fixtures/authored-extension-bundle/oa-sdk.typespec-bundle.json --fail-on-breaking --report /tmp/oa-sdk-g5-authored-extension-report.json` | pass; sidecar-less `oa-sdk.typespec-extensions.v5`; `3` sidecar-equivalent entries; restore `3` applied and `0` missing; stability `3/3`. |
 | `pnpm typespec:bundle-check -- --manifest docs/internal/typespec-roundtrip/fixtures/authored-representative-bundle/oa-sdk.typespec-bundle.json --fail-on-breaking --report /tmp/oa-sdk-g5-authored-representative-report.json` | pass; representative sidecar-less bundle; `3` operations; `6` sidecar-equivalent entries; restore `6` applied and `0` missing; stability `6/6`. |
-| `pnpm typespec:bundle-check -- --manifest docs/internal/typespec-roundtrip/fixtures/authored-request-body-extension-bundle/oa-sdk.typespec-bundle.json --fail-on-breaking --report /tmp/oa-sdk-g5-authored-request-body-v2-report.json` | pass; sidecar-less `oa-sdk.typespec-extensions.v2`; `1` request media example entry; restore `1` applied and `0` missing; stability `1/1`. |
+| `pnpm typespec:bundle-check -- --manifest docs/internal/typespec-roundtrip/fixtures/authored-request-body-extension-bundle/oa-sdk.typespec-bundle.json --fail-on-breaking --report /tmp/oa-sdk-g5-authored-request-body-v2-report.json` | pass; sidecar-less `oa-sdk.typespec-extensions.v5`; `1` request media example entry; restore `1` applied and `0` missing; stability `1/1`. |
 | `pnpm --filter @oa-sdk/codegen test -- src/__tests__/tsp-export.test.ts src/__tests__/typespec-sidecar.test.ts src/__tests__/typespec-authored-bundle.test.ts src/__tests__/cli-tsp-sidecar.test.ts src/__tests__/openapi-breaking-diff.test.ts src/__tests__/typespec-roundtrip-report.test.ts` | pass; `54` test files and `687` tests. |
 | `pnpm --filter @oa-sdk/router test` | pass; `2` test files and `36` tests. |
 | `pnpm --filter @oa-sdk/client test` | pass; `3` test files and `39` tests. |
 | `pnpm --filter @oa-sdk/mock-server test` | pass; `34` test files and `583` tests. |
-| `pnpm typespec:sidecar-to-extensions -- --sidecar <canonical-generated-sidecar> --output /tmp/oa-sdk-g6-canonical/snippets.tsp --remaining-sidecar /tmp/oa-sdk-g6-canonical/remaining.json --report /tmp/oa-sdk-g6-canonical/migration-report.json` | pass; current canonical sidecar `102` entries; `99` converted to `oa-sdk.typespec-extensions.v2` snippets; `3` path-level parameter examples remain sidecar-owned. |
+| `pnpm typespec:sidecar-to-extensions -- --sidecar <canonical-generated-sidecar> --output /tmp/oa-sdk-g6-canonical/snippets.tsp --remaining-sidecar /tmp/oa-sdk-g6-canonical/remaining.json --report /tmp/oa-sdk-g6-canonical/migration-report.json` | pass; current canonical sidecar `102` entries; `99` converted to `oa-sdk.typespec-extensions.v5` snippets; `3` path-level parameter examples remain sidecar-owned. |
 | `pnpm typespec:bundle-check -- --manifest docs/internal/typespec-roundtrip/fixtures/authored-canonical-bundle/oa-sdk.typespec-bundle.json --fail-on-breaking --report /tmp/oa-sdk-g7-authored-canonical-report.json` | pass; sidecar-less v2 canonical fixture; `27` operations; `104` sidecar-equivalent entries; restore `104` applied and `0` missing; stability `104/104`; breaking diff `0`. |
 
 Governance documentation gates must remain green for this ADR:
@@ -67,7 +67,7 @@ Governance documentation gates must remain green for this ADR:
 
 - Do not remove the OpenAPI/Definition Builder rollback path without a separate deprecation/removal decision.
 - Do not use unvalidated TypeSpec comments to carry runtime-only OA SDK semantics.
-- Do not silently add restore-bearing fields to `oa-sdk.typespec-extensions.v1`; new restored OpenAPI output requires a new extension schema version.
+- Do not silently add restore-bearing fields to `oa-sdk.typespec-extensions.v5`; new restored OpenAPI output requires a new extension schema version.
 - Do not hide referenced unsupported auth requirements as metadata-only sidecar entries.
 - Do not normalize TypeSpec-emitted shape differences in review tooling without a focused source/emitted/restored/expected proof.
 - Do not create a full canonical authored fixture by handwritten rewrite in one pass; scaffold from export output and migrate supported sidecar entries intentionally.
@@ -105,13 +105,9 @@ Rollback must remain available after the source-path switch:
 
 ## Related Documents
 
-- `docs/internal/typespec-roundtrip.plan.md`
-- `docs/internal/typespec-roundtrip/tsp-first-decision-design.md`
-- `docs/internal/typespec-roundtrip/production-migration-goals.md`
 - `docs/internal/typespec-roundtrip/production-operations.md`
 - `docs/guides/typespec-authoring-conventions.md`
 - `docs/internal/spec.md` — current canonical pipeline and gate contract
 - `docs/internal/typespec-roundtrip/authoring-ownership-guide.md`
 - `docs/internal/typespec-roundtrip/sidecar-to-extension-migration.md`
-- `docs/internal/typespec-roundtrip/oa-sdk-typespec-extensions.v1.md`
-- `docs/internal/typespec-roundtrip/oa-sdk-typespec-extensions.v2.md`
+- `docs/internal/typespec-roundtrip/oa-sdk-typespec-extensions.v5.md`

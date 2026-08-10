@@ -1,8 +1,8 @@
 # oa-sdk 문서
 
 문서 기준 체크포인트: [문서·스펙 거버넌스](./spec-governance/README.md) (2026-07-24). 제품 변경
-이력은 [Changelog](./changelog.md)에서 관리한다 (가장 최근 제품 항목: 2026-04-28 — SQLite
-driver priority inversion: prefer node:sqlite).
+이력은 [Changelog](./changelog.md)에서 관리한다 (가장 최근 제품 항목: 2026-08-10 — TypeSpec
+extension vocabulary v5 consolidation).
 
 ## 문서 거버넌스
 

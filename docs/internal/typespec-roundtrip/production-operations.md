@@ -9,11 +9,11 @@ This document records the operating decisions after the TypeSpec-first productio
 ### Release And Versioning
 
 - The repository root and most workspace packages are private. `@oa-sdk/codegen`과 그 runtime dependency closure는 public npm distribution candidate지만, `changeset publish`는 npm authorization과 release approval 없이는 실행하지 않는다.
-- `@oa-sdk/codegen` `0.3.0` is the internal milestone that owns the TypeSpec roundtrip, bundle-check, sidecar, and production source-path work.
-- Do not bump beyond `0.3.0` just to mark the G13-G15 drift burn-down. The milestone is already documented as complete, and the drift burn-down closes the same production switch scope.
+- `@oa-sdk/codegen` `0.3.0` was the internal milestone that established the TypeSpec roundtrip, bundle-check, sidecar, and production source-path work. The current distribution candidate is `0.5.0`; its version is governed by the public release artifact and Changeset flow rather than the completed migration milestone.
+- Do not bump a package merely to restate the completed G13-G15 drift burn-down. A new version must correspond to the reviewed package artifact being promoted.
 - A registry release requires package-specific approval, a Changeset, confirmed exports, and the full build/test/pack smoke. The current TypeSpec migration milestone itself does not require a version bump.
 - The public API contract version is `OaSdkApi.ContractVersion` in `packages/schemas/typespec/version.tsp`, emitted as OpenAPI `info.version`. It is SemVer-governed independently of package versions; before `1.0.0`, incompatible consumer changes advance `0.MINOR`.
-- Bundle (`oa-sdk.typespec-bundle.v1`), extension (`oa-sdk.typespec-extensions.v*`), candidate, and accepted-drift `schemaVersion` values version their own machine-readable formats. They must not be used as API-release numbers.
+- Bundle (`oa-sdk.typespec-bundle.v1`), current sidecar-less extension (`oa-sdk.typespec-extensions.v5`), candidate, and accepted-drift `schemaVersion` values version their own machine-readable formats. They must not be used as API-release numbers.
 
 ### Publish Flow
 
@@ -35,9 +35,11 @@ Run these gates before publish or before declaring the production schema path op
 
 ```bash
 pnpm schema:validate
+pnpm schema:bundle
+node packages/codegen/dist/cli/index.js check-artifact --head packages/schemas/src/.merged.3.1.yaml --artifact packages/schemas/dist/openapi.yaml
 pnpm schema:rollback-check
 pnpm --filter @oa-sdk/schemas run downstream:check
-pnpm --filter @oa-sdk/codegen exec vitest run src/__tests__/typespec-authored-bundle.test.ts src/__tests__/typespec-sidecar.test.ts src/__tests__/typespec-sidecar-to-extensions.test.ts
+pnpm --filter @oa-sdk/codegen exec vitest run src/__tests__/typespec-authored-bundle.test.ts src/__tests__/typespec-sidecar.test.ts src/__tests__/typespec-sidecar-to-extensions.test.ts src/__tests__/typespec-extension-schema-version.test.ts
 pnpm build:scripts
 pnpm check:api-index
 pnpm check:cli-spec
@@ -46,7 +48,7 @@ pnpm --filter @oa-sdk/codegen run typecheck
 git diff --check
 ```
 
-`pnpm schema:validate` proves the default TypeSpec source path. `pnpm schema:rollback-check` proves the OpenAPI/Definition Builder rollback path. `pnpm --filter @oa-sdk/schemas run downstream:check` proves parser, codegen, router, client, mock-server, and generated TypeScript consumer compatibility against the TypeSpec-restored production OpenAPI.
+`pnpm schema:validate` proves the default TypeSpec source path. `pnpm schema:bundle` regenerates the package-consumed OpenAPI 3.1 bundle, and `check-artifact` proves that `dist/openapi.yaml` matches it. `pnpm schema:rollback-check` proves the OpenAPI/Definition Builder rollback path. `pnpm --filter @oa-sdk/schemas run downstream:check` proves parser, codegen, router, client, mock-server, and generated TypeScript consumer compatibility against the TypeSpec-restored production OpenAPI.
 
 `schema:rollback-check` intentionally ends by running the OpenAPI/Definition Builder validation path. Before committing generated schema artifacts, rerun `pnpm schema:validate` or `pnpm --filter @oa-sdk/schemas run build` so the checked-in generated OpenAPI artifacts are TypeSpec-derived again.
 

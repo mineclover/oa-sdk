@@ -346,7 +346,7 @@ examples:
 ```
 
 A querystring parameter using regular form encoding, but managed with a Media Type Object.
-This shows spaces being handled per the `application/x-www-form-urlencoded` media type rules (encode as `+`) rather than the RFC6570 process (encode as `%20`); see [Appendix E](appendix-e-percent-encoding-and-form-media-types) for further guidance on this distinction.
+This shows spaces being handled per the `application/x-www-form-urlencoded` media type rules (encode as `+`) rather than the RFC6570 process (encode as `%20`); see [Appendix E](./appendices/e-percent-encoding.md) for further guidance on this distinction.
 Examples are shown at both the media type and parameter level to emphasize that, since `application/x-www-form-urlencoded` is suitable for use in query strings by definition, no further encoding or escaping is applied to the serialized media type value:
 
 ```yaml

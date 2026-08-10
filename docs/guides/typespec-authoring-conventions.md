@@ -19,8 +19,9 @@ evidence.
 | Approved review baseline | `packages/schemas/typespec/approved.openapi.yaml` | Never edit directly; update only with the approval command. |
 
 Use [the ownership guide](../internal/typespec-roundtrip/authoring-ownership-guide.md)
-before adding an extension. A restore-bearing extension change requires a new
-`oa-sdk.typespec-extensions.v*` version and focused bundle-check coverage.
+before adding an extension. `oa-sdk.typespec-extensions.v5` is the only
+currently accepted sidecar-less vocabulary. A future restore-bearing extension
+change requires a new version, an explicit migration, and focused bundle-check coverage.
 
 ## Versioning
 
@@ -106,6 +107,4 @@ to prove reversibility or recover a failed TypeSpec migration; rerun
 
 - [Canonical schema pipeline and governance spec](../internal/spec.md)
 - [TypeSpec-first authoring ADR](../internal/architecture/009-typespec-first-authoring.md)
-- [Production migration goals](../internal/typespec-roundtrip/production-migration-goals.md)
 - [Production operations and promotion runbook](../internal/typespec-roundtrip/production-operations.md)
-- [Historical roundtrip evaluation plan](../internal/typespec-roundtrip.plan.md)

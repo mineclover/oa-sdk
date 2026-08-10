@@ -15,6 +15,7 @@ oa-sdk의 핵심 임무는 `@oa-sdk/core`를 기반으로 schema와 OpenAPI spec
 ```text
 @oa-sdk/core
 ├─ @oa-sdk/openapi-projection-contract  외부 schema producer 입력 계약
+├─ @oa-sdk/typespec-decorators           production TypeSpec decorator와 provenance helper
 ├─ @oa-sdk/schemas                      TypeSpec/OpenAPI schema SSOT와 artifact
 ├─ @oa-sdk/parser                       OpenAPI 의미 해석, IR, 검증
 ├─ @oa-sdk/codegen                      build, 변환, governance CLI
@@ -22,12 +23,13 @@ oa-sdk의 핵심 임무는 `@oa-sdk/core`를 기반으로 schema와 OpenAPI spec
 └─ @oa-sdk/spec-lens-contract           spec-lens browser-safe wire contract
 ```
 
-Core Platform은 다음 일곱 패키지다.
+Core Platform은 다음 여덟 패키지다.
 
 | Package | Core responsibility |
 | --- | --- |
 | `@oa-sdk/core` | 공통 primitive와 dependency-light 기반 계약 |
 | `@oa-sdk/openapi-projection-contract` | 외부 schema producer가 OpenAPI 조각을 전달하는 안정된 경계 |
+| `@oa-sdk/typespec-decorators` | production TypeSpec source가 사용하는 versioned decorator와 provenance helper |
 | `@oa-sdk/schemas` | TypeSpec source, OpenAPI artifact, compatibility/rollback source |
 | `@oa-sdk/parser` | OpenAPI 3.2 parse, IR, ref resolution, lint, validate, query |
 | `@oa-sdk/codegen` | schema/spec build, normalize, diff/review, type generation과 governance CLI |
@@ -59,7 +61,7 @@ archi-adr validate/render`다.
 
 | Tier | Workspaces | Policy |
 | --- | --- | --- |
-| Core Platform | `core`, `openapi-projection-contract`, `schemas`, `parser`, `codegen`, `spec-lens`, `spec-lens-contract` | 제품 방향과 신규 기능 투자의 기본 범위 |
+| Core Platform | `core`, `openapi-projection-contract`, `typespec-decorators`, `schemas`, `parser`, `codegen`, `spec-lens`, `spec-lens-contract` | 제품 방향과 신규 기능 투자의 기본 범위 |
 | Downstream Integration | `router`, `client`, `mock-server` | Core 계약을 소비하고 end-to-end로 증명하는 release-tracked integration surface |
 | Maintenance-only | `dpm`, `personas`, `typia-mock`, `logical-erd-contract`, `typespec-erd` | security, compatibility, migration 작업만 허용하는 분리 후보 또는 승인된 독립 prototype |
 | Apps and references | `nestjs-ref`, `playground`, `preview`, `spec-lens-ui` | 배포 라이브러리가 아닌 검증, reference, UI workspace |
@@ -81,7 +83,7 @@ Application/reference workspace도 Core Platform 우선순위를 사용해 자�
 
 ## Scope Reactivation Decision
 
-Core Platform 일곱 패키지 밖에서 신규 feature goal을 만들려면 구현 전에 명시적인
+Core Platform 여덟 패키지 밖에서 신규 feature goal을 만들려면 구현 전에 명시적인
 scope-reactivation decision을 남겨야 한다. 최소한 다음 내용을 기록한다.
 
 1. 다시 활성화할 package/workspace와 사용자 문제
@@ -147,7 +149,7 @@ infra/orchestrator/UI와 운영 문서를 소유한다. `gitlab-agent-ops`는 `m
 
 | Command | Scope |
 | --- | --- |
-| `pnpm build`, `pnpm test`, `pnpm typecheck` | Core Platform 일곱 package |
+| `pnpm build`, `pnpm test`, `pnpm typecheck` | Core Platform 여덟 package |
 | `pnpm build:downstream`, `pnpm test:downstream`, `pnpm typecheck:downstream` | Downstream Integration 세 package |
 | `pnpm build:maintenance`, `pnpm test:maintenance`, `pnpm typecheck:maintenance` | Maintenance-only compatibility proof |
 | `pnpm build:internal`, `pnpm test:internal`, `pnpm typecheck:internal` | App/reference workspace |

@@ -102,7 +102,7 @@ describe('authored TypeSpec compatibility bundle', () => {
       schemaVersion: 'oa-sdk.typespec-bundle.v1',
       compatibility: {
         openapiVersion: '3.2.0',
-        oaSdkExtensionSchemaVersion: 'oa-sdk.typespec-extensions.v1',
+        oaSdkExtensionSchemaVersion: 'oa-sdk.typespec-extensions.v5',
       },
     })
     expect(report.paths.manifest).toBe(join(extensionFixtureDir, 'oa-sdk.typespec-bundle.json'))
@@ -171,7 +171,7 @@ describe('authored TypeSpec compatibility bundle', () => {
       schemaVersion: 'oa-sdk.typespec-bundle.v1',
       compatibility: {
         openapiVersion: '3.2.0',
-        oaSdkExtensionSchemaVersion: 'oa-sdk.typespec-extensions.v1',
+        oaSdkExtensionSchemaVersion: 'oa-sdk.typespec-extensions.v5',
       },
     })
     expect(report.counts).toMatchObject({
@@ -227,7 +227,7 @@ describe('authored TypeSpec compatibility bundle', () => {
     ])
   })
 
-  it('checks a sidecar-less v2 authored .tsp bundle with request body examples', () => {
+  it('checks a sidecar-less v5 authored .tsp bundle with request body examples', () => {
     const reportPath = join(tmpDir, 'request-body-extension-bundle-report.json')
     const restoredPath = join(tmpDir, 'request-body-extension-restored.yaml')
     const check = spawnSync('pnpm', [
@@ -253,7 +253,7 @@ describe('authored TypeSpec compatibility bundle', () => {
       schemaVersion: 'oa-sdk.typespec-bundle.v1',
       compatibility: {
         openapiVersion: '3.2.0',
-        oaSdkExtensionSchemaVersion: 'oa-sdk.typespec-extensions.v2',
+        oaSdkExtensionSchemaVersion: 'oa-sdk.typespec-extensions.v5',
       },
     })
     expect(report.counts).toMatchObject({
@@ -345,7 +345,7 @@ describe('authored TypeSpec compatibility bundle', () => {
       schemaVersion: 'oa-sdk.typespec-bundle.v1',
       compatibility: {
         openapiVersion: '3.2.0',
-        oaSdkExtensionSchemaVersion: 'oa-sdk.typespec-extensions.v2',
+        oaSdkExtensionSchemaVersion: 'oa-sdk.typespec-extensions.v5',
       },
     })
     expect(report.counts).toMatchObject({
@@ -418,6 +418,30 @@ describe('authored TypeSpec compatibility bundle', () => {
     expect(check.status).not.toBe(0)
     expect(`${check.stdout}\n${check.stderr}`).toContain(
       'sidecar-less TypeSpec bundle manifests must declare compatibility.oaSdkExtensionSchemaVersion',
+    )
+  })
+
+  it('rejects retired OA SDK TypeSpec extension vocabulary', () => {
+    const bundleDir = join(tmpDir, 'extension-bundle-with-retired-schema-version')
+    cpSync(extensionFixtureDir, bundleDir, { recursive: true })
+    const manifestPath = join(bundleDir, 'oa-sdk.typespec-bundle.json')
+    const manifest = JSON.parse(readFileSync(manifestPath, 'utf8')) as Record<string, any>
+    manifest.compatibility.oaSdkExtensionSchemaVersion = 'oa-sdk.typespec-extensions.v1'
+    writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, 'utf8')
+
+    const check = spawnSync('pnpm', [
+      'typespec:bundle-check',
+      '--',
+      '--manifest',
+      manifestPath,
+    ], {
+      cwd: rootDir,
+      encoding: 'utf8',
+    })
+
+    expect(check.status).not.toBe(0)
+    expect(`${check.stdout}\n${check.stderr}`).toContain(
+      'compatibility.oaSdkExtensionSchemaVersion must be oa-sdk.typespec-extensions.v5',
     )
   })
 

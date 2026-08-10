@@ -29,4 +29,4 @@ However, care must be taken with `format` to ensure that the specific formats ar
 Requiring input as pre-formatted, schema-validated strings also improves round-trip interoperability as not all programming languages and environments support the same data types.
 
 ---
-← [index](./index.md)
+← [index](../index.md)

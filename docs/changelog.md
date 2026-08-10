@@ -2,6 +2,38 @@
 
 릴리스 단위가 아닌, 굵직한 surface 변경이 떨어졌을 때 한 항목으로 기록한다. 자세한 구현 상태는 [spec.md](./internal/spec.md), API 단일 소스는 [api-index.md](./internal/api-index.md), 기능↔테스트는 [feature-test-matrix.md](./internal/feature-test-matrix.md) 참조.
 
+## 2026-08-10 — TypeSpec extension vocabulary v5 consolidation
+
+Sidecar-less authored bundle의 extension vocabulary를 v5 하나로 통합하고, 완료된
+roundtrip 이관 계획을 현재 운영 자료로 정리했다.
+
+- `oa-sdk.typespec-extensions.v1`부터 v4까지의 parser support, fixture manifest, extension 문서를
+  제거했다. bundle check는 v5 이외의 extension schema version을 거부한다.
+- current source-of-truth는 v5 schema, authoring ownership guide, production operations로 구성한다.
+  완료된 평가·migration·versioned roadmap 문서는 제거했고 ADR과 이 changelog는 결정 이력으로 보존한다.
+- production TypeSpec source와 canonical fixture는 v5 manifest를 사용한다. 이 변경은 contract
+  version이나 npm package version을 올리지 않는다.
+
+## 2026-08-10 — Release policy v4 and documentation alignment
+
+현재 release policy를 v4로 승격하고, policy manifest를 기준으로 문서의 workspace 분류와
+버전 표기를 정렬했다.
+
+- Core Platform은 `@oa-sdk/typespec-decorators`를 포함한 8개 package이며, Downstream 3개를
+  더한 11개 package가 release-tracked다. 10개 maintenance/app workspace는 ignored 상태를 유지한다.
+- npm distribution candidate는 core, openapi-projection-contract, typespec-decorators, parser,
+  codegen의 5개다. 이 변경은 publish 승인이나 package version bump를 수행하지 않는다.
+- `pnpm check:release-policy`는 release-management의 정책 스냅샷을 manifest에서 재계산해
+  검증하므로, 이후 수동 count 표기 drift를 gate에서 차단한다.
+- OAS 3.2 reference 분할본의 source·appendix 링크를 복구하고 이를 docs gate에 포함했다.
+  ADR-004는 canonical 3.2 authoring과 generated 3.1 compatibility output의 경계를 분명히 한다.
+- `@oa-sdk/schemas`의 기본 build와 prepack은 canonical TypeSpec contract에서 3.1 bundle을
+  생성한다. CI는 bundle을 canonical 3.1 artifact와 비교해 stale package export를 차단한다.
+- 사용자 가이드의 contract version 예시와 persona 도구의 merged-spec 복구 안내를
+  TypeSpec-first 생산 경로로 정렬했다.
+- persona check와 bundle artifact 비교 예제도 rollback source가 아닌 canonical TypeSpec
+  artifact를 사용하도록 정리했다.
+
 ## 2026-07-25 — TypeSpec external observation evidence
 
 spec-lens의 외부 경로 관측을 typed `observationInputs`로 승격했다.

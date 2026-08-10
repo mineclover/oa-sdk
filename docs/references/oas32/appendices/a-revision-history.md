@@ -25,4 +25,4 @@
 | 1.0 | 2011-08-10 | First release of the Swagger Specification |
 
 ---
-← [index](./index.md)
+← [index](../index.md)

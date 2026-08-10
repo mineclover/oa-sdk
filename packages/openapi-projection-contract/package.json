@@ -1,6 +1,6 @@
 {
   "name": "@oa-sdk/openapi-projection-contract",
-  "version": "0.1.0",
+  "version": "0.1.2",
   "description": "Shared OpenAPI projection contract types for schema projection adapters",
   "private": false,
   "type": "module",

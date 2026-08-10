@@ -8,7 +8,9 @@
     "./openapi.yaml": "./dist/openapi.yaml",
     "./openapi.json": "./dist/openapi.json"
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "split-spec": "node --import tsx scripts/split-spec.ts",
     "build:merged": "pnpm --dir ../.. schema:prepare-openapi && pnpm --dir ../.. schema:codegen-preflight && node ../codegen/dist/cli/index.js build-spec --target src/targets/local-parity-api.yaml --fragments src/fragments --output src/.merged.yaml --diagnostics src/.builder/local-api.diagnostics.json --collision-report src/.builder/local-api.collisions.json",
@@ -28,9 +30,10 @@
     "bundle:openapi": "pnpm build:merged && pnpm downgrade:3.1 && redocly bundle src/.merged.3.1.yaml --output dist/openapi.yaml && redocly bundle src/.merged.3.1.yaml --output dist/openapi.json",
     "preview": "pnpm build:typespec && pnpm downgrade:3.1 && redocly preview-docs src/.merged.3.1.yaml",
     "preview:openapi": "pnpm build:merged && pnpm downgrade:3.1 && redocly preview-docs src/.merged.3.1.yaml",
-    "build": "pnpm build:typespec && pnpm downgrade:3.1",
-    "build:openapi": "pnpm build:merged && pnpm downgrade:3.1",
+    "build": "pnpm bundle",
+    "build:openapi": "pnpm bundle:openapi",
     "build:full": "pnpm validate && pnpm bundle",
+    "prepack": "pnpm bundle",
     "upgrade:3.2": "node --import tsx scripts/upgrade-3.2.ts",
     "dev": "nodemon --watch typespec --watch src --ext tsp,json,yaml,yml --ignore 'src/.merged*' --ignore 'src/.builder/**' --exec 'corepack pnpm bundle'",
     "test": "vitest run",

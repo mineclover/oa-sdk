@@ -20,4 +20,4 @@ Using `style: "form"` with `in: "cookie"` via an RFC6570 implementation requires
 To allow the full use of `style: "form"` with `in: "cookie"`, use the `allowReserved` field.
 
 ---
-← [index](./index.md)
+← [index](../index.md)

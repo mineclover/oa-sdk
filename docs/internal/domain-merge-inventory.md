@@ -84,7 +84,7 @@ Additional users source sections:
 | Root schema validation | `pnpm schema:validate` |
 | Root quality gates for this PRD | `pnpm typecheck`, `pnpm test`, `pnpm build`, `pnpm schema:validate`, `pnpm build:scripts && pnpm check:api-index`, `pnpm check:feature-tests` |
 
-`pnpm --filter @oa-sdk/schemas run validate` now expands to `build:merged`,
+`pnpm --filter @oa-sdk/schemas run validate` now expands to `build:typespec`,
 downgrade, Spectral lint of `src/.merged.yaml`, and Redocly lint.
 `pnpm schema:validate` also builds parser/codegen first and runs strict
 `oa-gen validate --require-32` against `packages/schemas/src/.merged.yaml`.

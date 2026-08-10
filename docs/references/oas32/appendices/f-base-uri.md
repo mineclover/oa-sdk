@@ -216,4 +216,4 @@ This allows the retrieval URI to set the host (and scheme), in this case `https:
 Relative `$self` and `$id` values of this sort  allow the same set of documents to work when deployed to other hosts, e.g. `https://example.com` (production) or `https://localhost:8080` (local development).
 
 ---
-← [index](./index.md)
+← [index](../index.md)

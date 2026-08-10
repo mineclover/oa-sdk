@@ -84,7 +84,8 @@
     "typespec:roundtrip": "node --import tsx scripts/typespec-roundtrip.ts",
     "typespec:bundle-check": "node --import tsx scripts/typespec-bundle-check.ts",
     "typespec:sidecar-to-extensions": "node --import tsx scripts/typespec-sidecar-to-extensions.ts",
-    "typespec:create-canonical-fixture": "node --import tsx scripts/typespec-create-authored-canonical-fixture.ts"
+    "typespec:create-canonical-fixture": "node --import tsx scripts/typespec-create-authored-canonical-fixture.ts",
+    "release:export": "node --import tsx scripts/export-release-artifacts.ts"
   },
   "devDependencies": {
     "@changesets/cli": "^2.31.0",

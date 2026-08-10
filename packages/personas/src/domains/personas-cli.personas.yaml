@@ -117,7 +117,7 @@ personas:
     outcome:
       shape: command
       access: [private-self]
-    notes: "schemas merge 후 `pnpm bind` — `.merged.yaml` → `.merged.persona.yaml`. drift 차단의 전제."
+    notes: "TypeSpec build 후 `pnpm bind` — `.merged.yaml` → `.merged.persona.yaml`. drift 차단의 전제."
 
   - id: dev-regenerates-tests
     status: proposed

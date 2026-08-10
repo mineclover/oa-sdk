@@ -19,6 +19,7 @@ sourceOfTruth:
   apiSurface: docs/internal/api-index.md
   featureTests: docs/internal/feature-test-matrix.md
   userScenarios: docs/internal/user-scenario-tests.md
+  releasePolicy: docs/internal/release-policy.json
   contractAuthoring: packages/schemas/typespec/
   approvedContractSnapshot: packages/schemas/typespec/approved.openapi.yaml
   contractConvention: docs/guides/typespec-authoring-conventions.md

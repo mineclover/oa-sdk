@@ -259,4 +259,4 @@ This will expand to the result:
 ```
 
 ---
-← [index](./index.md)
+← [index](../index.md)

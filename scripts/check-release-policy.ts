@@ -74,6 +74,7 @@ type ChangesetsConfig = {
 
 const PRIMARY_MISSION = 'schema-spec-management'
 const PRIMARY_TRACK = 'corePlatform'
+const POLICY_VERSION = 4
 const SCOPE_DOCUMENT = 'docs/internal/platform-scope.md'
 const TRACK_RULES = {
   corePlatform: { policy: 'active', release: 'release-tracked' },
@@ -164,8 +165,8 @@ function readWorkspacePackages(): WorkspacePackage[] {
 }
 
 function validatePolicyShape(policy: ReleasePolicy, issues: string[]): void {
-  if (policy.version !== 3) {
-    issues.push('docs/internal/release-policy.json: version must be 3')
+  if (policy.version !== POLICY_VERSION) {
+    issues.push(`docs/internal/release-policy.json: version must be ${POLICY_VERSION}`)
   }
   if (policy.primaryMission !== PRIMARY_MISSION) {
     issues.push(
@@ -600,6 +601,21 @@ function validateReleaseDoc(policy: ReleasePolicy, releaseDoc: string, issues: s
     if (!releaseDoc.includes(`\`${name}\``)) {
       issues.push(`docs/internal/release-management.md: missing bulk-task exclusion mention for ${name}`)
     }
+  }
+
+  const expectedSnapshot = [
+    `현재 정책 스냅샷: v${policy.version}`,
+    `${TRACK_NAMES.length} tracks`,
+    `Core Platform ${getTrackWorkspaces(policy, 'corePlatform').length}`,
+    `Downstream ${getTrackWorkspaces(policy, 'downstream').length}`,
+    `release-tracked ${policy.releaseTracked.length}`,
+    `ignored ${policy.ignored.length}`,
+    `distribution candidates ${policy.distributionCandidates.length}.`,
+  ].join(' · ')
+  if (!releaseDoc.includes(expectedSnapshot)) {
+    issues.push(
+      `docs/internal/release-management.md: missing or stale policy snapshot: ${expectedSnapshot}`,
+    )
   }
 }
 

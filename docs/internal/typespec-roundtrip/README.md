@@ -1,15 +1,9 @@
-# TypeSpec Roundtrip Plans
+# TypeSpec Roundtrip
 
-This folder contains versioned implementation plans for the TypeSpec roundtrip track.
+This folder contains the active production-operation and authoring materials for the TypeSpec roundtrip track.
 
-The parent evaluation document is [`../typespec-roundtrip.plan.md`](../typespec-roundtrip.plan.md). It owns the current evidence and TSP-first declaration criteria.
-
-The sidecar-less authored bundle vocabulary is standardized in
-[`oa-sdk-typespec-extensions.v1.md`](./oa-sdk-typespec-extensions.v1.md),
-[`v2`](./oa-sdk-typespec-extensions.v2.md),
-[`v3`](./oa-sdk-typespec-extensions.v3.md),
-[`v4`](./oa-sdk-typespec-extensions.v4.md), and
-[`v5`](./oa-sdk-typespec-extensions.v5.md).
+The sidecar-less authored bundle vocabulary is standardized exclusively in
+[`oa-sdk-typespec-extensions.v5.md`](./oa-sdk-typespec-extensions.v5.md).
 
 The current authoring source-of-truth boundary is summarized in [`authoring-ownership-guide.md`](./authoring-ownership-guide.md).
 
@@ -19,10 +13,6 @@ The current full canonical authored fixture is [`fixtures/authored-canonical-bun
 
 The OpenFGA resource registry consumer analysis fixture is [`fixtures/openfga-resource-registry-consumer/`](./fixtures/openfga-resource-registry-consumer/).
 It is a shadow contract for the external demo service and is not part of the production schema bundle.
-
-The TypeSpec-first decision design and completed G1-G8 evidence are tracked in [`tsp-first-decision-design.md`](./tsp-first-decision-design.md).
-
-The production migration goals G9-G15 and source-path switch are tracked in [`production-migration-goals.md`](./production-migration-goals.md).
 
 The current publish, validation, versioning, rollback, and source-ownership procedure is tracked in [`production-operations.md`](./production-operations.md).
 
@@ -39,11 +29,3 @@ and provenance/diff rollout are tracked in
 [`logical-erd-typespec-profile.plan.md`](./logical-erd-typespec-profile.plan.md).
 
 The production TypeSpec source bundle is [`../../../packages/schemas/typespec/`](../../../packages/schemas/typespec/).
-
-## Versions
-
-| Target | Package | Plan | Status |
-|---|---|---|---|
-| `v0.3.0` | `@oa-sdk/codegen` | [`v0.3.0/implementation-roadmap.plan.md`](./v0.3.0/implementation-roadmap.plan.md) | complete |
-
-Version folders are planning artifacts. They do not change package versions by themselves.

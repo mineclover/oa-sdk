@@ -39,7 +39,7 @@ function main(): void {
 
   if (!existsSync(specPath)) {
     console.error(`❌ merged spec not found: ${specPath}`)
-    console.error(`   Run 'pnpm --filter @oa-sdk/schemas merge' first.`)
+    console.error(`   Run 'pnpm --filter @oa-sdk/schemas run build:typespec' first.`)
     process.exit(2)
   }
 

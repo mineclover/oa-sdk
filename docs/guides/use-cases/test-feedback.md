@@ -17,7 +17,7 @@ console.log(describeApi(doc))
 ```
 
 ```
-OA SDK API v0.1.0
+OA SDK API v0.2.0
 [health] GET /health — 서버 상태 확인
 [users]  GET /users — 사용자 목록 조회
          POST /users — 사용자 생성

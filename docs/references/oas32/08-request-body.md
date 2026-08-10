@@ -494,7 +494,7 @@ To upload multiple files, a `multipart` media type MUST be used as shown under [
 
 ### Encoding Object
 
-A single encoding definition applied to a single value, with the mapping of Encoding Objects to values determined by the [Media Type Object](@media-type-object) as described under [Encoding Usage and Restrictions](#encoding-usage-and-restrictions).
+A single encoding definition applied to a single value, with the mapping of Encoding Objects to values determined by the [Media Type Object](#media-type-object) as described under [Encoding Usage and Restrictions](#encoding-usage-and-restrictions).
 
 See [Appendix B](#appendix-b-data-type-conversion) for a discussion of converting values of various types to string representations.
 
@@ -793,7 +793,7 @@ multipart/mixed:
 As described in [[?RFC2557]], a set of resources making up a web page can be sent in a `multipart/related` payload, preserving links from the `text/html` document to subsidiary resources such as scripts, style sheets, and images by defining a `Content-Location` header for each page.
 The first part is used as the root resource (unless using `Content-ID`, which RFC2557 advises against and is forbidden in this example), so we use `prefixItems` and `prefixEncoding` to define that it must be an HTML resource, and then allow any of several different types of resources in any order to follow.
 
-The `Content-Location` header is defined using `content: {text/plain: {...}}` to avoid percent-encoding its URI value; see [Appendix D](appendix-d-serializing-headers-and-cookies) for further details.
+The `Content-Location` header is defined using `content: {text/plain: {...}}` to avoid percent-encoding its URI value; see [Appendix D](./appendices/d-headers-cookies.md) for further details.
 
 ```yaml
 components:
@@ -853,7 +853,7 @@ multipart/mixed:
 
 For `multipart/byteranges` [[RFC9110]] [Section 14.6](https://www.rfc-editor.org/rfc/rfc9110.html#section-14.6), a `Content-Range` header is required:
 
-See [Appendix D](appendix-d-serializing-headers-and-cookies) for an explanation of why `content: {text/plain: {...}}` is used to describe the header value.
+See [Appendix D](./appendices/d-headers-cookies.md) for an explanation of why `content: {text/plain: {...}}` is used to describe the header value.
 
 ```yaml
 multipart/byteranges:

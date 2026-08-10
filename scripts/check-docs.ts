@@ -19,8 +19,10 @@ import {
 
 const root = resolve(process.cwd())
 const files = listMarkdownFiles(root)
+const oas32ReferenceFiles = listMarkdownFiles(resolve(root, 'docs/references/oas32'))
 const issues = runValidationGates([
   createMarkdownLocalLinkGate({ root, files }),
+  createMarkdownLocalLinkGate({ root, files: oas32ReferenceFiles }),
   createCliExampleGate({ root, files, executable: 'oa-gen', commands }),
   createCliReferenceGate({
     root,
@@ -42,6 +44,6 @@ if (issues.length > 0) {
   process.exitCode = 1
 } else {
   console.log(
-    `Documentation OK: ${files.length} Markdown files, local links, oa-gen examples, and command/package entrypoint coverage checked.`,
+    `Documentation OK: ${files.length} Markdown files plus ${oas32ReferenceFiles.length} OAS reference files; local links, oa-gen examples, and command/package entrypoint coverage checked.`,
   )
 }

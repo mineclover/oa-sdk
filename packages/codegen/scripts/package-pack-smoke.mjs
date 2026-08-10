@@ -23,7 +23,7 @@ try {
     .map(file => file.replace(/^package\//, '')))
   const packedManifest = JSON.parse(execFileSync('tar', ['-xOf', archive, 'package/package.json'], { encoding: 'utf8' }))
 
-  const expected = new Set(['package.json', 'README.md'])
+  const expected = new Set(['package.json', 'README.md', 'LICENSE'])
   for (const entry of Object.values(manifest.exports)) {
     expected.add(stripRelativePrefix(entry.import))
     expected.add(stripRelativePrefix(entry.types))
@@ -31,7 +31,7 @@ try {
   for (const entry of Object.values(manifest.bin ?? {})) expected.add(stripRelativePrefix(entry))
 
   const missing = [...expected].filter(file => !files.has(file))
-  const outsideBoundary = [...files].filter(file => file !== 'package.json' && file !== 'README.md' && !file.startsWith('dist/'))
+  const outsideBoundary = [...files].filter(file => file !== 'package.json' && file !== 'README.md' && file !== 'LICENSE' && !file.startsWith('dist/'))
   const workspaceDependency = Object.entries({
     ...(packedManifest.dependencies ?? {}),
     ...(packedManifest.optionalDependencies ?? {}),

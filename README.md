@@ -6,7 +6,7 @@ OpenAPI artifact로 통합하고, metadata와 전체 path surface를 관리하�
 검증·비교·생성·mock/runtime 테스트·review gate까지 연결합니다.
 
 현재 제품의 핵심은 `@oa-sdk/core` 위에서 schema/spec source, projection contract,
-파싱·검증·생성, 변경 이력 관측과 wire contract를 연결하는 일곱 패키지의 Core Platform입니다.
+파싱·검증·생성, 변경 이력 관측과 wire contract를 연결하는 여덟 패키지의 Core Platform입니다.
 상세한 범위와 신규 작업 승인 기준은
 [`docs/internal/platform-scope.md`](./docs/internal/platform-scope.md)를 따릅니다.
 
@@ -33,6 +33,7 @@ Zod Schema  ──▶  OpenAPI 3.2 Spec      ──▶ TypeScript 타입
 | `@oa-sdk/codegen` | `oa-gen` CLI, Definition Builder target artifact, OpenAPI 수집/정규화/업그레이드/diff/review, typegen/router/client 생성, Zod/Drizzle projection bridge |
 | `@oa-sdk/spec-lens` | OpenAPI spec change history observation과 review surface 관리 |
 | `@oa-sdk/spec-lens-contract` | spec-lens HTTP wire contract와 browser-safe response types |
+| `@oa-sdk/typespec-decorators` | production TypeSpec source에서 검증된 OA SDK extension decorator를 제공 |
 
 ### Downstream Integration Libraries
 
@@ -54,6 +55,9 @@ Core 계약을 소비하고 end-to-end 사용 가능성을 검증하는 release-
 | `@oa-sdk/dpm` | Relationship-first Data Pseudonymization Manifest schema와 fixture gate를 포함한 toolkit. catalog/profile/Kafka evidence를 review, approval, audit, registry/storage/gateway/publishing workflow로 연결 ([Concept](./docs/concepts/data-pseudonymization-manifest.md)) |
 | `@oa-sdk/personas` | OpenAPI 위 persona matrix와 trait registry. 84 persona, 9 trait dimension, 8 CLI, roleplay/e2e governance와 test 자동 생성 ([Concept](./docs/concepts/data-persona.md)) |
 | `@oa-sdk/typia-mock` | typia `ILlmApplication` 기반 LLM function-call validation/mock server |
+| `@oa-sdk/logical-erd-contract` | private TypeSpec logical-ERD prototype의 중립 artifact contract |
+| `@oa-sdk/typespec-erd` | private TypeSpec logical-ERD prototype과 `oa-erd` CLI |
+| `@oa-sdk/ttsc-compile-fixture` | bulk task에서 제외된 TypeScript 7 compiler fixture |
 
 ### Apps And Reference Workspaces
 
@@ -111,7 +115,7 @@ oa-gen collect --spec contracts/openapi.raw.yaml --normalized contracts/openapi.
 oa-gen normalize --spec contracts/openapi.raw.yaml --output contracts/openapi.normalized.yaml --profile nestjs-swagger
 oa-gen upgrade --spec contracts/openapi.normalized.yaml --output contracts/openapi.upgraded.yaml
 oa-gen diff --base old.yaml --head packages/schemas/src/.merged.yaml --fail-on-breaking
-oa-gen check-artifact --head packages/schemas/src/.merged.yaml --artifact packages/schemas/dist/openapi.yaml
+oa-gen check-artifact --head packages/schemas/src/.merged.3.1.yaml --artifact packages/schemas/dist/openapi.yaml
 oa-gen check-artifact --head packages/schemas/src/.merged.yaml --target packages/schemas/src/targets/local-parity-api.yaml --artifact packages/schemas/src/.builder/local-parity-api.yaml
 oa-gen drift --runtime-openapi runtime.yaml --managed-openapi packages/schemas/src/.merged.yaml
 oa-gen inventory --spec packages/schemas/src/.merged.yaml --format markdown
@@ -119,8 +123,8 @@ oa-gen behavior-query --behavior-db ./.oa-cache/behavior.sqlite --mode summary-b
 oa-gen duplicate-review --fragments packages/schemas/src/fragments --policy report --format markdown
 oa-gen duplicate-review --fragments packages/schemas/src/fragments --policy ci --target packages/schemas/src/targets/public-api.yaml --format json
 oa-gen target-check --target packages/schemas/src/targets/public-api.yaml --must-include-path /health --must-exclude-path /admin
-oa-gen review --base old.yaml --head packages/schemas/src/.merged.yaml --artifact packages/schemas/dist/openapi.yaml
-oa-gen review-bundle --base old.yaml --head packages/schemas/src/.merged.yaml --artifact packages/schemas/dist/openapi.yaml --inventory --format markdown
+oa-gen review --base old.yaml --head packages/schemas/src/.merged.3.1.yaml --artifact packages/schemas/dist/openapi.yaml
+oa-gen review-bundle --base old.yaml --head packages/schemas/src/.merged.3.1.yaml --artifact packages/schemas/dist/openapi.yaml --inventory --format markdown
 
 # reference-check는 oa-sdk 판정은 유지하고, Apitomy provider/version·입력 hash·capability·
 # serialization 확인과 차이 taxonomy를 보조 리포트로 남긴다.

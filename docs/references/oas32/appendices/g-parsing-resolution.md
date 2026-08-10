@@ -157,4 +157,4 @@ components:
 In the `other` document, the referenced path item has a Security Requirement for a Security Scheme, `MySecurity`. The same Security Scheme exists in the original entry document. As outlined in [Resolving Implicit Connections](#resolving-implicit-connections), `MySecurity` is resolved with an [implementation-defined behavior](#undefined-and-implementation-defined-behavior), but the section formally recommends that tools resolve component names from the [entry document](#openapi-description-structure). As with all implementation-defined behavior, it is important to check tool documentation to determine which behavior is supported.
 
 ---
-← [index](./index.md)
+← [index](../index.md)

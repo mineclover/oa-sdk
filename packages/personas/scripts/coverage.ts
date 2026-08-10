@@ -36,7 +36,7 @@ function main(): void {
   const knownOperations = loadOperationsFromMergedSpec(specPath)
   if (knownOperations === null) {
     console.error(`❌ merged spec not found: ${specPath}`)
-    console.error(`   Run 'pnpm --filter @oa-sdk/schemas merge' first, or pass --spec=<path>.`)
+    console.error(`   Run 'pnpm --filter @oa-sdk/schemas run build:typespec' first, or pass --spec=<path>.`)
     process.exit(2)
   }
 

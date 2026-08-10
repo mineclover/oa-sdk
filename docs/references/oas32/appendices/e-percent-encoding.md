@@ -103,4 +103,4 @@ The exact method of additional encoding/escaping is left to the API designer, an
 This keeps it outside of the processes governed by this specification.
 
 ---
-← [index](./index.md)
+← [index](../index.md)

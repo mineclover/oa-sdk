@@ -91,9 +91,10 @@ jobs:
       # ── Freshness check: generated files up to date? ───────
       - name: Schema freshness check
         run: |
-          pnpm --filter @oa-sdk/schemas run build
+          pnpm --filter @oa-sdk/schemas run bundle
+          node packages/codegen/dist/cli/index.js check-artifact --head packages/schemas/src/.merged.3.1.yaml --artifact packages/schemas/dist/openapi.yaml
           if ! git diff --exit-code packages/schemas/src/.merged.3.1.yaml packages/schemas/src/.merged.3.1.meta.json packages/schemas/src/.merged.upgraded.3.2.yaml; then
-            echo "::error::Schema generated files are stale. Run 'pnpm --filter @oa-sdk/schemas run build' and commit the results."
+            echo "::error::Schema generated files are stale. Run 'pnpm --filter @oa-sdk/schemas run bundle' and commit the results."
             exit 1
           fi
 

@@ -21,7 +21,7 @@ The rule of thumb is simple: use TypeSpec-native syntax when the OpenAPI emitter
 |---|---|---|---|
 | Generated `.tsp + sidecar` | `main.tsp`, `oa-sdk.typespec-compat-sidecar.json`, `oa-sdk.typespec-bundle.json`, optional `expected.openapi.yaml` | `sidecar` | OpenAPI-to-TypeSpec export and canonical roundtrip probes. |
 | Authored `.tsp + sidecar` | Hand-written `main.tsp`, authored sidecar, manifest, expected OpenAPI | `sidecar` | Contract slices whose metadata is not yet standardized as a TypeSpec extension. |
-| Authored sidecar-less `.tsp` | Hand-written `main.tsp`, manifest with `compatibility.oaSdkExtensionSchemaVersion`, expected OpenAPI | `typespec-extensions` | Maintainer-authored bundles using `oa-sdk.typespec-extensions.v1`, `v2`, `v3`, `v4`, or `v5`. |
+| Authored sidecar-less `.tsp` | Hand-written `main.tsp`, manifest with `compatibility.oaSdkExtensionSchemaVersion`, expected OpenAPI | `typespec-extensions` | Maintainer-authored bundles using `oa-sdk.typespec-extensions.v5`. |
 
 If `sidecar` is absent, the manifest must declare `compatibility.oaSdkExtensionSchemaVersion`. If `sidecar` is present, the bundle check uses the sidecar and does not infer extension semantics as the compatibility source.
 
@@ -30,7 +30,7 @@ If `sidecar` is absent, the manifest must declare `compatibility.oaSdkExtensionS
 | Contract Fact | Owner | How To Author | Notes |
 |---|---|---|---|
 | API title and version | TypeSpec-native syntax | `@service`, `@info` | Must remain visible in emitted OpenAPI. |
-| API info fields not fully preserved by TypeSpec | OA SDK TypeSpec extension v4 or compatibility sidecar | `x-oa-sdk-info` or `root-info` sidecar entry | Use for OpenAPI `info` metadata such as description and SPDX license identifier when TypeSpec native projection cannot roundtrip it. |
+| API info fields not fully preserved by TypeSpec | OA SDK TypeSpec extension v5 or compatibility sidecar | `x-oa-sdk-info` or `root-info` sidecar entry | Use for OpenAPI `info` metadata such as description and SPDX license identifier when TypeSpec native projection cannot roundtrip it. |
 | Reusable OpenAPI parameter/response component catalog | OA SDK TypeSpec extension v5 or compatibility sidecar | `x-oa-sdk-components` or `component-parameter` / `component-response` sidecar entries | Use when TypeSpec preserves the inline value but not the reusable `components.parameters` / `components.responses` catalog identity. |
 | Operation usage of reusable parameter/response components | OA SDK TypeSpec extension v5 or compatibility sidecar | `x-oa-sdk-operation-component-refs` or `operation-parameter-ref` / `operation-response-ref` sidecar entries | Use together with the component catalog so restored components are referenced by operations instead of becoming unused metadata. |
 | Servers | TypeSpec-native syntax | `@server` | Keep variable-heavy or runtime-selected server behavior outside this track until proven. |
@@ -41,14 +41,14 @@ If `sidecar` is absent, the manifest must declare `compatibility.oaSdkExtensionS
 | Property docs, scalar constraints, formats, defaults, deprecated marker | TypeSpec-native syntax | `@doc`, `@minLength`, `@maxValue`, `@format`, value defaults, `#deprecated` | These belong in `.tsp` when the emitted artifact remains stable. |
 | Schema and property examples | TypeSpec-native syntax when projection is stable | `@example` | Do not use this bucket for operation parameter, request body media, or response media examples. |
 | Parameters | TypeSpec-native syntax | `@path`, `@query`, `@header`, `@cookie` | Parameter locations and schema constraints belong in `.tsp`. |
-| Parameter examples with `dataValue` / `serializedValue` | OA SDK TypeSpec extension or compatibility sidecar | `x-oa-sdk-operation-examples.parameters` or `parameter-examples` sidecar entry | v1 and v2 support the sidecar-less extension path. |
+| Parameter examples with `dataValue` / `serializedValue` | OA SDK TypeSpec extension v5 or compatibility sidecar | `x-oa-sdk-operation-examples.parameters` or `parameter-examples` sidecar entry | v5 is the only sidecar-less extension path. |
 | Request body schema | TypeSpec-native syntax | `@body` parameter | The request body schema belongs in `.tsp`; media examples do not. |
-| Request body media examples with `dataValue` / `serializedValue` | OA SDK TypeSpec extension v2 or compatibility sidecar | `x-oa-sdk-operation-examples.requestBody` or `request-media-examples` sidecar entry | Requires manifest `oa-sdk.typespec-extensions.v2` for sidecar-less bundles. |
+| Request body media examples with `dataValue` / `serializedValue` | OA SDK TypeSpec extension v5 or compatibility sidecar | `x-oa-sdk-operation-examples.requestBody` or `request-media-examples` sidecar entry | Requires manifest `oa-sdk.typespec-extensions.v5` for sidecar-less bundles. |
 | Response status and body schema | TypeSpec-native syntax | Response model with `@statusCode` and `@body` | Response shape must remain valid OpenAPI 3.2 after emit. |
 | Response headers | TypeSpec-native syntax when schema-only header projection is enough | `@header` | Header content schemas and links remain explicit diagnostics until supported. |
-| Response media examples with `dataValue` / `serializedValue` | OA SDK TypeSpec extension or compatibility sidecar | `x-oa-sdk-operation-examples.responses` or `response-media-examples` sidecar entry | v1 and v2 support the sidecar-less extension path. |
+| Response media examples with `dataValue` / `serializedValue` | OA SDK TypeSpec extension v5 or compatibility sidecar | `x-oa-sdk-operation-examples.responses` or `response-media-examples` sidecar entry | v5 is the only sidecar-less extension path. |
 | Bearer auth requirement | TypeSpec-native syntax + optional OA SDK TypeSpec extension for component metadata | `model bearerAuth is BearerAuth;`, `@useAuth(bearerAuth)`, `x-oa-sdk-security-schemes.bearerAuth` | Supported bearer requirements are contract-bearing and should not be sidecar-only. TypeSpec-native auth owns operation semantics; extension metadata may restore OpenAPI component details such as `bearerFormat` and description. |
-| Explicit public operation security override | OA SDK TypeSpec extension v3 or compatibility sidecar | `x-oa-sdk-operation-security: []` or `operation-security` sidecar entry | Use only for OpenAPI's explicit no-auth override. Protected operation auth should remain TypeSpec-native. |
+| Explicit public operation security override | OA SDK TypeSpec extension v5 or compatibility sidecar | `x-oa-sdk-operation-security: []` or `operation-security` sidecar entry | Use only for OpenAPI's explicit no-auth override. Protected operation auth should remain TypeSpec-native. |
 | Unsupported security scheme component metadata | OA SDK TypeSpec extension or compatibility sidecar | `x-oa-sdk-security-schemes` or `security-scheme` sidecar entry | Safe only as metadata when not changing operation auth semantics. |
 | Referenced unsupported auth requirement | Not accepted as metadata-only | No silent sidecar/extension hiding | Remains contract-bearing until an explicit mapping or policy exists. |
 | Read/write visibility, annotations, role-specific projection | Not extension-first | Define OA SDK visibility policy first | Do not hide this in comments or generic extension payloads. |
@@ -56,32 +56,15 @@ If `sidecar` is absent, the manifest must declare `compatibility.oaSdkExtensionS
 | Component projection artifacts and diff normalization | Review policy | Roundtrip report and focused equivalence tests | These are review facts, not authoring vocabulary. |
 | Mock priority, generated examples, personas, adapter behavior | Runtime data or adapter policy | Runtime package fixtures/configuration | `.tsp` may restore OpenAPI examples, but runtime priority rules live in runtime code. |
 
-## Extension Versions
+## Extension Vocabulary
 
-`oa-sdk.typespec-extensions.v1` is frozen at:
+`oa-sdk.typespec-extensions.v5` is the sole supported sidecar-less vocabulary:
 
-- `x-oa-sdk-operation-examples.parameters`
-- `x-oa-sdk-operation-examples.responses`
-- `x-oa-sdk-security-schemes`
+- `x-oa-sdk-operation-examples.parameters`, `.requestBody`, and `.responses`
+- `x-oa-sdk-security-schemes` and `x-oa-sdk-operation-security`
+- `x-oa-sdk-info`, `x-oa-sdk-components`, and `x-oa-sdk-operation-component-refs`
 
-`oa-sdk.typespec-extensions.v2` adds:
-
-- `x-oa-sdk-operation-examples.requestBody`
-
-`oa-sdk.typespec-extensions.v3` adds:
-
-- `x-oa-sdk-operation-security`
-
-`oa-sdk.typespec-extensions.v4` adds:
-
-- `x-oa-sdk-info`
-
-`oa-sdk.typespec-extensions.v5` adds:
-
-- `x-oa-sdk-components`
-- `x-oa-sdk-operation-component-refs`
-
-A restore-bearing addition requires a new extension schema version. Do not silently expand v1 just because older consumers ignore unknown fields; if the field changes restored OpenAPI output, version it.
+A restore-bearing addition requires a new extension schema version and explicit migration before it becomes supported.
 
 ## Review Checklist
 
@@ -101,10 +84,6 @@ Before accepting a new authored TypeSpec bundle:
 - `packages/codegen/src/cli/lib/typespec-bundle-manifest.ts` — manifest parsing and extension schema version validation.
 - `packages/codegen/src/cli/lib/typespec-bundle-check.ts` — compile, restore, validation, and expected diff gate.
 - `packages/codegen/src/cli/lib/typespec-roundtrip-report.ts` — diagnostic ownership policy.
-- `docs/internal/typespec-roundtrip/oa-sdk-typespec-extensions.v1.md` — v1 extension schema.
-- `docs/internal/typespec-roundtrip/oa-sdk-typespec-extensions.v2.md` — v2 request body examples schema.
-- `docs/internal/typespec-roundtrip/oa-sdk-typespec-extensions.v3.md` — v3 explicit public operation security schema.
-- `docs/internal/typespec-roundtrip/oa-sdk-typespec-extensions.v4.md` — v4 root info metadata schema.
-- `docs/internal/typespec-roundtrip/oa-sdk-typespec-extensions.v5.md` — v5 reusable component identity schema.
+- `docs/internal/typespec-roundtrip/oa-sdk-typespec-extensions.v5.md` — current extension schema.
 - `docs/internal/typespec-roundtrip/fixtures/authored-representative-bundle/` — representative sidecar-less authored fixture.
-- `docs/internal/typespec-roundtrip/fixtures/authored-request-body-extension-bundle/` — focused v2 request body fixture.
+- `docs/internal/typespec-roundtrip/fixtures/authored-request-body-extension-bundle/` — focused v5 request body fixture.

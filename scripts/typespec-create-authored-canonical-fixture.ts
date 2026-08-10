@@ -63,7 +63,7 @@ async function main(): Promise<void> {
     const sourceSidecar = parseTypeSpecCompatibilitySidecar(readJson(requiredReportPath(report.paths.compatibilitySidecar, 'compatibility sidecar')))
     const authoredSidecar = expandPathLevelParameterExamples(sourceSidecar, sourceDocument)
     const conversion = convertTypeSpecSidecarToExtensions(authoredSidecar, {
-      extensionSchemaVersion: 'oa-sdk.typespec-extensions.v2',
+      extensionSchemaVersion: 'oa-sdk.typespec-extensions.v5',
     })
 
     if (conversion.remainingSidecar.entries.length > 0) {
@@ -274,7 +274,7 @@ function writeFixture(fixtureDir: string, source: string, report: TypeSpecRoundt
     expectedOpenapi: 'expected.openapi.yaml',
     compatibility: {
       openapiVersion: '3.2.0',
-      oaSdkExtensionSchemaVersion: 'oa-sdk.typespec-extensions.v2',
+      oaSdkExtensionSchemaVersion: 'oa-sdk.typespec-extensions.v5',
     },
   }, null, 2)}\n`)
 }

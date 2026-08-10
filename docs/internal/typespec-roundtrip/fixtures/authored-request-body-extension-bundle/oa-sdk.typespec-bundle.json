@@ -4,6 +4,6 @@
   "expectedOpenapi": "expected.openapi.yaml",
   "compatibility": {
     "openapiVersion": "3.2.0",
-    "oaSdkExtensionSchemaVersion": "oa-sdk.typespec-extensions.v2"
+    "oaSdkExtensionSchemaVersion": "oa-sdk.typespec-extensions.v5"
   }
 }

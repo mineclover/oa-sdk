@@ -17,7 +17,7 @@ const OPERATION_COMPONENT_REFS_EXTENSION = 'x-oa-sdk-operation-component-refs'
 const OPERATION_EXAMPLES_EXTENSION = 'x-oa-sdk-operation-examples'
 const OPERATION_SECURITY_EXTENSION = 'x-oa-sdk-operation-security'
 const SECURITY_SCHEMES_EXTENSION = 'x-oa-sdk-security-schemes'
-const DEFAULT_EXTENSION_SCHEMA_VERSION: TypeSpecOpenApiExtensionSchemaVersion = 'oa-sdk.typespec-extensions.v1'
+const DEFAULT_EXTENSION_SCHEMA_VERSION: TypeSpecOpenApiExtensionSchemaVersion = 'oa-sdk.typespec-extensions.v5'
 
 export type {
   TypeSpecOpenApiExtensionSchemaVersion,
@@ -70,8 +70,7 @@ export function stripTypeSpecOpenApiExtensions(document: OasDocument): OasDocume
 }
 
 function supportsRootInfo(schemaVersion: TypeSpecOpenApiExtensionSchemaVersion): boolean {
-  return schemaVersion === 'oa-sdk.typespec-extensions.v4'
-    || schemaVersion === 'oa-sdk.typespec-extensions.v5'
+  return schemaVersion === 'oa-sdk.typespec-extensions.v5'
 }
 
 function supportsReusableComponents(schemaVersion: TypeSpecOpenApiExtensionSchemaVersion): boolean {
@@ -79,16 +78,11 @@ function supportsReusableComponents(schemaVersion: TypeSpecOpenApiExtensionSchem
 }
 
 function supportsOperationSecurity(schemaVersion: TypeSpecOpenApiExtensionSchemaVersion): boolean {
-  return schemaVersion === 'oa-sdk.typespec-extensions.v3'
-    || schemaVersion === 'oa-sdk.typespec-extensions.v4'
-    || schemaVersion === 'oa-sdk.typespec-extensions.v5'
+  return schemaVersion === 'oa-sdk.typespec-extensions.v5'
 }
 
 function supportsRequestExamples(schemaVersion: TypeSpecOpenApiExtensionSchemaVersion): boolean {
-  return schemaVersion === 'oa-sdk.typespec-extensions.v2'
-    || schemaVersion === 'oa-sdk.typespec-extensions.v3'
-    || schemaVersion === 'oa-sdk.typespec-extensions.v4'
-    || schemaVersion === 'oa-sdk.typespec-extensions.v5'
+  return schemaVersion === 'oa-sdk.typespec-extensions.v5'
 }
 
 function collectInfoEntry(document: OasDocument): TypeSpecCompatibilitySidecarEntry | null {
