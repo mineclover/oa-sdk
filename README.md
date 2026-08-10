@@ -53,7 +53,7 @@ Core 계약을 소비하고 end-to-end 사용 가능성을 검증하는 release-
 | 패키지 | 역할 |
 |--------|------|
 | `@oa-sdk/dpm` | Relationship-first Data Pseudonymization Manifest schema와 fixture gate를 포함한 toolkit. catalog/profile/Kafka evidence를 review, approval, audit, registry/storage/gateway/publishing workflow로 연결 ([Concept](./docs/concepts/data-pseudonymization-manifest.md)) |
-| `@oa-sdk/personas` | OpenAPI 위 persona matrix와 trait registry. 84 persona, 9 trait dimension, 8 CLI, roleplay/e2e governance와 test 자동 생성 ([Concept](./docs/concepts/data-persona.md)) |
+| `@oa-sdk/personas` | OpenAPI 위 persona matrix와 trait registry. HTTP 91개 + CLI 11개 persona, 9 trait dimension, 8 CLI, roleplay/e2e governance와 test 자동 생성 ([Concept](./docs/concepts/data-persona.md)) |
 | `@oa-sdk/typia-mock` | typia `ILlmApplication` 기반 LLM function-call validation/mock server |
 | `@oa-sdk/logical-erd-contract` | private TypeSpec logical-ERD prototype의 중립 artifact contract |
 | `@oa-sdk/typespec-erd` | private TypeSpec logical-ERD prototype과 `oa-erd` CLI |
@@ -85,6 +85,24 @@ manifest 밖에서 관리합니다.
 소유하지 않습니다. 기존 `@oa-sdk/*` package name은 배포 namespace 결정 전까지 호환용으로 유지합니다.
 
 ## 사용 방법
+
+### 공개 npm 패키지 사용
+
+비공개 monorepo를 clone하지 않아도 공개된 core SDK와 CLI를 설치해 사용할 수 있다. 공개
+배포는 [`mineclover/oa-sdk-releases`](https://github.com/mineclover/oa-sdk-releases)의 검증된
+artifact만 사용하며, source tree·테스트·lockfile은 포함하지 않는다.
+
+```bash
+npm install @oa-sdk/core @oa-sdk/openapi-projection-contract @oa-sdk/typespec-decorators @oa-sdk/parser
+npm install --save-dev @oa-sdk/codegen
+npx oa-gen --help
+```
+
+현재 공개 배포 버전은 core/projection/decorators/parser `0.1.2`, `@oa-sdk/codegen` `0.5.0`이다.
+`@oa-sdk/schemas`, router, client, mock-server는 아직 별도 distribution decision 전의 private
+workspace이므로 npm 설치 대상으로 안내하지 않는다.
+
+### 비공개 소스 기여·검증
 
 개발/CI 기준 런타임은 Node.js 25.x이며, nvm 사용자는 `.nvmrc` 기준으로 맞춘다.
 패키지 매니저는 `packageManager`에 고정된 pnpm 10.30.3을 사용합니다.

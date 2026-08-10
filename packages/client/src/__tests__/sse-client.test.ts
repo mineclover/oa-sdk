@@ -26,6 +26,7 @@ describe('SSE streaming client', () => {
     expect(code).toContain('async *streamEvents')
     expect(code).toContain('AsyncGenerator')
     expect(code).toContain("yield* streamSse('GET'")
+    expect(code).toContain("yield* streamSse('GET', '/events', undefined, \"streamEvents\")")
   })
 
   it('application/x-ndjson → async generator using streamNdjson', () => {

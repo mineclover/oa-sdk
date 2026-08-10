@@ -1,0 +1,147 @@
+domain: world-model
+description: "World bootstrap, stimulus, and revision-pinned projection surface"
+
+metadata:
+  kind: openapi-http
+  responsibility: "인증된 consumer가 World를 생성·관찰하고 stimulus와 semantic projection을 다루는 API surface"
+  owns_entities:
+    - World
+    - WorldHead
+    - ExecutionProfile
+    - WorldAction
+    - WorldTimeAdvance
+    - Projection
+    - ProjectionBundle
+  allowed_actors: [ user, system, third-party-app ]
+
+# data 어휘 (도메인-로컬):
+#   World / WorldHead             — world control-plane state
+#   WorldAction / WorldTimeAdvance — 비동기 stimulus command
+#   Projection / ProjectionBundle — revision-pinned semantic materialization
+
+personas:
+  - id: create-world-bootstrap
+    status: implemented
+    identity:
+      actor: user
+      data: World
+      intent: create
+      trigger: first-arrival
+      consumer: end-user
+    reference:
+      channel: [ public-api ]
+    outcome:
+      shape: detail
+      access: [ scoped:write ]
+      maps_to: [ createWorld ]
+      expects: [ 201 ]
+    skills: [ oauth-scope-aware, idempotent ]
+    notes: "인증된 consumer가 실행 profile을 선택해 새 World control plane을 bootstrap한다."
+
+  - id: inspect-world-head
+    status: implemented
+    identity:
+      actor: user
+      data: WorldHead
+      intent: inspect
+      trigger: ops-monitoring
+      consumer: backend
+    reference:
+      channel: [ public-api ]
+    outcome:
+      shape: detail
+      access: [ scoped:read ]
+      maps_to: [ getWorldHead ]
+      expects: [ 200 ]
+    skills: [ cacheable, oauth-scope-aware ]
+    notes: "backend consumer가 현재 control head와 revision을 확인해 후속 stimulus의 기준점을 잡는다."
+
+  - id: choose-execution-profile
+    status: implemented
+    identity:
+      actor: user
+      data: ExecutionProfile
+      intent: list
+      trigger: first-arrival
+      consumer: end-user
+    reference:
+      channel: [ public-api ]
+    outcome:
+      shape: list-paginated
+      access: [ scoped:read ]
+      maps_to: [ listExecutionProfiles ]
+      expects: [ 200 ]
+    skills: [ oauth-scope-aware ]
+    notes: "새 World bootstrap 전에 사용할 수 있는 execution profile을 조회한다."
+
+  - id: submit-world-action-stimulus
+    status: implemented
+    identity:
+      actor: user
+      data: WorldAction
+      intent: create
+      trigger: dashboard-realtime
+      consumer: end-user
+    reference:
+      channel: [ public-api ]
+    outcome:
+      shape: command
+      access: [ scoped:write ]
+      maps_to: [ submitWorldAction ]
+      expects: [ 202 ]
+    skills: [ oauth-scope-aware, retryable ]
+    notes: "interactive consumer가 World에 action stimulus를 제출하고 비동기 수락을 받는다."
+
+  - id: submit-world-time-advance
+    status: implemented
+    identity:
+      actor: system
+      data: WorldTimeAdvance
+      intent: create
+      trigger: ops-monitoring
+      consumer: backend
+    reference:
+      channel: [ public-api ]
+    outcome:
+      shape: command
+      access: [ scoped:write ]
+      maps_to: [ submitWorldTimeAdvance ]
+      expects: [ 202 ]
+    skills: [ oauth-scope-aware, retryable ]
+    notes: "orchestrating backend가 logical time advance stimulus를 비동기로 제출한다."
+
+  - id: read-revision-pinned-projection
+    status: implemented
+    identity:
+      actor: third-party-app
+      data: Projection
+      intent: read-detail
+      trigger: ops-monitoring
+      consumer: b2b-customer
+    reference:
+      channel: [ partner-sdk ]
+    outcome:
+      shape: detail
+      access: [ scoped:read ]
+      maps_to: [ getWorldProjection ]
+      expects: [ 200 ]
+    skills: [ cacheable, oauth-scope-aware ]
+    notes: "integration consumer가 특정 revision의 semantic projection을 안정적으로 조회한다."
+
+  - id: read-revision-pinned-projection-bundle
+    status: implemented
+    identity:
+      actor: third-party-app
+      data: ProjectionBundle
+      intent: read-detail
+      trigger: ops-monitoring
+      consumer: b2b-customer
+    reference:
+      channel: [ partner-sdk ]
+    outcome:
+      shape: detail
+      access: [ scoped:read ]
+      maps_to: [ getWorldProjectionBundle ]
+      expects: [ 200 ]
+    skills: [ cacheable, oauth-scope-aware ]
+    notes: "integration consumer가 revision-pinned semantic projection bundle을 조회한다."

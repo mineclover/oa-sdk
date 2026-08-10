@@ -184,7 +184,7 @@ personas: [...]
 | | `domains/*.personas.yaml` | `data-models/*.persona.yaml` |
 |---|---|---|
 | **관점** | "누가 / 왜 / 어떻게 호출하나" | "데이터 자체의 invariants" |
-| **단위** | persona row (95개 — HTTP 84 + CLI 11 dogfood) | data entity (6개) |
+| **단위** | persona row (102개 — HTTP 91 + CLI 11 dogfood) | data entity (6개) |
 | **predicate** | identity tuple = PK | entity 이름 = PK |
 | **examples** | `admin-monitor`, `b2b-customer-list-users` | `User`, `Credential`, `Session` |
 | **invariants** | shape, access, regulation, expects | PII flag, retention, audit, masking |
@@ -362,10 +362,10 @@ client.switchTo(mockServer, 'guest-unauthorized-list')  // → 401
 
 | 지표 | v0.13 |
 |------|---------|
-| personas | 95 (84 implemented · 11 proposed) |
-| domains | 5 (auth/health/me/users + personas-cli dogfood) |
-| surface kinds | 4 (openapi-http: 4 / cli-tool: 1) |
-| operations | 27/27 covered (HTTP) |
+| personas | 102 (91 implemented · 11 proposed) |
+| domains | 6 (auth/health/me/users/world-model + personas-cli dogfood) |
+| surface kinds | 4 (openapi-http: 5 / cli-tool: 1) |
+| operations | 34/34 covered (HTTP) |
 | validation rules | 19 numbered + 7 registry constraints + kind-aware 분기 |
 | trait files | 13 |
 | sample profiles | 6 (+ dogfood-cli using `kind` selector) |

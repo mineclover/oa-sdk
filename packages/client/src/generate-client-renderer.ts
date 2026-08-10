@@ -517,8 +517,10 @@ export function generateClientFromParsed(doc: ParsedDocument, options: ClientRen
       const helperName = streamFormat === 'sse' ? 'streamSse' : 'streamNdjson'
       lines.push(`    async *${methodName}(${params.join(', ')}): ${returnType} {`)
       lines.push(...requestValidationLines(op, '      '))
-      const streamOpts = queryParams.length > 0 ? `, { query: query as Record<string, unknown> }` : ''
-      lines.push(`      yield* ${helperName}('${method}', ${pathExpr}${streamOpts}, ${JSON.stringify(op.operationId)})`)
+      const streamOpts = queryParams.length > 0
+        ? `{ query: query as Record<string, unknown> }`
+        : 'undefined'
+      lines.push(`      yield* ${helperName}('${method}', ${pathExpr}, ${streamOpts}, ${JSON.stringify(op.operationId)})`)
       lines.push(`    },`)
     } else {
       lines.push(`    async ${methodName}(${params.join(', ')}): ${returnType} {`)

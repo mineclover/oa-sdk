@@ -2,6 +2,21 @@
 
 5분 안에 oa-sdk 전 파이프라인을 체험합니다.
 
+## 공개 CLI만 사용할 때
+
+비공개 monorepo가 필요 없는 consumer는 공개 npm 배포본으로 자신의 OpenAPI 문서를 검증·생성할
+수 있다. `@oa-sdk/codegen`은 `oa-gen` CLI와 필요한 core runtime dependency를 함께 제공한다.
+
+```bash
+npm install --save-dev @oa-sdk/codegen
+npx oa-gen validate --spec ./openapi.yaml --require-32
+npx oa-gen typegen --spec ./openapi.yaml -o types.ts
+```
+
+현재 공개 `latest`는 `@oa-sdk/codegen@0.5.0`이며, artifact-only release repository와 npm
+무결성 검증을 거쳐 게시된다. OA SDK 자체 production schema를 작성하거나 변경하려면 아래의
+비공개 source workflow를 사용한다.
+
 ## 1. 설치
 
 ```bash
