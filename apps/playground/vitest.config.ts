@@ -22,6 +22,7 @@ export default defineConfig(async () => {
         : [...configDefaults.exclude, ...NODE_HTTP_TESTS],
       // 서버 라이프사이클 테스트는 forks pool에서 globalThis 격리 필요
       pool: 'forks',
+      setupFiles: ['./tests/node-runtime-setup.ts'],
       testTimeout: 60_000,
     },
   }

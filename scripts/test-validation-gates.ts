@@ -7,6 +7,7 @@ import {
   createCliReferenceGate,
   createMarkdownLocalLinkGate,
   createPackageEntrypointGate,
+  listMarkdownFiles,
   runValidationGates,
 } from './lib/validation-gates.js'
 
@@ -17,6 +18,7 @@ try {
   assertChainedExamplesAreAccepted()
   assertCliReferenceCoverageIsEnforced()
   assertPackageEntrypointCoverageIsEnforced()
+  assertWorktreesAreExcludedFromMarkdownDiscovery()
   console.log('Documentation validation gate library tests OK.')
 } finally {
   if (existsSync(tmpDir)) rmSync(tmpDir, { recursive: true, force: true })
@@ -103,6 +105,20 @@ function assertPackageEntrypointCoverageIsEnforced(): void {
   assert.ok(incompleteIssues.some(issue => issue.message === 'unknown workspace package in entrypoint map: @oa-sdk/unknown'))
   assert.ok(incompleteIssues.some(issue => issue.message === 'missing workspace package in entrypoint map: @oa-sdk/beta'))
   assert.deepEqual(createPackageEntrypointGate({ root, file: complete }).validate(), [])
+}
+
+function assertWorktreesAreExcludedFromMarkdownDiscovery(): void {
+  const root = join(tmpDir, 'markdown-discovery-root')
+  mkdirSync(join(root, '.worktrees', 'nested'), { recursive: true })
+  mkdirSync(join(root, 'docs'), { recursive: true })
+  writeFileSync(join(root, 'README.md'), '# root\n', 'utf8')
+  writeFileSync(join(root, 'docs', 'guide.md'), '# guide\n', 'utf8')
+  writeFileSync(join(root, '.worktrees', 'nested', 'README.md'), '# ignored\n', 'utf8')
+
+  assert.deepEqual(listMarkdownFiles(root), [
+    join(root, 'README.md'),
+    join(root, 'docs', 'guide.md'),
+  ])
 }
 
 function createExampleGate(document: string) {

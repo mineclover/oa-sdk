@@ -5,6 +5,7 @@
 
 import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import { basename, join, relative, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 type TrackPolicy =
   | 'active'
@@ -19,7 +20,7 @@ type WorkspaceTrack = {
   workspaces: string[]
 }
 
-type ReleasePolicy = {
+export type ReleasePolicy = {
   version: number
   primaryMission: string
   primaryTrack: string
@@ -33,6 +34,8 @@ type ReleasePolicy = {
   }
   publish: {
     enabled: boolean
+    mode: string
+    repository: string
   }
   distributionCandidates: string[]
   bulkTaskExcluded: string[]
@@ -74,7 +77,8 @@ type ChangesetsConfig = {
 
 const PRIMARY_MISSION = 'schema-spec-management'
 const PRIMARY_TRACK = 'corePlatform'
-const POLICY_VERSION = 4
+export const POLICY_VERSION = 5
+export const ARTIFACT_ONLY_PUBLISH_MODE = 'artifact-only'
 const SCOPE_DOCUMENT = 'docs/internal/platform-scope.md'
 const TRACK_RULES = {
   corePlatform: { policy: 'active', release: 'release-tracked' },
@@ -100,7 +104,7 @@ const TRACK_SCRIPT_GROUPS = {
 } as const satisfies Record<string, readonly TrackName[]>
 const TRACK_TASKS = ['build', 'test', 'typecheck'] as const
 
-const root = resolve(process.cwd())
+const root = resolve(import.meta.dirname, '..')
 const rootPackagePath = join(root, 'package.json')
 const policyPath = join(root, 'docs/internal/release-policy.json')
 const releaseDocPath = join(root, 'docs/internal/release-management.md')
@@ -118,6 +122,7 @@ function main(): void {
   validatePolicyShape(policy, issues)
   validateChangesetsConfig(policy, changesetsConfig, issues)
   validateRootScripts(policy, rootPackage, workspacePackages, issues)
+  validateNoDirectPublishScripts(rootPackage, workspacePackages, issues)
   validateWorkspaceCoverage(policy, workspacePackages, issues)
   validateTrackDependencyBoundaries(policy, workspacePackages, issues)
   validateWorkspaceManifests(policy, workspacePackages, issues)
@@ -144,6 +149,54 @@ function readJson<T>(filePath: string): T {
   return JSON.parse(readFileSync(filePath, 'utf8')) as T
 }
 
+export function validateArtifactReleasePolicy(value: unknown): string[] {
+  const issues: string[] = []
+  if (!isRecord(value)) return ['policy must be an object']
+
+  if (value.version !== POLICY_VERSION) {
+    issues.push(`version must be ${POLICY_VERSION}`)
+  }
+
+  if (!isRecord(value.publish)) {
+    issues.push('publish must be an object')
+  } else {
+    if (value.publish.enabled !== false) {
+      issues.push('publish.enabled must remain false')
+    }
+    if (value.publish.mode !== ARTIFACT_ONLY_PUBLISH_MODE) {
+      issues.push(`publish.mode must be ${ARTIFACT_ONLY_PUBLISH_MODE}`)
+    }
+    if (!isHttpsRepository(value.publish.repository)) {
+      issues.push('publish.repository must be an HTTPS repository URL without credentials, query, or fragment')
+    }
+  }
+
+  if (!Array.isArray(value.distributionCandidates) || value.distributionCandidates.length === 0) {
+    issues.push('distributionCandidates must be a non-empty array')
+  } else {
+    const seen = new Set<string>()
+    for (const candidate of value.distributionCandidates) {
+      if (!isOaSdkPackageName(candidate)) {
+        issues.push(`invalid distribution candidate: ${String(candidate)}`)
+        continue
+      }
+      if (seen.has(candidate)) issues.push(`duplicate distribution candidate: ${candidate}`)
+      seen.add(candidate)
+    }
+  }
+
+  return issues
+}
+
+export function readArtifactReleasePolicy(filePath: string): ReleasePolicy {
+  const value = readJson<unknown>(filePath)
+  const issues = validateArtifactReleasePolicy(value)
+  if (issues.length > 0) {
+    throw new Error(`invalid artifact release policy ${filePath}: ${issues.join('; ')}`)
+  }
+  return value as ReleasePolicy
+}
+
 function readWorkspacePackages(): WorkspacePackage[] {
   const packages: WorkspacePackage[] = []
 
@@ -165,8 +218,8 @@ function readWorkspacePackages(): WorkspacePackage[] {
 }
 
 function validatePolicyShape(policy: ReleasePolicy, issues: string[]): void {
-  if (policy.version !== POLICY_VERSION) {
-    issues.push(`docs/internal/release-policy.json: version must be ${POLICY_VERSION}`)
+  for (const issue of validateArtifactReleasePolicy(policy)) {
+    issues.push(`docs/internal/release-policy.json: ${issue}`)
   }
   if (policy.primaryMission !== PRIMARY_MISSION) {
     issues.push(
@@ -185,23 +238,12 @@ function validatePolicyShape(policy: ReleasePolicy, issues: string[]): void {
   } else if (!existsSync(join(root, policy.scopeDocument))) {
     issues.push(`docs/internal/release-policy.json: scopeDocument does not exist: ${SCOPE_DOCUMENT}`)
   }
-  if (policy.publish?.enabled !== false) {
-    issues.push('docs/internal/release-policy.json: publish.enabled must remain false')
-  }
-
-  if (!Array.isArray(policy.distributionCandidates) || policy.distributionCandidates.length === 0) {
-    issues.push('docs/internal/release-policy.json: distributionCandidates must be a non-empty array')
-  } else {
+  if (Array.isArray(policy.distributionCandidates)) {
     const tracked = new Set(getWorkspacesByRelease(policy, 'release-tracked'))
-    const candidates = new Set<string>()
     for (const name of policy.distributionCandidates) {
       if (!tracked.has(name)) {
         issues.push(`docs/internal/release-policy.json: distribution candidate must be release-tracked: ${name}`)
       }
-      if (candidates.has(name)) {
-        issues.push(`docs/internal/release-policy.json: duplicate distribution candidate: ${name}`)
-      }
-      candidates.add(name)
     }
   }
 
@@ -427,16 +469,74 @@ function validateRootScripts(
     }
   }
 
-  const expectedRelease =
-    'corepack pnpm build:core && corepack pnpm build:downstream && changeset publish'
+  const expectedRelease = 'corepack pnpm release:export'
   if (scripts.release !== expectedRelease) {
     issues.push(`package.json: scripts.release must be exactly: ${expectedRelease}`)
+  }
+
+  const expectedReleaseExport = 'node --import tsx scripts/export-release-artifacts.ts'
+  if (scripts['release:export'] !== expectedReleaseExport) {
+    issues.push(`package.json: scripts.release:export must be exactly: ${expectedReleaseExport}`)
+  }
+
+  const expectedReleasePolicyTest = 'node --import tsx scripts/test-release-policy.ts'
+  if (scripts['test:release-policy'] !== expectedReleasePolicyTest) {
+    issues.push(
+      `package.json: scripts.test:release-policy must be exactly: ${expectedReleasePolicyTest}`,
+    )
+  }
+  const expectedReleasePolicyCheck =
+    'node --import tsx scripts/check-release-policy.ts && corepack pnpm test:release-policy'
+  if (scripts['check:release-policy'] !== expectedReleasePolicyCheck) {
+    issues.push(
+      `package.json: scripts.check:release-policy must be exactly: ${expectedReleasePolicyCheck}`,
+    )
   }
 
   if (scripts['check:workspace-scope'] !== 'pnpm check:release-policy') {
     issues.push(
       'package.json: scripts.check:workspace-scope must be the pnpm check:release-policy alias',
     )
+  }
+}
+
+const DIRECT_PUBLISH_PATTERNS = [
+  /\bchangeset\b[^;&|\n]*\bpublish\b/,
+  /\b(?:npm|pnpm)\b[^;&|\n]*\bpublish\b/,
+  /\byarn\b[^;&|\n]*\bnpm\b[^;&|\n]*\bpublish\b/,
+]
+
+export function findDirectPublishScripts(scripts: Record<string, string> | undefined): string[] {
+  if (!scripts) return []
+  return Object.entries(scripts)
+    .filter(([, command]) => DIRECT_PUBLISH_PATTERNS.some(pattern => pattern.test(command)))
+    .map(([scriptName]) => scriptName)
+    .sort()
+}
+
+function validateNoDirectPublishScripts(
+  rootPackage: PackageJson,
+  workspacePackages: WorkspacePackage[],
+  issues: string[],
+): void {
+  if (rootPackage.private !== true) {
+    issues.push('package.json: the private source repository root must remain private')
+  }
+
+  const manifests = [
+    { label: 'package.json', manifest: rootPackage },
+    ...workspacePackages.map(workspacePackage => ({
+      label: relative(root, workspacePackage.packageJsonPath),
+      manifest: workspacePackage.manifest,
+    })),
+  ]
+  for (const { label, manifest } of manifests) {
+    for (const scriptName of findDirectPublishScripts(manifest.scripts)) {
+      issues.push(
+        `${label}: scripts.${scriptName} performs a direct registry publish; ` +
+          `the private source repository permits only ${ARTIFACT_ONLY_PUBLISH_MODE} export`,
+      )
+    }
   }
 }
 
@@ -453,7 +553,7 @@ function readTurboFilters(
 
   const filters: string[] = []
   for (let index = 3; index < tokens.length; index += 1) {
-    const token = tokens[index]
+    const token = tokens[index]!
     if (token === '--filter') {
       const filter = tokens[index + 1]
       if (!filter || filter.startsWith('--')) {
@@ -596,6 +696,16 @@ function validateReleaseDoc(policy: ReleasePolicy, releaseDoc: string, issues: s
       `docs/internal/release-management.md: must reference scopeDocument ${policy.scopeDocument}`,
     )
   }
+  if (!releaseDoc.includes(`\`${policy.publish.mode}\``)) {
+    issues.push(
+      `docs/internal/release-management.md: must document publish mode ${policy.publish.mode}`,
+    )
+  }
+  if (!releaseDoc.includes(`\`${policy.publish.repository}\``)) {
+    issues.push(
+      `docs/internal/release-management.md: must document artifact repository ${policy.publish.repository}`,
+    )
+  }
 
   for (const name of policy.bulkTaskExcluded) {
     if (!releaseDoc.includes(`\`${name}\``)) {
@@ -661,6 +771,20 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
+function isHttpsRepository(value: unknown): value is string {
+  if (typeof value !== 'string') return false
+  try {
+    const url = new URL(value)
+    return url.protocol === 'https:'
+      && url.username === ''
+      && url.password === ''
+      && url.search === ''
+      && url.hash === ''
+  } catch {
+    return false
+  }
+}
+
 function isTrackName(value: unknown): value is TrackName {
   return typeof value === 'string' && Object.hasOwn(TRACK_RULES, value)
 }
@@ -696,4 +820,6 @@ function sameStringMatrix(left: string[][], right: string[][]): boolean {
   return JSON.stringify(normalize(left)) === JSON.stringify(normalize(right))
 }
 
-main()
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  main()
+}

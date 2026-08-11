@@ -107,6 +107,35 @@ model Error {
       expect.objectContaining({ code: 'typespec-provenance/missing-public-owner', pointer: '#/components/schemas/Ghost' }),
     ]))
   })
+
+  it('attributes an emitted security scheme to its native TypeSpec auth model', () => {
+    const sourceRoot = makeSource(`
+using Http;
+model bearerAuth is BearerAuth;
+`)
+    const result = buildTypeSpecRefProvenance({
+      sourceRoot,
+      restoredDocument: document({
+        components: {
+          securitySchemes: {
+            bearerAuth: { type: 'http', scheme: 'bearer' },
+          },
+        },
+      }),
+      sidecar: createTypeSpecCompatibilitySidecarFromEntries([]),
+    })
+
+    expect(result.report).toMatchObject({
+      valid: true,
+      counts: { publicPointers: 1, coveredPublicPointers: 1 },
+    })
+    expect(result.artifact.edges).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        kind: 'emits',
+        outputPointer: '#/components/securitySchemes/bearerAuth',
+      }),
+    ]))
+  })
 })
 
 function makeSource(content: string): string {

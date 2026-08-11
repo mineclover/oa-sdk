@@ -9,12 +9,13 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, statSync,
 import { dirname, join, relative, resolve } from 'node:path'
 import {
   checkTypeSpecBundle,
+  diffOpenApiDocuments,
+  formatOpenApiDiff,
   formatTypeSpecBundleCheckFailure,
+  loadSpecWithPath,
   printTypeSpecBundleCheckSummary,
   shouldFailTypeSpecBundleCheck,
-} from '../packages/codegen/src/cli/lib/typespec-bundle-check.js'
-import { loadSpecWithPath } from '../packages/codegen/src/cli/lib/load-spec.js'
-import { diffOpenApiDocuments, formatOpenApiDiff } from '../packages/codegen/src/cli/lib/openapi-normalized-diff.js'
+} from '../packages/codegen/src/schema-governance.js'
 import { promoteSnapshotWithDriftReset, recoverPendingSnapshotPromotions } from './lib/typespec-snapshot-promotion.js'
 
 type Args = {
@@ -41,8 +42,11 @@ const bundleResult = await checkTypeSpecBundle({
 })
 printTypeSpecBundleCheckSummary(bundleResult)
 
-if (shouldFailTypeSpecBundleCheck(bundleResult.report, { failOnBreaking: false })) {
-  throw new Error(`cannot approve TypeSpec snapshot: ${formatTypeSpecBundleCheckFailure(bundleResult.report)}`)
+if (
+  shouldFailTypeSpecBundleCheck(bundleResult.report, { failOnBreaking: false })
+  || !bundleResult.report.provenance.valid
+) {
+  throw new Error(`cannot approve TypeSpec snapshot: ${formatTypeSpecBundleCheckFailure(bundleResult.report, { requireProvenance: true })}`)
 }
 assertUnchangedBundleSource(dirname(manifestPath), sourceSha256)
 

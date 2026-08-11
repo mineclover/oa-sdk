@@ -106,16 +106,26 @@ export default defineConfig({
 
 ## CLI
 
-Start a mock server from a JSON spec file without writing any code:
+Start a mock server from a validated OpenAPI JSON or YAML file:
 
 ```bash
+oa-mock --spec path/to/openapi.yaml --port 4010
+```
+
+When running the workspace build directly, use the built entry point:
+
+```bash
+pnpm build
 node dist/cli/index.js --spec path/to/openapi.json --port 4010
 ```
 
-| Flag | Default |
-|------|---------|
-| `--spec` | `node_modules/@oa-sdk/schemas/dist/openapi.json` |
-| `--port` | `4010` |
+The CLI parses JSON and YAML, validates the document before binding a port, and exits with a non-zero status when loading or validation fails. It never selects a bundled or workspace schema implicitly.
+
+| Flag | Requirement | Default |
+|------|-------------|---------|
+| `--spec`, `-s` | Required JSON/YAML path | None |
+| `--port`, `-p` | Integer from `0` through `65535` | `4010` |
+| `--help`, `-h` | Optional | — |
 
 Press `Ctrl+C` to stop. The server logs its URL and the resolved spec path on startup.
 

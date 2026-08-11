@@ -67,6 +67,7 @@ export const generateAlgebra: SchemaAlgebra<unknown> = {
   },
   oneOf:    (_, branches) => branches[0] ?? null,
   anyOf:    (_, branches) => branches[0] ?? null,
+  const_:   (value) => value,
   ref:      () => null,
   example:  (v) => v,
   default_: (v) => v,

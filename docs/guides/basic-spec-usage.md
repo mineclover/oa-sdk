@@ -1,6 +1,6 @@
 # 기본 스펙 사용 기준
 
-Status: active operating guide. Last reviewed 2026-07-24.
+Status: active operating guide. Last reviewed 2026-08-10.
 
 이 문서에서 말하는 “기본 스펙”은 사람이 직접 수정하는 원천과 각 소비자가
 읽는 계약 artifact를 구분한 운영 단위다. 현재 production 기준은 TypeSpec-first이며,
@@ -10,7 +10,7 @@ OpenAPI 3.2는 내부 소비자가 공유하는 canonical contract artifact다.
 
 | 구분 | 현재 기준 | 직접 수정 여부 |
 |---|---|---:|
-| Production authoring source | `packages/schemas/typespec/main.tsp` composition root, `metadata/`·domain `.tsp` 모듈, bundle manifest | 수정 |
+| Production authoring source | `packages/schemas/typespec/main.tsp` composition root, `metadata/`·`version.tsp`·`common/auth/health/me/users/world-model.tsp` 모듈, bundle manifest | 수정 |
 | Production bundle identity | `packages/schemas/typespec/oa-sdk.typespec-bundle.json` | 의미 변경 시 수정 |
 | Approved snapshot | `packages/schemas/typespec/approved.openapi.yaml` | 생성·검토 후 승인 명령으로만 갱신 |
 | Canonical OpenAPI artifact | `packages/schemas/src/.merged.yaml` (OpenAPI 3.2) | 금지, 생성물 |
@@ -64,7 +64,7 @@ TypeSpec source
 
 유지보수자는 다음 순서로 작업한다.
 
-1. 변경 대상에 따라 `packages/schemas/typespec/{common,auth,health,me,users}.tsp` 또는 `metadata/{service,security,common-components}.tsp`를 수정한다. `main.tsp`는 import만 소유하는 composition root다.
+1. 변경 대상에 따라 `packages/schemas/typespec/{common,auth,health,me,users,world-model}.tsp` 또는 `metadata/{service,security,common-components}.tsp`를 수정한다. `main.tsp`는 import만 소유하는 composition root다.
 2. OpenAPI native 의미를 TypeSpec으로 표현할 수 없으면 [authoring ownership guide](../internal/typespec-roundtrip/authoring-ownership-guide.md)에 따라 native syntax, OA SDK extension, compatibility sidecar 중 하나를 선택한다.
 3. 계약 변경이면 먼저 `pnpm schema:approve-typespec-reference`로 생성될 normalized diff를 확인한다. 검토가 끝난 경우에만 `--write`로 `approved.openapi.yaml`을 갱신한다.
 4. `pnpm schema:validate`를 실행한다.
@@ -82,10 +82,12 @@ packages/schemas/
 │   │   ├── security.tsp                 # security-scheme metadata
 │   │   └── common-components.tsp        # reusable component registry
 │   ├── common.tsp                       # shared auth/error models
+│   ├── version.tsp                      # contract version
 │   ├── auth.tsp                         # authentication domain
 │   ├── health.tsp                       # health/version domain
 │   ├── me.tsp                           # self-service domain
 │   ├── users.tsp                         # users/admin/moderation domain
+│   ├── world-model.tsp                   # World Model domain
 │   ├── oa-sdk.typespec-bundle.json     # bundle identity + extension version
 │   ├── oa-sdk.typespec-projections.json # server-only deployment profiles
 │   ├── approved.openapi.yaml            # TypeSpec에서 생성한 reviewed snapshot
@@ -113,7 +115,8 @@ status별 union으로 만들므로 호출자는 `status`와 `body`를 함께 좁
 `trace`를 처리할 수 있다. 동일 status에 여러 업무 오류 body가 있으면 body의
 discriminant도 추가로 확인해야 한다.
 
-예를 들어 `checkAuthorization`의 403은 denied decision과 정책 오류가 함께 올 수
+다음 예시는 production API가 아니라 [OpenFGA resource-registry fixture](../internal/typespec-roundtrip/fixtures/openfga-resource-registry-consumer/README.md)의
+synthetic contract를 기준으로 한다. 예를 들어 fixture의 `checkAuthorization` 403은 denied decision과 정책 오류가 함께 올 수
 있으므로, 생성된 operation-specific guard와 body discriminant를 같이 사용한다.
 
 ```ts

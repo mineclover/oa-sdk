@@ -27,7 +27,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 24
           cache: pnpm
 
       - name: Install dependencies
@@ -76,27 +76,31 @@ jobs:
         run: pnpm test:internal:ci
 
       # ── Schema validation ──────────────────────────────────
-      - name: Schema validate
+      # packages/schemas was already built by build:core. Reuse that exact
+      # TypeSpec artifact instead of compiling the same bundle in every gate.
+      - name: Validate prepared schema artifact
         run: |
-          pnpm schema:validate
+          pnpm --filter @oa-sdk/schemas run validate:spectral
+          pnpm --filter @oa-sdk/schemas run validate:redocly
+          node packages/codegen/dist/cli/index.js validate --spec packages/schemas/src/.merged.yaml --require-32
           pnpm --filter @oa-sdk/schemas run test
 
-      - name: TypeSpec production migration gates
-        run: |
-          pnpm schema:typespec-check
-          pnpm schema:typespec-provenance-check
-          pnpm schema:rollback-check
-          pnpm schema:downstream-check
+      - name: TypeSpec downstream consumption
+        run: pnpm schema:downstream-check -- --spec packages/schemas/src/.merged.yaml --skip-build
 
       # ── Freshness check: generated files up to date? ───────
       - name: Schema freshness check
         run: |
-          pnpm --filter @oa-sdk/schemas run bundle
           node packages/codegen/dist/cli/index.js check-artifact --head packages/schemas/src/.merged.3.1.yaml --artifact packages/schemas/dist/openapi.yaml
           if ! git diff --exit-code packages/schemas/src/.merged.3.1.yaml packages/schemas/src/.merged.3.1.meta.json packages/schemas/src/.merged.upgraded.3.2.yaml; then
             echo "::error::Schema generated files are stale. Run 'pnpm --filter @oa-sdk/schemas run bundle' and commit the results."
             exit 1
           fi
+
+      - name: OpenAPI rollback path
+        run: |
+          pnpm test:schema-rollback-check
+          pnpm schema:rollback-check -- --typespec-report packages/schemas/src/.builder/typespec-bundle-report.json
 
       # ── API index drift check ────────────────────────────────
       - name: API index consistency
@@ -107,6 +111,12 @@ jobs:
 
       - name: Codegen boundary consistency
         run: pnpm check:codegen-boundaries
+
+      - name: Type Registry governance
+        run: pnpm type-registry:check
+
+      - name: Browser runtime entrypoint boundary
+        run: node apps/preview/scripts/browser-runtime-smoke.mjs
 
       - name: Documentation consistency
         run: |
@@ -132,6 +142,73 @@ jobs:
           pnpm spec:diff -- --git origin/${{ github.base_ref }} >> "$GITHUB_STEP_SUMMARY"
           pnpm schema:check-contract-version -- --base-ref origin/${{ github.base_ref }} >> "$GITHUB_STEP_SUMMARY"
 
+  public-release-runtime:
+    name: Public release runtime / Node ${{ matrix.node }}
+    needs: ci
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [22, 24, 26]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.30.3
+
+      # Public artifacts are built and packed with the repository development
+      # toolchain. Only consumer execution is switched to the advertised
+      # engines.node matrix below.
+      - name: Set up development Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build public release candidates
+        run: pnpm --filter @oa-sdk/codegen... run build
+
+      - name: Prepare packed public consumer
+        run: node scripts/public-runtime-smoke.mjs prepare "${RUNNER_TEMP}/oa-sdk-public-runtime"
+
+      - name: Set up consumer Node ${{ matrix.node }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+
+      - name: Smoke public imports and CLI
+        run: node scripts/public-runtime-smoke.mjs verify "${RUNNER_TEMP}/oa-sdk-public-runtime" "${{ matrix.node }}"
+
+  typescript-7-current:
+    name: Node 26 / TypeScript 7 / ttsc compatibility
+    needs: ci
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.30.3
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 26
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build stable Core declarations
+        run: pnpm build:core
+
+      - name: Check TypeScript 7 and ttsc compatibility
+        run: pnpm check:ts7
+
   governance-references:
     name: OpenAPI governance reference gates
     needs: ci
@@ -148,7 +225,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 24
           cache: pnpm
 
       - uses: astral-sh/setup-uv@v6

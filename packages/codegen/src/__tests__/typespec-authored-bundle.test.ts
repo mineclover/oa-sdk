@@ -71,7 +71,10 @@ describe('authored TypeSpec compatibility bundle', () => {
     expect(report.paths.expectedOpenapi).toBe(join(fixtureDir, 'expected.openapi.yaml'))
     expect(report.gates).toEqual({
       compatibilitySidecar: 'pass',
+      emittedValidation: 'pass',
       restoredValidation: 'pass',
+      expectedValidation: 'pass',
+      provenance: 'not-applicable',
       expectedDiff: 'pass',
     })
   })
@@ -110,7 +113,10 @@ describe('authored TypeSpec compatibility bundle', () => {
     expect(report.paths.sidecar).toBeUndefined()
     expect(report.gates).toEqual({
       compatibilitySidecar: 'pass',
+      emittedValidation: 'pass',
       restoredValidation: 'pass',
+      expectedValidation: 'pass',
+      provenance: 'pass',
       expectedDiff: 'pass',
     })
     expect(report.counts.compatibilitySidecar).toEqual({
@@ -201,7 +207,10 @@ describe('authored TypeSpec compatibility bundle', () => {
     })
     expect(report.gates).toEqual({
       compatibilitySidecar: 'pass',
+      emittedValidation: 'pass',
       restoredValidation: 'pass',
+      expectedValidation: 'pass',
+      provenance: 'pass',
       expectedDiff: 'pass',
     })
 
@@ -284,7 +293,10 @@ describe('authored TypeSpec compatibility bundle', () => {
     })
     expect(report.gates).toEqual({
       compatibilitySidecar: 'pass',
+      emittedValidation: 'pass',
       restoredValidation: 'pass',
+      expectedValidation: 'pass',
+      provenance: 'pass',
       expectedDiff: 'pass',
     })
 
@@ -383,7 +395,10 @@ describe('authored TypeSpec compatibility bundle', () => {
     })
     expect(report.gates).toEqual({
       compatibilitySidecar: 'pass',
+      emittedValidation: 'pass',
       restoredValidation: 'pass',
+      expectedValidation: 'pass',
+      provenance: 'pass',
       expectedDiff: 'pass',
     })
 

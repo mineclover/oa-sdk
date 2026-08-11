@@ -74,10 +74,7 @@ const manifestSpecs = [
 const undocumentedOaGenCommands = new Set([
   'generate',
   'typegen',
-  'router',
-  'client',
   'lint',
-  'dev',
 ])
 
 function main(): void {

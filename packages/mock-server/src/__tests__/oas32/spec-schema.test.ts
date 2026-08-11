@@ -113,6 +113,35 @@ describe('required 배열 동작 (§4.8.24)', () => {
 
 // ─── enum ─────────────────────────────────────────────────────────────────────
 
+describe('Record 값 검증 (unevaluatedProperties)', () => {
+  const recordSchema = {
+    type: 'object',
+    unevaluatedProperties: { type: 'string' },
+  }
+
+  it('모든 Record 값이 string이면 valid', () => {
+    expect(validateRequest(
+      parts({ actor: '47fe234b-b16e-46c4-b383-1de748de77df' }),
+      [],
+      bodyOf(recordSchema),
+    ).valid).toBe(true)
+  })
+
+  it('Record 값이 스키마를 위반하면 거부한다', () => {
+    const result = validateRequest(
+      parts({ actor: 42 }),
+      [],
+      bodyOf(recordSchema),
+    )
+
+    expect(result.valid).toBe(false)
+    if (!result.valid) {
+      expect(result.errors[0]?.code).toBe('TYPE_ERROR')
+      expect(result.errors[0]?.path).toBe('/body/actor')
+    }
+  })
+})
+
 describe('enum 검증 (§4.8.24)', () => {
   it('enum 값에 포함 → valid', () => {
     expect(validateRequest(parts('admin'), [], bodyOf({ type: 'string', enum: ['admin', 'user'] })).valid).toBe(true)

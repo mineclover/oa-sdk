@@ -50,6 +50,7 @@ const skippedDirectories = new Set([
   'dist',
   'node_modules',
   'references',
+  '.worktrees',
 ])
 
 /** Run independently reusable validation gates and retain their source labels. */

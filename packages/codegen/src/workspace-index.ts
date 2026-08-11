@@ -2,6 +2,23 @@ import { createHash } from 'node:crypto'
 import { existsSync, readFileSync, realpathSync, statSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { createSQLiteWorkspaceIndex, type SQLiteWorkspaceIndexOptions } from './sqlite-workspace-index.js'
+import {
+  createMemoryTypeRegistry,
+  createNoopTypeRegistry,
+  type TypeArtifactFilter,
+  type TypeArtifactRecord,
+  type TypeBoundaryFilter,
+  type TypeBoundaryRecord,
+  type TypeDeclarationFilter,
+  type TypeDeclarationRecord,
+  type TypeExposureFilter,
+  type TypeExposureRecord,
+  type TypeRegistry,
+  type TypeRegistrySnapshot,
+  type TypeRelationFilter,
+  type TypeRelationRecord,
+  type WorkspaceTypeFileIndexData,
+} from './type-registry.js'
 
 export type WorkspaceIndexMode = 'noop' | 'memory' | 'sqlite'
 
@@ -143,9 +160,10 @@ export type WorkspaceIndexCompatibilityMetadata = Record<string, string | number
 export type WorkspaceIndexOptions = {
   mode?: WorkspaceIndexMode
   seed?: Partial<WorkspaceIndexSnapshot>
+  typeSeed?: Partial<TypeRegistrySnapshot>
 } & SQLiteWorkspaceIndexOptions
 
-export interface WorkspaceIndex {
+export interface WorkspaceIndex extends TypeRegistry {
   readonly mode: WorkspaceIndexMode
 
   getFile(filePath: string): WorkspaceFileRecord | undefined
@@ -168,7 +186,7 @@ export interface WorkspaceIndex {
 }
 
 export function createWorkspaceIndex(options: WorkspaceIndexOptions = {}): WorkspaceIndex {
-  if (options.mode === 'memory') return createMemoryWorkspaceIndex(options.seed)
+  if (options.mode === 'memory') return createMemoryWorkspaceIndex(options.seed, options.typeSeed)
   if (options.mode === 'sqlite') return createSQLiteWorkspaceIndex(options)
   return createNoopWorkspaceIndex()
 }
@@ -177,8 +195,11 @@ export function createNoopWorkspaceIndex(): WorkspaceIndex {
   return new NoopWorkspaceIndex()
 }
 
-export function createMemoryWorkspaceIndex(seed: Partial<WorkspaceIndexSnapshot> = {}): WorkspaceIndex {
-  return new MemoryWorkspaceIndex(seed)
+export function createMemoryWorkspaceIndex(
+  seed: Partial<WorkspaceIndexSnapshot> = {},
+  typeSeed: Partial<TypeRegistrySnapshot> = {},
+): WorkspaceIndex {
+  return new MemoryWorkspaceIndex(seed, typeSeed)
 }
 
 export function scanWorkspaceFiles(options: WorkspaceFileScanOptions): WorkspaceFileRecord[] {
@@ -286,6 +307,7 @@ export function listWorkspaceExternalRefFiles(index: WorkspaceIndex): string[] {
 
 class NoopWorkspaceIndex implements WorkspaceIndex {
   readonly mode = 'noop'
+  private readonly typeRegistry = createNoopTypeRegistry()
 
   getFile(): undefined {
     return undefined
@@ -327,6 +349,42 @@ class NoopWorkspaceIndex implements WorkspaceIndex {
     return []
   }
 
+  replaceTypeFileIndex(filePath: string, data: WorkspaceTypeFileIndexData): void {
+    this.typeRegistry.replaceTypeFileIndex(filePath, data)
+  }
+
+  invalidateTypeFiles(filePaths: readonly string[]): void {
+    this.typeRegistry.invalidateTypeFiles(filePaths)
+  }
+
+  listTypeArtifacts(filter?: TypeArtifactFilter): TypeArtifactRecord[] {
+    return this.typeRegistry.listTypeArtifacts(filter)
+  }
+
+  listTypeDeclarations(filter?: TypeDeclarationFilter): TypeDeclarationRecord[] {
+    return this.typeRegistry.listTypeDeclarations(filter)
+  }
+
+  listTypeRelations(filter?: TypeRelationFilter): TypeRelationRecord[] {
+    return this.typeRegistry.listTypeRelations(filter)
+  }
+
+  listTypeBoundaries(filter?: TypeBoundaryFilter): TypeBoundaryRecord[] {
+    return this.typeRegistry.listTypeBoundaries(filter)
+  }
+
+  listTypeExposures(filter?: TypeExposureFilter): TypeExposureRecord[] {
+    return this.typeRegistry.listTypeExposures(filter)
+  }
+
+  clearTypes(): void {
+    this.typeRegistry.clearTypes()
+  }
+
+  snapshotTypes(): TypeRegistrySnapshot {
+    return this.typeRegistry.snapshotTypes()
+  }
+
   clear(): void {}
 
   snapshot(): WorkspaceIndexSnapshot {
@@ -343,8 +401,10 @@ class MemoryWorkspaceIndex implements WorkspaceIndex {
   private readonly sourceLocations = new Map<string, WorkspaceSourceLocationRecord[]>()
   private readonly diagnostics = new Map<string, WorkspaceDiagnosticRecord[]>()
   private readonly typeAliases = new Map<string, WorkspaceTypeAliasRecord[]>()
+  private readonly typeRegistry: TypeRegistry
 
-  constructor(seed: Partial<WorkspaceIndexSnapshot>) {
+  constructor(seed: Partial<WorkspaceIndexSnapshot>, typeSeed: Partial<TypeRegistrySnapshot>) {
+    this.typeRegistry = createMemoryTypeRegistry(typeSeed)
     for (const file of seed.files ?? []) this.upsertFile(file)
     for (const component of seed.components ?? []) {
       appendByFile(this.components, component.filePath, component)
@@ -416,6 +476,7 @@ class MemoryWorkspaceIndex implements WorkspaceIndex {
       this.diagnostics.delete(filePath)
       this.typeAliases.delete(filePath)
     }
+    this.invalidateTypeFiles(filePaths)
   }
 
   listComponents(filter: WorkspaceComponentFilter = {}): WorkspaceComponentRecord[] {
@@ -455,6 +516,42 @@ class MemoryWorkspaceIndex implements WorkspaceIndex {
     )
   }
 
+  replaceTypeFileIndex(filePath: string, data: WorkspaceTypeFileIndexData): void {
+    this.typeRegistry.replaceTypeFileIndex(filePath, data)
+  }
+
+  invalidateTypeFiles(filePaths: readonly string[]): void {
+    this.typeRegistry.invalidateTypeFiles(filePaths)
+  }
+
+  listTypeArtifacts(filter?: TypeArtifactFilter): TypeArtifactRecord[] {
+    return this.typeRegistry.listTypeArtifacts(filter)
+  }
+
+  listTypeDeclarations(filter?: TypeDeclarationFilter): TypeDeclarationRecord[] {
+    return this.typeRegistry.listTypeDeclarations(filter)
+  }
+
+  listTypeRelations(filter?: TypeRelationFilter): TypeRelationRecord[] {
+    return this.typeRegistry.listTypeRelations(filter)
+  }
+
+  listTypeBoundaries(filter?: TypeBoundaryFilter): TypeBoundaryRecord[] {
+    return this.typeRegistry.listTypeBoundaries(filter)
+  }
+
+  listTypeExposures(filter?: TypeExposureFilter): TypeExposureRecord[] {
+    return this.typeRegistry.listTypeExposures(filter)
+  }
+
+  clearTypes(): void {
+    this.typeRegistry.clearTypes()
+  }
+
+  snapshotTypes(): TypeRegistrySnapshot {
+    return this.typeRegistry.snapshotTypes()
+  }
+
   clear(): void {
     this.files.clear()
     this.components.clear()
@@ -462,6 +559,7 @@ class MemoryWorkspaceIndex implements WorkspaceIndex {
     this.sourceLocations.clear()
     this.diagnostics.clear()
     this.typeAliases.clear()
+    this.clearTypes()
   }
 
   snapshot(): WorkspaceIndexSnapshot {

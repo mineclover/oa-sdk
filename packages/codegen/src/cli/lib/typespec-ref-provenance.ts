@@ -15,6 +15,13 @@ const RESTORE_EXTENSION_NAMES = new Set([
   'x-oa-sdk-operation-security',
   'x-oa-sdk-security-schemes',
 ])
+const NATIVE_SECURITY_SCHEME_MODELS = new Set([
+  'ApiKeyAuth',
+  'BasicAuth',
+  'BearerAuth',
+  'OAuth2Auth',
+  'OpenIdConnectAuth',
+])
 const moduleRequire = createRequire(import.meta.url)
 
 export type TypeSpecRefProvenanceDeclarationKind = 'model' | 'operation' | 'extension'
@@ -101,6 +108,9 @@ export function buildTypeSpecRefProvenance(input: {
   const sourceFiles = listTypeSpecFiles(sourceRoot)
   const collections = sourceFiles.map(filePath => collectDeclarations(sourceRoot, filePath))
   const declarations = collections.flatMap(collection => collection.declarations).sort(compareDeclarations)
+  const nativeSecuritySchemeDeclarationIds = new Set(
+    collections.flatMap(collection => collection.nativeSecuritySchemeDeclarationIds),
+  )
   const diagnostics: TypeSpecRefProvenanceDiagnostic[] = collections.flatMap(collection => collection.diagnostics)
   const edges: TypeSpecRefProvenanceEdge[] = []
   const pointerOwners = new Map<string, string>()
@@ -108,6 +118,13 @@ export function buildTypeSpecRefProvenance(input: {
   const models = declarations.filter((declaration): declaration is SourceDeclaration & { kind: 'model' } => declaration.kind === 'model')
   for (const model of models) {
     const pointer = `#/components/schemas/${escapePointer(model.symbol)}`
+    if (!hasPointer(input.restoredDocument, pointer)) continue
+    addEdge(edges, { kind: 'emits', declarationId: model.id, outputPointer: pointer })
+    pointerOwners.set(pointer, model.id)
+  }
+  for (const model of models) {
+    if (!nativeSecuritySchemeDeclarationIds.has(model.id)) continue
+    const pointer = `#/components/securitySchemes/${escapePointer(model.symbol)}`
     if (!hasPointer(input.restoredDocument, pointer)) continue
     addEdge(edges, { kind: 'emits', declarationId: model.id, outputPointer: pointer })
     pointerOwners.set(pointer, model.id)
@@ -255,11 +272,16 @@ type SourceDeclaration = TypeSpecRefProvenanceDeclaration & {
   sourceEnd: number
 }
 
-function collectDeclarations(sourceRoot: string, filePath: string): { declarations: SourceDeclaration[]; diagnostics: TypeSpecRefProvenanceDiagnostic[] } {
+function collectDeclarations(sourceRoot: string, filePath: string): {
+  declarations: SourceDeclaration[]
+  diagnostics: TypeSpecRefProvenanceDiagnostic[]
+  nativeSecuritySchemeDeclarationIds: string[]
+} {
   const content = readFileSync(filePath, 'utf8')
   const ast = parse(content) as unknown as { statements?: Array<Record<string, unknown>> }
   const declarations: SourceDeclaration[] = []
   const diagnostics: TypeSpecRefProvenanceDiagnostic[] = []
+  const nativeSecuritySchemeDeclarationIds: string[] = []
   const relativePath = relative(sourceRoot, filePath).replaceAll('\\', '/')
   for (const statement of ast.statements ?? []) {
     const kind = statement.kind
@@ -269,14 +291,23 @@ function collectDeclarations(sourceRoot: string, filePath: string): { declaratio
     if ((kind !== SyntaxKind.OperationStatement && kind !== SyntaxKind.ModelStatement) || !id) continue
     const source = createSourceRange(content, relativePath, pos, end)
     if (kind === SyntaxKind.ModelStatement) {
+      const declarationId = `model:${relativePath}:${id}`
       declarations.push({
-        id: `model:${relativePath}:${id}`,
+        id: declarationId,
         kind: 'model',
         symbol: id,
         source,
         sourceOffset: pos,
         sourceEnd: end,
       })
+      const modelIs = isRecord(statement.is) ? statement.is : undefined
+      const target = modelIs && isRecord(modelIs.target) ? modelIs.target : undefined
+      const nativeModelName = target
+        ? readIdentifier(target.id) ?? readIdentifier(target)
+        : undefined
+      if (nativeModelName && NATIVE_SECURITY_SCHEME_MODELS.has(nativeModelName)) {
+        nativeSecuritySchemeDeclarationIds.push(declarationId)
+      }
       continue
     }
     const body = content.slice(pos, end)
@@ -333,7 +364,7 @@ function collectDeclarations(sourceRoot: string, filePath: string): { declaratio
       sourceEnd: offset + match[0].length,
     })
   }
-  return { declarations, diagnostics }
+  return { declarations, diagnostics, nativeSecuritySchemeDeclarationIds }
 }
 
 function findRestoreDeclarations(

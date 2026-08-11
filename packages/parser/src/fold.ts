@@ -28,7 +28,17 @@ export type SchemaAlgebra<T> = {
   oneOf(schema: SchemaObject, branches: T[]): T
   anyOf(schema: SchemaObject, branches: T[]): T
 
+  /**
+   * JSON Schema `type` 배열을 모든 멤버의 fold 결과로 해석한다.
+   *
+   * 기존 algebra의 첫 타입 선택 동작을 유지하기 위해 optional이다.
+   * 구현한 algebra만 중첩 위치를 포함한 일반 type union을 받는다.
+   */
+  typeUnion?(schema: SchemaObject, branches: T[]): T
+
   // ─── 특수 노드 ────────────────────────────────────────────────────────────
+  /** JSON Schema const 값 — 구현한 algebra에서는 다른 생성 힌트보다 우선 */
+  const_?(value: unknown): T
   /** $ref 노드 — algebra가 자체적으로 해석하거나 무시 */
   ref(ref: string): T
   /** schema.example 값이 존재할 때 — 타입 해석보다 우선 */
@@ -56,6 +66,10 @@ export function foldSchema<T>(node: unknown, algebra: SchemaAlgebra<T>): T {
 
   const schema = node as SchemaObject & Record<string, unknown>
 
+  if (Object.hasOwn(schema, 'const') && algebra.const_) {
+    return algebra.const_(schema.const)
+  }
+
   // $ref 노드 — algebra가 해석 책임
   if (typeof schema['$ref'] === 'string') {
     return algebra.ref(schema['$ref'])
@@ -82,6 +96,11 @@ export function foldSchema<T>(node: unknown, algebra: SchemaAlgebra<T>): T {
     if (schema.then) branches.push(foldSchema(schema.then, algebra))
     if (schema.else) branches.push(foldSchema(schema.else, algebra))
     if (branches.length > 0) return algebra.anyOf(schema, branches)
+  }
+
+  if (Array.isArray(schema.type) && algebra.typeUnion) {
+    const branches = schema.type.map(type => foldSchema({ ...schema, type }, algebra))
+    return algebra.typeUnion(schema, branches)
   }
 
   const type = Array.isArray(schema.type) ? schema.type[0] : schema.type

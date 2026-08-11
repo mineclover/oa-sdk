@@ -6,6 +6,6 @@ export default defineConfig({
   },
   format: ['esm'],
   dts: true,
-  target: 'node25',
+  target: 'node24',
   clean: true,
 })

@@ -16,7 +16,7 @@
     "build:merged": "pnpm --dir ../.. schema:prepare-openapi && pnpm --dir ../.. schema:codegen-preflight && node ../codegen/dist/cli/index.js build-spec --target src/targets/local-parity-api.yaml --fragments src/fragments --output src/.merged.yaml --diagnostics src/.builder/local-api.diagnostics.json --collision-report src/.builder/local-api.collisions.json",
     "build:merged:staging": "pnpm --dir ../.. schema:prepare-openapi && pnpm --dir ../.. schema:codegen-preflight && node ../codegen/dist/cli/index.js build-spec --target src/targets/staging-parity-api.yaml --fragments src/fragments --output src/.merged.yaml --diagnostics src/.builder/staging-api.diagnostics.json --collision-report src/.builder/staging-api.collisions.json",
     "build:merged:production": "pnpm --dir ../.. schema:prepare-openapi && pnpm --dir ../.. schema:codegen-preflight && node ../codegen/dist/cli/index.js build-spec --target src/targets/production-parity-api.yaml --fragments src/fragments --output src/.merged.yaml --diagnostics src/.builder/production-api.diagnostics.json --collision-report src/.builder/production-api.collisions.json",
-    "build:typespec": "pnpm --dir ../.. schema:typespec-check -- --output packages/schemas/src/.merged.yaml",
+    "build:typespec": "pnpm --dir ../.. schema:typespec-check -- --output packages/schemas/src/.merged.yaml --report packages/schemas/src/.builder/typespec-bundle-report.json",
     "downgrade:3.1": "node --import tsx scripts/downgrade-3.1.ts",
     "validate:spectral": "spectral lint src/.merged.yaml --ruleset .spectral.yaml",
     "validate:redocly": "redocly lint",

@@ -59,7 +59,7 @@ function roundtripCompile(
   }), 'utf8')
 
   try {
-    execSync(`${tscBin} --noEmit`, { cwd: tmpDir, encoding: 'utf8', timeout: 15_000, stdio: ['pipe', 'pipe', 'pipe'] })
+    execSync(`${tscBin} --noEmit`, { cwd: tmpDir, encoding: 'utf8', timeout: 30_000, stdio: ['pipe', 'pipe', 'pipe'] })
     return { ok: true, output: '' }
   } catch (err) {
     const e = err as { stdout?: string; stderr?: string }

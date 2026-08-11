@@ -10,11 +10,11 @@ import { execFileSync } from 'node:child_process'
 import { existsSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { parse as parseYaml } from 'yaml'
-import { evaluateContractVersionPolicy } from '../packages/codegen/src/cli/lib/contract-version-policy.js'
 import {
   diffEndpoints,
+  evaluateContractVersionPolicy,
   formatMarkdown,
-} from '../packages/codegen/src/cli/lib/openapi-breaking-diff.js'
+} from '../packages/codegen/src/schema-governance.js'
 
 const root = resolve(process.cwd())
 const args = parseArgs(process.argv.slice(2))

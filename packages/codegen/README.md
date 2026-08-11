@@ -17,9 +17,9 @@ The published package includes its runtime dependencies (`@oa-sdk/core`,
 `@oa-sdk/typespec-decorators`). It requires Node.js 22 or later.
 
 This distribution boundary covers the core OA Gen CLI: collection, normalization, review,
-validation, type generation, provenance/evidence, and governance scaffolding. The optional
-`router` and `client` CLI commands dynamically load their integration packages and remain a
-separate workspace integration until those packages have their own distribution decision.
+validation, type generation, provenance/evidence, and governance scaffolding. Router, client,
+and mock generation remain private workspace integrations and are deliberately absent from the
+published `oa-gen` command registry.
 
 ## First governance scaffold
 

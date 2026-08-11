@@ -14,10 +14,14 @@
         "redocly.yaml",
         "package.json",
         "$TURBO_ROOT$/package.json",
-        "$TURBO_ROOT$/scripts/schema-typespec-check.ts"
+        "$TURBO_ROOT$/scripts/schema-typespec-check.ts",
+        "$TURBO_ROOT$/scripts/lib/typespec-snapshot-promotion.ts",
+        "$TURBO_ROOT$/packages/codegen/src/schema-governance.ts",
+        "$TURBO_ROOT$/packages/codegen/src/cli/lib/**"
       ],
       "outputs": [
         "dist/**",
+        "src/.builder/typespec-bundle-report.json",
         "src/.merged.yaml",
         "src/.merged.3.1.yaml",
         "src/.merged.3.1.meta.json"

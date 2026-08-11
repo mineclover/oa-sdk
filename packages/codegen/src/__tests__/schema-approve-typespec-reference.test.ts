@@ -4,6 +4,11 @@ import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } fr
 import { join, relative, resolve } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { loadSpecWithPath } from '../cli/lib/load-spec.js'
+import {
+  checkTypeSpecBundle,
+  formatTypeSpecBundleCheckFailure,
+  shouldFailTypeSpecBundleCheck,
+} from '../cli/lib/typespec-bundle-check.js'
 
 const pkgDir = resolve(__dirname, '../..')
 const rootDir = resolve(pkgDir, '../..')
@@ -66,6 +71,74 @@ describe('schema:approve-typespec-reference', () => {
     })
     expect(metadata.sourceSha256).toMatch(/^[a-f0-9]{64}$/)
     expect(metadata.approvedSnapshot).not.toBe(relative(rootDir, productionSnapshotPath))
+  })
+
+  it('fails the bundle gate when emitted and restored artifacts are invalid', async () => {
+    const bundleDir = copyFixtureBundle()
+    const manifestPath = join(bundleDir, 'oa-sdk.typespec-bundle.json')
+    const result = await checkTypeSpecBundle({ manifest: manifestPath }, {
+      root: rootDir,
+      compile: async ({ outputDir }) => {
+        const emittedDirectory = join(outputDir, '@typespec', 'openapi3')
+        mkdirSync(emittedDirectory, { recursive: true })
+        writeFileSync(join(emittedDirectory, 'openapi.yaml'), [
+          'openapi: 3.1.0',
+          'info:',
+          '  title: Invalid emitted fixture',
+          '  version: 1.0.0',
+          'paths: {}',
+          '',
+        ].join('\n'))
+      },
+    })
+
+    expect(result.report.gates).toMatchObject({
+      emittedValidation: 'fail',
+      restoredValidation: 'fail',
+      expectedValidation: 'pass',
+      provenance: 'pass',
+    })
+    expect(shouldFailTypeSpecBundleCheck(result.report, { failOnBreaking: false })).toBe(true)
+    expect(formatTypeSpecBundleCheckFailure(result.report)).toContain('emittedValidation')
+    expect(formatTypeSpecBundleCheckFailure(result.report)).toContain('restoredValidation')
+  })
+
+  it('does not promote when the approved snapshot fails managed-contract validation', () => {
+    const bundleDir = copyFixtureBundle()
+    const manifestPath = join(bundleDir, 'oa-sdk.typespec-bundle.json')
+    const expectedSnapshotPath = join(bundleDir, 'expected.openapi.yaml')
+    const invalidSnapshot = readFileSync(expectedSnapshotPath, 'utf8').replace('openapi: 3.2.0', 'openapi: 3.1.0')
+    writeFileSync(expectedSnapshotPath, invalidSnapshot)
+    const beforePromotion = readFileSync(expectedSnapshotPath)
+
+    const approve = runApproval('--write', '--manifest', manifestPath)
+
+    expect(approve.status).toBe(1)
+    expect(`${approve.stdout}\n${approve.stderr}`).toContain('expectedValidation')
+    expect(readFileSync(expectedSnapshotPath)).toEqual(beforePromotion)
+  })
+
+  it('does not promote a valid candidate whose TypeSpec provenance is ambiguous', () => {
+    const bundleDir = copyFixtureBundle()
+    const manifestPath = join(bundleDir, 'oa-sdk.typespec-bundle.json')
+    const expectedSnapshotPath = join(bundleDir, 'expected.openapi.yaml')
+    const sourcePath = join(bundleDir, 'main.tsp')
+    const staleSnapshot = readFileSync(expectedSnapshotPath, 'utf8').replace(
+      'title: Authored Extension Bundle API',
+      'title: Stale Authored Extension Bundle API',
+    )
+    writeFileSync(expectedSnapshotPath, staleSnapshot)
+    writeFileSync(
+      sourcePath,
+      `${readFileSync(sourcePath, 'utf8')}\n// Deliberately ambiguous provenance fixture: @extension("x-oa-sdk-security-schemes", #{})\n`,
+    )
+    const beforePromotion = readFileSync(expectedSnapshotPath)
+
+    const approve = runApproval('--write', '--manifest', manifestPath)
+
+    expect(approve.status).toBe(1)
+    expect(`${approve.stdout}\n${approve.stderr}`).toContain('provenance')
+    expect(readFileSync(expectedSnapshotPath)).toEqual(beforePromotion)
   })
 
   it('requires an explicit drift reset before promotion and resets it with the snapshot', () => {

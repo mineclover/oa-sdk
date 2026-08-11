@@ -63,5 +63,5 @@ options:
     expect(emitted).toContain('x-oa-sdk-operation-component-refs:')
     expect(emitted).toContain("statusCode: '400'")
     expect(emitted).toContain("ref: '#/components/responses/BadRequest'")
-  })
+  }, 20_000)
 })

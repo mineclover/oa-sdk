@@ -75,6 +75,26 @@ describe('generateMinimal — null', () => {
   it('null → null', () => expect(schema200({ type: 'null' })?.body).toBeNull())
 })
 
+// ─── const ───────────────────────────────────────────────────────────────────
+
+describe('generateMinimal — const', () => {
+  it('string const는 example과 일반 string 생성을 우선한다', () => {
+    expect(schema200({ type: 'string', const: '3.2.0', example: 'ignored' })?.body).toBe('3.2.0')
+  })
+
+  it('type이 생략된 number const를 그대로 생성한다', () => {
+    expect(schema200({ const: 42 })?.body).toBe(42)
+  })
+
+  it('type이 생략된 boolean const를 그대로 생성한다', () => {
+    expect(schema200({ const: true })?.body).toBe(true)
+  })
+
+  it('type이 생략된 null const를 누락하지 않는다', () => {
+    expect(schema200({ const: null, example: 'ignored' })?.body).toBeNull()
+  })
+})
+
 // ─── object ───────────────────────────────────────────────────────────────────
 
 describe('generateMinimal — object', () => {

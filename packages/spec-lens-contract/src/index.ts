@@ -230,7 +230,10 @@ export type SpecLensTypeSpecCompileEvidence = {
   }
   gates: {
     compatibilitySidecar: 'pass' | 'fail'
+    emittedValidation: 'pass' | 'fail'
     restoredValidation: 'pass' | 'fail'
+    expectedValidation?: 'pass' | 'fail'
+    provenance: 'pass' | 'fail' | 'not-applicable'
     expectedDiff?: 'pass' | 'fail'
   }
 }

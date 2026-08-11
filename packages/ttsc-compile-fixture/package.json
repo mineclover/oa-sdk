@@ -4,7 +4,7 @@
   "private": true,
   "description": "Isolated TypeScript Go runtime used by @oa-sdk/codegen compile checks",
   "devDependencies": {
-    "ttsc": "0.22.0",
+    "ttsc": "0.26.0",
     "typescript": "7.0.2"
   }
 }

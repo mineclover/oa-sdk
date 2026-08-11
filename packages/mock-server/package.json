@@ -4,6 +4,9 @@
   "description": "OpenAPI-native mock engine with detailed validation errors. Supports MSW and Node HTTP adapters.",
   "private": true,
   "type": "module",
+  "bin": {
+    "oa-mock": "./dist/cli/index.js"
+  },
   "exports": {
     ".": {
       "import": "./dist/index.js",
@@ -27,7 +30,9 @@
     "dev": "tsup --watch",
     "start": "node dist/cli/index.js",
     "test": "vitest run",
-    "test:ci": "vitest run --maxWorkers 1 --no-file-parallelism",
+    "test:ci": "vitest run --maxWorkers 1 --no-file-parallelism && pnpm run test:cli-smoke",
+    "test:cli": "vitest run src/__tests__/unit/cli.test.ts",
+    "test:cli-smoke": "pnpm run build && node src/__tests__/cli-built-smoke.mjs",
     "typecheck": "tsc --noEmit",
     "clean": "rm -rf dist"
   },
@@ -35,10 +40,10 @@
     "@oa-sdk/core": "workspace:*",
     "@oa-sdk/parser": "workspace:*",
     "ajv": "^8.17.0",
-    "ajv-formats": "^3.0.1"
+    "ajv-formats": "^3.0.1",
+    "yaml": "^2.8.3"
   },
   "devDependencies": {
-    "@oa-sdk/schemas": "workspace:*",
     "@types/node": "^22.0.0",
     "msw": "^2.13.4",
     "tsup": "^8.0.0",

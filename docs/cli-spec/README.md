@@ -20,9 +20,12 @@ evidence, and governance-config artifacts. It is mirrored by
 
 ## Ownership
 
-The typed TypeScript manifest is the authoring source for `oa-gen` command
-options and descriptions. Its JSON file in this directory is the
-language-neutral mirror. Change both in the same patch and run the check below.
+The typed TypeScript manifest is the authoring source for the 20 governance-tracked
+`oa-gen` command options and descriptions. Its JSON file in this directory is the
+language-neutral mirror. The live `oa-gen` registry has 23 commands in total; the
+three general commands (`generate`, `typegen`, and `lint`)
+are intentionally documented outside this governance manifest. Change both manifest
+files in the same patch and run the check below.
 
 Operational guidance belongs in `docs/guides/`, rather than in a manifest
 description. For the duplicate-review command, use
@@ -43,7 +46,6 @@ when adding or changing governance CLI commands.
 ## Output contract
 
 When a command emits a serialized artifact or machine-readable report to stdout,
-stdout contains that payload only. Progress, success paths, warnings, and other
-operational messages go to stderr so callers can safely pipe or redirect stdout.
-Commands with an explicit output path may still print their artifact location as
-an operational message.
+stdout contains that payload only. Commands with an explicit output path, or commands
+that use a human-readable report, may print success and artifact-location messages to
+stdout; consumers should read the named file when they need a machine-readable artifact.

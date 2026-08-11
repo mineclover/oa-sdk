@@ -5,10 +5,26 @@ import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, expectTypeOf, it } from 'vitest'
 import {
+  createMemoryTypeRegistry,
+  createNoopTypeRegistry,
   schemaToTs as rootSchemaToTs,
   type SchemaToTsOptions as RootSchemaToTsOptions,
+  type TypeArtifactFilter,
+  type TypeArtifactRecord,
+  type TypeBoundaryFilter,
+  type TypeBoundaryRecord,
+  type TypeDeclarationFilter,
+  type TypeDeclarationRecord,
+  type TypeExposureFilter,
+  type TypeExposureRecord,
+  type TypeRegistry,
+  type TypeRegistrySnapshot,
+  type TypeRelationFilter,
+  type TypeRelationRecord,
   type TypegenOptions as RootTypegenOptions,
 } from '../index.js'
+import * as typegenPublicApi from '../typegen/index.js'
+import * as browserTypegenPublicApi from '../typegen/browser.js'
 import {
   schemaToTs as typegenSchemaToTs,
   type SchemaToTsOptions as TypegenSchemaToTsOptions,
@@ -50,6 +66,45 @@ describe('public codegen API surface', () => {
     }, { banner: false } satisfies BrowserTypegenOptions)).toBe('')
   })
 
+  it('exports the runtime-neutral type registry from the package root only', () => {
+    const memoryRegistry: TypeRegistry = createMemoryTypeRegistry()
+    const noopRegistry: TypeRegistry = createNoopTypeRegistry()
+
+    expect(memoryRegistry.snapshotTypes()).toEqual({
+      artifacts: [],
+      declarations: [],
+      relations: [],
+      boundaries: [],
+      exposures: [],
+    } satisfies TypeRegistrySnapshot)
+    expect(noopRegistry.snapshotTypes()).toEqual(memoryRegistry.snapshotTypes())
+    expect(typegenPublicApi).not.toHaveProperty('createMemoryTypeRegistry')
+    expect(browserTypegenPublicApi).not.toHaveProperty('createMemoryTypeRegistry')
+
+    expectTypeOf<TypeArtifactRecord>().toBeObject()
+    expectTypeOf<TypeDeclarationRecord>().toBeObject()
+    expectTypeOf<TypeRelationRecord>().toBeObject()
+    expectTypeOf<TypeBoundaryRecord>().toBeObject()
+    expectTypeOf<TypeExposureRecord>().toBeObject()
+    expectTypeOf<TypeArtifactFilter>().toBeObject()
+    expectTypeOf<TypeDeclarationFilter>().toBeObject()
+    expectTypeOf<TypeRelationFilter>().toBeObject()
+    expectTypeOf<TypeBoundaryFilter>().toBeObject()
+    expectTypeOf<TypeExposureFilter>().toBeObject()
+  })
+
+  it('keeps compiler-backed registry implementation modules private', () => {
+    const rootEntry = readFileSync(join(pkgDir, 'src/index.ts'), 'utf8')
+    const typegenEntry = readFileSync(join(pkgDir, 'src/typegen/index.ts'), 'utf8')
+    const browserEntry = readFileSync(join(pkgDir, 'src/typegen/browser.ts'), 'utf8')
+
+    expect(rootEntry).toContain("from './type-registry.js'")
+    expect(rootEntry).not.toContain('type-registry-extractor')
+    expect(rootEntry).not.toContain('type-registry-canonical-ir')
+    expect(typegenEntry).not.toContain('type-registry')
+    expect(browserEntry).not.toContain('type-registry')
+  })
+
   it('typechecks documented package imports for typegen option types', () => {
     const packageJson = readPackageJson()
     expect(packageJson.exports).toHaveProperty('.')
@@ -62,8 +117,22 @@ describe('public codegen API surface', () => {
         join(tmp, 'fixture.ts'),
         `
 import {
+  createMemoryTypeRegistry,
+  createNoopTypeRegistry,
   schemaToTs,
   type SchemaToTsOptions as RootSchemaToTsOptions,
+  type TypeArtifactFilter,
+  type TypeArtifactRecord,
+  type TypeBoundaryFilter,
+  type TypeBoundaryRecord,
+  type TypeDeclarationFilter,
+  type TypeDeclarationRecord,
+  type TypeExposureFilter,
+  type TypeExposureRecord,
+  type TypeRegistry,
+  type TypeRegistrySnapshot,
+  type TypeRelationFilter,
+  type TypeRelationRecord,
   type TypegenOptions as RootTypegenOptions,
 } from '@oa-sdk/codegen'
 import {
@@ -91,6 +160,26 @@ const rootSchemaOptions: RootSchemaToTsOptions = {
   refNameOverrides: { '#/components/schemas/User': 'UserModel' },
 }
 const typegenSchemaOptions: TypegenSchemaToTsOptions = rootSchemaOptions
+const memoryTypeRegistry: TypeRegistry = createMemoryTypeRegistry()
+const noopTypeRegistry: TypeRegistry = createNoopTypeRegistry()
+const typeRegistrySnapshot: TypeRegistrySnapshot = memoryTypeRegistry.snapshotTypes()
+
+type PublicTypeRegistryRecords =
+  | TypeArtifactRecord
+  | TypeDeclarationRecord
+  | TypeRelationRecord
+  | TypeBoundaryRecord
+  | TypeExposureRecord
+type PublicTypeRegistryFilters =
+  | TypeArtifactFilter
+  | TypeDeclarationFilter
+  | TypeRelationFilter
+  | TypeBoundaryFilter
+  | TypeExposureFilter
+
+void noopTypeRegistry
+void typeRegistrySnapshot
+void (undefined as PublicTypeRegistryRecords | PublicTypeRegistryFilters | undefined)
 
 schemaToTs({ type: 'string' }, typegenSchemaOptions)
 typegenSchemaToTs({ $ref: '#/components/schemas/User' }, rootSchemaOptions)

@@ -137,7 +137,10 @@ export type TypeSpecBundleCheckReport = {
   }
   gates: {
     compatibilitySidecar: 'pass' | 'fail'
+    emittedValidation: 'pass' | 'fail'
     restoredValidation: 'pass' | 'fail'
+    expectedValidation?: 'pass' | 'fail'
+    provenance: 'pass' | 'fail' | 'not-applicable'
     expectedDiff?: 'pass' | 'fail'
   }
   provenance: TypeSpecRefProvenanceReport
@@ -367,7 +370,7 @@ export function printTypeSpecBundleCheckSummary(
   console.log(`  sidecar re-extract: ${report.counts.sidecarStability.expectedSatisfied}/${report.counts.sidecarStability.expectedEntries} expected, ${report.counts.sidecarStability.actualCovered}/${report.counts.sidecarStability.actualEntries} actual covered`)
   console.log(`  emitted validation: ${report.validation.emitted.summary}`)
   console.log(`  restored validation: ${report.validation.restored.summary}`)
-  console.log(`  TypeSpec ref provenance: ${report.provenance.valid ? 'pass' : 'fail'} (${report.provenance.counts.coveredPublicPointers}/${report.provenance.counts.publicPointers} public, ${report.provenance.counts.coveredRefNodes}/${report.provenance.counts.refNodes} refs)`)
+  console.log(`  TypeSpec ref provenance: ${report.gates.provenance} (${report.provenance.counts.coveredPublicPointers}/${report.provenance.counts.publicPointers} public, ${report.provenance.counts.coveredRefNodes}/${report.provenance.counts.refNodes} refs)`)
   if (report.validation.expected) console.log(`  expected validation: ${report.validation.expected.summary}`)
   if (report.diff) {
     console.log(`  emitted breaking diff: ${report.diff.emitted.breaking > 0 ? 'yes' : 'no'}`)
@@ -382,14 +385,26 @@ export function shouldFailTypeSpecBundleCheck(
   args: Pick<TypeSpecBundleCheckArgs, 'failOnBreaking'>,
 ): boolean {
   return report.gates.compatibilitySidecar === 'fail'
+    || report.gates.emittedValidation === 'fail'
     || report.gates.restoredValidation === 'fail'
+    || report.gates.expectedValidation === 'fail'
+    || report.gates.provenance === 'fail'
     || (args.failOnBreaking === true && report.gates.expectedDiff === 'fail')
 }
 
-export function formatTypeSpecBundleCheckFailure(report: TypeSpecBundleCheckReport): string {
+export function formatTypeSpecBundleCheckFailure(
+  report: TypeSpecBundleCheckReport,
+  options: { requireProvenance?: boolean } = {},
+): string {
   return [
     report.gates.compatibilitySidecar === 'fail' ? 'compatibilitySidecar' : undefined,
+    report.gates.emittedValidation === 'fail' ? 'emittedValidation' : undefined,
     report.gates.restoredValidation === 'fail' ? 'restoredValidation' : undefined,
+    report.gates.expectedValidation === 'fail' ? 'expectedValidation' : undefined,
+    report.gates.provenance === 'fail'
+      || (options.requireProvenance === true && !report.provenance.valid)
+      ? 'provenance'
+      : undefined,
     report.gates.expectedDiff === 'fail' ? 'expectedDiff' : undefined,
   ].filter(Boolean).join(', ') || 'unknown'
 }
@@ -475,7 +490,17 @@ function createReport(input: {
         && input.sidecarStability.counts.valueMismatches === 0
         ? 'pass'
         : 'fail',
+      emittedValidation: input.emittedValidation.valid ? 'pass' : 'fail',
       restoredValidation: input.restoredValidation.valid ? 'pass' : 'fail',
+      ...(input.expected
+        ? { expectedValidation: input.expected.validation.valid ? 'pass' as const : 'fail' as const }
+        : {}),
+      // A sidecar-backed bundle has a distinct authored provenance source, so
+      // TypeSpec-AST coverage is diagnostic there. Sidecar stability remains
+      // blocking; promotion applies the stricter provenance rule separately.
+      provenance: input.bundle.sidecarPath
+        ? 'not-applicable'
+        : input.provenance.valid ? 'pass' : 'fail',
       ...(input.restoredDiff ? { expectedDiff: restoredBreaking === 0 ? 'pass' : 'fail' } : {}),
     },
     provenance: input.provenance,

@@ -162,7 +162,10 @@ describe('oa-gen TypeSpec sidecar CLI', () => {
       },
     })
     expect(bundleReport.gates.compatibilitySidecar).toBe('pass')
+    expect(bundleReport.gates.emittedValidation).toBe('pass')
     expect(bundleReport.gates.restoredValidation).toBe('pass')
+    expect(bundleReport.gates.expectedValidation).toBe('pass')
+    expect(bundleReport.gates.provenance).toBe('not-applicable')
     expect(bundleReport.gates.expectedDiff).toBe('pass')
     expect(bundleReport.paths.expectedOpenapi).toBe(bundleExpectedOpenapiPath)
 

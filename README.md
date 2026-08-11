@@ -104,7 +104,16 @@ workspace이므로 npm 설치 대상으로 안내하지 않는다.
 
 ### 비공개 소스 기여·검증
 
-개발/CI 기준 런타임은 Node.js 25.x이며, nvm 사용자는 `.nvmrc` 기준으로 맞춘다.
+안정화 lane은 Node.js 24 LTS와 TypeScript 5.9.3을 사용하며, 기본 CI와 `.nvmrc`도 이 lane을
+기준으로 한다. Node.js 26 Current 호환성 lane은 TypeScript 7.0.2와 `ttsc` 0.26.0으로 Core
+TypeScript source와 생성 선언을 no-emit으로 검사한다. Current 릴리스는 운영
+build/declaration emission을 대체하지 않으며 `.nvmrc.latest`로 선택하는 선행 호환성 검증 lane이다.
+
+```bash
+source scripts/use-node-version.sh stable # Node.js 24 LTS
+source scripts/use-node-version.sh node26 # Node.js 26 Current compatibility
+```
+
 패키지 매니저는 `packageManager`에 고정된 pnpm 10.30.3을 사용합니다.
 
 Root의 `pnpm build`, `pnpm test`, `pnpm typecheck`는 Core Platform만 검증한다. 전체
@@ -149,9 +158,9 @@ oa-gen review-bundle --base old.yaml --head packages/schemas/src/.merged.3.1.yam
 
 # 코드 생성
 oa-gen typegen --spec packages/schemas/src/.merged.yaml -o types.ts
-oa-gen router  --spec packages/schemas/src/.merged.yaml -o router.ts --types-import './types'
-oa-gen client  --spec packages/schemas/src/.merged.yaml -o client.ts --types-import './types'
 oa-gen generate --drizzle-schema ./db/schema.ts --output ./domains/users/
+
+# private downstream router/client 통합은 apps/playground의 package API 예제로 검증
 
 # Mock 테스트
 pnpm mock:start
@@ -203,10 +212,12 @@ console.log(describeApi(parseDocument(spec)))
 | [Platform Scope](./docs/internal/platform-scope.md) | Core Platform, maintenance, 분리 경계와 신규 작업 승인 기준 |
 | [Concepts](./docs/concepts.md) | 공통 용어와 계약 경계 |
 | [Quick Start](./docs/guides/quick-start.md) | 5분 파이프라인 체험 |
+| [World Model Kernel](./docs/concepts/world-model.md) | World bootstrap, stimulus ingress, logical time, revision-pinned projection 계약 |
+| [World Model 계약 소비](./docs/guides/use-cases/world-model-contract-consumption.md) | World Model contract 검증과 generated client/HTTP integration 준비 |
 | [System Onboarding](./docs/guides/system-onboarding.md) | 저장소 목적, 정본 선택, 변경 경로와 검증 게이트 |
 | [기본 스펙 사용 기준](./docs/guides/basic-spec-usage.md) | TypeSpec source, OpenAPI 3.2 artifact, 3.1 호환 출력, rollback 경계와 사용처 |
 | [TypeSpec Authoring Conventions](./docs/guides/typespec-authoring-conventions.md) | TypeSpec source, approved snapshot, extension ownership과 validation 흐름 |
-| [TypeScript 호환성](./docs/guides/typescript-compatibility.md) | TS 5 baseline과 TS 7/`ttsc` enhanced 생성 선언 검증 경계 |
+| [TypeScript 호환성](./docs/guides/typescript-compatibility.md) | Node 24/TS 5 안정화 lane과 Node 26/TS 7/`ttsc` Current 호환성 검증 lane의 경계 |
 | [문서·스펙 거버넌스](./docs/spec-governance/README.md) | 문서 정본, 품질 기준, 검증 선택, 공식 기준 변경 절차 |
 | [OpenAPI Governance Workflow](./docs/guides/use-cases/openapi-governance-workflow.md) | target sidecar + PR review gate |
 | [Duplicate Review](./docs/guides/duplicate-review.md) | fragment 중복 탐지 정책과 CI gate |

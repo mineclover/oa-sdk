@@ -43,7 +43,5 @@ export function resolveMediaTypeBody(mediaType: MediaTypeLike): unknown {
   if (mediaType.example !== undefined) return mediaType.example
   const schema = mediaType.schema as OasSchema | undefined
   if (!schema) return null
-  if (schema.example !== undefined) return schema.example
-  if (schema.default !== undefined) return schema.default
   return generator.fold(schema)
 }

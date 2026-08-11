@@ -745,6 +745,11 @@ Typegen 공개 surface는 root entry(`@oa-sdk/codegen`)와 typegen sub-entry(`@o
 | `generateTypes()` / `generateTypesFromSpec()` | `typegen/browser.ts` | 브라우저 안전 typegen. in-memory spec만 처리하고 Node crypto/path/filesystem ref graph를 import하지 않음 |
 | `analyzeExternalSchemaRefs()` | `typegen/generate-types.ts` | 외부 schema-position `$ref` 스키마 타입명/충돌 diagnostic 조회 (`#/components/schemas/*`, `#/$defs/*`, 비 components schema root 포함, operation 타입 충돌/unsupported pointer 경고 포함) |
 | `schemaToTs()` | `typegen/schema-to-ts.ts` | 단일 OAS Schema → TS 타입 문자열 (SchemaToTsOptions 지원) |
+| `createTypescriptAlgebra()` | `typegen/schema-to-ts.ts` | 호출별 옵션을 closure로 격리해 JSON Schema fold 결과를 TypeScript 타입 표현으로 변환하는 algebra 생성 |
+| `projectSchemaToTs()` | `typegen/schema-fidelity.ts` | schema→TypeScript 출력과 pointer별 의미 보존 진단을 하나의 projection 결과로 생성 |
+| `analyzeSchemaFidelity()` | `typegen/schema-fidelity.ts` | JSON Schema 제약이 TypeScript에 exact/runtime-only/widening/narrowing/unsupported 중 어떻게 투영되는지 결정적으로 분류 |
+| `createMemoryTypeRegistry()` | `type-registry.ts` | 선언·관계·경계·runtime exposure를 파일 교체 단위로 관리하는 in-memory Type Registry 생성 |
+| `createNoopTypeRegistry()` | `type-registry.ts` | 타입 인덱싱을 비활성화해도 동일 호출 계약을 유지하는 no-op Type Registry 생성 |
 | `createWorkspaceIndex()` | `workspace-index.ts` | 기본 noop 또는 memory WorkspaceIndex 생성 |
 | `createNoopWorkspaceIndex()` | `workspace-index.ts` | full rebuild 보존용 no-op WorkspaceIndex 생성 |
 | `createMemoryWorkspaceIndex()` | `workspace-index.ts` | 파일 단위 metadata 저장/변경 감지용 in-memory WorkspaceIndex 생성 |
@@ -805,6 +810,23 @@ Typegen 공개 surface는 root entry(`@oa-sdk/codegen`)와 typegen sub-entry(`@o
 | `TypegenOptions` | `typegen/generate-types.ts` | public typegen 옵션. `@oa-sdk/codegen`과 `@oa-sdk/codegen/typegen`에서 모두 export |
 | TypegenOptions | `typegen/browser.ts` | 브라우저 안전 subentry의 typegen 옵션. banner/style/includeAnnotations/refNameOverrides만 지원하며 basePath 외부 ref 분석 옵션은 포함하지 않음 |
 | `SchemaToTsOptions` | `typegen/schema-to-ts.ts` | public `schemaToTs()` 옵션. `@oa-sdk/codegen`과 `@oa-sdk/codegen/typegen`에서 모두 export |
+| `SchemaToTsProjection` | `typegen/schema-fidelity.ts` | 생성 TypeScript 문자열과 전체 fidelity 분석을 결합한 projection 결과 |
+| `TypegenFidelity` | `typegen/schema-fidelity.ts` | exact, runtime-only, safe-widening, unsafe-narrowing, unsupported 의미 보존 등급 |
+| `TypegenFidelityAnalysis` | `typegen/schema-fidelity.ts` | 최종 fidelity, pointer 진단, 등급별 count를 담는 결정적 분석 결과 |
+| `TypegenFidelityDiagnostic` | `typegen/schema-fidelity.ts` | RFC 6901 schema pointer와 제약·등급·메시지를 연결한 진단 |
+| `TypegenFidelityDiagnosticCode` | `typegen/schema-fidelity.ts` | enum/format/composition/index-signature 등 fidelity 진단 code taxonomy |
+| `TypeRegistry` | `type-registry.ts` | 파일 단위 교체·무효화와 5종 레코드 조회/snapshot을 제공하는 독립 타입 관리 경계 |
+| `TypeRegistrySnapshot` | `type-registry.ts` | artifact/declaration/relation/boundary/exposure의 결정적 전체 snapshot |
+| `TypeArtifactRecord` | `type-registry.ts` | 파일·패키지·runtime·authority/observation/derived 역할과 compiler/generator provenance 기록 |
+| `TypeDeclarationRecord` | `type-registry.ts` | 선언 identity, source span, export 여부와 syntax/shape/semantic hash 및 canonical IR 기록 |
+| `TypeRelationRecord` | `type-registry.ts` | type-ref/extends/import/reexport/generates/projects/entrypoint 관계와 resolution 상태 기록 |
+| `TypeBoundaryRecord` | `type-registry.ts` | any/unknown/assertion/non-null/deserialize 경계와 validator/suppression 근거 기록 |
+| `TypeExposureRecord` | `type-registry.ts` | package export key·export name·runtime별 type/value/mixed 노출 기록 |
+| `TypeArtifactFilter` | `type-registry.ts` | artifact file/package/runtime/origin/role 조회 필터 |
+| `TypeDeclarationFilter` | `type-registry.ts` | declaration symbol/kind/export/hash 조회 필터 |
+| `TypeRelationFilter` | `type-registry.ts` | relation source/kind/target/specifier 조회 필터 |
+| `TypeBoundaryFilter` | `type-registry.ts` | unsafe boundary file/kind 조회 필터 |
+| `TypeExposureFilter` | `type-registry.ts` | exposure package/export/runtime/kind 조회 필터 |
 | `ApitomyReferenceAdapter` | `apitomy/index.ts` | Apitomy document I/O, reference validation, oa-sdk lint/IR 비교 probe, optional transform 계약 |
 | `ApitomyReferenceAdapterOptions` | `apitomy/index.ts` | OAS 3.2 reference boundary와 Apitomy NodePath 변환 hook 옵션 |
 | `ApitomyReferenceCompareOptions` | `apitomy/index.ts` | oa-sdk primary validation과 Apitomy reference validation 비교 옵션 |

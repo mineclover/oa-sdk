@@ -116,7 +116,9 @@ function validTypeSpecSnapshot() {
         },
         gates: {
           compatibilitySidecar: 'pass',
+          emittedValidation: 'pass',
           restoredValidation: 'pass',
+          provenance: 'pass',
         },
       },
     },

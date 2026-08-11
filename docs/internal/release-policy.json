@@ -1,5 +1,5 @@
 {
-  "version": 4,
+  "version": 5,
   "primaryMission": "schema-spec-management",
   "primaryTrack": "corePlatform",
   "scopeDocument": "docs/internal/platform-scope.md",
@@ -11,7 +11,9 @@
     "linked": []
   },
   "publish": {
-    "enabled": false
+    "enabled": false,
+    "mode": "artifact-only",
+    "repository": "https://github.com/mineclover/oa-sdk-releases.git"
   },
   "distributionCandidates": [
     "@oa-sdk/core",

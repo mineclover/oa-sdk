@@ -12,7 +12,7 @@
     "test:watch": "vitest",
     "schema:validate": "pnpm --filter @oa-sdk/schemas run validate",
     "schema:preview": "pnpm --filter @oa-sdk/schemas run preview",
-    "mock:start": "pnpm --filter @oa-sdk/mock-server run start",
+    "mock:start": "corepack pnpm --dir ../.. mock:start",
     "typecheck": "tsc --noEmit",
     "clean": "rm -rf dist coverage"
   },

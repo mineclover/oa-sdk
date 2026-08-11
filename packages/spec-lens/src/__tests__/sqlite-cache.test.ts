@@ -172,7 +172,12 @@ function makeTypeSpecSnapshot(id: string): SpecSnapshotStored {
           emitted: { valid: true, summary: 'valid' },
           restored: { valid: true, summary: 'valid' },
         },
-        gates: { compatibilitySidecar: 'pass', restoredValidation: 'pass' },
+        gates: {
+          compatibilitySidecar: 'pass',
+          emittedValidation: 'pass',
+          restoredValidation: 'pass',
+          provenance: 'pass',
+        },
       },
     },
     diagnostics: [{

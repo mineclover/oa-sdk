@@ -15,16 +15,16 @@ import {
 import { tmpdir } from 'node:os'
 import { dirname, join, relative, resolve } from 'node:path'
 import { execa } from 'execa'
-import { loadSpecWithPath } from '../packages/codegen/src/cli/lib/load-spec.js'
-import { convertTypeSpecSidecarToExtensions } from '../packages/codegen/src/cli/lib/typespec-sidecar-to-extensions.js'
 import {
+  convertTypeSpecSidecarToExtensions,
   createTypeSpecCompatibilitySidecarFromEntries,
+  loadSpecWithPath,
   parseTypeSpecCompatibilitySidecar,
   type TypeSpecCompatibilitySidecar,
   type TypeSpecCompatibilitySidecarEntry,
   type TypeSpecParameterExamplesSidecarEntry,
-} from '../packages/codegen/src/cli/lib/typespec-sidecar.js'
-import type { TypeSpecRoundtripReport } from '../packages/codegen/src/cli/lib/typespec-roundtrip-report.js'
+  type TypeSpecRoundtripReport,
+} from '../packages/codegen/src/schema-governance.js'
 
 type Args = {
   fixtureDir: string

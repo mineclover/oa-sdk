@@ -84,6 +84,10 @@
 
 정의: [Behavior ECS](./concepts/behavior-ecs.md#basic-test-cases)
 
+## World Model Kernel
+
+정의: [World Model Kernel](./concepts/world-model.md)
+
 ## Action Entity
 
 정의: [Behavior ECS](./concepts/behavior-ecs.md#entity)

@@ -4,7 +4,7 @@ import { resolve } from 'node:path'
 import {
   checkTypeSpecBundle,
   printTypeSpecBundleCheckSummary,
-} from '../packages/codegen/src/cli/lib/typespec-bundle-check.js'
+} from '../packages/codegen/src/schema-governance.js'
 
 const root = resolve(process.cwd())
 const manifest = readOption(process.argv.slice(2), '--manifest')

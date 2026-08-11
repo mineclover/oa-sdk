@@ -16,7 +16,7 @@ JSON manifest는 dependency query와 무효화가 복잡해지므로 로컬 SQLi
 
 SQLite는 parser correctness 경로에 넣지 않는다.  
 `@oa-sdk/parser`는 Node/browser 양쪽에서 동작하는 메모리 기반 `RefResolver`를 유지하고, SQLite는 `@oa-sdk/codegen` CLI/dev/schema pipeline의 선택적 증분 인덱스 레이어로 둔다.
-SQLite driver는 `better-sqlite3`를 primary optional backend로 사용하고, 사용 불가하면 `node:sqlite`로 fallback한다. 두 driver 모두 사용할 수 없거나 DB open/read/write가 실패하면 full rebuild fallback으로 전환한다.
+`node:sqlite`는 Node 22.5.0에서 추가됐고 Node 22.13.0부터는 플래그 없이 사용할 수 있다. 이 저장소의 안정화 Node 24 LTS와 Node 26 Current 호환성 lane은 모두 이 조건을 만족하므로 SQLite driver는 먼저 `node:sqlite`를 시도한다. 설치 환경에서 module load에 실패하면 optional dependency인 `better-sqlite3`로 fallback하고, 두 driver 모두 사용할 수 없거나 DB open/read/write가 실패하면 full rebuild fallback으로 전환한다.
 
 기본 원칙:
 - 기본 단발 실행은 full scan + 메모리 cache.
@@ -184,17 +184,16 @@ having n > 1;
 ```bash
 oa-gen validate --spec packages/schemas/src/.merged.yaml --incremental --cache-dir .oa-cache
 oa-gen typegen --spec packages/schemas/src/.merged.yaml -o types.ts --incremental --cache-dir .oa-cache
-oa-gen dev --spec packages/schemas/src/.merged.yaml --cache-dir .oa-cache
 ```
 
-`dev` watch mode는 안정화 후 기본 증분 사용을 검토할 수 있다. 단발 `validate`/`typegen`은 full mode를 기본으로 유지한다. cache schema/options/driver mismatch와 DB 오류는 명시적 cache command 없이 full rebuild fallback으로 처리한다.
+공개 CLI는 단발 `validate`/`typegen`만 제공하며 full mode를 기본으로 유지한다. watch orchestration은 각 소비 workspace가 소유한다. cache schema/options/driver mismatch와 DB 오류는 명시적 cache command 없이 full rebuild fallback으로 처리한다.
 
 ## SQLite driver 정책
 
 `SQLiteWorkspaceIndex`는 다음 순서로 backend를 선택한다.
 
-1. `better-sqlite3`: optional dependency. 안정적인 Node CLI primary backend.
-2. `node:sqlite`: dependency 없는 fallback. Node 버전에 따라 experimental warning이 발생할 수 있다.
+1. `node:sqlite`: 안정화 Node 24 LTS와 Node 26 Current 호환성 lane에서 플래그 없이 사용할 수 있는 dependency-free primary backend.
+2. `better-sqlite3`: optional dependency fallback. 설치 환경에서 `node:sqlite`를 사용할 수 없을 때 사용한다.
 3. full rebuild fallback: 지원 driver가 없거나 DB open/read/write가 실패할 때 사용.
 
 `better-sqlite3`는 native optional dependency이므로 설치 실패가 전체 package install 실패로 이어지면 안 된다. CLI는 `--incremental` 사용 시 SQLite index가 fallback으로 전환되면 경고를 출력한다.
@@ -224,7 +223,7 @@ pragma foreign_keys = on;
 6. scan + dirty detection + refs.to_file dependency invalidation primitive 구현. (US-009 완료)
 7. `oa-gen validate --incremental` 연결. (US-010 완료)
 8. `oa-gen typegen --incremental` 연결. (US-010 완료)
-9. `oa-gen dev` watch invalidation에 연결. (US-010 완료)
+9. 공개 `dev` 명령은 private downstream 결합을 제거하면서 폐기하고, watch orchestration은 소비 workspace로 이동. (완료)
 10. Definition builder fragment/target metadata를 WorkspaceIndex row로 기록하고 target dirty 계산에 연결. (US-013 완료)
 
 ## 결과

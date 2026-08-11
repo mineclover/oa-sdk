@@ -492,7 +492,7 @@ describe('required vs optional', () => {
 
 describe('allOf (intersection)', () => {
   it('$ref & inline → intersection 타입', () => {
-    expect(output).toContain('Base & {')
+    expect(output).toMatch(/export type Extended = \(Base\) & \(\{/)
     expect(output).toContain('name: string')
   })
 })

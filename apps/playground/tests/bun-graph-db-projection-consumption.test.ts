@@ -81,9 +81,10 @@ describe('bun-graph-db OpenAPI projection consumption', () => {
     servers.push(rootServer)
     await rootServer.start()
     const rootResponse = await fetch(`${rootServer.url}/api/openapi`)
-    expect(rootResponse.status).toBe(200)
-    expect(await rootResponse.json()).toEqual(expect.objectContaining({
-      openapi: expect.any(String),
+    const rootBody = await rootResponse.json()
+    expect(rootResponse.status, JSON.stringify(rootBody)).toBe(200)
+    expect(rootBody).toEqual(expect.objectContaining({
+      openapi: '3.2.0',
       paths: expect.any(Object),
       components: expect.any(Object),
     }))

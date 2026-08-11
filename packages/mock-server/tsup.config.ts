@@ -6,9 +6,10 @@ export default defineConfig({
     browser: 'src/browser.ts',
     'adapters/msw': 'src/adapters/msw.ts',
     'adapters/node-http': 'src/adapters/node-http.ts',
+    'cli/index': 'src/cli/index.ts',
   },
   format: ['esm'],
   dts: true,
-  target: 'node25',
+  target: 'node24',
   clean: true,
 })

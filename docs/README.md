@@ -17,11 +17,13 @@ extension vocabulary v5 consolidation).
 |------|------|
 | [Vision](./vision.md) | 핵심 철학과 주 목표 |
 | [Concepts](./concepts.md) | 공통 용어와 계약 경계 정의 |
+| [World Model Kernel](./concepts/world-model.md) | World bootstrap, stimulus ingress, logical time, revision-pinned projection 계약의 설명 |
 | [Behavior ECS](./concepts/behavior-ecs.md) | 행동 단위 Entity/Component/System 정의, representative use case, 기본 테스트 케이스 |
 | [Data Persona](./concepts/data-persona.md) | API audience, access obligation, privacy skill 매트릭스 |
 | [Data Pseudonymization Manifest](./concepts/data-pseudonymization-manifest.md) | DB catalog, 관계성, 컬럼별 가명처리 정책, gateway API 경계 |
 | [DPM Execution Runtime Design](./concepts/dpm-execution-runtime.md) | compiled plan 이후 row transform, vault, target writer, integrity gate 설계 |
 | [Quick Start](./guides/quick-start.md) | 공개 `oa-gen` 설치 또는 private source의 5분 파이프라인 체험 |
+| [World Model 계약 소비](./guides/use-cases/world-model-contract-consumption.md) | World Model contract 검증과 generated client/HTTP integration 준비 |
 | [System Onboarding](./guides/system-onboarding.md) | 저장소 목적, 정본 선택, 변경 경로와 검증 게이트 |
 | [기본 스펙 사용 기준](./guides/basic-spec-usage.md) | TypeSpec source와 생성 OpenAPI artifact의 사용처·소유권·구조 |
 | [TypeSpec Authoring Conventions](./guides/typespec-authoring-conventions.md) | TypeSpec source, approved snapshot, extension ownership과 validation 흐름 |
@@ -38,8 +40,11 @@ extension vocabulary v5 consolidation).
 | [bun-graph-db projection 소비](./guides/use-cases/bun-graph-db-projections.md) | bun-graph-db OpenAPI full document/table projection → OA SDK |
 | [테스트 피드백](./guides/use-cases/test-feedback.md) | 커버리지 + 검증 피드백 루프 |
 | [CLI 세팅](./guides/cli-setup.md) | 설치 + CLI 명령어 |
+| [CLI 명령 레퍼런스](./guides/cli-command-reference.md) | 현재 `oa-gen` 명령의 목적·최소 입력·조건부 옵션 |
+| [라이브러리 진입점 지도](./guides/library-entrypoints.md) | package root/subpath와 artifact 경계 |
 | [Mock 서버](./guides/mock-server-usage.md) | MSW / Node HTTP |
 | [스키마 작성](./guides/schema-authoring.md) | TypeSpec production authoring과 Definition Builder rollback fragment |
+| [스키마 어노테이션](./guides/schema-annotations.md) | 소비자 설명, 작성자 메모, 구조화된 내부 메타데이터 컨벤션 |
 | [SchemaAlgebra](./guides/schema-algebra.md) | fold 패턴 확장 |
 | [Preview App](../apps/preview/) | 브라우저 수동 프리뷰. 자동 E2E 보증은 [playground](../apps/playground/)가 담당 |
 | [spec-lens](./spec-lens/README.md) | 커밋별 OpenAPI 변경 이력 관측 도구 — Timeline, Diff, Path Provenance, Fragment Graph |

@@ -1,4 +1,4 @@
-# CLI 세팅 가이드
+# CLI 설치와 저장소 워크플로우
 
 ## 필수 도구
 
@@ -14,8 +14,24 @@
 ```bash
 cd oa-sdk
 pnpm install
+pnpm build:core
+pnpm build:downstream
 git submodule update --init --recursive
 ```
+
+`build:core`는 `oa-gen` CLI를 포함한 production core package를 빌드하고, `build:downstream`은
+라우터·클라이언트·mock server처럼 private package의 `dist`를 빌드한다. 저장소를 clone한
+직후에는 package binary가 아직 빌드되지 않을 수 있으므로 아래 예시는 설치된 binary 대신
+저장소의 CLI entrypoint를 직접 호출한다. 별도 서비스 저장소에서 실행할 때는 해당 서비스가
+`oa-gen`을 PATH에 제공하도록 설치하거나, scaffold의 `--oa-gen-command`에 서비스가 재현
+가능한 명령을 지정한다.
+
+## 목표별 진입점
+
+- 공개 OpenAPI 문서만 검증·생성하려면 [Quick Start](./quick-start.md)의 공개 CLI 절을 사용한다.
+- 외부 서비스의 PR governance를 구성하려면 [OpenAPI Governance Workflow](./use-cases/openapi-governance-workflow.md)를 사용한다.
+- TypeSpec production contract를 작성하거나 승인 snapshot을 갱신하려면 [TypeSpec Authoring Conventions](./typespec-authoring-conventions.md)를 사용한다.
+- 전체 명령의 최소 입력과 조건부 옵션을 찾으려면 [CLI 명령 레퍼런스](./cli-command-reference.md)를 사용한다.
 
 ## 주요 워크플로우
 
@@ -84,8 +100,8 @@ oa-gen scaffold-governance \
   --profile nestjs-swagger \
   --source-command "pnpm export:openapi" \
   --runtime-openapi-url http://localhost:3000/openapi.json \
-  --oa-gen-command "oa-gen" \
-  --oa-gen-setup-command "pnpm install --frozen-lockfile"
+  --oa-gen-command "node ../../packages/codegen/dist/cli/index.js" \
+  --oa-gen-setup-command "pnpm --filter @oa-sdk/codegen build"
 
 bash apps/nestjs-ref/scripts/openapi-governance.sh all
 
@@ -96,8 +112,8 @@ oa-gen scaffold-governance \
   --profile fastapi \
   --source-command "uv run python scripts/export_openapi.py" \
   --runtime-openapi-url http://localhost:8000/openapi.json \
-  --oa-gen-command "oa-gen" \
-  --oa-gen-setup-command "pnpm install --frozen-lockfile"
+  --oa-gen-command "node ../../packages/codegen/dist/cli/index.js" \
+  --oa-gen-setup-command "pnpm --filter @oa-sdk/codegen build && (cd apps/fastapi-ref && uv sync)"
 
 bash apps/fastapi-ref/scripts/openapi-governance.sh all
 ```
@@ -131,7 +147,7 @@ pnpm schema:validate
 2. `downgrade:3.1` — OpenAPI 3.2 artifact에서 Redocly-compatible 3.1 artifact 생성
 3. `spectral lint .merged.yaml` — 스타일 가이드 검사
 4. `redocly lint .merged.3.1.yaml` — $ref 유효성 + 스펙 준수 검사
-5. `oa-gen validate --require-32` — OA SDK OpenAPI 3.2 strict validation
+5. `oa-gen validate --spec packages/schemas/src/.merged.yaml --require-32` — OA SDK OpenAPI 3.2 strict validation
 
 OpenAPI/Definition Builder fallback을 검증하려면 다음 명령을 사용한다:
 

@@ -109,7 +109,7 @@ REST vs bare-clone 결정: REST API 방식 유지. 이유는 (1) 4 케이스 모
 ### [x] 운영 관찰: SQLite optional native dependency 설치성
 배경: `better-sqlite3`는 증분 WorkspaceIndex의 primary driver지만 native optional dependency라 환경별 설치 실패 가능성이 있음.
 이전 정책 (2026-04-17 ~ 2026-04-28): 설치 성공 시 `better-sqlite3` 사용, 실패 시 `node:sqlite`, 둘 다 실패하거나 DB 오류가 나면 full rebuild fallback + CLI warning.
-현재 정책 (2026-04-28~): `node:sqlite`(Node 22+ 내장)를 우선 시도하고 `better-sqlite3`는 fallback. 호환성 영향: 기존 cache는 driver name meta가 다르므로 첫 실행 1회 cache invalidation + full rebuild이 일어나고 그 이후 정상.
+현재 정책 (2026-04-28~): 사용 가능한 런타임에서는 `node:sqlite`(Node 22.5+ 추가, Node 22.13+에서는 플래그 없이 사용 가능)를 우선 시도하고 `better-sqlite3`는 fallback. 지원 범위의 Node 22.0–22.12 일반 실행에서는 fallback이 적용될 수 있다. 호환성 영향: 기존 cache는 driver name meta가 다르므로 첫 실행 1회 cache invalidation + full rebuild이 일어나고 그 이후 정상.
 시그널 #1 — Forced fallback 동작 검증 (2026-04-28): `packages/codegen/src/__tests__/workspace-index-fallback.test.ts`가 `Module._load`를 monkey-patch해 두 driver를 각각 / 양쪽 모두 require 실패시키며 `loadSqliteDriver()` + `createSQLiteWorkspaceIndex` lifecycle을 검증. 5 cases (better-sqlite3 fail → node:sqlite, full lifecycle, persistence across reopen, 양쪽 모두 fail 시 진단 메시지, node:sqlite fail → better-sqlite3) 모두 pass — fallback 경로에 hardening 필요한 결함 없음.
 시그널 #2 — Driver 벤치마크 (2026-04-28, Node 24.15 / darwin arm64, 75 files × 5 components × 5 refs, median of 3): cold = better-sqlite3 22.2ms vs node:sqlite 26.6ms (15-17% 차이, 임계 30% 미달); warm = better-sqlite3 11.5ms vs **node:sqlite 7.9ms** (40-46% 더 빠름). 측정/스크립트는 `packages/codegen/scripts/bench-sqlite-driver.ts`, JSON은 `packages/codegen/.bench/sqlite-driver.json`(gitignored). 워크로드의 warm 경로가 incremental 도구의 일반 동작이라는 점에서 "better-sqlite3 우선" 정책의 perf 정당성이 사라짐 → 우선순위 inversion 결정.
 완료 기준 충족: 두 시그널 확보 + 정책 변경 + 테스트/문서 갱신, codegen 655 tests / 48 files pass, repo gates(check:cli-spec/api-index/feature-tests) green.
@@ -287,7 +287,7 @@ operation 생성 타입과 충돌하는 외부 alias도 file-stem 기반 determi
 
 ### [x] codegen CLI: 증분 validate/typegen 연결
 `oa-gen validate`와 `oa-gen typegen`에 opt-in `--incremental --cache-dir` 옵션을 추가.
-두 커맨드와 `oa-gen dev` watch mode가 공통 CLI incremental helper를 통해 scan → dirty detect → refs.to_file reverse invalidation → output generation → index refresh 순서를 공유.
+두 공개 커맨드는 공통 CLI incremental helper를 통해 scan → dirty detect → refs.to_file reverse invalidation → output generation → index refresh 순서를 공유. 기존 `dev` watch command는 private downstream 결합 제거 시 공개 registry에서 폐기했다.
 단발 validate/typegen 기본 실행은 SQLite를 사용하지 않는 full rebuild 출력 경로로 유지하며, 증분 CLI 테스트에서 full rebuild 출력과 일치함을 검증.
 
 ### [x] codegen CLI: dirty detection and dependency invalidation primitive

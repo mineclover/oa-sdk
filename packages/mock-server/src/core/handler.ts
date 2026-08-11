@@ -9,7 +9,7 @@
 
 import type { OasCallback, OasParameter, OasRequestBody, OasResponse, OasSecurityScheme, OasSecurityRequirement } from '@oa-sdk/parser'
 import { validateRequest, type RequestParts } from './request-validator.js'
-import { pickResponse, type PickedResponse } from './response-picker.js'
+import { pickResponse, validatePickedResponse, type PickedResponse } from './response-picker.js'
 import { simulateCallbackPosts, type CallbackPostAttempt } from './callbacks.js'
 import type { MockErrorResponse } from '../errors/types.js'
 
@@ -88,6 +88,27 @@ export function handleRequest(
       type: 'no-response',
       status: 500,
       body: { error: { code: 'NOT_FOUND', message: '응답 스키마가 정의되지 않았습니다', details: [] } },
+    }
+  }
+
+  const responseValidation = validatePickedResponse(picked)
+  if (!responseValidation.valid) {
+    const compileError = responseValidation.errors.some(error => error.code === 'SCHEMA_COMPILE_ERROR')
+    return {
+      type: 'schema-error',
+      status: 500,
+      body: {
+        error: {
+          code: compileError ? 'SCHEMA_COMPILE_ERROR' : 'CONSTRAINT_VIOLATION',
+          message: compileError ? '응답 검증 스키마 컴파일 실패' : '생성된 응답이 응답 스키마를 만족하지 않습니다',
+          details: responseValidation.errors,
+          _meta: {
+            ...(entry.operationId !== undefined && { operationId: entry.operationId }),
+            method: entry.method,
+            path: entry.openApiPath,
+          },
+        },
+      },
     }
   }
 

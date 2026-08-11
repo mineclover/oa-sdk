@@ -14,9 +14,11 @@ export { zodToSchema } from './zod-to-schema.js'
 export { generateComponents } from './generator.js'
 export { defineConfig } from './config.js'
 export { analyzeExternalSchemaRefs, generateTypes, generateTypesFromSpec } from './typegen/generate-types.js'
-export { schemaToTs } from './typegen/schema-to-ts.js'
+export { createTypescriptAlgebra, schemaToTs } from './typegen/schema-to-ts.js'
+export { analyzeSchemaFidelity, projectSchemaToTs } from './typegen/schema-fidelity.js'
 export { createMemoryWorkspaceIndex, createNoopWorkspaceIndex, createWorkspaceIndex } from './workspace-index.js'
 export { createSQLiteWorkspaceIndex, SQLITE_WORKSPACE_INDEX_SCHEMA_VERSION } from './sqlite-workspace-index.js'
+export { createMemoryTypeRegistry, createNoopTypeRegistry } from './type-registry.js'
 export {
   createOpenApiCollectReport,
   normalizeOpenApiDocument,
@@ -90,6 +92,27 @@ export type {
 export type { CodegenConfig } from './config.js'
 export type { ExternalSchemaRefAnalysis, ExternalSchemaRefDiagnostic, ExternalSchemaRefDiagnosticCode, ExternalSchemaTypeAlias, TypegenOptions } from './typegen/generate-types.js'
 export type { SchemaToTsOptions } from './typegen/schema-to-ts.js'
+export type {
+  SchemaToTsProjection,
+  TypegenFidelity,
+  TypegenFidelityAnalysis,
+  TypegenFidelityDiagnostic,
+  TypegenFidelityDiagnosticCode,
+} from './typegen/schema-fidelity.js'
+export type {
+  TypeArtifactFilter,
+  TypeArtifactRecord,
+  TypeBoundaryFilter,
+  TypeBoundaryRecord,
+  TypeDeclarationFilter,
+  TypeDeclarationRecord,
+  TypeExposureFilter,
+  TypeExposureRecord,
+  TypeRegistry,
+  TypeRegistrySnapshot,
+  TypeRelationFilter,
+  TypeRelationRecord,
+} from './type-registry.js'
 export type { OutputOptions, NamedSchema, CodegenResult } from './types.js'
 export type { DrizzleCodegenOptions } from './drizzle/index.js'
 export type {

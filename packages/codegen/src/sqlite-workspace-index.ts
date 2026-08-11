@@ -3,6 +3,20 @@ import { existsSync, mkdirSync, rmSync, statSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { dirname, join } from 'node:path'
 import type {
+  TypeArtifactFilter,
+  TypeArtifactRecord,
+  TypeBoundaryFilter,
+  TypeBoundaryRecord,
+  TypeDeclarationFilter,
+  TypeDeclarationRecord,
+  TypeExposureFilter,
+  TypeExposureRecord,
+  TypeRegistrySnapshot,
+  TypeRelationFilter,
+  TypeRelationRecord,
+  WorkspaceTypeFileIndexData,
+} from './type-registry.js'
+import type {
   WorkspaceComponentFilter,
   WorkspaceComponentRecord,
   WorkspaceDiagnosticFilter,
@@ -20,7 +34,7 @@ import type {
   WorkspaceTypeAliasRecord,
 } from './workspace-index.js'
 
-export const SQLITE_WORKSPACE_INDEX_SCHEMA_VERSION = 1
+export const SQLITE_WORKSPACE_INDEX_SCHEMA_VERSION = 2
 
 export type SQLiteWorkspaceIndexOptions = {
   cacheDir?: string
@@ -296,6 +310,198 @@ class NodeSQLiteWorkspaceIndex implements SQLiteWorkspaceIndex {
     })
   }
 
+  replaceTypeFileIndex(filePath: string, data: WorkspaceTypeFileIndexData): void {
+    this.write(() => {
+      const db = this.database()
+      db.prepare('DELETE FROM type_exposures WHERE file_path = ?').run(filePath)
+      db.prepare('DELETE FROM type_boundaries WHERE file_path = ?').run(filePath)
+      db.prepare('DELETE FROM type_relations WHERE file_path = ?').run(filePath)
+      db.prepare('DELETE FROM type_declarations WHERE file_path = ?').run(filePath)
+      db.prepare('DELETE FROM type_artifacts WHERE file_path = ?').run(filePath)
+
+      const insertArtifact = db.prepare(`
+        INSERT INTO type_artifacts (
+          artifact_id,
+          file_path,
+          package_name,
+          logical_module,
+          runtime,
+          origin,
+          role,
+          content_hash,
+          compiler_version,
+          tsconfig_hash,
+          generator_id,
+          generator_version,
+          generator_input_hash
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `)
+      for (const artifact of data.artifacts ?? []) {
+        insertArtifact.run(
+          artifact.artifactId,
+          artifact.filePath,
+          artifact.packageName ?? null,
+          artifact.logicalModule ?? null,
+          artifact.runtime,
+          artifact.origin,
+          artifact.role,
+          artifact.contentHash,
+          artifact.compilerVersion ?? null,
+          artifact.tsconfigHash ?? null,
+          artifact.generatorId ?? null,
+          artifact.generatorVersion ?? null,
+          artifact.generatorInputHash ?? null,
+        )
+      }
+
+      const insertDeclaration = db.prepare(`
+        INSERT INTO type_declarations (
+          declaration_id,
+          artifact_id,
+          file_path,
+          symbol_name,
+          qualified_name,
+          kind,
+          exported,
+          generic_arity,
+          line,
+          column,
+          end_line,
+          end_column,
+          syntax_hash,
+          shape_hash,
+          semantic_hash,
+          canonical_ir
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `)
+      for (const declaration of data.declarations ?? []) {
+        insertDeclaration.run(
+          declaration.declarationId,
+          declaration.artifactId,
+          declaration.filePath,
+          declaration.symbolName,
+          declaration.qualifiedName,
+          declaration.kind,
+          declaration.exported ? 1 : 0,
+          declaration.genericArity,
+          declaration.line,
+          declaration.column,
+          declaration.endLine,
+          declaration.endColumn,
+          declaration.syntaxHash,
+          declaration.shapeHash,
+          declaration.semanticHash,
+          declaration.canonicalIr,
+        )
+      }
+
+      const insertRelation = db.prepare(`
+        INSERT INTO type_relations (
+          relation_id,
+          file_path,
+          from_declaration_id,
+          kind,
+          to_declaration_id,
+          target_specifier,
+          target_symbol,
+          type_only,
+          resolved,
+          export_mapped
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `)
+      for (const relation of data.relations ?? []) {
+        insertRelation.run(
+          relation.relationId,
+          relation.filePath,
+          relation.fromDeclarationId ?? null,
+          relation.kind,
+          relation.toDeclarationId ?? null,
+          relation.targetSpecifier ?? null,
+          relation.targetSymbol ?? null,
+          relation.typeOnly === undefined ? null : relation.typeOnly ? 1 : 0,
+          relation.resolved ? 1 : 0,
+          relation.exportMapped === undefined ? null : relation.exportMapped ? 1 : 0,
+        )
+      }
+
+      const insertBoundary = db.prepare(`
+        INSERT INTO type_boundaries (
+          boundary_id,
+          file_path,
+          line,
+          column,
+          kind,
+          source_type,
+          target_type,
+          validator_symbol,
+          suppression
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `)
+      for (const boundary of data.boundaries ?? []) {
+        insertBoundary.run(
+          boundary.boundaryId,
+          boundary.filePath,
+          boundary.line,
+          boundary.column,
+          boundary.kind,
+          boundary.sourceType ?? null,
+          boundary.targetType ?? null,
+          boundary.validatorSymbol ?? null,
+          boundary.suppression ?? null,
+        )
+      }
+
+      const insertExposure = db.prepare(`
+        INSERT INTO type_exposures (
+          exposure_id,
+          declaration_id,
+          file_path,
+          package_name,
+          export_key,
+          export_name,
+          local_name,
+          target_specifier,
+          runtime,
+          kind,
+          reexport
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `)
+      for (const exposure of data.exposures ?? []) {
+        insertExposure.run(
+          exposure.exposureId,
+          exposure.declarationId ?? null,
+          exposure.filePath,
+          exposure.packageName ?? null,
+          exposure.exportKey,
+          exposure.exportName,
+          exposure.localName ?? null,
+          exposure.targetSpecifier ?? null,
+          exposure.runtime,
+          exposure.kind,
+          exposure.reexport ? 1 : 0,
+        )
+      }
+    })
+  }
+
+  invalidateTypeFiles(filePaths: readonly string[]): void {
+    this.write(() => {
+      const db = this.database()
+      const deleteExposure = db.prepare('DELETE FROM type_exposures WHERE file_path = ?')
+      const deleteBoundary = db.prepare('DELETE FROM type_boundaries WHERE file_path = ?')
+      const deleteRelation = db.prepare('DELETE FROM type_relations WHERE file_path = ?')
+      const deleteDeclaration = db.prepare('DELETE FROM type_declarations WHERE file_path = ?')
+      const deleteArtifact = db.prepare('DELETE FROM type_artifacts WHERE file_path = ?')
+      for (const filePath of filePaths) {
+        deleteExposure.run(filePath)
+        deleteBoundary.run(filePath)
+        deleteRelation.run(filePath)
+        deleteDeclaration.run(filePath)
+        deleteArtifact.run(filePath)
+      }
+    })
+  }
+
   invalidateFiles(filePaths: readonly string[]): void {
     this.write(() => {
       const deleteFile = this.database().prepare('DELETE FROM files WHERE file_path = ?')
@@ -373,6 +579,98 @@ class NodeSQLiteWorkspaceIndex implements SQLiteWorkspaceIndex {
         matchesOptional(filter.sourceFile, alias.sourceFile)
         && matchesOptional(filter.aliasName, alias.aliasName)
       ), [])
+  }
+
+  listTypeArtifacts(filter: TypeArtifactFilter = {}): TypeArtifactRecord[] {
+    return this.read(() => this.database()
+      .prepare('SELECT * FROM type_artifacts ORDER BY artifact_id')
+      .all()
+      .map(typeArtifactFromRow)
+      .filter(artifact =>
+        matchesOptional(filter.filePath, artifact.filePath)
+        && matchesOptional(filter.packageName, artifact.packageName)
+        && matchesOptional(filter.runtime, artifact.runtime)
+        && matchesOptional(filter.origin, artifact.origin)
+        && matchesOptional(filter.role, artifact.role)
+      ), [])
+  }
+
+  listTypeDeclarations(filter: TypeDeclarationFilter = {}): TypeDeclarationRecord[] {
+    return this.read(() => this.database()
+      .prepare('SELECT * FROM type_declarations ORDER BY declaration_id')
+      .all()
+      .map(typeDeclarationFromRow)
+      .filter(declaration =>
+        matchesOptional(filter.artifactId, declaration.artifactId)
+        && matchesOptional(filter.filePath, declaration.filePath)
+        && matchesOptional(filter.symbolName, declaration.symbolName)
+        && matchesOptional(filter.kind, declaration.kind)
+        && matchesOptional(filter.exported, declaration.exported)
+        && matchesOptional(filter.shapeHash, declaration.shapeHash)
+        && matchesOptional(filter.semanticHash, declaration.semanticHash)
+      ), [])
+  }
+
+  listTypeRelations(filter: TypeRelationFilter = {}): TypeRelationRecord[] {
+    return this.read(() => this.database()
+      .prepare('SELECT * FROM type_relations ORDER BY relation_id')
+      .all()
+      .map(typeRelationFromRow)
+      .filter(relation =>
+        matchesOptional(filter.filePath, relation.filePath)
+        && matchesOptional(filter.fromDeclarationId, relation.fromDeclarationId)
+        && matchesOptional(filter.kind, relation.kind)
+        && matchesOptional(filter.toDeclarationId, relation.toDeclarationId)
+        && matchesOptional(filter.targetSpecifier, relation.targetSpecifier)
+      ), [])
+  }
+
+  listTypeBoundaries(filter: TypeBoundaryFilter = {}): TypeBoundaryRecord[] {
+    return this.read(() => this.database()
+      .prepare('SELECT * FROM type_boundaries ORDER BY boundary_id')
+      .all()
+      .map(typeBoundaryFromRow)
+      .filter(boundary =>
+        matchesOptional(filter.filePath, boundary.filePath)
+        && matchesOptional(filter.kind, boundary.kind)
+      ), [])
+  }
+
+  listTypeExposures(filter: TypeExposureFilter = {}): TypeExposureRecord[] {
+    return this.read(() => this.database()
+      .prepare('SELECT * FROM type_exposures ORDER BY exposure_id')
+      .all()
+      .map(typeExposureFromRow)
+      .filter(exposure =>
+        matchesOptional(filter.filePath, exposure.filePath)
+        && matchesOptional(filter.packageName, exposure.packageName)
+        && matchesOptional(filter.exportKey, exposure.exportKey)
+        && matchesOptional(filter.exportName, exposure.exportName)
+        && matchesOptional(filter.runtime, exposure.runtime)
+        && matchesOptional(filter.kind, exposure.kind)
+      ), [])
+  }
+
+  clearTypes(): void {
+    this.write(() => {
+      this.database().exec(`
+        DELETE FROM type_exposures;
+        DELETE FROM type_boundaries;
+        DELETE FROM type_relations;
+        DELETE FROM type_declarations;
+        DELETE FROM type_artifacts;
+      `)
+    })
+  }
+
+  snapshotTypes(): TypeRegistrySnapshot {
+    return {
+      artifacts: this.listTypeArtifacts(),
+      declarations: this.listTypeDeclarations(),
+      relations: this.listTypeRelations(),
+      boundaries: this.listTypeBoundaries(),
+      exposures: this.listTypeExposures(),
+    }
   }
 
   clear(): void {
@@ -528,6 +826,113 @@ class NodeSQLiteWorkspaceIndex implements SQLiteWorkspaceIndex {
 
       CREATE INDEX IF NOT EXISTS type_aliases_source_alias_idx
         ON type_aliases(source_file, alias_name);
+
+      CREATE TABLE IF NOT EXISTS type_artifacts (
+        artifact_id TEXT PRIMARY KEY,
+        file_path TEXT NOT NULL,
+        package_name TEXT,
+        logical_module TEXT,
+        runtime TEXT NOT NULL,
+        origin TEXT NOT NULL,
+        role TEXT NOT NULL,
+        content_hash TEXT NOT NULL,
+        compiler_version TEXT,
+        tsconfig_hash TEXT,
+        generator_id TEXT,
+        generator_version TEXT,
+        generator_input_hash TEXT,
+        FOREIGN KEY(file_path) REFERENCES files(file_path) ON DELETE CASCADE
+      );
+
+      CREATE INDEX IF NOT EXISTS type_artifacts_file_idx
+        ON type_artifacts(file_path);
+
+      CREATE INDEX IF NOT EXISTS type_artifacts_package_runtime_idx
+        ON type_artifacts(package_name, runtime, origin);
+
+      CREATE TABLE IF NOT EXISTS type_declarations (
+        declaration_id TEXT PRIMARY KEY,
+        artifact_id TEXT NOT NULL,
+        file_path TEXT NOT NULL,
+        symbol_name TEXT NOT NULL,
+        qualified_name TEXT NOT NULL,
+        kind TEXT NOT NULL,
+        exported INTEGER NOT NULL,
+        generic_arity INTEGER NOT NULL,
+        line INTEGER NOT NULL,
+        column INTEGER NOT NULL,
+        end_line INTEGER NOT NULL,
+        end_column INTEGER NOT NULL,
+        syntax_hash TEXT NOT NULL,
+        shape_hash TEXT NOT NULL,
+        semantic_hash TEXT NOT NULL,
+        canonical_ir TEXT NOT NULL,
+        FOREIGN KEY(artifact_id) REFERENCES type_artifacts(artifact_id) ON DELETE CASCADE,
+        FOREIGN KEY(file_path) REFERENCES files(file_path) ON DELETE CASCADE
+      );
+
+      CREATE INDEX IF NOT EXISTS type_declarations_file_symbol_idx
+        ON type_declarations(file_path, symbol_name);
+
+      CREATE INDEX IF NOT EXISTS type_declarations_shape_idx
+        ON type_declarations(shape_hash);
+
+      CREATE INDEX IF NOT EXISTS type_declarations_semantic_idx
+        ON type_declarations(semantic_hash);
+
+      CREATE TABLE IF NOT EXISTS type_relations (
+        relation_id TEXT PRIMARY KEY,
+        file_path TEXT NOT NULL,
+        from_declaration_id TEXT,
+        kind TEXT NOT NULL,
+        to_declaration_id TEXT,
+        target_specifier TEXT,
+        target_symbol TEXT,
+        type_only INTEGER,
+        resolved INTEGER NOT NULL,
+        export_mapped INTEGER,
+        FOREIGN KEY(file_path) REFERENCES files(file_path) ON DELETE CASCADE
+      );
+
+      CREATE INDEX IF NOT EXISTS type_relations_from_idx
+        ON type_relations(from_declaration_id, kind);
+
+      CREATE INDEX IF NOT EXISTS type_relations_target_idx
+        ON type_relations(to_declaration_id, target_specifier);
+
+      CREATE TABLE IF NOT EXISTS type_boundaries (
+        boundary_id TEXT PRIMARY KEY,
+        file_path TEXT NOT NULL,
+        line INTEGER NOT NULL,
+        column INTEGER NOT NULL,
+        kind TEXT NOT NULL,
+        source_type TEXT,
+        target_type TEXT,
+        validator_symbol TEXT,
+        suppression TEXT,
+        FOREIGN KEY(file_path) REFERENCES files(file_path) ON DELETE CASCADE
+      );
+
+      CREATE INDEX IF NOT EXISTS type_boundaries_file_kind_idx
+        ON type_boundaries(file_path, kind);
+
+      CREATE TABLE IF NOT EXISTS type_exposures (
+        exposure_id TEXT PRIMARY KEY,
+        declaration_id TEXT,
+        file_path TEXT NOT NULL,
+        package_name TEXT,
+        export_key TEXT NOT NULL,
+        export_name TEXT NOT NULL,
+        local_name TEXT,
+        target_specifier TEXT,
+        runtime TEXT NOT NULL,
+        kind TEXT NOT NULL,
+        reexport INTEGER NOT NULL,
+        FOREIGN KEY(file_path) REFERENCES files(file_path) ON DELETE CASCADE
+      );
+
+      CREATE INDEX IF NOT EXISTS type_exposures_surface_idx
+        ON type_exposures(package_name, export_key, runtime, export_name);
     `)
   }
 
@@ -537,6 +942,22 @@ class NodeSQLiteWorkspaceIndex implements SQLiteWorkspaceIndex {
     const existingDriverName = this.readMeta('driver_name')
 
     if (existingSchemaVersion === undefined && existingCompatibilityHash === undefined) {
+      this.write(() => {
+        this.writeCurrentMeta()
+      })
+      return
+    }
+
+    const driverCompatible = existingDriverName === undefined || existingDriverName === this.driverName
+    const isAdditiveTypeRegistryUpgrade = existingSchemaVersion === '1'
+      && this.schemaVersion === SQLITE_WORKSPACE_INDEX_SCHEMA_VERSION
+      && SQLITE_WORKSPACE_INDEX_SCHEMA_VERSION === 2
+      && existingCompatibilityHash === this.compatibilityHash
+      && driverCompatible
+
+    if (isAdditiveTypeRegistryUpgrade) {
+      // Schema v2 only adds Type Registry tables. initializeSchema() has already
+      // created them, so retain the existing OpenAPI cache rows and advance meta.
       this.write(() => {
         this.writeCurrentMeta()
       })
@@ -579,6 +1000,11 @@ class NodeSQLiteWorkspaceIndex implements SQLiteWorkspaceIndex {
   private clearData(): void {
     const db = this.database()
     db.exec(`
+      DELETE FROM type_exposures;
+      DELETE FROM type_boundaries;
+      DELETE FROM type_relations;
+      DELETE FROM type_declarations;
+      DELETE FROM type_artifacts;
       DELETE FROM type_aliases;
       DELETE FROM diagnostics;
       DELETE FROM source_locations;
@@ -645,7 +1071,8 @@ export function loadSqliteDriver(): SqliteDriver {
   // Prefer node:sqlite (built-in, no native compilation, ~40% faster on the
   // warm-cache workload that dominates incremental tool runs — see
   // packages/codegen/scripts/bench-sqlite-driver.ts). Fall back to
-  // better-sqlite3 when running on Node <22 where node:sqlite is unavailable.
+  // better-sqlite3 when node:sqlite is unavailable (for example, Node <22.5
+  // or Node 22.5–22.12 without --experimental-sqlite).
   const errors: string[] = []
 
   try {
@@ -787,6 +1214,94 @@ function typeAliasFromRow(row: Record<string, unknown>): WorkspaceTypeAliasRecor
   return record
 }
 
+function typeArtifactFromRow(row: Record<string, unknown>): TypeArtifactRecord {
+  const record: TypeArtifactRecord = {
+    artifactId: requireString(row, 'artifact_id'),
+    filePath: requireString(row, 'file_path'),
+    runtime: requireString(row, 'runtime') as TypeArtifactRecord['runtime'],
+    origin: requireString(row, 'origin') as TypeArtifactRecord['origin'],
+    role: requireString(row, 'role') as TypeArtifactRecord['role'],
+    contentHash: requireString(row, 'content_hash'),
+  }
+  assignOptionalString(record, 'packageName', row.package_name)
+  assignOptionalString(record, 'logicalModule', row.logical_module)
+  assignOptionalString(record, 'compilerVersion', row.compiler_version)
+  assignOptionalString(record, 'tsconfigHash', row.tsconfig_hash)
+  assignOptionalString(record, 'generatorId', row.generator_id)
+  assignOptionalString(record, 'generatorVersion', row.generator_version)
+  assignOptionalString(record, 'generatorInputHash', row.generator_input_hash)
+  return record
+}
+
+function typeDeclarationFromRow(row: Record<string, unknown>): TypeDeclarationRecord {
+  return {
+    declarationId: requireString(row, 'declaration_id'),
+    artifactId: requireString(row, 'artifact_id'),
+    filePath: requireString(row, 'file_path'),
+    symbolName: requireString(row, 'symbol_name'),
+    qualifiedName: requireString(row, 'qualified_name'),
+    kind: requireString(row, 'kind') as TypeDeclarationRecord['kind'],
+    exported: requireNumber(row, 'exported') === 1,
+    genericArity: requireNumber(row, 'generic_arity'),
+    line: requireNumber(row, 'line'),
+    column: requireNumber(row, 'column'),
+    endLine: requireNumber(row, 'end_line'),
+    endColumn: requireNumber(row, 'end_column'),
+    syntaxHash: requireString(row, 'syntax_hash'),
+    shapeHash: requireString(row, 'shape_hash'),
+    semanticHash: requireString(row, 'semantic_hash'),
+    canonicalIr: requireString(row, 'canonical_ir'),
+  }
+}
+
+function typeRelationFromRow(row: Record<string, unknown>): TypeRelationRecord {
+  const record: TypeRelationRecord = {
+    relationId: requireString(row, 'relation_id'),
+    filePath: requireString(row, 'file_path'),
+    kind: requireString(row, 'kind') as TypeRelationRecord['kind'],
+    resolved: requireNumber(row, 'resolved') === 1,
+  }
+  assignOptionalString(record, 'fromDeclarationId', row.from_declaration_id)
+  assignOptionalString(record, 'toDeclarationId', row.to_declaration_id)
+  assignOptionalString(record, 'targetSpecifier', row.target_specifier)
+  assignOptionalString(record, 'targetSymbol', row.target_symbol)
+  assignOptionalBoolean(record, 'typeOnly', row.type_only)
+  assignOptionalBoolean(record, 'exportMapped', row.export_mapped)
+  return record
+}
+
+function typeBoundaryFromRow(row: Record<string, unknown>): TypeBoundaryRecord {
+  const record: TypeBoundaryRecord = {
+    boundaryId: requireString(row, 'boundary_id'),
+    filePath: requireString(row, 'file_path'),
+    line: requireNumber(row, 'line'),
+    column: requireNumber(row, 'column'),
+    kind: requireString(row, 'kind') as TypeBoundaryRecord['kind'],
+  }
+  assignOptionalString(record, 'sourceType', row.source_type)
+  assignOptionalString(record, 'targetType', row.target_type)
+  assignOptionalString(record, 'validatorSymbol', row.validator_symbol)
+  assignOptionalString(record, 'suppression', row.suppression)
+  return record
+}
+
+function typeExposureFromRow(row: Record<string, unknown>): TypeExposureRecord {
+  const record: TypeExposureRecord = {
+    exposureId: requireString(row, 'exposure_id'),
+    filePath: requireString(row, 'file_path'),
+    exportKey: requireString(row, 'export_key'),
+    exportName: requireString(row, 'export_name'),
+    runtime: requireString(row, 'runtime') as TypeExposureRecord['runtime'],
+    kind: requireString(row, 'kind') as TypeExposureRecord['kind'],
+    reexport: requireNumber(row, 'reexport') === 1,
+  }
+  assignOptionalString(record, 'declarationId', row.declaration_id)
+  assignOptionalString(record, 'packageName', row.package_name)
+  assignOptionalString(record, 'localName', row.local_name)
+  assignOptionalString(record, 'targetSpecifier', row.target_specifier)
+  return record
+}
+
 function requireString(row: Record<string, unknown>, key: string): string {
   const value = row[key]
   if (typeof value !== 'string') throw new Error(`Expected SQLite column ${key} to be a string`)
@@ -811,6 +1326,14 @@ function assignOptionalNumber<T extends object, K extends keyof T>(target: T, ke
     ;(target as Record<K, number>)[key] = value
   } else if (typeof value === 'bigint') {
     ;(target as Record<K, number>)[key] = Number(value)
+  }
+}
+
+function assignOptionalBoolean<T extends object, K extends keyof T>(target: T, key: K, value: unknown): void {
+  if (typeof value === 'number') {
+    ;(target as Record<K, boolean>)[key] = value === 1
+  } else if (typeof value === 'bigint') {
+    ;(target as Record<K, boolean>)[key] = value === 1n
   }
 }
 

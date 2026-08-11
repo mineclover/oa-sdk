@@ -19,92 +19,6 @@ import { foldSchema, type SchemaAlgebra, type OasSchema } from '@oa-sdk/parser/b
 import { escapeKey } from '@oa-sdk/core/browser'
 import { compareTypegenKeys } from './stable-order.js'
 
-export const typescriptAlgebra: SchemaAlgebra<string> = {
-  string:  (s) => withNullable(s, resolveStringType(s)),
-  integer: (s) => withNullable(s, s.enum
-    ? s.enum.map(v => String(v)).join(' | ')
-    : 'number'),
-  number:  (s) => withNullable(s, s.enum
-    ? s.enum.map(v => String(v)).join(' | ')
-    : 'number'),
-  boolean: (s) => withNullable(s, s.enum
-    ? s.enum.map(v => String(v)).join(' | ')
-    : s.const !== undefined ? String(s.const) : 'boolean'),
-  null:    () => 'null',
-
-  object(s, props) {
-    const required = new Set(s.required ?? [])
-    const propSchemas = (s.properties ?? {}) as Record<string, OasSchema>
-    const fields = Object.entries(props).sort(([left], [right]) => compareTypegenKeys(left, right)).map(([key, type]) => {
-      const opt = required.has(key) ? '' : '?'
-      const ps = propSchemas[key] as OasSchema & Record<string, unknown> | undefined
-      const ro = ps?.readOnly ? 'readonly ' : ''
-      const jsdoc = buildPropJSDoc(ps)
-      return `${jsdoc}  ${ro}${escapeKey(key)}${opt}: ${type}`
-    })
-
-    // additionalProperties is the OAS 3.0/3.1 spelling. TypeSpec's OAS 3.2
-    // emitter uses unevaluatedProperties for Record<T>; preserve that value
-    // shape instead of widening generated maps to Record<string, unknown>.
-    const addProps = s.additionalProperties ?? s.unevaluatedProperties
-    if (addProps === true) {
-      if (fields.length === 0) return 'Record<string, unknown>'
-      fields.push('  [key: string]: unknown')
-    } else if (addProps && typeof addProps === 'object' && !isNeverSchema(addProps)) {
-      const addType = foldSchema(addProps as OasSchema, typescriptAlgebra)
-      if (fields.length === 0) return `Record<string, ${addType}>`
-      fields.push(`  [key: string]: ${addType}`)
-    }
-
-    if (fields.length === 0) return 'Record<string, unknown>'
-    return `{\n${fields.join('\n')}\n}`
-  },
-
-  array(s, items) {
-    // tuple (prefixItems)
-    if (s.prefixItems?.length) {
-      const prefix = s.prefixItems.map(p => foldSchema(p, typescriptAlgebra))
-      if (s.items) {
-        return `[${prefix.join(', ')}, ...${items ?? 'unknown'}[]]`
-      }
-      return `[${prefix.join(', ')}]`
-    }
-    const inner = items ?? 'unknown'
-    // union이면 괄호
-    return inner.includes('|') ? `(${inner})[]` : `${inner}[]`
-  },
-
-  allOf(_, branches) {
-    if (branches.length === 0) return 'unknown'
-    if (branches.length === 1) return branches[0]!
-    return branches.join(' & ')
-  },
-
-  oneOf(_, branches) {
-    if (branches.length === 0) return 'never'
-    if (branches.length === 1) return branches[0]!
-    return branches.join(' | ')
-  },
-
-  anyOf(_, branches) {
-    if (branches.length === 0) return 'unknown'
-    if (branches.length === 1) return branches[0]!
-    return branches.join(' | ')
-  },
-
-  ref(r) {
-    const override = _options.refNameOverrides?.[r]
-    if (override) return override
-    // #/components/schemas/User → User
-    const name = r.split('/').pop()
-    return name ?? 'unknown'
-  },
-
-  example() { return 'unknown' },
-  default_() { return 'unknown' },
-  fallback() { return 'unknown' },
-}
-
 /**
  * OAS Schema → TypeScript 타입 문자열
  *
@@ -118,33 +32,133 @@ export type SchemaToTsOptions = {
   refNameOverrides?: Record<string, string>
 }
 
-/** 현재 변환 옵션 — createTypescriptAlgebra에서 설정 */
-let _options: SchemaToTsOptions = {}
+/**
+ * 독립적인 OAS Schema → TypeScript algebra를 만든다.
+ *
+ * 옵션과 재귀 참조는 반환된 인스턴스의 closure에만 존재하므로 서로 다른
+ * typegen 호출이나 직접 `foldSchema()` 소비자 사이에 상태가 공유되지 않는다.
+ */
+export function createTypescriptAlgebra(options: SchemaToTsOptions = {}): SchemaAlgebra<string> {
+  const includeAnnotations = options.includeAnnotations === true
+  const refNameOverrides = { ...options.refNameOverrides }
+  const algebra: SchemaAlgebra<string> = {
+    string:  (s) => withNullable(s, resolveStringType(s)),
+    integer: (s) => withNullable(s, s.enum
+      ? s.enum.map(v => String(v)).join(' | ')
+      : 'number'),
+    number:  (s) => withNullable(s, s.enum
+      ? s.enum.map(v => String(v)).join(' | ')
+      : 'number'),
+    boolean: (s) => withNullable(s, s.enum
+      ? s.enum.map(v => String(v)).join(' | ')
+      : s.const !== undefined ? String(s.const) : 'boolean'),
+    null:    () => 'null',
+
+    object(s, props) {
+      const required = new Set(s.required ?? [])
+      const propSchemas = (s.properties ?? {}) as Record<string, OasSchema>
+      const sortedProps = Object.entries(props)
+        .sort(([left], [right]) => compareTypegenKeys(left, right))
+      const fields = sortedProps.map(([key, type]) => {
+        const opt = required.has(key) ? '' : '?'
+        const ps = propSchemas[key] as OasSchema & Record<string, unknown> | undefined
+        const ro = ps?.readOnly ? 'readonly ' : ''
+        const jsdoc = buildPropJSDoc(ps, includeAnnotations)
+        return `${jsdoc}  ${ro}${escapeKey(key)}${opt}: ${type}`
+      })
+
+      // additionalProperties is the OAS 3.0/3.1 spelling. TypeSpec's OAS 3.2
+      // emitter uses unevaluatedProperties for Record<T>; preserve that value
+      // shape instead of widening generated maps to Record<string, unknown>.
+      const addProps = s.additionalProperties ?? s.unevaluatedProperties
+      if (addProps === true) {
+        if (fields.length === 0) return 'Record<string, unknown>'
+        fields.push('  [key: string]: unknown')
+      } else if (addProps && typeof addProps === 'object' && !isNeverSchema(addProps)) {
+        const addType = foldSchema(addProps as OasSchema, algebra)
+        if (fields.length === 0) return `Record<string, ${addType}>`
+        const indexType = widenIndexSignatureType(addType, sortedProps, required)
+        fields.push(`  [key: string]: ${indexType}`)
+      }
+
+      if (fields.length === 0) return 'Record<string, unknown>'
+      return `{\n${fields.join('\n')}\n}`
+    },
+
+    array(s, items) {
+      // tuple (prefixItems)
+      if (s.prefixItems?.length) {
+        const prefix = s.prefixItems.map(p => foldSchema(p, algebra))
+        if (s.items) {
+          return `[${prefix.join(', ')}, ...${toArrayType(items ?? 'unknown')}]`
+        }
+        return `[${prefix.join(', ')}]`
+      }
+      return toArrayType(items ?? 'unknown')
+    },
+
+    allOf(s, branches) {
+      const base = foldCompositionSiblings(s, ['allOf'], algebra)
+      return joinIntersection(base ? [base, ...branches] : branches, 'unknown')
+    },
+
+    oneOf(s, branches) {
+      const union = joinUnion(branches, 'never')
+      const base = foldCompositionSiblings(s, ['oneOf'], algebra)
+      return base ? joinIntersection([base, union], 'never') : union
+    },
+
+    anyOf(s, branches) {
+      const union = joinUnion(branches, 'unknown')
+      const omittedKeys = s.then || s.else
+        ? ['anyOf', 'if', 'then', 'else'] as const
+        : ['anyOf'] as const
+      const base = foldCompositionSiblings(s, omittedKeys, algebra)
+      return base ? joinIntersection([base, union], 'unknown') : union
+    },
+
+    typeUnion(s, branches) {
+      if (s.enum) {
+        const allowedValues = s.enum.filter(value => schemaTypeArrayAccepts(s.type, value))
+        return joinUnion(allowedValues.map(literalToTs), 'never')
+      }
+      if (s.const !== undefined) {
+        return schemaTypeArrayAccepts(s.type, s.const) ? literalToTs(s.const) : 'never'
+      }
+      return joinUnion(branches, 'never')
+    },
+
+    ref(r) {
+      const override = refNameOverrides[r]
+      if (override) return override
+      // #/components/schemas/User → User
+      const name = r.split('/').pop()
+      return name ?? 'unknown'
+    },
+
+    example() { return 'unknown' },
+    default_() { return 'unknown' },
+    fallback(node) {
+      if (node && typeof node === 'object' && !Array.isArray(node)) {
+        const schema = node as OasSchema
+        if (schema.enum) return schema.enum.map(literalToTs).join(' | ')
+        if (schema.const !== undefined) return literalToTs(schema.const)
+        if (isNeverSchema(schema)) return 'never'
+      }
+      return 'unknown'
+    },
+  }
+
+  return algebra
+}
+
+/** 기본 옵션을 사용하는 상태 없는 호환 algebra. */
+export const typescriptAlgebra: SchemaAlgebra<string> = createTypescriptAlgebra()
 
 export function schemaToTs(schema: OasSchema, options?: SchemaToTsOptions): string {
-  _options = options ?? {}
   // example/default 제거 — 타입 생성에서는 타입 정보만 사용
   const clean = stripExamples(schema)
-
-  // type 배열 (nullable 등): ['string', 'null'] → string | null
-  if (Array.isArray(clean.type)) {
-    const types = clean.type.map(t => {
-      if (t === 'null') return 'null'
-      return foldSchema({ ...clean, type: t }, typescriptAlgebra)
-    })
-    return types.join(' | ')
-  }
-
-  // enum
-  if (clean.enum) {
-    return clean.enum.map(v => typeof v === 'string' ? `'${v}'` : String(v)).join(' | ')
-  }
-  // const
-  if (clean.const !== undefined) {
-    return typeof clean.const === 'string' ? `'${clean.const}'` : String(clean.const)
-  }
-
-  return foldSchema(clean, typescriptAlgebra)
+  return foldSchema(clean, createTypescriptAlgebra(options))
 }
 
 /** example/default 제거 + const 정규화 — 타입 정보만 남김 */
@@ -197,6 +211,128 @@ function isNeverSchema(schema: OasSchema | boolean): boolean {
 
 // ─── 헬퍼 ──────────────────────────────────────────────────────────────────
 
+const TYPE_PROJECTION_KEYS = new Set([
+  '$ref',
+  'type',
+  'const',
+  'enum',
+  'properties',
+  'required',
+  'items',
+  'prefixItems',
+  'additionalProperties',
+  'unevaluatedProperties',
+  'allOf',
+  'oneOf',
+  'anyOf',
+  'if',
+  'then',
+  'else',
+])
+
+function foldCompositionSiblings(
+  schema: OasSchema,
+  omittedKeys: readonly string[],
+  algebra: SchemaAlgebra<string>,
+): string | null {
+  const omitted = new Set(omittedKeys)
+  const siblingEntries = Object.entries(schema).filter(([key]) => !omitted.has(key))
+  if (!siblingEntries.some(([key]) => TYPE_PROJECTION_KEYS.has(key))) return null
+  const siblings = Object.fromEntries(siblingEntries) as OasSchema
+  inferCompositionSiblingType(siblings)
+  return foldSchema(siblings, algebra)
+}
+
+function inferCompositionSiblingType(schema: OasSchema): void {
+  if (schema.type !== undefined) return
+
+  if (schema.items !== undefined || schema.prefixItems !== undefined) {
+    schema.type = 'array'
+    return
+  }
+
+  const hasObjectShape = schema.properties !== undefined
+    || schema.required !== undefined
+    || schema.additionalProperties !== undefined
+    || schema.unevaluatedProperties !== undefined
+  if (!hasObjectShape) return
+
+  schema.type = 'object'
+  if (!schema.required?.length) return
+  const properties = { ...schema.properties }
+  for (const propertyName of schema.required) {
+    properties[propertyName] ??= {}
+  }
+  schema.properties = properties
+}
+
+function joinIntersection(types: readonly string[], emptyType: string): string {
+  const unique = uniqueTypes(types)
+  if (unique.length === 0) return emptyType
+  if (unique.length === 1) return unique[0]!
+  return unique.map(type => `(${type})`).join(' & ')
+}
+
+function joinUnion(types: readonly string[], emptyType: string): string {
+  const unique = uniqueTypes(types)
+  if (unique.length === 0) return emptyType
+  if (unique.length === 1) return unique[0]!
+  return unique.map(type => type.includes(' & ') ? `(${type})` : type).join(' | ')
+}
+
+function uniqueTypes(types: readonly string[]): string[] {
+  return [...new Set(types)]
+}
+
+function widenIndexSignatureType(
+  additionalType: string,
+  properties: ReadonlyArray<readonly [string, string]>,
+  required: ReadonlySet<string>,
+): string {
+  if (additionalType === 'unknown') return additionalType
+
+  const compatibleTypes = [additionalType]
+  let hasOptionalProperty = false
+  for (const [key, type] of properties) {
+    compatibleTypes.push(type)
+    if (!required.has(key)) hasOptionalProperty = true
+  }
+  if (hasOptionalProperty) compatibleTypes.push('undefined')
+  return joinUnion(compatibleTypes, additionalType)
+}
+
+function toArrayType(elementType: string): string {
+  return elementType.includes(' | ') || elementType.includes(' & ')
+    ? `(${elementType})[]`
+    : `${elementType}[]`
+}
+
+function literalToTs(value: unknown): string {
+  if (typeof value === 'string') {
+    return `'${value.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`
+  }
+  if (value === null) return 'null'
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value)
+  const serialized = JSON.stringify(value)
+  return serialized ?? 'unknown'
+}
+
+function schemaTypeArrayAccepts(types: string | string[] | undefined, value: unknown): boolean {
+  if (!Array.isArray(types)) return true
+  return types.some(type => {
+    switch (type) {
+      case 'array': return Array.isArray(value)
+      case 'boolean': return typeof value === 'boolean'
+      case 'integer': return typeof value === 'number' && Number.isInteger(value)
+      case 'null': return value === null
+      case 'number': return typeof value === 'number'
+      case 'object': return value !== null && typeof value === 'object' && !Array.isArray(value)
+      case 'string': return typeof value === 'string'
+      default: return false
+    }
+  })
+}
+
 /** type 배열에 'null'이 포함되면 nullable union 추가 */
 function withNullable(s: OasSchema, base: string): string {
   if (Array.isArray(s.type) && s.type.includes('null')) {
@@ -212,7 +348,10 @@ function resolveStringType(s: OasSchema): string {
 }
 
 /** 프로퍼티 스키마에서 JSDoc 주석 생성 (description + constraints + deprecated + annotations) */
-function buildPropJSDoc(ps: (OasSchema & Record<string, unknown>) | undefined): string {
+function buildPropJSDoc(
+  ps: (OasSchema & Record<string, unknown>) | undefined,
+  includeAnnotations: boolean,
+): string {
   if (!ps) return ''
   const tags: string[] = []
 
@@ -230,7 +369,7 @@ function buildPropJSDoc(ps: (OasSchema & Record<string, unknown>) | undefined): 
   if (ps.maxItems !== undefined) tags.push(`@maxItems ${ps.maxItems}`)
 
   // annotations (옵션: includeAnnotations)
-  if (_options.includeAnnotations && ps.annotations && typeof ps.annotations === 'object') {
+  if (includeAnnotations && ps.annotations && typeof ps.annotations === 'object') {
     const ann = ps.annotations as Record<string, unknown>
     if (ann.note) tags.push(`@note ${ann.note}`)
     if (ann.see) {

@@ -2,7 +2,6 @@ import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { generateClient } from '@oa-sdk/client'
 import type { OasDocument } from '@oa-sdk/parser'
 import { validateOpenApiProjection } from '@oa-sdk/openapi-projection-contract'
 import { buildSpec } from '../cli/lib/build-spec.js'
@@ -24,7 +23,7 @@ afterEach(() => {
 })
 
 describe('definition builder multi-target API generation', () => {
-  it('keeps public, admin, and internal OpenAPI/typegen/client surfaces separated', () => {
+  it('keeps public, admin, and internal OpenAPI/typegen surfaces separated', () => {
     const outputs = new Map(TARGETS.map(target => {
       const result = buildSpec({
         targetPath: resolve(schemasDir, 'targets', `${target.name}.yaml`),
@@ -33,7 +32,6 @@ describe('definition builder multi-target API generation', () => {
       })
       const document = result.document as OasDocument
       const types = generateTypesFromSpec(document)
-      const client = generateClient(document, { typesImport: './types' })
 
       expect(result.valid).toBe(true)
       expect(result.summary.errors).toBe(0)
@@ -42,9 +40,8 @@ describe('definition builder multi-target API generation', () => {
       expect(collectOperationIds(document)).toEqual([target.operationId])
       expect(types).toContain(`export type ${target.responseType}`)
       expect(types).toContain(`export type ${target.operationType}`)
-      expect(client).toContain(`async ${target.operationId}`)
 
-      return [target.name, { document, types, client }] as const
+      return [target.name, { document, types }] as const
     }))
 
     for (const target of TARGETS) {
@@ -55,7 +52,6 @@ describe('definition builder multi-target API generation', () => {
       for (const forbiddenOperationId of TARGETS
         .filter(candidate => candidate.name !== target.name)
         .map(candidate => candidate.operationId)) {
-        expect(output.client).not.toContain(`async ${forbiddenOperationId}`)
         expect(collectOperationIds(output.document)).not.toContain(forbiddenOperationId)
       }
 

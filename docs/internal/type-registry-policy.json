@@ -1,0 +1,53 @@
+{
+  "schemaVersion": "oa-sdk.type-registry-policy.v1",
+  "owner": "OA SDK maintainers",
+  "baselinePath": "docs/internal/type-registry-baseline.json",
+  "outputDirectory": ".oa-sdk/type-registry",
+  "workspaceRoots": [
+    "apps",
+    "packages"
+  ],
+  "sourceExtensions": [
+    ".cts",
+    ".d.ts",
+    ".mts",
+    ".ts",
+    ".tsx"
+  ],
+  "excludePatterns": [
+    "**/__tests__/**",
+    "**/dist/**",
+    "**/fixtures/**",
+    "**/node_modules/**",
+    "**/*.spec.ts",
+    "**/*.spec.tsx",
+    "**/*.test.ts",
+    "**/*.test.tsx"
+  ],
+  "generatedPatterns": [
+    "**/generated/**",
+    "**/*.generated.ts",
+    "**/*.generated.tsx"
+  ],
+  "boundaryBudgets": [
+    {
+      "rule": "boundary:any",
+      "maximum": 1,
+      "owner": "OA SDK maintainers",
+      "remediation": "Replace explicit any with a narrow generic, unknown plus validation, or a modeled protocol type."
+    },
+    {
+      "rule": "boundary:double-assertion",
+      "maximum": 22,
+      "owner": "OA SDK maintainers",
+      "remediation": "Remove the double assertion or validate the value before crossing the boundary."
+    },
+    {
+      "rule": "boundary:unvalidated-deserialize",
+      "maximum": 93,
+      "owner": "OA SDK maintainers",
+      "remediation": "Parse deserialized data through a named schema validator before treating it as a domain type."
+    }
+  ],
+  "allowlist": []
+}

@@ -387,6 +387,11 @@ describe('WorkspaceIndex', () => {
           'refs',
           'source_locations',
           'type_aliases',
+          'type_artifacts',
+          'type_boundaries',
+          'type_declarations',
+          'type_exposures',
+          'type_relations',
         ])
         expect(readMeta(db, 'schema_version')).toBe(String(SQLITE_WORKSPACE_INDEX_SCHEMA_VERSION))
         expect(readMeta(db, 'compatibility_json')).toBe('{"command":"validate","parser":"parser-a"}')

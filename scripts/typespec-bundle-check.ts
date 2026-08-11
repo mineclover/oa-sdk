@@ -11,7 +11,7 @@ import {
   parseTypeSpecBundleCheckArgs,
   printTypeSpecBundleCheckSummary,
   shouldFailTypeSpecBundleCheck,
-} from '../packages/codegen/src/cli/lib/typespec-bundle-check.js'
+} from '../packages/codegen/src/schema-governance.js'
 
 const args = parseTypeSpecBundleCheckArgs(process.argv.slice(2))
 const result = await checkTypeSpecBundle(args)

@@ -26,7 +26,7 @@ const tscBin = resolve(pkgDir, 'node_modules/.bin/tsc')
 
 function compileTsc(dir: string): { ok: boolean; output: string } {
   try {
-    execSync(`${tscBin} --noEmit`, { cwd: dir, encoding: 'utf8', timeout: 15_000, stdio: ['pipe', 'pipe', 'pipe'] })
+    execSync(`${tscBin} --noEmit`, { cwd: dir, encoding: 'utf8', timeout: 30_000, stdio: ['pipe', 'pipe', 'pipe'] })
     return { ok: true, output: '' }
   } catch (err) {
     const e = err as { stdout?: string; stderr?: string }

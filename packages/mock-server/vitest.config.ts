@@ -27,6 +27,7 @@ export default defineConfig(async () => {
       // worker_threads pool에서는 각 worker가 독립적인 globalThis를 가져
       // MSW 인터셉터가 동작하지 않음 → forks pool 사용
       pool: 'forks',
+      setupFiles: ['./src/__tests__/node-runtime-setup.ts'],
     },
   }
 })

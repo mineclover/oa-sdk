@@ -8,9 +8,13 @@ import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join, relative, resolve } from 'node:path'
-import { checkTypeSpecBundle, formatTypeSpecBundleCheckFailure, shouldFailTypeSpecBundleCheck } from '../packages/codegen/src/cli/lib/typespec-bundle-check.js'
-import { loadSpecWithPath } from '../packages/codegen/src/cli/lib/load-spec.js'
-import { stringifyOpenApiYaml } from '../packages/codegen/src/cli/lib/openapi-collect.js'
+import {
+  checkTypeSpecBundle,
+  formatTypeSpecBundleCheckFailure,
+  loadSpecWithPath,
+  shouldFailTypeSpecBundleCheck,
+  stringifyOpenApiYaml,
+} from '../packages/codegen/src/schema-governance.js'
 import { validateDocument } from '../packages/parser/src/index.ts'
 
 type Server = { url: string; description?: string }

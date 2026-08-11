@@ -9,17 +9,15 @@ import { tmpdir } from 'node:os'
 import { join, relative, resolve } from 'node:path'
 import {
   checkTypeSpecBundle,
-  formatTypeSpecBundleCheckFailure,
-  printTypeSpecBundleCheckSummary,
-  shouldFailTypeSpecBundleCheck,
-} from '../packages/codegen/src/cli/lib/typespec-bundle-check.js'
-import { loadSpecWithPath } from '../packages/codegen/src/cli/lib/load-spec.js'
-import {
   diffOpenApiDocuments,
+  formatTypeSpecBundleCheckFailure,
   formatOpenApiDiff,
+  loadSpecWithPath,
+  printTypeSpecBundleCheckSummary,
   stableOpenApiStringify,
+  shouldFailTypeSpecBundleCheck,
   type OpenApiNormalizedDiffEntry,
-} from '../packages/codegen/src/cli/lib/openapi-normalized-diff.js'
+} from '../packages/codegen/src/schema-governance.js'
 import { recoverPendingSnapshotPromotions } from './lib/typespec-snapshot-promotion.js'
 
 type Args = {

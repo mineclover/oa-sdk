@@ -11,21 +11,19 @@ import { tmpdir } from 'node:os'
 import { dirname, join, relative, resolve } from 'node:path'
 import { execa } from 'execa'
 import { stringify } from 'yaml'
-import { loadSpecWithPath } from '../packages/codegen/src/cli/lib/load-spec.js'
-import { stringifyOpenApiYaml } from '../packages/codegen/src/cli/lib/openapi-collect.js'
-import { exportOpenApiToTypeSpec } from '../packages/codegen/src/cli/lib/tsp-export.js'
-import { createTypeSpecBundleManifest } from '../packages/codegen/src/cli/lib/typespec-bundle-manifest.js'
 import {
   applyTypeSpecCompatibilitySidecar,
   compareTypeSpecCompatibilitySidecars,
+  createTypeSpecBundleManifest,
   createTypeSpecCompatibilitySidecar,
-} from '../packages/codegen/src/cli/lib/typespec-sidecar.js'
-import {
+  createTypeSpecRoundtripReport,
   diffEndpoints,
+  exportOpenApiToTypeSpec,
   formatMarkdown,
   hasBreakingChanges,
-} from '../packages/codegen/src/cli/lib/openapi-breaking-diff.js'
-import { createTypeSpecRoundtripReport } from '../packages/codegen/src/cli/lib/typespec-roundtrip-report.js'
+  loadSpecWithPath,
+  stringifyOpenApiYaml,
+} from '../packages/codegen/src/schema-governance.js'
 import { validateDocument } from '../packages/parser/src/validate.js'
 
 type Args = {

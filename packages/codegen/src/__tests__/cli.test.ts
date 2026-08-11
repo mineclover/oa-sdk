@@ -66,10 +66,10 @@ describe('oa-gen CLI', () => {
     expect(output).toContain('--drizzle-schema')
   })
 
-  it('--help에 dev 커맨드가 표시된다', () => {
+  it('--help에서 private downstream 커맨드를 노출하지 않는다', () => {
     const output = runCli('--help')
-    expect(output).toContain('dev')
-    expect(output).toContain('Watch mode')
+    expect(output).not.toMatch(/^\s+(?:router|client|dev)\s/m)
+    expect(output).not.toContain('Watch mode')
   })
 
   it('--help에 review 커맨드가 표시된다', () => {

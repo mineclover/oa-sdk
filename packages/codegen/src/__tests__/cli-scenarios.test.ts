@@ -1,8 +1,8 @@
 /**
  * CLI 실사용 시나리오 테스트
  *
- * 실제 스펙 파일로 typegen → router → client 파이프라인,
- * lint/validate 커맨드, 에러 시나리오, 단축 플래그 검증.
+ * 실제 스펙 파일로 typegen, lint/validate 커맨드, 에러 시나리오,
+ * 단축 플래그를 검증한다. Private downstream generation은 playground가 소유한다.
  */
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import { mkdirSync, rmSync, writeFileSync, readFileSync, existsSync } from 'node:fs'
@@ -581,49 +581,6 @@ describe('typegen', () => {
     const updatedIncremental = cli(`typegen -s ${apiPath} --incremental --cache-dir ${cacheDir}`)
     expect(updatedIncremental).toBe(updatedFull)
     expect(updatedIncremental).toContain('name?: string')
-  })
-})
-
-// ── router ──────────────────────────────────────────────────
-
-describe('router', () => {
-  it('Hono 라우터 생성 (기본)', () => {
-    const out = cli(`router -s ${specPath} --types-import './types'`)
-    expect(out).toContain("import { Hono } from 'hono'")
-    expect(out).toContain("app.get('/users'")
-    expect(out).toContain("app.post('/users'")
-    expect(out).toContain("app.get('/users/:id'")
-  })
-
-  it('Express 라우터 생성', () => {
-    const out = cli(`router -s ${specPath} --target express --types-import './types'`)
-    expect(out).toContain("import { Router } from 'express'")
-    expect(out).toContain("router.get('/users'")
-  })
-
-  it('--output으로 파일 생성', () => {
-    const outFile = join(tmpDir, 'router.ts')
-    cli(`router --spec ${specPath} -o ${outFile} --types-import './types'`)
-    expect(existsSync(outFile)).toBe(true)
-  })
-})
-
-// ── client ──────────────────────────────────────────────────
-
-describe('client', () => {
-  it('fetch 클라이언트 생성', () => {
-    const out = cli(`client -s ${specPath} --types-import './types'`)
-    expect(out).toContain('createClient')
-    expect(out).toContain('listUsers')
-    expect(out).toContain('createUser')
-    expect(out).toContain('getUser')
-  })
-
-  it('--output으로 파일 생성', () => {
-    const outFile = join(tmpDir, 'client.ts')
-    cli(`client --spec ${specPath} -o ${outFile} --types-import './types'`)
-    const content = readFileSync(outFile, 'utf8')
-    expect(content).toContain('createClient')
   })
 })
 
@@ -1969,54 +1926,5 @@ describe('에러 처리', () => {
   it('generate에 --config도 --drizzle-schema도 없으면 에러', () => {
     const { stderr } = cliFail('generate')
     expect(stderr).toContain('--config')
-  })
-})
-
-// ── 파이프라인 시나리오 ─────────────────────────────────────
-
-describe('typegen → router → client 파이프라인', () => {
-  it('동일 스펙으로 세 파일 생성 후 import 경로 정합', () => {
-    const outDir = join(tmpDir, 'pipeline')
-    mkdirSync(outDir, { recursive: true })
-
-    cli(`typegen -s ${specPath} -o ${join(outDir, 'types.ts')}`)
-    cli(`router -s ${specPath} -o ${join(outDir, 'router.ts')} --types-import './types'`)
-    cli(`client -s ${specPath} -o ${join(outDir, 'client.ts')} --types-import './types'`)
-
-    const types = readFileSync(join(outDir, 'types.ts'), 'utf8')
-    const router = readFileSync(join(outDir, 'router.ts'), 'utf8')
-    const client = readFileSync(join(outDir, 'client.ts'), 'utf8')
-
-    // types에서 정의한 타입을 router/client가 import
-    expect(types).toContain('export type User')
-    expect(router).toContain("from './types'")
-    expect(client).toContain("from './types'")
-
-    // router가 참조하는 타입이 types에 존재하는지 확인
-    const importMatch = router.match(/import type \{([^}]+)\}/)
-    const importList = importMatch?.[1]
-    if (importList) {
-      const imported = importList.split(',').map(s => s.trim())
-      for (const name of imported) {
-        expect(types).toContain(`export type ${name}`)
-      }
-    }
-  })
-
-  it('외부 YAML $ref 스펙으로 세 파일 생성', () => {
-    const outDir = join(tmpDir, 'external-pipeline')
-    mkdirSync(outDir, { recursive: true })
-
-    cli(`typegen -s ${externalSpecPath} -o ${join(outDir, 'types.ts')}`)
-    cli(`router -s ${externalSpecPath} -o ${join(outDir, 'router.ts')} --types-import './types'`)
-    cli(`client -s ${externalSpecPath} -o ${join(outDir, 'client.ts')} --types-import './types'`)
-
-    const types = readFileSync(join(outDir, 'types.ts'), 'utf8')
-    const router = readFileSync(join(outDir, 'router.ts'), 'utf8')
-    const client = readFileSync(join(outDir, 'client.ts'), 'utf8')
-
-    expect(types).toContain('export type ExternalUser')
-    expect(router).toContain('listExternalUsers')
-    expect(client).toContain('listExternalUsers')
   })
 })

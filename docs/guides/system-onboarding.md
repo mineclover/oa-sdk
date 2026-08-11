@@ -6,6 +6,19 @@
 
 ## 1. 시작 전 확인
 
+안정화 lane은 Node.js 24 LTS와 TypeScript 5.9.3을 사용하며, 기본 CI와 `.nvmrc`도 이 lane을
+기준으로 한다. Node.js 26 Current 호환성 lane은 TypeScript 7.0.2와 `ttsc` 0.26.0으로 Core
+TypeScript source와 생성 선언을 no-emit으로 검사한다. Current 릴리스는 운영
+build/declaration emission을 대체하지 않으며 `.nvmrc.latest`로 선택하는 선행 호환성 검증 lane이다.
+
+현재 셸에서 lane을 전환하려면 아래 helper를 `source`한다. `pnpm` script는 부모 셸의 Node.js 버전을
+바꿀 수 없으므로 이 helper 또는 `nvm use`를 사용해야 한다.
+
+```bash
+source scripts/use-node-version.sh stable # Node.js 24 LTS
+source scripts/use-node-version.sh node26 # Node.js 26 Current compatibility
+```
+
 ```bash
 corepack enable
 pnpm install

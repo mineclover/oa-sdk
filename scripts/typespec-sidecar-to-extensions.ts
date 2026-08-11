@@ -8,13 +8,11 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, relative, resolve } from 'node:path'
 import {
   convertTypeSpecSidecarToExtensions,
-  type TypeSpecSidecarToExtensionsOptions,
-} from '../packages/codegen/src/cli/lib/typespec-sidecar-to-extensions.js'
-import {
   formatTypeSpecOpenApiExtensionSchemaVersions,
   isTypeSpecOpenApiExtensionSchemaVersion,
-} from '../packages/codegen/src/cli/lib/typespec-extension-schema-version.js'
-import { parseTypeSpecCompatibilitySidecar } from '../packages/codegen/src/cli/lib/typespec-sidecar.js'
+  parseTypeSpecCompatibilitySidecar,
+  type TypeSpecSidecarToExtensionsOptions,
+} from '../packages/codegen/src/schema-governance.js'
 
 type Args = {
   sidecar?: string

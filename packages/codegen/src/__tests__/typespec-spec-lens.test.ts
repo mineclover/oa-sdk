@@ -63,7 +63,7 @@ describe('compileTypeSpecBundleForSpecLens', () => {
         }),
       },
       { relativePath: 'main.tsp', content: 'import "@typespec/http";\nimport "./models.tsp";\n' },
-      { relativePath: 'models.tsp', content: 'model User { id: string; }\n' },
+      { relativePath: 'models.tsp', content: 'model User { id: string; }\nop listUsers(): User;\n' },
       { relativePath: 'unreachable.tsp', content: 'import "@evil/unreachable";\n' },
       { relativePath: 'tspconfig.yaml', content: 'emit:\n  - "@evil/emitter"\n' },
     ]
@@ -117,7 +117,9 @@ describe('compileTypeSpecBundleForSpecLens', () => {
       },
       gates: {
         compatibilitySidecar: 'pass',
+        emittedValidation: 'pass',
         restoredValidation: 'pass',
+        provenance: 'pass',
       },
     })
     expect(result.evidence.toolchain.fingerprint).toMatch(/^[a-f0-9]{64}$/)
@@ -349,7 +351,10 @@ const after = """
     expect(Object.keys(result.document.paths as Record<string, unknown>).length).toBeGreaterThan(0)
     expect(result.evidence.gates).toEqual({
       compatibilitySidecar: 'pass',
+      emittedValidation: 'pass',
       restoredValidation: 'pass',
+      expectedValidation: 'pass',
+      provenance: 'pass',
       expectedDiff: 'pass',
     })
     expect(result.evidence.sourceFiles).toContain('main.tsp')

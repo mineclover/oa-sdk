@@ -145,20 +145,31 @@ export type CreateUserBody = CreateUserRequest
 export type CreateUserResponse = User
 ```
 
-## 3. OAS → Hono 라우터 스텁
+## 3. OAS → Hono 라우터 스텁 (private workspace integration)
 
-```bash
-oa-gen router --spec packages/schemas/src/.merged.yaml --types-import './types' -o src/router.ts
+`@oa-sdk/router`는 공개 `oa-gen` 배포 경계에 포함되지 않는다. 이 모노레포 안에서는
+package API를 호출하는 workspace script가 출력을 소유한다.
+
+```typescript
+import { readFileSync, writeFileSync } from 'node:fs'
+import { generateRouter } from '@oa-sdk/router'
+import type { OasDocument } from '@oa-sdk/parser'
+import { parse } from 'yaml'
+
+const spec = parse(readFileSync('packages/schemas/src/.merged.yaml', 'utf8')) as OasDocument
+writeFileSync('src/router.ts', generateRouter(spec, { typesImport: './types' }))
 ```
 
 생성된 라우터와 타입은 API 계약을 구현하기 위한 골격이다. 생성 파일을 직접 수정하기보다
 handler/use-case/service에서 실제 로직을 구현하고, 반환값이 generated response type을
 만족하도록 유지한다.
 
-## 4. OAS → fetch 클라이언트
+## 4. OAS → fetch 클라이언트 (private workspace integration)
 
-```bash
-oa-gen client --spec packages/schemas/src/.merged.yaml --types-import './types' -o src/client.ts
+```typescript
+import { generateClient } from '@oa-sdk/client'
+
+writeFileSync('src/client.ts', generateClient(spec, { typesImport: './types' }))
 ```
 
 SSE 스트리밍 엔드포인트는 `async *` 제너레이터로 생성:
@@ -223,13 +234,12 @@ API 문서로 사용할 정보는 README에 따로 흩어두지 말고 spec에 �
 공통 query parameter와 metadata schema 예시는 [스키마 작성 가이드](../schema-authoring.md)의
 `공통 parameters 운영 시나리오`를 따른다.
 
-## 전체 파이프라인 한 줄
+## 전체 파이프라인 검증
 
 ```bash
-pnpm schema:validate && \
-oa-gen typegen --spec packages/schemas/src/.merged.yaml -o src/types.ts && \
-oa-gen router  --spec packages/schemas/src/.merged.yaml --types-import './types' -o src/router.ts && \
-oa-gen client  --spec packages/schemas/src/.merged.yaml --types-import './types' -o src/client.ts
+pnpm schema:validate
+oa-gen typegen --spec packages/schemas/src/.merged.yaml -o src/types.ts
+pnpm --filter @oa-sdk/playground test -- codegen-pipeline.test.ts
 ```
 
 → [CLI 전체 명령어](../cli-setup.md)

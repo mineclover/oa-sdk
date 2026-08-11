@@ -266,7 +266,9 @@ function compileResult(path: string) {
       },
       gates: {
         compatibilitySidecar: 'pass' as const,
+        emittedValidation: 'pass' as const,
         restoredValidation: 'pass' as const,
+        provenance: 'pass' as const,
       },
     },
     provenance: {

@@ -227,11 +227,11 @@
     },
     {
       "id": "US-010",
-      "title": "Wire incremental validate typegen and dev mode",
-      "description": "As an OA SDK user, I want opt-in incremental validate and typegen commands so that repeated CLI runs and dev watch mode reuse the workspace index safely.",
+      "title": "Wire incremental validate and typegen",
+      "description": "As an OA SDK user, I want opt-in incremental validate and typegen commands so that repeated CLI runs reuse the workspace index safely.",
       "acceptanceCriteria": [
         "Add --incremental and --cache-dir options to oa-gen validate and oa-gen typegen",
-        "Reuse the same scan, dirty detection, invalidation, and fallback path in oa-gen dev watch mode",
+        "Keep watch orchestration outside the public CLI so private downstream packages do not enter the published command graph",
         "Keep single-run validate/typegen full rebuild as the default behavior",
         "Verify incremental output matches full rebuild output for representative specs",
         "Document the opt-in commands in docs/internal/spec.md or the relevant internal architecture doc",

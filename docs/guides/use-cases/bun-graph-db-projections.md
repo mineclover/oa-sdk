@@ -51,12 +51,11 @@ curl -sS http://localhost:3000/api/openapi \
 oa-gen validate --spec contracts/bun-graph-db/openapi.json
 oa-gen typegen --spec contracts/bun-graph-db/openapi.json \
   -o src/generated/bun-graph-db-api.types.ts
-oa-gen client --spec contracts/bun-graph-db/openapi.json \
-  --types-import './bun-graph-db-api.types' \
-  -o src/generated/bun-graph-db-api.client.ts
 ```
 
-Static full document로 생성한 client와 mock은 stable endpoint surface만 다룬다. runtime table별 attribute schema는 아래 table projection snapshot에서 따로 소비한다.
+공개 배포 경계는 validation과 typegen까지다. 이 모노레포의 private client/mock 통합은
+아래처럼 package API로 검증한다. runtime table별 attribute schema는 table projection
+snapshot에서 따로 소비한다.
 
 이 흐름을 governance/audit까지 확장할 때는
 [Behavior ECS Spec](../../internal/behavior-ecs.spec.md)의 representative use case와 baseline
@@ -244,20 +243,38 @@ oa-gen typegen --spec contracts/bun-graph-db/tables/project_tasks/operation-cont
 
 ### client
 
-Full document client는 stable bun-graph-db REST/MCP discovery surface에 맞춘다.
+`@oa-sdk/client`는 private workspace integration이다. Full document client는 stable
+bun-graph-db REST/MCP discovery surface에 맞추되 공개 `oa-gen` 명령으로 광고하지 않는다.
 
-```bash
-oa-gen client --spec contracts/bun-graph-db/openapi.json \
-  --types-import './bun-graph-db-api.types' \
-  -o src/generated/bun-graph-db-api.client.ts
+```typescript
+import { readFileSync, writeFileSync } from 'node:fs'
+import { generateClient } from '@oa-sdk/client'
+import type { OasDocument } from '@oa-sdk/parser'
+
+const fullDocument = JSON.parse(
+  readFileSync('contracts/bun-graph-db/openapi.json', 'utf8'),
+) as OasDocument
+
+writeFileSync(
+  'src/generated/bun-graph-db-api.client.ts',
+  generateClient(fullDocument, { typesImport: './bun-graph-db-api.types' }),
+)
 ```
 
 Table projection client는 projection snapshot의 `versionHash`와 함께 관리한다. table attribute가 바뀌면 같은 파일을 재사용하지 말고 projection을 다시 fetch한 뒤 typegen/client를 다시 실행한다.
 
-```bash
-oa-gen client --spec contracts/bun-graph-db/tables/project_tasks/operation-contract.openapi.json \
-  --types-import './project-tasks.types' \
-  -o src/generated/project-tasks.client.ts
+```typescript
+const tableDocument = JSON.parse(
+  readFileSync(
+    'contracts/bun-graph-db/tables/project_tasks/operation-contract.openapi.json',
+    'utf8',
+  ),
+) as OasDocument
+
+writeFileSync(
+  'src/generated/project-tasks.client.ts',
+  generateClient(tableDocument, { typesImport: './project-tasks.types' }),
+)
 ```
 
 ### mock-server

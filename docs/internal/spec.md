@@ -13,6 +13,7 @@
 Core Platform
   core                        공유 기반 유틸리티
   openapi-projection-contract 외부 schema producer projection 경계
+  typespec-decorators      production TypeSpec extension helper와 provenance 경계
   schemas                     TypeSpec/OpenAPI schema SSOT와 artifact
   parser                      OAS 3.2 파서, IR, ref, lint, validate, query
   codegen                     build, 변환, governance CLI와 typegen
@@ -25,7 +26,7 @@ Downstream Integration
   mock-server                 AJV mock engine, adapter, test helper
 
 Maintenance-only
-  dpm, personas, typia-mock
+  dpm, personas, typia-mock, logical-erd-contract, typespec-erd, ttsc-compile-fixture
 
 Apps and references
   nestjs-ref, playground, preview, spec-lens-ui
@@ -36,8 +37,12 @@ Core 자체는 아니다. Maintenance-only는 security, compatibility, migration
 scope-reactivation decision이 필요하다. Markdown editor와 GitLab agent operations 제품은 각각
 `markdown-editor`, `gitlab-agent-ops` 독립 저장소가 소유한다.
 
-개발/CI 런타임 기준은 Node.js 25.x다. 로컬 nvm 런타임은 `.nvmrc`의 `25`를 기준으로 맞춘다.
-`packageManager`는 pnpm 10.30.3으로 고정하고, Corepack으로 실행한다. Node 타입 의존성도 25 계열과 맞춘다.
+안정화 lane은 Node.js 24 LTS와 TypeScript 5.9.3을 사용하며, 기본 CI와 `.nvmrc`도 이 lane을
+기준으로 한다. Node.js 26 Current 호환성 lane은 TypeScript 7.0.2와 `ttsc` 0.26.0으로 Core
+TypeScript source와 생성 선언을 no-emit으로 검사한다. Current 릴리스는 운영
+build/declaration emission을 대체하지 않으며 `.nvmrc.latest`로 선택하는 선행 호환성 검증 lane이다.
+`packageManager`는 pnpm 10.30.3으로 고정하고, Corepack으로 실행한다. Node 타입 의존성은 지원
+baseline과 맞춘다.
 
 ---
 
@@ -47,7 +52,7 @@ scope-reactivation decision이 필요하다. Markdown editor와 GitLab agent ope
 machine-readable SSOT다. 사람이 읽는 요약은
 [`feature-test-matrix.md`](./feature-test-matrix.md)에 둔다.
 
-현재 매핑은 40개 기능 그룹과 CLI spec drift guard를 포함한 테스트 경로 패턴을 관리한다.
+현재 매핑은 50개 기능 그룹과 CLI spec drift guard를 포함한 테스트 경로 패턴을 관리한다.
 
 ```bash
 pnpm check:feature-tests
@@ -134,7 +139,7 @@ marker.
 | ZodLazy → $ref | 재귀 스키마 지원 (refs 컨텍스트 기반) |
 | Drizzle → Zod → OAS | pgTable/mysqlTable/sqliteTable, select/insert/update |
 | typegen | OAS → 결정적 표준 TS 선언 ($ref 참조, JSDoc, ResponseHeaders, ResponseLinks, Op 묶음 타입, Error 타입, tsc·ttsc 검증) |
-| TypeScript compatibility lanes | workspace source/공개 선언은 고정된 TS 5.9.3 baseline으로 관리한다. TS 7.0.2 + `ttsc`는 private fixture에서 생성 선언 소비 호환성만 검증하며 기본 `tsc` 또는 공개 `.d.ts` surface를 대체하지 않는다. 운영 기준은 [typescript-compatibility.md](../guides/typescript-compatibility.md)에 둔다. |
+| TypeScript compatibility lanes | 안정화 lane은 Node.js 24 LTS + TS 5.9.3으로 workspace source/공개 선언과 emitted `.d.ts`를 관리한다. Node.js 26 Current 호환성 lane은 TS 7.0.2 + `ttsc` 0.26.0으로 Core TypeScript source와 생성 선언을 no-emit 검증하지만 기본 `tsc` 또는 공개 `.d.ts` surface를 대체하지 않는다. 운영 build/declaration emission은 Node 24 LTS만 사용한다. 두 lane의 계약 정본은 이 문서 하나이며 운영 절차는 [typescript-compatibility.md](../guides/typescript-compatibility.md)에 둔다. |
 | typegen 제약 JSDoc | format/min/max/pattern → `@format`/`@minimum` 등 JSDoc 태그 |
 | typegen readOnly | `readOnly: true` → `readonly` 수식어 |
 | typegen deprecated | `deprecated: true` → `@deprecated` JSDoc |
@@ -146,7 +151,7 @@ marker.
 | typegen const 중첩 | 중첩 프로퍼티의 `const` → 리터럴 타입 정규화 |
 | additionalProperties | `Record<string, T>` + index signature 타입 생성 |
 | WorkspaceIndex | 파일 hash/component/ref/source/diagnostic/type alias metadata용 index 경계. 기본 noop은 모든 파일을 dirty 처리해 기존 full rebuild 동작 유지 |
-| SQLiteWorkspaceIndex | `.oa-cache/state.sqlite`에 index row를 보존. `node:sqlite`(Node 22+ 내장) primary + `better-sqlite3` fallback driver를 사용하며 WAL/foreign key/transaction, schema/options mismatch 또는 DB 오류 시 full rebuild fallback. driver 우선순위 inversion 근거는 [docs/changelog.md 2026-04-28](../changelog.md) 참조 |
+| SQLiteWorkspaceIndex | `.oa-cache/state.sqlite`에 index row를 보존. 안정화 Node 24 LTS와 최신 Node 26 Current lane에서는 `node:sqlite`를 primary로 시도하고, module load 실패 시 `better-sqlite3` fallback driver를 사용한다. WAL/foreign key/transaction, schema/options mismatch 또는 DB 오류 시 full rebuild fallback. driver 우선순위 inversion 근거는 [docs/changelog.md 2026-04-28](../changelog.md) 참조 |
 | Workspace dirty detection | entry/domain/profile/external ref 파일 scan → new/modified/deleted/unchanged 분류 → refs.to_file 역방향 dirty 전파 → stale row invalidation |
 | TypeSpec export | `oa-gen tsp-export --spec <openapi.yaml> --output <main.tsp> --report <report.json> --sidecar <sidecar.json> --bundle-manifest <manifest.json> --bundle-expected-openapi <expected.openapi.yaml>`가 OpenAPI artifact를 TypeSpec spike source, diagnostics report, OA SDK compatibility sidecar, optional expected OpenAPI, `oa-sdk.typespec-bundle.v1` manifest로 변환한다. `oa-gen tsp-restore --spec <emitted.yaml> --sidecar <sidecar.json> --output <restored.yaml> --stability-report <stability.json>`는 TypeSpec emitter가 만든 OpenAPI에 sidecar metadata를 재적용하고, 복원된 OpenAPI에서 sidecar를 재추출해 semantic drift를 gate한다. `oa-gen tsp-bundle-check --manifest <manifest.json> --fail-on-breaking --report <report.json>`는 `oa-sdk.typespec-bundle.v1` manifest를 TypeSpec OpenAPI emitter → sidecar 또는 `.tsp` OA SDK extension metadata restore/re-extract → OA SDK validate/diff 루프에 넣는다. `--output`을 생략해 TypeSpec source 또는 restored OpenAPI를 stdout으로 받을 때 stdout에는 serialized artifact만 쓰고, report/sidecar 성공 경로 같은 운영 메시지는 stderr로 보낸다. Schema/property `description`, JSON-compatible `default`, `example`/`examples`, `deprecated`, `additionalProperties: false` sealing, tag metadata, response headers, and bearer security requirements are emitted through TypeSpec-native constructs. Parameter/request body media/response media examples와 unsupported security component metadata는 generated bundle에서는 sidecar에 남겨 mock/runtime semantics를 보존하고, sidecar-less authored bundle에서는 TypeSpec `@extension(...)`이 만든 `x-oa-sdk-components`, `x-oa-sdk-info`, `x-oa-sdk-operation-component-refs`, `x-oa-sdk-operation-examples`, `x-oa-sdk-operation-security`, 및 `x-oa-sdk-security-schemes` metadata로 보존할 수 있다. Request body examples는 `oa-sdk.typespec-extensions.v5` manifest에서, explicit public operation security override는 `oa-sdk.typespec-extensions.v5` manifest에서, root info metadata는 `oa-sdk.typespec-extensions.v5` manifest에서, reusable parameter/response component identity는 `oa-sdk.typespec-extensions.v5` manifest에서 restore-bearing extension semantics로 인정한다. Sidecar 또는 extension-owned `example`/`examples` 타깃은 복원 시 기존 TypeSpec-emitted example과 병합하지 않고 OA SDK 값을 적용해 재추출 안정성을 유지한다. 라운드트립 평가는 `pnpm typespec:roundtrip`이 export → TypeSpec OpenAPI emitter → sidecar restore/re-extract → OA SDK validate → OA SDK diff를 실행하고, `pnpm typespec:bundle-check`는 같은 bundle check 구현을 호출하는 repo wrapper로 유지한다. `pnpm typespec:sidecar-to-extensions`는 지원되는 compatibility sidecar entry를 TypeSpec `@extension(...)` snippet으로 변환하고, 미지원 entry는 residual sidecar와 report에 명시한다. Full canonical authored fixture는 `docs/internal/typespec-roundtrip/fixtures/authored-canonical-bundle/`에 있으며 sidecar-less `oa-sdk.typespec-extensions.v5` bundle로 27 operations와 104 restored extension entries를 검증한다. Production TypeSpec source는 richer `bearerAuth` component metadata, public operation security overrides, root info metadata, reusable parameter/response components 및 operation component refs까지 복원하므로 193 extension-derived semantic entries를 검증한다. `expectedOpenapi`가 있는 bundle은 expected diff gate까지 실행하고, 없는 generated bundle은 expected diff를 생략한 채 compile/restore/validation/stability를 gate한다. Bundle manifest는 `entrypoint`, optional `sidecar`, optional `expectedOpenapi`, `compatibility.openapiVersion`, optional `compatibility.sidecarSchemaVersion`, optional `compatibility.oaSdkExtensionSchemaVersion`을 bundle-local relative path/metadata로 고정한다. Sidecar-less manifest는 `compatibility.oaSdkExtensionSchemaVersion: "oa-sdk.typespec-extensions.v5"`, `"oa-sdk.typespec-extensions.v5"`, `"oa-sdk.typespec-extensions.v5"`, `"oa-sdk.typespec-extensions.v5"`, 또는 `"oa-sdk.typespec-extensions.v5"`를 선언해야 한다. 각 probe는 `--report <json>`으로 machine-readable report를 남긴다. 상세 평가는 [typespec-roundtrip/production-operations.md](./typespec-roundtrip/production-operations.md)에, authoring ownership guide는 [typespec-roundtrip/authoring-ownership-guide.md](./typespec-roundtrip/authoring-ownership-guide.md)에, sidecar migration workflow는 [typespec-roundtrip/sidecar-to-extension-migration.md](./typespec-roundtrip/sidecar-to-extension-migration.md)에, sidecar-less extension 사양은 [typespec-roundtrip/oa-sdk-typespec-extensions.v5.md](./typespec-roundtrip/oa-sdk-typespec-extensions.v5.md)에 둔다 |
 | CLI | 26개 기능 command의 목적·최소 입력·조건부 옵션은 [CLI 명령 레퍼런스](../guides/cli-command-reference.md)가 정본이다. `validate`/`typegen`은 opt-in `--incremental --cache-dir`, `dev`는 같은 index path의 watch mode를 지원하며, `lint`/`validate` diagnostic은 YAML source map이 있으면 `file:line:column`을 출력하고 target `file#pointer` fallback을 유지한다. Governance manifest는 `build-spec`/`validate`/`reference-check`/`normalize`/`upgrade`/`collect`/`tsp-export`/`tsp-restore`/`tsp-bundle-check`/`scaffold-governance`/`inventory`/`behavior-query`/`duplicate-review`/`target-check`/`diff`/`check-artifact`/`drift`/`review`/`parallel-evidence`/`review-bundle` 20개 command를 추적한다. `behavior-query`의 `metrics-summary`, `latest-by-type`, `latest-failure-by-type`는 `--behavior-type`을 요구한다. behavior instrumentation은 `cli/lib/behavior-registry.ts`의 behavior type registry를 통해 identity builder / input/component schema / projection policy를 공유한다 |
@@ -561,23 +566,37 @@ Builder WorkspaceIndex metadata는 SQLite schema를 늘리지 않고 기존 row�
 
 #### TypeSpec as Canonical Schema Pipeline
 
-Schema composition is now TypeSpec-first. `packages/schemas/src/.merged.yaml` is generated from the `packages/schemas/typespec/main.tsp` entrypoint and its domain modules through the `oa-sdk.typespec-bundle.v1` manifest, OA SDK TypeSpec extension restore, approved snapshot drift gates, and OpenAPI 3.2 validation. The OpenAPI/Definition Builder path remains available as an explicit rollback/reference path through `:openapi` commands; the legacy whole-domain merge script has been removed, and `src/domains/**/spec.yaml` files are archived historical/migration reference material.
+Schema composition is now TypeSpec-first. `packages/schemas/src/.merged.yaml` is generated from the `packages/schemas/typespec/main.tsp` entrypoint and its domain modules, including `world-model.tsp`, through the `oa-sdk.typespec-bundle.v1` manifest, OA SDK TypeSpec extension restore, approved snapshot drift gates, and OpenAPI 3.2 validation. The OpenAPI/Definition Builder path remains available as an explicit rollback/reference path through `:openapi` commands; the legacy whole-domain merge script has been removed, and `src/domains/**/spec.yaml` files are archived historical/migration reference material.
 
-Current TypeSpec status: the TypeSpec-restored production artifact has 27 operations and 28 schemas, restores 193 OA SDK extension-derived semantic entries, and keeps 0 reviewed restored-vs-reference differences in `accepted-restored-drift.json`. `pnpm schema:validate` is the canonical gate: it builds parser/codegen, emits `.merged.yaml` through `schema:typespec-check`, downgrades to 3.1, runs Spectral/Redocly, and then runs strict `oa-gen validate --require-32`.
+Current TypeSpec status: the TypeSpec-restored production artifact has 34 operations, including 7 World Model operations from `world-model.tsp`, and 40 schemas; it restores 193 OA SDK extension-derived semantic entries and keeps 0 reviewed restored-vs-reference differences in `accepted-restored-drift.json`. The contract version is `0.2.0`, owned by `packages/schemas/typespec/version.tsp` and emitted through TypeSpec `@info` to OpenAPI `info.version`. `pnpm schema:validate` is the canonical gate: it builds parser/codegen, emits `.merged.yaml` through `schema:typespec-check`, downgrades to 3.1, runs Spectral/Redocly, and then runs strict `oa-gen validate --require-32`.
 
-The authoring workflow is defined in [`docs/guides/typespec-authoring-conventions.md`](../guides/typespec-authoring-conventions.md), the current promotion/recovery procedure is in [`docs/internal/typespec-roundtrip/production-operations.md`](typespec-roundtrip/production-operations.md), and the historical migration plan is [`docs/internal/typespec-roundtrip/production-operations.md`](typespec-roundtrip/production-operations.md).
+The authoring workflow is defined in [`docs/guides/typespec-authoring-conventions.md`](../guides/typespec-authoring-conventions.md), the current promotion/recovery procedure is in [`docs/internal/typespec-roundtrip/production-operations.md`](typespec-roundtrip/production-operations.md), and the extension-vocabulary migration notes are in [`docs/internal/architecture/009-typespec-first-authoring.md`](architecture/009-typespec-first-authoring.md).
 
 | 단계 | Production TypeSpec path |
 |------|-------------------------|
-| Source layout | `packages/schemas/typespec/main.tsp` composition entrypoint + `metadata/{service,security,common-components}.tsp` + `common/auth/health/me/users.tsp` domain modules + `oa-sdk.typespec-bundle.json` |
+| Source layout | `packages/schemas/typespec/main.tsp` composition entrypoint + `metadata/{service,security,common-components}.tsp` + `version.tsp` + `common/auth/health/me/users/world-model.tsp` domain modules + `oa-sdk.typespec-bundle.json` |
 | Composition command | `pnpm --filter @oa-sdk/schemas run build` writes `src/.merged.yaml` through `build:typespec` |
 | Default root gates | `pnpm schema:validate`, `pnpm schema:bundle`, and `pnpm schema:preview` |
 | Rollback path | `pnpm schema:validate:openapi`, `pnpm schema:bundle:openapi`, `pnpm schema:preview:openapi`, and package-level `build:openapi` |
 | Approved snapshot gate | `packages/schemas/typespec/approved.openapi.yaml` plus `accepted-restored-drift.json` |
 | Candidate workspace | ignored `.oa-sdk/typespec-candidates/<manifest-hash>/candidate.openapi.yaml` and `candidate.meta.json` |
 | Snapshot promotion | `pnpm schema:approve-typespec-reference -- --write`; only the supplied manifest's `expectedOpenapi` is writable |
-| API contract version | `packages/schemas/typespec/version.tsp` `ContractVersion` → TypeSpec `@info` → OpenAPI `info.version`; independent from package and artifact schema versions |
+| API contract version | `packages/schemas/typespec/version.tsp` `ContractVersion = "0.2.0"` → TypeSpec `@info` → OpenAPI `info.version`; independent from package and artifact schema versions |
 | Artifact ownership | `src/.merged.yaml` is the generated OpenAPI 3.2 validation input; `src/.merged.3.1.yaml` and `.meta.json` are generated from it |
+
+##### World Model domain
+
+`packages/schemas/typespec/world-model.tsp` defines the following 7 operations:
+
+| Operation ID | Method | Path | Query |
+|---|---|---|---|
+| `listExecutionProfiles` | `GET` | `/world-model/execution-profiles` | — |
+| `createWorld` | `POST` | `/worlds` | — |
+| `getWorldHead` | `GET` | `/worlds/{worldId}` | — |
+| `submitWorldAction` | `POST` | `/worlds/{worldId}/actions` | — |
+| `submitWorldTimeAdvance` | `POST` | `/worlds/{worldId}/time-advances` | — |
+| `getWorldProjection` | `GET` | `/worlds/{worldId}/projections/{projectionId}` | `revision?` |
+| `getWorldProjectionBundle` | `GET` | `/worlds/{worldId}/projection-bundles/{bundleId}` | `revision?` |
 
 Production schema requirements now become ongoing governance requirements:
 
@@ -651,10 +670,8 @@ pnpm --filter @oa-sdk/schemas run downgrade:3.1    # 3.1 변환 (Swagger UI 호�
 ```bash
 oa-gen typegen --spec packages/schemas/src/.merged.yaml -o types.ts     # TS 타입
 oa-gen typegen --spec packages/schemas/src/.merged.yaml -o types.ts --incremental --cache-dir .oa-cache
-oa-gen router  --spec packages/schemas/src/.merged.yaml -o router.ts --types-import './types'
-oa-gen client  --spec packages/schemas/src/.merged.yaml -o client.ts --types-import './types'
 oa-gen generate --drizzle-schema ./db/schema.ts --output ./domains/users/
-oa-gen dev --spec packages/schemas/src/.merged.yaml --cache-dir .oa-cache
+# private router/client package API 통합은 apps/playground가 소유한다.
 ```
 
 ### 테스트

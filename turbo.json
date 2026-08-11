@@ -1,5 +1,6 @@
 {
   "$schema": "https://turbo.build/schema.json",
+  "globalDependencies": ["tsconfig.base.json"],
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
@@ -18,7 +19,7 @@
     "test": {
       "dependsOn": ["^build"],
       "inputs": ["src/**", "test/**", "tests/**", "vitest.config.*", "vite.config.*", "tsconfig*.json"],
-      "outputs": ["coverage/**"]
+      "outputs": []
     },
     "test:ci": {
       "dependsOn": ["^build"],

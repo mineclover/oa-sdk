@@ -30,7 +30,7 @@ plan.md (로드맵 — 어디를 향하는가)
 
 architecture/ (설계 결정)
   ├─ packages.md (패키지 구조 + 파일별 역할)
-  └─ ADR 001~007
+  └─ ADR 001~011
 ```
 
 ## 문서별 역할
@@ -39,7 +39,7 @@ architecture/ (설계 결정)
 |------|------|-------------|
 | [../vision.md](../vision.md) | 핵심 철학과 주 목표 | 제품 방향/경계 변경 시 |
 | [../concepts.md](../concepts.md) | 공통 용어와 계약 경계 정의 | 새 개념 추가/의미 변경 시 |
-| [spec.md](./spec.md) | 작동하는 기능 목록 | 기능 추가/제거 시 |
+| [spec.md](./spec.md) | 구현 현황과 검증 진입점 | 기능 추가/제거 시 |
 | [feature-test-matrix.md](./feature-test-matrix.md) | 기능별 테스트 파일·명령 매핑 | 기능/테스트 추가·이동·삭제 시 |
 | [user-scenario-tests.md](./user-scenario-tests.md) | 사용자 관점 E2E 시나리오 테스트 목록 | 사용자 시나리오 테스트 추가·이동·삭제 시 |
 | [api-index.md](./api-index.md) | 타입·함수 단일 소스 + 재구현 금지 | 함수/타입 추가 시 |

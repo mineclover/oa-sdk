@@ -20,7 +20,7 @@ import {
   diffEndpoints,
   formatMarkdown,
   hasBreakingChanges,
-} from '../packages/codegen/src/cli/lib/openapi-breaking-diff.js'
+} from '../packages/codegen/src/schema-governance.js'
 
 export {
   classifyBreakingChanges,
@@ -36,7 +36,7 @@ export type {
   Endpoint,
   EndpointParameter,
   HttpMethod,
-} from '../packages/codegen/src/cli/lib/openapi-breaking-diff.js'
+} from '../packages/codegen/src/schema-governance.js'
 
 function findRepoRoot(): string {
   return execaSync('git', ['rev-parse', '--show-toplevel']).stdout.trim()

@@ -27,7 +27,8 @@ Package roots remain the Node/tooling-complete surfaces. Browser code should not
 
 ## Current Verification
 
-- Preview production build has no Node externalization warnings.
+- Preview production build rejects Node builtins and Node-only package roots during module resolution, and requires all six documented browser subpaths to appear in the actual Vite graph.
+- A post-build smoke scans emitted imports for Node builtins/Vite external shims and asserts shared in-memory behavior across Node and browser entries (including exact router/client output parity).
 - Preview initial JS chunk is split to roughly 105 kB; generation and MSW load lazily.
 - Python Playwright smoke covers Load Example, type/router/client generation, Mock Test tab, Service Worker start, `/pets` request, `200 OK`, example response body, and no console errors.
 - Focused package gates cover parser/router/client/mock-server/codegen/spec-lens tests plus CLI spec and persona checks.
