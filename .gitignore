@@ -5,6 +5,7 @@ packages/schemas/src/.projected/
 packages/schemas/src/.merged.persona.yaml
 packages/schemas/src/.builder/
 .turbo/
+.worktrees/
 .omx/
 .ralph-tui/
 coverage/
