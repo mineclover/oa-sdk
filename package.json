@@ -59,6 +59,7 @@
     "schema:rollback-check": "node --import tsx scripts/schema-rollback-check.ts",
     "test:schema-rollback-check": "node --import tsx scripts/test-schema-rollback-check.ts",
     "schema:downstream-check": "node --import tsx scripts/schema-typespec-downstream-check.ts",
+    "graph-db:downstream-check": "node --import tsx scripts/check-bun-graph-db-downstream.ts",
     "schema:preview": "corepack pnpm --filter @oa-sdk/schemas run preview",
     "schema:preview:openapi": "corepack pnpm --filter @oa-sdk/schemas run preview:openapi",
     "personas:check": "corepack pnpm --filter @oa-sdk/personas run check",
