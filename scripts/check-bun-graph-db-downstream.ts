@@ -13,6 +13,7 @@ const root = resolve(process.cwd())
 const graphDbRoot = join(root, 'references', 'bun-graph-db')
 const workspace = mkdtempSync(join(tmpdir(), 'oa-sdk-bun-graph-db-downstream-'))
 const artifact = join(workspace, 'project_tasks.operation-contract.openapi.json')
+const typeSpecBundle = join(workspace, 'typespec-model-fixture-bundle')
 
 try {
   if (!existsSync(join(graphDbRoot, 'package.json'))) {
@@ -32,6 +33,24 @@ try {
 
   await run('bun', [
     'run',
+    'contract:typespec:fixture-bundle',
+    '--',
+    '--compiler',
+    join(root, 'node_modules', '.bin', 'tsp'),
+    '--bundle-out',
+    typeSpecBundle,
+  ], graphDbRoot)
+
+  await run('pnpm', [
+    'typespec:bundle-check',
+    '--',
+    '--manifest',
+    join(typeSpecBundle, 'oa-sdk.typespec-bundle.json'),
+    '--fail-on-breaking',
+  ], root)
+
+  await run('bun', [
+    'run',
     'contract:typespec:model-check',
     '--',
     '--compiler',
@@ -46,7 +65,7 @@ try {
     artifact,
   ], root)
 
-  console.log(`Bun Graph DB operation-contract downstream check passed: ${artifact}`)
+  console.log(`Bun Graph DB operation-contract downstream and TypeSpec fixture-bundle checks passed: ${artifact}`)
 } finally {
   rmSync(workspace, { recursive: true, force: true })
 }
