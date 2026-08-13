@@ -13,7 +13,8 @@ const root = resolve(process.cwd())
 const graphDbRoot = join(root, 'references', 'bun-graph-db')
 const workspace = mkdtempSync(join(tmpdir(), 'oa-sdk-bun-graph-db-downstream-'))
 const artifact = join(workspace, 'project_tasks.operation-contract.openapi.json')
-const typeSpecBundle = join(workspace, 'typespec-model-fixture-bundle')
+const typeSpecFixtureBundle = join(workspace, 'typespec-model-fixture-bundle')
+const typeSpecContractBundle = join(workspace, 'typespec-contract-bundle')
 
 try {
   if (!existsSync(join(graphDbRoot, 'package.json'))) {
@@ -38,14 +39,26 @@ try {
     '--compiler',
     join(root, 'node_modules', '.bin', 'tsp'),
     '--bundle-out',
-    typeSpecBundle,
+    typeSpecFixtureBundle,
+  ], graphDbRoot)
+
+  await run('bun', [
+    'run',
+    'contract:typespec:bundle-export',
+    '--',
+    '--out',
+    typeSpecContractBundle,
+    '--compiler',
+    join(root, 'node_modules', '.bin', 'tsp'),
+    '--contract',
+    join(typeSpecFixtureBundle, 'source.contract-ir.json'),
   ], graphDbRoot)
 
   await run('pnpm', [
     'typespec:bundle-check',
     '--',
     '--manifest',
-    join(typeSpecBundle, 'oa-sdk.typespec-bundle.json'),
+    join(typeSpecContractBundle, 'oa-sdk.typespec-bundle.json'),
     '--fail-on-breaking',
   ], root)
 
