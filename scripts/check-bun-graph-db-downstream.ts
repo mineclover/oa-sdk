@@ -54,6 +54,16 @@ try {
     join(typeSpecFixtureBundle, 'source.contract-ir.json'),
   ], graphDbRoot)
 
+  await run('bun', [
+    'run',
+    'contract:typespec:bundle-verify',
+    '--',
+    '--bundle',
+    typeSpecContractBundle,
+    '--compiler',
+    join(root, 'node_modules', '.bin', 'tsp'),
+  ], graphDbRoot)
+
   await run('pnpm', [
     'typespec:bundle-check',
     '--',
