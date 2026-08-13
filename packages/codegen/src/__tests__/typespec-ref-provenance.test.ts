@@ -57,6 +57,34 @@ model Widget {
     ]))
   })
 
+  it('attributes emitted alias and scalar components to their TypeSpec declarations', () => {
+    const sourceRoot = makeSource(`
+alias Status = "open" | "closed";
+scalar TicketCode extends string;
+`)
+    const result = buildTypeSpecRefProvenance({
+      sourceRoot,
+      restoredDocument: document({
+        components: {
+          schemas: {
+            Status: { type: 'string', enum: ['open', 'closed'] },
+            TicketCode: { type: 'string' },
+          },
+        },
+      }),
+      sidecar: createTypeSpecCompatibilitySidecarFromEntries([]),
+    })
+
+    expect(result.report).toMatchObject({
+      valid: true,
+      counts: { publicPointers: 2, coveredPublicPointers: 2 },
+    })
+    expect(result.artifact.declarations).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: 'alias:main.tsp:Status', kind: 'model', symbol: 'Status' }),
+      expect.objectContaining({ id: 'scalar:main.tsp:TicketCode', kind: 'model', symbol: 'TicketCode' }),
+    ]))
+  })
+
   it('attributes restored reusable components to their root extension and rejects an unowned component', () => {
     const sourceRoot = makeSource(`
 @extension("x-oa-sdk-components", #{})

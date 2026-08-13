@@ -288,10 +288,21 @@ function collectDeclarations(sourceRoot: string, filePath: string): {
     const id = readIdentifier(statement.id)
     const pos = typeof statement.pos === 'number' ? statement.pos : 0
     const end = typeof statement.end === 'number' ? statement.end : pos
-    if ((kind !== SyntaxKind.OperationStatement && kind !== SyntaxKind.ModelStatement) || !id) continue
+    if (
+      kind !== SyntaxKind.OperationStatement
+      && kind !== SyntaxKind.ModelStatement
+      && kind !== SyntaxKind.AliasStatement
+      && kind !== SyntaxKind.ScalarStatement
+    ) continue
+    if (!id) continue
     const source = createSourceRange(content, relativePath, pos, end)
-    if (kind === SyntaxKind.ModelStatement) {
-      const declarationId = `model:${relativePath}:${id}`
+    if (kind !== SyntaxKind.OperationStatement) {
+      const declarationPrefix = kind === SyntaxKind.ModelStatement
+        ? 'model'
+        : kind === SyntaxKind.AliasStatement
+          ? 'alias'
+          : 'scalar'
+      const declarationId = `${declarationPrefix}:${relativePath}:${id}`
       declarations.push({
         id: declarationId,
         kind: 'model',
@@ -300,13 +311,15 @@ function collectDeclarations(sourceRoot: string, filePath: string): {
         sourceOffset: pos,
         sourceEnd: end,
       })
-      const modelIs = isRecord(statement.is) ? statement.is : undefined
-      const target = modelIs && isRecord(modelIs.target) ? modelIs.target : undefined
-      const nativeModelName = target
-        ? readIdentifier(target.id) ?? readIdentifier(target)
-        : undefined
-      if (nativeModelName && NATIVE_SECURITY_SCHEME_MODELS.has(nativeModelName)) {
-        nativeSecuritySchemeDeclarationIds.push(declarationId)
+      if (kind === SyntaxKind.ModelStatement) {
+        const modelIs = isRecord(statement.is) ? statement.is : undefined
+        const target = modelIs && isRecord(modelIs.target) ? modelIs.target : undefined
+        const nativeModelName = target
+          ? readIdentifier(target.id) ?? readIdentifier(target)
+          : undefined
+        if (nativeModelName && NATIVE_SECURITY_SCHEME_MODELS.has(nativeModelName)) {
+          nativeSecuritySchemeDeclarationIds.push(declarationId)
+        }
       }
       continue
     }
