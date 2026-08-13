@@ -50,6 +50,14 @@ model CreateWorldRequest {
 }
 
 @doc("World의 public control head. Domain Property와 raw StateObject graph는 포함하지 않습니다.")
+@example(#{
+  worldId: "00000000-0000-0000-0000-000000000401",
+  modelRef: #{ modelId: "city-sim", version: "2026.08", semanticFingerprint: "sha256:city-model" },
+  executionProfile: #{ profileId: "deterministic-local", version: "1.0.0", semanticFingerprint: "sha256:execution-profile" },
+  revision: 42,
+  logicalTime: "2030-01-01T12:00:00Z",
+  lifecycle: "active",
+})
 model WorldHead {
   @format("uuid")
   worldId: string;
@@ -77,6 +85,13 @@ model SubmitActionRequest {
 }
 
 @doc("Agenda가 받아들인 Stimulus. 이 응답은 Transaction commit 성공을 뜻하지 않습니다.")
+@example(#{
+  stimulusId: "00000000-0000-0000-0000-000000000402",
+  worldId: "00000000-0000-0000-0000-000000000401",
+  status: "accepted",
+  acceptedAtRevision: 42,
+  acceptedLogicalTime: "2030-01-01T12:00:00Z",
+})
 model StimulusAccepted {
   @format("uuid")
   stimulusId: string;
@@ -110,6 +125,13 @@ model SubmitTimeAdvanceRequest {
 }
 
 @doc("특정 source revision에서 materialize한 semantic projection")
+@example(#{
+  worldId: "00000000-0000-0000-0000-000000000401",
+  modelRef: #{ modelId: "city-sim", version: "2026.08", semanticFingerprint: "sha256:city-model" },
+  sourceRevision: 42,
+  projectionId: "population-summary",
+  value: #{ population: 1250 },
+})
 model ProjectionEnvelope {
   @format("uuid")
   worldId: string;
@@ -123,6 +145,20 @@ model ProjectionEnvelope {
 }
 
 @doc("같은 revision에서 함께 읽어야 하는 semantic projection bundle")
+@example(#{
+  worldId: "00000000-0000-0000-0000-000000000401",
+  modelRef: #{ modelId: "city-sim", version: "2026.08", semanticFingerprint: "sha256:city-model" },
+  sourceRevision: 42,
+  bundleId: "world-overview",
+  status: "complete",
+  projections: #[#{
+    worldId: "00000000-0000-0000-0000-000000000401",
+    modelRef: #{ modelId: "city-sim", version: "2026.08", semanticFingerprint: "sha256:city-model" },
+    sourceRevision: 42,
+    projectionId: "population-summary",
+    value: #{ population: 1250 },
+  }],
+})
 model ProjectionBundleEnvelope {
   @format("uuid")
   worldId: string;
@@ -135,9 +171,23 @@ model ProjectionBundleEnvelope {
   projections: ProjectionEnvelope[];
 }
 
+@example(#{
+  items: #[#{
+    profile: #{ profileId: "deterministic-local", version: "1.0.0", semanticFingerprint: "sha256:execution-profile" },
+    persistenceRecovery: "durable-outbox",
+    numericSemantics: "fixed-decimal",
+    decisionRandom: "counter-derived",
+    commitIsolation: "serializable-transaction",
+    conformanceProfiles: #["replay-safe", "single-writer"],
+  }],
+})
+model ListExecutionProfilesResponseBody {
+  items: ExecutionProfileSummary[];
+}
+
 model ListExecutionProfiles200Response {
   @statusCode statusCode: 200;
-  @body body: { items: ExecutionProfileSummary[]; };
+  @body body: ListExecutionProfilesResponseBody;
 }
 
 model ListExecutionProfiles401Response {
@@ -286,6 +336,7 @@ model GetProjectionBundle422Response {
 }
 
 @summary("선택 가능한 실행 profile 목록")
+@doc("새 World bootstrap에서 선택할 수 있는 immutable execution profile의 공개 요약을 반환합니다.")
 @tag("world-model")
 @useAuth(bearerAuth)
 @operationId("listExecutionProfiles")
@@ -294,6 +345,7 @@ model GetProjectionBundle422Response {
 op listExecutionProfiles(): ListExecutionProfiles200Response | ListExecutionProfiles401Response;
 
 @summary("새 World bootstrap")
+@doc("게시된 model과 execution profile을 고정한 새 World control head를 생성합니다. 동일한 worldId가 이미 있으면 conflict를 반환합니다.")
 @tag("world-model")
 @useAuth(bearerAuth)
 @operationId("createWorld")
@@ -302,6 +354,7 @@ op listExecutionProfiles(): ListExecutionProfiles200Response | ListExecutionProf
 op createWorld(@body body: CreateWorldRequest): CreateWorld201Response | CreateWorld400Response | CreateWorld401Response | CreateWorld409Response | CreateWorld422Response;
 
 @summary("World control head 조회")
+@doc("World의 현재 revision, logical time, lifecycle과 bootstrap 시 고정된 model/profile reference를 반환합니다.")
 @tag("world-model")
 @useAuth(bearerAuth)
 @operationId("getWorldHead")
@@ -310,6 +363,7 @@ op createWorld(@body body: CreateWorldRequest): CreateWorld201Response | CreateW
 op getWorldHead(@path @format("uuid") worldId: string): GetWorldHead200Response | GetWorldHead401Response | GetWorldHead404Response;
 
 @summary("Action stimulus 제출")
+@doc("typed action stimulus를 SimulationAgenda에 제출합니다. accepted 응답은 agenda 수락만 뜻하며 transaction commit을 뜻하지 않습니다.")
 @tag("world-model")
 @useAuth(bearerAuth)
 @operationId("submitWorldAction")
@@ -318,6 +372,7 @@ op getWorldHead(@path @format("uuid") worldId: string): GetWorldHead200Response 
 op submitWorldAction(@path @format("uuid") worldId: string, @body body: SubmitActionRequest): SubmitAction202Response | SubmitAction400Response | SubmitAction401Response | SubmitAction404Response | SubmitAction409Response | SubmitAction422Response;
 
 @summary("Logical time advance stimulus 제출")
+@doc("target logical time 또는 duration을 담은 time-advance stimulus를 SimulationAgenda에 제출합니다. accepted 응답은 commit을 보장하지 않습니다.")
 @tag("world-model")
 @useAuth(bearerAuth)
 @operationId("submitWorldTimeAdvance")
@@ -326,6 +381,7 @@ op submitWorldAction(@path @format("uuid") worldId: string, @body body: SubmitAc
 op submitWorldTimeAdvance(@path @format("uuid") worldId: string, @body body: SubmitTimeAdvanceRequest): SubmitTimeAdvance202Response | SubmitTimeAdvance400Response | SubmitTimeAdvance401Response | SubmitTimeAdvance404Response | SubmitTimeAdvance409Response | SubmitTimeAdvance422Response;
 
 @summary("Revision-pinned semantic projection 조회")
+@doc("지정한 projection을 현재 revision 또는 선택한 source revision에서 읽습니다. 반환 value의 상세 형식은 World의 PublishedModel이 정의합니다.")
 @tag("world-model")
 @useAuth(bearerAuth)
 @operationId("getWorldProjection")
@@ -338,6 +394,7 @@ op getWorldProjection(
 ): GetProjection200Response | GetProjection401Response | GetProjection404Response | GetProjection422Response;
 
 @summary("Revision-pinned semantic projection bundle 조회")
+@doc("동일 source revision에서 함께 소비해야 하는 semantic projection 묶음을 현재 revision 또는 선택한 revision에서 읽습니다.")
 @tag("world-model")
 @useAuth(bearerAuth)
 @operationId("getWorldProjectionBundle")

@@ -1011,20 +1011,14 @@ paths:
     get:
       operationId: listExecutionProfiles
       summary: 선택 가능한 실행 profile 목록
+      description: 새 World bootstrap에서 선택할 수 있는 immutable execution profile의 공개 요약을 반환합니다.
       responses:
         "200":
           description: The request has succeeded.
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  items:
-                    type: array
-                    items:
-                      $ref: "#/components/schemas/ExecutionProfileSummary"
-                required:
-                  - items
+                $ref: "#/components/schemas/ListExecutionProfilesResponseBody"
         "401":
           description: Access is unauthorized.
           content:
@@ -1039,6 +1033,7 @@ paths:
     post:
       operationId: createWorld
       summary: 새 World bootstrap
+      description: 게시된 model과 execution profile을 고정한 새 World control head를 생성합니다. 동일한 worldId가 이미 있으면 conflict를 반환합니다.
       responses:
         "201":
           description: The request has succeeded and a new resource has been created as a result.
@@ -1084,6 +1079,7 @@ paths:
     get:
       operationId: getWorldHead
       summary: World control head 조회
+      description: World의 현재 revision, logical time, lifecycle과 bootstrap 시 고정된 model/profile reference를 반환합니다.
       responses:
         "200":
           description: The request has succeeded.
@@ -1118,6 +1114,7 @@ paths:
     post:
       operationId: submitWorldAction
       summary: Action stimulus 제출
+      description: typed action stimulus를 SimulationAgenda에 제출합니다. accepted 응답은 agenda 수락만 뜻하며 transaction commit을 뜻하지 않습니다.
       responses:
         "202":
           description: The request has been accepted for processing, but processing has not yet completed.
@@ -1176,6 +1173,7 @@ paths:
     get:
       operationId: getWorldProjectionBundle
       summary: Revision-pinned semantic projection bundle 조회
+      description: 동일 source revision에서 함께 소비해야 하는 semantic projection 묶음을 현재 revision 또는 선택한 revision에서 읽습니다.
       parameters:
         - name: revision
           in: query
@@ -1228,6 +1226,7 @@ paths:
     get:
       operationId: getWorldProjection
       summary: Revision-pinned semantic projection 조회
+      description: 지정한 projection을 현재 revision 또는 선택한 source revision에서 읽습니다. 반환 value의 상세 형식은 World의 PublishedModel이 정의합니다.
       parameters:
         - name: revision
           in: query
@@ -1280,6 +1279,8 @@ paths:
     post:
       operationId: submitWorldTimeAdvance
       summary: Logical time advance stimulus 제출
+      description: target logical time 또는 duration을 담은 time-advance stimulus를 SimulationAgenda에 제출합니다. accepted 응답은 commit을
+        보장하지 않습니다.
       responses:
         "202":
           description: The request has been accepted for processing, but processing has not yet completed.
@@ -1665,6 +1666,28 @@ components:
       example:
         status: ok
         timestamp: 2026-04-04T00:00:00.000Z
+    ListExecutionProfilesResponseBody:
+      type: object
+      required:
+        - items
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ExecutionProfileSummary"
+      examples:
+        - items:
+            - profile:
+                profileId: deterministic-local
+                version: 1.0.0
+                semanticFingerprint: sha256:execution-profile
+              persistenceRecovery: durable-outbox
+              numericSemantics: fixed-decimal
+              decisionRandom: counter-derived
+              commitIsolation: serializable-transaction
+              conformanceProfiles:
+                - replay-safe
+                - single-writer
     LoginRequest:
       type: object
       required:
@@ -1758,6 +1781,25 @@ components:
           items:
             $ref: "#/components/schemas/ProjectionEnvelope"
       description: 같은 revision에서 함께 읽어야 하는 semantic projection bundle
+      examples:
+        - worldId: 00000000-0000-0000-0000-000000000401
+          modelRef:
+            modelId: city-sim
+            version: "2026.08"
+            semanticFingerprint: sha256:city-model
+          sourceRevision: 42
+          bundleId: world-overview
+          status: complete
+          projections:
+            - worldId: 00000000-0000-0000-0000-000000000401
+              modelRef:
+                modelId: city-sim
+                version: "2026.08"
+                semanticFingerprint: sha256:city-model
+              sourceRevision: 42
+              projectionId: population-summary
+              value:
+                population: 1250
     ProjectionEnvelope:
       type: object
       required:
@@ -1782,6 +1824,16 @@ components:
         value:
           description: PublishedModel이 선언한 projection result의 typed JSON representation
       description: 특정 source revision에서 materialize한 semantic projection
+      examples:
+        - worldId: 00000000-0000-0000-0000-000000000401
+          modelRef:
+            modelId: city-sim
+            version: "2026.08"
+            semanticFingerprint: sha256:city-model
+          sourceRevision: 42
+          projectionId: population-summary
+          value:
+            population: 1250
     PublicUserProfile:
       type: object
       required:
@@ -2021,6 +2073,12 @@ components:
         acceptedLogicalTime:
           type: string
       description: Agenda가 받아들인 Stimulus. 이 응답은 Transaction commit 성공을 뜻하지 않습니다.
+      examples:
+        - stimulusId: 00000000-0000-0000-0000-000000000402
+          worldId: 00000000-0000-0000-0000-000000000401
+          status: accepted
+          acceptedAtRevision: 42
+          acceptedLogicalTime: 2030-01-01T12:00:00Z
     SubmitActionRequest:
       type: object
       required:
@@ -2208,6 +2266,19 @@ components:
             - inactive
             - ended
       description: World의 public control head. Domain Property와 raw StateObject graph는 포함하지 않습니다.
+      examples:
+        - worldId: 00000000-0000-0000-0000-000000000401
+          modelRef:
+            modelId: city-sim
+            version: "2026.08"
+            semanticFingerprint: sha256:city-model
+          executionProfile:
+            profileId: deterministic-local
+            version: 1.0.0
+            semanticFingerprint: sha256:execution-profile
+          revision: 42
+          logicalTime: 2030-01-01T12:00:00Z
+          lifecycle: active
   securitySchemes:
     bearerAuth:
       type: http

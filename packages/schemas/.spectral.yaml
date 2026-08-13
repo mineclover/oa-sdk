@@ -33,11 +33,19 @@ rules:
       functionOptions:
         match: "^[a-z][a-zA-Z0-9]*$"
 
-  # Prism mock 생성을 위한 examples 권장 (hint만)
+  # Prism mock 생성을 위한 example(s) 권장 (hint만). TypeSpec `@example`
+  # emits OpenAPI 3.2 `examples`, while older OpenAPI fragments may retain the
+  # singular `example` field; both forms carry usable mock data.
   response-example-recommended:
-    description: "Response schemas should have examples for Prism mock generation"
+    description: "Response schemas should have example or examples for Prism mock generation"
     given: "$.paths[*][*].responses[*].content[*].schema"
     severity: hint
     then:
-      field: "example"
-      function: truthy
+      function: schema
+      functionOptions:
+        schema:
+          anyOf:
+            - required:
+                - example
+            - required:
+                - examples
