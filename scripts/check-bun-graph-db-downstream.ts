@@ -30,6 +30,14 @@ try {
     '--strict',
   ], graphDbRoot)
 
+  await run('bun', [
+    'run',
+    'contract:typespec:model-check',
+    '--',
+    '--compiler',
+    join(root, 'node_modules', '.bin', 'tsp'),
+  ], graphDbRoot)
+
   await run(process.execPath, [
     '--import',
     'tsx',
