@@ -1,8 +1,17 @@
 # oa-sdk 문서
 
 문서 기준 체크포인트: [문서·스펙 거버넌스](./spec-governance/README.md) (2026-07-24). 제품 변경
-이력은 [Changelog](./changelog.md)에서 관리한다 (가장 최근 제품 항목: 2026-08-10 — TypeSpec
-extension vocabulary v5 consolidation).
+이력은 [Changelog](./changelog.md)에서 관리한다.
+
+## 먼저 고르기
+
+| 목적 | 먼저 볼 문서 |
+|---|---|
+| 공개 OpenAPI 문서를 검증하고 TypeScript 타입을 생성 | [Quick Start](./guides/quick-start.md) |
+| OA SDK production contract를 작성·승인 | [기본 스펙 사용 기준](./guides/basic-spec-usage.md) → [TypeSpec Authoring Conventions](./guides/typespec-authoring-conventions.md) |
+| 외부 서비스/OpenAPI projection을 OA SDK로 소비 | [코드젠 워크플로](./guides/use-cases/codegen-workflow.md) 또는 [bun-graph-db projection 소비](./guides/use-cases/bun-graph-db-projections.md) |
+| public package artifact release를 준비 | [Artifact Release Preparation](./guides/release-preparation.md) |
+| 구현 현황·현재 우선순위·장기 이력을 확인 | [Spec](./internal/spec.md) → [Plan](./internal/plan.md) → [Release Readiness](./internal/release-readiness.md) |
 
 ## 문서 거버넌스
 
@@ -42,6 +51,7 @@ extension vocabulary v5 consolidation).
 | [테스트 피드백](./guides/use-cases/test-feedback.md) | 커버리지 + 검증 피드백 루프 |
 | [CLI 세팅](./guides/cli-setup.md) | 설치 + CLI 명령어 |
 | [CLI 명령 레퍼런스](./guides/cli-command-reference.md) | 현재 `oa-gen` 명령의 목적·최소 입력·조건부 옵션 |
+| [Artifact Release Preparation](./guides/release-preparation.md) | artifact-only package release의 version intent, preflight, external promotion 경계 |
 | [라이브러리 진입점 지도](./guides/library-entrypoints.md) | package root/subpath와 artifact 경계 |
 | [Mock 서버](./guides/mock-server-usage.md) | MSW / Node HTTP |
 | [스키마 작성](./guides/schema-authoring.md) | TypeSpec production authoring과 Definition Builder rollback fragment |
@@ -67,6 +77,7 @@ extension vocabulary v5 consolidation).
 |------|------|
 | [spec.md](./internal/spec.md) | 구현 현황 |
 | [plan.md](./internal/plan.md) | 로드맵 |
+| [release-readiness.md](./internal/release-readiness.md) | artifact release 판단 입력과 source/external 책임 경계 |
 | [api-index.md](./internal/api-index.md) | API 단일 소스 |
 | [behavior-ecs.spec.md](./internal/behavior-ecs.spec.md) | 행동 데이터 SSOT, representative use case, baseline/local verification |
 | [feature-test-matrix.md](./internal/feature-test-matrix.md) | 기능 ↔ 테스트 매핑 |

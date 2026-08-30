@@ -30,7 +30,7 @@ Zod Schema  ──▶  OpenAPI 3.2 Spec      ──▶ TypeScript 타입
 | `@oa-sdk/schemas` | TypeSpec production source, generated OpenAPI 3.2 artifact, Definition Builder rollback, 3.1 변환의 schema source package |
 | `@oa-sdk/openapi-projection-contract` | Zod/Drizzle/외부 schema 조각을 OpenAPI로 투영할 때 공유하는 projection contract 타입층 |
 | `@oa-sdk/parser` | OpenAPI 3.2 parse/IR/transform/fold/lint/validate/query pipeline |
-| `@oa-sdk/codegen` | `oa-gen` CLI, Definition Builder target artifact, OpenAPI 수집/정규화/업그레이드/diff/review, typegen/router/client 생성, Zod/Drizzle projection bridge |
+| `@oa-sdk/codegen` | `oa-gen` CLI, Definition Builder target artifact, OpenAPI 수집/정규화/업그레이드/diff/review, typegen 생성, Zod/Drizzle projection bridge. router/client는 private downstream package API가 소유 |
 | `@oa-sdk/spec-lens` | OpenAPI spec change history observation과 review surface 관리 |
 | `@oa-sdk/spec-lens-contract` | spec-lens HTTP wire contract와 browser-safe response types |
 | `@oa-sdk/typespec-decorators` | production TypeSpec source에서 검증된 OA SDK extension decorator를 제공 |
@@ -98,7 +98,10 @@ npm install --save-dev @oa-sdk/codegen
 npx oa-gen --help
 ```
 
-현재 공개 배포 버전은 core/projection/decorators/parser `0.1.2`, `@oa-sdk/codegen` `0.5.0`이다.
+현재 npm `latest`는 core/projection/decorators/parser `0.1.2`, `@oa-sdk/codegen` `0.5.0`이다.
+다음 source release candidate는 `@oa-sdk/core`·`@oa-sdk/parser` `0.2.0`,
+`@oa-sdk/codegen` `0.6.0`이며, artifact review와 external promotion 전에는 `latest`로
+간주하지 않는다.
 `@oa-sdk/schemas`, router, client, mock-server는 아직 별도 distribution decision 전의 private
 workspace이므로 npm 설치 대상으로 안내하지 않는다.
 
@@ -121,6 +124,10 @@ monorepo 검증은 각각 `build:all`, `test:all`, `typecheck:all`을 사용하�
 `:downstream`, `:maintenance`, `:internal` 명령을 명시적으로 선택한다. `:internal`은 남아 있는
 application/reference workspace만 검증한다.
 
+위의 공개 npm 경로는 `npx oa-gen <command>`를 사용한다. 반대로 아래 source checkout 예시는
+root shell PATH에 없는 package binary를 가정하지 않고 built `node packages/codegen/dist/cli/index.js`
+entrypoint를 직접 호출한다.
+
 ```bash
 nvm install
 nvm use
@@ -132,33 +139,33 @@ pnpm schema:validate                       # TypeSpec production source → .mer
 pnpm schema:rollback-check                 # TypeSpec path와 Definition Builder rollback path 동시 검증
 pnpm schema:bundle                         # TypeSpec-derived 3.1 artifact를 dist/openapi.{yaml,json}로 번들
 pnpm --filter @oa-sdk/schemas run build:openapi # Definition Builder rollback/reference artifact 생성
-oa-gen validate --spec packages/schemas/src/.merged.yaml --require-32  # 관리 대상 계약 검증 (OpenAPI 3.2 strict gate)
-oa-gen validate --spec raw.yaml                                    # intake/migration 호환 검증
-oa-gen lint --spec packages/schemas/src/.merged.yaml               # 린트만
-oa-gen reference-check --spec packages/schemas/src/.merged.yaml    # Apitomy reference 비교 (비권위적, optional dependency)
-oa-gen scaffold-governance --root apps/nestjs-ref --service nestjs-ref --profile nestjs-swagger --source-command "pnpm export:openapi"
-oa-gen scaffold-governance --root apps/fastapi-ref --service fastapi-ref --profile fastapi --source-command "uv run python scripts/export_openapi.py"
-oa-gen collect --spec contracts/openapi.raw.yaml --normalized contracts/openapi.normalized.yaml --upgraded contracts/openapi.upgraded.yaml --profile nestjs-swagger
-oa-gen normalize --spec contracts/openapi.raw.yaml --output contracts/openapi.normalized.yaml --profile nestjs-swagger
-oa-gen upgrade --spec contracts/openapi.normalized.yaml --output contracts/openapi.upgraded.yaml
-oa-gen diff --base old.yaml --head packages/schemas/src/.merged.yaml --fail-on-breaking
-oa-gen check-artifact --head packages/schemas/src/.merged.3.1.yaml --artifact packages/schemas/dist/openapi.yaml
-oa-gen check-artifact --head packages/schemas/src/.merged.yaml --target packages/schemas/src/targets/local-parity-api.yaml --artifact packages/schemas/src/.builder/local-parity-api.yaml
-oa-gen drift --runtime-openapi runtime.yaml --managed-openapi packages/schemas/src/.merged.yaml
-oa-gen inventory --spec packages/schemas/src/.merged.yaml --format markdown
-oa-gen behavior-query --behavior-db ./.oa-cache/behavior.sqlite --mode summary-by-behavior-decision-signal --format json
-oa-gen duplicate-review --fragments packages/schemas/src/fragments --policy report --format markdown
-oa-gen duplicate-review --fragments packages/schemas/src/fragments --policy ci --target packages/schemas/src/targets/public-api.yaml --format json
-oa-gen target-check --target packages/schemas/src/targets/public-api.yaml --must-include-path /health --must-exclude-path /admin
-oa-gen review --base old.yaml --head packages/schemas/src/.merged.3.1.yaml --artifact packages/schemas/dist/openapi.yaml
-oa-gen review-bundle --base old.yaml --head packages/schemas/src/.merged.3.1.yaml --artifact packages/schemas/dist/openapi.yaml --inventory --format markdown
+node packages/codegen/dist/cli/index.js validate --spec packages/schemas/src/.merged.yaml --require-32  # 관리 대상 계약 검증 (OpenAPI 3.2 strict gate)
+node packages/codegen/dist/cli/index.js validate --spec raw.yaml                                    # intake/migration 호환 검증
+node packages/codegen/dist/cli/index.js lint --spec packages/schemas/src/.merged.yaml               # 린트만
+node packages/codegen/dist/cli/index.js reference-check --spec packages/schemas/src/.merged.yaml    # Apitomy reference 비교 (비권위적, optional dependency)
+node packages/codegen/dist/cli/index.js scaffold-governance --root apps/nestjs-ref --service nestjs-ref --profile nestjs-swagger --source-command "pnpm export:openapi"
+node packages/codegen/dist/cli/index.js scaffold-governance --root apps/fastapi-ref --service fastapi-ref --profile fastapi --source-command "uv run python scripts/export_openapi.py"
+node packages/codegen/dist/cli/index.js collect --spec contracts/openapi.raw.yaml --normalized contracts/openapi.normalized.yaml --upgraded contracts/openapi.upgraded.yaml --profile nestjs-swagger
+node packages/codegen/dist/cli/index.js normalize --spec contracts/openapi.raw.yaml --output contracts/openapi.normalized.yaml --profile nestjs-swagger
+node packages/codegen/dist/cli/index.js upgrade --spec contracts/openapi.normalized.yaml --output contracts/openapi.upgraded.yaml
+node packages/codegen/dist/cli/index.js diff --base old.yaml --head packages/schemas/src/.merged.yaml --fail-on-breaking
+node packages/codegen/dist/cli/index.js check-artifact --head packages/schemas/src/.merged.3.1.yaml --artifact packages/schemas/dist/openapi.yaml
+node packages/codegen/dist/cli/index.js check-artifact --head packages/schemas/src/.merged.yaml --target packages/schemas/src/targets/local-parity-api.yaml --artifact packages/schemas/src/.builder/local-parity-api.yaml
+node packages/codegen/dist/cli/index.js drift --runtime-openapi runtime.yaml --managed-openapi packages/schemas/src/.merged.yaml
+node packages/codegen/dist/cli/index.js inventory --spec packages/schemas/src/.merged.yaml --format markdown
+node packages/codegen/dist/cli/index.js behavior-query --behavior-db ./.oa-cache/behavior.sqlite --mode summary-by-behavior-decision-signal --format json
+node packages/codegen/dist/cli/index.js duplicate-review --fragments packages/schemas/src/fragments --policy report --format markdown
+node packages/codegen/dist/cli/index.js duplicate-review --fragments packages/schemas/src/fragments --policy ci --target packages/schemas/src/targets/public-api.yaml --format json
+node packages/codegen/dist/cli/index.js target-check --target packages/schemas/src/targets/public-api.yaml --must-include-path /health --must-exclude-path /admin
+node packages/codegen/dist/cli/index.js review --base old.yaml --head packages/schemas/src/.merged.3.1.yaml --artifact packages/schemas/dist/openapi.yaml
+node packages/codegen/dist/cli/index.js review-bundle --base old.yaml --head packages/schemas/src/.merged.3.1.yaml --artifact packages/schemas/dist/openapi.yaml --inventory --format markdown
 
 # reference-check는 oa-sdk 판정은 유지하고, Apitomy provider/version·입력 hash·capability·
 # serialization 확인과 차이 taxonomy를 보조 리포트로 남긴다.
 
 # 코드 생성
-oa-gen typegen --spec packages/schemas/src/.merged.yaml -o types.ts
-oa-gen generate --drizzle-schema ./db/schema.ts --output ./domains/users/
+node packages/codegen/dist/cli/index.js typegen --spec packages/schemas/src/.merged.yaml -o types.ts
+node packages/codegen/dist/cli/index.js generate --drizzle-schema ./db/schema.ts --output ./domains/users/
 
 # private downstream router/client 통합은 apps/playground의 package API 예제로 검증
 
@@ -218,6 +225,7 @@ console.log(describeApi(parseDocument(spec)))
 | [기본 스펙 사용 기준](./docs/guides/basic-spec-usage.md) | TypeSpec source, OpenAPI 3.2 artifact, 3.1 호환 출력, rollback 경계와 사용처 |
 | [TypeSpec Authoring Conventions](./docs/guides/typespec-authoring-conventions.md) | TypeSpec source, approved snapshot, extension ownership과 validation 흐름 |
 | [TypeScript 호환성](./docs/guides/typescript-compatibility.md) | Node 24/TS 5 안정화 lane과 Node 26/TS 7/`ttsc` Current 호환성 검증 lane의 경계 |
+| [Artifact Release Preparation](./docs/guides/release-preparation.md) | public artifact의 version intent, source preflight, external promotion 경계 |
 | [문서·스펙 거버넌스](./docs/spec-governance/README.md) | 문서 정본, 품질 기준, 검증 선택, 공식 기준 변경 절차 |
 | [OpenAPI Governance Workflow](./docs/guides/use-cases/openapi-governance-workflow.md) | target sidecar + PR review gate |
 | [Duplicate Review](./docs/guides/duplicate-review.md) | fragment 중복 탐지 정책과 CI gate |

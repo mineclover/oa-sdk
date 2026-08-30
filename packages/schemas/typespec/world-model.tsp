@@ -70,6 +70,10 @@ model WorldHead {
   lifecycle: "created" | "active" | "inactive" | "ended";
 }
 
+@doc("Action role binding에 쓰는 active Entity UUID")
+@format("uuid")
+scalar ActiveEntityId extends string;
+
 @doc("외부 Action 의도를 SimulationAgenda에 넣기 위한 typed envelope. role/parameter의 상세 contract는 World의 PublishedModel이 검증합니다.")
 model SubmitActionRequest {
   @format("uuid")
@@ -77,7 +81,7 @@ model SubmitActionRequest {
   @minLength(1)
   actionTypeId: string;
   @doc("ActionRoleDefinition stable ID에서 active Entity UUID로의 binding")
-  roles: Record<string>;
+  roles: Record<ActiveEntityId>;
   @doc("ActionParameterDefinition stable ID에서 typed JSON value로의 binding")
   parameters?: Record<unknown>;
   correlationId?: string;
@@ -107,12 +111,14 @@ model StimulusAccepted {
 model AdvanceToLogicalTime {
   kind: "to-logical-time";
   targetLogicalTime: string;
+  ...Record<never>;
 }
 
 @doc("현재 logical time에서 duration만큼 전진하는 요청")
 model AdvanceByLogicalDuration {
   kind: "by-duration";
   duration: string;
+  ...Record<never>;
 }
 
 @doc("TimeAdvanceRequest envelope. 한 요청은 target instant 또는 duration 중 하나만 가집니다.")
@@ -144,6 +150,15 @@ model ProjectionEnvelope {
   value: unknown;
 }
 
+@doc("Projection bundle의 outer world/model/revision context를 상속하는 item")
+model ProjectionBundleItem {
+  @minLength(1)
+  projectionId: string;
+  @doc("PublishedModel이 선언한 projection result의 typed JSON representation")
+  value: unknown;
+  ...Record<never>;
+}
+
 @doc("같은 revision에서 함께 읽어야 하는 semantic projection bundle")
 @example(#{
   worldId: "00000000-0000-0000-0000-000000000401",
@@ -152,9 +167,6 @@ model ProjectionEnvelope {
   bundleId: "world-overview",
   status: "complete",
   projections: #[#{
-    worldId: "00000000-0000-0000-0000-000000000401",
-    modelRef: #{ modelId: "city-sim", version: "2026.08", semanticFingerprint: "sha256:city-model" },
-    sourceRevision: 42,
     projectionId: "population-summary",
     value: #{ population: 1250 },
   }],
@@ -168,7 +180,7 @@ model ProjectionBundleEnvelope {
   @minLength(1)
   bundleId: string;
   status: "complete" | "incomplete" | "stale";
-  projections: ProjectionEnvelope[];
+  projections: ProjectionBundleItem[];
 }
 
 @example(#{

@@ -16,6 +16,8 @@ const tmpDir = mkdtempSync(join(tmpdir(), 'oa-sdk-validation-gates-'))
 try {
   assertInvalidExamplesAreReported()
   assertChainedExamplesAreAccepted()
+  assertBuiltCliExamplesAreAccepted()
+  assertInvalidBuiltCliExamplesAreReported()
   assertCliReferenceCoverageIsEnforced()
   assertPackageEntrypointCoverageIsEnforced()
   assertWorktreesAreExcludedFromMarkdownDiscovery()
@@ -60,6 +62,32 @@ function assertChainedExamplesAreAccepted(): void {
 
   const issues = runValidationGates([createExampleGate(document)])
   assert.deepEqual(issues, [])
+}
+
+function assertBuiltCliExamplesAreAccepted(): void {
+  const document = join(tmpDir, 'built-cli-valid.md')
+  writeFileSync(document, [
+    '```bash',
+    'node packages/codegen/dist/cli/index.js duplicate-review --fragments fragments -t public.yaml \\',
+    '--target admin.yaml --help',
+    '```',
+  ].join('\n'), 'utf8')
+
+  assert.deepEqual(runValidationGates([createExampleGate(document)]), [])
+}
+
+function assertInvalidBuiltCliExamplesAreReported(): void {
+  const document = join(tmpDir, 'built-cli-invalid.md')
+  writeFileSync(document, [
+    '```bash',
+    'node packages/codegen/dist/cli/index.js duplicate-review --fragments fragments --unknown-option',
+    'node packages/codegen/dist/cli/index.js does-not-exist --value example',
+    '```',
+  ].join('\n'), 'utf8')
+
+  const issues = runValidationGates([createExampleGate(document)])
+  assert.ok(issues.some(issue => issue.message === 'unknown oa-gen option for duplicate-review: --unknown-option'))
+  assert.ok(issues.some(issue => issue.message === 'unknown oa-gen command: does-not-exist'))
 }
 
 function assertCliReferenceCoverageIsEnforced(): void {

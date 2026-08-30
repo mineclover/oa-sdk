@@ -33,19 +33,24 @@ OpenAPI 3.2는 내부 소비자가 공유하는 canonical contract artifact다.
 
 ## 2. 사용처별 계약
 
-| 사용처 | 입력 | 출력/검증 | 권장 명령 또는 API |
+| 사용처 | 입력 | 출력/검증 | 복사 가능한 명령 또는 API |
 |---|---|---|---|
 | 계약 작성 | `packages/schemas/typespec/main.tsp` + `metadata/` + domain `.tsp` 모듈 | bundle-check, approved snapshot diff | `pnpm schema:validate` |
 | 승인 snapshot 갱신 | TypeSpec restored OpenAPI | normalized diff를 검토한 생성 snapshot | `pnpm schema:approve-typespec-reference -- --write` |
 | 계약 strict 검증 | `.merged.yaml` | OpenAPI 3.2 validation, Spectral, Redocly | `pnpm schema:validate` |
-| 타입/라우터/클라이언트 생성 | `.merged.yaml` | generated TypeScript | `oa-gen typegen/router/client` |
+| 타입/라우터/클라이언트 생성 | `.merged.yaml` | generated TypeScript와 private downstream integration | `node packages/codegen/dist/cli/index.js typegen --help`<br>private API: `generateRouter()` / `generateClient()` |
 | Mock 및 통합 테스트 | `.merged.yaml` | MSW/Node HTTP handlers, request/response validation | `pnpm mock:start`, playground |
-| 변경 검토 | base/head OpenAPI + optional sidecars | diff, inventory, provenance, review bundle | `oa-gen diff/review/review-bundle` |
-| target별 surface 생성 | fragments + target config | target OpenAPI 3.2 | `oa-gen build-spec` 또는 `schema:validate:openapi` |
+| 변경 검토 | base/head OpenAPI + optional sidecars | diff, inventory, provenance, review bundle | `node packages/codegen/dist/cli/index.js diff --help`<br>`node packages/codegen/dist/cli/index.js review --help`<br>`node packages/codegen/dist/cli/index.js review-bundle --help` |
+| target별 surface 생성 | fragments + target config | target OpenAPI 3.2 | `node packages/codegen/dist/cli/index.js build-spec --help`<br>`pnpm schema:validate:openapi` |
 | Swagger/3.1 호환 | `.merged.3.1.yaml` 또는 `dist/openapi.*` | OpenAPI 3.1 bundle | `pnpm schema:bundle` |
-| 배포 환경 server projection | restored TypeSpec contract + projection profile | local/staging/production OpenAPI artifact | `pnpm schema:project-typespec:{local,staging,production}` |
-| 외부 서비스 governance | raw runtime artifact | normalized/3.2 upgraded artifact | `oa-gen scaffold-governance`, `collect` |
-| 변경 이력/관측 | TypeSpec bundle 또는 Definition Builder project | snapshot, diff, provenance | `spec-lens` |
+| 배포 환경 server projection | restored TypeSpec contract + projection profile | local/staging/production OpenAPI artifact | `pnpm schema:project-typespec:local`<br>`pnpm schema:project-typespec:staging`<br>`pnpm schema:project-typespec:production` |
+| 외부 서비스 governance | raw runtime artifact | normalized/3.2 upgraded artifact | `node packages/codegen/dist/cli/index.js scaffold-governance --help`<br>`node packages/codegen/dist/cli/index.js collect --help` |
+| 변경 이력/관측 | TypeSpec bundle 또는 Definition Builder project | snapshot, diff, provenance | `pnpm --dir packages/spec-lens exec tsx src/cli.ts` |
+
+표의 source checkout 명령은 먼저 `pnpm build:core`를 실행한 뒤
+독립적으로 복사해 실행할 수 있다. `--help`는 필요한 입력과 옵션을 먼저 확인하는 안전한
+시작점이다. 공개 package consumer는 bare `oa-gen`이 아니라 `npx oa-gen <command>`를 사용하며,
+실제 public CLI 실행 예시는 [CLI 명령 레퍼런스](./cli-command-reference.md)를 따른다.
 
 `schema:validate`는 source를 `.merged.yaml`로 materialize한 뒤 strict 3.2 gate를
 실행한다. `schema:bundle`은 현재 3.1 downgrade 결과를 `dist`에 기록하므로,
@@ -57,7 +62,7 @@ OpenAPI 3.2는 내부 소비자가 공유하는 canonical contract artifact다.
 TypeSpec source
   → bundle-check / approved snapshot diff
   → .merged.yaml (OpenAPI 3.2)
-  → validate / diff / typegen / router / client / mock / spec-lens snapshot
+  → validate / diff / typegen / private router·client API / mock / spec-lens snapshot
   → .merged.3.1.yaml 또는 dist/openapi.* (호환 출력)
   → server-only local/staging/production projection (배포 artifact)
 ```
@@ -103,6 +108,10 @@ packages/schemas/
 `@oa-sdk/parser`는 OpenAPI 3.2 document를 IR로 변환하고, `@oa-sdk/codegen`은
 검증·diff·생성·governance CLI를 제공한다. `@oa-sdk/router`, `@oa-sdk/client`,
 `@oa-sdk/mock-server`는 이 canonical artifact의 downstream consumer다.
+
+공개 `oa-gen` CLI는 `typegen`을 제공하지만 `router`와 `client` command를 제공하지 않는다.
+두 생성기는 private downstream workspace의 `generateRouter()`와 `generateClient()` package API로
+사용한다. 실행 가능한 통합 예시는 [코드젠 워크플로](./use-cases/codegen-workflow.md)를 따른다.
 
 ### HTTP 오류와 업무 판정
 
@@ -178,6 +187,9 @@ operation에 `x-oa-sdk-retryable: true`를 선언한 경우에만 재시도한�
    hash/availability를 snapshot provenance에 기록하고 후자는 재검증 후보만 만든다. 어느 쪽도 historical workspace에 임의
    외부 설정을 실행하거나 외부 파일 내용을 compiler input으로 주입하지 않는다. evidence는 파일만 허용하며 최대
    4개·파일당 2 MiB다. `observationInputs`는 고급 typed 설정이고, 기존 `watchPaths`는 `candidate-only` 호환 별칭이다.
+5. **OAuth metadata는 아직 operation auth contract가 아니다.** 현재 production operation은
+   `bearerAuth`만 사용한다. OAuth issuer, scope와 role policy가 승인되기 전에는 placeholder OAuth
+   component를 실제 호출 요구사항으로 해석하거나 새 operation에 연결하지 않는다.
 
 | 상태 | 결정/후속 작업 | 완료 기준 |
 |---|---|---|

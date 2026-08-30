@@ -34,6 +34,9 @@ export type ValidateDocumentOptions = {
   requireOpenApi32?: boolean
 }
 
+const OPENAPI_3_VERSION = /^3\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/
+const OPENAPI_32_VERSION = /^3\.2\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/
+
 /**
  * OAS 3.2 문서를 종합 검증합니다.
  *
@@ -73,13 +76,13 @@ export function validateDocument(
   }
 
   const version = obj['openapi'] as string
-  if (!version.startsWith('3.')) {
-    results.push({ path: '/openapi', severity: 'error', rule: 'parse/version', message: `지원하지 않는 버전: ${version} (3.x 필요)` })
+  if (!OPENAPI_3_VERSION.test(version)) {
+    results.push({ path: '/openapi', severity: 'error', rule: 'parse/version', message: `지원하지 않는 버전: ${version} (유효한 OpenAPI 3.x.y 버전이 필요)` })
     return buildResult(results)
   }
 
   // 3.2 미만이면 경고. 관리 대상 계약 게이트에서는 에러로 승격.
-  if (version !== '3.2.0' && !version.startsWith('3.2')) {
+  if (!OPENAPI_32_VERSION.test(version)) {
     results.push({
       path: '/openapi',
       severity: options.requireOpenApi32 === true ? 'error' : 'info',

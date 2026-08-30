@@ -80,7 +80,7 @@ buckets:
         required: false
         cardinality: single
         vocabulary: traits/shape.yaml
-        description: "응답/요청 형태 — list-paginated, detail, stream-sse, bulk-batch 등"
+        description: "응답/요청 형태 — list-paginated, list-unpaginated, detail, stream-sse, bulk-batch 등"
       access:
         required: false
         cardinality: multi

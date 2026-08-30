@@ -11,6 +11,10 @@ Machine-readable policy는 version 5의 [`release-policy.json`](./release-policy
 workspace package manifests, `.changeset/config.json`, root/workspace scripts, 이 문서의 정합성을
 검증한다.
 
+release candidate의 현재 판단 입력과 source/external 책임 경계는
+[`release-readiness.md`](./release-readiness.md)가 소유한다. maintainer 실행 절차는
+[Artifact Release Preparation](../guides/release-preparation.md)을 따른다.
+
 ## Current State
 
 현재 정책 스냅샷: v5 · 4 tracks · Core Platform 8 · Downstream 3 · release-tracked 11 · ignored 10 · distribution candidates 5.
@@ -42,17 +46,17 @@ schema/spec 관리 제품을 소유하고, Downstream Integration 세 패키지�
 
 | Tier | Package | Current version | Role |
 | --- | --- | ---: | --- |
-| Core Platform | `@oa-sdk/core` | `0.1.2` | Shared utilities and browser-safe core helpers |
+| Core Platform | `@oa-sdk/core` | `0.2.0` | Shared utilities and browser-safe core helpers |
 | Core Platform | `@oa-sdk/openapi-projection-contract` | `0.1.2` | OpenAPI projection contract types and validation |
 | Core Platform | `@oa-sdk/typespec-decorators` | `0.1.2` | Versioned OA SDK TypeSpec decorators used by production schema source |
 | Core Platform | `@oa-sdk/schemas` | `0.1.0` | TypeSpec production source and OpenAPI artifacts |
-| Core Platform | `@oa-sdk/parser` | `0.1.2` | OpenAPI 3.2 parser, IR, query, browser entrypoint |
-| Core Platform | `@oa-sdk/codegen` | `0.5.0` | CLI, typegen, governance, and schema/code generation |
-| Core Platform | `@oa-sdk/spec-lens` | `0.1.1` | Spec history and observation package |
+| Core Platform | `@oa-sdk/parser` | `0.2.0` | OpenAPI 3.2 parser, IR, query, browser entrypoint |
+| Core Platform | `@oa-sdk/codegen` | `0.6.0` | CLI, typegen, governance, and schema/code generation |
+| Core Platform | `@oa-sdk/spec-lens` | `0.1.2` | Spec history and observation package |
 | Core Platform | `@oa-sdk/spec-lens-contract` | `0.1.0` | Browser-safe spec-lens HTTP wire contract |
-| Downstream Integration | `@oa-sdk/router` | `0.1.1` | Server router generation |
-| Downstream Integration | `@oa-sdk/client` | `0.1.1` | Fetch client generation |
-| Downstream Integration | `@oa-sdk/mock-server` | `0.1.1` | Mock engine with MSW and Node HTTP adapters |
+| Downstream Integration | `@oa-sdk/router` | `0.1.2` | Server router generation |
+| Downstream Integration | `@oa-sdk/client` | `0.1.2` | Fetch client generation |
+| Downstream Integration | `@oa-sdk/mock-server` | `0.1.2` | Mock engine with MSW and Node HTTP adapters |
 
 ## Ignored Workspaces
 
@@ -108,6 +112,8 @@ Suggested flow:
 pnpm changeset
 pnpm changeset status --verbose
 pnpm version-packages
+# Review and commit the version changes before this clean-worktree gate.
+pnpm release:preflight
 ```
 
 After the version changes are reviewed and committed, run `pnpm release -- <export arguments>` (or

@@ -2,8 +2,8 @@
  * Streaming E2E — SSE + NDJSON via Node HTTP mock server
  *
  * Actual stream consumption tests (not just text dump):
- * - SSE: parse `data: ` lines, verify schema compliance, [DONE] terminator
- * - NDJSON: split by \n, verify no SSE prefix, no terminator
+ * - SSE: parse `data: ` lines, verify schema compliance, HTTP close terminates
+ * - NDJSON: split by \n, verify no SSE prefix or terminal frame
  * - SSE with example: single event matching example exactly
  * - Streaming response headers: Cache-Control, Connection
  */
@@ -95,9 +95,7 @@ describe('Streaming E2E — SSE + NDJSON', () => {
       const text = await res.text()
 
       const chunks = text.split('\n\n').filter(Boolean)
-      // Exclude [DONE] for JSON parse checks
-      const dataChunks = chunks.filter(c => !c.includes('[DONE]'))
-      for (const chunk of dataChunks) {
+      for (const chunk of chunks) {
         expect(chunk).toMatch(/^data: /)
         const json = JSON.parse(chunk.replace(/^data: /, '')) as Record<string, unknown>
         // id is integer >= 0
@@ -109,21 +107,19 @@ describe('Streaming E2E — SSE + NDJSON', () => {
       }
     })
 
-    it('[DONE] terminator is present and is the last chunk', async () => {
+    it('does not synthesize an undocumented [DONE] terminator', async () => {
       const res = await fetch(`${server.url}/sse`)
       const text = await res.text()
 
-      const chunks = text.split('\n\n').filter(Boolean)
-      const lastChunk = chunks[chunks.length - 1]!
-      expect(lastChunk).toBe('data: [DONE]')
+      expect(text).not.toContain('[DONE]')
     })
 
-    it('produces exactly 3 events + 1 terminator = 4 chunks', async () => {
+    it('produces exactly 3 schema events before HTTP close', async () => {
       const res = await fetch(`${server.url}/sse`)
       const text = await res.text()
 
       const chunks = text.split('\n\n').filter(Boolean)
-      expect(chunks).toHaveLength(4)
+      expect(chunks).toHaveLength(3)
     })
 
     it('response headers include Cache-Control: no-cache and Connection: keep-alive', async () => {

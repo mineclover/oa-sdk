@@ -56,8 +56,8 @@
 | Server / Variables | ✅ | ✅ (추출+상속) | — (고정 포트) | — | — | ✅ (baseUrl) |
 | Tags / 계층 | ✅ | ✅ (인덱싱) | — | — | — | — |
 | Paths / Operations | ✅ | ✅ (RouteIndex) | ✅ | — | ✅ (라우트) | ✅ (메서드) |
-| Parameters (path/query/header/cookie) | ✅ | ✅ (병합) | ✅ (AJV) | — | ✅ | ✅ |
-| Parameter style/explode | ✅ | — | ✅ (역직렬화) | — | — | — |
+| Parameters (path/query/querystring/header/cookie) | ✅ | ✅ (병합 + querystring content/배타성 검증) | ✅ (AJV; querystring form/JSON, 기타 media는 opaque) | ✅ (path/query/querystring/header types; cookie 제외) | ✅ (path/query/raw querystring) | ✅ (path/query/raw querystring/header; cookie 제외) |
+| Parameter style/explode | ✅ | — | ✅ (역직렬화) | — | — | △ query array만: form 기본 explode=true, form explode=false, space/pipe-delimited; object/deepObject/allowReserved는 미지원 |
 | Request Body | ✅ | ✅ | ✅ | — | ✅ | ✅ |
 | Media Type / itemSchema | ✅ | ✅ | ✅ (SSE/NDJSON) | — | — | — |
 | Responses / 상태 코드 | ✅ | ✅ | ✅ (6단계 폴백) | — | ✅ (status) | ✅ |

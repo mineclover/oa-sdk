@@ -22,6 +22,8 @@ export function collectTypeNames(operations: ReadonlyArray<{
     const base = operationNames?.get(op.operationId) ?? toTypeScriptIdentifier(op.operationId)
     if (op.parameters.some(p => p.in === 'path')) names.push(`${base}PathParams`)
     if (op.parameters.some(p => p.in === 'query')) names.push(`${base}QueryParams`)
+    if (op.parameters.some(p => p.in === 'querystring')) names.push(`${base}QueryString`)
+    if (op.parameters.some(p => p.in === 'header')) names.push(`${base}HeaderParams`)
     if (hasGeneratedRequestBodyType(op.requestBody)) names.push(`${base}Body`)
     if (hasGeneratedResponseType(op.responses)) {
       names.push(`${base}Response`)

@@ -19,6 +19,7 @@ const __dir = dirname(fileURLToPath(import.meta.url))
 const repoRoot = resolve(__dir, '../../../..')
 const schemasDir = join(repoRoot, 'packages/schemas/src')
 const fragmentsDir = join(schemasDir, 'fragments')
+const approvedOpenApiPath = join(repoRoot, 'packages/schemas/typespec/approved.openapi.yaml')
 
 type CommonComponentSection = 'schemas' | 'responses' | 'parameters' | 'securitySchemes'
 
@@ -44,6 +45,34 @@ const COMMON_COMPONENTS = [
     sourceName: 'ValidationError',
     relativePath: 'schema/shared/common/ValidationError.yaml',
     outputName: 'ValidationError',
+  },
+  {
+    id: 'schema:shared/common/ValidationReceivedStringSummary',
+    sourceSection: 'schemas',
+    sourceName: 'ValidationReceivedStringSummary',
+    relativePath: 'schema/shared/common/ValidationReceivedStringSummary.yaml',
+    outputName: 'ValidationReceivedStringSummary',
+  },
+  {
+    id: 'schema:shared/common/ValidationReceivedArraySummary',
+    sourceSection: 'schemas',
+    sourceName: 'ValidationReceivedArraySummary',
+    relativePath: 'schema/shared/common/ValidationReceivedArraySummary.yaml',
+    outputName: 'ValidationReceivedArraySummary',
+  },
+  {
+    id: 'schema:shared/common/ValidationReceivedObjectSummary',
+    sourceSection: 'schemas',
+    sourceName: 'ValidationReceivedObjectSummary',
+    relativePath: 'schema/shared/common/ValidationReceivedObjectSummary.yaml',
+    outputName: 'ValidationReceivedObjectSummary',
+  },
+  {
+    id: 'schema:shared/common/ValidationReceivedScalarSummary',
+    sourceSection: 'schemas',
+    sourceName: 'ValidationReceivedScalarSummary',
+    relativePath: 'schema/shared/common/ValidationReceivedScalarSummary.yaml',
+    outputName: 'ValidationReceivedScalarSummary',
   },
   {
     id: 'response:shared/common/BadRequest',
@@ -141,6 +170,10 @@ const COMMON_COMPONENTS = [
 const COMMON_REF_REWRITES: Readonly<Record<string, string>> = {
   '#/components/schemas/Error': 'oa://schema/shared/common/Error',
   '#/components/schemas/ValidationError': 'oa://schema/shared/common/ValidationError',
+  '#/components/schemas/ValidationReceivedStringSummary': 'oa://schema/shared/common/ValidationReceivedStringSummary',
+  '#/components/schemas/ValidationReceivedArraySummary': 'oa://schema/shared/common/ValidationReceivedArraySummary',
+  '#/components/schemas/ValidationReceivedObjectSummary': 'oa://schema/shared/common/ValidationReceivedObjectSummary',
+  '#/components/schemas/ValidationReceivedScalarSummary': 'oa://schema/shared/common/ValidationReceivedScalarSummary',
 }
 
 const COMMON_OUTPUT_ALIASES = {
@@ -149,11 +182,11 @@ const COMMON_OUTPUT_ALIASES = {
 } as const
 
 describe('builder shared common fragments', () => {
-  it('matches archived common domain components with canonical refs', () => {
-    const commonSpec = readYaml(join(schemasDir, 'domains/common/spec.yaml'))
+  it('matches current TypeSpec-approved common components with canonical refs', () => {
+    const approvedOpenApi = readYaml(approvedOpenApiPath)
 
     for (const component of COMMON_COMPONENTS) {
-      const sourceContent = readCommonSourceComponent(commonSpec, component)
+      const sourceContent = readApprovedComponent(approvedOpenApi, component)
       const fragment = readFragment(component.relativePath)
 
       expect(fragment.id).toBe(component.id)
@@ -312,13 +345,13 @@ function readFragment(relativePath: string): { id?: unknown; content?: unknown }
   return fragment
 }
 
-function readCommonSourceComponent(commonSpec: unknown, component: CommonComponentFixture): unknown {
-  if (!isRecord(commonSpec) || !isRecord(commonSpec.components)) {
-    throw new Error('Invalid common source spec.')
+function readApprovedComponent(approvedOpenApi: unknown, component: CommonComponentFixture): unknown {
+  if (!isRecord(approvedOpenApi) || !isRecord(approvedOpenApi.components)) {
+    throw new Error('Invalid approved OpenAPI components.')
   }
-  const section = commonSpec.components[component.sourceSection]
+  const section = approvedOpenApi.components[component.sourceSection]
   if (!isRecord(section) || !Object.prototype.hasOwnProperty.call(section, component.sourceName)) {
-    throw new Error(`Missing common source component: ${component.sourceSection}.${component.sourceName}`)
+    throw new Error(`Missing approved OpenAPI component: ${component.sourceSection}.${component.sourceName}`)
   }
   return section[component.sourceName]
 }

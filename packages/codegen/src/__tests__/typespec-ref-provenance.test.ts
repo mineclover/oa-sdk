@@ -85,6 +85,43 @@ scalar TicketCode extends string;
     ]))
   })
 
+  it('attributes emitted event unions to their TypeSpec declaration and nested refs', () => {
+    const sourceRoot = makeSource(`
+model HealthEvent {
+  status: "ok" | "degraded" | "down";
+}
+
+@events
+union HealthEvents {
+  health: HealthEvent;
+}
+`)
+    const result = buildTypeSpecRefProvenance({
+      sourceRoot,
+      restoredDocument: document({
+        components: {
+          schemas: {
+            HealthEvent: { type: 'object' },
+            HealthEvents: { $ref: '#/components/schemas/HealthEvent' },
+          },
+        },
+      }),
+      sidecar: createTypeSpecCompatibilitySidecarFromEntries([]),
+    })
+
+    expect(result.report).toMatchObject({
+      valid: true,
+      counts: { publicPointers: 2, coveredPublicPointers: 2, refNodes: 1, coveredRefNodes: 1 },
+    })
+    expect(result.artifact.declarations).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: 'union:main.tsp:HealthEvents', kind: 'model', symbol: 'HealthEvents' }),
+    ]))
+    expect(result.artifact.edges).toEqual(expect.arrayContaining([
+      expect.objectContaining({ kind: 'emits', outputPointer: '#/components/schemas/HealthEvents' }),
+      expect.objectContaining({ kind: 'references', outputPointer: '#/components/schemas/HealthEvents/$ref', targetRef: '#/components/schemas/HealthEvent' }),
+    ]))
+  })
+
   it('attributes restored reusable components to their root extension and rejects an unowned component', () => {
     const sourceRoot = makeSource(`
 @extension("x-oa-sdk-components", #{})

@@ -109,6 +109,43 @@ describe('matchRoute', () => {
     }
   })
 
+  it('정적 경로는 정의 순서와 무관하게 template 경로보다 우선한다', () => {
+    const index = loadSchema(doc({
+      paths: {
+        '/users/{id}': { get: { operationId: 'getById', responses: { '200': { description: 'OK' } } } },
+        '/users/me': { get: { operationId: 'getMe', responses: { '200': { description: 'OK' } } } },
+      },
+    }))
+
+    const result = matchRoute(index, 'get', '/users/me')
+    expect(result.type).toBe('found')
+    if (result.type === 'found') expect(result.entry.operationId).toBe('getMe')
+  })
+
+  it('정적 경로의 지원 메서드는 앞선 template 경로의 405보다 우선한다', () => {
+    const index = loadSchema(doc({
+      paths: {
+        '/users/{id}': { get: { operationId: 'getById', responses: { '200': { description: 'OK' } } } },
+        '/users/me': { post: { operationId: 'updateMe', responses: { '200': { description: 'OK' } } } },
+      },
+    }))
+
+    const result = matchRoute(index, 'post', '/users/me')
+    expect(result.type).toBe('found')
+    if (result.type === 'found') expect(result.entry.operationId).toBe('updateMe')
+  })
+
+  it('literal regex characters are not treated as route wildcards', () => {
+    const index = loadSchema(doc({
+      paths: {
+        '/files.v1/{id}': { get: { operationId: 'getFile', responses: { '200': { description: 'OK' } } } },
+      },
+    }))
+
+    expect(matchRoute(index, 'get', '/files.v1/42').type).toBe('found')
+    expect(matchRoute(index, 'get', '/filesXv1/42').type).toBe('not_found')
+  })
+
   it('메서드 불일치 → method_not_allowed', () => {
     const index = loadSchema(doc({
       paths: {

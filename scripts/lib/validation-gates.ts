@@ -53,6 +53,8 @@ const skippedDirectories = new Set([
   '.worktrees',
 ])
 
+const builtOaGenCli = ['node', 'packages/codegen/dist/cli/index.js'] as const
+
 /** Run independently reusable validation gates and retain their source labels. */
 export function runValidationGates(gates: readonly ValidationGate[]): ValidationGateIssue[] {
   return gates.flatMap(gate => gate.validate())
@@ -279,9 +281,9 @@ function readFencedShellCommands(
     if (commandLines.length === 0) return
     const tokens = shellTokens(commandLines.map(line => line.replace(/\\$/, '')).join(' '))
     for (const segment of splitShellSequence(tokens)) {
-      const executableIndex = segment.indexOf(executable)
-      if (executableIndex === -1) continue
-      examples.push({ tokens: segment.slice(executableIndex), line: firstLine })
+      const invocation = cliInvocationTokens(segment, executable)
+      if (!invocation) continue
+      examples.push({ tokens: invocation, line: firstLine })
     }
     commandLines = []
     firstLine = 0
@@ -305,6 +307,19 @@ function readFencedShellCommands(
   }
   flushCommand()
   return examples
+}
+
+/** Normalize documented built oa-gen invocations to the public executable form. */
+function cliInvocationTokens(segment: readonly string[], executable: string): string[] | undefined {
+  const executableIndex = segment.indexOf(executable)
+  if (executableIndex !== -1) return segment.slice(executableIndex)
+
+  if (executable !== 'oa-gen') return undefined
+  for (let index = 0; index < segment.length - 1; index += 1) {
+    if (segment[index] !== builtOaGenCli[0] || segment[index + 1] !== builtOaGenCli[1]) continue
+    return [executable, ...segment.slice(index + builtOaGenCli.length)]
+  }
+  return undefined
 }
 
 function shellTokens(command: string): string[] {

@@ -20,9 +20,9 @@ content:
     operationId: purgeUser
     summary: 사용자 영구 삭제
     description: |
-      site-admin authority only. deleteUser와 달리 30일 soft-delete window를
-      우회하는 hard purge입니다. legal hold override 여부와 사유를 감사 로그에
-      남기며 호출은 audited.
+      site-admin authority only. deleteUser와 별도의 권한 및 감사 절차를 적용하는
+      hard purge입니다. legal hold override 여부와 사유를 감사 로그에 남기며
+      호출은 audited.
     security:
       - bearerAuth: []
     requestBody:

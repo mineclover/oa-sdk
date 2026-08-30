@@ -1,0 +1,19 @@
+id: schema:public/health/HealthEvent
+content:
+  type: object
+  description: SSE 헬스 이벤트 payload
+  required:
+    - status
+    - timestamp
+  properties:
+    status:
+      type: string
+      enum:
+        - ok
+        - degraded
+        - down
+      description: 관측된 서버 상태
+    timestamp:
+      type: string
+      format: date-time
+      description: 이벤트 발생 시각

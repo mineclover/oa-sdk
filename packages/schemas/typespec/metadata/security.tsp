@@ -11,7 +11,7 @@ using OpenAPI;
   },
   oauth2: #{
     type: "oauth2",
-    description: "OAuth 2.0 인증 (Authorization Code + Device Authorization 지원)",
+    description: "Reserved OAuth 2.0 metadata. Current operations use bearerAuth only; assign OAuth scopes after the runtime issuer and authorization policy are approved.",
     flows: #{
       authorizationCode: #{
         authorizationUrl: "https://auth.example.com/authorize",

@@ -6,7 +6,7 @@ Accepted, dated 2026-06-22. Production source-path switch implemented with OpenA
 
 TypeSpec is accepted as the OA SDK schema authoring source of truth for production schema artifacts. The OpenAPI fragments remain in place as an explicit Definition Builder rollback/reference path through `:openapi` commands.
 
-Operational policy is tracked in `docs/internal/typespec-roundtrip/production-operations.md`: `@oa-sdk/codegen` `0.3.0` was the private internal migration milestone; the current `0.5.0` distribution candidate requires a clean committed source revision, green gates, and artifact promotion. Rollback command removal still requires a separate deprecation/removal ADR.
+Operational policy is tracked in `docs/internal/typespec-roundtrip/production-operations.md`: `@oa-sdk/codegen` `0.3.0` was the private internal migration milestone; the current `0.6.0` distribution candidate requires a clean committed source revision, green gates, and artifact promotion. Rollback command removal still requires a separate deprecation/removal ADR.
 
 ## Context
 

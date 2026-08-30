@@ -2,7 +2,7 @@ openapi: 3.2.0
 info:
   title: OA SDK API
   description: OpenAPI 3.2 기반 API 관리 인프라
-  version: 0.2.0
+  version: 0.5.0
   license:
     name: MIT
     identifier: MIT
@@ -67,9 +67,9 @@ paths:
       operationId: purgeUser
       summary: 사용자 영구 삭제
       description: |
-        site-admin authority only. deleteUser와 달리 30일 soft-delete window를
-        우회하는 hard purge입니다. legal hold override 여부와 사유를 감사 로그에
-        남기며 호출은 audited.
+        site-admin authority only. deleteUser와 별도의 권한 및 감사 절차를 적용하는
+        hard purge입니다. legal hold override 여부와 사유를 감사 로그에 남기며
+        호출은 audited.
       responses:
         "204":
           description: 영구 삭제 완료 (본문 없음)
@@ -383,6 +383,25 @@ paths:
       responses:
         "200":
           description: SSE 이벤트 스트림
+          content:
+            text/event-stream:
+              itemSchema:
+                type: object
+                properties:
+                  event:
+                    type: string
+                  data:
+                    type: string
+                required:
+                  - event
+                oneOf:
+                  - properties:
+                      data:
+                        contentMediaType: application/json
+                        contentSchema:
+                          $ref: "#/components/schemas/HealthEvent"
+                      event:
+                        const: health
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
       tags:
@@ -500,8 +519,9 @@ paths:
       operationId: requestMyDataExport
       summary: 내 데이터 export 작업 요청
       description: |
-        GDPR 정보주체 이동권 대응. 비동기 job 생성 후 jobId 반환. 완료 시 별도
-        알림 또는 polling으로 다운로드 URL 획득. 동시 진행 1건 제한.
+        GDPR 정보주체 이동권 대응. 비동기 job 생성 후 jobId를 반환합니다. 이 operation은
+        수락 receipt만 정의하며 완료 알림, 상태 조회, downloadUrl 전달은 runtime 계약이 별도로
+        제공해야 합니다. 동시 진행 1건 제한.
       responses:
         "202":
           description: export job 등록 완료
@@ -748,7 +768,9 @@ paths:
     post:
       operationId: createUser
       summary: 사용자 생성
-      description: 이메일, 이름, 비밀번호를 받아 새 사용자를 생성합니다
+      description: |
+        이메일, 이름, 비밀번호를 받아 새 사용자를 생성합니다. 이미 등록된 이메일은
+        409 Conflict를 반환합니다.
       responses:
         "201":
           description: 사용자 생성 완료
@@ -768,6 +790,8 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "409":
+          $ref: "#/components/responses/Conflict"
         "422":
           $ref: "#/components/responses/UnprocessableEntity"
         "500":
@@ -1337,6 +1361,10 @@ paths:
           format: uuid
 components:
   schemas:
+    ActiveEntityId:
+      type: string
+      format: uuid
+      description: Action role binding에 쓰는 active Entity UUID
     AdminUsersExportRequest:
       type: object
       properties:
@@ -1365,6 +1393,8 @@ components:
             - by-duration
         duration:
           type: string
+      unevaluatedProperties:
+        not: {}
       description: 현재 logical time에서 duration만큼 전진하는 요청
     AdvanceToLogicalTime:
       type: object
@@ -1378,6 +1408,8 @@ components:
             - to-logical-time
         targetLogicalTime:
           type: string
+      unevaluatedProperties:
+        not: {}
       description: 현재 logical time에서 target instant까지 전진하는 요청
     AuthSession:
       type: object
@@ -1623,7 +1655,7 @@ components:
           type: string
           format: uri
           description: status가 ready일 때만 제공
-      description: export job 상태
+      description: export job receipt. 이 계약의 POST 응답은 queued 상태만 반환하며, 이후 상태 전이와 downloadUrl 전달 방식은 runtime 계약이 별도로 정의합니다.
       example:
         jobId: 00000000-0000-0000-0000-000000000200
         status: queued
@@ -1647,6 +1679,26 @@ components:
           type: string
           format: email
       description: 비밀번호 재설정 토큰 발송 요청
+    HealthEvent:
+      type: object
+      required:
+        - status
+        - timestamp
+      properties:
+        status:
+          type: string
+          enum:
+            - ok
+            - degraded
+            - down
+          description: 관측된 서버 상태
+        timestamp:
+          type: string
+          format: date-time
+          description: 이벤트 발생 시각
+      description: SSE 헬스 이벤트 payload
+    HealthEvents:
+      $ref: "#/components/schemas/HealthEvent"
     HealthStatus:
       type: object
       required:
@@ -1779,7 +1831,7 @@ components:
         projections:
           type: array
           items:
-            $ref: "#/components/schemas/ProjectionEnvelope"
+            $ref: "#/components/schemas/ProjectionBundleItem"
       description: 같은 revision에서 함께 읽어야 하는 semantic projection bundle
       examples:
         - worldId: 00000000-0000-0000-0000-000000000401
@@ -1791,15 +1843,23 @@ components:
           bundleId: world-overview
           status: complete
           projections:
-            - worldId: 00000000-0000-0000-0000-000000000401
-              modelRef:
-                modelId: city-sim
-                version: "2026.08"
-                semanticFingerprint: sha256:city-model
-              sourceRevision: 42
-              projectionId: population-summary
+            - projectionId: population-summary
               value:
                 population: 1250
+    ProjectionBundleItem:
+      type: object
+      required:
+        - projectionId
+        - value
+      properties:
+        projectionId:
+          type: string
+          minLength: 1
+        value:
+          description: PublishedModel이 선언한 projection result의 typed JSON representation
+      unevaluatedProperties:
+        not: {}
+      description: Projection bundle의 outer world/model/revision context를 상속하는 item
     ProjectionEnvelope:
       type: object
       required:
@@ -1873,7 +1933,7 @@ components:
           type: boolean
           description: legal hold 예외 승인 여부
           default: false
-      description: site-admin 사용자 hard purge 요청. deleteUser soft-delete와 구분됩니다.
+      description: site-admin 사용자 hard purge 요청. deleteUser와 별도의 권한 및 감사 절차를 적용합니다.
       additionalProperties: false
     ReadinessReport:
       type: object
@@ -2095,7 +2155,7 @@ components:
         roles:
           type: object
           unevaluatedProperties:
-            type: string
+            $ref: "#/components/schemas/ActiveEntityId"
           description: ActionRoleDefinition stable ID에서 active Entity UUID로의 binding
         parameters:
           type: object
@@ -2154,12 +2214,16 @@ components:
         expiresIn: 3600
     UpdateMeRequest:
       type: object
+      required:
+        - name
       properties:
         name:
           type: string
           minLength: 1
           maxLength: 100
-      description: 셀프 프로필 수정 — role은 포함 불가 (admin 전용)
+      unevaluatedProperties:
+        not: {}
+      description: 셀프 프로필 수정 — name만 허용하며 role과 알 수 없는 필드는 포함할 수 없음
     UpdateUserRequest:
       type: object
       properties:
@@ -2228,12 +2292,91 @@ components:
           type: string
           example: must match format 'email'
         received:
-          description: 실제 수신된 값
-          example: not-an-email
+          anyOf:
+            - $ref: "#/components/schemas/ValidationReceivedStringSummary"
+            - $ref: "#/components/schemas/ValidationReceivedArraySummary"
+            - $ref: "#/components/schemas/ValidationReceivedObjectSummary"
+            - $ref: "#/components/schemas/ValidationReceivedScalarSummary"
+          description: 수신값의 안전한 진단 요약. 원문 문자열·객체·배열·토큰·비밀번호는 반환하지 않습니다.
+          example:
+            type: string
+            length: 12
         expected:
           type: string
           example: string with format 'email'
       description: 필드 수준 유효성 검사 에러
+    ValidationReceivedArraySummary:
+      type: object
+      required:
+        - type
+        - count
+      properties:
+        type:
+          type: string
+          enum:
+            - array
+        count:
+          type: integer
+          format: int64
+          minimum: 0
+          maximum: 9007199254740991
+      unevaluatedProperties:
+        not: {}
+      description: 배열 수신값의 content-free 진단 요약
+    ValidationReceivedObjectSummary:
+      type: object
+      required:
+        - type
+        - count
+      properties:
+        type:
+          type: string
+          enum:
+            - object
+        count:
+          type: integer
+          format: int64
+          minimum: 0
+          maximum: 9007199254740991
+      unevaluatedProperties:
+        not: {}
+      description: 객체 수신값의 content-free 진단 요약
+    ValidationReceivedScalarSummary:
+      type: object
+      required:
+        - type
+      properties:
+        type:
+          type: string
+          enum:
+            - number
+            - boolean
+            - bigint
+            - symbol
+            - function
+            - "null"
+            - undefined
+      unevaluatedProperties:
+        not: {}
+      description: 내용을 포함하지 않는 scalar 수신값의 진단 요약
+    ValidationReceivedStringSummary:
+      type: object
+      required:
+        - type
+        - length
+      properties:
+        type:
+          type: string
+          enum:
+            - string
+        length:
+          type: integer
+          format: int64
+          minimum: 0
+          maximum: 9007199254740991
+      unevaluatedProperties:
+        not: {}
+      description: 문자열 수신값의 content-free 진단 요약
     WorldHead:
       type: object
       required:
@@ -2287,7 +2430,8 @@ components:
       description: JWT Bearer 토큰 인증
     oauth2:
       type: oauth2
-      description: OAuth 2.0 인증 (Authorization Code + Device Authorization 지원)
+      description: Reserved OAuth 2.0 metadata. Current operations use bearerAuth only; assign OAuth scopes after the runtime
+        issuer and authorization policy are approved.
       flows:
         authorizationCode:
           authorizationUrl: https://auth.example.com/authorize

@@ -1,4 +1,5 @@
 import type { OasSchema as SchemaObject } from './oas32-types.js'
+import { createSafeRecord, getOwnString } from './safe-record.js'
 
 /**
  * SchemaAlgebra<T> — 스키마 시맨틱 해석기 인터페이스.
@@ -71,8 +72,9 @@ export function foldSchema<T>(node: unknown, algebra: SchemaAlgebra<T>): T {
   }
 
   // $ref 노드 — algebra가 해석 책임
-  if (typeof schema['$ref'] === 'string') {
-    return algebra.ref(schema['$ref'])
+  const ref = getOwnString(schema, '$ref')
+  if (ref !== undefined) {
+    return algebra.ref(ref)
   }
 
   // example / default 우선
@@ -108,7 +110,7 @@ export function foldSchema<T>(node: unknown, algebra: SchemaAlgebra<T>): T {
   switch (type) {
     case 'object': {
       const props = (schema.properties ?? {}) as Record<string, SchemaObject>
-      const foldedProps: Record<string, T> = {}
+      const foldedProps = createSafeRecord<T>()
       for (const [k, v] of Object.entries(props)) {
         foldedProps[k] = foldSchema(v, algebra)
       }
@@ -127,7 +129,7 @@ export function foldSchema<T>(node: unknown, algebra: SchemaAlgebra<T>): T {
       // type 미지정이지만 properties 존재 → object로 취급
       if (schema.properties && typeof schema.properties === 'object') {
         const props = schema.properties as Record<string, SchemaObject>
-        const foldedProps: Record<string, T> = {}
+        const foldedProps = createSafeRecord<T>()
         for (const [k, v] of Object.entries(props)) {
           foldedProps[k] = foldSchema(v, algebra)
         }

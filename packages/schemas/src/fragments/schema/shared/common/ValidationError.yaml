@@ -13,8 +13,15 @@ content:
       type: string
       example: must match format 'email'
     received:
-      description: 실제 수신된 값
-      example: not-an-email
+      anyOf:
+        - $ref: oa://schema/shared/common/ValidationReceivedStringSummary
+        - $ref: oa://schema/shared/common/ValidationReceivedArraySummary
+        - $ref: oa://schema/shared/common/ValidationReceivedObjectSummary
+        - $ref: oa://schema/shared/common/ValidationReceivedScalarSummary
+      description: 수신값의 안전한 진단 요약. 원문 문자열·객체·배열·토큰·비밀번호는 반환하지 않습니다.
+      example:
+        type: string
+        length: 12
     expected:
       type: string
       example: string with format 'email'

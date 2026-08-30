@@ -46,8 +46,9 @@ describe('Content-Type 검증 (OAS 3.2.0 §4.8.13 Media Type Object)', () => {
   })
 
   it('contentType 불일치 → PROTOCOL_MISMATCH', () => {
+    const contentType = 'text/plain; boundary=CONTENT_TYPE_SENTINEL_98ca'
     const r = validateRequest(
-      parts({ body: { email: 'a@b.com', name: 'T', password: 'pass1234' }, contentType: 'text/plain' }),
+      parts({ body: { email: 'a@b.com', name: 'T', password: 'pass1234' }, contentType }),
       [], userBody,
     )
     expect(r.valid).toBe(false)
@@ -55,6 +56,8 @@ describe('Content-Type 검증 (OAS 3.2.0 §4.8.13 Media Type Object)', () => {
       const e = r.errors.find(e => e.code === 'PROTOCOL_MISMATCH')
       expect(e).toBeDefined()
       expect(e?.path).toBe('/headers/content-type')
+      expect(e?.received).toEqual({ type: 'string', length: contentType.length })
+      expect(JSON.stringify(r.errors)).not.toContain('CONTENT_TYPE_SENTINEL_98ca')
     }
   })
 
@@ -71,6 +74,36 @@ describe('Content-Type 검증 (OAS 3.2.0 §4.8.13 Media Type Object)', () => {
 // ─── request body schema validation ──────────────────────────────────────────
 
 describe('request body 스키마 검증', () => {
+  it('malformed optional JSON body is not treated as an omitted body', () => {
+    const optionalBody: OasRequestBody = {
+      required: false,
+      content: {
+        'application/json': {
+          schema: {
+            type: 'object',
+            properties: { format: { type: 'string' } },
+          },
+        },
+      },
+    }
+
+    const r = validateRequest(
+      parts({ body: undefined, bodyParseError: 'invalid-json', contentType: 'application/json' }),
+      [],
+      optionalBody,
+    )
+
+    expect(r.valid).toBe(false)
+    if (!r.valid) {
+      expect(r.errors).toContainEqual(expect.objectContaining({
+        path: '/body',
+        code: 'PROTOCOL_MISMATCH',
+        expected: 'valid JSON',
+        stage: 'parse',
+      }))
+    }
+  })
+
   it('유효한 body → valid', () => {
     const r = validateRequest(
       parts({ body: { email: 'user@example.com', name: 'Test', password: 'password123' }, contentType: 'application/json' }),
@@ -127,7 +160,7 @@ describe('request body 스키마 검증', () => {
     if (!r.valid) {
       const e = r.errors.find(e => e.path === '/body/email')
       expect(e?.code).toBe('TYPE_ERROR')
-      expect(e?.received).toBe('number')
+      expect(e?.received).toEqual({ type: 'number' })
     }
   })
 
@@ -178,7 +211,9 @@ describe('application/xml 요청 바디 검증', () => {
   })
 
   it('invalid: malformed XML returns a parse-stage protocol diagnostic', () => {
-    const r = validateRequest(parts({ body: '<pet><id>42</pet>', contentType: 'application/xml' }), [], xmlBody)
+    const xmlSecret = 'XML_CONTENT_SENTINEL_441e'
+    const body = `<pet><id>${xmlSecret}</id>`
+    const r = validateRequest(parts({ body, contentType: 'application/xml' }), [], xmlBody)
     expect(r.valid).toBe(false)
     if (!r.valid) {
       expect(r.errors).toContainEqual(expect.objectContaining({
@@ -187,6 +222,9 @@ describe('application/xml 요청 바디 검증', () => {
         expected: expect.stringContaining('element-only'),
         stage: 'parse',
       }))
+      expect(r.errors[0]?.received).toEqual({ type: 'string', length: body.length })
+      expect(JSON.stringify(r.errors)).not.toContain(xmlSecret)
+      expect(JSON.stringify(r.errors)).not.toContain(body)
     }
   })
 
@@ -212,7 +250,7 @@ describe('application/xml 요청 바디 검증', () => {
         path: '/body/properties/id/xml/nodeType',
         code: 'PROTOCOL_MISMATCH',
         expected: expect.stringContaining('element-only'),
-        received: 'nodeType=attribute',
+        received: { type: 'string', length: 'nodeType=attribute'.length },
         stage: 'parse',
       }))
     }
@@ -281,15 +319,17 @@ describe('multipart/form-data Encoding Object 검증', () => {
       const e = r.errors.find(error => error.path === '/body/image' && error.code === 'PROTOCOL_MISMATCH')
       expect(e).toMatchObject({
         expected: 'image/png, image/jpeg',
-        received: 'text/plain',
+        received: { type: 'string', length: 'text/plain'.length },
         stage: 'parse',
       })
     }
   })
 
   it('invalid: JSON field contentType with malformed JSON returns parse error', () => {
+    const refreshToken = 'REFRESH_TOKEN_SENTINEL_b1c3'
+    const malformedMetadata = `{"refreshToken":"${refreshToken}`
     const body = createMultipartBody([
-      { name: 'metadata', value: '{"title":', contentType: 'application/json' },
+      { name: 'metadata', value: malformedMetadata, contentType: 'application/json' },
       { name: 'tags', value: 'red,blue' },
       { name: 'labels', value: 'env,prod' },
     ])
@@ -302,6 +342,10 @@ describe('multipart/form-data Encoding Object 검증', () => {
         code: 'PROTOCOL_MISMATCH',
         stage: 'parse',
       }))
+      expect(r.errors.find(error => error.path === '/body/metadata' && error.code === 'PROTOCOL_MISMATCH')?.received)
+        .toEqual({ type: 'string', length: malformedMetadata.length })
+      expect(JSON.stringify(r.errors)).not.toContain(refreshToken)
+      expect(JSON.stringify(r.errors)).not.toContain(malformedMetadata)
     }
   })
 

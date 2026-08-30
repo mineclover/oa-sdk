@@ -296,11 +296,11 @@ personas:
       maps_to: [ purgeUser ]
       expects: [ 204 ]
     skills: [ audit-emission, pii-visible-admin ]
-    notes: "사이트 관리자의 강제 영구 삭제 — POST /admin/users/{id}/purge가 30일 soft-delete window를 우회하고 감사 사유를 요구. deleteUser와 별도 authority."
+    notes: "사이트 관리자의 강제 영구 삭제 — POST /admin/users/{id}/purge가 legal-hold override와 감사 사유를 요구. deleteUser와 별도 authority."
     links:
       - linkType: refines
         target: admin-user-removal
-        reason: "강도 높은 변종 — soft-delete window 우회 + legal-hold override 권한"
+        reason: "강도 높은 변종 — legal-hold override와 감사 사유, 별도 authority"
 
   - id: cs-agent-lookup-user
     status: implemented
@@ -419,6 +419,24 @@ personas:
       expects: [ 400 ]
     skills: [ audit-emission ]
     notes: "negative-path. 잘못된 요청 형식 → 400. createUser의 400 응답 커버."
+  - id: duplicate-email-createUser
+    status: implemented
+    identity:
+      actor: admin
+      data: User(any)
+      intent: create
+      trigger: duplicate-identity
+    reference:
+      regulation: [ pii-kr-pipa ]
+      channel: [ browser, public-api ]
+      region: [ KR ]
+    outcome:
+      shape: detail
+      access: [ "scoped:admin", audited ]
+      maps_to: [ createUser ]
+      expects: [ 409 ]
+    skills: [ audit-emission, pii-visible-admin ]
+    notes: "negative-path. 이미 등록된 이메일 → 409 CONFLICT. createUser의 409 응답 커버."
   - id: guest-unauthorized-createUser
     status: implemented
     identity:

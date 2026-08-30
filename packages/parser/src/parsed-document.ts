@@ -5,6 +5,8 @@ import type {
   ParsedDocumentRefResolution,
   ParsedDocumentRefResolutionScope,
 } from './types.js'
+import { isJsonPointerFragment, resolveJsonPointer } from './json-pointer.js'
+import { getOwnString } from './safe-record.js'
 
 export type CreateParsedDocumentRefResolutionOptions = {
   document: unknown
@@ -97,11 +99,11 @@ function collectRemainingRefDiagnostics(
     }
     if (!isRecord(value)) return
 
-    const ref = typeof value['$ref'] === 'string' ? value['$ref'] : undefined
+    const ref = getOwnString(value, '$ref')
     const sourcePointer = `${pointer}/$ref`
     if (ref && !existing.some(diagnostic => diagnostic.ref === ref)) {
-      if (ref === '#' || ref.startsWith('#/')) {
-        const found = resolveInternalPointer(document, ref) !== undefined
+      if (isJsonPointerFragment(ref)) {
+        const found = resolveJsonPointer(document, ref) !== undefined
         diagnostics.push({
           code: found ? 'unsupported-ref' : 'ref-not-found',
           ref,
@@ -133,16 +135,6 @@ function collectRemainingRefDiagnostics(
       visit(child, `${pointer}/${escapeJsonPointer(key)}`)
     }
   }
-}
-
-function resolveInternalPointer(root: unknown, ref: string): unknown {
-  if (ref === '#') return root
-  let value = root
-  for (const segment of ref.slice(2).split('/').map(unescapeJsonPointer)) {
-    if (!isRecord(value) && !Array.isArray(value)) return undefined
-    value = (value as Record<string, unknown>)[segment]
-  }
-  return value
 }
 
 function dedupeDiagnostics(
@@ -181,10 +173,6 @@ function isResolutionScope(value: unknown): value is ParsedDocumentRefResolution
 
 function escapeJsonPointer(segment: string): string {
   return segment.replaceAll('~', '~0').replaceAll('/', '~1')
-}
-
-function unescapeJsonPointer(segment: string): string {
-  return segment.replaceAll('~1', '/').replaceAll('~0', '~')
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

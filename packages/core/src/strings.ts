@@ -57,7 +57,25 @@ export function toOperationMethodName(typeName: string): string {
 
 /** JS 식별자가 아닌 키 → 따옴표 이스케이프 */
 export function escapeKey(key: string): string {
-  return /^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(key) ? key : `'${key.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`
+  return /^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(key) ? key : quoteTypeScriptString(key)
+}
+
+/** TypeScript single-quoted string literal. Control characters remain escaped. */
+export function quoteTypeScriptString(value: string): string {
+  const escaped = value.replace(/[\\'\u0000-\u001F\u2028\u2029]/g, character => {
+    switch (character) {
+      case '\\': return '\\\\'
+      case "'": return "\\'"
+      case '\n': return '\\n'
+      case '\r': return '\\r'
+      case '\t': return '\\t'
+      case '\b': return '\\b'
+      case '\f': return '\\f'
+      case '\v': return '\\v'
+      default: return `\\u${character.codePointAt(0)!.toString(16).padStart(4, '0')}`
+    }
+  })
+  return `'${escaped}'`
 }
 
 /** OpenAPI path → Express/Hono/MSW path: /users/{id} → /users/:id */

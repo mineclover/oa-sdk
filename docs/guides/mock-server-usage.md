@@ -1,5 +1,11 @@
 # Mock 서버 사용 가이드
 
+이 가이드는 현재 oa-sdk source workspace에서만 적용된다. `@oa-sdk/mock-server`와
+`@oa-sdk/schemas`는 아직 public npm distribution candidate가 아니다. 먼저 repository root에서
+`pnpm install && pnpm build:core && pnpm build:downstream`을 실행해 private package와
+`@oa-sdk/schemas/openapi.json` artifact를 준비한다. 외부 consumer는 공개 `@oa-sdk/codegen`의
+`npx oa-gen validate`/`typegen` 경로를 사용하며 mock-server package를 설치 대상으로 가정하지 않는다.
+
 ## MSW 어댑터 (브라우저 / Vitest)
 
 ```ts
@@ -44,25 +50,32 @@ test('GET /health', async () => {
 
 ```json
 {
-  "valid": false,
-  "errors": [
-    {
-      "path": "/body/email",
-      "code": "FORMAT_MISMATCH",
-      "message": "must match format 'email'",
-      "received": "not-an-email",
-      "expected": "string with format 'email'"
-    },
-    {
-      "path": "/body/password",
-      "code": "CONSTRAINT_VIOLATION",
-      "message": "must NOT have fewer than 8 characters",
-      "received": "abc",
-      "constraint": { "minLength": 8 }
-    }
-  ]
+  "error": {
+    "code": "CONSTRAINT_VIOLATION",
+    "message": "요청 검증 실패",
+    "details": [
+      {
+        "path": "/body/email",
+        "code": "FORMAT_MISMATCH",
+        "message": "must match format 'email'",
+        "received": { "type": "string", "length": 12 },
+        "expected": "string with format 'email'"
+      },
+      {
+        "path": "/body/password",
+        "code": "CONSTRAINT_VIOLATION",
+        "message": "must NOT have fewer than 8 characters",
+        "received": { "type": "string", "length": 3 },
+        "constraint": { "limit": 8 }
+      }
+    ]
+  }
 }
 ```
+
+`received` (and the legacy `value` alias when present) is a content-free
+type/length/count summary. The mock server never reflects submitted strings,
+objects, arrays, XML, passwords, or tokens in validation error details.
 
 ## 에러 코드 목록
 

@@ -36,7 +36,7 @@ model PublicUserProfile {
   role: "admin" | "user" | "guest";
 }
 
-@doc("site-admin 사용자 hard purge 요청. deleteUser soft-delete와 구분됩니다.")
+@doc("site-admin 사용자 hard purge 요청. deleteUser와 별도의 권한 및 감사 절차를 적용합니다.")
 @extension("additionalProperties", false)
 model PurgeUserRequest {
   @doc("영구 삭제 감사 사유")
@@ -331,6 +331,12 @@ model CreateUser401Response {
   @body body: Error;
 }
 
+@doc("리소스 충돌 — 이미 등록된 이메일")
+model CreateUser409Response {
+  @statusCode statusCode: 409;
+  @body body: Error;
+}
+
 @doc("스키마 유효성 검사 실패")
 model CreateUser422Response {
   @statusCode statusCode: 422;
@@ -442,7 +448,7 @@ op requestUsersExport(
 ): RequestUsersExport202Response | RequestUsersExport401Response | RequestUsersExport403Response | RequestUsersExport429Response;
 
 @summary("사용자 영구 삭제")
-@doc("site-admin authority only. deleteUser와 달리 30일 soft-delete window를\n우회하는 hard purge입니다. legal hold override 여부와 사유를 감사 로그에\n남기며 호출은 audited.\n")
+@doc("site-admin authority only. deleteUser와 별도의 권한 및 감사 절차를 적용하는\nhard purge입니다. legal hold override 여부와 사유를 감사 로그에 남기며\n호출은 audited.\n")
 @tag("users")
 @useAuth(bearerAuth)
 @operationId("purgeUser")
@@ -1243,7 +1249,7 @@ op listUsers(
 ): ListUsers200Response | ListUsers401Response;
 
 @summary("사용자 생성")
-@doc("이메일, 이름, 비밀번호를 받아 새 사용자를 생성합니다")
+@doc("이메일, 이름, 비밀번호를 받아 새 사용자를 생성합니다. 이미 등록된 이메일은\n409 Conflict를 반환합니다.\n")
 @tag("users")
 @useAuth(bearerAuth)
 @operationId("createUser")
@@ -1307,6 +1313,19 @@ op listUsers(
         }
       }
     },
+    status_409_application_json: #{
+      statusCode: "409",
+      mediaType: "application/json",
+      examples: #{
+        default: #{
+          dataValue: #{
+            code: "CONFLICT",
+            message: "이미 존재하는 리소스입니다"
+          },
+          serializedValue: "{\"code\":\"CONFLICT\",\"message\":\"이미 존재하는 리소스입니다\"}"
+        }
+      }
+    },
     status_422_application_json: #{
       statusCode: "422",
       mediaType: "application/json",
@@ -1346,6 +1365,10 @@ op listUsers(
       ref: "#/components/responses/Unauthorized"
     },
     #{
+      statusCode: "409",
+      ref: "#/components/responses/Conflict"
+    },
+    #{
       statusCode: "422",
       ref: "#/components/responses/UnprocessableEntity"
     },
@@ -1357,4 +1380,4 @@ op listUsers(
 })
 op createUser(
   @body body: CreateUserRequest,
-): CreateUser201Response | CreateUser400Response | CreateUser401Response | CreateUser422Response | CreateUser500Response;
+): CreateUser201Response | CreateUser400Response | CreateUser401Response | CreateUser409Response | CreateUser422Response | CreateUser500Response;

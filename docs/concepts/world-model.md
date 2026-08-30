@@ -118,9 +118,11 @@ PublishedModel이 선언한 projection result의 typed JSON representation인 `v
 
 여러 projection을 함께 읽어야 할 때는 `ProjectionBundleEnvelope`를 사용한다. bundle은
 하나의 `worldId`, `modelRef`, `sourceRevision`, `bundleId`, `status`, projection 배열을
-가지며, 선언상 같은 revision에서 함께 읽어야 하는 semantic projection 묶음이다. `status`의
-가능한 값은 `complete`, `incomplete`, `stale`이지만, 각 상태를 판정하는 런타임 조건은
-TypeSpec에 정의되어 있지 않다.
+가지며, 선언상 같은 revision에서 함께 읽어야 하는 semantic projection 묶음이다. 배열의
+`ProjectionBundleItem`은 `projectionId`와 `value`만 가지므로 outer envelope의 World
+identity와 revision을 상속하며 서로 다른 World나 revision을 독립적으로 표기할 수 없다.
+`status`의 가능한 값은 `complete`, `incomplete`, `stale`이지만, 각 상태를 판정하는 런타임
+조건은 TypeSpec에 정의되어 있지 않다.
 
 두 projection 조회 operation 모두 선택적 `revision` query를 받으며, 값은 0 이상이다.
 따라서 조회 계약은 현재 head만을 암묵적으로 읽는 형태에 한정되지 않고, 요청이 지정한

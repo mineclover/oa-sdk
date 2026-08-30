@@ -159,7 +159,7 @@ includePaths:
 Public target이 admin/internal path를 포함하지 않도록 `target-check`에서 gate를 둔다.
 
 ```bash
-oa-gen target-check \
+node packages/codegen/dist/cli/index.js target-check \
   --target packages/schemas/src/targets/public-api.yaml \
   --must-include-path /books \
   --must-exclude-path /admin/books

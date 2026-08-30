@@ -80,6 +80,179 @@ describe('lint — parameters', () => {
     expect(results.some(r => r.rule === 'parameters/valid-in')).toBe(true)
   })
 
+  it('OAS 3.2 querystring parameter는 content로 유효하게 선언할 수 있다', () => {
+    const results = lintDocument(doc({
+      paths: {
+        '/search': {
+          get: {
+            parameters: [{
+              name: 'query',
+              in: 'querystring',
+              content: {
+                'application/x-www-form-urlencoded': {
+                  schema: { type: 'object', properties: { q: { type: 'string' } } },
+                },
+              },
+            }],
+            responses: { '200': {} },
+          },
+        },
+      },
+    }), { categories: ['parameters'] })
+
+    expect(results.filter(result => result.severity === 'error')).toEqual([])
+  })
+
+  it('querystring parameter는 content가 필요하고 query parameter와 공존할 수 없다', () => {
+    const results = lintDocument(doc({
+      paths: {
+        '/search': {
+          get: {
+            parameters: [
+              { name: 'whole-query', in: 'querystring' },
+              { name: 'page', in: 'query', schema: { type: 'integer' } },
+            ],
+            responses: { '200': {} },
+          },
+        },
+      },
+    }), { categories: ['parameters'] })
+
+    expect(results.map(result => result.rule)).toEqual(expect.arrayContaining([
+      'parameters/querystring-content-required',
+      'parameters/querystring-exclusive',
+    ]))
+  })
+
+  it('querystring parameter는 schema/style fields 대신 content만 사용한다', () => {
+    const results = lintDocument(doc({
+      paths: {
+        '/search': {
+          get: {
+            parameters: [{
+              name: 'whole-query',
+              in: 'querystring',
+              schema: { type: 'object' },
+              style: 'form',
+              content: { 'application/json': { schema: { type: 'object' } } },
+            }],
+            responses: { '200': {} },
+          },
+        },
+      },
+    }), { categories: ['parameters'] })
+
+    expect(results.some(result => result.rule === 'parameters/querystring-content-only')).toBe(true)
+  })
+
+  it('querystring parameter content에는 media type을 하나만 선언할 수 있다', () => {
+    const results = lintDocument(doc({
+      paths: {
+        '/search': {
+          get: {
+            parameters: [{
+              name: 'whole-query',
+              in: 'querystring',
+              content: {
+                'application/json': { schema: { type: 'object' } },
+                'text/plain': { schema: { type: 'string' } },
+              },
+            }],
+            responses: { '200': {} },
+          },
+        },
+      },
+    }), { categories: ['parameters'] })
+
+    expect(results.some(result => result.rule === 'parameters/querystring-single-content')).toBe(true)
+  })
+
+  it('webhook querystring semantics도 paths와 동일하게 검증한다', () => {
+    const results = lintDocument(doc({
+      webhooks: {
+        event: {
+          post: {
+            parameters: [
+              { name: 'whole', in: 'querystring', schema: { type: 'string' } },
+              { name: 'q', in: 'query', schema: { type: 'string' } },
+            ],
+            responses: { '200': {} },
+          },
+        },
+      },
+    }), { categories: ['parameters'] })
+
+    expect(results.map(result => result.rule)).toEqual(expect.arrayContaining([
+      'parameters/querystring-content-required',
+      'parameters/querystring-content-only',
+      'parameters/querystring-exclusive',
+    ]))
+  })
+
+  it('local component parameter refs participate in querystring invariants', () => {
+    const results = lintDocument(doc({
+      components: {
+        parameters: {
+          WholeQuery: { name: 'whole', in: 'querystring', schema: { type: 'string' } },
+        },
+      },
+      paths: {
+        '/search': {
+          get: {
+            parameters: [
+              { $ref: '#/components/parameters/WholeQuery' },
+              { name: 'q', in: 'query', schema: { type: 'string' } },
+            ],
+            responses: { '200': {} },
+          },
+        },
+      },
+    }), { categories: ['parameters'] })
+
+    expect(results.map(result => result.rule)).toEqual(expect.arrayContaining([
+      'parameters/querystring-content-required',
+      'parameters/querystring-content-only',
+      'parameters/querystring-exclusive',
+    ]))
+  })
+
+  it('operation parameter override does not create a false duplicate querystring error', () => {
+    const wholeQuery = { name: 'whole', in: 'querystring', content: { 'text/plain': {} } }
+    const results = lintDocument(doc({
+      paths: {
+        '/search': {
+          parameters: [wholeQuery],
+          get: {
+            parameters: [{ ...wholeQuery, required: true }],
+            responses: { '200': {} },
+          },
+        },
+      },
+    }), { categories: ['parameters'] })
+
+    expect(results.some(result => result.rule === 'parameters/querystring-unique')).toBe(false)
+  })
+
+  it('additionalOperations also validates querystring exclusivity', () => {
+    const results = lintDocument(doc({
+      paths: {
+        '/brew': {
+          additionalOperations: {
+            BREW: {
+              parameters: [
+                { name: 'whole', in: 'querystring', content: { 'text/plain': {} } },
+                { name: 'q', in: 'query', schema: { type: 'string' } },
+              ],
+              responses: { '200': {} },
+            },
+          },
+        },
+      },
+    }), { categories: ['parameters'] })
+
+    expect(results.some(result => result.rule === 'parameters/querystring-exclusive')).toBe(true)
+  })
+
   it('경로의 {param}이 정의되지 않으면 경고', () => {
     const results = lintDocument(doc({
       paths: {

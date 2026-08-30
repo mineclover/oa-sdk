@@ -17,7 +17,7 @@ console.log(describeApi(doc))
 ```
 
 ```
-OA SDK API v0.2.0
+OA SDK API v0.5.0
 [health] GET /health — 서버 상태 확인
 [users]  GET /users — 사용자 목록 조회
          POST /users — 사용자 생성
@@ -93,7 +93,7 @@ if (!res.ok) {
 ## 5. 린트로 스펙 품질 확인
 
 ```bash
-oa-gen lint --spec packages/schemas/src/.merged.yaml
+node packages/codegen/dist/cli/index.js lint --spec packages/schemas/src/.merged.yaml
 # 0 errors, 0 warnings, 0 infos
 ```
 

@@ -1,6 +1,6 @@
 {
   "name": "@oa-sdk/codegen",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "Drizzle/TS ↔ OpenAPI bidirectional code generation bridge",
   "private": false,
   "type": "module",
@@ -60,9 +60,12 @@
     "@oa-sdk/parser": "workspace:*",
     "@oa-sdk/typespec-decorators": "workspace:*",
     "@typespec/compiler": "^1.13.0",
+    "@typespec/events": "0.83.0",
     "@typespec/http": "^1.13.0",
     "@typespec/openapi": "^1.13.0",
     "@typespec/openapi3": "^1.13.0",
+    "@typespec/sse": "0.83.0",
+    "@typespec/streams": "0.83.0",
     "yaml": "^2.5.0",
     "zod": "^4.4.3"
   },

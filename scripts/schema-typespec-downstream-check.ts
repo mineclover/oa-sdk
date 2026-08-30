@@ -173,6 +173,7 @@ async function compileGeneratedConsumers(input: {
   writeFileSync(join(generatedDir, 'runtime-stubs.d.ts'), [
     "declare module 'hono' {",
     '  type HonoRequest = {',
+    '    raw: Request',
     '    param(): Record<string, string>',
     '    query(): Record<string, string>',
     '    json<T = unknown>(): Promise<T>',
@@ -188,6 +189,7 @@ async function compileGeneratedConsumers(input: {
     '  }',
     '  type HonoHandler = (c: HonoContext) => unknown',
     '  type RouteMethod = (path: string, handler: HonoHandler) => void',
+    '  type GenericRouteMethod = (method: string, path: string, handler: HonoHandler) => void',
     '  export class Hono {',
     '    get: RouteMethod',
     '    post: RouteMethod',
@@ -197,11 +199,13 @@ async function compileGeneratedConsumers(input: {
     '    head: RouteMethod',
     '    options: RouteMethod',
     '    trace: RouteMethod',
+    '    on: GenericRouteMethod',
     '  }',
     '}',
     '',
     "declare module 'express' {",
     '  type Request = {',
+    '    method: string',
     '    params: Record<string, string>',
     '    query: Record<string, unknown>',
     '    body: unknown',
@@ -212,7 +216,8 @@ async function compileGeneratedConsumers(input: {
     '    end(): unknown',
     '    setHeader(name: string, value: string): void',
     '  }',
-    '  type ExpressHandler = (req: Request, res: Response) => unknown',
+    '  type NextFunction = () => unknown',
+    '  type ExpressHandler = (req: Request, res: Response, next: NextFunction) => unknown',
     '  type RouteMethod = (path: string, handler: ExpressHandler) => void',
     '  export function Router(): Record<string, RouteMethod>',
     '}',
@@ -267,6 +272,8 @@ async function compileSyntheticGeneratedConsumers(modules: {
   })
   assertGeneratedSource('synthetic typegen', typegenSource, 'export type WidgetCreatedWebhookBody')
   assertGeneratedSource('synthetic hono router', honoRouterSource, 'WidgetCreatedWebhookBody')
+  assertGeneratedSource('synthetic hono uncommon method router', honoRouterSource, "app.on('QUERY', '/widgets/:id'")
+  assertGeneratedSource('synthetic express uncommon method router', expressRouterSource, "router.all('/widgets/:id', async (req, res, next) => {")
   await compileGeneratedConsumers({
     fixtureName: 'synthetic',
     typegenSource,
@@ -308,6 +315,21 @@ function syntheticDownstreamSpec(): Record<string, unknown> {
               },
             },
           },
+        },
+        head: {
+          operationId: 'headWidget',
+          parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+          responses: { '204': { description: 'No content' } },
+        },
+        trace: {
+          operationId: 'traceWidget',
+          parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+          responses: { '200': { description: 'Trace' } },
+        },
+        query: {
+          operationId: 'queryWidget',
+          parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+          responses: { '200': { description: 'Query' } },
         },
       },
     },

@@ -22,9 +22,10 @@ git submodule update --init --recursive
 `build:core`는 `oa-gen` CLI를 포함한 production core package를 빌드하고, `build:downstream`은
 라우터·클라이언트·mock server처럼 private package의 `dist`를 빌드한다. 저장소를 clone한
 직후에는 package binary가 아직 빌드되지 않을 수 있으므로 아래 예시는 설치된 binary 대신
-저장소의 CLI entrypoint를 직접 호출한다. 별도 서비스 저장소에서 실행할 때는 해당 서비스가
-`oa-gen`을 PATH에 제공하도록 설치하거나, scaffold의 `--oa-gen-command`에 서비스가 재현
-가능한 명령을 지정한다.
+저장소의 `node packages/codegen/dist/cli/index.js` entrypoint를 직접 호출한다. root workspace는
+`oa-gen` binary를 shell PATH에 자동으로 연결하지 않는다. 별도 서비스 저장소에서는 public package를
+설치한 뒤 `npx oa-gen <command>`를 쓰거나, scaffold의 `--oa-gen-command`에 서비스가 재현 가능한
+명령을 지정한다.
 
 ## 목표별 진입점
 
@@ -35,7 +36,7 @@ git submodule update --init --recursive
 
 ## 주요 워크플로우
 
-전체 26개 기능 명령의 목적, 최소 입력, 출력, 조건부 옵션은
+현재 기능 명령의 목적, 최소 입력, 출력, 조건부 옵션은
 [CLI 명령 레퍼런스](./cli-command-reference.md)가 소유한다. 이 문서는 production schema와
 OpenAPI governance에서 자주 쓰는 workflow만 빠르게 안내한다.
 
@@ -70,21 +71,21 @@ API 변경 PR에서는 [OpenAPI Governance Workflow](./use-cases/openapi-governa
 최소 PR gate 예시:
 
 ```bash
-oa-gen diff \
+node packages/codegen/dist/cli/index.js diff \
   --base contracts/baselines/v1.openapi.yaml \
   --head packages/schemas/src/.merged.yaml \
   --fail-on-breaking
 
-oa-gen check-artifact \
+node packages/codegen/dist/cli/index.js check-artifact \
   --head packages/schemas/src/.merged.yaml \
   --artifact packages/schemas/dist/openapi.yaml
 
-oa-gen duplicate-review \
+node packages/codegen/dist/cli/index.js duplicate-review \
   --fragments packages/schemas/src/fragments \
   --policy ci \
   --target packages/schemas/src/targets/local-parity-api.yaml
 
-oa-gen target-check \
+node packages/codegen/dist/cli/index.js target-check \
   --target packages/schemas/src/targets/local-parity-api.yaml \
   --must-include-path /health \
   --must-exclude-path /admin
@@ -94,7 +95,7 @@ oa-gen target-check \
 
 ```bash
 # NestJS Swagger
-oa-gen scaffold-governance \
+node packages/codegen/dist/cli/index.js scaffold-governance \
   --root apps/nestjs-ref \
   --service nestjs-ref \
   --profile nestjs-swagger \
@@ -106,7 +107,7 @@ oa-gen scaffold-governance \
 bash apps/nestjs-ref/scripts/openapi-governance.sh all
 
 # FastAPI
-oa-gen scaffold-governance \
+node packages/codegen/dist/cli/index.js scaffold-governance \
   --root apps/fastapi-ref \
   --service fastapi-ref \
   --profile fastapi \

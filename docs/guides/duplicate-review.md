@@ -10,20 +10,20 @@
 
 ```bash
 # 전체 후보 탐색: 결과는 남기되 CI를 실패시키지 않음
-oa-gen duplicate-review \
+node packages/codegen/dist/cli/index.js duplicate-review \
   --fragments packages/schemas/src/fragments \
   --policy report \
   --format markdown
 
 # PR 검토: 모든 후보를 보여 주고 error만 차단
-oa-gen duplicate-review \
+node packages/codegen/dist/cli/index.js duplicate-review \
   --fragments packages/schemas/src/fragments \
   --policy review \
   --target packages/schemas/src/targets/local-parity-api.yaml \
   --format markdown
 
 # CI: 실제 생성 target의 canonical ID와 output name 충돌만 gate
-oa-gen duplicate-review \
+node packages/codegen/dist/cli/index.js duplicate-review \
   --fragments packages/schemas/src/fragments \
   --policy ci \
   --target packages/schemas/src/targets/public-api.yaml \
@@ -49,14 +49,14 @@ oa-gen duplicate-review \
 
 ```bash
 # 여러 실제 target을 한 번에 검토
-oa-gen duplicate-review \
+node packages/codegen/dist/cli/index.js duplicate-review \
   --fragments packages/schemas/src/fragments \
   --policy ci \
   --target packages/schemas/src/targets/public-api.yaml \
   --target packages/schemas/src/targets/admin-api.yaml
 
 # 같은 local name의 서로 다른 shape도 CI 경고 이상으로 차단
-oa-gen duplicate-review \
+node packages/codegen/dist/cli/index.js duplicate-review \
   --fragments packages/schemas/src/fragments \
   --policy ci \
   --target packages/schemas/src/targets/public-api.yaml \

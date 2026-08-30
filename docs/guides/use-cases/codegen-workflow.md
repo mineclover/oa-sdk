@@ -6,10 +6,26 @@
 
 DB 스키마(Drizzle)에서 시작하여 API 전 계층의 코드를 자동 생성.
 
+이 문서는 oa-sdk source checkout에서 실행하는 maintainer workflow다. 처음에는
+`pnpm install && pnpm build:core`를 실행한다. 이후 shell 예시는
+`node packages/codegen/dist/cli/index.js`를 직접 호출한다. 공개 npm consumer가 같은 CLI 기능만
+사용할 때는 [Quick Start](../quick-start.md)의 `npx oa-gen` 경로를 사용한다.
+
 ## 핵심 계약 경계
 
-공통 용어는 [Concepts](../../concepts.md)를 따른다. 이 워크플로우에서는 OpenAPI contract가
-외부 API 계약이고, Drizzle/Zod/manual fragments는 그 계약을 만드는 입력이다.
+공통 용어는 [Concepts](../../concepts.md)를 따른다. OA SDK 자체의 현재 production API
+contract는 TypeSpec-first다. `packages/schemas/typespec/main.tsp`와 domain/metadata module을
+수정하고 `pnpm schema:validate`로 canonical `.merged.yaml`을 생성·검증한다. 자세한 변경·승인
+절차는 [TypeSpec authoring conventions](../typespec-authoring-conventions.md)를 따른다.
+
+아래의 Drizzle/Zod/manual fragment 예시는 user-owned OpenAPI contract 또는 명시적인
+Definition Builder rollback/reference 경로를 위한 것이다. 이 예시로 OA SDK production
+TypeSpec source, approved snapshot, 또는 기본 `.merged.yaml` authoring 경로를 대체하지 않는다.
+Definition Builder를 사용해 TypeSpec artifact를 비교·복구해야 할 때만
+`pnpm schema:validate:openapi`를 실행한다.
+
+그 경계 안에서 OpenAPI contract는 외부 API 계약이고, Drizzle/Zod/manual fragments는 그
+contract를 만드는 입력이다.
 
 ```txt
 Drizzle schema / Zod schema / 수동 OpenAPI fragment
@@ -43,10 +59,14 @@ command execution logging과 projection/read model은 [Behavior ECS](../../conce
 따르고, baseline/local verification은
 [Behavior ECS Spec](../../internal/behavior-ecs.spec.md)를 단일 소스로 본다.
 
-## 1. Drizzle → OAS components.yaml
+## 1. Drizzle → OAS components.yaml (Definition Builder rollback/reference)
+
+이 절의 fragment output은 현재 OA SDK production source가 아니다. TypeSpec을 고치는 동안
+fallback artifact를 비교하거나, 별도의 OpenAPI contract를 소유하는 경우에만 사용한다. production
+계약 변경은 위 TypeSpec 경로에서 시작한다.
 
 ```bash
-oa-gen generate --drizzle-schema ./src/db/schema.ts --output ./packages/schemas/src/fragments/schema/public/users/
+node packages/codegen/dist/cli/index.js generate --drizzle-schema ./src/db/schema.ts --output ./packages/schemas/src/fragments/schema/public/users/
 ```
 
 또는 config 파일:
@@ -70,7 +90,7 @@ export default defineConfig({
 ```
 
 ```bash
-oa-gen generate --config codegen.config.mjs
+node packages/codegen/dist/cli/index.js generate --config codegen.config.mjs
 ```
 
 ### Drizzle 스키마 관리 원칙
@@ -126,8 +146,12 @@ function toUserResponse(row: UserRow): UserResponse {
 
 ## 2. OAS → TypeScript 타입
 
+현재 OA SDK production 흐름에서는 `packages/schemas/src/.merged.yaml`을 먼저
+`pnpm schema:validate`로 materialize한 뒤, 여기의 typegen 소비 단계로 넘긴다. typegen은
+artifact를 읽을 뿐 production source를 갱신하지 않는다.
+
 ```bash
-oa-gen typegen --spec packages/schemas/src/.merged.yaml -o src/types.ts
+node packages/codegen/dist/cli/index.js typegen --spec packages/schemas/src/.merged.yaml -o src/types.ts
 ```
 
 생성 결과 (JSDoc + $ref 참조):
@@ -172,11 +196,15 @@ import { generateClient } from '@oa-sdk/client'
 writeFileSync('src/client.ts', generateClient(spec, { typesImport: './types' }))
 ```
 
-SSE 스트리밍 엔드포인트는 `async *` 제너레이터로 생성:
+SSE 스트리밍 엔드포인트는 `async *` 제너레이터로 생성된다. 현재 native OpenAPI 3.2
+`itemSchema`의 payload 타입은 typegen alias로 투영되지 않으므로 iterator 원소는 안전하게
+`unknown`으로 유지된다. consumer는 자신의 runtime validator로 좁힌 뒤 사용한다.
 
 ```typescript
-async *streamHealthEvents(): AsyncGenerator<StreamHealthEventsResponse> {
-  yield* stream('GET', '/health/stream')
+const events: AsyncGenerator<unknown> = client.streamHealthEvents()
+
+for await (const event of events) {
+  // validate/narrow `event` before use
 }
 ```
 
@@ -185,41 +213,50 @@ async *streamHealthEvents(): AsyncGenerator<StreamHealthEventsResponse> {
 OpenAPI를 문서로만 두면 쉽게 실제 구현과 어긋난다. 아래 명령을 CI 게이트로 두고,
 breaking change는 spec diff에서 먼저 확인한다.
 
+OA SDK production 계약의 기본 gate는 `pnpm schema:validate`다. 아래의
+`duplicate-review`와 `target-check`는 Definition Builder fragment/target을 위한
+rollback/reference 검증이며, TypeSpec-first production composition을 대신하지 않는다.
+
 ```bash
 pnpm schema:validate
-oa-gen validate --spec packages/schemas/src/.merged.yaml
-oa-gen lint --spec packages/schemas/src/.merged.yaml
-oa-gen diff \
+node packages/codegen/dist/cli/index.js validate --spec packages/schemas/src/.merged.yaml
+node packages/codegen/dist/cli/index.js lint --spec packages/schemas/src/.merged.yaml
+node packages/codegen/dist/cli/index.js diff \
   --base contracts/baselines/v1.openapi.yaml \
   --head packages/schemas/src/.merged.yaml \
   --fail-on-breaking
-oa-gen check-artifact \
+node packages/codegen/dist/cli/index.js check-artifact \
   --head packages/schemas/src/.merged.yaml \
   --artifact packages/schemas/dist/openapi.yaml
-oa-gen check-artifact \
+node packages/codegen/dist/cli/index.js check-artifact \
   --head packages/schemas/src/.merged.yaml \
   --target packages/schemas/src/targets/local-parity-api.yaml \
   --artifact packages/schemas/src/.builder/local-parity-api.yaml
-oa-gen drift \
+node packages/codegen/dist/cli/index.js drift \
   --runtime-openapi runtime.openapi.yaml \
   --managed-openapi packages/schemas/src/.merged.yaml \
   --format markdown
 # Definition Builder fallback/reference governance
-oa-gen duplicate-review \
+node packages/codegen/dist/cli/index.js duplicate-review \
   --fragments packages/schemas/src/fragments \
   --policy ci \
   --target packages/schemas/src/targets/local-parity-api.yaml \
   --format markdown
-oa-gen target-check \
+node packages/codegen/dist/cli/index.js target-check \
   --target packages/schemas/src/targets/local-parity-api.yaml \
   --must-include-path /health \
   --must-exclude-path /admin
-oa-gen review \
+node packages/codegen/dist/cli/index.js review \
   --base contracts/baselines/v1.openapi.yaml \
   --head packages/schemas/src/.merged.yaml \
   --artifact packages/schemas/dist/openapi.yaml \
   --format markdown
 ```
+
+TypeSpec output을 수리하는 동안 Definition Builder artifact를 재생성해야 한다면
+`pnpm schema:validate:openapi`를 사용한다. 이 명시적 rollback/reference command의 범위와
+복귀 조건은 [Definition Builder validation gates](../../internal/definition-builder-compatibility-gates.md)에
+정의되어 있다.
 
 API 문서로 사용할 정보는 README에 따로 흩어두지 말고 spec에 둔다.
 
@@ -236,9 +273,12 @@ API 문서로 사용할 정보는 README에 따로 흩어두지 말고 spec에 �
 
 ## 전체 파이프라인 검증
 
+현재 production contract에서는 먼저 `pnpm schema:validate`를 실행한다. 아래 typegen은 그
+검증된 generated artifact를 읽는 consumer 단계다.
+
 ```bash
 pnpm schema:validate
-oa-gen typegen --spec packages/schemas/src/.merged.yaml -o src/types.ts
+node packages/codegen/dist/cli/index.js typegen --spec packages/schemas/src/.merged.yaml -o src/types.ts
 pnpm --filter @oa-sdk/playground test -- codegen-pipeline.test.ts
 ```
 

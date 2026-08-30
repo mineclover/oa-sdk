@@ -5,10 +5,11 @@ canonical: true
 audience:
   competence: novice
 productVersions:
-  - "@oa-sdk/codegen 0.5.0"
+  - "@oa-sdk/codegen 0.6.0 source release candidate (npm latest 0.5.0 until promotion)"
+  - "OA SDK API contract 0.5.0"
 tested:
   environment: "Node.js 24 LTS+, pnpm 10.30.3, repository checkout"
-  at: "2026-08-10"
+  at: "2026-08-30"
 owner: "OA SDK maintainers"
 reviewDue: "2026-11-10"
 status: active
@@ -18,6 +19,8 @@ sourceOfTruth:
   - packages/router/package.json
   - packages/client/package.json
   - packages/mock-server/package.json
+  - packages/schemas/typespec/version.tsp
+  - packages/schemas/typespec/approved.openapi.yaml
 ---
 
 # Quick Start
@@ -35,9 +38,10 @@ npx oa-gen validate --spec ./openapi.yaml --require-32
 npx oa-gen typegen --spec ./openapi.yaml -o types.ts
 ```
 
-현재 공개 `latest`는 `@oa-sdk/codegen@0.5.0`이며, artifact-only release repository와 npm
-무결성 검증을 거쳐 게시된다. OA SDK 자체 production schema를 작성하거나 변경하려면 아래의
-비공개 source workflow를 사용한다.
+현재 공개 `latest`는 `@oa-sdk/codegen@0.5.0`이며, `0.6.0`은 artifact review 대기 중인
+source release candidate다. artifact-only release repository와 npm 무결성 검증을 거쳐
+promotion되기 전에는 `0.6.0`을 public install target으로 안내하지 않는다. OA SDK 자체
+production schema를 작성하거나 변경하려면 아래의 비공개 source workflow를 사용한다.
 
 ## 비공개 source workflow
 
@@ -50,8 +54,11 @@ npx oa-gen typegen --spec ./openapi.yaml -o types.ts
 ```bash
 git clone <repo> && cd oa-sdk
 pnpm install
-pnpm --filter @oa-sdk/codegen build
+pnpm build:core
 ```
+
+`build:core`은 TypeSpec validation과 CLI가 요구하는 workspace dependency closure를 함께
+materialize한다. fresh checkout에서 `@oa-sdk/codegen`만 단독 build하지 않는다.
 
 ### 2. 스키마 빌드 + 검증
 
@@ -72,13 +79,14 @@ node packages/codegen/dist/cli/index.js validate \
 ### 3. TypeScript 타입 생성
 
 ```bash
+mkdir -p apps/playground/.oa-sdk/quick-start
 node packages/codegen/dist/cli/index.js typegen \
   --spec packages/schemas/src/.merged.yaml \
-  --output types.ts
+  --output apps/playground/.oa-sdk/quick-start/types.ts
 ```
 
-`types.ts`가 현재 디렉터리에 생성되어야 한다. 다음 단계에서 이 파일을 `--types-import`
-입력으로 사용한다.
+`apps/playground/.oa-sdk/quick-start/types.ts`가 생성되어야 한다. 다음 단계에서 private
+generator API의 `typesImport` 옵션으로 사용한다.
 
 ```typescript
 /** 사용자 정보 */
@@ -101,7 +109,7 @@ export type CreateUserOp = { method: 'post'; path: '/users'; body: CreateUserBod
 위 TypeScript는 생성 결과의 일부다. 실제 `types.ts`에는 스펙의 모든 schema와 operation이
 포함된다.
 
-### 4. 라우터 + 클라이언트 생성
+### 4. 라우터 + 클라이언트 private integration 생성
 
 라우터·클라이언트·mock server는 private downstream package이므로 별도로 빌드한다.
 
@@ -111,12 +119,37 @@ pnpm build:downstream
 
 세 package의 `dist`가 생성된 뒤 다음 명령을 실행한다.
 
-```bash
-node packages/codegen/dist/cli/index.js router \
-  --spec packages/schemas/src/.merged.yaml --types-import './types' -o router.ts
-node packages/codegen/dist/cli/index.js client \
-  --spec packages/schemas/src/.merged.yaml --types-import './types' -o client.ts
+`oa-gen`의 공개 CLI에는 `router`나 `client` command가 없다. private workspace에서 package API를
+호출하는 생성 script가 output을 소유한다. 아래 script는 root `.gitignore`가 제외하는
+`apps/playground/.oa-sdk/quick-start/generate-integrations.ts`에 저장한다. 따라서 튜토리얼을
+실행해도 tracked `examples/` 파일이 생기지 않는다.
+
+```typescript
+import { readFileSync, writeFileSync } from 'node:fs'
+import { dirname, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { generateClient } from '@oa-sdk/client'
+import { generateRouter } from '@oa-sdk/router'
+import type { OasDocument } from '@oa-sdk/parser'
+import { parse } from 'yaml'
+
+const quickStartDirectory = dirname(fileURLToPath(import.meta.url))
+const repositoryRoot = resolve(quickStartDirectory, '../../../..')
+const spec = parse(readFileSync(resolve(repositoryRoot, 'packages/schemas/src/.merged.yaml'), 'utf8')) as OasDocument
+writeFileSync(resolve(quickStartDirectory, 'router.ts'), generateRouter(spec, { typesImport: './types.js' }))
+writeFileSync(resolve(quickStartDirectory, 'client.ts'), generateClient(spec, { typesImport: './types.js' }))
 ```
+
+```bash
+pnpm --filter @oa-sdk/playground exec tsx .oa-sdk/quick-start/generate-integrations.ts
+```
+
+이 튜토리얼의 공개 npm 경로는 `oa-gen validate`와 `oa-gen typegen`이다. router/client integration은
+배포 후보가 아닌 private downstream package 경계이며, 자세한 구조는
+[코드젠 워크플로](./use-cases/codegen-workflow.md)를 따른다.
+
+playground의 기본 TypeScript 설정은 NodeNext이므로 generated file은 type-only import에도
+`./types.js` specifier를 사용한다. TypeScript는 이를 sibling `types.ts`로 해석한다.
 
 ### 5. Mock 서버 테스트
 
@@ -148,9 +181,9 @@ console.log(describeApi(parseDocument(spec)))
 ```
 
 ```
-OA SDK API v0.2.0
+OA SDK API v0.5.0
 서버: http://localhost:4010, http://localhost:3000
-스키마: 40개
+스키마: 49개
 오퍼레이션: 34개
 
 [world-model] — World Model Kernel — World bootstrap, stimulus ingress, revision-pinned projection query

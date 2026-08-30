@@ -1,0 +1,19 @@
+id: schema:shared/common/ValidationReceivedStringSummary
+content:
+  type: object
+  required:
+    - type
+    - length
+  properties:
+    type:
+      type: string
+      enum:
+        - string
+    length:
+      type: integer
+      format: int64
+      minimum: 0
+      maximum: 9007199254740991
+  unevaluatedProperties:
+    not: {}
+  description: 문자열 수신값의 content-free 진단 요약

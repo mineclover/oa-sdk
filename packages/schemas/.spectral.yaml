@@ -15,6 +15,11 @@ rules:
   oas3-valid-schema-example: off
   # 3.2의 dataValue/serializedValue 를 value 부재로 오탐
   oas3-examples-value-or-externalValue: off
+  # Native TypeSpec SSE emits a pure event-union alias component whose
+  # itemSchema is inlined by the OAS 3.2 emitter. Spectral's OAS 3.0-era
+  # reachability rule reports that alias as unused. OA SDK's 3.2-aware parser
+  # lint remains enabled and checks every non-alias component instead.
+  oas3-unused-component: off
 
   # --- 스타일 및 컨벤션 규칙 ---
   oas3-api-servers: warn

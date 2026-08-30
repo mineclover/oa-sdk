@@ -178,6 +178,58 @@ describe('definition registry graph', () => {
     })
   })
 
+  it('resolves percent-encoded relative file JSON Pointer fragments canonically', () => {
+    const source = createDefinitionNode({
+      id: 'schema:public/book/Source',
+      sourcePath: '/workspace/fragments/schema/public/book/Source.yaml',
+      sourcePointer: '#/content',
+      contentHash: 'sha256:source',
+      content: { $ref: './Target.yaml#/content/%7Bname%7D' },
+    })
+    const target = createDefinitionNode({
+      id: 'schema:public/book/Target',
+      sourcePath: '/workspace/fragments/schema/public/book/Target.yaml',
+      sourcePointer: '#/content/{name}',
+      contentHash: 'sha256:target',
+      content: { type: 'string' },
+    })
+
+    const registry = createDefinitionRegistry([source, target])
+    expect(registry.valid).toBe(true)
+    expect(registry.refEdges).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        ref: './Target.yaml#/content/%7Bname%7D',
+        targetId: 'schema:public/book/Target',
+      }),
+    ]))
+  })
+
+  it.each(['Bad~2', 'Bad%ZZ'])('rejects malformed relative file JSON Pointer fragment %s', (fragment) => {
+    const source = createDefinitionNode({
+      id: 'schema:public/book/Source',
+      sourcePath: '/workspace/fragments/schema/public/book/Source.yaml',
+      sourcePointer: '#/content',
+      contentHash: 'sha256:source',
+      content: { $ref: `./Target.yaml#/content/${fragment}` },
+    })
+    const target = createDefinitionNode({
+      id: 'schema:public/book/Target',
+      sourcePath: '/workspace/fragments/schema/public/book/Target.yaml',
+      sourcePointer: `#/content/${fragment}`,
+      contentHash: 'sha256:target',
+      content: { type: 'string' },
+    })
+
+    const registry = createDefinitionRegistry([source, target])
+    expect(registry.valid).toBe(false)
+    expect(registry.diagnostics).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        code: 'definition-registry/unsupported-ref',
+        ref: `./Target.yaml#/content/${fragment}`,
+      }),
+    ]))
+  })
+
   it('reports missing canonical refs with source coordinates', () => {
     const note = createDefinitionNode({
       id: 'schema:public/book/Note',

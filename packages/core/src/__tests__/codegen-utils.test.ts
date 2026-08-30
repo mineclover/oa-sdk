@@ -25,6 +25,24 @@ describe('collectTypeNames', () => {
     expect(names).toContain('ListUsersQueryParams')
   })
 
+  it('header params → HeaderParams', () => {
+    const names = collectTypeNames([{
+      operationId: 'requestExport',
+      parameters: [{ in: 'header' }],
+      responses: { '202': {} },
+    }])
+    expect(names).toContain('RequestExportHeaderParams')
+  })
+
+  it('querystring param → QueryString', () => {
+    const names = collectTypeNames([{
+      operationId: 'requestExport',
+      parameters: [{ in: 'querystring' }],
+      responses: { '202': {} },
+    }])
+    expect(names).toContain('RequestExportQueryString')
+  })
+
   it('requestBody → Body', () => {
     const names = collectTypeNames([{
       operationId: 'createUser',

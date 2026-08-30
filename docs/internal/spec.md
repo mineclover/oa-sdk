@@ -84,7 +84,7 @@ marker.
 
 | 함수 | 용도 |
 |------|------|
-| `pascalCase`, `toTypeScriptIdentifier`, `createOperationTypeNameMap`, `toOperationMethodName`, `escapeKey`, `toColonPath` | 문자열 변환 및 충돌 없는 codegen 이름 정규화 |
+| `pascalCase`, `toTypeScriptIdentifier`, `createOperationTypeNameMap`, `toOperationMethodName`, `escapeKey`, `quoteTypeScriptString`, `toColonPath` | 문자열 변환 및 충돌 없는 codegen 이름 정규화. `quoteTypeScriptString`은 제어 문자를 포함한 literal을 안전하게 생성한다. |
 | `collectTypeNames` | operation → typegen 타입 이름 (ResponseHeaders 포함) |
 | `formatGeneratedTs` | 생성 코드 자동 들여쓰기 |
 | `pickDefaultStatus` | OAS responses → 상태 코드 (범위/default 지원) |
@@ -568,7 +568,7 @@ Builder WorkspaceIndex metadata는 SQLite schema를 늘리지 않고 기존 row�
 
 Schema composition is now TypeSpec-first. `packages/schemas/src/.merged.yaml` is generated from the `packages/schemas/typespec/main.tsp` entrypoint and its domain modules, including `world-model.tsp`, through the `oa-sdk.typespec-bundle.v1` manifest, OA SDK TypeSpec extension restore, approved snapshot drift gates, and OpenAPI 3.2 validation. The OpenAPI/Definition Builder path remains available as an explicit rollback/reference path through `:openapi` commands; the legacy whole-domain merge script has been removed, and `src/domains/**/spec.yaml` files are archived historical/migration reference material.
 
-Current TypeSpec status: the TypeSpec-restored production artifact has 34 operations, including 7 World Model operations from `world-model.tsp`, and 40 schemas; it restores 193 OA SDK extension-derived semantic entries and keeps 0 reviewed restored-vs-reference differences in `accepted-restored-drift.json`. The contract version is `0.2.0`, owned by `packages/schemas/typespec/version.tsp` and emitted through TypeSpec `@info` to OpenAPI `info.version`. `pnpm schema:validate` is the canonical gate: it builds parser/codegen, emits `.merged.yaml` through `schema:typespec-check`, downgrades to 3.1, runs Spectral/Redocly, and then runs strict `oa-gen validate --require-32`.
+Current TypeSpec status: the TypeSpec-restored production artifact has 34 operations, including 7 World Model operations from `world-model.tsp`, and 49 schemas; it restores 195 OA SDK extension-derived semantic entries and keeps 0 reviewed restored-vs-reference differences in `accepted-restored-drift.json`. The contract version is `0.5.0`, owned by `packages/schemas/typespec/version.tsp` and emitted through TypeSpec `@info` to OpenAPI `info.version`. `pnpm schema:validate` is the canonical gate: it builds parser/codegen, emits `.merged.yaml` through `schema:typespec-check`, downgrades to 3.1, runs Spectral/Redocly, and then runs strict `oa-gen validate --require-32`.
 
 The authoring workflow is defined in [`docs/guides/typespec-authoring-conventions.md`](../guides/typespec-authoring-conventions.md), the current promotion/recovery procedure is in [`docs/internal/typespec-roundtrip/production-operations.md`](typespec-roundtrip/production-operations.md), and the extension-vocabulary migration notes are in [`docs/internal/architecture/009-typespec-first-authoring.md`](architecture/009-typespec-first-authoring.md).
 
@@ -581,7 +581,7 @@ The authoring workflow is defined in [`docs/guides/typespec-authoring-convention
 | Approved snapshot gate | `packages/schemas/typespec/approved.openapi.yaml` plus `accepted-restored-drift.json` |
 | Candidate workspace | ignored `.oa-sdk/typespec-candidates/<manifest-hash>/candidate.openapi.yaml` and `candidate.meta.json` |
 | Snapshot promotion | `pnpm schema:approve-typespec-reference -- --write`; only the supplied manifest's `expectedOpenapi` is writable |
-| API contract version | `packages/schemas/typespec/version.tsp` `ContractVersion = "0.2.0"` → TypeSpec `@info` → OpenAPI `info.version`; independent from package and artifact schema versions |
+| API contract version | `packages/schemas/typespec/version.tsp` `ContractVersion = "0.5.0"` → TypeSpec `@info` → OpenAPI `info.version`; independent from package and artifact schema versions |
 | Artifact ownership | `src/.merged.yaml` is the generated OpenAPI 3.2 validation input; `src/.merged.3.1.yaml` and `.meta.json` are generated from it |
 
 ##### World Model domain

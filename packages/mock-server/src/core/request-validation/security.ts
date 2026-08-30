@@ -41,26 +41,36 @@ function hasSchemeCredential(parts: SecurityRequestParts, scheme: OasSecuritySch
   switch (scheme.type) {
     case 'http': {
       const authorization = parts.headers.authorization ?? ''
-      if (scheme.scheme === 'bearer') return authorization.toLowerCase().startsWith('bearer ')
+      if (scheme.scheme === 'bearer') return hasBearerCredential(authorization)
       if (scheme.scheme === 'basic') return authorization.toLowerCase().startsWith('basic ')
       return authorization.length > 0
     }
     case 'apiKey': {
       const location = scheme.in ?? 'header'
       const name = scheme.name ?? ''
-      if (location === 'header') return (parts.headers[name.toLowerCase()] ?? '').length > 0
-      if (location === 'query') return parts.queryParams[name] !== undefined
-      if (location === 'cookie') return parseCookies(parts.headers.cookie ?? '')[name] !== undefined
+      if (location === 'header') return hasNonEmptyCredential(parts.headers[name.toLowerCase()])
+      if (location === 'query') return hasNonEmptyCredential(parts.queryParams[name])
+      if (location === 'cookie') return hasNonEmptyCredential(parseCookies(parts.headers.cookie ?? '')[name])
       return false
     }
     case 'openIdConnect':
     case 'oauth2':
-      return (parts.headers.authorization ?? '').toLowerCase().startsWith('bearer ')
+      return hasBearerCredential(parts.headers.authorization ?? '')
     case 'mutualTLS':
       return true
     default:
       return true
   }
+}
+
+/** Presence validation only: the mock does not verify token signatures or scopes. */
+function hasBearerCredential(authorization: string): boolean {
+  return /^bearer[ \t]+\S/i.test(authorization)
+}
+
+function hasNonEmptyCredential(value: string | string[] | undefined): boolean {
+  if (Array.isArray(value)) return value.some(item => item.trim().length > 0)
+  return typeof value === 'string' && value.trim().length > 0
 }
 
 export function parseCookies(cookieHeader: string): Record<string, string> {

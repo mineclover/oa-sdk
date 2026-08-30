@@ -2,13 +2,23 @@
 
 OpenAPI-native mock engine with structured validation errors, streaming support, and pluggable adapters for MSW and Node HTTP.
 
-## Install
+## Workspace availability
+
+`@oa-sdk/mock-server` is currently a private oa-sdk workspace package, not a public npm
+distribution candidate. Do not install it from an unrelated project with `pnpm add
+@oa-sdk/mock-server`.
+
+From an oa-sdk source checkout, install dependencies and build the private downstream
+packages before using these examples:
 
 ```bash
-pnpm add @oa-sdk/mock-server
-# MSW adapter requires msw >= 2.0 as a peer dependency
-pnpm add msw
+pnpm install
+pnpm build:downstream
 ```
+
+An internal workspace that uses the MSW adapter must declare `@oa-sdk/mock-server` with a
+`workspace:*` dependency and provide `msw >= 2.0`. A public installation guide will be added
+only if this package becomes an approved distribution candidate.
 
 ## Quick Start — MSW adapter (browser / Vitest)
 
@@ -17,9 +27,8 @@ Use `createMswHandlers` to generate MSW `RequestHandler[]` from an OpenAPI spec.
 ```ts
 import { setupServer } from 'msw/node'
 import { createMswHandlers } from '@oa-sdk/mock-server'
-import type { OpenAPIObject } from 'openapi3-ts/oas31'
 
-const spec: OpenAPIObject = {
+const spec = {
   openapi: '3.2.0',
   info: { title: 'My API', version: '1.0.0' },
   paths: {
@@ -106,17 +115,19 @@ export default defineConfig({
 
 ## CLI
 
-Start a mock server from a validated OpenAPI JSON or YAML file:
+From the oa-sdk source checkout, start a mock server from a validated OpenAPI JSON or YAML
+file through the built workspace entry point:
 
 ```bash
-oa-mock --spec path/to/openapi.yaml --port 4010
+pnpm --filter @oa-sdk/mock-server build
+node packages/mock-server/dist/cli/index.js --spec path/to/openapi.yaml --port 4010
 ```
 
-When running the workspace build directly, use the built entry point:
+`oa-mock` is the package binary name for a workspace that explicitly exposes it; it is not a
+publicly installable CLI today. The direct source-checkout equivalent is:
 
 ```bash
-pnpm build
-node dist/cli/index.js --spec path/to/openapi.json --port 4010
+node packages/mock-server/dist/cli/index.js --spec path/to/openapi.json --port 4010
 ```
 
 The CLI parses JSON and YAML, validates the document before binding a port, and exits with a non-zero status when loading or validation fails. It never selects a bundled or workspace schema implicitly.
@@ -200,14 +211,18 @@ const index = loadSchema(spec, [...DEFAULT_PASSES, myCustomPass])
 
 When a response content-type is `text/event-stream`, `application/x-ndjson`, or `application/jsonl`, the adapters use `StreamFolder` to emit multiple events from a single schema definition.
 
-For `text/event-stream`, each event is formatted as `data: <json>\n\n`, ending with `data: [DONE]\n\n`.
+For `text/event-stream`, schema-driven adapters emit only documented frames and
+terminate by closing the HTTP response. Generic SSE frames use
+`data: <json>\n\n`; a native OpenAPI 3.2 named event additionally uses
+`event: <name>\ndata: <json>\n\n`. Adapters never synthesize `data: [DONE]`,
+because it would violate an `itemSchema` that requires a named event.
 
 For NDJSON/JSONL, each event is a bare JSON line with no `data:` prefix and no terminator.
 
 If the response has an `examples` entry (with `dataValue`), a single fixed event is emitted instead of schema-generated ones.
 
 ```yaml
-# SSE — schema-driven, 3 events + [DONE]
+# SSE — schema-driven, 3 documented events then response close
 'text/event-stream':
   schema:
     type: object
@@ -339,9 +354,9 @@ Multiple conditions use OR semantics — if any condition matches, the route is 
 | `generator` | Shared singleton `GenerateFolder` instance |
 | `StreamFolder` | Async generator that yields schema-generated events |
 | `streamer` | Shared singleton `StreamFolder` instance |
-| `StreamOptions` | `{ count?, includeTerminator? }` — streaming parameters |
-| `SSE_DONE` | The `[DONE]` SSE terminator string |
-| `formatSseChunk(data)` | Format a value as `data: <json>\n\n` |
+| `StreamOptions` | `{ count?, includeTerminator? }` — streaming parameters; the default is no terminator |
+| `SSE_DONE` | Explicit raw `[DONE]` formatter value; schema-driven adapters do not emit it |
+| `formatSseChunk(data, event?)` | Format a generic or named SSE frame |
 | `formatNdjsonLine(data)` | Format a value as `<json>\n` |
 | `isStreamingContentType(ct)` | Returns `true` for SSE, NDJSON, and JSONL content-types |
 
@@ -374,7 +389,7 @@ Multiple conditions use OR semantics — if any condition matches, the route is 
 | Export | Description |
 |--------|-------------|
 | `MockErrorCode` | Union of machine-readable error code strings |
-| `MockErrorDetail` | Single field-level error with `path`, `code`, `message`, and optional `received`/`expected`/`constraint` |
+| `MockErrorDetail` | Single field-level error with `path`, `code`, `message`, and optional redacted `received`/`value` summaries plus `expected`/`constraint` |
 | `MockValidationResult` | `{ valid: true }` or `{ valid: false; errors: MockErrorDetail[] }` |
 | `MockErrorResponse` | Top-level error envelope returned by the adapters on `422` |
 | `classifyAjvErrors` | Convert raw AJV error objects into `MockErrorDetail[]` |
@@ -401,11 +416,21 @@ type MockErrorDetail = {
   path: string        // JSON Pointer to the failing field, e.g. "/body/email"
   code: MockErrorCode
   message: string
-  received?: unknown  // the value that was sent
+  received?: MockReceivedValueSummary  // type/length/count only; never the value that was sent
+  value?: MockReceivedValueSummary     // legacy alias; follows the same redaction rule
   expected?: string   // what was expected
   constraint?: Record<string, unknown>  // e.g. { minLength: 8 }
 }
+
+type MockReceivedValueSummary =
+  | { type: 'string'; length: number }
+  | { type: 'array' | 'object'; count: number }
+  | { type: 'number' | 'boolean' | 'bigint' | 'symbol' | 'function' | 'null' | 'undefined' }
 ```
+
+`received` and the legacy `value` alias are intentionally content-free. This
+keeps validation output safe to return, serialize, and log when a request
+contains passwords, tokens, XML, multipart fields, or nested objects.
 
 The `code` values and when they fire:
 

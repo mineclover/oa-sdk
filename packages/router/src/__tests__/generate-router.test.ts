@@ -91,7 +91,7 @@ describe('generateRouter — hono', () => {
         '/users': {
           post: {
             operationId: 'createUser',
-            requestBody: { content: { 'application/json': { schema: { type: 'object' } } } },
+            requestBody: { required: true, content: { 'application/json': { schema: { type: 'object' } } } },
             responses: {
               '201': {
                 description: 'Created',
@@ -138,6 +138,49 @@ describe('generateRouter — hono', () => {
     expect(code).toContain('c.req.query() as unknown as ListUsersQueryParams')
   })
 
+  it('querystring parameter preserves the raw serialized query component', () => {
+    const spec = doc({
+      paths: {
+        '/search': {
+          get: {
+            operationId: 'querystringSearch',
+            parameters: [{
+              name: 'query',
+              in: 'querystring',
+              required: true,
+              content: { 'application/x-www-form-urlencoded': { schema: { type: 'object' } } },
+            }],
+            responses: { '200': { description: 'OK' } },
+          },
+        },
+      },
+    })
+
+    const hono = generateRouter(spec, { typesImport: './types' })
+    const express = generateRouter(spec, { target: 'express', typesImport: './types' })
+    expect(hono).toContain('function __readOaRawQuerystring(url: string): string | undefined')
+    expect(hono).toContain('const querystring = __readOaRawQuerystring(c.req.raw.url) as QuerystringSearchQueryString | undefined')
+    expect(express).toContain('const querystring = __readOaRawQuerystring(req.originalUrl ?? req.url) as QuerystringSearchQueryString | undefined')
+  })
+
+  it('multiple querystring parameters in a malformed spec fail fast', () => {
+    const spec = doc({
+      paths: {
+        '/search': {
+          get: {
+            operationId: 'ambiguousSearch',
+            parameters: [
+              { name: 'one', in: 'querystring', content: { 'text/plain': {} } },
+              { name: 'two', in: 'querystring', content: { 'application/json': {} } },
+            ],
+            responses: { '200': { description: 'OK' } },
+          },
+        },
+      },
+    })
+    expect(() => generateRouter(spec)).toThrow(/Invalid OpenAPI querystring parameters/)
+  })
+
   it('204 No Content', () => {
     const code = generateRouter(doc({
       paths: {
@@ -158,6 +201,47 @@ describe('generateRouter — hono', () => {
       },
     }))
     expect(code).toContain('/** 서버 상태 확인 */')
+  })
+
+  it('escapes an untrusted summary before emitting JSDoc', () => {
+    const hostile = 'safe */\nexport const injected = true\n/* still documentation'
+    const code = generateRouter(doc({
+      paths: {
+        '/health': {
+          get: { operationId: 'getHealth', summary: hostile, responses: { '200': { description: 'OK' } } },
+        },
+      },
+    }))
+
+    expect(code).toContain('*\\/')
+    expect(code).not.toContain('*/\nexport const injected')
+  })
+
+  it('uses Hono generic registration for HEAD, TRACE, and QUERY', () => {
+    const spec = doc({
+      paths: {
+        '/head': { head: { operationId: 'headCheck', responses: { '204': { description: 'OK' } } } },
+        '/trace': { trace: { operationId: 'traceCheck', responses: { '200': { description: 'OK' } } } },
+        '/query': { query: { operationId: 'queryCheck', responses: { '200': { description: 'OK' } } } },
+      },
+    })
+    const code = generateRouter(spec)
+
+    expect(code).toContain("app.on('HEAD', '/head'")
+    expect(code).toContain("app.on('TRACE', '/trace'")
+    expect(code).toContain("app.on('QUERY', '/query'")
+    expect(code).not.toContain("app.head('/head'")
+    expect(code).not.toContain("app.trace('/trace'")
+    expect(code).not.toContain("app.query('/query'")
+
+    const express = generateRouter(spec, { target: 'express' })
+    expect(express).toContain("router.head('/head'")
+    expect(express).toContain("router.all('/trace', async (req, res, next) => {")
+    expect(express).toContain("if (req.method !== 'TRACE') return next()")
+    expect(express).toContain("router.all('/query', async (req, res, next) => {")
+    expect(express).toContain("if (req.method !== 'QUERY') return next()")
+    expect(express).not.toContain("router.trace('/trace'")
+    expect(express).not.toContain("router.query('/query'")
   })
 
   it('typesImport → import 문', () => {
@@ -374,7 +458,7 @@ describe('generateRouter — content-type aware body parsing', () => {
         '/users': {
           post: {
             operationId: 'createUser',
-            requestBody: { content: { 'application/json': { schema: { type: 'object' } } } },
+            requestBody: { required: true, content: { 'application/json': { schema: { type: 'object' } } } },
             responses: { '201': { description: 'Created' } },
           },
         },
@@ -382,6 +466,26 @@ describe('generateRouter — content-type aware body parsing', () => {
     }))
     expect(code).toContain('await c.req.json()')
     expect(code).toContain('CreateUserBody')
+  })
+
+  it('optional JSON bodies accept an absent Hono request body without swallowing supplied JSON failures', () => {
+    const spec = doc({
+      paths: {
+        '/exports': {
+          post: {
+            operationId: 'requestExport',
+            requestBody: { required: false, content: { 'application/json': { schema: { type: 'object' } } } },
+            responses: { '202': { description: 'Accepted' } },
+          },
+        },
+      },
+    })
+    const hono = generateRouter(spec, { typesImport: './types' })
+    const express = generateRouter(spec, { target: 'express', typesImport: './types' })
+
+    expect(hono).toContain('c.req.raw.body === null ? undefined : await c.req.json<RequestExportBody>()')
+    expect(hono).not.toContain('c.req.json<RequestExportBody>().catch')
+    expect(express).toContain('req.body as RequestExportBody | undefined')
   })
 })
 

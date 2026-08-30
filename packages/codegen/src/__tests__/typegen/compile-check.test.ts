@@ -9,7 +9,7 @@ import { mkdtempSync, writeFileSync, readFileSync, rmSync, existsSync } from 'no
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { parse as parseYaml } from 'yaml'
-import { generateTypesFromSpec } from '../../typegen/generate-types.js'
+import { generateTypes, generateTypesFromSpec } from '../../typegen/generate-types.js'
 import type { OasDocument } from '@oa-sdk/parser'
 
 const pkgDir = resolve(__dirname, '../../..')
@@ -106,6 +106,61 @@ const response: ListUsersResponse = [user]
     writeFileSync(tsPath, usage, 'utf8')
 
     // tsconfig
+    writeFileSync(join(tmpDir, 'tsconfig.json'), JSON.stringify({
+      compilerOptions: {
+        strict: true,
+        noEmit: true,
+        module: 'ESNext',
+        moduleResolution: 'bundler',
+        target: 'ES2022',
+      },
+      include: ['generated.ts'],
+    }), 'utf8')
+    writeTtscConfig()
+
+    try {
+      runTypeCompilers()
+    } catch (err) {
+      const stderr = compilerFailureOutput(err)
+      cleanup()
+      expect.fail(`TypeScript 컴파일 실패:\n${stderr}`)
+    }
+
+    cleanup()
+  })
+
+  it('nested local pointer aliases and hostile JSDoc still compile', () => {
+    createTempProjects()
+
+    const hostile = 'safe */\nexport const injected = true\n/* still documentation'
+    const spec: OasDocument = {
+      openapi: '3.2.0',
+      info: { title: 'Nested refs', version: '1.0.0' },
+      components: {
+        schemas: {
+          Container: {
+            type: 'object',
+            description: hostile,
+            properties: {
+              embedded: {
+                type: 'object',
+                required: ['id'],
+                properties: { id: { type: 'string', description: hostile } },
+              },
+              payload: { $ref: '#/components/schemas/Container/properties/embedded' },
+            },
+          },
+          ContainerPropertiesEmbedded: { type: 'string' },
+        },
+      },
+      paths: {},
+    } as OasDocument
+
+    const ts = generateTypes({ schemas: spec.components!.schemas!, operations: [] } as any)
+    expect(ts).toContain('export type ContainerPropertiesEmbedded2 = {')
+    expect(ts).not.toContain('*/\nexport const injected')
+
+    writeFileSync(join(tmpDir, 'generated.ts'), `${ts}\nconst value: Container = { payload: { id: 'ok' } }\nvoid value\n`, 'utf8')
     writeFileSync(join(tmpDir, 'tsconfig.json'), JSON.stringify({
       compilerOptions: {
         strict: true,

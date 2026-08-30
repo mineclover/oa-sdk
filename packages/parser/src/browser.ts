@@ -43,3 +43,4 @@ export { derefInternalSpec, derefInternalSpecWithDiagnostics } from './deref-int
 export type { InternalDerefCycleStrategy, InternalDerefOptions } from './deref-internal.js'
 
 export { findOperation, findByTag, findByPath, getSchema, getTag, groupByTag, describeApi, resolveServerUrl } from './query.js'
+export { getQuerystringParameter } from './querystring.js'

@@ -16,8 +16,10 @@
  */
 
 import { foldSchema, type SchemaAlgebra, type OasSchema } from '@oa-sdk/parser/browser'
-import { escapeKey } from '@oa-sdk/core/browser'
+import { escapeKey, quoteTypeScriptString } from '@oa-sdk/core/browser'
 import { compareTypegenKeys } from './stable-order.js'
+import { typeNameFromRef } from './type-names.js'
+import { formatJSDoc } from './jsdoc.js'
 
 /**
  * OAS Schema → TypeScript 타입 문자열
@@ -131,9 +133,10 @@ export function createTypescriptAlgebra(options: SchemaToTsOptions = {}): Schema
     ref(r) {
       const override = refNameOverrides[r]
       if (override) return override
-      // #/components/schemas/User → User
-      const name = r.split('/').pop()
-      return name ?? 'unknown'
+      // A ref name is not necessarily a TypeScript identifier. Local component
+      // refs receive an exact override; this fallback keeps unresolved/external
+      // refs syntactically safe too.
+      return typeNameFromRef(r)
     },
 
     example() { return 'unknown' },
@@ -309,7 +312,7 @@ function toArrayType(elementType: string): string {
 
 function literalToTs(value: unknown): string {
   if (typeof value === 'string') {
-    return `'${value.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`
+    return quoteTypeScriptString(value)
   }
   if (value === null) return 'null'
   if (typeof value === 'number' || typeof value === 'boolean') return String(value)
@@ -342,8 +345,8 @@ function withNullable(s: OasSchema, base: string): string {
 }
 
 function resolveStringType(s: OasSchema): string {
-  if (s.enum) return s.enum.map(v => `'${v}'`).join(' | ')
-  if (s.const !== undefined) return `'${s.const}'`
+  if (s.enum) return s.enum.map(literalToTs).join(' | ')
+  if (s.const !== undefined) return literalToTs(s.const)
   return 'string'
 }
 
@@ -378,7 +381,5 @@ function buildPropJSDoc(
     }
   }
 
-  if (tags.length === 0) return ''
-  if (tags.length === 1) return `  /** ${tags[0]} */\n`
-  return `  /**\n${tags.map(t => `   * ${t}`).join('\n')}\n   */\n`
+  return tags.length === 0 ? '' : `${formatJSDoc(tags.join('\n'), '  ')}\n`
 }

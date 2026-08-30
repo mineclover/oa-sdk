@@ -3,7 +3,7 @@
  * pickResponse의 isStreamingContentType 경로 검증
  */
 import { describe, it, expect } from 'vitest'
-import { pickResponse } from '../../core/response-picker.js'
+import { pickResponse, validatePickedResponse } from '../../core/response-picker.js'
 import type { OasResponse } from '@oa-sdk/parser'
 
 function r200(content: NonNullable<OasResponse['content']>): Record<string, OasResponse> {
@@ -26,6 +26,35 @@ describe('pickResponse — text/event-stream + schema → stream 필드 설정',
     const result = pickResponse(r200({ 'text/event-stream': {} as any }))
     expect(result?.stream).toBeUndefined()
     expect(result?.body).toBeNull()
+  })
+
+  it('OpenAPI 3.2 itemSchema만 있으면 stream으로 사용해 null 이벤트를 피한다', () => {
+    const itemSchema = {
+      type: 'object',
+      required: ['event'],
+      properties: {
+        event: { type: 'string' },
+        data: { type: 'string' },
+      },
+      oneOf: [{
+        properties: {
+          event: { const: 'health' },
+          data: {
+            contentMediaType: 'application/json',
+            contentSchema: {
+              type: 'object',
+              required: ['status'],
+              properties: { status: { type: 'string', enum: ['ok'] } },
+            },
+          },
+        },
+      }],
+    }
+    const result = pickResponse(r200({ 'text/event-stream': { itemSchema } as any }))
+
+    expect(result?.stream).toEqual(itemSchema)
+    expect(result?.body).toBeNull()
+    expect(result && validatePickedResponse(result)).toEqual({ valid: true })
   })
 
   it('dataValue example 있으면 body로, stream 없음', () => {

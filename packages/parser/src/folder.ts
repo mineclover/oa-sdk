@@ -1,3 +1,5 @@
+import { createSafeRecord, getOwnString } from './safe-record.js'
+
 /**
  * SchemaFolder — OpenAPI 스펙 트리를 재귀 순회하며 새 노드를 반환하는 Fold 패턴 기반 클래스.
  *
@@ -22,8 +24,9 @@ export abstract class SchemaFolder {
 
     const obj = node as Record<string, unknown>
 
-    if (typeof obj['$ref'] === 'string') {
-      return this.foldRef(obj['$ref'], obj)
+    const ref = getOwnString(obj, '$ref')
+    if (ref !== undefined) {
+      return this.foldRef(ref, obj)
     }
 
     return this.foldObject(obj)
@@ -52,7 +55,7 @@ export abstract class SchemaFolder {
    * SWC의 fold_children_with 대응.
    */
   protected foldChildren(obj: Record<string, unknown>): Record<string, unknown> {
-    const result: Record<string, unknown> = {}
+    const result = createSafeRecord<unknown>()
     for (const [k, v] of Object.entries(obj)) {
       result[k] = this.fold(v)
     }

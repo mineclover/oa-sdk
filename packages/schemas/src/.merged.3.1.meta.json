@@ -104,6 +104,35 @@
       ]
     },
     "/paths/~1health~1ready/get/responses/200/content/application~1json/examples/default/serializedValue": "{\"status\":\"ready\",\"timestamp\":\"2026-05-04T00:00:00.000Z\",\"dependencies\":[{\"name\":\"postgres\",\"status\":\"ok\",\"latencyMs\":3},{\"name\":\"redis\",\"status\":\"ok\",\"latencyMs\":1}]}",
+    "/paths/~1health~1stream/get/responses/200/content/text~1event-stream/itemSchema": {
+      "type": "object",
+      "properties": {
+        "event": {
+          "type": "string"
+        },
+        "data": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "event"
+      ],
+      "oneOf": [
+        {
+          "properties": {
+            "data": {
+              "contentMediaType": "application/json",
+              "contentSchema": {
+                "$ref": "#/components/schemas/HealthEvent"
+              }
+            },
+            "event": {
+              "const": "health"
+            }
+          }
+        }
+      ]
+    },
     "/paths/~1me/get/responses/200/content/application~1json/examples/default/dataValue": {
       "id": "00000000-0000-0000-0000-000000000001",
       "email": "alice@example.com",

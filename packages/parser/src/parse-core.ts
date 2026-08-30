@@ -17,6 +17,8 @@ import type {
 import type { HttpMethod, OperationEntry, ParsedDocument, RouteIndex } from './types.js'
 import type { ParsedDocumentRefResolution } from './types.js'
 import { createParsedDocumentRefResolution } from './parsed-document.js'
+import { resolveJsonPointer } from './json-pointer.js'
+import { createSafeRecord } from './safe-record.js'
 
 const STANDARD_METHODS: HttpMethod[] = [
   'get', 'post', 'put', 'patch', 'delete', 'head', 'options', 'trace', 'query',
@@ -56,7 +58,7 @@ export function parseResolvedDocument(
     tagMap.set(tag.name, tag)
   }
 
-  const securitySchemes: Record<string, OasSecurityScheme> = {}
+  const securitySchemes = createSafeRecord<OasSecurityScheme>()
   for (const [name, scheme] of Object.entries(components.securitySchemes ?? {})) {
     const resolvedScheme = deref(scheme)
     if (resolvedScheme) securitySchemes[name] = resolvedScheme
@@ -94,34 +96,24 @@ export function parseResolvedDocument(
 
 function deref<T>(item: Referenceable<T> | undefined): T | undefined {
   if (!item || typeof item !== 'object') return undefined
-  if ('$ref' in item) return undefined
+  const record = item as Record<string, unknown>
+  if (Object.prototype.hasOwnProperty.call(record, '$ref') && typeof record.$ref === 'string') return undefined
   return item as T
 }
 
 function resolveLocalReference<T>(doc: OasDocument, item: Referenceable<T> | undefined): T | undefined {
   if (!item || typeof item !== 'object') return undefined
-  if (!('$ref' in item)) return item as T
-  if (!item.$ref.startsWith('#/')) return undefined
-  const resolved = readJsonPointer(doc, item.$ref)
+  const record = item as Record<string, unknown>
+  if (!Object.prototype.hasOwnProperty.call(record, '$ref')) return item as T
+  const ref = record.$ref
+  if (typeof ref !== 'string') return undefined
+  const resolved = resolveJsonPointer(doc, ref)
   return resolved && typeof resolved === 'object' ? resolved as T : undefined
 }
 
-function readJsonPointer(doc: OasDocument, pointer: string): unknown {
-  let value: unknown = doc
-  for (const segment of pointer.slice(2).split('/').map(unescapeJsonPointer)) {
-    if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined
-    value = (value as Record<string, unknown>)[segment]
-  }
-  return value
-}
-
-function unescapeJsonPointer(segment: string): string {
-  return segment.replaceAll('~1', '/').replaceAll('~0', '~')
-}
-
 function derefMap<T>(map: Record<string, Referenceable<T>> | undefined): Record<string, T> {
-  if (!map) return {}
-  const result: Record<string, T> = {}
+  if (!map) return createSafeRecord<T>()
+  const result = createSafeRecord<T>()
   for (const [key, value] of Object.entries(map)) {
     const resolved = deref(value)
     if (resolved) result[key] = resolved
@@ -180,7 +172,7 @@ function buildEntry(
   if (op.operationId !== undefined) entry.operationId = op.operationId
   if (op.summary !== undefined) entry.summary = op.summary
   if (op.description !== undefined) entry.description = op.description
-  if (op.requestBody && !('$ref' in op.requestBody)) {
+  if (op.requestBody && !Object.prototype.hasOwnProperty.call(op.requestBody, '$ref')) {
     entry.requestBody = op.requestBody as OasRequestBody
   }
   if (op.externalDocs !== undefined) entry.externalDocs = op.externalDocs
@@ -195,7 +187,7 @@ function resolveResponseMap(
   doc: OasDocument,
   responses: Record<string, Referenceable<OasResponse>> | undefined,
 ): Record<string, OasResponse> {
-  const resolved: Record<string, OasResponse> = {}
+  const resolved = createSafeRecord<OasResponse>()
   for (const [statusCode, response] of Object.entries(responses ?? {})) {
     const value = resolveLocalReference<OasResponse>(doc, response)
     if (value) resolved[statusCode] = value

@@ -1,4 +1,7 @@
 import assert from 'node:assert/strict'
+import { execFileSync } from 'node:child_process'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 
 import {
@@ -9,8 +12,18 @@ import {
 } from './check-release-policy.js'
 import {
   collectManifestTargets,
+  copyGitVisibleWorkspace,
+  createDraftReleaseMetadata,
+  createReleaseManifest,
+  createPublicNpmVersionQueryArgs,
+  assertReleaseVersionMatchesSource,
+  PUBLIC_OA_SDK_SCOPE_REGISTRY_OPTION,
+  PUBLIC_NPM_REGISTRY,
+  publishedVersion,
   publicImportSpecifiers,
+  readSourceProvenance,
   readReleaseExportConfiguration,
+  requiresReleasePreflight,
   rewriteWorkspaceDependencies,
 } from './export-release-artifacts.js'
 
@@ -19,6 +32,17 @@ const policyPath = join(root, 'docs/internal/release-policy.json')
 const configuration = readReleaseExportConfiguration(policyPath)
 
 assert.equal(POLICY_VERSION, 5)
+assert.equal(PUBLIC_NPM_REGISTRY, 'https://registry.npmjs.org/')
+assert.equal(PUBLIC_OA_SDK_SCOPE_REGISTRY_OPTION, '--@oa-sdk:registry=https://registry.npmjs.org/')
+assert.deepEqual(createPublicNpmVersionQueryArgs('@oa-sdk/core@0.1.3'), [
+  'view',
+  '@oa-sdk/core@0.1.3',
+  'version',
+  '--json',
+  '--registry',
+  'https://registry.npmjs.org/',
+  '--@oa-sdk:registry=https://registry.npmjs.org/',
+])
 assert.equal(configuration.repository, 'https://github.com/mineclover/oa-sdk-releases.git')
 assert.deepEqual(configuration.candidates, [
   '@oa-sdk/core',
@@ -27,6 +51,8 @@ assert.deepEqual(configuration.candidates, [
   '@oa-sdk/parser',
   '@oa-sdk/codegen',
 ])
+assert.equal(requiresReleasePreflight(false), true)
+assert.equal(requiresReleasePreflight(true), false)
 
 assert.deepEqual(
   findDirectPublishScripts({
@@ -38,6 +64,68 @@ assert.deepEqual(
   }),
   ['changesets', 'filteredPnpm', 'npm', 'yarn'],
 )
+
+assert.doesNotThrow(() => assertReleaseVersionMatchesSource('@oa-sdk/core', '0.1.3', '0.1.3'))
+assert.throws(
+  () => assertReleaseVersionMatchesSource('@oa-sdk/core', '0.1.3', '0.1.2'),
+  /official export version 0\.1\.3 must match the committed source package version 0\.1\.2/,
+)
+assert.throws(
+  () => assertReleaseVersionMatchesSource('@oa-sdk/core', '0.1.3', 'invalid'),
+  /source package version must be a valid SemVer string/,
+)
+
+const draftFixtureDirectory = mkdtempSync(join(tmpdir(), 'oa-sdk-release-draft-fixture-'))
+try {
+  const sourceDirectory = join(draftFixtureDirectory, 'source')
+  const scratchDirectory = join(draftFixtureDirectory, 'scratch')
+  const packagePath = join(sourceDirectory, 'packages/core/package.json')
+  const deletedPath = join(sourceDirectory, 'removed.txt')
+  mkdirSync(join(sourceDirectory, 'packages/core'), { recursive: true })
+  writeFileSync(join(sourceDirectory, '.gitignore'), 'ignored.txt\n', 'utf8')
+  writeFileSync(packagePath, `${JSON.stringify({ name: '@oa-sdk/core', version: '0.1.2' })}\n`, 'utf8')
+  writeFileSync(deletedPath, 'remove from draft source\n', 'utf8')
+  runGit(sourceDirectory, ['init', '--quiet'])
+  runGit(sourceDirectory, ['config', 'user.email', 'release-test@example.invalid'])
+  runGit(sourceDirectory, ['config', 'user.name', 'Release Test'])
+  runGit(sourceDirectory, ['add', '.'])
+  runGit(sourceDirectory, ['commit', '--quiet', '-m', 'initial release fixture'])
+
+  // A maintainer may be testing an uncommitted package version. The draft
+  // manifest must retain the committed revision but be explicitly non-promotable.
+  writeFileSync(packagePath, `${JSON.stringify({ name: '@oa-sdk/core', version: '0.1.3' })}\n`, 'utf8')
+  rmSync(deletedPath)
+  runGit(sourceDirectory, ['add', '-u'])
+  writeFileSync(join(sourceDirectory, 'ignored.txt'), 'caller-only output\n', 'utf8')
+  const provenance = readSourceProvenance(sourceDirectory)
+  const sourceStatusBeforeScratchMutation = runGit(sourceDirectory, ['status', '--porcelain'])
+  const committedPackage = JSON.parse(runGit(sourceDirectory, ['show', 'HEAD:packages/core/package.json'])) as { version: string }
+  assert.equal(committedPackage.version, '0.1.2')
+  assert.equal(JSON.parse(readFileSync(packagePath, 'utf8')).version, '0.1.3')
+  assert.equal(provenance.worktree, 'dirty')
+
+  const draft = createDraftReleaseMetadata(provenance)
+  const draftManifest = createReleaseManifest('draft-version-mismatch', provenance.revision, [
+    { name: '@oa-sdk/core', version: '0.1.3', tarball: 'packages/oa-sdk-core-0.1.3.tgz', integrity: 'sha512-test' },
+  ], draft)
+  assert.equal(draftManifest.sourceRevision, provenance.revision)
+  assert.deepEqual(draftManifest.draft, {
+    nonPromotable: true,
+    sourceCopy: 'isolated-git-visible-worktree',
+    sourceWorktree: 'dirty',
+  })
+  assert.ok(!('draft' in createReleaseManifest('official', provenance.revision, [])))
+
+  copyGitVisibleWorkspace(sourceDirectory, scratchDirectory)
+  assert.equal(readFileSync(packagePath, 'utf8'), readFileSync(join(scratchDirectory, 'packages/core/package.json'), 'utf8'))
+  assert.ok(!existsSync(join(scratchDirectory, 'ignored.txt')), 'ignored caller output must not enter draft source')
+  assert.ok(!existsSync(join(scratchDirectory, 'removed.txt')), 'staged deletions must stay absent from draft source')
+  writeFileSync(join(scratchDirectory, 'packages/core/package.json'), '{"name":"@oa-sdk/core","version":"0.1.4"}\n', 'utf8')
+  assert.equal(JSON.parse(readFileSync(packagePath, 'utf8')).version, '0.1.3', 'scratch mutations must not affect the caller worktree')
+  assert.equal(runGit(sourceDirectory, ['status', '--porcelain']), sourceStatusBeforeScratchMutation, 'scratch work must preserve caller worktree state')
+} finally {
+  rmSync(draftFixtureDirectory, { recursive: true, force: true })
+}
 
 const policyIssues = validateArtifactReleasePolicy({
   version: POLICY_VERSION,
@@ -79,6 +167,55 @@ assert.throws(
   /cannot resolve a public version for internal workspace dependency @oa-sdk\/private-optional-peer/,
 )
 
+const npmVersionTarget = '@oa-sdk/core@1.2.3'
+let queriedTarget: string | undefined
+assert.equal(
+  publishedVersion('@oa-sdk/core', '1.2.3', target => {
+    queriedTarget = target
+    return '"1.2.3"\n'
+  }),
+  '1.2.3',
+)
+assert.equal(queriedTarget, npmVersionTarget)
+
+assert.equal(
+  publishedVersion('@oa-sdk/core', '9.9.9', () => {
+    throw Object.assign(new Error('npm view failed'), {
+      stderr: 'npm error code E404\nnpm error 404 Not Found',
+    })
+  }),
+  undefined,
+)
+
+assert.throws(
+  () => publishedVersion('@oa-sdk/core', '9.9.9', () => {
+    throw new Error('E404 mentioned by a non-npm failure')
+  }),
+  /npm registry lookup failed for @oa-sdk\/core@9\.9\.9/,
+)
+
+for (const failure of [
+  { code: 'E401', stderr: 'npm error code E401\nnpm error Unable to authenticate' },
+  { code: 'ECONNRESET', stderr: 'npm error code ECONNRESET\nnpm error network socket hang up' },
+  { code: 'E500', stderr: 'npm error code E500\nnpm error 500 Internal Server Error' },
+]) {
+  assert.throws(
+    () => publishedVersion('@oa-sdk/core', '9.9.9', () => {
+      throw Object.assign(new Error('npm view failed'), failure)
+    }),
+    /npm registry lookup failed for @oa-sdk\/core@9\.9\.9/,
+  )
+}
+
+assert.throws(
+  () => publishedVersion('@oa-sdk/core', '9.9.9', () => '{not-json'),
+  /npm registry lookup returned invalid JSON for @oa-sdk\/core@9\.9\.9/,
+)
+assert.throws(
+  () => publishedVersion('@oa-sdk/core', '9.9.9', () => '{"version":"9.9.9"}'),
+  /npm registry lookup returned an invalid version for @oa-sdk\/core@9\.9\.9/,
+)
+
 const packedSurface = {
   main: './dist/index.js',
   exports: {
@@ -100,3 +237,11 @@ assert.deepEqual(publicImportSpecifiers('@oa-sdk/example', packedSurface), [
 ])
 
 console.log('Release policy/exporter regression tests passed.')
+
+function runGit(cwd: string, args: string[]): string {
+  return execFileSync('git', args, {
+    cwd,
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
+}

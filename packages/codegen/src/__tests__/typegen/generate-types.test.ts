@@ -4,7 +4,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { analyzeExternalSchemaRefs, generateTypes, generateTypesFromSpec } from '../../typegen/generate-types.js'
-import { generateTypesFromSpec as generateBrowserTypesFromSpec } from '../../typegen/browser.js'
+import { generateTypes as generateBrowserTypes, generateTypesFromSpec as generateBrowserTypesFromSpec } from '../../typegen/browser.js'
 import { compareTypegenKeys } from '../../typegen/stable-order.js'
 
 function doc(overrides: Partial<OasDocument> = {}): OasDocument {
@@ -148,8 +148,8 @@ describe('generateTypes — schemas', () => {
       },
     }))
 
-    expect(output.indexOf('export type z')).toBeLessThan(output.indexOf('export type ä'))
-    expect(output.indexOf('export type ä')).toBeLessThan(output.indexOf('export type å'))
+    expect(output.indexOf('export type z')).toBeLessThan(output.indexOf('export type Operation'))
+    expect(output.indexOf('export type Operation')).toBeLessThan(output.indexOf('export type Operation2'))
   })
 
   it('$ref sibling의 구조 정보가 타입 생성에 반영된다', () => {
@@ -202,6 +202,65 @@ describe('generateTypes — schemas', () => {
     }))
     const ts = generateTypes(parsed)
     expect(ts).toContain("'active' | 'inactive'")
+  })
+
+  it('local nested component pointers receive collision-safe declarations in Node and browser output', () => {
+    const spec = doc({
+      components: {
+        schemas: {
+          Container: {
+            type: 'object',
+            properties: {
+              embedded: {
+                type: 'object',
+                required: ['id'],
+                properties: { id: { type: 'string' } },
+              },
+              payload: { $ref: '#/components/schemas/Container/properties/embedded' },
+            },
+          },
+          ContainerPropertiesEmbedded: { type: 'string' },
+        },
+      },
+    })
+
+    const unresolved = {
+      schemas: spec.components!.schemas!,
+      operations: [],
+    }
+    for (const output of [generateTypes(unresolved as any), generateBrowserTypes(unresolved as any)]) {
+      expect(output).toContain('payload?: ContainerPropertiesEmbedded2')
+      expect(output).toContain('export type ContainerPropertiesEmbedded2 = {')
+      expect(output).not.toContain('payload?: Embedded')
+    }
+  })
+
+  it('escapes generated JSDoc terminators from schema, property, operation, and parameter text', () => {
+    const hostile = 'safe */\nexport const injected = true\n/* still documentation'
+    const output = generateTypesFromSpec(doc({
+      components: {
+        schemas: {
+          Payload: {
+            type: 'object',
+            description: hostile,
+            properties: { value: { type: 'string', description: hostile } },
+          },
+        },
+      },
+      paths: {
+        '/payload': {
+          get: {
+            operationId: 'getPayload',
+            summary: hostile,
+            parameters: [{ name: 'filter', in: 'query', description: hostile, schema: { type: 'string' } }],
+            responses: { '200': { description: 'OK', content: { 'application/json': { schema: { $ref: '#/components/schemas/Payload' } } } } },
+          },
+        },
+      },
+    }))
+
+    expect(output).toContain('*\\/')
+    expect(output).not.toContain('*/\nexport const injected')
   })
 })
 
@@ -838,6 +897,7 @@ describe('generateTypes — operations', () => {
           post: {
             operationId: 'createUser',
             requestBody: {
+              required: true,
               content: {
                 'application/json': {
                   schema: {
@@ -951,6 +1011,7 @@ describe('generateTypes — Op 번들 타입', () => {
           post: {
             operationId: 'createUser',
             requestBody: {
+              required: true,
               content: {
                 'application/json': {
                   schema: {
@@ -997,6 +1058,106 @@ describe('generateTypes — Op 번들 타입', () => {
     expect(ts).not.toContain('body: HealthCheckBody')
     expect(ts).not.toContain('params: HealthCheckPathParams')
     expect(ts).not.toContain('response: HealthCheckResponse')
+  })
+
+  it('optional request body and header parameters retain their OpenAPI requiredness', () => {
+    const parsed = parseDocument(doc({
+      paths: {
+        '/exports': {
+          post: {
+            operationId: 'requestExport',
+            parameters: [{ name: 'Idempotency-Key', in: 'header', required: true, schema: { type: 'string' } }],
+            requestBody: {
+              required: false,
+              content: { 'application/json': { schema: { type: 'object', properties: { format: { type: 'string' } } } } },
+            },
+            responses: { '202': { description: 'Accepted' } },
+          },
+        },
+      },
+    }))
+
+    const ts = generateTypes(parsed)
+    expect(ts).toContain('export type RequestExportHeaderParams =')
+    expect(ts).toContain("'Idempotency-Key': string")
+    expect(ts).toContain('body?: RequestExportBody')
+    expect(ts).toContain('headers?: RequestExportHeaderParams')
+  })
+
+  it('querystring parameter is represented as an explicit raw query string type', () => {
+    const parsed = parseDocument(doc({
+      paths: {
+        '/search': {
+          get: {
+            operationId: 'querystringSearch',
+            parameters: [{
+              name: 'query',
+              in: 'querystring',
+              required: true,
+              content: { 'application/x-www-form-urlencoded': { schema: { type: 'object' } } },
+            }],
+            responses: { '200': { description: 'OK' } },
+          },
+        },
+      },
+    }))
+
+    const ts = generateTypes(parsed)
+    expect(ts).toContain('export type QuerystringSearchQueryString = string')
+    expect(ts).toContain('querystring: QuerystringSearchQueryString')
+  })
+
+  const ambiguousQuerystringCases: Array<{ parameters: unknown[] }> = [
+    { parameters: [{ name: 'q', in: 'query', schema: { type: 'string' } }, { name: 'whole', in: 'querystring', content: { 'text/plain': {} } }] },
+    { parameters: [{ name: 'one', in: 'querystring', content: { 'text/plain': {} } }, { name: 'two', in: 'querystring', content: { 'application/json': {} } }] },
+  ]
+
+  it.each(ambiguousQuerystringCases)('fails fast rather than selecting an ambiguous querystring parameter', ({ parameters }) => {
+    const spec = doc({
+      paths: {
+        '/search': {
+          get: {
+            operationId: 'ambiguousSearch',
+            parameters: parameters as any,
+            responses: { '200': { description: 'OK' } },
+          },
+        },
+      },
+    })
+    expect(() => generateTypesFromSpec(spec)).toThrow(/Invalid OpenAPI querystring parameters/)
+  })
+
+  it('sanitizes colliding non-identifier component names and local refs', () => {
+    const ts = generateTypesFromSpec(doc({
+      components: {
+        schemas: {
+          'user profile': {
+            type: 'object',
+            properties: {
+              next: { $ref: '#/components/schemas/user-profile' },
+              encoded: { $ref: '#/components/schemas/user%20profile' },
+            },
+          },
+          'user-profile': { type: 'object', properties: { id: { type: 'string' } } },
+          'a/b': { type: 'object', properties: { id: { type: 'string' } } },
+          'a~b': { type: 'object', properties: { id: { type: 'string' } } },
+          Holder: {
+            type: 'object',
+            properties: {
+              slash: { $ref: '#/components/schemas/a~1b' },
+              tilde: { $ref: '#/components/schemas/a~0b' },
+            },
+          },
+        },
+      },
+    }))
+
+    expect(ts).toContain('export type UserProfile =')
+    expect(ts).toContain('export type UserProfile2 =')
+    expect(ts).toContain('next?: UserProfile2')
+    expect(ts).toContain('encoded?: UserProfile')
+    expect(ts).toContain('slash?: AB')
+    expect(ts).toContain('tilde?: AB2')
   })
 })
 

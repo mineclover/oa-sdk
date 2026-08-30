@@ -14,10 +14,12 @@ import type {
   OasResponse,
   OasLink,
 } from '@oa-sdk/parser/browser'
-import { parseDocument } from '@oa-sdk/parser/browser'
-import { createOperationTypeNameMap, formatGeneratedTs } from '@oa-sdk/core/browser'
+import { getQuerystringParameter, parseDocument } from '@oa-sdk/parser/browser'
+import { createOperationTypeNameMap, escapeKey, formatGeneratedTs, quoteTypeScriptString } from '@oa-sdk/core/browser'
 import { schemaToTs, type SchemaToTsOptions } from './schema-to-ts.js'
 import { compareTypegenKeys } from './stable-order.js'
+import { createComponentTypeNameMap, createLocalNestedSchemaAliasMap } from './type-names.js'
+import { formatJSDoc } from './jsdoc.js'
 
 export type BrowserTypegenOptions = {
   /** 헤더 주석 포함 여부 (기본: true) */
@@ -51,11 +53,24 @@ type TypegenDocument = {
 
 export function generateTypes(doc: TypegenDocument, options: BrowserTypegenOptions = {}): string {
   const { banner = true, style = 'type', includeAnnotations = false } = options
-  const schemaOpts: SchemaToTsOptions = { includeAnnotations }
-  if (options.refNameOverrides !== undefined) schemaOpts.refNameOverrides = options.refNameOverrides
-  const lines: string[] = []
+  const componentTypeNames = createComponentTypeNameMap(Object.keys(doc.schemas))
   const operations = sortTypegenOperations([...doc.operations, ...(doc.webhooks ?? [])])
   const operationNames = createOperationTypeNameMap(operations)
+  const localNestedAliases = createLocalNestedSchemaAliasMap(
+    doc.schemas,
+    [doc.schemas, ...operations],
+    componentTypeNames,
+    collectReservedOperationTypeNames(operations, operationNames),
+  )
+  const schemaOpts: SchemaToTsOptions = {
+    includeAnnotations,
+    refNameOverrides: {
+      ...(options.refNameOverrides ?? {}),
+      ...componentTypeNames.refNameOverrides,
+      ...localNestedAliases.refNameOverrides,
+    },
+  }
+  const lines: string[] = []
 
   if (banner) {
     lines.push('// Auto-generated from OpenAPI spec. Do not edit.')
@@ -63,15 +78,27 @@ export function generateTypes(doc: TypegenDocument, options: BrowserTypegenOptio
     lines.push('')
   }
 
-  const schemaNames = new Set(Object.keys(doc.schemas))
+  const schemaNames = new Set(localNestedAliases.typeNames)
 
   for (const [name, schema] of Object.entries(doc.schemas).sort(([left], [right]) => compareTypegenKeys(left, right))) {
+    const typeName = componentTypeNames.byComponentName.get(name)!
     const tsType = schemaToTs(schema, schemaOpts)
-    if (schema.description) lines.push(`/** ${schema.description} */`)
+    if (schema.description) lines.push(...formatJSDoc(schema.description).split('\n'))
     if (style === 'interface' && tsType.startsWith('{')) {
-      lines.push(`export interface ${name} ${tsType}`)
+      lines.push(`export interface ${typeName} ${tsType}`)
     } else {
-      lines.push(`export type ${name} = ${tsType}`)
+      lines.push(`export type ${typeName} = ${tsType}`)
+    }
+    lines.push('')
+  }
+
+  for (const alias of localNestedAliases.aliases) {
+    const tsType = schemaToTs(alias.schema, schemaOpts)
+    if (alias.schema.description) lines.push(...formatJSDoc(alias.schema.description).split('\n'))
+    if (style === 'interface' && tsType.startsWith('{')) {
+      lines.push(`export interface ${alias.aliasName} ${tsType}`)
+    } else {
+      lines.push(`export type ${alias.aliasName} = ${tsType}`)
     }
     lines.push('')
   }
@@ -95,6 +122,19 @@ export function generateTypes(doc: TypegenDocument, options: BrowserTypegenOptio
       lines.push('')
     }
 
+    const querystringParam = getQuerystringParameter(op.parameters)
+    if (querystringParam && !schemaNames.has(`${baseName}QueryString`)) {
+      lines.push(`/** Raw serialized URL query string (without the leading '?'). */`)
+      lines.push(`export type ${baseName}QueryString = string`)
+      lines.push('')
+    }
+
+    const headerParams = sortParameters(op.parameters.filter(p => p.in === 'header'))
+    if (headerParams.length > 0 && !schemaNames.has(`${baseName}HeaderParams`)) {
+      lines.push(`export type ${baseName}HeaderParams = ${paramsToTs(headerParams, schemaOpts)}`)
+      lines.push('')
+    }
+
     const bodyType = op.requestBody ? requestBodyToTs(op.requestBody, schemaOpts) : null
     if (bodyType && !schemaNames.has(`${baseName}Body`)) {
       lines.push(`export type ${baseName}Body = ${bodyType}`)
@@ -103,7 +143,7 @@ export function generateTypes(doc: TypegenDocument, options: BrowserTypegenOptio
 
     const responseType = responseToTs(op.responses, schemaOpts)
     if (responseType && !schemaNames.has(`${baseName}Response`)) {
-      if (opComment) lines.push(`/** ${opComment} */`)
+      if (opComment) lines.push(...formatJSDoc(opComment).split('\n'))
       lines.push(`export type ${baseName}Response = ${responseType}`)
       lines.push('')
     }
@@ -134,15 +174,17 @@ export function generateTypes(doc: TypegenDocument, options: BrowserTypegenOptio
 
     const bundleFields: string[] = []
     bundleFields.push(`  method: '${op.method}'`)
-    bundleFields.push(`  path: '${op.openApiPath}'`)
+    bundleFields.push(`  path: ${quoteTypeScriptString(op.openApiPath)}`)
     if (pathParams.length > 0) bundleFields.push(`  params: ${baseName}PathParams`)
     if (queryParams.length > 0) bundleFields.push(`  query: ${baseName}QueryParams`)
-    if (bodyType) bundleFields.push(`  body: ${baseName}Body`)
+    if (querystringParam) bundleFields.push(`  querystring${querystringParam.required === true ? '' : '?'}: ${baseName}QueryString`)
+    if (bodyType) bundleFields.push(`  body${op.requestBody?.required === true ? '' : '?'}: ${baseName}Body`)
+    if (headerParams.length > 0) bundleFields.push(`  headers?: ${baseName}HeaderParams`)
     if (responseType) bundleFields.push(`  response: ${baseName}Response`)
     if (headersType) bundleFields.push(`  responseHeaders: ${baseName}ResponseHeaders`)
     if (linksType) bundleFields.push(`  responseLinks: ${baseName}ResponseLinks`)
     if (errorType) bundleFields.push(`  error?: ${baseName}Error`)
-    lines.push(`/** @oaOperation ${op.method.toUpperCase()} ${op.openApiPath} */`)
+    lines.push(...formatJSDoc(`@oaOperation ${op.method.toUpperCase()} ${op.openApiPath}`).split('\n'))
     lines.push(`export type ${baseName}Op = {\n${bundleFields.join('\n')}\n}`)
     lines.push('')
   }
@@ -162,6 +204,33 @@ function sortParameters(parameters: readonly OasParameter[]): OasParameter[] {
   return [...parameters].sort((left, right) => compareTypegenKeys(left.name, right.name))
 }
 
+function collectReservedOperationTypeNames(
+  operations: readonly TypegenOperation[],
+  operationNames: ReadonlyMap<string, string>,
+): Set<string> {
+  const names = new Set<string>()
+  const suffixes = [
+    'PathParams',
+    'QueryParams',
+    'QueryString',
+    'HeaderParams',
+    'Body',
+    'Response',
+    'ResponseHeaders',
+    'ResponseLinks',
+    'Error',
+    'ErrorByStatus',
+    'Op',
+  ]
+  for (const op of operations) {
+    if (!op.operationId) continue
+    const baseName = operationNames.get(op.operationId)
+    if (!baseName) continue
+    for (const suffix of suffixes) names.add(`${baseName}${suffix}`)
+  }
+  return names
+}
+
 export function generateTypesFromSpec(spec: OasDocument, options: BrowserTypegenOptions = {}): string {
   return generateTypes(parseDocument(spec), options)
 }
@@ -171,8 +240,8 @@ function paramsToTs(params: OasParameter[], schemaOpts: SchemaToTsOptions): stri
     const type = p.schema ? schemaToTs(p.schema, schemaOpts) : 'string'
     const opt = p.required ? '' : '?'
     const desc = p.description
-    const comment = desc ? `  /** ${desc} */\n` : ''
-    return `${comment}  ${p.name}${opt}: ${type}`
+    const comment = desc ? `${formatJSDoc(desc, '  ')}\n` : ''
+    return `${comment}  ${escapeKey(p.name)}${opt}: ${type}`
   })
   return `{\n${fields.join('\n')}\n}`
 }
@@ -323,4 +392,4 @@ export type {
   TypegenFidelityDiagnostic,
   TypegenFidelityDiagnosticCode,
 } from './schema-fidelity.js'
-export { pascalCase, escapeKey, collectTypeNames } from '@oa-sdk/core/browser'
+export { pascalCase, escapeKey, quoteTypeScriptString, collectTypeNames } from '@oa-sdk/core/browser'

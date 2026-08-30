@@ -56,6 +56,7 @@ export type { DerefCycleStrategy, DerefDiagnostic, DerefDiagnosticCode, DerefOpt
 
 // ─── Query API ────────────────────────────────────────────────────────────
 export { findOperation, findByTag, findByPath, getSchema, getTag, groupByTag, describeApi, resolveServerUrl } from './query.js'
+export { getQuerystringParameter } from './querystring.js'
 
 // ─── Ref Graph ─────────────────────────────────────────────────────────────
 export { collectRefs, isRelativeRef, resolvePointer, resolveRefGraph } from './ref-graph.js'

@@ -134,7 +134,7 @@ describe('generateClient', () => {
         '/users': {
           post: {
             operationId: 'createUser',
-            requestBody: { content: { 'application/json': { schema: { type: 'object' } } } },
+            requestBody: { required: true, content: { 'application/json': { schema: { type: 'object' } } } },
             responses: { '201': { description: 'Created' } },
           },
         },
@@ -142,6 +142,314 @@ describe('generateClient', () => {
     }))
     expect(code).toContain('async createUser(body')
     expect(code).toContain("request('POST', '/users', { body }")
+  })
+
+  it('optional request bodies can be omitted and do not serialize JSON undefined', async () => {
+    const originalFetch = globalThis.fetch
+    const bodies: unknown[] = []
+    globalThis.fetch = (async (_url: string | URL | Request, init?: RequestInit) => {
+      bodies.push(init?.body)
+      return new Response(JSON.stringify({ accepted: true }), { status: 202, headers: { 'Content-Type': 'application/json' } })
+    }) as typeof fetch
+
+    try {
+      const code = generateClient(doc({
+        paths: {
+          '/exports': {
+            post: {
+              operationId: 'requestExport',
+              requestBody: { required: false, content: { 'application/json': { schema: { type: 'object' } } } },
+              responses: { '202': { description: 'Accepted', content: { 'application/json': { schema: { type: 'object' } } } } },
+            },
+          },
+        },
+      }))
+      expect(code).toContain('async requestExport(body?: unknown)')
+      const { createClient } = await importGeneratedClient(code)
+      const client = createClient({ baseUrl: 'https://example.test' }) as { requestExport(body?: unknown): Promise<unknown> }
+      await expect(client.requestExport()).resolves.toEqual({ accepted: true })
+      expect(bodies).toEqual([undefined])
+    } finally {
+      globalThis.fetch = originalFetch
+    }
+  })
+
+  it('uses case-insensitive Headers merging for built-in, default, and per-call headers', async () => {
+    const originalFetch = globalThis.fetch
+    const seen: Array<{ url: string; headers: Headers }> = []
+    globalThis.fetch = (async (url: string | URL | Request, init?: RequestInit) => {
+      seen.push({ url: String(url), headers: new Headers(init?.headers) })
+      if (String(url).endsWith('/events')) return new Response(new ReadableStream<Uint8Array>({ start(controller) { controller.close() } }), { status: 200 })
+      if (String(url).endsWith('/with-response')) return new Response('{}', { status: 200, headers: { 'Content-Type': 'application/json', 'X-Request-Id': 'req-1' } })
+      return new Response(null, { status: 204 })
+    }) as typeof fetch
+
+    try {
+      const { createClient } = await importGeneratedClient(generateClient(doc({
+        paths: {
+          '/normal': {
+            post: {
+              operationId: 'postNormal',
+              parameters: [{ name: 'Content-Type', in: 'header', schema: { type: 'string' } }],
+              requestBody: {
+                required: true,
+                content: {
+                  'application/json': { schema: { type: 'object' } },
+                  'application/problem+json': { schema: { type: 'object' } },
+                },
+              },
+              responses: { '204': { description: 'No content' } },
+            },
+          },
+          '/with-response': {
+            post: {
+              operationId: 'postWithResponse',
+              requestBody: {
+                required: true,
+                content: {
+                  'application/json': { schema: { type: 'object' } },
+                  'application/merge-patch+json': { schema: { type: 'object' } },
+                },
+              },
+              responses: {
+                '200': {
+                  description: 'OK',
+                  headers: { 'X-Request-Id': { schema: { type: 'string' } } },
+                  content: { 'application/json': { schema: { type: 'object' } } },
+                },
+              },
+            },
+          },
+          '/events': {
+            get: {
+              operationId: 'streamEvents',
+              responses: { '200': { description: 'SSE', content: { 'text/event-stream': { itemSchema: { type: 'object' } } } } },
+            },
+          },
+        },
+      })))
+      const client = createClient({
+        baseUrl: 'https://example.test',
+        headers: { 'content-type': 'application/merge-patch+json', accept: 'application/json' },
+      }) as {
+        postNormal(body: unknown, headers?: Record<string, unknown>): Promise<void>
+        withResponse: { postWithResponse(body: unknown): Promise<unknown> }
+        streamEvents(): AsyncGenerator<unknown>
+      }
+
+      await client.postNormal({ ok: true }, { 'content-type': 'application/problem+json' })
+      await client.withResponse.postWithResponse({ ok: true })
+      for await (const _event of client.streamEvents()) { /* empty stream */ }
+
+      expect(seen.find(request => request.url.endsWith('/normal'))?.headers.get('content-type')).toBe('application/problem+json')
+      expect(seen.find(request => request.url.endsWith('/with-response'))?.headers.get('content-type')).toBe('application/merge-patch+json')
+      expect(seen.find(request => request.url.endsWith('/events'))?.headers.get('accept')).toBe('application/json')
+    } finally {
+      globalThis.fetch = originalFetch
+    }
+  })
+
+  it('honors text/plain request and response media types, including withResponse and bodyless success responses', async () => {
+    const originalFetch = globalThis.fetch
+    const requests: Array<{ url: string; headers: Headers; body: unknown }> = []
+    globalThis.fetch = (async (url: string | URL | Request, init?: RequestInit) => {
+      requests.push({ url: String(url), headers: new Headers(init?.headers), body: init?.body })
+      if (String(url).endsWith('/echo')) return new Response('hello', { status: 200, headers: { 'X-Trace': 'trace-1' } })
+      if (String(url).endsWith('/empty-with-response')) return new Response(null, { status: 200, headers: { 'X-Empty': 'empty-1' } })
+      return new Response(null, { status: String(url).endsWith('/reset') ? 205 : 200 })
+    }) as typeof fetch
+
+    try {
+      const { createClient } = await importGeneratedClient(generateClient(doc({
+        paths: {
+          '/echo': {
+            post: {
+              operationId: 'echoText',
+              requestBody: { required: true, content: { 'text/plain': { schema: { type: 'string' } } } },
+              responses: {
+                '200': {
+                  description: 'OK',
+                  headers: { 'X-Trace': { schema: { type: 'string' } } },
+                  content: { 'text/plain': { schema: { type: 'string' } } },
+                },
+              },
+            },
+          },
+          '/empty': { get: { operationId: 'getEmpty', responses: { '200': { description: 'No body' } } } },
+          '/empty-with-response': {
+            get: {
+              operationId: 'getEmptyWithResponse',
+              responses: {
+                '200': { description: 'No body', headers: { 'X-Empty': { schema: { type: 'string' } } } },
+              },
+            },
+          },
+          '/reset': { get: { operationId: 'reset', responses: { '205': { description: 'Reset', content: { 'application/json': { schema: { type: 'object' } } } } } } },
+        },
+      })))
+      const client = createClient({ baseUrl: 'https://example.test' }) as {
+        echoText(body: string): Promise<unknown>
+        withResponse: {
+          echoText(body: string): Promise<{ body: string; headers: { 'X-Trace'?: string } }>
+          getEmptyWithResponse(): Promise<{ body: undefined; headers: { 'X-Empty'?: string } }>
+        }
+        getEmpty(): Promise<void>
+        reset(): Promise<void>
+      }
+
+      await expect(client.echoText('hello')).resolves.toBe('hello')
+      await expect(client.withResponse.echoText('hello')).resolves.toMatchObject({ body: 'hello', headers: { 'X-Trace': 'trace-1' } })
+      await expect(client.getEmpty()).resolves.toBeUndefined()
+      await expect(client.withResponse.getEmptyWithResponse()).resolves.toMatchObject({ body: undefined, headers: { 'X-Empty': 'empty-1' } })
+      await expect(client.reset()).resolves.toBeUndefined()
+
+      const echo = requests.find(request => request.url.endsWith('/echo'))!
+      expect(echo.headers.get('content-type')).toBe('text/plain')
+      expect(echo.body).toBe('hello')
+    } finally {
+      globalThis.fetch = originalFetch
+    }
+  })
+
+  it('negotiates declared request/response media, preserves explicit no-content, and keeps text errors textual', async () => {
+    const originalFetch = globalThis.fetch
+    const requests: Array<{ headers: Headers; body: unknown }> = []
+    let call = 0
+    globalThis.fetch = (async (url: string | URL | Request, init?: RequestInit) => {
+      if (String(url).endsWith('/empty-default')) return new Response(null, { status: 200 })
+      requests.push({ headers: new Headers(init?.headers), body: init?.body })
+      call += 1
+      if (call === 3) return new Response('42', { status: 400, headers: { 'Content-Type': 'text/plain' } })
+      return new Response('plain-ok', { status: 200, headers: { 'Content-Type': 'text/plain', 'X-Trace': 'trace-' + call } })
+    }) as typeof fetch
+
+    try {
+      const { createClient } = await importGeneratedClient(generateClient(doc({
+        paths: {
+          '/negotiate': {
+            post: {
+              operationId: 'negotiate',
+              requestBody: {
+                required: true,
+                content: {
+                  'application/json': { schema: { type: 'object' } },
+                  'text/plain': { schema: { type: 'string' } },
+                },
+              },
+              responses: {
+                '200': {
+                  description: 'OK',
+                  headers: { 'X-Trace': { schema: { type: 'string' } } },
+                  content: {
+                    'application/json': { schema: { type: 'object' } },
+                    'text/plain': { schema: { type: 'string' } },
+                  },
+                },
+                '400': {
+                  description: 'Bad request',
+                  content: {
+                    'application/json': { schema: { type: 'object' } },
+                    'text/plain': { schema: { type: 'string' } },
+                  },
+                },
+              },
+            },
+          },
+          '/empty-default': {
+            get: {
+              operationId: 'emptyDefault',
+              responses: {
+                '200': { description: 'Explicitly bodyless' },
+                default: { description: 'Fallback JSON', content: { 'application/json': { schema: { type: 'object' } } } },
+              },
+            },
+          },
+        },
+      })))
+      const client = createClient({ baseUrl: 'https://example.test' }) as {
+        negotiate(body: unknown, headers?: Record<string, unknown>): Promise<unknown>
+        withResponse: {
+          negotiate(body: unknown, headers?: Record<string, unknown>): Promise<{ body: unknown; headers: { 'X-Trace'?: string } }>
+        }
+        emptyDefault(): Promise<void>
+      }
+
+      await expect(client.negotiate('hello', { 'Content-Type': 'text/plain' })).resolves.toBe('plain-ok')
+      await expect(client.withResponse.negotiate('hello', { 'content-type': 'text/plain' })).resolves.toMatchObject({
+        body: 'plain-ok',
+        headers: { 'X-Trace': 'trace-2' },
+      })
+      const error = await client.negotiate('hello', { 'Content-Type': 'text/plain' }).catch(reason => reason) as { body: unknown }
+      expect(error.body).toBe('42')
+      await expect(client.emptyDefault()).resolves.toBeUndefined()
+      await expect(client.negotiate('hello', { 'Content-Type': 'application/xml' })).rejects.toThrow('is not declared for this operation')
+
+      expect(requests).toHaveLength(3)
+      expect(requests[0]?.headers.get('content-type')).toBe('text/plain')
+      expect(requests[0]?.body).toBe('hello')
+    } finally {
+      globalThis.fetch = originalFetch
+    }
+  })
+
+  it('serializes default form/explode query arrays and declared header parameters', async () => {
+    const originalFetch = globalThis.fetch
+    const requests: Array<{ url: string; headers: Headers }> = []
+    globalThis.fetch = (async (url: string | URL | Request, init?: RequestInit) => {
+      requests.push({ url: String(url), headers: new Headers(init?.headers) })
+      return new Response(null, { status: 204 })
+    }) as typeof fetch
+
+    try {
+      const code = generateClient(doc({
+        paths: {
+          '/search': {
+            get: {
+              operationId: 'search',
+              parameters: [
+                { name: 'tags', in: 'query', schema: { type: 'array', items: { type: 'string' } } },
+                { name: 'compact', in: 'query', explode: false, schema: { type: 'array', items: { type: 'string' } } },
+                { name: 'X-Request-Id', in: 'header', required: true, schema: { type: 'string' } },
+              ],
+              responses: { '204': { description: 'No Content' } },
+            },
+          },
+        },
+      }))
+      expect(code).toContain('async search(query?: Record<string, unknown>, headers?: Record<string, unknown>)')
+      const { createClient } = await importGeneratedClient(code)
+      const client = createClient({ baseUrl: 'https://example.test', headers: { 'x-request-id': 'default' }, validate: true }) as {
+        search(query?: Record<string, unknown>, headers?: Record<string, unknown>): Promise<void>
+      }
+      await expect(client.search({ tags: ['new', 'hot'], compact: ['a', 'b'] }, { 'X-Request-Id': 'req-1' })).resolves.toBeUndefined()
+      expect(requests).toHaveLength(1)
+      expect(requests[0]?.url).toBe('https://example.test/search?tags=new&tags=hot&compact=a%2Cb')
+      expect(requests[0]?.headers.get('X-Request-Id')).toBe('req-1')
+      const withoutDefault = createClient({ baseUrl: 'https://example.test', validate: true }) as {
+        search(query?: Record<string, unknown>, headers?: Record<string, unknown>): Promise<void>
+      }
+      await expect(withoutDefault.search({})).rejects.toThrow('Missing required header parameter: X-Request-Id')
+    } finally {
+      globalThis.fetch = originalFetch
+    }
+  })
+
+  it('escapes static path text before interpolating path parameters', async () => {
+    const code = generateClient(doc({
+      paths: {
+        "/weird/'`/${literal}/{id}": {
+          get: {
+            operationId: 'getWeird',
+            parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+            responses: { '204': { description: 'No Content' } },
+          },
+        },
+      },
+    }))
+    expect(code).toContain('encodeURIComponent(String(params["id"]))')
+    expect(code).toContain('\\${literal}')
+    expect(code).toContain('\\`')
+    await expect(importGeneratedClient(code)).resolves.toHaveProperty('createClient')
   })
 
   it('path params → template literal', () => {
@@ -157,7 +465,7 @@ describe('generateClient', () => {
       },
     }))
     expect(code).toContain('async getUser(params')
-    expect(code).toContain('${params.id}')
+    expect(code).toContain('${encodeURIComponent(String(params["id"]))}')
   })
 
   it('query params', () => {
@@ -371,7 +679,7 @@ describe('generateClient', () => {
       expect(code).toContain('export class ClientError<TBody = unknown, TStatus extends number = number>')
       expect(code).toContain('export type CheckAuthorizationClientError = ClientError<CheckAuthorizationErrorByStatus[403], 403>')
       expect(code).toContain('export function isCheckAuthorizationClientError(error: unknown): error is CheckAuthorizationClientError')
-      expect(code).toContain('const body = await __readOaErrorBody(res)')
+      expect(code).toContain('const body = await __readOaErrorBody(res, errorMediaTypes)')
       expect(code).toMatch(/const err = new ClientError\(res\.status, body, res(?:, operationId)?\)/)
     }
   })
@@ -513,8 +821,8 @@ describe('generateClient', () => {
     globalThis.fetch = (async () => {
       calls += 1
       return calls === 1
-        ? new Response(JSON.stringify({ error: 'temporary' }), { status: 503 })
-        : new Response(JSON.stringify({ ok: true }), { status: 200 })
+        ? new Response(JSON.stringify({ error: 'temporary' }), { status: 503, headers: { 'content-type': 'application/json' } })
+        : new Response(JSON.stringify({ ok: true }), { status: 200, headers: { 'content-type': 'application/json' } })
     }) as typeof fetch
 
     try {
@@ -539,7 +847,7 @@ describe('generateClient', () => {
     let calls = 0
     globalThis.fetch = (async () => {
       calls += 1
-      return new Response(JSON.stringify({ ok: true }), { status: 200 })
+      return new Response(JSON.stringify({ ok: true }), { status: 200, headers: { 'content-type': 'application/json' } })
     }) as typeof fetch
 
     try {
@@ -576,6 +884,153 @@ describe('generateClient', () => {
     }
   })
 
+  it('validate가 UUID와 email format을 검사하고 fetch 전에 실패한다', async () => {
+    const originalFetch = globalThis.fetch
+    let calls = 0
+    globalThis.fetch = (async () => {
+      calls += 1
+      return new Response(null, { status: 204 })
+    }) as typeof fetch
+
+    try {
+      const { createClient } = await importGeneratedClient(generateClient(doc({
+        paths: {
+          '/worlds/{worldId}': {
+            get: {
+              operationId: 'getWorld',
+              parameters: [{ name: 'worldId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }],
+              responses: { '204': { description: 'No content' } },
+            },
+          },
+          '/users': {
+            post: {
+              operationId: 'createUser',
+              requestBody: {
+                required: true,
+                content: {
+                  'application/json': {
+                    schema: {
+                      type: 'object',
+                      required: ['email'],
+                      properties: { email: { type: 'string', format: 'email' } },
+                    },
+                  },
+                },
+              },
+              responses: { '204': { description: 'No content' } },
+            },
+          },
+        },
+      })))
+      const client = createClient({ baseUrl: 'https://example.test', validate: true }) as {
+        getWorld(params: { worldId: string }): Promise<void>
+        createUser(body: { email: string }): Promise<void>
+      }
+
+      await expect(client.getWorld({ worldId: 'not-a-uuid' })).rejects.toThrow('Invalid params.worldId')
+      await expect(client.createUser({ email: 'not-an-email' })).rejects.toThrow('Invalid body')
+      expect(calls).toBe(0)
+
+      await expect(client.getWorld({ worldId: '00000000-0000-0000-0000-000000000001' })).resolves.toBeUndefined()
+      expect(calls).toBe(1)
+    } finally {
+      globalThis.fetch = originalFetch
+    }
+  })
+
+  it('preserves base URL path prefixes and percent-encodes path parameters at runtime', async () => {
+    const originalFetch = globalThis.fetch
+    const requests: string[] = []
+    globalThis.fetch = (async (url: string | URL | Request) => {
+      requests.push(String(url))
+      return new Response(null, { status: 204 })
+    }) as typeof fetch
+
+    try {
+      const { createClient } = await importGeneratedClient(generateClient(doc({
+        paths: {
+          '/worlds/{worldId}': {
+            get: {
+              operationId: 'getWorld',
+              parameters: [{ name: 'worldId', in: 'path', required: true, schema: { type: 'string' } }],
+              responses: { '204': { description: 'No content' } },
+            },
+          },
+        },
+      })))
+      const client = createClient({ baseUrl: 'https://example.test/v1' }) as {
+        getWorld(params: { worldId: string }): Promise<void>
+      }
+
+      await client.getWorld({ worldId: 'team/a?revision=7' })
+      expect(requests).toEqual(['https://example.test/v1/worlds/team%2Fa%3Frevision%3D7'])
+    } finally {
+      globalThis.fetch = originalFetch
+    }
+  })
+
+  it('querystring parameter를 raw serialized query component로 전송한다', async () => {
+    const originalFetch = globalThis.fetch
+    const requests: string[] = []
+    globalThis.fetch = (async (url: string | URL | Request) => {
+      requests.push(String(url))
+      return new Response(null, { status: 204 })
+    }) as typeof fetch
+
+    try {
+      const code = generateClient(doc({
+        paths: {
+          '/search': {
+            get: {
+              operationId: 'querystringSearch',
+              parameters: [{
+                name: 'query',
+                in: 'querystring',
+                required: true,
+                content: { 'application/x-www-form-urlencoded': { schema: { type: 'object' } } },
+              }],
+              responses: { '204': { description: 'No content' } },
+            },
+          },
+        },
+      }), { typesImport: './types' })
+      expect(code).toContain('async querystringSearch(querystring: QuerystringSearchQueryString)')
+      expect(code).toContain('querystring must not include a leading ?')
+
+      const { createClient } = await importGeneratedClient(code)
+      const client = createClient({ baseUrl: 'https://example.test/v1' }) as {
+        querystringSearch(querystring: string): Promise<void>
+      }
+      await client.querystringSearch('q=alice+smith&filter=%2F')
+      await client.querystringSearch('')
+      expect(requests).toEqual([
+        'https://example.test/v1/search?q=alice+smith&filter=%2F',
+        'https://example.test/v1/search?',
+      ])
+      await expect(client.querystringSearch('?q=alice')).rejects.toThrow('leading ?')
+    } finally {
+      globalThis.fetch = originalFetch
+    }
+  })
+
+  it('query와 querystring이 함께 선언된 malformed spec을 fail fast 처리한다', () => {
+    const spec = doc({
+      paths: {
+        '/search': {
+          get: {
+            operationId: 'ambiguousSearch',
+            parameters: [
+              { name: 'q', in: 'query', schema: { type: 'string' } },
+              { name: 'whole', in: 'querystring', content: { 'text/plain': {} } },
+            ],
+            responses: { '204': { description: 'No Content' } },
+          },
+        },
+      },
+    })
+    expect(() => generateClient(spec)).toThrow(/Invalid OpenAPI querystring parameters/)
+  })
+
   it('error body guard가 status별 body와 operation identity를 함께 검사한다', async () => {
     const spec = doc({
       paths: {
@@ -604,7 +1059,7 @@ describe('generateClient', () => {
     expect(generated.isCheckAuthorizationErrorBody({ allowed: 'false' }, 403)).toBe(false)
 
     const originalFetch = globalThis.fetch
-    globalThis.fetch = (async () => new Response(JSON.stringify({ allowed: false }), { status: 403 })) as typeof fetch
+    globalThis.fetch = (async () => new Response(JSON.stringify({ allowed: false }), { status: 403, headers: { 'content-type': 'application/json' } })) as typeof fetch
     try {
       const client = generated.createClient({ baseUrl: 'https://example.test' }) as { checkAuthorization(body: unknown): Promise<unknown> }
       const thrown = await client.checkAuthorization({}).catch(error => error)

@@ -15,7 +15,7 @@ model ChangePasswordRequest {
   newPassword: string;
 }
 
-@doc("export job 상태")
+@doc("export job receipt. 이 계약의 POST 응답은 queued 상태만 반환하며, 이후 상태 전이와 downloadUrl 전달 방식은 runtime 계약이 별도로 정의합니다.")
 @extension("example", #{ jobId: "00000000-0000-0000-0000-000000000200", status: "queued", requestedAt: "2026-05-04T00:00:00.000Z" })
 model ExportJob {
   @format("uuid")
@@ -58,11 +58,12 @@ model RoleChangeEvent {
   reason?: string;
 }
 
-@doc("셀프 프로필 수정 — role은 포함 불가 (admin 전용)")
+@doc("셀프 프로필 수정 — name만 허용하며 role과 알 수 없는 필드는 포함할 수 없음")
 model UpdateMeRequest {
   @minLength(1)
   @maxLength(100)
-  name?: string;
+  name: string;
+  ...Record<never>;
 }
 
 @doc("비밀번호 변경 완료 (본문 없음)")
@@ -271,7 +272,7 @@ op changeMyPassword(
 ): ChangeMyPassword204Response | ChangeMyPassword400Response | ChangeMyPassword401Response | ChangeMyPassword422Response;
 
 @summary("내 데이터 export 작업 요청")
-@doc("GDPR 정보주체 이동권 대응. 비동기 job 생성 후 jobId 반환. 완료 시 별도\n알림 또는 polling으로 다운로드 URL 획득. 동시 진행 1건 제한.\n")
+@doc("GDPR 정보주체 이동권 대응. 비동기 job 생성 후 jobId를 반환합니다. 이 operation은\n수락 receipt만 정의하며 완료 알림, 상태 조회, downloadUrl 전달은 runtime 계약이 별도로\n제공해야 합니다. 동시 진행 1건 제한.\n")
 @tag("me")
 @useAuth(bearerAuth)
 @operationId("requestMyDataExport")

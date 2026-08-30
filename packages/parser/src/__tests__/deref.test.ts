@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import { derefSpec, derefSpecWithDiagnostics } from '../deref.js'
+import { derefInternalSpec } from '../deref-internal.js'
 import { writeFileSync, mkdirSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
@@ -202,6 +203,76 @@ describe('derefSpec', () => {
     const result = derefSpec(input) as Record<string, unknown>
     expect((result.paths as Record<string, unknown>)['/esc']).toEqual({ value: 42 })
   })
+
+  it('URI fragment percent decoding happens before RFC 6901 token decoding', () => {
+    const input = spec({
+      paths: {
+        '/2.0/repositories/{username}': {
+          get: { operationId: 'getRepository', responses: { '200': { description: 'OK' } } },
+        },
+        '/alias': { $ref: '#/paths/~12.0~1repositories~1%7Busername%7D' },
+      },
+    })
+
+    const result = derefSpec(input) as Record<string, unknown>
+    expect((result.paths as Record<string, unknown>)['/alias']).toEqual({
+      get: { operationId: 'getRepository', responses: { '200': { description: 'OK' } } },
+    })
+  })
+
+  it('malformed URI percent escapes remain unresolved rather than resolving a literal key', () => {
+    const input = spec({
+      components: { schemas: { 'Bad%ZZ': { type: 'string' } } },
+      paths: { '/bad': { $ref: '#/components/schemas/Bad%ZZ' } },
+    })
+
+    const { document, diagnostics } = derefSpecWithDiagnostics(input)
+    expect((document.paths as Record<string, unknown>)['/bad']).toEqual({ $ref: '#/components/schemas/Bad%ZZ' })
+    expect(diagnostics).toEqual(expect.arrayContaining([
+      expect.objectContaining({ code: 'unsupported-ref', ref: '#/components/schemas/Bad%ZZ' }),
+    ]))
+  })
+
+  it('malformed RFC 6901 ~ escapes remain unresolved rather than matching literal keys', () => {
+    const input = spec({
+      components: { schemas: { 'Bad~2': { type: 'string' } } },
+      paths: { '/bad': { $ref: '#/components/schemas/Bad~2' } },
+    })
+
+    const { document, diagnostics } = derefSpecWithDiagnostics(input)
+    expect((document.paths as Record<string, unknown>)['/bad']).toEqual({ $ref: '#/components/schemas/Bad~2' })
+    expect(diagnostics).toEqual(expect.arrayContaining([
+      expect.objectContaining({ code: 'unsupported-ref', ref: '#/components/schemas/Bad~2' }),
+    ]))
+  })
+
+  it('preserves own __proto__ component and property keys in Node and browser deref paths', () => {
+    const input = JSON.parse([
+      '{"openapi":"3.2.0","info":{"title":"T","version":"0"},"paths":{},',
+      '"components":{"schemas":{"__proto__":{"type":"object","properties":{"__proto__":{"type":"string"}}}}}}',
+    ].join('')) as Record<string, unknown>
+
+    for (const result of [derefSpec(input), derefInternalSpec(input)]) {
+      const schemas = ((result as Record<string, unknown>).components as Record<string, unknown>).schemas as Record<string, unknown>
+      expect(Object.hasOwn(schemas, '__proto__')).toBe(true)
+      const schema = schemas['__proto__'] as Record<string, unknown>
+      const properties = schema.properties as Record<string, unknown>
+      expect(Object.hasOwn(properties, '__proto__')).toBe(true)
+      expect(properties['__proto__']).toEqual({ type: 'string' })
+    }
+  })
+
+  it('ignores inherited $ref properties in Node and browser deref paths', () => {
+    const inherited = Object.create({ $ref: '#/components/pathItems/Users' })
+    const input = spec({
+      paths: { '/users': inherited },
+      components: { pathItems: { Users: { get: { responses: { '200': { description: 'OK' } } } } } },
+    })
+
+    for (const result of [derefSpec(input), derefInternalSpec(input)]) {
+      expect((result.paths as Record<string, unknown>)['/users']).toEqual({})
+    }
+  })
 })
 
 describe('derefSpec — external file $ref', () => {
@@ -249,6 +320,20 @@ describe('derefSpec — external file $ref', () => {
 
     const result = derefSpec(input, { basePath: mainFile }) as Record<string, unknown>
     expect((result.paths as Record<string, unknown>)['/ext']).toEqual({
+      type: 'string',
+      description: 'shared type',
+    })
+  })
+
+  it('bare relative external ref를 base 문서 기준으로 해소한다', () => {
+    const input = spec({
+      paths: {
+        '/bare-relative': { $ref: 'common.json#/schemas/Shared' },
+      },
+    })
+
+    const result = derefSpec(input, { basePath: mainFile }) as Record<string, unknown>
+    expect((result.paths as Record<string, unknown>)['/bare-relative']).toEqual({
       type: 'string',
       description: 'shared type',
     })

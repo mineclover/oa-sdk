@@ -18,7 +18,7 @@ export { createCoverageTracker, createCallbackTracker } from './testing.js'
 export type { CoverageTracker, CallbackTracker } from './testing.js'
 
 // ─── 에러 ─────────────────────────────────────────────────────────────────────
-export type { MockErrorCode, MockValidationStage, MockErrorDetail, MockValidationResult, MockErrorResponse } from './errors/types.js'
+export type { MockErrorCode, MockValidationStage, MockReceivedValueSummary, MockErrorDetail, MockValidationResult, MockErrorResponse } from './errors/types.js'
 export { classifyAjvErrors } from './errors/classifier.js'
 
 // ─── parser re-exports (browser-safe, no filesystem deref) ───────────────────

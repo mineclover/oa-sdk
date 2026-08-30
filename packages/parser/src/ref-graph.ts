@@ -6,6 +6,7 @@ import {
   type RefResolverDiagnosticCode,
   type RefResolverKind,
 } from './ref-resolver.js'
+import { getOwnString } from './safe-record.js'
 
 export { isRelativeRef, resolvePointer } from './ref-resolver.js'
 
@@ -83,8 +84,9 @@ export function collectRefs(node: unknown, sourcePointer: string, onRef: (ref: s
   }
 
   const obj = node as Record<string, unknown>
-  if (typeof obj['$ref'] === 'string') {
-    onRef(obj['$ref'], `${sourcePointer}/$ref`)
+  const ref = getOwnString(obj, '$ref')
+  if (ref !== undefined) {
+    onRef(ref, `${sourcePointer}/$ref`)
   }
 
   for (const [key, value] of Object.entries(obj)) {

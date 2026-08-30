@@ -39,6 +39,7 @@ pnpm check:spec-governance
 | TypeSpec API 계약 | [authoring conventions](./typespec-authoring-conventions.md) | `packages/schemas/typespec/**/*.tsp` |
 | 사용자 명령/운영 흐름 | [CLI 명령 레퍼런스](./cli-command-reference.md) | 가이드 또는 운영 runbook |
 | library import/패키지 경계 | [라이브러리 진입점 지도](./library-entrypoints.md) | package root export와 owning package source |
+| package artifact release / version intent | [Release Readiness](../internal/release-readiness.md) | Changeset, release record, `release:preflight` |
 | 아직 결정되지 않은 일 | [`plan.md`](../internal/plan.md) | `*.plan.md`, `goals/`, ADR |
 
 TypeSpec 계약은 `.tsp`를 수정한다. `approved.openapi.yaml`, `.merged*.yaml`, `dist/`는
@@ -48,8 +49,10 @@ TypeSpec 계약은 `.tsp`를 수정한다. `approved.openapi.yaml`, `.merged*.ya
 
 1. **계약을 바꾸는가?** `schema:approve-typespec-reference`와 TypeSpec authoring 경로를
    사용한다. CLI로 생성한 OpenAPI는 production TypeSpec source를 대체하지 않는다.
-2. **이미 있는 OpenAPI를 소비하는가?** typegen/router/client/mock 중 consumer를
-   [CLI 명령 레퍼런스](./cli-command-reference.md)에서 고른다.
+2. **이미 있는 OpenAPI를 소비하는가?** 공개 CLI의 `validate`/`typegen`은
+   [CLI 명령 레퍼런스](./cli-command-reference.md)에서 고른다. private integration이 필요하면
+   `@oa-sdk/router`, `@oa-sdk/client`, `@oa-sdk/mock-server` package API와
+   [코드젠 워크플로](./use-cases/codegen-workflow.md)를 사용한다.
 3. **외부 서비스 artifact를 수집·비교하는가?** `scaffold-governance` → `collect` →
    `review-bundle` 흐름을 선택한다.
 4. **코드 import가 필요한가?** [라이브러리 진입점 지도](./library-entrypoints.md)에서
@@ -203,4 +206,5 @@ git diff --check
 - [TypeSpec Authoring Conventions](./typespec-authoring-conventions.md) — 계약 세부 규칙
 - [Authoring ownership guide](../internal/typespec-roundtrip/authoring-ownership-guide.md) — native, extension, sidecar, runtime policy의 정확한 경계
 - [Production operations](../internal/typespec-roundtrip/production-operations.md) — snapshot/drift 복구
+- [Release Readiness](../internal/release-readiness.md) — source preflight와 external npm promotion 경계
 - [Change control](../spec-governance/change-control.md) — 예외와 충돌 처리

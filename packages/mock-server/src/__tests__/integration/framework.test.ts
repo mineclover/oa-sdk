@@ -118,6 +118,23 @@ const apiSpec: OasDocument = {
               },
             },
           },
+          '401': {
+            description: 'Unauthorized',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['code', 'message'],
+                  properties: {
+                    code: { const: 'UNAUTHORIZED' },
+                    message: { type: 'string' },
+                  },
+                  unevaluatedProperties: false,
+                },
+                example: { code: 'UNAUTHORIZED', message: 'Authentication required' },
+              },
+            },
+          },
         },
       },
     },
@@ -313,11 +330,10 @@ describe('Framework Integration — Node HTTP', () => {
 
   // ─── 인증 검증 ─────────────────────────────────────────────────────────
 
-  it('GET /orgs — bearer 토큰 없으면 422 + MISSING_REQUIRED_FIELD', async () => {
+  it('GET /orgs — bearer 토큰 없으면 문서화된 401 Error', async () => {
     const res = await client.get('/orgs')
-    expect(res.status).toBe(422)
-    const body = res.json as any
-    expect(body.error.details.some((d: any) => d.path === '/security')).toBe(true)
+    expect(res.status).toBe(401)
+    expect(res.json).toEqual({ code: 'UNAUTHORIZED', message: 'Authentication required' })
   })
 
   it('GET /orgs — bearer 토큰 있으면 200', async () => {
@@ -446,9 +462,9 @@ describe('Framework Integration — Node HTTP', () => {
     expect(res.status).toBe(200)
   })
 
-  it('GET /orgs/{orgId}/webhooks — 인증 없음 → 422', async () => {
+  it('GET /orgs/{orgId}/webhooks — 인증 없음 → 401', async () => {
     const res = await client.get(`/orgs/${UUID}/webhooks`)
-    expect(res.status).toBe(422)
+    expect(res.status).toBe(401)
   })
 
   // ─── 404 / 405 ─────────────────────────────────────────────────────────
@@ -475,17 +491,17 @@ describe('Framework Integration — Node HTTP', () => {
 
     const text = await res.text()
     const lines = text.split('\n\n').filter(Boolean)
-    // 3 events + [DONE]
-    expect(lines).toHaveLength(4)
-    expect(lines[3]).toBe('data: [DONE]')
+    // Three schema events; closing the response terminates native SSE.
+    expect(lines).toHaveLength(3)
+    expect(text).not.toContain('[DONE]')
     const ev = JSON.parse(lines[0]!.replace('data: ', ''))
     expect(ev.event).toBe('created') // enum 첫 번째 값
     expect(ev).toHaveProperty('data')
   })
 
-  it('GET /orgs/{orgId}/events — 인증 없으면 422', async () => {
+  it('GET /orgs/{orgId}/events — 인증 없으면 401', async () => {
     const res = await fetch(`${server.url}/orgs/${UUID}/events`)
-    expect(res.status).toBe(422)
+    expect(res.status).toBe(401)
   })
 })
 
@@ -512,9 +528,9 @@ describe('Framework Integration — MSW', () => {
     expect(body).toEqual({ status: 'ok', uptime: 12345 })
   })
 
-  it('GET /orgs — 인증 없음 → 422', async () => {
+  it('GET /orgs — 인증 없음 → 401', async () => {
     const res = await fetch(`${BASE}/orgs`)
-    expect(res.status).toBe(422)
+    expect(res.status).toBe(401)
   })
 
   it('GET /orgs — 인증 있음 → 200', async () => {
@@ -568,7 +584,7 @@ describe('Framework Integration — MSW', () => {
     expect(res.headers.get('content-type')).toContain('text/event-stream')
     const text = await res.text()
     expect(text).toContain('data: ')
-    expect(text).toContain('[DONE]')
+    expect(text).not.toContain('[DONE]')
   })
 })
 

@@ -111,6 +111,99 @@ describe('$ref 인라인 전개 — 통합 테스트', () => {
   })
 })
 
+const deepObjectSpec: OasDocument = {
+  openapi: '3.2.0',
+  info: { title: 'Deep Object Query Test', version: '0.0.0' },
+  paths: {
+    '/search': {
+      get: {
+        operationId: 'searchByFilter',
+        parameters: [{
+          name: 'filter',
+          in: 'query',
+          required: true,
+          style: 'deepObject',
+          explode: true,
+          schema: {
+            type: 'object',
+            required: ['name', 'tags'],
+            properties: {
+              name: { type: 'string' },
+              tags: { type: 'array', items: { type: 'string' } },
+            },
+            additionalProperties: false,
+          },
+        }],
+        responses: { '204': { description: 'No Content' } },
+      },
+    },
+  },
+}
+
+describe('createNodeMockServer — deepObject query parameter', () => {
+  let server: NodeMockServer
+
+  beforeAll(async () => {
+    server = createNodeMockServer(deepObjectSpec, { port: 0 })
+    await server.start()
+  })
+
+  afterAll(async () => { await server.stop() })
+
+  it('deepObject와 반복 값을 object parameter로 검증하고 관련 없는 query key를 무시한다', async () => {
+    const response = await fetch(
+      `${server.url}/search?filter%5Bname%5D=alice&filter%5Btags%5D=alpha&filter%5Btags%5D=beta&unrelated=preserved`,
+    )
+    expect(response.status).toBe(204)
+  })
+})
+
+const querystringSpec: OasDocument = {
+  openapi: '3.2.0',
+  info: { title: 'Querystring Test', version: '0.0.0' },
+  paths: {
+    '/querystring-search': {
+      get: {
+        operationId: 'querystringSearch',
+        parameters: [{
+          name: 'query',
+          in: 'querystring',
+          required: true,
+          content: {
+            'application/x-www-form-urlencoded': {
+              schema: {
+                type: 'object',
+                required: ['q', 'tags'],
+                properties: {
+                  q: { type: 'string' },
+                  tags: { type: 'array', items: { type: 'string' } },
+                },
+              },
+            },
+          },
+        }],
+        responses: { '204': { description: 'No Content' } },
+      },
+    },
+  },
+}
+
+describe('createNodeMockServer — querystring parameter', () => {
+  let server: NodeMockServer
+
+  beforeAll(async () => {
+    server = createNodeMockServer(querystringSpec, { port: 0 })
+    await server.start()
+  })
+
+  afterAll(async () => { await server.stop() })
+
+  it('raw serialized form query string을 content schema에 맞게 검증한다', async () => {
+    const response = await fetch(`${server.url}/querystring-search?q=alice&tags=alpha&tags=beta`)
+    expect(response.status).toBe(204)
+  })
+})
+
 // ─── 기존 인라인 스펙 ─────────────────────────────────────────────────────────
 
 const spec: OasDocument = {
@@ -499,13 +592,9 @@ describe('createNodeMockServer — 통합 테스트', () => {
     expect(text).toContain('\n\n')
     // 이벤트 파싱
     const lines = text.split('\n\n').filter(Boolean)
-    const events = lines.map(line => {
-      const data = line.replace(/^data: /, '')
-      return data === '[DONE]' ? '[DONE]' : JSON.parse(data)
-    })
-    // 3개 이벤트 + [DONE]
-    expect(events).toHaveLength(4)
-    expect(events[3]).toBe('[DONE]')
+    const events = lines.map(line => JSON.parse(line.replace(/^data: /, '')))
+    // Schema-defined events only; HTTP close terminates the stream.
+    expect(events).toHaveLength(3)
     // 스키마 기반 생성 확인
     const ev = events[0] as Record<string, unknown>
     expect(ev).toHaveProperty('id')

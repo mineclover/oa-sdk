@@ -35,7 +35,9 @@ plain OpenAPI object ──────────────┐
         ↓                          │
 oa-sdk primary result ◀──────── Apitomy signal
         ↓
-oa-gen validation / diff / review / typegen / router / client / mock
+oa-gen validation / diff / review / typegen
+        ↓
+private router / client / mock consumer APIs
 ```
 
 reference adapter의 규칙:

@@ -3,7 +3,8 @@
  */
 import { describe, it, expect } from 'vitest'
 import { GenerateFolder, generator } from '../../core/generate.js'
-import { StreamFolder, streamer, formatSseChunk, formatNdjsonLine, isStreamingContentType, SSE_DONE } from '../../core/stream.js'
+import { StreamFolder, streamer, formatSseChunk, formatNdjsonLine, generateStreamChunks, isStreamingContentType, SSE_DONE } from '../../core/stream.js'
+import { runSchemaValidation } from '../../core/request-validation/schema-compiler.js'
 import type { OasSchema as SchemaObject } from '@oa-sdk/parser'
 
 // ─── GenerateFolder ───────────────────────────────────────────────────────────
@@ -112,13 +113,12 @@ describe('GenerateFolder — 클래스 기반 확장', () => {
 // ─── StreamFolder ──────────────────────────────────────────────────────────────
 
 describe('StreamFolder — 기본 생성', () => {
-  it('기본 count=3 + terminator', async () => {
+  it('기본 count=3, 문서화되지 않은 terminator 없음', async () => {
     const items: unknown[] = []
     for await (const item of streamer.generate({ type: 'string' })) {
       items.push(item)
     }
-    expect(items).toHaveLength(4) // 3 values + [DONE]
-    expect(items[3]).toBe(SSE_DONE)
+    expect(items).toHaveLength(3)
   })
 
   it('count 옵션', async () => {
@@ -130,12 +130,12 @@ describe('StreamFolder — 기본 생성', () => {
     expect(items.every(v => v === 0)).toBe(true)
   })
 
-  it('includeTerminator: false → [DONE] 없음', async () => {
+  it('includeTerminator: false → schema value만 생성', async () => {
     const items: unknown[] = []
     for await (const item of streamer.generate({ type: 'boolean' }, { count: 2, includeTerminator: false })) {
       items.push(item)
     }
-    expect(items).not.toContain(SSE_DONE)
+    expect(items).toEqual([false, false])
   })
 })
 
@@ -200,8 +200,62 @@ describe('formatSseChunk', () => {
     expect(formatSseChunk(SSE_DONE)).toBe('data: [DONE]\n\n')
   })
 
+  it('named event → event line과 JSON data line', () => {
+    expect(formatSseChunk({ status: 'ok' }, 'health')).toBe('event: health\ndata: {"status":"ok"}\n\n')
+  })
+
   it('null → data: null\\n\\n', () => {
     expect(formatSseChunk(null)).toBe('data: null\n\n')
+  })
+})
+
+describe('generateStreamChunks — native OpenAPI 3.2 SSE itemSchema', () => {
+  it('named event과 contentSchema payload를 생성한다', async () => {
+    const healthEventSchema: SchemaObject = {
+      type: 'object',
+      required: ['status', 'timestamp'],
+      properties: {
+        status: { type: 'string', enum: ['ok', 'degraded', 'down'] },
+        timestamp: { type: 'string', format: 'date-time' },
+      },
+    }
+    const itemSchema: SchemaObject = {
+      type: 'object',
+      required: ['event'],
+      properties: {
+        event: { type: 'string' },
+        data: { type: 'string' },
+      },
+      oneOf: [{
+        properties: {
+          event: { const: 'health' },
+          data: {
+            contentMediaType: 'application/json',
+            contentSchema: healthEventSchema,
+          },
+        },
+      }],
+    }
+
+    const chunks: string[] = []
+    for await (const chunk of generateStreamChunks({
+      contentType: 'text/event-stream',
+      body: null,
+      stream: itemSchema,
+    })) {
+      chunks.push(chunk)
+    }
+
+    expect(chunks).toHaveLength(3)
+    for (const chunk of chunks) {
+      expect(chunk).toMatch(/^event: health\ndata: /)
+      const [eventLine, dataLine] = chunk.trim().split('\n')
+      const data = dataLine!.slice('data: '.length)
+      const payload = JSON.parse(data)
+      expect(runSchemaValidation({ event: eventLine!.slice('event: '.length), data }, itemSchema, '/stream')).toEqual([])
+      expect(runSchemaValidation(payload, healthEventSchema, '/stream/data')).toEqual([])
+      expect(payload).toEqual({ status: 'ok', timestamp: '1970-01-01T00:00:00.000Z' })
+    }
   })
 })
 
@@ -288,17 +342,9 @@ describe('GenerateFolder — 엣지 케이스', () => {
 // ─── StreamFolder — 엣지 케이스 ──────────────────────────────────────────────
 
 describe('StreamFolder — 엣지 케이스', () => {
-  it('count: 0 + includeTerminator: true → [DONE]만 반환', async () => {
+  it('count: 0 → 빈 스트림', async () => {
     const items: unknown[] = []
     for await (const item of streamer.generate({ type: 'string' }, { count: 0 })) {
-      items.push(item)
-    }
-    expect(items).toEqual([SSE_DONE])
-  })
-
-  it('count: 0 + includeTerminator: false → 빈 스트림', async () => {
-    const items: unknown[] = []
-    for await (const item of streamer.generate({ type: 'string' }, { count: 0, includeTerminator: false })) {
       items.push(item)
     }
     expect(items).toHaveLength(0)

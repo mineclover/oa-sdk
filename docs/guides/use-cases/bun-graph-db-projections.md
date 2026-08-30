@@ -17,8 +17,8 @@ bun-graph-db
   -> GET /api/openapi                         # stable full document
   -> REST / GraphQL / MCP table projection    # runtime table contract
   -> saved OpenAPI snapshot + versionHash
-  -> oa-gen validate / typegen / client
-  -> @oa-sdk/mock-server contract tests
+  -> oa-gen validate / typegen
+  -> private @oa-sdk/client / @oa-sdk/mock-server integration
 ```
 
 ## Full document와 table projection 경계

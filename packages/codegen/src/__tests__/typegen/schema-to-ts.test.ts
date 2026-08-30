@@ -41,6 +41,11 @@ describe('schemaToTs — enum / const', () => {
     expect(schemaToTs({ type: 'string', enum: ['admin', 'user'] })).toBe("'admin' | 'user'")
   })
 
+  it('escapes control characters in string enum and const literals', () => {
+    expect(schemaToTs({ type: 'string', enum: ['line\nbreak'] })).toBe("'line\\nbreak'")
+    expect(schemaToTs({ type: 'string', const: 'tab\tvalue' })).toBe("'tab\\tvalue'")
+  })
+
   it('integer enum → 리터럴 유니온', () => {
     expect(schemaToTs({ type: 'integer', enum: [0, 1, 2] })).toBe('0 | 1 | 2')
   })
@@ -78,6 +83,15 @@ describe('schemaToTs — object', () => {
     })
     expect(result).toContain('id: string')
     expect(result).toContain('bio?: string')
+  })
+
+  it('escapes control characters in property keys', () => {
+    const result = schemaToTs({
+      type: 'object',
+      properties: { 'bad\nkey': { type: 'string' } },
+    })
+    expect(result).toContain("'bad\\nkey'?: string")
+    expect(result).not.toContain("'bad\nkey'")
   })
 
   it('empty object → Record<string, unknown>', () => {

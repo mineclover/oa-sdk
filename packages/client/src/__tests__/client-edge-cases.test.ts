@@ -71,7 +71,7 @@ describe('path params + query params + body 동시', () => {
       },
     }))
     expect(code).toContain('async createUserPost(params')
-    expect(code).toContain('${params.id}')
+    expect(code).toContain('${encodeURIComponent(String(params["id"]))}')
   })
 })
 
@@ -104,8 +104,8 @@ describe('multiple path params', () => {
         },
       },
     }))
-    expect(code).toContain('${params.orgId}')
-    expect(code).toContain('${params.teamId}')
+    expect(code).toContain('${encodeURIComponent(String(params["orgId"]))}')
+    expect(code).toContain('${encodeURIComponent(String(params["teamId"]))}')
   })
 })
 

@@ -486,7 +486,7 @@ function validateRootScripts(
     )
   }
   const expectedReleasePolicyCheck =
-    'node --import tsx scripts/check-release-policy.ts && corepack pnpm test:release-policy'
+    'node --import tsx scripts/check-release-policy.ts && corepack pnpm test:release-policy && corepack pnpm test:release-preflight'
   if (scripts['check:release-policy'] !== expectedReleasePolicyCheck) {
     issues.push(
       `package.json: scripts.check:release-policy must be exactly: ${expectedReleasePolicyCheck}`,

@@ -13,11 +13,17 @@
  *   - style: description 존재, operationId 규칙
  */
 
-import type { OasDocument, OasPathItem, OasOperation, OasParameter, OasComponents, Referenceable } from './oas32-types.js'
-import { resolveRefGraph, type RefGraphDiagnostic, type RefGraphOptions } from './ref-graph.js'
+import type { OasDocument, OasPathItem, OasOperation, OasParameter } from './oas32-types.js'
+import { resolvePointer, resolveRefGraph, type RefGraphDiagnostic, type RefGraphOptions } from './ref-graph.js'
 
 function isRef(node: unknown): node is { $ref: string } {
-  return typeof node === 'object' && node !== null && '$ref' in node
+  return isRecord(node)
+    && Object.prototype.hasOwnProperty.call(node, '$ref')
+    && typeof node.$ref === 'string'
+}
+
+function isRecord(node: unknown): node is Record<string, unknown> {
+  return typeof node === 'object' && node !== null && !Array.isArray(node)
 }
 
 export type LintSeverity = 'error' | 'warning' | 'info'
@@ -151,22 +157,82 @@ function normalizePointer(path: string): string {
 
 // ─── structure ──────────────────────────────────────────────────────────────
 
+const OPERATION_METHODS = ['get', 'post', 'put', 'patch', 'delete', 'options', 'head', 'trace', 'query'] as const
+
 function lintStructure(spec: OasDocument, results: LintResult[]) {
-  if (!spec.openapi) {
+  if (typeof spec.openapi !== 'string' || spec.openapi.length === 0) {
     results.push({ path: '/openapi', severity: 'error', rule: 'structure/openapi-version', message: 'openapi 필드가 필요합니다' })
-  } else if (!spec.openapi.startsWith('3.')) {
+  } else if (!/^3\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/.test(spec.openapi)) {
     results.push({ path: '/openapi', severity: 'error', rule: 'structure/openapi-version', message: `지원하지 않는 버전: ${spec.openapi}` })
   }
 
-  if (!spec.info) {
+  if (!isRecord(spec.info)) {
     results.push({ path: '/info', severity: 'error', rule: 'structure/info-required', message: 'info 객체가 필요합니다' })
   } else {
-    if (!spec.info.title) results.push({ path: '/info/title', severity: 'error', rule: 'structure/info-title', message: 'info.title이 필요합니다' })
-    if (!spec.info.version) results.push({ path: '/info/version', severity: 'error', rule: 'structure/info-version', message: 'info.version이 필요합니다' })
+    if (typeof spec.info.title !== 'string' || spec.info.title.length === 0) results.push({ path: '/info/title', severity: 'error', rule: 'structure/info-title', message: 'info.title이 필요합니다' })
+    if (typeof spec.info.version !== 'string' || spec.info.version.length === 0) results.push({ path: '/info/version', severity: 'error', rule: 'structure/info-version', message: 'info.version이 필요합니다' })
   }
 
   if (!spec.paths && !spec.webhooks) {
     results.push({ path: '/', severity: 'warning', rule: 'structure/paths-or-webhooks', message: 'paths 또는 webhooks가 하나 이상 필요합니다' })
+  }
+
+  lintPathMapShape(spec.paths, 'paths', results)
+  lintPathMapShape(spec.webhooks, 'webhooks', results)
+}
+
+function lintPathMapShape(
+  value: unknown,
+  section: 'paths' | 'webhooks',
+  results: LintResult[],
+): void {
+  if (value === undefined) return
+  if (!isRecord(value)) {
+    results.push({ path: `/${section}`, severity: 'error', rule: `structure/${section}-object`, message: `${section}는 객체여야 합니다` })
+    return
+  }
+
+  for (const [name, item] of Object.entries(value)) {
+    lintPathItemShape(item, pointerPath(section, name), results)
+  }
+}
+
+function lintPathItemShape(value: unknown, path: string, results: LintResult[]): void {
+  if (!isRecord(value)) {
+    results.push({ path, severity: 'error', rule: 'structure/path-item-object', message: 'Path Item은 객체여야 합니다' })
+    return
+  }
+  if (isRef(value)) return
+
+  for (const method of OPERATION_METHODS) {
+    if (value[method] === undefined) continue
+    lintOperationShape(value[method], `${path}/${method}`, results)
+  }
+
+  if (value.additionalOperations === undefined) return
+  if (!isRecord(value.additionalOperations)) {
+    results.push({ path: `${path}/additionalOperations`, severity: 'error', rule: 'structure/additional-operations-object', message: 'additionalOperations는 객체여야 합니다' })
+    return
+  }
+  for (const [method, operation] of Object.entries(value.additionalOperations)) {
+    lintOperationShape(operation, `${path}/additionalOperations/${escapePointerSegment(method)}`, results)
+  }
+}
+
+function lintOperationShape(value: unknown, path: string, results: LintResult[]): void {
+  if (!isRecord(value)) {
+    results.push({ path, severity: 'error', rule: 'structure/operation-object', message: 'Operation은 객체여야 합니다' })
+    return
+  }
+
+  if (value.responses === undefined) return
+  if (!isRecord(value.responses)) {
+    results.push({ path: `${path}/responses`, severity: 'error', rule: 'structure/responses-object', message: 'responses는 객체여야 합니다' })
+    return
+  }
+  for (const [status, response] of Object.entries(value.responses)) {
+    if (isRecord(response)) continue
+    results.push({ path: `${path}/responses/${escapePointerSegment(status)}`, severity: 'error', rule: 'structure/response-object', message: 'Response는 객체 또는 Reference Object여야 합니다' })
   }
 }
 
@@ -176,12 +242,12 @@ function lintOperations(spec: OasDocument, results: LintResult[]) {
   const operationIds = new Set<string>()
 
   for (const [path, rawItem] of Object.entries(spec.paths ?? {})) {
-    if (isRef(rawItem)) continue
+    if (isRef(rawItem) || !isRecord(rawItem)) continue
     const item = rawItem as OasPathItem
 
-    for (const method of ['get', 'post', 'put', 'patch', 'delete', 'options', 'head', 'trace', 'query'] as const) {
+    for (const method of OPERATION_METHODS) {
       const op = item[method] as OasOperation | undefined
-      if (!op) continue
+      if (!isRecord(op)) continue
 
       const opPath = pointerPath('paths', path, method)
 
@@ -201,60 +267,131 @@ function lintOperations(spec: OasDocument, results: LintResult[]) {
 
 // ─── parameters ─────────────────────────────────────────────────────────────
 
-const VALID_IN = new Set(['path', 'query', 'header', 'cookie'])
+const VALID_IN = new Set(['path', 'query', 'querystring', 'header', 'cookie'])
 
 function lintParameters(spec: OasDocument, results: LintResult[]) {
-  for (const [path, rawItem] of Object.entries(spec.paths ?? {})) {
-    if (isRef(rawItem)) continue
-    const item = rawItem as OasPathItem
+  lintParameterMap(spec, spec.paths, 'paths', true, results)
+  lintParameterMap(spec, spec.webhooks, 'webhooks', false, results)
+}
 
-    // path에서 {param} 추출
-    const pathParamNames = [...path.matchAll(/\{([^}]+)\}/g)].map(m => m[1]!)
+function lintParameterMap(
+  spec: OasDocument,
+  map: Record<string, unknown> | undefined,
+  section: 'paths' | 'webhooks',
+  hasPathTemplates: boolean,
+  results: LintResult[],
+): void {
+  for (const [name, rawItem] of Object.entries(map ?? {})) {
+    const itemValue = isRef(rawItem) ? resolvePointer(rawItem.$ref, spec) : rawItem
+    if (!isRecord(itemValue)) continue
+    const item = itemValue as OasPathItem
+    const pathParameters = resolveParameters(spec, item.parameters)
+    const pathParamNames = hasPathTemplates
+      ? [...name.matchAll(/\{([^}]+)\}/g)].map(match => match[1]!)
+      : []
 
-    const allParams: OasParameter[] = []
-
-    // path-level params
-    for (const p of (item.parameters ?? []) as OasParameter[]) {
-      if ('$ref' in p) continue
-      allParams.push(p)
+    for (const operation of collectPathItemOperations(item, section, name)) {
+      const effectiveParams = mergeLintParameters(
+        pathParameters,
+        resolveParameters(spec, operation.value.parameters),
+      )
+      lintEffectiveParameters(effectiveParams, operation.path, pathParamNames, results)
     }
+  }
+}
 
-    for (const method of ['get', 'post', 'put', 'patch', 'delete', 'options', 'head', 'trace', 'query'] as const) {
-      const op = item[method] as OasOperation | undefined
-      if (!op) continue
+function collectPathItemOperations(
+  item: OasPathItem,
+  section: 'paths' | 'webhooks',
+  name: string,
+): Array<{ value: OasOperation; path: string }> {
+  const operations: Array<{ value: OasOperation; path: string }> = []
+  for (const method of OPERATION_METHODS) {
+    const value = item[method] as OasOperation | undefined
+    if (isRecord(value)) operations.push({ value, path: pointerPath(section, name, method) })
+  }
+  for (const [method, value] of Object.entries(item.additionalOperations ?? {})) {
+    if (isRecord(value)) operations.push({ value: value as OasOperation, path: pointerPath(section, name, 'additionalOperations', method) })
+  }
+  return operations
+}
 
-      const opParams = [...allParams]
-      for (const p of (op.parameters ?? []) as OasParameter[]) {
-        if ('$ref' in p) continue
-        opParams.push(p)
-      }
-
-      for (const p of opParams) {
-        const paramPath = pointerPath('paths', path, method, 'parameters', p.name)
-
-        if (!VALID_IN.has(p.in)) {
-          results.push({ path: paramPath, severity: 'error', rule: 'parameters/valid-in', message: `유효하지 않은 in 값: "${p.in}"` })
-        }
-
-        if (p.in === 'path' && !p.required) {
-          results.push({ path: paramPath, severity: 'error', rule: 'parameters/path-required', message: `path 파라미터 "${p.name}"는 required: true여야 합니다` })
-        }
-      }
-
-      // path params 정의 확인
-      const definedPathParams = new Set(opParams.filter(p => p.in === 'path').map(p => p.name))
-      for (const name of pathParamNames) {
-        if (!definedPathParams.has(name)) {
-          results.push({ path: pointerPath('paths', path, method), severity: 'warning', rule: 'parameters/path-defined', message: `경로의 {${name}} 파라미터가 정의되지 않았습니다` })
-        }
-      }
+function resolveParameters(
+  spec: OasDocument,
+  rawParameters: unknown,
+): OasParameter[] {
+  if (!Array.isArray(rawParameters)) return []
+  const parameters: OasParameter[] = []
+  for (const raw of rawParameters) {
+    if (!isRecord(raw)) continue
+    if (!isRef(raw)) {
+      parameters.push(raw as OasParameter)
+      continue
     }
+    const resolved = resolvePointer(raw.$ref, spec)
+    if (isRecord(resolved)) parameters.push(resolved as OasParameter)
+  }
+  return parameters
+}
+
+function mergeLintParameters(pathParameters: readonly OasParameter[], operationParameters: readonly OasParameter[]): OasParameter[] {
+  const parameters = new Map<string, OasParameter>()
+  for (const parameter of pathParameters) parameters.set(`${parameter.in}:${parameter.name}`, parameter)
+  for (const parameter of operationParameters) parameters.set(`${parameter.in}:${parameter.name}`, parameter)
+  return [...parameters.values()]
+}
+
+function lintEffectiveParameters(
+  parameters: readonly OasParameter[],
+  operationPath: string,
+  pathParamNames: readonly string[],
+  results: LintResult[],
+): void {
+  for (const parameter of parameters) {
+    const paramPath = `${operationPath}/parameters/${escapePointerSegment(parameter.name)}`
+
+    if (!VALID_IN.has(parameter.in)) {
+      results.push({ path: paramPath, severity: 'error', rule: 'parameters/valid-in', message: `유효하지 않은 in 값: "${parameter.in}"` })
+    }
+    if (parameter.in === 'path' && !parameter.required) {
+      results.push({ path: paramPath, severity: 'error', rule: 'parameters/path-required', message: `path 파라미터 "${parameter.name}"는 required: true여야 합니다` })
+    }
+    if (parameter.in === 'querystring') lintQuerystringParameter(parameter, paramPath, results)
+  }
+
+  const querystringParams = parameters.filter(parameter => parameter.in === 'querystring')
+  if (querystringParams.length > 1) {
+    results.push({ path: operationPath, severity: 'error', rule: 'parameters/querystring-unique', message: 'operation 또는 Path Item에는 querystring 파라미터를 하나만 정의할 수 있습니다' })
+  }
+  if (querystringParams.length > 0 && parameters.some(parameter => parameter.in === 'query')) {
+    results.push({ path: operationPath, severity: 'error', rule: 'parameters/querystring-exclusive', message: 'querystring 파라미터는 query 파라미터와 함께 사용할 수 없습니다' })
+  }
+
+  const definedPathParams = new Set(parameters.filter(parameter => parameter.in === 'path').map(parameter => parameter.name))
+  for (const name of pathParamNames) {
+    if (!definedPathParams.has(name)) {
+      results.push({ path: operationPath, severity: 'warning', rule: 'parameters/path-defined', message: `경로의 {${name}} 파라미터가 정의되지 않았습니다` })
+    }
+  }
+}
+
+function lintQuerystringParameter(parameter: OasParameter, path: string, results: LintResult[]): void {
+  if (!isRecord(parameter.content) || Object.keys(parameter.content).length === 0) {
+    results.push({ path, severity: 'error', rule: 'parameters/querystring-content-required', message: 'querystring 파라미터는 비어 있지 않은 content 필드가 필요합니다' })
+  }
+  if (isRecord(parameter.content) && Object.keys(parameter.content).length > 1) {
+    results.push({ path, severity: 'error', rule: 'parameters/querystring-single-content', message: 'querystring 파라미터의 content에는 media type을 하나만 선언할 수 있습니다' })
+  }
+  if (parameter.schema !== undefined || parameter.style !== undefined || parameter.explode !== undefined || parameter.allowReserved !== undefined) {
+    results.push({ path, severity: 'error', rule: 'parameters/querystring-content-only', message: 'querystring 파라미터에는 schema/style/explode/allowReserved를 사용할 수 없습니다' })
   }
 }
 
 // ─── refs ───────────────────────────────────────────────────────────────────
 
 function lintRefs(spec: OasDocument, results: LintResult[]) {
+  lintReferenceValueTypes(spec, '', results)
+
   const refs: string[] = []
   collectRefs(spec, '/', refs)
 
@@ -273,23 +410,38 @@ function collectRefs(node: unknown, path: string, refs: string[]) {
     return
   }
   const obj = node as Record<string, unknown>
-  if (typeof obj['$ref'] === 'string') {
+  if (Object.prototype.hasOwnProperty.call(obj, '$ref') && typeof obj['$ref'] === 'string') {
     refs.push(obj['$ref'])
-    return
   }
   for (const [k, v] of Object.entries(obj)) {
+    if (k === '$ref') continue
     collectRefs(v, `${path}/${k}`, refs)
   }
 }
 
 function resolveRef(root: unknown, ref: string): unknown {
-  const parts = ref.slice(2).split('/').map(p => p.replace(/~1/g, '/').replace(/~0/g, '~'))
-  let current: unknown = root
-  for (const part of parts) {
-    if (!current || typeof current !== 'object') return undefined
-    current = (current as Record<string, unknown>)[part]
+  return resolvePointer(ref, root)
+}
+
+function lintReferenceValueTypes(node: unknown, path: string, results: LintResult[]): void {
+  if (Array.isArray(node)) {
+    node.forEach((item, index) => lintReferenceValueTypes(item, `${path}/${index}`, results))
+    return
   }
-  return current
+  if (!isRecord(node)) return
+
+  if (Object.prototype.hasOwnProperty.call(node, '$ref') && typeof node.$ref !== 'string') {
+    results.push({
+      path: path === '' ? '/$ref' : `${path}/$ref`,
+      severity: 'error',
+      rule: 'refs/ref-string',
+      message: '$ref는 문자열 URI reference여야 합니다',
+    })
+  }
+  for (const [key, value] of Object.entries(node)) {
+    if (key === '$ref') continue
+    lintReferenceValueTypes(value, `${path}/${escapePointerSegment(key)}`, results)
+  }
 }
 
 // ─── security ───────────────────────────────────────────────────────────────
@@ -299,7 +451,7 @@ function lintSecurity(spec: OasDocument, results: LintResult[]) {
   const schemeSet = new Set(schemes)
 
   // global security
-  for (const req of spec.security ?? []) {
+  for (const req of Array.isArray(spec.security) ? spec.security : []) {
     for (const name of Object.keys(req)) {
       if (!schemeSet.has(name)) {
         results.push({ path: '/security', severity: 'error', rule: 'security/scheme-defined', message: `securitySchemes에 "${name}"이 정의되지 않았습니다` })
@@ -309,11 +461,11 @@ function lintSecurity(spec: OasDocument, results: LintResult[]) {
 
   // operation-level security
   for (const [path, rawItem] of Object.entries(spec.paths ?? {})) {
-    if (isRef(rawItem)) continue
+    if (isRef(rawItem) || !isRecord(rawItem)) continue
     const item = rawItem as OasPathItem
-    for (const method of ['get', 'post', 'put', 'patch', 'delete', 'options', 'head', 'trace', 'query'] as const) {
+    for (const method of OPERATION_METHODS) {
       const op = item[method] as OasOperation | undefined
-      if (!op?.security) continue
+      if (!isRecord(op) || !Array.isArray(op.security)) continue
       for (const req of op.security) {
         for (const name of Object.keys(req)) {
           if (!schemeSet.has(name)) {
@@ -329,11 +481,11 @@ function lintSecurity(spec: OasDocument, results: LintResult[]) {
 
 function lintStyle(spec: OasDocument, results: LintResult[]) {
   for (const [path, rawItem] of Object.entries(spec.paths ?? {})) {
-    if (isRef(rawItem)) continue
+    if (isRef(rawItem) || !isRecord(rawItem)) continue
     const item = rawItem as OasPathItem
-    for (const method of ['get', 'post', 'put', 'patch', 'delete', 'options', 'head', 'trace', 'query'] as const) {
+    for (const method of OPERATION_METHODS) {
       const op = item[method] as OasOperation | undefined
-      if (!op) continue
+      if (!isRecord(op)) continue
       const opPath = pointerPath('paths', path, method)
       if (!op.operationId) {
         results.push({ path: opPath, severity: 'info', rule: 'style/operationId', message: 'operationId 권장' })
@@ -351,6 +503,10 @@ function lintComponents(spec: OasDocument, results: LintResult[]) {
   const allRefs: string[] = []
   collectRefs(spec, '/', allRefs)
   const refSet = new Set(allRefs)
+  const refCounts = new Map<string, number>()
+  for (const ref of allRefs) {
+    refCounts.set(ref, (refCounts.get(ref) ?? 0) + 1)
+  }
 
   const componentTypes = ['schemas', 'responses', 'parameters', 'requestBodies', 'headers', 'links', 'callbacks'] as const
   for (const type of componentTypes) {
@@ -359,10 +515,26 @@ function lintComponents(spec: OasDocument, results: LintResult[]) {
     for (const name of Object.keys(map)) {
       const ref = `#/components/${type}/${name}`
       if (!refSet.has(ref)) {
+        const component = map[name]
+        // The native TypeSpec SSE emitter can leave a generated schema alias
+        // (for example, HealthEvents -> HealthEvent) unreferenced while its
+        // target is used from a media type itemSchema. Only suppress that exact
+        // pure-local-alias shape; an alias whose target appears only in its own
+        // $ref remains an unused component warning.
+        if (type === 'schemas' && isPureLocalSchemaRefAlias(component) && (refCounts.get(component.$ref) ?? 0) > 1) {
+          continue
+        }
         results.push({ path: pointerPath('components', type, name), severity: 'warning', rule: `components/unused-${type.replace(/ies$/, 'y').replace(/s$/, '')}`, message: `미사용 컴포넌트: ${type}/${name}` })
       }
     }
   }
+}
+
+function isPureLocalSchemaRefAlias(component: unknown): component is { $ref: string } {
+  return isRef(component)
+    && typeof component.$ref === 'string'
+    && component.$ref.startsWith('#/components/schemas/')
+    && Object.keys(component).length === 1
 }
 
 function pointerPath(...segments: string[]): string {

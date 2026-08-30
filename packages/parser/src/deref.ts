@@ -1,5 +1,6 @@
 import type { OasDocument } from './oas32-types.js'
 import { SchemaFolder } from './folder.js'
+import { createSafeRecord } from './safe-record.js'
 import {
   createRefResolver,
   type RefDocumentCache,
@@ -82,7 +83,7 @@ export class DerefFolder extends SchemaFolder {
   }
 
   private foldSiblingFields(node: Record<string, unknown>): Record<string, unknown> {
-    const siblings: Record<string, unknown> = {}
+    const siblings = createSafeRecord<unknown>()
     for (const [key, value] of Object.entries(node)) {
       if (key === '$ref') continue
       siblings[key] = this.fold(value)

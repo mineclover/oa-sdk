@@ -30,7 +30,7 @@ export { handleRequest } from './core/handler.js'
 export type { HandlerResult } from './core/handler.js'
 
 // ─── 에러 ─────────────────────────────────────────────────────────────────────
-export type { MockErrorCode, MockValidationStage, MockErrorDetail, MockValidationResult, MockErrorResponse } from './errors/types.js'
+export type { MockErrorCode, MockValidationStage, MockReceivedValueSummary, MockErrorDetail, MockValidationResult, MockErrorResponse } from './errors/types.js'
 export { classifyAjvErrors } from './errors/classifier.js'
 
 // ─── 테스트 헬퍼 ──────────────────────────────────────────────────────────────

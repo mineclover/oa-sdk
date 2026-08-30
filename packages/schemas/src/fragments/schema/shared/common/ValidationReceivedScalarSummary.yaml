@@ -1,0 +1,19 @@
+id: schema:shared/common/ValidationReceivedScalarSummary
+content:
+  type: object
+  required:
+    - type
+  properties:
+    type:
+      type: string
+      enum:
+        - number
+        - boolean
+        - bigint
+        - symbol
+        - function
+        - "null"
+        - undefined
+  unevaluatedProperties:
+    not: {}
+  description: 내용을 포함하지 않는 scalar 수신값의 진단 요약

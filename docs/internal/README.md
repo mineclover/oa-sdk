@@ -17,6 +17,7 @@ spec.md (구현 현황 — 무엇이 작동하는가)
   ├─ → typespec-roundtrip/production-operations.md (TypeSpec 운영·승격 절차)
   ├─ → typespec-roundtrip/ (현재 TypeSpec authoring·검증 자료)
   ├─ → release-management.md + release-policy.json (package versioning + patch note 운영)
+  ├─ → release-readiness.md (artifact release 판단 입력과 evidence)
   └─ → traceability.md (스펙↔코드 매핑)
 
 plan.md (로드맵 — 어디를 향하는가)
@@ -50,6 +51,7 @@ architecture/ (설계 결정)
 | [typespec-roundtrip/production-operations.md](./typespec-roundtrip/production-operations.md) | TypeSpec 운영·승격·rollback 및 source ownership 절차 | TypeSpec production 절차 변경 시 |
 | [typespec-roundtrip/](./typespec-roundtrip/) | 현재 TypeSpec authoring·extension·검증 자료 | TypeSpec contract 또는 검증 변경 시 |
 | [release-management.md](./release-management.md) + [release-policy.json](./release-policy.json) | package-level versioning, Changesets 대상, patch note 운영 기준과 검증 manifest | 패키지 공개/릴리즈/패치노트 정책 변경 시 |
+| [release-readiness.md](./release-readiness.md) | source preflight, artifact export, external npm promotion의 책임 경계와 release evidence | release candidate를 준비하거나 승인할 때 |
 | [traceability.md](./traceability.md) | 공식 스펙 § → 타입 → 코드 매핑 | 파일 추가/이동 시 |
 | [plan.md](./plan.md) | 로드맵 + 아키텍처 | Phase 완료/추가 시 |
 | [architecture/packages.md](./architecture/packages.md) | 패키지 구조 + 파일 역할 | 패키지/파일 변경 시 |

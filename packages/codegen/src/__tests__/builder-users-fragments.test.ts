@@ -19,6 +19,7 @@ const __dir = dirname(fileURLToPath(import.meta.url))
 const repoRoot = resolve(__dir, '../../../..')
 const schemasDir = join(repoRoot, 'packages/schemas/src')
 const fragmentsDir = join(schemasDir, 'fragments')
+const approvedOpenApiPath = join(repoRoot, 'packages/schemas/typespec/approved.openapi.yaml')
 
 type UsersFragmentFixture = {
   id: CanonicalDefinitionId
@@ -69,6 +70,7 @@ const USERS_CANONICAL_REF_REWRITES: Readonly<Record<string, string>> = {
   '#/components/parameters/Page': 'oa://parameter/shared/common/Page',
   '#/components/parameters/Limit': 'oa://parameter/shared/common/Limit',
   '#/components/responses/BadRequest': 'oa://response/shared/common/BadRequest',
+  '#/components/responses/Conflict': 'oa://response/shared/common/Conflict',
   '#/components/responses/Unauthorized': 'oa://response/shared/common/Unauthorized',
   '#/components/responses/Forbidden': 'oa://response/shared/common/Forbidden',
   '#/components/responses/NotFound': 'oa://response/shared/common/NotFound',
@@ -85,8 +87,8 @@ const SHARED_COMMON_OUTPUT_ALIASES = {
 } as const
 
 describe('builder users fragments', () => {
-  it('matches archived users domain paths and schemas with canonical refs', () => {
-    const usersSpec = readYaml(join(schemasDir, 'domains/users/spec.yaml'))
+  it('matches current TypeSpec-approved users paths and schemas with canonical refs', () => {
+    const approvedOpenApi = readYaml(approvedOpenApiPath)
 
     for (const fragmentFixture of USERS_FRAGMENTS) {
       const fragment = readFragment(fragmentFixture.relativePath)
@@ -95,12 +97,12 @@ describe('builder users fragments', () => {
       if (fragmentFixture.sourcePath) {
         expect(fragment.metadata).toEqual({ path: fragmentFixture.sourcePath })
         expect(fragment.content).toEqual(rewriteRefs(
-          readUsersSourcePath(usersSpec, fragmentFixture.sourcePath),
+          readApprovedPath(approvedOpenApi, fragmentFixture.sourcePath),
           USERS_CANONICAL_REF_REWRITES,
         ))
       }
       if (fragmentFixture.sourceSchema) {
-        expect(fragment.content).toEqual(readUsersSourceSchema(usersSpec, fragmentFixture.sourceSchema))
+        expect(fragment.content).toEqual(readApprovedSchema(approvedOpenApi, fragmentFixture.sourceSchema))
       }
       if (fragmentFixture.securitySourcePointers) {
         expect(fragment.refs).toEqual(fragmentFixture.securitySourcePointers.map(sourcePointer => ({
@@ -113,8 +115,7 @@ describe('builder users fragments', () => {
   })
 
   it('emits users paths and selected components equivalent to builder fragments', () => {
-    const usersSpec = readYaml(join(schemasDir, 'domains/users/spec.yaml'))
-    const commonSpec = readYaml(join(schemasDir, 'domains/common/spec.yaml'))
+    const approvedOpenApi = readYaml(approvedOpenApiPath)
     const registry = createDefinitionRegistry([
       ...loadCommonFragmentNodes(),
       ...loadUsersFragmentNodes(),
@@ -137,8 +138,8 @@ describe('builder users fragments', () => {
     expect(emitted.valid).toBe(true)
     expect(JSON.stringify(emitted.document)).not.toContain('oa://')
 
-    expect(emitted.document.paths?.['/users']).toEqual(readUsersSourcePath(usersSpec, '/users'))
-    expect(emitted.document.paths?.['/users/{id}']).toEqual(readUsersSourcePath(usersSpec, '/users/{id}'))
+    expect(emitted.document.paths?.['/users']).toEqual(readApprovedPath(approvedOpenApi, '/users'))
+    expect(emitted.document.paths?.['/users/{id}']).toEqual(readApprovedPath(approvedOpenApi, '/users/{id}'))
 
     expect(sortedKeys(emitted.document.components?.schemas)).toEqual([
       'CreateUserRequest',
@@ -146,9 +147,14 @@ describe('builder users fragments', () => {
       'UpdateUserRequest',
       'User',
       'ValidationError',
+      'ValidationReceivedArraySummary',
+      'ValidationReceivedObjectSummary',
+      'ValidationReceivedScalarSummary',
+      'ValidationReceivedStringSummary',
     ])
     expect(sortedKeys(emitted.document.components?.responses)).toEqual([
       'BadRequest',
+      'Conflict',
       'Forbidden',
       'InternalServerError',
       'NotFound',
@@ -160,14 +166,22 @@ describe('builder users fragments', () => {
 
     for (const schemaName of ['User', 'CreateUserRequest', 'UpdateUserRequest'] as const) {
       expect(emitted.document.components?.schemas?.[schemaName])
-        .toEqual(readUsersSourceSchema(usersSpec, schemaName))
+        .toEqual(readApprovedSchema(approvedOpenApi, schemaName))
     }
-    for (const schemaName of ['Error', 'ValidationError'] as const) {
+    for (const schemaName of [
+      'Error',
+      'ValidationError',
+      'ValidationReceivedArraySummary',
+      'ValidationReceivedObjectSummary',
+      'ValidationReceivedScalarSummary',
+      'ValidationReceivedStringSummary',
+    ] as const) {
       expect(emitted.document.components?.schemas?.[schemaName])
-        .toEqual(readCommonSourceComponent(commonSpec, 'schemas', schemaName))
+        .toEqual(readApprovedComponent(approvedOpenApi, 'schemas', schemaName))
     }
     for (const responseName of [
       'BadRequest',
+      'Conflict',
       'Forbidden',
       'InternalServerError',
       'NotFound',
@@ -175,14 +189,14 @@ describe('builder users fragments', () => {
       'UnprocessableEntity',
     ] as const) {
       expect(emitted.document.components?.responses?.[responseName])
-        .toEqual(readCommonSourceComponent(commonSpec, 'responses', responseName))
+        .toEqual(readApprovedComponent(approvedOpenApi, 'responses', responseName))
     }
     for (const parameterName of ['Page', 'Limit'] as const) {
       expect(emitted.document.components?.parameters?.[parameterName])
-        .toEqual(readCommonSourceComponent(commonSpec, 'parameters', parameterName))
+        .toEqual(readApprovedComponent(approvedOpenApi, 'parameters', parameterName))
     }
     expect(emitted.document.components?.securitySchemes?.['bearerAuth'])
-      .toEqual(readCommonSourceComponent(commonSpec, 'securitySchemes', 'bearerAuth'))
+      .toEqual(readApprovedComponent(approvedOpenApi, 'securitySchemes', 'bearerAuth'))
   })
 })
 
@@ -268,30 +282,30 @@ function readFragment(relativePath: string): { id?: unknown; metadata?: unknown;
   return fragment
 }
 
-function readUsersSourcePath(usersSpec: unknown, path: string): unknown {
-  if (!isRecord(usersSpec) || !isRecord(usersSpec.paths) || !Object.prototype.hasOwnProperty.call(usersSpec.paths, path)) {
-    throw new Error(`Missing users source path: ${path}`)
+function readApprovedPath(approvedOpenApi: unknown, path: string): unknown {
+  if (!isRecord(approvedOpenApi) || !isRecord(approvedOpenApi.paths) || !Object.prototype.hasOwnProperty.call(approvedOpenApi.paths, path)) {
+    throw new Error(`Missing approved OpenAPI path: ${path}`)
   }
-  return usersSpec.paths[path]
+  return approvedOpenApi.paths[path]
 }
 
-function readUsersSourceSchema(usersSpec: unknown, name: string): unknown {
-  if (!isRecord(usersSpec) || !isRecord(usersSpec.components) || !isRecord(usersSpec.components.schemas)) {
-    throw new Error('Invalid users source schemas.')
+function readApprovedSchema(approvedOpenApi: unknown, name: string): unknown {
+  if (!isRecord(approvedOpenApi) || !isRecord(approvedOpenApi.components) || !isRecord(approvedOpenApi.components.schemas)) {
+    throw new Error('Invalid approved OpenAPI schemas.')
   }
-  if (!Object.prototype.hasOwnProperty.call(usersSpec.components.schemas, name)) {
-    throw new Error(`Missing users source schema: ${name}`)
+  if (!Object.prototype.hasOwnProperty.call(approvedOpenApi.components.schemas, name)) {
+    throw new Error(`Missing approved OpenAPI schema: ${name}`)
   }
-  return usersSpec.components.schemas[name]
+  return approvedOpenApi.components.schemas[name]
 }
 
-function readCommonSourceComponent(commonSpec: unknown, sectionName: string, componentName: string): unknown {
-  if (!isRecord(commonSpec) || !isRecord(commonSpec.components)) {
-    throw new Error('Invalid common source spec.')
+function readApprovedComponent(approvedOpenApi: unknown, sectionName: string, componentName: string): unknown {
+  if (!isRecord(approvedOpenApi) || !isRecord(approvedOpenApi.components)) {
+    throw new Error('Invalid approved OpenAPI components.')
   }
-  const section = commonSpec.components[sectionName]
+  const section = approvedOpenApi.components[sectionName]
   if (!isRecord(section) || !Object.prototype.hasOwnProperty.call(section, componentName)) {
-    throw new Error(`Missing common source component: ${sectionName}.${componentName}`)
+    throw new Error(`Missing approved OpenAPI component: ${sectionName}.${componentName}`)
   }
   return section[componentName]
 }

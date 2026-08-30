@@ -361,33 +361,33 @@ describe('authored TypeSpec compatibility bundle', () => {
       },
     })
     expect(report.counts).toMatchObject({
-      emittedOperations: 27,
-      restoredOperations: 27,
-      expectedOperations: 27,
+      emittedOperations: 34,
+      restoredOperations: 34,
+      expectedOperations: 34,
       compatibilitySidecar: {
-        entries: 104,
+        entries: 195,
         parameterExamples: 11,
         requestMediaExamples: 13,
-        responseMediaExamples: 79,
-        securitySchemes: 1,
+        responseMediaExamples: 80,
+        securitySchemes: 2,
       },
       reExtractedCompatibilitySidecar: {
-        entries: 102,
+        entries: 193,
         parameterExamples: 9,
         requestMediaExamples: 13,
-        responseMediaExamples: 79,
-        securitySchemes: 1,
+        responseMediaExamples: 80,
+        securitySchemes: 2,
       },
       restore: {
-        entries: 104,
-        applied: 104,
+        entries: 195,
+        applied: 195,
         missingTargets: 0,
       },
       sidecarStability: {
-        expectedEntries: 104,
-        actualEntries: 102,
-        expectedSatisfied: 104,
-        actualCovered: 102,
+        expectedEntries: 195,
+        actualEntries: 193,
+        expectedSatisfied: 195,
+        actualCovered: 193,
         missingExpected: 0,
         unexpectedActual: 0,
         valueMismatches: 0,
@@ -409,6 +409,23 @@ describe('authored TypeSpec compatibility bundle', () => {
     expect(restoredDoc.paths['/users/{id}'].parameters[0].examples.default).toEqual({
       dataValue: '00000000-0000-0000-0000-000000000001',
       serializedValue: '00000000-0000-0000-0000-000000000001',
+    })
+    expect(restoredDoc.paths['/health/stream'].get.responses['200'].content['text/event-stream'].itemSchema).toEqual({
+      type: 'object',
+      properties: {
+        event: { type: 'string' },
+        data: { type: 'string' },
+      },
+      required: ['event'],
+      oneOf: [{
+        properties: {
+          data: {
+            contentMediaType: 'application/json',
+            contentSchema: { $ref: '#/components/schemas/HealthEvent' },
+          },
+          event: { const: 'health' },
+        },
+      }],
     })
   })
 

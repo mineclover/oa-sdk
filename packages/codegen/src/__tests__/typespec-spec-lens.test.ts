@@ -30,9 +30,12 @@ describe('compileTypeSpecBundleForSpecLens', () => {
       expect(config).not.toContain('@evil/emitter')
       expect(config).toContain('entrypoint: "main.tsp"')
       expect(readdirSync(join(projectPath, 'node_modules', '@typespec')).sort()).toEqual([
+        'events',
         'http',
         'openapi',
         'openapi3',
+        'sse',
+        'streams',
       ])
       expect(existsSync(join(projectPath, 'node_modules', 'yaml'))).toBe(false)
       expect(timeoutMs).toBe(60_000)
@@ -62,7 +65,10 @@ describe('compileTypeSpecBundleForSpecLens', () => {
           },
         }),
       },
-      { relativePath: 'main.tsp', content: 'import "@typespec/http";\nimport "./models.tsp";\n' },
+      {
+        relativePath: 'main.tsp',
+        content: 'import "@typespec/events";\nimport "@typespec/http";\nimport "@typespec/openapi";\nimport "@typespec/sse";\nimport "@typespec/streams";\nimport "./models.tsp";\n',
+      },
       { relativePath: 'models.tsp', content: 'model User { id: string; }\nop listUsers(): User;\n' },
       { relativePath: 'unreachable.tsp', content: 'import "@evil/unreachable";\n' },
       { relativePath: 'tspconfig.yaml', content: 'emit:\n  - "@evil/emitter"\n' },
@@ -85,9 +91,12 @@ describe('compileTypeSpecBundleForSpecLens', () => {
         schemaVersion: 'oa-sdk.spec-lens.typespec-toolchain.v1',
         packages: {
           '@typespec/compiler': '1.13.0',
+          '@typespec/events': '0.83.0',
           '@typespec/http': '1.13.0',
           '@typespec/openapi': '1.13.0',
           '@typespec/openapi3': '1.13.0',
+          '@typespec/sse': '0.83.0',
+          '@typespec/streams': '0.83.0',
         },
         trustedLibraryDigests: {
           '@oa-sdk/typespec-decorators': expect.stringMatching(/^[a-f0-9]{64}$/),
@@ -105,7 +114,14 @@ describe('compileTypeSpecBundleForSpecLens', () => {
       compiler: {
         configSource: 'generated-allowlist',
         emitter: '@typespec/openapi3',
-        packageImports: ['@oa-sdk/typespec-decorators', '@typespec/http', '@typespec/openapi'],
+        packageImports: [
+          '@oa-sdk/typespec-decorators',
+          '@typespec/events',
+          '@typespec/http',
+          '@typespec/openapi',
+          '@typespec/sse',
+          '@typespec/streams',
+        ],
         resources: {
           timeoutMs: 60_000,
           maxOutputBytes: 256 * 1024,

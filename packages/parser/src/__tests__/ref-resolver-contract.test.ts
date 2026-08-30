@@ -110,6 +110,40 @@ describe('RefResolver contract', () => {
       expect(documentCache.has(yamlPath)).toBe(true)
       expect(documentCache.get(yamlPath)).toBe(yaml.documentRoot)
 
+      const yamlDocument = resolver.resolve({
+        ref: './shared.yaml',
+        sourcePointer: '#/paths/~1users',
+        root: {},
+        basePath,
+      })
+      expect(yamlDocument).toMatchObject({
+        kind: 'external',
+        filePath: yamlPath,
+        pointer: '#',
+        cacheKey: `${yamlPath}#`,
+        resolved: true,
+        target: {
+          components: {
+            schemas: {
+              User: expect.any(Object),
+            },
+          },
+        },
+      })
+
+      const yamlDocumentWithEmptyFragment = resolver.resolve({
+        ref: './shared.yaml#',
+        sourcePointer: '#/paths/~1users',
+        root: {},
+        basePath,
+      })
+      expect(yamlDocumentWithEmptyFragment).toMatchObject({
+        kind: 'external',
+        filePath: yamlPath,
+        pointer: '#',
+        resolved: true,
+      })
+
       const yamlAgain = resolver.resolve({
         ref: './shared.yaml#/components/schemas/UserId',
         sourcePointer: '#/paths/~1users/get/responses/200/$ref',

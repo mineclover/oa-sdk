@@ -166,8 +166,12 @@ async function main(): Promise<void> {
     console.log('')
     console.log(formatMarkdown(diff))
 
+    if (roundtripReport.gates.exportDiagnostics === 'fail') {
+      console.error('TypeSpec roundtrip blocked by unaccepted export diagnostics; inspect the report before using the generated contract.')
+      process.exitCode = 1
+    }
     if ((breaking || restoredBreaking || roundtripReport.gates.compatibilitySidecar === 'fail') && args.failOnBreaking) {
-      process.exit(1)
+      process.exitCode = 1
     }
   } finally {
     if (!args.keep) rmSync(workspace, { recursive: true, force: true })

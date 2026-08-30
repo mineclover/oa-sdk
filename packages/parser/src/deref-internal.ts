@@ -1,4 +1,6 @@
 import type { ParsedDocumentRefDiagnostic } from './types.js'
+import { canonicalJsonPointerFragment, isJsonPointerFragment, resolveJsonPointer } from './json-pointer.js'
+import { createSafeRecord, getOwnString } from './safe-record.js'
 
 export type InternalDerefCycleStrategy = 'empty-schema' | 'preserve-ref'
 
@@ -41,9 +43,10 @@ function derefNode(
   if (!node || typeof node !== 'object') return node
 
   const obj = node as Record<string, unknown>
-  const ref = typeof obj['$ref'] === 'string' ? obj['$ref'] : undefined
-  if (ref === '#' || ref?.startsWith('#/')) {
-    if (stack.includes(ref)) {
+  const ref = getOwnString(obj, '$ref')
+  if (ref && isJsonPointerFragment(ref)) {
+    const refIdentity = canonicalJsonPointerFragment(ref) ?? ref
+    if (stack.includes(refIdentity)) {
       emitDiagnostic(options, {
         code: 'ref-cycle',
         ref,
@@ -56,7 +59,7 @@ function derefNode(
         derefSiblingFields(obj, root, stack, options, pointer),
       )
     }
-    const target = resolveInternalPointer(root, ref)
+    const target = resolveJsonPointer(root, ref)
     if (target === undefined) {
       emitDiagnostic(options, {
         code: 'ref-not-found',
@@ -67,7 +70,7 @@ function derefNode(
       })
       return derefObject(obj, root, stack, options, pointer)
     }
-    const resolved = derefNode(target, root, [...stack, ref], options, ref)
+    const resolved = derefNode(target, root, [...stack, refIdentity], options, ref)
     return mergeRefSiblings(resolved, derefSiblingFields(obj, root, stack, options, pointer))
   }
 
@@ -97,7 +100,7 @@ function derefObject(
   options: InternalDerefOptions,
   pointer: string,
 ): Record<string, unknown> {
-  const result: Record<string, unknown> = {}
+  const result = createSafeRecord<unknown>()
   for (const [key, value] of Object.entries(obj)) {
     result[key] = derefNode(value, root, stack, options, `${pointer}/${escapeJsonPointer(key)}`)
   }
@@ -111,27 +114,12 @@ function derefSiblingFields(
   options: InternalDerefOptions,
   pointer: string,
 ): Record<string, unknown> {
-  const siblings: Record<string, unknown> = {}
+  const siblings = createSafeRecord<unknown>()
   for (const [key, value] of Object.entries(obj)) {
     if (key === '$ref') continue
     siblings[key] = derefNode(value, root, stack, options, `${pointer}/${escapeJsonPointer(key)}`)
   }
   return siblings
-}
-
-function resolveInternalPointer(root: unknown, ref: string): unknown {
-  if (ref === '#') return root
-  const segments = ref
-    .slice(2)
-    .split('/')
-    .map(segment => segment.replace(/~1/g, '/').replace(/~0/g, '~'))
-
-  let current = root
-  for (const segment of segments) {
-    if (!current || typeof current !== 'object') return undefined
-    current = (current as Record<string, unknown>)[segment]
-  }
-  return current
 }
 
 function emitDiagnostic(

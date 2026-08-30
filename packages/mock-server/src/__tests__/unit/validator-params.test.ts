@@ -109,6 +109,145 @@ describe('query params — 타입 coerce 및 스키마 검증', () => {
   })
 })
 
+describe('query params — deepObject 역직렬화', () => {
+  const nameFilterParam: OasParameter = {
+    name: 'filter', in: 'query', required: true, style: 'deepObject', explode: true,
+    schema: {
+      type: 'object',
+      required: ['name'],
+      properties: { name: { type: 'string' } },
+      additionalProperties: false,
+    },
+  }
+
+  it('filter[name]=alice를 object 값으로 조립해 검증한다', () => {
+    const result = validateRequest(
+      parts({ queryParams: { 'filter[name]': 'alice' } }),
+      [nameFilterParam],
+      undefined,
+    )
+
+    expect(result.valid).toBe(true)
+  })
+
+  it('반복된 deepObject 값은 배열로 보존하고 관련 없는 query key는 제외한다', () => {
+    const tagsFilterParam: OasParameter = {
+      name: 'filter', in: 'query', required: true, style: 'deepObject', explode: true,
+      schema: {
+        type: 'object',
+        required: ['name', 'tags'],
+        properties: {
+          name: { type: 'string' },
+          tags: { type: 'array', items: { type: 'string' } },
+        },
+        additionalProperties: false,
+      },
+    }
+
+    const result = validateRequest(
+      parts({
+        queryParams: {
+          'filter[name]': 'alice',
+          'filter[tags]': ['alpha', 'beta'],
+          page: '2',
+          'other[value]': 'ignored',
+        },
+      }),
+      [tagsFilterParam],
+      undefined,
+    )
+
+    expect(result.valid).toBe(true)
+  })
+})
+
+describe('querystring params — declared content decoding', () => {
+  const formQuerystring: OasParameter = {
+    name: 'query', in: 'querystring', required: true,
+    content: {
+      'application/x-www-form-urlencoded': {
+        schema: {
+          type: 'object',
+          required: ['q', 'tags'],
+          properties: {
+            q: { type: 'string' },
+            tags: { type: 'array', items: { type: 'string' } },
+          },
+        },
+      },
+    },
+  }
+
+  it('raw form query string을 content schema에 맞게 검증한다', () => {
+    const result = validateRequest(
+      parts({ rawQueryString: 'q=alice&tags=alpha&tags=beta' }),
+      [formQuerystring],
+      undefined,
+    )
+    expect(result.valid).toBe(true)
+  })
+
+  it('URI-encoded JSON query string을 declared JSON content schema로 검증한다', () => {
+    const result = validateRequest(
+      parts({ rawQueryString: '%7B%22q%22%3A%22alice%22%7D' }),
+      [{
+        name: 'query', in: 'querystring', required: true,
+        content: {
+          'application/json': {
+            schema: { type: 'object', required: ['q'], properties: { q: { type: 'string' } } },
+          },
+        },
+      }],
+      undefined,
+    )
+    expect(result.valid).toBe(true)
+  })
+
+  it('required querystring이 없으면 missing error를 반환한다', () => {
+    const result = validateRequest(parts(), [formQuerystring], undefined)
+    expect(result.valid).toBe(false)
+    if (!result.valid) {
+      expect(result.errors[0]).toMatchObject({
+        path: '/querystring/query',
+        code: 'MISSING_REQUIRED_FIELD',
+      })
+    }
+  })
+
+  it('custom querystring media type은 opaque로 보존하고 string schema만 직접 검증한다', () => {
+    const result = validateRequest(
+      parts({ rawQueryString: 'plain-value' }),
+      [{
+        name: 'query', in: 'querystring', required: true,
+        content: { 'application/jsonpath': { schema: { type: 'string', minLength: 1 } } },
+      }],
+      undefined,
+    )
+    expect(result.valid).toBe(true)
+  })
+
+  it('custom object media type은 decoding을 추측하지 않고 opaque로 허용한다', () => {
+    const result = validateRequest(
+      parts({ rawQueryString: '%24.a.b%5B1%3A1%5D' }),
+      [{
+        name: 'query', in: 'querystring', required: true,
+        content: { 'application/jsonpath': { schema: { type: 'object', required: ['unsupported'] } } },
+      }],
+      undefined,
+    )
+    expect(result.valid).toBe(true)
+  })
+
+  it('empty raw query component remains present for an optional opaque querystring parameter', () => {
+    const result = validateRequest(
+      parts({ rawQueryString: '' }),
+      [{ name: 'query', in: 'querystring', content: { 'text/plain': { schema: { type: 'string' } } } }],
+      undefined,
+    )
+    expect(result.valid).toBe(true)
+  })
+})
+
 // ─── header parameters ────────────────────────────────────────────────────────
 
 describe('header params — 대소문자 무감지 (OAS 3.2.0 §4.8.12)', () => {

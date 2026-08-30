@@ -22,4 +22,4 @@ export type {
   TypegenFidelityDiagnostic,
   TypegenFidelityDiagnosticCode,
 } from './schema-fidelity.js'
-export { pascalCase, escapeKey, collectTypeNames } from '@oa-sdk/core'
+export { pascalCase, escapeKey, quoteTypeScriptString, collectTypeNames } from '@oa-sdk/core'

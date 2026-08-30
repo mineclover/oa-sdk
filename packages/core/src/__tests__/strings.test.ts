@@ -23,6 +23,10 @@ describe('escapeKey', () => {
   it("single quote가 포함된 키 이스케이프", () => {
     expect(escapeKey("it's")).toBe("'it\\'s'")
   })
+  it('control characters are escaped into a single-line TypeScript literal', () => {
+    expect(escapeKey('bad\nkey')).toBe("'bad\\nkey'")
+    expect(escapeKey('tab\tkey')).toBe("'tab\\tkey'")
+  })
 })
 
 describe('toTypeScriptIdentifier', () => {

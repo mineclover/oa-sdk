@@ -8,8 +8,9 @@ content:
     operationId: requestMyDataExport
     summary: 내 데이터 export 작업 요청
     description: |
-      GDPR 정보주체 이동권 대응. 비동기 job 생성 후 jobId 반환. 완료 시 별도
-      알림 또는 polling으로 다운로드 URL 획득. 동시 진행 1건 제한.
+      GDPR 정보주체 이동권 대응. 비동기 job 생성 후 jobId를 반환합니다. 이 operation은
+      수락 receipt만 정의하며 완료 알림, 상태 조회, downloadUrl 전달은 runtime 계약이 별도로
+      제공해야 합니다. 동시 진행 1건 제한.
     security:
       - bearerAuth: []
     requestBody:

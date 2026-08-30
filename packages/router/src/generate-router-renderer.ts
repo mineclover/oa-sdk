@@ -6,7 +6,9 @@
  */
 
 import type { OasRequestBody, OasResponse, ParsedDocument } from '@oa-sdk/parser/browser'
-import { toColonPath, createOperationTypeNameMap, collectTypeNames, formatGeneratedTs, pickDefaultStatus } from '@oa-sdk/core/browser'
+import { toColonPath, createOperationTypeNameMap, collectTypeNames, formatGeneratedTs, pickDefaultStatus, quoteTypeScriptString } from '@oa-sdk/core/browser'
+import { getQuerystringParameter } from '@oa-sdk/parser/browser'
+import { formatJSDoc } from './jsdoc.js'
 
 export type RouterTarget = 'hono' | 'express'
 
@@ -66,6 +68,18 @@ export function generateRouterFromParsed(doc: ParsedDocument, options: RouterRen
     lines.push('')
   }
 
+  const needsRawQuerystringHelper = [...doc.operations, ...doc.webhooks]
+    .some(op => op.parameters.some(parameter => parameter.in === 'querystring'))
+  if (needsRawQuerystringHelper) {
+    lines.push(`function __readOaRawQuerystring(url: string): string | undefined {`)
+    lines.push(`  const question = url.indexOf('?')`)
+    lines.push(`  if (question === -1) return undefined`)
+    lines.push(`  const hash = url.indexOf('#', question + 1)`)
+    lines.push(`  return url.slice(question + 1, hash === -1 ? undefined : hash)`)
+    lines.push(`}`)
+    lines.push('')
+  }
+
   // router instance
   if (target === 'hono') {
     lines.push('const app = new Hono()')
@@ -90,14 +104,16 @@ export function generateRouterFromParsed(doc: ParsedDocument, options: RouterRen
 
     // JSDoc
     if (op.summary || op.description) {
-      lines.push(`/** ${op.summary ?? op.description} */`)
+      lines.push(...formatJSDoc(op.summary ?? op.description).split('\n'))
     }
 
     if (target === 'hono') {
-      lines.push(`app.${method}('${path}', async (c) => {`)
+      lines.push(renderHonoRouteRegistration(method, path))
       lines.push(`  try {`)
     } else {
-      lines.push(`router.${method}('${path}', async (req, res) => {`)
+      const registration = renderExpressRouteRegistration(method, path)
+      lines.push(registration.source)
+      if (registration.requiresMethodGuard) lines.push(`  if (req.method !== ${quoteTypeScriptString(method.toUpperCase())}) return next()`)
       lines.push(`  try {`)
     }
 
@@ -121,10 +137,26 @@ export function generateRouterFromParsed(doc: ParsedDocument, options: RouterRen
       }
     }
 
+    const querystringParam = getQuerystringParameter(op.parameters)
+    if (querystringParam) {
+      const type = typesImport ? `${baseName}QueryString` : 'string'
+      if (target === 'hono') {
+        lines.push(`    const querystring = __readOaRawQuerystring(c.req.raw.url) as ${type} | undefined // raw serialized query string; no leading '?'`)
+      } else {
+        lines.push(`    const querystring = __readOaRawQuerystring(req.originalUrl ?? req.url) as ${type} | undefined // raw serialized query string; no leading '?'`)
+      }
+    }
+
     // request body
     if (op.requestBody) {
       const contentTypes = op.requestBody.content ? Object.keys(op.requestBody.content) : []
-      const bodyParseLine = buildBodyParseLine(target, contentTypes, baseName, !!typesImport && hasGeneratedRequestBodyType(op.requestBody))
+      const bodyParseLine = buildBodyParseLine(
+        target,
+        contentTypes,
+        baseName,
+        !!typesImport && hasGeneratedRequestBodyType(op.requestBody),
+        op.requestBody.required === true,
+      )
       lines.push(`  ${bodyParseLine}`)
     }
 
@@ -188,21 +220,33 @@ export function generateRouterFromParsed(doc: ParsedDocument, options: RouterRen
 
       // JSDoc
       if (op.summary || op.description) {
-        lines.push(`/** ${op.summary ?? op.description} */`)
+        lines.push(...formatJSDoc(op.summary ?? op.description).split('\n'))
       }
 
       if (target === 'hono') {
-        lines.push(`app.${method}('${path}', async (c) => {`)
+        lines.push(renderHonoRouteRegistration(method, path))
         lines.push(`  try {`)
       } else {
-        lines.push(`router.${method}('${path}', async (req, res) => {`)
+        const registration = renderExpressRouteRegistration(method, path)
+        lines.push(registration.source)
+        if (registration.requiresMethodGuard) lines.push(`  if (req.method !== ${quoteTypeScriptString(method.toUpperCase())}) return next()`)
         lines.push(`  try {`)
+      }
+
+      const querystringParam = getQuerystringParameter(op.parameters)
+      if (querystringParam) {
+        const type = typesImport ? `${baseName}QueryString` : 'string'
+        if (target === 'hono') {
+          lines.push(`    const querystring = __readOaRawQuerystring(c.req.raw.url) as ${type} | undefined // raw serialized query string; no leading '?'`)
+        } else {
+          lines.push(`    const querystring = __readOaRawQuerystring(req.originalUrl ?? req.url) as ${type} | undefined // raw serialized query string; no leading '?'`)
+        }
       }
 
       // request body
       if (op.requestBody) {
         const contentTypes = op.requestBody.content ? Object.keys(op.requestBody.content) : []
-        const bodyParseLine = buildBodyParseLine(target, contentTypes, baseName, !!typesImport)
+        const bodyParseLine = buildBodyParseLine(target, contentTypes, baseName, !!typesImport, op.requestBody.required === true)
         lines.push(`  ${bodyParseLine}`)
       }
 
@@ -245,35 +289,81 @@ export function generateRouterFromParsed(doc: ParsedDocument, options: RouterRen
 /**
  * Determine the body-parsing expression based on the request content type(s).
  */
-function buildBodyParseLine(target: RouterTarget, contentTypes: string[], typeName: string, typed: boolean): string {
+function buildBodyParseLine(
+  target: RouterTarget,
+  contentTypes: string[],
+  typeName: string,
+  typed: boolean,
+  required: boolean,
+): string {
   const primary = contentTypes[0] ?? 'application/json'
 
   if (target === 'hono') {
     if (primary === 'application/json') {
+      if (!required) {
+        return typed
+          ? `  const body = c.req.raw.body === null ? undefined : await c.req.json<${typeName}Body>()`
+          : `  const body = c.req.raw.body === null ? undefined : await c.req.json() // ${typeName}Body`
+      }
       return typed
         ? `  const body = await c.req.json<${typeName}Body>()`
         : `  const body = await c.req.json() // ${typeName}Body`
     }
     if (primary === 'multipart/form-data') {
+      if (!required) return `  const body = c.req.raw.body === null ? undefined : await c.req.formData() // ${typeName}Body`
       return `  const body = await c.req.formData() // ${typeName}Body`
     }
     if (primary === 'application/x-www-form-urlencoded') {
+      if (!required) return `  const body = c.req.raw.body === null ? undefined : await c.req.parseBody() // ${typeName}Body`
       return `  const body = await c.req.parseBody() // ${typeName}Body`
     }
+    if (!required) return `  const body = c.req.raw.body === null ? undefined : await c.req.text() // ${typeName}Body`
     return `  const body = await c.req.text() // ${typeName}Body`
   }
 
   // express — body is already parsed by middleware
   if (primary === 'multipart/form-data') {
-    return `  const body = req.body // ${typeName}Body (use multer middleware)`
+    return `  const body = req.body${typed ? ` as ${typeName}Body${required ? '' : ' | undefined'}` : ''} // ${typeName}Body (use multer middleware)`
   }
   if (primary === 'application/x-www-form-urlencoded') {
-    return `  const body = req.body // ${typeName}Body (use express.urlencoded() middleware)`
+    return `  const body = req.body${typed ? ` as ${typeName}Body${required ? '' : ' | undefined'}` : ''} // ${typeName}Body (use express.urlencoded() middleware)`
   }
   if (typed) {
-    return `  const body = req.body as ${typeName}Body`
+    return `  const body = req.body as ${typeName}Body${required ? '' : ' | undefined'}`
   }
   return `  const body = req.body // ${typeName}Body`
+}
+
+const HONO_CONVENIENCE_METHODS = new Set(['get', 'post', 'put', 'delete', 'patch', 'options'])
+const EXPRESS_CONVENIENCE_METHODS = new Set(['get', 'post', 'put', 'delete', 'patch', 'options', 'head'])
+
+/**
+ * Hono has convenience methods for common verbs only. OAS 3.2 also permits
+ * HEAD, TRACE, and QUERY, so use the generic registration API for every verb
+ * outside the known convenience surface.
+ */
+function renderHonoRouteRegistration(method: string, path: string): string {
+  const normalized = method.toLowerCase()
+  const quotedPath = quoteTypeScriptString(path)
+  if (HONO_CONVENIENCE_METHODS.has(normalized)) {
+    return `app.${normalized}(${quotedPath}, async (c) => {`
+  }
+  return `app.on(${quoteTypeScriptString(normalized.toUpperCase())}, ${quotedPath}, async (c) => {`
+}
+
+function renderExpressRouteRegistration(
+  method: string,
+  path: string,
+): { source: string; requiresMethodGuard: boolean } {
+  const normalized = method.toLowerCase()
+  const quotedPath = quoteTypeScriptString(path)
+  if (EXPRESS_CONVENIENCE_METHODS.has(normalized)) {
+    return { source: `router.${normalized}(${quotedPath}, async (req, res) => {`, requiresMethodGuard: false }
+  }
+  // Express does not expose a method-specific API for every OAS 3.2 verb.
+  // Register a valid all-method route but pass unrelated methods through so a
+  // generated QUERY or TRACE stub does not accidentally handle GET/POST.
+  return { source: `router.all(${quotedPath}, async (req, res, next) => {`, requiresMethodGuard: true }
 }
 
 function hasGeneratedResponseHeaders(responses: Record<string, OasResponse>): boolean {

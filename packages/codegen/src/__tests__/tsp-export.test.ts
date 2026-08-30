@@ -218,6 +218,247 @@ describe('TypeSpec export spike', () => {
     expect(diagnosticCodes).not.toContain('operation/security-dropped')
   })
 
+  it('preserves OpenAPI object maps as TypeSpec Record types', () => {
+    const document: OasDocument = {
+      openapi: '3.2.0',
+      info: { title: 'Maps', version: '0.1.0' },
+      paths: {},
+      components: {
+        schemas: {
+          RoleBindings: {
+            type: 'object',
+            unevaluatedProperties: { type: 'string' },
+          },
+          FlexiblePayload: {
+            type: 'object',
+            unevaluatedProperties: {},
+          },
+          SealedPayload: {
+            type: 'object',
+            unevaluatedProperties: { not: {} },
+          },
+          LegacyMap: {
+            type: 'object',
+            additionalProperties: { type: 'boolean' },
+          },
+          FixedAndMap: {
+            type: 'object',
+            properties: {
+              id: { type: 'string' },
+            },
+            unevaluatedProperties: { type: 'integer' },
+          },
+          CombinedMap: {
+            type: 'object',
+            additionalProperties: false,
+            unevaluatedProperties: { type: 'string' },
+          },
+          RequiredMap: {
+            type: 'object',
+            required: ['dynamic'],
+            unevaluatedProperties: { type: 'string' },
+          },
+          ComposedMap: {
+            type: 'object',
+            allOf: [{ properties: { id: { type: 'string' } } }],
+            unevaluatedProperties: { type: 'string' },
+          },
+          SubmitActionRequest: {
+            type: 'object',
+            properties: {
+              roles: {
+                type: 'object',
+                unevaluatedProperties: { type: 'string' },
+              },
+              parameters: {
+                type: 'object',
+                unevaluatedProperties: {},
+              },
+            },
+          },
+        },
+      },
+    }
+
+    const result = exportOpenApiToTypeSpec(document, { namespace: 'MapsApi' })
+
+    expect(result.source).toContain('model RoleBindings {\n  ...Record<string>;\n}')
+    expect(result.source).toContain('model FlexiblePayload {\n  ...Record<unknown>;\n}')
+    expect(result.source).toContain('model SealedPayload {\n  ...Record<never>;\n}')
+    expect(result.source).toContain('model LegacyMap {\n  ...Record<boolean>;\n}')
+    expect(result.source).toContain('model FixedAndMap {\n  id?: string;\n  ...Record<integer>;\n}')
+    expect(result.source).toContain('roles?: Record<string>;')
+    expect(result.source).toContain('parameters?: Record<unknown>;')
+    expect(result.source).not.toContain('model SubmitActionRequestRoles {')
+    expect(result.source).not.toContain('model SubmitActionRequestParameters {')
+    expect(result.source).toContain('model CombinedMap {\n}')
+    expect(result.source).toContain('model RequiredMap {\n}')
+    expect(result.source).toContain('model ComposedMap {\n}')
+    expect(result.report.diagnostics).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        code: 'schema/unevaluated-properties-dropped',
+        pointer: '#/components/schemas/CombinedMap/unevaluatedProperties',
+      }),
+      expect.objectContaining({
+        code: 'schema/unevaluated-properties-dropped',
+        pointer: '#/components/schemas/RequiredMap/unevaluatedProperties',
+      }),
+      expect.objectContaining({
+        code: 'schema/unevaluated-properties-dropped',
+        pointer: '#/components/schemas/ComposedMap/unevaluatedProperties',
+      }),
+    ]))
+  })
+
+  it('exports a named formatted string as a native scalar', () => {
+    const document: OasDocument = {
+      openapi: '3.2.0',
+      info: { title: 'UUID scalar', version: '0.1.0' },
+      paths: {},
+      components: {
+        schemas: {
+          ActiveEntityId: {
+            type: 'string',
+            format: 'uuid',
+            description: 'Action role binding entity UUID.',
+          },
+        },
+      },
+    }
+
+    const result = exportOpenApiToTypeSpec(document, { namespace: 'ScalarApi' })
+
+    expect(result.source).toContain('@doc("Action role binding entity UUID.")\n@format("uuid")\nscalar ActiveEntityId extends string;')
+  })
+
+  it('diagnoses OAS 3.2 querystring parameters instead of rewriting them as @query', () => {
+    const document: OasDocument = {
+      openapi: '3.2.0',
+      info: { title: 'Querystring', version: '0.1.0' },
+      paths: {
+        '/search': {
+          get: {
+            operationId: 'search',
+            parameters: [{
+              name: 'rawQuery',
+              in: 'querystring',
+              required: true,
+              schema: { type: 'string' },
+            }],
+            responses: { '204': { description: 'No content' } },
+          },
+        },
+      },
+    }
+
+    const result = exportOpenApiToTypeSpec(document, { namespace: 'QuerystringApi' })
+
+    expect(result.source).toContain('op search(): Search204Response;')
+    expect(result.source).not.toContain('@query rawQuery')
+    expect(result.source).not.toContain('rawQuery: string')
+    expect(result.report.diagnostics).toContainEqual(expect.objectContaining({
+      code: 'parameter/querystring-unsupported',
+      pointer: '#/paths/~1search/get/parameters/0',
+      message: expect.stringContaining('whole-query semantics'),
+    }))
+  })
+
+  it('exports the strict OpenAPI 3.2 SSE itemSchema shape as native TypeSpec events', () => {
+    const document: OasDocument = {
+      openapi: '3.2.0',
+      info: { title: 'SSE', version: '0.1.0' },
+      paths: {
+        '/health/stream': {
+          get: {
+            operationId: 'streamHealthEvents',
+            responses: {
+              '200': {
+                description: 'Health stream',
+                content: {
+                  'text/event-stream': {
+                    itemSchema: {
+                      type: 'object',
+                      properties: {
+                        event: { type: 'string' },
+                        data: { type: 'string' },
+                      },
+                      required: ['event'],
+                      oneOf: [{
+                        properties: {
+                          event: { const: 'health' },
+                          data: {
+                            contentMediaType: 'application/json',
+                            contentSchema: { $ref: '#/components/schemas/HealthEvent' },
+                          },
+                        },
+                      }],
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      components: {
+        schemas: {
+          HealthEvent: {
+            type: 'object',
+            properties: {
+              status: { type: 'string' },
+            },
+          },
+        },
+      },
+    }
+
+    const result = exportOpenApiToTypeSpec(document, { namespace: 'SseApi' })
+
+    expect(result.source).toContain('import "@typespec/events";')
+    expect(result.source).toContain('import "@typespec/sse";')
+    expect(result.source).toContain('import "@typespec/streams";')
+    expect(result.source).toContain('using TypeSpec.Events;')
+    expect(result.source).toContain('using TypeSpec.SSE;')
+    expect(result.source).toContain('@events\nunion StreamHealthEvents200Events {\n  health: HealthEvent;\n}')
+    expect(result.source).toContain('model StreamHealthEvents200Response is SSEStream<StreamHealthEvents200Events> {')
+    expect(result.report.diagnostics.map(diagnostic => diagnostic.code)).not.toEqual(expect.arrayContaining([
+      'response/media-type-dropped',
+      'response/schema-missing',
+    ]))
+  })
+
+  it('retains diagnostics instead of guessing unsupported SSE itemSchema forms', () => {
+    const document: OasDocument = {
+      openapi: '3.2.0',
+      info: { title: 'Unsupported SSE', version: '0.1.0' },
+      paths: {
+        '/events': {
+          get: {
+            operationId: 'streamEvents',
+            responses: {
+              '200': {
+                description: 'Unsupported stream',
+                content: {
+                  'text/event-stream': {
+                    itemSchema: { type: 'object' },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    }
+
+    const result = exportOpenApiToTypeSpec(document, { namespace: 'UnsupportedSseApi' })
+
+    expect(result.source).not.toContain('import "@typespec/sse";')
+    expect(result.report.diagnostics).toEqual(expect.arrayContaining([
+      expect.objectContaining({ code: 'response/media-type-dropped' }),
+      expect.objectContaining({ code: 'response/schema-missing' }),
+    ]))
+  })
+
   it('diagnoses defaults that cannot be represented as TypeSpec value literals', () => {
     const document: OasDocument = {
       openapi: '3.2.0',
@@ -255,7 +496,7 @@ describe('TypeSpec export spike', () => {
     }))
   })
 
-  it('accepts the canonical validation received field as an intentional unknown escape hatch', () => {
+  it('accepts the validation received summary field as an intentional unknown escape hatch', () => {
     const document: OasDocument = {
       openapi: '3.2.0',
       info: { title: 'Validation Error', version: '0.1.0' },
@@ -266,7 +507,7 @@ describe('TypeSpec export spike', () => {
             type: 'object',
             properties: {
               received: {
-                description: 'Raw received value.',
+                description: 'Content-free validation summary.',
               },
             },
           },
@@ -276,12 +517,45 @@ describe('TypeSpec export spike', () => {
 
     const result = exportOpenApiToTypeSpec(document, { namespace: 'ValidationErrorApi' })
 
-    expect(result.source).toContain('@doc("Raw received value.")')
+    expect(result.source).toContain('@doc("Content-free validation summary.")')
     expect(result.source).toContain('received?: unknown;')
     expect(result.report.diagnostics).not.toContainEqual(expect.objectContaining({
       code: 'schema/type-unknown',
       pointer: '#/components/schemas/ValidationError/properties/received',
     }))
+  })
+
+  it('accepts model-declared projection values as intentional unknown escape hatches', () => {
+    const document: OasDocument = {
+      openapi: '3.2.0',
+      info: { title: 'World projections', version: '0.1.0' },
+      paths: {},
+      components: {
+        schemas: {
+          ProjectionEnvelope: {
+            type: 'object',
+            properties: { value: { description: 'Published model projection value.' } },
+          },
+          ProjectionBundleItem: {
+            type: 'object',
+            properties: { value: { description: 'Published model projection value.' } },
+          },
+        },
+      },
+    }
+
+    const result = exportOpenApiToTypeSpec(document, { namespace: 'WorldProjectionApi' })
+
+    expect(result.report.diagnostics).not.toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        code: 'schema/type-unknown',
+        pointer: '#/components/schemas/ProjectionEnvelope/properties/value',
+      }),
+      expect.objectContaining({
+        code: 'schema/type-unknown',
+        pointer: '#/components/schemas/ProjectionBundleItem/properties/value',
+      }),
+    ]))
   })
 
   it('diagnoses untyped schemas outside the accepted validation received field', () => {

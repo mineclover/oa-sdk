@@ -8,6 +8,11 @@ import type {
   OasSecurityRequirement,
   RouteIndex,
 } from '@oa-sdk/parser'
+import {
+  redactValidationDetail,
+  redactValidationDetails,
+  type MockErrorDetailInput,
+} from '../errors/redaction.js'
 import type { MockErrorDetail, MockValidationResult } from '../errors/types.js'
 import { compileSchema, runSchemaValidation, schemaCompileError } from './request-validation/schema-compiler.js'
 import { validateParameterValue } from './request-validation/parameters.js'
@@ -25,8 +30,12 @@ const multipartPartsSymbol = Symbol.for('@oa-sdk/mock-server.multipart-parts')
 export type RequestParts = {
   pathParams: Record<string, string>
   queryParams: Record<string, string | string[]>
+  /** Raw serialized URL query string, without the leading `?`. */
+  rawQueryString?: string
   headers: Record<string, string>
   body: unknown
+  /** Adapter detected a malformed JSON request body. The raw input is never retained here. */
+  bodyParseError?: 'invalid-json'
   contentType: string | undefined
   /** Absolute request URL, used by callback runtime expression evaluation. */
   url?: string
@@ -80,7 +89,9 @@ export function validateRequest(
   requestBody: OasRequestBody | undefined,
   security?: { requirements: OasSecurityRequirement[]; schemes: Record<string, OasSecurityScheme> },
 ): MockValidationResult {
-  const errors: MockErrorDetail[] = []
+  // Some parsers need the raw input only long enough to build a diagnostic.
+  // Redact the complete accumulated list once before it becomes public.
+  const errors: MockErrorDetailInput[] = []
 
   // 0. Security 검증 (헤더/쿼리/쿠키에 자격 증명 존재 확인)
   if (security && security.requirements.length > 0) {
@@ -94,8 +105,24 @@ export function validateRequest(
     errors.push(...ctErrors)
   }
 
+  // A syntactically malformed JSON payload is not equivalent to an omitted
+  // optional body. Adapters retain only this error marker, never the raw input.
+  if (requestBody && parts.bodyParseError === 'invalid-json') {
+    errors.push({
+      path: '/body',
+      code: 'PROTOCOL_MISMATCH',
+      message: 'JSON 요청 본문을 파싱할 수 없습니다',
+      expected: 'valid JSON',
+      stage: 'parse',
+    })
+  }
+
   // 2. 파라미터 검증 (path / query / header)
   for (const param of params) {
+    if (param.in === 'querystring') {
+      errors.push(...validateQuerystringParameter(param, parts.rawQueryString))
+      continue
+    }
     const raw = extractParamValue(param, parts)
     const paramErrors = validateParameterValue(param, raw)
     errors.push(...paramErrors)
@@ -115,7 +142,7 @@ export function validateRequest(
   }
 
   if (errors.length === 0) return { valid: true }
-  return { valid: false, errors }
+  return { valid: false, errors: redactValidationDetails(errors) }
 }
 
 /**
@@ -132,6 +159,20 @@ export function validateRequestSchemas(index: RouteIndex): MockValidationResult 
       const operationPath = `/routes/${escapePointer(openApiPath)}/${method}`
 
       entry.parameters.forEach((param, index) => {
+        if (param.in === 'querystring') {
+          for (const [contentType, rawMediaType] of Object.entries(param.content ?? {})) {
+            const contentPath = `${operationPath}/parameters/${index}/content/${escapePointer(contentType)}`
+            if ('$ref' in rawMediaType) {
+              errors.push(schemaCompileError(contentPath, `미해결 Media Type $ref: ${rawMediaType.$ref}`))
+              continue
+            }
+            const mediaType = rawMediaType as { schema?: OasSchema }
+            if (!mediaType.schema) continue
+            const compiled = compileSchema(mediaType.schema, `${contentPath}/schema`)
+            if (!compiled.ok) errors.push(compiled.error)
+          }
+          return
+        }
         const schema = param.schema as OasSchema | undefined
         if (!schema) return
         const compiled = compileSchema(schema, `${operationPath}/parameters/${index}/schema`)
@@ -182,7 +223,7 @@ export function assertValidRequestSchemas(index: RouteIndex): void {
 function validateContentType(
   received: string | undefined,
   requestBody: OasRequestBody,
-): MockErrorDetail[] {
+): MockErrorDetailInput[] {
   const allowed = Object.keys(requestBody.content ?? {})
   if (allowed.length === 0) return []
 
@@ -211,9 +252,14 @@ function extractParamValue(
   let raw: unknown
   switch (param.in) {
     case 'path': raw = parts.pathParams[param.name]; break
-    case 'query': raw = parts.queryParams[param.name]; break
+    case 'query': {
+      const deepObject = extractDeepObjectQueryValue(parts.queryParams, param)
+      raw = deepObject ?? parts.queryParams[param.name]
+      break
+    }
     case 'header': raw = parts.headers[param.name.toLowerCase()]; break
     case 'cookie': raw = parseCookies(parts.headers['cookie'] ?? '')[param.name]; break
+    case 'querystring': raw = parts.rawQueryString; break
     default: return undefined
   }
 
@@ -222,6 +268,137 @@ function extractParamValue(
     return deserializeParam(raw, param)
   }
   return raw
+}
+
+/**
+ * Querystring parameters serialize the entire query component using their
+ * declared Media Type. We decode only representations with an unambiguous
+ * decoder; other content types remain opaque instead of being guessed.
+ */
+function validateQuerystringParameter(
+  param: OasParameter,
+  raw: string | undefined,
+): MockErrorDetailInput[] {
+  const path = `/querystring/${escapePointer(param.name)}`
+  if (raw === undefined) {
+    return param.required
+      ? [{ path, code: 'MISSING_REQUIRED_FIELD', message: `필수 querystring 파라미터 누락: '${param.name}'`, stage: 'validate' }]
+      : []
+  }
+
+  const contentEntries = Object.entries(param.content ?? {})
+  if (contentEntries.length !== 1) {
+    return [{
+      path,
+      code: 'PROTOCOL_MISMATCH',
+      message: 'querystring 파라미터는 검증 가능한 단일 content media type이 필요합니다',
+      expected: 'exactly one content media type',
+      stage: 'parse',
+    }]
+  }
+
+  const [contentType, rawMediaType] = contentEntries[0]!
+  if ('$ref' in rawMediaType) {
+    return [{
+      path,
+      code: 'SCHEMA_COMPILE_ERROR',
+      message: 'querystring Media Type $ref를 해소할 수 없습니다',
+      expected: rawMediaType.$ref,
+      stage: 'validate',
+    }]
+  }
+
+  const mediaType = rawMediaType as { schema?: OasSchema }
+  const normalizedContentType = contentType.split(';', 1)[0]?.trim().toLowerCase()
+  const decoded = decodeQuerystringValue(raw, normalizedContentType, path)
+  if (!decoded.ok) return [decoded.error]
+  if (!mediaType.schema) return []
+  if (!hasRegisteredQuerystringDecoder(normalizedContentType) && !acceptsRawQuerystring(mediaType.schema)) return []
+  return runSchemaValidation(decoded.value, mediaType.schema, path)
+}
+
+type DecodedQuerystringValue =
+  | { ok: true; value: unknown }
+  | { ok: false; error: MockErrorDetailInput }
+
+function decodeQuerystringValue(
+  raw: string,
+  contentType: string | undefined,
+  path: string,
+): DecodedQuerystringValue {
+  if (contentType === 'application/x-www-form-urlencoded') {
+    const value: Record<string, string | string[]> = Object.create(null)
+    for (const [name, item] of new URLSearchParams(raw).entries()) {
+      const existing = value[name]
+      value[name] = existing === undefined ? item : Array.isArray(existing) ? [...existing, item] : [existing, item]
+    }
+    return { ok: true, value }
+  }
+
+  if (contentType === 'application/json' || contentType?.endsWith('+json')) {
+    try {
+      return { ok: true, value: JSON.parse(decodeURIComponent(raw)) }
+    } catch {
+      return {
+        ok: false,
+        error: {
+          path,
+          code: 'PROTOCOL_MISMATCH',
+          message: 'querystring JSON 값을 파싱할 수 없습니다',
+          expected: 'valid URI-encoded JSON',
+          stage: 'parse',
+        },
+      }
+    }
+  }
+
+  return { ok: true, value: raw }
+}
+
+function hasRegisteredQuerystringDecoder(contentType: string | undefined): boolean {
+  return contentType === 'application/x-www-form-urlencoded'
+    || contentType === 'application/json'
+    || contentType?.endsWith('+json') === true
+}
+
+/** A string schema can validate the opaque wire representation without decoding it. */
+function acceptsRawQuerystring(schema: OasSchema): boolean {
+  if (schema.type === 'string') return true
+  if (Array.isArray(schema.type) && schema.type.includes('string')) return true
+  if (typeof schema.const === 'string') return true
+  return Array.isArray(schema.enum) && schema.enum.length > 0 && schema.enum.every(value => typeof value === 'string')
+}
+
+/**
+ * Reassemble the standard deepObject query form (`filter[name]=alice`) from
+ * the flat URLSearchParams representation exposed by both adapters.
+ *
+ * Repeated keys deliberately retain their existing string[] representation so
+ * an array-valued property can validate normally, while unrelated query keys
+ * never become part of this parameter value.
+ */
+function extractDeepObjectQueryValue(
+  queryParams: Record<string, string | string[]>,
+  param: OasParameter,
+): Record<string, string | string[]> | undefined {
+  if (param.style !== 'deepObject') return undefined
+
+  const prefix = `${param.name}[`
+  const value: Record<string, string | string[]> = Object.create(null)
+  let found = false
+
+  for (const [key, raw] of Object.entries(queryParams)) {
+    if (!key.startsWith(prefix) || !key.endsWith(']')) continue
+    const property = key.slice(prefix.length, -1)
+    // Nested bracket parsing is intentionally not inferred here: OpenAPI
+    // defines deepObject for a parameter object's direct properties, and a
+    // malformed/empty property should not be silently accepted.
+    if (!property || property.includes('[') || property.includes(']')) continue
+    value[property] = raw
+    found = true
+  }
+
+  return found ? value : undefined
 }
 
 /**
@@ -285,7 +462,7 @@ function validateBody(
   body: unknown,
   contentType: string | undefined,
   requestBody: OasRequestBody,
-): MockErrorDetail[] {
+): MockErrorDetailInput[] {
   const normalized = contentType?.split(';')[0]?.trim() ?? 'application/json'
 
   if (normalized === 'multipart/form-data') {
@@ -323,7 +500,7 @@ function validateBody(
 function prepareXmlBody(
   body: unknown,
   schema: OasSchema,
-): { body: unknown; errors: MockErrorDetail[] } {
+): { body: unknown; errors: MockErrorDetailInput[] } {
   const scopeErrors = xmlScopeErrors(schema, '/body')
   if (scopeErrors.length > 0) return { body, errors: scopeErrors }
   if (typeof body !== 'string') return { body, errors: [] }
@@ -349,14 +526,14 @@ function xmlScopeErrors(schema: OasSchema, basePath: string): MockErrorDetail[] 
 }
 
 function xmlUnsupportedFeatureError(feature: XmlUnsupportedFeature): MockErrorDetail {
-  return {
+  return redactValidationDetail({
     path: feature.path,
     code: 'PROTOCOL_MISMATCH',
     message: `지원하지 않는 XML Object 기능: ${feature.message}`,
     expected: XML_SUPPORTED_SCOPE,
     received: feature.feature,
     stage: 'parse',
-  }
+  })
 }
 
 // ─── Multipart encoding ────────────────────────────────────────────────────
@@ -364,12 +541,12 @@ function xmlUnsupportedFeatureError(feature: XmlUnsupportedFeature): MockErrorDe
 function prepareMultipartBody(
   body: unknown,
   mediaType: OasMediaType,
-): { body: unknown; errors: MockErrorDetail[] } {
+): { body: unknown; errors: MockErrorDetailInput[] } {
   if (!isRecord(body)) return { body, errors: [] }
 
   const schema = mediaType.schema
   const properties = schema?.properties ?? {}
-  const errors: MockErrorDetail[] = []
+  const errors: MockErrorDetailInput[] = []
   const prepared: Record<string, unknown> = { ...body }
   const partsByName = groupMultipartParts(body)
 
@@ -391,7 +568,7 @@ function applyMultipartFieldEncoding(
   fieldName: string,
   fieldSchema: OasSchema,
   encoding: OasEncoding | undefined,
-  errors: MockErrorDetail[],
+  errors: MockErrorDetailInput[],
 ): void {
   const parts = partsByName.get(fieldName)
   if (!parts || parts.length === 0) return
@@ -426,7 +603,7 @@ function deserializeMultipartStyle(
   encoding: OasEncoding | undefined,
   parts: StoredMultipartPartMetadata[],
   path: string,
-  errors: MockErrorDetail[],
+  errors: MockErrorDetailInput[],
 ): MultipartStyleResult {
   const style = encoding?.style ?? 'form'
   const explode = encoding?.explode ?? (style === 'form')
@@ -501,7 +678,7 @@ function validateMultipartPartContentTypes(
   valueSchema: OasSchema,
   expected: string,
   path: string,
-  errors: MockErrorDetail[],
+  errors: MockErrorDetailInput[],
 ): void {
   for (const part of parts) {
     const actual = part.contentType ?? defaultMultipartContentType(valueSchema)
@@ -519,7 +696,7 @@ function decodeMultipartPartValue(
   value: unknown,
   contentType: string,
   path: string,
-  errors: MockErrorDetail[],
+  errors: MockErrorDetailInput[],
 ): unknown {
   if (!isJsonMediaType(contentType) || typeof value !== 'string') return value
 
@@ -726,7 +903,7 @@ function multipartEncodingError(
   message: string,
   expected: string,
   received: unknown,
-): MockErrorDetail {
+): MockErrorDetailInput {
   return {
     path,
     code: 'PROTOCOL_MISMATCH',

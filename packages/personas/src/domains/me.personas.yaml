@@ -181,7 +181,7 @@ personas:
       maps_to: [ requestMyDataExport ]
       expects: [ 202 ]
     skills: [ audit-emission, batch, idempotent, rate-limit-honored ]
-    notes: "POST /me/export — GDPR 정보주체 이동권. 비동기 job + download URL."
+    notes: "POST /me/export — GDPR 정보주체 이동권. 비동기 job receipt만 정의하며 완료 상태와 다운로드 전달은 runtime 계약이 소유."
 
   # ── auto-promoted from v0.6 propose (negative-path coverage) ────────
 

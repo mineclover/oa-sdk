@@ -15,6 +15,7 @@ export function appendRuntimeValidationHelpers(lines: string[]): void {
     '  minLength?: number',
     '  maxLength?: number',
     '  pattern?: string',
+    '  format?: string',
     '  minItems?: number',
     '  maxItems?: number',
     '  uniqueItems?: boolean',
@@ -49,6 +50,12 @@ export function appendRuntimeValidationHelpers(lines: string[]): void {
     '  }',
     '}',
     '',
+    'function __oaFormatMatches(value: string, format: string): boolean {',
+    "  if (format === 'uuid') return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)",
+    "  if (format === 'email') return /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(value)",
+    '  return true',
+    '}',
+    '',
     'function __oaSchemaMatches(value: unknown, schema: __OaRuntimeSchema, coercePrimitive = false): boolean {',
     '  if (schema.anyOf && !schema.anyOf.some(item => __oaSchemaMatches(value, item, coercePrimitive))) return false',
     '  if (schema.oneOf && schema.oneOf.filter(item => __oaSchemaMatches(value, item, coercePrimitive)).length !== 1) return false',
@@ -73,6 +80,7 @@ export function appendRuntimeValidationHelpers(lines: string[]): void {
     '    if (schema.minLength !== undefined && candidate.length < schema.minLength) return false',
     '    if (schema.maxLength !== undefined && candidate.length > schema.maxLength) return false',
     '    if (schema.pattern !== undefined) { try { if (!new RegExp(schema.pattern).test(candidate)) return false } catch { return false } }',
+    '    if (schema.format !== undefined && !__oaFormatMatches(candidate, schema.format)) return false',
     '  }',
     '  if (Array.isArray(candidate)) {',
     '    if (schema.minItems !== undefined && candidate.length < schema.minItems) return false',
@@ -118,7 +126,7 @@ export function serializeValidationSchema(schema: OasSchema | undefined): string
     const output: Record<string, unknown> = {}
     for (const key of [
       'type', 'const', 'enum', 'minimum', 'maximum', 'exclusiveMinimum', 'exclusiveMaximum',
-      'minLength', 'maxLength', 'pattern', 'minItems', 'maxItems', 'uniqueItems',
+      'minLength', 'maxLength', 'pattern', 'format', 'minItems', 'maxItems', 'uniqueItems',
       'minProperties', 'maxProperties', 'required',
     ] as const) {
       if (value[key] !== undefined) output[key] = value[key]

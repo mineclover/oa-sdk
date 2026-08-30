@@ -129,4 +129,64 @@ describe('components/unused 규칙', () => {
     }), { categories: ['components'] })
     expect(results.filter(r => r.rule.startsWith('components/unused'))).toHaveLength(0)
   })
+
+  it('itemSchema가 target을 참조하는 순수 SSE 별칭은 경고하지 않는다', () => {
+    const results = lintDocument(doc({
+      components: {
+        schemas: {
+          HealthEvent: { type: 'object' },
+          // Native TypeSpec SSE output: the alias is not used by the operation,
+          // but its target is used by the OpenAPI 3.2 streaming media type.
+          HealthEvents: { $ref: '#/components/schemas/HealthEvent' },
+        },
+      },
+      paths: {
+        '/health/stream': {
+          get: {
+            operationId: 'streamHealthEvents',
+            responses: {
+              '200': {
+                content: {
+                  'text/event-stream': {
+                    itemSchema: {
+                      type: 'object',
+                      oneOf: [{
+                        properties: {
+                          data: {
+                            contentMediaType: 'application/json',
+                            contentSchema: { $ref: '#/components/schemas/HealthEvent' },
+                          },
+                        },
+                      }],
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    }), { categories: ['components'] })
+
+    expect(results.some(result => result.path === '/components/schemas/HealthEvents')).toBe(false)
+    expect(results.some(result => result.path === '/components/schemas/HealthEvent')).toBe(false)
+  })
+
+  it('target이 별도로 참조되지 않는 별칭과 독립 미사용 스키마는 계속 경고한다', () => {
+    const results = lintDocument(doc({
+      components: {
+        schemas: {
+          UnusedAlias: { $ref: '#/components/schemas/AliasTarget' },
+          AliasTarget: { type: 'object' },
+          UnusedSchema: { type: 'string' },
+        },
+      },
+    }), { categories: ['components'] })
+
+    const unusedPaths = results
+      .filter(result => result.rule === 'components/unused-schema')
+      .map(result => result.path)
+    expect(unusedPaths).toContain('/components/schemas/UnusedAlias')
+    expect(unusedPaths).toContain('/components/schemas/UnusedSchema')
+  })
 })

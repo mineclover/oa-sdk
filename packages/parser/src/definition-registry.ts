@@ -2,6 +2,7 @@ import { dirname, resolve } from 'node:path'
 import { validateDefinitionId, type CanonicalDefinitionId } from './definition-id.js'
 import { createDefinitionRef, type DefinitionNode, type DefinitionRef } from './definition-node.js'
 import { collectRefs, isRelativeRef } from './ref-graph.js'
+import { canonicalJsonPointerFragment } from './json-pointer.js'
 import type { SourceLocation } from './source-location.js'
 
 export type DefinitionRegistryDiagnosticSeverity = 'error' | 'warning' | 'info'
@@ -297,8 +298,9 @@ function parseRelativeFileRef(ref: string, sourcePath: string): { filePath: stri
 
   if (fragment === undefined) return result
   if (fragment === '') return { ...result, pointer: '#' }
-  if (!fragment.startsWith('/')) return undefined
-  return { ...result, pointer: `#${fragment}` }
+  const pointer = canonicalJsonPointerFragment(`#${fragment}`)
+  if (pointer === undefined) return undefined
+  return { ...result, pointer }
 }
 
 function createDuplicateIdDiagnostic(

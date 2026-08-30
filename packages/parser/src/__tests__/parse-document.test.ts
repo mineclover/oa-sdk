@@ -37,6 +37,21 @@ describe('parseDocument', () => {
     expect(result.operations.map(o => o.operationId).sort()).toEqual(['createUser', 'listUsers'])
   })
 
+  it('prototype에서 상속된 $ref를 Reference Object로 처리하지 않는다', () => {
+    const inheritedPathItem = Object.create({ $ref: '#/components/pathItems/Users' })
+    const result = parseDocument(doc({
+      paths: { '/users': inheritedPathItem },
+      components: {
+        pathItems: {
+          Users: { get: { operationId: 'inheritedRef', responses: { '200': { description: 'OK' } } } },
+        },
+      },
+    }))
+
+    expect(result.operations).toHaveLength(0)
+    expect(result.resolution?.status).toBe('complete')
+  })
+
   it('오퍼레이션 x-* extension을 downstream IR에 보존', () => {
     const result = parseDocument(doc({
       paths: {
@@ -183,6 +198,27 @@ describe('parseDocument', () => {
     const op = result.operations[0]!
     expect(op.parameters).toHaveLength(2)
     expect(op.parameters.map(p => p.name).sort()).toEqual(['fields', 'id'])
+  })
+
+  it('OAS 3.2 querystring parameter를 IR에 보존한다', () => {
+    const result = parseDocument(doc({
+      paths: {
+        '/search': {
+          get: {
+            parameters: [{
+              name: 'query',
+              in: 'querystring',
+              content: { 'application/x-www-form-urlencoded': { schema: { type: 'object' } } },
+            }],
+            responses: { '200': { description: 'OK' } },
+          },
+        },
+      },
+    }))
+
+    expect(result.operations[0]?.parameters).toEqual([
+      expect.objectContaining({ name: 'query', in: 'querystring' }),
+    ])
   })
 
   it('local operation parameter/response $ref를 deref pass 없이 해소한다', () => {

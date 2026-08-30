@@ -215,6 +215,44 @@ describe('createMswHandlers — 요청 검증 실패', () => {
   })
 })
 
+describe('createMswHandlers — querystring parameter', () => {
+  it('URI-encoded JSON query component를 content schema에 맞게 검증한다', async () => {
+    const querystringSpec: OasDocument = {
+      openapi: '3.2.0',
+      info: { title: 'MSW Querystring', version: '0.0.0' },
+      paths: {
+        '/querystring': {
+          get: {
+            operationId: 'querystringJson',
+            parameters: [{
+              name: 'query',
+              in: 'querystring',
+              required: true,
+              content: {
+                'application/json': {
+                  schema: { type: 'object', required: ['q'], properties: { q: { type: 'string' } } },
+                },
+              },
+            }],
+            responses: { '204': { description: 'No Content' } },
+          },
+        },
+      },
+    }
+
+    server.close()
+    const querystringServer = setupServer(...createMswHandlers(querystringSpec))
+    querystringServer.listen({ onUnhandledRequest: 'bypass' })
+    try {
+      const response = await fetch(`${BASE}/querystring?%7B%22q%22%3A%22alice%22%7D`)
+      expect(response.status).toBe(204)
+    } finally {
+      querystringServer.close()
+      server.listen({ onUnhandledRequest: 'bypass' })
+    }
+  })
+})
+
 // ─── HTTP 메서드 처리 ─────────────────────────────────────────────────────────
 
 describe('createMswHandlers — HTTP 메서드 처리', () => {
@@ -327,9 +365,9 @@ describe('createMswHandlers — SSE 스트리밍', () => {
     const text = await res.text()
     expect(text).toMatch(/^data: /)
     const lines = text.split('\n\n').filter(Boolean)
-    // 3 events + [DONE]
-    expect(lines.length).toBe(4)
-    expect(lines[3]).toBe('data: [DONE]')
+    // Schema-defined events only; HTTP close terminates the stream.
+    expect(lines.length).toBe(3)
+    expect(lines).not.toContain('data: [DONE]')
     const ev = JSON.parse(lines[0]!.replace('data: ', ''))
     expect(ev.type).toBe('ping')
   })

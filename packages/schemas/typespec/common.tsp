@@ -26,15 +26,54 @@ model Error {
   };
 }
 
+@doc("문자열 수신값의 content-free 진단 요약")
+model ValidationReceivedStringSummary {
+  type: "string";
+  @minValue(0)
+  @maxValue(9007199254740991)
+  length: safeint;
+  ...Record<never>;
+}
+
+@doc("배열 수신값의 content-free 진단 요약")
+model ValidationReceivedArraySummary {
+  type: "array";
+  @minValue(0)
+  @maxValue(9007199254740991)
+  count: safeint;
+  ...Record<never>;
+}
+
+@doc("객체 수신값의 content-free 진단 요약")
+model ValidationReceivedObjectSummary {
+  type: "object";
+  @minValue(0)
+  @maxValue(9007199254740991)
+  count: safeint;
+  ...Record<never>;
+}
+
+@doc("내용을 포함하지 않는 scalar 수신값의 진단 요약")
+model ValidationReceivedScalarSummary {
+  type: "number" | "boolean" | "bigint" | "symbol" | "function" | "null" | "undefined";
+  ...Record<never>;
+}
+
+alias ValidationReceivedValueSummary =
+  ValidationReceivedStringSummary |
+  ValidationReceivedArraySummary |
+  ValidationReceivedObjectSummary |
+  ValidationReceivedScalarSummary;
+
 @doc("필드 수준 유효성 검사 에러")
 model ValidationError {
   @extension("example", "/body/email")
   path: string;
   @extension("example", "must match format 'email'")
   message: string;
-  @doc("실제 수신된 값")
-  @extension("example", "not-an-email")
-  received?: unknown;
+  @doc("수신값의 안전한 진단 요약. 원문 문자열·객체·배열·토큰·비밀번호는 반환하지 않습니다.")
+  @extension("example", #{ type: "string", length: 12 })
+  received?: ValidationReceivedValueSummary;
   @extension("example", "string with format 'email'")
   expected?: string;
 }

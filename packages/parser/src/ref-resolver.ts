@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { parse as parseYaml } from 'yaml'
+import { canonicalJsonPointerFragment, isJsonPointerFragment, resolveJsonPointer } from './json-pointer.js'
 
 export type RefResolverKind = 'internal' | 'external' | 'unsupported'
 
@@ -76,7 +77,7 @@ export function createRefResolver(options: RefResolverOptions = {}): RefResolver
   function resolveRef(request: ResolveRefRequest): RefResolution {
     const stack = request.stack ?? []
     let resolution: RefResolution
-    if (request.ref === '#' || request.ref.startsWith('#/')) {
+    if (isJsonPointerFragment(request.ref)) {
       resolution = resolveInternalRef(request, stack)
     } else if (isRelativeRef(request.ref) && request.basePath) {
       resolution = resolveExternalRef(request, stack)
@@ -92,7 +93,7 @@ export function createRefResolver(options: RefResolverOptions = {}): RefResolver
   }
 
   function resolveInternalRef(request: ResolveRefRequest, stack: readonly string[]): RefResolution {
-    const pointer = request.ref
+    const pointer = canonicalJsonPointerFragment(request.ref) ?? request.ref
     const sourceFilePath = request.basePath
     const filePath = includeInternalFilePath && request.basePath && request.basePath !== options.entryPath
       ? request.basePath
@@ -139,8 +140,9 @@ export function createRefResolver(options: RefResolverOptions = {}): RefResolver
   }
 
   function resolveExternalRef(request: ResolveRefRequest, stack: readonly string[]): RefResolution {
-    const [filePart, rawPointer] = request.ref.split('#')
-    if (!filePart || !rawPointer) {
+    const hashIndex = request.ref.indexOf('#')
+    const filePart = hashIndex === -1 ? request.ref : request.ref.slice(0, hashIndex)
+    if (!filePart) {
       return unresolved(request, 'external', {
         code: 'unsupported-ref',
         ref: request.ref,
@@ -158,7 +160,11 @@ export function createRefResolver(options: RefResolverOptions = {}): RefResolver
     }
 
     const filePath = resolve(dirname(basePath), filePart)
-    const pointer = `#${rawPointer}`
+    // A relative JSON Reference may target the external resource itself. Both
+    // `./path-item.yaml` and `./path-item.yaml#` therefore resolve to `#`.
+    const fragment = hashIndex === -1 ? '' : request.ref.slice(hashIndex + 1)
+    const rawPointer = fragment === '' ? '#' : `#${fragment}`
+    const pointer = canonicalJsonPointerFragment(rawPointer) ?? rawPointer
     const cacheKey = `${filePath}${pointer}`
     const baseDetails = {
       cacheKey,
@@ -274,24 +280,17 @@ function enrichDiagnosticLocation(
 }
 
 export function isRelativeRef(ref: string): boolean {
-  return ref.startsWith('./') || ref.startsWith('../')
+  const hashIndex = ref.indexOf('#')
+  const filePart = hashIndex === -1 ? ref : ref.slice(0, hashIndex)
+  if (!filePart || filePart.startsWith('/') || filePart.startsWith('\\') || filePart.startsWith('//')) return false
+  // Keep resolution local to the supplied base document: do not accept a URI
+  // scheme (including Windows drive-letter paths) or query-bearing URI here.
+  if (/^[A-Za-z][A-Za-z0-9+.-]*:/.test(filePart) || filePart.includes('?')) return false
+  return true
 }
 
 export function resolvePointer(ref: string, root: unknown): unknown | undefined {
-  if (ref === '#') return root
-  const parts = ref
-    .slice(2)
-    .split('/')
-    .map(p => p.replace(/~1/g, '/').replace(/~0/g, '~'))
-
-  let current: unknown = root
-  for (const part of parts) {
-    if (typeof current !== 'object' || current === null) return undefined
-    const obj = current as Record<string, unknown>
-    if (!Object.prototype.hasOwnProperty.call(obj, part)) return undefined
-    current = obj[part]
-  }
-  return current
+  return resolveJsonPointer(root, ref)
 }
 
 function parseExternalRefFile(path: string): unknown {

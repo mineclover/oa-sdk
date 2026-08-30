@@ -11,7 +11,7 @@ const baseEntry = {
 }
 
 describe('handleRequest', () => {
-  it('요청 값 검증 실패는 422 validation-error', () => {
+  it('요청 값 검증 실패는 문서화된 422 response와 contract-safe diagnostics를 선택한다', () => {
     const result = handleRequest(
       {
         pathParams: {},
@@ -22,6 +22,39 @@ describe('handleRequest', () => {
       },
       {
         ...baseEntry,
+        responses: {
+          '200': { description: 'OK' },
+          '422': {
+            description: 'Unprocessable Content',
+            content: {
+              'application/problem+json': {
+                schema: {
+                  type: 'object',
+                  required: ['code', 'message'],
+                  properties: {
+                    code: { const: 'SCHEMA_VALIDATION_FAILED' },
+                    message: { type: 'string' },
+                    details: {
+                      type: 'array',
+                      items: {
+                        type: 'object',
+                        required: ['path', 'message'],
+                        properties: {
+                          path: { type: 'string' },
+                          message: { type: 'string' },
+                          expected: { type: 'string' },
+                        },
+                        additionalProperties: false,
+                      },
+                    },
+                  },
+                  additionalProperties: false,
+                },
+                example: { code: 'SCHEMA_VALIDATION_FAILED', message: 'Invalid request' },
+              },
+            },
+          },
+        },
         requestBody: {
           required: true,
           content: {
@@ -38,10 +71,171 @@ describe('handleRequest', () => {
       {},
     )
 
+    expect(result.type).toBe('success')
+    if (result.type === 'success') {
+      expect(result.picked.status).toBe(422)
+      expect(result.picked.contentType).toBe('application/problem+json')
+      expect(result.picked.body).toEqual({
+        code: 'SCHEMA_VALIDATION_FAILED',
+        message: 'Invalid request',
+        details: [{ path: '/body/name', message: "필수 필드 누락: 'name'" }],
+      })
+    }
+  })
+
+  it('422 schema가 diagnostics를 허용하지 않으면 문서화된 body를 그대로 유지한다', () => {
+    const result = handleRequest(
+      {
+        pathParams: {},
+        queryParams: {},
+        headers: {},
+        body: {},
+        contentType: 'application/json',
+      },
+      {
+        ...baseEntry,
+        responses: {
+          '200': { description: 'OK' },
+          '422': {
+            description: 'Unprocessable Content',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['code', 'message'],
+                  properties: {
+                    code: { const: 'SCHEMA_VALIDATION_FAILED' },
+                    message: { type: 'string' },
+                  },
+                  additionalProperties: false,
+                },
+                example: { code: 'SCHEMA_VALIDATION_FAILED', message: 'Invalid request' },
+              },
+            },
+          },
+        },
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['name'],
+                properties: { name: { type: 'string' } },
+              },
+            },
+          },
+        },
+      },
+      {},
+    )
+
+    expect(result.type).toBe('success')
+    if (result.type === 'success') {
+      expect(result.picked.status).toBe(422)
+      expect(result.picked.body).toEqual({ code: 'SCHEMA_VALIDATION_FAILED', message: 'Invalid request' })
+    }
+  })
+
+  it('인증 자격 증명 누락은 문서화된 401 Error 응답을 선택한다', () => {
+    const result = handleRequest(
+      {
+        pathParams: {},
+        queryParams: {},
+        headers: {},
+        body: undefined,
+        contentType: undefined,
+      },
+      {
+        ...baseEntry,
+        security: [{ bearerAuth: [] }],
+        responses: {
+          '200': { description: 'OK' },
+          '401': {
+            description: 'Unauthorized',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['code', 'message'],
+                  properties: {
+                    code: { const: 'UNAUTHORIZED' },
+                    message: { type: 'string' },
+                  },
+                  unevaluatedProperties: false,
+                },
+                example: { code: 'UNAUTHORIZED', message: 'Authentication required' },
+              },
+            },
+          },
+        },
+      },
+      { bearerAuth: { type: 'http', scheme: 'bearer' } },
+    )
+
+    expect(result.type).toBe('success')
+    if (result.type === 'success') {
+      expect(result.picked.status).toBe(401)
+      expect(result.picked.body).toEqual({ code: 'UNAUTHORIZED', message: 'Authentication required' })
+      expect(result.callbacks).toEqual([])
+    }
+  })
+
+  it('422 error envelope serializes only summaries for sensitive request values', () => {
+    const password = 'PASSWORD_SENTINEL_97af'
+    const refreshToken = 'REFRESH_TOKEN_SENTINEL_20de'
+    const secret = 'SECRET_SENTINEL_d41c'
+    const wholeObjectValue = 'WHOLE_OBJECT_SENTINEL_6f88'
+    const result = handleRequest(
+      {
+        pathParams: {},
+        queryParams: {},
+        headers: {},
+        body: {
+          password,
+          refreshToken,
+          secret,
+          profile: { token: wholeObjectValue },
+          entries: [wholeObjectValue],
+        },
+        contentType: 'application/json',
+      },
+      {
+        ...baseEntry,
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['password', 'refreshToken', 'secret', 'profile', 'entries'],
+                properties: {
+                  password: { type: 'string', minLength: 128 },
+                  refreshToken: { type: 'string', enum: ['accepted-token'] },
+                  secret: { type: 'string', pattern: '^[0-9]+$' },
+                  profile: { type: 'object', maxProperties: 0 },
+                  entries: { type: 'array', maxItems: 0 },
+                },
+              },
+            },
+          },
+        },
+      },
+      {},
+    )
+
     expect(result.type).toBe('validation-error')
     if (result.type === 'validation-error') {
-      expect(result.status).toBe(422)
-      expect(result.body.error.code).toBe('CONSTRAINT_VIOLATION')
+      const serialized = JSON.stringify(result.body.error.details)
+      for (const sensitiveValue of [password, refreshToken, secret, wholeObjectValue]) {
+        expect(serialized).not.toContain(sensitiveValue)
+      }
+      expect(result.body.error.details).toContainEqual(expect.objectContaining({
+        path: '/body/profile',
+        received: { type: 'object', count: 1 },
+        stage: 'validate',
+      }))
+      expect(result.body.error.details.every(detail => detail.value === undefined)).toBe(true)
     }
   })
 

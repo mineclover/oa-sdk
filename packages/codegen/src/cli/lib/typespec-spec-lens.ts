@@ -30,15 +30,21 @@ import { parseTypeSpecBundleManifest } from './typespec-bundle-manifest.js'
 
 export const SPEC_LENS_TYPESPEC_PACKAGE_IMPORT_ALLOWLIST = [
   '@oa-sdk/typespec-decorators',
+  '@typespec/events',
   '@typespec/http',
   '@typespec/openapi',
+  '@typespec/sse',
+  '@typespec/streams',
 ] as const
 
 export const SPEC_LENS_TYPESPEC_RUNTIME_PACKAGE_ALLOWLIST = [
   '@oa-sdk/typespec-decorators',
+  '@typespec/events',
   '@typespec/http',
   '@typespec/openapi',
   '@typespec/openapi3',
+  '@typespec/sse',
+  '@typespec/streams',
 ] as const
 
 export const SPEC_LENS_TYPESPEC_TOOLCHAIN_PACKAGE_ALLOWLIST = [
@@ -70,9 +76,12 @@ export type SpecLensTypeSpecToolchainEvidence = {
   packages: {
     '@oa-sdk/typespec-decorators': string
     '@typespec/compiler': string
+    '@typespec/events': string
     '@typespec/http': string
     '@typespec/openapi': string
     '@typespec/openapi3': string
+    '@typespec/sse': string
+    '@typespec/streams': string
   }
   trustedLibraryDigests: {
     '@oa-sdk/typespec-decorators': string
@@ -424,9 +433,12 @@ function createSpecLensTypeSpecToolchainEvidence(
   const packages = {
     '@oa-sdk/typespec-decorators': readHostPackageVersion(hostRuntime.packagePaths['@oa-sdk/typespec-decorators'], '@oa-sdk/typespec-decorators'),
     '@typespec/compiler': readHostPackageVersion(hostRuntime.packagePaths['@typespec/compiler'], '@typespec/compiler'),
+    '@typespec/events': readHostPackageVersion(hostRuntime.packagePaths['@typespec/events'], '@typespec/events'),
     '@typespec/http': readHostPackageVersion(hostRuntime.packagePaths['@typespec/http'], '@typespec/http'),
     '@typespec/openapi': readHostPackageVersion(hostRuntime.packagePaths['@typespec/openapi'], '@typespec/openapi'),
     '@typespec/openapi3': readHostPackageVersion(hostRuntime.packagePaths['@typespec/openapi3'], '@typespec/openapi3'),
+    '@typespec/sse': readHostPackageVersion(hostRuntime.packagePaths['@typespec/sse'], '@typespec/sse'),
+    '@typespec/streams': readHostPackageVersion(hostRuntime.packagePaths['@typespec/streams'], '@typespec/streams'),
   }
   const trustedLibraryDigests = {
     '@oa-sdk/typespec-decorators': digestTrustedTypeSpecLibrary(hostRuntime.packagePaths['@oa-sdk/typespec-decorators']),

@@ -1,5 +1,6 @@
 import type { ErrorObject } from 'ajv'
-import type { MockErrorCode, MockErrorDetail } from './types.js'
+import { redactValidationDetail } from './redaction.js'
+import type { MockErrorDetail } from './types.js'
 
 /**
  * AJV raw ErrorObject → MockErrorDetail 변환.
@@ -14,59 +15,59 @@ function classifyOne(err: ErrorObject): MockErrorDetail {
 
   switch (err.keyword) {
     case 'type':
-      return {
+      return redactValidationDetail({
         path,
         code: 'TYPE_ERROR',
         message: `타입 불일치: ${err.message ?? ''}`,
-        received: describeType(err.data),
+        received: err.data,
         expected: (err.params as { type: string }).type,
         stage: 'validate',
-      }
+      })
 
     case 'required': {
       const missing = (err.params as { missingProperty: string }).missingProperty
-      return {
+      return redactValidationDetail({
         path: path ? `${path}/${missing}` : `/${missing}`,
         code: 'MISSING_REQUIRED_FIELD',
         message: `필수 필드 누락: '${missing}'`,
         stage: 'validate',
-      }
+      })
     }
 
     case 'enum': {
       const allowed = (err.params as { allowedValues: unknown[] }).allowedValues
-      return {
+      return redactValidationDetail({
         path,
         code: 'INVALID_ENUM_VALUE',
         message: `허용되지 않는 값입니다`,
         received: err.data,
         expected: allowed.map(String).join(' | '),
         stage: 'validate',
-      }
+      })
     }
 
     case 'format': {
       const fmt = (err.params as { format: string }).format
-      return {
+      return redactValidationDetail({
         path,
         code: 'FORMAT_MISMATCH',
         message: `형식 불일치: '${fmt}' 형식이어야 합니다`,
         received: err.data,
         expected: fmt,
         stage: 'validate',
-      }
+      })
     }
 
     case 'pattern': {
       const pattern = (err.params as { pattern: string }).pattern
-      return {
+      return redactValidationDetail({
         path,
         code: 'PATTERN_MISMATCH',
         message: `패턴 불일치: /${pattern}/ 을 만족해야 합니다`,
         received: err.data,
         expected: `/${pattern}/`,
         stage: 'validate',
-      }
+      })
     }
 
     // 수치/길이/개수 제약
@@ -81,25 +82,25 @@ function classifyOne(err: ErrorObject): MockErrorDetail {
     case 'minProperties':
     case 'maxProperties': {
       const params = err.params as Record<string, unknown>
-      return {
+      return redactValidationDetail({
         path,
         code: 'CONSTRAINT_VIOLATION',
         message: `제약 조건 위반: ${err.message ?? err.keyword}`,
-        received: summarizeReceived(err.keyword, err.data),
+        received: err.data,
         expected: describeConstraint(err.keyword, params),
         constraint: params,
         stage: 'validate',
-      }
+      })
     }
 
     default:
-      return {
+      return redactValidationDetail({
         path,
         code: 'CONSTRAINT_VIOLATION',
         message: err.message ?? `검증 실패: ${err.keyword}`,
         received: err.data,
         stage: 'validate',
-      }
+      })
   }
 }
 
@@ -107,25 +108,6 @@ function classifyOne(err: ErrorObject): MockErrorDetail {
 
 function normalizePath(instancePath: string): string {
   return instancePath || ''
-}
-
-function describeType(data: unknown): string {
-  if (data === null) return 'null'
-  if (Array.isArray(data)) return 'array'
-  return typeof data
-}
-
-function summarizeReceived(keyword: string, data: unknown): unknown {
-  if (['minLength', 'maxLength'].includes(keyword) && typeof data === 'string') {
-    return `"${data}" (length: ${data.length})`
-  }
-  if (['minItems', 'maxItems'].includes(keyword) && Array.isArray(data)) {
-    return `array (length: ${data.length})`
-  }
-  if (['minProperties', 'maxProperties'].includes(keyword) && typeof data === 'object' && data !== null) {
-    return `object (${Object.keys(data).length} properties)`
-  }
-  return data
 }
 
 function describeConstraint(keyword: string, params: Record<string, unknown>): string {

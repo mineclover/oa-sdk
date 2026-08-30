@@ -3,6 +3,8 @@
 > 목표와 단계별 방향을 기술합니다.
 > 핵심 철학과 주 목표는 [Vision](../vision.md)을 참조하세요.
 > 실제 구현 현황은 [spec.md](./spec.md), 즉시 태스크는 [todo.md](./todo.md)를 참조하세요.
+> artifact release의 판단 입력과 책임 경계는 [release-readiness.md](./release-readiness.md)를
+> 기준으로 한다.
 
 ---
 
@@ -15,7 +17,32 @@ generation, mock/runtime testing, diff/drift/freshness review를 연결한다. �
 
 ---
 
-## Implemented Core — Data Pseudonymization Manifest
+## 현재 제품 로드맵 — Core Platform 안정화와 artifact release
+
+Status: active
+
+현재 신규 제품 투자는 [Platform Scope](./platform-scope.md)의 Core Platform에 한정한다.
+Downstream Integration은 Core 계약의 소비 가능성을 증명하는 release-tracked 경계이고,
+maintenance-only 패키지는 별도 scope-reactivation decision 없이는 새 feature roadmap이 아니다.
+
+| Horizon | 목표 | 완료 증거 | 상태 |
+| --- | --- | --- | --- |
+| Now | public artifact를 낼 수 있는 source readiness를 유지한다 | clean-worktree preflight, TypeSpec validation/downstream check, package pack smoke, version intent | active |
+| Next | 외부 OpenAPI producer와의 projection 소비를 안정화한다 | artifact freshness/version hash, validate/typegen 및 consumer integration evidence | planned |
+| Per release | package version, Changeset, user-facing release note와 artifact release ID를 함께 확정한다 | release record, external manifest SHA-512 review | planned when a candidate is selected |
+| Separate decision | 실제 API runtime launch의 URL, token issuer, scope/권한 정책을 확정한다 | runtime owner deployment evidence | outside this repository's package release scope |
+
+현재 Core Platform의 다음 구현/연동 맥락은 [todo.md](./todo.md)에, artifact export와 external
+promotion 절차는 [Artifact Release Preparation](../guides/release-preparation.md)에 둔다.
+
+---
+
+## Historical and maintenance context
+
+아래 내용은 완료된 implementation history 또는 maintenance-only의 소유·추출 경계를 보존한다.
+현재 Core Platform의 active feature roadmap으로 해석하지 않는다.
+
+### Implemented maintenance track — Data Pseudonymization Manifest
 
 API 설계 범위를 DB 설계 연결까지 확장하는 privacy track이다. 핵심 결정은
 [Data Pseudonymization Manifest](../concepts/data-pseudonymization-manifest.md)를 독립 YAML
@@ -61,7 +88,7 @@ declaration, rollback, workflow, pack, owner CI, and owner `check:docs` gate까�
 neutral artifact 위에 두는 별도의 owner-authorized control-plane capability이며 아직 active
 goal은 아니다.
 
-## 권장 public-release 정책
+#### Historical DPM public-release policy
 
 현재는 repository와 package를 private으로 유지한다. 공개 전환의 기본 패키지명은
 `@mineclover/dpm`으로 검토하고, 기존 `@oa-sdk/dpm`은 compatibility adapter로 유지한다.
@@ -105,7 +132,7 @@ SWC에서 참조하는 패턴:
 
 ---
 
-## Phase별 현황
+## Historical implementation phases
 
 ### Completed — TypeSpec roundtrip readiness (`@oa-sdk/codegen` v0.3.0)
 OpenAPI artifact를 `.tsp`와 OA SDK compatibility sidecar 및 `oa-sdk.typespec-bundle.v1` manifest로 변환한 뒤 TypeSpec OpenAPI emitter와 sidecar restore/re-extract를 거쳐 다시 OA SDK 검증/diff 루프에 넣고, authored `.tsp + sidecar` bundle 및 sidecar-less `.tsp` extension bundle도 같은 manifest로 검증 루프에 넣는 전환 가능성 평가 트랙입니다. 현재 `oa-gen tsp-export --bundle-manifest`, `oa-gen tsp-restore --stability-report`, `oa-gen tsp-bundle-check --fail-on-breaking`, `pnpm typespec:roundtrip -- --fail-on-breaking`, `pnpm typespec:bundle-check -- --fail-on-breaking`, `pnpm schema:validate`, `pnpm schema:rollback-check`, `pnpm schema:downstream-check`이 동작합니다.

@@ -1,7 +1,7 @@
 id: schema:public/me/ExportJob
 content:
   type: object
-  description: export job 상태
+  description: export job receipt. 이 계약의 POST 응답은 queued 상태만 반환하며, 이후 상태 전이와 downloadUrl 전달 방식은 runtime 계약이 별도로 정의합니다.
   required:
     - jobId
     - status

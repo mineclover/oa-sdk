@@ -66,7 +66,9 @@ content:
       - users
     operationId: createUser
     summary: 사용자 생성
-    description: 이메일, 이름, 비밀번호를 받아 새 사용자를 생성합니다
+    description: |
+      이메일, 이름, 비밀번호를 받아 새 사용자를 생성합니다. 이미 등록된 이메일은
+      409 Conflict를 반환합니다.
     security:
       - bearerAuth: []
     requestBody:
@@ -101,6 +103,8 @@ content:
         $ref: oa://response/shared/common/BadRequest
       "401":
         $ref: oa://response/shared/common/Unauthorized
+      "409":
+        $ref: oa://response/shared/common/Conflict
       "422":
         $ref: oa://response/shared/common/UnprocessableEntity
       "500":

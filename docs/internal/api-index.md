@@ -591,6 +591,7 @@ category barrel을 가리킨다. `packages/dpm/test/package-subpath-import-smoke
 | 함수 | 파일 | 용도 |
 |------|------|------|
 | `parseDocument()` | `parse.ts` | OAS 문서 → ParsedDocument IR (정식 진입점) |
+| `getQuerystringParameter()` | `querystring.ts` | OAS 3.2 whole-query parameter를 찾고 query와의 배타성·단일성 위반을 fail-fast 처리 |
 | `isParsedDocument()` | `parsed-document.ts` | raw OAS와 Map-backed `ParsedDocument` IR을 구분하는 runtime type guard |
 | `isParsedDocumentComplete()` | `parsed-document.ts` | `$ref` resolution evidence가 complete인 `ParsedDocument`를 좁히는 runtime type guard |
 | `assertParsedDocumentComplete()` | `parsed-document.ts` | partial 또는 legacy metadata-less IR이 생성기로 전달되는 것을 차단하는 assertion |
@@ -1068,7 +1069,8 @@ Governance manifest: `packages/codegen/src/cli/spec/oa-gen-governance.ts` 및 `d
 |-----------|------|------|
 | `MockErrorCode` | `errors/types.ts` | 에러 코드 유니온 |
 | `MockValidationStage` | `errors/types.ts` | 검증 단계 ('parse' \| 'coerce' \| 'validate') |
-| `MockErrorDetail` | `errors/types.ts` | 에러 상세 타입 (path, code, message, received, value, expected, constraint, stage) |
+| `MockReceivedValueSummary` | `errors/types.ts` | raw 입력을 포함하지 않는 type/length/count 진단 요약 |
+| `MockErrorDetail` | `errors/types.ts` | 에러 상세 타입. received와 legacy value는 raw 입력 대신 안전한 요약만 제공 |
 | `MockValidationResult` | `errors/types.ts` | 검증 결과 타입 |
 | `MockErrorResponse` | `errors/types.ts` | 에러 응답 타입 (ApiError 구조 호환) |
 | `classifyAjvErrors()` | `errors/classifier.ts` | AJV 에러 분류 |
@@ -1115,6 +1117,7 @@ Governance manifest: `packages/codegen/src/cli/spec/oa-gen-governance.ts` 및 `d
 | `createOperationTypeNameMap()` | `strings.ts` | operationId → 충돌 없는 타입 이름 맵 |
 | `toOperationMethodName()` | `strings.ts` | operation 타입 이름 → lowerCamelCase SDK 메서드 이름 |
 | `escapeKey()` | `strings.ts` | 비식별자 키 → 따옴표 이스케이프 |
+| `quoteTypeScriptString()` | `strings.ts` | 제어 문자를 포함한 문자열 값을 안전한 TypeScript string literal로 이스케이프 |
 | `toColonPath()` | `strings.ts` | `/users/{id}` → `/users/:id` |
 | `collectTypeNames()` | `codegen-utils.ts` | operations → typegen 타입 이름 수집 (ResponseHeaders 포함) |
 | `hasGeneratedErrorType()` | `codegen-utils.ts` | 4xx/5xx/default JSON error body의 typegen 생성 여부 판정 |

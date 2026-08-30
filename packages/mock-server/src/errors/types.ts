@@ -24,15 +24,31 @@ export type MockErrorCode =
 /** 검증 파이프라인 단계 */
 export type MockValidationStage = 'parse' | 'coerce' | 'validate'
 
+/**
+ * Public, non-sensitive summary of a supplied validation value.
+ *
+ * Validation responses are often logged, forwarded to browser clients, or
+ * serialized by an adapter.  They therefore describe a value's shape only;
+ * they never contain the submitted string, object, or array contents.
+ */
+export type MockReceivedValueSummary =
+  | { type: 'string'; length: number }
+  | { type: 'array'; count: number }
+  | { type: 'object'; count: number }
+  | { type: 'number' | 'boolean' | 'bigint' | 'symbol' | 'function' | 'null' | 'undefined' }
+
 export type MockErrorDetail = {
   /** JSONPath 형식 필드 경로 (e.g. "/body/email") */
   path: string
   code: MockErrorCode
   message: string
-  /** 실제 수신된 값 (received와 동일, ApiErrorDetail 호환용) */
-  value?: unknown
-  /** 실제 수신된 값 */
-  received?: unknown
+  /**
+   * Legacy alias of `received`. It is always a non-sensitive shape summary,
+   * never the submitted value.
+   */
+  value?: MockReceivedValueSummary
+  /** Non-sensitive type/length/count summary of the submitted value. */
+  received?: MockReceivedValueSummary
   /** 기대했던 값 또는 형식 */
   expected?: string
   /** 위반된 제약 조건 값 (e.g. minLength: 8) */

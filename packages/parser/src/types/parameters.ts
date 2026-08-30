@@ -9,7 +9,7 @@ import type { OasSchema } from './schema.js'
 import type { OasExample } from './examples.js'
 import type { OasMediaType } from './request-body.js'
 
-export type OasParameterIn = 'path' | 'query' | 'header' | 'cookie'
+export type OasParameterIn = 'path' | 'query' | 'querystring' | 'header' | 'cookie'
 
 export type OasParameter = {
   name: string

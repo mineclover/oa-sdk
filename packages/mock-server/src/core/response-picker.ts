@@ -1,7 +1,7 @@
-import type { OasResponse, OasSchema, OasHeader, OasLink, Referenceable } from '@oa-sdk/parser'
+import type { OasResponse, OasSchema, OasHeader, OasLink, OasMediaType, Referenceable } from '@oa-sdk/parser'
 import type { MockValidationResult } from '../errors/types.js'
 import { generator } from './generate.js'
-import { isStreamingContentType } from './stream.js'
+import { generateStreamValidationValue, isStreamingContentType } from './stream.js'
 import { pickFirstMediaType, resolveExampleOnly, resolveMediaTypeBody } from './media-body.js'
 import { runSchemaValidation } from './request-validation/schema-compiler.js'
 
@@ -48,14 +48,19 @@ export function pickResponse(responses: Record<string, OasResponse>): PickedResp
 
   if (isStreamingContentType(contentType)) {
     const exampleBody = resolveExampleOnly(mediaType)
-    const schema = mediaType?.schema as OasSchema | undefined
+    const streamMediaType = mediaType as OasMediaType | undefined
+    const schema = streamMediaType?.schema
+    // OpenAPI 3.2 streams describe each event with itemSchema. Treat it as the
+    // stream schema so a canonical SSE response is generated rather than sent
+    // as a single `null` event.
+    const streamSchema = schema ?? streamMediaType?.itemSchema
     if (exampleBody !== null) {
       const result: PickedResponse = { status: entry.status, contentType, body: exampleBody, headers, links }
       if (schema !== undefined) result.schema = schema
       return result
     }
     const result: PickedResponse = { status: entry.status, contentType, body: null, headers, links }
-    if (schema !== undefined) result.stream = schema
+    if (streamSchema !== undefined) result.stream = streamSchema
     return result
   }
 
@@ -73,7 +78,7 @@ export function validatePickedResponse(picked: PickedResponse): MockValidationRe
   const schema = picked.schema ?? picked.stream
   if (!schema) return { valid: true }
 
-  const body = picked.stream ? generator.fold(picked.stream) : picked.body
+  const body = picked.stream ? generateStreamValidationValue(picked.stream) : picked.body
   const errors = runSchemaValidation(body, schema, '/response/body', '응답')
   return errors.length === 0 ? { valid: true } : { valid: false, errors }
 }

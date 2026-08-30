@@ -756,7 +756,7 @@
         "column": 13,
         "filePath": "packages/parser/src/validate.ts",
         "kind": "deserialize",
-        "line": 52,
+        "line": 55,
         "sourceType": "JSON.parse"
       },
       {
@@ -863,7 +863,7 @@
         "column": 12,
         "filePath": "packages/mock-server/src/core/request-validator.ts",
         "kind": "deserialize",
-        "line": 527,
+        "line": 704,
         "sourceType": "JSON.parse"
       },
       {
@@ -876,10 +876,10 @@
       },
       {
         "boundaryId": "type-boundary:243b8182f1d02d04ec7abc70caf4d8fb",
-        "column": 24,
+        "column": 32,
         "filePath": "packages/mock-server/src/adapters/msw.ts",
         "kind": "deserialize",
-        "line": 227,
+        "line": 219,
         "sourceType": "request.json"
       },
       {
@@ -941,6 +941,14 @@
         "sourceType": "JSON.parse"
       },
       {
+        "boundaryId": "type-boundary:3004ae31f1e92875c6abb7341cc3c617",
+        "column": 33,
+        "filePath": "packages/mock-server/src/core/request-validator.ts",
+        "kind": "deserialize",
+        "line": 340,
+        "sourceType": "JSON.parse"
+      },
+      {
         "boundaryId": "type-boundary:312b089a1d99ddc388163c03ebf1b56d",
         "column": 35,
         "filePath": "packages/spec-lens/src/presentation/http/server.ts",
@@ -961,7 +969,7 @@
         "column": 38,
         "filePath": "packages/parser/src/ref-resolver.ts",
         "kind": "deserialize",
-        "line": 299,
+        "line": 298,
         "sourceType": "JSON.parse"
       },
       {
@@ -1066,7 +1074,7 @@
         "column": 52,
         "filePath": "packages/mock-server/src/adapters/msw.ts",
         "kind": "deserialize",
-        "line": 171,
+        "line": 167,
         "sourceType": "HttpResponse.json"
       },
       {
@@ -1132,7 +1140,7 @@
         "column": 71,
         "filePath": "packages/mock-server/src/adapters/msw.ts",
         "kind": "any",
-        "line": 109
+        "line": 110
       },
       {
         "boundaryId": "type-boundary:6bb8bdc3f58b17df227a0a9d28c8c5ce",
@@ -1231,16 +1239,8 @@
         "column": 23,
         "filePath": "packages/codegen/src/cli/lib/typespec-spec-lens.ts",
         "kind": "deserialize",
-        "line": 516,
+        "line": 528,
         "sourceType": "parseJson"
-      },
-      {
-        "boundaryId": "type-boundary:85c1f4a666d8ef6314412ff08ce9340a",
-        "column": 20,
-        "filePath": "packages/mock-server/src/adapters/msw.ts",
-        "kind": "deserialize",
-        "line": 128,
-        "sourceType": "HttpResponse.json"
       },
       {
         "boundaryId": "type-boundary:8a0e1cdb562b17e7709a45d7d87acd86",
@@ -1280,7 +1280,7 @@
         "column": 12,
         "filePath": "packages/codegen/src/cli/lib/typespec-spec-lens.ts",
         "kind": "deserialize",
-        "line": 552,
+        "line": 564,
         "sourceType": "JSON.parse"
       },
       {
@@ -1346,7 +1346,7 @@
         "column": 26,
         "filePath": "packages/codegen/src/cli/lib/typespec-ref-provenance.ts",
         "kind": "double-assertion",
-        "line": 418,
+        "line": 434,
         "sourceType": "159:\"unknown\"",
         "targetType": "80:\"Record\"|30:\"<\"|154:\"string\"|28:\",\"|159:\"unknown\"|32:\">\""
       },
@@ -1452,7 +1452,7 @@
         "column": 27,
         "filePath": "packages/codegen/src/cli/lib/typespec-spec-lens.ts",
         "kind": "deserialize",
-        "line": 539,
+        "line": 551,
         "sourceType": "parseJson"
       },
       {
@@ -1529,14 +1529,6 @@
         "sourceType": "JSON.parse"
       },
       {
-        "boundaryId": "type-boundary:d70cbb315c24edb328b2a30083d716f1",
-        "column": 18,
-        "filePath": "packages/mock-server/src/adapters/msw.ts",
-        "kind": "deserialize",
-        "line": 195,
-        "sourceType": "HttpResponse.json"
-      },
-      {
         "boundaryId": "type-boundary:d81087c78a8aa200bf856b04e18d24d0",
         "column": 40,
         "filePath": "packages/spec-lens/src/presentation/http/server.ts",
@@ -1573,7 +1565,7 @@
         "column": 21,
         "filePath": "packages/codegen/src/cli/lib/typespec-ref-provenance.ts",
         "kind": "deserialize",
-        "line": 561,
+        "line": 577,
         "sourceType": "JSON.parse"
       },
       {
@@ -1581,7 +1573,7 @@
         "column": 48,
         "filePath": "packages/codegen/src/cli/lib/typespec-spec-lens.ts",
         "kind": "deserialize",
-        "line": 175,
+        "line": 184,
         "sourceType": "parseJson"
       },
       {
@@ -1605,7 +1597,7 @@
         "column": 47,
         "filePath": "packages/mock-server/src/adapters/msw.ts",
         "kind": "deserialize",
-        "line": 173,
+        "line": 169,
         "sourceType": "HttpResponse.json"
       },
       {
@@ -1646,7 +1638,7 @@
         "column": 48,
         "filePath": "packages/mock-server/src/adapters/msw.ts",
         "kind": "deserialize",
-        "line": 172,
+        "line": 168,
         "sourceType": "HttpResponse.json"
       },
       {
@@ -1679,16 +1671,16 @@
         "column": 26,
         "filePath": "packages/codegen/src/cli/lib/typespec-ref-provenance.ts",
         "kind": "double-assertion",
-        "line": 399,
+        "line": 415,
         "sourceType": "159:\"unknown\"",
         "targetType": "80:\"Record\"|30:\"<\"|154:\"string\"|28:\",\"|159:\"unknown\"|32:\">\""
       },
       {
         "boundaryId": "type-boundary:fef05b820ed2db0925cf363c817741cd",
-        "column": 18,
+        "column": 26,
         "filePath": "packages/mock-server/src/adapters/node-http.ts",
         "kind": "deserialize",
-        "line": 238,
+        "line": 252,
         "sourceType": "JSON.parse"
       }
     ],
@@ -2765,6 +2757,26 @@
       },
       {
         "filePath": "packages/client/src/generate-client-renderer.ts",
+        "identity": "packages/client/src/generate-client-renderer.ts#src/generate-client-renderer.ts#neutral#@oa-sdk/client:src/generate-client-renderer.ts#escapeTemplateLiteral#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/client:src/generate-client-renderer.ts#escapeTemplateLiteral",
+        "runtime": "neutral",
+        "semanticHash": "1829d055c8101748d9e07bc5a18d2a3b75f8949eeebff99985cabec0edb1b701",
+        "shapeHash": "5159f79092a0c2e729e743884d19d0914c67f773c0a905f630336893aa3ec84a",
+        "syntaxHash": "97cd805c03ca15aaaa2eac4b3da5b6d765ddb03f07197f948f835d64956d57fe"
+      },
+      {
+        "filePath": "packages/client/src/generate-client-renderer.ts",
+        "identity": "packages/client/src/generate-client-renderer.ts#src/generate-client-renderer.ts#neutral#@oa-sdk/client:src/generate-client-renderer.ts#formatErrorMediaTypes#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/client:src/generate-client-renderer.ts#formatErrorMediaTypes",
+        "runtime": "neutral",
+        "semanticHash": "6fd104d7656c32ad05416a14124dfac9c2f7bf495c94d2acfe433359f176e6b5",
+        "shapeHash": "b8c4f676d126289819f8a198472db6f299187c89d8fcbfb7d03f9c4960815b59",
+        "syntaxHash": "195d449244ef71ad6c6ab8fa9358df6cbeec9fefec83150a9f0bbeb856fac0b2"
+      },
+      {
+        "filePath": "packages/client/src/generate-client-renderer.ts",
         "identity": "packages/client/src/generate-client-renderer.ts#src/generate-client-renderer.ts#neutral#@oa-sdk/client:src/generate-client-renderer.ts#formatHeaderSpecs#function",
         "kind": "function",
         "qualifiedName": "@oa-sdk/client:src/generate-client-renderer.ts#formatHeaderSpecs",
@@ -2775,13 +2787,53 @@
       },
       {
         "filePath": "packages/client/src/generate-client-renderer.ts",
+        "identity": "packages/client/src/generate-client-renderer.ts#src/generate-client-renderer.ts#neutral#@oa-sdk/client:src/generate-client-renderer.ts#formatQuerySpecs#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/client:src/generate-client-renderer.ts#formatQuerySpecs",
+        "runtime": "neutral",
+        "semanticHash": "faa5b13f01c12bba8ec7c5ee52378e291058a4216da9c2a990cc8068e1c1443f",
+        "shapeHash": "7dea3ab8b285e2602f7a68437579c10b39bd8dc0383c1a9cc4db1a8c891c6425",
+        "syntaxHash": "e87b6b2f81eab642449ac9407867fdbdeb184ba9bdf9b5b943e932b486cd587f"
+      },
+      {
+        "filePath": "packages/client/src/generate-client-renderer.ts",
+        "identity": "packages/client/src/generate-client-renderer.ts#src/generate-client-renderer.ts#neutral#@oa-sdk/client:src/generate-client-renderer.ts#formatResponseMediaTypes#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/client:src/generate-client-renderer.ts#formatResponseMediaTypes",
+        "runtime": "neutral",
+        "semanticHash": "9b6115cd05bc53f16d0ae6e9d9ee00ba359fd2a6e4837f7a6d702c4f575ee045",
+        "shapeHash": "b8c4f676d126289819f8a198472db6f299187c89d8fcbfb7d03f9c4960815b59",
+        "syntaxHash": "91f725aca7af263a356122b029fb97a840a59fb1537aa96b5d5b127293b2eb0a"
+      },
+      {
+        "filePath": "packages/client/src/generate-client-renderer.ts",
         "identity": "packages/client/src/generate-client-renderer.ts#src/generate-client-renderer.ts#neutral#@oa-sdk/client:src/generate-client-renderer.ts#generateClientFromParsed#function",
         "kind": "function",
         "qualifiedName": "@oa-sdk/client:src/generate-client-renderer.ts#generateClientFromParsed",
         "runtime": "neutral",
         "semanticHash": "922338279bb1288470e441a1b0e41ec5193f1f46dac31ed9334a3243015e6f21",
         "shapeHash": "9fe0579f54b9a344fd65557fc0fa83b24413658fc6420ee8cc31b97b631ee5ad",
-        "syntaxHash": "21f4d9c0a0a54577856129844cc99b47314580320b776f8c5f33dc09b527c37f"
+        "syntaxHash": "f6d0c5a11f47d35c672466318da7587761ee49304db2bfdf2272f9413ad232af"
+      },
+      {
+        "filePath": "packages/client/src/generate-client-renderer.ts",
+        "identity": "packages/client/src/generate-client-renderer.ts#src/generate-client-renderer.ts#neutral#@oa-sdk/client:src/generate-client-renderer.ts#getRequestMediaTypes#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/client:src/generate-client-renderer.ts#getRequestMediaTypes",
+        "runtime": "neutral",
+        "semanticHash": "1de2551fc942d1ef933296d00f11926e13ff6dcab87b604c831a5fddda968460",
+        "shapeHash": "4b9748f8d8cd45adc546b541b835890c2d31ecc41c293253eb82fdd268849818",
+        "syntaxHash": "1246c015c957362b804b3cdd7d68ac1d6c2f4e0c0504e5276cda0b2b99bcfad5"
+      },
+      {
+        "filePath": "packages/client/src/generate-client-renderer.ts",
+        "identity": "packages/client/src/generate-client-renderer.ts#src/generate-client-renderer.ts#neutral#@oa-sdk/client:src/generate-client-renderer.ts#getSseDataMode#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/client:src/generate-client-renderer.ts#getSseDataMode",
+        "runtime": "neutral",
+        "semanticHash": "cd6726a34a65ed5d9507ddb9f869189827a792825937c6ecb2eab535afcdce32",
+        "shapeHash": "ed4ca2ea9e9d38abf4aacede93033c8219b775f710322c41eae8f81defec8296",
+        "syntaxHash": "2280d430d5b66ee64ef2d6df1fb60892c3d3d07b9e5f2f4f78ab4b4f816bc350"
       },
       {
         "filePath": "packages/client/src/generate-client-renderer.ts",
@@ -2792,6 +2844,16 @@
         "semanticHash": "7d1375956bfecaf5a017bfd214c6402c8d9071c742e1a609afcf24177c64cd77",
         "shapeHash": "1c0c66015abefd4cafb64d1ed8751c4c0d251324bb2e7da6da2c557410672356",
         "syntaxHash": "861325e8d413e6bda41f8a40864eb4869f7c716c95a100499e386f82048a0760"
+      },
+      {
+        "filePath": "packages/client/src/generate-client-renderer.ts",
+        "identity": "packages/client/src/generate-client-renderer.ts#src/generate-client-renderer.ts#neutral#@oa-sdk/client:src/generate-client-renderer.ts#hasDocumentedSuccessResponseBody#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/client:src/generate-client-renderer.ts#hasDocumentedSuccessResponseBody",
+        "runtime": "neutral",
+        "semanticHash": "0fdd824e43e855b7001ac1259dbf546595a4d892860068af6abe9b25c2a6bcc0",
+        "shapeHash": "b8cf682a65c721148df4a689f9ef38047f07b09a204e5ec855177f3dca94ca18",
+        "syntaxHash": "ead88783456eed0242e1e4f479abfa93e22cd23b81642e29a60c808e346f905d"
       },
       {
         "filePath": "packages/client/src/generate-client-renderer.ts",
@@ -2845,6 +2907,16 @@
       },
       {
         "filePath": "packages/client/src/generate-client-renderer.ts",
+        "identity": "packages/client/src/generate-client-renderer.ts#src/generate-client-renderer.ts#neutral#@oa-sdk/client:src/generate-client-renderer.ts#isJsonMediaTypeName#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/client:src/generate-client-renderer.ts#isJsonMediaTypeName",
+        "runtime": "neutral",
+        "semanticHash": "825b1364407520d8e49d33f5a622fa75801076293b35a730a4e4a5c0c07890d2",
+        "shapeHash": "02169437a9ea38945b33198c68fdbf8e0b48eaf9790b282a5b5c700dde3e1eea",
+        "syntaxHash": "6ef82d008bd6a859b88fb5d22a8a2690258df5b03518d3f01646b55c2001fee9"
+      },
+      {
+        "filePath": "packages/client/src/generate-client-renderer.ts",
         "identity": "packages/client/src/generate-client-renderer.ts#src/generate-client-renderer.ts#neutral#@oa-sdk/client:src/generate-client-renderer.ts#oasTypeToTs#function",
         "kind": "function",
         "qualifiedName": "@oa-sdk/client:src/generate-client-renderer.ts#oasTypeToTs",
@@ -2855,6 +2927,16 @@
       },
       {
         "filePath": "packages/client/src/generate-client-renderer.ts",
+        "identity": "packages/client/src/generate-client-renderer.ts#src/generate-client-renderer.ts#neutral#@oa-sdk/client:src/generate-client-renderer.ts#orderPreferredMediaTypes#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/client:src/generate-client-renderer.ts#orderPreferredMediaTypes",
+        "runtime": "neutral",
+        "semanticHash": "541e009d87aa447594108a6178ab2d5c2148f13dde57ccf078507543e62cb6f8",
+        "shapeHash": "909899d6a7cc1505aed84bf047a08f3e7b9ca28c7a912b22596cd750884f06cd",
+        "syntaxHash": "df54197b7ca002a104bd8cdae038cffb9bf732592249bf1a4a095e64d5c03011"
+      },
+      {
+        "filePath": "packages/client/src/generate-client-renderer.ts",
         "identity": "packages/client/src/generate-client-renderer.ts#src/generate-client-renderer.ts#neutral#@oa-sdk/client:src/generate-client-renderer.ts#pickDocumentedHeaderResponse#function",
         "kind": "function",
         "qualifiedName": "@oa-sdk/client:src/generate-client-renderer.ts#pickDocumentedHeaderResponse",
@@ -2862,6 +2944,26 @@
         "semanticHash": "5151a266f4bc83f684e8ac3ae212dc6d6876abebf170812167b8dc0a272e7a72",
         "shapeHash": "31694dc5b4ef82ff21dc689d2f50fc7370a9e3494e1ecbb793fc22347c8ee95e",
         "syntaxHash": "01942cb45da2e3e57d135bcb0b3d70cb0d58cc3aac1fbc70ef403e5d3c5442f5"
+      },
+      {
+        "filePath": "packages/client/src/generate-client-renderer.ts",
+        "identity": "packages/client/src/generate-client-renderer.ts#src/generate-client-renderer.ts#neutral#@oa-sdk/client:src/generate-client-renderer.ts#pickPreferredMediaType#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/client:src/generate-client-renderer.ts#pickPreferredMediaType",
+        "runtime": "neutral",
+        "semanticHash": "a08210349c77dd3f67b80391d69c9dfd02e8c10e76f737ff316257d16e435c59",
+        "shapeHash": "3dd15b1592e706380854478ccded9dd742f8c677130190d90f0c68f722b4b623",
+        "syntaxHash": "f206b1267c1f347d4421d513a2409f44e9dfdbf1b05686a176a14ea11f321a66"
+      },
+      {
+        "filePath": "packages/client/src/generate-client-renderer.ts",
+        "identity": "packages/client/src/generate-client-renderer.ts#src/generate-client-renderer.ts#neutral#@oa-sdk/client:src/generate-client-renderer.ts#renderPathExpression#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/client:src/generate-client-renderer.ts#renderPathExpression",
+        "runtime": "neutral",
+        "semanticHash": "7a2d66e202f284a6f767eb2e29fdfc8cc11d96cd5e46c83f2d11277fa1357041",
+        "shapeHash": "d13f8863fb18d87237439cd302e59dd57b49868c86f1ccbb9588b1d310708407",
+        "syntaxHash": "830a24a23ff060fc6ae62f07fa6c210bf0a797ff17b72ffc969443e4b4af1bfa"
       },
       {
         "filePath": "packages/client/src/generate-client-renderer.ts",
@@ -2909,9 +3011,9 @@
         "kind": "function",
         "qualifiedName": "@oa-sdk/client:src/request-contract.ts#requestValidationLines",
         "runtime": "neutral",
-        "semanticHash": "25c62126b6a69c428dc32e9a60acae3ed2ab8e744359cf1f4a49caa8328f6396",
-        "shapeHash": "60fe89978518c322c5c1489929f0098010f94afc0f8f2747a42fe412863a19b9",
-        "syntaxHash": "f5b04c13a6eb0ea0f16830647821e7e7a1a40101eea9ccf20f9317f9558f0538"
+        "semanticHash": "b106c91a47fc8668c0b45595c7d300b63e23b884dfdcdb1e18136b3e39c407c5",
+        "shapeHash": "4e6986ba712dbdff0137cf7d11944ea5a51906ff373cbd97e08f0b51eedc03f0",
+        "syntaxHash": "0dc1d8ffb04503cdc9731f96d40d1a070791e08e81c876d25102f823b577ae2f"
       },
       {
         "filePath": "packages/client/src/retry-policy.ts",
@@ -2931,7 +3033,7 @@
         "runtime": "neutral",
         "semanticHash": "6b8a8964f58aae441c60a6c4bef7b434d92eb7cd861eb0ee0b3cd3bb3889798e",
         "shapeHash": "2e438359a1649b8fb65d7ffc1c73f71f188fa7e0370da0ce521e628cf9dd9143",
-        "syntaxHash": "0f902833d0ba7258916bab094eae34558b44bf08789bdba241fd169043253e25"
+        "syntaxHash": "2159f061fcfe01c822dc437de7962795b960245b65949058d5ae92fb988fa1f0"
       },
       {
         "filePath": "packages/client/src/runtime-schema.ts",
@@ -2941,7 +3043,7 @@
         "runtime": "neutral",
         "semanticHash": "fb36768dc3a550d62b3dfa1baf2d99572120daaf1cc406179b15b30687222cb2",
         "shapeHash": "31593863d2ef4ce1b2f81d7a62b0a0856db122442bec70dd8f184e5376d7cd2d",
-        "syntaxHash": "389fd883aceaed359e8abea131548880c3220fbd8d468b23260762e98b5801c1"
+        "syntaxHash": "ebed5aea4fa85a644002900fb39ac567ddf1a0b977cc4dfc0afd4bf3b9291151"
       },
       {
         "filePath": "packages/codegen/src/apitomy/index.ts",
@@ -11124,6 +11226,96 @@
         "syntaxHash": "b13719b5a4d4ac235065f62c1e6e5657144521458d281cefd4ecc68c95c9a057"
       },
       {
+        "filePath": "packages/codegen/src/cli/lib/tsp-export-diagnostic-policy.ts",
+        "identity": "packages/codegen/src/cli/lib/tsp-export-diagnostic-policy.ts#src/cli/lib/tsp-export-diagnostic-policy.ts#neutral#@oa-sdk/codegen:src/cli/lib/tsp-export-diagnostic-policy.ts#classifyTspExportDiagnostic#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/codegen:src/cli/lib/tsp-export-diagnostic-policy.ts#classifyTspExportDiagnostic",
+        "runtime": "neutral",
+        "semanticHash": "6c444e02a7913b22152a83376b7c1cd27edfc43238f05079cb8ad8cd10aa2e27",
+        "shapeHash": "c07648e36497b1f4f2c5d010604aa3ae66c3ba85cd1bd6170d5654e2608afc69",
+        "syntaxHash": "bdd89bb28f1aab12fb11a0f55e1ab0462f82c24aa8bee94ff581642848317911"
+      },
+      {
+        "filePath": "packages/codegen/src/cli/lib/tsp-export-diagnostic-policy.ts",
+        "identity": "packages/codegen/src/cli/lib/tsp-export-diagnostic-policy.ts#src/cli/lib/tsp-export-diagnostic-policy.ts#neutral#@oa-sdk/codegen:src/cli/lib/tsp-export-diagnostic-policy.ts#findUnacceptedTspExportDiagnostics#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/codegen:src/cli/lib/tsp-export-diagnostic-policy.ts#findUnacceptedTspExportDiagnostics",
+        "runtime": "neutral",
+        "semanticHash": "7a3ba0faed62aa2f5f4adc2b16823fbfec194144c84e5217969e4855257a7be4",
+        "shapeHash": "743a042a27258c9ec10e9ebbab38b41c8b0555b0bcb65077c1b65d239814304e",
+        "syntaxHash": "8649786148b4458c345d97372a035ffbaffe2069c4f7099d3702a280d84822bf"
+      },
+      {
+        "filePath": "packages/codegen/src/cli/lib/tsp-export-diagnostic-policy.ts",
+        "identity": "packages/codegen/src/cli/lib/tsp-export-diagnostic-policy.ts#src/cli/lib/tsp-export-diagnostic-policy.ts#neutral#@oa-sdk/codegen:src/cli/lib/tsp-export-diagnostic-policy.ts#isRecord#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/codegen:src/cli/lib/tsp-export-diagnostic-policy.ts#isRecord",
+        "runtime": "neutral",
+        "semanticHash": "817aaa54f5db297323f930f2f365a5f08e4d402aa0beeeb893f52cb744c77d5a",
+        "shapeHash": "c91435eb4555d6c825407db05a6f1c9d47975c263b297896e25bbd7ddaf682c0",
+        "syntaxHash": "6e2ff76e016131ec78ef437a4a99f83cba7621a27134644e9f8c2494049dc7c0"
+      },
+      {
+        "filePath": "packages/codegen/src/cli/lib/tsp-export-diagnostic-policy.ts",
+        "identity": "packages/codegen/src/cli/lib/tsp-export-diagnostic-policy.ts#src/cli/lib/tsp-export-diagnostic-policy.ts#neutral#@oa-sdk/codegen:src/cli/lib/tsp-export-diagnostic-policy.ts#isSecuritySchemeReferenced#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/codegen:src/cli/lib/tsp-export-diagnostic-policy.ts#isSecuritySchemeReferenced",
+        "runtime": "neutral",
+        "semanticHash": "ec5aaf0f2aee6efb7b8770241fc2417b0d416461a6404d86b23d8a0dc807788b",
+        "shapeHash": "9789eee2ea04d9c0d6da2da7907aff5199fe3c44fc37e300eef77e3bcf7a96fa",
+        "syntaxHash": "7a6125eec17c0d6e7ad79338a538861d88b39b9306b0be296d14befe6eb58f07"
+      },
+      {
+        "filePath": "packages/codegen/src/cli/lib/tsp-export-diagnostic-policy.ts",
+        "identity": "packages/codegen/src/cli/lib/tsp-export-diagnostic-policy.ts#src/cli/lib/tsp-export-diagnostic-policy.ts#neutral#@oa-sdk/codegen:src/cli/lib/tsp-export-diagnostic-policy.ts#securityRequirementsUseScheme#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/codegen:src/cli/lib/tsp-export-diagnostic-policy.ts#securityRequirementsUseScheme",
+        "runtime": "neutral",
+        "semanticHash": "1705ab7cb539b412fd7e52918abf533ebb8b676418e4a8163c5f57471e696b48",
+        "shapeHash": "07aa74cccf0fc32562cb4701919abdbba120a34baea4564a1b84015bee731c6b",
+        "syntaxHash": "d13397de5bd3e524e321ffab23adb83e20b7ec67f3386fc10446821f27504f83"
+      },
+      {
+        "filePath": "packages/codegen/src/cli/lib/tsp-export-diagnostic-policy.ts",
+        "identity": "packages/codegen/src/cli/lib/tsp-export-diagnostic-policy.ts#src/cli/lib/tsp-export-diagnostic-policy.ts#neutral#@oa-sdk/codegen:src/cli/lib/tsp-export-diagnostic-policy.ts#securitySchemeNameFromPointer#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/codegen:src/cli/lib/tsp-export-diagnostic-policy.ts#securitySchemeNameFromPointer",
+        "runtime": "neutral",
+        "semanticHash": "895f35e085b18e2066062c65b15069e7f32544a4f93e03d13ff9073f82bd0584",
+        "shapeHash": "355522edd40bbba8ce8e45619ffce13371fee0d8fc86ef019af9df597539c58b",
+        "syntaxHash": "f6a50ee0785d93ce193fd66e644dd5209391b699fed6bf5bc0e6cf1be73a5153"
+      },
+      {
+        "filePath": "packages/codegen/src/cli/lib/tsp-export-diagnostic-policy.ts",
+        "identity": "packages/codegen/src/cli/lib/tsp-export-diagnostic-policy.ts#src/cli/lib/tsp-export-diagnostic-policy.ts#neutral#@oa-sdk/codegen:src/cli/lib/tsp-export-diagnostic-policy.ts#TspExportDiagnosticDisposition#type-alias",
+        "kind": "type-alias",
+        "qualifiedName": "@oa-sdk/codegen:src/cli/lib/tsp-export-diagnostic-policy.ts#TspExportDiagnosticDisposition",
+        "runtime": "neutral",
+        "semanticHash": "de2a5e76a3623ff52cb1c09188a048146bf5dde7661568e93597a291aa9dc2c7",
+        "shapeHash": "47f9b07a706d30cd2befb90754c1918f4344794382c9316c8d1c4928cfd5ac0d",
+        "syntaxHash": "2ff4cef5ca2033fdbe44a1a1d0388bc683c968ddaad717549fcd202c3b860825"
+      },
+      {
+        "filePath": "packages/codegen/src/cli/lib/tsp-export-diagnostic-policy.ts",
+        "identity": "packages/codegen/src/cli/lib/tsp-export-diagnostic-policy.ts#src/cli/lib/tsp-export-diagnostic-policy.ts#neutral#@oa-sdk/codegen:src/cli/lib/tsp-export-diagnostic-policy.ts#TspExportDiagnosticPolicy#type-alias",
+        "kind": "type-alias",
+        "qualifiedName": "@oa-sdk/codegen:src/cli/lib/tsp-export-diagnostic-policy.ts#TspExportDiagnosticPolicy",
+        "runtime": "neutral",
+        "semanticHash": "1307478bb756c6dee649647892af422e3a7ed23c90a28458502f2cbf1d298ed5",
+        "shapeHash": "f99f97d873686dc123b5389ff8199f7abf7033b413eeb7b28185e49b86cf9e06",
+        "syntaxHash": "ed9fae97668ee8e07f0f539f7ec46f393cab55ffb644968c7c77f3c7494d0cdc"
+      },
+      {
+        "filePath": "packages/codegen/src/cli/lib/tsp-export-diagnostic-policy.ts",
+        "identity": "packages/codegen/src/cli/lib/tsp-export-diagnostic-policy.ts#src/cli/lib/tsp-export-diagnostic-policy.ts#neutral#@oa-sdk/codegen:src/cli/lib/tsp-export-diagnostic-policy.ts#unescapeJsonPointer#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/codegen:src/cli/lib/tsp-export-diagnostic-policy.ts#unescapeJsonPointer",
+        "runtime": "neutral",
+        "semanticHash": "51da128384b173147a312c5f6551f084dad678d50848d06b7cc545259de1b214",
+        "shapeHash": "5159f79092a0c2e729e743884d19d0914c67f773c0a905f630336893aa3ec84a",
+        "syntaxHash": "c6dc0304f47bddb01797de43677ce257ba88cc9c5f70a059d7b1b7df9ca0d82f"
+      },
+      {
         "filePath": "packages/codegen/src/cli/lib/tsp-export.ts",
         "identity": "packages/codegen/src/cli/lib/tsp-export.ts#src/cli/lib/tsp-export.ts#neutral#@oa-sdk/codegen:src/cli/lib/tsp-export.ts#EmitModelOptions#type-alias",
         "kind": "type-alias",
@@ -11172,6 +11364,36 @@
         "semanticHash": "dc193be038fea2721058ed1c1502c5b6d9d7b4f6ce126f7573eeae00564f6cd9",
         "shapeHash": "f05e9dcc7f646793d9166ad46b4bf0697f7142e11f327f57eb2cd034ce9566c3",
         "syntaxHash": "f58527455e0aa24abc6184b8153887cf5a78c62ea89675e552747755d79ede38"
+      },
+      {
+        "filePath": "packages/codegen/src/cli/lib/tsp-export.ts",
+        "identity": "packages/codegen/src/cli/lib/tsp-export.ts#src/cli/lib/tsp-export.ts#neutral#@oa-sdk/codegen:src/cli/lib/tsp-export.ts#isEmptySchema#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/codegen:src/cli/lib/tsp-export.ts#isEmptySchema",
+        "runtime": "neutral",
+        "semanticHash": "d9b5a79d929bb0c320c9a4d23ce03841e822196cdefc5759d31ea9b786f00b9a",
+        "shapeHash": "8b811f446602abbd5489a21004baf7925f2d8929f147d0820766220cf0869aa0",
+        "syntaxHash": "1222266b6526db8684e7002891b63d1032d98c8f453fbb81d3cd1153eb3877d1"
+      },
+      {
+        "filePath": "packages/codegen/src/cli/lib/tsp-export.ts",
+        "identity": "packages/codegen/src/cli/lib/tsp-export.ts#src/cli/lib/tsp-export.ts#neutral#@oa-sdk/codegen:src/cli/lib/tsp-export.ts#isLocalComponentSchemaReference#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/codegen:src/cli/lib/tsp-export.ts#isLocalComponentSchemaReference",
+        "runtime": "neutral",
+        "semanticHash": "c54cf44274deb5499dfe0fa58f3b9a8ac27a415899c7cc07b1134c1d010b3fba",
+        "shapeHash": "65818143fa764db8c37e581e48502a94e2f04f808125a3481a68cf982aada1b8",
+        "syntaxHash": "b30c49820578dff2d5828209743b56f83ca8ef64aba6e9805380b194a0eb6f76"
+      },
+      {
+        "filePath": "packages/codegen/src/cli/lib/tsp-export.ts",
+        "identity": "packages/codegen/src/cli/lib/tsp-export.ts#src/cli/lib/tsp-export.ts#neutral#@oa-sdk/codegen:src/cli/lib/tsp-export.ts#isNeverSchema#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/codegen:src/cli/lib/tsp-export.ts#isNeverSchema",
+        "runtime": "neutral",
+        "semanticHash": "c03057153c0221fd9d1d11daf07fffce410b0116eba0cdc448de3c51c9ee72f0",
+        "shapeHash": "3c4cf92479d1962608aef8b5c83f9e29087208c116e53e2dd7388839eac84522",
+        "syntaxHash": "b8038f0da15890d8463e9f06da1390d5dbec69b05a8e59510b898b330669394f"
       },
       {
         "filePath": "packages/codegen/src/cli/lib/tsp-export.ts",
@@ -11235,6 +11457,16 @@
       },
       {
         "filePath": "packages/codegen/src/cli/lib/tsp-export.ts",
+        "identity": "packages/codegen/src/cli/lib/tsp-export.ts#src/cli/lib/tsp-export.ts#neutral#@oa-sdk/codegen:src/cli/lib/tsp-export.ts#RenderedResponseBody#type-alias",
+        "kind": "type-alias",
+        "qualifiedName": "@oa-sdk/codegen:src/cli/lib/tsp-export.ts#RenderedResponseBody",
+        "runtime": "neutral",
+        "semanticHash": "22a53c4686f36660b33f5bc6d0220a2fcf6f80fe0833d68479376c0c7479f2e1",
+        "shapeHash": "af6908134a4eea47f0e41a56094551a8c059705018e449ba634459b1c59454ed",
+        "syntaxHash": "a35896d43035c25fb207532baef11424e2304b40d0758c063dfa7b5c421c559e"
+      },
+      {
+        "filePath": "packages/codegen/src/cli/lib/tsp-export.ts",
         "identity": "packages/codegen/src/cli/lib/tsp-export.ts#src/cli/lib/tsp-export.ts#neutral#@oa-sdk/codegen:src/cli/lib/tsp-export.ts#RenderedSchema#type-alias",
         "kind": "type-alias",
         "qualifiedName": "@oa-sdk/codegen:src/cli/lib/tsp-export.ts#RenderedSchema",
@@ -11272,6 +11504,16 @@
         "semanticHash": "54e860af353f4a74d79e57e9fbc797bfc5c564c4584ffa07b8731de752ef1dd7",
         "shapeHash": "69aff97f3a7b821bb7857b7647b6f0fe4d6e72e0a700461c93187af1c1091124",
         "syntaxHash": "f7896e518d9bbe733b9fb73e4ed4910496c8fe75dcdf54a14643595ff4cc763f"
+      },
+      {
+        "filePath": "packages/codegen/src/cli/lib/tsp-export.ts",
+        "identity": "packages/codegen/src/cli/lib/tsp-export.ts#src/cli/lib/tsp-export.ts#neutral#@oa-sdk/codegen:src/cli/lib/tsp-export.ts#SseEvent#type-alias",
+        "kind": "type-alias",
+        "qualifiedName": "@oa-sdk/codegen:src/cli/lib/tsp-export.ts#SseEvent",
+        "runtime": "neutral",
+        "semanticHash": "35aaf4d6788cf976e37e87d74384a5ecbccc7c879b1b7bc473ab9933d9ffadef",
+        "shapeHash": "c48db9f1a206842a70afcbd189e25567303a79947f72be691654cc0011388ed3",
+        "syntaxHash": "b929463b2684af2545909e8dc2615ff15d938f620310bb752c94164004ad56b3"
       },
       {
         "filePath": "packages/codegen/src/cli/lib/tsp-export.ts",
@@ -11349,9 +11591,9 @@
         "kind": "class",
         "qualifiedName": "@oa-sdk/codegen:src/cli/lib/tsp-export.ts#TypeSpecExporter",
         "runtime": "neutral",
-        "semanticHash": "0a54ecba3d98282cfba7d919b2bee11969be47e05c7da02179d0eb1762212cd9",
-        "shapeHash": "70672c95f5859dc867df653a4b14637b4f416f8552e83fb1dc25e9a4fcb237c9",
-        "syntaxHash": "a2e0ac2ee258a6f6aa5a2bdb0edd6af33f95292243083830a6b2b1bdd612711a"
+        "semanticHash": "82109f238524dc1a55410ff8316ce44aa38c8efc27f0c1101e182dbf47e948e9",
+        "shapeHash": "828fe88248c7a88fd8d653e3fe13fd2c7e8a3afb638e00dbd12067b93cc9fc40",
+        "syntaxHash": "0db6fbf5795a967a0db5c6c864c8b1ba7ddf82c0626cfd7011c4b9b784de9564"
       },
       {
         "filePath": "packages/codegen/src/cli/lib/tsp-export.ts",
@@ -12401,7 +12643,7 @@
         "runtime": "neutral",
         "semanticHash": "e1d0ebf1c7193122c008a0c9d3b36de09c3ad27521fe466a30f34f9d85da4b55",
         "shapeHash": "9e0128255cc741f7713e3c9379b251db0e05909f526c01baa640e8682ff7605d",
-        "syntaxHash": "6e5eb6bf9a1defe566f8ed747b2e6f93def6c250129aeb2ca4577af3ba207035"
+        "syntaxHash": "a6fc8b66e02bb55bf38bb575b33f8c9f577be72671a5144c785f1d532c63906e"
       },
       {
         "filePath": "packages/codegen/src/cli/lib/typespec-ref-provenance.ts",
@@ -12735,16 +12977,6 @@
       },
       {
         "filePath": "packages/codegen/src/cli/lib/typespec-roundtrip-report.ts",
-        "identity": "packages/codegen/src/cli/lib/typespec-roundtrip-report.ts#src/cli/lib/typespec-roundtrip-report.ts#neutral#@oa-sdk/codegen:src/cli/lib/typespec-roundtrip-report.ts#classifyExportDiagnostic#function",
-        "kind": "function",
-        "qualifiedName": "@oa-sdk/codegen:src/cli/lib/typespec-roundtrip-report.ts#classifyExportDiagnostic",
-        "runtime": "neutral",
-        "semanticHash": "5ee48b1d2e54e994e1a12bc3acd94897c92a6158ef08b9642829d86bd7a7a126",
-        "shapeHash": "37a413364171a6e51dc55d10bd59f485ea4dec8e036b416e935b3240bd44f4e7",
-        "syntaxHash": "172e742902cfcbc17061ac48258b58e41dad1c9d7b9b823cf63bfb08900088f6"
-      },
-      {
-        "filePath": "packages/codegen/src/cli/lib/typespec-roundtrip-report.ts",
         "identity": "packages/codegen/src/cli/lib/typespec-roundtrip-report.ts#src/cli/lib/typespec-roundtrip-report.ts#neutral#@oa-sdk/codegen:src/cli/lib/typespec-roundtrip-report.ts#countDocumentOperations#function",
         "kind": "function",
         "qualifiedName": "@oa-sdk/codegen:src/cli/lib/typespec-roundtrip-report.ts#countDocumentOperations",
@@ -12771,7 +13003,7 @@
         "runtime": "neutral",
         "semanticHash": "572f407f6cf29f5fb1257d659707d423a0c7ff6358c1b081bdc7e1a454b06f4d",
         "shapeHash": "936e48f2ed6d836cd298aaa944e747cbe2927958d1569ea8fb69072d93283ffa",
-        "syntaxHash": "9dcb389209cb57a6a2ef52c75c99b8eb2fac9c07a626db9b7404c4f780010835"
+        "syntaxHash": "b9c4a71e6c76f399ef0ec80a6b06642c15aaec7a105bfc7acf99d7039218ecb3"
       },
       {
         "filePath": "packages/codegen/src/cli/lib/typespec-roundtrip-report.ts",
@@ -12825,46 +13057,6 @@
       },
       {
         "filePath": "packages/codegen/src/cli/lib/typespec-roundtrip-report.ts",
-        "identity": "packages/codegen/src/cli/lib/typespec-roundtrip-report.ts#src/cli/lib/typespec-roundtrip-report.ts#neutral#@oa-sdk/codegen:src/cli/lib/typespec-roundtrip-report.ts#isRecord#function",
-        "kind": "function",
-        "qualifiedName": "@oa-sdk/codegen:src/cli/lib/typespec-roundtrip-report.ts#isRecord",
-        "runtime": "neutral",
-        "semanticHash": "817aaa54f5db297323f930f2f365a5f08e4d402aa0beeeb893f52cb744c77d5a",
-        "shapeHash": "c91435eb4555d6c825407db05a6f1c9d47975c263b297896e25bbd7ddaf682c0",
-        "syntaxHash": "6e2ff76e016131ec78ef437a4a99f83cba7621a27134644e9f8c2494049dc7c0"
-      },
-      {
-        "filePath": "packages/codegen/src/cli/lib/typespec-roundtrip-report.ts",
-        "identity": "packages/codegen/src/cli/lib/typespec-roundtrip-report.ts#src/cli/lib/typespec-roundtrip-report.ts#neutral#@oa-sdk/codegen:src/cli/lib/typespec-roundtrip-report.ts#isSecuritySchemeReferenced#function",
-        "kind": "function",
-        "qualifiedName": "@oa-sdk/codegen:src/cli/lib/typespec-roundtrip-report.ts#isSecuritySchemeReferenced",
-        "runtime": "neutral",
-        "semanticHash": "ec5aaf0f2aee6efb7b8770241fc2417b0d416461a6404d86b23d8a0dc807788b",
-        "shapeHash": "9789eee2ea04d9c0d6da2da7907aff5199fe3c44fc37e300eef77e3bcf7a96fa",
-        "syntaxHash": "a3c7b51b1da2fe7fe17c9d818354530bc5eaf6e9037e1816a997cc4557340533"
-      },
-      {
-        "filePath": "packages/codegen/src/cli/lib/typespec-roundtrip-report.ts",
-        "identity": "packages/codegen/src/cli/lib/typespec-roundtrip-report.ts#src/cli/lib/typespec-roundtrip-report.ts#neutral#@oa-sdk/codegen:src/cli/lib/typespec-roundtrip-report.ts#securityRequirementsUseScheme#function",
-        "kind": "function",
-        "qualifiedName": "@oa-sdk/codegen:src/cli/lib/typespec-roundtrip-report.ts#securityRequirementsUseScheme",
-        "runtime": "neutral",
-        "semanticHash": "1705ab7cb539b412fd7e52918abf533ebb8b676418e4a8163c5f57471e696b48",
-        "shapeHash": "07aa74cccf0fc32562cb4701919abdbba120a34baea4564a1b84015bee731c6b",
-        "syntaxHash": "a7482a9789955a714394446cfb7369d8e8cf8d56b13a7537d0f8e4614dd05d03"
-      },
-      {
-        "filePath": "packages/codegen/src/cli/lib/typespec-roundtrip-report.ts",
-        "identity": "packages/codegen/src/cli/lib/typespec-roundtrip-report.ts#src/cli/lib/typespec-roundtrip-report.ts#neutral#@oa-sdk/codegen:src/cli/lib/typespec-roundtrip-report.ts#securitySchemeNameFromPointer#function",
-        "kind": "function",
-        "qualifiedName": "@oa-sdk/codegen:src/cli/lib/typespec-roundtrip-report.ts#securitySchemeNameFromPointer",
-        "runtime": "neutral",
-        "semanticHash": "895f35e085b18e2066062c65b15069e7f32544a4f93e03d13ff9073f82bd0584",
-        "shapeHash": "355522edd40bbba8ce8e45619ffce13371fee0d8fc86ef019af9df597539c58b",
-        "syntaxHash": "f6a50ee0785d93ce193fd66e644dd5209391b699fed6bf5bc0e6cf1be73a5153"
-      },
-      {
-        "filePath": "packages/codegen/src/cli/lib/typespec-roundtrip-report.ts",
         "identity": "packages/codegen/src/cli/lib/typespec-roundtrip-report.ts#src/cli/lib/typespec-roundtrip-report.ts#neutral#@oa-sdk/codegen:src/cli/lib/typespec-roundtrip-report.ts#TypeSpecRoundtripDiagnostic#type-alias",
         "kind": "type-alias",
         "qualifiedName": "@oa-sdk/codegen:src/cli/lib/typespec-roundtrip-report.ts#TypeSpecRoundtripDiagnostic",
@@ -12879,9 +13071,9 @@
         "kind": "type-alias",
         "qualifiedName": "@oa-sdk/codegen:src/cli/lib/typespec-roundtrip-report.ts#TypeSpecRoundtripDiagnosticDisposition",
         "runtime": "neutral",
-        "semanticHash": "a83bff9b8de9924104efbc9af9308dbaba5194981225366bbebd229b7b3ab7dc",
-        "shapeHash": "47f9b07a706d30cd2befb90754c1918f4344794382c9316c8d1c4928cfd5ac0d",
-        "syntaxHash": "c2504ab6d5b5dbc9efca16b95b9648c304bf048d63ffc310b26db2b96006fdcd"
+        "semanticHash": "a744a0862c00822c33ea37ae88875c7f699f7d1c8baaacceb0ee86dbe9fb1b8d",
+        "shapeHash": "055f18854670d9b8083d51c59db81c8f6d8f0d7745b95a6042172495428b430e",
+        "syntaxHash": "26a6bb5a28d06211cfb6ed666c2c1398019f1bd1541436852554882ec830c928"
       },
       {
         "filePath": "packages/codegen/src/cli/lib/typespec-roundtrip-report.ts",
@@ -12889,9 +13081,9 @@
         "kind": "type-alias",
         "qualifiedName": "@oa-sdk/codegen:src/cli/lib/typespec-roundtrip-report.ts#TypeSpecRoundtripDiagnosticPolicy",
         "runtime": "neutral",
-        "semanticHash": "ae1775cf14df68b12482d92a6257d2673b2b4496efc4db5879f671cf3561dccc",
-        "shapeHash": "b252c461004213b5e778c601570542fee1c418622c2b1d09b0c98174f91e2b85",
-        "syntaxHash": "7347dca5591471eef70e4f3ae1f13b0886074d9b3cbbed9c3d9529b6e06825b5"
+        "semanticHash": "be71fe3fe23a030c3b80bf0ffee8804750d04b3ddbff928202a349634dae7fe4",
+        "shapeHash": "b380e1bff9fbabae17fd9af30c7ba8d7a7bf33fd01e5702c120b53fecbef2ea9",
+        "syntaxHash": "9a705d21bfeea9503b187e570ad2421539309a5e8b2df749279f9d6301934b36"
       },
       {
         "filePath": "packages/codegen/src/cli/lib/typespec-roundtrip-report.ts",
@@ -12932,16 +13124,6 @@
         "semanticHash": "3d6c2b0d4081637faf54d894040975b7aa150294084cd5be0298bf4672425848",
         "shapeHash": "4da6882efa0691fd73a2cafcef105425c212f9cc58c3f5f088d047a10a8edf45",
         "syntaxHash": "d2af09004950795c9b0316ac4e38b32177bca5eac6e4b1f57da574f961a2224e"
-      },
-      {
-        "filePath": "packages/codegen/src/cli/lib/typespec-roundtrip-report.ts",
-        "identity": "packages/codegen/src/cli/lib/typespec-roundtrip-report.ts#src/cli/lib/typespec-roundtrip-report.ts#neutral#@oa-sdk/codegen:src/cli/lib/typespec-roundtrip-report.ts#unescapeJsonPointer#function",
-        "kind": "function",
-        "qualifiedName": "@oa-sdk/codegen:src/cli/lib/typespec-roundtrip-report.ts#unescapeJsonPointer",
-        "runtime": "neutral",
-        "semanticHash": "51da128384b173147a312c5f6551f084dad678d50848d06b7cc545259de1b214",
-        "shapeHash": "5159f79092a0c2e729e743884d19d0914c67f773c0a905f630336893aa3ec84a",
-        "syntaxHash": "c6dc0304f47bddb01797de43677ce257ba88cc9c5f70a059d7b1b7df9ca0d82f"
       },
       {
         "filePath": "packages/codegen/src/cli/lib/typespec-sidecar-to-extensions.ts",
@@ -14231,7 +14413,7 @@
         "runtime": "neutral",
         "semanticHash": "dd7098f15f2ab20f190c6575057d383fbed1c1bfa99eac7429079863fe52d6e6",
         "shapeHash": "3f063ef581a7a4533030e851a9f354f81ce8dd236f4e02ad0e03751a1d088cd1",
-        "syntaxHash": "841623a96918b4cefd00c486a14ffaaf657aeabd698b4bd96c995a67a90cfd63"
+        "syntaxHash": "8d3ac609f7fd59b12ec2dc5e3dcbf0845fec40d4db4065a809619460ef1bf170"
       },
       {
         "filePath": "packages/codegen/src/cli/lib/typespec-spec-lens.ts",
@@ -14469,9 +14651,9 @@
         "kind": "type-alias",
         "qualifiedName": "@oa-sdk/codegen:src/cli/lib/typespec-spec-lens.ts#SpecLensTypeSpecToolchainEvidence",
         "runtime": "neutral",
-        "semanticHash": "e6fca70e4dc808614bb301b65dd6d3b05ddd9c5c305215129627c0911bd3f6f3",
-        "shapeHash": "10d154843acac423dc34ee89ad27ac2e07de0bbcbe9fe7e3a57acacc915cf929",
-        "syntaxHash": "7c63c9c1a0195a3eb2ed28b7933fa6078a15ecc698ffaeeb922dcc53f15f4485"
+        "semanticHash": "1ffe63c0675ab0a01be8b6ac3461a5418e15a6fe60e439f4e52b0ebec0118def",
+        "shapeHash": "e722f2ab8ff41157c99db27c4245061011301e45e2ad1bbd9d947d4f7b2b5e4c",
+        "syntaxHash": "1e6e986313d1240bca355eaadb88461516356fbde774cfe9962332391e22ea8c"
       },
       {
         "filePath": "packages/codegen/src/cli/spec/ecs.ts",
@@ -16195,6 +16377,16 @@
       },
       {
         "filePath": "packages/codegen/src/typegen/browser.ts",
+        "identity": "packages/codegen/src/typegen/browser.ts#src/typegen/browser.ts#browser#@oa-sdk/codegen:src/typegen/browser.ts#collectReservedOperationTypeNames#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/codegen:src/typegen/browser.ts#collectReservedOperationTypeNames",
+        "runtime": "browser",
+        "semanticHash": "e036985c84a2a2dcd3368f8fef40d540fc3dd6bb4cf0547c84f7fdb7d2301b27",
+        "shapeHash": "69f2f32812c09898ee118a98cfcb1f4bb147049e12e9c29f7615ebc0b1f054bb",
+        "syntaxHash": "87776d8dc355f84c46f253af89828b48af6848685e26f1fc4aed3f7a359a30f4"
+      },
+      {
+        "filePath": "packages/codegen/src/typegen/browser.ts",
         "identity": "packages/codegen/src/typegen/browser.ts#src/typegen/browser.ts#browser#@oa-sdk/codegen:src/typegen/browser.ts#errorResponseByStatusToTs#function",
         "kind": "function",
         "qualifiedName": "@oa-sdk/codegen:src/typegen/browser.ts#errorResponseByStatusToTs",
@@ -16241,7 +16433,7 @@
         "runtime": "browser",
         "semanticHash": "a2da22fc38f6e2486af6693554880e7c0dbe554d2948e07d5ffbf8eae43cb76f",
         "shapeHash": "6e73388dbc63b9a2857558bc6d08c1eb4e9004a9f55c96f2dff6f9c4bfbbdb63",
-        "syntaxHash": "5419defd44f4ce2721396fd03e4a3eb50115b03f6dd4154d6dd536e571320090"
+        "syntaxHash": "79eb673fc7c3482b2abc9851dd43b4cf7ea0089df94e3a045845758847b16741"
       },
       {
         "filePath": "packages/codegen/src/typegen/browser.ts",
@@ -16281,7 +16473,7 @@
         "runtime": "browser",
         "semanticHash": "d8e8ca2ee0244297617c9e177185c9e6b4486c7525f531e98ce81a4d02593149",
         "shapeHash": "a81a23778923b9da7127e0817a55c7f161cd61844791e403951aed9c4a17e9ad",
-        "syntaxHash": "45ca59c553203e2063bbdda583e760da65c9076ff74f0af5ddb83778c46d77e8"
+        "syntaxHash": "8f9503bf9bc226febb673090b382da6d8f24031f0971cef6d0ce7204ccc8d775"
       },
       {
         "filePath": "packages/codegen/src/typegen/browser.ts",
@@ -16421,7 +16613,17 @@
         "runtime": "neutral",
         "semanticHash": "ce3ab3214cc49b48eb8c0701bfd864189709a974b20b365bb958a7c87d5e9c58",
         "shapeHash": "5c3ee9df2cb8548d2f8a885bfe7a8460f8fd6aaf9641d181cc2e0e781707b323",
-        "syntaxHash": "a792773f31e7448f48ce490c11089c181bb3e6f537bfdcfed25d023884c60ca8"
+        "syntaxHash": "96802f97a205c51735b8fc760b41189774c46d8efa537b9d134f8857b46a9eb6"
+      },
+      {
+        "filePath": "packages/codegen/src/typegen/generate-types.ts",
+        "identity": "packages/codegen/src/typegen/generate-types.ts#src/typegen/generate-types.ts#neutral#@oa-sdk/codegen:src/typegen/generate-types.ts#collectReservedOperationTypeNames#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/codegen:src/typegen/generate-types.ts#collectReservedOperationTypeNames",
+        "runtime": "neutral",
+        "semanticHash": "be286f009a1e8974c8ab0b1906e3dde4af080f5f3a31c3a964f34f5c56b1d597",
+        "shapeHash": "69f2f32812c09898ee118a98cfcb1f4bb147049e12e9c29f7615ebc0b1f054bb",
+        "syntaxHash": "87776d8dc355f84c46f253af89828b48af6848685e26f1fc4aed3f7a359a30f4"
       },
       {
         "filePath": "packages/codegen/src/typegen/generate-types.ts",
@@ -16571,7 +16773,7 @@
         "runtime": "neutral",
         "semanticHash": "cdf65f265349192f1400dd84e986fb2f005a33ae442e376a61cf42e2c6ca9832",
         "shapeHash": "c8bddcb798e8f73388b51c3da708af2e85b7525f5fd1d6540bbd1020dbf01cab",
-        "syntaxHash": "4572355ad3a8eed839254598637ae096a3fb7e527741c441fe26ae257e637a9c"
+        "syntaxHash": "bfa64a2fafb934e3b5f922c3e048958971198319016011fb36e9b513134e857b"
       },
       {
         "filePath": "packages/codegen/src/typegen/generate-types.ts",
@@ -16741,7 +16943,7 @@
         "runtime": "neutral",
         "semanticHash": "a37158cc776851126bdbfb6bd728c1433da9f3d90ab9ec509a074a48b03e5809",
         "shapeHash": "a81a23778923b9da7127e0817a55c7f161cd61844791e403951aed9c4a17e9ad",
-        "syntaxHash": "45ca59c553203e2063bbdda583e760da65c9076ff74f0af5ddb83778c46d77e8"
+        "syntaxHash": "8f9503bf9bc226febb673090b382da6d8f24031f0971cef6d0ce7204ccc8d775"
       },
       {
         "filePath": "packages/codegen/src/typegen/generate-types.ts",
@@ -17004,6 +17206,16 @@
         "syntaxHash": "1b6a013d174a2f9549b1990209f4b3ebb2757062efa15e722e69a06eca77259c"
       },
       {
+        "filePath": "packages/codegen/src/typegen/jsdoc.ts",
+        "identity": "packages/codegen/src/typegen/jsdoc.ts#src/typegen/jsdoc.ts#neutral#@oa-sdk/codegen:src/typegen/jsdoc.ts#formatJSDoc#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/codegen:src/typegen/jsdoc.ts#formatJSDoc",
+        "runtime": "neutral",
+        "semanticHash": "70d950f7b0b4f54ae9f0a471386728766ea69fb1b8cf834256bdeb18f68a2abe",
+        "shapeHash": "3ff86ee67949f09596e3c8cdddb22bce92951e7c35a653bfc5b737f13748802c",
+        "syntaxHash": "18e9cab0899cc9f0db3bdc2f2c4bcab0a27fc90429184bcb7ed9aa223c0f4c89"
+      },
+      {
         "filePath": "packages/codegen/src/typegen/schema-fidelity.ts",
         "identity": "packages/codegen/src/typegen/schema-fidelity.ts#src/typegen/schema-fidelity.ts#neutral#@oa-sdk/codegen:src/typegen/schema-fidelity.ts#analyzeSchemaFidelity#function",
         "kind": "function",
@@ -17191,7 +17403,7 @@
         "runtime": "neutral",
         "semanticHash": "3485d51cbe55760bc5e1dd64a56c72d8b9862cc8f3a89739eee3b6ace6f7e52a",
         "shapeHash": "7d5dc194f60ac93d4cb84f5665533952255b61e30863d059b3b1360574bdcfcb",
-        "syntaxHash": "36eb801727b50707b3f098915ec5441479b6e90648b9d6a171c8690ac7b72e0c"
+        "syntaxHash": "57f7c5897c5256fbe23f3e1e4d984d01edc1ecc324347033d57ea2fa51c70fca"
       },
       {
         "filePath": "packages/codegen/src/typegen/schema-to-ts.ts",
@@ -17201,7 +17413,7 @@
         "runtime": "neutral",
         "semanticHash": "eee31447ee50ebeadfb0f4afbd170a849216ea8dff24af4b5373dd50515e2fad",
         "shapeHash": "37b7351e637191d4a7c34021df549b8b0e8b91f60a38571da1a60cef4679ccc4",
-        "syntaxHash": "d209adf6ae928fec461e23eba912c3cc37242062bc4d0bdcd8b92891a4842e64"
+        "syntaxHash": "71940e98c3925eac67ef8e201570b0d783a0c27a9cf2ca90ba50c4e8a10529fa"
       },
       {
         "filePath": "packages/codegen/src/typegen/schema-to-ts.ts",
@@ -17261,7 +17473,7 @@
         "runtime": "neutral",
         "semanticHash": "ae0fe55b50d5195b1f04c597186edb36f8f1b94da9a144ad2592cecc6e6d7335",
         "shapeHash": "af5678f1534b1ddf4160a9a264fbd7eae037bf36d2a90bc91a63f575cad3b5b9",
-        "syntaxHash": "20abbe34c6c2c46ce1db06d2b742738a770ec34b3ba1138657de54dbe370efc7"
+        "syntaxHash": "06e0b0e1c8e18d2d04d109be24ceb9fd18865dbce5a531da8ffb98ad5c4a064b"
       },
       {
         "filePath": "packages/codegen/src/typegen/schema-to-ts.ts",
@@ -17271,7 +17483,7 @@
         "runtime": "neutral",
         "semanticHash": "7b1c6076d41018f68b73c3b8e7cc1bd7a2cece4d8f34037ab578fed0e7e671ae",
         "shapeHash": "80eea832b9bc6e3f45f90d7f6bb3de5e32c27d7d94eade9328c0214ba49a63e1",
-        "syntaxHash": "01eb258d119d488bed35758cafd3b0ec0d44c137f6aa96351f410dc8369121f3"
+        "syntaxHash": "be95af101fbe1655e811c3ed15cc14ca6e484e3824964d9fc46987420480f3b4"
       },
       {
         "filePath": "packages/codegen/src/typegen/schema-to-ts.ts",
@@ -17362,6 +17574,166 @@
         "semanticHash": "ec9eb3e9d3689d7e5b2d663961c7ade2751e3085af0d9d714d9b69caaa35e2b4",
         "shapeHash": "8c3473203cde2e691fbfb149a745951e4d9d3fc1470da90c4f0eba48cedf9c5b",
         "syntaxHash": "e20d41dac5b16634866a790ae65f701daa6411408b3e20679c2161222ee69e0b"
+      },
+      {
+        "filePath": "packages/codegen/src/typegen/type-names.ts",
+        "identity": "packages/codegen/src/typegen/type-names.ts#src/typegen/type-names.ts#neutral#@oa-sdk/codegen:src/typegen/type-names.ts#collectNestedComponentRefs#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/codegen:src/typegen/type-names.ts#collectNestedComponentRefs",
+        "runtime": "neutral",
+        "semanticHash": "03f78a88dde3db678e077cd335dc56fdf6afcac9ad300e6b5cafaf1b7aa6c183",
+        "shapeHash": "fa1ea06edc5ef04bb6bf5d9783eae50acc9a34564f650b5c46cd93325ce7395e",
+        "syntaxHash": "c70211c6a6960c33b9ae47d7db6155804a4a825c78aaddcd4e84074414422fd6"
+      },
+      {
+        "filePath": "packages/codegen/src/typegen/type-names.ts",
+        "identity": "packages/codegen/src/typegen/type-names.ts#src/typegen/type-names.ts#neutral#@oa-sdk/codegen:src/typegen/type-names.ts#ComponentTypeNameMap#type-alias",
+        "kind": "type-alias",
+        "qualifiedName": "@oa-sdk/codegen:src/typegen/type-names.ts#ComponentTypeNameMap",
+        "runtime": "neutral",
+        "semanticHash": "f3c862f7875d07f46fe861828fd2706cd0c96d0ceedd42633d9c7df61fa0f17c",
+        "shapeHash": "e32793d96b780311cd61e118cf4ab34f653e173455f5a47075e3fa60b76c9565",
+        "syntaxHash": "430a20cb8eb0e68138273c8abf8aa2f6f347b6be3e34a8b172aca120906fcdf3"
+      },
+      {
+        "filePath": "packages/codegen/src/typegen/type-names.ts",
+        "identity": "packages/codegen/src/typegen/type-names.ts#src/typegen/type-names.ts#neutral#@oa-sdk/codegen:src/typegen/type-names.ts#createComponentTypeNameMap#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/codegen:src/typegen/type-names.ts#createComponentTypeNameMap",
+        "runtime": "neutral",
+        "semanticHash": "49980985606e74c56429bbccd73d4c9d1c997b1228de64ad6f73525ae6b20f0c",
+        "shapeHash": "b9376c000230622e3a384aaf6096121a48422448b2bde260d1e4e6cf5ab3fdf1",
+        "syntaxHash": "9b2b4ba679500797d8466a6f3edb39703dbd848ccdbfc7fd140ca90564bd4352"
+      },
+      {
+        "filePath": "packages/codegen/src/typegen/type-names.ts",
+        "identity": "packages/codegen/src/typegen/type-names.ts#src/typegen/type-names.ts#neutral#@oa-sdk/codegen:src/typegen/type-names.ts#createLocalNestedSchemaAliasMap#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/codegen:src/typegen/type-names.ts#createLocalNestedSchemaAliasMap",
+        "runtime": "neutral",
+        "semanticHash": "e499fa5814a2e7744175c237128e19eb5a7e9e8779b4f9911881ab3e1a263646",
+        "shapeHash": "06e0f06f891fb18e2b9d31ed2b4ecbd6bac679ab9d29896f22662d66dcc6e080",
+        "syntaxHash": "fce428c0203c8c51dde7b8d186c4854bc1b8b85dccd84b487ba9db950ac9bf8a"
+      },
+      {
+        "filePath": "packages/codegen/src/typegen/type-names.ts",
+        "identity": "packages/codegen/src/typegen/type-names.ts#src/typegen/type-names.ts#neutral#@oa-sdk/codegen:src/typegen/type-names.ts#decodeJsonPointerSegment#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/codegen:src/typegen/type-names.ts#decodeJsonPointerSegment",
+        "runtime": "neutral",
+        "semanticHash": "54ecc6d549d1d01e5c8f486bf9da554ad5440e176750319cc3b90c36d4969dfb",
+        "shapeHash": "5159f79092a0c2e729e743884d19d0914c67f773c0a905f630336893aa3ec84a",
+        "syntaxHash": "54e2bb862ff4c3404cff31713ef9f5c231c019420d51dcf56d95c357602bc9d6"
+      },
+      {
+        "filePath": "packages/codegen/src/typegen/type-names.ts",
+        "identity": "packages/codegen/src/typegen/type-names.ts#src/typegen/type-names.ts#neutral#@oa-sdk/codegen:src/typegen/type-names.ts#decodeUriSegment#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/codegen:src/typegen/type-names.ts#decodeUriSegment",
+        "runtime": "neutral",
+        "semanticHash": "df87b69332b4dab89b49f2ea37beedff1afc1d6a1a61997df4458ff657d7471c",
+        "shapeHash": "5159f79092a0c2e729e743884d19d0914c67f773c0a905f630336893aa3ec84a",
+        "syntaxHash": "2378e7a283b21b5971d5e70f0f471a81b2c72e1a725a8947e1347109215afea9"
+      },
+      {
+        "filePath": "packages/codegen/src/typegen/type-names.ts",
+        "identity": "packages/codegen/src/typegen/type-names.ts#src/typegen/type-names.ts#neutral#@oa-sdk/codegen:src/typegen/type-names.ts#encodeJsonPointerSegment#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/codegen:src/typegen/type-names.ts#encodeJsonPointerSegment",
+        "runtime": "neutral",
+        "semanticHash": "3730125c3dbe94f03bc37f6cef2d5bafd65d29d503ad68d6d844a89c1c155efc",
+        "shapeHash": "5159f79092a0c2e729e743884d19d0914c67f773c0a905f630336893aa3ec84a",
+        "syntaxHash": "b38da6eacf8f1285760826b093e109c8eb5e8bea4647c2a0634f40d7e0571909"
+      },
+      {
+        "filePath": "packages/codegen/src/typegen/type-names.ts",
+        "identity": "packages/codegen/src/typegen/type-names.ts#src/typegen/type-names.ts#neutral#@oa-sdk/codegen:src/typegen/type-names.ts#isNestedComponentRef#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/codegen:src/typegen/type-names.ts#isNestedComponentRef",
+        "runtime": "neutral",
+        "semanticHash": "221e5c2677f0ebcfcca8434c61a55e721a09cc454ea62e84d2bad193d7d4e6dd",
+        "shapeHash": "02169437a9ea38945b33198c68fdbf8e0b48eaf9790b282a5b5c700dde3e1eea",
+        "syntaxHash": "7e54b386aa90be9a37edf04e230bbc157e0ec3e2736cd033ac6b60e03cf2f378"
+      },
+      {
+        "filePath": "packages/codegen/src/typegen/type-names.ts",
+        "identity": "packages/codegen/src/typegen/type-names.ts#src/typegen/type-names.ts#neutral#@oa-sdk/codegen:src/typegen/type-names.ts#isSafeTypeScriptIdentifier#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/codegen:src/typegen/type-names.ts#isSafeTypeScriptIdentifier",
+        "runtime": "neutral",
+        "semanticHash": "1d42ff0f895d6f0849b7dd269aedc42f64cf584cabde67c337d49d429c1097e9",
+        "shapeHash": "02169437a9ea38945b33198c68fdbf8e0b48eaf9790b282a5b5c700dde3e1eea",
+        "syntaxHash": "b56d411361afba4bbf17715c427dfb8db0a0476e7908ea1782606f622dddb383"
+      },
+      {
+        "filePath": "packages/codegen/src/typegen/type-names.ts",
+        "identity": "packages/codegen/src/typegen/type-names.ts#src/typegen/type-names.ts#neutral#@oa-sdk/codegen:src/typegen/type-names.ts#LocalNestedSchemaAlias#type-alias",
+        "kind": "type-alias",
+        "qualifiedName": "@oa-sdk/codegen:src/typegen/type-names.ts#LocalNestedSchemaAlias",
+        "runtime": "neutral",
+        "semanticHash": "db59d3fe6f606efe97e608be069786e96f0ea002e638e3bcdb17c9b9c057111f",
+        "shapeHash": "46d23fd9c5a788e62c63a8f151883b93cc467f52343f6ae6f63423fa2b59f5e9",
+        "syntaxHash": "84b974c9719eafcb6ad54a1bb09f0fbbcacb509a914502743354324f2f4b35e9"
+      },
+      {
+        "filePath": "packages/codegen/src/typegen/type-names.ts",
+        "identity": "packages/codegen/src/typegen/type-names.ts#src/typegen/type-names.ts#neutral#@oa-sdk/codegen:src/typegen/type-names.ts#LocalNestedSchemaAliasMap#type-alias",
+        "kind": "type-alias",
+        "qualifiedName": "@oa-sdk/codegen:src/typegen/type-names.ts#LocalNestedSchemaAliasMap",
+        "runtime": "neutral",
+        "semanticHash": "f2a25b48b81d234a50ac8e8bc86a9458f8820ad345439175f60620a36027cf44",
+        "shapeHash": "f0452939a236a03f5e1994b0e10e1ba22bc8194ca35fed2f4b96aa3ae4664540",
+        "syntaxHash": "6e07c1b3702761a99979cb59e878b699d6214158323be9389348064ecc72afe6"
+      },
+      {
+        "filePath": "packages/codegen/src/typegen/type-names.ts",
+        "identity": "packages/codegen/src/typegen/type-names.ts#src/typegen/type-names.ts#neutral#@oa-sdk/codegen:src/typegen/type-names.ts#localPointerSegments#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/codegen:src/typegen/type-names.ts#localPointerSegments",
+        "runtime": "neutral",
+        "semanticHash": "a84c672feaf7239532ce34f7a1768f7b8fae3ee16d34ebc159510e19ab76fd6e",
+        "shapeHash": "931f3cde6d5ee437d8aa398ed02d1e8ed8471d2d2c06a874cd01fb59f0dc7f64",
+        "syntaxHash": "bc0c9b72d793ee80792f724c066bb3b8184ca94ce907dad83110c1eda9e2408a"
+      },
+      {
+        "filePath": "packages/codegen/src/typegen/type-names.ts",
+        "identity": "packages/codegen/src/typegen/type-names.ts#src/typegen/type-names.ts#neutral#@oa-sdk/codegen:src/typegen/type-names.ts#nestedAliasBase#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/codegen:src/typegen/type-names.ts#nestedAliasBase",
+        "runtime": "neutral",
+        "semanticHash": "2dfcfe4ee0804029d43a8ab48f919cfb4be82c4df96175f9658275e8e646f5a4",
+        "shapeHash": "ccebb984feaffa646281dc2c6c5d152473f426e091de31206b0423d7d63fb007",
+        "syntaxHash": "246e6631572a4a4d46ab0267725ec22e226a07b74a2aa7d9b66412ec5fcdc464"
+      },
+      {
+        "filePath": "packages/codegen/src/typegen/type-names.ts",
+        "identity": "packages/codegen/src/typegen/type-names.ts#src/typegen/type-names.ts#neutral#@oa-sdk/codegen:src/typegen/type-names.ts#resolveNestedComponentSchema#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/codegen:src/typegen/type-names.ts#resolveNestedComponentSchema",
+        "runtime": "neutral",
+        "semanticHash": "bd51b9cd8a25fff88d4979be5a70e1f0b874bb76b650e08f72b9c4dfa13e5c39",
+        "shapeHash": "c4fbf095da9e88ec629932bf812d67dc8905ecd99042ef73878884cf8ce8fb4a",
+        "syntaxHash": "eaff36ac9e378c5d63d4710d1499d9d16890771b0593ab4ff800583ea150ab61"
+      },
+      {
+        "filePath": "packages/codegen/src/typegen/type-names.ts",
+        "identity": "packages/codegen/src/typegen/type-names.ts#src/typegen/type-names.ts#neutral#@oa-sdk/codegen:src/typegen/type-names.ts#typeNameFromRef#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/codegen:src/typegen/type-names.ts#typeNameFromRef",
+        "runtime": "neutral",
+        "semanticHash": "77148c396e7c7eba0c15be3f01fbc3416a5e0b2672df5a855b96d40823b65d16",
+        "shapeHash": "5159f79092a0c2e729e743884d19d0914c67f773c0a905f630336893aa3ec84a",
+        "syntaxHash": "eabe993cb7042da0045181f7d7f9c6f8719d3b5f5020a307bcb8fa0b01f761bc"
+      },
+      {
+        "filePath": "packages/codegen/src/typegen/type-names.ts",
+        "identity": "packages/codegen/src/typegen/type-names.ts#src/typegen/type-names.ts#neutral#@oa-sdk/codegen:src/typegen/type-names.ts#uniqueTypeName#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/codegen:src/typegen/type-names.ts#uniqueTypeName",
+        "runtime": "neutral",
+        "semanticHash": "1c444cc7f00d29013671690570d5d7dfaa97487a5da93f214c938de7c9f69783",
+        "shapeHash": "f1e26131213a8f77c3b8623b728eff527ae874d401e2d6ea7fe5ad385a3abb3c",
+        "syntaxHash": "cd9e530fd60f9d3cfd21fde2d833559d13a887d7e2ddd4c36e87b18d66d3694a"
       },
       {
         "filePath": "packages/codegen/src/types.ts",
@@ -17991,7 +18363,7 @@
         "runtime": "neutral",
         "semanticHash": "92b8ec04207a2000a24ccf47c743579c6f740aab29368f05bad02a4da6f0d7eb",
         "shapeHash": "48eaf1fc5fd72ed456418d027714bdc13a5683235e4b02c5352e999bac2e39d3",
-        "syntaxHash": "420e93c49346775e409dd687d9d87888ed63eb7005a89d3bde0773a9b709b8c7"
+        "syntaxHash": "ddf913c557c02c50621d49d96b872fbaa57fa018f0799c990cda389737018fbb"
       },
       {
         "filePath": "packages/core/src/codegen-utils.ts",
@@ -18221,7 +18593,7 @@
         "runtime": "neutral",
         "semanticHash": "639b41f23a7cdb1158a80af3b49c7b5cab7b06bd9584f20b76821d1ad659f920",
         "shapeHash": "5159f79092a0c2e729e743884d19d0914c67f773c0a905f630336893aa3ec84a",
-        "syntaxHash": "28aa57e4cfa6d427be4136da8acef47e25c57ce56b25f2fbf16d402efd0d3be8"
+        "syntaxHash": "36b41534a7bb396c1dcec363b7bc992af57097e1ea6a7171bedc7c3c396320ff"
       },
       {
         "filePath": "packages/core/src/strings.ts",
@@ -18232,6 +18604,16 @@
         "semanticHash": "c177abf4e5ee33f2c81c6d8adae6d47b9a8e0032eeac0729824ce5d58a6be168",
         "shapeHash": "5159f79092a0c2e729e743884d19d0914c67f773c0a905f630336893aa3ec84a",
         "syntaxHash": "6324cb0cc08c7558d65b60883887271b636784cdd35742c66c26587802a22253"
+      },
+      {
+        "filePath": "packages/core/src/strings.ts",
+        "identity": "packages/core/src/strings.ts#src/strings.ts#neutral#@oa-sdk/core:src/strings.ts#quoteTypeScriptString#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/core:src/strings.ts#quoteTypeScriptString",
+        "runtime": "neutral",
+        "semanticHash": "9a51fdcb03126ebc0cf1881dd0c3a987199f161f97dea75fdb878c2dbdd2f53c",
+        "shapeHash": "5159f79092a0c2e729e743884d19d0914c67f773c0a905f630336893aa3ec84a",
+        "syntaxHash": "036dda8656fe71921b93bcb38d78ba534082ad3e464be9ac17986b0518378c01"
       },
       {
         "filePath": "packages/core/src/strings.ts",
@@ -29681,7 +30063,7 @@
         "runtime": "neutral",
         "semanticHash": "c2d808b629d9c4ad2b0177dfc2accb129ce8317198660cf5981a1b157baa9cd4",
         "shapeHash": "fc256acce654928fb42a9b9050d39ac6bb44b7bc3dd9711a38ba3332787dae86",
-        "syntaxHash": "296e7b716fd5c6c74088b90c659b107bbd94b62990d88851783ab2f2d44fb31f"
+        "syntaxHash": "be83612b39fca9cc30bc0cf5f6761cd379eb12a4bb5d65cb8813c6e3ebe10c29"
       },
       {
         "filePath": "packages/mock-server/src/adapters/msw.ts",
@@ -29712,6 +30094,16 @@
         "semanticHash": "f5f97049be2729403108464c2dfb8d58053fab97d9f28be4ef005918ce4375e9",
         "shapeHash": "5159f79092a0c2e729e743884d19d0914c67f773c0a905f630336893aa3ec84a",
         "syntaxHash": "23f560ce902758d54cbf81c8e2de7e6c7035143463c9985b3155a0e50db67d79"
+      },
+      {
+        "filePath": "packages/mock-server/src/adapters/msw.ts",
+        "identity": "packages/mock-server/src/adapters/msw.ts#src/adapters/msw.ts#neutral#@oa-sdk/mock-server:src/adapters/msw.ts#extractRawQueryString#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/mock-server:src/adapters/msw.ts#extractRawQueryString",
+        "runtime": "neutral",
+        "semanticHash": "d0acbc35dcb2752d6bda6aac74d3c29a1a1df519b25928c2b7ac20d8cb33e56f",
+        "shapeHash": "b21b906226a0bd83d49786e50416a99b8d4a921e6f83580b39d9933f0397247b",
+        "syntaxHash": "d2ebe19f8a22c72c285f332d7d6a6789cc10e5b1552c6861717c7d75eb0c7751"
       },
       {
         "filePath": "packages/mock-server/src/adapters/msw.ts",
@@ -29779,9 +30171,19 @@
         "kind": "function",
         "qualifiedName": "@oa-sdk/mock-server:src/adapters/msw.ts#parseBody",
         "runtime": "neutral",
-        "semanticHash": "dcf21aa6c9f4adff24389bb37e1d9abed6e801bfb5c2bc0cf485c13d8dad0fa6",
-        "shapeHash": "3e0cb4aac8327232100c61b4e042cccadb3186143632659c77af35451cd2907a",
-        "syntaxHash": "ea2f6c86c5d80d849531680e139b53322a410de199489b8a844e00aa00472bf1"
+        "semanticHash": "112d33825b88061b1bcf3f824044eed18b37d98173590612648db5891289180d",
+        "shapeHash": "d3bf713944e24685f1ed0a578a200a55eb02f72bb88114d693773fada076f22e",
+        "syntaxHash": "3870cf5209cf8bca5446aec2b28968960b668a8e2504923e6a8225118709f048"
+      },
+      {
+        "filePath": "packages/mock-server/src/adapters/msw.ts",
+        "identity": "packages/mock-server/src/adapters/msw.ts#src/adapters/msw.ts#neutral#@oa-sdk/mock-server:src/adapters/msw.ts#ParsedRequestBody#type-alias",
+        "kind": "type-alias",
+        "qualifiedName": "@oa-sdk/mock-server:src/adapters/msw.ts#ParsedRequestBody",
+        "runtime": "neutral",
+        "semanticHash": "02c8e53397ff71c4d8931db308e7980cb5f4c773e472d4e379419ead53b4a6a9",
+        "shapeHash": "6739547cd44e2a8c6857d88c19b7f911cf3b4368dfb8ead473e78ac9cba5d5cb",
+        "syntaxHash": "0f8f6dfc19e8e6e2a1f51e6a5e6aa2900249254ba63f537bc8411bd776921632"
       },
       {
         "filePath": "packages/mock-server/src/adapters/node-http.ts",
@@ -29791,7 +30193,7 @@
         "runtime": "neutral",
         "semanticHash": "d39606df0d3364c63735ba026222fdf3a66022bbb64069519d21106fe7464ec0",
         "shapeHash": "c5899f5ec6aa809313b98024bc369987d2c0f7103960ee47bd799742f331f39e",
-        "syntaxHash": "435c1b15a7e811f0d1d3d0ea94248b839abb60b5c2cf2692f0a38d2de0cf76c8"
+        "syntaxHash": "3bd5e3ff48bfa9d0dc9ba46fc8faad68f455a5728abcd6c1280f2cf430d461ae"
       },
       {
         "filePath": "packages/mock-server/src/adapters/node-http.ts",
@@ -29802,6 +30204,36 @@
         "semanticHash": "7253e64e2996ca1b8d21363aec97130e53d8ad963a05cf2d5b6ed1d417152fc2",
         "shapeHash": "5159f79092a0c2e729e743884d19d0914c67f773c0a905f630336893aa3ec84a",
         "syntaxHash": "721b061ba82f25566a099e6ff105929361445bbf5369ca6c3b42f14a6f68f71a"
+      },
+      {
+        "filePath": "packages/mock-server/src/adapters/node-http.ts",
+        "identity": "packages/mock-server/src/adapters/node-http.ts#src/adapters/node-http.ts#neutral#@oa-sdk/mock-server:src/adapters/node-http.ts#extractPathname#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/mock-server:src/adapters/node-http.ts#extractPathname",
+        "runtime": "neutral",
+        "semanticHash": "f5f97049be2729403108464c2dfb8d58053fab97d9f28be4ef005918ce4375e9",
+        "shapeHash": "5159f79092a0c2e729e743884d19d0914c67f773c0a905f630336893aa3ec84a",
+        "syntaxHash": "23f560ce902758d54cbf81c8e2de7e6c7035143463c9985b3155a0e50db67d79"
+      },
+      {
+        "filePath": "packages/mock-server/src/adapters/node-http.ts",
+        "identity": "packages/mock-server/src/adapters/node-http.ts#src/adapters/node-http.ts#neutral#@oa-sdk/mock-server:src/adapters/node-http.ts#extractRawQueryString#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/mock-server:src/adapters/node-http.ts#extractRawQueryString",
+        "runtime": "neutral",
+        "semanticHash": "d0acbc35dcb2752d6bda6aac74d3c29a1a1df519b25928c2b7ac20d8cb33e56f",
+        "shapeHash": "b21b906226a0bd83d49786e50416a99b8d4a921e6f83580b39d9933f0397247b",
+        "syntaxHash": "d2ebe19f8a22c72c285f332d7d6a6789cc10e5b1552c6861717c7d75eb0c7751"
+      },
+      {
+        "filePath": "packages/mock-server/src/adapters/node-http.ts",
+        "identity": "packages/mock-server/src/adapters/node-http.ts#src/adapters/node-http.ts#neutral#@oa-sdk/mock-server:src/adapters/node-http.ts#formatHost#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/mock-server:src/adapters/node-http.ts#formatHost",
+        "runtime": "neutral",
+        "semanticHash": "e8dd8778872eb7e380c6083d796ec676ac796a8ba0093cf2806efce42553ed68",
+        "shapeHash": "5159f79092a0c2e729e743884d19d0914c67f773c0a905f630336893aa3ec84a",
+        "syntaxHash": "b0e1087570ab72128168d126e280b0c2ba1cbbe99887af2411d8c9cb9100641a"
       },
       {
         "filePath": "packages/mock-server/src/adapters/node-http.ts",
@@ -29855,6 +30287,16 @@
       },
       {
         "filePath": "packages/mock-server/src/adapters/node-http.ts",
+        "identity": "packages/mock-server/src/adapters/node-http.ts#src/adapters/node-http.ts#neutral#@oa-sdk/mock-server:src/adapters/node-http.ts#ParsedRequestBody#type-alias",
+        "kind": "type-alias",
+        "qualifiedName": "@oa-sdk/mock-server:src/adapters/node-http.ts#ParsedRequestBody",
+        "runtime": "neutral",
+        "semanticHash": "02c8e53397ff71c4d8931db308e7980cb5f4c773e472d4e379419ead53b4a6a9",
+        "shapeHash": "6739547cd44e2a8c6857d88c19b7f911cf3b4368dfb8ead473e78ac9cba5d5cb",
+        "syntaxHash": "0f8f6dfc19e8e6e2a1f51e6a5e6aa2900249254ba63f537bc8411bd776921632"
+      },
+      {
+        "filePath": "packages/mock-server/src/adapters/node-http.ts",
         "identity": "packages/mock-server/src/adapters/node-http.ts#src/adapters/node-http.ts#neutral#@oa-sdk/mock-server:src/adapters/node-http.ts#parseHeaderParameter#function",
         "kind": "function",
         "qualifiedName": "@oa-sdk/mock-server:src/adapters/node-http.ts#parseHeaderParameter",
@@ -29879,9 +30321,9 @@
         "kind": "function",
         "qualifiedName": "@oa-sdk/mock-server:src/adapters/node-http.ts#readBody",
         "runtime": "neutral",
-        "semanticHash": "b8114f3b2e9dba9f056338c3b62f45aad43c2563760b946df70d37f49c479379",
-        "shapeHash": "5f8bf6a422148c7086c580457d068effc18e7b55f1fa685e72887954cb5d0969",
-        "syntaxHash": "88441029f1f9eacf0e3d57e6f94c186cfee5c08b89ef9a00e1d90506cb6247d9"
+        "semanticHash": "d8137ccd3dd59672143b7d83093b0441b9661addacb8de323868f7034f5fc853",
+        "shapeHash": "b895edb20ae85b3bf175542ee06750cf7a86ae888f45449240620242ebcff619",
+        "syntaxHash": "321be4b7bc6cc7f4bb8fae7ae589bd442688dbf817953bb214ce05639742bac5"
       },
       {
         "filePath": "packages/mock-server/src/adapters/node-http.ts",
@@ -29892,6 +30334,16 @@
         "semanticHash": "421d616aa217caadcb4f0e622b42d5ca538f14920dd899496c7729e49fd8e8c9",
         "shapeHash": "c4b9b2c0dfa47ad48f80f01fa0848c90863626603bf9aa78de116c310b3559a5",
         "syntaxHash": "02d96becee01b0d5f3f8162c231e84e96b2927dcad1ebd8812bb2d0e16314dd7"
+      },
+      {
+        "filePath": "packages/mock-server/src/adapters/node-http.ts",
+        "identity": "packages/mock-server/src/adapters/node-http.ts#src/adapters/node-http.ts#neutral#@oa-sdk/mock-server:src/adapters/node-http.ts#stripBasePath#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/mock-server:src/adapters/node-http.ts#stripBasePath",
+        "runtime": "neutral",
+        "semanticHash": "3e24d37e7c01138022b2ee9d32d93ede444d98d265ce2fd72f95adb52a18a24e",
+        "shapeHash": "c5af65aeef2001b698a700fbe8b065db13a92c9ac03d94e27f7e491b390bb48f",
+        "syntaxHash": "82748c8792b4fc475ca0f3cac7c08303b54685a8357dbfaca8cfcf477872e7b9"
       },
       {
         "filePath": "packages/mock-server/src/adapters/node-http.ts",
@@ -30271,7 +30723,7 @@
         "runtime": "neutral",
         "semanticHash": "2d098928c19fe278d4bb899990e26b46ed60c9648d6762feace48ef5b37d4463",
         "shapeHash": "4efc8d701ef3349dbc3ec571ef479914229cddc86f268076a07067826d85c4b2",
-        "syntaxHash": "8ec7247e89eb1713005f56ca29a29780e631e795c269caada4bee76e9d0b59f7"
+        "syntaxHash": "eba571b7aac0ba85cf7d26f3dd0c52f3a7e926c0356479527fb088dd9a1db6cc"
       },
       {
         "filePath": "packages/mock-server/src/core/handler.ts",
@@ -30282,6 +30734,66 @@
         "semanticHash": "0bed03d54a98aa7d88a41468aea13efb4364b6c1e251936e80fbbcc3e9f1dd37",
         "shapeHash": "2ca28c81c6763a24cd04594d0ab655396802cd46fd3ffa9ce3675feee8e4b8c3",
         "syntaxHash": "7ae21d9499e1981d6561ac03727672fa9777f6dafa588e2c7f4bf8d6a1eddbcc"
+      },
+      {
+        "filePath": "packages/mock-server/src/core/handler.ts",
+        "identity": "packages/mock-server/src/core/handler.ts#src/core/handler.ts#neutral#@oa-sdk/mock-server:src/core/handler.ts#isJsonMediaType#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/mock-server:src/core/handler.ts#isJsonMediaType",
+        "runtime": "neutral",
+        "semanticHash": "727f90469666b97e44b17c6446a186bed069b72efb730438cb86ee1bbdc5ce44",
+        "shapeHash": "02169437a9ea38945b33198c68fdbf8e0b48eaf9790b282a5b5c700dde3e1eea",
+        "syntaxHash": "89d18d34015807a12135c2e6ba3d302f40ef24090f2f0227e3f6acbbd87ead86"
+      },
+      {
+        "filePath": "packages/mock-server/src/core/handler.ts",
+        "identity": "packages/mock-server/src/core/handler.ts#src/core/handler.ts#neutral#@oa-sdk/mock-server:src/core/handler.ts#isRecord#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/mock-server:src/core/handler.ts#isRecord",
+        "runtime": "neutral",
+        "semanticHash": "817aaa54f5db297323f930f2f365a5f08e4d402aa0beeeb893f52cb744c77d5a",
+        "shapeHash": "c91435eb4555d6c825407db05a6f1c9d47975c263b297896e25bbd7ddaf682c0",
+        "syntaxHash": "6e2ff76e016131ec78ef437a4a99f83cba7621a27134644e9f8c2494049dc7c0"
+      },
+      {
+        "filePath": "packages/mock-server/src/core/handler.ts",
+        "identity": "packages/mock-server/src/core/handler.ts#src/core/handler.ts#neutral#@oa-sdk/mock-server:src/core/handler.ts#pickDocumentedResponse#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/mock-server:src/core/handler.ts#pickDocumentedResponse",
+        "runtime": "neutral",
+        "semanticHash": "e8a99f9b52039993b96eddf356659e0f3111510ee02747d2ebd4f02c3b4ad013",
+        "shapeHash": "184470f480c7bfe38a29c74a7d0a4f06b8666f8670eed6c98b5622397c8c8a62",
+        "syntaxHash": "620e01bf806c8dd6073e9cd22e361d49a1e937a5ff85c9598fdcf05defbc6c38"
+      },
+      {
+        "filePath": "packages/mock-server/src/core/handler.ts",
+        "identity": "packages/mock-server/src/core/handler.ts#src/core/handler.ts#neutral#@oa-sdk/mock-server:src/core/handler.ts#pickUnauthorizedResponse#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/mock-server:src/core/handler.ts#pickUnauthorizedResponse",
+        "runtime": "neutral",
+        "semanticHash": "c723a9b04c6cf6aeb48290508ce15b829b8d2c28efaa116541bf382c597cc625",
+        "shapeHash": "e0e1ad66bb91d750bd9bf2603b662057c46b2e9ffa1e3fe2c43672876db1117c",
+        "syntaxHash": "c82ae7a2683a53f6d849ac25a63d4a86e541938a6aab840e805657328c2ebda0"
+      },
+      {
+        "filePath": "packages/mock-server/src/core/handler.ts",
+        "identity": "packages/mock-server/src/core/handler.ts#src/core/handler.ts#neutral#@oa-sdk/mock-server:src/core/handler.ts#toContractValidationDetail#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/mock-server:src/core/handler.ts#toContractValidationDetail",
+        "runtime": "neutral",
+        "semanticHash": "5ae2769f743b17a316068c428e6108a244a5e561d45f9c7deae35e7e22e48755",
+        "shapeHash": "605494c5a6bc21264bc556d5550c2dfca7a676af3ee05237ee104e032f2ec70c",
+        "syntaxHash": "0a3cf5c419106394cc4f1370a417ee3cbc863d95166006830a49156a5c6442fb"
+      },
+      {
+        "filePath": "packages/mock-server/src/core/handler.ts",
+        "identity": "packages/mock-server/src/core/handler.ts#src/core/handler.ts#neutral#@oa-sdk/mock-server:src/core/handler.ts#withContractSafeValidationDetails#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/mock-server:src/core/handler.ts#withContractSafeValidationDetails",
+        "runtime": "neutral",
+        "semanticHash": "66b12bf836427f96a1f2e7c68e860501e5f17eab9567ec8a6d5ec66a13063795",
+        "shapeHash": "e70aa6f133814e9961fee60780544c026d2759787c767a92df3cebe54ceacb53",
+        "syntaxHash": "0953d5e49c44c61fa358a1b7c87a20f788e21148f77ed59a2d0eeadeca0ee054"
       },
       {
         "filePath": "packages/mock-server/src/core/media-body.ts",
@@ -30405,13 +30917,33 @@
       },
       {
         "filePath": "packages/mock-server/src/core/request-validation/security.ts",
+        "identity": "packages/mock-server/src/core/request-validation/security.ts#src/core/request-validation/security.ts#neutral#@oa-sdk/mock-server:src/core/request-validation/security.ts#hasBearerCredential#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/mock-server:src/core/request-validation/security.ts#hasBearerCredential",
+        "runtime": "neutral",
+        "semanticHash": "b620aa980085f678f6b6a5f3d176c75aaabccc708cb5821d5c2468522ec49d9f",
+        "shapeHash": "02169437a9ea38945b33198c68fdbf8e0b48eaf9790b282a5b5c700dde3e1eea",
+        "syntaxHash": "b447d36f7ac8451ed500689a3e30cc1b62640e907c3f36faf85e5ddf836901da"
+      },
+      {
+        "filePath": "packages/mock-server/src/core/request-validation/security.ts",
+        "identity": "packages/mock-server/src/core/request-validation/security.ts#src/core/request-validation/security.ts#neutral#@oa-sdk/mock-server:src/core/request-validation/security.ts#hasNonEmptyCredential#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/mock-server:src/core/request-validation/security.ts#hasNonEmptyCredential",
+        "runtime": "neutral",
+        "semanticHash": "76b0d63ca09b19fefcd8cbe64acff5a2ebdef05d0252ea5c1c267b9b82790ee8",
+        "shapeHash": "fb1f4b24b211a15b0980f13085094c68124ec7e1a28a338822e59c39af1a0b0a",
+        "syntaxHash": "82bf32157c1881e4c65612d26f9636c2ab304ce42a32ce043ce1e027a01ff8aa"
+      },
+      {
+        "filePath": "packages/mock-server/src/core/request-validation/security.ts",
         "identity": "packages/mock-server/src/core/request-validation/security.ts#src/core/request-validation/security.ts#neutral#@oa-sdk/mock-server:src/core/request-validation/security.ts#hasSchemeCredential#function",
         "kind": "function",
         "qualifiedName": "@oa-sdk/mock-server:src/core/request-validation/security.ts#hasSchemeCredential",
         "runtime": "neutral",
         "semanticHash": "c15eedf1fa4c08661a87b55dd3cf53cd47ccfe2b4409480e5632ae68b08033d6",
         "shapeHash": "365e937da859ef8ed723660847baf84a951fe559df4cd95f3fbfa91eb2136084",
-        "syntaxHash": "5f077623be6c79458ef1ccf385f7d7bda7233411e78cd8152546d11e0542afd9"
+        "syntaxHash": "21343416cccc617f6b653f2242323dcdc565a38ee0c2ca501f41dcfad84d8cde"
       },
       {
         "filePath": "packages/mock-server/src/core/request-validation/security.ts",
@@ -30445,6 +30977,16 @@
       },
       {
         "filePath": "packages/mock-server/src/core/request-validator.ts",
+        "identity": "packages/mock-server/src/core/request-validator.ts#src/core/request-validator.ts#neutral#@oa-sdk/mock-server:src/core/request-validator.ts#acceptsRawQuerystring#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/mock-server:src/core/request-validator.ts#acceptsRawQuerystring",
+        "runtime": "neutral",
+        "semanticHash": "355fe1255e5a83cce2f8b73c784f01ece4a338a6b4ee3e2151584abd4709fa2e",
+        "shapeHash": "65818143fa764db8c37e581e48502a94e2f04f808125a3481a68cf982aada1b8",
+        "syntaxHash": "742849f751805d1294675f9cc1187689b4b1acec6e5d438aa386d68e0fa71bee"
+      },
+      {
+        "filePath": "packages/mock-server/src/core/request-validator.ts",
         "identity": "packages/mock-server/src/core/request-validator.ts#src/core/request-validator.ts#neutral#@oa-sdk/mock-server:src/core/request-validator.ts#appendMultipartFieldValue#function",
         "kind": "function",
         "qualifiedName": "@oa-sdk/mock-server:src/core/request-validator.ts#appendMultipartFieldValue",
@@ -30459,9 +31001,9 @@
         "kind": "function",
         "qualifiedName": "@oa-sdk/mock-server:src/core/request-validator.ts#applyMultipartFieldEncoding",
         "runtime": "neutral",
-        "semanticHash": "d7a004b8786dc6fb19a4654192b192fb38f67d25741c44359113a3804a099051",
-        "shapeHash": "eb6c148963f904aa26ac8d1143bcba0afabd1046b28888057ce827835e175321",
-        "syntaxHash": "508bbc77b3d174c60ec6d8b1f3f0921f79234182bf5216b8969819e8eca9b5a9"
+        "semanticHash": "b58dd34ce1867bf4de55a28328c47b4c0ce987745ce5c401ed03b43828d14984",
+        "shapeHash": "95c2b14463b31be92e01bcdbb811a19f6cc5669c65fb64efaec68f87cf2fd838",
+        "syntaxHash": "8204d4010072adf2943c1ddef28cc268e52526ae79049259211a7627757b8dc6"
       },
       {
         "filePath": "packages/mock-server/src/core/request-validator.ts",
@@ -30485,13 +31027,33 @@
       },
       {
         "filePath": "packages/mock-server/src/core/request-validator.ts",
+        "identity": "packages/mock-server/src/core/request-validator.ts#src/core/request-validator.ts#neutral#@oa-sdk/mock-server:src/core/request-validator.ts#DecodedQuerystringValue#type-alias",
+        "kind": "type-alias",
+        "qualifiedName": "@oa-sdk/mock-server:src/core/request-validator.ts#DecodedQuerystringValue",
+        "runtime": "neutral",
+        "semanticHash": "2cea5513437adb13ddba27c9368cd2724fd0fddf55f37eaa9be30e39dfec6570",
+        "shapeHash": "692716b40737bd0ef3820d63de72b9d88a7938f36ce186494d65b58b9ed9f6f5",
+        "syntaxHash": "643dc77ea97b1b00fc23158f927bd01fbb8ae9312bf38b22fe16455779697b1a"
+      },
+      {
+        "filePath": "packages/mock-server/src/core/request-validator.ts",
         "identity": "packages/mock-server/src/core/request-validator.ts#src/core/request-validator.ts#neutral#@oa-sdk/mock-server:src/core/request-validator.ts#decodeMultipartPartValue#function",
         "kind": "function",
         "qualifiedName": "@oa-sdk/mock-server:src/core/request-validator.ts#decodeMultipartPartValue",
         "runtime": "neutral",
-        "semanticHash": "fbdb8e05daf7c7012e99aafb0f982d41b800c72bf007b56181a299ada6a9cc28",
-        "shapeHash": "5f4ae1ecec3151da98e4d5142a383e60c202c9e16847022ea3767af181cee45b",
-        "syntaxHash": "baa92f2e5e7f00948a49057ca3beedbaa501403af36d731528db95cc885506fe"
+        "semanticHash": "8d69870be2671584b50d4723298493e7184ee5196a5cf5363aadb5cbecd16b92",
+        "shapeHash": "d82c35298fb86e462773827a996a20fdf933fab65ebab9f4b53b74e348955cdb",
+        "syntaxHash": "cbefeba8105bd2eec581fb9f3602b48e95b0d94c824bf36e06405749ff7281e6"
+      },
+      {
+        "filePath": "packages/mock-server/src/core/request-validator.ts",
+        "identity": "packages/mock-server/src/core/request-validator.ts#src/core/request-validator.ts#neutral#@oa-sdk/mock-server:src/core/request-validator.ts#decodeQuerystringValue#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/mock-server:src/core/request-validator.ts#decodeQuerystringValue",
+        "runtime": "neutral",
+        "semanticHash": "739fc78bffcebe8025771bdd8e2b51b9c4f60aabb1355091d72f055c3e35b70f",
+        "shapeHash": "a8ef6b18d83a3939f370c100e957ecded8add370972eac7a8e2b76b3218494d5",
+        "syntaxHash": "583158658559a771db03b6d8138e7e6f91de4b9954e1dcb1800cb710db94fa28"
       },
       {
         "filePath": "packages/mock-server/src/core/request-validator.ts",
@@ -30529,9 +31091,9 @@
         "kind": "function",
         "qualifiedName": "@oa-sdk/mock-server:src/core/request-validator.ts#deserializeMultipartStyle",
         "runtime": "neutral",
-        "semanticHash": "18d7768e3a024e57b9319dcbf915a5b3c4065f3c52de6a89d0d452e4e684845a",
-        "shapeHash": "02b68feac9186154c7e7cdc750d3a2a276cadab49501e669c471a9636d8cead0",
-        "syntaxHash": "a663bad0a3872a61ec6195263ba66ec1b9b2664d107437ecd100c2d093251211"
+        "semanticHash": "d191178a42bf19dc9ffa9a0dbf2acea1bfcba46d291c3cf4c83f14790f805103",
+        "shapeHash": "64f993d96cbba666572214be1e2b89a4afa5c501e9fe313276d700d3a068fe78",
+        "syntaxHash": "bf6b91790e790f61a5c522fd536e9f1c3005a0d3038a26161bdc9253d3ea55af"
       },
       {
         "filePath": "packages/mock-server/src/core/request-validator.ts",
@@ -30555,13 +31117,23 @@
       },
       {
         "filePath": "packages/mock-server/src/core/request-validator.ts",
+        "identity": "packages/mock-server/src/core/request-validator.ts#src/core/request-validator.ts#neutral#@oa-sdk/mock-server:src/core/request-validator.ts#extractDeepObjectQueryValue#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/mock-server:src/core/request-validator.ts#extractDeepObjectQueryValue",
+        "runtime": "neutral",
+        "semanticHash": "62ff5f7a0a7c977471a3202a0b45002ab87ee5475089dec88907ffdc55e3bf47",
+        "shapeHash": "01b723f6e9756b4fde1caf427683a5abf276e0daaec4b649c10b1bda7cd42104",
+        "syntaxHash": "1c03136222dad733922d03f8c06062ec5895cdfbdc78b1a87f25d20c5b570f84"
+      },
+      {
+        "filePath": "packages/mock-server/src/core/request-validator.ts",
         "identity": "packages/mock-server/src/core/request-validator.ts#src/core/request-validator.ts#neutral#@oa-sdk/mock-server:src/core/request-validator.ts#extractParamValue#function",
         "kind": "function",
         "qualifiedName": "@oa-sdk/mock-server:src/core/request-validator.ts#extractParamValue",
         "runtime": "neutral",
         "semanticHash": "b4883ae57768a1f3102679d30ff104acf4c7058f690fab294687a9582a88cc9f",
         "shapeHash": "4fb6ff3e335deef325fb80dc4c0fd3defc759039a160815d0d03ea085f8e40ee",
-        "syntaxHash": "a25dae0177d077e19d04abbc0abddec0b929f477d401df946bbf37d873f86396"
+        "syntaxHash": "d775d21e4bea0ae4a3e05f1031b465dbdbb9e84f45fb6efe29a0b640c40ba21f"
       },
       {
         "filePath": "packages/mock-server/src/core/request-validator.ts",
@@ -30612,6 +31184,16 @@
         "semanticHash": "d8936b852baa70500d3ab374c9d38bd45cda64289bea1e2252f272ec7bb0df38",
         "shapeHash": "69cffb093208bfc9b2c89195b379492a1e5adb0901fe8cd8c74e3559bbaa6597",
         "syntaxHash": "2d8c92839c4b64bb0620aca8145fed0d0385d3b54e01324ea94f9379e5b4d371"
+      },
+      {
+        "filePath": "packages/mock-server/src/core/request-validator.ts",
+        "identity": "packages/mock-server/src/core/request-validator.ts#src/core/request-validator.ts#neutral#@oa-sdk/mock-server:src/core/request-validator.ts#hasRegisteredQuerystringDecoder#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/mock-server:src/core/request-validator.ts#hasRegisteredQuerystringDecoder",
+        "runtime": "neutral",
+        "semanticHash": "14fbdf7a79241027cb24da51f6bc74f06c2ac430ccc08b0eec82bb67744333ff",
+        "shapeHash": "a4dff7212878157c844646ecd6767a6916808045b93cb264f8f40190dec587a8",
+        "syntaxHash": "31fad1463ce0e3086691ac1a62f1143e1dcb7141a3a179d9d7d33b68b7807bd1"
       },
       {
         "filePath": "packages/mock-server/src/core/request-validator.ts",
@@ -30679,9 +31261,9 @@
         "kind": "function",
         "qualifiedName": "@oa-sdk/mock-server:src/core/request-validator.ts#multipartEncodingError",
         "runtime": "neutral",
-        "semanticHash": "c90919e80366d53046843ae9c3e7697b6c8173767994ec4e9ece223ff1aeafa3",
-        "shapeHash": "0a74317250e0086479a86bc1f9e244719db9ede7a8603eaca9162b7768ed517e",
-        "syntaxHash": "6fd2d06d9173f9a3e4e089647dd7dd708888aa20c50f53fff0486b097dcfa747"
+        "semanticHash": "e83ca0e658bfaf016fdf70b8cffc3b824c0c76fb1147b4ff9219b87b36a79f38",
+        "shapeHash": "318bb3b7b7fd6ff73477e0a2a8d4c7a102b67c0c14dcdc6ac3f2d2ad599f5f9d",
+        "syntaxHash": "a2efff251a9a07a56237bc2b5e9ddc78004129743257f5323dcd45ff0799e75f"
       },
       {
         "filePath": "packages/mock-server/src/core/request-validator.ts",
@@ -30749,9 +31331,9 @@
         "kind": "function",
         "qualifiedName": "@oa-sdk/mock-server:src/core/request-validator.ts#prepareMultipartBody",
         "runtime": "neutral",
-        "semanticHash": "b100c7a26c410653bcb8156b5449783faaaebd5235457c11a2bb6c2c5c25c59e",
-        "shapeHash": "911a625c7d91961901722b5f5853b7d69373229f3935e0ad05e3ecf76afc9e0b",
-        "syntaxHash": "e88a5553e55e7b1a7cf88c0fe7c3b9d2633df2d8e2e97477c5fef5d631e64afa"
+        "semanticHash": "549ef113e93051922db6b517141e06548d74c18b9332230c6494ed41ac5986d0",
+        "shapeHash": "6b0ff5478fe147cf2d49792dfd48c2c89e486a20d6b9d7e444579104b47fb5ff",
+        "syntaxHash": "a7b52e9dddd64196c3343181e5aef495ed2004e0bd37263ff74e9ae25b351143"
       },
       {
         "filePath": "packages/mock-server/src/core/request-validator.ts",
@@ -30759,9 +31341,9 @@
         "kind": "function",
         "qualifiedName": "@oa-sdk/mock-server:src/core/request-validator.ts#prepareXmlBody",
         "runtime": "neutral",
-        "semanticHash": "c862959243913c5fa189d629c953bba2e987e42b6ae1869ce0abdcdf3b9f9d97",
-        "shapeHash": "d0ba5af87f6bb27eb178c00a30645a22df83b6e1b1663d84cea2154f9680137d",
-        "syntaxHash": "d3bb63ee8bf83a2984183645f8eec8f4fe4f51c6dfaacd78ec00a67b32a67901"
+        "semanticHash": "3a00d11bc8da448bd02a3928d3c9e3dd698bc069bf3e3e249d210ac959f33397",
+        "shapeHash": "ad10615500dd6bbcf6dc9ac2d701dc1356213f7a3beac7859644fdab65e399ed",
+        "syntaxHash": "c7cc76071bb11bd048ae65cf8aaca194be88499c813eaa51e14c52c690753319"
       },
       {
         "filePath": "packages/mock-server/src/core/request-validator.ts",
@@ -30769,9 +31351,9 @@
         "kind": "type-alias",
         "qualifiedName": "@oa-sdk/mock-server:src/core/request-validator.ts#RequestParts",
         "runtime": "neutral",
-        "semanticHash": "6ab652983160425ce557aaff790f244ffbbba815ecb642fb0096f4bddcd535ec",
-        "shapeHash": "28250e841ee3f764940629431323da514e744b4eeadfe9df07492480e14e9495",
-        "syntaxHash": "e4ebb3a5ef3a16ed95644f4f2c2f2a4ffdec93a34ec46816a2430cf8f7a32e16"
+        "semanticHash": "8bc222b12372841e651a41691eccc4b1918b59ba9a6424e39059a213d47bc8c2",
+        "shapeHash": "b2430efd7b34a696b8c10e850d6e59c014acb642390d10e08255a80e494e0079",
+        "syntaxHash": "2a4e8ac0dea5402525040308da7ffdd833d22c00774560038abc761033afb3e3"
       },
       {
         "filePath": "packages/mock-server/src/core/request-validator.ts",
@@ -30819,9 +31401,9 @@
         "kind": "function",
         "qualifiedName": "@oa-sdk/mock-server:src/core/request-validator.ts#validateBody",
         "runtime": "neutral",
-        "semanticHash": "3f6d3055120f87fd90eeafcf7659c9b531da2423ad47f40131e026824eb623e9",
-        "shapeHash": "e6e7656061b174c1c9b11488b434ef43c559a18ab6fbf59f334feed48418b855",
-        "syntaxHash": "692d3b9a06a927a9e801c6b32d7b9b15dc63a343ccc3365f562d5d7774958d2b"
+        "semanticHash": "f9fb14771cb992409c6c32c6565d643857a7eeed61d3c88cd6405c9d544e4a75",
+        "shapeHash": "f2fe83181d91913b64a54ec849978023525525b99e86e855610400c402876bc7",
+        "syntaxHash": "58dc6c99f7c2cea6394cff30d46ada9c1579dfdbc3d7764cad641e2efbe410c4"
       },
       {
         "filePath": "packages/mock-server/src/core/request-validator.ts",
@@ -30829,9 +31411,9 @@
         "kind": "function",
         "qualifiedName": "@oa-sdk/mock-server:src/core/request-validator.ts#validateContentType",
         "runtime": "neutral",
-        "semanticHash": "3ef43a66c5e133ddbab8832a9fbe6afbeaced09d14a637960559b89e63954b84",
-        "shapeHash": "8ef4ca0b1ff4903e6e60e12859562f15c54a3f96202cfa54262695ba477f812a",
-        "syntaxHash": "608881f58bc95a4d94d940416a9d2ef8115c02ecec25fbdb5de4fdabec86bc07"
+        "semanticHash": "c04a9ad16e9e9cf7690d09dd9d269924b15bb71c64bcc17be2b4b3df884abf66",
+        "shapeHash": "752543a54136f46a572909961a83d7b038be5ed461f35c82d05fa99987f52cd8",
+        "syntaxHash": "020fc9a708035fcbfab28511abc86757aa86240cd577a1827bdd9ac3b45a7908"
       },
       {
         "filePath": "packages/mock-server/src/core/request-validator.ts",
@@ -30839,9 +31421,19 @@
         "kind": "function",
         "qualifiedName": "@oa-sdk/mock-server:src/core/request-validator.ts#validateMultipartPartContentTypes",
         "runtime": "neutral",
-        "semanticHash": "d2732e1b1b22ee560ae886dad5f943ba245e1674406cb06ce8cbda9c02c7f124",
-        "shapeHash": "12ae332f82e01f4efb29986553f9fa816d2126733d57bbfd2e59c3a672f53e38",
-        "syntaxHash": "f1b6a1a6d57f5a2b33d47c5fb81c0c3840264331c3fc7d134af41aad76ca9db4"
+        "semanticHash": "3c512dbfc369ccc26f6da4cab6284633ac05dc20a00d9f1aba6ea2f82b12d127",
+        "shapeHash": "6e5f6d9240c42f5ead38b083d235af7d22c0a124582ee196d481d28ee534112b",
+        "syntaxHash": "d794ddf1b94582f8f9cba51d32b65ad7454a543c766fef35dce07a6a5aef830f"
+      },
+      {
+        "filePath": "packages/mock-server/src/core/request-validator.ts",
+        "identity": "packages/mock-server/src/core/request-validator.ts#src/core/request-validator.ts#neutral#@oa-sdk/mock-server:src/core/request-validator.ts#validateQuerystringParameter#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/mock-server:src/core/request-validator.ts#validateQuerystringParameter",
+        "runtime": "neutral",
+        "semanticHash": "e8eb9c958301f1a6c6d9c9a29805a97d15c916fc2612a02dbdab382c3e10530b",
+        "shapeHash": "dcdee4602cd0bb2b25df2786d1df1319a3761eae4f49ca97ceac659009d835ce",
+        "syntaxHash": "0e179a342908d4bb37c1953e2ff7a4f092093b43f22165eb76a83bec351bd929"
       },
       {
         "filePath": "packages/mock-server/src/core/request-validator.ts",
@@ -30851,7 +31443,7 @@
         "runtime": "neutral",
         "semanticHash": "92936f57832e9730107dfcba7c8ef9be9659ea619fa8e5b7cbb8d11ea65fb94b",
         "shapeHash": "f899787ceb8e06254460b268787b31de3910b142fc4a6f3ce984ebd0fd3a376d",
-        "syntaxHash": "ea9499f7c37188d2d6ccefa56b8747b020013076fb270fb9ffdfcbb25454d515"
+        "syntaxHash": "cdf6519745e4214cf5e56ebcf223a54f3eb646d28c40a1935cd934145050bd59"
       },
       {
         "filePath": "packages/mock-server/src/core/request-validator.ts",
@@ -30861,7 +31453,7 @@
         "runtime": "neutral",
         "semanticHash": "8587eb5e4c1fbedc0af5a23ad0c973c49109983080c06283f31d3d00124c9670",
         "shapeHash": "655e134595777d5fc3172a8e78d9fbc99e28d51532ca1b2d095dd3335d70065f",
-        "syntaxHash": "1ba09f9c4215a65021f525dc4f2c3054311d79f6a781dc3b03e20716bfbb50c1"
+        "syntaxHash": "26dac9b7bccc061f0b76c8d0959f54bf14dac545e5992eab1636f6208b7b2ac2"
       },
       {
         "filePath": "packages/mock-server/src/core/request-validator.ts",
@@ -30881,7 +31473,7 @@
         "runtime": "neutral",
         "semanticHash": "9a8154eae27c9c2f74a5cf6aa187d0f8bd6bf322eb35e6ab627070e8a7eb842e",
         "shapeHash": "d9186caf8c8706935ae74219188858b7e7cbd2f467c7a864b1eb724cc9b09220",
-        "syntaxHash": "26823490218ee6649ec3def09cfda46820f2df3a47fb6671795c412fae374e60"
+        "syntaxHash": "b2a9916877dc391a4cea40ec4df5d0649099bd0a10a239194ad0ed25bbff5931"
       },
       {
         "filePath": "packages/mock-server/src/core/response-picker.ts",
@@ -30921,7 +31513,7 @@
         "runtime": "neutral",
         "semanticHash": "442eb0f6afc107d529936b8da46c141eb8924796932801eb2f305079a0fed491",
         "shapeHash": "cd917c369311bca361a8582b3929fc1c21e08b7e98893426011bf27f9f480ddf",
-        "syntaxHash": "61184c4a21759b52e41e5b4595f496cbb3b9b5c322866169a6c77b9d2f674e59"
+        "syntaxHash": "760a95adad517b08ec168cac7badea3ff55b2a62569461ef04991fc625e5e704"
       },
       {
         "filePath": "packages/mock-server/src/core/response-picker.ts",
@@ -30951,7 +31543,7 @@
         "runtime": "neutral",
         "semanticHash": "2d4e19cf381b2f40aca2d30b74e7ab9acc68e3c68a17235d02ed2387fcc0946f",
         "shapeHash": "1a09a7391b4182ef58090f2aade6d360f2ea0c207c7fd99a7737e4d638831331",
-        "syntaxHash": "4f1c7172cabb1bfb303ef17535a30d696f1751a7653e1925b88b7ffc5e091ec3"
+        "syntaxHash": "30c8ca8462ec893018ef48c34e3529b3d533355e6b1d9c006f2334382783ddd0"
       },
       {
         "filePath": "packages/mock-server/src/core/route-filter.ts",
@@ -30999,9 +31591,9 @@
         "kind": "function",
         "qualifiedName": "@oa-sdk/mock-server:src/core/stream.ts#formatSseChunk",
         "runtime": "neutral",
-        "semanticHash": "cfcdbda99e4274ad63e0e7de15aa53412a080b112816ce577663ad4a6ab75dd4",
-        "shapeHash": "af5678f1534b1ddf4160a9a264fbd7eae037bf36d2a90bc91a63f575cad3b5b9",
-        "syntaxHash": "b9508e0ee4c5a2ae165459a1ff7174d2af15fab74deb81bd4e33781949c2ea19"
+        "semanticHash": "56b33d81ecd9b1dcf55787e486af2cb81cf074e1a874d25f01c8197f750947a0",
+        "shapeHash": "da1a9321378cac9282284692fbc019eb9d4f20732f5338dc67e8f569488244ed",
+        "syntaxHash": "10d364181845b6080a1a3b0cd33a98cc9e6db96006e46c41db7645eb6c4d642a"
       },
       {
         "filePath": "packages/mock-server/src/core/stream.ts",
@@ -31011,7 +31603,27 @@
         "runtime": "neutral",
         "semanticHash": "0c4f0d6c8562f6d76c2f77c23644a0f6d291fed0bb7205eb29571528da91e8cf",
         "shapeHash": "5d9900c9743d747ffc6e40db19a7481ea441bfb57470daf62c670f877f7e6993",
-        "syntaxHash": "28bc4e980687cb1efedfdc4c73ad13481588b03d0a932415b988a2b1dd257f70"
+        "syntaxHash": "1760fdcfca88089eee7ad779a713839a3915cae663849a702aa601837765fb51"
+      },
+      {
+        "filePath": "packages/mock-server/src/core/stream.ts",
+        "identity": "packages/mock-server/src/core/stream.ts#src/core/stream.ts#neutral#@oa-sdk/mock-server:src/core/stream.ts#generateStreamValidationValue#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/mock-server:src/core/stream.ts#generateStreamValidationValue",
+        "runtime": "neutral",
+        "semanticHash": "93a8bd888feb3effe72b37baac62514226c34b72a6ee29e5c84370f2e4bc36e6",
+        "shapeHash": "1b8ff329ab5fb1241fbadf830a00a9efc0dd732fd72d481b4de5c9c11314971c",
+        "syntaxHash": "9708755c98573fb11bf9da9e237d853b755f0714d817771c34988c06712c2bb6"
+      },
+      {
+        "filePath": "packages/mock-server/src/core/stream.ts",
+        "identity": "packages/mock-server/src/core/stream.ts#src/core/stream.ts#neutral#@oa-sdk/mock-server:src/core/stream.ts#getNativeSseEvent#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/mock-server:src/core/stream.ts#getNativeSseEvent",
+        "runtime": "neutral",
+        "semanticHash": "42acd1f8b6e18055baec267016a39b9452664babf9c6fd2d84c5486d045575af",
+        "shapeHash": "394dde097e4b2e588031bcc1b0b38d8d4d65bd0557908be24908c343dbd99c0d",
+        "syntaxHash": "51cbc379bb4796b9520b9abbf144eb9ed15f044a8d69c667406ac151740ae488"
       },
       {
         "filePath": "packages/mock-server/src/core/stream.ts",
@@ -31025,13 +31637,23 @@
       },
       {
         "filePath": "packages/mock-server/src/core/stream.ts",
+        "identity": "packages/mock-server/src/core/stream.ts#src/core/stream.ts#neutral#@oa-sdk/mock-server:src/core/stream.ts#NativeSseEvent#type-alias",
+        "kind": "type-alias",
+        "qualifiedName": "@oa-sdk/mock-server:src/core/stream.ts#NativeSseEvent",
+        "runtime": "neutral",
+        "semanticHash": "7df24781335945df7c6fd8ee8b576a5698cc3d0bf533044715a1c644a4e4fdbf",
+        "shapeHash": "c83568e1f4d13949b91939e72b7f69c62395d76b9c9aefbac48dd3dff0fbec31",
+        "syntaxHash": "10f1dbe2dc86a99be3d2765da840d5d30da42e63a938e50ca091cf318fa8a617"
+      },
+      {
+        "filePath": "packages/mock-server/src/core/stream.ts",
         "identity": "packages/mock-server/src/core/stream.ts#src/core/stream.ts#neutral#@oa-sdk/mock-server:src/core/stream.ts#StreamFolder#class",
         "kind": "class",
         "qualifiedName": "@oa-sdk/mock-server:src/core/stream.ts#StreamFolder",
         "runtime": "neutral",
         "semanticHash": "f2b6d09dd8d0b2b5cbbb5676a9a52c3394f87ced25ab05bd11c7cab21ea53f75",
         "shapeHash": "2a063260620df72fc68d9c3d807e603ef778f7c3e1063eb339f40b15f06d4b3f",
-        "syntaxHash": "bb5dedbaed46acad3a7fa0df15b872062d56537567007b3d4b5bb4aa6ec4dd5f"
+        "syntaxHash": "6deb56b4e4ce42d2499955844885a7c1295712540b6e1fc78ece887ce266ac0b"
       },
       {
         "filePath": "packages/mock-server/src/core/stream.ts",
@@ -31331,7 +31953,7 @@
         "runtime": "neutral",
         "semanticHash": "c2ab181cd27c26096efa45d70e0dcf94ebde9af606af3b61a9f1948f7c4dbeeb",
         "shapeHash": "7754041b199670c706233b4a3b6024c763044286b9c4e828e4502a22e134db91",
-        "syntaxHash": "f48b79420d01ff7f80e1e0feb6687671ee802a0d8d60c553ff33abe49247c8f7"
+        "syntaxHash": "c57ed34a36df1d323b9e2156efdea735831406a26c3fddb1c974fa9929c8b72f"
       },
       {
         "filePath": "packages/mock-server/src/errors/classifier.ts",
@@ -31345,16 +31967,6 @@
       },
       {
         "filePath": "packages/mock-server/src/errors/classifier.ts",
-        "identity": "packages/mock-server/src/errors/classifier.ts#src/errors/classifier.ts#neutral#@oa-sdk/mock-server:src/errors/classifier.ts#describeType#function",
-        "kind": "function",
-        "qualifiedName": "@oa-sdk/mock-server:src/errors/classifier.ts#describeType",
-        "runtime": "neutral",
-        "semanticHash": "3cb1c282e95adbb81c06935141fb77b78028e866a81c99ba80e93df308f34a61",
-        "shapeHash": "af5678f1534b1ddf4160a9a264fbd7eae037bf36d2a90bc91a63f575cad3b5b9",
-        "syntaxHash": "e656acde24339b6f8d5b7802cde1549d7bc681442bfe44ab717ca4b380d778bc"
-      },
-      {
-        "filePath": "packages/mock-server/src/errors/classifier.ts",
         "identity": "packages/mock-server/src/errors/classifier.ts#src/errors/classifier.ts#neutral#@oa-sdk/mock-server:src/errors/classifier.ts#normalizePath#function",
         "kind": "function",
         "qualifiedName": "@oa-sdk/mock-server:src/errors/classifier.ts#normalizePath",
@@ -31364,14 +31976,114 @@
         "syntaxHash": "908234a98f8c5cdeefdb47eeb21c893d6bdae4e465dffa0afc797fcaa3b950a0"
       },
       {
-        "filePath": "packages/mock-server/src/errors/classifier.ts",
-        "identity": "packages/mock-server/src/errors/classifier.ts#src/errors/classifier.ts#neutral#@oa-sdk/mock-server:src/errors/classifier.ts#summarizeReceived#function",
+        "filePath": "packages/mock-server/src/errors/redaction.ts",
+        "identity": "packages/mock-server/src/errors/redaction.ts#src/errors/redaction.ts#neutral#@oa-sdk/mock-server:src/errors/redaction.ts#hasOnlyKeys#function",
         "kind": "function",
-        "qualifiedName": "@oa-sdk/mock-server:src/errors/classifier.ts#summarizeReceived",
+        "qualifiedName": "@oa-sdk/mock-server:src/errors/redaction.ts#hasOnlyKeys",
         "runtime": "neutral",
-        "semanticHash": "6af902798f3430e5cd00e59caa250a7e790ef058f881f15bdecc3b4f13239340",
-        "shapeHash": "46c88b8d9108b562ac9af7c078bca7d157900ed9e9cdc540912e45ea07c64f11",
-        "syntaxHash": "00e46fbba1288a65d51714327e253e18a29683f846b1ada2e35aef378b525085"
+        "semanticHash": "f19336af7434d46af709db4ab0cac27da440e83e7a21db609f3c2d059181d825",
+        "shapeHash": "8a54c8f64dd00a40029cd0ee63b01b9d1de915e2d412e1f27b76f8ec03b34abd",
+        "syntaxHash": "16ce116cefab1be065adb935da28457a1852f5f17d667221921dee620dfc59a0"
+      },
+      {
+        "filePath": "packages/mock-server/src/errors/redaction.ts",
+        "identity": "packages/mock-server/src/errors/redaction.ts#src/errors/redaction.ts#neutral#@oa-sdk/mock-server:src/errors/redaction.ts#isArray#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/mock-server:src/errors/redaction.ts#isArray",
+        "runtime": "neutral",
+        "semanticHash": "f2b924d93bbc673a90e3dea1bb5102ca09af62d8578ef216124fc41b84957ef5",
+        "shapeHash": "e811b10381d8159bb8ddc263f6e4c3af7d566f7c5aa2dec436de97bf2076aa3c",
+        "syntaxHash": "3ba6cecf9bc432b63e1decad4973214467e50a9ae781dfd6842bdba7a03f2799"
+      },
+      {
+        "filePath": "packages/mock-server/src/errors/redaction.ts",
+        "identity": "packages/mock-server/src/errors/redaction.ts#src/errors/redaction.ts#neutral#@oa-sdk/mock-server:src/errors/redaction.ts#isCount#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/mock-server:src/errors/redaction.ts#isCount",
+        "runtime": "neutral",
+        "semanticHash": "429c44095100620b1dec151a9f1bdae31d111a1c55017ff233a214b2bd509c71",
+        "shapeHash": "6b83c701587d0b7ec5669abf4e55d4c92a9f5e53b09daf190b6067df171750b3",
+        "syntaxHash": "766dcd4310ada38775f017adac2f81fddeddeba61700da71b585b46cd7afc0a9"
+      },
+      {
+        "filePath": "packages/mock-server/src/errors/redaction.ts",
+        "identity": "packages/mock-server/src/errors/redaction.ts#src/errors/redaction.ts#neutral#@oa-sdk/mock-server:src/errors/redaction.ts#isRecord#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/mock-server:src/errors/redaction.ts#isRecord",
+        "runtime": "neutral",
+        "semanticHash": "817aaa54f5db297323f930f2f365a5f08e4d402aa0beeeb893f52cb744c77d5a",
+        "shapeHash": "c91435eb4555d6c825407db05a6f1c9d47975c263b297896e25bbd7ddaf682c0",
+        "syntaxHash": "5172bca094db44da1f43762dd6a8b8857e895d69fff1f5543ad3b0da7e4309f4"
+      },
+      {
+        "filePath": "packages/mock-server/src/errors/redaction.ts",
+        "identity": "packages/mock-server/src/errors/redaction.ts#src/errors/redaction.ts#neutral#@oa-sdk/mock-server:src/errors/redaction.ts#MockErrorDetailInput#type-alias",
+        "kind": "type-alias",
+        "qualifiedName": "@oa-sdk/mock-server:src/errors/redaction.ts#MockErrorDetailInput",
+        "runtime": "neutral",
+        "semanticHash": "1e8ecc23c5f8e9f8d49ca8704d1f8ccd427337c9ca615a7bf67b00a4affdd9c9",
+        "shapeHash": "073f1b0a81fb9e4db4de489950b3e9d0a3528f2a98bb569e6e8115c302f4f154",
+        "syntaxHash": "434ec3af72a3eefd12fc484c3134b23f6c8f975421cdd02f279c9323333a3363"
+      },
+      {
+        "filePath": "packages/mock-server/src/errors/redaction.ts",
+        "identity": "packages/mock-server/src/errors/redaction.ts#src/errors/redaction.ts#neutral#@oa-sdk/mock-server:src/errors/redaction.ts#normalizeReceivedValueSummary#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/mock-server:src/errors/redaction.ts#normalizeReceivedValueSummary",
+        "runtime": "neutral",
+        "semanticHash": "9989f61a0b15f6b13fd4694198a791b0add00579925210a0e1d87dbdbdae8e1b",
+        "shapeHash": "499b2a20ea4834cec2e52ec4c55c6efb53ff14f336b155e43aa3512eb0d1d08d",
+        "syntaxHash": "05503b7093623213547e40da188a79377466686c5b233147ddd7731811202990"
+      },
+      {
+        "filePath": "packages/mock-server/src/errors/redaction.ts",
+        "identity": "packages/mock-server/src/errors/redaction.ts#src/errors/redaction.ts#neutral#@oa-sdk/mock-server:src/errors/redaction.ts#redactValidationDetail#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/mock-server:src/errors/redaction.ts#redactValidationDetail",
+        "runtime": "neutral",
+        "semanticHash": "273dbd96e906c23ad92fc9f211e3c52fc32febe5e00205e1b3014a4df4e76e43",
+        "shapeHash": "619278e60f3a4e2d9108c17785a6f3d74d7ee3849b72d3e2190b855b3fc2627e",
+        "syntaxHash": "d67b0aa9a0e287eb7cbe1f14d1c7ec8605148b47959aad8108cb1d5e0f6144fb"
+      },
+      {
+        "filePath": "packages/mock-server/src/errors/redaction.ts",
+        "identity": "packages/mock-server/src/errors/redaction.ts#src/errors/redaction.ts#neutral#@oa-sdk/mock-server:src/errors/redaction.ts#redactValidationDetails#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/mock-server:src/errors/redaction.ts#redactValidationDetails",
+        "runtime": "neutral",
+        "semanticHash": "eb4dbcd648ef485fed51efff4ecd2393b68fb6d6b16e546a9a2b69b812abd2ae",
+        "shapeHash": "0aba4b0f6b5975eec90bd067147d3c85f0fc976355a291ef71a664c24756bf58",
+        "syntaxHash": "5a94a7d81fa6ba597db64243f441aa3a46ac41063d3dabf4366744fda2dec096"
+      },
+      {
+        "filePath": "packages/mock-server/src/errors/redaction.ts",
+        "identity": "packages/mock-server/src/errors/redaction.ts#src/errors/redaction.ts#neutral#@oa-sdk/mock-server:src/errors/redaction.ts#safeArrayCount#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/mock-server:src/errors/redaction.ts#safeArrayCount",
+        "runtime": "neutral",
+        "semanticHash": "8b5da27e7e5f650920e545dae479177e407df8b560cfc50ce65c4e8083aa7260",
+        "shapeHash": "875771a4da2958cdb4e6fb3047b952cb15ecd96e475b723375e0354766c764a5",
+        "syntaxHash": "bead4c95b6d4e46cd8dad3e504114aca4ef4c56aabb6d5b0097a4e9e765eb6c5"
+      },
+      {
+        "filePath": "packages/mock-server/src/errors/redaction.ts",
+        "identity": "packages/mock-server/src/errors/redaction.ts#src/errors/redaction.ts#neutral#@oa-sdk/mock-server:src/errors/redaction.ts#safeObjectCount#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/mock-server:src/errors/redaction.ts#safeObjectCount",
+        "runtime": "neutral",
+        "semanticHash": "81883a8709c7345b687507077823df2ed3efb340f2920cb5dcce28f05e27de89",
+        "shapeHash": "a2aad2a6a16605f02d06df9ce243d2b327a8d7563195486e465755200fb20049",
+        "syntaxHash": "790dec364b297880fc48398ffe70db4b4e4583fbf47022a7e05749b494bf8ff9"
+      },
+      {
+        "filePath": "packages/mock-server/src/errors/redaction.ts",
+        "identity": "packages/mock-server/src/errors/redaction.ts#src/errors/redaction.ts#neutral#@oa-sdk/mock-server:src/errors/redaction.ts#summarizeValidationValue#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/mock-server:src/errors/redaction.ts#summarizeValidationValue",
+        "runtime": "neutral",
+        "semanticHash": "221a066b4c7b6a29d63ec39b80f76f88b7f07aac26eb16bdb6f4b3aa317008e1",
+        "shapeHash": "aaa5de4edc670cf7028675230faae9a16945cec6153546af09591dc891d52d7f",
+        "syntaxHash": "2c4a2c7a38317d592e1f0d379d968c1c77c0ef5dd621b78bb112f75005408acd"
       },
       {
         "filePath": "packages/mock-server/src/errors/types.ts",
@@ -31389,9 +32101,9 @@
         "kind": "type-alias",
         "qualifiedName": "@oa-sdk/mock-server:src/errors/types.ts#MockErrorDetail",
         "runtime": "neutral",
-        "semanticHash": "11a6b26f31cf293bd10876f77054c4a77cc96647576c999a2e2c324c55a04fd1",
-        "shapeHash": "d1e528e1b3607ea07de21480d75a1d027d7c5f99190a56b4ad46e5486b918b14",
-        "syntaxHash": "ca27106fc59e4771a22b5cfe2912cf916b9c416f574a5770ffc72a3e0e980ddb"
+        "semanticHash": "8643d198376bd26666791d58971c102854ecfcca4ffd838e38198990d5f4849f",
+        "shapeHash": "80371dfa9911e00dd8ba74b9fa384725a4133e9fc344b2fb30305bc62851a5c6",
+        "syntaxHash": "42274823c59fdfee6771ccf2535cb92617942d0783b449c9e12e492bc103d5ec"
       },
       {
         "filePath": "packages/mock-server/src/errors/types.ts",
@@ -31402,6 +32114,16 @@
         "semanticHash": "7c84c1af0b48333284abca56ab31639fc3c32fab3185fc29c8aa63f499126257",
         "shapeHash": "2f9e768be22f09e3b00bf66931464e90c44ce584063646a3f3fbcb00feb9fd98",
         "syntaxHash": "a3c946297f4d6c73c06c798ef8c37d07726297a3116bf3a693ada75a7105fb62"
+      },
+      {
+        "filePath": "packages/mock-server/src/errors/types.ts",
+        "identity": "packages/mock-server/src/errors/types.ts#src/errors/types.ts#neutral#@oa-sdk/mock-server:src/errors/types.ts#MockReceivedValueSummary#type-alias",
+        "kind": "type-alias",
+        "qualifiedName": "@oa-sdk/mock-server:src/errors/types.ts#MockReceivedValueSummary",
+        "runtime": "neutral",
+        "semanticHash": "3662d7c925e2a8af558a442c7f5cdbd112698c73892f9cdd3b13fed7a75b6a03",
+        "shapeHash": "fa2890ebba07787d767bf48ed1a1315b46e1883832ec079ba6338b1757cccd5c",
+        "syntaxHash": "106cdde43c11080a666936dfc44e548f425f98c4a7e88603b172c1d4a92ce724"
       },
       {
         "filePath": "packages/mock-server/src/errors/types.ts",
@@ -33151,7 +33873,7 @@
         "runtime": "neutral",
         "semanticHash": "605488959afea278569eef1ed3f251ef80271a49fbfe364b34e0fcaec3f0bf4d",
         "shapeHash": "438848ad6a40b562ca4bb432aacfe5b01d3ef868330dbe254a33ef4c1eb2c230",
-        "syntaxHash": "5b71c57a6f46a9dc796d85996f4528b1015126a717131ae0883b3ea94470591d"
+        "syntaxHash": "757583b3974ddbb2857363e981dc2192bc77db1d453d3eae24e867a807c8f111"
       },
       {
         "filePath": "packages/parser/src/definition-registry.ts",
@@ -33421,7 +34143,7 @@
         "runtime": "neutral",
         "semanticHash": "a19a48ee99f3248bb74cc47154b8886a693d154c82cb5a92a6d3ebf73c552d40",
         "shapeHash": "d0f97b3510d15fca6f90ed9337445dfec22698e920686d20f3e757775d6450eb",
-        "syntaxHash": "59e0787ec27eb05195e59637a963be255990e80671d44e08560b6ec4061a0e3c"
+        "syntaxHash": "40cbe138bf2a8f7e8f9b794b9e405a289b852ea7831564b39847ef45296dfd5c"
       },
       {
         "filePath": "packages/parser/src/deref-internal.ts",
@@ -33431,7 +34153,7 @@
         "runtime": "neutral",
         "semanticHash": "48a21ad8caa143419a193fcb97f8100cb610001ea83d743d1c310a01348eafca",
         "shapeHash": "f1ae60a00fba451c558093411a355f8943cccb7738ca76c6131598ab557192ad",
-        "syntaxHash": "fa7f368f2bd2083f1adfbd78fdd892051ade385adb7b7eb56061860a93ce50dc"
+        "syntaxHash": "38604b4b8168f818ef5e9812d5ed1e66544894102901357f2ec89b72852c3e78"
       },
       {
         "filePath": "packages/parser/src/deref-internal.ts",
@@ -33441,7 +34163,7 @@
         "runtime": "neutral",
         "semanticHash": "dccfc90c6f6a967798fa8493d2270b092248cca61093e8511014c1c126e92b6b",
         "shapeHash": "f1ae60a00fba451c558093411a355f8943cccb7738ca76c6131598ab557192ad",
-        "syntaxHash": "72914dfcabcafee3a900e6fa76c552d41bdce3223134e4d7414f327cdff59043"
+        "syntaxHash": "20aa3157bb0ed1d272b769cc35391ca930b92df13b800364e20cc129c761615a"
       },
       {
         "filePath": "packages/parser/src/deref-internal.ts",
@@ -33494,16 +34216,6 @@
         "syntaxHash": "4d234d18ff2ab10f92a2f670b9a4898d59dc0c8f69d1725c793ab1b382ea8eef"
       },
       {
-        "filePath": "packages/parser/src/deref-internal.ts",
-        "identity": "packages/parser/src/deref-internal.ts#src/deref-internal.ts#neutral#@oa-sdk/parser:src/deref-internal.ts#resolveInternalPointer#function",
-        "kind": "function",
-        "qualifiedName": "@oa-sdk/parser:src/deref-internal.ts#resolveInternalPointer",
-        "runtime": "neutral",
-        "semanticHash": "372178a2b23df37697276db08cfbbe05ce4e42da1c90775d04436d4083e2391c",
-        "shapeHash": "18bcbea14629fa1bc894144d21047ea3bfc36080d7306e0f084036ed0eaad736",
-        "syntaxHash": "4f9e54f21ead4243e8d856422906ac2a50531b9752a28bfc6d0dc0e7eef73767"
-      },
-      {
         "filePath": "packages/parser/src/deref.ts",
         "identity": "packages/parser/src/deref.ts#src/deref.ts#neutral#@oa-sdk/parser:src/deref.ts#asRecord#function",
         "kind": "function",
@@ -33551,7 +34263,7 @@
         "runtime": "neutral",
         "semanticHash": "08d77d4a3417767e6a7dab16731dde9572d9c9e906c8c3bd1df0631399b2a398",
         "shapeHash": "5d8b108402caa0249fc22dcfe62fb1d123586c18ee3215e1e562973c95806cb1",
-        "syntaxHash": "fb3d5586e5f2563051eac77f8beaaf3b610bdfd88b2973284b3c169cfbf9f034"
+        "syntaxHash": "3483971293c4f2fd58fe077c9cf8b833ed6ca6d839837ef4a3a586ddd65aedd3"
       },
       {
         "filePath": "packages/parser/src/deref.ts",
@@ -33611,7 +34323,7 @@
         "runtime": "neutral",
         "semanticHash": "4e69c16e8a329581e0070884acd1813eb2bb50e904cc85d6738d5fb720f23fe6",
         "shapeHash": "9b577553de2c56d9fceac30d245c9b2e57359891035835acad7ae26e82513b3a",
-        "syntaxHash": "3de9bd9326744447ae0c9a883a4a0d09a1dfec56c28dd0c59bbe404b27b90b85"
+        "syntaxHash": "f40a5cdafaca0ad14562ea1dbad24820d12cdf59c96851eb85ff086ab3f456cc"
       },
       {
         "filePath": "packages/parser/src/fold.ts",
@@ -33631,7 +34343,67 @@
         "runtime": "neutral",
         "semanticHash": "2c5cd85388cd2ca111c3bd08f6912995966ce7f20e7c80ad9689f0d2f4faf88d",
         "shapeHash": "8e802152539dba8252c1080d0ebb0f78d1d3240cee45ead8356dfcd38c8ea364",
-        "syntaxHash": "cad02f3c7ed9b5b810fde3cc2921641585bf2e968db036f2ed0d4e4f4013fb17"
+        "syntaxHash": "8d789e09cedf1540425314f3755705c8e5bc3b96faf7870d2b623120263b63ba"
+      },
+      {
+        "filePath": "packages/parser/src/json-pointer.ts",
+        "identity": "packages/parser/src/json-pointer.ts#src/json-pointer.ts#neutral#@oa-sdk/parser:src/json-pointer.ts#canonicalJsonPointerFragment#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/parser:src/json-pointer.ts#canonicalJsonPointerFragment",
+        "runtime": "neutral",
+        "semanticHash": "aca1bd3cd0f65da41eb92026bc944de3d309085a9633898af483bf672901354e",
+        "shapeHash": "b21b906226a0bd83d49786e50416a99b8d4a921e6f83580b39d9933f0397247b",
+        "syntaxHash": "75e51ae185f806927698168efd7a1ecd8e04c90f4133d39cf60239354f66ae80"
+      },
+      {
+        "filePath": "packages/parser/src/json-pointer.ts",
+        "identity": "packages/parser/src/json-pointer.ts#src/json-pointer.ts#neutral#@oa-sdk/parser:src/json-pointer.ts#decodeJsonPointerFragment#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/parser:src/json-pointer.ts#decodeJsonPointerFragment",
+        "runtime": "neutral",
+        "semanticHash": "bfb134bf91c7fce12012b839a86f3b04c0bdd567a7e53363607cd281d0aad4f3",
+        "shapeHash": "52f7125270b1d4ac6b4d8dedea30f52100fe1eabbad711e395871ed99bdf9410",
+        "syntaxHash": "8b47fd8fc3e891782ef930b777c8ff4223f492ddb4d6a917d33927c3af2e952a"
+      },
+      {
+        "filePath": "packages/parser/src/json-pointer.ts",
+        "identity": "packages/parser/src/json-pointer.ts#src/json-pointer.ts#neutral#@oa-sdk/parser:src/json-pointer.ts#escapeJsonPointerToken#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/parser:src/json-pointer.ts#escapeJsonPointerToken",
+        "runtime": "neutral",
+        "semanticHash": "968cc75845f484de7694bdc14806a57df1a206c95321acff040e32342a3289f3",
+        "shapeHash": "5159f79092a0c2e729e743884d19d0914c67f773c0a905f630336893aa3ec84a",
+        "syntaxHash": "518608e86a2c248129546a46463c12eeded0c2eb49daa4ee79a74e0c75cb6a8c"
+      },
+      {
+        "filePath": "packages/parser/src/json-pointer.ts",
+        "identity": "packages/parser/src/json-pointer.ts#src/json-pointer.ts#neutral#@oa-sdk/parser:src/json-pointer.ts#isJsonPointerFragment#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/parser:src/json-pointer.ts#isJsonPointerFragment",
+        "runtime": "neutral",
+        "semanticHash": "94b833600efd129160e03f457b9a52c09a7634da5672e24cf45980bc76c78615",
+        "shapeHash": "02169437a9ea38945b33198c68fdbf8e0b48eaf9790b282a5b5c700dde3e1eea",
+        "syntaxHash": "12d35a297ad0b33da676d287f76a763dbff67597fc8176c4e071e9f1d2060000"
+      },
+      {
+        "filePath": "packages/parser/src/json-pointer.ts",
+        "identity": "packages/parser/src/json-pointer.ts#src/json-pointer.ts#neutral#@oa-sdk/parser:src/json-pointer.ts#resolveJsonPointer#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/parser:src/json-pointer.ts#resolveJsonPointer",
+        "runtime": "neutral",
+        "semanticHash": "332fc647b72a1cf6dbb1a0b747a235c32904c5598101b3187f72561a5e9348d3",
+        "shapeHash": "687721411b12cc621839ec37cfd9976f6bfc044f58cd8d0390c7451ea6a44bb2",
+        "syntaxHash": "d84b66919c752fa7193c849f70840133985bfa9522793051ff9abb47e6b10cc6"
+      },
+      {
+        "filePath": "packages/parser/src/json-pointer.ts",
+        "identity": "packages/parser/src/json-pointer.ts#src/json-pointer.ts#neutral#@oa-sdk/parser:src/json-pointer.ts#unescapeJsonPointerToken#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/parser:src/json-pointer.ts#unescapeJsonPointerToken",
+        "runtime": "neutral",
+        "semanticHash": "1cf946cb9a8ae54d55854be9014958dd0f39820a0da27e771b2910d7fe666cbe",
+        "shapeHash": "b21b906226a0bd83d49786e50416a99b8d4a921e6f83580b39d9933f0397247b",
+        "syntaxHash": "e29fe7bf41ab1b033799fd1f1804678cae64228612c33520456cce1d191cc221"
       },
       {
         "filePath": "packages/parser/src/lint.ts",
@@ -33645,13 +34417,23 @@
       },
       {
         "filePath": "packages/parser/src/lint.ts",
+        "identity": "packages/parser/src/lint.ts#src/lint.ts#neutral#@oa-sdk/parser:src/lint.ts#collectPathItemOperations#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/parser:src/lint.ts#collectPathItemOperations",
+        "runtime": "neutral",
+        "semanticHash": "3e84cea19b399e432106789fa68cd60df1bad5c605673cfdb3c8a905a4638294",
+        "shapeHash": "0b1c9bee173d7c156e599912488ac6824934daa49a8d9d101bf246fe2d0d91cb",
+        "syntaxHash": "627feef5e329bc3e5ddc40bd8d770f0111ef8b70ade145e9527f2ae379ec6193"
+      },
+      {
+        "filePath": "packages/parser/src/lint.ts",
         "identity": "packages/parser/src/lint.ts#src/lint.ts#neutral#@oa-sdk/parser:src/lint.ts#collectRefs#function",
         "kind": "function",
         "qualifiedName": "@oa-sdk/parser:src/lint.ts#collectRefs",
         "runtime": "neutral",
         "semanticHash": "bb16e2471dbdf9521b3c6c1daee2e0e14fb461dc90c83af941baf29be02d22f3",
         "shapeHash": "68dc094393e418a7e38f8c6dab065f513dd9b0339e87d8a05261b03401574d80",
-        "syntaxHash": "87ccdee96a6f280a4e49460a2c81f19bcc53c3b9e5ab8c2b64589707b48401d7"
+        "syntaxHash": "7805aabda8af77caf4a77845ba4327996df0e9da32cc616d5983a73cadcb384a"
       },
       {
         "filePath": "packages/parser/src/lint.ts",
@@ -33685,13 +34467,33 @@
       },
       {
         "filePath": "packages/parser/src/lint.ts",
+        "identity": "packages/parser/src/lint.ts#src/lint.ts#neutral#@oa-sdk/parser:src/lint.ts#isPureLocalSchemaRefAlias#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/parser:src/lint.ts#isPureLocalSchemaRefAlias",
+        "runtime": "neutral",
+        "semanticHash": "5afd904589e2a4fa4226e5942f5caa62b179bb5cec9404f3471fa8d8900d2013",
+        "shapeHash": "0527debdd8062a67f78d6eef62dd9545095a1649deee69bb7d4f1516911fbf15",
+        "syntaxHash": "542bac57962c03ba15457d8bb0d171e26e04c58192fc4c6c8b4100156aab9c1c"
+      },
+      {
+        "filePath": "packages/parser/src/lint.ts",
+        "identity": "packages/parser/src/lint.ts#src/lint.ts#neutral#@oa-sdk/parser:src/lint.ts#isRecord#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/parser:src/lint.ts#isRecord",
+        "runtime": "neutral",
+        "semanticHash": "57200ce4f7644915227850ab4b59a91558f8661f71a215415d28d92f7ee7883e",
+        "shapeHash": "e6225fdfd71a51312823f794b1eb78a4a2f3323b5a198fe85625c61ab69a750d",
+        "syntaxHash": "0815dbc7bed50f08ff1f8e4d110db31dabe295af606d510077817298f0791618"
+      },
+      {
+        "filePath": "packages/parser/src/lint.ts",
         "identity": "packages/parser/src/lint.ts#src/lint.ts#neutral#@oa-sdk/parser:src/lint.ts#isRef#function",
         "kind": "function",
         "qualifiedName": "@oa-sdk/parser:src/lint.ts#isRef",
         "runtime": "neutral",
         "semanticHash": "2030a1d7182a9755896aae4693be5559ca9da54bda301cca38e757c97126057f",
         "shapeHash": "99c28b87b10df39c644409a31ec48b86ae0a8ba47300118773855183f5257fb5",
-        "syntaxHash": "1461dd6f4f20be5b33043bf644927afcb1e27a8a9afa35ab49ccb26e84971327"
+        "syntaxHash": "0545b03a7cc9c8d38112673b8add8d490ad80abe183ea32033dd5b852df57fe4"
       },
       {
         "filePath": "packages/parser/src/lint.ts",
@@ -33701,7 +34503,7 @@
         "runtime": "neutral",
         "semanticHash": "85bd3493301b2f072b58526aa8de164262b33963e6c8a6caa529a526f4ebd004",
         "shapeHash": "9c9e904f315b5b8e484902649fc7ebe6b172cd3b9f71eb0b1e1422e75abeb0c9",
-        "syntaxHash": "b164c4129da3bf127922f80cf78b7f8c0aa786889024d9a15e6dcadd0cc3daa4"
+        "syntaxHash": "3d33e5c2a3800b3bbebe55001d7aee3d48f5a71f52ea99887112f1b5225777a2"
       },
       {
         "filePath": "packages/parser/src/lint.ts",
@@ -33725,13 +34527,33 @@
       },
       {
         "filePath": "packages/parser/src/lint.ts",
+        "identity": "packages/parser/src/lint.ts#src/lint.ts#neutral#@oa-sdk/parser:src/lint.ts#lintEffectiveParameters#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/parser:src/lint.ts#lintEffectiveParameters",
+        "runtime": "neutral",
+        "semanticHash": "93b37c07b857c880a2785f31e83a240334daa0992132f4ca8fb44e175fd83a8e",
+        "shapeHash": "5f7fa4a1c95e107e98ce21d0ace0aec7cbe2f29e6db17b98764f06e5a5a218a9",
+        "syntaxHash": "74e0ab8c869d597f677a07b83bacbc87399c3b4abdb71a3a416eb10ae52dd152"
+      },
+      {
+        "filePath": "packages/parser/src/lint.ts",
         "identity": "packages/parser/src/lint.ts#src/lint.ts#neutral#@oa-sdk/parser:src/lint.ts#lintOperations#function",
         "kind": "function",
         "qualifiedName": "@oa-sdk/parser:src/lint.ts#lintOperations",
         "runtime": "neutral",
         "semanticHash": "4b3910759256edabc2b13c44df44eed70340de3269f7d13b804003de4cbaf94a",
         "shapeHash": "9c9e904f315b5b8e484902649fc7ebe6b172cd3b9f71eb0b1e1422e75abeb0c9",
-        "syntaxHash": "b1af80fdd927c398a6381ea564b2250577014fa5699901dbe46db6e1e6c8e28b"
+        "syntaxHash": "df7ea887b7072a43f0b94d90e8c7e6f04e629fd5b013e1baf43dc104430a3ac0"
+      },
+      {
+        "filePath": "packages/parser/src/lint.ts",
+        "identity": "packages/parser/src/lint.ts#src/lint.ts#neutral#@oa-sdk/parser:src/lint.ts#lintOperationShape#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/parser:src/lint.ts#lintOperationShape",
+        "runtime": "neutral",
+        "semanticHash": "9ade4c79897fb40a9adcb227dcac3d0f45ea0169758899ad379c54d8c809ffc1",
+        "shapeHash": "39859740edfb475a43d96b38843fd9aac4cce1d8649c5c2c1bd7c8e42c37f93c",
+        "syntaxHash": "056435d55d2571a3a2b3d8607421217bca3b5542d850f2f4567025f737135370"
       },
       {
         "filePath": "packages/parser/src/lint.ts",
@@ -33745,13 +34567,63 @@
       },
       {
         "filePath": "packages/parser/src/lint.ts",
+        "identity": "packages/parser/src/lint.ts#src/lint.ts#neutral#@oa-sdk/parser:src/lint.ts#lintParameterMap#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/parser:src/lint.ts#lintParameterMap",
+        "runtime": "neutral",
+        "semanticHash": "720a8f8c4fb4df83bbf4792cb5447bd7b37af9ef8cdca5d3a6dc5699c24c4ac4",
+        "shapeHash": "d41fff4081897bc1ac4c148d803584c302fd62a5ea1376714c36ac531d17eaa1",
+        "syntaxHash": "3fd5ba4d6d59cf07ec2ac3f7d61c12acece18635149e2cfc25f848bc4c14c00b"
+      },
+      {
+        "filePath": "packages/parser/src/lint.ts",
         "identity": "packages/parser/src/lint.ts#src/lint.ts#neutral#@oa-sdk/parser:src/lint.ts#lintParameters#function",
         "kind": "function",
         "qualifiedName": "@oa-sdk/parser:src/lint.ts#lintParameters",
         "runtime": "neutral",
         "semanticHash": "a92428a1e775bd81aa9b9807b69aeb6f24a3bd707fe54a34e03f8a1113b239ef",
         "shapeHash": "9c9e904f315b5b8e484902649fc7ebe6b172cd3b9f71eb0b1e1422e75abeb0c9",
-        "syntaxHash": "0c4d12f6b6ed907b8fa45020860e1fff4b63bfb492969823c5bc3118d1e181a9"
+        "syntaxHash": "6d8b9d9a6cb09d062ba7089e56c7304eccec47738d067f8197b9bbe9a7aab6eb"
+      },
+      {
+        "filePath": "packages/parser/src/lint.ts",
+        "identity": "packages/parser/src/lint.ts#src/lint.ts#neutral#@oa-sdk/parser:src/lint.ts#lintPathItemShape#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/parser:src/lint.ts#lintPathItemShape",
+        "runtime": "neutral",
+        "semanticHash": "b93c4ba9a9ecc42ca1a551cb799b74eae7ee0d83b9182e5dc4ed23a4f04a3681",
+        "shapeHash": "39859740edfb475a43d96b38843fd9aac4cce1d8649c5c2c1bd7c8e42c37f93c",
+        "syntaxHash": "7cbdd34ea1a58ce7f0c291bfc853bc9fb276bd752e17f096db9ac94241e949f8"
+      },
+      {
+        "filePath": "packages/parser/src/lint.ts",
+        "identity": "packages/parser/src/lint.ts#src/lint.ts#neutral#@oa-sdk/parser:src/lint.ts#lintPathMapShape#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/parser:src/lint.ts#lintPathMapShape",
+        "runtime": "neutral",
+        "semanticHash": "91e4df092c9e5e01ddc83b0b63e8290dd167b29e48f00c17a74fc5407a5e3cac",
+        "shapeHash": "1e9b63d43940c22335fe8cbb2721b285cb6061c965db2d837bd4baad3ac5748e",
+        "syntaxHash": "8b063e0c280b152156815df92a6477b7cf12e786fe68b3a35aa30e90acd3fe38"
+      },
+      {
+        "filePath": "packages/parser/src/lint.ts",
+        "identity": "packages/parser/src/lint.ts#src/lint.ts#neutral#@oa-sdk/parser:src/lint.ts#lintQuerystringParameter#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/parser:src/lint.ts#lintQuerystringParameter",
+        "runtime": "neutral",
+        "semanticHash": "a8cd1900e35d61acde6d7efc438cbd0151c41e1a98ebc3ea8ce6fbd7964f3cf6",
+        "shapeHash": "63f1c4e384e4986ca8f2aee1f8444a0fa4abbe36a556eee8698ad7d43d61c5e8",
+        "syntaxHash": "3f9223346228648a7977b3b2483547bcc1c7fc2fe4635cd9c17ce242609ba510"
+      },
+      {
+        "filePath": "packages/parser/src/lint.ts",
+        "identity": "packages/parser/src/lint.ts#src/lint.ts#neutral#@oa-sdk/parser:src/lint.ts#lintReferenceValueTypes#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/parser:src/lint.ts#lintReferenceValueTypes",
+        "runtime": "neutral",
+        "semanticHash": "83ff77bc166e6d4d9f85242e598847d89eac742a430673bcd03975abfeae1980",
+        "shapeHash": "39859740edfb475a43d96b38843fd9aac4cce1d8649c5c2c1bd7c8e42c37f93c",
+        "syntaxHash": "8c53e1b60890e3638ee507aa9fbfeebcd2a371d015e77a1b8b5cde1c14ebd8c2"
       },
       {
         "filePath": "packages/parser/src/lint.ts",
@@ -33761,7 +34633,7 @@
         "runtime": "neutral",
         "semanticHash": "94601d734fb0e59aea2007e45975e699ec350032deebe6881a7f095c8e4ede44",
         "shapeHash": "9c9e904f315b5b8e484902649fc7ebe6b172cd3b9f71eb0b1e1422e75abeb0c9",
-        "syntaxHash": "d99db46402802e0df637c9dda3558aef8532a7b3a28ceee3cfc748d6db5492be"
+        "syntaxHash": "63109fce4c4d0909f08da10bbf752a87c9d21502056c1f967ed5dabb88b728bf"
       },
       {
         "filePath": "packages/parser/src/lint.ts",
@@ -33781,7 +34653,7 @@
         "runtime": "neutral",
         "semanticHash": "e09befaf35295504611e913f7bd3e63104bf6ce86ae9e1a7717bef926a18daa9",
         "shapeHash": "9c9e904f315b5b8e484902649fc7ebe6b172cd3b9f71eb0b1e1422e75abeb0c9",
-        "syntaxHash": "b5cc33f60ff74b4178e99201532d5a2718e5f9a19b6ecf88d57736795cd983fa"
+        "syntaxHash": "46010e602e27655ade3d8cf1b7db580c5dc319d144fa3d457e58d6ced0548d94"
       },
       {
         "filePath": "packages/parser/src/lint.ts",
@@ -33801,7 +34673,7 @@
         "runtime": "neutral",
         "semanticHash": "513b5603563f0af38c2334a11c78fb9f218995cc7f4388560fe230c34b7a8c94",
         "shapeHash": "9c9e904f315b5b8e484902649fc7ebe6b172cd3b9f71eb0b1e1422e75abeb0c9",
-        "syntaxHash": "8644255119f1fd26ffadd71b462ff33d57958e537194235c56fd9e7bd34f54e8"
+        "syntaxHash": "dfdf808f5873b507375538725aa9131e2b44efb86fa7e75cab264e77e835254b"
       },
       {
         "filePath": "packages/parser/src/lint.ts",
@@ -33811,7 +34683,17 @@
         "runtime": "neutral",
         "semanticHash": "07ffa61d50d32332437a46f949a159116de55ff248a3f5a38888224070f2ad02",
         "shapeHash": "9c9e904f315b5b8e484902649fc7ebe6b172cd3b9f71eb0b1e1422e75abeb0c9",
-        "syntaxHash": "2370e02360efe04d29807db8daf04ee4d066a8859db7b5f39236941c73a40d37"
+        "syntaxHash": "bd75156b3035a65b0e963d31c0eab003f91c6ce3fac654fa8160f75850137397"
+      },
+      {
+        "filePath": "packages/parser/src/lint.ts",
+        "identity": "packages/parser/src/lint.ts#src/lint.ts#neutral#@oa-sdk/parser:src/lint.ts#mergeLintParameters#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/parser:src/lint.ts#mergeLintParameters",
+        "runtime": "neutral",
+        "semanticHash": "4d4ca457b6088547b884ab9969712cb5a17dfb192f5e92f3e46de9a14770db4e",
+        "shapeHash": "dbdfc91d2b3d24aa6999615972ff23efcc4881648838ea82d73ab50ef9d836a0",
+        "syntaxHash": "b0a27d85d3e1ede98985a9437df4473136a912c38e8ab1e723011b0dc7f69d05"
       },
       {
         "filePath": "packages/parser/src/lint.ts",
@@ -33835,13 +34717,23 @@
       },
       {
         "filePath": "packages/parser/src/lint.ts",
+        "identity": "packages/parser/src/lint.ts#src/lint.ts#neutral#@oa-sdk/parser:src/lint.ts#resolveParameters#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/parser:src/lint.ts#resolveParameters",
+        "runtime": "neutral",
+        "semanticHash": "7c3aa983814c7e401e7548a9010d44d0867694cb38fcb899946871f61a6d284e",
+        "shapeHash": "d689802fed9dd66aa77317c024f9619ef8f8b7cef6494da5fadda2c866fc58c0",
+        "syntaxHash": "b287e4eaea2d3d4d7d02061ce2244d3f1c96b4f4e5e6fd2bb2d6312b67b2f138"
+      },
+      {
+        "filePath": "packages/parser/src/lint.ts",
         "identity": "packages/parser/src/lint.ts#src/lint.ts#neutral#@oa-sdk/parser:src/lint.ts#resolveRef#function",
         "kind": "function",
         "qualifiedName": "@oa-sdk/parser:src/lint.ts#resolveRef",
         "runtime": "neutral",
         "semanticHash": "2087749cda752f4ee1958b9463f093ce53c64a2ccb6ab881dd6a0fcf8ef254d3",
         "shapeHash": "18bcbea14629fa1bc894144d21047ea3bfc36080d7306e0f084036ed0eaad736",
-        "syntaxHash": "c622d60e2b4b9008fd9aed06c24c5634d1c921adba4c68cabf959105ce2e236b"
+        "syntaxHash": "926f10afed06b805f0f75c243cdcca8c3fad476cbaf6469566a973f5971814c4"
       },
       {
         "filePath": "packages/parser/src/lint.ts",
@@ -33911,7 +34803,7 @@
         "runtime": "neutral",
         "semanticHash": "da4666d9d50001952dfe31f868f1dd5999219d9ada99e9835cd788b05a1e21a8",
         "shapeHash": "0388deedbb47044a5a8b8de9f5285d417c398e8693a2d57fc402d87ff76bee64",
-        "syntaxHash": "98d7389c448ae03200f1f894a5827c46886ca4fa441cb65924da9921dc124bb8"
+        "syntaxHash": "d17f679b4e1210d7275f1bd4ab6be181ae660a3ba4946bcc854117537dcf9c87"
       },
       {
         "filePath": "packages/parser/src/parse-core.ts",
@@ -33921,7 +34813,7 @@
         "runtime": "neutral",
         "semanticHash": "ac0cbb3e99606b67698bd777d82aec77f507f4ab6826b1bc29a0a1791754e512",
         "shapeHash": "e56f6bb84058dbfeda0c77e1b693f4ebd4676c72ac3071e58282ee21d6212a30",
-        "syntaxHash": "3906061438586c716266c3fc0786db8cac7fa8df07dd6beee5ef6820e5481796"
+        "syntaxHash": "b692500a8954afdbd6a603794cee75b8cc68f9994a521a58eabde84f71622615"
       },
       {
         "filePath": "packages/parser/src/parse-core.ts",
@@ -33931,7 +34823,7 @@
         "runtime": "neutral",
         "semanticHash": "a7f162049a433914bd86a6ee6874cdeda979ddd22eb7ae589ad350c4226a466d",
         "shapeHash": "16f27c5a87e0c36aee6cff6ff50c3ba07cc5650c379a6720b27316050a91f48e",
-        "syntaxHash": "6d5483f3460ccc06debb5aa115ea40d2e3d24eb2c7f2fa645439d97d23c63b6e"
+        "syntaxHash": "2cf8f8d14099cab066748ad5e778bf84a76f58364a14455ab668455646855f1c"
       },
       {
         "filePath": "packages/parser/src/parse-core.ts",
@@ -33961,17 +34853,7 @@
         "runtime": "neutral",
         "semanticHash": "d95e840d92a7eade943039d94c608b90dae7271e0d4279dffd998dc4c986350f",
         "shapeHash": "d2c7c99253631a3a697594ff845c6cc17ca02f78f9dbb507494771e89e80a229",
-        "syntaxHash": "e05d6b1b8f27f11fa432dfbf54fa63f6e72f71890143b7e01c8c3d25dab04bf8"
-      },
-      {
-        "filePath": "packages/parser/src/parse-core.ts",
-        "identity": "packages/parser/src/parse-core.ts#src/parse-core.ts#neutral#@oa-sdk/parser:src/parse-core.ts#readJsonPointer#function",
-        "kind": "function",
-        "qualifiedName": "@oa-sdk/parser:src/parse-core.ts#readJsonPointer",
-        "runtime": "neutral",
-        "semanticHash": "8e66f7fafd42cb4f3f3991d73a1102864d02f898423922a14df9282f526a367b",
-        "shapeHash": "ec03fb5fce8102bc0299924943c5e330f237f04464f8197658a5baae95ce67b9",
-        "syntaxHash": "6bede47e78262199d659d343686daf7b7b32be08ba7338e39e6d312eeba7cbab"
+        "syntaxHash": "4f48cb7f5f011d14daaa62a0d003f381d854e8c6ef4fef2a8f6098726f266e24"
       },
       {
         "filePath": "packages/parser/src/parse-core.ts",
@@ -33981,7 +34863,7 @@
         "runtime": "neutral",
         "semanticHash": "8b2478c2c66e07bceebe16dbd283e17529056b532ce6b73c1d103799a8d62f13",
         "shapeHash": "debd40ac64f344e24dabc9ee9de96cb5ab68ffaa0fc54885284bb9133f82d79d",
-        "syntaxHash": "09692b1a48c0c7dea816a1d5e5cd8b70b56b50890d9480710378320cd44827d9"
+        "syntaxHash": "b171063a5c8a845acd1a16991f8dedeb5dbec17800ebbd03209744c83cdca86b"
       },
       {
         "filePath": "packages/parser/src/parse-core.ts",
@@ -33991,17 +34873,7 @@
         "runtime": "neutral",
         "semanticHash": "b3438078be0760352b096cc4f493e22d29bf55646810f1b35882b694b6f37a86",
         "shapeHash": "109aeb237c4121b578a50350a4dd444db868527a0d3278c3274e0d6a1863c5d9",
-        "syntaxHash": "0378ff9127367f1d3872f70e84a548693d39683598fc1808b423643957a408f6"
-      },
-      {
-        "filePath": "packages/parser/src/parse-core.ts",
-        "identity": "packages/parser/src/parse-core.ts#src/parse-core.ts#neutral#@oa-sdk/parser:src/parse-core.ts#unescapeJsonPointer#function",
-        "kind": "function",
-        "qualifiedName": "@oa-sdk/parser:src/parse-core.ts#unescapeJsonPointer",
-        "runtime": "neutral",
-        "semanticHash": "51da128384b173147a312c5f6551f084dad678d50848d06b7cc545259de1b214",
-        "shapeHash": "5159f79092a0c2e729e743884d19d0914c67f773c0a905f630336893aa3ec84a",
-        "syntaxHash": "e8f126153b6412d334b644988f4dead479575aeb7aaebdbab2b407e0a7c3f028"
+        "syntaxHash": "8b89cfdfbbf03e7a9ab6d2290e59e74ed34c5820d6aa8a0420820e260856db13"
       },
       {
         "filePath": "packages/parser/src/parse.ts",
@@ -34091,7 +34963,7 @@
         "runtime": "neutral",
         "semanticHash": "f0c1434d89c6ccdacfac6bf415ae9f06936e296d1ea9fb649bd2e16247909814",
         "shapeHash": "3f1a3137ff8179199e9ac37becbd1d770652d3d10a76926ada408ab2f4b87480",
-        "syntaxHash": "088b8f65ab460481aa6a8359bc556248ede3f6e4c1ebd72210ffec1118dc2f95"
+        "syntaxHash": "1d065139ddd85092604b8019475047d2ab800194caef46e876bb3ce1d51fe537"
       },
       {
         "filePath": "packages/parser/src/parsed-document.ts",
@@ -34182,26 +35054,6 @@
         "semanticHash": "3af5cf28a52fa84481a060c84e034ff50cb3fa3f87d93da2385959ecfab7a5e6",
         "shapeHash": "f4782684be7b9bd19ea4537fc8301d3a863e0764025a250b1a76df768c4d4f8a",
         "syntaxHash": "f3af8b84eabf2b400a88a1b40e681a188f45a12d8aadd0ca96690e5b4175dd72"
-      },
-      {
-        "filePath": "packages/parser/src/parsed-document.ts",
-        "identity": "packages/parser/src/parsed-document.ts#src/parsed-document.ts#neutral#@oa-sdk/parser:src/parsed-document.ts#resolveInternalPointer#function",
-        "kind": "function",
-        "qualifiedName": "@oa-sdk/parser:src/parsed-document.ts#resolveInternalPointer",
-        "runtime": "neutral",
-        "semanticHash": "372178a2b23df37697276db08cfbbe05ce4e42da1c90775d04436d4083e2391c",
-        "shapeHash": "18bcbea14629fa1bc894144d21047ea3bfc36080d7306e0f084036ed0eaad736",
-        "syntaxHash": "788b0cf6c7c1410f8b3f4241c7e35f7638ecdd12e254fb584765ff3aa619605f"
-      },
-      {
-        "filePath": "packages/parser/src/parsed-document.ts",
-        "identity": "packages/parser/src/parsed-document.ts#src/parsed-document.ts#neutral#@oa-sdk/parser:src/parsed-document.ts#unescapeJsonPointer#function",
-        "kind": "function",
-        "qualifiedName": "@oa-sdk/parser:src/parsed-document.ts#unescapeJsonPointer",
-        "runtime": "neutral",
-        "semanticHash": "51da128384b173147a312c5f6551f084dad678d50848d06b7cc545259de1b214",
-        "shapeHash": "5159f79092a0c2e729e743884d19d0914c67f773c0a905f630336893aa3ec84a",
-        "syntaxHash": "e8f126153b6412d334b644988f4dead479575aeb7aaebdbab2b407e0a7c3f028"
       },
       {
         "filePath": "packages/parser/src/pipeline.ts",
@@ -34314,6 +35166,16 @@
         "syntaxHash": "09d9da2ef42e106b2170cc9159cdb2fef02aeb3c4416629a957fd75c3386f20c"
       },
       {
+        "filePath": "packages/parser/src/querystring.ts",
+        "identity": "packages/parser/src/querystring.ts#src/querystring.ts#neutral#@oa-sdk/parser:src/querystring.ts#getQuerystringParameter#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/parser:src/querystring.ts#getQuerystringParameter",
+        "runtime": "neutral",
+        "semanticHash": "dab187927057a3b5edf6af34506557ad3e73e23b1543a87601e6ed8882488a67",
+        "shapeHash": "1b885ce3ad1886553040691ab88829dc8521cd230e16e65e79a1a47ebc1f4db1",
+        "syntaxHash": "5cebd5e93ede3d3d49d6957ee45aeef465c6e430e4804ac0f785588533d4d6fd"
+      },
+      {
         "filePath": "packages/parser/src/ref-graph.ts",
         "identity": "packages/parser/src/ref-graph.ts#src/ref-graph.ts#neutral#@oa-sdk/parser:src/ref-graph.ts#collectRefs#function",
         "kind": "function",
@@ -34321,7 +35183,7 @@
         "runtime": "neutral",
         "semanticHash": "0c4e9de8cd148ab83cb8c3b6df77558a10a0903e47361141c47ee27611355ece",
         "shapeHash": "1bbd93676c32abc03ae43873be452784626f6f72b078552be55e888d21e612d6",
-        "syntaxHash": "bb44dd02814053565e1c33c5952d1cbb657fdba054123d5dde88a4a1701dbc23"
+        "syntaxHash": "0731ff2bc625f043730b899151d68862e9ed922c81bc6a187e848a7db389e87c"
       },
       {
         "filePath": "packages/parser/src/ref-graph.ts",
@@ -34421,7 +35283,7 @@
         "runtime": "neutral",
         "semanticHash": "0c1d9d42ec9a5cdd73e4d9ca59c4d79dda7e2229a56e88fb51165c80c050e4c9",
         "shapeHash": "2714ab10f4e7b484e3bac4cbec223fb408d71aa8ca388f7306ca6ad0b75cdce2",
-        "syntaxHash": "87778fe1d2890019b4310c865d69d7eb2653b91517c4e23264a1fd63a80ddc8a"
+        "syntaxHash": "cd6267097864f68b36ee48645ab1e9001099f58890318f48f8baa7dbc0eb858b"
       },
       {
         "filePath": "packages/parser/src/ref-resolver.ts",
@@ -34451,7 +35313,7 @@
         "runtime": "neutral",
         "semanticHash": "d2e6c65bf7361f8823903ce2fb6fda9455ee3bee9baad09e8e7e705ab04cd5f5",
         "shapeHash": "02169437a9ea38945b33198c68fdbf8e0b48eaf9790b282a5b5c700dde3e1eea",
-        "syntaxHash": "6f931ea1bdc405b81acae2f6653c74ab0e8722770d3bf06da8cfde9d05b630f7"
+        "syntaxHash": "b021c91df7b133ea77b0d48299776511b1a48048158fc9e4ceb262751b75be78"
       },
       {
         "filePath": "packages/parser/src/ref-resolver.ts",
@@ -34541,7 +35403,7 @@
         "runtime": "neutral",
         "semanticHash": "8caddaa4a2f79c872fd2af374ffa3d608956d2befa0488e311af28b6f9789bbe",
         "shapeHash": "3a4e2e9489af47ac6e7316653095b2cf55c409b33212c09fb449dab8b45af46d",
-        "syntaxHash": "6275f9de48da68d9a085ff56b594d53f9fdb545a3d11a5e2e3042c711dce479b"
+        "syntaxHash": "ffcb2c404580527888103365b114e9b40fa06c54e99aa35369c9954e10321677"
       },
       {
         "filePath": "packages/parser/src/ref-resolver.ts",
@@ -34565,13 +35427,53 @@
       },
       {
         "filePath": "packages/parser/src/route-match.ts",
+        "identity": "packages/parser/src/route-match.ts#src/route-match.ts#neutral#@oa-sdk/parser:src/route-match.ts#compareRouteSpecificity#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/parser:src/route-match.ts#compareRouteSpecificity",
+        "runtime": "neutral",
+        "semanticHash": "33359f7ff863290c9ebb92f4a4d81735023c16e18f51de30d6f51dd28a02152e",
+        "shapeHash": "1eb80cc247881013733100513062e41299f72391f58a72aace63047f1c978e94",
+        "syntaxHash": "c9befc3933eb8cdea1fef4cb1cf46fa35b700085620375e6a8f2a2587bdc1f85"
+      },
+      {
+        "filePath": "packages/parser/src/route-match.ts",
+        "identity": "packages/parser/src/route-match.ts#src/route-match.ts#neutral#@oa-sdk/parser:src/route-match.ts#CompiledRoute#type-alias",
+        "kind": "type-alias",
+        "qualifiedName": "@oa-sdk/parser:src/route-match.ts#CompiledRoute",
+        "runtime": "neutral",
+        "semanticHash": "f7c9cad53e5db1a00f2401903a4085402e0fc40879611ecad321b9356abfee3b",
+        "shapeHash": "38eddcdf6d0bfb2fdec0ff3817fb385b8e0f14005983b9c5731fe7af934decd3",
+        "syntaxHash": "54d0f820f97e38c4f189acae2dd85c488e8a68cb24133943bdfcca80e2ad1ca4"
+      },
+      {
+        "filePath": "packages/parser/src/route-match.ts",
+        "identity": "packages/parser/src/route-match.ts#src/route-match.ts#neutral#@oa-sdk/parser:src/route-match.ts#escapeRegExp#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/parser:src/route-match.ts#escapeRegExp",
+        "runtime": "neutral",
+        "semanticHash": "7253e64e2996ca1b8d21363aec97130e53d8ad963a05cf2d5b6ed1d417152fc2",
+        "shapeHash": "5159f79092a0c2e729e743884d19d0914c67f773c0a905f630336893aa3ec84a",
+        "syntaxHash": "721b061ba82f25566a099e6ff105929361445bbf5369ca6c3b42f14a6f68f71a"
+      },
+      {
+        "filePath": "packages/parser/src/route-match.ts",
         "identity": "packages/parser/src/route-match.ts#src/route-match.ts#neutral#@oa-sdk/parser:src/route-match.ts#getOrCompileRoute#function",
         "kind": "function",
         "qualifiedName": "@oa-sdk/parser:src/route-match.ts#getOrCompileRoute",
         "runtime": "neutral",
-        "semanticHash": "cfb2d6bde47a3869cb968b6e337914dfb6732260f8bdd735b4f8f91dfef8db2e",
-        "shapeHash": "c01047b2377b50436278ff7a4ee6f244efe86c2e53b596a57eb0b75be0971522",
-        "syntaxHash": "42eaa4fa937b9bdfde2940d42f046efd0fba679c9c49a6d2779a9fd65bd2e9bd"
+        "semanticHash": "e41bf04475c94560c7eedcc2f9df1ca8ccfc8ee978b354f941860d90784b0eaf",
+        "shapeHash": "c97873a6eb213769443b9c9f813a7b921a4969e6c94df6ead35412a2373fb062",
+        "syntaxHash": "2e47ea3adb8b87c4012447deefba0dd48b6577e119a1276dc6b64160bd17810f"
+      },
+      {
+        "filePath": "packages/parser/src/route-match.ts",
+        "identity": "packages/parser/src/route-match.ts#src/route-match.ts#neutral#@oa-sdk/parser:src/route-match.ts#MatchedRoute#type-alias",
+        "kind": "type-alias",
+        "qualifiedName": "@oa-sdk/parser:src/route-match.ts#MatchedRoute",
+        "runtime": "neutral",
+        "semanticHash": "3449c7e67189b3991bfc4da08385538a7146fb81b25c5f0ad23848b8b57524a3",
+        "shapeHash": "ebd0b6693274ca5e07f2b97b9f3b1cb8c8f7dea81bd4cea6363163d0c0c5bc05",
+        "syntaxHash": "3850b1c80c11955a13d3e14775daa19da2b478d47978d438faaf30f239f40401"
       },
       {
         "filePath": "packages/parser/src/route-match.ts",
@@ -34581,7 +35483,7 @@
         "runtime": "neutral",
         "semanticHash": "670d1e8b1c45f3dee681982fe4a758ec21006cf84f4254f9cfbae0d362815574",
         "shapeHash": "91209478c52c8641f4a8b52134d1c9719e6edd4d8dfaa37165779fd786907665",
-        "syntaxHash": "55676cabac13b06b46a7e5e14c8bbe0e8dc5787b4fb114638a8c04397e16eb16"
+        "syntaxHash": "a4b4f5dba6c6f97912155e588013f56f2a43dd51fb0db3a94d5ba01804d4950c"
       },
       {
         "filePath": "packages/parser/src/route-match.ts",
@@ -34591,7 +35493,27 @@
         "runtime": "neutral",
         "semanticHash": "d55b841022351f25fc6fc9f18eeaba64db73fd0c99932b1d05592eb682b68e5d",
         "shapeHash": "87b18376cc39cdbd96f267a8d30e4c308320170ca16d711f0132a75103726d61",
-        "syntaxHash": "edb577d0d6dbac33378d99d9bb2d939547dfc70734bfdf03646c1c17f6ae4a6d"
+        "syntaxHash": "830ae44e61fee514244ecb5bb59325826107d2d53b973465788d54c420789987"
+      },
+      {
+        "filePath": "packages/parser/src/safe-record.ts",
+        "identity": "packages/parser/src/safe-record.ts#src/safe-record.ts#neutral#@oa-sdk/parser:src/safe-record.ts#createSafeRecord#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/parser:src/safe-record.ts#createSafeRecord",
+        "runtime": "neutral",
+        "semanticHash": "f9f02991005d0fbc4ebdd35fce8c2c016e4c9a8e3627c4feb3968b2b4e5ed4d9",
+        "shapeHash": "e2bbcc85e6b1703b8e706f50ae28a1101cfa097afb21b7d60be6a60a02057ebb",
+        "syntaxHash": "24ad9d664d73ffdb7b9b079a95419ef85798aaa0c79d22c7df27465d48d55e45"
+      },
+      {
+        "filePath": "packages/parser/src/safe-record.ts",
+        "identity": "packages/parser/src/safe-record.ts#src/safe-record.ts#neutral#@oa-sdk/parser:src/safe-record.ts#getOwnString#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/parser:src/safe-record.ts#getOwnString",
+        "runtime": "neutral",
+        "semanticHash": "78bb7d7033074c90e0178fdc6c3436765e4fc773289dbddc407d11d1d01e3197",
+        "shapeHash": "fe2b4b3b7395fa4e992228a6e657d3260827a8cccf64ece51c44d466b1baa8ac",
+        "syntaxHash": "2573221a256cc0cf5a8a5ef65773a01af2be13b54249d598fbed4cf30e3082e1"
       },
       {
         "filePath": "packages/parser/src/schema-loader-browser.ts",
@@ -34781,7 +35703,7 @@
         "runtime": "neutral",
         "semanticHash": "4cf226ff73634d261707db79cd8cb7b87cd5fcc449a77d1a8f2df3f44e0d5803",
         "shapeHash": "dffad1c95242ac30e1f2c5acdd6ad4ba08b4dff0a2de93a0d1a1f31ec803a04a",
-        "syntaxHash": "f24519b70b409f1f811b918c77ba91821693d94832bb250dfb18e1443e1dca12"
+        "syntaxHash": "8340a24b6c1cec22f57e498298099552e127fa5c5663bdbe73c8122c0a30573c"
       },
       {
         "filePath": "packages/parser/src/schema-validator.ts",
@@ -35209,9 +36131,9 @@
         "kind": "type-alias",
         "qualifiedName": "@oa-sdk/parser:src/types/parameters.ts#OasParameterIn",
         "runtime": "neutral",
-        "semanticHash": "39e2969ce2579c3ad4d07862ab837821c82d25a7df8592a44dd07ead9565b235",
-        "shapeHash": "1944a40ec5e1f57e8bec236ae01fb7bde908b1528f3ba0a0a04689f7e54497d9",
-        "syntaxHash": "f12780596c4c2ed5361f7df7f12a6ff350340ec158c32d2dab5e035839c5c9b0"
+        "semanticHash": "a4f7c1c00376c535a17ab8036d4a122f0df27c73df9b54636b0ee0f23a760e30",
+        "shapeHash": "976be53b1c3affb17c7aeb244736540e38b8ab78ad5a9cecc7decdefda40d3df",
+        "syntaxHash": "1dbeb91b09163c50a5da969313047e71427026c71ad1508eeab815ca32a2f291"
       },
       {
         "filePath": "packages/parser/src/types/request-body.ts",
@@ -35401,7 +36323,7 @@
         "runtime": "neutral",
         "semanticHash": "96e7acdecc3ff2f130980e74d1816368a4050b8cea5dff79b7917f1fe4feeb51",
         "shapeHash": "d071e619879f77ce272db221a01ab64fe58582a525ac3b5d33a812fefc5887a6",
-        "syntaxHash": "1fe5e60b6eb9e914c7111841eb66e88e5e5dfa8f06901fc3fa6db7ba15a3830c"
+        "syntaxHash": "fdfc10114bfd8fa0e01ae4f501d8dc8029485f43ce7128e610ebd3a65d8732bb"
       },
       {
         "filePath": "packages/parser/src/validate.ts",
@@ -37009,9 +37931,9 @@
         "kind": "function",
         "qualifiedName": "@oa-sdk/router:src/generate-router-renderer.ts#buildBodyParseLine",
         "runtime": "neutral",
-        "semanticHash": "3abd1f5cab4e197cfbc4f3e84ebce9b7e5e8317255baa176610b38624c6f88f2",
-        "shapeHash": "4add51271c95be3eb757cd8eb0c8cdbd76238db6127148950dac1e2a95ef50d9",
-        "syntaxHash": "02bfa361478c98e316516668536af5574b40bdbcaf9151e90bc9e3a0467eaf33"
+        "semanticHash": "5ba631e9deb6af6c1b3a7cfed664003940448ba8ccdbba741b634cae754e7a0d",
+        "shapeHash": "e93165e73a6360c75d0ecbee99c14670983f10cf8232e3aa48eaa87404ae18a3",
+        "syntaxHash": "c9419b684c8cb969568e1683e333ff9ecc0440a389723fde6ee79e50e6dd92a0"
       },
       {
         "filePath": "packages/router/src/generate-router-renderer.ts",
@@ -37021,7 +37943,7 @@
         "runtime": "neutral",
         "semanticHash": "59f34977856e997e74c800b04dc266c57951515f9b74917ce802b475b5030659",
         "shapeHash": "7fdf220e3d7bf083d7569df51f80972bf0608b6e710f3c2ee40f1d2e901dc7d4",
-        "syntaxHash": "6520c9e639e82e587c64a0797cf8ce2bf45be10362c130be50ae87840f72552f"
+        "syntaxHash": "80494326f7bbf23ae5aea26fa3f5f9d69434898f29ebe75ee92e3fef312d3383"
       },
       {
         "filePath": "packages/router/src/generate-router-renderer.ts",
@@ -37052,6 +37974,26 @@
         "semanticHash": "5844d164b1fc3c6a11b372d0d375bf4545355f7319231d8faf3a5d423c5d3ab1",
         "shapeHash": "b8cf682a65c721148df4a689f9ef38047f07b09a204e5ec855177f3dca94ca18",
         "syntaxHash": "7862caff45666d8bedd2d1373ccdf161ed6f4a2fcb58bb0a67c781d379217a2b"
+      },
+      {
+        "filePath": "packages/router/src/generate-router-renderer.ts",
+        "identity": "packages/router/src/generate-router-renderer.ts#src/generate-router-renderer.ts#neutral#@oa-sdk/router:src/generate-router-renderer.ts#renderExpressRouteRegistration#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/router:src/generate-router-renderer.ts#renderExpressRouteRegistration",
+        "runtime": "neutral",
+        "semanticHash": "d3fd28b4e8743f481c0840081f82ec96849a14519ab86ac86d80e65994fe7af0",
+        "shapeHash": "002a9145aa785674e02ca494892edde4a9c6ea88dc71104769a6d86f3370a804",
+        "syntaxHash": "390bce3ef9bd51012deaf29ee1ac2bbbc366118753cc694596d369cc84048e48"
+      },
+      {
+        "filePath": "packages/router/src/generate-router-renderer.ts",
+        "identity": "packages/router/src/generate-router-renderer.ts#src/generate-router-renderer.ts#neutral#@oa-sdk/router:src/generate-router-renderer.ts#renderHonoRouteRegistration#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/router:src/generate-router-renderer.ts#renderHonoRouteRegistration",
+        "runtime": "neutral",
+        "semanticHash": "c40c651a4c23651bad8c77e4ff3708c730439e5ec6ebb31b506c46e1425f16d4",
+        "shapeHash": "c5af65aeef2001b698a700fbe8b065db13a92c9ac03d94e27f7e491b390bb48f",
+        "syntaxHash": "5bd9f8e7960bd6017737e44154168c0538bff489effb95a1794ff74d21d36c48"
       },
       {
         "filePath": "packages/router/src/generate-router-renderer.ts",
@@ -37092,6 +38034,16 @@
         "semanticHash": "514d408097585975b32b59c796ae28141cc1eb2dbf979c50636073db145e2c95",
         "shapeHash": "833a392fabef745967add19fe9493a153cb86aa60862d459593077c399381d4c",
         "syntaxHash": "5d1745e58d4c98db0c70785fcaf6de55047bd61b037a1e04fc0bc7fdc1821ad9"
+      },
+      {
+        "filePath": "packages/router/src/jsdoc.ts",
+        "identity": "packages/router/src/jsdoc.ts#src/jsdoc.ts#neutral#@oa-sdk/router:src/jsdoc.ts#formatJSDoc#function",
+        "kind": "function",
+        "qualifiedName": "@oa-sdk/router:src/jsdoc.ts#formatJSDoc",
+        "runtime": "neutral",
+        "semanticHash": "70d950f7b0b4f54ae9f0a471386728766ea69fb1b8cf834256bdeb18f68a2abe",
+        "shapeHash": "3ff86ee67949f09596e3c8cdddb22bce92951e7c35a653bfc5b737f13748802c",
+        "syntaxHash": "18e9cab0899cc9f0db3bdc2f2c4bcab0a27fc90429184bcb7ed9aa223c0f4c89"
       },
       {
         "filePath": "packages/schemas/src/.builder/compat/builder-client.ts",
@@ -41634,7 +42586,7 @@
         "syntaxHash": "d64bef6795e9fd5c1c7aa8401da256f67b5160fdcd8de71546cd89e230584cbe"
       }
     ],
-    "digest": "9db1a4758d8d14149c1623f92485480d0719af0cf991abb1ec35bf92f1140e37",
+    "digest": "555950d141d863cd777b1ede45090d533f51b962c726cf041d7a9040eaa453df",
     "publicSurfaces": [
       {
         "exportKey": "./browser",
@@ -41769,11 +42721,12 @@
           "generateTypesFromSpec:value",
           "pascalCase:mixed",
           "projectSchemaToTs:mixed",
+          "quoteTypeScriptString:mixed",
           "schemaToTs:mixed",
           "typescriptAlgebra:mixed"
         ],
         "filePath": "packages/codegen/src/typegen/browser.ts",
-        "hash": "2171d0e5ba3f71649c7c1193b392e248cef0fbddee5e77a4e4ad3f361093b630",
+        "hash": "f6f60645e51be5b559185a8da495bf7711436d63d4d0b47eb655f679176add23",
         "packageName": "@oa-sdk/codegen",
         "runtime": "browser"
       },
@@ -41800,11 +42753,12 @@
           "generateTypesFromSpec:mixed",
           "pascalCase:mixed",
           "projectSchemaToTs:mixed",
+          "quoteTypeScriptString:mixed",
           "schemaToTs:mixed",
           "typescriptAlgebra:mixed"
         ],
         "filePath": "packages/codegen/src/typegen/index.ts",
-        "hash": "5a1c2b6cb5151cf4872ae2ba15004dac750d572cd1de8ef4cab872fca1163f66",
+        "hash": "e7360bef1a480a677399a45abbcab308f260b4c7ca27d8d7d96fac35b377b029",
         "packageName": "@oa-sdk/codegen",
         "runtime": "neutral"
       },
@@ -41990,12 +42944,13 @@
           "hasGeneratedErrorType:mixed",
           "pascalCase:mixed",
           "pickDefaultStatus:mixed",
+          "quoteTypeScriptString:mixed",
           "toColonPath:mixed",
           "toOperationMethodName:mixed",
           "toTypeScriptIdentifier:mixed"
         ],
         "filePath": "packages/core/src/browser.ts",
-        "hash": "d8de34ca542ba6d950fbe9c4bd3f89d25ecab80ec9f64cd1e76c0f2fa68de3b5",
+        "hash": "2053854f4c9bb99d9cd8cd74d820e0aecabbe8837eea8a2b7a5509e84dbebe32",
         "packageName": "@oa-sdk/core",
         "runtime": "browser"
       },
@@ -42017,6 +42972,7 @@
           "hasGeneratedErrorType:mixed",
           "pascalCase:mixed",
           "pickDefaultStatus:mixed",
+          "quoteTypeScriptString:mixed",
           "readJsonBody:mixed",
           "readRaw:mixed",
           "toColonPath:mixed",
@@ -42025,7 +42981,7 @@
           "writeJson:mixed"
         ],
         "filePath": "packages/core/src/index.ts",
-        "hash": "dcfd7c95e88d0a6c17cd030ea51277c80864f1c1b464a7a0cd40a13aea3d251a",
+        "hash": "aaff7ab88e380bbcfc01cb2d72fa8bde7d43c861a032ceff51d088d30c31cdc4",
         "packageName": "@oa-sdk/core",
         "runtime": "neutral"
       },
@@ -43172,6 +44128,7 @@
           "MockErrorCode:type",
           "MockErrorDetail:type",
           "MockErrorResponse:type",
+          "MockReceivedValueSummary:type",
           "MockValidationResult:type",
           "MockValidationStage:type",
           "MswHandlerOptions:type",
@@ -43208,7 +44165,7 @@
           "validateRequestSchemas:mixed"
         ],
         "filePath": "packages/mock-server/src/browser.ts",
-        "hash": "3400b723ddf2f6f14c2f6df01f81ad006bfbd0ab54c1a93f1abcdb2bfc2b3e7e",
+        "hash": "f29a74c8d9778634c4b7882a792259dc14b5d105e3fc41f0190ba813a73dd357",
         "packageName": "@oa-sdk/mock-server",
         "runtime": "browser"
       },
@@ -43228,6 +44185,7 @@
           "MockErrorCode:type",
           "MockErrorDetail:type",
           "MockErrorResponse:type",
+          "MockReceivedValueSummary:type",
           "MockValidationResult:type",
           "MockValidationStage:type",
           "MswHandlerOptions:type",
@@ -43273,7 +44231,7 @@
           "validateRequestSchemas:mixed"
         ],
         "filePath": "packages/mock-server/src/index.ts",
-        "hash": "747af01b6d2f325cae992d30fbbb6abc93797436f7234c9a96ba10efac13ced6",
+        "hash": "24c4b53dd586fcc746fbdfeaea4a8f8b306723ca4195196f723e5b5bfd942fdd",
         "packageName": "@oa-sdk/mock-server",
         "runtime": "neutral"
       },
@@ -43367,6 +44325,7 @@
           "findByTag:mixed",
           "findOperation:mixed",
           "foldSchema:mixed",
+          "getQuerystringParameter:mixed",
           "getSchema:mixed",
           "getTag:mixed",
           "groupByTag:mixed",
@@ -43378,7 +44337,7 @@
           "resolveServerUrl:mixed"
         ],
         "filePath": "packages/parser/src/browser.ts",
-        "hash": "750224e077e35d34bce106b997fcd808374799307405df827a6254236ef6c1e2",
+        "hash": "9dfa30592e50233b609b69e5d9e71ceb64c83c4f7f4c3e91565c18787fa5b8fa",
         "packageName": "@oa-sdk/parser",
         "runtime": "browser"
       },
@@ -43534,6 +44493,7 @@
           "findByTag:mixed",
           "findOperation:mixed",
           "foldSchema:mixed",
+          "getQuerystringParameter:mixed",
           "getSchema:mixed",
           "getTag:mixed",
           "groupByTag:mixed",
@@ -43558,7 +44518,7 @@
           "validateDocument:mixed"
         ],
         "filePath": "packages/parser/src/index.ts",
-        "hash": "cf68af46bec6602a03f5d3243359665419f87fc18c32e49b88cf13590fdf5b81",
+        "hash": "8d77b2369bec158c17d8043af9424f2af4121dbdb3a1dabec00b059d3b82b1fa",
         "packageName": "@oa-sdk/parser",
         "runtime": "neutral"
       },
@@ -44163,7 +45123,7 @@
       "role": "authority"
     },
     {
-      "contentHash": "b17cb1794760914b1c3fe1749f1fb056cde0f332b9be6d21120e4c3a0c1f2d09",
+      "contentHash": "f33fb35eae3d3dde3fc4db9366dc960999f1634df0022d8bc497f93e2ad03462",
       "filePath": "packages/client/src/generate-client-renderer.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/client",
@@ -44191,7 +45151,7 @@
       "role": "authority"
     },
     {
-      "contentHash": "12b1bc770b566b9f5a168c89dc3ca7da328daaec7dc3dfd78c0ae8134ba12554",
+      "contentHash": "7fdf4646772a88a2a015776c552db4736943c22a547c69765e3ae3babc46a307",
       "filePath": "packages/client/src/request-contract.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/client",
@@ -44205,7 +45165,7 @@
       "role": "authority"
     },
     {
-      "contentHash": "8c287304de4ea9e826f8ea71de57bf64e65a558547790f02f5e52ad3442208c9",
+      "contentHash": "5545a243cbe0b982aae15a1b9481b2cc0c198533c44d0c9def1c349e03baca92",
       "filePath": "packages/client/src/runtime-schema.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/client",
@@ -44359,7 +45319,7 @@
       "role": "authority"
     },
     {
-      "contentHash": "17c5b1de47adaa658a43548e50009398d150a0d3acf7d521e257177892cd1678",
+      "contentHash": "f1feaefe7e8ae6985ed4a3eeac9547c1292aa09541ad906dd39302bc44b91380",
       "filePath": "packages/codegen/src/cli/commands/tsp-export.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/codegen",
@@ -44695,7 +45655,14 @@
       "role": "authority"
     },
     {
-      "contentHash": "aee75aa7053f8acde25d949d0a5602c0ae6bcaa4ef61153707cec76732ee3849",
+      "contentHash": "c0c6c8c0e00b4732a052b3d1d91a507945055a25c5ab2af8ceae3de3cc8f6b47",
+      "filePath": "packages/codegen/src/cli/lib/tsp-export-diagnostic-policy.ts",
+      "origin": "handwritten",
+      "packageName": "@oa-sdk/codegen",
+      "role": "authority"
+    },
+    {
+      "contentHash": "8b269f16f4711d16ff908cf0099da703efd3e6d3a468cfa0b32bde1b055edab7",
       "filePath": "packages/codegen/src/cli/lib/tsp-export.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/codegen",
@@ -44737,14 +45704,14 @@
       "role": "authority"
     },
     {
-      "contentHash": "6d5b2c2667ad5bda3573677bc2409059673e39c47774bfe7846187902386b87d",
+      "contentHash": "e7499f654602b99c58f29da6ef32a72c032dadb37614dd2752506290e4d105cb",
       "filePath": "packages/codegen/src/cli/lib/typespec-ref-provenance.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/codegen",
       "role": "authority"
     },
     {
-      "contentHash": "fa920bd48dfe8e5c5ae6753e7da62e541f1dcd7214e1502b1a63338e573a575a",
+      "contentHash": "271fc5f303985391625133670dacdcb1dab9ac68e513e1b4abe9178fad0b0c47",
       "filePath": "packages/codegen/src/cli/lib/typespec-roundtrip-report.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/codegen",
@@ -44765,7 +45732,7 @@
       "role": "authority"
     },
     {
-      "contentHash": "a6117fc56366aceff352cc408e83cbfd63eb9e5947287df811e8306a6bd106f6",
+      "contentHash": "6cb9aff9ad3220c82d8d5aedc99c11819384a17d8a525e8bc6a112e239ce2e31",
       "filePath": "packages/codegen/src/cli/lib/typespec-spec-lens.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/codegen",
@@ -44891,22 +45858,29 @@
       "role": "authority"
     },
     {
-      "contentHash": "0d8708377e697cb0bd7ca5b859eaac17e63e1891c817f6f9917cf72c8c1b5f1f",
+      "contentHash": "1e2932d2605a8adca8dcd02f97b16eb2e5bea2545d7aaaeb226db7ddaf3fa929",
       "filePath": "packages/codegen/src/typegen/browser.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/codegen",
       "role": "authority"
     },
     {
-      "contentHash": "86c4078fcbd516fcfaf71a33fafffdc0fe1055db30e0c62a6ec453c387855112",
+      "contentHash": "1194816864c22c94bf3d6d1aadd0bfeb0130402f9119da9545c76ada69003d90",
       "filePath": "packages/codegen/src/typegen/generate-types.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/codegen",
       "role": "authority"
     },
     {
-      "contentHash": "bec45dc845194331e008864083698d11fef551aa9998cc280fb124139767c1d8",
+      "contentHash": "6f6e64d9e1f22633f6e4ebda889b08793eb2c441f446fc1a42721512b82505a6",
       "filePath": "packages/codegen/src/typegen/index.ts",
+      "origin": "handwritten",
+      "packageName": "@oa-sdk/codegen",
+      "role": "authority"
+    },
+    {
+      "contentHash": "e295b435dc3fc0393a1727cdb550b6f0b2927387f906e124aa68452b3abb60bf",
+      "filePath": "packages/codegen/src/typegen/jsdoc.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/codegen",
       "role": "authority"
@@ -44919,7 +45893,7 @@
       "role": "authority"
     },
     {
-      "contentHash": "7e2ecc212008d096e80967d06061be1580ed8cca067e4d315c9dd91063dc97d4",
+      "contentHash": "27e6236cde377f55667913f89467354f5b8e6908431a41bd44862cb49a3ce8ae",
       "filePath": "packages/codegen/src/typegen/schema-to-ts.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/codegen",
@@ -44928,6 +45902,13 @@
     {
       "contentHash": "592d8aa4722b5409bb72302ced6f5b280d99383f42e5ef74a419358d00bf6552",
       "filePath": "packages/codegen/src/typegen/stable-order.ts",
+      "origin": "handwritten",
+      "packageName": "@oa-sdk/codegen",
+      "role": "authority"
+    },
+    {
+      "contentHash": "34031b0c2f45ae142c39e75de7c83bdc37ff3638a3cd4a6a55da55574f67a246",
+      "filePath": "packages/codegen/src/typegen/type-names.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/codegen",
       "role": "authority"
@@ -44961,14 +45942,14 @@
       "role": "authority"
     },
     {
-      "contentHash": "f54aa49c7a6f15ff5d8695001e1be71b780d51fbf4db62c28e9c6f65cd79608e",
+      "contentHash": "1b4c1f5efa4f120f8012b2f09ac04fcceb5c0f67de43855d8fafbfc1de281d0f",
       "filePath": "packages/core/src/browser.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/core",
       "role": "authority"
     },
     {
-      "contentHash": "72171efcfedd8b115f57b1fcd399cfdde7f7980355b211936997fe60f7638d3f",
+      "contentHash": "9b8540253ba3170b6c1b0964b5433cf881dfd8d8fd4c0ac822f5020792ccc44f",
       "filePath": "packages/core/src/codegen-utils.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/core",
@@ -44989,7 +45970,7 @@
       "role": "authority"
     },
     {
-      "contentHash": "ce6fac6bc0baefd4dd067af27f350766c625b0464ee5bc54732a9a23a02e0ea8",
+      "contentHash": "c8a1ce486726e363fc43f69409bc1c866c120b3219b2be42512a0ded65223628",
       "filePath": "packages/core/src/index.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/core",
@@ -45003,7 +45984,7 @@
       "role": "authority"
     },
     {
-      "contentHash": "15e212140b869c30ea811bb3f6c70366678e4b22174687c0f4e4cd1a1505cd6f",
+      "contentHash": "9babad69adc78f028c5716264975cfd4be1c7602b7b2953f26918c2704fae238",
       "filePath": "packages/core/src/strings.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/core",
@@ -49049,21 +50030,21 @@
       "role": "authority"
     },
     {
-      "contentHash": "afede92d8307c6cc7ea3e035b412ac1289fb51f044cbdc55c70d67468c68f510",
+      "contentHash": "d1ae66842a8789604e4b85f302658961196eabe6621624fb7db1ede1ebcbc688",
       "filePath": "packages/mock-server/src/adapters/msw.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/mock-server",
       "role": "authority"
     },
     {
-      "contentHash": "2baf8a12ed5508414912d5de618d63428ae630244c73bcaca32b8fcfe6c011a8",
+      "contentHash": "dc17ec29d6838601eed4e4ef8e9d5ebe1544f159893e6411c2caa5394a9458b4",
       "filePath": "packages/mock-server/src/adapters/node-http.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/mock-server",
       "role": "authority"
     },
     {
-      "contentHash": "740e627362b55929f586040ba3d2c02300fdea54be2a46167226940d48664034",
+      "contentHash": "625e42d9caa9ea02748887b6467e91b144e1abe2198a6225f14513a652ecda61",
       "filePath": "packages/mock-server/src/browser.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/mock-server",
@@ -49105,7 +50086,7 @@
       "role": "authority"
     },
     {
-      "contentHash": "91b02f558e667484a8c2227506bbb20da4054c414e5d7389faabb36680d320f5",
+      "contentHash": "3b21d7bebd03ca75b4e440d0275630cd7102a462eadf27b762f29e2da1b9ab9f",
       "filePath": "packages/mock-server/src/core/handler.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/mock-server",
@@ -49133,21 +50114,21 @@
       "role": "authority"
     },
     {
-      "contentHash": "15999dafd4a112f974167221bdbff0a857de6d9c5b482a34b6364af992b5e13e",
+      "contentHash": "651ada0a267c1baeb0bcdadef8adbcb96eaeb7208ebb4bc1d4ce887c588616bd",
       "filePath": "packages/mock-server/src/core/request-validation/security.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/mock-server",
       "role": "authority"
     },
     {
-      "contentHash": "2feac13a99aeb95e857cc28ae5ab5223d9980038bd38b67e4d1f9ce5889bee23",
+      "contentHash": "bac58e3dce185bfda945710b589d754e66f99672977fa4697f22ade665ed25bb",
       "filePath": "packages/mock-server/src/core/request-validator.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/mock-server",
       "role": "authority"
     },
     {
-      "contentHash": "1824398dc82901344e92ac190bf90872d53bfa6029cb6b074d9e36b43f648141",
+      "contentHash": "f039690111fc259663df8813001692618340a1f4575e01b7a07cb88c25638e64",
       "filePath": "packages/mock-server/src/core/response-picker.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/mock-server",
@@ -49161,7 +50142,7 @@
       "role": "authority"
     },
     {
-      "contentHash": "fda2850bc337d0acddf10d85668b82042961cf9c9c4cd475b0e9b348a1b81726",
+      "contentHash": "3361906ac89dc4e40287614e94e85b24c4bba8aff90e1e3e7097e55b51e83aa8",
       "filePath": "packages/mock-server/src/core/stream.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/mock-server",
@@ -49175,21 +50156,28 @@
       "role": "authority"
     },
     {
-      "contentHash": "a1369dff7ebe7c1a9da0523ac72b3ac20ac145d25372b82bc8d3b0b9605be2da",
+      "contentHash": "ae48a1c8837082eeb934e269f35d035bbf8b1d81ae0cf5d1305006d41ebcca58",
       "filePath": "packages/mock-server/src/errors/classifier.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/mock-server",
       "role": "authority"
     },
     {
-      "contentHash": "0d773a45fdf737c0254f69e15922d8950e2694fa1bd75b6a13f845ff10012e9f",
+      "contentHash": "1baf16c225a5800ae46b7585f91a5e557f0b90dadcc224672a7c27e9a89ad067",
+      "filePath": "packages/mock-server/src/errors/redaction.ts",
+      "origin": "handwritten",
+      "packageName": "@oa-sdk/mock-server",
+      "role": "authority"
+    },
+    {
+      "contentHash": "c97bc3128b42010d75c95c7d781f4b638e6f0b32a52c87810f2176e2280c6692",
       "filePath": "packages/mock-server/src/errors/types.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/mock-server",
       "role": "authority"
     },
     {
-      "contentHash": "c91fabe04d246b90ee4a6eefc81c8c2c5533f55cb07789dc6d7a57bd81c690da",
+      "contentHash": "e5497b79740bac43b5ce3ee18ab1cce3c1b0bf7022a23bd1e29cdb8df63c5f82",
       "filePath": "packages/mock-server/src/index.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/mock-server",
@@ -49210,7 +50198,7 @@
       "role": "authority"
     },
     {
-      "contentHash": "0de5ffc8d6655d960a77fa5e8b9127035df28dc72acb98df10db89bdaa178d60",
+      "contentHash": "edd11b9a9aa21d721ac70302fb02f50e43a018a4fe9c82a09dd12460bb20dbf6",
       "filePath": "packages/parser/src/browser.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/parser",
@@ -49259,7 +50247,7 @@
       "role": "authority"
     },
     {
-      "contentHash": "4102dc14795d8a3aa6be3359be3871a027e639163575c766306fb560b627690c",
+      "contentHash": "4a55904cdc6d4f62f5294f9be98fb34534b27a3cc7369c65da43dd22196cd7dd",
       "filePath": "packages/parser/src/definition-registry.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/parser",
@@ -49273,42 +50261,49 @@
       "role": "authority"
     },
     {
-      "contentHash": "387371b868f678c57af100b8c67ffaa366926cd162d9dcca852acb6d04245593",
+      "contentHash": "c8088efa0b9c0a52a0de2db5a0392460049363e8e712722dd5abd068440bb911",
       "filePath": "packages/parser/src/deref-internal.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/parser",
       "role": "authority"
     },
     {
-      "contentHash": "fa8792ebe606ff4aebe9b0bcc30af1d038df3e92d47fe38071c8ee10ff897ae3",
+      "contentHash": "16409b059fcb78609cf9ca1f06aa5a331a825542f00d8ddaab742489232773d1",
       "filePath": "packages/parser/src/deref.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/parser",
       "role": "authority"
     },
     {
-      "contentHash": "4c7699f26b9a89eee153463136f9744cf5b393641057f69e8c0619c211f77050",
+      "contentHash": "5b353978308048d272fb2b34ebd87aeaf62dd1e1fd153a86d420bda87e0d9c74",
       "filePath": "packages/parser/src/fold.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/parser",
       "role": "authority"
     },
     {
-      "contentHash": "28736c91f55f3346a5940750854b1c7431623ceffb8edba5859fc9dd0d8ff772",
+      "contentHash": "8a1010871354a238d515d3f38b89b75bf9a4cbdb077e169ec4dd66134875829e",
       "filePath": "packages/parser/src/folder.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/parser",
       "role": "authority"
     },
     {
-      "contentHash": "071556580682376d2c8152aef1a39b4ef1e1763745678836b89b626625191bac",
+      "contentHash": "d629f151a34a9ddd9a8deb19f446d9802ee74b4e1bf6a27318c38d7cb80ec2ec",
       "filePath": "packages/parser/src/index.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/parser",
       "role": "authority"
     },
     {
-      "contentHash": "001619a67cf91d0ec8e4bebeade4c57b2045b5882cd036b54aaaa3c079adb665",
+      "contentHash": "df04b422bd3eea466db6667ab759e80ce43b2d6a5325b9d1f3a20ca043442deb",
+      "filePath": "packages/parser/src/json-pointer.ts",
+      "origin": "handwritten",
+      "packageName": "@oa-sdk/parser",
+      "role": "authority"
+    },
+    {
+      "contentHash": "59aa8020faa2e0b60e296fb2bdadd814f1af637baba2d8ba10f15a528c7ec660",
       "filePath": "packages/parser/src/lint.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/parser",
@@ -49329,7 +50324,7 @@
       "role": "authority"
     },
     {
-      "contentHash": "06a162e37a7e5cd1e6a24a0787a90f1c4042db95f97b4639c2827f4e34d6cb40",
+      "contentHash": "79943b48bfc1017e50a4398b6b031e542e2e40ebdc48fa3bcefeae09e5b6983a",
       "filePath": "packages/parser/src/parse-core.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/parser",
@@ -49343,7 +50338,7 @@
       "role": "authority"
     },
     {
-      "contentHash": "4e0436063cc11d0a60417f6f4ec3eb9f5946bd4487116b643eece9197a14058a",
+      "contentHash": "8dfc24bea764b8657e17e171d59626664a8b0290c936a4198a8f3d27e4ba5920",
       "filePath": "packages/parser/src/parsed-document.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/parser",
@@ -49364,22 +50359,36 @@
       "role": "authority"
     },
     {
-      "contentHash": "355a60fd7ae6bc480c5a4141fcfecb59be239767731fa0a79a49fcfd27955e08",
+      "contentHash": "9192fc7cd1bcdcd5a6c65bb87db8bb2ec9099a355a53b75cf9e9e49666722e70",
+      "filePath": "packages/parser/src/querystring.ts",
+      "origin": "handwritten",
+      "packageName": "@oa-sdk/parser",
+      "role": "authority"
+    },
+    {
+      "contentHash": "f45b88c8748cd108016450b7f4d3eea02d7d0c4eda20e0580a46558553509bcf",
       "filePath": "packages/parser/src/ref-graph.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/parser",
       "role": "authority"
     },
     {
-      "contentHash": "c3ace6f631b557bbaf30bba820048c4a26387de2afecdc63e572c2e8589048bc",
+      "contentHash": "13a52d764b21ecdc7caa8f79bc34726fbeadb826e369a06e77cf71e513bc7a22",
       "filePath": "packages/parser/src/ref-resolver.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/parser",
       "role": "authority"
     },
     {
-      "contentHash": "c807805280a5be8a9b2dde6ee774865f5eb69eb11afea1476e44b953238983ef",
+      "contentHash": "5b0f411028177170d6fe3a9db7e12ea169c2691b70e08d744a8f334fc027d3cf",
       "filePath": "packages/parser/src/route-match.ts",
+      "origin": "handwritten",
+      "packageName": "@oa-sdk/parser",
+      "role": "authority"
+    },
+    {
+      "contentHash": "5b2e8b1c845451f38968eac4748e89efa5ac3ef92e8dbb16e891ed90c3ba86f4",
+      "filePath": "packages/parser/src/safe-record.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/parser",
       "role": "authority"
@@ -49399,7 +50408,7 @@
       "role": "authority"
     },
     {
-      "contentHash": "8b332fa691333fbf3a21c4d8644f53f817e2777f1361f7f1835f5f3147de83a1",
+      "contentHash": "eae9eff2d4fe56845254fac93684c2225d35fb1a6392a5db7b2c3cdf08ca3117",
       "filePath": "packages/parser/src/schema-validator.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/parser",
@@ -49469,7 +50478,7 @@
       "role": "authority"
     },
     {
-      "contentHash": "d6a1490dff92bd3d2814dd28b428bd4da2eb26e2529dcac4cca6284d28ba010c",
+      "contentHash": "6f967cb8a2bbf248cb0d664f60e858113ef96851b3e866067c59b8d0255b758a",
       "filePath": "packages/parser/src/types/parameters.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/parser",
@@ -49518,7 +50527,7 @@
       "role": "authority"
     },
     {
-      "contentHash": "dd82266162b252e6aabe95e47dff7a173e5352290ec7e85cbc19dc06b06c0bef",
+      "contentHash": "74b22105a0d2f4967bce6e6f2fbfd3d25fa007b3efa2629b677960d610d9d4d2",
       "filePath": "packages/parser/src/validate.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/parser",
@@ -49623,7 +50632,7 @@
       "role": "authority"
     },
     {
-      "contentHash": "f54f2a1a0b27c951a1774b94bc1fc1aef2fe78dc80ede7cc4123e32811d451de",
+      "contentHash": "9d18701c903430e76f2dc8fbcd43dfb1bb9e603049e0c4027f1576addee223c6",
       "filePath": "packages/router/src/generate-router-renderer.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/router",
@@ -49639,6 +50648,13 @@
     {
       "contentHash": "596f5ed94cb4294464dc4c85c19043733cc9a05f5ccb4eda7a16c81853fb94d6",
       "filePath": "packages/router/src/index.ts",
+      "origin": "handwritten",
+      "packageName": "@oa-sdk/router",
+      "role": "authority"
+    },
+    {
+      "contentHash": "e295b435dc3fc0393a1727cdb550b6f0b2927387f906e124aa68452b3abb60bf",
+      "filePath": "packages/router/src/jsdoc.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/router",
       "role": "authority"

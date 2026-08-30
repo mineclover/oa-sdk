@@ -1,5 +1,6 @@
 import Ajv2020 from 'ajv/dist/2020.js'
 import { attachLintSource, type LintOptions, type LintResult } from './lint.js'
+import { getOwnString } from './safe-record.js'
 
 type SchemaLocation = {
   path: string
@@ -198,7 +199,7 @@ function asRecord(node: unknown): Record<string, unknown> | undefined {
 }
 
 function isRef(node: Record<string, unknown>): boolean {
-  return typeof node['$ref'] === 'string'
+  return getOwnString(node, '$ref') !== undefined
 }
 
 function escapePointer(segment: string): string {

@@ -4,6 +4,7 @@ import { loadSpecWithPath } from '../lib/load-spec.js'
 import { optStr, str } from '../lib/args.js'
 import { writeJson, writeOpenApiYaml } from '../lib/openapi-collect.js'
 import { exportOpenApiToTypeSpec } from '../lib/tsp-export.js'
+import { findUnacceptedTspExportDiagnostics } from '../lib/tsp-export-diagnostic-policy.js'
 import { createTypeSpecCompatibilitySidecar } from '../lib/typespec-sidecar.js'
 import { createTypeSpecBundleManifest } from '../lib/typespec-bundle-manifest.js'
 import { writeOutput } from '../lib/output.js'
@@ -52,5 +53,12 @@ export const tspExport: Command = {
     if (sidecar) console.error(`✅ TypeSpec compatibility sidecar: ${sidecar}`)
     if (bundleExpectedOpenapi) console.error(`✅ TypeSpec bundle expected OpenAPI: ${bundleExpectedOpenapi}`)
     if (bundleManifest) console.error(`✅ TypeSpec bundle manifest: ${bundleManifest}`)
+
+    const unaccepted = findUnacceptedTspExportDiagnostics(result.report.diagnostics, document)
+    if (unaccepted.length > 0) {
+      const summary = unaccepted.map(diagnostic => `${diagnostic.code} at ${diagnostic.pointer}`).join('; ')
+      console.error(`❌ TypeSpec export contains unaccepted semantic-loss diagnostics: ${summary}`)
+      throw new Error(`TypeSpec export blocked by unaccepted diagnostics: ${summary}`)
+    }
   },
 }

@@ -66,9 +66,9 @@ describe('MediaType — itemSchema (SSE streaming)', () => {
     expect(res.body).toContain('data:')
   })
 
-  it('SSE 응답에 종료 마커 포함', async () => {
+  it('SSE 응답은 문서화된 event만 보내고 HTTP close로 종료', async () => {
     const res = await client.get('/events')
-    // SSE 스트림은 data: 라인들 + 최종 [DONE] 또는 빈 줄로 종료
+    // Schema-driven SSE는 data: 라인만 보내며 HTTP close로 종료한다.
     expect(res.body.length).toBeGreaterThan(0)
   })
 })

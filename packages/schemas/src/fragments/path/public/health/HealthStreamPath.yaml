@@ -12,5 +12,24 @@ content:
     responses:
       "200":
         description: SSE 이벤트 스트림
+        content:
+          text/event-stream:
+            itemSchema:
+              type: object
+              properties:
+                event:
+                  type: string
+                data:
+                  type: string
+              required:
+                - event
+              oneOf:
+                - properties:
+                    data:
+                      contentMediaType: application/json
+                      contentSchema:
+                        $ref: oa://schema/public/health/HealthEvent
+                    event:
+                      const: health
       "503":
         $ref: oa://response/shared/common/ServiceUnavailable

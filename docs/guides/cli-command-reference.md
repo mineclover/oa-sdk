@@ -1,8 +1,8 @@
 # oa-gen CLI 명령 레퍼런스
 
 `oa-gen`은 OpenAPI artifact 생성, TypeSpec roundtrip, 타입 생성, 외부 서비스
-governance, 변경 검토를 한 CLI에 모은다. 이 문서는 현재 구현된 **23개 기능 명령**의
-단일 색인이다. 옵션의 정확한 형식은 항상 `oa-gen <command> --help`가 정본이다.
+governance, 변경 검토를 한 CLI에 모은다. 이 문서는 현재 구현된 기능 명령의 단일 색인이다.
+옵션의 정확한 형식은 항상 `oa-gen <command> --help`가 정본이다.
 
 저장소에서 직접 실행할 때는 먼저 CLI를 빌드한다.
 
@@ -11,9 +11,9 @@ pnpm --filter @oa-sdk/codegen build
 node packages/codegen/dist/cli/index.js --help
 ```
 
-설치된 package binary를 사용할 수 있는 환경에서는 위의 `node .../index.js`를 `oa-gen`으로
-바꾸면 된다. 아래의 `입력`은 최소 시작점이며, `--help`는 모든 선택 옵션과 조건부 옵션을
-보여 준다.
+공개 package consumer는 `npx oa-gen <command>`를 사용한다. 설치된 package binary를 shell PATH에
+명시적으로 제공한 환경에서만 위의 `node .../index.js`를 `oa-gen`으로 바꾼다. 아래의 `입력`은
+최소 시작점이며, `--help`는 모든 선택 옵션과 조건부 옵션을 보여 준다.
 
 ## 먼저 목적을 고르기
 

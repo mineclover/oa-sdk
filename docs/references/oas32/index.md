@@ -1,6 +1,6 @@
 # OpenAPI 3.2.0 스펙 참조 인덱스
 
-> source: [OAI/OpenAPI-Specification](../../../references/OpenAPI-Specification/versions/3.2.0.md) @ 3.2.0
+> source: [OAI/OpenAPI-Specification](https://github.com/OAI/OpenAPI-Specification/blob/3.2.0/versions/3.2.0.md) @ 3.2.0
 
 > 원본 보존, 탐색 편의를 위한 분할본입니다.
 

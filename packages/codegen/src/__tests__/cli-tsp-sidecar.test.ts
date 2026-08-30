@@ -224,6 +224,47 @@ describe('oa-gen TypeSpec sidecar CLI', () => {
     expect(exportResult.stderr).toContain('--bundle-manifest requires both --output and --sidecar')
   })
 
+  it('fails querystring semantic loss after retaining the generated source and diagnostics report', () => {
+    const sourcePath = writeYaml('querystring-source.yaml', {
+      openapi: '3.2.0',
+      info: { title: 'Querystring API', version: '1.0.0' },
+      paths: {
+        '/search': {
+          get: {
+            operationId: 'search',
+            parameters: [{
+              name: 'rawQuery',
+              in: 'querystring',
+              required: true,
+              schema: { type: 'string' },
+            }],
+            responses: { '204': { description: 'No content' } },
+          },
+        },
+      },
+    })
+    const tspPath = join(tmpDir, 'querystring.tsp')
+    const reportPath = join(tmpDir, 'querystring-report.json')
+
+    const result = runCli([
+      'tsp-export',
+      '--spec', sourcePath,
+      '--output', tspPath,
+      '--report', reportPath,
+    ])
+
+    expect(result.status).not.toBe(0)
+    expect(result.stderr).toContain('parameter/querystring-unsupported')
+    expect(existsSync(tspPath)).toBe(true)
+    expect(existsSync(reportPath)).toBe(true)
+    expect(readFileSync(tspPath, 'utf8')).not.toContain('@query rawQuery')
+    const report = JSON.parse(readFileSync(reportPath, 'utf8')) as { diagnostics: Array<{ code: string; pointer: string }> }
+    expect(report.diagnostics).toContainEqual(expect.objectContaining({
+      code: 'parameter/querystring-unsupported',
+      pointer: '#/paths/~1search/get/parameters/0',
+    }))
+  })
+
   it('requires a bundle manifest when exporting bundle expected OpenAPI', () => {
     const sourcePath = writeYaml('source.yaml', {
       openapi: '3.2.0',

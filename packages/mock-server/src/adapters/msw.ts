@@ -1,5 +1,5 @@
 import { http, HttpResponse, type RequestHandler } from 'msw'
-import { derefInternalSpec, parseDocument, HTTP_METHODS, resolveServerUrl, type OasDocument, type OperationEntry, type RouteIndex } from '@oa-sdk/parser/browser'
+import { assertParsedDocumentComplete, derefInternalSpec, parseDocument, HTTP_METHODS, resolveServerUrl, type OasDocument, type OperationEntry, type RouteIndex } from '@oa-sdk/parser/browser'
 import { toColonPath } from '@oa-sdk/core/browser'
 import { handleRequest } from '../core/handler.js'
 import { isStreamingContentType, generateStreamChunks } from '../core/stream.js'
@@ -89,6 +89,7 @@ function buildMswHandlers(
   overrides: Map<string, OverrideResponse>,
 ): RequestHandler[] {
   const parsed = parseDocument(derefInternalSpec(spec as OasDocument))
+  assertParsedDocumentComplete(parsed, '@oa-sdk/mock-server createMswHandlers')
   const mergedRoutes = mergeWebhookRoutes(parsed.routes, parsed.webhooks)
   const index = filterRouteIndex(mergedRoutes, options.include)
   if (options.validateRequestSchemas !== false) assertValidRequestSchemas(index)
@@ -124,12 +125,6 @@ function buildMswHandlers(
             })
           }
           const ct = ovHeaders['Content-Type'] ?? ovHeaders['content-type'] ?? 'application/json'
-          if (ct.includes('application/json')) {
-            return HttpResponse.json(ov.body as Record<string, unknown>, {
-              status: ov.status,
-              headers: ovHeaders,
-            })
-          }
           return new HttpResponse(
             serializeResponseBody(ct, ov.body),
             { status: ov.status, headers: { ...ovHeaders, 'Content-Type': ct } },
@@ -160,10 +155,11 @@ function buildMswHandlers(
 
         // body — content-type에 따라 파싱
         const contentType = request.headers.get('content-type') ?? undefined
-        const body = request.body ? await parseBody(request, contentType) : undefined
+        const parsedBody = request.body ? await parseBody(request, contentType) : { body: undefined }
+        const rawQueryString = extractRawQueryString(request.url)
 
         const hr = handleRequest(
-          { pathParams, queryParams, headers, body, contentType, url: request.url },
+          { pathParams, queryParams, ...(rawQueryString !== undefined ? { rawQueryString } : {}), headers, body: parsedBody.body, ...(parsedBody.parseError ? { bodyParseError: parsedBody.parseError } : {}), contentType, url: request.url },
           { ...entry, openApiPath },
           parsed.securitySchemes,
         )
@@ -191,12 +187,6 @@ function buildMswHandlers(
           })
         }
 
-        if (picked.contentType.includes('application/json')) {
-          return HttpResponse.json(picked.body as Record<string, unknown>, {
-            status: picked.status,
-            headers: picked.headers,
-          })
-        }
         return new HttpResponse(
           serializeResponseBody(picked.contentType, picked.body, picked.schema),
           { status: picked.status, headers: { ...picked.headers, 'Content-Type': picked.contentType } },
@@ -220,37 +210,39 @@ function buildMswHandlers(
 
 // ─── body 파싱 ───────────────────────────────────────────────────────────────
 
-async function parseBody(request: Request, contentType: string | undefined): Promise<unknown> {
+type ParsedRequestBody = { body: unknown; parseError?: 'invalid-json' }
+
+async function parseBody(request: Request, contentType: string | undefined): Promise<ParsedRequestBody> {
   const ct = contentType?.split(';')[0]?.trim() ?? ''
 
   if (ct === 'application/json') {
-    try { return await request.json() } catch { return undefined }
+    try { return { body: await request.json() } } catch { return { body: undefined, parseError: 'invalid-json' } }
   }
 
   if (ct === 'application/x-www-form-urlencoded') {
     try {
       const formData = await request.formData()
-      return formDataToObject(formData)
-    } catch { return undefined }
+      return { body: formDataToObject(formData) }
+    } catch { return { body: undefined } }
   }
 
   if (ct === 'multipart/form-data') {
     try {
       const formData = await request.formData()
-      return formDataToMultipartBody(formData)
-    } catch { return undefined }
+      return { body: await formDataToMultipartBody(formData) }
+    } catch { return { body: undefined } }
   }
 
   if (isXmlMediaType(ct)) {
-    try { return await request.text() } catch { return undefined }
+    try { return { body: await request.text() } } catch { return { body: undefined } }
   }
 
   if (ct.startsWith('text/')) {
-    try { return await request.text() } catch { return undefined }
+    try { return { body: await request.text() } } catch { return { body: undefined } }
   }
 
   // 알 수 없는 content-type — raw text로 폴백
-  try { return await request.text() } catch { return undefined }
+  try { return { body: await request.text() } } catch { return { body: undefined } }
 }
 
 /** FormData → 일반 객체 (같은 키 다중 값은 배열로) */
@@ -304,6 +296,13 @@ function extractPathname(url: string): string {
 async function notifyCallbackAttempts(attempts: readonly CallbackPostAttempt[], observer: CallbackObserver | undefined): Promise<void> {
   if (!observer) return
   for (const attempt of attempts) await observer(attempt)
+}
+
+function extractRawQueryString(url: string): string | undefined {
+  const question = url.indexOf('?')
+  if (question === -1) return undefined
+  const hash = url.indexOf('#', question + 1)
+  return url.slice(question + 1, hash === -1 ? undefined : hash)
 }
 
 /** Merge webhook OperationEntries into an existing RouteIndex (non-mutating) */

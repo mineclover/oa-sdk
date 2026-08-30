@@ -60,6 +60,20 @@ describe('validateDocument', () => {
     ]))
   })
 
+  it.each(['3.2bogus', '3.20.0'])('invalid OpenAPI 3.2 version %s is rejected by the 3.2 gate', (openapi) => {
+    const result = validateDocument({
+      openapi,
+      info: { title: 'T', version: '0' },
+      paths: {},
+    }, { requireOpenApi32: true })
+
+    expect(result.valid).toBe(false)
+    expect(result.errors.some(error =>
+      error.path === '/openapi'
+      && (error.rule === 'parse/version' || error.rule === 'parse/version-32'),
+    )).toBe(true)
+  })
+
   it('2.x 버전 → 에러', () => {
     const result = validateDocument({ openapi: '2.0', info: { title: 'T', version: '0' } })
     expect(result.valid).toBe(false)
@@ -106,6 +120,47 @@ describe('validateDocument', () => {
       },
     })
     expect(result.errors.some(e => e.rule === 'refs/valid-ref')).toBe(true)
+  })
+
+  it('malformed Path Item, Operation, and Responses values are errors', () => {
+    const result = validateDocument({
+      openapi: '3.2.0',
+      info: { title: 'T', version: '0' },
+      paths: {
+        '/path-item': 'not-a-path-item',
+        '/operation': { get: 'not-an-operation' },
+        '/responses': { get: { responses: 'not-a-responses-object' } },
+      },
+    }, { requireOpenApi32: true })
+
+    expect(result.valid).toBe(false)
+    expect(result.errors.map(error => error.rule)).toEqual(expect.arrayContaining([
+      'structure/path-item-object',
+      'structure/operation-object',
+      'structure/responses-object',
+    ]))
+  })
+
+  it('malformed $ref values and prototype-only targets are errors', () => {
+    const malformedRef = validateDocument({
+      openapi: '3.2.0',
+      info: { title: 'T', version: '0' },
+      paths: { '/bad': { $ref: 123 } },
+    }, { requireOpenApi32: true })
+    expect(malformedRef.valid).toBe(false)
+    expect(malformedRef.errors).toEqual(expect.arrayContaining([
+      expect.objectContaining({ path: '/paths/~1bad/$ref', rule: 'refs/ref-string' }),
+    ]))
+
+    const prototypeRef = validateDocument({
+      openapi: '3.2.0',
+      info: { title: 'T', version: '0' },
+      paths: { '/prototype': { $ref: '#/__proto__' } },
+    }, { requireOpenApi32: true })
+    expect(prototypeRef.valid).toBe(false)
+    expect(prototypeRef.errors).toEqual(expect.arrayContaining([
+      expect.objectContaining({ path: '#/__proto__', rule: 'refs/valid-ref' }),
+    ]))
   })
 
   it('스키마 메타 검증 — 유효하지 않은 type 값은 에러', () => {

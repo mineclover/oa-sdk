@@ -229,9 +229,12 @@ function compileResult(path: string) {
         packages: {
           '@oa-sdk/typespec-decorators': '0.1.0',
           '@typespec/compiler': '1.13.0',
+          '@typespec/events': '0.83.0',
           '@typespec/http': '1.13.0',
           '@typespec/openapi': '1.13.0',
           '@typespec/openapi3': '1.13.0',
+          '@typespec/sse': '0.83.0',
+          '@typespec/streams': '0.83.0',
         },
         trustedLibraryDigests: {
           '@oa-sdk/typespec-decorators': 'a'.repeat(64),

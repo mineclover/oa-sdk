@@ -21,5 +21,6 @@ AJV keyword → `MockErrorCode` 8종으로 분류하는 `classifier.ts` 작성.
 ## 결과
 
 - Prism 의존성 없음
-- `MockErrorDetail.received` 필드로 실제 수신값 확인 가능
+- `MockErrorDetail.received`/legacy `value` 필드는 실제 수신값 대신 type/length/count 요약만 제공
+- 요청 본문·토큰·XML·multipart 값을 오류 응답이나 로그에 반사하지 않음
 - OAS 3.2 문법(`dataValue`/`serializedValue`) 직접 처리 가능

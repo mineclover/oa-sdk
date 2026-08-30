@@ -67,7 +67,7 @@ personas:
     reference:
       channel: [ public-api ]
     outcome:
-      shape: list-paginated
+      shape: list-unpaginated
       access: [ scoped:read ]
       maps_to: [ listExecutionProfiles ]
       expects: [ 200 ]

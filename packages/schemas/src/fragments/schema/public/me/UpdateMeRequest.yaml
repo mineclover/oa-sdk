@@ -1,9 +1,13 @@
 id: schema:public/me/UpdateMeRequest
 content:
   type: object
-  description: 셀프 프로필 수정 — role은 포함 불가 (admin 전용)
+  description: 셀프 프로필 수정 — name만 허용하며 role과 알 수 없는 필드는 포함할 수 없음
+  required:
+    - name
   properties:
     name:
       type: string
       minLength: 1
       maxLength: 100
+  unevaluatedProperties:
+    not: {}

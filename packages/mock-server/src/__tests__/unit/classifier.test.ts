@@ -27,30 +27,30 @@ function classify(schema: object, data: unknown, basePath = ''): MockErrorDetail
 // ─── type ────────────────────────────────────────────────────────────────────
 
 describe('type keyword → TYPE_ERROR', () => {
-  it('string 스키마에 number → TYPE_ERROR, received=타입명', () => {
+  it('string 스키마에 number → TYPE_ERROR, received=안전한 타입 요약', () => {
     const errors = classify({ type: 'string' }, 42)
     expect(errors).toHaveLength(1)
     expect(errors[0]?.code).toBe('TYPE_ERROR')
-    expect(errors[0]?.received).toBe('number')
+    expect(errors[0]?.received).toEqual({ type: 'number' })
     expect(errors[0]?.expected).toBe('string')
   })
 
   it('integer 스키마에 string → TYPE_ERROR', () => {
     const errors = classify({ type: 'integer' }, 'hello')
     expect(errors[0]?.code).toBe('TYPE_ERROR')
-    expect(errors[0]?.received).toBe('string')
+    expect(errors[0]?.received).toEqual({ type: 'string', length: 5 })
   })
 
-  it('object 스키마에 array → TYPE_ERROR, received=array', () => {
+  it('object 스키마에 array → TYPE_ERROR, received=안전한 배열 요약', () => {
     const errors = classify({ type: 'object' }, [1, 2, 3])
     expect(errors[0]?.code).toBe('TYPE_ERROR')
-    expect(errors[0]?.received).toBe('array')
+    expect(errors[0]?.received).toEqual({ type: 'array', count: 3 })
   })
 
   it('null 입력 → TYPE_ERROR, received=null', () => {
     const errors = classify({ type: 'string' }, null)
     expect(errors[0]?.code).toBe('TYPE_ERROR')
-    expect(errors[0]?.received).toBe('null')
+    expect(errors[0]?.received).toEqual({ type: 'null' })
   })
 })
 
@@ -105,10 +105,10 @@ describe('required keyword → MISSING_REQUIRED_FIELD', () => {
 // ─── enum ─────────────────────────────────────────────────────────────────────
 
 describe('enum keyword → INVALID_ENUM_VALUE', () => {
-  it('허용되지 않는 값 → INVALID_ENUM_VALUE, received=입력값', () => {
+  it('허용되지 않는 값 → INVALID_ENUM_VALUE, received=안전한 입력 요약', () => {
     const errors = classify({ type: 'string', enum: ['a', 'b', 'c'] }, 'x')
     expect(errors[0]?.code).toBe('INVALID_ENUM_VALUE')
-    expect(errors[0]?.received).toBe('x')
+    expect(errors[0]?.received).toEqual({ type: 'string', length: 1 })
     expect(errors[0]?.expected).toBe('a | b | c')
   })
 
@@ -125,7 +125,7 @@ describe('format keyword → FORMAT_MISMATCH', () => {
   it('email format 불일치 → FORMAT_MISMATCH', () => {
     const errors = classify({ type: 'string', format: 'email' }, 'not-an-email')
     expect(errors[0]?.code).toBe('FORMAT_MISMATCH')
-    expect(errors[0]?.received).toBe('not-an-email')
+    expect(errors[0]?.received).toEqual({ type: 'string', length: 12 })
     expect(errors[0]?.expected).toBe('email')
   })
 
@@ -147,7 +147,7 @@ describe('pattern keyword → PATTERN_MISMATCH', () => {
   it('패턴 불일치 → PATTERN_MISMATCH, expected에 패턴 포함', () => {
     const errors = classify({ type: 'string', pattern: '^[a-z]+$' }, 'ABC123')
     expect(errors[0]?.code).toBe('PATTERN_MISMATCH')
-    expect(errors[0]?.received).toBe('ABC123')
+    expect(errors[0]?.received).toEqual({ type: 'string', length: 6 })
     expect(errors[0]?.expected).toBe('/^[a-z]+$/')
   })
 })
@@ -155,11 +155,10 @@ describe('pattern keyword → PATTERN_MISMATCH', () => {
 // ─── minLength / maxLength ────────────────────────────────────────────────────
 
 describe('minLength / maxLength → CONSTRAINT_VIOLATION', () => {
-  it('minLength 위반 → received에 길이 정보 포함', () => {
+  it('minLength 위반 → received에 내용 없는 길이 요약 포함', () => {
     const errors = classify({ type: 'string', minLength: 8 }, 'abc')
     expect(errors[0]?.code).toBe('CONSTRAINT_VIOLATION')
-    expect(String(errors[0]?.received)).toContain('abc')
-    expect(String(errors[0]?.received)).toContain('3')
+    expect(errors[0]?.received).toEqual({ type: 'string', length: 3 })
     expect(errors[0]?.constraint).toMatchObject({ limit: 8 })
   })
 
@@ -176,7 +175,7 @@ describe('minimum / maximum → CONSTRAINT_VIOLATION', () => {
   it('minimum 위반 → CONSTRAINT_VIOLATION + constraint 포함', () => {
     const errors = classify({ type: 'integer', minimum: 1 }, 0)
     expect(errors[0]?.code).toBe('CONSTRAINT_VIOLATION')
-    expect(errors[0]?.received).toBe(0)
+    expect(errors[0]?.received).toEqual({ type: 'number' })
     expect(errors[0]?.constraint).toMatchObject({ limit: 1 })
   })
 
@@ -193,7 +192,7 @@ describe('minItems / maxItems → CONSTRAINT_VIOLATION', () => {
   it('minItems 위반 → received에 배열 길이 정보', () => {
     const errors = classify({ type: 'array', minItems: 3, items: { type: 'integer' } }, [1])
     expect(errors[0]?.code).toBe('CONSTRAINT_VIOLATION')
-    expect(String(errors[0]?.received)).toContain('1')
+    expect(errors[0]?.received).toEqual({ type: 'array', count: 1 })
     expect(errors[0]?.constraint).toMatchObject({ limit: 3 })
   })
 })
@@ -228,7 +227,58 @@ describe('multipleOf keyword → CONSTRAINT_VIOLATION', () => {
     const errors = classify({ type: 'number', multipleOf: 5 }, 7)
     expect(errors).toHaveLength(1)
     expect(errors[0]?.code).toBe('CONSTRAINT_VIOLATION')
-    expect(errors[0]?.received).toBe(7)
+    expect(errors[0]?.received).toEqual({ type: 'number' })
+  })
+})
+
+// ─── public-value redaction ─────────────────────────────────────────────────
+
+describe('public validation value redaction', () => {
+  it('does not serialize sensitive strings or whole request values from AJV errors', () => {
+    const password = 'PASSWORD_SENTINEL_17e3'
+    const refreshToken = 'REFRESH_TOKEN_SENTINEL_9c42'
+    const secret = 'SECRET_SENTINEL_51ab'
+    const wholeObjectValue = 'WHOLE_OBJECT_SENTINEL_743f'
+
+    const errors = classify(
+      {
+        type: 'object',
+        required: ['password', 'refreshToken', 'secret', 'profile', 'entries'],
+        properties: {
+          password: { type: 'string', minLength: 128 },
+          refreshToken: { type: 'string', enum: ['accepted-token'] },
+          secret: { type: 'string', pattern: '^[0-9]+$' },
+          profile: { type: 'object', maxProperties: 0 },
+          entries: { type: 'array', maxItems: 0 },
+        },
+      },
+      {
+        password,
+        refreshToken,
+        secret,
+        profile: { token: wholeObjectValue },
+        entries: [wholeObjectValue],
+      },
+      '/body',
+    )
+
+    const serialized = JSON.stringify(errors)
+    for (const sensitiveValue of [password, refreshToken, secret, wholeObjectValue]) {
+      expect(serialized).not.toContain(sensitiveValue)
+    }
+    expect(errors).toContainEqual(expect.objectContaining({
+      path: '/body/profile',
+      code: 'CONSTRAINT_VIOLATION',
+      received: { type: 'object', count: 1 },
+      stage: 'validate',
+    }))
+    expect(errors).toContainEqual(expect.objectContaining({
+      path: '/body/entries',
+      code: 'CONSTRAINT_VIOLATION',
+      received: { type: 'array', count: 1 },
+      stage: 'validate',
+    }))
+    expect(errors.every(error => error.value === undefined)).toBe(true)
   })
 })
 

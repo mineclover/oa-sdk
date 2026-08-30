@@ -1,8 +1,13 @@
 import "@typespec/http";
+import "@typespec/events";
 import "@typespec/openapi";
+import "@typespec/sse";
+import "@typespec/streams";
 
 using Http;
 using OpenAPI;
+using TypeSpec.Events;
+using TypeSpec.SSE;
 
 namespace OaSdkApi;
 
@@ -64,8 +69,21 @@ model GetReadiness503Response {
   @body body: Error;
 }
 
+@doc("SSE 헬스 이벤트 payload")
+model HealthEvent {
+  @doc("관측된 서버 상태")
+  status: "ok" | "degraded" | "down";
+  @doc("이벤트 발생 시각")
+  timestamp: utcDateTime;
+}
+
+@events
+union HealthEvents {
+  health: HealthEvent;
+}
+
 @doc("SSE 이벤트 스트림")
-model StreamHealthEvents200Response {
+model StreamHealthEvents200Response is SSEStream<HealthEvents> {
   @statusCode statusCode: 200;
 }
 

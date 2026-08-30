@@ -66,6 +66,15 @@ describe('bearer auth (http/bearer)', () => {
       expect(r.errors[0]?.code).toBe('MISSING_REQUIRED_FIELD')
     }
   })
+
+  it.each(['Bearer ', 'Bearer    ', 'Bearer\t'])('빈 bearer credential %j → MISSING_REQUIRED_FIELD', authorization => {
+    const r = validateRequest(
+      parts({ headers: { authorization } }),
+      noParams, undefined, security,
+    )
+    expect(r.valid).toBe(false)
+    if (!r.valid) expect(r.errors[0]?.code).toBe('MISSING_REQUIRED_FIELD')
+  })
 })
 
 // ─── apiKey (header) ─────────────────────────────────────────────────────────
@@ -116,6 +125,17 @@ describe('apiKey (query)', () => {
       expect(r.errors[0]?.code).toBe('MISSING_REQUIRED_FIELD')
     }
   })
+
+  it.each(['', '   '])('빈 api_key query credential %j → MISSING_REQUIRED_FIELD', apiKey => {
+    const r = validateRequest(parts({ queryParams: { api_key: apiKey } }), noParams, undefined, security)
+    expect(r.valid).toBe(false)
+    if (!r.valid) expect(r.errors[0]?.code).toBe('MISSING_REQUIRED_FIELD')
+  })
+
+  it('반복 query 중 하나라도 non-empty이면 valid', () => {
+    const r = validateRequest(parts({ queryParams: { api_key: ['', 'secret123'] } }), noParams, undefined, security)
+    expect(r.valid).toBe(true)
+  })
 })
 
 // ─── apiKey (cookie) ─────────────────────────────────────────────────────────
@@ -140,6 +160,12 @@ describe('apiKey (cookie)', () => {
     if (!r.valid) {
       expect(r.errors[0]?.code).toBe('MISSING_REQUIRED_FIELD')
     }
+  })
+
+  it.each(['session=', 'session=   '])('빈 session cookie credential %j → MISSING_REQUIRED_FIELD', cookie => {
+    const r = validateRequest(parts({ headers: { cookie } }), noParams, undefined, security)
+    expect(r.valid).toBe(false)
+    if (!r.valid) expect(r.errors[0]?.code).toBe('MISSING_REQUIRED_FIELD')
   })
 })
 
@@ -179,6 +205,15 @@ describe('OR semantics — requirements 배열 중 하나만 만족하면 통과
     if (!r.valid) {
       expect(r.errors[0]?.code).toBe('MISSING_REQUIRED_FIELD')
     }
+  })
+
+  it('빈 query API key alternative는 bearer requirement를 우회하지 못한다', () => {
+    const alternativeSecurity = {
+      requirements: [{ bearerAuth: [] }, { apiKeyQuery: [] }] as OasSecurityRequirement[],
+      schemes: { bearerAuth: bearerScheme, apiKeyQuery: apiKeyQueryScheme },
+    }
+    const r = validateRequest(parts({ queryParams: { api_key: '' } }), noParams, undefined, alternativeSecurity)
+    expect(r.valid).toBe(false)
   })
 })
 
@@ -256,6 +291,15 @@ describe('OAuth2 (bearer token check)', () => {
       expect(r.errors[0]?.code).toBe('MISSING_REQUIRED_FIELD')
     }
   })
+
+  it.each(['Bearer ', 'Bearer    ', 'Bearer\t'])('빈 OAuth2 bearer credential %j → MISSING_REQUIRED_FIELD', authorization => {
+    const r = validateRequest(
+      parts({ headers: { authorization } }),
+      noParams, undefined, security,
+    )
+    expect(r.valid).toBe(false)
+    if (!r.valid) expect(r.errors[0]?.code).toBe('MISSING_REQUIRED_FIELD')
+  })
 })
 
 // ─── openIdConnect ──────────────────────────────────────────────────────────
@@ -286,6 +330,15 @@ describe('openIdConnect', () => {
       expect(r.errors[0]?.code).toBe('MISSING_REQUIRED_FIELD')
       expect(r.errors[0]?.path).toBe('/security')
     }
+  })
+
+  it.each(['Bearer ', 'Bearer    ', 'Bearer\t'])('빈 OIDC bearer credential %j → MISSING_REQUIRED_FIELD', authorization => {
+    const r = validateRequest(
+      parts({ headers: { authorization } }),
+      noParams, undefined, security,
+    )
+    expect(r.valid).toBe(false)
+    if (!r.valid) expect(r.errors[0]?.code).toBe('MISSING_REQUIRED_FIELD')
   })
 })
 

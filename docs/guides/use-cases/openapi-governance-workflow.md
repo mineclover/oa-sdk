@@ -3,6 +3,10 @@
 > OpenAPI artifact를 만들고, path/component surface와 source metadata를 검토하고, PR에 올릴
 > review bundle까지 생성하는 운영 흐름.
 
+이 문서는 oa-sdk source checkout을 기준으로 한다. 시작 전에 `pnpm build:core`를 실행하고,
+아래 command는 shell PATH의 `oa-gen`이 아니라 built
+`node packages/codegen/dist/cli/index.js` entrypoint로 호출한다.
+
 ## 언제 쓰는가
 
 다음 상황에서 이 흐름을 사용한다.
@@ -37,7 +41,7 @@ Path fragment folder와 path 기반 feedback 좌표는 [Path Fragment Convention
 ```bash
 mkdir -p artifacts/openapi-governance
 
-oa-gen build-spec \
+node packages/codegen/dist/cli/index.js build-spec \
   --target packages/schemas/src/targets/local-parity-api.yaml \
   --output artifacts/openapi-governance/local-parity-api.yaml \
   --diagnostics artifacts/openapi-governance/local-parity-api.diagnostics.json \
@@ -65,11 +69,11 @@ Canonical id rename은 fragment `metadata.replaces`에 이전 canonical id를 �
 Inventory는 전체 API surface를 PR comment에 넣기 좋은 형태로 요약한다.
 
 ```bash
-oa-gen inventory \
+node packages/codegen/dist/cli/index.js inventory \
   --spec artifacts/openapi-governance/local-parity-api.yaml \
   --format markdown
 
-oa-gen inventory \
+node packages/codegen/dist/cli/index.js inventory \
   --spec artifacts/openapi-governance/local-parity-api.yaml \
   --format json \
   > artifacts/openapi-governance/local-parity-api.inventory.json
@@ -89,13 +93,13 @@ Duplicate review는 중복 후보를 보고만 한다. 자동 병합하지 않�
 [Duplicate Review 가이드](../duplicate-review.md)를 기준으로 한다.
 
 ```bash
-oa-gen duplicate-review \
+node packages/codegen/dist/cli/index.js duplicate-review \
   --fragments packages/schemas/src/fragments \
   --policy review \
   --target packages/schemas/src/targets/local-parity-api.yaml \
   --format markdown
 
-oa-gen duplicate-review \
+node packages/codegen/dist/cli/index.js duplicate-review \
   --fragments packages/schemas/src/fragments \
   --policy ci \
   --target packages/schemas/src/targets/local-parity-api.yaml \
@@ -111,7 +115,7 @@ oa-gen duplicate-review \
 `target-check`는 target이나 generated artifact의 emitted `paths` key를 검증한다.
 
 ```bash
-oa-gen target-check \
+node packages/codegen/dist/cli/index.js target-check \
   --target packages/schemas/src/targets/local-parity-api.yaml \
   --must-include-path /health \
   --must-include-path /users \
@@ -123,7 +127,7 @@ oa-gen target-check \
 Generated artifact를 직접 검증할 때는 `--artifact`를 사용한다.
 
 ```bash
-oa-gen target-check \
+node packages/codegen/dist/cli/index.js target-check \
   --artifact artifacts/openapi-governance/local-parity-api.yaml \
   --must-include-path /health \
   --must-exclude-path /admin \
@@ -137,7 +141,7 @@ Missing required path 또는 forbidden emitted path는 non-zero로 종료한다.
 파일 입력:
 
 ```bash
-oa-gen drift \
+node packages/codegen/dist/cli/index.js drift \
   --runtime-openapi runtime.openapi.yaml \
   --managed-openapi packages/schemas/src/.merged.yaml \
   --format json \
@@ -147,7 +151,7 @@ oa-gen drift \
 URL 입력:
 
 ```bash
-oa-gen drift \
+node packages/codegen/dist/cli/index.js drift \
   --runtime-openapi-url http://localhost:3000/openapi.json \
   --managed-openapi packages/schemas/src/.merged.yaml \
   --format json \
@@ -157,7 +161,7 @@ oa-gen drift \
 인증이 필요한 runtime OpenAPI URL은 `--runtime-header`를 반복해서 전달한다.
 
 ```bash
-oa-gen drift \
+node packages/codegen/dist/cli/index.js drift \
   --runtime-openapi-url https://api.example.test/openapi.json \
   --runtime-header "Authorization: Bearer $OPENAPI_TOKEN" \
   --managed-openapi packages/schemas/src/.merged.yaml \
@@ -176,7 +180,7 @@ Base/head provenance sidecar가 있으면 `oa-gen review`에서 source ownership
 섹션으로 볼 수 있다.
 
 ```bash
-oa-gen review \
+node packages/codegen/dist/cli/index.js review \
   --base contracts/baselines/v1.openapi.yaml \
   --head packages/schemas/src/.merged.yaml \
   --artifact packages/schemas/dist/openapi.yaml \
@@ -197,7 +201,7 @@ logical identity drift가 있으면 review에서 분리해서 볼 수 있다.
 `review-bundle`은 PR comment에 사용할 단일 report를 만든다.
 
 ```bash
-oa-gen review-bundle \
+node packages/codegen/dist/cli/index.js review-bundle \
   --base contracts/baselines/v1.openapi.yaml \
   --head packages/schemas/src/.merged.yaml \
   --artifact packages/schemas/dist/openapi.yaml \
@@ -217,7 +221,7 @@ Markdown은 recommendation과 summary로 시작하고, breaking changes를 non-b
 먼저 보여준다. JSON 출력은 각 원본 report를 nested section으로 보존한다.
 
 ```bash
-oa-gen review-bundle \
+node packages/codegen/dist/cli/index.js review-bundle \
   --base contracts/baselines/v1.openapi.yaml \
   --head packages/schemas/src/.merged.yaml \
   --artifact packages/schemas/dist/openapi.yaml \
@@ -250,12 +254,12 @@ pnpm check:cli-spec
 pnpm check:feature-tests
 pnpm check:api-index
 
-oa-gen target-check \
+node packages/codegen/dist/cli/index.js target-check \
   --target packages/schemas/src/targets/local-parity-api.yaml \
   --must-include-path /health \
   --must-exclude-path /admin
 
-oa-gen duplicate-review \
+node packages/codegen/dist/cli/index.js duplicate-review \
   --fragments packages/schemas/src/fragments \
   --policy ci \
   --target packages/schemas/src/targets/local-parity-api.yaml

@@ -2,6 +2,65 @@
 
 릴리스 단위가 아닌, 굵직한 surface 변경이 떨어졌을 때 한 항목으로 기록한다. 자세한 구현 상태는 [spec.md](./internal/spec.md), API 단일 소스는 [api-index.md](./internal/api-index.md), 기능↔테스트는 [feature-test-matrix.md](./internal/feature-test-matrix.md) 참조.
 
+## 2026-08-30 — World stimulus and projection integrity (`0.5.0`)
+
+Breaking pre-1.0 World Model contract hardening: action role bindings now require
+UUID values, time-advance alternatives are sealed, and projection bundle items
+inherit their World/model/revision context from the outer envelope.
+
+- A time-advance request can no longer carry both `targetLogicalTime` and
+  `duration`; unknown variant fields are rejected.
+- `ProjectionBundleItem` contains only `projectionId` and `value`, preventing a
+  bundle from representing a child projection from a different World or revision.
+- Schema-driven mock SSE responses end by closing the response rather than
+  emitting an undocumented `[DONE]` frame outside the declared item schema.
+
+## 2026-08-30 — Validation summary and self-update hardening (`0.4.0`)
+
+Breaking pre-1.0 contract hardening: validation details can now contain only the
+content-free summary shapes emitted by the mock server, and `PATCH /me` requires
+a non-empty `name` update while rejecting `role` and other unknown fields.
+
+- `ValidationError.received` now references a sealed string/array/object/scalar
+  summary union, so raw submitted passwords, tokens, objects, and arrays are
+  invalid contract values rather than merely discouraged documentation.
+- `UpdateMeRequest` is sealed and requires `name`; callers can no longer send
+  an empty update or a self-role change through the documented request schema.
+
+## 2026-08-30 — Contract safety and native SSE (`0.3.0`)
+
+production TypeSpec contract를 `0.3.0`으로 올리고, consumer-visible 안전성·streaming·user
+creation contract gaps를 정리했다.
+
+- `POST /users`는 duplicate email에 대한 `409 Conflict`를 명시하고, persona matrix에도
+  negative-path를 연결했다. hard-delete `deleteUser`와 audited `purgeUser`의 lifecycle 설명도
+  서로 모순되지 않도록 정렬했다.
+- `/health/stream`은 native TypeSpec SSE contract로 승격했다. generated OpenAPI는
+  `text/event-stream`과 OAS 3.2 `itemSchema`를 제공하며, mock server와 generated client는 named
+  SSE frame을 생성·소비한다.
+- mock validation error는 password, token, secret, XML, multipart와 전체 request object의 원문을
+  더 이상 반사하지 않는다. `received`/legacy `value`는 type/length/count 요약만 반환한다.
+- TypeSpec provenance와 Spec Lens toolchain은 native event union/SSE dependencies를 인식하며,
+  OAS 3.2-aware unused-component lint가 native pure-ref event alias를 올바르게 처리한다.
+
+## 2026-08-30 — Artifact release readiness and guide alignment
+
+artifact-only public package release를 준비하는 source-repository 절차를 한 곳으로 정리하고,
+사용자 가이드의 obsolete CLI 경로를 실제 public surface와 맞췄다.
+
+- `pnpm release:preflight`는 clean-worktree 확인과 문서·release policy·TypeSpec·downstream·Core
+  build/typecheck/test·codegen package pack smoke를 순차 실행한다. 이는 npm publish를 실행하지 않으며, 실제 registry promotion은
+  별도 artifact repository의 승인 workflow로 남는다.
+- `release-readiness.md`와 release preparation guide는 package artifact export, external promotion,
+  API runtime launch를 별도 판단으로 분리한다. 현재 roadmap도 active Core Platform work와
+  historical/maintenance context를 구분한다.
+- Quick Start와 World Model guide는 존재하지 않는 `oa-gen router`/`oa-gen client` command 대신
+  private `generateRouter()`/`generateClient()` package API를 안내한다. docs gate는 built CLI form도
+  live command registry로 검증해 같은 문서 drift를 차단한다.
+- public distribution candidate인 core와 parser에 package README를 추가했다. exporter는 public npm
+  registry와 `@oa-sdk` scope registry를 명시하고, non-404 registry failure를 unpublished version처럼
+  취급하지 않으며, official `--version`이 committed source package version과 일치할 때만 export한다.
+
 ## 2026-08-10 — TypeSpec extension vocabulary v5 consolidation
 
 Sidecar-less authored bundle의 extension vocabulary를 v5 하나로 통합하고, 완료된

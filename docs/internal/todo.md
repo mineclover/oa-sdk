@@ -1,25 +1,40 @@
 # Todo — 이행 대기 태스크
 
 > 완료된 구현은 [spec.md](./spec.md), API 상세는 [api-index.md](./api-index.md)를 참조.
-> 정렬 기준: definition builder → ref correctness → 증분 workspace index → 코드 생성 정책 → 진단 UX → 공개 API → 런타임 활용 → 남은 OAS 스펙 순.
+> 현재 Core Platform 우선순위는 [plan.md](./plan.md), artifact release 판단은
+> [release-readiness.md](./release-readiness.md)를 따른다. 이 문서의 완료 항목은 구현·결정
+> 이력이며, 현재 제품 roadmap 자체가 아니다.
 > 증분 설계: [ADR-006 — SQLite 기반 증분 Workspace Index](./architecture/006-incremental-workspace-index.md)
 > 다음 PRD: DPM runtime/storage 후속은 [Data Pseudonymization Manifest](../../tasks/prd-data-pseudonymization-manifest.md)와 [Goal 5](./goals/goal-5-dpm-runtime-storage-integration.md)를 참조. 외부 연동 backlog는 [MCP OpenAPI Projection Tools](../../tasks/prd-mcp-openapi-projection-tools.md)를 참조.
 
 ---
 
-## 다음 세션 실행 순서
+## 현재 후속 판단
 
-Definition Builder PRD(US-001~014), Domain Backfill PRD(US-001~009), Aggregation Governance PRD, OA SDK-side Projection Contract work가 완료되었다. Definition Builder가 `.merged.yaml`의 canonical 생성 경로가 되었고 legacy `merge.ts`는 제거되었다.
+Definition Builder PRD(US-001~014), Domain Backfill PRD(US-001~009), Aggregation Governance PRD,
+OA SDK-side Projection Contract work는 완료 이력이다. 현재 production `.merged.yaml`은
+TypeSpec source에서 materialize하며, Definition Builder fragments/targets는 rollback/reference
+경로로만 유지한다. legacy `merge.ts`는 제거됐다.
 
-현재 진짜 잔여 backlog:
-- cross-repo bun-graph-db/MCP projection export 연동 ([MCP OpenAPI Projection Tools](../../tasks/prd-mcp-openapi-projection-tools.md))
-- DPM runtime/storage/API-DB 연결 후속 track ([Goal 5](./goals/goal-5-dpm-runtime-storage-integration.md), [Data Pseudonymization Manifest](../../tasks/prd-data-pseudonymization-manifest.md))
+현재 release 또는 roadmap 판단에서 확인할 항목:
 
-OA SDK 기본 기능 안정화 관점의 다음 작업은 신규 기능 구현보다 문서/게이트 drift 감시와 cross-repo MCP projection 연동이다.
+- public artifact 후보를 실제로 내보낼 때 package version, Changeset, release note와 external
+  artifact repository review를 함께 확정한다.
+- cross-repo bun-graph-db/MCP projection export 연동은 bounded Core integration backlog로 유지한다
+  ([MCP OpenAPI Projection Tools](../../tasks/prd-mcp-openapi-projection-tools.md)).
+- DPM runtime/storage/API-DB 연결 후속은 maintenance/extraction context이며, 새 feature 착수에는
+  [Platform Scope](./platform-scope.md)의 scope-reactivation decision이 필요하다.
 
-### [x] OpenAPI definition builder: current-domain fragment backfill
-배경: migration plan이 완료되어 `packages/schemas/src/fragments`와 `packages/schemas/src/targets`가 active schema source가 되었다. 실행 상세는 [Definition Builder Domain Backfill PRD](../../tasks/prd-definition-builder-domain-backfill.md)를 따른다.
-완료: 모든 구현 순서 완료. 현재 builder target은 `common`, `auth`, `health`, `me`, `users` 도메인까지 확장되었고 `build:merged`는 76 fragments, 63 selected nodes, 0 errors/warnings/infos 상태다. `.merged.yaml`은 builder가 직접 생성한다.
+OA SDK 기본 기능 안정화의 현재 작업은 문서·gate drift 감시와 bounded cross-repo projection
+integration이다.
+
+### [x] Historical — OpenAPI definition builder: current-domain fragment backfill
+배경: 당시 migration plan에서 `packages/schemas/src/fragments`와 `packages/schemas/src/targets`를
+Definition Builder authoring 경로로 사용했다. 이후 production authoring은 TypeSpec-first로
+전환됐으며, 실행 상세는 [Definition Builder Domain Backfill PRD](../../tasks/prd-definition-builder-domain-backfill.md)를 따른다.
+완료: 모든 구현 순서 완료. builder target은 `common`, `auth`, `health`, `me`, `users` 도메인까지
+확장됐고 `build:merged`는 76 fragments, 63 selected nodes, 0 errors/warnings/infos 상태였다. 이
+artifact 경로는 현재 rollback/reference evidence로 유지한다.
 구현 순서:
 1. 완료: `src/profiles/{local,staging,production}.yaml`의 `servers`를 profile별 parity target config로 복제하고, local parity target config selection을 테스트한다.
 2. 완료: `src/domains/common/spec.yaml`의 schemas/responses/parameters/securitySchemes를 `shared/common` fragments로 분리하고 local refs를 `oa://...` canonical refs로 바꿨다.
@@ -28,7 +43,9 @@ OA SDK 기본 기능 안정화 관점의 다음 작업은 신규 기능 구현�
 5. 완료: `oa-gen build-spec`로 canonical artifact와 diagnostics/collision reports를 생성한다.
 6. 완료: Builder artifact를 기존 `downgrade-3.1.ts`, Redocly, Spectral, `oa-gen validate`, typegen 비교, router/client generation, mock-server handler/adaptor 생성 gate에 통과시켰다.
 7. 완료: builder active path, `.merged.3.1.yaml` sidecar compatibility, and replacement gates를 문서화한다.
-완료 기준 충족: builder가 `.merged.yaml`을 직접 생성하며 zero diagnostics 상태를 유지함. `.builder/local-parity-api.3.1.yaml` compatibility, downstream compatibility report, rollback-safe script boundaries 모두 충족.
+완료 기준 충족: 당시 builder가 `.merged.yaml`을 직접 생성하며 zero diagnostics 상태를 유지했다.
+`.builder/local-parity-api.3.1.yaml` compatibility, downstream compatibility report, rollback-safe script
+boundaries를 확인했다. 현재 production source의 기준은 TypeSpec validation이다.
 
 ## spec-lens 잔여 항목
 

@@ -1,5 +1,5 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http'
-import { parseDocument, matchRoute, type HttpMethod, type MatchResult, type OasDocument, type OasSchema, type OperationEntry, type RouteIndex } from '@oa-sdk/parser'
+import { assertParsedDocumentComplete, parseDocument, matchRoute, resolveServerUrl, type HttpMethod, type MatchResult, type OasDocument, type OasSchema, type OperationEntry, type RouteIndex } from '@oa-sdk/parser'
 import { handleRequest } from '../core/handler.js'
 import { isStreamingContentType, generateStreamChunks } from '../core/stream.js'
 import { filterRouteIndex, type RouteFilter } from '../core/route-filter.js'
@@ -65,6 +65,12 @@ export function createNodeMockServer(
     onCallback,
   } = options
   const parsed = parseDocument(spec as OasDocument)
+  assertParsedDocumentComplete(parsed, '@oa-sdk/mock-server createNodeMockServer')
+  if (!Number.isInteger(serverIndex) || serverIndex < 0 || (parsed.servers.length > 0 && serverIndex >= parsed.servers.length)) {
+    throw new RangeError(`serverIndex must select a declared server (received ${serverIndex})`)
+  }
+  const selectedServer = parsed.servers[serverIndex]
+  const basePath = selectedServer ? extractPathname(resolveServerUrl(selectedServer, serverVariables)) : ''
   const mergedRoutes = mergeWebhookRoutes(parsed.routes, parsed.webhooks)
   const index = filterRouteIndex(mergedRoutes, include)
   if (shouldValidateRequestSchemas) assertValidRequestSchemas(index)
@@ -75,9 +81,9 @@ export function createNodeMockServer(
   const handler = async (req: IncomingMessage, res: ServerResponse): Promise<void> => {
     const method = (req.method ?? 'GET').toLowerCase() as HttpMethod
     const rawUrl = req.url ?? '/'
-    const requestOrigin = `http://${host}:${actualPort}`
+    const requestOrigin = `http://${formatHost(host)}:${actualPort}`
     const parsedUrl = new URL(rawUrl, requestOrigin)
-    const urlPath = parsedUrl.pathname
+    const urlPath = stripBasePath(parsedUrl.pathname, basePath)
 
     const matched: MatchResult = matchRoute(index, method, urlPath)
 
@@ -129,10 +135,11 @@ export function createNodeMockServer(
     }
 
     const contentType = headers['content-type']
-    const body = await readBody(req)
+    const parsedBody = await readBody(req)
+    const rawQueryString = extractRawQueryString(rawUrl)
 
     const hr = handleRequest(
-      { pathParams, queryParams, headers, body, contentType, url: parsedUrl.toString() },
+      { pathParams, queryParams, ...(rawQueryString !== undefined ? { rawQueryString } : {}), headers, body: parsedBody.body, ...(parsedBody.parseError ? { bodyParseError: parsedBody.parseError } : {}), contentType, url: parsedUrl.toString() },
       entry,
       parsed.securitySchemes,
     )
@@ -162,13 +169,18 @@ export function createNodeMockServer(
   }
 
   return {
-    get url() { return `http://${host}:${actualPort}` },
+    get url() { return `http://${formatHost(host)}:${actualPort}${basePath}` },
 
     start(): Promise<void> {
       return new Promise((resolve, reject) => {
         httpServer = createServer((req, res) => {
           handler(req, res).catch(err => {
-            writeJson(res, 500, { error: { code: 'CONSTRAINT_VIOLATION', message: String(err), details: [] } })
+            if (res.writableEnded) return
+            if (res.headersSent) {
+              res.destroy()
+              return
+            }
+            writeJson(res, 500, { error: { code: 'CONSTRAINT_VIOLATION', message: 'Mock 처리 중 내부 오류가 발생했습니다', details: [] } })
           })
         })
         httpServer.listen(port, host, () => {
@@ -228,20 +240,22 @@ async function notifyCallbackAttempts(attempts: readonly CallbackPostAttempt[], 
   for (const attempt of attempts) await observer(attempt)
 }
 
-async function readBody(req: IncomingMessage): Promise<unknown> {
+type ParsedRequestBody = { body: unknown; parseError?: 'invalid-json' }
+
+async function readBody(req: IncomingMessage): Promise<ParsedRequestBody> {
   const ct = (req.headers['content-type'] ?? '').split(';')[0]?.trim() ?? ''
 
   const raw = await readRaw(req)
-  if (raw === '') return undefined
+  if (raw === '') return { body: undefined }
 
   if (ct === 'application/json') {
-    try { return JSON.parse(raw) } catch { return undefined }
+    try { return { body: JSON.parse(raw) } } catch { return { body: undefined, parseError: 'invalid-json' } }
   }
 
   // multipart/form-data — boundary 기반 간단 파싱 (외부 패키지 없이)
   if (ct === 'multipart/form-data') {
     const boundary = parseHeaderParameter(req.headers['content-type'] ?? '', 'boundary')
-    if (!boundary) return undefined
+    if (!boundary) return { body: undefined }
     const parts = raw.split(`--${boundary}`).slice(1, -1) // 첫/마지막 빈 파트 제거
     const parsedParts: MultipartPartMetadata[] = []
     for (const part of parts) {
@@ -261,7 +275,7 @@ async function readBody(req: IncomingMessage): Promise<unknown> {
       if (filename !== undefined) parsedPart.filename = filename
       parsedParts.push(parsedPart)
     }
-    return createMultipartBody(parsedParts)
+    return { body: createMultipartBody(parsedParts) }
   }
 
   if (ct === 'application/x-www-form-urlencoded') {
@@ -275,13 +289,40 @@ async function readBody(req: IncomingMessage): Promise<unknown> {
         result[k] = v
       }
     }
-    return result
+    return { body: result }
   }
 
-  if (isXmlMediaType(ct)) return raw
+  if (isXmlMediaType(ct)) return { body: raw }
 
   // text/* 및 알 수 없는 content-type → raw 문자열
-  return raw
+  return { body: raw }
+}
+
+function extractPathname(url: string): string {
+  try {
+    return new URL(url).pathname.replace(/\/$/, '')
+  } catch {
+    return url.replace(/\/$/, '')
+  }
+}
+
+function stripBasePath(urlPath: string, basePath: string): string {
+  if (!basePath) return urlPath
+  if (urlPath === basePath) return '/'
+  if (urlPath.startsWith(`${basePath}/`)) return urlPath.slice(basePath.length)
+  return urlPath
+}
+
+function extractRawQueryString(url: string): string | undefined {
+  const question = url.indexOf('?')
+  if (question === -1) return undefined
+  const hash = url.indexOf('#', question + 1)
+  return url.slice(question + 1, hash === -1 ? undefined : hash)
+}
+
+function formatHost(host: string): string {
+  if (host.startsWith('[') && host.endsWith(']')) return host
+  return host.includes(':') ? `[${host}]` : host
 }
 
 function parseMultipartHeaders(raw: string): Record<string, string> {

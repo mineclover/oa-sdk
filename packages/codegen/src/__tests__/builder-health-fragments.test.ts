@@ -17,6 +17,7 @@ const __dir = dirname(fileURLToPath(import.meta.url))
 const repoRoot = resolve(__dir, '../../../..')
 const schemasDir = join(repoRoot, 'packages/schemas/src')
 const fragmentsDir = join(schemasDir, 'fragments')
+const approvedOpenApiPath = join(repoRoot, 'packages/schemas/typespec/approved.openapi.yaml')
 
 type HealthFragmentFixture = {
   id: CanonicalDefinitionId
@@ -26,6 +27,11 @@ type HealthFragmentFixture = {
 }
 
 const HEALTH_FRAGMENTS: readonly HealthFragmentFixture[] = [
+  {
+    id: 'schema:public/health/HealthEvent',
+    relativePath: 'schema/public/health/HealthEvent.yaml',
+    sourceSchema: 'HealthEvent',
+  },
   {
     id: 'schema:public/health/HealthStatus',
     relativePath: 'schema/public/health/HealthStatus.yaml',
@@ -44,11 +50,13 @@ const HEALTH_FRAGMENTS: readonly HealthFragmentFixture[] = [
 ] as const
 
 const HEALTH_CANONICAL_REF_REWRITES: Readonly<Record<string, string>> = {
+  '#/components/schemas/HealthEvent': 'oa://schema/public/health/HealthEvent',
   '#/components/schemas/HealthStatus': 'oa://schema/public/health/HealthStatus',
   '#/components/responses/ServiceUnavailable': 'oa://response/shared/common/ServiceUnavailable',
 }
 
 const HEALTH_OUTPUT_REF_REWRITES: Readonly<Record<string, string>> = {
+  '#/components/schemas/HealthEvent': '#/components/schemas/HealthEvent',
   '#/components/schemas/HealthStatus': '#/components/schemas/HealthStatus',
   '#/components/responses/ServiceUnavailable': '#/components/responses/ServiceUnavailable',
 }
@@ -61,8 +69,8 @@ const CANONICAL_TO_OUTPUT_REF_REWRITES: Readonly<Record<string, string>> = {
 }
 
 describe('builder health fragments', () => {
-  it('matches archived health domain paths and schema with canonical refs', () => {
-    const healthSpec = readYaml(join(schemasDir, 'domains/health/spec.yaml'))
+  it('matches current TypeSpec-approved health paths and schemas with canonical refs', () => {
+    const approvedOpenApi = readYaml(approvedOpenApiPath)
 
     for (const fragmentFixture of HEALTH_FRAGMENTS) {
       const fragment = readFragment(fragmentFixture.relativePath)
@@ -71,20 +79,19 @@ describe('builder health fragments', () => {
       if (fragmentFixture.sourcePath) {
         expect(fragment.metadata).toEqual({ path: fragmentFixture.sourcePath })
         expect(fragment.content).toEqual(rewriteRefs(
-          readHealthSourcePath(healthSpec, fragmentFixture.sourcePath),
+          readApprovedPath(approvedOpenApi, fragmentFixture.sourcePath),
           HEALTH_CANONICAL_REF_REWRITES,
         ))
       }
       if (fragmentFixture.sourceSchema) {
-        expect(fragment.content).toEqual(readHealthSourceSchema(healthSpec, fragmentFixture.sourceSchema))
+        expect(fragment.content).toEqual(readApprovedSchema(approvedOpenApi, fragmentFixture.sourceSchema))
       }
       expect(JSON.stringify(fragment.content)).not.toContain('#/components/')
     }
   })
 
   it('emits health paths and selected components equivalent to builder fragments', () => {
-    const healthSpec = readYaml(join(schemasDir, 'domains/health/spec.yaml'))
-    const commonSpec = readYaml(join(schemasDir, 'domains/common/spec.yaml'))
+    const approvedOpenApi = readYaml(approvedOpenApiPath)
     const registry = createDefinitionRegistry([
       ...loadCommonFragmentNodes(),
       ...loadHealthFragmentNodes(),
@@ -108,32 +115,47 @@ describe('builder health fragments', () => {
     expect(JSON.stringify(emitted.document)).not.toContain('oa://')
 
     expect(emitted.document.paths?.['/health']).toEqual(rewriteRefs(
-      readHealthSourcePath(healthSpec, '/health'),
+      readApprovedPath(approvedOpenApi, '/health'),
       HEALTH_OUTPUT_REF_REWRITES,
     ))
     expect(emitted.document.paths?.['/health/stream']).toEqual(rewriteRefs(
-      readHealthSourcePath(healthSpec, '/health/stream'),
+      readApprovedPath(approvedOpenApi, '/health/stream'),
       HEALTH_OUTPUT_REF_REWRITES,
     ))
 
     expect(Object.keys(emitted.document.components?.schemas ?? {}).sort()).toEqual([
       'Error',
+      'HealthEvent',
       'HealthStatus',
       'ValidationError',
+      'ValidationReceivedArraySummary',
+      'ValidationReceivedObjectSummary',
+      'ValidationReceivedScalarSummary',
+      'ValidationReceivedStringSummary',
     ])
     expect(Object.keys(emitted.document.components?.responses ?? {})).toEqual(['ServiceUnavailable'])
+    expect(emitted.document.components?.schemas?.['HealthEvent'])
+      .toEqual(readApprovedSchema(approvedOpenApi, 'HealthEvent'))
     expect(emitted.document.components?.schemas?.['HealthStatus'])
-      .toEqual(readHealthSourceSchema(healthSpec, 'HealthStatus'))
+      .toEqual(readApprovedSchema(approvedOpenApi, 'HealthStatus'))
     expect(emitted.document.components?.responses?.['ServiceUnavailable']).toEqual(rewriteRefs(
-      readCommonSourceComponent(commonSpec, 'responses', 'ServiceUnavailable'),
+      readApprovedComponent(approvedOpenApi, 'responses', 'ServiceUnavailable'),
       CANONICAL_TO_OUTPUT_REF_REWRITES,
     ))
     expect(emitted.document.components?.schemas?.['Error']).toEqual(rewriteRefs(
-      readCommonSourceComponent(commonSpec, 'schemas', 'Error'),
+      readApprovedComponent(approvedOpenApi, 'schemas', 'Error'),
       CANONICAL_TO_OUTPUT_REF_REWRITES,
     ))
-    expect(emitted.document.components?.schemas?.['ValidationError'])
-      .toEqual(readCommonSourceComponent(commonSpec, 'schemas', 'ValidationError'))
+    for (const schemaName of [
+      'ValidationError',
+      'ValidationReceivedArraySummary',
+      'ValidationReceivedObjectSummary',
+      'ValidationReceivedScalarSummary',
+      'ValidationReceivedStringSummary',
+    ] as const) {
+      expect(emitted.document.components?.schemas?.[schemaName])
+        .toEqual(readApprovedComponent(approvedOpenApi, 'schemas', schemaName))
+    }
   })
 
   it('preserves a health stream SSE itemSchema when the stream response declares one', () => {
@@ -242,30 +264,30 @@ function readFragment(relativePath: string): { id?: unknown; metadata?: unknown;
   return fragment
 }
 
-function readHealthSourcePath(healthSpec: unknown, path: string): unknown {
-  if (!isRecord(healthSpec) || !isRecord(healthSpec.paths) || !Object.prototype.hasOwnProperty.call(healthSpec.paths, path)) {
-    throw new Error(`Missing health source path: ${path}`)
+function readApprovedPath(approvedOpenApi: unknown, path: string): unknown {
+  if (!isRecord(approvedOpenApi) || !isRecord(approvedOpenApi.paths) || !Object.prototype.hasOwnProperty.call(approvedOpenApi.paths, path)) {
+    throw new Error(`Missing approved OpenAPI path: ${path}`)
   }
-  return healthSpec.paths[path]
+  return approvedOpenApi.paths[path]
 }
 
-function readHealthSourceSchema(healthSpec: unknown, name: string): unknown {
-  if (!isRecord(healthSpec) || !isRecord(healthSpec.components) || !isRecord(healthSpec.components.schemas)) {
-    throw new Error('Invalid health source schemas.')
+function readApprovedSchema(approvedOpenApi: unknown, name: string): unknown {
+  if (!isRecord(approvedOpenApi) || !isRecord(approvedOpenApi.components) || !isRecord(approvedOpenApi.components.schemas)) {
+    throw new Error('Invalid approved OpenAPI schemas.')
   }
-  if (!Object.prototype.hasOwnProperty.call(healthSpec.components.schemas, name)) {
-    throw new Error(`Missing health source schema: ${name}`)
+  if (!Object.prototype.hasOwnProperty.call(approvedOpenApi.components.schemas, name)) {
+    throw new Error(`Missing approved OpenAPI schema: ${name}`)
   }
-  return healthSpec.components.schemas[name]
+  return approvedOpenApi.components.schemas[name]
 }
 
-function readCommonSourceComponent(commonSpec: unknown, sectionName: string, componentName: string): unknown {
-  if (!isRecord(commonSpec) || !isRecord(commonSpec.components)) {
-    throw new Error('Invalid common source spec.')
+function readApprovedComponent(approvedOpenApi: unknown, sectionName: string, componentName: string): unknown {
+  if (!isRecord(approvedOpenApi) || !isRecord(approvedOpenApi.components)) {
+    throw new Error('Invalid approved OpenAPI components.')
   }
-  const section = commonSpec.components[sectionName]
+  const section = approvedOpenApi.components[sectionName]
   if (!isRecord(section) || !Object.prototype.hasOwnProperty.call(section, componentName)) {
-    throw new Error(`Missing common source component: ${sectionName}.${componentName}`)
+    throw new Error(`Missing approved OpenAPI component: ${sectionName}.${componentName}`)
   }
   return section[componentName]
 }

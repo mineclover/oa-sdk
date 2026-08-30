@@ -1,5 +1,20 @@
 # @oa-sdk/codegen
 
+## 0.6.0
+
+### Minor Changes
+
+- Harden public OpenAPI generation and release tooling. Core now exposes safe
+  TypeScript literal helpers; parser adds OAS 3.2 querystring support and stricter
+  reference handling; codegen improves generated client/type output and fails
+  closed when TypeSpec export would lose contract-bearing semantics.
+
+### Patch Changes
+
+- Updated dependencies
+  - @oa-sdk/core@0.2.0
+  - @oa-sdk/parser@0.2.0
+
 ## 0.5.0
 
 ### Minor Changes

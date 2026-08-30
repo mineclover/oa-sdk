@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-07-26",
+  "updatedAt": "2026-08-30",
   "description": "Feature-to-test mapping for oa-sdk. Each feature lists representative automated coverage and the commands that maintain it.",
   "features": [
     {
@@ -1040,12 +1040,13 @@
       ],
       "testPaths": [
         "packages/codegen/src/__tests__/typegen/*.test.ts",
-        "packages/codegen/src/__tests__/mock-typegen-compat.test.ts",
+        "apps/playground/tests/mock-typegen-compat.test.ts",
         "packages/codegen/src/__tests__/roundtrip.test.ts"
       ],
       "commands": [
         "pnpm --filter @oa-sdk/codegen test",
         "pnpm --filter @oa-sdk/codegen typecheck",
+        "pnpm --filter @oa-sdk/playground test -- mock-typegen-compat.test.ts",
         "pnpm check:ts7"
       ]
     },
