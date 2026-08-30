@@ -15,10 +15,12 @@
     ".tsx"
   ],
   "excludePatterns": [
+    "**/.builder/**",
     "**/__tests__/**",
     "**/dist/**",
     "**/fixtures/**",
     "**/node_modules/**",
+    "apps/nestjs-ref/src/generated/**",
     "**/*.spec.ts",
     "**/*.spec.tsx",
     "**/*.test.ts",

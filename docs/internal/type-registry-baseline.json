@@ -739,7 +739,7 @@
       "targetRole": "runtime"
     }
   ],
-  "policyHash": "f2e4504fbafbf447d6e60615633ef2a31b6ee198a9091d72c9b62bb2cb1cdb39",
+  "policyHash": "c49f96f6ba8ed90114bfefdbcbd17eac90fa8701ae5016438eebcfc07384fc5b",
   "registry": {
     "boundaryEvidence": [
       {
@@ -776,15 +776,6 @@
         "sourceType": "JSON.parse"
       },
       {
-        "boundaryId": "type-boundary:0b63ae8f4a88d9f69dc809f2a307ac29",
-        "column": 21,
-        "filePath": "packages/schemas/src/.builder/compat/builder-router.ts",
-        "kind": "double-assertion",
-        "line": 75,
-        "sourceType": "159:\"unknown\"",
-        "targetType": "80:\"ListUsersQueryParams\""
-      },
-      {
         "boundaryId": "type-boundary:10eebb1cf2b9c5b8934944279c3666d0",
         "column": 32,
         "filePath": "packages/codegen/src/cli/lib/behavior-recorder.ts",
@@ -793,37 +784,12 @@
         "sourceType": "JSON.parse"
       },
       {
-        "boundaryId": "type-boundary:113278f0278cebe95aa7f722c9ff42c3",
-        "column": 14,
-        "filePath": "packages/schemas/src/.builder/compat/builder-router.ts",
-        "kind": "deserialize",
-        "line": 37,
-        "sourceType": "c.json"
-      },
-      {
         "boundaryId": "type-boundary:129a45540bcdba39b0c79351bde3a877",
         "column": 20,
         "filePath": "packages/spec-lens/src/infrastructure/cache/sqlite/sqlite-cache.ts",
         "kind": "deserialize",
         "line": 950,
         "sourceType": "JSON.parse"
-      },
-      {
-        "boundaryId": "type-boundary:1468bd32ebfaf3ea54f5e168abe2b757",
-        "column": 12,
-        "filePath": "packages/schemas/src/.builder/compat/builder-router.ts",
-        "kind": "deserialize",
-        "line": 54,
-        "sourceType": "c.json"
-      },
-      {
-        "boundaryId": "type-boundary:17bf2f61f2cb95dd2f7c8beb3f811031",
-        "column": 22,
-        "filePath": "packages/schemas/src/.builder/compat/builder-router.ts",
-        "kind": "double-assertion",
-        "line": 35,
-        "sourceType": "159:\"unknown\"",
-        "targetType": "80:\"GetUserByIdPathParams\""
       },
       {
         "boundaryId": "type-boundary:1caadcc307c9440e0878f7418f64495e",
@@ -957,14 +923,6 @@
         "sourceType": "c.json"
       },
       {
-        "boundaryId": "type-boundary:35adb60f4739a8f71c4661cbd9d05acf",
-        "column": 12,
-        "filePath": "packages/schemas/src/.builder/compat/builder-router.ts",
-        "kind": "deserialize",
-        "line": 93,
-        "sourceType": "c.json"
-      },
-      {
         "boundaryId": "type-boundary:367d7e346e74c600b5a6dfc9d72dd194",
         "column": 38,
         "filePath": "packages/parser/src/ref-resolver.ts",
@@ -1038,28 +996,12 @@
         "sourceType": "parseJson"
       },
       {
-        "boundaryId": "type-boundary:4d6f952bfc7c507bd1f1cee9263dac22",
-        "column": 26,
-        "filePath": "packages/schemas/src/.builder/compat/builder-router.ts",
-        "kind": "deserialize",
-        "line": 49,
-        "sourceType": "c.req.json"
-      },
-      {
         "boundaryId": "type-boundary:4eb488003d672b2c743f89ef499d43e5",
         "column": 18,
         "filePath": "packages/codegen/src/cli/lib/metadata-registry.ts",
         "kind": "deserialize",
         "line": 232,
         "sourceType": "JSON.parse"
-      },
-      {
-        "boundaryId": "type-boundary:4fc75a947b3b76eed30d366ca4fb3dc9",
-        "column": 12,
-        "filePath": "packages/schemas/src/.builder/compat/builder-router.ts",
-        "kind": "deserialize",
-        "line": 27,
-        "sourceType": "c.json"
       },
       {
         "boundaryId": "type-boundary:51224f86d6671fb344f1360c0e467ad7",
@@ -1087,14 +1029,6 @@
         "targetType": "80:\"Record\"|30:\"<\"|154:\"string\"|28:\",\"|154:\"string\"|52:\"|\"|157:\"undefined\"|32:\">\""
       },
       {
-        "boundaryId": "type-boundary:628542636ec0dae96d82492a3dfff8f0",
-        "column": 12,
-        "filePath": "packages/schemas/src/.builder/compat/builder-router.ts",
-        "kind": "deserialize",
-        "line": 67,
-        "sourceType": "c.json"
-      },
-      {
         "boundaryId": "type-boundary:636504c1fa5469b472fd63e6d33d883f",
         "column": 54,
         "filePath": "packages/codegen/src/cli/commands/drift.ts",
@@ -1109,14 +1043,6 @@
         "kind": "deserialize",
         "line": 15,
         "sourceType": "JSON.parse"
-      },
-      {
-        "boundaryId": "type-boundary:64f8c782c72dfeaab4a3b49eee6ac125",
-        "column": 12,
-        "filePath": "packages/schemas/src/.builder/compat/builder-router.ts",
-        "kind": "deserialize",
-        "line": 40,
-        "sourceType": "c.json"
       },
       {
         "boundaryId": "type-boundary:68e4f1e0cbdcdcfab20fd8a7da7496b3",
@@ -1217,15 +1143,6 @@
         "sourceType": "JSON.parse"
       },
       {
-        "boundaryId": "type-boundary:824996ceefe12b461d5b9b1e6fefda95",
-        "column": 22,
-        "filePath": "packages/schemas/src/.builder/compat/builder-router.ts",
-        "kind": "double-assertion",
-        "line": 62,
-        "sourceType": "159:\"unknown\"",
-        "targetType": "80:\"DeleteUserPathParams\""
-      },
-      {
         "boundaryId": "type-boundary:82cab48bcd3ee50d4358d8950b59b5d4",
         "column": 24,
         "filePath": "packages/logical-erd-contract/src/schema.ts",
@@ -1249,14 +1166,6 @@
         "kind": "deserialize",
         "line": 198,
         "sourceType": "c.json"
-      },
-      {
-        "boundaryId": "type-boundary:8e2b1d570d0d1ac624d610d3fef1477a",
-        "column": 26,
-        "filePath": "packages/schemas/src/.builder/compat/builder-router.ts",
-        "kind": "deserialize",
-        "line": 88,
-        "sourceType": "c.req.json"
       },
       {
         "boundaryId": "type-boundary:8e61c5767b1214bf46ef84a29e474928",
@@ -1309,14 +1218,6 @@
         "targetType": "19:\"{\"|80:\"statements\"|58:\"?\"|59:\":\"|80:\"Array\"|30:\"<\"|80:\"Record\"|30:\"<\"|154:\"string\"|28:\",\"|159:\"unknown\"|32:\">\"|32:\">\"|20:\"}\""
       },
       {
-        "boundaryId": "type-boundary:a3bf42fc5ae1a9fb21bf6772a20a9f0b",
-        "column": 14,
-        "filePath": "packages/schemas/src/.builder/compat/builder-router.ts",
-        "kind": "deserialize",
-        "line": 13,
-        "sourceType": "c.json"
-      },
-      {
         "boundaryId": "type-boundary:a3c82afc52a3065e22c6b88b9da103c3",
         "column": 10,
         "filePath": "packages/codegen/src/cli/commands/parallel-evidence.ts",
@@ -1351,14 +1252,6 @@
         "targetType": "80:\"Record\"|30:\"<\"|154:\"string\"|28:\",\"|159:\"unknown\"|32:\">\""
       },
       {
-        "boundaryId": "type-boundary:a8cf7c22a389773c7c95a2afce26de3e",
-        "column": 14,
-        "filePath": "packages/schemas/src/.builder/compat/builder-router.ts",
-        "kind": "deserialize",
-        "line": 24,
-        "sourceType": "c.json"
-      },
-      {
         "boundaryId": "type-boundary:b0adb3a2de2ec3c2feca3f168320d706",
         "column": 10,
         "filePath": "packages/codegen/src/cli/lib/typespec-oa-sdk-extensions.ts",
@@ -1373,14 +1266,6 @@
         "kind": "deserialize",
         "line": 235,
         "sourceType": "JSON.parse"
-      },
-      {
-        "boundaryId": "type-boundary:b65fb58803e3254ef88eb905d04e8591",
-        "column": 14,
-        "filePath": "packages/schemas/src/.builder/compat/builder-router.ts",
-        "kind": "deserialize",
-        "line": 77,
-        "sourceType": "c.json"
       },
       {
         "boundaryId": "type-boundary:b742b04ceb8c0ac78f26c96af0b30ea7",
@@ -1405,22 +1290,6 @@
         "kind": "deserialize",
         "line": 13,
         "sourceType": "JSON.parse"
-      },
-      {
-        "boundaryId": "type-boundary:ba1fd81fc5a16c62ea8c92350c2340bb",
-        "column": 12,
-        "filePath": "packages/schemas/src/.builder/compat/builder-router.ts",
-        "kind": "deserialize",
-        "line": 80,
-        "sourceType": "c.json"
-      },
-      {
-        "boundaryId": "type-boundary:bda20dc2c73ccf2ccf551f2702a923e1",
-        "column": 12,
-        "filePath": "packages/schemas/src/.builder/compat/builder-router.ts",
-        "kind": "deserialize",
-        "line": 16,
-        "sourceType": "c.json"
       },
       {
         "boundaryId": "type-boundary:c4139cacff1d6b38acc3bf45ec917dc5",
@@ -1553,14 +1422,6 @@
         "sourceType": "JSON.parse"
       },
       {
-        "boundaryId": "type-boundary:de871af632d7f1ae02e0f23e15c0580e",
-        "column": 14,
-        "filePath": "packages/schemas/src/.builder/compat/builder-router.ts",
-        "kind": "deserialize",
-        "line": 51,
-        "sourceType": "c.json"
-      },
-      {
         "boundaryId": "type-boundary:e3d89465f694bc80949b2864ba6828b0",
         "column": 21,
         "filePath": "packages/codegen/src/cli/lib/typespec-ref-provenance.ts",
@@ -1575,14 +1436,6 @@
         "kind": "deserialize",
         "line": 184,
         "sourceType": "parseJson"
-      },
-      {
-        "boundaryId": "type-boundary:e904fffa2ea57497f4e671e0a679a327",
-        "column": 14,
-        "filePath": "packages/schemas/src/.builder/compat/builder-router.ts",
-        "kind": "deserialize",
-        "line": 90,
-        "sourceType": "c.json"
       },
       {
         "boundaryId": "type-boundary:e9574fe3dcca0ca89fd5d4b01262556d",
@@ -1626,29 +1479,12 @@
         "targetType": "80:\"TtscContractProvenanceV2\""
       },
       {
-        "boundaryId": "type-boundary:f36418f3536ba0177b43462d62351ee4",
-        "column": 19,
-        "filePath": "packages/schemas/src/.builder/compat/builder-client.ts",
-        "kind": "deserialize",
-        "line": 142,
-        "sourceType": "res.json"
-      },
-      {
         "boundaryId": "type-boundary:f451444f38886a8d990d1791e49ff43b",
         "column": 48,
         "filePath": "packages/mock-server/src/adapters/msw.ts",
         "kind": "deserialize",
         "line": 168,
         "sourceType": "HttpResponse.json"
-      },
-      {
-        "boundaryId": "type-boundary:f8577587bb3f61d90d964ec8ff5a18d2",
-        "column": 22,
-        "filePath": "packages/schemas/src/.builder/compat/builder-router.ts",
-        "kind": "double-assertion",
-        "line": 48,
-        "sourceType": "159:\"unknown\"",
-        "targetType": "80:\"UpdateUserPathParams\""
       },
       {
         "boundaryId": "type-boundary:f98a8a901c62eb6711a3a83c9c31425c",
@@ -1694,206 +1530,6 @@
         "semanticHash": "3c0e24b1c1270616b7b681a0e8cf5fe2436263d9d86eb5c3f2a0c591eb419f7a",
         "shapeHash": "07af3df9a8ab5e8c5b05409bb78f83e7f4e658e6dbc1a61784bdbe1adc26906a",
         "syntaxHash": "a1eafe3ebcc6a3d4f1f4892d523cc662ae698767d06e377a6d5e1125fceeec20"
-      },
-      {
-        "filePath": "apps/nestjs-ref/src/generated/api-types.ts",
-        "identity": "apps/nestjs-ref/src/generated/api-types.ts#src/generated/api-types.ts#neutral#@oa-sdk/nestjs-ref:src/generated/api-types.ts#CreateUserDto#type-alias",
-        "kind": "type-alias",
-        "qualifiedName": "@oa-sdk/nestjs-ref:src/generated/api-types.ts#CreateUserDto",
-        "runtime": "neutral",
-        "semanticHash": "af9be22591cc8ce39dafe41192580d19b831fd1cb1e359824a576e54766a2f0e",
-        "shapeHash": "7d30f2791054c6703d970c714ab256c85ec193d95da58d2f6190e9124b3499dc",
-        "syntaxHash": "d7277b83641644ebde17e9386182ffa7f1900787f602f503e74026fe52b0b86a"
-      },
-      {
-        "filePath": "apps/nestjs-ref/src/generated/api-types.ts",
-        "identity": "apps/nestjs-ref/src/generated/api-types.ts#src/generated/api-types.ts#neutral#@oa-sdk/nestjs-ref:src/generated/api-types.ts#HealthControllerCheckOp#type-alias",
-        "kind": "type-alias",
-        "qualifiedName": "@oa-sdk/nestjs-ref:src/generated/api-types.ts#HealthControllerCheckOp",
-        "runtime": "neutral",
-        "semanticHash": "3f591459f4101a385c4886e8d6baa81bf905258fdf655954222cd04008b6c36a",
-        "shapeHash": "c1ccbd4292a435cff0ef4c3982cb02b96df2410b6bad077d431f62fe74ec963e",
-        "syntaxHash": "a6c2631fdbdd48ee21c54f5267ee549cb5157b4f8ae30f721cd8f9b36526e214"
-      },
-      {
-        "filePath": "apps/nestjs-ref/src/generated/api-types.ts",
-        "identity": "apps/nestjs-ref/src/generated/api-types.ts#src/generated/api-types.ts#neutral#@oa-sdk/nestjs-ref:src/generated/api-types.ts#HealthControllerCheckResponse#type-alias",
-        "kind": "type-alias",
-        "qualifiedName": "@oa-sdk/nestjs-ref:src/generated/api-types.ts#HealthControllerCheckResponse",
-        "runtime": "neutral",
-        "semanticHash": "8cca5f6b997d815ef5eb07e1da1597caa29213fa6ff3b46486dda48875342d82",
-        "shapeHash": "cbeb58dee8ae79de78c9c7f67400cf8bf47a7c40e337e56f26542be1db2b0eea",
-        "syntaxHash": "53c681eee2fc939e4efb4ac044b29206a3b769df071551e819b73c4faba331c8"
-      },
-      {
-        "filePath": "apps/nestjs-ref/src/generated/api-types.ts",
-        "identity": "apps/nestjs-ref/src/generated/api-types.ts#src/generated/api-types.ts#neutral#@oa-sdk/nestjs-ref:src/generated/api-types.ts#HealthResponseDto#type-alias",
-        "kind": "type-alias",
-        "qualifiedName": "@oa-sdk/nestjs-ref:src/generated/api-types.ts#HealthResponseDto",
-        "runtime": "neutral",
-        "semanticHash": "bdc43d6575f034b12bdbcb4de5aa93d8d55700e9de62aab641332e5e6869dc71",
-        "shapeHash": "2a4858ea0b825b1802db04052afded3d977db5d64df10184d3776ff3e8481eb2",
-        "syntaxHash": "ffe25ec63b0a5128011451815448ab9e250f63beb8cbce452bfaaf80aeff4097"
-      },
-      {
-        "filePath": "apps/nestjs-ref/src/generated/api-types.ts",
-        "identity": "apps/nestjs-ref/src/generated/api-types.ts#src/generated/api-types.ts#neutral#@oa-sdk/nestjs-ref:src/generated/api-types.ts#UpdateUserDto#type-alias",
-        "kind": "type-alias",
-        "qualifiedName": "@oa-sdk/nestjs-ref:src/generated/api-types.ts#UpdateUserDto",
-        "runtime": "neutral",
-        "semanticHash": "9dac4ea2322d996fa8b520f6000a02c13e19bab007dbf0cb35a66ed56bfcb141",
-        "shapeHash": "94ba6b2493c856b306f67bfc65becafc3d21da89bb5387e26c302b386e9d59b8",
-        "syntaxHash": "b3ce3ee87bca1ec95e4af0e9b1f7d8befe436f9686e3aa7223b9f320888bd8dd"
-      },
-      {
-        "filePath": "apps/nestjs-ref/src/generated/api-types.ts",
-        "identity": "apps/nestjs-ref/src/generated/api-types.ts#src/generated/api-types.ts#neutral#@oa-sdk/nestjs-ref:src/generated/api-types.ts#UserDto#type-alias",
-        "kind": "type-alias",
-        "qualifiedName": "@oa-sdk/nestjs-ref:src/generated/api-types.ts#UserDto",
-        "runtime": "neutral",
-        "semanticHash": "2f8ace65ed50ff78c0fcd9108b1b740c917e9a6c8540c934e45263fd6ceac86d",
-        "shapeHash": "7086d581c20fa25bdd313c4bd59402c3ae0eac61b19cca0737e2762f863dfe6e",
-        "syntaxHash": "78b615387b814dc3589e61891f3b619d39d0d1d00b1a618db47eebb131bfabe6"
-      },
-      {
-        "filePath": "apps/nestjs-ref/src/generated/api-types.ts",
-        "identity": "apps/nestjs-ref/src/generated/api-types.ts#src/generated/api-types.ts#neutral#@oa-sdk/nestjs-ref:src/generated/api-types.ts#UsersControllerCreateBody#type-alias",
-        "kind": "type-alias",
-        "qualifiedName": "@oa-sdk/nestjs-ref:src/generated/api-types.ts#UsersControllerCreateBody",
-        "runtime": "neutral",
-        "semanticHash": "caace60389358056da25fab223d88343cff7118fbf23ab4fbda2fa26bb402311",
-        "shapeHash": "c9f0552c7d2950349b0a1cd7724ee95868c93fb5246b5e77aa2f7205b06af757",
-        "syntaxHash": "58db6362e9e40339ea95426688bab206c55a1964b46b958eb6c612394dfb2f8b"
-      },
-      {
-        "filePath": "apps/nestjs-ref/src/generated/api-types.ts",
-        "identity": "apps/nestjs-ref/src/generated/api-types.ts#src/generated/api-types.ts#neutral#@oa-sdk/nestjs-ref:src/generated/api-types.ts#UsersControllerCreateOp#type-alias",
-        "kind": "type-alias",
-        "qualifiedName": "@oa-sdk/nestjs-ref:src/generated/api-types.ts#UsersControllerCreateOp",
-        "runtime": "neutral",
-        "semanticHash": "c6fce064f5d28fea722fcaacfdd7706aa4632ae18ab3b10158517ab244b36503",
-        "shapeHash": "c2259559b6bce016ef2604affc055cdd4bc9ec91eeaef87dff8a973c06153d8f",
-        "syntaxHash": "731cf800a5af8f31e8b3f2601d1c8e8dc5cd05b31775b77e78f29690d0c0083b"
-      },
-      {
-        "filePath": "apps/nestjs-ref/src/generated/api-types.ts",
-        "identity": "apps/nestjs-ref/src/generated/api-types.ts#src/generated/api-types.ts#neutral#@oa-sdk/nestjs-ref:src/generated/api-types.ts#UsersControllerCreateResponse#type-alias",
-        "kind": "type-alias",
-        "qualifiedName": "@oa-sdk/nestjs-ref:src/generated/api-types.ts#UsersControllerCreateResponse",
-        "runtime": "neutral",
-        "semanticHash": "62240924bc37fe7f81af991a71a5de71465fe00daf81f352cdd0dcbc1202aa53",
-        "shapeHash": "5f81c93b9cd158fdc1631d7aba7c2da9e394742e1faf139379f206125b71ecb6",
-        "syntaxHash": "5123e50a4f0f03534198fe41d16b9118fbb36dc624dd6b1df9bc8a27fa2f35d8"
-      },
-      {
-        "filePath": "apps/nestjs-ref/src/generated/api-types.ts",
-        "identity": "apps/nestjs-ref/src/generated/api-types.ts#src/generated/api-types.ts#neutral#@oa-sdk/nestjs-ref:src/generated/api-types.ts#UsersControllerFindAllOp#type-alias",
-        "kind": "type-alias",
-        "qualifiedName": "@oa-sdk/nestjs-ref:src/generated/api-types.ts#UsersControllerFindAllOp",
-        "runtime": "neutral",
-        "semanticHash": "0f3c52eea39f80723b2d684bf40931283bb3c201df0fa6d08ce840eff1011712",
-        "shapeHash": "a80dcb45724d0bd75e316acaf01762d089723c4b1d40cb847aaf6b8fc08a576b",
-        "syntaxHash": "6b35f40b28a0cf8bcf41a29b8a4aaa97ab1493ccca53b63cd780acb8f92fa283"
-      },
-      {
-        "filePath": "apps/nestjs-ref/src/generated/api-types.ts",
-        "identity": "apps/nestjs-ref/src/generated/api-types.ts#src/generated/api-types.ts#neutral#@oa-sdk/nestjs-ref:src/generated/api-types.ts#UsersControllerFindAllResponse#type-alias",
-        "kind": "type-alias",
-        "qualifiedName": "@oa-sdk/nestjs-ref:src/generated/api-types.ts#UsersControllerFindAllResponse",
-        "runtime": "neutral",
-        "semanticHash": "14ed6103d8d49895975bc765377e01fd461593f69e2e2dee553a2b9c29b17abc",
-        "shapeHash": "d4211bdfc1cd4362946e67016b602f75e959cd9e1ac73d31fbb18d6838e69466",
-        "syntaxHash": "d78924f6839035282d7e0648aed788cf4c49529f1288851f0fe5ef5e2bcc362d"
-      },
-      {
-        "filePath": "apps/nestjs-ref/src/generated/api-types.ts",
-        "identity": "apps/nestjs-ref/src/generated/api-types.ts#src/generated/api-types.ts#neutral#@oa-sdk/nestjs-ref:src/generated/api-types.ts#UsersControllerFindOneOp#type-alias",
-        "kind": "type-alias",
-        "qualifiedName": "@oa-sdk/nestjs-ref:src/generated/api-types.ts#UsersControllerFindOneOp",
-        "runtime": "neutral",
-        "semanticHash": "64a819159ca0079dccaae89aa5822e33d407740a07ca12e818f52110526fc98a",
-        "shapeHash": "b49746b316155cbf940a7a7ecf3594d4d6777531e9c3832c96163ee237f342fa",
-        "syntaxHash": "c79cd5460376079f5e94baf2e8624c566413783f6eff05c5b2413a78a4dcee3b"
-      },
-      {
-        "filePath": "apps/nestjs-ref/src/generated/api-types.ts",
-        "identity": "apps/nestjs-ref/src/generated/api-types.ts#src/generated/api-types.ts#neutral#@oa-sdk/nestjs-ref:src/generated/api-types.ts#UsersControllerFindOnePathParams#type-alias",
-        "kind": "type-alias",
-        "qualifiedName": "@oa-sdk/nestjs-ref:src/generated/api-types.ts#UsersControllerFindOnePathParams",
-        "runtime": "neutral",
-        "semanticHash": "00990091af0203ed7fc76990f194166d568fd1efcf58b28003a98328dc4d3158",
-        "shapeHash": "505284729ebbaf586154064ed6035da434018466c276380323a25bf1bee279e0",
-        "syntaxHash": "8564d523991acd022508bb15847dc14b3da88a031cf1b67bc6bb8e78832f7592"
-      },
-      {
-        "filePath": "apps/nestjs-ref/src/generated/api-types.ts",
-        "identity": "apps/nestjs-ref/src/generated/api-types.ts#src/generated/api-types.ts#neutral#@oa-sdk/nestjs-ref:src/generated/api-types.ts#UsersControllerFindOneResponse#type-alias",
-        "kind": "type-alias",
-        "qualifiedName": "@oa-sdk/nestjs-ref:src/generated/api-types.ts#UsersControllerFindOneResponse",
-        "runtime": "neutral",
-        "semanticHash": "98ebfdc8072ba995b9fc6d966ca6230a94aa29c9d884a49e821eb2f7e170a451",
-        "shapeHash": "5f81c93b9cd158fdc1631d7aba7c2da9e394742e1faf139379f206125b71ecb6",
-        "syntaxHash": "c2e046177aefd5f6f09d4a27bab29178987a87334b494b9f90aa00fddb8d227f"
-      },
-      {
-        "filePath": "apps/nestjs-ref/src/generated/api-types.ts",
-        "identity": "apps/nestjs-ref/src/generated/api-types.ts#src/generated/api-types.ts#neutral#@oa-sdk/nestjs-ref:src/generated/api-types.ts#UsersControllerRemoveOp#type-alias",
-        "kind": "type-alias",
-        "qualifiedName": "@oa-sdk/nestjs-ref:src/generated/api-types.ts#UsersControllerRemoveOp",
-        "runtime": "neutral",
-        "semanticHash": "f7cda4a15190666af3c735c29a0ff4bdf5c1c31a990a8f034e9884c8910ee5c6",
-        "shapeHash": "fa00299a56894e0d99f151259de19f315d43671a037527e9a062aef361aa2781",
-        "syntaxHash": "998a762fccc73cf3b454d2b57d144869e3adbb7fcf427ba645e14400a7eb7ca6"
-      },
-      {
-        "filePath": "apps/nestjs-ref/src/generated/api-types.ts",
-        "identity": "apps/nestjs-ref/src/generated/api-types.ts#src/generated/api-types.ts#neutral#@oa-sdk/nestjs-ref:src/generated/api-types.ts#UsersControllerRemovePathParams#type-alias",
-        "kind": "type-alias",
-        "qualifiedName": "@oa-sdk/nestjs-ref:src/generated/api-types.ts#UsersControllerRemovePathParams",
-        "runtime": "neutral",
-        "semanticHash": "f5cbacce00694b67dfb209c7792fcfebea2146b40364cbb55c39cc9d636f84dc",
-        "shapeHash": "505284729ebbaf586154064ed6035da434018466c276380323a25bf1bee279e0",
-        "syntaxHash": "e93cc6827afb13fda78b1742574c7ca0b6d436dc2145b7d7fc97f43fe28cdbe7"
-      },
-      {
-        "filePath": "apps/nestjs-ref/src/generated/api-types.ts",
-        "identity": "apps/nestjs-ref/src/generated/api-types.ts#src/generated/api-types.ts#neutral#@oa-sdk/nestjs-ref:src/generated/api-types.ts#UsersControllerUpdateBody#type-alias",
-        "kind": "type-alias",
-        "qualifiedName": "@oa-sdk/nestjs-ref:src/generated/api-types.ts#UsersControllerUpdateBody",
-        "runtime": "neutral",
-        "semanticHash": "d1f86194d5960c304e4750d924bbc84385abbe3a89e94e3eaf8bbf69e8beb890",
-        "shapeHash": "3413bdc31aa81454f29fe1a011410cbb6b5cb7f672b36e629bc7ed9f65ef8c72",
-        "syntaxHash": "11a99378cf5eef937d4108588fe060e6adcda72b4b96f4d77d99274b4cf6385d"
-      },
-      {
-        "filePath": "apps/nestjs-ref/src/generated/api-types.ts",
-        "identity": "apps/nestjs-ref/src/generated/api-types.ts#src/generated/api-types.ts#neutral#@oa-sdk/nestjs-ref:src/generated/api-types.ts#UsersControllerUpdateOp#type-alias",
-        "kind": "type-alias",
-        "qualifiedName": "@oa-sdk/nestjs-ref:src/generated/api-types.ts#UsersControllerUpdateOp",
-        "runtime": "neutral",
-        "semanticHash": "44539e3fa3bcde9bafa90da7d00dd002c62c99c82cc6849061a10b5665b5b205",
-        "shapeHash": "2bffcfbcd16104086b519d926b43919684a30a28fb5e5d65524f771ad9cb8e15",
-        "syntaxHash": "c2fc756d697282d4e77f3f42d0be8640a78f062c2e0f435b8f71297144aa8cce"
-      },
-      {
-        "filePath": "apps/nestjs-ref/src/generated/api-types.ts",
-        "identity": "apps/nestjs-ref/src/generated/api-types.ts#src/generated/api-types.ts#neutral#@oa-sdk/nestjs-ref:src/generated/api-types.ts#UsersControllerUpdatePathParams#type-alias",
-        "kind": "type-alias",
-        "qualifiedName": "@oa-sdk/nestjs-ref:src/generated/api-types.ts#UsersControllerUpdatePathParams",
-        "runtime": "neutral",
-        "semanticHash": "19ca4977893d310b78817b665503fbb1e54a5a88037a0bc125fbc8be1c7c0dec",
-        "shapeHash": "505284729ebbaf586154064ed6035da434018466c276380323a25bf1bee279e0",
-        "syntaxHash": "4adcdaa50ff2da4c63f27a314a4ca11187cec2cb9c3ce0377b2d019f89f82653"
-      },
-      {
-        "filePath": "apps/nestjs-ref/src/generated/api-types.ts",
-        "identity": "apps/nestjs-ref/src/generated/api-types.ts#src/generated/api-types.ts#neutral#@oa-sdk/nestjs-ref:src/generated/api-types.ts#UsersControllerUpdateResponse#type-alias",
-        "kind": "type-alias",
-        "qualifiedName": "@oa-sdk/nestjs-ref:src/generated/api-types.ts#UsersControllerUpdateResponse",
-        "runtime": "neutral",
-        "semanticHash": "cc7f8ef8bd5974e9e5abb1c3a85a7df398f5b24f62daccd70d40e71408fce00e",
-        "shapeHash": "5f81c93b9cd158fdc1631d7aba7c2da9e394742e1faf139379f206125b71ecb6",
-        "syntaxHash": "9cde57c2b0bd170573e1d33e5cd75192c45bba61983cc070093a6afd52a7c0aa"
       },
       {
         "filePath": "apps/nestjs-ref/src/health/dto/health-response.dto.ts",
@@ -38046,546 +37682,6 @@
         "syntaxHash": "18e9cab0899cc9f0db3bdc2f2c4bcab0a27fc90429184bcb7ed9aa223c0f4c89"
       },
       {
-        "filePath": "packages/schemas/src/.builder/compat/builder-client.ts",
-        "identity": "packages/schemas/src/.builder/compat/builder-client.ts#src/.builder/compat/builder-client.ts#neutral#@oa-sdk/schemas:src/.builder/compat/builder-client.ts#bearerAuth#function",
-        "kind": "function",
-        "qualifiedName": "@oa-sdk/schemas:src/.builder/compat/builder-client.ts#bearerAuth",
-        "runtime": "neutral",
-        "semanticHash": "420a712be3b13544cd5399cfef9250c80fee28b86c5668e4de61036f6902434f",
-        "shapeHash": "0f1c74b1527aa29cdea8cedaf5f40ba78a1b968b1185debb8bd9f62191fefa0a",
-        "syntaxHash": "8fd4bc77ef5300d2cd55ce0256e377ed62f271e814526ed47ea0e966d4c832d2"
-      },
-      {
-        "filePath": "packages/schemas/src/.builder/compat/builder-client.ts",
-        "identity": "packages/schemas/src/.builder/compat/builder-client.ts#src/.builder/compat/builder-client.ts#neutral#@oa-sdk/schemas:src/.builder/compat/builder-client.ts#ClientConfig#type-alias",
-        "kind": "type-alias",
-        "qualifiedName": "@oa-sdk/schemas:src/.builder/compat/builder-client.ts#ClientConfig",
-        "runtime": "neutral",
-        "semanticHash": "b63e99348227e07ef83e72a914fc47d6f9a9cb51fbf2b8e9cda728255251cfbd",
-        "shapeHash": "b768a090a26a4fa89281a1b578051842d0f00d0f4dafa10a6734eadf53eaf6a7",
-        "syntaxHash": "9c5e745cad1111ff95af79f219f4732684b27cf9d8b06b45f1fceaf15c5af101"
-      },
-      {
-        "filePath": "packages/schemas/src/.builder/compat/builder-client.ts",
-        "identity": "packages/schemas/src/.builder/compat/builder-client.ts#src/.builder/compat/builder-client.ts#neutral#@oa-sdk/schemas:src/.builder/compat/builder-client.ts#ClientMiddleware#type-alias",
-        "kind": "type-alias",
-        "qualifiedName": "@oa-sdk/schemas:src/.builder/compat/builder-client.ts#ClientMiddleware",
-        "runtime": "neutral",
-        "semanticHash": "ab656656a872a5ab6991109314b6b9e8880f3e9742325930f862a9c0fccf40e8",
-        "shapeHash": "b1aaf0bf6c950e7020b0b7e8d7f6cc823bcbf6cd1c5b8b29c1e13e1be5fc90c7",
-        "syntaxHash": "0a0dfa2cb0f67f838e9c5c8998fb9e2cd96293bc9ef215ad34bad9d4ea4971c1"
-      },
-      {
-        "filePath": "packages/schemas/src/.builder/compat/builder-client.ts",
-        "identity": "packages/schemas/src/.builder/compat/builder-client.ts#src/.builder/compat/builder-client.ts#neutral#@oa-sdk/schemas:src/.builder/compat/builder-client.ts#ClientResponse#type-alias",
-        "kind": "type-alias",
-        "qualifiedName": "@oa-sdk/schemas:src/.builder/compat/builder-client.ts#ClientResponse",
-        "runtime": "neutral",
-        "semanticHash": "13278e990effffbc641941ed8f7297f6df45da3689f2545e09c70096e27883e6",
-        "shapeHash": "d9a1950c0d8b532b4d012eef5b18f82a4f1f44f73032835bc7ecb7d7677c5fba",
-        "syntaxHash": "c72ebb4837baf3205b9bcd92b0263eedf68483819b5636dee8801e7cbe78967d"
-      },
-      {
-        "filePath": "packages/schemas/src/.builder/compat/builder-client.ts",
-        "identity": "packages/schemas/src/.builder/compat/builder-client.ts#src/.builder/compat/builder-client.ts#neutral#@oa-sdk/schemas:src/.builder/compat/builder-client.ts#createClient#function",
-        "kind": "function",
-        "qualifiedName": "@oa-sdk/schemas:src/.builder/compat/builder-client.ts#createClient",
-        "runtime": "neutral",
-        "semanticHash": "82ab87f6968f7eedd554c996e4f064fbc6107af74bfff76e4e4fbdf452ec562d",
-        "shapeHash": "5316693b1383b77c724ac4157a80340bf9d001ee92b4c8fe0337d0dc49a3e3ea",
-        "syntaxHash": "ccbb361796da5d19213cb3acb1ee8d2738cefceae44f5761160977e6dc9ddcaa"
-      },
-      {
-        "filePath": "packages/schemas/src/.builder/compat/builder-client.ts",
-        "identity": "packages/schemas/src/.builder/compat/builder-client.ts#src/.builder/compat/builder-client.ts#neutral#@oa-sdk/schemas:src/.builder/compat/builder-client.ts#oauth2Auth#function",
-        "kind": "function",
-        "qualifiedName": "@oa-sdk/schemas:src/.builder/compat/builder-client.ts#oauth2Auth",
-        "runtime": "neutral",
-        "semanticHash": "1487e333c4cdb503a32df747d534dc8acbed93d5e4426f8aae611933de6a26d8",
-        "shapeHash": "0f1c74b1527aa29cdea8cedaf5f40ba78a1b968b1185debb8bd9f62191fefa0a",
-        "syntaxHash": "a126bff7442b5520f5ba50af0eeaef6618588a58b03891019de02431fa344057"
-      },
-      {
-        "filePath": "packages/schemas/src/.builder/compat/builder-types.ts",
-        "identity": "packages/schemas/src/.builder/compat/builder-types.ts#src/.builder/compat/builder-types.ts#neutral#@oa-sdk/schemas:src/.builder/compat/builder-types.ts#CreateUserBody#type-alias",
-        "kind": "type-alias",
-        "qualifiedName": "@oa-sdk/schemas:src/.builder/compat/builder-types.ts#CreateUserBody",
-        "runtime": "neutral",
-        "semanticHash": "2ed0d708f912c1fee31e7308c9a2c33b582f5d2edf13e42f86cb67aaa41509dc",
-        "shapeHash": "7f9691b2e66bf0831ba3e73f297e172e002ce9cac8d53d00e42e92d257ec5aa2",
-        "syntaxHash": "2971e56be21e509adfb177bdb4dd0e34c9f2cfa4407b37d823b17b9f43b80601"
-      },
-      {
-        "filePath": "packages/schemas/src/.builder/compat/builder-types.ts",
-        "identity": "packages/schemas/src/.builder/compat/builder-types.ts#src/.builder/compat/builder-types.ts#neutral#@oa-sdk/schemas:src/.builder/compat/builder-types.ts#CreateUserOp#type-alias",
-        "kind": "type-alias",
-        "qualifiedName": "@oa-sdk/schemas:src/.builder/compat/builder-types.ts#CreateUserOp",
-        "runtime": "neutral",
-        "semanticHash": "50c41911f0d209adbdad85cd6d2c59ba80c3057a098e6fb0744bc70d1c3bec5f",
-        "shapeHash": "edb0b2972551f08908c667783da599e95dff7bb28615157d6e231945d9439bf0",
-        "syntaxHash": "9436d80e39945467c36b0f598c8e5c70589afe9ee6ad79c8a46d9e368a537236"
-      },
-      {
-        "filePath": "packages/schemas/src/.builder/compat/builder-types.ts",
-        "identity": "packages/schemas/src/.builder/compat/builder-types.ts#src/.builder/compat/builder-types.ts#neutral#@oa-sdk/schemas:src/.builder/compat/builder-types.ts#CreateUserRequest#type-alias",
-        "kind": "type-alias",
-        "qualifiedName": "@oa-sdk/schemas:src/.builder/compat/builder-types.ts#CreateUserRequest",
-        "runtime": "neutral",
-        "semanticHash": "fb81c30a2d6384398f42d3ba620de1db5a6ed17657e962d588665b6f39918782",
-        "shapeHash": "d9760413e09a998985b7fd5be34c3acbe42170ea4f5d95faf05aac7c6ba850db",
-        "syntaxHash": "3b015475ec2fa0638f8945d931d3d0be301cf07248bc26812d434013c2d0cbd5"
-      },
-      {
-        "filePath": "packages/schemas/src/.builder/compat/builder-types.ts",
-        "identity": "packages/schemas/src/.builder/compat/builder-types.ts#src/.builder/compat/builder-types.ts#neutral#@oa-sdk/schemas:src/.builder/compat/builder-types.ts#CreateUserResponse#type-alias",
-        "kind": "type-alias",
-        "qualifiedName": "@oa-sdk/schemas:src/.builder/compat/builder-types.ts#CreateUserResponse",
-        "runtime": "neutral",
-        "semanticHash": "9f87c3965a9aabf277420aacde7af8e24a1f84b20988a6452936dbdc85a3b788",
-        "shapeHash": "9b370c358a81b57a6e3668f0553de50e8654527283389c3683250061bb8f8fc7",
-        "syntaxHash": "8cf9c357bda1c62d04ab3cd079343522780c62928eccd0e8c383002785d2da8b"
-      },
-      {
-        "filePath": "packages/schemas/src/.builder/compat/builder-types.ts",
-        "identity": "packages/schemas/src/.builder/compat/builder-types.ts#src/.builder/compat/builder-types.ts#neutral#@oa-sdk/schemas:src/.builder/compat/builder-types.ts#DeleteUserOp#type-alias",
-        "kind": "type-alias",
-        "qualifiedName": "@oa-sdk/schemas:src/.builder/compat/builder-types.ts#DeleteUserOp",
-        "runtime": "neutral",
-        "semanticHash": "249982e82bfcaec8362e91f32bdb2b85ccc9d5d28cb604a0a5ad4452d28d2f2c",
-        "shapeHash": "849b3c29a56ac6208b22c10e914b14055c6503b1c234ec411f3cd666acf292f0",
-        "syntaxHash": "daf474df4a3a336e60e4e3ed32b564988e5977ed1b360827f7731fc42f6cfacc"
-      },
-      {
-        "filePath": "packages/schemas/src/.builder/compat/builder-types.ts",
-        "identity": "packages/schemas/src/.builder/compat/builder-types.ts#src/.builder/compat/builder-types.ts#neutral#@oa-sdk/schemas:src/.builder/compat/builder-types.ts#DeleteUserPathParams#type-alias",
-        "kind": "type-alias",
-        "qualifiedName": "@oa-sdk/schemas:src/.builder/compat/builder-types.ts#DeleteUserPathParams",
-        "runtime": "neutral",
-        "semanticHash": "21eeaafd5128d0b7f1f40bc29355bf1fa98f0120fb33bd459c0f5a3e6e69347a",
-        "shapeHash": "505284729ebbaf586154064ed6035da434018466c276380323a25bf1bee279e0",
-        "syntaxHash": "95b51b6b2d00a89f8da7042ba2caaed2b35794b1dc65047a42f81b275e3de263"
-      },
-      {
-        "filePath": "packages/schemas/src/.builder/compat/builder-types.ts",
-        "identity": "packages/schemas/src/.builder/compat/builder-types.ts#src/.builder/compat/builder-types.ts#neutral#@oa-sdk/schemas:src/.builder/compat/builder-types.ts#Error#type-alias",
-        "kind": "type-alias",
-        "qualifiedName": "@oa-sdk/schemas:src/.builder/compat/builder-types.ts#Error",
-        "runtime": "neutral",
-        "semanticHash": "bebe8d6d26f654748164b87c9fd6e2536de6007b7b64030bad5ddc52b7d1f4aa",
-        "shapeHash": "a6bf5a33a8875ca485e9afa7a8899d2c2d226c6d3012126509d12fd40840048a",
-        "syntaxHash": "0d87aaa2d507702518a0ed98e7dd9f0d75781fd5968b49f8cfdc691917bd4b18"
-      },
-      {
-        "filePath": "packages/schemas/src/.builder/compat/builder-types.ts",
-        "identity": "packages/schemas/src/.builder/compat/builder-types.ts#src/.builder/compat/builder-types.ts#neutral#@oa-sdk/schemas:src/.builder/compat/builder-types.ts#GetHealthOp#type-alias",
-        "kind": "type-alias",
-        "qualifiedName": "@oa-sdk/schemas:src/.builder/compat/builder-types.ts#GetHealthOp",
-        "runtime": "neutral",
-        "semanticHash": "0b78ff723cf53959aa69724693fd7bf1e8af4d2e21c2952de0073192ef929ecd",
-        "shapeHash": "42aab1019b85c5cba2bb28e8468922c9248ad50917ec7a50cedea8bf4abc71f3",
-        "syntaxHash": "f4305b0a1c91abfd525cab511bab6b2a4a6db584e60ec7a32a3aa733fc5abc0f"
-      },
-      {
-        "filePath": "packages/schemas/src/.builder/compat/builder-types.ts",
-        "identity": "packages/schemas/src/.builder/compat/builder-types.ts#src/.builder/compat/builder-types.ts#neutral#@oa-sdk/schemas:src/.builder/compat/builder-types.ts#GetHealthResponse#type-alias",
-        "kind": "type-alias",
-        "qualifiedName": "@oa-sdk/schemas:src/.builder/compat/builder-types.ts#GetHealthResponse",
-        "runtime": "neutral",
-        "semanticHash": "b0bce112571d31361dff2a7da69a45b9941b0405e1125ada4b3400e7b4c0729c",
-        "shapeHash": "d36f91e0bc9610125f697e85d57f31aa9fa02d27d14142dc6333c09741e874f8",
-        "syntaxHash": "497e1fe4e7ae579f29331e75ddb2eb3e63a078592d8fa6d9efbc612f26ca8aca"
-      },
-      {
-        "filePath": "packages/schemas/src/.builder/compat/builder-types.ts",
-        "identity": "packages/schemas/src/.builder/compat/builder-types.ts#src/.builder/compat/builder-types.ts#neutral#@oa-sdk/schemas:src/.builder/compat/builder-types.ts#GetUserByIdOp#type-alias",
-        "kind": "type-alias",
-        "qualifiedName": "@oa-sdk/schemas:src/.builder/compat/builder-types.ts#GetUserByIdOp",
-        "runtime": "neutral",
-        "semanticHash": "b66b8071fea9101567c53ed722bb7d2e5dc325eeffbc813ea027fe65c91b3dbb",
-        "shapeHash": "e1ecddff74e49ded9033d0759eef8f543d302c0282d0e82ec3cd4df61e57858d",
-        "syntaxHash": "a7d376675328a76c9c298ace88326da44d2d4b1869175190d5db4e61fcbaa229"
-      },
-      {
-        "filePath": "packages/schemas/src/.builder/compat/builder-types.ts",
-        "identity": "packages/schemas/src/.builder/compat/builder-types.ts#src/.builder/compat/builder-types.ts#neutral#@oa-sdk/schemas:src/.builder/compat/builder-types.ts#GetUserByIdPathParams#type-alias",
-        "kind": "type-alias",
-        "qualifiedName": "@oa-sdk/schemas:src/.builder/compat/builder-types.ts#GetUserByIdPathParams",
-        "runtime": "neutral",
-        "semanticHash": "7eb9cca8358912fe77c049a0e2636312609a8714a1f674fcad5a50dae2172d5d",
-        "shapeHash": "505284729ebbaf586154064ed6035da434018466c276380323a25bf1bee279e0",
-        "syntaxHash": "770e38cf016bedeaa9a851b7e22105e613063d3733d9e9409742798ba7cfee63"
-      },
-      {
-        "filePath": "packages/schemas/src/.builder/compat/builder-types.ts",
-        "identity": "packages/schemas/src/.builder/compat/builder-types.ts#src/.builder/compat/builder-types.ts#neutral#@oa-sdk/schemas:src/.builder/compat/builder-types.ts#GetUserByIdResponse#type-alias",
-        "kind": "type-alias",
-        "qualifiedName": "@oa-sdk/schemas:src/.builder/compat/builder-types.ts#GetUserByIdResponse",
-        "runtime": "neutral",
-        "semanticHash": "da8b80718e35851c4ec53c5e325724acbcab56334447f631e6edba2f95328975",
-        "shapeHash": "9b370c358a81b57a6e3668f0553de50e8654527283389c3683250061bb8f8fc7",
-        "syntaxHash": "7b9ba12d79348fc629b7cb16c62830519ac6ebce82eb31589d3521aeaadf4733"
-      },
-      {
-        "filePath": "packages/schemas/src/.builder/compat/builder-types.ts",
-        "identity": "packages/schemas/src/.builder/compat/builder-types.ts#src/.builder/compat/builder-types.ts#neutral#@oa-sdk/schemas:src/.builder/compat/builder-types.ts#HealthStatus#type-alias",
-        "kind": "type-alias",
-        "qualifiedName": "@oa-sdk/schemas:src/.builder/compat/builder-types.ts#HealthStatus",
-        "runtime": "neutral",
-        "semanticHash": "70e30227809250438cbc9b789f1a141dde349269807b499b34d4a587b2c107ce",
-        "shapeHash": "39e6a7d8ce09d5e13e2217b63a8e5b3759ffd557a5d4e189ebedce3dffe72404",
-        "syntaxHash": "ae19b0fc07afb61deac483619de5cca9e443bac463ddcb1db56b24bf15730225"
-      },
-      {
-        "filePath": "packages/schemas/src/.builder/compat/builder-types.ts",
-        "identity": "packages/schemas/src/.builder/compat/builder-types.ts#src/.builder/compat/builder-types.ts#neutral#@oa-sdk/schemas:src/.builder/compat/builder-types.ts#ListUsersOp#type-alias",
-        "kind": "type-alias",
-        "qualifiedName": "@oa-sdk/schemas:src/.builder/compat/builder-types.ts#ListUsersOp",
-        "runtime": "neutral",
-        "semanticHash": "1a7dda731bd4eba2279c73121dfb13ebf3dc3ea75067e688090d51e61061b06f",
-        "shapeHash": "af8927e798c7fa5a9c7027da8be3ead437cfbf3cc7ea5de5f0157acf8bed151d",
-        "syntaxHash": "101bce192ae3afb0aad9ea680b5fa2bac8e75a162b3c76b9defd8ff3aef7d7a7"
-      },
-      {
-        "filePath": "packages/schemas/src/.builder/compat/builder-types.ts",
-        "identity": "packages/schemas/src/.builder/compat/builder-types.ts#src/.builder/compat/builder-types.ts#neutral#@oa-sdk/schemas:src/.builder/compat/builder-types.ts#ListUsersQueryParams#type-alias",
-        "kind": "type-alias",
-        "qualifiedName": "@oa-sdk/schemas:src/.builder/compat/builder-types.ts#ListUsersQueryParams",
-        "runtime": "neutral",
-        "semanticHash": "17dcba0582e28dbadc418345f5f2c7f3e2e7ff73b721cc74cc3f019eebb5922e",
-        "shapeHash": "e0d932b56df788669dcca3b469a93573f4ea589b9ea69e1969c63577b3c7368f",
-        "syntaxHash": "bb4262e3aaab7dbdf4f7decbbf0a1d5de9956b1be57dbd7ab03da84e4d51b351"
-      },
-      {
-        "filePath": "packages/schemas/src/.builder/compat/builder-types.ts",
-        "identity": "packages/schemas/src/.builder/compat/builder-types.ts#src/.builder/compat/builder-types.ts#neutral#@oa-sdk/schemas:src/.builder/compat/builder-types.ts#ListUsersResponse#type-alias",
-        "kind": "type-alias",
-        "qualifiedName": "@oa-sdk/schemas:src/.builder/compat/builder-types.ts#ListUsersResponse",
-        "runtime": "neutral",
-        "semanticHash": "147dd0a8bf1a3afa2b7d3ee5174add98db878ed1b4286288ca61d7acb9c6580e",
-        "shapeHash": "a5b0bff7ee0a8804a1ed2d0ad1285cd460ee313b50c6918bfbd22c6399793214",
-        "syntaxHash": "62d289507a54c42ad09fe5dcb64c5900dd55c286cca0fa3be14cf778c16e2045"
-      },
-      {
-        "filePath": "packages/schemas/src/.builder/compat/builder-types.ts",
-        "identity": "packages/schemas/src/.builder/compat/builder-types.ts#src/.builder/compat/builder-types.ts#neutral#@oa-sdk/schemas:src/.builder/compat/builder-types.ts#StreamHealthEventsOp#type-alias",
-        "kind": "type-alias",
-        "qualifiedName": "@oa-sdk/schemas:src/.builder/compat/builder-types.ts#StreamHealthEventsOp",
-        "runtime": "neutral",
-        "semanticHash": "74ed3c45471dbe8464c08b407ee830b47ca09596783702cab99117d3af0372ef",
-        "shapeHash": "9b403e35d7aed6817393f84a224b61bd28abb3cde1b8b0f87a3f896a204afd09",
-        "syntaxHash": "945af31e9a58d8674a0ce6f99306beb63352a462f5876fa93e48443fb9ec82b9"
-      },
-      {
-        "filePath": "packages/schemas/src/.builder/compat/builder-types.ts",
-        "identity": "packages/schemas/src/.builder/compat/builder-types.ts#src/.builder/compat/builder-types.ts#neutral#@oa-sdk/schemas:src/.builder/compat/builder-types.ts#UpdateUserBody#type-alias",
-        "kind": "type-alias",
-        "qualifiedName": "@oa-sdk/schemas:src/.builder/compat/builder-types.ts#UpdateUserBody",
-        "runtime": "neutral",
-        "semanticHash": "492625fbf389fbb15a06b647c85d67a513e912b58834b422f04e751e5330596d",
-        "shapeHash": "3ef9e3c08cc6129522da2ff39c0119dd8e448693957e1200635f4bbe327c47ef",
-        "syntaxHash": "17ee3fbd320ba945f0e7109bf4414a0620ac43ef7bb6347bcdc81f36d844b07d"
-      },
-      {
-        "filePath": "packages/schemas/src/.builder/compat/builder-types.ts",
-        "identity": "packages/schemas/src/.builder/compat/builder-types.ts#src/.builder/compat/builder-types.ts#neutral#@oa-sdk/schemas:src/.builder/compat/builder-types.ts#UpdateUserOp#type-alias",
-        "kind": "type-alias",
-        "qualifiedName": "@oa-sdk/schemas:src/.builder/compat/builder-types.ts#UpdateUserOp",
-        "runtime": "neutral",
-        "semanticHash": "b0a85f2c6998d09db75062d3d92c826bf2286f9c074faca9b7e8493b07d34d4c",
-        "shapeHash": "00521e9e78fda82a64ecbe8d0a1b991498190021bffd5482ae53851abd5fac85",
-        "syntaxHash": "dfab4ec8ea880431f6db83579496e64d3b5ceefded863d593328987e4e6d77b6"
-      },
-      {
-        "filePath": "packages/schemas/src/.builder/compat/builder-types.ts",
-        "identity": "packages/schemas/src/.builder/compat/builder-types.ts#src/.builder/compat/builder-types.ts#neutral#@oa-sdk/schemas:src/.builder/compat/builder-types.ts#UpdateUserPathParams#type-alias",
-        "kind": "type-alias",
-        "qualifiedName": "@oa-sdk/schemas:src/.builder/compat/builder-types.ts#UpdateUserPathParams",
-        "runtime": "neutral",
-        "semanticHash": "9accbf0b94bf5269959f468585e725893cc27582fe3216dd68ad3f952d4c4483",
-        "shapeHash": "505284729ebbaf586154064ed6035da434018466c276380323a25bf1bee279e0",
-        "syntaxHash": "4da4c632c95aa0e25ac2ac366313c099ade181c4ff1800e119d7728d52e97f50"
-      },
-      {
-        "filePath": "packages/schemas/src/.builder/compat/builder-types.ts",
-        "identity": "packages/schemas/src/.builder/compat/builder-types.ts#src/.builder/compat/builder-types.ts#neutral#@oa-sdk/schemas:src/.builder/compat/builder-types.ts#UpdateUserRequest#type-alias",
-        "kind": "type-alias",
-        "qualifiedName": "@oa-sdk/schemas:src/.builder/compat/builder-types.ts#UpdateUserRequest",
-        "runtime": "neutral",
-        "semanticHash": "11142fee901946fdffe8129d0cd45a0b4c8978b02f4616293607e3c1a15a622c",
-        "shapeHash": "77229426516bc134d92b95fa40161093f0684090cd94b0f0ee29d62b35af5647",
-        "syntaxHash": "7bf57eebcf0446753a583aecd2c6387692ba096c32c7da50aa9579b5b6a6291f"
-      },
-      {
-        "filePath": "packages/schemas/src/.builder/compat/builder-types.ts",
-        "identity": "packages/schemas/src/.builder/compat/builder-types.ts#src/.builder/compat/builder-types.ts#neutral#@oa-sdk/schemas:src/.builder/compat/builder-types.ts#UpdateUserResponse#type-alias",
-        "kind": "type-alias",
-        "qualifiedName": "@oa-sdk/schemas:src/.builder/compat/builder-types.ts#UpdateUserResponse",
-        "runtime": "neutral",
-        "semanticHash": "da58772069f0d0d9dfa6bdfc2ece35c879e1354f34ee6a908460a4c58d39bfbc",
-        "shapeHash": "9b370c358a81b57a6e3668f0553de50e8654527283389c3683250061bb8f8fc7",
-        "syntaxHash": "724924eb073bcb1231f320359dc7613c17f8db8e215f9b874ec8406f6bf5bd51"
-      },
-      {
-        "filePath": "packages/schemas/src/.builder/compat/builder-types.ts",
-        "identity": "packages/schemas/src/.builder/compat/builder-types.ts#src/.builder/compat/builder-types.ts#neutral#@oa-sdk/schemas:src/.builder/compat/builder-types.ts#User#type-alias",
-        "kind": "type-alias",
-        "qualifiedName": "@oa-sdk/schemas:src/.builder/compat/builder-types.ts#User",
-        "runtime": "neutral",
-        "semanticHash": "f72d0aa790c2a92476b38d00dbdbe4b834b28f06a705f0bb547509934bf28799",
-        "shapeHash": "72b55b2463b0c245ccd74af0d0a9e5a1e3fe94488dfde6dd84d3c30f283e063d",
-        "syntaxHash": "1295a2944d3704e56afb420dd556dca96a0b5f82a53a5a994191568abdfb0875"
-      },
-      {
-        "filePath": "packages/schemas/src/.builder/compat/builder-types.ts",
-        "identity": "packages/schemas/src/.builder/compat/builder-types.ts#src/.builder/compat/builder-types.ts#neutral#@oa-sdk/schemas:src/.builder/compat/builder-types.ts#ValidationError#type-alias",
-        "kind": "type-alias",
-        "qualifiedName": "@oa-sdk/schemas:src/.builder/compat/builder-types.ts#ValidationError",
-        "runtime": "neutral",
-        "semanticHash": "5fcf6436687f69af670e67323f39a6b10ab3c7109dfbaf8d46ca54a522a91275",
-        "shapeHash": "a91171758fc23d305550c2dc411eb1b69ac0ca15b6a9c4cbb519095f76e80615",
-        "syntaxHash": "ad1118b949eb2411ef276b8c442f0a1f0516639a489f7b96e0cfbaa69e540537"
-      },
-      {
-        "filePath": "packages/schemas/src/.builder/compat/current-types.ts",
-        "identity": "packages/schemas/src/.builder/compat/current-types.ts#src/.builder/compat/current-types.ts#neutral#@oa-sdk/schemas:src/.builder/compat/current-types.ts#CreateUserBody#type-alias",
-        "kind": "type-alias",
-        "qualifiedName": "@oa-sdk/schemas:src/.builder/compat/current-types.ts#CreateUserBody",
-        "runtime": "neutral",
-        "semanticHash": "75ba30b4e76e34bf011d7154eda3a7909e7178e04f68e9c36ab787768a33e67b",
-        "shapeHash": "7f9691b2e66bf0831ba3e73f297e172e002ce9cac8d53d00e42e92d257ec5aa2",
-        "syntaxHash": "2971e56be21e509adfb177bdb4dd0e34c9f2cfa4407b37d823b17b9f43b80601"
-      },
-      {
-        "filePath": "packages/schemas/src/.builder/compat/current-types.ts",
-        "identity": "packages/schemas/src/.builder/compat/current-types.ts#src/.builder/compat/current-types.ts#neutral#@oa-sdk/schemas:src/.builder/compat/current-types.ts#CreateUserOp#type-alias",
-        "kind": "type-alias",
-        "qualifiedName": "@oa-sdk/schemas:src/.builder/compat/current-types.ts#CreateUserOp",
-        "runtime": "neutral",
-        "semanticHash": "705b7d3785f3952e4b4db7aab26db8a9afe9648d9a235552782d689bc6b2f2aa",
-        "shapeHash": "edb0b2972551f08908c667783da599e95dff7bb28615157d6e231945d9439bf0",
-        "syntaxHash": "9436d80e39945467c36b0f598c8e5c70589afe9ee6ad79c8a46d9e368a537236"
-      },
-      {
-        "filePath": "packages/schemas/src/.builder/compat/current-types.ts",
-        "identity": "packages/schemas/src/.builder/compat/current-types.ts#src/.builder/compat/current-types.ts#neutral#@oa-sdk/schemas:src/.builder/compat/current-types.ts#CreateUserRequest#type-alias",
-        "kind": "type-alias",
-        "qualifiedName": "@oa-sdk/schemas:src/.builder/compat/current-types.ts#CreateUserRequest",
-        "runtime": "neutral",
-        "semanticHash": "fb81c30a2d6384398f42d3ba620de1db5a6ed17657e962d588665b6f39918782",
-        "shapeHash": "d9760413e09a998985b7fd5be34c3acbe42170ea4f5d95faf05aac7c6ba850db",
-        "syntaxHash": "3b015475ec2fa0638f8945d931d3d0be301cf07248bc26812d434013c2d0cbd5"
-      },
-      {
-        "filePath": "packages/schemas/src/.builder/compat/current-types.ts",
-        "identity": "packages/schemas/src/.builder/compat/current-types.ts#src/.builder/compat/current-types.ts#neutral#@oa-sdk/schemas:src/.builder/compat/current-types.ts#CreateUserResponse#type-alias",
-        "kind": "type-alias",
-        "qualifiedName": "@oa-sdk/schemas:src/.builder/compat/current-types.ts#CreateUserResponse",
-        "runtime": "neutral",
-        "semanticHash": "91bad8b2e6fb814287a0cfe7066359d078bdbf3931b584756d49748ff22258d4",
-        "shapeHash": "9b370c358a81b57a6e3668f0553de50e8654527283389c3683250061bb8f8fc7",
-        "syntaxHash": "8cf9c357bda1c62d04ab3cd079343522780c62928eccd0e8c383002785d2da8b"
-      },
-      {
-        "filePath": "packages/schemas/src/.builder/compat/current-types.ts",
-        "identity": "packages/schemas/src/.builder/compat/current-types.ts#src/.builder/compat/current-types.ts#neutral#@oa-sdk/schemas:src/.builder/compat/current-types.ts#DeleteUserOp#type-alias",
-        "kind": "type-alias",
-        "qualifiedName": "@oa-sdk/schemas:src/.builder/compat/current-types.ts#DeleteUserOp",
-        "runtime": "neutral",
-        "semanticHash": "5ae7d8e658c2c82bc992b81b9157b6ad6343655cb5bddbf318c54b063992b707",
-        "shapeHash": "849b3c29a56ac6208b22c10e914b14055c6503b1c234ec411f3cd666acf292f0",
-        "syntaxHash": "daf474df4a3a336e60e4e3ed32b564988e5977ed1b360827f7731fc42f6cfacc"
-      },
-      {
-        "filePath": "packages/schemas/src/.builder/compat/current-types.ts",
-        "identity": "packages/schemas/src/.builder/compat/current-types.ts#src/.builder/compat/current-types.ts#neutral#@oa-sdk/schemas:src/.builder/compat/current-types.ts#DeleteUserPathParams#type-alias",
-        "kind": "type-alias",
-        "qualifiedName": "@oa-sdk/schemas:src/.builder/compat/current-types.ts#DeleteUserPathParams",
-        "runtime": "neutral",
-        "semanticHash": "21eeaafd5128d0b7f1f40bc29355bf1fa98f0120fb33bd459c0f5a3e6e69347a",
-        "shapeHash": "505284729ebbaf586154064ed6035da434018466c276380323a25bf1bee279e0",
-        "syntaxHash": "95b51b6b2d00a89f8da7042ba2caaed2b35794b1dc65047a42f81b275e3de263"
-      },
-      {
-        "filePath": "packages/schemas/src/.builder/compat/current-types.ts",
-        "identity": "packages/schemas/src/.builder/compat/current-types.ts#src/.builder/compat/current-types.ts#neutral#@oa-sdk/schemas:src/.builder/compat/current-types.ts#Error#type-alias",
-        "kind": "type-alias",
-        "qualifiedName": "@oa-sdk/schemas:src/.builder/compat/current-types.ts#Error",
-        "runtime": "neutral",
-        "semanticHash": "f683f92191c5690d32c18ba894d92afaae4182e3eae85609fb593ba46d867e17",
-        "shapeHash": "a6bf5a33a8875ca485e9afa7a8899d2c2d226c6d3012126509d12fd40840048a",
-        "syntaxHash": "0d87aaa2d507702518a0ed98e7dd9f0d75781fd5968b49f8cfdc691917bd4b18"
-      },
-      {
-        "filePath": "packages/schemas/src/.builder/compat/current-types.ts",
-        "identity": "packages/schemas/src/.builder/compat/current-types.ts#src/.builder/compat/current-types.ts#neutral#@oa-sdk/schemas:src/.builder/compat/current-types.ts#GetHealthOp#type-alias",
-        "kind": "type-alias",
-        "qualifiedName": "@oa-sdk/schemas:src/.builder/compat/current-types.ts#GetHealthOp",
-        "runtime": "neutral",
-        "semanticHash": "c95ab7b9b31c145f7ae9fd4f4fbe107abd9e67fbe86e2efa309d035a41ac89cc",
-        "shapeHash": "42aab1019b85c5cba2bb28e8468922c9248ad50917ec7a50cedea8bf4abc71f3",
-        "syntaxHash": "f4305b0a1c91abfd525cab511bab6b2a4a6db584e60ec7a32a3aa733fc5abc0f"
-      },
-      {
-        "filePath": "packages/schemas/src/.builder/compat/current-types.ts",
-        "identity": "packages/schemas/src/.builder/compat/current-types.ts#src/.builder/compat/current-types.ts#neutral#@oa-sdk/schemas:src/.builder/compat/current-types.ts#GetHealthResponse#type-alias",
-        "kind": "type-alias",
-        "qualifiedName": "@oa-sdk/schemas:src/.builder/compat/current-types.ts#GetHealthResponse",
-        "runtime": "neutral",
-        "semanticHash": "c4703eabd3da7e58a662ccd6de895715ab5642ff88a8649700b4a53252af6df1",
-        "shapeHash": "d36f91e0bc9610125f697e85d57f31aa9fa02d27d14142dc6333c09741e874f8",
-        "syntaxHash": "497e1fe4e7ae579f29331e75ddb2eb3e63a078592d8fa6d9efbc612f26ca8aca"
-      },
-      {
-        "filePath": "packages/schemas/src/.builder/compat/current-types.ts",
-        "identity": "packages/schemas/src/.builder/compat/current-types.ts#src/.builder/compat/current-types.ts#neutral#@oa-sdk/schemas:src/.builder/compat/current-types.ts#GetUserByIdOp#type-alias",
-        "kind": "type-alias",
-        "qualifiedName": "@oa-sdk/schemas:src/.builder/compat/current-types.ts#GetUserByIdOp",
-        "runtime": "neutral",
-        "semanticHash": "0208302b79995cd568cd5ccd0a822a3c29e694e37a6b187a88e85ebe1f7fe5a6",
-        "shapeHash": "e1ecddff74e49ded9033d0759eef8f543d302c0282d0e82ec3cd4df61e57858d",
-        "syntaxHash": "a7d376675328a76c9c298ace88326da44d2d4b1869175190d5db4e61fcbaa229"
-      },
-      {
-        "filePath": "packages/schemas/src/.builder/compat/current-types.ts",
-        "identity": "packages/schemas/src/.builder/compat/current-types.ts#src/.builder/compat/current-types.ts#neutral#@oa-sdk/schemas:src/.builder/compat/current-types.ts#GetUserByIdPathParams#type-alias",
-        "kind": "type-alias",
-        "qualifiedName": "@oa-sdk/schemas:src/.builder/compat/current-types.ts#GetUserByIdPathParams",
-        "runtime": "neutral",
-        "semanticHash": "7eb9cca8358912fe77c049a0e2636312609a8714a1f674fcad5a50dae2172d5d",
-        "shapeHash": "505284729ebbaf586154064ed6035da434018466c276380323a25bf1bee279e0",
-        "syntaxHash": "770e38cf016bedeaa9a851b7e22105e613063d3733d9e9409742798ba7cfee63"
-      },
-      {
-        "filePath": "packages/schemas/src/.builder/compat/current-types.ts",
-        "identity": "packages/schemas/src/.builder/compat/current-types.ts#src/.builder/compat/current-types.ts#neutral#@oa-sdk/schemas:src/.builder/compat/current-types.ts#GetUserByIdResponse#type-alias",
-        "kind": "type-alias",
-        "qualifiedName": "@oa-sdk/schemas:src/.builder/compat/current-types.ts#GetUserByIdResponse",
-        "runtime": "neutral",
-        "semanticHash": "74480c43a7bdb75dcecb4a5196da8fc0dbfae12efa3e33de2501e40a6a15de92",
-        "shapeHash": "9b370c358a81b57a6e3668f0553de50e8654527283389c3683250061bb8f8fc7",
-        "syntaxHash": "7b9ba12d79348fc629b7cb16c62830519ac6ebce82eb31589d3521aeaadf4733"
-      },
-      {
-        "filePath": "packages/schemas/src/.builder/compat/current-types.ts",
-        "identity": "packages/schemas/src/.builder/compat/current-types.ts#src/.builder/compat/current-types.ts#neutral#@oa-sdk/schemas:src/.builder/compat/current-types.ts#HealthStatus#type-alias",
-        "kind": "type-alias",
-        "qualifiedName": "@oa-sdk/schemas:src/.builder/compat/current-types.ts#HealthStatus",
-        "runtime": "neutral",
-        "semanticHash": "70e30227809250438cbc9b789f1a141dde349269807b499b34d4a587b2c107ce",
-        "shapeHash": "39e6a7d8ce09d5e13e2217b63a8e5b3759ffd557a5d4e189ebedce3dffe72404",
-        "syntaxHash": "ae19b0fc07afb61deac483619de5cca9e443bac463ddcb1db56b24bf15730225"
-      },
-      {
-        "filePath": "packages/schemas/src/.builder/compat/current-types.ts",
-        "identity": "packages/schemas/src/.builder/compat/current-types.ts#src/.builder/compat/current-types.ts#neutral#@oa-sdk/schemas:src/.builder/compat/current-types.ts#ListUsersOp#type-alias",
-        "kind": "type-alias",
-        "qualifiedName": "@oa-sdk/schemas:src/.builder/compat/current-types.ts#ListUsersOp",
-        "runtime": "neutral",
-        "semanticHash": "c99a8b4ca50adfb0b80ce8b03b3071493510bd46164c182551587e4c41672c49",
-        "shapeHash": "af8927e798c7fa5a9c7027da8be3ead437cfbf3cc7ea5de5f0157acf8bed151d",
-        "syntaxHash": "101bce192ae3afb0aad9ea680b5fa2bac8e75a162b3c76b9defd8ff3aef7d7a7"
-      },
-      {
-        "filePath": "packages/schemas/src/.builder/compat/current-types.ts",
-        "identity": "packages/schemas/src/.builder/compat/current-types.ts#src/.builder/compat/current-types.ts#neutral#@oa-sdk/schemas:src/.builder/compat/current-types.ts#ListUsersQueryParams#type-alias",
-        "kind": "type-alias",
-        "qualifiedName": "@oa-sdk/schemas:src/.builder/compat/current-types.ts#ListUsersQueryParams",
-        "runtime": "neutral",
-        "semanticHash": "17dcba0582e28dbadc418345f5f2c7f3e2e7ff73b721cc74cc3f019eebb5922e",
-        "shapeHash": "e0d932b56df788669dcca3b469a93573f4ea589b9ea69e1969c63577b3c7368f",
-        "syntaxHash": "bb4262e3aaab7dbdf4f7decbbf0a1d5de9956b1be57dbd7ab03da84e4d51b351"
-      },
-      {
-        "filePath": "packages/schemas/src/.builder/compat/current-types.ts",
-        "identity": "packages/schemas/src/.builder/compat/current-types.ts#src/.builder/compat/current-types.ts#neutral#@oa-sdk/schemas:src/.builder/compat/current-types.ts#ListUsersResponse#type-alias",
-        "kind": "type-alias",
-        "qualifiedName": "@oa-sdk/schemas:src/.builder/compat/current-types.ts#ListUsersResponse",
-        "runtime": "neutral",
-        "semanticHash": "276bb919c4fae6e9ad71bd8f42fd20c61e3bce92b387cad97684d85878f6e7b6",
-        "shapeHash": "a5b0bff7ee0a8804a1ed2d0ad1285cd460ee313b50c6918bfbd22c6399793214",
-        "syntaxHash": "62d289507a54c42ad09fe5dcb64c5900dd55c286cca0fa3be14cf778c16e2045"
-      },
-      {
-        "filePath": "packages/schemas/src/.builder/compat/current-types.ts",
-        "identity": "packages/schemas/src/.builder/compat/current-types.ts#src/.builder/compat/current-types.ts#neutral#@oa-sdk/schemas:src/.builder/compat/current-types.ts#StreamHealthEventsOp#type-alias",
-        "kind": "type-alias",
-        "qualifiedName": "@oa-sdk/schemas:src/.builder/compat/current-types.ts#StreamHealthEventsOp",
-        "runtime": "neutral",
-        "semanticHash": "74ed3c45471dbe8464c08b407ee830b47ca09596783702cab99117d3af0372ef",
-        "shapeHash": "9b403e35d7aed6817393f84a224b61bd28abb3cde1b8b0f87a3f896a204afd09",
-        "syntaxHash": "945af31e9a58d8674a0ce6f99306beb63352a462f5876fa93e48443fb9ec82b9"
-      },
-      {
-        "filePath": "packages/schemas/src/.builder/compat/current-types.ts",
-        "identity": "packages/schemas/src/.builder/compat/current-types.ts#src/.builder/compat/current-types.ts#neutral#@oa-sdk/schemas:src/.builder/compat/current-types.ts#UpdateUserBody#type-alias",
-        "kind": "type-alias",
-        "qualifiedName": "@oa-sdk/schemas:src/.builder/compat/current-types.ts#UpdateUserBody",
-        "runtime": "neutral",
-        "semanticHash": "0dea0afefb8005d426f4c8f1afdfa86618ac7d8e381002a089fc79b1301562df",
-        "shapeHash": "3ef9e3c08cc6129522da2ff39c0119dd8e448693957e1200635f4bbe327c47ef",
-        "syntaxHash": "17ee3fbd320ba945f0e7109bf4414a0620ac43ef7bb6347bcdc81f36d844b07d"
-      },
-      {
-        "filePath": "packages/schemas/src/.builder/compat/current-types.ts",
-        "identity": "packages/schemas/src/.builder/compat/current-types.ts#src/.builder/compat/current-types.ts#neutral#@oa-sdk/schemas:src/.builder/compat/current-types.ts#UpdateUserOp#type-alias",
-        "kind": "type-alias",
-        "qualifiedName": "@oa-sdk/schemas:src/.builder/compat/current-types.ts#UpdateUserOp",
-        "runtime": "neutral",
-        "semanticHash": "240b1d7fcefa2005495e11bf781b3cc7c8df82ce87fa1a8b1daa8de58ba9f5d3",
-        "shapeHash": "00521e9e78fda82a64ecbe8d0a1b991498190021bffd5482ae53851abd5fac85",
-        "syntaxHash": "dfab4ec8ea880431f6db83579496e64d3b5ceefded863d593328987e4e6d77b6"
-      },
-      {
-        "filePath": "packages/schemas/src/.builder/compat/current-types.ts",
-        "identity": "packages/schemas/src/.builder/compat/current-types.ts#src/.builder/compat/current-types.ts#neutral#@oa-sdk/schemas:src/.builder/compat/current-types.ts#UpdateUserPathParams#type-alias",
-        "kind": "type-alias",
-        "qualifiedName": "@oa-sdk/schemas:src/.builder/compat/current-types.ts#UpdateUserPathParams",
-        "runtime": "neutral",
-        "semanticHash": "9accbf0b94bf5269959f468585e725893cc27582fe3216dd68ad3f952d4c4483",
-        "shapeHash": "505284729ebbaf586154064ed6035da434018466c276380323a25bf1bee279e0",
-        "syntaxHash": "4da4c632c95aa0e25ac2ac366313c099ade181c4ff1800e119d7728d52e97f50"
-      },
-      {
-        "filePath": "packages/schemas/src/.builder/compat/current-types.ts",
-        "identity": "packages/schemas/src/.builder/compat/current-types.ts#src/.builder/compat/current-types.ts#neutral#@oa-sdk/schemas:src/.builder/compat/current-types.ts#UpdateUserRequest#type-alias",
-        "kind": "type-alias",
-        "qualifiedName": "@oa-sdk/schemas:src/.builder/compat/current-types.ts#UpdateUserRequest",
-        "runtime": "neutral",
-        "semanticHash": "11142fee901946fdffe8129d0cd45a0b4c8978b02f4616293607e3c1a15a622c",
-        "shapeHash": "77229426516bc134d92b95fa40161093f0684090cd94b0f0ee29d62b35af5647",
-        "syntaxHash": "7bf57eebcf0446753a583aecd2c6387692ba096c32c7da50aa9579b5b6a6291f"
-      },
-      {
-        "filePath": "packages/schemas/src/.builder/compat/current-types.ts",
-        "identity": "packages/schemas/src/.builder/compat/current-types.ts#src/.builder/compat/current-types.ts#neutral#@oa-sdk/schemas:src/.builder/compat/current-types.ts#UpdateUserResponse#type-alias",
-        "kind": "type-alias",
-        "qualifiedName": "@oa-sdk/schemas:src/.builder/compat/current-types.ts#UpdateUserResponse",
-        "runtime": "neutral",
-        "semanticHash": "f585febdfa4da800aecf6dd5fd12751e7c06ad6763ebbbb3c523184356f0b77e",
-        "shapeHash": "9b370c358a81b57a6e3668f0553de50e8654527283389c3683250061bb8f8fc7",
-        "syntaxHash": "724924eb073bcb1231f320359dc7613c17f8db8e215f9b874ec8406f6bf5bd51"
-      },
-      {
-        "filePath": "packages/schemas/src/.builder/compat/current-types.ts",
-        "identity": "packages/schemas/src/.builder/compat/current-types.ts#src/.builder/compat/current-types.ts#neutral#@oa-sdk/schemas:src/.builder/compat/current-types.ts#User#type-alias",
-        "kind": "type-alias",
-        "qualifiedName": "@oa-sdk/schemas:src/.builder/compat/current-types.ts#User",
-        "runtime": "neutral",
-        "semanticHash": "f72d0aa790c2a92476b38d00dbdbe4b834b28f06a705f0bb547509934bf28799",
-        "shapeHash": "72b55b2463b0c245ccd74af0d0a9e5a1e3fe94488dfde6dd84d3c30f283e063d",
-        "syntaxHash": "1295a2944d3704e56afb420dd556dca96a0b5f82a53a5a994191568abdfb0875"
-      },
-      {
-        "filePath": "packages/schemas/src/.builder/compat/current-types.ts",
-        "identity": "packages/schemas/src/.builder/compat/current-types.ts#src/.builder/compat/current-types.ts#neutral#@oa-sdk/schemas:src/.builder/compat/current-types.ts#ValidationError#type-alias",
-        "kind": "type-alias",
-        "qualifiedName": "@oa-sdk/schemas:src/.builder/compat/current-types.ts#ValidationError",
-        "runtime": "neutral",
-        "semanticHash": "5fcf6436687f69af670e67323f39a6b10ab3c7109dfbaf8d46ca54a522a91275",
-        "shapeHash": "a91171758fc23d305550c2dc411eb1b69ac0ca15b6a9c4cbb519095f76e80615",
-        "syntaxHash": "ad1118b949eb2411ef276b8c442f0a1f0516639a489f7b96e0cfbaa69e540537"
-      },
-      {
         "filePath": "packages/spec-lens-contract/src/index.ts",
         "identity": "packages/spec-lens-contract/src/index.ts#src/index.ts#neutral#@oa-sdk/spec-lens-contract:src/index.ts#BreakingChange#type-alias",
         "kind": "type-alias",
@@ -42586,7 +41682,7 @@
         "syntaxHash": "d64bef6795e9fd5c1c7aa8401da256f67b5160fdcd8de71546cd89e230584cbe"
       }
     ],
-    "digest": "555950d141d863cd777b1ede45090d533f51b962c726cf041d7a9040eaa453df",
+    "digest": "14297a9cf70fed6a8cc7e40fb267d2168b00a61bdbf04abd40e2e1afe8dfe143",
     "publicSurfaces": [
       {
         "exportKey": "./browser",
@@ -44876,13 +43972,6 @@
       "origin": "handwritten",
       "packageName": "@oa-sdk/nestjs-ref",
       "role": "authority"
-    },
-    {
-      "contentHash": "561695942cfa5d7f67faf6968cb5d399bfd079149dec4caf72d91ff41d00bfed",
-      "filePath": "apps/nestjs-ref/src/generated/api-types.ts",
-      "origin": "generated",
-      "packageName": "@oa-sdk/nestjs-ref",
-      "role": "derived"
     },
     {
       "contentHash": "6bc4d1174d63a3d959e1dda15a074f7afd3983e6ba6f5b46bc4c641c9170a6f5",
@@ -50657,34 +49746,6 @@
       "filePath": "packages/router/src/jsdoc.ts",
       "origin": "handwritten",
       "packageName": "@oa-sdk/router",
-      "role": "authority"
-    },
-    {
-      "contentHash": "29e8c007c3ae64807e76a2e54455ab4d80eab76a9659bcb58c5011f640460d90",
-      "filePath": "packages/schemas/src/.builder/compat/builder-client.ts",
-      "origin": "handwritten",
-      "packageName": "@oa-sdk/schemas",
-      "role": "authority"
-    },
-    {
-      "contentHash": "7a67ea1d2a1ff15b1b3d50951ee40d0ab1f384eb4812fc9e1065e67cec2803c6",
-      "filePath": "packages/schemas/src/.builder/compat/builder-router.ts",
-      "origin": "handwritten",
-      "packageName": "@oa-sdk/schemas",
-      "role": "authority"
-    },
-    {
-      "contentHash": "1d223ecfb996b0ad9ae21b2827b91298a24fe39411731e341dad9751c0dc0496",
-      "filePath": "packages/schemas/src/.builder/compat/builder-types.ts",
-      "origin": "handwritten",
-      "packageName": "@oa-sdk/schemas",
-      "role": "authority"
-    },
-    {
-      "contentHash": "ed78c2727946bbbc022443e786801e4395e9b70e83c13628c92b901a51b6befb",
-      "filePath": "packages/schemas/src/.builder/compat/current-types.ts",
-      "origin": "handwritten",
-      "packageName": "@oa-sdk/schemas",
       "role": "authority"
     },
     {

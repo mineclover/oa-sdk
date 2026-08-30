@@ -15,7 +15,9 @@ observations.
 
 1. Read package export maps under the policy's workspace roots.
 2. Discover production `.ts`, `.tsx`, `.mts`, `.cts`, and source `.d.ts` files
-   in lexical order. Tests, fixtures, `dist`, and `node_modules` are excluded.
+   in lexical order. Policy-defined test, fixture, build, dependency, and ignored
+   generated-output paths are excluded so a clean checkout and a developer tree
+   produce the same reviewed baseline.
 3. Classify each artifact before extraction:
    - handwritten source: `origin=handwritten`, `role=authority`;
    - `*.generated.ts` or a generated directory: `origin=generated`,
