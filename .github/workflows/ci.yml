@@ -237,7 +237,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Build OA Gen CLI
-        run: pnpm --filter @oa-sdk/codegen build
+        run: pnpm --filter @oa-sdk/codegen... run build
 
       - name: Run NestJS reference governance
         working-directory: apps/nestjs-ref
