@@ -213,8 +213,8 @@ describe('Generated client code structure', () => {
     expect(generatedClient).not.toMatch(/async\s+\*\s*deleteUser/)
   })
 
-  it('uses path template with params for /users/{id}', () => {
-    expect(generatedClient).toMatch(/`\/users\/\$\{params\.id\}`/)
+  it('uses a URL-encoded path template for /users/{id}', () => {
+    expect(generatedClient).toContain('`/users/${encodeURIComponent(String(params["id"]))}`')
   })
 
   it('imports types from the configured typesImport path', () => {
@@ -317,18 +317,17 @@ describe('Contract: GET /events → SSE stream with correct format', () => {
     const dataLines = text.split('\n\n').filter(l => l.startsWith('data: '))
     expect(dataLines.length).toBeGreaterThan(0)
 
-    const jsonLines = dataLines.filter(l => !l.includes('[DONE]'))
-    for (const line of jsonLines) {
+    for (const line of dataLines) {
       const payload = line.replace(/^data: /, '')
       const parsed = JSON.parse(payload)
       expect(parsed).toHaveProperty('type')
     }
   })
 
-  it('stream terminates with [DONE] signal', async () => {
+  it('does not synthesize an undocumented [DONE] terminator', async () => {
     const res = await fetch(`${server.url}/events`)
     const text = await res.text()
-    expect(text).toContain('data: [DONE]')
+    expect(text).not.toContain('[DONE]')
   })
 })
 

@@ -219,9 +219,8 @@ describe('Generated client code is syntactically valid', () => {
     expect(generatedClient).toContain('streamEvents')
   })
 
-  it('contains correct path template for parameterized route', () => {
-    // /users/{id} → `${params.id}` template literal
-    expect(generatedClient).toMatch(/`\/users\/\$\{params\.id\}`/)
+  it('contains URL-encoded path template for parameterized route', () => {
+    expect(generatedClient).toContain('`/users/${encodeURIComponent(String(params["id"]))}`')
   })
 
   it('SSE operation uses async * generator', () => {
@@ -319,11 +318,10 @@ describe('Mock server: GET /users/:id (path params)', () => {
 // ─── 6. Mock server: security enforcement ─────────────────────────────────
 
 describe('Mock server: security enforcement (bearer token)', () => {
-  it('GET /users without Authorization → 422', async () => {
+  it('GET /users without Authorization → 401', async () => {
     const res = await fetch(`${server.url}/users`)
-    expect(res.status).toBe(422)
-    const body = await res.json() as { error: { details: Array<{ code: string; path: string }> } }
-    expect(body.error.details.some(d => d.code === 'MISSING_REQUIRED_FIELD' && d.path === '/security')).toBe(true)
+    expect(res.status).toBe(401)
+    await expect(res.json()).resolves.toEqual({ code: 'UNAUTHORIZED', message: '인증이 필요합니다' })
   })
 
   it('GET /users with Authorization: Bearer → 200', async () => {
@@ -333,13 +331,13 @@ describe('Mock server: security enforcement (bearer token)', () => {
     expect(res.status).toBe(200)
   })
 
-  it('POST /users without Authorization → 422', async () => {
+  it('POST /users without Authorization → 401', async () => {
     const res = await fetch(`${server.url}/users`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name: 'Test', email: 'test@example.com' }),
     })
-    expect(res.status).toBe(422)
+    expect(res.status).toBe(401)
   })
 
   it('GET /events has no security requirement → 200 without token', async () => {
@@ -364,9 +362,8 @@ describe('Mock server: SSE streaming (GET /events)', () => {
     const lines = text.split('\n\n').filter(l => l.startsWith('data: '))
     expect(lines.length).toBeGreaterThan(0)
 
-    // Each data line (except [DONE]) should be valid JSON with 'type' field
-    const jsonLines = lines.filter(l => !l.includes('[DONE]'))
-    for (const line of jsonLines) {
+    // Each schema-defined data line should be valid JSON with a type field.
+    for (const line of lines) {
       const payload = line.replace(/^data: /, '')
       const parsed = JSON.parse(payload)
       expect(parsed).toHaveProperty('type')
@@ -374,10 +371,10 @@ describe('Mock server: SSE streaming (GET /events)', () => {
     }
   })
 
-  it('stream terminates with [DONE] signal', async () => {
+  it('does not synthesize an undocumented [DONE] terminator', async () => {
     const res = await fetch(`${server.url}/events`)
     const text = await res.text()
-    expect(text).toContain('data: [DONE]')
+    expect(text).not.toContain('[DONE]')
   })
 })
 

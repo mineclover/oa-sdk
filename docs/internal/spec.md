@@ -120,7 +120,7 @@ marker.
 | Callbacks | Operation callbacks → URL runtime expression 평가 + simulated outbound POST attempt 메타데이터. `onCallback` hook / `createCallbackTracker()`로 테스트 관찰 |
 | Body 파싱 | JSON, form-urlencoded, multipart/form-data(part metadata + Encoding Object `contentType`/JSON decode/form style diagnostics), text/plain, application/xml(element-only object/array/primitive) |
 | XML scope | `application/xml` 최소 지원: object child element, repeated element array, primitive text, `xml.name` element rename. Attribute, namespace/prefix, CDATA/text node modeling, `nodeType` non-element, wrapped array semantics는 명시적 non-goal이며 request validation에서 diagnostic 처리 |
-| 스트리밍 | SSE (data: + [DONE]) + NDJSON (bare JSON lines), `generateStreamChunks()` 공유 |
+| 스트리밍 | 스키마 정의 SSE frame (`data:`/선택적 `event:`)은 HTTP 응답 종료로 끝나며, NDJSON은 bare JSON lines; `generateStreamChunks()` 공유 |
 | 어댑터 | MSW 2.x + Node HTTP (Connection: keep-alive 패리티) |
 | Response override | `server.override(operationId, response)` — 테스트별 응답 오버라이드 |
 | `createMswMockServer()` | MSW 어댑터 + override API 통합 |

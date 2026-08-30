@@ -90,18 +90,18 @@ describe('security client + mock contract', () => {
     await expect(client.getMtlsResource()).resolves.toEqual({ ok: 'mtls' })
   })
 
-  it('returns validation errors when credentials are missing or in the wrong place', async () => {
+  it('returns authentication errors when credentials are missing or in the wrong place', async () => {
     const anonymousClient = generated.createClient({ baseUrl: server.url })
     const wrongClient = generated.createClient({
       baseUrl: server.url,
       middleware: [generated.bearerAuth('not-an-api-key')],
     })
 
-    await expect(anonymousClient.getBearerResource()).rejects.toThrow('422')
-    await expect(anonymousClient.getApiKeyResource()).rejects.toThrow('422')
-    await expect(anonymousClient.getOauthResource()).rejects.toThrow('422')
-    await expect(anonymousClient.getQueryKeyResource()).rejects.toThrow('422')
-    await expect(wrongClient.getApiKeyResource()).rejects.toThrow('422')
+    await expect(anonymousClient.getBearerResource()).rejects.toThrow('401')
+    await expect(anonymousClient.getApiKeyResource()).rejects.toThrow('401')
+    await expect(anonymousClient.getOauthResource()).rejects.toThrow('401')
+    await expect(anonymousClient.getQueryKeyResource()).rejects.toThrow('401')
+    await expect(wrongClient.getApiKeyResource()).rejects.toThrow('401')
   })
 })
 
