@@ -15,6 +15,15 @@
 
 import type { OasDocument, OasPathItem, OasOperation, OasParameter } from './oas32-types.js'
 import { resolvePointer, resolveRefGraph, type RefGraphDiagnostic, type RefGraphOptions } from './ref-graph.js'
+import {
+  OPENAPI_SURFACE_ANCHOR_EXTENSION,
+  OPENAPI_SURFACE_PARAM_RANGE_EXTENSION,
+  OPENAPI_SURFACE_FINGERPRINT_EXTENSION,
+  OPENAPI_SURFACE_QUOTE_STYLE_EXTENSION,
+  OPENAPI_SURFACE_PATCH_POLICY_EXTENSION,
+  SURFACE_QUOTE_STYLES,
+  SURFACE_PATCH_POLICY_ON_DRIFT_VALUES,
+} from '@oa-sdk/openapi-projection-contract'
 
 function isRef(node: unknown): node is { $ref: string } {
   return isRecord(node)
@@ -43,9 +52,21 @@ export type LintResult = {
   }
 }
 
+export type LintCategory =
+  | 'structure'
+  | 'operations'
+  | 'parameters'
+  | 'refs'
+  | 'security'
+  | 'style'
+  | 'components'
+  | 'surface'
+
 export type LintOptions = {
   /** 실행할 규칙 카테고리 (기본: 전체) */
-  categories?: Array<'structure' | 'operations' | 'parameters' | 'refs' | 'security' | 'style' | 'components'>
+  categories?: LintCategory[]
+  /** 개별 규칙 레벨 설정 ('off' | 'warn' | 'error') */
+  rules?: Record<string, 'off' | 'warn' | 'error'>
   /** OAS 파일 경로. 상대 외부 $ref 해소 진단에 사용 */
   basePath?: string
   /** file + JSON Pointer를 YAML line/column으로 보강하는 lookup */
@@ -62,7 +83,7 @@ export function lintDocument(doc: unknown, options: LintOptions = {}): LintResul
 
   const spec = doc as OasDocument
   const results: LintResult[] = []
-  const categories = new Set(options.categories ?? ['structure', 'operations', 'parameters', 'refs', 'security', 'style', 'components'])
+  const categories = new Set(options.categories ?? ['structure', 'operations', 'parameters', 'refs', 'security', 'style', 'components', 'surface'])
 
   if (categories.has('structure')) lintStructure(spec, results)
   if (categories.has('operations')) lintOperations(spec, results)
@@ -74,8 +95,26 @@ export function lintDocument(doc: unknown, options: LintOptions = {}): LintResul
   if (categories.has('security')) lintSecurity(spec, results)
   if (categories.has('style')) lintStyle(spec, results)
   if (categories.has('components')) lintComponents(spec, results)
+  if (categories.has('surface')) lintSurface(spec, results)
 
-  return results.map(result => attachLintSource(result, options))
+  let finalResults = results
+  if (options.rules) {
+    const rulesConfig = options.rules
+    finalResults = []
+    for (const res of results) {
+      const config = rulesConfig[res.rule]
+      if (config === 'off') continue
+      if (config === 'warn') {
+        finalResults.push({ ...res, severity: 'warning' })
+      } else if (config === 'error') {
+        finalResults.push({ ...res, severity: 'error' })
+      } else {
+        finalResults.push(res)
+      }
+    }
+  }
+
+  return finalResults.map(result => attachLintSource(result, options))
 }
 
 function lintDerefDiagnostics(spec: OasDocument, results: LintResult[], options: LintOptions) {
@@ -544,3 +583,212 @@ function pointerPath(...segments: string[]): string {
 function escapePointerSegment(segment: string): string {
   return segment.replace(/~/g, '~0').replace(/\//g, '~1')
 }
+
+// ─── surface ────────────────────────────────────────────────────────────────
+
+function lintSurface(spec: OasDocument, results: LintResult[]): void {
+  traverseDocumentNodes(spec, '', (node, currentPath) => {
+    if (Object.prototype.hasOwnProperty.call(node, OPENAPI_SURFACE_ANCHOR_EXTENSION)) {
+      lintSurfaceAnchor(node[OPENAPI_SURFACE_ANCHOR_EXTENSION], currentPath, results)
+    }
+    if (Object.prototype.hasOwnProperty.call(node, OPENAPI_SURFACE_PARAM_RANGE_EXTENSION)) {
+      lintSurfaceParamRange(node[OPENAPI_SURFACE_PARAM_RANGE_EXTENSION], node, currentPath, results)
+    }
+    if (Object.prototype.hasOwnProperty.call(node, OPENAPI_SURFACE_FINGERPRINT_EXTENSION)) {
+      lintSurfaceFingerprint(node[OPENAPI_SURFACE_FINGERPRINT_EXTENSION], currentPath, results)
+    }
+    if (Object.prototype.hasOwnProperty.call(node, OPENAPI_SURFACE_QUOTE_STYLE_EXTENSION)) {
+      lintSurfaceQuoteStyle(node[OPENAPI_SURFACE_QUOTE_STYLE_EXTENSION], currentPath, results)
+    }
+    if (Object.prototype.hasOwnProperty.call(node, OPENAPI_SURFACE_PATCH_POLICY_EXTENSION)) {
+      lintSurfacePatchPolicy(node[OPENAPI_SURFACE_PATCH_POLICY_EXTENSION], currentPath, results)
+    }
+  })
+}
+
+function traverseDocumentNodes(
+  node: unknown,
+  path: string,
+  visitor: (node: Record<string, unknown>, path: string) => void,
+  visited = new Set<unknown>(),
+): void {
+  if (!node || typeof node !== 'object') return
+  if (visited.has(node)) return
+  visited.add(node)
+
+  if (Array.isArray(node)) {
+    for (let i = 0; i < node.length; i++) {
+      traverseDocumentNodes(node[i], `${path}/${i}`, visitor, visited)
+    }
+    return
+  }
+
+  const obj = node as Record<string, unknown>
+  visitor(obj, path)
+
+  for (const [key, value] of Object.entries(obj)) {
+    traverseDocumentNodes(value, `${path}/${escapePointerSegment(key)}`, visitor, visited)
+  }
+}
+
+function lintSurfaceAnchor(value: unknown, parentPath: string, results: LintResult[]): void {
+  const anchorPath = `${parentPath}/x-surface-anchor`
+  if (!isRecord(value)) {
+    results.push({
+      path: anchorPath,
+      severity: 'error',
+      rule: 'surface/valid-anchor',
+      message: 'x-surface-anchor는 객체여야 합니다',
+    })
+    return
+  }
+
+  if (typeof value.id !== 'string' || value.id.trim().length === 0) {
+    results.push({
+      path: `${anchorPath}/id`,
+      severity: 'error',
+      rule: 'surface/valid-anchor',
+      message: 'x-surface-anchor.id는 비어있지 않은 문자열이어야 합니다',
+    })
+  }
+
+  if (typeof value.line !== 'number' || Number.isNaN(value.line) || value.line < 1) {
+    results.push({
+      path: `${anchorPath}/line`,
+      severity: 'error',
+      rule: 'surface/valid-anchor',
+      message: 'x-surface-anchor.line은 1 이상의 숫자여야 합니다',
+    })
+  }
+
+  if (typeof value.column !== 'number' || Number.isNaN(value.column) || value.column < 1) {
+    results.push({
+      path: `${anchorPath}/column`,
+      severity: 'error',
+      rule: 'surface/valid-anchor',
+      message: 'x-surface-anchor.column은 1 이상의 숫자여야 합니다',
+    })
+  }
+}
+
+function lintSurfaceParamRange(
+  value: unknown,
+  parentNode: Record<string, unknown>,
+  parentPath: string,
+  results: LintResult[],
+): void {
+  const rangePath = `${parentPath}/x-surface-param-range`
+  if (!isRecord(value)) {
+    results.push({
+      path: rangePath,
+      severity: 'error',
+      rule: 'surface/valid-param-range',
+      message: 'x-surface-param-range는 객체여야 합니다',
+    })
+    return
+  }
+
+  if (value.targetProperty !== undefined) {
+    if (typeof value.targetProperty !== 'string' || value.targetProperty.length === 0) {
+      results.push({
+        path: `${rangePath}/targetProperty`,
+        severity: 'error',
+        rule: 'surface/valid-param-range',
+        message: 'x-surface-param-range.targetProperty는 비어있지 않은 문자열이어야 합니다',
+      })
+    } else if (
+      !isRecord(parentNode.properties) ||
+      !Object.prototype.hasOwnProperty.call(parentNode.properties, value.targetProperty)
+    ) {
+      results.push({
+        path: `${rangePath}/targetProperty`,
+        severity: 'error',
+        rule: 'surface/valid-param-range',
+        message: `targetProperty "${value.targetProperty}"가 schema properties에 존재하지 않습니다`,
+      })
+    }
+  }
+
+  if (value.maxFramerateHz !== undefined) {
+    if (
+      typeof value.maxFramerateHz !== 'number' ||
+      Number.isNaN(value.maxFramerateHz) ||
+      value.maxFramerateHz <= 0
+    ) {
+      results.push({
+        path: `${rangePath}/maxFramerateHz`,
+        severity: 'error',
+        rule: 'surface/valid-param-range',
+        message: 'x-surface-param-range.maxFramerateHz는 0보다 큰 숫자여야 합니다',
+      })
+    }
+  }
+}
+
+function lintSurfaceFingerprint(value: unknown, parentPath: string, results: LintResult[]): void {
+  const fpPath = `${parentPath}/x-surface-fingerprint`
+  if (typeof value !== 'string' || !/^sha256:[a-f0-9]{64}$/.test(value)) {
+    results.push({
+      path: fpPath,
+      severity: 'error',
+      rule: 'surface/valid-fingerprint',
+      message: 'x-surface-fingerprint는 sha256:<64자리 16진수> 형식이어야 합니다',
+    })
+  }
+}
+
+function lintSurfaceQuoteStyle(value: unknown, parentPath: string, results: LintResult[]): void {
+  const quotePath = `${parentPath}/x-surface-quote-style`
+  if (
+    typeof value !== 'string' ||
+    !(SURFACE_QUOTE_STYLES as readonly string[]).includes(value)
+  ) {
+    results.push({
+      path: quotePath,
+      severity: 'error',
+      rule: 'surface/valid-quote-style',
+      message: 'x-surface-quote-style는 single, double, backtick, none 중 하나여야 합니다',
+    })
+  }
+}
+
+function lintSurfacePatchPolicy(value: unknown, parentPath: string, results: LintResult[]): void {
+  const policyPath = `${parentPath}/x-surface-patch-policy`
+  if (!isRecord(value)) {
+    results.push({
+      path: policyPath,
+      severity: 'error',
+      rule: 'surface/valid-patch-policy',
+      message: 'x-surface-patch-policy는 객체여야 합니다',
+    })
+    return
+  }
+
+  if (
+    typeof value.onDrift !== 'string' ||
+    !(SURFACE_PATCH_POLICY_ON_DRIFT_VALUES as readonly string[]).includes(value.onDrift)
+  ) {
+    results.push({
+      path: `${policyPath}/onDrift`,
+      severity: 'error',
+      rule: 'surface/valid-patch-policy',
+      message: 'x-surface-patch-policy.onDrift는 abort, rebase, force 중 하나여야 합니다',
+    })
+  }
+
+  if (value.retryLimit !== undefined) {
+    if (
+      typeof value.retryLimit !== 'number' ||
+      Number.isNaN(value.retryLimit) ||
+      value.retryLimit < 0
+    ) {
+      results.push({
+        path: `${policyPath}/retryLimit`,
+        severity: 'error',
+        rule: 'surface/valid-patch-policy',
+        message: 'x-surface-patch-policy.retryLimit는 0 이상의 숫자여야 합니다',
+      })
+    }
+  }
+}
+

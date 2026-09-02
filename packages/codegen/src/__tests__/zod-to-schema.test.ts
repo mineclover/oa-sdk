@@ -218,6 +218,48 @@ describe('zodToSchema — union & intersection', () => {
     expect(result.discriminator).toEqual({ propertyName: 'type' })
   })
 
+  it('discriminated union with registered refs → oneOf + discriminator with mapping', () => {
+    const VariantA = z.object({ type: z.literal('a'), value: z.string() })
+    const VariantB = z.object({ type: z.literal('b'), count: z.number() })
+    const schema = z.discriminatedUnion('type', [VariantA, VariantB])
+
+    const refs = new Map<z.ZodTypeAny, string>([
+      [VariantA, 'VariantASchema'],
+      [VariantB, 'VariantBSchema'],
+    ])
+
+    const result = zodToSchema(schema, { refs })
+    expect(result.oneOf).toHaveLength(2)
+    expect(result.discriminator).toEqual({
+      propertyName: 'type',
+      mapping: {
+        a: '#/components/schemas/VariantASchema',
+        b: '#/components/schemas/VariantBSchema',
+      },
+    })
+  })
+
+  it('discriminated union with enum discriminator property → maps enum values', () => {
+    const Cat = z.object({ kind: z.enum(['cat', 'feline']), whiskers: z.boolean() })
+    const Dog = z.object({ kind: z.literal('dog'), barks: z.boolean() })
+    const schema = z.discriminatedUnion('kind', [Cat, Dog])
+
+    const refs = new Map<z.ZodTypeAny, string>([
+      [Cat, 'CatSchema'],
+      [Dog, 'DogSchema'],
+    ])
+
+    const result = zodToSchema(schema, { refs })
+    expect(result.discriminator).toEqual({
+      propertyName: 'kind',
+      mapping: {
+        cat: '#/components/schemas/CatSchema',
+        feline: '#/components/schemas/CatSchema',
+        dog: '#/components/schemas/DogSchema',
+      },
+    })
+  })
+
   it('plain union → oneOf (discriminator 없음)', () => {
     const result = zodToSchema(z.union([z.string(), z.number()]))
     expect(result.oneOf).toHaveLength(2)

@@ -73,6 +73,18 @@ export {
   createApitomyReferenceAdapterFromModule,
   loadApitomyDataModels,
 } from './apitomy/index.js'
+export {
+  applyTextEdits,
+  computeEntitySpecDiff,
+  createDeleteEdit,
+  createInsertEdit,
+  createReplaceEdit,
+  syncEntitySpecWithCode,
+  TsAstTypeAdapter,
+  TypiaTypeAdapter,
+  ZodTypeAdapter,
+} from './ast-sync/index.js'
+export { generateStandaloneGuards } from './standalone-guards/index.js'
 
 export type { OasSchema } from './zod-to-schema.js'
 export type {
@@ -189,3 +201,21 @@ export type {
   WorkspaceTypeAliasRecord,
 } from './workspace-index.js'
 export type { SQLiteWorkspaceIndex, SQLiteWorkspaceIndexOptions, SqliteDriverName } from './sqlite-workspace-index.js'
+export type {
+  ASTDiff,
+  ASTDiffKind,
+  EntityDiscriminator,
+  EntityKind,
+  EntityPropertySpec,
+  EntitySpec,
+  PropertyConstraint,
+  SyncOptions,
+  SyncResult,
+  TextEdit,
+  TypeAdapter,
+} from './ast-sync/index.js'
+export type {
+  GeneratedGuardArtifact,
+  StandaloneGuardGeneratorOptions,
+  StandaloneGuardTarget,
+} from './standalone-guards/index.js'

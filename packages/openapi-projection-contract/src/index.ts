@@ -710,3 +710,9 @@ function isDiagnosticSeverity(value: unknown): value is SchemaDiagnostic['severi
 function isOpenApiOperationMethod(value: string): boolean {
   return (OPENAPI_OPERATION_METHODS as readonly string[]).includes(value)
 }
+
+export * from './discriminated-union.js'
+
+
+export * from './surface-extensions.js'
+

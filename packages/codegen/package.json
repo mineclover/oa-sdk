@@ -66,6 +66,8 @@
     "@typespec/openapi3": "^1.13.0",
     "@typespec/sse": "0.83.0",
     "@typespec/streams": "0.83.0",
+    "ajv": "^8.18.0",
+    "ajv-formats": "^3.0.1",
     "yaml": "^2.5.0",
     "zod": "^4.4.3"
   },

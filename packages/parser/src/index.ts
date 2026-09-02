@@ -173,7 +173,7 @@ export type {
 
 // ─── Lint ─────────────────────────────────────────────────────────────────
 export { lintDocument } from './lint.js'
-export type { LintResult, LintSeverity, LintOptions } from './lint.js'
+export type { LintResult, LintSeverity, LintOptions, LintCategory } from './lint.js'
 
 // ─── Validate ─────────────────────────────────────────────────────────────
 export { validateDocument } from './validate.js'

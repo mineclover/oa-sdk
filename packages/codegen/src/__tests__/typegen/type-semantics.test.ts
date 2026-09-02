@@ -129,8 +129,8 @@ afterAll(() => {
 })
 
 function setupTest(): void {
-  if (generatedTypes) return
   mkdirSync(tmpDir, { recursive: true })
+  if (generatedTypes) return
   specPath = join(tmpDir, 'spec.yaml')
   writeFileSync(specPath, yamlStringify(SPEC), 'utf8')
   generatedTypes = cli(`typegen -s ${specPath}`)

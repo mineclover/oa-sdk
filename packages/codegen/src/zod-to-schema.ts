@@ -111,10 +111,56 @@ function convertType(schema: z.ZodTypeAny, context?: ZodToSchemaContext): OasSch
     return { type: 'array', items: zodToSchema(d['valueType'] as z.ZodTypeAny, context), uniqueItems: true }
   }
   if (schema instanceof z.ZodDiscriminatedUnion) {
-    const options = d['options'] as z.ZodTypeAny[]
-    const discriminator = d['discriminator'] as string | undefined
+    const rawOptions = d['options'] ?? d['optionsMap']
+    let options: z.ZodTypeAny[] = []
+    if (Array.isArray(rawOptions)) {
+      options = rawOptions
+    } else if (rawOptions instanceof Map) {
+      options = Array.from(rawOptions.values())
+    } else if (rawOptions && typeof (rawOptions as unknown as Iterable<z.ZodTypeAny>)[Symbol.iterator] === 'function') {
+      options = Array.from(rawOptions as unknown as Iterable<z.ZodTypeAny>)
+    }
+
+    const discriminator = (d['discriminator'] as string | undefined) ?? (schema as unknown as { discriminator?: string }).discriminator
     const result: OasSchema = { oneOf: options.map(o => zodToSchema(o, context)) }
-    if (discriminator) result.discriminator = { propertyName: discriminator }
+
+    if (discriminator) {
+      const mapping: Record<string, string> = {}
+      if (context?.refs) {
+        for (const opt of options) {
+          const refName = context.refs.get(opt)
+          if (refName) {
+            const optDef = def(opt)
+            const shape = (optDef['shape'] ?? (opt as unknown as { shape?: Record<string, z.ZodTypeAny> }).shape) as Record<string, z.ZodTypeAny> | undefined
+            if (shape && shape[discriminator]) {
+              const discProp = shape[discriminator]
+              const discPropDef = def(discProp)
+              if (discProp instanceof z.ZodLiteral) {
+                const values = discPropDef['values'] as unknown[] | undefined
+                const val = values?.[0] ?? (discProp as unknown as { value?: unknown }).value ?? discPropDef['value']
+                if (val !== undefined) {
+                  mapping[String(val)] = `#/components/schemas/${refName}`
+                }
+              } else if (discProp instanceof z.ZodEnum) {
+                const entries = discPropDef['entries'] as Record<string, unknown> | undefined
+                const enumVals = (discPropDef['values'] as unknown[]) ?? (entries ? Object.values(entries) : [])
+                for (const v of enumVals) {
+                  mapping[String(v)] = `#/components/schemas/${refName}`
+                }
+              } else if (discPropDef['const'] !== undefined) {
+                mapping[String(discPropDef['const'])] = `#/components/schemas/${refName}`
+              }
+            }
+          }
+        }
+      }
+
+      if (Object.keys(mapping).length > 0) {
+        result.discriminator = { propertyName: discriminator, mapping }
+      } else {
+        result.discriminator = { propertyName: discriminator }
+      }
+    }
     return result
   }
   if (schema instanceof z.ZodUnion) {

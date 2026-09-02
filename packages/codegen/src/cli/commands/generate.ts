@@ -1,16 +1,24 @@
 import { resolve } from 'node:path'
 import { existsSync } from 'node:fs'
+import { readFile } from 'node:fs/promises'
+import { parse as parseYaml } from 'yaml'
 import type { Command, CommandArgValue } from '../lib/types.js'
 import type { CodegenConfig } from '../../config.js'
 import type { OutputOptions } from '../../types.js'
 import { generateComponents } from '../../generator.js'
 import { optStr } from '../lib/args.js'
 import { CliExitError } from '../lib/errors.js'
+import type { StandaloneGuardGeneratorOptions } from '../../standalone-guards/types.js'
 
 export const generate: Command = {
   name: 'generate',
-  description: 'Config/Drizzle 기반 스키마 생성',
+  description: 'Config/Drizzle 기반 스키마 또는 독립형 타입 가드(standalone-guards) 생성',
   options: {
+    target:           { type: 'string', description: '생성 타겟 (standalone-guards)' },
+    input:            { type: 'string', short: 'i', description: '입력 스키마 또는 OpenAPI spec 파일 경로' },
+    'out-dir':        { type: 'string', description: '출력 디렉토리 경로' },
+    'type-import':    { type: 'string', description: 'TypeScript 타입 import 지정자 (예: @oa-sdk/models)' },
+    'module-format':  { type: 'string', description: '모듈 포맷 (esm)' },
     config:           { type: 'string', short: 'c', description: 'codegen.config.mjs 파일 경로' },
     'drizzle-schema': { type: 'string', short: 'd', description: 'Drizzle 스키마 파일 경로' },
     output:           { type: 'string', short: 'o', description: '출력 디렉토리 (기본: .)' },
@@ -18,21 +26,73 @@ export const generate: Command = {
     schemas:          { type: 'string', description: '생성 타입 (select,insert,update)' },
   },
   async run(args) {
+    const target = optStr(args, 'target')
     const drizzlePath = optStr(args, 'drizzle-schema')
     const configPath = optStr(args, 'config')
+    const inputPath = optStr(args, 'input')
 
-    if (drizzlePath) {
+    if (target === 'standalone-guards' || (inputPath && !drizzlePath && !configPath)) {
+      await runStandaloneGuards(args)
+    } else if (drizzlePath) {
       await runDrizzle(drizzlePath, args)
     } else if (configPath) {
       await runConfig(configPath, args)
     } else {
-      console.error('오류: --config 또는 --drizzle-schema 옵션이 필요합니다')
+      console.error('오류: --config, --drizzle-schema 또는 --target standalone-guards (--input) 옵션이 필요합니다')
       throw new CliExitError(1)
     }
   },
 }
 
 type Args = Record<string, CommandArgValue>
+
+async function runStandaloneGuards(args: Args): Promise<void> {
+  const input = optStr(args, 'input') ?? optStr(args, 'config')
+  if (!input) {
+    console.error('오류: --input <파일 경로> 옵션이 필요합니다')
+    throw new CliExitError(1)
+  }
+
+  const outDir = optStr(args, 'out-dir') ?? optStr(args, 'output') ?? '.'
+  const typeImport = optStr(args, 'type-import')
+  const moduleFormat = optStr(args, 'module-format') as 'esm' | undefined
+
+  const resolvedInput = resolve(process.cwd(), input)
+  if (!existsSync(resolvedInput)) {
+    console.error(`오류: 입력 파일을 찾을 수 없습니다: ${resolvedInput}`)
+    throw new CliExitError(1)
+  }
+
+  let schemaDocument: Record<string, unknown>
+  try {
+    const raw = await readFile(resolvedInput, 'utf8')
+    if (resolvedInput.endsWith('.yaml') || resolvedInput.endsWith('.yml')) {
+      schemaDocument = parseYaml(raw) as Record<string, unknown>
+    } else {
+      schemaDocument = JSON.parse(raw) as Record<string, unknown>
+    }
+  } catch (err) {
+    console.error(`오류: 스키마 파일 파싱 실패: ${resolvedInput}\n${err instanceof Error ? err.message : String(err)}`)
+    throw new CliExitError(1)
+  }
+
+  const { generateStandaloneGuards } = await import('../../standalone-guards/index.js')
+  const generatorOptions: StandaloneGuardGeneratorOptions = {
+    schemaDocument,
+    outDir: resolve(process.cwd(), outDir),
+    moduleFormat: moduleFormat ?? 'esm',
+  }
+  if (typeImport !== undefined) {
+    generatorOptions.typeImportSpecifier = typeImport
+  }
+
+  const artifacts = await generateStandaloneGuards(generatorOptions)
+
+  console.log(`✅ ${artifacts.length}개 가드 아티팩트 생성 완료:`)
+  for (const artifact of artifacts) {
+    console.log(`   ${artifact.filePath}`)
+  }
+}
 
 async function runDrizzle(schemaPath: string, args: Args): Promise<void> {
   const { generateFromDrizzle } = await import('../../drizzle/index.js')
