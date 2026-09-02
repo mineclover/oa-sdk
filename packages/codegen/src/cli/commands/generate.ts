@@ -6,7 +6,7 @@ import type { Command, CommandArgValue } from '../lib/types.js'
 import type { CodegenConfig } from '../../config.js'
 import type { OutputOptions } from '../../types.js'
 import { generateComponents } from '../../generator.js'
-import { optStr } from '../lib/args.js'
+import { bool, optStr } from '../lib/args.js'
 import { CliExitError } from '../lib/errors.js'
 import type { StandaloneGuardGeneratorOptions } from '../../standalone-guards/types.js'
 
@@ -23,7 +23,8 @@ export const generate: Command = {
     'drizzle-schema': { type: 'string', short: 'd', description: 'Drizzle 스키마 파일 경로' },
     output:           { type: 'string', short: 'o', description: '출력 디렉토리 (기본: .)' },
     'merge-into':     { type: 'string', description: '기존 spec.yaml에 병합' },
-    schemas:          { type: 'string', description: '생성 타입 (select,insert,update)' },
+    schemas:          { type: 'string', description: '생성 대상 필터 (Drizzle: select,insert,update / 가드: 컴포넌트/가드명 목록)' },
+    split:            { type: 'boolean', description: '개별 가드 모듈 분할 생성 (guards/<TypeName>.js)' },
   },
   async run(args) {
     const target = optStr(args, 'target')
@@ -56,6 +57,11 @@ async function runStandaloneGuards(args: Args): Promise<void> {
   const outDir = optStr(args, 'out-dir') ?? optStr(args, 'output') ?? '.'
   const typeImport = optStr(args, 'type-import')
   const moduleFormat = optStr(args, 'module-format') as 'esm' | undefined
+  const split = bool(args, 'split')
+  const schemasRaw = optStr(args, 'schemas')
+  const schemas = schemasRaw
+    ? schemasRaw.split(',').map(s => s.trim()).filter(Boolean)
+    : undefined
 
   const resolvedInput = resolve(process.cwd(), input)
   if (!existsSync(resolvedInput)) {
@@ -81,6 +87,8 @@ async function runStandaloneGuards(args: Args): Promise<void> {
     schemaDocument,
     outDir: resolve(process.cwd(), outDir),
     moduleFormat: moduleFormat ?? 'esm',
+    split,
+    schemas,
   }
   if (typeImport !== undefined) {
     generatorOptions.typeImportSpecifier = typeImport

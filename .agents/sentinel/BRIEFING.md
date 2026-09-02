@@ -1,36 +1,36 @@
-# BRIEFING — 2026-09-02T15:27:00Z
+# BRIEFING — 2026-09-02T23:11:00Z
 
 ## Mission
-Coordinate implementation of the 4 Upstream Architectural Proposals in @oa-sdk/* monorepo.
+Coordinate implementation of CLI feature expansions in @oa-sdk/codegen (standalone guard splitting/filtering, lint categories, validate profile, audit:csp) and authoring conventions updates in browser-studio.
 
 ## 🔒 My Identity
 - Archetype: sentinel
 - Working directory: /Users/junwoobang/workflow/oa-sdk/.agents/sentinel
-- Orchestrator: 68ae2354-2e51-4b8a-8016-61950725263e
-- Victory Auditor: f9220cf8-a834-490c-976e-6aed6cf73ac4
+- Orchestrator: c8e6c449-4228-4443-bc32-e90615c118a5
+- Victory Auditor: 3fc2218d-df19-4207-9b14-65c2d6ff116e (Auditor 2 - Confirmed)
 
 ## 🔒 Key Constraints
 - No technical decisions — relay only
 - Victory Audit is MANDATORY before reporting completion
-- Must not write code or analyze problems directly
+- Route to teamwork_preview_orchestrator (General path)
 
 ## User Context
-- **Last user request**: Implement 4 Upstream Architectural Proposals in @oa-sdk/* monorepo (Discriminated union projection, x-surface-* extensions, standalone type guard generator, TS AST bidirectional sync with pluggable adapters).
-- **Pending clarifications**: [none]
-- **Delivered results**: Complete implementation and verified passing tests/typechecks across all 4 proposals.
+- **Last user request**: Full implementation of P1 & P2 CLI expansions and authoring conventions (R1-R4).
+- **Pending clarifications**: none
+- **Delivered results**: Complete implementation and independent audit approval of R1, R2, R3, and R4.
 
 ## Project Status
 - **Phase**: complete
-- **Routing Decision**: General path -> teamwork_preview_orchestrator (68ae2354-2e51-4b8a-8016-61950725263e)
 
 ## Victory Audit Status
 - **Triggered**: yes
 - **Verdict**: VICTORY CONFIRMED
-- **Retry count**: 0
+- **Retry count**: 1
 
 ## Artifact Index
-- /Users/junwoobang/workflow/oa-sdk/.agents/ORIGINAL_REQUEST.md — Original User Request
-- /Users/junwoobang/workflow/oa-sdk/PROJECT.md — Master Project Plan
-- /Users/junwoobang/workflow/oa-sdk/TEST_READY.md — Test Readiness Report
-- /Users/junwoobang/workflow/oa-sdk/.agents/orchestrator/GATE_STATUS.md — Evaluation Gate Status
-- /Users/junwoobang/workflow/oa-sdk/.agents/victory_auditor/handoff.md — Victory Auditor Report
+- /Users/junwoobang/workflow/oa-sdk/.agents/ORIGINAL_REQUEST.md — Authoritative user request record
+- /Users/junwoobang/workflow/oa-sdk/.agents/orchestrator_1/progress.md — Orchestrator progress tracker
+- /Users/junwoobang/workflow/oa-sdk/.agents/orchestrator_1/handoff.md — Orchestrator completion report
+- /Users/junwoobang/workflow/oa-sdk/.agents/victory_auditor_1/handoff.md — Victory Auditor report 1 (Rejected)
+- /Users/junwoobang/workflow/oa-sdk/.agents/victory_auditor_2/handoff.md — Victory Auditor report 2 (Confirmed)
+- /Users/junwoobang/workflow/oa-sdk/.agents/sentinel/handoff.md — Sentinel final handoff report

@@ -24,6 +24,10 @@ export interface StandaloneGuardGeneratorOptions {
   outDir: string
   /** Explicit list of guard targets. If omitted, discovered automatically from schemaDocument */
   guards?: StandaloneGuardTarget[] | undefined
+  /** Filter generation to only the requested schema type names or guard function names */
+  schemas?: string[] | undefined
+  /** Whether to output individual modular files per schema in guards/ alongside root index.js */
+  split?: boolean | undefined
   /** Optional module/package specifier for TypeScript type imports (e.g., '@oa-sdk/models' or './types.js') */
   typeImportSpecifier?: string | undefined
   /** Whether to generate TypeScript declaration (.d.ts) files. Defaults to true. */

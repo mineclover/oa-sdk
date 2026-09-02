@@ -11,12 +11,20 @@ import {
 } from '../lib/incremental.js'
 import type { WorkspaceDiagnosticRecord } from '../../workspace-index.js'
 import { CliExitError } from '../lib/errors.js'
+import {
+  isOpenApiProjectionProfile,
+  OPENAPI_PROJECTION_PROFILES,
+  validateOpenApiProjection,
+  type OpenApiProjectionProfile,
+  type SchemaValidateResult,
+} from '@oa-sdk/openapi-projection-contract'
 
 export const validate: Command = {
   name: 'validate',
   description: '종합 검증 (파싱 + 린트 + 3.1 호환)',
   options: {
     spec:          { type: 'string', short: 's', required: true, description: 'OAS spec 파일 경로' },
+    profile:       { type: 'string', description: 'OpenAPI 프로젝션 프로필 (component-bundle | operation-contract | full-api-document)' },
     'require-32':  { type: 'boolean', description: '관리 대상 계약으로 OpenAPI 3.2.x 버전을 강제' },
     incremental:   { type: 'boolean', description: 'SQLite workspace index를 사용해 변경 감지/무효화를 수행' },
     'cache-dir':   { type: 'string', description: '증분 workspace index 디렉토리 (기본: ./.oa-cache)' },
@@ -24,6 +32,12 @@ export const validate: Command = {
   async run(args) {
     const { validateDocument } = await import('@oa-sdk/parser')
     const specPath = str(args, 'spec')
+    const rawProfile = optStr(args, 'profile')
+    if (rawProfile !== undefined && !isOpenApiProjectionProfile(rawProfile)) {
+      throw new Error(`--profile 값은 ${OPENAPI_PROJECTION_PROFILES.join(' | ')} 중 하나여야 합니다: ${rawProfile}`)
+    }
+    const profile = rawProfile as OpenApiProjectionProfile | undefined
+
     const cacheDir = optStr(args, 'cache-dir')
     const incremental = createCliIncrementalRun({
       enabled: bool(args, 'incremental'),
@@ -51,6 +65,32 @@ export const validate: Command = {
       }
       console.log(result.summary)
 
+      let profileResult: SchemaValidateResult | undefined
+      if (profile) {
+        console.log(`\n━━━ Step 1.5: 프로젝션 프로필 검증 (${profile}) ━━━`)
+        profileResult = validateOpenApiProjection({
+          profile,
+          projection: doc as Record<string, unknown>,
+          refs: [],
+          diagnostics: [],
+          sources: {},
+          versionHash: 'cli-validation',
+        })
+
+        for (const d of profileResult.diagnostics) {
+          const icon = d.severity === 'error' ? '❌' : d.severity === 'warning' ? '⚠️' : 'ℹ️'
+          console.log(`  ${icon} [${d.code}] ${d.message}`)
+        }
+        const errors = profileResult.diagnostics.filter(d => d.severity === 'error')
+        const warnings = profileResult.diagnostics.filter(d => d.severity === 'warning')
+        const infos = profileResult.diagnostics.filter(d => d.severity === 'info')
+        if (profileResult.valid) {
+          console.log(`  ✅ 프로필 '${profile}' 요구사항 충족 (${profileResult.diagnostics.length} 진단)`)
+        } else {
+          console.log(`  ❌ 프로필 '${profile}' 요구사항 미충족: ${errors.length} errors, ${warnings.length} warnings, ${infos.length} infos`)
+        }
+      }
+
       console.log('\n━━━ Step 2: 3.1 호환성 ━━━')
       const version = (doc as Record<string, unknown>)['openapi'] as string
       if (version === '3.2.0') {
@@ -75,14 +115,24 @@ export const validate: Command = {
       }
 
       await recordCliIncrementalIndex(incremental, doc, {
-        diagnostics: [...result.errors, ...result.warnings, ...result.infos].map(r => toWorkspaceDiagnostic(
-          resolvedSpecPath,
-          r,
-          sourceLocations,
-        )),
+        diagnostics: [
+          ...[...result.errors, ...result.warnings, ...result.infos].map(r => toWorkspaceDiagnostic(
+            resolvedSpecPath,
+            r,
+            sourceLocations,
+          )),
+          ...(profileResult?.diagnostics ?? []).map(d => ({
+            producer: 'validate' as const,
+            severity: d.severity,
+            code: d.code,
+            message: d.message,
+            filePath: resolvedSpecPath,
+            pointer: '/',
+          })),
+        ],
       })
 
-      if (!result.valid) throw new CliExitError(1)
+      if (!result.valid || (profileResult && !profileResult.valid)) throw new CliExitError(1)
     } finally {
       closeCliIncrementalRun(incremental)
     }

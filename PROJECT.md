@@ -1,182 +1,59 @@
-# Project: 4 Upstream Architectural Proposals in `@oa-sdk/*`
+# Project: OA-SDK & Browser-Studio CLI Expansions & Conventions
 
 ## Architecture
+This project implements high-priority CLI feature expansions in `@oa-sdk/codegen` and updates normative schema authoring conventions across `@oa-sdk` and `@browser-studio`.
 
-The `@oa-sdk/*` monorepo implements 4 upstream architectural proposals to support high-performance visual IDE tooling, multi-protocol schema projection, secure client-side type checking, and lossless AST synchronization.
+### Core Subsystems
+1. **Standalone Guards Generation Engine (`packages/codegen/src/standalone-guards/`)**:
+   - Compiles OpenAPI 3.1 / JSON Schema 2020-12 definitions to standalone ESM JavaScript validators and TypeScript declaration files with 0 `eval()`, 0 `new Function()`, and 0 runtime dependencies.
+   - Built-in zero-dependency format registry (`STANDALONE_FORMATS`) for RFC 3339 date/time/date-time, RFC 3986 URI, email, UUID, IPv4, IPv6, duration, byte, int32, int64, json-pointer, and inlined `__ucs2length` and `__equal` helpers.
+   - Provides `--split` modular generation (`guards/<TypeName>.js`, `guards/<TypeName>.d.ts`, root barrel `index.js`/`index.d.ts`, and root `package.json` with `"type": "module"`).
+   - Provides `--schemas <list>` selective filtering matching type names or guard function names.
 
-```
-                                  [ User Request / Specs ]
-                                              │
-                         ┌────────────────────┴────────────────────┐
-                         ▼                                         ▼
-            [ Implementation Track ]                      [ E2E Testing Track ]
-       (M1 -> M2 -> M3 -> M4 -> Final)               (Tiers 1-4 Opaque-Box E2E Suite)
-                         │                                         │
-                         │                                         │
-                         ▼                                         ▼
-   ┌────────────────────────────────────────────────────────────────────────┐
-   │ Packages Layer Topology:                                               │
-   │                                                                        │
-   │ 1. @oa-sdk/openapi-projection-contract (Leaf Contract Layer)            │
-   │    - projectDiscriminatedUnion API                                     │
-   │    - x-surface-* vendor extensions metadata models                     │
-   │                                                                        │
-   │ 2. @oa-sdk/parser (Parsing & Linting Layer)                            │
-   │    - Surface category lint rules (valid-anchor, param-range, etc.)     │
-   │                                                                        │
-   │ 3. @oa-sdk/codegen (Code Generation & AST Engine Layer)                │
-   │    - Standalone ESM Type Guard Generator (ajv/standalone, zero-eval)  │
-   │    - V3 Unified Architecture AST Bidirectional Sync (EntitySpec,       │
-   │      Zod/TS/Typia Adapters, Diff Engine, Bottom-Up TextEdit Patching)  │
-   │    - CLI: oa-codegen generate --target standalone-guards               │
-   │                                                                        │
-   │ 4. @oa-sdk/spec-lens & @oa-sdk/schemas (Integration & Storage)         │
-   │    - Canonical EntitySpec IR schema export & adapters alignment        │
-   └────────────────────────────────────────────────────────────────────────┘
-```
+2. **CLI Governance & Lint/Validation Engine (`packages/codegen/src/cli/`)**:
+   - `oa-codegen lint --categories <list>`: Category-targeted rule execution (`structure`, `operations`, `parameters`, `refs`, `security`, `style`, `components`, `surface`).
+   - `oa-codegen validate --profile <profile>`: Profile-aware projection validation (`component-bundle`, `operation-contract`, `full-api-document`) via `@oa-sdk/openapi-projection-contract`.
+
+3. **Manifest V3 CSP Audit Scanner (`packages/codegen/src/cli/commands/audit-csp.ts`)**:
+   - `oa-codegen audit:csp --bundle <dir>`: TypeScript AST scanning for unsafe dynamic execution (`eval`, `new Function`, string `setTimeout`/`setInterval`) and disallowed heavy runtime dependencies (`ajv`, `zod`, `@oa-sdk`) in extension bundles, exiting with code 1 on violations.
+
+4. **Schema Authoring Conventions (`browser-studio/docs/guides/schema-architecture-and-conventions.md`)**:
+   - Normative specifications for RFC 9457 `ProblemDetailsSchema`, strict numeric bounds (`exclusiveMinimum: 0` vs `minimum: 0`), self-referencing recursive schema registry (`z.lazy`), `x-surface-*` scope rules (`targetProperty`), and V3 Unified Architecture JSDoc annotation tags.
 
 ## Feature Inventory
-
 | # | Feature | Description | Milestone | Source |
-|---|---------|-------------|-----------|--------|
-| 1 | `projectDiscriminatedUnion` Core API | Project polymorphic schemas / RPC ops into OpenAPI 3.1 discriminator + oneOf | M1 | Proposal 1 Spec §1.3 |
-| 2 | Single-Stream Multiplexed RPC Projection | Map multi-method RPC endpoints to /rpc/{method} with discriminator bindings | M1 | Proposal 1 Spec §1.2 |
-| 3 | MCP Stdio Protocol Projection | Project MCP JSON-RPC 2.0 stdio operations into OpenAPI 3.1 operation contracts | M1 | Proposal 1 Spec §1.2 |
-| 4 | Projection Profile Integration | Tag and validate union models under `component-bundle` and `operation-contract` | M1 | `@oa-sdk/openapi-projection-contract` |
-| 5 | `zod-to-schema` Discriminated Union Emission | Augment Zod converter to emit OpenAPI 3.1 discriminator objects | M1 | Proposal 1 Spec §1.3 |
-| 6 | `x-surface-anchor` Extension | Schema metadata for source anchor coordinates (id, line, column, raw, commentType) | M2 | Proposal 2 Spec §2.2 |
-| 7 | `x-surface-param-range` Extension | Schema metadata for live byte offsets (start, end, maxFramerateHz) | M2 | Proposal 2 Spec §2.2 |
-| 8 | `x-surface-fingerprint` Extension | SHA-256 source block hash for drift detection (`sha256:...`) | M2 | Proposal 2 Spec §2.2 |
-| 9 | `x-surface-quote-style` Extension | Syntax quotation style metadata ('single' \| 'double' \| 'backtick' \| 'none') | M2 | Proposal 2 Spec §2.2 |
-| 10 | `x-surface-patch-policy` Extension | Concurrency drift policy configuration ('abort' \| 'rebase' \| 'force') | M2 | Proposal 2 Spec §2.2 |
-| 11 | Parser Linting Rules for `x-surface-*` | Custom `surface` category rules in `@oa-sdk/parser` for OAS 3.1 validation | M2 | Proposal 2 Spec §2.4 |
-| 12 | `generateStandaloneGuards` Core API | Compile JSON Schema 2020-12 to standalone pure ESM functions (0 deps, 0 eval) | M3 | Proposal 3 Spec §3.2 |
-| 13 | CLI `oa-codegen --target standalone-guards` | CLI command interface for invoking standalone guard generation | M3 | Proposal 3 Spec §3.3 |
-| 14 | Pure ESM Zero-Dependency Output Invariant | Output validator JS file with zero external imports, CSP-safe | M3 | Proposal 3 Spec §3.1 |
-| 15 | TypeScript Guard Signature Generation | Emit `export declare function isType(data: unknown): data is Type;` | M3 | Proposal 3 Spec §3.2 |
-| 16 | `EntitySpec` Intermediate Representation | Canonical normalized AST IR for schemas, interfaces, and types | M4 | Proposal 4 Spec §4.2 |
-| 17 | Pluggable `TypeAdapter` Interface | Universal adapter interface for AST parsing, code emission, and patching | M4 | Proposal 4 Spec §4.3 |
-| 18 | `ZodTypeAdapter` | Bidirectional adapter between `z.object` AST and `EntitySpec` | M4 | Proposal 4 Spec §4.2 |
-| 19 | `TsAstTypeAdapter` | Bidirectional adapter between TypeScript `interface`/`type` and `EntitySpec` | M4 | Proposal 4 Spec §4.2 |
-| 20 | `TypiaTypeAdapter` | Bidirectional adapter for interfaces with JSDoc validation tags | M4 | Proposal 4 Spec §4.2 |
-| 21 | `computeEntitySpecDiff` Engine | Granular structural and semantic AST difference computation | M4 | Proposal 4 Spec §4.2 |
-| 22 | Reverse-Offset Bottom-Up `TextEdit` Patching | Surgical TextEdit patching preserving comments, indentation, and trivia | M4 | Proposal 4 Spec §4.2 |
-| 23 | `syncEntitySpecWithCode` Core Synchronizer | High-level synchronizer parsing, diffing, and applying patches | M4 | Proposal 4 Spec §4.2 |
+|---|---|---|---|---|
+| 1 | Standalone Guards `--split` Option | Outputs individual modular files per schema (`guards/<TypeName>.js` and `.d.ts`) plus unified root `index.js` / `index.d.ts` barrel. | M1 | R1, ORIGINAL_REQUEST §R1 |
+| 2 | Standalone Guards `--schemas` Filtering | Filters guard generation to only requested schema type names or guard function names (e.g. `isSurfaceBlock,isSurfaceParam`). | M1 | R1, ORIGINAL_REQUEST §R1 |
+| 3 | Split Guards $ref Inlining & Zero Dependencies | Ensures split guard modules inline all referenced schemas and format validators, maintaining 0 eval, 0 new Function, and 0 runtime dependencies. | M1 | R1, ORIGINAL_REQUEST §R1 |
+| 4 | CLI Lint `--categories` Flag | Executes only specified lint rule categories (e.g. `surface,structure,operations`) via `@oa-sdk/parser`. | M2 | R2, ORIGINAL_REQUEST §R2 |
+| 5 | CLI Validate `--profile` Flag | Enforces profile-specific projection invariants via `@oa-sdk/openapi-projection-contract` (`component-bundle`, `operation-contract`, `full-api-document`). | M2 | R2, ORIGINAL_REQUEST §R2 |
+| 6 | Operation-Contract Validation Rule | Rejects OpenAPI specs with empty/missing operations under `paths` when `--profile operation-contract` is specified. | M2 | R2, ORIGINAL_REQUEST §R2 |
+| 7 | Manifest V3 CSP Audit Command | Implements `oa-codegen audit:csp --bundle <dir>` scanning bundled JS files for CSP violations and disallowed runtime imports. | M3 | R3, ORIGINAL_REQUEST §R3 |
+| 8 | CSP Unsafe Code & Engine Import Detection | AST detection of `eval(`, `new Function(`, string `setTimeout`/`setInterval`, and imports of `ajv`, `zod`, `@oa-sdk`. | M3 | R3, ORIGINAL_REQUEST §R3 |
+| 9 | CSP Audit CLI Diagnostics & Exit Code | Emits structured diagnostics and exits with code 1 upon violation, or code 0 when clean. | M3 | R3, ORIGINAL_REQUEST §R3 |
+| 10 | RFC 9457 Problem Details Specification | Documentation and runnable examples for RFC 9457 `ProblemDetailsSchema` and 422/409/500 operation responses. | M4 | R4, ORIGINAL_REQUEST §R4 |
+| 11 | Strict Numeric Bounds Specification | Documentation of numeric `exclusiveMinimum: 0` vs `minimum: 0` in Draft 2020-12 / OAS 3.1 and Zod drafting patterns. | M4 | R4, ORIGINAL_REQUEST §R4 |
+| 12 | Recursive Schemas with `z.lazy` Specification | Documentation for self-referential schema registry and cyclic `$ref` projection without infinite recursion. | M4 | R4, ORIGINAL_REQUEST §R4 |
+| 13 | `x-surface-*` Scope Rules Specification | Documentation of object-level `targetProperty` vs inline property-level metadata. | M4 | R4, ORIGINAL_REQUEST §R4 |
+| 14 | V3 Unified Architecture JSDoc Tag Specifications | Documentation of `@minimum`, `@format`, `@discriminator`, and constraint annotations in AST bidirectional sync. | M4 | R4, ORIGINAL_REQUEST §R4 |
+| 15 | Monorepo Integrity & E2E Verification | 100% pass across full E2E test suites (Tiers 1-4) and adversarial hardening (Tier 5), `pnpm test`, and `pnpm -r typecheck`. | Final Milestone | ORIGINAL_REQUEST Acceptance Criteria |
 
 ## Milestones
-
 | # | Name | Scope | Dependencies | Status |
-|---|------|-------|-------------|--------|
-| E2E | E2E Testing Track | Requirement-driven opaque-box E2E test suite (Tiers 1-4) -> TEST_READY.md | none | DONE |
-| M1 | Native Discriminated Union Projection | `@oa-sdk/openapi-projection-contract`, `@oa-sdk/codegen`: `projectDiscriminatedUnion`, RPC/MCP projection, zod-to-schema | none | DONE |
-| M2 | Non-AST Character Range Metadata Extensions | `@oa-sdk/openapi-projection-contract`, `@oa-sdk/parser`: `x-surface-*` extensions and `surface` lint rules | none | DONE |
-| M3 | Standalone Lightweight Type Guard Generator | `@oa-sdk/codegen`: `generateStandaloneGuards`, CLI `--target standalone-guards`, Ajv 2020 standalone ESM | M1, M2 | DONE |
-| M4 | TypeScript AST Bidirectional Synchronization | `@oa-sdk/codegen`, `@oa-sdk/spec-lens`, `@oa-sdk/schemas`: `EntitySpec`, `TypeAdapter`s, `computeEntitySpecDiff`, `applyTextEdits` | none | DONE |
-| M5 | Final Milestone: Full E2E Pass & Adversarial Hardening | Pass 100% E2E tests (Tiers 1-4) + Tier 5 adversarial coverage hardening | E2E, M1, M2, M3, M4 | DONE |
-
-## Interface Contracts
-
-### `@oa-sdk/openapi-projection-contract`
-```typescript
-export interface DiscriminatedUnionProjectionOptions {
-  discriminatorProperty: string;
-  unionSchemaId: string;
-  variants: Record<string, unknown>;
-  profile?: 'operation-contract' | 'component-bundle';
-  pathPrefix?: string;
-  description?: string;
-}
-
-export interface DiscriminatedUnionProjectionResult {
-  unionSchema: Record<string, unknown>;
-  variantSchemas: Record<string, Record<string, unknown>>;
-  paths?: Record<string, unknown>;
-}
-
-export function projectDiscriminatedUnion(
-  options: DiscriminatedUnionProjectionOptions
-): DiscriminatedUnionProjectionResult;
-
-// Surface extension constants & types
-export const OPENAPI_SURFACE_ANCHOR_EXTENSION = 'x-surface-anchor' as const;
-export const OPENAPI_SURFACE_PARAM_RANGE_EXTENSION = 'x-surface-param-range' as const;
-export const OPENAPI_SURFACE_FINGERPRINT_EXTENSION = 'x-surface-fingerprint' as const;
-export const OPENAPI_SURFACE_QUOTE_STYLE_EXTENSION = 'x-surface-quote-style' as const;
-export const OPENAPI_SURFACE_PATCH_POLICY_EXTENSION = 'x-surface-patch-policy' as const;
-```
-
-### `@oa-sdk/parser`
-```typescript
-// Added 'surface' to LintOptions categories
-export interface LintOptions {
-  categories?: Array<'structure' | 'operations' | 'parameters' | 'refs' | 'security' | 'style' | 'components' | 'surface'>;
-  rules?: Record<string, 'off' | 'warn' | 'error'>;
-}
-```
-
-### `@oa-sdk/codegen`
-```typescript
-export interface StandaloneGuardTarget {
-  name: string;
-  typeName: string;
-  schema: Record<string, unknown> | string;
-}
-
-export interface StandaloneGuardGeneratorOptions {
-  schemaDocument: Record<string, unknown>;
-  outDir: string;
-  guards?: StandaloneGuardTarget[];
-  typeImportSpecifier?: string;
-  generateDeclarations?: boolean;
-  moduleFormat?: 'esm';
-}
-
-export function generateStandaloneGuards(
-  options: StandaloneGuardGeneratorOptions
-): Promise<GeneratedGuardArtifact[]>;
-
-// AST Bidirectional Sync
-export interface EntitySpec {
-  id: string;
-  name: string;
-  kind: 'schema' | 'interface' | 'type-alias' | 'object-literal' | 'node';
-  docComment?: string;
-  properties: Record<string, EntityPropertySpec>;
-  extends?: string[];
-  discriminator?: { propertyName: string; value: string };
-  metadata?: Record<string, unknown>;
-  sourceSpan?: { start: number; end: number };
-}
-
-export function computeEntitySpecDiff(currentSpec: EntitySpec, targetSpec: EntitySpec): ASTDiff[];
-export function applyTextEdits(originalSource: string, edits: TextEdit[]): string;
-export function syncEntitySpecWithCode(
-  existingCode: string,
-  updatedSpec: EntitySpec,
-  options?: { adapter?: string | TypeAdapter }
-): SyncResult;
-```
+|---|---|---|---|---|
+| E2E | E2E Testing Track | Design & write comprehensive test suites (Tiers 1-4) across R1, R2, R3, R4 -> publish TEST_READY.md | none | DONE |
+| M1 | Standalone Guards Splitting & Filtering | Implement `--split`, `--schemas`, and zero-dependency inlined formats in `packages/codegen` (Features 1, 2, 3) | none | DONE |
+| M2 | CLI Lint Categories & Profile Validation | Implement `--categories` in `lint` and `--profile` in `validate` in `packages/codegen` (Features 4, 5, 6) | none | DONE |
+| M3 | Manifest V3 CSP Audit Command | Implement `audit:csp` CLI command and AST scanner in `packages/codegen` (Features 7, 8, 9) | none | DONE |
+| M4 | Authoring Conventions Documentation | Update `browser-studio/docs/guides/schema-architecture-and-conventions.md` with complete specifications and code examples (Features 10-14) | none | DONE |
+| Remediation | Victory Audit Remediation | Zero-dependency format regex inlining, helper inlining, package.json module declaration, and clean monorepo pnpm test | M1, M3 | DONE |
+| Final | Full E2E Pass & Adversarial Hardening | Verify 100% passing E2E tests across all tiers, adversarial coverage audit, `pnpm test`, `pnpm -r typecheck` | all | DONE |
 
 ## Code Layout
-
-- `packages/openapi-projection-contract/src/`
-  - `index.ts` — Public export re-exports
-  - `discriminated-union.ts` — Discriminated union projection logic
-  - `surface-extensions.ts` — Standardized `x-surface-*` extension types and constants
-- `packages/parser/src/`
-  - `lint.ts` — Surface linting category & rules (`surface/valid-anchor`, `surface/valid-param-range`, `surface/valid-fingerprint`, `surface/valid-quote-style`, `surface/valid-patch-policy`)
-- `packages/codegen/src/`
-  - `standalone-guards/`
-    - `generator.ts` — Standalone ESM type guard generator using Ajv 2020 standalone
-    - `types.ts` — Standalone guard options & artifact models
-  - `ast-sync/`
-    - `entity-spec.ts` — EntitySpec and PropertySpec types & normalization
-    - `adapter-interface.ts` — Pluggable TypeAdapter contract
-    - `adapters/zod.ts` — ZodTypeAdapter
-    - `adapters/ts-ast.ts` — TsAstTypeAdapter
-    - `adapters/typia.ts` — TypiaTypeAdapter
-    - `diff-engine.ts` — computeEntitySpecDiff implementation
-    - `text-edit.ts` — Reverse-offset bottom-up applyTextEdits
-    - `type-sync.ts` — syncEntitySpecWithCode orchestrator
-  - `cli/commands/generate.ts` — CLI `--target standalone-guards` flag and execution
-  - `zod-to-schema.ts` — Zod discriminated union mapper
+- Exclusive Write Ownership:
+  - M1 Worker: `packages/codegen/src/standalone-guards/`, `packages/codegen/src/cli/commands/generate.ts`, `packages/codegen/test/standalone-guards/`
+  - M2 Worker: `packages/codegen/src/cli/commands/lint.ts`, `packages/codegen/src/cli/commands/validate.ts`, `packages/codegen/test/cli/`
+  - M3 Worker: `packages/codegen/src/cli/commands/audit-csp.ts`, `packages/codegen/src/cli/commands.ts`, `packages/codegen/test/audit-csp/`
+  - M4 Worker: `/Users/junwoobang/workflow/browser-studio/docs/guides/schema-architecture-and-conventions.md` (and mirrored documentation)
+  - E2E Test Writer: `packages/codegen/test/e2e/`

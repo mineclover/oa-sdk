@@ -323,4 +323,394 @@ describe('Standalone Guard Generator Unit Tests', () => {
       expect(artifacts.some(a => a.filePath.endsWith('index.js'))).toBe(true)
     })
   })
+
+  describe('Split Mode Generation (split: true)', () => {
+    it('outputs individual modular files per schema in guards/ and root index.js / index.d.ts barrels', async () => {
+      const outDir = await createTempDir()
+      const schemaDoc = {
+        $defs: {
+          SurfaceBlock: {
+            type: 'object',
+            required: ['id', 'blockType'],
+            properties: {
+              id: { type: 'string' },
+              blockType: { type: 'string', enum: ['header', 'canvas', 'footer'] },
+            },
+          },
+          SurfaceParam: {
+            type: 'object',
+            required: ['name', 'value'],
+            properties: {
+              name: { type: 'string' },
+              value: { type: 'string' },
+            },
+          },
+        },
+      }
+
+      const artifacts = await generateStandaloneGuards({
+        schemaDocument: schemaDoc,
+        outDir,
+        split: true,
+        typeImportSpecifier: '@my-scope/surface',
+        guards: [
+          { name: 'isSurfaceBlock', typeName: 'SurfaceBlock', schema: '#/$defs/SurfaceBlock' },
+          { name: 'isSurfaceParam', typeName: 'SurfaceParam', schema: '#/$defs/SurfaceParam' },
+        ],
+      })
+
+      // Artifact check: guards/SurfaceBlock.js, guards/SurfaceBlock.d.ts, guards/SurfaceParam.js, guards/SurfaceParam.d.ts, index.js, index.d.ts
+      expect(artifacts.length).toBe(6)
+
+      const blockJs = artifacts.find(a => a.filePath.endsWith(path.join('guards', 'SurfaceBlock.js')))!
+      const blockDts = artifacts.find(a => a.filePath.endsWith(path.join('guards', 'SurfaceBlock.d.ts')))!
+      const paramJs = artifacts.find(a => a.filePath.endsWith(path.join('guards', 'SurfaceParam.js')))!
+      const paramDts = artifacts.find(a => a.filePath.endsWith(path.join('guards', 'SurfaceParam.d.ts')))!
+      const indexJs = artifacts.find(a => a.filePath === path.join(outDir, 'index.js'))!
+      const indexDts = artifacts.find(a => a.filePath === path.join(outDir, 'index.d.ts'))!
+
+      expect(blockJs).toBeDefined()
+      expect(blockDts).toBeDefined()
+      expect(paramJs).toBeDefined()
+      expect(paramDts).toBeDefined()
+      expect(indexJs).toBeDefined()
+      expect(indexDts).toBeDefined()
+
+      // Content check
+      expect(blockJs.content).toContain('function isSurfaceBlock')
+      expect(blockJs.content).not.toContain('function isSurfaceParam')
+      expect(blockDts.content).toContain("import type { SurfaceBlock } from '@my-scope/surface';")
+      expect(blockDts.content).toContain('export declare function isSurfaceBlock(data: unknown): data is SurfaceBlock;')
+
+      expect(paramJs.content).toContain('function isSurfaceParam')
+      expect(paramJs.content).not.toContain('function isSurfaceBlock')
+      expect(paramDts.content).toContain("import type { SurfaceParam } from '@my-scope/surface';")
+      expect(paramDts.content).toContain('export declare function isSurfaceParam(data: unknown): data is SurfaceParam;')
+
+      expect(indexJs.content).toContain("export * from './guards/SurfaceBlock.js';")
+      expect(indexJs.content).toContain("export * from './guards/SurfaceParam.js';")
+      expect(indexDts.content).toContain("export * from './guards/SurfaceBlock.js';")
+      expect(indexDts.content).toContain("export * from './guards/SurfaceParam.js';")
+
+      // Direct module execution check
+      const importedBlock = await import(`file://${blockJs.filePath}`)
+      expect(importedBlock.isSurfaceBlock({ id: 'b1', blockType: 'canvas' })).toBe(true)
+      expect(importedBlock.isSurfaceBlock({ id: 'b1', blockType: 'invalid' })).toBe(false)
+      expect(importedBlock.isSurfaceBlock({ id: 'b1' })).toBe(false)
+
+      const importedIndex = await import(`file://${indexJs.filePath}`)
+      expect(importedIndex.isSurfaceBlock({ id: 'b2', blockType: 'header' })).toBe(true)
+      expect(importedIndex.isSurfaceParam({ name: 'theme', value: 'dark' })).toBe(true)
+      expect(importedIndex.isSurfaceParam({ name: 'theme' })).toBe(false)
+    })
+
+    it('inlines $ref sub-schemas so individual split guard files are 100% self-contained with 0 runtime dependencies', async () => {
+      const outDir = await createTempDir()
+      const schemaDoc = {
+        $defs: {
+          Address: {
+            type: 'object',
+            required: ['city', 'zip'],
+            properties: {
+              city: { type: 'string' },
+              zip: { type: 'string', pattern: '^\\d{5}$' },
+            },
+          },
+          UserProfile: {
+            type: 'object',
+            required: ['name', 'address'],
+            properties: {
+              name: { type: 'string' },
+              address: { $ref: '#/$defs/Address' },
+            },
+          },
+        },
+      }
+
+      const artifacts = await generateStandaloneGuards({
+        schemaDocument: schemaDoc,
+        outDir,
+        split: true,
+        guards: [
+          { name: 'isUserProfile', typeName: 'UserProfile', schema: '#/$defs/UserProfile' },
+        ],
+      })
+
+      const userJs = artifacts.find(a => a.filePath.endsWith(path.join('guards', 'UserProfile.js')))!
+      expect(userJs).toBeDefined()
+
+      // Verify zero external imports and zero eval
+      expect(userJs.content).not.toMatch(/from\s+['"]/);
+      expect(userJs.content).not.toMatch(/import\s+/);
+      expect(userJs.content).not.toMatch(/\beval\s*\(/);
+      expect(userJs.content).not.toMatch(/new\s+Function\s*\(/);
+
+      // Verify execution in isolation
+      const importedUser = await import(`file://${userJs.filePath}`)
+      expect(importedUser.isUserProfile({ name: 'Alice', address: { city: 'Seoul', zip: '12345' } })).toBe(true)
+      expect(importedUser.isUserProfile({ name: 'Alice', address: { city: 'Seoul', zip: '1234' } })).toBe(false)
+      expect(importedUser.isUserProfile({ name: 'Alice', address: { city: 'Seoul' } })).toBe(false)
+    })
+
+    it('honors generateDeclarations: false in split mode', async () => {
+      const outDir = await createTempDir()
+      const schemaDoc = {
+        $defs: {
+          OptionA: { type: 'string' },
+          OptionB: { type: 'number' },
+        },
+      }
+
+      const artifacts = await generateStandaloneGuards({
+        schemaDocument: schemaDoc,
+        outDir,
+        split: true,
+        generateDeclarations: false,
+      })
+
+      expect(artifacts.every(a => a.kind === 'js')).toBe(true)
+      expect(artifacts.some(a => a.filePath.endsWith(path.join('guards', 'OptionA.js')))).toBe(true)
+      expect(artifacts.some(a => a.filePath.endsWith(path.join('guards', 'OptionB.js')))).toBe(true)
+      expect(artifacts.some(a => a.filePath.endsWith('index.js'))).toBe(true)
+      expect(artifacts.some(a => a.filePath.endsWith('index.d.ts'))).toBe(false)
+    })
+  })
+
+  describe('Selective Filtering (schemas option)', () => {
+    const multiSchemaDoc = {
+      $defs: {
+        SurfaceBlock: { type: 'object', required: ['id'], properties: { id: { type: 'string' } } },
+        SurfaceParam: { type: 'object', required: ['key'], properties: { key: { type: 'string' } } },
+        SurfaceEvent: { type: 'object', required: ['type'], properties: { type: { type: 'string' } } },
+        UserProfile: { type: 'object', required: ['username'], properties: { username: { type: 'string' } } },
+      },
+    }
+
+    it('filters by exact guard function names', async () => {
+      const outDir = await createTempDir()
+      const artifacts = await generateStandaloneGuards({
+        schemaDocument: multiSchemaDoc,
+        outDir,
+        schemas: ['isSurfaceBlock', 'isSurfaceParam'],
+      })
+
+      const js = artifacts.find(a => a.filePath.endsWith('guards.js'))!.content
+      expect(js).toContain('function isSurfaceBlock')
+      expect(js).toContain('function isSurfaceParam')
+      expect(js).not.toContain('function isSurfaceEvent')
+      expect(js).not.toContain('function isUserProfile')
+    })
+
+    it('filters by exact schema type names', async () => {
+      const outDir = await createTempDir()
+      const artifacts = await generateStandaloneGuards({
+        schemaDocument: multiSchemaDoc,
+        outDir,
+        schemas: ['SurfaceEvent', 'UserProfile'],
+      })
+
+      const js = artifacts.find(a => a.filePath.endsWith('guards.js'))!.content
+      expect(js).toContain('function isSurfaceEvent')
+      expect(js).toContain('function isUserProfile')
+      expect(js).not.toContain('function isSurfaceBlock')
+      expect(js).not.toContain('function isSurfaceParam')
+    })
+
+    it('filters with prefix normalization (is-prefix matching type name or vice-versa)', async () => {
+      const outDir = await createTempDir()
+      const artifacts = await generateStandaloneGuards({
+        schemaDocument: multiSchemaDoc,
+        outDir,
+        schemas: ['isUserProfile'],
+      })
+
+      const dts = artifacts.find(a => a.filePath.endsWith('guards.d.ts'))!.content
+      expect(dts).toContain('export declare function isUserProfile(data: unknown): data is UserProfile;')
+      expect(dts).not.toContain('isSurfaceBlock')
+    })
+
+    it('combines split: true and schemas filtering', async () => {
+      const outDir = await createTempDir()
+      const artifacts = await generateStandaloneGuards({
+        schemaDocument: multiSchemaDoc,
+        outDir,
+        split: true,
+        schemas: ['SurfaceBlock', 'isSurfaceParam'],
+      })
+
+      expect(artifacts.some(a => a.filePath.endsWith(path.join('guards', 'SurfaceBlock.js')))).toBe(true)
+      expect(artifacts.some(a => a.filePath.endsWith(path.join('guards', 'SurfaceBlock.d.ts')))).toBe(true)
+      expect(artifacts.some(a => a.filePath.endsWith(path.join('guards', 'SurfaceParam.js')))).toBe(true)
+      expect(artifacts.some(a => a.filePath.endsWith(path.join('guards', 'SurfaceParam.d.ts')))).toBe(true)
+      expect(artifacts.some(a => a.filePath.includes('SurfaceEvent'))).toBe(false)
+      expect(artifacts.some(a => a.filePath.includes('UserProfile'))).toBe(false)
+
+      const indexJs = artifacts.find(a => a.filePath.endsWith('index.js'))!.content
+      expect(indexJs).toContain("export * from './guards/SurfaceBlock.js';")
+      expect(indexJs).toContain("export * from './guards/SurfaceParam.js';")
+      expect(indexJs).not.toContain('SurfaceEvent')
+    })
+
+    it('returns empty array when filter matches no schemas', async () => {
+      const outDir = await createTempDir()
+      const artifacts = await generateStandaloneGuards({
+        schemaDocument: multiSchemaDoc,
+        outDir,
+        schemas: ['NonExistentType', 'isMissing'],
+      })
+
+      expect(artifacts).toEqual([])
+    })
+  })
+
+  describe('Zero Runtime Dependencies & Helper Inlining', () => {
+    it('inlines ucs2length helper for minLength/maxLength with zero external requires', async () => {
+      const outDir = await createTempDir()
+      const schemaDoc = {
+        $defs: {
+          LimitedText: {
+            type: 'object',
+            required: ['title'],
+            properties: {
+              title: { type: 'string', minLength: 3, maxLength: 10 },
+            },
+          },
+        },
+      }
+
+      const artifacts = await generateStandaloneGuards({
+        schemaDocument: schemaDoc,
+        outDir,
+        split: true,
+      })
+
+      const js = artifacts.find(a => a.filePath.endsWith('LimitedText.js'))!.content
+      expect(js).toContain('function __ucs2length')
+      expect(js).not.toContain('require(')
+      expect(js).not.toContain('import ')
+
+      const mod = await import(`file://${path.join(outDir, 'guards', 'LimitedText.js')}`)
+      expect(mod.isLimitedText({ title: 'hello' })).toBe(true)
+      expect(mod.isLimitedText({ title: 'hi' })).toBe(false)
+      expect(mod.isLimitedText({ title: 'this is way too long' })).toBe(false)
+    })
+
+    it('inlines deep equal helper for uniqueItems on object arrays with zero external requires', async () => {
+      const outDir = await createTempDir()
+      const schemaDoc = {
+        $defs: {
+          UniqueTags: {
+            type: 'object',
+            required: ['tags'],
+            properties: {
+              tags: {
+                type: 'array',
+                uniqueItems: true,
+                items: {
+                  type: 'object',
+                  required: ['key', 'val'],
+                  properties: {
+                    key: { type: 'string' },
+                    val: { type: 'string' },
+                  },
+                },
+              },
+            },
+          },
+        },
+      }
+
+      const artifacts = await generateStandaloneGuards({
+        schemaDocument: schemaDoc,
+        outDir,
+        split: false,
+      })
+
+      const js = artifacts.find(a => a.filePath.endsWith('guards.js'))!.content
+      expect(js).toContain('function __equal')
+      expect(js).not.toContain('require(')
+
+      const mod = await import(`file://${path.join(outDir, 'guards.js')}`)
+      expect(mod.isUniqueTags({
+        tags: [{ key: 'env', val: 'prod' }, { key: 'region', val: 'us-west' }],
+      })).toBe(true)
+      expect(mod.isUniqueTags({
+        tags: [{ key: 'env', val: 'prod' }, { key: 'env', val: 'prod' }],
+      })).toBe(false)
+    })
+
+    it('validates comprehensive string formats with zero external imports or requires', async () => {
+      const outDir = await createTempDir()
+      const schemaDoc = {
+        $defs: {
+          AllFormats: {
+            type: 'object',
+            properties: {
+              endpoint: { type: 'string', format: 'uri' },
+              created: { type: 'string', format: 'date-time' },
+              lease: { type: 'string', format: 'duration' },
+              ipv4: { type: 'string', format: 'ipv4' },
+              ipv6: { type: 'string', format: 'ipv6' },
+              id: { type: 'string', format: 'uuid' },
+            },
+          },
+        },
+      }
+
+      const artifacts = await generateStandaloneGuards({
+        schemaDocument: schemaDoc,
+        outDir,
+        split: true,
+      })
+
+      const js = artifacts.find(a => a.filePath.endsWith('AllFormats.js'))!.content
+      expect(js).not.toContain('require(')
+      expect(js).not.toContain('ajv-formats')
+
+      const mod = await import(`file://${path.join(outDir, 'guards', 'AllFormats.js')}`)
+      expect(mod.isAllFormats({
+        endpoint: 'https://api.example.com/v1',
+        created: '2026-09-03T12:00:00Z',
+        lease: 'P1DT12H',
+        ipv4: '192.168.1.1',
+        ipv6: '2001:0db8:85a3:0000:0000:8a2e:0370:7334',
+        id: '123e4567-e89b-12d3-a456-426614174000',
+      })).toBe(true)
+
+      expect(mod.isAllFormats({
+        endpoint: 'invalid-uri-no-scheme',
+      })).toBe(false)
+      expect(mod.isAllFormats({
+        ipv4: '999.999.999.999',
+      })).toBe(false)
+    })
+
+    it('ensures package.json with type: module is created in outDir for both split and monolithic mode', async () => {
+      const splitDir = await createTempDir()
+      const monoDir = await createTempDir()
+      const schemaDoc = {
+        $defs: {
+          SimpleItem: { type: 'object', properties: { ok: { type: 'boolean' } } },
+        },
+      }
+
+      await generateStandaloneGuards({
+        schemaDocument: schemaDoc,
+        outDir: splitDir,
+        split: true,
+      })
+
+      const splitPkg = JSON.parse(await fs.readFile(path.join(splitDir, 'package.json'), 'utf8'))
+      expect(splitPkg).toEqual({ type: 'module' })
+
+      await generateStandaloneGuards({
+        schemaDocument: schemaDoc,
+        outDir: monoDir,
+        split: false,
+      })
+
+      const monoPkg = JSON.parse(await fs.readFile(path.join(monoDir, 'package.json'), 'utf8'))
+      expect(monoPkg).toEqual({ type: 'module' })
+    })
+  })
 })

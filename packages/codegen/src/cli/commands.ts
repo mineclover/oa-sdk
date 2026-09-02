@@ -22,6 +22,7 @@ import { tspRestore } from './commands/tsp-restore.js'
 import { tspBundleCheck } from './commands/tsp-bundle-check.js'
 import { referenceCheck } from './commands/reference-check.js'
 import { parallelEvidence } from './commands/parallel-evidence.js'
+import { auditCsp } from './commands/audit-csp.js'
 
 export const commands: Command[] = [
   generate,
@@ -47,4 +48,5 @@ export const commands: Command[] = [
   review,
   reviewBundle,
   parallelEvidence,
+  auditCsp,
 ]

@@ -1,28 +1,54 @@
 # Original User Request
 
-## Initial Request — 2026-09-02T14:47:38Z
+## Initial Request — 2026-09-02T15:46:07Z
 
-You are the Project Orchestrator for implementing the 4 Upstream Architectural Proposals in the `@oa-sdk/*` monorepo.
+Implement the high-priority (P1 & P2) CLI feature expansions in `@oa-sdk/codegen` and update authoring conventions across `@oa-sdk` and `@browser-studio`: (1) Standalone guards module splitting (`--split`) and selective filtering (`--schemas`), (2) Category-aware linting (`--categories`) and profile-aware validation (`--profile`), (3) Automated Manifest V3 CSP audit command (`oa-codegen audit:csp`), and (4) Standardized convention guide enhancements (RFC 9457 Problem Details, numeric bounds, self-referential schemas, x-surface-* scopes, and V3 JSDoc tags).
 
-Your working directory is: `/Users/junwoobang/workflow/oa-sdk/.agents/orchestrator`
-The original user request is documented at: `/Users/junwoobang/workflow/oa-sdk/.agents/ORIGINAL_REQUEST.md`
-The standardized specification file is at: `/Users/junwoobang/workflow/browser-studio/docs/specs/oa-sdk-integration-proposals.md`
+Working directory: /Users/junwoobang/workflow/oa-sdk
+Integrity mode: development
 
-Requirements:
-1. Native Discriminated Union Projection (`@oa-sdk/openapi-projection-contract`, `@oa-sdk/codegen`):
-   - Add first-class support for projecting multiplexed single-stream RPC/stdio operations and polymorphic Zod/JSON schemas into canonical OpenAPI 3.1 `discriminator` + `oneOf` models.
-   - Implement `projectDiscriminatedUnion` helper API and wire into projection contract profiles.
-2. Non-AST Character Range Patching Metadata Extensions (`@oa-sdk/openapi-projection-contract`, `@oa-sdk/parser`):
-   - Standardize `x-surface-*` vendor extensions (`x-surface-anchor`, `x-surface-param-range`, `x-surface-fingerprint`, `x-surface-quote-style`, `x-surface-patch-policy`) across schema envelopes and parser linting rules.
-3. Standalone Lightweight Type Guard Generator Plugin (`@oa-sdk/codegen`):
-   - Implement zero-eval, zero-runtime dependency pre-compiled static ESM type guard generator (`oa-codegen generate --target standalone-guards`) using `ajv/dist/2020` and `ajv/dist/standalone`. Pure ESM `.js` + `.d.ts` type guards (`data is T`).
-4. TypeScript AST Bidirectional Synchronization (`@oa-sdk/codegen`, `@oa-sdk/spec-lens`, `@oa-sdk/schemas`):
-   - Establish V3 Unified Architecture bidirectional synchronization engine between `EntitySpec` intermediate representations and source code.
-   - Pluggable Type Adapters (`ZodAdapter`, `TsAstAdapter`, `TypiaAdapter`), reverse-offset bottom-up TextEdit diffing, lossless comment/formatting retention.
+## Requirements
 
-Acceptance Criteria:
-- All package unit tests pass (`pnpm test`).
-- Full monorepo typecheck passes (`pnpm -r typecheck` / `pnpm run check`).
-- Maintain `plan.md` and `progress.md` in your working directory.
+### R1. Standalone Guards Splitting & Filtering (`oa-codegen generate --target standalone-guards`)
+Extend the standalone type guard generator in `@oa-sdk/codegen` with:
+- `--split`: Outputs individual modular files per schema (e.g. `guards/<TypeName>.js` and `guards/<TypeName>.d.ts`) alongside a unified `index.js` re-export, enabling tree-shaking and preventing gigantic single-file bundles.
+- `--schemas <comma-separated>`: Filters generation to only the requested schema type names or guard function names.
 
-Coordinate workers/specialists as needed to complete the implementation and verification. Report back with a comprehensive completion report and handoff when finished.
+### R2. CLI Category-Aware Linting & Profile-Aware Validation (`oa-codegen lint`, `oa-codegen validate`)
+- Add `--categories <list>` flag to `oa-codegen lint` allowing targeted rule execution (e.g. `--categories surface,structure,operations`).
+- Add `--profile <component-bundle | operation-contract | full-api-document>` flag to `oa-codegen validate` enforcing profile-specific projection invariants via `@oa-sdk/openapi-projection-contract`.
+
+### R3. Automated Manifest V3 CSP Audit Command (`oa-codegen audit:csp`)
+Implement a dedicated CLI command `oa-codegen audit:csp --bundle <dir>` that scans bundled JavaScript files for Content Security Policy violations:
+- Detects any occurrences of `eval(`, `new Function(`, `setTimeout(string)`, or `setInterval(string)`.
+- Detects disallowed runtime heavy schema engines (`ajv`, `zod`, `@oa-sdk`) in production extension bundles.
+- Emits structured CLI diagnostics with exit code 1 upon violation.
+
+### R4. Authoring Conventions Documentation & Schema Updates
+Update `docs/guides/schema-architecture-and-conventions.md` in `browser-studio` with normative specifications for:
+- RFC 9457 `ProblemDetailsSchema` convention for error responses (422/500/conflict).
+- Strict numeric bounds (`exclusiveMinimum: 0` vs `minimum: 0`) and Zod drafting patterns.
+- Self-referencing recursive schema registry conventions (`z.lazy` + registry refs).
+- `x-surface-*` scope rules (object-level `targetProperty` vs inline property-level).
+- V3 Unified Architecture JSDoc annotation tag specifications (`@minimum`, `@format`, `@discriminator`).
+
+## Acceptance Criteria
+
+### Standalone Guards Splitting & Filtering
+- [ ] Running `oa-codegen generate --target standalone-guards --input <spec> --out-dir <dir> --split` produces separate `.js` and `.d.ts` files for each schema component plus a root `index.js` barrel.
+- [ ] Running with `--schemas isSurfaceBlock,isSurfaceParam` emits only the targeted type guards.
+- [ ] All split guard modules maintain 0 eval, 0 new Function, and 0 runtime dependencies.
+
+### CLI Lint & Validate Options
+- [ ] `oa-codegen lint --spec <spec> --categories surface` executes only surface rules.
+- [ ] `oa-codegen validate --spec <spec> --profile operation-contract` fails if `paths` has no operations and passes when valid.
+
+### CSP Audit Command
+- [ ] `oa-codegen audit:csp --bundle <dir>` correctly passes clean standalone guard bundles and exits with code 1 on bundles containing forbidden patterns (`eval`, `new Function`, `from 'ajv'`).
+
+### Conventions Documentation
+- [ ] `schema-architecture-and-conventions.md` contains complete, runnable code examples for RFC 9457, recursive schemas, and JSDoc tag mapping.
+
+### Monorepo Integrity
+- [ ] All unit tests pass in `@oa-sdk` (`pnpm test`).
+- [ ] Monorepo typecheck is clean (`pnpm -r typecheck`).

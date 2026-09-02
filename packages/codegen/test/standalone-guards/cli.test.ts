@@ -81,6 +81,107 @@ components:
     expect(jsContent).toContain('function isUserProfile')
   })
 
+  it('generates split modular guards via CLI command (--split)', async () => {
+    const tempDir = await createTempDir()
+    const schemaFile = path.join(tempDir, 'spec.json')
+    const outDir = path.join(tempDir, 'modular-guards')
+
+    const schemaDoc = {
+      $defs: {
+        SurfaceBlock: { type: 'object', required: ['id'], properties: { id: { type: 'string' } } },
+        SurfaceParam: { type: 'object', required: ['key'], properties: { key: { type: 'string' } } },
+      },
+    }
+
+    await fs.writeFile(schemaFile, JSON.stringify(schemaDoc, null, 2), 'utf8')
+
+    await generate.run({
+      target: 'standalone-guards',
+      input: schemaFile,
+      'out-dir': outDir,
+      split: true,
+      'type-import': '@my/surface',
+    })
+
+    const guardsDir = path.join(outDir, 'guards')
+    const guardFiles = await fs.readdir(guardsDir)
+    expect(guardFiles).toContain('SurfaceBlock.js')
+    expect(guardFiles).toContain('SurfaceBlock.d.ts')
+    expect(guardFiles).toContain('SurfaceParam.js')
+    expect(guardFiles).toContain('SurfaceParam.d.ts')
+
+    const rootFiles = await fs.readdir(outDir)
+    expect(rootFiles).toContain('index.js')
+    expect(rootFiles).toContain('index.d.ts')
+
+    const indexJs = await fs.readFile(path.join(outDir, 'index.js'), 'utf8')
+    expect(indexJs).toContain("export * from './guards/SurfaceBlock.js';")
+    expect(indexJs).toContain("export * from './guards/SurfaceParam.js';")
+  })
+
+  it('filters schemas via CLI command (--schemas)', async () => {
+    const tempDir = await createTempDir()
+    const schemaFile = path.join(tempDir, 'spec.json')
+    const outDir = path.join(tempDir, 'filtered-guards')
+
+    const schemaDoc = {
+      $defs: {
+        SurfaceBlock: { type: 'object', properties: { id: { type: 'string' } } },
+        SurfaceParam: { type: 'object', properties: { key: { type: 'string' } } },
+        OtherType: { type: 'object', properties: { val: { type: 'number' } } },
+      },
+    }
+
+    await fs.writeFile(schemaFile, JSON.stringify(schemaDoc, null, 2), 'utf8')
+
+    await generate.run({
+      target: 'standalone-guards',
+      input: schemaFile,
+      'out-dir': outDir,
+      schemas: 'isSurfaceBlock,isSurfaceParam',
+    })
+
+    const jsContent = await fs.readFile(path.join(outDir, 'guards.js'), 'utf8')
+    expect(jsContent).toContain('function isSurfaceBlock')
+    expect(jsContent).toContain('function isSurfaceParam')
+    expect(jsContent).not.toContain('function isOtherType')
+  })
+
+  it('combines --split and --schemas via CLI command', async () => {
+    const tempDir = await createTempDir()
+    const schemaFile = path.join(tempDir, 'spec.json')
+    const outDir = path.join(tempDir, 'split-filtered-guards')
+
+    const schemaDoc = {
+      $defs: {
+        SurfaceBlock: { type: 'object', properties: { id: { type: 'string' } } },
+        SurfaceParam: { type: 'object', properties: { key: { type: 'string' } } },
+        OtherType: { type: 'object', properties: { val: { type: 'number' } } },
+      },
+    }
+
+    await fs.writeFile(schemaFile, JSON.stringify(schemaDoc, null, 2), 'utf8')
+
+    await generate.run({
+      target: 'standalone-guards',
+      input: schemaFile,
+      'out-dir': outDir,
+      split: true,
+      schemas: 'SurfaceBlock',
+    })
+
+    const guardsDir = path.join(outDir, 'guards')
+    const guardFiles = await fs.readdir(guardsDir)
+    expect(guardFiles).toContain('SurfaceBlock.js')
+    expect(guardFiles).toContain('SurfaceBlock.d.ts')
+    expect(guardFiles).not.toContain('SurfaceParam.js')
+    expect(guardFiles).not.toContain('OtherType.js')
+
+    const indexJs = await fs.readFile(path.join(outDir, 'index.js'), 'utf8')
+    expect(indexJs).toContain("export * from './guards/SurfaceBlock.js';")
+    expect(indexJs).not.toContain('SurfaceParam')
+  })
+
   it('throws CliExitError when input file does not exist', async () => {
     const tempDir = await createTempDir()
     await expect(
