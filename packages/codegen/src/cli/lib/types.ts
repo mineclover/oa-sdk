@@ -9,10 +9,17 @@ export interface OptionDef extends OptionConfig {
   required?: boolean
 }
 
+/** 실행 컨텍스트 (루트 디렉토리 및 호출 cwd) */
+export interface CommandContext {
+  projectRoot: string
+  cwd: string
+}
+
 /** 커맨드 정의 */
 export interface Command {
   name: string
   description: string
   options: Record<string, OptionDef>
-  run(args: Record<string, CommandArgValue>): Promise<void>
+  run(args: Record<string, CommandArgValue>, context?: CommandContext): Promise<void>
 }
+

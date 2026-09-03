@@ -10,8 +10,8 @@ export type LoadedSpec = {
 }
 
 /** spec 파일을 읽어 파싱된 객체 반환. 실패는 호출자에게 전달합니다. */
-export function loadSpecWithPath(specPath: string): LoadedSpec {
-  const resolved = resolve(process.cwd(), specPath)
+export function loadSpecWithPath(specPath: string, rootDir?: string): LoadedSpec {
+  const resolved = resolve(rootDir ?? process.cwd(), specPath)
   try {
     const raw = readFileSync(resolved, 'utf8')
     const document = (specPath.endsWith('.json') ? JSON.parse(raw) : parseYaml(raw)) as OasDocument

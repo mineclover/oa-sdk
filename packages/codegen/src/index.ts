@@ -12,7 +12,29 @@
 
 export { zodToSchema } from './zod-to-schema.js'
 export { generateComponents } from './generator.js'
-export { defineConfig } from './config.js'
+export {
+  defineConfig,
+  validateOaConfig,
+  assertOaConfig,
+  isOaConfig,
+  OaConfigError,
+} from './config.js'
+export {
+  loadOaConfig,
+  resolveProfileTarget,
+  resolveGuardTarget,
+  CANDIDATE_CONFIG_FILES,
+} from './cli/lib/config-loader.js'
+export { findProjectRoot, type FindProjectRootOptions } from '@oa-sdk/core'
+export {
+  stableStringify,
+  computeSha256,
+  computeVersionHash,
+  stripSchemaEngineExtensions,
+  projectTargetSpec,
+  projectTargetGuards,
+} from './spec-projector.js'
+
 export { analyzeExternalSchemaRefs, generateTypes, generateTypesFromSpec } from './typegen/generate-types.js'
 export { createTypescriptAlgebra, schemaToTs } from './typegen/schema-to-ts.js'
 export { analyzeSchemaFidelity, projectSchemaToTs } from './typegen/schema-fidelity.js'
@@ -101,7 +123,20 @@ export type {
   PythonContractSpecSnapshotAdapterOptions,
   ZodSchemaSourceAdapterOptions,
 } from './cli/lib/source-adapters.js'
-export type { CodegenConfig } from './config.js'
+export type {
+  CodegenConfig,
+  OaConfig,
+  ProfileTargetConfig,
+  GuardTargetConfig,
+  ConfigValidationError,
+  ConfigValidationResult,
+} from './config.js'
+export type {
+  LoadedOaConfig,
+  LoadOaConfigOptions,
+  ResolvedProfileTarget,
+  ResolvedGuardTarget,
+} from './cli/lib/config-loader.js'
 export type { ExternalSchemaRefAnalysis, ExternalSchemaRefDiagnostic, ExternalSchemaRefDiagnosticCode, ExternalSchemaTypeAlias, TypegenOptions } from './typegen/generate-types.js'
 export type { SchemaToTsOptions } from './typegen/schema-to-ts.js'
 export type {

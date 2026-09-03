@@ -75,7 +75,19 @@ const undocumentedOaGenCommands = new Set([
   'generate',
   'typegen',
   'lint',
+  'audit:csp',
+  'drift:check',
 ])
+
+const universalGlobalOptions = new Set([
+  'root',
+  'project-root',
+])
+
+const allowedUndocumentedOptions = new Map<string, Set<string>>([
+  ['validate', new Set(['profile', 'config'])],
+])
+
 
 function main(): void {
   const issues: string[] = []
@@ -144,7 +156,7 @@ function compareTsCommandImplementation(
       if (implementationOption.type !== manifestOption.type) {
         issues.push(`oa-gen:${manifestCommand.name}: option ${optionName} type drift`)
       }
-      if (implementationOption.required !== manifestOption.required) {
+      if (Boolean(implementationOption.required) !== Boolean(manifestOption.required)) {
         issues.push(`oa-gen:${manifestCommand.name}: option ${optionName} required drift`)
       }
       if (implementationOption.multiple !== manifestOption.multiple) {
@@ -159,11 +171,25 @@ function compareTsCommandImplementation(
     }
 
     for (const optionName of implementationOptions.keys()) {
-      if (!manifestOptions.has(optionName)) {
-        issues.push(`oa-gen:${manifestCommand.name}: TS implementation has undocumented option ${optionName}`)
+      if (manifestOptions.has(optionName)) continue
+
+      if (universalGlobalOptions.has(optionName)) {
+        const globalOpt = implementationOptions.get(optionName)!
+        if (globalOpt.type !== 'string') {
+          issues.push(`oa-gen:${manifestCommand.name}: global option ${optionName} type must be string`)
+        }
+        if (globalOpt.required) {
+          issues.push(`oa-gen:${manifestCommand.name}: global option ${optionName} must not be required`)
+        }
+        continue
       }
+
+      if (allowedUndocumentedOptions.get(manifestCommand.name)?.has(optionName)) continue
+
+      issues.push(`oa-gen:${manifestCommand.name}: TS implementation has undocumented option ${optionName}`)
     }
   }
+
 
   for (const implementationName of commandByName.keys()) {
     if (manifestCommandNames.has(implementationName)) continue

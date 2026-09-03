@@ -20,3 +20,20 @@ export { pickDefaultStatus } from './response-utils.js'
 // HTTP 서버 유틸
 export { createHttpServer, writeJson, readRaw, readJsonBody } from './http.js'
 export type { HttpServerOptions, HttpServerHandle, HttpHandler, ErrorEnvelope, ApiError, ApiErrorDetail } from './http.js'
+
+// 프로젝트 루트 탐색 유틸
+export {
+  findProjectRoot,
+  findProjectRootDetail,
+  DEFAULT_CONFIG_FILES,
+  DEFAULT_WORKSPACE_FILES,
+  DEFAULT_VCS_DIRS,
+  DEFAULT_ENV_VAR_NAME,
+} from './root.js'
+export type {
+  FindProjectRootOptions,
+  ProjectRootMarkers,
+  ProjectRootDetail,
+  RootResolutionReason,
+} from './root.js'
+

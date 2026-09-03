@@ -27,10 +27,22 @@ export interface Endpoint {
   responseSchemaFingerprints: Record<string, string>
 }
 
+export interface ComponentSchemasDiff {
+  added: string[]
+  removed: string[]
+  modified: {
+    name: string
+    changes: string[]
+    breakingChanges: ContractDiffChange[]
+    nonBreakingChanges: ContractDiffChange[]
+  }[]
+}
+
 export interface DiffResult {
   added: Endpoint[]
   removed: Endpoint[]
   modified: { base: Endpoint; head: Endpoint; changes: string[] }[]
+  componentSchemas?: ComponentSchemasDiff
 }
 
 export type ChangeSeverity = 'breaking' | 'non-breaking'
@@ -77,6 +89,7 @@ export function extractEndpoints(spec: Record<string, unknown>): Map<string, End
 export function diffEndpoints(
   baseSpec: Record<string, unknown>,
   headSpec: Record<string, unknown>,
+  options?: { includeComponentSchemas?: boolean },
 ): DiffResult {
   const baseMap = extractEndpoints(baseSpec)
   const headMap = extractEndpoints(headSpec)
@@ -101,10 +114,282 @@ export function diffEndpoints(
     if (changes.length > 0) modified.push({ base: baseEndpoint, head: headEndpoint, changes })
   }
 
+  const shouldDiffSchemas = options?.includeComponentSchemas ?? (baseMap.size === 0 && headMap.size === 0)
+  const componentSchemas = shouldDiffSchemas ? diffComponentSchemas(baseSpec, headSpec) : undefined
+  const hasSchemaChanges = componentSchemas && (
+    componentSchemas.added.length > 0 ||
+    componentSchemas.removed.length > 0 ||
+    componentSchemas.modified.length > 0
+  )
+
   return {
     added: added.sort(compareEndpoints),
     removed: removed.sort(compareEndpoints),
     modified: modified.sort((left, right) => compareEndpoints(left.head, right.head)),
+    ...(hasSchemaChanges ? { componentSchemas } : {}),
+  }
+}
+
+export function diffComponentSchemas(
+  baseSpec: Record<string, unknown>,
+  headSpec: Record<string, unknown>,
+): ComponentSchemasDiff | undefined {
+  const baseSchemas = readRecord((baseSpec.components as Record<string, unknown> | undefined)?.schemas)
+  const headSchemas = readRecord((headSpec.components as Record<string, unknown> | undefined)?.schemas)
+
+  if (Object.keys(baseSchemas).length === 0 && Object.keys(headSchemas).length === 0) {
+    return undefined
+  }
+
+  const added: string[] = []
+  const removed: string[] = []
+  const modified: ComponentSchemasDiff['modified'] = []
+
+  for (const name of Object.keys(headSchemas)) {
+    if (!baseSchemas[name]) added.push(name)
+  }
+
+  for (const name of Object.keys(baseSchemas)) {
+    if (!headSchemas[name]) removed.push(name)
+  }
+
+  for (const [name, baseItem] of Object.entries(baseSchemas)) {
+    const headItem = headSchemas[name]
+    if (!headItem) continue
+
+    const baseSchema = readRecord(baseItem)
+    const headSchema = readRecord(headItem)
+    const endpoint = `#/components/schemas/${name}`
+
+    const changes: string[] = []
+    const breakingChanges: ContractDiffChange[] = []
+    const nonBreakingChanges: ContractDiffChange[] = []
+
+    // 1. Root schema type change
+    if (baseSchema.type !== undefined && headSchema.type !== undefined && baseSchema.type !== headSchema.type) {
+      changes.push(`type changed from ${formatValue(baseSchema.type as string)} to ${formatValue(headSchema.type as string)}`)
+      breakingChanges.push(
+        breaking(
+          'type-changed',
+          endpoint,
+          `Schema ${name} type changed from ${formatValue(baseSchema.type as string)} to ${formatValue(headSchema.type as string)}.`,
+        ),
+      )
+    }
+
+    // 2. Numeric and boundary constraints on root schema
+    if (typeof baseSchema.maximum === 'number' && typeof headSchema.maximum === 'number') {
+      if (headSchema.maximum < baseSchema.maximum) {
+        changes.push(`maximum narrowed from ${baseSchema.maximum} to ${headSchema.maximum}`)
+        breakingChanges.push(
+          breaking(
+            'constraint-narrowed',
+            endpoint,
+            `Schema ${name} maximum narrowed from ${baseSchema.maximum} to ${headSchema.maximum}.`,
+          ),
+        )
+      } else if (headSchema.maximum > baseSchema.maximum) {
+        changes.push(`maximum widened from ${baseSchema.maximum} to ${headSchema.maximum}`)
+        nonBreakingChanges.push(
+          nonBreaking(
+            'constraint-widened',
+            endpoint,
+            `Schema ${name} maximum widened from ${baseSchema.maximum} to ${headSchema.maximum}.`,
+          ),
+        )
+      }
+    }
+    if (typeof baseSchema.minimum === 'number' && typeof headSchema.minimum === 'number') {
+      if (headSchema.minimum > baseSchema.minimum) {
+        changes.push(`minimum narrowed from ${baseSchema.minimum} to ${headSchema.minimum}`)
+        breakingChanges.push(
+          breaking(
+            'constraint-narrowed',
+            endpoint,
+            `Schema ${name} minimum narrowed from ${baseSchema.minimum} to ${headSchema.minimum}.`,
+          ),
+        )
+      } else if (headSchema.minimum < baseSchema.minimum) {
+        changes.push(`minimum widened from ${baseSchema.minimum} to ${headSchema.minimum}`)
+        nonBreakingChanges.push(
+          nonBreaking(
+            'constraint-widened',
+            endpoint,
+            `Schema ${name} minimum widened from ${baseSchema.minimum} to ${headSchema.minimum}.`,
+          ),
+        )
+      }
+    }
+
+    // 3. Required fields on object schema
+    const baseRequired = Array.isArray(baseSchema.required) ? (baseSchema.required as string[]) : []
+    const headRequired = Array.isArray(headSchema.required) ? (headSchema.required as string[]) : []
+
+    for (const field of headRequired) {
+      if (!baseRequired.includes(field)) {
+        changes.push(`required field ${field} was added`)
+        breakingChanges.push(
+          breaking(
+            'required-field-added',
+            endpoint,
+            `Schema ${name} required field ${field} was added.`,
+          ),
+        )
+      }
+    }
+
+    for (const field of baseRequired) {
+      if (!headRequired.includes(field)) {
+        changes.push(`field ${field} became optional`)
+        nonBreakingChanges.push(
+          nonBreaking(
+            'field-optional',
+            endpoint,
+            `Schema ${name} field ${field} became optional.`,
+          ),
+        )
+      }
+    }
+
+    // 4. Object properties comparison
+    const baseProps = readRecord(baseSchema.properties)
+    const headProps = readRecord(headSchema.properties)
+
+    for (const propName of Object.keys(baseProps)) {
+      if (!headProps[propName]) {
+        changes.push(`property ${propName} was removed`)
+        breakingChanges.push(
+          breaking(
+            'property-removed',
+            `${endpoint}/properties/${propName}`,
+            `Property ${propName} was removed from schema ${name}.`,
+          ),
+        )
+      }
+    }
+
+    for (const propName of Object.keys(headProps)) {
+      if (!baseProps[propName]) {
+        changes.push(`property ${propName} was added`)
+        if (headRequired.includes(propName)) {
+          // already covered by required-field-added
+        } else {
+          nonBreakingChanges.push(
+            nonBreaking(
+              'property-added',
+              `${endpoint}/properties/${propName}`,
+              `Optional property ${propName} was added to schema ${name}.`,
+            ),
+          )
+        }
+      }
+    }
+
+    for (const [propName, basePropVal] of Object.entries(baseProps)) {
+      const headPropVal = headProps[propName]
+      if (!headPropVal) continue
+
+      const baseProp = readRecord(basePropVal)
+      const headProp = readRecord(headPropVal)
+      const propEndpoint = `${endpoint}/properties/${propName}`
+
+      // Property type changed
+      if (baseProp.type !== undefined && headProp.type !== undefined && baseProp.type !== headProp.type) {
+        changes.push(`property ${propName} type changed from ${formatValue(baseProp.type as string)} to ${formatValue(headProp.type as string)}`)
+        breakingChanges.push(
+          breaking(
+            'type-changed',
+            propEndpoint,
+            `Property ${propName} type changed from ${formatValue(baseProp.type as string)} to ${formatValue(headProp.type as string)}.`,
+          ),
+        )
+      }
+
+      // Nullable removed
+      if (baseProp.nullable === true && (headProp.nullable === false || headProp.nullable === undefined)) {
+        changes.push(`property ${propName} nullable removed`)
+        breakingChanges.push(
+          breaking(
+            'nullable-removed',
+            propEndpoint,
+            `Property ${propName} nullable was removed.`,
+          ),
+        )
+      }
+
+      // Property constraints narrowed
+      if (typeof baseProp.maximum === 'number' && typeof headProp.maximum === 'number') {
+        if (headProp.maximum < baseProp.maximum) {
+          changes.push(`property ${propName} maximum narrowed from ${baseProp.maximum} to ${headProp.maximum}`)
+          breakingChanges.push(
+            breaking(
+              'constraint-narrowed',
+              propEndpoint,
+              `Property ${propName} maximum narrowed from ${baseProp.maximum} to ${headProp.maximum}.`,
+            ),
+          )
+        } else if (headProp.maximum > baseProp.maximum) {
+          nonBreakingChanges.push(
+            nonBreaking(
+              'constraint-widened',
+              propEndpoint,
+              `Property ${propName} maximum widened from ${baseProp.maximum} to ${headProp.maximum}.`,
+            ),
+          )
+        }
+      }
+      if (typeof baseProp.minimum === 'number' && typeof headProp.minimum === 'number') {
+        if (headProp.minimum > baseProp.minimum) {
+          changes.push(`property ${propName} minimum narrowed from ${baseProp.minimum} to ${headProp.minimum}`)
+          breakingChanges.push(
+            breaking(
+              'constraint-narrowed',
+              propEndpoint,
+              `Property ${propName} minimum narrowed from ${baseProp.minimum} to ${headProp.minimum}.`,
+            ),
+          )
+        } else if (headProp.minimum < baseProp.minimum) {
+          nonBreakingChanges.push(
+            nonBreaking(
+              'constraint-widened',
+              propEndpoint,
+              `Property ${propName} minimum widened from ${baseProp.minimum} to ${headProp.minimum}.`,
+            ),
+          )
+        }
+      }
+
+      // Schema fingerprint deep diff
+      const baseFp = schemaFingerprint(baseProp, baseSpec)
+      const headFp = schemaFingerprint(headProp, headSpec)
+      if (baseFp && headFp && baseFp !== headFp) {
+        if (breakingChanges.every(c => c.endpoint !== propEndpoint)) {
+          changes.push(`property ${propName} schema changed`)
+          breakingChanges.push(
+            breaking(
+              'property-schema-changed',
+              propEndpoint,
+              `Property ${propName} schema changed.`,
+            ),
+          )
+        }
+      }
+    }
+
+    if (changes.length > 0 || breakingChanges.length > 0 || nonBreakingChanges.length > 0) {
+      modified.push({
+        name,
+        changes,
+        breakingChanges,
+        nonBreakingChanges,
+      })
+    }
+  }
+
+  return {
+    added: added.sort(),
+    removed: removed.sort(),
+    modified: modified.sort((a, b) => a.name.localeCompare(b.name)),
   }
 }
 
@@ -186,6 +471,16 @@ export function classifyBreakingChanges(diff: DiffResult): ContractDiffChange[] 
     }
   }
 
+  // Component schemas breaking changes
+  if (diff.componentSchemas) {
+    for (const removedSchema of diff.componentSchemas.removed) {
+      changes.push(breaking('schema-removed', `#/components/schemas/${removedSchema}`, `Schema ${removedSchema} was removed.`))
+    }
+    for (const mod of diff.componentSchemas.modified) {
+      changes.push(...mod.breakingChanges)
+    }
+  }
+
   return changes
 }
 
@@ -215,6 +510,16 @@ export function classifyNonBreakingChanges(diff: DiffResult): ContractDiffChange
     }
   }
 
+  // Component schemas non-breaking changes
+  if (diff.componentSchemas) {
+    for (const addedSchema of diff.componentSchemas.added) {
+      changes.push(nonBreaking('schema-added', `#/components/schemas/${addedSchema}`, `Schema ${addedSchema} was added.`))
+    }
+    for (const mod of diff.componentSchemas.modified) {
+      changes.push(...mod.nonBreakingChanges)
+    }
+  }
+
   return changes
 }
 
@@ -224,16 +529,23 @@ export function hasBreakingChanges(diff: DiffResult): boolean {
 
 export function formatMarkdown(diff: DiffResult): string {
   const breaking = classifyBreakingChanges(diff)
+  const cs = diff.componentSchemas
+  const hasEndpointChanges = diff.added.length > 0 || diff.removed.length > 0 || diff.modified.length > 0
+  const hasSchemaChanges = cs && (cs.added.length > 0 || cs.removed.length > 0 || cs.modified.length > 0)
 
-  if (diff.added.length === 0 && diff.removed.length === 0 && diff.modified.length === 0) {
-    return '### API Spec Diff\n\nNo endpoint changes detected.'
+  if (!hasEndpointChanges && !hasSchemaChanges) {
+    return '### API Spec Diff\n\nNo endpoint or schema changes detected.'
   }
 
   const lines: string[] = ['### API Spec Diff\n']
+  const totalAdded = diff.added.length + (cs?.added.length ?? 0)
+  const totalRemoved = diff.removed.length + (cs?.removed.length ?? 0)
+  const totalModified = diff.modified.length + (cs?.modified.length ?? 0)
+
   const summary = [
-    diff.added.length && `**+${diff.added.length}** added`,
-    diff.removed.length && `**-${diff.removed.length}** removed`,
-    diff.modified.length && `**~${diff.modified.length}** modified`,
+    totalAdded && `**+${totalAdded}** added`,
+    totalRemoved && `**-${totalRemoved}** removed`,
+    totalModified && `**~${totalModified}** modified`,
     breaking.length && `**!${breaking.length}** breaking`,
   ].filter(Boolean)
   lines.push(summary.join(' / ') + '\n')
@@ -246,27 +558,43 @@ export function formatMarkdown(diff: DiffResult): string {
     lines.push('')
   }
 
-  if (diff.added.length) {
+  if (diff.added.length || (cs && cs.added.length)) {
     lines.push('#### Added')
     for (const endpoint of diff.added) {
       lines.push(`- \`${endpointLabel(endpoint)}\` - ${endpoint.summary ?? endpoint.operationId ?? ''}`)
     }
-    lines.push('')
-  }
-
-  if (diff.removed.length) {
-    lines.push('#### Removed')
-    for (const endpoint of diff.removed) {
-      lines.push(`- \`${endpointLabel(endpoint)}\` - ${endpoint.summary ?? endpoint.operationId ?? ''}`)
+    if (cs) {
+      for (const name of cs.added) {
+        lines.push(`- \`#/components/schemas/${name}\` - Component schema added`)
+      }
     }
     lines.push('')
   }
 
-  if (diff.modified.length) {
+  if (diff.removed.length || (cs && cs.removed.length)) {
+    lines.push('#### Removed')
+    for (const endpoint of diff.removed) {
+      lines.push(`- \`${endpointLabel(endpoint)}\` - ${endpoint.summary ?? endpoint.operationId ?? ''}`)
+    }
+    if (cs) {
+      for (const name of cs.removed) {
+        lines.push(`- \`#/components/schemas/${name}\` - Component schema removed`)
+      }
+    }
+    lines.push('')
+  }
+
+  if (diff.modified.length || (cs && cs.modified.length)) {
     lines.push('#### Modified')
     for (const { head, changes } of diff.modified) {
       lines.push(`- \`${endpointLabel(head)}\``)
       for (const change of changes) lines.push(`  - ${change}`)
+    }
+    if (cs) {
+      for (const { name, changes } of cs.modified) {
+        lines.push(`- \`#/components/schemas/${name}\``)
+        for (const change of changes) lines.push(`  - ${change}`)
+      }
     }
     lines.push('')
   }
@@ -286,6 +614,17 @@ function endpointChangeLines(base: Endpoint, head: Endpoint): string[] {
     const removedParams = base.parameters.filter(parameter => !head.parameters.includes(parameter))
     if (addedParams.length) changes.push(`params added: ${addedParams.join(', ')}`)
     if (removedParams.length) changes.push(`params removed: ${removedParams.join(', ')}`)
+  }
+  const baseParamMap = parameterMap(base)
+  const headParamMap = parameterMap(head)
+  for (const [key, parameter] of headParamMap) {
+    const previous = baseParamMap.get(key)
+    if (previous && !previous.required && parameter.required) {
+      changes.push(`param ${key} became required`)
+    }
+    if (previous?.schemaFingerprint && parameter.schemaFingerprint && previous.schemaFingerprint !== parameter.schemaFingerprint) {
+      changes.push(`param ${key} schema changed`)
+    }
   }
   if (base.requestBodyRequired !== head.requestBodyRequired) {
     changes.push(`requestBody required: ${base.requestBodyRequired} -> ${head.requestBodyRequired}`)

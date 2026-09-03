@@ -95,8 +95,13 @@ export const oaGenGovernanceManifest = {
             name: 'spec',
             type: 'string',
             short: 's',
-            required: true,
             description: 'OAS spec 파일 경로',
+          },
+          {
+            name: 'config',
+            type: 'string',
+            short: 'c',
+            description: '설정 파일 경로',
           },
           {
             name: 'require-32',
@@ -115,7 +120,7 @@ export const oaGenGovernanceManifest = {
           },
         ],
         inputs: [
-          { name: 'spec', kind: 'openapi-document', required: true, option: 'spec' },
+          { name: 'spec', kind: 'openapi-document', required: false, option: 'spec' },
         ],
         checks: ['head-validation'],
         reports: [
@@ -826,14 +831,23 @@ export const oaGenGovernanceManifest = {
           {
             name: 'head',
             type: 'string',
-            required: true,
             description: 'head OpenAPI YAML/JSON 경로',
+          },
+          {
+            name: 'schema',
+            type: 'string',
+            description: '소스 스키마 (Zod entry) 또는 OpenAPI spec 경로 (alias for --head)',
           },
           {
             name: 'artifact',
             type: 'string',
-            required: true,
             description: 'head와 비교할 generated OpenAPI artifact 경로',
+          },
+          {
+            name: 'config',
+            type: 'string',
+            short: 'c',
+            description: '설정 파일 경로 (oa.config.ts)',
           },
           {
             name: 'format',
@@ -853,8 +867,8 @@ export const oaGenGovernanceManifest = {
           },
         ],
         inputs: [
-          { name: 'head', kind: 'openapi-document', required: true, option: 'head' },
-          { name: 'artifact', kind: 'openapi-artifact', required: true, option: 'artifact' },
+          { name: 'head', kind: 'openapi-document', required: false, option: 'head' },
+          { name: 'artifact', kind: 'openapi-artifact', required: false, option: 'artifact' },
         ],
         checks: ['artifact-freshness'],
         reports: [

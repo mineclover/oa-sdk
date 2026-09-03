@@ -14,8 +14,54 @@ const commandMap = new Map(commands.map(c => [c.name, c]))
 // ── 디스패치 ────────────────────────────────────────────────
 
 async function main(): Promise<void> {
-  const args = process.argv.slice(2)
-  const commandName = args[0]
+  const rawArgs = process.argv.slice(2)
+
+  if (rawArgs.length === 0 || rawArgs[0] === '--help' || rawArgs[0] === '-h') {
+    console.log(generateHelp(commands))
+    return
+  }
+
+  // Pre-parse global options if passed before subcommand
+  // e.g. `oa-gen --root /repo generate` or `oa-gen --project-root=/repo validate`
+  let commandIndex = -1
+  const leadingGlobalArgs: string[] = []
+  for (let i = 0; i < rawArgs.length; i++) {
+    const arg = rawArgs[i]
+    if (!arg) break
+    if (arg === '--root' || arg === '--project-root') {
+      leadingGlobalArgs.push(arg)
+      const nextArg = rawArgs[i + 1]
+      if (nextArg && !nextArg.startsWith('-')) {
+        leadingGlobalArgs.push(nextArg)
+        i++
+      }
+    } else if (arg.startsWith('--root=') || arg.startsWith('--project-root=')) {
+      leadingGlobalArgs.push(arg)
+    } else if (!arg.startsWith('-')) {
+      commandIndex = i
+      break
+    } else {
+      break
+    }
+  }
+
+  // If no subcommand was found in arguments
+  if (commandIndex === -1) {
+    if (rawArgs.includes('--help') || rawArgs.includes('-h')) {
+      console.log(generateHelp(commands))
+      return
+    }
+    const fallbackName = rawArgs[0] ?? ''
+    const fallbackCmd = fallbackName ? commandMap.get(fallbackName) : undefined
+    if (!fallbackCmd) {
+      console.error(`알 수 없는 커맨드: ${fallbackName}`)
+      console.error('oa-gen --help 로 도움말을 확인하세요')
+      process.exitCode = 1
+      return
+    }
+  }
+
+  const commandName = (commandIndex !== -1 ? rawArgs[commandIndex] : rawArgs[0]) ?? ''
 
   if (!commandName || commandName === '--help' || commandName === '-h') {
     console.log(generateHelp(commands))
@@ -30,7 +76,13 @@ async function main(): Promise<void> {
     return
   }
 
-  await runCommand(cmd, args.slice(1))
+
+  const commandArgs = [
+    ...rawArgs.slice(commandIndex + 1),
+    ...leadingGlobalArgs,
+  ]
+
+  await runCommand(cmd, commandArgs)
 }
 
 try {

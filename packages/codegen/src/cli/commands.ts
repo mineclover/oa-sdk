@@ -6,7 +6,7 @@ import { validate } from './commands/validate.js'
 import { buildSpecCommand } from './commands/build-spec.js'
 import { review } from './commands/review.js'
 import { diff } from './commands/diff.js'
-import { checkArtifact } from './commands/check-artifact.js'
+import { checkArtifact, driftCheck } from './commands/check-artifact.js'
 import { drift } from './commands/drift.js'
 import { inventory } from './commands/inventory.js'
 import { normalize } from './commands/normalize.js'
@@ -44,6 +44,7 @@ export const commands: Command[] = [
   targetCheck,
   diff,
   checkArtifact,
+  driftCheck,
   drift,
   review,
   reviewBundle,

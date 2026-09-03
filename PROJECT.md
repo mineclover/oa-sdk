@@ -1,59 +1,126 @@
-# Project: OA-SDK & Browser-Studio CLI Expansions & Conventions
+# Project: oa-sdk Root Discovery, Declarative Config, Drift Governance & Browser Studio Integration
 
 ## Architecture
-This project implements high-priority CLI feature expansions in `@oa-sdk/codegen` and updates normative schema authoring conventions across `@oa-sdk` and `@browser-studio`.
-
-### Core Subsystems
-1. **Standalone Guards Generation Engine (`packages/codegen/src/standalone-guards/`)**:
-   - Compiles OpenAPI 3.1 / JSON Schema 2020-12 definitions to standalone ESM JavaScript validators and TypeScript declaration files with 0 `eval()`, 0 `new Function()`, and 0 runtime dependencies.
-   - Built-in zero-dependency format registry (`STANDALONE_FORMATS`) for RFC 3339 date/time/date-time, RFC 3986 URI, email, UUID, IPv4, IPv6, duration, byte, int32, int64, json-pointer, and inlined `__ucs2length` and `__equal` helpers.
-   - Provides `--split` modular generation (`guards/<TypeName>.js`, `guards/<TypeName>.d.ts`, root barrel `index.js`/`index.d.ts`, and root `package.json` with `"type": "module"`).
-   - Provides `--schemas <list>` selective filtering matching type names or guard function names.
-
-2. **CLI Governance & Lint/Validation Engine (`packages/codegen/src/cli/`)**:
-   - `oa-codegen lint --categories <list>`: Category-targeted rule execution (`structure`, `operations`, `parameters`, `refs`, `security`, `style`, `components`, `surface`).
-   - `oa-codegen validate --profile <profile>`: Profile-aware projection validation (`component-bundle`, `operation-contract`, `full-api-document`) via `@oa-sdk/openapi-projection-contract`.
-
-3. **Manifest V3 CSP Audit Scanner (`packages/codegen/src/cli/commands/audit-csp.ts`)**:
-   - `oa-codegen audit:csp --bundle <dir>`: TypeScript AST scanning for unsafe dynamic execution (`eval`, `new Function`, string `setTimeout`/`setInterval`) and disallowed heavy runtime dependencies (`ajv`, `zod`, `@oa-sdk`) in extension bundles, exiting with code 1 on violations.
-
-4. **Schema Authoring Conventions (`browser-studio/docs/guides/schema-architecture-and-conventions.md`)**:
-   - Normative specifications for RFC 9457 `ProblemDetailsSchema`, strict numeric bounds (`exclusiveMinimum: 0` vs `minimum: 0`), self-referencing recursive schema registry (`z.lazy`), `x-surface-*` scope rules (`targetProperty`), and V3 Unified Architecture JSDoc annotation tags.
+- **Monorepo Topology**:
+  - `packages/core`: Base utilities with zero dependencies. Exports Node module (`dist/index.js`) and browser module (`dist/browser.js`). Hosts `findProjectRoot()`.
+  - `packages/codegen`: Code generator, AST transformers, and CLI engine `oa-gen` (using `node:util parseArgs`). Hosts `defineConfig`, config loader, global `--root`/`--project-root` option handling, `generate`, `validate`, `diff`, `check-artifact`, `drift:check`, and `audit:csp`.
+  - `packages/openapi-projection-contract`: Profile definitions (`component-bundle`, `operation-contract`, `full-api-document`) and standard extensions (`x-schema-engine-version-hash`, `x-schema-engine-profile`, `x-schema-engine-sources`, `x-schema-engine-refs`).
+  - Downstream consumer: `browser-studio` (`/Users/junwoobang/workflow/browser-studio`), linking `@oa-sdk/codegen`, `@oa-sdk/openapi-projection-contract`, and `@oa-sdk/parser`. Contains 5 domain profiles, 29 standalone guards, nested submodule `packages/browser-mapper`.
+- **Data Flow & Precedence**:
+  1. `findProjectRoot(cwd, explicitRoot)` resolves repository base by checking:
+     (1) Explicit CLI flag `--root` / `--project-root`
+     (2) Env `OA_PROJECT_ROOT`
+     (3) Config file: `oa.config.ts`, `oa.config.mjs`, `oa.config.json`, `.oarc.json`
+     (4) Workspace marker: `pnpm-workspace.yaml`, `turbo.json`, `lerna.json`, `package.json` with `workspaces`
+     (5) VCS marker: `.git`
+     (6) Fallback: `process.cwd()`
+     *Submodule Invariant*: Rule 3 (`oa.config.ts`) takes precedence across ancestor traversal before stopping at nested submodule workspace/git markers.
+  2. CLI commands receive resolved `projectRoot` and resolve all inputs/outputs relative to it.
+  3. `defineConfig` provides typed configuration for `rootDir`, `specs` (domain profile targets), and `guards` (standalone type guards).
+  4. Config loader imports `oa.config.ts` via native ESM dynamic import with defensive fallback.
+  5. Multi-target generation and validation iterates over configured specs and guards.
+  6. Drift detection projects Zod schemas in-memory, computes canonical `x-schema-engine-version-hash` via `stableStringify` + SHA-256, compares with committed artifact, and exits 1 on divergence.
 
 ## Feature Inventory
 | # | Feature | Description | Milestone | Source |
-|---|---|---|---|---|
-| 1 | Standalone Guards `--split` Option | Outputs individual modular files per schema (`guards/<TypeName>.js` and `.d.ts`) plus unified root `index.js` / `index.d.ts` barrel. | M1 | R1, ORIGINAL_REQUEST §R1 |
-| 2 | Standalone Guards `--schemas` Filtering | Filters guard generation to only requested schema type names or guard function names (e.g. `isSurfaceBlock,isSurfaceParam`). | M1 | R1, ORIGINAL_REQUEST §R1 |
-| 3 | Split Guards $ref Inlining & Zero Dependencies | Ensures split guard modules inline all referenced schemas and format validators, maintaining 0 eval, 0 new Function, and 0 runtime dependencies. | M1 | R1, ORIGINAL_REQUEST §R1 |
-| 4 | CLI Lint `--categories` Flag | Executes only specified lint rule categories (e.g. `surface,structure,operations`) via `@oa-sdk/parser`. | M2 | R2, ORIGINAL_REQUEST §R2 |
-| 5 | CLI Validate `--profile` Flag | Enforces profile-specific projection invariants via `@oa-sdk/openapi-projection-contract` (`component-bundle`, `operation-contract`, `full-api-document`). | M2 | R2, ORIGINAL_REQUEST §R2 |
-| 6 | Operation-Contract Validation Rule | Rejects OpenAPI specs with empty/missing operations under `paths` when `--profile operation-contract` is specified. | M2 | R2, ORIGINAL_REQUEST §R2 |
-| 7 | Manifest V3 CSP Audit Command | Implements `oa-codegen audit:csp --bundle <dir>` scanning bundled JS files for CSP violations and disallowed runtime imports. | M3 | R3, ORIGINAL_REQUEST §R3 |
-| 8 | CSP Unsafe Code & Engine Import Detection | AST detection of `eval(`, `new Function(`, string `setTimeout`/`setInterval`, and imports of `ajv`, `zod`, `@oa-sdk`. | M3 | R3, ORIGINAL_REQUEST §R3 |
-| 9 | CSP Audit CLI Diagnostics & Exit Code | Emits structured diagnostics and exits with code 1 upon violation, or code 0 when clean. | M3 | R3, ORIGINAL_REQUEST §R3 |
-| 10 | RFC 9457 Problem Details Specification | Documentation and runnable examples for RFC 9457 `ProblemDetailsSchema` and 422/409/500 operation responses. | M4 | R4, ORIGINAL_REQUEST §R4 |
-| 11 | Strict Numeric Bounds Specification | Documentation of numeric `exclusiveMinimum: 0` vs `minimum: 0` in Draft 2020-12 / OAS 3.1 and Zod drafting patterns. | M4 | R4, ORIGINAL_REQUEST §R4 |
-| 12 | Recursive Schemas with `z.lazy` Specification | Documentation for self-referential schema registry and cyclic `$ref` projection without infinite recursion. | M4 | R4, ORIGINAL_REQUEST §R4 |
-| 13 | `x-surface-*` Scope Rules Specification | Documentation of object-level `targetProperty` vs inline property-level metadata. | M4 | R4, ORIGINAL_REQUEST §R4 |
-| 14 | V3 Unified Architecture JSDoc Tag Specifications | Documentation of `@minimum`, `@format`, `@discriminator`, and constraint annotations in AST bidirectional sync. | M4 | R4, ORIGINAL_REQUEST §R4 |
-| 15 | Monorepo Integrity & E2E Verification | 100% pass across full E2E test suites (Tiers 1-4) and adversarial hardening (Tier 5), `pnpm test`, and `pnpm -r typecheck`. | Final Milestone | ORIGINAL_REQUEST Acceptance Criteria |
+|---|---------|-------------|-----------|--------|
+| 1 | `findProjectRoot` utility | Upward traversal project root discovery adhering to 6-tier precedence in `@oa-sdk/core` | M1 | survey |
+| 2 | Global `--root` / `--project-root` CLI flags | Uniform option parsing across all 24 `oa-gen` commands in `packages/codegen/src/cli/lib/run.ts` | M1 | survey |
+| 3 | Core Root Re-export | `@oa-sdk/codegen` re-exports `findProjectRoot` and passes resolved root context | M1 | survey |
+| 4 | CLI Spec Check Alignment | Updates to `scripts/check-cli-spec.ts` to recognize global root options without CI breakage | M1 | survey |
+| 5 | Declarative `defineConfig` schema | Extended `defineConfig` supporting `rootDir`, `specs` (id, profile, schemaEntry, outDir, title, version), `guards` (outDir, split, moduleFormat, auditCsp), and legacy `schemas` | M2 | survey |
+| 6 | Asynchronous Config Loader | Loads `oa.config.ts`, `oa.config.mjs`, `oa.config.json`, `.oarc.json` via dynamic ESM import / JSON parser | M2 | survey |
+| 7 | Config-Driven `oa-gen generate` | Running with no args auto-loads config and generates all configured profile specs and standalone guards | M2 | survey |
+| 8 | Config-Driven `oa-gen validate` | Running with no args auto-loads config and validates all configured spec targets | M2 | survey |
+| 9 | Deterministic Schema Hashing | Bit-for-bit reproducible `x-schema-engine-version-hash` via `stableStringify` of core OpenAPI doc + SHA-256 | M3 | survey |
+| 10 | Spec Freshness Check (`drift:check` / `check-artifact`) | Compares source Zod AST projection against committed artifact, exiting non-zero on drift | M3 | survey |
+| 11 | Semantic Breaking Diff (`diff --fail-on-breaking`) | Enforces 11 breaking change rules with root path resolution and exit code 1 | M3 | survey |
+| 12 | Browser Studio `oa.config.ts` | Complete root configuration for `browser-studio` covering 5 profiles and 29 guards | M4 | survey |
+| 13 | Deep Subdirectory Execution Conformance | Verification that `oa-gen validate`, `generate`, `audit:csp` execute from nested directories without relative path errors | M4 | survey |
+| 14 | 5 Domain Profiles Generation & Validation | Build and validate `devlink-contracts`, `devlink-mcp`, `surface-engine`, `visual-ir`, `inspector-controls` | M4 | survey |
+| 15 | 29 Standalone Guards & CSP Audit | Build 29 standalone guards and confirm 0 CSP violations via `oa-gen audit:csp` | M4 | survey |
+| 16 | E2E Conformance & Adversarial Hardening | Pass 100% E2E test suite (Tiers 1-4), 609+ browser-studio tests, monorepo typecheck, and Tier 5 adversarial tests | M5 | survey |
 
 ## Milestones
 | # | Name | Scope | Dependencies | Status |
-|---|---|---|---|---|
-| E2E | E2E Testing Track | Design & write comprehensive test suites (Tiers 1-4) across R1, R2, R3, R4 -> publish TEST_READY.md | none | DONE |
-| M1 | Standalone Guards Splitting & Filtering | Implement `--split`, `--schemas`, and zero-dependency inlined formats in `packages/codegen` (Features 1, 2, 3) | none | DONE |
-| M2 | CLI Lint Categories & Profile Validation | Implement `--categories` in `lint` and `--profile` in `validate` in `packages/codegen` (Features 4, 5, 6) | none | DONE |
-| M3 | Manifest V3 CSP Audit Command | Implement `audit:csp` CLI command and AST scanner in `packages/codegen` (Features 7, 8, 9) | none | DONE |
-| M4 | Authoring Conventions Documentation | Update `browser-studio/docs/guides/schema-architecture-and-conventions.md` with complete specifications and code examples (Features 10-14) | none | DONE |
-| Remediation | Victory Audit Remediation | Zero-dependency format regex inlining, helper inlining, package.json module declaration, and clean monorepo pnpm test | M1, M3 | DONE |
-| Final | Full E2E Pass & Adversarial Hardening | Verify 100% passing E2E tests across all tiers, adversarial coverage audit, `pnpm test`, `pnpm -r typecheck` | all | DONE |
+|---|------|-------|-------------|--------|
+| M1 | Root Discovery & CLI Flag Conformance | `@oa-sdk/core` `findProjectRoot`, `@oa-sdk/codegen` global `--root`/`--project-root`, CLI spec alignment | none | DONE (Verified: 100 core tests, 12 codegen tests, 21 packages typecheck, 0 audit violations) |
+| M2 | Declarative Config & Pipeline Dispatch | `defineConfig` schema, asynchronous config loader, no-arg multi-target `generate` & `validate`, governance reconciliation | M1 | DONE (Verified: 52 codegen M2 tests, 15 cli.test.ts, 46 challenger tests, 21 packages typecheck, 0 audit violations) |
+| M3 | Deterministic Hashing & Spec Drift Governance | Canonical SHA-256 `x-schema-engine-version-hash`, `check-artifact` / `drift:check` with `oa.config.ts`, breaking diff | M1, M2 | PLANNED |
+| M4 | Browser Studio Integration & Subdirectory Conformance | `browser-studio/oa.config.ts`, 5 profiles & 29 guards pipeline, deep subdirectory execution, CSP audit | M1, M2, M3 | PLANNED |
+| M5 | Final Milestone: E2E Suite Pass & Adversarial Hardening | Pass 100% E2E tests (Tiers 1-4), browser-studio 609+ tests, `@oa-sdk` typecheck, Tier 5 adversarial hardening | M1, M2, M3, M4 | PLANNED |
+
+## Interface Contracts
+
+### `@oa-sdk/core` ↔ `@oa-sdk/codegen`
+```typescript
+// packages/core/src/root.ts
+export interface FindProjectRootOptions {
+  cwd?: string
+  explicitRoot?: string
+  envVarName?: string // Defaults to 'OA_PROJECT_ROOT'
+  markers?: {
+    configFiles?: string[] // ['oa.config.ts', 'oa.config.mjs', 'oa.config.json', '.oarc.json']
+    workspaceFiles?: string[] // ['pnpm-workspace.yaml', 'turbo.json', 'lerna.json', 'package.json']
+    vcsDirs?: string[] // ['.git']
+  }
+}
+
+export function findProjectRoot(options?: FindProjectRootOptions | string): string
+export function findProjectRootDetail(options?: FindProjectRootOptions | string): ProjectRootDetail
+```
+
+### `defineConfig` Contract (`packages/codegen/src/config.ts`)
+```typescript
+export interface ProfileTargetConfig {
+  id: string
+  profile: 'component-bundle' | 'operation-contract' | 'full-api-document'
+  schemaEntry: string
+  outDir: string
+  title?: string
+  version?: string
+}
+
+export interface GuardTargetConfig {
+  outDir: string
+  split?: boolean
+  moduleFormat?: 'esm' | 'cjs'
+  auditCsp?: boolean
+}
+
+export interface OaConfig {
+  rootDir?: string
+  specs?: ProfileTargetConfig[]
+  guards?: GuardTargetConfig
+  // Legacy compatibility
+  schemas?: Record<string, any>
+}
+
+export function defineConfig(config: OaConfig): OaConfig
+```
+
+### CLI Global Options Context (`packages/codegen/src/cli/lib/run.ts`)
+```typescript
+export interface GlobalCliOptions {
+  root?: string
+  'project-root'?: string
+}
+
+export interface CommandContext {
+  projectRoot: string
+  cwd: string
+}
+```
 
 ## Code Layout
-- Exclusive Write Ownership:
-  - M1 Worker: `packages/codegen/src/standalone-guards/`, `packages/codegen/src/cli/commands/generate.ts`, `packages/codegen/test/standalone-guards/`
-  - M2 Worker: `packages/codegen/src/cli/commands/lint.ts`, `packages/codegen/src/cli/commands/validate.ts`, `packages/codegen/test/cli/`
-  - M3 Worker: `packages/codegen/src/cli/commands/audit-csp.ts`, `packages/codegen/src/cli/commands.ts`, `packages/codegen/test/audit-csp/`
-  - M4 Worker: `/Users/junwoobang/workflow/browser-studio/docs/guides/schema-architecture-and-conventions.md` (and mirrored documentation)
-  - E2E Test Writer: `packages/codegen/test/e2e/`
+- `packages/core/src/root.ts`: Root discovery implementation.
+- `packages/core/src/index.ts`: Re-export `findProjectRoot` and `FindProjectRootOptions`.
+- `packages/core/src/__tests__/root.test.ts`: Root discovery unit tests.
+- `packages/codegen/src/config.ts`: `defineConfig`, schemas, assertions (`assertOaConfig`), and types.
+- `packages/codegen/src/cli/lib/config-loader.ts`: Config loading utility (`loadOaConfig`).
+- `packages/codegen/src/spec-projector.ts`: Dual OpenAPI 3.1 & Draft 2020-12 spec and guard projection.
+- `packages/codegen/src/cli/commands/generate.ts`: Multi-target profile and guard generation.
+- `packages/codegen/src/cli/commands/validate.ts`: Multi-target profile validation with `--config` support.
+- `packages/codegen/src/cli/commands/check-artifact.ts` / `drift.ts`: Config-driven spec freshness verification.
+- `packages/codegen/src/cli/commands/diff.ts`: Root-aware path resolution for base/head specs.
+- `/Users/junwoobang/workflow/browser-studio/oa.config.ts`: Browser studio declarative governance config.

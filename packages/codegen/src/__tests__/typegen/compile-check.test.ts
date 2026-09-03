@@ -113,6 +113,8 @@ const response: ListUsersResponse = [user]
         module: 'ESNext',
         moduleResolution: 'bundler',
         target: 'ES2022',
+        skipLibCheck: true,
+        types: [],
       },
       include: ['generated.ts'],
     }), 'utf8')
@@ -168,6 +170,8 @@ const response: ListUsersResponse = [user]
         module: 'ESNext',
         moduleResolution: 'bundler',
         target: 'ES2022',
+        skipLibCheck: true,
+        types: [],
       },
       include: ['generated.ts'],
     }), 'utf8')
@@ -205,6 +209,8 @@ const response: ListUsersResponse = [user]
         module: 'ESNext',
         moduleResolution: 'bundler',
         target: 'ES2022',
+        skipLibCheck: true,
+        types: [],
       },
       include: ['generated.ts'],
     }), 'utf8')
@@ -246,6 +252,8 @@ function writeTtscConfig(): void {
       strict: true,
       noEmit: true,
       target: 'ES2022',
+      skipLibCheck: true,
+      types: [],
     },
     files: [join(tmpDir, 'generated.ts')],
   }), 'utf8')

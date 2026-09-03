@@ -1,6 +1,7 @@
-/** CLI args에서 타입 안전하게 값을 추출하는 헬퍼 */
-
+import { existsSync } from 'node:fs'
+import { resolve } from 'node:path'
 import type { CommandArgValue } from './types.js'
+
 
 type Args = Record<string, CommandArgValue>
 
@@ -42,3 +43,33 @@ export function choice<T extends string>(
   if ((values as readonly string[]).includes(value)) return value as T
   throw new Error(`--${key} 값은 ${values.join(' | ')} 중 하나여야 합니다: ${value}`)
 }
+
+/**
+ * 인자 경로를 invocation cwd 또는 projectRoot를 기준으로 해석합니다.
+ * 파일이 cwd 기준으로 존재하면 cwd 기준, 아니면 projectRoot 기준으로 해석합니다.
+ */
+export function resolveArgPath(
+  args: Args,
+  key: string,
+  projectRoot?: string,
+): string {
+  const raw = str(args, key)
+  const root = projectRoot ?? optStr(args, 'root') ?? optStr(args, 'project-root') ?? process.cwd()
+  const cwdCandidate = resolve(process.cwd(), raw)
+  if (existsSync(cwdCandidate)) return cwdCandidate
+  return resolve(root, raw)
+}
+
+export function optResolveArgPath(
+  args: Args,
+  key: string,
+  projectRoot?: string,
+): string | undefined {
+  const raw = optStr(args, key)
+  if (raw === undefined) return undefined
+  const root = projectRoot ?? optStr(args, 'root') ?? optStr(args, 'project-root') ?? process.cwd()
+  const cwdCandidate = resolve(process.cwd(), raw)
+  if (existsSync(cwdCandidate)) return cwdCandidate
+  return resolve(root, raw)
+}
+
