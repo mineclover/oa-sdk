@@ -15,6 +15,22 @@ export const E2E_SUITE_METADATA = {
       testCount: 80,
       file: 'tier2-boundary-cases.test.ts',
     },
+    tier3: {
+      name: 'Tier 3: Cross-Feature Interactions',
+      testCount: 16,
+      file: 'tier3-interactions.test.ts',
+    },
+    tier4: {
+      name: 'Tier 4: Real-World Scenarios',
+      testCount: 8,
+      file: 'tier4-real-world.test.ts',
+    },
+    subdirectory: {
+      name: 'Subdirectory Execution Conformance',
+      testCount: 18,
+      file: 'subdirectory-conformance.test.ts',
+    },
   },
-  totalTests: 160,
+  totalTierTests: 184,
+  totalTests: 202,
 }

@@ -46,9 +46,9 @@
 |---|------|-------|-------------|--------|
 | M1 | Root Discovery & CLI Flag Conformance | `@oa-sdk/core` `findProjectRoot`, `@oa-sdk/codegen` global `--root`/`--project-root`, CLI spec alignment | none | DONE (Verified: 100 core tests, 12 codegen tests, 21 packages typecheck, 0 audit violations) |
 | M2 | Declarative Config & Pipeline Dispatch | `defineConfig` schema, asynchronous config loader, no-arg multi-target `generate` & `validate`, governance reconciliation | M1 | DONE (Verified: 52 codegen M2 tests, 15 cli.test.ts, 46 challenger tests, 21 packages typecheck, 0 audit violations) |
-| M3 | Deterministic Hashing & Spec Drift Governance | Canonical SHA-256 `x-schema-engine-version-hash`, `check-artifact` / `drift:check` with `oa.config.ts`, breaking diff | M1, M2 | PLANNED |
-| M4 | Browser Studio Integration & Subdirectory Conformance | `browser-studio/oa.config.ts`, 5 profiles & 29 guards pipeline, deep subdirectory execution, CSP audit | M1, M2, M3 | PLANNED |
-| M5 | Final Milestone: E2E Suite Pass & Adversarial Hardening | Pass 100% E2E tests (Tiers 1-4), browser-studio 609+ tests, `@oa-sdk` typecheck, Tier 5 adversarial hardening | M1, M2, M3, M4 | PLANNED |
+| M3 | Deterministic Hashing & Spec Drift Governance | Canonical SHA-256 `x-schema-engine-version-hash`, `check-artifact` / `drift:check` with `oa.config.ts`, breaking diff | M1, M2 | DONE (Verified: 107 M3 & challenger tests, 1519 codegen tests, 21 packages typecheck, 0 audit violations) |
+| M4 | Browser Studio Integration & Subdirectory Conformance | `browser-studio/oa.config.ts`, 5 profiles & 29 guards pipeline, deep subdirectory execution, CSP audit | M1, M2, M3 | DONE (Verified: 109 M4 & challenger tests, 609 browser-studio tests, 21 packages typecheck, 0 audit violations) |
+| M5 | Final Milestone: E2E Suite Pass & Adversarial Hardening | Pass 100% E2E tests (Tiers 1-4), browser-studio 609+ tests, `@oa-sdk` typecheck, Tier 5 adversarial hardening | M1, M2, M3, M4 | DONE (Verified: 202 E2E tests, 38 Tier 5 adversarial tests, 1727 codegen tests, 609 browser-studio tests, 21 packages typecheck, 0 audit violations) |
 
 ## Interface Contracts
 
