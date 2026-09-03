@@ -45,7 +45,7 @@
     }
   },
   "scripts": {
-    "build": "tsup src/index.ts src/cli/index.ts src/drizzle/index.ts src/typegen/index.ts src/typegen/browser.ts src/apitomy/index.ts --format esm --dts && tsup src/spec-lens/index.ts --format esm --dts --tsconfig tsconfig.spec-lens.json --out-dir dist/spec-lens --no-splitting",
+    "build": "tsup src/index.ts src/cli/index.ts src/drizzle/index.ts src/typegen/index.ts src/typegen/browser.ts src/apitomy/index.ts --format esm --dts --external typescript && tsup src/spec-lens/index.ts --format esm --dts --tsconfig tsconfig.spec-lens.json --out-dir dist/spec-lens --no-splitting --external typescript",
     "dev": "tsup src/index.ts --format esm --dts --watch",
     "test": "vitest run --maxWorkers 2",
     "test:ci": "vitest run --maxWorkers 1 --no-file-parallelism",
@@ -85,6 +85,7 @@
   "peerDependencies": {
     "@apitomy/data-models": "^3.1.3",
     "drizzle-orm": ">=1.0.0-beta.20",
+    "typescript": ">=5.0.0",
     "zod": ">=4.0.0"
   },
   "peerDependenciesMeta": {
@@ -92,6 +93,9 @@
       "optional": true
     },
     "@apitomy/data-models": {
+      "optional": true
+    },
+    "typescript": {
       "optional": true
     }
   }
