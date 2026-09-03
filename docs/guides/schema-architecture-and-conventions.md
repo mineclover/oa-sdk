@@ -1260,6 +1260,28 @@ mockServer.override('leaseAcquire', {
 
 ## 8. Developer Workflow & CLI Reference
 
+### 8.0 Declarative Specification Management (`oa.config.ts`)
+
+Browser Studio 및 OA SDK 모노레포는 선언적 스펙 설정 파일인 `oa.config.ts`를 통해 루트 자동 탐색, 다중 프로파일 일괄 프로젝션, 스펙 드리프트 감지, CSP 감사를 자동화합니다. 상세 내용은 [선언적 스펙 설정 가이드](./declarative-spec-configuration.md)를 참조하십시오.
+
+#### Unified CLI Commands:
+```bash
+# 1. 선언된 5개 프로파일 일괄 유효성 검증 (하위 패키지 어디서나 실행 가능)
+pnpm exec oa-gen validate
+
+# 2. 선언된 모든 스펙 및 독립형 타입 가드 일괄 생성
+pnpm exec oa-gen generate
+
+# 3. 소스 Zod AST와 아티팩트 간 결정론적 해시 드리프트 검증 (CI 게이트)
+pnpm exec oa-gen drift:check
+
+# 4. Manifest V3 CSP 준수 여부 정적 보안 감사
+pnpm exec oa-gen audit:csp --bundle dist/guards
+
+# 5. 하위 호환성 파괴 변경 감지
+pnpm exec oa-gen diff --base <old.json> --head <new.json> --fail-on-breaking
+```
+
 ### 8.1 Build-Time Projection Script (`tools/export-openapi-specs.mjs`)
 The projection CLI `tools/export-openapi-specs.mjs` converts domain schemas into specifications and type guards.
 

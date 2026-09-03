@@ -51,6 +51,7 @@
 | [테스트 피드백](./guides/use-cases/test-feedback.md) | 커버리지 + 검증 피드백 루프 |
 | [CLI 세팅](./guides/cli-setup.md) | 설치 + CLI 명령어 |
 | [CLI 명령 레퍼런스](./guides/cli-command-reference.md) | 현재 `oa-gen` 명령의 목적·최소 입력·조건부 옵션 |
+| [선언적 스펙 설정 (oa.config.ts)](./guides/declarative-spec-configuration.md) | 모노레포 다중 프로파일 스펙, 정적 타입 가드, 스펙 드리프트 거버넌스 설정 |
 | [Artifact Release Preparation](./guides/release-preparation.md) | artifact-only package release의 version intent, preflight, external promotion 경계 |
 | [라이브러리 진입점 지도](./guides/library-entrypoints.md) | package root/subpath와 artifact 경계 |
 | [Mock 서버](./guides/mock-server-usage.md) | MSW / Node HTTP |
