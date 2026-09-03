@@ -29,10 +29,11 @@ node packages/codegen/dist/cli/index.js --help
 
 | 명령 | 언제 쓰는가 | 최소 입력 | 결과 / 다음 단계 |
 | --- | --- | --- | --- |
-| `oa-gen generate` | config 또는 Drizzle schema에서 OpenAPI를 생성할 때 | `--config` 또는 `--drizzle-schema` | schema artifact; 생성 전용 흐름 |
+| `oa-gen generate` | config, Drizzle schema, 또는 독립형 타입 가드(standalone-guards)를 생성할 때 | `--config`, `--drizzle-schema`, 또는 `--target standalone-guards --input <file>` | schema artifact 또는 standalone-guards (`.js`, `.d.ts`); `--split`으로 모듈 분할, `--schemas <list>`로 특정 가드 필터링 |
 | `oa-gen typegen` | OpenAPI에서 TypeScript 선언을 만들 때 | `--spec <openapi>` | type declarations; `--incremental`은 cache를 사용하고 `--cache-dir <dir>`로 위치를 바꿀 수 있음 |
-| `oa-gen lint` | OpenAPI의 OA SDK lint만 빠르게 확인할 때 | `--spec <openapi>` | diagnostic; strict production gate는 `schema:validate` |
-| `oa-gen validate` | OpenAPI 파싱·구조·3.1 호환을 확인할 때 | `--spec <openapi>` | human diagnostic; managed contract는 `--require-32` |
+| `oa-gen lint` | OpenAPI의 OA SDK lint만 빠르게 확인할 때 | `--spec <openapi>` | diagnostic; `--categories <list>`로 surface, structure 등 특정 카테고리만 지정 실행 |
+| `oa-gen validate` | OpenAPI 파싱·구조·3.1 호환 및 프로파일 요구사항을 확인할 때 | `--spec <openapi>` | human diagnostic; `--profile`로 component-bundle/operation-contract 강제, managed contract는 `--require-32` |
+| `oa-gen audit:csp` | Manifest V3 브라우저 익스텐션 번들의 CSP 위반(eval, new Function, 런타임 ajv/zod/oa-sdk)을 정적 검사할 때 | `--bundle <dir>` | 0 eval, 0 runtime dependency 검증 리포트 및 non-zero exit code gate |
 | `oa-gen build-spec` | fragments와 target으로 reference OpenAPI를 만들 때 | `--target <target.yaml>` | OpenAPI와 diagnostics/provenance/metadata sidecars |
 | `oa-gen normalize` | 외부 OpenAPI를 stable governance artifact로 정규화할 때 | `--spec <openapi>` | normalized artifact |
 | `oa-gen upgrade` | 외부 OpenAPI 3.0/3.1을 3.2 analysis artifact로 볼 때 | `--spec <openapi>` | upgraded artifact와 optional report |
