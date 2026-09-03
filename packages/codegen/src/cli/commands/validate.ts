@@ -141,12 +141,18 @@ async function runConfigDrivenValidation(config: OaConfig, rootDir: string): Pro
 
     // 1. Structure & Parser validation
     const parserResult = validateDocument(doc, { basePath: resolvedSpecPath, requireOpenApi32: false })
-    const parserErrors = parserResult.errors.length
+    const parserErrorsList = parserResult.errors.filter(e => {
+      // In OpenAPI 3.1, circular references within components.schemas (e.g. recursive trees like VisualNode)
+      // are standard recursive schema definitions.
+      if (e.message?.includes('순환 $ref 감지') || (e as any).code === 'ref-cycle' || (e as any).rule === 'refs/cycle') {
+        return false
+      }
+      targetDiagnostics.push(`[parser:error] ${e.message}`)
+      return true
+    })
+    const parserErrors = parserErrorsList.length
     const parserWarnings = parserResult.warnings.length
 
-    for (const e of parserResult.errors) {
-      targetDiagnostics.push(`[parser:error] ${e.message}`)
-    }
     for (const w of parserResult.warnings) {
       targetDiagnostics.push(`[parser:warning] ${w.message}`)
     }
