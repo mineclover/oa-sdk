@@ -740,7 +740,23 @@ Typegen 공개 surface는 root entry(`@oa-sdk/codegen`)와 typegen sub-entry(`@o
 |------|------|------|
 | `zodToSchema()` | `zod-to-schema.ts` | Zod 4 → OAS 3.2 Schema (refs 컨텍스트 지원) |
 | `generateComponents()` | `generator.ts` | Zod 맵 → YAML (writeSchemas 위임) |
-| `defineConfig()` | `config.ts` | 타입 안전 config 헬퍼 |
+| `defineConfig()` | `config.ts` | 타입 안전 oa.config.ts 설정 정의 헬퍼 |
+| `validateOaConfig()` | `config.ts` | OaConfig 스키마 및 타겟 유효성 검증 |
+| `assertOaConfig()` | `config.ts` | 유효하지 않은 OaConfig에 대해 OaConfigError throw |
+| `isOaConfig()` | `config.ts` | OaConfig 타입 가드 |
+| `loadOaConfig()` | `cli/lib/config-loader.ts` | TypeScript/ESM/JSON oa.config 비동기 로더 및 캐시 버스팅 |
+| `resolveProfileTarget()` | `cli/lib/config-loader.ts` | 프로파일 타겟 경로 정규화 및 절대 경로 해석 |
+| `resolveGuardTarget()` | `cli/lib/config-loader.ts` | 타입 가드 타겟 경로 정규화 |
+| `computeVersionHash()` | `spec-projector.ts` | 결정론적 SHA-256 스펙 해시 계산 |
+| `projectTargetSpec()` | `spec-projector.ts` | 선언적 프로파일 기반 OpenAPI/JSON Schema 산출물 투영 |
+| `projectTargetGuards()` | `spec-projector.ts` | 선언적 타겟 기반 독립형 타입 가드 일괄 생성 |
+| `generateStandaloneGuards()` | `standalone-guards/index.ts` | 사전 컴파일된 제로 런타임/Zero-Eval 독립형 ESM 타입 가드 생성 |
+| `computeEntitySpecDiff()` | `ast-sync/diff-engine.ts` | EntitySpec 간 정밀 AST 차이 계산 |
+| `applyTextEdits()` | `ast-sync/text-edit.ts` | 역오프셋 상향식 텍스트 편집 적용 (트리비아/포맷 100% 보존) |
+| `syncEntitySpecWithCode()` | `ast-sync/index.ts` | EntitySpec IR과 소스 코드 간 양방향 동기화 |
+| `ZodTypeAdapter` | `ast-sync/adapters/zod-adapter.ts` | Zod 스키마 양방향 AST 어댑터 |
+| `TsAstTypeAdapter` | `ast-sync/adapters/ts-ast-adapter.ts` | TypeScript 인터페이스/타입 양방향 AST 어댑터 |
+| `TypiaTypeAdapter` | `ast-sync/adapters/typia-adapter.ts` | Typia 검증 태그 양방향 AST 어댑터 |
 | `generateTypes()` | `typegen/generate-types.ts` | ParsedDocument → TS 타입 문자열 (ResponseLinks 포함) |
 | `generateTypesFromSpec()` | `typegen/generate-types.ts` | OAS spec → TS 타입 (parseDocument 포함, ResponseLinks 포함) |
 | `generateTypes()` / `generateTypesFromSpec()` | `typegen/browser.ts` | 브라우저 안전 typegen. in-memory spec만 처리하고 Node crypto/path/filesystem ref graph를 import하지 않음 |
@@ -1134,6 +1150,12 @@ Governance manifest: `packages/codegen/src/cli/spec/oa-gen-governance.ts` 및 `d
 | `ErrorEnvelope` | `http.ts` | 에러 응답 공통 래퍼 타입 |
 | `ApiError` | `http.ts` | API 에러 상세 타입 |
 | `ApiErrorDetail` | `http.ts` | 에러 필드 상세 타입 |
+| `findProjectRoot()` | `root.ts` | 6단계 우선순위 기반 상향식 프로젝트 루트 디렉터리 자동 탐색 |
+| `findProjectRootDetail()` | `root.ts` | 매칭된 마커 및 탐색 이유(RootResolutionReason)를 포함한 상세 루트 정보 반환 |
+| `DEFAULT_CONFIG_FILES` | `root.ts` | 기본 설정 파일 마커 목록 (`oa.config.ts`, `.oarc.json` 등) |
+| `DEFAULT_WORKSPACE_FILES` | `root.ts` | 기본 모노레포 워크스페이스 마커 목록 (`pnpm-workspace.yaml`, `turbo.json` 등) |
+| `DEFAULT_VCS_DIRS` | `root.ts` | 기본 버전 관리 마커 목록 (`.git` 등) |
+| `DEFAULT_ENV_VAR_NAME` | `root.ts` | 환경 변수 오버라이드 기본 식별자 (`OA_PROJECT_ROOT`) |
 
 ---
 
