@@ -8,8 +8,10 @@
 | 목적 | 먼저 볼 문서 |
 |---|---|
 | 공개 OpenAPI 문서를 검증하고 TypeScript 타입을 생성 | [Quick Start](./guides/quick-start.md) |
+| 선언적 다중 프로파일 스펙 및 거버넌스를 설정 | [선언적 스펙 설정 (oa.config.ts)](./guides/declarative-spec-configuration.md) → [스키마 아키텍처 및 작성 규칙](./guides/schema-architecture-and-conventions.md) |
 | OA SDK production contract를 작성·승인 | [기본 스펙 사용 기준](./guides/basic-spec-usage.md) → [TypeSpec Authoring Conventions](./guides/typespec-authoring-conventions.md) |
 | 외부 서비스/OpenAPI projection을 OA SDK로 소비 | [코드젠 워크플로](./guides/use-cases/codegen-workflow.md) 또는 [bun-graph-db projection 소비](./guides/use-cases/bun-graph-db-projections.md) |
+| 4계층 E2E 테스트 모델 및 드리프트 거버넌스를 확인 | [테스트 인프라](./concepts/test-infrastructure.md) → [CLI 거버넌스 및 스펙 검증 모델](./concepts/cli-governance.md) |
 | public package artifact release를 준비 | [Artifact Release Preparation](./guides/release-preparation.md) |
 | 구현 현황·현재 우선순위·장기 이력을 확인 | [Spec](./internal/spec.md) → [Plan](./internal/plan.md) → [Release Readiness](./internal/release-readiness.md) |
 
@@ -26,6 +28,8 @@
 |------|------|
 | [Vision](./vision.md) | 핵심 철학과 주 목표 |
 | [Concepts](./concepts.md) | 공통 용어와 계약 경계 정의 |
+| [CLI 거버넌스 및 스펙 검증 모델](./concepts/cli-governance.md) | Language-neutral CLI 매니페스트, 결정론적 해싱, 드리프트 및 브레이킹 체인지 CI 게이트 |
+| [테스트 인프라 (Test Infrastructure)](./concepts/test-infrastructure.md) | 4계층 E2E 검증 모델(F01~F16), 스펙 신선도/드리프트 감지, 결정론적 SHA-256 해시, CSP 감사 게이트 |
 | [World Model Kernel](./concepts/world-model.md) | World bootstrap, stimulus ingress, logical time, revision-pinned projection 계약의 설명 |
 | [Behavior ECS](./concepts/behavior-ecs.md) | 행동 단위 Entity/Component/System 정의, representative use case, 기본 테스트 케이스 |
 | [Data Persona](./concepts/data-persona.md) | API audience, access obligation, privacy skill 매트릭스 |
@@ -52,6 +56,7 @@
 | [CLI 세팅](./guides/cli-setup.md) | 설치 + CLI 명령어 |
 | [CLI 명령 레퍼런스](./guides/cli-command-reference.md) | 현재 `oa-gen` 명령의 목적·최소 입력·조건부 옵션 |
 | [선언적 스펙 설정 (oa.config.ts)](./guides/declarative-spec-configuration.md) | 모노레포 다중 프로파일 스펙, 정적 타입 가드, 스펙 드리프트 거버넌스 설정 |
+| [스키마 아키텍처 및 작성 규칙](./guides/schema-architecture-and-conventions.md) | Zod SSOT 마스터 스키마, 4단계 프로젝션 파이프라인, 엄격한 수치 범위 및 MV3 무런타임 가드 |
 | [Artifact Release Preparation](./guides/release-preparation.md) | artifact-only package release의 version intent, preflight, external promotion 경계 |
 | [라이브러리 진입점 지도](./guides/library-entrypoints.md) | package root/subpath와 artifact 경계 |
 | [Mock 서버](./guides/mock-server-usage.md) | MSW / Node HTTP |
@@ -65,6 +70,7 @@
 
 | 문서 | 대상 |
 |------|------|
+| [CLI Governance 개념 및 검증 모델](./concepts/cli-governance.md) | Language-neutral CLI manifest, components, checks, exit policy 개요 및 검증 모델 |
 | [CLI Spec](./cli-spec/README.md) | TS/JS와 Python governance CLI 정렬 기준 |
 | [CLI command schema](./cli-spec/cli-command.schema.json) | command entity + component JSON Schema |
 | [oa-gen governance manifest](./cli-spec/oa-gen.governance.json) | TS/JS `oa-gen` governance 명령 스펙 |
@@ -85,6 +91,7 @@
 | [oas32-coverage.md](./internal/oas32-coverage.md) | OAS 3.2 커버리지 |
 | [traceability.md](./internal/traceability.md) | 스펙 ↔ 코드 추적 |
 | [architecture/](./internal/architecture/) | ADR |
+| [test-infrastructure.md](./concepts/test-infrastructure.md) | 4계층 E2E 테스트 인프라 및 불변식 SSOT |
 
 ## OAS 3.2 참조
 

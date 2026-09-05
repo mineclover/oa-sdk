@@ -42,8 +42,9 @@ describe('runBoundedProcess', () => {
   it.skipIf(process.platform === 'win32')('kills a SIGTERM-ignoring descendant after the grace period', async () => {
     const workspace = mkdtempSync(join(tmpdir(), 'oa-sdk-process-group-test-'))
     const pidPath = join(workspace, 'descendant.pid')
-    const descendant = 'process.on("SIGTERM", () => {}); setInterval(() => {}, 1_000)'
+    const descendant = 'setTimeout(() => process.exit(0), 15_000).unref(); process.on("SIGTERM", () => {}); setInterval(() => {}, 1_000)'
     const parent = [
+      'setTimeout(() => process.exit(0), 15_000).unref()',
       'const { spawn } = require("node:child_process")',
       'const { writeFileSync } = require("node:fs")',
       `const child = spawn(process.execPath, ["-e", ${JSON.stringify(descendant)}], { stdio: "ignore" })`,

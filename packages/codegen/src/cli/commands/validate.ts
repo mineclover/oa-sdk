@@ -144,7 +144,7 @@ async function runConfigDrivenValidation(config: OaConfig, rootDir: string): Pro
     const parserErrorsList = parserResult.errors.filter(e => {
       // In OpenAPI 3.1, circular references within components.schemas (e.g. recursive trees like VisualNode)
       // are standard recursive schema definitions.
-      if (e.message?.includes('순환 $ref 감지') || (e as any).code === 'ref-cycle' || (e as any).rule === 'refs/cycle') {
+      if (isRecursiveRefCycle(e as any)) {
         return false
       }
       targetDiagnostics.push(`[parser:error] ${e.message}`)
@@ -249,7 +249,9 @@ async function runSingleSpec(specPath: string, args: Record<string, CommandArgVa
       requireOpenApi32: bool(args, 'require-32'),
     })
 
-    for (const r of [...result.errors, ...result.warnings, ...result.infos]) {
+    const parserErrorsList = result.errors.filter(e => !isRecursiveRefCycle(e as any))
+
+    for (const r of [...parserErrorsList, ...result.warnings, ...result.infos]) {
       const icon = r.severity === 'error' ? '❌' : r.severity === 'warning' ? '⚠️' : 'ℹ️'
       console.log(`  ${icon} [${r.rule}] ${r.message}`)
       console.log(`    at ${formatLintLocation(r, {
@@ -257,7 +259,11 @@ async function runSingleSpec(specPath: string, args: Record<string, CommandArgVa
         lookupSourceLocation: sourceLocations.lookup,
       })}`)
     }
-    console.log(result.summary)
+    const isValid = parserErrorsList.length === 0
+    const summary = isValid
+      ? `✅ Valid — ${result.warnings.length} warnings, ${result.infos.length} infos`
+      : `❌ Invalid — ${parserErrorsList.length} errors, ${result.warnings.length} warnings`
+    console.log(summary)
 
     let profileResult: SchemaValidateResult | undefined
     if (profile) {
@@ -310,7 +316,7 @@ async function runSingleSpec(specPath: string, args: Record<string, CommandArgVa
 
     await recordCliIncrementalIndex(incremental, doc, {
       diagnostics: [
-        ...[...result.errors, ...result.warnings, ...result.infos].map(r => toWorkspaceDiagnostic(
+        ...[...parserErrorsList, ...result.warnings, ...result.infos].map(r => toWorkspaceDiagnostic(
           resolvedSpecPath,
           r,
           sourceLocations,
@@ -326,10 +332,20 @@ async function runSingleSpec(specPath: string, args: Record<string, CommandArgVa
       ],
     })
 
-    if (!result.valid || (profileResult && !profileResult.valid)) throw new CliExitError(1)
+    if (!isValid || (profileResult && !profileResult.valid)) throw new CliExitError(1)
   } finally {
     closeCliIncrementalRun(incremental)
   }
+}
+
+function isRecursiveRefCycle(diagnostic: { message?: string; code?: string; rule?: string }): boolean {
+  // In OpenAPI 3.1, circular references within components.schemas (e.g. recursive trees like VisualNode)
+  // are standard recursive schema definitions.
+  return (
+    diagnostic.message?.includes('순환 $ref 감지') === true ||
+    diagnostic.code === 'ref-cycle' ||
+    diagnostic.rule === 'refs/cycle'
+  )
 }
 
 function toWorkspaceDiagnostic(

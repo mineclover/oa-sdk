@@ -58,3 +58,45 @@ Apply `oa.config.ts` to `browser-studio` root and verify end-to-end operational 
 - [ ] Full monorepo typecheck in `@oa-sdk` passes (`pnpm -r typecheck`).
 - [ ] Full test suite in `browser-studio` passes (`pnpm run test:e2e`, 609+ tests pass).
 - [ ] `oa-gen audit:csp` reports 0 CSP violations across all guard outputs.
+
+## 2026-09-05T06:38:42Z
+
+Standardize and align documentation for declarative specification grammar (`oa.config.ts`, Zod SSOT, projection profiles) and 4-tier E2E test/governance infrastructure across `@oa-sdk`.
+
+Working directory: /Users/junwoobang/workflow/oa-sdk
+Integrity mode: development
+
+## Requirements
+
+### R1. Declarative Specification Grammar & Authoring Conventions Alignment
+Align and refine documentation covering the declarative syntax and conventions in `@oa-sdk`:
+- Document `defineConfig({ rootDir, specs, guards })` schema, multi-format async config loader, and 6-tier hierarchical project root resolution (`findProjectRoot()`, Submodule Invariant).
+- Standardize authoring conventions for Zod master schemas (SSOT), strict numeric bounds (`minimum: 0` vs `exclusiveMinimum: 0`), RFC 9457 `ProblemDetailsSchema`, recursive tree structures (`z.lazy`), and `x-surface-*` vendor extensions.
+- Ensure all code examples in `docs/guides/declarative-spec-configuration.md` and `docs/guides/schema-architecture-and-conventions.md` are verified against production implementations.
+
+### R2. 4-Tier Test & Governance Infrastructure Integration
+Formally integrate and document the testing and governance infrastructure:
+- Integrate `TEST_INFRA.md` into the formal documentation hierarchy under `docs/` (e.g. `docs/concepts/test-infrastructure.md` or `docs/guides/e2e-testing-model.md`), detailing the 4-tier verification model (Tier 1 Feature Coverage, Tier 2 Boundary Cases, Tier 3 Interactions, Tier 4 Real-World Workloads, plus Tier 5 Adversarial Hardening).
+- Standardize documentation for deterministic SHA-256 spec version hashing (`x-schema-engine-version-hash`), automated drift detection (`oa-gen drift:check` / `check-artifact`), semantic breaking diff rules (`oa-gen diff --fail-on-breaking`), and Manifest V3 CSP audit (`oa-gen audit:csp`).
+
+### R3. Monorepo Documentation Registry & Cross-References Harmonization
+Cleanly structure all documentation navigation paths and cross-references:
+- Update `docs/README.md`, `docs/concepts/cli-governance.md`, and `docs/guides/cli-command-reference.md` to cleanly index and link the declarative grammar and test infrastructure guides.
+- Verify that every CLI option and argument documented matches `scripts/check-cli-spec.ts` and CLI parser behavior.
+- Ensure 100% link validity with zero broken links across internal markdown references.
+
+## Acceptance Criteria
+
+### Grammar & Specification Coverage
+- [ ] `docs/guides/declarative-spec-configuration.md` and `docs/guides/schema-architecture-and-conventions.md` provide complete, runnable TypeScript configurations for all 3 projection profiles (`component-bundle`, `operation-contract`, `full-api-document`) and standalone guards.
+- [ ] Strict numeric bounds, RFC 9457 error contracts, and recursive schema guidelines are fully articulated with clear do/don't examples.
+
+### Test Infrastructure & Governance Integration
+- [ ] 4-Tier E2E test model and testing invariants are published within `docs/` and indexed in `docs/README.md`.
+- [ ] Spec drift detection, deterministic SHA-256 hashing, breaking change classifications (11 endpoint + 7 schema rules), and CSP audit requirements are documented with normative workflow diagrams.
+
+### Navigation & Repository Integrity
+- [ ] All internal document links and code references resolve cleanly without broken relative paths.
+- [ ] `pnpm exec tsx scripts/check-cli-spec.ts` exits with code 0 (CLI spec alignment confirmed).
+- [ ] Full monorepo typecheck (`pnpm -r typecheck`) remains clean with 0 errors.
+

@@ -41,6 +41,7 @@ export type PackageEntrypointGateOptions = {
 }
 
 const skippedDirectories = new Set([
+  '.agents',
   '.git',
   '.next',
   '.oa-cache',
@@ -54,6 +55,7 @@ const skippedDirectories = new Set([
 ])
 
 const builtOaGenCli = ['node', 'packages/codegen/dist/cli/index.js'] as const
+const universalGlobalOptions = new Set(['root', 'project-root'])
 
 /** Run independently reusable validation gates and retain their source labels. */
 export function runValidationGates(gates: readonly ValidationGate[]): ValidationGateIssue[] {
@@ -135,7 +137,7 @@ export function createCliExampleGate(options: CliExampleGateOptions): Validation
             const option = optionName(token)
             if (!option) continue
             const known = option.kind === 'long'
-              ? longOptions.has(option.value)
+              ? longOptions.has(option.value) || (options.executable === 'oa-gen' && universalGlobalOptions.has(option.value))
               : shortOptions.has(option.value)
             if (!known) {
               issues.push(issue(options.root, file, example.line, `unknown ${options.executable} option for ${commandName}: ${token}`))
@@ -171,7 +173,7 @@ export function createCliReferenceGate(options: CliReferenceGateOptions): Valida
       const known = new Set(options.commands.map(command => command.name))
       const seen = new Map<string, number>()
       const pattern = new RegExp(
-        '^\\|\\s*`' + escapeRegExp(options.executable) + '\\s+([a-z][a-z-]*)`\\s*\\|',
+        '^\\|\\s*`' + escapeRegExp(options.executable) + '\\s+([a-z][a-z0-9:-]*)`\\s*\\|',
         'gm',
       )
       for (const match of content.matchAll(pattern)) {

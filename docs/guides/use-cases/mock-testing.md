@@ -68,7 +68,7 @@ Security → Content-Type → Parameters → Body → 응답 선택
 ```
 
 → [에러 코드 8종 상세](../../internal/spec.md)
-→ [검증 API](../../internal/api-index.md#함수-oa-sdkmock-server)
+→ [검증 API](../../internal/api-index.md#함수-oa-sdkmock-server--고유)
 → [Behavior ECS](../../concepts/behavior-ecs.md)
 
 ## 응답 우선순위

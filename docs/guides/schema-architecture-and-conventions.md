@@ -1,4 +1,4 @@
-# Browser Studio Schema Architecture & Convention Guide
+# 스키마 아키텍처 및 작성 규칙 (Zod SSOT)
 
 > **Canonical Authority**: Browser Studio Core Architecture & Schema Governance  
 > **Target Monorepo**: `@browser-studio/*`  
@@ -26,7 +26,7 @@ The fundamental tenet of this architecture is:
 │   • packages/visual-ir (UniversalDocument, VisualNode, Geometry, Paints, Effects)       │
 └───────────────────────────────────────────┬─────────────────────────────────────────────┘
                                             │
-                                            ▼ [tools/export-openapi-specs.mjs]
+                                            ▼ [oa.config.ts / oa-gen generate]
 ┌─────────────────────────────────────────────────────────────────────────────────────────┐
 │ STAGE 2: BUILD-TIME PROJECTION TO JSON SCHEMA DRAFT 2020-12 & OPENAPI 3.1               │
 │   • JSON Schema Draft 2020-12 ($defs, strict numeric exclusiveMinimum: 0)               │
@@ -53,7 +53,7 @@ The fundamental tenet of this architecture is:
 | **Chrome Extension (MV3)**: Content Scripts, Side Panel, DevTools Panel | Standalone ESM Type Guards (`dist/guards/*.js`), Static TypeScript interfaces | ❌ `@oa-sdk/*`<br>❌ Runtime `zod`<br>❌ Runtime `ajv` compiler<br>❌ Dynamic `eval()` / `new Function()` | 60fps animation budget ($<0.5\text{ms}$ validation latency) |
 | **Node.js Session Host**: `packages/devlink-session-host` | Native RPC Zod schemas, Standalone Type Guards, JSON Schema 2020-12 | ❌ `@oa-sdk/*` in runtime dependencies | $<2\text{ms}$ IPC message deserialization |
 | **MCP Stdio Daemon**: `packages/devlink-mcp` | MCP Zod schemas, JSON Schema 2020-12 | ❌ Heavy build-time spec generators | $<5\text{ms}$ tool call response |
-| **Build Tools & CI**: `tools/export-openapi-specs.mjs` | `@oa-sdk/openapi-projection-contract`, `@oa-sdk/parser`, `@oa-sdk/mock-server`, `@oa-sdk/codegen`, `ajv/dist/standalone` | None (Full Node.js build-time toolchain) | Deterministic output, 100% schema validation |
+| **Build Tools & CI**: `oa.config.ts` / `oa-gen` CLI | `@oa-sdk/openapi-projection-contract`, `@oa-sdk/parser`, `@oa-sdk/mock-server`, `@oa-sdk/codegen`, `ajv/dist/standalone` | None (Full Node.js build-time toolchain) | Deterministic output, 100% schema validation |
 
 ---
 
@@ -250,12 +250,12 @@ Under this policy, any attempt to invoke `eval()`, `new Function(...)`, `setTime
 ### 3.2 60fps Live-Scrubbing Performance
 During interactive inspector manipulation (e.g. dragging a color picker or scrubbing dimension values at 60fps), style mutation payloads must be validated in $<0.5\text{ms}$. Pre-compiled standalone type guards execute direct property type checks and boundary comparisons ($O(1)$ algorithmic complexity), avoiding the multi-millisecond overhead of runtime AST parsing or dynamic schema compilation.
 
-### 3.3 Automated CI Bundle Audit Gate (`oa-codegen audit:csp`)
-To ensure decoupling is never accidentally broken by developer imports, CI enforces an automated bundle audit command (`oa-codegen audit:csp --bundle <dir>`):
+### 3.3 Automated CI Bundle Audit Gate (`oa-gen audit:csp`)
+To ensure decoupling is never accidentally broken by developer imports, CI enforces an automated bundle audit command (`oa-gen audit:csp --bundle <dir>`):
 
 ```bash
 # Scan extension production bundle output directory
-oa-codegen audit:csp --bundle dist/extension
+pnpm exec oa-gen audit:csp --bundle dist/extension
 ```
 
 The scanner analyzes bundle ASTs and verifies:
@@ -908,6 +908,43 @@ In **JSON Schema Draft 2020-12** and **OpenAPI 3.1**, `exclusiveMinimum` and `ex
 | $0 < x < 1$ (Open unit interval) | `z.number().gt(0).lt(1)` | `{"exclusiveMinimum": 0, "exclusiveMaximum": 1}` | `{"minimum": 0, "exclusiveMinimum": true, "maximum": 1, "exclusiveMaximum": true}` ❌ |
 | $0 \le x < 1$ (Half-open interval) | `z.number().min(0).lt(1)` | `{"minimum": 0, "exclusiveMaximum": 1}` | `{"minimum": 0, "maximum": 1, "exclusiveMaximum": true}` ❌ |
 
+#### Authoring Rules: DOs and DON'Ts
+
+```typescript
+// ❌ DON'T: Using custom .refine() for numeric boundaries or boolean flags
+// Custom refinements cannot be statically analyzed into JSON Schema / OpenAPI bounds!
+export const BadNumericBoundsSchema = z.object({
+  // ❌ Cannot be projected to OpenAPI minimum/exclusiveMinimum:
+  customPositive: z.number().refine((val) => val > 0, { message: 'Must be positive' }),
+  // ❌ Ambiguous boundary: using .min(1) for a float when 0.1 should be valid
+  pixelRatio: z.number().min(1),
+  // ❌ Misinterpreting exclusive boundary in Draft 2020-12
+  zeroExcluded: z.number().nonnegative(), // allows 0!
+});
+
+// ✅ DO: Using declarative Zod chain methods that compile to Draft 2020-12 / OAS 3.1 keywords
+export const GoodNumericBoundsSchema = z.object({
+  // Non-negative float (x >= 0): compiles to { type: 'number', minimum: 0 }
+  opacity: z.number().min(0).max(1).describe('Opacity fraction [0.0, 1.0]'),
+  // or equivalently:
+  scale: z.number().nonnegative().describe('Scale factor >= 0.0'),
+
+  // Strictly positive float (x > 0): compiles to { type: 'number', exclusiveMinimum: 0 }
+  zoomFactor: z.number().gt(0).describe('Zoom factor strictly greater than 0.0'),
+  // or equivalently:
+  width: z.number().positive().describe('Width strictly greater than 0.0'),
+
+  // Non-negative integer (n >= 0): compiles to { type: 'integer', minimum: 0 }
+  startOffset: z.number().int().nonnegative().describe('0-based UTF-16 character offset'),
+
+  // Strictly positive integer (n > 0): compiles to { type: 'integer', exclusiveMinimum: 0 }
+  pageSize: z.number().int().positive().describe('Page size must be >= 1'),
+
+  // Half-open interval [0, 1): compiles to { minimum: 0, exclusiveMaximum: 1 }
+  progress: z.number().min(0).lt(1).describe('Progress fraction in range [0.0, 1.0)'),
+});
+```
+
 #### Complete Runnable Code Example:
 
 ```typescript
@@ -957,8 +994,30 @@ export type TransformControls = z.infer<typeof TransformControlsSchema>;
 
 ### 6.4 Self-Referencing Recursive Schemas (`z.lazy` + Registry Cycle-Safe Projection)
 
-When modeling hierarchical tree structures (such as `VisualTreeNode`, `SurfaceBlockTree`, or recursive expression ASTs), naive recursive type inference triggers TypeScript error **TS7022**:
-> *'NodeSchema' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer.*
+When modeling hierarchical tree structures (such as `VisualTreeNode`, `SurfaceBlockTree`, or recursive expression ASTs), naive recursive type inference triggers TypeScript errors:
+- **TS7022**: *'NodeSchema' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer.*
+- **TS2456**: *Type alias circularly references itself.*
+
+#### Authoring Rules: DOs and DON'Ts
+
+```typescript
+// ❌ DON'T: Recursive schema without explicit interface and type annotation
+// TypeScript cannot infer self-referential types without explicit typing,
+// resulting in TS7022 / TS2456 errors or infinite compiler type instantiation loops!
+export const BadVisualTreeNodeSchema = z.lazy(() =>
+  z.object({
+    id: z.string().uuid(),
+    // ❌ Error TS7022: 'BadVisualTreeNodeSchema' implicitly has type 'any'
+    children: z.array(BadVisualTreeNodeSchema).optional(),
+  })
+);
+
+// ✅ DO: Normative 4-step pattern for self-referencing recursive models
+// 1. Declare explicit recursive TypeScript interface
+// 2. Explicitly annotate the schema variable with z.ZodType<T>
+// 3. Wrap definition in z.lazy(() => z.object({ ... }))
+// 4. Register in projection registry refs map for cycle-safe $ref emission
+```
 
 #### The Normative Pattern for Recursive Schemas:
 1. **Explicit TypeScript Interface**: Define the explicit recursive interface first.
@@ -1048,22 +1107,49 @@ During projection to JSON Schema Draft 2020-12 or OpenAPI 3.1:
 }
 ```
 
+#### OpenAPI 3.1 Cyclic `$ref` Validation Behavior
+OpenAPI 3.1 and JSON Schema Draft 2020-12 natively support cyclic `$ref` structures within `components.schemas` and `$defs`. While legacy OpenAPI 3.0 linters occasionally flag self-referential schemas as invalid circular references (`ref-cycle`), `@oa-sdk` CLI validation (`oa-gen validate`) automatically identifies and permits valid recursive schema structures, suppressing false-positive circular reference diagnostics.
+
 ---
 
 ### 6.5 `x-surface-*` Scoping Rules (Object-Level vs. Inline Property-Level)
 
-The Surface Engine powers non-AST live-patching and inspector interaction. Schema metadata governs how UI scrubbers, quote formatting, and character range patchers interact with source code.
+The Surface Engine powers non-AST live-patching and inspector interaction. Formal surface metadata extensions are declared in `@oa-sdk/openapi-projection-contract` and validated by `@oa-sdk/parser`.
 
-There are **two distinct scoping tiers** for `x-surface-*` extensions:
+#### The 5 Canonical Surface Vendor Extensions:
 
-#### 1. Object-Level Scope (`targetProperty`)
+1. **`x-surface-anchor`**: AST synchronization and code anchor coordinates:
+   - `id` (`string`, required): Unique anchor identifier.
+   - `line` (`integer`, required, $\ge 1$): 1-based source line number.
+   - `column` (`integer`, required, $\ge 1$): 1-based source column number.
+   - `raw` (`string`, optional): Original raw source token text.
+   - `commentType` (`string`, optional): `'line' | 'block' | 'doc' | string`.
+2. **`x-surface-param-range`**: Non-AST character range and live-patching boundaries:
+   - `targetProperty` (`string`, required in object-level scope): Primary property target for live mutations.
+   - `start` (`integer`, optional, $\ge 0$): 0-based UTF-16 character start offset.
+   - `end` (`integer`, optional, $\ge 0$): 0-based UTF-16 character end offset.
+   - `unquotedStart` (`integer`, optional): Start offset excluding enclosing quotes.
+   - `unquotedEnd` (`integer`, optional): End offset excluding enclosing quotes.
+   - `supportsLivePatch` (`boolean`, optional): Enables 60fps live range patching.
+   - `maxFramerateHz` (`number`, optional, $> 0$): Throttling cap for slider scrubbing (e.g. 60 or 120).
+3. **`x-surface-fingerprint`**: Deterministic SHA-256 fingerprint for AST/content drift detection:
+   - String matching regex `^sha256:[a-f0-9]{64}$` (e.g. `"sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"`).
+4. **`x-surface-quote-style`**: Preferred code string literal quote style:
+   - Enum: `'single' | 'double' | 'backtick' | 'none'`.
+5. **`x-surface-patch-policy`**: Rebase and drift recovery strategy when editing out-of-sync documents:
+   - `onDrift` (`enum`: `'abort' | 'rebase' | 'force'`, required): Action taken on baseline drift.
+   - `retryLimit` (`integer`, optional, $\ge 0$): Maximum rebase retry attempts.
+
+#### Two Distinct Scoping Tiers:
+
+##### 1. Object-Level Scope (`targetProperty`)
 Declared at the top-level of an object schema to bind multi-property live-patching coordinates (e.g. associating `name`, `nameRange`, `value`, `valueRange`, and `unquotedValue`):
 - `targetProperty` (`string`, **required for object scope**): Designates which property in `properties` is the primary target for live-patch mutations.
 - `supportsLivePatch` (`boolean`): Indicates whether this entity supports 60fps non-AST live range patching.
 - `maxFramerateHz` (`number`): Throttling cap for slider scrubbing (e.g. 60 or 120).
 - `driftCheckAlgorithm` (`enum`: `'sha256' | 'character-count' | 'none'`): Integrity verification method.
 
-#### 2. Inline Property-Level Scope
+##### 2. Inline Property-Level Scope
 Attached directly inside individual property definitions in `properties` to configure editor behavior for that specific property:
 - `x-surface-quote-style` (`enum`: `'single' | 'double' | 'backtick' | 'none'`): Preferred code string quote style.
 - `x-surface-live-patch` (`boolean`): Whether this specific property accepts live patch transactions.
@@ -1072,7 +1158,8 @@ Attached directly inside individual property definitions in `properties` to conf
 
 #### Scoping Precedence & Governance Invariants:
 1. **Precedence**: Property-level inline annotations override object-level defaults.
-2. **Lint Validation**: `@oa-sdk/codegen lint --categories surface` verifies that any `targetProperty` declared in an object-level `x-surface-*` extension **must exist** as a defined key in the schema's `properties` map.
+2. **Lint Validation**: `@oa-sdk/parser` and `oa-gen lint --categories surface` verify that any `targetProperty` declared in an object-level `x-surface-*` extension **must exist** as a defined key in the schema's `properties` map.
+3. **Format Validation**: `x-surface-fingerprint` must strictly conform to `^sha256:[a-f0-9]{64}$`.
 
 #### Complete Runnable Example with Both Scopes:
 
@@ -1109,33 +1196,55 @@ Attached directly inside individual property definitions in `properties` to conf
       "supportsLivePatch": true,
       "maxFramerateHz": 120,
       "driftCheckAlgorithm": "sha256"
-    }
+    },
+    "x-surface-patch-policy": {
+      "onDrift": "rebase",
+      "retryLimit": 3
+    },
+    "x-surface-fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
   }
 }
 ```
 
 ```typescript
-// Zod Authoring equivalent with surface metadata
-export const SurfaceParamSchema = z
-  .object({
-    id: z.string().min(1),
-    name: z.string().min(1),
-    nameRange: CharRangeSchema,
-    value: z.string().describe('Formatted CSS parameter value representation'),
-    valueRange: CharRangeSchema,
-    unquotedValue: z.string(),
-    unquotedRange: CharRangeSchema,
-    inferredType: z.enum(['color', 'dimension', 'typography', 'shadow', 'spacing', 'flex', 'keyword', 'raw']),
-    colorFormat: z.enum(['hex', 'rgb', 'hsl', 'oklch']).optional(),
-  })
-  .annotate({
-    'x-surface-param-range': {
-      targetProperty: 'value',
-      supportsLivePatch: true,
-      maxFramerateHz: 120,
-      driftCheckAlgorithm: 'sha256',
-    },
-  });
+import { z } from 'zod';
+import type { SurfaceExtensionFields } from '@oa-sdk/openapi-projection-contract';
+
+// Reusable character range schema
+export const CharRangeSchema = z.object({
+  start: z.number().int().nonnegative().describe('0-based UTF-16 start offset'),
+  end: z.number().int().nonnegative().describe('0-based UTF-16 end offset (exclusive)'),
+  length: z.number().int().nonnegative().describe('Character span length'),
+});
+
+// Zod Authoring schema for SurfaceParam
+export const SurfaceParamSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1),
+  nameRange: CharRangeSchema,
+  value: z.string().describe('Formatted CSS parameter value representation'),
+  valueRange: CharRangeSchema,
+  unquotedValue: z.string(),
+  unquotedRange: CharRangeSchema,
+  inferredType: z.enum(['color', 'dimension', 'typography', 'shadow', 'spacing', 'flex', 'keyword', 'raw']),
+  colorFormat: z.enum(['hex', 'rgb', 'hsl', 'oklch']).optional(),
+});
+
+export type SurfaceParam = z.infer<typeof SurfaceParamSchema>;
+
+// OpenAPI projection metadata attaching x-surface-* vendor extensions
+export const surfaceParamExtensions: SurfaceExtensionFields = {
+  'x-surface-param-range': {
+    targetProperty: 'value',
+    supportsLivePatch: true,
+    maxFramerateHz: 120,
+  },
+  'x-surface-patch-policy': {
+    onDrift: 'rebase',
+    retryLimit: 3,
+  },
+  'x-surface-fingerprint': 'sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
+};
 ```
 
 ---
@@ -1235,15 +1344,15 @@ mockServer.override('leaseAcquire', {
 ```
 ┌─────────────────────────────────────────────────────────────────────────────────────────┐
 │ TIER 1: Schema Projection & Dialect Conformance                                         │
-│   Command: pnpm run schema:export --validate                                            │
+│   Command: pnpm exec oa-gen validate                                                    │
 │   Assert: All Zod schemas project to JSON Schema 2020-12 and OpenAPI 3.1 with 0 errors. │
 ├─────────────────────────────────────────────────────────────────────────────────────────┤
 │ TIER 2: OA-SDK Specification Governance & Linting                                       │
-│   Command: oa-codegen lint --spec <spec> --categories surface,structure,operations      │
+│   Command: pnpm exec oa-gen lint --spec <spec> --categories surface,structure,operations│
 │   Assert: Zero structural, parameter, reference, surface, or meta-schema violations.    │
 ├─────────────────────────────────────────────────────────────────────────────────────────┤
 │ TIER 3: Pre-Compiled Type Guard Integrity & Modular Split                               │
-│   Command: oa-codegen generate --target standalone-guards --split && pnpm test:guards   │
+│   Command: pnpm exec oa-gen generate && pnpm test:guards                                │
 │   Assert: Split ESM type guards reject invalid fixtures and narrow valid types.         │
 ├─────────────────────────────────────────────────────────────────────────────────────────┤
 │ TIER 4: Headless Native RPC & MCP CI Mock Suite                                         │
@@ -1251,7 +1360,7 @@ mockServer.override('leaseAcquire', {
 │   Assert: Full 17-method RPC and 14-operation MCP workflows complete in <500ms.         │
 ├─────────────────────────────────────────────────────────────────────────────────────────┤
 │ TIER 5: Extension Bundle Decoupling & CSP Audit                                         │
-│   Command: oa-codegen audit:csp --bundle dist/extension                                 │
+│   Command: pnpm exec oa-gen audit:csp --bundle dist/extension                           │
 │   Assert: 0 bytes @oa-sdk/ajv/zod runtime weight; 0 eval / new Function calls.          │
 └─────────────────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -1262,49 +1371,100 @@ mockServer.override('leaseAcquire', {
 
 ### 8.0 Declarative Specification Management (`oa.config.ts`)
 
-Browser Studio 및 OA SDK 모노레포는 선언적 스펙 설정 파일인 `oa.config.ts`를 통해 루트 자동 탐색, 다중 프로파일 일괄 프로젝션, 스펙 드리프트 감지, CSP 감사를 자동화합니다. 상세 내용은 [선언적 스펙 설정 가이드](./declarative-spec-configuration.md)를 참조하십시오.
+Browser Studio 및 OA SDK 모노레포는 선언적 스펙 설정 파일인 `oa.config.ts`를 통해 루트 자동 탐색, 다중 프로파일 일괄 프로젝션, 스펙 드리프트 감지, CSP 감사를 자동화합니다. 상세 내용은 [선언적 사양 설정 가이드](./declarative-spec-configuration.md)를 참조하십시오.
+
+#### Complete Declarative Configuration Example:
+
+```typescript
+// oa.config.ts
+import { defineConfig } from '@oa-sdk/codegen';
+
+export default defineConfig({
+  rootDir: '.',
+  specs: [
+    {
+      id: 'surface-engine',
+      profile: 'component-bundle',
+      schemaEntry: 'packages/surface-engine/src/types/schemas.ts',
+      outDir: 'artifacts/specs',
+      title: 'Surface Engine Component Bundle',
+      version: '1.0.0',
+    },
+    {
+      id: 'devlink-contracts',
+      profile: 'operation-contract',
+      schemaEntry: 'packages/devlink-contracts/src/index.ts',
+      outDir: 'artifacts/specs',
+      title: 'DevLink Native RPC Operation Contract',
+      version: '1.0.0',
+    },
+    {
+      id: 'gateway-api',
+      profile: 'full-api-document',
+      schemaEntry: 'packages/gateway/src/schema/index.ts',
+      outDir: 'artifacts/specs',
+      title: 'Browser Studio Gateway REST API',
+      version: '1.0.0',
+    },
+  ],
+  guards: {
+    outDir: 'dist/guards',
+    split: true,
+    moduleFormat: 'esm',
+    auditCsp: true,
+  },
+});
+```
 
 #### Unified CLI Commands:
 ```bash
-# 1. 선언된 5개 프로파일 일괄 유효성 검증 (하위 패키지 어디서나 실행 가능)
+# 1. 선언된 모든 프로파일 일괄 유효성 검증 (하위 패키지 어디서나 실행 가능)
 pnpm exec oa-gen validate
 
 # 2. 선언된 모든 스펙 및 독립형 타입 가드 일괄 생성
 pnpm exec oa-gen generate
 
-# 3. 소스 Zod AST와 아티팩트 간 결정론적 해시 드리프트 검증 (CI 게이트)
+# 3. TypeScript 클라이언트 및 타입 정의 생성
+pnpm exec oa-gen typegen
+
+# 4. 소스 Zod AST와 아티팩트 간 결정론적 해시 드리프트 검증 (CI 게이트)
 pnpm exec oa-gen drift:check
 
-# 4. Manifest V3 CSP 준수 여부 정적 보안 감사
+# 5. Manifest V3 CSP 준수 여부 정적 보안 감사
 pnpm exec oa-gen audit:csp --bundle dist/guards
 
-# 5. 하위 호환성 파괴 변경 감지
+# 6. 하위 호환성 파괴 변경 감지
 pnpm exec oa-gen diff --base <old.json> --head <new.json> --fail-on-breaking
 ```
 
-### 8.1 Build-Time Projection Script (`tools/export-openapi-specs.mjs`)
-The projection CLI `tools/export-openapi-specs.mjs` converts domain schemas into specifications and type guards.
+### 8.1 Declarative Specification Workflow (`oa.config.ts` & `oa-gen`)
+
+The declarative specification engine in `@oa-sdk/codegen` converts domain schemas into specifications and type guards driven by `oa.config.ts`.
 
 #### CLI Command Usage:
 ```bash
 # Export all OpenAPI specifications, JSON Schemas, and AJV standalone type guards
-node tools/export-openapi-specs.mjs
+pnpm exec oa-gen generate
 
-# Export specific profile with strict validation
-node tools/export-openapi-specs.mjs --profile contracts --validate
+# Validate all configured spec targets against profile rules
+pnpm exec oa-gen validate
 
-# Continuous watch mode during schema development
-node tools/export-openapi-specs.mjs --watch
+# Explicitly scope execution using project root override
+pnpm exec oa-gen generate --root /path/to/project-root
 ```
 
-#### CLI Options & Flags:
-| Option Flag | Type | Default | Description |
+#### Declarative Configuration Fields & CLI Options:
+| Configuration Key / CLI Flag | Type | Default | Description |
 |---|---|---|---|
-| `--profile` | `string` | `'all'` | Target profile: `'all'`, `'contracts'`, `'surface'`, `'inspector'`, `'visual-ir'`. |
-| `--format` | `string` | `'all'` | Output format: `'all'`, `'openapi'`, `'json-schema'`, `'guards'`. |
-| `--out-dir` | `string` | `'artifacts/specs'` | Destination directory for OpenAPI & JSON Schema specification artifacts. |
-| `--validate` | `boolean` | `true` | Run `@oa-sdk/parser` validation and exit with non-zero code on diagnostics error. |
-| `--watch` | `boolean` | `false` | Watch source schema files and automatically re-project on changes. |
+| `rootDir` / `--root <dir>` | `string` | `findProjectRoot()` | Base directory for relative path resolution across nested packages. |
+| `specs[].id` | `string` | *(required)* | Unique target identifier within `specs` array. |
+| `specs[].profile` | `enum` | *(required)* | Projection profile: `'component-bundle'`, `'operation-contract'`, `'full-api-document'`. |
+| `specs[].schemaEntry` | `string` | *(required)* | Path to Zod master schema entry point module. |
+| `specs[].outDir` | `string` | *(required)* | Destination directory for OpenAPI & JSON Schema specification artifacts. |
+| `guards.outDir` | `string` | `'dist/guards'` | Output directory for pre-compiled standalone AJV type guards. |
+| `guards.split` | `boolean` | `true` | Split modular guard files (`guards/<Name>.js`, `guards/<Name>.d.ts`) alongside `index.js`. |
+| `guards.moduleFormat` | `enum` | `'esm'` | Target module format: `'esm'` or `'cjs'`. |
+| `guards.auditCsp` | `boolean` | `true` | Automatically run Manifest V3 CSP static AST audit on emitted guards. |
 
 ### 8.2 Adding or Modifying a Domain Schema (Step-by-Step)
 When introducing a new data model or RPC method to Browser Studio:
@@ -1313,14 +1473,15 @@ When introducing a new data model or RPC method to Browser Studio:
    Add the schema in the appropriate domain package (`packages/devlink-contracts`, `packages/surface-engine`, etc.) using Zod. Use `.describe()` annotations and strict numeric bounds (`.min(0)` vs `.positive()`).
 2. **Export Schema & Type**:
    Export both `<Name>Schema` and `export type <Name> = z.infer<typeof <Name>Schema>`.
-3. **Register in Projection Tool**:
-   Ensure the schema is registered in `tools/export-openapi-specs.mjs`.
+3. **Register in `oa.config.ts`**:
+   Ensure the schema entry module is declared under `specs` in `oa.config.ts` with the appropriate profile (`component-bundle`, `operation-contract`, or `full-api-document`).
 4. **Execute Projection Pipeline**:
    ```bash
-   node tools/export-openapi-specs.mjs --validate
+   pnpm exec oa-gen validate
+   pnpm exec oa-gen generate
    ```
 5. **Verify Standalone Type Guards**:
-   Verify that `dist/guards/<name>.js` and `dist/guards/<name>.d.ts` are generated without compiler warnings.
+   Verify that `dist/guards/guards/<name>.js` and `dist/guards/guards/<name>.d.ts` are generated without compiler warnings.
 6. **Execute Monorepo Tests**:
    ```bash
    pnpm test
@@ -1332,7 +1493,7 @@ When introducing a new data model or RPC method to Browser Studio:
 | Error Symptom | Root Cause | Resolution |
 |---|---|---|
 | `exclusiveMinimum must be number` | Zod schema used `.positive()` or `.min()` in legacy OpenAPI 3.0 mode (emitting boolean `exclusiveMinimum: true`). | Ensure `targetDialect: '2020-12'` is passed to the converter so numeric `exclusiveMinimum: 0` is emitted. |
-| `Unresolved reference #/$defs/X` | OpenAPI 3.1 document references `#/$defs/X` instead of `#/components/schemas/X`. | Ensure `export-openapi-specs.mjs` re-maps all internal reference pointers using `remapRefsToOpenApi`. |
+| `Unresolved reference #/$defs/X` | OpenAPI 3.1 document references `#/$defs/X` instead of `#/components/schemas/X`. | Ensure spec projector re-maps all internal reference pointers using `remapRefsToOpenApi` to `#/components/schemas/<Name>`. |
 | `Circular reference stack overflow` | Recursive schema with `z.lazy` was projected without registering in schema registry `refs` map. | Register the recursive schema instance in `refs` map before projection so cycle-breaking `$ref` is emitted. |
 | `targetProperty "foo" not found` | Object-level `x-surface-param-range` specified `targetProperty: "foo"`, but `"foo"` is not in `properties`. | Add `"foo"` to `properties` or correct `targetProperty` name to match an existing property. |
 | `Invalid ProblemDetails status` | Error response status code was outside the range $100 \le \text{status} \le 599$. | Ensure HTTP status is a valid 3-digit integer (e.g. 422, 409, 500). |
@@ -1351,8 +1512,8 @@ Before submitting schema changes or pull requests, verify compliance against thi
 - [ ] **Recursive Trees**: Authored using `z.ZodType<T> = z.lazy(...)` with explicit interface and registered in registry `refs`.
 - [ ] **Surface Scope**: Object-level `x-surface-*` specifies valid `targetProperty`; property-level overrides are correctly scoped.
 - [ ] **V3 JSDoc Tags**: TypeScript interfaces use canonical validation tags (`@minimum`, `@format`, `@discriminator`).
-- [ ] **Zero Eval**: Standalone guards build with 0 `eval()`, 0 `new Function()`, and passes `oa-codegen audit:csp`.
-- [ ] **Clean Pipeline**: `pnpm test`, `pnpm -r typecheck`, and `pnpm schema:validate` exit with code 0.
+- [ ] **Zero Eval**: Standalone guards build with 0 `eval()`, 0 `new Function()`, and passes `oa-gen audit:csp`.
+- [ ] **Clean Pipeline**: `pnpm test`, `pnpm -r typecheck`, and `pnpm exec oa-gen validate` exit with code 0.
 
 ---
 
