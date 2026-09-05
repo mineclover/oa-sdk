@@ -267,52 +267,35 @@ The scanner analyzes bundle ASTs and verifies:
 
 ## 4. DevLink Protocol, RFC 9457 Problem Details & Operation Contract Formalization
 
-### 4.1 Native RPC Methods (17 Operations)
+### 4.1 Native RPC Methods Pattern
 DevLink Native RPC communicates over Chrome Native Messaging using 4-byte little-endian length-prefixed JSON envelopes (`NativeRpcRequestSchema` and `NativeRpcResponseSchema`).
 
-In the OpenAPI 3.1 `operation-contract` profile, each method is formalized as `POST /rpc/{method}`:
+In the OpenAPI 3.1 `operation-contract` profile, each method is formalized as a canonical operation `POST /rpc/{method}` with strongly typed request and response schemas:
 
-| # | RPC Method Name | OpenAPI Path & Operation ID | Summary & Scope | Request Schema | Response Schema |
-|---|---|---|---|---|---|
-| 1 | `session.hello` | `POST /rpc/session.hello`<br>`sessionHello` | Native host discovery, protocol version handshake, and extension authentication. | `SessionHelloParamsSchema` | `SessionHelloResultSchema` |
-| 2 | `workspace.list` | `POST /rpc/workspace.list`<br>`workspaceList` | Enumerate registered, authorized local workspace roots. | `{}` | `WorkspaceListResultSchema` |
-| 3 | `workspace.approve` | `POST /rpc/workspace.approve`<br>`workspaceApprove` | Authorize and register a local workspace directory for live editing. | `WorkspaceApproveParamsSchema` | `WorkspaceApproveResultSchema` |
-| 4 | `workspace.snapshot.save` | `POST /rpc/workspace.snapshot.save`<br>`workspaceSnapshotSave` | Persist baseline HTML/CSS snapshot and resource manifest to workspace disk. | `WorkspaceSnapshotSaveParamsSchema` | `WorkspaceSnapshotSaveResultSchema` |
-| 5 | `binding.resolve` | `POST /rpc/binding.resolve`<br>`bindingResolve` | Resolve live DOM element evidence to local file binding and base revision. | `BindingResolveParamsSchema` | `BindingResolveResultSchema` |
-| 6 | `binding.verify-style` | `POST /rpc/binding.verify-style`<br>`bindingVerifyStyle` | Verify and authorize style mutation persistence for a resolved binding. | `BindingVerifyStyleParamsSchema` | `BindingVerifyStyleResultSchema` |
-| 7 | `source.inspect` | `POST /rpc/source.inspect`<br>`sourceInspect` | Inspect local stylesheet candidates matching selector, property, and source maps. | `SourceInspectParamsSchema` | `SourceInspectResultSchema` |
-| 8 | `materialize.css` | `POST /rpc/materialize.css`<br>`materializeCss` | Direct character-level CSS materialization to workspace source files on disk. | `EditCommitRequestV1Schema` | `EditMaterializationResultV1Schema` |
-| 9 | `materialize.rollback` | `POST /rpc/materialize.rollback`<br>`materializeRollback` | Atomic rollback of single or multi-file materialization transactions. | `MaterializeRollbackParamsSchema` | `MaterializeRollbackResultSchema` |
-| 10 | `mcp.control` | `POST /rpc/mcp.control`<br>`mcpControl` | Multiplexed MCP control request tunneling between Native Host and Extension. | `McpControlParamsSchema` | `DevLinkMcpControlResultV1Schema` |
-| 11 | `journal.get` | `POST /rpc/journal.get`<br>`journalGet` | Query append-only commit, rollback, and lease journal records. | `DevLinkHistoryQueryOptionsSchema` | `DevLinkHistoryResultV1Schema` |
-| 12 | `diff.preview` | `POST /rpc/diff.preview`<br>`diffPreview` | Unified diff preview and predicted SHA-256 fingerprint computation before commit. | `DevLinkDiffPreviewParamsSchema` | `DevLinkDiffPreviewResultV1Schema` |
-| 13 | `lease.acquire` | `POST /rpc/lease.acquire`<br>`leaseAcquire` | Acquire optimistic workspace or file-level concurrency lease locks. | `LeaseAcquireParamsSchema` | `LeaseAcquireResultSchema` |
-| 14 | `lease.renew` | `POST /rpc/lease.renew`<br>`leaseRenew` | Extend TTL on an active concurrency lease lock token. | `LeaseRenewParamsSchema` | `LeaseRenewResultSchema` |
-| 15 | `lease.release` | `POST /rpc/lease.release`<br>`leaseRelease` | Explicitly surrender and release an active lease lock token. | `LeaseReleaseParamsSchema` | `LeaseReleaseResultSchema` |
-| 16 | `lease.inspect` | `POST /rpc/lease.inspect`<br>`leaseInspect` | Inspect active concurrency leases across workspace and file scopes. | `LeaseInspectParamsSchema` | `LeaseInspectResultSchema` |
-| 17 | `utility.patch` | `POST /rpc/utility.patch`<br>`utilityPatch` | Perform AST/regex class surgery on Tailwind and utility classes in source code. | `UtilityClassPatchOptionsSchema` | `UtilityClassPatchResultSchema` |
+| Representative RPC Method | OpenAPI Path & Operation ID | Summary & Scope | Request Schema | Response Schema |
+|---|---|---|---|---|
+| `session.hello` | `POST /rpc/session.hello`<br>`sessionHello` | Native host discovery, protocol version handshake, and extension authentication. | `SessionHelloParamsSchema` | `SessionHelloResultSchema` |
+| `workspace.approve` | `POST /rpc/workspace.approve`<br>`workspaceApprove` | Authorize and register a local workspace directory for live editing. | `WorkspaceApproveParamsSchema` | `WorkspaceApproveResultSchema` |
+| `source.inspect` | `POST /rpc/source.inspect`<br>`sourceInspect` | Inspect local stylesheet candidates matching selector, property, and source maps. | `SourceInspectParamsSchema` | `SourceInspectResultSchema` |
+| `materialize.css` | `POST /rpc/materialize.css`<br>`materializeCss` | Direct character-level CSS materialization to workspace source files on disk. | `EditCommitRequestV1Schema` | `EditMaterializationResultV1Schema` |
+| `lease.acquire` | `POST /rpc/lease.acquire`<br>`leaseAcquire` | Acquire optimistic workspace or file-level concurrency lease locks. | `LeaseAcquireParamsSchema` | `LeaseAcquireResultSchema` |
 
-### 4.2 DevLink MCP Stdio Operations (14 Operations)
+> ℹ️ **Exhaustive Method Catalog**: The complete 17-method DevLink Native RPC specification (including `workspace.*`, `binding.*`, `materialize.*`, `lease.*`, and `utility.patch`) is authored and exported in `packages/devlink-contracts`.
+
+### 4.2 DevLink MCP Stdio Operations Pattern
 The DevLink MCP Stdio interface allows external AI agents and automation tools to control browser inspection, live preview, and style commits via standard Model Context Protocol (MCP) JSON-RPC 2.0.
 
 In the OpenAPI 3.1 `operation-contract` profile, each MCP operation is formalized as `POST /mcp/{operation}`:
 
-| # | MCP Operation Name | OpenAPI Path & Operation ID | Summary & Description |
-|---|---|---|---|
-| 1 | `session.status` | `POST /mcp/session.status`<br>`mcpSessionStatus` | Query active DevLink extension connection, tabs, and workspace binding status. |
-| 2 | `tabs.list` | `POST /mcp/tabs.list`<br>`mcpTabsList` | Enumerate inspectable browser tabs with URL, title, and DevLink readiness. |
-| 3 | `targets.list` | `POST /mcp/targets.list`<br>`mcpTargetsList` | List available live DOM inspection targets and element address sets. |
-| 4 | `selection.select` | `POST /mcp/selection.select`<br>`mcpSelectionSelect` | Programmatically select DOM element by selector, XPath, or component address. |
-| 5 | `style.inspect` | `POST /mcp/style.inspect`<br>`mcpStyleInspect` | Retrieve computed styles, matched CSS rules, and surface parameters for target. |
-| 6 | `preview.style` | `POST /mcp/preview.style`<br>`mcpPreviewStyle` | Apply ephemeral, non-destructive 60fps style mutation preview in browser. |
-| 7 | `commit.style` | `POST /mcp/commit.style`<br>`mcpCommitStyle` | Commit previewed style mutations to disk via non-AST range patcher. |
-| 8 | `rollback` | `POST /mcp/rollback`<br>`mcpRollback` | Revert applied mutations using atomic journal transaction history. |
-| 9 | `history.get` | `POST /mcp/history.get`<br>`mcpHistoryGet` | Retrieve commit journal records and revision snapshots for active session. |
-| 10 | `diff.preview` | `POST /mcp/diff.preview`<br>`mcpDiffPreview` | Generate character-level visual diff between baseline and mutated style rules. |
-| 11 | `lease.acquire` | `POST /mcp/lease.acquire`<br>`mcpLeaseAcquire` | Acquire optimistic editing lease lock before executing agent mutations. |
-| 12 | `lease.renew` | `POST /mcp/lease.renew`<br>`mcpLeaseRenew` | Heartbeat renew active editing lease lock during multi-step reasoning. |
-| 13 | `lease.release` | `POST /mcp/lease.release`<br>`mcpLeaseRelease` | Explicitly release editing lease lock upon task completion. |
-| 14 | `lease.inspect` | `POST /mcp/lease.inspect`<br>`mcpLeaseInspect` | Inspect existing active leases to avoid agent concurrency collisions. |
+| Representative MCP Operation | OpenAPI Path & Operation ID | Summary & Description |
+|---|---|---|
+| `session.status` | `POST /mcp/session.status`<br>`mcpSessionStatus` | Query active DevLink extension connection, tabs, and workspace binding status. |
+| `selection.select` | `POST /mcp/selection.select`<br>`mcpSelectionSelect` | Programmatically select DOM element by selector, XPath, or component address. |
+| `preview.style` | `POST /mcp/preview.style`<br>`mcpPreviewStyle` | Apply ephemeral, non-destructive 60fps style mutation preview in browser. |
+| `commit.style` | `POST /mcp/commit.style`<br>`mcpCommitStyle` | Commit previewed style mutations to disk via non-AST range patcher. |
+| `lease.acquire` | `POST /mcp/lease.acquire`<br>`mcpLeaseAcquire` | Acquire optimistic editing lease lock before executing agent mutations. |
+
+> ℹ️ **Exhaustive MCP Catalog**: The complete 14-operation DevLink MCP specification (including `tabs.list`, `targets.list`, `style.inspect`, `rollback`, `history.get`, and `diff.preview`) is maintained in `packages/devlink-contracts`.
 
 ### 4.3 Domain Entity Component Bundles
 Domain models that represent shared data interchange structures are projected under the `component-bundle` profile:
@@ -1369,11 +1352,15 @@ mockServer.override('leaseAcquire', {
 
 ## 8. Developer Workflow & CLI Reference
 
-### 8.0 Declarative Specification Management (`oa.config.ts`)
+### 8.1 Declarative Specification Workflow (`oa.config.ts` & `oa-gen`)
 
-Browser Studio 및 OA SDK 모노레포는 선언적 스펙 설정 파일인 `oa.config.ts`를 통해 루트 자동 탐색, 다중 프로파일 일괄 프로젝션, 스펙 드리프트 감지, CSP 감사를 자동화합니다. 상세 내용은 [선언적 사양 설정 가이드](./declarative-spec-configuration.md)를 참조하십시오.
+Browser Studio and OA SDK monorepos manage all specification projections, schema drift verification, standalone type guards, and CSP security audits through declarative configuration files (`oa.config.ts`).
 
-#### Complete Declarative Configuration Example:
+> 📖 **Authoritative Guides**:
+> - Detailed schema options and multi-project configuration: [선언적 스펙 설정 가이드 (oa.config.ts)](./declarative-spec-configuration.md)
+> - Complete CLI commands, options, and exit codes: [CLI 명령어 레퍼런스 (oa-gen)](./cli-command-reference.md)
+
+#### Essential `oa.config.ts` Configuration:
 
 ```typescript
 // oa.config.ts
@@ -1418,53 +1405,24 @@ export default defineConfig({
 
 #### Unified CLI Commands:
 ```bash
-# 1. 선언된 모든 프로파일 일괄 유효성 검증 (하위 패키지 어디서나 실행 가능)
+# 1. Validate all declared specification targets (executable from any nested subdirectory)
 pnpm exec oa-gen validate
 
-# 2. 선언된 모든 스펙 및 독립형 타입 가드 일괄 생성
+# 2. Export all OpenAPI specifications, JSON Schemas, and standalone type guards
 pnpm exec oa-gen generate
 
-# 3. TypeScript 클라이언트 및 타입 정의 생성
+# 3. Generate TypeScript clients and type definitions
 pnpm exec oa-gen typegen
 
-# 4. 소스 Zod AST와 아티팩트 간 결정론적 해시 드리프트 검증 (CI 게이트)
+# 4. Verify deterministic hash drift between source Zod AST and committed artifacts (CI Gate)
 pnpm exec oa-gen drift:check
 
-# 5. Manifest V3 CSP 준수 여부 정적 보안 감사
+# 5. Static AST security audit for Manifest V3 CSP compliance
 pnpm exec oa-gen audit:csp --bundle dist/guards
 
-# 6. 하위 호환성 파괴 변경 감지
+# 6. Detect semantic backward compatibility breaking changes
 pnpm exec oa-gen diff --base <old.json> --head <new.json> --fail-on-breaking
 ```
-
-### 8.1 Declarative Specification Workflow (`oa.config.ts` & `oa-gen`)
-
-The declarative specification engine in `@oa-sdk/codegen` converts domain schemas into specifications and type guards driven by `oa.config.ts`.
-
-#### CLI Command Usage:
-```bash
-# Export all OpenAPI specifications, JSON Schemas, and AJV standalone type guards
-pnpm exec oa-gen generate
-
-# Validate all configured spec targets against profile rules
-pnpm exec oa-gen validate
-
-# Explicitly scope execution using project root override
-pnpm exec oa-gen generate --root /path/to/project-root
-```
-
-#### Declarative Configuration Fields & CLI Options:
-| Configuration Key / CLI Flag | Type | Default | Description |
-|---|---|---|---|
-| `rootDir` / `--root <dir>` | `string` | `findProjectRoot()` | Base directory for relative path resolution across nested packages. |
-| `specs[].id` | `string` | *(required)* | Unique target identifier within `specs` array. |
-| `specs[].profile` | `enum` | *(required)* | Projection profile: `'component-bundle'`, `'operation-contract'`, `'full-api-document'`. |
-| `specs[].schemaEntry` | `string` | *(required)* | Path to Zod master schema entry point module. |
-| `specs[].outDir` | `string` | *(required)* | Destination directory for OpenAPI & JSON Schema specification artifacts. |
-| `guards.outDir` | `string` | `'dist/guards'` | Output directory for pre-compiled standalone AJV type guards. |
-| `guards.split` | `boolean` | `true` | Split modular guard files (`guards/<Name>.js`, `guards/<Name>.d.ts`) alongside `index.js`. |
-| `guards.moduleFormat` | `enum` | `'esm'` | Target module format: `'esm'` or `'cjs'`. |
-| `guards.auditCsp` | `boolean` | `true` | Automatically run Manifest V3 CSP static AST audit on emitted guards. |
 
 ### 8.2 Adding or Modifying a Domain Schema (Step-by-Step)
 When introducing a new data model or RPC method to Browser Studio:
