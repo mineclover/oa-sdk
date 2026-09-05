@@ -6,10 +6,9 @@
     },
     {
       "path": "~/.gemini/config/skills",
-      "exclude": [
-        "photoshop-toolchain-workflow",
-        "openwiki-.*",
-        "svg-authoring"
+      "include_only": [
+        "oa-.*",
+        "openapi-.*"
       ]
     }
   ]
