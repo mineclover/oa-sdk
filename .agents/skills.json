@@ -1,0 +1,16 @@
+{
+  "$schema": "https://antigravity.google/schemas/skills.json",
+  "entries": [
+    {
+      "path": ".agents/skills"
+    },
+    {
+      "path": "~/.gemini/config/skills",
+      "exclude": [
+        "photoshop-toolchain-workflow",
+        "openwiki-.*",
+        "svg-authoring"
+      ]
+    }
+  ]
+}
