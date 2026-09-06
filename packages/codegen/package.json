@@ -50,6 +50,7 @@
     "test": "vitest run --maxWorkers 2",
     "test:ci": "vitest run --maxWorkers 1 --no-file-parallelism",
     "test:ts7": "vitest run src/__tests__/typegen/compile-check.test.ts --maxWorkers 1 --no-file-parallelism",
+    "bench:validation": "node --import tsx scripts/bench-validation-engines.ts",
     "typecheck": "tsc --noEmit",
     "clean": "rm -rf dist",
     "smoke:pack": "pnpm build && node scripts/package-pack-smoke.mjs"
@@ -80,6 +81,7 @@
     "drizzle-orm": "1.0.0-beta.20",
     "tsup": "^8.0.0",
     "typescript": "5.9.3",
+    "typia": "^12.0.2",
     "vitest": "^4.1.4"
   },
   "peerDependencies": {
