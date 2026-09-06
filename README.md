@@ -237,6 +237,21 @@ console.log(describeApi(parseDocument(spec)))
 | [CLI 명령 레퍼런스](./docs/guides/cli-command-reference.md) | 현재 `oa-gen` 명령의 목적·최소 입력·전역 `--root` 및 조건부 옵션 |
 | [스키마 아키텍처 및 작성 규칙](./docs/guides/schema-architecture-and-conventions.md) | Zod SSOT 마스터 스키마, 4단계 프로젝션 파이프라인, 엄격한 수치 범위 및 MV3 무런타임 가드 |
 | [테스트 인프라 (Test Infrastructure)](./docs/concepts/test-infrastructure.md) | 4계층 E2E 검증 모델(F01~F16), 스펙 신선도/드리프트 감지, 결정론적 SHA-256 해시, CSP 감사 게이트 |
+| [Spec-Lens Platform](./docs/spec-lens/README.md) | OpenAPI 스펙 변경 이력 관측, Git 타임라인, D3 의존성 그래프, 웹 대시보드 (`@oa-sdk/spec-lens`, `apps/spec-lens`) |
 | [전체 문서](./docs/README.md) | 유저 가이드 + 최적 탐색 경로 + SSOT |
 | [구현 현황](./docs/internal/spec.md) | 패키지별 구현 현황 + 테스트 관리 |
 | [API 인덱스](./docs/internal/api-index.md) | 타입·함수 단일 소스 |
+
+## 에이전트 스킬 (Agent Skills)
+
+저장소는 AI 에이전트의 컨텍스트 오염을 방지하고 도메인별 최적화된 워크플로우를 제공하기 위해 Closed-by-Default 에이전트 스킬 거버넌스를 적용합니다:
+
+- **환경 설정**: [`.agents/skills.json`](.agents/skills.json) (글로벌 화이트리스트 및 로컬 스킬 마운트)
+- **도메인 모듈형 스킬**:
+  - [`oa-codegen`](.agents/skills/oa-codegen/SKILL.md): AST 양방향 동기화, Trivia 보존, Typia 태그 인터섹션 파싱, Zod/TS 어댑터
+  - [`oa-spec-lens`](.agents/skills/oa-spec-lens/SKILL.md): SQLite WAL 수명주기, 변경 관측, 심볼 그래프 쿼리, D3 시각화
+  - [`oa-schemas`](.agents/skills/oa-schemas/SKILL.md): OpenAPI 3.1/3.2 다중 도메인 조각화, `oa://` 번들링, 순환 참조 해결
+  - [`oa-runtime`](.agents/skills/oa-runtime/SKILL.md): 다운스트림 라우터 스텁, 타입드 클라이언트, 인메모리 목 서버
+  - [`oa-governance`](.agents/skills/oa-governance/SKILL.md): API 페르소나 계약, DPM 패턴, Closed-by-Default 4-Tier 검증 체계
+  - [`oa-sdk`](.agents/skills/oa-sdk/SKILL.md): 모노레포 루트 오케스트레이터 및 빠른 참조
+- **검증 게이트**: `@spec-platform/document-gates`의 `createAgentConfigGate`가 `pnpm check:docs`에 통합되어 CI 및 로컬에서 상시 검증됩니다.

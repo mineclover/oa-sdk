@@ -1,13 +1,67 @@
-import { Fragment, useState } from 'react'
+import { Fragment, useState, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { api, type SpecPathEntry } from '../api/client.js'
 import { Badge } from '../components/Badge.js'
+import { CopyButton } from '../components/CopyButton.js'
 import { Input } from '../components/Input.js'
 import { Select } from '../components/Select.js'
 import { Spinner } from '../components/Spinner.js'
 import { useTranslation } from 'react-i18next'
-import { formatRelativeTimeCompact } from '../i18n/index.js'
+import { formatRelativeTimeCompact } from '../i18n/utils.js'
 import { PathAvailabilityNotice } from '../components/PathAvailabilityNotice.js'
+
+export type SortField =
+  | 'path'
+  | 'methods'
+  | 'canonicalId'
+  | 'scope'
+  | 'domain'
+  | 'sourceFile'
+  | 'lastChanged'
+
+export type SortDirection = 'asc' | 'desc'
+
+export function sortPathEntries(
+  entries: SpecPathEntry[],
+  field: SortField,
+  direction: SortDirection,
+): SpecPathEntry[] {
+  const modifier = direction === 'asc' ? 1 : -1
+  return [...entries].sort((a, b) => {
+    switch (field) {
+      case 'path':
+        return modifier * a.path.localeCompare(b.path)
+      case 'methods': {
+        const diff = a.methods.length - b.methods.length
+        if (diff !== 0) return modifier * diff
+        const aM = a.methods.slice().sort().join(',')
+        const bM = b.methods.slice().sort().join(',')
+        return modifier * aM.localeCompare(bM)
+      }
+      case 'canonicalId':
+        return modifier * a.canonicalId.localeCompare(b.canonicalId)
+      case 'scope':
+        return modifier * a.scope.localeCompare(b.scope)
+      case 'domain':
+        return modifier * a.domain.localeCompare(b.domain)
+      case 'sourceFile':
+        return modifier * a.sourceFile.localeCompare(b.sourceFile)
+      case 'lastChanged': {
+        const tsA =
+          typeof a.lastChangedTimestamp === 'number' && !isNaN(a.lastChangedTimestamp)
+            ? a.lastChangedTimestamp
+            : new Date(a.lastChangedTimestamp || 0).getTime() || 0
+        const tsB =
+          typeof b.lastChangedTimestamp === 'number' && !isNaN(b.lastChangedTimestamp)
+            ? b.lastChangedTimestamp
+            : new Date(b.lastChangedTimestamp || 0).getTime() || 0
+        return modifier * (tsA - tsB)
+      }
+      default:
+        return 0
+    }
+  })
+}
 
 const METHOD_COLORS: Record<string, string> = {
   get: 'var(--blue)',
@@ -39,11 +93,18 @@ function MethodBadge({ method }: { method: string }) {
   )
 }
 
+interface ColumnDefinition {
+  field: SortField
+  label: string
+}
+
 export function PathProvenance() {
   const { t } = useTranslation()
   const [scopeFilter, setScopeFilter] = useState('')
   const [domainFilter, setDomainFilter] = useState('')
   const [search, setSearch] = useState('')
+  const [sortField, setSortField] = useState<SortField>('path')
+  const [sortDirection, setSortDirection] = useState<SortDirection>('asc')
 
   const { data: pathsResult, isLoading } = useQuery({
     queryKey: ['paths', scopeFilter, domainFilter],
@@ -54,18 +115,31 @@ export function PathProvenance() {
   const allScopes = [...new Set(paths?.map(p => p.scope) ?? [])].sort()
   const allDomains = [...new Set(paths?.map(p => p.domain) ?? [])].sort()
 
-  const filtered = paths?.filter(p =>
-    search === '' || p.path.toLowerCase().includes(search.toLowerCase()),
-  ) ?? []
+  const sortedAndFiltered = useMemo(() => {
+    const filtered =
+      paths?.filter(
+        p => search === '' || p.path.toLowerCase().includes(search.toLowerCase()),
+      ) ?? []
+    return sortPathEntries(filtered, sortField, sortDirection)
+  }, [paths, search, sortField, sortDirection])
 
-  const TABLE_HEADERS = [
-    t('pathsColPath'),
-    t('pathsColMethods'),
-    t('pathsColCanonicalId'),
-    t('pathsColScope'),
-    t('pathsColDomain'),
-    t('pathsColSourceFile'),
-    t('pathsColLastChanged'),
+  const handleHeaderClick = (field: SortField) => {
+    if (sortField === field) {
+      setSortDirection(prev => (prev === 'asc' ? 'desc' : 'asc'))
+    } else {
+      setSortField(field)
+      setSortDirection(field === 'lastChanged' ? 'desc' : 'asc')
+    }
+  }
+
+  const columns: ColumnDefinition[] = [
+    { field: 'path', label: t('pathsColPath') },
+    { field: 'methods', label: t('pathsColMethods') },
+    { field: 'canonicalId', label: t('pathsColCanonicalId') },
+    { field: 'scope', label: t('pathsColScope') },
+    { field: 'domain', label: t('pathsColDomain') },
+    { field: 'sourceFile', label: t('pathsColSourceFile') },
+    { field: 'lastChanged', label: t('pathsColLastChanged') },
   ]
 
   return (
@@ -75,7 +149,9 @@ export function PathProvenance() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <span style={{ fontWeight: 600 }}>{t('pathsTitle')}</span>
           {paths && (
-            <span className="label">{t('pathsCount', { filtered: filtered.length, total: paths.length })}</span>
+            <span className="label">
+              {t('pathsCount', { filtered: sortedAndFiltered.length, total: paths.length })}
+            </span>
           )}
         </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -107,29 +183,61 @@ export function PathProvenance() {
         <div style={{ overflowX: 'auto', overflowY: 'auto', flex: 1 }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
             <thead>
-              <tr style={{ background: 'var(--bg-surface)', position: 'sticky', top: 0 }}>
-                {TABLE_HEADERS.map(h => (
-                  <th
-                    key={h}
-                    style={{
-                      padding: '8px 12px',
-                      textAlign: 'left',
-                      fontWeight: 500,
-                      color: 'var(--text-secondary)',
-                      borderBottom: '1px solid var(--border)',
-                      whiteSpace: 'nowrap',
-                    }}
-                  >
-                    {h}
-                  </th>
-                ))}
+              <tr style={{ background: 'var(--bg-surface)', position: 'sticky', top: 0, zIndex: 2 }}>
+                {columns.map(col => {
+                  const isActive = sortField === col.field
+                  return (
+                    <th
+                      key={col.field}
+                      onClick={() => handleHeaderClick(col.field)}
+                      style={{
+                        padding: '8px 12px',
+                        textAlign: 'left',
+                        fontWeight: isActive ? 600 : 500,
+                        color: isActive ? 'var(--text-primary)' : 'var(--text-secondary)',
+                        borderBottom: '1px solid var(--border)',
+                        whiteSpace: 'nowrap',
+                        cursor: 'pointer',
+                        userSelect: 'none',
+                      }}
+                      aria-sort={
+                        isActive ? (sortDirection === 'asc' ? 'ascending' : 'descending') : 'none'
+                      }
+                      data-sort-field={col.field}
+                      data-sort-direction={isActive ? sortDirection : undefined}
+                      title={
+                        col.field === 'path'
+                          ? t('pathsSortPath', 'Sort by path')
+                          : col.field === 'methods'
+                            ? t('pathsSortMethods', 'Sort by method count')
+                            : col.field === 'lastChanged'
+                              ? t('pathsSortLastChanged', 'Sort by last changed')
+                              : undefined
+                      }
+                    >
+                      <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                        <span>{col.label}</span>
+                        <span
+                          style={{
+                            fontSize: 10,
+                            color: isActive ? 'var(--blue)' : 'var(--text-muted)',
+                            opacity: isActive ? 1 : 0.4,
+                          }}
+                          aria-hidden="true"
+                        >
+                          {isActive ? (sortDirection === 'asc' ? '▲' : '▼') : '↕'}
+                        </span>
+                      </div>
+                    </th>
+                  )
+                })}
               </tr>
             </thead>
             <tbody>
-              {filtered.map(p => (
+              {sortedAndFiltered.map(p => (
                 <PathRow key={p.path} entry={p} />
               ))}
-              {filtered.length === 0 && (
+              {sortedAndFiltered.length === 0 && (
                 <tr>
                   <td colSpan={7} style={{ padding: 32, textAlign: 'center', color: 'var(--text-muted)' }}>
                     {t('pathsEmpty')}
@@ -144,7 +252,7 @@ export function PathProvenance() {
   )
 }
 
-function PathRow({ entry }: { entry: SpecPathEntry }) {
+export function PathRow({ entry }: { entry: SpecPathEntry }) {
   const { t } = useTranslation()
   const [open, setOpen] = useState(false)
   const pathParts = entry.canonicalId.split(':')
@@ -155,13 +263,21 @@ function PathRow({ entry }: { entry: SpecPathEntry }) {
     <Fragment>
       <tr
         className="hoverable"
-        style={{ borderBottom: open ? undefined : '1px solid var(--border-muted)' }}
+        style={{ borderBottom: open ? undefined : '1px solid var(--border-muted)', cursor: 'pointer' }}
         onClick={() => setOpen(o => !o)}
+        data-expanded={open}
       >
         <td style={{ padding: '8px 12px' }}>
-          <code style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-primary)' }}>
-            {entry.path}
-          </code>
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <code style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-primary)' }}>
+              {entry.path}
+            </code>
+            <CopyButton
+              text={entry.path}
+              label={t('pathsCopyPath', 'Copy path')}
+              title={t('pathsCopyPath', 'Copy path')}
+            />
+          </div>
         </td>
         <td style={{ padding: '8px 12px' }}>
           <div style={{ display: 'flex', gap: 3, flexWrap: 'wrap' }}>
@@ -170,9 +286,16 @@ function PathRow({ entry }: { entry: SpecPathEntry }) {
         </td>
         <td style={{ padding: '8px 12px' }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <code style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-secondary)' }}>
-              {pathPart}
-            </code>
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              <code style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-secondary)' }}>
+                {pathPart}
+              </code>
+              <CopyButton
+                text={entry.canonicalId}
+                label={t('pathsCopyCanonicalId', 'Copy Canonical ID')}
+                title={t('pathsCopyCanonicalId', 'Copy Canonical ID')}
+              />
+            </div>
             {kindPart && <Badge variant="muted">{kindPart}</Badge>}
           </div>
         </td>
@@ -210,19 +333,39 @@ function PathRow({ entry }: { entry: SpecPathEntry }) {
         </td>
       </tr>
       {open && (
-        <tr style={{ borderBottom: '1px solid var(--border-muted)', background: 'var(--bg-elevated)' }}>
+        <tr
+          className="path-detail-row"
+          style={{ borderBottom: '1px solid var(--border-muted)', background: 'var(--bg-elevated)' }}
+        >
           <td colSpan={7} style={{ padding: '10px 16px' }}>
             <div style={{ display: 'flex', gap: 32, flexWrap: 'wrap' }}>
-              <DetailField label={t('pathsDetailCanonicalId')}>
-                <code className="code-tag" style={{ fontSize: 11 }}>{entry.canonicalId}</code>
+              <DetailField label={t('pathsColPath', 'Path')}>
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                  <code className="code-tag" style={{ fontSize: 11 }}>{entry.path}</code>
+                  <CopyButton
+                    text={entry.path}
+                    label={t('pathsCopyPath', 'Copy path')}
+                    title={t('pathsCopyPath', 'Copy path')}
+                  />
+                </div>
               </DetailField>
-              <DetailField label={t('pathsDetailSourceFile')}>
+              <DetailField label={t('pathsDetailCanonicalId', 'Canonical ID')}>
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                  <code className="code-tag" style={{ fontSize: 11 }}>{entry.canonicalId}</code>
+                  <CopyButton
+                    text={entry.canonicalId}
+                    label={t('pathsCopyCanonicalId', 'Copy Canonical ID')}
+                    title={t('pathsCopyCanonicalId', 'Copy Canonical ID')}
+                  />
+                </div>
+              </DetailField>
+              <DetailField label={t('pathsDetailSourceFile', 'Source File')}>
                 <code className="code-tag" style={{ fontSize: 11 }}>{entry.sourceFile}</code>
               </DetailField>
-              <DetailField label={t('pathsDetailContentHash')}>
+              <DetailField label={t('pathsDetailContentHash', 'Content Hash')}>
                 <code className="code-tag" style={{ fontSize: 11 }}>{entry.contentHash.slice(0, 16)}…</code>
               </DetailField>
-              <DetailField label={t('pathsDetailLastRevision')}>
+              <DetailField label={t('pathsDetailLastRevision', 'Last Changed Revision')}>
                 <code className="code-tag" style={{ fontSize: 11 }}>{entry.lastChangedRevisionId}</code>
               </DetailField>
             </div>

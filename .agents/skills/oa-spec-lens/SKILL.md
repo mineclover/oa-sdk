@@ -648,6 +648,10 @@ export function isSpecLensResponse<K extends keyof SpecLensApiResponseMap>(
      - `~N` (blue): API paths modified.
      - `⚡N` (orange): Breaking changes detected.
      - `build failed` (red badge): Snapshot build error at that revision.
+   - **Arbitrary 2-Commit Compare Mode**: Base and Head radio selectors allow comparing any two arbitrary historical commits across the timeline, with swap (`⇄`) and validation guards.
+   - **Breaking Change (⚡) Filter Chip**: One-click toggle to isolate commits with breaking changes.
+   - **Real-Time Search**: Live multi-field text filtering across commit SHA, message, and author.
+   - **In-App Feedback**: Cache clearing confirmed via accessible modal `Dialog` and notified via `Toast`.
 2. **Diff View (`views/DiffView.tsx`)**:
    - Pairwise diff between `baseId` and `headId`.
    - **Changes Tab**: Categorized OpenAPI structure diffs (`Root`, `Servers`, `API Paths`, `Components`, `Security`).
@@ -657,13 +661,22 @@ export function isSpecLensResponse<K extends keyof SpecLensApiResponseMap>(
 3. **Path Provenance View (`views/PathProvenance.tsx`)**:
    - Tabular view of all active API endpoints.
    - Method badges (GET=blue, POST=green, PUT/PATCH=amber, DELETE=red).
+   - **Data Grid Column Sorting**: Clickable table headers for Path (A-Z), HTTP Method, and Last Changed timestamp.
+   - **One-Click Clipboard Copy (`CopyButton`)**: Copies endpoint Path or Canonical ID to clipboard with 1.8s transient `Copied!` tooltip and event propagation isolation.
    - Real-time text search and Scope/Domain dropdown filtering.
    - Handles TypeSpec fallback state with `PathAvailabilityNotice`.
 4. **Fragment Graph View (`views/FragmentGraph.tsx`)**:
    - Interactive D3 force-directed visualization of `$ref` dependencies.
    - Node radii reflect definition kind (`path`: 10px, `operation`: 8px, `securityScheme`: 7px, `schema`: 6px, `parameter`: 5px).
    - Node colors reflect scope (`public`=#58a6ff, `shared`=#3fb950, `admin`=#e3b341, `internal`=#bc8cff, `partner`=#f0883e).
+   - **Floating Canvas Controls Toolbar**: Zoom In (`+`), Zoom Out (`−`), Fit to Viewport (`⛶`, auto bounding-box calculation), and Reset Layout (`↻`).
+   - **Symbol Search Autocomplete & Zoom Focus**: Auto-completes symbol names, animating camera transform to the target node with pulse highlight.
+   - **1-Hop Neighborhood Focus (Dimming)**: Clicking a node isolates its immediate dependencies at 100% opacity while dimming unrelated nodes to 15% opacity.
    - Node click opens details panel displaying canonical ID, content hash, and incoming/outgoing references.
+5. **Global App Shell & UX Patterns (`App.tsx`, `hooks/useUrlState.ts`, `components/FeedbackContext.tsx`)**:
+   - **URL SearchParams Deep Linking**: Synchronizes `view`, `base`, `head`, `revision`, `search`, `scope`, and `domain` with browser URL query parameters.
+   - **Collapsible Sidebar**: Collapses to 60px compact icon mode for maximizing horizontal diff viewing area.
+   - **In-App Feedback**: Dialog modal and toast notification architecture eliminating blocking native alerts.
 
 ### 7.3 Development vs Production Hosting
 - **Development**: Vite dev server runs on port 5174, proxying `/api/*` requests to the Spec-Lens server on port 4891.

@@ -19,6 +19,14 @@ const ko: KoKeys = {
   navGraph: '그래프',
   appFooter: '@oa-sdk/spec-lens',
   langToggle: 'EN',
+  sidebarCollapse: '사이드바 접기',
+  sidebarExpand: '사이드바 펼치기',
+
+  // ── Feedback ───────────────────────────────────────────────
+  dialogConfirmTitle: '동작 확인',
+  dialogConfirm: '확인',
+  dialogCancel: '취소',
+  toastDismiss: '닫기',
 
   // ── Target info ─────────────────────────────────────────────
   configTarget: '대상',
@@ -78,6 +86,20 @@ const ko: KoKeys = {
   timelineMoreFiles: '+{{count}} 더',
   timelineBuildFailed: '빌드 실패',
   timelineViewDiff: 'diff 보기 →',
+  timelineFilterBreaking: 'Breaking만 (⚡)',
+  timelineSearchPlaceholder: '커밋 검색 (메시지, SHA, 작성자)…',
+  timelineCompareMode: '선택 비교 모드',
+  timelineCompareCancel: '선택 취소',
+  timelineCompareBarPrompt: '비교할 커밋 2개를 선택하세요',
+  timelineCompareAction: '비교하기 ({{base}} … {{head}})',
+  timelineCompareBase: 'Base',
+  timelineCompareHead: 'Head',
+  timelineClearCacheError: '캐시 초기화에 실패했습니다.',
+  timelineFilterCount: '{{count}}개 리비전 일치',
+  timelineSwapButton: 'Base ⇄ Head 맞바꾸기',
+  timelineDistinctError: 'Base와 Head는 서로 다른 리비전이어야 합니다',
+  timelineNoMatch: '필터 조건과 일치하는 리비전이 없습니다.',
+  timelineClearFilters: '필터 초기화',
 
   // ── Relative time ───────────────────────────────────────────
   relJustNow: '방금',
@@ -105,6 +127,12 @@ const ko: KoKeys = {
   pathsDetailSourceFile: '소스 파일',
   pathsDetailContentHash: '콘텐츠 해시',
   pathsDetailLastRevision: '마지막 변경 revision',
+  pathsSortPath: '경로순 정렬',
+  pathsSortMethods: '메서드순 정렬',
+  pathsSortLastChanged: '최근 변경순 정렬',
+  pathsCopyPath: '경로 복사',
+  pathsCopyCanonicalId: 'Canonical ID 복사',
+  pathsCopied: '클립보드에 복사되었습니다!',
 
   // ── Breaking panel ──────────────────────────────────────────
   breakingFilterAll: '전체',
@@ -119,6 +147,13 @@ const ko: KoKeys = {
   graphNoSnapshots: '스냅샷 없음',
   graphAllKinds: '모든 종류',
   graphAllScopes: '모든 scope',
+  graphZoomIn: '확대',
+  graphZoomOut: '축소',
+  graphFit: '화면에 맞추기',
+  graphReset: '레이아웃 초기화',
+  graphSearchPlaceholder: '심볼 / 노드 검색…',
+  graphFocusActive: '이웃 노드 포커스: {{name}}',
+  graphFocusReset: '포커스 해제',
   graphDetailTitle: '프래그먼트',
   graphDetailName: '이름',
   graphDetailKind: '종류',

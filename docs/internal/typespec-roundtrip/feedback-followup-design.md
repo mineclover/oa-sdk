@@ -239,5 +239,5 @@ The next automation-maintenance change should:
 - [TypeSpec authoring conventions](../../guides/typespec-authoring-conventions.md)
 - [Basic spec usage](../../guides/basic-spec-usage.md)
 - [Production operations](./production-operations.md)
-- [spec-lens design](../../spec-lens/design.md)
+- [spec-lens documentation](../../spec-lens/README.md)
 - [ADR-009](../architecture/009-typespec-first-authoring.md)

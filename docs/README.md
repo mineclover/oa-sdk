@@ -122,7 +122,7 @@
 | [NestJS Swagger / FastAPI Governance](./guides/use-cases/nestjs-swagger-governance.md) | NestJS Swagger / FastAPI 산출물 → oa-sdk 계약 관리 레퍼런스 |
 | [bun-graph-db projection 소비](./guides/use-cases/bun-graph-db-projections.md) | bun-graph-db OpenAPI full document/table projection → OA SDK |
 | [World Model 계약 소비](./guides/use-cases/world-model-contract-consumption.md) | World Model contract 검증과 generated client/HTTP integration 준비 |
-| [spec-lens](./spec-lens/README.md) | 커밋별 OpenAPI 변경 이력 관측 도구 — Timeline, Diff, Path Provenance |
+| [Spec-Lens Platform](./spec-lens/README.md) | OpenAPI 스펙 변경 이력 관측, 임의 커밋 비교, D3 의존성 그래프 및 웹 대시보드 (`@oa-sdk/spec-lens`, `apps/spec-lens`) |
 | [Preview App](../apps/preview/) | 브라우저 수동 프리뷰 (자동 E2E 보증은 [playground](../apps/playground/)가 담당) |
 
 ---
