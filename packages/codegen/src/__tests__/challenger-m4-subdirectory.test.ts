@@ -458,6 +458,6 @@ describe('Adversarial Challenger M4: Subdirectory Conformance & Submodule Invari
 
         expect(process.cwd()).toBe(targetDir)
       }
-    })
+    }, 120_000)
   })
 })

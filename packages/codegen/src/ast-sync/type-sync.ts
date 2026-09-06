@@ -37,7 +37,7 @@ function resolveAdapter(existingCode: string, optionAdapter?: string | TypeAdapt
     if (key.startsWith('zod')) {
       return new ZodTypeAdapter();
     }
-    if (key === 'typia' || key === 'typescript-jsdoc') {
+    if (key === 'typia' || key === 'typescript-jsdoc' || key.startsWith('typia')) {
       return new TypiaTypeAdapter();
     }
     if (key.includes('ts') || key === 'typescript' || key === 'interface') {
@@ -54,7 +54,9 @@ function resolveAdapter(existingCode: string, optionAdapter?: string | TypeAdapt
     existingCode.includes('@minimum') ||
     existingCode.includes('@maximum') ||
     existingCode.includes('@format') ||
-    existingCode.includes('@default')
+    existingCode.includes('@default') ||
+    /\b(?:tags\.|typia\.tags\.)/i.test(existingCode) ||
+    /from\s+['"]typia(?:\/.*)?['"]/.test(existingCode)
   ) {
     return new TypiaTypeAdapter();
   }
