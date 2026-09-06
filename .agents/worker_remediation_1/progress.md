@@ -1,13 +1,12 @@
 # Progress
 
-- Last visited: 2026-09-02T22:55:00Z
-- Status: Remediation complete and fully verified.
-  - Implemented zero-dependency `STANDALONE_FORMATS` in `generator.ts`.
-  - Implemented `postProcessGeneratedJs` with `__ucs2length` and `__equal` inlining and named function wrapping.
-  - Added `package.json` (`{"type": "module"}`) generation in `outDir`.
-  - Updated `adversarial-csp.test.ts` and enhanced `generator.test.ts`.
-  - Rebuilt `@oa-sdk/codegen` (`pnpm --filter @oa-sdk/codegen build`).
-  - Ran `@oa-sdk/codegen` tests: all 95 files, 1146 tests PASS.
-  - Ran monorepo typecheck (`pnpm -r typecheck`): all 21 projects PASS.
-  - Ran full monorepo test suite (`pnpm test`): all 14 task suites PASS (code 0).
-  - Verified CSP audit on RFC 9457 `ProblemDetails` schema with `format: "uri"`: 0 CSP violations, code 0.
+- Last visited: 2026-09-05T07:18:00Z
+- Status: Gate remediation complete and 100% verified.
+  - Task 1: Fixed `.annotate(...)` call in `docs/guides/schema-architecture-and-conventions.md:1209-1245` with clean Zod master schema authoring and typed `SurfaceExtensionFields` contract. Confirmed snippet executes cleanly with tsx.
+  - Task 2: Fixed `runSpecValidation` in `packages/codegen/src/cli/commands/validate.ts` by extracting `isRecursiveRefCycle` and applying consistent circular ref suppression for recursive OAS 3.1 schemas in single `--spec` mode. Confirmed `oa-gen validate --spec ... --profile component-bundle` exits with code 0 on `visual-ir.openapi.json`.
+  - Verification:
+    - `pnpm --filter @oa-sdk/codegen test src/__tests__/e2e`: 202/202 tests pass (100% pass, including T1-F14-4).
+    - `pnpm -r typecheck`: 0 errors across 21 packages.
+    - `pnpm check:docs`: 0 errors across 230 markdown files and 24 OAS reference files.
+    - `pnpm exec tsx scripts/check-cli-spec.ts`: 0 errors (2 manifests, 27 commands).
+    - Documentation snippet execution: 0 errors, parses valid parameters cleanly.

@@ -1,7 +1,11 @@
-# BRIEFING — 2026-09-02T22:21:00Z
+# BRIEFING — 2026-09-05T16:03:00Z
 
 ## Mission
-Review R1 (Standalone Guards Splitting & Filtering) and R2 (CLI Category-Aware Linting & Profile-Aware Validation) for correctness, quality, completeness, and adversarial robustness.
+Adversarial review and verification of M1 & M2 documentation and specification work products across `@oa-sdk`:
+- `docs/guides/declarative-spec-configuration.md`
+- `docs/guides/schema-architecture-and-conventions.md`
+- `docs/concepts/test-infrastructure.md`
+- `docs/concepts/cli-governance.md`
 
 ## 🔒 My Identity
 - Archetype: reviewer-critic
@@ -10,52 +14,58 @@ Review R1 (Standalone Guards Splitting & Filtering) and R2 (CLI Category-Aware L
 - Original parent: c8e6c449-4228-4443-bc32-e90615c118a5
 - Milestone: Review R1 and R2
 - Instance: 1 of 1
+- Current parent: a329d2dd-a30a-4c8e-872a-6ab18e0a1c87 (Milestone: Review M1 & M2 Docs & Specification)
 
 ## 🔒 Key Constraints
 - Review-only — do NOT modify implementation code
 - Thoroughly verify integrity, tests, edge cases, and CLI functionality
+- Integrity violation check: No hardcoded test results, facade implementations, shortcuts, fabricated verification, or self-certifying work.
+- Strict verification of runnable TypeScript snippets, RFC 9457 error contracts, strict numeric bounds, recursive schemas, 4-tier (+ Tier 5) model, version hashing, drift detection, 11+7 breaking diff rules, CSP audit, and Mermaid diagrams.
 
 ## Current Parent
-- Conversation ID: c8e6c449-4228-4443-bc32-e90615c118a5
-- Updated: 2026-09-02T22:21:00Z
+- Conversation ID: a329d2dd-a30a-4c8e-872a-6ab18e0a1c87
+- Updated: 2026-09-05T16:03:00Z
 
 ## Review Scope
 - **Files reviewed**:
-  - `packages/codegen/src/standalone-guards/generator.ts`
-  - `packages/codegen/src/standalone-guards/types.ts`
-  - `packages/codegen/src/cli/commands/generate.ts`
-  - `packages/codegen/src/cli/commands/lint.ts`
-  - `packages/codegen/src/cli/commands/validate.ts`
-  - Unit/integration/E2E test files across codegen, parser, and openapi-projection-contract
-- **Interface contracts**: PROJECT.md, ORIGINAL_REQUEST.md, TEST_READY.md
-- **Review criteria**: Correctness, completeness, quality, adversarial robustness, no integrity violations
+  - `docs/guides/declarative-spec-configuration.md`
+  - `docs/guides/schema-architecture-and-conventions.md`
+  - `docs/concepts/test-infrastructure.md`
+  - `docs/concepts/cli-governance.md`
+- **Interface contracts**: PROJECT.md, ORIGINAL_REQUEST.md
+- **Review criteria**: Technical correctness, completeness, runnable TypeScript snippets, RFC 9457 conformance, strict numeric bounds, recursive schemas, 4-tier (+ Tier 5) test model, version hashing, drift detection, 11+7 breaking diff rules, CSP audit, Mermaid diagrams, monorepo typecheck, test execution.
 
 ## Key Decisions Made
-- Confirmed full test execution and independently verified R1 and R2 implementations.
-- Confirmed zero eval, zero new Function, zero runtime dependencies in generated split guards.
-- Confirmed category filtering in `oa-codegen lint --categories` and profile invariants in `oa-codegen validate --profile`.
-- Verdict: **APPROVE**.
+- Executed monorepo typecheck (`pnpm -r typecheck`) -> 0 errors across 21 packages (PASS).
+- Executed CLI spec check (`node --import tsx scripts/check-cli-spec.ts`) -> 0 errors (PASS).
+- Executed AST parser on markdown code blocks -> 20 TS, 6 JSON, 2 YAML, 3 Mermaid diagrams valid (PASS).
+- Executed test suites: `@oa-sdk/core` (100/100 PASS), `@oa-sdk/openapi-projection-contract` (197/197 PASS), `@oa-sdk/codegen` unit (125/125 PASS), Tier 5 challengers (38/38 PASS).
+- Discovered test failure in E2E suite (`src/__tests__/e2e/tier1-feature-coverage.test.ts > T1-F14-4: validates visual-ir profile artifact` failed with AssertionError: expected 1 to be +0).
+- Discovered CLI bug in `packages/codegen/src/cli/commands/validate.ts` where single `--spec` mode does not filter `refs/cycle` errors for recursive schemas, causing exit code 1.
+- Issued verdict: **REQUEST_CHANGES**.
 
 ## Artifact Index
-- `.agents/reviewer_1/BRIEFING.md` — persistent memory
+- `.agents/reviewer_1/BRIEFING.md` — persistent working memory
 - `.agents/reviewer_1/progress.md` — liveness heartbeat
-- `.agents/reviewer_1/handoff.md` — final handoff report
+- `.agents/reviewer_1/review.md` — comprehensive review report
+- `.agents/reviewer_1/handoff.md` — 5-component handoff report
 
 ## Review Checklist
 - **Items reviewed**:
-  - R1 Standalone Guards Splitting (`--split`) & Selective Filtering (`--schemas`)
-  - R2 CLI Category-Aware Linting (`--categories`) & Profile-Aware Validation (`--profile`)
-  - Standalone guard generator and CLI integration
-  - Monorepo typecheck and test suites
-- **Verdict**: APPROVE
-- **Unverified claims**: None (all claims independently verified via test runs and AST/code inspection)
+  - `docs/guides/declarative-spec-configuration.md`: PASS
+  - `docs/guides/schema-architecture-and-conventions.md`: PASS (with caveat on CLI `--spec` cyclic suppression)
+  - `docs/concepts/test-infrastructure.md`: REQUEST_CHANGES (test pass rate discrepancy)
+  - `docs/concepts/cli-governance.md`: PASS
+- **Verdict**: REQUEST_CHANGES
+- **Unverified claims**: Claim of 240/240 tests passing refuted by actual run (239 passing, 1 failing).
 
 ## Attack Surface
 - **Hypotheses tested**:
-  - Split generation with nested $ref resolution in isolation: PASSED
-  - Strict sandbox execution with global `eval` and `Function` disabled: PASSED
-  - CLI argument parsing edge cases (whitespace, comma-delimited, invalid tokens): PASSED
-  - Profile validation with empty vs populated paths: PASSED
-  - Suppression of unselected lint category violations: PASSED
-- **Vulnerabilities found**: None
-- **Untested angles**: None within R1 and R2 scope
+  - Code snippets in docs compile and typecheck: PASSED (20 TS, 6 JSON, 2 YAML, 3 Mermaid)
+  - Numeric bounds (`minimum` vs `exclusiveMinimum`) match `zod-to-schema.ts`: PASSED
+  - Version hash calculation matches RFC 8785 and `spec-projector.ts`: PASSED
+  - 11 endpoint rules + 7 component schema rules match `openapi-breaking-diff.ts`: PASSED
+  - CSP audit rules match `audit-csp.ts`: PASSED
+  - CLI single-spec validation on recursive schemas: FAILED (`oa-gen validate --spec` exits 1 on `refs/cycle`)
+- **Vulnerabilities found**: CLI `--spec` validation asymmetry causes failure on recursive schemas and breaks E2E test `T1-F14-4`.
+- **Untested angles**: None within M1 and M2 scope.

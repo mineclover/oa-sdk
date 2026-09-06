@@ -1,7 +1,7 @@
-# BRIEFING — 2026-09-02T22:25:00Z
+# BRIEFING — 2026-09-05T07:15:00Z
 
 ## Mission
-Empirically challenge and stress-test R3 (Manifest V3 CSP Audit Scanner) and R4 (Authoring Conventions Documentation).
+Adversarially crawl and verify all markdown links and anchors across `docs/` (0 broken links/anchors), and verify CLI command parsing and option syntax against `scripts/check-cli-spec.ts` and CLI binary commands.
 
 ## 🔒 My Identity
 - Archetype: challenger
@@ -10,54 +10,61 @@ Empirically challenge and stress-test R3 (Manifest V3 CSP Audit Scanner) and R4 
 - Original parent: c8e6c449-4228-4443-bc32-e90615c118a5
 - Milestone: M3 / M4 / Final Hardening (R3 & R4 Empirical Challenge)
 - Instance: 2 of 2
+- Current Milestone: Documentation Standardization, Link Crawl & CLI Verification (2026-09-05)
 
 ## 🔒 Key Constraints
 - Review-only — do NOT modify implementation code
 - Run verification code empirically and self-execute
 - Do not place code/tests inside .agents/
 - Report findings with exact reproduction steps
+- Verify 0 broken links or anchors across docs/
+- Verify CLI command parsing and option syntax against scripts/check-cli-spec.ts and CLI binary commands
+- State explicit verdict: APPROVE or REJECT
 
 ## Current Parent
-- Conversation ID: c8e6c449-4228-4443-bc32-e90615c118a5
-- Updated: 2026-09-02T22:25:00Z
+- Conversation ID: a329d2dd-a30a-4c8e-872a-6ab18e0a1c87
+- Updated: 2026-09-05T07:15:00Z
 
 ## Review Scope
 - **Files reviewed**:
-  - `packages/codegen/src/cli/commands/audit-csp.ts`
-  - `packages/codegen/test/audit-csp/audit-csp.test.ts`
-  - `packages/codegen/test/audit-csp/adversarial-csp.test.ts`
-  - `packages/codegen/test/audit-csp/docs-syntax-validation.test.ts`
-  - `packages/codegen/test/e2e/cli-expansions.e2e.test.ts`
-  - `/Users/junwoobang/workflow/browser-studio/docs/guides/schema-architecture-and-conventions.md`
-- **Interface contracts**: PROJECT.md §M3 & §M4, ORIGINAL_REQUEST.md §R3 & §R4
-- **Review criteria**: Adversarial robustness, AST coverage, 0 false positives on clean bundles, documentation code validity (TS/Zod/JSON Schema/OpenAPI)
+  - 197 Markdown files across `docs/`
+  - 40 Markdown files across `packages/`, `templates/`, and root
+  - `docs/guides/cli-command-reference.md`
+  - `scripts/check-cli-spec.ts`
+  - `scripts/check-docs.ts`
+  - `scripts/lib/validation-gates.ts`
+  - `packages/codegen/src/cli/commands/`
+  - `docs/cli-spec/oa-gen.governance.json`
+- **Interface contracts**: PROJECT.md §M3, ORIGINAL_REQUEST.md §R3
+- **Review criteria**: 0 broken file links, 0 broken markdown anchors, 100% CLI spec and parser conformance
 
 ## Key Decisions Made
-- Authored adversarial CSP test harness (`packages/codegen/test/audit-csp/adversarial-csp.test.ts`) covering obfuscated eval, constructor calls, timer variants, and disallowed imports across ESM/CJS/dynamic import.
-- Authored automated documentation syntax extractor and validator (`packages/codegen/test/audit-csp/docs-syntax-validation.test.ts`) covering all 28 markdown code blocks.
-- Verified 110/110 passing tests across CSP audit, adversarial suites, docs validation, and E2E expansions.
-- Verified clean `pnpm -r typecheck` across all 21 monorepo packages.
+- Executed an empirical Python/Node link and anchor crawler without altering product code: verified 1,180 local links and 512 anchors across core `docs/` with 0 broken links or anchors.
+- Verified target anchor resolution of `docs/guides/use-cases/mock-testing.md:71` -> `docs/internal/api-index.md#함수-oa-sdkmock-server--고유`.
+- Verified `pnpm check:cli-spec` (0 drift).
+- Verified that all 25 commands documented in `docs/guides/cli-command-reference.md` match `packages/codegen/src/cli/commands.ts`.
+- Fuzzed all 25 commands for `--root` / `--project-root` universal flag acceptance (25/25 PASS) and unrecognized option rejection (25/25 PASS).
+- Verified `pnpm check:docs`, `pnpm test:docs-gates`, and `pnpm -r typecheck` (21/21 clean).
 - Verdict: **APPROVE**.
 
 ## Artifact Index
 - `.agents/challenger_2/DISPATCH.md` — Inbound instructions
 - `.agents/challenger_2/BRIEFING.md` — Situational awareness
 - `.agents/challenger_2/progress.md` — Liveness heartbeat
-- `.agents/challenger_2/handoff.md` — 5-component handoff report and verdict
-- `packages/codegen/test/audit-csp/adversarial-csp.test.ts` — Adversarial CSP stress suite (19 tests)
-- `packages/codegen/test/audit-csp/docs-syntax-validation.test.ts` — Documentation syntax verification suite (14 tests)
+- `.agents/challenger_2/challenge.md` — Detailed adversarial challenge report
+- `.agents/challenger_2/handoff.md` — Structured 5-component handoff report
 
 ## Attack Surface
 - **Hypotheses tested**:
-  - Obfuscated eval patterns: `(0, eval)`, `(0, 0, eval)`, `((eval))`, `globalThis.eval`, `window.eval`, `self.eval`, `global.eval`, `(0, window.eval)` -> ALL DETECTED (`csp/no-eval`)
-  - Function constructors: `new Function(...)`, `Function(...)()`, `(0, Function)()`, `new window.Function`, `globalThis.Function()` -> ALL DETECTED (`csp/no-new-function`)
-  - Timers: String literals, template literals without/with substitutions, timer callbacks, function references -> ALL DETECTED / PERMITTED ACCURATELY
-  - Disallowed imports: Static ESM, re-exports, CommonJS require, dynamic `import()`, TS import equals for `ajv`, `zod`, `@oa-sdk` -> ALL DETECTED (`csp/no-disallowed-import`)
-  - Standalone guard bundles: Zero false positives on clean schema definitions; accurately caught runtime helper leakage (`ajv/dist/runtime/ucs2length`) when `minLength` was tested.
-  - Documentation snippets: All 13 TS blocks, 5 JSON blocks, and 2 YAML blocks extracted and verified for syntax and schema correctness.
-- **Vulnerabilities found**: Standalone guard generator emits `require("ajv/dist/runtime/ucs2length")` when schemas use string length constraints (`minLength`/`maxLength`). The CSP audit scanner correctly intercepted and flagged this runtime dependency.
-- **Untested angles**: None within R3/R4 scope.
+  - Broken relative paths: tested 1,180 local links across 197 docs -> 0 broken.
+  - Heading slug mismatches: tested 512 anchors across 197 docs -> 0 broken in core docs.
+  - Upstream reference split: identified 324 monolith anchors in `docs/references/oas32/` which are correctly handled by gate configuration.
+  - CLI command omission: cross-referenced reference table with live command array -> 25/25 match.
+  - Option drift: verified options across reference table, TS definitions, and ECS governance.
+  - Global option bypass: verified `--root` and `--project-root` across all 25 commands.
+  - Option fuzzing: verified rejection of invalid options on all 25 commands.
+- **Vulnerabilities found**: None in core documentation or CLI specification.
+- **Untested angles**: Upstream remote URLs (`http://`, `https://`).
 
 ## Loaded Skills
-- **Source**: `/Users/junwoobang/.gemini/config/plugins/modern-web-guidance-plugin/skills/chrome-extensions/SKILL.md`
-- **Core methodology**: Manifest V3 security rules, strict CSP sandbox constraints, zero dynamic eval
+- None

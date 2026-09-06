@@ -1,122 +1,130 @@
-# Reviewer Handoff Report: R1 (Standalone Guards Split & Filter) & R2 (CLI Lint Categories & Validate Profiles)
+# Handoff Report: Reviewer 1 (M1 & M2 Documentation & Governance Review)
 
-**Reviewer**: Reviewer 1 (Reviewer & Adversarial Critic)  
-**Date**: 2026-09-02T22:21:00Z  
-**Verdict**: **APPROVE**
+- **Agent**: `reviewer_1` (Roles: Reviewer, Adversarial Critic)
+- **Target**: Parent Agent (`a329d2dd-a30a-4c8e-872a-6ab18e0a1c87`)
+- **Type**: Hard Handoff (Review Complete)
+- **Timestamp**: 2026-09-05T16:03:00Z
+- **Verdict**: **REQUEST_CHANGES**
 
 ---
 
 ## 1. Observation
 
-### 1.1 Inspected Files & Line Ranges
-1. **`packages/codegen/src/standalone-guards/types.ts`**:
-   - Lines 20–37: `StandaloneGuardGeneratorOptions` extended with `schemas?: string[] | undefined` and `split?: boolean | undefined`.
-   - Lines 42–49: `GeneratedGuardArtifact` interface defining `filePath`, `content`, `kind: 'js' | 'dts'`.
-2. **`packages/codegen/src/standalone-guards/generator.ts`**:
-   - Lines 78–93: Filtering logic supporting exact guard function name, exact schema type name, prefix-normalized name (`is<TypeName>` / `<TypeName>`), and case-insensitive matching. Returns empty array `[]` if no schemas match.
-   - Lines 148–223: Split module compilation using `standaloneCodeFn(ajv, { [guard.name]: guard.name })`, emitting isolated modules to `guards/<TypeName>.js` and `guards/<TypeName>.d.ts` (with `typeImportSpecifier` support), plus root barrel re-exports in `index.js` and `index.d.ts`.
-   - Zero dynamic evaluation: all code emitted is pure standalone ESM with zero `eval()`, zero `new Function()`, and zero runtime imports to `ajv`, `zod`, or `@oa-sdk`.
-3. **`packages/codegen/src/cli/commands/generate.ts`**:
-   - Lines 26–28: Options declaration for `split: { type: 'boolean', description: ... }` and `schemas: { type: 'string', description: ... }`.
-   - Lines 60–65, 86–97: Option extraction via `bool(args, 'split')` and `optStr(args, 'schemas')`, splitting comma-separated filter tokens and passing to `generateStandaloneGuards`.
-4. **`packages/codegen/src/cli/commands/lint.ts`**:
-   - Lines 9–18: `ALLOWED_LINT_CATEGORIES`: `['structure', 'operations', 'parameters', 'refs', 'security', 'style', 'components', 'surface']`.
-   - Lines 20–44: Category type guard `isLintCategory` and robust parser `parseLintCategories`, enforcing valid category names and rejecting invalid/empty inputs.
-   - Lines 51–54, 58–65: Option registration in `lint.options` and forwarding to `lintDocument(doc, { ...(categories ? { categories } : {}) })`.
-5. **`packages/codegen/src/cli/commands/validate.ts`**:
-   - Lines 14–20, 27: Registration of `profile` option (`component-bundle | operation-contract | full-api-document`) backed by `@oa-sdk/openapi-projection-contract`.
-   - Lines 35–39: Validation of profile name via `isOpenApiProjectionProfile`, throwing informative error message on unsupported profile names.
-   - Lines 70–92, 135: Profile validation execution with `validateOpenApiProjection`, reporting diagnostics and exiting with code 1 upon invariant violation.
+1. **Reviewed Work Products**:
+   - `/Users/junwoobang/workflow/oa-sdk/docs/guides/declarative-spec-configuration.md` (317 lines)
+   - `/Users/junwoobang/workflow/oa-sdk/docs/guides/schema-architecture-and-conventions.md` (1,511 lines)
+   - `/Users/junwoobang/workflow/oa-sdk/docs/concepts/test-infrastructure.md` (511 lines)
+   - `/Users/junwoobang/workflow/oa-sdk/docs/concepts/cli-governance.md` (379 lines)
 
-### 1.2 Test Execution Results
-All tests were executed independently via project CLI test runners:
-1. **Targeted Codegen Test Suites**:
-   - Command: `pnpm --filter @oa-sdk/codegen exec vitest run test/standalone-guards test/cli test/e2e`
-   - Result: **10 test files passed, 202 tests passed, 0 failures (100% pass)**.
-   - Includes:
-     - `test/standalone-guards/generator.test.ts` (17 tests)
-     - `test/standalone-guards/cli.test.ts` (6 tests)
-     - `test/cli/lint-categories.test.ts` (11 tests)
-     - `test/cli/validate-profile.test.ts` (7 tests)
-     - `test/cli/cli-runner.test.ts` (2 tests)
-     - `test/e2e/cli-expansions.e2e.test.ts` (62 tests)
-     - `test/e2e/standalone-guards.e2e.test.ts` (27 tests)
-2. **Parser Test Suite**:
-   - Command: `pnpm --filter @oa-sdk/parser test`
-   - Result: **31 test files passed, 333 tests passed, 0 failures (100% pass)**.
-3. **OpenAPI Projection Contract Test Suite**:
-   - Command: `pnpm --filter @oa-sdk/openapi-projection-contract test`
-   - Result: **10 test files passed, 197 tests passed, 0 failures (100% pass)**.
-4. **Monorepo Typecheck**:
-   - Command: `pnpm -r typecheck`
-   - Result: **Clean across all 21 workspace packages (0 type errors)**.
+2. **Verbatim Test & Build Tool Execution Results**:
+   - `pnpm -r typecheck`: Exited with code 0 across 21 packages (`packages/openapi-projection-contract`, `packages/core`, `packages/parser`, `packages/codegen`, `packages/mock-server`, etc.).
+   - `node --import tsx scripts/check-cli-spec.ts`: Output: `CLI spec OK: 2 manifests, 27 command entities.`, exit code 0.
+   - `node --import tsx scripts/check-docs.ts`: Output: `Documentation OK: 230 Markdown files plus 24 OAS reference files; local links, oa-gen examples, and command/package entrypoint coverage checked.`, exit code 0.
+   - `node --import tsx scripts/check-spec-governance.ts`: Output: `Spec governance OK: loader schema and declared paths are valid.`, exit code 0.
+   - `node --import tsx scripts/test-validation-gates.ts`: Output: `Documentation validation gate library tests OK.`, exit code 0.
+   - Markdown Code Block AST Validation (across all 4 files): Verified 20 TypeScript snippets (0 syntax diagnostics), 6 JSON documents, 2 YAML configurations, and 3 Mermaid diagrams.
+   - Unit & Integration Test Suites:
+     - `@oa-sdk/core`: 100/100 tests passed.
+     - `@oa-sdk/openapi-projection-contract`: 197/197 tests passed.
+     - `@oa-sdk/codegen` unit tests: 125/125 tests passed (`config-schema`, `config-cli`, `root-discovery-cli`, `zod-to-schema`).
+     - `@oa-sdk/codegen` Tier 5 challenger tests: 38/38 tests passed (`challenger-m5-adversarial-stress`, `challenger-m5-adversarial-hardening`).
+
+3. **Verbatim Test Failure**:
+   - `pnpm --filter @oa-sdk/codegen test src/__tests__/e2e`:
+     ```
+     FAIL src/__tests__/e2e/tier1-feature-coverage.test.ts > E2E Tier 1: Feature Coverage (F01 - F16) > F14: 5 Domain Profiles Generation & Validation > T1-F14-4: validates visual-ir profile artifact
+     AssertionError: expected 1 to be +0 // Object.is equality
+     - Expected: 0
+     + Received: 1
+       ❯ src/__tests__/e2e/tier1-feature-coverage.test.ts:761:31
+          759|       if (fsSync.existsSync(specPath)) {
+          760|         const result = runOaCli(['validate', '--spec', specPath, '--profile', 'component-bundle'])
+          761|         expect(result.status).toBe(0)
+             |                               ^
+          762|       }
+          763|     })
+     Test Files  1 failed | 4 passed (5)
+          Tests  1 failed | 201 passed (202)
+     ```
+   - Running `pnpm exec tsx packages/codegen/src/cli/index.ts validate --spec /Users/junwoobang/workflow/browser-studio/artifacts/specs/visual-ir.openapi.json --profile component-bundle`:
+     ```
+     ━━━ Step 1: 파싱 + 구조 검증 ━━━
+       ❌ [refs/cycle] 순환 $ref 감지: #/components/schemas/VisualNode
+         at #/components/schemas/VisualNode (...)
+       ...
+     ❌ Invalid — 148 errors, 84 warnings
+     ```
+     Command exited with code 1.
+
+4. **Observed Code Asymmetry in CLI Validation**:
+   - `packages/codegen/src/cli/commands/validate.ts:144-152` (config-driven loop):
+     Filters out `refs/cycle` and `순환 $ref 감지` for recursive schemas in OpenAPI 3.1.
+   - `packages/codegen/src/cli/commands/validate.ts:246-329` (single `--spec` path):
+     Does NOT filter out `refs/cycle`, evaluates `if (!result.valid ...) throw new CliExitError(1)`.
+
+5. **Observed Attestation Claims**:
+   - `docs/concepts/test-infrastructure.md:54`: *"총 240개 | 100% 통과 (Pass)"*
+   - `docs/concepts/test-infrastructure.md:503`: *"Tier 1~4 (184개) + Subdirectory (18개) + Tier 5 (38개) 총 240개 테스트 100% 성공. 단 하나의 테스트 실패도 허용되지 않음 (Zero Tolerance)."*
+   - `.agents/worker_m2_1/handoff.md:29`: *"Combined total: 240 tests (100% passing)."*
+   - `docs/guides/schema-architecture-and-conventions.md:1110-1112`: *"@oa-sdk CLI validation (oa-gen validate) automatically identifies and permits valid recursive schema structures, suppressing false-positive circular reference diagnostics."*
 
 ---
 
 ## 2. Logic Chain
 
-1. **R1: Standalone Guards Splitting (`--split`)**:
-   - In modular split mode, compiling individual schemas using single-target Ajv standalone code generation ensures each output file in `guards/<TypeName>.js` contains only the AST nodes relevant to that schema while automatically inlining any referenced `$ref` definitions.
-   - The root barrel `index.js` and `index.d.ts` re-export each individual guard, providing seamless backward compatibility for bulk imports while allowing bundlers to tree-shake individual guard files.
-   - Verification confirmed that split modules execute in isolation under strict sandboxes where `globalThis.eval` and `globalThis.Function` are disabled.
-
-2. **R1: Standalone Guards Selective Filtering (`--schemas`)**:
-   - Parsing `--schemas` with comma separation and prefix normalization (`SurfaceBlock` vs `isSurfaceBlock`) provides flexible developer ergonomics in the CLI.
-   - Both split mode (`--split --schemas ...`) and monolithic mode (`--schemas ...`) correctly filter down to only the requested guard targets.
-   - Non-matching filters return an empty list without crashing or creating orphaned files.
-
-3. **R2: CLI Category-Aware Linting (`--categories`)**:
-   - `oa-codegen lint --categories <list>` isolates linting to requested categories (e.g. `surface`), ensuring errors in unselected categories (such as missing `info.title` in `structure`) are omitted from evaluation and exit code calculations.
-   - Unrecognized category names are immediately caught with a clear diagnostic message detailing the 8 allowed categories.
-
-4. **R2: CLI Profile-Aware Validation (`--profile`)**:
-   - Profile constraints from `@oa-sdk/openapi-projection-contract` are correctly applied in `validate.ts`.
-   - `operation-contract` fails with exit code 1 and diagnostic `openapi-projection/profile-requirement` if `paths` contains no operation objects, and passes when valid operations exist.
-   - `component-bundle` permits empty `paths` but requires non-empty `components.schemas`.
-   - Diagnostics from profile validation are properly formatted with severity icons and written to the incremental workspace cache.
-
-5. **Integrity Assessment**:
-   - No mock facades, hardcoded return values, or artificial workarounds exist in the implementation or tests.
-   - Zero integrity violations detected.
+1. **From Observation 1, 2, and 4**: 
+   The documentation in `docs/guides/declarative-spec-configuration.md`, `docs/guides/schema-architecture-and-conventions.md`, and `docs/concepts/cli-governance.md` provides accurate, thorough, and high-quality specifications for `defineConfig`, root discovery, numeric bounds, RFC 9457 errors, version hashing, drift detection, breaking diff rules, and CSP audits.
+2. **From Observation 3 and 4**: 
+   When running `oa-gen validate` with `--spec <path>` on `visual-ir.openapi.json`, the CLI does not filter out circular `$ref` diagnostics for recursive schemas (`VisualNode`), unlike the config-driven path (`validate.ts:144-152`). This causes `oa-gen validate --spec ...` to fail with 148 errors and exit with code 1.
+3. **From Observation 3 and 5**: 
+   Because of this CLI bug, E2E test `T1-F14-4` in `tier1-feature-coverage.test.ts` fails with exit code 1. Therefore, the actual E2E pass count is 201 of 202 (not 202/202), and the combined total is 239 of 240 (not 240/240).
+4. **From Observation 5**: 
+   Worker M2's claim of *"Combined total: 240 tests (100% passing)"* and `test-infrastructure.md`'s claim of *"총 240개 100% 통과 (Zero Tolerance)"* are contradicted by the actual test run result.
+5. **Conclusion**:
+   Per the reviewer and adversarial critic instructions ("Run build and tests to verify the work product. Report any failures as findings — do NOT fix them yourself. Review the work product for correctness, completeness, and quality. Issue a clear verdict: APPROVE or REQUEST_CHANGES"), work that contains a failing test and an unverified 100% pass rate claim cannot be approved. The verdict must be **REQUEST_CHANGES**.
 
 ---
 
 ## 3. Caveats
 
-- **Anonymous Root Schemas**: When an OpenAPI or JSON schema document does not have `$defs`, `definitions`, or `components.schemas` and has no `title` or `name`, the generator falls back to `guard.name = 'isRoot'` and `guard.typeName = ''` (type predicate `data is unknown`), generating `guards/isRoot.js`. This is the intended fallback behavior.
-- **Vitest Concurrency in Codegen Package**: Full monorepo root test invocation (`pnpm --filter @oa-sdk/codegen test`) uses Vitest parallel workers (`--maxWorkers 2`), which can experience file system race conditions if legacy test files share a single local `.tmp-cli-scenario/` directory. Running targeted test suites or running test suites in isolate mode demonstrates 100% test pass rate with 0 logic defects.
+1. **Non-destructive Isolation**: Per Reviewer constraints ("Review-only — do NOT modify implementation code"), no edits were made to `packages/codegen/src/cli/commands/validate.ts` or test files.
+2. **Milestone 3 Work in Progress**: Milestone 3 files (`docs/README.md`, `docs/guides/cli-command-reference.md`, `scripts/lib/validation-gates.ts`) are owned by Worker M3; our review was scoped to M1 & M2 deliverables.
 
 ---
 
 ## 4. Conclusion
 
-- **Verdict**: **APPROVE**
-- All requirements and acceptance criteria for **R1 (Standalone Guards Splitting & Filtering)** and **R2 (CLI Category-Aware Linting & Profile-Aware Validation)** are fully satisfied, well-architected, covered by comprehensive test suites, and type-clean.
+**Verdict**: **REQUEST_CHANGES**
+
+### Actionable Required Fixes:
+1. **Fix CLI Single-Spec Recursive Schema Validation**:
+   In `packages/codegen/src/cli/commands/validate.ts`, update `runSpecValidation` (lines 246-329) to filter out `refs/cycle` diagnostics when evaluating `result.valid` for OAS 3.1 documents, matching the filter in lines 144-152.
+2. **Verify E2E Test Suite**:
+   Run `pnpm --filter @oa-sdk/codegen test src/__tests__/e2e` and confirm all 202 tests pass (achieving the stated 240/240 total).
 
 ---
 
 ## 5. Verification Method
 
-### 5.1 Commands to Verify
+To independently reproduce the finding and verify resolution:
+
 ```bash
-# 1. Run all standalone guards unit and CLI tests
-pnpm --filter @oa-sdk/codegen exec vitest run test/standalone-guards
+# 1. Reproduce the test failure in T1-F14-4
+pnpm --filter @oa-sdk/codegen test src/__tests__/e2e/tier1-feature-coverage.test.ts -t "T1-F14-4"
+# Observed: Fails with AssertionError: expected 1 to be +0
 
-# 2. Run CLI category linting and profile validation tests
-pnpm --filter @oa-sdk/codegen exec vitest run test/cli
+# 2. Reproduce CLI behavior difference on recursive schema
+pnpm exec tsx packages/codegen/src/cli/index.ts validate \
+  --spec /Users/junwoobang/workflow/browser-studio/artifacts/specs/visual-ir.openapi.json \
+  --profile component-bundle
+# Observed: 148 refs/cycle errors, exits with code 1
 
-# 3. Run full E2E test suite covering R1 and R2 (62 tests)
-pnpm --filter @oa-sdk/codegen exec vitest run test/e2e/cli-expansions.e2e.test.ts
-
-# 4. Run parser and projection contract test suites
-pnpm --filter @oa-sdk/parser test
-pnpm --filter @oa-sdk/openapi-projection-contract test
-
-# 5. Run full workspace typecheck
-pnpm -r typecheck
+# 3. After applying the proposed fix in validate.ts:
+pnpm --filter @oa-sdk/codegen test src/__tests__/e2e
+# Expected: All 202 tests pass (100%)
 ```
 
-### 5.2 Key Invariants to Inspect
-- `packages/codegen/src/standalone-guards/generator.ts`: Look for `split` branching, inlining of `$ref`, and zero eval/Function.
-- `packages/codegen/src/cli/commands/lint.ts`: Look for `ALLOWED_LINT_CATEGORIES` and `parseLintCategories`.
-- `packages/codegen/src/cli/commands/validate.ts`: Look for `isOpenApiProjectionProfile` and `validateOpenApiProjection`.
+Files to inspect:
+- `/Users/junwoobang/workflow/oa-sdk/.agents/reviewer_1/review.md`
+- `packages/codegen/src/cli/commands/validate.ts:144-152, 246-329`
+- `packages/codegen/src/__tests__/e2e/tier1-feature-coverage.test.ts:757-763`

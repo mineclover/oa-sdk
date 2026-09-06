@@ -1,35 +1,57 @@
-## 2026-09-02T22:42:24Z
+# Dispatch — Worker Remediation 1 (Gate Remediation)
 
-You are the implementation Worker for the Victory Audit Remediation in @oa-sdk/codegen.
-Your working directory is: /Users/junwoobang/workflow/oa-sdk/.agents/worker_remediation_1
-Project root: /Users/junwoobang/workflow/oa-sdk
-Authoritative user request: /Users/junwoobang/workflow/oa-sdk/.agents/ORIGINAL_REQUEST.md
-Remediation report: /Users/junwoobang/workflow/oa-sdk/.agents/explorer_remediation_1/handoff.md
-Audit failure report: /Users/junwoobang/workflow/oa-sdk/.agents/victory_auditor_1/handoff.md
+## Mandatory Context
+Read the authoritative user request at:
+`/Users/junwoobang/workflow/oa-sdk/.agents/ORIGINAL_REQUEST.md` (specifically ## 2026-09-05T06:38:42Z).
 
-MANDATORY INTEGRITY WARNING:
-DO NOT CHEAT. All implementations must be genuine. DO NOT hardcode test results, create dummy/facade implementations, or circumvent the intended task. An auditor will independently verify your work. Integrity violations WILL be detected and your work WILL be rejected.
+Read the Project Plan at:
+`/Users/junwoobang/workflow/oa-sdk/.agents/teamwork_preview_orchestrator_docs_1/PROJECT.md`
 
-Exclusive Write Ownership:
-- packages/codegen/src/standalone-guards/generator.ts
-- packages/codegen/test/audit-csp/adversarial-csp.test.ts
-- packages/codegen/test/standalone-guards/generator.test.ts
+Read the Reviewer 1 Handoff (Finding 1 & 2):
+`/Users/junwoobang/workflow/oa-sdk/.agents/reviewer_1/handoff.md`
 
-Task:
-1. Read .agents/explorer_remediation_1/handoff.md carefully.
-2. Update packages/codegen/src/standalone-guards/generator.ts:
-   - Replace external `ajv-formats` with `STANDALONE_FORMATS` zero-dependency regex registry (supporting uri, date-time, email, uuid, time, date, duration, hostname, ipv4, ipv6, byte, int32, int64, json-pointer, url, etc.).
-   - Implement `postProcessGeneratedJs` that:
-     a. Converts `export const` to named `export function`.
-     b. Replaces `require("ajv/dist/runtime/ucs2length")` with inlined `__ucs2length`.
-     c. Replaces `require("ajv/dist/runtime/equal")` with inlined `__equal`.
-     d. Inlines format regexes if any stray format `require()` occurs.
-     e. Guarantees 0 external imports, 0 `require()`, 0 `eval()`, 0 `new Function()`.
-   - Ensure a minimal `package.json` with `{"type": "module"}` is written to `outDir` (if not already present) in both split mode and monolithic mode so Node.js resolves all emitted `.js` files natively as ESM.
-3. Update `packages/codegen/test/audit-csp/adversarial-csp.test.ts` lines 428-454 per the remediation report.
-4. Build codegen package (`pnpm --filter @oa-sdk/codegen build`) and execute tests:
-   - `pnpm --filter @oa-sdk/codegen test` (verify all 95 files pass, including `R1-ADV-5`).
-   - `pnpm test` (verify full monorepo test suite passes with code 0).
-   - `pnpm -r typecheck` (verify 21 workspace projects clean).
-   - Test CSP audit on RFC 9457 `ProblemDetails` schema with `format: "uri"` to verify 0 CSP violations and exit code 0.
-5. Write your handoff report to `/Users/junwoobang/workflow/oa-sdk/.agents/worker_remediation_1/handoff.md` and notify parent via send_message.
+Read the Challenger 1 Handoff (Critical Defect):
+`/Users/junwoobang/workflow/oa-sdk/.agents/challenger_1/handoff.md`
+
+## Your Working Directory
+`/Users/junwoobang/workflow/oa-sdk/.agents/worker_remediation_1`
+
+## Mandatory Integrity Warning
+> DO NOT CHEAT. All implementations must be genuine. DO NOT hardcode test results, create dummy/facade implementations, or circumvent the intended task. A teamwork_preview_auditor will independently verify your work. Integrity violations WILL be detected and your work WILL be rejected.
+
+## Write Ownership Boundaries
+You EXCLUSIVELY own and may edit:
+- `/Users/junwoobang/workflow/oa-sdk/docs/guides/schema-architecture-and-conventions.md`
+- `/Users/junwoobang/workflow/oa-sdk/packages/codegen/src/cli/commands/validate.ts`
+
+## Remediation Tasks
+
+### Task 1: Fix `.annotate(...)` Defect in `docs/guides/schema-architecture-and-conventions.md`
+- In lines 1210–1236, the code example attempts to call `.annotate({...})` on a `z.object({...})` schema. Neither Zod v3 nor Zod v4 supports `.annotate(...)`.
+- Inspect how `x-surface-*` extensions are attached in production or in OpenAPI projection (e.g. via OpenAPI schema object decoration, metadata helpers, or `.describe(...)` / OpenAPI projection contract).
+- Update the code snippet so it is 100% valid TypeScript and executes cleanly without calling non-existent methods on Zod schemas.
+
+### Task 2: Fix Single-Spec Recursive `$ref` Validation in `packages/codegen/src/cli/commands/validate.ts`
+- Inspect `packages/codegen/src/cli/commands/validate.ts`:
+  - In batch mode (lines 144–152), circular `$ref` errors/warnings from recursive schemas (`refs/cycle`) are suppressed when validating profiles or documents known to contain recursive schemas.
+  - In single `--spec` mode (`runSpecValidation`, lines 246–329), this circular `$ref` suppression was omitted.
+  - As a result, running `oa-gen validate --spec <spec> --profile component-bundle` on recursive specs like `visual-ir` emits 148 `refs/cycle` errors and exits with code 1.
+  - Align `runSpecValidation` to apply the same circular `$ref` handling as batch mode.
+- Verify that `pnpm --filter @oa-sdk/codegen test src/__tests__/e2e` test `T1-F14-4: validates visual-ir profile artifact` passes cleanly!
+
+## Verification Requirements
+- Run `pnpm --filter @oa-sdk/codegen test src/__tests__/e2e` and confirm all 202 E2E tests pass (100% pass).
+- Run `pnpm -r typecheck` and confirm 0 errors across 21 packages.
+- Run `pnpm check:docs` and confirm 0 errors.
+- Run `pnpm exec tsx scripts/check-cli-spec.ts` and confirm 0 errors.
+- Verify the snippet in `schema-architecture-and-conventions.md` compiles and runs without errors.
+
+## Output Requirements
+Write your detailed changes to:
+`/Users/junwoobang/workflow/oa-sdk/.agents/worker_remediation_1/changes.md`
+and write your structured handoff report to:
+`/Users/junwoobang/workflow/oa-sdk/.agents/worker_remediation_1/handoff.md`.
+Send a completion message back to parent when done.
+
+## 2026-09-05T07:07:47Z
+Invoked by parent a329d2dd-a30a-4c8e-872a-6ab18e0a1c87 to execute gate remediation tasks (Task 1: .annotate in schema-architecture-and-conventions.md, Task 2: runSpecValidation circular ref in validate.ts, Task 3: verification).

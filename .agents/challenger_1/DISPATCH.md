@@ -1,19 +1,56 @@
-## 2026-09-02T22:17:07Z
+# Dispatch — Challenger 1 (Empirical Code Snippet & Zod Schema Stress-Testing)
 
-You are Challenger 1 for the OA-SDK and Browser-Studio CLI Expansions project.
-Your working directory is: /Users/junwoobang/workflow/oa-sdk/.agents/challenger_1
-Project root: /Users/junwoobang/workflow/oa-sdk
-Authoritative user request: /Users/junwoobang/workflow/oa-sdk/.agents/ORIGINAL_REQUEST.md
-Project plan: /Users/junwoobang/workflow/oa-sdk/PROJECT.md
-E2E Test Readiness: /Users/junwoobang/workflow/oa-sdk/TEST_READY.md
+## Mandatory Context
+Read the authoritative user request at:
+`/Users/junwoobang/workflow/oa-sdk/.agents/ORIGINAL_REQUEST.md` (specifically ## 2026-09-05T06:38:42Z).
 
-Task:
-Empirically challenge and stress-test R1 (Standalone Guards Splitting & Filtering) and R2 (CLI Category-Aware Linting & Profile-Aware Validation):
-1. Write adversarial test cases and scripts:
-   - Test complex nested and cross-referencing schemas with --split. Verify that every emitted guard file is 100% self-contained with 0 runtime errors when dynamically imported in an isolated ESM context.
-   - Test fuzzy/mixed/comma-separated schemas filter strings with --schemas.
-   - Test --categories with all combinations, single category, empty, invalid category names.
-   - Test --profile with operation-contract, component-bundle, full-api-document on edge-case OpenAPI schemas (e.g. empty paths, path items with only parameters, non-standard methods).
-2. Run your tests and verify failure modes and assertions.
-3. Write your handoff report to /Users/junwoobang/workflow/oa-sdk/.agents/challenger_1/handoff.md with your verdict: APPROVE or REQUEST_CHANGES.
-4. Notify parent via send_message.
+Read the Project Plan at:
+`/Users/junwoobang/workflow/oa-sdk/.agents/teamwork_preview_orchestrator_docs_1/PROJECT.md`
+
+## Your Working Directory
+`/Users/junwoobang/workflow/oa-sdk/.agents/challenger_1`
+
+## Adversarial Challenge Scope
+Empirically stress-test the TypeScript code snippets and Zod schemas documented in:
+- `/Users/junwoobang/workflow/oa-sdk/docs/guides/declarative-spec-configuration.md`
+- `/Users/junwoobang/workflow/oa-sdk/docs/guides/schema-architecture-and-conventions.md`
+
+## Challenge Tasks
+1. Extract all TypeScript configuration and schema snippets from these documentation guides.
+2. Compile and execute them against the production `@oa-sdk` packages using tsx / vitest / TypeScript compiler API.
+3. Test edge cases:
+   - Validating the 3 projection profiles (`component-bundle`, `operation-contract`, `full-api-document`) with `assertOaConfig` / `validateOaConfig`.
+   - Strict numeric bounds: verify `z.number().min(0)` allows 0 and rejects -0.001; verify `z.number().gt(0)` rejects 0 and allows 0.0001.
+   - RFC 9457 `ProblemDetailsSchema`: verify parsing of valid problem details and rejection of invalid ones (e.g. status < 100 or > 599).
+   - Recursive tree structures: test runtime validation and TS type deduction of tree nodes with arbitrary nesting depth.
+4. Report any invalid code snippets, type errors, or runtime failures.
+5. Verdict: Explicitly state `APPROVE` (no flaws found) or `REJECT` (flaws found).
+
+## Output Requirements
+Write your detailed challenge report and test script to:
+`/Users/junwoobang/workflow/oa-sdk/.agents/challenger_1/challenge.md`
+and write your structured handoff report to:
+`/Users/junwoobang/workflow/oa-sdk/.agents/challenger_1/handoff.md`.
+
+## 2026-09-05T06:56:48Z
+You are challenger_1.
+Read the authoritative user request at:
+/Users/junwoobang/workflow/oa-sdk/.agents/ORIGINAL_REQUEST.md
+
+Read your dispatch instructions at:
+/Users/junwoobang/workflow/oa-sdk/.agents/challenger_1/DISPATCH.md
+
+Read the project plan at:
+/Users/junwoobang/workflow/oa-sdk/.agents/teamwork_preview_orchestrator_docs_1/PROJECT.md
+
+Your working directory is:
+/Users/junwoobang/workflow/oa-sdk/.agents/challenger_1
+
+Adversarially challenge and empirically stress-test all code snippets in:
+- docs/guides/declarative-spec-configuration.md
+- docs/guides/schema-architecture-and-conventions.md
+
+Extract, compile, and run code against production packages. Test edge cases (3 profiles, strict numeric bounds, ProblemDetailsSchema, recursive schemas).
+Write challenge report to /Users/junwoobang/workflow/oa-sdk/.agents/challenger_1/challenge.md and handoff to /Users/junwoobang/workflow/oa-sdk/.agents/challenger_1/handoff.md.
+State explicit verdict: APPROVE or REJECT.
+Send completion message to parent.

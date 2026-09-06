@@ -1,98 +1,117 @@
-# Adversarial Challenge Handoff Report: R1 & R2 Stress Testing
+# Handoff Report — Challenger 1
 
-**Challenger**: Challenger 1 (critic, specialist)  
-**Target Scope**: R1 (Standalone Guards Splitting & Filtering) and R2 (CLI Category-Aware Linting & Profile-Aware Validation)  
-**Date**: 2026-09-02T22:22:15Z  
-**Verdict**: **APPROVE**
+**Agent ID**: `challenger_1`  
+**Role**: critic, specialist (Empirical Challenger)  
+**Task**: Adversarially challenge and stress-test documentation code snippets in `docs/guides/declarative-spec-configuration.md` and `docs/guides/schema-architecture-and-conventions.md`.  
+**Verdict**: **`REJECT`**  
 
 ---
 
 ## 1. Observation
 
-1. **Standalone Guards Splitting (`--split`) Invariants**:
-   - Evaluated in `packages/codegen/test/adversarial/r1-r2-stress.test.ts` (tests `R1-ADV-1` through `R1-ADV-5`).
-   - Deep cross-referencing schema chain ($A \to B \to C \to D \to E$): generated files `LevelA.js`, `LevelB.js`, `LevelC.js`, `LevelD.js`, and `LevelE.js` in `guards/` subdirectory alongside root `index.js` and `index.d.ts`.
-   - Inlined references: AJV standalone pre-compiler emitted completely self-contained JavaScript functions in each modular file.
-   - Dynamic ESM import: each emitted `.js` file was loaded dynamically into isolated ESM contexts (and verified inside an external Node child process subprocess) without global `eval` or `Function`, executing runtime validation against valid payloads (e.g. UUID formats, minLength bounds, numeric constraints) returning `true` and invalid payloads returning `false`.
-   - Recursive schemas (`TreeNode -> children: TreeNode[]`) and polymorphic discriminated unions (`CommandBatch -> TextCommand | ImageCommand`) compiled into self-contained modular files and validated nested structures accurately.
+1. In `/Users/junwoobang/workflow/oa-sdk/docs/guides/schema-architecture-and-conventions.md`, lines 1210–1236 provide the following TypeScript snippet:
+   ```typescript
+   // Zod Authoring equivalent with surface metadata
+   export const SurfaceParamSchema = z
+     .object({
+       id: z.string().min(1),
+       name: z.string().min(1),
+       nameRange: CharRangeSchema,
+       value: z.string().describe('Formatted CSS parameter value representation'),
+       valueRange: CharRangeSchema,
+       unquotedValue: z.string(),
+       unquotedRange: CharRangeSchema,
+       inferredType: z.enum(['color', 'dimension', 'typography', 'shadow', 'spacing', 'flex', 'keyword', 'raw']),
+       colorFormat: z.enum(['hex', 'rgb', 'hsl', 'oklch']).optional(),
+     })
+     .annotate({
+       'x-surface-param-range': {
+         targetProperty: 'value',
+         supportsLivePatch: true,
+         maxFramerateHz: 120,
+         driftCheckAlgorithm: 'sha256',
+       },
+       'x-surface-patch-policy': {
+         onDrift: 'rebase',
+         retryLimit: 3,
+       },
+       'x-surface-fingerprint': 'sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
+     });
+   ```
 
-2. **Selective Filtering (`--schemas`) Robustness**:
-   - Tested in `R1-ADV-6` to `R1-ADV-8`.
-   - Comma-separated strings with arbitrary whitespace (`'  surfaceblock  ', 'isSurfaceParam', '   '`) correctly matched the intended schemas (`SurfaceBlock`, `SurfaceParam`) while ignoring unselected components (`DataPipeline`, `ConfigManifest`).
-   - Prefix `is` stripping/matching and case-insensitive matching verified.
-   - Non-matching filter terms (matching 0 items) gracefully returned an empty array `[]` without throwing exceptions or leaving orphan files on disk.
-   - CLI execution `oa-codegen generate --target standalone-guards --input <spec> --out-dir <dir> --split --schemas "isAlphaItem, BetaItem"` emitted exactly 6 artifacts (`AlphaItem.js`, `AlphaItem.d.ts`, `BetaItem.js`, `BetaItem.d.ts`, `index.js`, `index.d.ts`).
+2. Running static compilation using the TypeScript 5.9.3 Compiler API on this snippet produced:
+   ```
+   TS2339: Property 'annotate' does not exist on type 'ZodObject<{ id: ZodString; name: ZodString; nameRange: ZodObject<{ start: ZodNumber; end: ZodNumber; length: ZodNumber; }, "strip", ZodTypeAny, { ...; }, { ...; }>; ... 5 more ...; colorFormat: ZodOptional<...>; }, "strip", ZodTypeAny, { ...; }, { ...; }>'.
+   ```
 
-3. **Category-Aware Linting (`--categories`)**:
-   - Tested in `R2-ADV-1` to `R2-ADV-3`.
-   - `parseLintCategories` correctly parses single string, comma-separated tokens, and array inputs across all 8 allowed categories (`structure`, `operations`, `parameters`, `refs`, `security`, `style`, `components`, `surface`).
-   - Empty inputs (`""`, `"   "`, `",,, , "`) and invalid category names (`"unknown_cat"`, `"fakeCategory"`) strictly throw descriptive error messages specifying allowed categories.
-   - `lintDocument` enforces strict category isolation: when filtering by `surface`, errors in `structure`, `operations`, and `parameters` are 100% suppressed; when combining categories (e.g. `['parameters', 'surface']`), only rules matching the selected categories are executed.
-   - CLI command `oa-codegen lint --spec <spec> --categories surface` exits cleanly with code 0 on specs containing non-surface errors.
+3. Running runtime execution using Node.js v24.20.0 with `zod@^4.4.3` via `node --import tsx` produced:
+   ```
+   TypeError: import_zod.z.object(...).annotate is not a function
+   ```
 
-4. **Profile-Aware Validation (`--profile`)**:
-   - Tested in `R2-ADV-4` to `R2-ADV-7`.
-   - `component-bundle`: passes with empty `paths: {}` or absent `paths` as long as `components.schemas` contains at least one schema; fails when `components.schemas` is empty or missing.
-   - `operation-contract`: rejects empty `paths: {}`, rejects path items with only parameters (no HTTP method operations), and rejects path items with only summary or extensions; passes for OAS 3.1/3.2 operations including standard methods and OAS 3.2 `query` method.
-   - `full-api-document`: enforces standard full document invariants (`info`, `title`, `version`, `paths`).
-   - CLI command `oa-codegen validate --spec <spec> --profile <profile>` enforces profile invariants and exits with code 1 when requirements are violated.
+4. Ripgrep across the repository (`grep_search` for `.annotate(`) confirmed zero occurrences of an `.annotate` method across `@oa-sdk` packages, proving that `.annotate` is not an extension method supplied by the repository.
 
-5. **Monorepo Build & Test Execution**:
-   - Monorepo typecheck: `pnpm -r typecheck` passed with 0 errors across all 21 workspace packages.
-   - Target test execution: All 120 tests in `@oa-sdk/codegen` test suite passed:
-     - `test/e2e/cli-expansions.e2e.test.ts`: 62/62 passed.
-     - `test/adversarial/r1-r2-stress.test.ts`: 15/15 passed.
-     - `test/standalone-guards/generator.test.ts`: 17/17 passed.
-     - `test/standalone-guards/cli.test.ts`: 6/6 passed.
-     - `test/cli/lint-categories.test.ts`: 8/8 passed.
-     - `test/cli/validate-profile.test.ts`: 7/7 passed.
-     - `test/cli/cli-runner.test.ts`: 5/5 passed.
+5. In `docs/guides/declarative-spec-configuration.md`:
+   - Line 94–150: Interface declarations (`ProfileTargetConfig`, `GuardTargetConfig`, `OaConfig`, `defineConfig`) compile cleanly and align with `@oa-sdk/codegen/src/config.ts`.
+   - Line 157–211: Full 3-profile `oa.config.ts` validated with `validateOaConfig` (`valid: true`, 0 errors) and `assertOaConfig` (passes).
+
+6. In `docs/guides/schema-architecture-and-conventions.md`:
+   - Strict numeric bounds (`min(0)` allows 0, rejects -0.001; `gt(0)` rejects 0, allows 0.0001; `progress: min(0).lt(1)` allows 0 and 0.9999, rejects 1) all passed.
+   - RFC 9457 `ProblemDetailsSchema`: Status bounds (100 and 599 allowed; 99, 600, 404.5 rejected) and default `type: "about:blank"` all passed.
+   - Recursive tree `VisualTreeNodeSchema` with `z.lazy`: Tested to nesting depth 50 without call stack overflow; corrupt node at depth 30 caught cleanly.
 
 ---
 
 ## 2. Logic Chain
 
-1. **Self-Containment & Isolation of Split Modules**:
-   - *Observation*: Modular files generated with `--split` were directly imported in a clean Node subprocess and executed with banned `eval`/`Function`.
-   - *Inference*: Each generated file contains full standalone inlined validation logic without requiring sibling imports or runtime schema dependencies. Tree-shaking is fully enabled.
-2. **Schema Filter Correctness**:
-   - *Observation*: Multiple filter variations (`is` prefix, case difference, whitespace padding) matched expected schema definitions and generated matching barrel files without orphan exports.
-   - *Inference*: The fuzzy and prefix-tolerant filtering logic in `generator.ts` is robust against varied user CLI inputs.
-3. **Lint Category Isolation**:
-   - *Observation*: Running `lintDocument` on a multi-error document with category filtering returns only errors whose rule starts with the selected category prefix, suppressing other categories.
-   - *Inference*: Category-aware linting allows developers to focus exclusively on specific sub-domains (e.g., surface extensions or operations) in CI workflows.
-4. **Projection Profile Invariants**:
-   - *Observation*: Edge case schemas (empty paths, path items with only parameters, component bundles) were verified against `validateOpenApiProjection`.
-   - *Inference*: Profile rules strictly enforce the semantic boundaries of component bundles vs operation contracts.
+1. **Premise 1**: Documentation guides intended for developer consumption must contain valid, runnable TypeScript code that compiles without type errors and executes without unhandled runtime exceptions.
+2. **Premise 2**: Observation 1 shows that `docs/guides/schema-architecture-and-conventions.md:1210-1236` calls `.annotate(...)` on `z.object(...)`.
+3. **Premise 3**: Observations 2, 3, and 4 empirically establish that neither Zod nor `@oa-sdk` provides an `.annotate` method on Zod schema objects.
+4. **Premise 4**: Consequently, any developer attempting to implement the documented snippet will encounter `error TS2339` and `TypeError: ...annotate is not a function`.
+5. **Conclusion**: The documentation fails empirical validity requirements and must be rejected until line 1210–1236 is corrected.
 
 ---
 
 ## 3. Caveats
 
-- **Identifier Sanitization**: AJV standalone generator requires schema component keys used as export names to be valid JS identifiers (e.g. `SurfaceBlock`, `user_profile_v1`). If an OpenAPI schema name contains hyphens (e.g. `user-profile`), users should provide explicit guard mapping or camelCase/PascalCase schema names as per standard TypeScript/OpenAPI naming conventions.
-- **Node Runtime Setup**: Isolated subprocess tests verify standard Node.js ESM loader behavior. Browser runtime behavior is covered by CSP audit invariants (0 eval, 0 Function).
+- We did not modify the documentation file directly because of the strict constraint: *Review-only — do NOT modify implementation code or target docs directly*.
+- The remaining snippets across both documentation files (all 3 projection profiles in `oa.config.ts`, RFC 9457 schemas, numeric boundaries, recursive trees, and discriminated unions) passed 100% of the empirical stress tests.
+- If the project intended to introduce a `.annotate()` monkey-patch or helper in `@oa-sdk/codegen`, such a utility does not currently exist in the codebase.
 
 ---
 
 ## 4. Conclusion
 
-**Verdict**: **APPROVE**
+**Verdict**: **`REJECT`**
 
-All requirements and acceptance criteria for **R1 (Standalone Guards Splitting & Filtering)** and **R2 (CLI Category-Aware Linting & Profile-Aware Validation)** are fully verified and pass extensive adversarial stress testing without defects.
+`docs/guides/declarative-spec-configuration.md` is **sound and fully valid**.  
+`docs/guides/schema-architecture-and-conventions.md` has **1 critical code defect** in lines 1210–1236 (`.annotate(...)` method call on `z.object`).
+
+**Action Required by M1 Worker**:
+Modify `docs/guides/schema-architecture-and-conventions.md:1210-1236` to remove the invalid `.annotate(...)` call and present the valid pattern for surface metadata (either referencing the JSON Schema / OpenAPI projection envelope format or removing the fictional fluent chaining).
 
 ---
 
 ## 5. Verification Method
 
-To independently verify all findings and test suites:
+To independently reproduce the empirical failure and verify the rest of the test suite:
 
 ```bash
-# 1. Run the new adversarial stress test suite (15 tests)
-pnpm --filter @oa-sdk/codegen exec vitest run test/adversarial/r1-r2-stress.test.ts
+# 1. Verify the compilation and runtime failure of lines 1210-1236
+node --import tsx -e "
+import { z } from 'zod';
+try {
+  (z.object({ id: z.string() }) as any).annotate({});
+} catch (e: any) {
+  console.log('Reproduced:', e.name, e.message);
+}
+"
+# Expected output:
+# Reproduced: TypeError import_zod.z.object(...).annotate is not a function
 
-# 2. Run full CLI expansions and unit suites (120 tests)
-pnpm --filter @oa-sdk/codegen exec vitest run test/e2e/cli-expansions.e2e.test.ts test/adversarial/r1-r2-stress.test.ts test/standalone-guards/ test/cli/
+# 2. Run full monorepo typecheck to confirm repository baseline integrity
+pnpm typecheck:core
 
-# 3. Run monorepo typecheck
-pnpm -r typecheck
+# 3. Run CLI spec verification gate
+node --import tsx scripts/check-cli-spec.ts
 ```

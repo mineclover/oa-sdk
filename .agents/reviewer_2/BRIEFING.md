@@ -1,7 +1,7 @@
-# BRIEFING — 2026-09-02T22:21:30Z
+# BRIEFING — 2026-09-05T06:56:48Z
 
 ## Mission
-Perform quality and adversarial review for R3 (Manifest V3 CSP Audit Command) and R4 (Authoring Conventions Documentation) across OA-SDK and Browser-Studio.
+Perform quality and adversarial review for Milestone M3 (Monorepo Documentation Registry, CLI Spec Alignment & Link Validation) in oa-sdk.
 
 ## 🔒 My Identity
 - Archetype: reviewer_critic
@@ -10,54 +10,58 @@ Perform quality and adversarial review for R3 (Manifest V3 CSP Audit Command) an
 - Original parent: c8e6c449-4228-4443-bc32-e90615c118a5
 - Milestone: Review R3 & R4
 - Instance: 2 of 2
+- Current parent: a329d2dd-a30a-4c8e-872a-6ab18e0a1c87
+- Current Milestone: Milestone M3 Review (Documentation Registry, CLI Spec Alignment & Link Integrity)
 
 ## 🔒 Key Constraints
 - Review-only — do NOT modify implementation code
 - Check for integrity violations (hardcoding, facades, shortcuts, fake verification)
 - Verify all acceptance criteria for R3 and R4
 - Run builds, unit tests, and E2E tests
+- Review-only — do NOT modify implementation code or documentation files
+- Verify navigation tables, CLI command reference alignment, anchor fix, validation gates behavior
+- Run all required verification gates: check-cli-spec, check:docs, test:docs-gates, typecheck
 
 ## Current Parent
-- Conversation ID: c8e6c449-4228-4443-bc32-e90615c118a5
-- Updated: 2026-09-02T22:21:30Z
+- Conversation ID: a329d2dd-a30a-4c8e-872a-6ab18e0a1c87
+- Updated: 2026-09-05T06:56:48Z
 
 ## Review Scope
-- **Files reviewed**:
-  - `packages/codegen/src/cli/commands/audit-csp.ts`
-  - `packages/codegen/src/cli/commands.ts`
-  - `/Users/junwoobang/workflow/browser-studio/docs/guides/schema-architecture-and-conventions.md`
-  - `/Users/junwoobang/workflow/oa-sdk/docs/guides/schema-architecture-and-conventions.md`
-  - `packages/codegen/test/audit-csp/audit-csp.test.ts`
-  - `packages/codegen/test/e2e/cli-expansions.e2e.test.ts`
-- **Interface contracts**: PROJECT.md, ORIGINAL_REQUEST.md, TEST_READY.md
-- **Review criteria**: Correctness, completeness, MV3 CSP security compliance, schema authoring conventions accuracy, integrity, test coverage
+- **Files to review**:
+  - `docs/README.md`
+  - `docs/guides/cli-command-reference.md`
+  - `docs/guides/use-cases/mock-testing.md`
+  - `scripts/lib/validation-gates.ts`
+- **Interface contracts**: PROJECT.md, ORIGINAL_REQUEST.md, worker_m3_1/handoff.md
+- **Review criteria**: Navigation integrity, CLI reference alignment, anchor fix, validation gate behavior, zero integrity violations
 
 ## Review Checklist
 - **Items reviewed**:
-  - `packages/codegen/src/cli/commands/audit-csp.ts` (AST scanner, bundle collector, dynamic TS loader, CLI runner)
-  - `packages/codegen/src/cli/commands.ts` (Command array registration)
-  - Canonical & mirrored guide docs (`schema-architecture-and-conventions.md`) (RFC 9457, numeric bounds, `z.lazy`, `x-surface-*`, V3 JSDoc tags)
-  - Unit and E2E test suites
+  - `docs/README.md` navigation tables (먼저 고르기, 유저 가이드, CLI Governance Spec, 프로젝트 관리 (SSOT))
+  - `docs/guides/cli-command-reference.md` CLI spec alignment & discrete command rows (all 25 commands)
+  - `docs/guides/use-cases/mock-testing.md` anchor fix (`#함수-oa-sdkmock-server--고유`)
+  - `scripts/lib/validation-gates.ts` (.agents skipped, universalGlobalOptions, colon command regex)
+  - Independent execution of verification commands (check-cli-spec, check:docs, test:docs-gates, typecheck)
 - **Verdict**: APPROVE
-- **Unverified claims**: None. All core claims independently verified via automated test runs and direct CLI execution.
+- **Unverified claims**: None. All claims independently verified via automated test runs and direct inspection.
 
 ## Attack Surface
 - **Hypotheses tested**:
-  - Direct & indirect `eval(...)` AST calls -> caught by `unwrapExpression` & `isTargetIdentifier`.
-  - Direct & global `Function(...)` constructor calls -> caught.
-  - String vs function callback `setTimeout`/`setInterval` calls -> string/template literal correctly flagged, functions pass.
-  - Heavy schema engine imports across ESM `import`, `export ... from`, TS `import = require()`, CJS `require()`, and dynamic `import()` -> all 5 AST syntax variations caught.
-  - Multi-tiered directory traversal with `.js`, `.mjs`, `.cjs` -> verified.
-  - Strict numeric bounds formatting (`exclusiveMinimum: 0` vs `minimum: 0`) -> verified against OAS 3.1 / JSON Schema 2020-12.
-- **Vulnerabilities found**: None. Implementation is robust and AST-backed.
+  - Trailing punctuation / malformed names in `createCliReferenceGate` -> mitigated by `known.has(name)` set lookup against `commands.ts`.
+  - Scope leak of `universalGlobalOptions` -> restricted explicitly to `executable === 'oa-gen'`.
+  - Exclusion of `.agents` -> only ephemeral agent metadata excluded, all 230 real docs scanned.
+  - Anchor slug format -> verified against CommonMark heading `#함수-oa-sdkmock-server--고유`.
+- **Vulnerabilities found**: None. Implementation is clean and adheres to monorepo contracts.
 - **Untested angles**: None.
 
 ## Key Decisions Made
-- Confirmed zero integrity violations: no hardcoding, no mock facades, no shortcuts.
-- Confirmed 100% test pass on all E2E tests (62/62) and CSP audit tests (15/15).
-- Confirmed monorepo typecheck is clean across all 21 packages (`pnpm -r typecheck`).
-- Confirmed schema validation pipeline passes (`pnpm schema:validate`).
+- Confirmed zero integrity violations (no hardcoding, no mock facades, no shortcuts).
+- Confirmed 100% pass across all verification gates (`check-cli-spec`, `check:docs`, `test:docs-gates`).
+- Confirmed full monorepo typecheck across 21 packages (`pnpm -r typecheck`).
 - Issued final verdict: APPROVE.
 
 ## Artifact Index
-- `/Users/junwoobang/workflow/oa-sdk/.agents/reviewer_2/handoff.md` — Final review report
+- `/Users/junwoobang/workflow/oa-sdk/.agents/reviewer_2/review.md` — Detailed review report
+- `/Users/junwoobang/workflow/oa-sdk/.agents/reviewer_2/handoff.md` — Structured handoff report
+
+

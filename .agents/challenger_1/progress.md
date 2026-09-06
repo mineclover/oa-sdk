@@ -1,12 +1,26 @@
-# Progress Log — Challenger 1
+# Progress — Challenger 1
 
-Last visited: 2026-09-02T22:22:05Z
+Last visited: 2026-09-05T07:01:45Z
+Status: COMPLETED
 
-## Status
-- [x] Step 1: Initialize briefing and progress tracking
-- [x] Step 2: Investigate codebase (R1 & R2 implementations, existing test suite)
-- [x] Step 3: Design adversarial test matrix for R1 (split guards, isolated ESM loading, schema filtering) and R2 (categories linting, profile validation edge cases)
-- [x] Step 4: Implement and execute adversarial test harness scripts in test directory (`packages/codegen/test/adversarial/r1-r2-stress.test.ts`)
-- [x] Step 5: Analyze results, identify any failures or edge-case bugs (15/15 adversarial tests passing, 120/120 total suite passing)
-- [x] Step 6: Document findings and write handoff report (`handoff.md`)
-- [ ] Step 7: Notify parent agent
+## Steps Completed
+- [x] Initialized DISPATCH.md and verified user prompt
+- [x] Initialized BRIEFING.md
+- [x] Inspected target documentation files:
+  - `docs/guides/declarative-spec-configuration.md`
+  - `docs/guides/schema-architecture-and-conventions.md`
+- [x] Extracted all TypeScript configurations and Zod schema snippets
+- [x] Executed empirical test suites against production packages:
+  - Suite 1: Declarative spec configuration (`oa.config.ts`, `validateOaConfig`, `assertOaConfig`, 3 profiles)
+  - Suite 2: Domain master schemas (`CharRangeSchema`, `SurfaceParamSchema`)
+  - Suite 3: RFC 9457 Problem Details (`ProblemDetailsSchema`, `createProblemDetails`, status 100-599 bounds)
+  - Suite 4: Strict numeric bounds (`min(0)` allows 0, rejects -0.001; `gt(0)` rejects 0, allows 0.0001; `progress: min(0).lt(1)`)
+  - Suite 5: Recursive tree structures (`VisualTreeNodeSchema` with `z.lazy`, nesting depth 50)
+  - Suite 6: Polymorphic discriminated unions (`PatchOpSchema`)
+  - Suite 7: V3 Unified AST sync model (`VisualLayerSpecSchema`)
+  - Suite 8: Surface metadata `.annotate(...)` empirical stress test
+- [x] Detected critical flaw in `docs/guides/schema-architecture-and-conventions.md:1210-1236` (`.annotate(...)` is not a Zod function)
+- [x] Wrote comprehensive challenge report to `challenge.md`
+- [x] Wrote structured handoff report to `handoff.md`
+- [x] Updated BRIEFING.md
+- [x] Prepared completion message for parent orchestrator

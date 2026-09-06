@@ -22,3 +22,20 @@ Acceptance Criteria:
 - All package unit tests pass (`pnpm test`).
 - Full monorepo typecheck passes (`pnpm -r typecheck` / `pnpm run check`).
 - Maintain `plan.md` and `progress.md` in your working directory.
+
+## 2026-09-05T19:00:40Z
+
+You are the Project Orchestrator for @oa-sdk.
+Your working directory is `/Users/junwoobang/workflow/oa-sdk/.agents/orchestrator`.
+The project root is `/Users/junwoobang/workflow/oa-sdk`.
+The authoritative user request is recorded in `/Users/junwoobang/workflow/oa-sdk/.agents/ORIGINAL_REQUEST.md`.
+
+Please read `/Users/junwoobang/workflow/oa-sdk/.agents/ORIGINAL_REQUEST.md` and manage the full decomposition, implementation, testing, benchmarking, documentation, and verification of the tasks:
+1. R1: Typia Type-Level Tag AST Parsing & Bidirectional Sync (`@oa-sdk/codegen`) in `packages/codegen/src/ast-sync/adapters/typia.ts` and test suite `packages/codegen/test/ast-sync/typia-adapter.test.ts`.
+2. R2: Validation Engine Performance Benchmark Suite (`@oa-sdk/codegen`) in `packages/codegen/scripts/bench-validation-engines.ts` with npm script `bench:validation` in `packages/codegen/package.json`.
+3. R3: Architectural Positioning & Comparative Benchmark Report Documentation across `docs/benchmarks/validation-engines.md` (indexed in `docs/README.md`), `docs/concepts/runtime-and-generation.md`, `docs/guides/schema-architecture-and-conventions.md`, and `docs/internal/platform-scope.md`.
+4. Monorepo integrity: `pnpm test` and `pnpm -r typecheck` must pass cleanly.
+
+Maintain your `plan.md`, `progress.md`, and `BRIEFING.md` in your working directory (`/Users/junwoobang/workflow/oa-sdk/.agents/orchestrator`).
+Update `progress.md` regularly as milestones progress.
+When all acceptance criteria are met and independently verified within your team, send a completion report back with your victory claim.
