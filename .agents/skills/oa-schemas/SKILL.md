@@ -1,0 +1,316 @@
+---
+name: oa-schemas
+description: Expert guide, modular schema architecture, and verification procedures for OpenAPI 3.1/3.2 schema fragmentation, canonical definition IDs, target bundling, collision resolution, circular reference dereferencing, and version gates in the oa-sdk monorepo. Use whenever working on OpenAPI schema fragments, target builds, dereferencing cycles, or oa-gen validate --require-32 in oa-sdk.
+---
+
+# Modular OpenAPI 3.1/3.2 Schema Architecture (`@oa-sdk/schemas`)
+
+`@oa-sdk/schemas`는 `oa-sdk` 모노레포의 단일 진실 공급원(SSOT, Single Source of Truth) 역할을 수행하는 모듈화된 OpenAPI 3.2 스키마 저장소입니다. 대규모 분산 API 계약을 도메인과 원자적 프래그먼트(Fragments)로 분할 관리하고, 다중 타겟 프로파일(`targets/*.yaml`)을 통해 결정론적으로 번들링하며, 컴포넌트 충돌 해소 및 무손실 3.2 ↔ 3.1 변환 파이프라인을 제공합니다.
+
+---
+
+## 🏛️ 아키텍처 토폴로지 (Architecture Topology)
+
+### 1. 스키마 모듈화 및 타겟 번들링 파이프라인
+
+```mermaid
+graph TD
+    subgraph Storage [프래그먼트 저장소 (packages/schemas/src/)]
+        Domains["domains/<domain>/spec.yaml\n(auth, common, health, me, users)"]
+        Fragments["fragments/<kind>/<scope>/...\n(parameter, path, response, schema, securityScheme)"]
+    end
+
+    subgraph Targets [멀티 타겟 설정 (src/targets/)]
+        TargetYAML["targets/*.yaml\n(scopes, domains, includePaths, aliases)"]
+    end
+
+    subgraph Parser [파서 번들링 엔진 (@oa-sdk/parser)]
+        Select["selectDefinitionTarget\n(노드 필터링 및 범위 선택)"]
+        Alloc["allocateDefinitionOutputNames\n(결정론적 이름 충돌 해소)"]
+        Rewrite["rewriteDefinitionOutputRefs\n(oa:// URI -> #/components/...)"]
+        Deref["DerefFolder (deref.ts)\n(Cycle Stack & DerefCycleStrategy)"]
+    end
+
+    subgraph Emission [산출물 방출]
+        Merged32[".merged.yaml (OpenAPI 3.2.0)"]
+        Sidecar[".merged.3.1.meta.json (JSON Pointer Sidecar)"]
+        Merged31[".merged.3.1.yaml (OpenAPI 3.1.0)"]
+    end
+
+    Domains --> Select
+    Fragments --> Select
+    TargetYAML --> Select
+
+    Select --> Alloc
+    Alloc --> Rewrite
+    Rewrite --> Deref
+    Deref --> Merged32
+
+    Merged32 -->|downgrade-3.1.ts| Merged31
+    Merged32 -->|downgrade-3.1.ts| Sidecar
+    Merged31 -.->|upgrade-3.2.ts + Sidecar| Merged32
+```
+
+### 2. 결정론적 컴포넌트 이름 충돌 해소 흐름 (Name Collision Resolution)
+
+```mermaid
+flowchart TD
+    Start([컴포넌트 노드 처리 시작]) --> CheckAlias{explicitAlias 존재 여부\nnamingPolicy.aliases}
+    
+    CheckAlias -- Yes --> UseAlias[이유: explicit-alias\n지정된 별칭 적용]
+    CheckAlias -- No --> CheckGroup{동일 localName이\n선택된 노드군에 2개 이상 존재하는가?}
+    
+    CheckGroup -- Yes --> UsePrefix[이유: domain-prefix\nPascalCase(domain) + localName 결합\n예: BookNote, NotebookNote]
+    CheckGroup -- No --> Preserve[이유: preserve-if-unique\n고유한 localName 그대로 유지\n예: User, AuthSession]
+
+    UseAlias --> CollideCheck{최종 outputName 간\n중복이 남아있는가?}
+    UsePrefix --> CollideCheck
+    Preserve --> CollideCheck
+
+    CollideCheck -- No --> OutputMap[outputNames Map 등록 및 $ref 재작성]
+    CollideCheck -- Yes --> ErrorReport[오류 방출: definition-output-name/collision\n빌드 중단 및 충돌 리포트 생성]
+```
+
+---
+
+## 📂 1. 모듈화된 OpenAPI 3.2 스키마 디렉토리 구조
+
+`packages/schemas/src/`는 단일 대형 YAML 파일의 유지보수 한계를 극복하기 위해 도메인 경계(Bounded Context)와 아티팩트 종류별로 철저히 파티셔닝되어 있습니다:
+
+```
+packages/schemas/src/
+├── domains/                      # 도메인별 바운디드 컨텍스트 정의
+│   ├── auth/spec.yaml            # 인증/인가 도메인
+│   ├── common/spec.yaml          # 공통 표준 모델 및 오류 엔벨로프
+│   ├── health/spec.yaml          # 헬스체크 엔드포인트
+│   ├── me/spec.yaml              # 현재 세션 사용자 정보
+│   └── users/spec.yaml           # 사용자 관리 도메인
+├── fragments/                    # 원자적(Atomic) 재사용 가능 조각
+│   ├── parameter/                # 공통 쿼리/경로 매개변수 (Limit, Page 등)
+│   ├── path/                     # 경로별 엔드포인트 조각 (public, internal, admin)
+│   ├── response/                 # 표준 응답 스키마 (ErrorResponse 등)
+│   ├── schema/                   # 데이터 엔티티 스키마 (User, AuthSession 등)
+│   └── securityScheme/           # 보안 인증 규격 (BearerAuth, OAuth2)
+└── targets/                      # 멀티 타겟 빌드 프로파일 설정
+    ├── local-parity-api.yaml     # 로컬 개발 환경 타겟
+    ├── staging-parity-api.yaml   # 스테이징 배포 타겟
+    ├── production-parity-api.yaml# 프로덕션 서비스 타겟
+    ├── public-api.yaml           # 외부 공개용 API 타겟
+    ├── admin-api.yaml            # 내부 관리자용 API 타겟
+    ├── internal-api.yaml         # 마이크로서비스 내부 통신 타겟
+    └── book-notebook-api.yaml    # 도메인 충돌 검증 테스트 타겟
+```
+
+---
+
+## 🆔 2. 정규 정의 식별자 (Canonical Definition ID) 및 `oa://` 프로토콜
+
+모든 프래그먼트는 글로벌 고유 식별자 규격을 통해 정의되고 서로를 참조합니다.
+
+### 2.1 정규 ID 패턴 (`packages/parser/src/definition-id.ts`)
+
+형식: **`${kind}:${scope}/${domain}/${name}`**
+
+- **`kind`**: 정의 객체 종류 (`schema`, `response`, `parameter`, `requestBody`, `header`, `link`, `callback`, `path`, `operation`, `server`, `tag`, `securityScheme`).
+- **`scope`**: 가시성 범위 (`shared`, `public`, `admin`, `internal`).
+- **`domain`**: 소속 도메인 (`common`, `auth`, `health`, `me`, `users` 등 소문자 케밥케이스).
+- **`name`**: 식별자 (컴포넌트형 kind는 반드시 PascalCase, 예: `AuthSession`, `User`, `Limit`).
+
+### 2.2 내부 프래그먼트 `$ref` 참조 프로토콜 (`oa://`)
+
+프래그먼트 파일 내에서 다른 스키마나 파라미터를 참조할 때 상대 파일 경로 대신 언어 중립적인 가상 URI 스킴을 사용합니다:
+
+`$ref: oa://<kind>/<scope>/<domain>/<Name>`
+
+#### 프래그먼트 작성 예시 (`src/fragments/schema/public/auth/AuthSession.yaml`):
+
+```yaml
+id: schema:public/auth/AuthSession
+content:
+  type: object
+  description: 사용자 + 토큰 페어 — 가입/로그인 응답 단위
+  required:
+    - user
+    - tokens
+  properties:
+    user:
+      $ref: oa://schema/public/users/User
+    tokens:
+      $ref: oa://schema/public/auth/TokenPair
+  example:
+    user:
+      id: 00000000-0000-0000-0000-000000000001
+      email: alice@example.com
+      name: Alice
+      role: user
+      createdAt: 2024-01-01T00:00:00.000Z
+    tokens:
+      accessToken: eyJhbGciOi...example
+      refreshToken: rt_example_0001
+      tokenType: Bearer
+      expiresIn: 3600
+```
+
+---
+
+## ⚙️ 3. 번들링 및 결정론적 컴포넌트 충돌 해소 (`@oa-sdk/parser`)
+
+타겟 빌드 시 `@oa-sdk/parser`는 여러 도메인에 흩어져 있는 동일한 이름의 컴포넌트 간 충돌을 자동으로 감지하고 결정론적으로 해결합니다.
+
+### 3.1 타겟 설정 명세 (`src/targets/*.yaml`)
+
+```yaml
+name: public-api
+scopes:
+  - shared
+  - public
+domains:
+  - common
+  - book
+  - notebook
+servers:
+  - url: https://api.example.test
+includePaths:
+  - /books/{bookId}/notes
+namingPolicy:
+  aliases:
+    securityScheme:shared/common/BearerAuth: bearerAuth
+```
+
+### 3.2 이름 할당 3단계 우선순위 (`allocateDefinitionOutputNames`)
+
+`packages/parser/src/definition-output-names.ts`는 다음 우선순위에 따라 출력 컴포넌트 이름을 할당합니다:
+
+1. **`explicit-alias` (최우선)**:
+   - `namingPolicy.aliases[node.id]`에 매핑이 정의되어 있으면 해당 별칭을 강제 적용합니다.
+2. **`domain-prefix` (자동 충돌 회피)**:
+   - 명시적 별칭이 없고, 동일한 `localName`을 가진 컴포넌트가 선택된 노드 집합 내에 둘 이상 존재하는 경우(예: `book` 도메인의 `Note`와 `notebook` 도메인의 `Note`), 도메인의 파스칼케이스 접두사를 자동으로 결합합니다:
+     - `schema:public/book/Note` ➔ `BookNote`
+     - `schema:public/notebook/Note` ➔ `NotebookNote`
+3. **`preserve-if-unique` (기본값)**:
+   - 중복이 없는 경우 프래그먼트의 본래 `localName`을 그대로 보존합니다 (예: `User`, `AuthSession`).
+
+### 3.3 `$ref` 포인터 정규화 (`rewriteDefinitionOutputRefs`)
+
+할당된 이름을 바탕으로 모든 `oa://` 가상 참조를 표준 OpenAPI JSON Pointer로 재작성합니다:
+- `schema` ➔ `#/components/schemas/<AllocatedName>`
+- `response` ➔ `#/components/responses/<AllocatedName>`
+- `parameter` ➔ `#/components/parameters/<AllocatedName>`
+- `securityScheme` ➔ `#/components/securitySchemes/<AllocatedName>`
+
+---
+
+## 🔄 4. 순환 참조 탐지 및 역참조 (`DerefFolder`)
+
+계층적 데이터 구조(예: 대댓글, 트리 구조, 조직도 등)에서 발생하는 순환 참조(`$ref`)는 코드 생성기나 직렬화기를 무한 루프에 빠뜨릴 수 있습니다.
+
+### 4.1 스택 기반 순환 탐지 (`packages/parser/src/deref.ts`)
+
+`DerefFolder`는 참조 해소 중인 노드의 캐시 키를 `stack: string[]`에 추적합니다:
+```typescript
+if (this.stack.includes(resolution.cacheKey)) {
+  // ref-cycle 진단 코드 방출
+  return this.resolveCycle(ref, node);
+}
+this.stack.push(resolution.cacheKey);
+try {
+  // 재귀적 폴딩 수행
+} finally {
+  this.stack.pop();
+}
+```
+
+### 4.2 순환 해결 전략 (`DerefCycleStrategy`)
+
+`resolveCycle(ref, node)`는 설정된 전략에 따라 노드를 안전하게 치환합니다:
+- `'empty-schema'` (기본값):
+  - 순환 지점 노드를 빈 스키마 `{}`로 대체하고 형제(sibling) 필드만 병합하여 무한 확장을 원천 차단합니다.
+- `'preserve-ref'`:
+  - `{ $ref: ref }` 형태를 그대로 유지하면서 형제 필드를 병합합니다.
+
+### 4.3 OpenAPI 3.1+ Sibling 필드 보존
+
+OpenAPI 3.1 이상에서는 `$ref` 옆에 작성된 형제 키(`description`, `summary`, `title` 등)가 유효합니다. `DerefFolder`는 `mergeRefSiblings`를 통해 참조 대상 스키마와 원본 노드의 형제 필드를 손실 없이 병합합니다.
+
+---
+
+## 🎛️ 5. CLI 명령어 및 버전 거버넌스 게이트
+
+### 5.1 `oa-gen validate --require-32`
+
+`packages/codegen/src/cli/commands/validate.ts`와 `packages/parser/src/validate.ts`는 관리 대상 계약(Managed Contract)의 OpenAPI 3.2 준수 여부를 검증합니다:
+
+```bash
+# 관리 대상 OpenAPI 3.2 계약 엄격 검증
+oa-gen validate --spec packages/schemas/src/.merged.yaml --require-32
+```
+
+- **버전 게이트 불변식**:
+  - `OPENAPI_32_VERSION = /^3\.2\.\d+/` 정규식으로 검증합니다.
+  - `--require-32` 옵션이 활성화된 경우, 3.0.x 또는 3.1.x 스펙 문서는 치명적 오류(`parse/version-32`)를 발생시키며 CI 파이프라인을 즉시 차단합니다.
+  - 미지정 시에는 정보(INFO) 진단만 출력됩니다.
+
+### 5.2 타겟 빌드 (`oa-gen build-spec`)
+
+```bash
+# 프래그먼트로부터 public-api 타겟 스펙 빌드 및 리포트 출력
+oa-gen build-spec --target packages/schemas/src/targets/public-api.yaml --output dist/public-api.yaml --collision-report dist/collisions.json
+```
+
+### 5.3 무손실 3.2 ↔ 3.1 다운그레이드 / 업그레이드 파이프라인
+
+기존 서드파티 툴링(Swagger UI, Redoc 등)이 아직 OpenAPI 3.2를 지원하지 못하는 환경을 위해, `x-*` 확장 필드 오염 없이 완벽한 양방향 왕복(Roundtrip)을 지원합니다.
+
+```mermaid
+graph LR
+    OAS32[".merged.yaml\n(OAS 3.2.0)"]
+    Down["downgrade-3.1.ts"]
+    OAS31[".merged.3.1.yaml\n(순수 OAS 3.1.0)"]
+    Sidecar[".merged.3.1.meta.json\n(JSON Pointer 메타데이터)"]
+    Up["upgrade-3.2.ts"]
+
+    OAS32 --> Down
+    Down --> OAS31
+    Down --> Sidecar
+
+    OAS31 --> Up
+    Sidecar --> Up
+    Up --> OAS32
+```
+
+- **다운그레이드 (`packages/schemas/scripts/downgrade-3.1.ts`)**:
+  - `openapi: "3.2.0"` ➔ `"3.1.0"`으로 변환.
+  - `dataValue` ➔ `value`로 매핑.
+  - 3.2 전용 필드(`serializedValue`, `itemSchema`, `prefixEncoding`, `itemEncoding`, `deviceAuthorization`, `deviceAuthorizationUrl`, `oauth2MetadataUrl`, `defaultMapping`, `additionalOperations`, `nodeType`, `$self`)를 추출하여 `.merged.3.1.meta.json`에 JSON Pointer 키로 기록한 뒤 3.1 문서에서는 제거.
+- **업그레이드 (`packages/schemas/scripts/upgrade-3.2.ts`)**:
+  - 순수 3.1 YAML에 `.merged.3.1.meta.json`의 JSON Pointer 메타데이터를 역으로 주입하여 1바이트의 오차도 없는 순수 3.2 문서를 복원.
+
+---
+
+## 🔍 6. 문제 해결 매트릭스 (Troubleshooting)
+
+| 증상 (Symptom) | 근본 원인 (Root Cause) | 해결 방법 (Remediation) |
+|---|---|---|
+| `[definition-id/malformed] Invalid canonical definition ID` | 프래그먼트의 `id:` 필드가 `${kind}:${scope}/${domain}/${name}` 형식을 따르지 않음 | kind, scope, domain을 소문자로 맞추고 컴포넌트 이름은 PascalCase로 수정 |
+| `[definition-output-name/collision] Duplicate output name` | 복수의 도메인에서 동일한 이름의 스키마를 정의했으며 충돌 회피 실패 | `targets/*.yaml`의 `namingPolicy.aliases`에 명시적 별칭을 선언하거나 도메인 접두사 정책 확인 |
+| `[parse/version-32] Document version 3.1.0 does not satisfy required 3.2.x gate` | `--require-32` 게이트가 켜진 상태에서 3.1 스펙이 전달됨 | `scripts/upgrade-3.2.ts`를 실행하여 3.2 계약으로 업그레이드하거나 관리 대상 스펙 버전 확인 |
+| `[ref/cycle] Circular reference detected in schema` | 프래그먼트 간 상호 참조로 인한 재귀 루프 발생 | `derefSpec`의 `cycleStrategy`를 `'empty-schema'`로 지정하여 순환 지점을 빈 객체로 치환 |
+| 다운그레이드 시 3.2 전용 필드(`itemSchema` 등) 손실 | 다운그레이드 스크립트 실행 시 메타데이터 사이드카가 생성되지 않음 | `downgrade-3.1.ts`를 정상 실행하여 `.merged.3.1.meta.json` 사이드카 파일이 함께 커밋되었는지 확인 |
+
+---
+
+## 🧪 7. 스키마 검증 및 테스트 명령어
+
+```bash
+# 1. 스키마 다운그레이드/업그레이드 왕복 무손실 검증 (62개 테스트)
+pnpm --filter @oa-sdk/schemas test
+
+# 2. 파서 정의 식별자 및 충돌 해소 단위 테스트
+pnpm --filter @oa-sdk/parser test src/__tests__/definition-output-names.test.ts src/__tests__/definition-id.test.ts
+
+# 3. OpenAPI 3.2 버전 강제 게이트 검증 테스트
+pnpm --filter @oa-sdk/parser test src/__tests__/validate.test.ts
+
+# 4. 모노레포 문서 및 CLI 예제 게이트 통합 검증
+pnpm check:docs
+```

@@ -7,12 +7,15 @@
  */
 
 import {
+  createAgentConfigGate as sharedCreateAgentConfigGate,
   createCliExampleGate as sharedCreateCliExampleGate,
   createCliReferenceGate as sharedCreateCliReferenceGate,
   createMarkdownLocalLinkGate as sharedCreateMarkdownLocalLinkGate,
   createPackageEntrypointGate as sharedCreatePackageEntrypointGate,
   listMarkdownFiles as sharedListMarkdownFiles,
   runValidationGates as sharedRunValidationGates,
+  type AgentConfigGateIssue as SharedAgentConfigGateIssue,
+  type AgentConfigGateOptions as SharedAgentConfigGateOptions,
   type CliExampleGateOptions as SharedCliExampleGateOptions,
   type CliReferenceGateOptions as SharedCliReferenceGateOptions,
   type DocumentedCliCommand as SharedDocumentedCliCommand,
@@ -29,12 +32,15 @@ export type MarkdownLinkGateOptions = SharedMarkdownLocalLinkGateOptions
 export type CliExampleGateOptions = SharedCliExampleGateOptions
 export type CliReferenceGateOptions = SharedCliReferenceGateOptions
 export type PackageEntrypointGateOptions = SharedPackageEntrypointGateOptions
+export type AgentConfigGateIssue = SharedAgentConfigGateIssue
+export type AgentConfigGateOptions = SharedAgentConfigGateOptions
 
 export const runValidationGates = sharedRunValidationGates
 export const listMarkdownFiles = sharedListMarkdownFiles
 export const createMarkdownLocalLinkGate = sharedCreateMarkdownLocalLinkGate
 export const createCliExampleGate = sharedCreateCliExampleGate
 export const createCliReferenceGate = sharedCreateCliReferenceGate
+export const createAgentConfigGate = sharedCreateAgentConfigGate
 
 export function createPackageEntrypointGate(options: PackageEntrypointGateOptions): ValidationGate {
   return sharedCreatePackageEntrypointGate({
