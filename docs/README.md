@@ -38,12 +38,13 @@
 1. [TEST_INFRA.md](../TEST_INFRA.md): E2E 테스트 빠른 검증 명령어 및 단일 진실 공급원 안내.
 2. [테스트 인프라 (Test Infrastructure)](./concepts/test-infrastructure.md): 불투명 상자(Opaque-Box) 검증 원칙, 4계층 E2E 모델(F01~F16), 서브모듈 불변식, Tier 5 적대적 경화 스트레스 테스트.
 3. [테스트 피드백](./guides/use-cases/test-feedback.md): 테스트 피드백 루프 및 커버리지 관리.
+4. [검증 엔진 성능 벤치마크](./benchmarks/validation-engines.md): Zod vs Standalone Type Guards vs Typia AOT 처리량, 지연시간, 번들 크기 및 CSP 감사 리포트.
 
 ### 🔌 4. 다운스트림 통합 개발자 경로
 1. [Quick Start](./guides/quick-start.md): 5분 만에 공개 OpenAPI 검증 및 TypeScript 클라이언트 생성.
 2. [라이브러리 진입점 지도](./guides/library-entrypoints.md): `@oa-sdk/*` 모노레포 패키지 루트 및 서브패스 export 경계.
 3. [Mock 테스팅](./guides/use-cases/mock-testing.md) 및 [Mock 서버 사용법](./guides/mock-server-usage.md): MSW 및 Headless Node.js CI 환경에서의 RPC/HTTP 모의 서버 시뮬레이션.
-4. [코드젠 워크플로](./guides/use-cases/codegen-workflow.md): OAS ➔ TS 라우터 ➔ 클라이언트 파이프라인.
+4. [코드젠 워크플로](./guides/use-cases/codegen-workflow.md) 및 [검증 엔진 성능 벤치마크](./benchmarks/validation-engines.md): OAS ➔ TS 라우터 ➔ 클라이언트 파이프라인 및 고성능 무런타임 가드 선택 가이드.
 
 ---
 
@@ -56,6 +57,7 @@
 | OA SDK production contract를 작성·승인 | [기본 스펙 사용 기준](./guides/basic-spec-usage.md) → [TypeSpec Authoring Conventions](./guides/typespec-authoring-conventions.md) |
 | 외부 서비스/OpenAPI projection을 OA SDK로 소비 | [코드젠 워크플로](./guides/use-cases/codegen-workflow.md) 또는 [bun-graph-db projection 소비](./guides/use-cases/bun-graph-db-projections.md) |
 | 4계층 E2E 테스트 모델 및 드리프트 거버넌스를 확인 | [테스트 인프라](./concepts/test-infrastructure.md) → [CLI 거버넌스 및 스펙 검증 모델](./concepts/cli-governance.md) |
+| 런타임 검증 엔진별 성능(ops/sec, 지연시간) 및 번들/CSP 비교 리포트 확인 | [검증 엔진 성능 벤치마크](./benchmarks/validation-engines.md) |
 | public package artifact release를 준비 | [Artifact Release Preparation](./guides/release-preparation.md) |
 | 구현 현황·현재 우선순위·장기 이력을 확인 | [Spec](./internal/spec.md) → [Plan](./internal/plan.md) → [Release Readiness](./internal/release-readiness.md) |
 
@@ -106,6 +108,7 @@
 | 문서 | 대상 및 요약 |
 |---|---|
 | [테스트 인프라 (Test Infrastructure)](./concepts/test-infrastructure.md) | 4계층 E2E 검증 모델(F01~F16), 스펙 신선도/드리프트 감지, 결정론적 SHA-256 해시, CSP 감사 게이트 |
+| [검증 엔진 성능 벤치마크](./benchmarks/validation-engines.md) | Zod runtime vs Standalone Guards vs Typia AOT 성능, CSP, 번들 비교 리포트 |
 | [Mock 테스팅](./guides/use-cases/mock-testing.md) | 프론트엔드 및 CI 통합 테스트에서 Mock 서버 활용 |
 | [Mock 서버](./guides/mock-server-usage.md) | MSW / Node HTTP 기반 모의 서버 구동 |
 | [테스트 피드백](./guides/use-cases/test-feedback.md) | 커버리지 + 검증 피드백 루프 |

@@ -263,6 +263,51 @@ The scanner analyzes bundle ASTs and verifies:
 2. **Zero Heavy Runtime Engine Dependencies**: Rejects runtime imports or bundled modules from `ajv`, `zod`, or `@oa-sdk`.
 3. **Structured Diagnostics**: Emits violation locations, problematic source tokens, and exits with code 1 upon failure.
 
+### 3.4 Validation Engine Selection: Standalone Type Guards vs. Typia AOT Compilation
+
+While both **Standalone Type Guards** (via `ajv/dist/standalone` ESM) and **Typia AOT** (`typia.is<T>`) achieve zero runtime library dependencies and sub-microsecond validation latency, `@oa-sdk` standardizes on **Standalone Type Guards** as its primary production delivery vehicle. This decision is grounded in four critical architectural trade-offs:
+
+#### 3.4.1 Build-Chain Complexity & Toolchain Portability
+- **Standalone Type Guards**:
+  - Code generation occurs as an isolated build-time step (`oa-gen generate`), producing pure static ECMAScript modules (`dist/guards/*.js`) and TypeScript declaration files (`.d.ts`).
+  - Downstream applications, consumers, and monorepo packages consume these outputs using standard, unmodified tooling—including `tsc`, `esbuild`, `swc`, `vite`, `webpack`, or `turbopack`—with **zero compiler monkey-patching or plugins**.
+  - Delivers zero runtime dependency (`zero dependency` guarantee), inlining small helper routines (`__ucs2length`, `__equal`) directly.
+- **Typia AOT Compilation**:
+  - Relies on TypeScript compiler AST transformers (`ttsc`, `ts-patch`, or `unplugin-typia`) executed during the compilation process itself.
+  - Native ultra-fast bundlers (`esbuild`, `swc`) cannot run TypeScript AST transformers directly without two-pass compilation architectures.
+  - Upgrading TypeScript major versions (e.g. TS 5.x to future TS releases) introduces significant lag and maintenance friction while waiting for compiler hook transformer patches.
+
+#### 3.4.2 Manifest V3 CSP Safety & Automated Security Audits
+- Browser Extensions under Manifest V3 enforce strict `script-src 'self'`.
+- Standalone Type Guards emitted by `@oa-sdk/codegen` inline critical helpers (`__ucs2length`, `__equal`) to eliminate all external module requirements, achieving 0 KB runtime dependencies.
+- CI guarantees compliance via `oa-gen audit:csp --bundle dist/guards`, ensuring 0 `eval()` calls, 0 `new Function()` invocations, and 0 disallowed imports (`ajv`, `zod`, `@oa-sdk`).
+- While Typia's generated JavaScript is also eval-free, managing compiler transformer outputs across complex multi-target packaging poses higher risk of accidental helper leaks or compiler transform drift.
+
+#### 3.4.3 Runtime Speed vs. 60fps Frame Budget
+- **The Frame Budget**: Smooth 60fps UI scrubbing in DevTools and Inspector panels grants a 16.6ms total frame budget, allocating a maximum budget of **$<0.5\text{ms}$ ($500\mu\text{s}$)** for style mutation validation per animation frame cycle.
+- **Empirical Measurements**:
+  - Standalone Type Guards achieve mean latency of $0.198\mu\text{s} - 1.016\mu\text{s}$ and median latency of $0.167\mu\text{s} - 0.541\mu\text{s}$.
+  - Typia achieves mean latency of $0.284\mu\text{s} - 1.373\mu\text{s}$ and median latency of $0.167\mu\text{s} - 0.667\mu\text{s}$.
+- Both engines operate within sub-microsecond regimes ($<0.5\text{ms}$ budget), outperforming the $500\mu\text{s}$ ceiling by over **$500\times$ to $1,000\times$**. Because DOM layout recalculations ($1-5\text{ms}$) and IPC messaging ($0.5-2\text{ms}$) dominate overall frame latency within the 16.6ms window, Typia's marginal throughput lead does not justify the associated compiler transformer complexity. Selecting between Typia and Standalone guards favors Standalone for client stability.
+
+#### 3.4.4 Normative Engine Decision Matrix
+
+Guidance on selecting between Typia and Standalone guards:
+
+| Evaluation Dimension | Raw Zod Runtime | Standalone Type Guards (AJV) | Typia AOT (`typia.is<T>`) |
+|---|---|---|---|
+| **Authoring SSOT** | ✅ Native Zod syntax | Derived from Stage 2 JSON Schema | Pluggable AST Adapter |
+| **Pipeline Stage** | Stage 1 (Authoring & Ingress) | Stage 4 (Production Guards) | Isolated Tooling / Mock |
+| **Build-Time Tooling** | Standard `tsc` | Standard `tsc` / `esbuild` / `swc` | `ts-patch` / `ttsc` AST transformer |
+| **Runtime Footprint** | ~64.05 KB gzip (322.97 KB min) | **0 KB runtime dependency** (5.62 KB gzip) | **0 KB runtime dependency** (1.13 KB gzip) |
+| **Manifest V3 CSP Safety** | ❌ Disallowed runtime import | **✅ 100% Zero-Eval Pass** | **✅ Zero-Eval Pass** |
+| **Valid Throughput (ops/s)** | 0.12M – 0.47M ops/s | **1.07M – 2.35M ops/sec** | **2.35M – 5.04M ops/sec** |
+| **Valid Median Latency** | 0.50 – 7.08 µs | **0.17 – 0.54 µs** | **0.17 – 0.67 µs** |
+| **60fps Frame Budget (<0.5ms)**| PASS (<0.5ms) | **PASS (<0.5ms)** | **PASS (<0.5ms)** |
+| **Monorepo Ergonomics** | High (Universal TS) | **High (Zero toolchain lock)** | Moderate (Transformer coupling) |
+
+> 📊 For raw throughput data, latency percentiles, and memory footprint tables, refer to [Validation Engine Benchmark Report](../benchmarks/validation-engines.md).
+
 ---
 
 ## 4. DevLink Protocol, RFC 9457 Problem Details & Operation Contract Formalization

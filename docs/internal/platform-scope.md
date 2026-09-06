@@ -63,7 +63,7 @@ archi-adr validate/render`다.
 | --- | --- | --- |
 | Core Platform | `core`, `openapi-projection-contract`, `typespec-decorators`, `schemas`, `parser`, `codegen`, `spec-lens`, `spec-lens-contract` | 제품 방향과 신규 기능 투자의 기본 범위 |
 | Downstream Integration | `router`, `client`, `mock-server` | Core 계약을 소비하고 end-to-end로 증명하는 release-tracked integration surface |
-| Maintenance-only | `dpm`, `personas`, `typia-mock`, `logical-erd-contract`, `typespec-erd` | security, compatibility, migration 작업만 허용하는 분리 후보 또는 승인된 독립 prototype |
+| Maintenance-only | `dpm`, `personas`, `typia-mock`, `logical-erd-contract`, `typespec-erd` | security, compatibility, migration 작업만 허용하는 분리 후보 또는 승인된 독립 prototype. `@oa-sdk/typia-mock`은 Core Platform에서 TS 컴파일러 변환기 복잡도를 격리하면서 Samchon ILlmApplication 통합점을 유지하는 유지보수 경계다. |
 | Apps and references | `nestjs-ref`, `playground`, `preview`, `spec-lens-ui` | 배포 라이브러리가 아닌 검증, reference, UI workspace |
 
 Downstream Integration은 Core Platform 자체가 아니다. 이 계층의 API와 테스트는 Core 계약의
@@ -129,6 +129,18 @@ OpenAPI code generation, or physical database mutation scope.
 | Exit condition | A versioned `oa-sdk.logical-erd.v1` adoption decision defines public package ownership, catalog adapter contract, and review-gate integration. |
 | Boundary | No DDL/migration/FK mutation, no generic metadata extension, no DPM persistence schema change, and no dependency from public `@oa-sdk/codegen`. |
 
+### Typia Mock Maintenance-Only Boundary & Lifecycle Role
+
+`@oa-sdk/typia-mock`은 모노레포 내에서 **Maintenance-only** 등급으로 명확히 한정된 quarantine boundary다. 이 패키지는 Core Platform 배포 릴리스 트랙(`pnpm release`, `build`, `test`)에서 제외되며, 독립된 유지보수 검증 명령(`build:maintenance`, `test:maintenance`, `typecheck:maintenance`)을 통해서만 빌드 및 테스트된다.
+
+| 결정 항목 | 기록된 결정 및 근거 |
+|---|---|
+| **사용자 문제 (User Problem)** | Samchon `typia` 생태계의 `ILlmApplication` 파이프라인(`typia.llm.application<App>()`)을 소비하는 LLM 도구 호출 및 MCP 에이전트 워크플로를 모의 HTTP 환경에서 검증할 수 있는 표준 엔드포인트 제공. |
+| **설계 근거 (Design Rationale & Isolation)** | `typia`는 컴파일 타임 AST 변환기(`ttsc`, `ts-patch`)에 강하게 의존한다. 이를 Core Platform(`core`, `schemas`, `parser`, `codegen`)에 도입할 경우, 모노레포 전체와 다운스트림 컨슈머에게 컴파일러 몽키패치와 build chain 복잡성을 강제하게 된다. `@oa-sdk/typia-mock`을 Maintenance-only 경계로 격리(quarantine)함으로써 Core Platform의 무변환 표준 `tsc` 빌드 무결성을 완벽히 수호한다. |
+| **책임 및 소유자 (Governance & Lifecycle)** | Core Platform 개발 범위에서 제외되며, security 패치, Node.js/TypeScript 런타임 호환성 보장, 그리고 Samchon `ILlmApplication` 계약과의 최소 정합성만 유지(maintenance)한다. |
+| **종료 조건 (Exit Condition)** | 외부 `typia-tools` 또는 `samchon-adapter` 독립 저장소가 준비되면 모노레포 외부로 완전히 추출(extraction)한다. |
+| **경계 불변식 (Boundary Invariant)** | `@oa-sdk/codegen`의 기본 프로젝션 파이프라인이나 공개 클라이언트는 `@oa-sdk/typia-mock`을 런타임/빌드 의존성(zero runtime dependency)으로 참조할 수 없으며, Core Platform 패키지에는 어떠한 typia mock runtime dependency도 허용되지 않는다. 신규 기능 추가는 엄격히 금지된다. |
+
 ## Repository Separation
 
 2026-07-11에 Markdown editor와 GitLab agent operations 제품을 각각 `markdown-editor`와
@@ -138,10 +150,10 @@ infra/orchestrator/UI와 운영 문서를 소유한다. `gitlab-agent-ops`는 `m
 
 남은 물리 분리 후보는 다음과 같다.
 
-| Candidate | Current surface |
-| --- | --- |
-| `data-governance` | `@oa-sdk/dpm`, `@oa-sdk/personas` |
-| experiment or archive | `@oa-sdk/typia-mock` |
+| Candidate | Current surface | Rationale |
+| --- | --- | --- |
+| `data-governance` | `@oa-sdk/dpm`, `@oa-sdk/personas` | DPM 및 persona 계약 추출 |
+| `typia-adapter` | `@oa-sdk/typia-mock` | 컴파일러 변환기 격리 및 ILlmApplication 목 서버 외부화 |
 
 ## Root Command Semantics
 
