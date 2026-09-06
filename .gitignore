@@ -36,3 +36,20 @@ apps/fastapi-ref/**/__pycache__/
 .spec-lens.db-wal
 packages/codegen/.bench/
 .pnpm-store/
+
+# Ephemeral agent swarm session directories
+.agents/teamwork_preview_*
+.agents/worker_*
+.agents/auditor_*
+.agents/challenger_*
+.agents/reviewer_*
+.agents/explorer_*
+.agents/spec_miner_*
+.agents/rem_*
+.agents/remediation_*
+.agents/chal_*
+.agents/rev_*
+.agents/survey_*
+.agents/test_writer_*
+.agents/victory_auditor_*
+.agents/e2e_testing_track/
