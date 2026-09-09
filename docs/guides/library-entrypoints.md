@@ -16,6 +16,7 @@ oa-sdk는 하나의 runtime SDK가 아니라 OpenAPI 계약을 작성·검증·�
 | `@oa-sdk/parser` | OpenAPI 3.2 → ParsedDocument IR | package root, `./browser` | [Quick Start](./quick-start.md) |
 | `@oa-sdk/codegen` | typegen, Drizzle/Zod 변환, `oa-gen` governance CLI | package root, `./drizzle`, `./typegen`, `./typegen/browser`, `./spec-lens`, `./apitomy` | [CLI 명령 레퍼런스](./cli-command-reference.md) |
 | `@oa-sdk/core` | package 공통 utility | package root, `./browser` | [API index](../internal/api-index.md) |
+| `@oa-sdk/ast-sync` | V3 AST 무손실 양방향 동기화 엔진 및 Standalone Guard generator | package root, `./guards` | [API index](../internal/api-index.md) |
 | `@oa-sdk/openapi-projection-contract` | source adapter가 공유하는 projection envelope wire contract | package root | [기본 스펙 사용 기준](./basic-spec-usage.md) |
 
 ## 계약 소비와 테스트

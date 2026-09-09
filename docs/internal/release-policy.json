@@ -83,6 +83,7 @@
     "@oa-sdk/parser",
     "@oa-sdk/codegen",
     "@oa-sdk/spec-lens",
+    "@oa-sdk/ast-sync",
     "@oa-sdk/router",
     "@oa-sdk/client",
     "@oa-sdk/mock-server"
