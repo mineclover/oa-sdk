@@ -1,16 +1,25 @@
-/**
- * V3 Unified Architecture: TypeScript AST Bidirectional Synchronization
- *
- * Provides zero-loss bidirectional sync between EntitySpec IR and source code,
- * supporting pluggable adapters (Zod, TS AST, Typia), reverse-offset TextEdit patching,
- * and comment / formatting retention.
- */
+export {
+  applyTextEdits,
+  computeEntitySpecDiff,
+  createDeleteEdit,
+  createInsertEdit,
+  createReplaceEdit,
+  syncEntitySpecWithCode,
+  TsAstTypeAdapter,
+  TypiaTypeAdapter,
+  ZodTypeAdapter,
+} from '@oa-sdk/ast-sync';
 
-export * from './entity-spec.js';
-export * from './adapter-interface.js';
-export * from './diff-engine.js';
-export * from './text-edit.js';
-export * from './type-sync.js';
-export * from './adapters/zod.js';
-export * from './adapters/ts-ast.js';
-export * from './adapters/typia.js';
+export type {
+  ASTDiff,
+  ASTDiffKind,
+  EntityDiscriminator,
+  EntityKind,
+  EntityPropertySpec,
+  EntitySpec,
+  PropertyConstraint,
+  SyncOptions,
+  SyncResult,
+  TextEdit,
+  TypeAdapter,
+} from '@oa-sdk/ast-sync';

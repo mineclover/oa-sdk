@@ -1,0 +1,61 @@
+{
+  "name": "@oa-sdk/ast-sync",
+  "version": "0.1.0",
+  "description": "V3 Unified Architecture: Zero-loss bidirectional TypeScript AST synchronization and standalone guard generation",
+  "private": false,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./guards": {
+      "types": "./dist/guards/index.d.ts",
+      "import": "./dist/guards/index.js",
+      "default": "./dist/guards/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "scripts": {
+    "build": "tsup src/index.ts src/guards/index.ts --format esm --dts --external typescript",
+    "test": "pnpm build && vitest run",
+    "test:ci": "pnpm build && vitest run --maxWorkers 1 --no-file-parallelism",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "ajv": "^8.18.0",
+    "ajv-formats": "^3.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsup": "^8.0.0",
+    "typescript": "5.9.3",
+    "vitest": "^4.1.4",
+    "zod": "^4.4.3"
+  },
+  "peerDependencies": {
+    "typescript": ">=5.0.0",
+    "zod": ">=3.24.0"
+  },
+  "peerDependenciesMeta": {
+    "zod": {
+      "optional": true
+    },
+    "typescript": {
+      "optional": true
+    }
+  }
+}

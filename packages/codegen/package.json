@@ -56,6 +56,7 @@
     "smoke:pack": "pnpm build && node scripts/package-pack-smoke.mjs"
   },
   "dependencies": {
+    "@oa-sdk/ast-sync": "workspace:*",
     "@oa-sdk/core": "workspace:*",
     "@oa-sdk/openapi-projection-contract": "workspace:*",
     "@oa-sdk/parser": "workspace:*",

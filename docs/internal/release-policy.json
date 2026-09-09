@@ -20,7 +20,8 @@
     "@oa-sdk/openapi-projection-contract",
     "@oa-sdk/typespec-decorators",
     "@oa-sdk/parser",
-    "@oa-sdk/codegen"
+    "@oa-sdk/codegen",
+    "@oa-sdk/ast-sync"
   ],
   "bulkTaskExcluded": [
     "@oa-sdk/ttsc-compile-fixture"
@@ -37,7 +38,8 @@
         "@oa-sdk/schemas",
         "@oa-sdk/parser",
         "@oa-sdk/codegen",
-        "@oa-sdk/spec-lens"
+        "@oa-sdk/spec-lens",
+        "@oa-sdk/ast-sync"
       ]
     },
     "downstream": {

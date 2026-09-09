@@ -1,10 +1,6 @@
-/**
- * @oa-sdk/codegen — Standalone Lightweight Type Guard Generator Plugin
- */
-
-export { generateStandaloneGuards } from './generator.js'
+export { generateStandaloneGuards } from '@oa-sdk/ast-sync/guards';
 export type {
   GeneratedGuardArtifact,
   StandaloneGuardGeneratorOptions,
   StandaloneGuardTarget,
-} from './types.js'
+} from '@oa-sdk/ast-sync/guards';
