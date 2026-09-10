@@ -8,6 +8,8 @@ namespace OaSdkApi;
 
 model bearerAuth is BearerAuth;
 
+alias ExportFormat = "json" | "csv";
+
 @doc("표준 에러 응답 스키마")
 @extension("example", #{ code: "NOT_FOUND", message: "요청한 리소스를 찾을 수 없습니다" })
 @example(#{ code: "NOT_FOUND", message: "요청한 리소스를 찾을 수 없습니다" })

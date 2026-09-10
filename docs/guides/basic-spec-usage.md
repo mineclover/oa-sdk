@@ -86,7 +86,7 @@ packages/schemas/
 │   │   ├── service.tsp                  # service/info/server/tag metadata
 │   │   ├── security.tsp                 # security-scheme metadata
 │   │   └── common-components.tsp        # reusable component registry
-│   ├── common.tsp                       # shared auth/error models
+│   ├── common.tsp                       # shared auth/error models and explicitly owned wire vocabularies
 │   ├── version.tsp                      # contract version
 │   ├── auth.tsp                         # authentication domain
 │   ├── health.tsp                       # health/version domain

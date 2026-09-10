@@ -20,6 +20,7 @@ import { reviewBundle } from './commands/review-bundle.js'
 import { tspExport } from './commands/tsp-export.js'
 import { tspRestore } from './commands/tsp-restore.js'
 import { tspBundleCheck } from './commands/tsp-bundle-check.js'
+import { tspScaffold } from './commands/tsp-scaffold.js'
 import { referenceCheck } from './commands/reference-check.js'
 import { parallelEvidence } from './commands/parallel-evidence.js'
 import { auditCsp } from './commands/audit-csp.js'
@@ -36,6 +37,7 @@ export const commands: Command[] = [
   tspExport,
   tspRestore,
   tspBundleCheck,
+  tspScaffold,
   referenceCheck,
   scaffoldGovernance,
   inventory,

@@ -1,0 +1,50 @@
+{
+  "name": "@oa-sdk/typespec-tooling",
+  "version": "0.1.0",
+  "private": false,
+  "type": "module",
+  "description": "TypeSpec IDE tooling, VS Code configuration presets, snippets, and linter rules for oa-sdk",
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./snippets": {
+      "types": "./dist/snippets/index.d.ts",
+      "default": "./dist/snippets/index.js"
+    },
+    "./linter": {
+      "types": "./dist/linter/index.d.ts",
+      "default": "./dist/linter/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "pnpm build && vitest run tests --maxWorkers 1",
+    "test:ci": "pnpm build && vitest run tests --maxWorkers 1 --no-file-parallelism",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@typespec/compiler": "^1.13.0",
+    "@typespec/openapi": "^1.13.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "5.9.3",
+    "vitest": "^4.1.4"
+  }
+}

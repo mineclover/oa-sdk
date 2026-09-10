@@ -11,6 +11,8 @@ using TypeSpec.SSE;
 
 namespace OaSdkApi;
 
+alias HealthState = "ok" | "degraded" | "down";
+
 @doc("현재 실행 중인 빌드 정보")
 @extension("example", #{ version: "0.1.0", gitSha: "a0ca911", builtAt: "2026-05-04T00:00:00.000Z" })
 model BuildInfo {
@@ -24,7 +26,7 @@ model BuildInfo {
 
 model DependencyStatus {
   name: string;
-  status: "ok" | "degraded" | "down";
+  status: HealthState;
   @minValue(0)
   latencyMs?: integer;
   message?: string;
@@ -72,7 +74,7 @@ model GetReadiness503Response {
 @doc("SSE 헬스 이벤트 payload")
 model HealthEvent {
   @doc("관측된 서버 상태")
-  status: "ok" | "degraded" | "down";
+  status: HealthState;
   @doc("이벤트 발생 시각")
   timestamp: utcDateTime;
 }

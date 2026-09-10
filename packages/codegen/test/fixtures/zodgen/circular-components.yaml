@@ -1,0 +1,54 @@
+openapi: 3.2.0
+info:
+  title: Circular & Recursive Schemas API
+  version: 1.0.0
+components:
+  schemas:
+    Node:
+      type: object
+      description: Self-referencing recursive tree node
+      required:
+        - id
+        - value
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          format: uuid
+        value:
+          type: number
+        parent:
+          $ref: "#/components/schemas/Node"
+        children:
+          type: array
+          items:
+            $ref: "#/components/schemas/Node"
+
+    User:
+      type: object
+      description: User referencing Role in mutual cycle
+      required:
+        - id
+        - username
+      properties:
+        id:
+          type: string
+        username:
+          type: string
+        roles:
+          type: array
+          items:
+            $ref: "#/components/schemas/Role"
+
+    Role:
+      type: object
+      description: Role referencing User in mutual cycle
+      required:
+        - name
+      properties:
+        name:
+          type: string
+        members:
+          type: array
+          items:
+            $ref: "#/components/schemas/User"

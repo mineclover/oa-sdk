@@ -83,9 +83,9 @@ Removal can be considered only after all of these are true:
 
 - Production schema authoring source: `packages/schemas/typespec/`.
 - Bundle entrypoint: `main.tsp` is the composition root; `metadata/service.tsp`, `metadata/security.tsp`, and `metadata/common-components.tsp` own root metadata and `main.tsp` imports `common.tsp`,
-  `auth.tsp`, `health.tsp`, `me.tsp`, and `users.tsp`.
-- Domain ownership: `common` owns shared auth/error models; each remaining module owns its domain
-  models, response wrappers, and operations.
+  `auth.tsp`, `health.tsp`, `me.tsp`, `users.tsp`, and `world-model.tsp`.
+- Domain ownership: `common` owns shared auth/error models and explicitly owned cross-domain wire
+  vocabularies; each remaining module owns its domain models, response wrappers, and operations.
 - Generated production OpenAPI artifacts: `packages/schemas/src/.merged.yaml`, `packages/schemas/src/.merged.3.1.yaml`, and `packages/schemas/src/.merged.3.1.meta.json`.
 - Approved contract snapshot: `packages/schemas/typespec/approved.openapi.yaml`. It is generated from the TypeSpec-restored artifact and updated only through `pnpm schema:approve-typespec-reference -- --write` after reviewing its normalized diff.
 - Historical/evidence fixtures: `docs/internal/typespec-roundtrip/fixtures/`.

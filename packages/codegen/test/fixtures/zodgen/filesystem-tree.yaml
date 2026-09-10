@@ -1,0 +1,82 @@
+openapi: 3.2.0
+info:
+  title: Recursive File System Tree API
+  version: 1.0.0
+  description: Recursive hierarchical directory tree modeling files, directories, and symlinks using OAS 3.2 discriminators and circular references.
+components:
+  schemas:
+    FileNode:
+      type: object
+      description: Regular leaf file entry
+      required:
+        - nodeType
+        - name
+        - sizeBytes
+        - mimeType
+      additionalProperties: false
+      properties:
+        nodeType:
+          type: string
+          const: file
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+        sizeBytes:
+          type: integer
+          exclusiveMinimum: 0
+          maximum: 1073741824
+        mimeType:
+          type: string
+          default: application/octet-stream
+
+    SymlinkNode:
+      type: object
+      description: Symbolic link pointing to target path
+      required:
+        - nodeType
+        - name
+        - targetPath
+      additionalProperties: false
+      properties:
+        nodeType:
+          type: string
+          const: symlink
+        name:
+          type: string
+        targetPath:
+          type: string
+
+    DirectoryNode:
+      type: object
+      description: Directory container node holding recursive child entries
+      required:
+        - nodeType
+        - name
+      additionalProperties: false
+      properties:
+        nodeType:
+          type: string
+          const: directory
+        name:
+          type: string
+        children:
+          type: array
+          description: Recursive array of child filesystem nodes
+          items:
+            $ref: "#/components/schemas/FSNode"
+
+    FSNode:
+      description: Polymorphic file system entry discriminated by nodeType
+      oneOf:
+        - $ref: "#/components/schemas/FileNode"
+        - $ref: "#/components/schemas/DirectoryNode"
+        - $ref: "#/components/schemas/SymlinkNode"
+      discriminator:
+        propertyName: nodeType
+        mapping:
+          file: "#/components/schemas/FileNode"
+          directory: "#/components/schemas/DirectoryNode"
+          symlink: "#/components/schemas/SymlinkNode"
+          dir: "#/components/schemas/DirectoryNode"
+        defaultMapping: "#/components/schemas/FileNode"

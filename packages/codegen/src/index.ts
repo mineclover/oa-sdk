@@ -38,6 +38,12 @@ export {
 export { analyzeExternalSchemaRefs, generateTypes, generateTypesFromSpec } from './typegen/generate-types.js'
 export { createTypescriptAlgebra, schemaToTs } from './typegen/schema-to-ts.js'
 export { analyzeSchemaFidelity, projectSchemaToTs } from './typegen/schema-fidelity.js'
+export {
+  createZod4Algebra,
+  generateZodFromSpec,
+  prepareSchemaForZod,
+  schemaToZod,
+} from './zodgen/index.js'
 export { createMemoryWorkspaceIndex, createNoopWorkspaceIndex, createWorkspaceIndex } from './workspace-index.js'
 export { createSQLiteWorkspaceIndex, SQLITE_WORKSPACE_INDEX_SCHEMA_VERSION } from './sqlite-workspace-index.js'
 export { createMemoryTypeRegistry, createNoopTypeRegistry } from './type-registry.js'
@@ -139,6 +145,7 @@ export type {
 } from './cli/lib/config-loader.js'
 export type { ExternalSchemaRefAnalysis, ExternalSchemaRefDiagnostic, ExternalSchemaRefDiagnosticCode, ExternalSchemaTypeAlias, TypegenOptions } from './typegen/generate-types.js'
 export type { SchemaToTsOptions } from './typegen/schema-to-ts.js'
+export type { GenerateZodOptions, Zod4AlgebraOptions } from './zodgen/index.js'
 export type {
   SchemaToTsProjection,
   TypegenFidelity,

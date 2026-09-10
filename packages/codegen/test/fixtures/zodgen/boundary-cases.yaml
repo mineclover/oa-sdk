@@ -1,0 +1,64 @@
+openapi: 3.2.0
+info:
+  title: Boundary & Corner Cases API
+  version: 1.0.0
+components:
+  schemas:
+    FloatBounds:
+      type: object
+      required:
+        - delta
+      properties:
+        delta:
+          type: number
+          exclusiveMinimum: 0.001
+          exclusiveMaximum: 0.999
+
+    NegativeBounds:
+      type: object
+      required:
+        - temperature
+      properties:
+        temperature:
+          type: number
+          exclusiveMinimum: -50
+          exclusiveMaximum: -10
+
+    ZeroBounds:
+      type: object
+      required:
+        - strictlyPositive
+      properties:
+        strictlyPositive:
+          type: number
+          exclusiveMinimum: 0
+
+    ClosedTuple:
+      type: array
+      prefixItems:
+        - type: string
+        - type: number
+      items: false
+
+    OpenTuple:
+      type: array
+      prefixItems:
+        - type: string
+        - type: number
+      items: true
+
+    RestTuple:
+      type: array
+      prefixItems:
+        - type: string
+        - type: number
+      items:
+        type: boolean
+
+    EmptySealedObject:
+      type: object
+      additionalProperties: false
+
+    EmptyUnevaluatedSealedObject:
+      type: object
+      unevaluatedProperties: false

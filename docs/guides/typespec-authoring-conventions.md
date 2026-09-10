@@ -14,6 +14,7 @@ evidence.
 | Reusable component registry | `packages/schemas/typespec/metadata/common-components.tsp` | Keep component identity separate from domain models and operations. |
 | API contract version | `packages/schemas/typespec/version.tsp` (`ContractVersion`) | The only source for `info.version`; do not derive it from package or build versions. |
 | Domain models, response wrappers, operations | matching domain `.tsp` module | Prefer TypeSpec-native syntax. |
+| Enum and value vocabularies | smallest owning domain `.tsp` module, or `common.tsp` when contract review explicitly assigns a cross-domain vocabulary | Use TypeSpec-native literal unions or aliases. Keep resource-specific filters declared on their operations; `metadata/common-components.tsp` is not a global enum registry. |
 | OpenAPI facts the emitter cannot preserve | OA SDK TypeSpec extension | Use a versioned, documented extension; do not encode semantics in comments. |
 | Generated OpenAPI | `src/.merged*.yaml`, `dist/openapi.*` | Never edit directly. |
 | Approved review baseline | `packages/schemas/typespec/approved.openapi.yaml` | Never edit directly; update only with the approval command. |
@@ -52,6 +53,12 @@ fails CI unless `ContractVersion` has the required semantic-version bump: major 
 4. When approved, run `pnpm schema:approve-typespec-reference -- --write`. This is the only command that updates `approved.openapi.yaml`.
 5. Run `pnpm schema:validate`. For changes that affect a downstream consumer, also run `pnpm schema:downstream-check`.
 
+Changing a wire value set is a contract change. A named alias can reduce duplicate TypeSpec
+declarations without necessarily producing a named OpenAPI schema component. Conversely, a
+deliberate public component or `$ref` identity requires a named native `enum` or `union`, changes
+the emitted contract topology, and must be reviewed in the candidate diff. Do not classify either
+change merely as formatting.
+
 The approved snapshot is intentionally committed: it provides a reviewable
 baseline. The candidate is local, frequently regenerated, and carries the
 manifest path plus source, baseline, and candidate hashes. Promotion always
@@ -73,6 +80,11 @@ Use the following order of preference.
 2. Existing OA SDK extension documented by the ownership guide.
 3. Compatibility sidecar only when the bundle is generated or the extension cannot own the fact.
 4. Propose a versioned extension design before adding a new restore-bearing field.
+
+Do not add an OA SDK extension solely to represent an enum or a value vocabulary that native
+TypeSpec can express. If per-value metadata or another OpenAPI-native fact cannot roundtrip,
+make an explicit ownership decision and, when needed, propose a versioned extension rather than
+placing unvalidated semantics in comments or a generic extension payload.
 
 Do not put a generic `@extension` payload directly into a new operation when a
 shared authoring helper exists. `@oa-sdk/typespec-decorators` currently owns

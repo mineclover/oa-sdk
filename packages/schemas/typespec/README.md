@@ -13,11 +13,14 @@ Current boundary:
   `metadata/security.tsp` owns security-scheme metadata; and
   `metadata/common-components.tsp` owns reusable component metadata for `OaSdkApi`.
 - `packages/schemas/typespec/version.tsp` owns `ContractVersion`, the single source for the emitted OpenAPI `info.version`.
-- `packages/schemas/typespec/common.tsp` owns shared authentication models and common error models.
+- `packages/schemas/typespec/common.tsp` owns shared authentication models, common error models, and
+  explicitly owned cross-domain wire vocabularies.
 - `packages/schemas/typespec/auth.tsp` owns authentication models, responses, and operations.
 - `packages/schemas/typespec/health.tsp` owns health/version models, responses, and operations.
 - `packages/schemas/typespec/me.tsp` owns self-service models, responses, and operations.
 - `packages/schemas/typespec/users.tsp` owns user administration, moderation, and user-facing models,
+  responses, and operations.
+- `packages/schemas/typespec/world-model.tsp` owns World Model control, projection, and lifecycle models,
   responses, and operations.
 - `packages/schemas/typespec/oa-sdk.typespec-bundle.json` is the bundle manifest and declares `oa-sdk.typespec-extensions.v5`.
 - `packages/schemas/typespec/approved.openapi.yaml` is the reviewed OpenAPI 3.2 snapshot for diff gates. It is generated from the restored TypeSpec artifact and must not be edited directly.

@@ -6,10 +6,14 @@ using OpenAPI;
 
 namespace OaSdkApi;
 
+alias UserRole = "admin" | "user" | "guest";
+alias ReportReason = "spam" | "harassment" | "hate-speech" | "fraud" | "impersonation" | "other";
+alias ReportStatus = "open" | "under-review" | "resolved" | "dismissed";
+
 @doc("사용자 PII bulk export 요청. data-eng ETL surface이며 non-admin\nperspective에서는 pseudonymization이 필수입니다.\n")
 @extension("additionalProperties", false)
 model AdminUsersExportRequest {
-  format?: "json" | "csv" = "json";
+  format?: ExportFormat = "json";
   pseudonymize?: boolean = true;
 }
 
@@ -33,7 +37,7 @@ model PublicUserProfile {
   @minLength(1)
   @maxLength(100)
   name: string;
-  role: "admin" | "user" | "guest";
+  role: UserRole;
 }
 
 @doc("site-admin 사용자 hard purge 요청. deleteUser와 별도의 권한 및 감사 절차를 적용합니다.")
@@ -56,16 +60,16 @@ model Report {
   targetUserId: string;
   @format("uuid")
   reporterUserId: string;
-  reason: "spam" | "harassment" | "hate-speech" | "fraud" | "impersonation" | "other";
+  reason: ReportReason;
   details?: string;
-  status: "open" | "under-review" | "resolved" | "dismissed";
+  status: ReportStatus;
   createdAt: utcDateTime;
   resolvedAt?: utcDateTime;
 }
 
 @doc("신고 요청 본문")
 model ReportRequest {
-  reason: "spam" | "harassment" | "hate-speech" | "fraud" | "impersonation" | "other";
+  reason: ReportReason;
   @maxLength(1000)
   details?: string;
 }
@@ -75,7 +79,7 @@ model UpdateUserRequest {
   @minLength(1)
   @maxLength(100)
   name?: string;
-  role?: "admin" | "user" | "guest";
+  role?: UserRole;
 }
 
 @doc("사용자 정보")
@@ -89,7 +93,7 @@ model User {
   @minLength(1)
   @maxLength(100)
   name: string;
-  role: "admin" | "user" | "guest";
+  role: UserRole;
   createdAt: utcDateTime;
 }
 
@@ -666,7 +670,7 @@ op purgeUser(
 op listModerationReports(
   @doc("페이지 번호 (1-based)") @query @minValue(1) page?: integer = 1,
   @doc("페이지당 항목 수") @query @minValue(1) @maxValue(100) limit?: integer = 20,
-  @doc("신고 상태 필터") @query status?: "open" | "under-review" | "resolved" | "dismissed",
+  @doc("신고 상태 필터") @query status?: ReportStatus,
 ): ListModerationReports200Response | ListModerationReports401Response | ListModerationReports403Response;
 
 @summary("사용자 단건 조회")
@@ -1245,7 +1249,7 @@ op reportUser(
 op listUsers(
   @doc("페이지 번호 (1-based)") @query @minValue(1) page?: integer = 1,
   @doc("페이지당 항목 수") @query @minValue(1) @maxValue(100) limit?: integer = 20,
-  @doc("역할 필터") @query role?: "admin" | "user" | "guest",
+  @doc("역할 필터") @query role?: UserRole,
 ): ListUsers200Response | ListUsers401Response;
 
 @summary("사용자 생성")

@@ -1,0 +1,125 @@
+openapi: 3.2.0
+info:
+  title: RFC 9457 Problem Details API
+  version: 1.0.0
+  description: RFC 9457 compliant error responses with OAS 3.2 discriminated extensions and sealed schemas.
+components:
+  schemas:
+    FieldError:
+      type: object
+      required:
+        - field
+        - message
+      additionalProperties: false
+      properties:
+        field:
+          type: string
+        message:
+          type: string
+        rejectedValue:
+          description: Raw rejected input value
+
+    ValidationProblem:
+      type: object
+      description: RFC 9457 error for 422 Unprocessable Entity
+      required:
+        - type
+        - title
+        - status
+        - invalidParams
+      additionalProperties: false
+      properties:
+        type:
+          type: string
+          const: "https://api.example.com/errors/validation"
+        title:
+          type: string
+          default: "Validation Error"
+        status:
+          type: integer
+          const: 422
+        detail:
+          type: string
+        instance:
+          type: string
+          format: uri
+        invalidParams:
+          type: array
+          items:
+            $ref: "#/components/schemas/FieldError"
+
+    PaymentProblem:
+      type: object
+      description: RFC 9457 error for 402 Payment Required
+      required:
+        - type
+        - title
+        - status
+        - balance
+        - required
+      additionalProperties: false
+      properties:
+        type:
+          type: string
+          const: "https://api.example.com/errors/payment"
+        title:
+          type: string
+          default: "Payment Required"
+        status:
+          type: integer
+          const: 402
+        detail:
+          type: string
+        instance:
+          type: string
+          format: uri
+        balance:
+          type: number
+          minimum: 0.00
+        required:
+          type: number
+          exclusiveMinimum: 0.00
+
+    ForbiddenProblem:
+      type: object
+      description: RFC 9457 error for 403 Forbidden
+      required:
+        - type
+        - title
+        - status
+        - requiredRole
+      additionalProperties: false
+      properties:
+        type:
+          type: string
+          const: "https://api.example.com/errors/forbidden"
+        title:
+          type: string
+          default: "Access Forbidden"
+        status:
+          type: integer
+          const: 403
+        detail:
+          type: string
+        instance:
+          type: string
+          format: uri
+        requiredRole:
+          type: string
+
+    ProblemDetails:
+      description: Polymorphic RFC 9457 problem details discriminated on type URI
+      oneOf:
+        - $ref: "#/components/schemas/ValidationProblem"
+        - $ref: "#/components/schemas/PaymentProblem"
+        - $ref: "#/components/schemas/ForbiddenProblem"
+      discriminator:
+        propertyName: type
+        mapping:
+          "https://api.example.com/errors/validation": "#/components/schemas/ValidationProblem"
+          "https://api.example.com/errors/payment": "#/components/schemas/PaymentProblem"
+          "https://api.example.com/errors/forbidden": "#/components/schemas/ForbiddenProblem"
+          "validation": "#/components/schemas/ValidationProblem"
+          "payment": "#/components/schemas/PaymentProblem"
+          "forbidden": "#/components/schemas/ForbiddenProblem"
+        defaultMapping: "#/components/schemas/ValidationProblem"

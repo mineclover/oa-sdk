@@ -12,6 +12,7 @@ oa-sdk는 하나의 runtime SDK가 아니라 OpenAPI 계약을 작성·검증·�
 | `@oa-sdk/schemas` | production TypeSpec source와 generated OpenAPI artifact | package root, `./openapi.yaml`, `./openapi.json` | [기본 스펙 사용 기준](./basic-spec-usage.md) |
 | `@oa-sdk/typespec-decorators` | versioned OA SDK TypeSpec helper | package root | [TypeSpec 규칙](./typespec-authoring-conventions.md) |
 | `@oa-sdk/typespec-erd` | private logical ERD TypeSpec prototype와 `oa-erd` artifact CLI | package root, `oa-erd` | [논리 ERD authoring](./typespec-logical-erd-authoring.md) |
+| `@oa-sdk/typespec-tooling` | TypeSpec IDE 설정 템플릿, 생산성 스니펫, 커스텀 linter 규칙 모음 | package root, `./snippets`, `./linter` | [TypeSpec IDE 설정](./typespec-ide-setup.md) |
 | `@oa-sdk/logical-erd-contract` | private logical ERD artifact·validation·semantic diff contract | package root | [논리 ERD authoring](./typespec-logical-erd-authoring.md) |
 | `@oa-sdk/parser` | OpenAPI 3.2 → ParsedDocument IR | package root, `./browser` | [Quick Start](./quick-start.md) |
 | `@oa-sdk/codegen` | typegen, Drizzle/Zod 변환, `oa-gen` governance CLI | package root, `./drizzle`, `./typegen`, `./typegen/browser`, `./spec-lens`, `./apitomy` | [CLI 명령 레퍼런스](./cli-command-reference.md) |

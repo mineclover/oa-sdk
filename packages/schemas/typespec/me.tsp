@@ -29,7 +29,7 @@ model ExportJob {
 
 @doc("데이터 export 요청")
 model ExportRequest {
-  format?: "json" | "csv" = "json";
+  format?: ExportFormat = "json";
 }
 
 @doc("온보딩 가이드 체크리스트")
@@ -50,8 +50,8 @@ model RoleChangeEvent {
   @format("uuid")
   id: string;
   changedAt: utcDateTime;
-  previousRole: "admin" | "user" | "guest";
-  newRole: "admin" | "user" | "guest";
+  previousRole: UserRole;
+  newRole: UserRole;
   @doc("변경을 수행한 admin의 UUID")
   @format("uuid")
   changedBy: string;

@@ -1,0 +1,10 @@
+{
+  "[typespec]": {
+    "editor.defaultFormatter": "typespec.typespec-vscode",
+    "editor.formatOnSave": true,
+    "editor.tabSize": 2
+  },
+  "files.associations": {
+    "*.tsp": "typespec"
+  }
+}

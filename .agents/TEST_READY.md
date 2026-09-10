@@ -1,81 +1,98 @@
-# TEST_READY: Typia AST Tags, Validation Benchmark Suite & Architectural Docs
+# TEST_READY: OpenAPI 3.2 to Zod 4 Generator & CLI
 
 ## Overview
-Comprehensive, opaque-box E2E test suite for all features (F1 through F18) across Tiers 1-4 has been authored, typechecked, and verified ready for test-driven development.
+A comprehensive 4-Tier E2E test suite for the OpenAPI 3.2 to Zod 4 generator and CLI has been designed, authored, typechecked, and verified ready for test-driven milestone implementation.
 
-- **Target Test File**: `packages/codegen/test/e2e/typia-benchmark-docs.e2e.test.ts`
-- **Runner Command**: `pnpm --filter @oa-sdk/codegen exec vitest run test/e2e/typia-benchmark-docs.e2e.test.ts`
+- **Target Test File**: `packages/codegen/test/e2e/zod4-generator.e2e.test.ts`
+- **Fixtures Directory**: `packages/codegen/test/fixtures/zodgen/`
+- **Runner Command**: `pnpm --filter @oa-sdk/codegen exec vitest run test/e2e/zod4-generator.e2e.test.ts`
 - **Typecheck Command**: `pnpm --filter @oa-sdk/codegen run typecheck`
-- **Total Test Cases**: 203
-- **Baseline Test Results**:
-  - Total Tests: 203
-  - Passed: 110 (baseline contract & infrastructure tests)
-  - Failed: 93 (unimplemented features awaiting M1, M2, M3, M4)
+- **Total Test Cases**: 98
+- **Baseline Execution Results**:
+  - Total Tests Executed: 98
+  - Baseline Passed: 1 (OAS 3.2 spec parsing and baseline validation)
+  - Baseline Failed: 97 (Unimplemented features awaiting M1, M2, M3, M4)
   - TypeScript Compilation: 0 errors (`tsc --noEmit` clean)
+  - Test Harness Stability: 100% (No unhandled exceptions, zero syntax errors, isolated assertions)
 
 ---
 
 ## Test Count per Tier
 
-| Tier | Category | Target Features | Test Count | Baseline Passed | Baseline Failed |
-|---|---|---|:---:|:---:|:---:|
-| **Tier 1** | Feature Coverage (Happy Path) | F1 – F18 (5 per feature) | 90 | 45 | 45 |
-| **Tier 2** | Boundary & Corner Cases | F1 – F18 (5 per feature) | 90 | 52 | 38 |
-| **Tier 3** | Cross-Feature Combinations | Pairwise interactions | 18 | 11 | 7 |
-| **Tier 4** | Real-World Application Scenarios | Scenarios 1 – 5 | 5 | 2 | 3 |
-| **Total** | **Full E2E Suite** | **F1 – F18** | **203** | **110** | **93** |
+| Tier | Category | Scope | Test Count | Baseline Passed | Baseline Failed | Status |
+|---|---|---|:---:|:---:|:---:|:---:|
+| **Tier 1** | Feature Coverage (Happy Path) | 9 Features (5 tests per feature) | 45 | 0 | 45 | Ready for M1-M4 |
+| **Tier 2** | Boundary & Corner Cases | 5 Boundary Areas (5 tests per area) | 25 | 0 | 25 | Ready for M2 |
+| **Tier 3** | Cross-Feature Combinations | Multi-keyword, cycles, approved spec | 15 | 1 | 14 | Ready for M2-M3 |
+| **Tier 4** | Real-World Application Scenarios | 5 End-to-End Scenarios | 13 | 0 | 13 | Ready for M1-M4 |
+| **Total** | **Full E2E Suite** | **All Tiers (1–4)** | **98** | **1** | **97** | **READY** |
 
 ---
 
 ## Feature Checklist & Coverage Matrix
 
-| # | Feature | Milestone | Tier 1 (Coverage) | Tier 2 (Boundaries) | Tier 3 (Pairwise) | Tier 4 (Scenarios) | Status |
+| # | Feature | Milestone | Tier 1 Tests | Tier 2 Boundaries | Tier 3 Combinations | Tier 4 Scenarios | Status |
 |---|---|:---:|:---:|:---:|:---:|:---:|:---:|
-| **F1** | Typia AST Tag Decomposition | M1 | 5 tests | 5 tests | T3-01, T3-02, T3-03, T3-04 | T4-01 | Ready (Awaiting M1) |
-| **F2** | Numeric Bounds & Negative Values | M1 | 5 tests | 5 tests | T3-05, T3-06 | T4-01 | Ready (Awaiting M1) |
-| **F3** | String Format & Pattern Tags | M1 | 5 tests | 5 tests | T3-07 | T4-01 | Ready (Awaiting M1) |
-| **F4** | Bidirectional Type Emission | M1 | 5 tests | 5 tests | T3-01, T3-05, T3-08 | T4-01 | Ready (Awaiting M1) |
-| **F5** | Surgical Patch Bitwise Invariance | M1 | 5 tests | 5 tests | T3-02, T3-07, T3-09 | T4-01 | Ready (Awaiting M1) |
-| **F6** | Auto-Detection in `type-sync.ts` | M1 | 5 tests | 5 tests | T3-03, T3-08 | T4-01 | Ready (Awaiting M1) |
-| **F7** | Typia AST Unit Test Coverage | M1 | 5 tests | 5 tests | T3-09 | - | Ready (Awaiting M1) |
-| **F8** | Realistic Benchmark Schemas | M2 | 5 tests | 5 tests | T3-04, T3-06, T3-10, T3-11 | - | Passed (Baseline Schemas) |
-| **F9** | Synchronous 3-Paradigm Compilers | M2 | 5 tests | 5 tests | T3-10, T3-12, T3-13 | T4-02 | Passed (Compiler Contracts) |
-| **F10** | Benchmark Metrics Engine | M2 | 5 tests | 5 tests | T3-11, T3-12, T3-14 | T4-02 | Passed (Math & CSP engine) |
-| **F11** | Benchmark Runner Script | M2 | 5 tests | 5 tests | T3-14, T3-15 | T4-02 | Ready (Awaiting M2) |
-| **F12** | Npm Script & Acceptance Gates | M2 | 5 tests | 5 tests | T3-13 | T4-02 | Ready (Awaiting M2) |
-| **F13** | Normative Benchmark Report Doc | M3 | 5 tests | 5 tests | T3-15, T3-16, T3-17 | T4-03 | Ready (Awaiting M3) |
-| **F14** | Master Doc Indexing | M3 | 5 tests | 5 tests | T3-16 | T4-03 | Ready (Awaiting M3) |
-| **F15** | Concept Guide (Validation Continuum) | M3 | 5 tests | 5 tests | T3-17, T3-18 | T4-03 | Ready (Awaiting M3) |
-| **F16** | Schema Conventions Guide (§ 3.4) | M3 | 5 tests | 5 tests | - | T4-03 | Ready (Awaiting M3) |
-| **F17** | Platform Scope Quarantine Doc | M3 | 5 tests | 5 tests | T3-18 | T4-03 | Ready (Awaiting M3) |
-| **F18** | Monorepo Integrity & E2E Validation | M4 | 5 tests | 5 tests | - | T4-04, T4-05 | Passed (Scripts & Configs) |
+| **F1** | Catamorphic Zod 4 Algebra (`createZod4Algebra`) | M1 | T1-F2-1 to T1-F2-5 | - | T3-C-01, T3-C-04 | T4-S1-1 | Ready (Awaiting M1) |
+| **F2** | Document Generator Engine (`generateZodFromSpec`) | M1 | T1-F2-1 to T1-F2-5 | - | T3-C-02, T3-C-06, T3-C-11 | T4-S1-1, T4-S2-1, T4-S3-1 | Ready (Awaiting M1) |
+| **F3** | Numeric Exclusive Bounds (`.gt()`, `.lt()`) | M2 | T1-F3-1 to T1-F3-5 | T2-B1-1 to T2-B1-5 | T3-C-01, T3-C-07, T3-C-08 | T4-S1-2, T4-S1-3, T4-S2-3 | Ready (Awaiting M2) |
+| **F4** | Tuples & Rest (`z.tuple().rest()`) | M2 | T1-F4-1 to T1-F4-5 | T2-B2-1 to T2-B2-5 | T3-C-01, T3-C-04, T3-C-05 | T4-S1-2, T4-S1-3 | Ready (Awaiting M2) |
+| **F5** | Object Sealing (`.strict()`) | M2 | T1-F5-1 to T1-F5-5 | T2-B3-1 to T2-B3-5 | T3-C-01, T3-C-03, T3-C-07 | T4-S1-2, T4-S1-3, T4-S3-2 | Ready (Awaiting M2) |
+| **F6** | Circular References (`z.lazy()`) | M2 | T1-F6-1 to T1-F6-5 | T2-B4-1 to T2-B4-5 | T3-C-02, T3-C-03, T3-C-15 | T4-S2-2 | Ready (Awaiting M2) |
+| **F7** | Discriminator & `defaultMapping` | M2 | T1-F7-1 to T1-F7-5 | T2-B5-1 to T2-B5-5 | T3-C-02, T3-C-04, T3-C-08 | T4-S2-2, T4-S3-2, T4-S3-3 | Ready (Awaiting M2) |
+| **F8** | JSDoc & Metadata (`.describe()`, `.default()`) | M2 | T1-F8-1 to T1-F8-5 | - | T3-C-02, T3-C-06, T3-C-09 | T4-S1-2 | Ready (Awaiting M2) |
+| **F9** | Dynamic Runtime Validator (`z.fromJSONSchema`) | M3 | T1-F9-1 to T1-F9-5 | - | T3-C-13 | T4-S5-1, T4-S5-2 | Ready (Awaiting M3) |
+| **F10** | CLI Command `generate:zod` | M4 | T1-F10-1 to T1-F10-5 | - | - | T4-S4-1, T4-S4-2 | Ready (Awaiting M4) |
 
 ---
 
-## Real-World Application Scenarios (Tier 4)
+## Tier 4 Real-World Application Scenarios
 
-1. **T4-01 (Scenario 1: Full E2E Schema Lifecycle Roundtrip)**:
-   - Zod Schema -> Project to EntitySpec -> Emit Typia Interface with Type Tags -> Patch interface -> Read back to EntitySpec -> Validate bitwise invariance.
-2. **T4-02 (Scenario 2: Validation Engine Benchmark Execution)**:
-   - Verify runner script existence, `packages/codegen/package.json` script `"bench:validation"`, standalone type guards latency SLA (< 500 µs), and zero CSP violations.
-3. **T4-03 (Scenario 3: Documentation Verification Gate)**:
-   - Verify `docs/benchmarks/validation-engines.md` presence, cross-references across `docs/README.md`, `runtime-and-generation.md`, `schema-architecture-and-conventions.md`, and `platform-scope.md`.
-4. **T4-04 (Scenario 4: Monorepo Full Typecheck Gate)**:
-   - Clean typechecking configurations across packages (`tsc --noEmit`).
-5. **T4-05 (Scenario 5: Monorepo Full Test Suite Gate)**:
-   - Vitest test runner configuration and execution health.
+1. **Scenario 1: E-commerce Order Lifecycle Schema (`ecommerce-lifecycle.yaml`)**:
+   - `T4-S1-1`: Full module code generation.
+   - `T4-S1-2`: Validates multi-item order with float money amounts, sealed postal addresses, geographic tuple coordinates, and status enums.
+   - `T4-S1-3`: Rejects invalid orders failing exclusive float minimum (`amount: 0`), extra address properties on sealed schema, and invalid coordinate types.
+2. **Scenario 2: Recursive File System Tree (`filesystem-tree.yaml`)**:
+   - `T4-S2-1`: Full module code generation.
+   - `T4-S2-2`: Deeply nested directory hierarchy containing files, nested subdirectories, and symlinks validated at runtime.
+   - `T4-S2-3`: Rejects oversized files (> 1GB) and unmapped node types.
+3. **Scenario 3: RFC 9457 Problem Details with Extensions (`problem-details.yaml`)**:
+   - `T4-S3-1`: Full module code generation.
+   - `T4-S3-2`: Validates polymorphic error extensions (`ValidationProblem`, `PaymentProblem`, `ForbiddenProblem`) via URI discriminator.
+   - `T4-S3-3`: Fallback routing for unknown error types using OAS 3.2 `defaultMapping`.
+4. **Scenario 4: CLI Full Spec Build & Emission**:
+   - `T4-S4-1`: Invokes `oa-gen generate:zod` via `runCommand`, writing output to temporary TypeScript files.
+   - `T4-S4-2`: Verifies emitted code passes in-process syntax evaluation with Zod 4.
+5. **Scenario 5: Dynamic Runtime vs Static Validator Parity**:
+   - `T4-S5-1`: Verifies that static emitted schema and in-memory runtime validator produce identical acceptance on valid instances.
+   - `T4-S5-2`: Verifies identical rejection and error behaviors on invalid instances.
 
 ---
 
 ## Progressive Turn-Green Signals for Implementing Agents
 
-When developers execute work across milestones, the test suite will progressively turn GREEN:
-- **Milestone 1 Completion** (`TypiaTypeAdapter` & `type-sync.ts`):
-  - F1, F2, F3, F4, F5, F6, F7 turn GREEN (40+ test cases flip).
-- **Milestone 2 Completion** (`bench-validation-engines.ts` & runner):
-  - F11, F12, T4-02 turn GREEN.
-- **Milestone 3 Completion** (`docs/benchmarks/`, `docs/concepts/`, `docs/guides/`, `docs/internal/`, `docs/README.md`):
-  - F13, F14, F15, F16, F17, T4-03 turn GREEN.
-- **Milestone 4 Completion** (Final hardening & lifecycle roundtrip):
-  - T4-01, T3-01 to T3-18 all turn GREEN.
-  - Final Result: **203 / 203 Passed (100%)**.
+Implementing developers can track progress through these test flip milestones:
+
+1. **Milestone 1 Completion (`createZod4Algebra` & `generateZodFromSpec`)**:
+   - `T1-F2-1` through `T1-F2-5` turn GREEN (5 tests).
+   - Base algebra leaf/composite generation turns GREEN.
+2. **Milestone 2 Completion (OAS 3.2 Vocabulary & Circular References)**:
+   - `T1-F3-1` to `T1-F3-5` (Exclusive Bounds) turn GREEN (5 tests).
+   - `T1-F4-1` to `T1-F4-5` (Tuples & Rest) turn GREEN (5 tests).
+   - `T1-F5-1` to `T1-F5-5` (Object Sealing) turn GREEN (5 tests).
+   - `T1-F6-1` to `T1-F6-5` (Circular References) turn GREEN (5 tests).
+   - `T1-F7-1` to `T1-F7-5` (Discriminator & defaultMapping) turn GREEN (5 tests).
+   - `T1-F8-1` to `T1-F8-5` (JSDoc & Metadata) turn GREEN (5 tests).
+   - All 25 Tier 2 tests (`T2-B1` through `T2-B5`) turn GREEN (25 tests).
+   - Tier 3 combinations turn GREEN (13 tests).
+   - Scenarios 1, 2, 3 turn GREEN (9 tests).
+   - *Total at M2: ~77 / 98 Passed (78%)*.
+3. **Milestone 3 Completion (Dynamic Runtime Validator)**:
+   - `T1-F9-1` to `T1-F9-5` turn GREEN (5 tests).
+   - `T3-C-13` and `T4-S5-1`, `T4-S5-2` turn GREEN (3 tests).
+   - *Total at M3: ~85 / 98 Passed (87%)*.
+4. **Milestone 4 Completion (CLI Command `generate:zod`)**:
+   - `T1-F10-1` to `T1-F10-5` turn GREEN (5 tests).
+   - `T4-S4-1` and `T4-S4-2` turn GREEN (2 tests).
+   - Remaining cross-feature interactions complete.
+   - *Final Result at M4: **98 / 98 Passed (100%)***.

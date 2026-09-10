@@ -6,11 +6,12 @@ Production schema authoring is TypeSpec-first. 기본 경로에서는
 `packages/schemas/typespec/main.tsp` entrypoint가 import하는 domain `.tsp` source를 수정한 뒤
 `pnpm schema:validate`로 production OpenAPI artifact를 재생성/검증한다.
 
-도메인 배치는 `common.tsp`(공통 인증/에러), `auth.tsp`(인증), `health.tsp`(상태/버전),
-`me.tsp`(셀프 서비스), `users.tsp`(사용자/관리/모더레이션)이다. `metadata/service.tsp`는
+도메인 배치는 `common.tsp`(공통 인증/에러/명시적으로 소유한 공유 wire vocabulary), `auth.tsp`(인증), `health.tsp`(상태/버전),
+`me.tsp`(셀프 서비스), `users.tsp`(사용자/관리/모더레이션),
+`world-model.tsp`(World Model 제어/프로젝션)이다. `metadata/service.tsp`는
 service/info/server/tag, `metadata/security.tsp`는 security scheme,
-`metadata/common-components.tsp`는 reusable component registry를 소유한다. 새 operation은
-해당 도메인 파일에 추가하고, 새 파일을 만들면 `main.tsp`의 import와 bundle gate를 같이 확인한다.
+`metadata/common-components.tsp`는 reusable parameter/response component registry를 소유한다.
+새 operation은 해당 도메인 파일에 추가하고, 새 파일을 만들면 `main.tsp`의 import와 bundle gate를 같이 확인한다.
 
 `main.tsp`는 계약 사실을 직접 담지 않는 composition root다. emitter가 보존하지 못하는
 operation component response reference는 `@oa-sdk/typespec-decorators`의
@@ -23,6 +24,48 @@ OpenAPI fragments are retained as the Definition Builder rollback/reference path
 
 기본 스펙의 source/artifact/사용처 구분은 [기본 스펙 사용 기준](./basic-spec-usage.md)을
 먼저 따른다.
+
+## TypeSpec enum 및 value vocabulary 작성
+
+Production enum은 OA SDK extension이나 `metadata/common-components.tsp` catalog가 아니라
+도메인 `.tsp`의 TypeSpec-native schema fact다. OpenAPI `enum`은 TypeSpec literal union 등의
+선언으로부터 생성되므로, 생성된 `.merged.yaml`에 값을 직접 추가하거나 enum 전용
+`x-oa-sdk-*` extension을 만들지 않는다.
+
+| 상황 | 작성 규칙 |
+|---|---|
+| 한 model/property에서만 쓰는 닫힌 값 집합 | 해당 사용 위치에 literal union을 인라인으로 작성한다. |
+| 명확한 도메인 안에서 여러 model/property/parameter가 정확히 같은 wire value 집합을 공유 | 가장 작은 owning domain `.tsp`에 named `alias`를 두고 재사용한다. 이는 source 중복을 줄이는 방식이며, emitter 결과가 자동으로 `components.schemas` `$ref`가 된다고 가정하지 않는다. |
+| 리소스별 query filter | parameter 선언과 `@doc`을 operation에 남긴다. `role`, `status`, `type`, `state`를 공통 parameter component로 승격하지 않는다. 같은 value vocabulary를 정확히 공유한다면 domain alias를 사용할 수 있지만, 각 operation의 의미·권한·직렬화 규칙은 별도로 명시한다. |
+| 공개 OpenAPI에서 named schema component / `$ref` identity가 필요한 경우 | named native TypeSpec `enum` 또는 `union` 후보를 작성하고 candidate OpenAPI diff로 component topology를 검토한다. literal-union alias만으로 component identity를 가정하지 않는다. 이는 source 정리가 아니라 public contract shape 변경이다. |
+| 여러 도메인에 걸치지만 명확한 owner가 없는 값 집합 | `metadata/common-components.tsp`에 임시 global enum registry를 만들지 않는다. contract review에서 owner와 public reuse 필요성을 먼저 결정한다. |
+
+```typespec
+// users.tsp — 같은 wire vocabulary를 domain 안에서 재사용하는 경우
+alias ReportStatus = "open" | "under-review" | "resolved" | "dismissed";
+
+model Report {
+  status: ReportStatus;
+}
+
+// operation은 filter의 의미를 계속 소유한다.
+op listReports(
+  @doc("신고 상태 필터") @query status?: ReportStatus,
+): Report[];
+```
+
+현재 emitter에서 named literal alias는 property/parameter의 OpenAPI `type: string` + `enum`
+표현으로 투영될 수 있다. 따라서 alias 도입은 source-level reuse의 선택이지, 별도 OpenAPI
+component를 보장하거나 요구하는 선택이 아니다.
+
+### Enum 값 변경 관리
+
+wire value의 추가, 제거, 이름 변경은 TypeSpec 선언이 짧더라도 contract change로 취급한다.
+owning `.tsp`를 수정한 뒤 `pnpm schema:approve-typespec-reference`로 normalized OpenAPI diff를
+검토하고, 승인된 경우에만 `--write`로 snapshot을 갱신한다. 이후 `pnpm schema:validate`를
+실행하고 downstream consumer에 영향이 있으면 `pnpm schema:downstream-check`를 실행한다.
+API `ContractVersion`, workspace package version, TypeSpec bundle/extension `schemaVersion`은
+서로 다른 version channel이므로 enum 변경만으로 서로를 대체하거나 혼동하지 않는다.
 
 ## TypeSpec 배포 환경 projection
 

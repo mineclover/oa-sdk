@@ -1,0 +1,92 @@
+{
+  "oa-operation": {
+    "prefix": ["oa-op", "op-endpoint"],
+    "body": [
+      "@summary(\"${1:요약 설명}\")",
+      "@doc(\"${2:상세 설명}\")",
+      "@tag(\"${3:tag}\")",
+      "@operationId(\"${4:operationId}\")",
+      "@route(\"${5:/path}\")",
+      "@${6|get,post,put,patch,delete|}",
+      "op ${4:operationId}(",
+      "  ${7}",
+      "): ${8:Response};"
+    ],
+    "description": "oa-sdk 표준 HTTP Operation 템플릿",
+    "scope": "typespec"
+  },
+  "oa-response-component": {
+    "prefix": ["oa-rc", "oa-resp-comp"],
+    "body": [
+      "@oaUseResponseComponent(\"${1|400,401,403,404,409,422,429,500,503|}\", \"${2|BadRequest,Unauthorized,Forbidden,NotFound,Conflict,UnprocessableEntity,TooManyRequests,InternalServerError,ServiceUnavailable|}\")"
+    ],
+    "description": "OpenAPI v5 공통 응답 컴포넌트 레퍼런스 바인딩 (@oa-sdk/typespec-decorators)",
+    "scope": "typespec"
+  },
+  "oa-model": {
+    "prefix": ["oa-model", "model-doc"],
+    "body": [
+      "@doc(\"${1:모델 설명}\")",
+      "@extension(\"example\", #{",
+      "  ${2:id}: \"${3:value}\"",
+      "})",
+      "model ${4:ModelName} {",
+      "  @doc(\"식별자\")",
+      "  @format(\"uuid\")",
+      "  id: string;",
+      "  ${5}",
+      "}"
+    ],
+    "description": "oa-sdk 표준 DTO 모델 템플릿",
+    "scope": "typespec"
+  },
+  "oa-response-model": {
+    "prefix": ["oa-response", "resp-model"],
+    "body": [
+      "@doc(\"${1:응답 설명}\")",
+      "model ${2:Operation}${3:200}Response {",
+      "  @statusCode statusCode: ${3:200};",
+      "  @body body: ${4:BodyType};",
+      "}"
+    ],
+    "description": "HTTP 응답 상태 코드 및 본문 래퍼 모델",
+    "scope": "typespec"
+  },
+  "oa-erd-dataset": {
+    "prefix": ["erd-dataset"],
+    "body": [
+      "import \"@oa-sdk/typespec-erd\";",
+      "using OaSdkErd;",
+      "",
+      "@dataset(\"${1:dataset_name}\")",
+      "namespace ${2:DomainName} {",
+      "  ${3}",
+      "}"
+    ],
+    "description": "논리 ERD 데이터셋 네임스페이스 (@oa-sdk/typespec-erd)",
+    "scope": "typespec"
+  },
+  "oa-erd-entity": {
+    "prefix": ["erd-entity"],
+    "body": [
+      "@entity(\"${1:domain}.${2:entity_name}\")",
+      "model ${3:EntityName} {",
+      "  @field(\"${1:domain}.${2:entity_name}.id\")",
+      "  @primaryKey",
+      "  id: string;",
+      "  ${4}",
+      "}"
+    ],
+    "description": "논리 ERD 엔티티 정의 (@oa-sdk/typespec-erd)",
+    "scope": "typespec"
+  },
+  "oa-erd-relationship": {
+    "prefix": ["erd-rel", "erd-relationship"],
+    "body": [
+      "@relationship(\"${1:rel_name}\", ${2:FromEntity}.${3:field}, ${4:ToEntity}.${5:field}, \"${6|one-to-one,one-to-many,many-to-one|}\")",
+      "namespace ${7:Relationships} {}"
+    ],
+    "description": "논리 ERD 엔티티 관계 정의 (@oa-sdk/typespec-erd)",
+    "scope": "typespec"
+  }
+}
