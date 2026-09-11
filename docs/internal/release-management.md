@@ -47,8 +47,8 @@ schema/spec 관리 제품을 소유하고, Downstream Integration 세 패키지�
 | Tier | Package | Current version | Role |
 | --- | --- | ---: | --- |
 | Core Platform | `@oa-sdk/core` | `0.3.0` | Shared utilities and browser-safe core helpers |
-| Core Platform | `@oa-sdk/openapi-projection-contract` | `0.1.2` | OpenAPI projection contract types and validation |
-| Core Platform | `@oa-sdk/typespec-decorators` | `0.1.2` | Versioned OA SDK TypeSpec decorators used by production schema source |
+| Core Platform | `@oa-sdk/openapi-projection-contract` | `0.2.0` | OpenAPI projection contract types and validation |
+| Core Platform | `@oa-sdk/typespec-decorators` | `0.2.0` | Versioned OA SDK TypeSpec decorators used by production schema source |
 | Core Platform | `@oa-sdk/schemas` | `0.1.0` | TypeSpec production source and OpenAPI artifacts |
 | Core Platform | `@oa-sdk/parser` | `0.3.0` | OpenAPI 3.2 parser, IR, query, browser entrypoint |
 | Core Platform | `@oa-sdk/codegen` | `0.7.0` | CLI, typegen, governance, and schema/code generation |
