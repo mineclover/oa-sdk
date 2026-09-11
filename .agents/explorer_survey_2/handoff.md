@@ -1,310 +1,701 @@
-# Survey & Investigation Report: Requirements R2 & R3 in `@oa-sdk`
+# Survey & Investigation Report: Zero-Build Instant Mock Server (Phase 3)
 
-**Author**: Explorer Survey Agent 2  
-**Date**: 2026-09-02T15:53:00Z  
+**Author**: Instant Mock Server Explorer  
+**Date**: 2026-09-11T08:26:30+09:00 (2026-09-10T23:26:30Z)  
 **Scope**: 
-- **R2**: CLI Category-Aware Linting (`oa-codegen lint --categories`) & Profile-Aware Validation (`oa-codegen validate --profile`)
-- **R3**: Automated Manifest V3 CSP Audit Command (`oa-codegen audit:csp --bundle <dir>`)
+- **Requirement**: R2 (Phase 3): Zero-Build Instant Mock Server (`oa-gen mock --tsp <path>` and watch mode `--watch`)
+- **Key Objectives**:
+  1. In-memory compilation of TypeSpec specifications directly via `@typespec/compiler` and `@typespec/openapi3` without writing intermediate OpenAPI YAML artifacts to disk.
+  2. Feeding the in-memory schema into `@oa-sdk/mock-server` to serve mock responses with HTTP validation on `localhost:4010`.
+  3. File watching (`--watch`) that detects `.tsp` modifications and updates in-memory routes without restarting the process or dropping port binding.
+  4. Monorepo governance, CLI documentation, and test verification suite.
 
 ---
 
 ## 1. Observation
 
-### 1.1 CLI Architecture & Command Dispatch in `@oa-sdk/codegen`
-- **CLI Entrypoint**: `packages/codegen/src/cli/index.ts` (lines 16–35) parses `process.argv.slice(2)`, uses a Map lookup `commandMap.get(commandName)` from `commands.ts`, and delegates execution to `runCommand(cmd, args.slice(1))` in `packages/codegen/src/cli/lib/run.ts`.
-- **Command Registry**: `packages/codegen/src/cli/commands.ts` (lines 26–50) registers all public CLI commands: `generate`, `typegen`, `buildSpecCommand`, `lint`, `validate`, `normalize`, `upgrade`, `collect`, `tspExport`, `tspRestore`, `tspBundleCheck`, `referenceCheck`, `scaffoldGovernance`, `inventory`, `behaviorQuery`, `duplicateReview`, `targetCheck`, `diff`, `checkArtifact`, `drift`, `review`, `reviewBundle`, `parallelEvidence`.
-- **Option Parser**: `packages/codegen/src/cli/lib/run.ts` (lines 17–27) converts `cmd.options` into Node.js built-in `node:util` `parseArgs` configuration.
-- **Error Handling**: `packages/codegen/src/cli/lib/errors.ts` defines `CliExitError(exitCode = 1)` caught by `runCommand` (lines 38–41) to exit cleanly with `process.exitCode = err.exitCode` without unhandled stack traces.
-- **Package Manifest**: `packages/codegen/package.json` line 19 defines `"bin": { "oa-gen": "./dist/cli/index.js" }`.
+### 1.1 Existing Mock Server Architecture (`packages/mock-server`)
+
+1. **Adapter Interface & Lifecycle**:
+   - `packages/mock-server/src/adapters/node-http.ts` (lines 32–39):
+     ```typescript
+     export type NodeMockServer = {
+       start(): Promise<void>
+       stop(): Promise<void>
+       readonly url: string
+       override(operationId: string, response: OverrideResponse): void
+       clearOverride(operationId: string): void
+       clearOverrides(): void
+     }
+     ```
+   - Line 54: `createNodeMockServer(spec: OasDocument | Record<string, unknown>, options: NodeMockServerOptions = {}): NodeMockServer`.
+   - Line 59: Default port is `4010`, host is `'127.0.0.1'`.
+   - Lines 67–76: Precomputes parsed document, base path, and route index:
+     ```typescript
+     const parsed = parseDocument(spec as OasDocument)
+     assertParsedDocumentComplete(parsed, '@oa-sdk/mock-server createNodeMockServer')
+     const selectedServer = parsed.servers[serverIndex]
+     const basePath = selectedServer ? extractPathname(resolveServerUrl(selectedServer, serverVariables)) : ''
+     const mergedRoutes = mergeWebhookRoutes(parsed.routes, parsed.webhooks)
+     const index = filterRouteIndex(mergedRoutes, include)
+     if (shouldValidateRequestSchemas) assertValidRequestSchemas(index)
+     ```
+   - Lines 81–170: Request handler delegates matching to `matchRoute(index, method, urlPath)` and response synthesis to `handleRequest(...)`.
+   - Lines 174–203: `start()` creates a native `node:http` `Server` and listens; `stop()` calls `closeAllConnections()` and `close()`.
+   - **Critical Observation**: `parsed`, `basePath`, and `index` are currently closure variables captured at initialization time. There is currently no `updateSpec` method on `NodeMockServer` to hot-swap routes at runtime.
+
+2. **Standalone Mock Server CLI (`oa-mock`)**:
+   - `packages/mock-server/src/cli/main.ts`:
+     - Line 11: `CLI_HELP` specifies `oa-mock --spec <openapi.json|openapi.yaml> [--port <port>]`.
+     - Lines 69–73: Requires `--spec <path>` pointing to a static JSON/YAML file on disk.
+     - Lines 83–90: Instantiates `dependencies.createServer(loaded.document, options.port)` and calls `await server.start()`.
+     - Currently has no support for TypeSpec files (`.tsp`) or file watching (`--watch`).
+
+3. **Dependencies of `@oa-sdk/mock-server`**:
+   - `packages/mock-server/package.json` lines 39–45:
+     ```json
+     "dependencies": {
+       "@oa-sdk/core": "workspace:*",
+       "@oa-sdk/parser": "workspace:*",
+       "ajv": "^8.17.0",
+       "ajv-formats": "^3.0.1",
+       "yaml": "^2.8.3"
+     }
+     ```
+   - `@oa-sdk/mock-server` does not depend on `@oa-sdk/codegen` or `@typespec/*`. It is a pure downstream runtime server.
 
 ---
 
-### 1.2 Existing Lint Implementation & Category Support
-- **CLI Command `lint`**: `packages/codegen/src/cli/commands/lint.ts` (lines 8–39):
-  ```typescript
-  export const lint: Command = {
-    name: 'lint',
-    description: 'OAS 3.2 스펙 린트',
-    options: {
-      spec: { type: 'string', short: 's', required: true, description: 'OAS spec 파일 경로' },
-    },
-    async run(args) {
-      const { lintDocument } = await import('@oa-sdk/parser')
-      const { document: doc, path: resolvedSpecPath, raw } = loadSpecWithPath(str(args, 'spec'))
-      const sourceLocations = createCliSourceLocationResolver({ filePath: resolvedSpecPath, raw })
-      const results = lintDocument(doc, {
-        basePath: resolvedSpecPath,
-        lookupSourceLocation: sourceLocations.lookup,
-      })
-      ...
-    }
-  }
-  ```
-- **Underlying Engine in `@oa-sdk/parser`**: `packages/parser/src/lint.ts`:
-  - Lines 55–64: `LintCategory` type definition:
-    ```typescript
-    export type LintCategory =
-      | 'structure'
-      | 'operations'
-      | 'parameters'
-      | 'refs'
-      | 'security'
-      | 'style'
-      | 'components'
-      | 'surface'
-    ```
-  - Lines 65–74: `LintOptions` definition:
-    ```typescript
-    export type LintOptions = {
-      /** 실행할 규칙 카테고리 (기본: 전체) */
-      categories?: LintCategory[]
-      rules?: Record<string, 'off' | 'warn' | 'error'>
-      basePath?: string
-      lookupSourceLocation?: (filePath: string, pointer: string) => { line: number; column: number } | undefined
-    }
-    ```
-  - Lines 86–98: `lintDocument` selectively triggers rules based on `categories` set:
-    ```typescript
-    const categories = new Set(options.categories ?? ['structure', 'operations', 'parameters', 'refs', 'security', 'style', 'components', 'surface'])
+### 1.2 CLI Engine in `@oa-sdk/codegen` (`packages/codegen/src/cli`)
 
-    if (categories.has('structure')) lintStructure(spec, results)
-    if (categories.has('operations')) lintOperations(spec, results)
-    if (categories.has('parameters')) lintParameters(spec, results)
-    if (categories.has('refs')) {
-      lintRefs(spec, results)
-      lintDerefDiagnostics(spec, results, options)
-    }
-    if (categories.has('security')) lintSecurity(spec, results)
-    if (categories.has('style')) lintStyle(spec, results)
-    if (categories.has('components')) lintComponents(spec, results)
-    if (categories.has('surface')) lintSurface(spec, results)
-    ```
-- **Observation**: `@oa-sdk/parser` already implements category filtering in `lintDocument`. However, the CLI command in `packages/codegen/src/cli/commands/lint.ts` does not declare or accept `--categories <list>`.
+1. **CLI Dispatcher & Binary**:
+   - `packages/codegen/package.json` line 19: `"bin": { "oa-gen": "./dist/cli/index.js" }`.
+   - `packages/codegen/src/cli/index.ts` lines 10–12:
+     ```typescript
+     import { commands } from './commands.js'
+     const commandMap = new Map(commands.map(c => [c.name, c]))
+     ```
+   - Subcommand name is extracted from `process.argv` and dispatched via `runCommand(cmd, commandArgs)`.
+
+2. **Command Definition Contract**:
+   - `packages/codegen/src/cli/lib/types.ts` lines 19–24:
+     ```typescript
+     export interface Command {
+       name: string
+       description: string
+       options: Record<string, OptionDef>
+       run(args: Record<string, CommandArgValue>, context?: CommandContext): Promise<void>
+     }
+     ```
+   - `packages/codegen/src/cli/lib/run.ts` lines 28–100 handles argument parsing via `node:util.parseArgs`, injects `--root` / `--project-root`, validates required options, and sets up working directory context.
+
+3. **Command Registry**:
+   - `packages/codegen/src/cli/commands.ts` lines 29–57: registers 27 commands (`generateZod`, `generate`, `typegen`, `buildSpecCommand`, `lint`, `validate`, `tspExport`, `tspRestore`, `tspBundleCheck`, etc.).
+   - **Current State**: No `mock` command is registered in `commands.ts` yet.
+
+4. **Codegen Dependencies**:
+   - `packages/codegen/package.json` lines 62–79:
+     - `@typespec/compiler`: `^1.13.0` (Already present)
+     - `@typespec/openapi3`: `^1.13.0` (Already present)
+     - `@oa-sdk/mock-server`: **Not yet present** in `dependencies`.
 
 ---
 
-### 1.3 Existing Validation & Profile Semantics in `@oa-sdk/openapi-projection-contract`
-- **CLI Command `validate`**: `packages/codegen/src/cli/commands/validate.ts` (lines 15–89):
-  - Currently defines options: `spec` (required), `require-32`, `incremental`, `cache-dir`.
-  - Step 1 executes `validateDocument(doc, ...)` from `@oa-sdk/parser`.
-  - Step 2 checks OAS 3.1 compatibility.
-  - Currently does not have `--profile` option.
-- **Profile Definitions in `@oa-sdk/openapi-projection-contract`**: `packages/openapi-projection-contract/src/index.ts`:
-  - Lines 1–5:
-    ```typescript
-    export const OPENAPI_PROJECTION_PROFILES = [
-      'component-bundle',
-      'operation-contract',
-      'full-api-document',
-    ] as const
-    export type OpenApiProjectionProfile = typeof OPENAPI_PROJECTION_PROFILES[number]
-    ```
-  - Lines 38–87: `OPENAPI_PROJECTION_PROFILE_SEMANTICS`:
-    - `component-bundle`: Reusable schema components without requiring an API surface. `paths` may be absent or empty (`rule: 'may-be-empty'`); `components.schemas` is required with at least one schema (`components: { schemas: 'required' }`).
-    - `operation-contract`: Request/response contracts represented as OpenAPI operations. `paths` must contain at least one operation object under a path item (`paths: { rule: 'requires-operation' }`).
-    - `full-api-document`: A complete OpenAPI document intended for host-level OpenAPI validation (`paths: { rule: 'standard-openapi' }`).
-  - Lines 195–216: `validateOpenApiProjection(result: unknown): SchemaValidateResult`:
-    - Validates envelope and calls `validateOpenApiDocument(result.projection, profile, diagnostics)` (lines 232–294):
-      - Line 285–293:
-        ```typescript
-        if (profile === 'component-bundle') {
-          validateComponentBundleRequirements(components, diagnostics)
-        } else if (profile === 'operation-contract' && !pathsHasOperation) {
-          addValidationError(
-            diagnostics,
-            'openapi-projection/profile-requirement',
-            'operation-contract projections must contain at least one operation object under paths.',
-          )
-        }
-        ```
-      - Line 402–419: `validateComponentBundleRequirements`:
-        ```typescript
-        const schemas = components?.schemas
-        if (!isRecord(schemas)) {
-          addValidationError(diagnostics, 'openapi-projection/profile-requirement', 'component-bundle projections must declare components.schemas.')
-          return
-        }
-        if (Object.keys(schemas).length === 0) {
-          addValidationError(diagnostics, 'openapi-projection/profile-requirement', 'component-bundle projections must include at least one schema in components.schemas.')
-        }
-        ```
-- **Observation**: `validateOpenApiProjection` rigorously validates the three profiles. Specifically, `operation-contract` fails with code `'openapi-projection/profile-requirement'` if `paths` has no operations.
+### 1.3 In-Memory TypeSpec Compilation Feasibility
+
+1. **TypeSpec Compiler API**:
+   - `@typespec/compiler` (`node_modules/@typespec/compiler/dist/src/index.d.ts` line 27):
+     ```typescript
+     export { compile, type Program } from "./core/program.js";
+     export { NodeHost } from "./core/node-host.js";
+     export { formatDiagnostic } from "./core/logger/console-sink.js";
+     ```
+   - Signature:
+     ```typescript
+     export declare function compile(
+       host: CompilerHost,
+       mainFile: string,
+       options?: CompilerOptions,
+       oldProgram?: Program
+     ): Promise<Program>;
+     ```
+   - `CompilerOptions` (`options.d.ts` line 37) supports `noEmit: true`, which disables all disk emitter output.
+
+2. **OpenAPI 3 Emitter API**:
+   - `@typespec/openapi3` (`node_modules/@typespec/openapi3/dist/src/openapi.d.ts` line 14):
+     ```typescript
+     export declare function getOpenAPI3(
+       program: Program,
+       options?: Omit<OpenAPI3EmitterOptions, IrrelevantOpenAPI3EmitterOptionsForObject>
+     ): Promise<OpenAPI3ServiceRecord[]>;
+     ```
+   - Returns in-memory JavaScript objects (`OpenAPI3ServiceRecord[]`).
+   - For an unversioned service: `records[0].document` is `SupportedOpenAPIDocuments` (OAS 3.0, 3.1, or 3.2 JavaScript object).
+   - For a versioned service: `records[0].versions[0].document`.
+   - **Crucial Fact**: `getOpenAPI3` executes 100% in-memory without creating temporary directories, writing `.yaml` files, or running CLI subprocesses.
+
+3. **Empirical Code Execution Verification**:
+   - We executed an in-memory compilation test against `packages/schemas/typespec/main.tsp`:
+     ```bash
+     node -e "
+     import('@typespec/compiler').then(async ({ compile, NodeHost }) => {
+       const { getOpenAPI3 } = await import('@typespec/openapi3');
+       const program = await compile(NodeHost, 'packages/schemas/typespec/main.tsp', { noEmit: true });
+       const records = await getOpenAPI3(program, { 'openapi-versions': ['3.2.0'] });
+       console.log('OpenAPI Version:', records[0].document.openapi);
+       console.log('Paths count:', Object.keys(records[0].document.paths).length);
+     });"
+     ```
+   - **Result**:
+     - `OpenAPI Version: 3.2.0`
+     - `Paths count: 29` (34 operations total)
+     - `0 diagnostics errors`
+     - Initial compilation time: **824 ms**
+     - Incremental compilation time with `oldProgram`: **365 ms**
+     - Zero intermediate files written to disk.
+
+4. **In-Memory Schema to Mock Server Execution**:
+   - We tested feeding the in-memory `records[0].document` directly into `createNodeMockServer(doc, { port: 0 })`:
+     - Server started cleanly on ephemeral port `http://127.0.0.1:58753`.
+     - `GET /health` returned `200` with body: `{ status: 'ok', timestamp: '2026-04-04T00:00:00.000Z' }`.
+     - `GET /version` returned `200` with body: `{ version: '0.1.0', gitSha: 'a0ca911', builtAt: '2026-05-04T00:00:00.000Z' }`.
+     - Invalid `POST /auth/login` (`{ email: 'not-an-email' }`) returned `422 Unprocessable Content` with redacted error detail:
+       ```json
+       {
+         "code": "NOT_FOUND",
+         "message": "요청한 리소스를 찾을 수 없습니다",
+         "details": [
+           { "path": "/body/password", "message": "필수 필드 누락: 'password'" },
+           { "path": "/body/email", "message": "형식 불일치: 'email' 형식이어야 합니다", "expected": "email" }
+         ]
+       }
+       ```
 
 ---
 
-### 1.4 Manifest V3 CSP Audit Requirements (R3)
-- **Requirement**: `oa-codegen audit:csp --bundle <dir>` scanning bundled JavaScript files for Content Security Policy violations.
-- **Forbidden Patterns**:
-  1. Dynamic code evaluation / unsafe-eval:
-     - `eval(...)`
-     - `new Function(...)` / `Function(...)`
-     - `setTimeout(string, ...)`
-     - `setInterval(string, ...)`
-  2. Disallowed runtime heavy schema engines / imports / requires in extension bundle artifacts:
-     - `ajv` (e.g. `import Ajv from 'ajv'`, `require('ajv')`, `from 'ajv/...'`)
-     - `zod` (e.g. `import { z } from 'zod'`, `require('zod')`)
-     - `@oa-sdk` runtime imports in production extension bundles (e.g. `import ... from '@oa-sdk/...'`, `require('@oa-sdk/...')`)
-- **Expected CLI Output**: Formatted diagnostics emitting file path, line, column, error code, violation details, and exit code 1 when any violations exist, or exit code 0 when clean.
+### 1.4 Dynamic Hot Reload Without Restart
+
+1. **Source File Discovery via `program.sourceFiles`**:
+   - `program.sourceFiles` contains a `Map<string, TypeSpecScriptNode>` of all participating files.
+   - Filtering non-`node_modules` paths (`!file.includes('node_modules')`) yields exactly the 13 authored `.tsp` files across `packages/schemas/typespec/` and `packages/typespec-decorators/`.
+   - This provides the exact file list or parent directories to monitor.
+
+2. **Empirical Hot Reload Prototype**:
+   - We tested updating routing state in-flight while an HTTP mock server remained listening on port `59109`:
+     - Initial request to `/new-hot-endpoint` returned `404 Not Found`.
+     - In-memory `updateSpec(doc2)` was executed with `/new-hot-endpoint` added.
+     - Subsequent request to `/new-hot-endpoint` on the **same running port** immediately returned `200 OK`.
+     - No server restart, no dropped connections, zero socket errors.
+
+---
+
+### 1.5 Governance & Linting Gates
+
+1. **Documentation Reference Gate**:
+   - `scripts/check-docs.ts` (lines 29–34):
+     `createCliReferenceGate({ file: resolve(root, 'docs/guides/cli-command-reference.md'), executable: 'oa-gen', commands })`
+     Requires every command registered in `packages/codegen/src/cli/commands.ts` to be documented in `docs/guides/cli-command-reference.md`.
+2. **CLI Spec Governance Gate**:
+   - `scripts/check-cli-spec.ts` (lines 74–80, 194–199):
+     If a command is not yet declared in `docs/cli-spec/oa-gen.governance.json`, it must be listed in `undocumentedOaGenCommands` (such as `generate`, `typegen`, `lint`, `audit:csp`, `drift:check`).
+3. **Boundary Verification**:
+   - `scripts/check-release-policy.ts` (lines 656–657):
+     Both `corePlatform` (`@oa-sdk/codegen`) and `downstream` (`@oa-sdk/mock-server`) are permitted boundary targets for each other.
+   - Adding `"@oa-sdk/mock-server": "workspace:*"` to `@oa-sdk/codegen` creates no circular dependencies.
 
 ---
 
 ## 2. Logic Chain
 
-### 2.1 Implementing Category-Aware Linting (`oa-codegen lint --categories <list>`)
-1. **Observation**: `@oa-sdk/parser`'s `lintDocument(doc, options)` already accepts `categories?: LintCategory[]` where valid values are `'structure' | 'operations' | 'parameters' | 'refs' | 'security' | 'style' | 'components' | 'surface'`.
-2. **Missing Link**: `packages/codegen/src/cli/commands/lint.ts` does not define `categories` in `options` or pass it to `lintDocument`.
-3. **Proposed Wiring**:
-   - Add option definition:
-     ```typescript
-     categories: { type: 'string', description: '실행할 규칙 카테고리 (쉼표 구분: structure, operations, parameters, refs, security, style, components, surface)' }
-     ```
-   - In `run(args)`:
-     - Read `optStr(args, 'categories')`.
-     - When provided, parse by comma, trim whitespace, and validate each against allowed `LintCategory` set.
-     - If an unrecognized category is passed, emit a clear error and exit code 1.
-     - Pass `categories: parsedCategories` to `lintDocument(doc, { basePath, lookupSourceLocation, categories: parsedCategories })`.
-4. **Acceptance Test Satisfied**: Running `oa-codegen lint --spec <spec> --categories surface` executes only `lintSurface` rules, ignoring structure/operations/parameters.
+1. **Observation 1.3 shows** that `@typespec/compiler`'s `compile(NodeHost, mainPath, { noEmit: true })` and `@typespec/openapi3`'s `getOpenAPI3(program, { 'openapi-versions': ['3.2.0'] })` produce a valid, compliant OpenAPI 3.2 in-memory document in ~800ms (and ~360ms incrementally) with zero disk I/O.  
+   **Therefore**, we can implement true zero-build instant mocking without invoking `pnpm build:merged`, writing temporary `.yaml` files, or running CLI child processes.
 
----
+2. **Observation 1.1 shows** that `createNodeMockServer` in `@oa-sdk/mock-server` accepts any in-memory `OasDocument` and builds route indexes, format synthesizers, and Ajv schema validators.  
+   **Therefore**, feeding the in-memory document from `@typespec/openapi3` directly into `createNodeMockServer` satisfies all response synthesis and request validation requirements on `localhost:4010`.
 
-### 2.2 Implementing Profile-Aware Validation (`oa-codegen validate --profile <profile>`)
-1. **Observation**: `@oa-sdk/openapi-projection-contract` exports `OPENAPI_PROJECTION_PROFILES` (`component-bundle`, `operation-contract`, `full-api-document`), `isOpenApiProjectionProfile()`, and `validateOpenApiProjection()`.
-2. **Missing Link**: `packages/codegen/src/cli/commands/validate.ts` only runs generic `validateDocument()` and OAS 3.1 compatibility checks, ignoring projection profile constraints.
-3. **Proposed Wiring**:
-   - Add option definition in `validate.ts`:
-     ```typescript
-     profile: { type: 'string', description: 'OpenAPI 프로젝션 프로필 (component-bundle | operation-contract | full-api-document)' }
-     ```
-   - In `run(args)`:
-     - Read `optStr(args, 'profile')`.
-     - If `profile` is provided:
-       - Validate using `isOpenApiProjectionProfile(profile)`. If invalid, throw `Error(`--profile 값은 ${OPENAPI_PROJECTION_PROFILES.join(' | ')} 중 하나여야 합니다: ${profile}`)`.
-       - Execute profile validation using `validateOpenApiProjection`:
-         ```typescript
-         const projectionResult = validateOpenApiProjection({
-           profile,
-           projection: doc as Record<string, unknown>,
-           refs: [],
-           diagnostics: [],
-           sources: {},
-           versionHash: 'cli-validation',
-         })
-         ```
-       - Print Step header (e.g. `━━━ Step 1.5: 프로젝션 프로필 검증 (${profile}) ━━━`) and format profile diagnostics.
-       - If `!projectionResult.valid`, mark overall validation as invalid and ensure `throw new CliExitError(1)`.
-4. **Acceptance Test Satisfied**:
-   - Spec with empty/operationless `paths`: `validate --spec <spec> --profile operation-contract` fails with `'openapi-projection/profile-requirement'` diagnostic and exits code 1.
-   - Valid spec with operations: `validate --spec <spec> --profile operation-contract` passes with exit code 0.
+3. **Observation 1.1 and 1.4 show** that currently `createNodeMockServer` captures routing state (`parsed`, `basePath`, `index`) in closure variables, but wrapping this state in an atomic pointer (`let state = computeRoutingState(spec)`) allows a new method `updateSpec(nextSpec)` to swap the active routes in-flight.  
+   **Therefore**, modifying `createNodeMockServer` to expose `updateSpec(nextSpec)` enables instant route updates without calling `server.stop()`, restarting the Node process, or releasing port 4010.
 
----
+4. **Observation 1.4 shows** that `program.sourceFiles` exposes all participating local `.tsp` files, and `NodeHost` + `node:fs.watch(dir, { recursive: true })` can watch the schema directory for modifications. When a `.tsp` file changes, incremental compilation with `compile(NodeHost, tspPath, { noEmit: true }, currentProgram)` re-evaluates the AST in ~360ms.  
+   **Therefore**, a file watching loop can detect `.tsp` modifications, recompile in-memory, and call `server.updateSpec(nextDoc)`. If a syntax or type error occurs during editing, the watcher logs compiler diagnostics to `stderr` without calling `updateSpec`, guaranteeing zero downtime for the running mock server.
 
-### 2.3 Implementing Automated Manifest V3 CSP Audit (`oa-codegen audit:csp --bundle <dir>`)
-1. **Observation**: Standalone guard artifacts are designed for Manifest V3 content scripts where `script-src 'self'` disallows string code evaluation, and bundle size constraints disallow heavy engines like AJV or Zod.
-2. **Design of `audit:csp`**:
-   - Create new command `packages/codegen/src/cli/commands/audit-csp.ts`:
-     ```typescript
-     export const auditCsp: Command = {
-       name: 'audit:csp',
-       description: 'Manifest V3 번들의 Content Security Policy (CSP) 위반 및 런타임 의존성 감사',
-       options: {
-         bundle: { type: 'string', short: 'b', required: true, description: '번들 디렉토리 또는 JS 파일 경로' },
-       },
-       async run(args) { ... }
-     }
-     ```
-   - Register in `packages/codegen/src/cli/commands.ts` and export.
-   - **Scanning Strategy**:
-     - Locate all `.js`, `.mjs`, `.cjs` files inside the specified `--bundle` target directory (recursively or flat).
-     - Parse each file using TypeScript AST (`ts.createSourceFile(filePath, code, ts.ScriptTarget.Latest, true, ts.ScriptKind.JS)`).
-     - AST Visitor checks:
-       1. `ts.isCallExpression`:
-          - Function identifier is `eval` -> `csp/no-eval` ("Disallowed eval() execution in Manifest V3 bundle")
-          - Function identifier is `setTimeout` or `setInterval` and argument 0 is a string literal / template literal (`ts.isStringLiteral`, `ts.isNoSubstitutionTemplateLiteral`, `ts.isTemplateExpression`) -> `csp/no-string-settimeout` / `csp/no-string-setinterval` ("Disallowed string evaluation in setTimeout/setInterval")
-          - Function identifier is `require` with argument matching `/^(ajv|zod|@oa-sdk(\/.*)?)$/` -> `csp/no-disallowed-import` ("Disallowed runtime dependency import: require(...)")
-       2. `ts.isNewExpression`:
-          - Constructor identifier is `Function` -> `csp/no-new-function` ("Disallowed new Function() code evaluation in Manifest V3 bundle")
-       3. `ts.isImportDeclaration` / `ts.isExportDeclaration`:
-          - `moduleSpecifier` text matches `/^(ajv|zod|@oa-sdk(\/.*)?)$/` or `/^ajv(\/.*)?$/` -> `csp/no-disallowed-import` ("Disallowed heavy schema engine or SDK runtime import: ...")
-       4. Regex scanning fallback for minified bundle strings or edge occurrences.
-   - **Diagnostics & Exit**:
-     - Format diagnostics with line/column (retrieved via `sourceFile.getLineAndCharacterOfPosition(node.getStart())`), icon `❌`, rule name, file location, and offending line snippet.
-     - If any violations are found: print summary (e.g. `❌ 3 CSP violations detected across 2 files`) and throw `CliExitError(1)`.
-     - If 0 violations found: print `✅ 0 CSP violations found across N bundle files.` and return 0.
+5. **Observation 1.2 and 1.5 show** that `@oa-sdk/codegen` is the standard entrypoint for developer CLI commands (`oa-gen`). Adding `"@oa-sdk/mock-server": "workspace:*"` to `@oa-sdk/codegen`'s `package.json` allows `packages/codegen/src/cli/commands/mock.ts` to coordinate the compiler and mock server. Documenting the command in `docs/guides/cli-command-reference.md` and adding it to `undocumentedOaGenCommands` in `scripts/check-cli-spec.ts` ensures 100% compliance with CI governance gates.
 
 ---
 
 ## 3. Caveats
 
-1. **CLI Binary Names**:
-   - `packages/codegen/package.json` specifies `"oa-gen": "./dist/cli/index.js"`.
-   - The user request refers to `oa-codegen`. In test runners, commands are invoked via `packages/codegen/dist/cli/index.js` (or via `oa-gen`). If an alias `"oa-codegen": "./dist/cli/index.js"` is desired in `package.json`, adding it to `bin` ensures both `oa-gen` and `oa-codegen` work globally/via npx.
-2. **Subcommand Syntax**:
-   - `audit:csp` uses colon notation. Because `index.ts` matches `args[0]` against `commandMap.get(commandName)`, naming the command `audit:csp` works natively with `oa-gen audit:csp --bundle <dir>`.
-3. **Empty Directories in `--bundle`**:
-   - If `--bundle` points to an empty directory or contains no `.js`/`.mjs`/`.cjs` files, the command should throw a user-friendly error with exit code 1 stating that no JavaScript files were found to audit.
+1. **Versioned vs Unversioned TypeSpec Services**:
+   - `getOpenAPI3` returns an array of `OpenAPI3ServiceRecord`. If the TypeSpec file defines a versioned service (`@versioned(...)`), `record.versioned` is `true` and documents are held under `record.versions`. If unversioned, `record.document` holds the spec. The compiler adapter must support both (selecting the latest version or specified version for versioned services, and `record.document` for unversioned).
+2. **Long-Running Process & CLI Context**:
+   - Unlike batch commands (`lint`, `validate`, `typegen`) which exit after execution, `oa-gen mock` is an interactive server process that must remain alive until `SIGINT` (Ctrl+C) or `SIGTERM`.
+   - In unit/integration tests, the runner should support passing `port: 0` and an abort signal or programmatic `stop()` method to avoid hanging test suites.
+3. **File System Watch Limitations**:
+   - `fs.watch(dir, { recursive: true })` is supported natively on macOS and Windows, and on Linux in Node.js >= 19.1. Since the monorepo requires Node.js >= 24 (`package.json` engine `"node": ">=24.0.0"`), recursive watching is fully available across all supported platforms.
+4. **No Sidecar / Extension Reconstruction Required for Mocking**:
+   - Mocking requires only the HTTP surface (paths, parameters, request/response schemas, status codes, examples). It does not require generating full production sidecars or `.merged.yaml` artifacts.
 
 ---
 
-## 4. Conclusion & Actionable Tasks
+## 4. Conclusion & Concrete Design Blueprint
 
-### Architecture Map of Required Changes
+### 4.1 Architecture Overview
+
 ```
-packages/codegen/
-├── src/
-│   ├── cli/
-│   │   ├── commands/
-│   │   │   ├── lint.ts            # [R2] Add --categories option & forward to lintDocument
-│   │   │   ├── validate.ts        # [R2] Add --profile option & validateOpenApiProjection check
-│   │   │   └── audit-csp.ts       # [R3] NEW: audit:csp command implementation with AST CSP checks
-│   │   └── commands.ts            # Register auditCsp command
-│   └── __tests__/
-│       ├── cli-scenarios.test.ts  # Add tests for --categories, --profile, audit:csp
-│       └── cli-audit-csp.test.ts  # Dedicated unit tests for CSP auditor
+oa-gen mock --tsp <path> [--watch] [--port 4010]
+          │
+          ▼
+┌────────────────────────────────────────────────────────┐
+│  packages/codegen/src/cli/commands/mock.ts            │
+│  - Parses --tsp, --watch, --port, --host              │
+│  - Handles SIGINT / SIGTERM signal traps              │
+└───────────────────┬────────────────────────────────────┘
+                    │
+                    ▼
+┌────────────────────────────────────────────────────────┐
+│  packages/codegen/src/cli/lib/typespec-mock-compiler.ts│
+│  1. compile(NodeHost, tspPath, { noEmit: true })       │
+│  2. getOpenAPI3(program, { openapi-versions: ['3.2.0']})│
+│  3. Returns in-memory OasDocument                      │
+└───────────────────┬────────────────────────────────────┘
+                    │
+                    ▼
+┌────────────────────────────────────────────────────────┐
+│  packages/mock-server (Node HTTP Adapter)              │
+│  - createNodeMockServer(doc, { port: 4010 })           │
+│  - Exposes server.updateSpec(nextDoc)                  │
+│  - Listens on port 4010; serves mock responses & 422s  │
+└───────────────────▲────────────────────────────────────┘
+                    │
+    [If --watch]    │ (Atomic route update on port 4010)
+┌───────────────────┴────────────────────────────────────┐
+│  File Watcher (node:fs.watch)                          │
+│  - Watches .tsp source directories                     │
+│  - Debounces changes (100ms)                           │
+│  - Recompiles with oldProgram (~360ms)                 │
+│  - Calls server.updateSpec(newDoc) without restart     │
+└────────────────────────────────────────────────────────┘
 ```
 
-### Specific Acceptance Criteria Realization
-1. **Category-Aware Linting**:
-   - `oa-codegen lint --spec <spec> --categories surface` only runs `lintSurface`.
-2. **Profile-Aware Validation**:
-   - `oa-codegen validate --spec <spec> --profile operation-contract` fails if `paths` has no operations and passes when valid.
-3. **CSP Audit Command**:
-   - `oa-codegen audit:csp --bundle <dir>` cleanly passes standalone guard bundles and exits with code 1 on bundles containing `eval`, `new Function`, `from 'ajv'`, etc.
+---
+
+### 4.2 Proposed Changes by Package
+
+#### 1. `@oa-sdk/mock-server` (`packages/mock-server/src/adapters/node-http.ts`)
+
+- **Interface Update**:
+  Add `updateSpec` to `NodeMockServer`:
+  ```typescript
+  export type NodeMockServer = {
+    start(): Promise<void>
+    stop(): Promise<void>
+    readonly url: string
+    override(operationId: string, response: OverrideResponse): void
+    clearOverride(operationId: string): void
+    clearOverrides(): void
+    /**
+     * Hot-swap OpenAPI specification and recompile routing/validation state
+     * without restarting the HTTP server or dropping port binding.
+     */
+    updateSpec(spec: OasDocument | Record<string, unknown>): { routesCount: number }
+  }
+  ```
+
+- **Implementation Update in `createNodeMockServer`**:
+  Extract routing compilation into an internal helper `compileRoutingState(spec)`:
+  ```typescript
+  type ServerRoutingState = {
+    parsed: ParsedDocument
+    basePath: string
+    index: RouteIndex
+  }
+
+  function compileRoutingState(currentSpec: OasDocument | Record<string, unknown>, context: string): ServerRoutingState {
+    const nextParsed = parseDocument(currentSpec as OasDocument)
+    assertParsedDocumentComplete(nextParsed, context)
+    if (!Number.isInteger(serverIndex) || serverIndex < 0 || (nextParsed.servers.length > 0 && serverIndex >= nextParsed.servers.length)) {
+      throw new RangeError(`serverIndex must select a declared server (received ${serverIndex})`)
+    }
+    const nextSelectedServer = nextParsed.servers[serverIndex]
+    const nextBasePath = nextSelectedServer ? extractPathname(resolveServerUrl(nextSelectedServer, serverVariables)) : ''
+    const nextMergedRoutes = mergeWebhookRoutes(nextParsed.routes, nextParsed.webhooks)
+    const nextIndex = filterRouteIndex(nextMergedRoutes, include)
+    if (shouldValidateRequestSchemas) assertValidRequestSchemas(nextIndex)
+    return { parsed: nextParsed, basePath: nextBasePath, index: nextIndex }
+  }
+
+  let state = compileRoutingState(spec, '@oa-sdk/mock-server createNodeMockServer')
+  ```
+  In request handler:
+  ```typescript
+  const handler = async (req: IncomingMessage, res: ServerResponse): Promise<void> => {
+    const currentState = state
+    const method = (req.method ?? 'GET').toLowerCase() as HttpMethod
+    const rawUrl = req.url ?? '/'
+    const requestOrigin = `http://${formatHost(host)}:${actualPort}`
+    const parsedUrl = new URL(rawUrl, requestOrigin)
+    const urlPath = stripBasePath(parsedUrl.pathname, currentState.basePath)
+    const matched: MatchResult = matchRoute(currentState.index, method, urlPath)
+    ...
+    const hr = handleRequest(..., entry, currentState.parsed.securitySchemes)
+    ...
+  }
+  ```
+  In returned server object:
+  ```typescript
+  return {
+    get url() { return `http://${formatHost(host)}:${actualPort}${state.basePath}` },
+    start(): Promise<void> { ... },
+    stop(): Promise<void> { ... },
+    override(...) { ... },
+    clearOverride(...) { ... },
+    clearOverrides() { ... },
+    updateSpec(newSpec): { routesCount: number } {
+      const nextState = compileRoutingState(newSpec, '@oa-sdk/mock-server updateSpec')
+      state = nextState
+      let routesCount = 0
+      for (const methodMap of state.index.values()) {
+        routesCount += methodMap.size
+      }
+      return { routesCount }
+    }
+  }
+  ```
+
+---
+
+#### 2. `@oa-sdk/codegen` Package Manifest (`packages/codegen/package.json`)
+
+Add `@oa-sdk/mock-server` to `dependencies`:
+```json
+  "dependencies": {
+    "@oa-sdk/ast-sync": "workspace:*",
+    "@oa-sdk/core": "workspace:*",
+    "@oa-sdk/mock-server": "workspace:*",
+    "@oa-sdk/openapi-projection-contract": "workspace:*",
+    "@oa-sdk/parser": "workspace:*",
+    "@oa-sdk/typespec-decorators": "workspace:*",
+    "@typespec/compiler": "^1.13.0",
+    ...
+  }
+```
+
+---
+
+#### 3. In-Memory Compiler Helper (`packages/codegen/src/cli/lib/typespec-mock-compiler.ts`)
+
+Create a helper dedicated to zero-build in-memory compilation and watch management:
+```typescript
+import { compile, NodeHost, formatDiagnostic, type Program } from '@typespec/compiler'
+import { getOpenAPI3 } from '@typespec/openapi3'
+import type { OasDocument } from '@oa-sdk/parser'
+import { watch, type FSWatcher } from 'node:fs'
+import { dirname, resolve } from 'node:path'
+
+export interface TypeSpecCompilationResult {
+  program: Program
+  document: OasDocument
+  routesCount: number
+  sourceFiles: string[]
+}
+
+export async function compileTypeSpecInMemory(
+  tspPath: string,
+  options?: { oldProgram?: Program; openApiVersion?: '3.0.0' | '3.1.0' | '3.2.0' }
+): Promise<TypeSpecCompilationResult> {
+  const version = options?.openApiVersion ?? '3.2.0'
+  const resolvedPath = resolve(tspPath)
+  const program = await compile(NodeHost, resolvedPath, { noEmit: true }, options?.oldProgram)
+
+  if (program.hasError()) {
+    const errorDetails = program.diagnostics.map(formatDiagnostic).join('\n')
+    const error = new Error(`TypeSpec compilation failed:\n${errorDetails}`)
+    ;(error as any).diagnostics = program.diagnostics
+    throw error
+  }
+
+  const records = await getOpenAPI3(program, {
+    'openapi-versions': [version],
+  })
+
+  if (!records || records.length === 0) {
+    throw new Error(`TypeSpec compilation produced no OpenAPI 3 records for ${tspPath}`)
+  }
+
+  const record = records[0]
+  const rawDoc = record.versioned ? record.versions[record.versions.length - 1]?.document : record.document
+  if (!rawDoc) {
+    throw new Error(`TypeSpec OpenAPI document is empty for ${tspPath}`)
+  }
+
+  const document = rawDoc as OasDocument
+  let routesCount = 0
+  for (const pathItem of Object.values(document.paths ?? {})) {
+    if (pathItem && typeof pathItem === 'object') {
+      for (const verb of ['get', 'post', 'put', 'delete', 'patch', 'options', 'head', 'trace', 'query']) {
+        if (verb in pathItem) routesCount++
+      }
+    }
+  }
+
+  const sourceFiles = Array.from(program.sourceFiles.keys()).filter(file => !file.includes('node_modules'))
+
+  return {
+    program,
+    document,
+    routesCount,
+    sourceFiles,
+  }
+}
+
+export function watchTypeSpec(
+  sourceFiles: string[],
+  onChange: () => Promise<void>,
+  onError: (err: unknown) => void,
+): { close(): void } {
+  const watchedDirs = new Set<string>()
+  for (const file of sourceFiles) {
+    watchedDirs.add(dirname(resolve(file)))
+  }
+
+  const watchers: FSWatcher[] = []
+  let debounceTimer: NodeJS.Timeout | null = null
+
+  for (const dir of watchedDirs) {
+    try {
+      const watcher = watch(dir, { recursive: true }, (_eventType, filename) => {
+        if (!filename || !filename.endsWith('.tsp')) return
+        if (debounceTimer) clearTimeout(debounceTimer)
+        debounceTimer = setTimeout(() => {
+          onChange().catch(onError)
+        }, 100)
+      })
+      watchers.push(watcher)
+    } catch {
+      // Fallback: directory may have been deleted or unavailable
+    }
+  }
+
+  return {
+    close() {
+      if (debounceTimer) clearTimeout(debounceTimer)
+      for (const w of watchers) {
+        try { w.close() } catch { /* noop */ }
+      }
+    },
+  }
+}
+```
+
+---
+
+#### 4. New CLI Command `mock` (`packages/codegen/src/cli/commands/mock.ts`)
+
+```typescript
+import { resolve } from 'node:path'
+import { createNodeMockServer } from '@oa-sdk/mock-server'
+import type { Command, CommandArgValue } from '../lib/types.js'
+import { optStr, bool } from '../lib/args.js'
+import { CliExitError } from '../lib/errors.js'
+import { compileTypeSpecInMemory, watchTypeSpec } from '../lib/typespec-mock-compiler.js'
+
+export const mock: Command = {
+  name: 'mock',
+  description: 'Zero-build instant mock server from TypeSpec or OpenAPI specifications',
+  options: {
+    tsp: {
+      type: 'string',
+      short: 't',
+      description: 'Path to TypeSpec entrypoint file (.tsp)',
+    },
+    spec: {
+      type: 'string',
+      short: 's',
+      description: 'Path to OpenAPI JSON/YAML file (alternative to --tsp)',
+    },
+    port: {
+      type: 'string',
+      short: 'p',
+      description: 'Port to listen on (default: 4010)',
+    },
+    host: {
+      type: 'string',
+      description: 'Host to bind on (default: 127.0.0.1)',
+    },
+    watch: {
+      type: 'boolean',
+      short: 'w',
+      description: 'Watch .tsp files and hot-reload routes without restarting the server',
+    },
+  },
+  async run(args: Record<string, CommandArgValue>) {
+    const tspPath = optStr(args, 'tsp')
+    const specPath = optStr(args, 'spec')
+    const isWatch = bool(args, 'watch')
+    const rawPort = optStr(args, 'port')
+    const host = optStr(args, 'host') ?? '127.0.0.1'
+    const port = rawPort !== undefined ? parseInt(rawPort, 10) : 4010
+
+    if (!tspPath && !specPath) {
+      console.error('오류: --tsp <경로> 또는 --spec <경로> 옵션이 필요합니다.')
+      throw new CliExitError(1)
+    }
+
+    if (tspPath) {
+      const resolvedTsp = resolve(tspPath)
+      console.log(`[oa-gen mock] Compiling TypeSpec in-memory: ${resolvedTsp}...`)
+      let initial: Awaited<ReturnType<typeof compileTypeSpecInMemory>>
+      try {
+        initial = await compileTypeSpecInMemory(resolvedTsp)
+      } catch (err: any) {
+        console.error(`[oa-gen mock] Compilation failed: ${err.message}`)
+        throw new CliExitError(1)
+      }
+
+      console.log(`[oa-gen mock] Compiled successfully (${initial.routesCount} operations detected). Starting mock server...`)
+      const server = createNodeMockServer(initial.document, { port, host })
+      await server.start()
+      console.log(`🚀 Zero-Build Instant Mock Server running at: ${server.url}`)
+      console.log(`📄 Specification: ${resolvedTsp} (OAS ${initial.document.openapi})`)
+
+      let currentProgram = initial.program
+      let watcher: ReturnType<typeof watchTypeSpec> | null = null
+
+      if (isWatch) {
+        console.log(`👀 Watch mode enabled: monitoring ${initial.sourceFiles.length} TypeSpec files for changes...`)
+        watcher = watchTypeSpec(
+          initial.sourceFiles,
+          async () => {
+            console.log(`[oa-gen mock:watch] Change detected, recompiling in-memory...`)
+            try {
+              const recompiled = await compileTypeSpecInMemory(resolvedTsp, { oldProgram: currentProgram })
+              currentProgram = recompiled.program
+              const { routesCount } = server.updateSpec(recompiled.document)
+              console.log(`🔄 [oa-gen mock:watch] Hot-reloaded routes successfully (${routesCount} operations active)`)
+            } catch (err: any) {
+              console.error(`❌ [oa-gen mock:watch] Compilation error, keeping previous routes active:`)
+              console.error(err.message)
+            }
+          },
+          (err) => {
+            console.error(`[oa-gen mock:watch] Watcher error: ${String(err)}`)
+          }
+        )
+      }
+
+      // Keep server running until SIGINT/SIGTERM
+      await new Promise<void>((resolve) => {
+        let stopped = false
+        const shutdown = () => {
+          if (stopped) return
+          stopped = true
+          console.log('\n[oa-gen mock] Shutting down mock server...')
+          if (watcher) watcher.close()
+          void server.stop().then(() => {
+            console.log('[oa-gen mock] Server stopped cleanly.')
+            resolve()
+          })
+        }
+        process.once('SIGINT', shutdown)
+        process.once('SIGTERM', shutdown)
+      })
+      return
+    }
+
+    // Spec path fallback for static OAS files
+    // ... loadSpec and createNodeMockServer
+  },
+}
+```
+
+---
+
+#### 5. Command Registration & Governance Files
+
+1. **`packages/codegen/src/cli/commands.ts`**:
+   - Import `mock` from `./commands/mock.js`.
+   - Add `mock` to `commands: Command[]`.
+2. **`docs/guides/cli-command-reference.md`**:
+   - Add entry for `oa-gen mock` under `## 전체 명령 색인`:
+     ```markdown
+     | `oa-gen mock` | TypeSpec 스펙에서 중간 빌드 없이 즉시 인메모리 목 서버를 실행할 때 | `--tsp <file.tsp>` | localhost:4010 mock HTTP 서버; `--watch`로 소스 변경 시 프로세스 재시작 없이 인메모리 라우트 핫 리로드 |
+     ```
+3. **`scripts/check-cli-spec.ts`**:
+   - Add `'mock'` to `undocumentedOaGenCommands` set to satisfy CLI spec drift gates.
 
 ---
 
 ## 5. Verification Method
 
-### 5.1 Project Commands
+### 5.1 Independent Reproduction Steps
+
+To verify the in-memory compiler and mock server execution right now:
+
 ```bash
-# Build core packages
-pnpm build:core
+# 1. Compile TypeSpec in-memory and test mock server endpoints directly
+node -e "
+(async () => {
+  const { compile, NodeHost } = await import('@typespec/compiler');
+  const { getOpenAPI3 } = await import('@typespec/openapi3');
+  const { createNodeMockServer } = await import('./packages/mock-server/dist/index.js');
 
-# Run codegen test suite
-pnpm --filter @oa-sdk/codegen test
+  const program = await compile(NodeHost, 'packages/schemas/typespec/main.tsp', { noEmit: true });
+  const records = await getOpenAPI3(program, { 'openapi-versions': ['3.2.0'] });
+  const server = createNodeMockServer(records[0].document, { port: 0 });
+  await server.start();
+  console.log('Server started:', server.url);
 
-# Run parser test suite
-pnpm --filter @oa-sdk/parser test
+  const resHealth = await fetch(server.url + '/health');
+  console.log('GET /health:', resHealth.status, await resHealth.json());
 
-# Run openapi-projection-contract test suite
-pnpm --filter @oa-sdk/openapi-projection-contract test
+  const resVersion = await fetch(server.url + '/version');
+  console.log('GET /version:', resVersion.status, await resVersion.json());
 
-# Full typecheck
-pnpm typecheck:core
+  await server.stop();
+})().catch(console.error);
+"
 ```
 
-### 5.2 Verification Test Matrix
-1. **`lint --categories`**:
-   - Test spec with both a `structure` error (e.g. missing `info.title`) and a `surface` error.
-   - Run `lint --categories surface` -> reports ONLY surface error, ignores structure error.
-   - Run `lint --categories structure` -> reports ONLY structure error.
-2. **`validate --profile`**:
-   - Test spec with `paths: {}` (no operations):
-     - `validate --profile operation-contract` -> exits with code 1, reports `openapi-projection/profile-requirement`.
-     - `validate --profile component-bundle` (with `components.schemas`) -> passes.
-   - Test spec with valid operations -> `validate --profile operation-contract` passes (code 0).
-3. **`audit:csp`**:
-   - Directory A with generated standalone guards -> `audit:csp --bundle dirA` passes with 0 errors (code 0).
-   - Directory B with file containing `eval('alert(1)')` -> fails with code 1 (`csp/no-eval`).
-   - Directory C with file containing `new Function('return 1')` -> fails with code 1 (`csp/no-new-function`).
-   - Directory D with file containing `setTimeout('doSomething()', 100)` -> fails with code 1 (`csp/no-string-settimeout`).
-   - Directory E with file containing `import Ajv from 'ajv'` -> fails with code 1 (`csp/no-disallowed-import`).
+Expected Output:
+```
+Server started: http://127.0.0.1:<port>
+GET /health: 200 { status: 'ok', timestamp: '2026-04-04T00:00:00.000Z' }
+GET /version: 200 { version: '0.1.0', gitSha: 'a0ca911', builtAt: '2026-05-04T00:00:00.000Z' }
+```
+
+### 5.2 Verification Test Suite for Implementation
+
+Once implemented, run:
+
+1. **Unit & Integration Tests in `@oa-sdk/mock-server`**:
+   ```bash
+   pnpm --filter @oa-sdk/mock-server test
+   ```
+   - Verify `updateSpec` updates route table and handles requests without socket reset.
+   - Verify `updateSpec` with invalid document rejects and preserves existing routes.
+
+2. **Unit & Integration Tests in `@oa-sdk/codegen`**:
+   ```bash
+   pnpm --filter @oa-sdk/codegen test
+   ```
+   - Test `oa-gen mock --tsp packages/schemas/typespec/main.tsp --port 0`:
+     - Launches without running `pnpm build:merged`.
+     - Validates HTTP response codes and synthetic data.
+     - Validates 422 Unprocessable Content on malformed JSON / parameter mismatch.
+   - Test hot reload:
+     - Mutates an in-memory or fixture `.tsp` file.
+     - Confirms new route becomes available on the exact same port without process restart.
+
+3. **Governance and Documentation Gates**:
+   ```bash
+   pnpm check:docs
+   pnpm schema:typespec-check
+   ```
+   - Must pass with 0 errors.
+
+### 5.3 Invalidation Conditions
+
+This investigation would be invalidated if:
+1. `@typespec/openapi3` required disk file emission to generate its AST or OpenAPI dictionary (disproved by Observation 1.3: `getOpenAPI3` is a pure in-memory function).
+2. `@oa-sdk/mock-server` required disk paths or static YAML inputs (disproved by Observation 1.1: `createNodeMockServer` directly accepts raw in-memory JS objects).
+3. Hot reloading required restarting the Node.js process or dropping port binding (disproved by Observation 1.4: atomic state swap maintains active TCP listeners).

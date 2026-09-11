@@ -36,6 +36,17 @@ export type NodeMockServer = {
   override(operationId: string, response: OverrideResponse): void
   clearOverride(operationId: string): void
   clearOverrides(): void
+  /**
+   * Hot-swap OpenAPI specification and recompile routing/validation state
+   * without restarting the HTTP server or dropping port binding.
+   */
+  updateSpec(spec: OasDocument | Record<string, unknown>): { routesCount: number }
+}
+
+type ServerRoutingState = {
+  parsed: ReturnType<typeof parseDocument>
+  basePath: string
+  index: RouteIndex
 }
 
 /**
@@ -64,28 +75,42 @@ export function createNodeMockServer(
     validateRequestSchemas: shouldValidateRequestSchemas = true,
     onCallback,
   } = options
-  const parsed = parseDocument(spec as OasDocument)
-  assertParsedDocumentComplete(parsed, '@oa-sdk/mock-server createNodeMockServer')
-  if (!Number.isInteger(serverIndex) || serverIndex < 0 || (parsed.servers.length > 0 && serverIndex >= parsed.servers.length)) {
-    throw new RangeError(`serverIndex must select a declared server (received ${serverIndex})`)
+
+  function compileRoutingState(
+    currentSpec: OasDocument | Record<string, unknown>,
+    context: string,
+  ): ServerRoutingState {
+    const nextParsed = parseDocument(currentSpec as OasDocument)
+    assertParsedDocumentComplete(nextParsed, context)
+    if (!Number.isInteger(serverIndex) || serverIndex < 0 || (nextParsed.servers.length > 0 && serverIndex >= nextParsed.servers.length)) {
+      throw new RangeError(`serverIndex must select a declared server (received ${serverIndex})`)
+    }
+    const nextSelectedServer = nextParsed.servers[serverIndex]
+    const nextBasePath = nextSelectedServer ? extractPathname(resolveServerUrl(nextSelectedServer, serverVariables)) : ''
+    const nextMergedRoutes = mergeWebhookRoutes(nextParsed.routes, nextParsed.webhooks)
+    const nextIndex = filterRouteIndex(nextMergedRoutes, include)
+    if (shouldValidateRequestSchemas) assertValidRequestSchemas(nextIndex)
+    return {
+      parsed: nextParsed,
+      basePath: nextBasePath,
+      index: nextIndex,
+    }
   }
-  const selectedServer = parsed.servers[serverIndex]
-  const basePath = selectedServer ? extractPathname(resolveServerUrl(selectedServer, serverVariables)) : ''
-  const mergedRoutes = mergeWebhookRoutes(parsed.routes, parsed.webhooks)
-  const index = filterRouteIndex(mergedRoutes, include)
-  if (shouldValidateRequestSchemas) assertValidRequestSchemas(index)
+
+  let state = compileRoutingState(spec, '@oa-sdk/mock-server createNodeMockServer')
   let httpServer: Server | null = null
   let actualPort = port  // port: 0이면 listen 후 실제 포트로 갱신
   const overrides = new Map<string, OverrideResponse>()
 
   const handler = async (req: IncomingMessage, res: ServerResponse): Promise<void> => {
+    const currentState = state
     const method = (req.method ?? 'GET').toLowerCase() as HttpMethod
     const rawUrl = req.url ?? '/'
     const requestOrigin = `http://${formatHost(host)}:${actualPort}`
     const parsedUrl = new URL(rawUrl, requestOrigin)
-    const urlPath = stripBasePath(parsedUrl.pathname, basePath)
+    const urlPath = stripBasePath(parsedUrl.pathname, currentState.basePath)
 
-    const matched: MatchResult = matchRoute(index, method, urlPath)
+    const matched: MatchResult = matchRoute(currentState.index, method, urlPath)
 
     if (matched.type === 'not_found') {
       writeJson(res, 404, {
@@ -141,7 +166,7 @@ export function createNodeMockServer(
     const hr = handleRequest(
       { pathParams, queryParams, ...(rawQueryString !== undefined ? { rawQueryString } : {}), headers, body: parsedBody.body, ...(parsedBody.parseError ? { bodyParseError: parsedBody.parseError } : {}), contentType, url: parsedUrl.toString() },
       entry,
-      parsed.securitySchemes,
+      currentState.parsed.securitySchemes,
     )
 
     if (hr.type === 'validation-error') { writeJson(res, hr.status, hr.body); return }
@@ -169,7 +194,7 @@ export function createNodeMockServer(
   }
 
   return {
-    get url() { return `http://${formatHost(host)}:${actualPort}${basePath}` },
+    get url() { return `http://${formatHost(host)}:${actualPort}${state.basePath}` },
 
     start(): Promise<void> {
       return new Promise((resolve, reject) => {
@@ -212,6 +237,16 @@ export function createNodeMockServer(
 
     clearOverrides(): void {
       overrides.clear()
+    },
+
+    updateSpec(nextSpec: OasDocument | Record<string, unknown>): { routesCount: number } {
+      const nextState = compileRoutingState(nextSpec, '@oa-sdk/mock-server updateSpec')
+      state = nextState
+      let routesCount = 0
+      for (const methodMap of state.index.values()) {
+        routesCount += methodMap.size
+      }
+      return { routesCount }
     },
   }
 }

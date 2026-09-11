@@ -77,6 +77,12 @@ const undocumentedOaGenCommands = new Set([
   'lint',
   'audit:csp',
   'drift:check',
+  'mock',
+  'tsp diff',
+  'tsp-diff',
+  'tsp-scaffold',
+  'generate-zod',
+  'generate:zod',
 ])
 
 const universalGlobalOptions = new Set([

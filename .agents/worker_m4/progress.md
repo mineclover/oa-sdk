@@ -1,15 +1,19 @@
 # Progress Log - Worker M4
 
-## Status: Complete
-- Last visited: 2026-09-02T22:14:00Z
-- Objective: Update and mirror `schema-architecture-and-conventions.md` with complete normative specifications and runnable code examples.
+## Status: In Progress
+- Last visited: 2026-09-11T00:13:30Z
+- Objective: Implement Milestone 4 - Monorepo Governance, CLI Documentation & Gates (R4).
 
-## Steps Completed
-- [x] Read DISPATCH.md, ORIGINAL_REQUEST.md, PROJECT.md, survey handoff
-- [x] Investigate AST sync adapters, entity-spec, and zod-to-schema implementation in `@oa-sdk`
-- [x] Initialize BRIEFING.md and progress.md
-- [x] Draft comprehensive updates to `/Users/junwoobang/workflow/browser-studio/docs/guides/schema-architecture-and-conventions.md`
-- [x] Mirror the updated guide to `/Users/junwoobang/workflow/oa-sdk/docs/guides/schema-architecture-and-conventions.md`
-- [x] Verify monorepo builds (`pnpm build:core`), test suites (`pnpm test`), recursive typechecking (`pnpm -r typecheck`), and schema validation (`pnpm schema:validate`)
-- [x] Update BRIEFING.md with PASS status
-- [x] Write handoff report and notify parent
+## Steps
+- [ ] Inspect existing `packages/codegen/src/cli/commands.ts`, `docs/guides/cli-command-reference.md`, and `scripts/check-cli-spec.ts`
+- [ ] Register `mock`, `tspDiff`, and `generateZod` in `packages/codegen/src/cli/commands.ts`
+- [ ] Update `docs/guides/cli-command-reference.md` with all newly registered commands and their flags
+- [ ] Update `scripts/check-cli-spec.ts` for CLI governance compliance
+- [ ] Verify gates:
+  - [ ] `pnpm check:docs` (5 gates, 0 errors)
+  - [ ] `pnpm schema:typespec-check` (0 drift)
+  - [ ] `pnpm personas:check` (0 errors)
+  - [ ] `pnpm test:e2e` (150/150 pass)
+  - [ ] `turbo run test` (all packages pass)
+- [ ] Update BRIEFING.md and write `handoff.md`
+- [ ] Send message to parent

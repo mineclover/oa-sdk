@@ -235,6 +235,172 @@ describe('DPM semantic data binding validator', () => {
     expect(second.plan.identity).not.toBe(first.plan.identity)
     expect(second.plan.freshness.dataBindingFreshness?.apiArtifacts[0]?.versionHash).toBe(changedHash)
   })
+
+  describe('x-oa-sdk-dpm-projection validation', () => {
+    it('accepts valid matching projection without safety or data binding errors', () => {
+      const { input, apiArtifacts } = createIdentityBindingInput()
+      const doc = structuredClone(apiArtifacts[0].document) as Record<string, any>
+      doc.paths['/customers/{customerId}'].get.responses['200'].content['application/json'].schema.properties.customerNo['x-oa-sdk-dpm-projection'] = {
+        transform: 'relationship_token',
+        role: 'direct_identifier',
+        pii: true,
+        relationship: 'rel_orders_customer',
+      }
+      const newHash = computeDpmApiArtifactVersionHash(doc)
+      const manifest = structuredClone(input.manifest) as Record<string, any>
+      manifest.data_definitions.api_bindings[0].api.version_hash = newHash
+
+      const result = validateDpmManifest({
+        ...input,
+        manifest,
+        apiArtifacts: [{
+          ...apiArtifacts[0],
+          document: doc,
+          provenance: {
+            ...apiArtifacts[0].provenance!,
+            versionHash: newHash,
+          },
+        }],
+      })
+
+      expect(result.valid).toBe(true)
+      expect(result.diagnostics.some(d => d.code === 'SAF001' || d.code === 'SAF002' || d.code === 'SAF010')).toBe(false)
+    })
+
+    it('enforces SAF001 on direct_identifier with keep transform in projection', () => {
+      const { input, apiArtifacts } = createIdentityBindingInput()
+      const doc = structuredClone(apiArtifacts[0].document) as Record<string, any>
+      doc.paths['/customers/{customerId}'].get.responses['200'].content['application/json'].schema.properties.customerNo['x-oa-sdk-dpm-projection'] = {
+        transform: 'keep',
+        role: 'direct_identifier',
+      }
+      const newHash = computeDpmApiArtifactVersionHash(doc)
+      const manifest = structuredClone(input.manifest) as Record<string, any>
+      manifest.data_definitions.api_bindings[0].api.version_hash = newHash
+
+      const result = validateDpmManifest({
+        ...input,
+        manifest,
+        apiArtifacts: [{
+          ...apiArtifacts[0],
+          document: doc,
+          provenance: {
+            ...apiArtifacts[0].provenance!,
+            versionHash: newHash,
+          },
+        }],
+      })
+
+      expect(result.valid).toBe(false)
+      expect(result.diagnostics).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          code: 'SAF001',
+          message: expect.stringContaining('direct_identifier columns cannot use keep transform'),
+        }),
+      ]))
+    })
+
+    it('enforces SAF002 on foreign_identifier marked pii without relationship in projection', () => {
+      const { input, apiArtifacts } = createIdentityBindingInput()
+      const doc = structuredClone(apiArtifacts[0].document) as Record<string, any>
+      doc.paths['/customers/{customerId}'].get.responses['200'].content['application/json'].schema.properties.customerNo['x-oa-sdk-dpm-projection'] = {
+        transform: 'hash',
+        role: 'foreign_identifier',
+        pii: true,
+      }
+      const newHash = computeDpmApiArtifactVersionHash(doc)
+      const manifest = structuredClone(input.manifest) as Record<string, any>
+      manifest.data_definitions.api_bindings[0].api.version_hash = newHash
+
+      const result = validateDpmManifest({
+        ...input,
+        manifest,
+        apiArtifacts: [{
+          ...apiArtifacts[0],
+          document: doc,
+          provenance: {
+            ...apiArtifacts[0].provenance!,
+            versionHash: newHash,
+          },
+        }],
+      })
+
+      expect(result.valid).toBe(false)
+      expect(result.diagnostics).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          code: 'SAF002',
+          message: expect.stringContaining('pii=true foreign_identifier columns require a relationship reference'),
+        }),
+      ]))
+    })
+
+    it('enforces SAF010 on pii field with keep transform in projection', () => {
+      const { input, apiArtifacts } = createIdentityBindingInput()
+      const doc = structuredClone(apiArtifacts[0].document) as Record<string, any>
+      doc.paths['/customers/{customerId}'].get.responses['200'].content['application/json'].schema.properties.customerNo['x-oa-sdk-dpm-projection'] = {
+        transform: 'keep',
+        role: 'business_identifier',
+        pii: true,
+      }
+      const newHash = computeDpmApiArtifactVersionHash(doc)
+      const manifest = structuredClone(input.manifest) as Record<string, any>
+      manifest.data_definitions.api_bindings[0].api.version_hash = newHash
+
+      const result = validateDpmManifest({
+        ...input,
+        manifest,
+        apiArtifacts: [{
+          ...apiArtifacts[0],
+          document: doc,
+          provenance: {
+            ...apiArtifacts[0].provenance!,
+            versionHash: newHash,
+          },
+        }],
+      })
+
+      expect(result.valid).toBe(false)
+      expect(result.diagnostics).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          code: 'SAF010',
+          message: expect.stringContaining('pii=true columns cannot leak raw values with keep transform'),
+        }),
+      ]))
+    })
+
+    it('detects policy mismatch between manifest column and OpenAPI projection', () => {
+      const { input, apiArtifacts } = createIdentityBindingInput()
+      const doc = structuredClone(apiArtifacts[0].document) as Record<string, any>
+      doc.paths['/customers/{customerId}'].get.responses['200'].content['application/json'].schema.properties.customerNo['x-oa-sdk-dpm-projection'] = {
+        transform: 'mask',
+        role: 'direct_identifier',
+      }
+      const newHash = computeDpmApiArtifactVersionHash(doc)
+      const manifest = structuredClone(input.manifest) as Record<string, any>
+      manifest.data_definitions.api_bindings[0].api.version_hash = newHash
+
+      const result = validateDpmManifest({
+        ...input,
+        manifest,
+        apiArtifacts: [{
+          ...apiArtifacts[0],
+          document: doc,
+          provenance: {
+            ...apiArtifacts[0].provenance!,
+            versionHash: newHash,
+          },
+        }],
+      })
+
+      expect(result.valid).toBe(false)
+      expect(result.diagnostics).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          code: 'DAT008',
+          message: expect.stringContaining("API projection transform 'mask' does not match manifest column transform 'relationship_token'"),
+        }),
+      ]))
+    })
+  })
 })
 
 function createIdentityBindingInput() {

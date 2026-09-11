@@ -6,17 +6,17 @@ import type { Command } from '../lib/types.js'
 
 export interface ScaffoldOptions {
   route: string
-  method?: string
-  operationId?: string
-  summary?: string
-  domain?: string
-  auth?: string
+  method?: string | undefined
+  operationId?: string | undefined
+  summary?: string | undefined
+  domain?: string | undefined
+  auth?: string | undefined
 }
 
 export function generateTypeSpecScaffold(options: ScaffoldOptions): {
   operationId: string
   code: string
-  requestModelName?: string
+  requestModelName?: string | undefined
   responseModelName: string
 } {
   const method = (options.method || 'get').toLowerCase()
@@ -91,7 +91,7 @@ export function generateTypeSpecScaffold(options: ScaffoldOptions): {
 
 function inferDomain(route: string): string {
   const parts = route.split('/').filter(p => p && !p.startsWith('{'))
-  return parts[0] || 'default'
+  return parts[0] ?? 'default'
 }
 
 function inferOperationId(method: string, route: string): string {
@@ -99,6 +99,7 @@ function inferOperationId(method: string, route: string): string {
   const cleanParts: string[] = []
   for (let i = 0; i < parts.length; i++) {
     const p = parts[i]
+    if (!p) continue
     if (p.startsWith('{') && p.endsWith('}')) {
       cleanParts.push('By' + capitalize(p.slice(1, -1)))
     } else {

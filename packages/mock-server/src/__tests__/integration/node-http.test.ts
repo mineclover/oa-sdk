@@ -688,3 +688,162 @@ describe('createNodeMockServer — webhooks', () => {
     expect(res.status).toBe(405)
   })
 })
+
+describe('createNodeMockServer — updateSpec (hot-swapping routes at runtime)', () => {
+  const specA: OasDocument = {
+    openapi: '3.2.0',
+    info: { title: 'Spec A', version: '1.0.0' },
+    paths: {
+      '/endpoint-a': {
+        get: {
+          operationId: 'getEndpointA',
+          responses: {
+            '200': {
+              description: 'Endpoint A response',
+              content: {
+                'application/json': {
+                  example: { name: 'endpoint-a' },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+  }
+
+  const specB: OasDocument = {
+    openapi: '3.2.0',
+    info: { title: 'Spec B', version: '2.0.0' },
+    paths: {
+      '/endpoint-b': {
+        get: {
+          operationId: 'getEndpointB',
+          responses: {
+            '200': {
+              description: 'Endpoint B response',
+              content: {
+                'application/json': {
+                  example: { name: 'endpoint-b' },
+                },
+              },
+            },
+          },
+        },
+        post: {
+          operationId: 'postEndpointB',
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['title'],
+                  properties: {
+                    title: { type: 'string', minLength: 3 },
+                  },
+                },
+              },
+            },
+          },
+          responses: {
+            '201': {
+              description: 'Created',
+              content: {
+                'application/json': {
+                  example: { id: 'created-b' },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+  }
+
+  let server: NodeMockServer
+  let initialUrl: string
+
+  beforeAll(async () => {
+    server = createNodeMockServer(specA, { port: 0 })
+    await server.start()
+    initialUrl = server.url
+  })
+
+  afterAll(async () => {
+    await server.stop()
+  })
+
+  it('초기 스펙(specA) 라우트가 정상 동작하고, specB 라우트는 404이다', async () => {
+    const resA = await fetch(`${server.url}/endpoint-a`)
+    expect(resA.status).toBe(200)
+    expect(await resA.json()).toEqual({ name: 'endpoint-a' })
+
+    const resB = await fetch(`${server.url}/endpoint-b`)
+    expect(resB.status).toBe(404)
+  })
+
+  it('updateSpec으로 specB를 핫스왑하면 포트 변경 없이 즉시 새 라우트가 반영된다', async () => {
+    const updateResult = server.updateSpec(specB)
+    expect(updateResult.routesCount).toBe(2) // GET and POST for /endpoint-b
+    expect(server.url).toBe(initialUrl)
+
+    // Old route is now 404
+    const resA = await fetch(`${server.url}/endpoint-a`)
+    expect(resA.status).toBe(404)
+
+    // New route is immediately available
+    const resB = await fetch(`${server.url}/endpoint-b`)
+    expect(resB.status).toBe(200)
+    expect(await resB.json()).toEqual({ name: 'endpoint-b' })
+
+    // Valid POST to new route
+    const resPostValid = await fetch(`${server.url}/endpoint-b`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: 'New Item' }),
+    })
+    expect(resPostValid.status).toBe(201)
+
+    // Invalid POST to new route triggers 422 validation
+    const resPostInvalid = await fetch(`${server.url}/endpoint-b`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: 'ab' }), // minLength: 3
+    })
+    expect(resPostInvalid.status).toBe(422)
+  })
+
+  it('잘못된 스펙으로 updateSpec 호출 시 에러를 던지고 기존 라우트 상태를 안전하게 보존한다', async () => {
+    const invalidSpec = {
+      openapi: '3.2.0',
+      info: { title: 'Invalid', version: '1.0.0' },
+      paths: {
+        '/broken': {
+          get: {
+            responses: {
+              '200': {
+                description: 'OK',
+                content: {
+                  'application/json': {
+                    schema: { $ref: '#/components/schemas/NonExistent' },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    }
+
+    expect(() => {
+      server.updateSpec(invalidSpec as any)
+    }).toThrow()
+
+    // specB routes are still active and functional
+    const resB = await fetch(`${server.url}/endpoint-b`)
+    expect(resB.status).toBe(200)
+    expect(await resB.json()).toEqual({ name: 'endpoint-b' })
+  })
+})
+

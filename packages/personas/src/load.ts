@@ -106,21 +106,27 @@ export interface OperationInfo {
   method: string
   /** Status code keys declared in the operation's `responses` (e.g. "200", "401", "default"). */
   responses: Set<string>
+  /** Capability traits declared via x-oa-sdk-persona-traits */
+  traits?: Set<string>
 }
 
 const HTTP_METHODS = new Set(['get', 'post', 'put', 'patch', 'delete', 'options', 'head', 'trace'])
 
 /**
- * Load operations (id + path + method + declared response status codes) from a
+ * Load operations (id + path + method + declared response status codes + capability traits) from a
  * merged OpenAPI spec. Returns null if the spec file does not exist.
  *
- * Used by validators (maps_to existence + expects ⊆ responses) and coverage
+ * Used by validators (maps_to existence + expects ⊆ responses + trait obligation check) and coverage
  * (response status orphan detection).
  */
 export function loadOperationsFromMergedSpec(specPath: string): Map<string, OperationInfo> | null {
   if (!existsSync(specPath)) return null
   const doc = parse(readFileSync(specPath, 'utf8')) as {
-    paths?: Record<string, Record<string, { operationId?: string; responses?: Record<string, unknown> }>>
+    paths?: Record<string, Record<string, {
+      operationId?: string
+      responses?: Record<string, unknown>
+      'x-oa-sdk-persona-traits'?: unknown
+    }>>
   }
   const out = new Map<string, OperationInfo>()
   for (const [path, pathItem] of Object.entries(doc.paths ?? {})) {
@@ -128,11 +134,16 @@ export function loadOperationsFromMergedSpec(specPath: string): Map<string, Oper
     for (const [method, op] of Object.entries(pathItem)) {
       if (!HTTP_METHODS.has(method.toLowerCase())) continue
       if (!op || typeof op !== 'object' || typeof op.operationId !== 'string') continue
+      const rawTraits = op['x-oa-sdk-persona-traits']
+      const traits = Array.isArray(rawTraits)
+        ? new Set(rawTraits.filter((t): t is string => typeof t === 'string'))
+        : undefined
       out.set(op.operationId, {
         operationId: op.operationId,
         path,
         method,
         responses: new Set(Object.keys(op.responses ?? {})),
+        ...(traits !== undefined ? { traits } : {}),
       })
     }
   }

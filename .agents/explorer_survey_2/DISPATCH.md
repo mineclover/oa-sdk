@@ -1,20 +1,25 @@
-## 2026-09-02T15:48:23Z
-You are an Explorer agent investigating requirements R2 (CLI Category-Aware Linting & Profile-Aware Validation) and R3 (Automated Manifest V3 CSP Audit Command) in @oa-sdk.
-Your working directory is: /Users/junwoobang/workflow/oa-sdk/.agents/explorer_survey_2
-Project root: /Users/junwoobang/workflow/oa-sdk
-Authoritative user request: /Users/junwoobang/workflow/oa-sdk/.agents/ORIGINAL_REQUEST.md
+# Dispatch: Survey 2 - Zero-Build Instant Mock Server
 
-Task:
-1. Read /Users/junwoobang/workflow/oa-sdk/.agents/ORIGINAL_REQUEST.md.
-2. Investigate packages/codegen CLI commands and @oa-sdk/openapi-projection-contract (and any lint/validation packages):
-   - Locate `oa-codegen lint` and `oa-codegen validate` implementations and CLI definitions.
-   - Investigate rule categories in linting (e.g. surface, structure, operations) and how `--categories <list>` should be wired up to filter rule execution.
-   - Investigate profile-aware validation: check `@oa-sdk/openapi-projection-contract`, what profiles exist (`component-bundle`, `operation-contract`, `full-api-document`), what projection invariants/validators are provided, and how `--profile <name>` should validate OpenAPI specs. Specifically, check the acceptance criterion: `oa-codegen validate --spec <spec> --profile operation-contract` fails if `paths` has no operations and passes when valid.
-   - Investigate `oa-codegen audit:csp` requirement:
-     - CLI command `oa-codegen audit:csp --bundle <dir>` scanning bundled JS files for Content Security Policy violations.
-     - Forbidden patterns: `eval(`, `new Function(`, `setTimeout(string)`, `setInterval(string)`.
-     - Forbidden runtime heavy schema engines: `ajv`, `zod`, `@oa-sdk` imports/requires/mentions in production extension bundles.
-     - CLI diagnostics emission and exit code 1 upon violation.
-   - Examine existing CLI test suites, bin/cli entrypoints, commander / yargs / cac setup.
-3. Write a comprehensive survey report to /Users/junwoobang/workflow/oa-sdk/.agents/explorer_survey_2/handoff.md following the Handoff Protocol (Observation, Logic Chain, Caveats, Conclusion, Verification Method).
-4. Send a message to parent when done with a summary and path to your handoff report.
+## Mission
+Investigate the codebase for implementing R2 (Phase 3):
+- CLI command `oa-gen mock --tsp <path>` (and watch mode `--watch`)
+- How to compile TypeSpec specifications directly in-memory via `@typespec/compiler` (and `@typespec/openapi3` if emitter in-memory is used, or in-memory OpenAPI generation) without writing intermediate OpenAPI YAML artifacts to disk
+- How `@oa-sdk/mock-server` operates (`createNodeMockServer`, port 4010, schema input structure)
+- How to implement file watching (`--watch`) that detects `.tsp` modifications and updates in-memory routes/schemas without restarting the process or dropping port binding
+- Identify existing mock server code in `packages/mock-server`, CLI entry points in `packages/codegen/src/cli`, and any existing mock CLI commands.
+- Document exact interfaces, dependencies, error handling, and testing strategies.
+
+## Inputs
+- /Users/junwoobang/workflow/oa-sdk/.agents/ORIGINAL_REQUEST.md
+- /Users/junwoobang/workflow/oa-sdk/packages/mock-server
+- /Users/junwoobang/workflow/oa-sdk/packages/codegen
+- /Users/junwoobang/workflow/oa-sdk/packages/schemas
+
+## Output
+Write report to `/Users/junwoobang/workflow/oa-sdk/.agents/explorer_survey_2/handoff.md`.
+
+## 2026-09-10T23:21:16Z
+Investigate the codebase for R2 (Phase 3): Zero-Build Instant Mock Server.
+Investigate packages/mock-server, packages/codegen/src/cli, in-memory compilation with @typespec/compiler, hot reload/file watching without restart.
+Write your findings and recommendation to /Users/junwoobang/workflow/oa-sdk/.agents/explorer_survey_2/handoff.md.
+Send a message to parent when complete with a summary.

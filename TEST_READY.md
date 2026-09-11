@@ -1,33 +1,36 @@
-# Test Readiness Report: OA-SDK & Browser-Studio CLI Expansions & Conventions
+# Test Readiness Report: TypeSpec Ecosystem Expansion (Phases 2, 3, 4)
 
 **Document Status**: `TEST_READY`  
-**Target Repository**: `@oa-sdk/*` & `@browser-studio/*`  
-**Test Harness Location**: `packages/codegen/test/e2e/cli-expansions.e2e.test.ts`  
-**Target Dialects**: OpenAPI 3.1.0 / JSON Schema Draft 2020-12 / TypeScript AST / Pure ESM  
-**Requirements Covered**: R1 (Standalone Guards Split & Filtering), R2 (Lint Categories & Validate Profiles), R3 (Manifest V3 CSP Audit Scanner), R4 (Schema Authoring Conventions)
+**Target Scope**: TypeSpec Ecosystem Expansion — Phases 2, 3, 4  
+**Suite Location**: `tests/e2e/typespec-ecosystem/`  
+**Test Model**: Requirement-Driven Opaque-Box 4-Tier Architecture  
+**Execution Runner**: `pnpm test:e2e` / `vitest run tests/e2e/typespec-ecosystem`  
+**Target Dialects**: TypeSpec AST / OpenAPI 3.2.0 / JSON Schema Draft 2020-12 / TypeScript AST  
+**Requirements Covered**: Phase 2 (TypeSpec AST Semantic Diff), Phase 3 (Zero-Build Instant Mock Server), Phase 4 (Personas & DPM Native TypeSpec Decorators)
 
 ---
 
 ## 1. Executive Summary & Verification Matrix
 
-The comprehensive opaque-box E2E test suite for the high-priority CLI feature expansions and authoring conventions has been authored and verified across all 4 tiers:
-- **62 out of 62 tests passing (100% pass rate)** in `packages/codegen/test/e2e/cli-expansions.e2e.test.ts`.
-- **Zero dynamic eval, zero new Function, and zero runtime imports** verified in standalone generated guards.
-- **Manifest V3 CSP scanner** verified against clean bundles and adversarial AST violation fixtures.
-- **Normative documentation & authoring conventions** verified for RFC 9457 Problem Details, strict numeric bounds, `z.lazy` recursive schemas, `x-surface-*` scope rules, and V3 JSDoc tags.
+The comprehensive opaque-box E2E test suite for the TypeSpec Ecosystem Expansion (Phases 2, 3, 4) has been fully authored, verified, and stabilized across all 4 tiers:
+- **150 out of 150 tests passing (100% pass rate)** in `tests/e2e/typespec-ecosystem/`.
+- **Zero source code modifications in `packages/`**: verified strictly as opaque-box tests conforming to external contracts and user requirements.
+- **Full lifecycle coverage**: from in-memory TypeSpec authoring and zero-disk OpenAPI 3.2 emission to instant mock preview, live atomic `updateSpec` route swapping, 7-category breaking change classification, and persona/DPM compliance pipelines.
 
 ```
 ┌────────────────────────────────────────────────────────────────────────────────────────┐
-│ TEST EXECUTION SUMMARY: 62 TESTS (100% PASSING)                                        │
+│ TEST EXECUTION SUMMARY: 150 TESTS (100% PASSING)                                       │
 ├────────────────────────────────────────┬────────────┬─────────────┬────────────────────┤
-│ Milestone / Requirement Group          │ Test Count │ Pass / Fail │ Invariants         │
+│ Tier / Requirement Scope               │ Test Count │ Pass / Fail │ Target Suites      │
 ├────────────────────────────────────────┼────────────┼─────────────┼────────────────────┤
-│ R1: Standalone Guards Split & Filter   │ 20 tests   │ 20 / 0      │ 0 eval, 0 Function │
-│ R2: CLI Lint Categories & Profiles     │ 15 tests   │ 15 / 0      │ Category/Profile   │
-│ R3: Manifest V3 CSP Audit Scanner      │ 15 tests   │ 15 / 0      │ AST Detection      │
-│ R4: Schema Conventions Documentation   │ 12 tests   │ 12 / 0      │ Normative Standard │
+│ Tier 1: F1-F8 Semantic Diff & AST      │ 42 tests   │ 42 / 0 PASS │ semantic-diff      │
+│ Tier 1: F9-F13 Instant Mock Server     │ 25 tests   │ 25 / 0 PASS │ mock-server        │
+│ Tier 1: F14-F19 Personas & DPM Decors  │ 30 tests   │ 30 / 0 PASS │ personas-dpm       │
+│ Tier 2: B1-B6 Boundary & Corner Cases  │ 30 tests   │ 30 / 0 PASS │ boundaries         │
+│ Tier 3: C1-C6 Pairwise Combinations    │ 18 tests   │ 18 / 0 PASS │ pairwise           │
+│ Tier 4: S1-S5 Real-World Scenarios     │  5 tests   │  5 / 0 PASS │ scenarios          │
 ├────────────────────────────────────────┼────────────┼─────────────┼────────────────────┤
-│ TOTAL (Tiers 1-4)                      │ 62 tests   │ 62 / 0 PASS │ 100% VERIFIED      │
+│ TOTAL (Tiers 1-4)                      │ 150 tests  │ 150 / 0     │ 100% VERIFIED      │
 └────────────────────────────────────────┴────────────┴─────────────┴────────────────────┘
 ```
 
@@ -37,114 +40,81 @@ The comprehensive opaque-box E2E test suite for the high-priority CLI feature ex
 
 | Suite | File Path | Scope Covered | Tests | Status |
 |---|---|---|:---:|:---:|
-| **CLI Expansions & Conventions E2E** | `packages/codegen/test/e2e/cli-expansions.e2e.test.ts` | Tiers 1-4 full coverage across R1, R2, R3, R4 | **62** | **PASS (100%)** |
-| **Standalone Guards E2E** | `packages/codegen/test/e2e/standalone-guards.e2e.test.ts` | Core generator and monolithic guard emission | **27** | **PASS (100%)** |
-| **Proposal Integration E2E** | `packages/codegen/test/e2e/proposal-integration.e2e.test.ts` | Upstream proposal workflows & scenarios | **6** | **PASS (100%)** |
-| **Total** | | | **95 tests** | **100% PASS** |
+| **Tier 1: Semantic Diff** | `tests/e2e/typespec-ecosystem/tier1-semantic-diff.test.ts` | F1-F8: AST Semantic Diff, Routes, 7 Breaking Categories, Git Refs, CLI | **42** | **PASS (100%)** |
+| **Tier 1: Mock Server** | `tests/e2e/typespec-ecosystem/tier1-mock-server.test.ts` | F9-F13: Zero-Build Instant Mock, In-Memory OpenAPI 3.2, Hot Reload, CLI | **25** | **PASS (100%)** |
+| **Tier 1: Personas & DPM** | `tests/e2e/typespec-ecosystem/tier1-personas-dpm.test.ts` | F14-F19: @personaCapability, @pseudonymize, Extension Emission, Gates | **30** | **PASS (100%)** |
+| **Tier 2: Boundaries** | `tests/e2e/typespec-ecosystem/tier2-boundaries.test.ts` | B1-B6: Empty models, numeric bounds, special routes, missing params, cycles | **30** | **PASS (100%)** |
+| **Tier 3: Pairwise** | `tests/e2e/typespec-ecosystem/tier3-pairwise.test.ts` | C1-C6: Mock + Personas, Diff + Traits, Diff + DPM, Mock + Reload, Pipelines | **18** | **PASS (100%)** |
+| **Tier 4: Scenarios** | `tests/e2e/typespec-ecosystem/tier4-scenarios.test.ts` | S1-S5: Real-world application scenarios, CI gates, compliance pipelines | **5** | **PASS (100%)** |
+| **Total** | | | **150 tests** | **100% PASS** |
 
 ---
 
-## 3. Tier Coverage Breakdown
+## 3. Tier Coverage Breakdown & Verification Details
 
-### Tier 1: Feature Coverage (>=5 test cases per feature)
-- **R1.1 Standalone Guards `--split` Option**: 5 tests (`T1-R1-F1-1` .. `T1-R1-F1-5`)
-  - `guards/<TypeName>.js` and `.d.ts` file generation
-  - Root `index.js` and `index.d.ts` barrel re-exports
-  - `typeImportSpecifier` propagation
-  - `components.schemas` discovery
-- **R1.2 Standalone Guards `--schemas` Selective Filtering**: 5 tests (`T1-R1-F2-1` .. `T1-R1-F2-5`)
-  - Exact type name matching (`SurfaceBlock`)
-  - Guard function name matching (`isSurfaceParam`)
-  - Comma-separated multi-schema filtering
-  - Selective splitting with updated index barrel
-  - Case-insensitive / prefix matching
-- **R1.3 Zero-Eval & Zero-Dependency Invariants**: 5 tests (`T1-R1-F3-1` .. `T1-R1-F3-5`)
-  - 0 `eval()` calls in generated JS
-  - 0 `new Function()` or `Function()` calls
-  - 0 runtime imports (`ajv`, `zod`, `@oa-sdk`)
-  - Self-contained referenced `$ref` inlining
-  - Dynamic ESM execution and type narrowing verification
-- **R2.1 CLI Lint `--categories` Flag**: 5 tests (`T1-R2-F1-1` .. `T1-R2-F1-5`)
-  - Category argument parser & allowed category validation
-  - Targeted category execution (`surface`, `operations`, `parameters`, `structure`)
-  - Suppression of unselected category diagnostics
-  - CLI options declaration
-- **R2.2 CLI Validate `--profile` Flag**: 5 tests (`T1-R2-F2-1` .. `T1-R2-F2-5`)
-  - `component-bundle` profile: allows empty paths, enforces schemas
-  - `operation-contract` profile: enforces non-empty paths with operations
-  - `full-api-document` profile: full OpenAPI 3.x document rules
-  - CLI options declaration & profile enum validation
-- **R3.1 Manifest V3 CSP Audit Scanner**: 5 tests (`T1-R3-F1-1` .. `T1-R3-F1-5`)
-  - Clean standalone guard bundle passes with exit code 0
-  - `eval()` detection (`csp/no-eval`)
-  - `new Function()` / `Function()` detection (`csp/no-new-function`)
-  - String timer detection (`csp/no-string-settimeout`, `csp/no-string-setinterval`)
-  - Disallowed heavy engine imports detection (`ajv`, `zod`, `@oa-sdk`)
-- **R4.1 Schema Authoring Conventions Completeness**: 5 tests (`T1-R4-F1-1` .. `T1-R4-F1-5`)
-  - RFC 9457 Problem Details schema specification
-  - Strict numeric bounds (`exclusiveMinimum: 0` vs `minimum: 0`)
-  - Recursive schemas with `z.lazy`
-  - `x-surface-*` scope rules (`targetProperty` vs inline)
-  - V3 Unified Architecture JSDoc annotation tags
+### Tier 1: Feature Coverage (>=5 tests per feature)
+- **F1-F8: TypeSpec AST Semantic Diff & Breaking Change Analyzer**:
+  - `F1-compile`: In-memory TypeSpec AST program compilation via `@typespec/compiler` (`noEmit: true`) without writing YAML artifacts to disk.
+  - `F2-http-extract`: Extraction of verbs, routes, parameters, status codes from `getAllHttpServices`.
+  - `F3-model-extract`: Model and property semantic traversal including scalar types, required vs optional, unions.
+  - `F4-ref-resolve`: Resolution of git references (`HEAD~1`) and relative/absolute file paths.
+  - `F5-breaking-diff`: 7-category breaking change classification: removed operations, route changes, model removal, property removal, required property addition (`required-property-added`), status code removal, `@operationId` drift.
+  - `F6-non-breaking`: Classification of non-breaking additions: added operations, added models, added optional properties, added status codes.
+  - `F7-cli-tsp-diff`: CLI command `oa-gen tsp diff` exiting with code 1 on breaking changes with `--fail-on-breaking`, markdown and JSON formatting.
+  - `F8-multi-token`: Multi-token CLI router lookahead dispatching `tsp diff` and single-token alias `tsp-diff`.
+- **F9-F13: Zero-Build Instant Mock Server**:
+  - `F9-openapi32-emit`: In-memory OpenAPI 3.2 document emission (`getOpenAPI3`) directly from AST.
+  - `F10-instant-mock`: In-memory mock server startup on port 4010, schema-based response mocking, 422 input validation.
+  - `F11-hot-reload`: Atomic route hot-reload via `NodeMockServer.updateSpec(nextSpec)` without socket disconnect.
+  - `F12-file-watch`: Incremental recompilation using `oldProgram` executing in $<500$ms.
+  - `F13-cli-mock`: CLI command `oa-gen mock --tsp` options contract, graceful error reporting, port binding cleanup.
+- **F14-F19: Personas & DPM Native TypeSpec Decorators**:
+  - `F14-persona-dec`: `@personaCapability` decorator accepting 24 traits from `packages/personas/src/traits/skill.yaml` and rejecting unrecognized traits.
+  - `F15-persona-ext`: Emitted OpenAPI extension `x-oa-sdk-persona-traits` under Operation Object with sorted, deduplicated traits.
+  - `F16-dpm-dec`: `@pseudonymize` decorator enforcing DPM safety rules (`SAF001`, `SAF002`, `SAF010`).
+  - `F17-dpm-ext`: Emitted OpenAPI extension `x-oa-sdk-dpm-projection` under Schema Object property.
+  - `F18-persona-gate`: Integration with `loadOperationsFromMergedSpec` and `pnpm personas:check`.
+  - `F19-dpm-gate`: Integration with `validateSafetyRules` and `executeDpmRows`.
 
-### Tier 2: Boundary & Corner Cases (>=5 test cases per feature)
-- **R1 Boundaries**:
-  - Single-component schema splitting (`T2-R1-B1`)
-  - Multi-level nested $ref chains in split mode (`T2-R1-B2`)
-  - Special characters and underscores in type names (`T2-R1-B3`)
-  - Empty schema object `{}` in split mode (`T2-R1-B4`)
-  - Non-matching schema filter handling (`T2-R1-B5`)
-- **R2 Boundaries**:
-  - Irregular whitespace and commas in categories (`T2-R2-B1`)
-  - Extended HTTP verbs (query, trace) (`T2-R2-B2`)
-  - Path items containing only path-level parameters without operations (`T2-R2-B3`)
-  - Full API document validation (`T2-R2-B4`)
-  - Non-3.x openapi version rejection (`T2-R2-B5`)
-- **R3 Boundaries**:
-  - Safe callback `setTimeout(() => {}, 100)` non-violation (`T2-R3-B1`)
-  - Template literal strings in timers (`T2-R3-B2`)
-  - Identifiers containing "eval" substring (`T2-R3-B3`)
-  - Dynamic `import('zod')` detection (`T2-R3-B4`)
-  - Recursive multi-extension bundle collection (`.js`, `.mjs`, `.cjs`) (`T2-R3-B5`)
-- **R4 Boundaries**:
-  - Numeric `exclusiveMinimum` dialect validation (`T2-R4-B1`)
-  - RFC 9457 error response taxonomy (`T2-R4-B2`)
-  - Projection profiles enumeration (`T2-R4-B3`)
-  - Allowed lint categories enumeration (`T2-R4-B4`)
-  - CSP audit CLI command registration (`T2-R4-B5`)
+### Tier 2: Boundary & Corner Cases (>=5 tests per boundary area)
+- **B1**: Empty models, empty namespaces, models without properties, services with zero operations (`T2-B1-1` .. `T2-B1-5`).
+- **B2**: Extreme numeric bounds (`int64`, large integer literals, floating-point boundaries, extreme negative numbers) (`T2-B2-1` .. `T2-B2-5`).
+- **B3**: Special characters in routes and identifiers (hyphens, underscores, dots, Unicode, multiple path params) (`T2-B3-1` .. `T2-B3-5`).
+- **B4**: Missing optional parameters, deeply nested optional fields, empty payloads, optional queries (`T2-B4-1` .. `T2-B4-5`).
+- **B5**: Duplicate decorators, repeated status codes, overlapping persona traits, SAF safety violations (`T2-B5-1` .. `T2-B5-5`).
+- **B6**: Circular and recursive models, self-referencing tree nodes, mutually referencing entities (`T2-B6-1` .. `T2-B6-5`).
 
-### Tier 3: Cross-Feature Interactions (Pairwise combinations)
-- **T3-1: End-to-End Guard Generation -> CSP Audit -> Dynamic Execution**:
-  Compiles split guards with selective schema filtering, scans output directory with `auditCspBundle`, asserts 0 violations, and executes dynamic type narrowing.
-- **T3-2: Category Linting -> Profile Validation -> Split Guard Compilation**:
-  Lints `x-surface-*` extensions with `--categories surface`, validates spec under `component-bundle`, and compiles to split standalone guards.
-- **T3-3: RFC 9457 Problem Details Pipeline**:
-  Compiles standalone type guard for RFC 9457 Problem Details schema, verifies CSP compliance, and executes dynamic validation on 422 error payload.
-- **T3-4: Discriminated Union Pipeline**:
-  Compiles multi-variant discriminated union with internal references into split guards, verifies CSP compliance, and tests each discriminated branch.
+### Tier 3: Pairwise Cross-Feature Interactions (C1-C6)
+- **C1: Mock Server + @personaCapability**: Serves endpoints decorated with persona capabilities, verifies 200 responses, verifies trait extraction without cross-contamination.
+- **C2: Semantic Diff + @personaCapability**: Semantic diff tracks addition and removal of persona capability traits without false positive breaking change reports.
+- **C3: Semantic Diff + @pseudonymize (DPM)**: Diff engine compares models with differing pseudonymization transform strategies and role configurations.
+- **C4: In-Memory Compile + Mock Server + Hot Reload**: Complete in-memory authoring cycle: compile v1 -> mock serve -> compile v2 -> hot reload -> verify new routes and unmounted 404s.
+- **C5: In-Memory Compile + Persona Check Pipeline**: Compiles multi-namespace TypeSpec in-memory, extracts traits, and validates against persona catalog.
+- **C6: In-Memory Compile + DPM Safety Validation**: Verifies TypeSpec-emitted projections feed cleanly into DPM safety rules (`validateSafetyRules`) and in-memory row execution (`executeDpmRows`).
 
-### Tier 4: Real-World Application Scenarios
-- **T4-1: Chrome Extension Manifest V3 Content Script Live-Editing Sandbox**:
-  Generates split guards for `SurfaceBlock` and `SurfaceParam`, audits with CSP scanner, disables `globalThis.Function` and `globalThis.eval`, and executes 500 validation cycles in $<100\text{ms}$.
-- **T4-2: DevLink Native RPC & MCP CI Governance Pipeline**:
-  Validates 17-method Native RPC spec with `--profile operation-contract` and lints surface extensions with `--categories surface`.
-- **T4-3: Production Release Packaging Gate**:
-  Generates production standalone guard bundle, audits all output chunks with CSP scanner, injects adversarial `ajv` import, and verifies that the audit gate halts release with exit code 1.
+### Tier 4: Real-World Application Scenarios (S1-S5)
+- **S1: Complete API Lifecycle**: Authoring TypeSpec with personas/DPM -> instant mock preview -> PR breaking change diff gate (`hasBreakingChanges`) -> persona matrix governance verification.
+- **S2: Multi-Persona Role-Based API Evolution**: Public end-user consumer tier (`@personaCapability("cacheable", "partial-response")`) segregated from privileged administrative tier (`@personaCapability("pii-visible-admin", "audit-emission", "trace-context")`).
+- **S3: Microservice CI/CD Breaking Contract Governance Gate**: Detection and blocking of breaking changes (removed route + newly required property), followed by compliant PR mitigation (optional property + optional parameter) passing gate.
+- **S4: Real-Time Developer Live-Editing Loop**: Rapid developer iteration with zero-build in-memory mock server using atomic `updateSpec` without dropped connections.
+- **S5: Regulated Healthcare/Finance GDPR & PII Compliance Pipeline**: End-to-end privacy governance: TypeSpec `@pseudonymize` model -> OpenAPI projection -> DPM safety rules validation -> row execution masking SSN and redacting confidential notes.
 
 ---
 
 ## 4. Test Runner Commands
 
 ```bash
-# Run the newly authored E2E test suite (62 tests)
-pnpm --filter @oa-sdk/codegen exec vitest run test/e2e/cli-expansions.e2e.test.ts
+# Run the complete TypeSpec Ecosystem Expansion E2E test suite (150 tests)
+pnpm test:e2e
 
-# Run all E2E test suites in codegen
-pnpm --filter @oa-sdk/codegen exec vitest run test/e2e/
+# Run via Vitest directly
+vitest run tests/e2e/typespec-ecosystem
 
-# Run full codegen test suite
-pnpm --filter @oa-sdk/codegen test
-
-# Run monorepo typecheck
-pnpm -r typecheck
+# Run specific tiers
+vitest run tests/e2e/typespec-ecosystem/tier1-semantic-diff.test.ts
+vitest run tests/e2e/typespec-ecosystem/tier1-mock-server.test.ts
+vitest run tests/e2e/typespec-ecosystem/tier1-personas-dpm.test.ts
+vitest run tests/e2e/typespec-ecosystem/tier2-boundaries.test.ts
+vitest run tests/e2e/typespec-ecosystem/tier3-pairwise.test.ts
+vitest run tests/e2e/typespec-ecosystem/tier4-scenarios.test.ts
 ```

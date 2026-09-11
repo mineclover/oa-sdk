@@ -9,6 +9,18 @@ export const $lib = createTypeSpecLibrary({
         default: paramMessage`Response component reference requires a three-digit status code or "default" and a simple component name; received status "${'statusCode'}" and component "${'componentName'}".`,
       },
     },
+    'invalid-persona-trait': {
+      severity: 'error',
+      messages: {
+        default: paramMessage`Unknown persona capability trait "${'trait'}". Expected one of the 24 standard capability traits from packages/personas/src/traits/skill.yaml.`,
+      },
+    },
+    'invalid-pseudonymize-rule': {
+      severity: 'error',
+      messages: {
+        default: paramMessage`${'message'}`,
+      },
+    },
   },
 })
 

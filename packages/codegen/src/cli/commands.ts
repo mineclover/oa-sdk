@@ -24,8 +24,12 @@ import { tspScaffold } from './commands/tsp-scaffold.js'
 import { referenceCheck } from './commands/reference-check.js'
 import { parallelEvidence } from './commands/parallel-evidence.js'
 import { auditCsp } from './commands/audit-csp.js'
+import { generateZod } from './commands/generate-zod.js'
+import { tspDiff } from './commands/tsp-diff.js'
+import { mock } from './commands/mock.js'
 
 export const commands: Command[] = [
+  generateZod,
   generate,
   typegen,
   buildSpecCommand,
@@ -52,4 +56,8 @@ export const commands: Command[] = [
   reviewBundle,
   parallelEvidence,
   auditCsp,
+  tspDiff,
+  mock,
 ]
+
+export { generateZod, tspDiff, mock }

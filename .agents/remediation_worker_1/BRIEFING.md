@@ -1,53 +1,67 @@
-# BRIEFING — 2026-09-02T15:21:00Z
+# BRIEFING — 2026-09-11T00:13:00Z
 
 ## Mission
-Implement remediation fixes for Proposal 1 (Discriminated Union Projection in @oa-sdk/openapi-projection-contract): schema naming prefix retention, path prefix slash normalization, collision disambiguation, test alignment, and verification.
+Remediate circular reference typing (TS7022/TS7024), discriminator missing-required runtime crashes, and redundant .describe() metadata in the OpenAPI 3.2 to Zod 4 generator in @oa-sdk/codegen.
 
 ## 🔒 My Identity
-- Archetype: implementer
+- Archetype: remediation_worker
 - Roles: implementer, qa, specialist
 - Working directory: /Users/junwoobang/workflow/oa-sdk/.agents/remediation_worker_1
-- Original parent: 68ae2354-2e51-4b8a-8016-61950725263e
-- Milestone: proposal_1_remediation
+- Original parent: 511ce570-02c1-46b0-8a89-48ef7cededc0
+- Milestone: Milestone 5 Gate Remediation
 
 ## 🔒 Key Constraints
-- Fix 1: determineVariantSchemaName retains unionSchemaId prefix consistently (${cleanUnionId}${pascalKey}), avoiding scope loss on Request/Response/Event suffixes while respecting explicit titles/names.
-- Fix 2: Normalize pathPrefix by stripping leading/trailing slashes (prefixInput.replace(/^\/+|\/+$/g, '')) before joining with cleanKey.
-- Fix 3: Collision disambiguation using Set<string> of allocated schema names (${baseName}_${index}) to prevent silent schema overwriting.
-- Align unit test expectations in packages/openapi-projection-contract/test/discriminated-union.test.ts and src/discriminated-union.test.ts.
-- Integrity: no hardcoded test outputs or facade implementations. Genuine implementation only.
+- Apply the exact remediation blueprint from /Users/junwoobang/workflow/oa-sdk/.agents/remediation_explorer_2/handoff.md
+- DO NOT CHEAT: Genuine implementation only. No hardcoding test results or creating facade implementations.
+- Write Ownership exclusively restricted to:
+  - packages/codegen/src/zodgen/generate-zod.ts
+  - packages/codegen/src/zodgen/schema-to-zod.ts
+  - packages/codegen/test/zodgen/adversarial-challenger-1.test.ts
+  - packages/codegen/src/zodgen/schema-to-zod.test.ts
+  - packages/codegen/test/e2e/zod4-generator.e2e.test.ts
+- Selective cycle detection: annotate only schemas in circular cycles with `: z.ZodTypeAny` to avoid degrading `z.infer` for acyclic schemas.
 
 ## Current Parent
-- Conversation ID: 68ae2354-2e51-4b8a-8016-61950725263e
-- Updated: 2026-09-02T15:21:00Z
+- Conversation ID: 511ce570-02c1-46b0-8a89-48ef7cededc0
+- Updated: 2026-09-11T00:13:00Z
 
 ## Task Summary
-- **What to build**: Discriminated Union schema projection fixes (naming prefix retention, path normalization, collision disambiguation)
-- **Success criteria**: All tests and typechecks pass across @oa-sdk/openapi-projection-contract and monorepo
-- **Interface contracts**: /Users/junwoobang/workflow/oa-sdk/PROJECT.md
-- **Code layout**: packages/openapi-projection-contract/src/
+- **What to build**:
+  1. `findCircularSchemas` in `generate-zod.ts` and selective `: z.ZodTypeAny` typing.
+  2. Discriminator required injection, mapping synthesis, and algebra discriminator tracking in `schema-to-zod.ts`.
+  3. Redundant `.describe()` elimination in `foldSiblingProperties`.
+  4. Test suite synchronization in adversarial, unit, and e2e test files.
+- **Success criteria**: All 23 challenger tests pass, all 98 e2e tests pass, full vitest suite passes, typecheck passes, TS strict compile check passes.
+- **Interface contracts**: /Users/junwoobang/workflow/oa-sdk/.agents/PROJECT.md
+- **Code layout**: packages/codegen/src/zodgen/
 
 ## Key Decisions Made
-- Retained full unionSchemaId prefix in `determineVariantSchemaName` to prevent namespace collisions and scope loss across union schemas.
-- Implemented robust regex slash stripping (`/^\/+|\/+$/g`) for `pathPrefix` and leading slash stripping (`/^\/+/`) for `key`.
-- Implemented Set-based deterministic disambiguation (`${baseVariantSchemaName}_${disambiguationIndex}`) for variant schema names.
-- Aligned unit test expectations in both `test/discriminated-union.test.ts` and `src/discriminated-union.test.ts`, adding 3 new invariant test cases to both files.
+- Follow remediation blueprint in remediation_explorer_2/handoff.md.
+- Implemented DFS directed reference cycle detector `findCircularSchemas`.
+- Added selective cycle participant annotation `: z.ZodTypeAny` while keeping non-cyclic schemas unannotated.
+- Implemented `buildMappingBranches` with `.extend()` to synthesize discriminator mapping branches.
+- Stripped metadata (`description`, `default`, `example`, `title`, `$comment`) from sibling object folding in `foldSiblingProperties`.
+- Updated test assertions and `new Function` JS sanitizers to strip `: z.ZodTypeAny`.
 
 ## Artifact Index
 - /Users/junwoobang/workflow/oa-sdk/.agents/remediation_worker_1/handoff.md — Final handoff report
 
 ## Change Tracker
 - **Files modified**:
-  - `packages/openapi-projection-contract/src/discriminated-union.ts`: Applied Fix 1, Fix 2, Fix 3
-  - `packages/openapi-projection-contract/test/discriminated-union.test.ts`: Updated derived schema assertions and added 3 remediation invariant tests
-  - `packages/openapi-projection-contract/src/discriminated-union.test.ts`: Updated derived schema assertions and added 3 remediation invariant tests
+  - `packages/codegen/src/zodgen/generate-zod.ts`: Added `findCircularSchemas`, selective `: z.ZodTypeAny` annotation, and `discriminatorProperties` aggregation.
+  - `packages/codegen/src/zodgen/schema-to-zod.ts`: Added `buildMappingBranches`, `collectDiscriminatorProperties`, discriminator required injection, and metadata strip in `foldSiblingProperties`.
+  - `packages/codegen/test/zodgen/adversarial-challenger-1.test.ts`: Updated 4-cycle regexes, sanitized `new Function` evaluation, asserted 0 TS diagnostics, and verified non-throwing discriminator required resolution.
+  - `packages/codegen/src/zodgen/schema-to-zod.test.ts`: Updated `CategorySchema` regex to match `: z.ZodTypeAny`.
+  - `packages/codegen/test/e2e/zod4-generator.e2e.test.ts`: Updated `evalGeneratedModule` sanitizer & `nameRegex`, and aligned `T1-F7-4` regex.
 - **Build status**: PASS
 - **Pending issues**: None
 
 ## Quality Status
-- **Build/test result**: 100% tests passing across all packages (197/197 in openapi-projection-contract, 985/985 in codegen, 333/333 in parser, 62/62 in schemas, 149/149 in spec-lens)
-- **Lint status**: Clean (tsc --noEmit passes for 21/21 workspace projects)
-- **Tests added/modified**: 3 new test blocks with 3 tests in each test suite (6 new assertions total) + updated derived naming expectations
+- **Build/test result**: All 184 zodgen tests pass (23 adversarial + 98 E2E + 51 unit + 12 runtime adapter); typecheck passes with 0 errors; in-memory TS compilation passes with 0 diagnostics.
+- **Lint status**: 0 violations in modified files.
+- **Tests added/modified**: Synchronized 4 test suites across adversarial, unit, and E2E tiers.
 
 ## Loaded Skills
-None
+- **Source**: /Users/junwoobang/workflow/oa-sdk/.agents/skills/oa-codegen/SKILL.md
+- **Local copy**: /Users/junwoobang/workflow/oa-sdk/.agents/remediation_worker_1/skills/oa-codegen.md
+- **Core methodology**: AST code generation, reverse-offset patch engine, pluggable TypeAdapters (Typia, Zod, TS AST)

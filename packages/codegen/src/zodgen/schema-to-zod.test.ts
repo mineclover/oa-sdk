@@ -479,7 +479,7 @@ describe('Zod 4 Schema Generator (OpenAPI 3.2)', () => {
       expect(tsCode).toContain("import { z } from 'zod'")
       expect(tsCode).toContain('export const UserSchema = z.object({')
       expect(tsCode).toContain('export type User = z.infer<typeof UserSchema>')
-      expect(tsCode).toContain('export const CategorySchema = z.object({')
+      expect(tsCode).toMatch(/export const CategorySchema(?:: z\.ZodTypeAny)? = z\.object\(\{/)
       expect(tsCode).toContain('export type Category = z.infer<typeof CategorySchema>')
       expect(tsCode).toContain('subcategories: z.array(z.lazy(() => CategorySchema)).optional()')
     })

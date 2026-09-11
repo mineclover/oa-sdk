@@ -1,7 +1,7 @@
-# BRIEFING — 2026-09-02T22:14:00Z
+# BRIEFING — 2026-09-11T00:13:00Z
 
 ## Mission
-Update and mirror `schema-architecture-and-conventions.md` with complete normative specifications and runnable code examples for RFC 9457 Problem Details, strict numeric bounds, self-referencing recursive schemas with `z.lazy`, `x-surface-*` scope rules, and V3 JSDoc validation tags.
+Implement Milestone 4: Monorepo Governance, CLI Documentation & Gates (R4). Register mock, tspDiff, and generateZod in packages/codegen/src/cli/commands.ts, document all commands and flags in docs/guides/cli-command-reference.md, update scripts/check-cli-spec.ts, and verify all monorepo gates.
 
 ## 🔒 My Identity
 - Archetype: implementer, qa, specialist
@@ -9,6 +9,11 @@ Update and mirror `schema-architecture-and-conventions.md` with complete normati
 - Working directory: /Users/junwoobang/workflow/oa-sdk/.agents/worker_m4
 - Original parent: c8e6c449-4228-4443-bc32-e90615c118a5
 - Milestone: Milestone 4: Authoring Conventions Documentation & Schema Updates (R4)
+- Current Archetype: implementer, qa, specialist
+- Current Roles: implementer, qa, specialist
+- Working directory: /Users/junwoobang/workflow/oa-sdk/.agents/worker_m4
+- Current Parent: c665389a-7f3c-4d31-a717-f16983c4bb03
+- Current Milestone: Milestone 4 - Monorepo Governance, CLI Documentation & Monorepo Gates (R4)
 
 ## 🔒 Key Constraints
 - DO NOT CHEAT. All implementations must be genuine.
@@ -17,40 +22,64 @@ Update and mirror `schema-architecture-and-conventions.md` with complete normati
   - `/Users/junwoobang/workflow/oa-sdk/docs/guides/schema-architecture-and-conventions.md`
 - Provide complete runnable code examples for all 5 specified areas.
 - Maintain consistency with OA-SDK and Browser Studio architectures.
+- Current Constraints:
+  - MANDATORY INTEGRITY WARNING: DO NOT CHEAT. All implementations must be genuine. DO NOT hardcode test results, create dummy/facade implementations, or circumvent the intended task.
+  - Exclusive File Ownership:
+    - packages/codegen/src/cli/commands.ts
+    - docs/guides/cli-command-reference.md
+    - scripts/check-cli-spec.ts
+  - Gates to pass:
+    - pnpm check:docs (all 5 gates pass with 0 errors)
+    - pnpm schema:typespec-check (0 drift)
+    - pnpm personas:check (0 errors)
+    - pnpm test:e2e (150/150 pass)
+    - turbo run test (monorepo tests pass)
 
 ## Current Parent
-- Conversation ID: c8e6c449-4228-4443-bc32-e90615c118a5
-- Updated: not yet
+- Conversation ID: c665389a-7f3c-4d31-a717-f16983c4bb03
+- Updated: 2026-09-11T00:13:00Z
 
 ## Task Summary
-- **What to build**: Comprehensive authoring conventions guide covering RFC 9457 Problem Details, strict numeric bounds (Draft 2020-12 / OAS 3.1), recursive schemas with `z.lazy`, `x-surface-*` scope rules, and V3 AST sync JSDoc tag specifications.
+- **What to build**:
+  1. Register `mock`, `tspDiff`, and `generateZod` in `packages/codegen/src/cli/commands.ts`.
+  2. Document all commands and option flags in `docs/guides/cli-command-reference.md` (`oa-gen mock`, `oa-gen tsp diff`, `oa-gen generate:zod`).
+  3. Update `scripts/check-cli-spec.ts` to ensure CLI governance passes.
+  4. Run and pass all verification gates:
+     - `pnpm check:docs` (0 errors across all 5 gates)
+     - `pnpm schema:typespec-check` (0 drift)
+     - `pnpm personas:check` (0 errors)
+     - `pnpm test:e2e` (150/150 pass)
+     - `turbo run test` (all monorepo tests pass)
 - **Success criteria**:
-  1. `schema-architecture-and-conventions.md` updated in `browser-studio/docs/guides/` and mirrored to `oa-sdk/docs/guides/`.
-  2. Complete runnable code examples for RFC 9457, recursive schemas, numeric bounds, `x-surface-*`, and JSDoc tag mapping.
-  3. Clean markdown formatting and verification.
-- **Interface contracts**: `PROJECT.md` §Interface Contracts M4
-- **Code layout**: `PROJECT.md` §Code Layout M4
+  - All 5 document gates pass with 0 errors.
+  - TypeSpec check has 0 drift.
+  - Personas check has 0 errors.
+  - E2E tests 150/150 pass.
+  - Turbo test passes across monorepo.
+- **Interface contracts**: `PROJECT.md` §Interface Contracts
+- **Code layout**: `PROJECT.md` §Code Layout
 
 ## Key Decisions Made
-- Structured guide with clear normative tables, Zod master schema code, JSON Schema 2020-12 listings, and OpenAPI 3.1 YAML snippets.
-- Included explicit error response mapping for 422, 409, and 500 status codes under RFC 9457 (`application/problem+json`).
-- Provided complete runnable examples showing explicit TypeScript typing (`z.ZodType<T> = z.lazy(...)`) to resolve TS7022 and documented cyclic `$ref` projection in schema registries.
-- Detailed object-level `targetProperty` vs inline property-level `x-surface-*` scope rules and lint validation invariants.
-- Included comprehensive V3 AST sync JSDoc validation tag mapping table and bidirectional synchronization flow.
+- [TBD]
 
 ## Change Tracker
-- **Files modified**:
-  - `/Users/junwoobang/workflow/browser-studio/docs/guides/schema-architecture-and-conventions.md` — Updated canonical conventions guide
-  - `/Users/junwoobang/workflow/oa-sdk/docs/guides/schema-architecture-and-conventions.md` — Mirrored guide in OA-SDK documentation
-- **Build status**: PASS (`pnpm build:core`, `pnpm test`, `pnpm -r typecheck`, `pnpm schema:validate`)
+- **Files modified**: none yet
+- **Build status**: pending
 - **Pending issues**: none
 
 ## Quality Status
-- **Build/test result**: PASS (14/14 test suites passing, 1092 codegen tests, 62 schema tests, 149 spec-lens tests)
-- **Lint status**: clean
-- **Tests added/modified**: documentation & schema validation complete
+- **Build/test result**: pending
+- **Lint status**: pending
+- **Tests added/modified**: pending
+
+## Loaded Skills
+- **Source**: `/Users/junwoobang/workflow/oa-sdk/.agents/skills/oa-governance/SKILL.md`
+  - **Local copy**: N/A
+  - **Core methodology**: Document gates (`check:docs`), CLI reference/example validation, persona checks, hermetic agent governance.
+- **Source**: `/Users/junwoobang/workflow/oa-sdk/.agents/skills/oa-sdk/SKILL.md`
+  - **Local copy**: N/A
+  - **Core methodology**: Monorepo architecture, CLI toolchain (`oa-gen`), test verification procedures.
 
 ## Artifact Index
-- `/Users/junwoobang/workflow/browser-studio/docs/guides/schema-architecture-and-conventions.md` — Primary conventions guide
-- `/Users/junwoobang/workflow/oa-sdk/docs/guides/schema-architecture-and-conventions.md` — Mirrored conventions guide
+- `/Users/junwoobang/workflow/oa-sdk/.agents/worker_m4/DISPATCH.md` — Assignment and requirements
 - `/Users/junwoobang/workflow/oa-sdk/.agents/worker_m4/handoff.md` — Final handoff report

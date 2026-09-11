@@ -31,6 +31,8 @@ export interface Zod4AlgebraOptions {
   schemaSuffix?: string
   /** Whether to make objects strict by default if additionalProperties/unevaluatedProperties is omitted */
   strictObjects?: boolean
+  /** Set of property names that act as discriminators in the spec */
+  discriminatorProperties?: Set<string>
 }
 
 /**
@@ -180,7 +182,13 @@ export function createZod4Algebra(options: Zod4AlgebraOptions = {}): SchemaAlgeb
         body = 'z.object({})'
       } else {
         const fieldLines = entries.map(([key, propCode]) => {
-          const isRequired = required.has(key)
+          const isDiscriminatorProp =
+            options.discriminatorProperties?.has(key) &&
+            s.properties?.[key] &&
+            typeof s.properties[key] === 'object' &&
+            (('const' in (s.properties[key] as Record<string, unknown>)) ||
+              ('enum' in (s.properties[key] as Record<string, unknown>)))
+          const isRequired = required.has(key) || Boolean(isDiscriminatorProp)
           const expr = isRequired ? propCode : `${propCode}.optional()`
           return `  ${escapeKey(key)}: ${expr},`
         })
@@ -250,7 +258,16 @@ export function createZod4Algebra(options: Zod4AlgebraOptions = {}): SchemaAlgeb
 
     oneOf(s, branches) {
       if (s.discriminator?.propertyName) {
-        let discExpr = `z.discriminatedUnion(${JSON.stringify(s.discriminator.propertyName)}, [${branches.join(', ')}], { unionFallback: true })`
+        let discBranches = branches
+        if (s.discriminator.mapping && Object.keys(s.discriminator.mapping).length > 0) {
+          discBranches = buildMappingBranches(
+            s.discriminator.mapping,
+            s.discriminator.propertyName,
+            refNameOverrides,
+            suffix,
+          )
+        }
+        let discExpr = `z.discriminatedUnion(${JSON.stringify(s.discriminator.propertyName)}, [${discBranches.join(', ')}], { unionFallback: true })`
         if (s.discriminator.defaultMapping) {
           const defaultFallback = buildDiscriminatorFallback(
             s.discriminator.defaultMapping,
@@ -395,10 +412,40 @@ export function prepareSchemaForZod(
     clean.allOf = clean.allOf.map(p => prepareSchemaForZod(p, defaultValues))
   }
   if (Array.isArray(clean.oneOf)) {
-    clean.oneOf = clean.oneOf.map(p => prepareSchemaForZod(p, defaultValues))
+    const discProp = clean.discriminator?.propertyName
+    clean.oneOf = clean.oneOf.map(p => {
+      const prepared = prepareSchemaForZod(p, defaultValues)
+      if (
+        discProp &&
+        typeof prepared === 'object' &&
+        prepared !== null &&
+        prepared.properties &&
+        discProp in prepared.properties
+      ) {
+        const req = new Set(prepared.required ?? [])
+        req.add(discProp)
+        prepared.required = Array.from(req)
+      }
+      return prepared
+    })
   }
   if (Array.isArray(clean.anyOf)) {
-    clean.anyOf = clean.anyOf.map(p => prepareSchemaForZod(p, defaultValues))
+    const discProp = clean.discriminator?.propertyName
+    clean.anyOf = clean.anyOf.map(p => {
+      const prepared = prepareSchemaForZod(p, defaultValues)
+      if (
+        discProp &&
+        typeof prepared === 'object' &&
+        prepared !== null &&
+        prepared.properties &&
+        discProp in prepared.properties
+      ) {
+        const req = new Set(prepared.required ?? [])
+        req.add(discProp)
+        prepared.required = Array.from(req)
+      }
+      return prepared
+    })
   }
   if (clean.additionalProperties && typeof clean.additionalProperties === 'object') {
     clean.additionalProperties = prepareSchemaForZod(clean.additionalProperties as OasSchema, defaultValues)
@@ -428,7 +475,9 @@ export function prepareSchemaForZod(
 export function schemaToZod(schema: OasSchema, options: Zod4AlgebraOptions = {}): string {
   const defaultValues = options.defaultValues ?? new WeakMap<OasSchema, unknown>()
   const clean = prepareSchemaForZod(schema, defaultValues)
-  const algebra = createZod4Algebra({ ...options, defaultValues })
+  const discriminatorProperties = new Set<string>(options.discriminatorProperties ?? [])
+  collectDiscriminatorProperties(clean, discriminatorProperties)
+  const algebra = createZod4Algebra({ ...options, defaultValues, discriminatorProperties })
   return foldSchema(clean, algebra)
 }
 
@@ -505,13 +554,52 @@ function buildDiscriminatorFallback(
   suffix: string,
 ): string {
   let targetIdent: string
+  const fullRef = defaultMapping.startsWith('#/') ? defaultMapping : `#/components/schemas/${defaultMapping}`
   if (refNameOverrides[defaultMapping]) {
     targetIdent = refNameOverrides[defaultMapping]!
+    targetIdent = targetIdent.replace(/^z\.lazy\(\(\)\s*=>\s*/, '').replace(/\)$/, '')
+  } else if (refNameOverrides[fullRef]) {
+    targetIdent = refNameOverrides[fullRef]!
     targetIdent = targetIdent.replace(/^z\.lazy\(\(\)\s*=>\s*/, '').replace(/\)$/, '')
   } else {
     targetIdent = schemaNameFromRef(defaultMapping, suffix)
   }
   return `z.lazy(() => 'extend' in ${targetIdent} ? ${targetIdent}.extend({ ${escapeKey(propertyName)}: z.string().optional() }) : ${targetIdent})`
+}
+
+export function buildMappingBranches(
+  mapping: Record<string, string>,
+  propertyName: string,
+  refNameOverrides: Record<string, string>,
+  suffix: string,
+): string[] {
+  return Object.entries(mapping).map(([key, ref]) => {
+    let targetIdent: string
+    const fullRef = ref.startsWith('#/') ? ref : `#/components/schemas/${ref}`
+    if (refNameOverrides[ref]) {
+      targetIdent = refNameOverrides[ref]!.replace(/^z\.lazy\(\(\)\s*=>\s*/, '').replace(/\)$/, '')
+    } else if (refNameOverrides[fullRef]) {
+      targetIdent = refNameOverrides[fullRef]!.replace(/^z\.lazy\(\(\)\s*=>\s*/, '').replace(/\)$/, '')
+    } else {
+      targetIdent = schemaNameFromRef(ref, suffix)
+    }
+    return `z.lazy(() => 'extend' in ${targetIdent} ? ${targetIdent}.extend({ ${escapeKey(propertyName)}: z.literal(${JSON.stringify(key)}) }) : ${targetIdent})`
+  })
+}
+
+export function collectDiscriminatorProperties(node: unknown, props: Set<string>): void {
+  if (!node || typeof node !== 'object') return
+  if (Array.isArray(node)) {
+    for (const item of node) collectDiscriminatorProperties(item, props)
+    return
+  }
+  const obj = node as Record<string, any>
+  if (obj.discriminator && typeof obj.discriminator === 'object' && typeof obj.discriminator.propertyName === 'string') {
+    props.add(obj.discriminator.propertyName)
+  }
+  for (const val of Object.values(obj)) {
+    collectDiscriminatorProperties(val, props)
+  }
 }
 
 function foldSiblingProperties(
@@ -522,7 +610,15 @@ function foldSiblingProperties(
   if (!s.properties && s.additionalProperties === undefined && s.unevaluatedProperties === undefined) {
     return null
   }
-  const { [omittedKey]: _, ...siblingSchema } = s as Record<string, unknown>
+  const {
+    [omittedKey]: _,
+    description,
+    default: _def,
+    example,
+    title,
+    $comment,
+    ...siblingSchema
+  } = s as Record<string, unknown>
   const siblingObject = {
     ...siblingSchema,
     type: 'object',

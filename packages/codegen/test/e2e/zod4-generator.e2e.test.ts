@@ -117,10 +117,11 @@ function evalGeneratedModule(code: string): Record<string, z.ZodTypeAny> {
   const jsCode = code
     .replace(/^import\s+.*$/gm, '')
     .replace(/^export\s+type\s+.*$/gm, '')
+    .replace(/:\s*z\.ZodTypeAny/g, '')
     .replace(/^export\s+const\s+/gm, 'const ')
 
   const schemaNames: string[] = []
-  const nameRegex = /(?:const|let|var)\s+([A-Za-z0-9_]+Schema)\s*=/g
+  const nameRegex = /(?:const|let|var)\s+([A-Za-z0-9_]+Schema)(?::\s*[^=]+)?\s*=/g
   let match: RegExpExecArray | null
   while ((match = nameRegex.exec(code)) !== null) {
     if (match[1]) schemaNames.push(match[1])
@@ -427,7 +428,7 @@ describe('OpenAPI 3.2 to Zod 4 E2E Test Suite (Tiers 1-4)', () => {
 
         const code = zodgen!.generateZodFromSpec!(fixture)
         expect(code).toContain('FSNodeSchema')
-        expect(code).toMatch(/z\.lazy\(\s*\(\)\s*=>\s*FileNodeSchema\)/)
+        expect(code).toMatch(/z\.lazy\(\s*\(\)\s*=>.*FileNodeSchema/)
       })
 
       it('T1-F7-5: rejects payload with unknown discriminant value when no default is available', async () => {

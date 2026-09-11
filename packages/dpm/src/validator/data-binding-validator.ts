@@ -168,13 +168,89 @@ export function validateDpmDataBindings(input: {
     }
 
     const pointerSegments = parseJsonPointer(binding.api.pointer)
-    if (!pointerSegments || resolveJsonPointerSegments(artifact.document, pointerSegments) === undefined) {
+    const targetNode = pointerSegments ? resolveJsonPointerSegments(artifact.document, pointerSegments) : undefined
+    if (!pointerSegments || targetNode === undefined) {
       diagnostics.push(createDataDiagnostic({
         code: 'DAT008',
         message: `API pointer ${binding.api.pointer} is not present in artifact ${artifact.artifactId}.`,
         sourcePointer: `${apiPointer}/pointer`,
         apiCoordinate,
       }))
+    } else if (typeof targetNode === 'object' && targetNode !== null) {
+      const projection = (targetNode as Record<string, unknown>)['x-oa-sdk-dpm-projection']
+      if (projection && typeof projection === 'object') {
+        const proj = projection as Record<string, unknown>
+        const rawTransform = proj.transform
+        const transform = typeof rawTransform === 'string'
+          ? rawTransform
+          : (typeof rawTransform === 'object' && rawTransform !== null ? asString((rawTransform as Record<string, unknown>).type) : '')
+        const role = asString(proj.role)
+        const pii = proj.pii === true
+        const relationship = asString(proj.relationship)
+
+        // SAF001: direct_identifier columns cannot use keep transform.
+        if (role === 'direct_identifier' && transform === 'keep') {
+          diagnostics.push(createDpmDiagnostic({
+            severity: 'error',
+            code: 'SAF001',
+            message: 'direct_identifier columns cannot use keep transform in x-oa-sdk-dpm-projection.',
+            sourcePointer: `${binding.api.pointer}/x-oa-sdk-dpm-projection/transform`,
+            apiCoordinate,
+          }))
+        }
+
+        // SAF002: pii=true foreign_identifier columns require a relationship reference.
+        if (role === 'foreign_identifier' && pii && !relationship) {
+          diagnostics.push(createDpmDiagnostic({
+            severity: 'error',
+            code: 'SAF002',
+            message: 'pii=true foreign_identifier columns require a relationship reference in x-oa-sdk-dpm-projection.',
+            sourcePointer: `${binding.api.pointer}/x-oa-sdk-dpm-projection/relationship`,
+            apiCoordinate,
+          }))
+        }
+
+        // SAF010: pii=true columns cannot leak raw values with keep transform.
+        if (pii && transform === 'keep' && role !== 'direct_identifier') {
+          diagnostics.push(createDpmDiagnostic({
+            severity: 'error',
+            code: 'SAF010',
+            message: 'pii=true columns cannot leak raw values with keep transform in x-oa-sdk-dpm-projection.',
+            sourcePointer: `${binding.api.pointer}/x-oa-sdk-dpm-projection/transform`,
+            apiCoordinate,
+          }))
+        }
+
+        // Validate consistency against manifest column policy if bound to storage
+        const field = definitions.fields.find(f => f.objectId === binding.dataField.objectId)
+        if (field?.storageRef) {
+          const manifestColumns = asArray(input.manifest.columns).map(asRecord)
+          const matchingColumn = manifestColumns.find(
+            col => asString(col.table) === field.storageRef?.table && asString(col.column) === field.storageRef?.column,
+          )
+          if (matchingColumn) {
+            const colRole = asString(matchingColumn.role)
+            const colTransform = asRecord(matchingColumn.transform)
+            const colTransformType = asString(colTransform.type)
+            if (role && colRole && role !== colRole) {
+              diagnostics.push(createDataDiagnostic({
+                code: 'DAT008',
+                message: `API projection role '${role}' does not match manifest column role '${colRole}' for ${field.storageRef.table}#${field.storageRef.column}.`,
+                sourcePointer: `${binding.api.pointer}/x-oa-sdk-dpm-projection/role`,
+                apiCoordinate,
+              }))
+            }
+            if (transform && colTransformType && transform !== colTransformType) {
+              diagnostics.push(createDataDiagnostic({
+                code: 'DAT008',
+                message: `API projection transform '${transform}' does not match manifest column transform '${colTransformType}' for ${field.storageRef.table}#${field.storageRef.column}.`,
+                sourcePointer: `${binding.api.pointer}/x-oa-sdk-dpm-projection/transform`,
+                apiCoordinate,
+              }))
+            }
+          }
+        }
+      }
     }
     if (binding.api.operationId) {
       const operation = pointerSegments && pointerSegments[0] === 'paths' && pointerSegments.length >= 3

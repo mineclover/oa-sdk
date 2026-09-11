@@ -28,8 +28,22 @@ export function validateSafetyRules(input: DpmSafetyValidationInput): DpmDiagnos
   diagnostics.push(...validateSafetyColumnUniquenessGates(columns))
 
   columns.forEach((column, index) => {
+    const projection = asRecord(column['x-oa-sdk-dpm-projection'])
+    let effectiveColumn = column
+    if (Object.keys(projection).length > 0) {
+      const projTransform = typeof projection.transform === 'string'
+        ? { type: projection.transform, ...(projection.relationship ? { relationship: projection.relationship } : {}) }
+        : asRecord(projection.transform)
+      effectiveColumn = {
+        ...column,
+        ...(projection.role ? { role: projection.role } : {}),
+        ...(projection.pii !== undefined ? { pii: projection.pii } : {}),
+        ...(projection.relationship ? { relationship: projection.relationship } : {}),
+        transform: Object.keys(projTransform).length > 0 ? projTransform : column.transform,
+      }
+    }
     diagnostics.push(...validateSafetyColumnGates({
-      column,
+      column: effectiveColumn,
       index,
       registry: input.registry,
       relationshipByName,

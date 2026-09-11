@@ -9,7 +9,6 @@ const packageJson = JSON.parse(
 
 const PRIVATE_DOWNSTREAM_PACKAGES = [
   '@oa-sdk/client',
-  '@oa-sdk/mock-server',
   '@oa-sdk/router',
   '@oa-sdk/schemas',
 ] as const

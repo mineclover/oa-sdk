@@ -62,6 +62,7 @@
   "dependencies": {
     "@oa-sdk/ast-sync": "workspace:*",
     "@oa-sdk/core": "workspace:*",
+    "@oa-sdk/mock-server": "workspace:*",
     "@oa-sdk/openapi-projection-contract": "workspace:*",
     "@oa-sdk/parser": "workspace:*",
     "@oa-sdk/typespec-decorators": "workspace:*",

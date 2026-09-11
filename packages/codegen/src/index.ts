@@ -39,8 +39,11 @@ export { analyzeExternalSchemaRefs, generateTypes, generateTypesFromSpec } from 
 export { createTypescriptAlgebra, schemaToTs } from './typegen/schema-to-ts.js'
 export { analyzeSchemaFidelity, projectSchemaToTs } from './typegen/schema-fidelity.js'
 export {
+  createDynamicZodValidator,
+  createRuntimeZodValidators,
   createZod4Algebra,
   generateZodFromSpec,
+  normalizeOasForZodRuntime,
   prepareSchemaForZod,
   schemaToZod,
 } from './zodgen/index.js'

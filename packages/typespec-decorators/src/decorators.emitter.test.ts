@@ -64,4 +64,70 @@ options:
     expect(emitted).toContain("statusCode: '400'")
     expect(emitted).toContain("ref: '#/components/responses/BadRequest'")
   }, 20_000)
+
+  it('emits persona capability traits and dpm projection through actual TypeSpec compiler', () => {
+    const directory = mkdtempSync(join(tmpdir(), 'oa-sdk-typespec-decorator-fixture-'))
+    tmpDirs.push(directory)
+    const nodeModules = join(directory, 'node_modules')
+    mkdirSync(join(nodeModules, '@oa-sdk'), { recursive: true })
+    symlinkSync(join(workspaceRoot, 'node_modules', '@typespec'), join(nodeModules, '@typespec'), 'dir')
+    symlinkSync(join(workspaceRoot, 'packages', 'typespec-decorators'), join(nodeModules, '@oa-sdk', 'typespec-decorators'), 'dir')
+    writeFileSync(join(directory, 'main.tsp'), `
+import "@typespec/http";
+import "@typespec/openapi";
+import "@oa-sdk/typespec-decorators";
+
+using Http;
+using OpenAPI;
+using OaSdkTypeSpec;
+
+@service(#{ title: "Persona & DPM Fixture" })
+namespace Fixture;
+
+model User {
+  @pseudonymize("mask", "direct_identifier", true)
+  email: string;
+
+  @pseudonymize("keep", "business_metric", false)
+  score: int32;
+}
+
+@route("/users")
+@personaCapability("pagination", "filter-by-role")
+op listUsers(): User[];
+`)
+    writeFileSync(join(directory, 'tspconfig.yaml'), `
+kind: project
+entrypoint: main.tsp
+emit:
+  - "@typespec/openapi3"
+options:
+  "@typespec/openapi3":
+    openapi-versions:
+      - 3.2.0
+`)
+
+    try {
+      execFileSync(
+        join(workspaceRoot, 'node_modules', '.bin', 'tsp'),
+        ['compile', directory, '--output-dir', join(directory, 'output')],
+        { cwd: directory, encoding: 'utf8' },
+      )
+    } catch (error) {
+      const failure = error as { stderr?: string; stdout?: string; message: string }
+      throw new Error(`${failure.message}\n${failure.stdout ?? ''}${failure.stderr ?? ''}`)
+    }
+
+    const emittedPath = join(directory, 'output', '@typespec', 'openapi3', 'openapi.yaml')
+    expect(existsSync(emittedPath)).toBe(true)
+    const emitted = readFileSync(emittedPath, 'utf8')
+    expect(emitted).toContain('x-oa-sdk-persona-traits:')
+    expect(emitted).toContain('- filter-by-role')
+    expect(emitted).toContain('- pagination')
+    expect(emitted).toContain('x-oa-sdk-dpm-projection:')
+    expect(emitted).toContain('transform: mask')
+    expect(emitted).toContain('role: direct_identifier')
+    expect(emitted).toContain('pii: true')
+  }, 20_000)
 })
+

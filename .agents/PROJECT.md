@@ -53,12 +53,12 @@ This project implements an OpenAPI 3.2 Schema Object (JSON Schema Draft 2020-12 
 ## Milestones
 | # | Name | Scope | Dependencies | Status |
 |---|------|-------|-------------|--------|
-| E2E | E2E Testing Track | Features F11: 4-Tier test infra & test cases -> `TEST_READY.md` | none | IN_PROGRESS |
-| M1 | Core Zod 4 Algebra & Engine | Features F1, F2 (`schema-to-zod.ts`, `generate-zod.ts`) | none | IN_PROGRESS |
-| M2 | OAS 3.2 Vocabulary & Circular References | Features F3, F4, F5, F6, F7, F8 | M1 | PLANNED |
-| M3 | Dual Mode Runtime Adapter | Feature F9 (`runtime-adapter.ts`, `normalizeOasForZodRuntime`) | M1 | PLANNED |
-| M4 | CLI Command Integration | Feature F10 (`generate:zod` command in `cli/commands/`) | M1, M2, M3 | PLANNED |
-| M5 | Final Milestone: 100% E2E Pass & Hardening | Feature F12: Tiers 1-4 E2E pass, Tier 5 Adversarial Hardening, Reviewers, Auditor | E2E, M1, M2, M3, M4 | PLANNED |
+| E2E | E2E Testing Track | Features F11: 4-Tier test infra & test cases -> `TEST_READY.md` | none | DONE |
+| M1 | Core Zod 4 Algebra & Engine | Features F1, F2 (`schema-to-zod.ts`, `generate-zod.ts`) | none | DONE |
+| M2 | OAS 3.2 Vocabulary & Circular References | Features F3, F4, F5, F6, F7, F8 | M1 | DONE |
+| M3 | Dual Mode Runtime Adapter | Feature F9 (`runtime-adapter.ts`, `normalizeOasForZodRuntime`) | M1 | DONE |
+| M4 | CLI Command Integration | Feature F10 (`generate:zod` command in `cli/commands/`) | M1, M2, M3 | DONE |
+| M5 | Final Milestone: 100% E2E Pass & Hardening | Feature F12: Tiers 1-4 E2E pass, Tier 5 Adversarial Hardening, Reviewers, Auditor | E2E, M1, M2, M3, M4 | DONE |
 
 ## Interface Contracts
 ### `createZod4Algebra(options)`

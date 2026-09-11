@@ -1,15 +1,20 @@
-# Progress Log
+# Progress — remediation_worker_1
 
-Last visited: 2026-09-02T15:21:05Z
+Last visited: 2026-09-11T00:13:00Z
 
-- [x] Initialized workspace and briefing
-- [x] Read ORIGINAL_REQUEST.md, PROJECT.md, remediation analysis.md, handoff.md
-- [x] Inspect existing implementation in `packages/openapi-projection-contract/src/discriminated-union.ts` and test files
-- [x] Apply 3 fixes to `discriminated-union.ts` (naming prefix retention, path prefix slash normalization, collision disambiguation)
-- [x] Update / align unit tests in `test/discriminated-union.test.ts` and `src/discriminated-union.test.ts` and add edge case tests
-- [x] Run `pnpm --filter @oa-sdk/openapi-projection-contract test` (197/197 passed)
-- [x] Run `pnpm --filter @oa-sdk/openapi-projection-contract typecheck` (passed)
-- [x] Run `pnpm --filter @oa-sdk/openapi-projection-contract exec vitest run test/e2e/discriminated-union.e2e.test.ts` (44/44 passed)
-- [x] Run full monorepo test suite `pnpm test` (14/14 tasks successful, 100% tests passed)
-- [x] Run monorepo typecheck `pnpm -r typecheck` (21/21 workspace projects clean)
-- [x] Write handoff.md and send message to parent
+- [x] Initial dispatch received and parsed
+- [x] Authoritative context and blueprint analyzed
+- [x] Inspect target files before modification
+- [x] Implement changes in `generate-zod.ts` (`findCircularSchemas`, selective `: z.ZodTypeAny`, discriminator property collection)
+- [x] Implement changes in `schema-to-zod.ts` (mapping branch synthesis, discriminator required injection, metadata strip in sibling folding)
+- [x] Synchronize test suites (`adversarial-challenger-1.test.ts`, `schema-to-zod.test.ts`, `zod4-generator.e2e.test.ts`)
+- [x] Run verification tests:
+  - `vitest run test/zodgen/adversarial-challenger-1.test.ts` (23/23 passed)
+  - `vitest run test/e2e/zod4-generator.e2e.test.ts` (98/98 passed)
+  - `vitest run src/zodgen/schema-to-zod.test.ts` (51/51 passed)
+  - `vitest run src/zodgen/runtime-adapter.test.ts` (12/12 passed)
+  - `pnpm --filter @oa-sdk/codegen run typecheck` (0 errors)
+  - In-memory TypeScript strict compilation check (0 diagnostics)
+  - Discriminator undefined crash runtime check (v1: true, v2: true, empty: false)
+  - Redundant metadata cleanliness check (describe count: 1)
+- [x] Generate handoff report and notify orchestrator

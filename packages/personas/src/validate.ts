@@ -137,6 +137,9 @@ export function validate(opts: ValidateOptions): ValidationReport {
       // ── 8. expects ⊆ operation.responses ────────────────────────────
       checkExpects(persona, matrix.domain, opts.knownOperations, issues, kind)
 
+      // ── 8b. persona skills ⊆ operation.traits (endpoint trait obligation check) ──
+      checkOperationTraits(persona, matrix.domain, opts.knownOperations, issues, kind)
+
       // ── 6. constraints ──────────────────────────────────────────────
       for (const constraint of opts.registry.constraints) {
         applyConstraint(persona, matrix.domain, constraint, issues, unsupportedConstraints)
@@ -508,6 +511,42 @@ function checkExpects(
           bucket: 'outcome',
           dimension: 'expects',
           message: `expected status ${code} not declared in operation '${id}' (declared: ${[...op.responses].sort().join(', ')})`,
+        })
+      }
+    }
+  }
+}
+
+// ─── endpoint trait obligations: persona.skills ⊆ operation.traits ──────
+
+function checkOperationTraits(
+  persona: Persona,
+  domain: string,
+  knownOperations: Map<string, OperationInfo> | null,
+  issues: ValidationIssue[],
+  kind: SurfaceKind = 'openapi-http',
+): void {
+  if (kind !== 'openapi-http') return
+  if (knownOperations === null) return
+  if (persona.status !== 'implemented') return
+
+  const skills = persona.skills ?? []
+  if (skills.length === 0) return
+
+  const mapsTo = persona.outcome?.maps_to ?? []
+  for (const id of mapsTo) {
+    const op = knownOperations.get(id)
+    if (!op || op.traits === undefined) continue
+
+    for (const skill of skills) {
+      if (!op.traits.has(skill)) {
+        issues.push({
+          severity: 'error',
+          domain,
+          personaId: persona.id,
+          bucket: 'outcome',
+          dimension: 'traits',
+          message: `endpoint trait obligation shortfall: operation '${id}' lacks required persona skill '${skill}' (declared traits: ${[...op.traits].sort().join(', ')})`,
         })
       }
     }
