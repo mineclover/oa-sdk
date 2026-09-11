@@ -1,6 +1,6 @@
 {
   "name": "@oa-sdk/parser",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "OpenAPI 3.2 spec parser — Parse/Transform/Fold pipeline",
   "private": false,
   "type": "module",

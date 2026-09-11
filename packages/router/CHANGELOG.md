@@ -1,5 +1,13 @@
 # @oa-sdk/router
 
+## 0.1.3
+
+### Patch Changes
+
+- Updated dependencies
+  - @oa-sdk/core@0.3.0
+  - @oa-sdk/parser@0.3.0
+
 ## 0.1.2
 
 ### Patch Changes
