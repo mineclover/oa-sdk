@@ -89,6 +89,41 @@ oa-gen tsp-scaffold --route /users/{id}/audit --method get
 oa-gen tsp-scaffold --route /articles --method post --operation-id createArticle --summary "게시글 작성" --file packages/schemas/typespec/users.tsp
 ```
 
+### 3.5 TypeSpec AST Semantic Diff (`oa-gen tsp diff`)
+TypeSpec 소스 파일 간의 파괴적/비파괴적 변경 사항을 컴파일 전에 AST 레벨에서 0.5초 만에 비교 분석합니다:
+
+```bash
+# Git ref 간 비교 및 파괴적 변경 시 exit code 1 반환 (CI 차단 게이트)
+oa-gen tsp diff --base origin/main --head HEAD --fail-on-breaking
+
+# JSON 포맷 출력
+oa-gen tsp diff --base origin/main --head HEAD --format json
+```
+
+### 3.6 Zero-Build Instant Mock Server (`oa-gen mock --tsp`)
+중간 OpenAPI YAML 파일을 디스크에 생성하지 않고, `@typespec/compiler` 인메모리 컴파일러를 통해 `localhost:4010`에 즉각적인 HTTP Mock 서버를 구동합니다:
+
+```bash
+# TypeSpec 파일 직접 지정하여 Mock 서버 구동 및 파일 변경 감지(핫 리로드)
+oa-gen mock --tsp packages/schemas/typespec/main.tsp --watch --port 4010
+```
+
+### 3.7 Personas & DPM 네이티브 데코레이터
+API 권한 및 역량 검증, 데이터 가명화 정책을 TypeSpec 코드에 직접 선언합니다:
+
+```typespec
+// 1. API 페르소나 역량 선언 (skill.yaml 검증)
+@personaCapability("pagination", "audit-emission", "pii-masked-default")
+op listUsers(): User[];
+
+// 2. DPM 필드 가명화 규칙 선언
+model UserProfile {
+  id: string;
+  @pseudonymize(UserProfile.email, "hmac-sha256")
+  email: string;
+}
+```
+
 ---
 
 ## 4. 트러블슈팅

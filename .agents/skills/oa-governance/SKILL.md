@@ -5,10 +5,13 @@ description: Authoritative guide and operational architecture for API persona ca
 
 # Monorepo Governance, Persona Capabilities & Document Gates (`oa-governance`)
 
-The `oa-governance` skill governs Tier 4 (`TypeSpec & Governance`) and monorepo documentation verification in the `oa-sdk` monorepo. It establishes the policy, capability taxonomy, contract emission, and static verification gates that enforce platform integrity across all 17 packages and 5 applications:
+The `oa-governance` skill governs Tier 4 (`TypeSpec & Governance`) and monorepo documentation verification in the `oa-sdk` monorepo. It establishes the policy, capability taxonomy, contract emission, and static verification gates that enforce platform integrity across all 19 packages and 5 applications:
 
 1. `@oa-sdk/personas`: Capability traits taxonomy defined in `packages/personas/src/traits/skill.yaml` (21 traits across 6 categories), orthogonal 3-bucket modeling (`identity`, `reference`, `outcome`), profile bundling, and coverage matrix reporting.
-2. `@oa-sdk/typespec-*`: TypeSpec decorators and emitters including `$oaUseResponseComponent` (emitting `x-oa-sdk-operation-component-refs`), logical ERD decorators (`$dataset`, `$entity`, `$field`, `$primaryKey`, `$unique`, `$foreignKey`, `$relationship`), and the `$onEmit` compiler producing `logical-erd.json`.
+2. `@oa-sdk/typespec-*`: TypeSpec decorators, emitters, and tooling including:
+   - `@oa-sdk/typespec-decorators`: `$oaUseResponseComponent` (emitting `x-oa-sdk-operation-component-refs`), `$personaCapability` (emitting `x-oa-sdk-persona-traits` validated against `skill.yaml`), and `$pseudonymize` (emitting `x-oa-sdk-dpm-projection`).
+   - `@oa-sdk/typespec-erd` & `@oa-sdk/logical-erd-contract`: logical ERD decorators (`$dataset`, `$entity`, `$field`, `$primaryKey`, `$unique`, `$foreignKey`, `$relationship`), and the `$onEmit` compiler producing `logical-erd.json`.
+   - `@oa-sdk/typespec-tooling`: TypeSpec IDE templates, VS Code settings presets, snippets, and custom linter diagnostics.
 3. `@oa-sdk/dpm`: Dynamic Package Manager subpath architecture, immutable `DpmNeutralDataBindingArtifact`, and the fail-closed in-memory execution engine (`executeDpmRows`).
 4. Closed-by-Default Agent Skill Governance: Hermetic registration in `.agents/skills.json` and `.agents/plugins.json`, strict prohibition of universal cross-domain wildcards (`.*`), and filesystem path existence verification.
 5. 4-Tier Verification & Document Gates: Network-free static gates powered by `@spec-platform/document-gates` (`createAgentConfigGate`, `createMarkdownLocalLinkGate`, `createCliExampleGate`, `createCliReferenceGate`, `createPackageEntrypointGate`) enforced repository-wide via `pnpm check:docs`.
@@ -21,9 +24,11 @@ The `oa-governance` skill governs Tier 4 (`TypeSpec & Governance`) and monorepo 
 graph TD
     subgraph Modeling [TypeSpec Modeling Layer]
         TSP["TypeSpec Spec (.tsp)"]
-        Decors["@oa-sdk/typespec-decorators ($oaUseResponseComponent)"]
+        Decors["@oa-sdk/typespec-decorators ($oaUseResponseComponent, $personaCapability, $pseudonymize)"]
         ERDDecors["@oa-sdk/typespec-erd ($dataset, $entity, $field, $primaryKey)"]
+        Tooling["@oa-sdk/typespec-tooling (LSP Presets & Snippets)"]
         Emitter["$onEmit Emitter -> logical-erd.json"]
+        CliTooling["oa-gen tsp CLI (diff, mock, scaffold)"]
     end
 
     subgraph PersonasLayer [Persona Capability & Profile Contracts (@oa-sdk/personas)]
@@ -49,13 +54,15 @@ graph TD
         AgentGate["createAgentConfigGate"]
         LinkGate["createMarkdownLocalLinkGate (AST Link Resolver)"]
         CliGate["createCliExampleGate (oa-gen Shell Validator)"]
-        RefGate["createCliReferenceGate (24 Commands Coverage)"]
-        EntryGate["createPackageEntrypointGate (17 Packages Coverage)"]
+        RefGate["createCliReferenceGate (29 Commands Coverage)"]
+        EntryGate["createPackageEntrypointGate (19 Packages Coverage)"]
         CheckDocs["pnpm check:docs (scripts/check-docs.ts)"]
     end
 
     TSP --> Decors
     TSP --> ERDDecors
+    TSP --> Tooling
+    TSP --> CliTooling
     ERDDecors --> Emitter
 
     SkillYaml --> ThreeBuckets
@@ -181,13 +188,16 @@ Running `pnpm personas:check` verifies:
 
 ---
 
-## 2. TypeSpec Emitters & Decorators (`@oa-sdk/typespec-*`)
+## 2. TypeSpec Emitters, Decorators & DX Tooling (`@oa-sdk/typespec-*`)
 
-TypeSpec enables schema authoring with strong static typing. `@oa-sdk` provides custom emitters and decorators to generate specialized OpenAPI extensions and relational data models.
+TypeSpec enables schema authoring with strong static typing. `@oa-sdk` provides custom emitters, native decorators, IDE LSP tooling, and AST verification utilities to maintain contract integrity across the monorepo.
 
-### 2.1 `@oa-sdk/typespec-decorators`: Response Component References
+### 2.1 `@oa-sdk/typespec-decorators`: Response Component References, Personas & DPM
 
-The decorator `@oaUseResponseComponent` attaches shared response component references to TypeSpec operations:
+The package `packages/typespec-decorators` provides native TypeSpec decorators for contract enrichment and compliance:
+
+#### 1. Response Component References (`@oaUseResponseComponent`)
+Attaches shared response component references to TypeSpec operations:
 
 ```typespec
 import "@oa-sdk/typespec-decorators";
@@ -201,22 +211,52 @@ op getUser(@path id: string): User {
 }
 ```
 
-#### Compiler Mechanics (`packages/typespec-decorators/src/decorators.ts`)
-1. **Target Extension**: Emits the OpenAPI extension `x-oa-sdk-operation-component-refs`.
-2. **Syntax Validation**:
-   - `statusCode`: Enforces regex `/^(?:[1-5][0-9]{2}|default)$/`.
-   - `componentName`: Enforces identifier regex `/^[A-Za-z][A-Za-z0-9._-]*$/`.
-3. **Deduplication Invariant**: Rejects duplicate status codes on the same operation. Emits:
-   ```json
-   {
-     "x-oa-sdk-operation-component-refs": {
-       "responses": [
-         { "statusCode": "404", "ref": "#/components/responses/NotFoundResponse" },
-         { "statusCode": "500", "ref": "#/components/responses/InternalServerError" }
-       ]
-     }
-   }
-   ```
+- **Target Extension**: Emits the OpenAPI extension `x-oa-sdk-operation-component-refs`.
+- **Syntax Validation**:
+  - `statusCode`: Enforces regex `/^(?:[1-5][0-9]{2}|default)$/`.
+  - `componentName`: Enforces identifier regex `/^[A-Za-z][A-Za-z0-9._-]*$/`.
+- **Deduplication Invariant**: Rejects duplicate status codes on the same operation. Emits:
+  ```json
+  {
+    "x-oa-sdk-operation-component-refs": {
+      "responses": [
+        { "statusCode": "404", "ref": "#/components/responses/NotFoundResponse" },
+        { "statusCode": "500", "ref": "#/components/responses/InternalServerError" }
+      ]
+    }
+  }
+  ```
+
+#### 2. Persona Capabilities (`@personaCapability`)
+Attaches persona capability traits directly to TypeSpec operations, enforcing validation against `packages/personas/src/traits/skill.yaml`:
+
+```typespec
+import "@oa-sdk/typespec-decorators";
+using OaSdkTypeSpec;
+
+@personaCapability("pagination", "audit-emission", "pii-masked-default")
+op listUsers(): User[];
+```
+
+- **Target Extension**: Emits `x-oa-sdk-persona-traits`.
+- **Validation**: Rejects undeclared or invalid skill identifiers with diagnostic errors during compilation.
+
+#### 3. DPM Field Pseudonymization (`@pseudonymize`)
+Declares relationship-first pseudonymization policies on model properties:
+
+```typespec
+import "@oa-sdk/typespec-decorators";
+using OaSdkTypeSpec;
+
+model UserProfile {
+  id: string;
+  @pseudonymize(UserProfile.email, "hmac-sha256")
+  email: string;
+}
+```
+
+- **Target Extension**: Emits `x-oa-sdk-dpm-projection`.
+- **Pipeline Integration**: Consumed directly by `@oa-sdk/dpm` execution engine for zero-database-coupling data masking.
 
 ### 2.2 `@oa-sdk/typespec-erd` & `@oa-sdk/logical-erd-contract`
 
@@ -260,6 +300,32 @@ namespace Store {
 1. **Composite Primary Keys (`$primaryKey`)**: Requires a non-empty `groupId` and positive integer `order` (`order >= 1`). If two parts of a composite primary key in the same model declare the same order, the compiler reports a diagnostic error: `Composite primary-key group <id> repeats component order <order>`.
 2. **Cardinality Verification (`$relationship`)**: Cardinality must be one of `one-to-one`, `one-to-many`, or `many-to-one`.
 3. **Emitter Output (`$onEmit`)**: Generates `logical-erd.json` containing datasets, entities, fields, keys, and validated relationship topologies.
+
+### 2.3 `@oa-sdk/typespec-tooling`: IDE LSP Presets & Snippets
+
+`@oa-sdk/typespec-tooling` bundles IDE enhancements and templates for developer ergonomics:
+- **VS Code Configuration Presets**: `.vscode/settings.json` and `.vscode/extensions.json` templates preconfigured for `typespec.tsp-vscode` language server, auto-formatting on save, and custom lint severity.
+- **Code Snippets (`snippets/typespec.json`)**: Pre-authored shortcuts for standard CRUD operations, DTO models, logical entities, and persona capability decorators.
+- **Custom Linter Rules**: Detects non-idiomatic schemas and enforces naming conventions prior to compilation.
+
+### 2.4 TypeSpec CLI Governance & Quality Tooling
+
+The `oa-gen` CLI provides specialized TypeSpec developer tooling:
+
+#### 1. TypeSpec AST Semantic Diff (`oa-gen tsp diff`)
+Parses and compares TypeSpec AST structures between two git refs or file paths in < 0.5s without intermediate builds. Detects:
+- Removed operations or altered HTTP methods/paths
+- Removed or renamed models
+- Removed properties or newly required properties
+- Changed status codes or modified `@operationId`
+
+Supports `--fail-on-breaking` to exit with status code 1 for automated CI PR gating, and `--format <markdown|json>` for PR comment reporting.
+
+#### 2. Zero-Build Instant Mock Server (`oa-gen mock --tsp`)
+Spins up an HTTP Mock server on port 4010 using `@typespec/compiler` in-memory compilation. Bypasses disk YAML generation entirely and mounts routes directly to `@oa-sdk/mock-server`. With `--watch`, it monitors `.tsp` file modifications and performs hot route updates on the fly.
+
+#### 3. TypeSpec Endpoint Scaffolding (`oa-gen tsp-scaffold`)
+Generates standardized, syntactically valid TypeSpec operations and DTO models from CLI arguments, injecting them into target `.tsp` modules.
 
 ---
 
@@ -379,8 +445,8 @@ flowchart TD
 1. **`createAgentConfigGate`**: Validates JSON syntax, schema validity, hermeticity, and closed-by-default rules on agent configuration files.
 2. **`createMarkdownLocalLinkGate`**: Parses Markdown AST using `@spec-platform/document-parser`. Resolves all local relative link targets (e.g. `[guide](./guide.md)`). Fails if any referenced document does not exist.
 3. **`createCliExampleGate`**: Scans all fenced shell code blocks (` ```bash ... ``` `). Matches every invocation of `oa-gen` against the live command definitions in `packages/codegen/src/cli/commands.ts`. Fails on unrecognized subcommands or unregistered option flags.
-4. **`createCliReferenceGate`**: Ensures all 24 `oa-gen` commands are listed in `docs/guides/cli-command-reference.md` without duplicates or omissions.
-5. **`createPackageEntrypointGate`**: Ensures all 17 packages in `packages/*` are listed in `docs/guides/library-entrypoints.md`.
+4. **`createCliReferenceGate`**: Ensures all 29 `oa-gen` commands are listed in `docs/guides/cli-command-reference.md` without duplicates or omissions.
+5. **`createPackageEntrypointGate`**: Ensures all 19 packages in `packages/*` are listed in `docs/guides/library-entrypoints.md`.
 
 ---
 
@@ -399,6 +465,21 @@ pnpm test:docs-gates
 ### Verifying Persona Capabilities and Operation Coverage
 ```bash
 pnpm personas:check
+```
+
+### Comparing TypeSpec AST Changes & Breaking Change Gate
+```bash
+oa-gen tsp diff --base origin/main --head HEAD --fail-on-breaking
+```
+
+### Running Zero-Build Instant TypeSpec Mock Server with Watch Mode
+```bash
+oa-gen mock --tsp packages/schemas/typespec/main.tsp --watch
+```
+
+### Scaffolding New TypeSpec Endpoint & DTO Models
+```bash
+oa-gen tsp-scaffold --route /users/{id}/audit --method get
 ```
 
 ### Auditing DPM Surface and Subpath Integrity
@@ -426,6 +507,10 @@ oa-gen audit:csp --bundle dist/client
 | `ERR_AGENT_CONFIG_NON_HERMETIC` in `pnpm check:docs` | An absolute path (`/Users/...`) was used instead of workspace-relative or home-relative path | Change path to `.agents/skills` or `~/.gemini/config/skills` |
 | `missing local link target: ./missing.md` | A Markdown document contains a broken relative link | Fix the link target or remove stale reference |
 | `unknown oa-gen option: --invalid-flag` | A fenced bash example in documentation used an unlisted CLI flag | Verify flag against `packages/codegen/src/cli/commands.ts` and correct the example |
+| `ERR_TSP_BREAKING_CHANGE` in CI | `oa-gen tsp diff --fail-on-breaking` detected backward-incompatible TypeSpec change | Review diff report; preserve existing fields or bump major API version |
+| `ERR_PERSONA_TRAIT_UNKNOWN` in TypeSpec | `@personaCapability` referenced skill not defined in `packages/personas/src/traits/skill.yaml` | Add trait to `skill.yaml` or fix typo in `@personaCapability` decorator |
+| `ERR_TSP_MOCK_COMPILE` in `oa-gen mock --tsp` | TypeSpec syntax error or unresolvable import during in-memory compilation | Fix `.tsp` syntax; verify imports resolve to valid packages |
 | `Composite primary-key group repeats component order` | Two `@primaryKey` decorators in the same model used identical order numbers | Assign unique sequential positive integers (`1`, `2`, `3`) to each part of the composite primary key |
 | `invalid-cardinality` diagnostic in TypeSpec compilation | `@relationship` cardinality was not one of `one-to-one`, `one-to-many`, or `many-to-one` | Use valid cardinality literal string in decorator declaration |
 | `EXE_PLAN_STALE` error during `executeDpmRows` | Attempted execution of a compiled plan whose source catalog has changed | Recompile the DPM plan before executing row pseudonymization |
+

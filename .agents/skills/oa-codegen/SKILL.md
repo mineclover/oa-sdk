@@ -374,25 +374,59 @@ console.log(patchedSource);
 ### 6.2 CLI 워크플로 레시피
 
 ```bash
-# 1. 독립형 무런타임 타입 가드 분할 생성 (Manifest V3 배포용)
+# 1. OpenAPI 3.2 스펙으로부터 Zod 4 스키마 및 TypeScript 타입 코드 생성
+oa-gen generate:zod --spec packages/schemas/dist/openapi.yaml --output ./generated/zod
+
+# 2. 독립형 무런타임 타입 가드 분할 생성 (Manifest V3 배포용)
 oa-gen generate --target standalone-guards --input packages/schemas/src/.merged.yaml --out-dir dist/guards --split
 
-# 2. 생성된 번들의 Manifest V3 CSP 호환성 정적 감사 (eval / new Function / ajv 금지 검사)
+# 3. 생성된 번들의 Manifest V3 CSP 호환성 정적 감사 (eval / new Function / ajv 금지 검사)
 oa-gen audit:csp --bundle dist/guards
 
-# 3. OpenAPI 3.2 스펙으로부터 TypeScript 타입 정의 생성
+# 4. OpenAPI 3.2 스펙으로부터 TypeScript 타입 정의 생성
 oa-gen typegen --spec packages/schemas/src/.merged.yaml --output packages/models/src
 
-# 4. 스펙 차이점 및 파괴적 변경사항 비교
+# 5. 스펙 차이점 및 파괴적 변경사항 비교
 oa-gen diff --base spec-v1.yaml --head spec-v2.yaml --fail-on-breaking
 ```
 
 ---
 
-## 🔍 7. 문제 해결 매트릭스 (Troubleshooting)
+## 🚀 7. OpenAPI 3.2 → Zod 4 코드 생성 엔진 (`@oa-sdk/codegen/zodgen`)
+
+`@oa-sdk/codegen/zodgen`은 OpenAPI 3.2 Schema Object (JSON Schema Draft 2020-12 방언)를 관용적인 Zod 4 소스 코드 및 런타임 유효성 검증기로 변환합니다.
+
+### 7.1 핵심 매핑 규칙
+* **수치형 경계**: Draft 2020-12 엄격 수치형 `exclusiveMinimum` / `exclusiveMaximum` ➔ `.gt(n)` / `.lt(n)`.
+* **튜플 & 레스트**: `prefixItems` ➔ `z.tuple([...])` 및 `items` 선언 시 `.rest(z.array(...))`.
+* **식별 유니온 (Discriminator)**: OAS 3.2 `propertyName`, `mapping`, `defaultMapping` ➔ `z.discriminatedUnion(prop, [...])`.
+* **객체 봉인**: `unevaluatedProperties: false` / `additionalProperties: false` ➔ `.strict()`.
+* **순환 참조 격리**: DFS 참조 사이클 탐색(`findCircularSchemas`)을 통해 순환 모델에만 선별적으로 `: z.ZodTypeAny` 주석과 `z.lazy(() => Schema)`를 적용하여 `TS7022` 컴파일 에러를 원천 차단하고 비순환 모델의 정적 타입 추론(`z.infer`) 100% 보존.
+
+### 7.2 프로그래밍 방식 사용법
+
+```typescript
+import { generateZodFromSpec, createRuntimeZodValidators } from '@oa-sdk/codegen/zodgen';
+
+// 정적 코드 생성 (.ts 문자열 방출)
+const { source, schemaNames } = generateZodFromSpec(openApiDoc, {
+  exportTypes: true,
+  style: 'both',
+});
+
+// 인메모리 동적 런타임 유효성 검증 어댑터 (Native Zod 4 z.fromJSONSchema)
+const validators = createRuntimeZodValidators(openApiDoc);
+const parseResult = validators.UserProfile.safeParse(incomingJson);
+```
+
+---
+
+## 🔍 8. 문제 해결 매트릭스 (Troubleshooting)
 
 | 증상 (Symptom) | 근본 원인 (Root Cause) | 해결 방법 (Remediation) |
 |---|---|---|
+| `TS7022: 'X' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer` | 순환 참조 스키마에 타입 주석 누락 | `findCircularSchemas`로 사이클 참여 여부를 감지하고 `: z.ZodTypeAny` 명시적 타입 주석을 부여하여 비순환 스키마의 타입 추론을 해치지 않고 해결 |
+| Zod 4 `discriminatedUnion`에서 프로퍼티 누락 시 crash 발생 | 식별자(discriminant) 프로퍼티가 optional로 취급됨 | `prepareSchemaForZod`에서 discriminator 프로퍼티를 `required` 목록에 자동 강제 주입 |
 | `Overlapping text edit ranges: [X, Y] overlaps with [A, B]` | 복수의 프로퍼티 수정 시 `TextEdit`의 범위가 겹침 | 편집 대상 범위를 상호 배타적으로 분리하거나 선행 JSDoc과 시그니처 범위를 독립 계산하여 정렬 순서 준수 확인 |
 | `[csp/no-disallowed-import] Disallowed runtime import: ajv` | Standalone 가드 파일에 `require("ajv/...")`가 잔존함 | `postProcessGeneratedJs`에서 포맷 정규식 인라인화 및 `__ucs2length`/`__equal` 헬퍼 주입 여부 확인 |
 | `tags.Minimum<-50>` 파싱 시 값이 `NaN` 또는 양수로 반환됨 | 음수 리터럴이 `ts.PrefixUnaryExpression`으로 래핑됨 | `parseTagArgument`에서 `MinusToken` 연산자 확인 후 `-Number(operand.text)` 반환 로직 적용 |
@@ -401,18 +435,21 @@ oa-gen diff --base spec-v1.yaml --head spec-v2.yaml --fail-on-breaking
 
 ---
 
-## 🧪 8. 검증 및 테스트 명령어
+## 🧪 9. 검증 및 테스트 명령어
 
 ```bash
-# 1. Typia 어댑터 및 타입 레벨 태그 파싱 단위 테스트
+# 1. Zod 4 코드 생성 엔진 및 E2E 테스트 (184종)
+pnpm --filter @oa-sdk/codegen test src/zodgen/ test/e2e/zod4-generator.e2e.test.ts test/zodgen/adversarial-challenger-1.test.ts
+
+# 2. Typia 어댑터 및 타입 레벨 태그 파싱 단위 테스트
 pnpm --filter @oa-sdk/codegen test test/ast-sync/typia-adapter.test.ts
 
-# 2. Standalone 타입 가드 E2E 및 정적 컴파일 테스트
+# 3. Standalone 타입 가드 E2E 및 정적 컴파일 테스트
 pnpm --filter @oa-sdk/codegen test test/standalone-guards/
 
-# 3. Manifest V3 CSP 감사 엔진 15종 단위 테스트
+# 4. Manifest V3 CSP 감사 엔진 15종 단위 테스트
 pnpm --filter @oa-sdk/codegen test test/audit-csp/audit-csp.test.ts
 
-# 4. Codegen 패키지 전체 타입 체크
+# 5. Codegen 패키지 전체 타입 체크
 pnpm --filter @oa-sdk/codegen typecheck
 ```

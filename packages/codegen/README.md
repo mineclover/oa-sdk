@@ -38,3 +38,28 @@ reviewed. The generated `openapi-governance.md` documents the produced contract 
 TypeSpec remains the human-authored contract source for OA SDK production schemas. AST provenance
 and external OpenAPI governance evidence are review and traceability artifacts; they do not become
 an alternate schema authority.
+
+## Zod 4 Schema Code Generation
+
+Generate idiomatic Zod 4 validation schemas and inferred TypeScript types from OpenAPI 3.2 (JSON Schema Draft 2020-12) specifications:
+
+```bash
+# CLI: generate Zod schemas from an OpenAPI spec
+pnpm exec oa-gen generate:zod --spec packages/schemas/dist/openapi.yaml --output ./generated/zod
+```
+
+Programmatic usage:
+
+```typescript
+import { generateZodFromSpec, createRuntimeZodValidators } from '@oa-sdk/codegen/zodgen';
+
+// 1. Static TypeScript code emission:
+const { source, schemaNames } = generateZodFromSpec(openApiDoc, {
+  exportTypes: true,
+  style: 'both',
+});
+
+// 2. In-memory dynamic runtime validator (native Zod 4 z.fromJSONSchema):
+const validators = createRuntimeZodValidators(openApiDoc);
+const result = validators.User.safeParse(data);
+```

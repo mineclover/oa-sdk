@@ -48,10 +48,13 @@ fails CI unless `ContractVersion` has the required semantic-version bump: major 
 ## Contract Change Workflow
 
 1. Update the smallest owning `.tsp` module. Keep models and HTTP semantics in native TypeSpec whenever the emitter preserves them.
-2. Run `pnpm schema:approve-typespec-reference` to compile and restore a candidate under the gitignored `.oa-sdk/typespec-candidates/` directory and show the normalized OpenAPI diff.
-3. Review the `.tsp` change and the candidate diff together. Treat a changed operation, reusable component, example, or security rule as a contract change.
-4. When approved, run `pnpm schema:approve-typespec-reference -- --write`. This is the only command that updates `approved.openapi.yaml`.
-5. Run `pnpm schema:validate`. For changes that affect a downstream consumer, also run `pnpm schema:downstream-check`.
+   - 신규 엔드포인트 및 DTO 스캐폴딩 시 `oa-gen tsp-scaffold --route <path> --method <method> --file <path>`를 활용합니다.
+2. 컴파일 전 AST 차원에서 파괴적 변경을 조기 점검하기 위해 `oa-gen tsp diff --base origin/main --head HEAD --fail-on-breaking`을 실행합니다.
+3. 실시간 Mock 서버를 띄워 변경된 API를 즉시 테스트하려면 `oa-gen mock --tsp packages/schemas/typespec/main.tsp --watch`를 사용합니다.
+4. Run `pnpm schema:approve-typespec-reference` to compile and restore a candidate under the gitignored `.oa-sdk/typespec-candidates/` directory and show the normalized OpenAPI diff.
+5. Review the `.tsp` change and the candidate diff together. Treat a changed operation, reusable component, example, or security rule as a contract change.
+6. When approved, run `pnpm schema:approve-typespec-reference -- --write`. This is the only command that updates `approved.openapi.yaml`.
+7. Run `pnpm schema:validate`. For changes that affect a downstream consumer, also run `pnpm schema:downstream-check`.
 
 Changing a wire value set is a contract change. A named alias can reduce duplicate TypeSpec
 declarations without necessarily producing a named OpenAPI schema component. Conversely, a
@@ -87,9 +90,11 @@ make an explicit ownership decision and, when needed, propose a versioned extens
 placing unvalidated semantics in comments or a generic extension payload.
 
 Do not put a generic `@extension` payload directly into a new operation when a
-shared authoring helper exists. `@oa-sdk/typespec-decorators` currently owns
-the narrow v5 response-component helper `@oaUseResponseComponent`; it validates
-the status/component shape and does not accept arbitrary extension keys or JSON.
+shared authoring helper exists. `@oa-sdk/typespec-decorators` currently owns:
+- `@oaUseResponseComponent`: validates status/component shape for v5 response components (`x-oa-sdk-operation-component-refs`).
+- `@personaCapability`: validates and emits persona capability traits (`x-oa-sdk-persona-traits`) verified against `packages/personas/src/traits/skill.yaml`.
+- `@pseudonymize`: validates and emits DPM pseudonymization projection rules (`x-oa-sdk-dpm-projection`).
+
 Until a helper covers an extension family, keep the payload adjacent to its
 operation and add a focused example or test that proves the restored OpenAPI
 result.

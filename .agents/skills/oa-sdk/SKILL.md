@@ -5,7 +5,7 @@ description: Expert guide, architecture standards, and verification procedures f
 
 # OpenAPI SDK Monorepo Workflow (`oa-sdk`)
 
-이 프로젝트 레벨 스킬은 `oa-sdk` 모노레포(17개 패키지, 5개 앱)의 아키텍처 원칙, TypeScript AST 양방향 동기화, 타입 어댑터 규격, `oa-gen` CLI 도구 체인 및 검증 절차를 안내합니다.
+이 프로젝트 레벨 스킬은 `oa-sdk` 모노레포(19개 패키지, 5개 앱)의 아키텍처 원칙, TypeScript AST 양방향 동기화, 타입 어댑터 규격, `oa-gen` CLI 도구 체인 및 검증 절차를 안내합니다.
 
 ---
 
@@ -55,7 +55,7 @@ graph TD
    - `@oa-sdk/mock-server`: 동적 OpenAPI 인메모리 목 서버.
    - `@oa-sdk/typia-mock`: Typia AOT 컴파일러 트랜스폼 목 통합용 격리 경계(Maintenance).
 4. **TypeSpec & Governance**:
-   - `@oa-sdk/typespec-decorators`, `@oa-sdk/typespec-erd`, `@oa-sdk/logical-erd-contract`.
+   - `@oa-sdk/typespec-decorators`, `@oa-sdk/typespec-erd`, `@oa-sdk/typespec-tooling`, `@oa-sdk/logical-erd-contract`.
    - `@oa-sdk/personas`: API 페르소나 능력(Skill) 특성 및 계약 (`packages/personas/src/traits/skill.yaml`).
    - `@oa-sdk/dpm`: 디자인 패턴 마이닝(DPM).
 
@@ -82,14 +82,20 @@ graph TD
 # 스키마 유효성 및 OpenAPI 3.2 준수 검증
 oa-gen validate --spec packages/schemas/src/.merged.yaml --require-32
 
-# TypeScript 클라이언트 및 타입 가드 생성
-oa-gen generate --spec packages/schemas/src/.merged.yaml --out dist/
+# TypeSpec AST 시맨틱 차이 및 브레이킹 체인지 검사
+oa-gen tsp diff --base origin/main --head HEAD --fail-on-breaking
 
-# 스키마 심볼 및 의존성 그래프 검사
-oa-gen inspect --spec packages/schemas/src/.merged.yaml
+# TypeSpec 인메모리 컴파일 기반 즉각 Mock HTTP 서버 구동 (핫 리로드)
+oa-gen mock --tsp packages/schemas/typespec/main.tsp --watch
+
+# TypeSpec 신규 엔드포인트 및 DTO 스캐폴딩
+oa-gen tsp-scaffold --route /users/{id}/audit --method get
+
+# TypeScript 클라이언트 및 타입 가드 생성
+oa-gen generate --target standalone-guards --input packages/schemas/src/.merged.yaml --out-dir dist/guards
 
 # Manifest V3 CSP 호환성 감사 (eval / new Function 금지 검사)
-oa-gen audit:csp --target dist/
+oa-gen audit:csp --bundle dist/guards
 
 # 스키마 간 차이점 및 브레이킹 체인지 비교
 oa-gen diff --base spec-v1.yaml --head spec-v2.yaml

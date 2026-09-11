@@ -417,6 +417,13 @@ To prevent secret and credential leaks in test logs and CI outputs, violated inp
 
 The raw string, array elements, or object properties are **never exposed** in the error detail.
 
+### 3.6 Zero-Build Instant TypeSpec Mocking (`oa-gen mock --tsp`)
+
+For fast local developer feedback loops, `oa-gen mock --tsp <path>` bypasses disk OpenAPI YAML generation completely:
+1. **In-Memory Compilation**: Invokes `@typespec/compiler` directly in-process to emit an in-memory OpenAPI 3.2 document object model.
+2. **Direct Server Mounting**: Instantiates `@oa-sdk/mock-server` via `createNodeMockServer` bound to `localhost:4010` (or custom `--port` / `--host`).
+3. **Live Route Swapping (`--watch`)**: Listens to `.tsp` file modifications, re-compiles in < 200ms, and updates active routes seamlessly without dropping connections or requiring process restarts.
+
 ---
 
 ## 4. Typia Compiler Transform Isolation Boundary (`@oa-sdk/typia-mock`)
@@ -472,6 +479,11 @@ oa-gen audit:csp --bundle dist/guards
 ### Validating Spec Compliance for OAS 3.2
 ```bash
 oa-gen validate --spec packages/schemas/src/.merged.yaml --require-32
+```
+
+### Running Zero-Build Instant TypeSpec Mock Server with Watch Mode
+```bash
+oa-gen mock --tsp packages/schemas/typespec/main.tsp --watch
 ```
 
 ### Running Tier 3 Downstream Tests
