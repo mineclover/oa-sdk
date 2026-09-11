@@ -5,17 +5,21 @@ canonical: true
 audience:
   competence: novice
 productVersions:
-  - "@oa-sdk/codegen 0.6.0 source release candidate (npm latest 0.5.0 until promotion)"
-  - "OA SDK API contract 0.5.0"
+  - "@oa-sdk/codegen 0.7.0 (public npm)"
+  - "@oa-sdk/ast-sync 0.1.0 (public npm)"
+  - "@oa-sdk/core 0.3.0 (public npm)"
+  - "@oa-sdk/parser 0.3.0 (public npm)"
+  - "OA SDK API contract 0.7.0"
 tested:
   environment: "Node.js 24 LTS+, pnpm 10.30.3, repository checkout"
-  at: "2026-08-30"
+  at: "2026-09-11"
 owner: "OA SDK maintainers"
-reviewDue: "2026-11-10"
+reviewDue: "2026-12-10"
 status: active
 sourceOfTruth:
   - package.json
   - packages/codegen/package.json
+  - packages/ast-sync/package.json
   - packages/router/package.json
   - packages/client/package.json
   - packages/mock-server/package.json
@@ -29,19 +33,27 @@ sourceOfTruth:
 
 ## 공개 CLI만 사용할 때
 
-비공개 monorepo가 필요 없는 consumer는 공개 npm 배포본으로 자신의 OpenAPI 문서를 검증·생성할
-수 있다. `@oa-sdk/codegen`은 `oa-gen` CLI와 필요한 core runtime dependency를 함께 제공한다.
+비공개 monorepo가 필요 없는 일반 컨슈머는 npm에 공식 배포된 `@oa-sdk/codegen`을 통해 자신의 OpenAPI 3.2 문서를 검증·생성·모킹할 수 있습니다.
 
 ```bash
 npm install --save-dev @oa-sdk/codegen
+# 1. OAS 3.2 스펙 파싱 및 사전 유효성 검증
 npx oa-gen validate --spec ./openapi.yaml --require-32
+
+# 2. OpenAPI 3.2 스펙에서 TypeScript 타입 선언 생성
 npx oa-gen typegen --spec ./openapi.yaml -o types.ts
+
+# 3. OpenAPI 3.2 스펙에서 Zod 4 검증 스키마 및 타입 생성
+npx oa-gen generate:zod --spec ./openapi.yaml -o schemas.ts
+
+# 4. TypeScript 소스의 구문 특성 및 스키마 투영 적합성 감사
+npx oa-gen audit:shape --source ./src/types.ts
+
+# 5. TypeSpec 또는 OpenAPI 기반 인메모리 Mock HTTP 서버 즉각 구동
+npx oa-gen mock --spec ./openapi.yaml --port 4010
 ```
 
-현재 공개 `latest`는 `@oa-sdk/codegen@0.5.0`이며, `0.6.0`은 artifact review 대기 중인
-source release candidate다. artifact-only release repository와 npm 무결성 검증을 거쳐
-promotion되기 전에는 `0.6.0`을 public install target으로 안내하지 않는다. OA SDK 자체
-production schema를 작성하거나 변경하려면 아래의 비공개 source workflow를 사용한다.
+현재 공용 npm 레지스트리(`registry.npmjs.org`)에 `@oa-sdk/codegen@0.7.0`, `@oa-sdk/ast-sync@0.1.0` 등 6종의 배포 아티팩트가 Sigstore SLSA v1 Provenance 서명과 함께 공식 라이브(`latest`) 상태로 제공됩니다. OA SDK 자체 production schema를 작성하거나 변경하려면 아래의 비공개 source workflow를 사용합니다.
 
 ## 비공개 source workflow
 
