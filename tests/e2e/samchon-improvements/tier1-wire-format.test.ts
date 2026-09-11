@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest'
+import type { JsonPrimitive, Resolved } from '@oa-sdk/core'
 import {
-  type JsonPrimitive,
-  type Resolved,
   type ClientResponse,
   toWireJson,
   toResolved,

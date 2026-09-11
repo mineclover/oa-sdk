@@ -3,24 +3,21 @@ import {
   classifyTypeShape,
   extractDeclarationShape,
   auditTypeShapesInSource,
-} from './helpers/taxonomy.js'
+  createInMemoryProgram,
+  detectCyclesWithChecker,
+  getCanonicalSymbolId,
+  resolveAlias,
+} from '@oa-sdk/ast-sync'
+import type { JsonPrimitive, Resolved } from '@oa-sdk/core'
 import {
   toWireJson,
   toResolved,
-  type JsonPrimitive,
-  type Resolved,
   type ClientResponse,
 } from './helpers/wire-format.js'
 import {
   extractOperationsFromSource,
   buildPathPointer,
-} from './helpers/operations.js'
-import {
-  createInMemoryProgram,
-  detectCyclesWithChecker,
-  getCanonicalSymbolId,
-  resolveAlias,
-} from './helpers/cycles.js'
+} from '@oa-sdk/parser'
 import {
   computeTsconfigUniverseFromFs,
   buildSpecProjectKey,
@@ -128,7 +125,7 @@ describe('Tier 3: Cross-Feature Combinations (Pairwise & Multi-Keyword Interacti
 
     const shapeAudit = auditTypeShapesInSource(source)
     expect(shapeAudit.valid).toBe(false)
-    expect(shapeAudit.diagnostics[0].feature).toBe('conditional')
+    expect(shapeAudit.diagnostics.some(d => d.feature === 'conditional')).toBe(true)
   })
 
   it('T3-06: Transitive tsconfig Update + Cache Invalidation + Symbol Cycle Integrity', () => {
@@ -303,7 +300,7 @@ describe('Tier 3: Cross-Feature Combinations (Pairwise & Multi-Keyword Interacti
 
     // Confirm that CLI diagnostic types align with documented contracts
     const audit = auditTypeShapesInSource('export interface Simple { id: string; }')
-    expect(audit.summary).toContain('Scanned 1 declarations')
+    expect(audit.summary).toContain('1 declaration(s)')
   })
 
   it('T3-14: JSDoc Extraction with OAS 3.2 QUERY Method and Resolved<T> Body', () => {

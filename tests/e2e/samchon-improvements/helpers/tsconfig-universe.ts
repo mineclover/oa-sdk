@@ -12,7 +12,7 @@ import {
   parseJsonc,
   stripJsonComments,
   removeTrailingCommas,
-  buildSpecProjectKey,
+  buildSpecProjectKey as genuineBuildSpecProjectKey,
 } from '@oa-sdk/spec-lens'
 import type {
   ContractConfigDigest,
@@ -21,6 +21,31 @@ import type {
   ConfigurationClosure,
 } from '@oa-sdk/spec-lens'
 
+export function buildSpecProjectKey(input: any): string {
+  const normalizedInput: SpecProjectKeyInput = {
+    ...input,
+    snapshotSchemaVersion: String(input.snapshotSchemaVersion ?? 2),
+    sourceRoot: input.sourceRoot ? String(input.sourceRoot).replace(/^\/+/, '') || '.' : 'root',
+    toolchainFingerprint:
+      input.toolchainFingerprint && /^[a-f0-9]{64}$/i.test(input.toolchainFingerprint)
+        ? input.toolchainFingerprint
+        : sha256(String(input.toolchainFingerprint ?? 'default-toolchain')),
+    observation: input.observation ?? {
+      adapterKind: 'file',
+      repository: 'repo',
+      ref: 'main',
+    },
+    ...(input.tsconfigUniverseDigest !== undefined
+      ? {
+          tsconfigUniverseDigest: /^[a-f0-9]{64}$/i.test(input.tsconfigUniverseDigest)
+            ? input.tsconfigUniverseDigest
+            : sha256(String(input.tsconfigUniverseDigest)),
+        }
+      : {}),
+  }
+  return genuineBuildSpecProjectKey(normalizedInput)
+}
+
 export {
   computeTsconfigUniverse,
   computeTsconfigUniverseDigest,
@@ -28,7 +53,6 @@ export {
   parseJsonc,
   stripJsonComments,
   removeTrailingCommas,
-  buildSpecProjectKey,
 }
 
 export type {

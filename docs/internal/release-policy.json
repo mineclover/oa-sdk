@@ -60,6 +60,7 @@
         "@oa-sdk/typia-mock",
         "@oa-sdk/logical-erd-contract",
         "@oa-sdk/typespec-erd",
+        "@oa-sdk/typespec-tooling",
         "@oa-sdk/ttsc-compile-fixture"
       ]
     },
@@ -94,6 +95,7 @@
     "@oa-sdk/typia-mock",
     "@oa-sdk/logical-erd-contract",
     "@oa-sdk/typespec-erd",
+    "@oa-sdk/typespec-tooling",
     "@oa-sdk/ttsc-compile-fixture",
     "@oa-sdk/nestjs-ref",
     "@oa-sdk/playground",

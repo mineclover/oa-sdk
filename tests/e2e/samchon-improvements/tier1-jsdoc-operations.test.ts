@@ -3,7 +3,7 @@ import {
   extractOperationsFromSource,
   buildPathPointer,
   SUPPORTED_HTTP_METHODS,
-} from './helpers/operations.js'
+} from '@oa-sdk/parser'
 
 describe('Tier 1: Zero-Decorator Operation Extraction (Features 8–10)', () => {
   // =========================================================================

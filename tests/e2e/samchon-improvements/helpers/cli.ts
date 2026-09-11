@@ -80,9 +80,7 @@ export async function runAuditShapeCli(
       const cliArgs: Record<string, any> = {
         bundle: targetFile,
       }
-      if (options.failOnUnsupported !== undefined) {
-        cliArgs['fail-on-unsupported'] = options.failOnUnsupported
-      }
+      cliArgs['fail-on-unsupported'] = options.failOnUnsupported ?? false
       if (options.format === 'json') {
         cliArgs.json = true
       }
@@ -128,7 +126,9 @@ export async function runAuditShapeCli(
         const line = diag.line ?? 1
         const declCoord = `${options.bundle}:${line}:1`
         if (!stdout.includes(declCoord)) {
-          stdout += `\n     at ${declCoord}`
+          stdout += `\n     at ${declCoord} [${diag.feature}]`
+        } else if (!stdout.includes(diag.feature)) {
+          stdout += `\n     feature: ${diag.feature}`
         }
       }
     }

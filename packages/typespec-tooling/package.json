@@ -1,7 +1,7 @@
 {
   "name": "@oa-sdk/typespec-tooling",
   "version": "0.1.0",
-  "private": false,
+  "private": true,
   "type": "module",
   "description": "TypeSpec IDE tooling, VS Code configuration presets, snippets, and linter rules for oa-sdk",
   "files": [

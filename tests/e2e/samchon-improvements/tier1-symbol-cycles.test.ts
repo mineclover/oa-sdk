@@ -4,7 +4,7 @@ import {
   detectCyclesWithChecker,
   resolveAlias,
   getCanonicalSymbolId,
-} from './helpers/cycles.js'
+} from '@oa-sdk/ast-sync'
 import ts from 'typescript'
 
 describe('Tier 1: Checker-Resolved Symbol ID Cycle Detection (Features 11–14)', () => {

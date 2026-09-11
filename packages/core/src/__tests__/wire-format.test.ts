@@ -15,21 +15,21 @@ type AssertNotExtends<A, B> = A extends B ? false : true
 
 describe('wire-format: ValueOf', () => {
   it('unboxes boxed primitives to primitives without widening literals', () => {
-    type UnboxBoolean = Assert<Equal<ValueOf<Boolean>, boolean>>
-    type UnboxNumber = Assert<Equal<ValueOf<Number>, number>>
-    type UnboxString = Assert<Equal<ValueOf<String>, string>>
+    type _UnboxBooleanCheck = Assert<Equal<ValueOf<Boolean>, boolean>>
+    type _UnboxNumberCheck = Assert<Equal<ValueOf<Number>, number>>
+    type _UnboxStringCheck = Assert<Equal<ValueOf<String>, string>>
 
     // Literals should be preserved and not widened
-    type PreserveLiteralString = Assert<Equal<ValueOf<'hello'>, 'hello'>>
-    type PreserveLiteralNumber = Assert<Equal<ValueOf<42>, 42>>
-    type PreserveLiteralBoolean = Assert<Equal<ValueOf<true>, true>>
+    type _PreserveLiteralStringCheck = Assert<Equal<ValueOf<'hello'>, 'hello'>>
+    type _PreserveLiteralNumberCheck = Assert<Equal<ValueOf<42>, 42>>
+    type _PreserveLiteralBooleanCheck = Assert<Equal<ValueOf<true>, true>>
 
     // General primitives
-    type PreserveString = Assert<Equal<ValueOf<string>, string>>
-    type PreserveNumber = Assert<Equal<ValueOf<number>, number>>
-    type PreserveBoolean = Assert<Equal<ValueOf<boolean>, boolean>>
+    type _PreserveStringCheck = Assert<Equal<ValueOf<string>, string>>
+    type _PreserveNumberCheck = Assert<Equal<ValueOf<number>, number>>
+    type _PreserveBooleanCheck = Assert<Equal<ValueOf<boolean>, boolean>>
 
-    const t: UnboxBoolean = true
+    const t: ValueOf<Boolean> = true
     expect(t).toBe(true)
   })
 })
@@ -73,14 +73,14 @@ describe('wire-format: ClassProperties', () => {
 
 describe('wire-format: IsTuple', () => {
   it('correctly distinguishes arrays from tuples', () => {
-    type T1 = Assert<Equal<IsTuple<number[]>, false>>
-    type T2 = Assert<Equal<IsTuple<readonly string[]>, false>>
-    type T3 = Assert<Equal<IsTuple<[string, number]>, true>>
-    type T4 = Assert<Equal<IsTuple<[]>, true>>
-    type T5 = Assert<Equal<IsTuple<readonly [boolean]>, true>>
-    type T6 = Assert<Equal<IsTuple<[string, ...number[]]>, true>>
+    type _T1Check = Assert<Equal<IsTuple<number[]>, false>>
+    type _T2Check = Assert<Equal<IsTuple<readonly string[]>, false>>
+    type _T3Check = Assert<Equal<IsTuple<[string, number]>, true>>
+    type _T4Check = Assert<Equal<IsTuple<[]>, true>>
+    type _T5Check = Assert<Equal<IsTuple<readonly [boolean]>, true>>
+    type _T6Check = Assert<Equal<IsTuple<[string, ...number[]]>, true>>
 
-    const check: T1 = true
+    const check = true
     expect(check).toBe(true)
   })
 })
@@ -157,30 +157,30 @@ describe('wire-format: JsonPrimitive', () => {
   })
 
   it('unboxes boxed primitives to plain primitives', () => {
-    type UnboxedString = Assert<Equal<JsonPrimitive<String>, string>>
-    type UnboxedNumber = Assert<Equal<JsonPrimitive<Number>, number>>
-    type UnboxedBoolean = Assert<Equal<JsonPrimitive<Boolean>, boolean>>
+    type _UnboxedStringCheck = Assert<Equal<JsonPrimitive<String>, string>>
+    type _UnboxedNumberCheck = Assert<Equal<JsonPrimitive<Number>, number>>
+    type _UnboxedBooleanCheck = Assert<Equal<JsonPrimitive<Boolean>, boolean>>
 
-    const s: UnboxedString = 'hello'
+    const s: JsonPrimitive<String> = 'hello'
     expect(s).toBe('hello')
   })
 
   it('maps bigint, functions, and symbols to never', () => {
-    type BigIntNever = Assert<Equal<JsonPrimitive<bigint>, never>>
-    type FnNever = Assert<Equal<JsonPrimitive<() => void>, never>>
-    type SymbolNever = Assert<Equal<JsonPrimitive<symbol>, never>>
+    type _BigIntNeverCheck = Assert<Equal<JsonPrimitive<bigint>, never>>
+    type _FnNeverCheck = Assert<Equal<JsonPrimitive<() => void>, never>>
+    type _SymbolNeverCheck = Assert<Equal<JsonPrimitive<symbol>, never>>
 
-    const check: BigIntNever = undefined as never
+    const check: JsonPrimitive<bigint> = undefined as never
     expect(check).toBeUndefined()
   })
 
   it('maps non-Date native classes (Map, Set, RegExp, etc.) to never', () => {
-    type MapNever = Assert<Equal<JsonPrimitive<Map<string, number>>, never>>
-    type SetNever = Assert<Equal<JsonPrimitive<Set<string>>, never>>
-    type RegExpNever = Assert<Equal<JsonPrimitive<RegExp>, never>>
-    type WeakMapNever = Assert<Equal<JsonPrimitive<WeakMap<any, any>>, never>>
+    type _MapNeverCheck = Assert<Equal<JsonPrimitive<Map<string, number>>, never>>
+    type _SetNeverCheck = Assert<Equal<JsonPrimitive<Set<string>>, never>>
+    type _RegExpNeverCheck = Assert<Equal<JsonPrimitive<RegExp>, never>>
+    type _WeakMapNeverCheck = Assert<Equal<JsonPrimitive<WeakMap<any, any>>, never>>
 
-    const check: MapNever = undefined as never
+    const check: JsonPrimitive<Map<string, number>> = undefined as never
     expect(check).toBeUndefined()
   })
 
@@ -223,11 +223,11 @@ describe('wire-format: JsonPrimitive', () => {
   })
 
   it('preserves union types distributing correctly', () => {
-    type NullableDate = Assert<Equal<JsonPrimitive<Date | null>, string | null>>
-    type UndefinedDate = Assert<Equal<JsonPrimitive<Date | undefined>, string | undefined>>
-    type MixedUnion = Assert<Equal<JsonPrimitive<string | number>, string | number>>
+    type _NullableDateCheck = Assert<Equal<JsonPrimitive<Date | null>, string | null>>
+    type _UndefinedDateCheck = Assert<Equal<JsonPrimitive<Date | undefined>, string | undefined>>
+    type _MixedUnionCheck = Assert<Equal<JsonPrimitive<string | number>, string | number>>
 
-    const val: NullableDate = null
+    const val: JsonPrimitive<Date | null> = null
     expect(val).toBeNull()
   })
 })
@@ -268,16 +268,16 @@ describe('wire-format: Resolved', () => {
   })
 
   it('preserves bigint in Resolved', () => {
-    type PreserveBigInt = Assert<Equal<Resolved<bigint>, bigint>>
-    const b: PreserveBigInt = 100n
+    type _PreserveBigIntCheck = Assert<Equal<Resolved<bigint>, bigint>>
+    const b: Resolved<bigint> = 100n
     expect(b).toBe(100n)
   })
 
   it('resolves arrays and tuples while preserving native types', () => {
-    type ResolvedTuple = Assert<Equal<Resolved<[Date, Set<number>]>, [Date, Set<number>]>>
-    type ResolvedArray = Assert<Equal<Resolved<Date[]>, Date[]>>
+    type _ResolvedTupleCheck = Assert<Equal<Resolved<[Date, Set<number>]>, [Date, Set<number>]>>
+    type _ResolvedArrayCheck = Assert<Equal<Resolved<Date[]>, Date[]>>
 
-    const t: ResolvedTuple = [new Date(), new Set([1, 2])]
+    const t: Resolved<[Date, Set<number>]> = [new Date(), new Set([1, 2])]
     expect(t[0]).toBeInstanceOf(Date)
     expect(t[1].has(1)).toBe(true)
   })

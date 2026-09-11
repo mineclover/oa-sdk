@@ -79,13 +79,13 @@
 ## Milestones
 | # | Name | Scope | Dependencies | Status |
 |---|------|-------|-------------|--------|
-| E2E | E2E Testing Track | Requirement-driven test suite (Tiers 1-4) covering Features 1-20, publishing TEST_READY.md | None | IN_PROGRESS |
-| M1 | Type Shape Taxonomy & Feasibility Diagnostics | Features 1, 2, 3, 4: `@oa-sdk/ast-sync` taxonomy + CLI `oa-gen audit:shape` | None | IN_PROGRESS |
-| M2 | Wire-Format Safety (`JsonPrimitive` / `Resolved`) | Features 5, 6, 7: `@oa-sdk/core` utilities + `@oa-sdk/client` wire signatures | None | IN_PROGRESS |
-| M3 | Zero-Decorator Operation Extraction | Features 8, 9, 10: `@oa-sdk/parser` `@oaOperation` extractor & validation | None | IN_PROGRESS |
-| M4 | Checker-Resolved Symbol ID Cycle Detection | Features 11, 12, 13, 14: `@oa-sdk/ast-sync` TypeChecker symbol ID DFS | M1 | PLANNED |
-| M5 | Transitive tsconfig Universe Hashing | Features 15, 16, 17, 18: `@oa-sdk/spec-lens` JSONC closure & SQLite cache key | None | IN_PROGRESS |
-| Final | Monorepo Governance & 100% E2E Pass | Features 19, 20, 21, 22: API index, doc gates, 100% E2E test pass, Tier 5 hardening, audit | M1, M2, M3, M4, M5, E2E | PLANNED |
+| E2E | E2E Testing Track | Requirement-driven test suite (Tiers 1-4) covering Features 1-20, publishing TEST_READY.md | None | DONE |
+| M1 | Type Shape Taxonomy & Feasibility Diagnostics | Features 1, 2, 3, 4: `@oa-sdk/ast-sync` taxonomy + CLI `oa-gen audit:shape` | None | DONE |
+| M2 | Wire-Format Safety (`JsonPrimitive` / `Resolved`) | Features 5, 6, 7: `@oa-sdk/core` utilities + `@oa-sdk/client` wire signatures | None | DONE |
+| M3 | Zero-Decorator Operation Extraction | Features 8, 9, 10: `@oa-sdk/parser` `@oaOperation` extractor & validation | None | DONE |
+| M4 | Checker-Resolved Symbol ID Cycle Detection | Features 11, 12, 13, 14: `@oa-sdk/ast-sync` TypeChecker symbol ID DFS | M1 | DONE |
+| M5 | Transitive tsconfig Universe Hashing | Features 15, 16, 17, 18: `@oa-sdk/spec-lens` JSONC closure & SQLite cache key | None | DONE |
+| Final | Monorepo Governance & 100% E2E Pass | Features 19, 20, 21, 22: API index, doc gates, 100% E2E test pass, Tier 5 hardening, audit | M1, M2, M3, M4, M5, E2E | DONE |
 
 ## Interface Contracts
 

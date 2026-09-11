@@ -63,3 +63,26 @@ const { source, schemaNames } = generateZodFromSpec(openApiDoc, {
 const validators = createRuntimeZodValidators(openApiDoc);
 const result = validators.User.safeParse(data);
 ```
+
+### Preflight Validation & Normalization
+
+`oa-gen generate:zod` and `generateZodFromSpec` include an automated preflight schema validation, linting, and normalization pipeline. Broken `$ref`s or schema defects trigger structured fail-fast diagnostics:
+
+```bash
+# Validate and normalize before generation (default)
+pnpm exec oa-gen generate:zod --spec spec.yaml --output ./zod
+
+# Bypass validation or normalization when required
+pnpm exec oa-gen generate:zod --spec spec.yaml --output ./zod --no-validate --no-normalize
+pnpm exec oa-gen generate:zod --spec spec.yaml --output ./zod --force
+```
+
+## TypeScript Shape Taxonomy Audit
+
+Audit TypeScript source files against the 24-feature syntax taxonomy to determine OpenAPI/TypeSpec projection feasibility:
+
+```bash
+# Audit declarations for projection feasibility
+pnpm exec oa-gen audit:shape --source src/models/types.ts
+```
+

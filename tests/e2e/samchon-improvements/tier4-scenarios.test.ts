@@ -2,22 +2,19 @@ import { describe, it, expect } from 'vitest'
 import {
   classifyTypeShape,
   auditTypeShapesInSource,
-} from './helpers/taxonomy.js'
+  createInMemoryProgram,
+  detectCyclesWithChecker,
+} from '@oa-sdk/ast-sync'
+import type { JsonPrimitive, Resolved } from '@oa-sdk/core'
 import {
   toWireJson,
   toResolved,
-  type JsonPrimitive,
-  type Resolved,
   type ClientResponse,
 } from './helpers/wire-format.js'
 import {
   extractOperationsFromSource,
   buildPathPointer,
-} from './helpers/operations.js'
-import {
-  createInMemoryProgram,
-  detectCyclesWithChecker,
-} from './helpers/cycles.js'
+} from '@oa-sdk/parser'
 import {
   computeTsconfigUniverseFromFs,
   buildSpecProjectKey,

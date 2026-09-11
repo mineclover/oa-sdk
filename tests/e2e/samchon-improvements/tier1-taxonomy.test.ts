@@ -4,7 +4,7 @@ import {
   auditTypeShapesInSource,
   extractDeclarationShape,
   type ContractShapeFeature,
-} from './helpers/taxonomy.js'
+} from '@oa-sdk/ast-sync'
 import { runAuditShapeCli } from './helpers/cli.js'
 import ts from 'typescript'
 

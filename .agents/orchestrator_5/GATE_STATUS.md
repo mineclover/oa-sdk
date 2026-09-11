@@ -22,3 +22,33 @@ Remediation required:
 2. Fix `JsonPrimitive<T>` in `packages/core/src/wire-format.ts` to support self-referential / recursive interfaces without TS2615.
 3. Export `computeTsconfigUniverse` from `packages/spec-lens/src/index.ts`.
 4. Re-verify all tests and gates.
+
+## Gate — Iteration 2 (Remediation)
+| Agent | Role | Verdict | Source | Notes |
+|-------|------|---------|--------|-------|
+| worker_remediation_1 | Worker | DONE | handoff.md | Rewired E2E suite to real packages; fixed JsonPrimitive TS2615; exported computeTsconfigUniverse; 266 E2E tests pass, 17/17 turbo tasks pass |
+| auditor_1 | Forensic Auditor | CLEAN | handoff.md | Certified genuine implementations, zero facades/cheating |
+| reviewer_1 | Reviewer | RESOLVED | handoff.md | Reviewer finding 1 & 2 resolved with genuine package execution |
+| reviewer_2 | Reviewer | RESOLVED | handoff.md | Reviewer finding on TS2615 and public exports resolved and verified |
+| challenger_1 | Challenger | APPROVE | handoff.md | 89 empirical stress tests pass |
+| challenger_2 | Challenger | APPROVE | handoff.md | 27 empirical stress tests pass |
+
+Gate Result: **PASS**
+All 4 pass criteria satisfied:
+1. Build and tests pass: 100% (266 E2E tests + 3,074 unit/integration tests).
+2. Reviewer findings: All 3 blocking items completely remediated and verified.
+3. Challengers: 116 combined stress tests passed.
+4. Forensic Auditor: Certified CLEAN binary verdict.
+
+## Gate — Iteration 3 (Victory Auditor Typecheck Remediation)
+| Agent | Role | Verdict | Source | Notes |
+|-------|------|---------|--------|-------|
+| victory_auditor_8 | Victory Auditor | VICTORY REJECTED | handoff.md | 6 compiler errors in packages/core/src/__tests__/wire-format.test.ts |
+| worker_typecheck_remediation_1 | Worker | DONE | handoff.md | Decoupled Assert<Equal<...>> static checks from runtime variable annotations; tsc --noEmit: 0 errors; pnpm typecheck: 16/16 tasks pass; 117/117 core tests pass; 266/266 E2E tests pass |
+
+Gate Result: **PASS**
+All criteria satisfied:
+1. `pnpm --filter @oa-sdk/core exec tsc --noEmit`: Exit code 0 (0 errors).
+2. `pnpm typecheck`: Exit code 0 (16/16 tasks passed).
+3. Monorepo and E2E test suites: 100% pass (266/266 E2E, 117/117 core, 17/17 turbo tasks).
+4. All monorepo documentation and governance gates remain 100% compliant (0 drift).

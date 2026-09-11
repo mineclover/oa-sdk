@@ -3,27 +3,23 @@ import {
   classifyTypeShape,
   extractDeclarationShape,
   auditTypeShapesInSource,
-  type ContractShapeFeature,
-} from './helpers/taxonomy.js'
-import {
-  toWireJson,
-  toResolved,
-  type JsonPrimitive,
-  type Resolved,
-} from './helpers/wire-format.js'
-import {
-  extractOperationsFromSource,
-} from './helpers/operations.js'
-import {
   createInMemoryProgram,
   detectCyclesWithChecker,
   getCanonicalSymbolId,
   resolveAlias,
-} from './helpers/cycles.js'
+  type ContractShapeFeature,
+} from '@oa-sdk/ast-sync'
+import type { JsonPrimitive, Resolved } from '@oa-sdk/core'
+import { toWireJson, toResolved } from './helpers/wire-format.js'
+import {
+  extractOperationsFromSource,
+} from '@oa-sdk/parser'
 import {
   stripJsonComments,
   removeTrailingCommas,
   parseJsonc,
+} from '@oa-sdk/spec-lens'
+import {
   computeTsconfigUniverseFromFs,
   type VirtualFileSystem,
 } from './helpers/tsconfig-universe.js'
@@ -185,17 +181,17 @@ describe('Tier 2: Boundary & Corner Cases (Stress & Adversarial Verification)', 
       expect(result.operations[0].outputPointer).toBe('#/paths/~1search?filter=active/get')
     })
 
-    it('T2-B3-3: lowercase HTTP method is strictly rejected with diagnostic message', () => {
+    it('T2-B3-3: unsupported HTTP method is strictly rejected with diagnostic message', () => {
       const source = `
         /**
-         * @oaOperation delete /accounts/{id}
+         * @oaOperation INVALID /accounts/{id}
          */
         export function del(): void {}
       `
       const result = extractOperationsFromSource(source)
       expect(result.operations).toHaveLength(0)
       expect(result.diagnostics).toHaveLength(1)
-      expect(result.diagnostics[0].message).toContain('HTTP method must be uppercase')
+      expect(result.diagnostics[0].message).toContain('Unsupported HTTP method')
     })
 
     it('T2-B3-4: trailing whitespace after path is trimmed cleanly', () => {

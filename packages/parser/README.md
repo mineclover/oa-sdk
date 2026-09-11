@@ -46,5 +46,26 @@ console.log(parsed.operations.map(({ method, openApiPath }) => `${method.toUpper
 // [ 'GET /pets' ]
 ```
 
+## Zero-Decorator Route Extraction (@oaOperation)
+
+TypeScript 소스 코드의 JSDoc 주석(`/** @oaOperation <METHOD> <PATH> */`)으로부터 런타임 데코레이터 없이 직접 OpenAPI 3.2 operation 메타데이터를 추출합니다:
+
+```typescript
+import { extractTsOperationsFromSource } from '@oa-sdk/parser'
+
+const source = `
+/**
+ * @oaOperation GET /users/{id}
+ * @summary Get user profile
+ */
+export function getUser(id: string) {}
+`
+
+const operations = extractTsOperationsFromSource(source)
+console.log(operations[0].method) // 'get'
+console.log(operations[0].path)   // '/users/{id}'
+```
+
 지원 symbol의 기준은 package root와 `./browser` export가 제공하는 TypeScript declaration이다.
 공개 artifact에는 private source repository의 문서·테스트·개발 이력이 포함되지 않는다.
+
