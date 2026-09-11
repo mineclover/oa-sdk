@@ -14,6 +14,10 @@ export default defineConfig({
   resolve: {
     alias: {
       '@oa-sdk/mock-server': path.resolve(__dirname, 'packages/mock-server/src/index.ts'),
+      '@oa-sdk/codegen/spec-lens': path.resolve(__dirname, 'packages/codegen/src/spec-lens/index.ts'),
+      '@oa-sdk/codegen/zodgen': path.resolve(__dirname, 'packages/codegen/src/zodgen/index.ts'),
+      '@oa-sdk/codegen/typegen': path.resolve(__dirname, 'packages/codegen/src/typegen/index.ts'),
+      '@oa-sdk/codegen/apitomy': path.resolve(__dirname, 'packages/codegen/src/apitomy/index.ts'),
       '@oa-sdk/codegen': path.resolve(__dirname, 'packages/codegen/src/index.ts'),
       '@oa-sdk/typespec-decorators': path.resolve(__dirname, 'packages/typespec-decorators/src/index.ts'),
       '@oa-sdk/personas': path.resolve(__dirname, 'packages/personas/src/index.ts'),
@@ -23,6 +27,10 @@ export default defineConfig({
       '@oa-sdk/parser/browser': path.resolve(__dirname, 'packages/parser/src/browser.ts'),
       '@oa-sdk/parser': path.resolve(__dirname, 'packages/parser/src/index.ts'),
       '@oa-sdk/openapi-projection-contract': path.resolve(__dirname, 'packages/openapi-projection-contract/src/index.ts'),
+      '@oa-sdk/ast-sync/guards': path.resolve(__dirname, 'packages/ast-sync/src/guards/index.ts'),
+      '@oa-sdk/ast-sync': path.resolve(__dirname, 'packages/ast-sync/src/index.ts'),
+      '@oa-sdk/spec-lens': path.resolve(__dirname, 'packages/spec-lens/src/index.ts'),
+      '@oa-sdk/client': path.resolve(__dirname, 'packages/client/src/index.ts'),
     },
   },
 })

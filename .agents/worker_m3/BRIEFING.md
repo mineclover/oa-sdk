@@ -1,7 +1,7 @@
-# BRIEFING — 2026-09-10T23:41:00Z
+# BRIEFING — 2026-09-11T02:38:00Z
 
 ## Mission
-Implement Requirement R3 (Phase 4): Native TypeSpec Decorators @personaCapability and @pseudonymize in @oa-sdk/typespec-decorators, emit OpenAPI extensions x-oa-sdk-persona-traits and x-oa-sdk-dpm-projection, and integrate with @oa-sdk/personas and @oa-sdk/dpm.
+Implement scripts/bench/bench-zod-mock.ts to execute quantitative performance benchmarks and V8 CPU profiling for Component 3 (Zod 4 / Codegen Engine) and Component 4 (Mock Server HTTP Throughput & Routing Latency), exporting metrics to .bench/zod-mock-results.json.
 
 ## 🔒 My Identity
 - Archetype: worker
@@ -9,6 +9,12 @@ Implement Requirement R3 (Phase 4): Native TypeSpec Decorators @personaCapabilit
 - Working directory: /Users/junwoobang/workflow/oa-sdk/.agents/worker_m3
 - Original parent: c665389a-7f3c-4d31-a717-f16983c4bb03
 - Milestone: M3 (Phase 4: Personas & DPM Native TypeSpec Decorators)
+- Current Assignment: 2026-09-11T02:34:39Z
+- Archetype: teamwork_preview_worker
+- Role: Zod 4 & Mock Server Implementer (M3)
+- Working directory: /Users/junwoobang/workflow/oa-sdk/.agents/worker_m3
+- Original parent: dcde8985-1d52-452b-9743-7bf870f71d2e
+- Milestone: M3 (Zod 4 Codegen & Mock Server Benchmark)
 
 ## 🔒 Key Constraints
 - Exclusive Write Ownership:
@@ -25,71 +31,55 @@ Implement Requirement R3 (Phase 4): Native TypeSpec Decorators @personaCapabilit
 - Zero shortcuts / dummy implementations. Real compiler decorators using TypeSpec and OpenAPI extension emission APIs.
 - Real trait validation against 24 standard traits in skill.yaml.
 - Real DPM safety invariant enforcement (SAF001, SAF002, SAF010).
+- Assignment 2026-09-11:
+  - Exclusive Write Ownership: scripts/bench/bench-zod-mock.ts ONLY. DO NOT modify any files outside this boundary.
+  - Shared toolkit: scripts/bench/lib/index.ts (withCpuProfile, measureMemoryDelta, assertZeroFdLeak, calculateLatencyStats, generateSyntheticOpenApiSchema).
+  - Genuine benchmarks with real workloads and real V8 CPU sampling.
+  - Zero FD leaks across 20 mock server cycles; HTTP error rate strictly < 0.1%.
+  - Clean execution with `node --expose-gc --import tsx scripts/bench/bench-zod-mock.ts` exiting with code 0.
 
 ## Current Parent
-- Conversation ID: c665389a-7f3c-4d31-a717-f16983c4bb03
-- Updated: 2026-09-10T23:41:00Z
+- Conversation ID: dcde8985-1d52-452b-9743-7bf870f71d2e
+- Updated: 2026-09-11T02:38:00Z
 
 ## Task Summary
 - **What to build**:
-  1. `@oa-sdk/typespec-decorators`:
-     - `lib/decorators.tsp`: `@personaCapability` (target: Operation) and `@pseudonymize` (target: ModelProperty).
-     - `src/decorators.ts`: `$personaCapability` and `$pseudonymize` decorator implementations.
-     - `src/lib.ts`: diagnostics `invalid-persona-trait` and `invalid-pseudonymize-rule`.
-     - `src/index.ts`: export decorators and validation sets.
-     - `src/decorators.test.ts` & `src/decorators.emitter.test.ts`: unit and compiler integration tests.
-  2. `@oa-sdk/personas`:
-     - `src/load.ts`: Extract `x-oa-sdk-persona-traits` into `OperationInfo.traits`.
-     - `src/validate.ts`: Check endpoint trait obligations against persona required skills.
-     - `src/__tests__/persona-traits.test.ts`: dedicated unit test suite for trait extraction and validation.
-  3. `@oa-sdk/dpm`:
-     - `src/validator/data-binding-validator.ts`: Recognize and validate `x-oa-sdk-dpm-projection` against safety invariants (SAF001, SAF002, SAF010) and manifest column policies.
-     - `src/validator/safety-validator.ts`: Normalize and validate columns with `x-oa-sdk-dpm-projection`.
-     - `test/validator-data-binding.test.ts`: added test suite for projection validation.
+  - `scripts/bench/bench-zod-mock.ts`:
+    1. Zod 4 Codegen Benchmark: `generateZodFromSpec` on `packages/schemas/typespec/approved.openapi.yaml`, DFS `findCircularSchemas` scaling (10, 50, 100, 200, 500 models), formatting latency (`formatGeneratedTs`).
+    2. Mock Server HTTP Throughput: `createNodeMockServer` on port 0, native `node:http.request` with persistent keepAlive agent (`http.Agent({ keepAlive: true, maxSockets: 100 })`), concurrency 10, 50, 100, assert error rate < 0.1%.
+    3. Atomic `updateSpec` Route Swap: Active concurrent requests at concurrency 50 with concurrent `updateSpec` invocations verifying 0 dropped connections.
+    4. Route Matching & Specificity: Latency across small (10), medium (50), and large (200+) route tables, and `compareRouteSpecificity` resolution overhead.
+    5. V8 CPU Profiling: `withCpuProfile` on `generateZodFromSpec`, `findCircularSchemas` (500 scale), and Mock Server load; export `.cpuprofile` files to `.bench/`.
+    6. Memory & FD Stability: `measureMemoryDelta` across 2,000 requests, `assertZeroFdLeak` across 20 mock server start/stop/updateSpec cycles.
+    7. Output: Export metrics to `.bench/zod-mock-results.json` and print summary tables to console.
 - **Success criteria**:
-  - `pnpm --filter @oa-sdk/typespec-decorators test` passes (13/13 tests pass).
-  - `pnpm personas:check` passes with 0 errors and 0 warnings.
-  - `pnpm --filter @oa-sdk/personas test` passes (160/160 tests pass).
-  - `pnpm --filter @oa-sdk/dpm test` passes (275/275 tests pass).
-  - `pnpm schema:typespec-check` passes with zero drift.
-
-## Key Decisions Made
-- `@personaCapability` operates on TypeSpec `Operation`, validates against 24 canonical capability traits from `skill.yaml`, rejects unknown traits with `invalid-persona-trait`, and emits sorted, deduplicated traits in `x-oa-sdk-persona-traits: string[]`.
-- `@pseudonymize` operates on `ModelProperty`, validates transform and role against DPM specifications, enforces safety rules SAF001, SAF002, SAF010 at compile time, and emits `x-oa-sdk-dpm-projection`.
-- `loadOperationsFromMergedSpec` parses `x-oa-sdk-persona-traits` from YAML into `OperationInfo.traits` as `Set<string>` (or undefined if not annotated).
-- `validate.ts` verifies trait obligations: for implemented personas mapping to endpoints with declared traits, each required skill must be present in `op.traits`. Endpoints without declared traits are skipped for backward compatibility.
-- `data-binding-validator.ts` verifies `x-oa-sdk-dpm-projection` at API pointers, enforcing SAF001, SAF002, SAF010 and consistency with DPM manifest column definitions.
+  - `node --expose-gc --import tsx scripts/bench/bench-zod-mock.ts` exits cleanly with code 0.
+  - `.bench/zod-mock-results.json` generated with complete metrics.
+  - Zero FD leaks verified; HTTP error rate < 0.1% verified.
 
 ## Loaded Skills
-- **Source**: `/Users/junwoobang/workflow/oa-sdk/.agents/skills/oa-governance/SKILL.md`
-- **Local copy**: `/Users/junwoobang/workflow/oa-sdk/.agents/worker_m3/skills/oa-governance/SKILL.md`
-- **Core methodology**: API persona capability taxonomy (24 traits in skill.yaml), TypeSpec extension emission, DPM safety invariants (SAF001, SAF002, SAF010), and static governance gates.
+- **Source**: `/Users/junwoobang/workflow/oa-sdk/.agents/skills/oa-codegen/SKILL.md`
+- **Local copy**: `/Users/junwoobang/workflow/oa-sdk/.agents/worker_m3/skills/oa-codegen/SKILL.md`
+- **Core methodology**: AST codegen pipeline, Zod type adapter, circular reference lazy-handling (`z.lazy`), and trivia-preserving formatting.
+- **Source**: `/Users/junwoobang/workflow/oa-sdk/.agents/skills/oa-runtime/SKILL.md`
+- **Local copy**: `/Users/junwoobang/workflow/oa-sdk/.agents/worker_m3/skills/oa-runtime/SKILL.md`
+- **Core methodology**: In-memory mock server architecture (`createNodeMockServer`), linear regex route matching (`matchRoute`), specificity tiers (`compareRouteSpecificity`), atomic `updateSpec` state swap.
 
 ## Change Tracker
 - **Files modified**:
-  - `packages/typespec-decorators/lib/decorators.tsp`: extern dec declarations for `@personaCapability` and `@pseudonymize`
-  - `packages/typespec-decorators/src/decorators.ts`: decorator implementations, constants, and safety validation
-  - `packages/typespec-decorators/src/lib.ts`: diagnostics `invalid-persona-trait` and `invalid-pseudonymize-rule`
-  - `packages/typespec-decorators/src/index.ts`: export new decorators and validation sets
-  - `packages/typespec-decorators/src/decorators.test.ts`: unit tests for persona capability and pseudonymize decorators
-  - `packages/typespec-decorators/src/decorators.emitter.test.ts`: end-to-end TypeSpec compiler emission test
-  - `packages/typespec-decorators/vitest.config.ts`: test runner configuration
-  - `packages/personas/src/load.ts`: extract `x-oa-sdk-persona-traits` into `OperationInfo.traits`
-  - `packages/personas/src/validate.ts`: `checkOperationTraits` validating endpoint trait obligations
-  - `packages/personas/src/__tests__/persona-traits.test.ts`: dedicated test suite
-  - `packages/dpm/src/validator/data-binding-validator.ts`: recognize and validate `x-oa-sdk-dpm-projection`
-  - `packages/dpm/src/validator/safety-validator.ts`: handle column-level `x-oa-sdk-dpm-projection`
-  - `packages/dpm/test/validator-data-binding.test.ts`: 5 new tests for projection validation
-- **Build status**: PASS
+  - `scripts/bench/bench-zod-mock.ts`: Created comprehensive M3 benchmark and V8 profiling suite.
+- **Build status**: PASS (node --expose-gc --import tsx scripts/bench/bench-zod-mock.ts exited code 0)
 - **Pending issues**: None
 
 ## Quality Status
-- **Build/test result**: PASS across all packages (`@oa-sdk/typespec-decorators`, `@oa-sdk/personas`, `@oa-sdk/dpm`, `personas:check`, `schema:typespec-check`)
-- **Lint status**: Clean (tsc --noEmit passed across all targets)
-- **Tests added/modified**: 11 unit tests in `decorators.test.ts`, 1 emitter test in `decorators.emitter.test.ts`, 5 unit tests in `persona-traits.test.ts`, 5 integration tests in `validator-data-binding.test.ts`
+- **Build/test result**: PASS (Error rate 0.00%, Zero dropped connections on updateSpec, Zero FD leaks across 20 cycles)
+- **Lint status**: Clean
+- **Tests added/modified**: Full benchmark suite in `scripts/bench/bench-zod-mock.ts` with assertions on error rate, updateSpec connection drops, and FD leaks.
 
 ## Artifact Index
-- `.agents/worker_m3/DISPATCH.md` — Dispatch assignment
+- `.agents/worker_m3/DISPATCH.md` — Assignment instructions
 - `.agents/worker_m3/BRIEFING.md` — Situational awareness
 - `.agents/worker_m3/progress.md` — Liveness heartbeat
 - `.agents/worker_m3/handoff.md` — 5-component handoff report
+- `scripts/bench/bench-zod-mock.ts` — Benchmark implementation
+- `.bench/zod-mock-results.json` — Exported benchmark data

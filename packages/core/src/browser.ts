@@ -6,3 +6,4 @@ export { pascalCase, toTypeScriptIdentifier, createOperationTypeNameMap, toOpera
 export { collectTypeNames, hasGeneratedErrorType, getGeneratedErrorResponseKeys } from './codegen-utils.js'
 export { formatGeneratedTs } from './format.js'
 export { pickDefaultStatus } from './response-utils.js'
+export type { JsonPrimitive, Resolved, ValueOf, ClassProperties } from './wire-format.js'

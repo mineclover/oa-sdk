@@ -37,3 +37,5 @@ export type {
   RootResolutionReason,
 } from './root.js'
 
+// 와이어 포맷 유틸
+export type { JsonPrimitive, Resolved, ValueOf, ClassProperties } from './wire-format.js'

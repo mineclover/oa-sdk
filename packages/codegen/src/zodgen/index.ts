@@ -7,6 +7,7 @@ export {
 
 export {
   generateZodFromSpec,
+  ZodGenerationPreflightError,
   type GenerateZodOptions,
 } from './generate-zod.js'
 

@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto'
 import { posix } from 'node:path'
+import { computeTsconfigUniverseDigest } from '../infrastructure/cache/sqlite/tsconfig-universe.js'
 
 export const SPEC_LENS_SNAPSHOT_SCHEMA_VERSION = 'spec-lens.snapshot.v2' as const
 export const SPEC_LENS_DIFF_SCHEMA_VERSION = 'spec-lens.diff.v2' as const
@@ -27,6 +28,8 @@ export type DefinitionBuilderProjectConfig = {
   kind: 'definition-builder'
   sourceRoot: string
   targetPath: string
+  tsconfigPath?: string
+  tsconfigUniverseDigest?: string
 }
 
 export type TypeSpecBundleProjectConfig = {
@@ -37,6 +40,8 @@ export type TypeSpecBundleProjectConfig = {
   watchPaths?: string[]
   /** Explicit, bounded repo-relative inputs observed with a TypeSpec revision. */
   observationInputs?: readonly TypeSpecObservationInput[]
+  tsconfigPath?: string
+  tsconfigUniverseDigest?: string
 }
 
 export type TypeSpecObservationInputClass = 'candidate-only' | 'evidence-only'
@@ -80,6 +85,7 @@ export type SpecProjectKeyInput = {
   snapshotSchemaVersion: string
   toolchainFingerprint: string
   observation: SpecObservationIdentity
+  tsconfigUniverseDigest?: string
 }
 
 type SpecProjectIdentityBase = Readonly<SpecProjectKeyInput & {
@@ -119,19 +125,36 @@ export function createSpecProjectIdentity(
   config: DefinitionBuilderProjectConfig,
   manifestOrTargetDigest: string,
   observation: SpecObservationIdentity,
+  tsconfigUniverseDigest?: string,
 ): DefinitionBuilderProjectIdentity
 export function createSpecProjectIdentity(
   config: TypeSpecBundleProjectConfig,
   manifestOrTargetDigest: string,
   observation: SpecObservationIdentity,
   toolchainFingerprint: string,
+  tsconfigUniverseDigest?: string,
 ): TypeSpecBundleProjectIdentity
 export function createSpecProjectIdentity(
   config: SpecProjectConfig,
   manifestOrTargetDigest: string,
   observation: SpecObservationIdentity,
-  toolchainFingerprint?: string,
+  toolchainFingerprintOrTsconfigDigest?: string,
+  tsconfigUniverseDigest?: string,
 ): SpecProjectIdentity {
+  let toolchainFingerprint: string | undefined
+  let resolvedTsconfigDigest: string | undefined
+
+  if (config.kind === 'typespec-bundle') {
+    toolchainFingerprint = toolchainFingerprintOrTsconfigDigest
+    resolvedTsconfigDigest = tsconfigUniverseDigest ?? config.tsconfigUniverseDigest
+  } else {
+    resolvedTsconfigDigest = toolchainFingerprintOrTsconfigDigest ?? config.tsconfigUniverseDigest
+  }
+
+  if (resolvedTsconfigDigest === undefined && config.tsconfigPath !== undefined) {
+    resolvedTsconfigDigest = computeTsconfigUniverseDigest(config.tsconfigPath)
+  }
+
   const observationInputs = config.kind === 'typespec-bundle' && config.observationInputs !== undefined
     ? normalizeObservationInputs(config.observationInputs)
     : undefined
@@ -150,6 +173,7 @@ export function createSpecProjectIdentity(
       ? requireSha256(toolchainFingerprint, 'toolchainFingerprint')
       : DEFINITION_BUILDER_TOOLCHAIN_FINGERPRINT,
     observation: normalizeObservationIdentity(observation),
+    ...(resolvedTsconfigDigest !== undefined ? { tsconfigUniverseDigest: resolvedTsconfigDigest } : {}),
   }
   return {
     ...input,
@@ -171,6 +195,9 @@ export function buildSpecProjectKey(input: SpecProjectKeyInput): string {
       ? requireSha256(input.toolchainFingerprint, 'toolchainFingerprint')
       : requireNonEmptyString(input.toolchainFingerprint, 'toolchainFingerprint'),
     observation: normalizeObservationIdentity(input.observation),
+    ...(input.tsconfigUniverseDigest !== undefined
+      ? { tsconfigUniverseDigest: requireSha256(input.tsconfigUniverseDigest, 'tsconfigUniverseDigest') }
+      : {}),
   }
   return sha256(JSON.stringify(normalized))
 }
@@ -185,6 +212,13 @@ export function digestText(value: string): string {
 
 function parseProject(value: unknown): SpecProjectConfig {
   if (!isRecord(value)) throw new Error('project must be an object')
+  const tsconfigPath = typeof value.tsconfigPath === 'string' && value.tsconfigPath.trim() !== ''
+    ? value.tsconfigPath
+    : undefined
+  const tsconfigUniverseDigest = typeof value.tsconfigUniverseDigest === 'string' && value.tsconfigUniverseDigest.trim() !== ''
+    ? value.tsconfigUniverseDigest
+    : undefined
+
   if (value.kind === 'definition-builder') {
     const sourceRoot = normalizeSourceRoot(requireNonEmptyString(value.sourceRoot, 'project.sourceRoot'))
     return {
@@ -194,6 +228,8 @@ function parseProject(value: unknown): SpecProjectConfig {
         requireNonEmptyString(value.targetPath, 'project.targetPath'),
         'project.targetPath',
       ),
+      ...(tsconfigPath !== undefined ? { tsconfigPath } : {}),
+      ...(tsconfigUniverseDigest !== undefined ? { tsconfigUniverseDigest } : {}),
     }
   }
   if (value.kind === 'typespec-bundle') {
@@ -213,6 +249,8 @@ function parseProject(value: unknown): SpecProjectConfig {
       sourceRoot,
       manifestPath,
       ...(observationInputs !== undefined ? { observationInputs } : {}),
+      ...(tsconfigPath !== undefined ? { tsconfigPath } : {}),
+      ...(tsconfigUniverseDigest !== undefined ? { tsconfigUniverseDigest } : {}),
     }
   }
   throw new Error('project.kind must be definition-builder or typespec-bundle')

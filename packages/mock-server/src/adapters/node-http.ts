@@ -1,5 +1,16 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http'
-import { assertParsedDocumentComplete, parseDocument, matchRoute, resolveServerUrl, type HttpMethod, type MatchResult, type OasDocument, type OasSchema, type OperationEntry, type RouteIndex } from '@oa-sdk/parser'
+import {
+  assertParsedDocumentComplete,
+  parseDocument,
+  matchRoute,
+  resolveServerUrl,
+  type HttpMethod,
+  type MatchResult,
+  type OasDocument,
+  type OasSchema,
+  type OperationEntry,
+  type RouteIndex,
+} from '@oa-sdk/parser'
 import { handleRequest } from '../core/handler.js'
 import { isStreamingContentType, generateStreamChunks } from '../core/stream.js'
 import { filterRouteIndex, type RouteFilter } from '../core/route-filter.js'
@@ -7,6 +18,7 @@ import { assertValidRequestSchemas, createMultipartBody, type MultipartPartMetad
 import { serializeResponseBody } from '../core/body-serialization.js'
 import { isXmlMediaType } from '../core/xml.js'
 import type { CallbackObserver, CallbackPostAttempt } from '../core/callbacks.js'
+import { pickResponse } from '../core/response-picker.js'
 
 export type NodeMockServerOptions = {
   port?: number
@@ -43,10 +55,31 @@ export type NodeMockServer = {
   updateSpec(spec: OasDocument | Record<string, unknown>): { routesCount: number }
 }
 
+/** Pre-serialized response structure for static route responses */
+type PrecomputedResponse = {
+  status: number
+  contentType: string
+  payload: string
+  headers: Record<string, string | number>
+  originalBody: unknown
+}
+
 type ServerRoutingState = {
   parsed: ReturnType<typeof parseDocument>
   basePath: string
   index: RouteIndex
+  precomputed: Map<OperationEntry, PrecomputedResponse>
+  allowedHeadersCache: Map<string, string>
+}
+
+// ─── Pre-allocated Constants for Common Static Error Frames ─────────────────
+
+const INTERNAL_ERROR_PAYLOAD = JSON.stringify({
+  error: { code: 'CONSTRAINT_VIOLATION', message: 'Mock 처리 중 내부 오류가 발생했습니다', details: [] },
+})
+const INTERNAL_ERROR_HEADERS = {
+  'Content-Type': 'application/json',
+  'Content-Length': Buffer.byteLength(INTERNAL_ERROR_PAYLOAD),
 }
 
 /**
@@ -90,25 +123,96 @@ export function createNodeMockServer(
     const nextMergedRoutes = mergeWebhookRoutes(nextParsed.routes, nextParsed.webhooks)
     const nextIndex = filterRouteIndex(nextMergedRoutes, include)
     if (shouldValidateRequestSchemas) assertValidRequestSchemas(nextIndex)
+    // Precalculate default static responses for all operation entries
+    const precomputed = new Map<OperationEntry, PrecomputedResponse>()
+    const allowedHeadersCache = new Map<string, string>()
+
+    for (const [, methodMap] of nextIndex) {
+      for (const [, entry] of methodMap) {
+        if (entry.responses) {
+          const picked = pickResponse(entry.responses)
+          if (picked && !isStreamingContentType(picked.contentType)) {
+            const payload = serializeResponseBody(picked.contentType, picked.body, picked.schema)
+            const contentLength = Buffer.byteLength(payload)
+            const headers: Record<string, string | number> = {
+              ...picked.headers,
+              'Content-Type': picked.contentType,
+              'Content-Length': contentLength,
+            }
+            precomputed.set(entry, {
+              status: picked.status,
+              contentType: picked.contentType,
+              payload,
+              headers,
+              originalBody: picked.body,
+            })
+          }
+        }
+      }
+    }
+
     return {
       parsed: nextParsed,
       basePath: nextBasePath,
       index: nextIndex,
+      precomputed,
+      allowedHeadersCache,
     }
   }
 
   let state = compileRoutingState(spec, '@oa-sdk/mock-server createNodeMockServer')
   let httpServer: Server | null = null
-  let actualPort = port  // port: 0이면 listen 후 실제 포트로 갱신
+  let actualPort = port // port: 0이면 listen 후 실제 포트로 갱신
+  const formattedHost = formatHost(host)
+  let requestOrigin = `http://${formattedHost}:${actualPort}`
   const overrides = new Map<string, OverrideResponse>()
 
   const handler = async (req: IncomingMessage, res: ServerResponse): Promise<void> => {
     const currentState = state
     const method = (req.method ?? 'GET').toLowerCase() as HttpMethod
     const rawUrl = req.url ?? '/'
-    const requestOrigin = `http://${formatHost(host)}:${actualPort}`
-    const parsedUrl = new URL(rawUrl, requestOrigin)
-    const urlPath = stripBasePath(parsedUrl.pathname, currentState.basePath)
+
+    // Fast-path URL parsing: bypass WHATWG URL parser for typical relative paths
+    let urlPath: string
+    let queryParams: Record<string, string | string[]> = {}
+    let rawQueryString: string | undefined
+    let requestUrl: string
+
+    if (rawUrl.charCodeAt(0) === 47 /* '/' */) {
+      const qIndex = rawUrl.indexOf('?')
+      if (qIndex === -1) {
+        const hIndex = rawUrl.indexOf('#')
+        urlPath = stripBasePath(hIndex === -1 ? rawUrl : rawUrl.slice(0, hIndex), currentState.basePath)
+      } else {
+        urlPath = stripBasePath(rawUrl.slice(0, qIndex), currentState.basePath)
+        const hIndex = rawUrl.indexOf('#', qIndex + 1)
+        rawQueryString = rawUrl.slice(qIndex + 1, hIndex === -1 ? undefined : hIndex)
+        const params = new URLSearchParams(rawQueryString)
+        for (const [k, v] of params.entries()) {
+          const existing = queryParams[k]
+          if (existing !== undefined) {
+            queryParams[k] = Array.isArray(existing) ? [...existing, v] : [existing, v]
+          } else {
+            queryParams[k] = v
+          }
+        }
+      }
+      requestUrl = `${requestOrigin}${rawUrl}`
+    } else {
+      // Fallback for full absolute URLs (e.g. forward proxy requests)
+      const parsedUrl = new URL(rawUrl, requestOrigin)
+      urlPath = stripBasePath(parsedUrl.pathname, currentState.basePath)
+      rawQueryString = extractRawQueryString(rawUrl)
+      for (const [k, v] of parsedUrl.searchParams.entries()) {
+        const existing = queryParams[k]
+        if (existing !== undefined) {
+          queryParams[k] = Array.isArray(existing) ? [...existing, v] : [existing, v]
+        } else {
+          queryParams[k] = v
+        }
+      }
+      requestUrl = parsedUrl.toString()
+    }
 
     const matched: MatchResult = matchRoute(currentState.index, method, urlPath)
 
@@ -120,7 +224,11 @@ export function createNodeMockServer(
     }
 
     if (matched.type === 'method_not_allowed') {
-      const allow = matched.allowed.map((m: string) => m.toUpperCase()).join(', ')
+      let allow = currentState.allowedHeadersCache.get(urlPath)
+      if (allow === undefined) {
+        allow = matched.allowed.map((m: string) => m.toUpperCase()).join(', ')
+        currentState.allowedHeadersCache.set(urlPath, allow)
+      }
       res.writeHead(405, { Allow: allow, 'Content-Length': '0' })
       res.end()
       return
@@ -136,35 +244,40 @@ export function createNodeMockServer(
         res.writeHead(ov.status, { ...ovHeaders, 'Content-Length': '0' })
         res.end()
       } else {
-        writeBody(res, ov.status, ovHeaders['Content-Type'] ?? ovHeaders['content-type'] ?? 'application/json', ov.body, ovHeaders)
+        writeBody(
+          res,
+          ov.status,
+          ovHeaders['Content-Type'] ?? ovHeaders['content-type'] ?? 'application/json',
+          ov.body,
+          ovHeaders,
+        )
       }
       return
     }
 
-    // query params
-    const queryParams: Record<string, string | string[]> = {}
-    for (const [k, v] of parsedUrl.searchParams.entries()) {
-      const existing = queryParams[k]
-      if (existing !== undefined) {
-        queryParams[k] = Array.isArray(existing) ? [...existing, v] : [existing, v]
-      } else {
-        queryParams[k] = v
-      }
-    }
-
-    // headers — Node uses IncomingMessage.headers (object with string|string[]), unlike MSW's Fetch Headers
+    // Fast-path headers extraction avoiding Object.entries array allocation
+    const reqHeaders = req.headers
     const headers: Record<string, string> = {}
-    for (const [k, v] of Object.entries(req.headers)) {
+    for (const k in reqHeaders) {
+      const v = reqHeaders[k]
       if (typeof v === 'string') headers[k] = v
       else if (Array.isArray(v)) headers[k] = v[0] ?? ''
     }
 
     const contentType = headers['content-type']
     const parsedBody = await readBody(req)
-    const rawQueryString = extractRawQueryString(rawUrl)
 
     const hr = handleRequest(
-      { pathParams, queryParams, ...(rawQueryString !== undefined ? { rawQueryString } : {}), headers, body: parsedBody.body, ...(parsedBody.parseError ? { bodyParseError: parsedBody.parseError } : {}), contentType, url: parsedUrl.toString() },
+      {
+        pathParams,
+        queryParams,
+        ...(rawQueryString !== undefined ? { rawQueryString } : {}),
+        headers,
+        body: parsedBody.body,
+        ...(parsedBody.parseError ? { bodyParseError: parsedBody.parseError } : {}),
+        contentType,
+        url: requestUrl,
+      },
       entry,
       currentState.parsed.securitySchemes,
     )
@@ -190,27 +303,39 @@ export function createNodeMockServer(
       return
     }
 
+    // Fast path: reuse pre-calculated serialized body and pre-allocated static headers
+    const precalc = currentState.precomputed.get(entry)
+    if (precalc && picked.status === precalc.status && picked.body === precalc.originalBody) {
+      res.writeHead(precalc.status, precalc.headers)
+      res.end(precalc.payload)
+      return
+    }
+
     writeBody(res, picked.status, picked.contentType, picked.body, picked.headers, picked.schema)
   }
 
   return {
-    get url() { return `http://${formatHost(host)}:${actualPort}${state.basePath}` },
+    get url() { return `http://${formattedHost}:${actualPort}${state.basePath}` },
 
     start(): Promise<void> {
       return new Promise((resolve, reject) => {
         httpServer = createServer((req, res) => {
-          handler(req, res).catch(err => {
+          handler(req, res).catch(() => {
             if (res.writableEnded) return
             if (res.headersSent) {
               res.destroy()
               return
             }
-            writeJson(res, 500, { error: { code: 'CONSTRAINT_VIOLATION', message: 'Mock 처리 중 내부 오류가 발생했습니다', details: [] } })
+            res.writeHead(500, INTERNAL_ERROR_HEADERS)
+            res.end(INTERNAL_ERROR_PAYLOAD)
           })
         })
         httpServer.listen(port, host, () => {
           const addr = httpServer!.address()
-          if (addr && typeof addr === 'object') actualPort = addr.port
+          if (addr && typeof addr === 'object') {
+            actualPort = addr.port
+            requestOrigin = `http://${formattedHost}:${actualPort}`
+          }
           resolve()
         })
         httpServer.once('error', reject)
@@ -254,7 +379,12 @@ export function createNodeMockServer(
 // ─── helpers ────────────────────────────────────────────────────────────────
 
 function writeJson(res: ServerResponse, status: number, body: unknown): void {
-  writeBody(res, status, 'application/json', body)
+  const payload = JSON.stringify(body) ?? ''
+  res.writeHead(status, {
+    'Content-Type': 'application/json',
+    'Content-Length': Buffer.byteLength(payload),
+  })
+  res.end(payload)
 }
 
 function writeBody(
@@ -266,7 +396,12 @@ function writeBody(
   schema?: OasSchema,
 ): void {
   const payload = serializeResponseBody(contentType, body, schema)
-  res.writeHead(status, { ...extraHeaders, 'Content-Type': contentType, 'Content-Length': Buffer.byteLength(payload) })
+  const byteLength = Buffer.byteLength(payload)
+  if (Object.keys(extraHeaders).length === 0) {
+    res.writeHead(status, { 'Content-Type': contentType, 'Content-Length': byteLength })
+  } else {
+    res.writeHead(status, { ...extraHeaders, 'Content-Type': contentType, 'Content-Length': byteLength })
+  }
   res.end(payload)
 }
 
@@ -278,8 +413,16 @@ async function notifyCallbackAttempts(attempts: readonly CallbackPostAttempt[], 
 type ParsedRequestBody = { body: unknown; parseError?: 'invalid-json' }
 
 async function readBody(req: IncomingMessage): Promise<ParsedRequestBody> {
-  const ct = (req.headers['content-type'] ?? '').split(';')[0]?.trim() ?? ''
+  const te = req.headers['transfer-encoding']
+  const cl = req.headers['content-length']
 
+  // Fast-path: bodiless requests (GET, HEAD, DELETE without body payload)
+  if (te === undefined && (cl === undefined || cl === '0')) {
+    req.resume()
+    return { body: undefined }
+  }
+
+  const ct = (req.headers['content-type'] ?? '').split(';')[0]?.trim() ?? ''
   const raw = await readRaw(req)
   if (raw === '') return { body: undefined }
 
@@ -304,9 +447,9 @@ async function readBody(req: IncomingMessage): Promise<ParsedRequestBody> {
       if (!name) continue
 
       const parsedPart: MultipartPartMetadata = { name, value, headers }
-      const contentType = headers['content-type']
+      const partContentType = headers['content-type']
       const filename = parseHeaderParameter(disposition, 'filename')
-      if (contentType !== undefined) parsedPart.contentType = contentType
+      if (partContentType !== undefined) parsedPart.contentType = partContentType
       if (filename !== undefined) parsedPart.filename = filename
       parsedParts.push(parsedPart)
     }

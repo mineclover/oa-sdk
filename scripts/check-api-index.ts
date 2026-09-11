@@ -48,7 +48,7 @@ function extractExportsFromFile(filePath: string, visited = new Set<string>()): 
   for (const m of content.matchAll(/export\s*\{([^}]+)\}\s*from\s*['"]([^'"]+)['"]/g)) {
     const items = m[1]
     for (const item of items.split(',')) {
-      const trimmed = item.trim()
+      const trimmed = item.trim().replace(/^type\s+/, '')
       if (!trimmed) continue
       // "Foo as Bar" → Bar, "Foo" → Foo
       const asMatch = trimmed.match(/\w+\s+as\s+(\w+)/)

@@ -61,4 +61,26 @@ describe('formatGeneratedTs', () => {
     const code = formatGeneratedTs('const value = [\n{\nname: string\n}\n]\nconst done = true')
     expect(code.split('\n')[5]).toBe('const done = true')
   })
+
+  it('z.object({ ... }).strict() 등 복합 여는/닫는 괄호 체이닝 시 indent 누적이 발생하지 않는다', () => {
+    const input = [
+      'export const A = z.object({',
+      '  x: z.string(),',
+      '}).strict().describe("first")',
+      '',
+      'export const B = z.object({',
+      '  y: z.string(),',
+      '}).strict().describe("second")',
+    ].join('\n')
+
+    const formatted = formatGeneratedTs(input)
+    const lines = formatted.split('\n')
+    expect(lines[0]).toBe('export const A = z.object({')
+    expect(lines[1]).toBe('  x: z.string(),')
+    expect(lines[2]).toBe('}).strict().describe("first")')
+    expect(lines[3]).toBe('')
+    expect(lines[4]).toBe('export const B = z.object({')
+    expect(lines[5]).toBe('  y: z.string(),')
+    expect(lines[6]).toBe('}).strict().describe("second")')
+  })
 })

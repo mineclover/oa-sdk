@@ -68,6 +68,32 @@ OA SDK와 bun-graph-db가 각자의 source loader, repository, CLI, MCP, GraphQL
 | `SchemaSourceCoordinate` | `openapi-projection-contract/src/index.ts` | file 또는 DB 기반 source coordinate |
 | `SchemaValidateResult` | `openapi-projection-contract/src/index.ts` | projection/value validation 결과 envelope |
 | `SchemaTypeTarget` | `openapi-projection-contract/src/index.ts` | projected schema/type output target metadata |
+| `projectDiscriminatedUnion()` | `openapi-projection-contract/src/discriminated-union.ts` | 다형성 스키마 및 RPC/MCP 요청을 정규 OpenAPI 3.1 discriminator + oneOf 구조로 투영 |
+| `projectDiscriminatedUnionDocument()` | `openapi-projection-contract/src/discriminated-union.ts` | 투영된 판별 유니온 스키마와 경로를 완전한 OpenAPI projection document envelope으로 생성 |
+| `DiscriminatedUnionProjectionOptions` | `openapi-projection-contract/src/discriminated-union.ts` | 판별 유니온 투영 옵션 (discriminatorProperty, unionSchemaId, variants, pathPrefix 등) |
+| `DiscriminatedUnionProjectionResult` | `openapi-projection-contract/src/discriminated-union.ts` | 투영된 root unionSchema, variantSchemas, optional operation paths 결과 |
+| `DiscriminatedUnionDocumentOptions` | `openapi-projection-contract/src/discriminated-union.ts` | 판별 유니온 문서 생성 옵션 (info, title, version, openapiVersion 포함) |
+| `OPENAPI_SURFACE_ANCHOR_EXTENSION` | `openapi-projection-contract/src/surface-extensions.ts` | 소스 앵커 메타데이터 OpenAPI extension 이름 `x-surface-anchor` |
+| `OPENAPI_SURFACE_PARAM_RANGE_EXTENSION` | `openapi-projection-contract/src/surface-extensions.ts` | 파라미터 텍스트 범위 메타데이터 OpenAPI extension 이름 `x-surface-param-range` |
+| `OPENAPI_SURFACE_FINGERPRINT_EXTENSION` | `openapi-projection-contract/src/surface-extensions.ts` | 서피스 핑거프린트 OpenAPI extension 이름 `x-surface-fingerprint` |
+| `OPENAPI_SURFACE_QUOTE_STYLE_EXTENSION` | `openapi-projection-contract/src/surface-extensions.ts` | 따옴표 스타일 메타데이터 OpenAPI extension 이름 `x-surface-quote-style` |
+| `OPENAPI_SURFACE_PATCH_POLICY_EXTENSION` | `openapi-projection-contract/src/surface-extensions.ts` | 패치 정책 메타데이터 OpenAPI extension 이름 `x-surface-patch-policy` |
+| `OPENAPI_SURFACE_EXTENSION_NAMES` | `openapi-projection-contract/src/surface-extensions.ts` | OpenAPI 서피스 메타데이터 extension 이름 tuple |
+| `OpenApiSurfaceExtensionName` | `openapi-projection-contract/src/surface-extensions.ts` | OpenAPI 서피스 메타데이터 extension 이름 union |
+| `SURFACE_QUOTE_STYLES` | `openapi-projection-contract/src/surface-extensions.ts` | 지원하는 따옴표 스타일 목록 ('single', 'double', 'backtick', 'none') |
+| `SurfaceQuoteStyle` | `openapi-projection-contract/src/surface-extensions.ts` | 따옴표 스타일 literal union |
+| `SURFACE_PATCH_POLICY_ON_DRIFT_VALUES` | `openapi-projection-contract/src/surface-extensions.ts` | 드리프트 발생 시 패치 정책 목록 ('abort', 'rebase', 'force') |
+| `SurfacePatchPolicyOnDrift` | `openapi-projection-contract/src/surface-extensions.ts` | 드리프트 발생 시 패치 정책 union |
+| `SurfaceAnchorMetadata` | `openapi-projection-contract/src/surface-extensions.ts` | 소스 라인/컬럼 위치 및 식별자 메타데이터 인터페이스 |
+| `SurfaceParamRangeMetadata` | `openapi-projection-contract/src/surface-extensions.ts` | 텍스트 오프셋 시작/종료 범위 및 라이브 패치 지원 메타데이터 |
+| `SurfacePatchPolicyMetadata` | `openapi-projection-contract/src/surface-extensions.ts` | 드리프트 처리 정책 및 재시도 한도 메타데이터 |
+| `SurfaceExtensionFields` | `openapi-projection-contract/src/surface-extensions.ts` | OpenAPI 스펙 루트 또는 작업에 부착되는 서피스 확장 필드 모음 |
+| `isOpenApiSurfaceExtensionName()` | `openapi-projection-contract/src/surface-extensions.ts` | unknown 값이 정규 서피스 확장명인지 판별하는 타입 가드 |
+| `isSurfaceQuoteStyle()` | `openapi-projection-contract/src/surface-extensions.ts` | unknown 값이 유효한 SurfaceQuoteStyle인지 판별하는 타입 가드 |
+| `isSurfaceFingerprint()` | `openapi-projection-contract/src/surface-extensions.ts` | unknown 값이 SHA-256 형식 핑거프린트인지 검증하는 타입 가드 |
+| `isSurfaceAnchorMetadata()` | `openapi-projection-contract/src/surface-extensions.ts` | unknown 값이 SurfaceAnchorMetadata 구조인지 검증하는 타입 가드 |
+| `isSurfaceParamRangeMetadata()` | `openapi-projection-contract/src/surface-extensions.ts` | unknown 값이 SurfaceParamRangeMetadata 구조인지 검증하는 타입 가드 |
+| `isSurfacePatchPolicyMetadata()` | `openapi-projection-contract/src/surface-extensions.ts` | unknown 값이 SurfacePatchPolicyMetadata 구조인지 검증하는 타입 가드 |
 
 ---
 
@@ -644,6 +670,11 @@ category barrel을 가리킨다. `packages/dpm/test/package-subpath-import-smoke
 | `resolveServerUrl()` | `query.ts` | Server variables URL 치환 |
 | `lintDocument()` | `lint.ts` | 7카테고리 17규칙 린트 |
 | `validateDocument()` | `validate.ts` | 종합 검증 (파싱+린트) |
+| `extractOperationsFromSource()` | `ts-operation-extractor.ts` | TypeScript 소스 텍스트에서 JSDoc `@oaOperation` 태그를 추출하여 OpenAPI 3.2 Operation 목록 및 진단 반환 |
+| `extractOperationsFromFile()` | `ts-operation-extractor.ts` | TypeScript 파일 경로에서 JSDoc `@oaOperation` 태그를 추출하여 OpenAPI 3.2 Operation 목록 및 진단 반환 |
+| `toOperationEntry()` | `ts-operation-extractor.ts` | `ExtractedOperation`을 OpenAPI 3.2 표준 `OperationEntry` 모델로 변환 |
+| `buildPathPointer()` | `ts-operation-extractor.ts` | OpenAPI 3.2 JSON Pointer (`#/paths/~1.../method`) 빌드 |
+| `SUPPORTED_HTTP_METHODS` | `ts-operation-extractor.ts` | 지원되는 HTTP 메서드 (OAS 3.2 query 포함 9종) 집합 |
 
 ### 타입 (`@oa-sdk/parser` — 함수/파이프라인)
 
@@ -725,16 +756,21 @@ category barrel을 가리킨다. `packages/dpm/test/package-subpath-import-smoke
 | `LintResult` | `lint.ts` | 린트 결과. source file/pointer와 YAML line/column metadata 포함 가능 |
 | `LintSeverity` | `lint.ts` | 린트 심각도 |
 | `LintOptions` | `lint.ts` | 린트 옵션. basePath와 optional source location lookup 지원 |
+| `LintCategory` | `lint.ts` | 린트 규칙 카테고리 union ('spec' / 'style' / 'best-practice' / 'performance' / 'security') |
 | `ValidateDocumentOptions` | `validate.ts` | validation gate 옵션. basePath/source location과 OpenAPI 3.2 strict 여부 지원 |
 | `ValidationResult` | `validate.ts` | 검증 결과 |
+| `ExtractedOperation` | `ts-operation-extractor.ts` | JSDoc `@oaOperation` 태그에서 추출된 API 오퍼레이션 모델 (method, path, declarationName, declarationKind 등) |
+| `OperationDiagnostic` | `ts-operation-extractor.ts` | JSDoc 오퍼레이션 태그 구문/메서드/경로 파싱 진단 정보 |
+| `OperationExtractResult` | `ts-operation-extractor.ts` | 오퍼레이션 추출 결과 (operations, diagnostics) |
 
 ---
 
 ## 함수 (`@oa-sdk/codegen`)
 
 Typegen 공개 surface는 root entry(`@oa-sdk/codegen`)와 typegen sub-entry(`@oa-sdk/codegen/typegen`)에서 동일하게 지원한다.
-지원 subpath는 package exports의 `.`, `./apitomy`, `./drizzle`, `./spec-lens`, `./typegen`, `./typegen/browser`이며 `typegen/generate-types.ts`와 `typegen/schema-to-ts.ts`는 문서상 코드 위치일 뿐 package deep import로 공개하지 않는다.
+지원 subpath는 package exports의 `.`, `./apitomy`, `./drizzle`, `./spec-lens`, `./typegen`, `./typegen/browser`, `./zodgen`이며 `typegen/generate-types.ts`와 `typegen/schema-to-ts.ts`는 문서상 코드 위치일 뿐 package deep import로 공개하지 않는다.
 `./typegen/browser`는 이미 로드된 OpenAPI 객체를 위한 브라우저 안전 surface이며, 외부 파일 `$ref` 분석과 `basePath` 처리는 Node용 `./typegen`에 남긴다.
+`./zodgen`은 OpenAPI 3.2 Schema Object(Draft 2020-12)를 최신 Zod 4 코드로 생성하고 런타임 검증기를 제공하는 모듈이다.
 
 | 함수 | 파일 | 용도 |
 |------|------|------|
@@ -744,19 +780,36 @@ Typegen 공개 surface는 root entry(`@oa-sdk/codegen`)와 typegen sub-entry(`@o
 | `validateOaConfig()` | `config.ts` | OaConfig 스키마 및 타겟 유효성 검증 |
 | `assertOaConfig()` | `config.ts` | 유효하지 않은 OaConfig에 대해 OaConfigError throw |
 | `isOaConfig()` | `config.ts` | OaConfig 타입 가드 |
+| `OaConfigError` | `config.ts` | oa.config 설정 유효성 검증 실패 에러 클래스 |
 | `loadOaConfig()` | `cli/lib/config-loader.ts` | TypeScript/ESM/JSON oa.config 비동기 로더 및 캐시 버스팅 |
 | `resolveProfileTarget()` | `cli/lib/config-loader.ts` | 프로파일 타겟 경로 정규화 및 절대 경로 해석 |
 | `resolveGuardTarget()` | `cli/lib/config-loader.ts` | 타입 가드 타겟 경로 정규화 |
+| `CANDIDATE_CONFIG_FILES` | `cli/lib/config-loader.ts` | 설정 파일 검색 후보 목록 (`oa.config.ts`, `oa.config.js`, `oa.config.mjs`, `oa.config.json`) |
+| `findProjectRoot()` | `@oa-sdk/core` re-export | 상향식 프로젝트 루트 디렉터리 자동 탐색 함수 re-export |
+| `stableStringify()` | `spec-projector.ts` | 키 순서가 정렬된 결정론적 JSON 직렬화 |
+| `computeSha256()` | `spec-projector.ts` | 입력 문자열의 SHA-256 해시 계산 |
 | `computeVersionHash()` | `spec-projector.ts` | 결정론적 SHA-256 스펙 해시 계산 |
+| `stripSchemaEngineExtensions()` | `spec-projector.ts` | 산출물 객체에서 `x-schema-engine-*` 내부 확장 필드 제거 |
 | `projectTargetSpec()` | `spec-projector.ts` | 선언적 프로파일 기반 OpenAPI/JSON Schema 산출물 투영 |
 | `projectTargetGuards()` | `spec-projector.ts` | 선언적 타겟 기반 독립형 타입 가드 일괄 생성 |
 | `generateStandaloneGuards()` | `standalone-guards/index.ts` | 사전 컴파일된 제로 런타임/Zero-Eval 독립형 ESM 타입 가드 생성 |
 | `computeEntitySpecDiff()` | `ast-sync/diff-engine.ts` | EntitySpec 간 정밀 AST 차이 계산 |
+| `createInsertEdit()` | `ast-sync/text-edit.ts` | 소스 코드 삽입 편집 단위 생성 헬퍼 |
+| `createReplaceEdit()` | `ast-sync/text-edit.ts` | 소스 코드 교체 편집 단위 생성 헬퍼 |
+| `createDeleteEdit()` | `ast-sync/text-edit.ts` | 소스 코드 삭제 편집 단위 생성 헬퍼 |
 | `applyTextEdits()` | `ast-sync/text-edit.ts` | 역오프셋 상향식 텍스트 편집 적용 (트리비아/포맷 100% 보존) |
 | `syncEntitySpecWithCode()` | `ast-sync/index.ts` | EntitySpec IR과 소스 코드 간 양방향 동기화 |
 | `ZodTypeAdapter` | `ast-sync/adapters/zod-adapter.ts` | Zod 스키마 양방향 AST 어댑터 |
 | `TsAstTypeAdapter` | `ast-sync/adapters/ts-ast-adapter.ts` | TypeScript 인터페이스/타입 양방향 AST 어댑터 |
 | `TypiaTypeAdapter` | `ast-sync/adapters/typia-adapter.ts` | Typia 검증 태그 양방향 AST 어댑터 |
+| `createZod4Algebra()` | `zodgen/schema-to-zod.ts` | OpenAPI 3.2 Schema Object를 Zod 4 코드로 변환하는 catamorphic fold 대수 |
+| `generateZodFromSpec()` | `zodgen/generate-zod.ts` | OpenAPI 3.2 스펙의 컴포넌트 스키마를 Zod 4 정의 및 타입 추론 코드로 생성 |
+| `ZodGenerationPreflightError` | `zodgen/generate-zod.ts` | Zod 4 코드 생성 전 사전 검증(preflight validation) 실패 시 진단 정보와 함께 throw되는 에러 클래스 |
+| `schemaToZod()` | `zodgen/schema-to-zod.ts` | 단일 OasSchema를 Zod 4 코드 표현식으로 변환 |
+| `prepareSchemaForZod()` | `zodgen/schema-to-zod.ts` | Zod 4 변환을 위한 스키마 사전 처리 (타입 배열, nullish, exclusive bounds 등 정규화) |
+| `normalizeOasForZodRuntime()` | `zodgen/runtime-adapter.ts` | Zod 4 `z.fromJSONSchema` 호환을 위한 OAS 포인터 및 키워드 정규화 |
+| `createDynamicZodValidator()` | `zodgen/runtime-adapter.ts` | Zod 4 네이티브 JSON Schema 파서를 이용한 단일 인메모리 런타임 검증기 생성 |
+| `createRuntimeZodValidators()` | `zodgen/runtime-adapter.ts` | 전체 컴포넌트 스키마에 대한 인메모리 런타임 Zod 검증기 맵 생성
 | `generateTypes()` | `typegen/generate-types.ts` | ParsedDocument → TS 타입 문자열 (ResponseLinks 포함) |
 | `generateTypesFromSpec()` | `typegen/generate-types.ts` | OAS spec → TS 타입 (parseDocument 포함, ResponseLinks 포함) |
 | `generateTypes()` / `generateTypesFromSpec()` | `typegen/browser.ts` | 브라우저 안전 typegen. in-memory spec만 처리하고 Node crypto/path/filesystem ref graph를 import하지 않음 |
@@ -813,6 +866,8 @@ Typegen 공개 surface는 root entry(`@oa-sdk/codegen`)와 typegen sub-entry(`@o
 | `loadApitomyDataModels()` | `apitomy/index.ts` | optional `@apitomy/data-models`를 동적으로 로드하고 미설치 시 actionable error를 반환 |
 | `APITOMY_DATA_MODELS_PACKAGE` | `apitomy/index.ts` | optional Apitomy package specifier 상수 |
 | `APITOMY_REFERENCE_ADAPTER_VERSION` | `apitomy/index.ts` | reference 비교 리포트의 adapter contract version |
+| `auditShapeCommand` | `cli/commands/audit-shape.ts` | TypeScript AST 타입 형태 분류 및 TypeSpec/OpenAPI 투영 가능성 진단 감사 CLI 커맨드 |
+| `auditShapeFiles()` | `cli/commands/audit-shape.ts` | 지정된 경로 내 TypeScript 소스 파일들의 타입 형태를 감사하여 진단 리포트 생성 |
 
 ### 타입 (`@oa-sdk/codegen`)
 
@@ -822,6 +877,32 @@ Typegen 공개 surface는 root entry(`@oa-sdk/codegen`)와 typegen sub-entry(`@o
 | `NamedSchema` | `types.ts` | `{ name, schema }` — writer 입력 |
 | `CodegenResult` | `types.ts` | `{ components, files, warnings }` |
 | `CodegenConfig` | `config.ts` | `OutputOptions & { schemas }` |
+| `OaConfig` | `config.ts` | oa.config.ts 최상위 설정 인터페이스 |
+| `ProfileTargetConfig` | `config.ts` | 프로파일 기반 산출물 생성 타겟 설정 |
+| `GuardTargetConfig` | `config.ts` | 독립형 타입 가드 생성 타겟 설정 |
+| `ConfigValidationError` | `config.ts` | oa.config 유효성 검증 오류 항목 |
+| `ConfigValidationResult` | `config.ts` | oa.config 유효성 검증 결과 (valid, errors) |
+| `LoadOaConfigOptions` | `cli/lib/config-loader.ts` | 설정 파일 로드 옵션 (cwd, configFile) |
+| `LoadedOaConfig` | `cli/lib/config-loader.ts` | 로드된 OaConfig 및 해결된 파일 경로 |
+| `ResolvedProfileTarget` | `cli/lib/config-loader.ts` | 절대 경로가 해결된 프로파일 타겟 |
+| `ResolvedGuardTarget` | `cli/lib/config-loader.ts` | 절대 경로가 해결된 가드 타겟 |
+| `FindProjectRootOptions` | `@oa-sdk/core` re-export | 프로젝트 루트 탐색 옵션 re-export |
+| `GenerateZodOptions` | `zodgen/generate-zod.ts` | Zod 4 코드 생성 옵션 (exportTypes, banner, targetVersion 등) |
+| `Zod4AlgebraOptions` | `zodgen/schema-to-zod.ts` | Zod 4 fold 대수 옵션 |
+| `ASTDiff` | `ast-sync/diff-engine.ts` | 소스 코드와 EntitySpec 간의 단일 AST 차이 항목 |
+| `ASTDiffKind` | `ast-sync/diff-engine.ts` | AST 차이 종류 (`add-property`, `remove-property`, `modify-property` 등) |
+| `EntityDiscriminator` | `ast-sync/types.ts` | 엔티티 판별자 필드 명세 |
+| `EntityKind` | `ast-sync/types.ts` | 엔티티 종류 ('interface', 'type-alias', 'zod-schema' 등) |
+| `EntityPropertySpec` | `ast-sync/types.ts` | 엔티티 단일 속성 명세 |
+| `EntitySpec` | `ast-sync/types.ts` | 소스-스키마 양방향 동기화를 위한 언어 독립적 엔티티 명세 IR |
+| `PropertyConstraint` | `ast-sync/types.ts` | 속성 유효성 검증 제약조건 명세 |
+| `SyncOptions` | `ast-sync/index.ts` | 소스 코드 AST 동기화 옵션 |
+| `SyncResult` | `ast-sync/index.ts` | 소스 코드 AST 동기화 결과 (modifiedCode, textEdits) |
+| `TextEdit` | `ast-sync/text-edit.ts` | 역오프셋 기반 텍스트 편집 단위 (start, end, newText) |
+| `TypeAdapter` | `ast-sync/adapters/type-adapter.ts` | AST 구문 분석 및 코드 생성 TypeAdapter 인터페이스 |
+| `GeneratedGuardArtifact` | `standalone-guards/index.ts` | 생성된 독립형 타입 가드 아티팩트 (targetName, source, outputPath) |
+| `StandaloneGuardGeneratorOptions` | `standalone-guards/index.ts` | 독립형 타입 가드 생성 옵션 |
+| `StandaloneGuardTarget` | `standalone-guards/index.ts` | 독립형 타입 가드 대상 스펙 및 출력 경로 설정 |
 | `DrizzleCodegenOptions` | `drizzle/index.ts` | `OutputOptions & { schemaPath, ... }` |
 | `OasSchema` | **`@oa-sdk/parser` re-export** | codegen이 parser 정식 타입 사용 |
 | `TypegenOptions` | `typegen/generate-types.ts` | public typegen 옵션. `@oa-sdk/codegen`과 `@oa-sdk/codegen/typegen`에서 모두 export |
@@ -1121,6 +1202,8 @@ Governance manifest: `packages/codegen/src/cli/spec/oa-gen-governance.ts` 및 `d
 |-----------|------|------|
 | `generateClient()` | `generate-client.ts` | OAS spec → fetch 기반 createClient() 코드. 기본 operation 메서드는 body 반환을 유지하고, 문서화된 응답 헤더가 있으면 generated typed response object를 반환하는 `withResponse.<operation>()` helper를 함께 생성 |
 | `ClientOptions` | `generate-client.ts` | 클라이언트 생성 옵션 타입 |
+| `JsonPrimitive<T>` | `wire-format.ts` | 유선 직렬화 응답 페이로드 재귀 유틸리티 타입 |
+| `Resolved<T>` | `wire-format.ts` | 유선 직렬화 요청 바디 재귀 유틸리티 타입 |
 
 ---
 
@@ -1155,7 +1238,20 @@ Governance manifest: `packages/codegen/src/cli/spec/oa-gen-governance.ts` 및 `d
 | `DEFAULT_CONFIG_FILES` | `root.ts` | 기본 설정 파일 마커 목록 (`oa.config.ts`, `.oarc.json` 등) |
 | `DEFAULT_WORKSPACE_FILES` | `root.ts` | 기본 모노레포 워크스페이스 마커 목록 (`pnpm-workspace.yaml`, `turbo.json` 등) |
 | `DEFAULT_VCS_DIRS` | `root.ts` | 기본 버전 관리 마커 목록 (`.git` 등) |
-| `DEFAULT_ENV_VAR_NAME` | `root.ts` | 환경 변수 오버라이드 기본 식별자 (`OA_PROJECT_ROOT`) |
+| `DEFAULT_ENV_VAR_NAME` | `root.ts` | 환경 변수 오버라이드 기본 식별자 ('OA_PROJECT_ROOT') |
+
+### 타입 (`@oa-sdk/core`)
+
+| 타입 | 파일 | 용도 |
+|------|------|------|
+| `FindProjectRootOptions` | `root.ts` | 프로젝트 루트 탐색 옵션 (cwd, markers, checkParent, envVarName) |
+| `ProjectRootMarkers` | `root.ts` | 커스텀 설정/워크스페이스/VCS 마커 구성 인터페이스 |
+| `ProjectRootDetail` | `root.ts` | 매칭된 마커 및 탐색 이유(RootResolutionReason)를 포함한 상세 루트 정보 |
+| `RootResolutionReason` | `root.ts` | 루트 식별 이유 union ('env' \| 'config' \| 'workspace' \| 'vcs' \| 'cwd-fallback') |
+| `JsonPrimitive<T>` | `wire-format.ts` | 엄격한 JSON 유선 직렬화 재귀 유틸리티 타입 (함수/메서드/심볼/프로토타입 제거, Date → string, toJSON() 해결) |
+| `Resolved<T>` | `wire-format.ts` | 클래스 메서드를 제거하면서 Date/Set/Map을 보존하는 유선 유틸리티 타입 |
+| `ValueOf<T>` | `wire-format.ts` | 박싱된 프리미티브 타입을 언박싱하고 리터럴을 보존하는 유틸리티 타입 |
+| `ClassProperties<T>` | `wire-format.ts` | 클래스/객체에서 메서드/함수를 제외하고 데이터 프로퍼티만 추출하는 타입 |
 
 ---
 

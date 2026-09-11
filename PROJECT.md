@@ -1,119 +1,201 @@
-# Project: TypeSpec Ecosystem Expansion (Phases 2, 3, 4)
+# Project: Samchon-Inspired Contract Provenance, Type Taxonomy & Wire Safety
 
 ## Architecture
-- **Layer 1: TypeSpec Modeling & Decorators (`@oa-sdk/typespec-decorators`)**:
-  - `@personaCapability` decorator validating against 24 traits from `packages/personas/src/traits/skill.yaml` and emitting `x-oa-sdk-persona-traits`.
-  - `@pseudonymize` decorator enforcing DPM safety rules (`SAF001`, `SAF002`, `SAF010`) and emitting `x-oa-sdk-dpm-projection`.
-- **Layer 2: In-Memory Compiler & Semantic Engine (`@oa-sdk/codegen`)**:
-  - Semantic AST Diff: parses base and head TypeSpec programs via `@typespec/compiler`, `@typespec/http`, and `@typespec/openapi`. Extracts operations and models into normalized semantics, classifies breaking vs non-breaking changes across 7 categories, supports git refs and local files.
-  - In-Memory Zero-Disk Compiler: compiles TypeSpec directly to OpenAPI 3.2 in-memory via `@typespec/compiler` (`noEmit: true`) and `@typespec/openapi3` (`getOpenAPI3`), avoiding intermediate YAML disk writes.
-  - Multi-token CLI routing: supports compound commands like `oa-gen tsp diff` and single-token aliases `tsp-diff`.
-- **Layer 3: Runtime Mock Server (`@oa-sdk/mock-server`)**:
-  - `NodeMockServer.updateSpec(nextSpec)` allows atomic replacement of routing/validation state while keeping the HTTP listener alive on port 4010 without dropped connections.
-  - Watch mode (`--watch`) leverages `node:fs.watch` and incremental `@typespec/compiler` recompilation (~360ms) to trigger `updateSpec` dynamically.
-- **Layer 4: Downstream Validation & Governance (`@oa-sdk/personas`, `@oa-sdk/dpm`, `@spec-platform/document-gates`)**:
-  - `@oa-sdk/personas`: extracts `x-oa-sdk-persona-traits` during `pnpm personas:check` and verifies persona capability fulfillment.
-  - `@oa-sdk/dpm`: consumes `x-oa-sdk-dpm-projection` and verifies data-binding safety against schema projections.
-  - Governance Gates: `createCliReferenceGate`, `createCliExampleGate`, `pnpm check:docs`, and `pnpm schema:typespec-check`.
+- **Layer 1: Type Shape Taxonomy & Feasibility Diagnostics (`@oa-sdk/ast-sync`, CLI `oa-gen audit:shape`)**:
+  - Traverses TypeScript AST type nodes to catalog 23/24 syntax features: `array`, `conditional`, `constructor-type`, `function-type`, `generic-declaration`, `generic-instantiation`, `import-type`, `indexed-access`, `inheritance`, `intersection`, `literal`, `mapped`, `nullable`, `object`, `optional`, `recursive-reference`, `reference`, `template-literal`, `tuple`, `type-operator`, `type-query`, `undefined`, `union`, `utility-type`.
+  - Tripartite projection feasibility classification: `unsupported` (e.g. conditional, mapped, indexed-access) > `policy-required` (e.g. tuple, undefined, generic-declaration, utility-type) > `direct` (primitives, objects, unions, intersections, arrays).
+  - Emits line/column diagnostic pointers (`ShapeDiagnostic`) and terminal audit reporting via `oa-gen audit:shape` with `--fail-on-unsupported`.
+- **Layer 2: Wire-Format Safety (`@oa-sdk/core`, `@oa-sdk/client`)**:
+  - Canonical recursive utility types `JsonPrimitive<T>` and `Resolved<T>` in `@oa-sdk/core`.
+  - `JsonPrimitive<T>` models strict JSON wire serialization: strips functions, methods, symbols, and prototypes; maps `Date` $\rightarrow$ `string`; resolves `toJSON()`; converts `bigint` to `never`.
+  - `Resolved<T>` strips class methods to avoid requiring consumers to instantiate domain prototypes, while preserving `Date` and collections.
+  - `@oa-sdk/client` code generator emits `JsonPrimitive<T>` / `Resolved<T>` utilities inline (zero external runtime dependencies) and wraps response return types (`Promise<JsonPrimitive<...>>`, `ClientResponse<JsonPrimitive<...>>`) and request bodies (`Resolved<...>`).
+- **Layer 3: Zero-Decorator Operation Extraction (`@oa-sdk/parser`, `@oa-sdk/codegen`)**:
+  - AST extractor in `@oa-sdk/parser` parsing explicit `/** @oaOperation <METHOD> <PATH> */` JSDoc annotations on exported functions and type aliases.
+  - Strict syntax validation: enforces uppercase/lowercase HTTP verbs (`get`, `put`, `post`, `delete`, `options`, `head`, `patch`, `trace`, and OAS 3.2 `query`) and path coordinates starting with `/`.
+  - Emits structured `invalid-oa-operation` diagnostics for malformed tags; never guesses or infers operations from unannotated declarations.
+  - Emits normalized OpenAPI 3.2 `OperationEntry` structures.
+- **Layer 4: Checker-Resolved Symbol ID Cycle Detection (`@oa-sdk/ast-sync`)**:
+  - Multi-file TypeScript program analysis utilizing `ts.TypeChecker`.
+  - Dereferences type aliases and imports via `checker.getSymbolAtLocation` and `checker.getAliasedSymbol` to canonical integer `symbol.id`.
+  - Builds directed dependency graphs `schemaDependencies: Map<string, Set<string>>` using canonical symbol IDs.
+  - Executes directed DFS cycle detection, detecting mutual recursions across re-exports and aliased imports with 100% precision, tagging cyclic declarations with `"recursive-reference"`.
+- **Layer 5: Transitive tsconfig Universe Hashing (`@oa-sdk/spec-lens`)**:
+  - Transitive configuration closure walker in `@oa-sdk/spec-lens` that recursively parses JSONC (stripping comments and trailing commas) across `extends` chains and project `references`.
+  - Computes deterministic SHA-256 digests of all configuration files and compiler root files (`tsconfigUniverseDigest`).
+  - Integrates `tsconfigUniverseDigest` into Spec-Lens SQLite WAL cache key derivation (`buildSpecProjectKey` and `cache-key.ts`), guaranteeing automatic cache invalidation when base tsconfigs change.
+- **Layer 6: Monorepo Governance & Gates**:
+  - Updates `docs/internal/api-index.md` and verifies `pnpm check:api-index`.
+  - Updates `docs/guides/cli-command-reference.md` and verifies `pnpm check:docs` and `pnpm check:cli-spec`.
+  - Full test suite passing across all packages (`pnpm test`, `pnpm test:core`, `pnpm --filter @oa-sdk/client test`).
 
 ## Code Layout
-- `packages/codegen/src/cli/commands/tsp-diff.ts`: CLI command handler for `oa-gen tsp diff`.
-- `packages/codegen/src/cli/lib/typespec-ast-diff.ts`: Semantic AST diff extraction and classification engine.
-- `packages/codegen/src/cli/lib/typespec-ref-resolver.ts`: Resolver for git refs (`HEAD~1`) and file paths.
-- `packages/codegen/src/cli/commands/mock.ts`: CLI command handler for `oa-gen mock --tsp`.
-- `packages/codegen/src/cli/lib/typespec-mock-compiler.ts`: In-memory zero-build TypeSpec compiler and watch loop.
-- `packages/codegen/src/cli/index.ts`: Compound subcommand lookahead router.
-- `packages/codegen/src/cli/commands.ts`: Central command registry.
-- `packages/mock-server/src/adapters/node-http.ts`: `NodeMockServer` with atomic `updateSpec` method.
-- `packages/typespec-decorators/lib/decorators.tsp`: TypeSpec extern declarations for `@personaCapability` and `@pseudonymize`.
-- `packages/typespec-decorators/src/decorators.ts`: TypeScript compiler implementations for the decorators.
-- `packages/typespec-decorators/src/lib.ts`: Diagnostic definitions (`invalid-persona-trait`, `invalid-pseudonymize-rule`, etc.).
-- `packages/personas/src/load.ts` & `validate.ts`: Consumption of `x-oa-sdk-persona-traits`.
-- `docs/guides/cli-command-reference.md`: Complete documentation of all registered `oa-gen` commands.
-- `tests/e2e/`: Requirement-driven E2E test suite.
+- `packages/ast-sync/src/taxonomy/features.ts`: 23/24 ContractShapeFeatures, TypeSpecProjection enum, diagnostic types.
+- `packages/ast-sync/src/taxonomy/analyzer.ts`: AST visitor, feature collector, projection classifier, source range diagnostics.
+- `packages/ast-sync/src/checker/program.ts`: ts.Program and TypeChecker factory (virtual host & tsconfig loader).
+- `packages/ast-sync/src/checker/cycle-detector.ts`: Canonical symbol resolution, symbol ID dependency graph, DFS cycle detection.
+- `packages/ast-sync/src/index.ts`: Public API exports for taxonomy and checker APIs.
+- `packages/codegen/src/cli/commands/audit-shape.ts`: CLI command implementation for `oa-gen audit:shape`.
+- `packages/codegen/src/cli/commands.ts`: Registry entry for `audit:shape`.
+- `packages/core/src/wire-format.ts`: `JsonPrimitive<T>`, `Resolved<T>`, `ValueOf<T>`, `ClassProperties<T>`.
+- `packages/core/src/index.ts` & `browser.ts`: Public API exports for wire-format utilities.
+- `packages/client/src/generate-client-renderer.ts`: Inline emission of wire-safe utilities and response/body wrapping.
+- `packages/client/src/index.ts` & `browser.ts`: Public re-exports for `JsonPrimitive` and `Resolved`.
+- `packages/parser/src/ts-operation-extractor.ts`: JSDoc `@oaOperation` extractor, HTTP validator, OpenAPI OperationEntry synthesizer.
+- `packages/parser/src/index.ts`: Public export for operation extractor.
+- `packages/spec-lens/src/infrastructure/cache/sqlite/tsconfig-universe.ts`: Transitive JSONC config closure walker & SHA-256 hasher.
+- `packages/spec-lens/src/infrastructure/cache/sqlite/cache-key.ts`: Cache key calculation integrating `tsconfigUniverseDigest`.
+- `packages/spec-lens/src/domain/project.ts`: `SpecProjectKeyInput` and `buildSpecProjectKey` updating.
+- `docs/internal/api-index.md`: Public API documentation for check:api-index.
+- `docs/guides/cli-command-reference.md`: CLI documentation for check:docs and check:cli-spec.
+- `tests/e2e/samchon-improvements/`: Requirement-driven E2E test suite.
 
 ## Feature Inventory
 | # | Feature | Description | Milestone | Source |
 |---|---------|-------------|-----------|--------|
-| 1 | In-Memory TypeSpec AST Program Compilation | `compile(NodeHost, path, { noEmit: true })` without disk YAML emission | M1, M2 | Survey 1, 2 |
-| 2 | HTTP Operation & Route Extraction | Extract routes, verbs, parameters, status codes from `getAllHttpServices` | M1 | Survey 1 |
-| 3 | Model & Property Semantic Traversal | Extract domain models, properties, types, optionality via `navigateProgram` | M1 | Survey 1 |
-| 4 | Git Ref & File Path Resolution | Support resolving both file paths and git refs (`HEAD~1`) for base/head | M1 | Survey 1 |
-| 5 | 7-Category Breaking Change Classification | Classify removed ops, altered routes/methods, removed models, removed props, newly required props, removed status codes, changed @operationId | M1 | Survey 1 |
-| 6 | Non-Breaking Change Classification | Classify added operations, added models, added optional properties, added status codes | M1 | Survey 1 |
-| 7 | CLI Command `oa-gen tsp diff` & `--fail-on-breaking` | CLI command exiting with code 1 on breaking changes when requested | M1 | Survey 1 |
-| 8 | Multi-token CLI Router | Compound command lookahead for `oa-gen tsp diff` in `packages/codegen/src/cli/index.ts` | M1 | Survey 1 |
-| 9 | In-Memory OpenAPI 3.2 Emission | `getOpenAPI3(program, { 'openapi-versions': ['3.2.0'] })` returning in-memory JS doc | M2 | Survey 2 |
-| 10 | Direct In-Memory Schema Mocking | Feed in-memory OpenAPI 3.2 doc into `createNodeMockServer` on `localhost:4010` | M2 | Survey 2 |
-| 11 | Atomic Route Hot-Reload (`updateSpec`) | `NodeMockServer.updateSpec(nextSpec)` hot-swapping routes without socket drop | M2 | Survey 2 |
-| 12 | File Watching & Incremental Recompilation | `--watch` mode using `node:fs.watch` and `compile(..., oldProgram)` in ~360ms | M2 | Survey 2 |
-| 13 | CLI Command `oa-gen mock --tsp` | Interactive mock command with `--tsp`, `--watch`, `--port`, `--host` | M2 | Survey 2 |
-| 14 | TypeSpec `@personaCapability` Decorator | Decorator on `Operation` validating 24 traits from `skill.yaml` and rejecting unknown traits | M3 | Survey 3 |
-| 15 | OpenAPI Extension `x-oa-sdk-persona-traits` | Emitted array under Operation Object with sorted, deduplicated traits | M3 | Survey 3 |
-| 16 | TypeSpec `@pseudonymize` Decorator | Decorator on `ModelProperty` enforcing DPM safety (`SAF001`, `SAF002`, `SAF010`) | M3 | Survey 3 |
-| 17 | OpenAPI Extension `x-oa-sdk-dpm-projection` | Emitted object under Schema Object property with privacy policy transforms | M3 | Survey 3 |
-| 18 | Persona Verification Gate Integration | `loadOperationsFromMergedSpec` and `validate.ts` verifying trait obligations in `pnpm personas:check` | M3 | Survey 3 |
-| 19 | DPM Schema & Projection Gate Integration | DPM data-binding and safety validators accepting TypeSpec-emitted projections | M3 | Survey 3 |
-| 20 | CLI Command Registration in `commands.ts` | Register `tspDiff`, `mock`, and `generateZod` in `packages/codegen/src/cli/commands.ts` | M4 | Survey 1, 2, 3 |
-| 21 | CLI Documentation in `cli-command-reference.md` | Document all commands and options in `docs/guides/cli-command-reference.md` | M4 | Survey 3 |
-| 22 | Monorepo Governance Compliance | Pass `pnpm check:docs` (0 errors), `pnpm schema:typespec-check`, `turbo run test` | M4 | Survey 3 |
-| 23 | E2E Testing Suite (Tiers 1-4) | Comprehensive opaque-box test suite verifying all features derived from requirements | E2E | Project Pattern |
-| 24 | Adversarial Coverage Hardening (Tier 5) | White-box stress testing, edge-case generation, and regression verification | Final | Project Pattern |
+| 1 | TypeScript Syntax Feature Taxonomy | Classifies AST type nodes into 23/24 syntax features | M1 | Survey 1, 2 |
+| 2 | Tripartite Projection Classification | Categorizes types into `direct`, `policy-required`, `unsupported` | M1 | Survey 1, 2 |
+| 3 | AST Shape Diagnostics Engine | Collects line/col source diagnostics for unsupported/policy types | M1 | Survey 1, 2 |
+| 4 | CLI Command `oa-gen audit:shape` | Audits TypeScript bundles/files for type shape feasibility | M1 | Survey 2 |
+| 5 | Canonical `JsonPrimitive<T>` Utility | Recursively strips functions/methods/prototypes, maps Date -> string | M2 | Survey 1, 3 |
+| 6 | Canonical `Resolved<T>` Utility | Strips class methods while preserving Date and collections | M2 | Survey 1, 3 |
+| 7 | Wire-Safe Client SDK Signatures | Generated client returns `Promise<JsonPrimitive<T>>` and accepts `Resolved<T>` | M2 | Survey 3 |
+| 8 | JSDoc `@oaOperation` Tag Extraction | Extracts `@oaOperation <METHOD> <PATH>` from exported functions and type aliases | M3 | Survey 1, 2 |
+| 9 | Operation Syntax & Route Validation | Validates HTTP verbs (including QUERY) and paths; emits `invalid-oa-operation` | M3 | Survey 1, 2 |
+| 10 | OpenAPI 3.2 Operation Synthesis | Translates valid `@oaOperation` declarations to `OperationEntry` objects | M3 | Survey 2 |
+| 11 | TypeChecker Program Management | Creates in-memory and tsconfig-backed `ts.Program` / `TypeChecker` instances | M4 | Survey 2 |
+| 12 | Canonical Symbol ID Resolution | Dereferences aliases via `checker.getAliasedSymbol` to integer `symbol.id` | M4 | Survey 1, 2 |
+| 13 | Cross-Module Dependency Graph | Builds directed symbol dependency graph across re-exports and imports | M4 | Survey 1, 2 |
+| 14 | Precision DFS Cycle Detection | Detects mutual recursions across files and marks `"recursive-reference"` | M4 | Survey 1, 2 |
+| 15 | Transitive `tsconfig` Closure Walker | Recursively follows `extends` and `references`, parsing JSONC comments | M5 | Survey 1, 3 |
+| 16 | Configuration Universe Hashing | Computes deterministic SHA-256 digests over configs and root files | M5 | Survey 1, 3 |
+| 17 | Cache Key Invalidation Integration | Incorporates `tsconfigUniverseDigest` into Spec-Lens SQLite WAL cache key | M5 | Survey 3 |
+| 18 | Automated Cache Invalidation Proof | Editing extended tsconfig changes cache key and causes SQLite cache miss | M5 | Survey 3 |
+| 19 | API Index Documentation & Gate | Updates `docs/internal/api-index.md` and passes `pnpm check:api-index` | Final | Survey 3 |
+| 20 | CLI Documentation & Governance Gate | Updates `cli-command-reference.md` and passes `pnpm check:cli-spec` & `check:docs` | Final | Survey 2, 3 |
+| 21 | Opaque-Box E2E Testing Suite (Tiers 1-4) | Comprehensive requirement-driven test suite across all 20 features | E2E | Project Pattern |
+| 22 | Adversarial Hardening & Forensic Audit | White-box stress testing, edge-case generation, and clean integrity audit | Final | Project Pattern |
 
 ## Milestones
 | # | Name | Scope | Dependencies | Status |
 |---|------|-------|-------------|--------|
-| E2E | E2E Testing Track | Design test harness, runner, and test cases across Tiers 1-4 for all features | None | PLANNED |
-| M1 | Phase 2: TypeSpec AST Semantic Diff | Features 1, 2, 3, 4, 5, 6, 7, 8: Diff engine, git ref resolver, CLI `tsp diff`, unit/integration tests | None | PLANNED |
-| M2 | Phase 3: Zero-Build Instant Mock Server | Features 1, 9, 10, 11, 12, 13: `updateSpec` in mock-server, in-memory compiler, watch loop, CLI `mock` | None | PLANNED |
-| M3 | Phase 4: Personas & DPM Native Decorators | Features 14, 15, 16, 17, 18, 19: `@personaCapability`, `@pseudonymize`, extensions, `personas:check`, DPM gates | None | PLANNED |
-| M4 | Monorepo Governance & CLI Documentation | Features 20, 21, 22: `commands.ts`, `cli-command-reference.md`, `pnpm check:docs`, `pnpm schema:typespec-check` | M1, M2, M3 | PLANNED |
-| Final | 100% E2E Pass & Tier 5 Hardening | Features 23, 24: Pass 100% E2E tests + Tier 5 adversarial testing + forensic audit | M1, M2, M3, M4, E2E | PLANNED |
+| E2E | E2E Testing Track | Requirement-driven test suite (Tiers 1-4) covering Features 1-20, publishing TEST_READY.md | None | IN_PROGRESS |
+| M1 | Type Shape Taxonomy & Feasibility Diagnostics | Features 1, 2, 3, 4: `@oa-sdk/ast-sync` taxonomy + CLI `oa-gen audit:shape` | None | IN_PROGRESS |
+| M2 | Wire-Format Safety (`JsonPrimitive` / `Resolved`) | Features 5, 6, 7: `@oa-sdk/core` utilities + `@oa-sdk/client` wire signatures | None | IN_PROGRESS |
+| M3 | Zero-Decorator Operation Extraction | Features 8, 9, 10: `@oa-sdk/parser` `@oaOperation` extractor & validation | None | IN_PROGRESS |
+| M4 | Checker-Resolved Symbol ID Cycle Detection | Features 11, 12, 13, 14: `@oa-sdk/ast-sync` TypeChecker symbol ID DFS | M1 | PLANNED |
+| M5 | Transitive tsconfig Universe Hashing | Features 15, 16, 17, 18: `@oa-sdk/spec-lens` JSONC closure & SQLite cache key | None | IN_PROGRESS |
+| Final | Monorepo Governance & 100% E2E Pass | Features 19, 20, 21, 22: API index, doc gates, 100% E2E test pass, Tier 5 hardening, audit | M1, M2, M3, M4, M5, E2E | PLANNED |
 
 ## Interface Contracts
-### `@oa-sdk/mock-server` ↔ `@oa-sdk/codegen`
+
+### `@oa-sdk/ast-sync` ↔ `oa-gen audit:shape`
 ```typescript
-// In packages/mock-server/src/adapters/node-http.ts
-export type NodeMockServer = {
-  start(): Promise<void>
-  stop(): Promise<void>
-  readonly url: string
-  override(operationId: string, response: OverrideResponse): void
-  clearOverride(operationId: string): void
-  clearOverrides(): void
-  updateSpec(spec: OasDocument | Record<string, unknown>): { routesCount: number }
+// In packages/ast-sync/src/taxonomy/features.ts
+export type ContractShapeFeature =
+  | 'array' | 'conditional' | 'constructor-type' | 'function-type'
+  | 'generic-declaration' | 'generic-instantiation' | 'import-type' | 'indexed-access'
+  | 'inheritance' | 'intersection' | 'literal' | 'mapped' | 'nullable' | 'object'
+  | 'optional' | 'recursive-reference' | 'reference' | 'template-literal' | 'tuple'
+  | 'type-operator' | 'type-query' | 'undefined' | 'union' | 'utility-type';
+
+export type TypeSpecProjection = 'direct' | 'policy-required' | 'unsupported';
+
+export interface ContractTypeShape {
+  readonly features: readonly ContractShapeFeature[];
+  readonly typeSpecProjection: TypeSpecProjection;
 }
+
+export interface ShapeDiagnostic {
+  readonly code: 'unsupported-shape' | 'policy-required-shape';
+  readonly message: string;
+  readonly file: string;
+  readonly line: number;
+  readonly column: number;
+  readonly endLine: number;
+  readonly endColumn: number;
+  readonly feature: ContractShapeFeature;
+  readonly snippet?: string;
+  readonly severity: 'error' | 'warning';
+}
+
+export interface ShapeAuditResult {
+  readonly valid: boolean;
+  readonly scannedDeclarations: number;
+  readonly scannedFiles: number;
+  readonly diagnostics: readonly ShapeDiagnostic[];
+  readonly summary: string;
+}
+
+export function classifyTypeShape(features: ReadonlySet<ContractShapeFeature>): ContractTypeShape;
+export function auditTypeShapesInSource(sourceText: string, filePath?: string): ShapeAuditResult;
 ```
 
-### `@typespec/compiler` ↔ `oa-gen tsp diff`
+### `@oa-sdk/core` ↔ `@oa-sdk/client`
 ```typescript
-// In packages/codegen/src/cli/lib/typespec-ast-diff.ts
-export interface TypeSpecDiffResult {
-  baseRef: string
-  headRef: string
-  breakingChanges: TypeSpecDiffChange[]
-  nonBreakingChanges: TypeSpecDiffChange[]
-  allChanges: TypeSpecDiffChange[]
-  summary: { totalChanges: number; breakingCount: number; nonBreakingCount: number }
+// In packages/core/src/wire-format.ts
+export type ValueOf<T> = ...;
+export type ClassProperties<T> = ...;
+export type JsonPrimitive<T> = ...;
+export type Resolved<T> = ...;
+```
+- In `@oa-sdk/client`, generated methods return `Promise<JsonPrimitive<TResponse>>` (or `ClientResponse<JsonPrimitive<TResponse>, ...>`) and accept `Resolved<TBody>`.
+
+### `@oa-sdk/parser` ↔ Downstream Tools
+```typescript
+// In packages/parser/src/ts-operation-extractor.ts
+export interface ExtractedOperation {
+  readonly method: 'get' | 'put' | 'post' | 'delete' | 'options' | 'head' | 'patch' | 'trace' | 'query';
+  readonly path: string;
+  readonly declarationName: string;
+  readonly declarationKind: 'function' | 'type-alias';
+  readonly file: string;
+  readonly line: number;
+  readonly column: number;
+  readonly description?: string;
 }
-export function diffTypeSpecSemantics(base: TypeSpecSemantics, head: TypeSpecSemantics, options: { baseRef: string; headRef: string }): TypeSpecDiffResult
+
+export interface OperationExtractResult {
+  readonly operations: readonly ExtractedOperation[];
+  readonly diagnostics: readonly OperationDiagnostic[];
+}
+
+export function extractOperationsFromSource(sourceText: string, filePath?: string): OperationExtractResult;
 ```
 
-### `@oa-sdk/typespec-decorators` ↔ Downstream OpenAPI Extensions
-```yaml
-# paths[path][method]:
-x-oa-sdk-persona-traits:
-  - pagination
-  - filter-by-role
+### `@oa-sdk/ast-sync` Checker Symbol Cycle Detection
+```typescript
+// In packages/ast-sync/src/checker/cycle-detector.ts
+export interface SymbolCycleResult {
+  readonly schemaDependencies: ReadonlyMap<string, ReadonlySet<string>>;
+  readonly cyclicSchemaIds: ReadonlySet<string>;
+  readonly symbolIdMap: ReadonlyMap<number, string>;
+}
 
-# components.schemas[Model].properties[Prop]:
-x-oa-sdk-dpm-projection:
-  transform: mask # keep | redact | mask | null | hash | generalize | relationship_token | polymorphic_relationship_token
-  role: direct_identifier # optional
-  pii: true # optional
-  relationship: rel_id # optional
+export function detectCyclesWithChecker(
+  program: ts.Program,
+  sourceFiles?: readonly ts.SourceFile[]
+): SymbolCycleResult;
 ```
 
-### CLI Command Registry ↔ Documentation Gate
-- Every command in `packages/codegen/src/cli/commands.ts` MUST have an entry in `docs/guides/cli-command-reference.md` matching `` `oa-gen <name>` `` and listing all option flags.
-- Must satisfy `createCliReferenceGate` and `createCliExampleGate` in `scripts/check-docs.ts`.
+### `@oa-sdk/spec-lens` Transitive tsconfig Hashing
+```typescript
+// In packages/spec-lens/src/infrastructure/cache/sqlite/tsconfig-universe.ts
+export interface ContractConfigDigest {
+  readonly file: string;
+  readonly digest: string;
+}
+
+export interface ContractConfigUniverse {
+  readonly configs: readonly ContractConfigDigest[];
+  readonly roots: readonly string[];
+  readonly universeDigest: string;
+}
+
+export function computeTsconfigUniverse(
+  tsconfigPath: string,
+  repositoryRoot: string
+): ContractConfigUniverse;
+```
+- `SpecProjectKeyInput` incorporates `tsconfigUniverseDigest?: string`.
+- `buildSpecProjectKey` hashes `tsconfigUniverseDigest` into the project key.

@@ -1,63 +1,51 @@
-# Dispatch: Milestone 2 - Zero-Build Instant Mock Server
+## 2026-09-11T02:34:39Z
+You are Worker for Milestone 2 (M2: TypeSpec Compile & AST Diff Benchmark) in the oa-sdk performance benchmark and V8 profiling task.
 
-## Mission
-Implement Requirement R2 (Phase 3) in `@oa-sdk/mock-server` and `@oa-sdk/codegen`:
-1. In `@oa-sdk/mock-server`:
-   - `packages/mock-server/src/adapters/node-http.ts`:
-     - Add `updateSpec(spec: OasDocument | Record<string, unknown>): { routesCount: number }` to `NodeMockServer`.
-     - Extract `compileRoutingState(spec, context)` so internal routing state (`parsed`, `basePath`, `index`) can be atomically hot-swapped at runtime without restarting the underlying `node:http` server or dropping port binding / socket connections.
-     - Add unit tests in `packages/mock-server` verifying that `updateSpec` dynamically updates routes on the running port without connection reset.
-2. In `@oa-sdk/codegen`:
-   - `packages/codegen/package.json`: Add `"@oa-sdk/mock-server": "workspace:*"` to `dependencies`.
-   - `packages/codegen/src/cli/lib/typespec-mock-compiler.ts`:
-     - Implement `compileTypeSpecInMemory(tspPath, options)` using `@typespec/compiler` (`compile(NodeHost, tspPath, { noEmit: true }, oldProgram)`) and `@typespec/openapi3` (`getOpenAPI3(program, { 'openapi-versions': ['3.2.0'] })`) producing in-memory OpenAPI 3.2 document with zero disk writes.
-     - Implement `watchTypeSpec(sourceFiles, onChange, onError)` watching `.tsp` source files with debouncing (100ms) to trigger recompilation with `oldProgram` and hot route reload.
-   - `packages/codegen/src/cli/commands/mock.ts`:
-     - CLI command `oa-gen mock` accepting `--tsp <path>`, `--spec <path>`, `--port <port>` (default: 4010), `--host <host>` (default: 127.0.0.1), and `--watch`.
-     - Handles graceful shutdown on `SIGINT` / `SIGTERM`.
-   - `packages/codegen/src/cli/index.ts`:
-     - Register `mock` command.
-   - `packages/codegen/src/__tests__/mock.test.ts`:
-     - Comprehensive tests verifying zero-build mock server startup, mock responses matching schema status codes, 422 request validation with redacted values, and dynamic hot-reloading via `updateSpec`.
-3. Verification:
-   - Run `pnpm --filter @oa-sdk/mock-server test`
-   - Run `pnpm --filter @oa-sdk/codegen test`
-   - Run `pnpm --filter @oa-sdk/codegen build`
+## Your Identity & Working Directory
+- Archetype: teamwork_preview_worker
+- Role: TypeSpec Benchmark Implementer (M2)
+- Working directory: /Users/junwoobang/workflow/oa-sdk/.agents/worker_m2
+- Workspace root: /Users/junwoobang/workflow/oa-sdk
+- Domain skill to reference: /Users/junwoobang/workflow/oa-sdk/.agents/skills/oa-sdk/SKILL.md
 
-## Exclusive File Ownership
-- `packages/mock-server/src/adapters/node-http.ts`
-- `packages/mock-server/test/` (or test files in mock-server)
-- `packages/codegen/package.json`
-- `packages/codegen/src/cli/commands/mock.ts`
-- `packages/codegen/src/cli/lib/typespec-mock-compiler.ts`
-- `packages/codegen/src/cli/index.ts` (registering mock command)
-- `packages/codegen/src/__tests__/mock.test.ts`
+## Mandatory Input
+Read the authoritative user request at:
+`/Users/junwoobang/workflow/oa-sdk/.agents/ORIGINAL_REQUEST.md` (specifically section `## 2026-09-11T02:05:38Z`).
+Also read:
+- `/Users/junwoobang/workflow/oa-sdk/.agents/orchestrator_4/plan.md`
+- `/Users/junwoobang/workflow/oa-sdk/.agents/explorer_survey_1/handoff.md` (contains baseline timings, AST diff APIs, git ref resolver details)
+- `/Users/junwoobang/workflow/oa-sdk/scripts/bench/lib/index.ts` (shared benchmark & profiling toolkit built in M1)
 
-## Mandatory Rules & Warnings
-- MANDATORY INTEGRITY WARNING:
-  DO NOT CHEAT. All implementations must be genuine. DO NOT hardcode test results, create dummy/facade implementations, or circumvent the intended task. An auditor will independently verify your work. Integrity violations WILL be detected and your work WILL be rejected.
-- Read `/Users/junwoobang/workflow/oa-sdk/.agents/ORIGINAL_REQUEST.md` before starting work.
-- Consult the survey findings at `/Users/junwoobang/workflow/oa-sdk/.agents/explorer_survey_2/handoff.md`.
-- Run builds and tests for affected targets and report results in handoff.
+## File Write Ownership
+You EXCLUSIVELY own:
+- `scripts/bench/bench-typespec.ts`
+DO NOT modify any files outside this boundary. Use the shared toolkit from `scripts/bench/lib/index.js`.
 
-## Output
-Write report to `/Users/junwoobang/workflow/oa-sdk/.agents/worker_m2/handoff.md`.
-Send a message to parent when complete.
+## Mandatory Integrity Warning
+DO NOT CHEAT. All implementations must be genuine. DO NOT hardcode test results, create dummy/facade implementations, or circumvent the intended task. A teamwork_preview_auditor will independently verify your work. Integrity violations WILL be detected and your work WILL be rejected.
 
-## 2026-09-10T23:41:27Z
-You are the Instant Mock Server Worker for Milestone 2.
-Your working directory is: /Users/junwoobang/workflow/oa-sdk/.agents/worker_m2
-Read your instructions in /Users/junwoobang/workflow/oa-sdk/.agents/worker_m2/DISPATCH.md.
-Also read /Users/junwoobang/workflow/oa-sdk/.agents/ORIGINAL_REQUEST.md, /Users/junwoobang/workflow/oa-sdk/PROJECT.md, and /Users/junwoobang/workflow/oa-sdk/.agents/explorer_survey_2/handoff.md.
+## Detailed Requirements
+Implement `scripts/bench/bench-typespec.ts` to execute real benchmarks and V8 CPU profiling for Components 1 and 2:
+1. **TypeSpec In-Memory Compilation & Hot-Reload**:
+   - Locate `packages/schemas/typespec/main.tsp`.
+   - Measure Cold Compilation latency (compile + getOpenAPI3 via `compileTypeSpecInMemory` in `packages/codegen/src/cli/lib/typespec-mock-compiler.js`).
+   - Measure Incremental Compilation latency using `{ oldProgram }` across 10 iterations. Compute speedup ratio.
+   - Measure Large-scale compilation throughput using `generateSyntheticTypeSpec(100)` (100 resources = 200 ops, 200 models).
+   - Measure heap memory retention delta over 10 repeated incremental compilations via `measureMemoryDelta`.
+   - Verify watcher stability via `watchTypeSpec`.
+2. **TypeSpec AST Semantic Diff (`oa-gen tsp diff`)**:
+   - Measure AST semantic extraction speed (`extractTypeSpecSemantics` in `packages/codegen/src/cli/lib/typespec-ast-diff.js`).
+   - Measure semantic diff throughput (`diffTypeSpecSemantics` and `diffTypeSpecPrograms`) on repo spec and large synthetic spec (100+ models).
+   - Measure Git ref comparison latency (`HEAD~1` vs `HEAD`) using `resolveTypeSpecProgramRef` in `packages/codegen/src/cli/lib/typespec-ref-resolver.js`.
+3. **V8 CPU Profiling & Hotspot Extraction**:
+   - Wrap cold compile, incremental compile, and semantic diff in `withCpuProfile` to generate `.bench/typespec-compile-cold.cpuprofile`, `.bench/typespec-compile-incremental.cpuprofile`, and `.bench/typespec-diff.cpuprofile`.
+   - Extract and print top hotspots for each workload.
+4. **Output & Verification**:
+   - Collect all metrics into a structured JSON file at `.bench/typespec-results.json`.
+   - Print a clean, informative console summary table with ms, ops/sec, speedup ratios, memory deltas, and top hotspots.
+   - Run verification via: `node --expose-gc --import tsx scripts/bench/bench-typespec.ts`. Ensure it executes cleanly and exits with code 0.
 
-MANDATORY INTEGRITY WARNING:
-DO NOT CHEAT. All implementations must be genuine. DO NOT hardcode test results, create dummy/facade implementations, or circumvent the intended task. An auditor will independently verify your work. Integrity violations WILL be detected and your work WILL be rejected.
-
-Implement R2 (Phase 3): Zero-Build Instant Mock Server:
-1. Implement updateSpec in packages/mock-server/src/adapters/node-http.ts.
-2. Implement in-memory zero-disk compilation and watcher in packages/codegen/src/cli/lib/typespec-mock-compiler.ts.
-3. Implement oa-gen mock command in packages/codegen/src/cli/commands/mock.ts and register it.
-4. Add comprehensive unit and integration tests in mock-server and codegen.
-Run tests and build to verify.
-Write your handoff report to /Users/junwoobang/workflow/oa-sdk/.agents/worker_m2/handoff.md.
-Send a message to parent when complete.
+## Deliverable
+Write your implementation file `scripts/bench/bench-typespec.ts` and run it. Write your report to:
+`/Users/junwoobang/workflow/oa-sdk/.agents/worker_m2/handoff.md`
+Report the command executed, output JSON/metrics, and file paths. Send a completion message when finished.

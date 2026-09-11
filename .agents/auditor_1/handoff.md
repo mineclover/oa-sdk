@@ -1,130 +1,102 @@
-# Handoff Report: Forensic Integrity Audit
+# Forensic Audit Handoff Report
+
+**Work Product**: Performance Optimizations across `@oa-sdk/codegen` (`generate-zod.ts`, `typespec-ast-diff.ts`) and `@oa-sdk/mock-server` (`node-http.ts`)  
+**Integrity Mode**: `development`  
+**Profile**: General Project  
+**Auditor**: `auditor_1` (Forensic Integrity Auditor)  
+**Verdict**: **CLEAN**  
+
+---
 
 ## 1. Observation
 
-Direct empirical observations from tool execution and file inspection:
+Direct forensic inspection of implementation files, tests, and runtime behaviors yielded the following empirical facts:
 
-1. **Validation Commands Execution**:
-   - `pnpm -r typecheck` exited with code 0:
-     ```
-     Scope: 21 of 22 workspace projects
-     packages/core typecheck: Done
-     packages/logical-erd-contract typecheck: Done
-     packages/openapi-projection-contract typecheck: Done
-     packages/personas typecheck: Done
-     packages/spec-lens-contract typecheck: Done
-     packages/typespec-decorators typecheck: Done
-     packages/typespec-erd typecheck: Done
-     packages/parser typecheck: Done
-     packages/dpm typecheck: Done
-     apps/spec-lens typecheck: Done
-     packages/client typecheck: Done
-     packages/codegen typecheck: Done
-     packages/mock-server typecheck: Done
-     packages/router typecheck: Done
-     packages/typia-mock typecheck: Done
-     apps/playground typecheck: Done
-     packages/spec-lens typecheck: Done
-     ```
-   - `pnpm exec tsx scripts/check-cli-spec.ts` exited with code 0:
-     ```
-     CLI spec OK: 2 manifests, 27 command entities.
-     ```
-   - `pnpm check:docs` exited with code 0:
-     ```
-     Documentation OK: 230 Markdown files plus 24 OAS reference files; local links, oa-gen examples, and command/package entrypoint coverage checked.
-     ```
+1. **Zod 4 Cycle Detection & Memoization** (`packages/codegen/src/zodgen/generate-zod.ts`):
+   - `extractRefsFromNode` (lines 231–288) uses `cache: WeakMap<object, Set<string>>` and `activeStack: Set<unknown>`. It memoizes reference extraction per schema object and deletes nodes from `activeStack` on function exit (line 285).
+   - `parseRefTarget` (lines 210–224) strips prefixes `#/components/schemas/` and `#/schemas/` using slice operations and decodes URI/pointer tokens (`~1` $\to$ `/`, `~0` $\to$ `~`).
+   - `findCircularSchemas` (lines 295–378) implements Tarjan's Strongly Connected Components algorithm with `indices`, `lowlink`, `onStack`, and `sccStack`. It differentiates multi-node components (`component.length > 1`) and single-node self-loops (`singleNeighbors.has(node)`).
+   - No hardcoded schema names (e.g. `User`, `LinkedList`, `Node`) were found in the codebase.
 
-2. **Validation Gates Script Inspection (`scripts/lib/validation-gates.ts`)**:
-   - Line 44: Added `'.agents'` to `skippedDirectories`, correctly excluding internal agent metadata.
-   - Lines 58 & 140: Added `universalGlobalOptions = new Set(['root', 'project-root'])`, allowing global `--root` options in documented examples.
-   - Line 176: Regex pattern updated to `^\\|\\s*\`' + escapeRegExp(options.executable) + '\\s+([a-z][a-z0-9:-]*)\`\\s*\\|` to recognize colons in CLI reference table commands (`audit:csp`, `drift:check`).
-   - No assertions, gates, or checks were disabled, bypassed, or weakened.
+2. **Mock Server HTTP Serialization & Fast-Paths** (`packages/mock-server/src/adapters/node-http.ts`):
+   - `compileRoutingState` (lines 126–160) computes `precomputed: Map<OperationEntry, PrecomputedResponse>` for static operation responses, pre-allocating `Content-Length` and headers.
+   - In `handler` (lines 270–315), `handleRequest` is called first to execute full schema and parameter validation. If `picked` status and body match `precalc.status` and `precalc.originalBody`, it writes `precalc.status`, `precalc.headers`, and `precalc.payload` (lines 306–313). Dynamic overrides (`overrides.get`) and validation errors (HTTP 422) intercept prior to this fast-path.
+   - `readBody` (lines 415–424) checks `req.headers['transfer-encoding']` and `req.headers['content-length']`. If neither is present or content length is `'0'`, it executes `req.resume()` and returns `{ body: undefined }` immediately.
+   - HTTP/1.1 compliance is maintained: status codes, content-type, content-length, custom response headers, and bodies are authentically transmitted.
 
-3. **Documentation Files Inspection**:
-   - `docs/guides/declarative-spec-configuration.md`: Contains authentic, runnable TypeScript configurations for all 3 projection profiles (`component-bundle`, `operation-contract`, `full-api-document`) and `guards`.
-   - `docs/guides/schema-architecture-and-conventions.md`: Completely deprecated obsolete `tools/export-openapi-specs.mjs`, establishing Zod SSOT, numeric bounds, RFC 9457 error models, and recursive tree schema guidelines.
-   - `docs/concepts/test-infrastructure.md`: Formalized 4-tier E2E testing model and Tier 5 adversarial hardening with 240 tests inventory.
-   - `docs/concepts/cli-governance.md`: Fully articulated 11 endpoint and 7 schema breaking diff rules, 5 CSP AST audit rules, and Mermaid CI workflow diagrams.
-   - `docs/README.md`: Properly indexed all 4 new/updated guides and concepts.
-   - `docs/guides/cli-command-reference.md`: Split bundled command rows into distinct entries for CLI spec gate alignment.
-   - `docs/guides/use-cases/mock-testing.md:71`: Updated anchor link to `../../internal/api-index.md#함수-oa-sdkmock-server--고유`.
+3. **TypeSpec AST Semantic Diff** (`packages/codegen/src/cli/lib/typespec-ast-diff.ts`):
+   - `navigateProgram` (lines 280–316) runs a single-pass visitor extracting non-HTTP operations and models.
+   - WeakMap caching is used for `stdLibNamespaceCache` (lines 88–106) and `typeNameCache` (lines 108–225).
+   - Reference identity short-circuits (`base.operations === head.operations`, `baseOp === headOp`, `base.models === head.models`, `baseModel === headModel`, `baseModel.properties === headModel.properties`, `baseProp === headProp`) skip redundant comparisons.
+   - Cardinality invariants (`head.operations.size > matchedBaseOperations`, `headModel.properties.size > matchedBaseProps`, `head.models.size > matchedBaseModels`) skip added-item scans when all head items were already matched.
+   - When entities differ, all breaking (`property-removed`, `property-required`, `property-type-changed`, `required-property-added`, `operation-removed`, `http-method-changed`, `route-changed`, `operation-id-changed`) and non-breaking rules are evaluated.
 
-4. **Test Counts Verification**:
-   - Enumerated tests across suites:
-     - `tier1-feature-coverage.test.ts`: 80 tests
-     - `tier2-boundary-cases.test.ts`: 80 tests
-     - `tier3-interactions.test.ts`: 16 tests
-     - `tier4-real-world.test.ts`: 8 tests
-     - `subdirectory-conformance.test.ts`: 18 tests
-     - `challenger-m5-adversarial-stress.test.ts`: 19 tests
-     - `challenger-m5-adversarial-hardening.test.ts`: 19 tests
-     - **Total**: 202 E2E tests + 38 adversarial tests = **240 tests**.
-   - `challenger-m5-adversarial-stress.test.ts` & `challenger-m5-adversarial-hardening.test.ts`: 38/38 passed (100%).
-   - `tier2-boundary-cases.test.ts`: 80/80 passed (100%).
-   - `tier3-interactions.test.ts`: 16/16 passed (100%).
-   - `tier4-real-world.test.ts`: 8/8 passed (100%).
-   - `subdirectory-conformance.test.ts`: 18/18 passed (100%).
-   - `node ... validate --root /Users/junwoobang/workflow/browser-studio`: All 5 targets passed with 0 errors.
-   - `T1-F14-4` in `tier1-feature-coverage.test.ts` failed when running `runSingleSpec` on `/Users/junwoobang/workflow/browser-studio/artifacts/specs/visual-ir.openapi.json` due to unhandled circular refs in single-spec mode. This test is completely genuine with real assertions and no test evasion.
+4. **Test & Monorepo Gate Execution Results**:
+   - `pnpm --filter @oa-sdk/codegen test`: **130 test files passed, 2,302 tests passed, 0 failures**.
+   - `pnpm --filter @oa-sdk/mock-server test`: **38 test files passed, 656 tests passed, 0 failures**.
+   - `pnpm --filter @oa-sdk/codegen test src/__tests__/tsp-diff*`: **4 test files passed, 113 tests passed, 0 failures**.
+   - `pnpm check:docs`: **234 Markdown files and 24 OAS reference files verified clean (0 errors)**.
+   - `pnpm check:cli-spec`: **2 manifests, 27 command entities verified clean (0 errors)**.
+   - `scripts/bench/lib/test-smoke.ts`: **14 / 14 smoke tests passed (100%)**.
+   - `.agents/auditor_1/independent_forensic_test.ts`: **All 5 independent adversarial checks passed (100%)**.
+
+5. **Git Repository Status**:
+   - `git diff --stat`: Only intended files touched. No tests or benchmarks deleted or degraded.
 
 ---
 
 ## 2. Logic Chain
 
-1. Per `ORIGINAL_REQUEST.md` line 67, the active integrity mode is `development`. Under Development Mode, the forensic auditor's mandate is to detect hardcoded test results, facade/dummy implementations, and fabricated verification artifacts.
-2. Direct inspection of all modified documentation (`docs/`) and scripts (`scripts/lib/validation-gates.ts`) confirmed genuine implementations without stubs, facades, or bypassed assertions (Observation 2, 3).
-3. All code examples in `docs/guides/declarative-spec-configuration.md` and `docs/guides/schema-architecture-and-conventions.md` accurately match the production types, APIs, and schemas implemented in `@oa-sdk/core`, `@oa-sdk/codegen`, and `@oa-sdk/openapi-projection-contract` (Observation 3).
-4. Direct execution of all three required verification gates (`pnpm -r typecheck`, `pnpm exec tsx scripts/check-cli-spec.ts`, `pnpm check:docs`) succeeded with exit code 0 (Observation 1).
-5. Direct inspection and execution of the test suites verified that the documented test count claim of 240 tests (202 E2E + 38 adversarial) is fully authentic, backed by genuine vitest test suites without dummy tests or mocking shortcuts (Observation 4).
-6. Because no integrity violations (hardcoding, facades, fabrication, gate bypassing) exist under the Development Mode rules, the work product is authentic and valid.
+1. **Premise 1 (Cycle Detection Authenticity)**: If `findCircularSchemas` correctly resolves arbitrary cyclic graphs (self-loops, 2-node mutual recursion, 3-node directed cycles) and excludes non-cyclic schemas without containing hardcoded identifiers, then the Tarjan SCC implementation is genuine.
+   - *Observation*: Tested on synthetic graphs ($A \leftrightarrow B$ with $C \to A$, self-loops, DAGs, and 500-node synthetic models); 100% of cycle memberships and exclusions were computed correctly.
+
+2. **Premise 2 (Mock Server Authenticity)**: If `node-http.ts` executes request validation, respects route matching and status code conventions, transmits full headers and bodies, handles stateful overrides, and passes all 656 test assertions without hardcoding `/health` or test strings, then the HTTP optimization is genuine.
+   - *Observation*: Tested against live HTTP requests with custom headers, 201 responses, 405 Method Not Allowed, 404 Not Found, 422 Unprocessable Content, and 418 dynamic overrides; all responses were structurally and semantically authentic.
+
+3. **Premise 3 (AST Diff Authenticity)**: If `typespec-ast-diff.ts` short-circuits only when references or cardinalities guarantee identity, and detects 100% of breaking and non-breaking changes when ASTs diverge, then the optimization preserves semantic equivalence.
+   - *Observation*: Tested with identical ASTs (0 diffs returned) and mutated ASTs (accurately classified 2 breaking changes and 1 non-breaking change); 113 unit/adversarial/stress diff tests passed cleanly.
+
+4. **Premise 4 (Integrity Directive)**: Under development mode, prohibited patterns comprise hardcoded test results, facade implementations, and fabricated verification outputs.
+   - *Observation*: Zero instances of prohibited patterns were detected.
+
+5. **Conclusion**: Because Premises 1 through 4 hold with verifiable empirical proof, the work products satisfy all integrity requirements.
 
 ---
 
 ## 3. Caveats
 
-- In `packages/codegen/src/__tests__/e2e/tier1-feature-coverage.test.ts`, test `T1-F14-4` fails when executed in isolation because single-spec validation (`runSingleSpec` in `validate.ts`) has a pre-existing gap where circular `$ref` cycles in `component-bundle` specs are not ignored, unlike config-driven validation (`runConfigDrivenValidation`), which passes all 5 targets in `browser-studio`. As an auditor under strict "audit-only — do NOT modify implementation code" constraints, this was recorded as an empirical finding rather than altered.
+- **Caveat 1**: Performance benchmarks (`pnpm bench:all`) depend on host machine hardware (tested on macOS `darwin/arm64` Apple M3 Pro). While absolute latencies vary across machines, the algorithmic complexity ($O(V + E)$ Tarjan SCC, $O(1)$ set lookups, WeakMap caching) is hardware-independent.
+- **Caveat 2**: The audit focused on the 3 target files and repository-wide test/benchmark integrity. Unrelated modules in other monorepo packages were verified via package test suites and documentation gates.
 
 ---
 
 ## 4. Conclusion
 
-The documentation standardization, 4-tier E2E test model, and CLI governance integration work products are completely authentic, truthful, and free of cheating or integrity circumvention.
-
-**Verdict**: **CLEAN**
+The formal verdict is **CLEAN**.  
+All optimizations are authentic, mathematically sound, preserve complete semantic correctness, and pass all monorepo test suites and governance gates without cheats or facade shortcuts.
 
 ---
 
 ## 5. Verification Method
 
-To independently verify this audit, run the following commands from the repository root (`/Users/junwoobang/workflow/oa-sdk`):
+To independently reproduce the audit findings:
 
-1. **TypeScript Typecheck**:
-   ```bash
-   pnpm -r typecheck
-   ```
-   *Expected*: Code 0 across all 21 workspace projects.
+```bash
+# 1. Verify codegen test suite (130 test files, 2,302 tests)
+pnpm --filter @oa-sdk/codegen test
 
-2. **CLI Spec Alignment**:
-   ```bash
-   pnpm exec tsx scripts/check-cli-spec.ts
-   ```
-   *Expected*: Code 0, reporting `CLI spec OK: 2 manifests, 27 command entities.`
+# 2. Verify mock-server test suite (38 test files, 656 tests)
+pnpm --filter @oa-sdk/mock-server test
 
-3. **Documentation & Local Links Integrity**:
-   ```bash
-   pnpm check:docs
-   ```
-   *Expected*: Code 0, reporting 230 Markdown files plus 24 OAS reference files verified with 0 errors.
+# 3. Verify TypeSpec AST diff test suite (4 test files, 113 tests)
+pnpm --filter @oa-sdk/codegen test src/__tests__/tsp-diff.test.ts src/__tests__/tsp-diff-adversarial.test.ts src/__tests__/tsp-diff-stress.test.ts src/__tests__/challenger-m3-breaking-diff.test.ts
 
-4. **Adversarial Hardening Suites**:
-   ```bash
-   pnpm --filter @oa-sdk/codegen exec vitest run src/__tests__/challenger-m5-adversarial-stress.test.ts src/__tests__/challenger-m5-adversarial-hardening.test.ts
-   ```
-   *Expected*: 38 passed tests (100%).
+# 4. Verify monorepo documentation and CLI specification gates
+pnpm check:docs && pnpm check:cli-spec
 
-5. **Config-Driven Validation on Browser Studio**:
-   ```bash
-   node node_modules/tsx/dist/cli.mjs packages/codegen/src/cli/index.ts validate --root /Users/junwoobang/workflow/browser-studio
-   ```
-   *Expected*: Summary: 5 total targets, 5 passed, 0 failed.
+# 5. Run benchmark library smoke test suite
+node --expose-gc --import tsx scripts/bench/lib/test-smoke.ts
+
+# 6. Run independent forensic verification script
+pnpm exec tsx .agents/auditor_1/independent_forensic_test.ts
+```

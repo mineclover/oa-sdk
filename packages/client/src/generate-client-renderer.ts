@@ -64,6 +64,8 @@ export function generateClientFromParsed(doc: ParsedDocument, options: ClientRen
   lines.push(`}`)
   lines.push('')
 
+  appendWireFormatTypes(lines)
+
   lines.push(`export class ClientError<TBody = unknown, TStatus extends number = number> extends Error {`)
   lines.push(`  readonly status: TStatus`)
   lines.push(`  readonly body: TBody`)
@@ -682,11 +684,11 @@ export function generateClientFromParsed(doc: ParsedDocument, options: ClientRen
     // function signature
     const params: string[] = []
     if (pathParams.length > 0) params.push(`params: ${typesImport ? `${baseName}PathParams` : 'Record<string, string>'}`)
-    if (hasBody && bodyRequired) params.push(`body: ${hasTypedBody ? `${baseName}Body` : 'unknown'}`)
+    if (hasBody && bodyRequired) params.push(`body: ${hasTypedBody ? `Resolved<${baseName}Body>` : 'unknown'}`)
     if (querystringParam?.required === true) params.push(`querystring: ${typesImport ? `${baseName}QueryString` : 'string'}`)
     if (queryParams.length > 0) params.push(`query?: ${typesImport ? `${baseName}QueryParams` : 'Record<string, unknown>'}`)
     if (querystringParam && querystringParam.required !== true) params.push(`querystring?: ${typesImport ? `${baseName}QueryString` : 'string'}`)
-    if (hasBody && !bodyRequired) params.push(`body?: ${hasTypedBody ? `${baseName}Body` : 'unknown'}`)
+    if (hasBody && !bodyRequired) params.push(`body?: ${hasTypedBody ? `Resolved<${baseName}Body>` : 'unknown'}`)
     if (acceptsRequestHeaders) params.push(`headers?: ${headerParams.length > 0 && typesImport ? `${baseName}HeaderParams` : 'Record<string, unknown>'}`)
 
     const responseType = hasTypedResponse ? `${baseName}Response` : 'unknown'
@@ -696,7 +698,7 @@ export function generateClientFromParsed(doc: ParsedDocument, options: ClientRen
     const streamFormat = getStreamingFormat(op.responses)
     const returnType = streamFormat
       ? `AsyncGenerator<${responseType}>`
-      : hasResponse ? `Promise<${responseType}>` : 'Promise<void>'
+      : hasResponse ? `Promise<JsonPrimitive<${responseType}>>` : 'Promise<void>'
 
     // path template
     const pathExpr = renderPathExpression(op.openApiPath, pathParams)
@@ -756,11 +758,11 @@ export function generateClientFromParsed(doc: ParsedDocument, options: ClientRen
       const acceptsRequestHeaders = headerParams.length > 0 || requestMediaTypes.length > 1
       const params: string[] = []
       if (pathParams.length > 0) params.push(`params: ${typesImport ? `${baseName}PathParams` : 'Record<string, string>'}`)
-      if (hasBody && bodyRequired) params.push(`body: ${hasTypedBody ? `${baseName}Body` : 'unknown'}`)
+      if (hasBody && bodyRequired) params.push(`body: ${hasTypedBody ? `Resolved<${baseName}Body>` : 'unknown'}`)
       if (querystringParam?.required === true) params.push(`querystring: ${typesImport ? `${baseName}QueryString` : 'string'}`)
       if (queryParams.length > 0) params.push(`query?: ${typesImport ? `${baseName}QueryParams` : 'Record<string, unknown>'}`)
       if (querystringParam && querystringParam.required !== true) params.push(`querystring?: ${typesImport ? `${baseName}QueryString` : 'string'}`)
-      if (hasBody && !bodyRequired) params.push(`body?: ${hasTypedBody ? `${baseName}Body` : 'unknown'}`)
+      if (hasBody && !bodyRequired) params.push(`body?: ${hasTypedBody ? `Resolved<${baseName}Body>` : 'unknown'}`)
       if (acceptsRequestHeaders) params.push(`headers?: ${headerParams.length > 0 && typesImport ? `${baseName}HeaderParams` : 'Record<string, unknown>'}`)
 
       const hasResponse = hasDocumentedSuccessResponseBody(op.responses)
@@ -784,10 +786,10 @@ export function generateClientFromParsed(doc: ParsedDocument, options: ClientRen
       if (op.summary || op.description) {
         lines.push(`      /** ${op.summary ?? op.description} */`)
       }
-      lines.push(`      async ${methodName}(${params.join(', ')}): Promise<ClientResponse<${bodyType}, ${headersType}>> {`)
+      lines.push(`      async ${methodName}(${params.join(', ')}): Promise<ClientResponse<JsonPrimitive<${bodyType}>, ${headersType}>> {`)
       if (acceptsRequestHeaders) lines.push(`        const requestHeaders = __mergeOaRequestHeaders(headers)`)
       lines.push(...requestValidationLines(op, '        ', acceptsRequestHeaders ? 'requestHeaders' : 'headers'))
-      lines.push(`        return requestResponse<${bodyType}, ${headersType}>('${method}', ${pathExpr}, ${optsArg}, ${JSON.stringify(requestMediaTypes)}, ${responseMediaTypes}, ${errorMediaTypes}, ${headerSpecs}, ${retryable}, ${JSON.stringify(op.operationId)})`)
+      lines.push(`        return requestResponse<JsonPrimitive<${bodyType}>, ${headersType}>('${method}', ${pathExpr}, ${optsArg}, ${JSON.stringify(requestMediaTypes)}, ${responseMediaTypes}, ${errorMediaTypes}, ${headerSpecs}, ${retryable}, ${JSON.stringify(op.operationId)})`)
       lines.push(`      },`)
       lines.push('')
     }
@@ -1025,4 +1027,38 @@ function formatHeaderSpecs(specs: HeaderReadSpec[]): string {
     return `{ ${fields.join(', ')} }`
   })
   return `[${entries.join(', ')}]`
+}
+
+function appendWireFormatTypes(lines: string[]): void {
+  lines.push('export type Equal<X, Y> = (<T>() => T extends X ? 1 : 2) extends (<T>() => T extends Y ? 1 : 2) ? true : false')
+  lines.push('')
+  lines.push('export type NativeClass = Date | Set<any> | Map<any, any> | WeakSet<any> | WeakMap<any, any> | Uint8Array | Uint8ClampedArray | Uint16Array | Uint32Array | BigUint64Array | Int8Array | Int16Array | Int32Array | BigInt64Array | Float32Array | Float64Array | ArrayBuffer | SharedArrayBuffer | DataView | Blob | File | RegExp')
+  lines.push('')
+  lines.push('interface __IValueOf<T> { valueOf(): T }')
+  lines.push('type __IsValueOf<Instance, Object extends __IValueOf<any>> = Instance extends Object ? (Object extends __IValueOf<infer Primitive> ? (Instance extends Primitive ? false : true) : false) : false')
+  lines.push('')
+  lines.push('export type ValueOf<Instance> = __IsValueOf<Instance, Boolean> extends true ? boolean : __IsValueOf<Instance, Number> extends true ? number : __IsValueOf<Instance, String> extends true ? string : Instance')
+  lines.push('')
+  lines.push('export type ClassProperties<T extends object> = { [K in keyof T as K extends symbol ? never : [T[K]] extends [never] ? never : [Exclude<T[K], undefined>] extends [never] ? K : Exclude<T[K], undefined> extends Function ? never : K]: T[K] }')
+  lines.push('')
+  lines.push("export type IsTuple<T extends readonly any[]> = [T] extends [never] ? false : number extends T['length'] ? (T extends readonly [any, ...any[]] ? true : false) : true")
+  lines.push('')
+  lines.push('type __JsonPrimitiveMain<T> = T extends [never] ? never : ValueOf<T> extends bigint ? never : ValueOf<T> extends boolean | number | string ? ValueOf<T> : T extends null | undefined | void ? T : T extends Function ? never : T extends symbol ? never : ValueOf<T> extends object ? (T extends object ? (T extends Date ? string : T extends { toJSON(...args: any[]): infer R } ? JsonPrimitive<R> : T extends Exclude<NativeClass, Date> ? never : __JsonPrimitiveObject<T>) : never) : ValueOf<T>')
+  lines.push('')
+  lines.push('type __JsonPrimitiveObject<T extends object> = T extends readonly any[] ? (IsTuple<T> extends true ? __JsonPrimitiveTuple<T> : JsonPrimitive<T[number]>[]) : { [K in keyof T as K extends symbol ? never : [T[K]] extends [never] ? never : [Exclude<T[K], undefined>] extends [never] ? K : Exclude<T[K], undefined> extends Function | symbol ? never : K]: JsonPrimitive<T[K]> }')
+  lines.push('')
+  lines.push("type __JsonPrimitiveTuple<T extends readonly any[]> = number extends T['length'] ? __JsonPrimitiveVariadicTuple<T> : T extends [] ? [] : T extends readonly [] ? readonly [] : T extends [infer F] ? [JsonPrimitive<F>] : T extends readonly [infer F] ? readonly [JsonPrimitive<F>] : T extends [infer F, ...infer Rest] ? [JsonPrimitive<F>, ...__JsonPrimitiveTuple<Rest>] : T extends readonly [infer F, ...infer Rest] ? readonly [JsonPrimitive<F>, ...__JsonPrimitiveTuple<Rest>] : T extends [(infer F)?] ? [JsonPrimitive<F>?] : T extends readonly [(infer F)?] ? readonly [JsonPrimitive<F>?] : T extends [(infer F)?, ...infer Rest] ? [JsonPrimitive<F>?, ...__JsonPrimitiveTuple<Rest>] : T extends readonly [(infer F)?, ...infer Rest] ? readonly [JsonPrimitive<F>?, ...__JsonPrimitiveTuple<Rest>] : []")
+  lines.push('')
+  lines.push('type __JsonPrimitiveVariadicTuple<T extends readonly any[]> = { [P in keyof T]: JsonPrimitive<T[P]> }')
+  lines.push('')
+  lines.push('export type JsonPrimitive<T> = 0 extends 1 & T ? any : [T] extends [never] ? never : unknown extends T ? unknown : __JsonPrimitiveMain<T>')
+  lines.push('')
+  lines.push('type __ResolvedMain<T, TupleStack = never> = T extends [never] ? never : ValueOf<T> extends boolean | number | bigint | string ? ValueOf<T> : T extends null | undefined | void ? T : T extends Function ? never : T extends object ? __ResolvedObject<T, TupleStack> : ValueOf<T>')
+  lines.push('')
+  lines.push('type __ResolvedObject<T extends object, TupleStack> = T extends Array<infer U> ? (IsTuple<T> extends true ? (T extends TupleStack ? T : __ResolvedArray<T, TupleStack | T>) : Array<__ResolvedMain<U, TupleStack>>) : T extends ReadonlyArray<infer U> ? (IsTuple<T> extends true ? (T extends TupleStack ? T : __ResolvedArray<T, TupleStack | T>) : ReadonlyArray<__ResolvedMain<U, TupleStack>>) : T extends Set<infer U> ? Set<__ResolvedMain<U, TupleStack>> : T extends Map<infer K, infer V> ? Map<__ResolvedMain<K, TupleStack>, __ResolvedMain<V, TupleStack>> : T extends ReadonlyMap<infer K, infer V> ? ReadonlyMap<__ResolvedMain<K, TupleStack>, __ResolvedMain<V, TupleStack>> : T extends ReadonlySet<infer U> ? ReadonlySet<__ResolvedMain<U, TupleStack>> : T extends WeakSet<any> | WeakMap<any, any> ? never : T extends NativeClass ? T : { [P in keyof T as P extends symbol ? never : [T[P]] extends [never] ? never : [Exclude<T[P], undefined>] extends [never] ? P : Exclude<T[P], undefined> extends Function ? never : P]: __ResolvedMain<T[P], TupleStack> }')
+  lines.push('')
+  lines.push('type __ResolvedArray<T extends readonly unknown[], TupleStack> = { [P in keyof T]: __ResolvedMain<T[P], TupleStack> }')
+  lines.push('')
+  lines.push('export type Resolved<T> = 0 extends 1 & T ? any : [T] extends [never] ? never : unknown extends T ? unknown : object extends T ? T : T extends readonly unknown[] ? __ResolvedMain<T> : Equal<T, __ResolvedMain<T>> extends true ? T : __ResolvedMain<T>')
+  lines.push('')
 }

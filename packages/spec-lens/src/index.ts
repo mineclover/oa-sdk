@@ -100,6 +100,22 @@ export type {
   TypeSpecBundleCompiler,
 } from './infrastructure/index.js'
 
+export {
+  computeTsconfigUniverse,
+  computeTsconfigUniverseDigest,
+  createEmptyTsconfigUniverse,
+  parseJsonc,
+  stripJsonComments,
+  removeTrailingCommas,
+  configurationClosure,
+  resolveConfigurationFile,
+} from './infrastructure/cache/sqlite/cache-key.js'
+export type {
+  ContractConfigDigest,
+  ContractConfigUniverse,
+  ConfigurationClosure,
+} from './infrastructure/cache/sqlite/cache-key.js'
+
 export { createSpecLensServer, serveSpecLens } from './presentation/http/server.js'
 export type {
   DefinitionBuilderSpecLensServerConfig,

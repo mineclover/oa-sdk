@@ -424,14 +424,25 @@ function applyNullableUpgrade(
   return { anyOf: [schema, { type: 'null' }] }
 }
 
-function removeCollectionNoise(value: unknown, profile: OpenApiCollectProfile, pointer: string): unknown {
-  if (Array.isArray(value)) return value.map((item, index) => removeCollectionNoise(item, profile, `${pointer}/${index}`))
+function removeCollectionNoise(
+  value: unknown,
+  profile: OpenApiCollectProfile,
+  pointer: string,
+  seen = new Set<unknown>(),
+): unknown {
+  if (Array.isArray(value)) {
+    if (seen.has(value)) return value
+    seen.add(value)
+    return value.map((item, index) => removeCollectionNoise(item, profile, `${pointer}/${index}`, seen))
+  }
   if (!isRecord(value)) return value
+  if (seen.has(value)) return value
+  seen.add(value)
 
   const output: Record<string, unknown> = {}
   for (const [key, child] of Object.entries(value)) {
     const childPointer = `${pointer}/${escapeJsonPointer(key)}`
-    const next = removeCollectionNoise(child, profile, childPointer)
+    const next = removeCollectionNoise(child, profile, childPointer, seen)
     if (shouldDropNoise(key, next, profile, childPointer)) continue
     output[key] = next
   }
@@ -458,18 +469,26 @@ function shouldDropNoise(
   return false
 }
 
-function sortOpenApiObject(value: unknown, pointer: string): unknown {
+function sortOpenApiObject(
+  value: unknown,
+  pointer: string,
+  seen = new Set<unknown>(),
+): unknown {
   if (Array.isArray(value)) {
-    const items = value.map((item, index) => sortOpenApiObject(item, `${pointer}/${index}`))
+    if (seen.has(value)) return value
+    seen.add(value)
+    const items = value.map((item, index) => sortOpenApiObject(item, `${pointer}/${index}`, seen))
     return shouldSortArray(pointer) ? items.sort(compareStable) : items
   }
   if (!isRecord(value)) return value
+  if (seen.has(value)) return value
+  seen.add(value)
 
   const keys = Object.keys(value)
   keys.sort((left, right) => compareOpenApiKeys(pointer, left, right))
   const output: Record<string, unknown> = {}
   for (const key of keys) {
-    output[key] = sortOpenApiObject(value[key], `${pointer}/${escapeJsonPointer(key)}`)
+    output[key] = sortOpenApiObject(value[key], `${pointer}/${escapeJsonPointer(key)}`, seen)
   }
   return output
 }
@@ -512,7 +531,11 @@ function shouldSortArray(pointer: string): boolean {
 }
 
 function compareStable(left: unknown, right: unknown): number {
-  return JSON.stringify(left).localeCompare(JSON.stringify(right))
+  try {
+    return JSON.stringify(left).localeCompare(JSON.stringify(right))
+  } catch {
+    return 0
+  }
 }
 
 function cloneJson<T>(value: T): T {

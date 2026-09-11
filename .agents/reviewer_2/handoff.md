@@ -1,126 +1,293 @@
-# Handoff Report: Reviewer 2 (Milestone M3 Review & Verification)
+# Handoff Report — Reviewer 2: Mock Server HTTP Response Serialization & Static Header Preallocation (Milestone M2)
 
-- **From**: `reviewer_2` (Teamwork reviewer & critic)
-- **To**: Parent Agent (`a329d2dd-a30a-4c8e-872a-6ab18e0a1c87`)
-- **Type**: Hard Handoff (Review Complete)
-- **Timestamp**: 2026-09-05T07:00:00Z
-- **Verdict**: **APPROVE**
-- **Integrity Assessment**: **CLEAN (Zero Integrity Violations)**
+**Agent Identity**: `reviewer_2`  
+**Working Directory**: `/Users/junwoobang/workflow/oa-sdk/.agents/reviewer_2`  
+**Role**: Reviewer & Adversarial Critic  
+**Review Target**: `packages/mock-server/src/adapters/node-http.ts`  
+**Parent Agent**: `parent` (`6e9162db-e15b-42e5-9757-50c9b9433e62`)  
+**Timestamp**: 2026-09-11T06:08:00Z  
+**Verdict**: **APPROVE**  
+**Type**: Hard Handoff (Task Complete)  
 
 ---
 
 ## 1. Observation
 
-1. **Owned Files & Code Inspection**:
-   - `/Users/junwoobang/workflow/oa-sdk/docs/README.md`:
-     - Lines 11, 14: Added navigation pathways for declarative spec configuration and 4-tier testing infrastructure in `## 먼저 고르기`.
-     - Lines 31, 32: Added `[CLI 거버넌스 및 스펙 검증 모델](./concepts/cli-governance.md)` and `[테스트 인프라 (Test Infrastructure)](./concepts/test-infrastructure.md)` to `## 유저 가이드`.
-     - Lines 58, 59: Added `[선언적 스펙 설정 (oa.config.ts)](./guides/declarative-spec-configuration.md)` and `[스키마 아키텍처 및 작성 규칙](./guides/schema-architecture-and-conventions.md)` to `## 유저 가이드`.
-     - Line 73: Added `[CLI Governance 개념 및 검증 모델](./concepts/cli-governance.md)` to `## CLI Governance Spec`.
-     - Line 94: Added `[test-infrastructure.md](./concepts/test-infrastructure.md)` to `## 프로젝트 관리 (SSOT)`.
-   - `/Users/junwoobang/workflow/oa-sdk/docs/guides/cli-command-reference.md`:
-     - Lines 23, 27: Added purpose rows for declarative spec configuration and test infrastructure to `## 먼저 목적을 고르기`.
-     - Lines 61, 62: Split previously combined `oa-gen check-artifact` / `oa-gen drift:check` row into two discrete entries.
-     - Line 121: Appended cross-references to `docs/concepts/cli-governance.md` and `docs/concepts/test-infrastructure.md` in `## 검증 명령과의 관계`.
-   - `/Users/junwoobang/workflow/oa-sdk/docs/guides/use-cases/mock-testing.md`:
-     - Line 71: Corrected anchor to `→ [검증 API](../../internal/api-index.md#함수-oa-sdkmock-server--고유)` matching target heading `## 함수 (@oa-sdk/mock-server — 고유)` in `docs/internal/api-index.md:1037`.
-   - `/Users/junwoobang/workflow/oa-sdk/scripts/lib/validation-gates.ts`:
-     - Line 44: Added `'.agents'` to `skippedDirectories`.
-     - Line 58: Defined `const universalGlobalOptions = new Set(['root', 'project-root'])`.
-     - Line 140: Allowed universal global options in `createCliExampleGate` for `executable === 'oa-gen'`.
-     - Line 176: Updated regex in `createCliReferenceGate` to `/^\|\s*`oa-gen\s+([a-z][a-z0-9:-]*)`\s*\|/gm` to recognize colon commands.
+### 1.1 Source Code Verification in `packages/mock-server/src/adapters/node-http.ts`
 
-2. **Verbatim Independent Command Execution**:
-   - `pnpm exec tsx scripts/check-cli-spec.ts`:
-     ```text
+Direct inspection of `packages/mock-server/src/adapters/node-http.ts` confirmed the following implementations:
+
+1. **Precomputed Static Response Payloads & Headers (`compileRoutingState` & `ServerRoutingState.precomputed`)**:
+   - Lines 59–65: `PrecomputedResponse` structure declared:
+     ```typescript
+     type PrecomputedResponse = {
+       status: number
+       contentType: string
+       payload: string
+       headers: Record<string, string | number>
+       originalBody: unknown
+     }
+     ```
+   - Lines 126–152: `precomputed` Map populated during routing state compilation:
+     ```typescript
+     const precomputed = new Map<OperationEntry, PrecomputedResponse>()
+     for (const [, methodMap] of nextIndex) {
+       for (const [, entry] of methodMap) {
+         if (entry.responses) {
+           const picked = pickResponse(entry.responses)
+           if (picked && !isStreamingContentType(picked.contentType)) {
+             const payload = serializeResponseBody(picked.contentType, picked.body, picked.schema)
+             const contentLength = Buffer.byteLength(payload)
+             const headers: Record<string, string | number> = {
+               ...picked.headers,
+               'Content-Type': picked.contentType,
+               'Content-Length': contentLength,
+             }
+             precomputed.set(entry, {
+               status: picked.status,
+               contentType: picked.contentType,
+               payload,
+               headers,
+               originalBody: picked.body,
+             })
+           }
+         }
+       }
+     }
+     ```
+   - Lines 306–312: Fast-path execution in `handler`:
+     ```typescript
+     const precalc = currentState.precomputed.get(entry)
+     if (precalc && picked.status === precalc.status && picked.body === precalc.originalBody) {
+       res.writeHead(precalc.status, precalc.headers)
+       res.end(precalc.payload)
+       return
+     }
+     ```
+     Identity guard `picked.status === precalc.status && picked.body === precalc.originalBody` ensures that any dynamic or schema-deviating response safely falls back to standard `writeBody`.
+
+2. **Fast-Path Bodiless Request Bypass (`readBody`)**:
+   - Lines 416–424:
+     ```typescript
+     const te = req.headers['transfer-encoding']
+     const cl = req.headers['content-length']
+
+     // Fast-path: bodiless requests (GET, HEAD, DELETE without body payload)
+     if (te === undefined && (cl === undefined || cl === '0')) {
+       req.resume()
+       return { body: undefined }
+     }
+     ```
+     Per RFC 9110 §8.6 and RFC 9112 §6.3, when neither `transfer-encoding` nor non-zero `content-length` is present, the message body is strictly empty. Invoking `req.resume()` drains stray stream events, and returning `{ body: undefined }` synchronously avoids Promise instantiation and `'data'`/`'end'`/`'error'` listener churn.
+
+3. **Fast-Path URL & Query Parsing**:
+   - Lines 181–215:
+     ```typescript
+     if (rawUrl.charCodeAt(0) === 47 /* '/' */) {
+       const qIndex = rawUrl.indexOf('?')
+       if (qIndex === -1) {
+         const hIndex = rawUrl.indexOf('#')
+         urlPath = stripBasePath(hIndex === -1 ? rawUrl : rawUrl.slice(0, hIndex), currentState.basePath)
+       } else {
+         urlPath = stripBasePath(rawUrl.slice(0, qIndex), currentState.basePath)
+         const hIndex = rawUrl.indexOf('#', qIndex + 1)
+         rawQueryString = rawUrl.slice(qIndex + 1, hIndex === -1 ? undefined : hIndex)
+         const params = new URLSearchParams(rawQueryString)
+         for (const [k, v] of params.entries()) {
+           const existing = queryParams[k]
+           if (existing !== undefined) {
+             queryParams[k] = Array.isArray(existing) ? [...existing, v] : [existing, v]
+           } else {
+             queryParams[k] = v
+           }
+         }
+       }
+       requestUrl = `${requestOrigin}${rawUrl}`
+     } else {
+       // Fallback for full absolute URLs (e.g. forward proxy requests)
+       const parsedUrl = new URL(rawUrl, requestOrigin)
+       urlPath = stripBasePath(parsedUrl.pathname, currentState.basePath)
+       rawQueryString = extractRawQueryString(rawUrl)
+       for (const [k, v] of parsedUrl.searchParams.entries()) {
+         const existing = queryParams[k]
+         if (existing !== undefined) {
+           queryParams[k] = Array.isArray(existing) ? [...existing, v] : [existing, v]
+         } else {
+           queryParams[k] = v
+         }
+       }
+       requestUrl = parsedUrl.toString()
+     }
+     ```
+     Avoids WHATWG Ada/C++ parser instantiation for standard relative paths while providing a safe fallback for full absolute URLs (forward proxy requests).
+
+4. **Fast Header Extraction**:
+   - Lines 258–265:
+     ```typescript
+     const reqHeaders = req.headers
+     const headers: Record<string, string> = {}
+     for (const k in reqHeaders) {
+       const v = reqHeaders[k]
+       if (typeof v === 'string') headers[k] = v
+       else if (Array.isArray(v)) headers[k] = v[0] ?? ''
+     }
+     ```
+     Replaced `Object.entries(req.headers)` with a fast `for..in` loop, eliminating array-of-tuples heap allocation per request.
+
+5. **Streaming, Overrides & Error Handling Preservation**:
+   - Streaming media types (`isStreamingContentType`, lines 292–304): Checked and streamed dynamically via `generateStreamChunks`, completely bypassing static precalc.
+   - Dynamic overrides (`server.override`, lines 240–256): Evaluated at the top of the route handler; overrides execute immediately.
+   - Validation & schema error handling (lines 285–287): `hr.type === 'validation-error'` (422) and `hr.type === 'schema-error'` (500) remain strictly preserved with redaction.
+   - 500 Internal error preallocation: Lines 77–83 (`INTERNAL_ERROR_PAYLOAD`, `INTERNAL_ERROR_HEADERS`).
+   - 405 Method Not Allowed header caching: Lines 227–231 (`currentState.allowedHeadersCache`).
+
+### 1.2 Verbatim Verification Command Execution Outputs
+
+The reviewer independently executed all verification commands required by the dispatch:
+
+1. **Mock Server Test Suite**:
+   ```bash
+   corepack pnpm --filter @oa-sdk/mock-server test
+   ```
+   *Output*:
+   ```
+    Test Files  38 passed (38)
+         Tests  656 passed (656)
+      Duration  6.68s
+   ```
+
+2. **Downstream Test Suite**:
+   ```bash
+   corepack pnpm test:downstream
+   ```
+   *Output*:
+   ```
+   @oa-sdk/router: 2 test files, 47 passed (47)
+   @oa-sdk/client: 3 test files, 73 passed (73)
+   @oa-sdk/mock-server: 38 test files, 656 passed (656)
+   Tasks: 6 successful, 6 total
+   Time: 1.416s >>> FULL TURBO
+   ```
+
+3. **Parity Edge-Case Test**:
+   ```bash
+   node --expose-gc --import tsx .agents/explorer_m2_1/test-parity.ts
+   ```
+   *Output*:
+   ```
+   --- Running Optimized Node Mock Server Self-Test ---
+   Running parity tests against edge cases...
+   Optimized server listening at: http://127.0.0.1:61451
+   /health check: 200 { status: 'ok', timestamp: '2026-04-04T00:00:00.000Z' }
+   deepObject valid: 204
+   deepObject invalid (422): 422
+   override status: 200 { overridden: true } yes
+   404: 404
+   405: 405 Allow: GET
+   updateSpec routesCount: 2
+   /new-route status: 200 hello
+   All parity tests passed!
+   Optimized C=10: 5283.0 QPS (378.6ms, errors: 0)
+   Optimized C=50: 5814.6 QPS (344.0ms, errors: 0)
+   Optimized C=100: 9299.4 QPS (215.1ms, errors: 0)
+   Self-test PASSED with 0 errors and 0 FD leaks!
+   ```
+
+4. **Monorepo Benchmark Suite**:
+   ```bash
+   node --expose-gc --import tsx scripts/bench/bench-zod-mock.ts
+   ```
+   *Output*:
+   ```
+   - Concurrency Tiers:
+     * C=10:  2,341 QPS (mean 4.237ms, p50 3.309ms), errors: 0 (0.00% error rate)
+     * C=50:  4,107 QPS (mean 12.093ms, p50 9.562ms), errors: 0 (0.00% error rate)
+     * C=100: 4,618 QPS (mean 21.437ms, p50 15.383ms, p95 26.108ms vs baseline 82.245ms [-68.3% latency]), errors: 0 (0.00% error rate)
+   - Atomic updateSpec:
+     * Completed requests: 2000, spec updates: 10, errors: 0 (0.00% error rate)
+     * Assertion PASS: Zero dropped connections and zero HTTP errors during active spec swaps.
+   - Resource Invariants:
+     * Heap Memory Delta (2,000 HTTP requests): 55.13 MB -> 55.00 MB (-0.14 MB net growth) [STABLE]
+     * File Descriptors (20 Lifecycle Cycles): 14 FDs -> 14 FDs (0 leaked) [PASS (Zero Leak)]
+   ```
+
+5. **Governance Verification Gates**:
+   - `pnpm check:docs`:
+     ```
+     Documentation OK: 234 Markdown files plus 24 OAS reference files; local links, oa-gen examples, agent governance, and command/package entrypoint coverage checked.
+     ```
+   - `pnpm check:cli-spec`:
+     ```
      CLI spec OK: 2 manifests, 27 command entities.
      ```
-     (Exit code: 0)
-   - `pnpm check:docs`:
-     ```text
-     Documentation OK: 230 Markdown files plus 24 OAS reference files; local links, oa-gen examples, and command/package entrypoint coverage checked.
+   - `pnpm check:api-index`:
      ```
-     (Exit code: 0)
-   - `pnpm test:docs-gates`:
-     ```text
-     Documentation validation gate library tests OK.
+     API index is in sync with code exports.
      ```
-     (Exit code: 0)
-   - `pnpm -r typecheck`:
-     ```text
-     Scope: 21 of 22 workspace projects
-     apps/nestjs-ref typecheck: Done
-     packages/core typecheck: Done
-     packages/logical-erd-contract typecheck: Done
-     packages/openapi-projection-contract typecheck: Done
-     packages/personas typecheck: Done
-     packages/spec-lens-contract typecheck: Done
-     packages/typespec-decorators typecheck: Done
-     packages/typespec-erd typecheck: Done
-     packages/parser typecheck: Done
-     packages/dpm typecheck: Done
-     apps/spec-lens typecheck: Done
-     packages/client typecheck: Done
-     packages/codegen typecheck: Done
-     packages/mock-server typecheck: Done
-     packages/router typecheck: Done
-     packages/typia-mock typecheck: Done
-     packages/spec-lens typecheck: Done
-     apps/playground typecheck: Done
-     ```
-     (Exit code: 0 across all 21 packages)
-   - `pnpm check:spec-governance && pnpm check:codegen-boundaries`:
-     ```text
-     Spec governance OK: loader schema and declared paths are valid.
-     Codegen boundaries are in sync: generation, adapters, governance CLI, and spec-lens integration.
-     ```
-     (Exit code: 0)
 
-3. **Integrity Examination**:
-   - No hardcoded test outputs or mock facades detected.
-   - `universalGlobalOptions` matches runtime CLI options in `packages/codegen/src/cli/lib/run.ts:GLOBAL_OPTIONS`.
-   - All 25 live commands from `packages/codegen/src/cli/commands.ts` are listed with real descriptions.
+### 1.3 Independent Adversarial Stress Test Results
+
+The reviewer authored and ran comprehensive in-memory adversarial test suites directly against `createNodeMockServer` from `packages/mock-server/src/adapters/node-http.js`:
+
+1. **Absolute Forward-Proxy URL Request Target**:
+   - Request: `GET http://127.0.0.1:<port>/items/123?filter=active#section`
+   - *Result*: Correctly routed via fallback branch to `new URL()`, returning 200 OK.
+2. **Chunked Bodiless GET**:
+   - Request: `GET /items/456` with `Transfer-Encoding: chunked` and payload `0\r\n\r\n`.
+   - *Result*: Correctly bypassed bodiless fast-path into `readRaw()`, consumed chunks cleanly, returning 200 OK.
+3. **Query Parameter Shape Validation**:
+   - Passing `?filter=a&filter=b` to a scalar `type: 'string'` parameter triggers 422 Unprocessable Content (validation working as intended).
+   - Passing `?filter=a&filter=b` to an array `type: 'array'` parameter parses into `['a', 'b']` and returns 200 OK.
+4. **Bodiless HEAD Method**:
+   - Request: `HEAD /ping`
+   - *Result*: Returns 200 OK with `Content-Length: 4` and exact response headers, emitting 0 bytes of response body.
+5. **Real-time SSE Streaming**:
+   - Request: `GET /events`
+   - *Result*: Returns `Content-Type: text/event-stream`, dynamically yielding chunks `data: {"msg":"hello"}\n\n`.
+6. **Concurrent Keep-Alive HTTP Load with Live `updateSpec`**:
+   - Executed 1,000 requests across 10 concurrent workers while actively triggering 5 consecutive `updateSpec` hot swaps.
+   - *Result*: 1,000 completed requests, 0 HTTP errors, 0 dropped connections.
 
 ---
 
 ## 2. Logic Chain
 
-1. **Navigation Completeness**:
-   - Direct inspection (Observation 1.1) confirms that all four core documents (`declarative-spec-configuration.md`, `schema-architecture-and-conventions.md`, `cli-governance.md`, and `test-infrastructure.md`) are now indexed in `docs/README.md` across all four relevant sections ("먼저 고르기", "유저 가이드", "CLI Governance Spec", "프로젝트 관리 (SSOT)").
-2. **CLI Spec & Reference Alignment**:
-   - `packages/codegen/src/cli/commands.ts` registers 25 commands.
-   - `docs/guides/cli-command-reference.md` lists all 25 commands in dedicated table rows without omission.
-   - `scripts/check-cli-spec.ts` confirms full alignment between the TypeScript governance manifest, Python manifest, and live command implementations (Observation 2.1).
-3. **Anchor & Link Validity**:
-   - CommonMark anchor generation converts `## 함수 (@oa-sdk/mock-server — 고유)` to `#함수-oa-sdkmock-server--고유`.
-   - The fix at `docs/guides/use-cases/mock-testing.md:71` exactly matches this anchor.
-   - `pnpm check:docs` scans 230 markdown files and 24 OAS reference chapters, validating all relative links and anchors with 0 errors (Observation 2.2).
-4. **Validation Gate Reliability**:
-   - Adding `.agents` to `skippedDirectories` excludes non-documentation agent metadata without affecting repository documentation coverage.
-   - Adding `universalGlobalOptions` (`root`, `project-root`) aligns the documentation example validator with `packages/codegen/src/cli/lib/run.ts:GLOBAL_OPTIONS`.
-   - Updating the regex in `createCliReferenceGate` allows colon-containing commands (`audit:csp`, `drift:check`) to be parsed and verified.
-   - `pnpm test:docs-gates` confirms all gate test suites pass (Observation 2.3).
-5. **Absence of Regressions**:
-   - Full monorepo typecheck (`pnpm -r typecheck`) passed cleanly across 21 packages (Observation 2.4).
-   - Spec governance and codegen boundary checks passed cleanly (Observation 2.5).
+1. **Integrity Verification**:
+   - *Observation*: Code changes in `packages/mock-server/src/adapters/node-http.ts` were inspected for hardcoded test responses, dummy facade logic, task bypassing, and self-certifying mock outputs.
+   - *Inference*: `precomputed` dynamically parses any valid OpenAPI specification at startup and `updateSpec` time, computing payloads via `serializeResponseBody` and `Buffer.byteLength`. No hardcoded strings or test bypasses exist. The implementation is genuine and free of integrity violations.
+2. **Deterministic Response Acceleration**:
+   - *Observation*: In mock environments, static example responses and schema folds are invariant for a given spec and operation entry.
+   - *Inference*: Precomputing `payload` and static `headers` (`Content-Type`, `Content-Length`, declared spec headers) during `compileRoutingState` eliminates runtime stringification and buffer scanning on the hot path. The identity check `picked.status === precalc.status && picked.body === precalc.originalBody` guarantees complete semantic fidelity.
+3. **RFC-Compliant Bodiless Bypass**:
+   - *Observation*: RFC 9110 §8.6 and RFC 9112 §6.3 dictate that HTTP requests with no `Transfer-Encoding` and no `Content-Length` (or `Content-Length: 0`) have no body.
+   - *Inference*: Returning `{ body: undefined }` synchronously and calling `req.resume()` avoids creating Promises and attaching event listeners to `IncomingMessage`, preventing event-loop tick delays and socket stalls under Keep-Alive reuse.
+4. **URL Parser Allocation Elimination**:
+   - *Observation*: In local mock servers, virtually all incoming HTTP request lines are relative paths starting with `/`.
+   - *Inference*: String scanning via `indexOf('?')` and `indexOf('#')` with `new URLSearchParams` eliminates WHATWG C++ Ada parser allocations on the hot path while maintaining 100% semantic compatibility for parameter extraction and fallback support for forward-proxy URLs.
+5. **Concurrency & Resource Stability**:
+   - *Observation*: Benchmark and parity tests under C=10, C=50, and C=100 load demonstrate up to 9,299 QPS, 0.00% error rate, net-negative heap retention (-0.14 MB), and 0 file descriptor leaks across 20 start/stop/update cycles.
+   - *Inference*: All socket writes remain within standard Node `http.ServerResponse` primitives (`writeHead` and `end`), ensuring clean socket descriptor state transitions and zero connection drops during active `updateSpec` swaps.
 
 ---
 
 ## 3. Caveats
 
-- **External OAS References**: `docs/references/oas32/` contains 24 mirrored chapters of the official OpenAPI 3.2 specification. These are tracked for upstream reference and link checking, but are not modified by oa-sdk workers.
-- **Write Ownership**: Reviewer confirmed that worker `worker_m3_1` modified only the 4 assigned files (`docs/README.md`, `docs/guides/cli-command-reference.md`, `docs/guides/use-cases/mock-testing.md`, `scripts/lib/validation-gates.ts`).
+- **Streaming Media Types**: Operations returning `text/event-stream` or `application/x-ndjson` are intentionally excluded from `precomputed` and continue to generate real-time asynchronous stream chunks.
+- **Dynamic Overrides**: `server.override` retains highest precedence, executing before request body reading and validation.
+- **Parameter Validation**: Scalar parameters receive strict validation; clients submitting duplicate query keys (e.g. `?filter=a&filter=b`) will receive HTTP 422 if the schema defines `type: 'string'`.
 
 ---
 
 ## 4. Conclusion
 
-Milestone M3 satisfies all functional, architectural, and integrity criteria:
-- **Registry & Navigation Integrity**: Verified across all 4 navigation sections in `docs/README.md`.
-- **CLI Spec Alignment**: Verified against `commands.ts` and `check-cli-spec.ts`.
-- **Anchor Fix**: Verified against `api-index.md:1037`.
-- **Validation Gates**: Verified via `test:docs-gates` and `check:docs`.
-- **Integrity**: Clean, genuine implementation with zero shortcuts, mock facades, or cheating.
+The code changes in `packages/mock-server/src/adapters/node-http.ts` fully satisfy all requirements specified in `ORIGINAL_REQUEST.md` (## 2026-09-11T05:20:05Z):
+1. Precomputed static response payloads and headers in `ServerRoutingState.precomputed` operate cleanly with safe identity fallback.
+2. Fast-path bodiless request bypass in `readBody` eliminates stream overhead for GET/HEAD requests.
+3. Fast-path URL pathname and query parameter parsing eliminates WHATWG URL parser allocations while supporting forward proxy fallbacks.
+4. `req.headers` extraction uses an allocation-free `for..in` loop.
+5. Streaming responses, dynamic overrides, sensitive value redaction, and schema validation error handlers are completely preserved.
+6. 0.00% error rate, 0 file descriptor leaks, and 68.3% p95 latency reduction verified under Keep-Alive load.
+7. All 656 mock-server tests pass, downstream tests pass, and all governance gates (`check:docs`, `check:cli-spec`, `check:api-index`) pass with zero drift.
 
 **Explicit Verdict**: **APPROVE**
 
@@ -128,34 +295,29 @@ Milestone M3 satisfies all functional, architectural, and integrity criteria:
 
 ## 5. Verification Method
 
-To independently verify the deliverables:
+To independently reproduce and verify this review:
 
 ```bash
-# 1. Verify CLI Spec Alignment
-pnpm exec tsx scripts/check-cli-spec.ts
-# Expected: "CLI spec OK: 2 manifests, 27 command entities." (code 0)
+# 1. Run mock-server test suite (656 tests)
+corepack pnpm --filter @oa-sdk/mock-server test
 
-# 2. Verify Monorepo Documentation Link & Command Reference Gates
+# 2. Run downstream package test suite (router, client, mock-server)
+corepack pnpm test:downstream
+
+# 3. Run edge-case parity test suite
+node --expose-gc --import tsx .agents/explorer_m2_1/test-parity.ts
+
+# 4. Run official Milestone 3 benchmark suite
+node --expose-gc --import tsx scripts/bench/bench-zod-mock.ts
+
+# 5. Run monorepo documentation and governance checks
 pnpm check:docs
-# Expected: "Documentation OK: 230 Markdown files plus 24 OAS reference files..." (code 0)
-
-# 3. Verify Validation Gate Unit Tests
-pnpm test:docs-gates
-# Expected: "Documentation validation gate library tests OK." (code 0)
-
-# 4. Verify Monorepo Typecheck
-pnpm -r typecheck
-# Expected: All 21 workspace projects report "Done" with exit code 0
-
-# 5. Verify Spec Governance & Codegen Boundaries
-pnpm check:spec-governance
-pnpm check:codegen-boundaries
-# Expected: All checks exit with code 0
+pnpm check:cli-spec
+pnpm check:api-index
 ```
 
-Files to inspect:
-- `/Users/junwoobang/workflow/oa-sdk/.agents/reviewer_2/review.md`
-- `/Users/junwoobang/workflow/oa-sdk/docs/README.md`
-- `/Users/junwoobang/workflow/oa-sdk/docs/guides/cli-command-reference.md`
-- `/Users/junwoobang/workflow/oa-sdk/docs/guides/use-cases/mock-testing.md`
-- `/Users/junwoobang/workflow/oa-sdk/scripts/lib/validation-gates.ts`
+### Invalidation Conditions
+- Any test failure in the 656 unit/integration tests of `@oa-sdk/mock-server`.
+- Any error rate $> 0.00\%$ under concurrent Keep-Alive HTTP load.
+- Any open file descriptor leak (`assertZeroFdLeak` reporting leaked FDs $> 0$).
+- Any documentation drift detected by `check:docs`, `check:cli-spec`, or `check:api-index`.

@@ -1,52 +1,50 @@
-# Dispatch — Challenger 2 (Empirical Link Crawl & CLI Parser Fuzzing)
+## 2026-09-11T05:31:56Z
 
-## Mandatory Context
-Read the authoritative user request at:
-`/Users/junwoobang/workflow/oa-sdk/.agents/ORIGINAL_REQUEST.md` (specifically ## 2026-09-05T06:38:42Z).
+You are Challenger 2 for the @oa-sdk project.
+Your identity: challenger_2
+Your working directory: /Users/junwoobang/workflow/oa-sdk/.agents/challenger_2
+Workspace root: /Users/junwoobang/workflow/oa-sdk
+Parent orchestrator: orchestrator_5 (d0cddab6-f867-4aaa-b30e-0224e58b2fac)
 
-Read the Project Plan at:
-`/Users/junwoobang/workflow/oa-sdk/.agents/teamwork_preview_orchestrator_docs_1/PROJECT.md`
+MANDATORY FIRST STEP:
+Read /Users/junwoobang/workflow/oa-sdk/.agents/ORIGINAL_REQUEST.md (specifically 2026-09-11T04:41:22Z) and /Users/junwoobang/workflow/oa-sdk/PROJECT.md.
 
-## Your Working Directory
-`/Users/junwoobang/workflow/oa-sdk/.agents/challenger_2`
+OBJECTIVE:
+Empirically stress-test and challenge:
+1. Wire-Format Safety with `JsonPrimitive<T>` and `Resolved<T>` (`@oa-sdk/core` & `@oa-sdk/client`):
+   - Verify `Date` -> `string` mapping.
+   - Verify that methods, functions, getters, and prototype chains are stripped.
+   - Verify boxed primitives (`Boolean`, `Number`, `String`) unbox correctly.
+   - Verify `bigint` -> `never`.
+   - Verify `Resolved<T>` strips methods but preserves `Date`, `Set`, `Map`.
+   - Verify generated client SDK code emits wire-safe signatures (`Promise<JsonPrimitive<...>>`, `Resolved<TBody>`).
+2. Transitive `tsconfig` Configuration Universe Hashing (`@oa-sdk/spec-lens`):
+   - Test complex JSONC files with line comments (`//`), block comments (`/* */`), and trailing commas.
+   - Test multi-hop `extends` chains and project `references`.
+   - Test circular `extends` loop prevention.
+   - Empirically verify that modifying an extended base tsconfig alters `buildSpecProjectKey` and causes a cache miss in SQLite WAL store.
 
-## Adversarial Challenge Scope
-Empirically verify link resolution and CLI option alignment across the monorepo documentation.
+VERIFICATION:
+- Execute code/scripts verifying these capabilities empirically.
+- Document all challenges, tests, and findings in `/Users/junwoobang/workflow/oa-sdk/.agents/challenger_2/handoff.md` with an explicit verdict (`APPROVE` or `REJECT`). Message parent when done.
 
-## Challenge Tasks
-1. Crawl all markdown links across `docs/`:
-   - Check every relative link (`../...`, `./...`).
-   - Check every markdown anchor (`#...`) to confirm it matches a valid heading slug in the target document.
-   - Verify that there are 0 broken file links and 0 broken anchor links across the entire repository.
-2. CLI Command & Option Alignment:
-   - Run `pnpm exec tsx scripts/check-cli-spec.ts`.
-   - Fuzz or cross-reference all 25 CLI commands, arguments, and options documented in `docs/guides/cli-command-reference.md` against `packages/codegen/src/cli/commands/` and `oa-gen.governance.json`.
-   - Ensure every documented command line syntax works identically to the CLI binary.
-3. Verdict: Explicitly state `APPROVE` (100% link resolution and CLI match) or `REJECT` (broken links or discrepancies found).
+## 2026-09-11T05:58:54Z
 
-## Output Requirements
-Write your detailed challenge report to:
-`/Users/junwoobang/workflow/oa-sdk/.agents/challenger_2/challenge.md`
-and write your structured handoff report to:
-`/Users/junwoobang/workflow/oa-sdk/.agents/challenger_2/handoff.md`.
-Send a completion message back to parent with your verdict and summary.
+You are Challenger 2 (Adversarial Concurrency & Socket Stress Tester for Mock Server).
+Your working directory is: /Users/junwoobang/workflow/oa-sdk/.agents/challenger_2
 
-## 2026-09-05T06:56:48Z
-You are challenger_2.
-Read the authoritative user request at:
-/Users/junwoobang/workflow/oa-sdk/.agents/ORIGINAL_REQUEST.md
+MANDATORY FIRST STEP:
+Read /Users/junwoobang/workflow/oa-sdk/.agents/ORIGINAL_REQUEST.md (specifically section ## 2026-09-11T05:20:05Z).
+Read domain skill /Users/junwoobang/workflow/oa-sdk/.agents/skills/oa-runtime/SKILL.md.
 
-Read your dispatch instructions at:
-/Users/junwoobang/workflow/oa-sdk/.agents/challenger_2/DISPATCH.md
-
-Read the project plan at:
-/Users/junwoobang/workflow/oa-sdk/.agents/teamwork_preview_orchestrator_docs_1/PROJECT.md
-
-Your working directory is:
-/Users/junwoobang/workflow/oa-sdk/.agents/challenger_2
-
-Adversarially crawl and verify all markdown links and anchors across docs/. Verify that 0 broken links or anchors exist.
-Verify CLI command parsing and option syntax against scripts/check-cli-spec.ts and CLI binary commands.
-Write challenge report to /Users/junwoobang/workflow/oa-sdk/.agents/challenger_2/challenge.md and handoff to /Users/junwoobang/workflow/oa-sdk/.agents/challenger_2/handoff.md.
-State explicit verdict: APPROVE or REJECT.
-Send completion message to parent.
+CHALLENGE OBJECTIVES:
+1. Adversarially stress-test `packages/mock-server/src/adapters/node-http.ts` (M2):
+   - Write a standalone stress test script (e.g. `.agents/challenger_2/stress-mock-server.ts`) that creates an in-memory mock server using `createNodeMockServer` and exercises:
+     a) Aggressive Keep-Alive pipelining and connection reuse under high concurrency (C=50, C=100)
+     b) Rapid alternating bodiless (`GET`, `HEAD`, `DELETE`) and body-bearing (`POST`, `PUT`) requests
+     c) Malformed URLs, edge-case query strings, unusual header casings, and large headers to test the fast-path URL and header extraction
+     d) Concurrent `updateSpec` invocations while 1,000+ requests are actively in-flight, verifying zero dropped connections and 0.00% error rate
+     e) Verify file descriptor counts before and after to strictly assert 0 FD leaks (`assertZeroFdLeak`)
+2. Run your challenge script and record performance, error rates, and resource usage.
+3. Document findings and final verdict (APPROVE or REJECT) in `/Users/junwoobang/workflow/oa-sdk/.agents/challenger_2/handoff.md`.
+4. Send a message to parent with your verdict and summary.

@@ -1,80 +1,34 @@
-# Dispatch — Forensic Auditor (Authenticity & Integrity Verification)
+## 2026-09-11T05:58:46Z
 
-## Mandatory Context
-Read the authoritative user request at:
-`/Users/junwoobang/workflow/oa-sdk/.agents/ORIGINAL_REQUEST.md` (specifically ## 2026-09-05T06:38:42Z).
+You are the Forensic Integrity Auditor (auditor_1).
+Your working directory is: /Users/junwoobang/workflow/oa-sdk/.agents/auditor_1
 
-Read the Project Plan at:
-`/Users/junwoobang/workflow/oa-sdk/.agents/teamwork_preview_orchestrator_docs_1/PROJECT.md`
+MANDATORY INTEGRITY DIRECTIVE:
+You have absolute BINARY VETO power. If any code changes contain cheats, fake implementations, hardcoded benchmark values, mocked test outputs, or bypasses of genuine logic, you MUST issue a verdict of INTEGRITY VIOLATION.
 
-## Your Working Directory
-`/Users/junwoobang/workflow/oa-sdk/.agents/auditor_1`
+MANDATORY FIRST STEP:
+Read /Users/junwoobang/workflow/oa-sdk/.agents/ORIGINAL_REQUEST.md (specifically section ## 2026-09-11T05:20:05Z).
+Read domain skill /Users/junwoobang/workflow/oa-sdk/.agents/skills/oa-codegen/SKILL.md and /Users/junwoobang/workflow/oa-sdk/.agents/skills/oa-runtime/SKILL.md.
 
-## Role & Mandate
-You are `auditor_1`, an independent forensic auditor (`teamwork_preview_auditor`).
-Your mandate is to detect any form of cheating, fabrication, hardcoded test results, facade implementations, or integrity circumvention across all work completed in this repository for the documentation standardization and test/governance integration project.
-Your verdict is a BINARY VETO: either `CLEAN` or `INTEGRITY VIOLATION`.
+INVESTIGATION TARGETS:
+1. `packages/codegen/src/zodgen/generate-zod.ts`:
+   - Check if `extractRefsFromNode` and `findCircularSchemas` are genuine implementations.
+   - Check if Tarjan SCC actually computes strongly connected components or if it cheats/hardcodes names.
+   - Check if `WeakMap` memoization genuinely caches schema objects.
+   - Ensure benchmark scripts or test cases were not tampered with.
+2. `packages/mock-server/src/adapters/node-http.ts`:
+   - Check if `precomputed` cache, `readBody` fast-path, and URL parsing are genuine.
+   - Check if responses are authentic and adhere to HTTP/1.1 without skipping status codes, headers, or body data.
+   - Check if error rates or FD leak assertions were falsified.
+3. `packages/codegen/src/cli/lib/typespec-ast-diff.ts`:
+   - Check if single-pass visitor, $O(1)$ set lookup, WeakMap caching, and reference identity short-circuits are genuine.
+   - Check if AST diff comparisons actually compare AST models and properties or if results are short-circuited fraudulently.
+4. Repo Integrity:
+   - Run `git status` and `git diff --stat` to verify only the intended files were touched and no benchmark or test files were deleted or downgraded.
+   - Check for any hardcoded strings designed solely to pass specific benchmark assertions.
 
-## Audit Scope
-Audit all files modified or created by the workers:
-- `docs/guides/declarative-spec-configuration.md`
-- `docs/guides/schema-architecture-and-conventions.md`
-- `docs/concepts/test-infrastructure.md`
-- `docs/concepts/cli-governance.md`
-- `docs/README.md`
-- `docs/guides/cli-command-reference.md`
-- `docs/guides/use-cases/mock-testing.md`
-- `scripts/lib/validation-gates.ts`
-
-## Audit Checks
-1. Code and Documentation Authenticity:
-   - Are the documented TypeScript configurations and schemas genuine, or are they mocks / stubs?
-   - Do the code examples faithfully reflect the production implementation in `packages/`?
-   - Are the test numbers (202 E2E tests + 38 adversarial tests = 240 tests) authentic and backed by real vitest test suites in `packages/codegen/src/__tests__/e2e/`?
-2. Script and Gate Authenticity:
-   - Were changes to `scripts/lib/validation-gates.ts` genuine bugfixes/improvements, or did they disable validation rules or bypass checks dishonestly?
-   - Does `scripts/check-cli-spec.ts` genuinely validate the CLI manifests and commands?
-3. Static & Dynamic Validation:
-   - Run `pnpm -r typecheck`.
-   - Run `pnpm exec tsx scripts/check-cli-spec.ts`.
-   - Run `pnpm check:docs`.
-   - Verify that all checks pass legitimately without bypassed assertions or suppressed errors.
-
-## Output Requirements
-Write your detailed forensic findings to:
-`/Users/junwoobang/workflow/oa-sdk/.agents/auditor_1/audit_report.md`
-and write your structured handoff report to:
-`/Users/junwoobang/workflow/oa-sdk/.agents/auditor_1/handoff.md`.
-Explicitly state your final verdict: `CLEAN` or `INTEGRITY VIOLATION`.
-Send a completion message back to parent when done.
-
-## 2026-09-05T06:56:48Z
-You are auditor_1.
-Read the authoritative user request at:
-/Users/junwoobang/workflow/oa-sdk/.agents/ORIGINAL_REQUEST.md
-
-Read your dispatch instructions at:
-/Users/junwoobang/workflow/oa-sdk/.agents/auditor_1/DISPATCH.md
-
-Read the project plan at:
-/Users/junwoobang/workflow/oa-sdk/.agents/teamwork_preview_orchestrator_docs_1/PROJECT.md
-
-Your working directory is:
-/Users/junwoobang/workflow/oa-sdk/.agents/auditor_1
-
-Perform a thorough forensic integrity audit on all changes made across the project:
-- docs/guides/declarative-spec-configuration.md
-- docs/guides/schema-architecture-and-conventions.md
-- docs/concepts/test-infrastructure.md
-- docs/concepts/cli-governance.md
-- docs/README.md
-- docs/guides/cli-command-reference.md
-- docs/guides/use-cases/mock-testing.md
-- scripts/lib/validation-gates.ts
-
-Verify authenticity of all code, docs, test counts (240 tests), scripts, and validation gates. Detect any cheating, mocks, facades, or test circumvention.
-Run validation commands (pnpm -r typecheck, pnpm exec tsx scripts/check-cli-spec.ts, pnpm check:docs).
-Write forensic report to /Users/junwoobang/workflow/oa-sdk/.agents/auditor_1/audit_report.md and handoff to /Users/junwoobang/workflow/oa-sdk/.agents/auditor_1/handoff.md.
-State explicit binary verdict: CLEAN or INTEGRITY VIOLATION.
-Send completion message to parent.
-
+REPORT REQUIREMENTS:
+- Write your forensic analysis and evidence log to `/Users/junwoobang/workflow/oa-sdk/.agents/auditor_1/analysis.md`.
+- Write your formal verdict report to `/Users/junwoobang/workflow/oa-sdk/.agents/auditor_1/handoff.md`.
+- Verdict MUST be either CLEAN or INTEGRITY VIOLATION.
+- Send a message to parent with your verdict and concise summary.

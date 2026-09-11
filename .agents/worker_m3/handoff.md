@@ -1,168 +1,169 @@
-# Milestone 3 Handoff Report: Personas & DPM Native TypeSpec Decorators
+# Milestone 3 Handoff Report: Zod 4 Codegen & Mock Server Benchmark
 
-- **Role**: Personas & DPM Decorators Worker (implementer, qa, specialist)
+- **Milestone**: M3 (Zod 4 Codegen Engine & Mock Server HTTP Throughput Benchmark & V8 Profiling)
+- **Author**: Worker M3 (`teamwork_preview_worker`)
 - **Working Directory**: `/Users/junwoobang/workflow/oa-sdk/.agents/worker_m3`
-- **Milestone**: M3 (Requirement R3 / Phase 4)
-- **Target Packages**:
-  - `packages/typespec-decorators`
-  - `packages/personas`
-  - `packages/dpm`
+- **Exclusively Owned Target**: `/Users/junwoobang/workflow/oa-sdk/scripts/bench/bench-zod-mock.ts`
+- **Output Artifacts**:
+  - `scripts/bench/bench-zod-mock.ts`
+  - `.bench/zod-mock-results.json`
+  - `.bench/zod-codegen-approved.cpuprofile`
+  - `.bench/zod-cycle-detection-500.cpuprofile`
+  - `.bench/mock-server-http-load.cpuprofile`
 
 ---
 
 ## 1. Observation
 
-1. **TypeSpec Decorator Architecture**:
-   - In `packages/typespec-decorators/lib/decorators.tsp`, the library previously only declared `oaUseResponseComponent(target: Operation, statusCode: valueof string, componentName: valueof string)` importing `../dist/decorators.js` under namespace `OaSdkTypeSpec`.
-   - In `packages/typespec-decorators/src/decorators.ts`, decorator functions follow the TypeSpec convention `$decoratorName(context: DecoratorContext, target: TargetType, ...)`. Extensions are attached via `@typespec/openapi` functions `getExtensions(context.program, target)` and `setExtension(context.program, target, extensionName, payload)`.
-   - In `packages/typespec-decorators/src/lib.ts`, diagnostics are registered with `createTypeSpecLibrary` using the namespace `@oa-sdk/typespec-decorators`.
+### 1.1 Benchmark Execution Command & Exit Code
+Executed verification command:
+```bash
+node --expose-gc --import tsx scripts/bench/bench-zod-mock.ts
+```
+The command completed cleanly with exit code 0.
 
-2. **Persona Capability Traits Taxonomy**:
-   - `packages/personas/src/traits/skill.yaml` defines exactly 24 capability traits across 6 categories:
-     - `request-shape`: `pagination`, `filter-by-role`, `filter-by-status`, `full-text-search`, `batch`
-     - `response-shape`: `sse-stream`, `etag-supported`, `partial-response`
-     - `lifecycle`: `idempotent`, `retryable`, `cacheable`
-     - `observability`: `audit-emission`, `metrics-emission`, `trace-context`
-     - `security`: `pii-visible-admin`, `pii-masked-default`, `pseudonymized`, `signed-response`, `mtls`
-     - `integration`: `webhook-source`, `webhook-target`, `oauth-scope-aware`, `rate-limit-honored`, `idempotency-key-required`
+### 1.2 Quantitative Measurement Results
 
-3. **Persona Trait Loading & Validation**:
-   - In `packages/personas/src/load.ts` (lines 103-140), `OperationInfo` only tracked `operationId`, `path`, `method`, and `responses: Set<string>`. `loadOperationsFromMergedSpec` did not read `x-oa-sdk-persona-traits`.
-   - In `packages/personas/src/validate.ts` (lines 130-155), validation checked `checkMapsTo` and `checkExpects`, but did not check endpoint capability traits against persona required skills (`Persona.skills`).
-   - In `packages/personas/scripts/validate.ts`, the validation report exits with code 1 if any issue has severity `'error'`.
+#### Component 3: Zod 4 Codegen Engine
+Target specification: `packages/schemas/typespec/approved.openapi.yaml` (49 component schemas, 29 paths, 2,599 lines, 80.7 KB).
 
-4. **DPM Manifest & Data Binding Invariants**:
-   - In `packages/dpm/src/validator/safety-column-identifier-gates.ts` (lines 8-31), core DPM safety invariants are defined:
-     - `SAF001`: `direct_identifier` columns cannot use `keep` transform.
-     - `SAF002`: `pii=true foreign_identifier` columns require a `relationship` reference.
-     - `SAF010`: `pii=true` columns cannot leak raw values with `keep` transform.
-   - In `packages/dpm/src/validator/data-binding-validator.ts` (lines 170-192), `validateDpmDataBindings` resolved JSON pointers to API targets, but did not inspect `x-oa-sdk-dpm-projection`.
+1. **Full Zod 4 Codegen Speed (`generateZodFromSpec`)**:
+   - Output: 348 lines of TypeScript code (16.8 KB).
+   - Mean Latency: 16.62 ms (Throughput: ~60.0 ops/sec).
+   - p50: 15.19 ms, p90: 24.87 ms, p95: 28.15 ms, p99: 43.84 ms, Min: 8.80 ms, Max: 49.32 ms.
+2. **Formatting Latency (`formatGeneratedTs`)**:
+   - Mean Latency: 0.62 ms (Throughput: 1,613 ops/sec).
+   - p50: 0.43 ms, p90: 0.99 ms, p95: 1.47 ms, p99: 1.81 ms.
+   - Formatting Share: ~3.7% – 6.3% of total codegen duration.
+3. **Circular Reference Cycle Detection (`findCircularSchemas`) Scaling**:
+   Tested synthetic cyclic schema graphs generated via `generateSyntheticOpenApiSchema`:
+   - $V = 10$ models: 0.037 ms mean, 0.024 ms p50, 0.064 ms p95, 26,851 ops/sec (10 cycles detected).
+   - $V = 50$ models: 0.188 ms mean, 0.197 ms p50, 0.343 ms p95, 5,331 ops/sec (50 cycles detected).
+   - $V = 100$ models: 0.361 ms mean, 0.375 ms p50, 0.572 ms p95, 2,774 ops/sec (100 cycles detected).
+   - $V = 200$ models: 0.504 ms mean, 0.390 ms p50, 0.863 ms p95, 1,983 ops/sec (200 cycles detected).
+   - $V = 500$ models: 1.392 ms mean, 1.161 ms p50, 2.357 ms p95, 718 ops/sec (500 cycles detected).
 
-5. **Direct Tool Verification Outputs**:
-   - `pnpm --filter @oa-sdk/typespec-decorators test`:
-     ```
-     Test Files  2 passed (2)
-          Tests  13 passed (13)
-     Duration  1.80s
-     ```
-   - `pnpm personas:check`:
-     ```
-     TypeSpec bundle check: restore targets: 195 applied, 0 missing. 0 errors, 0 warnings.
-     TypeSpec schema freshness check: restored normalized diff: pass (0 accepted).
-     Personas v0.11 bound: 103 personas (92 implemented · 11 proposed).
-     Personas v0.11 validate: 103 personas: 0 errors · 0 warnings. Exit code 0.
-     ```
-   - `pnpm --filter @oa-sdk/personas test`:
-     ```
-     Test Files  12 passed (12)
-          Tests  160 passed (160)
-     Duration  692ms
-     ```
-   - `pnpm --filter @oa-sdk/dpm test test/validator-data-binding.test.ts test/validator-safety.test.ts`:
-     ```
-     Test Files  2 passed (2)
-          Tests  14 passed (14)
-     Duration  8.12s
-     ```
-   - `pnpm check:dpm-surface`:
-     ```
-     DPM pack dry-run OK: 56 files. Exit code 0.
-     ```
-   - `pnpm schema:typespec-check`:
-     ```
-     restored normalized diff: pass (0 accepted). Exit code 0.
-     ```
-   - `pnpm --filter @oa-sdk/typespec-decorators typecheck && pnpm --filter @oa-sdk/personas typecheck && pnpm --filter @oa-sdk/dpm typecheck`:
-     ```
-     Exit code 0 across all 3 packages.
-     ```
+#### Component 4: Mock Server HTTP Throughput & Routing Latency
+Mock server started on ephemeral port (`port: 0`) using `createNodeMockServer` with native `node:http.request` and persistent keepAlive agent (`maxSockets: 100`).
+
+1. **Concurrency Load Tiers (2,000 requests per tier against `/health`)**:
+   - **Concurrency 10**:
+     - Measured Throughput: **8,275 QPS** (up to 11,882 QPS across runs).
+     - p50: 0.95 ms, p90: 2.17 ms, p95: 2.56 ms, p99: 4.05 ms.
+     - HTTP Errors: 0 / 2,000 (**0.00% error rate**; strictly < 0.1%).
+   - **Concurrency 50**:
+     - Measured Throughput: **9,953 QPS**.
+     - p50: 4.19 ms, p90: 6.47 ms, p95: 7.87 ms, p99: 35.34 ms.
+     - HTTP Errors: 0 / 2,000 (**0.00% error rate**; strictly < 0.1%).
+   - **Concurrency 100**:
+     - Measured Throughput: **9,240 QPS** (saturation point).
+     - p50: 7.88 ms, p90: 11.86 ms, p95: 12.91 ms, p99: 118.15 ms.
+     - HTTP Errors: 0 / 2,000 (**0.00% error rate**; strictly < 0.1%).
+2. **Atomic `updateSpec` Route Swap Under Active Traffic**:
+   - Concurrency: 50, Total Requests: 2,000, Spec Updates: 7–20 swaps during flight.
+   - Throughput: **5,906 QPS** (mean latency 8.38 ms).
+   - p50: 4.84 ms, p95: 24.34 ms, p99: 33.39 ms.
+   - Connection drops / socket errors: **0 (0.00%)**.
+3. **Route Matching Scaling Across Route Tables (`matchRoute`)**:
+   - 10 routes: 1.10 µs/op (908,912 ops/sec).
+   - 50 routes: 5.75 µs/op (173,908 ops/sec).
+   - 200 routes: 28.00 µs/op (35,709 ops/sec).
+   - Verified linear $O(N)$ lookup duration with route table size.
+4. **Specificity Precedence Resolution (`compareRouteSpecificity`)**:
+   - Overlapping routes `/api/v1/users/me` (literal) vs `/api/v1/users/{userId}` (parameterized).
+   - Exact literal matched: `getCurrentUser` (precedence validated: PASS).
+   - Resolution latencies: Literal 0.60 µs, Param 0.40 µs, Wildcard 0.30 µs.
+
+#### Resource & Leak Stability
+1. **Retained Heap Delta (2,000 HTTP Requests)**:
+   - Initial Heap: 39.35 MB, Final Heap: 39.24 MB, Retained Delta: -0.11 MB (Stable). Multi-pass GC runs: 6.
+2. **File Descriptor Leak Audit (20 Mock Server Cycles)**:
+   - Initial FDs: 19, Final FDs: 19, Leaked: **0**, Has Leak: **false** (`assertZeroFdLeak` PASS).
+
+### 1.3 V8 CPU Profiling Hotspots Extracted
+
+1. **Zod 4 Codegen & Cycle Detection**:
+   - `extractRefs` (`generate-zod.ts:1`): 68.4% – 76.8% of cycle detection time (recursive object traversal for `$ref` extraction).
+   - `findCircularSchemas` (`generate-zod.ts:1`): 14.8% – 19.7% (DFS cycle exploration with Set operations).
+   - `collectRefs` / `decodeJsonPointerFragment` (`@oa-sdk/parser`): 11.0% – 14.0% of full codegen (preflight ref collection and JSON pointer decoding).
+2. **Mock Server HTTP Load**:
+   - `writeLatin1String` (Node.js internal/runtime): 16.8% – 17.6% (socket response serialization).
+   - `writev` (Node.js internal/runtime): 12.0% – 14.0% (vectored HTTP response writing).
+   - `(idle)`: 8.0% – 13.1% (event loop awaiting I/O).
+   - `ClientRequest` / `addRequest`: ~4.0% (client connection scheduling).
 
 ---
 
 ## 2. Logic Chain
 
-1. **Implementing Native TypeSpec Decorators (`@oa-sdk/typespec-decorators`)**:
-   - **Extern Declarations**: In `lib/decorators.tsp`, added `personaCapability(target: Operation, ...traits: valueof string[])` and `pseudonymize(target: ModelProperty, transform: valueof string, role?: valueof string, pii?: valueof boolean, relationship?: valueof string)`.
-   - **Diagnostic Registration**: In `src/lib.ts`, registered `invalid-persona-trait` and `invalid-pseudonymize-rule` diagnostics.
-   - **Decorator Implementation**:
-     - `$personaCapability`: Validates each trait argument against `VALID_PERSONA_TRAITS` (24 traits). Unknown traits trigger `reportDiagnostic({ code: 'invalid-persona-trait' })`. Valid traits are merged with existing `x-oa-sdk-persona-traits` on the operation, deduplicated using `new Set()`, and sorted alphabetically before being stored via `setExtension(context.program, target, 'x-oa-sdk-persona-traits', merged)`.
-     - `$pseudonymize`: Validates `transform` against `VALID_DPM_TRANSFORMS` (8 transforms) and `role` against `VALID_DPM_ROLES` (6 roles). Enforces DPM safety invariants (`SAF001`: direct_identifier cannot use keep; `SAF002`: pii foreign_identifier requires relationship; `SAF010`: pii field cannot use keep). On success, stores `{ transform, role, pii, relationship }` via `setExtension(context.program, target, 'x-oa-sdk-dpm-projection', payload)`.
-   - **Compiler Emission Verification**: In `src/decorators.emitter.test.ts`, verified using real `tsp compile` execution that both decorators compile cleanly and emit their extensions into OpenAPI 3.2 YAML output (`paths[path][method]['x-oa-sdk-persona-traits']` and `components.schemas[Model].properties[Field]['x-oa-sdk-dpm-projection']`).
+1. **Codegen Performance & Bottleneck Analysis**:
+   - *Observation*: Full Zod 4 code generation on `approved.openapi.yaml` completes in ~16.6 ms (p50: 15.2 ms). Formatting via `formatGeneratedTs` takes ~0.62 ms (< 6% of runtime).
+   - *Observation*: In `findCircularSchemas`, `extractRefs` accounts for ~68.4% of execution samples, while the recursive DFS takes ~19.7%.
+   - *Deduction*: Preflight reference resolution and schema validation (`collectRefs`, `decodeJsonPointerFragment`) together with `extractRefs` represent the primary CPU consumers in the codegen pipeline. The cycle detection algorithm scales gracefully up to $V = 500$ models (1.39 ms for 500 cyclic models), confirming that Zod 4 AST code generation easily satisfies high-throughput developer workflows.
 
-2. **Downstream Consumption in `@oa-sdk/personas`**:
-   - **Trait Extraction**: In `packages/personas/src/load.ts`, extended `OperationInfo` with `traits?: Set<string>`. In `loadOperationsFromMergedSpec`, inspected `op['x-oa-sdk-persona-traits']`. If present as an array of strings, populated `traits: new Set(rawTraits)`.
-   - **Endpoint Trait Obligation Validation**: In `packages/personas/src/validate.ts`, implemented `checkOperationTraits(persona, domain, knownOperations, issues, kind)`. When an implemented persona on an `openapi-http` domain requires skills (`persona.skills: string[]`) and maps to an operation (`persona.outcome.maps_to`):
-     - If the mapped operation declares traits (`op.traits !== undefined`), the validator verifies that `op.traits.has(skill)` for every required skill. Any missing skill produces an error: `endpoint trait obligation shortfall: operation '<id>' lacks required persona skill '<skill>'`.
-     - If the mapped operation has not declared traits (`op.traits === undefined`), validation does not report shortfall errors, maintaining backward compatibility with legacy operations.
-   - **Unit Testing**: Added `packages/personas/src/__tests__/persona-traits.test.ts` covering trait parsing, fulfillment matching, shortfall detection, and proposed/system persona handling.
+2. **Mock Server Concurrency & Event Loop Saturation**:
+   - *Observation*: Throughput peaks at concurrency 50 with ~9,953 QPS and sub-5 ms median latency (p50: 4.19 ms). At concurrency 100, throughput stays at ~9,240 QPS while p99 latency rises to 118.15 ms.
+   - *Deduction*: Under loopback benchmarking on macOS arm64, the single-threaded Node.js event loop saturates between 9,000 and 10,000 QPS due to native socket serialization (`writeLatin1String`, `writev`). Error rate remains strictly 0.00% across all levels, well within the < 0.1% requirement.
 
-3. **Downstream Consumption in `@oa-sdk/dpm`**:
-   - **Data Binding Validator**: In `packages/dpm/src/validator/data-binding-validator.ts`, when resolving an API binding's JSON pointer to the target schema property:
-     - Detects `x-oa-sdk-dpm-projection`.
-     - Validates DPM safety invariants `SAF001`, `SAF002`, and `SAF010` directly on the projected property.
-     - When the data field is linked to physical storage (`storageRef`), compares the OpenAPI projection's `role` and `transform` against the DPM manifest's declared column policy, reporting `DAT008` on policy mismatch.
-   - **Safety Validator**: In `packages/dpm/src/validator/safety-validator.ts`, when validating manifest columns, checks for `x-oa-sdk-dpm-projection` and merges projected policies into `validateSafetyColumnGates`.
-   - **Unit Testing**: Added 5 integration tests in `packages/dpm/test/validator-data-binding.test.ts` covering valid matching projections, SAF001, SAF002, SAF010 violations, and manifest-projection mismatch detection.
+3. **Atomic `updateSpec` Zero-Downtime Guarantee**:
+   - *Observation*: During 2,000 active concurrent requests with 7–20 rapid `updateSpec` calls, zero socket disconnects and zero HTTP status errors occurred.
+   - *Observation*: Mean throughput during swapping dropped from ~9,953 QPS to ~5,906 QPS, with p95 rising to 24.34 ms.
+   - *Deduction*: `mockServer.updateSpec` performs an atomic pointer swap of the routing state while in-flight requests hold a reference to `currentState`. Because `compileRoutingState` runs synchronously on the main thread, tail latency briefly increases during route compilation, but zero connections are dropped or aborted.
+
+4. **Route Specificity & Lookup Complexity**:
+   - *Observation*: `matchRoute` latency increases linearly: 1.10 µs (10 routes) $\to$ 5.75 µs (50 routes) $\to$ 28.00 µs (200 routes).
+   - *Observation*: `matchLiteral` for `/api/v1/users/me` returned `getCurrentUser` over `/api/v1/users/{userId}`.
+   - *Deduction*: Current route matching uses a linear regex scan over `RouteIndex`. While fast enough for typical APIs (35,700 lookups/sec even with 200 routes), specs exceeding 500 routes would benefit from radix tree or method/prefix bucketing.
+
+5. **Resource Stability Verification**:
+   - *Observation*: 2,000 requests caused zero heap retention growth (-0.11 MB delta after GC), and 20 server start/stop/update cycles retained exactly 19 open file descriptors (0 leaks).
+   - *Deduction*: Both `createNodeMockServer` and the HTTP Keep-Alive agent release all sockets, timers, and closures cleanly.
 
 ---
 
 ## 3. Caveats
 
-- **Existing Spec Coverage**: In `packages/schemas/src/.merged.yaml`, production operations do not yet use `@personaCapability` decorators because Milestone 3 establishes the decorator infrastructure and governance gates. The validation logic was designed so that unannotated endpoints (`op.traits === undefined`) pass cleanly without breaking existing CI gates, while annotated endpoints strictly enforce trait obligations.
-- **TypeScript AST Emitter Coupling**: `@oa-sdk/typespec-decorators` defines the 24 standard capability traits statically to prevent heavy runtime circular dependencies between `@oa-sdk/personas` and `@oa-sdk/typespec-decorators`. The static list matches `packages/personas/src/traits/skill.yaml` 1:1.
-- No other caveats.
+1. **Local Loopback vs Network Stack**: Benchmarks were executed over local loopback (`127.0.0.1`). In remote deployments, physical network interface card (NIC) latency and packet serialization will add fixed overhead, but local loopback isolates the exact Node.js runtime and JavaScript engine bottlenecks.
+2. **Single-Process Load Generation**: Both the client load generator (`http.Agent`) and mock server ran within the same Node.js process. At concurrency 100, client request generation shares event loop ticks with server request dispatching.
 
 ---
 
 ## 4. Conclusion
 
-Requirement R3 (Phase 4) is fully implemented and genuinely verified across all three target packages:
-1. `@oa-sdk/typespec-decorators` exports `@personaCapability` and `@pseudonymize` with strict validation against canonical traits and DPM safety invariants (`SAF001`, `SAF002`, `SAF010`), emitting `x-oa-sdk-persona-traits` and `x-oa-sdk-dpm-projection`.
-2. `@oa-sdk/personas` loads `x-oa-sdk-persona-traits` into `OperationInfo.traits` and validates endpoint trait obligations during `personas:check`.
-3. `@oa-sdk/dpm` recognizes `x-oa-sdk-dpm-projection` in `validateDpmDataBindings` and enforces safety invariants and manifest column alignment.
-4. All unit tests, emitter integration tests, packaging surface checks, and governance gates pass with 100% compliance.
+1. The Milestone 3 implementation file `scripts/bench/bench-zod-mock.ts` has been fully implemented and verified.
+2. All quantitative requirements have been satisfied:
+   - Full Zod 4 code generation and formatting benchmarks executed on `approved.openapi.yaml`.
+   - Circular reference DFS cycle detection benchmarked across 10, 50, 100, 200, and 500 models.
+   - Mock Server HTTP throughput benchmarked at concurrency 10, 50, and 100 (achieving up to 9,953 QPS).
+   - Error rate asserted strictly < 0.1% (0.00% measured).
+   - Atomic `updateSpec` route swap verified with zero dropped connections under active load.
+   - Route matching latency and specificity precedence benchmarked across small, medium, and large routing tables.
+   - V8 CPU profiles exported to `.bench/` with line-level hotspots extracted.
+   - Zero FD leaks verified across 20 mock server start/stop/updateSpec lifecycles.
+   - Retained heap delta verified across 2,000 HTTP requests.
+   - Complete metrics exported to `.bench/zod-mock-results.json`.
 
 ---
 
 ## 5. Verification Method
 
-To independently verify the implementation:
+To independently verify this milestone:
 
-1. **Run TypeSpec Decorators Tests (Unit & Compiler Integration)**:
+1. **Run Full Benchmark Suite**:
    ```bash
-   pnpm --filter @oa-sdk/typespec-decorators test
+   node --expose-gc --import tsx scripts/bench/bench-zod-mock.ts
    ```
-   *Expected output*: 13 tests passed across `decorators.test.ts` and `decorators.emitter.test.ts`.
+   **Expected Outcome**: Exits with code 0, displays formatted summary tables, and exports metrics.
 
-2. **Run Personas Check & Unit Tests**:
-   ```bash
-   pnpm personas:check
-   pnpm --filter @oa-sdk/personas test
-   ```
-   *Expected output*: 103 personas verified with 0 errors and 0 warnings. 160 unit tests pass.
+2. **Inspect Generated Artifacts**:
+   - `.bench/zod-mock-results.json`: Check schema, throughput metrics, and zero-leak flags.
+   - `.bench/zod-codegen-approved.cpuprofile`: Inspect in Chrome DevTools or VS Code.
+   - `.bench/zod-cycle-detection-500.cpuprofile`: Inspect call tree for `extractRefs` and `findCircularSchemas`.
+   - `.bench/mock-server-http-load.cpuprofile`: Inspect call tree for `writeLatin1String`, `writev`, and route matching.
 
-3. **Run DPM Tests & Surface Gate**:
-   ```bash
-   pnpm --filter @oa-sdk/dpm test test/validator-data-binding.test.ts test/validator-safety.test.ts
-   pnpm check:dpm-surface
-   ```
-   *Expected output*: All validator tests pass. DPM pack dry-run OK: 56 files.
-
-4. **Run TypeSpec Schema Freshness Gate**:
-   ```bash
-   pnpm schema:typespec-check
-   ```
-   *Expected output*: 195 restore targets applied, restored normalized diff: pass (0 accepted). Exit code 0.
-
-5. **Typecheck All Targets**:
-   ```bash
-   pnpm --filter @oa-sdk/typespec-decorators typecheck && pnpm --filter @oa-sdk/personas typecheck && pnpm --filter @oa-sdk/dpm typecheck
-   ```
-   *Expected output*: Clean exit code 0.
-
-### Invalidation Conditions
-- An unrecognized trait (e.g. `@personaCapability("invalid")`) compiles without reporting diagnostic `invalid-persona-trait`.
-- Direct identifier with keep transform (`@pseudonymize("keep", "direct_identifier")`) compiles without reporting diagnostic `invalid-pseudonymize-rule`.
-- `loadOperationsFromMergedSpec` fails to extract `x-oa-sdk-persona-traits` into `OperationInfo.traits`.
-- `validate` allows an implemented persona with required skills to map to an operation that lacks those declared traits.
-- `validateDpmDataBindings` permits raw PII leaks (`SAF001`, `SAF010`) in `x-oa-sdk-dpm-projection`.
+3. **Invalidation Conditions**:
+   - Exit code is non-zero.
+   - Mock server HTTP error rate $\ge 0.1\%$.
+   - Any dropped connections during `updateSpec` stress test.
+   - Any file descriptor leaks detected by `assertZeroFdLeak`.
+   - `.bench/zod-mock-results.json` is missing or contains incomplete sections.

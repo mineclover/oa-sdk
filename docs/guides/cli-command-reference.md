@@ -50,6 +50,7 @@ node packages/codegen/dist/cli/index.js --help
 | `oa-gen lint` | OpenAPI의 OA SDK lint만 빠르게 확인할 때 | `--spec <openapi>` | diagnostic; `--categories <list>`로 surface, structure 등 특정 카테고리만 지정 실행 |
 | `oa-gen validate` | OpenAPI 파싱·구조·3.1 호환 및 프로파일 요구사항을 확인할 때 | 없음 (선언적 `oa.config.ts`의 모든 프로파일 일괄 검증) 또는 `--spec <openapi>` | human diagnostic; `--profile`로 component-bundle/operation-contract 강제, managed contract는 `--require-32` |
 | `oa-gen audit:csp` | Manifest V3 브라우저 익스텐션 번들의 CSP 위반(eval, new Function, 런타임 ajv/zod/oa-sdk)을 정적 검사할 때 | `--bundle <dir>` | 0 eval, 0 runtime dependency 검증 리포트 및 non-zero exit code gate |
+| `oa-gen audit:shape` | TypeScript AST 소스 또는 번들의 타입 구문 및 TypeSpec/OpenAPI 투영 적합성을 감사할 때 | `--bundle <dir>` 또는 `--source <file>` | 24개 syntax feature 분류 및 tripartite projection (direct/policy-required/unsupported) 진단 리포트; `--fail-on-unsupported`, `--json` 지원 |
 | `oa-gen build-spec` | fragments와 target으로 reference OpenAPI를 만들 때 | `--target <target.yaml>` | OpenAPI와 diagnostics/provenance/metadata sidecars |
 | `oa-gen normalize` | 외부 OpenAPI를 stable governance artifact로 정규화할 때 | `--spec <openapi>` | normalized artifact |
 | `oa-gen upgrade` | 외부 OpenAPI 3.0/3.1을 3.2 analysis artifact로 볼 때 | `--spec <openapi>` | upgraded artifact와 optional report |

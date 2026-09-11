@@ -85,18 +85,29 @@ export interface TypeSpecSemantics {
   models: Map<string, TypeSpecModelSummary>
 }
 
+const stdLibNamespaceCache = new WeakMap<Namespace, boolean>()
+
 function isStdLibNamespace(ns: Namespace | undefined): boolean {
-  let curr = ns
+  if (!ns || typeof ns !== 'object') return false
+  const cached = stdLibNamespaceCache.get(ns)
+  if (cached !== undefined) return cached
+
+  let curr: Namespace | undefined = ns
+  let isStd = false
   while (curr) {
-    if (curr.name === 'TypeSpec') return true
+    if (curr.name === 'TypeSpec') {
+      isStd = true
+      break
+    }
     curr = curr.namespace
   }
-  return false
+  stdLibNamespaceCache.set(ns, isStd)
+  return isStd
 }
 
-export function getTypeName(type: Type | undefined): string {
-  if (!type) return 'unknown'
+const typeNameCache = new WeakMap<Type, string>()
 
+function computeTypeName(type: Type): string {
   if (type.kind === 'Scalar') {
     return type.name || 'scalar'
   }
@@ -203,6 +214,16 @@ export function getTypeName(type: Type | undefined): string {
   return type.kind || 'unknown'
 }
 
+export function getTypeName(type: Type | undefined): string {
+  if (!type || typeof type !== 'object') return 'unknown'
+  const cached = typeNameCache.get(type)
+  if (cached !== undefined) return cached
+
+  const name = computeTypeName(type)
+  typeNameCache.set(type, name)
+  return name
+}
+
 function extractStatusCodes(responses: readonly { statusCodes?: unknown }[]): number[] {
   const codes = new Set<number>()
   for (const r of responses) {
@@ -224,6 +245,7 @@ function extractStatusCodes(responses: readonly { statusCodes?: unknown }[]): nu
 export function extractTypeSpecSemantics(program: Program): TypeSpecSemantics {
   const operations = new Map<string, TypeSpecOperationSummary>()
   const models = new Map<string, TypeSpecModelSummary>()
+  const capturedOperationIds = new Set<string>()
 
   // 1. Extract HTTP operations
   const [services] = getAllHttpServices(program)
@@ -233,6 +255,9 @@ export function extractTypeSpecSemantics(program: Program): TypeSpecSemantics {
       const path = op.path
       const signature = `${verb} ${path}`
       const opId = getOperationId(program, op.operation)
+      if (opId) {
+        capturedOperationIds.add(opId)
+      }
       const statusCodes = extractStatusCodes(op.responses)
       const parameters: TypeSpecParameterSummary[] = op.parameters.parameters.map(p => ({
         name: p.name,
@@ -252,31 +277,25 @@ export function extractTypeSpecSemantics(program: Program): TypeSpecSemantics {
     }
   }
 
-  // Also discover non-HTTP user operations if any
+  // 2. Extract non-HTTP user operations and domain models in a single AST traversal pass
   navigateProgram(program, {
     operation(rawOp) {
       if (isStdLibNamespace(rawOp.namespace)) return
-      const alreadyCaptured = Array.from(operations.values()).some(
-        o => o.operationId === rawOp.name,
-      )
-      if (!alreadyCaptured) {
-        const sig = `OP ${rawOp.name}`
-        if (!operations.has(sig)) {
-          operations.set(sig, {
-            signature: sig,
-            verb: 'OP',
-            path: rawOp.name,
-            operationId: rawOp.name,
-            statusCodes: [],
-            parameters: [],
-          })
-        }
+      if (capturedOperationIds.has(rawOp.name)) return
+      capturedOperationIds.add(rawOp.name)
+
+      const sig = `OP ${rawOp.name}`
+      if (!operations.has(sig)) {
+        operations.set(sig, {
+          signature: sig,
+          verb: 'OP',
+          path: rawOp.name,
+          operationId: rawOp.name,
+          statusCodes: [],
+          parameters: [],
+        })
       }
     },
-  })
-
-  // 2. Extract Named Domain Models
-  navigateProgram(program, {
     model(m: Model) {
       if (!m.name || m.name.startsWith('_') || m.name.includes('<') || isStdLibNamespace(m.namespace)) {
         return
@@ -308,239 +327,318 @@ export function diffTypeSpecSemantics(
   const nonBreaking: TypeSpecDiffChange[] = []
 
   // 1. Operations comparison
-  for (const [sig, baseOp] of base.operations) {
-    const headOp = head.operations.get(sig)
-    if (headOp) {
-      // Matched by signature: check operationId drift
-      if (baseOp.operationId && headOp.operationId && baseOp.operationId !== headOp.operationId) {
-        breaking.push({
-          code: 'operation-id-changed',
-          target: sig,
-          detail: `Operation ${sig} operationId changed from "${baseOp.operationId}" to "${headOp.operationId}".`,
-          severity: 'breaking',
-        })
-      } else if (baseOp.operationId && !headOp.operationId) {
-        breaking.push({
-          code: 'operation-id-changed',
-          target: sig,
-          detail: `Operation ${sig} operationId "${baseOp.operationId}" was removed.`,
-          severity: 'breaking',
-        })
-      }
+  if (base.operations !== head.operations) {
+    let matchedBaseOperations = 0
+    let headByOpId: Map<string, TypeSpecOperationSummary> | undefined
+    let baseByOpId: Map<string, TypeSpecOperationSummary> | undefined
 
-      // Check status code removals
-      for (const sc of baseOp.statusCodes) {
-        if (!headOp.statusCodes.includes(sc)) {
+    const getHeadByOpId = (): Map<string, TypeSpecOperationSummary> => {
+      if (!headByOpId) {
+        headByOpId = new Map()
+        for (const op of head.operations.values()) {
+          if (op.operationId) headByOpId.set(op.operationId, op)
+        }
+      }
+      return headByOpId
+    }
+
+    const getBaseByOpId = (): Map<string, TypeSpecOperationSummary> => {
+      if (!baseByOpId) {
+        baseByOpId = new Map()
+        for (const op of base.operations.values()) {
+          if (op.operationId) baseByOpId.set(op.operationId, op)
+        }
+      }
+      return baseByOpId
+    }
+
+    for (const [sig, baseOp] of base.operations) {
+      const headOp = head.operations.get(sig)
+      if (headOp) {
+        matchedBaseOperations++
+
+        // Reference identity short-circuit
+        if (baseOp === headOp) {
+          continue
+        }
+
+        // Matched by signature: check operationId drift
+        if (baseOp.operationId && headOp.operationId && baseOp.operationId !== headOp.operationId) {
           breaking.push({
-            code: 'status-code-removed',
+            code: 'operation-id-changed',
             target: sig,
-            detail: `Response status code ${sc} was removed from ${sig}.`,
+            detail: `Operation ${sig} operationId changed from "${baseOp.operationId}" to "${headOp.operationId}".`,
+            severity: 'breaking',
+          })
+        } else if (baseOp.operationId && !headOp.operationId) {
+          breaking.push({
+            code: 'operation-id-changed',
+            target: sig,
+            detail: `Operation ${sig} operationId "${baseOp.operationId}" was removed.`,
             severity: 'breaking',
           })
         }
-      }
 
-      // Check status code additions
-      for (const sc of headOp.statusCodes) {
-        if (!baseOp.statusCodes.includes(sc)) {
-          nonBreaking.push({
-            code: 'status-code-added',
-            target: sig,
-            detail: `Response status code ${sc} was added to ${sig}.`,
-            severity: 'non-breaking',
-          })
-        }
-      }
-
-      // Check parameter changes
-      const headParams = new Map(headOp.parameters.map(p => [p.name, p]))
-      const baseParams = new Map(baseOp.parameters.map(p => [p.name, p]))
-
-      for (const [pName, baseP] of baseParams) {
-        const headP = headParams.get(pName)
-        if (!headP) {
-          breaking.push({
-            code: 'parameter-removed',
-            target: `${sig} [${pName}]`,
-            detail: `Parameter "${pName}" (${baseP.paramType}) was removed from ${sig}.`,
-            severity: 'breaking',
-          })
-        } else {
-          if (baseP.optional && !headP.optional) {
-            breaking.push({
-              code: 'parameter-required',
-              target: `${sig} [${pName}]`,
-              detail: `Parameter "${pName}" on ${sig} became required.`,
-              severity: 'breaking',
-            })
-          } else if (!baseP.optional && headP.optional) {
-            nonBreaking.push({
-              code: 'parameter-optional',
-              target: `${sig} [${pName}]`,
-              detail: `Parameter "${pName}" on ${sig} became optional.`,
-              severity: 'non-breaking',
-            })
+        // Check status code removals and additions
+        if (baseOp.statusCodes !== headOp.statusCodes) {
+          for (const sc of baseOp.statusCodes) {
+            if (!headOp.statusCodes.includes(sc)) {
+              breaking.push({
+                code: 'status-code-removed',
+                target: sig,
+                detail: `Response status code ${sc} was removed from ${sig}.`,
+                severity: 'breaking',
+              })
+            }
           }
 
-          if (baseP.typeStr !== headP.typeStr) {
-            breaking.push({
-              code: 'parameter-type-changed',
-              target: `${sig} [${pName}]`,
-              detail: `Parameter "${pName}" type on ${sig} changed from "${baseP.typeStr}" to "${headP.typeStr}".`,
-              severity: 'breaking',
-            })
+          for (const sc of headOp.statusCodes) {
+            if (!baseOp.statusCodes.includes(sc)) {
+              nonBreaking.push({
+                code: 'status-code-added',
+                target: sig,
+                detail: `Response status code ${sc} was added to ${sig}.`,
+                severity: 'non-breaking',
+              })
+            }
           }
         }
-      }
 
-      for (const [pName, headP] of headParams) {
-        if (!baseParams.has(pName)) {
-          if (!headP.optional) {
-            breaking.push({
-              code: 'required-parameter-added',
-              target: `${sig} [${pName}]`,
-              detail: `Required parameter "${pName}" (${headP.paramType}) was added to ${sig}.`,
-              severity: 'breaking',
-            })
+        // Check parameter changes
+        if (baseOp.parameters !== headOp.parameters) {
+          if (baseOp.parameters.length === 0 && headOp.parameters.length === 0) {
+            // Both empty, skip map allocation
           } else {
-            nonBreaking.push({
-              code: 'parameter-added',
-              target: `${sig} [${pName}]`,
-              detail: `Optional parameter "${pName}" (${headP.paramType}) was added to ${sig}.`,
-              severity: 'non-breaking',
-            })
-          }
-        }
-      }
-    } else {
-      // Not matched by signature: check if operationId matched an altered route/method
-      const candidateHead = baseOp.operationId
-        ? [...head.operations.values()].find(h => h.operationId === baseOp.operationId)
-        : undefined
+            const headParams = new Map<string, TypeSpecParameterSummary>()
+            for (let i = 0; i < headOp.parameters.length; i++) {
+              const p = headOp.parameters[i]!
+              headParams.set(p.name, p)
+            }
+            const baseParams = new Map<string, TypeSpecParameterSummary>()
+            for (let i = 0; i < baseOp.parameters.length; i++) {
+              const p = baseOp.parameters[i]!
+              baseParams.set(p.name, p)
+            }
 
-      if (candidateHead) {
-        if (candidateHead.path !== baseOp.path) {
-          breaking.push({
-            code: 'route-changed',
-            target: baseOp.operationId ?? sig,
-            detail: `Operation "${baseOp.operationId}" route changed from "${baseOp.path}" to "${candidateHead.path}".`,
-            severity: 'breaking',
-          })
-        }
-        if (candidateHead.verb !== baseOp.verb) {
-          breaking.push({
-            code: 'http-method-changed',
-            target: baseOp.operationId ?? sig,
-            detail: `Operation "${baseOp.operationId}" HTTP method changed from "${baseOp.verb}" to "${candidateHead.verb}".`,
-            severity: 'breaking',
-          })
+            let matchedBaseParams = 0
+            for (const [pName, baseP] of baseParams) {
+              const headP = headParams.get(pName)
+              if (!headP) {
+                breaking.push({
+                  code: 'parameter-removed',
+                  target: `${sig} [${pName}]`,
+                  detail: `Parameter "${pName}" (${baseP.paramType}) was removed from ${sig}.`,
+                  severity: 'breaking',
+                })
+              } else {
+                matchedBaseParams++
+                if (baseP === headP) continue
+
+                if (baseP.optional && !headP.optional) {
+                  breaking.push({
+                    code: 'parameter-required',
+                    target: `${sig} [${pName}]`,
+                    detail: `Parameter "${pName}" on ${sig} became required.`,
+                    severity: 'breaking',
+                  })
+                } else if (!baseP.optional && headP.optional) {
+                  nonBreaking.push({
+                    code: 'parameter-optional',
+                    target: `${sig} [${pName}]`,
+                    detail: `Parameter "${pName}" on ${sig} became optional.`,
+                    severity: 'non-breaking',
+                  })
+                }
+
+                if (baseP.typeStr !== headP.typeStr) {
+                  breaking.push({
+                    code: 'parameter-type-changed',
+                    target: `${sig} [${pName}]`,
+                    detail: `Parameter "${pName}" type on ${sig} changed from "${baseP.typeStr}" to "${headP.typeStr}".`,
+                    severity: 'breaking',
+                  })
+                }
+              }
+            }
+
+            // Cardinality invariant for added parameters
+            if (headParams.size > matchedBaseParams) {
+              for (const [pName, headP] of headParams) {
+                if (!baseParams.has(pName)) {
+                  if (!headP.optional) {
+                    breaking.push({
+                      code: 'required-parameter-added',
+                      target: `${sig} [${pName}]`,
+                      detail: `Required parameter "${pName}" (${headP.paramType}) was added to ${sig}.`,
+                      severity: 'breaking',
+                    })
+                  } else {
+                    nonBreaking.push({
+                      code: 'parameter-added',
+                      target: `${sig} [${pName}]`,
+                      detail: `Optional parameter "${pName}" (${headP.paramType}) was added to ${sig}.`,
+                      severity: 'non-breaking',
+                    })
+                  }
+                }
+              }
+            }
+          }
         }
       } else {
-        breaking.push({
-          code: 'operation-removed',
-          target: sig,
-          detail: `Operation ${sig} was removed.`,
-          severity: 'breaking',
-        })
+        // Not matched by signature: check if operationId matched an altered route/method via O(1) map
+        const candidateHead = baseOp.operationId
+          ? getHeadByOpId().get(baseOp.operationId)
+          : undefined
+
+        if (candidateHead) {
+          if (candidateHead.path !== baseOp.path) {
+            breaking.push({
+              code: 'route-changed',
+              target: baseOp.operationId ?? sig,
+              detail: `Operation "${baseOp.operationId}" route changed from "${baseOp.path}" to "${candidateHead.path}".`,
+              severity: 'breaking',
+            })
+          }
+          if (candidateHead.verb !== baseOp.verb) {
+            breaking.push({
+              code: 'http-method-changed',
+              target: baseOp.operationId ?? sig,
+              detail: `Operation "${baseOp.operationId}" HTTP method changed from "${baseOp.verb}" to "${candidateHead.verb}".`,
+              severity: 'breaking',
+            })
+          }
+        } else {
+          breaking.push({
+            code: 'operation-removed',
+            target: sig,
+            detail: `Operation ${sig} was removed.`,
+            severity: 'breaking',
+          })
+        }
       }
     }
-  }
 
-  // Check added operations
-  for (const [sig, headOp] of head.operations) {
-    if (!base.operations.has(sig)) {
-      const isAltered =
-        headOp.operationId &&
-        [...base.operations.values()].some(b => b.operationId === headOp.operationId)
-      if (!isAltered) {
-        nonBreaking.push({
-          code: 'operation-added',
-          target: sig,
-          detail: `Operation ${sig} was added.`,
-          severity: 'non-breaking',
-        })
+    // Check added operations with cardinality invariant
+    if (head.operations.size > matchedBaseOperations) {
+      for (const [sig, headOp] of head.operations) {
+        if (!base.operations.has(sig)) {
+          const isAltered =
+            Boolean(headOp.operationId) &&
+            getBaseByOpId().has(headOp.operationId!)
+          if (!isAltered) {
+            nonBreaking.push({
+              code: 'operation-added',
+              target: sig,
+              detail: `Operation ${sig} was added.`,
+              severity: 'non-breaking',
+            })
+          }
+        }
       }
     }
   }
 
   // 2. Models & Properties comparison
-  for (const [modelName, baseModel] of base.models) {
-    const headModel = head.models.get(modelName)
-    if (!headModel) {
-      breaking.push({
-        code: 'model-removed',
-        target: modelName,
-        detail: `Model "${modelName}" was removed.`,
-        severity: 'breaking',
-      })
-      continue
-    }
+  if (base.models !== head.models) {
+    let matchedBaseModels = 0
 
-    for (const [propName, baseProp] of baseModel.properties) {
-      const headProp = headModel.properties.get(propName)
-      if (!headProp) {
+    for (const [modelName, baseModel] of base.models) {
+      const headModel = head.models.get(modelName)
+      if (!headModel) {
         breaking.push({
-          code: 'property-removed',
-          target: `${modelName}.${propName}`,
-          detail: `Property "${propName}" was removed from model "${modelName}".`,
+          code: 'model-removed',
+          target: modelName,
+          detail: `Model "${modelName}" was removed.`,
           severity: 'breaking',
         })
-      } else {
-        if (baseProp.optional && !headProp.optional) {
-          breaking.push({
-            code: 'property-required',
-            target: `${modelName}.${propName}`,
-            detail: `Property "${propName}" on model "${modelName}" became required.`,
-            severity: 'breaking',
-          })
-        } else if (!baseProp.optional && headProp.optional) {
-          nonBreaking.push({
-            code: 'property-optional',
-            target: `${modelName}.${propName}`,
-            detail: `Property "${propName}" on model "${modelName}" became optional.`,
-            severity: 'non-breaking',
-          })
-        }
-        if (baseProp.typeStr !== headProp.typeStr) {
-          breaking.push({
-            code: 'property-type-changed',
-            target: `${modelName}.${propName}`,
-            detail: `Property "${propName}" type on model "${modelName}" changed from "${baseProp.typeStr}" to "${headProp.typeStr}".`,
-            severity: 'breaking',
-          })
-        }
+        continue
       }
-    }
 
-    for (const [propName, headProp] of headModel.properties) {
-      if (!baseModel.properties.has(propName)) {
-        if (!headProp.optional) {
+      matchedBaseModels++
+
+      // Reference identity short-circuit:
+      // If the model object itself or its properties map is identical, skip property diffing.
+      if (baseModel === headModel || baseModel.properties === headModel.properties) {
+        continue
+      }
+
+      let matchedBaseProps = 0
+      for (const [propName, baseProp] of baseModel.properties) {
+        const headProp = headModel.properties.get(propName)
+        if (!headProp) {
           breaking.push({
-            code: 'required-property-added',
+            code: 'property-removed',
             target: `${modelName}.${propName}`,
-            detail: `Required property "${propName}" was added to model "${modelName}".`,
+            detail: `Property "${propName}" was removed from model "${modelName}".`,
             severity: 'breaking',
           })
         } else {
+          matchedBaseProps++
+          if (baseProp === headProp) continue
+
+          if (baseProp.optional && !headProp.optional) {
+            breaking.push({
+              code: 'property-required',
+              target: `${modelName}.${propName}`,
+              detail: `Property "${propName}" on model "${modelName}" became required.`,
+              severity: 'breaking',
+            })
+          } else if (!baseProp.optional && headProp.optional) {
+            nonBreaking.push({
+              code: 'property-optional',
+              target: `${modelName}.${propName}`,
+              detail: `Property "${propName}" on model "${modelName}" became optional.`,
+              severity: 'non-breaking',
+            })
+          }
+          if (baseProp.typeStr !== headProp.typeStr) {
+            breaking.push({
+              code: 'property-type-changed',
+              target: `${modelName}.${propName}`,
+              detail: `Property "${propName}" type on model "${modelName}" changed from "${baseProp.typeStr}" to "${headProp.typeStr}".`,
+              severity: 'breaking',
+            })
+          }
+        }
+      }
+
+      // Cardinality invariant: only check added properties if head has more properties than were matched
+      if (headModel.properties.size > matchedBaseProps) {
+        for (const [propName, headProp] of headModel.properties) {
+          if (!baseModel.properties.has(propName)) {
+            if (!headProp.optional) {
+              breaking.push({
+                code: 'required-property-added',
+                target: `${modelName}.${propName}`,
+                detail: `Required property "${propName}" was added to model "${modelName}".`,
+                severity: 'breaking',
+              })
+            } else {
+              nonBreaking.push({
+                code: 'property-added',
+                target: `${modelName}.${propName}`,
+                detail: `Optional property "${propName}" was added to model "${modelName}".`,
+                severity: 'non-breaking',
+              })
+            }
+          }
+        }
+      }
+    }
+
+    // Cardinality invariant: only check added models if head has more models than were matched
+    if (head.models.size > matchedBaseModels) {
+      for (const [modelName] of head.models) {
+        if (!base.models.has(modelName)) {
           nonBreaking.push({
-            code: 'property-added',
-            target: `${modelName}.${propName}`,
-            detail: `Optional property "${propName}" was added to model "${modelName}".`,
+            code: 'model-added',
+            target: modelName,
+            detail: `Model "${modelName}" was added.`,
             severity: 'non-breaking',
           })
         }
       }
-    }
-  }
-
-  for (const [modelName] of head.models) {
-    if (!base.models.has(modelName)) {
-      nonBreaking.push({
-        code: 'model-added',
-        target: modelName,
-        detail: `Model "${modelName}" was added.`,
-        severity: 'non-breaking',
-      })
     }
   }
 

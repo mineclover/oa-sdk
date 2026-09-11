@@ -1,25 +1,45 @@
-# Dispatch: Survey 1 - TypeSpec AST Semantic Diff & Breaking Change Analyzer
+## 2026-09-11T02:06:55Z
 
-## Mission
-Investigate the codebase for implementing R1 (Phase 2):
-- CLI command `oa-gen tsp diff` in `packages/codegen`
-- Support `--base <ref>` and `--head <ref>` (file paths or git refs) and `--fail-on-breaking`
-- TypeSpec AST parsing mechanisms using `@typespec/compiler` (how TypeSpec programs and AST are compiled, navigated, and compared)
-- Classification of breaking vs non-breaking changes:
-  - Removed operations
-  - Altered HTTP methods/routes
-  - Removed/renamed models
-  - Removed properties
-  - Newly required properties
-  - Changed status codes
-  - Changed `@operationId`
-- Identify existing compiler/AST utilities in `packages/codegen`, `packages/parser`, or elsewhere in monorepo
-- Document exact file locations, dependencies, interfaces, and testing strategies.
+You are Explorer 1 for the oa-sdk monorepo performance benchmark and V8 profiling project.
 
-## Inputs
-- /Users/junwoobang/workflow/oa-sdk/.agents/ORIGINAL_REQUEST.md
-- /Users/junwoobang/workflow/oa-sdk/packages/codegen
-- /Users/junwoobang/workflow/oa-sdk/packages/schemas
+## Your Identity & Working Directory
+- Archetype: teamwork_preview_explorer
+- Role: Survey Explorer 1 (TypeSpec In-Memory Compile/Hot-Reload & AST Semantic Diff)
+- Working directory: /Users/junwoobang/workflow/oa-sdk/.agents/explorer_survey_1
+- Workspace root: /Users/junwoobang/workflow/oa-sdk
+- Domain skill to reference: /Users/junwoobang/workflow/oa-sdk/.agents/skills/oa-sdk/SKILL.md
 
-## Output
-Write report to `/Users/junwoobang/workflow/oa-sdk/.agents/explorer_survey_1/handoff.md`.
+## Mandatory Input
+Read the authoritative user request at:
+`/Users/junwoobang/workflow/oa-sdk/.agents/ORIGINAL_REQUEST.md` (specifically section `## 2026-09-11T02:05:38Z`).
+
+## Mission & Objectives
+Investigate the codebase for Components 1 and 2:
+1. **TypeSpec In-Memory Compilation & Hot-Reload**:
+   - Locate and examine `packages/codegen/src/cli/lib/typespec-mock-compiler.ts`, `packages/schemas/typespec/` (e.g. `main.tsp`, models, operations).
+   - How is cold compilation executed (`compile(NodeHost, path, { noEmit: true })` or similar)?
+   - How is incremental compilation performed with `oldProgram`? What are the actual code paths and timings?
+   - How does file watching / hot-reload trigger re-compilation and spec updates?
+   - What large/complex TypeSpec models or endpoints exist in the repo or can be used for load testing (100+ endpoints/models)?
+
+2. **TypeSpec AST Semantic Diff (`oa-gen tsp diff`)**:
+   - Locate and examine `packages/codegen/src/cli/lib/typespec-ast-diff.ts`, `packages/codegen/src/cli/lib/typespec-ref-resolver.ts`, `packages/codegen/src/cli/commands/tsp-diff.ts`.
+   - How does semantic diff parsing work across git refs (`HEAD~1`) and file paths?
+   - How are breaking vs non-breaking changes classified?
+   - What are the performance characteristics and complexity of the AST traversal?
+   - How can we generate or load a large-scale (100+ endpoints/models) diff scenario for benchmarking throughput (ops/sec, latency)?
+
+3. **Benchmarking & Profiling Strategy**:
+   - Identify the exact functions, entry points, and parameter signatures to invoke programmatically in benchmark scripts.
+   - What inputs are needed to measure cold compilation, incremental `oldProgram` compilation, git ref AST diffing, and large-scale semantic diffing?
+
+## Deliverable
+Write your findings and recommendations to:
+`/Users/junwoobang/workflow/oa-sdk/.agents/explorer_survey_1/handoff.md`
+
+Include:
+- Exact file paths, exported function signatures, and data structures.
+- Concrete benchmark scenario designs with realistic inputs (small, medium, large 100+ models).
+- Recommendations for V8 profiling targets (which functions to watch for hot spots).
+- Any potential pitfalls or constraints.
+Send a completion message back with your report path.

@@ -1,67 +1,64 @@
-# BRIEFING — 2026-09-05T06:56:48Z
+# BRIEFING — 2026-09-11T06:06:00Z
 
 ## Mission
-Perform quality and adversarial review for Milestone M3 (Monorepo Documentation Registry, CLI Spec Alignment & Link Validation) in oa-sdk.
+Conduct independent adversarial and quality review of Mock Server HTTP response serialization and static header preallocation (Milestone M2) in @oa-sdk/mock-server.
 
 ## 🔒 My Identity
-- Archetype: reviewer_critic
+- Archetype: reviewer / critic
 - Roles: reviewer, critic
 - Working directory: /Users/junwoobang/workflow/oa-sdk/.agents/reviewer_2
-- Original parent: c8e6c449-4228-4443-bc32-e90615c118a5
-- Milestone: Review R3 & R4
+- Original parent: d0cddab6-f867-4aaa-b30e-0224e58b2fac
+- Milestone: Final Review
 - Instance: 2 of 2
-- Current parent: a329d2dd-a30a-4c8e-872a-6ab18e0a1c87
-- Current Milestone: Milestone M3 Review (Documentation Registry, CLI Spec Alignment & Link Integrity)
+- Current Task Milestone: Milestone M2 Review (Mock Server & Governance)
+- Parent Agent ID: 6e9162db-e15b-42e5-9757-50c9b9433e62
 
 ## 🔒 Key Constraints
 - Review-only — do NOT modify implementation code
-- Check for integrity violations (hardcoding, facades, shortcuts, fake verification)
-- Verify all acceptance criteria for R3 and R4
-- Run builds, unit tests, and E2E tests
-- Review-only — do NOT modify implementation code or documentation files
-- Verify navigation tables, CLI command reference alignment, anchor fix, validation gates behavior
-- Run all required verification gates: check-cli-spec, check:docs, test:docs-gates, typecheck
+- Check integrity violations (hardcoded test results, facade implementations, bypassed tasks, fabricated outputs)
+- Issue verdict: APPROVE or REQUEST_CHANGES
 
 ## Current Parent
-- Conversation ID: a329d2dd-a30a-4c8e-872a-6ab18e0a1c87
-- Updated: 2026-09-05T06:56:48Z
+- Conversation ID: 6e9162db-e15b-42e5-9757-50c9b9433e62
+- Updated: 2026-09-11T05:58:45Z
 
 ## Review Scope
-- **Files to review**:
-  - `docs/README.md`
-  - `docs/guides/cli-command-reference.md`
-  - `docs/guides/use-cases/mock-testing.md`
-  - `scripts/lib/validation-gates.ts`
-- **Interface contracts**: PROJECT.md, ORIGINAL_REQUEST.md, worker_m3_1/handoff.md
-- **Review criteria**: Navigation integrity, CLI reference alignment, anchor fix, validation gate behavior, zero integrity violations
+- **Files to review**: `packages/mock-server/src/adapters/node-http.ts`
+- **Interface contracts**: PROJECT.md, ORIGINAL_REQUEST.md (## 2026-09-11T05:20:05Z), oa-runtime SKILL.md
+- **Review criteria**:
+  1. Precomputed static response payloads & header records in `ServerRoutingState.precomputed`.
+  2. Fast-path bodiless request bypass in `readBody`.
+  3. URL pathname and query parsing fast paths.
+  4. `req.headers` extraction using fast `for..in` loop.
+  5. Streaming responses, dynamic overrides, and schema validation preservation.
+  6. 0.00% error rate and 0 file descriptor leaks under Keep-Alive HTTP load.
+  7. Verification gates: mock-server test (656 tests), test:downstream, test-parity.ts, check:docs, check:cli-spec, check:api-index.
+
+## Key Decisions Made
+- Confirmed `packages/mock-server/src/adapters/node-http.ts` contains genuine, highly optimized implementation without facade or shortcut patterns.
+- Verified precalculation accurately captures deterministic responses while preserving dynamic fallbacks via `picked.status === precalc.status && picked.body === precalc.originalBody`.
+- Verified bodiless request bypass uses RFC 9110 compliant checks (`te === undefined && (cl === undefined || cl === '0')`) with `req.resume()`, preventing socket stalls and eliminating promise/listener allocations.
+- Verified URL parsing fast path avoids WHATWG URL parser allocations for relative paths while cleanly falling back for absolute/proxy URLs.
+- Conducted independent adversarial testing covering absolute proxy URLs, chunked bodiless GET, complex query parameters, HEAD method, SSE streaming, and 1,000 Keep-Alive requests with concurrent `updateSpec` swaps (0 errors).
+- All 6 verification commands passed with 100% compliance.
+- Final verdict: APPROVE.
+
+## Artifact Index
+- handoff.md — Milestone M2 review report
+- progress.md — Liveness heartbeat
+- DISPATCH.md — Task dispatches
 
 ## Review Checklist
-- **Items reviewed**:
-  - `docs/README.md` navigation tables (먼저 고르기, 유저 가이드, CLI Governance Spec, 프로젝트 관리 (SSOT))
-  - `docs/guides/cli-command-reference.md` CLI spec alignment & discrete command rows (all 25 commands)
-  - `docs/guides/use-cases/mock-testing.md` anchor fix (`#함수-oa-sdkmock-server--고유`)
-  - `scripts/lib/validation-gates.ts` (.agents skipped, universalGlobalOptions, colon command regex)
-  - Independent execution of verification commands (check-cli-spec, check:docs, test:docs-gates, typecheck)
+- **Items reviewed**: `packages/mock-server/src/adapters/node-http.ts`, `packages/mock-server/src/__tests__/integration/node-http.test.ts`, `scripts/bench/bench-zod-mock.ts`, `.agents/explorer_m2_1/test-parity.ts`.
 - **Verdict**: APPROVE
-- **Unverified claims**: None. All claims independently verified via automated test runs and direct inspection.
+- **Unverified claims**: None. All claims independently reproduced and verified.
 
 ## Attack Surface
 - **Hypotheses tested**:
-  - Trailing punctuation / malformed names in `createCliReferenceGate` -> mitigated by `known.has(name)` set lookup against `commands.ts`.
-  - Scope leak of `universalGlobalOptions` -> restricted explicitly to `executable === 'oa-gen'`.
-  - Exclusion of `.agents` -> only ephemeral agent metadata excluded, all 230 real docs scanned.
-  - Anchor slug format -> verified against CommonMark heading `#함수-oa-sdkmock-server--고유`.
-- **Vulnerabilities found**: None. Implementation is clean and adheres to monorepo contracts.
+  1. Absolute forward-proxy URLs break fast-path URL parsing -> RESOLVED (clean fallback to WHATWG URL parser).
+  2. Bodiless GET with `Transfer-Encoding: chunked` hangs with `req.resume()` -> RESOLVED (`te !== undefined` bypasses fast path to `readRaw`).
+  3. Dynamic overrides or streaming responses are bypassed by `precalc` -> RESOLVED (checked before `precalc` or excluded).
+  4. Concurrent `updateSpec` under Keep-Alive HTTP load causes race conditions -> RESOLVED (atomic `state` snapshot capture in handler).
+  5. Repeated query parameters (`?filter=a&filter=b`) misparsed -> RESOLVED (accumulates array; strictly validated against schema).
+- **Vulnerabilities found**: None.
 - **Untested angles**: None.
-
-## Key Decisions Made
-- Confirmed zero integrity violations (no hardcoding, no mock facades, no shortcuts).
-- Confirmed 100% pass across all verification gates (`check-cli-spec`, `check:docs`, `test:docs-gates`).
-- Confirmed full monorepo typecheck across 21 packages (`pnpm -r typecheck`).
-- Issued final verdict: APPROVE.
-
-## Artifact Index
-- `/Users/junwoobang/workflow/oa-sdk/.agents/reviewer_2/review.md` — Detailed review report
-- `/Users/junwoobang/workflow/oa-sdk/.agents/reviewer_2/handoff.md` — Structured handoff report
-
-

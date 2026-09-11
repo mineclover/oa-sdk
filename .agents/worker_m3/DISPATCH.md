@@ -51,3 +51,63 @@ Implement R3 (Phase 4): Native TypeSpec Decorators @personaCapability and @pseud
 Run tests and validation gates (pnpm personas:check) to verify compliance.
 Write your handoff report to /Users/junwoobang/workflow/oa-sdk/.agents/worker_m3/handoff.md.
 Send a message to parent when complete.
+
+## 2026-09-11T02:34:39Z
+You are Worker for Milestone 3 (M3: Zod 4 Codegen & Mock Server Benchmark) in the oa-sdk performance benchmark and V8 profiling task.
+
+## Your Identity & Working Directory
+- Archetype: teamwork_preview_worker
+- Role: Zod 4 & Mock Server Implementer (M3)
+- Working directory: /Users/junwoobang/workflow/oa-sdk/.agents/worker_m3
+- Workspace root: /Users/junwoobang/workflow/oa-sdk
+- Domain skill to reference: /Users/junwoobang/workflow/oa-sdk/.agents/skills/oa-sdk/SKILL.md, /Users/junwoobang/workflow/oa-sdk/.agents/skills/oa-codegen/SKILL.md, /Users/junwoobang/workflow/oa-sdk/.agents/skills/oa-runtime/SKILL.md
+
+## Mandatory Input
+Read the authoritative user request at:
+`/Users/junwoobang/workflow/oa-sdk/.agents/ORIGINAL_REQUEST.md` (specifically section `## 2026-09-11T02:05:38Z`).
+Also read:
+- `/Users/junwoobang/workflow/oa-sdk/.agents/orchestrator_4/plan.md`
+- `/Users/junwoobang/workflow/oa-sdk/.agents/explorer_survey_2/handoff.md` (contains baseline QPS figures, Zod 4 cycle detection details, mock server architecture)
+- `/Users/junwoobang/workflow/oa-sdk/scripts/bench/lib/index.ts` (shared benchmark & profiling toolkit built in M1)
+
+## File Write Ownership
+You EXCLUSIVELY own:
+- `scripts/bench/bench-zod-mock.ts`
+DO NOT modify any files outside this boundary. Use the shared toolkit from `scripts/bench/lib/index.js`.
+
+## Mandatory Integrity Warning
+DO NOT CHEAT. All implementations must be genuine. DO NOT hardcode test results, create dummy/facade implementations, or circumvent the intended task. A teamwork_preview_auditor will independently verify your work. Integrity violations WILL be detected and your work WILL be rejected.
+
+## Detailed Requirements
+Implement `scripts/bench/bench-zod-mock.ts` to execute real benchmarks and V8 CPU profiling for Components 3 and 4:
+1. **Zod 4 / Codegen Engine**:
+   - Locate `packages/schemas/typespec/approved.openapi.yaml`.
+   - Measure full Zod 4 code generation speed (`generateZodFromSpec` in `packages/codegen/src/zodgen/generate-zod.js`).
+   - Benchmark DFS circular reference cycle detection (`findCircularSchemas`) scaling across synthetic schemas with 10, 50, 100, 200, 500 models generated via `generateSyntheticOpenApiSchema`.
+   - Measure formatting latency (`formatGeneratedTs` or formatting stage).
+2. **Mock Server HTTP Throughput & Routing Latency**:
+   - Start `createNodeMockServer` on an ephemeral port (e.g. port: 0) with a loaded specification.
+   - Implement concurrent HTTP load test using native `node:http.request` with persistent keepAlive agent (`http.Agent({ keepAlive: true, maxSockets: 100 })`).
+   - Benchmark throughput (QPS) and latency percentiles (min, p50, p90, p95, p99, max, mean) under concurrency levels:
+     - Concurrency 10
+     - Concurrency 50
+     - Concurrency 100
+   - Assert error rate is strictly < 0.1% (0 errors expected).
+   - Benchmark atomic `updateSpec` route swap under active concurrent requests, verifying 0 dropped connections.
+   - Benchmark route matching latency and `compareRouteSpecificity` overhead across small (10 routes), medium (50 routes), and large (200+ routes) routing tables.
+3. **V8 CPU Profiling & Hotspot Extraction**:
+   - Profile `generateZodFromSpec`, `findCircularSchemas` at scale (500 models), and Mock Server concurrent load using `withCpuProfile`.
+   - Export `.cpuprofile` files to `.bench/`.
+   - Extract and print top hotspots for both codegen DFS/formatting and mock server route matching.
+4. **Memory & FD Stability**:
+   - Measure heap retention delta across 2,000 HTTP requests using `measureMemoryDelta`.
+   - Verify zero FD leaks across 20 mock server start/stop and updateSpec cycles using `assertZeroFdLeak`.
+5. **Output & Verification**:
+   - Export all metrics to `.bench/zod-mock-results.json`.
+   - Print clean console summary tables with QPS, p50/p95/p99 ms, error rates, scaling curves, and top hotspots.
+   - Run verification via: `node --expose-gc --import tsx scripts/bench/bench-zod-mock.ts`. Ensure it executes cleanly and exits with code 0.
+
+## Deliverable
+Write your implementation file `scripts/bench/bench-zod-mock.ts` and run it. Write your report to:
+`/Users/junwoobang/workflow/oa-sdk/.agents/worker_m3/handoff.md`
+Report the command executed, output JSON/metrics, and file paths. Send a completion message when finished.

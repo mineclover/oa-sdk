@@ -48,10 +48,73 @@ Read your instructions in /Users/junwoobang/workflow/oa-sdk/.agents/worker_m1/DI
 Also read /Users/junwoobang/workflow/oa-sdk/.agents/ORIGINAL_REQUEST.md, /Users/junwoobang/workflow/oa-sdk/PROJECT.md, and /Users/junwoobang/workflow/oa-sdk/.agents/explorer_survey_1/handoff.md.
 
 MANDATORY INTEGRITY WARNING:
-DO NOT CHEAT. All implementations must be genuine. DO NOT hardcode test results, create dummy/facade implementations, or circumvent the intended task. An auditor will independently verify your work. Integrity violations WILL be detected and your work WILL be rejected.
+DO NOT CHEAT. All implementations must be genuine. DO NOT hardcode test results, create dummy/facade implementations, or circumvent the intended task. An integrity violation WILL be detected and your work WILL be rejected.
 
 Implement R1 (Phase 2): TypeSpec AST Semantic Diff & Breaking Change Analyzer in packages/codegen.
 Implement the 7-category breaking change classification, git ref resolver, CLI command `oa-gen tsp diff`, multi-token router, and unit/integration tests.
 Run tests via pnpm and verify they pass.
 Write your handoff report to /Users/junwoobang/workflow/oa-sdk/.agents/worker_m1/handoff.md.
 Send a message to parent when complete.
+
+## 2026-09-11T02:13:17Z
+You are Worker for Milestone 1 (M1: Shared Benchmark & Profiling Library) in the oa-sdk performance benchmark and V8 profiling task.
+
+## Your Identity & Working Directory
+- Archetype: teamwork_preview_worker
+- Role: Benchmark Library Implementer (M1)
+- Working directory: /Users/junwoobang/workflow/oa-sdk/.agents/worker_m1
+- Workspace root: /Users/junwoobang/workflow/oa-sdk
+- Domain skill to reference: /Users/junwoobang/workflow/oa-sdk/.agents/skills/oa-sdk/SKILL.md
+
+## Mandatory Input
+Read the authoritative user request at:
+`/Users/junwoobang/workflow/oa-sdk/.agents/ORIGINAL_REQUEST.md` (specifically section `## 2026-09-11T02:05:38Z`).
+Also read the Survey Reports and Plan:
+- `/Users/junwoobang/workflow/oa-sdk/.agents/orchestrator_4/plan.md`
+- `/Users/junwoobang/workflow/oa-sdk/.agents/explorer_survey_3/handoff.md` (contains concrete implementation recipes for V8 profiler, memory delta, and FD leak tracking)
+- `/Users/junwoobang/workflow/oa-sdk/.agents/explorer_survey_1/handoff.md`
+- `/Users/junwoobang/workflow/oa-sdk/.agents/explorer_survey_2/handoff.md`
+
+## File Write Ownership
+You EXCLUSIVELY own:
+- `scripts/bench/lib/profiler.ts`
+- `scripts/bench/lib/memory.ts`
+- `scripts/bench/lib/fd.ts`
+- `scripts/bench/lib/stats.ts`
+- `scripts/bench/lib/generators.ts`
+- `scripts/bench/lib/index.ts`
+- `scripts/bench/lib/test-smoke.ts` (for self-verification)
+DO NOT modify any files outside this boundary.
+
+## Mandatory Integrity Warning
+DO NOT CHEAT. All implementations must be genuine. DO NOT hardcode test results, create dummy/facade implementations, or circumvent the intended task. A teamwork_preview_auditor will independently verify your work. Integrity violations WILL be detected and your work WILL be rejected.
+
+## Detailed Requirements
+Implement a high-performance, zero-external-dependency benchmarking and profiling toolkit in `scripts/bench/lib/`:
+1. `profiler.ts`:
+   - Use `node:inspector/promises` Session to profile CPU execution.
+   - Support `withCpuProfile<T>(name: string, fn: () => Promise<T>, options?: { samplingIntervalUs?: number; outputDir?: string }): Promise<{ result: T; profile: CpuProfileResult }>`.
+   - Ensure directory exists (e.g. `.bench/`), export `.cpuprofile` JSON.
+   - Traverse the call tree nodes to calculate total hit counts and extract top hotspots (sorted by hitCount descending with functionName, url, lineNumber, percentage).
+2. `memory.ts`:
+   - Enable GC programmatically via `v8.setFlagsFromString('--expose_gc')`.
+   - `runGc()`: Run multiple passes of `global.gc?.()` to clear queued weak references and deferred finalizers.
+   - `measureMemoryDelta<T>(fn: () => Promise<T>): Promise<{ result: T; delta: MemoryDelta }>` measuring initial and final heapUsed in MB, heap delta, and GC stats.
+3. `fd.ts`:
+   - `getOpenFdCount()`: On Darwin/macOS and Linux, inspect `/dev/fd` via `fs.readdirSync('/dev/fd')`. Fall back to `process._getActiveHandles().length`.
+   - `assertZeroFdLeak(action: () => Promise<void> | void, iterations?: number)`: Run action repeatedly, wait a tick with `setImmediate` or micro-sleep so closing handles flush, and return initial, final, and leaked FD counts.
+4. `stats.ts`:
+   - `calculateLatencyStats(latenciesMs: number[]): LatencyStats` calculating min, p50, p90, p95, p99, max, mean, stddev, and throughput (QPS).
+   - High-precision time helpers using `performance.now()`.
+5. `generators.ts`:
+   - `generateSyntheticTypeSpec(resourceCount: number, options?: { cyclic?: boolean }): string`: Generates valid TypeSpec source with N models and operations.
+   - `generateSyntheticOpenApiSchema(modelCount: number, options?: { cyclic?: boolean; depth?: number }): Record<string, unknown>`: Generates valid OAS 3.2 document with circular $refs or deep nesting.
+6. `index.ts`:
+   - Cleanly export all utilities.
+7. Verification:
+   - Create `scripts/bench/lib/test-smoke.ts` and run it via `node --expose-gc --import tsx scripts/bench/lib/test-smoke.ts`. Ensure all smoke tests pass with 0 errors.
+
+## Deliverable
+Write your implementation files and run verification. Then write your report to:
+`/Users/junwoobang/workflow/oa-sdk/.agents/worker_m1/handoff.md`
+Report the command executed, the test results, and file paths. Send a completion message when finished.

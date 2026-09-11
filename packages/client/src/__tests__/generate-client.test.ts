@@ -585,10 +585,10 @@ describe('generateClient', () => {
   it('typesImport 시 withResponse가 typed response headers를 노출', () => {
     const code = generateClient(headersSpec(), { typesImport: './types' })
     expect(code).toContain('export type ClientResponse<TBody, THeaders extends object = Record<string, never>>')
-    expect(code).toContain('async listUsers(): Promise<ListUsersResponse>')
+    expect(code).toContain('async listUsers(): Promise<JsonPrimitive<ListUsersResponse>>')
     expect(code).toContain('withResponse: {')
-    expect(code).toContain('async listUsers(): Promise<ClientResponse<ListUsersResponse, ListUsersResponseHeaders>>')
-    expect(code).toContain('return requestResponse<ListUsersResponse, ListUsersResponseHeaders>')
+    expect(code).toContain('async listUsers(): Promise<ClientResponse<JsonPrimitive<ListUsersResponse>, ListUsersResponseHeaders>>')
+    expect(code).toContain('return requestResponse<JsonPrimitive<ListUsersResponse>, ListUsersResponseHeaders>')
     expect(code).toContain('{ name: "X-Rate-Limit", type: "integer" }')
     expect(code).toContain('{ name: "X-Request-Id", type: "string" }')
   })
@@ -596,8 +596,8 @@ describe('generateClient', () => {
   it('typesImport 없이 withResponse가 runtime response headers를 열린 타입으로 노출', () => {
     const code = generateClient(headersSpec())
     expect(code).toContain('withResponse: {')
-    expect(code).toContain('async listUsers(): Promise<ClientResponse<unknown, Record<string, unknown>>>')
-    expect(code).toContain('return requestResponse<unknown, Record<string, unknown>>')
+    expect(code).toContain('async listUsers(): Promise<ClientResponse<JsonPrimitive<unknown>, Record<string, unknown>>>')
+    expect(code).toContain('return requestResponse<JsonPrimitive<unknown>, Record<string, unknown>>')
     expect(code).toContain('{ name: "X-Rate-Limit", type: "integer" }')
     expect(code).toContain('{ name: "X-Request-Id", type: "string" }')
   })
@@ -1162,5 +1162,64 @@ describe('generateClient — webhooks', () => {
       }
     }))
     expect(code).toContain('SimpleHookWebhook = unknown')
+  })
+})
+
+describe('generateClient — Milestone 2 Wire-Format Safety', () => {
+  const crudSpec = doc({
+    paths: {
+      '/posts': {
+        post: {
+          operationId: 'createPost',
+          requestBody: {
+            required: true,
+            content: { 'application/json': { schema: { type: 'object' } } },
+          },
+          responses: {
+            '201': {
+              description: 'Created',
+              content: { 'application/json': { schema: { type: 'object' } } },
+            },
+          },
+        },
+        patch: {
+          operationId: 'updatePost',
+          requestBody: {
+            required: false,
+            content: { 'application/json': { schema: { type: 'object' } } },
+          },
+          responses: {
+            '200': {
+              description: 'OK',
+              content: { 'application/json': { schema: { type: 'object' } } },
+            },
+          },
+        },
+      },
+    },
+  })
+
+  it('emits JsonPrimitive and Resolved inline with zero runtime dependencies', () => {
+    const code = generateClient(crudSpec, { typesImport: './types' })
+    expect(code).toContain('export type JsonPrimitive<T> =')
+    expect(code).toContain('export type Resolved<T> =')
+    expect(code).toContain('export type ValueOf<Instance> =')
+    expect(code).toContain('export type ClassProperties<T extends object> =')
+    expect(code).toContain('export type NativeClass =')
+    expect(code).toContain('export type Equal<X, Y> =')
+  })
+
+  it('wraps request body with Resolved<TBody> and response with Promise<JsonPrimitive<TResponse>>', () => {
+    const code = generateClient(crudSpec, { typesImport: './types' })
+    expect(code).toContain('async createPost(body: Resolved<CreatePostBody>): Promise<JsonPrimitive<CreatePostResponse>>')
+    expect(code).toContain('async updatePost(body?: Resolved<UpdatePostBody>): Promise<JsonPrimitive<UpdatePostResponse>>')
+  })
+
+  it('compiles and executes cleanly at runtime via importGeneratedClient', async () => {
+    const code = generateClient(crudSpec)
+    const { createClient } = await importGeneratedClient(code)
+    const client = createClient({ baseUrl: 'https://example.test' })
+    expect(typeof client).toBe('object')
+    expect(typeof (client as any).createPost).toBe('function')
   })
 })

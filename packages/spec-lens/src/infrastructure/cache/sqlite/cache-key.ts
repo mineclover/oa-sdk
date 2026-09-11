@@ -10,6 +10,21 @@ export type {
   SpecProjectIdentity,
   SpecProjectKeyInput,
 } from '../../../domain/project.js'
+export {
+  computeTsconfigUniverse,
+  computeTsconfigUniverseDigest,
+  createEmptyTsconfigUniverse,
+  parseJsonc,
+  stripJsonComments,
+  removeTrailingCommas,
+  configurationClosure,
+  resolveConfigurationFile,
+} from './tsconfig-universe.js'
+export type {
+  ContractConfigDigest,
+  ContractConfigUniverse,
+  ConfigurationClosure,
+} from './tsconfig-universe.js'
 
 export function buildTargetConfigDigest(config: DefinitionTargetConfig): string {
   const normalized = sortDeep(config)

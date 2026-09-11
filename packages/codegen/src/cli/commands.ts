@@ -27,6 +27,7 @@ import { auditCsp } from './commands/audit-csp.js'
 import { generateZod } from './commands/generate-zod.js'
 import { tspDiff } from './commands/tsp-diff.js'
 import { mock } from './commands/mock.js'
+import { auditShapeCommand } from './commands/audit-shape.js'
 
 export const commands: Command[] = [
   generateZod,
@@ -58,6 +59,7 @@ export const commands: Command[] = [
   auditCsp,
   tspDiff,
   mock,
+  auditShapeCommand,
 ]
 
-export { generateZod, tspDiff, mock }
+export { generateZod, tspDiff, mock, auditShapeCommand }

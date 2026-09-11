@@ -1,74 +1,57 @@
-# Dispatch — Reviewer 2 (R3 Registry, CLI Spec Alignment & Link Integrity Review)
+## 2026-09-11T05:31:56Z
+You are Reviewer 2 for the @oa-sdk project.
+Your identity: reviewer_2
+Your working directory: /Users/junwoobang/workflow/oa-sdk/.agents/reviewer_2
+Workspace root: /Users/junwoobang/workflow/oa-sdk
+Parent orchestrator: orchestrator_5 (d0cddab6-f867-4aaa-b30e-0224e58b2fac)
 
-## Mandatory Context
-Read the authoritative user request at:
-`/Users/junwoobang/workflow/oa-sdk/.agents/ORIGINAL_REQUEST.md` (specifically ## 2026-09-05T06:38:42Z).
+MANDATORY FIRST STEP:
+Read /Users/junwoobang/workflow/oa-sdk/.agents/ORIGINAL_REQUEST.md (specifically 2026-09-11T04:41:22Z) and /Users/junwoobang/workflow/oa-sdk/PROJECT.md.
+Also read TEST_READY.md and all milestone handoff reports in .agents/:
+- worker_m1_1/handoff.md
+- worker_m2_1/handoff.md
+- worker_m3_1/handoff.md
+- worker_m4_1/handoff.md
+- worker_m5_1/handoff.md
+- worker_final_1/handoff.md
 
-Read the Project Plan at:
-`/Users/junwoobang/workflow/oa-sdk/.agents/teamwork_preview_orchestrator_docs_1/PROJECT.md`
+OBJECTIVE:
+Conduct an independent adversarial review focusing on:
+1. Edge cases, boundary values, error conditions across the 5 improvements.
+2. Zero-dependency integrity in `@oa-sdk/client` generated output.
+3. Strict diagnostic codes and source range reporting (`invalid-oa-operation`, `unsupported-shape`, `policy-required-shape`).
+4. Type safety regressions, recursive depth limits, and clean ESM packaging.
+5. Cache invalidation correctness in `@oa-sdk/spec-lens` SQLite WAL store.
 
-Read worker handoffs:
-`/Users/junwoobang/workflow/oa-sdk/.agents/worker_m3_1/handoff.md`
+VERIFICATION:
+- Run tests and builds across affected packages.
+- Run `pnpm vitest run tests/e2e/samchon-improvements`.
+- Write your review report to `/Users/junwoobang/workflow/oa-sdk/.agents/reviewer_2/handoff.md` with an explicit verdict (`APPROVE` or `REQUEST_CHANGES`). Message parent when done.
 
-## Your Working Directory
-`/Users/junwoobang/workflow/oa-sdk/.agents/reviewer_2`
+## 2026-09-11T05:58:45Z
+You are Reviewer 2 (Mock Server & Governance Reviewer).
+Your working directory is: /Users/junwoobang/workflow/oa-sdk/.agents/reviewer_2
 
-## Review Scope
-Review the modified documentation and script files:
-- `/Users/junwoobang/workflow/oa-sdk/docs/README.md`
-- `/Users/junwoobang/workflow/oa-sdk/docs/guides/cli-command-reference.md`
-- `/Users/junwoobang/workflow/oa-sdk/docs/guides/use-cases/mock-testing.md`
-- `/Users/junwoobang/workflow/oa-sdk/scripts/lib/validation-gates.ts`
+MANDATORY FIRST STEP:
+Read /Users/junwoobang/workflow/oa-sdk/.agents/ORIGINAL_REQUEST.md (specifically section ## 2026-09-11T05:20:05Z).
+Read domain skill /Users/junwoobang/workflow/oa-sdk/.agents/skills/oa-runtime/SKILL.md.
+Read handoff report:
+- /Users/junwoobang/workflow/oa-sdk/.agents/worker_m2_1/handoff.md
 
-## Review Criteria
-1. Registry & Navigation Integrity:
-   - Verify `docs/README.md` cleanly indexes all new/updated guides across navigation tables ("먼저 고르기", "유저 가이드", "CLI Governance Spec", "프로젝트 관리 (SSOT)").
-   - Verify `docs/guides/cli-command-reference.md` matches `scripts/check-cli-spec.ts` and CLI parser behavior.
-   - Verify broken anchor fix in `mock-testing.md`.
-   - Verify `validation-gates.ts` changes.
-2. Verification Execution:
-   - Run `pnpm exec tsx scripts/check-cli-spec.ts` and verify exit code 0.
-   - Run `pnpm check:docs` and `pnpm test:docs-gates` to verify all gates pass.
-   - Run `pnpm -r typecheck` to verify 0 errors across 21 packages.
-3. Verdict:
-   - Your handoff report MUST end with an explicit verdict: `APPROVE` or `REQUEST_CHANGES`.
-
-## Output Requirements
-Write your detailed review to:
-`/Users/junwoobang/workflow/oa-sdk/.agents/reviewer_2/review.md`
-and write your structured handoff report to:
-`/Users/junwoobang/workflow/oa-sdk/.agents/reviewer_2/handoff.md`.
-Send a completion message back to parent with your verdict and summary.
-
-## 2026-09-05T06:56:48Z
-You are reviewer_2.
-Read the authoritative user request at:
-/Users/junwoobang/workflow/oa-sdk/.agents/ORIGINAL_REQUEST.md
-
-Read your dispatch instructions at:
-/Users/junwoobang/workflow/oa-sdk/.agents/reviewer_2/DISPATCH.md
-
-Read the project plan at:
-/Users/junwoobang/workflow/oa-sdk/.agents/teamwork_preview_orchestrator_docs_1/PROJECT.md
-
-Read worker handoff:
-/Users/junwoobang/workflow/oa-sdk/.agents/worker_m3_1/handoff.md
-
-Your working directory is:
-/Users/junwoobang/workflow/oa-sdk/.agents/reviewer_2
-
-Review:
-- docs/README.md
-- docs/guides/cli-command-reference.md
-- docs/guides/use-cases/mock-testing.md
-- scripts/lib/validation-gates.ts
-
-Verify navigation tables, CLI command reference alignment, anchor fix, validation gates behavior.
-Run:
-- pnpm exec tsx scripts/check-cli-spec.ts
-- pnpm check:docs
-- pnpm test:docs-gates
-- pnpm -r typecheck
-Write review to /Users/junwoobang/workflow/oa-sdk/.agents/reviewer_2/review.md and handoff to /Users/junwoobang/workflow/oa-sdk/.agents/reviewer_2/handoff.md.
-State explicit verdict: APPROVE or REQUEST_CHANGES.
-Send completion message to parent.
+SCOPE OF REVIEW:
+1. Examine code changes in `packages/mock-server/src/adapters/node-http.ts`:
+   - Verify precomputed static response payloads & header records in `ServerRoutingState.precomputed`.
+   - Verify fast-path bodiless request bypass in `readBody` (synchronous completion for GET/HEAD with content-length 0).
+   - Verify URL pathname and query parsing fast paths.
+   - Verify `req.headers` extraction using fast `for..in` loop.
+   - Verify streaming responses (`text/event-stream`, `application/x-ndjson`), dynamic overrides (`server.override`), and schema validation error handlers are completely preserved and uncompromised.
+   - Verify 0.00% error rate and 0 file descriptor leaks under Keep-Alive HTTP load.
+2. Verification commands to run:
+   - `corepack pnpm --filter @oa-sdk/mock-server test` (all 656 tests must pass)
+   - `corepack pnpm test:downstream`
+   - `node --expose-gc --import tsx .agents/explorer_m2_1/test-parity.ts`
+   - `pnpm check:docs`
+   - `pnpm check:cli-spec`
+   - `pnpm check:api-index`
+3. Document your review in `/Users/junwoobang/workflow/oa-sdk/.agents/reviewer_2/handoff.md` with an explicit verdict: APPROVE or REQUEST_CHANGES.
+4. Send a message to parent with your verdict and concise summary.

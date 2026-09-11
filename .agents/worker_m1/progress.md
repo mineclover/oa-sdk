@@ -1,17 +1,18 @@
-# Progress: Milestone 1 - TypeSpec AST Semantic Diff & Breaking Change Analyzer
+# Progress: Milestone 1 - Shared Benchmark & Profiling Library
 
-Last visited: 2026-09-10T23:36:30Z
+Last visited: 2026-09-11T02:18:45Z
 
 ## Status
-- [x] Initialized workspace and briefing
-- [x] Read context: DISPATCH.md, ORIGINAL_REQUEST.md, PROJECT.md, and explorer_survey_1/handoff.md
-- [x] Inspect existing codegen CLI files and test harness
-- [x] Implement `packages/codegen/src/cli/lib/typespec-ast-diff.ts`
-- [x] Implement `packages/codegen/src/cli/lib/typespec-ref-resolver.ts`
-- [x] Implement `packages/codegen/src/cli/commands/tsp-diff.ts`
-- [x] Update `packages/codegen/src/cli/index.ts` for multi-token routing
-- [x] Implement unit/integration tests in `packages/codegen/src/__tests__/tsp-diff.test.ts`
-- [x] Run test suites and verify all tests pass (29/29 tests pass)
-- [x] Verified zero regressions (diff-cli.test.ts 33/33 pass)
-- [x] Verified tsup build succeeds and dist CLI runs correctly
-- [x] Generate handoff report and notify parent
+- [x] Initialized workspace and updated BRIEFING.md and DISPATCH.md
+- [x] Researched survey reports (Survey 1, 2, 3) and plan.md
+- [x] Verified native Node 24 V8 APIs (`node:inspector/promises`, `node:v8`, `node:perf_hooks`, `/dev/fd`)
+- [x] Implement `scripts/bench/lib/profiler.ts`
+- [x] Implement `scripts/bench/lib/memory.ts`
+- [x] Implement `scripts/bench/lib/fd.ts`
+- [x] Implement `scripts/bench/lib/stats.ts`
+- [x] Implement `scripts/bench/lib/generators.ts`
+- [x] Implement `scripts/bench/lib/index.ts`
+- [x] Implement `scripts/bench/lib/test-smoke.ts`
+- [x] Run `node --expose-gc --import tsx scripts/bench/lib/test-smoke.ts` and verify 0 errors (14/14 tests pass)
+- [x] Verified monorepo governance gates (`check:docs`, `check:cli-spec`, `check:api-index`) all pass cleanly
+- [x] Write handoff report in `.agents/worker_m1/handoff.md` and notify parent

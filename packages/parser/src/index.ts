@@ -178,3 +178,17 @@ export type { LintResult, LintSeverity, LintOptions, LintCategory } from './lint
 // ─── Validate ─────────────────────────────────────────────────────────────
 export { validateDocument } from './validate.js'
 export type { ValidateDocumentOptions, ValidationResult } from './validate.js'
+
+// ─── TypeScript Operation Extractor (@oaOperation) ─────────────────────────
+export {
+  extractOperationsFromSource,
+  extractOperationsFromFile,
+  toOperationEntry,
+  buildPathPointer,
+  SUPPORTED_HTTP_METHODS,
+} from './ts-operation-extractor.js'
+export type {
+  ExtractedOperation,
+  OperationDiagnostic,
+  OperationExtractResult,
+} from './ts-operation-extractor.js'

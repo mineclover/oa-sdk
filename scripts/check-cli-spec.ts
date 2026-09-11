@@ -83,6 +83,7 @@ const undocumentedOaGenCommands = new Set([
   'tsp-scaffold',
   'generate-zod',
   'generate:zod',
+  'audit:shape',
 ])
 
 const universalGlobalOptions = new Set([

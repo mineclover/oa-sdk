@@ -1,56 +1,25 @@
-# Dispatch — Challenger 1 (Empirical Code Snippet & Zod Schema Stress-Testing)
+## 2026-09-11T05:58:53Z
+You are Challenger 1 (Adversarial Stress Tester for Codegen & AST Diff).
+Your working directory is: /Users/junwoobang/workflow/oa-sdk/.agents/challenger_1
 
-## Mandatory Context
-Read the authoritative user request at:
-`/Users/junwoobang/workflow/oa-sdk/.agents/ORIGINAL_REQUEST.md` (specifically ## 2026-09-05T06:38:42Z).
+MANDATORY FIRST STEP:
+Read /Users/junwoobang/workflow/oa-sdk/.agents/ORIGINAL_REQUEST.md (specifically section ## 2026-09-11T05:20:05Z).
+Read domain skill /Users/junwoobang/workflow/oa-sdk/.agents/skills/oa-codegen/SKILL.md.
 
-Read the Project Plan at:
-`/Users/junwoobang/workflow/oa-sdk/.agents/teamwork_preview_orchestrator_docs_1/PROJECT.md`
-
-## Your Working Directory
-`/Users/junwoobang/workflow/oa-sdk/.agents/challenger_1`
-
-## Adversarial Challenge Scope
-Empirically stress-test the TypeScript code snippets and Zod schemas documented in:
-- `/Users/junwoobang/workflow/oa-sdk/docs/guides/declarative-spec-configuration.md`
-- `/Users/junwoobang/workflow/oa-sdk/docs/guides/schema-architecture-and-conventions.md`
-
-## Challenge Tasks
-1. Extract all TypeScript configuration and schema snippets from these documentation guides.
-2. Compile and execute them against the production `@oa-sdk` packages using tsx / vitest / TypeScript compiler API.
-3. Test edge cases:
-   - Validating the 3 projection profiles (`component-bundle`, `operation-contract`, `full-api-document`) with `assertOaConfig` / `validateOaConfig`.
-   - Strict numeric bounds: verify `z.number().min(0)` allows 0 and rejects -0.001; verify `z.number().gt(0)` rejects 0 and allows 0.0001.
-   - RFC 9457 `ProblemDetailsSchema`: verify parsing of valid problem details and rejection of invalid ones (e.g. status < 100 or > 599).
-   - Recursive tree structures: test runtime validation and TS type deduction of tree nodes with arbitrary nesting depth.
-4. Report any invalid code snippets, type errors, or runtime failures.
-5. Verdict: Explicitly state `APPROVE` (no flaws found) or `REJECT` (flaws found).
-
-## Output Requirements
-Write your detailed challenge report and test script to:
-`/Users/junwoobang/workflow/oa-sdk/.agents/challenger_1/challenge.md`
-and write your structured handoff report to:
-`/Users/junwoobang/workflow/oa-sdk/.agents/challenger_1/handoff.md`.
-
-## 2026-09-05T06:56:48Z
-You are challenger_1.
-Read the authoritative user request at:
-/Users/junwoobang/workflow/oa-sdk/.agents/ORIGINAL_REQUEST.md
-
-Read your dispatch instructions at:
-/Users/junwoobang/workflow/oa-sdk/.agents/challenger_1/DISPATCH.md
-
-Read the project plan at:
-/Users/junwoobang/workflow/oa-sdk/.agents/teamwork_preview_orchestrator_docs_1/PROJECT.md
-
-Your working directory is:
-/Users/junwoobang/workflow/oa-sdk/.agents/challenger_1
-
-Adversarially challenge and empirically stress-test all code snippets in:
-- docs/guides/declarative-spec-configuration.md
-- docs/guides/schema-architecture-and-conventions.md
-
-Extract, compile, and run code against production packages. Test edge cases (3 profiles, strict numeric bounds, ProblemDetailsSchema, recursive schemas).
-Write challenge report to /Users/junwoobang/workflow/oa-sdk/.agents/challenger_1/challenge.md and handoff to /Users/junwoobang/workflow/oa-sdk/.agents/challenger_1/handoff.md.
-State explicit verdict: APPROVE or REJECT.
-Send completion message to parent.
+CHALLENGE OBJECTIVES:
+1. Adversarially stress-test `packages/codegen/src/zodgen/generate-zod.ts` (M1):
+   - Write a standalone test script (e.g. `.agents/challenger_1/stress-zod-cycles.ts`) that generates pathological schema graphs:
+     a) Huge mutually recursive cluster (e.g. 50 models in a ring A -> B -> ... -> Z -> A)
+     b) Multiple disconnected cyclic components mixed with acyclic trees
+     c) Deeply nested self-referential schemas with multiple $refs per object
+     d) Schemas with in-memory circular object references (testing the active stack guard to prevent infinite loops)
+   - Verify that Tarjan's SCC and `extractRefsFromNode` correctly detect every cycle without hanging, crashing, or misclassifying.
+2. Adversarially stress-test `packages/codegen/src/cli/lib/typespec-ast-diff.ts` (M3):
+   - Write a standalone test script (e.g. `.agents/challenger_1/stress-ast-diff.ts`) that exercises:
+     a) Massive synthetic models with hundreds of properties
+     b) Identical vs mutated models to verify the reference identity short-circuits and cardinality invariant guards don't miss any added/removed/modified properties
+     c) Corner cases: empty models, models with identical property counts but different names, models with complex namespaces.
+   - Verify 100% diff parity against expected results.
+3. Run your challenge scripts and record results.
+4. Document findings and final verdict (APPROVE or REJECT) in `/Users/junwoobang/workflow/oa-sdk/.agents/challenger_1/handoff.md`.
+5. Send a message to parent with your verdict and summary.

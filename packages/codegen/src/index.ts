@@ -25,7 +25,8 @@ export {
   resolveGuardTarget,
   CANDIDATE_CONFIG_FILES,
 } from './cli/lib/config-loader.js'
-export { findProjectRoot, type FindProjectRootOptions } from '@oa-sdk/core'
+export { findProjectRoot } from '@oa-sdk/core'
+export type { FindProjectRootOptions } from '@oa-sdk/core'
 export {
   stableStringify,
   computeSha256,
@@ -46,6 +47,7 @@ export {
   normalizeOasForZodRuntime,
   prepareSchemaForZod,
   schemaToZod,
+  ZodGenerationPreflightError,
 } from './zodgen/index.js'
 export { createMemoryWorkspaceIndex, createNoopWorkspaceIndex, createWorkspaceIndex } from './workspace-index.js'
 export { createSQLiteWorkspaceIndex, SQLITE_WORKSPACE_INDEX_SCHEMA_VERSION } from './sqlite-workspace-index.js'
@@ -116,6 +118,7 @@ export {
   ZodTypeAdapter,
 } from './ast-sync/index.js'
 export { generateStandaloneGuards } from './standalone-guards/index.js'
+export { auditShapeCommand, auditShapeFiles } from './cli/commands/audit-shape.js'
 
 export type { OasSchema } from './zod-to-schema.js'
 export type {

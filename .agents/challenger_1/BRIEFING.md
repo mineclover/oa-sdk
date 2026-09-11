@@ -1,65 +1,59 @@
-# BRIEFING — 2026-09-05T07:01:30Z
+# BRIEFING — 2026-09-11T06:22:00Z
 
 ## Mission
-Adversarially challenge and empirically stress-test all TypeScript code snippets and Zod schemas in docs/guides/declarative-spec-configuration.md and docs/guides/schema-architecture-and-conventions.md against production @oa-sdk packages.
+Adversarial stress-testing of Zod 4 Codegen cycle detection and TypeSpec AST Semantic Diff optimizations.
 
 ## 🔒 My Identity
 - Archetype: EMPIRICAL CHALLENGER
 - Roles: critic, specialist
 - Working directory: /Users/junwoobang/workflow/oa-sdk/.agents/challenger_1
-- Original parent: a329d2dd-a30a-4c8e-872a-6ab18e0a1c87
-- Milestone: M1 (Challenger)
+- Original parent: 6e9162db-e15b-42e5-9757-50c9b9433e62
+- Milestone: Performance Bottleneck Optimizations Verification (M1 & M3)
 - Instance: 1 of 1
 
 ## 🔒 Key Constraints
-- Review-only — do NOT modify implementation code or target docs directly
-- Run verification code empirically — do not rely on unverified claims or theoretical reasoning
-- Write only to .agents/challenger_1 directory
-- Output detailed challenge report to /Users/junwoobang/workflow/oa-sdk/.agents/challenger_1/challenge.md
-- Output structured handoff report to /Users/junwoobang/workflow/oa-sdk/.agents/challenger_1/handoff.md
-- State explicit verdict: APPROVE or REJECT
+- Review-only — do NOT modify implementation code
+- Write only to .agents/challenger_1/
+- Must run verification code directly (empirical evidence required)
 
 ## Current Parent
-- Conversation ID: a329d2dd-a30a-4c8e-872a-6ab18e0a1c87
-- Updated: not yet
+- Conversation ID: 6e9162db-e15b-42e5-9757-50c9b9433e62
+- Updated: 2026-09-11T05:59:00Z
 
 ## Review Scope
 - **Files to review**:
-  - `/Users/junwoobang/workflow/oa-sdk/docs/guides/declarative-spec-configuration.md`
-  - `/Users/junwoobang/workflow/oa-sdk/docs/guides/schema-architecture-and-conventions.md`
-- **Interface contracts**:
-  - `/Users/junwoobang/workflow/oa-sdk/.agents/teamwork_preview_orchestrator_docs_1/PROJECT.md`
-- **Review criteria**:
-  - Empirical compilability and runnable correctness against `@oa-sdk` production packages
-  - Projection profiles validation (`component-bundle`, `operation-contract`, `full-api-document`) with `assertOaConfig` / `validateOaConfig`
-  - Strict numeric bounds (`min(0)` vs `gt(0)`)
-  - RFC 9457 `ProblemDetailsSchema` compliance
-  - Recursive tree structures runtime validation and TS type deduction
-
-## Key Decisions Made
-- Extracted and tested 8 distinct test suites covering all documented TypeScript/Zod snippets.
-- Validated declarative spec configurations and projection profiles against production `packages/codegen/src/config.ts`.
-- Verified numeric boundary conditions with float precision edge cases.
-- Empirically proved that `z.object(...).annotate(...)` in `docs/guides/schema-architecture-and-conventions.md:1210-1236` does not exist in Zod or @oa-sdk, triggering TS2339 and runtime TypeError.
-- Issued verdict: REJECT.
-
-## Artifact Index
-- `/Users/junwoobang/workflow/oa-sdk/.agents/challenger_1/BRIEFING.md` — persistent context and state
-- `/Users/junwoobang/workflow/oa-sdk/.agents/challenger_1/progress.md` — liveness heartbeat and task execution progress
-- `/Users/junwoobang/workflow/oa-sdk/.agents/challenger_1/challenge.md` — detailed adversarial stress-testing report
-- `/Users/junwoobang/workflow/oa-sdk/.agents/challenger_1/handoff.md` — formal handoff report
+  - packages/codegen/src/zodgen/generate-zod.ts
+  - packages/codegen/src/cli/lib/typespec-ast-diff.ts
+- **Interface contracts**: /Users/junwoobang/workflow/oa-sdk/.agents/ORIGINAL_REQUEST.md (§## 2026-09-11T05:20:05Z)
+- **Review criteria**: correctness under adversarial stress, no infinite loops, no unhandled exceptions, exact diff parity
 
 ## Attack Surface
 - **Hypotheses tested**:
-  - Declarative configuration loader and projection profiles schema conformance: Tested and confirmed valid.
-  - Strict numeric bounds (`min(0)` vs `gt(0)`, `lt(1)`): Tested and confirmed mathematically sound.
-  - RFC 9457 status range (100–599) and URI type validation: Tested and confirmed valid.
-  - Self-referencing recursive schemas up to depth 50: Tested and confirmed cycle-safe.
-  - `.annotate(...)` method on `z.object`: Tested and confirmed failing with TS2339 and TypeError.
-- **Vulnerabilities found**:
-  - Critical code snippet defect in `docs/guides/schema-architecture-and-conventions.md:1210-1236` (`.annotate(...)` is not a function).
-- **Untested angles**:
-  - Full build of generated standalone guards from live Zod schemas (handled by downstream test suites).
+  - `extractRefsFromNode` WeakMap memoization handles circular graphs without infinite recursion or stale cache: CONFIRMED
+  - Tarjan's SCC correctly detects complex multi-component cycles and distinguishes cycles from inward DAGs/outward trees: CONFIRMED
+  - In-memory circular objects (obj.child = obj, mutual loops, cyclic arrays, 200-deep nested chains) survive via `activeStack`: CONFIRMED
+  - Preflight validation aborts on YAML anchor cycles and permits forced best-effort generation: CONFIRMED
+  - Reference identity short-circuits on 500-property models skip diffing in <5ms: CONFIRMED
+  - Cardinality invariants accurately detect 100% of added/removed/mutated items across identical sizes, partial overlaps, and empty transitions: CONFIRMED
+  - Deep custom namespaces (`Enterprise.Billing.V1`) correctly isolated from standard library namespaces: CONFIRMED
+- **Vulnerabilities found**: 0 (Clean verdict)
+- **Untested angles**: None within M1 and M3 scope
 
 ## Loaded Skills
-- None specified by dispatch
+- **Source**: /Users/junwoobang/workflow/oa-sdk/.agents/skills/oa-codegen/SKILL.md
+- **Local copy**: /Users/junwoobang/workflow/oa-sdk/.agents/challenger_1/oa-codegen-skill.md
+- **Core methodology**: TypeScript AST codegen, reverse-offset patch engine, Zod 4 circular schema resolution, TypeSpec AST diffing
+
+## Key Decisions Made
+- Authored 2 standalone test suites (`stress-zod-cycles.ts` and `stress-ast-diff.ts`) covering all 7 challenge objectives.
+- Ran all 28 challenge tests and the full 2,302-test monorepo codegen suite.
+- Verdict: APPROVE.
+
+## Artifact Index
+- DISPATCH.md — record of initial dispatch message
+- oa-codegen-skill.md — local copy of oa-codegen skill summary
+- vitest.config.ts — vitest runner configuration for challenger_1
+- stress-zod-cycles.ts — 17 adversarial stress tests for M1 cycle detection
+- stress-ast-diff.ts — 11 adversarial stress tests for M3 AST diff optimizations
+- handoff.md — 5-component hard handoff report with challenge results and verdict
+- progress.md — liveness heartbeat and milestone tracking

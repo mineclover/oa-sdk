@@ -7,3 +7,4 @@
  */
 export { generateClient } from './generate-client.js'
 export type { ClientOptions } from './generate-client.js'
+export type { JsonPrimitive, Resolved } from '@oa-sdk/core'

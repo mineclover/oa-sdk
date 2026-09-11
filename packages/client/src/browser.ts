@@ -15,3 +15,5 @@ export function generateClient(spec: OasDocument | ParsedDocument, options: Brow
   assertParsedDocumentComplete(doc, '@oa-sdk/client/browser generateClient')
   return generateClientFromParsed(doc, options)
 }
+
+export type { JsonPrimitive, Resolved } from '@oa-sdk/core/browser'
