@@ -14,6 +14,7 @@ oa-sdk/
     codegen/       @oa-sdk/codegen      Zod/Drizzle → OAS + typegen + CLI [core]
     spec-lens/     @oa-sdk/spec-lens    OpenAPI spec change history + observation [core]
     spec-lens-contract/ @oa-sdk/spec-lens-contract browser-safe spec-lens HTTP contract [core]
+    ast-sync/      @oa-sdk/ast-sync     V3 Unified AST bidirectional sync + taxonomy + type guards [core]
     mock-server/   @oa-sdk/mock-server  AJV Mock 서버 (MSW + Node HTTP) + 테스트 헬퍼 [downstream]
     router/        @oa-sdk/router       OAS → Hono/Express 라우터 스텁 [downstream]
     client/        @oa-sdk/client       OAS → fetch 클라이언트 SDK + 인증 + 재시도 [downstream]
@@ -39,7 +40,7 @@ oa-sdk/
 
 | Scope tier | 패키지 | 소유 범위 |
 |---|---|---|
-| Core Platform | `@oa-sdk/core`, `@oa-sdk/openapi-projection-contract`, `@oa-sdk/typespec-decorators`, `@oa-sdk/schemas`, `@oa-sdk/parser`, `@oa-sdk/codegen`, `@oa-sdk/spec-lens`, `@oa-sdk/spec-lens-contract` | schema/spec SSOT, 외부 projection 경계, TypeSpec extension, 파싱/검증/생성, 변경 이력 관측과 wire contract |
+| Core Platform | `@oa-sdk/core`, `@oa-sdk/openapi-projection-contract`, `@oa-sdk/typespec-decorators`, `@oa-sdk/schemas`, `@oa-sdk/parser`, `@oa-sdk/codegen`, `@oa-sdk/spec-lens`, `@oa-sdk/spec-lens-contract`, `@oa-sdk/ast-sync` | schema/spec SSOT, 외부 projection 경계, TypeSpec extension, 파싱/검증/생성, 변경 이력 관측, AST 양방향 동기화 및 wire contract |
 | Downstream Integration | `@oa-sdk/router`, `@oa-sdk/client`, `@oa-sdk/mock-server` | Core 계약을 server stub, fetch client, mock runtime으로 투영하고 소비 가능성을 증명 |
 | Maintenance-only | `@oa-sdk/dpm`, `@oa-sdk/personas`, `@oa-sdk/typia-mock`, `@oa-sdk/logical-erd-contract`, `@oa-sdk/typespec-erd`, `@oa-sdk/ttsc-compile-fixture` | 기존 계약의 security, compatibility, migration 유지. Logical ERD는 bounded prototype이고 `ttsc-compile-fixture`는 bulk task 제외 지원 fixture다. 신규 기능은 scope reactivation 전까지 금지 |
 | Apps/reference | `@oa-sdk/nestjs-ref`, `@oa-sdk/playground`, `@oa-sdk/preview`, `@oa-sdk/spec-lens-ui` | reference, E2E, preview, UI consumer surface. library ownership 없음 |
