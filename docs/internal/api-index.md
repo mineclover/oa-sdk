@@ -781,6 +781,33 @@ Typegen 공개 surface는 root entry(`@oa-sdk/codegen`)와 typegen sub-entry(`@o
 | `assertOaConfig()` | `config.ts` | 유효하지 않은 OaConfig에 대해 OaConfigError throw |
 | `isOaConfig()` | `config.ts` | OaConfig 타입 가드 |
 | `OaConfigError` | `config.ts` | oa.config 설정 유효성 검증 실패 에러 클래스 |
+| `getArchetypeDefaults()` | `config.ts` | 아키타입별 기본 설정 반환 |
+| `resolveConfigWithDefaults()` | `config.ts` | 루트 및 프로덕트 레이어 설정을 병합하고 기본값 적용 |
+| `ARTIFACT_KINDS` | `config.ts` | 지원 산출물 종류 상수 배열 ('contract', 'client', 'queries', 'keys', 'guards', 'schemas') |
+| `artifactKindSchema` | `config.ts` | 산출물 종류 Zod 유효성 검증 스키마 |
+| `outputRoutingRuleSchema` | `config.ts` | 산출물 라우팅 규칙 Zod 스키마 |
+| `byKindRoutingConfigSchema` | `config.ts` | 산출물 종류별 라우팅 매핑 Zod 스키마 |
+| `outputRoutingConfigSchema` | `config.ts` | outputRouting 설정 전체 Zod 스키마 |
+| `toKebabCase()` | `routing/token-resolver.ts` | 문자열을 kebab-case로 변환 |
+| `toCamelCase()` | `routing/token-resolver.ts` | 문자열을 camelCase로 변환 |
+| `toPascalCase()` | `routing/token-resolver.ts` | 문자열을 PascalCase로 변환 |
+| `splitWords()` | `routing/token-resolver.ts` | 대소문자 및 구분자 기준 단어 분할 |
+| `sanitizePathPreserve()` | `routing/token-resolver.ts` | 경로 문자열 정규화 및 특수문자 정제 |
+| `casingTransformers` | `routing/token-resolver.ts` | CasingStyle별 변환 함수 맵 |
+| `extractGroupFromPath()` | `routing/token-resolver.ts` | URL 경로의 첫 번째 유효 세그먼트 추출 |
+| `resolvePathPattern()` | `routing/token-resolver.ts` | 템플릿 패턴 내 토큰({tag}, {kind}, {operationId}, {method}, {group}) 치환 및 경로 해결 |
+| `loadTsconfig()` | `routing/import-resolver.ts` | tsconfig.json 로드 및 파싱 (주석 및 extends 지원) |
+| `stripJsonComments()` | `routing/import-resolver.ts` | JSON 문자열 내 주석(//, /* */) 제거 |
+| `toPosixPath()` | `routing/import-resolver.ts` | Windows 백슬래시 및 드라이브 문자를 POSIX 슬래시 경로로 정규화 |
+| `formatExtension()` | `routing/import-resolver.ts` | 출력 확장자 포맷 정규화 (.js ESM 지원) |
+| `matchTsconfigPathAlias()` | `routing/import-resolver.ts` | tsconfig.json의 paths 별칭 매칭 및 치환 |
+| `resolveImportSpecifier()` | `routing/import-resolver.ts` | 두 파일 간 동적 상대 import 경로 또는 tsconfig path alias 계산 |
+| `DEFAULT_BANNER_MARKERS` | `routing/manifest-manager.ts` | 자동 생성 파일 배너 식별 마커 목록 |
+| `OaManifestManager` | `routing/manifest-manager.ts` | .oa-manifest.json 매니페스트 관리 및 3-Gate 안전 고아 파일 정리 클래스 |
+| `matchesRoutingRule()` | `routing/path-dispatcher.ts` | 산출물 컨텍스트가 라우팅 규칙 조건에 부합하는지 평가 |
+| `dispatchArtifactPath()` | `routing/path-dispatcher.ts` | 우선순위에 따른 산출물 최종 경로 결정 |
+| `PathDispatcher` | `routing/path-dispatcher.ts` | 산출물 라우팅 및 상대 import 경로 해결 오케스트레이터 클래스 |
+| `createPathDispatcher()` | `routing/path-dispatcher.ts` | PathDispatcher 인스턴스 팩토리 함수 |
 | `loadOaConfig()` | `cli/lib/config-loader.ts` | TypeScript/ESM/JSON oa.config 비동기 로더 및 캐시 버스팅 |
 | `resolveProfileTarget()` | `cli/lib/config-loader.ts` | 프로파일 타겟 경로 정규화 및 절대 경로 해석 |
 | `resolveGuardTarget()` | `cli/lib/config-loader.ts` | 타입 가드 타겟 경로 정규화 |
@@ -882,6 +909,24 @@ Typegen 공개 surface는 root entry(`@oa-sdk/codegen`)와 typegen sub-entry(`@o
 | `GuardTargetConfig` | `config.ts` | 독립형 타입 가드 생성 타겟 설정 |
 | `ConfigValidationError` | `config.ts` | oa.config 유효성 검증 오류 항목 |
 | `ConfigValidationResult` | `config.ts` | oa.config 유효성 검증 결과 (valid, errors) |
+| `ResolvedOaConfig` | `config.ts` | 기본값이 적용되어 완전히 해결된 OaConfig 타입 |
+| `ArtifactKind` | `config.ts` | 생성 산출물 종류 유니언 타입 ('contract' \| 'client' \| 'queries' \| 'keys' \| 'guards' \| 'schemas') |
+| `OutputRoutingRule` | `config.ts` | 조건부 산출물 라우팅 규칙 인터페이스 |
+| `ByKindRoutingConfig` | `config.ts` | 산출물 종류별 출력 경로 매핑 구성 인터페이스 |
+| `OutputRoutingConfig` | `config.ts` | 산출물 라우팅 전체 설정 인터페이스 (pattern, rules, byKind) |
+| `CasingStyle` | `routing/token-resolver.ts` | 토큰 케이싱 스타일 유니언 ('kebab' \| 'camel' \| 'pascal' \| 'preserve') |
+| `TokenContext` | `routing/token-resolver.ts` | 패턴 치환을 위한 토큰 컨텍스트 인터페이스 |
+| `ResolveTokenOptions` | `routing/token-resolver.ts` | 토큰 해결 옵션 인터페이스 |
+| `ParsedTsconfig` | `routing/import-resolver.ts` | 파싱된 tsconfig.json 컴파일러 옵션 인터페이스 |
+| `ResolveImportOptions` | `routing/import-resolver.ts` | 상대 import 경로 해결 옵션 인터페이스 |
+| `ManifestArtifact` | `routing/manifest-manager.ts` | 매니페스트에 기록되는 산출물 메타데이터 인터페이스 |
+| `OaManifest` | `routing/manifest-manager.ts` | .oa-manifest.json 매니페스트 파일 스키마 인터페이스 |
+| `WriteArtifactInput` | `routing/manifest-manager.ts` | 매니페스트 관리자 파일 작성 입력 인터페이스 |
+| `WriteArtifactResult` | `routing/manifest-manager.ts` | 파일 작성 및 변경 감지 결과 인터페이스 |
+| `PruneSkippedEntry` | `routing/manifest-manager.ts` | 3-Gate 검증 실패로 정리가 건너뛰어진 파일 항목 |
+| `PruneResult` | `routing/manifest-manager.ts` | 고아 파일 정리 실행 결과 인터페이스 |
+| `DispatchPathOptions` | `routing/path-dispatcher.ts` | 산출물 경로 디스패치 옵션 인터페이스 |
+| `DispatchedArtifactPath` | `routing/path-dispatcher.ts` | 디스패치된 산출물의 상대/절대 경로 및 메타데이터 결과 인터페이스 |
 | `LoadOaConfigOptions` | `cli/lib/config-loader.ts` | 설정 파일 로드 옵션 (cwd, configFile) |
 | `LoadedOaConfig` | `cli/lib/config-loader.ts` | 로드된 OaConfig 및 해결된 파일 경로 |
 | `ResolvedProfileTarget` | `cli/lib/config-loader.ts` | 절대 경로가 해결된 프로파일 타겟 |
@@ -1190,9 +1235,13 @@ Governance manifest: `packages/codegen/src/cli/spec/oa-gen-governance.ts` 및 `d
 
 | 함수/타입 | 파일 | 용도 |
 |-----------|------|------|
-| `generateRouter()` | `generate-router.ts` | OAS spec → Hono/Express 라우터 스텁 코드 |
-| `RouterTarget` | `generate-router.ts` | 대상 프레임워크 타입 (`'hono' \| 'express'`) |
-| `RouterOptions` | `generate-router.ts` | 라우터 생성 옵션 타입 |
+| `generateRouter()` | `generate-router.ts` | OAS spec → 서버 라우터 스텁 및 계약 바인딩 코드 (Hono, Express, Fastify, Elysia 지원) |
+| `generateHandlerContract()` | `generate-router.ts` | OAS spec → 프레임워크 독립적인 순수 TypeScript 핸들러 계약 코드 (`*.contract.ts`) 생성 |
+| `RouterTarget` | `generate-router.ts` | 대상 프레임워크 union 타입 (`'hono' \| 'express' \| 'fastify' \| 'elysia'`) |
+| `RouterMode` | `generate-router.ts` | 라우터 렌더링 모드 union 타입 (`'stub' \| 'contract'`) |
+| `RouterOptions` | `generate-router.ts` | 라우터 생성 옵션 타입 (RouterRenderOptions 확장, basePath 지원) |
+| `RouterRenderOptions` | `generate-router.ts` | 플랫폼 중립 라우터 렌더러 옵션 인터페이스 (target, mode, typesImport, contractImport, contractName, banner) |
+| `HandlerContractOptions` | `generate-router.ts` | 순수 핸들러 계약 생성 옵션 인터페이스 (typesImport, banner, contractName) |
 
 ---
 
@@ -1202,6 +1251,18 @@ Governance manifest: `packages/codegen/src/cli/spec/oa-gen-governance.ts` 및 `d
 |-----------|------|------|
 | `generateClient()` | `generate-client.ts` | OAS spec → fetch 기반 createClient() 코드. 기본 operation 메서드는 body 반환을 유지하고, 문서화된 응답 헤더가 있으면 generated typed response object를 반환하는 `withResponse.<operation>()` helper를 함께 생성 |
 | `ClientOptions` | `generate-client.ts` | 클라이언트 생성 옵션 타입 |
+| `generateTanstackQuery()` | `tanstack/generate-tanstack.ts` | OpenAPI 3.1/3.2 스펙으로부터 TanStack Query v5 3계층(Query Key Factory, Options Factory, Hooks) 코드 일괄 생성 |
+| `generateKeyFactory()` | `tanstack/key-factory-generator.ts` | 0 의존성 계층형 쿼리 키 팩토리(userKeys.all, lists(), detail(id) 등) TypeScript 코드 생성 |
+| `generateOptionsFactory()` | `tanstack/options-factory-generator.ts` | UI 프레임워크 락인 없는 순수 queryOptions() 및 mutationOptions() 팩토리 코드 생성 (SSR/Vue/Svelte 호환) |
+| `generateHookFactory()` | `tanstack/hook-factory-generator.ts` | React composition hook 래퍼(useUserQuery, useUpdateUserMutation, createApiHooks) 코드 생성 |
+| `isQueryOperation()` | `tanstack/key-factory-generator.ts` | HTTP 메서드 기반 Query vs Mutation 오퍼레이션 분류 헬퍼 |
+| `getOperationTag()` | `tanstack/key-factory-generator.ts` | 오퍼레이션의 주 태그 추출 및 정규화 헬퍼 |
+| `toKeyFactoryName()` | `tanstack/key-factory-generator.ts` | 태그명 기반 쿼리 키 팩토리 식별자 이름 생성 |
+| `TanstackQueryOptions` | `tanstack/generate-tanstack.ts` | TanStack Query v5 코드 생성 옵션 인터페이스 |
+| `TanstackQueryOutput` | `tanstack/generate-tanstack.ts` | 계층별(keys, queries, hooks, combined) 생성 코드 출력 인터페이스 |
+| `KeyFactoryOptions` | `tanstack/key-factory-generator.ts` | 쿼리 키 팩토리 생성 옵션 인터페이스 |
+| `OptionsFactoryOptions` | `tanstack/options-factory-generator.ts` | 옵션 팩토리 생성 옵션 인터페이스 |
+| `HookFactoryOptions` | `tanstack/hook-factory-generator.ts` | 훅 팩토리 생성 옵션 인터페이스 |
 | `JsonPrimitive<T>` | `wire-format.ts` | 유선 직렬화 응답 페이로드 재귀 유틸리티 타입 |
 | `Resolved<T>` | `wire-format.ts` | 유선 직렬화 요청 바디 재귀 유틸리티 타입 |
 

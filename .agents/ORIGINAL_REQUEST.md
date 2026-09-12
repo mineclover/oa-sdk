@@ -273,3 +273,315 @@ Integrity mode: development
 ### Regressions & Governance
 - [ ] 모노레포 단위/통합 테스트 및 150종 E2E 테스트가 100% 통과한다.
 - [ ] `pnpm check:docs` 및 `pnpm check:cli-spec`이 0 에러로 통과한다.
+
+## 2026-09-12T02:41:06Z
+
+Implement multi-framework backend router stubs (Fastify JIT schema & Bun Elysia context destructuring, plus modernized Hono & Express) with handler contract separation in `@oa-sdk/router`, target-separated interactive onboarding engine (`oa-gen init`) in `@oa-sdk/codegen`, and live OpenAPI/source route hot-reloading (`oa-gen mock --watch`) across `@oa-sdk/codegen` and `@oa-sdk/mock-server`.
+
+Working directory: /Users/junwoobang/workflow/oa-sdk
+Integrity mode: development
+
+## Requirements
+
+### R1. Multi-Framework Router Stubs & Handler Contract Separation (`@oa-sdk/router`)
+- Deconstruct the monolithic `generate-router-renderer.ts` into a clean, modular topology:
+  - `src/contracts/handler-contract.ts`: Generates pure TypeScript handler signatures (`*.contract.ts`) completely decoupled from framework runtime APIs, ensuring developers' business logic is never overwritten when OpenAPI specifications update.
+  - `src/targets/{hono,express,fastify,elysia}.ts`: Target-specific framework binders that mount handler contracts to route instances.
+  - `src/common/{route-utils,body-parser,querystring-helper,response-headers,jsdoc}.ts`: Shared AST formatting, parameter extraction, and serialization helpers.
+- Implement Fastify target (`fastify.ts`):
+  - Emits idiomatic `FastifyPluginAsync` module pattern.
+  - Inlines OpenAPI 3.2 Schema Objects into Fastify route options `schema: { params, querystring, body, response }` for `fast-json-stringify` JIT serialization acceleration.
+- Implement Bun Elysia target (`elysia.ts`):
+  - Emits `new Elysia().get().post()` builder method chaining.
+  - Utilizes Bun native C++ zero-copy context destructuring (`{ params, query, body, set }`).
+- Modernize Hono and Express targets to support binding to the generated handler contract while maintaining backward compatibility with legacy inline stub generation.
+- **Zero Framework Runtime Leaks**: `@oa-sdk/router` MUST NOT include `fastify`, `elysia`, `hono`, or `express` in runtime `dependencies`; it remains a pure code string/AST emitter.
+
+### R2. Target-Separated Interactive Onboarding Engine (`oa-gen init`) (`@oa-sdk/codegen`)
+- Implement `oa-gen init` in `packages/codegen/src/cli/commands/init.ts` and `packages/codegen/src/cli/lib/init/`.
+- Implement Target Strategy Pattern in `packages/codegen/src/cli/lib/init/targets/`:
+  - Separate mutually exclusive framework providers: `fastify.ts`, `elysia.ts`, `hono.ts`, `express.ts`, `nestjs.ts`, `generic.ts`.
+  - Each target implements `TargetProfile` (`detect`, `generateConfig`, `getRecommendedScripts`, `getRecommendedDependencies`).
+  - Strict runtime isolation: Bun/Elysia targets only inject Bun scripts (`bun --watch`, `bun x`) without Node tooling (`tsx`, `nodemon`); Node/Fastify targets inject Node ESM scripts (`tsx watch`) and Fastify-specific `oa.config.ts`.
+- Implement common detection and patch engines in `packages/codegen/src/cli/lib/init/common/`:
+  - `schema-detector.ts`: Detects `.tsp`, `openapi.yaml`, `openapi.json`, and `@oaOperation` JSDoc annotations independently of backend frameworks.
+  - `package-patcher.ts`: Safely parses, merges, and updates `package.json` scripts and devDependencies without clobbering formatting or existing commands.
+
+### R3. Live OpenAPI & Source Route Hot-Reload (`oa-gen mock --watch`) (`@oa-sdk/codegen`)
+- Extend `oa-gen mock` so `--watch` functions with `--spec <path>` (OpenAPI YAML/JSON) in addition to `--tsp`.
+- Implement `packages/codegen/src/cli/lib/spec-watcher.ts` to monitor OpenAPI specification files and TypeScript source files containing `@oaOperation` JSDoc annotations.
+- On file modifications, re-parse the document and invoke `@oa-sdk/mock-server`'s atomic `server.updateSpec(newDoc)` without dropping active sockets or restarting the HTTP server.
+
+## Verification Resources
+- Existing router test suite: `packages/router/src/__tests__/generate-router.test.ts`
+- Existing mock server hot-swap test suite: `packages/mock-server/src/__tests__/integration/node-http.test.ts`
+- Existing CLI commands & spec: `packages/codegen/src/cli/commands/mock.ts`, `packages/codegen/src/cli/spec/cli-spec.json`
+- Architecture scope: `docs/internal/architecture/packages.md`, `docs/internal/platform-scope.md`
+
+## Acceptance Criteria
+
+### Router Code Generation & Contracts
+- [ ] `generateHandlerContract` emits valid, standalone TypeScript interface definitions matching operations, parameters, request bodies, and responses.
+- [ ] Fastify target emits valid `FastifyPluginAsync` with inlined schemas and correct HTTP method bindings (including OAS 3.2 `QUERY`, `HEAD`, `TRACE`).
+- [ ] Bun Elysia target emits valid `new Elysia()` chaining with zero-copy context destructuring.
+- [ ] Generated Fastify and Elysia router files pass `tsc --noEmit` typechecking when provided dummy handler implementations.
+- [ ] `@oa-sdk/router` has 0 framework runtime dependencies in `package.json`.
+
+### Onboarding CLI (`oa-gen init`)
+- [ ] `targets/fastify.ts` detects Fastify projects and generates Fastify-optimized `oa.config.ts` and `npm run dev` scripts.
+- [ ] `targets/elysia.ts` detects Bun/Elysia projects and generates Bun-native commands without Node.js `tsx`.
+- [ ] `common/schema-detector.ts` locates `.tsp`, `.yaml`, `.json` schemas across nested directories.
+- [ ] `common/package-patcher.ts` merges scripts into `package.json` non-destructively.
+
+### Live Mock Hot-Reload (`oa-gen mock --watch`)
+- [ ] `oa-gen mock --spec spec.yaml --watch` starts a mock server and hot-reloads routes when `spec.yaml` is modified without process restart.
+- [ ] Server continues serving requests without socket disconnection during route update.
+
+### Monorepo Governance & Gates
+- [ ] All new tests in `packages/router` and `packages/codegen` pass under `pnpm test`.
+- [ ] Monorepo integrity gates pass cleanly: `pnpm check:docs`, `pnpm check:cli-spec`, `pnpm check:api-index`, `pnpm check:release-policy`, `pnpm typecheck:all`.
+
+## 2026-09-12T06:25:12Z
+
+Design an end-to-end Project Onboarding & Adoption Playbook and configure a dedicated Agent Skill (`oa-onboarding`) to introduce `oa-sdk`'s core value (zero-value overhead elimination, single-source-of-truth contracts, handler contract separation, and live mock hot-reloading) into external greenfield and brownfield projects.
+
+Working directory: /Users/junwoobang/workflow/oa-sdk
+Integrity mode: development
+
+## Requirements
+
+### R1. 3-Tier Progressive Onboarding Playbook (`docs/guides/onboarding-playbook.md`)
+- Author a comprehensive, practical adoption playbook structured around a 3-tier value adoption ladder for both Greenfield and Brownfield codebases:
+  - **Tier 1 (Instant Discovery & Zero-Friction Scan)**: 30-second setup using `oa-gen init` for auto-detecting existing frameworks (Fastify, Elysia, Express, NestJS) and schemas with zero architectural changes.
+  - **Tier 2 (Contract-First Decoupling)**: Adopting `@oa-sdk/router` handler contract separation (`*.contract.ts` vs framework binders) to isolate business logic from routing plumbing and eliminate overwrite fears.
+  - **Tier 3 (Automated Governance & Drift Defense)**: Integrating `oa-gen diff --fail-on-breaking` and live mock hot-reloading (`oa-gen mock --watch`) into team workflows and CI/CD pipelines.
+- Include concrete Before/After architecture diagrams and tangible ROI metrics (reduced sync meetings, eliminated duplicate DTOs, zero drift incidents).
+
+### R2. Dedicated Agent Skill Architecture (`.agents/skills/oa-onboarding/SKILL.md`)
+- Create a production-grade, authoritative Agent Skill (`oa-onboarding`) following Antigravity / AGY skill specifications:
+  - Clear YAML frontmatter (`name: oa-onboarding`, concise description, trigger keywords).
+  - Diagnostic decision matrix for classifying target codebases (Runtime: Bun vs Node, Framework: Fastify / Elysia / Hono / Express / NestJS / Generic).
+  - Actionable step-by-step agent procedures for executing `oa-gen init`, validating generated `oa.config.ts`, generating contracts, and wiring scripts into `package.json`.
+  - Anti-patterns and guardrails (preventing framework runtime leaks, maintaining handler contract purity, avoiding Node tools in Bun projects).
+
+### R3. Skill Synchronization Across Monorepo Skill Catalog
+- Update existing core skills (`.agents/skills/oa-runtime/SKILL.md`, `.agents/skills/oa-codegen/SKILL.md`, `.agents/skills/oa-sdk/SKILL.md`):
+  - Document Fastify (`FastifyPluginAsync` + inline JIT schema) and Bun Elysia (chaining + context destructuring) router capabilities.
+  - Document `oa-gen init` target-separated profile architecture and live mock hot-reload (`oa-gen mock --watch`).
+- Update global documentation indices (`docs/guides/quick-start.md`, `docs/internal/plan.md`) to maintain 100% architectural coherence.
+
+### R4. Verification & Governance Gates
+- Validate onboarding recipe execution against test reference apps (`apps/nestjs-ref`, sample Fastify/Elysia fixtures).
+- Monorepo governance gates pass cleanly: `pnpm check:docs`, `pnpm check:cli-spec`, `pnpm check:api-index`, `pnpm check:release-policy`, `pnpm typecheck:all`.
+
+## Acceptance Criteria
+
+### Onboarding Playbook & User Experience
+- [ ] `docs/guides/onboarding-playbook.md` provides clear, copy-pasteable recipes for Fastify, Bun Elysia, Express, and NestJS projects.
+- [ ] The playbook explicitly quantifies the elimination of the 5 zero-value management points (sync overhead, overwrite dilemmas, mock delays, framework lock-in, breaking changes).
+
+### Agent Skill
+- [ ] `.agents/skills/oa-onboarding/SKILL.md` passes skill syntax standards with complete YAML frontmatter, execution workflows, and troubleshooting matrix.
+- [ ] Existing skills (`oa-runtime`, `oa-codegen`, `oa-sdk`) are fully updated with newly implemented capabilities.
+
+### Governance & Monorepo Gates
+- [ ] All monorepo governance checks (`pnpm check:docs`, `pnpm check:cli-spec`, `pnpm check:api-index`, `pnpm check:release-policy`, `pnpm typecheck:all`) pass with zero errors and zero documentation drift.
+
+## 2026-09-12T07:18:45Z
+
+Systematize the `oa-sdk` project onboarding architecture to govern the entire product lifecycle by strictly decoupling **Shared Platform Concepts** (universal contract generation, wire typing, breaking diffs, pure handlers) from **Product-Specific Concepts** (domain archetypes, lifecycle stages, infrastructure bindings, persona traits) within `oa-gen init`, `oa.config.ts`, and `.agents/skills/oa-onboarding`.
+
+Working directory: /Users/junwoobang/workflow/oa-sdk
+Integrity mode: development
+
+## Requirements
+
+### R1. Dual-Layer Configuration Architecture in `oa.config.ts` (`packages/codegen/src/config.ts`)
+- Establish a formal boundary in `OaConfig` between:
+  - **Shared Platform Core (불변 공유 코어)**: Platform-level SSOT contracts (OpenAPI 3.2 dialect, canonical projection contract, typegen rules, pure handler contract generation, CI drift gates).
+  - **Product-Specific Domain Layer (제품 특화 확장 레이어)**: Product lifecycle archetype (`mvp` | `microservice` | `enterprise`), domain targets (`ProfileTargetConfig`), security schemes, and persona capability traits (`@oa-sdk/personas`).
+- Ensure the configuration schema supports seamless evolution: a project starting as an `mvp` can transition to `microservice` or `enterprise` without modifying its shared core contract.
+
+### R2. Lifecycle Archetype Presets in `oa-gen init` (`packages/codegen/src/cli/lib/init/`)
+- Introduce a modular Archetype Engine (`packages/codegen/src/cli/lib/init/archetypes/`):
+  - **MVP Archetype (`mvp`)**: Rapid iteration, live mock-first (`mock --watch`), instant client SDK emission, lightweight validation gates.
+  - **Microservice Archetype (`microservice`)**: High-throughput runtime optimization (Fastify JIT / Bun Elysia Zero-Copy), strict wire typing (`JsonPrimitive<T>`), automated contract tests.
+  - **Enterprise Archetype (`enterprise`)**: Semantic breaking change CI gates (`oa-gen diff --fail-on-breaking`), persona capability traits, multi-target bundle projections, strict preflight schema linting.
+- Allow `oa-gen init` to accept `--archetype <mvp|microservice|enterprise>` and prompt for archetype selection during interactive setup alongside framework detection.
+
+### R3. Decoupled Lifecycle Boundary in Handler Contracts & Binders (`@oa-sdk/router`)
+- Reinforce the boundary in `@oa-sdk/router`:
+  - **Shared Contract Signatures (`*.contract.ts`)**: Pure TypeScript interface signatures representing the wire API contract, completely decoupled from runtime frameworks.
+  - **Product-Specific Context Injection**: Support injecting product-level context (tenancy, user session, tracing headers) into handler signatures without polluting the OpenAPI schema definition.
+
+### R4. Systematized Onboarding Skill & Playbook Updates
+- Update `.agents/skills/oa-onboarding/SKILL.md` and `docs/guides/onboarding-playbook.md`:
+  - Formalize the "Shared vs. Product-Specific" architectural taxonomy.
+  - Document the Day 1 Lifecycle Archetype decision matrix (`mvp` vs `microservice` vs `enterprise`).
+  - Provide transition runbooks detailing how to evolve a project across lifecycle stages without contract breakage.
+
+### R5. Verification & Governance Gates
+- Comprehensive unit and integration test suites in `packages/codegen` testing archetype detection, configuration generation, and script composition.
+- Monorepo governance gates pass cleanly: `pnpm check:docs`, `pnpm check:cli-spec`, `pnpm check:api-index`, `pnpm check:release-policy`, `pnpm typecheck:all`.
+
+## Acceptance Criteria
+
+### Config & Archetype Systematization
+- [ ] `OaConfig` cleanly isolates shared platform core settings from product-specific lifecycle options with full Zod schema validation.
+- [ ] `oa-gen init --archetype <type>` generates tailored `oa.config.ts` and `package.json` scripts matching the selected archetype.
+- [ ] Framework targets (Fastify, Elysia, Hono, Express) compose orthogonally with all 3 lifecycle archetypes.
+
+### Skill & Documentation Quality
+- [ ] `.agents/skills/oa-onboarding/SKILL.md` provides explicit agent guidance on preserving the shared vs. product-specific boundary.
+- [ ] `docs/guides/onboarding-playbook.md` contains the complete lifecycle archetype matrix and evolution runbooks.
+
+### Governance & Monorepo Gates
+- [ ] All new tests pass under `pnpm test`.
+- [ ] All monorepo governance checks (`pnpm check:docs`, `pnpm check:cli-spec`, `pnpm check:api-index`, `pnpm check:release-policy`, `pnpm typecheck:all`) pass with 0 drift.
+
+## 2026-09-12T16:15:58Z
+
+Implement the Output Path Routing Customization Engine (allowing developers to route generated artifacts to any folder architecture like FSD, DDD, or Monorepo) and the TanStack Query (React Query) v5 3-Tier Option/Key Factory Generator in @oa-sdk/codegen and @oa-sdk/client, and verify end-to-end type parity with @oa-sdk/router.
+
+Working directory: /Users/junwoobang/workflow/oa-sdk
+Integrity mode: development
+
+## Requirements
+
+### R1. Developer Output Path Routing Engine (packages/codegen/src/config.ts & path dispatcher)
+- Path Routing Sovereignty: Eliminate rigid output directory constraints (src/api/generated/). Allow developers to route generated artifacts (*.contract.ts, *.client.ts, *.queries.ts, *.keys.ts, *.guards.ts) to arbitrary project layouts (Feature-Sliced Design src/features/{tag}/api/, Clean Architecture, DDD, or multi-package monorepos).
+- Configuration Schema in OaConfig:
+  - Add OutputRoutingConfig schema & type under product.outputRouting (and top-level alias outputRouting):
+    1. Template Pattern (pattern): Token substitution supporting {tag}, {kind}, {operationId}, {method}, {group} (e.g. 'src/features/{tag}/api/{tag}.{kind}.ts').
+    2. Rule Matcher (rules): Array of conditional matchers matching by tag, pathPrefix, method, kind, or profile to custom output directories.
+    3. By-Kind Routing (byKind): Explicit mapping per artifact kind (contract, client, queries, keys, guards, schemas).
+- Relative Import Path Resolver (path.relative):
+  - When files are routed to different directories or separate packages/apps, dynamically resolve and recalculate TypeScript relative import specifiers (or tsconfig path aliases) so emitted imports compile cleanly without manual intervention.
+- Safe File Writing & Orphan Pruning (.oa-manifest.json):
+  - Track emitted files in .oa-manifest.json.
+  - When the OpenAPI spec changes (renamed tags, deleted endpoints), prune only obsolete generated artifacts.
+  - NEVER overwrite or delete hand-written developer files.
+
+### R2. TanStack Query (React Query) v5 3-Tier Code Generator (@oa-sdk/client & @oa-sdk/codegen)
+- Implement a 3-Tier client generator architecture avoiding fragile 1:1 hook dumping:
+  - Tier 1: Hierarchical Query Key Factory (*Keys):
+    - Generates structured, type-safe query key trees (all, lists(), list(filters), details(), detail(id)).
+    - Guarantees intuitive, type-safe cache invalidation (queryClient.invalidateQueries({ queryKey: userKeys.lists() })).
+  - Tier 2: Pure Query & Mutation Options Factory (queryOptions(), mutationOptions()):
+    - Generates pure TanStack Query v5 queryOptions() and mutationOptions() factory functions.
+    - Zero UI framework lock-in: directly reusable across React, Vue (@tanstack/vue-query), Svelte, and Next.js App Router Server Components / prefetchQuery().
+    - Pure functional layer safe for 100% automated regeneration on spec updates.
+  - Tier 3: Client Composition Hook Helpers (Optional Thin Wrappers):
+    - Generates ergonomic hooks (use*Query, use*Mutation) wrapping the pure options factories while exposing open generics and options overrides (select, enabled, staleTime, retry).
+- Zero Framework Runtime Leaks:
+  - @oa-sdk/client MUST NOT add @tanstack/react-query as a runtime dependency. Maintain pure code generation or isolated peerDependencies.
+
+### R3. CLI Integration & Multi-Framework Router Verification (@oa-sdk/router)
+- Add CLI command oa-gen generate:tanstack (or integrate --tanstack into oa-gen generate and oa-gen generate:client).
+- Update CLI spec manifest (packages/codegen/src/cli/spec/oa-gen-governance.ts and docs/cli-spec/oa-gen.governance.json).
+- Verify full-stack contract synchronization:
+  - Backend @oa-sdk/router handler contracts (*.contract.ts for Fastify, Elysia, Hono, Express) and frontend TanStack Query 3-tier options share identical wire types and operation parameters generated from the same OpenAPI 3.2 spec.
+
+### R4. Onboarding Playbook & Agent Skill Synchronization
+- Update docs/guides/onboarding-playbook.md:
+  - Add recipes for Feature-Sliced Design (FSD) routing and Monorepo full-stack distribution (outputRouting).
+  - Add TanStack Query v5 3-tier adoption guide and SSR / Next.js hydration recipe.
+- Update .agents/skills/oa-onboarding/SKILL.md and .agents/skills/oa-codegen/SKILL.md with output path routing decision guidelines and TanStack Query generator procedures.
+
+### R5. Verification & Monorepo Governance Gates
+- Comprehensive test suites:
+  - Unit tests for outputRouting path resolution, token replacement, and relative import recalculation.
+  - E2E tests generating FSD feature folders and Monorepo distributed files.
+  - Unit & integration tests for TanStack Query v5 hierarchical keys, queryOptions(), mutation options, and type safety with tsc --noEmit.
+  - Full-stack router contract + TanStack Query client integration test.
+- Monorepo governance gates pass cleanly:
+  - pnpm check:docs
+  - pnpm check:cli-spec
+  - pnpm check:api-index
+  - pnpm check:release-policy
+  - pnpm typecheck:all
+
+## Acceptance Criteria
+
+### Output Path Routing Engine
+- [ ] OaConfig supports outputRouting with pattern, rules, and byKind strategies.
+- [ ] Relative import paths between generated artifacts in separate directories are automatically and correctly calculated.
+- [ ] .oa-manifest.json correctly tracks generated files and safely prunes orphan generated files without deleting manual code.
+
+### TanStack Query v5 3-Tier Generator
+- [ ] Emitted query key factories produce hierarchical, type-safe tuples (userKeys.all, userKeys.lists(), etc.).
+- [ ] Emitted queryOptions() integrate seamlessly with TanStack Query v5 and compile with tsc --noEmit.
+- [ ] Generated options are usable in both SSR prefetching (prefetchQuery) and client hooks (useQuery).
+- [ ] @oa-sdk/client maintains 0 runtime dependency leaks on @tanstack/react-query.
+
+### Router Parity & Full-Stack Integration
+- [ ] Router handler contracts (*.contract.ts) and TanStack Query options share 100% parameter and response wire typing.
+
+### Governance & Monorepo Gates
+- [ ] All new tests pass under pnpm test.
+- [ ] pnpm check:docs, pnpm check:cli-spec, pnpm check:api-index, pnpm check:release-policy, and pnpm typecheck:all pass with 0 errors and 0 drift.
+
+## 2026-09-12T17:12:46Z
+
+Update all monorepo documentation and changelogs, execute full-spectrum functional and regression test suites, stage and commit the validated changes, and complete the artifact release preflight and export pipeline.
+
+Working directory: /Users/junwoobang/workflow/oa-sdk
+Integrity mode: development
+
+## Requirements
+
+### R1. Documentation, Roadmap, and Changelog Synchronization
+- **Root Changelog (`docs/changelog.md`)**:
+  - Add comprehensive release entries documenting all newly implemented platform capabilities:
+    1. Output Path Routing Customization Engine (`outputRouting` with template pattern, rule matchers, by-kind routing, relative import resolution, and 3-gate orphan pruning) in `@oa-sdk/codegen`.
+    2. TanStack Query (React Query) v5 3-Tier Generator (Tier 1 `*Keys` hierarchical key tree, Tier 2 pure `queryOptions`/`mutationOptions` factories, Tier 3 client composition wrappers) in `@oa-sdk/client` and `oa-gen generate:tanstack`.
+    3. Multi-Framework Router Stubs (`fastify` JIT inline schema, `elysia` zero-copy context destructuring, `hono`, `express`) and pure handler contracts (`*.contract.ts`) in `@oa-sdk/router`.
+    4. Target-Separated Interactive Onboarding Engine (`oa-gen init` with 6 framework targets, 3 lifecycle archetypes `mvp`/`microservice`/`enterprise`, and strict Bun vs Node runtime isolation).
+    5. Live Mock Hot-Reloading (`oa-gen mock --watch`) with atomic route swapping.
+- **Product Roadmap (`docs/internal/plan.md`)**:
+  - Update roadmap status: Mark Phase 2 (Developer Experience & Zero-Friction Onboarding) and Phase 4 (High-Performance Router Stubs & TanStack Query 3-Tier Client) as **Completed (Done ✅)**.
+- **Changeset & Package Version Bumping**:
+  - Generate changeset for modified release-tracked packages:
+    - `@oa-sdk/codegen` (minor: `0.8.0`)
+    - `@oa-sdk/client` (minor: `0.2.0`)
+    - `@oa-sdk/router` (minor: `0.2.0`)
+  - Run `pnpm version-packages` to update package manifests and package-level `CHANGELOG.md` files.
+  - Update `docs/internal/release-management.md` package version table to match the bumped versions.
+- **Documentation Governance Gates**:
+  - Ensure `pnpm check:docs`, `pnpm check:cli-spec`, `pnpm check:api-index`, and `pnpm check:release-policy` all pass with 0 errors and 0 drift.
+
+### R2. Comprehensive Monorepo Functional & Regression Testing
+- Execute the complete testing hierarchy:
+  - Downstream integration tests: `pnpm test:downstream` (`@oa-sdk/router`, `@oa-sdk/client`, `@oa-sdk/mock-server`).
+  - Core platform tests: `pnpm test:core` (`@oa-sdk/core`, `@oa-sdk/codegen`, `@oa-sdk/parser`, `@oa-sdk/spec-lens`, `@oa-sdk/ast-sync`, etc.).
+  - E2E testing track: `pnpm test:e2e` and newly implemented suites (`tests/e2e/e2e-output-routing.test.ts`, `tests/e2e/e2e-tanstack-query.test.ts`, `tests/e2e/e2e-router-client-parity.test.ts`).
+  - Full TypeScript typecheck: `pnpm typecheck:all` across all 33 workspaces.
+  - Full build: `pnpm build:all`.
+- Verify 100% test pass rate with 0 regressions.
+
+### R3. Clean Git Commit & Artifact Release Export
+- **Clean Git Staging & Commit**:
+  - Inspect `git status` to ensure only intended source code, tests, documentation, and package manifests are staged.
+  - Create a clean git commit following repository conventions:
+    `feat: output path routing, TanStack Query v5 3-tier generator, and multi-framework router stubs`
+- **Release Preflight & Artifact Export**:
+  - Execute full `pnpm release:preflight` on the clean worktree to verify all 9 release gates.
+  - Execute `pnpm release` (`pnpm release:export`) to produce verified release tarballs and provenance manifests in the public release export directory.
+
+## Acceptance Criteria
+
+### Documentation & Versioning
+- [ ] `docs/changelog.md` and `docs/internal/plan.md` accurately reflect all newly delivered capabilities and roadmap completion.
+- [ ] Changesets created and applied; `@oa-sdk/codegen`, `@oa-sdk/client`, and `@oa-sdk/router` have bumped versions and updated `CHANGELOG.md` files.
+- [ ] `docs/internal/release-management.md` version table matches package manifests.
+- [ ] `pnpm check:docs`, `pnpm check:cli-spec`, `pnpm check:api-index`, and `pnpm check:release-policy` pass cleanly with 0 drift.
+
+### Functional Testing
+- [ ] All package test suites pass (`pnpm test:core`, `pnpm test:downstream`, `pnpm test:e2e`).
+- [ ] `pnpm typecheck:all` passes across all 33 workspaces with 0 errors.
+- [ ] `pnpm build:all` succeeds without errors.
+
+### Commit & Release
+- [ ] Worktree is committed cleanly with no stray temporary or untracked artifacts.
+- [ ] `pnpm release:preflight` succeeds on the clean worktree.
+- [ ] `pnpm release` produces valid, consumable release package tarballs with verified integrity hashes.

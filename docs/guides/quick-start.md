@@ -33,10 +33,13 @@ sourceOfTruth:
 
 ## 공개 CLI만 사용할 때
 
-비공개 monorepo가 필요 없는 일반 컨슈머는 npm에 공식 배포된 `@oa-sdk/codegen`을 통해 자신의 OpenAPI 3.2 문서를 검증·생성·모킹할 수 있습니다.
+비공개 monorepo가 필요 없는 일반 컨슈머는 npm에 공식 배포된 `@oa-sdk/codegen`을 통해 자신의 프로젝트에 맞는 프레임워크와 스키마를 30초 만에 자동 감지하고, OpenAPI 3.2 문서를 검증·생성·모킹할 수 있습니다.
 
 ```bash
 npm install --save-dev @oa-sdk/codegen
+# 0. 30초 마찰 제로 온보딩 (프레임워크 및 스키마 자동 감지, oa.config.ts 생성 및 스크립트 구성)
+npx oa-gen init --yes
+
 # 1. OAS 3.2 스펙 파싱 및 사전 유효성 검증
 npx oa-gen validate --spec ./openapi.yaml --require-32
 
@@ -49,8 +52,8 @@ npx oa-gen generate:zod --spec ./openapi.yaml -o schemas.ts
 # 4. TypeScript 소스의 구문 특성 및 스키마 투영 적합성 감사
 npx oa-gen audit:shape --source ./src/types.ts
 
-# 5. TypeSpec 또는 OpenAPI 기반 인메모리 Mock HTTP 서버 즉각 구동
-npx oa-gen mock --spec ./openapi.yaml --port 4010
+# 5. TypeSpec 또는 OpenAPI 기반 실시간 무중단 핫 리로드 Mock HTTP 서버 구동
+npx oa-gen mock --spec ./openapi.yaml --watch --port 4010
 ```
 
 현재 공용 npm 레지스트리(`registry.npmjs.org`)에 `@oa-sdk/codegen@0.7.0`, `@oa-sdk/ast-sync@0.1.0` 등 6종의 배포 아티팩트가 Sigstore SLSA v1 Provenance 서명과 함께 공식 라이브(`latest`) 상태로 제공됩니다. OA SDK 자체 production schema를 작성하거나 변경하려면 아래의 비공개 source workflow를 사용합니다.
@@ -132,7 +135,12 @@ pnpm build:downstream
 세 package의 `dist`가 생성된 뒤 다음 명령을 실행한다.
 
 `oa-gen`의 공개 CLI에는 `router`나 `client` command가 없다. private workspace에서 package API를
-호출하는 생성 script가 output을 소유한다. 아래 script는 root `.gitignore`가 제외하는
+호출하는 생성 script가 output을 소유한다. `@oa-sdk/router`는 **다중 프레임워크 바인더**(Hono, Express, Fastify, Bun Elysia)와 **순수 핸들러 계약 분리(Handler Contract Separation)**를 지원한다:
+- **Fastify (`target: 'fastify'`)**: `FastifyPluginAsync` 패턴으로 방출되며, OpenAPI 3.2 Schema를 Fastify의 라우트 옵션 `schema: { params, querystring, body, response }`로 인라인 주입하여 `fast-json-stringify` JIT 직렬화 가속을 활성화합니다 (OAS 3.2 `QUERY`, `HEAD`, `TRACE` 지원).
+- **Bun Elysia (`target: 'elysia'`)**: fluent 빌더 메서드 체이닝 `new Elysia().get().post()`과 선택적 Zero-copy 컨텍스트 구조분해(`{ params, query, body, set }`)를 통해 TS6133 미사용 변수 경고 없이 초고속 처리를 달성합니다.
+- **핸들러 계약 분리 (`generateHandlerContract`)**: 순수 TypeScript 인터페이스 `ApiHandlers`, `<Operation>Context`, `HandlerResponse`를 담은 `routes.contract.ts`를 생성하여 비즈니스 로직과 라우팅 배선을 물리적으로 분리합니다. 스펙 재생성 시에도 비즈니스 로직이 덮어쓰여지지 않습니다 (0 framework runtime dependencies).
+
+아래 script는 root `.gitignore`가 제외하는
 `apps/playground/.oa-sdk/quick-start/generate-integrations.ts`에 저장한다. 따라서 튜토리얼을
 실행해도 tracked `examples/` 파일이 생기지 않는다.
 
@@ -141,14 +149,21 @@ import { readFileSync, writeFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { generateClient } from '@oa-sdk/client'
-import { generateRouter } from '@oa-sdk/router'
+import { generateRouter, generateHandlerContract } from '@oa-sdk/router'
 import type { OasDocument } from '@oa-sdk/parser'
 import { parse } from 'yaml'
 
 const quickStartDirectory = dirname(fileURLToPath(import.meta.url))
 const repositoryRoot = resolve(quickStartDirectory, '../../../..')
 const spec = parse(readFileSync(resolve(repositoryRoot, 'packages/schemas/src/.merged.yaml'), 'utf8')) as OasDocument
-writeFileSync(resolve(quickStartDirectory, 'router.ts'), generateRouter(spec, { typesImport: './types.js' }))
+
+// 1. 순수 TypeScript 핸들러 계약 분리 생성 (비즈니스 로직 덮어쓰기 원천 차단)
+writeFileSync(resolve(quickStartDirectory, 'api.contract.ts'), generateHandlerContract(spec, { typesImport: './types.js' }))
+
+// 2. 프레임워크 라우터 바인더 생성 (Fastify JIT 스키마 인라인 가속 또는 Elysia, Hono, Express)
+writeFileSync(resolve(quickStartDirectory, 'router.ts'), generateRouter(spec, { target: 'hono', typesImport: './types.js', contractImport: './api.contract.js' }))
+
+// 3. 타입 안전 클라이언트 SDK 생성
 writeFileSync(resolve(quickStartDirectory, 'client.ts'), generateClient(spec, { typesImport: './types.js' }))
 ```
 
@@ -221,6 +236,7 @@ pnpm --filter @oa-sdk/schemas run downgrade:3.1
 
 ## 다음 단계
 
+→ [프로젝트 온보딩 플레이북](./onboarding-playbook.md) — 3계층 온보딩 사다리(Fastify, Bun Elysia, Express, NestJS) 및 마찰 제로 통합 가이드
 → [Mock 테스팅](./use-cases/mock-testing.md) — 테스트 패턴 + 커버리지 추적
 → [코드젠 워크플로](./use-cases/codegen-workflow.md) — 전체 파이프라인
 → [테스트 피드백](./use-cases/test-feedback.md) — 에러 분석 + API 탐색
@@ -228,4 +244,5 @@ pnpm --filter @oa-sdk/schemas run downgrade:3.1
 → [CLI 세팅](./cli-setup.md) — production/OpenAPI governance workflow
 → [라이브러리 진입점 지도](./library-entrypoints.md) — package와 public import 경계
 → [기본 스펙 사용 기준](./basic-spec-usage.md) — source/artifact/사용처와 구조 경계
+→ [시스템 온보딩 가이드](./system-onboarding.md) — oa-sdk 모노레포 기여자 전용 환경 구축 및 테스트 검증
 → [API 인덱스](../internal/api-index.md) — 타입·함수 SSOT

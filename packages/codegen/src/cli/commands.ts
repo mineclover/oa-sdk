@@ -28,8 +28,12 @@ import { generateZod } from './commands/generate-zod.js'
 import { tspDiff } from './commands/tsp-diff.js'
 import { mock } from './commands/mock.js'
 import { auditShapeCommand } from './commands/audit-shape.js'
+import { init } from './commands/init.js'
+import { generateTanstackCommand } from './commands/generate-tanstack.js'
 
 export const commands: Command[] = [
+  init,
+  generateTanstackCommand,
   generateZod,
   generate,
   typegen,
@@ -62,4 +66,4 @@ export const commands: Command[] = [
   auditShapeCommand,
 ]
 
-export { generateZod, tspDiff, mock, auditShapeCommand }
+export { generateZod, tspDiff, mock, auditShapeCommand, init, generateTanstackCommand }

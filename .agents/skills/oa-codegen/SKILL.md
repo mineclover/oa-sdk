@@ -1,11 +1,11 @@
 ---
 name: oa-codegen
-description: Expert guide, architecture standards, and verification procedures for TypeScript AST code generation, reverse-offset patch engine, pluggable TypeAdapters (Typia, Zod, TS AST), Typia AOT type tag parsing, zero-eval CSP enforcement (oa-gen audit:csp), and standalone pre-compiled type guards in the oa-sdk monorepo. Use whenever working on AST bidirectional sync, type adapters, CSP audit rules, or standalone AJV type guards in oa-sdk.
+description: Expert guide, architecture standards, and verification procedures for TypeScript AST code generation, reverse-offset patch engine, pluggable TypeAdapters (Typia, Zod, TS AST), target-separated interactive onboarding engine (oa-gen init), strict runtime isolation (Bun vs Node), recursive schema detection, format-preserving package patching, live specification hot-reloading (oa-gen mock --watch), zero-eval CSP enforcement (oa-gen audit:csp), and standalone pre-compiled type guards in the oa-sdk monorepo.
 ---
 
-# TypeScript AST Codegen & Type Sync Engine (`@oa-sdk/codegen`)
+# TypeScript AST Codegen & Onboarding Engine (`@oa-sdk/codegen`)
 
-`@oa-sdk/codegen`는 `oa-sdk` 모노레포의 핵심 코드 생성 및 양방향 AST 동기화 엔진입니다. OpenAPI 3.1/3.2 스펙과 TypeScript 소스 코드 간의 무손실 변환(Zero-Loss Transformation), 비트 단위 포맷팅 보존(Bitwise Trivia Invariance), 플러그형 타입 어댑터(Typia, Zod, TS AST), Manifest V3 CSP 준수 정적 분석(`oa-gen audit:csp`) 및 고성능 독립형 타입 가드(Standalone AJV Guards) 생성을 담당합니다.
+`@oa-sdk/codegen`는 `oa-sdk` 모노레포의 핵심 코드 생성, 양방향 AST 동기화, 마찰 제로 온보딩 및 실시간 스펙 관측 엔진입니다. OpenAPI 3.1/3.2 스펙과 TypeScript 소스 코드 간의 무손실 변환(Zero-Loss Transformation), 비트 단위 포맷팅 보존(Bitwise Trivia Invariance), 플러그형 타입 어댑터(Typia, Zod, TS AST), 타깃 분리형 대화형 온보딩 엔진(`oa-gen init`), 엄격한 런타임 격리(Strict Runtime Isolation), 실시간 무중단 핫 리로드 목 서버(`oa-gen mock --watch`), Manifest V3 CSP 준수 정적 분석(`oa-gen audit:csp`) 및 고성능 독립형 타입 가드(Standalone AJV Guards) 생성을 담당합니다.
 
 ---
 
@@ -95,6 +95,47 @@ graph LR
     Standalone --> AuditCLI
     AuditCLI --> Rules
     Rules -->|PASS: 0 Violations| Extension["Chrome Extension MV3 / Edge"]
+```
+
+### 4. 타깃 분리형 온보딩 엔진 및 실시간 스펙 관측 파이프라인
+
+```mermaid
+graph TD
+    subgraph Onboarding [타깃 분리형 온보딩 엔진 (oa-gen init)]
+        InitCLI["oa-gen init\n(--target, --spec, --yes, --force, --dry-run)"]
+        TargetRouter["Target Profile Router\n(getTargetProfile / detectTargetProfile)"]
+        SchemaDet["Recursive Schema Detector\n(common/schema-detector.ts)"]
+        PkgPatcher["Non-Destructive Package Patcher\n(common/package-patcher.ts)"]
+    end
+
+    subgraph TargetProfiles [6대 프레임워크 타깃 전략 (Strategy Pattern)]
+        direction TB
+        P_Fastify["FastifyProfile (Node ESM / tsx watch / JIT schema)"]
+        P_Elysia["ElysiaProfile (Bun Native / bun --watch / zero Node tools)"]
+        P_Hono["HonoProfile (Bun or Node lockfile detection)"]
+        P_Express["ExpressProfile (Node ESM / tsx watch / @types/express)"]
+        P_NestJS["NestJsProfile (Nest CLI / generic contract target)"]
+        P_Generic["GenericProfile (Standalone contract fallback)"]
+    end
+
+    subgraph LiveWatch [실시간 무중단 핫 리로드 파이프라인 (oa-gen mock --watch)]
+        SpecWatch["Spec Watcher (spec-watcher.ts)\n• .yaml, .json, .tsp, @oaOperation .ts\n• 100ms Debouncing & Error Shielding"]
+        AtomicSwap["Atomic Route Swapping\nserver.updateSpec(newDoc)\n• 0 Socket Disconnects & 0 Process Restarts"]
+    end
+
+    InitCLI --> TargetRouter
+    InitCLI --> SchemaDet
+    TargetRouter --> P_Fastify
+    TargetRouter --> P_Elysia
+    TargetRouter --> P_Hono
+    TargetRouter --> P_Express
+    TargetRouter --> P_NestJS
+    TargetRouter --> P_Generic
+
+    TargetProfiles --> PkgPatcher
+    PkgPatcher -->|Formatting/CRLF Invariant| OutputPkg["package.json & oa.config.ts"]
+
+    SpecWatch --> AtomicSwap
 ```
 
 ---
@@ -374,19 +415,31 @@ console.log(patchedSource);
 ### 6.2 CLI 워크플로 레시피
 
 ```bash
-# 1. OpenAPI 3.2 스펙으로부터 Zod 4 스키마 및 TypeScript 타입 코드 생성
+# 1. 30초 마찰 제로 대화형/비대화형 프로젝트 온보딩 (프레임워크 및 스키마 자동 감지)
+oa-gen init --yes
+
+# 2. 특정 프레임워크 타깃을 명시한 비대화형 온보딩 (Fastify 예시)
+oa-gen init --target fastify --yes
+
+# 3. 실시간 무중단 핫 리로드 Mock 서버 구동 (OpenAPI 스펙 관측)
+oa-gen mock --spec packages/schemas/dist/openapi.yaml --watch
+
+# 4. 실시간 무중단 핫 리로드 Mock 서버 구동 (TypeSpec 관측)
+oa-gen mock --tsp packages/schemas/typespec/main.tsp --watch
+
+# 5. OpenAPI 3.2 스펙으로부터 Zod 4 스키마 및 TypeScript 타입 코드 생성
 oa-gen generate:zod --spec packages/schemas/dist/openapi.yaml --output ./generated/zod
 
-# 2. 독립형 무런타임 타입 가드 분할 생성 (Manifest V3 배포용)
+# 6. 독립형 무런타임 타입 가드 분할 생성 (Manifest V3 배포용)
 oa-gen generate --target standalone-guards --input packages/schemas/src/.merged.yaml --out-dir dist/guards --split
 
-# 3. 생성된 번들의 Manifest V3 CSP 호환성 정적 감사 (eval / new Function / ajv 금지 검사)
+# 7. 생성된 번들의 Manifest V3 CSP 호환성 정적 감사 (eval / new Function / ajv 금지 검사)
 oa-gen audit:csp --bundle dist/guards
 
-# 4. OpenAPI 3.2 스펙으로부터 TypeScript 타입 정의 생성
+# 8. OpenAPI 3.2 스펙으로부터 TypeScript 타입 정의 생성
 oa-gen typegen --spec packages/schemas/src/.merged.yaml --output packages/models/src
 
-# 5. 스펙 차이점 및 파괴적 변경사항 비교
+# 9. 스펙 차이점 및 파괴적 변경사항 비교
 oa-gen diff --base spec-v1.yaml --head spec-v2.yaml --fail-on-breaking
 ```
 
@@ -421,35 +474,206 @@ const parseResult = validators.UserProfile.safeParse(incomingJson);
 
 ---
 
-## 🔍 8. 문제 해결 매트릭스 (Troubleshooting)
+## 🛠️ 8. 타깃 분리형 대화형 온보딩 엔진 (`oa-gen init`)
 
-| 증상 (Symptom) | 근본 원인 (Root Cause) | 해결 방법 (Remediation) |
-|---|---|---|
-| `TS7022: 'X' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer` | 순환 참조 스키마에 타입 주석 누락 | `findCircularSchemas`로 사이클 참여 여부를 감지하고 `: z.ZodTypeAny` 명시적 타입 주석을 부여하여 비순환 스키마의 타입 추론을 해치지 않고 해결 |
-| Zod 4 `discriminatedUnion`에서 프로퍼티 누락 시 crash 발생 | 식별자(discriminant) 프로퍼티가 optional로 취급됨 | `prepareSchemaForZod`에서 discriminator 프로퍼티를 `required` 목록에 자동 강제 주입 |
-| `Overlapping text edit ranges: [X, Y] overlaps with [A, B]` | 복수의 프로퍼티 수정 시 `TextEdit`의 범위가 겹침 | 편집 대상 범위를 상호 배타적으로 분리하거나 선행 JSDoc과 시그니처 범위를 독립 계산하여 정렬 순서 준수 확인 |
-| `[csp/no-disallowed-import] Disallowed runtime import: ajv` | Standalone 가드 파일에 `require("ajv/...")`가 잔존함 | `postProcessGeneratedJs`에서 포맷 정규식 인라인화 및 `__ucs2length`/`__equal` 헬퍼 주입 여부 확인 |
-| `tags.Minimum<-50>` 파싱 시 값이 `NaN` 또는 양수로 반환됨 | 음수 리터럴이 `ts.PrefixUnaryExpression`으로 래핑됨 | `parseTagArgument`에서 `MinusToken` 연산자 확인 후 `-Number(operand.text)` 반환 로직 적용 |
-| 배열 프로퍼티에 `tags.MinLength` 등 스칼라 제약이 출력됨 | `formatTypeLevelTags`에서 기본 타입이 배열임을 검사하지 않음 | `baseType.endsWith('[]')` 또는 `Array<T>`인 경우 스칼라 인터섹션 태그 부착을 건너뛰도록 처리 |
-| `User \| Admin & tags.Format<'uuid'>` 연산자 결합 오류 | 유니온 기본 타입에 괄호 래핑이 누락됨 | 유니온 타입 탐지 시 `(User \| Admin) & tags.Format<'uuid'>` 형태로 괄호를 강제 감싸도록 보정 |
+`packages/codegen/src/cli/commands/init.ts`와 `packages/codegen/src/cli/lib/init/`에 구현된 `oa-gen init`은 30초 만에 기존 및 신규 프로젝트를 `oa-sdk` 생태계로 마찰 없이 온보딩하는 엔진입니다.
+
+### 8.1 CLI 옵션 및 실행 모드
+```typescript
+export interface InitCommandOptions {
+  target?: string // 'fastify' | 'elysia' | 'hono' | 'express' | 'nestjs' | 'generic'
+  cwd?: string // 대상 프로젝트 디렉토리 (기본: process.cwd())
+  spec?: string // OpenAPI 또는 TypeSpec 스키마 진입점 경로
+  yes?: boolean // 비대화형 모드 (기본값 자동 수락)
+  force?: boolean // 기존 oa.config.ts 및 충돌 스크립트 강제 덮어쓰기
+  dryRun?: boolean // 디스크 수정 없이 계획된 변경사항 사전 미리보기
+}
+```
+
+### 8.2 Strategy Pattern 기반 6대 타깃 프로필 (`TargetProfile`)
+모든 프레임워크 어댑터는 `TargetProfile` 인터페이스를 구현하며, 프레임워크 감지(`detect`), 설정 생성(`generateConfig`), 권장 스크립트(`getRecommendedScripts`), 권장 의존성(`getRecommendedDependencies`)을 캡슐화합니다:
+
+| 타깃 프로필 | 감지 기준 (Markers) | 호스트 런타임 | 주입 스크립트 | 주입 의존성 |
+|---|---|---|---|---|
+| **`fastify`** | `dependencies['fastify']` 또는 `fastify.config.{ts,js}` | Node ESM | `'dev': 'tsx watch src/server.ts'`<br/>`'generate:router': 'oa-gen generate --target fastify'` | `@oa-sdk/codegen`, `@oa-sdk/router`, `tsx`, `typescript`, `@types/node` |
+| **`elysia`** | `dependencies['elysia']` 또는 `bun.lockb` / `bun.lock` | Bun Native | `'dev': 'bun --watch src/index.ts'`<br/>`'generate:router': 'bun x oa-gen generate --target elysia'`<br/>`'mock': 'bun x oa-gen mock --watch'` | `@oa-sdk/codegen`, `@oa-sdk/router`, `@types/bun: 'latest'` (Node 도구 0개) |
+| **`hono`** | `dependencies['hono']` | Bun 또는 Node (락파일 감지) | Bun: `bun --watch` / `bun x`<br/>Node: `tsx watch` | `@oa-sdk/codegen`, `@oa-sdk/router`, 호스트 런타임 도구 |
+| **`express`** | `dependencies['express']` | Node ESM | `'dev': 'tsx watch src/app.ts'`<br/>`'generate:router': 'oa-gen generate --target express'` | `@types/express`, `tsx`, `@types/node`, `@oa-sdk/codegen`, `@oa-sdk/router` |
+| **`nestjs`** | `@nestjs/core` 또는 `nest-cli.json` | Node.js | `'start:dev': 'nest start --watch'`<br/>`'generate:contract': 'oa-gen generate --target generic'` | `@oa-sdk/codegen` |
+| **`generic`** | 상위 프로필 신뢰도 < 0.5일 때 폴백 (신뢰도 0.1) | Node.js | `'generate': 'oa-gen generate'`<br/>`'mock': 'oa-gen mock --watch'` | `@oa-sdk/codegen` |
+
+### 8.3 엄격한 런타임 격리 (Strict Runtime Isolation)
+- **Bun/Elysia 완전 격리 원칙**: Bun 런타임 프로젝트에는 `tsx`, `nodemon`, `@types/node` 등 Node 도구를 일절 주입하지 않으며, 네이티브 Bun 명령(`bun --watch`, `bun x`)과 `@types/bun`만을 주입합니다.
+- **Node/Fastify/Express 격리 원칙**: Node 기반 프로젝트에는 네이티브 Node ESM(`tsx watch`) 기반 스크립트를 주입하여 런타임 혼선을 방지합니다.
+
+### 8.4 재귀적 스키마 감지기 (`common/schema-detector.ts`)
+`detectSchemas(cwd, { maxDepth: 5 })`는 디렉토리 트리를 순회하여(최대 깊이 5, `node_modules`, `dist`, `.git` 등 자동 제외) 다음 우선순위 점수로 스키마를 자동 감지합니다:
+1. `main.tsp` (신뢰도 1.0, score 100) / 기타 `*.tsp` (신뢰도 0.8, score 80)
+2. 루트 `openapi.yaml`, `openapi.yml`, `spec.yaml` (신뢰도 0.95, score 95)
+3. 루트 `openapi.json`, `swagger.json` (신뢰도 0.9, score 90)
+4. 소스 코드 내 `/** @oaOperation <METHOD> <PATH> */` JSDoc 태그 (신뢰도 0.75, score 75)
+
+### 8.5 비파괴적 패키지 패처 (`common/package-patcher.ts`)
+`patchPackageJson(rawJson, options)`는 기존 `package.json`의 원본 서식을 100% 보존하면서 새로운 스크립트와 의존성을 안전하게 병합합니다:
+- **들여쓰기 감지**: 탭(`\t`), 2-스페이스, 4-스페이스를 자동 감지하여 일치시킵니다.
+- **개행 보존**: Windows CRLF(`\r\n`) 및 POSIX LF(`\n`)를 보존하고 파일 끝 trailing newline을 유지합니다.
+- **충돌 방어 (Collision Defense)**: 기존 `package.json`에 이미 정의된 스크립트가 있을 경우, 기본적으로 `action: 'skipped'` 처리하여 덮어쓰지 않으며, `--force` 플래그가 지정된 경우에만 안전하게 업데이트합니다.
 
 ---
 
-## 🧪 9. 검증 및 테스트 명령어
+## ⚡ 9. 실시간 스펙 및 소스 핫 리로드 엔진 (`oa-gen mock --watch`)
+
+`packages/codegen/src/cli/lib/spec-watcher.ts`와 `packages/codegen/src/cli/commands/mock.ts`는 로컬 개발 피드백 루프를 극대화하는 실시간 무중단 핫 리로드 엔진을 제공합니다.
+
+### 9.1 다중 포맷 관측 파이프라인
+- **TypeSpec (`--tsp <path>`)**: `watchTypeSpec`이 `.tsp` 소스 변경을 감지하여 `@typespec/compiler`의 `oldProgram` 캐시를 활용한 증분 컴파일 수행 (지연시간 < 200ms).
+- **OpenAPI & TypeScript (`--spec <path>`)**: `watchSpec`이 `.yaml`, `.json`, 및 `@oaOperation` JSDoc이 선언된 `.ts` 소스 파일을 실시간 감시.
+
+### 9.2 원자적 라우트 스왑 (`server.updateSpec`)
+파일 저장이 감지되면 100ms 디바운스(`debounceMs: 100`) 후 다음 단계가 수행됩니다:
+1. 최신 스펙 문서를 인메모리에서 파싱 및 정규화.
+2. `@oa-sdk/mock-server`의 `server.updateSpec(newDoc)` 호출.
+3. 기존 HTTP 서버의 포트(기본 4010), 활성 TCP 소켓 연결, 클라이언트 대기 요청을 전혀 끊지 않고(0 Socket Disconnects) 내부 라우팅 색인 라딕스 트리를 원자적으로 교체.
+
+### 9.3 에러 쉴딩 (Error Shielding)
+개발자가 스펙 파일을 수정하는 도중 YAML 들여쓰기 오류나 TypeScript 문법 에러가 발생하더라도, 감시 프로세스가 죽지 않고 stderr에 `❌ [oa-gen mock:watch] Compilation error, keeping previous routes active` 진단을 출력하며 이전의 정상 라우트 상태를 그대로 유지합니다.
+
+## 🗂️ 10. 산출물 경로 라우팅 커스터마이징 엔진 (Output Path Routing Engine)
+
+`packages/codegen/src/routing/` 및 `packages/codegen/src/config.ts`에 구현된 Output Path Routing 엔진은 고정된 출력 폴더 제약을 철폐하고, 개발자가 Feature-Sliced Design (FSD), Domain-Driven Design (DDD), Clean Architecture, 또는 모노레포 다중 패키지 구조로 생성 산출물을 유연하게 분산 배치할 수 있도록 지원합니다.
+
+### 10.1 `OutputRoutingConfig` 설정 스키마 및 인터페이스
+
+`oa.config.ts`의 `product.outputRouting` 또는 최상위 `outputRouting`에 구성됩니다:
+
+```typescript
+export type ArtifactKind = 'contract' | 'client' | 'queries' | 'keys' | 'guards' | 'schemas';
+
+export interface OutputRoutingRule {
+  tag?: string | string[];
+  pathPrefix?: string;
+  method?: string | string[];
+  kind?: ArtifactKind | ArtifactKind[];
+  target: string; // 토큰 치환 템플릿 또는 고정 경로
+}
+
+export interface ByKindRoutingConfig {
+  contract?: string;
+  client?: string;
+  queries?: string;
+  keys?: string;
+  guards?: string;
+  schemas?: string;
+  [customKind: string]: string | undefined;
+}
+
+export interface OutputRoutingConfig {
+  pattern?: string;   // 전역 템플릿 (예: 'src/features/{tag}/api/{tag}.{kind}.ts')
+  rules?: OutputRoutingRule[]; // 조건부 라우팅 규칙 목록 (우선순위 1순위)
+  byKind?: ByKindRoutingConfig; // 종류별 라우팅 매핑 (우선순위 2순위)
+}
+```
+
+### 10.2 결정론적 토큰 치환 엔진 (`routing/token-resolver.ts`)
+- **지원 토큰**: `{tag}`, `{kind}`, `{operationId}`, `{method}`, `{group}`.
+- **토큰 케이싱 변환**: `splitWords`가 camelCase, PascalCase, snake_case를 분석하여 `kebab` (기본값), `camel`, `pascal`, `preserve` 스타일로 결정론적 변환.
+- **폴백 계층**: 스펙 엔드포인트에 `tag`가 누락된 경우 `tag -> group -> first path segment (예: /billing/invoices -> "billing") -> "default"` 순서로 자동 복구하여 undefined 경로 생성을 원천 방지.
+
+### 10.3 동적 상대 경로(Relative Import) 재계산기 (`routing/import-resolver.ts`)
+- **자동 상대 경로 연산**: `resolveImportSpecifier({ fromFile, toFile, tsconfig })`가 `path.relative`를 사용하여 디렉터리가 서로 다른 파일 간의 상대 경로를 자동 계산.
+- **POSIX 정규화**: 호스트 OS(Windows 드라이브 문자 포함)와 무관하게 항상 `/` POSIX 슬래시 경로로 정규화.
+- **ESM NodeNext 확장자**: 상대 경로에 `./` 접두사를 보장하고 `.js` 확장자를 자동 부여하여 브라우저 및 Node ESM 번들러와의 호환성 보장.
+- **`tsconfig.json` Paths 별칭 연동**: `matchTsconfigPathAlias`가 tsconfig의 `@features/*`, `@shared/*` 등의 alias를 자동 인식하여 깔끔한 모듈 import 생성.
+- **Self-Import 가드**: 소스와 대상 경로가 동일할 경우 자기 자신을 import하지 못하도록 차단.
+
+### 10.4 `.oa-manifest.json` 기반 3-Gate 안전 고아 파일 정리 (`routing/manifest-manager.ts`)
+`OaManifestManager`는 스펙에서 엔드포인트나 태그가 삭제/이름 변경되었을 때, 개발자가 작성한 소스 코드를 100% 보호하면서 불필요해진 고아 생성 파일만 안전하게 제거합니다:
+1. **Gate 1 (Provenance Check)**: `.oa-manifest.json`에 기록되지 않은 파일은 절대 삭제 대상으로 고려하지 않음 (개발자 수작업 코드 100% 보호).
+2. **Gate 2 (Hash Integrity Check)**: 디스크 파일의 SHA-256 해시가 매니페스트에 기록된 `contentHash`와 일치하지 않으면 사용자가 수정한 파일로 판단하여 정리를 즉시 중단 (`prune-skipped: content-modified`).
+3. **Gate 3 (Banner Guard Check)**: 파일 상위 10행에 `@generated`, `@oa-sdk/codegen` 등 공식 생성 배너가 존재하지 않으면 삭제를 차단 (`prune-skipped: banner-missing`).
+- **원자적 매니페스트 커밋**: `.oa-manifest.json.tmp` 임시 파일 작성 후 원자적 rename으로 크래시 안전성 보장.
+- **비트 불변성 디스크 스킵**: 생성된 내용이 기존 파일과 완전히 동일하면 파일 쓰기를 건너뛰어 OS mtime 보존 및 빌드 캐시 유지.
+
+### 10.5 중앙 라우팅 디스패처 (`routing/path-dispatcher.ts`)
+`PathDispatcher`는 다음의 확고한 4단계 우선순위로 산출물의 최종 절대 경로를 결정합니다:
+`rules` (조건부 매칭) $\rightarrow$ `byKind` (종류별 매핑) $\rightarrow$ `pattern` (전역 템플릿) $\rightarrow$ 기본 규칙 (`src/api/{tag}/{tag}.{kind}.ts`).
+
+---
+
+## ⚛️ 11. TanStack Query (React Query) v5 3계층 코드 생성 아키텍처
+
+`packages/client/src/tanstack/`에 구현된 TanStack Query v5 생성기는 1:1 훅 덤핑을 지양하고, 서버 컴포넌트와 다양한 UI 프레임워크에서 재사용 가능한 3계층 아키텍처를 채택합니다.
+
+### 11.1 3계층 생성기 토폴로지
+1. **Tier 1: 계층형 쿼리 키 팩토리 (`key-factory-generator.ts`)**:
+   - 순수 TypeScript 튜플 (`as const`)로 구성되며 외부 런타임 의존성이 0개입니다.
+   - 각 엔티티 태그별로 `all`, `lists()`, `list(filters)`, `details()`, `detail(id)`, `subresource(id, sub, query)`, `mutation(operationId)`을 생성.
+   - 직관적인 캐시 무효화 계층 보장: `queryClient.invalidateQueries({ queryKey: userKeys.lists() })`는 목록만 무효화하고 개별 상세 캐시는 보존.
+2. **Tier 2: 순수 옵션 팩토리 (`options-factory-generator.ts`)**:
+   - `queryOptions()` 및 `mutationOptions()` 순수 함수 생성.
+   - UI 프레임워크 락인 0: React뿐만 아니라 `@tanstack/vue-query`, `@tanstack/svelte-query`, Next.js App Router Server Component(`prefetchQuery`)에서 100% 재사용 가능.
+   - 엄격한 와이어 타입 보장: `JsonPrimitive<TResponse>` 및 `Resolved<TBody>`로 런타임 직렬화 안전성 확보.
+3. **Tier 3: 리액트 컴포지션 훅 래퍼 (`hook-factory-generator.ts`)**:
+   - `'use client'` 래퍼 (`use*Query`, `use*Mutation`).
+   - 오픈 제네릭(`TData`, `TError`) 및 옵션 오버라이드(`select`, `enabled`, `staleTime`, `retry`) 노출.
+   - `createApiHooks(useClient)` 컨텍스트 바인딩 헬퍼 생성.
+
+### 11.2 제로 런타임 의존성 누수 불변식 (Zero Runtime Leaks)
+- `@oa-sdk/client`와 `@oa-sdk/codegen`은 `package.json`의 `dependencies`에 `@tanstack/react-query`를 절대 포함하지 않습니다.
+- 순수 AST 코드 방출기로 동작하며, 생성된 코드가 소비자의 프로젝트에 설치된 `@tanstack/react-query` (또는 `--framework`에 지정된 `@tanstack/vue-query` 등)를 import합니다.
+
+### 11.3 CLI 명령어 지원
+- `oa-gen generate:tanstack --spec <path> --output <dir>`: 전용 생성 커맨드.
+- `oa-gen generate --tanstack --spec <path>`: 범용 생성 커맨드 연동.
+- `--split` 플래그로 `keys.ts`, `queries.ts`, `hooks.ts` 모듈 분할 생성 지원.
+
+---
+
+## 🔍 12. 문제 해결 매트릭스 (Troubleshooting)
+
+| 증상 (Symptom) | 근본 원인 (Root Cause) | 해결 방법 (Remediation) |
+|---|---|---|
+| `oa-gen init` 실행 시 프레임워크가 잘못 인식됨 | `package.json`의 의존성 식별자 누락 또는 특이 구성 | `--target <framework>` 명시적 플래그를 지정하여 감지 단계를 강제 지정 |
+| Bun 프로젝트에서 `tsx` 또는 `nodemon` 설치 시도 발생 | Strict Runtime Isolation 위반 | `elysia` 프로필을 사용하거나 `--target elysia`를 통해 Bun 전용 격리 프로필 활성화 |
+| `oa-gen init`이 기존 커스텀 `dev` 스크립트를 덮어쓰지 않음 | Non-destructive Collision Defense 동작 | 의도적인 덮어쓰기를 원하는 경우 `--force` 플래그를 추가하여 강제 병합 |
+| `oa-gen mock --watch` 실행 중 스펙 오타 시 서버 종료됨 | Error Shielding이 적용되지 않은 구버전 | 최신 `spec-watcher.ts` 기반 `oa-gen mock --watch` 사용 시 파싱 에러가 쉴딩되어 이전 라우트 유지 |
+| `Output routing generated broken relative imports` | 서로 다른 디렉터리로 분산된 파일 간 상대 경로 계산 누락 | `import-resolver.ts`의 `resolveImportSpecifier`를 통해 POSIX 슬래시와 `.js` ESM 확장자가 포함된 상대 경로를 자동 계산 |
+| `.oa-manifest.json` orphan pruning이 수작업 파일을 삭제하지 않음 | 3-Gate Safety Invariants 보호 메커니즘의 정상 동작 | Gate 1 (Provenance)과 Gate 2 (Hash Integrity)가 수작업 코드와 수정된 파일을 완벽히 보호하고 있습니다. 정상 동작입니다. |
+| `TS7022: 'X' implicitly has type 'any'` | 순환 참조 스키마에 타입 주석 누락 | `findCircularSchemas`로 사이클 참여 여부를 감지하고 `: z.ZodTypeAny` 명시적 타입 주석을 부여하여 비순환 스키마의 타입 추론을 해치지 않고 해결 |
+| Zod 4 `discriminatedUnion`에서 프로퍼티 누락 시 crash 발생 | 식별자(discriminant) 프로퍼티가 optional로 취급됨 | `prepareSchemaForZod`에서 discriminator 프로퍼티를 `required` 목록에 자동 강제 주입 |
+| `Overlapping text edit ranges: [X, Y] overlaps with [A, B]` | 복수의 프로퍼티 수정 시 `TextEdit`의 범위가 겹침 | 편집 대상 범위를 상호 배타적으로 분리하거나 선행 JSDoc과 시그니처 범위를 독립 계산하여 정렬 순서 준수 확인 |
+| `[csp/no-disallowed-import] Disallowed runtime import: ajv` | Standalone 가드 파일에 `require("ajv/...")`가 잔존함 | `postProcessGeneratedJs`에서 포맷 정규식 인라인화 및 `__ucs2length`/`__equal` 헬퍼 주입 여부 확인 |
+
+---
+
+## 🧪 13. 검증 및 테스트 명령어
 
 ```bash
-# 1. Zod 4 코드 생성 엔진 및 E2E 테스트 (184종)
+# 1. Output Path Routing 및 토큰 치환/임포트/매니페스트 단위 테스트 (38종)
+pnpm --filter @oa-sdk/codegen test src/__tests__/output-routing.test.ts
+
+# 2. TanStack Query v5 3계층 생성기 단위 및 통합 테스트 (16종)
+pnpm --filter @oa-sdk/client test src/__tests__/tanstack-query.test.ts
+
+# 3. CLI generate:tanstack 명령어 및 거버넌스 스펙 검증
+pnpm check:cli-spec
+
+# 4. Onboarding 엔진 (oa-gen init) 및 타깃 프로필 테스트
+pnpm --filter @oa-sdk/codegen test src/__tests__/cli/init.test.ts src/__tests__/init/
+
+# 5. Spec Watcher 및 실시간 핫 리로드 단위 테스트
+pnpm --filter @oa-sdk/codegen test src/__tests__/spec-watcher.test.ts
+
+# 6. Zod 4 코드 생성 엔진 및 E2E 테스트 (184종)
 pnpm --filter @oa-sdk/codegen test src/zodgen/ test/e2e/zod4-generator.e2e.test.ts test/zodgen/adversarial-challenger-1.test.ts
 
-# 2. Typia 어댑터 및 타입 레벨 태그 파싱 단위 테스트
-pnpm --filter @oa-sdk/codegen test test/ast-sync/typia-adapter.test.ts
-
-# 3. Standalone 타입 가드 E2E 및 정적 컴파일 테스트
+# 7. Standalone 타입 가드 E2E 및 정적 컴파일 테스트
 pnpm --filter @oa-sdk/codegen test test/standalone-guards/
 
-# 4. Manifest V3 CSP 감사 엔진 15종 단위 테스트
+# 8. Manifest V3 CSP 감사 엔진 15종 단위 테스트
 pnpm --filter @oa-sdk/codegen test test/audit-csp/audit-csp.test.ts
 
-# 5. Codegen 패키지 전체 타입 체크
+# 9. Codegen 패키지 전체 타입 체크
 pnpm --filter @oa-sdk/codegen typecheck
 ```
+

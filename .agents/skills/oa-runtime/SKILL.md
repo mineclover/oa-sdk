@@ -1,15 +1,15 @@
 ---
 name: oa-runtime
-description: Downstream runtime routing (@oa-sdk/router), typed client SDK (@oa-sdk/client), in-memory mock server (@oa-sdk/mock-server), and Typia compiler transform isolation boundary (@oa-sdk/typia-mock) in the oa-sdk monorepo.
+description: Downstream runtime routing (@oa-sdk/router for Hono, Express, Fastify, Bun Elysia, and Handler Contracts), typed client SDK (@oa-sdk/client), in-memory mock server (@oa-sdk/mock-server with live hot-reload), and Typia compiler transform isolation boundary (@oa-sdk/typia-mock) in the oa-sdk monorepo.
 ---
 
 # Downstream Runtime & Execution Architecture (`oa-runtime`)
 
 The `oa-runtime` skill provides architecture standards, operational implementation guides, and verification procedures for Tier 3 (`Runtime & Downstream`) of the `oa-sdk` monorepo. It governs four foundational downstream packages:
 
-1. `@oa-sdk/router`: Code rendering engine for typed Hono and Express router stubs, OpenAPI `{param}` to `:param` path mapping, OAS 3.2 non-standard verb handling (`HEAD`, `TRACE`, `QUERY`), raw query string extraction, and webhook stubs.
+1. `@oa-sdk/router`: Code rendering engine for typed Hono, Express, Fastify (`FastifyPluginAsync` + inline JIT schema acceleration), and Bun Elysia (`createRouter` + fluent chaining + selective context destructuring) routers, framework-independent pure Handler Contract separation (`generateHandlerContract`), OpenAPI `{param}` to `:param` path mapping, OAS 3.2 non-standard verb handling (`HEAD`, `TRACE`, `QUERY`), raw query string extraction, and webhook stubs (0 framework runtime dependencies).
 2. `@oa-sdk/client`: Zero-dependency, isomorphic TypeScript fetch client SDK featuring multi-realm structural duck typing (`isClientError`), exponential backoff retry with `Retry-After` header parsing and response stream cancellation (`await res.body?.cancel()`), and streaming primitives (`streamSse`, `streamNdjson`).
-3. `@oa-sdk/mock-server`: Dual MSW and Node HTTP mock server adapters with literal-first regex route specificity matching (`compareRouteSpecificity`), stateful overrides (`server.override`), schema folding synthesis, and fail-closed 422 sensitive value redaction (`MockReceivedValueSummary`).
+3. `@oa-sdk/mock-server`: Dual MSW and Node HTTP mock server adapters with literal-first regex route specificity matching (`compareRouteSpecificity`), stateful overrides (`server.override`), schema folding synthesis, fail-closed 422 sensitive value redaction (`MockReceivedValueSummary`), and atomic live route hot-swapping (`server.updateSpec`).
 4. `@oa-sdk/typia-mock`: Maintenance-only quarantine boundary isolating Samchon Typia's AST compiler transformer complexity (`ttsc`/`ts-patch`) while serving `ILlmApplication` consumers via a 3-stage validation pipeline (`parse` -> `coerce` -> `validate`) and minimal mock algebra (`typiaGenerateAlgebra`).
 
 ---
@@ -25,10 +25,13 @@ graph TD
 
     subgraph RouterEngine [Downstream Router (@oa-sdk/router)]
         RouterGen["generateRouter(spec, options)"]
+        HandlerContract["Handler Contracts (generateHandlerContract -> *.contract.ts)"]
         ToColon["toColonPath: {param} -> :param"]
         RawQuery["__readOaRawQuerystring (OAS 3.2)"]
         HonoTarget["Hono Router (app.on for HEAD/TRACE/QUERY)"]
         ExpressTarget["Express Router (router.all + method guard)"]
+        FastifyTarget["Fastify Router (FastifyPluginAsync + JIT Schema)"]
+        ElysiaTarget["Bun Elysia Router (Fluent Chaining + Context Destructure)"]
         Webhooks["Webhook Stubs (doc.webhooks)"]
     end
 
@@ -49,6 +52,7 @@ graph TD
         Overrides["Stateful Overrides (server.override)"]
         Redaction["422 Value Redaction (MockReceivedValueSummary)"]
         Callbacks["Outbound Webhook / Callback Simulation"]
+        LiveHotSwap["Atomic Route Swapping (server.updateSpec)"]
     end
 
     subgraph TypiaQuarantine [Compiler Transform Boundary (@oa-sdk/typia-mock)]
@@ -59,6 +63,7 @@ graph TD
     end
 
     OasDoc --> RouterGen
+    OasDoc --> HandlerContract
     OasDoc --> ClientGen
     OasDoc --> MockEngine
     Parser --> MockEngine
@@ -67,6 +72,8 @@ graph TD
     RouterGen --> RawQuery
     RouterGen --> HonoTarget
     RouterGen --> ExpressTarget
+    RouterGen --> FastifyTarget
+    RouterGen --> ElysiaTarget
     RouterGen --> Webhooks
 
     ClientGen --> FetchTransport
@@ -80,6 +87,7 @@ graph TD
     MockEngine --> Overrides
     MockEngine --> Redaction
     MockEngine --> Callbacks
+    MockEngine --> LiveHotSwap
 
     Isolation --> LlmApp
     LlmApp --> ValidationPipe
@@ -90,35 +98,75 @@ graph TD
 
 ## 1. Downstream Runtime Routing (`@oa-sdk/router`)
 
-`@oa-sdk/router` translates normalized OpenAPI 3.1 and 3.2 operations into typed route handlers for Hono or Express applications.
+`@oa-sdk/router` translates normalized OpenAPI 3.1 and 3.2 operations into typed route handlers and decoupled handler contracts for **Hono**, **Express**, **Fastify**, and **Bun Elysia** applications.
 
 ### 1.1 Entrypoints & Generation API
 
+`@oa-sdk/router` operates in two complementary paradigms:
+1. **Framework Router Binding (`generateRouter`, `generateRouterSync`)**: Renders framework-specific router definitions (Hono, Express, Fastify plugin, Bun Elysia instance) bound to typed handlers.
+2. **Pure Handler Contract Generation (`generateHandlerContract`, `generateHandlerContractFromParsed`)**: Emits framework-independent pure TypeScript handler signatures (`*.contract.ts`), completely decoupling business logic from routing plumbing.
+
 ```typescript
-import { generateRouter, generateRouterSync, type RouterOptions } from '@oa-sdk/router'
+import {
+  generateRouter,
+  generateRouterSync,
+  generateHandlerContract,
+  type RouterOptions,
+  type RouterTarget,
+  type RouterMode,
+  type HandlerContractOptions,
+} from '@oa-sdk/router'
 import type { OasDocument, ParsedDocument } from '@oa-sdk/core'
 
 export interface RouterOptions {
-  /** Target routing framework: 'hono' or 'express' */
-  target?: 'hono' | 'express'
-  /** Operation filtering whitelist by operationId */
-  include?: string[]
-  /** Index of server URL to mount under */
-  serverIndex?: number
-  /** Substitution variables for templated server URLs */
-  serverVariables?: Record<string, string>
+  /** Target routing framework: 'hono' | 'express' | 'fastify' | 'elysia' (default: 'hono') */
+  target?: 'hono' | 'express' | 'fastify' | 'elysia'
+  /** Mode: 'stub' (standalone with TODOs) or 'contract' (bound to handler contract) */
+  mode?: 'stub' | 'contract'
+  /** Path to import generated API types from (e.g. './types') */
+  typesImport?: string
+  /** Path to import handler contract from (e.g. './api.contract'). Automatically activates mode: 'contract' */
+  contractImport?: string
+  /** Name of the handlers aggregate interface (default: 'ApiHandlers') */
+  contractName?: string
+  /** Include header comment banner */
+  banner?: boolean
+  /** Base path for resolving relative external $refs */
+  basePath?: string
 }
 
-// Asynchronous generation with file resolution for external $refs
-const honoSource: string = await generateRouter(spec, { target: 'hono' })
+export interface HandlerContractOptions {
+  /** Path to import generated API types from (e.g. './types') */
+  typesImport?: string
+  /** Aggregate handlers interface name (default: 'ApiHandlers') */
+  contractName?: string
+  /** Include header comment banner */
+  banner?: boolean
+  /** Base path for resolving relative external $refs */
+  basePath?: string
+}
 
-// Synchronous generation for pre-parsed in-memory ASTs
-const expressSource: string = generateRouterSync(parsedDoc, { target: 'express' })
+// 1. Generate decoupled pure TypeScript handler contracts
+const contractSource: string = generateHandlerContract(spec, { typesImport: './types.js' })
+
+// 2. Generate Fastify plugin router bound to handler contract
+const fastifySource: string = generateRouter(spec, {
+  target: 'fastify',
+  typesImport: './types.js',
+  contractImport: './api.contract.js',
+})
+
+// 3. Generate Bun Elysia router bound to handler contract
+const elysiaSource: string = generateRouter(spec, {
+  target: 'elysia',
+  typesImport: './types.js',
+  contractImport: './api.contract.js',
+})
 ```
 
 ### 1.2 Path Parameter Mapping via `toColonPath`
 
-OpenAPI defines template parameters using curly braces (e.g. `/organizations/{orgId}/users/{userId}`). Both Hono (`RegExpRouter`, `TrieRouter`) and Express (`path-to-regexp`) require colon-prefixed parameters (`:orgId`, `:userId`).
+OpenAPI defines template parameters using curly braces (e.g. `/organizations/{orgId}/users/{userId}`). Hono (`RegExpRouter`, `TrieRouter`), Express (`path-to-regexp`), Fastify (`find-my-way`), and Elysia require colon-prefixed parameters (`:orgId`, `:userId`).
 
 `@oa-sdk/router` uses `toColonPath` from `@oa-sdk/core`:
 
@@ -132,6 +180,8 @@ export function toColonPath(openApiPath: string): string {
 Generated handlers extract path parameters via typed casts:
 - **Hono**: `const params = c.req.param() as unknown as OperationPathParams`
 - **Express**: `const params = req.params as unknown as OperationPathParams`
+- **Fastify**: `const params = request.params as OperationPathParams` (or via Fastify route generics)
+- **Elysia**: Selective zero-copy context destructuring: `async ({ params }) => { ... }`
 
 ### 1.3 OAS 3.2 Non-Standard HTTP Verbs (`HEAD`, `TRACE`, `QUERY`)
 
@@ -148,7 +198,6 @@ app.get('/users/:id', async (c) => { ... })
 app.on('QUERY', '/users/search', async (c) => {
   try {
     const body = await c.req.json() as SearchUsersBody
-    // ... handler logic ...
     return c.json(result, 200)
   } catch (err) {
     return c.json({ error: String(err) }, 500)
@@ -157,17 +206,14 @@ app.on('QUERY', '/users/search', async (c) => {
 ```
 
 #### Express Target
-Express provides methods for standard verbs plus `router.head(...)`, but lacks methods for `TRACE` and `QUERY`. Generating a generic `router.all(...)` without guard would cause unrelated requests (such as `GET` or `POST`) to accidentally execute the stub. Express stubs emit `router.all(...)` paired with a fail-pass method guard:
+Express provides methods for standard verbs plus `router.head(...)`, but lacks methods for `TRACE` and `QUERY`. Express stubs emit `router.all(...)` paired with a fail-pass method guard:
 
 ```typescript
 // For OAS 3.2 QUERY or TRACE:
 router.all('/users/search', async (req, res, next) => {
-  // Method guard: pass non-matching verbs to subsequent router middleware
   if (req.method !== 'QUERY') return next()
-
   try {
     const body = req.body as SearchUsersBody
-    // ... handler logic ...
     res.status(200).json(result)
   } catch (err) {
     res.status(500).json({ error: String(err) })
@@ -175,7 +221,69 @@ router.all('/users/search', async (req, res, next) => {
 })
 ```
 
-### 1.4 OAS 3.2 Raw Querystring Extraction (`in: 'querystring'`)
+### 1.4 Fastify Target Router (`renderFastifyRouter`)
+
+The Fastify target (`packages/router/src/targets/fastify.ts`) generates idiomatic `FastifyPluginAsync` modules optimized for Node.js high-throughput environments:
+
+1. **`FastifyPluginAsync` Encapsulation**: Emits a typed plugin function receiving `(fastify, options)` where options provide `{ handlers: ApiHandlers }`.
+2. **Inline JIT Schema Compilation (`fast-json-stringify`)**: Inlines OpenAPI 3.2 Schema Objects directly into Fastify's route configuration:
+   ```typescript
+   fastify.get('/users/:id', {
+     schema: {
+       params: { type: 'object', required: ['id'], properties: { id: { type: 'string' } } },
+       response: { 200: { type: 'object', properties: { id: { type: 'string' }, name: { type: 'string' } } } },
+     },
+   }, async (request, reply) => { ... })
+   ```
+   Fastify's internal compiler compiles this schema into optimized JavaScript string concatenation code via `fast-json-stringify`, yielding 2-3x serialization speedups over `JSON.stringify()`.
+3. **HTTP Verb Dispatching**:
+   - Convenience verbs: `fastify.get`, `fastify.post`, `fastify.put`, `fastify.delete`, `fastify.patch`, `fastify.head`, `fastify.options`.
+   - OAS 3.2 non-convenience verbs (`QUERY`, `TRACE`): Dispatched via `fastify.route({ method: 'QUERY', url, schema, handler })`.
+4. **TypeScript Strictness**:
+   - Unused request parameter is emitted as `_request` when the route takes no parameters, querystring, headers, or body, eliminating TS6133 warnings.
+   - For empty paths (`paths: {}`), emits `void fastify; void handlers;`.
+5. **Dual Mode**: Supports `mode: 'stub'` (inline placeholder logic) and `mode: 'contract'` (dispatching directly to injected `ApiHandlers`).
+
+### 1.5 Bun Elysia Target Router (`renderElysiaRouter`)
+
+The Bun Elysia target (`packages/router/src/targets/elysia.ts`) targets the Bun native JavaScript runtime:
+
+1. **Fluent Builder Chaining**: Emits `new Elysia({ prefix })` with chained `.get()`, `.post()`, `.put()`, `.delete()`, `.patch()`.
+2. **Selective Zero-Copy Context Destructuring**: Bun provides zero-copy C++ memory structures for incoming HTTP requests. The Elysia generator dynamically inspects each operation's parameter requirements and destructures **only the fields actually accessed**:
+   - Route with only query: `async ({ query, set }) => { ... }`
+   - Route with body: `async ({ body, set }) => { ... }`
+   - Route with no inputs: `async ({ set }) => { ... }`
+   This completely eliminates `TS6133: 'params' is declared but its value is never read` compiler errors under strict `noUnusedLocals` and `noUnusedParameters`.
+3. **OAS 3.2 Verb Support**: Non-convenience verbs (`OPTIONS`, `QUERY`, `TRACE`) route via `.route('QUERY', path, ...)`.
+4. **Dual Mode**: Emits standalone app instance (`export const app = new Elysia()...`) or router factory (`export function createRouter(handlers: ApiHandlers)`).
+
+### 1.6 Framework-Independent Handler Contract Separation (`generateHandlerContract`)
+
+`generateHandlerContract` (`packages/router/src/contracts/handler-contract.ts`) resolves the **Overwrite Dilemma** that plagues traditional API code generators.
+
+#### The Problem
+When codegen tools emit monolithic router files combining routing plumbing with handler logic, regenerating the code after an OpenAPI schema change clobbers hand-written business logic or requires tedious three-way git merges.
+
+#### The Decoupled Contract Solution
+`generateHandlerContract` emits a pure TypeScript definition file (`routes.contract.ts`):
+1. **Pure Data Contexts**: Each operation receives a `<BaseName>Context` containing only typed data (`params`, `query`, `querystring`, `headers`, `body`). Zero HTTP framework objects (`Request`, `Response`, `Context`) leak into the contract.
+2. **Polymorphic Handler Response (`HandlerResponse`)**:
+   ```typescript
+   export type HandlerResponse<TBody = unknown, THeaders = Record<string, string>> =
+     | TBody
+     | { status?: number; body: TBody; headers?: THeaders }
+   ```
+   Handlers can return raw data bodies or explicit status/header envelopes.
+3. **Aggregate `ApiHandlers` Interface**: Maps every operation ID to its corresponding handler signature:
+   ```typescript
+   export interface ApiHandlers {
+     listUsers(ctx: ListUsersContext): Promise<HandlerResponse<ListUsersResponse>> | HandlerResponse<ListUsersResponse>
+     getUser(ctx: GetUserContext): Promise<HandlerResponse<GetUserResponse>> | HandlerResponse<GetUserResponse>
+   }
+   ```
+4. **Zero Framework Dependencies**: `@oa-sdk/router` has **zero runtime dependencies** (`dependencies: {}` in `package.json`). All emitted router binders and handler contracts are pure TypeScript without framework lock-in. Developers implement `ApiHandlers` in their own service classes, safely isolated from codegen file re-emissions.
+
+### 1.7 OAS 3.2 Raw Querystring Extraction (`in: 'querystring'`)
 
 OpenAPI 3.2 allows operations to declare `in: 'querystring'` parameters where an unparsed query payload is submitted directly. When detected in an operation, `@oa-sdk/router` injects the helper `__readOaRawQuerystring`:
 
@@ -191,12 +299,14 @@ function __readOaRawQuerystring(url: string): string | undefined {
 Extraction in router stubs:
 - **Hono**: `const querystring = __readOaRawQuerystring(c.req.raw.url)`
 - **Express**: `const querystring = __readOaRawQuerystring(req.originalUrl ?? req.url)`
+- **Fastify**: `const querystring = __readOaRawQuerystring(request.raw.url ?? request.url)`
+- **Elysia**: `const querystring = __readOaRawQuerystring(request.url)`
 
 > **Invariant**: An OpenAPI operation MUST NOT declare more than one parameter with `in: 'querystring'`. The router generator throws a compile-time error if multiple querystring parameters are present.
 
-### 1.5 Header Serialization & JSDoc Sanitization
+### 1.8 Header Serialization & JSDoc Sanitization
 
-1. **Header Serialization (`__setOaResponseHeaders`)**: Response headers declared as arrays are joined with `, ` in compliance with HTTP/1.1 and HTTP/2 semantics before emitting `c.header(k, v)` or `res.setHeader(k, v)`.
+1. **Header Serialization (`__setOaResponseHeaders`)**: Response headers declared as arrays are joined with `, ` in compliance with HTTP/1.1 and HTTP/2 semantics before emitting header setting calls.
 2. **JSDoc Sanitization (`packages/router/src/jsdoc.ts`)**: Comment termination sequences (`*/`) in descriptions or summaries are sanitized to `*\/` to prevent breaking TypeScript parser tokenization.
 
 ---
@@ -417,12 +527,16 @@ To prevent secret and credential leaks in test logs and CI outputs, violated inp
 
 The raw string, array elements, or object properties are **never exposed** in the error detail.
 
-### 3.6 Zero-Build Instant TypeSpec Mocking (`oa-gen mock --tsp`)
+### 3.6 Zero-Build Instant Mock Server & Hot-Reload (`oa-gen mock`)
 
-For fast local developer feedback loops, `oa-gen mock --tsp <path>` bypasses disk OpenAPI YAML generation completely:
-1. **In-Memory Compilation**: Invokes `@typespec/compiler` directly in-process to emit an in-memory OpenAPI 3.2 document object model.
-2. **Direct Server Mounting**: Instantiates `@oa-sdk/mock-server` via `createNodeMockServer` bound to `localhost:4010` (or custom `--port` / `--host`).
-3. **Live Route Swapping (`--watch`)**: Listens to `.tsp` file modifications, re-compiles in < 200ms, and updates active routes seamlessly without dropping connections or requiring process restarts.
+For fast local developer feedback loops, `oa-gen mock` provides instant HTTP mocking directly from TypeSpec or OpenAPI specifications with zero build overhead:
+1. **In-Memory TypeSpec Compilation (`--tsp <path>`)**: Invokes `@typespec/compiler` in-memory to compile `.tsp` specifications without emitting disk YAML. Incremental compilation reuses the compiler's `oldProgram` cache for sub-200ms hot-swaps.
+2. **OpenAPI & JSDoc Multi-Format Parsing (`--spec <path>`)**: Ingests OpenAPI YAML (`.yaml`), JSON (`.json`), or TypeScript files declaring `/** @oaOperation <METHOD> <PATH> */` annotations in-memory.
+3. **Atomic Route Swapping (`--watch`)**:
+   - Monitored by `spec-watcher.ts` with 100ms debouncing.
+   - On file change, re-parses the document and invokes `@oa-sdk/mock-server`'s atomic `server.updateSpec(newDoc)` method.
+   - The internal routing radix trie is hot-swapped atomically without dropping active client connections, TCP sockets, or restarting the Node HTTP process.
+4. **Error Shielding**: If a developer saves a file with invalid YAML indentation or syntax errors, the watcher catches the error, logs a diagnostic to stderr, and keeps existing valid routes active on port 4010.
 
 ---
 
@@ -481,6 +595,11 @@ oa-gen audit:csp --bundle dist/guards
 oa-gen validate --spec packages/schemas/src/.merged.yaml --require-32
 ```
 
+### Running Zero-Build Instant OpenAPI Mock Server with Watch Mode
+```bash
+oa-gen mock --spec packages/schemas/dist/openapi.yaml --watch
+```
+
 ### Running Zero-Build Instant TypeSpec Mock Server with Watch Mode
 ```bash
 oa-gen mock --tsp packages/schemas/typespec/main.tsp --watch
@@ -506,6 +625,10 @@ pnpm typecheck:maintenance
 |---|---|---|
 | Hono route fails to trigger on `QUERY` or `TRACE` | Operation registered with convenience method (e.g. `app.query`) which does not exist in Hono | Use `generateRouter` which correctly emits `app.on('QUERY', path, ...)` |
 | Express route for `QUERY` intercepts `GET` or `POST` | `router.all(...)` emitted without method guard | Ensure Express registration includes `if (req.method !== 'QUERY') return next()` |
+| Elysia TypeScript build fails with `TS6133: 'params' is declared but never read` | Route handler destructures unused variables | Use `renderElysiaRouter` with selective zero-copy destructuring that unpacks only used fields |
+| Fastify response serialization latency higher than expected | Route missing inlined JSON Schema options | Ensure router is generated with Fastify target which inlines OAS 3.2 schemas into `schema: { response }` for `fast-json-stringify` JIT acceleration |
+| Regenerating router code overwrites developer business logic | Handlers written directly inside generated router file | Separate concerns using `generateHandlerContract` to emit `api.contract.ts`; implement handlers in independent service classes |
+| Syntax error in spec during `oa-gen mock --watch` crashes server | Spec modification introduces broken syntax | The watcher catches parse errors, logs them to stderr, and keeps previous routes active without terminating the server |
 | Multiple `in: 'querystring'` parameters throw error | OAS 3.2 permits only one raw querystring parameter per operation | Consolidate querystring definitions into a single parameter schema |
 | `isClientError` returns `false` across iframes or worker threads | Using `instanceof ClientError` across distinct execution realms | Use `isClientError(error)` structural duck-typing guard |
 | Non-retryable `POST` request retried on 500 error | Endpoint missing explicit retryability configuration | Retries only trigger on idempotent verbs (`GET`, `HEAD`, `OPTIONS`, `DELETE`) or with explicit `x-oa-sdk-retryable: true` |

@@ -1,14 +1,24 @@
-/** Node entrypoint for router stub generation. */
+/** Node entrypoint for router stub and handler contract generation. */
 
 import type { OasDocument, ParsedDocument } from '@oa-sdk/parser'
 import { assertParsedDocumentComplete, isParsedDocument, parseDocument } from '@oa-sdk/parser'
-import { generateRouterFromParsed, type RouterRenderOptions } from './generate-router-renderer.js'
+import {
+  generateRouterFromParsed,
+  type RouterRenderOptions,
+  type RouterTarget,
+  type RouterMode,
+} from './generate-router-renderer.js'
+import {
+  generateHandlerContractFromParsed,
+  type HandlerContractOptions,
+} from './contracts/handler-contract.js'
 
-export type { RouterTarget } from './generate-router-renderer.js'
+export type { RouterTarget, RouterMode, RouterRenderOptions } from './generate-router-renderer.js'
+export type { HandlerContractOptions } from './contracts/handler-contract.js'
 
 export type RouterOptions = RouterRenderOptions & {
   /** OAS 파일 경로. 상대 외부 $ref 해소에 사용 */
-  basePath?: string
+  basePath?: string | undefined
 }
 
 /**
@@ -23,4 +33,20 @@ export function generateRouter(spec: OasDocument | ParsedDocument, options: Rout
       : parseDocument(spec)
   assertParsedDocumentComplete(doc, '@oa-sdk/router generateRouter')
   return generateRouterFromParsed(doc, options)
+}
+
+/**
+ * OAS 원본 문서 또는 ParsedDocument IR에서 순수 TypeScript 핸들러 계약을 생성합니다.
+ */
+export function generateHandlerContract(
+  spec: OasDocument | ParsedDocument,
+  options: HandlerContractOptions & { basePath?: string } = {},
+): string {
+  const doc = isParsedDocument(spec)
+    ? spec
+    : options.basePath !== undefined
+      ? parseDocument(spec, { basePath: options.basePath })
+      : parseDocument(spec)
+  assertParsedDocumentComplete(doc, '@oa-sdk/router generateHandlerContract')
+  return generateHandlerContractFromParsed(doc, options)
 }

@@ -72,6 +72,7 @@ const manifestSpecs = [
 ] as const
 
 const undocumentedOaGenCommands = new Set([
+  'init',
   'generate',
   'typegen',
   'lint',

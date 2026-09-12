@@ -1,6 +1,6 @@
 {
   "name": "@oa-sdk/codegen",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "description": "Drizzle/TS ↔ OpenAPI bidirectional code generation bridge",
   "private": false,
   "type": "module",

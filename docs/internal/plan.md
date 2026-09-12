@@ -28,9 +28,9 @@ Status: active
 | 단계 (Phase) | 목표 및 핵심 마일스톤 | 완료 증거 | 상태 |
 | :--- | :--- | :--- | :---: |
 | **Phase 1: 코어 플랫폼 및 2계층 격리 배포 완비** | OAS 3.2 Zod 4 생성기, AST 양방향 동기화, Samchon 5대 개선, 2계층 격리 릴리스 파이프라인 및 Sigstore SLSA Provenance npm 배포 | `2026-09-11-core-release` 배포 완료, 6종 패키지 npm 라이브, 소비자 스모크 테스트 100% 통과 | **완료 (Done)** |
-| **Phase 2: 개발자 경험(DX) 및 마찰 제로 온보딩** | `oa-gen init` 대화형 온보딩 CLI, VS Code 인라인 타입 진단, `.ts` 소스 변경 실시간 반영 `oa-gen mock --watch` 핫 리로드 | `oa-gen init` 스캐폴더, JSDoc `@oaOperation` 실시간 파싱 및 가상 프로그램 핫 스왑 테스트 통과 | **진행 중 (Active)** |
+| **Phase 2: 개발자 경험(DX) 및 마찰 제로 온보딩** | `oa-gen init` 타깃 분리형 온보딩 CLI, 엄격 런타임 격리(Bun vs Node), 산출물 경로 라우팅 커스터마이징(`outputRouting`), `.ts` 소스 변경 실시간 반영 `oa-gen mock --watch` 핫 리로드, 전용 에이전트 스킬 `oa-onboarding` 및 3계층 온보딩 플레이북 | `oa-gen init` 6대 프로필(Fastify, Elysia, Hono, Express, NestJS, Generic), 스키마 디텍터, 패키지 패처, `outputRouting` 경로/임포트/고아정리 엔진, `mock --watch` 다중 포맷 핫 스왑 테스트 통과, `onboarding-playbook.md` 및 `oa-onboarding` 스킬 완비 | **완료 (Done)** |
 | **Phase 3: 엔터프라이즈 CI/CD 및 드리프트 자동 방어** | PR 단위 Breaking Change 자동 차단 봇, 프로덕션 런타임 드리프트(`oa-gen drift`) 크론 모니터링 및 알림, 멀티 서비스 원격 스키마 연합(Federation) | GitHub Actions PR 코멘트 봇, Slack/Webhook 드리프트 알림 어댑터, 교차 서비스 `$ref` 번들러 | **계획 (Planned)** |
-| **Phase 4: 풀스택 클라이언트/서버 런타임 확장** | TanStack Query / React Query 훅 생성기(`@oa-sdk/client`), Fastify / Elysia 고성능 라우터 스텁(`@oa-sdk/router`), `JsonPrimitive<T>` Zero-copy 직렬화 가속 | 생성된 훅의 React 19 컴파일 및 SSR 테스트, Fastify 벤치마크, AOT 타입 가드 벤치마크 통과 | **향후 과제 (Future)** |
+| **Phase 4: 풀스택 클라이언트/서버 런타임 확장** | TanStack Query v5 3계층(Keys/Options/Hooks) 생성기(`@oa-sdk/client`, `oa-gen generate:tanstack`), 다중 프레임워크 라우터 스텁 및 순수 핸들러 계약 분리(`@oa-sdk/router`), `JsonPrimitive<T>` Zero-copy 직렬화 가속 | 생성된 훅의 React 19 컴파일 및 SSR 테스트, TanStack Query v5 3계층 아키텍처 검증, Fastify/Elysia/Hono/Express 라우터 및 핸들러 계약 E2E 패리티 테스트 통과 | **완료 (Done)** |
 
 ### 단계별 상세 구현 명세 (Practical Viability Specifications)
 
@@ -39,14 +39,27 @@ Status: active
 - **Samchon 5대 코어 개선**: 24종 구문 특성 분류기(`audit:shape`), `JsonPrimitive<T>` 와이어 타입, `@oaOperation` JSDoc 라우트 추출, TypeChecker 심볼 ID 순환 참조 DFS 탐지, transitive tsconfig universe 캐시 무효화.
 - **2계층 격리 릴리스 파이프라인**: 9대 사전 검증 관문(`release:preflight`) $\rightarrow$ 무결성 아티팩트 익스포터(`release:export`) $\rightarrow$ 배포 전용 리포지토리(`oa-sdk-releases`) $\rightarrow$ Sigstore SLSA v1 Provenance 연동 공용 npm 레지스트리 배포 완료.
 
-#### 2. Phase 2: 개발자 경험(DX) 및 마찰 제로 온보딩 (진행 중 🚀)
-- **`oa-gen init` 대화형 스캐폴더**:
-  - 기존 프로젝트(NestJS, Express, FastAPI, Next.js 등)에 진입하여 프레임워크와 스키마 위치를 자동 감지하고 `oa.config.ts` 및 기본 거버넌스 스크립트 1클릭 주입.
+#### 2. Phase 2: 개발자 경험(DX) 및 마찰 제로 온보딩 (완료 ✅)
+- **`oa-gen init` 타깃 분리형 대화형/비대화형 온보딩 엔진**:
+  - 기존 프로젝트(Fastify, Elysia, Hono, Express, NestJS, Generic)에 진입하여 프레임워크와 스키마 위치를 자동 감지하고 `oa.config.ts` 및 최적화된 거버넌스 스크립트 1클릭 주입.
+  - **Strategy Pattern 기반 6대 타깃 프로필**: 각 프레임워크에 특화된 설정 및 스크립트 도출 (`packages/codegen/src/cli/lib/init/targets/`).
+  - **엄격한 런타임 격리 (Strict Runtime Isolation)**: Bun/Elysia 프로젝트는 순수 Bun 스크립트(`bun --watch`, `bun x oa-gen`)와 `@types/bun` devDependency만 주입하여 Node 도구(`tsx`, `nodemon`, `@types/node`) 오염을 원천 방지; Node/Fastify 프로젝트는 Node ESM(`tsx watch`) 기반 구성.
+  - **재귀적 스키마 감지기 (`common/schema-detector.ts`)**: 디렉토리 트리를 순회하여 `.tsp`, `openapi.yaml`, `openapi.json`, `@oaOperation` JSDoc 소스를 신뢰도 점수 기반으로 자동 식별.
+  - **비파괴적 패키지 패처 (`common/package-patcher.ts`)**: 공백/탭 들여쓰기, CRLF/LF 개행, 기존 스크립트 보존 및 충돌 방어(`--force` 제어)가 완비된 안전한 `package.json` 병합.
+- **실시간 소스 관측 Mock Server (`oa-gen mock --watch`)**:
+  - `spec-watcher.ts`를 통해 TypeSpec(`.tsp`), OpenAPI(`.yaml`, `.json`), `@oaOperation` JSDoc(`.ts`) 파일을 100ms 디바운스로 실시간 관측.
+  - 파일 수정 시 인메모리 재컴파일 후 `@oa-sdk/mock-server`의 원자적 `server.updateSpec(newDoc)` 라우트 스왑을 호출하여 소켓 단절이나 프로세스 재시작 없이 즉각 핫 스왑.
+  - 문법 오류 발생 시 에러 쉴딩(Error Shielding)을 통해 기존 정상 라우트를 유지하여 클라이언트 중단 방지.
+- **프로젝트 온보딩 플레이북 및 전용 에이전트 스킬**:
+  - `docs/guides/onboarding-playbook.md`: Greenfield/Brownfield 3계층 점진적 가치 도입 사다리 및 5대 무가치 관리 포인트 제거 가이드.
+  - `.agents/skills/oa-onboarding/SKILL.md`: Antigravity/AGY 규격을 준수하는 권위 있는 에이전트 온보딩 지침.
+- **산출물 경로 라우팅 커스터마이징 엔진 (`outputRouting`)**:
+  - `oa.config.ts`의 `outputRouting` 설정을 통해 생성 산출물의 디렉토리 레이아웃을 패턴(`{tag}`, `{kind}`, `{operationId}` 등) 및 규칙 기반으로 완벽히 제어 (`packages/codegen/src/routing/`).
+  - 서로 다른 폴더로 분산 방출되는 산출물 간의 상대 import 경로(`path.relative`) 및 `tsconfig.json` path alias 자동 계산.
+  - `.oa-manifest.json` 기반의 3단계 안전 고아 파일 정리(`pruneOrphans: true`)를 지원하여 수동 작성 코드를 손상시키지 않고 이전 산출물만 안전하게 제거.
 - **VS Code / TypeScript LSP 인라인 진단**:
   - `audit:shape`를 LSP/TypeScript 플러그인과 결합하여 OpenAPI로 투영 불가능한 `unsupported` 타입(조건부/맵드 타입) 선언 시 에디터 상에서 실시간 밑줄 경고 표시.
   - `/** @oaOperation <METHOD> <PATH> */` JSDoc 태그의 자동완성 및 유효 경로 문법 실시간 검사.
-- **실시간 소스 관측 Mock Server (`oa-gen mock --watch`)**:
-  - 기존 `.tsp` 파일뿐만 아니라 `@oaOperation` JSDoc이 작성된 `.ts` 소스 파일 수정 시에도 서버 재시작 없이 라우트 테이블 및 응답 스키마를 즉각 핫 스왑.
 
 #### 3. Phase 3: 엔터프라이즈 CI/CD 및 드리프트 자동 방어 (계획 ⏳)
 - **Pull Request Breaking Change 가드 봇**:
@@ -56,7 +69,9 @@ Status: active
 - **멀티 서비스 스키마 연합 (Federation & Contract Registry)**:
   - 대규모 마이크로서비스 아키텍처 환경에서 여러 서비스의 OpenAPI 조각을 안정적으로 교차 참조(`$ref`)하고 통합 번들링하는 원격 레지스트리 캐시 레이어 구현.
 
-#### 4. Phase 4: 고성능 백엔드 라우터 스텁 및 풀스택 런타임 확장 (중점 설계 🎯)
+#### 4. Phase 4: 고성능 백엔드 라우터 스텁 및 풀스택 런타임 확장 (완료 ✅)
+
+> **완료 안내**: 다중 프레임워크 라우터 스텁(Fastify JIT 스키마 인라인 가속, Bun Elysia Zero-copy 구조분해, 현대화된 Hono 및 Express)과 순수 핸들러 계약 분리(`generateHandlerContract`)가 `@oa-sdk/router`에 구현 완료되었으며, TanStack Query v5 3계층 생성기(Key Factory, Options Factory, Hook Factory)가 `@oa-sdk/client` 및 `oa-gen generate:tanstack`에 완비되어 풀스택 클라이언트/서버 런타임 확장이 완료되었습니다.
 
 백엔드 엔지니어가 OpenAPI 스펙을 기반으로 서버를 구축할 때, 보일러플레이트 없이 비즈니스 로직에만 집중할 수 있도록 **다중 프레임워크 지원 라우터 스텁 생성기 (`@oa-sdk/router`)**를 대폭 고도화한다.
 
@@ -128,12 +143,15 @@ Status: active
     }
     ```
 
-##### 4.5 CLI 명령어 확장
-*   `oa-gen generate:router --spec <path> --target <hono|express|fastify|elysia> --output <dir>` 명령어를 신설하여 개발자가 한 줄 명령으로 원하는 프레임워크의 라우터 스텁과 계약 인터페이스를 즉각 방출할 수 있도록 지원.
+##### 4.5 CLI 및 프로그래밍 방식 연동
+*   `@oa-sdk/router`의 `generateRouter` 및 `generateHandlerContract` API를 통해 프레임워크 라우터 바인더와 순수 핸들러 계약을 원클릭으로 생성합니다.
+*   `oa-gen init` 온보딩 시 프로젝트의 프레임워크에 맞추어 `npm run generate:router` 스크립트(`oa-gen generate --target <framework>`)가 `package.json`에 비파괴적으로 등록되어 표준화된 코드젠 파이프라인을 즉시 사용할 수 있습니다.
 
-##### 4.6 부가 확장 (옵셔널)
-*   **프론트엔드 React/Vue 데이터 페칭 훅 (옵션)**: 웹 프론트엔드 개발 시 `fetch`를 직접 호출하지 않고 캐싱/로딩 관리를 위해 흔히 쓰는 `useQuery()` 훅을 OpenAPI 엔드포인트에 맞춰 1:1 자동 생성해주는 기능.
-*   **Zero-Copy 와이어 직렬화 가속**: `JsonPrimitive<T>`와 `@oa-sdk/ast-sync`의 독립형 AOT 타입 가드를 결합하여 런타임 유효성 검사 오버헤드를 극소화하는 고속 직렬화/역직렬화 엔진 구축.
+##### 4.6 TanStack Query (React Query) v5 3계층 코드 생성기 (`oa-gen generate:tanstack`) (완료 ✅)
+*   **Tier 1 — 계층형 쿼리 키 트리 (`key-factory-generator.ts`)**: `userKeys.all`, `userKeys.lists()`, `userKeys.list(filters)`, `userKeys.details()`, `userKeys.detail(id)` 등 타입 안전 튜플 구조 자동 생성.
+*   **Tier 2 — 순수 Options 팩토리 (`options-factory-generator.ts`)**: `@tanstack/react-query`의 `queryOptions()` 및 `mutationOptions()`를 순수 팩토리 함수로 생성. 프론트엔드 런타임 의존성 없이 SSR prefetching(`queryClient.prefetchQuery`) 및 클라이언트 훅에서 공용 사용 가능.
+*   **Tier 3 — 클라이언트 컴포지션 훅 (`hook-factory-generator.ts`)**: React 19 호환 `use<Op>Query`, `use<Op>Mutation`, `useSuspense<Op>Query` 훅 생성.
+*   **Zero-Copy 와이어 직렬화 안전성**: `@oa-sdk/core`의 `JsonPrimitive<T>`와 결합하여 네트워크 직렬화 경계의 100% 타입 안전성 보장.
 
 현재 Core Platform의 태스크 체크리스트는 [todo.md](./todo.md)에, 아티팩트 릴리스 준비 절차는 [Artifact Release Preparation](../guides/release-preparation.md)에 둔다.
 

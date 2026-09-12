@@ -108,7 +108,7 @@ async function runConfigDrivenValidation(config: OaConfig, rootDir: string): Pro
       } catch (err: any) {
         rows.push({
           id: target.id,
-          profile: target.profile,
+          profile: target.profile ?? 'full-api-document',
           status: 'FAIL',
           errors: 1,
           warnings: 0,
@@ -125,7 +125,7 @@ async function runConfigDrivenValidation(config: OaConfig, rootDir: string): Pro
       } catch (err: any) {
         rows.push({
           id: target.id,
-          profile: target.profile,
+          profile: target.profile ?? 'full-api-document',
           status: 'FAIL',
           errors: 1,
           warnings: 0,
@@ -185,7 +185,7 @@ async function runConfigDrivenValidation(config: OaConfig, rootDir: string): Pro
 
     rows.push({
       id: target.id,
-      profile: target.profile,
+      profile: target.profile ?? 'full-api-document',
       status: isPass ? 'PASS' : 'FAIL',
       errors: totalErrors,
       warnings: totalWarnings,

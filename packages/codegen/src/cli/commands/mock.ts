@@ -1,11 +1,10 @@
-import { readFile } from 'node:fs/promises'
-import { parse as parseYaml } from 'yaml'
 import { createNodeMockServer, type NodeMockServer } from '@oa-sdk/mock-server'
 import type { OasDocument } from '@oa-sdk/parser'
 import type { Command, CommandArgValue, CommandContext } from '../lib/types.js'
 import { optStr, bool, resolveArgPath } from '../lib/args.js'
 import { CliExitError } from '../lib/errors.js'
 import { compileTypeSpecInMemory, watchTypeSpec, type TypeSpecWatcher } from '../lib/typespec-mock-compiler.js'
+import { parseSpecDocument, watchSpec, type SpecWatcher } from '../lib/spec-watcher.js'
 
 export interface MockCommandContext extends CommandContext {
   signal?: AbortSignal
@@ -24,7 +23,7 @@ export const mock: Command = {
     spec: {
       type: 'string',
       short: 's',
-      description: 'Path to OpenAPI JSON/YAML file (alternative to --tsp)',
+      description: 'Path to OpenAPI JSON/YAML file or TypeScript source file with @oaOperation (alternative to --tsp)',
     },
     port: {
       type: 'string',
@@ -38,7 +37,7 @@ export const mock: Command = {
     watch: {
       type: 'boolean',
       short: 'w',
-      description: 'Watch .tsp files and hot-reload routes without restarting the server',
+      description: 'Watch specification files (.yaml, .json, .tsp, .ts) and hot-reload routes without restarting the server',
     },
   },
   async run(args: Record<string, CommandArgValue>, context?: CommandContext) {
@@ -135,11 +134,11 @@ export const mock: Command = {
 
     if (specPath) {
       const resolvedSpec = resolveArgPath(args, 'spec', context?.projectRoot)
-      console.log(`[oa-gen mock] Loading OpenAPI specification: ${resolvedSpec}...`)
+      console.log(`[oa-gen mock] Loading specification: ${resolvedSpec}...`)
       let doc: OasDocument
       try {
-        const raw = await readFile(resolvedSpec, 'utf-8')
-        doc = (resolvedSpec.endsWith('.json') ? JSON.parse(raw) : parseYaml(raw)) as OasDocument
+        const parsed = await parseSpecDocument(resolvedSpec)
+        doc = parsed.document
       } catch (err: any) {
         console.error(`[oa-gen mock] Failed to read/parse specification: ${err.message}`)
         throw new CliExitError(1)
@@ -149,6 +148,28 @@ export const mock: Command = {
       await server.start()
       console.log(`🚀 Zero-Build Mock Server running at: ${server.url}`)
       console.log(`📄 Specification: ${resolvedSpec}`)
+
+      let watcher: SpecWatcher | null = null
+
+      if (isWatch) {
+        console.log(`👀 Watch mode enabled: monitoring ${resolvedSpec} for changes...`)
+        watcher = watchSpec(resolvedSpec, {
+          onChange: async (newDoc) => {
+            console.log(`[oa-gen mock:watch] Change detected, reloading specification...`)
+            try {
+              const { routesCount } = server.updateSpec(newDoc)
+              console.log(`🔄 [oa-gen mock:watch] Hot-reloaded routes successfully (${routesCount} operations active)`)
+            } catch (err: any) {
+              console.error(`❌ [oa-gen mock:watch] Routing error, keeping previous routes active:`)
+              console.error(err.message)
+            }
+          },
+          onError: (err) => {
+            console.error(`❌ [oa-gen mock:watch] Specification parse error, keeping previous routes active:`)
+            console.error(err instanceof Error ? err.message : String(err))
+          },
+        })
+      }
 
       if (mockContext?.onServerReady) {
         await mockContext.onServerReady(server)
@@ -165,6 +186,7 @@ export const mock: Command = {
             mockContext.signal.removeEventListener('abort', shutdown)
           }
           console.log('\n[oa-gen mock] Shutting down mock server...')
+          if (watcher) watcher.close()
           void server.stop().finally(() => {
             console.log('[oa-gen mock] Server stopped cleanly.')
             resolvePromise()

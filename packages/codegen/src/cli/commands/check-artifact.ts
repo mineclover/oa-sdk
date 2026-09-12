@@ -414,7 +414,7 @@ async function handleConfigDrivenCheck(
       allFresh = false
       targetResults.push({
         id: resolvedTarget.id,
-        profile: resolvedTarget.profile,
+        profile: resolvedTarget.profile ?? 'full-api-document',
         artifact: relArtifactPath,
         status: 'missing',
         fresh: false,
@@ -427,7 +427,7 @@ async function handleConfigDrivenCheck(
       allFresh = false
       targetResults.push({
         id: resolvedTarget.id,
-        profile: resolvedTarget.profile,
+        profile: resolvedTarget.profile ?? 'full-api-document',
         artifact: relArtifactPath,
         status: 'corrupt',
         fresh: false,
@@ -444,7 +444,7 @@ async function handleConfigDrivenCheck(
       allFresh = false
       targetResults.push({
         id: resolvedTarget.id,
-        profile: resolvedTarget.profile,
+        profile: resolvedTarget.profile ?? 'full-api-document',
         artifact: relArtifactPath,
         status: 'corrupt',
         fresh: false,
@@ -460,7 +460,7 @@ async function handleConfigDrivenCheck(
       allFresh = false
       targetResults.push({
         id: resolvedTarget.id,
-        profile: resolvedTarget.profile,
+        profile: resolvedTarget.profile ?? 'full-api-document',
         artifact: relArtifactPath,
         status: 'corrupt',
         fresh: false,
@@ -478,7 +478,7 @@ async function handleConfigDrivenCheck(
       const differences = diffOpenApiDocuments(projected.openApiDoc, committedDoc)
       targetResults.push({
         id: resolvedTarget.id,
-        profile: resolvedTarget.profile,
+        profile: resolvedTarget.profile ?? 'full-api-document',
         artifact: relArtifactPath,
         status: 'drift',
         fresh: false,
@@ -489,7 +489,7 @@ async function handleConfigDrivenCheck(
     } else {
       targetResults.push({
         id: resolvedTarget.id,
-        profile: resolvedTarget.profile,
+        profile: resolvedTarget.profile ?? 'full-api-document',
         artifact: relArtifactPath,
         status: 'fresh',
         fresh: true,

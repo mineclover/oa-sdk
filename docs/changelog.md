@@ -2,6 +2,39 @@
 
 릴리스 단위가 아닌, 굵직한 surface 변경이 떨어졌을 때 한 항목으로 기록한다. 자세한 구현 상태는 [spec.md](./internal/spec.md), API 단일 소스는 [api-index.md](./internal/api-index.md), 기능↔테스트는 [feature-test-matrix.md](./internal/feature-test-matrix.md) 참조.
 
+## 2026-09-12 — Output routing, TanStack Query v5 3-tier generator, multi-framework routers, target onboarding, and live mock watch (`@oa-sdk/codegen` 0.8.0, `@oa-sdk/client` 0.2.0, `@oa-sdk/router` 0.2.0)
+
+모노레포의 5대 핵심 플랫폼 역량이 완비되어, 프론트엔드/백엔드 풀스택 코드 생성 및 개발자 경험(DX) 워크플로우를 포괄적으로 확장했다.
+
+- **산출물 경로 라우팅 커스터마이징 엔진 (`outputRouting`)**:
+  - `oa.config.ts`에 `outputRouting` 설정을 도입하여 템플릿 패턴(`{tag}`, `{kind}`, `{operationId}`, `{group}`, `{method}`, `{target}`) 및 케이싱 변환(`kebab`, `camel`, `pascal`)을 지원.
+  - 태그/메서드/오퍼레이션/종류별 세부 규칙 매처(`rules`) 및 산출물 분류별 디스패칭(`byKind`) 지원.
+  - 서로 다른 디렉토리로 분산 방출되는 산출물 간의 상대 import 경로(`path.relative`) 및 `tsconfig.json` path alias 자동 계산.
+  - `.oa-manifest.json` 기반의 3단계 안전 고아 파일 정리(`pruneOrphans: true`)로 수동 작성 코드 손상 없이 이전 생성 산출물만 안전하게 정리.
+- **TanStack Query (React Query) v5 3계층 코드 생성기 (`oa-gen generate:tanstack`)**:
+  - **Tier 1 (Key Factory)**: `*Keys` 계층형 쿼리 키 트리(`all`, `lists()`, `list(filters)`, `details()`, `detail(id)`) 자동 생성.
+  - **Tier 2 (Options Factory)**: `@tanstack/react-query`의 `queryOptions()` 및 `mutationOptions()`를 순수 팩토리 함수로 생성. 프론트엔드 런타임 의존성 없이 SSR prefetching(`queryClient.prefetchQuery`) 및 클라이언트 훅에서 공용 사용 가능.
+  - **Tier 3 (Hook Factory)**: React 19 호환 `use<Op>Query`, `use<Op>Mutation`, `useSuspense<Op>Query` 클라이언트 훅 생성.
+  - `oa-gen generate:tanstack --spec <path> --output <dir> [--tier 1|2|3|all]` CLI 지원 및 `outputRouting` 완벽 연동.
+  - 라우터 핸들러 계약 및 `@oa-sdk/client`와 100% 일치하는 와이어 파라미터/응답 타입 보장.
+- **다중 프레임워크 라우터 스텁 및 순수 핸들러 계약 분리 (`@oa-sdk/router`)**:
+  - **핸들러 계약 분리 패턴 (`*.contract.ts`)**: `generateHandlerContract`를 통해 비즈니스 로직 시그니처와 프레임워크 라우팅 코드를 물리적으로 분리하여 스펙 재컴파일 시 구현 코드 덮어쓰기 방지.
+  - **다중 프레임워크 라우터 바인더 (`generateRouter`)**:
+    - `fastify`: JIT 인라인 스키마 컴파일 및 `fast-json-stringify` 최적화 지원.
+    - `elysia`: Bun 네이티브 Zero-copy 컨텍스트 구조분해(`{ params, query, body, set }`) 및 메서드 체이닝 지원.
+    - `hono`: Cloudflare Workers, Node, Bun을 위한 Web 표준 Fetch 기반 라우터 생성.
+    - `express`: 레거시 및 기존 Express 미들웨어 호환 라우터 생성.
+- **타깃 분리형 대화형/비대화형 온보딩 엔진 (`oa-gen init`)**:
+  - `oa-gen init [--target <framework>] [--archetype <mvp|microservice|enterprise>] [--yes] [--dry-run] [--force]` 지원.
+  - 6대 타깃 프로필(`fastify`, `elysia`, `hono`, `express`, `nestjs`, `generic`) 및 3대 수명주기 아키타입 사전 설정.
+  - **엄격한 런타임 격리 (Strict Runtime Isolation)**: Bun 환경에는 순수 Bun 스크립트(`bun --watch`, `bun x oa-gen`)와 `@types/bun`만 주입하고 Node 도구 오염을 원천 차단; Node 환경에는 Node ESM 스크립트(`tsx watch`) 주입.
+  - `common/schema-detector.ts`를 통한 `.tsp`, `openapi.yaml`, `openapi.json`, `@oaOperation` JSDoc 소스 신뢰도 점수 기반 자동 식별.
+  - `common/package-patcher.ts`를 통한 들여쓰기/개행 보존 및 비파괴적 `package.json` 병합.
+- **실시간 소스 관측 Mock Server (`oa-gen mock --watch`)**:
+  - `.tsp`, `.yaml`, `.json`, `@oaOperation` 소스를 100ms 디바운스로 실시간 관측하여 인메모리 컴파일.
+  - `@oa-sdk/mock-server`의 원자적 `server.updateSpec(newDoc)` 라우트 스왑을 호출하여 소켓 단절이나 서버 재시작 없이 즉시 핫 리로드.
+  - 구문/컴파일 오류 시 기존 정상 라우트를 유지하는 에러 쉴딩(Error Shielding) 적용.
+
 ## 2026-08-30 — World stimulus and projection integrity (`0.5.0`)
 
 Breaking pre-1.0 World Model contract hardening: action role bindings now require

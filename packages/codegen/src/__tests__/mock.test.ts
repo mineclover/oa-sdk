@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { mkdirSync, rmSync, writeFileSync, existsSync } from 'node:fs'
 import { join, resolve } from 'node:path'
+import http from 'node:http'
 import type { NodeMockServer } from '@oa-sdk/mock-server'
 import type { OasDocument } from '@oa-sdk/parser'
 import { mock, type MockCommandContext } from '../cli/commands/mock.js'
@@ -371,6 +372,343 @@ describe('oa-gen mock CLI Command', () => {
     })
 
     expect(tested).toBe(true)
+  })
+
+  it('starts mock server and serves synthesized responses from TypeScript @oaOperation sources', async () => {
+    const tsFile = join(tmpDir, 'routes.ts')
+    writeFileSync(
+      tsFile,
+      `
+/**
+ * @summary Get active orders
+ * @oaOperation GET /api/orders
+ */
+export function getOrders() {
+  return []
+}
+`,
+    )
+
+    const abortController = new AbortController()
+
+    const context: MockCommandContext = {
+      projectRoot: repoRoot,
+      cwd: repoRoot,
+      signal: abortController.signal,
+      onServerReady: async (server) => {
+        try {
+          const res = await fetch(`${server.url}/api/orders`)
+          expect(res.status).toBe(200)
+          const body = (await res.json()) as any
+          expect(body.status).toBe('ok')
+          expect(body.operationId).toBe('getOrders')
+          expect(body.method).toBe('GET')
+          expect(body.path).toBe('/api/orders')
+        } finally {
+          abortController.abort()
+        }
+      },
+    }
+
+    await mock.run(
+      {
+        spec: tsFile,
+        port: '0',
+      },
+      context,
+    )
+  })
+
+  it('hot-reloads routes when OpenAPI specification is edited with --spec and --watch', async () => {
+    const specFile = join(tmpDir, 'watch-spec.yaml')
+    writeFileSync(
+      specFile,
+      `
+openapi: "3.2.0"
+info:
+  title: Live YAML API
+  version: "1.0.0"
+paths:
+  /v1/health:
+    get:
+      operationId: getHealth
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              example:
+                status: ok
+`,
+    )
+
+    const abortController = new AbortController()
+
+    const context: MockCommandContext = {
+      projectRoot: repoRoot,
+      cwd: repoRoot,
+      signal: abortController.signal,
+      onServerReady: async (server) => {
+        try {
+          // 1. Initial route works
+          const res1 = await fetch(`${server.url}/v1/health`)
+          expect(res1.status).toBe(200)
+          const body1 = (await res1.json()) as any
+          expect(body1.status).toBe('ok')
+
+          // 2. Hot-reload target is not yet present
+          const resBefore = await fetch(`${server.url}/v2/metrics`)
+          expect(resBefore.status).toBe(404)
+
+          // 3. Edit file on disk
+          writeFileSync(
+            specFile,
+            `
+openapi: "3.2.0"
+info:
+  title: Live YAML API v2
+  version: "2.0.0"
+paths:
+  /v2/metrics:
+    get:
+      operationId: getMetrics
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              example:
+                cpu: 42
+`,
+          )
+
+          // 4. Poll until the new route is live
+          let reloaded = false
+          for (let i = 0; i < 30; i++) {
+            await new Promise((r) => setTimeout(r, 50))
+            const check = await fetch(`${server.url}/v2/metrics`)
+            if (check.status === 200) {
+              const checkBody = (await check.json()) as any
+              expect(checkBody.cpu).toBe(42)
+              reloaded = true
+              break
+            }
+          }
+          expect(reloaded).toBe(true)
+
+          // 5. Old route is now 404
+          const oldCheck = await fetch(`${server.url}/v1/health`)
+          expect(oldCheck.status).toBe(404)
+        } finally {
+          abortController.abort()
+        }
+      },
+    }
+
+    await mock.run(
+      {
+        spec: specFile,
+        watch: true,
+        port: '0',
+      },
+      context,
+    )
+  })
+
+  it('keeps previous routes active when watched specification has syntax errors', async () => {
+    const specFile = join(tmpDir, 'resilient.json')
+    writeFileSync(
+      specFile,
+      JSON.stringify({
+        openapi: '3.2.0',
+        info: { title: 'Resilient API', version: '1.0.0' },
+        paths: {
+          '/stable': {
+            get: {
+              operationId: 'getStable',
+              responses: {
+                '200': {
+                  description: 'OK',
+                  content: { 'application/json': { example: { stable: true } } },
+                },
+              },
+            },
+          },
+        },
+      }),
+    )
+
+    const abortController = new AbortController()
+
+    const context: MockCommandContext = {
+      projectRoot: repoRoot,
+      cwd: repoRoot,
+      signal: abortController.signal,
+      onServerReady: async (server) => {
+        try {
+          // 1. Initial route works
+          const res1 = await fetch(`${server.url}/stable`)
+          expect(res1.status).toBe(200)
+
+          // 2. Corrupt the file
+          writeFileSync(specFile, '{ broken json syntax !!!')
+
+          // 3. Wait past debounce
+          await new Promise((r) => setTimeout(r, 150))
+
+          // 4. Stable route still responds 200 OK (error was isolated, previous routes kept)
+          const res2 = await fetch(`${server.url}/stable`)
+          expect(res2.status).toBe(200)
+          const body2 = (await res2.json()) as any
+          expect(body2.stable).toBe(true)
+
+          // 5. Fix the file with a new route
+          writeFileSync(
+            specFile,
+            JSON.stringify({
+              openapi: '3.2.0',
+              info: { title: 'Resilient API v2', version: '2.0.0' },
+              paths: {
+                '/fixed': {
+                  get: {
+                    operationId: 'getFixed',
+                    responses: {
+                      '200': {
+                        description: 'OK',
+                        content: { 'application/json': { example: { fixed: true } } },
+                      },
+                    },
+                  },
+                },
+              },
+            }),
+          )
+
+          // 6. Poll until fixed route is live
+          let fixed = false
+          for (let i = 0; i < 30; i++) {
+            await new Promise((r) => setTimeout(r, 50))
+            const check = await fetch(`${server.url}/fixed`)
+            if (check.status === 200) {
+              fixed = true
+              break
+            }
+          }
+          expect(fixed).toBe(true)
+        } finally {
+          abortController.abort()
+        }
+      },
+    }
+
+    await mock.run(
+      {
+        spec: specFile,
+        watch: true,
+        port: '0',
+      },
+      context,
+    )
+  })
+
+  it('preserves Keep-Alive TCP sockets across specification hot-reloads (zero socket disconnects)', async () => {
+    const specFile = join(tmpDir, 'keep-alive-spec.json')
+    const initialDoc: OasDocument = {
+      openapi: '3.2.0',
+      info: { title: 'Keep-Alive Test', version: '1.0.0' },
+      paths: {
+        '/initial': {
+          get: {
+            operationId: 'getInitial',
+            responses: {
+              '200': {
+                description: 'Initial',
+                content: { 'application/json': { example: { route: 'initial' } } },
+              },
+            },
+          },
+        },
+      },
+    }
+    writeFileSync(specFile, JSON.stringify(initialDoc, null, 2))
+
+    const abortController = new AbortController()
+    const agent = new http.Agent({ keepAlive: true, maxSockets: 1 })
+
+    const context: MockCommandContext = {
+      projectRoot: repoRoot,
+      cwd: repoRoot,
+      signal: abortController.signal,
+      onServerReady: async (server) => {
+        try {
+          let socketA: any
+          let socketB: any
+
+          // Step 1: Send request to initial route and capture underlying socket
+          await new Promise<void>((resolvePromise, rejectPromise) => {
+            const req = http.request(`${server.url}/initial`, { agent }, (res) => {
+              res.resume()
+              res.on('end', resolvePromise)
+            })
+            req.on('socket', (sock) => {
+              socketA = sock
+            })
+            req.on('error', rejectPromise)
+            req.end()
+          })
+
+          // Step 2: Hot-reload specification via updateSpec
+          const updatedDoc: OasDocument = {
+            openapi: '3.2.0',
+            info: { title: 'Keep-Alive Test Updated', version: '2.0.0' },
+            paths: {
+              '/updated': {
+                get: {
+                  operationId: 'getUpdated',
+                  responses: {
+                    '200': {
+                      description: 'Updated',
+                      content: { 'application/json': { example: { route: 'updated' } } },
+                    },
+                  },
+                },
+              },
+            },
+          }
+          const updateResult = server.updateSpec(updatedDoc)
+          expect(updateResult.routesCount).toBe(1)
+
+          // Step 3: Send request to updated route using the SAME keep-alive agent
+          await new Promise<void>((resolvePromise, rejectPromise) => {
+            const req = http.request(`${server.url}/updated`, { agent }, (res) => {
+              res.resume()
+              res.on('end', resolvePromise)
+            })
+            req.on('socket', (sock) => {
+              socketB = sock
+            })
+            req.on('error', rejectPromise)
+            req.end()
+          })
+
+          // Assert: Exactly the same socket instance, not closed or destroyed
+          expect(socketA).toBeDefined()
+          expect(socketB).toBe(socketA)
+          expect(socketA.destroyed).toBe(false)
+        } finally {
+          agent.destroy()
+          abortController.abort()
+        }
+      },
+    }
+
+    await mock.run(
+      {
+        spec: specFile,
+        port: '0',
+      },
+      context,
+    )
   })
 })
 

@@ -27,8 +27,25 @@ export const generate: Command = {
     'merge-into':     { type: 'string', description: '기존 spec.yaml에 병합' },
     schemas:          { type: 'string', description: '생성 대상 필터 (Drizzle: select,insert,update / 가드: 컴포넌트/가드명 목록)' },
     split:            { type: 'boolean', description: '개별 가드 모듈 분할 생성 (guards/<TypeName>.js)' },
+    tanstack:         { type: 'boolean', description: 'TanStack Query 클라이언트 옵션/키 팩토리 생성' },
+    spec:             { type: 'string', short: 's', description: 'OpenAPI 3.1/3.2 spec 파일 경로' },
+    tier:             { type: 'string', description: '생성 티어 필터 (all, keys, options, hooks)' },
+    framework:        { type: 'string', description: '대상 UI 프레임워크 (react, vue, svelte)' },
+    'types-import':   { type: 'string', description: '타입 import 지정자' },
+    'client-import':  { type: 'string', description: '클라이언트 SDK import 지정자' },
   },
   async run(args, context) {
+    const isTanstack = bool(args, 'tanstack')
+    if (isTanstack) {
+      const { generateTanstackCommand } = await import('./generate-tanstack.js')
+      const mappedArgs = { ...args }
+      if (!mappedArgs['spec'] && (mappedArgs['input'] || mappedArgs['target'])) {
+        mappedArgs['spec'] = mappedArgs['input'] ?? mappedArgs['target']
+      }
+      await generateTanstackCommand.run(mappedArgs, context)
+      return
+    }
+
     const target = optStr(args, 'target')
     const drizzlePath = optStr(args, 'drizzle-schema')
     const configPath = optStr(args, 'config')
@@ -117,7 +134,7 @@ async function runConfigDrivenPipeline(config: OaConfig, rootDir: string): Promi
     const relSchema = relative(rootDir, res.jsonSchemaPath)
     const opInfo = res.operationCount > 0 ? `${res.operationCount} ops, ` : ''
     const titleInfo = res.target.title ? `(${res.target.title}) ` : ''
-    console.log(` ✅ ${res.target.id.padEnd(20)} [${res.target.profile.padEnd(18)}] ${titleInfo}-> ${opInfo}${res.schemaCount} schemas`)
+    console.log(` ✅ ${res.target.id.padEnd(20)} [${(res.target.profile ?? 'full-api-document').padEnd(18)}] ${titleInfo}-> ${opInfo}${res.schemaCount} schemas`)
     console.log(`    - OpenAPI 3.1: ${relOpenApi}`)
     console.log(`    - JSON Schema: ${relSchema}`)
   }
