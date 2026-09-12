@@ -51,18 +51,89 @@ Status: active
 #### 3. Phase 3: 엔터프라이즈 CI/CD 및 드리프트 자동 방어 (계획 ⏳)
 - **Pull Request Breaking Change 가드 봇**:
   - PR 생성/업데이트 시 CI 워크플로우에서 `oa-gen diff --fail-on-breaking`을 자동 수행하고, 스펙 변경 내역과 하위 호환성 위험도를 PR 마크다운 코멘트로 자동 게시.
-- **런타임 드리프트 크론 모니터링 (Runtime Drift Sentinel)**:
-  - 배포된 운영/스테이징 API 서버(`--runtime-openapi-url`)를 대상으로 주기적인 스펙 드리프트를 감지하고, 비정상 괴리 발생 시 웹훅/Slack/PagerDuty로 구조화된 경보 발송.
+- **운영 서버 스펙 일치 여부 정기 검사 (`oa-gen drift`)**:
+  - 이미 운영(Production)에 배포된 서버의 라이브 엔드포인트(`--runtime-openapi-url`)를 주기적으로 호출하여, 개발자가 로컬에서 수정한 스펙과 실제 배포된 서버 사이에 스키마 괴리(Drift)가 생기지 않았는지 대조하고 불일치 시 알림.
 - **멀티 서비스 스키마 연합 (Federation & Contract Registry)**:
   - 대규모 마이크로서비스 아키텍처 환경에서 여러 서비스의 OpenAPI 조각을 안정적으로 교차 참조(`$ref`)하고 통합 번들링하는 원격 레지스트리 캐시 레이어 구현.
 
-#### 4. Phase 4: 풀스택 클라이언트/서버 런타임 확장 (향후 과제 🔮)
-- **프론트엔드 React Query / TanStack Query 훅 생성기**:
-  - `@oa-sdk/client`에서 단순 Fetch SDK뿐만 아니라, React/Vue/Svelte 생태계를 위한 타입 세이프 `useQuery`, `useMutation`, `useInfiniteQuery` 훅 자동 방출.
-- **차세대 고성능 백엔드 라우터 스텁**:
-  - Hono, Express 외에 Node.js 진영의 Fastify 및 Bun 생태계의 Elysia를 지원하는 고성능 비동기 라우터 스텁 생성 지원.
-- **Zero-Copy 와이어 직렬화 가속**:
-  - `JsonPrimitive<T>`와 `@oa-sdk/ast-sync`의 독립형 AOT 타입 가드를 결합하여 런타임 유효성 검사 오버헤드를 극소화하는 고속 직렬화/역직렬화 엔진 구축.
+#### 4. Phase 4: 고성능 백엔드 라우터 스텁 및 풀스택 런타임 확장 (중점 설계 🎯)
+
+백엔드 엔지니어가 OpenAPI 스펙을 기반으로 서버를 구축할 때, 보일러플레이트 없이 비즈니스 로직에만 집중할 수 있도록 **다중 프레임워크 지원 라우터 스텁 생성기 (`@oa-sdk/router`)**를 대폭 고도화한다.
+
+##### 4.1 핵심 아키텍처: 핸들러 계약 분리 패턴 (Handler Contract Separation)
+*   **문제점**: 라우터 파일에 비즈니스 로직을 인라인으로 작성하면, OpenAPI 스펙이 변경되어 코드를 재생성할 때 개발자의 구현 코드가 덮어씌워지는(Overwrite) 치명적인 충돌 발생.
+*   **해결책**: 순수 비즈니스 로직 인터페이스(`routes.contract.ts`)와 프레임워크별 라우팅 바인더(`routes.<framework>.ts`)를 물리적으로 분리 방출.
+    1. `routes.contract.ts`: 순수 TypeScript로 작성된 핸들러 시그니처 (프레임워크 무관).
+       ```typescript
+       export interface UsersApiHandlers {
+         getUserById(params: { id: string }, query: GetUserQuery): Promise<UserResponse>;
+         createUser(body: CreateUserBody): Promise<UserResponse>;
+       }
+       ```
+    2. 개발자는 위 인터페이스를 만족하는 Service/Controller 클래스만 작성.
+    3. 프레임워크 라우터 팩토리에 해당 서비스를 주입하여 1줄로 라우트 바인딩 완료.
+
+##### 4.2 타깃 프레임워크별 상세 설계
+
+| 타깃 | 런타임 환경 | 라우터 구조 및 특징 | 핵심 가치 |
+| :--- | :--- | :--- | :--- |
+| **`hono`** (기본) | Cloudflare Workers, Node, Bun, Deno | `const app = new Hono()` 및 Web Fetch 표준 기반 | 에지(Edge) 및 서버리스 최적화 |
+| **`express`** | Node.js | `const router = Router()` 및 Express 미들웨어 호환 | 레거시 및 기존 Express 프로젝트 연동 |
+| **`fastify`** (신규) | Node.js | `FastifyPluginAsync` 플러그인 모듈 및 JSON Schema 인라인화 | Node.js 최고 수준 처리량 및 `fast-json-stringify` 직렬화 가속 |
+| **`elysia`** (신규) | Bun | `new Elysia().get().post()` 메서드 체이닝 및 구조분해 컨텍스트 | Bun 네이티브 C++ 엔진 성능 극대화 및 간결한 DX |
+
+##### 4.3 Fastify 라우터 스텁 상세 설계 (`target: 'fastify'`)
+*   **Fastify 플러그인 표준 준수**: `FastifyPluginAsync` 시그니처로 방출하여 프리픽스(`/api/v1`) 및 글로벌 인증 훅(`preHandler`)과 자연스럽게 결합.
+*   **`fast-json-stringify` 직렬화 가속 활성화**: OpenAPI 3.2 Schema Object를 Fastify의 라우트 옵션 `schema: { params, querystring, body, response }`로 인라인 주입. Fastify 내부 컴파일러가 이를 바탕으로 일반 `JSON.stringify()` 대비 2~3배 빠른 고속 직렬화 코드 자동 생성.
+*   **생성 코드 구조 예시**:
+    ```typescript
+    import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify';
+    import type { UsersApiHandlers } from './users.contract.js';
+
+    export function createUsersFastifyPlugin(handlers: UsersApiHandlers): FastifyPluginAsync {
+      return async (fastify) => {
+        fastify.get('/users/:id', {
+          schema: {
+            params: { type: 'object', required: ['id'], properties: { id: { type: 'string' } } },
+            response: { 200: { type: 'object', properties: { id: { type: 'string' }, name: { type: 'string' } } } }
+          }
+        }, async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
+          const result = await handlers.getUserById(request.params, request.query as any);
+          return reply.code(200).send(result);
+        });
+      };
+    }
+    ```
+
+##### 4.4 Bun Elysia 라우터 스텁 상세 설계 (`target: 'elysia'`)
+*   **Bun 네이티브 고속 구조분해 컨텍스트**: Bun 런타임의 Zero-copy 메모리 구조에 맞추어 `{ params, query, body, set }` 형태의 객체 구조분해 파라미터 매핑.
+*   **Elysia 메서드 체이닝 패턴**: 가독성이 높고 번들 크기가 작은 Elysia 특유의 빌더 패턴 방출.
+*   **생성 코드 구조 예시**:
+    ```typescript
+    import { Elysia } from 'elysia';
+    import type { UsersApiHandlers } from './users.contract.js';
+
+    export function createUsersElysiaRouter(handlers: UsersApiHandlers) {
+      return new Elysia({ prefix: '/users' })
+        .get('/:id', async ({ params, query, set }) => {
+          const result = await handlers.getUserById(params as { id: string }, query as any);
+          set.status = 200;
+          return result;
+        })
+        .post('/', async ({ body, set }) => {
+          const result = await handlers.createUser(body as any);
+          set.status = 201;
+          return result;
+        });
+    }
+    ```
+
+##### 4.5 CLI 명령어 확장
+*   `oa-gen generate:router --spec <path> --target <hono|express|fastify|elysia> --output <dir>` 명령어를 신설하여 개발자가 한 줄 명령으로 원하는 프레임워크의 라우터 스텁과 계약 인터페이스를 즉각 방출할 수 있도록 지원.
+
+##### 4.6 부가 확장 (옵셔널)
+*   **프론트엔드 React/Vue 데이터 페칭 훅 (옵션)**: 웹 프론트엔드 개발 시 `fetch`를 직접 호출하지 않고 캐싱/로딩 관리를 위해 흔히 쓰는 `useQuery()` 훅을 OpenAPI 엔드포인트에 맞춰 1:1 자동 생성해주는 기능.
+*   **Zero-Copy 와이어 직렬화 가속**: `JsonPrimitive<T>`와 `@oa-sdk/ast-sync`의 독립형 AOT 타입 가드를 결합하여 런타임 유효성 검사 오버헤드를 극소화하는 고속 직렬화/역직렬화 엔진 구축.
 
 현재 Core Platform의 태스크 체크리스트는 [todo.md](./todo.md)에, 아티팩트 릴리스 준비 절차는 [Artifact Release Preparation](../guides/release-preparation.md)에 둔다.
 
