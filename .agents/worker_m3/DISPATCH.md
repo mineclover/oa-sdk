@@ -1,113 +1,61 @@
-# Dispatch: Milestone 3 - Personas & DPM Native TypeSpec Decorators
+## 2026-09-12T19:24:16Z
+You are the Codegen Core Worker for Milestone 3 in @oa-sdk/codegen.
+Working directory: /Users/junwoobang/workflow/oa-sdk/.agents/worker_m3
 
-## Mission
-Implement Requirement R3 (Phase 4) in `@oa-sdk/typespec-decorators`, `@oa-sdk/personas`, and `@oa-sdk/dpm`:
-1. In `@oa-sdk/typespec-decorators`:
-   - `lib/decorators.tsp`: Extern declarations for `@personaCapability` (target: Operation, ...traits: valueof string[]) and `@pseudonymize` (target: ModelProperty, transform: valueof string, role?: valueof string, pii?: valueof boolean, relationship?: valueof string).
-   - `src/decorators.ts`:
-     - `@personaCapability`: validates traits against the 24 capability traits defined in `packages/personas/src/traits/skill.yaml`. Rejects unknown traits by reporting diagnostic `invalid-persona-trait`. Merges, sorts, and emits `x-oa-sdk-persona-traits: string[]` under the OpenAPI Operation Object.
-     - `@pseudonymize`: validates transform against DPM transforms (`keep`, `redact`, `mask`, `null`, `hash`, `generalize`, `relationship_token`, `polymorphic_relationship_token`). Enforces DPM safety invariants (`SAF001`: direct_identifier cannot use keep; `SAF002`: pii foreign_identifier requires relationship; `SAF010`: pii field cannot use keep). Emits `x-oa-sdk-dpm-projection` under the OpenAPI Schema property.
-   - `src/lib.ts`: Register diagnostics `invalid-persona-trait`, `invalid-pseudonymize-rule`, etc.
-2. In `@oa-sdk/personas`:
-   - `src/load.ts`: Update `loadOperationsFromMergedSpec` to extract `x-oa-sdk-persona-traits` into `OperationInfo.traits`.
-   - `src/validate.ts`: Ensure persona validator checks endpoint trait obligations against persona required skills.
-3. In `@oa-sdk/dpm`:
-   - Ensure DPM validation gates (`data-binding-validator.ts`, `safety-validator.ts`) recognize and validate `x-oa-sdk-dpm-projection`.
-4. Verification:
-   - Run `pnpm --filter @oa-sdk/typespec-decorators test`
-   - Run `pnpm personas:check`
-   - Run `pnpm --filter @oa-sdk/dpm test`
+MANDATORY INPUTS:
+- You MUST read the authoritative user request at: /Users/junwoobang/workflow/oa-sdk/.agents/ORIGINAL_REQUEST.md (under ## 2026-09-12T18:45:11Z)
+- You MUST read the project architecture at: /Users/junwoobang/workflow/oa-sdk/.agents/orchestrator_11/PROJECT.md
+- You MUST read the survey findings and blueprints at: /Users/junwoobang/workflow/oa-sdk/.agents/explorer_codegen/report.md
+- Relevant skills: /Users/junwoobang/workflow/oa-sdk/.agents/skills/oa-codegen/SKILL.md, /Users/junwoobang/workflow/oa-sdk/.agents/skills/oa-onboarding/SKILL.md, and /Users/junwoobang/workflow/oa-sdk/.agents/skills/oa-sdk/SKILL.md
 
-## Exclusive File Ownership
-- `packages/typespec-decorators/lib/decorators.tsp`
-- `packages/typespec-decorators/src/decorators.ts`
-- `packages/typespec-decorators/src/lib.ts`
-- `packages/typespec-decorators/src/decorators.test.ts`
-- `packages/personas/src/load.ts`
-- `packages/personas/src/validate.ts`
-- `packages/personas/src/__tests__/persona-traits.test.ts`
-- `packages/dpm/src/validator/data-binding-validator.ts`
+EXCLUSIVE FILE WRITE OWNERSHIP:
+You own exclusively:
+- `packages/codegen/src/routing/import-resolver.ts`
+- `packages/codegen/src/cli/commands/generate.ts`
+- `packages/codegen/src/cli/commands/init.ts`
+- `packages/codegen/src/cli/lib/init/composer.ts`
+- `packages/codegen/src/cli/lib/init/interactive.ts`
+- `packages/codegen/src/cli/lib/init/types.ts`
+- `packages/codegen/src/cli/lib/init/index.ts`
+- `packages/codegen/src/cli/lib/spec-watcher.ts`
+- `packages/codegen/src/__tests__/*`
 
-## Mandatory Rules & Warnings
-- MANDATORY INTEGRITY WARNING:
-  DO NOT CHEAT. All implementations must be genuine. DO NOT hardcode test results, create dummy/facade implementations, or circumvent the intended task. A auditor will independently verify your work. Integrity violations WILL be detected and your work WILL be rejected.
-- Read `/Users/junwoobang/workflow/oa-sdk/.agents/ORIGINAL_REQUEST.md` before starting work.
-- Consult the survey findings at `/Users/junwoobang/workflow/oa-sdk/.agents/spec_miner_survey_3/handoff.md`.
-- Run builds and tests for affected targets and report results in handoff.
+TASK REQUIREMENTS:
+1. R5: Monorepo Package Boundary Awareness in Import Resolver:
+   - In `packages/codegen/src/routing/import-resolver.ts`:
+     - Implement `findNearestPackageJson(startPath)` searching upwards for the nearest package.json with a valid package name (skipping root monorepo manifests that define workspaces).
+     - Implement `resolvePackageSpecifier(resolvedTo, toPkg)` resolving cross-package imports to canonical package names (`@oa-sdk/client`, `@my-org/api-client`, or `@org/pkg/subpath`), avoiding fragile `../../../../packages/...` paths while strictly preserving `./...` relative paths within the same package.
+     - Integrate into `resolveImportSpecifier`.
 
-## Output
-Write report to `/Users/junwoobang/workflow/oa-sdk/.agents/worker_m3/handoff.md`.
+2. R7: Unified Declarative Execution in `oa-gen generate`:
+   - In `packages/codegen/src/cli/commands/generate.ts`:
+     - Extend `runConfigDrivenPipeline` to inspect `core.contracts`, `core.client`, and `product.outputRouting`.
+     - Orchestrate the complete declarative pipeline: Schema projection -> Type Guards -> Handler Contracts (`generateHandlerContract` from `@oa-sdk/router`) -> Client SDK (`generateClient` from `@oa-sdk/client`) -> TanStack Query options (`generateTanstackQuery` from `@oa-sdk/client`), dispatched to paths configured in `outputRouting` via `createPathDispatcher` and tracked by `OaManifestManager`.
 
-## 2026-09-10T23:28:44Z
-You are the Personas & DPM Decorators Worker for Milestone 3.
-Your working directory is: /Users/junwoobang/workflow/oa-sdk/.agents/worker_m3
-Read your instructions in /Users/junwoobang/workflow/oa-sdk/.agents/worker_m3/DISPATCH.md.
-Also read /Users/junwoobang/workflow/oa-sdk/.agents/ORIGINAL_REQUEST.md, /Users/junwoobang/workflow/oa-sdk/PROJECT.md, and /Users/junwoobang/workflow/oa-sdk/.agents/spec_miner_survey_3/handoff.md.
+3. R8: `outputRouting` Presets in `oa-gen init`:
+   - In `packages/codegen/src/cli/commands/init.ts`, `composer.ts`, `interactive.ts`, `types.ts`, `index.ts`:
+     - Support `--routing <default|fsd|monorepo|by-kind>` (short: `-r`) flag and prompt during interactive onboarding.
+     - Emit an idiomatic `product.outputRouting` configuration block in generated `oa.config.ts`.
+     - FIX CRITICAL SYNTAX ERROR in `composer.ts` `formatObject`: array of objects (`rules: [...]`) must wrap items with `{ ... }` so valid TypeScript syntax is emitted.
 
-MANDATORY INTEGRITY WARNING:
-DO NOT CHEAT. All implementations must be genuine. DO NOT hardcode test results, create dummy/facade implementations, or circumvent the intended task. An auditor will independently verify your work. Integrity violations WILL be detected and your work WILL be rejected.
+4. R9: Linux-Compatible File Watching Fallback in `spec-watcher.ts`:
+   - In `packages/codegen/src/cli/lib/spec-watcher.ts`:
+     - Detect Linux environments (`process.platform === 'linux'`).
+     - Implement recursive directory walker (ignoring `node_modules`, `.git`, `dist`, `.turbo`, `.next`) to attach individual `fs.watch` instances across each directory level on Linux and dynamically attach watchers to newly created subdirectories without errors or process crashes.
 
-Implement R3 (Phase 4): Native TypeSpec Decorators @personaCapability and @pseudonymize in packages/typespec-decorators, emit extensions x-oa-sdk-persona-traits and x-oa-sdk-dpm-projection, and integrate with packages/personas and packages/dpm.
-Run tests and validation gates (pnpm personas:check) to verify compliance.
-Write your handoff report to /Users/junwoobang/workflow/oa-sdk/.agents/worker_m3/handoff.md.
-Send a message to parent when complete.
+5. Unit & Integration Tests:
+   - Add tests for monorepo package boundary resolution in `import-resolver`.
+   - Add tests for `oa-gen generate` full pipeline orchestration.
+   - Add tests for `oa-gen init --routing <preset>`.
+   - Add tests for `spec-watcher.ts` nested directory watching and Linux fallback.
 
-## 2026-09-11T02:34:39Z
-You are Worker for Milestone 3 (M3: Zod 4 Codegen & Mock Server Benchmark) in the oa-sdk performance benchmark and V8 profiling task.
-
-## Your Identity & Working Directory
-- Archetype: teamwork_preview_worker
-- Role: Zod 4 & Mock Server Implementer (M3)
-- Working directory: /Users/junwoobang/workflow/oa-sdk/.agents/worker_m3
-- Workspace root: /Users/junwoobang/workflow/oa-sdk
-- Domain skill to reference: /Users/junwoobang/workflow/oa-sdk/.agents/skills/oa-sdk/SKILL.md, /Users/junwoobang/workflow/oa-sdk/.agents/skills/oa-codegen/SKILL.md, /Users/junwoobang/workflow/oa-sdk/.agents/skills/oa-runtime/SKILL.md
-
-## Mandatory Input
-Read the authoritative user request at:
-`/Users/junwoobang/workflow/oa-sdk/.agents/ORIGINAL_REQUEST.md` (specifically section `## 2026-09-11T02:05:38Z`).
-Also read:
-- `/Users/junwoobang/workflow/oa-sdk/.agents/orchestrator_4/plan.md`
-- `/Users/junwoobang/workflow/oa-sdk/.agents/explorer_survey_2/handoff.md` (contains baseline QPS figures, Zod 4 cycle detection details, mock server architecture)
-- `/Users/junwoobang/workflow/oa-sdk/scripts/bench/lib/index.ts` (shared benchmark & profiling toolkit built in M1)
-
-## File Write Ownership
-You EXCLUSIVELY own:
-- `scripts/bench/bench-zod-mock.ts`
-DO NOT modify any files outside this boundary. Use the shared toolkit from `scripts/bench/lib/index.js`.
-
-## Mandatory Integrity Warning
-DO NOT CHEAT. All implementations must be genuine. DO NOT hardcode test results, create dummy/facade implementations, or circumvent the intended task. A teamwork_preview_auditor will independently verify your work. Integrity violations WILL be detected and your work WILL be rejected.
-
-## Detailed Requirements
-Implement `scripts/bench/bench-zod-mock.ts` to execute real benchmarks and V8 CPU profiling for Components 3 and 4:
-1. **Zod 4 / Codegen Engine**:
-   - Locate `packages/schemas/typespec/approved.openapi.yaml`.
-   - Measure full Zod 4 code generation speed (`generateZodFromSpec` in `packages/codegen/src/zodgen/generate-zod.js`).
-   - Benchmark DFS circular reference cycle detection (`findCircularSchemas`) scaling across synthetic schemas with 10, 50, 100, 200, 500 models generated via `generateSyntheticOpenApiSchema`.
-   - Measure formatting latency (`formatGeneratedTs` or formatting stage).
-2. **Mock Server HTTP Throughput & Routing Latency**:
-   - Start `createNodeMockServer` on an ephemeral port (e.g. port: 0) with a loaded specification.
-   - Implement concurrent HTTP load test using native `node:http.request` with persistent keepAlive agent (`http.Agent({ keepAlive: true, maxSockets: 100 })`).
-   - Benchmark throughput (QPS) and latency percentiles (min, p50, p90, p95, p99, max, mean) under concurrency levels:
-     - Concurrency 10
-     - Concurrency 50
-     - Concurrency 100
-   - Assert error rate is strictly < 0.1% (0 errors expected).
-   - Benchmark atomic `updateSpec` route swap under active concurrent requests, verifying 0 dropped connections.
-   - Benchmark route matching latency and `compareRouteSpecificity` overhead across small (10 routes), medium (50 routes), and large (200+ routes) routing tables.
-3. **V8 CPU Profiling & Hotspot Extraction**:
-   - Profile `generateZodFromSpec`, `findCircularSchemas` at scale (500 models), and Mock Server concurrent load using `withCpuProfile`.
-   - Export `.cpuprofile` files to `.bench/`.
-   - Extract and print top hotspots for both codegen DFS/formatting and mock server route matching.
-4. **Memory & FD Stability**:
-   - Measure heap retention delta across 2,000 HTTP requests using `measureMemoryDelta`.
-   - Verify zero FD leaks across 20 mock server start/stop and updateSpec cycles using `assertZeroFdLeak`.
-5. **Output & Verification**:
-   - Export all metrics to `.bench/zod-mock-results.json`.
-   - Print clean console summary tables with QPS, p50/p95/p99 ms, error rates, scaling curves, and top hotspots.
-   - Run verification via: `node --expose-gc --import tsx scripts/bench/bench-zod-mock.ts`. Ensure it executes cleanly and exits with code 0.
-
-## Deliverable
-Write your implementation file `scripts/bench/bench-zod-mock.ts` and run it. Write your report to:
-`/Users/junwoobang/workflow/oa-sdk/.agents/worker_m3/handoff.md`
-Report the command executed, output JSON/metrics, and file paths. Send a completion message when finished.
+## 2026-09-12T19:40:10Z
+[From: 637f3fa4-5819-4bf3-a4bf-2056e9d9736f (orchestrator)]
+**Context**: Milestone 3 Codegen Core Implementation (R5, R7, R8, R9)
+**Content**: Checking in on your progress. Please report your current status on:
+1. R5: Monorepo Package Boundary Awareness in Import Resolver
+2. R7: Unified Declarative Execution in oa-gen generate
+3. R8: outputRouting presets & syntax error fix in oa-gen init
+4. R9: Linux-Compatible File Watching Fallback in spec-watcher.ts
+5. Tests and verification commands
+**Action**: Please update your progress.md with your current step and reply with your status.

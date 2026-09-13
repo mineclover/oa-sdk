@@ -2,6 +2,29 @@
 
 릴리스 단위가 아닌, 굵직한 surface 변경이 떨어졌을 때 한 항목으로 기록한다. 자세한 구현 상태는 [spec.md](./internal/spec.md), API 단일 소스는 [api-index.md](./internal/api-index.md), 기능↔테스트는 [feature-test-matrix.md](./internal/feature-test-matrix.md) 참조.
 
+## 2026-09-13 — Platform deficiency remediation: router response envelope defense, typed handler error unions, AbortSignal pass-through, infinite queries, monorepo import resolver, unified codegen pipeline, and Linux file watching (`@oa-sdk/codegen` 0.8.1, `@oa-sdk/client` 0.2.1, `@oa-sdk/router` 0.2.1, `@oa-sdk/spec-lens` 0.1.5)
+
+전수 코드 리뷰를 통해 식별된 9대 플랫폼 결함(R1–R9)을 전면 해결하고 실증 회귀 검증을 완료했다.
+
+- **Router 응답 엔벨로프 충돌 방어 (`@oa-sdk/router`)**:
+  - `'status' in result` 조건으로 인해 비즈니스 엔티티(`{ id: 'order_1', status: 'PENDING' }` 등)의 데이터가 유실되던 결함을 3중 엄격 검증(`'body' in result && typeof result.status === 'number'`)으로 수정하여 200 OK JSON 본문으로 온전하게 직렬화.
+- **핸들러 컨트랙트 Multi-Status 및 Typed Error 응답 유니언 (`@oa-sdk/router`)**:
+  - `HandlerResponse`를 문서화된 모든 상태 코드(2xx, 4xx, 5xx)를 포괄하는 식별된 유니언(Discriminated Union)으로 확장하여 `as any` 없이 타입 안전한 에러 응답(`{ status: 404, body: NotFoundError }`) 반환 지원.
+- **`AbortSignal` 및 `RequestInit` 관통 파이프라인 (`@oa-sdk/client`)**:
+  - 모든 생성 클라이언트 메서드에 `options?: { signal?: AbortSignal, headers?: Record<string, string> }`를 확장하고 네이티브 `fetch`로 전달. TanStack Query `queryFn`에서 전달된 취소 시그널을 실제 HTTP 요청 중단으로 관통.
+- **TanStack Query Infinite Query 자동 생성기 (`@oa-sdk/client`)**:
+  - 커서/오프셋/페이지네이션 파라미터 감지 휴리스틱(`detectPagination`)을 탑재하여 `*InfiniteQueryOptions()` 및 `initialPageParam`, `getNextPageParam` 팩토리 자동 합성.
+- **모노레포 패키지 경계 인식 임포트 해석기 (`@oa-sdk/codegen`)**:
+  - 워크스페이스 간 산출물 분산 배포 시 깊은 상대 경로 대신 대상 패키지의 정규 이름(`@oa-sdk/client` 등)으로 자동 임포트(`findNearestPackageJson`, `resolvePackageSpecifier`).
+- **`RouterRenderOptions` 컨텍스트 주입 타이핑 보강 (`@oa-sdk/router`)**:
+  - `contextInjection`, `contextImport`, `contextTypeName` 필드를 정규 선언하여 무타입 단언 제거.
+- **단일 선언적 종합 파이프라인 통합 (`oa-gen generate`)**:
+  - `oa-gen generate` 단일 커맨드로 스펙 프로젝션 $\rightarrow$ 타입 가드 $\rightarrow$ 핸들러 컨트랙트 $\rightarrow$ 클라이언트 SDK $\rightarrow$ TanStack Query 옵션 일괄 생성 및 `outputRouting` 디스패치 파이프라인 완결.
+- **`oa-gen init` 내 `outputRouting` 프리셋 지원 (`@oa-sdk/codegen`)**:
+  - `--routing <default|fsd|monorepo|by-kind>` 플래그 및 대화형 설정을 지원하여 아키텍처별 경로 자동 구성.
+- **Linux 환경 파일 와칭 재귀 폴백 엔진 (`@oa-sdk/codegen`)**:
+  - Linux `fs.watch({ recursive: true })` 제약을 극복하는 재귀 디렉터리 와커 및 동적 생성 폴더 추적 엔진 탑재.
+
 ## 2026-09-12 — Output routing, TanStack Query v5 3-tier generator, multi-framework routers, target onboarding, and live mock watch (`@oa-sdk/codegen` 0.8.0, `@oa-sdk/client` 0.2.0, `@oa-sdk/router` 0.2.0)
 
 모노레포의 5대 핵심 플랫폼 역량이 완비되어, 프론트엔드/백엔드 풀스택 코드 생성 및 개발자 경험(DX) 워크플로우를 포괄적으로 확장했다.

@@ -1,65 +1,38 @@
-# Dispatch: Milestone 4 - Monorepo Governance, CLI Documentation & Monorepo Gates
+## 2026-09-12T20:19:29Z
 
-## Mission
-Implement Requirement R4:
-1. In `packages/codegen/src/cli/commands.ts`:
-   - Register all new commands:
-     - `tspDiff` (from `./commands/tsp-diff.js`)
-     - `mock` (from `./commands/mock.js`)
-     - Ensure `generateZod` is properly exported and listed.
-2. In `docs/guides/cli-command-reference.md`:
-   - Document all newly registered commands:
-     - `oa-gen mock`: Options `--tsp`, `--spec`, `--port`, `--host`, `--watch`.
-     - `oa-gen tsp diff`: Options `--base`, `--head`, `--fail-on-breaking`, `--format`.
-     - `oa-gen generate:zod`: Options `--spec`, `--output`, `--runtime-adapter`.
-   - Ensure the markdown table in `docs/guides/cli-command-reference.md` has rows matching `` `oa-gen <command>` `` and lists all option flags accurately.
-3. In `scripts/check-cli-spec.ts`:
-   - Ensure `undocumentedOaGenCommands` or governance specs account for new CLI command names (`mock`, `tsp-diff`, `generate-zod`, `generate:zod`) so that `pnpm check:cli-spec` passes cleanly.
-4. Execute and verify all monorepo gates:
-   - `pnpm check:docs` (Must pass all 5 document gates with 0 errors).
-   - `pnpm schema:typespec-check` (Must pass with 0 drift).
-   - `pnpm personas:check` (Must pass with 0 errors).
-   - `pnpm test:e2e` (Must pass 150/150 tests).
-   - `turbo run test` (All package test suites pass).
-
-## Exclusive File Ownership
-- `packages/codegen/src/cli/commands.ts`
-- `docs/guides/cli-command-reference.md`
-- `scripts/check-cli-spec.ts`
-
-## Mandatory Rules & Warnings
-- MANDATORY INTEGRITY WARNING:
-  DO NOT CHEAT. All implementations must be genuine. DO NOT hardcode test results, create dummy/facade implementations, or circumvent the intended task. An auditor will independently verify your work. Integrity violations WILL be detected and your work WILL be rejected.
-- Read `/Users/junwoobang/workflow/oa-sdk/.agents/ORIGINAL_REQUEST.md`.
-- Read `/Users/junwoobang/workflow/oa-sdk/PROJECT.md`.
-
-## Output
-Write report to `/Users/junwoobang/workflow/oa-sdk/.agents/worker_m4/handoff.md`.
-Send a message to parent when complete.
-
-## 2026-09-11T00:12:44Z
-You are the Monorepo Governance & CLI Verification Worker for Milestone 4.
+You are the Monorepo Integration & Governance Worker (worker_m4) for Milestone 4 in oa-sdk.
 Your working directory is: /Users/junwoobang/workflow/oa-sdk/.agents/worker_m4
-Read your instructions in /Users/junwoobang/workflow/oa-sdk/.agents/worker_m4/DISPATCH.md.
-Also read /Users/junwoobang/workflow/oa-sdk/.agents/ORIGINAL_REQUEST.md and /Users/junwoobang/workflow/oa-sdk/PROJECT.md.
+
+MANDATORY INPUTS:
+- Authoritative user request: /Users/junwoobang/workflow/oa-sdk/.agents/ORIGINAL_REQUEST.md (under ## 2026-09-12T18:45:11Z)
+- Project specification: /Users/junwoobang/workflow/oa-sdk/.agents/orchestrator_11/PROJECT.md
+- Orchestrator handoff: /Users/junwoobang/workflow/oa-sdk/.agents/orchestrator_11/handoff.md
+- Relevant skills: /Users/junwoobang/workflow/oa-sdk/.agents/skills/oa-governance/SKILL.md, /Users/junwoobang/workflow/oa-sdk/.agents/skills/oa-sdk/SKILL.md, and /Users/junwoobang/workflow/oa-sdk/.agents/skills/oa-codegen/SKILL.md
+
+EXCLUSIVE FILE WRITE OWNERSHIP:
+You own exclusively:
+- Documentation files (e.g. `docs/` or command references required by `pnpm check:cli-spec` and `pnpm check:docs`)
+- Integration test fixtures and monorepo governance check scripts
 
 MANDATORY INTEGRITY WARNING:
-DO NOT CHEAT. All implementations must be genuine. DO NOT hardcode test results, create dummy/facade implementations, or circumvent the intended task. An auditor will independently verify your work. Integrity violations WILL be detected and your work WILL be rejected.
+DO NOT CHEAT. All implementations must be genuine. DO NOT hardcode test results, create dummy/facade implementations, or circumvent the intended task. A auditor will independently verify your work. Integrity violations WILL be detected and your work WILL be rejected.
 
-Implement R4:
-1. Register mock, tspDiff, and generateZod in packages/codegen/src/cli/commands.ts.
-2. Document all commands and option flags in docs/guides/cli-command-reference.md.
-3. Update scripts/check-cli-spec.ts to ensure CLI governance passes.
-4. Run all verification gates:
-   - pnpm check:docs (all 5 gates pass with 0 errors)
-   - pnpm schema:typespec-check (0 drift)
-   - pnpm personas:check (0 errors)
-   - pnpm test:e2e (150/150 pass)
-   - turbo run test (monorepo tests pass)
-Write your handoff report to /Users/junwoobang/workflow/oa-sdk/.agents/worker_m4/handoff.md.
-Send a message to parent when complete.
+TASK REQUIREMENTS:
+1. Check and resolve any CLI specification and documentation drift:
+   - Run `pnpm check:cli-spec`. If `--routing` (or short `-r`) in `oa-gen init` is flagged as missing documentation in `docs/cli/` (e.g. `docs/cli/cli-command-reference.md`), update the documentation cleanly to document `--routing, -r <default|fsd|monorepo|by-kind>` (Output path routing preset) and ensure `pnpm check:cli-spec` passes with exit code 0.
+2. Run and verify all monorepo governance gates:
+   - `pnpm check:docs`
+   - `pnpm check:cli-spec`
+   - `pnpm check:api-index`
+   - `pnpm check:release-policy`
+   - `pnpm typecheck:all`
+3. Run and verify full test suites:
+   - `pnpm test:core`
+   - `pnpm test:downstream`
+   - `pnpm test:e2e` (including `multi-framework-router`)
+   - Or `pnpm test`
+4. Document all command outputs, passed tests, and monorepo gate verification logs in your handoff report.
 
-## 2026-09-11T00:20:15Z
-**Context**: Milestone 4 Implementation
-**Content**: Status check: please proceed with registering commands in commands.ts, updating cli-command-reference.md, and running pnpm check:docs, pnpm schema:typespec-check, pnpm test:e2e, and turbo run test.
-**Action**: Complete the steps and write your handoff report.
+DELIVERABLE:
+Write your complete report to `/Users/junwoobang/workflow/oa-sdk/.agents/worker_m4/handoff.md`.
+Then notify the orchestrator using `send_message`.

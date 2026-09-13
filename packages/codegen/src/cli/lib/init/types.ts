@@ -36,6 +36,8 @@ export interface DetectedSchemaItem {
   operationsCount?: number | undefined
 }
 
+export type OutputRoutingPreset = 'default' | 'fsd' | 'monorepo' | 'by-kind'
+
 export interface TargetGenerateOptions {
   cwd: string
   frameworkId: TargetFrameworkId
@@ -44,6 +46,7 @@ export interface TargetGenerateOptions {
   projectName?: string | undefined
   packageJson?: Record<string, unknown> | undefined
   force?: boolean | undefined
+  routing?: OutputRoutingPreset | undefined
 }
 
 export interface TargetProfile {
@@ -89,6 +92,7 @@ export type LifecycleArchetypeId = ProductLifecycleArchetype
 export interface InitOptions {
   target?: string | undefined
   archetype?: string | undefined
+  routing?: string | undefined
   cwd?: string | undefined
   spec?: string | undefined
   yes?: boolean | undefined
@@ -100,6 +104,7 @@ export interface InitOptions {
 export interface InitResult {
   targetId: TargetFrameworkId
   archetypeId: LifecycleArchetypeId
+  routing?: OutputRoutingPreset | undefined
   runtime: TargetRuntime
   configPath: string
   patchResult?: PackagePatchResult | undefined

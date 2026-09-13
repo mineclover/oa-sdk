@@ -24,6 +24,10 @@ import {
   type OutputRoutingRule,
   type TokenContext,
 } from '../index.js'
+import {
+  findNearestPackageJson,
+  resolvePackageSpecifier,
+} from '../routing/import-resolver.js'
 
 describe('Output Path Routing Customization Engine', () => {
   let tmpDir: string
@@ -783,6 +787,173 @@ describe('Output Path Routing Customization Engine', () => {
       expect(resolved.outputRouting?.pattern).toBe('src/features/{tag}/{tag}.{kind}.ts')
       expect(resolved.outputRouting?.casing).toBe('pascal')
       expect(resolved.product.outputRouting?.pattern).toBe('src/features/{tag}/{tag}.{kind}.ts')
+    })
+  })
+
+  describe('10. Monorepo Package Boundary Awareness in Import Resolver', () => {
+    let monorepoDir: string
+
+    beforeEach(() => {
+      monorepoDir = fs.mkdtempSync(path.join(os.tmpdir(), 'oa-monorepo-test-'))
+      // Create root monorepo manifest with workspaces
+      fs.writeFileSync(
+        path.join(monorepoDir, 'package.json'),
+        JSON.stringify({
+          name: 'my-monorepo-root',
+          private: true,
+          workspaces: ['apps/*', 'packages/*'],
+        }, null, 2),
+      )
+
+      // Create apps/web package
+      const webDir = path.join(monorepoDir, 'apps', 'web')
+      fs.mkdirSync(path.join(webDir, 'src', 'features', 'users'), { recursive: true })
+      fs.writeFileSync(
+        path.join(webDir, 'package.json'),
+        JSON.stringify({
+          name: '@my-org/web',
+          version: '1.0.0',
+        }, null, 2),
+      )
+
+      // Create packages/api-client package
+      const clientDir = path.join(monorepoDir, 'packages', 'api-client')
+      fs.mkdirSync(path.join(clientDir, 'src'), { recursive: true })
+      fs.writeFileSync(
+        path.join(clientDir, 'package.json'),
+        JSON.stringify({
+          name: '@my-org/api-client',
+          version: '0.1.0',
+          main: './dist/index.js',
+          exports: {
+            '.': {
+              import: './dist/index.js',
+              types: './dist/index.d.ts',
+            },
+            './browser': {
+              import: './dist/browser.js',
+              types: './dist/browser.d.ts',
+            },
+          },
+        }, null, 2),
+      )
+      fs.writeFileSync(path.join(clientDir, 'src', 'index.ts'), 'export const client = {}')
+      fs.writeFileSync(path.join(clientDir, 'src', 'browser.ts'), 'export const browserClient = {}')
+      fs.writeFileSync(path.join(clientDir, 'src', 'helper.ts'), 'export const helper = {}')
+    })
+
+    afterEach(() => {
+      if (fs.existsSync(monorepoDir)) {
+        fs.rmSync(monorepoDir, { recursive: true, force: true })
+      }
+    })
+
+    it('findNearestPackageJson finds nearest package manifest and skips root monorepo with workspaces', () => {
+      const webFile = path.join(monorepoDir, 'apps', 'web', 'src', 'features', 'users', 'users.queries.ts')
+      const pkgInfo = findNearestPackageJson(webFile)
+
+      expect(pkgInfo).not.toBeNull()
+      expect(pkgInfo?.name).toBe('@my-org/web')
+      expect(pkgInfo?.dir).toBe(path.join(monorepoDir, 'apps', 'web'))
+      expect(pkgInfo?.packageJsonPath).toBe(path.join(monorepoDir, 'apps', 'web', 'package.json'))
+    })
+
+    it('resolvePackageSpecifier resolves package entrypoint to bare package name', () => {
+      const clientEntry = path.join(monorepoDir, 'packages', 'api-client', 'src', 'index.ts')
+      const pkgInfo = findNearestPackageJson(clientEntry)!
+      const specifier = resolvePackageSpecifier(clientEntry, pkgInfo)
+
+      expect(specifier).toBe('@my-org/api-client')
+    })
+
+    it('resolvePackageSpecifier resolves mapped exports subpaths', () => {
+      const browserFile = path.join(monorepoDir, 'packages', 'api-client', 'src', 'browser.ts')
+      const pkgInfo = findNearestPackageJson(browserFile)!
+      const specifier = resolvePackageSpecifier(browserFile, pkgInfo)
+
+      expect(specifier).toBe('@my-org/api-client/browser')
+    })
+
+    it('resolvePackageSpecifier falls back to stripping src/ prefix for unexported subpaths', () => {
+      const helperFile = path.join(monorepoDir, 'packages', 'api-client', 'src', 'helper.ts')
+      const pkgInfo = findNearestPackageJson(helperFile)!
+      const specifier = resolvePackageSpecifier(helperFile, pkgInfo)
+
+      expect(specifier).toBe('@my-org/api-client/helper')
+    })
+
+    it('resolveImportSpecifier resolves cross-package import to canonical package name instead of deep relative path', () => {
+      const fromFile = path.join(monorepoDir, 'apps', 'web', 'src', 'features', 'users', 'users.queries.ts')
+      const toFile = path.join(monorepoDir, 'packages', 'api-client', 'src', 'index.ts')
+
+      const specifier = resolveImportSpecifier({
+        fromFilePath: fromFile,
+        toFilePath: toFile,
+        rootDir: monorepoDir,
+      })
+
+      // Must resolve to bare package name without extension or fragile ../../../../ path
+      expect(specifier).toBe('@my-org/api-client')
+      expect(specifier).not.toContain('packages/api-client')
+      expect(specifier).not.toContain('../')
+    })
+
+    it('resolveImportSpecifier resolves cross-package export subpath accurately', () => {
+      const fromFile = path.join(monorepoDir, 'apps', 'web', 'src', 'app.ts')
+      const toFile = path.join(monorepoDir, 'packages', 'api-client', 'src', 'browser.ts')
+
+      const specifier = resolveImportSpecifier({
+        fromFilePath: fromFile,
+        toFilePath: toFile,
+        rootDir: monorepoDir,
+      })
+
+      expect(specifier).toBe('@my-org/api-client/browser')
+    })
+
+    it('resolveImportSpecifier strictly preserves relative ./... imports within the same package', () => {
+      const fromFile = path.join(monorepoDir, 'packages', 'api-client', 'src', 'browser.ts')
+      const toFile = path.join(monorepoDir, 'packages', 'api-client', 'src', 'helper.ts')
+
+      const specifier = resolveImportSpecifier({
+        fromFilePath: fromFile,
+        toFilePath: toFile,
+        rootDir: monorepoDir,
+      })
+
+      // Same package must stay relative with .js
+      expect(specifier).toBe('./helper.js')
+    })
+
+    it('resolveImportSpecifier allows disabling package boundary awareness via packageBoundary: false', () => {
+      const fromFile = path.join(monorepoDir, 'apps', 'web', 'src', 'features', 'users', 'users.queries.ts')
+      const toFile = path.join(monorepoDir, 'packages', 'api-client', 'src', 'index.ts')
+
+      const specifier = resolveImportSpecifier({
+        fromFilePath: fromFile,
+        toFilePath: toFile,
+        rootDir: monorepoDir,
+        packageBoundary: false,
+      })
+
+      // With packageBoundary: false, it computes relative traversal
+      expect(specifier).toContain('../')
+      expect(specifier).toContain('.js')
+    })
+
+    it('PathDispatcher.resolveImport seamlessly leverages package boundary resolution', () => {
+      const dispatcher = createPathDispatcher(
+        {
+          byKind: {
+            client: 'packages/api-client/src/index.ts',
+            queries: 'apps/web/src/features/users/users.queries.ts',
+          },
+        },
+        monorepoDir,
+      )
+
+      const specifier = dispatcher.resolveImport({ kind: 'queries' }, { kind: 'client' })
+      expect(specifier).toBe('@my-org/api-client')
     })
   })
 })

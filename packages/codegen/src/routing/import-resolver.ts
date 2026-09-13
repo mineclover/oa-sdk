@@ -29,6 +29,8 @@ export interface ResolveImportOptions {
   tsconfigPath?: string | undefined
   /** Output file extension for the import specifier: '.js' (default for modern ESM) or '' */
   extension?: '.js' | '' | undefined
+  /** Whether to resolve cross-package monorepo imports to canonical package names (default: true) */
+  packageBoundary?: boolean | undefined
 }
 
 /**
@@ -116,6 +118,129 @@ export function matchTsconfigPathAlias(
 }
 
 /**
+ * Package metadata discovered from the nearest package.json manifest.
+ */
+export interface NearestPackageInfo {
+  dir: string
+  packageJsonPath: string
+  name: string
+  packageJson: Record<string, unknown>
+}
+
+/**
+ * Searches upwards from a directory to find the nearest package.json with a valid package name.
+ * Skips root monorepo manifests that define workspaces (workspaces array/object or pnpm-workspace.yaml).
+ */
+export function findNearestPackageJson(startPath: string): NearestPackageInfo | null {
+  try {
+    const resolvedStart = path.resolve(startPath)
+    let current = fs.existsSync(resolvedStart) && fs.statSync(resolvedStart).isDirectory()
+      ? resolvedStart
+      : path.dirname(resolvedStart)
+
+    while (true) {
+      const candidate = path.join(current, 'package.json')
+      if (fs.existsSync(candidate)) {
+        try {
+          const content = fs.readFileSync(candidate, 'utf8')
+          const json = JSON.parse(content)
+          const isWorkspaceRoot = Boolean(json?.workspaces) || fs.existsSync(path.join(current, 'pnpm-workspace.yaml'))
+          if (
+            json &&
+            typeof json === 'object' &&
+            typeof json.name === 'string' &&
+            json.name.trim().length > 0 &&
+            !isWorkspaceRoot
+          ) {
+            return {
+              dir: current,
+              packageJsonPath: candidate,
+              name: json.name.trim(),
+              packageJson: json as Record<string, unknown>,
+            }
+          }
+        } catch {
+          // ignore parsing error and continue search upwards
+        }
+      }
+      const parent = path.dirname(current)
+      if (parent === current) break
+      current = parent
+    }
+  } catch {
+    // ignore filesystem errors
+  }
+  return null
+}
+
+function extractExportTargets(expVal: unknown): string[] {
+  if (typeof expVal === 'string') return [expVal]
+  if (expVal && typeof expVal === 'object') {
+    const results: string[] = []
+    for (const val of Object.values(expVal as Record<string, unknown>)) {
+      if (typeof val === 'string') {
+        results.push(val)
+      } else if (val && typeof val === 'object') {
+        results.push(...extractExportTargets(val))
+      }
+    }
+    return results
+  }
+  return []
+}
+
+function normalizeExportTarget(target: string): string {
+  return toPosixPath(target).replace(/^\.\//, '').replace(/\.(?:[mc]?[jt]sx?)$/, '')
+}
+
+/**
+ * Resolves canonical package specifier when importing across package boundaries in a monorepo.
+ */
+export function resolvePackageSpecifier(resolvedTo: string, toPkg: NearestPackageInfo): string {
+  const rel = toPosixPath(path.relative(toPkg.dir, resolvedTo))
+  const relNoExt = rel.replace(/\.(?:[mc]?[jt]sx?)$/, '')
+
+  // 1. Check if it's the package root entrypoint
+  const isMainEntry =
+    relNoExt === 'src/index' ||
+    relNoExt === 'index' ||
+    relNoExt === 'src/client' ||
+    relNoExt === 'client' ||
+    (typeof toPkg.packageJson.main === 'string' &&
+      (relNoExt === normalizeExportTarget(toPkg.packageJson.main) ||
+       relNoExt === normalizeExportTarget(toPkg.packageJson.main).replace(/^dist\//, 'src/')))
+
+  if (isMainEntry) {
+    return toPkg.name
+  }
+
+  // 2. Check package.json exports mapping if defined
+  const exports = toPkg.packageJson.exports
+  if (exports && typeof exports === 'object') {
+    for (const [expKey, expVal] of Object.entries(exports)) {
+      const targets = extractExportTargets(expVal)
+      for (const t of targets) {
+        const norm = normalizeExportTarget(t)
+        if (norm === relNoExt || norm.replace(/^dist\//, 'src/') === relNoExt || norm.replace(/^src\//, 'dist/') === relNoExt) {
+          if (expKey === '.') {
+            return toPkg.name
+          }
+          const cleanSub = expKey.replace(/^\.\//, '')
+          return `${toPkg.name}/${cleanSub}`
+        }
+      }
+    }
+  }
+
+  // 3. Subpath fallback (strip leading src/ or dist/)
+  const cleanSub = relNoExt.replace(/^(?:src|dist)\//, '')
+  if (cleanSub === 'index' || cleanSub === '') {
+    return toPkg.name
+  }
+  return `${toPkg.name}/${cleanSub}`
+}
+
+/**
  * Resolves a TypeScript import specifier between two files.
  *
  * Guarantees:
@@ -134,12 +259,12 @@ export function resolveImportSpecifier(options: ResolveImportOptions): string {
     extension = '.js',
   } = options
 
-  // Detect whether inputs are Windows-formatted paths
+  // Detect whether inputs are Windows-formatted paths (drive letters or UNC shares)
   const isWindowsPath =
-    path.win32.isAbsolute(fromFilePath) ||
-    path.win32.isAbsolute(toFilePath) ||
     /^[a-zA-Z]:[\\/]/.test(fromFilePath) ||
-    /^[a-zA-Z]:[\\/]/.test(toFilePath)
+    /^[a-zA-Z]:[\\/]/.test(toFilePath) ||
+    /^\\\\[^\\]/.test(fromFilePath) ||
+    /^\\\\[^\\]/.test(toFilePath)
 
   const pathModule = isWindowsPath ? path.win32 : path
 
@@ -180,6 +305,18 @@ export function resolveImportSpecifier(options: ResolveImportOptions): string {
       const aliasMatch = matchTsconfigPathAlias(toPosixPath(resolvedTo), tsconfig, rootDir, tsconfigDir)
       if (aliasMatch) {
         return formatExtension(aliasMatch, extension)
+      }
+    }
+  }
+
+  // Check monorepo package boundary awareness
+  if (options.packageBoundary !== false) {
+    const toPkg = findNearestPackageJson(resolvedTo)
+    if (toPkg) {
+      const fromPkg = findNearestPackageJson(resolvedFrom)
+      // Only resolve to canonical package specifier if crossing package boundaries
+      if (!fromPkg || fromPkg.packageJsonPath !== toPkg.packageJsonPath) {
+        return resolvePackageSpecifier(resolvedTo, toPkg)
       }
     }
   }

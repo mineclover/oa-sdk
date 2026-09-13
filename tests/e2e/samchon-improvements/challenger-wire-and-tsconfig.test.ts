@@ -424,14 +424,14 @@ describe('Empirical Challenger: Wire-Format Safety (JsonPrimitive<T> & Resolved<
       const generatedCode = generateClient(spec as any, { typesImport: './types.js' })
 
       // 1. Check operation return types wrap with Promise<JsonPrimitive<...>>
-      expect(generatedCode).toContain('async listItems(): Promise<JsonPrimitive<ListItemsResponse>>')
-      expect(generatedCode).toContain('async createItem(body: Resolved<CreateItemBody>): Promise<JsonPrimitive<CreateItemResponse>>')
+      expect(generatedCode).toContain('async listItems(options?: ClientMethodOptions): Promise<JsonPrimitive<ListItemsResponse>>')
+      expect(generatedCode).toContain('async createItem(body: Resolved<CreateItemBody>, options?: ClientMethodOptions): Promise<JsonPrimitive<CreateItemResponse>>')
 
       // 2. Check 204 No Content return type is Promise<void>
-      expect(generatedCode).toContain('async deleteItem(params: DeleteItemPathParams): Promise<void>')
+      expect(generatedCode).toContain('async deleteItem(params: DeleteItemPathParams, options?: ClientMethodOptions): Promise<void>')
 
       // 3. Check withResponse methods wrap with ClientResponse<JsonPrimitive<...>>
-      expect(generatedCode).toContain('async listItems(): Promise<ClientResponse<JsonPrimitive<ListItemsResponse>, ListItemsResponseHeaders>>')
+      expect(generatedCode).toContain('async listItems(options?: ClientMethodOptions): Promise<ClientResponse<JsonPrimitive<ListItemsResponse>, ListItemsResponseHeaders>>')
       expect(generatedCode).toContain('return requestResponse<JsonPrimitive<ListItemsResponse>, ListItemsResponseHeaders>')
 
       // 4. Check inline emission of wire format definitions (zero external dependencies)

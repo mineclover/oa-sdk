@@ -1,6 +1,6 @@
 {
   "name": "@oa-sdk/spec-lens",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "OpenAPI spec change history management and observation tool for oa-sdk",
   "private": true,
   "type": "module",

@@ -227,7 +227,7 @@ export function renderFastifyRouter(
         const argString = contextArgs.length === 0 ? '' : `{ ${contextArgs.join(', ')} }`
         lines.push(`${indent}    const result = await handlers.${methodName}(${argString})`)
       }
-      lines.push(`${indent}    if (result !== undefined && result !== null && typeof result === 'object' && ('status' in result || 'headers' in result || 'body' in result)) {`)
+      lines.push(`${indent}    if (result !== undefined && result !== null && typeof result === 'object' && 'body' in result && ((result as any).status === undefined || typeof (result as any).status === 'number') && ((result as any).headers === undefined || typeof (result as any).headers === 'object')) {`)
       lines.push(`${indent}      const resp = result as { status?: number; headers?: Record<string, string>; body?: unknown }`)
       lines.push(`${indent}      if (resp.headers) {`)
       lines.push(`${indent}        for (const [name, value] of Object.entries(resp.headers)) {`)
@@ -235,6 +235,7 @@ export function renderFastifyRouter(
       lines.push(`${indent}        }`)
       lines.push(`${indent}      }`)
       lines.push(`${indent}      if (resp.status) reply.status(resp.status)`)
+      lines.push(`${indent}      if (resp.status === 204) return reply.status(204).send()`)
       lines.push(`${indent}      return resp.body`)
       lines.push(`${indent}    }`)
       if (status === 204) {

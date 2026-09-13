@@ -17,6 +17,11 @@ export const init: Command = {
       short: 'a',
       description: 'Lifecycle archetype preset: mvp | microservice | enterprise',
     },
+    routing: {
+      type: 'string',
+      short: 'r',
+      description: 'Output path routing preset: default | fsd | monorepo | by-kind',
+    },
     cwd: {
       type: 'string',
       description: 'Target project directory (default: current working directory)',
@@ -45,6 +50,7 @@ export const init: Command = {
     const cwd = optStr(args, 'cwd') ?? context?.cwd ?? process.cwd()
     const target = optStr(args, 'target')
     const archetype = optStr(args, 'archetype')
+    const routing = optStr(args, 'routing')
     const spec = optStr(args, 'spec')
     const yes = bool(args, 'yes')
     const force = bool(args, 'force')
@@ -55,12 +61,18 @@ export const init: Command = {
       throw new CliExitError(1)
     }
 
+    if (routing && !['default', 'fsd', 'monorepo', 'by-kind'].includes(routing.toLowerCase().trim())) {
+      console.error(`❌ Invalid routing preset: "${routing}". Allowed values: default, fsd, monorepo, by-kind`)
+      throw new CliExitError(1)
+    }
+
     console.log('🚀 Initializing @oa-sdk onboarding...')
 
     const result = await runInit({
       cwd,
       target,
       archetype,
+      routing,
       spec,
       yes,
       force,
@@ -69,6 +81,9 @@ export const init: Command = {
 
     console.log(`\n✅ Target framework selected: ${result.targetId} (runtime: ${result.runtime})`)
     console.log(`🎯 Lifecycle archetype preset: ${result.archetypeId}`)
+    if (result.routing) {
+      console.log(`🗂️ Output path routing preset: ${result.routing}`)
+    }
     if (result.detectedSchema) {
       console.log(`📄 Schema entrypoint: ${result.detectedSchema.filePath} (${result.detectedSchema.description})`)
     }

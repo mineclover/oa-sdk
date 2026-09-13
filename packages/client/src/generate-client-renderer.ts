@@ -20,6 +20,11 @@ export type ClientRenderOptions = {
   banner?: boolean
 }
 
+export type ClientMethodOptions = {
+  signal?: AbortSignal | null
+  headers?: Record<string, string>
+}
+
 /**
  * OAS 원본 문서에서 fetch 클라이언트 SDK를 생성합니다.
  */
@@ -61,6 +66,11 @@ export function generateClientFromParsed(doc: ParsedDocument, options: ClientRen
   lines.push(`  body: TBody`)
   lines.push(`  headers: THeaders`)
   lines.push(`  response: Response`)
+  lines.push(`}`)
+  lines.push('')
+  lines.push(`export type ClientMethodOptions = {`)
+  lines.push(`  signal?: AbortSignal | null`)
+  lines.push(`  headers?: Record<string, string>`)
   lines.push(`}`)
   lines.push('')
 
@@ -321,10 +331,26 @@ export function generateClientFromParsed(doc: ParsedDocument, options: ClientRen
   lines.push(`      if (value === undefined || value === null) continue`)
   lines.push(`      result[name] = Array.isArray(value) ? value.map(String).join(',') : String(value)`)
   lines.push(`    }`)
-  lines.push(`    return result`)
+  lines.push(`    return Object.keys(result).length > 0 ? result : undefined`)
   lines.push(`  }`)
   lines.push('')
-
+  lines.push(`  function __combineSignals(a?: AbortSignal | null, b?: AbortSignal | null): AbortSignal | undefined {`)
+  lines.push(`    if (!a) return b ?? undefined`)
+  lines.push(`    if (!b) return a ?? undefined`)
+  lines.push(`    if (typeof AbortSignal !== 'undefined' && 'any' in AbortSignal && typeof (AbortSignal as any).any === 'function') {`)
+  lines.push(`      return (AbortSignal as any).any([a, b])`)
+  lines.push(`    }`)
+  lines.push(`    const controller = new AbortController()`)
+  lines.push(`    const onAbort = () => controller.abort()`)
+  lines.push(`    if (a.aborted || b.aborted) {`)
+  lines.push(`      controller.abort()`)
+  lines.push(`      return controller.signal`)
+  lines.push(`    }`)
+  lines.push(`    a.addEventListener('abort', onAbort, { once: true })`)
+  lines.push(`    b.addEventListener('abort', onAbort, { once: true })`)
+  lines.push(`    return controller.signal`)
+  lines.push(`  }`)
+  lines.push('')
   lines.push(`  function __createOaRequestHeaders(builtIn: Record<string, string> | undefined, headers: Record<string, string> | undefined): Headers {`)
   lines.push(`    const result = new Headers()`)
   lines.push(`    for (const source of [builtIn, defaultHeaders, headers] as const) {`)
@@ -333,10 +359,9 @@ export function generateClientFromParsed(doc: ParsedDocument, options: ClientRen
   lines.push(`    return result`)
   lines.push(`  }`)
   lines.push('')
-
-  lines.push(`  function __mergeOaRequestHeaders(headers: Record<string, unknown> | undefined): Record<string, unknown> {`)
+  lines.push(`  function __mergeOaRequestHeaders(...sources: (Record<string, unknown> | undefined)[]): Record<string, unknown> {`)
   lines.push(`    const result: Record<string, unknown> = {}`)
-  lines.push(`    for (const source of [defaultHeaders, headers] as const) {`)
+  lines.push(`    for (const source of [defaultHeaders, ...sources]) {`)
   lines.push(`      for (const [name, value] of Object.entries(source ?? {})) {`)
   lines.push(`        const existing = Object.keys(result).find(key => key.toLowerCase() === name.toLowerCase())`)
   lines.push(`        if (existing !== undefined) delete result[existing]`)
@@ -439,7 +464,7 @@ export function generateClientFromParsed(doc: ParsedDocument, options: ClientRen
   lines.push(`  }`)
   lines.push('')
 
-  lines.push(`  async function requestResponse<T, THeaders extends object = Record<string, never>>(method: string, path: string, options?: { body?: unknown; query?: Record<string, unknown>; querySpecs?: readonly __OaQuerySpec[]; querystring?: string; headers?: Record<string, string> }, requestMediaTypes: readonly string[] = [], responseMediaTypes: __OaResponseMediaTypes = {}, errorMediaTypes: __OaResponseMediaTypes = {}, responseHeaders?: readonly __OaHeaderSpec[], retryable = false, operationId?: string): Promise<ClientResponse<T, THeaders>> {`)
+  lines.push(`  async function requestResponse<T, THeaders extends object = Record<string, never>>(method: string, path: string, options?: { body?: unknown; query?: Record<string, unknown>; querySpecs?: readonly __OaQuerySpec[]; querystring?: string; headers?: Record<string, string>; signal?: AbortSignal | null }, requestMediaTypes: readonly string[] = [], responseMediaTypes: __OaResponseMediaTypes = {}, errorMediaTypes: __OaResponseMediaTypes = {}, responseHeaders?: readonly __OaHeaderSpec[], retryable = false, operationId?: string): Promise<ClientResponse<T, THeaders>> {`)
   lines.push(`    const url = createRequestUrl(path)`)
   lines.push(`    if (options?.querystring !== undefined) {`)
   lines.push(`      if (options.query) throw new TypeError('query and querystring cannot be used together')`)
@@ -451,6 +476,7 @@ export function generateClientFromParsed(doc: ParsedDocument, options: ClientRen
   lines.push(`      method,`)
   lines.push(`      headers: __createOaRequestHeaders(body !== undefined && selectedRequestMediaType ? { 'Content-Type': selectedRequestMediaType } : undefined, options?.headers),`)
   lines.push(`      body,`)
+  lines.push(`      signal: options?.signal,`)
   lines.push(`    }`)
   lines.push(`    for (const mw of config.middleware ?? []) {`)
   lines.push(`      if (mw.onRequest) init = await mw.onRequest(url.toString(), init)`)
@@ -459,14 +485,15 @@ export function generateClientFromParsed(doc: ParsedDocument, options: ClientRen
   lines.push(`    for (let attempt = 0; attempt <= maxRetries; attempt++) {`)
   lines.push(`      const controller = timeoutMs ? new AbortController() : undefined`)
   lines.push(`      const timer = controller ? setTimeout(() => controller.abort(), timeoutMs) : undefined`)
-  lines.push(`      const fetchInit = controller ? { ...init, signal: controller.signal } : init`)
+  lines.push(`      const effectiveSignal = __combineSignals(init.signal, controller?.signal)`)
+  lines.push(`      const fetchInit: RequestInit = effectiveSignal ? { ...init, signal: effectiveSignal } : init`)
   lines.push(`      let res: Response`)
   lines.push(`      try {`)
   lines.push(`        res = await fetch(url.toString(), fetchInit)`)
   lines.push(`      } catch (err) {`)
   lines.push(`        if (timer) clearTimeout(timer)`)
   lines.push(`        lastError = err instanceof Error ? err : new Error(String(err))`)
-  lines.push(`        if (retryable && attempt < maxRetries) {`)
+  lines.push(`        if (retryable && attempt < maxRetries && !effectiveSignal?.aborted) {`)
   lines.push(`          await new Promise(r => setTimeout(r, baseDelay * 2 ** attempt))`)
   lines.push(`          continue`)
   lines.push(`        }`)
@@ -484,7 +511,7 @@ export function generateClientFromParsed(doc: ParsedDocument, options: ClientRen
   lines.push(`        throw error`)
   lines.push(`      }`)
   lines.push(`      if (!res.ok) {`)
-  lines.push(`        if (retryable && res.status >= 500 && attempt < maxRetries) {`)
+  lines.push(`        if (retryable && res.status >= 500 && attempt < maxRetries && !effectiveSignal?.aborted) {`)
   lines.push(`          await res.body?.cancel()`)
   lines.push(`          const retryAfter = res.headers.get('Retry-After')`)
   lines.push(`          const delay = retryAfter ? parseRetryAfter(retryAfter) : baseDelay * 2 ** attempt`)
@@ -509,7 +536,7 @@ export function generateClientFromParsed(doc: ParsedDocument, options: ClientRen
   lines.push(`    throw lastError ?? new Error('Request failed')`)
   lines.push(`  }`)
   lines.push('')
-  lines.push(`  async function request<T>(method: string, path: string, options?: { body?: unknown; query?: Record<string, unknown>; querySpecs?: readonly __OaQuerySpec[]; querystring?: string; headers?: Record<string, string> }, requestMediaTypes: readonly string[] = [], responseMediaTypes: __OaResponseMediaTypes = {}, errorMediaTypes: __OaResponseMediaTypes = {}, retryable = false, operationId?: string): Promise<T> {`)
+  lines.push(`  async function request<T>(method: string, path: string, options?: { body?: unknown; query?: Record<string, unknown>; querySpecs?: readonly __OaQuerySpec[]; querystring?: string; headers?: Record<string, string>; signal?: AbortSignal | null }, requestMediaTypes: readonly string[] = [], responseMediaTypes: __OaResponseMediaTypes = {}, errorMediaTypes: __OaResponseMediaTypes = {}, retryable = false, operationId?: string): Promise<T> {`)
   lines.push(`    return (await requestResponse<T>(method, path, options, requestMediaTypes, responseMediaTypes, errorMediaTypes, undefined, retryable, operationId)).body`)
   lines.push(`  }`)
   lines.push('')
@@ -528,7 +555,7 @@ export function generateClientFromParsed(doc: ParsedDocument, options: ClientRen
     lines.push(`    return values.length > 0 ? values.join('\\n') : null`)
     lines.push(`  }`)
     lines.push('')
-    lines.push(`  async function* streamSse<T>(method: string, path: string, options?: { query?: Record<string, unknown>; querySpecs?: readonly __OaQuerySpec[]; querystring?: string; headers?: Record<string, string> }, operationId?: string, errorMediaTypes: __OaResponseMediaTypes = {}, dataMode: 'json' | 'text' = 'json'): AsyncGenerator<T> {`)
+    lines.push(`  async function* streamSse<T>(method: string, path: string, options?: { query?: Record<string, unknown>; querySpecs?: readonly __OaQuerySpec[]; querystring?: string; headers?: Record<string, string>; signal?: AbortSignal | null }, operationId?: string, errorMediaTypes: __OaResponseMediaTypes = {}, dataMode: 'json' | 'text' = 'json'): AsyncGenerator<T> {`)
     lines.push(`    let reader: ReadableStreamDefaultReader<Uint8Array> | undefined`)
     lines.push(`    let completed = false`)
     lines.push(`    const controller = timeoutMs ? new AbortController() : undefined`)
@@ -542,11 +569,13 @@ export function generateClientFromParsed(doc: ParsedDocument, options: ClientRen
     lines.push(`      let init: RequestInit = {`)
     lines.push(`        method,`)
     lines.push(`        headers: __createOaRequestHeaders({ Accept: 'text/event-stream' }, options?.headers),`)
+    lines.push(`        signal: options?.signal,`)
     lines.push(`      }`)
     lines.push(`      for (const mw of config.middleware ?? []) {`)
     lines.push(`        if (mw.onRequest) init = await mw.onRequest(url.toString(), init)`)
     lines.push(`      }`)
-    lines.push(`      const fetchInit = controller ? { ...init, signal: controller.signal } : init`)
+    lines.push(`      const effectiveSignal = __combineSignals(init.signal, controller?.signal)`)
+    lines.push(`      const fetchInit = effectiveSignal ? { ...init, signal: effectiveSignal } : init`)
     lines.push(`      let res = await fetch(url.toString(), fetchInit)`)
     lines.push(`      if (timer) clearTimeout(timer)`)
     lines.push(`      for (const mw of config.middleware ?? []) {`)
@@ -595,7 +624,7 @@ export function generateClientFromParsed(doc: ParsedDocument, options: ClientRen
 
   // NDJSON stream helper (only if needed)
   if (needsNdjson) {
-    lines.push(`  async function* streamNdjson<T>(method: string, path: string, options?: { query?: Record<string, unknown>; querySpecs?: readonly __OaQuerySpec[]; querystring?: string; headers?: Record<string, string> }, operationId?: string, errorMediaTypes: __OaResponseMediaTypes = {}): AsyncGenerator<T> {`)
+    lines.push(`  async function* streamNdjson<T>(method: string, path: string, options?: { query?: Record<string, unknown>; querySpecs?: readonly __OaQuerySpec[]; querystring?: string; headers?: Record<string, string>; signal?: AbortSignal | null }, operationId?: string, errorMediaTypes: __OaResponseMediaTypes = {}): AsyncGenerator<T> {`)
     lines.push(`    let reader: ReadableStreamDefaultReader<Uint8Array> | undefined`)
     lines.push(`    let completed = false`)
     lines.push(`    const controller = timeoutMs ? new AbortController() : undefined`)
@@ -609,11 +638,13 @@ export function generateClientFromParsed(doc: ParsedDocument, options: ClientRen
     lines.push(`      let init: RequestInit = {`)
     lines.push(`        method,`)
     lines.push(`        headers: __createOaRequestHeaders({ Accept: 'application/x-ndjson' }, options?.headers),`)
+    lines.push(`        signal: options?.signal,`)
     lines.push(`      }`)
     lines.push(`      for (const mw of config.middleware ?? []) {`)
     lines.push(`        if (mw.onRequest) init = await mw.onRequest(url.toString(), init)`)
     lines.push(`      }`)
-    lines.push(`      const fetchInit = controller ? { ...init, signal: controller.signal } : init`)
+    lines.push(`      const effectiveSignal = __combineSignals(init.signal, controller?.signal)`)
+    lines.push(`      const fetchInit = effectiveSignal ? { ...init, signal: effectiveSignal } : init`)
     lines.push(`      let res = await fetch(url.toString(), fetchInit)`)
     lines.push(`      if (timer) clearTimeout(timer)`)
     lines.push(`      for (const mw of config.middleware ?? []) {`)
@@ -690,6 +721,7 @@ export function generateClientFromParsed(doc: ParsedDocument, options: ClientRen
     if (querystringParam && querystringParam.required !== true) params.push(`querystring?: ${typesImport ? `${baseName}QueryString` : 'string'}`)
     if (hasBody && !bodyRequired) params.push(`body?: ${hasTypedBody ? `Resolved<${baseName}Body>` : 'unknown'}`)
     if (acceptsRequestHeaders) params.push(`headers?: ${headerParams.length > 0 && typesImport ? `${baseName}HeaderParams` : 'Record<string, unknown>'}`)
+    params.push('options?: ClientMethodOptions')
 
     const responseType = hasTypedResponse ? `${baseName}Response` : 'unknown'
     const hasResponse = hasDocumentedSuccessResponseBody(op.responses)
@@ -708,7 +740,7 @@ export function generateClientFromParsed(doc: ParsedDocument, options: ClientRen
     if (streamFormat) {
       const helperName = streamFormat === 'sse' ? 'streamSse' : 'streamNdjson'
       lines.push(`    async *${methodName}(${params.join(', ')}): ${returnType} {`)
-      if (acceptsRequestHeaders) lines.push(`      const requestHeaders = __mergeOaRequestHeaders(headers)`)
+      lines.push(`      const requestHeaders = __mergeOaRequestHeaders(${acceptsRequestHeaders ? 'headers, ' : ''}options?.headers)`)
       lines.push(...requestValidationLines(op, '      ', acceptsRequestHeaders ? 'requestHeaders' : 'headers'))
       const streamOpts: string[] = []
       if (queryParams.length > 0) {
@@ -716,12 +748,13 @@ export function generateClientFromParsed(doc: ParsedDocument, options: ClientRen
         streamOpts.push(`querySpecs: ${formatQuerySpecs(queryParams)}`)
       }
       if (querystringParam) streamOpts.push('querystring')
-      if (acceptsRequestHeaders) streamOpts.push('headers: __serializeOaRequestHeaders(requestHeaders)')
-      lines.push(`      yield* ${helperName}('${method}', ${pathExpr}, ${streamOpts.length > 0 ? `{ ${streamOpts.join(', ')} }` : 'undefined'}, ${JSON.stringify(op.operationId)}, ${errorMediaTypes}${streamFormat === 'sse' && getSseDataMode(op.responses) === 'text' ? ", 'text'" : ''})`)
+      streamOpts.push('headers: __serializeOaRequestHeaders(requestHeaders)')
+      streamOpts.push('signal: options?.signal')
+      lines.push(`      yield* ${helperName}('${method}', ${pathExpr}, { ${streamOpts.join(', ')} }, ${JSON.stringify(op.operationId)}, ${errorMediaTypes}${streamFormat === 'sse' && getSseDataMode(op.responses) === 'text' ? ", 'text'" : ''})`)
       lines.push(`    },`)
     } else {
       lines.push(`    async ${methodName}(${params.join(', ')}): ${returnType} {`)
-      if (acceptsRequestHeaders) lines.push(`      const requestHeaders = __mergeOaRequestHeaders(headers)`)
+      lines.push(`      const requestHeaders = __mergeOaRequestHeaders(${acceptsRequestHeaders ? 'headers, ' : ''}options?.headers)`)
       lines.push(...requestValidationLines(op, '      ', acceptsRequestHeaders ? 'requestHeaders' : 'headers'))
       const fetchOpts: string[] = []
       if (hasBody) fetchOpts.push('body')
@@ -730,9 +763,9 @@ export function generateClientFromParsed(doc: ParsedDocument, options: ClientRen
         fetchOpts.push(`querySpecs: ${formatQuerySpecs(queryParams)}`)
       }
       if (querystringParam) fetchOpts.push('querystring')
-      if (acceptsRequestHeaders) fetchOpts.push('headers: __serializeOaRequestHeaders(requestHeaders)')
-      const optsArg = fetchOpts.length > 0 ? `, { ${fetchOpts.join(', ')} }` : ', undefined'
-      lines.push(`      return request('${method}', ${pathExpr}${optsArg}, ${JSON.stringify(requestMediaTypes)}, ${responseMediaTypes}, ${errorMediaTypes}, ${retryable}, ${JSON.stringify(op.operationId)})`)
+      fetchOpts.push('headers: __serializeOaRequestHeaders(requestHeaders)')
+      fetchOpts.push('signal: options?.signal')
+      lines.push(`      return request('${method}', ${pathExpr}, { ${fetchOpts.join(', ')} }, ${JSON.stringify(requestMediaTypes)}, ${responseMediaTypes}, ${errorMediaTypes}, ${retryable}, ${JSON.stringify(op.operationId)})`)
       lines.push(`    },`)
     }
     lines.push('')
@@ -764,6 +797,7 @@ export function generateClientFromParsed(doc: ParsedDocument, options: ClientRen
       if (querystringParam && querystringParam.required !== true) params.push(`querystring?: ${typesImport ? `${baseName}QueryString` : 'string'}`)
       if (hasBody && !bodyRequired) params.push(`body?: ${hasTypedBody ? `Resolved<${baseName}Body>` : 'unknown'}`)
       if (acceptsRequestHeaders) params.push(`headers?: ${headerParams.length > 0 && typesImport ? `${baseName}HeaderParams` : 'Record<string, unknown>'}`)
+      params.push('options?: ClientMethodOptions')
 
       const hasResponse = hasDocumentedSuccessResponseBody(op.responses)
       const bodyType = hasTypedResponse ? `${baseName}Response` : hasResponse ? 'unknown' : 'void'
@@ -778,8 +812,8 @@ export function generateClientFromParsed(doc: ParsedDocument, options: ClientRen
         fetchOpts.push(`querySpecs: ${formatQuerySpecs(queryParams)}`)
       }
       if (querystringParam) fetchOpts.push('querystring')
-      if (acceptsRequestHeaders) fetchOpts.push('headers: __serializeOaRequestHeaders(requestHeaders)')
-      const optsArg = fetchOpts.length > 0 ? `{ ${fetchOpts.join(', ')} }` : 'undefined'
+      fetchOpts.push('headers: __serializeOaRequestHeaders(requestHeaders)')
+      fetchOpts.push('signal: options?.signal')
       const headerSpecs = formatHeaderSpecs(responseHeadersToReadSpecs(op.responses))
       const retryable = isOperationRetryable(op)
 
@@ -787,9 +821,9 @@ export function generateClientFromParsed(doc: ParsedDocument, options: ClientRen
         lines.push(`      /** ${op.summary ?? op.description} */`)
       }
       lines.push(`      async ${methodName}(${params.join(', ')}): Promise<ClientResponse<JsonPrimitive<${bodyType}>, ${headersType}>> {`)
-      if (acceptsRequestHeaders) lines.push(`        const requestHeaders = __mergeOaRequestHeaders(headers)`)
+      lines.push(`        const requestHeaders = __mergeOaRequestHeaders(${acceptsRequestHeaders ? 'headers, ' : ''}options?.headers)`)
       lines.push(...requestValidationLines(op, '        ', acceptsRequestHeaders ? 'requestHeaders' : 'headers'))
-      lines.push(`        return requestResponse<JsonPrimitive<${bodyType}>, ${headersType}>('${method}', ${pathExpr}, ${optsArg}, ${JSON.stringify(requestMediaTypes)}, ${responseMediaTypes}, ${errorMediaTypes}, ${headerSpecs}, ${retryable}, ${JSON.stringify(op.operationId)})`)
+      lines.push(`        return requestResponse<JsonPrimitive<${bodyType}>, ${headersType}>('${method}', ${pathExpr}, { ${fetchOpts.join(', ')} }, ${JSON.stringify(requestMediaTypes)}, ${responseMediaTypes}, ${errorMediaTypes}, ${headerSpecs}, ${retryable}, ${JSON.stringify(op.operationId)})`)
       lines.push(`      },`)
       lines.push('')
     }
@@ -797,6 +831,8 @@ export function generateClientFromParsed(doc: ParsedDocument, options: ClientRen
   }
   lines.push('  }')
   lines.push('}')
+  lines.push('')
+  lines.push('export type ApiClient = ReturnType<typeof createClient>')
 
   // ─── Webhook Types ─────────────────────────────────────────────
   if (doc.webhooks.length > 0) {

@@ -1,6 +1,6 @@
 import * as readline from 'node:readline/promises'
 import { stdin as input, stdout as output } from 'node:process'
-import type { TargetFrameworkId } from './types.js'
+import type { TargetFrameworkId, OutputRoutingPreset } from './types.js'
 import type { LifecycleArchetypeId } from './archetypes/types.js'
 
 /**
@@ -77,3 +77,38 @@ export async function promptArchetypeSelection(
     rl.close()
   }
 }
+
+/**
+ * Prompts user to select the output path routing preset.
+ */
+export async function promptRoutingSelection(
+  suggestedRouting: OutputRoutingPreset = 'default',
+): Promise<OutputRoutingPreset> {
+  const rl = readline.createInterface({ input, output })
+  try {
+    console.log('\n🗂️ Select Output Path Routing Preset:')
+    console.log('  [1] Default  — Flat convention: src/api/{tag}/{tag}.{kind}.ts')
+    console.log('  [2] FSD      — Feature-Sliced Design: src/features/{tag}/api/ & src/shared/api/')
+    console.log('  [3] Monorepo — Full-stack monorepo: packages/contracts/, client-sdk/, apps/web/')
+    console.log('  [4] By-Kind  — Group by kind: src/contracts/, src/client/, src/queries/')
+    const answer = await rl.question(`Select routing preset [1-4] (default: ${suggestedRouting}): `)
+    const trimmed = answer.trim().toLowerCase()
+    const map: Record<string, OutputRoutingPreset> = {
+      '1': 'default',
+      'default': 'default',
+      '2': 'fsd',
+      'fsd': 'fsd',
+      '3': 'monorepo',
+      'monorepo': 'monorepo',
+      '4': 'by-kind',
+      'by-kind': 'by-kind',
+      'bykind': 'by-kind',
+    }
+    return map[trimmed] ?? suggestedRouting
+  } catch {
+    return suggestedRouting
+  } finally {
+    rl.close()
+  }
+}
+

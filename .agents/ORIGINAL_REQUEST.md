@@ -585,3 +585,92 @@ Integrity mode: development
 - [ ] Worktree is committed cleanly with no stray temporary or untracked artifacts.
 - [ ] `pnpm release:preflight` succeeds on the clean worktree.
 - [ ] `pnpm release` produces valid, consumable release package tarballs with verified integrity hashes.
+
+## 2026-09-12T18:45:11Z
+
+Resolve all 9 critical and high-priority platform deficiencies across @oa-sdk/router, @oa-sdk/client, and @oa-sdk/codegen, including router response envelope collision, handler error typing, AbortSignal pass-through, infinite queries, monorepo package boundary import resolution, RouterRenderOptions typing, unified oa-gen generate pipeline, oa-gen init outputRouting presets, and Linux-compatible file watching.
+
+Working directory: /Users/junwoobang/workflow/oa-sdk
+Integrity mode: development
+
+## Requirements
+
+### R1. Router Response Envelope Collision Defense (@oa-sdk/router)
+- Fix Runtime Bug in Router Targets (fastify.ts, elysia.ts, hono.ts, express.ts):
+  - Replace the dangerous 'status' in result || 'headers' in result || 'body' in result heuristic.
+  - Business entities with a status field (e.g. { id: 'order_1', status: 'PENDING', total: 5000 } or { status: 'ACTIVE' }) must NEVER be mistaken for an HTTP response envelope ({ status: number, body: unknown, headers?: ... }).
+  - An object is treated as an HTTP response envelope ONLY when 'body' in result AND (result.status === undefined || typeof result.status === 'number') AND (result.headers === undefined || typeof result.headers === 'object').
+  - If an entity lacks a body field or has a non-numeric status, it must be serialized directly as the 200/default response body, preserving all entity properties.
+  - Comprehensive unit/stress tests verifying entities with status: string, body: string, headers: string are serialized properly without data loss.
+
+### R2. Handler Contract Multi-Status & Error Response Type Union (@oa-sdk/router)
+- Typed Error Responses in handler-contract.ts:
+  - Upgrade HandlerResponse from a single success type to a discriminated union supporting all documented status codes (2xx, 4xx, 5xx) for each operation:
+    ```ts
+    export type HandlerResponse<TSuccess, TErrorMap = Record<number, unknown>, THeaders = Record<string, string>> =
+      | TSuccess
+      | { status: 200; body: TSuccess; headers?: THeaders }
+      | { [K in keyof TErrorMap]: { status: K; body: TErrorMap[K]; headers?: Record<string, string> } }[keyof TErrorMap]
+    ```
+  - Allow handlers to return typed error status responses (e.g. { status: 404, body: NotFoundError }) with 100% type safety and zero as any casting.
+  - Ensure all 4 framework targets (fastify, elysia, hono, express) set the returned status code and serialize the error body correctly.
+
+### R3. AbortSignal & RequestInit Pass-Through Pipeline (@oa-sdk/client)
+- End-to-End Request Cancellation:
+  - In generate-client-renderer.ts, extend all generated client methods to accept an optional options?: { signal?: AbortSignal, headers?: Record<string, string> }.
+  - Pass options.signal down to the internal fetch(url, { ...init, signal }) call so component unmount or query cancellation actually aborts the HTTP request.
+  - In options-factory-generator.ts, pass { signal } from TanStack Query's queryFn: async ({ signal }) => client[method](params, { signal }) into the client call.
+
+### R4. TanStack Query Infinite Query Generator (@oa-sdk/client)
+- infiniteQueryOptions Generation:
+  - In options-factory-generator.ts and hook-factory-generator.ts:
+  - Detect pagination parameters (cursor, page, offset, limit, starting_after) in GET query parameters and responses.
+  - For paginated operations, emit export function ${methodName}InfiniteQueryOptions(...) alongside standard queryOptions().
+  - Wire initialPageParam and getNextPageParam with sensible defaults and open option overrides.
+
+### R5. Monorepo Package Boundary Awareness in Import Resolver (@oa-sdk/codegen)
+- Package-Level Import Resolution in import-resolver.ts:
+  - When resolving imports between files located in different monorepo workspace packages (e.g. from apps/web/... to packages/api-client/...), avoid fragile deep relative paths (../../../../packages/api-client/...).
+  - Inspect the target directory's nearest package.json and, if a package name exists (e.g. @oa-sdk/client or @my-org/api-client), resolve the specifier to the canonical package name.
+
+### R6. Router Render Options & Facade Typing Integrity (@oa-sdk/router)
+- Complete RouterRenderOptions Definition:
+  - In packages/router/src/generate-router-renderer.ts, add contextInjection?: boolean, context?: boolean, contextImport?: string, and contextTypeName?: string to RouterRenderOptions.
+  - Ensure generateRouter(doc, options) passes TypeScript typechecking cleanly when configuring context injection without as any.
+
+### R7. Unified Declarative Execution in oa-gen generate (@oa-sdk/codegen)
+- End-to-End Generation Pipeline:
+  - In packages/codegen/src/cli/commands/generate.ts, extend runConfigDrivenPipeline to inspect core.contracts, core.client, and product.outputRouting.
+  - Running oa-gen generate without subcommands should orchestrate the full pipeline: OpenAPI/JSON Schema projection -> Type Guards -> Handler Contracts -> Client SDK -> TanStack Query options, dispatched to paths configured in outputRouting.
+
+### R8. outputRouting Presets in oa-gen init (@oa-sdk/codegen)
+- Onboarding Integration:
+  - In packages/codegen/src/cli/commands/init.ts and composer.ts:
+  - Support --routing <default|fsd|monorepo|by-kind> flag and prompt during interactive onboarding.
+  - Emit an idiomatic product.outputRouting configuration block in the generated oa.config.ts.
+
+### R9. Linux-Compatible File Watching Fallback in spec-watcher.ts (@oa-sdk/codegen)
+- Cross-Platform Watcher Portability:
+  - In packages/codegen/src/cli/lib/spec-watcher.ts, detect Linux environments where fs.watch({ recursive: true }) throws or fails to watch subdirectories.
+  - Implement a recursive directory walker to attach individual fs.watch instances to each directory level on Linux, ensuring live mock hot-reloading functions reliably across Linux containers, Docker, and CI.
+
+## Acceptance Criteria
+
+### Router Integrity & Error Handling
+- [ ] Entities with status: string (e.g. { id: '1', status: 'PENDING' }) are serialized as 200 response bodies without data loss or status crashes across Fastify, Elysia, Hono, and Express.
+- [ ] Handler contracts support returning typed error responses (e.g. { status: 404, body: NotFoundError }) with zero TypeScript errors and zero as any casting.
+- [ ] RouterRenderOptions accepts contextInjection, contextImport, and contextTypeName without type diagnostics.
+
+### Client & TanStack Query
+- [ ] Generated fetch client accepts optional signal: AbortSignal, and TanStack Query queryFn forwards signal to abort in-flight fetch requests upon cancellation.
+- [ ] Paginated GET operations emit valid, type-checked infiniteQueryOptions() with initialPageParam and getNextPageParam.
+
+### Codegen & Routing Engine
+- [ ] resolveImportSpecifier resolves cross-package monorepo imports to canonical package names instead of deep relative paths traversing package.json boundaries.
+- [ ] oa-gen generate orchestrates the complete declarative pipeline (specs + guards + contracts + client + tanstack) in a single run.
+- [ ] oa-gen init --routing fsd emits tailored product.outputRouting configuration.
+- [ ] spec-watcher.ts watches nested directories cleanly on Linux without recursive watch errors.
+
+### Monorepo Governance & Tests
+- [ ] All new and existing unit, integration, and E2E tests pass under pnpm test.
+- [ ] pnpm check:docs, pnpm check:cli-spec, pnpm check:api-index, pnpm check:release-policy, and pnpm typecheck:all pass with 0 errors and 0 drift.

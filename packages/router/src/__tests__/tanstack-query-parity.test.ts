@@ -341,6 +341,10 @@ declare module '@oa-sdk/client' {
         ? { [K in keyof T as T[K] extends (...args: any[]) => any ? never : K]: JsonPrimitive<T[K]> }
         : T;
   export type Resolved<T> = JsonPrimitive<T>;
+  export type ClientMethodOptions = {
+    signal?: AbortSignal;
+    headers?: Record<string, string>;
+  };
 }
 `
 
@@ -419,14 +423,16 @@ import type {
   DeleteUserPathParams,
   DeleteUserResponse,
 } from './types.js';
-import type { JsonPrimitive, Resolved } from '@oa-sdk/client';
+import type { JsonPrimitive, Resolved, ClientMethodOptions } from '@oa-sdk/client';
+
+export type { ClientMethodOptions };
 
 export interface ApiClient {
-  listUsers(query?: ListUsersQueryParams): Promise<JsonPrimitive<ListUsersResponse>>;
-  createUser(body: Resolved<CreateUserBody>): Promise<JsonPrimitive<CreateUserResponse>>;
-  getUser(params: GetUserPathParams, query?: GetUserQueryParams): Promise<JsonPrimitive<GetUserResponse>>;
-  updateUser(params: UpdateUserPathParams, body?: Resolved<UpdateUserBody>, query?: UpdateUserQueryParams): Promise<JsonPrimitive<UpdateUserResponse>>;
-  deleteUser(params: DeleteUserPathParams): Promise<void>;
+  listUsers(query?: ListUsersQueryParams, options?: ClientMethodOptions): Promise<JsonPrimitive<ListUsersResponse>>;
+  createUser(body: Resolved<CreateUserBody>, options?: ClientMethodOptions): Promise<JsonPrimitive<CreateUserResponse>>;
+  getUser(params: GetUserPathParams, query?: GetUserQueryParams, options?: ClientMethodOptions): Promise<JsonPrimitive<GetUserResponse>>;
+  updateUser(params: UpdateUserPathParams, body?: Resolved<UpdateUserBody>, query?: UpdateUserQueryParams, options?: ClientMethodOptions): Promise<JsonPrimitive<UpdateUserResponse>>;
+  deleteUser(params: DeleteUserPathParams, options?: ClientMethodOptions): Promise<void>;
 }
 `
 
@@ -491,7 +497,7 @@ type MutationCreateBody = CreateUserVariables['body'];
 const _bodyEqual: Equals<Resolved<RouterCreateBody>, MutationCreateBody> = true;
 
 // 4. Response Parity (with JsonPrimitive<T> wire safety)
-type RouterGetUserResponseBody = Extract<Awaited<ReturnType<GetUserHandler>>, { body: any }>['body'];
+type RouterGetUserResponseBody = Extract<Awaited<ReturnType<GetUserHandler>>, { status: 200 }>['body'];
 type QueryGetUserResponse = Awaited<ReturnType<ReturnType<typeof getUserQueryOptions>['queryFn']>>;
 const _responseEqual: Equals<JsonPrimitive<RouterGetUserResponseBody>, QueryGetUserResponse> = true;
 
@@ -552,6 +558,36 @@ export async function consumeFrontendMutation(client: ApiClient) {
 
   const createdId: string = result.id;
   return createdId;
+}
+
+// 7. Concrete Mock ApiClient Implementation with Trailing Options
+export const mockApiClient: ApiClient = {
+  listUsers: async (_query, _options) => [],
+  createUser: async (_body, _options) => ({
+    id: 'usr_new',
+    name: 'Alice Developer',
+    email: 'alice@example.com',
+    createdAt: '2026-01-01T00:00:00.000Z',
+  }),
+  getUser: async (_params, _query, _options) => ({
+    id: 'usr_1',
+    name: 'Alice Developer',
+    email: 'alice@example.com',
+    createdAt: '2026-01-01T00:00:00.000Z',
+  }),
+  updateUser: async (_params, _body, _query, _options) => ({
+    id: 'usr_1',
+    name: 'Alice Developer',
+    email: 'alice@example.com',
+    createdAt: '2026-01-01T00:00:00.000Z',
+  }),
+  deleteUser: async (_params, _options) => {},
+};
+
+export async function testMockApiClientConsumer() {
+  const queryResult = await consumeFrontendQuery(mockApiClient, 'usr_1');
+  const mutationResult = await consumeFrontendMutation(mockApiClient);
+  return { queryResult, mutationResult };
 }
 `
 

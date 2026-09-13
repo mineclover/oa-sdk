@@ -326,7 +326,7 @@ describe('Tier 5 Adversarial Stress Testing: Generic Context Injection & Framewo
           target,
           contractImport: './api.contract',
           contextInjection: true,
-        } as any)
+        })
 
         expect(code).toContain('getContext')
         expect(code).toContain('context')
@@ -340,7 +340,7 @@ describe('Tier 5 Adversarial Stress Testing: Generic Context Injection & Framewo
           target,
           contractImport: './api.contract',
           context: true,
-        } as any)
+        })
 
         expect(code).toContain('getContext')
         expect(code).toContain('context')
@@ -352,7 +352,7 @@ describe('Tier 5 Adversarial Stress Testing: Generic Context Injection & Framewo
         target: 'fastify',
         contractImport: './api.contract',
         contextInjection: true,
-      } as any)
+      })
 
       // Check Fastify options signature
       expect(code).toContain('export interface ApiRouterOptions<TContext = unknown> {')
@@ -377,7 +377,7 @@ describe('Tier 5 Adversarial Stress Testing: Generic Context Injection & Framewo
         target: 'elysia',
         contractImport: './api.contract',
         contextInjection: true,
-      } as any)
+      })
 
       expect(code).toContain('export interface ElysiaRouterOptions<TContext = unknown> {')
       expect(code).toContain('  getContext?: (ctx: any) => Promise<TContext> | TContext')
@@ -398,7 +398,7 @@ describe('Tier 5 Adversarial Stress Testing: Generic Context Injection & Framewo
         target: 'hono',
         contractImport: './api.contract',
         contextInjection: true,
-      } as any)
+      })
 
       expect(code).toContain("import { Hono, type Context } from 'hono'")
       expect(code).toContain('export interface HonoRouterOptions<TContext = unknown> {')
@@ -416,7 +416,7 @@ describe('Tier 5 Adversarial Stress Testing: Generic Context Injection & Framewo
         target: 'express',
         contractImport: './api.contract',
         contextInjection: true,
-      } as any)
+      })
 
       expect(code).toContain("import { Router } from 'express'")
       expect(code).toContain("import type { Request } from 'express'")
@@ -437,7 +437,7 @@ describe('Tier 5 Adversarial Stress Testing: Generic Context Injection & Framewo
           target,
           contractImport: './api.contract',
           contextInjection: true,
-        } as any)
+        })
 
         expect(code).toContain('// ─── Webhooks ───')
         expect(code).toContain('onItemNotification')
@@ -451,7 +451,7 @@ describe('Tier 5 Adversarial Stress Testing: Generic Context Injection & Framewo
         const code = generateRouter(stressSpec, {
           target,
           contractImport: './api.contract',
-        } as any)
+        })
 
         // Must not emit getContext or context property in options
         expect(code).not.toContain('getContext?:')
@@ -494,7 +494,7 @@ describe('Tier 5 Adversarial Stress Testing: Generic Context Injection & Framewo
           contractImport: './api.contract',
           contextImport: './context',
           contextTypeName: 'CustomEnterpriseContext',
-        } as any)
+        })
         writeFileSync(join(testDir, `${target}-router.ts`), routerCode, 'utf8')
       }
 
@@ -934,7 +934,7 @@ describe('Tier 5 Adversarial Stress Testing: Generic Context Injection & Framewo
         contractImport: './api.contract',
         contextImport: './context',
         contextTypeName: 'AppRuntimeContext',
-      } as any)
+      })
       writeFileSync(join(testHarnessDir, 'fastify-router.ts'), fastifyCode, 'utf8')
 
       const elysiaCode = generateRouter(stressSpec, {
@@ -942,7 +942,7 @@ describe('Tier 5 Adversarial Stress Testing: Generic Context Injection & Framewo
         contractImport: './api.contract',
         contextImport: './context',
         contextTypeName: 'AppRuntimeContext',
-      } as any)
+      })
       writeFileSync(join(testHarnessDir, 'elysia-router.ts'), elysiaCode, 'utf8')
 
       const honoCode = generateRouter(stressSpec, {
@@ -950,7 +950,7 @@ describe('Tier 5 Adversarial Stress Testing: Generic Context Injection & Framewo
         contractImport: './api.contract',
         contextImport: './context',
         contextTypeName: 'AppRuntimeContext',
-      } as any)
+      })
       writeFileSync(join(testHarnessDir, 'hono-router.ts'), honoCode, 'utf8')
 
       const expressCode = generateRouter(stressSpec, {
@@ -958,7 +958,7 @@ describe('Tier 5 Adversarial Stress Testing: Generic Context Injection & Framewo
         contractImport: './api.contract',
         contextImport: './context',
         contextTypeName: 'AppRuntimeContext',
-      } as any)
+      })
       writeFileSync(join(testHarnessDir, 'express-router.ts'), expressCode, 'utf8')
 
       // tsconfig for emitting ES module JavaScript

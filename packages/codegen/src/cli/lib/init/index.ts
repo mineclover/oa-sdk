@@ -24,10 +24,12 @@ import {
   composeInitScripts,
   composeInitDependencies,
   composeInitPackagePatches,
+  getOutputRoutingSnippet,
 } from './composer.js'
 import {
   promptTargetSelection,
   promptArchetypeSelection,
+  promptRoutingSelection,
   isInteractiveSession,
 } from './interactive.js'
 import { detectSchemas } from './common/schema-detector.js'
@@ -41,6 +43,7 @@ import type {
   DetectedSchemaItem,
   PackagePatchResult,
   LifecycleArchetypeId,
+  OutputRoutingPreset,
 } from './types.js'
 import type { ArchetypeProfile } from './archetypes/types.js'
 
@@ -71,8 +74,10 @@ export {
   composeInitScripts,
   composeInitDependencies,
   composeInitPackagePatches,
+  getOutputRoutingSnippet,
   promptTargetSelection,
   promptArchetypeSelection,
+  promptRoutingSelection,
   isInteractiveSession,
   detectSchemas,
   patchPackageJson,
@@ -119,6 +124,16 @@ export async function runInit(options: InitOptions = {}): Promise<InitResult> {
     archetypeId = 'mvp'
   }
 
+  // 2.5 Resolve output path routing preset
+  let routingPreset: OutputRoutingPreset
+  if (options.routing) {
+    routingPreset = options.routing.toLowerCase().trim() as OutputRoutingPreset
+  } else if (shouldPrompt) {
+    routingPreset = await promptRoutingSelection('default')
+  } else {
+    routingPreset = 'default'
+  }
+
   // 3. Discover schema files across directory tree
   const detectedList = await detectSchemas(cwd)
   let primarySchema: DetectedSchemaItem | undefined
@@ -154,6 +169,7 @@ export async function runInit(options: InitOptions = {}): Promise<InitResult> {
     frameworkId: targetId,
     runtime: matchedProfile.defaultRuntime,
     detectedSchema: primarySchema,
+    routing: routingPreset,
   }
 
   // 4. Generate oa.config.ts content via composer
@@ -197,6 +213,7 @@ export async function runInit(options: InitOptions = {}): Promise<InitResult> {
   return {
     targetId,
     archetypeId,
+    routing: routingPreset,
     runtime: matchedProfile.defaultRuntime,
     configPath,
     patchResult,

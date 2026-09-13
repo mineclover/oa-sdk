@@ -2,6 +2,7 @@ import type {
   TargetProfile,
   TargetGenerateOptions,
   RecommendedDependencies,
+  OutputRoutingPreset,
 } from './types.js'
 import type { ArchetypeProfile, ArchetypeGenerateOptions } from './archetypes/types.js'
 
@@ -22,11 +23,13 @@ function formatObject(obj: Record<string, unknown>, indentLevel = 1): string {
         const formattedArray = value.map((v) => `'${v}'`).join(', ')
         entries.push(`${innerIndent}${key}: [${formattedArray}],`)
       } else {
-        const formattedItems = value.map((v) =>
-          typeof v === 'object' && v !== null
-            ? formatObject(v as Record<string, unknown>, indentLevel + 1)
-            : JSON.stringify(v),
-        )
+        const formattedItems = value.map((v) => {
+          if (typeof v === 'object' && v !== null) {
+            const itemIndent = '  '.repeat(indentLevel + 2)
+            return `${itemIndent}{\n${formatObject(v as Record<string, unknown>, indentLevel + 2)}\n${itemIndent}}`
+          }
+          return `${'  '.repeat(indentLevel + 2)}${JSON.stringify(v)}`
+        })
         entries.push(`${innerIndent}${key}: [\n${formattedItems.join(',\n')}\n${innerIndent}],`)
       }
     } else if (typeof value === 'object' && value !== null) {
@@ -39,6 +42,58 @@ function formatObject(obj: Record<string, unknown>, indentLevel = 1): string {
   }
 
   return entries.join('\n')
+}
+
+/**
+ * Returns output routing configuration block for selected preset.
+ */
+export function getOutputRoutingSnippet(preset: OutputRoutingPreset = 'default'): Record<string, unknown> {
+  switch (preset) {
+    case 'fsd':
+      return {
+        pattern: 'src/features/{tag}/api/{tag}.{kind}.ts',
+        rules: [
+          {
+            tag: ['common', 'shared', 'auth', 'system'],
+            target: 'src/shared/api/{tag}.{kind}.ts',
+          },
+          {
+            kind: 'schemas',
+            target: 'src/shared/api/schemas.ts',
+          },
+        ],
+        byKind: {
+          client: 'src/shared/api/client.ts',
+        },
+      }
+    case 'monorepo':
+      return {
+        byKind: {
+          contract: 'packages/contracts/src/api.contract.ts',
+          guards: 'packages/contracts/src/guards.ts',
+          schemas: 'packages/contracts/src/schemas.ts',
+          client: 'packages/client-sdk/src/index.ts',
+          queries: 'apps/web/src/api/queries.ts',
+          keys: 'apps/web/src/api/keys.ts',
+        },
+      }
+    case 'by-kind':
+      return {
+        byKind: {
+          contract: 'src/contracts/{tag}.contract.ts',
+          client: 'src/client/{tag}.client.ts',
+          queries: 'src/queries/{tag}.queries.ts',
+          keys: 'src/keys/{tag}.keys.ts',
+          guards: 'src/guards/{tag}.guards.ts',
+          schemas: 'src/schemas/{tag}.schemas.ts',
+        },
+      }
+    case 'default':
+    default:
+      return {
+        pattern: 'src/api/{tag}/{tag}.{kind}.ts',
+      }
+  }
 }
 
 /**
@@ -104,6 +159,7 @@ export function composeInitConfig(
     runtime: options.runtime,
     jitSchema: target.id === 'fastify',
     zeroCopy: target.id === 'elysia',
+    outputRouting: getOutputRoutingSnippet(options.routing ?? 'default'),
     ...(archetype.id === 'enterprise'
       ? {
           personas: {

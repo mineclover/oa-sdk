@@ -450,13 +450,13 @@ describe('TanStack Query v5 3-Tier Code Generator', () => {
       expect(code).toContain('client: ApiClient,')
       expect(code).toContain('query?: ListUsersQueryParams,')
       expect(code).toContain('queryKey: usersKeys.listUsers(query),')
-      expect(code).toContain('return client.listUsers(query)')
+      expect(code).toContain('return client.listUsers(query, { signal })')
 
       expect(code).toContain('export function getUserQueryOptions<TData = JsonPrimitive<GetUserResponse>>(')
       expect(code).toContain('params: GetUserPathParams,')
       expect(code).toContain('query?: GetUserQueryParams,')
       expect(code).toContain('queryKey: usersKeys.getUser(params, query),')
-      expect(code).toContain('return client.getUser(params, query)')
+      expect(code).toContain('return client.getUser(params, query, { signal })')
 
       // Mutation options functions
       expect(code).toContain('export function createUserMutationOptions<TContext = unknown>(')

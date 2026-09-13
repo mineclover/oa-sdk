@@ -14,6 +14,7 @@ import {
   toOperationMethodName,
 } from '@oa-sdk/core/browser'
 import { getOperationTag, groupOperationsByTag, isQueryOperation, toKeyFactoryName } from './key-factory-generator.js'
+import { detectPagination } from './options-factory-generator.js'
 
 export interface HookFactoryOptions {
   /** Target query package (default: '@tanstack/react-query') */
@@ -89,9 +90,24 @@ export function generateHookFactory(doc: ParsedDocument, options: HookFactoryOpt
   const operationNames = createOperationTypeNameMap(doc.operations)
   const groups = groupOperationsByTag(doc)
 
+  const hasPagination = doc.operations.some(op => detectPagination(op) !== null)
+
   if (!isCombined) {
-    lines.push(`import { useQuery, useMutation } from '${queryPackage}'`)
-    lines.push(`import type { UseQueryOptions, UseQueryResult, UseMutationOptions, UseMutationResult, QueryClient } from '${queryPackage}'`)
+    const fnImports = ['useQuery', 'useMutation']
+    if (hasPagination) fnImports.push('useInfiniteQuery')
+    lines.push(`import { ${fnImports.join(', ')} } from '${queryPackage}'`)
+
+    const typeImports = [
+      'UseQueryOptions',
+      'UseQueryResult',
+      'UseMutationOptions',
+      'UseMutationResult',
+      'QueryClient',
+    ]
+    if (hasPagination) {
+      typeImports.push('UseInfiniteQueryOptions', 'UseInfiniteQueryResult', 'InfiniteData')
+    }
+    lines.push(`import type { ${typeImports.join(', ')} } from '${queryPackage}'`)
     lines.push(`import type { JsonPrimitive } from '@oa-sdk/client'`)
     lines.push('')
 
@@ -136,6 +152,9 @@ export function generateHookFactory(doc: ParsedDocument, options: HookFactoryOpt
         const methodName = toOperationMethodName(baseName)
         if (isQueryOperation(op)) {
           optionFunctions.push(`${methodName}QueryOptions`)
+          if (detectPagination(op)) {
+            optionFunctions.push(`${methodName}InfiniteQueryOptions`)
+          }
         } else {
           optionFunctions.push(`${methodName}MutationOptions`)
           varTypes.push(`${baseName}Variables`)
@@ -215,6 +234,58 @@ export function generateHookFactory(doc: ParsedDocument, options: HookFactoryOpt
       lines.push(`  return useQuery(${methodName}QueryOptions(client, ${callArgs}), queryClient)`)
       lines.push(`}`)
       lines.push('')
+
+      const pagination = detectPagination(op)
+      if (pagination) {
+        const defaultPageParamType = pagination.type === 'cursor' ? 'string | null' : 'number'
+        const infiniteFuncParams: string[] = [`client: ${clientName}`]
+        const infiniteForwardArgs: string[] = []
+
+        if (pathParams.length > 0) {
+          infiniteFuncParams.push(`params: ${typesImport ? `${baseName}PathParams` : 'Record<string, string>'}`)
+          infiniteForwardArgs.push('params')
+        }
+        if (hasBody && bodyRequired) {
+          infiniteFuncParams.push(`body: ${typesImport ? `Resolved<${baseName}Body>` : 'unknown'}`)
+          infiniteForwardArgs.push('body')
+        }
+        if (querystringParam?.required === true) {
+          infiniteFuncParams.push(`querystring: ${typesImport ? `${baseName}QueryString` : 'string'}`)
+          infiniteForwardArgs.push('querystring')
+        }
+        if (queryParams.length > 0) {
+          infiniteFuncParams.push(`query?: ${typesImport ? `${baseName}QueryParams` : 'Record<string, unknown>'}`)
+          infiniteForwardArgs.push('query')
+        }
+        if (querystringParam && !querystringParam.required) {
+          infiniteFuncParams.push(`querystring?: ${typesImport ? `${baseName}QueryString` : 'string'}`)
+          infiniteForwardArgs.push('querystring')
+        }
+        if (hasBody && !bodyRequired) {
+          infiniteFuncParams.push(`body?: ${typesImport ? `Resolved<${baseName}Body>` : 'unknown'}`)
+          infiniteForwardArgs.push('body')
+        }
+        if (headerParams.length > 0) {
+          infiniteFuncParams.push(`headers?: ${typesImport ? `${baseName}HeaderParams` : 'Record<string, unknown>'}`)
+          infiniteForwardArgs.push('headers')
+        }
+
+        const infiniteOptionsParam = `options?: Omit<UseInfiniteQueryOptions<${returnDataType}, ${errorType}, TData, ReturnType<typeof ${factoryName}.${methodName}>, TPageParam>, 'queryKey' | 'queryFn'>`
+        infiniteFuncParams.push(infiniteOptionsParam)
+        infiniteFuncParams.push('queryClient?: QueryClient')
+
+        const infiniteCallArgs = infiniteForwardArgs.length > 0 ? `${infiniteForwardArgs.join(', ')}, options` : 'options'
+
+        lines.push(`export function use${baseName}InfiniteQuery<`)
+        lines.push(`  TData = InfiniteData<${returnDataType}>,`)
+        lines.push(`  TPageParam = ${defaultPageParamType},`)
+        lines.push(`>(`)
+        lines.push(`  ${infiniteFuncParams.join(',\n  ')},`)
+        lines.push(`): UseInfiniteQueryResult<TData, ${errorType}> {`)
+        lines.push(`  return useInfiniteQuery(${methodName}InfiniteQueryOptions(client, ${infiniteCallArgs}), queryClient)`)
+        lines.push(`}`)
+        lines.push('')
+      }
     } else {
       const varsType = `${baseName}Variables`
       const optionsParam = `options?: Omit<UseMutationOptions<${returnDataType}, ${errorType}, ${varsType}, TContext>, 'mutationKey' | 'mutationFn'>`
@@ -245,6 +316,7 @@ export function generateHookFactory(doc: ParsedDocument, options: HookFactoryOpt
     const tag = getOperationTag(op)
     const factoryName = toKeyFactoryName(tag)
     const isQuery = isQueryOperation(op)
+    const pagination = isQuery ? detectPagination(op) : null
 
     const pathParams = op.parameters.filter(p => p.in === 'path')
     const queryParams = op.parameters.filter(p => p.in === 'query')
@@ -301,6 +373,54 @@ export function generateHookFactory(doc: ParsedDocument, options: HookFactoryOpt
       lines.push(`    use${baseName}: <TData = ${returnDataType}>(`)
       lines.push(`      ${boundParams.join(',\n      ')}`)
       lines.push(`    ) => use${baseName}Query(useClient(), ${callArgs}),`)
+
+      if (pagination) {
+        const defaultPageParamType = pagination.type === 'cursor' ? 'string | null' : 'number'
+        const boundInfiniteParams: string[] = []
+        const forwardInfiniteArgs: string[] = []
+
+        if (pathParams.length > 0) {
+          boundInfiniteParams.push(`params: ${typesImport ? `${baseName}PathParams` : 'Record<string, string>'}`)
+          forwardInfiniteArgs.push('params')
+        }
+        if (hasBody && bodyRequired) {
+          boundInfiniteParams.push(`body: ${typesImport ? `Resolved<${baseName}Body>` : 'unknown'}`)
+          forwardInfiniteArgs.push('body')
+        }
+        if (querystringParam?.required === true) {
+          boundInfiniteParams.push(`querystring: ${typesImport ? `${baseName}QueryString` : 'string'}`)
+          forwardInfiniteArgs.push('querystring')
+        }
+        if (queryParams.length > 0) {
+          boundInfiniteParams.push(`query?: ${typesImport ? `${baseName}QueryParams` : 'Record<string, unknown>'}`)
+          forwardInfiniteArgs.push('query')
+        }
+        if (querystringParam && !querystringParam.required) {
+          boundInfiniteParams.push(`querystring?: ${typesImport ? `${baseName}QueryString` : 'string'}`)
+          forwardInfiniteArgs.push('querystring')
+        }
+        if (hasBody && !bodyRequired) {
+          boundInfiniteParams.push(`body?: ${typesImport ? `Resolved<${baseName}Body>` : 'unknown'}`)
+          forwardInfiniteArgs.push('body')
+        }
+        if (headerParams.length > 0) {
+          boundInfiniteParams.push(`headers?: ${typesImport ? `${baseName}HeaderParams` : 'Record<string, unknown>'}`)
+          forwardInfiniteArgs.push('headers')
+        }
+
+        const infiniteOptionsParam = `options?: Omit<UseInfiniteQueryOptions<${returnDataType}, ${errorType}, TData, ReturnType<typeof ${factoryName}.${methodName}>, TPageParam>, 'queryKey' | 'queryFn'>`
+        boundInfiniteParams.push(infiniteOptionsParam)
+        boundInfiniteParams.push('queryClient?: QueryClient')
+
+        const boundCallArgs = forwardInfiniteArgs.length > 0 ? `${forwardInfiniteArgs.join(', ')}, options, queryClient` : 'options, queryClient'
+
+        lines.push(`    use${baseName}Infinite: <`)
+        lines.push(`      TData = InfiniteData<${returnDataType}>,`)
+        lines.push(`      TPageParam = ${defaultPageParamType},`)
+        lines.push(`    >(`)
+        lines.push(`      ${boundInfiniteParams.join(',\n      ')}`)
+        lines.push(`    ) => use${baseName}InfiniteQuery(useClient(), ${boundCallArgs}),`)
+      }
     } else {
       const varsType = `${baseName}Variables`
       const optionsParam = `options?: Omit<UseMutationOptions<${returnDataType}, ${errorType}, ${varsType}, TContext>, 'mutationKey' | 'mutationFn'>`

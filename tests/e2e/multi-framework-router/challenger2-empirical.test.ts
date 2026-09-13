@@ -285,11 +285,10 @@ describe('Challenger 2 Empirical Verification: Milestone 1', () => {
       expect(contractTs).toContain("UploadDocumentResponseHeaders")
 
       // HandlerResponse generic contract
-      expect(contractTs).toContain('export type HandlerResponse<TBody = unknown, THeaders = Record<string, string>> =')
-      expect(contractTs).toContain('| TBody')
-      expect(contractTs).toContain('status?: number')
-      expect(contractTs).toContain('body: TBody')
-      expect(contractTs).toContain('headers?: THeaders')
+      expect(contractTs).toContain('export type HandlerResponse<TSuccess = unknown, TErrorMap = Record<number, unknown>, THeaders = Record<string, string>> =')
+      expect(contractTs).toContain('| TSuccess')
+      expect(contractTs).toContain('{ status: 200; body: TSuccess; headers?: THeaders }')
+      expect(contractTs).toContain('{ [K in keyof TErrorMap]: { status: K; body: TErrorMap[K]; headers?: Record<string, string> } }[keyof TErrorMap]')
 
       // Multipart upload context (body is unknown because multipart/form-data is untyped by typegen)
       expect(contractTs).toContain('export interface UploadDocumentContext<TContext = unknown> {')

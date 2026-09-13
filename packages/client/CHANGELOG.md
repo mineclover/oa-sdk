@@ -1,5 +1,11 @@
 # @oa-sdk/client
 
+## 0.2.1
+
+### Patch Changes
+
+- Resolve 9 platform deficiencies across router envelope defense, handler error typing, AbortSignal pass-through, infinite queries, monorepo import resolution, RouterRenderOptions typing, unified oa-gen generate pipeline, init outputRouting presets, and Linux file watching fallback.
+
 ## 0.2.0
 
 ### Minor Changes

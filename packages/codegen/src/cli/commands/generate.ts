@@ -4,6 +4,7 @@ import { readFile, writeFile, mkdir } from 'node:fs/promises'
 import { parse as parseYaml } from 'yaml'
 import type { Command, CommandArgValue } from '../lib/types.js'
 import type { CodegenConfig, OaConfig } from '../../config.js'
+import { resolveConfigWithDefaults } from '../../config.js'
 import type { OutputOptions } from '../../types.js'
 import { generateComponents } from '../../generator.js'
 import { bool, optStr } from '../lib/args.js'
@@ -11,6 +12,12 @@ import { CliExitError } from '../lib/errors.js'
 import type { StandaloneGuardGeneratorOptions } from '../../standalone-guards/types.js'
 import { loadOaConfig, resolveProfileTarget } from '../lib/config-loader.js'
 import { projectTargetSpec, projectTargetGuards, type TargetSpecProjectionResult } from '../../spec-projector.js'
+import {
+  createPathDispatcher,
+  OaManifestManager,
+  DEFAULT_BANNER_MARKERS,
+  type WriteArtifactInput,
+} from '../../routing/index.js'
 
 export const generate: Command = {
   name: 'generate',
@@ -69,8 +76,8 @@ export const generate: Command = {
     })
 
     if (loaded) {
-      // Check if loaded config is extended OaConfig with specs or guards
-      if (loaded.config.specs || loaded.config.guards) {
+      // Check if loaded config is extended OaConfig with specs, guards, core, or product
+      if (loaded.config.specs || loaded.config.guards || loaded.config.core || loaded.config.product) {
         await runConfigDrivenPipeline(loaded.config, loaded.rootDir)
         return
       }
@@ -99,36 +106,234 @@ type Args = Record<string, CommandArgValue>
  * Executes declarative multi-target generation driven by oa.config.ts.
  */
 async function runConfigDrivenPipeline(config: OaConfig, rootDir: string): Promise<void> {
-  const specs = config.specs ?? []
+  const resolvedConfig = resolveConfigWithDefaults(config)
+  const specs = resolvedConfig.specs ?? []
   const specResults: TargetSpecProjectionResult[] = []
+
+  const outputRouting = resolvedConfig.product?.outputRouting ?? resolvedConfig.outputRouting
+  const dispatcher = createPathDispatcher(outputRouting, rootDir)
+  const bannerMarkers = [
+    ...DEFAULT_BANNER_MARKERS,
+    '@oa-sdk',
+    'Auto-generated',
+    'Do not edit',
+    'openapi',
+    '$schema',
+  ]
+  const manifestManager = new OaManifestManager(rootDir, undefined, bannerMarkers)
+  const artifactsToWrite: WriteArtifactInput[] = []
 
   console.log('\n🚀 [oa-gen generate] Executing Declarative Spec Pipeline...')
   console.log(`   Project Root: ${rootDir}\n`)
 
-  // Step A: Iterate over each profile target spec
+  // Step 1: Schema Projection (OpenAPI 3.1/3.2 and JSON Schema 2020-12)
   for (const target of specs) {
     const resolved = resolveProfileTarget(target, rootDir)
     await mkdir(resolved.resolvedOutDir, { recursive: true })
 
     const result = await projectTargetSpec(target, rootDir)
-    await writeFile(result.openApiPath, JSON.stringify(result.openApiDoc, null, 2) + '\n', 'utf8')
-    await writeFile(result.jsonSchemaPath, JSON.stringify(result.jsonSchemaDoc, null, 2) + '\n', 'utf8')
+    const openApiJson = JSON.stringify(result.openApiDoc, null, 2) + '\n'
+    const jsonSchemaJson = JSON.stringify(result.jsonSchemaDoc, null, 2) + '\n'
+
+    await writeFile(result.openApiPath, openApiJson, 'utf8')
+    await writeFile(result.jsonSchemaPath, jsonSchemaJson, 'utf8')
+
+    artifactsToWrite.push({
+      path: result.openApiPath,
+      kind: 'schemas',
+      tag: target.id,
+      content: openApiJson,
+      sourceSpec: target.schemaEntry,
+    })
+    artifactsToWrite.push({
+      path: result.jsonSchemaPath,
+      kind: 'schemas',
+      tag: target.id,
+      content: jsonSchemaJson,
+      sourceSpec: target.schemaEntry,
+    })
 
     specResults.push(result)
   }
 
-  // Step B: Generate standalone type guards if configured
+  // Step 2: Standalone Type Guards
   let guardSummary: string | undefined
-  if (config.guards) {
-    const guardRes = await projectTargetGuards(config.guards, specResults, rootDir)
+  if (resolvedConfig.guards) {
+    const guardRes = await projectTargetGuards(resolvedConfig.guards, specResults, rootDir)
     guardSummary = `${guardRes.artifacts.length} guard artifacts (${guardRes.guardCount} types) -> ${relative(rootDir, guardRes.outDir)}`
+    for (const artifact of guardRes.artifacts) {
+      artifactsToWrite.push({
+        path: artifact.filePath,
+        kind: 'guards',
+        content: artifact.content,
+      })
+    }
   }
 
-  // Step C: Formatted Summary
+  // Step 3: Handler Contracts (@oa-sdk/router)
+  const contractsConfig = resolvedConfig.core?.contracts
+  let contractsGeneratedCount = 0
+  if (contractsConfig?.pureHandlers !== false && specResults.length > 0) {
+    try {
+      const { generateHandlerContract } = await import('@oa-sdk/router')
+      for (const res of specResults) {
+        const contractCode = generateHandlerContract(res.openApiDoc as any, {
+          contractName: contractsConfig?.contractName ?? 'ApiHandlers',
+          banner: contractsConfig?.banner ?? true,
+          contextImport: resolvedConfig.product?.contextInjection?.importPath,
+          contextTypeName: resolvedConfig.product?.contextInjection?.typeName,
+        })
+
+        let contractPath: string
+        if (outputRouting) {
+          contractPath = dispatcher.dispatch({ kind: 'contract', tag: res.target.id }).absolutePath
+        } else if (contractsConfig?.outDir) {
+          contractPath = resolve(rootDir, contractsConfig.outDir, `${res.target.id}.contract.ts`)
+        } else {
+          const targetResolved = resolveProfileTarget(res.target, rootDir)
+          contractPath = resolve(targetResolved.resolvedOutDir, `${res.target.id}.contract.ts`)
+        }
+
+        artifactsToWrite.push({
+          path: contractPath,
+          kind: 'contract',
+          tag: res.target.id,
+          content: contractCode,
+          sourceSpec: res.openApiPath,
+        })
+        contractsGeneratedCount++
+      }
+    } catch (err) {
+      console.warn('⚠️  Failed to generate handler contracts via @oa-sdk/router:', err instanceof Error ? err.message : String(err))
+    }
+  }
+
+  // Step 4: Client SDK (@oa-sdk/client)
+  const clientConfig = resolvedConfig.core?.client
+  let clientGeneratedCount = 0
+  if (clientConfig?.enabled !== false && specResults.length > 0) {
+    try {
+      const { generateClient } = await import('@oa-sdk/client')
+      for (const res of specResults) {
+        const clientCode = generateClient(res.openApiDoc as any, {
+          banner: true,
+        })
+
+        let clientPath: string
+        if (outputRouting) {
+          clientPath = dispatcher.dispatch({ kind: 'client', tag: res.target.id }).absolutePath
+        } else if (clientConfig?.outDir) {
+          clientPath = resolve(rootDir, clientConfig.outDir, `${res.target.id}.client.ts`)
+        } else {
+          const targetResolved = resolveProfileTarget(res.target, rootDir)
+          clientPath = resolve(targetResolved.resolvedOutDir, `${res.target.id}.client.ts`)
+        }
+
+        artifactsToWrite.push({
+          path: clientPath,
+          kind: 'client',
+          tag: res.target.id,
+          content: clientCode,
+          sourceSpec: res.openApiPath,
+        })
+        clientGeneratedCount++
+      }
+    } catch (err) {
+      console.warn('⚠️  Failed to generate client SDK via @oa-sdk/client:', err instanceof Error ? err.message : String(err))
+    }
+  }
+
+  // Step 5: TanStack Query options (@oa-sdk/client)
+  let tanstackGeneratedCount = 0
+  if (specResults.length > 0) {
+    try {
+      const { generateTanstackQuery } = await import('@oa-sdk/client')
+      for (const res of specResults) {
+        let clientImport: string | undefined
+        let keysPath: string
+        let queriesPath: string
+
+        if (outputRouting) {
+          keysPath = dispatcher.dispatch({ kind: 'keys', tag: res.target.id }).absolutePath
+          queriesPath = dispatcher.dispatch({ kind: 'queries', tag: res.target.id }).absolutePath
+          clientImport = dispatcher.resolveImport(
+            { kind: 'queries', tag: res.target.id },
+            { kind: 'client', tag: res.target.id },
+          )
+        } else {
+          const targetResolved = resolveProfileTarget(res.target, rootDir)
+          keysPath = resolve(targetResolved.resolvedOutDir, `${res.target.id}.keys.ts`)
+          queriesPath = resolve(targetResolved.resolvedOutDir, `${res.target.id}.queries.ts`)
+          clientImport = `./${res.target.id}.client.js`
+        }
+
+        if (outputRouting && keysPath !== queriesPath) {
+          const keysImport = dispatcher.resolveImport(
+            { kind: 'queries', tag: res.target.id },
+            { kind: 'keys', tag: res.target.id },
+          )
+          const tanstackResult = generateTanstackQuery(res.openApiDoc as any, {
+            queryPackage: '@tanstack/react-query',
+            includeHooks: true,
+            clientImport,
+            keysImport,
+            tier: 'all',
+          })
+
+          artifactsToWrite.push({
+            path: keysPath,
+            kind: 'keys',
+            tag: res.target.id,
+            content: tanstackResult.keysCode,
+            sourceSpec: res.openApiPath,
+          })
+          artifactsToWrite.push({
+            path: queriesPath,
+            kind: 'queries',
+            tag: res.target.id,
+            content: tanstackResult.queriesCode,
+            sourceSpec: res.openApiPath,
+          })
+        } else {
+          const tanstackResult = generateTanstackQuery(res.openApiDoc as any, {
+            queryPackage: '@tanstack/react-query',
+            includeHooks: true,
+            clientImport,
+          })
+
+          artifactsToWrite.push({
+            path: queriesPath,
+            kind: 'queries',
+            tag: res.target.id,
+            content: tanstackResult.combinedCode,
+            sourceSpec: res.openApiPath,
+          })
+        }
+        tanstackGeneratedCount++
+      }
+    } catch (err) {
+      console.warn('⚠️  Failed to generate TanStack Query options via @oa-sdk/client:', err instanceof Error ? err.message : String(err))
+    }
+  }
+
+  // Step 6: Commit all artifacts through OaManifestManager and prune orphans
+  const writeResult = await manifestManager.writeArtifacts(artifactsToWrite)
+  const activePaths = artifactsToWrite.map((a) =>
+    relative(rootDir, resolve(rootDir, a.path)),
+  )
+  await manifestManager.pruneOrphans(activePaths)
+
+  // Step 7: Formatted Summary
   console.log('================================================================================')
-  console.log('                    OA-SDK GENERATE: SPEC & GUARD SUMMARY                       ')
+  console.log('                 OA-SDK GENERATE: SPEC & GUARD SUMMARY                          ')
+  console.log('                 OA-SDK GENERATE: DECLARATIVE PIPELINE SUMMARY                  ')
   console.log('================================================================================')
-  console.log(`Specs Processed: ${specResults.length}`)
+  console.log(`Specs Processed:     ${specResults.length}`)
+  console.log(`Contracts Generated: ${contractsGeneratedCount}`)
+  console.log(`Clients Generated:   ${clientGeneratedCount}`)
+  console.log(`TanStack Generated:  ${tanstackGeneratedCount}`)
+  console.log(`Artifacts Written:   ${writeResult.written.length}`)
+  console.log(`Artifacts Cached:    ${writeResult.skipped.length}`)
   for (const res of specResults) {
     const relOpenApi = relative(rootDir, res.openApiPath)
     const relSchema = relative(rootDir, res.jsonSchemaPath)

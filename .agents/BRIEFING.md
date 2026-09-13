@@ -1,29 +1,18 @@
-# BRIEFING — 2026-09-11T11:07:00+09:00
+# BRIEFING — 2026-09-12T18:45:11Z
 
 ## Mission
-Integrate automated preflight schema validation/linting and normalization pipeline into @oa-sdk/codegen Zod 4 generator (generateZodFromSpec and oa-gen generate:zod) with actionable diagnostics, best-effort fallback, and verification gates.
+Resolve all 9 critical and high-priority platform deficiencies across @oa-sdk/router, @oa-sdk/client, and @oa-sdk/codegen (envelope collision defense, handler error typing, AbortSignal pass-through, infinite queries, monorepo import resolution, RouterRenderOptions typing, unified oa-gen generate pipeline, oa-gen init outputRouting presets, and Linux file watching).
 
 ## 🔒 My Identity
 - Archetype: sentinel
 - Working directory: /Users/junwoobang/workflow/oa-sdk/.agents/sentinel
-- Orchestrator: 66b80c66-faf8-4e5b-807b-ea4d2ff265be
-- Active Orchestrator: d1a29c40-f205-4940-b852-9c16208d555d
-- Victory Auditor: 416525b3-fd7f-412b-92a8-8dd8e480e462
-- Active Orchestrator (Phase 2-4): c665389a-7f3c-4d31-a717-f16983c4bb03
-- Progress Cron: task-32 (*/8 * * * *)
-- Liveness Cron: task-34 (*/10 * * * *)
-- Active Orchestrator (Benchmark & Profiling): dcde8985-1d52-452b-9743-7bf870f71d2e
-- Progress Cron (Benchmark): task-20 (*/8 * * * *)
-- Liveness Cron (Benchmark): task-22 (*/10 * * * *)
-- Sentinel Victory Auditor (Benchmark & Profiling): 0d5bd9e1-32e6-4a0e-af44-eb7f18b4ea7c
-- Active Orchestrator (Zod Preflight Validation): f91b1b1e-3947-4b8a-bec0-e6082840b852
-- Progress Cron (Zod Preflight): task-20 (*/8 * * * *)
-- Liveness Cron (Zod Preflight): task-22 (*/10 * * * *)
-- Sentinel Victory Auditor (Zod Preflight): d72428f5-ad5b-40aa-8dec-8baf1206b708
-- Active Orchestrator (Bottleneck Optimizations): 6e9162db-e15b-42e5-9757-50c9b9433e62
-- Progress Cron (Bottleneck Optimizations): task-24 (*/8 * * * *)
-- Liveness Cron (Bottleneck Optimizations): task-26 (*/10 * * * *)
-- Sentinel Victory Auditor (Bottleneck Optimizations): 6467ed18-1309-4475-b351-b6f36f890364
+- Orchestrator: 572f24db-02f1-4f7a-9b66-4b6abfd6298b (.agents/orchestrator_10, completed, cleaned up)
+- Active Orchestrator: none (cleaned up)
+- Victory Auditor: 8c9c0507-73ae-44e2-8369-4de181c9d407 (.agents/victory_auditor_16, completed, cleaned up)
+- Progress Cron: task-38 (killed)
+- Liveness Cron: task-40 (killed)
+- Active Subagents: none (cleaned up)
+- Active Orchestrator (Current): 637f3fa4-5819-4bf3-a4bf-2056e9d9736f (.agents/orchestrator_11, completed, cleaned up)
 
 ## 🔒 Key Constraints
 - No technical decisions — relay only
@@ -31,16 +20,28 @@ Integrate automated preflight schema validation/linting and normalization pipeli
 - Keep context ultra-light; do not write code or analyze technical details directly
 - Route to teamwork_preview_orchestrator (General SWE path)
 - Independent verification required via teamwork_preview_victory_auditor upon completion
-- Route to teamwork_preview_swe (SWE Light path) per explicit "single self-contained fix; keep it small and focused" request
 
 ## User Context
-- **Last user request**: 3 core performance bottleneck optimizations (Zod 4 DFS circular ref memoization, Mock Server HTTP response/header preallocation, AST Semantic Diff traversal optimization) and remeasurement via `pnpm bench:all` with 0 regressions.
+- **Last user request**: Resolve 9 critical and high-priority platform deficiencies across @oa-sdk/router, @oa-sdk/client, and @oa-sdk/codegen.
 - **Pending clarifications**: none
 - **Delivered results**:
-- Request recorded in ORIGINAL_REQUEST.md.
-- General route chosen; teamwork_preview_orchestrator dispatched (6e9162db-e15b-42e5-9757-50c9b9433e62) in .agents/orchestrator_6.
-- Progress reporting cron (task-24) and liveness cron (task-26) initiated.
-- Orchestrator reported completion; independent Victory Auditor dispatched (6467ed18-1309-4475-b351-b6f36f890364) in .agents/victory_auditor_7.
+  - Request recorded verbatim in /Users/junwoobang/workflow/oa-sdk/.agents/ORIGINAL_REQUEST.md under `## 2026-09-12T18:45:11Z`.
+  - Routed to General path: `teamwork_preview_orchestrator`.
+  - Orchestrator 11 executed all 4 milestones (R1-R9).
+  - All 9 platform deficiencies resolved with 100% type safety and zero regressions:
+    - R1: Strict 3-part response envelope predicate preventing entity property collision across Fastify, Elysia, Hono, Express.
+    - R2: Handler contract multi-status discriminated union (`HandlerResponse`) with 0 `as any` casting.
+    - R3: `options?: ClientMethodOptions` AbortSignal & headers pass-through to fetch and TanStack `queryFn`.
+    - R4: TanStack Query v5 infinite query generator (`infiniteQueryOptions`) with pagination detection and 0 runtime leaks.
+    - R5: Canonical monorepo package name import resolution in `import-resolver.ts`.
+    - R6: `RouterRenderOptions` context typing integrity.
+    - R7: Unified 5-phase declarative pipeline in `oa-gen generate`.
+    - R8: `--routing` presets in `oa-gen init` and array formatting syntax fix in `composer.ts`.
+    - R9: Linux-compatible recursive directory watching fallback and ignored directory filtering in `spec-watcher.ts`.
+  - All 5 governance gates passed with Exit Code 0 (`check:docs`, `check:cli-spec`, `check:api-index`, `check:release-policy`, `typecheck:all --force`).
+  - Full uncached test suites passed 100% (`test:downstream --force`, `test:core`, `test:e2e`).
+  - Independent Post-Victory Auditor 16 confirmed VICTORY CONFIRMED.
+  - Mandatory cleanup executed: both crons killed, all subagents killed.
 
 ## Project Status
 - **Phase**: complete
@@ -49,12 +50,8 @@ Integrate automated preflight schema validation/linting and normalization pipeli
 ## Victory Audit Status
 - **Triggered**: yes
 - **Verdict**: VICTORY CONFIRMED
-- **Retry count**: 0
+- **Retry count**: 1
 
 ## Artifact Index
-- /Users/junwoobang/workflow/oa-sdk/.agents/ORIGINAL_REQUEST.md — Authoritative verbatim record of user request
-- /Users/junwoobang/workflow/oa-sdk/.agents/orchestrator_6/DISPATCH.md — Orchestrator dispatch briefing
-- /Users/junwoobang/workflow/oa-sdk/.agents/orchestrator_6/handoff.md — Orchestrator completion handoff
-- /Users/junwoobang/workflow/oa-sdk/.agents/worker_m4_runner/bench-comparison.md — Quantitative benchmark comparison table
-- /Users/junwoobang/workflow/oa-sdk/.agents/victory_auditor_7/handoff.md — Victory Auditor report (VICTORY CONFIRMED)
-
+- /Users/junwoobang/workflow/oa-sdk/.agents/ORIGINAL_REQUEST.md — Authoritative verbatim record of user requests
+- /Users/junwoobang/workflow/oa-sdk/.agents/orchestrator_11/DISPATCH.md — Orchestrator 11 dispatch briefing

@@ -339,4 +339,60 @@ describe('Tier 2: Boundary & Corner Cases', () => {
       }).toThrow()
     })
   })
+
+  // =========================================================================
+  // Boundary Area 7: Response Envelope Collision Defense & Multi-Status Typing (R1, R2, R6)
+  // =========================================================================
+  describe('Boundary Area 7: Response Envelope Collision Defense & Multi-Status Typing', () => {
+    it('T2-B7-1: strict 3-part envelope predicate emitted across all 4 targets', () => {
+      const targets = ['fastify', 'elysia', 'hono', 'express'] as const
+      const predicateSnippet =
+        "result !== undefined && result !== null && typeof result === 'object' && 'body' in result && ((result as any).status === undefined || typeof (result as any).status === 'number') && ((result as any).headers === undefined || typeof (result as any).headers === 'object')"
+
+      for (const target of targets) {
+        const routerCode = generateRouter(petstoreSpec, { target, contractImport: './api.contract' })
+        expect(routerCode).toContain(predicateSnippet)
+      }
+    })
+
+    it('T2-B7-2: preserves 204 no-content envelope handling across all targets', () => {
+      const fastifyCode = generateRouter(petstoreSpec, { target: 'fastify', contractImport: './api.contract' })
+      expect(fastifyCode).toContain('if (resp.status === 204) return reply.status(204).send()')
+
+      const elysiaCode = generateRouter(petstoreSpec, { target: 'elysia', contractImport: './api.contract' })
+      expect(elysiaCode).toContain('if (resp.status === 204) return')
+
+      const honoCode = generateRouter(petstoreSpec, { target: 'hono', contractImport: './api.contract' })
+      expect(honoCode).toContain('if (resp.status === 204) return c.body(null, 204)')
+
+      const expressCode = generateRouter(petstoreSpec, { target: 'express', contractImport: './api.contract' })
+      expect(expressCode).toContain('if (resp.status === 204) return res.status(204).end()')
+    })
+
+    it('T2-B7-3: HandlerResponse definition provides discriminated union over status codes', () => {
+      const contract = generateHandlerContract(petstoreSpec)
+      expect(contract).toContain(
+        'export type HandlerResponse<TSuccess = unknown, TErrorMap = Record<number, unknown>, THeaders = Record<string, string>> ='
+      )
+      expect(contract).toContain('| TSuccess')
+      expect(contract).toContain('| { status: 200; body: TSuccess; headers?: THeaders }')
+      expect(contract).toContain(
+        '| { [K in keyof TErrorMap]: { status: K; body: TErrorMap[K]; headers?: Record<string, string> } }[keyof TErrorMap]'
+      )
+    })
+
+    it('T2-B7-4: RouterRenderOptions accepts contextInjection, context, contextImport, contextTypeName', () => {
+      expect(() => {
+        generateRouter(petstoreSpec, {
+          target: 'fastify',
+          contractImport: './api.contract',
+          contextInjection: true,
+          context: true,
+          contextImport: './context',
+          contextTypeName: 'AppContext',
+        })
+      }).not.toThrow()
+    })
+  })
 })
+

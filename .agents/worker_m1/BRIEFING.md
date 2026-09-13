@@ -1,106 +1,95 @@
-# BRIEFING — 2026-09-11T02:16:00Z
+# BRIEFING — 2026-09-12T19:00:00Z
 
 ## Mission
-Implement high-performance, zero-external-dependency benchmarking and profiling toolkit in `scripts/bench/lib/` (M1: Shared Benchmark & Profiling Library).
+Execute Milestone 1 in @oa-sdk/router: R1 envelope collision defense across 4 router targets, R2 handler contract multi-status & error response union, and R6 router render options & facade typing integrity.
 
 ## 🔒 My Identity
 - Archetype: worker
 - Roles: implementer, qa, specialist
 - Working directory: /Users/junwoobang/workflow/oa-sdk/.agents/worker_m1
-- Original parent: c8e6c449-4228-4443-bc32-e90615c118a5
-- Milestone: Milestone 1 (R1 - Standalone Guards Splitting & Filtering)
-- Archetype: worker
-- Roles: implementer, qa, specialist
-- Working directory: /Users/junwoobang/workflow/oa-sdk/.agents/worker_m1
-- Original parent: c665389a-7f3c-4d31-a717-f16983c4bb03
-- Milestone: Milestone 1 (Phase 2 - TypeSpec AST Semantic Diff & Breaking Change Analyzer)
-- Archetype: teamwork_preview_worker
-- Role: Benchmark Library Implementer (M1)
-- Working directory: /Users/junwoobang/workflow/oa-sdk/.agents/worker_m1
-- Original parent: dcde8985-1d52-452b-9743-7bf870f71d2e
-- Milestone: Milestone 1 (M1: Shared Benchmark & Profiling Library)
+- Original parent: 637f3fa4-5819-4bf3-a4bf-2056e9d9736f
+- Milestone: Milestone 1 (@oa-sdk/router core fixes R1, R2, R6)
 
 ## 🔒 Key Constraints
-- Exclusive Write Ownership:
-  - packages/codegen/src/standalone-guards/
-  - packages/codegen/src/cli/commands/generate.ts
-  - packages/codegen/test/standalone-guards/
-- DO NOT CHEAT. All implementations must be genuine.
-- Split mode (`split: true`): output `guards/<TypeName>.js` and `guards/<TypeName>.d.ts` for each schema, inlining any $ref sub-schemas so each file is 100% self-contained with 0 runtime dependencies. Emit root `index.js` and `index.d.ts` barrel re-exports.
-- Filter resolved guards when `schemas` is provided.
-- Exclusive Write Ownership (Phase 2):
-  - packages/codegen/src/cli/commands/tsp-diff.ts
-  - packages/codegen/src/cli/lib/typespec-ast-diff.ts
-  - packages/codegen/src/cli/lib/typespec-ref-resolver.ts
-  - packages/codegen/src/cli/index.ts
-  - packages/codegen/src/__tests__/tsp-diff.test.ts (or test/tsp-diff.test.ts)
-- MANDATORY INTEGRITY WARNING: DO NOT CHEAT. All implementations must be genuine. DO NOT hardcode test results, create dummy/facade implementations, or circumvent the intended task.
-- Implement 7-category breaking change classification, git ref resolver, CLI command `oa-gen tsp diff`, multi-token router, and unit/integration tests.
-- Run tests via pnpm and verify they pass.
-- Exclusive Write Ownership (M1 Benchmark Library):
-  - `scripts/bench/lib/profiler.ts`
-  - `scripts/bench/lib/memory.ts`
-  - `scripts/bench/lib/fd.ts`
-  - `scripts/bench/lib/stats.ts`
-  - `scripts/bench/lib/generators.ts`
-  - `scripts/bench/lib/index.ts`
-  - `scripts/bench/lib/test-smoke.ts`
-- DO NOT modify any files outside this boundary.
-- Zero external dependencies; rely exclusively on Node 24 native APIs (`node:inspector/promises`, `node:v8`, `node:perf_hooks`, `node:fs`).
+- Exclusive file ownership:
+  - `packages/router/src/targets/elysia.ts`
+  - `packages/router/src/targets/fastify.ts`
+  - `packages/router/src/targets/hono.ts`
+  - `packages/router/src/targets/express.ts`
+  - `packages/router/src/contracts/handler-contract.ts`
+  - `packages/router/src/generate-router-renderer.ts`
+  - `packages/router/src/__tests__/*`
+  - `tests/e2e/multi-framework-router/*`
+- Integrity mandate: No shortcuts, no dummy/facade implementations, genuine type-safe behavior.
 
 ## Current Parent
-- Conversation ID: dcde8985-1d52-452b-9743-7bf870f71d2e
-- Updated: 2026-09-11T02:16:00Z
+- Conversation ID: 637f3fa4-5819-4bf3-a4bf-2056e9d9736f
+- Updated: 2026-09-12T19:00:00Z
 
 ## Task Summary
-- **What to build**: High-performance, zero-external-dependency benchmarking and profiling toolkit in `scripts/bench/lib/`:
-  1. `profiler.ts`: V8 CPU profiler via `node:inspector/promises` Session, `.cpuprofile` exporter, hotspot aggregator.
-  2. `memory.ts`: Programmatic GC enabler via `v8.setFlagsFromString('--expose_gc')`, multi-pass `runGc()`, `measureMemoryDelta()`.
-  3. `fd.ts`: `getOpenFdCount()` via `/dev/fd` with `process._getActiveHandles()` fallback, `assertZeroFdLeak()` handle flushing.
-  4. `stats.ts`: `calculateLatencyStats()` computing min, p50, p90, p95, p99, max, mean, stddev, QPS, plus high-precision time helpers.
-  5. `generators.ts`: Synthetic TypeSpec source and OpenAPI 3.2 schema generators with circular reference & deep nesting options.
-  6. `index.ts`: Unified barrel exports.
-  7. `test-smoke.ts`: Self-verification test suite executed via `node --expose-gc --import tsx scripts/bench/lib/test-smoke.ts`.
-- **Success criteria**: All smoke tests pass cleanly with 0 errors.
-- **Interface contracts**: plan.md § Interface Contracts, explorer_survey_3/handoff.md § 4.3.
-- **Code layout**: `scripts/bench/lib/`.
+- **What to build**:
+  - R1: Router Response Envelope Collision Defense across Elysia, Fastify, Hono, Express.
+  - R2: Handler Contract Multi-Status & Error Response Type Union in `handler-contract.ts` and update related tests.
+  - R6: Router Render Options & Facade Typing Integrity (`contextInjection`, `context`, `contextImport`, `contextTypeName`) and clean up `as any` casts.
+  - Comprehensive unit and stress tests.
+- **Success criteria**:
+  - All 4 targets properly defend against response envelope collision for `{ status: string }`, `{ body: string }`, `{ headers: string }`.
+  - 204 no-content handling preserved across all 4 targets.
+  - Typed error response without `as any`.
+  - Clean build, typecheck, unit tests, and e2e tests.
+- **Interface contracts**: `/Users/junwoobang/workflow/oa-sdk/.agents/orchestrator_11/PROJECT.md`
+- **Code layout**: `packages/router/`
 
 ## Key Decisions Made
-- Zero external runtime or benchmark dependencies: utilize Node 24 native `node:inspector/promises`, `node:v8`, `node:perf_hooks`, and `/dev/fd`.
-- Profile results write `.cpuprofile` to `.bench/` and aggregate call frames by `functionName|url|lineNumber` to report accurate aggregated hit counts and percentages.
-- Memory tracking forces multiple GC passes before and after workload, reporting true retained heap delta in MB.
-- FD tracking inspects `/dev/fd` on POSIX hosts with `process._getActiveHandles()` fallback and settles event loop with `setImmediate` and micro-sleep.
-- Latency statistics support linear interpolation percentile calculation, standard deviation, and both sequential and concurrent QPS calculation.
-- Synthetic generators produce genuine, syntactically valid TypeSpec code and OAS 3.2 documents supported by `@typespec/compiler`, `generateZodFromSpec`, and `@oa-sdk/mock-server`.
+- Replaced dangerous envelope heuristic with strict 3-part predicate in all 4 targets:
+  `result !== undefined && result !== null && typeof result === 'object' && 'body' in result && ((result as any).status === undefined || typeof (result as any).status === 'number') && ((result as any).headers === undefined || typeof (result as any).headers === 'object')`
+- Ensured 204 envelopes cleanly return 204 status without content in Fastify (`reply.status(204).send()`), Elysia (`set.status = 204; return`), Hono (`c.body(null, 204)`), and Express (`res.status(204).end()`).
+- Upgraded `HandlerResponse` to discriminated union over status with `TErrorMap`:
+  `export type HandlerResponse<TSuccess = unknown, TErrorMap = Record<number, unknown>, THeaders = Record<string, string>> = ...`
+- Added context injection options to `RouterRenderOptions` in `generate-router-renderer.ts` and removed 13 `as any` casts in `challenger-tier5-context.test.ts`.
 
 ## Artifact Index
-- /Users/junwoobang/workflow/oa-sdk/.agents/worker_m1/DISPATCH.md — Assignment instructions
-- /Users/junwoobang/workflow/oa-sdk/.agents/worker_m1/progress.md — Liveness & progress tracking
-- /Users/junwoobang/workflow/oa-sdk/.agents/worker_m1/handoff.md — Final handoff report
-- /Users/junwoobang/workflow/oa-sdk/scripts/bench/lib/profiler.ts
-- /Users/junwoobang/workflow/oa-sdk/scripts/bench/lib/memory.ts
-- /Users/junwoobang/workflow/oa-sdk/scripts/bench/lib/fd.ts
-- /Users/junwoobang/workflow/oa-sdk/scripts/bench/lib/stats.ts
-- /Users/junwoobang/workflow/oa-sdk/scripts/bench/lib/generators.ts
-- /Users/junwoobang/workflow/oa-sdk/scripts/bench/lib/index.ts
-- /Users/junwoobang/workflow/oa-sdk/scripts/bench/lib/test-smoke.ts
+- `DISPATCH.md` — Assignment instructions
+- `BRIEFING.md` — Working memory and status
+- `progress.md` — Liveness heartbeat
+- `handoff.md` — Final handoff report
 
 ## Change Tracker
 - **Files modified**:
-  - `scripts/bench/lib/profiler.ts`: Created V8 CPU profiling harness
-  - `scripts/bench/lib/memory.ts`: Created GC and retained heap memory tracker
-  - `scripts/bench/lib/fd.ts`: Created FD and handle leak detector
-  - `scripts/bench/lib/stats.ts`: Created latency percentile & time helpers
-  - `scripts/bench/lib/generators.ts`: Created TypeSpec and OpenAPI 3.2 synthetic generators
-  - `scripts/bench/lib/index.ts`: Created library barrel exports
-  - `scripts/bench/lib/test-smoke.ts`: Created comprehensive smoke test suite
-- **Build status**: PASS (14/14 tests pass in `scripts/bench/lib/test-smoke.ts`)
+  - `packages/router/src/targets/elysia.ts`: strict envelope predicate + 204 handling
+  - `packages/router/src/targets/fastify.ts`: strict envelope predicate + 204 handling
+  - `packages/router/src/targets/hono.ts`: strict envelope predicate
+  - `packages/router/src/targets/express.ts`: strict envelope predicate (2 locations)
+  - `packages/router/src/contracts/handler-contract.ts`: `HandlerResponse` union + header generic arguments
+  - `packages/router/src/generate-router-renderer.ts`: `RouterRenderOptions` context properties
+  - `packages/router/src/__tests__/challenger-tier5-context.test.ts`: removed `as any` casts
+  - `packages/router/src/__tests__/handler-contract.test.ts`: updated `HandlerResponse` assertions
+  - `packages/router/src/__tests__/tanstack-query-parity.test.ts`: updated `Extract` for status 200 body
+  - `packages/router/src/__tests__/r1-r2-r6-defenses.test.ts`: new comprehensive unit & stress tests (8 tests)
+  - `tests/e2e/multi-framework-router/helpers/router-harness.ts`: updated `HandlerResponse` reference generator
+  - `tests/e2e/multi-framework-router/tier1-feature-coverage.test.ts`: updated `HandlerResponse` assertions
+  - `tests/e2e/multi-framework-router/tier2-boundaries.test.ts`: added Boundary Area 7 (4 tests)
+  - `tests/e2e/multi-framework-router/challenger2-empirical.test.ts`: updated `HandlerResponse` assertions
+- **Build status**: PASS
 - **Pending issues**: None
 
 ## Quality Status
-- **Build/test result**: PASS (14/14 tests pass, 100% pass rate; check:docs, check:cli-spec, check:api-index all green)
-- **Lint status**: Clean (0 type or lint errors)
-- **Tests added/modified**: `scripts/bench/lib/test-smoke.ts` (14 comprehensive test cases covering profiler, memory, fd, stats, and generators)
+- **Build/test result**: PASS
+  - `pnpm --filter @oa-sdk/router build`: Success in 37ms (ESM) + 811ms (DTS)
+  - `pnpm --filter @oa-sdk/router test`: 10 passed, 121 tests passed
+  - `pnpm vitest run tests/e2e/multi-framework-router`: 5 passed, 188 tests passed
+  - `pnpm --filter @oa-sdk/router typecheck`: 0 errors
+- **Lint status**: Clean (tsc --noEmit 0 errors)
+- **Tests added/modified**:
+  - `packages/router/src/__tests__/r1-r2-r6-defenses.test.ts` (8 new tests)
+  - `tests/e2e/multi-framework-router/tier2-boundaries.test.ts` (4 new tests in Boundary Area 7)
 
 ## Loaded Skills
-- oa-sdk: /Users/junwoobang/workflow/oa-sdk/.agents/skills/oa-sdk/SKILL.md (Expert guide for OpenAPI SDK monorepo toolchains and architecture)
+- oa-runtime:
+  - **Source**: `/Users/junwoobang/workflow/oa-sdk/.agents/skills/oa-runtime/SKILL.md`
+  - **Local copy**: `/Users/junwoobang/workflow/oa-sdk/.agents/worker_m1/skills/oa-runtime.md`
+  - **Core methodology**: Downstream runtime routing (@oa-sdk/router for Hono, Express, Fastify, Bun Elysia, and Handler Contracts), typed client SDK (@oa-sdk/client), in-memory mock server (@oa-sdk/mock-server with live hot-reload), and Typia compiler transform isolation boundary (@oa-sdk/typia-mock) in the oa-sdk monorepo.
+- oa-sdk:
+  - **Source**: `/Users/junwoobang/workflow/oa-sdk/.agents/skills/oa-sdk/SKILL.md`
+  - **Local copy**: `/Users/junwoobang/workflow/oa-sdk/.agents/worker_m1/skills/oa-sdk.md`
+  - **Core methodology**: Expert guide, architecture standards, and verification procedures for developing, testing, and generating OpenAPI 3.1/3.2 toolchains, AST bidirectional sync, and Spec-Lens in the oa-sdk monorepo.

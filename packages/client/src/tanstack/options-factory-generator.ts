@@ -34,6 +34,56 @@ export interface OptionsFactoryOptions {
   isCombined?: boolean | undefined
 }
 
+export type PaginationType = 'cursor' | 'page' | 'offset'
+
+export interface PaginationInfo {
+  type: PaginationType
+  paramName: string
+  limitName?: string | undefined
+}
+
+/**
+ * Detects pagination parameters in a query operation.
+ */
+export function detectPagination(op: OperationEntry): PaginationInfo | null {
+  if (!isQueryOperation(op)) return null
+  const queryParams = op.parameters.filter(p => p.in === 'query')
+  if (queryParams.length === 0) return null
+
+  const findParam = (regex: RegExp) => queryParams.find(p => regex.test(p.name))
+
+  const cursorParam = findParam(/^(cursor|starting_after|after|next_cursor|page_token|pageToken)$/i)
+  const pageParam = findParam(/^(page|page_number|pageNumber|page_index|pageIndex|page_no|pageNo)$/i)
+  const offsetParam = findParam(/^(offset|skip)$/i)
+  const limitParam = findParam(/^(limit|per_page|perPage|page_size|pageSize|take|count)$/i)
+
+  if (cursorParam) {
+    return {
+      type: 'cursor',
+      paramName: cursorParam.name,
+      limitName: limitParam?.name,
+    }
+  }
+
+  if (pageParam) {
+    return {
+      type: 'page',
+      paramName: pageParam.name,
+      limitName: limitParam?.name,
+    }
+  }
+
+  if (offsetParam) {
+    return {
+      type: 'offset',
+      paramName: offsetParam.name,
+      limitName: limitParam?.name,
+    }
+  }
+
+  return null
+}
+
 function hasGeneratedRequestBodyType(requestBody?: OasRequestBody): boolean {
   if (!requestBody || typeof requestBody !== 'object') return false
   const jsonContent = requestBody.content?.['application/json']
@@ -93,10 +143,17 @@ export function generateOptionsFactory(doc: ParsedDocument, options: OptionsFact
   const operationNames = createOperationTypeNameMap(doc.operations)
   const groups = groupOperationsByTag(doc)
 
+  const hasPagination = doc.operations.some(op => detectPagination(op) !== null)
+
   // Imports
   if (!isCombined) {
-    lines.push(`import { queryOptions, mutationOptions } from '${queryPackage}'`)
-    lines.push(`import type { UndefinedInitialDataOptions, UseMutationOptions } from '${queryPackage}'`)
+    const fnImports = ['queryOptions', 'mutationOptions']
+    if (hasPagination) fnImports.push('infiniteQueryOptions')
+    lines.push(`import { ${fnImports.join(', ')} } from '${queryPackage}'`)
+
+    const typeImports = ['UndefinedInitialDataOptions', 'UseMutationOptions']
+    if (hasPagination) typeImports.push('UndefinedInitialDataInfiniteOptions', 'InfiniteData')
+    lines.push(`import type { ${typeImports.join(', ')} } from '${queryPackage}'`)
     lines.push(`import type { JsonPrimitive, Resolved } from '@oa-sdk/client'`)
     lines.push('')
 
@@ -253,12 +310,121 @@ export function generateOptionsFactory(doc: ParsedDocument, options: OptionsFact
       lines.push(`  return queryOptions({`)
       lines.push(`    queryKey: ${keyCall},`)
       lines.push(`    queryFn: async ({ signal }): Promise<${returnDataType}> => {`)
-      lines.push(`      return client.${methodName}(${clientCallArgs.join(', ')})`)
+      lines.push(`      return client.${methodName}(${[...clientCallArgs, '{ signal }'].join(', ')})`)
       lines.push(`    },`)
       lines.push(`    ...options,`)
       lines.push(`  })`)
       lines.push(`}`)
       lines.push('')
+
+      const pagination = detectPagination(op)
+      if (pagination) {
+        const defaultPageParamType = pagination.type === 'cursor' ? 'string | null' : 'number'
+        const initialPageParam = pagination.type === 'cursor'
+          ? 'null as unknown as TPageParam'
+          : pagination.type === 'offset'
+            ? '0 as unknown as TPageParam'
+            : '1 as unknown as TPageParam'
+
+        const infiniteFuncParams: string[] = [`client: ${clientName}`]
+        if (pathParams.length > 0) {
+          infiniteFuncParams.push(`params: ${typesImport ? `${baseName}PathParams` : 'Record<string, string>'}`)
+        }
+        if (hasBody && bodyRequired) {
+          infiniteFuncParams.push(`body: ${typesImport && hasTypedBody ? `Resolved<${baseName}Body>` : 'unknown'}`)
+        }
+        if (querystringParam?.required === true) {
+          infiniteFuncParams.push(`querystring: ${typesImport ? `${baseName}QueryString` : 'string'}`)
+        }
+        if (queryParams.length > 0) {
+          infiniteFuncParams.push(`query?: ${typesImport ? `${baseName}QueryParams` : 'Record<string, unknown>'}`)
+        }
+        if (querystringParam && !querystringParam.required) {
+          infiniteFuncParams.push(`querystring?: ${typesImport ? `${baseName}QueryString` : 'string'}`)
+        }
+        if (hasBody && !bodyRequired) {
+          infiniteFuncParams.push(`body?: ${typesImport && hasTypedBody ? `Resolved<${baseName}Body>` : 'unknown'}`)
+        }
+        if (headerParams.length > 0) {
+          infiniteFuncParams.push(`headers?: ${typesImport ? `${baseName}HeaderParams` : 'Record<string, unknown>'}`)
+        }
+
+        const infiniteOptionsParam = `options?: Omit<UndefinedInitialDataInfiniteOptions<${returnDataType}, ${errorType}, TData, ReturnType<typeof ${factoryName}.${methodName}>, TPageParam>, 'queryKey' | 'queryFn'>`
+        infiniteFuncParams.push(infiniteOptionsParam)
+
+        const infiniteCallArgs = clientCallArgs.map(arg => arg === 'query' ? 'pageQuery as any' : arg)
+        infiniteCallArgs.push('{ signal }')
+
+        lines.push(`/**`)
+        lines.push(` * Infinite query options for ${methodName} (${op.method.toUpperCase()} ${op.openApiPath})`)
+        lines.push(` * Reusable across React, Vue, Svelte, and Next.js SSR / prefetchInfiniteQuery().`)
+        lines.push(` */`)
+        lines.push(`export function ${methodName}InfiniteQueryOptions<`)
+        lines.push(`  TData = InfiniteData<${returnDataType}>,`)
+        lines.push(`  TPageParam = ${defaultPageParamType},`)
+        lines.push(`>(`)
+        lines.push(`  ${infiniteFuncParams.join(',\n  ')},`)
+        lines.push(`) {`)
+        lines.push(`  return infiniteQueryOptions({`)
+        lines.push(`    queryKey: ${keyCall},`)
+        lines.push(`    queryFn: async ({ pageParam, signal }): Promise<${returnDataType}> => {`)
+        lines.push(`      const pageQuery = {`)
+        lines.push(`        ...(query as Record<string, unknown> | undefined),`)
+        lines.push(`        ${JSON.stringify(pagination.paramName)}: pageParam,`)
+        lines.push(`      }`)
+        lines.push(`      return client.${methodName}(${infiniteCallArgs.join(', ')})`)
+        lines.push(`    },`)
+        lines.push(`    initialPageParam: ${initialPageParam},`)
+        lines.push(`    getNextPageParam: (lastPage: any, allPages: any[], lastPageParam: any): TPageParam | undefined => {`)
+        lines.push(`      if (!lastPage) return undefined`)
+        if (pagination.type === 'page') {
+          lines.push(`      if (typeof lastPage.next_page === 'number') return lastPage.next_page as unknown as TPageParam`)
+          lines.push(`      if (typeof lastPage.nextPage === 'number') return lastPage.nextPage as unknown as TPageParam`)
+          lines.push(`      if (typeof lastPage.next_page_number === 'number') return lastPage.next_page_number as unknown as TPageParam`)
+          lines.push(`      const totalPages = lastPage.totalPages ?? lastPage.total_pages ?? lastPage.pageCount ?? lastPage.page_count`)
+          lines.push(`      if (typeof totalPages === 'number') {`)
+          lines.push(`        const current = Number(lastPageParam) || allPages.length`)
+          lines.push(`        return current < totalPages ? ((current + 1) as unknown as TPageParam) : undefined`)
+          lines.push(`      }`)
+          lines.push(`      if (lastPage.hasMore === false || lastPage.has_more === false || lastPage.hasNextPage === false || lastPage.has_next_page === false) return undefined`)
+          lines.push(`      const items = Array.isArray(lastPage) ? lastPage : Array.isArray(lastPage.items) ? lastPage.items : Array.isArray(lastPage.data) ? lastPage.data : Array.isArray(lastPage.results) ? lastPage.results : undefined`)
+          lines.push(`      if (items) {`)
+          lines.push(`        if (items.length === 0) return undefined`)
+          lines.push(`        return ((Number(lastPageParam) || 1) + 1) as unknown as TPageParam`)
+          lines.push(`      }`)
+          lines.push(`      return undefined`)
+        } else if (pagination.type === 'offset') {
+          lines.push(`      const items = Array.isArray(lastPage) ? lastPage : Array.isArray(lastPage.items) ? lastPage.items : Array.isArray(lastPage.data) ? lastPage.data : Array.isArray(lastPage.results) ? lastPage.results : undefined`)
+          lines.push(`      const total = lastPage.total ?? lastPage.total_count ?? lastPage.totalCount`)
+          lines.push(`      if (typeof total === 'number') {`)
+          lines.push(`        const currentOffset = Number(lastPageParam) || 0`)
+          lines.push(`        const nextOffset = currentOffset + (items ? items.length : 0)`)
+          lines.push(`        return nextOffset < total ? (nextOffset as unknown as TPageParam) : undefined`)
+          lines.push(`      }`)
+          lines.push(`      if (lastPage.hasMore === false || lastPage.has_more === false || lastPage.hasNextPage === false || lastPage.has_next_page === false) return undefined`)
+          lines.push(`      if (items) {`)
+          lines.push(`        if (items.length === 0) return undefined`)
+          lines.push(`        return ((Number(lastPageParam) || 0) + items.length) as unknown as TPageParam`)
+          lines.push(`      }`)
+          lines.push(`      return undefined`)
+        } else {
+          // cursor
+          lines.push(`      const nextCursor = lastPage.next_cursor ?? lastPage.nextCursor ?? lastPage.next_page_token ?? lastPage.nextPageToken ?? lastPage.cursor ?? lastPage.starting_after`)
+          lines.push(`      if (nextCursor !== undefined && nextCursor !== null && nextCursor !== '') return nextCursor as unknown as TPageParam`)
+          lines.push(`      if (lastPage.hasMore === false || lastPage.has_more === false || lastPage.hasNextPage === false || lastPage.has_next_page === false) return undefined`)
+          lines.push(`      const items = Array.isArray(lastPage) ? lastPage : Array.isArray(lastPage.items) ? lastPage.items : Array.isArray(lastPage.data) ? lastPage.data : Array.isArray(lastPage.results) ? lastPage.results : undefined`)
+          lines.push(`      if (items && items.length > 0) {`)
+          lines.push(`        const lastItem = items[items.length - 1]`)
+          lines.push(`        if (lastItem && typeof lastItem === 'object' && 'id' in lastItem && lastItem.id !== undefined) return String(lastItem.id) as unknown as TPageParam`)
+          lines.push(`      }`)
+          lines.push(`      return undefined`)
+        }
+        lines.push(`    },`)
+        lines.push(`    ...options,`)
+        lines.push(`  })`)
+        lines.push(`}`)
+        lines.push('')
+      }
     } else {
       // Mutation Options
       const hasVariables = pathParams.length > 0 || hasBody || queryParams.length > 0 || !!querystringParam || headerParams.length > 0

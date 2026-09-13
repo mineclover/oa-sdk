@@ -72,7 +72,8 @@ describe('SSE streaming client', () => {
     expect(code).toContain('async *streamEvents')
     expect(code).toContain('AsyncGenerator')
     expect(code).toContain("yield* streamSse('GET'")
-    expect(code).toContain("yield* streamSse('GET', '/events', undefined, \"streamEvents\", {})")
+    expect(code).toContain("yield* streamSse('GET', '/events',")
+    expect(code).toContain('"streamEvents", {})')
   })
 
   it('application/x-ndjson → async generator using streamNdjson', () => {
@@ -254,8 +255,9 @@ describe('SSE streaming client', () => {
 
     // itemSchema has no JSON response alias in the current typegen surface, so
     // preserve the safe unknown type while still generating a live SSE iterator.
-    expect(code).toContain('async *streamHealthEvents(): AsyncGenerator<unknown>')
-    expect(code).toContain("yield* streamSse('GET', '/health/stream', undefined, \"streamHealthEvents\", {})")
+    expect(code).toContain('async *streamHealthEvents(options?: ClientMethodOptions): AsyncGenerator<unknown>')
+    expect(code).toContain("yield* streamSse('GET', '/health/stream',")
+    expect(code).toContain('"streamHealthEvents", {})')
     expect(code).toContain("filter(line => line.startsWith('data:'))")
     expect(code).not.toContain("from './types'")
   })
@@ -312,8 +314,10 @@ describe('SSE streaming client', () => {
     })
     const code = generateClient(spec)
     expect(code).toContain('const body = await __readOaErrorBody(res, errorMediaTypes)')
-    expect(code).toContain('yield* streamSse(\'GET\', \'/events\', undefined, \"streamEvents\", { \"403\": [\"text/plain\"] })')
-    expect(code).toContain('yield* streamNdjson(\'GET\', \'/logs\', undefined, \"streamLogs\", { \"403\": [\"text/plain\"] })')
+    expect(code).toContain("yield* streamSse('GET', '/events',")
+    expect(code).toContain('"streamEvents", { "403": ["text/plain"] })')
+    expect(code).toContain("yield* streamNdjson('GET', '/logs',")
+    expect(code).toContain('"streamLogs", { "403": ["text/plain"] })')
 
     const originalFetch = globalThis.fetch
     globalThis.fetch = (async () => new Response('stream denied', {

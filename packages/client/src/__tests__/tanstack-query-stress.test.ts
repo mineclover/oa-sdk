@@ -354,7 +354,7 @@ describe('Empirical Adversarial Stress Testing — TanStack Query v5 Generator',
       expect(output.queriesCode).toContain('export function getHealthQueryOptions<TData = JsonPrimitive<unknown>>(')
       expect(output.queriesCode).toContain('client: ApiClient,')
       expect(output.queriesCode).toContain('queryKey: systemKeys.getHealth(),')
-      expect(output.queriesCode).toContain('return client.getHealth()')
+      expect(output.queriesCode).toContain('return client.getHealth({ signal })')
 
       // Tier 3 Hook
       expect(output.hooksCode).toContain('export function useGetHealthQuery<TData = JsonPrimitive<unknown>>(')
@@ -369,7 +369,7 @@ describe('Empirical Adversarial Stress Testing — TanStack Query v5 Generator',
       // Return type must be void for 204 response
       expect(output.queriesCode).toContain('export function pingQueryOptions<TData = void>(')
       expect(output.queriesCode).toContain('queryKey: systemKeys.ping(),')
-      expect(output.queriesCode).toContain('return client.ping()')
+      expect(output.queriesCode).toContain('return client.ping({ signal })')
     })
   })
 
@@ -387,7 +387,7 @@ describe('Empirical Adversarial Stress Testing — TanStack Query v5 Generator',
       expect(output.queriesCode).toContain('export function getMetricsQueryOptions<TData = JsonPrimitive<unknown>>(')
       expect(output.queriesCode).toContain('client: ApiClient,')
       expect(output.queriesCode).toContain('headers?: Record<string, unknown>,')
-      expect(output.queriesCode).toContain('return client.getMetrics(headers)')
+      expect(output.queriesCode).toContain('return client.getMetrics(headers, { signal })')
 
       // Tier 3: hook
       expect(output.hooksCode).toContain('export function useGetMetricsQuery<TData = JsonPrimitive<unknown>>(')

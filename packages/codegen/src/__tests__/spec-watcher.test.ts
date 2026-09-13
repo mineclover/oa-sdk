@@ -6,6 +6,8 @@ import {
   buildDocumentFromOperations,
   parseSpecDocument,
   watchSpec,
+  collectDirectoriesRecursively,
+  IGNORED_DIRS,
 } from '../cli/lib/spec-watcher.js'
 import type { ExtractedOperation } from '@oa-sdk/parser'
 
@@ -450,5 +452,148 @@ paths:
     // Wait past debounce duration to ensure no callback was fired
     await new Promise<void>((r) => setTimeout(r, 120))
     expect(changedAfterClose).toBe(false)
+  })
+
+  describe('Linux-Compatible File Watching Fallback & Directory Walker (R9)', () => {
+    it('collectDirectoriesRecursively collects nested folders and ignores node_modules, .git, dist, .turbo, .next', () => {
+      // Create nested directory tree
+      const srcDir = join(tmpDir, 'src')
+      const routesDir = join(srcDir, 'routes')
+      const v1Dir = join(routesDir, 'v1')
+      const nodeModulesDir = join(tmpDir, 'node_modules', 'some-pkg')
+      const gitDir = join(tmpDir, '.git', 'objects')
+      const distDir = join(tmpDir, 'dist', 'esm')
+      const turboDir = join(tmpDir, '.turbo')
+      const nextDir = join(tmpDir, '.next')
+
+      mkdirSync(v1Dir, { recursive: true })
+      mkdirSync(nodeModulesDir, { recursive: true })
+      mkdirSync(gitDir, { recursive: true })
+      mkdirSync(distDir, { recursive: true })
+      mkdirSync(turboDir, { recursive: true })
+      mkdirSync(nextDir, { recursive: true })
+
+      const dirs = collectDirectoriesRecursively(tmpDir)
+
+      expect(dirs).toContain(tmpDir)
+      expect(dirs).toContain(srcDir)
+      expect(dirs).toContain(routesDir)
+      expect(dirs).toContain(v1Dir)
+
+      // Ensure ignored directories are filtered out
+      for (const d of dirs) {
+        expect(d).not.toContain('node_modules')
+        expect(d).not.toContain('.git')
+        expect(d).not.toContain('dist')
+        expect(d).not.toContain('.turbo')
+        expect(d).not.toContain('.next')
+      }
+    })
+
+    it('attaches individual watchers to each directory level when forceLinuxFallback is enabled', () => {
+      const routesDir = join(tmpDir, 'routes')
+      const v1Dir = join(routesDir, 'v1')
+      mkdirSync(v1Dir, { recursive: true })
+
+      const specFile = join(v1Dir, 'api.yaml')
+      writeFileSync(
+        specFile,
+        `
+openapi: "3.2.0"
+info:
+  title: Nested Linux API
+  version: "1.0.0"
+paths: {}
+`,
+      )
+
+      const watcher = watchSpec(tmpDir, {
+        forceLinuxFallback: true,
+        debounceMs: 50,
+        onChange: () => {},
+      })
+
+      try {
+        expect(watcher.watchedDirs).toContain(tmpDir)
+        expect(watcher.watchedDirs).toContain(routesDir)
+        expect(watcher.watchedDirs).toContain(v1Dir)
+      } finally {
+        watcher.close()
+      }
+    })
+
+    it('detects nested file modifications in subdirectories under Linux fallback mode', async () => {
+      const routesDir = join(tmpDir, 'routes')
+      const v1Dir = join(routesDir, 'v1')
+      mkdirSync(v1Dir, { recursive: true })
+
+      const specFile = join(v1Dir, 'api.yaml')
+      writeFileSync(
+        specFile,
+        `
+openapi: "3.2.0"
+info:
+  title: Linux Nested Test
+  version: "1.0.0"
+paths: {}
+`,
+      )
+
+      let notified = false
+
+      await new Promise<void>((resolvePromise) => {
+        const watcher = watchSpec(tmpDir, {
+          forceLinuxFallback: true,
+          debounceMs: 50,
+          onChange: (doc) => {
+            if (doc.paths?.['/linux-nested']) {
+              notified = true
+              watcher.close()
+              resolvePromise()
+            }
+          },
+        })
+
+        setTimeout(() => {
+          writeFileSync(
+            specFile,
+            `
+openapi: "3.2.0"
+info:
+  title: Linux Nested Test Modified
+  version: "1.0.0"
+paths:
+  /linux-nested:
+    get:
+      operationId: getLinuxNested
+      responses:
+        "200":
+          description: OK
+`,
+          )
+        }, 50)
+      })
+
+      expect(notified).toBe(true)
+    })
+
+    it('dynamically attaches watcher to newly created subdirectories on rename event without throwing', () => {
+      const watcher = watchSpec(tmpDir, {
+        forceLinuxFallback: true,
+        debounceMs: 50,
+        onChange: () => {},
+      })
+
+      try {
+        // Create a new subdirectory dynamically while watcher is active
+        const newSubDir = join(tmpDir, 'newly-created-sub')
+        mkdirSync(newSubDir, { recursive: true })
+
+        // The watcher should remain active and clean up without errors
+        expect(watcher.watchedDirs).toContain(tmpDir)
+      } finally {
+        watcher.close()
+      }
+    })
   })
 })

@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises'
-import { watch, statSync, type FSWatcher } from 'node:fs'
-import { resolve, extname, dirname, basename } from 'node:path'
+import { watch, statSync, readdirSync, existsSync, type FSWatcher } from 'node:fs'
+import { resolve, extname, dirname, basename, join, relative } from 'node:path'
 import { parse as parseYaml } from 'yaml'
 import {
   extractOperationsFromSource,
@@ -17,6 +17,8 @@ export interface SpecWatcherOptions {
   onChange: (doc: OasDocument, context: { filePath: string; format: SpecFileFormat }) => Promise<void> | void
   /** Callback invoked when a parse or compilation error occurs (prevents process crashes) */
   onError?: (error: unknown, filePath: string) => void
+  /** Force Linux recursive directory watching fallback strategy (useful for testing and deterministic cross-platform behavior) */
+  forceLinuxFallback?: boolean
 }
 
 export interface SpecWatcher {
@@ -154,6 +156,44 @@ export async function parseSpecDocument(
   )
 }
 
+export const IGNORED_DIRS = new Set([
+  'node_modules',
+  '.git',
+  'dist',
+  '.turbo',
+  '.next',
+  'build',
+  '.agents',
+  '.gemini',
+])
+
+/**
+ * Recursively collects all nested directories under rootDir excluding ignored paths.
+ */
+export function collectDirectoriesRecursively(rootDir: string, maxDepth = 10): string[] {
+  const dirs: string[] = [rootDir]
+  const queue: Array<{ dir: string; depth: number }> = [{ dir: rootDir, depth: 0 }]
+
+  while (queue.length > 0) {
+    const { dir, depth } = queue.shift()!
+    if (depth >= maxDepth) continue
+
+    try {
+      const entries = readdirSync(dir, { withFileTypes: true })
+      for (const entry of entries) {
+        if (entry.isDirectory() && !IGNORED_DIRS.has(entry.name) && !entry.name.startsWith('.')) {
+          const subDir = join(dir, entry.name)
+          dirs.push(subDir)
+          queue.push({ dir: subDir, depth: depth + 1 })
+        }
+      }
+    } catch {
+      // ignore unreadable/permission-denied directories
+    }
+  }
+  return dirs
+}
+
 /**
  * Watches target specification file or directory, debounces edits, and triggers callbacks.
  */
@@ -176,7 +216,7 @@ export function watchSpec(
   let debounceTimer: NodeJS.Timeout | null = null
   let closed = false
 
-  const handleFsEvent = (_eventType: string, filename: string | Buffer | null) => {
+  const handleFsEvent = (_eventType: string, filename: string | Buffer | null, eventDir: string = targetDir) => {
     if (closed) return
     const name = typeof filename === 'string' ? filename : filename ? String(filename) : ''
     if (!isDir && name) {
@@ -200,6 +240,21 @@ export function watchSpec(
       if (name.endsWith('.d.ts')) return
     }
 
+    const fileToParse = isDir ? (name ? join(eventDir, name) : resolvedPath) : resolvedPath
+    if (isDir) {
+      const relPath = relative(targetDir, fileToParse)
+      const parts = relPath.split(/[/\\]/)
+      if (parts.some(p => IGNORED_DIRS.has(p) || (p.startsWith('.') && p !== '.' && p !== '..'))) {
+        return
+      }
+      if (!existsSync(fileToParse)) return
+      try {
+        if (statSync(fileToParse).isDirectory()) return
+      } catch {
+        return
+      }
+    }
+
     if (debounceTimer) {
       clearTimeout(debounceTimer)
       debounceTimer = null
@@ -208,43 +263,80 @@ export function watchSpec(
     debounceTimer = setTimeout(async () => {
       if (closed) return
       try {
-        const { document, format: detectedFormat } = await parseSpecDocument(resolvedPath)
+        const { document, format: detectedFormat } = await parseSpecDocument(fileToParse)
         if (closed) return
-        const result = onChange(document, { filePath: resolvedPath, format: detectedFormat })
+        const result = onChange(document, { filePath: fileToParse, format: detectedFormat })
         if (result && typeof (result as Promise<void>).then === 'function') {
           await result
         }
       } catch (err) {
         if (closed) return
         if (onError) {
-          onError(err, resolvedPath)
+          onError(err, fileToParse)
         } else {
-          console.error(`[spec-watcher] Error reloading ${resolvedPath}:`, err)
+          console.error(`[spec-watcher] Error reloading ${fileToParse}:`, err)
         }
       }
     }, debounceMs)
   }
 
-  try {
-    const watcher = watch(targetDir, { recursive: true }, handleFsEvent)
-    watchers.push(watcher)
-  } catch {
+  const isLinux = process.platform === 'linux' || Boolean(options.forceLinuxFallback)
+  const watchedDirectorySet = new Set<string>()
+
+  function attachWatcherToDir(dir: string): void {
+    if (watchedDirectorySet.has(dir) || closed) return
     try {
-      const watcher = watch(targetDir, handleFsEvent)
-      watchers.push(watcher)
+      const w = watch(dir, (eventType, filename) => {
+        if (closed) return
+        // Dynamic subdirectory detection on Linux
+        if (isLinux && eventType === 'rename' && filename) {
+          try {
+            const potentialNewDir = join(dir, String(filename))
+            if (existsSync(potentialNewDir) && statSync(potentialNewDir).isDirectory()) {
+              const base = basename(potentialNewDir)
+              if (!IGNORED_DIRS.has(base) && !base.startsWith('.')) {
+                const subDirs = collectDirectoriesRecursively(potentialNewDir)
+                for (const sub of subDirs) {
+                  attachWatcherToDir(sub)
+                }
+              }
+            }
+          } catch {
+            // ignore race conditions
+          }
+        }
+        handleFsEvent(eventType, filename, dir)
+      })
+      watchers.push(w)
+      watchedDirectorySet.add(dir)
     } catch {
-      try {
-        const watcher = watch(resolvedPath, handleFsEvent)
-        watchers.push(watcher)
-      } catch {
-        // Fallback if filesystem watch fails
+      // ignore individual watch failures
+    }
+  }
+
+  if (isLinux) {
+    // Linux inotify fallback: Attach individual watchers across all directory levels
+    const allDirs = isDir ? collectDirectoriesRecursively(targetDir) : [targetDir]
+    for (const dir of allDirs) {
+      attachWatcherToDir(dir)
+    }
+  } else {
+    // macOS / Windows: Try native recursive watching with fallback
+    try {
+      const watcher = watch(targetDir, { recursive: true }, handleFsEvent)
+      watchers.push(watcher)
+      watchedDirectorySet.add(targetDir)
+    } catch {
+      const allDirs = isDir ? collectDirectoriesRecursively(targetDir) : [targetDir]
+      for (const dir of allDirs) {
+        attachWatcherToDir(dir)
       }
     }
   }
 
   return {
     get watchedDirs() {
-      return [targetDir]
+      return Array.from(watchedDirectorySet)
     },
     get targetFiles() {
       return [resolvedPath]
@@ -261,6 +353,7 @@ export function watchSpec(
         } catch {}
       }
       watchers.length = 0
+      watchedDirectorySet.clear()
     },
   }
 }

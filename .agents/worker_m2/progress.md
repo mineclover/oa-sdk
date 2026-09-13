@@ -1,11 +1,23 @@
-# Progress Log: Worker M2 (TypeSpec Compile & AST Diff Benchmark)
+# Progress — Milestone 2 Client Core Worker
 
-- **2026-09-11T02:35:00Z**: Initialized BRIEFING.md, DISPATCH.md, and local skill copy.
-- **2026-09-11T02:36:30Z**: Surveyed explorer handoff, M1 shared benchmark toolkit in `scripts/bench/lib/`, compiler and AST diff APIs in `packages/codegen`.
-- **2026-09-11T02:37:30Z**: Verified empirical measurements: in-memory compilation, incremental compile, synthetic spec compilation, heap delta with `measureMemoryDelta`, watcher stability with `assertZeroFdLeak`, and git ref resolution.
-- **2026-09-11T02:38:40Z**: Implemented `scripts/bench/bench-typespec.ts`.
-- **2026-09-11T02:38:56Z**: Ran benchmark verification `node --expose-gc --import tsx scripts/bench/bench-typespec.ts`. Exited with code 0. Generated `.bench/typespec-results.json` and 3 `.cpuprofile` files.
-- **2026-09-11T02:39:24Z**: Re-verified execution determinism. Ran second pass of `node --expose-gc --import tsx scripts/bench/bench-typespec.ts` exiting cleanly with code 0.
-- **2026-09-11T02:42:00Z**: Completed final 5-component `handoff.md`. Ready for review and verification.
+Last visited: 2026-09-13T04:20:00+09:00
 
-Last visited: 2026-09-11T02:42:00Z
+## Status
+Milestone 2 implementation and verification complete:
+- R3 (AbortSignal & RequestInit pass-through pipeline across generated client, streaming, and TanStack options factory) implemented and verified.
+- R4 (TanStack Query Infinite Query generator, detectPagination, infinite options factory, infinite hook factory, and combined orchestrator) implemented and verified.
+- Zero runtime dependency leaks verified (`@tanstack/react-query` is not in `@oa-sdk/client/package.json`).
+- All 147 unit, integration, stress, and TS compiler tests passed (8 test files).
+- Build (`tsup`) and typecheck (`tsc --noEmit`) succeeded with 0 errors.
+
+## Plan
+1. [x] Workspace initialized & skills copied
+2. [x] Read mandatory inputs: ORIGINAL_REQUEST.md, PROJECT.md, report.md, skills
+3. [x] Investigate existing codebase in packages/client/
+4. [x] Design changes for R3 (AbortSignal & headers pipeline)
+5. [x] Design changes for R4 (TanStack infinite query generator & hooks)
+6. [x] Implement R3 in generate-client-renderer.ts and options-factory-generator.ts
+7. [x] Implement R4 in options-factory-generator.ts, hook-factory-generator.ts, generate-tanstack.ts
+8. [x] Write unit & integration tests in packages/client/src/__tests__/ (client-signal-infinite.test.ts)
+9. [x] Run build, test, typecheck
+10. [x] Prepare handoff report and notify orchestrator

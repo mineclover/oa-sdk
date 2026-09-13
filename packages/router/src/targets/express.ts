@@ -391,7 +391,7 @@ function renderContractExpress(
       const status = pickDefaultStatus(op.responses)
 
       lines.push(`      const result = await handlers.${methodName}(${argString})`)
-      lines.push(`      if (result !== undefined && result !== null && typeof result === 'object' && ('status' in result || 'headers' in result || 'body' in result)) {`)
+      lines.push(`      if (result !== undefined && result !== null && typeof result === 'object' && 'body' in result && ((result as any).status === undefined || typeof (result as any).status === 'number') && ((result as any).headers === undefined || typeof (result as any).headers === 'object')) {`)
       lines.push(`        const resp = result as { status?: number; headers?: Record<string, string>; body?: unknown }`)
       lines.push(`        if (resp.headers) {`)
       lines.push(`          for (const [name, value] of Object.entries(resp.headers)) {`)
@@ -418,7 +418,7 @@ function renderContractExpress(
       const status = pickDefaultStatus(op.responses)
 
       lines.push(`      const result = await handlers.${methodName}(${argString})`)
-      lines.push(`      if (result !== undefined && result !== null && typeof result === 'object' && ('status' in result || 'headers' in result || 'body' in result)) {`)
+      lines.push(`      if (result !== undefined && result !== null && typeof result === 'object' && 'body' in result && ((result as any).status === undefined || typeof (result as any).status === 'number') && ((result as any).headers === undefined || typeof (result as any).headers === 'object')) {`)
       lines.push(`        const resp = result as { status?: number; headers?: Record<string, string>; body?: unknown }`)
       lines.push(`        if (resp.headers) {`)
       lines.push(`          for (const [name, value] of Object.entries(resp.headers)) {`)

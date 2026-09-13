@@ -25,6 +25,14 @@ export type RouterRenderOptions = {
   contractName?: string | undefined
   /** 헤더 주석 */
   banner?: boolean | undefined
+  /** Context injection 활성화 여부 */
+  contextInjection?: boolean | undefined
+  /** Context injection 활성화 shorthand (contextInjection과 동의어) */
+  context?: boolean | undefined
+  /** Custom context 타입 import 경로 (예: './context') */
+  contextImport?: string | undefined
+  /** Custom context 타입 이름 (예: 'AppContext') */
+  contextTypeName?: string | undefined
 }
 
 /**

@@ -1,5 +1,12 @@
 # @oa-sdk/spec-lens
 
+## 0.1.5
+
+### Patch Changes
+
+- Updated dependencies
+  - @oa-sdk/codegen@0.8.1
+
 ## 0.1.4
 
 ### Patch Changes

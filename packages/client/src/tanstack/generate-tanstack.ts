@@ -9,7 +9,7 @@ import type { OasDocument, OasRequestBody, OasResponse, ParsedDocument } from '@
 import { assertParsedDocumentComplete, isParsedDocument, parseDocument } from '@oa-sdk/parser'
 import { createOperationTypeNameMap, formatGeneratedTs } from '@oa-sdk/core/browser'
 import { generateKeyFactory, type KeyFactoryOptions } from './key-factory-generator.js'
-import { generateOptionsFactory, type OptionsFactoryOptions } from './options-factory-generator.js'
+import { generateOptionsFactory, detectPagination, type OptionsFactoryOptions } from './options-factory-generator.js'
 import { generateHookFactory, type HookFactoryOptions } from './hook-factory-generator.js'
 
 function hasGeneratedRequestBodyType(requestBody?: OasRequestBody): boolean {
@@ -101,20 +101,41 @@ function generateCombinedFile(doc: ParsedDocument, options: TanstackQueryOptions
   // Unified Header Imports
   const shouldIncludeHooks = includeHooks && tier !== 'keys' && tier !== 'options'
   const shouldIncludeOptions = tier !== 'keys'
+  const hasPagination = doc.operations.some(op => detectPagination(op) !== null)
 
   if (shouldIncludeHooks) {
-    lines.push(`import { queryOptions, mutationOptions, useQuery, useMutation } from '${queryPackage}'`)
+    const imports = ['queryOptions', 'mutationOptions', 'useQuery', 'useMutation']
+    if (hasPagination) {
+      imports.push('infiniteQueryOptions', 'useInfiniteQuery')
+    }
+    lines.push(`import { ${imports.join(', ')} } from '${queryPackage}'`)
     lines.push(`import type {`)
     lines.push(`  UndefinedInitialDataOptions,`)
+    if (hasPagination) {
+      lines.push(`  UndefinedInitialDataInfiniteOptions,`)
+      lines.push(`  InfiniteData,`)
+    }
     lines.push(`  UseMutationOptions,`)
     lines.push(`  UseQueryOptions,`)
     lines.push(`  UseQueryResult,`)
+    if (hasPagination) {
+      lines.push(`  UseInfiniteQueryOptions,`)
+      lines.push(`  UseInfiniteQueryResult,`)
+    }
     lines.push(`  UseMutationResult,`)
     lines.push(`  QueryClient,`)
     lines.push(`} from '${queryPackage}'`)
   } else if (shouldIncludeOptions) {
-    lines.push(`import { queryOptions, mutationOptions } from '${queryPackage}'`)
-    lines.push(`import type { UndefinedInitialDataOptions, UseMutationOptions } from '${queryPackage}'`)
+    const imports = ['queryOptions', 'mutationOptions']
+    if (hasPagination) {
+      imports.push('infiniteQueryOptions')
+    }
+    lines.push(`import { ${imports.join(', ')} } from '${queryPackage}'`)
+    if (hasPagination) {
+      lines.push(`import type { UndefinedInitialDataOptions, UndefinedInitialDataInfiniteOptions, InfiniteData, UseMutationOptions } from '${queryPackage}'`)
+    } else {
+      lines.push(`import type { UndefinedInitialDataOptions, UseMutationOptions } from '${queryPackage}'`)
+    }
   }
 
   if (shouldIncludeOptions) {

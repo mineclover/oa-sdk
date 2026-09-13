@@ -36,6 +36,16 @@ export interface HandlerContractOptions {
 }
 
 /**
+ * Polymorphic response envelope for operation handlers.
+ * Supports raw success bodies, status 200 envelopes, and typed error envelopes.
+ */
+export type HandlerResponse<TSuccess = unknown, TErrorMap = Record<number, unknown>, THeaders = Record<string, string>> =
+  | TSuccess
+  | { status: 200; body: TSuccess; headers?: THeaders }
+  | { [K in keyof TErrorMap]: { status: K; body: TErrorMap[K]; headers?: Record<string, string> } }[keyof TErrorMap]
+
+
+/**
  * OAS 원본 문서 또는 ParsedDocument IR에서 프레임워크 독립적인 순수 TypeScript 핸들러 계약을 생성합니다.
  */
 export function generateHandlerContract(
@@ -115,13 +125,10 @@ export function generateHandlerContractFromParsed(
   }
 
   // Common response wrapper type
-  lines.push(`export type HandlerResponse<TBody = unknown, THeaders = Record<string, string>> =`)
-  lines.push(`  | TBody`)
-  lines.push(`  | {`)
-  lines.push(`      status?: number`)
-  lines.push(`      body: TBody`)
-  lines.push(`      headers?: THeaders`)
-  lines.push(`    }`)
+  lines.push(`export type HandlerResponse<TSuccess = unknown, TErrorMap = Record<number, unknown>, THeaders = Record<string, string>> =`)
+  lines.push(`  | TSuccess`)
+  lines.push(`  | { status: 200; body: TSuccess; headers?: THeaders }`)
+  lines.push(`  | { [K in keyof TErrorMap]: { status: K; body: TErrorMap[K]; headers?: Record<string, string> } }[keyof TErrorMap]`)
   lines.push('')
 
   const defaultContextGeneric = contextTypeName
@@ -189,7 +196,7 @@ export function generateHandlerContractFromParsed(
 
     const hasTypedHeaders = !!typesImport && hasGeneratedResponseHeaders(op.responses)
     const genericArg = hasTypedHeaders
-      ? `<${bodyType}, Partial<${baseName}ResponseHeaders>>`
+      ? `<${bodyType}, Record<number, unknown>, Partial<${baseName}ResponseHeaders>>`
       : `<${bodyType}>`
 
     const isCtxRequired = pathParams.length > 0 || isBodyRequired

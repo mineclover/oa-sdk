@@ -24,6 +24,12 @@ export const oaGenGovernanceManifest = {
             description: 'Lifecycle archetype preset: mvp | microservice | enterprise',
           },
           {
+            name: 'routing',
+            type: 'string',
+            short: 'r',
+            description: 'Output path routing preset: default | fsd | monorepo | by-kind',
+          },
+          {
             name: 'cwd',
             type: 'string',
             description: 'Target project directory (default: current working directory)',

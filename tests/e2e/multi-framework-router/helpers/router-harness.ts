@@ -57,9 +57,10 @@ export function generateHandlerContractReference(
     lines.push('')
   }
 
-  lines.push('export type HandlerResponse<TBody, THeaders = Record<string, string>> =')
-  lines.push('  | TBody')
-  lines.push('  | { status?: number; body: TBody; headers?: THeaders }')
+  lines.push('export type HandlerResponse<TSuccess = unknown, TErrorMap = Record<number, unknown>, THeaders = Record<string, string>> =')
+  lines.push('  | TSuccess')
+  lines.push('  | { status: 200; body: TSuccess; headers?: THeaders }')
+  lines.push('  | { [K in keyof TErrorMap]: { status: K; body: TErrorMap[K]; headers?: Record<string, string> } }[keyof TErrorMap]')
   lines.push('')
 
   const opNameMap = createOperationTypeNameMap([...doc.operations, ...doc.webhooks])

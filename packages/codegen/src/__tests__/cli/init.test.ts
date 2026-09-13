@@ -241,4 +241,101 @@ describe('oa-gen init CLI & Orchestrator', () => {
     expect(pkg.scripts['diff']).toBeDefined()
     expect(pkg.devDependencies['@oa-sdk/personas']).toBeDefined()
   })
+
+  describe('outputRouting presets in init', () => {
+    it('generates idiomatic and syntactically valid fsd outputRouting preset', async () => {
+      await fs.writeFile(
+        path.join(tmpDir, 'package.json'),
+        JSON.stringify({ name: 'fsd-app', dependencies: { express: '^4.19.0' } }, null, 2),
+      )
+
+      const res = await runInit({
+        cwd: tmpDir,
+        target: 'express',
+        routing: 'fsd',
+      })
+
+      expect(res.routing).toBe('fsd')
+      const configContent = await fs.readFile(res.configPath, 'utf-8')
+      expect(configContent).toContain("pattern: 'src/features/{tag}/api/{tag}.{kind}.ts'")
+      expect(configContent).toContain("target: 'src/shared/api/{tag}.{kind}.ts'")
+      expect(configContent).toContain("client: 'src/shared/api/client.ts'")
+
+      // Verify array-of-objects syntax: rules must have { ... }
+      expect(configContent).toMatch(/rules:\s*\[\s*\{\s*tag:/)
+
+      // Transpile with TS to verify zero syntax errors
+      const ts = await import('typescript')
+      const transpileResult = ts.default.transpileModule(configContent, {
+        compilerOptions: { module: ts.default.ModuleKind.ESNext },
+      })
+      expect(transpileResult.diagnostics?.length ?? 0).toBe(0)
+    })
+
+    it('generates monorepo outputRouting preset', async () => {
+      await fs.writeFile(
+        path.join(tmpDir, 'package.json'),
+        JSON.stringify({ name: 'monorepo-app' }, null, 2),
+      )
+
+      const res = await runInit({
+        cwd: tmpDir,
+        target: 'hono',
+        routing: 'monorepo',
+      })
+
+      expect(res.routing).toBe('monorepo')
+      const configContent = await fs.readFile(res.configPath, 'utf-8')
+      expect(configContent).toContain("contract: 'packages/contracts/src/api.contract.ts'")
+      expect(configContent).toContain("client: 'packages/client-sdk/src/index.ts'")
+      expect(configContent).toContain("queries: 'apps/web/src/api/queries.ts'")
+    })
+
+    it('generates by-kind outputRouting preset', async () => {
+      await fs.writeFile(
+        path.join(tmpDir, 'package.json'),
+        JSON.stringify({ name: 'bykind-app' }, null, 2),
+      )
+
+      const res = await runInit({
+        cwd: tmpDir,
+        target: 'fastify',
+        routing: 'by-kind',
+      })
+
+      expect(res.routing).toBe('by-kind')
+      const configContent = await fs.readFile(res.configPath, 'utf-8')
+      expect(configContent).toContain("contract: 'src/contracts/{tag}.contract.ts'")
+      expect(configContent).toContain("client: 'src/client/{tag}.client.ts'")
+      expect(configContent).toContain("queries: 'src/queries/{tag}.queries.ts'")
+    })
+
+    it('generates default outputRouting preset', async () => {
+      await fs.writeFile(
+        path.join(tmpDir, 'package.json'),
+        JSON.stringify({ name: 'default-app' }, null, 2),
+      )
+
+      const res = await runInit({
+        cwd: tmpDir,
+        target: 'generic',
+        routing: 'default',
+      })
+
+      expect(res.routing).toBe('default')
+      const configContent = await fs.readFile(res.configPath, 'utf-8')
+      expect(configContent).toContain("pattern: 'src/api/{tag}/{tag}.{kind}.ts'")
+    })
+
+    it('rejects invalid routing preset via CLI command', async () => {
+      await fs.writeFile(
+        path.join(tmpDir, 'package.json'),
+        JSON.stringify({ name: 'err-app' }, null, 2),
+      )
+
+      await expect(
+        init.run({ cwd: tmpDir, routing: 'invalid-preset' }, { cwd: tmpDir, projectRoot: tmpDir }),
+      ).rejects.toThrow()
+    })
+  })
 })

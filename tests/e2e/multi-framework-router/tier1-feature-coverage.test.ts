@@ -97,9 +97,9 @@ describe('Tier 1: Feature Coverage (Features 1–20)', () => {
 
     it('T1-F2-4: generates strongly typed HandlerResponse union type', () => {
       const contract = generateHandlerContract(petstoreSpec)
-      expect(contract).toContain('export type HandlerResponse<TBody = unknown, THeaders = Record<string, string>> =')
-      expect(contract).toContain('| TBody')
-      expect(contract).toContain('body: TBody')
+      expect(contract).toContain('export type HandlerResponse<TSuccess = unknown, TErrorMap = Record<number, unknown>, THeaders = Record<string, string>> =')
+      expect(contract).toContain('| TSuccess')
+      expect(contract).toContain('body: TSuccess')
       expect(contract).toContain('headers?: THeaders')
     })
 

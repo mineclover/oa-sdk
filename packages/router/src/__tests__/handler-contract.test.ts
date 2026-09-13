@@ -90,7 +90,7 @@ describe('generateHandlerContract', () => {
     expect(code).toContain("GetUserResponse")
     expect(code).toContain("ListUsersQueryParams")
     expect(code).toContain("ListUsersResponse")
-    expect(code).toContain("export type HandlerResponse<TBody = unknown, THeaders = Record<string, string>> =")
+    expect(code).toContain("export type HandlerResponse<TSuccess = unknown, TErrorMap = Record<number, unknown>, THeaders = Record<string, string>> =")
 
     // Context types
     expect(code).toContain("export interface ListUsersContext<TContext = unknown> {")
@@ -176,7 +176,7 @@ describe('generateHandlerContract', () => {
     })
 
     const code = generateHandlerContract(spec, { typesImport: './types' })
-    expect(code).toContain('HandlerResponse<GetDataResponse, Partial<GetDataResponseHeaders>>')
+    expect(code).toContain('HandlerResponse<GetDataResponse, Record<number, unknown>, Partial<GetDataResponseHeaders>>')
   })
 
   it('supports incoming webhooks', () => {
