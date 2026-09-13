@@ -1,243 +1,176 @@
-# CLI 설치와 저장소 워크플로우
+# CLI 설치 및 환경 설정 가이드 (CLI Setup)
 
-## 필수 도구
+> **Canonical Authority**: `@oa-sdk/codegen` CLI (`oa-gen`)
+> **Target Audience**: `oa-sdk`를 프로젝트에 도입하는 애플리케이션 개발자, 플랫폼 엔지니어, CI/CD 관리자
+> **Supported Environments**: Node.js 20+ / 22+ LTS, Bun 1.0+ / 1.1+ (macOS, Linux, Windows)
 
-| 도구 | 역할 | 설치 |
+`@oa-sdk/codegen` 패키지가 제공하는 `oa-gen` CLI는 OpenAPI 3.1/3.2 사양 검증, Zod 4 및 TypeScript 타입 생성, TanStack Query v5 클라이언트 생성, 다중 프레임워크 라우터 및 순수 핸들러 계약 방출, 실시간 무중단 목(Mock) 서버 구동을 단일 도구로 통합 제공합니다.
+
+이 문서는 다운스트림 사용자를 위한 공식 설치 및 환경 설정 단일 진실 공급원(SSOT)입니다.
+
+---
+
+## 1. 런타임 요구사항 (Runtime Prerequisites)
+
+`oa-gen` CLI는 모던 JavaScript/TypeScript 런타임 표준을 준수합니다.
+
+| 런타임 | 지원 버전 | 권장 환경 및 주요 특징 |
 |---|---|---|
-| **Redocly CLI** | 스키마 번들/린트/프리뷰 | 루트 devDep |
-| **Spectral CLI** | 스타일 가이드 린트 | 루트 devDep |
+| **Node.js** | $\ge$ 20.0.0 (LTS) | **Node.js 22 LTS 이상 권장**. 네이티브 ESM 지원 및 타입 스트리핑 최적화. |
+| **Bun** | $\ge$ 1.0.0 | **Bun 1.1 이상 권장**. Bun Elysia 대상 Zero-copy 컨텍스트 구조분해 및 초고속 네이티브 파일 와처 지원. |
+| **운영체제** | macOS, Linux, Windows | Linux 컨테이너/CI 환경을 위한 재귀 파일 와칭 자동 폴백 내장. |
 
-모두 `pnpm install`로 자동 설치됩니다.
+---
 
-## 초기 세팅
+## 2. 패키지 매니저별 설치 (Package Manager Matrix)
+
+프로젝트에서 사용하는 패키지 매니저에 맞춰 `@oa-sdk/codegen`을 **개발 의존성(`devDependencies`)**으로 설치합니다.
+
+### npm
+```bash
+npm install --save-dev @oa-sdk/codegen
+```
+
+### pnpm
+```bash
+pnpm add -D @oa-sdk/codegen
+```
+
+### yarn
+```bash
+yarn add -D @oa-sdk/codegen
+```
+
+### bun
+```bash
+bun add -d @oa-sdk/codegen
+```
+
+---
+
+## 3. 로컬 설치 권장 vs 전역 설치 안티패턴
+
+`@oa-sdk` 팀은 CLI를 전역(`npm install -g @oa-sdk/codegen`)으로 설치하지 않고, 각 프로젝트의 **로컬 `devDependencies`로 설치하여 관리하는 방식을 강력히 권장**합니다.
+
+### 로컬 devDependencies 설치의 이점
+1. **버전 드리프트(Version Drift) 원천 차단**: 프로젝트의 락파일(`package-lock.json`, `pnpm-lock.yaml`, `bun.lockb`)에 CLI 버전이 정확히 고정되어, 모든 팀원과 CI/CD 파이프라인이 100% 동일한 코드젠 엔진과 검증 규칙을 사용합니다.
+2. **다중 프로젝트 격리**: 서로 다른 OpenAPI 사양 버전이나 설정 체계를 사용하는 복수의 저장소 간 충돌을 방지합니다.
+3. **CI/CD 재현성 보장**: 추가적인 전역 설치 단계 없이 `pnpm install` 또는 `npm ci` 직후 즉시 스크립트 실행이 가능합니다.
+
+### 로컬 CLI 실행 방법
+로컬에 설치된 `oa-gen`은 다음 명령을 통해 즉시 실행할 수 있습니다:
 
 ```bash
-cd oa-sdk
-pnpm install
-pnpm build:core
-pnpm build:downstream
-git submodule update --init --recursive
+# npx를 통한 실행
+npx oa-gen --help
+
+# pnpm 환경
+pnpm exec oa-gen --help
+
+# bun 환경
+bunx oa-gen --help
+
+# yarn 환경
+yarn oa-gen --help
 ```
 
-`build:core`는 `oa-gen` CLI를 포함한 production core package를 빌드하고, `build:downstream`은
-라우터·클라이언트·mock server처럼 private package의 `dist`를 빌드한다. 저장소를 clone한
-직후에는 package binary가 아직 빌드되지 않을 수 있으므로 아래 예시는 설치된 binary 대신
-저장소의 `node packages/codegen/dist/cli/index.js` entrypoint를 직접 호출한다. root workspace는
-`oa-gen` binary를 shell PATH에 자동으로 연결하지 않는다. 별도 서비스 저장소에서는 public package를
-설치한 뒤 `npx oa-gen <command>`를 쓰거나, scaffold의 `--oa-gen-command`에 서비스가 재현 가능한
-명령을 지정한다.
+### 권장 `package.json` 스크립트 구성
+반복적인 워크플로를 위해 `package.json`의 `scripts`에 등록하여 사용하는 것을 권장합니다:
 
-## 목표별 진입점
+```json
+{
+  "scripts": {
+    "oa:init": "oa-gen init",
+    "oa:generate": "oa-gen generate",
+    "oa:validate": "oa-gen validate",
+    "oa:mock": "oa-gen mock --watch",
+    "oa:drift": "oa-gen drift:check"
+  }
+}
+```
 
-- 공개 OpenAPI 문서만 검증·생성하려면 [Quick Start](./quick-start.md)의 공개 CLI 절을 사용한다.
-- 외부 서비스의 PR governance를 구성하려면 [OpenAPI Governance Workflow](./use-cases/openapi-governance-workflow.md)를 사용한다.
-- TypeSpec production contract를 작성하거나 승인 snapshot을 갱신하려면 [TypeSpec Authoring Conventions](./typespec-authoring-conventions.md)를 사용한다.
-- 전체 명령의 최소 입력과 조건부 옵션을 찾으려면 [CLI 명령 레퍼런스](./cli-command-reference.md)를 사용한다.
+---
 
-## 주요 워크플로우
+## 4. 제로 설치 즉시 실행 (npx / bunx Ephemeral Execution)
 
-현재 기능 명령의 목적, 최소 입력, 출력, 조건부 옵션은
-[CLI 명령 레퍼런스](./cli-command-reference.md)가 소유한다. 이 문서는 production schema와
-OpenAPI governance에서 자주 쓰는 workflow만 빠르게 안내한다.
-
-### OpenAPI governance checks
-
-API 변경 PR에서는 [OpenAPI Governance Workflow](./use-cases/openapi-governance-workflow.md)를
-기본 흐름으로 사용한다.
-
-`duplicate-review`의 정책 선택, 다중 target, severity override는
-[Duplicate Review 가이드](./duplicate-review.md)를 기준으로 한다.
-
-| 명령 | 목적 |
-|---|---|
-| `oa-gen build-spec` | Definition Builder target artifact와 diagnostics/collision/composition/provenance/metadata sidecar 생성 |
-| `oa-gen scaffold-governance` | 외부 OpenAPI 서비스용 config/script/docs 스캐폴드 생성 |
-| `oa-gen collect` | 외부 OpenAPI raw 산출물을 normalized governance artifact와 OpenAPI 3.2 upgraded artifact로 수집 |
-| `oa-gen normalize` | 외부 OpenAPI 문서를 stable diff 가능한 governance artifact로 정규화 |
-| `oa-gen upgrade` | OpenAPI 3.0/3.1 문서를 OpenAPI 3.2 analysis artifact로 파생 |
-| `oa-gen inventory` | OpenAPI path/operation/component/security surface 요약 |
-| `oa-gen parallel-evidence` | TypeSpec 계약 provenance와 implementation provenance adapter의 pointer coverage·reference resolution·shape taxonomy metric 및 baseline delta 출력 |
-| `oa-gen behavior-query` | behavior SQLite projection을 filtered recent/latest와 summary-by-* 기준으로 조회하고, `metrics-summary`로 behavior type별 수치 metric의 min/max/average/latest를 조회 |
-| `oa-gen duplicate-review` | 정책 기반 fragment 중복 탐지 및 실제 target output-name 충돌 검토 |
-| `oa-gen target-check` | target 또는 artifact path include/exclude assertion 검증 |
-| `oa-gen drift` | runtime OpenAPI 파일 또는 URL과 managed OpenAPI drift 비교, optional behavior logging |
-| `oa-gen review` | diff, validation, artifact freshness, optional provenance/metadata diff report, optional behavior logging |
-| `oa-gen review-bundle` | PR comment용 aggregate review report 생성 (optional provenance/metadata diff, TypeSpec/ttsc parallel evidence metric, behavior logging 포함) |
-
-`behavior-query`의 `metrics-summary`와 `latest-*-by-type` mode는 반드시
-`--behavior-type`을 함께 전달해야 한다. 다른 mode의 selector 조건은
-[CLI 명령 레퍼런스](./cli-command-reference.md#behavior-query-조건부-옵션)를 따른다.
-
-최소 PR gate 예시:
+영구 설치 없이 30초 만에 대화형 온보딩을 실행하거나 일회성 검증을 수행할 때는 `npx` 또는 `bunx`의 일회성 실행을 활용할 수 있습니다.
 
 ```bash
-node packages/codegen/dist/cli/index.js diff \
-  --base contracts/baselines/v1.openapi.yaml \
-  --head packages/schemas/src/.merged.yaml \
-  --fail-on-breaking
+# 30초 마찰 제로 온보딩 실행 (대화형 프레임워크 감지 및 oa.config.ts 생성)
+npx @oa-sdk/codegen init
 
-node packages/codegen/dist/cli/index.js check-artifact \
-  --head packages/schemas/src/.merged.yaml \
-  --artifact packages/schemas/dist/openapi.yaml
+# 비대화형(Headless) 자동 온보딩 (기본값 자동 수락)
+npx @oa-sdk/codegen init --yes
 
-node packages/codegen/dist/cli/index.js duplicate-review \
-  --fragments packages/schemas/src/fragments \
-  --policy ci \
-  --target packages/schemas/src/targets/local-parity-api.yaml
+# Bun 환경에서 일회성 온보딩 실행
+bunx @oa-sdk/codegen init --yes
 
-node packages/codegen/dist/cli/index.js target-check \
-  --target packages/schemas/src/targets/local-parity-api.yaml \
-  --must-include-path /health \
-  --must-exclude-path /admin
+# 기존 OpenAPI 사양 즉시 검증
+npx @oa-sdk/codegen validate --spec ./openapi.yaml --require-32
+
+# 제로 빌드 실시간 목(Mock) 서버 즉시 구동 (포트 4010)
+npx @oa-sdk/codegen mock --spec ./openapi.yaml --watch --port 4010
 ```
 
-외부 프레임워크 산출물(NestJS Swagger, FastAPI 등)을 oa-sdk 전체 기능에 연결하는 예시. profile은 `generic`/`nestjs-swagger`/`fastapi`를 지원하고, FastAPI는 `--profile fastapi` + `apps/fastapi-ref` 레퍼런스를 그대로 사용한다.
+---
+
+## 5. 설치 검증 (Installation Verification)
+
+설치가 완료되면 CLI 전체 명령 및 사용 가능한 서브커맨드 목록을 확인합니다.
 
 ```bash
-# NestJS Swagger
-node packages/codegen/dist/cli/index.js scaffold-governance \
-  --root apps/nestjs-ref \
-  --service nestjs-ref \
-  --profile nestjs-swagger \
-  --source-command "pnpm export:openapi" \
-  --runtime-openapi-url http://localhost:3000/openapi.json \
-  --oa-gen-command "node ../../packages/codegen/dist/cli/index.js" \
-  --oa-gen-setup-command "pnpm --filter @oa-sdk/codegen build"
-
-bash apps/nestjs-ref/scripts/openapi-governance.sh all
-
-# FastAPI
-node packages/codegen/dist/cli/index.js scaffold-governance \
-  --root apps/fastapi-ref \
-  --service fastapi-ref \
-  --profile fastapi \
-  --source-command "uv run python scripts/export_openapi.py" \
-  --runtime-openapi-url http://localhost:8000/openapi.json \
-  --oa-gen-command "node ../../packages/codegen/dist/cli/index.js" \
-  --oa-gen-setup-command "pnpm --filter @oa-sdk/codegen build && (cd apps/fastapi-ref && uv sync)"
-
-bash apps/fastapi-ref/scripts/openapi-governance.sh all
+# 전체 명령 및 옵션 도움말 출력
+npx oa-gen --help
 ```
 
-### 레포 게이트 (drift checks)
+---
 
-루트 `package.json`에서 사용 가능한 정합성 검사:
+## 6. 계층적 상향 프로젝트 루트 탐색 (6-Tier Project Root Resolution)
 
-| 명령 | 검사 대상 |
-|---|---|
-| `pnpm check:cli-spec` | `oa-gen` / `oa-contract` governance manifest와 `docs/cli-spec/*.json` 정합성 |
-| `pnpm check:api-index` | 패키지 export ↔ `docs/internal/api-index.md` drift |
-| `pnpm check:docs` | 전체 Markdown local link와 fenced `oa-gen` 명령/옵션 drift |
-| `pnpm check:spec-governance` | `.ai/spec-loader.yaml`의 공식 기준 경로·형식 정합성 |
-| `pnpm check:feature-tests` | `docs/internal/feature-test-matrix.{md,json}` 항목 ↔ 실제 테스트 경로 |
-| `pnpm schema:validate` | TypeSpec production bundle로 `.merged.yaml` 생성 후 downgrade-3.1 / spectral / redocly / strict OpenAPI 3.2 validate 실행 |
-| `pnpm schema:validate:openapi` | OpenAPI/Definition Builder rollback path로 `.merged.yaml` 생성 후 동일 검증 실행 |
+`oa-gen` CLI는 모노레포의 깊은 하위 디렉터리나 Git 서브모듈 내부에서 호출되더라도, 상향 디렉터리 순회(Upward Traversal)를 통해 최상위 프로젝트 루트를 자동으로 식별합니다.
 
-`check:api-index`는 `pnpm build:scripts` 산출물에 의존하므로 처음에는 빌드 후 실행한다.
+```
+┌───────────────────────────────────────────────────────────────────────────┐
+│                    프로젝트 루트 식별 6단계 우선순위 (6 Tiers)               │
+├───────────────────────────────────────────────────────────────────────────┤
+│ Tier 1. CLI 명시 옵션: --project-root <dir> 또는 --root <dir>              │
+│    ⬇ (미지정 시)                                                          │
+│ Tier 2. 환경 변수: process.env.OA_PROJECT_ROOT                            │
+│    ⬇ (미설정 또는 공백 시)                                                 │
+│ Tier 3. 스펙 설정 파일: oa.config.ts, oa.config.mjs, oa.config.json,      │
+│         .oarc.json                                                        │
+│    ⬇ (조상 디렉터리 탐색 후 미발견 시)                                      │
+│ Tier 4. 모노레포 워크스페이스 마커: pnpm-workspace.yaml, turbo.json,       │
+│         lerna.json, package.json (workspaces 필드 선언)                   │
+│    ⬇ (미발견 시)                                                          │
+│ Tier 5. 형상 관리(VCS) 마커: .git 디렉터리 또는 .git 서브모듈 포인터 파일   │
+│    ⬇ (미발견 시)                                                          │
+│ Tier 6. 최종 Fallback: process.cwd()                                      │
+└───────────────────────────────────────────────────────────────────────────┘
+```
 
-### 스키마 검증
+### 전역 `--root` 플래그 활용
+특정 하위 패키지나 외부 경로를 기준으로 CLI 파이프라인을 실행해야 하는 경우 전역 플래그를 전달할 수 있습니다:
 
 ```bash
-pnpm schema:validate
+npx oa-gen generate --root ./apps/web-service
 ```
 
-루트 명령은 먼저 parser와 codegen CLI를 빌드한 뒤 아래 스키마 파이프라인을 실행한다.
+---
 
-내부적으로 다음 파이프라인을 순차 실행:
-1. `schema:typespec-check` — TypeSpec compile + OA SDK extension restore + approved snapshot drift gate → `src/.merged.yaml`
-2. `downgrade:3.1` — OpenAPI 3.2 artifact에서 Redocly-compatible 3.1 artifact 생성
-3. `spectral lint .merged.yaml` — 스타일 가이드 검사
-4. `redocly lint .merged.3.1.yaml` — $ref 유효성 + 스펙 준수 검사
-5. `oa-gen validate --spec packages/schemas/src/.merged.yaml --require-32` — OA SDK OpenAPI 3.2 strict validation
+## 7. oa-sdk 모노레포 자체 기여자 안내
 
-OpenAPI/Definition Builder fallback을 검증하려면 다음 명령을 사용한다:
+이 가이드는 `oa-sdk`를 라이브러리로 활용하는 **다운스트림 사용자**를 위한 것입니다.
 
-```bash
-pnpm schema:validate:openapi
-```
+`oa-sdk` 오픈소스 모노레포 자체에 기여하거나, TypeSpec 프로덕션 계약을 직접 수정·승인하고, 내부 통합 빌드(`pnpm build:core`, `pnpm build:downstream`)를 실행하려는 기여자는 다음 문서를 참고하세요:
 
-### 승인 snapshot 갱신
+👉 [oa-sdk 모노레포 기여자 온보딩 가이드](./onboarding-playbook.md#9-oa-sdk-모노레포-기여자-온보딩)
 
-TypeSpec 계약 변경은 먼저 gitignore된 `.oa-sdk/typespec-candidates/`에 생성한
-후보의 normalized diff를 검토한다.
+---
 
-```bash
-pnpm schema:approve-typespec-reference
-```
+## 8. 다음 단계 (Next Steps)
 
-검토가 끝난 경우에만 다음 명령으로 manifest가 가리키는 `approved.openapi.yaml`을
-갱신한다. 이 파일은 직접 수정하지 않는다.
-
-```bash
-pnpm schema:approve-typespec-reference -- --write
-```
-
-### 스키마 번들링
-
-```bash
-pnpm schema:bundle
-```
-
-TypeSpec production bundle이 `packages/schemas/src/.merged.yaml`를 생성한 뒤
-3.1 downgrade artifact를 번들:
-- `packages/schemas/dist/openapi.yaml`
-- `packages/schemas/dist/openapi.json`
-
-OpenAPI/Definition Builder fallback bundle은 `pnpm schema:bundle:openapi`으로 생성한다.
-
-### 문서 미리보기
-
-```bash
-pnpm schema:preview
-```
-
-브라우저에서 Redoc UI로 스키마를 렌더링합니다.
-
-### Mock 서버 시작
-
-```bash
-pnpm mock:start
-```
-
-기본 포트: `4010`
-
-## TypeSpec 배포 환경 projection
-
-TypeSpec production contract에서 server URL만 달리한 deployment artifact가 필요하면
-다음 명령을 사용한다. profile은 restored contract를 입력으로 하며 approved snapshot이나
-Definition Builder fallback을 갱신하지 않는다.
-
-```bash
-pnpm schema:project-typespec:local
-pnpm schema:project-typespec:staging
-pnpm schema:project-typespec:production
-```
-
-입력 profile은 `packages/schemas/typespec/oa-sdk.typespec-projections.json`이고 출력은
-`packages/schemas/src/.projected/<profile>.openapi.yaml`이다. profile이 바꿀 수 있는
-필드는 `servers`뿐이다.
-
-## Definition Builder fallback 환경 프로필
-
-```bash
-pnpm schema:build:openapi            # local fallback/reference
-pnpm schema:build:openapi:staging    # staging
-pnpm schema:build:openapi:production # production
-```
-
-Target config: `packages/schemas/src/targets/{local,staging,production}-parity-api.yaml`
-
-## Spectral 규칙 커스텀
-
-`packages/schemas/.spectral.yaml` 파일에서 규칙을 추가/수정합니다.
-
-```yaml
-rules:
-  my-custom-rule:
-    given: "$.paths[*][*]"
-    severity: warn
-    then:
-      function: truthy
-```
-
-> OAS 3.2 관련 Spectral 규칙 비활성화 배경 → [ADR-005](../internal/architecture/005-spectral-redocly-split.md)
+- **5분 빠른 시작**: [Quick Start](./quick-start.md) — 5분 안에 전 파이프라인 체험하기
+- **점진적 도입 전략**: [프로젝트 온보딩 플레이북](./onboarding-playbook.md) — 3계층 온보딩 사다리 (Fastify, Elysia, Express, NestJS)
+- **선언적 설정 SSOT**: [선언적 사양 설정 가이드 (oa.config.ts)](./declarative-spec-configuration.md) — 이중 계층 아키텍처, 3대 아키타입, `outputRouting` 상세
+- **CLI 전체 명령어 색인**: [CLI 명령 레퍼런스](./cli-command-reference.md) — 전체 서브커맨드 및 조건부 옵션 규격

@@ -1,7 +1,7 @@
-# BRIEFING — 2026-09-02T15:08:40Z
+# BRIEFING — 2026-09-13T03:24:00Z
 
 ## Mission
-Implement Milestone 3: Standalone Lightweight Type Guard Generator Plugin in @oa-sdk/codegen (`generateStandaloneGuards`, CLI `--target standalone-guards`, pure ESM zero-eval validator + .d.ts generation).
+Implement Milestone M3 (Automated Empirical Verification Test Suite) in `tests/e2e/docs-execution.test.ts` combining all 6 verification suites from spec miners with 100% pass rate and all monorepo governance checks green.
 
 ## 🔒 My Identity
 - Archetype: implementer
@@ -9,6 +9,8 @@ Implement Milestone 3: Standalone Lightweight Type Guard Generator Plugin in @oa
 - Working directory: /Users/junwoobang/workflow/oa-sdk/.agents/m3_worker
 - Original parent: 68ae2354-2e51-4b8a-8016-61950725263e
 - Milestone: M3 (Standalone Lightweight Type Guard Generator Plugin)
+- Current Parent: 9d7c2c7d-4157-48de-bc24-e49d0693ad90
+- Milestone: M3 (Automated Empirical Verification Test Suite)
 
 ## 🔒 Key Constraints
 - Pure ESM validator with ZERO runtime dependencies and ZERO `eval()` or `new Function()` calls (CSP-safe).
@@ -18,51 +20,49 @@ Implement Milestone 3: Standalone Lightweight Type Guard Generator Plugin in @oa
 - Re-export `generateStandaloneGuards` and related types in `packages/codegen/src/index.ts`.
 - Thorough unit and integration tests under `packages/codegen/test/standalone-guards/`.
 - Zero tolerance for shortcuts, cheating, or hardcoded fake validations.
+- MANDATORY INTEGRITY WARNING: DO NOT CHEAT. All implementations must be genuine.
+- Exclusively owned file: `tests/e2e/docs-execution.test.ts`.
+- Execute all 6 suites cleanly with exit code 0 and `tsc --noEmit` type safety.
+- Pass all 5 monorepo governance gates (`check:docs`, `check:cli-spec`, `check:release-policy`, `check:api-index`, `typecheck:all`).
 
 ## Current Parent
-- Conversation ID: 68ae2354-2e51-4b8a-8016-61950725263e
-- Updated: 2026-09-02T15:08:40Z
+- Conversation ID: 9d7c2c7d-4157-48de-bc24-e49d0693ad90
+- Updated: 2026-09-13T03:24:00Z
 
 ## Task Summary
-- **What to build**: Standalone ESM Type Guard Generator using Ajv 2020 standalone compilation, CLI wiring in generate command, TypeScript .d.ts guard generation, and unit tests.
-- **Success criteria**: All `@oa-sdk/codegen` tests and typechecks pass (86 test files / 974 tests), zero eval / zero dependency invariants verified, CLI works cleanly.
-- **Interface contracts**: PROJECT.md § Interface Contracts (@oa-sdk/codegen), Proposal 3 Spec §3.2-3.3.
-- **Code layout**: `packages/codegen/src/standalone-guards/` (`generator.ts`, `types.ts`, `index.ts`), `packages/codegen/src/cli/commands/generate.ts`.
+- **What to build**: Implement `tests/e2e/docs-execution.test.ts` combining:
+  - Helper functions: `runCli(args, cwd)` and `runTsc(cwd)`.
+  - Suite 1: Help Flag Matrix Coverage (all 11 CLI targets).
+  - Suite 2: Quick Start CLI Pipeline Execution in isolated temp directory (`fs.mkdtemp`), validating `oa-gen init`, `validate`, `typegen`, `generate:zod`, `audit:shape`, and `tsc --noEmit`.
+  - Suite 3: Onboarding Framework Targets & Runtime Isolation (Fastify, Elysia, Express, NestJS, dry-run, force).
+  - Suite 4: Lifecycle Archetype Presets & Safety Gates (MVP, Microservice, Enterprise, and validation gates).
+  - Suite 5: Configuration Recipe Schema & Type Validation (FSD outputRouting, Monorepo outputRouting, Microservice dual-layer).
+  - Suite 6: TanStack Query & Handler Contract End-to-End Type Safety (`generate:tanstack`, `generateHandlerContract`, typed consumer, `runTsc`).
+- **Success criteria**: 100% test pass rate in Vitest (42/42 tests pass); all 5 monorepo governance gates pass with 0 errors.
+- **Interface contracts**: PROJECT.md, ORIGINAL_REQUEST.md (Requirement R3).
+- **Code layout**: `tests/e2e/docs-execution.test.ts`.
 
 ## Key Decisions Made
-- Added `ajv` (^8.18.0) and `ajv-formats` (^3.0.1) as direct dependencies in `packages/codegen`.
-- Generated validator functions are compiled via `ajv/dist/standalone` and post-processed to emit explicit `export function <name>(data, ...args) { return <fn>(data, ...args); }` signatures.
-- Emitted `.d.ts` declarations include `import type { ... } from '<typeImportSpecifier>'` if configured, and declare `(data: unknown): data is <TypeName>` predicates.
-- Output includes both `guards.js`/`guards.d.ts` and barrel `index.js`/`index.d.ts` re-exports.
+- `runCli` uses synchronous `execFileSync` against `packages/codegen/dist/cli/index.js` (with fallback to tsx).
+- `runTsc` uses `typescript/bin/tsc --noEmit` and reports detailed diagnostics on failure.
+- Suite 2 maps ambient `zod` types via `paths: { zod: [zodDtsPath] }` in `tsconfig.json`.
+- Suite 6 uses `{ body: { name: 'Charlie', email: 'charlie@example.com' } }` matching `CreateUserVariables` from `generate:tanstack`.
+- Suite 4.1 validates `archetype: 'mvp'`, `wireFormatSafety: false`, `failOnBreaking: false`, `preflightLint: 'warn'`, and `outDir: './src/client'`.
 
 ## Artifact Index
+- `tests/e2e/docs-execution.test.ts` — Automated Empirical Verification Test Suite (42 tests across 6 suites)
 - `.agents/m3_worker/DISPATCH.md` — Worker assignment and instructions
-- `.agents/m3_worker/BRIEFING.md` — Situational awareness and state
+- `.agents/m3_worker/BRIEFING.md` — Situational awareness and persistent memory
 - `.agents/m3_worker/progress.md` — Step-by-step progress tracking
 - `.agents/m3_worker/handoff.md` — 5-component handoff report
-- `packages/codegen/src/standalone-guards/types.ts` — Type definitions
-- `packages/codegen/src/standalone-guards/generator.ts` — Core generator implementation
-- `packages/codegen/src/standalone-guards/index.ts` — Module entrypoint
-- `packages/codegen/src/cli/commands/generate.ts` — CLI `--target standalone-guards` wiring
-- `packages/codegen/test/standalone-guards/generator.test.ts` — Comprehensive generator unit tests
-- `packages/codegen/test/standalone-guards/cli.test.ts` — CLI command unit tests
 
 ## Change Tracker
-- **Files modified**:
-  - `packages/codegen/package.json` — Added ajv, ajv-formats
-  - `packages/codegen/src/index.ts` — Re-exported generateStandaloneGuards and types
-  - `packages/codegen/src/cli/commands/generate.ts` — Added `--target standalone-guards` and options
-  - `PROJECT.md` — Updated M3 status to DONE
-- **Files created**:
-  - `packages/codegen/src/standalone-guards/types.ts`
-  - `packages/codegen/src/standalone-guards/generator.ts`
-  - `packages/codegen/src/standalone-guards/index.ts`
-  - `packages/codegen/test/standalone-guards/generator.test.ts`
-  - `packages/codegen/test/standalone-guards/cli.test.ts`
-- **Build status**: PASS
+- **Files modified**: none
+- **Files created**: `tests/e2e/docs-execution.test.ts`
+- **Build status**: PASS (42/42 tests pass; 33/33 workspaces typecheck pass)
 - **Pending issues**: none
 
 ## Quality Status
-- **Build/test result**: 86/86 test files passed, 974/974 tests passed; typecheck passed
-- **Lint status**: clean
-- **Tests added/modified**: 12 new unit tests added across 2 test files covering schema compilation, invariants, .d.ts generation, and CLI invocation
+- **Build/test result**: 42/42 tests pass in `tests/e2e/docs-execution.test.ts`; 33/33 workspaces pass `typecheck:all --force`
+- **Lint status**: 0 violations across 5 monorepo governance gates (`check:docs`, `check:cli-spec`, `check:release-policy`, `check:api-index`, `typecheck:all`)
+- **Tests added/modified**: 42 new empirical verification tests across 6 suites in `tests/e2e/docs-execution.test.ts`

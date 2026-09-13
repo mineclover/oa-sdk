@@ -1,8 +1,15 @@
-# 스키마 작성 가이드
+# 스키마 작성 가이드 (TypeSpec & OpenAPI 3.2 Practical Authoring Playbook)
+
+> 🧭 **스펙 문서 체계 안내 (Schema Triad SSOT)**:
+> - **[기본 스펙 사용 기준](./basic-spec-usage.md)**: 저장소 스펙 거버넌스 및 산출물 소유권 SSOT. 어떤 파일이 정본(SSOT)이고 어떤 파일이 생성물(Generated Artifact)인지, 다운스트림 패키지가 어떤 산출물을 소비하는지 정의합니다.
+> - **[스키마 작성 가이드 (현재 문서)](./schema-authoring.md)**: 실무 TypeSpec & OpenAPI 3.2 작성 플레이북. TypeSpec 도메인 모델, 오퍼레이션, 파라미터, OAS 3.2 신규 문법(dataValue, itemSchema, defaultMapping) 실무 작성 규칙을 다룹니다.
+> - **[스키마 아키텍처 및 작성 규칙](./schema-architecture-and-conventions.md)**: 4단계 Zod-First 파이프라인 SSOT (Zod $\rightarrow$ JSON Schema 2020-12 $\rightarrow$ OAS 3.1 $\rightarrow$ Standalone AJV Type Guards with zero eval for Chrome MV3 CSP) 및 V3 AST 동기화 표준을 다룹니다.
+> - **[패스 프래그먼트 컨벤션](./path-fragment-conventions.md)**: Definition Builder 롤백/참조 경로용 YAML 프래그먼트 작성 규칙 및 폴더 계층 표준을 다룹니다.
+> - **[선언적 스펙 설정 가이드](./declarative-spec-configuration.md)**: `oa.config.ts`의 이중 레이어 구조(`core` vs `product`), 라이프사이클 아키타입(`mvp`, `microservice`, `enterprise`), 출력 경로 라우팅(`outputRouting`) 설정 표준을 다룹니다.
 
 ## 새 API 작성 경로
 
-Production schema authoring is TypeSpec-first. 기본 경로에서는
+Production schema authoring is TypeSpec-first. 기본 개발 경로에서는
 `packages/schemas/typespec/main.tsp` entrypoint가 import하는 domain `.tsp` source를 수정한 뒤
 `pnpm schema:validate`로 production OpenAPI artifact를 재생성/검증한다.
 
@@ -83,43 +90,17 @@ profile은 `packages/schemas/typespec/oa-sdk.typespec-projections.json`에 있�
 `packages/schemas/src/.projected/`의 gitignored artifact다. path, schema, security,
 response 같은 계약 의미를 profile에서 바꾸면 안 된다.
 
-## OpenAPI fragment fallback 추가
+## OpenAPI fragment fallback 경로
 
-1. `packages/schemas/src/fragments/{kind}/{scope}/{domain}/{name}.yaml` 생성
-2. canonical `id`와 OpenAPI fragment body를 작성 (아래 템플릿 참고)
-3. `pnpm schema:validate:openapi`로 rollback/reference path 검증
+OpenAPI YAML 프래그먼트(`packages/schemas/src/fragments/`)는 신규 API 개발을 위한 작성 원천이 아니라,
+TypeSpec 도입 이전의 레거시 Definition Builder 빌드 체계와의 정합성을 보장하기 위한 **롤백 및 참조(Rollback/Reference) 경로**입니다.
 
-```yaml
-# fragments/path/public/my-domain/MyResourcePath.yaml
-id: path:public/my-domain/MyResourcePath
-path: /my-resource
-item:
-  get:
-    tags: [my-domain]
-    operationId: listMyResource
-    summary: 목록 조회
-    responses:
-      "200":
-        description: 성공
-        content:
-          application/json:
-            schema:
-              $ref: oa://schema/public/my-domain/MyResource
-```
+롤백 경로에 프래그먼트를 추가하거나 수정해야 하는 경우, 인라인 예제나 수동 YAML 작성을 지양하고 아래 전용 규격을 준수합니다:
 
-```yaml
-# fragments/schema/public/my-domain/MyResource.yaml
-id: schema:public/my-domain/MyResource
-content:
-  type: object
-  required: [id, name]
-  properties:
-    id:
-      type: string
-      format: uuid
-    name:
-      type: string
-```
+1. **폴더 및 파일 명명 표준**: URL 계층을 파일시스템에 반영하며, 파라미터 세그먼트는 `by-{param-name}` 폴더로 격리합니다. 상세 규칙과 템플릿은 **[패스 프래그먼트 컨벤션 가이드](./path-fragment-conventions.md)**를 준수하십시오.
+2. **Canonical ID 표준**: `kind:scope/domain/name` 3단계 형식을 준수해야 하며 URL 깊이와 무관하게 평탄하게 유지합니다.
+3. **중복 및 충돌 검토**: 프래그먼트 추가 후 발생할 수 있는 이름 충돌과 중복 정의는 **[중복 검토 가이드](./duplicate-review.md)**에 따라 점검합니다.
+4. **롤백 경로 검증 게이트**: 프래그먼트 작성 후에는 TypeSpec 빌드가 아닌 롤백 전용 검증 명령인 `pnpm schema:validate:openapi`를 실행하여 무결성을 검증합니다.
 
 ## OAS 3.2 문법 규칙
 
@@ -185,6 +166,29 @@ parameters:
       default:
         dataValue: 1
         serializedValue: "page=1"
+```
+
+### discriminator — defaultMapping (OAS 3.2 신규 기능)
+
+OpenAPI 3.2에서는 `discriminator` 객체에 `defaultMapping` 키워드가 도입되어,
+명시적 매핑에 매칭되지 않는 discriminant 값에 대한 기본 폴백 스키마를 선언할 수 있습니다.
+이는 다운스트림 `@oa-sdk/codegen`의 Zod 4 `z.discriminatedUnion()` 변환 시 안전한 기본값으로 직결됩니다.
+
+```yaml
+components:
+  schemas:
+    Event:
+      type: object
+      required: [eventType]
+      properties:
+        eventType:
+          type: string
+      discriminator:
+        propertyName: eventType
+        mapping:
+          user_created: "#/components/schemas/UserCreatedEvent"
+          user_updated: "#/components/schemas/UserUpdatedEvent"
+        defaultMapping: "#/components/schemas/GenericEvent" # OAS 3.2 전용 기본 폴백
 ```
 
 ## 공통 컴포넌트 재사용
@@ -519,9 +523,17 @@ id:
   description: 서버가 발급하는 ID
 ```
 
-### 순환 `$ref`
+### 순환 `$ref` 및 재귀 스키마 처리 모델
 
-기본 deref 동작은 순환 지점을 빈 스키마로 끊어 기존 mock/typegen 호환성을 유지합니다. 구조 손실을 줄여야 하는 파서 소비자는 `cycleStrategy: preserve-ref`를 사용할 수 있습니다.
+카테고리 트리나 계층형 댓글처럼 자기 자신 또는 상호 참조하는 순환 스키마는 다음과 같이 전 계층에 걸쳐 체계적으로 처리됩니다:
+
+1. **TypeSpec 원천 선언**: 재귀 모델은 네이티브 타입 참조로 직관적으로 선언합니다 (`model Category { parent?: Category; children?: Category[]; }`).
+2. **OpenAPI 3.2 / JSON Schema Draft 2020-12**: 순환 `$ref` 포인터(`$ref: "#/components/schemas/Category"`)를 표준 사양에 맞게 보존합니다.
+3. **파서 역참조 전략 (`dereference`)**:
+   - `empty-schema` (기본값): 기존 mock 서버 및 레거시 툴체인 호환성을 위해 순환 진입 지점을 빈 스키마(`{}`)로 차단하여 스택 오버플로우를 방지합니다.
+   - `preserve-ref`: 파서 소비자가 완전한 AST 순환 그래프를 유지해야 하는 경우 `$ref` 포인터를 끊지 않고 보존합니다.
+4. **다운스트림 코드 생성 (`@oa-sdk/codegen`)**:
+   - Zod 4 변환기(`generateZodFromSpec`)는 DFS 순환 탐색 알고리즘을 통해 순환 컴포넌트를 정확히 식별하고, 자동으로 `z.lazy(() => CategorySchema)` 래퍼를 생성합니다. 이를 통해 무한 런타임 재귀 루프를 방지하고 TypeScript 컴파일러 재귀 한계 오류를 원천 차단합니다.
 
 ### 외부 schema 이름 충돌
 

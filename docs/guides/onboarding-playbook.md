@@ -171,6 +171,14 @@ flowchart TD
 | **페르소나 거버넌스 (Personas)** | 미사용 (`personas: undefined`) | 민감 엔드포인트 선택적 역량 태깅 | 전사 `@personaCapability` 검증, `@pseudonymize` 비식별화 마스킹 |
 | **CLI 초기화 명령어** | `oa-gen init -t <target> -a mvp` | `oa-gen init -t <target> -a microservice` | `oa-gen init -t <target> -a enterprise` |
 
+```bash
+# Feature-Sliced Design 및 마이크로서비스 아키타입으로 초기화
+npx oa-gen init --target fastify --archetype microservice --routing fsd --yes
+
+# 모노레포 다중 패키지 분산 및 엔터프라이즈 거버넌스로 초기화
+npx oa-gen init --target elysia --archetype enterprise --routing monorepo --yes
+```
+
 ---
 
 ## 4. 프레임워크별 퀵 레시피 (Copy-Pasteable Recipes)
@@ -187,28 +195,40 @@ npx oa-gen init --target fastify --yes
 #### 2단계: 생성되는 순수 핸들러 계약 (`src/generated/api.contract.ts`)
 ```typescript
 // 자동 생성 파일 — 직접 편집하지 마십시오. (재생성 시 덮어써짐)
-export type HandlerResponse<TBody = unknown, THeaders = Record<string, string>> =
-  | TBody
-  | { status?: number; body: TBody; headers?: THeaders };
+// 다중 상태 코드 및 오류 유니온을 지원하는 HandlerResponse 판별 유니온
+export type HandlerResponse<TSuccess = unknown, TErrorMap = Record<number, unknown>, THeaders = Record<string, string>> =
+  | TSuccess
+  | { status: 200; body: TSuccess; headers?: THeaders }
+  | { [K in keyof TErrorMap]: { status: K; body: TErrorMap[K]; headers?: Record<string, string> } }[keyof TErrorMap];
 
 export interface GetUserByIdContext<TContext = unknown> {
   params: { id: string };
-  headers: Record<string, string | undefined>;
+  headers?: Record<string, string | undefined>;
   context?: TContext;
 }
 
 export interface CreateUserContext<TContext = unknown> {
   body: { name: string; email: string };
-  headers: Record<string, string | undefined>;
+  headers?: Record<string, string | undefined>;
   context?: TContext;
 }
 
+// 오퍼레이션별 에러 맵 정의: 스펙에 명시된 4xx/5xx 응답에 대해 100% 타입 안전성 제공
+export type GetUserByIdErrorMap = {
+  404: { code: 'USER_NOT_FOUND'; message: string };
+};
+
+export type CreateUserErrorMap = {
+  409: { code: 'USER_ALREADY_EXISTS'; field: string };
+};
+
 export type GetUserByIdHandler<TContext = unknown> = (
   ctx: GetUserByIdContext<TContext>,
-) => Promise<HandlerResponse<{ id: string; name: string }>>;
+) => Promise<HandlerResponse<{ id: string; name: string }, GetUserByIdErrorMap>>;
+
 export type CreateUserHandler<TContext = unknown> = (
   ctx: CreateUserContext<TContext>,
-) => Promise<HandlerResponse<{ id: string; name: string; email: string }>>;
+) => Promise<HandlerResponse<{ id: string; name: string; email: string }, CreateUserErrorMap>>;
 
 export interface ApiHandlers<TContext = unknown> {
   getUserById: GetUserByIdHandler<TContext>;
@@ -228,12 +248,26 @@ export interface AppContext {
 
 export const userHandlers: ApiHandlers<AppContext> = {
   getUserById: async ({ params, context }) => {
+    if (params.id === 'unknown') {
+      // 100% 타입 검사되는 404 에러 응답 반환 (as any 캐스팅 불필요)
+      return {
+        status: 404,
+        body: { code: 'USER_NOT_FOUND', message: `User ${params.id} does not exist.` },
+      };
+    }
+    // 성공 시 raw body 또는 { status: 200, body } 반환 모두 허용
     return {
       status: 200,
       body: { id: params.id, name: `Alice (Tenant: ${context?.tenantId ?? 'default'})` },
     };
   },
   createUser: async ({ body }) => {
+    if (body.email.endsWith('@forbidden.com')) {
+      return {
+        status: 409,
+        body: { code: 'USER_ALREADY_EXISTS', field: 'email' },
+      };
+    }
     return {
       status: 201,
       body: { id: 'usr_' + Date.now(), name: body.name, email: body.email },
@@ -297,9 +331,22 @@ export function createRouter<TContext = unknown>(
         headers: {},
         ...(context !== undefined ? { context } : {}),
       });
-      if (result && typeof result === 'object' && ('status' in result || 'body' in result)) {
-        if (result.status) set.status = result.status;
-        return result.body;
+      // 3-Part Response Envelope Collision Defense
+      if (
+        result !== undefined &&
+        result !== null &&
+        typeof result === 'object' &&
+        'body' in result &&
+        ((result as any).status === undefined || typeof (result as any).status === 'number') &&
+        ((result as any).headers === undefined || typeof (result as any).headers === 'object')
+      ) {
+        const resp = result as { status?: number; headers?: Record<string, string>; body?: unknown };
+        if (resp.headers) {
+          for (const [k, v] of Object.entries(resp.headers)) set.headers[k] = v;
+        }
+        if (resp.status) set.status = resp.status;
+        if (resp.status === 204) return;
+        return resp.body;
       }
       return result;
     })
@@ -310,9 +357,22 @@ export function createRouter<TContext = unknown>(
         headers: {},
         ...(context !== undefined ? { context } : {}),
       });
-      if (result && typeof result === 'object' && ('status' in result || 'body' in result)) {
-        if (result.status) set.status = result.status;
-        return result.body;
+      // 3-Part Response Envelope Collision Defense
+      if (
+        result !== undefined &&
+        result !== null &&
+        typeof result === 'object' &&
+        'body' in result &&
+        ((result as any).status === undefined || typeof (result as any).status === 'number') &&
+        ((result as any).headers === undefined || typeof (result as any).headers === 'object')
+      ) {
+        const resp = result as { status?: number; headers?: Record<string, string>; body?: unknown };
+        if (resp.headers) {
+          for (const [k, v] of Object.entries(resp.headers)) set.headers[k] = v;
+        }
+        if (resp.status) set.status = resp.status;
+        if (resp.status === 204) return;
+        return resp.body;
       }
       return result;
     });
@@ -419,6 +479,34 @@ npx oa-gen validate --spec contracts/openapi.upgraded.yaml --require-32
 # 또는 원본 OAS 3.0 명세 검증:
 npx oa-gen validate --spec contracts/openapi.raw.yaml
 ```
+
+### 4.4.1 응답 엔벨로프 충돌 방어 휴리스틱 (3-Part Response Envelope Collision Defense)
+
+핸들러가 반환하는 객체 중에는 도메인 비즈니스 데이터 자체에 `status`나 `body` 필드가 포함된 경우가 빈번합니다.
+예를 들어 주문 엔티티 `{ id: 'order_1', status: 'PENDING', total: 5000 }`나 블로그 포스트 `{ id: 'p_1', title: 'Doc', body: '# Markdown', status: 'DRAFT' }`가 대표적입니다.
+
+과거 단순 프레임워크 바인더처럼 `'status' in result || 'body' in result`를 검사하면 치명적인 장애가 발생합니다:
+1. `'PENDING'`이나 `'DRAFT'`와 같은 문자열을 HTTP 상태 코드로 오인하여 `res.status(NaN)` 에러가 발생하거나,
+2. `{ id, title, body, status }` 엔티티에서 `body` 필드만 떼어내어 응답하고 나머지 필수 도메인 프로퍼티를 완전히 유실하는 데이터 손실이 일어납니다.
+
+`@oa-sdk/router`는 모든 프레임워크 타겟(Fastify, Elysia, Hono, Express)에 **엄격한 3단계 응답 엔벨로프 충돌 방어 휴리스틱**을 내장하여 이를 원천 해결합니다:
+
+```typescript
+if (
+  result !== undefined &&
+  result !== null &&
+  typeof result === 'object' &&
+  'body' in result &&
+  ((result as any).status === undefined || typeof (result as any).status === 'number') &&
+  ((result as any).headers === undefined || typeof (result as any).headers === 'object')
+)
+```
+
+- **조건 1**: 객체 내에 `'body'` 프로퍼티가 반드시 존재해야 함.
+- **조건 2**: `status`가 생략되었거나, 명시된 경우 **반드시 `number` 타입**이어야 함 (`string`인 `'PENDING'`은 통과하지 못함).
+- **조건 3**: `headers`가 생략되었거나, 명시된 경우 **반드시 `object` 타입**이어야 함.
+
+도메인 엔티티의 `status`가 문자열이거나 `body` 프로퍼티가 없는 경우, 조건 검사를 통과하지 않고 즉시 **순수 도메인 페이로드(HTTP 200)**로 정상 직렬화되어 데이터 손실이 0%로 보장됩니다.
 
 ---
 
@@ -665,6 +753,42 @@ export function useUserByIdQuery<TData = JsonPrimitive<GetUserByIdResponse>>(
   });
 }
 ```
+
+#### 요청 취소 및 AbortSignal 파이프라인 (Request Cancellation Pass-Through)
+
+대규모 웹 애플리케이션에서 컴포넌트 언마운트, 탭 전환, 사용자 타이핑에 따른 빠른 검색어 변경 시 불필요한 네트워크 대역폭 낭비를 막기 위해 요청 취소가 필수적입니다.
+
+`@oa-sdk/client`와 TanStack Query v5 통합 생성기는 `AbortSignal | null` 전달 파이프라인을 1급 시민으로 지원합니다:
+
+1. **클라이언트 SDK 메서드 옵션**:
+   모든 생성된 SDK 호출 메서드는 `options?: { signal?: AbortSignal | null, headers?: Record<string, string> }`를 허용합니다:
+   ```typescript
+   const controller = new AbortController();
+   const userPromise = client.getUserById({ path: { id: 'usr_123' }, signal: controller.signal });
+   
+   // 필요 시 즉각 HTTP 연결 중단:
+   controller.abort();
+   ```
+
+2. **이중 시그널 안전 결합 (`__combineSignals`)**:
+   클라이언트 내부의 요청 타임아웃 시그널과 사용자가 전달한 외부 `signal`은 `__combineSignals` 헬퍼를 통해 결합됩니다. 런타임 환경이 `AbortSignal.any()`를 지원하면 네이티브 제로 코스트 결합을 사용하고, 레거시 환경에서는 `AbortController` 리스너로 안전하게 폴백합니다.
+
+3. **TanStack Query v5 자동 연동**:
+   Tier 2 순수 옵션 팩토리(`queryOptions`, `infiniteQueryOptions`)는 TanStack Query 쿼리 컨텍스트의 `signal`을 클라이언트 호출부로 자동 투망합니다:
+   ```typescript
+   export function getUserByIdQueryOptions(client: ApiClient, params: { id: string }) {
+     return queryOptions({
+       queryKey: userKeys.detail(params.id),
+       queryFn: async ({ signal }): Promise<JsonPrimitive<GetUserByIdResponse>> => {
+         return client.getUserById({ path: { id: params.id }, signal });
+       },
+     });
+   }
+   ```
+   리액트 컴포넌트가 언마운트되거나 쿼리 키가 무효화되면 전송 중이던 HTTP fetch 요청이 소켓 레벨에서 즉시 중단됩니다.
+
+4. **SSE 및 NDJSON 실시간 스트림 취소**:
+   `streamSse` 및 `streamNdjson` 스트리밍 리더에서도 `signal`을 전달하여 장시간 열려 있는 이벤트 소켓이나 LLM 토큰 스트림을 언제든지 안전하게 닫을 수 있습니다.
 
 ---
 
@@ -935,5 +1059,209 @@ jobs:
 - [Quick Start 가이드](./quick-start.md) — 5분 안에 전 파이프라인 체험하기
 - [CLI 명령 레퍼런스](./cli-command-reference.md) — `oa-gen` 전체 서브커맨드 및 옵션 명세
 - [라이브러리 진입점 명세](./library-entrypoints.md) — 모노레포 패키지별 export 및 사용법
-- [시스템 온보딩 가이드](./system-onboarding.md) — `oa-sdk` 내부 기여자를 위한 개발 환경 안내
+- [oa-sdk 모노레포 기여자 온보딩](#9-oa-sdk-모노레포-기여자-온보딩) — `oa-sdk` 내부 기여자를 위한 개발 환경 및 거버넌스 안내
 - [아키텍처 플랫폼 스코프](../internal/platform-scope.md) — 패키지 경계 및 릴리스 트랙
+
+---
+
+## 9. oa-sdk 모노레포 기여자 온보딩
+
+이 섹션은 `oa-sdk` 모노레포 자체에 코드, 스펙, 문서를 직접 기여하는 개발자 및 메인테이너를 위한 내부 개발 환경 및 거버넌스 안내서입니다.
+
+세부 거버넌스 규칙의 정본은 [문서·스펙 거버넌스](../spec-governance/README.md)가 소유하며, 본 가이드는 핵심 워크플로와 의사결정 경로를 명확히 제시합니다.
+
+### 9.1 환경 준비 및 듀얼 레인 런타임 (Dual-Lane Runtime Environment)
+
+`oa-sdk`는 안정적인 프로덕션 릴리스와 차세대 TypeScript 선행 호환성을 동시에 검증하기 위해 **듀얼 레인(Dual-Lane)** 환경을 운영합니다.
+
+| 레인 (Lane) | Node.js 버전 | TypeScript 버전 | 도구 / 용도 | 설정 파일 기준 |
+|---|---|---|---|---|
+| **안정화 Lane (Stable)** | **Node.js 24 LTS** | **TypeScript 5.9.3** | 기본 CI, 빌드, 릴리스, 프로덕션 배포 | `.nvmrc` (기본값) |
+| **선행 호환성 Lane (Current)** | **Node.js 26 Current** | **TypeScript 7.0.2** | `ttsc` 0.26.0, Core TS no-emit 타입 검증, 생성 선언 검증 | `.nvmrc.latest` |
+
+> **주의**: Current 릴리스는 운영 build/declaration emission을 대체하지 않으며, 차세대 TS 컴파일러 호환성을 선행 점검하는 검증 lane입니다.
+
+#### 레인 전환 셸 헬퍼
+
+`pnpm` 스크립트는 부모 셸의 Node.js 버전을 변경할 수 없으므로, 현재 셸에서 레인을 전환하려면 아래 헬퍼를 `source`하여 실행합니다.
+
+```bash
+# Node.js 24 LTS 안정화 레인 활성화
+source scripts/use-node-version.sh stable
+
+# Node.js 26 Current 선행 호환성 레인 활성화
+source scripts/use-node-version.sh node26
+```
+
+#### 모노레포 부트스트래핑
+
+```bash
+# Corepack 활성화 및 의존성 설치
+corepack enable
+pnpm install
+
+# 스펙 거버넌스 무결성 검증
+pnpm check:spec-governance
+```
+
+작업을 시작할 때는 루트의 [`.ai/spec-loader.yaml`](../../.ai/spec-loader.yaml)을 먼저 확인하고, [거버넌스 진입점](../spec-governance/README.md)과 [프로젝트 프로필](../spec-governance/project-profile.md)을 읽어 작업 범위와 검증 요건을 확정하십시오.
+
+---
+
+### 9.2 저장소 정본(Source of Truth) 결정 매트릭스
+
+`oa-sdk` 모노레포에서는 변경하려는 대상에 따라 가장 먼저 확인해야 할 단일 진실 공급원(SSOT)과 수정 대상 파일이 엄격히 분리되어 있습니다.
+
+| 바꾸려는 대상 | 먼저 읽을 정본 문서 | 일반 변경 위치 |
+|---|---|---|
+| **제품 범위 / 패키지 경계** | [`platform-scope.md`](../internal/platform-scope.md) | scope 문서 및 아키텍처 결정 기록(ADR) |
+| **구현된 기능 명세** | [`spec.md`](../internal/spec.md) | 패키지 소스/테스트, 완료 후 SSOT 반영 |
+| **API 타입·함수 Export 표면** | [`api-index.md`](../internal/api-index.md) | 해당 패키지 소스 (`packages/*/src/index.ts`) |
+| **TypeSpec API 계약** | [TypeSpec 작성 규칙](./typespec-authoring-conventions.md) | `packages/schemas/typespec/**/*.tsp` |
+| **사용자 명령 / CLI 운영 흐름** | [CLI 명령 레퍼런스](./cli-command-reference.md) | 가이드 문서 또는 운영 런북 |
+| **라이브러리 Import / 진입점** | [라이브러리 진입점 지도](./library-entrypoints.md) | 패키지 루트 export 및 소스 코드 |
+| **패키지 릴리스 / 버전 의도** | [Release Readiness](../internal/release-readiness.md) | Changeset, 릴리스 기록, `release:preflight` |
+| **아직 결정되지 않은 계획/설계** | [`plan.md`](../internal/plan.md) | `*.plan.md`, `goals/`, ADR 문서 |
+
+> **절대 불변 원칙**: TypeSpec 계약을 변경할 때는 반드시 `packages/schemas/typespec/**/*.tsp` 원본 파일을 수정해야 합니다.
+> `approved.openapi.yaml`, `.merged*.yaml`, `dist/`는 빌드 및 검토용 파생 산출물이므로 절대로 직접 수정해서는 안 됩니다.
+
+---
+
+### 9.3 명령과 라이브러리 선택 순서 (Decision Flow)
+
+작업 목적에 따라 올바른 진입 경로를 선택하십시오:
+
+1. **API 계약 자체를 변경하는가?**
+   `pnpm schema:approve-typespec-reference` 및 TypeSpec 작성 경로를 따릅니다. CLI(`oa-gen`)로 임의 생성한 OpenAPI 파일은 프로덕션 TypeSpec 원본을 대체할 수 없습니다.
+2. **이미 확정된 OpenAPI 스펙을 소비하는가?**
+   - 공개 CLI 워크플로: [CLI 명령 레퍼런스](./cli-command-reference.md)의 `oa-gen validate`, `oa-gen typegen`, `oa-gen generate:zod`, `oa-gen generate:tanstack` 사용.
+   - 내부 패키지 프로그래밍 방식 연동: `@oa-sdk/router`, `@oa-sdk/client`, `@oa-sdk/mock-server` API 및 [코드젠 워크플로](./use-cases/codegen-workflow.md) 활용.
+3. **외부 서비스 산출물을 수집·비교·거버넌스하는가?**
+   `scaffold-governance` $\rightarrow$ `collect` $\rightarrow$ `review-bundle` 파이프라인을 선택합니다.
+4. **모노레포 내부 코드를 import하는가?**
+   [라이브러리 진입점 지도](./library-entrypoints.md)에서 공개 패키지/서브패스를 확인하고, `api-index.md`에 명시된 심볼만을 import합니다.
+
+---
+
+### 9.4 TypeSpec 선언 유효성 경계 및 5대 증거 (5 Proofs of Contract Validity)
+
+TypeSpec은 단순히 "API 계약을 문법적으로 표현할 수 있다"는 이유만으로 정본이 되지 않습니다. `oa-sdk`에서 유효한 TypeSpec 선언은 **복원된 OpenAPI가 승인 기준선(Approved Snapshot)과 일치하고, 실제 다운스트림 consumer가 그 산출물을 처리할 수 있음이 게이트로 증명된 선언**입니다.
+
+새로운 계약 사실을 선언할 때 소유권은 다음 4단계 순서로 판단합니다:
+
+1. **TypeSpec 네이티브 문법으로 안정적으로 emit되는가?**
+   모델, 제약조건, HTTP 메서드/경로, 파라미터, 요청/응답 형태, 기본 Bearer 인증 등은 `.tsp` 원본이 소유합니다.
+2. **OpenAPI에는 필요하지만 emitter가 기본 보존하지 못하는가?**
+   이미 버전 관리 중인 OA SDK Extension이 있는지 [Authoring Ownership Guide](../internal/typespec-roundtrip/authoring-ownership-guide.md)를 확인합니다. (예: 재사용 파라미터/응답 식별자, 미디어 예시, 공개 보안 오버라이드, OAuth 메타데이터 등).
+3. **생성 번들 또는 아직 표준화되지 않은 OpenAPI 고유 사실인가?**
+   호환성 sidecar를 사용하거나, 새 extension schema와 복원 테스트를 먼저 설계합니다.
+4. **Mock 우선순위, 페르소나, 어댑터 동작, 런타임 정책인가?**
+   `.tsp`에 임의 주석이나 비표준 JSON으로 우회하지 말고, 해당 런타임 패키지나 별도 정책 설계 문서가 소유하도록 격리합니다.
+
+#### 계약 판단 매트릭스
+
+| 판단 영역 | TypeSpec-First 경로가 유효한 조건 | 추가 설계/분리가 필요한 위험 신호 |
+|---|---|---|
+| **모델·HTTP 계약** | 네이티브 emit 결과가 스냅샷/검증 게이트를 통과함 | Emitter 결과가 스키마의 `required`, `ref`, 타입 의미를 왜곡함 |
+| **재사용 컴포넌트·예시·보안** | 기존 확장 버전이 복원 타겟을 명시함 | 새로운 임의의 `x-oa-sdk-*` 페이로드나 버전 없는 JSON 주입이 필요함 |
+| **환경별 차이** | 서버 URL만 프로젝션 설정으로 분기 | 환경마다 경로, 스키마, 보안, 응답 규격이 달라짐 |
+| **인증·가시성** | 네이티브 Bearer 요구사항 및 문서화된 Public 오버라이드 | 복합 인증 정책, 역할별 필드 읽기/쓰기 가시성 제어가 필요함 |
+| **콜백·링크·웹훅** | 격리된 픽스처에서 네이티브 프로젝션 검증 완료 | 프로젝션 및 다운스트림 소비 의미가 아직 증명되지 않음 |
+| **런타임 실행 정책** | OpenAPI 명세서에 포함되는 순수 예시 데이터 | Mock 우선순위, 페르소나, 재시도, 어댑터 실행 로직 |
+
+#### 프로덕션 유효성의 5대 증거 (The 5 Proofs)
+
+"컴파일 성공"은 첫 단계에 불과합니다. 다음 **다섯 가지 증거가 모두 검증**되어야 프로덕션 계약으로 인정됩니다:
+
+1. **표현성 (Expressiveness)**: 네이티브 문법 또는 명시적으로 버전 관리된 Extension/Sidecar가 대상 사실을 명확히 소유한다.
+2. **보존성 (Preservability)**: 복원된 OpenAPI와 승인된 스냅샷 간의 정규화된 diff가 의도된 변경과 정확히 일치한다.
+3. **호환성 (Compatibility)**: Base/Head 브랜치 간 AST 시맨틱 breaking diff가 `ContractVersion`의 SemVer 규칙을 준수한다.
+4. **소비 가능성 (Consumability)**: Parser, Codegen, Router, Client, Mock Server가 복원된 산출물을 오류 없이 정상 처리한다.
+5. **참조 무결성 (Reference Integrity)**: Emit 및 복원 후 모든 OpenAPI `$ref`가 정상 해소되며, 누락/순환/미지원 참조가 진단 리포트로 명확히 보고된다.
+
+---
+
+### 9.5 참조 추적의 3개 층위 및 Production 검증 경계 (3 Layers of Reference Tracking)
+
+모노레포의 참조 추적 체계는 서로 다른 3개 층위의 그래프를 명확히 구분하여 관리합니다.
+
+| 층위 (Layer) | 현재 관리 및 검증하는 사실 | 보장하지 않는 사실 (주의) |
+|---|---|---|
+| **TypeSpec 선언 그래프** | 컴파일러가 import 및 심볼/타입 관계를 해석하고, Spec Lens가 엔트리에서 도달 가능한 모든 `.tsp` 파일을 수집 | 특정 선언/코드 스팬이 어느 OpenAPI JSON Pointer를 생성했는지의 세부 매핑 |
+| **OpenAPI `$ref` 그래프** | Emit/복원된 문서의 내부/외부 `$ref`, 누락된 포인터/파일, 순환 참조를 `resolveRefGraph`로 정밀 수집·진단 | `$ref`의 원천이 된 TypeSpec 원본 파일 상의 정확한 소스 위치 |
+| **선언-산출물 AST Provenance** | 프로덕션 게이트가 TypeSpec AST 선언/확장과 복원된 OpenAPI 포인터·`$ref` 원천을 매핑한 로컬 아티팩트를 생성 및 검증 | 컴파일러 네이티브 Source Map 수준의 미세 프로퍼티 매핑 |
+
+#### Provenance 검증 게이트
+
+프로덕션 게이트는 **아티팩트 수준의 참조 무결성**과 공개 오퍼레이션/컴포넌트의 **TypeSpec AST 선언 소유권**을 함께 증명합니다.
+
+`pnpm schema:typespec-provenance-check`는 소스 해시와 복원된 OpenAPI 해시에 결속된 검증 아티팩트를 생성하며, 소유자가 없거나 `$ref`가 해소되지 않으면 즉각 빌드를 실패시킵니다. 현재 아티팩트의 `provenanceKind`는 `typespec-source-ast`이며, 아티팩트가 없던 과거 리비전은 `typespec-source-files` 파일 레벨 폴백으로 취급됩니다.
+
+#### 현재 검증된 프로덕션 경계
+
+현재 프로덕션 소스가 유효하다고 보증하는 범위는 `packages/schemas/typespec/oa-sdk.typespec-bundle.json`이 선언한 **OpenAPI 3.2 / OA SDK Extension v5 번들과 그 도메인 모듈**로 한정됩니다. 이 범위 밖의 기능이나 검증되지 않은 확장은 위 의사결정 매트릭스에 따라 추가 설계를 거쳐야 합니다.
+
+---
+
+### 9.6 TypeSpec 계약 변경 및 승인 워크플로 (Reference Approval & Promotion)
+
+API 계약을 변경할 때는 반드시 아래의 승인 및 검증 루프를 완주해야 합니다:
+
+```bash
+# 1. 변경된 TypeSpec으로부터 OpenAPI 후보 생성 및 diff 검토
+pnpm schema:approve-typespec-reference
+
+# 2. 변경 사항이 의도된 것임을 확인한 후 스냅샷 승인 반영
+pnpm schema:approve-typespec-reference -- --write
+
+# 3. 스냅샷 일치 및 무결성 검증
+pnpm schema:typespec-check
+pnpm schema:typespec-provenance-check
+pnpm schema:validate
+
+# 4. 파서, 코드젠, 라우터, 클라이언트, 목 서버 영향 검증 (필요 시)
+pnpm schema:downstream-check
+```
+
+#### PR 풀 리퀘스트 시 SemVer 호환성 점검
+
+PR을 제출하기 전 base 브랜치(`origin/main`)와의 계약 파괴적 변경 여부를 점검합니다:
+
+```bash
+git fetch origin --prune
+pnpm spec:diff -- --git origin/main
+pnpm schema:check-contract-version -- --base-ref origin/main
+```
+
+- **버전 규칙**: Breaking change가 포함된 경우 `ContractVersion`이 SemVer 규칙에 따라 상향되어야 합니다 (v1.0 미만은 minor bump, v1.0 이상은 major bump 필수).
+- **후보 격리**: 후보 파일은 `.oa-sdk/typespec-candidates/`에 임시 저장되며, 커밋되는 스냅샷(`approved.openapi.yaml`)만이 공식 검토 기준입니다.
+
+---
+
+### 9.7 문서 동기화 및 기여자 최소 완료 확인 게이트 (Completion Gates)
+
+코드나 스펙을 변경한 후에는 관련 문서와 테스트 매트릭스를 반드시 동기화해야 합니다.
+
+| 변경 유형 | 함께 갱신해야 할 문서 / 아티팩트 |
+|---|---|
+| **기능 추가 / 삭제** | `docs/internal/spec.md`, 관련 패키지 API 인덱스(`docs/internal/api-index.md`), `docs/internal/feature-test-matrix.{json,md}` |
+| **API 계약 변경** | 대상 `.tsp` 파일, `approved.openapi.yaml`, 버전 상향 및 diff 요약 |
+| **계획 / 작업 완료** | 해당 `*.plan.md` 문서 상태 갱신 및 검증 완료 내용을 `docs/internal/spec.md`로 승격 |
+| **공식 거버넌스 기준 변경** | `docs/spec-governance/decision-log.md`에 날짜, 변경 내용, 이유, 영향 범위 기록 |
+| **사용자 흐름 / CLI 변경** | 관련 사용자 가이드(`docs/guides/*.md`)의 명령어 예제 및 링크 갱신 |
+
+#### 기여자 최소 완료 확인 게이트
+
+PR을 열기 전 다음 세 가지 게이트를 로컬에서 반드시 실행하여 100% 통과(Pass)를 확인하십시오:
+
+```bash
+# 1. 스펙 거버넌스 및 정책 무결성 검증
+pnpm check:spec-governance
+
+# 2. 문서 로컬 링크, CLI 예제, 엔트리포인트 전수 검증
+pnpm check:docs
+
+# 3. Git 공백 및 파일 포맷 무결성 검증
+git diff --check
+```

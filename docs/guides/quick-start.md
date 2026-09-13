@@ -5,14 +5,15 @@ canonical: true
 audience:
   competence: novice
 productVersions:
-  - "@oa-sdk/codegen 0.7.0 (public npm)"
+  - "@oa-sdk/codegen 0.8.1 (public npm)"
   - "@oa-sdk/ast-sync 0.1.0 (public npm)"
   - "@oa-sdk/core 0.3.0 (public npm)"
   - "@oa-sdk/parser 0.3.0 (public npm)"
-  - "OA SDK API contract 0.7.0"
+  - "@oa-sdk/client 0.2.0 (public npm)"
+  - "@oa-sdk/router 0.2.0 (public npm)"
 tested:
-  environment: "Node.js 24 LTS+, pnpm 10.30.3, repository checkout"
-  at: "2026-09-11"
+  environment: "Node.js 22 LTS+, Bun 1.1+, pnpm 10.30.3"
+  at: "2026-09-13"
 owner: "OA SDK maintainers"
 reviewDue: "2026-12-10"
 status: active
@@ -23,226 +24,183 @@ sourceOfTruth:
   - packages/router/package.json
   - packages/client/package.json
   - packages/mock-server/package.json
-  - packages/schemas/typespec/version.tsp
-  - packages/schemas/typespec/approved.openapi.yaml
 ---
 
-# Quick Start
+# Quick Start (5분 빠른 시작 가이드)
 
-5분 안에 oa-sdk 전 파이프라인을 체험합니다.
+5분 안에 `@oa-sdk`의 전체 엔드투엔드 파이프라인(온보딩 $\rightarrow$ 스펙 검증 $\rightarrow$ 정적 타입 생성 $\rightarrow$ Zod 4 검증 스키마 $\rightarrow$ TanStack Query 프론트엔드 $\rightarrow$ 순수 핸들러 계약 및 고성능 백엔드 라우터 $\rightarrow$ 실시간 목 서버 핫리로드)을 직접 체험합니다.
 
-## 공개 CLI만 사용할 때
+> 💡 **패키지 매니저별 설치 및 런타임 설정 상세**: [CLI 설치 및 설정 가이드](./cli-setup.md)
+> 💡 **선언적 설정 파일(`oa.config.ts`) 상세 스펙**: [선언적 사양 설정 가이드](./declarative-spec-configuration.md)
 
-비공개 monorepo가 필요 없는 일반 컨슈머는 npm에 공식 배포된 `@oa-sdk/codegen`을 통해 자신의 프로젝트에 맞는 프레임워크와 스키마를 30초 만에 자동 감지하고, OpenAPI 3.2 문서를 검증·생성·모킹할 수 있습니다.
+---
+
+## 0단계: 30초 제로 마찰 온보딩 (`oa-gen init`)
+
+프로젝트 루트에서 `oa-gen init`을 실행하면 프레임워크(Fastify, Bun Elysia, Hono, Express, NestJS)와 기존 사양 파일을 자동으로 감지하여 최적화된 `oa.config.ts`와 `package.json` 스크립트를 즉시 구성합니다.
 
 ```bash
+# 로컬 개발 의존성 설치
 npm install --save-dev @oa-sdk/codegen
-# 0. 30초 마찰 제로 온보딩 (프레임워크 및 스키마 자동 감지, oa.config.ts 생성 및 스크립트 구성)
+
+# 비대화형 자동 감지 온보딩 실행
 npx oa-gen init --yes
+```
 
-# 1. OAS 3.2 스펙 파싱 및 사전 유효성 검증
+> **Bun 환경**: `bun add -d @oa-sdk/codegen && bunx oa-gen init --yes`
+
+---
+
+## 1단계: OpenAPI 3.2 스펙 파싱 및 유효성 검증 (`oa-gen validate`)
+
+사양 문서의 문법, 컴포넌트 참조($ref), OpenAPI 3.2 전용 확장 기능의 정합성을 사전 검증합니다.
+
+```bash
 npx oa-gen validate --spec ./openapi.yaml --require-32
-
-# 2. OpenAPI 3.2 스펙에서 TypeScript 타입 선언 생성
-npx oa-gen typegen --spec ./openapi.yaml -o types.ts
-
-# 3. OpenAPI 3.2 스펙에서 Zod 4 검증 스키마 및 타입 생성
-npx oa-gen generate:zod --spec ./openapi.yaml -o schemas.ts
-
-# 4. TypeScript 소스의 구문 특성 및 스키마 투영 적합성 감사
-npx oa-gen audit:shape --source ./src/types.ts
-
-# 5. TypeSpec 또는 OpenAPI 기반 실시간 무중단 핫 리로드 Mock HTTP 서버 구동
-npx oa-gen mock --spec ./openapi.yaml --watch --port 4010
 ```
 
-현재 공용 npm 레지스트리(`registry.npmjs.org`)에 `@oa-sdk/codegen@0.7.0`, `@oa-sdk/ast-sync@0.1.0` 등 6종의 배포 아티팩트가 Sigstore SLSA v1 Provenance 서명과 함께 공식 라이브(`latest`) 상태로 제공됩니다. OA SDK 자체 production schema를 작성하거나 변경하려면 아래의 비공개 source workflow를 사용합니다.
-
-## 비공개 source workflow
-
-이 흐름은 OA SDK 저장소의 canonical schema를 검증하고, 타입·라우터·클라이언트·mock server를
-생성하는 학습 경로다. 공개 OpenAPI 문서만 소비한다면 위의 npm 명령으로 완료하고 이 절은
-건너뛴다.
-
-### 1. 설치
-
-```bash
-git clone <repo> && cd oa-sdk
-pnpm install
-pnpm build:core
-```
-
-`build:core`은 TypeSpec validation과 CLI가 요구하는 workspace dependency closure를 함께
-materialize한다. fresh checkout에서 `@oa-sdk/codegen`만 단독 build하지 않는다.
-
-### 2. 스키마 빌드 + 검증
-
-```bash
-pnpm schema:validate
-node packages/codegen/dist/cli/index.js validate \
-  --spec packages/schemas/src/.merged.yaml \
-  --require-32
-```
-
-```
+```text
 ━━━ Step 1: 파싱 + 구조 검증 ━━━
-✅ Valid — 0 warnings, 0 infos
-━━━ Step 2: 3.1 호환성 ━━━
-  3.2 전용 필드 사용: 실제 문서에서 사용된 3.2 전용 필드와 횟수가 출력된다
+✅ Valid — 0 errors, 0 warnings
+━━━ Step 2: OAS 3.2 호환성 진단 ━━━
+  3.2 전용 키워드 사용: components.schemas 내 draft-2020-12 어휘 정상 감지
 ```
 
-### 3. TypeScript 타입 생성
+---
+
+## 2단계: 순수 TypeScript AST 정적 타입 생성 (`oa-gen typegen`)
+
+OpenAPI 스펙으로부터 런타임 오버헤드가 전혀 없는 100% 순수 TypeScript 타입 선언 파일을 방출합니다.
 
 ```bash
-mkdir -p apps/playground/.oa-sdk/quick-start
-node packages/codegen/dist/cli/index.js typegen \
-  --spec packages/schemas/src/.merged.yaml \
-  --output apps/playground/.oa-sdk/quick-start/types.ts
+npx oa-gen typegen --spec ./openapi.yaml -o types.ts
 ```
 
-`apps/playground/.oa-sdk/quick-start/types.ts`가 생성되어야 한다. 다음 단계에서 private
-generator API의 `typesImport` 옵션으로 사용한다.
+생성된 `types.ts` 파일에는 스펙의 모든 스키마 모델과 오퍼레이션 파라미터가 정확한 TypeScript 타입으로 변환됩니다:
 
 ```typescript
-/** 사용자 정보 */
 export type User = {
-  /** @format date-time */
-  createdAt: string
   id: string
-  /** 이메일 주소 */
   email: string
   name: string
   role: 'admin' | 'user' | 'guest'
+  createdAt: string
 }
 
 export type ListUsersResponse = { items: User[]; total: number }
-export type CreateUserBody = CreateUserRequest
-export type CreateUserResponse = User
-export type CreateUserOp = { method: 'post'; path: '/users'; body: CreateUserBody; response: CreateUserResponse }
+export type CreateUserBody = { email: string; name: string; role?: 'admin' | 'user' }
 ```
 
-위 TypeScript는 생성 결과의 일부다. 실제 `types.ts`에는 스펙의 모든 schema와 operation이
-포함된다.
+---
 
-### 4. 라우터 + 클라이언트 private integration 생성
+## 3단계: Zod 4 검증 스키마 생성 (`oa-gen generate:zod`)
 
-라우터·클라이언트·mock server는 private downstream package이므로 별도로 빌드한다.
+OpenAPI 3.2 사양(JSON Schema Draft 2020-12 어휘)을 관용적인 Zod 4 코드로 컴파일합니다. 수치 배타적 경계(`.gt()`, `.lt()`), 튜플 프리픽스(`z.tuple()`), 순환 참조(`z.lazy()`)를 완벽히 지원합니다.
 
 ```bash
-pnpm build:downstream
+npx oa-gen generate:zod --spec ./openapi.yaml -o schemas.ts
 ```
-
-세 package의 `dist`가 생성된 뒤 다음 명령을 실행한다.
-
-`oa-gen`의 공개 CLI에는 `router`나 `client` command가 없다. private workspace에서 package API를
-호출하는 생성 script가 output을 소유한다. `@oa-sdk/router`는 **다중 프레임워크 바인더**(Hono, Express, Fastify, Bun Elysia)와 **순수 핸들러 계약 분리(Handler Contract Separation)**를 지원한다:
-- **Fastify (`target: 'fastify'`)**: `FastifyPluginAsync` 패턴으로 방출되며, OpenAPI 3.2 Schema를 Fastify의 라우트 옵션 `schema: { params, querystring, body, response }`로 인라인 주입하여 `fast-json-stringify` JIT 직렬화 가속을 활성화합니다 (OAS 3.2 `QUERY`, `HEAD`, `TRACE` 지원).
-- **Bun Elysia (`target: 'elysia'`)**: fluent 빌더 메서드 체이닝 `new Elysia().get().post()`과 선택적 Zero-copy 컨텍스트 구조분해(`{ params, query, body, set }`)를 통해 TS6133 미사용 변수 경고 없이 초고속 처리를 달성합니다.
-- **핸들러 계약 분리 (`generateHandlerContract`)**: 순수 TypeScript 인터페이스 `ApiHandlers`, `<Operation>Context`, `HandlerResponse`를 담은 `routes.contract.ts`를 생성하여 비즈니스 로직과 라우팅 배선을 물리적으로 분리합니다. 스펙 재생성 시에도 비즈니스 로직이 덮어쓰여지지 않습니다 (0 framework runtime dependencies).
-
-아래 script는 root `.gitignore`가 제외하는
-`apps/playground/.oa-sdk/quick-start/generate-integrations.ts`에 저장한다. 따라서 튜토리얼을
-실행해도 tracked `examples/` 파일이 생기지 않는다.
 
 ```typescript
-import { readFileSync, writeFileSync } from 'node:fs'
-import { dirname, resolve } from 'node:path'
-import { fileURLToPath } from 'node:url'
-import { generateClient } from '@oa-sdk/client'
-import { generateRouter, generateHandlerContract } from '@oa-sdk/router'
-import type { OasDocument } from '@oa-sdk/parser'
-import { parse } from 'yaml'
+import { z } from "zod"
 
-const quickStartDirectory = dirname(fileURLToPath(import.meta.url))
-const repositoryRoot = resolve(quickStartDirectory, '../../../..')
-const spec = parse(readFileSync(resolve(repositoryRoot, 'packages/schemas/src/.merged.yaml'), 'utf8')) as OasDocument
+export const UserSchema = z.object({
+  id: z.string(),
+  email: z.string().email(),
+  name: z.string(),
+  role: z.enum(['admin', 'user', 'guest']),
+  createdAt: z.string().datetime(),
+})
 
-// 1. 순수 TypeScript 핸들러 계약 분리 생성 (비즈니스 로직 덮어쓰기 원천 차단)
-writeFileSync(resolve(quickStartDirectory, 'api.contract.ts'), generateHandlerContract(spec, { typesImport: './types.js' }))
-
-// 2. 프레임워크 라우터 바인더 생성 (Fastify JIT 스키마 인라인 가속 또는 Elysia, Hono, Express)
-writeFileSync(resolve(quickStartDirectory, 'router.ts'), generateRouter(spec, { target: 'hono', typesImport: './types.js', contractImport: './api.contract.js' }))
-
-// 3. 타입 안전 클라이언트 SDK 생성
-writeFileSync(resolve(quickStartDirectory, 'client.ts'), generateClient(spec, { typesImport: './types.js' }))
+export type User = z.infer<typeof UserSchema>
 ```
+
+---
+
+## 4단계: TanStack Query v5 3계층 클라이언트 생성 (`oa-gen generate:tanstack`)
+
+프론트엔드 통신을 위해 3계층(Tier 1 계층적 쿼리 키 팩토리, Tier 2 순수 옵션 팩토리, Tier 3 리액트 훅 래퍼) 클라이언트를 방출합니다.
 
 ```bash
-pnpm --filter @oa-sdk/playground exec tsx .oa-sdk/quick-start/generate-integrations.ts
+npx oa-gen generate:tanstack --spec ./openapi.yaml -o src/api
 ```
 
-이 튜토리얼의 공개 npm 경로는 `oa-gen validate`와 `oa-gen typegen`이다. router/client integration은
-배포 후보가 아닌 private downstream package 경계이며, 자세한 구조는
-[코드젠 워크플로](./use-cases/codegen-workflow.md)를 따른다.
+```typescript
+// src/api/users.queries.ts 활용 예시
+import { useQuery } from '@tanstack/react-query'
+import { userKeys, getUserQueryOptions } from './api/users.queries.js'
 
-playground의 기본 TypeScript 설정은 NodeNext이므로 generated file은 type-only import에도
-`./types.js` specifier를 사용한다. TypeScript는 이를 sibling `types.ts`로 해석한다.
+export function UserProfile({ userId }: { userId: string }) {
+  // Tier 2 순수 옵션 팩토리를 직접 useQuery에 전달 (SSR prefetchQuery 완벽 호환)
+  const { data: user, isLoading } = useQuery(getUserQueryOptions(userId))
 
-### 5. Mock 서버 테스트
+  if (isLoading) return <div>로딩 중...</div>
+  return <div>{user.name} ({user.email})</div>
+}
+```
 
-`@oa-sdk/mock-server`는 private workspace package이므로 root가 아닌
-`apps/playground` workspace에서 예제를 실행한다.
+---
+
+## 5단계: 백엔드 순수 핸들러 계약 및 라우터 방출 (`oa-gen generate`)
+
+선언적 `oa.config.ts` 설정에 따라 백엔드 라우터와 순수 핸들러 계약을 방출합니다.
 
 ```bash
-pnpm --filter @oa-sdk/playground exec tsx examples/quick-start-mock.ts
+npx oa-gen generate
 ```
 
-다음 결과가 표시되어야 한다.
+- **핸들러 계약 분리 (`*.contract.ts`)**: 프레임워크 런타임 종속성이 전혀 없는 순수 TypeScript 인터페이스(`ApiHandlers`, `Context`, `HandlerResponse`)를 생성합니다. 스펙을 재생성하더라도 개발자가 구현한 비즈니스 로직 파일이 덮어쓰여지지 않습니다.
+- **고성능 프레임워크 바인더 (`*.router.ts`)**: Fastify(JIT 스키마 가속) 또는 Bun Elysia(Zero-copy 컨텍스트 구조분해) 바인더가 생성되어 비즈니스 핸들러와 라우트를 물리적으로 결합합니다.
+
+---
+
+## 6단계: 제로 빌드 실시간 목(Mock) HTTP 서버 (`oa-gen mock`)
+
+별도의 사전 빌드 없이 스펙 문서를 메모리 상에서 직접 서빙하며, 사양 파일이 수정되면 소켓 연결을 끊지 않고 원자적으로 라우트를 핫스왑합니다.
+
+```bash
+npx oa-gen mock --spec ./openapi.yaml --watch --port 4010
+```
 
 ```text
-Mock server request OK: 201
-Validation failure: 422 /body/email: 필수 필드 누락: 'email'
+[oa-gen mock] Starting in-memory mock server on http://127.0.0.1:4010
+[oa-gen mock] Loaded 12 endpoints from ./openapi.yaml
+[oa-gen mock] Watching ./openapi.yaml for atomic hot-reload...
 ```
 
-전체 코드는 [quick-start-mock.ts](../../apps/playground/examples/quick-start-mock.ts)에
-있다. 이 예제는 정상 요청과 인증된 검증 실패 요청을 확인한 뒤 `finally`에서 서버를
-종료한다.
-
-### 6. API 탐색
-
-```typescript
-import { parseDocument, describeApi } from '@oa-sdk/parser'
-// `spec`는 앞 절에서 .merged.yaml을 읽어 만든 값을 재사용한다.
-
-console.log(describeApi(parseDocument(spec)))
-```
-
-```
-OA SDK API v0.5.0
-서버: http://localhost:4010, http://localhost:3000
-스키마: 49개
-오퍼레이션: 34개
-
-[world-model] — World Model Kernel — World bootstrap, stimulus ingress, revision-pinned projection query
-  GET /world-model/execution-profiles — 선택 가능한 실행 profile 목록
-  POST /worlds — 새 World bootstrap
-  ...
-
-(나머지 tag와 operation은 생략)
-```
-
-### 7. 데모
+다른 터미널에서 즉시 목 요청을 테스트할 수 있습니다:
 
 ```bash
-pnpm demo
+curl http://localhost:4010/users
 ```
 
-### 8. 3.1 호환 (Swagger UI)
+---
+
+## 7단계: TypeScript AST 구문 적합성 감사 (`oa-gen audit:shape`)
+
+작성된 TypeScript 모델이 OpenAPI 3.2 및 TypeSpec 계약으로 직접 투영될 수 있는지 24가지 구문 카테고리를 정적 검사합니다.
 
 ```bash
-pnpm --filter @oa-sdk/schemas run downgrade:3.1
-# → .merged.3.1.yaml (순수 3.1) + .merged.3.1.meta.json (사이드카)
+npx oa-gen audit:shape --source ./types.ts
 ```
 
-## 다음 단계
+```text
+✅ 0 shape issues found across 14 declaration(s) in 1 file(s). Fully direct TypeSpec/OpenAPI projection.
+```
 
-→ [프로젝트 온보딩 플레이북](./onboarding-playbook.md) — 3계층 온보딩 사다리(Fastify, Bun Elysia, Express, NestJS) 및 마찰 제로 통합 가이드
-→ [Mock 테스팅](./use-cases/mock-testing.md) — 테스트 패턴 + 커버리지 추적
-→ [코드젠 워크플로](./use-cases/codegen-workflow.md) — 전체 파이프라인
-→ [테스트 피드백](./use-cases/test-feedback.md) — 에러 분석 + API 탐색
-→ [CLI 명령 레퍼런스](./cli-command-reference.md) — 전체 명령과 조건부 옵션
-→ [CLI 세팅](./cli-setup.md) — production/OpenAPI governance workflow
-→ [라이브러리 진입점 지도](./library-entrypoints.md) — package와 public import 경계
-→ [기본 스펙 사용 기준](./basic-spec-usage.md) — source/artifact/사용처와 구조 경계
-→ [시스템 온보딩 가이드](./system-onboarding.md) — oa-sdk 모노레포 기여자 전용 환경 구축 및 테스트 검증
-→ [API 인덱스](../internal/api-index.md) — 타입·함수 SSOT
+---
+
+## 모노레포 기여자 전용 워크플로 안내
+
+`oa-sdk` 모노레포 자체의 소스 코드 기여자 및 내부 패키지(`@oa-sdk/core`, `@oa-sdk/router`, `@oa-sdk/client` 등)를 빌드·테스트하려는 개발자는 다음 전용 안내서를 따르십시오:
+
+👉 [oa-sdk 모노레포 기여자 온보딩 가이드](./onboarding-playbook.md#9-oa-sdk-모노레포-기여자-온보딩)
+
+---
+
+## 다음 단계 및 권장 문서
+
+- [CLI 설치 및 환경 설정 가이드](./cli-setup.md) — 패키지 매니저 매트릭스, 런타임 요건, 6단계 루트 탐색
+- [프로젝트 온보딩 플레이북](./onboarding-playbook.md) — Fastify, Bun Elysia, Express, NestJS 3계층 온보딩 사다리
+- [선언적 사양 설정 가이드 (oa.config.ts)](./declarative-spec-configuration.md) — 이중 계층 설정(`core` vs `product`), 3대 아키타입, `outputRouting` 상세
+- [CLI 명령 레퍼런스](./cli-command-reference.md) — 전체 명령어, 옵션 플래그 및 조건부 파라미터 규격

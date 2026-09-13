@@ -1,11 +1,17 @@
-# 스키마 아키텍처 및 작성 규칙 (Zod SSOT)
+# 스키마 아키텍처 및 작성 규칙 (4-Stage Zod-First Pipeline SSOT & V3 AST Sync)
 
-> **Canonical Authority**: Browser Studio Core Architecture & Schema Governance  
-> **Target Monorepo**: `@browser-studio/*`  
-> **Schema Governance Engine**: `@oa-sdk/*` (`@oa-sdk/openapi-projection-contract`, `@oa-sdk/parser`, `@oa-sdk/mock-server`, `@oa-sdk/codegen`)  
-> **Specification Version**: 1.1.0 (Approved Standard)  
-> **Status**: Normative Standard  
-> **Target Environments**: Chrome Extension (Manifest V3), Node.js Session Host, MCP Stdio Daemons, DevTools Panel, Headless CI  
+> **Canonical Authority**: Browser Studio Core Architecture & Schema Governance
+> **Target Monorepo**: `@browser-studio/*` & `@oa-sdk/*` downstream applications
+> **Schema Governance Engine**: `@oa-sdk/*` (`@oa-sdk/openapi-projection-contract`, `@oa-sdk/parser`, `@oa-sdk/mock-server`, `@oa-sdk/codegen`, `@oa-sdk/ast-sync`)
+> **Specification Version**: 1.1.0 (Approved Standard)
+> **Status**: Normative Standard
+> **Target Environments**: Chrome Extension (Manifest V3), Node.js Session Host, MCP Stdio Daemons, DevTools Panel, Headless CI
+
+> 🧭 **스펙 문서 체계 안내 (Schema Triad SSOT)**:
+> - **[기본 스펙 사용 기준](./basic-spec-usage.md)**: 저장소 스펙 거버넌스 및 산출물 소유권 SSOT. `oa-sdk` 모노레포 코어 스펙(`packages/schemas`)의 TypeSpec-first 정본 관리와 산출물 소유권을 다룹니다.
+> - **[스키마 작성 가이드](./schema-authoring.md)**: 실무 TypeSpec & OpenAPI 3.2 작성 플레이북. TypeSpec 모델/오퍼레이션 및 OAS 3.2 문법 실무 작성을 다룹니다.
+> - **[스키마 아키텍처 및 작성 규칙 (현재 문서)](./schema-architecture-and-conventions.md)**: 4단계 Zod-First 파이프라인 SSOT (Zod $\rightarrow$ JSON Schema 2020-12 $\rightarrow$ OAS 3.1 $\rightarrow$ Standalone AJV Type Guards with zero eval for Chrome MV3 CSP) 및 V3 AST 동기화 표준을 다룹니다.
+> - **[선언적 스펙 설정 가이드](./declarative-spec-configuration.md)**: `oa.config.ts`의 이중 레이어 구조(`core` vs `product`), 라이프사이클 아키타입(`mvp`, `microservice`, `enterprise`), 출력 경로 라우팅(`outputRouting`) 설정 표준을 다룹니다.
 
 ---
 
@@ -13,6 +19,10 @@
 
 ### 1.1 Mission & Core Tenet
 The **Browser Studio Schema Architecture** establishes a strictly decoupled, deterministic, high-throughput schema pipeline that bridges TypeScript/Zod master schemas with `@oa-sdk/*` specification governance, zero-runtime-weight browser extensions (Manifest V3), and headless CI protocol mock testing.
+
+#### Dual-World Architectural Scope:
+- **Core Platform Specifications (`packages/schemas`)**: Governed by the **TypeSpec-first** workflow documented in [기본 스펙 사용 기준](./basic-spec-usage.md) and [스키마 작성 가이드](./schema-authoring.md).
+- **Application Domains, Browser Extensions & Downstream Services**: Governed by this **4-Stage Zod-First Pipeline SSOT**. When domain entities originate in TypeScript or execute under strict browser extension environments (Chrome MV3), Zod schemas serve as the single source of truth.
 
 The fundamental tenet of this architecture is:
 > **Single Source of Truth (SSOT)**: Domain schemas are authored once in TypeScript using Zod within domain packages. All downstream artifacts—JSON Schema Draft 2020-12, OpenAPI 3.1 specifications, pre-compiled standalone AJV type guards, and protocol mock endpoints—are projected deterministically at **build time**.
@@ -1402,7 +1412,7 @@ mockServer.override('leaseAcquire', {
 Browser Studio and OA SDK monorepos manage all specification projections, schema drift verification, standalone type guards, and CSP security audits through declarative configuration files (`oa.config.ts`).
 
 > 📖 **Authoritative Guides**:
-> - Detailed schema options and multi-project configuration: [선언적 스펙 설정 가이드 (oa.config.ts)](./declarative-spec-configuration.md)
+> - Dual-Layer Configuration (`core` vs `product`), 3 Lifecycle Archetypes (`mvp`, `microservice`, `enterprise`), and Output Path Routing (`outputRouting`): [선언적 스펙 설정 가이드 (oa.config.ts)](./declarative-spec-configuration.md)
 > - Complete CLI commands, options, and exit codes: [CLI 명령어 레퍼런스 (oa-gen)](./cli-command-reference.md)
 
 #### Essential `oa.config.ts` Configuration:

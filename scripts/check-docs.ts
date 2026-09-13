@@ -7,6 +7,7 @@
  */
 
 import { resolve } from 'node:path'
+import { readdirSync } from 'node:fs'
 import { commands } from '../packages/codegen/src/cli/commands.js'
 import {
   createAgentConfigGate,
@@ -21,11 +22,14 @@ import {
 const root = resolve(process.cwd())
 const files = listMarkdownFiles(root)
 const oas32ReferenceFiles = listMarkdownFiles(resolve(root, 'docs/references/oas32'))
+const skillFiles = readdirSync(resolve(root, '.agents/skills'), { recursive: true })
+  .filter((f): f is string => typeof f === 'string' && f.endsWith('.md'))
+  .map(f => resolve(root, '.agents/skills', f))
 const issues = runValidationGates([
   createAgentConfigGate({ root }),
   createMarkdownLocalLinkGate({ root, files }),
   createMarkdownLocalLinkGate({ root, files: oas32ReferenceFiles }),
-  createCliExampleGate({ root, files, executable: 'oa-gen', commands }),
+  createCliExampleGate({ root, files: [...files, ...skillFiles], executable: 'oa-gen', commands }),
   createCliReferenceGate({
     root,
     file: resolve(root, 'docs/guides/cli-command-reference.md'),

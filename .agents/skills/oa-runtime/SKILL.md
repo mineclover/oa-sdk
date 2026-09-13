@@ -1,6 +1,6 @@
 ---
 name: oa-runtime
-description: Downstream runtime routing (@oa-sdk/router for Hono, Express, Fastify, Bun Elysia, and Handler Contracts), typed client SDK (@oa-sdk/client), in-memory mock server (@oa-sdk/mock-server with live hot-reload), and Typia compiler transform isolation boundary (@oa-sdk/typia-mock) in the oa-sdk monorepo.
+description: Downstream runtime routing (@oa-sdk/router for Hono, Express, Fastify JIT, Bun Elysia zero-copy, and pure Handler Contracts with HandlerResponse multi-status error union and envelope collision defense), typed client SDK (@oa-sdk/client with AbortSignal cancellation and streaming), in-memory mock server (@oa-sdk/mock-server with live hot-reload), and Typia quarantine boundary (@oa-sdk/typia-mock) in the oa-sdk monorepo.
 ---
 
 # Downstream Runtime & Execution Architecture (`oa-runtime`)
@@ -267,13 +267,14 @@ When codegen tools emit monolithic router files combining routing plumbing with 
 #### The Decoupled Contract Solution
 `generateHandlerContract` emits a pure TypeScript definition file (`routes.contract.ts`):
 1. **Pure Data Contexts**: Each operation receives a `<BaseName>Context` containing only typed data (`params`, `query`, `querystring`, `headers`, `body`). Zero HTTP framework objects (`Request`, `Response`, `Context`) leak into the contract.
-2. **Polymorphic Handler Response (`HandlerResponse`)**:
+2. **Polymorphic Multi-Status Error Union (`HandlerResponse`)**:
    ```typescript
-   export type HandlerResponse<TBody = unknown, THeaders = Record<string, string>> =
-     | TBody
-     | { status?: number; body: TBody; headers?: THeaders }
+   export type HandlerResponse<TSuccess = unknown, TErrorMap = Record<number, unknown>, THeaders = Record<string, string>> =
+     | TSuccess
+     | { status: 200; body: TSuccess; headers?: THeaders }
+     | { [K in keyof TErrorMap]: { status: K; body: TErrorMap[K]; headers?: Record<string, string> } }[keyof TErrorMap]
    ```
-   Handlers can return raw data bodies or explicit status/header envelopes.
+   Handlers can return raw success data bodies, HTTP 200 envelopes, or typed error envelopes (e.g. `{ status: 404, body: NotFoundError }`) with 100% compile-time type safety and zero `as any` casting.
 3. **Aggregate `ApiHandlers` Interface**: Maps every operation ID to its corresponding handler signature:
    ```typescript
    export interface ApiHandlers {
@@ -283,7 +284,42 @@ When codegen tools emit monolithic router files combining routing plumbing with 
    ```
 4. **Zero Framework Dependencies**: `@oa-sdk/router` has **zero runtime dependencies** (`dependencies: {}` in `package.json`). All emitted router binders and handler contracts are pure TypeScript without framework lock-in. Developers implement `ApiHandlers` in their own service classes, safely isolated from codegen file re-emissions.
 
-### 1.7 OAS 3.2 Raw Querystring Extraction (`in: 'querystring'`)
+### 1.7 Response Envelope Collision Defense Heuristic
+
+Traditional router frameworks that check `'status' in result || 'headers' in result || 'body' in result` suffer from severe runtime bugs: business entities containing a `status` field (e.g., `{ id: 'order_1', status: 'PENDING', total: 5000 }` or `{ status: 'ACTIVE' }`) or a `body` field (e.g., `{ id: 'post_1', body: 'markdown content', status: 'DRAFT' }`) are mistaken for HTTP response envelopes. In the worst case, the router attempts to send HTTP status `NaN` or crashes.
+
+To prevent this collision, all 4 router targets (`fastify`, `elysia`, `hono`, `express`) implement the **Strict 3-Part Envelope Collision Defense Heuristic**:
+
+```typescript
+if (
+  result !== undefined &&
+  result !== null &&
+  typeof result === 'object' &&
+  'body' in result &&
+  ((result as any).status === undefined || typeof (result as any).status === 'number') &&
+  ((result as any).headers === undefined || typeof (result as any).headers === 'object')
+) {
+  // Treated as an HTTP response envelope
+  const resp = result as { status?: number; headers?: Record<string, string>; body?: unknown };
+  if (resp.headers) { /* set headers */ }
+  if (resp.status) { /* set numeric status code */ }
+  if (resp.status === 204) { /* send 204 No Content */ }
+  return resp.body;
+}
+
+// Treated as a raw business entity -> serialized as HTTP 200 JSON body
+```
+
+#### Invariant Protections:
+1. **String Status Invariance**: If `status` is a string (e.g. `'PENDING'`, `'ACTIVE'`), `typeof status === 'number'` evaluates to `false`. The object is forwarded directly as the HTTP 200 response body with all properties intact.
+2. **String Headers Invariance**: If a domain model has a `headers` property that is a string or number, it is not mistaken for an HTTP header bag.
+3. **HTTP 204 No Content Handling**: When a response has status 204 (either via envelope `{ status: 204, body: null }` or operation declaration), all frameworks terminate cleanly with an empty body:
+   - Fastify: `reply.status(204).send()`
+   - Elysia: `set.status = 204; return;`
+   - Hono: `return c.body(null, 204)`
+   - Express: `res.status(204).end()`
+
+### 1.8 OAS 3.2 Raw Querystring Extraction (`in: 'querystring'`)
 
 OpenAPI 3.2 allows operations to declare `in: 'querystring'` parameters where an unparsed query payload is submitted directly. When detected in an operation, `@oa-sdk/router` injects the helper `__readOaRawQuerystring`:
 
@@ -304,7 +340,7 @@ Extraction in router stubs:
 
 > **Invariant**: An OpenAPI operation MUST NOT declare more than one parameter with `in: 'querystring'`. The router generator throws a compile-time error if multiple querystring parameters are present.
 
-### 1.8 Header Serialization & JSDoc Sanitization
+### 1.9 Header Serialization & JSDoc Sanitization
 
 1. **Header Serialization (`__setOaResponseHeaders`)**: Response headers declared as arrays are joined with `, ` in compliance with HTTP/1.1 and HTTP/2 semantics before emitting header setting calls.
 2. **JSDoc Sanitization (`packages/router/src/jsdoc.ts`)**: Comment termination sequences (`*/`) in descriptions or summaries are sanitized to `*\/` to prevent breaking TypeScript parser tokenization.
@@ -405,6 +441,43 @@ Generated clients provide out-of-the-box authentication factories:
 - `bearerAuth(token: string)`: Injects `Authorization: Bearer <token>`
 - `basicAuth(user: string, pass: string)`: Injects `Authorization: Basic <base64>`
 - `apiKeyAuth(key: string, location: 'header' | 'query' | 'cookie', name: string)`: Injects API key into designated request slot
+
+### 2.5 `AbortSignal | null` Request Cancellation & Signal Combination
+
+Generated client SDKs provide first-class support for request cancellation across standard requests, Server-Sent Events (`streamSse`), and NDJSON streams (`streamNdjson`):
+
+#### 1. Client Method Options Typing
+All generated SDK methods accept an optional `options?: ClientMethodOptions`:
+```typescript
+export type ClientMethodOptions = {
+  signal?: AbortSignal | null;
+  headers?: Record<string, string>;
+};
+```
+Both `signal: undefined` and `signal: null` are normalized safely without throwing `TypeError`.
+
+#### 2. Dual-Signal Combination Engine (`__combineSignals`)
+When combining a caller-supplied signal with internal timeouts or retry controllers, generated clients invoke `__combineSignals`:
+```typescript
+function __combineSignals(a?: AbortSignal | null, b?: AbortSignal | null): AbortSignal | undefined {
+  if (!a) return b ?? undefined;
+  if (!b) return a ?? undefined;
+  if (typeof AbortSignal !== 'undefined' && 'any' in AbortSignal && typeof (AbortSignal as any).any === 'function') {
+    return (AbortSignal as any).any([a, b]);
+  }
+  const controller = new AbortController();
+  const onAbort = () => controller.abort();
+  if (a.aborted || b.aborted) {
+    controller.abort();
+    return controller.signal;
+  }
+  a.addEventListener('abort', onAbort, { once: true });
+  b.addEventListener('abort', onAbort, { once: true });
+  return controller.signal;
+}
+```
+- **Zero-Cost Native**: In modern environments (Node.js $\ge$ 20, modern browsers, Bun), uses native `AbortSignal.any([a, b])`.
+- **Portable Fallback**: In older engines, sets up once-listeners on a fallback `AbortController`.
 
 ---
 
@@ -580,7 +653,7 @@ flowchart LR
 
 ## 🛠️ CLI Recipes & Workflows
 
-### Generating Client SDK
+### Generating Standalone Type Guards
 ```bash
 oa-gen generate --input packages/schemas/src/.merged.yaml --target standalone-guards --out-dir dist/guards
 ```
@@ -635,3 +708,6 @@ pnpm typecheck:maintenance
 | Route `/users/me` incorrectly handled by `/users/:id` | Literal segment not prioritized over parameter segment | Verify route matching uses `compareRouteSpecificity` where literal segment (`1`) beats template segment (`0`) |
 | Passwords or API tokens exposed in 422 test logs | Unredacted error response returning raw input payload | Verify error serializer invokes `summarizeValidationValue`, returning `{ type: 'string', length: N }` |
 | Build failure: `Cannot find module '@oa-sdk/typia-mock'` | Core platform package attempting to import quarantined typia package | Remove runtime dependency; `@oa-sdk/typia-mock` is strictly isolated for maintenance only |
+| Domain model with `status: 'ACTIVE'` or `body: string` treated as HTTP envelope | Router heuristics mistakenly triggered by simple property existence | Handlers use strict 3-part collision defense: `'body' in result && (status === undefined || typeof status === 'number') && (headers === undefined || typeof headers === 'object')` |
+| `TypeError: Cannot read properties of null (reading 'aborted')` on request cancellation | Client caller passed `signal: null` instead of `undefined` | Generated client SDK normalizes `signal?: AbortSignal | null` via `__combineSignals` safely |
+| Returning typed 404/409 error envelope in handler requires `as any` casting | HandlerResponse type was invariant or only modeled success 200 bodies | Use 3-generic `HandlerResponse<TSuccess, TErrorMap, THeaders>` discriminated error union |

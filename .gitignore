@@ -54,3 +54,11 @@ packages/codegen/.bench/
 .agents/victory_auditor_*
 .agents/e2e_testing_track/
 .agents/orchestrator_*
+.agents/m[0-9]*_auditor*
+.agents/m[0-9]*_challenger*
+.agents/m[0-9]*_reviewer*
+.agents/m[0-9]*_explorer*
+.agents/m[0-9]*_spec_miner*
+.agents/m[0-9]*_worker_remediation*
+.agents/m[0-9]*_r[0-9]*_*
+

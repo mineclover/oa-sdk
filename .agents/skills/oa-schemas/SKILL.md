@@ -1,11 +1,11 @@
 ---
 name: oa-schemas
-description: Expert guide, modular schema architecture, and verification procedures for OpenAPI 3.1/3.2 schema fragmentation, canonical definition IDs, target bundling, collision resolution, circular reference dereferencing, and version gates in the oa-sdk monorepo. Use whenever working on OpenAPI schema fragments, target builds, dereferencing cycles, or oa-gen validate --require-32 in oa-sdk.
+description: Expert guide, modular schema architecture, and verification procedures for OpenAPI 3.1/3.2 schema fragmentation, canonical definition IDs, target bundling, collision resolution, circular reference dereferencing, output routing alignment, and version gates in the oa-sdk monorepo. Use whenever working on OpenAPI schema fragments, target builds, dereferencing cycles, or oa-gen validate --require-32 in oa-sdk.
 ---
 
 # Modular OpenAPI 3.1/3.2 Schema Architecture (`@oa-sdk/schemas`)
 
-`@oa-sdk/schemas`는 `oa-sdk` 모노레포의 단일 진실 공급원(SSOT, Single Source of Truth) 역할을 수행하는 모듈화된 OpenAPI 3.2 스키마 저장소입니다. 대규모 분산 API 계약을 도메인과 원자적 프래그먼트(Fragments)로 분할 관리하고, 다중 타겟 프로파일(`targets/*.yaml`)을 통해 결정론적으로 번들링하며, 컴포넌트 충돌 해소 및 무손실 3.2 ↔ 3.1 변환 파이프라인을 제공합니다.
+`@oa-sdk/schemas`는 `oa-sdk` 모노레포의 단일 진실 공급원(SSOT, Single Source of Truth) 역할을 수행하는 모듈화된 OpenAPI 3.2 스키마 저장소입니다. 대규모 분산 API 계약을 도메인과 원자적 프래그먼트(Fragments)로 분할 관리하고, 다중 타겟 프로파일(`targets/*.yaml`)을 통해 결정론적으로 번들링하며, 컴포넌트 충돌 해소, 선언적 출력 경로 라우팅 정렬, 그리고 무손실 3.2 ↔ 3.1 변환 파이프라인을 제공합니다.
 
 ---
 
@@ -37,6 +37,13 @@ graph TD
         Merged31[".merged.3.1.yaml (OpenAPI 3.1.0)"]
     end
 
+    subgraph Routing [출력 경로 라우팅 (@oa-sdk/codegen)]
+        Dispatcher["PathDispatcher (outputRouting)"]
+        SchemaFiles["src/schemas/{tag}.schema.json"]
+        GuardFiles["src/guards/{tag}.guard.ts"]
+        Manifest[".oa-manifest.json (3-Gate Pruning)"]
+    end
+
     Domains --> Select
     Fragments --> Select
     TargetYAML --> Select
@@ -49,6 +56,11 @@ graph TD
     Merged32 -->|downgrade-3.1.ts| Merged31
     Merged32 -->|downgrade-3.1.ts| Sidecar
     Merged31 -.->|upgrade-3.2.ts + Sidecar| Merged32
+
+    Merged32 --> Dispatcher
+    Dispatcher --> SchemaFiles
+    Dispatcher --> GuardFiles
+    Dispatcher --> Manifest
 ```
 
 ### 2. 결정론적 컴포넌트 이름 충돌 해소 흐름 (Name Collision Resolution)
@@ -287,7 +299,63 @@ graph LR
 
 ---
 
-## 🔍 6. 문제 해결 매트릭스 (Troubleshooting)
+## 🌐 6. 출력 경로 라우팅 엔진과의 정렬 (Alignment with Output Path Routing Engine)
+
+`@oa-sdk/schemas`의 프래그먼트 및 번들 스펙은 코드 생성기(`@oa-sdk/codegen`)의 출력 경로 라우팅 엔진(`outputRouting`)과 유기적으로 결합되어 프로젝트 소스 트리에 매핑됩니다.
+
+### 6.1 스키마 아티팩트 라우팅 (`byKind.schemas` 및 `byKind.guards`)
+
+`oa.config.ts`의 `outputRouting` 블록에서 스키마 아티팩트 종류별로 경로 템플릿을 선언할 수 있습니다:
+
+```typescript
+import { defineConfig } from '@oa-sdk/core'
+
+export default defineConfig({
+  core: {
+    spec: 'packages/schemas/src/.merged.yaml',
+  },
+  product: {
+    outputRouting: {
+      baseDir: '.',
+      pattern: 'src/api/{tag}/{tag}.{kind}.ts',
+      byKind: {
+        schemas: 'src/schemas/{tag}.schema.json',
+        guards: 'src/guards/{tag}.guard.ts',
+        contract: 'src/features/{tag}/api/{tag}.contract.ts',
+        client: 'src/features/{tag}/api/{tag}.client.ts',
+      },
+      rules: [
+        // 공통 스키마는 전역 공용 폴더로 명시적 분기
+        { tag: 'common', kind: 'schemas', target: 'packages/schemas/dist/common.schema.json' },
+      ],
+      manifestPath: '.oa-manifest.json',
+      pruneOrphans: true,
+      casing: 'kebab',
+    },
+  },
+})
+```
+
+### 6.2 정규 정의 ID와 템플릿 토큰 매핑 규칙
+
+정규 식별자 `${kind}:${scope}/${domain}/${name}`는 코드 생성 시 다음과 같이 템플릿 토큰으로 결정론적으로 변환됩니다:
+
+- **`{tag}`**: 소속 `domain`(예: `users`, `auth`) 또는 OpenAPI 오퍼레이션 태그.
+- **`{group}`**: URL 경로의 첫 번째 세그먼트(예: `/users/{id}` ➔ `users`) 또는 `domain`.
+- **`{kind}`**: 아티팩트 종류 (`schemas`, `guards`, `contract`, `client`, `queries`, `keys`).
+- **`{operationId}`**: 정규 ID의 `${name}` 또는 스네이크케이스 HTTP 메서드 결합(`get_users`).
+
+### 6.3 스키마 산출물 매니페스트 및 3단계 고아 프루닝 안전성
+
+`outputRouting`에 의해 방출된 JSON 스키마 및 가드 파일은 `.oa-manifest.json`에 SHA-256 해시와 함께 기록됩니다. 스키마 프래그먼트가 삭제되거나 도메인이 개편될 때:
+
+1. **Gate 1 (출처 게이트)**: 매니페스트에 등록된 파일만 삭제 후보로 지정됩니다.
+2. **Gate 2 (해시 무결성 게이트)**: 디스크 상의 SHA-256 해시가 빌드 당시 해시와 일치해야 합니다. 개발자가 수정한 파일은 `'content-modified'`로 보존됩니다.
+3. **Gate 3 (배너 보호 게이트)**: `@generated` 또는 `DO NOT EDIT` 배너가 포함된 파일만 삭제됩니다. 수기로 작성된 스키마 프래그먼트(`src/fragments/**/*.yaml`)는 실수로 삭제되지 않습니다.
+
+---
+
+## 🔍 7. 문제 해결 매트릭스 (Troubleshooting)
 
 | 증상 (Symptom) | 근본 원인 (Root Cause) | 해결 방법 (Remediation) |
 |---|---|---|
@@ -296,10 +364,11 @@ graph LR
 | `[parse/version-32] Document version 3.1.0 does not satisfy required 3.2.x gate` | `--require-32` 게이트가 켜진 상태에서 3.1 스펙이 전달됨 | `scripts/upgrade-3.2.ts`를 실행하여 3.2 계약으로 업그레이드하거나 관리 대상 스펙 버전 확인 |
 | `[ref/cycle] Circular reference detected in schema` | 프래그먼트 간 상호 참조로 인한 재귀 루프 발생 | `derefSpec`의 `cycleStrategy`를 `'empty-schema'`로 지정하여 순환 지점을 빈 객체로 치환 |
 | 다운그레이드 시 3.2 전용 필드(`itemSchema` 등) 손실 | 다운그레이드 스크립트 실행 시 메타데이터 사이드카가 생성되지 않음 | `downgrade-3.1.ts`를 정상 실행하여 `.merged.3.1.meta.json` 사이드카 파일이 함께 커밋되었는지 확인 |
+| `outputRouting: Unknown kind 'schema'` | `byKind` 설정 키에 단수형 `schema` 사용 | 복수형 키 `schemas`로 수정 (`byKind: { schemas: '...' }`) |
 
 ---
 
-## 🧪 7. 스키마 검증 및 테스트 명령어
+## 🧪 8. 스키마 검증 및 테스트 명령어
 
 ```bash
 # 1. 스키마 다운그레이드/업그레이드 왕복 무손실 검증 (62개 테스트)
@@ -311,6 +380,18 @@ pnpm --filter @oa-sdk/parser test src/__tests__/definition-output-names.test.ts 
 # 3. OpenAPI 3.2 버전 강제 게이트 검증 테스트
 pnpm --filter @oa-sdk/parser test src/__tests__/validate.test.ts
 
-# 4. 모노레포 문서 및 CLI 예제 게이트 통합 검증
+# 4. 스키마 통합 및 유효성 검증 (Codegen CLI 검증 포함)
+pnpm schema:validate
+
+# 5. 모노레포 문서 및 CLI 예제 게이트 통합 검증
 pnpm check:docs
+
+# 6. 언어 중립 CLI ECS 매니페스트 정합성 검증
+pnpm check:cli-spec
+
+# 7. 릴리스 정책 및 워크스페이스 트랙 검증 (Policy v5)
+pnpm check:release-policy
+
+# 8. 모노레포 33개 전체 워크스페이스 타입 체크
+pnpm typecheck:all
 ```

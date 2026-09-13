@@ -1,11 +1,11 @@
 ---
 name: oa-spec-lens
-description: Authoritative guide, architectural reference, and operational manual for the Spec-Lens platform in the oa-sdk monorepo (@oa-sdk/spec-lens, @oa-sdk/spec-lens-contract, apps/spec-lens). Covers SQLite WAL cache lifecycle, schema v2 CQRS storage architecture, TypeSpec AST and Definition Registry symbol indexing, recursive $ref dependency graph extraction, reverse-chronological path provenance, markdown projection envelopes, and contract-first wire typing.
+description: Authoritative guide, architectural reference, and operational manual for the Spec-Lens platform in the oa-sdk monorepo (@oa-sdk/spec-lens, @oa-sdk/spec-lens-contract, apps/spec-lens). Covers SQLite WAL cache lifecycle, transitive tsconfig universe hashing, schema v2 CQRS storage architecture, TypeSpec AST and Definition Registry symbol indexing, recursive $ref dependency graph extraction, reverse-chronological path provenance, markdown projection envelopes, and contract-first wire typing.
 ---
 
 # Spec-Lens Platform Architecture & Operational Manual (`oa-spec-lens`)
 
-Spec-Lens is the Tier 2 change management, observation, and visualization platform for OpenAPI 3.1/3.2 and TypeSpec projects in the `oa-sdk` monorepo. It tracks API evolution across historical git commits, isolates compiler toolchain environments, indexes schema symbols into a queryable graph, and serves an interactive web UI.
+Spec-Lens is the Tier 2 change management, observation, and visualization platform for OpenAPI 3.1/3.2 and TypeSpec projects in the `oa-sdk` monorepo. It tracks API evolution across historical git commits, isolates compiler toolchain environments, digests transitive TypeScript configurations, indexes schema symbols into a queryable graph, and serves an interactive web UI.
 
 ---
 
@@ -27,7 +27,7 @@ graph TD
 
     subgraph Contract ["Contract Layer (@oa-sdk/spec-lens-contract)"]
         WireTypes["Zero-Dependency Wire Types & Schemas"]
-        VersionPin["Schema Version Pinning (v2)"]
+        VersionPin["Schema Version Pinning (9 v2 Constants)"]
         TypeGuards["Bidirectional Guard: isSpecLensResponse()"]
         CanonicalId["Canonical IDs: SpecCanonicalDefinitionId"]
     end
@@ -37,6 +37,7 @@ graph TD
         CQRSCommand["Command Handlers: RefreshTimeline, ClearCache"]
         CQRSQuery["Query Handlers: GetTimeline, GetSnapshot, GetDiff, GetPaths, GetGraph"]
         ProjectDomain["Domain: Project Identity, Cache Key Isolation v2"]
+        TsUniverse["tsconfig Universe Walker & SHA-256 Digester"]
     end
 
     subgraph Storage ["Storage Engine (SQLite WAL)"]
@@ -68,6 +69,7 @@ graph TD
     CQRSCommand --> GitAdapters
     CQRSCommand --> TypeSpecAST
     CQRSCommand --> DefRegistry
+    CQRSCommand --> TsUniverse
 ```
 
 ---
@@ -232,6 +234,51 @@ DELETE FROM fragment_blobs
 WHERE content_hash NOT IN (SELECT DISTINCT content_hash FROM snapshot_entries);
 ```
 
+### 2.6 Transitive `tsconfig.json` Configuration Universe Hashing & Cache Invalidation
+
+Implemented in `packages/spec-lens/src/infrastructure/cache/sqlite/tsconfig-universe.ts`. Changes in TypeScript compiler options (e.g. `strict`, `exactOptionalPropertyTypes`, or path mappings) can alter emitted types and AST projections. To guarantee zero cache poisoning, Spec-Lens digests the entire transitive configuration universe into the project cache key.
+
+#### Transitive Closure Algorithm (`computeTsconfigUniverse`)
+1. **Entrypoint Resolution**: Locates the root `tsconfig.json`.
+2. **Recursive `extends` Resolution**: Recursively resolves extended configurations, supporting both single strings (`"extends": "./base.json"`) and TypeScript 5.0+ string arrays (`"extends": ["./base.json", "./paths.json"]`).
+3. **Project References**: Crawls composite project references (`"references": [{ "path": "./packages/shared" }]`).
+4. **JSONC Sanitization**: Strips single-line (`//`) and multi-line (`/* ... */`) comments via `stripJsonComments` and removes trailing commas via `removeTrailingCommas` without corrupting string literals.
+5. **Root Extraction**: Identifies compiler root files (`roots`) across all referenced projects.
+6. **Deterministic Digestion**: Calculates the SHA-256 hash for each configuration file and digests the sorted `{ configs, roots }` structure into `universeDigest`.
+
+```typescript
+export interface ContractConfigUniverse {
+  readonly configs: readonly ContractConfigDigest[]
+  readonly roots: readonly string[]
+  readonly universeDigest: string
+}
+```
+
+#### Cache Key Integration (`buildSpecProjectKey`)
+In `packages/spec-lens/src/domain/project.ts`, `buildSpecProjectKey()` integrates `tsconfigUniverseDigest`:
+
+```typescript
+export function buildSpecProjectKey(input: SpecProjectKeyInput): string {
+  const normalized = {
+    builderVersion: input.builderVersion,
+    manifestOrTargetDigest: input.manifestOrTargetDigest,
+    snapshotSchemaVersion: input.snapshotSchemaVersion,
+    sourceKind: input.sourceKind,
+    sourceRoot: normalizeSourceRoot(input.sourceRoot),
+    toolchainFingerprint: input.sourceKind === 'typespec-bundle'
+      ? requireSha256(input.toolchainFingerprint, 'toolchainFingerprint')
+      : requireNonEmptyString(input.toolchainFingerprint, 'toolchainFingerprint'),
+    observation: normalizeObservationIdentity(input.observation),
+    ...(input.tsconfigUniverseDigest !== undefined
+      ? { tsconfigUniverseDigest: requireSha256(input.tsconfigUniverseDigest, 'tsconfigUniverseDigest') }
+      : {}),
+  }
+  return sha256(JSON.stringify(normalized))
+}
+```
+
+Whenever any configuration in the inheritance chain changes, the project key changes, creating a clean cache namespace in SQLite WAL without manual intervention.
+
 ---
 
 ## 3. Schema v2 Storage Architecture
@@ -301,7 +348,6 @@ erDiagram
 
 1. **`fragment_blobs`**:
    - Content-addressed store for individual YAML fragments and `.tsp` source files.
-   - De-duplicates file contents across history: identical files share a single hash record.
    ```sql
    CREATE TABLE IF NOT EXISTS fragment_blobs (
      content_hash TEXT PRIMARY KEY,
@@ -392,7 +438,7 @@ erDiagram
 
 Schema version validation is enforced during initialization:
 - If `PRAGMA user_version > 2`: Fails immediately with `spec-lens cache schema N is newer than supported schema 2`.
-- If `PRAGMA user_version < 2`: Drops all legacy v1 tables (which lacked compiler isolation and project keys) and initializes schema v2 cleanly.
+- If `PRAGMA user_version < 2`: Drops all legacy v1 tables and initializes schema v2 cleanly.
 - Sets `PRAGMA user_version = 2;`.
 
 ---
@@ -425,21 +471,10 @@ graph LR
 ```
 
 #### Canonical Identifier Formats
-Spec-Lens mints canonical identifiers that uniquely position every definition:
 - **Definition Builder Format**:
-  ```
-  ${kind}:${scope}/${domain}/${localName}
-  ```
-  Examples:
-  - `schema:public/users/User`
-  - `path:public/users/Users`
-  - `operation:public/users/listUsers`
+  `${kind}:${scope}/${domain}/${localName}` (e.g. `schema:public/users/User`)
 - **TypeSpec Bundle Format**:
-  ```
-  ${kind}:typespec/${sourcePath.replaceAll('/', '_')}/${symbol}
-  ```
-  Example:
-  - `schema:typespec/models_user.tsp/User`
+  `${kind}:typespec/${sourcePath.replaceAll('/', '_')}/${symbol}` (e.g. `schema:typespec/models_user.tsp/User`)
 
 ### 4.2 Recursive `$ref` Dependency Graph Extraction
 
@@ -447,35 +482,15 @@ Implemented in `packages/spec-lens/src/application/queries/get-graph.query.ts`:
 1. Traverses the emitted OpenAPI document recursively via `collectRefs()`.
 2. Inspects all `$ref` keys (supporting OAS 3.1 sibling keywords like `description` alongside `$ref`).
 3. Maps output JSON pointers to canonical IDs using `pointerToId` mapping table.
-4. Generates directed graph nodes (`SpecGraphNode[]`) and edges (`SpecGraphEdge[]`):
-   ```typescript
-   export type SpecGraphNode = {
-     id: string
-     kind: string
-     scope: string
-     domain: string
-     localName: string
-     sourcePath: string
-     contentHash: string
-   }
-
-   export type SpecGraphEdge = {
-     source: string
-     target: string
-     refPointer: string
-   }
-   ```
+4. Generates directed graph nodes (`SpecGraphNode[]`) and edges (`SpecGraphEdge[]`).
 
 ### 4.3 Reverse-Chronological Path Provenance Indexing
 
 Implemented in `populatePathEntries()` in `refresh-timeline.command.ts`:
 1. Identifies the latest successfully compiled snapshot.
-2. If output pointer mapping is unavailable (historical TypeSpec fallback), clears `path_entries` and marks status as unavailable.
-3. Iterates over historical diffs in reverse-chronological order (newest commit $\to$ oldest commit).
-4. Decodes JSON pointers (`#/paths/~1books~1{id}` $\to$ `/books/{id}`).
-5. **First-Hit Rule**: The first time an API path is observed in the reverse walk, that commit's SHA and timestamp are recorded as its most recent modification.
-6. Paths unchanged across the entire diff window are attributed to the latest snapshot.
-7. Populates the `path_entries` read model table.
+2. Iterates over historical diffs in reverse-chronological order (newest commit $\to$ oldest commit).
+3. First-Hit Rule: The first time an API path is observed in the reverse walk, that commit's SHA and timestamp are recorded.
+4. Populates the `path_entries` read model table.
 
 ### 4.4 Hono HTTP Query Endpoints
 
@@ -492,18 +507,6 @@ The presentation layer runs on Hono (`packages/spec-lens/src/presentation/http/s
 | `GET` | `/api/graph` | Query | Retrieves symbol dependency graph for a revision | `?revision=<revisionId>` |
 | `DELETE` | `/api/cache` | Command | Purges all cached records for the current projectKey | None |
 
-### 4.5 Indexing Performance & Source Read Budgets
-
-To guard against memory exhaustion during large repository crawls, Spec-Lens enforces strict ceilings (`oa-sdk.spec-lens.source-read-budget.v1`):
-- `maxFiles`: 256 files
-- `maxFileBytes`: 2,097,152 bytes (2 MiB per file)
-- `maxTotalBytes`: 16,777,216 bytes (16 MiB aggregate)
-- `maxConcurrency`: 4 concurrent file reads
-- **Compiler Isolation Ceilings**: 60s execution timeout, 256 KB max output size, 512 MB max heap memory, 32 MB max artifact size.
-- **Snapshot Worker Concurrency**:
-  - Definition Builder: 4 parallel snapshot builds.
-  - TypeSpec Bundle: 1 worker (sequential isolated execution to maintain compiler determinism).
-
 ---
 
 ## 5. Markdown Projection Engine
@@ -511,8 +514,6 @@ To guard against memory exhaustion during large repository crawls, Spec-Lens enf
 Spec-Lens integrates with `@oa-sdk/openapi-projection-contract` to generate verifiable, structured Markdown documentation from schema ASTs.
 
 ### 5.1 Unified Projection Envelopes
-
-Every projection adheres to the standard contract envelope:
 
 ```typescript
 export type OpenApiProjectionResult<T> = {
@@ -526,58 +527,47 @@ export type OpenApiProjectionResult<T> = {
 }
 ```
 
-#### Metadata Extension Fields (`x-schema-engine-*`)
-Spec-Lens uses OpenAPI root-level extension fields to preserve projection metadata without breaking OAS 3.1 schema compliance:
-- `x-schema-engine-profile`: The projection profile utilized.
-- `x-schema-engine-version-hash`: Deterministic SHA256 digest of input ASTs, targets, and compiler options.
-- `x-schema-engine-sources`: Source coordinate mappings (file path, JSON pointer, line/col `#L12:C4`).
-- `x-schema-engine-refs`: Reference graph edges surviving compilation.
-
-### 5.2 AST-to-Markdown Generation Modules
-
-1. **Sidecar Diff & Change Review** (`packages/codegen/src/cli/lib/review-markdown.ts`):
-   - `formatSidecarDiffLines()`: Renders structured GitHub-flavored markdown tables:
-     ```markdown
-     - Base: `v1.0.0`
-     - Head: `v1.1.0`
-     - Status: **changed** - 2 differences detected
-
-     | Kind | Pointer | Base | Head |
-     | --- | --- | --- | --- |
-     | changed | `#/components/schemas/User/properties/age` | `integer` | `number` |
-     ```
-   - `formatChangeLines()`: Categorizes breaking vs non-breaking changes.
-   - `formatArtifactFreshnessLines()`: Verifies if disk artifacts match generated projections.
-2. **API Persona & Capability Trait Reporting** (`packages/personas`):
-   - `renderProfileMarkdown()`: Emits Markdown documentation for API personas.
-   - `renderMarkdown()`: Emits a 12-section cross-cut compliance report.
-   - `renderFlowMarkdown()`: Emits interactive Mermaid dependency flowcharts (`graph TD`).
-3. **Entity-Relationship Data Model Tables** (`packages/typespec-erd`):
-   - Renders entity relationship diagrams and schema diffs into Markdown format.
+Metadata extension fields preserved at root:
+- `x-schema-engine-profile`
+- `x-schema-engine-version-hash`
+- `x-schema-engine-sources`
+- `x-schema-engine-refs`
 
 ---
 
-## 6. Contract-First Architecture
+## 6. Contract-First Architecture & Wire Typing
 
 The wire communication contract is strictly isolated in `@oa-sdk/spec-lens-contract` (`packages/spec-lens-contract/src/index.ts`).
 
-### 6.1 Architectural Invariants
-1. **Zero External Runtime Dependencies**: Contains 0 external production dependencies. It compiles to lightweight ESM and can be safely imported in browser bundles, worker threads, and Node servers.
-2. **Schema Version Pinning**:
-   ```typescript
-   export const SPEC_LENS_SNAPSHOT_SCHEMA_VERSION = 'spec-lens.snapshot.v2'
-   export const SPEC_LENS_DIFF_SCHEMA_VERSION = 'spec-lens.diff.v2'
-   export const SPEC_LENS_COMPOSITION_REPORT_SCHEMA_VERSION = 'oa-gen.composition-report.v1'
-   export const SPEC_LENS_TYPESPEC_COMPILE_EVIDENCE_SCHEMA_VERSION = 'oa-sdk.spec-lens.typespec-compile.v1'
-   export const SPEC_LENS_TYPESPEC_TOOLCHAIN_EVIDENCE_SCHEMA_VERSION = 'oa-sdk.spec-lens.typespec-toolchain.v1'
-   export const SPEC_LENS_TYPESPEC_SOURCE_READ_BUDGET_SCHEMA_VERSION = 'oa-sdk.spec-lens.source-read-budget.v1'
-   ```
-3. **Discriminator Unions**:
-   - `SpecSnapshot` $\to$ `DefinitionBuilderSpecSnapshot` | `TypeSpecBundleSpecSnapshot` (discriminated by `projectKind`).
-   - `SpecTimelineDiff` $\to$ `DefinitionBuilderSpecTimelineDiff` | `TypeSpecBundleSpecTimelineDiff`.
-   - `SpecPathsResult` $\to$ `{ status: 'available', ... }` | `{ status: 'unavailable', reason: 'output-pointer-mapping-unavailable' }`.
+### 6.1 Schema Version Pinning (9 v2 Constants)
 
-### 6.2 Bidirectional Runtime Response Validation
+Spec-Lens enforces strict version pinning across all schema envelopes:
+
+```typescript
+export const SPEC_LENS_SNAPSHOT_SCHEMA_VERSION = 'spec-lens.snapshot.v2' as const
+export const SPEC_LENS_DIFF_SCHEMA_VERSION = 'spec-lens.diff.v2' as const
+export const SPEC_LENS_COMPOSITION_REPORT_SCHEMA_VERSION = 'oa-gen.composition-report.v1' as const
+export const SPEC_LENS_TYPESPEC_COMPILE_EVIDENCE_SCHEMA_VERSION = 'oa-sdk.spec-lens.typespec-compile.v1' as const
+export const SPEC_LENS_TYPESPEC_TOOLCHAIN_EVIDENCE_SCHEMA_VERSION = 'oa-sdk.spec-lens.typespec-toolchain.v1' as const
+export const SPEC_LENS_TYPESPEC_SOURCE_READ_BUDGET_SCHEMA_VERSION = 'oa-sdk.spec-lens.source-read-budget.v1' as const
+export const SPEC_LENS_TYPESPEC_MANIFEST_SCHEMA_VERSION = 'oa-sdk.typespec-bundle.v1' as const
+export const SPEC_LENS_TYPESPEC_RESTORE_CONTRACT_VERSION = 'oa-sdk.codegen.typespec-restore.v1' as const
+export const SPEC_LENS_TYPESPEC_ISOLATION_POLICY_VERSION = 'oa-sdk.spec-lens.typespec-isolation.v2' as const
+```
+
+### 6.2 Discriminator Unions
+
+1. **`SpecSnapshot`**:
+   - `DefinitionBuilderSpecSnapshot` (kind: `'definition-builder'`, `targetName`, `scopes`, `domains`)
+   - `TypeSpecBundleSpecSnapshot` (kind: `'typespec-bundle'`, `entrypoint`, `evidence`)
+2. **`SpecTimelineDiff`**:
+   - `DefinitionBuilderSpecTimelineDiff`
+   - `TypeSpecBundleSpecTimelineDiff`
+3. **`SpecPathsResult`**:
+   - `{ status: 'available', paths: SpecPathItem[] }`
+   - `{ status: 'unavailable', reason: 'output-pointer-mapping-unavailable' }`
+
+### 6.3 Bidirectional Runtime Response Validation (`isSpecLensResponse`)
 
 To guarantee zero contract drift across the HTTP boundary, client applications use `isSpecLensResponse(kind, value)`:
 
@@ -605,82 +595,19 @@ export function isSpecLensResponse<K extends keyof SpecLensApiResponseMap>(
 
 ## 7. Applications & UI (`apps/spec-lens`)
 
-`apps/spec-lens` (package `@oa-sdk/spec-lens-ui`) is the frontend visualization application.
+`apps/spec-lens` (package `@oa-sdk/spec-lens-ui`) is the frontend visualization application built with React 19, Vite 6, and `@tanstack/react-query` v5.
 
-### 7.1 Frontend Stack
-- **Framework**: React 19.1.0 + React DOM 19.1.0
-- **Bundler & Dev Server**: Vite 6.3.5
-- **Query Cache**: `@tanstack/react-query` v5.80.6
-- **Code & Diff Editor**: `@monaco-editor/react` v4.7.0 (lazy-loaded)
-- **Data Visualization**: D3.js v7.9.0 (force-directed graph)
-- **Internationalization**: `i18next` v26 + `react-i18next` v17 (English and Korean)
-
-### 7.2 Core Views
-
-```
-┌────────────────────────────────────────────────────────────────────────────┐
-│ Spec-Lens Header: Target Name | Branch | Language Switcher (ko / en)       │
-├──────────────┬─────────────────────────────────────────────────────────────┤
-│ Navigation   │ Main Content View                                           │
-│              │                                                             │
-│ • Timeline   │ [Timeline View]                                             │
-│ • Diff       │ Commit cards with diff badges (+2, -1, ~3, ⚡1)            │
-│ • Paths      │ Action buttons: Refresh, Clear Cache                        │
-│ • Graph      ├─────────────────────────────────────────────────────────────┤
-│              │ [Diff View]                                                 │
-│              │ Tabs: Changes | Full YAML | Breaking | Fragments            │
-│              │ Monaco Editor side-by-side / inline diff viewer            │
-│              ├─────────────────────────────────────────────────────────────┤
-│              │ [Path Provenance View]                                      │
-│              │ Filterable table: Path, Method badges, Scope, Domain, Hash  │
-│              ├─────────────────────────────────────────────────────────────┤
-│              │ [Fragment Graph View]                                       │
-│              │ Interactive D3 force-directed symbol graph with node detail │
-└──────────────┴─────────────────────────────────────────────────────────────┘
-```
-
+### 7.1 Core Views
 1. **Timeline View (`views/Timeline.tsx`)**:
-   - Queries `GET /api/timeline` with 30s background polling.
-   - Displays commit short SHA, author, timestamp, commit message, and changed fragment tags.
-   - Colored metric badges:
-     - `+N` (green): API paths added.
-     - `−N` (red): API paths removed.
-     - `~N` (blue): API paths modified.
-     - `⚡N` (orange): Breaking changes detected.
-     - `build failed` (red badge): Snapshot build error at that revision.
-   - **Arbitrary 2-Commit Compare Mode**: Base and Head radio selectors allow comparing any two arbitrary historical commits across the timeline, with swap (`⇄`) and validation guards.
-   - **Breaking Change (⚡) Filter Chip**: One-click toggle to isolate commits with breaking changes.
-   - **Real-Time Search**: Live multi-field text filtering across commit SHA, message, and author.
-   - **In-App Feedback**: Cache clearing confirmed via accessible modal `Dialog` and notified via `Toast`.
+   - Queries `GET /api/timeline` with 30s background polling using TanStack Query v5 pure options.
+   - Arbitrary 2-Commit Compare Mode (`⇄` swap button).
+   - Metric badges (`+N`, `−N`, `~N`, `⚡N`, `build failed`).
 2. **Diff View (`views/DiffView.tsx`)**:
-   - Pairwise diff between `baseId` and `headId`.
-   - **Changes Tab**: Categorized OpenAPI structure diffs (`Root`, `Servers`, `API Paths`, `Components`, `Security`).
-   - **Full YAML Tab**: Side-by-side or unified Monaco editor diff of the entire emitted OpenAPI YAML.
-   - **Breaking Tab**: Isolates breaking changes (with All / Breaking / Non-breaking filters).
-   - **Fragments Tab**: Lists definition files modified and shows raw fragment differences.
+   - Pairwise diff with Changes, Full YAML (Monaco editor), Breaking, and Fragments tabs.
 3. **Path Provenance View (`views/PathProvenance.tsx`)**:
-   - Tabular view of all active API endpoints.
-   - Method badges (GET=blue, POST=green, PUT/PATCH=amber, DELETE=red).
-   - **Data Grid Column Sorting**: Clickable table headers for Path (A-Z), HTTP Method, and Last Changed timestamp.
-   - **One-Click Clipboard Copy (`CopyButton`)**: Copies endpoint Path or Canonical ID to clipboard with 1.8s transient `Copied!` tooltip and event propagation isolation.
-   - Real-time text search and Scope/Domain dropdown filtering.
-   - Handles TypeSpec fallback state with `PathAvailabilityNotice`.
+   - Tabular endpoint view with sorting, clipboard copy, and search.
 4. **Fragment Graph View (`views/FragmentGraph.tsx`)**:
-   - Interactive D3 force-directed visualization of `$ref` dependencies.
-   - Node radii reflect definition kind (`path`: 10px, `operation`: 8px, `securityScheme`: 7px, `schema`: 6px, `parameter`: 5px).
-   - Node colors reflect scope (`public`=#58a6ff, `shared`=#3fb950, `admin`=#e3b341, `internal`=#bc8cff, `partner`=#f0883e).
-   - **Floating Canvas Controls Toolbar**: Zoom In (`+`), Zoom Out (`−`), Fit to Viewport (`⛶`, auto bounding-box calculation), and Reset Layout (`↻`).
-   - **Symbol Search Autocomplete & Zoom Focus**: Auto-completes symbol names, animating camera transform to the target node with pulse highlight.
-   - **1-Hop Neighborhood Focus (Dimming)**: Clicking a node isolates its immediate dependencies at 100% opacity while dimming unrelated nodes to 15% opacity.
-   - Node click opens details panel displaying canonical ID, content hash, and incoming/outgoing references.
-5. **Global App Shell & UX Patterns (`App.tsx`, `hooks/useUrlState.ts`, `components/FeedbackContext.tsx`)**:
-   - **URL SearchParams Deep Linking**: Synchronizes `view`, `base`, `head`, `revision`, `search`, `scope`, and `domain` with browser URL query parameters.
-   - **Collapsible Sidebar**: Collapses to 60px compact icon mode for maximizing horizontal diff viewing area.
-   - **In-App Feedback**: Dialog modal and toast notification architecture eliminating blocking native alerts.
-
-### 7.3 Development vs Production Hosting
-- **Development**: Vite dev server runs on port 5174, proxying `/api/*` requests to the Spec-Lens server on port 4891.
-- **Production**: `@oa-sdk/spec-lens` uses Hono `serveStatic` to serve pre-built UI assets directly from `/ui/*` (`presentation/http/server.ts`).
+   - Interactive D3 force-directed visualization with zoom controls, symbol search autocomplete, and 1-hop neighborhood focus.
 
 ---
 
@@ -695,6 +622,7 @@ project:
   kind: definition-builder
   sourceRoot: packages/schemas/src/fragments
   targetPath: packages/schemas/src/targets/book-notebook-api.yaml
+  tsconfigPath: tsconfig.json
 port: 4891
 dbPath: .spec-lens.db
 ```
@@ -707,6 +635,7 @@ project:
   kind: typespec-bundle
   sourceRoot: packages/schemas/typespec
   manifestPath: packages/schemas/typespec/oa-sdk.typespec-bundle.json
+  tsconfigPath: tsconfig.json
   observation:
     evidence: [package.json, pnpm-lock.yaml]
     candidates: [packages/typespec-decorators]
@@ -717,28 +646,19 @@ dbPath: .spec-lens.db
 ### 8.2 Command Workflows
 
 ```bash
-# 1. Start the Spec-Lens backend server (auto-detects project config)
+# 1. Start backend server
 pnpm exec tsx packages/spec-lens/src/cli.ts
 
-# 2. Start the UI development server (separate terminal)
+# 2. Start UI development server
 pnpm --filter @oa-sdk/spec-lens-ui dev
 
-# 3. Build UI for production embedding
-pnpm --filter @oa-sdk/spec-lens-ui build
-
-# 4. Trigger timeline refresh via HTTP API
+# 3. Trigger timeline refresh via HTTP API
 curl -X POST http://localhost:4891/api/refresh
 
-# 5. Fetch latest timeline entries
+# 4. Fetch latest timeline entries
 curl http://localhost:4891/api/timeline?limit=20
 
-# 6. Query active paths filtered by scope
-curl "http://localhost:4891/api/paths?scope=public"
-
-# 7. Query symbol dependency graph
-curl http://localhost:4891/api/graph
-
-# 8. Clear cache for current projectKey
+# 5. Clear cache for current projectKey
 curl -X DELETE http://localhost:4891/api/cache
 ```
 
@@ -748,14 +668,13 @@ curl -X DELETE http://localhost:4891/api/cache
 
 | Symptom / Error | Root Cause | Remediation |
 |---|---|---|
-| `SQLITE_BUSY: database is locked` | Concurrent write attempt or lingering process holding write lock without `PRAGMA busy_timeout = 5000`. | 1. Ensure `PRAGMA busy_timeout = 5000` is set.<br>2. Check for zombie Node.js processes holding `.spec-lens.db` (`lsof .spec-lens.db`).<br>3. Ensure all write transactions use `BEGIN IMMEDIATE`. |
-| `spec-lens cache schema N is newer than supported schema 2` | Database file was written by a newer version of `@oa-sdk/spec-lens`. | 1. Upgrade `@oa-sdk/spec-lens` to matching version, or<br>2. Delete `.spec-lens.db` and trigger `POST /api/refresh` to rebuild schema v2. |
-| `No supported SQLite driver found` | Neither Node.js built-in `node:sqlite` nor `better-sqlite3` native module is available in the environment. | 1. Upgrade Node.js to `>=22.0.0` (provides native `DatabaseSync`), or<br>2. Install native `better-sqlite3` (`pnpm add -D better-sqlite3`). |
-| `too many SQL variables` during rebase | Bound variable parameter count exceeded SQLite limit in `reconcileReachableRevisions()`. | Reconcile history using the temporary table `spec_lens_reachable_revisions WITHOUT ROWID` instead of parameter binding lists. |
-| `output-pointer-mapping-unavailable` banner in UI | Historical TypeSpec revisions prior to output-pointer provenance only retain source file evidence. | Expected behavior for older TypeSpec commits. Spec-Lens displays `PathAvailabilityNotice` and renders source-file fallback nodes. |
-| `source-read-budget-exceeded` | Git commit tree exceeds source budget limits (256 files or 16 MiB aggregate). | Check `observation` paths in `spec-lens.config.yaml`. Narrow `sourceRoot` or prune non-schema candidate directories. |
-| Port collision on `4891` | Another instance of Spec-Lens or another dev server is occupying port 4891. | Specify custom port via config or CLI: `port: 4895` in `spec-lens.config.yaml`. |
-| UI shows `Failed to fetch` on API calls | Vite dev server proxy is unable to connect to backend server on port 4891. | Verify backend server is running: `curl http://localhost:4891/api/config`. |
+| `SQLITE_BUSY: database is locked` | Concurrent write attempt without `PRAGMA busy_timeout = 5000` | 1. Ensure `PRAGMA busy_timeout = 5000`.<br>2. Kill lingering Node.js processes holding `.spec-lens.db`.<br>3. Ensure all write transactions use `BEGIN IMMEDIATE`. |
+| `spec-lens cache schema N is newer than supported schema 2` | Database file was written by a newer version of `@oa-sdk/spec-lens` | Upgrade `@oa-sdk/spec-lens` or delete `.spec-lens.db` and trigger `POST /api/refresh`. |
+| `No supported SQLite driver found` | Neither Node.js built-in `node:sqlite` nor `better-sqlite3` is available | Upgrade Node.js to `>=22.0.0` or install `better-sqlite3`. |
+| `too many SQL variables` during rebase | Bound variable parameter count exceeded SQLite limit in `reconcileReachableRevisions()` | Reconcile history using the temporary table `spec_lens_reachable_revisions WITHOUT ROWID`. |
+| SQLite cache not updating after `tsconfig.json` changes | `tsconfigPath` was not declared in `spec-lens.config.yaml` | Add `tsconfigPath: tsconfig.json` to project config to enable transitive universe hashing. |
+| `source-read-budget-exceeded` | Git commit tree exceeds source budget limits (256 files or 16 MiB aggregate) | Narrow `sourceRoot` or prune non-schema candidate directories. |
+| Port collision on `4891` | Another instance of Spec-Lens is occupying port 4891 | Specify custom port via config: `port: 4895`. |
 
 ---
 
@@ -770,14 +689,20 @@ pnpm --filter @oa-sdk/spec-lens-contract test
 # 2. Run unit and integration tests for spec-lens engine
 pnpm --filter @oa-sdk/spec-lens test
 
-# 3. Run unit tests for UI package
+# 3. Run tsconfig configuration universe invalidation test suite
+pnpm --filter @oa-sdk/spec-lens test src/__tests__/cache/sqlite-tsconfig-invalidation.test.ts
+
+# 4. Run unit tests for UI package
 pnpm --filter @oa-sdk/spec-lens-ui test
 
-# 4. Perform TypeScript typechecks across Tier 2
+# 5. Perform TypeScript typechecks across Tier 2
 pnpm --filter @oa-sdk/spec-lens-contract typecheck
 pnpm --filter @oa-sdk/spec-lens typecheck
 pnpm --filter @oa-sdk/spec-lens-ui typecheck
 
-# 5. Verify documentation gates and agent governance
+# 6. Verify documentation gates and agent governance
 pnpm check:docs
+pnpm check:cli-spec
+pnpm check:release-policy
+pnpm typecheck:all
 ```

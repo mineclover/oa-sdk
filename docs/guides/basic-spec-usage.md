@@ -1,10 +1,17 @@
-# 기본 스펙 사용 기준
+# 기본 스펙 사용 기준 (Repository Spec Governance & Artifact Ownership SSOT)
 
-Status: active operating guide. Last reviewed 2026-08-10.
+Status: active operating guide. Last reviewed 2026-09-13.
 
-이 문서에서 말하는 “기본 스펙”은 사람이 직접 수정하는 원천과 각 소비자가
-읽는 계약 artifact를 구분한 운영 단위다. 현재 production 기준은 TypeSpec-first이며,
-OpenAPI 3.2는 내부 소비자가 공유하는 canonical contract artifact다.
+> 🧭 **스펙 문서 체계 안내 (Schema Triad SSOT)**:
+> - **[기본 스펙 사용 기준 (현재 문서)](./basic-spec-usage.md)**: 저장소 스펙 거버넌스 및 산출물 소유권 SSOT. 어떤 파일이 정본(SSOT)이고 어떤 파일이 생성물(Generated Artifact)인지, 다운스트림 패키지가 어떤 산출물을 소비하는지 정의합니다.
+> - **[스키마 작성 가이드](./schema-authoring.md)**: 실무 TypeSpec & OpenAPI 3.2 작성 플레이북. TypeSpec 도메인 모델, 오퍼레이션, 파라미터, OAS 3.2 신규 문법(dataValue, itemSchema, defaultMapping) 실무 작성 규칙을 다룹니다.
+> - **[스키마 아키텍처 및 작성 규칙](./schema-architecture-and-conventions.md)**: 4단계 Zod-First 파이프라인 SSOT (Zod $\rightarrow$ JSON Schema 2020-12 $\rightarrow$ OAS 3.1 $\rightarrow$ Standalone AJV Type Guards with zero eval for Chrome MV3 CSP) 및 V3 AST 동기화 표준을 다룹니다.
+> - **[패스 프래그먼트 컨벤션](./path-fragment-conventions.md)**: Definition Builder 롤백/참조 경로용 YAML 프래그먼트 작성 규칙 및 폴더 계층 표준을 다룹니다.
+> - **[선언적 스펙 설정 가이드](./declarative-spec-configuration.md)**: `oa.config.ts`의 이중 레이어 구조(`core` vs `product`), 라이프사이클 아키타입(`mvp`, `microservice`, `enterprise`), 출력 경로 라우팅(`outputRouting`) 설정 표준을 다룹니다.
+
+이 문서에서 말하는 “기본 스펙”은 사람이 직접 수정하는 원천(SSOT)과 각 소비자가
+읽는 계약 artifact(Generated Artifacts)를 엄격히 분리한 저장소 거버넌스 단위다.
+현재 oa-sdk 모노레포의 production 기준은 TypeSpec-first이며, OpenAPI 3.2는 내부 소비자가 공유하는 canonical contract artifact다.
 
 ## 1. 기준 결정
 
@@ -33,28 +40,36 @@ OpenAPI 3.2는 내부 소비자가 공유하는 canonical contract artifact다.
 
 ## 2. 사용처별 계약
 
-| 사용처 | 입력 | 출력/검증 | 복사 가능한 명령 또는 API |
+| 사용처 | 입력 | 출력/검증 | 권장 실행 명령 또는 API |
 |---|---|---|---|
 | 계약 작성 | `packages/schemas/typespec/main.tsp` + `metadata/` + domain `.tsp` 모듈 | bundle-check, approved snapshot diff | `pnpm schema:validate` |
 | 승인 snapshot 갱신 | TypeSpec restored OpenAPI | normalized diff를 검토한 생성 snapshot | `pnpm schema:approve-typespec-reference -- --write` |
 | 계약 strict 검증 | `.merged.yaml` | OpenAPI 3.2 validation, Spectral, Redocly | `pnpm schema:validate` |
-| 타입/라우터/클라이언트 생성 | `.merged.yaml` | generated TypeScript와 private downstream integration | `node packages/codegen/dist/cli/index.js typegen --help`<br>private API: `generateRouter()` / `generateClient()` |
-| Mock 및 통합 테스트 | `.merged.yaml` | MSW/Node HTTP handlers, request/response validation | `pnpm mock:start`, playground |
-| 변경 검토 | base/head OpenAPI + optional sidecars | diff, inventory, provenance, review bundle | `node packages/codegen/dist/cli/index.js diff --help`<br>`node packages/codegen/dist/cli/index.js review --help`<br>`node packages/codegen/dist/cli/index.js review-bundle --help` |
-| target별 surface 생성 | fragments + target config | target OpenAPI 3.2 | `node packages/codegen/dist/cli/index.js build-spec --help`<br>`pnpm schema:validate:openapi` |
+| 타입/라우터/클라이언트 생성 | `.merged.yaml` (또는 `oa.config.ts`) | TypeScript 타입, 핸들러 계약, 프레임워크 라우터, TanStack Query 옵션 | `pnpm exec oa-gen generate --help`<br>`pnpm exec oa-gen typegen --help`<br>`pnpm exec oa-gen generate:tanstack --help` |
+| Mock 및 통합 테스트 | `.merged.yaml` 또는 live `.tsp` | in-memory mock server, hot-reload, request/response validation | `pnpm exec oa-gen mock --spec packages/schemas/src/.merged.yaml --watch` |
+| 변경 검토 및 Breaking Diff | base/head OpenAPI 또는 TypeSpec AST | semantic diff, breaking change detection, review bundle | `pnpm exec oa-gen diff --help`<br>`pnpm exec oa-gen tsp diff --help` |
+| target별 surface 생성 | fragments + target config | target OpenAPI 3.2 | `pnpm exec oa-gen build-spec --help`<br>`pnpm schema:validate:openapi` |
 | Swagger/3.1 호환 | `.merged.3.1.yaml` 또는 `dist/openapi.*` | OpenAPI 3.1 bundle | `pnpm schema:bundle` |
 | 배포 환경 server projection | restored TypeSpec contract + projection profile | local/staging/production OpenAPI artifact | `pnpm schema:project-typespec:local`<br>`pnpm schema:project-typespec:staging`<br>`pnpm schema:project-typespec:production` |
-| 외부 서비스 governance | raw runtime artifact | normalized/3.2 upgraded artifact | `node packages/codegen/dist/cli/index.js scaffold-governance --help`<br>`node packages/codegen/dist/cli/index.js collect --help` |
-| 변경 이력/관측 | TypeSpec bundle 또는 Definition Builder project | snapshot, diff, provenance | `pnpm --dir packages/spec-lens exec tsx src/cli.ts` |
+| 외부 서비스 governance | raw runtime artifact | normalized/3.2 upgraded artifact | `pnpm exec oa-gen scaffold-governance --help`<br>`pnpm exec oa-gen collect --help` |
+| 변경 이력/관측 | TypeSpec bundle 또는 Definition Builder project | snapshot, diff, provenance, symbol index | `pnpm --dir packages/spec-lens exec tsx src/cli.ts` |
 
-표의 source checkout 명령은 먼저 `pnpm build:core`를 실행한 뒤
-독립적으로 복사해 실행할 수 있다. `--help`는 필요한 입력과 옵션을 먼저 확인하는 안전한
-시작점이다. 공개 package consumer는 bare `oa-gen`이 아니라 `npx oa-gen <command>`를 사용하며,
-실제 public CLI 실행 예시는 [CLI 명령 레퍼런스](./cli-command-reference.md)를 따른다.
+표의 명령은 공개 package 환경에서는 `npx oa-gen <command>` 또는 `bun x oa-gen <command>`로 실행할 수 있으며,
+상세 옵션 및 실행 예시는 [CLI 명령 레퍼런스](./cli-command-reference.md)를 따른다.
 
-`schema:validate`는 source를 `.merged.yaml`로 materialize한 뒤 strict 3.2 gate를
-실행한다. `schema:bundle`은 현재 3.1 downgrade 결과를 `dist`에 기록하므로,
-3.2 기능을 보존한 입력이 필요하면 `packages/schemas/src/.merged.yaml`을 사용한다.
+### 다운스트림 패키지 산출물 매핑 (Downstream Package Consumption SSOT)
+
+`packages/schemas`가 산출하는 각 아티팩트를 소비하는 다운스트림 패키지와 보장 경계는 다음과 같이 엄격히 고정된다:
+
+| 패키지 | 소비 아티팩트 | 산출물의 역할 | 패키지 책임 및 생성물 |
+|---|---|---|---|
+| `@oa-sdk/parser` | `.merged.yaml` (OpenAPI 3.2) | 정본 스펙 IR 파싱 | 스펙 검증(`validateDocument`), Abstract Semantic Graph(IR) 변환, `$ref` 그래프 순환 탐지 |
+| `@oa-sdk/codegen` | `.merged.yaml` 또는 `oa.config.ts` | 코드 생성 및 검증 | TypeScript 타입 선언(`typegen`), Zod 4 스키마(`generate:zod`), TanStack Query 3티어(`generate:tanstack`), 독립형 가드(`standalone-guards`) |
+| `@oa-sdk/router` | `.merged.yaml` (또는 인메모리 스펙) | 프레임워크 비종속 라우팅 | 순수 핸들러 계약(`*.contract.ts`), 프레임워크 어댑터(Fastify JIT, Bun Elysia Zero-Copy, Hono, Express), `HandlerResponse` 에러 유니온 |
+| `@oa-sdk/client` | `.merged.yaml` | 타입 안전 클라이언트 | `JsonPrimitive<T>` 와이어 타입 보장, `AbortSignal` 취소 연동 fetch 클라이언트 SDK, TanStack Query v5 옵션 팩토리 |
+| `@oa-sdk/mock-server` | `.merged.yaml` 또는 live `.tsp` | 모의 서버 구동 | MSW / Node HTTP 어댑터, 요청/응답 스키마 실시간 유효성 검사, `oa-gen mock --watch` 무중단 핫리로드 |
+| `@oa-sdk/spec-lens` | `typespec/main.tsp` 또는 `.merged.yaml` | 스펙 관측 및 심볼 인덱싱 | SQLite WAL CQRS 심볼 캐시, 양방향 AST 추적, 리비전 간 프로비넌스 그래프 추출 |
+| 외부 도구 / Swagger UI | `dist/openapi.{yaml,json}` 또는 `.merged.3.1.yaml` | 3.1 하위 호환 소비 | Swagger UI 인터랙티브 문서 뷰어, OpenAPI 3.1 전용 외부 SDK 생성기 |
 
 ## 3. 기본 작업 흐름
 
@@ -107,11 +122,13 @@ packages/schemas/
 
 `@oa-sdk/parser`는 OpenAPI 3.2 document를 IR로 변환하고, `@oa-sdk/codegen`은
 검증·diff·생성·governance CLI를 제공한다. `@oa-sdk/router`, `@oa-sdk/client`,
-`@oa-sdk/mock-server`는 이 canonical artifact의 downstream consumer다.
+`@oa-sdk/mock-server`, `@oa-sdk/spec-lens`는 이 canonical artifact의 downstream consumer다.
 
-공개 `oa-gen` CLI는 `typegen`을 제공하지만 `router`와 `client` command를 제공하지 않는다.
-두 생성기는 private downstream workspace의 `generateRouter()`와 `generateClient()` package API로
-사용한다. 실행 가능한 통합 예시는 [코드젠 워크플로](./use-cases/codegen-workflow.md)를 따른다.
+공개 `oa-gen` CLI는 `typegen`, `generate:zod`, `generate:tanstack`, `mock` 및 선언적 통합 생성 파이프라인 `generate`를 제공한다.
+`@oa-sdk/router`의 순수 핸들러 계약 분리(`generateHandlerContract`) 및 프레임워크 바인더(`generateRouter`),
+그리고 `@oa-sdk/client`의 타입 안전 fetch 클라이언트(`generateClientRenderer`)는
+`oa.config.ts`의 선언적 설정(`oa-gen generate`)을 통해 일괄 자동 생성하거나 패키지 API로 사용할 수 있다.
+실행 가능한 통합 예시는 [코드젠 워크플로](./use-cases/codegen-workflow.md) 및 [온보딩 플레이북](./onboarding-playbook.md)을 따른다.
 
 ### HTTP 오류와 업무 판정
 

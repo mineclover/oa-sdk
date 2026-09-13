@@ -1,57 +1,52 @@
-# Sentinel Handoff Report
+# Handoff Report — Project Sentinel Final Completion
 
-## 1. Observation
-- **User Intent**: Resolve all 9 critical and high-priority platform deficiencies across `@oa-sdk/router`, `@oa-sdk/client`, and `@oa-sdk/codegen` (router response envelope collision, handler error typing, AbortSignal pass-through, infinite queries, monorepo package boundary import resolution, RouterRenderOptions typing, unified oa-gen generate pipeline, oa-gen init outputRouting presets, and Linux-compatible file watching).
-- **Routing Decision**: General SWE Path (`teamwork_preview_orchestrator`). Dispatched Project Orchestrator 11 (`637f3fa4-5819-4bf3-a4bf-2056e9d9736f`) with crons `task-38` (progress) and `task-40` (liveness).
-- **Milestone 1 Deliverables (@oa-sdk/router: R1, R2, R6)**:
-  - **R1 (Envelope Collision Defense)**: Strict 3-part predicate in Fastify, Bun Elysia, Hono, and Express targets treats an object as an envelope ONLY when `'body' in result && (result.status === undefined || typeof result.status === 'number') && (result.headers === undefined || typeof result.headers === 'object')`. Entities with `status: string`, `body: string`, or `headers: string` are serialized cleanly as 200 responses without data loss.
-  - **R2 (Multi-Status Typed Error Union)**: Upgraded `HandlerResponse<TSuccess, TErrorMap, THeaders>` to a discriminated union over status codes in `handler-contract.ts`. Handlers return typed error envelopes (e.g. `{ status: 404, body: NotFoundError }`) with 100% type safety and zero `as any` casting.
-  - **R6 (RouterRenderOptions Typing)**: Extended `RouterRenderOptions` with `contextInjection`, `context`, `contextImport`, and `contextTypeName` in `generate-router-renderer.ts`.
-  - Gate Result: **PASS** (156 unit tests + 188 multi-framework E2E tests passing).
-- **Milestone 2 Deliverables (@oa-sdk/client: R3, R4)**:
-  - **R3 (AbortSignal Pass-Through)**: Generated client methods accept `options?: ClientMethodOptions` with `signal` passed directly to `fetch`. TanStack Query's `queryFn: async ({ signal }) => client[method](params, { signal })` seamlessly forwards abort signals.
-  - **R4 (TanStack Query Infinite Query Generator)**: Automatic detection of pagination (`cursor`, `page`, `offset`, `limit`, `starting_after`). Emits type-safe `${methodName}InfiniteQueryOptions` and `use${baseName}InfiniteQuery`. Strict Zero Runtime Dependency Leaks Invariant preserved (0 dependencies on `@tanstack/react-query`).
-  - Gate Result: **PASS** (199 unit & stress tests passing).
-- **Milestone 3 Deliverables (@oa-sdk/codegen: R5, R7, R8, R9)**:
-  - **R5 (Monorepo Package Boundary Import Resolver)**: Canonical package name resolution across package boundaries (`@oa-sdk/client`, etc.) while strictly preserving intra-package relative imports.
-  - **R7 (Unified Declarative Generation Pipeline)**: `oa-gen generate` inspects `core.contracts`, `core.client`, and `product.outputRouting` to orchestrate Schemas $\rightarrow$ Type Guards $\rightarrow$ Handler Contracts $\rightarrow$ Client SDK $\rightarrow$ TanStack Query in one command.
-  - **R8 (outputRouting Presets)**: `--routing <default|fsd|monorepo|by-kind>` flag in `oa-gen init` with array formatting fix in `composer.ts`.
-  - **R9 (Linux Recursive Watcher Fallback)**: Recursive directory traversal for Linux file watching with ignored directory filtering (`node_modules`, `dist`, `.git`).
-  - Gate Result: **PASS** (116 tests across 6 test suites; 20/20 challenger stress tests passing).
-- **Milestone 4 Deliverables (Monorepo Governance & E2E)**:
-  - All 5 governance gates verified green: `check:docs` (0 errors), `check:cli-spec` (0 drift), `check:api-index` (0 drift), `check:release-policy` (0 violations), `typecheck:all --force` (33/33 workspaces passing).
-  - Downstream tests (1,011 passing), core platform tests (3,188+ passing), E2E suites (746 passing).
-- **Independent Victory Audit Cycle**:
-  - Audit Iteration 1 (`victory_auditor_15`): Returned **VICTORY REJECTED** upon detecting an uncached argument count mismatch in `packages/router/src/__tests__/tanstack-query-parity.test.ts` previously hidden by a Turbo cache hit.
-  - Remediation: Orchestrator 11 dispatched `worker_router_remedy` to update `ApiClient` mock fixture with `ClientMethodOptions`. Verified 100% pass uncached via `pnpm test:downstream --force`.
-  - Audit Iteration 2 (`victory_auditor_16`): Conducted clean-room 3-phase re-audit uncached. Final Verdict: **VICTORY CONFIRMED**.
-- **Mandatory Cleanup**:
-  - Cancelled progress reporting cron (`task-38`).
-  - Cancelled liveness check cron (`task-40`).
-  - Called `manage_subagents(action="kill_all")`.
+## Observation
+- Substantive user request received at 2026-09-13T02:03:17Z to consolidate redundant documentation in `docs/guides/`, modernize user-facing guides and all 7 agent skills (`.agents/skills/oa-*`) with latest platform capabilities, implement an automated empirical verification test suite for all documented CLI commands and recipes, and verify monorepo governance compliance across all 33 workspaces.
+- Routed to General SWE path via `teamwork_preview_orchestrator` (Orchestrator 12).
+- Orchestrator executed 4 milestones (R1-R4) using structured specialist subagents (spec miners, workers, reviewers, challengers, forensic auditors).
+- Orchestrator reported completion. Post-Victory Auditor 17 independently executed a 3-phase audit and confirmed VICTORY CONFIRMED.
 
-## 2. Logic Chain
-1. The user's request for 9 critical platform fixes was routed to the General SWE path under Orchestrator 11.
-2. The orchestrator methodically divided the 9 requirements into 4 milestones by package boundary, using parallel explorers, workers, reviewers, challengers, and forensic auditors.
-3. When the orchestrator first claimed completion, Sentinel blocked user completion reporting and invoked Independent Victory Auditor 15.
-4. Auditor 15 proved the value of independent uncached testing by catching a cached test fixture mismatch in `tanstack-query-parity.test.ts`.
-5. Sentinel relayed the rejection findings, resumed the team, and verified uncached remediation before invoking Independent Victory Auditor 16.
-6. Auditor 16 verified all uncached tests and all 5 repository governance gates, returning VICTORY CONFIRMED.
-7. Mandatory cleanup was executed to cancel all background tasks and terminate all subagents.
+## Logic Chain
+- **Requirement R1 (Documentation Deduplication & Consolidation)**:
+  - Migrated 7 contributor sections (§9.1–§9.7) from legacy `system-onboarding.md` into `docs/guides/onboarding-playbook.md` with complete fidelity.
+  - Converted `system-onboarding.md` into a canonical pointer with clear redirect notice and retargeted all 9 inbound links.
+  - Established `cli-setup.md` as downstream installation SSOT; streamlined `quick-start.md`; formalized `declarative-spec-configuration.md`.
+  - Harmonized the Schema Authoring Triad (`basic-spec-usage.md`, `schema-authoring.md`, `schema-architecture-and-conventions.md`) eliminating redundant fragment tutorials.
+- **Requirement R2 (Comprehensive Modernization Across Guides & Agent Skills)**:
+  - Documented Output Path Routing Engine (`outputRouting` with 5 tokens, rule matchers, by-kind routing, relative import resolution).
+  - Documented TanStack Query v5 3-tier architecture (`*Keys` trees, pure options factories, client wrappers, infinite queries).
+  - Documented multi-framework router stubs (`fastify` JIT inline schemas, `elysia` zero-copy context destructuring, `hono`, `express`) and pure handler contracts (`*.contract.ts` with `HandlerResponse` error union and response envelope collision defense).
+  - Documented target-separated onboarding (`oa-gen init` with 6 framework targets and 3 lifecycle archetypes `mvp`/`microservice`/`enterprise`) and live mock watch (`oa-gen mock --watch`).
+  - Documented `AbortSignal | null` request cancellation pass-through.
+  - Modernized all 7 agent skills in `.agents/skills/oa-*` and enhanced `scripts/check-docs.ts` to actively scan skill files.
+- **Requirement R3 (Empirical Verification Test Suite)**:
+  - Authored `tests/e2e/docs-execution.test.ts` (1,411 lines, 6 test suites, 42 tests).
+  - Executed real CLI subprocesses (`execFileSync`) and TypeScript 5.9.3 compiler checks (`tsc --noEmit`) in hermetic temporary fixtures.
+  - Achieved 42/42 (100%) test pass rate and 100% mutation kill rate across 7 hostile mutation scenarios.
+- **Requirement R4 (Monorepo Governance Gates Compliance)**:
+  - All 5 repository governance checks independently confirmed exit code 0:
+    - `pnpm check:docs` (236 Markdown files + 24 OAS reference files)
+    - `pnpm check:cli-spec` (2 manifests, 29 commands)
+    - `pnpm check:release-policy` (4 tracks, 12 release-tracked packages)
+    - `pnpm check:api-index` (API export surface in sync)
+    - `pnpm typecheck:all --force` (33/33 workspaces passed with 0 cache hits and 0 diagnostics)
+  - Core and downstream test suites pass 100% (`test:core`, `test:downstream`).
+- **Independent Victory Audit**:
+  - `victory_auditor_17` executed 3-phase audit independently with zero shared context.
+  - Confirmed: Phase A (Timeline: PASS), Phase B (Integrity: CLEAN), Phase C (Independent Test Execution: 100% PASS across all 8 checks).
+  - Verdict: **VICTORY CONFIRMED**.
+- **Lifecycle Cleanup**:
+  - Cancelled Progress Reporting Cron (`task-32`) and Liveness Check Cron (`task-34`).
+  - Terminated all subagents via `manage_subagents(Action="kill_all")`.
 
-## 3. Caveats
-- None. All 9 platform deficiencies are completely resolved, verified uncached, and pass all repository-level gates with 0 regressions.
+## Caveats
+- None. Clean worktree verified with zero uncommitted changes, zero leftover temporary directories, and zero drift.
 
-## 4. Conclusion
-All 9 platform deficiencies across `@oa-sdk/router`, `@oa-sdk/client`, and `@oa-sdk/codegen` have been resolved with 100% type safety, zero regressions, and full monorepo gate compliance, certified by independent Victory Audit with **VICTORY CONFIRMED**.
+## Conclusion
+- All requirements and acceptance criteria from `ORIGINAL_REQUEST.md` have been fully met, independently audited, and verified. Project is complete.
 
-## 5. Verification Method
-- `pnpm check:docs` -> PASS (0 errors across 236 Markdown files and 24 OAS reference files)
-- `pnpm check:cli-spec` -> PASS (0 drift across 2 manifests and 29 commands)
-- `pnpm check:api-index` -> PASS (0 drift)
-- `pnpm check:release-policy` -> PASS (0 violations)
-- `pnpm typecheck:all --force` -> PASS (33/33 workspaces cleanly compiling)
-- `pnpm --filter @oa-sdk/router test` -> PASS (11 files, 156 tests passing uncached)
-- `pnpm test:downstream --force` -> PASS (6 tasks, 1,011 tests passing uncached across router, client, mock-server)
-- `pnpm test:core` -> PASS (17 tasks, 3,188+ tests passing)
-- `pnpm vitest run tests/e2e` -> PASS (29 files, 746 tests passing)
+## Verification Method
+- Independent Post-Victory Auditor 17 report: `/Users/junwoobang/workflow/oa-sdk/.agents/victory_auditor_17/handoff.md`
+- Orchestrator 12 handoff report: `/Users/junwoobang/workflow/oa-sdk/.agents/orchestrator_12/handoff.md`
+- Automated test suite: `pnpm vitest run tests/e2e/docs-execution.test.ts`
+- Monorepo governance gates: `pnpm check:docs && pnpm check:cli-spec && pnpm check:release-policy && pnpm check:api-index && pnpm typecheck:all --force`

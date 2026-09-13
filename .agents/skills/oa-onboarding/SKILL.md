@@ -1,6 +1,6 @@
 ---
 name: oa-onboarding
-description: Authoritative guide and operational playbook for onboarding greenfield and brownfield projects into the oa-sdk ecosystem. Governs target-separated onboarding (oa-gen init), framework router generation (Fastify, Bun Elysia, Hono, Express, NestJS), decoupled handler contracts (*.contract.ts), live mock hot-reloading (oa-gen mock --watch), and automated CI/CD breaking drift defense.
+description: Authoritative guide and operational playbook for onboarding greenfield and brownfield projects into the oa-sdk ecosystem. Governs target-separated onboarding (oa-gen init with 3 lifecycle archetypes and 4 routing presets), framework router generation (Fastify JIT, Bun Elysia zero-copy, Hono, Express, NestJS), decoupled handler contracts (*.contract.ts with HandlerResponse multi-status error union and collision defense), live mock hot-reloading (oa-gen mock --watch), and automated CI/CD breaking drift defense.
 ---
 
 # Project Onboarding & Progressive Adoption Architecture (`oa-onboarding`)
@@ -8,12 +8,13 @@ description: Authoritative guide and operational playbook for onboarding greenfi
 The `oa-onboarding` skill provides an authoritative, operational manual and diagnostic framework for autonomous agents and engineers introducing the `oa-sdk` ecosystem into external Greenfield and Brownfield codebases.
 
 It establishes standard procedures for:
-1. **Target-Separated Onboarding (`oa-gen init`)**: 30-second headless/interactive setup auto-detecting host runtimes (Bun vs. Node), framework targets (Fastify, Elysia, Hono, Express, NestJS, Generic), schema sources (.tsp, openapi.yaml, openapi.json, `@oaOperation` JSDoc), and lifecycle archetype presets (`mvp`, `microservice`, `enterprise`) with zero architectural disruption.
+1. **Target-Separated Onboarding (`oa-gen init`)**: 30-second headless/interactive setup auto-detecting host runtimes (Bun vs. Node), framework targets (Fastify, Elysia, Hono, Express, NestJS, Generic), schema sources (.tsp, openapi.yaml, openapi.json, `@oaOperation` JSDoc), lifecycle archetype presets (`mvp`, `microservice`, `enterprise`), and output routing presets (`default`, `fsd`, `monorepo`, `by-kind`) with zero architectural disruption.
 2. **Dual-Layer Architectural Decoupling**: Enforcing strict isolation between the immutable Shared Platform Core (`core`) and the evolvable Product-Specific Domain Layer (`product`).
-3. **Contract-First Decoupling & Generic Context (`generateHandlerContract`)**: Generating pure TypeScript handler interfaces (`*.contract.ts`) completely isolated from framework plumbing with generic context injection (`${baseName}Context<TContext>`, `ApiHandlers<TContext>`), eradicating the "Overwrite Dilemma", wire schema pollution, and framework lock-in.
+3. **Contract-First Decoupling & Generic Context (`generateHandlerContract`)**: Generating pure TypeScript handler interfaces (`*.contract.ts`) completely isolated from framework plumbing with generic context injection (`${baseName}Context<TContext>`, `ApiHandlers<TContext>`), discriminated multi-status error unions (`HandlerResponse<TSuccess, TErrorMap, THeaders>`), and 3-part response envelope collision defense, eradicating the "Overwrite Dilemma", wire schema pollution, and framework lock-in.
 4. **High-Performance Multi-Framework Binders**: Fastify (with inlined JIT schemas for `fast-json-stringify`), Bun Elysia (fluent chaining with selective zero-copy context destructuring), Hono (multi-runtime), and Express (with OAS 3.2 method guards), all accepting generic `getContext` / `context` options.
 5. **Live In-Memory Mock Hot-Reloading (`oa-gen mock --watch`)**: Dual TypeSpec and OpenAPI/JSDoc watching with 100ms debouncing, atomic `server.updateSpec` route swapping, and zero socket drop.
-6. **Continuous Contract Governance**: CI/CD breaking change detection via `oa-gen diff --fail-on-breaking`.
+6. **Frontend Query & Client Integration**: TanStack Query v5 3-tier generation (Keys, pure Options, UI Hooks) with automated infinite pagination detection (`cursor`, `page`, `offset`) and `AbortSignal | null` request cancellation pass-through.
+7. **Continuous Contract Governance**: CI/CD breaking change detection via `oa-gen diff --fail-on-breaking` and 3-gate safe orphan pruning via `.oa-manifest.json`.
 
 ---
 
@@ -152,7 +153,7 @@ Every codebase must be classified into one of three Lifecycle Archetypes based o
 | **Breaking Change Gates** | Advisory / non-blocking diff warnings | Automated PR gate (`oa-gen diff --fail-on-breaking`) | Zero-tolerance CI gate + TypeSpec semantic diff + persona coverage audit |
 | **Context Injection** | Static dependency container or omitted | Per-request tenancy (`tenantId`) and tracing (`traceId`) via `getContext` | Full IAM actor context (`user`, `roles`, `permissions`, `auditSpan`) |
 | **Persona Governance** | Disabled (`personas: undefined`) | Optional capability traits on sensitive endpoints | Mandatory `@personaCapability` checks, `@pseudonymize` data masking |
-| **CLI Initialization** | `oa-gen init -t <target> -a mvp` | `oa-gen init -t <target> -a microservice` | `oa-gen init -t <target> -a enterprise` |
+| **CLI Initialization** | `oa-gen init -t <target> -a mvp --routing default` | `oa-gen init -t <target> -a microservice --routing fsd` | `oa-gen init -t <target> -a enterprise --routing monorepo` |
 
 ### Matrix 1: Host Runtime Engine (Bun vs. Node.js)
 
@@ -203,7 +204,7 @@ Every codebase must be classified into one of three Lifecycle Archetypes based o
 
 | Strategy | Command / Engine | Output Deliverables | Execution Context |
 |---|---|---|---|
-| **Raw Typed Fetch SDK** | `oa-gen generate:client` / `generateClient()` | `client.ts` (`ApiClient` with `withResponse` helpers) | Framework-agnostic fetch calls, Node.js scripts, background workers. |
+| **Raw Typed Fetch SDK** | `oa-gen generate` (via `core.client`) / `generateClient()` | `client.ts` (`ApiClient` with `withResponse` helpers) | Framework-agnostic fetch calls, Node.js scripts, background workers. |
 | **TanStack Query Tier 1 (Keys)** | `oa-gen generate:tanstack --tier keys` | `keys.ts` (`*Keys` hierarchical query key trees) | Pure TypeScript tuples (`as const`), 0 runtime dependencies, precise cache invalidation. |
 | **TanStack Query Tier 2 (Options)** | `oa-gen generate:tanstack --tier options` | `queries.ts` (`*QueryOptions`, `*MutationOptions`) | Pure functional options layer; 0 UI lock-in; directly usable in Next.js Server Components (`prefetchQuery`), React, Vue, Svelte. |
 | **TanStack Query Tier 3 (Hooks)** | `oa-gen generate:tanstack --tier hooks` | `hooks.ts` (`use*Query`, `use*Mutation`, `createApiHooks`) | React component tree integration with open generics (`select`, `enabled`, `staleTime`). |
@@ -222,20 +223,20 @@ npx oa-gen init --dry-run
 Verify the returned target ID, detected runtime (`bun` or `node`), and candidate schema path in stdout.
 
 ### Step 2: Archetype & Target Execution
-Run the onboarding initialization specifying both the target framework and the lifecycle archetype preset:
+Run the onboarding initialization specifying both the target framework, the lifecycle archetype preset (`mvp`, `microservice`, `enterprise`), and the output routing preset (`default`, `fsd`, `monorepo`, `by-kind`):
 ```bash
-# For Fastify Microservice (Node ESM, JIT schema, contract tests)
-npx oa-gen init --target fastify --archetype microservice --yes
+# For Fastify Microservice with FSD routing (Node ESM, JIT schema, contract tests)
+npx oa-gen init --target fastify --archetype microservice --routing fsd --yes
 
-# For Bun Elysia MVP (Bun native, zero-copy, live mock)
-bun x oa-gen init --target elysia --archetype mvp --yes
+# For Bun Elysia MVP with default routing (Bun native, zero-copy, live mock)
+bun x oa-gen init --target elysia --archetype mvp --routing default --yes
 
-# For Enterprise Platform Service (breaking change gates, personas)
-npx oa-gen init --target fastify --archetype enterprise --yes
+# For Enterprise Platform Service with Monorepo routing (breaking change gates, personas)
+npx oa-gen init --target fastify --archetype enterprise --routing monorepo --yes
 
 # For Express or Hono
-npx oa-gen init --target express --archetype microservice --yes
-npx oa-gen init --target hono --archetype mvp --yes
+npx oa-gen init --target express --archetype microservice --routing by-kind --yes
+npx oa-gen init --target hono --archetype mvp --routing default --yes
 ```
 
 ### Step 3: Validate Dual-Layer Configuration & Package Patch
@@ -273,7 +274,11 @@ export default defineConfig({
 Inspect `package.json`: confirm indentation (2/4 spaces or tabs), line endings (LF/CRLF), and trailing newlines are strictly preserved, with recommended scripts added without clobbering existing custom commands.
 
 ### Step 4: Configure Output Path Routing (FSD / Monorepo Layouts)
-For non-trivial projects adopting Feature-Sliced Design (FSD) or multi-package monorepos, configure `outputRouting` in `oa.config.ts` to route generated artifacts to arbitrary folder topologies:
+For non-trivial projects adopting Feature-Sliced Design (FSD) or multi-package monorepos, configure `outputRouting` in `oa.config.ts` (or initialize with `oa-gen init --routing <preset>`). Four standard presets are available:
+- `default`: Flat output `src/api/generated/{contracts,client,queries,keys}.ts`
+- `fsd`: Feature-Sliced Design pattern `src/features/{tag}/api/{tag}.{kind}.ts` with shared client and shared tags
+- `monorepo`: Cross-package byKind mapping (`packages/contracts`, `packages/client-sdk`, `apps/web`)
+- `by-kind`: Grouping by artifact kind `src/api/{kind}s/{kind}.ts`
 
 ```typescript
 import { defineConfig } from '@oa-sdk/codegen';
@@ -306,22 +311,23 @@ export default defineConfig({
   },
 });
 ```
-- The Path Dispatcher automatically recalculates relative TypeScript imports (`path.relative`) across directory boundaries and appends NodeNext `.js` extensions.
+- The Path Dispatcher supports 5 template tokens with casing modifiers (`{tag:kebab}`, `{kind:camel}`, `{operationId:pascal}`, `{method:lower}`, `{group}`) and automatically recalculates relative TypeScript imports (`path.relative`) across directory boundaries, appending NodeNext `.js` extensions.
 
 ### Step 5: Pure Handler Contract Generation with Generic Context
 Generate the decoupled handler contracts:
 ```bash
-npx oa-gen generate --target standalone-guards
+npx oa-gen generate
 ```
 Or via programmatic API (`generateHandlerContract` in `@oa-sdk/router`), outputting `src/generated/api.contract.ts`.
 
-Contracts support **generic product context injection (`TContext = unknown`)** without polluting public OpenAPI wire schemas:
+Contracts support **generic product context injection (`TContext = unknown`)** and **typed multi-status error unions** without polluting public OpenAPI wire schemas:
 ```typescript
 // Auto-generated handler contracts from OpenAPI spec. Do not edit.
 // @oa-sdk/router
-export type HandlerResponse<TBody = unknown, THeaders = Record<string, string>> =
-  | TBody
-  | { status?: number; body: TBody; headers?: THeaders };
+export type HandlerResponse<TSuccess = unknown, TErrorMap = Record<number, unknown>, THeaders = Record<string, string>> =
+  | TSuccess
+  | { status: 200; body: TSuccess; headers?: THeaders }
+  | { [K in keyof TErrorMap]: { status: K; body: TErrorMap[K]; headers?: Record<string, string> } }[keyof TErrorMap];
 
 export interface GetUserContext<TContext = unknown> {
   params: GetUserPathParams;
@@ -332,13 +338,35 @@ export interface GetUserContext<TContext = unknown> {
 
 export type GetUserHandler<TContext = unknown> = (
   ctx: GetUserContext<TContext>,
-) => HandlerResponse<GetUserResponse> | Promise<HandlerResponse<GetUserResponse>>;
+) => HandlerResponse<GetUserResponse, GetUserErrors> | Promise<HandlerResponse<GetUserResponse, GetUserErrors>>;
 
 export interface ApiHandlers<TContext = unknown> {
   getUser: GetUserHandler<TContext>;
 }
 ```
 If a shared context type is desired across all contracts, supply `contextImport: './context'` and `contextTypeName: 'AppContext'` in `HandlerContractOptions`.
+
+#### Strict 3-Part Response Envelope Collision Defense Heuristic
+All framework router binders apply the strict 3-part collision defense predicate:
+```typescript
+if (
+  result !== undefined &&
+  result !== null &&
+  typeof result === 'object' &&
+  'body' in result &&
+  ((result as any).status === undefined || typeof (result as any).status === 'number') &&
+  ((result as any).headers === undefined || typeof (result as any).headers === 'object')
+) {
+  // Treated as an HTTP response envelope -> set status and headers, return body
+  const resp = result as { status?: number; headers?: Record<string, string>; body?: unknown };
+  if (resp.headers) { /* set headers */ }
+  if (resp.status) { /* set status */ }
+  if (resp.status === 204) { /* send 204 No Content */ }
+  return resp.body;
+}
+// Raw business entity -> serialized as HTTP 200 JSON
+```
+This ensures business entities with `status: 'ACTIVE'` (string) or `body: string` are NEVER mistakenly parsed as HTTP envelopes, and HTTP 204 No Content returns an empty body across all 4 frameworks.
 
 ### Step 6: Framework Router Binding & Custom Context Forwarding
 1. Author business handlers implementing `ApiHandlers<AppContext>` in a user file (e.g. `src/services/user.service.ts`).
@@ -407,6 +435,11 @@ npx oa-gen generate:tanstack --spec ./openapi.yaml --output ./src/api/generated 
 # Generate via oa-gen generate
 npx oa-gen generate --tanstack --spec ./openapi.yaml --output ./src/api/generated
 ```
+
+#### Infinite Query Heuristics & `AbortSignal` Pass-Through
+For paginated endpoints, the generator auto-detects cursor, page, or offset parameters and emits `*InfiniteQueryOptions`:
+- Emits `getNextPageParam` logic extracting next page coordinates from response envelopes (`nextCursor`, `nextPage`, `pagination.next`).
+- Passes `signal` from `queryFn: ({ pageParam, signal }) => client.listItems({ cursor: pageParam }, { signal })` directly into the isomorphic `@oa-sdk/client` fetch call.
 
 Frontend consumption in Next.js 15 App Router Server Component with SSR prefetching:
 ```tsx
@@ -544,6 +577,9 @@ Every agent adopting `oa-sdk` MUST maintain these 9 invariants without exception
 | `Invalid package.json syntax` | Target repository has malformed JSON or trailing commas in `package.json`. | Fix syntax errors in `package.json` before running `oa-gen init`. |
 | `Compilation error, keeping previous routes active` | Schema file saved with syntax error during `oa-gen mock --watch`. | Normal error shielding behavior: the mock server continues serving traffic on the previous valid route table. Correct the syntax in your YAML/TSP file to trigger automatic reload. |
 | `422 Unprocessable Entity on mock request` | Request payload fails schema validation against OpenAPI/TypeSpec rules. | Inspect the 422 JSON response; `@oa-sdk/mock-server` outputs structured validation errors indicating the exact path coordinate that failed. |
+| Business entity with `status: 'ACTIVE'` treated as HTTP envelope | Router heuristics mistakenly triggered by simple property existence | Handlers use strict 3-part collision defense: `'body' in result && (status === undefined || typeof status === 'number') && (headers === undefined || typeof headers === 'object')` |
+| `TypeError: Cannot read properties of null (reading 'aborted')` on request cancellation | Client caller passed `signal: null` instead of `undefined` | Generated client SDK normalizes `signal?: AbortSignal | null` via `__combineSignals` safely |
+| Broken relative import between feature queries and shared client | Output routing placed client in different directory | The Path Dispatcher automatically recalculates `path.relative` across directory boundaries with NodeNext `.js` extensions |
 
 ---
 

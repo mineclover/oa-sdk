@@ -302,7 +302,7 @@ exit: 하나의 fixture에서 `.tsp` line → selected ERD field → DPM catalog
 예상 문서/automation:
 
 - `docs/guides/typespec-logical-erd-authoring.md`
-- `docs/guides/system-onboarding.md` extension
+- `docs/guides/onboarding-playbook.md` (§9 기여자 온보딩) extension
 - `docs/internal/feature-test-matrix.*` rows
 - CI: artifact schema check, deterministic emit/diff test, optional catalog-review fixture
 

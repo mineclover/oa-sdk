@@ -221,7 +221,7 @@ console.log(describeApi(parseDocument(spec)))
 | [Quick Start](./docs/guides/quick-start.md) | 5분 파이프라인 체험 |
 | [World Model Kernel](./docs/concepts/world-model.md) | World bootstrap, stimulus ingress, logical time, revision-pinned projection 계약 |
 | [World Model 계약 소비](./docs/guides/use-cases/world-model-contract-consumption.md) | World Model contract 검증과 generated client/HTTP integration 준비 |
-| [System Onboarding](./docs/guides/system-onboarding.md) | 저장소 목적, 정본 선택, 변경 경로와 검증 게이트 |
+| [Onboarding Playbook (기여자 온보딩)](./docs/guides/onboarding-playbook.md#9-oa-sdk-모노레포-기여자-온보딩) | 저장소 목적, 정본 선택, 변경 경로와 검증 게이트 |
 | [기본 스펙 사용 기준](./docs/guides/basic-spec-usage.md) | TypeSpec source, OpenAPI 3.2 artifact, 3.1 호환 출력, rollback 경계와 사용처 |
 | [TypeSpec Authoring Conventions](./docs/guides/typespec-authoring-conventions.md) | TypeSpec source, approved snapshot, extension ownership과 validation 흐름 |
 | [TypeScript 호환성](./docs/guides/typescript-compatibility.md) | Node 24/TS 5 안정화 lane과 Node 26/TS 7/`ttsc` Current 호환성 검증 lane의 경계 |

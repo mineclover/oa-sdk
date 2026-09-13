@@ -674,3 +674,54 @@ Integrity mode: development
 ### Monorepo Governance & Tests
 - [ ] All new and existing unit, integration, and E2E tests pass under pnpm test.
 - [ ] pnpm check:docs, pnpm check:cli-spec, pnpm check:api-index, pnpm check:release-policy, and pnpm typecheck:all pass with 0 errors and 0 drift.
+
+## 2026-09-13T02:03:17Z
+
+Consolidate redundant documentation, modernize user-facing guides and agent skills with latest platform capabilities, and empirically verify that all documented CLI commands and configuration recipes execute successfully without errors.
+
+Working directory: /Users/junwoobang/workflow/oa-sdk
+Integrity mode: development
+
+## Requirements
+
+### R1. Documentation Deduplication & Consolidation (`docs/guides/`)
+- Audit and deduplicate overlapping content across `docs/guides/`:
+  - Consolidate legacy `system-onboarding.md` into modern 3-tier `onboarding-playbook.md`, ensuring legacy links gracefully redirect or point to authoritative sections.
+  - Consolidate redundant CLI installation/configuration sections between `cli-setup.md`, `quick-start.md`, and `declarative-spec-configuration.md`.
+  - Harmonize schema authoring instructions across `basic-spec-usage.md`, `schema-authoring.md`, and `schema-architecture-and-conventions.md`, eliminating repeated explanations of the same fragment concepts.
+
+### R2. Comprehensive Modernization Across Guides & Agent Skills
+- Update user-facing guides (`docs/guides/`) and agent skills (`.agents/skills/oa-*`):
+  - Document the Output Path Routing Engine (`outputRouting` with template pattern, rule matchers, by-kind routing, and relative import resolution).
+  - Document the TanStack Query v5 3-tier architecture (Tier 1 `*Keys` hierarchical key trees, Tier 2 pure `queryOptions`/`mutationOptions` factories, Tier 3 client composition wrappers, and infinite queries).
+  - Document multi-framework router stubs (`fastify` JIT inline schema, `elysia` zero-copy context destructuring, `hono`, `express`) and pure handler contracts (`*.contract.ts`).
+  - Document target-separated onboarding (`oa-gen init` with 6 framework targets and 3 lifecycle archetypes `mvp`/`microservice`/`enterprise`) and live mock watch (`oa-gen mock --watch`).
+  - Document `AbortSignal | null` request cancellation pass-through.
+
+### R3. Empirical Verification of Documented Snippets & Commands
+- Implement an automated empirical verification test suite (e.g. in `tests/e2e/docs-execution.test.ts` or similar):
+  - Extract and execute all documented `oa-gen` CLI commands, `--help` usage, and `oa.config.ts` configuration blocks demonstrated in `quick-start.md` and `onboarding-playbook.md` inside isolated temporary fixture directories.
+  - Assert that all demonstrated commands exit with code 0 and generated code passes TypeScript typechecking (`tsc --noEmit`).
+
+### R4. Monorepo Governance Gates Compliance
+- Ensure all 5 repository governance checks remain 100% green with zero errors:
+  - `pnpm check:docs` (validates all local markdown links, CLI command references, and package entrypoints).
+  - `pnpm check:cli-spec` (validates CLI manifest alignment).
+  - `pnpm check:api-index` (validates API export surface).
+  - `pnpm check:release-policy` (validates release policies).
+  - `pnpm typecheck:all` (validates 33/33 workspaces).
+
+## Acceptance Criteria
+
+### Documentation Quality & Deduplication
+- [ ] Overlapping legacy files in `docs/guides/` are consolidated into primary SSOT documents without losing unique architectural guidance.
+- [ ] All guide documents and `.agents/skills/` reflect modern `@oa-sdk` idioms (`outputRouting`, TanStack Query 3-tier, multi-framework routers, handler contracts, live mock watch, `AbortSignal`).
+- [ ] Outdated command flags, deprecated paths, and invalid parameter examples are completely eradicated.
+
+### Empirical Code & Snippet Execution
+- [ ] Every CLI command recipe and `oa.config.ts` snippet documented in `quick-start.md` and `onboarding-playbook.md` executes cleanly in an automated test.
+- [ ] Generated code from documented commands passes `tsc --noEmit` with 0 type diagnostics.
+
+### Monorepo Governance Gates
+- [ ] `pnpm check:docs` passes with 0 broken links and 100% command coverage across all Markdown files.
+- [ ] `pnpm check:cli-spec`, `pnpm check:api-index`, `pnpm check:release-policy`, and `pnpm typecheck:all` pass with 0 errors and 0 drift.

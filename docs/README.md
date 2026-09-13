@@ -70,7 +70,7 @@
 |---|---|
 | [Vision](./vision.md) | 핵심 철학과 주 목표 |
 | [Concepts](./concepts.md) | 공통 용어와 계약 경계 정의 |
-| [System Onboarding](./guides/system-onboarding.md) | 저장소 목적, 정본 선택, 변경 경로와 검증 게이트 |
+| [Onboarding Playbook (기여자 온보딩)](./guides/onboarding-playbook.md#9-oa-sdk-모노레포-기여자-온보딩) | 저장소 목적, 정본 선택, 변경 경로와 검증 게이트 |
 | [World Model Kernel](./concepts/world-model.md) | World bootstrap, stimulus ingress, logical time, revision-pinned projection 계약 |
 | [Behavior ECS](./concepts/behavior-ecs.md) | 행동 단위 Entity/Component/System 정의, representative use case |
 | [Data Persona](./concepts/data-persona.md) | API audience, access obligation, privacy skill 매트릭스 |
