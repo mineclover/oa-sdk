@@ -104,3 +104,7 @@ export type {
   ContractVersionPolicyResult,
   SemanticVersion,
 } from './cli/lib/contract-version-policy.js'
+
+export { executeSchemaPipeline } from './schema-pipeline/index.js'
+export type { SchemaPipelineRunOptions, SchemaPipelineTransparencyManifest } from './schema-pipeline/index.js'
+export type { OaConfig } from './config.js'

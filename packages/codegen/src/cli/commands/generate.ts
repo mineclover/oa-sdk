@@ -19,6 +19,9 @@ import {
   type WriteArtifactInput,
 } from '../../routing/index.js'
 
+import { runStandaloneGuards } from './generate-guards.js'
+import { runDrizzle } from './generate-drizzle.js'
+
 export const generate: Command = {
   name: 'generate',
   description: 'Config/Drizzle 기반 스키마, 멀티 타겟 스펙 또는 독립형 타입 가드(standalone-guards) 생성',
@@ -34,7 +37,7 @@ export const generate: Command = {
     'merge-into':     { type: 'string', description: '기존 spec.yaml에 병합' },
     schemas:          { type: 'string', description: '생성 대상 필터 (Drizzle: select,insert,update / 가드: 컴포넌트/가드명 목록)' },
     split:            { type: 'boolean', description: '개별 가드 모듈 분할 생성 (guards/<TypeName>.js)' },
-    tanstack:         { type: 'boolean', description: 'TanStack Query 클라이언트 옵션/키 팩토리 생성' },
+    tanstack:         { type: 'boolean', description: 'TanStack Query 클라이언트 옵션/키 팩토리 생성 (권장: oa-gen generate:tanstack)' },
     spec:             { type: 'string', short: 's', description: 'OpenAPI 3.1/3.2 spec 파일 경로' },
     tier:             { type: 'string', description: '생성 티어 필터 (all, keys, options, hooks)' },
     framework:        { type: 'string', description: '대상 UI 프레임워크 (react, vue, svelte)' },
@@ -44,6 +47,7 @@ export const generate: Command = {
   async run(args, context) {
     const isTanstack = bool(args, 'tanstack')
     if (isTanstack) {
+      console.log('[oa-gen] Note: "oa-gen generate --tanstack" is deprecated. Please use "oa-gen generate:tanstack" directly.')
       const { generateTanstackCommand } = await import('./generate-tanstack.js')
       const mappedArgs = { ...args }
       if (!mappedArgs['spec'] && (mappedArgs['input'] || mappedArgs['target'])) {
@@ -460,90 +464,6 @@ async function runConfigWithObject(config: OaConfig, args: Args): Promise<void> 
 
   const result = generateComponents(config.schemas, genOptions)
   console.log(`✅ ${result.files.length}개 파일 생성 완료:`)
-  for (const file of result.files) console.log(`   ${file}`)
-  printWarnings(result.warnings)
-}
-
-async function runStandaloneGuards(args: Args): Promise<void> {
-  const input = optStr(args, 'input') ?? optStr(args, 'config')
-  if (!input) {
-    console.error('오류: --input <파일 경로> 옵션이 필요합니다')
-    throw new CliExitError(1)
-  }
-
-  const outDir = optStr(args, 'out-dir') ?? optStr(args, 'output') ?? '.'
-  const typeImport = optStr(args, 'type-import')
-  const moduleFormat = optStr(args, 'module-format') as 'esm' | undefined
-  const split = bool(args, 'split')
-  const schemasRaw = optStr(args, 'schemas')
-  const schemas = schemasRaw
-    ? schemasRaw.split(',').map(s => s.trim()).filter(Boolean)
-    : undefined
-
-  const resolvedInput = resolve(process.cwd(), input)
-  if (!existsSync(resolvedInput)) {
-    console.error(`오류: 입력 파일을 찾을 수 없습니다: ${resolvedInput}`)
-    throw new CliExitError(1)
-  }
-
-  let schemaDocument: Record<string, unknown>
-  try {
-    if (resolvedInput.endsWith('.tsp')) {
-      const { compileTypeSpecInMemory } = await import('../lib/typespec-mock-compiler.js')
-      const compiled = await compileTypeSpecInMemory(resolvedInput)
-      schemaDocument = compiled.document as unknown as Record<string, unknown>
-    } else {
-      const raw = await readFile(resolvedInput, 'utf8')
-      if (resolvedInput.endsWith('.yaml') || resolvedInput.endsWith('.yml')) {
-        schemaDocument = parseYaml(raw) as Record<string, unknown>
-      } else {
-        schemaDocument = JSON.parse(raw) as Record<string, unknown>
-      }
-    }
-  } catch (err) {
-    console.error(`오류: 스키마 파일 파싱 실패: ${resolvedInput}\n${err instanceof Error ? err.message : String(err)}`)
-    throw new CliExitError(1)
-  }
-
-  const { generateStandaloneGuards } = await import('../../standalone-guards/index.js')
-  const generatorOptions: StandaloneGuardGeneratorOptions = {
-    schemaDocument,
-    outDir: resolve(process.cwd(), outDir),
-    moduleFormat: moduleFormat ?? 'esm',
-    split,
-    schemas,
-  }
-  if (typeImport !== undefined) {
-    generatorOptions.typeImportSpecifier = typeImport
-  }
-
-  const artifacts = await generateStandaloneGuards(generatorOptions)
-
-  console.log(`✅ ${artifacts.length}개 가드 아티팩트 생성 완료:`)
-  for (const artifact of artifacts) {
-    console.log(`   ${artifact.filePath}`)
-  }
-}
-
-async function runDrizzle(schemaPath: string, args: Args): Promise<void> {
-  const { generateFromDrizzle } = await import('../../drizzle/index.js')
-  const output = optStr(args, 'output') ?? '.'
-  const mergeInto = optStr(args, 'merge-into')
-  const schemaTypes = optStr(args, 'schemas')?.split(',').map(s => s.trim()) as
-    Array<'select' | 'insert' | 'update'> | undefined
-
-  const options: Parameters<typeof generateFromDrizzle>[0] = { schemaPath, output }
-  if (schemaTypes) options.schemas = schemaTypes
-  if (mergeInto) { options.mergeIntoSpec = true; options.specPath = mergeInto }
-
-  const result = await generateFromDrizzle(options)
-
-  if (result.components.length === 0) {
-    console.warn('⚠️  Drizzle 테이블을 찾을 수 없습니다.')
-    throw new CliExitError(1)
-  }
-
-  console.log(`✅ ${result.components.length}개 스키마, ${result.files.length}개 파일 생성:`)
   for (const file of result.files) console.log(`   ${file}`)
   printWarnings(result.warnings)
 }

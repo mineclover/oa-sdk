@@ -17,7 +17,7 @@ release candidate의 현재 판단 입력과 source/external 책임 경계는
 
 ## Current State
 
-현재 정책 스냅샷: v5 · 4 tracks · Core Platform 9 · Downstream 3 · release-tracked 12 · ignored 11 · distribution candidates 6.
+현재 정책 스냅샷: v5 · 4 tracks · Core Platform 9 · Downstream 3 · release-tracked 12 · ignored 12 · distribution candidates 6.
 
 - Root package는 private monorepo이며 Changesets가 설치되어 있다.
 - Root monorepo와 app/reference workspace는 private이다. `pnpm release`는 `pnpm release:export`에
@@ -34,7 +34,7 @@ release candidate의 현재 판단 입력과 source/external 책임 경계는
 - Internal dependencies는 모두 `workspace:` protocol을 사용한다. Changesets config는 내부 의존성
   bump를 `patch`로 전파한다.
 - Release policy v5는 Core Platform 9개와 Downstream Integration 3개, 총 12개 release-tracked package와
-  11개 ignored workspace를 관리한다. Release
+  12개 ignored workspace를 관리한다. Release
   tracking은 제품 scope와 일치시키되, Core Platform과 Downstream Integration을 서로 다른
   architecture tier로 유지한다.
 
@@ -61,7 +61,7 @@ schema/spec 관리 제품을 소유하고, Downstream Integration 세 패키지�
 
 ## Ignored Workspaces
 
-아래 11개 workspace는 Changesets release 대상에서 제외한다. Maintenance-only package는
+아래 12개 workspace는 Changesets release 대상에서 제외한다. Maintenance-only package는
 보안·호환·migration만 수행하고, app/reference workspace는 Core release와 분리한다. Ignored는
 삭제나 검증 중단을 뜻하지 않으며 active feature investment가 아님을 뜻한다.
 
@@ -74,6 +74,7 @@ schema/spec 관리 제품을 소유하고, Downstream Integration 세 패키지�
 | Maintenance-only | `@oa-sdk/typespec-erd` | Private TypeSpec ERD prototype and `oa-erd` CLI; no OpenAPI/codegen runtime dependency |
 | Maintenance-only | `@oa-sdk/typespec-tooling` | Private TypeSpec IDE tooling and linting utilities |
 | Maintenance-only | `@oa-sdk/ttsc-compile-fixture` | Isolated TS 7 compiler fixture; policy-tracked but excluded from bulk build/test/typecheck tasks because it has no package task surface |
+| Maintenance-only | `@oa-sdk/tools` | Universal Tool Engine for MCP, CLI, and Hono REST APIs; maintenance/experimental |
 | App/reference | `@oa-sdk/nestjs-ref` | Reference implementation app |
 | App/reference | `@oa-sdk/playground` | Integration playground |
 | App/reference | `@oa-sdk/preview` | Preview app |

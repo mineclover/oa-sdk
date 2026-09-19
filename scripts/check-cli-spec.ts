@@ -78,12 +78,15 @@ const undocumentedOaGenCommands = new Set([
   'lint',
   'audit:csp',
   'drift:check',
+  'drift:live',
   'mock',
   'tsp diff',
   'tsp-diff',
   'tsp-scaffold',
   'generate-zod',
   'generate:zod',
+  'generate:guards',
+  'generate:drizzle',
   'audit:shape',
 ])
 

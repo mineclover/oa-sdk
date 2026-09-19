@@ -136,10 +136,10 @@ function makeTypeSpecSnapshot(id: string): SpecSnapshotStored {
           fingerprint: TEST_TOOLCHAIN_FINGERPRINT,
           packages: {
             '@oa-sdk/typespec-decorators': '0.1.0',
-            '@typespec/compiler': '1.13.0',
-            '@typespec/http': '1.13.0',
-            '@typespec/openapi': '1.13.0',
-            '@typespec/openapi3': '1.13.0',
+            '@typespec/compiler': '1.16.0',
+            '@typespec/http': '1.16.0',
+            '@typespec/openapi': '1.16.0',
+            '@typespec/openapi3': '1.16.0',
           },
           trustedLibraryDigests: {
             '@oa-sdk/typespec-decorators': 'a'.repeat(64),

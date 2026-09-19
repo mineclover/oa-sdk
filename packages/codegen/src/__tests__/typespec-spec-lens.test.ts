@@ -90,13 +90,13 @@ describe('compileTypeSpecBundleForSpecLens', () => {
       toolchain: {
         schemaVersion: 'oa-sdk.spec-lens.typespec-toolchain.v1',
         packages: {
-          '@typespec/compiler': '1.13.0',
-          '@typespec/events': '0.83.0',
-          '@typespec/http': '1.13.0',
-          '@typespec/openapi': '1.13.0',
-          '@typespec/openapi3': '1.13.0',
-          '@typespec/sse': '0.83.0',
-          '@typespec/streams': '0.83.0',
+          '@typespec/compiler': '1.16.0',
+          '@typespec/events': '0.86.0',
+          '@typespec/http': '1.16.0',
+          '@typespec/openapi': '1.16.0',
+          '@typespec/openapi3': '1.16.0',
+          '@typespec/sse': '0.86.0',
+          '@typespec/streams': '0.86.0',
         },
         trustedLibraryDigests: {
           '@oa-sdk/typespec-decorators': expect.stringMatching(/^[a-f0-9]{64}$/),

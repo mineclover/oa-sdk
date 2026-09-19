@@ -7,7 +7,15 @@
 
 import { runCommand } from './lib/run.js'
 import { generateHelp } from './lib/help.js'
-import { commands } from './commands.js'
+import {
+  commands,
+  generateGuardsCommand,
+  generateDrizzleCommand,
+  driftLive,
+  generateTanstackCommand,
+  generateZod,
+} from './commands.js'
+import { driftCheck } from './commands/check-artifact.js'
 import { tspDiff } from './commands/tsp-diff.js'
 import { tspScaffold } from './commands/tsp-scaffold.js'
 import { tspExport } from './commands/tsp-export.js'
@@ -45,6 +53,24 @@ commandMap.set('tsp:bundle-check', tspBundleCheck)
 commandMap.set('tsp-bundle-check', tspBundleCheck)
 
 commandMap.set('mock', mock)
+
+commandMap.set('generate:guards', generateGuardsCommand)
+commandMap.set('generate-guards', generateGuardsCommand)
+
+commandMap.set('generate:drizzle', generateDrizzleCommand)
+commandMap.set('generate-drizzle', generateDrizzleCommand)
+
+commandMap.set('generate:tanstack', generateTanstackCommand)
+commandMap.set('generate-tanstack', generateTanstackCommand)
+
+commandMap.set('generate:zod', generateZod)
+commandMap.set('generate-zod', generateZod)
+
+commandMap.set('drift:live', driftLive)
+commandMap.set('drift-live', driftLive)
+
+commandMap.set('drift:check', driftCheck)
+commandMap.set('drift-check', driftCheck)
 
 
 // ── 디스패치 ────────────────────────────────────────────────

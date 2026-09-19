@@ -14,7 +14,7 @@
     "build:all": "turbo run build",
     "build:core": "turbo run build --filter=@oa-sdk/core --filter=@oa-sdk/openapi-projection-contract --filter=@oa-sdk/spec-lens-contract --filter=@oa-sdk/typespec-decorators --filter=@oa-sdk/schemas --filter=@oa-sdk/parser --filter=@oa-sdk/codegen --filter=@oa-sdk/spec-lens --filter=@oa-sdk/ast-sync",
     "build:downstream": "turbo run build --filter=@oa-sdk/router --filter=@oa-sdk/client --filter=@oa-sdk/mock-server",
-    "build:maintenance": "turbo run build --filter=@oa-sdk/dpm --filter=@oa-sdk/personas --filter=@oa-sdk/typia-mock --filter=@oa-sdk/logical-erd-contract --filter=@oa-sdk/typespec-erd --filter=@oa-sdk/typespec-tooling",
+    "build:maintenance": "turbo run build --filter=@oa-sdk/dpm --filter=@oa-sdk/personas --filter=@oa-sdk/typia-mock --filter=@oa-sdk/logical-erd-contract --filter=@oa-sdk/typespec-erd --filter=@oa-sdk/typespec-tooling --filter=@oa-sdk/tools",
     "build:internal": "turbo run build --filter=@oa-sdk/nestjs-ref --filter=@oa-sdk/playground --filter=@oa-sdk/preview --filter=@oa-sdk/spec-lens-ui",
     "dev": "turbo run dev --parallel",
     "test": "corepack pnpm test:core",
@@ -24,8 +24,8 @@
     "test:core:ci": "turbo run test:ci --concurrency=1 --filter=@oa-sdk/core --filter=@oa-sdk/openapi-projection-contract --filter=@oa-sdk/spec-lens-contract --filter=@oa-sdk/typespec-decorators --filter=@oa-sdk/schemas --filter=@oa-sdk/parser --filter=@oa-sdk/codegen --filter=@oa-sdk/spec-lens --filter=@oa-sdk/ast-sync",
     "test:downstream": "turbo run test --filter=@oa-sdk/router --filter=@oa-sdk/client --filter=@oa-sdk/mock-server",
     "test:downstream:ci": "turbo run test:ci --concurrency=1 --filter=@oa-sdk/router --filter=@oa-sdk/client --filter=@oa-sdk/mock-server",
-    "test:maintenance": "turbo run test --filter=@oa-sdk/dpm --filter=@oa-sdk/personas --filter=@oa-sdk/typia-mock --filter=@oa-sdk/logical-erd-contract --filter=@oa-sdk/typespec-erd --filter=@oa-sdk/typespec-tooling",
-    "test:maintenance:ci": "turbo run test:ci --concurrency=1 --filter=@oa-sdk/dpm --filter=@oa-sdk/personas --filter=@oa-sdk/typia-mock --filter=@oa-sdk/logical-erd-contract --filter=@oa-sdk/typespec-erd --filter=@oa-sdk/typespec-tooling",
+    "test:maintenance": "turbo run test --filter=@oa-sdk/dpm --filter=@oa-sdk/personas --filter=@oa-sdk/typia-mock --filter=@oa-sdk/logical-erd-contract --filter=@oa-sdk/typespec-erd --filter=@oa-sdk/typespec-tooling --filter=@oa-sdk/tools",
+    "test:maintenance:ci": "turbo run test:ci --concurrency=1 --filter=@oa-sdk/dpm --filter=@oa-sdk/personas --filter=@oa-sdk/typia-mock --filter=@oa-sdk/logical-erd-contract --filter=@oa-sdk/typespec-erd --filter=@oa-sdk/typespec-tooling --filter=@oa-sdk/tools",
     "test:internal": "turbo run test --filter=@oa-sdk/playground --filter=@oa-sdk/spec-lens-ui",
     "test:internal:ci": "turbo run test:ci --concurrency=1 --filter=@oa-sdk/playground --filter=@oa-sdk/spec-lens-ui",
     "typecheck": "corepack pnpm typecheck:core",
@@ -34,7 +34,7 @@
     "typecheck:all": "turbo run typecheck",
     "typecheck:core": "turbo run typecheck --filter=@oa-sdk/core --filter=@oa-sdk/openapi-projection-contract --filter=@oa-sdk/spec-lens-contract --filter=@oa-sdk/typespec-decorators --filter=@oa-sdk/schemas --filter=@oa-sdk/parser --filter=@oa-sdk/codegen --filter=@oa-sdk/spec-lens --filter=@oa-sdk/ast-sync",
     "typecheck:downstream": "turbo run typecheck --filter=@oa-sdk/router --filter=@oa-sdk/client --filter=@oa-sdk/mock-server",
-    "typecheck:maintenance": "turbo run typecheck --filter=@oa-sdk/dpm --filter=@oa-sdk/personas --filter=@oa-sdk/typia-mock --filter=@oa-sdk/logical-erd-contract --filter=@oa-sdk/typespec-erd --filter=@oa-sdk/typespec-tooling",
+    "typecheck:maintenance": "turbo run typecheck --filter=@oa-sdk/dpm --filter=@oa-sdk/personas --filter=@oa-sdk/typia-mock --filter=@oa-sdk/logical-erd-contract --filter=@oa-sdk/typespec-erd --filter=@oa-sdk/typespec-tooling --filter=@oa-sdk/tools",
     "typecheck:internal": "turbo run typecheck --filter=@oa-sdk/nestjs-ref --filter=@oa-sdk/playground --filter=@oa-sdk/preview --filter=@oa-sdk/spec-lens-ui",
     "clean": "turbo run clean && rm -rf node_modules",
     "changeset": "changeset",
@@ -102,13 +102,14 @@
     "@changesets/cli": "^2.31.0",
     "@redocly/cli": "^2.28.1",
     "@stoplight/spectral-cli": "^6.15.1",
-    "@typespec/compiler": "^1.13.0",
-    "@typespec/events": "0.83.0",
-    "@typespec/http": "^1.13.0",
-    "@typespec/openapi": "^1.13.0",
-    "@typespec/openapi3": "^1.13.0",
-    "@typespec/sse": "0.83.0",
-    "@typespec/streams": "0.83.0",
+    "@typespec/compiler": "^1.16.0",
+    "@typespec/events": "^0.86.0",
+    "@typespec/http": "^1.16.0",
+    "@typespec/openapi": "^1.16.0",
+    "@typespec/openapi3": "^1.16.0",
+    "@typespec/sse": "^0.86.0",
+    "@typespec/streams": "^0.86.0",
+    "@types/node": "^22.0.0",
     "execa": "^9.6.1",
     "tsup": "^8.0.0",
     "tsx": "^4.23.1",
@@ -116,5 +117,10 @@
     "typescript": "5.9.3",
     "vitest": "^4.1.4",
     "yaml": "^2.8.3"
+  },
+  "pnpm": {
+    "overrides": {
+      "@types/node": "^22.0.0"
+    }
   }
 }

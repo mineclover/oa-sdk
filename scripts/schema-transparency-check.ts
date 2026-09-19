@@ -11,10 +11,8 @@
 import { resolve } from 'node:path'
 import { mkdtempSync, writeFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
-import { executeSchemaPipeline } from '../packages/codegen/src/schema-pipeline/index.js'
+import { executeSchemaPipeline, type OaConfig } from '../packages/codegen/src/schema-governance.js'
 import { JsonSchemaTypeAdapter, ZodTypeAdapter } from '../packages/ast-sync/src/index.js'
-import type { OaConfig } from '../packages/codegen/src/config.js'
 
 async function main(): Promise<void> {
   console.log('\n🔍 [oa-sdk] Auditing 4-Stage Schema Pipeline & Transparency...')

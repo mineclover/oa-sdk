@@ -278,6 +278,12 @@ export const drift: Command = {
   },
 }
 
+export const driftLive: Command = {
+  ...drift,
+  name: 'drift:live',
+  description: 'Live runtime HTTP endpoint OpenAPI drift check against managed OpenAPI spec',
+}
+
 async function loadRuntimeOpenApi(
   options: {
     runtimePath?: string

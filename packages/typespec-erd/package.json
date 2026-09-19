@@ -24,7 +24,7 @@
   },
   "dependencies": {
     "@oa-sdk/logical-erd-contract": "workspace:*",
-    "@typespec/compiler": "^1.13.0"
+    "@typespec/compiler": "^1.16.0"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

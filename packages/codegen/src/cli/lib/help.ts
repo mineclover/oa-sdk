@@ -1,23 +1,99 @@
 import type { Command } from './types.js'
 
+interface CategorySpec {
+  title: string
+  names: string[]
+}
+
+const CATEGORIES: CategorySpec[] = [
+  {
+    title: 'Core Code Generation',
+    names: ['init', 'generate', 'generate:tanstack', 'generate:zod', 'generate:guards', 'generate:drizzle', 'typegen'],
+  },
+  {
+    title: 'Validation & Audit',
+    names: ['validate', 'lint', 'audit:csp', 'audit:shape', 'mock'],
+  },
+  {
+    title: 'Diff & Freshness',
+    names: ['diff', 'drift:check', 'check-artifact', 'drift:live', 'drift'],
+  },
+  {
+    title: 'Spec Pipeline',
+    names: [
+      'build-spec',
+      'normalize',
+      'upgrade',
+      'collect',
+      'tsp-export',
+      'tsp-restore',
+      'tsp-bundle-check',
+      'tsp diff',
+      'tsp-scaffold',
+      'reference-check',
+    ],
+  },
+  {
+    title: 'Advanced & Governance',
+    names: [
+      'scaffold-governance',
+      'inventory',
+      'behavior-query',
+      'duplicate-review',
+      'target-check',
+      'review',
+      'review-bundle',
+      'parallel-evidence',
+    ],
+  },
+]
+
+function formatCommandLine(cmd: Command): string {
+  const opts = Object.entries(cmd.options)
+    .filter(([, o]) => o.required)
+    .map(([k, o]) => `--${k}${o.short ? `, -${o.short}` : ''} <${k}>`)
+    .join(' ')
+  return `  oa-gen ${cmd.name.padEnd(20)} ${opts.padEnd(40)} ${cmd.description}`
+}
+
 /** Command 정의 배열에서 help 텍스트 자동 생성 */
 export function generateHelp(commands: Command[]): string {
   const lines: string[] = [
     '',
     'oa-gen — OpenAPI code generator',
     '',
-    'Commands:',
   ]
 
-  for (const cmd of commands) {
-    const opts = Object.entries(cmd.options)
-      .filter(([, o]) => o.required)
-      .map(([k, o]) => `--${k}${o.short ? `, -${o.short}` : ''} <${k}>`)
-      .join(' ')
-    lines.push(`  oa-gen ${cmd.name.padEnd(10)} ${opts.padEnd(40)} ${cmd.description}`)
+  const commandMap = new Map(commands.map(cmd => [cmd.name, cmd]))
+  const rendered = new Set<string>()
+
+  for (const cat of CATEGORIES) {
+    const catCommands = cat.names
+      .map(name => commandMap.get(name))
+      .filter((c): c is Command => c !== undefined)
+
+    if (catCommands.length > 0) {
+      lines.push(`${cat.title}:`)
+      for (const cmd of catCommands) {
+        lines.push(formatCommandLine(cmd))
+        rendered.add(cmd.name)
+      }
+      lines.push('')
+    }
   }
 
-  lines.push('  oa-gen --help                                              도움말')
+  // Any remaining commands not covered in predefined categories
+  const remaining = commands.filter(c => !rendered.has(c.name))
+  if (remaining.length > 0) {
+    lines.push('Other Commands:')
+    for (const cmd of remaining) {
+      lines.push(formatCommandLine(cmd))
+    }
+    lines.push('')
+  }
+
+  lines.push('General:')
+  lines.push('  oa-gen --help, -h                                         도움말')
   lines.push('')
   lines.push('Option details:')
 
