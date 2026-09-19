@@ -36,7 +36,7 @@ describe('oa-gen build-spec', () => {
     const result = runCli(['--help'])
 
     expect(result.status).toBe(0)
-    expect(result.stdout).toContain('oa-gen build-spec --target, -t <target>')
+    expect(result.stdout).toMatch(/oa-gen\s+build-spec\s+--target, -t <target>/)
     expect(result.stdout).toContain('[build-spec] target config 파일 경로')
     expect(result.stdout).toContain('[build-spec] 빌드된 OpenAPI YAML 출력 파일 경로')
     expect(result.stdout).toContain('--composition-report')

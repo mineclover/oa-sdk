@@ -159,7 +159,7 @@ describe('oa-gen CLI', () => {
   it('커맨드 없이 실행 → help 표시', () => {
     const stdout = runCli('')
     expect(stdout).toContain('oa-gen')
-    expect(stdout).toContain('Commands:')
+    expect(stdout).toContain('Core Code Generation:')
   })
 
   it('존재하지 않는 config → 오류', () => {
