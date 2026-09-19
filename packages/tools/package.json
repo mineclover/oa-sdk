@@ -1,0 +1,54 @@
+{
+  "name": "@oa-sdk/tools",
+  "version": "0.1.0",
+  "description": "Universal Tool Engine for Model Context Protocol (MCP), Commander CLI, and Hono REST APIs",
+  "private": true,
+  "type": "module",
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsup src/index.ts --format esm --dts",
+    "dev": "tsup src/index.ts --format esm --dts --watch",
+    "test": "vitest run",
+    "test:ci": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@hono/node-server": "^1.13.0",
+    "@hono/swagger-ui": "^0.5.3",
+    "@modelcontextprotocol/sdk": "^1.26.0",
+    "commander": "^12.1.0",
+    "hono": "^4.6.0"
+  },
+  "peerDependencies": {
+    "zod": ">=3.0.0"
+  },
+  "peerDependenciesMeta": {
+    "zod": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsup": "^8.0.0",
+    "typescript": "5.9.3",
+    "vitest": "^4.1.4",
+    "zod": "^4.4.3"
+  }
+}
