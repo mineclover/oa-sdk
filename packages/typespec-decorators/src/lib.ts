@@ -21,6 +21,18 @@ export const $lib = createTypeSpecLibrary({
         default: paramMessage`${'message'}`,
       },
     },
+    'invalid-crdt-rule': {
+      severity: 'error',
+      messages: {
+        default: paramMessage`${'message'}`,
+      },
+    },
+    'invalid-crdt-entity-rule': {
+      severity: 'error',
+      messages: {
+        default: paramMessage`${'message'}`,
+      },
+    },
   },
 })
 

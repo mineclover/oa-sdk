@@ -1,7 +1,9 @@
-import type { DecoratorContext, Diagnostic, ModelProperty, Operation, Program } from '@typespec/compiler'
+import type { DecoratorContext, Diagnostic, Model, ModelProperty, Operation, Program } from '@typespec/compiler'
 import { getExtensions, setExtension } from '@typespec/openapi'
 import { describe, expect, it } from 'vitest'
 import {
+  $crdt,
+  $crdtEntity,
   $oaUseResponseComponent,
   $personaCapability,
   $pseudonymize,
@@ -13,6 +15,8 @@ import {
 const componentRefsExtension = 'x-oa-sdk-operation-component-refs'
 const personaTraitsExtension = 'x-oa-sdk-persona-traits'
 const dpmProjectionExtension = 'x-oa-sdk-dpm-projection'
+const crdtExtension = 'x-oa-sdk-crdt'
+const crdtEntityExtension = 'x-oa-sdk-crdt-entity'
 
 describe('$oaUseResponseComponent', () => {
   it('emits and merges only response-component references by status code', () => {
@@ -168,6 +172,130 @@ describe('$pseudonymize', () => {
     expect(program.diagnostics[0]?.code).toContain('invalid-pseudonymize-rule')
     expect(program.diagnostics[0]?.message).toContain('SAF010')
     expect(getExtensions(program, property).get(dpmProjectionExtension)).toBeUndefined()
+  })
+})
+
+describe('$crdt', () => {
+  it('emits valid x-oa-sdk-crdt extension payload for LWW register', () => {
+    const program = createProgram()
+    const property = {} as ModelProperty
+    const context = { program, getArgumentTarget: () => undefined } as unknown as DecoratorContext
+
+    $crdt(context, property, {
+      type: 'lww-register',
+      resolution: 'last-write-wins',
+      role: 'value',
+    })
+
+    expect(program.diagnostics).toHaveLength(0)
+    expect(getExtensions(program, property).get(crdtExtension)).toEqual({
+      type: 'lww-register',
+      resolution: 'last-write-wins',
+      role: 'value',
+    })
+  })
+
+  it('emits valid x-oa-sdk-crdt extension payload for text sequence with engine', () => {
+    const program = createProgram()
+    const property = {} as ModelProperty
+    const context = { program, getArgumentTarget: () => undefined } as unknown as DecoratorContext
+
+    $crdt(context, property, {
+      type: 'text-sequence',
+      engine: 'fugue',
+    })
+
+    expect(program.diagnostics).toHaveLength(0)
+    expect(getExtensions(program, property).get(crdtExtension)).toEqual({
+      type: 'text-sequence',
+      engine: 'fugue',
+    })
+  })
+
+  it('reports diagnostic on invalid CRDT type', () => {
+    const program = createProgram()
+    const property = {} as ModelProperty
+    const context = { program, getArgumentTarget: () => undefined } as unknown as DecoratorContext
+
+    $crdt(context, property, {
+      type: 'invalid-crdt',
+    })
+
+    expect(program.diagnostics).toHaveLength(1)
+    expect(program.diagnostics[0]?.code).toContain('invalid-crdt-rule')
+    expect(program.diagnostics[0]?.message).toContain('Invalid CRDT type "invalid-crdt"')
+    expect(getExtensions(program, property).get(crdtExtension)).toBeUndefined()
+  })
+
+  it('reports diagnostic on invalid resolution', () => {
+    const program = createProgram()
+    const property = {} as ModelProperty
+    const context = { program, getArgumentTarget: () => undefined } as unknown as DecoratorContext
+
+    $crdt(context, property, {
+      type: 'lww-register',
+      resolution: 'invalid-resolution',
+    })
+
+    expect(program.diagnostics).toHaveLength(1)
+    expect(program.diagnostics[0]?.code).toContain('invalid-crdt-rule')
+    expect(program.diagnostics[0]?.message).toContain('Invalid CRDT resolution')
+    expect(getExtensions(program, property).get(crdtExtension)).toBeUndefined()
+  })
+
+  it('reports diagnostic on invalid engine', () => {
+    const program = createProgram()
+    const property = {} as ModelProperty
+    const context = { program, getArgumentTarget: () => undefined } as unknown as DecoratorContext
+
+    $crdt(context, property, {
+      type: 'text-sequence',
+      engine: 'unknown-engine',
+    })
+
+    expect(program.diagnostics).toHaveLength(1)
+    expect(program.diagnostics[0]?.code).toContain('invalid-crdt-rule')
+    expect(program.diagnostics[0]?.message).toContain('Invalid CRDT engine')
+    expect(getExtensions(program, property).get(crdtExtension)).toBeUndefined()
+  })
+})
+
+describe('$crdtEntity', () => {
+  it('emits valid x-oa-sdk-crdt-entity extension payload', () => {
+    const program = createProgram()
+    const model = {} as Model
+    const context = { program, getArgumentTarget: () => undefined } as unknown as DecoratorContext
+
+    $crdtEntity(context, model, {
+      partitionKey: 'trackId',
+      timeRange: { from: 'fromFrame', to: 'toFrame' },
+      compaction: 'checkpoint-squash',
+      strategy: 'delta-sharded',
+    })
+
+    expect(program.diagnostics).toHaveLength(0)
+    expect(getExtensions(program, model).get(crdtEntityExtension)).toEqual({
+      partitionKey: 'trackId',
+      timeRange: { from: 'fromFrame', to: 'toFrame' },
+      compaction: 'checkpoint-squash',
+      strategy: 'delta-sharded',
+    })
+  })
+
+  it('reports diagnostic on invalid compaction', () => {
+    const program = createProgram()
+    const model = {} as Model
+    const context = { program, getArgumentTarget: () => undefined } as unknown as DecoratorContext
+
+    $crdtEntity(context, model, {
+      partitionKey: 'trackId',
+      compaction: 'invalid-compaction',
+    })
+
+    expect(program.diagnostics).toHaveLength(1)
+    expect(program.diagnostics[0]?.code).toContain('invalid-crdt-entity-rule')
+    expect(program.diagnostics[0]?.message).toContain('Invalid CRDT compaction')
+    expect(getExtensions(program, model).get(crdtEntityExtension)).toBeUndefined()
   })
 })
 

@@ -1,10 +1,12 @@
-import type { DecoratorContext, ModelProperty, Operation } from '@typespec/compiler'
+import type { DecoratorContext, Model, ModelProperty, Operation } from '@typespec/compiler'
 import { getExtensions, setExtension } from '@typespec/openapi'
 import { reportDiagnostic } from './lib.js'
 
 const OPERATION_COMPONENT_REFS_EXTENSION = 'x-oa-sdk-operation-component-refs'
 const PERSONA_TRAITS_EXTENSION = 'x-oa-sdk-persona-traits'
 const DPM_PROJECTION_EXTENSION = 'x-oa-sdk-dpm-projection'
+const CRDT_EXTENSION = 'x-oa-sdk-crdt'
+const CRDT_ENTITY_EXTENSION = 'x-oa-sdk-crdt-entity'
 
 const STATUS_CODE = /^(?:[1-5][0-9]{2}|default)$/
 const COMPONENT_NAME = /^[A-Za-z][A-Za-z0-9._-]*$/
@@ -64,6 +66,44 @@ export const VALID_DPM_ROLES: ReadonlySet<string> = new Set([
   'business_metric',
   'unstructured_text',
   'code_lookup',
+])
+
+// ── CRDT Semantic Types, Resolutions & Engines ──────────────────────────────
+export const VALID_CRDT_TYPES: ReadonlySet<string> = new Set([
+  'lww-register',
+  'pn-counter',
+  'or-set',
+  'text-sequence',
+  'flag',
+])
+
+export const VALID_CRDT_RESOLUTIONS: ReadonlySet<string> = new Set([
+  'last-write-wins',
+  'vector-clock',
+  'multi-value',
+  'timestamp-desc',
+  'timestamp-asc',
+])
+
+export const VALID_CRDT_ENGINES: ReadonlySet<string> = new Set([
+  'fugue',
+  'yata',
+  'y-text',
+  'automerge',
+  'lww',
+])
+
+export const VALID_CRDT_ROLES: ReadonlySet<string> = new Set([
+  'tombstone',
+  'actor',
+  'timestamp',
+  'value',
+])
+
+export const VALID_CRDT_COMPACTIONS: ReadonlySet<string> = new Set([
+  'checkpoint-squash',
+  'none',
+  'tombstone-gc',
 ])
 
 type ResponseReference = { statusCode: string; ref: string }
@@ -233,3 +273,133 @@ export function $pseudonymize(
 
   setExtension(context.program, target, DPM_PROJECTION_EXTENSION, payload)
 }
+
+/**
+ * Declares CRDT semantics and conflict resolution strategy for a model property.
+ * Emits the `x-oa-sdk-crdt` OpenAPI extension payload.
+ */
+export function $crdt(
+  context: DecoratorContext,
+  target: ModelProperty,
+  options: Record<string, unknown>,
+): void {
+  if (typeof options !== 'object' || options === null) {
+    reportDiagnostic(context.program, {
+      code: 'invalid-crdt-rule',
+      target: context.getArgumentTarget(0) ?? target,
+      format: {
+        message: 'Options object required for @crdt decorator.',
+      },
+    })
+    return
+  }
+
+  const { type, resolution, engine, role } = options as {
+    type?: unknown
+    resolution?: unknown
+    engine?: unknown
+    role?: unknown
+  }
+
+  if (typeof type !== 'string' || !VALID_CRDT_TYPES.has(type)) {
+    reportDiagnostic(context.program, {
+      code: 'invalid-crdt-rule',
+      target: context.getArgumentTarget(0) ?? target,
+      format: {
+        message: `Invalid CRDT type "${String(type)}". Expected one of: ${[...VALID_CRDT_TYPES].join(', ')}.`,
+      },
+    })
+    return
+  }
+
+  if (resolution !== undefined && (typeof resolution !== 'string' || !VALID_CRDT_RESOLUTIONS.has(resolution))) {
+    reportDiagnostic(context.program, {
+      code: 'invalid-crdt-rule',
+      target: context.getArgumentTarget(0) ?? target,
+      format: {
+        message: `Invalid CRDT resolution "${String(resolution)}". Expected one of: ${[...VALID_CRDT_RESOLUTIONS].join(', ')}.`,
+      },
+    })
+    return
+  }
+
+  if (engine !== undefined && (typeof engine !== 'string' || !VALID_CRDT_ENGINES.has(engine))) {
+    reportDiagnostic(context.program, {
+      code: 'invalid-crdt-rule',
+      target: context.getArgumentTarget(0) ?? target,
+      format: {
+        message: `Invalid CRDT engine "${String(engine)}". Expected one of: ${[...VALID_CRDT_ENGINES].join(', ')}.`,
+      },
+    })
+    return
+  }
+
+  if (role !== undefined && (typeof role !== 'string' || !VALID_CRDT_ROLES.has(role))) {
+    reportDiagnostic(context.program, {
+      code: 'invalid-crdt-rule',
+      target: context.getArgumentTarget(0) ?? target,
+      format: {
+        message: `Invalid CRDT role "${String(role)}". Expected one of: ${[...VALID_CRDT_ROLES].join(', ')}.`,
+      },
+    })
+    return
+  }
+
+  const payload: Record<string, unknown> = {
+    type,
+    ...(resolution !== undefined ? { resolution } : {}),
+    ...(engine !== undefined ? { engine } : {}),
+    ...(role !== undefined ? { role } : {}),
+  }
+
+  setExtension(context.program, target, CRDT_EXTENSION, payload)
+}
+
+/**
+ * Declares CRDT partitioning, sharding, and compaction lifecycle for a model.
+ * Emits the `x-oa-sdk-crdt-entity` OpenAPI extension payload.
+ */
+export function $crdtEntity(
+  context: DecoratorContext,
+  target: Model,
+  options: Record<string, unknown>,
+): void {
+  if (typeof options !== 'object' || options === null) {
+    reportDiagnostic(context.program, {
+      code: 'invalid-crdt-entity-rule',
+      target: context.getArgumentTarget(0) ?? target,
+      format: {
+        message: 'Options object required for @crdtEntity decorator.',
+      },
+    })
+    return
+  }
+
+  const { partitionKey, timeRange, compaction, strategy } = options as {
+    partitionKey?: unknown
+    timeRange?: unknown
+    compaction?: unknown
+    strategy?: unknown
+  }
+
+  if (compaction !== undefined && (typeof compaction !== 'string' || !VALID_CRDT_COMPACTIONS.has(compaction))) {
+    reportDiagnostic(context.program, {
+      code: 'invalid-crdt-entity-rule',
+      target: context.getArgumentTarget(0) ?? target,
+      format: {
+        message: `Invalid CRDT compaction "${String(compaction)}". Expected one of: ${[...VALID_CRDT_COMPACTIONS].join(', ')}.`,
+      },
+    })
+    return
+  }
+
+  const payload: Record<string, unknown> = {
+    ...(partitionKey !== undefined ? { partitionKey } : {}),
+    ...(timeRange !== undefined ? { timeRange } : {}),
+    ...(compaction !== undefined ? { compaction } : {}),
+    ...(strategy !== undefined ? { strategy } : {}),
+  }
+
+  setExtension(context.program, target, CRDT_ENTITY_EXTENSION, payload)
+}
+

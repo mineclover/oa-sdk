@@ -129,5 +129,83 @@ options:
     expect(emitted).toContain('role: direct_identifier')
     expect(emitted).toContain('pii: true')
   }, 20_000)
+
+  it('emits crdt and crdtEntity extensions through actual TypeSpec compiler', () => {
+    const directory = mkdtempSync(join(tmpdir(), 'oa-sdk-typespec-decorator-fixture-'))
+    tmpDirs.push(directory)
+    const nodeModules = join(directory, 'node_modules')
+    mkdirSync(join(nodeModules, '@oa-sdk'), { recursive: true })
+    symlinkSync(join(workspaceRoot, 'node_modules', '@typespec'), join(nodeModules, '@typespec'), 'dir')
+    symlinkSync(join(workspaceRoot, 'packages', 'typespec-decorators'), join(nodeModules, '@oa-sdk', 'typespec-decorators'), 'dir')
+    writeFileSync(join(directory, 'main.tsp'), `
+import "@typespec/http";
+import "@typespec/openapi";
+import "@oa-sdk/typespec-decorators";
+
+using Http;
+using OpenAPI;
+using OaSdkTypeSpec;
+
+@service(#{ title: "CRDT Fixture" })
+namespace Fixture;
+
+@crdtEntity(#{
+  partitionKey: "trackId",
+  compaction: "checkpoint-squash"
+})
+model TimelineCue {
+  id: string;
+  trackId: string;
+
+  @crdt(#{
+    type: "lww-register",
+    resolution: "last-write-wins",
+    role: "value"
+  })
+  text: string;
+
+  @crdt(#{
+    type: "flag",
+    role: "tombstone"
+  })
+  deleted?: boolean;
+}
+
+@route("/cues")
+op getCues(): TimelineCue[];
+`)
+    writeFileSync(join(directory, 'tspconfig.yaml'), `
+kind: project
+entrypoint: main.tsp
+emit:
+  - "@typespec/openapi3"
+options:
+  "@typespec/openapi3":
+    openapi-versions:
+      - 3.2.0
+`)
+
+    try {
+      execFileSync(
+        join(workspaceRoot, 'node_modules', '.bin', 'tsp'),
+        ['compile', directory, '--output-dir', join(directory, 'output')],
+        { cwd: directory, encoding: 'utf8' },
+      )
+    } catch (error) {
+      const failure = error as { stderr?: string; stdout?: string; message: string }
+      throw new Error(`${failure.message}\n${failure.stdout ?? ''}${failure.stderr ?? ''}`)
+    }
+
+    const emittedPath = join(directory, 'output', '@typespec', 'openapi3', 'openapi.yaml')
+    expect(existsSync(emittedPath)).toBe(true)
+    const emitted = readFileSync(emittedPath, 'utf8')
+    expect(emitted).toContain('x-oa-sdk-crdt-entity:')
+    expect(emitted).toContain('partitionKey: trackId')
+    expect(emitted).toContain('compaction: checkpoint-squash')
+    expect(emitted).toContain('x-oa-sdk-crdt:')
+    expect(emitted).toContain('type: lww-register')
+    expect(emitted).toContain('resolution: last-write-wins')
+    expect(emitted).toContain('role: tombstone')
+  }, 20_000)
 })
 
