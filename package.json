@@ -5,7 +5,7 @@
   "type": "module",
   "description": "OpenAPI 3.2 management monorepo — modular schemas, codegen bridge, mock server",
   "engines": {
-    "node": ">=24.0.0",
+    "node": ">=24.0.0 || >=26.0.0",
     "pnpm": ">=9.0.0"
   },
   "packageManager": "pnpm@10.30.3",
@@ -58,6 +58,7 @@
     "schema:typespec-check": "corepack pnpm --filter @oa-sdk/typespec-decorators build && node --import tsx scripts/schema-typespec-check.ts",
     "schema:typespec-provenance-check": "corepack pnpm --filter @oa-sdk/typespec-decorators build && node --import tsx scripts/check-typespec-provenance.ts",
     "schema:check-contract-version": "node --import tsx scripts/check-contract-version.ts",
+    "schema:pipeline": "node --import tsx scripts/schema-transparency-check.ts",
     "schema:approve-typespec-reference": "corepack pnpm --filter @oa-sdk/typespec-decorators build && node --import tsx scripts/schema-approve-typespec-reference.ts",
     "schema:rollback-check": "node --import tsx scripts/schema-rollback-check.ts",
     "test:schema-rollback-check": "node --import tsx scripts/test-schema-rollback-check.ts",

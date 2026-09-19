@@ -36,12 +36,32 @@ export interface HandlerContractOptions {
 }
 
 /**
+ * Streaming body types supported across Node and Web runtimes.
+ */
+export type StreamingBody =
+  | AsyncIterable<Uint8Array | string>
+  | ReadableStream<Uint8Array>
+  | NodeJS.ReadableStream
+  | Uint8Array
+
+/**
+ * First-class streaming response envelope.
+ */
+export interface StreamingResponse<THeaders = Record<string, string>> {
+  status?: 200 | 206 | undefined
+  body: StreamingBody
+  headers?: THeaders | undefined
+}
+
+/**
  * Polymorphic response envelope for operation handlers.
- * Supports raw success bodies, status 200 envelopes, and typed error envelopes.
+ * Supports raw success bodies, status 200 envelopes, status 206 streaming envelopes, and typed error envelopes.
  */
 export type HandlerResponse<TSuccess = unknown, TErrorMap = Record<number, unknown>, THeaders = Record<string, string>> =
   | TSuccess
   | { status: 200; body: TSuccess; headers?: THeaders }
+  | { status: 206; body: StreamingBody | TSuccess; headers?: THeaders }
+  | StreamingResponse<THeaders>
   | { [K in keyof TErrorMap]: { status: K; body: TErrorMap[K]; headers?: Record<string, string> } }[keyof TErrorMap]
 
 
@@ -128,7 +148,21 @@ export function generateHandlerContractFromParsed(
   lines.push(`export type HandlerResponse<TSuccess = unknown, TErrorMap = Record<number, unknown>, THeaders = Record<string, string>> =`)
   lines.push(`  | TSuccess`)
   lines.push(`  | { status: 200; body: TSuccess; headers?: THeaders }`)
+  lines.push(`  | { status: 206; body: StreamingBody | TSuccess; headers?: THeaders }`)
+  lines.push(`  | StreamingResponse<THeaders>`)
   lines.push(`  | { [K in keyof TErrorMap]: { status: K; body: TErrorMap[K]; headers?: Record<string, string> } }[keyof TErrorMap]`)
+  lines.push('')
+  lines.push(`export type StreamingBody =`)
+  lines.push(`  | AsyncIterable<Uint8Array | string>`)
+  lines.push(`  | ReadableStream<Uint8Array>`)
+  lines.push(`  | Uint8Array`)
+  lines.push(`  | { pipe(destination: any): any }`)
+  lines.push('')
+  lines.push(`export interface StreamingResponse<THeaders = Record<string, string>> {`)
+  lines.push(`  status?: 200 | 206 | undefined`)
+  lines.push(`  body: StreamingBody`)
+  lines.push(`  headers?: THeaders | undefined`)
+  lines.push(`}`)
   lines.push('')
 
   const defaultContextGeneric = contextTypeName

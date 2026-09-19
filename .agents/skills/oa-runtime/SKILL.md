@@ -267,22 +267,41 @@ When codegen tools emit monolithic router files combining routing plumbing with 
 #### The Decoupled Contract Solution
 `generateHandlerContract` emits a pure TypeScript definition file (`routes.contract.ts`):
 1. **Pure Data Contexts**: Each operation receives a `<BaseName>Context` containing only typed data (`params`, `query`, `querystring`, `headers`, `body`). Zero HTTP framework objects (`Request`, `Response`, `Context`) leak into the contract.
-2. **Polymorphic Multi-Status Error Union (`HandlerResponse`)**:
+2. **Polymorphic Multi-Status Error Union (`HandlerResponse`) & Streaming Contract**:
    ```typescript
+   export type StreamingBody =
+     | AsyncIterable<Uint8Array | string>
+     | ReadableStream<Uint8Array | string>
+     | NodeJS.ReadableStream
+     | { pipe(destination: any): any }
+     | Uint8Array
+
+   export interface StreamingResponse<THeaders = Record<string, string>> {
+     status?: 200 | 206 | undefined
+     headers?: THeaders
+     body: StreamingBody
+   }
+
    export type HandlerResponse<TSuccess = unknown, TErrorMap = Record<number, unknown>, THeaders = Record<string, string>> =
      | TSuccess
      | { status: 200; body: TSuccess; headers?: THeaders }
+     | StreamingResponse<THeaders>
      | { [K in keyof TErrorMap]: { status: K; body: TErrorMap[K]; headers?: Record<string, string> } }[keyof TErrorMap]
    ```
-   Handlers can return raw success data bodies, HTTP 200 envelopes, or typed error envelopes (e.g. `{ status: 404, body: NotFoundError }`) with 100% compile-time type safety and zero `as any` casting.
-3. **Aggregate `ApiHandlers` Interface**: Maps every operation ID to its corresponding handler signature:
+   Handlers can return raw success data bodies, HTTP 200 envelopes, real-time chunk streams (`StreamingResponse`), HTTP 206 Partial Content range responses, or typed error envelopes (e.g. `{ status: 404, body: NotFoundError }`) with 100% compile-time type safety and zero `as any` casting.
+3. **Framework Streaming Translation**:
+   - **Hono**: Inspects response body and delegates `AsyncIterable`, `ReadableStream`, or `Uint8Array` to `c.body(...)` instead of JSON serialization.
+   - **Express**: Streams chunk iterables via `res.write()` or pipes stream objects cleanly.
+   - **Fastify & Elysia**: Directly passes through readable streams and Uint8Array buffers.
+4. **Aggregate `ApiHandlers` Interface**: Maps every operation ID to its corresponding handler signature:
    ```typescript
    export interface ApiHandlers {
      listUsers(ctx: ListUsersContext): Promise<HandlerResponse<ListUsersResponse>> | HandlerResponse<ListUsersResponse>
      getUser(ctx: GetUserContext): Promise<HandlerResponse<GetUserResponse>> | HandlerResponse<GetUserResponse>
+     streamEvents(ctx: StreamEventsContext): Promise<HandlerResponse<StreamingResponse>> | HandlerResponse<StreamingResponse>
    }
    ```
-4. **Zero Framework Dependencies**: `@oa-sdk/router` has **zero runtime dependencies** (`dependencies: {}` in `package.json`). All emitted router binders and handler contracts are pure TypeScript without framework lock-in. Developers implement `ApiHandlers` in their own service classes, safely isolated from codegen file re-emissions.
+5. **Zero Framework Dependencies**: `@oa-sdk/router` has **zero runtime dependencies** (`dependencies: {}` in `package.json`). All emitted router binders and handler contracts are pure TypeScript without framework lock-in. Developers implement `ApiHandlers` in their own service classes, safely isolated from codegen file re-emissions.
 
 ### 1.7 Response Envelope Collision Defense Heuristic
 
@@ -609,7 +628,20 @@ For fast local developer feedback loops, `oa-gen mock` provides instant HTTP moc
    - Monitored by `spec-watcher.ts` with 100ms debouncing.
    - On file change, re-parses the document and invokes `@oa-sdk/mock-server`'s atomic `server.updateSpec(newDoc)` method.
    - The internal routing radix trie is hot-swapped atomically without dropping active client connections, TCP sockets, or restarting the Node HTTP process.
-4. **Error Shielding**: If a developer saves a file with invalid YAML indentation or syntax errors, the watcher catches the error, logs a diagnostic to stderr, and keeps existing valid routes active on port 4010.
+### 3.7 Network Chaos Engine (Latency, Jitter, Packet Loss, Bandwidth Throttling)
+
+`createNodeMockServer` and the `oa-mock` CLI provide host-level network chaos injection for testing client resilience against hostile and degraded network conditions:
+
+1. **Latency & Jitter Injection (`ttfbMs`, `jitterMs`)**:
+   - Injects a delay before transmitting HTTP response headers: `delay = Math.max(0, ttfbMs + (Math.random() * 2 - 1) * jitterMs)`.
+   - Safely guards against connection aborts during sleep (`if (req.destroyed || res.destroyed) return`).
+2. **Packet Loss Simulation (`packetLoss`, `lossMode`)**:
+   - `lossMode: 'drop'`: Forcibly destroys the socket connection (`res.destroy()`), triggering connection reset errors on clients.
+   - `lossMode: 'status'`: Returns HTTP 503 Service Unavailable (`{"error":{"code":"SERVICE_UNAVAILABLE"}}`).
+3. **Bandwidth Throttling (`throttleBytesPerSec`)**:
+   - Paces data transmission by chunking payloads into 16B - 16KB slices and delaying between writes: `delayMs = (slice.length / throttleBytesPerSec) * 1000`.
+   - Applies equally to precomputed fast-path responses, dynamically serialized JSON/text bodies, and live SSE/NDJSON streams.
+4. **CLI Flags**: `--throttle <rate>`, `--ttfb <ms>`, `--jitter <ms>`, `--packet-loss <rate>`, and `--loss-mode <drop|status>` with automatic unit parsing (`mbps`, `kbps`, `bps`, `%`).
 
 ---
 

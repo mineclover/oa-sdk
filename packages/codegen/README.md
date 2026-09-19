@@ -86,3 +86,23 @@ Audit TypeScript source files against the 24-feature syntax taxonomy to determin
 pnpm exec oa-gen audit:shape --source src/models/types.ts
 ```
 
+## Standalone Type Guard Generation (AOT Fast-Path & Polymorphic Dispatch)
+
+Generate self-contained, zero-dependency validation functions with CSP compliance (zero `eval`, zero `new Function`), \(O(1)\) tiered fast-path short-circuiting, and polymorphic `oneOf` hash table dispatch:
+
+```typescript
+import { generateStandaloneGuards } from '@oa-sdk/codegen';
+
+const artifacts = await generateStandaloneGuards({
+  schemaDocument: openApiDoc,
+  outDir: './src/guards',
+  tiered: true,               // Inlines O(1) is<Name>Fast() checks
+  polymorphicDispatch: true,  // Emits O(1) hash map dispatch for discriminated unions
+  guards: [
+    { name: 'isActionPayload', schema: '#/$defs/ActionPayload', typeName: 'ActionPayload' },
+    { name: 'isTimeSeriesPayload', schema: '#/$defs/TimeSeriesPayload', typeName: 'TimeSeriesPayload' },
+    { name: 'isStreamItem', schema: '#/$defs/StreamItem', typeName: 'StreamItem' },
+  ],
+});
+```
+

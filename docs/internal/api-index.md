@@ -829,6 +829,8 @@ Typegen 공개 surface는 root entry(`@oa-sdk/codegen`)와 typegen sub-entry(`@o
 | `ZodTypeAdapter` | `ast-sync/adapters/zod-adapter.ts` | Zod 스키마 양방향 AST 어댑터 |
 | `TsAstTypeAdapter` | `ast-sync/adapters/ts-ast-adapter.ts` | TypeScript 인터페이스/타입 양방향 AST 어댑터 |
 | `TypiaTypeAdapter` | `ast-sync/adapters/typia-adapter.ts` | Typia 검증 태그 양방향 AST 어댑터 |
+| `executeSchemaPipeline()` | `schema-pipeline/pipeline.ts` | 4단계 스키마 투명성 파이프라인 통합 실행 및 매니페스트 생성 |
+| `formatTransparencyTable()` | `schema-pipeline/pipeline.ts` | 4단계 스키마 투명성 파이프라인 ASCII 감사 보고서 포맷터 |
 | `createZod4Algebra()` | `zodgen/schema-to-zod.ts` | OpenAPI 3.2 Schema Object를 Zod 4 코드로 변환하는 catamorphic fold 대수 |
 | `generateZodFromSpec()` | `zodgen/generate-zod.ts` | OpenAPI 3.2 스펙의 컴포넌트 스키마를 Zod 4 정의 및 타입 추론 코드로 생성 |
 | `ZodGenerationPreflightError` | `zodgen/generate-zod.ts` | Zod 4 코드 생성 전 사전 검증(preflight validation) 실패 시 진단 정보와 함께 throw되는 에러 클래스 |
@@ -948,6 +950,12 @@ Typegen 공개 surface는 root entry(`@oa-sdk/codegen`)와 typegen sub-entry(`@o
 | `GeneratedGuardArtifact` | `standalone-guards/index.ts` | 생성된 독립형 타입 가드 아티팩트 (targetName, source, outputPath) |
 | `StandaloneGuardGeneratorOptions` | `standalone-guards/index.ts` | 독립형 타입 가드 생성 옵션 |
 | `StandaloneGuardTarget` | `standalone-guards/index.ts` | 독립형 타입 가드 대상 스펙 및 출력 경로 설정 |
+| `SchemaPipelineRunOptions` | `schema-pipeline/types.ts` | 4-Stage Transparent Schema Lifecycle Pipeline 실행 옵션 |
+| `SchemaPipelineTransparencyManifest` | `schema-pipeline/types.ts` | 4-Stage Transparent Schema Lifecycle Pipeline 실행 결과 매니페스트 |
+| `SchemaStage1ZodInfo` | `schema-pipeline/types.ts` | 4-Stage Pipeline Stage 1 (Zod Master Schema) 정보 |
+| `SchemaStage2JsonSchemaInfo` | `schema-pipeline/types.ts` | 4-Stage Pipeline Stage 2 (JSON Schema Draft 2020-12) 정보 |
+| `SchemaStage3OpenApiInfo` | `schema-pipeline/types.ts` | 4-Stage Pipeline Stage 3 (OpenAPI 3.1) 정보 |
+| `SchemaStage4GuardInfo` | `schema-pipeline/types.ts` | 4-Stage Pipeline Stage 4 (AJV Standalone Type Guards) 정보 |
 | `DrizzleCodegenOptions` | `drizzle/index.ts` | `OutputOptions & { schemaPath, ... }` |
 | `OasSchema` | **`@oa-sdk/parser` re-export** | codegen이 parser 정식 타입 사용 |
 | `TypegenOptions` | `typegen/generate-types.ts` | public typegen 옵션. `@oa-sdk/codegen`과 `@oa-sdk/codegen/typegen`에서 모두 export |
@@ -1242,6 +1250,14 @@ Governance manifest: `packages/codegen/src/cli/spec/oa-gen-governance.ts` 및 `d
 | `RouterOptions` | `generate-router.ts` | 라우터 생성 옵션 타입 (RouterRenderOptions 확장, basePath 지원) |
 | `RouterRenderOptions` | `generate-router.ts` | 플랫폼 중립 라우터 렌더러 옵션 인터페이스 (target, mode, typesImport, contractImport, contractName, banner) |
 | `HandlerContractOptions` | `generate-router.ts` | 순수 핸들러 계약 생성 옵션 인터페이스 (typesImport, banner, contractName) |
+| `generateCrdtRouter()` | `targets/crdt-router.ts` | CRDT 실시간 동기화 라우터 코드 생성 |
+| `generateCrdtHandlerContract()` | `targets/crdt-router.ts` | CRDT 핸들러 계약 코드 생성 |
+| `extractCrdtEntities()` | `targets/crdt-router.ts` | OAS 스키마에서 CRDT 엔터티 메타데이터 추출 |
+| `CrdtRouterOptions` | `targets/crdt-router.ts` | CRDT 라우터 생성 옵션 인터페이스 |
+| `CrdtContractOptions` | `targets/crdt-router.ts` | CRDT 핸들러 계약 생성 옵션 인터페이스 |
+| `CrdtRouterTarget` | `targets/crdt-router.ts` | CRDT 라우터 대상 프레임워크 union 타입 |
+| `CrdtEntityMeta` | `targets/crdt-router.ts` | CRDT 엔터티 메타데이터 인터페이스 |
+| `CrdtFieldMeta` | `targets/crdt-router.ts` | CRDT 필드 메타데이터 인터페이스 |
 
 ---
 
@@ -1265,6 +1281,23 @@ Governance manifest: `packages/codegen/src/cli/spec/oa-gen-governance.ts` 및 `d
 | `HookFactoryOptions` | `tanstack/hook-factory-generator.ts` | 훅 팩토리 생성 옵션 인터페이스 |
 | `JsonPrimitive<T>` | `wire-format.ts` | 유선 직렬화 응답 페이로드 재귀 유틸리티 타입 |
 | `Resolved<T>` | `wire-format.ts` | 유선 직렬화 요청 바디 재귀 유틸리티 타입 |
+| `generateCrdtClient()` | `crdt/generate-crdt-client.ts` | CRDT 클라이언트 SDK 코드 생성 |
+| `generateCrdtClientFromParsed()` | `crdt/generate-crdt-client.ts` | 파싱된 엔터티 기반 CRDT 클라이언트 SDK 코드 생성 |
+| `generateCrdtHooks()` | `crdt/generate-crdt-hooks.ts` | CRDT React Hooks 코드 생성 |
+| `generateCrdtHooksFromParsed()` | `crdt/generate-crdt-hooks.ts` | 파싱된 엔터티 기반 CRDT React Hooks 코드 생성 |
+| `extractCrdtEntitiesFromDoc()` | `crdt/crdt-metadata.ts` | OpenAPI 스펙에서 CRDT 엔터티 메타데이터 추출 |
+| `CrdtClientRenderOptions` | `crdt/types.ts` | CRDT 클라이언트 렌더링 옵션 인터페이스 |
+| `CrdtHooksRenderOptions` | `crdt/types.ts` | CRDT 훅 렌더링 옵션 인터페이스 |
+| `CrdtConnectionStatus` | `crdt/types.ts` | CRDT 웹소켓 연결 상태 타입 |
+| `CrdtEngineAdapter` | `crdt/types.ts` | CRDT 엔진 어댑터 인터페이스 |
+| `CrdtEntityMeta` | `crdt/types.ts` | CRDT 엔터티 메타데이터 인터페이스 |
+| `CrdtFieldMeta` | `crdt/types.ts` | CRDT 필드 메타데이터 인터페이스 |
+| `CrdtWireMessage` | `crdt/types.ts` | CRDT 유선 메시지 인터페이스 |
+| `CrdtWireMessageType` | `crdt/types.ts` | CRDT 유선 메시지 타입 열거형 |
+| `LwwEntry` | `crdt/types.ts` | LWW 레지스터 엔트리 인터페이스 |
+| `LwwJsonAdapter` | `crdt/types.ts` | LWW JSON 어댑터 인터페이스 |
+| `LwwStateVector` | `crdt/types.ts` | LWW 상태 벡터 타입 |
+| `LwwUpdatePayload` | `crdt/types.ts` | LWW 업데이트 페이로드 타입 |
 
 ---
 

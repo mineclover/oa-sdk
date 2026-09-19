@@ -12,6 +12,8 @@ V3 Unified Architecture: Zero-loss bidirectional TypeScript AST synchronization,
   - `unsupported`: Complex dynamic constructs (conditional types, mapped types, indexed access).
 - **Checker-Resolved Symbol Cycle Detection**: Graph DFS cycle detector using canonical TypeScript TypeChecker symbol IDs (`symbol.id`), resolving through aliased imports and multi-file re-export chains.
 - **Standalone Pre-compiled Type Guards**: Generates self-contained, zero-dependency validation functions using AJV standalone code generation, fully conforming to strict CSP (zero `eval`, zero `new Function`).
+- **Tiered AOT Fast-Path Guards**: Inlines zero-overhead \(O(1)\) structural checks (`is<Name>Fast`) for high-frequency loops (e.g. 60fps/120fps UI streams or network packet loops), short-circuiting before deep Ajv validation.
+- **Polymorphic `oneOf` O(1) Dispatcher**: Resolves `discriminator.propertyName` into compile-time hash tables (`__dispatch_is<Name>`) for \(O(1)\) branch lookup instead of sequential array scans.
 
 ## Install
 
@@ -37,6 +39,29 @@ if (cycleResult.hasCycles) {
   console.warn('Cycles detected:', cycleResult.cycles)
 }
 ```
+
+## Standalone Guard Generation with Tiered Fast-Path & Polymorphic Dispatch
+
+```typescript
+import { generateStandaloneGuards } from '@oa-sdk/ast-sync/guards'
+
+const artifacts = await generateStandaloneGuards({
+  schemaDocument: openApiDoc,
+  outDir: './src/guards',
+  tiered: true,               // Generates is<Name>Fast(data) and tiered wrappers
+  polymorphicDispatch: true,  // Generates O(1) discriminator dispatch tables
+  guards: [
+    { name: 'isActionPayload', schema: '#/$defs/ActionPayload', typeName: 'ActionPayload' },
+    { name: 'isTimeSeriesPayload', schema: '#/$defs/TimeSeriesPayload', typeName: 'TimeSeriesPayload' },
+    { name: 'isStreamItem', schema: '#/$defs/StreamItem', typeName: 'StreamItem' },
+  ],
+})
+```
+
+Generated code exports:
+1. `isActionPayloadFast(data: unknown): boolean` — High-speed inline \(O(1)\) check.
+2. `isActionPayload(data: unknown): data is ActionPayload` — Tiered composite guard with full Draft 2020-12 accuracy.
+3. `const __dispatch_isStreamItem = { "ui-action@v1": isActionPayload, "time-series@v1": isTimeSeriesPayload }` — Instant \(O(1)\) discriminator routing.
 
 ## CLI Audit
 

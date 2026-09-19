@@ -4,10 +4,11 @@ import { computeEntitySpecDiff } from './diff-engine.js';
 import { ZodTypeAdapter } from './adapters/zod.js';
 import { TsAstTypeAdapter } from './adapters/ts-ast.js';
 import { TypiaTypeAdapter } from './adapters/typia.js';
+import { JsonSchemaTypeAdapter } from './adapters/json-schema.js';
 
 export interface SyncOptions {
   /**
-   * Type adapter to use (by name e.g. 'zod', 'ts-ast', 'typia' or direct TypeAdapter instance).
+   * Type adapter to use (by name e.g. 'zod', 'ts-ast', 'typia', 'json-schema' or direct TypeAdapter instance).
    * If omitted, adapter is automatically detected from existingCode.
    */
   adapter?: string | TypeAdapter;
@@ -39,6 +40,9 @@ function resolveAdapter(existingCode: string, optionAdapter?: string | TypeAdapt
     if (key.startsWith('zod')) {
       return new ZodTypeAdapter();
     }
+    if (key.includes('json-schema') || key.includes('2020-12') || key === 'jsonschema') {
+      return new JsonSchemaTypeAdapter();
+    }
     if (key === 'typia' || key === 'typescript-jsdoc' || key.startsWith('typia')) {
       return new TypiaTypeAdapter();
     }
@@ -50,6 +54,16 @@ function resolveAdapter(existingCode: string, optionAdapter?: string | TypeAdapt
   // Auto-detection from code content
   if (existingCode.includes('z.object') || /from\s+['"]zod['"]/.test(existingCode)) {
     return new ZodTypeAdapter();
+  }
+
+  if (
+    existingCode.trim().startsWith('{') &&
+    (existingCode.includes('"$schema"') ||
+      existingCode.includes('"type"') ||
+      existingCode.includes('"properties"') ||
+      existingCode.includes('draft/2020-12'))
+  ) {
+    return new JsonSchemaTypeAdapter();
   }
 
   if (

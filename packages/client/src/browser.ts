@@ -16,4 +16,28 @@ export function generateClient(spec: OasDocument | ParsedDocument, options: Brow
   return generateClientFromParsed(doc, options)
 }
 
+export {
+  generateCrdtClient,
+  generateCrdtClientFromParsed,
+  generateCrdtHooks,
+  generateCrdtHooksFromParsed,
+  extractCrdtEntitiesFromDoc,
+  LwwJsonAdapter,
+} from './crdt/index.js'
+
+export type {
+  CrdtWireMessageType,
+  CrdtWireMessage,
+  CrdtConnectionStatus,
+  CrdtEngineAdapter,
+  CrdtClientRenderOptions,
+  CrdtHooksRenderOptions,
+  CrdtEntityMeta,
+  CrdtFieldMeta,
+  LwwEntry,
+  LwwStateVector,
+  LwwUpdatePayload,
+} from './crdt/index.js'
+
 export type { JsonPrimitive, Resolved } from '@oa-sdk/core/browser'
+

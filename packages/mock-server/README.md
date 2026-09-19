@@ -132,13 +132,56 @@ node packages/mock-server/dist/cli/index.js --spec path/to/openapi.json --port 4
 
 The CLI parses JSON and YAML, validates the document before binding a port, and exits with a non-zero status when loading or validation fails. It never selects a bundled or workspace schema implicitly.
 
-| Flag | Requirement | Default |
-|------|-------------|---------|
-| `--spec`, `-s` | Required JSON/YAML path | None |
-| `--port`, `-p` | Integer from `0` through `65535` | `4010` |
-| `--help`, `-h` | Optional | — |
+| Flag | Requirement | Default | Description |
+|------|-------------|---------|-------------|
+| `--spec`, `-s` | Required JSON/YAML path | None | OpenAPI specification file |
+| `--port`, `-p` | Integer from `0` through `65535` | `4010` | Server listen port |
+| `--throttle` | Optional rate (e.g. `500kbps`, `1mbps`, `50000`) | None | Transfer bandwidth throttle in bytes/sec |
+| `--ttfb` | Integer milliseconds (>= 0) | `0` | Time to first byte latency delay |
+| `--jitter` | Integer milliseconds (>= 0) | `0` | Random jitter (+/- ms) added to TTFB |
+| `--packet-loss` | Percentage or rate (e.g. `5%` or `0.05`) | `0` | Probability of simulated packet drop |
+| `--loss-mode` | `'drop'` or `'status'` | `'drop'` | Packet loss action: socket drop vs HTTP 503 |
+| `--help`, `-h` | Optional | — | Show usage help |
 
 Press `Ctrl+C` to stop. The server logs its URL and the resolved spec path on startup.
+
+## Network Chaos Engine
+
+`createNodeMockServer` and the `oa-mock` CLI include a built-in network chaos injection engine to test client resiliency under hostile network conditions (high latency, jitter, packet loss, and throttled bandwidth).
+
+### Programmatic Usage
+
+```typescript
+import { createNodeMockServer } from '@oa-sdk/mock-server'
+
+const server = createNodeMockServer(spec, {
+  port: 0,
+  chaos: {
+    ttfbMs: 150,                // 150ms simulated latency
+    jitterMs: 30,               // +/- 30ms jitter (120ms - 180ms total)
+    packetLoss: 0.05,           // 5% packet loss
+    lossMode: 'status',         // Return HTTP 503 (or 'drop' to forcibly close socket)
+    throttleBytesPerSec: 62500, // 500kbps bandwidth throttling
+  },
+})
+
+await server.start()
+```
+
+### CLI Usage
+
+```bash
+node packages/mock-server/dist/cli/index.js \
+  --spec openapi.yaml \
+  --port 4010 \
+  --throttle 500kbps \
+  --ttfb 100 \
+  --jitter 25 \
+  --packet-loss 5% \
+  --loss-mode drop
+```
+
+When bandwidth throttling is enabled, responses are divided into small chunks and paced over time, applying equally to static precomputed bodies, error responses, and live Server-Sent Events / NDJSON streams.
 
 ## Core concepts
 
@@ -339,7 +382,8 @@ Multiple conditions use OR semantics — if any condition matches, the route is 
 | `MswHandlerOptions` | `{ onRequest? }` — hook called on every intercepted request |
 | `createNodeMockServer(spec, options?)` | Create a Node HTTP mock server |
 | `NodeMockServer` | `{ start(), stop(), url }` — server lifecycle interface |
-| `NodeMockServerOptions` | `{ port?, host? }` — defaults to `4010` / `127.0.0.1` |
+| `NodeMockServerOptions` | `{ port?, host?, chaos? }` — defaults to `4010` / `127.0.0.1` |
+| `NetworkChaosOptions` | `{ ttfbMs?, jitterMs?, packetLoss?, lossMode?, throttleBytesPerSec? }` |
 | `RouteFilter` | 라우트 필터 조건 (paths/operations/tags/custom predicate) |
 | `HandlerResult` | `handleRequest` 반환 타입 (`success` \| `validation-error` \| `no-response`) |
 

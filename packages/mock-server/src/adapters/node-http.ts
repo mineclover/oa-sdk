@@ -20,6 +20,19 @@ import { isXmlMediaType } from '../core/xml.js'
 import type { CallbackObserver, CallbackPostAttempt } from '../core/callbacks.js'
 import { pickResponse } from '../core/response-picker.js'
 
+export type NetworkChaosOptions = {
+  /** Time to first byte delay in milliseconds (simulates network latency) */
+  ttfbMs?: number
+  /** Random jitter (+/- ms) added to delay */
+  jitterMs?: number
+  /** Packet drop probability between 0.0 and 1.0 */
+  packetLoss?: number
+  /** Packet loss injection mode: 'drop' forcibly closes socket, 'status' returns HTTP 503 */
+  lossMode?: 'drop' | 'status'
+  /** Maximum bandwidth transfer rate in bytes per second */
+  throttleBytesPerSec?: number
+}
+
 export type NodeMockServerOptions = {
   port?: number
   host?: string
@@ -33,6 +46,8 @@ export type NodeMockServerOptions = {
   validateRequestSchemas?: boolean
   /** 성공 응답 후 simulated outbound callback POST 시도마다 호출되는 관찰 훅 */
   onCallback?: CallbackObserver
+  /** Simulated hostile network chaos injection (latency, jitter, packet loss, bandwidth throttling) */
+  chaos?: NetworkChaosOptions
 }
 
 export type OverrideResponse = {
@@ -107,6 +122,7 @@ export function createNodeMockServer(
     include,
     validateRequestSchemas: shouldValidateRequestSchemas = true,
     onCallback,
+    chaos,
   } = options
 
   function compileRoutingState(
@@ -168,6 +184,25 @@ export function createNodeMockServer(
   const overrides = new Map<string, OverrideResponse>()
 
   const handler = async (req: IncomingMessage, res: ServerResponse): Promise<void> => {
+    // ─── Network Chaos Injection: Packet Loss & Latency ─────────────────────
+    if (chaos?.packetLoss && chaos.packetLoss > 0 && Math.random() < chaos.packetLoss) {
+      if (chaos.lossMode === 'status') {
+        await writeJson(res, 503, { error: { code: 'SERVICE_UNAVAILABLE' } })
+      } else {
+        res.destroy()
+      }
+      return
+    }
+
+    if (chaos?.ttfbMs && chaos.ttfbMs > 0) {
+      const jitter = chaos.jitterMs ? (Math.random() * 2 - 1) * chaos.jitterMs : 0
+      const delay = Math.max(0, Math.round(chaos.ttfbMs + jitter))
+      if (delay > 0) {
+        await new Promise(resolve => setTimeout(resolve, delay))
+      }
+      if (req.destroyed || res.destroyed || res.writableEnded) return
+    }
+
     const currentState = state
     const method = (req.method ?? 'GET').toLowerCase() as HttpMethod
     const rawUrl = req.url ?? '/'
@@ -217,9 +252,9 @@ export function createNodeMockServer(
     const matched: MatchResult = matchRoute(currentState.index, method, urlPath)
 
     if (matched.type === 'not_found') {
-      writeJson(res, 404, {
+      await writeJson(res, 404, {
         error: { code: 'NOT_FOUND', message: `${method.toUpperCase()} ${urlPath} 는 정의되지 않은 경로입니다`, details: [] },
-      })
+      }, chaos?.throttleBytesPerSec)
       return
     }
 
@@ -244,12 +279,14 @@ export function createNodeMockServer(
         res.writeHead(ov.status, { ...ovHeaders, 'Content-Length': '0' })
         res.end()
       } else {
-        writeBody(
+        await writeBody(
           res,
           ov.status,
           ovHeaders['Content-Type'] ?? ovHeaders['content-type'] ?? 'application/json',
           ov.body,
           ovHeaders,
+          undefined,
+          chaos?.throttleBytesPerSec,
         )
       }
       return
@@ -282,9 +319,9 @@ export function createNodeMockServer(
       currentState.parsed.securitySchemes,
     )
 
-    if (hr.type === 'validation-error') { writeJson(res, hr.status, hr.body); return }
-    if (hr.type === 'schema-error') { writeJson(res, hr.status, hr.body); return }
-    if (hr.type === 'no-response') { writeJson(res, hr.status, hr.body); return }
+    if (hr.type === 'validation-error') { await writeJson(res, hr.status, hr.body, chaos?.throttleBytesPerSec); return }
+    if (hr.type === 'schema-error') { await writeJson(res, hr.status, hr.body, chaos?.throttleBytesPerSec); return }
+    if (hr.type === 'no-response') { await writeJson(res, hr.status, hr.body, chaos?.throttleBytesPerSec); return }
     const picked = hr.picked
     await notifyCallbackAttempts(hr.callbacks, onCallback)
 
@@ -297,21 +334,45 @@ export function createNodeMockServer(
         'Connection': 'keep-alive',
       })
       for await (const chunk of generateStreamChunks(picked)) {
-        res.write(chunk)
+        if (res.destroyed || res.writableEnded) break
+        const chunkBuf = Buffer.from(chunk)
+        if (chaos?.throttleBytesPerSec && chaos.throttleBytesPerSec > 0) {
+          const chunkSize = Math.max(16, Math.min(16384, Math.floor(chaos.throttleBytesPerSec / 20) || 16))
+          let offset = 0
+          while (offset < chunkBuf.length) {
+            if (res.destroyed || res.writableEnded) break
+            const end = Math.min(offset + chunkSize, chunkBuf.length)
+            const slice = chunkBuf.subarray(offset, end)
+            res.write(slice)
+            offset = end
+            const delayMs = (slice.length / chaos.throttleBytesPerSec) * 1000
+            if (delayMs > 0) {
+              await new Promise(resolve => setTimeout(resolve, delayMs))
+            }
+          }
+        } else {
+          res.write(chunk)
+        }
       }
-      res.end()
+      if (!res.writableEnded && !res.destroyed) {
+        res.end()
+      }
       return
     }
 
     // Fast path: reuse pre-calculated serialized body and pre-allocated static headers
     const precalc = currentState.precomputed.get(entry)
     if (precalc && picked.status === precalc.status && picked.body === precalc.originalBody) {
-      res.writeHead(precalc.status, precalc.headers)
-      res.end(precalc.payload)
+      if (chaos?.throttleBytesPerSec && chaos.throttleBytesPerSec > 0) {
+        await writeThrottled(res, precalc.status, precalc.headers, precalc.payload, chaos.throttleBytesPerSec)
+      } else {
+        res.writeHead(precalc.status, precalc.headers)
+        res.end(precalc.payload)
+      }
       return
     }
 
-    writeBody(res, picked.status, picked.contentType, picked.body, picked.headers, picked.schema)
+    await writeBody(res, picked.status, picked.contentType, picked.body, picked.headers, picked.schema, chaos?.throttleBytesPerSec)
   }
 
   return {
@@ -378,12 +439,49 @@ export function createNodeMockServer(
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
-function writeJson(res: ServerResponse, status: number, body: unknown): void {
+async function writeThrottled(
+  res: ServerResponse,
+  status: number,
+  headers: Record<string, string | number>,
+  payload: string | Buffer,
+  throttleBytesPerSec: number,
+): Promise<void> {
+  const buf = typeof payload === 'string' ? Buffer.from(payload) : payload
+  res.writeHead(status, headers)
+  if (buf.length === 0) {
+    res.end()
+    return
+  }
+
+  const chunkSize = Math.max(16, Math.min(16384, Math.floor(throttleBytesPerSec / 20) || 16))
+
+  let offset = 0
+  while (offset < buf.length) {
+    if (res.destroyed || res.writableEnded) break
+    const end = Math.min(offset + chunkSize, buf.length)
+    const slice = buf.subarray(offset, end)
+    res.write(slice)
+    offset = end
+    const delayMs = (slice.length / throttleBytesPerSec) * 1000
+    if (delayMs > 0) {
+      await new Promise(resolve => setTimeout(resolve, delayMs))
+    }
+  }
+  if (!res.writableEnded && !res.destroyed) {
+    res.end()
+  }
+}
+
+function writeJson(res: ServerResponse, status: number, body: unknown, throttleBytesPerSec?: number): Promise<void> | void {
   const payload = JSON.stringify(body) ?? ''
-  res.writeHead(status, {
+  const headers = {
     'Content-Type': 'application/json',
     'Content-Length': Buffer.byteLength(payload),
-  })
+  }
+  if (throttleBytesPerSec && throttleBytesPerSec > 0) {
+    return writeThrottled(res, status, headers, payload, throttleBytesPerSec)
+  }
+  res.writeHead(status, headers)
   res.end(payload)
 }
 
@@ -394,14 +492,18 @@ function writeBody(
   body: unknown,
   extraHeaders: Record<string, string> = {},
   schema?: OasSchema,
-): void {
+  throttleBytesPerSec?: number,
+): Promise<void> | void {
   const payload = serializeResponseBody(contentType, body, schema)
   const byteLength = Buffer.byteLength(payload)
-  if (Object.keys(extraHeaders).length === 0) {
-    res.writeHead(status, { 'Content-Type': contentType, 'Content-Length': byteLength })
-  } else {
-    res.writeHead(status, { ...extraHeaders, 'Content-Type': contentType, 'Content-Length': byteLength })
+  const headers = Object.keys(extraHeaders).length === 0
+    ? { 'Content-Type': contentType, 'Content-Length': byteLength }
+    : { ...extraHeaders, 'Content-Type': contentType, 'Content-Length': byteLength }
+
+  if (throttleBytesPerSec && throttleBytesPerSec > 0) {
+    return writeThrottled(res, status, headers, payload, throttleBytesPerSec)
   }
+  res.writeHead(status, headers)
   res.end(payload)
 }
 

@@ -6,11 +6,23 @@
  *   const contract = generateHandlerContract(spec, { typesImport: './types' })
  *   const code = generateRouter(spec, { target: 'fastify', contractImport: './api.contract' })
  */
-export { generateRouter, generateHandlerContract } from './generate-router.js'
+export {
+  generateRouter,
+  generateHandlerContract,
+  generateCrdtHandlerContract,
+  generateCrdtRouter,
+  extractCrdtEntities,
+} from './generate-router.js'
 export type {
   RouterTarget,
   RouterMode,
   RouterOptions,
   RouterRenderOptions,
   HandlerContractOptions,
+  CrdtContractOptions,
+  CrdtFieldMeta,
+  CrdtEntityMeta,
+  CrdtRouterOptions,
+  CrdtRouterTarget,
 } from './generate-router.js'
+

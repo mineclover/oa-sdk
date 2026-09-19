@@ -26,3 +26,27 @@ export type {
   HookFactoryOptions,
 } from './tanstack/index.js'
 
+export {
+  generateCrdtClient,
+  generateCrdtClientFromParsed,
+  generateCrdtHooks,
+  generateCrdtHooksFromParsed,
+  extractCrdtEntitiesFromDoc,
+  LwwJsonAdapter,
+} from './crdt/index.js'
+
+export type {
+  CrdtWireMessageType,
+  CrdtWireMessage,
+  CrdtConnectionStatus,
+  CrdtEngineAdapter,
+  CrdtClientRenderOptions,
+  CrdtHooksRenderOptions,
+  CrdtEntityMeta,
+  CrdtFieldMeta,
+  LwwEntry,
+  LwwStateVector,
+  LwwUpdatePayload,
+} from './crdt/index.js'
+
+

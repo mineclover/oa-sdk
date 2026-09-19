@@ -386,11 +386,26 @@ function renderContractHono(
     lines.push(`          }`)
     lines.push(`        }`)
     lines.push(`        if (resp.status === 204) return c.body(null, 204)`)
+    lines.push(`        const b = resp.body`)
+    lines.push(`        const isStream = b instanceof Uint8Array || (typeof ReadableStream !== 'undefined' && b instanceof ReadableStream)`)
+    lines.push(`        if (isStream) return c.body(b as any, (resp.status ?? ${status}) as any)`)
+    lines.push(`        if (b !== null && typeof b === 'object' && Symbol.asyncIterator in (b as any)) {`)
+    lines.push(`          const stream = new ReadableStream({`)
+    lines.push(`            async pull(controller) {`)
+    lines.push(`              const it = (b as any)[Symbol.asyncIterator]()`)
+    lines.push(`              const { value, done } = await it.next()`)
+    lines.push(`              if (done) { controller.close() } else { controller.enqueue(typeof value === 'string' ? new TextEncoder().encode(value) : value) }`)
+    lines.push(`            }`)
+    lines.push(`          })`)
+    lines.push(`          return c.body(stream, (resp.status ?? ${status}) as any)`)
+    lines.push(`        }`)
     lines.push(`        return c.json(resp.body, (resp.status ?? ${status}) as any)`)
     lines.push(`      }`)
     if (status === 204) {
       lines.push(`      return c.body(null, 204)`)
     } else {
+      lines.push(`      const isStream = result instanceof Uint8Array || (typeof ReadableStream !== 'undefined' && result instanceof ReadableStream)`)
+      lines.push(`      if (isStream) return c.body(result as any, ${status} as any)`)
       lines.push(`      return c.json(result, ${status} as any)`)
     }
 

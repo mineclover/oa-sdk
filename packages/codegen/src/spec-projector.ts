@@ -121,6 +121,8 @@ export function remapRefsToOpenApi<T>(obj: T): T {
   for (const [key, value] of Object.entries(obj as Record<string, unknown>)) {
     if (key === '$ref' && typeof value === 'string') {
       result[key] = value.replace(/#\/\$defs\//g, '#/components/schemas/')
+    } else if (typeof value === 'string' && value.includes('#/$defs/')) {
+      result[key] = value.replace(/#\/\$defs\//g, '#/components/schemas/')
     } else {
       result[key] = remapRefsToOpenApi(value)
     }
@@ -137,6 +139,8 @@ export function remapRefsToJsonSchema<T>(obj: T): T {
   const result: Record<string, unknown> = {}
   for (const [key, value] of Object.entries(obj as Record<string, unknown>)) {
     if (key === '$ref' && typeof value === 'string') {
+      result[key] = value.replace(/#\/components\/schemas\//g, '#/$defs/')
+    } else if (typeof value === 'string' && value.includes('#/components/schemas/')) {
       result[key] = value.replace(/#\/components\/schemas\//g, '#/$defs/')
     } else {
       result[key] = remapRefsToJsonSchema(value)
@@ -410,6 +414,8 @@ export async function projectTargetGuards(
     split: guards.split,
     moduleFormat: (guards.moduleFormat ?? 'esm') as any,
     generateDeclarations: true,
+    tiered: guards.tiered,
+    polymorphicDispatch: guards.polymorphicDispatch,
   })
 
   // Ensure artifacts are written to disk

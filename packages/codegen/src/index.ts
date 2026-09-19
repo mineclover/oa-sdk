@@ -64,6 +64,18 @@ export {
   projectTargetSpec,
   projectTargetGuards,
 } from './spec-projector.js'
+export {
+  executeSchemaPipeline,
+  formatTransparencyTable,
+} from './schema-pipeline/index.js'
+export type {
+  SchemaPipelineRunOptions,
+  SchemaPipelineTransparencyManifest,
+  SchemaStage1ZodInfo,
+  SchemaStage2JsonSchemaInfo,
+  SchemaStage3OpenApiInfo,
+  SchemaStage4GuardInfo,
+} from './schema-pipeline/index.js'
 
 export { analyzeExternalSchemaRefs, generateTypes, generateTypesFromSpec } from './typegen/generate-types.js'
 export { createTypescriptAlgebra, schemaToTs } from './typegen/schema-to-ts.js'

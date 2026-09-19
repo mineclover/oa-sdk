@@ -3,7 +3,7 @@ import { extname, resolve } from 'node:path'
 import { parseArgs } from 'node:util'
 import { parse as parseYaml } from 'yaml'
 import { validateDocument, type OasDocument } from '@oa-sdk/parser'
-import { createNodeMockServer } from '../adapters/node-http.js'
+import { createNodeMockServer, type NetworkChaosOptions } from '../adapters/node-http.js'
 
 const DEFAULT_PORT = 4010
 const MAX_PORT = 65_535
@@ -11,12 +11,17 @@ const MAX_PORT = 65_535
 export const CLI_HELP = `oa-mock — OpenAPI mock server
 
 Usage:
-  oa-mock --spec <openapi.json|openapi.yaml> [--port <port>]
+  oa-mock --spec <openapi.json|openapi.yaml> [--port <port>] [chaos options]
 
 Options:
-  --spec, -s <path>  OpenAPI JSON/YAML file (required)
-  --port, -p <port>  Listen port, 0-${MAX_PORT} (default: ${DEFAULT_PORT})
-  --help, -h         Show this help
+  --spec, -s <path>          OpenAPI JSON/YAML file (required)
+  --port, -p <port>          Listen port, 0-${MAX_PORT} (default: ${DEFAULT_PORT})
+  --throttle <rate>          Simulate bandwidth throttling (e.g. 500kbps, 1mbps, 50000)
+  --ttfb <ms>                Time to first byte delay in milliseconds
+  --jitter <ms>              Random jitter added to TTFB (+/- ms)
+  --packet-loss <rate>       Packet drop probability (e.g. 0.05 or 5%)
+  --loss-mode <drop|status>  Packet loss simulation mode: 'drop' or 'status' (default: drop)
+  --help, -h                 Show this help
 `
 
 type Output = { write: (chunk: string) => unknown }
@@ -25,7 +30,7 @@ export type CliMockServer = Pick<ReturnType<typeof createNodeMockServer>, 'start
 export type CliDependencies = {
   cwd: () => string
   readTextFile: (path: string) => Promise<string>
-  createServer: (spec: OasDocument, port: number) => CliMockServer
+  createServer: (spec: OasDocument, port: number, chaos?: NetworkChaosOptions) => CliMockServer
   stdout: Output
   stderr: Output
   onSignal: (signal: NodeJS.Signals, listener: () => void) => void
@@ -39,7 +44,7 @@ export type LoadedSpec = {
 const defaultDependencies: CliDependencies = {
   cwd: () => process.cwd(),
   readTextFile: path => readFile(path, 'utf8'),
-  createServer: (spec, port) => createNodeMockServer(spec, { port }),
+  createServer: (spec, port, chaos) => createNodeMockServer(spec, { port, ...(chaos ? { chaos } : {}) }),
   stdout: process.stdout,
   stderr: process.stderr,
   onSignal: (signal, listener) => process.once(signal, listener),
@@ -82,7 +87,9 @@ export async function main(
 
   let server: CliMockServer
   try {
-    server = dependencies.createServer(loaded.document, options.port)
+    server = options.chaos
+      ? dependencies.createServer(loaded.document, options.port, options.chaos)
+      : dependencies.createServer(loaded.document, options.port)
     await server.start()
   } catch (error) {
     writeLine(dependencies.stderr, `서버 시작 실패: ${errorMessage(error)}`)
@@ -156,7 +163,71 @@ export function parsePort(value: string | undefined): number {
   return port
 }
 
-function parseCliArgs(argv: string[]): { help: boolean; spec: string | undefined; port: number } {
+export function parseThrottle(val: string | undefined): number | undefined {
+  if (val === undefined) return undefined
+  const trimmed = val.trim().toLowerCase()
+  let bytesPerSec: number
+  if (trimmed.endsWith('mbps')) {
+    bytesPerSec = parseFloat(trimmed.slice(0, -4)) * 125_000
+  } else if (trimmed.endsWith('kbps')) {
+    bytesPerSec = parseFloat(trimmed.slice(0, -4)) * 125
+  } else if (trimmed.endsWith('mb/s') || trimmed.endsWith('m/s')) {
+    bytesPerSec = parseFloat(trimmed.slice(0, trimmed.endsWith('mb/s') ? -4 : -3)) * 1_000_000
+  } else if (trimmed.endsWith('kb/s') || trimmed.endsWith('k/s')) {
+    bytesPerSec = parseFloat(trimmed.slice(0, trimmed.endsWith('kb/s') ? -4 : -3)) * 1_000
+  } else if (trimmed.endsWith('b/s') || trimmed.endsWith('bps')) {
+    bytesPerSec = parseFloat(trimmed.slice(0, trimmed.endsWith('bps') ? -3 : -3))
+  } else {
+    bytesPerSec = Number(trimmed)
+  }
+  if (!Number.isFinite(bytesPerSec) || bytesPerSec <= 0) {
+    throw new Error(`--throttle은 양수여야 합니다: ${val}`)
+  }
+  return Math.round(bytesPerSec)
+}
+
+export function parseNonNegativeInt(val: string | undefined, flagName: string): number | undefined {
+  if (val === undefined) return undefined
+  if (!/^\d+$/.test(val)) {
+    throw new Error(`${flagName}는 0 이상의 정수여야 합니다: ${val}`)
+  }
+  const n = Number(val)
+  if (!Number.isSafeInteger(n) || n < 0) {
+    throw new Error(`${flagName}는 0 이상의 정수여야 합니다: ${val}`)
+  }
+  return n
+}
+
+export function parsePacketLoss(val: string | undefined): number | undefined {
+  if (val === undefined) return undefined
+  const trimmed = val.trim()
+  let rate: number
+  if (trimmed.endsWith('%')) {
+    rate = parseFloat(trimmed.slice(0, -1)) / 100
+  } else {
+    rate = Number(trimmed)
+  }
+  if (!Number.isFinite(rate) || rate < 0 || rate > 1) {
+    throw new Error(`--packet-loss는 0.0과 1.0 (또는 0%~100%) 사이여야 합니다: ${val}`)
+  }
+  return rate
+}
+
+export function parseLossMode(val: string | undefined): 'drop' | 'status' | undefined {
+  if (val === undefined) return undefined
+  const mode = val.trim().toLowerCase()
+  if (mode !== 'drop' && mode !== 'status') {
+    throw new Error(`--loss-mode는 'drop' 또는 'status'여야 합니다: ${val}`)
+  }
+  return mode
+}
+
+export function parseCliArgs(argv: string[]): {
+  help: boolean
+  spec: string | undefined
+  port: number
+  chaos?: NetworkChaosOptions
+} {
   const { values } = parseArgs({
     args: argv,
     strict: true,
@@ -165,13 +236,42 @@ function parseCliArgs(argv: string[]): { help: boolean; spec: string | undefined
       help: { type: 'boolean', short: 'h' },
       spec: { type: 'string', short: 's' },
       port: { type: 'string', short: 'p' },
+      throttle: { type: 'string' },
+      ttfb: { type: 'string' },
+      jitter: { type: 'string' },
+      'packet-loss': { type: 'string' },
+      'loss-mode': { type: 'string' },
     },
   })
+
+  const throttleBytesPerSec = parseThrottle(values.throttle)
+  const ttfbMs = parseNonNegativeInt(values.ttfb, '--ttfb')
+  const jitterMs = parseNonNegativeInt(values.jitter, '--jitter')
+  const packetLoss = parsePacketLoss(values['packet-loss'])
+  const lossMode = parseLossMode(values['loss-mode'])
+
+  let chaos: NetworkChaosOptions | undefined
+  if (
+    throttleBytesPerSec !== undefined ||
+    ttfbMs !== undefined ||
+    jitterMs !== undefined ||
+    packetLoss !== undefined ||
+    lossMode !== undefined
+  ) {
+    chaos = {
+      ...(throttleBytesPerSec !== undefined ? { throttleBytesPerSec } : {}),
+      ...(ttfbMs !== undefined ? { ttfbMs } : {}),
+      ...(jitterMs !== undefined ? { jitterMs } : {}),
+      ...(packetLoss !== undefined ? { packetLoss } : {}),
+      ...(lossMode !== undefined ? { lossMode } : {}),
+    }
+  }
 
   return {
     help: values.help === true,
     spec: values.spec,
     port: parsePort(values.port),
+    ...(chaos ? { chaos } : {}),
   }
 }
 

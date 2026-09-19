@@ -316,6 +316,98 @@ async function runConfigDrivenPipeline(config: OaConfig, rootDir: string): Promi
     }
   }
 
+  // Step 5.5: CRDT Collaboration Modules (@oa-sdk/router & @oa-sdk/client)
+  let crdtGeneratedCount = 0
+  for (const res of specResults) {
+    const schemas = (res.openApiDoc as any)?.components?.schemas ?? {}
+    const hasCrdtEntity = Object.values(schemas).some(
+      (s: any) => s && typeof s === 'object' && ('x-oa-sdk-crdt-entity' in s || 'x-oa-sdk-crdt' in s),
+    )
+
+    if (hasCrdtEntity) {
+      try {
+        const { generateCrdtHandlerContract, generateCrdtRouter } = await import('@oa-sdk/router')
+        const { generateCrdtClient, generateCrdtHooks } = await import('@oa-sdk/client')
+
+        const targetResolved = resolveProfileTarget(res.target, rootDir)
+        const targetDir = targetResolved.resolvedOutDir
+
+        // 1. CRDT contract
+        const crdtContractCode = generateCrdtHandlerContract(res.openApiDoc as any, { banner: true })
+        const crdtContractPath = outputRouting
+          ? dispatcher.dispatch({ kind: 'crdt-contract', tag: res.target.id }).absolutePath
+          : resolve(targetDir, `${res.target.id}.crdt.contract.ts`)
+        artifactsToWrite.push({
+          path: crdtContractPath,
+          kind: 'crdt-contract',
+          tag: res.target.id,
+          content: crdtContractCode,
+          sourceSpec: res.openApiPath,
+        })
+
+        // 2. CRDT router
+        const crdtRouterCode = generateCrdtRouter(res.openApiDoc as any, {
+          target: ((resolvedConfig.core as any)?.router as any)?.target ?? 'hono',
+          contractImport: outputRouting
+            ? dispatcher.resolveImport(
+                { kind: 'crdt-router', tag: res.target.id },
+                { kind: 'crdt-contract', tag: res.target.id },
+              )
+            : `./${res.target.id}.crdt.contract.js`,
+          banner: true,
+        })
+        const crdtRouterPath = outputRouting
+          ? dispatcher.dispatch({ kind: 'crdt-router', tag: res.target.id }).absolutePath
+          : resolve(targetDir, `${res.target.id}.crdt.router.ts`)
+        artifactsToWrite.push({
+          path: crdtRouterPath,
+          kind: 'crdt-router',
+          tag: res.target.id,
+          content: crdtRouterCode,
+          sourceSpec: res.openApiPath,
+        })
+
+        // 3. CRDT client
+        const crdtClientCode = generateCrdtClient(res.openApiDoc as any, { banner: true })
+        const crdtClientPath = outputRouting
+          ? dispatcher.dispatch({ kind: 'crdt-client', tag: res.target.id }).absolutePath
+          : resolve(targetDir, `${res.target.id}.crdt.client.ts`)
+        artifactsToWrite.push({
+          path: crdtClientPath,
+          kind: 'crdt-client',
+          tag: res.target.id,
+          content: crdtClientCode,
+          sourceSpec: res.openApiPath,
+        })
+
+        // 4. CRDT hooks
+        const crdtHooksCode = generateCrdtHooks(res.openApiDoc as any, {
+          clientImport: outputRouting
+            ? dispatcher.resolveImport(
+                { kind: 'crdt-hooks', tag: res.target.id },
+                { kind: 'crdt-client', tag: res.target.id },
+              )
+            : `./${res.target.id}.crdt.client.js`,
+          banner: true,
+        })
+        const crdtHooksPath = outputRouting
+          ? dispatcher.dispatch({ kind: 'crdt-hooks', tag: res.target.id }).absolutePath
+          : resolve(targetDir, `${res.target.id}.crdt.hooks.ts`)
+        artifactsToWrite.push({
+          path: crdtHooksPath,
+          kind: 'crdt-hooks',
+          tag: res.target.id,
+          content: crdtHooksCode,
+          sourceSpec: res.openApiPath,
+        })
+
+        crdtGeneratedCount++
+      } catch (err) {
+        console.warn('⚠️  Failed to generate CRDT modules:', err instanceof Error ? err.message : String(err))
+      }
+    }
+  }
+
   // Step 6: Commit all artifacts through OaManifestManager and prune orphans
   const writeResult = await manifestManager.writeArtifacts(artifactsToWrite)
   const activePaths = artifactsToWrite.map((a) =>
@@ -332,6 +424,9 @@ async function runConfigDrivenPipeline(config: OaConfig, rootDir: string): Promi
   console.log(`Contracts Generated: ${contractsGeneratedCount}`)
   console.log(`Clients Generated:   ${clientGeneratedCount}`)
   console.log(`TanStack Generated:  ${tanstackGeneratedCount}`)
+  if (crdtGeneratedCount > 0) {
+    console.log(`CRDT Modules:        ${crdtGeneratedCount}`)
+  }
   console.log(`Artifacts Written:   ${writeResult.written.length}`)
   console.log(`Artifacts Cached:    ${writeResult.skipped.length}`)
   for (const res of specResults) {

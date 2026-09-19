@@ -192,6 +192,10 @@ export interface GuardTargetConfig {
   moduleFormat?: "esm" | "cjs" | undefined
   /** Whether to audit emitted guards for Content Security Policy (CSP) compliance */
   auditCsp?: boolean | undefined
+  /** Whether to generate Tier 1 O(1) fast-path validation predicates (*Fast) */
+  tiered?: boolean | undefined
+  /** Whether to generate O(1) polymorphic dispatch tables for discriminated unions */
+  polymorphicDispatch?: boolean | undefined
 }
 
 /**
@@ -204,6 +208,10 @@ export const ARTIFACT_KINDS = [
   "keys",
   "guards",
   "schemas",
+  "crdt-contract",
+  "crdt-router",
+  "crdt-client",
+  "crdt-hooks",
 ] as const
 
 export type ArtifactKind = (typeof ARTIFACT_KINDS)[number]
@@ -611,6 +619,8 @@ export const guardTargetConfigSchema = z.object({
     message: "moduleFormat must be 'esm' or 'cjs'",
   }).optional(),
   auditCsp: z.boolean().optional(),
+  tiered: z.boolean().optional(),
+  polymorphicDispatch: z.boolean().optional(),
 })
 
 export const artifactKindSchema = z.enum(ARTIFACT_KINDS)

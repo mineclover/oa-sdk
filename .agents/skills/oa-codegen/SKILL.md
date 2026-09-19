@@ -695,9 +695,24 @@ oa-gen generate:tanstack --spec ./openapi.yaml --output ./src/api/generated --sp
 # 타깃 UI 프레임워크 지정 (react, vue, svelte)
 oa-gen generate:tanstack --spec ./openapi.yaml --framework vue --output ./src/api/generated
 
-# 범용 파이프라인 연동
-oa-gen generate --tanstack --spec ./openapi.yaml --output ./src/api/generated
-```
+### 11.4 Standalone Type Guard Generation (AOT Fast-Path & O(1) Polymorphic Dispatch)
+
+`packages/ast-sync/src/guards/` 및 `@oa-sdk/codegen`의 독립형 타입 가드 생성기는 수만 회의 청크 인입 루프 또는 60fps/120fps UI 렌더 루프에서 제로 오버헤드로 동작하는 초고속 런타임 가드를 컴파일합니다:
+
+1. **계층형 AOT Fast-Path 검사 (`tiered: true`, `fastPath: true`)**:
+   - `buildFastPathCode`가 객체 타입, 필수 필드(`in`), `const`/`enum`, 기본형(`string`, `number`, `integer`, `boolean`), `minLength`, 수치 범위를 인라인 검사하는 `is<Name>Fast(data)` 함수를 생성합니다.
+   - 2계층 결합 가드 `is<Name>(data)`는 Fast-Path 검사를 먼저 실행하여 실패 시 즉시 `false`를 반환하고, 통과한 경우에만 심층 Ajv 검증을 수행합니다.
+2. **다형성 `oneOf` O(1) 해시 맵 디스패처 (`polymorphicDispatch: true`)**:
+   - `discriminator.propertyName` (또는 감지된 공통 키)를 기반으로 상수 시간 라우팅 테이블 `__dispatch_is<Name>`을 구성합니다:
+     ```javascript
+     const __dispatch_isStreamItem = {
+       "ui-action@v1": isActionPayload,
+       "time-series@v1": isTimeSeriesPayload
+     };
+     ```
+   - 스코프 안전성: 분할 모드(`split: true`)가 아니며 대상 분기 가드가 현재 스코프(`availableGuards`)에 모두 존재하는 경우에만 활성화되어 무참조 런타임 에러를 원천 차단합니다.
+3. **Zero-Eval 및 CSP 준수**:
+   - `eval` 및 `new Function` 호출 0회, 외부 Ajv 런타임 의존성 0개 (`__ucs2length`, `__equal` 인라인 내장)로 Manifest V3 및 엄격한 브라우저 CSP 환경에 완전 적합합니다.
 
 ---
 

@@ -42,14 +42,14 @@
     "typescript": "^5.0.0"
   },
   "devDependencies": {
-    "@types/node": "^22.0.0",
+    "@types/node": "^26.0.0",
     "tsup": "^8.0.0",
     "typescript": "5.9.3",
     "vitest": "^4.1.4",
-    "zod": "^4.4.3"
+    "zod": "^4.6.5"
   },
   "peerDependencies": {
-    "zod": ">=3.24.0"
+    "zod": ">=4.0.0"
   },
   "peerDependenciesMeta": {
     "zod": {

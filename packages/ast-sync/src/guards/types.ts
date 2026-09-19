@@ -12,6 +12,10 @@ export interface StandaloneGuardTarget {
   typeName?: string | undefined
   /** Schema definition (either a JSON pointer / URI string like '#/$defs/UserProfile' or an inline schema object) */
   schema: Record<string, unknown> | string
+  /** Whether to enable Tier 1 fast-path predicate generation for this guard */
+  fastPath?: boolean | undefined
+  /** Explicit discriminator property name for O(1) union dispatch table */
+  discriminator?: string | { propertyName: string; mapping?: Record<string, string> } | undefined
 }
 
 /**
@@ -34,6 +38,10 @@ export interface StandaloneGuardGeneratorOptions {
   generateDeclarations?: boolean | undefined
   /** Target module format. Defaults to 'esm'. */
   moduleFormat?: 'esm' | undefined
+  /** Whether to generate Tier 1 O(1) fast-path validation predicates (*Fast) */
+  tiered?: boolean | undefined
+  /** Whether to generate O(1) polymorphic dispatch tables for discriminated unions */
+  polymorphicDispatch?: boolean | undefined
 }
 
 /**

@@ -2,12 +2,14 @@
 
 > bun-graph-db가 내보내는 OpenAPI full document와 table projection을 OA SDK에서 안전하게 검증, 타입 생성, 클라이언트 생성, mock 테스트에 사용하는 워크플로우.
 
+전체 구현 순서와 runtime-to-artifact 소유권은 [GraphQL–OA SDK 구현 로드맵](../../../references/bun-graph-db/docs/architecture/GRAPHQL_OA_SDK_IMPLEMENTATION_ROADMAP.md)과 [목표 논리 모델](../../../references/bun-graph-db/docs/architecture/GRAPHQL_OA_SDK_LOGICAL_MODEL.md)을 기준으로 한다.
+
 ## 시나리오
 
 공통 용어는 [Concepts](../../concepts.md)를 따른다.
 행동 수집/조회 관점의 개념 정의는 [Behavior ECS](../../concepts/behavior-ecs.md)를 따른다.
 
-bun-graph-db를 OpenAPI projection producer로 둔다. OA SDK는 producer에서 받은 artifact를 파일로 고정하고, 그 snapshot을 기준으로 `validate`, `typegen`, `client`, `mock-server`를 실행한다.
+bun-graph-db(Bun 및 Node 26 듀얼 런타임 지원)를 OpenAPI projection producer로 둔다. OA SDK는 producer에서 받은 artifact를 파일로 고정하고, 그 snapshot을 기준으로 `validate`, `typegen`, `client`, `mock-server`를 실행한다.
 DB 가명처리 설계에서는 같은 projection snapshot을 [Data Pseudonymization Manifest](../../concepts/data-pseudonymization-manifest.md)의
 `catalog` 입력으로 사용할 수 있다. Projection은 table 구조와 freshness를 제공하고, DPM은
 entity/relationship/column transform/vault/publishing 정책을 별도로 선언한다.

@@ -14,6 +14,7 @@ export * from './type-sync.js';
 export * from './adapters/zod.js';
 export * from './adapters/ts-ast.js';
 export * from './adapters/typia.js';
+export * from './adapters/json-schema.js';
 export * from './guards/index.js';
 export * from './taxonomy/index.js';
 export * from './checker/index.js';
