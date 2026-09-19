@@ -26,3 +26,13 @@ export type {
   CrdtRouterTarget,
 } from './generate-router.js'
 
+export {
+  demuxChunkStream,
+} from './chunk-stream/demuxer.js'
+
+export type {
+  DemuxChunkStreamOptions,
+  SyntheticEmptyChunk,
+} from './chunk-stream/demuxer.js'
+
+

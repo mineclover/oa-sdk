@@ -41,3 +41,21 @@ export type {
 
 export type { JsonPrimitive, Resolved } from '@oa-sdk/core/browser'
 
+export {
+  retryAfterMs,
+  synthesizeEmptyChunk,
+  createResilientChunkReader,
+  createResilientNdjsonReader,
+  createChunkStreamStore,
+  generateChunkStreamReactHooks,
+} from './chunk-stream/index.js'
+
+export type {
+  ChunkStreamStore,
+  FallbackChunkState,
+  RuntimeChunkEnvelopeDescriptor,
+  ChunkFetchDescriptor,
+  ChunkStreamReaderOptions,
+  ChunkStreamState,
+} from './chunk-stream/index.js'
+

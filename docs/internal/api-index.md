@@ -1258,6 +1258,9 @@ Governance manifest: `packages/codegen/src/cli/spec/oa-gen-governance.ts` 및 `d
 | `CrdtRouterTarget` | `targets/crdt-router.ts` | CRDT 라우터 대상 프레임워크 union 타입 |
 | `CrdtEntityMeta` | `targets/crdt-router.ts` | CRDT 엔터티 메타데이터 인터페이스 |
 | `CrdtFieldMeta` | `targets/crdt-router.ts` | CRDT 필드 메타데이터 인터페이스 |
+| `demuxChunkStream()` | `chunk-stream.ts` | 청크 스트림 디멀티플렉싱 함수 |
+| `DemuxChunkStreamOptions` | `chunk-stream.ts` | 청크 스트림 디멀티플렉싱 옵션 인터페이스 |
+| `SyntheticEmptyChunk` | `chunk-stream.ts` | 합성 빈 청크 인터페이스 |
 
 ---
 
@@ -1298,6 +1301,18 @@ Governance manifest: `packages/codegen/src/cli/spec/oa-gen-governance.ts` 및 `d
 | `LwwJsonAdapter` | `crdt/types.ts` | LWW JSON 어댑터 인터페이스 |
 | `LwwStateVector` | `crdt/types.ts` | LWW 상태 벡터 타입 |
 | `LwwUpdatePayload` | `crdt/types.ts` | LWW 업데이트 페이로드 타입 |
+| `createChunkStreamStore()` | `chunk-stream.ts` | 청크 스트림 스토어 생성 함수 |
+| `createResilientChunkReader()` | `chunk-stream.ts` | 복원력 있는 청크 스트림 리더 생성 함수 |
+| `createResilientNdjsonReader()` | `chunk-stream.ts` | 복원력 있는 NDJSON 스트림 리더 생성 함수 |
+| `generateChunkStreamReactHooks()` | `chunk-stream.ts` | 청크 스트림 React Hooks 코드 생성 함수 |
+| `retryAfterMs()` | `chunk-stream.ts` | 재시도 대기 시간 계산 헬퍼 |
+| `synthesizeEmptyChunk()` | `chunk-stream.ts` | 합성 빈 청크 생성 헬퍼 |
+| `ChunkFetchDescriptor` | `chunk-stream.ts` | 청크 페치 디스크립터 인터페이스 |
+| `ChunkStreamReaderOptions` | `chunk-stream.ts` | 청크 스트림 리더 옵션 인터페이스 |
+| `ChunkStreamState` | `chunk-stream.ts` | 청크 스트림 상태 타입 |
+| `ChunkStreamStore` | `chunk-stream.ts` | 청크 스트림 스토어 인터페이스 |
+| `FallbackChunkState` | `chunk-stream.ts` | 폴백 청크 상태 인터페이스 |
+| `RuntimeChunkEnvelopeDescriptor` | `chunk-stream.ts` | 런타임 청크 엔벨로프 디스크립터 인터페이스 |
 
 ---
 

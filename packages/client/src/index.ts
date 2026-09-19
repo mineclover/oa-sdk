@@ -49,4 +49,23 @@ export type {
   LwwUpdatePayload,
 } from './crdt/index.js'
 
+export {
+  retryAfterMs,
+  synthesizeEmptyChunk,
+  createResilientChunkReader,
+  createResilientNdjsonReader,
+  createChunkStreamStore,
+  generateChunkStreamReactHooks,
+} from './chunk-stream/index.js'
+
+export type {
+  ChunkStreamStore,
+  FallbackChunkState,
+  RuntimeChunkEnvelopeDescriptor,
+  ChunkFetchDescriptor,
+  ChunkStreamReaderOptions,
+  ChunkStreamState,
+} from './chunk-stream/index.js'
+
+
 
