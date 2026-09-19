@@ -1,5 +1,5 @@
 import type { Command } from '../lib/types.js'
-import { loadSpecWithPath } from '../lib/load-spec.js'
+import { loadSpecDocumentAsync } from '../lib/load-spec.js'
 import { formatLintLocation } from '../lib/diagnostics.js'
 import { createCliSourceLocationResolver } from '../lib/source-locations.js'
 import { optStr, str } from '../lib/args.js'
@@ -56,7 +56,7 @@ export const lint: Command = {
   async run(args) {
     const { lintDocument } = await import('@oa-sdk/parser')
     const categories = parseLintCategories(optStr(args, 'categories') ?? (args.categories as string | string[] | undefined))
-    const { document: doc, path: resolvedSpecPath, raw } = loadSpecWithPath(str(args, 'spec'))
+    const { document: doc, path: resolvedSpecPath, raw } = await loadSpecDocumentAsync(str(args, 'spec'))
     const sourceLocations = createCliSourceLocationResolver({ filePath: resolvedSpecPath, raw })
     const results = lintDocument(doc, {
       basePath: resolvedSpecPath,

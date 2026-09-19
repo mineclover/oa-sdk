@@ -51,10 +51,65 @@ describe('tsp-scaffold', () => {
     expect(result.code).not.toContain('@useAuth')
   })
 
+  it('generates full CRUD resource suite with generic envelopes', () => {
+    const result = generateTypeSpecScaffold({
+      route: '/products',
+      crud: true,
+      envelope: true,
+    })
+
+    expect(result.operationId).toBe('crudProduct')
+    expect(result.code).toContain('model Product {')
+    expect(result.code).toContain('model CreateProductRequest {')
+    expect(result.code).toContain('model UpdateProductRequest {')
+    expect(result.code).toContain('op listProducts(')
+    expect(result.code).toContain('): Ok<PageResult<Product>>;')
+    expect(result.code).toContain('op getProductById(')
+    expect(result.code).toContain('): Ok<Product>;')
+    expect(result.code).toContain('op createProduct(')
+    expect(result.code).toContain('): Created<Product>;')
+    expect(result.code).toContain('op updateProduct(')
+    expect(result.code).toContain('): Ok<Product>;')
+    expect(result.code).toContain('op deleteProduct(')
+    expect(result.code).toContain('): NoContent;')
+  })
+
+  it('generates full CRUD resource suite without envelopes (legacy response models)', () => {
+    const result = generateTypeSpecScaffold({
+      route: '/orders',
+      crud: true,
+      envelope: false,
+    })
+
+    expect(result.operationId).toBe('crudOrder')
+    expect(result.code).toContain('model ListOrders200Response {')
+    expect(result.code).toContain('model GetOrderById200Response {')
+    expect(result.code).toContain('model CreateOrder201Response {')
+    expect(result.code).toContain('model UpdateOrder200Response {')
+    expect(result.code).toContain('model DeleteOrder204Response {')
+    expect(result.code).toContain('): ListOrders200Response;')
+    expect(result.code).toContain('): GetOrderById200Response;')
+  })
+
+  it('generates single operation with generic envelope', () => {
+    const result = generateTypeSpecScaffold({
+      route: '/items',
+      method: 'post',
+      operationId: 'createItem',
+      envelope: true,
+    })
+
+    expect(result.responseModelName).toBe('Created<CreateItemResult>')
+    expect(result.code).toContain('op createItem(')
+    expect(result.code).toContain('): Created<CreateItemResult>;')
+  })
+
   it('exports valid Command definition', () => {
     expect(tspScaffold.name).toBe('tsp-scaffold')
     expect(tspScaffold.options?.route).toBeDefined()
     expect(tspScaffold.options?.method).toBeDefined()
     expect(tspScaffold.options?.file).toBeDefined()
+    expect(tspScaffold.options?.crud).toBeDefined()
+    expect(tspScaffold.options?.envelope).toBeDefined()
   })
 })

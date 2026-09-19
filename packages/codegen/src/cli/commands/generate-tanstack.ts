@@ -1,8 +1,8 @@
 import * as path from 'node:path'
-import type { Command } from '../lib/types.js'
-import { loadSpecWithPath } from '../lib/load-spec.js'
+import type { Command, CommandArgValue, CommandContext } from '../lib/types.js'
 import { optStr, bool } from '../lib/args.js'
 import { CliExitError } from '../lib/errors.js'
+import { loadSpecDocumentAsync } from '../lib/load-spec.js'
 import { loadOaConfig } from '../lib/config-loader.js'
 import { createPathDispatcher } from '../../routing/index.js'
 import { OaManifestManager, type WriteArtifactInput } from '../../routing/manifest-manager.js'
@@ -57,9 +57,9 @@ export const generateTanstackCommand: Command = {
 
     const rootDir = (context as any)?.rootDir ?? context?.projectRoot ?? (context as any)?.cwd ?? process.cwd()
 
-    let loadedSpec: ReturnType<typeof loadSpecWithPath>
+    let loadedSpec: Awaited<ReturnType<typeof loadSpecDocumentAsync>>
     try {
-      loadedSpec = loadSpecWithPath(specArg, rootDir)
+      loadedSpec = await loadSpecDocumentAsync(specArg, rootDir)
     } catch (err) {
       console.error(`오류: 스펙 파일 로드 실패: ${err instanceof Error ? err.message : String(err)}`)
       throw new CliExitError(1)

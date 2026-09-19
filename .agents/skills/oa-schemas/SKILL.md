@@ -297,6 +297,20 @@ graph LR
 - **업그레이드 (`packages/schemas/scripts/upgrade-3.2.ts`)**:
   - 순수 3.1 YAML에 `.merged.3.1.meta.json`의 JSON Pointer 메타데이터를 역으로 주입하여 1바이트의 오차도 없는 순수 3.2 문서를 복원.
 
+### 5.4 TypeSpec 프로덕션 정본 및 표준 공통 계약 (`OaSdkContracts`)
+
+`packages/schemas/typespec/`는 모노레포의 프로덕션 OpenAPI 3.2를 생성하는 인간 작성 정본(Human-Authored SSOT)입니다.
+
+- **표준 계약 모듈 (`OaSdkContracts`)**:
+  - `@oa-sdk/typespec-decorators/lib/contracts.tsp` 및 `packages/schemas/typespec/common.tsp`에 공통 정의.
+  - `Ok<T>`, `Created<T>`, `NoContent<T = void>`, `PageResult<T>`, `ErrorResponse<Status>`, `StandardError`, `StandardValidationError`, `StandardHttpErrors` 제공.
+  - 비제네릭 `NoContent`로 인한 드리프트를 원천 차단하기 위해 기본 제네릭 파라미터(`NoContent<T = void>`)를 적용하여 uninstantiated schema emission을 방지.
+- **TypeSpec 검증 및 드리프트 차단 게이트**:
+  ```bash
+  # TypeSpec 번들 무결성, 사이드카 복원, approved.openapi.yaml 0-drift 검증
+  pnpm schema:typespec-check
+  ```
+
 ---
 
 ## 🌐 6. 출력 경로 라우팅 엔진과의 정렬 (Alignment with Output Path Routing Engine)

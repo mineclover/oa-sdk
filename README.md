@@ -33,7 +33,7 @@ Zod Schema  ──▶  OpenAPI 3.2 Spec      ──▶ TypeScript 타입
 | `@oa-sdk/codegen` | `oa-gen` CLI, Definition Builder target artifact, OpenAPI 수집/정규화/업그레이드/diff/review, typegen 생성, Zod/Drizzle projection bridge. router/client는 private downstream package API가 소유 |
 | `@oa-sdk/spec-lens` | OpenAPI spec change history observation과 review surface 관리 |
 | `@oa-sdk/spec-lens-contract` | spec-lens HTTP wire contract와 browser-safe response types |
-| `@oa-sdk/typespec-decorators` | production TypeSpec source에서 검증된 OA SDK extension decorator를 제공 |
+| `@oa-sdk/typespec-decorators` | production TypeSpec source에서 검증된 OA SDK extension decorator와 플랫폼 공통 표준 계약(`contracts.tsp` / `OaSdkContracts`)을 제공 |
 
 ### Downstream Integration Libraries
 
@@ -224,6 +224,7 @@ console.log(describeApi(parseDocument(spec)))
 | [Onboarding Playbook (기여자 온보딩)](./docs/guides/onboarding-playbook.md#9-oa-sdk-모노레포-기여자-온보딩) | 저장소 목적, 정본 선택, 변경 경로와 검증 게이트 |
 | [기본 스펙 사용 기준](./docs/guides/basic-spec-usage.md) | TypeSpec source, OpenAPI 3.2 artifact, 3.1 호환 출력, rollback 경계와 사용처 |
 | [TypeSpec Authoring Conventions](./docs/guides/typespec-authoring-conventions.md) | TypeSpec source, approved snapshot, extension ownership과 validation 흐름 |
+| [TypeSpec 가이드 시리즈](./docs/guides/typespec/01-quickstart-5min.md) | 5분 퀵스타트, 컨벤션 표준, 데코레이터/표준 계약, 스캐폴딩/diff CLI, 트러블슈팅 FAQ |
 | [TypeScript 호환성](./docs/guides/typescript-compatibility.md) | Node 24/TS 5 안정화 lane과 Node 26/TS 7/`ttsc` Current 호환성 검증 lane의 경계 |
 | [Artifact Release Preparation](./docs/guides/release-preparation.md) | public artifact의 version intent, source preflight, external promotion 경계 |
 | [문서·스펙 거버넌스](./docs/spec-governance/README.md) | 문서 정본, 품질 기준, 검증 선택, 공식 기준 변경 절차 |

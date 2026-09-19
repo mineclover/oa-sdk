@@ -3,6 +3,7 @@ import {
   createDefaultVsCodeExtensions,
   createDefaultVsCodeSettings,
   oaSdkLinter,
+  preferTypedDecoratorRule,
   requireDocumentationRule,
   requireOperationIdRule,
   suggestResponseComponentsRule,
@@ -31,6 +32,9 @@ describe('@oa-sdk/typespec-tooling', () => {
       expect(typeSpecSnippets).toHaveProperty('oa-model')
       expect(typeSpecSnippets).toHaveProperty('oa-erd-dataset')
       expect(typeSpecSnippets).toHaveProperty('oa-erd-entity')
+      expect(typeSpecSnippets).toHaveProperty('oa-crud')
+      expect(typeSpecSnippets).toHaveProperty('oa-envelope-ok')
+      expect(typeSpecSnippets).toHaveProperty('oa-envelope-paged')
     })
 
     it('validates structure of all snippets', () => {
@@ -44,19 +48,21 @@ describe('@oa-sdk/typespec-tooling', () => {
   })
 
   describe('Linter Rules & CodeFixes', () => {
-    it('exports all 3 linter rules', () => {
+    it('exports all 4 linter rules', () => {
       expect(requireOperationIdRule.name).toBe('require-operation-id')
       expect(requireDocumentationRule.name).toBe('require-documentation')
       expect(suggestResponseComponentsRule.name).toBe('suggest-response-components')
+      expect(preferTypedDecoratorRule.name).toBe('prefer-typed-decorator')
     })
 
     it('defines linter with recommended ruleSet enabling all rules', () => {
-      expect(oaSdkLinter.rules).toHaveLength(3)
+      expect(oaSdkLinter.rules).toHaveLength(4)
       expect(oaSdkLinter.ruleSets?.recommended).toBeDefined()
       expect(oaSdkLinter.ruleSets?.recommended?.enable).toEqual({
         '@oa-sdk/typespec-tooling/require-operation-id': true,
         '@oa-sdk/typespec-tooling/require-documentation': true,
         '@oa-sdk/typespec-tooling/suggest-response-components': true,
+        '@oa-sdk/typespec-tooling/prefer-typed-decorator': true,
       })
     })
   })

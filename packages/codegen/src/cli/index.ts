@@ -9,6 +9,10 @@ import { runCommand } from './lib/run.js'
 import { generateHelp } from './lib/help.js'
 import { commands } from './commands.js'
 import { tspDiff } from './commands/tsp-diff.js'
+import { tspScaffold } from './commands/tsp-scaffold.js'
+import { tspExport } from './commands/tsp-export.js'
+import { tspRestore } from './commands/tsp-restore.js'
+import { tspBundleCheck } from './commands/tsp-bundle-check.js'
 import { mock } from './commands/mock.js'
 
 const commandList = [...commands]
@@ -23,6 +27,23 @@ const commandMap = new Map(commandList.map(c => [c.name, c]))
 commandMap.set('tsp diff', tspDiff)
 commandMap.set('tsp-diff', tspDiff)
 commandMap.set('tsp:diff', tspDiff)
+
+commandMap.set('tsp scaffold', tspScaffold)
+commandMap.set('tsp:scaffold', tspScaffold)
+commandMap.set('tsp-scaffold', tspScaffold)
+
+commandMap.set('tsp export', tspExport)
+commandMap.set('tsp:export', tspExport)
+commandMap.set('tsp-export', tspExport)
+
+commandMap.set('tsp restore', tspRestore)
+commandMap.set('tsp:restore', tspRestore)
+commandMap.set('tsp-restore', tspRestore)
+
+commandMap.set('tsp bundle-check', tspBundleCheck)
+commandMap.set('tsp:bundle-check', tspBundleCheck)
+commandMap.set('tsp-bundle-check', tspBundleCheck)
+
 commandMap.set('mock', mock)
 
 

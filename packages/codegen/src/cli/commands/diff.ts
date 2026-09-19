@@ -1,5 +1,5 @@
 import type { Command, CommandContext } from '../lib/types.js'
-import { loadSpecWithPath } from '../lib/load-spec.js'
+import { loadSpecDocumentAsync } from '../lib/load-spec.js'
 import { bool, optStr, str } from '../lib/args.js'
 import {
   diffEndpoints,
@@ -33,8 +33,8 @@ export const diff: Command = {
   },
   async run(args, context?: CommandContext) {
     const rootDir = context?.projectRoot ?? optStr(args, 'project-root') ?? optStr(args, 'root')
-    const base = loadSpecWithPath(str(args, 'base'), rootDir)
-    const head = loadSpecWithPath(str(args, 'head'), rootDir)
+    const base = await loadSpecDocumentAsync(str(args, 'base'), rootDir)
+    const head = await loadSpecDocumentAsync(str(args, 'head'), rootDir)
     const result = diffEndpoints(base.document, head.document)
     console.log(formatMarkdown(result))
     if (bool(args, 'fail-on-breaking') && hasBreakingChanges(result)) throw new CliExitError(1)

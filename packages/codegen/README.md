@@ -106,3 +106,28 @@ const artifacts = await generateStandaloneGuards({
 });
 ```
 
+## TypeSpec Direct Codegen & Scaffolding
+
+`oa-gen` compiles TypeSpec (`.tsp`) files directly in-memory to generate TypeScript types, Zod schemas, TanStack Query hooks, and run validations without intermediate OpenAPI YAML build artifacts:
+
+```bash
+# Direct TypeScript type generation from .tsp
+pnpm exec oa-gen typegen --spec api.tsp -o types.ts
+
+# Direct Zod 4 schema generation from .tsp
+pnpm exec oa-gen generate:zod --spec api.tsp -o schemas.ts
+
+# Direct TanStack Query v5 3-tier generation from .tsp
+pnpm exec oa-gen generate:tanstack --spec api.tsp -o src/queries
+
+# Direct specification validation and linting from .tsp
+pnpm exec oa-gen validate --spec api.tsp
+pnpm exec oa-gen lint --spec api.tsp
+
+# Scaffold standard 5-operation CRUD with generic envelopes (Ok<T>, NoContent, etc.)
+pnpm exec oa-gen tsp-scaffold --route /orders --crud --envelope --file orders.tsp
+
+# TypeSpec AST semantic diff
+pnpm exec oa-gen tsp diff --base origin/main --head HEAD --fail-on-breaking
+```
+

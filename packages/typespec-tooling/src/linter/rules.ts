@@ -147,14 +147,61 @@ export const suggestResponseComponentsRule = createRule({
   },
 })
 
+export const preferTypedDecoratorRule = createRule({
+  name: 'prefer-typed-decorator',
+  severity: 'warning',
+  description: '원시 x-oa-sdk-operation-component-refs 대신 @oaUseResponseComponent 데코레이터 사용을 권장합니다.',
+  messages: {
+    rawComponentRefs: paramMessage`Operation "${'name'}"에서 원시 x-oa-sdk-operation-component-refs 확장 대신 @oaUseResponseComponent 데코레이터를 사용하세요.`,
+  },
+  create(context) {
+    return {
+      operation(op: Operation) {
+        const node = op.node
+        if (!node || !('decorators' in node) || !Array.isArray(node.decorators)) return
+
+        for (const dec of node.decorators) {
+          const target = dec.target
+          const isExtension =
+            (target && 'sv' in target && target.sv === 'extension') ||
+            (target && 'id' in target && (target as any).id?.sv === 'extension') ||
+            (target && 'name' in target && (target as any).name === 'extension')
+
+          if (isExtension && dec.arguments && dec.arguments.length > 0) {
+            const firstArg = dec.arguments[0]
+            const isTargetExt =
+              firstArg &&
+              (('value' in firstArg && firstArg.value === OPERATION_COMPONENT_REFS_EXTENSION) ||
+                ('sv' in firstArg && firstArg.sv === OPERATION_COMPONENT_REFS_EXTENSION))
+
+            if (isTargetExt) {
+              context.reportDiagnostic({
+                messageId: 'rawComponentRefs',
+                format: { name: op.name },
+                target: dec,
+              })
+            }
+          }
+        }
+      },
+    }
+  },
+})
+
 export const oaSdkLinter = defineLinter({
-  rules: [requireOperationIdRule, requireDocumentationRule, suggestResponseComponentsRule],
+  rules: [
+    requireOperationIdRule,
+    requireDocumentationRule,
+    suggestResponseComponentsRule,
+    preferTypedDecoratorRule,
+  ],
   ruleSets: {
     recommended: {
       enable: {
         '@oa-sdk/typespec-tooling/require-operation-id': true,
         '@oa-sdk/typespec-tooling/require-documentation': true,
         '@oa-sdk/typespec-tooling/suggest-response-components': true,
+        '@oa-sdk/typespec-tooling/prefer-typed-decorator': true,
       },
     },
   },

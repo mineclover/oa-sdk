@@ -1,7 +1,8 @@
 import { readFileSync, existsSync } from 'node:fs'
 import { relative, join } from 'node:path'
-import type { Command, CommandArgValue, CommandContext } from '../lib/types.js'
-import { loadSpecWithPath } from '../lib/load-spec.js'
+import { validateDocument } from '@oa-sdk/parser'
+import type { Command, CommandArgValue } from '../lib/types.js'
+import { loadSpecDocumentAsync } from '../lib/load-spec.js'
 import { formatLintLocation } from '../lib/diagnostics.js'
 import { bool, optStr, str } from '../lib/args.js'
 import { createCliSourceLocationResolver, type CliSourceLocationResolver } from '../lib/source-locations.js'
@@ -240,7 +241,7 @@ async function runSingleSpec(specPath: string, args: Record<string, CommandArgVa
   })
 
   try {
-    const { document: doc, path: resolvedSpecPath, raw } = loadSpecWithPath(specPath)
+    const { document: doc, path: resolvedSpecPath, raw } = await loadSpecDocumentAsync(specPath)
     const sourceLocations = createCliSourceLocationResolver({ filePath: resolvedSpecPath, raw })
     console.log('━━━ Step 1: 파싱 + 구조 검증 ━━━')
     const result = validateDocument(doc, {

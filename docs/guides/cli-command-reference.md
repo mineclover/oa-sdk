@@ -44,14 +44,14 @@ node packages/codegen/dist/cli/index.js --help
 | 명령 | 언제 쓰는가 | 최소 입력 | 결과 / 다음 단계 |
 | --- | --- | --- | --- |
 | `oa-gen init` | 타겟 분리형 온보딩 엔진으로 `oa.config.ts` 및 런타임 스크립트를 구성할 때 | 없음 (자동 감지) 또는 `--target <framework>` | 대화형/헤드리스 온보딩, `oa.config.ts` 생성 및 `package.json` 비파괴적 패치; `--target` (`-t`), `--archetype <mvp|microservice|enterprise>` (`-a`), `--routing <default|fsd|monorepo|by-kind>` (`-r`), `--cwd`, `--spec` (`-s`), `--yes` (`-y`), `--force` (`-f`), `--dry-run` 지원 |
-| `oa-gen generate:zod` | OpenAPI 3.2 스펙에서 Zod 4 스키마 및 TypeScript 타입을 생성할 때 | `--spec <openapi>` | Zod 4 스키마 정의 및 TypeScript 타입 생성; `--spec`, `--output <path>`로 파일/디렉터리 지정, `--runtime-adapter`로 런타임 검증기 연동, `--style <schema|both>` 지원 |
-| `oa-gen generate:tanstack` | OpenAPI 3.1/3.2 스펙에서 TanStack Query v5 3계층(Query Key Factory, Options Factory, Hooks) 코드를 생성할 때 | `--spec <openapi>` | TanStack Query v5 산출물 (keys, options, hooks); `--spec` (`-s`), `--output <dir>` (`-o`), `--config <path>` (`-c`), `--tier <all|keys|options|hooks>`, `--framework <react|vue|svelte>`, `--client-import <path>`, `--types-import <path>`, `--split` 지원 |
+| `oa-gen generate:zod` | OpenAPI 3.2 또는 TypeSpec(.tsp) 스펙에서 Zod 4 스키마 및 TypeScript 타입을 생성할 때 | `--spec <openapi\|typespec>` | Zod 4 스키마 정의 및 TypeScript 타입 생성; `--spec`, `--output <path>`로 파일/디렉터리 지정, `--runtime-adapter`로 런타임 검증기 연동, `--style <schema\|both>` 지원 |
+| `oa-gen generate:tanstack` | OpenAPI 3.1/3.2 또는 TypeSpec(.tsp) 스펙에서 TanStack Query v5 3계층(Query Key Factory, Options Factory, Hooks) 코드를 생성할 때 | `--spec <openapi\|typespec>` | TanStack Query v5 산출물 (keys, options, hooks); `--spec` (`-s`), `--output <dir>` (`-o`), `--config <path>` (`-c`), `--tier <all\|keys\|options\|hooks>`, `--framework <react\|vue\|svelte>`, `--client-import <path>`, `--types-import <path>`, `--split` 지원 |
 | `oa-gen mock` | TypeSpec, OpenAPI 또는 TypeScript 소스에서 제로 빌드 즉각 목 서버를 구동할 때 | `--tsp <file>` 또는 `--spec <path>` | 인메모리 OpenAPI 3.2 Mock HTTP 서버 구동 (기본 포트 4010); `--tsp` (`-t`), `--spec` (`-s`), `--port <port>` (`-p`), `--host <host>`, `--watch` (`-w`)로 100ms 디바운스, 에러 쉴딩, 원자적 인메모리 라우트 핫스왑 지원 |
 | `oa-gen tsp diff` | TypeSpec AST 간 시맨틱 차이점 및 파괴적 변경(breaking change)을 분석할 때 | `--base <ref> --head <ref>` | TypeSpec AST 시맨틱 비교 리포트; `--base`, `--head`, `--fail-on-breaking`으로 파괴적 변경 감지 시 exit code 1, `--format <markdown\|json>` 지원 |
 | `oa-gen generate` | config, Drizzle schema, 독립형 타입 가드(standalone-guards) 또는 TanStack Query 클라이언트 옵션을 생성할 때 | 없음 (선언적 `oa.config.ts` 자동 로드) 또는 `--config`, `--drizzle-schema`, `--target standalone-guards --input <file>`, `--tanstack --spec <file>` | schema artifact, standalone-guards 또는 TanStack Query v5 산출물; `--split`으로 모듈 분할, `--schemas <list>`로 필터링, `--tanstack` 플래그로 TanStack 3계층 옵션/키 생성 |
-| `oa-gen typegen` | OpenAPI에서 TypeScript 선언을 만들 때 | `--spec <openapi>` | type declarations; `--incremental`은 cache를 사용하고 `--cache-dir <dir>`로 위치를 바꿀 수 있음 |
-| `oa-gen lint` | OpenAPI의 OA SDK lint만 빠르게 확인할 때 | `--spec <openapi>` | diagnostic; `--categories <list>`로 surface, structure 등 특정 카테고리만 지정 실행 |
-| `oa-gen validate` | OpenAPI 파싱·구조·3.1 호환 및 프로파일 요구사항을 확인할 때 | 없음 (선언적 `oa.config.ts`의 모든 프로파일 일괄 검증) 또는 `--spec <openapi>` | human diagnostic; `--profile`로 component-bundle/operation-contract 강제, managed contract는 `--require-32` |
+| `oa-gen typegen` | OpenAPI 또는 TypeSpec(.tsp)에서 TypeScript 선언을 만들 때 | `--spec <openapi\|typespec>` | type declarations; `--incremental`은 cache를 사용하고 `--cache-dir <dir>`로 위치를 바꿀 수 있음 |
+| `oa-gen lint` | OpenAPI 또는 TypeSpec(.tsp)의 OA SDK lint만 빠르게 확인할 때 | `--spec <openapi\|typespec>` | diagnostic; `--categories <list>`로 surface, structure 등 특정 카테고리만 지정 실행 |
+| `oa-gen validate` | OpenAPI 또는 TypeSpec(.tsp) 파싱·구조·3.1 호환 및 프로파일 요구사항을 확인할 때 | 없음 (선언적 `oa.config.ts`의 모든 프로파일 일괄 검증) 또는 `--spec <openapi\|typespec>` | human diagnostic; `--profile`로 component-bundle/operation-contract 강제, managed contract는 `--require-32` |
 | `oa-gen audit:csp` | Manifest V3 브라우저 익스텐션 번들의 CSP 위반(eval, new Function, 런타임 ajv/zod/oa-sdk)을 정적 검사할 때 | `--bundle <dir>` | 0 eval, 0 runtime dependency 검증 리포트 및 non-zero exit code gate |
 | `oa-gen audit:shape` | TypeScript AST 소스 또는 번들의 타입 구문 및 TypeSpec/OpenAPI 투영 적합성을 감사할 때 | `--bundle <dir>` 또는 `--source <file>` | 24개 syntax feature 분류 및 tripartite projection (direct/policy-required/unsupported) 진단 리포트; `--fail-on-unsupported`, `--json` 지원 |
 | `oa-gen build-spec` | fragments와 target으로 reference OpenAPI를 만들 때 | `--target <target.yaml>` | OpenAPI와 diagnostics/provenance/metadata sidecars |
@@ -61,7 +61,7 @@ node packages/codegen/dist/cli/index.js --help
 | `oa-gen tsp-export` | OpenAPI를 TypeSpec spike/bundle로 변환해 볼 때 | `--spec <openapi>` | `.tsp`, report, optional sidecar/manifest; bundle manifest는 `--output`과 `--sidecar`가 함께 필요 |
 | `oa-gen tsp-restore` | emitted OpenAPI에 compatibility sidecar를 다시 적용할 때 | `--spec <emitted> --sidecar <sidecar>` | restored OpenAPI와 stability report |
 | `oa-gen tsp-bundle-check` | authored/generated TypeSpec bundle의 compile/restore/diff를 검사할 때 | 없음 (기본 authored fixture 사용 가능) | bundle report; 필요하면 `--project`, `--manifest`, `--sidecar`, `--expected`로 입력을 지정하고 `--fail-on-breaking`으로 expected diff gate를 켠다 |
-| `oa-gen tsp-scaffold` | TypeSpec operation 및 DTO 모델 스캐폴딩을 생성·주입할 때 | `--route <path>` | TypeSpec code generation; `--method`, `--operation-id`, `--domain`, `--file`, `--output` 지원 |
+| `oa-gen tsp-scaffold` | TypeSpec operation 및 DTO 모델 스캐폴딩을 생성·주입할 때 | `--route <path>` | TypeSpec code generation; `--method`, `--operation-id`, `--domain`, `--file`, `--output`, `--crud`, `--envelope`, `--resource` 지원 |
 | `oa-gen reference-check` | Apitomy와 OA SDK 진단을 비권위적 비교로 확인할 때 | `--spec <openapi>` | markdown/JSON comparison; 계약 권위는 바꾸지 않음 |
 | `oa-gen scaffold-governance` | 외부 서비스에 독립 CLI·CI baseline governance scaffold를 만들 때 | `--root <dir> --service <name>` | config/script/docs/GitHub workflow; `--profile`, `--oa-gen-command`, `--oa-gen-setup-command`, `--typegen-policy` 선택 |
 | `oa-gen inventory` | OpenAPI path, operation, component, security surface를 요약할 때 | `--spec <openapi>` | markdown/JSON inventory |
@@ -192,6 +192,33 @@ oa-gen init --target fastify --archetype microservice --routing fsd --yes
 
 # 변경 사항 미리보기 (Dry-run)
 oa-gen init --dry-run
+```
+
+## oa-gen tsp-scaffold 옵션 및 CRUD/엔벨롭 명세
+
+`oa-gen tsp-scaffold`는 OpenAPI 3.2 및 TypeSpec 컨벤션에 맞는 HTTP Operation과 DTO 모델 코드를 자동 생성하여 파일에 주입하거나 stdout으로 출력합니다. 공백 구분(`oa-gen tsp scaffold`)과 케밥케이스(`oa-gen tsp-scaffold`)를 모두 지원합니다.
+
+| 옵션 | 단축 | 타입 | 필수 | 기본값 | 설명 |
+| --- | --- | --- | --- | --- | --- |
+| `--route <path>` | `-r` | `string` | **Y** | - | 엔드포인트 HTTP 라우트 경로 (예: `/users/{id}/audit`) |
+| `--method <method>` | `-m` | `string` | N | `get` | HTTP 메서드 (`get`, `post`, `put`, `patch`, `delete`) |
+| `--operation-id <id>` | | `string` | N | 자동 생성 | 고유 operationId (기본: route와 method로부터 자동 유추) |
+| `--domain <domain>` | `-d` | `string` | N | 자동 유추 | 도메인/태그 이름 (기본: route 첫 번째 세그먼트) |
+| `--summary <text>` | | `string` | N | - | Operation summary 설명 |
+| `--auth <scheme>` | | `string` | N | `bearerAuth` | 인증 데코레이터 (`bearerAuth`, 비활성화 시 `none`) |
+| `--crud` | | `boolean` | N | `false` | 리소스 전체 CRUD 엔드포인트 5종 및 요청/응답 DTO 일괄 생성 |
+| `--envelope` | | `boolean` | N | `false` | 표준 제네릭 래퍼(`Ok<T>`, `Created<T>`, `NoContent`, `PageResult<T>`) 적용 |
+| `--resource <name>` | | `string` | N | 자동 유추 | CRUD 대상 리소스 이름 (기본: 라우트 경로로부터 유추) |
+| `--file <path>` | `-f` | `string` | N | - | 생성된 코드를 기존 `.tsp` 파일 끝에 자동으로 추가 주입 |
+| `--output <path>` | `-o` | `string` | N | - | 출력 파일 경로 (`-` 지정 시 stdout 출력) |
+
+실행 예시:
+```bash
+# CRUD 5종 + 제네릭 엔벨롭 표준 스펙 생성 후 파일 주입
+oa-gen tsp-scaffold --route /orders --crud --envelope --file packages/schemas/typespec/orders.tsp
+
+# 단일 POST 엔드포인트 생성
+oa-gen tsp-scaffold --route /articles --method post --operation-id createArticle
 ```
 
 ## TypeSpec ↔ TypeScript evidence 예시

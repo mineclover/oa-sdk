@@ -427,8 +427,8 @@ oa-gen mock --spec packages/schemas/dist/openapi.yaml --watch
 # 4. 실시간 무중단 핫 리로드 Mock 서버 구동 (TypeSpec 관측)
 oa-gen mock --tsp packages/schemas/typespec/main.tsp --watch
 
-# 5. OpenAPI 3.2 스펙으로부터 Zod 4 스키마 및 TypeScript 타입 코드 생성
-oa-gen generate:zod --spec packages/schemas/dist/openapi.yaml --output ./generated/zod
+# 5. OpenAPI 또는 TypeSpec(.tsp)으로부터 Zod 4 스키마 생성 (인메모리 컴파일)
+oa-gen generate:zod --spec packages/schemas/typespec/main.tsp --output ./generated/zod
 
 # 6. 독립형 무런타임 타입 가드 분할 생성 (Manifest V3 배포용)
 oa-gen generate --target standalone-guards --input packages/schemas/src/.merged.yaml --out-dir dist/guards --split
@@ -436,10 +436,16 @@ oa-gen generate --target standalone-guards --input packages/schemas/src/.merged.
 # 7. 생성된 번들의 Manifest V3 CSP 호환성 정적 감사 (eval / new Function / ajv 금지 검사)
 oa-gen audit:csp --bundle dist/guards
 
-# 8. OpenAPI 3.2 스펙으로부터 TypeScript 타입 정의 생성
-oa-gen typegen --spec packages/schemas/src/.merged.yaml --output packages/models/src
+# 8. TypeSpec(.tsp)으로부터 TypeScript 타입 정의 직접 생성
+oa-gen typegen --spec packages/schemas/typespec/main.tsp --output packages/models/src
 
-# 9. 스펙 차이점 및 파괴적 변경사항 비교
+# 9. TypeSpec 표준 5종 CRUD 엔드포인트 및 제네릭 엔벨롭 스캐폴딩 주입
+oa-gen tsp-scaffold --route /orders --crud --envelope --file packages/schemas/typespec/orders.tsp
+
+# 10. TypeSpec AST 시맨틱 차이점 및 파괴적 변경사항 비교 (0.5초 초고속 분석)
+oa-gen tsp diff --base origin/main --head HEAD --fail-on-breaking
+
+# 11. 스펙 차이점 및 파괴적 변경사항 비교
 oa-gen diff --base spec-v1.yaml --head spec-v2.yaml --fail-on-breaking
 ```
 

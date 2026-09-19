@@ -1,6 +1,6 @@
 import * as path from 'node:path'
 import type { Command } from '../lib/types.js'
-import { loadSpecWithPath } from '../lib/load-spec.js'
+import { loadSpecDocumentAsync } from '../lib/load-spec.js'
 import { writeOutput } from '../lib/output.js'
 import { str, optStr, bool } from '../lib/args.js'
 import { CliExitError } from '../lib/errors.js'
@@ -60,7 +60,7 @@ export const generateZod: Command = {
   async run(args, context) {
     const specPath = str(args, 'spec')
     const rootDir = (context as any)?.rootDir ?? context?.projectRoot ?? process.cwd()
-    const { document: doc, path: resolvedSpecPath, raw } = loadSpecWithPath(specPath, rootDir)
+    const { document: doc, path: resolvedSpecPath, raw } = await loadSpecDocumentAsync(specPath, rootDir)
 
     const rawStyle = optStr(args, 'style')
     const style = (rawStyle === 'schema' ? 'schema' : 'both') as 'schema' | 'both'

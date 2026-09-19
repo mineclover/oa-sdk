@@ -1,5 +1,5 @@
 import type { Command } from '../lib/types.js'
-import { loadSpecWithPath } from '../lib/load-spec.js'
+import { loadSpecDocumentAsync } from '../lib/load-spec.js'
 import { writeOutput } from '../lib/output.js'
 import { bool, choice, str, optStr } from '../lib/args.js'
 import {
@@ -30,7 +30,7 @@ export const typegen: Command = {
       ...(cacheDir ? { cacheDir } : {}),
     })
     try {
-      const { document: doc, path: resolvedSpecPath } = loadSpecWithPath(specPath)
+      const { document: doc, path: resolvedSpecPath } = await loadSpecDocumentAsync(specPath)
       const style = choice(args, 'style', ['type', 'interface'] as const, 'type')
       const warnings: string[] = []
       const externalAnalysis = analyzeExternalSchemaRefs(doc, resolvedSpecPath)

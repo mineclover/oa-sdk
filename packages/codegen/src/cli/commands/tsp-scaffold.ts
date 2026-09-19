@@ -1,6 +1,6 @@
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { optStr, str } from '../lib/args.js'
+import { bool, optStr, str } from '../lib/args.js'
 import { writeOutput } from '../lib/output.js'
 import type { Command } from '../lib/types.js'
 
@@ -11,6 +11,9 @@ export interface ScaffoldOptions {
   summary?: string | undefined
   domain?: string | undefined
   auth?: string | undefined
+  crud?: boolean | undefined
+  envelope?: boolean | undefined
+  resource?: string | undefined
 }
 
 export function generateTypeSpecScaffold(options: ScaffoldOptions): {
@@ -19,12 +22,17 @@ export function generateTypeSpecScaffold(options: ScaffoldOptions): {
   requestModelName?: string | undefined
   responseModelName: string
 } {
+  if (options.crud) {
+    return generateCrudScaffold(options)
+  }
+
   const method = (options.method || 'get').toLowerCase()
   const route = options.route.startsWith('/') ? options.route : `/${options.route}`
   const domain = options.domain || inferDomain(route)
   const operationId = options.operationId || inferOperationId(method, route)
   const summary = options.summary || `${operationId} operation`
   const auth = options.auth || 'bearerAuth'
+  const useEnvelope = options.envelope === true
 
   const pathParams = extractPathParams(route)
   const hasBody = ['post', 'put', 'patch'].includes(method)
@@ -32,8 +40,8 @@ export function generateTypeSpecScaffold(options: ScaffoldOptions): {
 
   const requestModelName = hasBody ? `${capitalizedOpId}Request` : undefined
   const statusCode = method === 'post' ? 201 : 200
-  const responseModelName = `${capitalizedOpId}${statusCode}Response`
 
+  let responseModelName: string
   const lines: string[] = []
 
   // 1. Request model (if body expected)
@@ -45,16 +53,39 @@ export function generateTypeSpecScaffold(options: ScaffoldOptions): {
     lines.push(``)
   }
 
-  // 2. Response model
-  lines.push(`@doc("${summary} 성공 응답")`)
-  lines.push(`model ${responseModelName} {`)
-  lines.push(`  @statusCode statusCode: ${statusCode};`)
-  lines.push(`  @body body: {`)
-  lines.push(`    // TODO: 응답 필드를 정의하세요`)
-  lines.push(`    id: string;`)
-  lines.push(`  };`)
-  lines.push(`}`)
-  lines.push(``)
+  // 2. Response model / envelope
+  if (useEnvelope) {
+    if (method === 'delete') {
+      responseModelName = 'NoContent'
+    } else if (method === 'post') {
+      const resultDto = `${capitalizedOpId}Result`
+      lines.push(`@doc("${summary} 결과 DTO")`)
+      lines.push(`model ${resultDto} {`)
+      lines.push(`  id: string;`)
+      lines.push(`}`)
+      lines.push(``)
+      responseModelName = `Created<${resultDto}>`
+    } else {
+      const resultDto = `${capitalizedOpId}Result`
+      lines.push(`@doc("${summary} 결과 DTO")`)
+      lines.push(`model ${resultDto} {`)
+      lines.push(`  id: string;`)
+      lines.push(`}`)
+      lines.push(``)
+      responseModelName = `Ok<${resultDto}>`
+    }
+  } else {
+    responseModelName = `${capitalizedOpId}${statusCode}Response`
+    lines.push(`@doc("${summary} 성공 응답")`)
+    lines.push(`model ${responseModelName} {`)
+    lines.push(`  @statusCode statusCode: ${statusCode};`)
+    lines.push(`  @body body: {`)
+    lines.push(`    // TODO: 응답 필드를 정의하세요`)
+    lines.push(`    id: string;`)
+    lines.push(`  };`)
+    lines.push(`}`)
+    lines.push(``)
+  }
 
   // 3. Operation
   lines.push(`@summary("${summary}")`)
@@ -89,9 +120,182 @@ export function generateTypeSpecScaffold(options: ScaffoldOptions): {
   }
 }
 
+function generateCrudScaffold(options: ScaffoldOptions): {
+  operationId: string
+  code: string
+  requestModelName?: string | undefined
+  responseModelName: string
+} {
+  const rawRoute = options.route.startsWith('/') ? options.route : `/${options.route}`
+  const baseRoute = rawRoute.replace(/\/\{[^}]+\}.*$/, '').replace(/\/$/, '')
+  const domain = options.domain || inferDomain(baseRoute)
+  const resourceName = options.resource || inferSingularResource(baseRoute)
+  const pluralName = capitalize(domain)
+  const auth = options.auth || 'bearerAuth'
+  const useEnvelope = options.envelope ?? true
+
+  const lines: string[] = []
+
+  // Models & DTOs
+  lines.push(`@doc("${resourceName} 리소스 엔티티")`)
+  lines.push(`model ${resourceName} {`)
+  lines.push(`  @format("uuid")`)
+  lines.push(`  id: string;`)
+  lines.push(`  createdAt: utcDateTime;`)
+  lines.push(`  updatedAt?: utcDateTime;`)
+  lines.push(`}`)
+  lines.push(``)
+
+  lines.push(`@doc("${resourceName} 생성 요청")`)
+  lines.push(`model Create${resourceName}Request {`)
+  lines.push(`  // TODO: 생성 필드를 정의하세요`)
+  lines.push(`}`)
+  lines.push(``)
+
+  lines.push(`@doc("${resourceName} 수정 요청 (부분 업데이트)")`)
+  lines.push(`model Update${resourceName}Request {`)
+  lines.push(`  // TODO: 수정 필드를 정의하세요`)
+  lines.push(`}`)
+  lines.push(``)
+
+  if (!useEnvelope) {
+    lines.push(`@doc("${resourceName} 목록 응답")`)
+    lines.push(`model List${pluralName}200Response {`)
+    lines.push(`  @statusCode statusCode: 200;`)
+    lines.push(`  @body body: {`)
+    lines.push(`    items: ${resourceName}[];`)
+    lines.push(`    @minValue(0)`)
+    lines.push(`    total: integer;`)
+    lines.push(`  };`)
+    lines.push(`}`)
+    lines.push(``)
+
+    lines.push(`@doc("${resourceName} 단건 조회 성공")`)
+    lines.push(`model Get${resourceName}ById200Response {`)
+    lines.push(`  @statusCode statusCode: 200;`)
+    lines.push(`  @body body: ${resourceName};`)
+    lines.push(`}`)
+    lines.push(``)
+
+    lines.push(`@doc("${resourceName} 생성 완료")`)
+    lines.push(`model Create${resourceName}201Response {`)
+    lines.push(`  @statusCode statusCode: 201;`)
+    lines.push(`  @body body: ${resourceName};`)
+    lines.push(`}`)
+    lines.push(``)
+
+    lines.push(`@doc("${resourceName} 수정 완료")`)
+    lines.push(`model Update${resourceName}200Response {`)
+    lines.push(`  @statusCode statusCode: 200;`)
+    lines.push(`  @body body: ${resourceName};`)
+    lines.push(`}`)
+    lines.push(``)
+
+    lines.push(`@doc("${resourceName} 삭제 완료")`)
+    lines.push(`model Delete${resourceName}204Response {`)
+    lines.push(`  @statusCode statusCode: 204;`)
+    lines.push(`}`)
+    lines.push(``)
+  }
+
+  const authLine = auth !== 'none' ? `\n@useAuth(${auth})` : ''
+
+  // 1. List
+  const listResp = useEnvelope ? `Ok<PageResult<${resourceName}>>` : `List${pluralName}200Response`
+  lines.push(`@summary("${resourceName} 목록 조회")`)
+  lines.push(`@doc("${resourceName} 목록을 페이지네이션으로 조회합니다.")`)
+  lines.push(`@tag("${domain}")${authLine}`)
+  lines.push(`@operationId("list${pluralName}")`)
+  lines.push(`@route("${baseRoute}")`)
+  lines.push(`@get`)
+  lines.push(`@oaUseResponseComponent("400", "BadRequest")`)
+  lines.push(`@oaUseResponseComponent("401", "Unauthorized")`)
+  lines.push(`op list${pluralName}(`)
+  lines.push(`  @doc("페이지 번호 (1-based)") @query page?: integer = 1,`)
+  lines.push(`  @doc("페이지당 항목 수") @query limit?: integer = 20,`)
+  lines.push(`): ${listResp};`)
+  lines.push(``)
+
+  // 2. GetById
+  const getResp = useEnvelope ? `Ok<${resourceName}>` : `Get${resourceName}ById200Response`
+  lines.push(`@summary("${resourceName} 단건 조회")`)
+  lines.push(`@doc("ID로 ${resourceName} 단건 정보를 조회합니다.")`)
+  lines.push(`@tag("${domain}")${authLine}`)
+  lines.push(`@operationId("get${resourceName}ById")`)
+  lines.push(`@route("${baseRoute}/{id}")`)
+  lines.push(`@get`)
+  lines.push(`@oaUseResponseComponent("401", "Unauthorized")`)
+  lines.push(`@oaUseResponseComponent("404", "NotFound")`)
+  lines.push(`op get${resourceName}ById(@doc("${resourceName} ID") @path id: string): ${getResp};`)
+  lines.push(``)
+
+  // 3. Create
+  const createResp = useEnvelope ? `Created<${resourceName}>` : `Create${resourceName}201Response`
+  lines.push(`@summary("${resourceName} 생성")`)
+  lines.push(`@doc("신규 ${resourceName} 리소스를 등록합니다.")`)
+  lines.push(`@tag("${domain}")${authLine}`)
+  lines.push(`@operationId("create${resourceName}")`)
+  lines.push(`@route("${baseRoute}")`)
+  lines.push(`@post`)
+  lines.push(`@oaUseResponseComponent("400", "BadRequest")`)
+  lines.push(`@oaUseResponseComponent("401", "Unauthorized")`)
+  lines.push(`op create${resourceName}(@body body: Create${resourceName}Request): ${createResp};`)
+  lines.push(``)
+
+  // 4. Update
+  const updateResp = useEnvelope ? `Ok<${resourceName}>` : `Update${resourceName}200Response`
+  lines.push(`@summary("${resourceName} 수정")`)
+  lines.push(`@doc("기존 ${resourceName} 리소스를 수정합니다.")`)
+  lines.push(`@tag("${domain}")${authLine}`)
+  lines.push(`@operationId("update${resourceName}")`)
+  lines.push(`@route("${baseRoute}/{id}")`)
+  lines.push(`@put`)
+  lines.push(`@oaUseResponseComponent("400", "BadRequest")`)
+  lines.push(`@oaUseResponseComponent("401", "Unauthorized")`)
+  lines.push(`@oaUseResponseComponent("404", "NotFound")`)
+  lines.push(`op update${resourceName}(`)
+  lines.push(`  @doc("${resourceName} ID") @path id: string,`)
+  lines.push(`  @body body: Update${resourceName}Request,`)
+  lines.push(`): ${updateResp};`)
+  lines.push(``)
+
+  // 5. Delete
+  const deleteResp = useEnvelope ? `NoContent` : `Delete${resourceName}204Response`
+  lines.push(`@summary("${resourceName} 삭제")`)
+  lines.push(`@doc("${resourceName} 리소스를 영구 삭제합니다.")`)
+  lines.push(`@tag("${domain}")${authLine}`)
+  lines.push(`@operationId("delete${resourceName}")`)
+  lines.push(`@route("${baseRoute}/{id}")`)
+  lines.push(`@delete`)
+  lines.push(`@oaUseResponseComponent("401", "Unauthorized")`)
+  lines.push(`@oaUseResponseComponent("404", "NotFound")`)
+  lines.push(`op delete${resourceName}(@doc("${resourceName} ID") @path id: string): ${deleteResp};`)
+
+  return {
+    operationId: `crud${resourceName}`,
+    code: lines.join('\n'),
+    requestModelName: `Create${resourceName}Request`,
+    responseModelName: useEnvelope ? `Ok<${resourceName}>` : `Get${resourceName}ById200Response`,
+  }
+}
+
 function inferDomain(route: string): string {
   const parts = route.split('/').filter(p => p && !p.startsWith('{'))
   return parts[0] ?? 'default'
+}
+
+function inferSingularResource(route: string): string {
+  const parts = route.split('/').filter(p => p && !p.startsWith('{'))
+  const lastPart = parts[parts.length - 1] ?? 'item'
+  let name = lastPart
+  if (name.endsWith('ies')) {
+    name = name.slice(0, -3) + 'y'
+  } else if (name.endsWith('es') && (name.endsWith('ches') || name.endsWith('shes') || name.endsWith('sses') || name.endsWith('xes'))) {
+    name = name.slice(0, -2)
+  } else if (name.endsWith('s') && name.length > 3) {
+    name = name.slice(0, -1)
+  }
+  return capitalize(name)
 }
 
 function inferOperationId(method: string, route: string): string {
@@ -134,6 +338,9 @@ export const tspScaffold: Command = {
     domain: { type: 'string', short: 'd', description: '도메인 이름' },
     summary: { type: 'string', description: 'Operation summary 설명' },
     auth: { type: 'string', description: '인증 데코레이터 적용 여부 (기본: bearerAuth, none으로 비활성화)' },
+    crud: { type: 'boolean', description: '리소스 전체 CRUD 엔드포인트 및 DTO 일괄 생성' },
+    envelope: { type: 'boolean', description: '표준 제네릭 응답 래퍼(Ok<T>, Created<T>, NoContent, PageResult<T>) 사용' },
+    resource: { type: 'string', description: 'CRUD 대상 리소스 이름 (기본: 라우트 경로로부터 자동 유추)' },
     file: { type: 'string', short: 'f', description: '주입 대상 .tsp 파일 경로' },
     output: { type: 'string', short: 'o', description: '생성된 TypeSpec 코드를 기록할 파일 경로 (미지정 시 대상 파일에 추가, - 는 stdout)' },
   },
@@ -144,6 +351,9 @@ export const tspScaffold: Command = {
     const domain = optStr(args, 'domain')
     const summary = optStr(args, 'summary')
     const auth = optStr(args, 'auth')
+    const crud = bool(args, 'crud')
+    const envelope = bool(args, 'envelope')
+    const resource = optStr(args, 'resource')
     const file = optStr(args, 'file')
     const output = optStr(args, 'output')
 
@@ -154,6 +364,9 @@ export const tspScaffold: Command = {
       domain,
       summary,
       auth,
+      crud,
+      envelope,
+      resource,
     })
 
     if (output === '-' || (!output && !file)) {
@@ -178,3 +391,5 @@ export const tspScaffold: Command = {
     }
   },
 }
+
+export default tspScaffold

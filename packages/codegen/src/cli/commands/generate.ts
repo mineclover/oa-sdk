@@ -488,11 +488,17 @@ async function runStandaloneGuards(args: Args): Promise<void> {
 
   let schemaDocument: Record<string, unknown>
   try {
-    const raw = await readFile(resolvedInput, 'utf8')
-    if (resolvedInput.endsWith('.yaml') || resolvedInput.endsWith('.yml')) {
-      schemaDocument = parseYaml(raw) as Record<string, unknown>
+    if (resolvedInput.endsWith('.tsp')) {
+      const { compileTypeSpecInMemory } = await import('../lib/typespec-mock-compiler.js')
+      const compiled = await compileTypeSpecInMemory(resolvedInput)
+      schemaDocument = compiled.document as unknown as Record<string, unknown>
     } else {
-      schemaDocument = JSON.parse(raw) as Record<string, unknown>
+      const raw = await readFile(resolvedInput, 'utf8')
+      if (resolvedInput.endsWith('.yaml') || resolvedInput.endsWith('.yml')) {
+        schemaDocument = parseYaml(raw) as Record<string, unknown>
+      } else {
+        schemaDocument = JSON.parse(raw) as Record<string, unknown>
+      }
     }
   } catch (err) {
     console.error(`오류: 스키마 파일 파싱 실패: ${resolvedInput}\n${err instanceof Error ? err.message : String(err)}`)
