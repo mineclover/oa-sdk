@@ -1,6 +1,6 @@
 {
   "name": "@oa-sdk/ast-sync",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "V3 Unified Architecture: Zero-loss bidirectional TypeScript AST synchronization and standalone guard generation",
   "private": false,
   "type": "module",
