@@ -174,7 +174,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Build public release candidates
-        run: pnpm --filter @oa-sdk/codegen... run build
+        run: pnpm build:core
 
       - name: Prepare packed public consumer
         run: node scripts/public-runtime-smoke.mjs prepare "${RUNNER_TEMP}/oa-sdk-public-runtime"
