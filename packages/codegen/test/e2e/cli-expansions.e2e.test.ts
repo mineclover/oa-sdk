@@ -711,8 +711,9 @@ describe('E2E CLI Expansions & Conventions Test Suite (Tiers 1-4)', () => {
     describe('R4: Authoring Conventions Documentation Completeness', () => {
       const getGuideContent = async (): Promise<string> => {
         const candidatePaths = [
-          path.resolve(process.cwd(), '../browser-studio/docs/guides/schema-architecture-and-conventions.md'),
+          path.resolve(process.cwd(), '../../docs/guides/schema-architecture-and-conventions.md'),
           path.resolve(process.cwd(), 'docs/guides/schema-architecture-and-conventions.md'),
+          path.resolve(process.cwd(), '../browser-studio/docs/guides/schema-architecture-and-conventions.md'),
           path.resolve(process.cwd(), '../../browser-studio/docs/guides/schema-architecture-and-conventions.md'),
           '/Users/junwoobang/workflow/browser-studio/docs/guides/schema-architecture-and-conventions.md',
         ]

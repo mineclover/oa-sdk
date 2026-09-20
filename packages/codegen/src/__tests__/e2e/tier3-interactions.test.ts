@@ -380,7 +380,7 @@ export const CustomModel = z.object({
   // =========================================================================
   // T3-08: Deep nested execution in submodule -> root boundary traversal -> load browser-studio/oa.config.ts
   // =========================================================================
-  it('T3-08: deep nested execution in submodule -> root boundary traversal -> load browser-studio/oa.config.ts', async () => {
+  it.skipIf(!fsSync.existsSync('/Users/junwoobang/workflow/browser-studio'))('T3-08: deep nested execution in submodule -> root boundary traversal -> load browser-studio/oa.config.ts', async () => {
     const candidateSubmodule1 = '/Users/junwoobang/workflow/browser-studio/packages/browser-mapper/packages/selector-evaluator'
     const candidateSubmodule2 = '/Users/junwoobang/workflow/browser-studio/packages/browser-mapper/packages/unified-utils'
     const submoduleDeepDir = fsSync.existsSync(candidateSubmodule1) ? candidateSubmodule1 : candidateSubmodule2
@@ -612,7 +612,7 @@ export const DataPoint = z.object({ timestamp: z.number(), value: z.string() });
   // =========================================================================
   // T3-14: CLI --project-root passed to oa-gen audit:csp scanning remote bundle directory
   // =========================================================================
-  it('T3-14: CLI --project-root passed to oa-gen audit:csp scanning remote bundle directory', () => {
+  it.skipIf(!fsSync.existsSync('/Users/junwoobang/workflow/browser-studio'))('T3-14: CLI --project-root passed to oa-gen audit:csp scanning remote bundle directory', () => {
     const bsRoot = '/Users/junwoobang/workflow/browser-studio'
     expect(fsSync.existsSync(path.join(bsRoot, 'dist/guards'))).toBe(true)
 

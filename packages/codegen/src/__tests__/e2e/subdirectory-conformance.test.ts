@@ -22,7 +22,7 @@ const TEST_DIRECTORIES = [
   { name: 'Deep Submodule Package 2', path: path.join(browserStudioRoot, 'packages/browser-mapper/packages/browser-mapper') },
 ]
 
-describe('Milestone 4: Deep Subdirectory Execution Conformance', () => {
+describe.skipIf(!fs.existsSync(browserStudioRoot))('Milestone 4: Deep Subdirectory Execution Conformance', () => {
   describe('Resolution Invariant Verification', () => {
     for (const target of TEST_DIRECTORIES) {
       it(`resolves browser-studio root from ${target.name}`, () => {

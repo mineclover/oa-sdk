@@ -26,7 +26,7 @@ describe('E2E Tier 4: Real-World Application Scenarios (8 Tests)', () => {
   // =========================================================================
   // T4-01: Full Browser Studio Spec & Guard Governance Pipeline
   // =========================================================================
-  it('T4-01: Full Browser Studio Spec & Guard Governance Pipeline', async () => {
+  it.skipIf(!fsSync.existsSync(browserStudioRoot))('T4-01: Full Browser Studio Spec & Guard Governance Pipeline', async () => {
     // 1. Validate all 5 profiles declared in browser-studio/oa.config.ts
     const valResult = runOaCli(['validate'], { cwd: browserStudioRoot })
     expect(valResult.status).toBe(0)
@@ -64,7 +64,7 @@ describe('E2E Tier 4: Real-World Application Scenarios (8 Tests)', () => {
   // =========================================================================
   // T4-02: Nested Submodule Subdirectory Execution Conformance
   // =========================================================================
-  it('T4-02: Nested Submodule Subdirectory Execution Conformance', () => {
+  it.skipIf(!fsSync.existsSync(browserStudioRoot))('T4-02: Nested Submodule Subdirectory Execution Conformance', () => {
     const candidateSubmodule1 = path.join(
       browserStudioRoot,
       'packages/browser-mapper/packages/selector-evaluator'
@@ -250,7 +250,7 @@ export const UserSession = z.object({
   // =========================================================================
   // T4-05: Manifest V3 Content Script Live-Editing Sandbox Invariant
   // =========================================================================
-  it('T4-05: Manifest V3 Content Script Live-Editing Sandbox Invariant', async () => {
+  it.skipIf(!fsSync.existsSync(browserStudioRoot))('T4-05: Manifest V3 Content Script Live-Editing Sandbox Invariant', async () => {
     const guardsEntry = path.join(browserStudioRoot, 'dist/guards/devlink-contracts.guards.js')
     expect(fsSync.existsSync(guardsEntry)).toBe(true)
 
@@ -398,7 +398,7 @@ export const StockItem = z.object({
   // =========================================================================
   // T4-07: Downstream Package Monorepo Linking Resilience
   // =========================================================================
-  it('T4-07: Downstream Package Monorepo Linking Resilience', async () => {
+  it.skipIf(!fsSync.existsSync(browserStudioRoot))('T4-07: Downstream Package Monorepo Linking Resilience', async () => {
     const bsPkgPath = path.join(browserStudioRoot, 'package.json')
     const bsPkg = JSON.parse(await fs.readFile(bsPkgPath, 'utf8'))
 
@@ -427,7 +427,7 @@ export const StockItem = z.object({
   // =========================================================================
   // T4-08: Complete Release Packaging & CSP Audit Gate
   // =========================================================================
-  it('T4-08: Complete Release Packaging & CSP Audit Gate', async () => {
+  it.skipIf(!fsSync.existsSync(browserStudioRoot))('T4-08: Complete Release Packaging & CSP Audit Gate', async () => {
     const guardsDir = path.join(browserStudioRoot, 'dist/guards')
     expect(fsSync.existsSync(guardsDir)).toBe(true)
 

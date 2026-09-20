@@ -81,7 +81,7 @@ const syntheticDeepSubmodule = path.join(
   'packages/browser-mapper/packages/unified-utils/.synthetic-deep-test/s1/s2/s3/s4/s5/s6/s7/s8',
 )
 
-describe('Adversarial Challenger M4: Subdirectory Conformance & Submodule Invariant', () => {
+describe.skipIf(!fs.existsSync(browserStudioRoot))('Adversarial Challenger M4: Subdirectory Conformance & Submodule Invariant', () => {
   beforeAll(() => {
     fs.mkdirSync(syntheticDeepSurface, { recursive: true })
     fs.mkdirSync(syntheticDeepSubmodule, { recursive: true })

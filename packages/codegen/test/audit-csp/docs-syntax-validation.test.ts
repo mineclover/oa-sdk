@@ -2,12 +2,23 @@ import { describe, expect, it } from 'vitest'
 import * as path from 'node:path'
 import * as fs from 'node:fs/promises'
 import * as fsSync from 'node:fs'
+import { fileURLToPath } from 'node:url'
 import ts from 'typescript'
 import * as yaml from 'yaml'
 import { z } from 'zod'
 
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
+
 describe('Documentation Syntax & Schema Architecture Hardening Suite (R4)', () => {
-  const docPath = '/Users/junwoobang/workflow/browser-studio/docs/guides/schema-architecture-and-conventions.md'
+  const candidatePaths = [
+    path.resolve(__dirname, '../../../../docs/guides/schema-architecture-and-conventions.md'),
+    path.resolve(process.cwd(), '../../docs/guides/schema-architecture-and-conventions.md'),
+    path.resolve(process.cwd(), 'docs/guides/schema-architecture-and-conventions.md'),
+    path.resolve(process.cwd(), '../browser-studio/docs/guides/schema-architecture-and-conventions.md'),
+    '/Users/junwoobang/workflow/browser-studio/docs/guides/schema-architecture-and-conventions.md',
+  ]
+  const docPath = candidatePaths.find(p => fsSync.existsSync(p)) || candidatePaths[0]
 
   const readDoc = async (): Promise<string> => {
     return await fs.readFile(docPath, 'utf8')

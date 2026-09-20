@@ -132,7 +132,7 @@ describe('Empirical Adversarial Challenger M4: Domain Profiles, Standalone Guard
   // ===========================================================================
   // Section 1: Empirical Verification of 5 Domain Profiles via oa-gen validate
   // ===========================================================================
-  describe('1. 5 Domain Profiles Validation & Parsing via oa-gen validate', () => {
+  describe.skipIf(!fs.existsSync(browserStudioRoot))('1. 5 Domain Profiles Validation & Parsing via oa-gen validate', () => {
     it('executes oa-gen validate with 0 arguments from browser-studio root (5 passed, 0 failed)', () => {
       const stdout = execSync(`${cliExecutable} validate`, {
         cwd: browserStudioRoot,
@@ -261,7 +261,7 @@ describe('Empirical Adversarial Challenger M4: Domain Profiles, Standalone Guard
   // ===========================================================================
   // Section 2: Sandboxed Execution of Standalone Type Guards (Zero-Eval)
   // ===========================================================================
-  describe('2. Standalone Type Guards Execution Under Mocked Sandbox Environments', () => {
+  describe.skipIf(!fs.existsSync(browserStudioRoot))('2. Standalone Type Guards Execution Under Mocked Sandbox Environments', () => {
     let guardsModule: Record<string, (data: unknown) => boolean>
 
     beforeAll(async () => {
@@ -492,7 +492,7 @@ describe('Empirical Adversarial Challenger M4: Domain Profiles, Standalone Guard
   // Section 3: Empirical Testing of oa-gen audit:csp (Clean & Injected)
   // ===========================================================================
   describe('3. oa-gen audit:csp Clean & Injected Violation Matrix', () => {
-    it('clean bundle: audits browser-studio/dist/guards with exit code 0 and 0 violations', () => {
+    it.skipIf(!fs.existsSync(browserStudioRoot))('clean bundle: audits browser-studio/dist/guards with exit code 0 and 0 violations', () => {
       const stdout = execSync(`${cliExecutable} audit:csp --bundle dist/guards`, {
         cwd: browserStudioRoot,
         encoding: 'utf8',
