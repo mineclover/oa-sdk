@@ -2,7 +2,7 @@
 
 > bun-graph-db가 내보내는 OpenAPI full document와 table projection을 OA SDK에서 안전하게 검증, 타입 생성, 클라이언트 생성, mock 테스트에 사용하는 워크플로우.
 
-전체 구현 순서와 runtime-to-artifact 소유권은 [GraphQL–OA SDK 구현 로드맵](../../../references/bun-graph-db/docs/architecture/GRAPHQL_OA_SDK_IMPLEMENTATION_ROADMAP.md)과 [목표 논리 모델](../../../references/bun-graph-db/docs/architecture/GRAPHQL_OA_SDK_LOGICAL_MODEL.md)을 기준으로 한다.
+전체 구현 순서와 runtime-to-artifact 소유권은 [GraphQL–OA SDK 구현 로드맵](https://github.com/mineclover/bun-graph-db/blob/main/docs/architecture/GRAPHQL_OA_SDK_IMPLEMENTATION_ROADMAP.md)과 [목표 논리 모델](https://github.com/mineclover/bun-graph-db/blob/main/docs/architecture/GRAPHQL_OA_SDK_LOGICAL_MODEL.md)을 기준으로 한다.
 
 ## 시나리오
 

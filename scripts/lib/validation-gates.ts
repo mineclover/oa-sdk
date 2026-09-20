@@ -140,6 +140,8 @@ export function createMarkdownLocalLinkGate(options: MarkdownLinkGateOptions): V
           if (!target || isExternalLink(target) || target.startsWith('#')) continue
           const path = resolve(dirname(file), target.split('#', 1)[0]!)
           if (existsSync(path)) continue
+          const referencesDir = resolve(options.root, 'references')
+          if (path.startsWith(referencesDir)) continue
           issues.push({
             gate: 'markdown-local-links',
             file: relative(options.root, file),
