@@ -82,7 +82,9 @@
   },
   "devDependencies": {
     "@apitomy/data-models": "^3.1.3",
+    "@oa-sdk/client": "workspace:*",
     "@oa-sdk/mock-server": "workspace:*",
+    "@oa-sdk/router": "workspace:*",
     "@types/node": "^22.0.0",
     "drizzle-orm": "1.0.0-beta.20",
     "tsup": "^8.0.0",
