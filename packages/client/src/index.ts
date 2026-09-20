@@ -10,6 +10,24 @@ export type { ClientOptions } from './generate-client.js'
 export type { JsonPrimitive, Resolved } from '@oa-sdk/core'
 
 export {
+  ClientError,
+  isClientError,
+} from './error-contract.js'
+
+export {
+  bearerAuth,
+  basicAuth,
+  apiKeyAuth,
+} from './client-types.js'
+
+export type {
+  ClientConfig,
+  ClientMiddleware,
+  ClientMethodOptions,
+  ClientResponse,
+} from './client-types.js'
+
+export {
   generateTanstackQuery,
   generateKeyFactory,
   generateOptionsFactory,

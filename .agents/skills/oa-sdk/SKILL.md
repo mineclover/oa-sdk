@@ -63,27 +63,30 @@ graph TD
 
 ## 🔒 핵심 아키텍처 규칙 & 불변성 (Invariants)
 
-1. **AST 무손실 양방향 동기화 (Zero-Loss Bidirectional Sync)**:
+1. **TypeSpec 계약 단일 진실 공급원 (TypeSpec-First SSOT Invariance)**:
+   - `oa-sdk`의 모든 프로덕션 API 계약은 `packages/schemas/typespec/**/*.tsp` 원본 파일에서 정의·수정되어야 합니다.
+   - 파생 산출물(`.merged*.yaml`, `dist/openapi.*`, `approved.openapi.yaml`)을 수기로 직접 수정하는 것은 엄격히 금지되며, 변경 후에는 반드시 `pnpm schema:validate` 및 `pnpm schema:approve-typespec-reference -- --write`를 통해 승인 스냅샷을 갱신해야 합니다.
+2. **AST 무손실 양방향 동기화 (Zero-Loss Bidirectional Sync)**:
    - OpenAPI `EntitySpec`과 TypeScript 소스 코드 AST 간 동기화 시, 수정되지 않은 코드 영역의 공백, 주석, 포맷팅(Trivia)은 **비트 단위로 100% 보존(Bitwise Trivia Invariance)**되어야 합니다.
-2. **Type Adapter 패턴 (Pluggable Type Adapters)**:
+3. **Type Adapter 패턴 (Pluggable Type Adapters)**:
    - `TypiaTypeAdapter`: TypeScript 5.x intersection type tags 파싱 (`number & tags.Type<'int32'>`, `tags.Minimum<N>`, `tags.Format<'uuid'>` 등) 지원.
    - `ZodTypeAdapter`: Zod 런타임 스키마와 상호 변환.
    - `TsTypeAdapter`: 순수 TypeScript 인터페이스 생성 및 동기화.
-3. **Manifest V3 CSP 준수 (Zero-eval Safety)**:
+4. **Manifest V3 CSP 준수 (Zero-eval Safety)**:
    - 사전 컴파일된 스탠드얼론 타입 가드 및 클라이언트 코드는 동적 코드 생성(`eval()`, `new Function()`)을 절대 사용하지 않으며, `oa-gen audit:csp` 검사를 통과해야 합니다.
-4. **밀폐형 에이전트 거버넌스 (Closed-by-Default)**:
+5. **밀폐형 에이전트 거버넌스 (Closed-by-Default)**:
    - `.agents/skills.json` 및 `.agents/plugins.json`에 정의된 화이트리스트에 따라 외부 도메인의 스킬 유입을 엄격히 차단하며, 만능 와일드카드(`.*`, `*`) 사용을 원천 금지합니다.
-5. **엄격한 런타임 격리 (Strict Runtime Isolation)**:
+6. **엄격한 런타임 격리 (Strict Runtime Isolation)**:
    - Bun/Elysia 프로젝트에는 순수 Bun 스크립트(`bun --watch`, `bun x`) 및 `@types/bun`만을 주입하여 Node 도구(`tsx`, `nodemon`, `@types/node`)의 오염을 원천 차단하고, Node 프로젝트에는 표준 Node ESM 도구(`tsx watch`)만을 주입합니다.
-6. **순수 핸들러 계약 분리 (Pure Handler Contract Decoupling)**:
+7. **순수 핸들러 계약 분리 (Pure Handler Contract Decoupling)**:
    - `@oa-sdk/router`는 프레임워크 런타임 의존성이 0개이며(`dependencies: {}`), 비즈니스 로직과 라우팅 배선을 물리적으로 분리한 순수 TypeScript 인터페이스(`ApiHandlers`, `*.contract.ts`)를 방출하여 스펙 재생성 시 코드 덮어쓰기(Overwrite Dilemma)를 완전히 제거합니다.
-7. **선언적 출력 경로 라우팅 및 3단계 고아 프루닝 불변성 (Output Path Routing & 3-Gate Orphan Pruning)**:
+8. **선언적 출력 경로 라우팅 및 3단계 고아 프루닝 불변성 (Output Path Routing & 3-Gate Orphan Pruning)**:
    - 5대 토큰(`{tag}`, `{kind}`, `{operationId}`, `{method}`, `{group}`)과 4단계 우선순위(rules $\to$ byKind $\to$ pattern $\to$ default)를 적용하며, 생성된 아티팩트는 `.oa-manifest.json`에 SHA-256 해시로 등록됩니다. 고아 파일 삭제 시 3-Gate 검증(Gate 1 Manifest 출처 증명, Gate 2 SHA-256 해시 무결성 일치, Gate 3 `@generated`/`DO NOT EDIT` 배너 확인)을 통과한 파일만 안전하게 제거되며 수기 작성/수정된 코드는 100% 보존됩니다.
-8. **응답 엔벨로프 충돌 방어 및 다중 상태 에러 유니온 (Response Envelope Collision Defense & Multi-Status Error Union)**:
+9. **응답 엔벨로프 충돌 방어 및 다중 상태 에러 유니온 (Response Envelope Collision Defense & Multi-Status Error Union)**:
    - 핸들러 응답이 비즈니스 도메인 객체(예: `body` 속성을 가진 블로그 포스트 등)인지 HTTP 응답 엔벨로프인지를 3개 조건 검증(`'body' in result && (status === undefined || typeof status === 'number') && (headers === undefined || typeof headers === 'object')`)으로 엄격히 판별하여 데이터 유실 및 잘못된 상태 코드 전송을 방지합니다. 또한 `HandlerResponse<TSuccess, TErrorMap, THeaders>` 유니온 타입을 통해 4xx/5xx 에러 응답을 타입 안전하게 반환합니다. 204 No Content 시 빈 응답 본문 처리를 완벽히 보장합니다.
-9. **TanStack Query v5 3계층 아키텍처 및 와이어 안전성 (3-Tier Query Architecture & Wire Safety)**:
-   - Tier 1(순수 튜플 쿼리 키 트리 `*Keys`), Tier 2(UI 프레임워크 비종속 순수 `queryOptions`/`mutationOptions`/`infiniteQueryOptions`), Tier 3(React 훅 `use*Query`, `createApiHooks`)으로 철저히 분리하며, `JsonPrimitive<T>`로 와이어 직렬화 안전성을 강제합니다. 자동 페이지네이션 파라미터(`cursor`, `page`, `offset`) 감지 및 `getNextPageParam` 휴리스틱을 내장합니다.
-10. **요청 취소 완벽 전달 (End-to-End AbortSignal Pass-Through)**:
+10. **TanStack Query v5 3계층 아키텍처 및 와이어 안전성 (3-Tier Query Architecture & Wire Safety)**:
+    - Tier 1(순수 튜플 쿼리 키 트리 `*Keys`), Tier 2(UI 프레임워크 비종속 순수 `queryOptions`/`mutationOptions`/`infiniteQueryOptions`), Tier 3(React 훅 `use*Query`, `createApiHooks`)으로 철저히 분리하며, `JsonPrimitive<T>`로 와이어 직렬화 안전성을 강제합니다. 자동 페이지네이션 파라미터(`cursor`, `page`, `offset`) 감지 및 `getNextPageParam` 휴리스틱을 내장합니다.
+11. **요청 취소 완벽 전달 (End-to-End AbortSignal Pass-Through)**:
     - 모든 SDK 메서드와 TanStack Query 팩토리는 `signal?: AbortSignal | null`을 허용하며, `__combineSignals` 엔진을 통해 컴포넌트 언마운트 또는 쿼리 무효화 시 네트워크 전송 중인 HTTP 요청을 즉각 중단합니다.
 
 ---

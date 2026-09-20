@@ -87,6 +87,10 @@ const undocumentedOaGenCommands = new Set([
   'generate:zod',
   'generate:guards',
   'generate:drizzle',
+  'generate:client',
+  'client',
+  'pack:client',
+  'pack-client',
   'audit:shape',
 ])
 

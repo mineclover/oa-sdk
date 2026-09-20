@@ -117,3 +117,4 @@ oa-gen tsp diff --base origin/main --head HEAD --fail-on-breaking
 - [커스텀 데코레이터 상세 레퍼런스](./03-decorators-reference.md)
 - [스캐폴딩 및 Semantic Diff 도구 활용법](./04-scaffolding-and-diff.md)
 - [트러블슈팅 및 자주 묻는 질문(FAQ)](./05-troubleshooting.md)
+- [아티팩트 생성 토폴로지 및 아키텍처 규칙](./06-generation-topologies-and-rules.md)

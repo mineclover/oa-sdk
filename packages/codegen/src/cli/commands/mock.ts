@@ -39,12 +39,17 @@ export const mock: Command = {
       short: 'w',
       description: 'Watch specification files (.yaml, .json, .tsp, .ts) and hot-reload routes without restarting the server',
     },
+    stateful: {
+      type: 'boolean',
+      description: 'Enable in-memory stateful store for CRUD operations (POST creates, GET finds, PUT/PATCH updates, DELETE removes)',
+    },
   },
   async run(args: Record<string, CommandArgValue>, context?: CommandContext) {
     const mockContext = context as MockCommandContext | undefined
     const tspPath = optStr(args, 'tsp')
     const specPath = optStr(args, 'spec')
     const isWatch = bool(args, 'watch')
+    const isStateful = bool(args, 'stateful')
     const rawPort = optStr(args, 'port')
     const host = optStr(args, 'host') ?? '127.0.0.1'
     const port = rawPort !== undefined ? parseInt(rawPort, 10) : 4010
@@ -66,7 +71,7 @@ export const mock: Command = {
       }
 
       console.log(`[oa-gen mock] Compiled successfully (${initial.routesCount} operations detected). Starting mock server...`)
-      const server = createNodeMockServer(initial.document, { port, host })
+      const server = createNodeMockServer(initial.document, { port, host, stateful: isStateful })
       await server.start()
       console.log(`🚀 Zero-Build Instant Mock Server running at: ${server.url}`)
       console.log(`📄 Specification: ${resolvedTsp} (OAS ${initial.document.openapi})`)
@@ -144,7 +149,7 @@ export const mock: Command = {
         throw new CliExitError(1)
       }
 
-      const server = createNodeMockServer(doc, { port, host })
+      const server = createNodeMockServer(doc, { port, host, stateful: isStateful })
       await server.start()
       console.log(`🚀 Zero-Build Mock Server running at: ${server.url}`)
       console.log(`📄 Specification: ${resolvedSpec}`)

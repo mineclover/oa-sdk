@@ -5,6 +5,7 @@ import {
   generateDrizzleCommand,
   driftLive,
   generateTanstackCommand,
+  generateClientCommand,
   generateZod,
 } from '../../cli/commands.js'
 import { driftCheck } from '../../cli/commands/check-artifact.js'
@@ -33,6 +34,15 @@ describe('CLI Unification: Subcommands, Aliases, and Help Categorization', () =>
       expect(commands).toContain(generateDrizzleCommand)
     })
 
+    it('registers generate:client command with appropriate options', () => {
+      expect(generateClientCommand.name).toBe('generate:client')
+      expect(generateClientCommand.options?.spec).toBeDefined()
+      expect(generateClientCommand.options?.spec?.required).toBe(true)
+      expect(generateClientCommand.options?.output).toBeDefined()
+      expect(generateClientCommand.options?.['types-import']).toBeDefined()
+      expect(commands).toContain(generateClientCommand)
+    })
+
     it('registers drift:live command with appropriate options', () => {
       expect(driftLive.name).toBe('drift:live')
       expect(driftLive.options?.['managed-openapi']).toBeDefined()
@@ -44,6 +54,7 @@ describe('CLI Unification: Subcommands, Aliases, and Help Categorization', () =>
       const names = commands.map(c => c.name)
       expect(names).toContain('generate:guards')
       expect(names).toContain('generate:drizzle')
+      expect(names).toContain('generate:client')
       expect(names).toContain('generate:tanstack')
       expect(names).toContain('generate:zod')
       expect(names).toContain('drift:check')

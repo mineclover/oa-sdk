@@ -1,17 +1,41 @@
 # Mock 서버 사용 가이드
 
-이 가이드는 현재 oa-sdk source workspace에서만 적용된다. `@oa-sdk/mock-server`와
-`@oa-sdk/schemas`는 아직 public npm distribution candidate가 아니다. 먼저 repository root에서
-`pnpm install && pnpm build:core && pnpm build:downstream`을 실행해 private package와
-`@oa-sdk/schemas/openapi.json` artifact를 준비한다. 외부 consumer는 공개 `@oa-sdk/codegen`의
-`npx oa-gen validate`/`typegen` 경로를 사용하며 mock-server package를 설치 대상으로 가정하지 않는다.
+`oa-sdk`는 사양(OpenAPI 3.1/3.2 또는 TypeSpec `.tsp`)을 기반으로 즉시 동작하는 Mock API 서버 환경을 제공합니다.
+개발 중인 프론트엔드나 에이전트, 통합 테스트 환경에서 실제 백엔드가 배포되기 전에도 계약을 완벽히 검증할 수 있습니다.
 
-## MSW 어댑터 (브라우저 / Vitest)
+---
+
+## 1. CLI 기반 무빌드 즉시 실행 (`oa-gen mock --tsp`)
+
+중간 OpenAPI YAML 파일을 빌드할 필요 없이, TypeSpec(`.tsp`) 소스 파일로부터 직접 인메모리 컴파일을 거쳐 즉시 Mock 서버를 구동합니다:
+
+```bash
+# 기본 구동 (포트 4010)
+oa-gen mock --tsp packages/schemas/typespec/main.tsp
+
+# 파일 변경 감지 핫 리로드 (--watch) 및 CRUD 상태 저장소 시뮬레이션 (--stateful)
+oa-gen mock --tsp packages/schemas/typespec/main.tsp --watch --stateful --port 4010
+```
+
+### 주요 CLI 옵션
+| 옵션 | 단축키 | 설명 |
+|---|---|---|
+| `--tsp <path>` | `-t` | TypeSpec 진입점 파일(`.tsp`) 경로 |
+| `--spec <path>` | `-s` | OpenAPI JSON/YAML 또는 TypeScript 스펙 파일 경로 |
+| `--watch` | `-w` | 스펙 파일 수정 시 서버 재시작 없이 100ms 내 라우트 핫 리로드(Hot-Reload) |
+| `--stateful` | | 인메모리 CRUD 상태 저장소 활성화 (POST로 생성된 데이터가 subsequent GET/PATCH/DELETE에 반영됨) |
+| `--port <port>` | `-p` | 서버 리스닝 포트 (기본값: `4010`) |
+| `--host <host>` | | 서버 바인딩 호스트 (기본값: `127.0.0.1`) |
+
+---
+
+## 2. 프로그래밍 방식: MSW 어댑터 (브라우저 / Vitest)
 
 ```ts
 import { createMswHandlers } from '@oa-sdk/mock-server/adapters/msw'
 import spec from '@oa-sdk/schemas/openapi.json'
 import { setupServer } from 'msw/node'
+
 
 const handlers = createMswHandlers(spec)
 const server = setupServer(...handlers)
@@ -21,7 +45,7 @@ afterEach(() => server.resetHandlers())
 afterAll(() => server.close())
 ```
 
-## Node HTTP 어댑터 (통합 테스트)
+## 3. Node HTTP 어댑터 (통합 테스트)
 
 ```ts
 import { createNodeMockServer } from '@oa-sdk/mock-server/adapters/node-http'

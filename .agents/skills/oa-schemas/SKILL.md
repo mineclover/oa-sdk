@@ -1,38 +1,45 @@
 ---
 name: oa-schemas
-description: Expert guide, modular schema architecture, and verification procedures for OpenAPI 3.1/3.2 schema fragmentation, canonical definition IDs, target bundling, collision resolution, circular reference dereferencing, output routing alignment, and version gates in the oa-sdk monorepo. Use whenever working on OpenAPI schema fragments, target builds, dereferencing cycles, or oa-gen validate --require-32 in oa-sdk.
+description: Expert guide, modular schema architecture, and verification procedures for TypeSpec-first schema authoring (packages/schemas/typespec/), OpenAPI 3.1/3.2 schema fragmentation, canonical definition IDs, target bundling, collision resolution, circular reference dereferencing, output routing alignment, and version gates in the oa-sdk monorepo. Use whenever working on OpenAPI schema fragments, target builds, dereferencing cycles, or oa-gen validate --require-32 in oa-sdk.
 ---
 
 # Modular OpenAPI 3.1/3.2 Schema Architecture (`@oa-sdk/schemas`)
 
-`@oa-sdk/schemas`는 `oa-sdk` 모노레포의 단일 진실 공급원(SSOT, Single Source of Truth) 역할을 수행하는 모듈화된 OpenAPI 3.2 스키마 저장소입니다. 대규모 분산 API 계약을 도메인과 원자적 프래그먼트(Fragments)로 분할 관리하고, 다중 타겟 프로파일(`targets/*.yaml`)을 통해 결정론적으로 번들링하며, 컴포넌트 충돌 해소, 선언적 출력 경로 라우팅 정렬, 그리고 무손실 3.2 ↔ 3.1 변환 파이프라인을 제공합니다.
+`@oa-sdk/schemas`는 `oa-sdk` 모노레포의 단일 진실 공급원(SSOT, Single Source of Truth) 역할을 수행하는 스키마 패키지입니다. **프로덕션 API 계약은 [ADR-009](./docs/internal/architecture/009-typespec-first-authoring.md)에 따라 TypeSpec-First (`packages/schemas/typespec/**/*.tsp`)로 작성·관리**되며, 엄격한 컴파일·승인 스냅샷 검증을 거쳐 OpenAPI 3.2 계약(`.merged.yaml`) 및 3.1 호환 번들(`dist/openapi.*`)을 방출합니다. 레거시 Definition Builder 프래그먼트(`packages/schemas/src/domains/`, `fragments/`)는 롤백 및 참조 경로로 격리 유지됩니다.
+
+> ⚠️ **절대 불변 원칙**: 프로덕션 API 스펙을 변경할 때는 반드시 `packages/schemas/typespec/**/*.tsp` 원본 파일을 수정합니다. 파생 산출물(`.merged*.yaml`, `dist/openapi.*`)이나 승인 스냅샷(`approved.openapi.yaml`)을 수기로 직접 수정하는 것은 엄격히 금지됩니다.
 
 ---
 
 ## 🏛️ 아키텍처 토폴로지 (Architecture Topology)
 
-### 1. 스키마 모듈화 및 타겟 번들링 파이프라인
+### 1. 스키마 정본 및 번들링 파이프라인
 
 ```mermaid
 graph TD
-    subgraph Storage [프래그먼트 저장소 (packages/schemas/src/)]
+    subgraph TypeSpecSSOT [TypeSpec 프로덕션 정본 SSOT (packages/schemas/typespec/)]
+        MainTSP["main.tsp\n(Composition Root)"]
+        DomainTSP["auth.tsp, users.tsp, me.tsp,\nhealth.tsp, common.tsp, metadata/"]
+        BundleJSON["oa-sdk.typespec-bundle.json\n(Manifest v1)"]
+        Approved["approved.openapi.yaml\n(Approved Snapshot Baseline)"]
+    end
+
+    subgraph RollbackStorage [롤백/참조 프래그먼트 (packages/schemas/src/) - ADR-009]
         Domains["domains/<domain>/spec.yaml\n(auth, common, health, me, users)"]
-        Fragments["fragments/<kind>/<scope>/...\n(parameter, path, response, schema, securityScheme)"]
+        Fragments["fragments/<kind>/<scope>/...\n(parameter, path, response, schema)"]
+        TargetYAML["targets/*.yaml\n(scopes, domains, includePaths)"]
     end
 
-    subgraph Targets [멀티 타겟 설정 (src/targets/)]
-        TargetYAML["targets/*.yaml\n(scopes, domains, includePaths, aliases)"]
-    end
-
-    subgraph Parser [파서 번들링 엔진 (@oa-sdk/parser)]
-        Select["selectDefinitionTarget\n(노드 필터링 및 범위 선택)"]
+    subgraph Compiler [컴파일 & 승인 파이프라인]
+        TspCompile["TypeSpec In-Memory Compile\n(packages/schemas/typespec/main.tsp)"]
+        ApproveCheck["schema:approve-typespec-reference\n(Approved Snapshot Diff)"]
         Alloc["allocateDefinitionOutputNames\n(결정론적 이름 충돌 해소)"]
         Rewrite["rewriteDefinitionOutputRefs\n(oa:// URI -> #/components/...)"]
         Deref["DerefFolder (deref.ts)\n(Cycle Stack & DerefCycleStrategy)"]
     end
 
     subgraph Emission [산출물 방출]
-        Merged32[".merged.yaml (OpenAPI 3.2.0)"]
+        Merged32[".merged.yaml (OpenAPI 3.2.0 Canonical)"]
         Sidecar[".merged.3.1.meta.json (JSON Pointer Sidecar)"]
         Merged31[".merged.3.1.yaml (OpenAPI 3.1.0)"]
     end
@@ -44,14 +51,18 @@ graph TD
         Manifest[".oa-manifest.json (3-Gate Pruning)"]
     end
 
-    Domains --> Select
-    Fragments --> Select
-    TargetYAML --> Select
+    MainTSP --> TspCompile
+    DomainTSP --> TspCompile
+    BundleJSON --> TspCompile
+    TspCompile --> ApproveCheck
+    ApproveCheck --> Merged32
 
-    Select --> Alloc
-    Alloc --> Rewrite
-    Rewrite --> Deref
-    Deref --> Merged32
+    Domains -.->|build-spec rollback| Alloc
+    Fragments -.->|build-spec rollback| Alloc
+    TargetYAML -.->|build-spec rollback| Alloc
+    Alloc -.-> Rewrite
+    Rewrite -.-> Deref
+    Deref -.-> Merged32
 
     Merged32 -->|downgrade-3.1.ts| Merged31
     Merged32 -->|downgrade-3.1.ts| Sidecar
@@ -85,32 +96,31 @@ flowchart TD
 
 ---
 
-## 📂 1. 모듈화된 OpenAPI 3.2 스키마 디렉토리 구조
+## 📂 1. 스키마 디렉토리 구조 및 정본 소유권
 
-`packages/schemas/src/`는 단일 대형 YAML 파일의 유지보수 한계를 극복하기 위해 도메인 경계(Bounded Context)와 아티팩트 종류별로 철저히 파티셔닝되어 있습니다:
+`packages/schemas/`는 TypeSpec 프로덕션 정본 디렉토리와 ADR-009 롤백/참조 디렉토리로 명확히 분리되어 있습니다:
 
 ```
-packages/schemas/src/
-├── domains/                      # 도메인별 바운디드 컨텍스트 정의
-│   ├── auth/spec.yaml            # 인증/인가 도메인
-│   ├── common/spec.yaml          # 공통 표준 모델 및 오류 엔벨로프
-│   ├── health/spec.yaml          # 헬스체크 엔드포인트
-│   ├── me/spec.yaml              # 현재 세션 사용자 정보
-│   └── users/spec.yaml           # 사용자 관리 도메인
-├── fragments/                    # 원자적(Atomic) 재사용 가능 조각
-│   ├── parameter/                # 공통 쿼리/경로 매개변수 (Limit, Page 등)
-│   ├── path/                     # 경로별 엔드포인트 조각 (public, internal, admin)
-│   ├── response/                 # 표준 응답 스키마 (ErrorResponse 등)
-│   ├── schema/                   # 데이터 엔티티 스키마 (User, AuthSession 등)
-│   └── securityScheme/           # 보안 인증 규격 (BearerAuth, OAuth2)
-└── targets/                      # 멀티 타겟 빌드 프로파일 설정
-    ├── local-parity-api.yaml     # 로컬 개발 환경 타겟
-    ├── staging-parity-api.yaml   # 스테이징 배포 타겟
-    ├── production-parity-api.yaml# 프로덕션 서비스 타겟
-    ├── public-api.yaml           # 외부 공개용 API 타겟
-    ├── admin-api.yaml            # 내부 관리자용 API 타겟
-    ├── internal-api.yaml         # 마이크로서비스 내부 통신 타겟
-    └── book-notebook-api.yaml    # 도메인 충돌 검증 테스트 타겟
+packages/schemas/
+├── typespec/                     # [SSOT] TypeSpec 프로덕션 정본 계약
+│   ├── main.tsp                  # 전체 도메인 임포트 및 번들 컴포지션 루트
+│   ├── metadata/                 # 공통 컴포넌트, 서비스, 보안 스키마 메타데이터
+│   ├── version.tsp               # ContractVersion API 시맨틱 버전 선언
+│   ├── common.tsp                # 공통 에러 엔벨로프 및 기본 모델
+│   ├── auth.tsp                  # 인증/인가 오퍼레이션 및 DTO
+│   ├── health.tsp                # 헬스체크 및 네이티브 SSE 스트리밍
+│   ├── me.tsp                    # 내 계정 관리
+│   ├── users.tsp                 # 사용자 관리 및 페이징
+│   ├── world-model.tsp           # 월드 모델 런타임 프로젝션 계약
+│   ├── oa-sdk.typespec-bundle.json # v1 번들 매니페스트
+│   └── approved.openapi.yaml     # 승인된 베이스라인 스냅샷 (직접 편집 금지)
+│
+└── src/                          # [ADR-009 롤백/참조] Definition Builder 아티팩트
+    ├── .merged.yaml              # TypeSpec 컴파일 결과 정본 OpenAPI 3.2 아티팩트 (직접 편집 금지)
+    ├── .merged.3.1.yaml          # 3.1 하위 호환 아티팩트 (직접 편집 금지)
+    ├── domains/                  # 레거시 도메인 정의 (롤백 참조용)
+    ├── fragments/                # 레거시 원자적 조각 (롤백 참조용)
+    └── targets/                  # 멀티 타겟 빌드 프로파일 설정 (롤백 참조용)
 ```
 
 ---

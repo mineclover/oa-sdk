@@ -1,6 +1,10 @@
 # Project: Multi-Framework Router Stubs, Target-Separated Onboarding Engine, and Live Mock Hot-Reload
 
 ## Architecture
+- **Layer 0: TypeSpec-First Schema Authority (`packages/schemas/typespec/`)**:
+  - Authoritative Single Source of Truth (SSOT) using TypeSpec (`*.tsp`) for all production API contracts per ADR-009.
+  - Zero handwritten edits to `.merged*.yaml`, `dist/`, or generated snapshots.
+  - In-memory TypeSpec compilation and live watch (`oa-gen mock --tsp ... --watch`), AST semantic diff (`oa-gen tsp diff`), and snapshot baseline approval (`pnpm schema:approve-typespec-reference`).
 - **Layer 1: Multi-Framework Router Stubs & Pure Handler Contracts (`@oa-sdk/router`)**:
   - Deconstructed modular topology separating pure TypeScript business logic contracts from framework runtime mounting.
   - `src/contracts/handler-contract.ts`: `generateHandlerContract(spec, options)` generating standalone `*.contract.ts` files with context interfaces (`GetUserContext`), typed handler signatures (`GetUserHandler`), and aggregate interface `ApiHandlers`.

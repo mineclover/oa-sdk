@@ -41,6 +41,8 @@
   op getUserById(@path id: string): Ok<User>;
   ```
 
+> 💡 **필수 임포트 주의**: `@operationId` 데코레이터는 `@typespec/http`가 아니라 `@typespec/openapi`에 속해 있습니다. 따라서 파일 상단에 `import "@typespec/openapi"; using OpenAPI;`가 반드시 선언되어야 합니다.
+
 ### 2.2 DTO 및 모델 네이밍
 - **엔티티 모델**: 파스칼케이스(`PascalCase`) 단수형 명사 (`User`, `Article`, `Order`).
 - **생성 요청 DTO**: `Create<Resource>Request` (`CreateUserRequest`).
@@ -167,3 +169,4 @@ op deleteUser(@path id: string): NoContent;
 - [커스텀 데코레이터 상세 레퍼런스](./03-decorators-reference.md)
 - [스캐폴딩 및 Semantic Diff 도구 활용법](./04-scaffolding-and-diff.md)
 - [트러블슈팅 및 자주 묻는 질문(FAQ)](./05-troubleshooting.md)
+- [아티팩트 생성 토폴로지 및 아키텍처 규칙](./06-generation-topologies-and-rules.md)

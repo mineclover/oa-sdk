@@ -61,14 +61,34 @@ export const generate: Command = {
     const drizzlePath = optStr(args, 'drizzle-schema')
     const configPath = optStr(args, 'config')
     const inputPath = optStr(args, 'input')
+    const specPath = optStr(args, 'spec')
 
     // 1. Explicit single-target flags
-    if (target === 'standalone-guards' || (inputPath && !drizzlePath && !configPath)) {
+    if (target === 'standalone-guards' || (inputPath && !drizzlePath && !configPath && !specPath && !inputPath.endsWith('.tsp'))) {
       await runStandaloneGuards(args)
       return
     }
     if (drizzlePath) {
       await runDrizzle(drizzlePath, args)
+      return
+    }
+
+    // 1.5. Direct spec/input execution without explicit config
+    const directSpecPath = specPath ?? (inputPath && (inputPath.endsWith('.tsp') || inputPath.endsWith('.yaml') || inputPath.endsWith('.yml') || inputPath.endsWith('.json')) ? inputPath : undefined)
+    if (directSpecPath && !drizzlePath && !configPath) {
+      const outDir = optStr(args, 'out-dir') ?? optStr(args, 'output') ?? './dist'
+      const id = directSpecPath.replace(/\\/g, '/').split('/').pop()?.replace(/\.(tsp|yaml|yml|json)$/, '') ?? 'api'
+      const syntheticConfig: OaConfig = {
+        specs: [
+          {
+            id,
+            schemaEntry: directSpecPath,
+            outDir,
+          },
+        ],
+      }
+      const rootDir = context?.projectRoot ?? (context as any)?.rootDir ?? context?.cwd ?? process.cwd()
+      await runConfigDrivenPipeline(syntheticConfig, rootDir)
       return
     }
 
@@ -219,8 +239,10 @@ async function runConfigDrivenPipeline(config: OaConfig, rootDir: string): Promi
     try {
       const { generateClient } = await import('@oa-sdk/client')
       for (const res of specResults) {
+        const typesImport = clientConfig?.typesImport ?? (res.target as any).typesImport
         const clientCode = generateClient(res.openApiDoc as any, {
           banner: true,
+          ...(typesImport ? { typesImport } : {}),
         })
 
         let clientPath: string

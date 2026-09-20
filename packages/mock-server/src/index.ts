@@ -36,3 +36,9 @@ export { classifyAjvErrors } from './errors/classifier.js'
 // ─── 테스트 헬퍼 ──────────────────────────────────────────────────────────────
 export { createTestClient, createCoverageTracker, createCallbackTracker } from './testing.js'
 export type { TestClient, TestResponse, CoverageTracker, CallbackTracker } from './testing.js'
+
+// ─── 플러그인 ─────────────────────────────────────────────────────────────────
+export type { MockPlugin, MockPluginContext, MockPluginResponse } from './core/plugin.js'
+export { inMemoryStorePlugin } from './plugins/in-memory-store.js'
+export type { InMemoryStorePlugin, InMemoryStoreOptions } from './plugins/in-memory-store.js'
+

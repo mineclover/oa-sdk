@@ -12,12 +12,17 @@ import { validateRequest, type RequestParts } from './request-validator.js'
 import { pickResponse, validatePickedResponse, type PickedResponse } from './response-picker.js'
 import { simulateCallbackPosts, type CallbackPostAttempt } from './callbacks.js'
 import type { MockErrorDetail, MockErrorResponse } from '../errors/types.js'
+import type { MockPlugin, MockPluginContext, MockPluginResponse } from './plugin.js'
 
 export type HandlerResult =
   | { type: 'validation-error'; status: 422; body: MockErrorResponse }
   | { type: 'schema-error'; status: 500; body: MockErrorResponse }
   | { type: 'no-response'; status: 500; body: MockErrorResponse }
   | { type: 'success'; picked: PickedResponse; callbacks: CallbackPostAttempt[] }
+
+export type HandlerOptions = {
+  plugins?: MockPlugin[]
+}
 
 /**
  * 요청 검증 + 응답 선택 공통 로직
@@ -35,6 +40,7 @@ export function handleRequest(
     callbacks?: Record<string, OasCallback>
   },
   securitySchemes: Record<string, OasSecurityScheme>,
+  options?: HandlerOptions,
 ): HandlerResult {
   const result = validateRequest(
     parts,
@@ -140,7 +146,31 @@ export function handleRequest(
     }
   }
 
-  const picked = pickResponse(entry.responses)
+  const plugins = options?.plugins ?? []
+  if (plugins.length === 0) {
+    const picked = pickResponse(entry.responses) ?? undefined
+    return finalizeResult(picked, entry, parts)
+  }
+
+  const context: MockPluginContext = { parts, entry, securitySchemes }
+  const picked = applyPlugins(plugins, context, () => pickResponse(entry.responses) ?? undefined)
+  return finalizeResult(picked, entry, parts)
+}
+
+function finalizeResult(
+  picked: PickedResponse | undefined,
+  entry: {
+    operationId?: string
+    method: string
+    openApiPath: string
+    parameters: OasParameter[]
+    requestBody?: OasRequestBody
+    responses: Record<string, OasResponse>
+    security: OasSecurityRequirement[]
+    callbacks?: Record<string, OasCallback>
+  },
+  parts: RequestParts,
+): HandlerResult {
   if (!picked) {
     return {
       type: 'no-response',
@@ -149,28 +179,72 @@ export function handleRequest(
     }
   }
 
-  const responseValidation = validatePickedResponse(picked)
-  if (!responseValidation.valid) {
-    const compileError = responseValidation.errors.some(error => error.code === 'SCHEMA_COMPILE_ERROR')
-    return {
-      type: 'schema-error',
-      status: 500,
-      body: {
-        error: {
-          code: compileError ? 'SCHEMA_COMPILE_ERROR' : 'CONSTRAINT_VIOLATION',
-          message: compileError ? '응답 검증 스키마 컴파일 실패' : '생성된 응답이 응답 스키마를 만족하지 않습니다',
-          details: responseValidation.errors,
-          _meta: {
-            ...(entry.operationId !== undefined && { operationId: entry.operationId }),
-            method: entry.method,
-            path: entry.openApiPath,
+  if (picked.schema) {
+    const responseValidation = validatePickedResponse(picked)
+    if (!responseValidation.valid) {
+      const compileError = responseValidation.errors.some(error => error.code === 'SCHEMA_COMPILE_ERROR')
+      return {
+        type: 'schema-error',
+        status: 500,
+        body: {
+          error: {
+            code: compileError ? 'SCHEMA_COMPILE_ERROR' : 'CONSTRAINT_VIOLATION',
+            message: compileError ? '응답 검증 스키마 컴파일 실패' : '생성된 응답이 응답 스키마를 만족하지 않습니다',
+            details: responseValidation.errors,
+            _meta: {
+              ...(entry.operationId !== undefined && { operationId: entry.operationId }),
+              method: entry.method,
+              path: entry.openApiPath,
+            },
           },
         },
-      },
+      }
     }
   }
 
   return { type: 'success', picked, callbacks: simulateCallbackPosts(entry, parts, picked) }
+}
+
+function toPickedResponse(result: MockPluginResponse | PickedResponse): PickedResponse {
+  const schema = (result as PickedResponse).schema
+  return {
+    status: result.status,
+    contentType: result.contentType ?? 'application/json',
+    body: result.body,
+    headers: (result as PickedResponse).headers ?? {},
+    links: (result as PickedResponse).links ?? {},
+    ...(schema !== undefined ? { schema } : {}),
+  }
+}
+
+function applyPlugins(
+  plugins: readonly MockPlugin[],
+  context: MockPluginContext,
+  fallbackPicker: () => PickedResponse | undefined,
+): PickedResponse | undefined {
+  for (let i = 0; i < plugins.length; i++) {
+    const p = plugins[i]!
+    if (!p.onMatch) continue
+    const res = p.onMatch(context)
+    if (res) {
+      let current = toPickedResponse(res)
+      for (const pr of plugins) {
+        if (pr.onResponse) {
+          current = pr.onResponse(current, context)
+        }
+      }
+      return current
+    }
+  }
+
+  let current = fallbackPicker()
+  if (!current) return undefined
+  for (const pr of plugins) {
+    if (pr.onResponse) {
+      current = pr.onResponse(current, context)
+    }
+  }
+  return current
 }
 
 function pickUnauthorizedResponse(responses: Record<string, OasResponse>): PickedResponse {

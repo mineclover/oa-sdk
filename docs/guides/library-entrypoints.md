@@ -24,7 +24,7 @@ oa-sdk는 하나의 runtime SDK가 아니라 OpenAPI 계약을 작성·검증·�
 
 | 패키지 | 시작 역할 | 공개 entrypoint | 먼저 볼 자료 |
 | --- | --- | --- | --- |
-| `@oa-sdk/client` | generated operation을 호출하는 typed fetch client | package root, `./browser` | [Quick Start](./quick-start.md) |
+| `@oa-sdk/client` | fetch 기반 타입 안전 클라이언트 SDK 생성기, 런타임 클라이언트 타입/에러/인증 미들웨어, TanStack Query v5 3계층 코드 생성 | package root, `./browser` | [Quick Start](./quick-start.md) |
 | `@oa-sdk/router` | OAS 기반 Hono/Express/Fastify/Elysia router 및 순수 핸들러 계약(contract) stub | package root, `./browser` | [Quick Start](./quick-start.md) |
 | `@oa-sdk/mock-server` | Node HTTP/MSW mock과 request/response validation | package root, `./browser`, `./adapters/msw`, `./adapters/node-http` | [Mock testing](./use-cases/mock-testing.md) |
 | `@oa-sdk/typia-mock` | typia LLM application 기반 mock validation | package root | [API index](../internal/api-index.md) |

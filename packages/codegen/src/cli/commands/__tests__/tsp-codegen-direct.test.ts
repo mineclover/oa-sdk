@@ -1,10 +1,11 @@
 import { describe, expect, it, afterAll } from 'vitest'
 import { join, resolve } from 'node:path'
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, rmSync, writeFileSync, existsSync } from 'node:fs'
 import { loadSpecDocumentAsync, loadSpecWithPath } from '../../lib/load-spec.js'
 import { typegen } from '../typegen.js'
 import { generateZod } from '../generate-zod.js'
 import { validate } from '../validate.js'
+import { generate } from '../generate.js'
 
 import { fileURLToPath } from 'node:url'
 
@@ -81,5 +82,12 @@ op getWidget(@path id: string): {
 
   it('validate validates .tsp directly in-memory', async () => {
     await expect(validate.run({ spec: tspFile })).resolves.not.toThrow()
+  })
+
+  it('generate projects spec artifacts directly from .tsp via --spec', async () => {
+    const outDir = join(testDir, 'dist-generate')
+    await generate.run({ spec: tspFile, output: outDir })
+    expect(existsSync(join(outDir, 'api.openapi.json'))).toBe(true)
+    expect(existsSync(join(outDir, 'api.schema.json'))).toBe(true)
   })
 })

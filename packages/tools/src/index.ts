@@ -49,6 +49,7 @@ export const defineAction = defineTool
 export * from './types.js'
 export * from './context.js'
 export * from './schema.js'
+export * from './schema-bridge.js'
 export * from './mcp.js'
 export * from './cli.js'
 export * from './http.js'

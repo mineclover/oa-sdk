@@ -207,6 +207,45 @@ export async function loadSchemaEntry(schemaEntryPath: string): Promise<{
   paths: Record<string, unknown>
   customProjection?: { openApiDoc: Record<string, unknown>; jsonSchemaDoc: Record<string, unknown> }
 }> {
+  // 0. Direct spec file support (.tsp, .yaml, .yml, .json)
+  if (schemaEntryPath.endsWith('.tsp')) {
+    const { compileTypeSpecInMemory } = await import('./cli/lib/typespec-mock-compiler.js')
+    const compiled = await compileTypeSpecInMemory(schemaEntryPath)
+    const openApiDoc = compiled.document as unknown as Record<string, unknown>
+    const schemasObj = ((openApiDoc.components as any)?.schemas ?? {}) as Record<string, unknown>
+    const pathsObj = (openApiDoc.paths ?? {}) as Record<string, unknown>
+    return {
+      schemas: {},
+      paths: pathsObj,
+      customProjection: {
+        openApiDoc,
+        jsonSchemaDoc: {
+          $schema: 'https://json-schema.org/draft/2020-12/schema',
+          $defs: remapRefsToJsonSchema(schemasObj),
+        },
+      },
+    }
+  }
+
+  if (schemaEntryPath.endsWith('.yaml') || schemaEntryPath.endsWith('.yml') || schemaEntryPath.endsWith('.json')) {
+    const { loadSpecDocumentAsync } = await import('./cli/lib/load-spec.js')
+    const loaded = await loadSpecDocumentAsync(schemaEntryPath)
+    const openApiDoc = loaded.document as unknown as Record<string, unknown>
+    const schemasObj = ((openApiDoc.components as any)?.schemas ?? {}) as Record<string, unknown>
+    const pathsObj = (openApiDoc.paths ?? {}) as Record<string, unknown>
+    return {
+      schemas: {},
+      paths: pathsObj,
+      customProjection: {
+        openApiDoc,
+        jsonSchemaDoc: {
+          $schema: 'https://json-schema.org/draft/2020-12/schema',
+          $defs: remapRefsToJsonSchema(schemasObj),
+        },
+      },
+    }
+  }
+
   const mod = await loadModule<any>(schemaEntryPath)
 
   // 1. Check if module exports a custom projection builder

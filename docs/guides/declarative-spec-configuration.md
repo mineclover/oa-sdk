@@ -229,7 +229,17 @@ Tier 3 설정 파일(`oa.config.*`)이 Tier 4 워크스페이스 및 Tier 5 VCS 
 
 ## 6. 프로젝션 프로파일 (`specs`) 및 독립형 가드 (`guards`)
 
-### 6.1 OpenAPI 3.1 프로젝션 프로파일 매트릭스
+### 6.1 스펙 진입점 입력 포맷 (`schemaEntry` Sources)
+
+`specs` 배열의 `schemaEntry` 필드는 3가지 형태의 스펙 입력을 지원하며, `@oa-sdk`의 단일 진실 공급원(SSOT) 표준은 **TypeSpec(`.tsp`)**입니다:
+
+| 포맷 | 확장자 | 특징 및 용도 | 권장도 |
+|---|---|---|---|
+| **TypeSpec 원본** | `.tsp` | 타입 안전 DSL로 작성된 단일 진실 공급원. `spec-projector`가 인메모리 컴파일을 통해 OpenAPI 3.2 및 Draft 2020-12 스키마로 직접 프로젝션 | ⭐⭐⭐ (SSOT 권장) |
+| **OpenAPI 파일** | `.yaml`, `.yml`, `.json` | 외부 도구에서 기작성된 OpenAPI 3.1/3.2 명세서 직접 전달 | ⭐⭐ (외부 레거시 스펙) |
+| **TypeScript 모듈** | `.ts`, `.mts`, `.js` | Zod Master Schema 또는 스펙 객체를 export하는 모듈 | ⭐ (하위 호환) |
+
+### 6.2 OpenAPI 3.1/3.2 프로젝션 프로파일 매트릭스
 ```typescript
 export type OpenApiProjectionProfile = "component-bundle" | "operation-contract" | "full-api-document";
 ```
@@ -240,7 +250,7 @@ export type OpenApiProjectionProfile = "component-bundle" | "operation-contract"
 | **`operation-contract`** | Native Messaging RPC, MCP Stdio 등 오퍼레이션 계약 | **반드시 존재**해야 하며 1개 이상의 오퍼레이션과 responses 포함 | 표준 OpenAPI 규칙 준수 | RPC/MCP 오퍼레이션 명세, RFC 9457 오류 응답 |
 | **`full-api-document`** | 백엔드 종합 REST/HTTP API 명세서 | 표준 OpenAPI 3.1/3.2 규칙 준수 | 표준 OpenAPI 3.1/3.2 규칙 준수 | 단일 통합 OpenAPI 스펙 문서 |
 
-### 6.2 독립형 정적 타입 가드 (`guards`)
+### 6.3 독립형 정적 타입 가드 (`guards`)
 Chrome Extension Manifest V3 등 엄격한 CSP 환경을 위한 순수 정적 가드 함수를 컴파일합니다:
 - **무의존성 함수**: 런타임에 `ajv`, `zod`, `@oa-sdk/*`를 일절 import하지 않는 독립형 `is<TypeName>(data)` 함수 및 `.d.ts` 생성.
 - **모듈 분할 (`split: true`)**: 트리쉐이킹 최적화를 위해 스키마별 개별 모듈(`guards/<Name>.js`) 분할 방출.
@@ -298,7 +308,7 @@ export default defineConfig({
       {
         id: "main-api",
         profile: "full-api-document",
-        schemaEntry: "packages/schemas/src/index.ts",
+        schemaEntry: "packages/schemas/typespec/main.tsp", // 단일 진실 공급원 (SSOT) TypeSpec 파일
         outDir: "artifacts/specs",
         title: "Enterprise Core API",
         version: "1.0.0",

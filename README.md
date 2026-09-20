@@ -1,20 +1,31 @@
 # oa-sdk
 
 OpenAPI 3.2 contract를 중심으로 한 API governance 인프라 모노레포.
-여러 라이브러리와 시스템이 내보내는 OpenAPI/JSON Schema 호환 조각을 수집해 하나의
-OpenAPI artifact로 통합하고, metadata와 전체 path surface를 관리하며,
-검증·비교·생성·mock/runtime 테스트·review gate까지 연결합니다.
+**TypeSpec(`.tsp`)을 단일 진실 공급원(SSOT)**으로 채택하여, 도메인 스키마를 선언적으로 정의하고
+엄격한 OpenAPI 3.2 아티팩트 컴파일, 검증·비교·생성·mock/runtime 테스트·review gate까지 완결합니다.
+(외부 서비스의 OpenAPI/JSON Schema 호환 조각은 수집·정규화 intake 파이프라인으로 거버넌스합니다.)
 
 현재 제품의 핵심은 `@oa-sdk/core` 위에서 schema/spec source, projection contract,
 파싱·검증·생성, 변경 이력 관측과 wire contract를 연결하는 여덟 패키지의 Core Platform입니다.
 상세한 범위와 신규 작업 승인 기준은
 [`docs/internal/platform-scope.md`](./docs/internal/platform-scope.md)를 따릅니다.
 
+> 🚀 **API 스키마 작성 5분 퀵스타트**: [TypeSpec 5분 퀵스타트 가이드](./docs/guides/typespec/01-quickstart-5min.md)  
+> ⚠️ **절대 불변 원칙**: API 계약을 변경할 때는 반드시 `packages/schemas/typespec/**/*.tsp` 원본 파일을 수정합니다. `.merged*.yaml`, `dist/` 등은 빌드 생성물이므로 절대로 직접 수정하지 마십시오.
+
 ```
-Drizzle ORM ──▶                        ──▶ Mock Server
-Zod Schema  ──▶  OpenAPI 3.2 Spec      ──▶ TypeScript 타입
-               (단일 소스 + 검증)       ──▶ 서버 라우터 스텁
-                                        ──▶ 클라이언트 SDK
+┌─────────────────────────────────┐
+│ TypeSpec (.tsp) Master Contract │ ──▶ API 계약 단일 진실 공급원 (SSOT, packages/schemas/typespec/)
+└────────────────┬────────────────┘
+                 │ (인메모리 컴파일 / AST Diff / 스냅샷 승인)
+                 ▼
+┌─────────────────────────────────┐
+│   OpenAPI 3.2 Spec (.merged)    │ ──▶ 엄격한 계약 검증 (Spectral, Redocly, OAS 3.2 Gate)
+└────────────────┬────────────────┘
+                 ├──▶ 제로빌드 실시간 Mock Server (oa-gen mock --tsp ... --watch)
+                 ├──▶ 런타임 오버헤드 0% TypeScript 타입 (oa-gen typegen)
+                 ├──▶ 순수 핸들러 계약 (*.contract.ts) & 고성능 라우터 (Fastify / Bun Elysia)
+                 └──▶ TanStack Query v5 3계층 프론트엔드 SDK 클라이언트
 ```
 
 ## 패키지
@@ -134,7 +145,11 @@ nvm use
 corepack pnpm --version
 corepack pnpm install
 
-# 스펙 관리
+# 스펙 관리 (TypeSpec 정본 워크플로)
+node packages/codegen/dist/cli/index.js tsp-scaffold --route /articles --crud --envelope --file packages/schemas/typespec/articles.tsp # 엔드포인트/DTO 스캐폴딩
+node packages/codegen/dist/cli/index.js mock --tsp packages/schemas/typespec/main.tsp --watch # TypeSpec 인메모리 컴파일 실시간 Mock 서버 (무빌드 핫리로드)
+node packages/codegen/dist/cli/index.js tsp diff --base origin/main --head HEAD --fail-on-breaking # TypeSpec AST 시맨틱 브레이킹 체인지 검사
+pnpm schema:approve-typespec-reference -- --write  # TypeSpec 검토 완료 후 승인 스냅샷(approved.openapi.yaml) 갱신
 pnpm schema:validate                       # TypeSpec production source → .merged.yaml + 3.1 downgrade + Spectral/Redocly + strict OAS 3.2
 pnpm schema:rollback-check                 # TypeSpec path와 Definition Builder rollback path 동시 검증
 pnpm schema:bundle                         # TypeSpec-derived 3.1 artifact를 dist/openapi.{yaml,json}로 번들

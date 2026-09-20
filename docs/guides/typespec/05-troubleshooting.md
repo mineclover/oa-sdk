@@ -96,8 +96,47 @@
 
 ---
 
+## 4. 컴파일러 및 아티팩트 생성 실무 트러블슈팅
+
+### Q8. `error invalid-ref: Unknown decorator @operationId` 에러가 발생합니다.
+- **원인**: TypeSpec에서 `@operationId`는 기본 `@typespec/http`가 아니라 **`@typespec/openapi` 패키지에 속해 있습니다.**
+- **해결책**: 파일 상단에 `@typespec/openapi` 임포트와 `using OpenAPI;`를 추가하십시오:
+  ```typespec
+  import "@typespec/http";
+  import "@typespec/openapi";
+
+  using Http;
+  using OpenAPI;
+  ```
+
+### Q9. `error expect-value: Is a model expression type, but is being used as a value here. Use #{}` 에러가 발생합니다.
+- **원인**: TypeSpec 0.60+ 최신 사양에서는 `@service`나 `@extension` 등의 데코레이터 인자로 일반 객체 리터럴(`{ key: "val" }`)을 전달하면 모델 표현식으로 파싱되어 에러가 발생합니다.
+- **해결책**: 반드시 `#{}` 표기법(객체 값 리터럴)을 사용하십시오:
+  ```typespec
+  // ❌ 에러 발생
+  @service({ title: "My API" })
+
+  // ✅ 정상 동작
+  @service(#{ title: "My API" })
+  ```
+
+### Q10. 생성된 `queries.ts`나 `client.ts`에서 TypeScript 모듈을 찾을 수 없다고 나옵니다.
+- **원인**: 백엔드 계약(`*.contract.ts`)은 무의존성이지만, 생성된 쿼리 훅(`*.queries.ts`)은 `@tanstack/react-query`, 클라이언트(`*.client.ts`)는 `@oa-sdk/client`의 정적 타입을 참조합니다.
+- **해결책**: 해당 코드를 사용하는 프론트엔드/소비자 패키지에 의존성을 설치하십시오:
+  ```bash
+  pnpm add @tanstack/react-query
+  pnpm add -D @oa-sdk/client
+  ```
+
+### Q11. `Couldn't resolve import "@typespec/http"` 에러가 발생합니다.
+- **원인**: `@typespec/compiler`가 프로젝트 루트 외부(예: `/tmp/`)에서 실행되어 상향 경로에서 `node_modules`를 찾을 수 없는 경우입니다.
+- **해결책**: `.tsp` 파일은 반드시 `@typespec/http` 및 `@typespec/compiler`가 설치된 프로젝트/모노레포 루트 내부의 경로에 위치시켜 실행하십시오.
+
+---
+
 ## 다음 단계
 - [TypeSpec 5분 퀵스타트 가이드](./01-quickstart-5min.md)
 - [TypeSpec 작성 규칙 및 컨벤션 표준](./02-authoring-conventions.md)
 - [커스텀 데코레이터 상세 레퍼런스](./03-decorators-reference.md)
 - [스캐폴딩 및 Semantic Diff 도구 활용법](./04-scaffolding-and-diff.md)
+- [아티팩트 생성 토폴로지 및 아키텍처 규칙](./06-generation-topologies-and-rules.md)

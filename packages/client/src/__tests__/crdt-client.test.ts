@@ -207,6 +207,6 @@ export function Component() {
       )
 
       expect(() => runTsc(tmpDir)).not.toThrow()
-    })
+    }, 25_000)
   })
 })

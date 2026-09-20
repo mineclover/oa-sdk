@@ -8,7 +8,7 @@ interface CategorySpec {
 const CATEGORIES: CategorySpec[] = [
   {
     title: 'Core Code Generation',
-    names: ['init', 'generate', 'generate:tanstack', 'generate:zod', 'generate:guards', 'generate:drizzle', 'typegen'],
+    names: ['init', 'generate', 'generate:client', 'generate:tanstack', 'generate:zod', 'generate:guards', 'generate:drizzle', 'typegen'],
   },
   {
     title: 'Validation & Audit',

@@ -36,6 +36,10 @@ apps/fastapi-ref/**/__pycache__/
 .spec-lens.db-wal
 packages/codegen/.bench/
 .pnpm-store/
+.tmp-*
+packages/*/.tmp-*/
+.oa-manifest.json
+packages/*/.oa-manifest.json
 
 # Ephemeral agent swarm session directories
 .agents/teamwork_preview_*

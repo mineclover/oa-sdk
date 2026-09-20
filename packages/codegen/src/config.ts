@@ -82,6 +82,8 @@ export interface SharedPlatformClientConfig {
   wireFormatSafety?: boolean | undefined
   /** Output directory for generated client SDK */
   outDir?: string | undefined
+  /** Module specifier or relative path to import generated types from (e.g. "./types.js") */
+  typesImport?: string | undefined
 }
 
 export interface SharedPlatformTypegenConfig {

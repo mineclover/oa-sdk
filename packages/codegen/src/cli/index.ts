@@ -13,6 +13,8 @@ import {
   generateDrizzleCommand,
   driftLive,
   generateTanstackCommand,
+  generateClientCommand,
+  packClientCommand,
   generateZod,
 } from './commands.js'
 import { driftCheck } from './commands/check-artifact.js'
@@ -62,6 +64,12 @@ commandMap.set('generate-drizzle', generateDrizzleCommand)
 
 commandMap.set('generate:tanstack', generateTanstackCommand)
 commandMap.set('generate-tanstack', generateTanstackCommand)
+
+commandMap.set('generate:client', generateClientCommand)
+commandMap.set('generate-client', generateClientCommand)
+commandMap.set('client', generateClientCommand)
+commandMap.set('pack:client', packClientCommand)
+commandMap.set('pack-client', packClientCommand)
 
 commandMap.set('generate:zod', generateZod)
 commandMap.set('generate-zod', generateZod)

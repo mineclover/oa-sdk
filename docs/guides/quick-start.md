@@ -28,8 +28,9 @@ sourceOfTruth:
 
 # Quick Start (5분 빠른 시작 가이드)
 
-5분 안에 `@oa-sdk`의 전체 엔드투엔드 파이프라인(온보딩 $\rightarrow$ 스펙 검증 $\rightarrow$ 정적 타입 생성 $\rightarrow$ Zod 4 검증 스키마 $\rightarrow$ TanStack Query 프론트엔드 $\rightarrow$ 순수 핸들러 계약 및 고성능 백엔드 라우터 $\rightarrow$ 실시간 목 서버 핫리로드)을 직접 체험합니다.
+5분 안에 `@oa-sdk`의 전체 엔드투엔드 파이프라인(온보딩 $\rightarrow$ TypeSpec 선언 및 스펙 검증 $\rightarrow$ 정적 타입 생성 $\rightarrow$ Zod 4 검증 스키마 $\rightarrow$ TanStack Query 프론트엔드 $\rightarrow$ 순수 핸들러 계약 및 고성능 백엔드 라우터 $\rightarrow$ 실시간 목 서버 핫리로드)을 직접 체험합니다.
 
+> 🚀 **TypeSpec 기반 API 개발 5분 퀵스타트**: `oa-sdk` 모노레포의 API 계약 단일 진실 공급원(SSOT)은 **TypeSpec(`.tsp`)**입니다. 엔드포인트 스캐폴딩, 실시간 핫리로드 목 서버, AST 시맨틱 브레이킹 체인지 검사의 전체 개발 루프는 **[TypeSpec 5분 퀵스타트 가이드](./typespec/01-quickstart-5min.md)**를 참조하십시오.
 > 💡 **패키지 매니저별 설치 및 런타임 설정 상세**: [CLI 설치 및 설정 가이드](./cli-setup.md)
 > 💡 **선언적 설정 파일(`oa.config.ts`) 상세 스펙**: [선언적 사양 설정 가이드](./declarative-spec-configuration.md)
 
@@ -37,7 +38,7 @@ sourceOfTruth:
 
 ## 0단계: 30초 제로 마찰 온보딩 (`oa-gen init`)
 
-프로젝트 루트에서 `oa-gen init`을 실행하면 프레임워크(Fastify, Bun Elysia, Hono, Express, NestJS)와 기존 사양 파일을 자동으로 감지하여 최적화된 `oa.config.ts`와 `package.json` 스크립트를 즉시 구성합니다.
+프로젝트 루트에서 `oa-gen init`을 실행하면 프레임워크(Fastify, Bun Elysia, Hono, Express, NestJS)와 스펙 소스(`.tsp`, `openapi.yaml`, `openapi.json`, `@oaOperation` JSDoc)를 자동으로 감지하여 최적화된 `oa.config.ts`와 `package.json` 스크립트를 즉시 구성합니다.
 
 ```bash
 # 로컬 개발 의존성 설치
@@ -51,11 +52,12 @@ npx oa-gen init --yes
 
 ---
 
-## 1단계: OpenAPI 3.2 스펙 파싱 및 유효성 검증 (`oa-gen validate`)
+## 1단계: TypeSpec 계약 작성 및 OpenAPI 3.2 스펙 유효성 검증 (`oa-gen validate`)
 
-사양 문서의 문법, 컴포넌트 참조($ref), OpenAPI 3.2 전용 확장 기능의 정합성을 사전 검증합니다.
+`oa-sdk`는 **TypeSpec(`.tsp`)** 소스를 단일 진실 공급원으로 사용합니다. 엔드포인트 선언 및 변경은 `.tsp` 파일에서 수행하며, 컴파일된 OpenAPI 3.2 사양 문서의 문법, 컴포넌트 참조($ref), OpenAPI 3.2 전용 확장 기능의 정합성을 사전 검증합니다.
 
 ```bash
+# TypeSpec에서 파생된 프로덕션 스펙 또는 관리 대상 스펙 검증
 npx oa-gen validate --spec ./openapi.yaml --require-32
 ```
 
@@ -156,9 +158,13 @@ npx oa-gen generate
 
 ## 6단계: 제로 빌드 실시간 목(Mock) HTTP 서버 (`oa-gen mock`)
 
-별도의 사전 빌드 없이 스펙 문서를 메모리 상에서 직접 서빙하며, 사양 파일이 수정되면 소켓 연결을 끊지 않고 원자적으로 라우트를 핫스왑합니다.
+별도의 사전 빌드 없이 TypeSpec 소스(`.tsp`) 또는 OpenAPI 스펙 문서를 메모리 상에서 직접 서빙하며, 사양 파일이 수정되면 소켓 연결을 끊지 않고 원자적으로 라우트를 핫스왑합니다.
 
 ```bash
+# A. TypeSpec 소스 직접 관측 및 실시간 핫리로드 (권장 SSOT 워크플로)
+npx oa-gen mock --tsp packages/schemas/typespec/main.tsp --watch --port 4010
+
+# B. OpenAPI 스펙 문서 관측 및 실시간 핫리로드
 npx oa-gen mock --spec ./openapi.yaml --watch --port 4010
 ```
 
@@ -200,6 +206,10 @@ npx oa-gen audit:shape --source ./types.ts
 
 ## 다음 단계 및 권장 문서
 
+- [TypeSpec 5분 퀵스타트 가이드](./typespec/01-quickstart-5min.md) — `.tsp` 엔드포인트 스캐폴딩, 실시간 목 서버, AST diff 및 스냅샷 승인
+- [TypeSpec 아티팩트 생성 토폴로지 및 아키텍처 규칙](./typespec/06-generation-topologies-and-rules.md) — Co-located(피처 인접), FSD, Monorepo 4대 생성 방식 및 실무 권장 팁
+- [기본 스펙 사용 기준](./basic-spec-usage.md) — 저장소 스펙 거버넌스 및 TypeSpec 정본/산출물 소유권 SSOT
+- [TypeSpec 작성 규칙 가이드](./typespec-authoring-conventions.md) — 프로덕션 스펙 작성 규칙, 익스텐션 및 승인 기준
 - [CLI 설치 및 환경 설정 가이드](./cli-setup.md) — 패키지 매니저 매트릭스, 런타임 요건, 6단계 루트 탐색
 - [프로젝트 온보딩 플레이북](./onboarding-playbook.md) — Fastify, Bun Elysia, Express, NestJS 3계층 온보딩 사다리
 - [선언적 사양 설정 가이드 (oa.config.ts)](./declarative-spec-configuration.md) — 이중 계층 설정(`core` vs `product`), 3대 아키타입, `outputRouting` 상세

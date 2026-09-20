@@ -14,6 +14,7 @@ export interface CliAdapterOptions {
   version?: string | undefined
   description?: string | undefined
   outputFormat?: 'json' | 'table' | undefined
+  interactive?: boolean | undefined
 }
 
 export function createCli(
@@ -48,14 +49,14 @@ export function createCli(
         : program.command(category).description(`${category} commands`)
 
     for (const tool of catTools) {
-      addToolCommand(parentCmd, tool)
+      addToolCommand(parentCmd, tool, options.interactive)
     }
   }
 
   return program
 }
 
-function addToolCommand(parent: Command, tool: ToolDefinition): void {
+function addToolCommand(parent: Command, tool: ToolDefinition, globalInteractive?: boolean): void {
   const commandName = tool.cli?.command ?? getCommandName(tool.name, tool.category)
   const cmd = parent.command(commandName).description(tool.description)
 
@@ -138,7 +139,7 @@ function addToolCommand(parent: Command, tool: ToolDefinition): void {
     const positionalArgs = args.slice(0, -2)
 
     try {
-      const input: Record<string, unknown> = { ...options }
+      let input: Record<string, unknown> = { ...options }
 
       // Map positional args
       if (tool.cli?.arguments) {
@@ -146,6 +147,16 @@ function addToolCommand(parent: Command, tool: ToolDefinition): void {
           const arg = tool.cli.arguments[i]!
           input[arg.name] = positionalArgs[i]
         }
+      }
+
+      // Check for missing required fields and run interactive prompt fallback if in TTY
+      const isInteractive =
+        (globalInteractive ?? tool.cli?.interactive ?? true) &&
+        process.stdout.isTTY &&
+        !process.env.CI
+
+      if (isInteractive) {
+        input = await promptMissingFields(tool.inputSchema, input)
       }
 
       // Validate input
@@ -168,6 +179,65 @@ function addToolCommand(parent: Command, tool: ToolDefinition): void {
       process.exit(1)
     }
   })
+}
+
+/**
+ * Prompt user for missing required fields in TTY terminal environments.
+ */
+export async function promptMissingFields(
+  schemaInput: unknown,
+  currentInput: Record<string, unknown>,
+): Promise<Record<string, unknown>> {
+  const schema = normalizeJsonSchema(schemaInput as any)
+  const required = schema.required ?? []
+  const properties = schema.properties ?? {}
+  const result = { ...currentInput }
+
+  const missing = required.filter(
+    (key) => result[key] === undefined || result[key] === null || result[key] === '',
+  )
+  if (missing.length === 0) return result
+
+  const readlineModule = await import('node:readline/promises')
+  const rl = readlineModule.default.createInterface({
+    input: process.stdin,
+    output: process.stdout,
+  })
+
+  try {
+    for (const key of missing) {
+      const prop = properties[key] ?? {}
+      const desc = prop.description ? ` (${prop.description})` : ''
+      const propType = Array.isArray(prop.type) ? prop.type[0] : prop.type
+
+      if (Array.isArray(prop.enum) && prop.enum.length > 0) {
+        console.log(`? Select ${key}${desc}:`)
+        prop.enum.forEach((item, idx) => {
+          console.log(`  ${idx + 1}) ${item}`)
+        })
+        const answer = await rl.question(`Choice (1-${prop.enum.length}): `)
+        const choiceIndex = parseInt(answer.trim(), 10) - 1
+        if (choiceIndex >= 0 && choiceIndex < prop.enum.length) {
+          result[key] = prop.enum[choiceIndex]
+        } else {
+          result[key] = answer.trim()
+        }
+      } else if (propType === 'boolean') {
+        const answer = await rl.question(`? ${key}${desc} (y/N): `)
+        result[key] = answer.trim().toLowerCase() === 'y' || answer.trim().toLowerCase() === 'yes'
+      } else if (propType === 'number' || propType === 'integer') {
+        const answer = await rl.question(`? ${key}${desc}: `)
+        result[key] = Number(answer.trim())
+      } else {
+        const answer = await rl.question(`? ${key}${desc}: `)
+        result[key] = answer.trim()
+      }
+    }
+  } finally {
+    rl.close()
+  }
+
+  return result
 }
 
 function getCommandName(name: string, category?: string): string {

@@ -30,11 +30,13 @@ import { mock } from './commands/mock.js'
 import { auditShapeCommand } from './commands/audit-shape.js'
 import { init } from './commands/init.js'
 import { generateTanstackCommand } from './commands/generate-tanstack.js'
+import { generateClientCommand, packClientCommand } from './commands/generate-client.js'
 import { generateGuardsCommand } from './commands/generate-guards.js'
 import { generateDrizzleCommand } from './commands/generate-drizzle.js'
 
 export const commands: Command[] = [
   init,
+  generateClientCommand,
   generateTanstackCommand,
   generateZod,
   generateGuardsCommand,
@@ -78,6 +80,8 @@ export {
   auditShapeCommand,
   init,
   generateTanstackCommand,
+  generateClientCommand,
+  packClientCommand,
   generateGuardsCommand,
   generateDrizzleCommand,
   driftLive,

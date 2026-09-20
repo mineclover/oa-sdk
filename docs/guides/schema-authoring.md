@@ -1,7 +1,9 @@
 # 스키마 작성 가이드 (TypeSpec & OpenAPI 3.2 Practical Authoring Playbook)
 
 > 🧭 **스펙 문서 체계 안내 (Schema Triad SSOT)**:
+> - **[가이드 종합 색인 및 아키텍처 지도](./README.md)**: 선언자(Author)와 소비자(Consumer) 트랙별 전체 가이드 맵과 추천 읽기 경로를 제공합니다.
 > - **[기본 스펙 사용 기준](./basic-spec-usage.md)**: 저장소 스펙 거버넌스 및 산출물 소유권 SSOT. 어떤 파일이 정본(SSOT)이고 어떤 파일이 생성물(Generated Artifact)인지, 다운스트림 패키지가 어떤 산출물을 소비하는지 정의합니다.
+> - **[순수 타입 선언 및 가드 실무 가이드](./pure-types-and-guards.md)**: HTTP 엔드포인트 없는 순수 데이터 모델/DTO 선언, 타입 생성 및 제로-eval 독립형 가드 실무를 다룹니다.
 > - **[스키마 작성 가이드 (현재 문서)](./schema-authoring.md)**: 실무 TypeSpec & OpenAPI 3.2 작성 플레이북. TypeSpec 도메인 모델, 오퍼레이션, 파라미터, OAS 3.2 신규 문법(dataValue, itemSchema, defaultMapping) 실무 작성 규칙을 다룹니다.
 > - **[스키마 아키텍처 및 작성 규칙](./schema-architecture-and-conventions.md)**: 4단계 Zod-First 파이프라인 SSOT (Zod $\rightarrow$ JSON Schema 2020-12 $\rightarrow$ OAS 3.1 $\rightarrow$ Standalone AJV Type Guards with zero eval for Chrome MV3 CSP) 및 V3 AST 동기화 표준을 다룹니다.
 > - **[패스 프래그먼트 컨벤션](./path-fragment-conventions.md)**: Definition Builder 롤백/참조 경로용 YAML 프래그먼트 작성 규칙 및 폴더 계층 표준을 다룹니다.

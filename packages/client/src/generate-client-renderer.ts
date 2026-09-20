@@ -81,6 +81,8 @@ export function generateClientFromParsed(doc: ParsedDocument, options: ClientRen
   lines.push(`  readonly body: TBody`)
   lines.push(`  readonly response: Response`)
   lines.push(`  readonly operationId?: string`)
+  lines.push(`  get statusText(): string { return this.response?.statusText ?? '' }`)
+  lines.push(`  get data(): TBody { return this.body }`)
   lines.push(`  constructor(status: TStatus, body: TBody, response: Response, operationId?: string) {`)
   lines.push(`    super(\`\${status} \${response.statusText}\`)`)
   lines.push(`    this.name = 'ClientError'`)
@@ -349,6 +351,15 @@ export function generateClientFromParsed(doc: ParsedDocument, options: ClientRen
   lines.push(`    a.addEventListener('abort', onAbort, { once: true })`)
   lines.push(`    b.addEventListener('abort', onAbort, { once: true })`)
   lines.push(`    return controller.signal`)
+  lines.push(`  }`)
+  lines.push('')
+  lines.push(`  function __isClientMethodOptions(val: unknown): val is ClientMethodOptions {`)
+  lines.push(`    if (val === null || typeof val !== 'object' || Array.isArray(val)) return false`)
+  lines.push(`    const keys = Object.keys(val)`)
+  lines.push(`    if (keys.length === 0) return false`)
+  lines.push(`    return keys.every(k => k === 'signal' || k === 'headers') &&`)
+  lines.push(`      ((val as any).signal === undefined || (val as any).signal === null || typeof (val as any).signal?.aborted === 'boolean') &&`)
+  lines.push(`      ((val as any).headers === undefined || (val as any).headers === null || typeof (val as any).headers === 'object')`)
   lines.push(`  }`)
   lines.push('')
   lines.push(`  function __createOaRequestHeaders(builtIn: Record<string, string> | undefined, headers: Record<string, string> | undefined): Headers {`)
@@ -740,6 +751,7 @@ export function generateClientFromParsed(doc: ParsedDocument, options: ClientRen
     if (streamFormat) {
       const helperName = streamFormat === 'sse' ? 'streamSse' : 'streamNdjson'
       lines.push(`    async *${methodName}(${params.join(', ')}): ${returnType} {`)
+      lines.push(...buildArgumentDisambiguationLines('      ', { pathParams, queryParams, acceptsRequestHeaders, hasBody, bodyRequired, querystringParam }))
       lines.push(`      const requestHeaders = __mergeOaRequestHeaders(${acceptsRequestHeaders ? 'headers, ' : ''}options?.headers)`)
       lines.push(...requestValidationLines(op, '      ', acceptsRequestHeaders ? 'requestHeaders' : 'headers'))
       const streamOpts: string[] = []
@@ -754,6 +766,7 @@ export function generateClientFromParsed(doc: ParsedDocument, options: ClientRen
       lines.push(`    },`)
     } else {
       lines.push(`    async ${methodName}(${params.join(', ')}): ${returnType} {`)
+      lines.push(...buildArgumentDisambiguationLines('      ', { pathParams, queryParams, acceptsRequestHeaders, hasBody, bodyRequired, querystringParam }))
       lines.push(`      const requestHeaders = __mergeOaRequestHeaders(${acceptsRequestHeaders ? 'headers, ' : ''}options?.headers)`)
       lines.push(...requestValidationLines(op, '      ', acceptsRequestHeaders ? 'requestHeaders' : 'headers'))
       const fetchOpts: string[] = []
@@ -821,6 +834,7 @@ export function generateClientFromParsed(doc: ParsedDocument, options: ClientRen
         lines.push(`      /** ${op.summary ?? op.description} */`)
       }
       lines.push(`      async ${methodName}(${params.join(', ')}): Promise<ClientResponse<JsonPrimitive<${bodyType}>, ${headersType}>> {`)
+      lines.push(...buildArgumentDisambiguationLines('        ', { pathParams, queryParams, acceptsRequestHeaders, hasBody, bodyRequired, querystringParam }))
       lines.push(`        const requestHeaders = __mergeOaRequestHeaders(${acceptsRequestHeaders ? 'headers, ' : ''}options?.headers)`)
       lines.push(...requestValidationLines(op, '        ', acceptsRequestHeaders ? 'requestHeaders' : 'headers'))
       lines.push(`        return requestResponse<JsonPrimitive<${bodyType}>, ${headersType}>('${method}', ${pathExpr}, { ${fetchOpts.join(', ')} }, ${JSON.stringify(requestMediaTypes)}, ${responseMediaTypes}, ${errorMediaTypes}, ${headerSpecs}, ${retryable}, ${JSON.stringify(op.operationId)})`)
@@ -887,6 +901,74 @@ function oasTypeToTs(type: string | undefined): string {
     case 'object': return 'Record<string, unknown>'
     default: return 'unknown'
   }
+}
+
+function buildArgumentDisambiguationLines(
+  indent: string,
+  options: {
+    pathParams: readonly OasParameter[]
+    queryParams: readonly OasParameter[]
+    acceptsRequestHeaders: boolean
+    hasBody: boolean
+    bodyRequired: boolean
+    querystringParam?: OasParameter | undefined
+  }
+): string[] {
+  const lines: string[] = []
+  const { pathParams, queryParams, acceptsRequestHeaders, hasBody, bodyRequired, querystringParam } = options
+
+  if (acceptsRequestHeaders) {
+    lines.push(`${indent}if (__isClientMethodOptions(headers) && options === undefined) { options = headers; headers = undefined }`)
+  }
+  if (hasBody && !bodyRequired && queryParams.length === 0) {
+    lines.push(`${indent}if (__isClientMethodOptions(body) && options === undefined) { options = body; body = undefined }`)
+  }
+  if (queryParams.length > 0) {
+    lines.push(`${indent}if (__isClientMethodOptions(query) && options === undefined) { options = query; query = undefined }`)
+  }
+  if (querystringParam && !querystringParam.required) {
+    lines.push(`${indent}if (__isClientMethodOptions(querystring) && options === undefined) { options = querystring; querystring = undefined }`)
+  }
+
+  if (pathParams.length > 0) {
+    lines.push(`${indent}if (params && typeof params === 'object' && 'params' in params && (params as any).params && typeof (params as any).params === 'object') {`)
+    lines.push(`${indent}  const __u = params as any`)
+    lines.push(`${indent}  params = __u.params`)
+    if (hasBody) lines.push(`${indent}  if (__u.body !== undefined) body = __u.body`)
+    if (queryParams.length > 0) lines.push(`${indent}  if (__u.query !== undefined) query = __u.query`)
+    if (querystringParam) lines.push(`${indent}  if (__u.querystring !== undefined) querystring = __u.querystring`)
+    if (acceptsRequestHeaders) lines.push(`${indent}  if (__u.headers !== undefined) headers = __u.headers`)
+    lines.push(`${indent}  if (__u.signal !== undefined || __u.headers !== undefined) options = { ...options, signal: __u.signal, headers: __u.headers ?? options?.headers }`)
+    lines.push(`${indent}}`)
+  } else if (hasBody) {
+    lines.push(`${indent}if (body && typeof body === 'object' && 'body' in body && ((body as any).signal !== undefined || (body as any).headers !== undefined || (body as any).query !== undefined || (body as any).querystring !== undefined)) {`)
+    lines.push(`${indent}  const __u = body as any`)
+    lines.push(`${indent}  body = __u.body`)
+    if (queryParams.length > 0) lines.push(`${indent}  if (__u.query !== undefined) query = __u.query`)
+    if (querystringParam) lines.push(`${indent}  if (__u.querystring !== undefined) querystring = __u.querystring`)
+    if (acceptsRequestHeaders) lines.push(`${indent}  if (__u.headers !== undefined) headers = __u.headers`)
+    lines.push(`${indent}  if (__u.signal !== undefined || __u.headers !== undefined) options = { ...options, signal: __u.signal, headers: __u.headers ?? options?.headers }`)
+    lines.push(`${indent}}`)
+  } else if (queryParams.length > 0) {
+    lines.push(`${indent}if (query && typeof query === 'object' && 'query' in query && typeof (query as any).query === 'object' && ((query as any).signal !== undefined || (query as any).headers !== undefined)) {`)
+    lines.push(`${indent}  const __u = query as any`)
+    lines.push(`${indent}  query = __u.query`)
+    if (acceptsRequestHeaders) lines.push(`${indent}  if (__u.headers !== undefined) headers = __u.headers`)
+    lines.push(`${indent}  if (__u.signal !== undefined || __u.headers !== undefined) options = { ...options, signal: __u.signal, headers: __u.headers ?? options?.headers }`)
+    lines.push(`${indent}}`)
+  }
+
+  if (queryParams.length > 0) {
+    lines.push(`${indent}if (query && typeof query === 'object' && 'signal' in query && ((query as any).signal === null || typeof (query as any).signal?.aborted === 'boolean')) {`)
+    lines.push(`${indent}  const __s = (query as any).signal`)
+    lines.push(`${indent}  query = { ...(query as any) }`)
+    lines.push(`${indent}  delete (query as any).signal`)
+    lines.push(`${indent}  if (options === undefined) options = { signal: __s }`)
+    lines.push(`${indent}  else if (options.signal === undefined) options = { ...options, signal: __s }`)
+    lines.push(`${indent}}`)
+  }
+
+  return lines
 }
 
 /** Renders a URL-safe OpenAPI path expression for generated client methods. */

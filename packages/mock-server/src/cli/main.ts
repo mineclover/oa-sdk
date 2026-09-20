@@ -11,11 +11,12 @@ const MAX_PORT = 65_535
 export const CLI_HELP = `oa-mock — OpenAPI mock server
 
 Usage:
-  oa-mock --spec <openapi.json|openapi.yaml> [--port <port>] [chaos options]
+  oa-mock --spec <openapi.json|openapi.yaml> [--port <port>] [--stateful] [chaos options]
 
 Options:
   --spec, -s <path>          OpenAPI JSON/YAML file (required)
   --port, -p <port>          Listen port, 0-${MAX_PORT} (default: ${DEFAULT_PORT})
+  --stateful                 Enable in-memory stateful store for CRUD operations
   --throttle <rate>          Simulate bandwidth throttling (e.g. 500kbps, 1mbps, 50000)
   --ttfb <ms>                Time to first byte delay in milliseconds
   --jitter <ms>              Random jitter added to TTFB (+/- ms)
@@ -30,7 +31,7 @@ export type CliMockServer = Pick<ReturnType<typeof createNodeMockServer>, 'start
 export type CliDependencies = {
   cwd: () => string
   readTextFile: (path: string) => Promise<string>
-  createServer: (spec: OasDocument, port: number, chaos?: NetworkChaosOptions) => CliMockServer
+  createServer: (spec: OasDocument, port: number, chaos?: NetworkChaosOptions, stateful?: boolean) => CliMockServer
   stdout: Output
   stderr: Output
   onSignal: (signal: NodeJS.Signals, listener: () => void) => void
@@ -44,7 +45,12 @@ export type LoadedSpec = {
 const defaultDependencies: CliDependencies = {
   cwd: () => process.cwd(),
   readTextFile: path => readFile(path, 'utf8'),
-  createServer: (spec, port, chaos) => createNodeMockServer(spec, { port, ...(chaos ? { chaos } : {}) }),
+  createServer: (spec, port, chaos, stateful) =>
+    createNodeMockServer(spec, {
+      port,
+      ...(chaos ? { chaos } : {}),
+      ...(stateful ? { stateful: true } : {}),
+    }),
   stdout: process.stdout,
   stderr: process.stderr,
   onSignal: (signal, listener) => process.once(signal, listener),
@@ -87,9 +93,13 @@ export async function main(
 
   let server: CliMockServer
   try {
-    server = options.chaos
-      ? dependencies.createServer(loaded.document, options.port, options.chaos)
-      : dependencies.createServer(loaded.document, options.port)
+    if (options.stateful) {
+      server = dependencies.createServer(loaded.document, options.port, options.chaos, true)
+    } else if (options.chaos) {
+      server = dependencies.createServer(loaded.document, options.port, options.chaos)
+    } else {
+      server = dependencies.createServer(loaded.document, options.port)
+    }
     await server.start()
   } catch (error) {
     writeLine(dependencies.stderr, `서버 시작 실패: ${errorMessage(error)}`)
@@ -226,6 +236,7 @@ export function parseCliArgs(argv: string[]): {
   help: boolean
   spec: string | undefined
   port: number
+  stateful: boolean
   chaos?: NetworkChaosOptions
 } {
   const { values } = parseArgs({
@@ -236,6 +247,7 @@ export function parseCliArgs(argv: string[]): {
       help: { type: 'boolean', short: 'h' },
       spec: { type: 'string', short: 's' },
       port: { type: 'string', short: 'p' },
+      stateful: { type: 'boolean' },
       throttle: { type: 'string' },
       ttfb: { type: 'string' },
       jitter: { type: 'string' },
@@ -271,6 +283,7 @@ export function parseCliArgs(argv: string[]): {
     help: values.help === true,
     spec: values.spec,
     port: parsePort(values.port),
+    stateful: values.stateful === true,
     ...(chaos ? { chaos } : {}),
   }
 }

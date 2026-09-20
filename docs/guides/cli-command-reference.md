@@ -22,6 +22,7 @@ node packages/codegen/dist/cli/index.js --help
 | production TypeSpec 계약을 수정·승인 | `pnpm schema:approve-typespec-reference`, `pnpm schema:validate` | [기여자 온보딩](./onboarding-playbook.md#9-oa-sdk-모노레포-기여자-온보딩), [TypeSpec 규칙](./typespec-authoring-conventions.md) |
 | 모노레포 선언적 스펙 및 거버넌스 설정 | `oa-gen validate`, `oa-gen generate` | [선언적 스펙 설정](./declarative-spec-configuration.md), [스키마 아키텍처 규칙](./schema-architecture-and-conventions.md) |
 | 기존 OpenAPI에서 공개 TypeScript 타입을 생성 | `oa-gen typegen` | [Quick Start](./quick-start.md) |
+| OpenAPI 3.1/3.2 스펙에서 타입 안전 fetch 클라이언트 SDK 생성 | `oa-gen generate:client` | [Quick Start](./quick-start.md) |
 | OpenAPI 3.2 스펙에서 Zod 4 스키마 및 타입 생성 | `oa-gen generate:zod` | [Quick Start](./quick-start.md) |
 | OpenAPI 3.1/3.2 스펙에서 TanStack Query v5 3계층 옵션/키 생성 | `oa-gen generate:tanstack` | [온보딩 플레이북](./onboarding-playbook.md) |
 | TypeSpec 또는 OpenAPI 기반 제로 빌드 Mock HTTP 서버 구동 | `oa-gen mock` | [Quick Start](./quick-start.md) |
@@ -44,13 +45,14 @@ node packages/codegen/dist/cli/index.js --help
 | 명령 | 언제 쓰는가 | 최소 입력 | 결과 / 다음 단계 |
 | --- | --- | --- | --- |
 | `oa-gen init` | 타겟 분리형 온보딩 엔진으로 `oa.config.ts` 및 런타임 스크립트를 구성할 때 | 없음 (자동 감지) 또는 `--target <framework>` | 대화형/헤드리스 온보딩, `oa.config.ts` 생성 및 `package.json` 비파괴적 패치; `--target` (`-t`), `--archetype <mvp|microservice|enterprise>` (`-a`), `--routing <default|fsd|monorepo|by-kind>` (`-r`), `--cwd`, `--spec` (`-s`), `--yes` (`-y`), `--force` (`-f`), `--dry-run` 지원 |
+| `oa-gen generate:client` | OpenAPI 3.1/3.2 또는 TypeSpec(.tsp) 스펙에서 타입 안전 fetch 클라이언트 SDK를 생성할 때 | `--spec <openapi\|typespec>` | fetch 클라이언트 SDK 산출물; `--spec` (`-s`), `--output <path>` (`-o`), `--types-import <path>`, `--banner` 지원 (`oa-gen client` alias 지원) |
 | `oa-gen generate:zod` | OpenAPI 3.2 또는 TypeSpec(.tsp) 스펙에서 Zod 4 스키마 및 TypeScript 타입을 생성할 때 | `--spec <openapi\|typespec>` | Zod 4 스키마 정의 및 TypeScript 타입 생성; `--spec`, `--output <path>`로 파일/디렉터리 지정, `--runtime-adapter`로 런타임 검증기 연동, `--style <schema\|both>` 지원 |
 | `oa-gen generate:tanstack` | OpenAPI 3.1/3.2 또는 TypeSpec(.tsp) 스펙에서 TanStack Query v5 3계층(Query Key Factory, Options Factory, Hooks) 코드를 생성할 때 | `--spec <openapi\|typespec>` | TanStack Query v5 산출물 (keys, options, hooks); `--spec` (`-s`), `--output <dir>` (`-o`), `--config <path>` (`-c`), `--tier <all\|keys\|options\|hooks>`, `--framework <react\|vue\|svelte>`, `--client-import <path>`, `--types-import <path>`, `--split` 지원 |
 | `oa-gen generate:guards` | OpenAPI 3.1/3.2 또는 TypeSpec(.tsp)으로부터 독립형 무런타임 타입 가드를 생성할 때 | `--input <file>` | 독립형 무런타임 타입 가드(Standalone Type Guards) 산출물; `--input` (`-i`), `--out-dir` (`-o`), `--type-import`, `--module-format`, `--split`, `--schemas` 지원 |
 | `oa-gen generate:drizzle` | Drizzle ORM 스키마 파일로부터 OpenAPI 3.2 스키마 컴포넌트를 생성할 때 | `--drizzle-schema <path>` | Drizzle ORM 스키마 기반 OpenAPI 3.2 컴포넌트 산출물; `--drizzle-schema` (`-d`), `--output` (`-o`), `--merge-into`, `--schemas` 지원 |
 | `oa-gen mock` | TypeSpec, OpenAPI 또는 TypeScript 소스에서 제로 빌드 즉각 목 서버를 구동할 때 | `--tsp <file>` 또는 `--spec <path>` | 인메모리 OpenAPI 3.2 Mock HTTP 서버 구동 (기본 포트 4010); `--tsp` (`-t`), `--spec` (`-s`), `--port <port>` (`-p`), `--host <host>`, `--watch` (`-w`)로 100ms 디바운스, 에러 쉴딩, 원자적 인메모리 라우트 핫스왑 지원 |
 | `oa-gen tsp diff` | TypeSpec AST 간 시맨틱 차이점 및 파괴적 변경(breaking change)을 분석할 때 | `--base <ref> --head <ref>` | TypeSpec AST 시맨틱 비교 리포트; `--base`, `--head`, `--fail-on-breaking`으로 파괴적 변경 감지 시 exit code 1, `--format <markdown\|json>` 지원 |
-| `oa-gen generate` | config, Drizzle schema, 독립형 타입 가드(standalone-guards) 또는 TanStack Query 클라이언트 옵션을 생성할 때 | 없음 (선언적 `oa.config.ts` 자동 로드) 또는 `--config`, `--drizzle-schema`, `--target standalone-guards --input <file>`, `--tanstack --spec <file>` | schema artifact, standalone-guards 또는 TanStack Query v5 산출물; `--split`으로 모듈 분할, `--schemas <list>`로 필터링, `--tanstack` 플래그로 TanStack 3계층 옵션/키 생성 |
+| `oa-gen generate` | TypeSpec, OpenAPI, config, Drizzle에서 스키마, 계약, 클라이언트, 가드를 일괄 생성할 때 | 없음 (선언적 `oa.config.ts` 자동 로드) 또는 `--spec <openapi\|typespec>`, `--config <file>`, `--drizzle-schema <path>`, `--target standalone-guards --input <file>` | 스펙 아티팩트, 순수 핸들러 계약(`*.contract.ts`), 클라이언트 SDK, TanStack Query, 가드 일괄 산출물; `--spec` (`-s`), `--output` (`-o`), `--out-dir`, `--config` (`-c`), `--split` 지원 |
 | `oa-gen typegen` | OpenAPI 또는 TypeSpec(.tsp)에서 TypeScript 선언을 만들 때 | `--spec <openapi\|typespec>` | type declarations; `--incremental`은 cache를 사용하고 `--cache-dir <dir>`로 위치를 바꿀 수 있음 |
 | `oa-gen lint` | OpenAPI 또는 TypeSpec(.tsp)의 OA SDK lint만 빠르게 확인할 때 | `--spec <openapi\|typespec>` | diagnostic; `--categories <list>`로 surface, structure 등 특정 카테고리만 지정 실행 |
 | `oa-gen validate` | OpenAPI 또는 TypeSpec(.tsp) 파싱·구조·3.1 호환 및 프로파일 요구사항을 확인할 때 | 없음 (선언적 `oa.config.ts`의 모든 프로파일 일괄 검증) 또는 `--spec <openapi\|typespec>` | human diagnostic; `--profile`로 component-bundle/operation-contract 강제, managed contract는 `--require-32` |
@@ -100,6 +102,67 @@ oa-gen behavior-query \
   --mode metrics-summary \
   --behavior-type publish_review_bundle \
   --format json
+```
+
+## oa-gen generate 옵션 및 일괄 생성 명세
+
+`oa-gen generate`는 프로젝트의 선언적 설정(`oa.config.ts`)을 기반으로 스키마 프로젝션(OpenAPI 3.2, JSON Schema 2020-12), 순수 핸들러 계약(`*.contract.ts`), 경량 fetch 클라이언트 SDK, TanStack Query v5 훅, 독립형 무런타임 타입 가드를 일괄 생성합니다. 또한 `--spec <path.tsp>`를 통해 설정 파일 없이도 TypeSpec 스펙으로부터 전체 파이프라인을 원라인으로 즉시 생성할 수 있습니다.
+
+| 옵션 | 단축 | 타입 | 기본값 | 설명 |
+| --- | --- | --- | --- | --- |
+| `--config <path>` | `-c` | `string` | 자동 탐색 | 선언적 설정 파일 경로 (`oa.config.ts` 또는 `oa.config.json`) |
+| `--spec <path>` | `-s` | `string` | `undefined` | TypeSpec(`.tsp`) 또는 OpenAPI 스펙 파일 경로 (지정 시 `oa.config.ts` 없이 즉시 전체 생성) |
+| `--output <dir>`, `--out-dir <dir>` | `-o` | `string` | `undefined` | 산출물이 저장될 출력 디렉터리 경로 |
+| `--target <target>` | | `string` | `undefined` | 특정 타겟만 단독 생성 (`standalone-guards`, `drizzle-schema`) |
+| `--input <file>` | `-i` | `string` | `undefined` | 타겟 입력 스펙 파일 경로 (`--target standalone-guards` 시 입력 파일) |
+| `--split` | | `boolean` | `false` | 컴포넌트/도메인별 개별 파일 분할 출력 여부 |
+| `--schemas <names>` | | `string` | `undefined` | 쉼표로 구분된 특정 스키마 이름 필터 |
+| `--type-import <path>` | | `string` | `undefined` | 생성된 타입 가드가 참조할 TypeScript 타입 정의 import 경로 |
+| `--drizzle-schema <path>` | `-d` | `string` | `undefined` | Drizzle ORM 스키마 파일 경로 |
+| `--merge-into <path>` | | `string` | `undefined` | 기존 OpenAPI 스펙 파일에 컴포넌트를 병합할 경로 |
+
+실행 예시:
+
+```bash
+# 1. 선언적 일괄 생성 (권장: oa.config.ts의 schemaEntry에 TypeSpec .tsp 지정)
+oa-gen generate
+
+# 2. CLI 단일 라인 직접 생성 (TypeSpec 파일로부터 전체 아티팩트 즉각 일괄 빌드)
+oa-gen generate --spec packages/schemas/typespec/main.tsp --output dist
+
+# 3. 독립형 무런타임 타입 가드 생성
+oa-gen generate --target standalone-guards --input packages/schemas/typespec/main.tsp --output dist/guards
+
+# 4. 도메인별 분할 모드로 클라이언트 및 쿼리 생성
+oa-gen generate --spec packages/schemas/typespec/main.tsp --output src/api --split
+```
+
+## generate:client 옵션 및 인수 명세
+
+`oa-gen generate:client` (alias: `oa-gen client`)는 OpenAPI 3.1/3.2 명세 또는 TypeSpec(.tsp)으로부터 경량 fetch 기반의 타입 안전 클라이언트 SDK를 생성합니다.
+
+| 옵션 | 단축 | 타입 | 기본값 | 설명 |
+| --- | --- | --- | --- | --- |
+| `--spec <path>` | `-s` | `string` | **(필수)** | OpenAPI 3.1/3.2 스펙 파일 경로 또는 TypeSpec(.tsp) 파일 경로 |
+| `--output <path>` | `-o` | `string` | stdout | 산출물이 저장될 출력 파일 경로 (생략 시 표준 출력, `--pack` 시 패키지 출력 디렉터리) |
+| `--types-import <path>` | | `string` | `undefined` | 생성된 TypeScript 타입 import 지정자 (예: `./types.js`) |
+| `--banner` | | `boolean` | `true` | 생성 헤더 배너 주석 포함 여부 |
+| `--pack` | | `boolean` | `false` | 배포 가능한 단독 0-런타임 의존성 클라이언트 SDK 패키지(`dist/`, `package.json`, `README.md`) 빌드 |
+| `--name <pkgName>` | | `string` | 디렉터리명 | 패키지 명칭 (`package.json`의 `name`) |
+| `--package-version <ver>` | | `string` | `0.1.0` | 패키지 버전 (`package.json`의 `version`) |
+| `--description <desc>` | | `string` | `Auto-generated...` | 패키지 설명 (`package.json`의 `description`) |
+
+실행 예시:
+
+```bash
+# 기본 클라이언트 SDK 생성 (Model A: devDependencies 로컬 소스 생성)
+oa-gen generate:client --spec ./openapi.yaml --output ./src/api/client.ts
+
+# typegen 타입 import와 연동하여 생성
+oa-gen generate:client --spec ./openapi.yaml --types-import ./types.js --output ./src/api/client.ts
+
+# 단독 패키지 빌드 (Model B: 0-런타임 의존성 dist/ 패키지)
+oa-gen generate:client --spec ./openapi.yaml --pack --output ./packages/api-client --name @my-org/api-client
 ```
 
 ## generate:tanstack 옵션 및 인수 명세

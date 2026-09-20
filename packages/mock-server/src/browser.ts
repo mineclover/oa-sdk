@@ -24,3 +24,9 @@ export { classifyAjvErrors } from './errors/classifier.js'
 // ─── parser re-exports (browser-safe, no filesystem deref) ───────────────────
 export { derefInternalSpec, foldSchema, SchemaFolder, parseDocument, loadSchema, matchRoute } from '@oa-sdk/parser/browser'
 export type { InternalDerefOptions, SchemaAlgebra } from '@oa-sdk/parser/browser'
+
+// ─── 플러그인 ─────────────────────────────────────────────────────────────────
+export type { MockPlugin, MockPluginContext, MockPluginResponse } from './core/plugin.js'
+export { inMemoryStorePlugin } from './plugins/in-memory-store.js'
+export type { InMemoryStorePlugin, InMemoryStoreOptions } from './plugins/in-memory-store.js'
+

@@ -375,7 +375,48 @@ export const tspScaffold: Command = {
     }
 
     if (output) {
-      writeOutput(output, scaffold.code + '\n', 'TypeSpec scaffold')
+      const targetPath = resolve(process.cwd(), output)
+      const isNew = !existsSync(targetPath)
+      let content = scaffold.code
+      if (isNew) {
+        const headerLines: string[] = [
+          'import "@typespec/http";',
+          'import "@typespec/openapi";',
+          '',
+          'using Http;',
+          'using OpenAPI;',
+        ]
+        if (envelope) {
+          headerLines.push('')
+          headerLines.push('// 표준 응답 엔벨롭 템플릿')
+          headerLines.push('model Ok<T> {')
+          headerLines.push('  @statusCode statusCode: 200;')
+          headerLines.push('  @body body: T;')
+          headerLines.push('}')
+          headerLines.push('')
+          headerLines.push('model Created<T> {')
+          headerLines.push('  @statusCode statusCode: 201;')
+          headerLines.push('  @body body: T;')
+          headerLines.push('}')
+          headerLines.push('')
+          headerLines.push('model NoContent<T = void> {')
+          headerLines.push('  @statusCode statusCode: 204;')
+          headerLines.push('}')
+          headerLines.push('')
+          headerLines.push('model PageResult<T> {')
+          headerLines.push('  items: T[];')
+          headerLines.push('  @minValue(0)')
+          headerLines.push('  total: integer;')
+          headerLines.push('  @minValue(1)')
+          headerLines.push('  page?: integer = 1;')
+          headerLines.push('  @minValue(1)')
+          headerLines.push('  @maxValue(100)')
+          headerLines.push('  limit?: integer = 20;')
+          headerLines.push('}')
+        }
+        content = headerLines.join('\n') + '\n\n' + content
+      }
+      writeOutput(output, content + '\n', 'TypeSpec scaffold')
       return
     }
 

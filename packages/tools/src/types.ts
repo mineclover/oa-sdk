@@ -61,6 +61,8 @@ export interface ToolCliConfig {
   }> | undefined
   /** Example CLI invocations */
   examples?: string[] | undefined
+  /** Enable interactive prompt fallback for omitted required options when running in TTY */
+  interactive?: boolean | undefined
 }
 
 /**

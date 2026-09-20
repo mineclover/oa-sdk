@@ -17,6 +17,24 @@ export function generateClient(spec: OasDocument | ParsedDocument, options: Brow
 }
 
 export {
+  ClientError,
+  isClientError,
+} from './error-contract.js'
+
+export {
+  bearerAuth,
+  basicAuth,
+  apiKeyAuth,
+} from './client-types.js'
+
+export type {
+  ClientConfig,
+  ClientMiddleware,
+  ClientMethodOptions,
+  ClientResponse,
+} from './client-types.js'
+
+export {
   generateCrdtClient,
   generateCrdtClientFromParsed,
   generateCrdtHooks,

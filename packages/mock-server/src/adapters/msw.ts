@@ -9,6 +9,8 @@ import { serializeResponseBody } from '../core/body-serialization.js'
 import { isXmlMediaType } from '../core/xml.js'
 import type { OverrideResponse } from './node-http.js'
 import type { CallbackObserver, CallbackPostAttempt } from '../core/callbacks.js'
+import type { MockPlugin } from '../core/plugin.js'
+import { inMemoryStorePlugin, type InMemoryStoreOptions } from '../plugins/in-memory-store.js'
 
 export type MswHandlerOptions = {
   /** 요청 수신 시 호출되는 관찰 훅 (로깅/추적용) */
@@ -19,6 +21,13 @@ export type MswHandlerOptions = {
   validateRequestSchemas?: boolean
   /** 성공 응답 후 simulated outbound callback POST 시도마다 호출되는 관찰 훅 */
   onCallback?: CallbackObserver
+  /** Extensible mock plugins (lifecycle hooks for request interception & response transformation) */
+  plugins?: MockPlugin[]
+  /**
+   * Stateful in-memory collection CRUD store (POST creates, GET /:id finds, PUT/PATCH updates, DELETE removes).
+   * Can be boolean or options object with initial seed data.
+   */
+  stateful?: boolean | InMemoryStoreOptions
 }
 
 export type MswMockServer = {
@@ -26,6 +35,10 @@ export type MswMockServer = {
   override(operationId: string, response: OverrideResponse): void
   clearOverride(operationId: string): void
   clearOverrides(): void
+  /**
+   * Reset internal plugin state (e.g. restore in-memory store to initial seed).
+   */
+  reset(): void
 }
 
 /**
@@ -66,7 +79,11 @@ export function createMswMockServer(
   options: MswHandlerOptions = {},
 ): MswMockServer {
   const overrides = new Map<string, OverrideResponse>()
-  const handlers = buildMswHandlers(spec, options, overrides)
+  const configuredPlugins: MockPlugin[] = [...(options.plugins ?? [])]
+  if (options.stateful) {
+    configuredPlugins.push(inMemoryStorePlugin(typeof options.stateful === 'object' ? options.stateful : undefined))
+  }
+  const handlers = buildMswHandlers(spec, { ...options, plugins: configuredPlugins }, overrides)
 
   return {
     handlers,
@@ -79,6 +96,11 @@ export function createMswMockServer(
     clearOverrides(): void {
       overrides.clear()
     },
+    reset(): void {
+      for (const p of configuredPlugins) {
+        p.reset?.()
+      }
+    },
   }
 }
 
@@ -88,6 +110,10 @@ function buildMswHandlers(
   options: MswHandlerOptions,
   overrides: Map<string, OverrideResponse>,
 ): RequestHandler[] {
+  const configuredPlugins: MockPlugin[] = [...(options.plugins ?? [])]
+  if (options.stateful && !configuredPlugins.some(p => p.name === 'in-memory-store')) {
+    configuredPlugins.push(inMemoryStorePlugin(typeof options.stateful === 'object' ? options.stateful : undefined))
+  }
   const parsed = parseDocument(derefInternalSpec(spec as OasDocument))
   assertParsedDocumentComplete(parsed, '@oa-sdk/mock-server createMswHandlers')
   const mergedRoutes = mergeWebhookRoutes(parsed.routes, parsed.webhooks)
@@ -158,10 +184,11 @@ function buildMswHandlers(
         const parsedBody = request.body ? await parseBody(request, contentType) : { body: undefined }
         const rawQueryString = extractRawQueryString(request.url)
 
-        const hr = handleRequest(
+        const hr = await handleRequest(
           { pathParams, queryParams, ...(rawQueryString !== undefined ? { rawQueryString } : {}), headers, body: parsedBody.body, ...(parsedBody.parseError ? { bodyParseError: parsedBody.parseError } : {}), contentType, url: request.url },
           { ...entry, openApiPath },
           parsed.securitySchemes,
+          { plugins: configuredPlugins },
         )
 
         if (hr.type === 'validation-error') return HttpResponse.json(hr.body, { status: hr.status })

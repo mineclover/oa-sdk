@@ -1237,6 +1237,17 @@ Governance manifest: `packages/codegen/src/cli/spec/oa-gen-governance.ts` 및 `d
 | `CoverageTracker` | `testing.ts` | 커버리지 추적기 타입 |
 | `CallbackTracker` | `testing.ts` | callback attempt 추적기 타입 |
 
+## 플러그인 (`@oa-sdk/mock-server`)
+
+| 함수/타입 | 파일 | 용도 |
+|-----------|------|------|
+| `inMemoryStorePlugin()` | `plugins/in-memory-store.ts` | REST 컬렉션 CRUD 인메모리 상태 관리 플러그인 생성자 |
+| `InMemoryStorePlugin` | `plugins/in-memory-store.ts` | 인메모리 스토어 플러그인 인터페이스 (컬렉션 조회 및 reset 지원) |
+| `InMemoryStoreOptions` | `plugins/in-memory-store.ts` | 인메모리 스토어 초기 seed 및 ID 생성기 옵션 |
+| `MockPlugin` | `core/plugin.ts` | Mock 서버 확장 플러그인 인터페이스 (onMatch, onResponse, reset) |
+| `MockPluginContext` | `core/plugin.ts` | 플러그인 요청 실행 컨텍스트 |
+| `MockPluginResponse` | `core/plugin.ts` | 플러그인 응답 구조체 |
+
 ---
 
 ## 함수 (`@oa-sdk/router`)
@@ -1268,6 +1279,15 @@ Governance manifest: `packages/codegen/src/cli/spec/oa-gen-governance.ts` 및 `d
 
 | 함수/타입 | 파일 | 용도 |
 |-----------|------|------|
+| `ClientConfig` | `client-types.ts` | 클라이언트 인스턴스 설정 인터페이스 (baseUrl, headers, middleware, timeout, retry 등) |
+| `ClientError` | `error-contract.ts` | 클라이언트 HTTP 에러 클래스 (status, statusText, body, data, response) |
+| `ClientMethodOptions` | `client-types.ts` | 개별 API 호출 메서드 옵션 타입 (signal, headers) |
+| `ClientMiddleware` | `client-types.ts` | 클라이언트 미들웨어 인터페이스 (onRequest, onResponse, onError) |
+| `ClientResponse` | `client-types.ts` | withResponse 호출 시 반환되는 래퍼 타입 (body, headers, response) |
+| `apiKeyAuth()` | `client-types.ts` | API 키 인증 미들웨어 생성 팩토리 함수 |
+| `basicAuth()` | `client-types.ts` | Basic 인증 미들웨어 생성 팩토리 함수 |
+| `bearerAuth()` | `client-types.ts` | Bearer 토큰 인증 미들웨어 생성 팩토리 함수 |
+| `isClientError()` | `error-contract.ts` | 멀티 렐름 지원 ClientError 덕 타이핑 타입 가드 함수 |
 | `generateClient()` | `generate-client.ts` | OAS spec → fetch 기반 createClient() 코드. 기본 operation 메서드는 body 반환을 유지하고, 문서화된 응답 헤더가 있으면 generated typed response object를 반환하는 `withResponse.<operation>()` helper를 함께 생성 |
 | `ClientOptions` | `generate-client.ts` | 클라이언트 생성 옵션 타입 |
 | `generateTanstackQuery()` | `tanstack/generate-tanstack.ts` | OpenAPI 3.1/3.2 스펙으로부터 TanStack Query v5 3계층(Query Key Factory, Options Factory, Hooks) 코드 일괄 생성 |

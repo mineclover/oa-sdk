@@ -19,6 +19,8 @@ import { serializeResponseBody } from '../core/body-serialization.js'
 import { isXmlMediaType } from '../core/xml.js'
 import type { CallbackObserver, CallbackPostAttempt } from '../core/callbacks.js'
 import { pickResponse } from '../core/response-picker.js'
+import type { MockPlugin } from '../core/plugin.js'
+import { inMemoryStorePlugin, type InMemoryStoreOptions } from '../plugins/in-memory-store.js'
 
 export type NetworkChaosOptions = {
   /** Time to first byte delay in milliseconds (simulates network latency) */
@@ -48,6 +50,13 @@ export type NodeMockServerOptions = {
   onCallback?: CallbackObserver
   /** Simulated hostile network chaos injection (latency, jitter, packet loss, bandwidth throttling) */
   chaos?: NetworkChaosOptions
+  /** Extensible mock plugins (lifecycle hooks for request interception & response transformation) */
+  plugins?: MockPlugin[]
+  /**
+   * Stateful in-memory collection CRUD store (POST creates, GET /:id finds, PUT/PATCH updates, DELETE removes).
+   * Can be boolean or options object with initial seed data.
+   */
+  stateful?: boolean | InMemoryStoreOptions
 }
 
 export type OverrideResponse = {
@@ -68,6 +77,10 @@ export type NodeMockServer = {
    * without restarting the HTTP server or dropping port binding.
    */
   updateSpec(spec: OasDocument | Record<string, unknown>): { routesCount: number }
+  /**
+   * Reset internal plugin state (e.g. restore in-memory store to initial seed).
+   */
+  reset(): void
 }
 
 /** Pre-serialized response structure for static route responses */
@@ -123,7 +136,14 @@ export function createNodeMockServer(
     validateRequestSchemas: shouldValidateRequestSchemas = true,
     onCallback,
     chaos,
+    plugins: customPlugins = [],
+    stateful,
   } = options
+
+  const configuredPlugins: MockPlugin[] = [...customPlugins]
+  if (stateful) {
+    configuredPlugins.push(inMemoryStorePlugin(typeof stateful === 'object' ? stateful : undefined))
+  }
 
   function compileRoutingState(
     currentSpec: OasDocument | Record<string, unknown>,
@@ -304,7 +324,7 @@ export function createNodeMockServer(
     const contentType = headers['content-type']
     const parsedBody = await readBody(req)
 
-    const hr = handleRequest(
+    const hr = await handleRequest(
       {
         pathParams,
         queryParams,
@@ -317,6 +337,7 @@ export function createNodeMockServer(
       },
       entry,
       currentState.parsed.securitySchemes,
+      { plugins: configuredPlugins },
     )
 
     if (hr.type === 'validation-error') { await writeJson(res, hr.status, hr.body, chaos?.throttleBytesPerSec); return }
@@ -433,6 +454,12 @@ export function createNodeMockServer(
         routesCount += methodMap.size
       }
       return { routesCount }
+    },
+
+    reset(): void {
+      for (const p of configuredPlugins) {
+        p.reset?.()
+      }
     },
   }
 }
