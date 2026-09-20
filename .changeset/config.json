@@ -15,7 +15,6 @@
     "@oa-sdk/typespec-erd",
     "@oa-sdk/typespec-tooling",
     "@oa-sdk/ttsc-compile-fixture",
-    "@oa-sdk/tools",
     "@oa-sdk/nestjs-ref",
     "@oa-sdk/playground",
     "@oa-sdk/preview",

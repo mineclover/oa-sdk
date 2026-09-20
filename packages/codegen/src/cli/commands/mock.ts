@@ -1,4 +1,4 @@
-import { createNodeMockServer, type NodeMockServer } from '@oa-sdk/mock-server'
+import type { NodeMockServer } from '@oa-sdk/mock-server'
 import type { OasDocument } from '@oa-sdk/parser'
 import type { Command, CommandArgValue, CommandContext } from '../lib/types.js'
 import { optStr, bool, resolveArgPath } from '../lib/args.js'
@@ -71,6 +71,7 @@ export const mock: Command = {
       }
 
       console.log(`[oa-gen mock] Compiled successfully (${initial.routesCount} operations detected). Starting mock server...`)
+      const { createNodeMockServer } = await import('@oa-sdk/mock-server')
       const server = createNodeMockServer(initial.document, { port, host, stateful: isStateful })
       await server.start()
       console.log(`🚀 Zero-Build Instant Mock Server running at: ${server.url}`)
@@ -149,6 +150,7 @@ export const mock: Command = {
         throw new CliExitError(1)
       }
 
+      const { createNodeMockServer } = await import('@oa-sdk/mock-server')
       const server = createNodeMockServer(doc, { port, host, stateful: isStateful })
       await server.start()
       console.log(`🚀 Zero-Build Mock Server running at: ${server.url}`)

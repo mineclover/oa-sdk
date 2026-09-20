@@ -9,18 +9,20 @@ productVersions:
   - "@oa-sdk/ast-sync 0.1.0 (public npm)"
   - "@oa-sdk/core 0.3.0 (public npm)"
   - "@oa-sdk/parser 0.3.0 (public npm)"
+  - "@oa-sdk/tools 0.1.0 (public npm)"
   - "@oa-sdk/client 0.2.0 (public npm)"
   - "@oa-sdk/router 0.2.0 (public npm)"
 tested:
   environment: "Node.js 22 LTS+, Bun 1.1+, pnpm 10.30.3"
   at: "2026-09-13"
-owner: "OA SDK maintainers"
-reviewDue: "2026-12-10"
-status: active
+  owner: "OA SDK maintainers"
+  reviewDue: "2026-12-10"
+  status: active
 sourceOfTruth:
   - package.json
   - packages/codegen/package.json
   - packages/ast-sync/package.json
+  - packages/tools/package.json
   - packages/router/package.json
   - packages/client/package.json
   - packages/mock-server/package.json

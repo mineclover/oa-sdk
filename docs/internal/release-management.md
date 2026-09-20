@@ -17,7 +17,7 @@ release candidate의 현재 판단 입력과 source/external 책임 경계는
 
 ## Current State
 
-현재 정책 스냅샷: v5 · 4 tracks · Core Platform 9 · Downstream 3 · release-tracked 12 · ignored 12 · distribution candidates 6.
+현재 정책 스냅샷: v5 · 4 tracks · Core Platform 10 · Downstream 3 · release-tracked 13 · ignored 11 · distribution candidates 7.
 
 - Root package는 private monorepo이며 Changesets가 설치되어 있다.
 - Root monorepo와 app/reference workspace는 private이다. `pnpm release`는 `pnpm release:export`에
@@ -25,7 +25,7 @@ release candidate의 현재 판단 입력과 source/external 책임 경계는
   등의 direct registry publish command를 실행하거나 script로 등록하지 않는다. Version intent와
   patch note 초안은 `pnpm changeset`과 `pnpm version-packages`로 관리한다.
 - `@oa-sdk/core`, `@oa-sdk/openapi-projection-contract`, `@oa-sdk/typespec-decorators`,
-  `@oa-sdk/parser`, `@oa-sdk/codegen`, `@oa-sdk/ast-sync`은 public npm **distribution candidate**다. 이 패키지는 allowlisted
+  `@oa-sdk/parser`, `@oa-sdk/codegen`, `@oa-sdk/ast-sync`, `@oa-sdk/tools`은 public npm **distribution candidate**다. 이 패키지는 allowlisted
   `dist`/`lib` artifact만 pack하고 provenance를 요구하며, exporter의 archive/consumer smoke가 실제
   tarball에서 export/bin target, workspace protocol 제거, 설치 후 소비 가능성을 검증한다.
 - 다른 release-tracked package는 아직 private이다. `publish.enabled: false`와
@@ -33,14 +33,14 @@ release candidate의 현재 판단 입력과 source/external 책임 경계는
   candidate의 실제 registry 배포는 별도 artifact repository의 승인된 workflow만 수행한다.
 - Internal dependencies는 모두 `workspace:` protocol을 사용한다. Changesets config는 내부 의존성
   bump를 `patch`로 전파한다.
-- Release policy v5는 Core Platform 9개와 Downstream Integration 3개, 총 12개 release-tracked package와
-  12개 ignored workspace를 관리한다. Release
+- Release policy v5는 Core Platform 10개와 Downstream Integration 3개, 총 13개 release-tracked package와
+  11개 ignored workspace를 관리한다. Release
   tracking은 제품 scope와 일치시키되, Core Platform과 Downstream Integration을 서로 다른
   architecture tier로 유지한다.
 
 ## Release-Tracked Packages
 
-아래 12개 패키지는 package-level versioning 후보로 유지한다. Core Platform 아홉 패키지가
+아래 13개 패키지는 package-level versioning 후보로 유지한다. Core Platform 열 패키지가
 schema/spec 관리 제품을 소유하고, Downstream Integration 세 패키지는 그 계약의 소비 가능성을
 증명한다.
 
@@ -55,13 +55,14 @@ schema/spec 관리 제품을 소유하고, Downstream Integration 세 패키지�
 | Core Platform | `@oa-sdk/spec-lens` | `0.1.5` | Spec history and observation package |
 | Core Platform | `@oa-sdk/spec-lens-contract` | `0.1.0` | Browser-safe spec-lens HTTP wire contract |
 | Core Platform | `@oa-sdk/ast-sync` | `0.1.0` | V3 TypeScript AST bidirectional sync and standalone type guards |
+| Core Platform | `@oa-sdk/tools` | `0.1.0` | Universal Tool Engine for MCP, CLI, and Schema Bridge |
 | Downstream Integration | `@oa-sdk/router` | `0.2.1` | Server router generation |
 | Downstream Integration | `@oa-sdk/client` | `0.2.1` | Fetch client generation |
 | Downstream Integration | `@oa-sdk/mock-server` | `0.1.3` | Mock engine with MSW and Node HTTP adapters |
 
 ## Ignored Workspaces
 
-아래 12개 workspace는 Changesets release 대상에서 제외한다. Maintenance-only package는
+아래 11개 workspace는 Changesets release 대상에서 제외한다. Maintenance-only package는
 보안·호환·migration만 수행하고, app/reference workspace는 Core release와 분리한다. Ignored는
 삭제나 검증 중단을 뜻하지 않으며 active feature investment가 아님을 뜻한다.
 
@@ -74,7 +75,6 @@ schema/spec 관리 제품을 소유하고, Downstream Integration 세 패키지�
 | Maintenance-only | `@oa-sdk/typespec-erd` | Private TypeSpec ERD prototype and `oa-erd` CLI; no OpenAPI/codegen runtime dependency |
 | Maintenance-only | `@oa-sdk/typespec-tooling` | Private TypeSpec IDE tooling and linting utilities |
 | Maintenance-only | `@oa-sdk/ttsc-compile-fixture` | Isolated TS 7 compiler fixture; policy-tracked but excluded from bulk build/test/typecheck tasks because it has no package task surface |
-| Maintenance-only | `@oa-sdk/tools` | Universal Tool Engine for MCP, CLI, and Hono REST APIs; maintenance/experimental |
 | App/reference | `@oa-sdk/nestjs-ref` | Reference implementation app |
 | App/reference | `@oa-sdk/playground` | Integration playground |
 | App/reference | `@oa-sdk/preview` | Preview app |

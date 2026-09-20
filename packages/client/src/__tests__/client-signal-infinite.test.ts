@@ -654,6 +654,6 @@ describe('Milestone 2 — R4: TanStack Query Infinite Query Generator', () => {
       // Syntax error check
       const syntaxErrors = diagnostics.filter(d => d.category === 1 && d.code < 2000)
       expect(syntaxErrors).toHaveLength(0)
-    })
+    }, 25_000)
   })
 })

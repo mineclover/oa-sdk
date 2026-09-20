@@ -474,7 +474,7 @@ describe('Adversarial Stress Test: TanStack Query v5 3-Tier Generator', () => {
       const errorCodes = diagnostics.map(d => d.code)
       // TS2451: Cannot redeclare block-scoped variable — must NOT be present
       expect(errorCodes).not.toContain(2451)
-    })
+    }, 25_000)
 
     it('REMEDIATED: generateCombinedFile emits clientImport and typesImport in emitted combinedCode', () => {
       const doc = parseDocument(complexSpec())

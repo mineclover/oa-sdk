@@ -78,3 +78,12 @@ export function generateCrdtRouter(
   return generateCrdtRouterFromParsed(doc, options)
 }
 
+export {
+  demuxChunkStream,
+} from './chunk-stream/demuxer.js'
+
+export type {
+  DemuxChunkStreamOptions,
+  SyntheticEmptyChunk,
+} from './chunk-stream/demuxer.js'
+

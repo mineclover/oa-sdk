@@ -21,7 +21,8 @@
     "@oa-sdk/typespec-decorators",
     "@oa-sdk/parser",
     "@oa-sdk/codegen",
-    "@oa-sdk/ast-sync"
+    "@oa-sdk/ast-sync",
+    "@oa-sdk/tools"
   ],
   "bulkTaskExcluded": [
     "@oa-sdk/ttsc-compile-fixture"
@@ -39,7 +40,8 @@
         "@oa-sdk/parser",
         "@oa-sdk/codegen",
         "@oa-sdk/spec-lens",
-        "@oa-sdk/ast-sync"
+        "@oa-sdk/ast-sync",
+        "@oa-sdk/tools"
       ]
     },
     "downstream": {
@@ -61,8 +63,7 @@
         "@oa-sdk/logical-erd-contract",
         "@oa-sdk/typespec-erd",
         "@oa-sdk/typespec-tooling",
-        "@oa-sdk/ttsc-compile-fixture",
-        "@oa-sdk/tools"
+        "@oa-sdk/ttsc-compile-fixture"
       ]
     },
     "applications": {
@@ -86,6 +87,7 @@
     "@oa-sdk/codegen",
     "@oa-sdk/spec-lens",
     "@oa-sdk/ast-sync",
+    "@oa-sdk/tools",
     "@oa-sdk/router",
     "@oa-sdk/client",
     "@oa-sdk/mock-server"
@@ -98,7 +100,6 @@
     "@oa-sdk/typespec-erd",
     "@oa-sdk/typespec-tooling",
     "@oa-sdk/ttsc-compile-fixture",
-    "@oa-sdk/tools",
     "@oa-sdk/nestjs-ref",
     "@oa-sdk/playground",
     "@oa-sdk/preview",

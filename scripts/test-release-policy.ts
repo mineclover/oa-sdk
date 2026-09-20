@@ -51,6 +51,7 @@ assert.deepEqual(configuration.candidates, [
   '@oa-sdk/parser',
   '@oa-sdk/codegen',
   '@oa-sdk/ast-sync',
+  '@oa-sdk/tools',
 ])
 assert.equal(requiresReleasePreflight(false), true)
 assert.equal(requiresReleasePreflight(true), false)

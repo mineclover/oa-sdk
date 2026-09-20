@@ -2,8 +2,10 @@
   "name": "@oa-sdk/tools",
   "version": "0.1.0",
   "description": "Universal Tool Engine for Model Context Protocol (MCP), Commander CLI, and Hono REST APIs",
-  "private": true,
+  "private": false,
   "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "files": [
     "dist",
     "README.md"
@@ -17,8 +19,9 @@
   },
   "exports": {
     ".": {
+      "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
-      "types": "./dist/index.d.ts"
+      "default": "./dist/index.js"
     }
   },
   "scripts": {

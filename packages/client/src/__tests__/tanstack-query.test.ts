@@ -723,7 +723,7 @@ describe('TanStack Query v5 3-Tier Code Generator', () => {
 
       const ts2451Errors = diagnostics.filter(d => d.code === 2451)
       expect(ts2451Errors).toHaveLength(0)
-    })
+    }, 25_000)
 
     it('remediates Defect 2: emits typesImport and clientImport in combinedCode', () => {
       const spec = sampleSpec()

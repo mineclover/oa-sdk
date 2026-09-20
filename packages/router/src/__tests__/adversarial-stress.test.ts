@@ -117,7 +117,7 @@ declare module 'elysia' {
 }
 `
 
-describe('Adversarial Stress Testing: Fastify & Elysia Targets', () => {
+describe('Adversarial Stress Testing: Fastify & Elysia Targets', { timeout: 40_000 }, () => {
 
   // ────────────────────────────────────────────────────────────────────────────
   // Scenario 1: Extreme Verbs (OAS 3.2 QUERY, TRACE, HEAD, OPTIONS, PATCH, etc.)

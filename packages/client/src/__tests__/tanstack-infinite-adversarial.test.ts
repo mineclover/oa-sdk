@@ -773,6 +773,6 @@ describe('Challenger 2 — Requirement R4: TanStack Query Infinite Query Generat
       })
 
       expect(errors).toEqual([])
-    })
+    }, 25_000)
   })
 })

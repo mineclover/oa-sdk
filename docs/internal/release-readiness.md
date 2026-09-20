@@ -31,7 +31,7 @@ Policy authority: [`release-policy.json`](./release-policy.json)
 
 | 항목 | 2026-08-30 기준 | 다음 판단 |
 | --- | --- | --- |
-| Public artifact candidates | `@oa-sdk/core`, `@oa-sdk/openapi-projection-contract`, `@oa-sdk/typespec-decorators`, `@oa-sdk/parser`, `@oa-sdk/codegen` | 선택한 package와 target version을 release record에 고정 |
+| Public artifact candidates | `@oa-sdk/core`, `@oa-sdk/openapi-projection-contract`, `@oa-sdk/typespec-decorators`, `@oa-sdk/parser`, `@oa-sdk/codegen`, `@oa-sdk/ast-sync`, `@oa-sdk/tools` | 선택한 package와 target version을 release record에 고정 |
 | Release-tracked, non-candidate packages | schemas/spec-lens 계층과 downstream integration을 포함한 11개 | package lifecycle이 곧 public npm 배포 승인은 아님 |
 | Version intent | `@oa-sdk/core`·`@oa-sdk/parser` `0.2.0`, `@oa-sdk/codegen` `0.6.0`; private dependency closure patch 반영 | Changeset version 결과와 release note를 review·commit한 뒤 public candidate와 release ID를 decision record에 고정 |
 | TypeSpec baseline | approved snapshot과 restored contract drift가 검증 대상 | contract를 변경했다면 snapshot diff와 downstream gate를 다시 실행 |

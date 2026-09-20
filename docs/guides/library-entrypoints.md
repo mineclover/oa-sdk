@@ -37,7 +37,7 @@ oa-sdk는 하나의 runtime SDK가 아니라 OpenAPI 계약을 작성·검증·�
 | `@oa-sdk/spec-lens-contract` | Spec Lens HTTP API의 browser-safe wire contract | package root | [API index](../internal/api-index.md) |
 | `@oa-sdk/dpm` | relationship-first DPM manifest, catalog, logical-data binding | package root, `./catalog`, `./data`, `./profile`, `./relationship`, `./gateway`, `./storage`, `./publishing`, `./execution` | [DPM roadmap](../internal/goals/dpm-master-roadmap.md) |
 | `@oa-sdk/personas` | persona registry와 domain matrix validation | package root, registry/trait/domain subpaths | [API index](../internal/api-index.md) |
-| `@oa-sdk/tools` | Universal Tool Engine (MCP, CLI, Hono REST API 어댑터, 작업 중) | package root | 작업 진행 중 |
+| `@oa-sdk/tools` | TypeSpec JSON Schema 기반 MCP 도구 및 Interactive CLI 브릿지 엔진 | package root | [TypeSpec 토폴로지 가이드](./typespec/06-generation-topologies-and-rules.md) |
 
 ## 내부 전용 fixture
 

@@ -21,10 +21,11 @@ oa-sdk의 핵심 임무는 `@oa-sdk/core`를 기반으로 schema와 OpenAPI spec
 ├─ @oa-sdk/codegen                      build, 변환, governance CLI
 ├─ @oa-sdk/spec-lens                    revision, diff, provenance 관측
 ├─ @oa-sdk/spec-lens-contract           spec-lens browser-safe wire contract
-└─ @oa-sdk/ast-sync                     V3 TypeScript AST 양방향 동기화, 구문 특성 분류 및 독립형 타입 가드
+├─ @oa-sdk/ast-sync                     V3 TypeScript AST 양방향 동기화, 구문 특성 분류 및 독립형 타입 가드
+└─ @oa-sdk/tools                        TypeSpec JSON Schema 기반 MCP 도구 및 Interactive CLI 브릿지 엔진
 ```
 
-Core Platform은 다음 아홉 패키지다.
+Core Platform은 다음 열 패키지다.
 
 | Package | Core responsibility |
 | --- | --- |
@@ -37,6 +38,7 @@ Core Platform은 다음 아홉 패키지다.
 | `@oa-sdk/spec-lens` | spec revision, diff, timeline, provenance와 source observation |
 | `@oa-sdk/spec-lens-contract` | spec-lens HTTP response와 schema version의 browser-safe contract |
 | `@oa-sdk/ast-sync` | V3 TypeScript AST 양방향 무손실 동기화, 구문 특성 분류기, 타입체커 순환 탐지, 독립형 타입 가드 |
+| `@oa-sdk/tools` | TypeSpec JSON Schema 기반 MCP 도구 및 Interactive CLI 브릿지 엔진 |
 
 ## Architecture Governance Boundary
 
@@ -63,9 +65,9 @@ archi-adr validate/render`다.
 
 | Tier | Workspaces | Policy |
 | --- | --- | --- |
-| Core Platform | `core`, `openapi-projection-contract`, `typespec-decorators`, `schemas`, `parser`, `codegen`, `spec-lens`, `spec-lens-contract`, `ast-sync` | 제품 방향과 신규 기능 투자의 기본 범위 |
+| Core Platform | `core`, `openapi-projection-contract`, `typespec-decorators`, `schemas`, `parser`, `codegen`, `spec-lens`, `spec-lens-contract`, `ast-sync`, `tools` | 제품 방향과 신규 기능 투자의 기본 범위 |
 | Downstream Integration | `router`, `client`, `mock-server` | Core 계약을 소비하고 end-to-end로 증명하는 release-tracked integration surface |
-| Maintenance-only | `dpm`, `personas`, `typia-mock`, `logical-erd-contract`, `typespec-erd` | security, compatibility, migration 작업만 허용하는 분리 후보 또는 승인된 독립 prototype. `@oa-sdk/typia-mock`은 Core Platform에서 TS 컴파일러 변환기 복잡도를 격리하면서 Samchon ILlmApplication 통합점을 유지하는 유지보수 경계다. |
+| Maintenance-only | `dpm`, `personas`, `typia-mock`, `logical-erd-contract`, `typespec-erd`, `typespec-tooling`, `ttsc-compile-fixture` | security, compatibility, migration 작업만 허용하는 분리 후보 또는 승인된 독립 prototype. `@oa-sdk/typia-mock`은 Core Platform에서 TS 컴파일러 변환기 복잡도를 격리하면서 Samchon ILlmApplication 통합점을 유지하는 유지보수 경계다. |
 | Apps and references | `nestjs-ref`, `playground`, `preview`, `spec-lens-ui` | 배포 라이브러리가 아닌 검증, reference, UI workspace |
 
 Downstream Integration은 Core Platform 자체가 아니다. 이 계층의 API와 테스트는 Core 계약의

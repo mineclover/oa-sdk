@@ -62,7 +62,18 @@ assertSurfaceDelta(
   '@oa-sdk/core/browser',
   coreNode,
   coreBrowser,
-  ['createHttpServer', 'readJsonBody', 'readRaw', 'writeJson'],
+  [
+    'DEFAULT_CONFIG_FILES',
+    'DEFAULT_ENV_VAR_NAME',
+    'DEFAULT_VCS_DIRS',
+    'DEFAULT_WORKSPACE_FILES',
+    'createHttpServer',
+    'findProjectRoot',
+    'findProjectRootDetail',
+    'readJsonBody',
+    'readRaw',
+    'writeJson',
+  ],
   [],
 )
 assertSurfaceDelta(
@@ -73,7 +84,21 @@ assertSurfaceDelta(
   [],
 )
 assertSurfaceDelta('@oa-sdk/router/browser', routerNode, routerBrowser, [], [])
-assertSurfaceDelta('@oa-sdk/client/browser', clientNode, clientBrowser, [], [])
+assertSurfaceDelta(
+  '@oa-sdk/client/browser',
+  clientNode,
+  clientBrowser,
+  [
+    'generateHookFactory',
+    'generateKeyFactory',
+    'generateOptionsFactory',
+    'generateTanstackQuery',
+    'getOperationTag',
+    'isQueryOperation',
+    'toKeyFactoryName',
+  ],
+  [],
+)
 assert.deepEqual(
   browserOnlyExports(parserNode, parserBrowser),
   ['derefInternalSpec', 'derefInternalSpecWithDiagnostics'],
