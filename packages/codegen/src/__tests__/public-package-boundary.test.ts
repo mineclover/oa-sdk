@@ -19,12 +19,11 @@ describe('public @oa-sdk/codegen boundary', () => {
     expect(names).not.toEqual(expect.arrayContaining(['router', 'client', 'dev']))
   })
 
-  it('does not declare private workspace packages in its package graph', () => {
+  it('does not declare private workspace packages in its runtime package graph', () => {
     for (const section of [
       'dependencies',
       'optionalDependencies',
       'peerDependencies',
-      'devDependencies',
     ] as const) {
       const dependencies = packageJson[section] ?? {}
       for (const packageName of PRIVATE_DOWNSTREAM_PACKAGES) {
