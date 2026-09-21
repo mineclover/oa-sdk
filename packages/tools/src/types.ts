@@ -86,11 +86,33 @@ export interface ToolApiConfig {
 }
 
 /**
- * MCP-specific metadata
+ * MCP 2026-07-28 Protocol Constants & Headers
+ */
+export const MCP_PROTOCOL_VERSION_2026_07_28 = '2026-07-28'
+
+export const McpHeaders = {
+  PROTOCOL_VERSION: 'MCP-Protocol-Version',
+  METHOD: 'Mcp-Method',
+  NAME: 'Mcp-Name',
+} as const
+
+/**
+ * MCP-specific metadata (MCP 2026-07-28 compatible)
  */
 export interface ToolMcpConfig {
   /** Custom MCP tool name (defaults to tool.name) */
   toolName?: string | undefined
+  /** MCP 2026-07-28 cache time-to-live in milliseconds */
+  ttlMs?: number | undefined
+  /** MCP 2026-07-28 cache scope */
+  cacheScope?: 'user' | 'shared' | undefined
+  /** Explicit MCP 2026-07-28 tool behavioral annotations */
+  annotations?: {
+    readOnly?: boolean | undefined
+    destructive?: boolean | undefined
+    idempotent?: boolean | undefined
+    openWorld?: boolean | undefined
+  } | undefined
 }
 
 /**
@@ -187,10 +209,27 @@ export interface ToolImageContent {
 }
 
 /**
- * MCP CallToolResult per official Model Context Protocol
+ * MCP CallToolResult per official Model Context Protocol (MCP 2026-07-28 compatible)
  */
 export interface CallToolResult {
   content: Array<ToolTextContent | ToolImageContent>
   isError?: boolean | undefined
+  /** MCP 2026-07-28 execution status */
+  status?: 'success' | 'error' | 'input_required' | undefined
+  /** MCP 2026-07-28 MRTR continuation token for next round-trip */
+  continuationToken?: string | undefined
+  /** MCP 2026-07-28 MRTR prompt explaining required input */
+  prompt?: string | undefined
   _meta?: Record<string, unknown> | undefined
 }
+
+/**
+ * MRTR (Multi Round-Trip Request) Input Required response helper
+ */
+export interface ToolInputRequiredResult {
+  status: 'input_required'
+  continuationToken: string
+  prompt?: string | undefined
+  content?: Array<ToolTextContent | ToolImageContent> | undefined
+}
+

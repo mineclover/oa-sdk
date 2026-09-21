@@ -90,6 +90,17 @@ export class ToolApp {
   }
 
   /**
+   * Mount MCP 2026-07-28 stateless route on a Hono application
+   */
+  mountMcpRoute(app: Hono, path = '/mcp'): this {
+    const mcp = this.buildMcp()
+    app.post(path, async (c) => {
+      return mcp.handleFetch(c.req.raw)
+    })
+    return this
+  }
+
+  /**
    * Build Commander CLI instance
    */
   buildCli(options?: CliAdapterOptions): Command {

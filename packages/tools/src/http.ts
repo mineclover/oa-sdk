@@ -9,6 +9,7 @@ import { swaggerUI } from '@hono/swagger-ui'
 import { serve, type ServerType } from '@hono/node-server'
 import { createToolContext, executeTool } from './context.js'
 import { normalizeJsonSchema, validateToolInput } from './schema.js'
+import { createMcpServer } from './mcp.js'
 import type { ToolDefinition } from './types.js'
 
 export interface HttpAdapterOptions {
@@ -17,6 +18,10 @@ export interface HttpAdapterOptions {
   description?: string | undefined
   port?: number | undefined
   hostname?: string | undefined
+  /** Enable MCP 2026-07-28 stateless endpoint (default: true) */
+  enableMcp?: boolean | undefined
+  /** Custom route path for MCP endpoint (default: '/mcp') */
+  mcpPath?: string | undefined
   onListen?: ((info: { port: number; hostname: string }) => void) | undefined
 }
 
@@ -46,6 +51,19 @@ export function createHttpApp(
       toolsCount: tools.length,
     }),
   )
+
+  // Mount MCP 2026-07-28 stateless endpoint
+  if (options.enableMcp !== false) {
+    const mcpServer = createMcpServer(tools, {
+      name: options.title ?? 'tools-api',
+      version: options.version ?? '1.0.0',
+      description: options.description,
+    })
+    const mcpPath = options.mcpPath ?? '/mcp'
+    app.post(mcpPath, async (c) => {
+      return mcpServer.handleFetch(c.req.raw)
+    })
+  }
 
   // Mount each tool
   for (const tool of tools) {
@@ -174,6 +192,79 @@ function generateOpenApiDoc(tools: ToolDefinition[], options: HttpAdapterOptions
     paths[rawPath] = {
       ...(paths[rawPath] ?? {}),
       [method]: op,
+    }
+  }
+
+  // Document MCP 2026-07-28 stateless endpoint
+  if (options.enableMcp !== false) {
+    const mcpPath = options.mcpPath ?? '/mcp'
+    paths[mcpPath] = {
+      post: {
+        operationId: 'mcpStatelessEndpoint',
+        summary: 'Model Context Protocol (MCP 2026-07-28) Stateless Endpoint',
+        description:
+          'Stateless JSON-RPC 2.0 tool execution endpoint conforming to the MCP 2026-07-28 specification.',
+        tags: ['mcp'],
+        parameters: [
+          {
+            name: 'MCP-Protocol-Version',
+            in: 'header',
+            required: false,
+            schema: { type: 'string', default: '2026-07-28' },
+            description: 'MCP protocol version specification',
+          },
+          {
+            name: 'Mcp-Method',
+            in: 'header',
+            required: false,
+            schema: { type: 'string', enum: ['tools/list', 'tools/call', 'initialize', 'ping'] },
+            description: 'Target MCP method for gateway routing',
+          },
+          {
+            name: 'Mcp-Name',
+            in: 'header',
+            required: false,
+            schema: { type: 'string' },
+            description: 'Target MCP tool name for tools/call gateway routing',
+          },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  jsonrpc: { type: 'string', enum: ['2.0'] },
+                  id: { type: ['string', 'number', 'null'] },
+                  method: { type: 'string' },
+                  params: { type: 'object' },
+                },
+                required: ['jsonrpc', 'method'],
+              },
+            },
+          },
+        },
+        responses: {
+          '200': {
+            description: 'JSON-RPC 2.0 Response',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    jsonrpc: { type: 'string', enum: ['2.0'] },
+                    id: { type: ['string', 'number', 'null'] },
+                    result: { type: 'object' },
+                    error: { type: 'object' },
+                  },
+                  required: ['jsonrpc'],
+                },
+              },
+            },
+          },
+        },
+      },
     }
   }
 
