@@ -11,6 +11,7 @@ OpenAPI 3.2 contract를 중심으로 한 API governance 인프라 모노레포.
 [`docs/internal/platform-scope.md`](./docs/internal/platform-scope.md)를 따릅니다.
 
 > 🚀 **API 스키마 작성 5분 퀵스타트**: [TypeSpec 5분 퀵스타트 가이드](./docs/guides/typespec/01-quickstart-5min.md)  
+> 🎮 **실행 가능한 실무 데모 4선**: [공식 실행 데모 가이드](./docs/examples/README.md) (`pnpm --filter @oa-sdk/playground run demo:all`)  
 > ⚠️ **절대 불변 원칙**: API 계약을 변경할 때는 반드시 `packages/schemas/typespec/**/*.tsp` 원본 파일을 수정합니다. `.merged*.yaml`, `dist/` 등은 빌드 생성물이므로 절대로 직접 수정하지 마십시오.
 
 ```

@@ -44,7 +44,18 @@
 
 ---
 
-## ✍️ 1. 선언자 트랙 (Spec & Type Author Track)
+## 🎮 0. 바로 실행해보는 실무 데모 (Interactive Executable Demos)
+
+이론적 학습에 앞서, oa-sdk의 다양한 실전 코드 패턴과 파이프라인을 직접 터미널에서 즉시 실행하고 검증할 수 있습니다.
+
+- **[공식 실행 데모 모음 및 가이드](../examples/README.md)**:
+  - `pnpm --filter @oa-sdk/playground run demo:patterns`: 다형성 비디오 트랜지션 6종, `@visibility` CRUD 분기 투영, RFC 9457 에러, 250만 op/s 가드 벤치마크.
+  - `pnpm --filter @oa-sdk/playground run demo:guards`: Chrome Extension Manifest V3 CSP 샌드박스(eval 차단) 완벽 준수 및 430만 msg/s Worker IPC 검증.
+  - `pnpm --filter @oa-sdk/playground run demo:router`: 프레임워크 무의존 `*.contract.ts` 순수 핸들러 계약 및 Hono 라우터 마운트.
+  - `pnpm --filter @oa-sdk/playground run demo`: 풀 파이프라인 OpenAPI 3.2 파싱 및 Mock Server 가동.
+  - `pnpm --filter @oa-sdk/playground run demo:all`: 4가지 실무 데모 일괄 실행.
+
+---
 
 스펙과 도메인 모델을 설계하고, 제약 조건을 정의하며, 팀 간의 단일 진실 공급원(SSOT)을 유지하는 엔지니어를 위한 문서입니다.
 

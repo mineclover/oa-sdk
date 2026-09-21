@@ -6,6 +6,10 @@
   "type": "module",
   "scripts": {
     "demo": "tsx examples/full-pipeline.ts",
+    "demo:patterns": "tsx examples/demo-typespec-patterns.ts",
+    "demo:guards": "tsx examples/demo-standalone-guards.ts",
+    "demo:router": "tsx examples/demo-router-contracts.ts",
+    "demo:all": "tsx examples/full-pipeline.ts && tsx examples/demo-typespec-patterns.ts && tsx examples/demo-standalone-guards.ts && tsx examples/demo-router-contracts.ts",
     "dev": "tsx src/index.ts",
     "test": "vitest run",
     "test:ci": "vitest run --maxWorkers 1 --no-file-parallelism",
