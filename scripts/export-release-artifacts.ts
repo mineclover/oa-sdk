@@ -17,7 +17,7 @@ export const PUBLIC_OA_SDK_SCOPE_REGISTRY_OPTION = `--@oa-sdk:registry=${PUBLIC_
 
 type Candidate = string
 export type ReleasePackage = { name: Candidate; version: string; tarball: string; integrity: string }
-type Args = { output: string; releaseId: string; versions: Map<Candidate, string>; dryRun: boolean; skipRegistryPreflight: boolean }
+type Args = { output: string; releaseId: string; versions: Map<Candidate, string>; dryRun: boolean; skipRegistryPreflight: boolean; skipPreflight: boolean }
 type ExportContext = {
   args: Args
   packageDirectories: Map<Candidate, string>
@@ -141,9 +141,11 @@ function main(): void {
     const sourceSnapshot = readSourceWorktreeSnapshot(root)
     const sourceProvenance = sourceSnapshot.provenance
     let sourceRoot = root
-    if (requiresReleasePreflight(args.dryRun)) {
+    if (requiresReleasePreflight(args.dryRun) && !args.skipPreflight) {
       assert(sourceProvenance.worktree === 'clean', 'official release export requires a clean, committed private source worktree')
       runReleasePreflight()
+    } else if (!args.dryRun) {
+      assert(sourceProvenance.worktree === 'clean', 'official release export requires a clean, committed private source worktree')
     } else {
       draftSourceDirectory = mkdtempSync(join(tmpdir(), 'oa-sdk-release-draft-source-'))
       sourceRoot = join(draftSourceDirectory, 'source')
@@ -729,6 +731,7 @@ function parseArgs(values: string[], candidates: readonly string[]): Args {
   const versions = new Map<Candidate, string>()
   let dryRun = false
   let skipRegistryPreflight = false
+  let skipPreflight = false
   for (let index = 0; index < values.length; index += 1) {
     const value = values[index]
     if (value === '--output') { output = values[++index] }
@@ -744,12 +747,13 @@ function parseArgs(values: string[], candidates: readonly string[]): Args {
       versions.set(name, version)
     } else if (value === '--dry-run') dryRun = true
     else if (value === '--skip-registry-preflight') skipRegistryPreflight = true
+    else if (value === '--skip-preflight') skipPreflight = true
     else throw new Error(`unknown option: ${value}`)
   }
   assert(typeof releaseId === 'string' && /^[a-z0-9][a-z0-9._-]*$/i.test(releaseId), 'use --release-id <immutable-release-id>')
   assert(dryRun || typeof output === 'string', 'use --output <oa-sdk-releases repository>')
   assert(!skipRegistryPreflight || dryRun, '--skip-registry-preflight is allowed only with --dry-run')
-  return { output: output ? resolve(output) : '', releaseId, versions, dryRun, skipRegistryPreflight }
+  return { output: output ? resolve(output) : '', releaseId, versions, dryRun, skipRegistryPreflight, skipPreflight }
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
