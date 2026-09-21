@@ -28,6 +28,11 @@ oa-sdk는 하나의 runtime SDK가 아니라 OpenAPI 계약을 작성·검증·�
 | `@oa-sdk/router` | OAS 기반 Hono/Express/Fastify/Elysia router 및 순수 핸들러 계약(contract) stub | package root, `./browser` | [Quick Start](./quick-start.md) |
 | `@oa-sdk/mock-server` | Node HTTP/MSW mock과 request/response validation | package root, `./browser`, `./adapters/msw`, `./adapters/node-http` | [Mock testing](./use-cases/mock-testing.md) |
 | `@oa-sdk/typia-mock` | typia LLM application 기반 mock validation | package root | [API index](../internal/api-index.md) |
+| `@oa-sdk/chunk-stream` | 유니버설 Chunk Stream 런타임, 단일 와이어 스키마 v1 envelope, 메모리 상주 리스, 가상화 윈도우 엔진 | package root | [API index](../internal/api-index.md) |
+| `@oa-sdk/chunk-stream-crdt` | CRDT Delta Join Semi-Lattice 머지 엔진, 벡터 시계, Compaction Horizon GC | package root | [API index](../internal/api-index.md) |
+| `@oa-sdk/chunk-stream-ui` | UI Action 어댑터, ContentPort 원자적 배치 브리지, StoryboardDocument 스트림 변환 및 재생 브리지 | package root | [API index](../internal/api-index.md) |
+| `@oa-sdk/chunk-stream-timeseries` | 다채널 시계열 텔레메트리 어댑터, LTTB 다운샘플링, 데시메이션 | package root | [API index](../internal/api-index.md) |
+| `@oa-sdk/chunk-stream-react` | React 18/19 타임라인 재생 및 스크러빙 훅, 피어 상주 인식, 원격 측정 오버레이 | package root | [API index](../internal/api-index.md) |
 
 ## 거버넌스·관측·데이터 경계
 
