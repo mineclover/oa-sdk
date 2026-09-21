@@ -22,7 +22,12 @@
     "@oa-sdk/parser",
     "@oa-sdk/codegen",
     "@oa-sdk/ast-sync",
-    "@oa-sdk/tools"
+    "@oa-sdk/tools",
+    "@oa-sdk/chunk-stream",
+    "@oa-sdk/chunk-stream-crdt",
+    "@oa-sdk/chunk-stream-ui",
+    "@oa-sdk/chunk-stream-timeseries",
+    "@oa-sdk/chunk-stream-react"
   ],
   "bulkTaskExcluded": [
     "@oa-sdk/ttsc-compile-fixture"
@@ -50,7 +55,12 @@
       "workspaces": [
         "@oa-sdk/router",
         "@oa-sdk/client",
-        "@oa-sdk/mock-server"
+        "@oa-sdk/mock-server",
+        "@oa-sdk/chunk-stream",
+        "@oa-sdk/chunk-stream-crdt",
+        "@oa-sdk/chunk-stream-ui",
+        "@oa-sdk/chunk-stream-timeseries",
+        "@oa-sdk/chunk-stream-react"
       ]
     },
     "maintenance": {
@@ -90,7 +100,12 @@
     "@oa-sdk/tools",
     "@oa-sdk/router",
     "@oa-sdk/client",
-    "@oa-sdk/mock-server"
+    "@oa-sdk/mock-server",
+    "@oa-sdk/chunk-stream",
+    "@oa-sdk/chunk-stream-crdt",
+    "@oa-sdk/chunk-stream-ui",
+    "@oa-sdk/chunk-stream-timeseries",
+    "@oa-sdk/chunk-stream-react"
   ],
   "ignored": [
     "@oa-sdk/dpm",

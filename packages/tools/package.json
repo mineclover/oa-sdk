@@ -40,14 +40,24 @@
     "hono": "^4.6.0"
   },
   "peerDependencies": {
+    "@oa-sdk/chunk-stream": "workspace:*",
+    "@oa-sdk/chunk-stream-ui": "workspace:*",
     "zod": ">=3.0.0"
   },
   "peerDependenciesMeta": {
+    "@oa-sdk/chunk-stream": {
+      "optional": true
+    },
+    "@oa-sdk/chunk-stream-ui": {
+      "optional": true
+    },
     "zod": {
       "optional": true
     }
   },
   "devDependencies": {
+    "@oa-sdk/chunk-stream": "workspace:*",
+    "@oa-sdk/chunk-stream-ui": "workspace:*",
     "@types/node": "^22.0.0",
     "tsup": "^8.0.0",
     "typescript": "5.9.3",

@@ -52,6 +52,11 @@ assert.deepEqual(configuration.candidates, [
   '@oa-sdk/codegen',
   '@oa-sdk/ast-sync',
   '@oa-sdk/tools',
+  '@oa-sdk/chunk-stream',
+  '@oa-sdk/chunk-stream-crdt',
+  '@oa-sdk/chunk-stream-ui',
+  '@oa-sdk/chunk-stream-timeseries',
+  '@oa-sdk/chunk-stream-react',
 ])
 assert.equal(requiresReleasePreflight(false), true)
 assert.equal(requiresReleasePreflight(true), false)

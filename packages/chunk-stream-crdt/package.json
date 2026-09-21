@@ -1,0 +1,40 @@
+{
+  "name": "@oa-sdk/chunk-stream-crdt",
+  "version": "0.1.0",
+  "description": "CRDT Delta-State Join Semi-Lattice merge engine, vector clocks, and collaborative playback synchronization",
+  "private": false,
+  "type": "module",
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsup src/index.ts --format esm --dts",
+    "test": "vitest run",
+    "test:ci": "vitest run --maxWorkers 1 --no-file-parallelism",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@oa-sdk/chunk-stream": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsup": "^8.0.0",
+    "typescript": "5.9.3",
+    "vitest": "^4.1.4"
+  }
+}
