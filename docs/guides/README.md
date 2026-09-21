@@ -53,7 +53,7 @@ TypeSpec 및 OpenAPI 3.2를 사용하여 프로덕션 레벨의 API 스펙을 �
 - **[스키마 작성 가이드 (Schema Authoring)](./schema-authoring.md)**: TypeSpec-first 실무 플레이북. 도메인 모델, 오퍼레이션, 파라미터, OAS 3.2 신규 문법(`dataValue`, `itemSchema`, `defaultMapping`) 작성 규칙.
 - **[TypeSpec 5분 퀵스타트](./typespec/01-quickstart-5min.md)**: TypeSpec 입문 및 프로젝트 구성 기초.
 - **[TypeSpec 작성 컨벤션](./typespec/02-authoring-conventions.md)**: 모듈 분할, 네임스페이스, literal union, alias 사용 표준.
-- **[TypeSpec 데코레이터 레퍼런스](./typespec/03-decorators-reference.md)**: HTTP 메소드, 파라미터, 응답 상태코드 데코레이터 전체 목록.
+- **[TypeSpec 종합 데코레이터 레퍼런스 및 8대 실전 작성 패턴](./typespec/03-decorators-reference.md)**: 코어 메타데이터, HTTP, OpenAPI, JSON Schema 제약, 다형성/라이프사이클, `@oa-sdk` 확장 데코레이터 및 8대 프로덕션 `.tsp` 작성 패턴 바이블.
 - **[TypeSpec 스캐폴딩 및 Diff](./typespec/04-scaffolding-and-diff.md)**: 스펙 변경 시점의 candidate diff 확인 및 승인 스냅샷 관리.
 - **[TypeSpec 트러블슈팅](./typespec/05-troubleshooting.md)**: 컴파일 에러, 순환 참조 해결 가이드.
 - **[TypeSpec 아티팩트 생성 토폴로지 및 아키텍처 규칙](./typespec/06-generation-topologies-and-rules.md)**: Co-located(피처 인접), FSD, Monorepo 4대 생성 토폴로지, 5대 아키텍처 불변 규칙, 5대 작성 컨벤션.

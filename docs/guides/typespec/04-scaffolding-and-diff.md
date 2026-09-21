@@ -239,6 +239,6 @@ pnpm schema:downstream-check
 ## 다음 단계
 - [TypeSpec 5분 퀵스타트 가이드](./01-quickstart-5min.md)
 - [TypeSpec 작성 규칙 및 컨벤션 표준](./02-authoring-conventions.md)
-- [커스텀 데코레이터 상세 레퍼런스](./03-decorators-reference.md)
+- [TypeSpec 종합 데코레이터 레퍼런스 및 8대 실전 작성 패턴](./03-decorators-reference.md)
 - [트러블슈팅 및 자주 묻는 질문(FAQ)](./05-troubleshooting.md)
 - [아티팩트 생성 토폴로지 및 아키텍처 규칙](./06-generation-topologies-and-rules.md)
