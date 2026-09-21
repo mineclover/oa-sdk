@@ -124,7 +124,7 @@ to prove reversibility or recover a failed TypeSpec migration; rerun
 
 - [TypeSpec 5분 퀵스타트 가이드](./typespec/01-quickstart-5min.md)
 - [TypeSpec 작성 규칙 및 컨벤션 표준](./typespec/02-authoring-conventions.md)
-- [TypeSpec 커스텀 데코레이터 레퍼런스](./typespec/03-decorators-reference.md)
+- [TypeSpec 종합 데코레이터 레퍼런스 및 8대 실전 작성 패턴](./typespec/03-decorators-reference.md)
 - [TypeSpec 스캐폴딩 및 Semantic Diff 도구 활용법](./typespec/04-scaffolding-and-diff.md)
 - [TypeSpec 트러블슈팅 및 자주 묻는 질문(FAQ)](./typespec/05-troubleshooting.md)
 - [TypeSpec IDE 환경 설정 및 생산성 가이드](./typespec-ide-setup.md)

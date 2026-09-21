@@ -63,6 +63,8 @@ model TextRange {
 ```
 
 > **컴파일 & 프로젝션**: 위 파일은 `oa-gen build-spec` 또는 TypeSpec 컴파일러를 통해 `components.schemas`만 포함된 OpenAPI 3.1/3.2 스펙 또는 JSON Schema로 방출됩니다.
+>
+> 💡 **심화 모델링 가이드**: 복합 다형성 모델(`@discriminator`), 모델 수명주기 분기(`@visibility`), 도메인 제약 캡슐화(`scalar`), 파라미터 전개(`...`) 등 실전 패턴은 **[TypeSpec 종합 데코레이터 레퍼런스 및 8대 실전 작성 패턴](./typespec/03-decorators-reference.md)** 및 **[비디오 트랜지션 파라미터 다양화 표준](./schema-architecture-and-conventions.md#61-비디오-트랜지션-파라미터-다양화-및-다형성-스키마-모델링-video-transition-parameter-diversification-standard)**을 참조하세요.
 
 ---
 
