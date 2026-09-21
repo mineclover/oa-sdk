@@ -57,7 +57,7 @@ schema/spec 관리 제품을 소유하고, Downstream Integration 여덟 패키�
 | Core Platform | `@oa-sdk/spec-lens` | `0.1.5` | Spec history and observation package |
 | Core Platform | `@oa-sdk/spec-lens-contract` | `0.1.0` | Browser-safe spec-lens HTTP wire contract |
 | Core Platform | `@oa-sdk/ast-sync` | `0.1.0` | V3 TypeScript AST bidirectional sync and standalone type guards |
-| Core Platform | `@oa-sdk/tools` | `0.1.0` | Universal Tool Engine for MCP, CLI, and Schema Bridge |
+| Core Platform | `@oa-sdk/tools` | `0.1.1` | Universal Tool Engine for MCP, CLI, and Schema Bridge |
 | Downstream Integration | `@oa-sdk/router` | `0.2.1` | Server router generation |
 | Downstream Integration | `@oa-sdk/client` | `0.2.1` | Fetch client generation |
 | Downstream Integration | `@oa-sdk/mock-server` | `0.1.3` | Mock engine with MSW and Node HTTP adapters |
