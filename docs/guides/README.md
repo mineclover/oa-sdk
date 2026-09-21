@@ -37,7 +37,7 @@
 | 개발자 역할 | 주요 목적 | 추천 읽기 경로 |
 |---|---|---|
 | **API / 스펙 설계자** | REST 엔드포인트, 파라미터, 응답 스키마 선언 | [스키마 작성 가이드](./schema-authoring.md) $\rightarrow$ [TypeSpec Quickstart](./typespec/01-quickstart-5min.md) $\rightarrow$ [기본 스펙 사용 기준](./basic-spec-usage.md) |
-| **데이터 모델러 (Non-HTTP)** | Chrome MV3 메시징, IPC, DB DTO, 이벤트 버스 타입 선언 | [순수 타입 선언 및 가드 실무 가이드](./pure-types-and-guards.md) $\rightarrow$ [4단계 Zod-First 파이프라인](./schema-architecture-and-conventions.md) |
+| **데이터 모델러 (Non-HTTP)** | Chrome MV3 메시징, IPC, DB DTO, 이벤트 버스 타입 선언 | [순수 타입 선언 및 가드 실무 가이드](./pure-types-and-guards.md) $\rightarrow$ [4단계 TypeSpec-First 파이프라인](./schema-architecture-and-conventions.md) |
 | **프론트엔드 엔지니어** | 타입 안전한 API 호출, TanStack Query 훅, Mocking | [프론트엔드 SDK 및 쿼리 소비 가이드](./client-and-query-consumption.md) $\rightarrow$ [Mock 서버 활용 가이드](./mock-server-usage.md) $\rightarrow$ [SDK 배포 가이드](./client-sdk-distribution.md) |
 | **백엔드 엔지니어** | 비즈니스 로직 작성, 프레임워크 라우터 바인딩, 멀티 에러 반환 | [백엔드 핸들러 계약 가이드](./backend-handler-contracts.md) $\rightarrow$ [온보딩 플레이북](./onboarding-playbook.md) $\rightarrow$ [코드젠 워크플로](./use-cases/codegen-workflow.md) |
 | **품질 / DevOps 엔지니어** | CI 파괴적 변경 감지, 제로-eval CSP 보안 감사, 빌드 자동화 | [CLI 명령 레퍼런스](./cli-command-reference.md) $\rightarrow$ [선언적 스펙 설정](./declarative-spec-configuration.md) $\rightarrow$ [검증 엔진 성능 벤치마크](../benchmarks/validation-engines.md) |
@@ -63,7 +63,7 @@ TypeSpec 및 OpenAPI 3.2를 사용하여 프로덕션 레벨의 API 스펙을 �
 ### 1.2 순수 데이터 모델 & DTO 선언 (Non-HTTP Use Cases)
 HTTP 전송 계층 없이 브라우저 확장프로그램(MV3), Worker IPC, WebSocket, Database DTO용 순수 타입을 선언하는 가이드입니다.
 - **[순수 타입 선언 및 제로-런타임 가드 가이드](./pure-types-and-guards.md) (★ 권장)**: HTTP 엔드포인트가 없는 순수 모델 정의 방법(TypeSpec models without ops / Zod Master Schemas), `oa-gen typegen`을 통한 순수 인터페이스 방출, 제로-eval/제로-런타임 가드(`isUser`) 생성.
-- **[스키마 아키텍처 및 작성 규칙 (4-Stage Zod Pipeline)](./schema-architecture-and-conventions.md)**: Zod SSOT $\rightarrow$ JSON Schema 2020-12 $\rightarrow$ OAS 3.1 Component-Bundle $\rightarrow$ Standalone AJV Type Guards 파이프라인 표준.
+- **[스키마 아키텍처 및 작성 규칙 (4-Stage TypeSpec-First Pipeline SSOT & Video Transitions)](./schema-architecture-and-conventions.md)**: TypeSpec SSOT $\rightarrow$ JSON Schema 2020-12 $\rightarrow$ OAS 3.1/3.2 $\rightarrow$ Standalone AJV Type Guards 파이프라인, 비디오 트랜지션 파라미터 다양화 표준, MCP/CLI 도구 브릿지.
 - **[스키마 대수 (Schema Algebra)](./schema-algebra.md)**: 재사용 가능한 복합 모델 합성 및 fold 패턴.
 - **[스키마 어노테이션 컨벤션](./schema-annotations.md)**: 작성자 메모, 내부 메타데이터 표기 표준.
 - **[TypeSpec 논리 ERD 작성](./typespec-logical-erd-authoring.md)**: 비즈니스 엔터티 간 관계 모델링.

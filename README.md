@@ -251,7 +251,7 @@ console.log(describeApi(parseDocument(spec)))
 | [Data Persona](./docs/concepts/data-persona.md) | persona 메타 프레임워크 — `@oa-sdk/personas` 컨셉 (3-bucket × 9-dimension × link types) |
 | [선언적 스펙 설정 (oa.config.ts)](./docs/guides/declarative-spec-configuration.md) | 모노레포 다중 프로파일 스펙, 정적 타입 가드, 스펙 드리프트 거버넌스 설정 |
 | [CLI 명령 레퍼런스](./docs/guides/cli-command-reference.md) | 현재 `oa-gen` 명령의 목적·최소 입력·전역 `--root` 및 조건부 옵션 |
-| [스키마 아키텍처 및 작성 규칙](./docs/guides/schema-architecture-and-conventions.md) | Zod SSOT 마스터 스키마, 4단계 프로젝션 파이프라인, 엄격한 수치 범위 및 MV3 무런타임 가드 |
+| [스키마 아키텍처 및 작성 규칙](./docs/guides/schema-architecture-and-conventions.md) | TypeSpec SSOT 마스터 스키마, 비디오 트랜지션 다형성 파라미터 표준, 4단계 프로젝션 파이프라인, 엄격한 수치 범위 및 MV3 무런타임 가드 |
 | [테스트 인프라 (Test Infrastructure)](./docs/concepts/test-infrastructure.md) | 4계층 E2E 검증 모델(F01~F16), 스펙 신선도/드리프트 감지, 결정론적 SHA-256 해시, CSP 감사 게이트 |
 | [Spec-Lens Platform](./docs/spec-lens/README.md) | OpenAPI 스펙 변경 이력 관측, Git 타임라인, D3 의존성 그래프, 웹 대시보드 (`@oa-sdk/spec-lens`, `apps/spec-lens`) |
 | [전체 문서](./docs/README.md) | 유저 가이드 + 최적 탐색 경로 + SSOT |

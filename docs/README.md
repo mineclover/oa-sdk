@@ -90,7 +90,7 @@
 | [가이드 종합 색인 및 아키텍처 지도](./guides/README.md) | 전체 가이드의 이원화(선언자 vs 소비자) 탐색 지도 및 추천 읽기 경로 |
 | [순수 타입 선언 및 가드 실무 가이드](./guides/pure-types-and-guards.md) | HTTP 없는 순수 모델 선언(TypeSpec/Zod), 순수 타입 생성 및 제로-eval 독립형 가드 실무 |
 | [선언적 스펙 설정 (oa.config.ts)](./guides/declarative-spec-configuration.md) | 모노레포 다중 프로파일 스펙, 정적 타입 가드, 스펙 드리프트 거버넌스 설정 |
-| [스키마 아키텍처 및 작성 규칙](./guides/schema-architecture-and-conventions.md) | Zod SSOT 마스터 스키마, 4단계 프로젝션 파이프라인, 엄격한 수치 범위 및 MV3 무런타임 가드 |
+| [스키마 아키텍처 및 작성 규칙](./guides/schema-architecture-and-conventions.md) | TypeSpec SSOT 마스터 스키마, 비디오 트랜지션 다형성 파라미터 표준, 4단계 프로젝션 파이프라인, 엄격한 수치 범위 및 MV3 무런타임 가드 |
 | [기본 스펙 사용 기준](./guides/basic-spec-usage.md) | TypeSpec source와 생성 OpenAPI artifact의 사용처·소유권·구조 |
 | [TypeSpec Authoring Conventions](./guides/typespec-authoring-conventions.md) | TypeSpec source, approved snapshot, extension ownership과 validation 흐름 |
 | [타입 계약 관리](./concepts/type-contract-management.md) | Type Registry, schema fidelity, TypeSpec promotion gate |

@@ -377,6 +377,19 @@ export default defineConfig({
 2. **Gate 2 (해시 무결성 게이트)**: 디스크 상의 SHA-256 해시가 빌드 당시 해시와 일치해야 합니다. 개발자가 수정한 파일은 `'content-modified'`로 보존됩니다.
 3. **Gate 3 (배너 보호 게이트)**: `@generated` 또는 `DO NOT EDIT` 배너가 포함된 파일만 삭제됩니다. 수기로 작성된 스키마 프래그먼트(`src/fragments/**/*.yaml`)는 실수로 삭제되지 않습니다.
 
+### 6.4 4단계 TypeSpec-First 파이프라인 및 다형성 파라미터 다양화 표준 (Video Transitions)
+
+복합 다형성 파라미터(비디오 트랜지션, 캔버스 이펙트 등) 모델링 시 Zod union 대신 **TypeSpec (`.tsp`)을 Stage 1 SSOT**로 선언합니다:
+- **다형성 상속 모델**: `@discriminator("type")` 및 `model Variant extends Base { type: "variant"; ... }`를 사용하여 선언적 유니언 작성.
+- **수치 경계 제약**: `@minValue`, `@maxValue`, `@pattern` 데코레이터를 통해 Draft 2020-12 및 OAS 3.1의 `exclusiveMinimum: 0` 규격을 완전 자동 투영.
+- **4단계 파이프라인 투영**:
+  1. `Stage 1 (SSOT)`: TypeSpec (`.tsp`) 모델 선언 (`schemas/.../*.tsp`)
+  2. `Stage 2`: JSON Schema Draft 2020-12 투영 (`$defs`, `oneOf`, `discriminator`)
+  3. `Stage 3`: OpenAPI 3.1/3.2 오퍼레이션 계약 (`POST /api/.../preview`)
+  4. `Stage 4`: Standalone Zero-Eval 타입 가드 (`isVideoTransition(v)`)
+  5. `Stage 5 (Bridge)`: `@oa-sdk/tools`의 `createSchemaTool`로 AI Agent MCP 및 CLI 도구 즉시 바인딩
+- **상세 규격**: [스키마 아키텍처 및 작성 규칙 (Section 6.1 비디오 트랜지션 파라미터 다양화 표준)](docs/guides/schema-architecture-and-conventions.md) 참조.
+
 ---
 
 ## 🔍 7. 문제 해결 매트릭스 (Troubleshooting)

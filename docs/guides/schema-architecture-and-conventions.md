@@ -1,18 +1,18 @@
-# 스키마 아키텍처 및 작성 규칙 (4-Stage Zod-First Pipeline SSOT & V3 AST Sync)
+# 스키마 아키텍처 및 작성 규칙 (4-Stage TypeSpec-First Pipeline SSOT & V3 AST Sync)
 
 > **Canonical Authority**: Browser Studio Core Architecture & Schema Governance
 > **Target Monorepo**: `@browser-studio/*` & `@oa-sdk/*` downstream applications
-> **Schema Governance Engine**: `@oa-sdk/*` (`@oa-sdk/openapi-projection-contract`, `@oa-sdk/parser`, `@oa-sdk/mock-server`, `@oa-sdk/codegen`, `@oa-sdk/ast-sync`)
-> **Specification Version**: 1.1.0 (Approved Standard)
+> **Schema Governance Engine**: `@oa-sdk/*` (`@oa-sdk/openapi-projection-contract`, `@oa-sdk/parser`, `@oa-sdk/mock-server`, `@oa-sdk/codegen`, `@oa-sdk/ast-sync`, `@oa-sdk/tools`)
+> **Specification Version**: 1.2.0 (Approved Standard)
 > **Status**: Normative Standard
-> **Target Environments**: Chrome Extension (Manifest V3), Node.js Session Host, MCP Stdio Daemons, DevTools Panel, Headless CI
+> **Target Environments**: Chrome Extension (Manifest V3), Node.js Session Host, MCP Stdio Daemons, DevTools Panel, Headless CI, CLI Tools
 
 > 🧭 **스펙 문서 체계 안내 (Schema Triad SSOT)**:
 > - **[가이드 종합 색인 및 아키텍처 지도](./README.md)**: 선언자(Author)와 소비자(Consumer) 트랙별 전체 가이드 맵과 추천 읽기 경로를 제공합니다.
 > - **[기본 스펙 사용 기준](./basic-spec-usage.md)**: 저장소 스펙 거버넌스 및 산출물 소유권 SSOT. `oa-sdk` 모노레포 코어 스펙(`packages/schemas`)의 TypeSpec-first 정본 관리와 산출물 소유권을 다룹니다.
 > - **[순수 타입 선언 및 가드 실무 가이드](./pure-types-and-guards.md)**: HTTP 엔드포인트 없는 순수 데이터 모델/DTO 선언, 타입 생성 및 제로-eval 독립형 가드 실무를 다룹니다.
 > - **[스키마 작성 가이드](./schema-authoring.md)**: 실무 TypeSpec & OpenAPI 3.2 작성 플레이북. TypeSpec 모델/오퍼레이션 및 OAS 3.2 문법 실무 작성을 다룹니다.
-> - **[스키마 아키텍처 및 작성 규칙 (현재 문서)](./schema-architecture-and-conventions.md)**: 4단계 Zod-First 파이프라인 SSOT (Zod $\rightarrow$ JSON Schema 2020-12 $\rightarrow$ OAS 3.1 $\rightarrow$ Standalone AJV Type Guards with zero eval for Chrome MV3 CSP) 및 V3 AST 동기화 표준을 다룹니다.
+> - **[스키마 아키텍처 및 작성 규칙 (현재 문서)](./schema-architecture-and-conventions.md)**: 4단계 TypeSpec-First 파이프라인 SSOT (TypeSpec $\rightarrow$ JSON Schema 2020-12 $\rightarrow$ OAS 3.1/3.2 $\rightarrow$ Standalone AJV Type Guards with zero eval for Chrome MV3 CSP) 및 V3 AST 동기화 표준을 다룹니다.
 > - **[선언적 스펙 설정 가이드](./declarative-spec-configuration.md)**: `oa.config.ts`의 이중 레이어 구조(`core` vs `product`), 라이프사이클 아키타입(`mvp`, `microservice`, `enterprise`), 출력 경로 라우팅(`outputRouting`) 설정 표준을 다룹니다.
 
 ---
@@ -20,18 +20,20 @@
 ## 1. Executive Summary & Architectural Scope
 
 ### 1.1 Mission & Core Tenet
-The **Browser Studio Schema Architecture** establishes a strictly decoupled, deterministic, high-throughput schema pipeline that bridges TypeScript/Zod master schemas with `@oa-sdk/*` specification governance, zero-runtime-weight browser extensions (Manifest V3), and headless CI protocol mock testing.
+The **Browser Studio Schema Architecture** establishes a strictly decoupled, deterministic, high-throughput schema pipeline that bridges **TypeSpec (`.tsp`) master specifications** with `@oa-sdk/*` specification governance, zero-runtime-weight browser extensions (Manifest V3), headless CI protocol mock testing, and AI Agent MCP/CLI bridges.
 
-#### Dual-World Architectural Scope:
-- **Core Platform Specifications (`packages/schemas`)**: Governed by the **TypeSpec-first** workflow documented in [기본 스펙 사용 기준](./basic-spec-usage.md) and [스키마 작성 가이드](./schema-authoring.md).
-- **Application Domains, Browser Extensions & Downstream Services**: Governed by this **4-Stage Zod-First Pipeline SSOT**. When domain entities originate in TypeScript or execute under strict browser extension environments (Chrome MV3), Zod schemas serve as the single source of truth.
+#### Unified Architectural Scope:
+- **Primary Single Source of Truth (SSOT)**: Master domain models, polymorphic entities (such as video transition parameters, visual IR nodes, and surface blocks), RPC operations, and data exchange contracts are authored in **TypeSpec (`.tsp`)**.
+- **Zod & TypeScript Bi-directional Interoperability**: In TypeScript-centric application codebases or runtime daemon hosts, Zod schemas (`zod@^4.4.3`) serve as an official adapter layer via **V3 AST Sync (`@oa-sdk/ast-sync`)**. `EntitySpec` guarantees zero-loss bidirectional translation between `.tsp` and Zod.
+- **Universal Build-Time Projection**: All downstream artifacts—JSON Schema Draft 2020-12, OpenAPI 3.1/3.2 specifications, pre-compiled standalone AJV type guards, protocol mock endpoints, and MCP/CLI tools—are projected deterministically at **build time**.
 
 The fundamental tenet of this architecture is:
-> **Single Source of Truth (SSOT)**: Domain schemas are authored once in TypeScript using Zod within domain packages. All downstream artifacts—JSON Schema Draft 2020-12, OpenAPI 3.1 specifications, pre-compiled standalone AJV type guards, and protocol mock endpoints—are projected deterministically at **build time**.
+> **Single Source of Truth (SSOT)**: Domain schemas and polymorphic parameter contracts are authored once in TypeSpec (`.tsp`) (or synchronized via Zod adapters). All downstream artifacts—JSON Schema Draft 2020-12, OpenAPI 3.1/3.2 specifications, pre-compiled standalone AJV type guards, and MCP/CLI tools—are projected deterministically at **build time**.
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────────────────┐
-│ STAGE 1: MASTER ZOD SCHEMAS (SSOT)                                                      │
+│ STAGE 1: MASTER TYPESPEC SCHEMAS (.tsp SSOT) & ZOD AST ADAPTER                         │
+│   • schemas/transitions/video-transitions.tsp (Polymorphic Fade, Wipe, Slide, GL, etc.)│
 │   • packages/devlink-contracts (Native RPC, MCP Stdio, Timeline, Journal, Leases)       │
 │   • packages/surface-engine (SurfaceBlock, SurfaceParam, PatchOp, DriftCheck)            │
 │   • packages/inspector-controls (10 Controller parameter serializers & configs)         │
@@ -40,22 +42,22 @@ The fundamental tenet of this architecture is:
                                             │
                                             ▼ [oa.config.ts / oa-gen generate]
 ┌─────────────────────────────────────────────────────────────────────────────────────────┐
-│ STAGE 2: BUILD-TIME PROJECTION TO JSON SCHEMA DRAFT 2020-12 & OPENAPI 3.1               │
+│ STAGE 2: BUILD-TIME PROJECTION TO JSON SCHEMA DRAFT 2020-12 & OPENAPI 3.1 / 3.2         │
 │   • JSON Schema Draft 2020-12 ($defs, strict numeric exclusiveMinimum: 0)               │
-│   • OpenAPI 3.1 'operation-contract' profile (DevLink Native RPC & MCP stdio)           │
-│   • OpenAPI 3.1 'component-bundle' profile (SurfaceEngine, Visual-IR, Inspector)        │
+│   • OpenAPI 3.1/3.2 'operation-contract' profile (DevLink Native RPC & MCP stdio)       │
+│   • OpenAPI 3.1/3.2 'component-bundle' profile (SurfaceEngine, Visual-IR, Inspector)    │
 │   • Canonical Metadata: x-schema-engine-profile, version-hash, sources, refs            │
 └───────────────────────────────────────────┬─────────────────────────────────────────────┘
                                             │
-                           ┌────────────────┴────────────────┐
-                           ▼                                 ▼
-┌──────────────────────────────────────────────┐┌──────────────────────────────────────────┐
-│ STAGE 3: SPEC GOVERNANCE & HEADLESS CI MOCK  ││ STAGE 4: STANDALONE AJV TYPE GUARDS      │
-│ • @oa-sdk/parser (validateDocument & lint)   ││ • Build-time compilation via AJV 2020    │
-│ • @oa-sdk/openapi-projection-contract        ││ • Pre-compiled static ESM guards + .d.ts │
-│ • @oa-sdk/mock-server for CI integration     ││ • ZERO @oa-sdk / Zod / AJV runtime weight│
-│ • Native Messaging & MCP stdio simulation    ││ • 100% Chrome MV3 CSP safe (no eval)     │
-└──────────────────────────────────────────────┘└──────────────────────────────────────────┘
+                    ┌───────────────────────┼───────────────────────┐
+                    ▼                       ▼                       ▼
+┌──────────────────────────────┐┌──────────────────────────┐┌───────────────────────────┐
+│ STAGE 3: SPEC GOVERNANCE     ││ STAGE 4: STANDALONE TYPE ││ STAGE 5 (BRIDGE): MCP/CLI │
+│ • @oa-sdk/parser (validation)││ • Build-time AJV 2020    ││ • @oa-sdk/tools           │
+│ • @oa-sdk/openapi-projection ││ • Pre-compiled ESM guards││ • createSchemaTool bridge │
+│ • @oa-sdk/mock-server (CI)   ││ • 0 KB runtime weight    ││ • AI Agent & CLI execution│
+│ • Native RPC & MCP simulation││ • 100% Chrome MV3 CSP    ││ • Bitwise zero drift      │
+└──────────────────────────────┘└──────────────────────────┘└───────────────────────────┘
 ```
 
 ### 1.2 Architectural Boundaries & Environment Matrix
@@ -71,8 +73,54 @@ The fundamental tenet of this architecture is:
 
 ## 2. The 4-Stage Schema Pipeline
 
-### 2.1 Stage 1: Master Zod Schemas (SSOT)
-Master schemas are defined in pure TypeScript using Zod (`zod@^4.4.3`). They serve as the single authoritative contract for domain logic, runtime validation in backend daemons, and static TypeScript type inference via `z.infer<typeof Schema>`.
+### 2.1 Stage 1: Master TypeSpec Schemas (SSOT) & Zod Interoperability Adapter
+In the modern architecture, domain entities, polymorphic parameter sets, and RPC contracts are authored in **TypeSpec (`.tsp`)**. TypeSpec provides a declarative, expressive language with native namespaces, model inheritance (`extends`), discriminator tags (`@discriminator`), documentation tags (`@doc`), and strict numeric boundary decorators (`@minValue`, `@maxValue`, `@pattern`):
+
+```tsp
+// Example: schemas/surface-engine/surface-param.tsp
+namespace Studio.SurfaceEngine;
+
+@doc("UTF-16 source character range")
+model CharRange {
+  @doc("0-based UTF-16 start offset")
+  @minValue(0)
+  start: int32;
+
+  @doc("0-based UTF-16 end offset (exclusive)")
+  @minValue(0)
+  end: int32;
+
+  @doc("Character span length")
+  @minValue(0)
+  length: int32;
+}
+
+@doc("Inspectable Surface Parameter representation")
+model SurfaceParam {
+  @doc("Unique parameter identifier")
+  @minLength(1)
+  id: string;
+
+  @doc("CSS property name or JS property key")
+  @minLength(1)
+  name: string;
+
+  @doc("Formatted code representation of parameter value")
+  value: string;
+
+  @doc("Exact source range of parameter value in document")
+  range: CharRange;
+
+  @doc("Inferred parameter semantic type")
+  inferredType: "color" | "dimension" | "typography" | "shadow" | "spacing" | "flex" | "keyword" | "raw";
+
+  @doc("UI inspector widget binding")
+  uiEditor: "color-picker" | "scrubber" | "select" | "toggle" | "box-model" | "text-input";
+}
+```
+
+#### TypeScript & Zod Interoperability Adapter:
+In TypeScript-first packages, frontend libraries, or legacy codebases, Zod (`zod@^4.4.3`) serves as the official bidirectional synchronization adapter. The **V3 AST Sync Engine (`@oa-sdk/ast-sync`)** and `EntitySpec` intermediate representation guarantee 100% loss-free roundtripping between `.tsp` and Zod:
 
 ```typescript
 // Example: packages/surface-engine/src/types/schemas.ts
@@ -222,7 +270,38 @@ For high-frequency runtime validation in browser extension contexts (Content Scr
   export function isPatchOp(data: unknown): data is PatchOp;
   export function isDevLinkMcpControlRequest(data: unknown): data is DevLinkMcpControlRequestV1;
   export function isProblemDetails(data: unknown): data is ProblemDetails;
-  ```
+
+### 2.5 Stage 5 (Bridge): Zero-Drift MCP Tools & Interactive CLI (`@oa-sdk/tools`)
+To bridge specifications directly to AI Agents (via Model Context Protocol) and human developers (via Terminal CLIs) without maintaining duplicated schema definitions, `@oa-sdk/tools` consumes Stage 2 JSON Schema Draft 2020-12 representations at runtime or build time via `createSchemaTool`:
+
+#### Core Tenets of the Tool Bridge:
+1. **Zero Schema Drift**: The exact JSON Schema Draft 2020-12 projected from TypeSpec is passed to MCP clients as the tool `inputSchema`, eliminating hand-written `z.string().describe(...)` duplication.
+2. **Dual-Channel Consumption**: A single tool definition can be mounted into an MCP Stdio server for AI agents and simultaneously invoked via a CLI command runner for human engineers.
+3. **Execution Safety**: Execution payloads are validated against the compiled schema prior to invoking the underlying action handler.
+
+```typescript
+import { createSchemaTool } from '@oa-sdk/tools';
+
+export const surfaceParamTool = createSchemaTool({
+  name: 'inspect_surface_param',
+  description: 'Inspects and updates surface parameter attributes within workspace files.',
+  schema: {
+    type: 'object',
+    properties: {
+      id: { type: 'string', minLength: 1 },
+      name: { type: 'string', minLength: 1 },
+      value: { type: 'string' },
+    },
+    required: ['id', 'name', 'value'],
+  },
+  execute: async (params) => {
+    return {
+      success: true,
+      result: `Parameter ${params.name} updated to ${params.value}`,
+    };
+  },
+});
+```
 
 ---
 
@@ -891,7 +970,481 @@ export type VisualLayerSpec = z.infer<typeof VisualLayerSpecSchema>;
 
 ## 6. Schema Authoring Best Practices & Guidelines
 
-### 6.1 Naming & Export Conventions
+### 6.1 비디오 트랜지션 파라미터 다양화 및 다형성 스키마 모델링 (Video Transition Parameter Diversification Standard)
+
+비디오 편집 엔진, 캔버스 타임라인, WebGL/WebGPU 렌더러 기반 애플리케이션에서는 트랜지션 효과마다 요구되는 제어 파라미터의 형태와 수치 제약이 극단적으로 상이합니다. 다운스트림 프로젝트들이 가장 빈번하게 겪는 스키마 설계 병목은 **트랜지션 파라미터 다양화(Parameter Diversification)**와 **다형성 모델링(Polymorphic Modeling)**입니다.
+
+#### 1. 도메인 과제: 왜 Zod 기반 마스터 스키마에서 병목이 발생하는가?
+1. **타입 추론 깊이 초과 (`TS2589`)**: 복잡한 중첩 객체(Point2D, Bezier 곡선, 셰이더 유니폼 맵)를 포함하는 6종 이상의 유니언을 `z.discriminatedUnion`으로 합성하면 TypeScript 컴파일러의 타입 인스턴스화 깊이가 급증합니다.
+2. **수치 경계 메타데이터 손실**: `$0.0 \le x \le 1.0$`이나 `$angle < 360.0$` 등의 제약을 Zod의 `.refine()`으로 작성하면 JSON Schema 및 OpenAPI 3.1의 `minimum`, `maximum`, `exclusiveMinimum` 키워드로 정적 투영되지 못합니다.
+3. **런타임 번들 페널티**: Chrome MV3 확장 프로그램이나 고성능 DevTools 패널에서 Zod 런타임 엔진을 직접 참조하면 CSP 위반 및 프레임 드랍이 유발됩니다.
+
+#### 2. 해결책: TypeSpec (`.tsp`) Stage 1 SSOT 중심 4단계 파이프라인
+TypeSpec의 `@discriminator("type")`과 모델 상속(`extends VideoTransitionBase`), 그리고 내장 데코레이터(`@minValue`, `@maxValue`, `@pattern`, `@doc`)를 적용하면 모든 트랜지션 파라미터를 단일 정본 스펙으로 선언하고 4단계 산출물로 완전 자동 투영할 수 있습니다.
+
+```tsp
+// schemas/transitions/video-transitions.tsp
+namespace Studio.Media.Transitions;
+
+@doc("Standard interpolation curve and easing timing functions")
+enum TimingFunction {
+  linear: "linear",
+  easeIn: "ease-in",
+  easeOut: "ease-out",
+  easeInOut: "ease-in-out",
+  cubicBezier: "cubic-bezier",
+}
+
+@doc("Normalized 2D point coordinate in unit interval [0.0, 1.0]")
+model Point2D {
+  @doc("X coordinate fraction [0.0, 1.0]")
+  @minValue(0.0)
+  @maxValue(1.0)
+  x: float64;
+
+  @doc("Y coordinate fraction [0.0, 1.0]")
+  @minValue(0.0)
+  @maxValue(1.0)
+  y: float64;
+}
+
+@doc("Custom cubic-bezier curve control points P1(x1, y1) and P2(x2, y2)")
+model CubicBezierTiming {
+  @doc("Timing function discriminator")
+  type: TimingFunction.cubicBezier;
+
+  @doc("P1 X control point [0.0, 1.0]")
+  @minValue(0.0)
+  @maxValue(1.0)
+  x1: float64;
+
+  @doc("P1 Y control point")
+  y1: float64;
+
+  @doc("P2 X control point [0.0, 1.0]")
+  @minValue(0.0)
+  @maxValue(1.0)
+  x2: float64;
+
+  @doc("P2 Y control point")
+  y2: float64;
+}
+
+@doc("Base polymorphic video transition contract")
+@discriminator("type")
+model VideoTransitionBase {
+  @doc("Unique transition instance identifier (UUID v4)")
+  @pattern("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$")
+  id: string;
+
+  @doc("Discriminator tag identifying transition variant")
+  type: string;
+
+  @doc("Transition duration in milliseconds (strictly positive integer)")
+  @minValue(1)
+  durationMs: int32 = 500;
+
+  @doc("Interpolation curve or custom cubic-bezier timing")
+  timing?: TimingFunction | CubicBezierTiming = TimingFunction.easeInOut;
+
+  @doc("Whether audio channels should crossfade synchronously with video")
+  audioCrossfade?: boolean = true;
+
+  @doc("Cut-point alignment anchor on timeline")
+  alignment?: "center" | "start-at-cut" | "end-at-cut" = "center";
+}
+
+@doc("Fade transition variant (fade-in, fade-out, or crossfade to solid color)")
+model FadeTransition extends VideoTransitionBase {
+  type: "fade";
+
+  @doc("Fade behavior mode")
+  mode: "fade-in" | "fade-out" | "crossfade" = "crossfade";
+
+  @doc("Target fade color formatted as 3-, 6-, or 8-digit hexadecimal string")
+  @pattern("^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$")
+  color?: string = "#000000";
+}
+
+@doc("Wipe transition variant with directional or radial boundary sweep")
+model WipeTransition extends VideoTransitionBase {
+  type: "wipe";
+
+  @doc("Primary sweep direction or pattern")
+  direction: "left" | "right" | "up" | "down" | "radial" | "diagonal" = "left";
+
+  @doc("Edge feathering softness fraction [0.0, 1.0]")
+  @minValue(0.0)
+  @maxValue(1.0)
+  softness?: float64 = 0.1;
+
+  @doc("Rotation angle in degrees [0.0, 360.0]")
+  @minValue(0.0)
+  @maxValue(360.0)
+  angleDeg?: float64 = 0.0;
+}
+
+@doc("Slide transition variant where new clip translates into frame")
+model SlideTransition extends VideoTransitionBase {
+  type: "slide";
+
+  @doc("Slide entrance direction")
+  direction: "left" | "right" | "up" | "down" = "left";
+
+  @doc("When true, outgoing clip is pushed out; when false, incoming clip slides over")
+  push?: boolean = false;
+
+  @doc("Normalized travel distance fraction [0.0, 1.0]")
+  @minValue(0.0)
+  @maxValue(1.0)
+  distanceFraction?: float64 = 1.0;
+}
+
+@doc("Dissolve transition variant using mathematical noise or grain blending")
+model DissolveTransition extends VideoTransitionBase {
+  type: "dissolve";
+
+  @doc("Algorithmic dissolve pattern")
+  pattern: "cross" | "dither" | "additive" | "film-grain" = "cross";
+
+  @doc("Noise texture frequency scale factor [0.1, 10.0]")
+  @minValue(0.1)
+  @maxValue(10.0)
+  noiseScale?: float64 = 1.0;
+
+  @doc("Blend intensity multiplier [0.0, 1.0]")
+  @minValue(0.0)
+  @maxValue(1.0)
+  intensity?: float64 = 1.0;
+}
+
+@doc("Zoom transition variant scaling from origin anchor point")
+model ZoomTransition extends VideoTransitionBase {
+  type: "zoom";
+
+  @doc("Normalized focal origin coordinate [0.0, 1.0]")
+  origin?: Point2D;
+
+  @doc("Initial scale factor (> 0.0)")
+  @minValue(0.01)
+  scaleStart?: float64 = 1.0;
+
+  @doc("Final scale factor (> 0.0)")
+  @minValue(0.01)
+  scaleEnd?: float64 = 2.0;
+
+  @doc("Simulate directional camera motion blur during zoom")
+  motionBlur?: boolean = true;
+}
+
+@doc("Custom hardware-accelerated GLSL fragment shader transition")
+model GlTransition extends VideoTransitionBase {
+  type: "gl";
+
+  @doc("GLSL fragment shader source code or asset URI")
+  @minLength(10)
+  shaderSource: string;
+
+  @doc("Arbitrary shader uniform values passed to WebGL/WebGPU pipeline")
+  uniforms?: Record<unknown>;
+
+  @doc("Texture sampling filter mode for clip framebuffers")
+  textureFiltering?: "linear" | "nearest" = "linear";
+}
+
+@doc("Exhaustive polymorphic union of all video transition types")
+alias VideoTransition =
+  | FadeTransition
+  | WipeTransition
+  | SlideTransition
+  | DissolveTransition
+  | ZoomTransition
+  | GlTransition;
+```
+
+#### 3. Stage 2 산출물: JSON Schema Draft 2020-12 투영 (`video-transitions.json`)
+빌드 시 `oa-gen generate`를 실행하면 모든 트랜지션 파라미터가 엄격한 Draft 2020-12 스펙으로 변환됩니다. `$defs`에 개별 변형체가 배치되고 최상위는 `oneOf` 및 `discriminator`로 인덱싱됩니다:
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://browser-studio.dev/schemas/v1/video-transitions.json",
+  "title": "VideoTransition",
+  "oneOf": [
+    { "$ref": "#/$defs/FadeTransition" },
+    { "$ref": "#/$defs/WipeTransition" },
+    { "$ref": "#/$defs/SlideTransition" },
+    { "$ref": "#/$defs/DissolveTransition" },
+    { "$ref": "#/$defs/ZoomTransition" },
+    { "$ref": "#/$defs/GlTransition" }
+  ],
+  "discriminator": {
+    "propertyName": "type"
+  },
+  "$defs": {
+    "FadeTransition": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"
+        },
+        "type": { "type": "string", "const": "fade" },
+        "durationMs": { "type": "integer", "minimum": 1 },
+        "mode": { "type": "string", "enum": ["fade-in", "fade-out", "crossfade"] },
+        "color": { "type": "string", "pattern": "^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$" }
+      },
+      "required": ["id", "type", "durationMs", "mode"],
+      "additionalProperties": false
+    },
+    "WipeTransition": {
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "type": { "type": "string", "const": "wipe" },
+        "durationMs": { "type": "integer", "minimum": 1 },
+        "direction": { "type": "string", "enum": ["left", "right", "up", "down", "radial", "diagonal"] },
+        "softness": { "type": "number", "minimum": 0, "maximum": 1 },
+        "angleDeg": { "type": "number", "minimum": 0, "maximum": 360 }
+      },
+      "required": ["id", "type", "durationMs", "direction"],
+      "additionalProperties": false
+    },
+    "SlideTransition": {
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "type": { "type": "string", "const": "slide" },
+        "durationMs": { "type": "integer", "minimum": 1 },
+        "direction": { "type": "string", "enum": ["left", "right", "up", "down"] },
+        "push": { "type": "boolean" },
+        "distanceFraction": { "type": "number", "minimum": 0, "maximum": 1 }
+      },
+      "required": ["id", "type", "durationMs", "direction"],
+      "additionalProperties": false
+    },
+    "DissolveTransition": {
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "type": { "type": "string", "const": "dissolve" },
+        "durationMs": { "type": "integer", "minimum": 1 },
+        "pattern": { "type": "string", "enum": ["cross", "dither", "additive", "film-grain"] },
+        "noiseScale": { "type": "number", "minimum": 0.1, "maximum": 10 },
+        "intensity": { "type": "number", "minimum": 0, "maximum": 1 }
+      },
+      "required": ["id", "type", "durationMs", "pattern"],
+      "additionalProperties": false
+    },
+    "ZoomTransition": {
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "type": { "type": "string", "const": "zoom" },
+        "durationMs": { "type": "integer", "minimum": 1 },
+        "origin": {
+          "type": "object",
+          "properties": {
+            "x": { "type": "number", "minimum": 0, "maximum": 1 },
+            "y": { "type": "number", "minimum": 0, "maximum": 1 }
+          },
+          "required": ["x", "y"]
+        },
+        "scaleStart": { "type": "number", "exclusiveMinimum": 0 },
+        "scaleEnd": { "type": "number", "exclusiveMinimum": 0 },
+        "motionBlur": { "type": "boolean" }
+      },
+      "required": ["id", "type", "durationMs"],
+      "additionalProperties": false
+    },
+    "GlTransition": {
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "type": { "type": "string", "const": "gl" },
+        "durationMs": { "type": "integer", "minimum": 1 },
+        "shaderSource": { "type": "string", "minLength": 10 },
+        "uniforms": { "type": "object", "additionalProperties": true },
+        "textureFiltering": { "type": "string", "enum": ["linear", "nearest"] }
+      },
+      "required": ["id", "type", "durationMs", "shaderSource"],
+      "additionalProperties": false
+    }
+  }
+}
+```
+
+#### 4. Stage 3 산출물: OpenAPI 3.1 오퍼레이션 컨트랙트 투영
+트랜지션 미리보기 렌더링 RPC/REST 엔드포인트는 RFC 9457 `ProblemDetails` 오류 응답과 함께 엄격한 오퍼레이션 컨트랙트로 컴파일됩니다:
+
+```yaml
+openapi: 3.1.0
+info:
+  title: Studio Timeline Transition Preview API
+  version: 1.0.0
+  description: OpenAPI 3.1 operation contract for real-time video transition rendering.
+x-schema-engine-profile: operation-contract
+x-schema-engine-version-hash: sha256:d4e8b3...
+paths:
+  /api/v1/timeline/transitions/preview:
+    post:
+      summary: Render Video Transition Preview Frame
+      operationId: previewTimelineTransition
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VideoTransition'
+      responses:
+        '200':
+          description: Preview frame rendered successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  previewUrl:
+                    type: string
+                    format: uri
+                  renderTimeMs:
+                    type: number
+                    minimum: 0
+                required:
+                  - previewUrl
+                  - renderTimeMs
+        '422':
+          description: Invalid transition parameter configuration
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+components:
+  schemas:
+    VideoTransition:
+      oneOf:
+        - $ref: '#/components/schemas/FadeTransition'
+        - $ref: '#/components/schemas/WipeTransition'
+        - $ref: '#/components/schemas/SlideTransition'
+        - $ref: '#/components/schemas/DissolveTransition'
+        - $ref: '#/components/schemas/ZoomTransition'
+        - $ref: '#/components/schemas/GlTransition'
+      discriminator:
+        propertyName: type
+```
+
+#### 5. Stage 4 산출물: Standalone Zero-Eval Type Guards (`dist/guards/guards/VideoTransition.js`)
+Chrome MV3 브라우저 확장 프로그램의 Content Scripts나 WebGL 렌더러는 60fps 렌더링 주기 안에서 트랜지션 페이로드를 검증해야 합니다. `@oa-sdk/codegen`은 점프 테이블(`switch`) 기반의 고속 타입 가드를 생성합니다:
+
+```typescript
+// dist/guards/guards/VideoTransition.d.ts
+export interface FadeTransition {
+  id: string;
+  type: 'fade';
+  durationMs: number;
+  mode: 'fade-in' | 'fade-out' | 'crossfade';
+  color?: string;
+}
+
+export interface WipeTransition {
+  id: string;
+  type: 'wipe';
+  durationMs: number;
+  direction: 'left' | 'right' | 'up' | 'down' | 'radial' | 'diagonal';
+  softness?: number;
+  angleDeg?: number;
+}
+
+export interface SlideTransition {
+  id: string;
+  type: 'slide';
+  durationMs: number;
+  direction: 'left' | 'right' | 'up' | 'down';
+  push?: boolean;
+  distanceFraction?: number;
+}
+
+export interface DissolveTransition {
+  id: string;
+  type: 'dissolve';
+  durationMs: number;
+  pattern: 'cross' | 'dither' | 'additive' | 'film-grain';
+  noiseScale?: number;
+  intensity?: number;
+}
+
+export interface ZoomTransition {
+  id: string;
+  type: 'zoom';
+  durationMs: number;
+  origin?: { x: number; y: number };
+  scaleStart?: number;
+  scaleEnd?: number;
+  motionBlur?: boolean;
+}
+
+export interface GlTransition {
+  id: string;
+  type: 'gl';
+  durationMs: number;
+  shaderSource: string;
+  uniforms?: Record<string, unknown>;
+  textureFiltering?: 'linear' | 'nearest';
+}
+
+export type VideoTransition =
+  | FadeTransition
+  | WipeTransition
+  | SlideTransition
+  | DissolveTransition
+  | ZoomTransition
+  | GlTransition;
+
+export function isVideoTransition(data: unknown): data is VideoTransition;
+export function isFadeTransition(data: unknown): data is FadeTransition;
+export function isGlTransition(data: unknown): data is GlTransition;
+```
+
+#### 6. Stage 5 (Bridge): Zero-Drift MCP Tools & Interactive CLI (`@oa-sdk/tools`)
+빌드된 JSON Schema Draft 2020-12는 `@oa-sdk/tools`의 `createSchemaTool`을 통해 AI 에이전트와 CLI 명령어에 즉각 바인딩됩니다. 추가 스키마 선언 없이 완벽한 0-드리프트를 달성합니다:
+
+```typescript
+import { createSchemaTool } from '@oa-sdk/tools';
+
+export const previewVideoTransitionTool = createSchemaTool({
+  name: 'preview_video_transition',
+  description: 'Renders and verifies a polymorphic video transition configuration across timeline clips.',
+  schema: {
+    type: 'object',
+    properties: {
+      timelineId: { type: 'string', minLength: 1 },
+      transition: { $ref: '#/$defs/VideoTransition' },
+      frameOffsetMs: { type: 'integer', minimum: 0 },
+    },
+    required: ['timelineId', 'transition'],
+  },
+  execute: async ({ timelineId, transition, frameOffsetMs = 0 }) => {
+    return {
+      success: true,
+      previewUrl: `https://studio.local/previews/${timelineId}/frame_${frameOffsetMs}.webp`,
+      transitionType: (transition as { type: string }).type,
+    };
+  },
+});
+```
+
+#### 7. 아키텍처 비교 요약: TypeSpec vs. Zod
+| 평가 차원 | TypeSpec (`.tsp`) Stage 1 SSOT | Zod Master Schema (레거시/어댑터) |
+|---|---|---|
+| **다형성 유니언 작성 편의성** | `@discriminator("type")` + `model extends`로 선언적 작성 | `z.discriminatedUnion([...])` 긴 배열 수작업 나열 |
+| **타입 추론 복잡도** | 컴파일 타임 네이티브 AST 심볼 색인 (컴파일 속도 최적) | 깊은 제네릭 체인으로 `TS2589` 유발 위험 |
+| **엄격한 수치 경계 투영** | `@minValue`, `@maxValue`가 Draft 2020-12 / OAS 3.1에 100% 매핑 | `.refine()` 사용 시 정적 OpenAPI 메타데이터 누락 |
+| **번들 디커플링 & CSP** | 0 KB 런타임 (정적 컴파일 산출물만 배포) | 런타임 번들 포함 시 번들 비대화 및 MV3 CSP 위험 |
+| **MCP Tool & CLI 브릿지** | Stage 2 JSON Schema로 자동 연동 | 매번 수작업 인풋 스키마 재작성 필요 |
+
+---
+
+### 6.2 Naming & Export Conventions
 All schema definitions in Browser Studio must adhere to strict naming conventions:
 
 | Category | Schema Variable Name | Inferred TypeScript Type | Example |
@@ -905,7 +1458,7 @@ All schema definitions in Browser Studio must adhere to strict naming convention
 
 ---
 
-### 6.2 Discriminated Unions for Polymorphic Payloads
+### 6.3 Discriminated Unions for Polymorphic Payloads
 When defining polymorphic data structures (e.g. `PatchOp`, `BrowserActionStepV1`, `DevLinkMcpControlRequestV1`), always use `z.discriminatedUnion()` with a single literal discriminator field (`type`, `action`, `operation`, or `op`):
 
 ```typescript
@@ -945,7 +1498,7 @@ export type PatchOp = z.infer<typeof PatchOpSchema>;
 
 ---
 
-### 6.3 Strict Numeric Bounds Drafting Patterns (Inclusive vs. Exclusive)
+### 6.4 Strict Numeric Bounds Drafting Patterns (Inclusive vs. Exclusive)
 
 In OpenAPI 3.0 and JSON Schema Draft 04, exclusive boundaries were expressed using a boolean flag modifier (`minimum: 0, exclusiveMinimum: true`).
 
@@ -1049,7 +1602,7 @@ export type TransformControls = z.infer<typeof TransformControlsSchema>;
 
 ---
 
-### 6.4 Self-Referencing Recursive Schemas (`z.lazy` + Registry Cycle-Safe Projection)
+### 6.5 Self-Referencing Recursive Schemas (`z.lazy` + Registry Cycle-Safe Projection)
 
 When modeling hierarchical tree structures (such as `VisualTreeNode`, `SurfaceBlockTree`, or recursive expression ASTs), naive recursive type inference triggers TypeScript errors:
 - **TS7022**: *'NodeSchema' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer.*
@@ -1169,7 +1722,7 @@ OpenAPI 3.1 and JSON Schema Draft 2020-12 natively support cyclic `$ref` structu
 
 ---
 
-### 6.5 `x-surface-*` Scoping Rules (Object-Level vs. Inline Property-Level)
+### 6.6 `x-surface-*` Scoping Rules (Object-Level vs. Inline Property-Level)
 
 The Surface Engine powers non-AST live-patching and inspector interaction. Formal surface metadata extensions are declared in `@oa-sdk/openapi-projection-contract` and validated by `@oa-sdk/parser`.
 
@@ -1444,6 +1997,14 @@ export default defineConfig({
   rootDir: '.',
   specs: [
     {
+      id: 'video-transitions',
+      profile: 'component-bundle',
+      schemaEntry: 'schemas/transitions/video-transitions.tsp',
+      outDir: 'artifacts/specs',
+      title: 'Studio Media Transitions Specification',
+      version: '1.0.0',
+    },
+    {
       id: 'surface-engine',
       profile: 'component-bundle',
       schemaEntry: 'packages/surface-engine/src/types/schemas.ts',
@@ -1488,7 +2049,7 @@ pnpm exec oa-gen generate
 # 3. Generate TypeScript clients and type definitions
 pnpm exec oa-gen typegen
 
-# 4. Verify deterministic hash drift between source Zod AST and committed artifacts (CI Gate)
+# 4. Verify deterministic hash drift between source AST and committed artifacts (CI Gate)
 pnpm exec oa-gen drift:check
 
 # 5. Static AST security audit for Manifest V3 CSP compliance
@@ -1499,21 +2060,21 @@ pnpm exec oa-gen diff --base <old.json> --head <new.json> --fail-on-breaking
 ```
 
 ### 8.2 Adding or Modifying a Domain Schema (Step-by-Step)
-When introducing a new data model or RPC method to Browser Studio:
+When introducing a new data model, polymorphic transition parameter, or RPC method:
 
-1. **Define Master Schema**:
-   Add the schema in the appropriate domain package (`packages/devlink-contracts`, `packages/surface-engine`, etc.) using Zod. Use `.describe()` annotations and strict numeric bounds (`.min(0)` vs `.positive()`).
-2. **Export Schema & Type**:
-   Export both `<Name>Schema` and `export type <Name> = z.infer<typeof <Name>Schema>`.
-3. **Register in `oa.config.ts`**:
+1. **Define Master Schema in TypeSpec (`.tsp`)**:
+   Add or update the model in `schemas/.../*.tsp` using native TypeSpec syntax, decorators (`@discriminator`, `@minValue`, `@maxValue`, `@pattern`, `@doc`). If authoring in TypeScript, define using Zod and leverage `@oa-sdk/ast-sync` for bidirectional AST sync.
+2. **Register in `oa.config.ts`**:
    Ensure the schema entry module is declared under `specs` in `oa.config.ts` with the appropriate profile (`component-bundle`, `operation-contract`, or `full-api-document`).
-4. **Execute Projection Pipeline**:
+3. **Execute Projection Pipeline**:
    ```bash
    pnpm exec oa-gen validate
    pnpm exec oa-gen generate
    ```
-5. **Verify Standalone Type Guards**:
-   Verify that `dist/guards/guards/<name>.js` and `dist/guards/guards/<name>.d.ts` are generated without compiler warnings.
+4. **Verify Standalone Type Guards & Zero-Eval CSP**:
+   Verify that `dist/guards/guards/<name>.js` and `dist/guards/guards/<name>.d.ts` are generated without compiler warnings, and run `oa-gen audit:csp`.
+5. **Bridge to MCP & CLI (`@oa-sdk/tools`)**:
+   Pass the generated Stage 2 JSON Schema to `createSchemaTool` for instant AI Agent and CLI availability with zero drift.
 6. **Execute Monorepo Tests**:
    ```bash
    pnpm test
@@ -1538,7 +2099,7 @@ When introducing a new data model or RPC method to Browser Studio:
 
 Before submitting schema changes or pull requests, verify compliance against this normative checklist:
 
-- [ ] **SSOT**: Master schema is authored in Zod with static `z.infer` TypeScript type.
+- [ ] **SSOT**: Master schema is authored in TypeSpec (`.tsp`) (or synchronized via Zod adapter with static `z.infer` TypeScript type).
 - [ ] **RFC 9457**: Error responses use `ProblemDetailsSchema` with `application/problem+json` Content-Type for 422, 409, 500.
 - [ ] **Numeric Bounds**: $x \ge 0$ authored as `minimum: 0` (`.nonnegative()`); $x > 0$ authored as `exclusiveMinimum: 0` (`.positive()`).
 - [ ] **Recursive Trees**: Authored using `z.ZodType<T> = z.lazy(...)` with explicit interface and registered in registry `refs`.
@@ -1551,4 +2112,4 @@ Before submitting schema changes or pull requests, verify compliance against thi
 
 ## 10. Conclusion
 
-By adhering strictly to the **4-Stage Schema Pipeline**, preserving **Zod as the Single Source of Truth**, standardizing on **RFC 9457 Problem Details**, and enforcing **Zero-Runtime-Weight Bundle Decoupling**, Browser Studio achieves enterprise-grade specification governance through `@oa-sdk/*` while delivering sub-millisecond 60fps performance and 100% Manifest V3 CSP compliance in browser extensions.
+By adhering strictly to the **4-Stage Schema Pipeline**, establishing **TypeSpec (`.tsp`) as the Primary Single Source of Truth** (with seamless Zod AST synchronization via `@oa-sdk/ast-sync`), standardizing on **RFC 9457 Problem Details**, and enforcing **Zero-Runtime-Weight Bundle Decoupling**, Browser Studio and downstream projects achieve enterprise-grade specification governance through `@oa-sdk/*` while delivering sub-millisecond 60fps performance and 100% Manifest V3 CSP compliance in browser extensions.

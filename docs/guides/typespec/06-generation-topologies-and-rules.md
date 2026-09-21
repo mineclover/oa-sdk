@@ -427,6 +427,7 @@ Choice (1-3): 2
 
 ## 다음 단계 및 관련 가이드
 - [선언적 스펙 설정 가이드 (oa.config.ts)](../declarative-spec-configuration.md)
+- [스키마 아키텍처 및 작성 규칙 (4-Stage TypeSpec SSOT & 비디오 트랜지션 파라미터 다양화)](../schema-architecture-and-conventions.md)
 - [TypeSpec 스캐폴딩 및 Diff 도구 활용법](./04-scaffolding-and-diff.md)
 - [순수 타입 선언 및 제로-런타임 가드 가이드](../pure-types-and-guards.md)
 - [TypeSpec 데코레이터 상세 레퍼런스](./03-decorators-reference.md)
