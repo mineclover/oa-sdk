@@ -85,6 +85,19 @@ scalar TicketCode extends string;
     ]))
   })
 
+  it('attributes emitted enum components to their TypeSpec declarations', () => {
+    const sourceRoot = makeSource('enum GroundingRole { surface: "surface", control: "control" }')
+    const result = buildTypeSpecRefProvenance({
+      sourceRoot,
+      restoredDocument: document({ components: { schemas: { GroundingRole: { type: 'string', enum: ['surface', 'control'] } } } }),
+      sidecar: createTypeSpecCompatibilitySidecarFromEntries([]),
+    })
+    expect(result.report.valid).toBe(true)
+    expect(result.artifact.declarations).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: 'enum:main.tsp:GroundingRole', kind: 'model', symbol: 'GroundingRole' }),
+    ]))
+  })
+
   it('attributes emitted event unions to their TypeSpec declaration and nested refs', () => {
     const sourceRoot = makeSource(`
 model HealthEvent {

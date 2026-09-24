@@ -294,6 +294,7 @@ function collectDeclarations(sourceRoot: string, filePath: string): {
       && kind !== SyntaxKind.AliasStatement
       && kind !== SyntaxKind.ScalarStatement
       && kind !== SyntaxKind.UnionStatement
+      && kind !== SyntaxKind.EnumStatement
     ) continue
     if (!id) continue
     const source = createSourceRange(content, relativePath, pos, end)
@@ -304,6 +305,8 @@ function collectDeclarations(sourceRoot: string, filePath: string): {
           ? 'alias'
           : kind === SyntaxKind.ScalarStatement
             ? 'scalar'
+            : kind === SyntaxKind.EnumStatement
+              ? 'enum'
             : 'union'
       const declarationId = `${declarationPrefix}:${relativePath}:${id}`
       declarations.push({

@@ -164,6 +164,14 @@ describe('resolveRefGraph', () => {
     expect(graph.diagnostics.some(d => d.code === 'ref-cycle')).toBe(true)
   })
 
+  it('accepts recursive object schema references without expanding them forever', () => {
+    const graph = resolveRefGraph(doc({
+      components: { schemas: { GroupLayer: { type: 'object', properties: { children: { type: 'array', items: { $ref: '#/components/schemas/GroupLayer' } } } } } },
+    }))
+    expect(graph.nodes.some(node => node.ref === '#/components/schemas/GroupLayer' && node.resolved)).toBe(true)
+    expect(graph.diagnostics.some(diagnostic => diagnostic.code === 'ref-cycle')).toBe(false)
+  })
+
   it('$ref sibling 내부의 $ref도 수집한다', () => {
     const graph = resolveRefGraph(doc({
       components: {

@@ -1,6 +1,7 @@
 import type { OasDocument } from './oas32-types.js'
 import { SchemaFolder } from './folder.js'
 import { createSafeRecord } from './safe-record.js'
+import { isJsonPointerFragment, resolveJsonPointer } from './json-pointer.js'
 import {
   createRefResolver,
   type RefDocumentCache,
@@ -62,6 +63,13 @@ export class DerefFolder extends SchemaFolder {
       stack: this.stack,
     })
 
+    if (resolution.diagnostic?.code === 'ref-cycle' && isRecursiveSchema(ref, this.root)) {
+      // Recursive object schemas (tree nodes, groups, linked lists) are valid
+      // OpenAPI contracts. Preserve the edge for downstream generators instead
+      // of marking the whole parsed document partial. Alias-only cycles remain
+      // diagnostics and continue to fail closed.
+      return mergeRefSiblings({ $ref: ref }, this.foldSiblingFields(node))
+    }
     if (resolution.diagnostic) this.emitDiagnostic(resolution.diagnostic)
     if (!resolution.resolved) {
       return resolution.diagnostic?.code === 'ref-cycle' ? this.resolveCycle(ref, node) : node
@@ -109,6 +117,13 @@ export class DerefFolder extends SchemaFolder {
     folder.stack.push(...this.stack)
     return folder.fold(target)
   }
+}
+
+function isRecursiveSchema(ref: string, root: unknown): boolean {
+  if (!isJsonPointerFragment(ref)) return false
+  const target = resolveJsonPointer(root, ref)
+  return target !== null && typeof target === 'object' && !Array.isArray(target)
+    && ((target as Record<string, unknown>).type === 'object' || 'properties' in target)
 }
 
 /**

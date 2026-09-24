@@ -103,7 +103,12 @@ function collectRemainingRefDiagnostics(
     const sourcePointer = `${pointer}/$ref`
     if (ref && !existing.some(diagnostic => diagnostic.ref === ref)) {
       if (isJsonPointerFragment(ref)) {
-        const found = resolveJsonPointer(document, ref) !== undefined
+        const target = resolveJsonPointer(document, ref)
+        const found = target !== undefined
+        // Recursive object schemas are valid OpenAPI graph edges. Deref keeps
+        // the terminating $ref so generators can preserve the recursive
+        // contract; they are complete once the target schema exists.
+        if (found && isRecursiveSchema(target)) return
         diagnostics.push({
           code: found ? 'unsupported-ref' : 'ref-not-found',
           ref,
@@ -135,6 +140,11 @@ function collectRemainingRefDiagnostics(
       visit(child, `${pointer}/${escapeJsonPointer(key)}`)
     }
   }
+}
+
+function isRecursiveSchema(value: unknown): boolean {
+  return isRecord(value)
+    && (value.type === 'object' || Object.prototype.hasOwnProperty.call(value, 'properties'))
 }
 
 function dedupeDiagnostics(

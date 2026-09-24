@@ -7,6 +7,7 @@ import {
   type RefResolverKind,
 } from './ref-resolver.js'
 import { getOwnString } from './safe-record.js'
+import { resolvePointer } from './ref-resolver.js'
 
 export { isRelativeRef, resolvePointer } from './ref-resolver.js'
 
@@ -62,6 +63,13 @@ export function resolveRefGraph(spec: OasDocument | Record<string, unknown>, opt
 
   function resolveRef(ref: string, sourcePointer: string, root: unknown, basePath: string | undefined, stack: string[]): void {
     const resolution = resolver.resolve({ ref, sourcePointer, root, ...(basePath ? { basePath } : {}), stack })
+    if (resolution.diagnostic?.code === 'ref-cycle') {
+      const target = resolution.pointer?.startsWith('#/') ? resolvePointer(resolution.pointer, root as Record<string, unknown>) : undefined
+      if (isSchemaObject(target)) {
+        nodes.push({ ...toGraphNode(resolution), resolved: true, target })
+        return
+      }
+    }
     nodes.push(toGraphNode(resolution))
     if (resolution.diagnostic) diagnostics.push(resolution.diagnostic)
     if (!resolution.resolved) return
@@ -74,6 +82,11 @@ export function resolveRefGraph(spec: OasDocument | Record<string, unknown>, opt
       resolution.documentRoot ?? root,
     )
   }
+}
+
+function isSchemaObject(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value)
+    && ((value as Record<string, unknown>).type === 'object' || 'properties' in value)
 }
 
 export function collectRefs(node: unknown, sourcePointer: string, onRef: (ref: string, sourcePointer: string) => void): void {
