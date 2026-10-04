@@ -2,6 +2,7 @@ import { resolve, relative } from 'node:path'
 import { existsSync } from 'node:fs'
 import { readFile, writeFile, mkdir } from 'node:fs/promises'
 import { parse as parseYaml } from 'yaml'
+import { parseDocument, type OasDocument, type ParsedDocument } from '@oa-sdk/parser'
 import type { Command, CommandArgValue } from '../lib/types.js'
 import type { CodegenConfig, OaConfig } from '../../config.js'
 import { resolveConfigWithDefaults } from '../../config.js'
@@ -150,6 +151,18 @@ async function runConfigDrivenPipeline(config: OaConfig, rootDir: string): Promi
   console.log('\n🚀 [oa-gen generate] Executing Declarative Spec Pipeline...')
   console.log(`   Project Root: ${rootDir}\n`)
 
+  // Every downstream generator consumes the same projected document. Parse it
+  // once per target, on first use, instead of once per generator.
+  const parsedSpecs = new Map<TargetSpecProjectionResult, ParsedDocument>()
+  const parsedSpec = (res: TargetSpecProjectionResult): ParsedDocument => {
+    let parsed = parsedSpecs.get(res)
+    if (!parsed) {
+      parsed = parseDocument(res.openApiDoc as OasDocument)
+      parsedSpecs.set(res, parsed)
+    }
+    return parsed
+  }
+
   // Step 1: Schema Projection (OpenAPI 3.1/3.2 and JSON Schema 2020-12)
   for (const target of specs) {
     const resolved = resolveProfileTarget(target, rootDir)
@@ -201,7 +214,7 @@ async function runConfigDrivenPipeline(config: OaConfig, rootDir: string): Promi
     try {
       const { generateHandlerContract } = await import('@oa-sdk/router')
       for (const res of specResults) {
-        const contractCode = generateHandlerContract(res.openApiDoc as any, {
+        const contractCode = generateHandlerContract(parsedSpec(res), {
           contractName: contractsConfig?.contractName ?? 'ApiHandlers',
           banner: contractsConfig?.banner ?? true,
           contextImport: resolvedConfig.product?.contextInjection?.importPath,
@@ -240,7 +253,7 @@ async function runConfigDrivenPipeline(config: OaConfig, rootDir: string): Promi
       const { generateClient } = await import('@oa-sdk/client')
       for (const res of specResults) {
         const typesImport = clientConfig?.typesImport ?? (res.target as any).typesImport
-        const clientCode = generateClient(res.openApiDoc as any, {
+        const clientCode = generateClient(parsedSpec(res), {
           banner: true,
           ...(typesImport ? { typesImport } : {}),
         })
@@ -298,7 +311,7 @@ async function runConfigDrivenPipeline(config: OaConfig, rootDir: string): Promi
             { kind: 'queries', tag: res.target.id },
             { kind: 'keys', tag: res.target.id },
           )
-          const tanstackResult = generateTanstackQuery(res.openApiDoc as any, {
+          const tanstackResult = generateTanstackQuery(parsedSpec(res), {
             queryPackage: '@tanstack/react-query',
             includeHooks: true,
             clientImport,
@@ -321,7 +334,7 @@ async function runConfigDrivenPipeline(config: OaConfig, rootDir: string): Promi
             sourceSpec: res.openApiPath,
           })
         } else {
-          const tanstackResult = generateTanstackQuery(res.openApiDoc as any, {
+          const tanstackResult = generateTanstackQuery(parsedSpec(res), {
             queryPackage: '@tanstack/react-query',
             includeHooks: true,
             clientImport,
@@ -359,7 +372,7 @@ async function runConfigDrivenPipeline(config: OaConfig, rootDir: string): Promi
         const targetDir = targetResolved.resolvedOutDir
 
         // 1. CRDT contract
-        const crdtContractCode = generateCrdtHandlerContract(res.openApiDoc as any, { banner: true })
+        const crdtContractCode = generateCrdtHandlerContract(parsedSpec(res), { banner: true })
         const crdtContractPath = outputRouting
           ? dispatcher.dispatch({ kind: 'crdt-contract', tag: res.target.id }).absolutePath
           : resolve(targetDir, `${res.target.id}.crdt.contract.ts`)
@@ -372,7 +385,7 @@ async function runConfigDrivenPipeline(config: OaConfig, rootDir: string): Promi
         })
 
         // 2. CRDT router
-        const crdtRouterCode = generateCrdtRouter(res.openApiDoc as any, {
+        const crdtRouterCode = generateCrdtRouter(parsedSpec(res), {
           target: ((resolvedConfig.core as any)?.router as any)?.target ?? 'hono',
           contractImport: outputRouting
             ? dispatcher.resolveImport(
@@ -394,7 +407,7 @@ async function runConfigDrivenPipeline(config: OaConfig, rootDir: string): Promi
         })
 
         // 3. CRDT client
-        const crdtClientCode = generateCrdtClient(res.openApiDoc as any, { banner: true })
+        const crdtClientCode = generateCrdtClient(parsedSpec(res), { banner: true })
         const crdtClientPath = outputRouting
           ? dispatcher.dispatch({ kind: 'crdt-client', tag: res.target.id }).absolutePath
           : resolve(targetDir, `${res.target.id}.crdt.client.ts`)
@@ -407,7 +420,7 @@ async function runConfigDrivenPipeline(config: OaConfig, rootDir: string): Promi
         })
 
         // 4. CRDT hooks
-        const crdtHooksCode = generateCrdtHooks(res.openApiDoc as any, {
+        const crdtHooksCode = generateCrdtHooks(parsedSpec(res), {
           clientImport: outputRouting
             ? dispatcher.resolveImport(
                 { kind: 'crdt-hooks', tag: res.target.id },
