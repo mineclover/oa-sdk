@@ -9,6 +9,7 @@ import {
   findDirectPublishScripts,
   POLICY_VERSION,
   validateArtifactReleasePolicy,
+  validateTrackDependencyBoundaries,
 } from './check-release-policy.js'
 import {
   collectManifestTargets,
@@ -52,11 +53,19 @@ assert.deepEqual(configuration.candidates, [
   '@oa-sdk/codegen',
   '@oa-sdk/ast-sync',
   '@oa-sdk/tools',
+  '@oa-sdk/surface-ir',
   '@oa-sdk/chunk-stream',
   '@oa-sdk/chunk-stream-crdt',
   '@oa-sdk/chunk-stream-ui',
   '@oa-sdk/chunk-stream-timeseries',
   '@oa-sdk/chunk-stream-react',
+  '@oa-sdk/peer-transport',
+  '@oa-sdk/peer-server',
+  '@oa-sdk/collab-workspace',
+  '@oa-sdk/mcp-mesh',
+  '@oa-sdk/router',
+  '@oa-sdk/client',
+  '@oa-sdk/mock-server',
 ])
 assert.equal(requiresReleasePreflight(false), true)
 assert.equal(requiresReleasePreflight(true), false)
@@ -242,6 +251,34 @@ assert.deepEqual(publicImportSpecifiers('@oa-sdk/example', packedSurface), [
   '@oa-sdk/example',
   '@oa-sdk/example/browser',
 ])
+
+{
+  const mockPolicy = {
+    tracks: {
+      corePlatform: { policy: 'active', release: 'release-tracked', workspaces: ['@oa-sdk/core'] },
+      downstream: { policy: 'compatibility', release: 'release-tracked', workspaces: ['@oa-sdk/client'] },
+      maintenance: { policy: 'maintenance-only', release: 'ignored', workspaces: [] },
+      applications: { policy: 'support-only', release: 'ignored', workspaces: [] },
+    },
+  } as any
+
+  const issuesDeps: string[] = []
+  validateTrackDependencyBoundaries(
+    mockPolicy,
+    [{ packageJsonPath: '/mock/core/package.json', manifest: { name: '@oa-sdk/core', dependencies: { '@oa-sdk/client': 'workspace:*' } } }],
+    issuesDeps,
+  )
+  assert.equal(issuesDeps.length, 1)
+  assert.match(issuesDeps[0], /corePlatform packages may only reference downstream packages via devDependencies/)
+
+  const issuesDevDeps: string[] = []
+  validateTrackDependencyBoundaries(
+    mockPolicy,
+    [{ packageJsonPath: '/mock/core/package.json', manifest: { name: '@oa-sdk/core', devDependencies: { '@oa-sdk/client': 'workspace:*' } } }],
+    issuesDevDeps,
+  )
+  assert.equal(issuesDevDeps.length, 0)
+}
 
 console.log('Release policy/exporter regression tests passed.')
 

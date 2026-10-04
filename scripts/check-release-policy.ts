@@ -641,7 +641,7 @@ function getRuntimeDependencySections(manifest: PackageJson): Record<string, Rec
   }
 }
 
-function validateTrackDependencyBoundaries(
+export function validateTrackDependencyBoundaries(
   policy: ReleasePolicy,
   workspacePackages: WorkspacePackage[],
   issues: string[],
@@ -674,6 +674,13 @@ function validateTrackDependencyBoundaries(
           issues.push(
             `${label}: forbidden ${sectionName} boundary: ` +
               `${sourceName} [${sourceTrack}] -> ${dependencyName} [${targetTrack ?? 'unclassified'}]`,
+          )
+        } else if (sourceTrack === 'corePlatform' && targetTrack === 'downstream' && sectionName !== 'devDependencies') {
+          const label = relative(root, workspacePackage.packageJsonPath)
+          issues.push(
+            `${label}: forbidden ${sectionName} boundary: ` +
+              `corePlatform packages may only reference downstream packages via devDependencies: ` +
+              `${sourceName} [${sourceTrack}] -> ${dependencyName} [${targetTrack}]`,
           )
         }
       }

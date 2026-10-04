@@ -17,7 +17,7 @@ release candidate의 현재 판단 입력과 source/external 책임 경계는
 
 ## Current State
 
-현재 정책 스냅샷: v5 · 4 tracks · Core Platform 10 · Downstream 8 · release-tracked 18 · ignored 11 · distribution candidates 12.
+현재 정책 스냅샷: v5 · 4 tracks · Core Platform 11 · Downstream 12 · release-tracked 23 · ignored 11 · distribution candidates 20.
 
 - Root package는 private monorepo이며 Changesets가 설치되어 있다.
 - Root monorepo와 app/reference workspace는 private이다. `pnpm release`는 `pnpm release:export`에
@@ -25,9 +25,11 @@ release candidate의 현재 판단 입력과 source/external 책임 경계는
   등의 direct registry publish command를 실행하거나 script로 등록하지 않는다. Version intent와
   patch note 초안은 `pnpm changeset`과 `pnpm version-packages`로 관리한다.
 - `@oa-sdk/core`, `@oa-sdk/openapi-projection-contract`, `@oa-sdk/typespec-decorators`,
-  `@oa-sdk/parser`, `@oa-sdk/codegen`, `@oa-sdk/ast-sync`, `@oa-sdk/tools`,
+  `@oa-sdk/parser`, `@oa-sdk/codegen`, `@oa-sdk/ast-sync`, `@oa-sdk/tools`, `@oa-sdk/surface-ir`,
   `@oa-sdk/chunk-stream`, `@oa-sdk/chunk-stream-crdt`, `@oa-sdk/chunk-stream-ui`,
-  `@oa-sdk/chunk-stream-timeseries`, `@oa-sdk/chunk-stream-react`은 public npm **distribution candidate**다. 이 패키지는 allowlisted
+  `@oa-sdk/chunk-stream-timeseries`, `@oa-sdk/chunk-stream-react`, `@oa-sdk/peer-transport`,
+  `@oa-sdk/peer-server`, `@oa-sdk/collab-workspace`, `@oa-sdk/mcp-mesh`,
+  `@oa-sdk/router`, `@oa-sdk/client`, `@oa-sdk/mock-server`는 public npm **distribution candidate**다. 이 패키지는 allowlisted
   `dist`/`lib` artifact만 pack하고 provenance를 요구하며, exporter의 archive/consumer smoke가 실제
   tarball에서 export/bin target, workspace protocol 제거, 설치 후 소비 가능성을 검증한다.
 - 다른 release-tracked package는 아직 private이다. `publish.enabled: false`와
@@ -35,15 +37,15 @@ release candidate의 현재 판단 입력과 source/external 책임 경계는
   candidate의 실제 registry 배포는 별도 artifact repository의 승인된 workflow만 수행한다.
 - Internal dependencies는 모두 `workspace:` protocol을 사용한다. Changesets config는 내부 의존성
   bump를 `patch`로 전파한다.
-- Release policy v5는 Core Platform 10개와 Downstream Integration 8개, 총 18개 release-tracked package와
+- Release policy v5는 Core Platform 11개와 Downstream Integration 12개, 총 23개 release-tracked package와
   11개 ignored workspace를 관리한다. Release
   tracking은 제품 scope와 일치시키되, Core Platform과 Downstream Integration을 서로 다른
   architecture tier로 유지한다.
 
 ## Release-Tracked Packages
 
-아래 18개 패키지는 package-level versioning 후보로 유지한다. Core Platform 열 패키지가
-schema/spec 관리 제품을 소유하고, Downstream Integration 여덟 패키지는 그 계약의 소비 가능성을
+아래 23개 패키지는 package-level versioning 후보로 유지한다. Core Platform 열한 패키지가
+schema/spec 관리 제품을 소유하고, Downstream Integration 열두 패키지는 그 계약의 소비 가능성을
 증명한다.
 
 | Tier | Package | Current version | Role |
@@ -58,6 +60,7 @@ schema/spec 관리 제품을 소유하고, Downstream Integration 여덟 패키�
 | Core Platform | `@oa-sdk/spec-lens-contract` | `0.1.0` | Browser-safe spec-lens HTTP wire contract |
 | Core Platform | `@oa-sdk/ast-sync` | `0.1.0` | V3 TypeScript AST bidirectional sync and standalone type guards |
 | Core Platform | `@oa-sdk/tools` | `0.1.1` | Universal Tool Engine for MCP, CLI, and Schema Bridge |
+| Core Platform | `@oa-sdk/surface-ir` | `0.1.0` | Target-neutral API surface IR and Forge projection adapter |
 | Downstream Integration | `@oa-sdk/router` | `0.2.1` | Server router generation |
 | Downstream Integration | `@oa-sdk/client` | `0.2.1` | Fetch client generation |
 | Downstream Integration | `@oa-sdk/mock-server` | `0.1.3` | Mock engine with MSW and Node HTTP adapters |
@@ -66,6 +69,10 @@ schema/spec 관리 제품을 소유하고, Downstream Integration 여덟 패키�
 | Downstream Integration | `@oa-sdk/chunk-stream-ui` | `0.1.0` | UI Action cues, ContentPort batch bridge, PlaybackBridge, Storyboard adapter |
 | Downstream Integration | `@oa-sdk/chunk-stream-timeseries` | `0.1.0` | Multi-channel time-series telemetry adapter, LTTB downsampling, decimation |
 | Downstream Integration | `@oa-sdk/chunk-stream-react` | `0.1.0` | React 18/19 hooks, playback timeline synchronization, peer awareness |
+| Downstream Integration | `@oa-sdk/peer-transport` | `0.1.0` | Shared bridge client, packet validation, bounded reconnect queue |
+| Downstream Integration | `@oa-sdk/peer-server` | `0.1.0` | Local peer registry, authenticated HTTP dispatch and provider RPC correlation |
+| Downstream Integration | `@oa-sdk/collab-workspace` | `0.1.0` | In-memory workspace lattice, scoped AI edits and intent locks |
+| Downstream Integration | `@oa-sdk/mcp-mesh` | `0.1.0` | Domain/session library, validated tool routing and CLI |
 
 ## Ignored Workspaces
 

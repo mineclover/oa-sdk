@@ -1,7 +1,7 @@
 # Release Readiness
 
 Status: active
-Last reviewed: 2026-08-30
+Last reviewed: 2026-09-22
 Policy authority: [`release-policy.json`](./release-policy.json)
 
 이 문서는 oa-sdk source repository에서 **검토 가능한 public artifact를 만들 준비가 되었는지**
@@ -29,10 +29,10 @@ Policy authority: [`release-policy.json`](./release-policy.json)
 
 ## 현재 판단 입력
 
-| 항목 | 2026-08-30 기준 | 다음 판단 |
+| 항목 | 2026-09-22 기준 | 다음 판단 |
 | --- | --- | --- |
-| Public artifact candidates | `@oa-sdk/core`, `@oa-sdk/openapi-projection-contract`, `@oa-sdk/typespec-decorators`, `@oa-sdk/parser`, `@oa-sdk/codegen`, `@oa-sdk/ast-sync`, `@oa-sdk/tools` | 선택한 package와 target version을 release record에 고정 |
-| Release-tracked, non-candidate packages | schemas/spec-lens 계층과 downstream integration을 포함한 11개 | package lifecycle이 곧 public npm 배포 승인은 아님 |
+| Public artifact candidates | release policy의 `distributionCandidates` 20개 (`core`, `openapi-projection-contract`, `typespec-decorators`, `parser`, `codegen`, `ast-sync`, `tools`, `surface-ir`, `chunk-stream*`, `peer-transport`, `peer-server`, `collab-workspace`, `mcp-mesh`, `router`, `client`, `mock-server`) | 선택한 package와 target version을 release record에 고정 |
+| Release-tracked, non-candidate packages | `schemas`, `spec-lens-contract`, `spec-lens` 3개 | package lifecycle이 곧 public npm 배포 승인은 아님 |
 | Version intent | `@oa-sdk/core`·`@oa-sdk/parser` `0.2.0`, `@oa-sdk/codegen` `0.6.0`; private dependency closure patch 반영 | Changeset version 결과와 release note를 review·commit한 뒤 public candidate와 release ID를 decision record에 고정 |
 | TypeSpec baseline | approved snapshot과 restored contract drift가 검증 대상 | contract를 변경했다면 snapshot diff와 downstream gate를 다시 실행 |
 | Runtime API launch | production server/auth metadata는 이 source repository에서 확정하지 않음 | 실제 API 공개는 runtime owner의 base URL·issuer·scope 결정 전까지 보류 |

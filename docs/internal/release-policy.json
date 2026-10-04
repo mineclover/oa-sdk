@@ -23,11 +23,19 @@
     "@oa-sdk/codegen",
     "@oa-sdk/ast-sync",
     "@oa-sdk/tools",
+    "@oa-sdk/surface-ir",
     "@oa-sdk/chunk-stream",
     "@oa-sdk/chunk-stream-crdt",
     "@oa-sdk/chunk-stream-ui",
     "@oa-sdk/chunk-stream-timeseries",
-    "@oa-sdk/chunk-stream-react"
+    "@oa-sdk/chunk-stream-react",
+    "@oa-sdk/peer-transport",
+    "@oa-sdk/peer-server",
+    "@oa-sdk/collab-workspace",
+    "@oa-sdk/mcp-mesh",
+    "@oa-sdk/router",
+    "@oa-sdk/client",
+    "@oa-sdk/mock-server"
   ],
   "bulkTaskExcluded": [
     "@oa-sdk/ttsc-compile-fixture"
@@ -46,7 +54,8 @@
         "@oa-sdk/codegen",
         "@oa-sdk/spec-lens",
         "@oa-sdk/ast-sync",
-        "@oa-sdk/tools"
+        "@oa-sdk/tools",
+        "@oa-sdk/surface-ir"
       ]
     },
     "downstream": {
@@ -60,7 +69,11 @@
         "@oa-sdk/chunk-stream-crdt",
         "@oa-sdk/chunk-stream-ui",
         "@oa-sdk/chunk-stream-timeseries",
-        "@oa-sdk/chunk-stream-react"
+        "@oa-sdk/chunk-stream-react",
+        "@oa-sdk/peer-transport",
+        "@oa-sdk/peer-server",
+        "@oa-sdk/collab-workspace",
+        "@oa-sdk/mcp-mesh"
       ]
     },
     "maintenance": {
@@ -98,6 +111,7 @@
     "@oa-sdk/spec-lens",
     "@oa-sdk/ast-sync",
     "@oa-sdk/tools",
+    "@oa-sdk/surface-ir",
     "@oa-sdk/router",
     "@oa-sdk/client",
     "@oa-sdk/mock-server",
@@ -105,7 +119,11 @@
     "@oa-sdk/chunk-stream-crdt",
     "@oa-sdk/chunk-stream-ui",
     "@oa-sdk/chunk-stream-timeseries",
-    "@oa-sdk/chunk-stream-react"
+    "@oa-sdk/chunk-stream-react",
+    "@oa-sdk/peer-transport",
+    "@oa-sdk/peer-server",
+    "@oa-sdk/collab-workspace",
+    "@oa-sdk/mcp-mesh"
   ],
   "ignored": [
     "@oa-sdk/dpm",
