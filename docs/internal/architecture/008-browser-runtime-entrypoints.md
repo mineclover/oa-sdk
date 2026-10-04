@@ -17,7 +17,7 @@ Public browser surfaces are explicit subpath exports:
 | Package | Browser surface | Rule |
 |---|---|---|
 | `@oa-sdk/core` | `@oa-sdk/core/browser` | string/codegen/format/response helpers only; no Node HTTP server |
-| `@oa-sdk/parser` | `@oa-sdk/parser/browser` | in-memory parse/query/fold/route match plus `derefInternalSpec()`; no filesystem ref resolver or definition projection |
+| `@oa-sdk/parser` | `@oa-sdk/parser/browser` | in-memory parse/query/fold/route match plus `derefInternalSpec()` and the RFC 6901 JSON Pointer helpers; no filesystem ref resolver or definition projection |
 | `@oa-sdk/codegen` | `@oa-sdk/codegen/typegen/browser` | typegen for already-loaded specs; no `basePath` external ref analysis |
 | `@oa-sdk/router` | `@oa-sdk/router/browser` | router code generation from in-memory specs only |
 | `@oa-sdk/client` | `@oa-sdk/client/browser` | client code generation from in-memory specs only |

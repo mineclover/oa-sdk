@@ -70,6 +70,15 @@ export type {
 } from './ref-projection.js'
 export type { RefGraph, RefGraphDiagnostic, RefGraphDiagnosticCode, RefGraphNode, RefGraphOptions, RefKind } from './ref-graph.js'
 
+// ─── JSON Pointer (RFC 6901) ───────────────────────────────────────────────
+export {
+  appendJsonPointer,
+  escapeJsonPointerToken,
+  formatJsonPointer,
+  parseJsonPointer,
+  unescapeJsonPointerToken,
+} from './json-pointer.js'
+
 // ─── Source Locations ──────────────────────────────────────────────────────
 export { createSourceLocationIndex, createYamlSourceLocationIndex } from './source-location.js'
 export type { SourceLocation, SourceLocationIndex, SourceLocationIndexOptions, SourceLocationSyntax } from './source-location.js'

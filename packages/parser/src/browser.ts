@@ -44,3 +44,11 @@ export type { InternalDerefCycleStrategy, InternalDerefOptions } from './deref-i
 
 export { findOperation, findByTag, findByPath, getSchema, getTag, groupByTag, describeApi, resolveServerUrl } from './query.js'
 export { getQuerystringParameter } from './querystring.js'
+
+export {
+  appendJsonPointer,
+  escapeJsonPointerToken,
+  formatJsonPointer,
+  parseJsonPointer,
+  unescapeJsonPointerToken,
+} from './json-pointer.js'

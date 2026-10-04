@@ -46,6 +46,28 @@ console.log(parsed.operations.map(({ method, openApiPath }) => `${method.toUpper
 // [ 'GET /pets' ]
 ```
 
+## JSON Pointer helpers / JSON Pointer 헬퍼 (RFC 6901)
+
+두 entry point 모두 RFC 6901 reference token 처리 헬퍼를 export합니다. `~0` / `~1`
+escape를 직접 구현하지 말고 이 헬퍼를 쓰세요.
+
+```js
+import { appendJsonPointer, formatJsonPointer, parseJsonPointer, unescapeJsonPointerToken } from '@oa-sdk/parser'
+
+formatJsonPointer(['paths', '/pets/{id}', 'get']) // '/paths/~1pets~1{id}/get'
+formatJsonPointer([])                             // '' (root pointer)
+appendJsonPointer('#/components/schemas', 'a/b')  // '#/components/schemas/a~1b'
+parseJsonPointer('/paths/~1pets~1{id}/get')       // ['paths', '/pets/{id}', 'get']
+parseJsonPointer('/a~2')                          // undefined (malformed escape)
+unescapeJsonPointerToken('~01')                   // '~1' (never '/')
+```
+
+- `escapeJsonPointerToken` / `unescapeJsonPointerToken`은 token 하나를 변환합니다.
+  unescape는 잘못된 `~` 시퀀스를 그대로 둡니다. 검증이 필요하면 `parseJsonPointer`를
+  쓰세요.
+- URI fragment로 쓸 때는 결과 앞에 `#`를 붙입니다. 헬퍼는 percent-encoding을 하지
+  않습니다.
+
 ## Zero-Decorator Route Extraction (@oaOperation)
 
 TypeScript 소스 코드의 JSDoc 주석(`/** @oaOperation <METHOD> <PATH> */`)으로부터 런타임 데코레이터 없이 직접 OpenAPI 3.2 operation 메타데이터를 추출합니다:

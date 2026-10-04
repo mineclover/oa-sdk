@@ -665,6 +665,11 @@ category barrel을 가리킨다. `packages/dpm/test/package-subpath-import-smoke
 | `collectRefs()` | `ref-graph.ts` | 문서 트리에서 `$ref` 위치 수집 |
 | `isRelativeRef()` | `ref-graph.ts` | 상대 파일 `$ref` 판별 |
 | `resolvePointer()` | `ref-graph.ts` | JSON Pointer 해소 |
+| `escapeJsonPointerToken()` | `json-pointer.ts` | RFC 6901 reference token escape (`~`→`~0` 다음 `/`→`~1`). workspace 유일 구현, `@oa-sdk/parser/browser`에도 export |
+| `unescapeJsonPointerToken()` | `json-pointer.ts` | RFC 6901 token unescape를 한 번의 좌→우 패스로 수행 (`~01`→`~1`). 잘못된 `~` 시퀀스는 그대로 둠 |
+| `appendJsonPointer()` | `json-pointer.ts` | JSON Pointer 또는 `#` fragment 끝에 escape한 token(문자열/배열 index) 추가 |
+| `formatJsonPointer()` | `json-pointer.ts` | token 목록 → JSON Pointer. 빈 목록은 root pointer `''` |
+| `parseJsonPointer()` | `json-pointer.ts` | JSON Pointer → unescape된 token 목록. `''`→`[]`, 선행 `/` 누락이나 잘못된 `~` escape는 `undefined` |
 | `createSourceLocationIndex()` | `source-location.ts` | YAML/JSON 원문 → JSON Pointer source location index. YAML은 line/column 매핑, JSON은 빈 index fallback |
 | `createYamlSourceLocationIndex()` | `source-location.ts` | YAML AST range 기반 JSON Pointer → line/column index 생성 |
 | `CANONICAL_DEFINITION_KINDS` | `definition-id.ts` | canonical definition id kind 허용 목록 |
