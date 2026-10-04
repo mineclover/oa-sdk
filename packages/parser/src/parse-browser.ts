@@ -34,11 +34,12 @@ export function parseDocument(
     return parseResolvedDocument(doc, optionsOrRaw, resolution)
   }
 
-  const { document, diagnostics } = derefInternalSpecWithDiagnostics(doc, optionsOrRaw)
+  const { document, diagnostics, recursiveRefs } = derefInternalSpecWithDiagnostics(doc, optionsOrRaw)
   const resolution = createParsedDocumentRefResolution({
     document,
     scope: 'internal',
     diagnostics,
+    recursiveRefs,
   })
   return parseResolvedDocument(document, doc, resolution)
 }

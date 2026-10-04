@@ -1,7 +1,8 @@
 import type { OasDocument } from './oas32-types.js'
 import { SchemaFolder } from './folder.js'
 import { createSafeRecord } from './safe-record.js'
-import { isJsonPointerFragment, resolveJsonPointer } from './json-pointer.js'
+import { RefExpansionMemo } from './ref-expansion-memo.js'
+import { stepSchemaPath, type SchemaPathContext } from './recursion-guard.js'
 import {
   createRefResolver,
   type RefDocumentCache,
@@ -21,6 +22,11 @@ export type DerefOptions = {
   cycleStrategy?: DerefCycleStrategy
   diagnostics?: DerefDiagnostic[]
   onDiagnostic?: (diagnostic: DerefDiagnostic) => void
+  /**
+   * 유효한 재귀 스키마의 순환 지점 ref. 진단 없이 cycleStrategy로 끊긴다.
+   * 같은 ref가 여러 번 보고될 수 있으며, 서로 다른 ref는 최소 한 번 보고된다.
+   */
+  onRecursiveRef?: (ref: string) => void
 }
 
 /**
@@ -28,10 +34,19 @@ export type DerefOptions = {
  *
  * - 외부 참조 (./file.yaml, ../file.json): basePath 옵션이 있으면 상대 경로 해결
  * - 순환 참조는 cycle stack으로 감지하며 기본적으로 빈 스키마({})로 대체
+ * - 순환 경로가 instance 하위로 내려가면 유효한 재귀 스키마로 보고 진단하지 않는다
  * - $ref sibling 필드는 해소된 대상에 병합하여 구조 정보를 보존
+ * - 같은 대상의 전개 결과는 RefExpansionMemo로 사용처 간에 공유한다.
+ *   결과 트리는 동일한 하위 객체를 공유할 수 있다 (비순환 DAG).
  */
 export class DerefFolder extends SchemaFolder {
-  private readonly stack: string[] = []
+  private readonly memo = new RefExpansionMemo<DerefDiagnostic>()
+  /** 현재 노드의 키를 해석할 문맥 (키워드 / 속성 이름 / 데이터) */
+  private pathContext: SchemaPathContext = 'keyword'
+  /** 현재 경로가 지난 instance 하위 키워드 수 */
+  private descents = 0
+  /** 전개 중인 대상별 진입 시점의 descents */
+  private readonly descentsAtEntry = new Map<string, number>()
   private readonly root: unknown
   private readonly currentBasePath: string | undefined
   private readonly fileCache: RefDocumentCache
@@ -60,46 +75,90 @@ export class DerefFolder extends SchemaFolder {
       sourcePointer: '#/$ref',
       root: this.root,
       ...(this.currentBasePath ? { basePath: this.currentBasePath } : {}),
-      stack: this.stack,
+      stack: this.memo.stackView,
     })
 
-    if (resolution.diagnostic?.code === 'ref-cycle' && isRecursiveSchema(ref, this.root)) {
-      // Recursive object schemas (tree nodes, groups, linked lists) are valid
-      // OpenAPI contracts. Preserve the edge for downstream generators instead
-      // of marking the whole parsed document partial. Alias-only cycles remain
-      // diagnostics and continue to fail closed.
-      return mergeRefSiblings({ $ref: ref }, this.foldSiblingFields(node))
+    if (resolution.diagnostic?.code === 'ref-cycle') {
+      this.memo.noteCycle(resolution.cacheKey)
+      if (this.isGuardedRecursion(resolution.cacheKey)) {
+        this.options.onRecursiveRef?.(ref)
+      } else {
+        this.emitDiagnostic(resolution.diagnostic)
+      }
+      return this.resolveCycle(ref, node)
     }
     if (resolution.diagnostic) this.emitDiagnostic(resolution.diagnostic)
-    if (!resolution.resolved) {
-      return resolution.diagnostic?.code === 'ref-cycle' ? this.resolveCycle(ref, node) : node
-    }
+    if (!resolution.resolved) return node
 
-    this.stack.push(resolution.cacheKey)
-    try {
-      const resolved = resolution.kind === 'external' && resolution.basePath
+    const key = resolution.cacheKey
+    const external = resolution.kind === 'external' && resolution.basePath
+    const resolved = this.memo.expand(
+      key,
+      () => this.foldRefTarget(key, () => external
         ? this.foldExternalTarget(
             resolution.target,
-            resolution.basePath,
+            resolution.basePath!,
             resolution.documentRoot ?? resolution.target,
           )
-        : this.fold(resolution.target)
-      return mergeRefSiblings(resolved, this.foldSiblingFields(node))
-    } finally {
-      this.stack.pop()
+        : this.fold(resolution.target)),
+      diagnostic => this.emitDiagnostic(diagnostic),
+      { cacheable: !external },
+    )
+    return mergeRefSiblings(resolved, this.foldSiblingFields(node))
+  }
+
+  protected override foldChildren(obj: Record<string, unknown>): Record<string, unknown> {
+    const result = createSafeRecord<unknown>()
+    for (const [key, value] of Object.entries(obj)) {
+      result[key] = this.foldUnderKey(key, value)
     }
+    return result
+  }
+
+  /** `key`의 값을 접는다. 키 문맥과 instance 하위 이동 수를 경로에 맞춰 유지한다. */
+  private foldUnderKey(key: string, value: unknown): unknown {
+    const parentContext = this.pathContext
+    const step = stepSchemaPath(parentContext, key)
+    this.pathContext = step.context
+    if (step.descends) this.descents += 1
+    try {
+      return this.fold(value)
+    } finally {
+      this.pathContext = parentContext
+      if (step.descends) this.descents -= 1
+    }
+  }
+
+  /** ref 대상은 독립된 스키마 루트이므로 키워드 문맥에서 접고 진입 깊이를 기록한다. */
+  private foldRefTarget(key: string, fold: () => unknown): unknown {
+    const parentContext = this.pathContext
+    this.pathContext = 'keyword'
+    this.descentsAtEntry.set(key, this.descents)
+    try {
+      return fold()
+    } finally {
+      this.pathContext = parentContext
+      this.descentsAtEntry.delete(key)
+    }
+  }
+
+  /** 순환 대상에 진입한 뒤 instance 하위로 한 번 이상 내려왔으면 유효한 재귀다. */
+  private isGuardedRecursion(key: string): boolean {
+    const entry = this.descentsAtEntry.get(key)
+    return entry !== undefined && this.descents > entry
   }
 
   private foldSiblingFields(node: Record<string, unknown>): Record<string, unknown> {
     const siblings = createSafeRecord<unknown>()
     for (const [key, value] of Object.entries(node)) {
       if (key === '$ref') continue
-      siblings[key] = this.fold(value)
+      siblings[key] = this.foldUnderKey(key, value)
     }
     return siblings
   }
 
   private emitDiagnostic(diagnostic: DerefDiagnostic): void {
+    this.memo.recordDiagnostic(diagnostic)
     this.options.diagnostics?.push(diagnostic)
     this.options.onDiagnostic?.(diagnostic)
   }
@@ -114,16 +173,11 @@ export class DerefFolder extends SchemaFolder {
 
   private foldExternalTarget(target: unknown, basePath: string, documentRoot: unknown): unknown {
     const folder = new DerefFolder(documentRoot, this.options, this.fileCache, basePath)
-    folder.stack.push(...this.stack)
+    folder.memo.seed(this.memo.stackKeys())
+    for (const [key, descents] of this.descentsAtEntry) folder.descentsAtEntry.set(key, descents)
+    folder.descents = this.descents
     return folder.fold(target)
   }
-}
-
-function isRecursiveSchema(ref: string, root: unknown): boolean {
-  if (!isJsonPointerFragment(ref)) return false
-  const target = resolveJsonPointer(root, ref)
-  return target !== null && typeof target === 'object' && !Array.isArray(target)
-    && ((target as Record<string, unknown>).type === 'object' || 'properties' in target)
 }
 
 /**
@@ -140,10 +194,18 @@ export function derefSpec<T = OasDocument>(spec: T, options: DerefOptions = {}):
 export function derefSpecWithDiagnostics<T = OasDocument>(
   spec: T,
   options: Omit<DerefOptions, 'diagnostics'> = {},
-): { document: T; diagnostics: DerefDiagnostic[] } {
+): { document: T; diagnostics: DerefDiagnostic[]; recursiveRefs: string[] } {
   const diagnostics: DerefDiagnostic[] = []
-  const document = derefSpec(spec, { ...options, diagnostics })
-  return { document, diagnostics }
+  const recursiveRefs = new Set<string>()
+  const document = derefSpec(spec, {
+    ...options,
+    diagnostics,
+    onRecursiveRef(ref) {
+      recursiveRefs.add(ref)
+      options.onRecursiveRef?.(ref)
+    },
+  })
+  return { document, diagnostics, recursiveRefs: [...recursiveRefs] }
 }
 
 function mergeRefSiblings(resolved: unknown, siblings: Record<string, unknown>): unknown {

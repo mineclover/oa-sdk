@@ -58,6 +58,53 @@ const serverPrefixSpec: OasDocument = {
   },
 }
 
+const recursiveTreeSpec: OasDocument = {
+  openapi: '3.2.0',
+  info: { title: 'Recursive Schema', version: '1.0.0' },
+  paths: {
+    '/tree': {
+      get: {
+        operationId: 'getTree',
+        responses: {
+          '200': {
+            description: 'OK',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/TreeNode' },
+              },
+            },
+          },
+        },
+      },
+    },
+  },
+  components: {
+    schemas: {
+      TreeNode: {
+        type: 'object',
+        properties: {
+          children: {
+            type: 'array',
+            items: { $ref: '#/components/schemas/TreeNode' },
+          },
+        },
+      },
+    },
+  },
+}
+
+// A cycle that never descends into the instance (`allOf` re-evaluates the same
+// value) has no finite expansion and stays an incomplete reference.
+const unguardedCycleSpec: OasDocument = {
+  ...recursiveTreeSpec,
+  info: { title: 'Unguarded cycle', version: '1.0.0' },
+  components: {
+    schemas: {
+      TreeNode: { allOf: [{ $ref: '#/components/schemas/TreeNode' }] },
+    },
+  },
+}
+
 describe('mock adapter integrity boundaries', () => {
   it('rejects incomplete external references instead of silently exposing no Node routes', () => {
     expect(() => createNodeMockServer(partialExternalRefSpec)).toThrow(/requires complete \$ref resolution/)
@@ -65,6 +112,29 @@ describe('mock adapter integrity boundaries', () => {
 
   it('rejects incomplete external references instead of silently creating no MSW handlers', () => {
     expect(() => createMswHandlers(partialExternalRefSpec)).toThrow(/requires complete \$ref resolution/)
+  })
+
+  it('rejects unguarded cyclic schema references in Node adapter with IncompleteParsedDocumentError', () => {
+    expect(() => createNodeMockServer(unguardedCycleSpec)).toThrow(/requires complete \$ref resolution/)
+  })
+
+  it('rejects unguarded cyclic schema references in MSW adapter with IncompleteParsedDocumentError', () => {
+    expect(() => createMswHandlers(unguardedCycleSpec)).toThrow(/requires complete \$ref resolution/)
+  })
+
+  it('serves recursive schemas whose cycle descends into the instance', async () => {
+    expect(() => createMswHandlers(recursiveTreeSpec)).not.toThrow()
+    const server = createNodeMockServer(recursiveTreeSpec, { port: 0 })
+    await server.start()
+    try {
+      const response = await fetch(`${server.url}/tree`)
+      expect(response.status).toBe(200)
+      const body = await response.json() as { children?: unknown }
+      expect(body).toEqual(expect.any(Object))
+      if (body.children !== undefined) expect(Array.isArray(body.children)).toBe(true)
+    } finally {
+      await server.stop()
+    }
   })
 
   it('returns a parse validation error for malformed optional JSON in the Node adapter', async () => {

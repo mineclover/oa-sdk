@@ -58,19 +58,47 @@ describe('generateRouter — hono', () => {
   it.each([
     doc({ paths: { '/missing': { $ref: '#/components/pathItems/Missing' } } }),
     doc({ paths: { '/external': { $ref: './paths.yaml#/Users' } } }),
+    // A cycle that never descends into the instance has no finite expansion.
     doc({
       components: {
         schemas: {
-          Node: {
-            type: 'object',
-            properties: { child: { $ref: '#/components/schemas/Node' } },
-          },
+          Node: { allOf: [{ $ref: '#/components/schemas/Node' }] },
         },
       },
     }),
   ])('rejects incomplete ref input in Node and browser entrypoints', (spec) => {
     expect(() => generateRouter(spec)).toThrow(/requires complete \$ref resolution/)
     expect(() => generateBrowserRouter(spec)).toThrow(/requires complete \$ref resolution/)
+  })
+
+  it('generates from recursive schemas whose cycle descends into the instance', () => {
+    const spec = doc({
+      paths: {
+        '/tree': {
+          get: {
+            operationId: 'getTree',
+            responses: {
+              '200': {
+                description: 'OK',
+                content: { 'application/json': { schema: { $ref: '#/components/schemas/Node' } } },
+              },
+            },
+          },
+        },
+      },
+      components: {
+        schemas: {
+          Node: {
+            type: 'object',
+            properties: { children: { type: 'array', items: { $ref: '#/components/schemas/Node' } } },
+          },
+        },
+      },
+    })
+
+    const nodeOutput = generateRouter(spec)
+    expect(nodeOutput).toContain("app.get('/tree'")
+    expect(generateBrowserRouter(spec)).toBe(nodeOutput)
   })
 
   it('기본 GET 라우트', () => {

@@ -7,6 +7,7 @@ import {
   type RefResolverKind,
 } from './ref-resolver.js'
 import { getOwnString } from './safe-record.js'
+import { countInstanceDescents } from './recursion-guard.js'
 import { resolvePointer } from './ref-resolver.js'
 
 export { isRelativeRef, resolvePointer } from './ref-resolver.js'
@@ -46,27 +47,46 @@ export function resolveRefGraph(spec: OasDocument | Record<string, unknown>, opt
     ...(options.lookupSourceLocation ? { lookupSourceLocation: options.lookupSourceLocation } : {}),
   })
 
-  visitDocument(spec, '#', options.basePath, [], spec)
+  visitDocument(spec, '#', options.basePath, [], [], 0, spec)
   return { nodes, diagnostics }
 
+  /**
+   * @param stack 전개 중인 대상 cacheKey
+   * @param entryDescents stack 각 대상에 진입한 시점까지 지난 instance 하위 키워드 수
+   * @param frameDescents 이 문서 조각(frame)에 진입한 시점의 instance 하위 키워드 수
+   */
   function visitDocument(
     document: unknown,
     sourcePointer: string,
     basePath: string | undefined,
     stack: string[],
+    entryDescents: number[],
+    frameDescents: number,
     refRoot: unknown,
   ): void {
     collectRefs(document, sourcePointer, (ref, refPointer) => {
-      resolveRef(ref, refPointer, refRoot, basePath, stack)
+      const descents = frameDescents + countInstanceDescents(relativeSegments(sourcePointer, refPointer))
+      resolveRef(ref, refPointer, refRoot, basePath, stack, entryDescents, descents)
     })
   }
 
-  function resolveRef(ref: string, sourcePointer: string, root: unknown, basePath: string | undefined, stack: string[]): void {
+  function resolveRef(
+    ref: string,
+    sourcePointer: string,
+    root: unknown,
+    basePath: string | undefined,
+    stack: string[],
+    entryDescents: number[],
+    descents: number,
+  ): void {
     const resolution = resolver.resolve({ ref, sourcePointer, root, ...(basePath ? { basePath } : {}), stack })
     if (resolution.diagnostic?.code === 'ref-cycle') {
-      const target = resolution.pointer?.startsWith('#/') ? resolvePointer(resolution.pointer, root as Record<string, unknown>) : undefined
-      if (isSchemaObject(target)) {
-        nodes.push({ ...toGraphNode(resolution), resolved: true, target })
+      const index = stack.indexOf(resolution.cacheKey)
+      if (index !== -1 && descents > entryDescents[index]!) {
+        // Recursion through an instance-descending keyword is a valid schema
+        // graph edge; the target is already being visited higher in the stack.
+        const target = resolution.kind === 'internal' ? resolvePointer(resolution.pointer ?? ref, root) : undefined
+        nodes.push({ ...toGraphNode(resolution), resolved: true, ...(target !== undefined ? { target } : {}) })
         return
       }
     }
@@ -74,19 +94,27 @@ export function resolveRefGraph(spec: OasDocument | Record<string, unknown>, opt
     if (resolution.diagnostic) diagnostics.push(resolution.diagnostic)
     if (!resolution.resolved) return
 
+    const targetPointer = resolution.pointer ?? ref
     visitDocument(
       resolution.target,
-      resolution.pointer ?? ref,
+      targetPointer,
       resolution.basePath ?? basePath,
       [...stack, resolution.cacheKey],
+      [...entryDescents, descents],
+      descents,
       resolution.documentRoot ?? root,
     )
   }
 }
 
-function isSchemaObject(value: unknown): value is Record<string, unknown> {
-  return value !== null && typeof value === 'object' && !Array.isArray(value)
-    && ((value as Record<string, unknown>).type === 'object' || 'properties' in value)
+/** `refPointer`(`.../$ref`)가 가리키는 객체까지의 경로를 `basePointer` 기준 세그먼트로 반환. */
+function relativeSegments(basePointer: string, refPointer: string): string[] {
+  const objectPointer = refPointer.slice(0, -'/$ref'.length)
+  if (objectPointer.length <= basePointer.length) return []
+  return objectPointer
+    .slice(basePointer.length + 1)
+    .split('/')
+    .map(segment => segment.replace(/~1/g, '/').replace(/~0/g, '~'))
 }
 
 export function collectRefs(node: unknown, sourcePointer: string, onRef: (ref: string, sourcePointer: string) => void): void {

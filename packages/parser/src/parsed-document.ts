@@ -12,6 +12,12 @@ export type CreateParsedDocumentRefResolutionOptions = {
   document: unknown
   scope: ParsedDocumentRefResolutionScope
   diagnostics?: readonly ParsedDocumentRefDiagnostic[]
+  /**
+   * Refs the resolver cut as valid recursion (see `recursion-guard.ts`). With
+   * `cycleStrategy: 'preserve-ref'` they remain in the document as recursion
+   * edges and are not reported as unresolved.
+   */
+  recursiveRefs?: readonly string[]
 }
 
 /**
@@ -43,7 +49,11 @@ export function createParsedDocumentRefResolution(
 ): ParsedDocumentRefResolution {
   const diagnostics = dedupeDiagnostics([
     ...(options.diagnostics ?? []),
-    ...collectRemainingRefDiagnostics(options.document, options.diagnostics ?? []),
+    ...collectRemainingRefDiagnostics(
+      options.document,
+      options.diagnostics ?? [],
+      options.recursiveRefs ?? [],
+    ),
   ])
 
   return {
@@ -86,65 +96,86 @@ export function assertParsedDocumentComplete(
 function collectRemainingRefDiagnostics(
   document: unknown,
   existing: readonly ParsedDocumentRefDiagnostic[],
+  recursiveRefs: readonly string[],
 ): ParsedDocumentRefDiagnostic[] {
   const diagnostics: ParsedDocumentRefDiagnostic[] = []
+  const coveredRefs = new Set([...existing.map(diagnostic => diagnostic.ref), ...recursiveRefs])
+  // Deref output may share subtrees between use sites. A subtree without an
+  // uncovered $ref yields no diagnostic at any pointer, so it is walked once.
+  const cleanSubtrees = new WeakSet<object>()
 
-  visit(document, '#')
+  visit(document, ROOT_POINTER_PATH)
   return diagnostics
 
-  function visit(value: unknown, pointer: string): void {
-    if (Array.isArray(value)) {
-      value.forEach((item, index) => visit(item, `${pointer}/${index}`))
-      return
-    }
-    if (!isRecord(value)) return
+  function visit(value: unknown, path: PointerPath): boolean {
+    if (!value || typeof value !== 'object') return false
+    if (cleanSubtrees.has(value)) return false
 
-    const ref = getOwnString(value, '$ref')
-    const sourcePointer = `${pointer}/$ref`
-    if (ref && !existing.some(diagnostic => diagnostic.ref === ref)) {
-      if (isJsonPointerFragment(ref)) {
-        const target = resolveJsonPointer(document, ref)
-        const found = target !== undefined
-        // Recursive object schemas are valid OpenAPI graph edges. Deref keeps
-        // the terminating $ref so generators can preserve the recursive
-        // contract; they are complete once the target schema exists.
-        if (found && isRecursiveSchema(target)) return
-        diagnostics.push({
-          code: found ? 'unsupported-ref' : 'ref-not-found',
-          ref,
-          sourcePointer,
-          pointer: ref,
-          message: found
-            ? `Internal $ref remains unresolved: ${ref}`
-            : `Reference target was not found: ${ref}`,
-        })
-      } else if (!ref.startsWith('#')) {
-        diagnostics.push({
-          code: 'external-ref-unresolved',
-          ref,
-          sourcePointer,
-          message: `External $ref requires a loader and remains unresolved: ${ref}`,
-        })
-      } else {
-        diagnostics.push({
-          code: 'unsupported-ref',
-          ref,
-          sourcePointer,
-          message: `Unsupported internal $ref format: ${ref}`,
-        })
+    let found = false
+    if (Array.isArray(value)) {
+      value.forEach((item, index) => {
+        if (visit(item, { parent: path, segment: String(index) })) found = true
+      })
+    } else {
+      const record = value as Record<string, unknown>
+      const ref = getOwnString(record, '$ref')
+      if (ref && !coveredRefs.has(ref)) {
+        found = true
+        diagnostics.push(remainingRefDiagnostic(document, ref, `${formatPointerPath(path)}/$ref`))
+      }
+      for (const [key, child] of Object.entries(record)) {
+        if (key === '$ref') continue
+        if (visit(child, { parent: path, segment: escapeJsonPointer(key) })) found = true
       }
     }
 
-    for (const [key, child] of Object.entries(value)) {
-      if (key === '$ref') continue
-      visit(child, `${pointer}/${escapeJsonPointer(key)}`)
-    }
+    if (!found) cleanSubtrees.add(value)
+    return found
   }
 }
 
-function isRecursiveSchema(value: unknown): boolean {
-  return isRecord(value)
-    && (value.type === 'object' || Object.prototype.hasOwnProperty.call(value, 'properties'))
+/** Pointer built only when a diagnostic needs it; walking stays O(nodes). */
+type PointerPath = { parent: PointerPath | undefined; segment: string }
+
+const ROOT_POINTER_PATH: PointerPath = { parent: undefined, segment: '#' }
+
+function formatPointerPath(path: PointerPath): string {
+  const segments: string[] = []
+  for (let node: PointerPath | undefined = path; node; node = node.parent) segments.push(node.segment)
+  return segments.reverse().join('/')
+}
+
+function remainingRefDiagnostic(
+  document: unknown,
+  ref: string,
+  sourcePointer: string,
+): ParsedDocumentRefDiagnostic {
+  if (isJsonPointerFragment(ref)) {
+    const found = resolveJsonPointer(document, ref) !== undefined
+    return {
+      code: found ? 'unsupported-ref' : 'ref-not-found',
+      ref,
+      sourcePointer,
+      pointer: ref,
+      message: found
+        ? `Internal $ref remains unresolved: ${ref}`
+        : `Reference target was not found: ${ref}`,
+    }
+  }
+  if (!ref.startsWith('#')) {
+    return {
+      code: 'external-ref-unresolved',
+      ref,
+      sourcePointer,
+      message: `External $ref requires a loader and remains unresolved: ${ref}`,
+    }
+  }
+  return {
+    code: 'unsupported-ref',
+    ref,
+    sourcePointer,
+    message: `Unsupported internal $ref format: ${ref}`,
+  }
 }
 
 function dedupeDiagnostics(

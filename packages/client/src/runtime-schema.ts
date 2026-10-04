@@ -116,12 +116,14 @@ export function appendRuntimeValidationHelpers(lines: string[]): void {
 /** JSON Schema의 runtime 검증에 필요한 부분만 안전하게 직렬화합니다. */
 export function serializeValidationSchema(schema: OasSchema | undefined): string | undefined {
   if (!schema) return undefined
-  const seen = new WeakSet<object>()
+  // Ancestor-path guard: parser IR may share a subtree between use sites, and a
+  // shared (non-cyclic) subtree must serialize in full at every site.
+  const ancestors = new WeakSet<object>()
   const visit = (value: OasSchema | boolean | undefined): unknown => {
     if (value === undefined || typeof value === 'boolean') return value
     if (typeof value !== 'object') return undefined
-    if (seen.has(value)) return {}
-    seen.add(value)
+    if (ancestors.has(value)) return {}
+    ancestors.add(value)
 
     const output: Record<string, unknown> = {}
     for (const key of [
@@ -141,6 +143,7 @@ export function serializeValidationSchema(schema: OasSchema | undefined): string
     if (value.not) output.not = visit(value.not)
     if (value.additionalProperties !== undefined) output.additionalProperties = visit(value.additionalProperties)
     if (value.unevaluatedProperties !== undefined) output.unevaluatedProperties = visit(value.unevaluatedProperties)
+    ancestors.delete(value)
     return output
   }
   const serialized = JSON.stringify(visit(schema))

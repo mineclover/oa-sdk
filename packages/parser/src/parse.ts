@@ -42,6 +42,7 @@ export function parseDocument(
     document: resolved,
     scope: plan.scope,
     diagnostics: plan.diagnostics,
+    recursiveRefs: [...plan.recursiveRefs],
   })
   return parseResolvedDocument(resolved, doc, resolution)
 }
@@ -50,6 +51,7 @@ type ParsePlan = {
   passes: SpecPass[]
   scope: ParsedDocumentRefResolutionScope
   diagnostics: ParsedDocumentRefDiagnostic[]
+  recursiveRefs: Set<string>
 }
 
 function createParsePlan(
@@ -79,7 +81,8 @@ function createParsePlan(
   }
 
   const diagnostics: DerefDiagnostic[] = []
-  const derefOptions: DerefOptions = { diagnostics }
+  const recursiveRefs = new Set<string>()
+  const derefOptions: DerefOptions = { diagnostics, onRecursiveRef: ref => recursiveRefs.add(ref) }
   if (basePath !== undefined) derefOptions.basePath = basePath
   if (cycleStrategy !== undefined) derefOptions.cycleStrategy = cycleStrategy
   if (derefDiagnostics !== undefined || onDerefDiagnostic !== undefined) {
@@ -92,15 +95,18 @@ function createParsePlan(
     passes: [createDerefPass(derefOptions)],
     scope: basePath !== undefined ? 'all' : 'internal',
     diagnostics,
+    recursiveRefs,
   }
 }
 
 function createDefaultDerefPlan(): ParsePlan {
   const diagnostics: DerefDiagnostic[] = []
+  const recursiveRefs = new Set<string>()
   return {
-    passes: [createDerefPass({ diagnostics })],
+    passes: [createDerefPass({ diagnostics, onRecursiveRef: ref => recursiveRefs.add(ref) })],
     scope: 'internal',
     diagnostics,
+    recursiveRefs,
   }
 }
 
@@ -114,5 +120,6 @@ function createCustomPassPlan(doc: OasDocument, passes: SpecPass[]): ParsePlan {
     passes,
     scope: 'custom',
     diagnostics: [...diagnostics],
+    recursiveRefs: new Set(),
   }
 }

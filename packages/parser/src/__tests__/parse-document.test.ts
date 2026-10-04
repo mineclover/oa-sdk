@@ -357,7 +357,9 @@ describe('parseDocument', () => {
     }), { cycleStrategy: 'preserve-ref', derefDiagnostics: diagnostics })
 
     expect((result.schemas['Node']?.properties?.['child'] as any).properties.child).toEqual({ $ref: '#/components/schemas/Node' })
-    expect(diagnostics.some(d => d.code === 'ref-cycle')).toBe(true)
+    // Recursion through `properties` is a valid recursive schema, not a cycle diagnostic.
+    expect(diagnostics.some(d => d.code === 'ref-cycle')).toBe(false)
+    expect(result.resolution?.status).toBe('complete')
   })
 
   it('raw 원본 문서 보존', () => {

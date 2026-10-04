@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { parse as parseYaml } from 'yaml'
 import { canonicalJsonPointerFragment, isJsonPointerFragment, resolveJsonPointer } from './json-pointer.js'
+import type { RefStackView } from './ref-expansion-memo.js'
 
 export type RefResolverKind = 'internal' | 'external' | 'unsupported'
 
@@ -38,7 +39,8 @@ export type ResolveRefRequest = {
   sourcePointer: string
   root: unknown
   basePath?: string
-  stack?: readonly string[]
+  /** 현재 전개 중인 대상 cacheKey 목록. 크기가 큰 경우 `has` 조회 뷰를 넘긴다. */
+  stack?: readonly string[] | RefStackView
 }
 
 export type RefResolution = {
@@ -92,7 +94,7 @@ export function createRefResolver(options: RefResolverOptions = {}): RefResolver
     return enrichResolutionDiagnosticLocation(resolution, options.lookupSourceLocation)
   }
 
-  function resolveInternalRef(request: ResolveRefRequest, stack: readonly string[]): RefResolution {
+  function resolveInternalRef(request: ResolveRefRequest, stack: RefStack): RefResolution {
     const pointer = canonicalJsonPointerFragment(request.ref) ?? request.ref
     const sourceFilePath = request.basePath
     const filePath = includeInternalFilePath && request.basePath && request.basePath !== options.entryPath
@@ -106,7 +108,7 @@ export function createRefResolver(options: RefResolverOptions = {}): RefResolver
       ...(filePath ? { filePath, documentCacheKey: filePath } : {}),
     }
 
-    if (stack.includes(cacheKey)) {
+    if (stackHas(stack, cacheKey)) {
       return unresolved(request, 'internal', {
         code: 'ref-cycle',
         ref: request.ref,
@@ -139,7 +141,7 @@ export function createRefResolver(options: RefResolverOptions = {}): RefResolver
     }
   }
 
-  function resolveExternalRef(request: ResolveRefRequest, stack: readonly string[]): RefResolution {
+  function resolveExternalRef(request: ResolveRefRequest, stack: RefStack): RefResolution {
     const hashIndex = request.ref.indexOf('#')
     const filePart = hashIndex === -1 ? request.ref : request.ref.slice(0, hashIndex)
     if (!filePart) {
@@ -175,7 +177,7 @@ export function createRefResolver(options: RefResolverOptions = {}): RefResolver
       pointer,
     }
 
-    if (stack.includes(cacheKey)) {
+    if (stackHas(stack, cacheKey)) {
       return unresolved(request, 'external', {
         code: 'ref-cycle',
         ref: request.ref,
@@ -224,6 +226,12 @@ export function createRefResolver(options: RefResolverOptions = {}): RefResolver
     resolve: resolveRef,
     loadExternalDocument,
   }
+}
+
+type RefStack = NonNullable<ResolveRefRequest['stack']>
+
+function stackHas(stack: RefStack, key: string): boolean {
+  return Array.isArray(stack) ? stack.includes(key) : (stack as RefStackView).has(key)
 }
 
 function unresolved(
