@@ -6,6 +6,7 @@ packages/schemas/src/.merged.persona.yaml
 packages/schemas/src/.builder/
 .turbo/
 .worktrees/
+.claude/worktrees/
 .omx/
 .ralph-tui/
 coverage/
