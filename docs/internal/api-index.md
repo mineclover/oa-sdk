@@ -3,6 +3,16 @@
 > 동일 목적의 기능이 재구현되지 않도록 관리합니다.
 > 새 기능 추가 시 이 인덱스를 먼저 확인하세요.
 
+`pnpm check:api-index`는 빌드 없이 최신 TypeScript 소스를 실행한다. 검사 범위는
+[release policy](./release-policy.json)의 releaseTracked·distributionCandidates와 기존 DPM이다.
+각 패키지의 root export가 `dist/index.js`·`dist/index.d.ts`를 가리키는지 확인하고,
+`src/index.ts`에서 AST로 공개 이름을 추출하여 정확히 같은 패키지 문서와 비교한다.
+다른 root entrypoint를 도입할 때는 검사기의 source mapping도 명시적으로 변경한다.
+`schemas`는 symbol 대신 manifest의 JSON/YAML asset export를 검사한다. 일반 subpath 전체를
+검사하는 gate는 아니며 codegen/typegen의 공유 옵션 두 타입은 별도 호환성 규칙으로 확인한다.
+`pnpm test:api-index`는 누락·고아 export, async·alias·주석 파싱, 패키지 구분, inventory 변경과
+읽을 수 없는 진입점에 대한 회귀 검사다. CI에서 gate와 함께 실행한다.
+
 ---
 
 ## OAS 3.2 타입 (`@oa-sdk/parser`)
@@ -36,6 +46,12 @@
 | `RouteIndex` | `parser/src/types.ts` | path → method → OperationEntry 인덱스 |
 | `MatchResult` | `parser/src/types.ts` | 경로 매칭 결과 (found / method_not_allowed / not_found) |
 | `HttpMethod` | `parser/src/types.ts` | `'get' \| 'post' \| ... \| 'trace' \| 'query'` |
+| `RefProjection` | `parser/src/ref-projection.ts` | ref 해결 그래프의 모든 edge를 식별하는 projection |
+| `RefProjectionNode` | `parser/src/ref-projection.ts` | projection 그래프의 노드 표현 |
+| `RefProjectionEdge` | `parser/src/ref-projection.ts` | projection 그래프의 edge 표현 |
+| `RefProjectionNodeKind` | `parser/src/ref-projection.ts` | projection 노드 종류 분류 |
+| `RefProjectionRecursion` | `parser/src/ref-projection.ts` | projection에서 발견된 순환 구조 표현 |
+| `projectRefGraph` | `parser/src/ref-projection.ts` | $ref 해결 과정에서 모든 ref edge를 추출하여 projection 생성 |
 
 ---
 
@@ -99,16 +115,26 @@ OA SDK와 bun-graph-db가 각자의 source loader, repository, CLI, MCP, GraphQL
 
 ## Spec Lens HTTP Wire Contract (`@oa-sdk/spec-lens-contract`)
 
-Backend HTTP adapters and the browser UI consume this dependency-light contract. The UI must import
-these response types and guards instead of defining a second wire model in `apps/spec-lens`.
+Backend HTTP adapter와 browser UI가 공유하는 의존성이 적은 wire 계약이다. UI는 별도 응답 모델 대신 이 타입과 runtime guard를 소비한다.
 
 | Export | 정의 | 용도 |
-|------|------|------|
-| `SpecLensApiResponseMap` | `spec-lens-contract/src/index.ts` | endpoint key와 response shape의 typed mapping |
-| `SpecSnapshot` / `SpecTimelineDiff` | `spec-lens-contract/src/index.ts` | snapshot·diff의 project-kind discriminated union |
-| `SpecServerConfig` | `spec-lens-contract/src/index.ts` | 관측 대상과 source adapter identity |
-| `isSpecLensResponse()` | `spec-lens-contract/src/index.ts` | UI boundary에서 JSON response shape를 runtime 검증 |
-| `SPEC_LENS_*_SCHEMA_VERSION` | `spec-lens-contract/src/index.ts` | snapshot/diff wire schema version 고정 |
+|---|---|---|
+| `SPEC_LENS_SNAPSHOT_SCHEMA_VERSION`, `SPEC_LENS_DIFF_SCHEMA_VERSION`, `SPEC_LENS_COMPOSITION_REPORT_SCHEMA_VERSION` | `spec-lens-contract/src/index.ts` | snapshot·diff·composition wire 버전 |
+| `SPEC_LENS_TYPESPEC_COMPILE_EVIDENCE_SCHEMA_VERSION`, `SPEC_LENS_TYPESPEC_TOOLCHAIN_EVIDENCE_SCHEMA_VERSION`, `SPEC_LENS_TYPESPEC_SOURCE_READ_BUDGET_SCHEMA_VERSION` | `spec-lens-contract/src/index.ts` | TypeSpec compile·toolchain·source budget evidence 버전 |
+| `SPEC_LENS_TYPESPEC_MANIFEST_SCHEMA_VERSION`, `SPEC_LENS_TYPESPEC_RESTORE_CONTRACT_VERSION`, `SPEC_LENS_TYPESPEC_ISOLATION_POLICY_VERSION` | `spec-lens-contract/src/index.ts` | TypeSpec manifest·restore·isolation 계약 버전 |
+| `SPEC_LENS_PROJECT_KINDS`, `SPEC_LENS_SOURCE_KINDS`, `SpecLensProjectKind`, `SpecSourceKind`, `SpecDefinitionKind`, `SpecCanonicalDefinitionId` | `spec-lens-contract/src/index.ts` | project·source·definition 종류와 canonical ID |
+| `SpecRevision`, `SpecFileEntry`, `SpecSnapshotDiagnostic` | `spec-lens-contract/src/index.ts` | revision·파일 entry·snapshot 진단 |
+| `SpecCompositionOutputPath`, `SpecCompositionOutputComponent`, `SpecCompositionAlias`, `SpecCompositionCollision`, `SpecCompositionSourceRef`, `SpecCompositionReport` | `spec-lens-contract/src/index.ts` | composition 출력 path·component·alias·collision·참조·report |
+| `SpecProvenanceEntry`, `SpecProvenanceMap`, `SpecProvenanceDiffEntry` | `spec-lens-contract/src/index.ts` | provenance entry·map·diff |
+| `SpecLensTypeSpecSourceReadBudget`, `SpecLensTypeSpecToolchainEvidence`, `SpecLensTypeSpecCompileEvidence`, `SpecLensObservedInputEvidence` | `spec-lens-contract/src/index.ts` | TypeSpec source budget·toolchain·compile·관측 입력 evidence |
+| `SpecSnapshotBase`, `DefinitionBuilderSpecSnapshot`, `TypeSpecBundleSpecSnapshot`, `SpecSnapshot` | `spec-lens-contract/src/index.ts` | project kind별 snapshot과 공통 base |
+| `SpecDiffEntry`, `SpecBreakingChange`, `DiffEntry`, `BreakingChange`, `ProvenanceEntry`, `ProvenanceDiffEntry` | `spec-lens-contract/src/index.ts` | 정규 diff·breaking change와 호환 별칭 |
+| `SpecTimelineDiffBase`, `DefinitionBuilderSpecTimelineDiff`, `TypeSpecBundleSpecTimelineDiff`, `SpecTimelineDiff`, `SpecTimelineEntry` | `spec-lens-contract/src/index.ts` | project kind별 timeline diff와 timeline entry |
+| `SpecPathEntry`, `SpecPathsResult`, `SpecGraphNode`, `SpecGraphEdge`, `SpecGraph` | `spec-lens-contract/src/index.ts` | path 결과 및 dependency graph |
+| `RefreshResult`, `ClearCacheResult` | `spec-lens-contract/src/index.ts` | refresh와 cache 삭제 결과 |
+| `DefinitionBuilderServerConfig`, `TypeSpecBundleServerConfig`, `SpecServerConfig` | `spec-lens-contract/src/index.ts` | project kind별 server 설정 |
+| `SpecLensApiResponseMap`, `SpecLensApiError` | `spec-lens-contract/src/index.ts` | endpoint 응답 map과 API 오류 |
+| `isSpecLensProjectKind`, `isSpecSourceKind`, `isSpecLensResponse` | `spec-lens-contract/src/index.ts` | project kind·source kind·HTTP 응답 runtime guard |
 
 ---
 
@@ -1436,3 +1462,268 @@ Governance manifest: `packages/codegen/src/cli/spec/oa-gen-governance.ts` 및 `d
 | typia LLM 검증 | `@oa-sdk/typia-mock` | 별도 typia 검증 서버 만들지 말 것 |
 | mock 데이터 생성 | `foldSchema()` + algebra | 직접 JSON Schema 재귀 순회 금지 |
 | pascalCase 변환 | 공유 필요 (현재 중복 가능성 있음) | 패키지별 별도 정의 금지 |
+
+---
+
+## AST 동기화와 독립 검증기 (`@oa-sdk/ast-sync`)
+
+EntitySpec IR과 소스 코드의 동기화, 타입 어댑터, shape 분류 및 독립 검증기 생성 API다. `./guards` subpath는 아래 guard 생성 API를 별도로 제공한다.
+
+| Export | 정의 | 용도 |
+|---|---|---|
+| `EntityKind`, `EntitySpec`, `EntityPropertySpec`, `EntityDiscriminator`, `PropertyConstraint` | `ast-sync/src/entity-spec.ts` | 엔터티·속성 IR |
+| `TextEdit`, `ASTDiff`, `ASTDiffKind` | `ast-sync/src/entity-spec.ts` | 텍스트 편집과 AST 차이 계약 |
+| `TypeAdapter` | `ast-sync/src/adapter-interface.ts` | 타입 어댑터 공통 계약 |
+| `computeEntitySpecDiff` | `ast-sync/src/diff-engine.ts` | EntitySpec 간 구조 차이 계산 |
+| `createInsertEdit`, `createReplaceEdit`, `createDeleteEdit`, `applyTextEdits` | `ast-sync/src/text-edit.ts` | 역방향 offset 기반 텍스트 편집 생성·적용 |
+| `SyncOptions`, `SyncResult`, `syncEntitySpecWithCode` | `ast-sync/src/type-sync.ts` | 소스와 EntitySpec의 동기화 옵션·결과·실행 |
+| `ZodTypeAdapter` | `ast-sync/src/adapters/zod.ts` | Zod 소스 타입 어댑터 |
+| `TsAstTypeAdapter` | `ast-sync/src/adapters/ts-ast.ts` | TypeScript AST 타입 어댑터 |
+| `TypiaAdapterOptions`, `TYPIA_TAG_NAMES`, `TYPIA_TYPE_TAG_NAMES`, `TypiaTypeAdapter` | `ast-sync/src/adapters/typia.ts` | Typia 태그와 타입 어댑터 |
+| `JsonSchemaObject`, `JsonSchemaTypeAdapter` | `ast-sync/src/adapters/json-schema.ts` | JSON Schema 타입 어댑터와 스키마 계약 |
+| `generateStandaloneGuards`, `StandaloneGuardTarget`, `StandaloneGuardGeneratorOptions`, `GeneratedGuardArtifact` | `ast-sync/src/guards/index.ts` | 독립 검증기 생성과 산출물 계약 |
+| `ContractShapeFeature`, `TypeSpecProjection`, `ContractTypeShape`, `ShapeDiagnostic`, `ShapeAuditResult` | `ast-sync/src/taxonomy/features.ts` | TypeSpec 투영 가능성 및 shape 진단 계약 |
+| `DIRECT_SHAPE_FEATURES`, `POLICY_REQUIRED_SHAPE_FEATURES`, `UNSUPPORTED_SHAPE_FEATURES`, `DIRECT_FEATURES`, `POLICY_REQUIRED_FEATURES`, `UNSUPPORTED_FEATURES`, `ALL_SHAPE_FEATURES`, `UTILITY_TYPE_NAMES` | `ast-sync/src/taxonomy/features.ts` | 직접 지원·정책 필요·미지원 feature 집합 |
+| `AnalyzeShapeOptions`, `classifyTypeShape`, `collectShapeFeatures`, `analyzeNodeShape`, `auditTypeShapesInSource`, `getDeclarationShapesInSource`, `extractDeclarationShape` | `ast-sync/src/taxonomy/analyzer.ts` | 타입 shape 추출·분류·소스 감사 |
+| `createVirtualProgram`, `createInMemoryProgram`, `createProgramFromTsconfig`, `cleanupProgram`, `getTypeChecker` | `ast-sync/src/checker/program.ts` | 가상·tsconfig 기반 TypeScript Program 수명 관리 |
+| `getCanonicalSymbolId`, `resolveAlias`, `referencedSymbols`, `getNormalizedDeclarationId` | `ast-sync/src/checker/cycle-detector.ts` | 심볼 식별·별칭 해결·참조 조회 |
+| `SymbolCycleResult`, `cyclicSchemaIds`, `withRecursiveReference`, `markRecursiveDeclaration`, `detectCyclesWithChecker` | `ast-sync/src/checker/cycle-detector.ts` | 순환 참조 감지 및 shape 표기 |
+
+---
+
+## MCP·HTTP·CLI 도구 엔진 (`@oa-sdk/tools`)
+
+도구 handler의 공개 계약은 `(ctx, input)`이다. input-first 호환은 명시적인 adapter를 사용하며, HTTP 보안과 입력 검증은 각 transport adapter가 공유한다.
+
+| Export | 정의 | 용도 |
+|---|---|---|
+| `defineTool`, `defineAction` | `tools/src/index.ts` | 타입 안전한 도구 정의와 호환 별칭 |
+| `ToolDefinition`, `ToolHandler`, `ToolMiddleware`, `ToolContext`, `ToolLogger` | `tools/src/types.ts` | 도구 실행·미들웨어·문맥 계약 |
+| `ToolSchema`, `InferSchema`, `ToolHints`, `ToolCliConfig`, `ToolApiConfig`, `ToolMcpConfig` | `tools/src/types.ts` | 입력 스키마 추론과 adapter 설정 계약 |
+| `MCP_PROTOCOL_VERSION_2026_07_28`, `McpHeaders`, `ToolTextContent`, `ToolImageContent`, `CallToolResult`, `ToolInputRequiredResult` | `tools/src/types.ts` | MCP 프로토콜 버전·헤더 및 도구 응답 계약 |
+| `createToolContext`, `isToolContext`, `defaultToolLogger` | `tools/src/context.ts` | 실행 문맥과 기본 logger |
+| `invokeToolHandler`, `adaptInputFirstHandler`, `composeToolMiddleware`, `executeTool` | `tools/src/context.ts` | handler 호출, input-first 호환, 미들웨어 합성과 도구 실행 |
+| `JsonSchemaObject`, `JsonSchemaProperty`, `isZodSchema`, `dereferenceSchema`, `normalizeJsonSchema` | `tools/src/schema.ts` | JSON Schema 구조·정규화·참조 해결 |
+| `JsonSchemaValidator`, `ValidationResult`, `createJsonSchemaValidator`, `validateToolInput` | `tools/src/schema.ts` | 단일 JSON Schema validator와 도구 입력 검증 |
+| `SchemaBridgeOptions`, `createSchemaTool` | `tools/src/schema-bridge.ts` | 스키마를 입력으로 받는 도구 구성 |
+| `McpServerOptions`, `McpServerInstance`, `JsonRpcRequest`, `JsonRpcResponse`, `StatelessMcpDispatcher`, `createMcpServer`, `createStatelessMcpDispatcher` | `tools/src/mcp.ts` | MCP 서버와 stateless JSON-RPC dispatcher |
+| `CliAdapterOptions`, `createCli`, `promptMissingFields` | `tools/src/cli.ts` | Commander CLI 생성과 누락된 필드 입력 |
+| `HttpAdapterOptions`, `createHttpApp`, `serveHttpApp` | `tools/src/http.ts` | Hono HTTP 앱 구성과 close 가능한 서버 실행 |
+| `ToolRequestHeaders`, `ToolHttpSecurityOptions`, `ToolHttpError`, `readToolHeader`, `validateToolHttpOptions`, `authorizeToolHttpRequest` | `tools/src/http-boundary.ts` | 공유 인증·origin·body 크기 정책 및 안전한 HTTP 오류 |
+| `readToolJsonRequest`, `readToolNodeJsonRequest` | `tools/src/http-boundary.ts` | Fetch·Node HTTP 요청의 크기 제한 JSON 읽기 |
+| `ToolAppConfig`, `ToolApp`, `createToolApp`, `createApp` | `tools/src/app.ts` | 도구 registry와 adapter lifecycle을 묶는 앱 |
+| `WebMcpPeerRecord`, `WebMcpPeerConfig`, `WebMcpPeerAppOptions`, `WebMcpPeerBridgeClient`, `createWebMcpPeerApp` | `tools/src/peer.ts` | WebMCP peer 연결 계약과 bridge client |
+| `ChunkStreamToolsOptions`, `createChunkStreamTools`, `registerChunkStreamTools` | `tools/src/chunk-stream.ts` | chunk-stream 도구 생성과 앱 등록 |
+
+---
+
+## Surface IR 및 Forge Projection (`@oa-sdk/surface-ir`)
+
+Target-neutral API surface IR와 Forge SDK/CLI projection·Overlay 생성.
+
+| Export | 정의 | 용도 |
+|---|---|---|
+| `SURFACE_IR_VERSION` | `surface-ir/src/index.ts` | Surface IR 스키마 버전 상수 |
+| `SurfaceTarget`, `SurfaceAvailability`, `SurfaceVisibility`, `SurfaceAlias`, `SurfaceArgument`, `SurfaceParamOverride`, `SurfacePagination`, `SurfaceStreaming`, `SurfaceRuntime`, `SurfaceOperation`, `SurfaceOperationOverride`, `SurfaceDiagnosticSeverity`, `SurfaceDiagnostic`, `SurfaceIr`, `SurfaceIrOptions` | `surface-ir/src/index.ts` | Surface IR 계약·런타임·진단 타입 |
+| `ForgeOperationProjection`, `ForgeCommandCatalog`, `ForgeProjection`, `ForgeOverlayBundle`, `ForgeOverlay`, `ForgeOverlayAction` | `surface-ir/src/index.ts` | Forge projection 및 Overlay 번들 계약 타입 |
+| `buildSurfaceIr`, `toForgeProjection`, `emitForgeOverlay`, `emitForgeOverlays` | `surface-ir/src/index.ts` | Surface IR 빌더와 Forge projection·Overlay 방출 함수 |
+
+---
+
+## 청크 스트림 런타임 (`@oa-sdk/chunk-stream`)
+
+청크 envelope, resilient reader, 메모리 residency, 재생 가상화와 저장소 계층의 공통 API다.
+
+| Export | 정의 | 용도 |
+|---|---|---|
+| `FallbackChunkState`, `RuntimeResourceRef`, `ResourceLease`, `ResidencyRecord` | `chunk-stream/src/types.ts` | fallback·resource lease·residency 계약 |
+| `RuntimeChunkEnvelopeDescriptor`, `ChunkFetchDescriptor`, `ChunkStreamReaderOptions`, `ChunkStreamState` | `chunk-stream/src/types.ts` | 청크 envelope·fetch·reader·state 계약 |
+| `StreamManifestEntry`, `StreamManifest`, `PlaybackVirtualizerOptions`, `StorageTierOptions`, `ForecasterProfile` | `chunk-stream/src/types.ts` | manifest와 재생·저장소·예측 옵션 |
+| `assertNoPrototypePoisoning`, `RuntimeChunkEnvelope`, `createRuntimeEnvelope` | `chunk-stream/src/envelope.ts` | prototype 오염 검증과 런타임 envelope 생성 |
+| `ResidencyControllerOptions`, `ResidencyController` | `chunk-stream/src/residency.ts` | 메모리 residency 수명 관리 |
+| `PlaybackVirtualizer` | `chunk-stream/src/virtualizer.ts` | 재생 위치에 맞춘 청크 가상화 |
+| `TieredStoragePort` | `chunk-stream/src/storage.ts` | 계층형 청크 저장소 |
+| `STANDARD_PROFILES`, `ReservationForecaster`, `BudgetLedger` | `chunk-stream/src/forecaster.ts` | 프로파일 기반 예약 예측과 예산 추적 |
+| `retryAfterMs`, `synthesizeEmptyChunk`, `createResilientChunkReader`, `createResilientNdjsonReader` | `chunk-stream/src/reader.ts` | Retry-After 처리·빈 청크 합성·복원력 있는 청크 및 NDJSON reader |
+| `ChunkStreamStore`, `createChunkStreamStore` | `chunk-stream/src/store.ts` | 구독 가능한 청크 스트림 상태 저장소 |
+
+---
+
+## 청크 스트림 CRDT (`@oa-sdk/chunk-stream-crdt`)
+
+delta-state cue 병합과 vector clock 기반 누락 delta 조회를 제공한다.
+
+| Export | 정의 | 용도 |
+|---|---|---|
+| `VectorClock`, `CrdtMetadata`, `CrdtCue`, `CrdtDeltaEvent` | `chunk-stream-crdt/src/types.ts` | vector clock·CRDT metadata·cue·delta event 계약 |
+| `compareCrdtMetadata`, `mergeCrdtCue`, `mergeVectorClocks`, `filterMissingDeltas` | `chunk-stream-crdt/src/semi-lattice.ts` | 결정적 cue 병합과 vector clock 비교 |
+| `FORMAT_CRDT_DELTA`, `CrdtDeltaAdapterOptions`, `CrdtDeltaAdapter`, `createCrdtDeltaAdapter` | `chunk-stream-crdt/src/adapter.ts` | CRDT delta format과 adapter 생성 |
+
+---
+
+## 청크 재생과 Storyboard UI (`@oa-sdk/chunk-stream-ui`)
+
+UI action 소비, revision 기반 요청 조정, 재생 상태 및 storyboard 청크 변환 API다.
+
+| Export | 정의 | 용도 |
+|---|---|---|
+| `JsonPrimitive`, `JsonValue`, `UiAction`, `ContentPort`, `UiActionConsumeResult` | `chunk-stream-ui/src/types.ts` | JSON 값 및 UI action 소비 계약 |
+| `PlaybackCursor`, `PlaybackSnapshot` | `chunk-stream-ui/src/types.ts` | 재생 cursor와 snapshot |
+| `SlideActionTrigger`, `SlideActionEffect`, `SlideAction`, `SlideNode`, `Slide`, `StoryboardDocument` | `chunk-stream-ui/src/types.ts` | 슬라이드 action·node·storyboard 문서 계약 |
+| `ChunkStreamManifestEntry`, `ChunkStreamManifest`, `StoryboardChunkStreamPackage`, `StoryboardChunkStreamOptions`, `StoryboardChunkBridgeOptions` | `chunk-stream-ui/src/types.ts` | 청크 manifest와 storyboard 변환 옵션·산출물 |
+| `UiActionAdapter` | `chunk-stream-ui/src/ui-action.ts` | 재생 가능한 UI action adapter |
+| `RequestStatus`, `RevisionReceipt`, `BeginRequestOptions`, `RevisionRequest`, `RevisionFenceOptions`, `RevisionFence` | `chunk-stream-ui/src/revision-fence.ts` | revision fence 요청·receipt·상태 관리 |
+| `LatestRequestContext`, `LatestRequestResult`, `LatestRequestCoordinator`, `SeekRequest`, `SeekCoordinator` | `chunk-stream-ui/src/revision-fence.ts` | 최신 요청 및 seek 조정 |
+| `ChunkPlaybackLoadRequest`, `ChunkPlaybackLoadResult`, `ChunkPlaybackLoader`, `ChunkPlaybackPrepareContext`, `ChunkPlaybackConsumeContext`, `ChunkPlaybackBinding` | `chunk-stream-ui/src/playback-bridge.ts` | 청크 load·prepare·consume 계약 |
+| `ChunkPlaybackError`, `ChunkPlaybackPhase`, `ChunkPlaybackBridgeState`, `ChunkPlaybackSeekOptions`, `ChunkPlaybackSeekResult`, `ChunkPlaybackBridgeOptions` | `chunk-stream-ui/src/playback-bridge.ts` | 재생 오류·phase·상태·seek 계약 |
+| `ChunkPlaybackBridgeError`, `assertPlaybackSnapshot`, `ChunkPlaybackBridge` | `chunk-stream-ui/src/playback-bridge.ts` | snapshot 검증과 재생 bridge 실행 |
+| `assertChunkIndexBodyParity`, `storyboardToChunkStream`, `createStoryboardChunkPlaybackBridge` | `chunk-stream-ui/src/storyboard-adapter.ts` | index/body 일치 검증과 storyboard 청크·재생 bridge 변환 |
+
+---
+
+## 청크 시계열 분석 (`@oa-sdk/chunk-stream-timeseries`)
+
+채널 정의, 보간·외삽, downsampling과 집계 API다.
+
+| Export | 정의 | 용도 |
+|---|---|---|
+| `ChannelType`, `InterpolationMode`, `ExtrapolationMode`, `ChannelDef`, `ChannelConfigInput` | `chunk-stream-timeseries/src/types.ts` | 채널 타입·설정과 보간·외삽 정책 |
+| `TimeSeriesSample`, `TimeSeriesPayload`, `TimeSeriesEvaluation`, `TimeSeriesPoint`, `TimeSeriesAdapterOptions` | `chunk-stream-timeseries/src/types.ts` | 시계열 sample·payload·평가 결과와 adapter 옵션 |
+| `largestTriangleThreeBuckets` | `chunk-stream-timeseries/src/lttb.ts` | LTTB downsampling |
+| `DecimationMode`, `decimateTimeSeries` | `chunk-stream-timeseries/src/decimate.ts` | min/max·평균·합계·개수 집계 |
+| `FORMAT_TIME_SERIES`, `interpolateLinear`, `findBoundingIndices`, `normalizeChannelDefs`, `TimeSeriesAdapter` | `chunk-stream-timeseries/src/adapter.ts` | 시계열 format, 채널 정규화와 보간 adapter |
+
+---
+
+## React 청크 재생 Hooks (`@oa-sdk/chunk-stream-react`)
+
+React에서 재생 상태, peer awareness, store 구독과 telemetry를 연결한다.
+
+| Export | 정의 | 용도 |
+|---|---|---|
+| `PeerPlayback`, `AwarenessPresence` | `chunk-stream-react/src/types.ts` | peer 재생과 presence 계약 |
+| `UseChunkPlaybackOptions`, `UseChunkPlaybackResult`, `UsePlaybackAwarenessOptions`, `UsePlaybackAwarenessResult` | `chunk-stream-react/src/types.ts` | 재생·awareness hook 옵션과 결과 |
+| `formatSecondsToTimecode`, `formatFramesToTimecode`, `formatBytes` | `chunk-stream-react/src/utils.ts` | 초·프레임·바이트 표시 형식 |
+| `useChunkPlayback` | `chunk-stream-react/src/useChunkPlayback.ts` | 청크 재생 상태 hook |
+| `usePlaybackAwareness` | `chunk-stream-react/src/usePlaybackAwareness.ts` | peer 재생·presence 동기화 hook |
+| `useChunkStreamStore` | `chunk-stream-react/src/useChunkStreamStore.ts` | 청크 stream store 구독 hook |
+| `UseChunkTelemetryOptions`, `UseChunkTelemetryResult`, `useChunkTelemetry` | `chunk-stream-react/src/useChunkTelemetry.ts` | 청크 telemetry 옵션·결과와 hook |
+
+---
+
+## Peer 전송과 Bridge Client (`@oa-sdk/peer-transport`)
+
+peer registry 호출 및 deadline·session epoch·channel별 queue를 가진 P2P 전송 API다.
+
+| Export | 정의 | 용도 |
+|---|---|---|
+| `WebMcpPeerRecord`, `BridgeClientConfig`, `PeerCallPayload`, `PeerCallResult` | `peer-transport/src/types.ts` | peer·bridge 설정 및 RPC 요청·응답 계약 |
+| `TransportChannelType`, `DataChannelPacket`, `TRANSPORT_CHANNELS` | `peer-transport/src/types.ts` | 채널 이름과 packet envelope 계약 |
+| `WebMcpBridgeClient` | `peer-transport/src/bridge-client.ts` | peer 조회·RPC·재시도 bridge client |
+| `ChannelListener`, `P2pChannelConfig`, `P2pTransportChannel` | `peer-transport/src/p2p-channel.ts` | P2P channel 설정·수신 listener·전송 lifecycle |
+
+---
+
+## Peer Registry와 Signaling Server (`@oa-sdk/peer-server`)
+
+peer 저장소, room registry, home MCP 도구 및 HTTP server lifecycle을 제공한다.
+
+| Export | 정의 | 용도 |
+|---|---|---|
+| `PeerServerOptions`, `SignalingPeerSocket`, `SignalingRoomEntry`, `PeerStoreData` | `peer-server/src/types.ts` | 서버·signaling peer·room·영속 저장소 계약 |
+| `FilePeerStore`, `isSafeAlias` | `peer-server/src/store.ts` | 파일 기반 peer 저장과 alias 검증 |
+| `PeerRoomManagerOptions`, `PeerRoomManager` | `peer-server/src/room.ts` | peer room·세션 관리 |
+| `createHomeMcpTools` | `peer-server/src/home-mcp.ts` | home MCP 도구 생성 |
+| `PeerServerInstance`, `createPeerServer` | `peer-server/src/server.ts` | peer 서버 생성과 lifecycle handle |
+
+---
+
+## 협업 Workspace (`@oa-sdk/collab-workspace`)
+
+Tree-Lattice 상태, replay watermark, 용량 제한, presence와 intent lock을 관리한다. 원격 이벤트는 transport capability와 함께 검증한다.
+
+| Export | 정의 | 용도 |
+|---|---|---|
+| `EditorRole`, `EditorPresence`, `IntentLock` | `collab-workspace/src/types.ts` | 편집자 role·presence·intent lock 계약 |
+| `WorkspaceLimits`, `FileChunkCue`, `CollabFolderConfig`, `RemoteChunkSource` | `collab-workspace/src/types.ts` | workspace 용량·파일 chunk·설정·원격 source 계약 |
+| `WorkspaceTreeLattice` | `collab-workspace/src/tree-lattice.ts` | 파일·tombstone 상태 병합과 bounded render·compaction |
+| `AiEditorConfig`, `AiEditorActor` | `collab-workspace/src/ai-editor-actor.ts` | AI 편집자 actor 설정과 동작 |
+| `WorkspaceSyncer` | `collab-workspace/src/workspace-syncer.ts` | workspace 동기화·replay watermark·presence 수명 관리 |
+| `RemoteTransportCapability`, `createRemoteTransportCapability`, `isRemoteTransportCapability` | `collab-workspace/src/security.ts` | opaque 원격 transport capability 생성·검증 |
+| `validateRelativeFilePath`, `validateClientId`, `validateLineIndex`, `validateLineRange`, `validateContent`, `validateWorkspaceConfig`, `assertAllowedFilePath` | `collab-workspace/src/security.ts` | 경로·client ID·line·content·workspace 허용 범위 검증 |
+| `MAX_LOCK_TTL_MS`, `validateIntentLock`, `validateFileChunkCue`, `validatePresence` | `collab-workspace/src/security.ts` | 최대 lock TTL과 lock·chunk·presence 검증 |
+
+---
+
+## MCP Mesh Registry와 Router (`@oa-sdk/mcp-mesh`)
+
+domain skill과 session instance를 등록하고 호출을 route한다. 여러 domain에 존재하는 bare tool 이름은 aggregate에서 제외한다. `./cli` subpath는 아래 CLI API를 별도로 제공한다.
+
+| Export | 정의 | 용도 |
+|---|---|---|
+| `DomainSkillDefinition`, `McpSessionInstance`, `McpTransportType`, `SkillPackage` | `mcp-mesh/src/types.ts` | domain skill·session·transport·skill package 계약 |
+| `MetaSkillDefinition`, `MeshRoutingDecision` | `mcp-mesh/src/types.ts` | meta skill과 routing 결정 계약 |
+| `SkillRegistry` | `mcp-mesh/src/skill-registry.ts` | domain·session·meta skill 등록과 조회 |
+| `MeshRouter` | `mcp-mesh/src/mesh-router.ts` | 호출 routing과 모호하지 않은 도구 aggregate |
+| `validateMeshIdentifier`, `validateToolDefinition`, `assertToolInput`, `validateWorkspaceRules` | `mcp-mesh/src/security.ts` | mesh 식별자·도구·입력·workspace rule 검증 |
+| `validateDomainSkill`, `validateSession`, `validateMetaSkill`, `validatePeerPackage` | `mcp-mesh/src/security.ts` | domain·session·meta skill·peer package 검증 |
+| `CliContext`, `MeshCliOptions` | `mcp-mesh/src/cli/types.ts` | CLI 설정 및 registry·server 문맥 |
+| `createMeshCli` | `mcp-mesh/src/cli/index.ts` | mesh CLI 생성 |
+| `formatOutput`, `formatTable` | `mcp-mesh/src/cli/formatters.ts` | CLI JSON·표 출력 |
+
+---
+
+## Spec Lens 관측·캐시·HTTP 서버 (`@oa-sdk/spec-lens`)
+
+project identity, snapshot builder, source adapter, SQLite cache와 CQRS query handler를 제공한다. 공유 wire 타입은 spec-lens-contract에서 재노출한다.
+
+| Export | 정의 | 용도 |
+|---|---|---|
+| `DEFINITION_BUILDER_VERSION`, `DEFINITION_BUILDER_TOOLCHAIN_FINGERPRINT`, `TYPESPEC_BUNDLE_BUILDER_VERSION`, `SPEC_LENS_DIFF_SCHEMA_VERSION`, `SPEC_LENS_SNAPSHOT_SCHEMA_VERSION` | `spec-lens/src/domain/index.ts` | 빌더와 snapshot·diff 버전 |
+| `SpecProjectConfig`, `SpecProjectIdentity`, `SpecProjectKeyInput`, `SpecProjectSourceKind`, `SpecObservationAdapterKind`, `SpecObservationIdentity` | `spec-lens/src/domain/index.ts` | project·관측 source identity 계약 |
+| `DefinitionBuilderProjectConfig`, `DefinitionBuilderProjectIdentity`, `DefinitionBuilderProvenance`, `TypeSpecBundleProjectConfig`, `TypeSpecBundleProjectIdentity`, `TypeSpecBundleProvenance`, `SpecProvenance` | `spec-lens/src/domain/index.ts` | project kind별 설정·identity·provenance |
+| `buildManifestOrTargetDigest`, `buildSpecProjectKey`, `createSpecProjectIdentity`, `digestText`, `resolveSpecProjectConfig` | `spec-lens/src/domain/index.ts` | project identity·설정·digest 생성 |
+| `SpecFileEntry`, `SpecRevision`, `SpecSnapshotDiagnostic`, `SpecSourceKind` | `spec-lens/src/domain/index.ts` | 공유 revision·파일·source·snapshot 진단 계약 |
+| `DefinitionBuilderSpecSnapshot`, `TypeSpecBundleSpecSnapshot`, `SpecSnapshot`, `SpecSnapshotStored` | `spec-lens/src/domain/index.ts` | project kind별 snapshot과 저장 계약 |
+| `DefinitionBuilderSpecTimelineDiff`, `TypeSpecBundleSpecTimelineDiff`, `SpecTimelineDiff`, `SpecTimelineEntry` | `spec-lens/src/domain/index.ts` | project kind별 timeline diff·entry |
+| `SpecPathEntry`, `SpecPathsResult`, `SpecGraph`, `SpecGraphEdge`, `SpecGraphNode` | `spec-lens/src/domain/index.ts` | path와 dependency graph 계약 |
+| `GetDiffHandler`, `GetGraphHandler`, `GetPathsHandler`, `GetSnapshotHandler`, `GetTimelineHandler` | `spec-lens/src/application/index.ts` | CQRS snapshot·diff·graph·paths·timeline 조회 handler |
+| `GetDiffQuery`, `GetGraphQuery`, `GetPathsQuery`, `GetSnapshotQuery`, `GetTimelineQuery` | `spec-lens/src/application/index.ts` | CQRS 조회 query 계약 |
+| `CachePort`, `SpecSourcePort`, `SnapshotBuilderPort` | `spec-lens/src/application/index.ts` | cache·source·builder port 계약 |
+| `GetFileEntriesOptions`, `ListPathsOptions`, `ListRevisionsOptions`, `SpecSourceReadBudget`, `ListTimelineOptions` | `spec-lens/src/application/index.ts` | source 파일·path·revision·timeline 조회 제한 |
+| `BuildSnapshotOptions`, `DefinitionBuilderBuildSnapshotOptions`, `TypeSpecBundleBuildSnapshotOptions` | `spec-lens/src/application/index.ts` | project kind별 snapshot build 옵션 |
+| `RefreshTimelineHandler`, `RefreshTimelineOptions`, `RefreshTimelineResult`, `DefinitionBuilderRefreshTimelineOptions`, `TypeSpecBundleRefreshTimelineOptions` | `spec-lens/src/application/index.ts` | timeline refresh handler·옵션·결과 |
+| `FileDiffAdapter`, `FileDiffAdapterConfig`, `LocalGitAdapter`, `LocalGitAdapterConfig` | `spec-lens/src/infrastructure/index.ts` | 파일 및 로컬 Git source adapter |
+| `GithubAdapter`, `GithubAdapterConfig`, `GithubApiAdapter`, `GithubApiAdapterConfig`, `GitlabAdapter`, `GitlabAdapterConfig` | `spec-lens/src/infrastructure/index.ts` | GitHub·GitLab source adapter |
+| `DefaultTokenProvider`, `GitlabTokenProvider`, `TokenProvider`, `TokenProviderConfig` | `spec-lens/src/infrastructure/index.ts` | source 인증 token provider |
+| `SnapshotBuilder`, `TypeSpecBundleSnapshotBuilder`, `selectSnapshotBuilder`, `SnapshotBuilderSelection`, `TypeSpecBundleCompiler`, `SqliteCache`, `buildTargetConfigDigest` | `spec-lens/src/infrastructure/index.ts` | snapshot builder 선택·TypeSpec compiler·SQLite cache |
+| `computeTsconfigUniverse`, `computeTsconfigUniverseDigest`, `createEmptyTsconfigUniverse`, `ContractConfigDigest`, `ContractConfigUniverse` | `spec-lens/src/infrastructure/cache/sqlite/cache-key.ts` | transitive tsconfig universe와 cache digest |
+| `parseJsonc`, `stripJsonComments`, `removeTrailingCommas`, `configurationClosure`, `resolveConfigurationFile`, `ConfigurationClosure` | `spec-lens/src/infrastructure/cache/sqlite/cache-key.ts` | JSONC 읽기와 configuration closure 탐색 |
+| `createSpecLensServer`, `serveSpecLens`, `DefinitionBuilderSpecLensServerConfig`, `SpecLensServerConfig`, `TypeSpecBundleSpecLensServerConfig` | `spec-lens/src/presentation/http/server.ts` | HTTP 서버 구성·실행과 project kind별 설정 |
+
+---
+
+## TypeSpec 확장 Decorators (`@oa-sdk/typespec-decorators`)
+
+OpenAPI component, persona, DPM 및 CRDT 메타데이터를 TypeSpec에서 선언한다.
+
+| Export | 정의 | 용도 |
+|---|---|---|
+| `namespace` | `typespec-decorators/src/decorators.ts` | TypeSpec decorator namespace |
+| `$oaUseResponseComponent`, `$personaCapability`, `VALID_PERSONA_TRAITS` | `typespec-decorators/src/decorators.ts` | 공유 response component와 persona capability decorator |
+| `$pseudonymize`, `VALID_DPM_TRANSFORMS`, `VALID_DPM_ROLES` | `typespec-decorators/src/decorators.ts` | DPM projection decorator와 허용 transform·role |
+| `$crdt`, `$crdtEntity` | `typespec-decorators/src/decorators.ts` | CRDT field·entity decorator |
+| `VALID_CRDT_TYPES`, `VALID_CRDT_RESOLUTIONS`, `VALID_CRDT_ENGINES`, `VALID_CRDT_ROLES`, `VALID_CRDT_COMPACTIONS` | `typespec-decorators/src/decorators.ts` | CRDT type·resolution·engine·role·compaction 허용값 |
+| `$lib`, `reportDiagnostic` | `typespec-decorators/src/lib.ts` | TypeSpec library와 diagnostic 보고 |
+
+---
+
+## OpenAPI 배포 자산 (`@oa-sdk/schemas`)
+
+TypeSpec에서 빌드한 OpenAPI 문서를 JSON·YAML package asset으로 제공한다. TypeScript symbol API는 없으며 package export key와 파일 경로를 검증한다.
+
+| Export | 자산 | 용도 |
+|---|---|---|
+| `.` | `./dist/openapi.json` | 기본 OpenAPI JSON 문서 |
+| `./openapi.json` | `./dist/openapi.json` | 명시적 JSON 문서 entrypoint |
+| `./openapi.yaml` | `./dist/openapi.yaml` | 명시적 YAML 문서 entrypoint |

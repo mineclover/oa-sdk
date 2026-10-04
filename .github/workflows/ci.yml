@@ -107,7 +107,9 @@ jobs:
 
       # ── API index drift check ────────────────────────────────
       - name: API index consistency
-        run: pnpm check:api-index
+        run: |
+          pnpm test:api-index
+          pnpm check:api-index
 
       - name: CLI spec consistency
         run: pnpm check:cli-spec
