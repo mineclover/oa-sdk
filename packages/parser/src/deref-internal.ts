@@ -1,5 +1,5 @@
 import type { ParsedDocumentRefDiagnostic } from './types.js'
-import { canonicalJsonPointerFragment, isJsonPointerFragment, resolveJsonPointer } from './json-pointer.js'
+import { canonicalJsonPointerFragment, escapeJsonPointerToken, isJsonPointerFragment, resolveJsonPointer } from './json-pointer.js'
 import { createSafeRecord, getOwnString } from './safe-record.js'
 import { RefExpansionMemo } from './ref-expansion-memo.js'
 import { stepSchemaPath, type SchemaPathContext } from './recursion-guard.js'
@@ -156,7 +156,7 @@ function derefUnderKey(key: string, value: unknown, context: DerefContext, point
   context.pathContext = step.context
   if (step.descends) context.descents += 1
   try {
-    return derefNode(value, context, `${pointer}/${escapeJsonPointer(key)}`)
+    return derefNode(value, context, `${pointer}/${escapeJsonPointerToken(key)}`)
   } finally {
     context.pathContext = parentContext
     if (step.descends) context.descents -= 1
@@ -195,10 +195,6 @@ function emitDiagnostic(
   context.memo.recordDiagnostic(diagnostic)
   context.options.diagnostics?.push(diagnostic)
   context.options.onDiagnostic?.(diagnostic)
-}
-
-function escapeJsonPointer(segment: string): string {
-  return segment.replaceAll('~', '~0').replaceAll('/', '~1')
 }
 
 function mergeRefSiblings(resolved: unknown, siblings: Record<string, unknown>): unknown {

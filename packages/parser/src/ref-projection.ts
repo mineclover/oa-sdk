@@ -15,7 +15,7 @@
  */
 
 import type { OasDocument } from './oas32-types.js'
-import { canonicalJsonPointerFragment } from './json-pointer.js'
+import { canonicalJsonPointerFragment, escapeJsonPointerToken, unescapeJsonPointerToken } from './json-pointer.js'
 import { analyzeRefGraph, type RefGraphDiagnostic, type RefGraphOptions, type RefOccurrence } from './ref-graph.js'
 
 export type RefProjectionNodeKind =
@@ -145,13 +145,13 @@ function collectDeclarations(spec: OasDocument | Record<string, unknown>): RefPr
   const components = asRecord(root.components)
   for (const [section, kind] of COMPONENT_KINDS) {
     for (const name of Object.keys(asRecord(components?.[section]) ?? {})) {
-      const pointer = `#/components/${section}/${escapeToken(name)}`
+      const pointer = `#/components/${section}/${escapeJsonPointerToken(name)}`
       nodes.push({ id: pointer, kind, name, pointer })
     }
   }
   for (const [container, kind] of [['paths', 'path'], ['webhooks', 'webhook']] as const) {
     for (const name of Object.keys(asRecord(root[container]) ?? {})) {
-      const pointer = `#/${container}/${escapeToken(name)}`
+      const pointer = `#/${container}/${escapeJsonPointerToken(name)}`
       nodes.push({ id: pointer, kind, name, pointer })
     }
   }
@@ -200,11 +200,7 @@ class PointerOwnerIndex {
 function lastSegment(pointer: string): string | undefined {
   const slash = pointer.lastIndexOf('/')
   if (slash < 0 || slash === pointer.length - 1) return undefined
-  return pointer.slice(slash + 1).replace(/~1/g, '/').replace(/~0/g, '~')
-}
-
-function escapeToken(token: string): string {
-  return token.replace(/~/g, '~0').replace(/\//g, '~1')
+  return unescapeJsonPointerToken(pointer.slice(slash + 1))
 }
 
 function asRecord(value: unknown): Record<string, unknown> | undefined {

@@ -6,6 +6,7 @@ import {
   type RefResolverDiagnosticCode,
   type RefResolverKind,
 } from './ref-resolver.js'
+import { escapeJsonPointerToken, unescapeJsonPointerToken } from './json-pointer.js'
 import { getOwnString } from './safe-record.js'
 import { countInstanceDescents } from './recursion-guard.js'
 
@@ -255,7 +256,7 @@ function relativeSegments(basePointer: string, refPointer: string): string[] {
   return objectPointer
     .slice(basePointer.length + 1)
     .split('/')
-    .map(segment => segment.replace(/~1/g, '/').replace(/~0/g, '~'))
+    .map(unescapeJsonPointerToken)
 }
 
 export function collectRefs(node: unknown, sourcePointer: string, onRef: (ref: string, sourcePointer: string) => void): void {
@@ -272,12 +273,8 @@ export function collectRefs(node: unknown, sourcePointer: string, onRef: (ref: s
   }
 
   for (const [key, value] of Object.entries(obj)) {
-    collectRefs(value, `${sourcePointer}/${escapePointer(key)}`, onRef)
+    collectRefs(value, `${sourcePointer}/${escapeJsonPointerToken(key)}`, onRef)
   }
-}
-
-function escapePointer(segment: string): string {
-  return segment.replace(/~/g, '~0').replace(/\//g, '~1')
 }
 
 function toGraphNode(resolution: RefResolution): RefGraphNode {

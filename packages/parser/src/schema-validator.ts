@@ -1,4 +1,5 @@
 import Ajv2020 from 'ajv/dist/2020.js'
+import { escapeJsonPointerToken } from './json-pointer.js'
 import { attachLintSource, type LintOptions, type LintResult } from './lint.js'
 import { getOwnString } from './safe-record.js'
 
@@ -49,14 +50,14 @@ function collectSchemaLocations(doc: Record<string, unknown>): SchemaLocation[] 
   const paths = asRecord(doc['paths'])
   if (paths) {
     for (const [path, rawItem] of Object.entries(paths)) {
-      collectPathItem(rawItem, `/paths/${escapePointer(path)}`, locations)
+      collectPathItem(rawItem, `/paths/${escapeJsonPointerToken(path)}`, locations)
     }
   }
 
   const webhooks = asRecord(doc['webhooks'])
   if (webhooks) {
     for (const [name, rawItem] of Object.entries(webhooks)) {
-      collectPathItem(rawItem, `/webhooks/${escapePointer(name)}`, locations)
+      collectPathItem(rawItem, `/webhooks/${escapeJsonPointerToken(name)}`, locations)
     }
   }
 
@@ -71,7 +72,7 @@ function collectComponents(
   const schemas = asRecord(components['schemas'])
   if (schemas) {
     for (const [name, schema] of Object.entries(schemas)) {
-      pushSchema(schema, `${path}/schemas/${escapePointer(name)}`, locations)
+      pushSchema(schema, `${path}/schemas/${escapeJsonPointerToken(name)}`, locations)
     }
   }
 
@@ -96,7 +97,7 @@ function collectPathItem(node: unknown, path: string, locations: SchemaLocation[
   const additionalOperations = asRecord(item['additionalOperations'])
   if (additionalOperations) {
     for (const [method, op] of Object.entries(additionalOperations)) {
-      collectOperation(op, `${path}/additionalOperations/${escapePointer(method)}`, locations)
+      collectOperation(op, `${path}/additionalOperations/${escapeJsonPointerToken(method)}`, locations)
     }
   }
 }
@@ -115,7 +116,7 @@ function collectOperation(node: unknown, path: string, locations: SchemaLocation
       const callback = asRecord(rawCallback)
       if (!callback || isRef(callback)) continue
       for (const [expression, rawItem] of Object.entries(callback)) {
-        collectPathItem(rawItem, `${path}/callbacks/${escapePointer(name)}/${escapePointer(expression)}`, locations)
+        collectPathItem(rawItem, `${path}/callbacks/${escapeJsonPointerToken(name)}/${escapeJsonPointerToken(expression)}`, locations)
       }
     }
   }
@@ -125,7 +126,7 @@ function collectResponses(node: unknown, path: string, locations: SchemaLocation
   const responses = asRecord(node)
   if (!responses) return
   for (const [status, response] of Object.entries(responses)) {
-    collectResponse(response, `${path}/${escapePointer(status)}`, locations)
+    collectResponse(response, `${path}/${escapeJsonPointerToken(status)}`, locations)
   }
 }
 
@@ -163,7 +164,7 @@ function collectContent(node: unknown, path: string, locations: SchemaLocation[]
   const content = asRecord(node)
   if (!content) return
   for (const [mediaType, rawMediaType] of Object.entries(content)) {
-    collectMediaType(rawMediaType, `${path}/${escapePointer(mediaType)}`, locations)
+    collectMediaType(rawMediaType, `${path}/${escapeJsonPointerToken(mediaType)}`, locations)
   }
 }
 
@@ -183,7 +184,7 @@ function collectReferenceableMap(
   const map = asRecord(node)
   if (!map) return
   for (const [name, value] of Object.entries(map)) {
-    collector(value, `${path}/${escapePointer(name)}`, locations)
+    collector(value, `${path}/${escapeJsonPointerToken(name)}`, locations)
   }
 }
 
@@ -200,8 +201,4 @@ function asRecord(node: unknown): Record<string, unknown> | undefined {
 
 function isRef(node: Record<string, unknown>): boolean {
   return getOwnString(node, '$ref') !== undefined
-}
-
-function escapePointer(segment: string): string {
-  return segment.replace(/~/g, '~0').replace(/\//g, '~1')
 }

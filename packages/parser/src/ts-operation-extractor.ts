@@ -1,6 +1,7 @@
 import ts from 'typescript'
 import { readFileSync } from 'node:fs'
 import type { HttpMethod, OperationEntry, OasParameter } from './types.js'
+import { escapeJsonPointerToken } from './json-pointer.js'
 
 export const SUPPORTED_HTTP_METHODS: ReadonlySet<HttpMethod> = new Set<HttpMethod>([
   'get',
@@ -37,8 +38,7 @@ export interface ExtractedOperation {
  * E.g., path `/users/{id}` and method `get` -> `#/paths/~1users~1{id}/get`
  */
 export function buildPathPointer(openApiPath: string, method: string): string {
-  const encodedPath = openApiPath.replace(/~/g, '~0').replace(/\//g, '~1')
-  return `#/paths/${encodedPath}/${method.toLowerCase()}`
+  return `#/paths/${escapeJsonPointerToken(openApiPath)}/${method.toLowerCase()}`
 }
 
 export interface OperationDiagnostic {

@@ -9,6 +9,7 @@ import type {
   DefinitionRegistryNode,
   DefinitionRegistryRefEdge,
 } from './definition-registry.js'
+import { escapeJsonPointerToken } from './json-pointer.js'
 
 export const DEFINITION_OUTPUT_COMPONENT_PATHS = {
   schema: '#/components/schemas',
@@ -76,7 +77,7 @@ export function toOpenApiComponentRef(
 ): string | undefined {
   const componentPath = getDefinitionOutputComponentPath(node.kind)
   if (!componentPath) return undefined
-  return `${componentPath}/${escapePointer(outputName)}`
+  return `${componentPath}/${escapeJsonPointerToken(outputName)}`
 }
 
 function createOutputRefRewriteMap(
@@ -98,7 +99,7 @@ function createOutputRefRewriteMap(
       sourceId: edge.sourceId,
       targetId: edge.targetId,
       originalRef: edge.ref,
-      outputRef: `${componentPath}/${escapePointer(outputName)}`,
+      outputRef: `${componentPath}/${escapeJsonPointerToken(outputName)}`,
       sourcePath: edge.sourcePath,
       sourcePointer: edge.sourcePointer,
       outputName,
@@ -137,7 +138,7 @@ function rewriteContent(
 
   const output: Record<string, unknown> = {}
   for (const [key, child] of Object.entries(value as Record<string, unknown>)) {
-    const childPointer = `${pointer}/${escapePointer(key)}`
+    const childPointer = `${pointer}/${escapeJsonPointerToken(key)}`
     if (key === '$ref' && typeof child === 'string') {
       const rewrite = rewrites.get(edgeKey({ sourcePath, sourcePointer: childPointer, ref: child }))
       output[key] = rewrite?.outputRef ?? child
@@ -179,10 +180,6 @@ function isComponentLikeDefinitionKind(kind: DefinitionKind): kind is ComponentL
 
 function edgeKey(edge: Pick<DefinitionRegistryRefEdge, 'sourcePath' | 'sourcePointer' | 'ref'>): string {
   return `${edge.sourcePath}\0${edge.sourcePointer}\0${edge.ref}`
-}
-
-function escapePointer(segment: string): string {
-  return segment.replace(/~/g, '~0').replace(/\//g, '~1')
 }
 
 function isReadonlyMap(value: DefinitionOutputNameMap): value is ReadonlyMap<CanonicalDefinitionId, string> {

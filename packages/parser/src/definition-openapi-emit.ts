@@ -23,6 +23,7 @@ import type {
   DefinitionTargetDiagnostic,
   DefinitionTargetSelectionResult,
 } from './definition-target.js'
+import { escapeJsonPointerToken } from './json-pointer.js'
 import { validateDocument, type ValidationResult } from './validate.js'
 
 type ComponentSection =
@@ -328,7 +329,7 @@ function collectUnrewrittenRefDiagnostics(
 
   const diagnostics: DefinitionOpenApiEmitOwnDiagnostic[] = []
   for (const [key, child] of Object.entries(value as Record<string, unknown>)) {
-    const childPointer = `${pointer}/${escapePointer(key)}`
+    const childPointer = `${pointer}/${escapeJsonPointerToken(key)}`
     if (key === '$ref' && typeof child === 'string') {
       if (!child.startsWith('#/')) {
         diagnostics.push({
@@ -356,8 +357,4 @@ function readStringProperty(value: unknown, key: string): string | undefined {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
-}
-
-function escapePointer(segment: string): string {
-  return segment.replace(/~/g, '~0').replace(/\//g, '~1')
 }

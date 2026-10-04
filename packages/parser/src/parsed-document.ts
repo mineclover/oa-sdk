@@ -5,7 +5,7 @@ import type {
   ParsedDocumentRefResolution,
   ParsedDocumentRefResolutionScope,
 } from './types.js'
-import { isJsonPointerFragment, resolveJsonPointer } from './json-pointer.js'
+import { escapeJsonPointerToken, isJsonPointerFragment, resolveJsonPointer } from './json-pointer.js'
 import { getOwnString } from './safe-record.js'
 
 export type CreateParsedDocumentRefResolutionOptions = {
@@ -125,7 +125,7 @@ function collectRemainingRefDiagnostics(
       }
       for (const [key, child] of Object.entries(record)) {
         if (key === '$ref') continue
-        if (visit(child, { parent: path, segment: escapeJsonPointer(key) })) found = true
+        if (visit(child, { parent: path, segment: escapeJsonPointerToken(key) })) found = true
       }
     }
 
@@ -210,10 +210,6 @@ function buildIncompleteDocumentMessage(
 
 function isResolutionScope(value: unknown): value is ParsedDocumentRefResolutionScope {
   return value === 'internal' || value === 'all' || value === 'custom'
-}
-
-function escapeJsonPointer(segment: string): string {
-  return segment.replaceAll('~', '~0').replaceAll('/', '~1')
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

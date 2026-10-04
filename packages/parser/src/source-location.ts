@@ -9,6 +9,7 @@ import {
   type Node,
   type Range,
 } from 'yaml'
+import { appendJsonPointer } from './json-pointer.js'
 
 export type SourceLocationSyntax = 'auto' | 'yaml' | 'json'
 
@@ -99,7 +100,7 @@ function visitNode(
       if (!isPair(pair)) continue
       const key = scalarKey(pair.key)
       if (key === undefined) continue
-      const childPointer = appendPointer(pointer, key)
+      const childPointer = appendJsonPointer(pointer, key)
       if (isNode(pair.key)) addLocation(childPointer, pair.key.range)
       if (isNode(pair.value)) visitNode(pair.value, childPointer, addLocation)
     }
@@ -109,7 +110,7 @@ function visitNode(
   if (isSeq(node)) {
     node.items.forEach((item, index) => {
       if (!isNode(item)) return
-      const childPointer = appendPointer(pointer, String(index))
+      const childPointer = appendJsonPointer(pointer, index)
       addLocation(childPointer, item.range)
       visitNode(item, childPointer, addLocation)
     })
@@ -121,11 +122,6 @@ function scalarKey(node: unknown): string | undefined {
   const value = node.value
   if (value === undefined || value === null) return undefined
   return String(value)
-}
-
-function appendPointer(pointer: string, segment: string): string {
-  const escaped = segment.replace(/~/g, '~0').replace(/\//g, '~1')
-  return pointer === '#' ? `#/${escaped}` : `${pointer}/${escaped}`
 }
 
 function normalizePointer(pointer: string): string {

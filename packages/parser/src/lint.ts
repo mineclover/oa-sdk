@@ -13,6 +13,7 @@
  *   - style: description 존재, operationId 규칙
  */
 
+import { escapeJsonPointerToken, formatJsonPointer } from './json-pointer.js'
 import type { OasDocument, OasPathItem, OasOperation, OasParameter } from './oas32-types.js'
 import { resolvePointer, resolveRefGraph, type RefGraphDiagnostic, type RefGraphOptions } from './ref-graph.js'
 import {
@@ -232,7 +233,7 @@ function lintPathMapShape(
   }
 
   for (const [name, item] of Object.entries(value)) {
-    lintPathItemShape(item, pointerPath(section, name), results)
+    lintPathItemShape(item, formatJsonPointer([section, name]), results)
   }
 }
 
@@ -254,7 +255,7 @@ function lintPathItemShape(value: unknown, path: string, results: LintResult[]):
     return
   }
   for (const [method, operation] of Object.entries(value.additionalOperations)) {
-    lintOperationShape(operation, `${path}/additionalOperations/${escapePointerSegment(method)}`, results)
+    lintOperationShape(operation, `${path}/additionalOperations/${escapeJsonPointerToken(method)}`, results)
   }
 }
 
@@ -271,7 +272,7 @@ function lintOperationShape(value: unknown, path: string, results: LintResult[])
   }
   for (const [status, response] of Object.entries(value.responses)) {
     if (isRecord(response)) continue
-    results.push({ path: `${path}/responses/${escapePointerSegment(status)}`, severity: 'error', rule: 'structure/response-object', message: 'Response는 객체 또는 Reference Object여야 합니다' })
+    results.push({ path: `${path}/responses/${escapeJsonPointerToken(status)}`, severity: 'error', rule: 'structure/response-object', message: 'Response는 객체 또는 Reference Object여야 합니다' })
   }
 }
 
@@ -288,7 +289,7 @@ function lintOperations(spec: OasDocument, results: LintResult[]) {
       const op = item[method] as OasOperation | undefined
       if (!isRecord(op)) continue
 
-      const opPath = pointerPath('paths', path, method)
+      const opPath = formatJsonPointer(['paths', path, method])
 
       if (!op.responses || Object.keys(op.responses).length === 0) {
         results.push({ path: opPath, severity: 'warning', rule: 'operations/responses-required', message: 'responses가 비어있습니다' })
@@ -347,10 +348,10 @@ function collectPathItemOperations(
   const operations: Array<{ value: OasOperation; path: string }> = []
   for (const method of OPERATION_METHODS) {
     const value = item[method] as OasOperation | undefined
-    if (isRecord(value)) operations.push({ value, path: pointerPath(section, name, method) })
+    if (isRecord(value)) operations.push({ value, path: formatJsonPointer([section, name, method]) })
   }
   for (const [method, value] of Object.entries(item.additionalOperations ?? {})) {
-    if (isRecord(value)) operations.push({ value: value as OasOperation, path: pointerPath(section, name, 'additionalOperations', method) })
+    if (isRecord(value)) operations.push({ value: value as OasOperation, path: formatJsonPointer([section, name, 'additionalOperations', method]) })
   }
   return operations
 }
@@ -387,7 +388,7 @@ function lintEffectiveParameters(
   results: LintResult[],
 ): void {
   for (const parameter of parameters) {
-    const paramPath = `${operationPath}/parameters/${escapePointerSegment(parameter.name)}`
+    const paramPath = `${operationPath}/parameters/${escapeJsonPointerToken(parameter.name)}`
 
     if (!VALID_IN.has(parameter.in)) {
       results.push({ path: paramPath, severity: 'error', rule: 'parameters/valid-in', message: `유효하지 않은 in 값: "${parameter.in}"` })
@@ -479,7 +480,7 @@ function lintReferenceValueTypes(node: unknown, path: string, results: LintResul
   }
   for (const [key, value] of Object.entries(node)) {
     if (key === '$ref') continue
-    lintReferenceValueTypes(value, `${path}/${escapePointerSegment(key)}`, results)
+    lintReferenceValueTypes(value, `${path}/${escapeJsonPointerToken(key)}`, results)
   }
 }
 
@@ -508,7 +509,7 @@ function lintSecurity(spec: OasDocument, results: LintResult[]) {
       for (const req of op.security) {
         for (const name of Object.keys(req)) {
           if (!schemeSet.has(name)) {
-                results.push({ path: pointerPath('paths', path, method, 'security'), severity: 'error', rule: 'security/scheme-defined', message: `securitySchemes에 "${name}"이 정의되지 않았습니다` })
+                results.push({ path: formatJsonPointer(['paths', path, method, 'security']), severity: 'error', rule: 'security/scheme-defined', message: `securitySchemes에 "${name}"이 정의되지 않았습니다` })
           }
         }
       }
@@ -525,7 +526,7 @@ function lintStyle(spec: OasDocument, results: LintResult[]) {
     for (const method of OPERATION_METHODS) {
       const op = item[method] as OasOperation | undefined
       if (!isRecord(op)) continue
-      const opPath = pointerPath('paths', path, method)
+      const opPath = formatJsonPointer(['paths', path, method])
       if (!op.operationId) {
         results.push({ path: opPath, severity: 'info', rule: 'style/operationId', message: 'operationId 권장' })
       }
@@ -563,7 +564,7 @@ function lintComponents(spec: OasDocument, results: LintResult[]) {
         if (type === 'schemas' && isPureLocalSchemaRefAlias(component) && (refCounts.get(component.$ref) ?? 0) > 1) {
           continue
         }
-        results.push({ path: pointerPath('components', type, name), severity: 'warning', rule: `components/unused-${type.replace(/ies$/, 'y').replace(/s$/, '')}`, message: `미사용 컴포넌트: ${type}/${name}` })
+        results.push({ path: formatJsonPointer(['components', type, name]), severity: 'warning', rule: `components/unused-${type.replace(/ies$/, 'y').replace(/s$/, '')}`, message: `미사용 컴포넌트: ${type}/${name}` })
       }
     }
   }
@@ -574,14 +575,6 @@ function isPureLocalSchemaRefAlias(component: unknown): component is { $ref: str
     && typeof component.$ref === 'string'
     && component.$ref.startsWith('#/components/schemas/')
     && Object.keys(component).length === 1
-}
-
-function pointerPath(...segments: string[]): string {
-  return `/${segments.map(escapePointerSegment).join('/')}`
-}
-
-function escapePointerSegment(segment: string): string {
-  return segment.replace(/~/g, '~0').replace(/\//g, '~1')
 }
 
 // ─── surface ────────────────────────────────────────────────────────────────
@@ -627,7 +620,7 @@ function traverseDocumentNodes(
   visitor(obj, path)
 
   for (const [key, value] of Object.entries(obj)) {
-    traverseDocumentNodes(value, `${path}/${escapePointerSegment(key)}`, visitor, visited)
+    traverseDocumentNodes(value, `${path}/${escapeJsonPointerToken(key)}`, visitor, visited)
   }
 }
 
