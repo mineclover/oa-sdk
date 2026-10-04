@@ -39,38 +39,20 @@ export function isToolContext(val: unknown): val is ToolContext {
   )
 }
 
-/**
- * Invoke a ToolHandler handling both signatures:
- * 1. (input, ctx) -> Idiomatic MCP
- * 2. (ctx, input) -> Legacy UnifiedAction
- */
+/** Invoke the public (context, input) handler contract. */
 export async function invokeToolHandler<TInput, TOutput>(
   handler: ToolHandler<TInput, TOutput>,
   input: TInput,
   ctx: ToolContext,
 ): Promise<TOutput> {
-  try {
-    // If the handler accepts (ctx, input)
-    // We can call it with (input, ctx) first. But wait!
-    // How to distinguish if handler expects (input, ctx) or (ctx, input)?
-    // Usually existing legacy actions inspect `ctx` properties (e.g. `_ctx, input` where second param is input).
-    // Let's pass both:
-    // If the function has length 2 and first parameter is named ctx:
-    // Or simpler: pass (ctx, input) if handler signature looks like unified-interface, OR
-    // support the adapter invoking it.
-    // Wait! Let's check how actions in sheet-vcs.actions.ts are written:
-    // execute: async (_ctx, input) => client.sheetVcs.commit(input.spreadsheetId, ...)
-    // If we call handler(ctx, input), what happens if a new handler expects (input, ctx)?
-    // Let's check: in `sheet-vcs.actions.ts`, input has properties like `spreadsheetId`. It does NOT have `requestId` and `logger`.
-    // So if the first argument has `requestId` and `logger`, it's `ctx`.
-    // To seamlessly support both:
-    // We can wrap execution:
-    return await handler(input as any, ctx as any)
-  } catch (err) {
-    // If calling with (input, ctx) failed because input was expected as second arg (or vice versa),
-    // let's be smart: if input has fields that were accessed on undefined ctx, or if handler expects (ctx, input):
-    throw err
-  }
+  return handler(ctx, input)
+}
+
+/** Explicitly adapt an older input-first handler to the public contract. */
+export function adaptInputFirstHandler<TInput, TOutput>(
+  handler: (input: TInput, ctx: ToolContext) => Promise<TOutput>,
+): ToolHandler<TInput, TOutput> {
+  return (ctx, input) => handler(input, ctx)
 }
 
 /**
@@ -114,16 +96,8 @@ export async function executeTool<TInput, TOutput>(
 ): Promise<TOutput> {
   const middleware = tool.middleware ?? []
 
-  const runner = async (inp: TInput, c: ToolContext): Promise<TOutput> => {
-    // If the function signature starts with (ctx or (_ctx, pass (c, inp) for legacy compatibility
-    const fnStr = tool.execute.toString().trim()
-    const isLegacyCtxFirst = /^\s*(async\s*)?(\(\s*)?_?ctx\b/.test(fnStr)
-
-    if (isLegacyCtxFirst) {
-      return (tool.execute as any)(c, inp)
-    }
-    return (tool.execute as any)(inp, c)
-  }
+  const runner = (inp: TInput, c: ToolContext): Promise<TOutput> =>
+    invokeToolHandler(tool.execute, inp, c)
 
   const composed = composeToolMiddleware(middleware, runner)
   return await composed(input, ctx)

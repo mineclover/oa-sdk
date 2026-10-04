@@ -113,8 +113,11 @@ $ my-cli drive upload my-file.txt
 
 ### `createMcpServer(tools, options)`
 - `tools: ToolDefinition[]`: Registered tools.
-- `options: McpServerOptions`: Server name, version, host, port.
+- `options: McpServerOptions`: Server name, version, host, port, optional `authToken`, `allowedOrigins`, and `maxBodyBytes`.
 - Returns `McpServerInstance` with `.runStdio()` and `.serveHttp()`.
+
+HTTP와 MCP 요청은 설정된 Bearer token/origin 정책과 bounded JSON reader를 공유합니다. 입력은
+`additionalProperties`, enum, integer, nested object/array까지 protocol boundary에서 검증됩니다.
 
 ### `createCli(tools, options)`
 - `tools: ToolDefinition[]`: Registered tools.

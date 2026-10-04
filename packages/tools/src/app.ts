@@ -84,16 +84,26 @@ export class ToolApp {
   /**
    * Start MCP server on HTTP transport (for local testing & inspector)
    */
-  async serveMcp(options?: { port?: number; hostname?: string }): Promise<void> {
-    const mcp = this.buildMcp()
-    await mcp.serveHttp(options)
+  async serveMcp(
+    options?: Partial<McpServerOptions>,
+  ): Promise<Awaited<ReturnType<McpServerInstance['serveHttp']>>> {
+    const mcp = this.buildMcp(options)
+    return mcp.serveHttp(options)
   }
 
   /**
    * Mount MCP 2026-07-28 stateless route on a Hono application
    */
-  mountMcpRoute(app: Hono, path = '/mcp'): this {
-    const mcp = this.buildMcp()
+  mountMcpRoute(app: Hono, options?: Partial<McpServerOptions>): this
+  mountMcpRoute(app: Hono, path?: string, options?: Partial<McpServerOptions>): this
+  mountMcpRoute(
+    app: Hono,
+    pathOrOptions: string | Partial<McpServerOptions> = '/mcp',
+    options?: Partial<McpServerOptions>,
+  ): this {
+    const path = typeof pathOrOptions === 'string' ? pathOrOptions : '/mcp'
+    const mcpOptions = typeof pathOrOptions === 'string' ? options : pathOrOptions
+    const mcp = this.buildMcp(mcpOptions)
     app.post(path, async (c) => {
       return mcp.handleFetch(c.req.raw)
     })

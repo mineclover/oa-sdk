@@ -17,7 +17,7 @@ import {
   ListToolsRequestSchema,
   isInitializeRequest,
 } from '@modelcontextprotocol/sdk/types.js'
-import { createServer, type IncomingMessage, type ServerResponse } from 'node:http'
+import { createServer, type IncomingMessage, type ServerResponse, type Server as NodeHttpServer } from 'node:http'
 import { randomUUID } from 'node:crypto'
 import { createToolContext, executeTool } from './context.js'
 import { normalizeJsonSchema, validateToolInput } from './schema.js'
@@ -27,6 +27,13 @@ import {
   type CallToolResult,
   type ToolDefinition,
 } from './types.js'
+import {
+  authorizeToolHttpRequest,
+  readToolJsonRequest,
+  readToolNodeJsonRequest,
+  ToolHttpError,
+  validateToolHttpOptions,
+} from './http-boundary.js'
 
 export interface McpServerOptions {
   name: string
@@ -34,6 +41,14 @@ export interface McpServerOptions {
   description?: string | undefined
   port?: number | undefined
   hostname?: string | undefined
+  /** Optional bearer token required for HTTP MCP requests. */
+  authToken?: string | undefined
+  /** Maximum JSON request size in bytes (default: 1 MiB). */
+  maxBodyBytes?: number | undefined
+  /** Origins allowed to access HTTP MCP requests. */
+  allowedOrigins?: string[] | undefined
+  /** Keep the standalone health endpoint unauthenticated (default: true). */
+  publicHealth?: boolean | undefined
 }
 
 export interface JsonRpcRequest {
@@ -67,7 +82,7 @@ export interface McpServerInstance {
   server: Server
   dispatcher: StatelessMcpDispatcher
   runStdio(): Promise<void>
-  serveHttp(options?: { port?: number; hostname?: string }): Promise<void>
+  serveHttp(options?: Partial<McpServerOptions>): Promise<NodeHttpServer>
   getTools(): Array<{
     name: string
     description: string
@@ -104,6 +119,19 @@ function getHeaderValue(
 }
 
 /**
+ * Do not reflect arbitrary exception text through MCP. The request ID gives
+ * operators a correlation key while keeping stack traces, credentials, and
+ * upstream response bodies out of the protocol response.
+ */
+function safeExecutionError(requestId: string): string {
+  return `Tool execution failed (requestId: ${requestId})`
+}
+
+function httpBoundaryMessage(error: unknown): string {
+  return error instanceof ToolHttpError ? error.message : 'Internal Server Error'
+}
+
+/**
  * Create a pure Stateless MCP 2026-07-28 Dispatcher
  */
 export function createStatelessMcpDispatcher(
@@ -112,6 +140,7 @@ export function createStatelessMcpDispatcher(
 ): StatelessMcpDispatcher {
   const serverName = options.name
   const serverVersion = options.version ?? '1.0.0'
+  const maxBodyBytes = validateToolHttpOptions(options)
 
   const formatToolList = () => {
     return Array.from(toolMap.entries()).map(([name, tool]) => {
@@ -138,6 +167,24 @@ export function createStatelessMcpDispatcher(
     const responseHeaders: Record<string, string> = {
       'Content-Type': 'application/json',
       [McpHeaders.PROTOCOL_VERSION]: MCP_PROTOCOL_VERSION_2026_07_28,
+    }
+
+    try {
+      authorizeToolHttpRequest(headers, options)
+    } catch (error) {
+      const status = error instanceof ToolHttpError ? error.status : 500
+      return {
+        status,
+        headers: responseHeaders,
+        response: {
+          jsonrpc: '2.0',
+          id: body?.id ?? null,
+          error: {
+            code: status === 401 ? -32001 : -32003,
+            message: httpBoundaryMessage(error),
+          },
+        },
+      }
     }
 
     if (!body || typeof body !== 'object' || body.jsonrpc !== '2.0' || typeof body.method !== 'string') {
@@ -316,7 +363,6 @@ export function createStatelessMcpDispatcher(
             },
           }
         } catch (error) {
-          const message = error instanceof Error ? error.message : String(error)
           return {
             status: 200,
             headers: responseHeaders,
@@ -324,7 +370,7 @@ export function createStatelessMcpDispatcher(
               jsonrpc: '2.0',
               id: reqId,
               result: {
-                content: [{ type: 'text', text: `Execution failed: ${message}` }],
+                content: [{ type: 'text', text: safeExecutionError(ctx.requestId) }],
                 isError: true,
                 status: 'error',
               },
@@ -411,16 +457,15 @@ export function createStatelessMcpDispatcher(
   }
 
   const handleNodeRequest = async (req: IncomingMessage, res: ServerResponse) => {
-    let bodyText = ''
-    for await (const chunk of req) {
-      bodyText += chunk
-    }
-
     let parsedBody: any
     try {
-      parsedBody = bodyText ? JSON.parse(bodyText) : undefined
-    } catch {
-      res.writeHead(400, {
+      authorizeToolHttpRequest(req.headers, options)
+      parsedBody = await readToolNodeJsonRequest(req, maxBodyBytes)
+    } catch (error) {
+      const boundary = error instanceof ToolHttpError ? error : undefined
+      const status = boundary?.status ?? 400
+      req.resume()
+      res.writeHead(status, {
         'Content-Type': 'application/json',
         [McpHeaders.PROTOCOL_VERSION]: MCP_PROTOCOL_VERSION_2026_07_28,
       })
@@ -428,7 +473,10 @@ export function createStatelessMcpDispatcher(
         JSON.stringify({
           jsonrpc: '2.0',
           id: null,
-          error: { code: -32700, message: 'Parse error: Invalid JSON' },
+          error: {
+            code: status === 413 ? -32000 : status === 401 ? -32001 : -32700,
+            message: boundary?.message ?? 'Parse error: Invalid JSON',
+          },
         }),
       )
       return
@@ -442,16 +490,22 @@ export function createStatelessMcpDispatcher(
   const handleFetchRequest = async (req: Request): Promise<Response> => {
     let body: any
     try {
-      body = await req.json()
-    } catch {
+      authorizeToolHttpRequest(req.headers, options)
+      body = await readToolJsonRequest(req, maxBodyBytes)
+    } catch (error) {
+      const boundary = error instanceof ToolHttpError ? error : undefined
+      const status = boundary?.status ?? 400
       return new Response(
         JSON.stringify({
           jsonrpc: '2.0',
           id: null,
-          error: { code: -32700, message: 'Parse error: Invalid JSON' },
+          error: {
+            code: status === 413 ? -32000 : status === 401 ? -32001 : -32700,
+            message: boundary?.message ?? 'Parse error: Invalid JSON',
+          },
         }),
         {
-          status: 400,
+          status,
           headers: {
             'Content-Type': 'application/json',
             [McpHeaders.PROTOCOL_VERSION]: MCP_PROTOCOL_VERSION_2026_07_28,
@@ -492,6 +546,7 @@ export function createMcpServer(
   }
 
   const dispatcher = createStatelessMcpDispatcher(toolMap, options)
+  const maxBodyBytes = validateToolHttpOptions(options)
 
   function instantiateServer(): Server {
     const server = new Server(
@@ -608,9 +663,8 @@ export function createMcpServer(
           status: 'success',
         }
       } catch (error) {
-        const message = error instanceof Error ? error.message : String(error)
         return {
-          content: [{ type: 'text', text: `Execution failed: ${message}` }],
+          content: [{ type: 'text', text: safeExecutionError(ctx.requestId) }],
           isError: true,
           status: 'error',
         }
@@ -673,14 +727,29 @@ export function createMcpServer(
     serveHttp: async (opts = {}) => {
       const port = opts.port ?? options.port ?? 3001
       const hostname = opts.hostname ?? options.hostname ?? '0.0.0.0'
+      const serveOptions: McpServerOptions = { ...options, ...opts, name: options.name }
+      const serveMaxBodyBytes = validateToolHttpOptions(serveOptions)
+      const serveDispatcher = createStatelessMcpDispatcher(toolMap, serveOptions)
 
       const legacyTransports = new Map<string, StreamableHTTPServerTransport>()
 
       const httpServer = createServer(async (req: IncomingMessage, res: ServerResponse) => {
         const url = req.url ?? '/'
 
-        // Health check
+        // Health is public by default for liveness probes, but that policy is
+        // explicit and still honors an origin allow-list when configured.
         if (url === '/health') {
+          try {
+            authorizeToolHttpRequest(
+              req.headers,
+              serveOptions.publicHealth !== false ? { ...serveOptions, authToken: undefined } : serveOptions,
+            )
+          } catch (error) {
+            const status = error instanceof ToolHttpError ? error.status : 500
+            res.writeHead(status, { 'Content-Type': 'application/json' })
+            res.end(JSON.stringify({ error: httpBoundaryMessage(error) }))
+            return
+          }
           res.writeHead(200, { 'Content-Type': 'application/json' })
           res.end(
             JSON.stringify({
@@ -701,22 +770,44 @@ export function createMcpServer(
           if (req.method === 'POST') {
             // Check if client explicitly asks for legacy stateful session
             if (sessionId && legacyTransports.has(sessionId)) {
-              const transport = legacyTransports.get(sessionId)!
-              let body = ''
-              for await (const chunk of req) {
-                body += chunk
+              try {
+                authorizeToolHttpRequest(req.headers, serveOptions)
+              } catch (error) {
+                const status = error instanceof ToolHttpError ? error.status : 500
+                req.resume()
+                res.writeHead(status, { 'Content-Type': 'application/json' })
+                res.end(JSON.stringify({ error: httpBoundaryMessage(error) }))
+                return
               }
-              const parsedBody = body ? JSON.parse(body) : undefined
+              const transport = legacyTransports.get(sessionId)!
+              let parsedBody: unknown
+              try {
+                parsedBody = await readToolNodeJsonRequest(req, serveMaxBodyBytes)
+              } catch (error) {
+                const status = error instanceof ToolHttpError ? error.status : 400
+                req.resume()
+                res.writeHead(status, { 'Content-Type': 'application/json' })
+                res.end(JSON.stringify({ error: httpBoundaryMessage(error) }))
+                return
+              }
               await transport.handleRequest(req, res, parsedBody)
               return
             }
 
             // Otherwise, handle as MCP 2026-07-28 Stateless HTTP request
-            await dispatcher.handleNodeRequest(req, res)
+            await serveDispatcher.handleNodeRequest(req, res)
             return
           }
 
           if (req.method === 'GET' && sessionId && legacyTransports.has(sessionId)) {
+            try {
+              authorizeToolHttpRequest(req.headers, serveOptions)
+            } catch (error) {
+              const status = error instanceof ToolHttpError ? error.status : 500
+              res.writeHead(status, { 'Content-Type': 'application/json' })
+              res.end(JSON.stringify({ error: httpBoundaryMessage(error) }))
+              return
+            }
             const transport = legacyTransports.get(sessionId)!
             await transport.handleRequest(req, res)
             return
@@ -727,12 +818,12 @@ export function createMcpServer(
         res.end(JSON.stringify({ error: 'Not Found' }))
       })
 
-      return new Promise((resolve) => {
+      return new Promise<NodeHttpServer>((resolve) => {
         httpServer.listen(port, hostname, () => {
           console.error(
             `[MCP] ${serverName} Stateless HTTP (MCP 2026-07-28) server running on http://${hostname}:${port}/mcp`,
           )
-          resolve()
+          resolve(httpServer)
         })
       })
     },

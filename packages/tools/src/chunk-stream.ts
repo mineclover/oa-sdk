@@ -6,10 +6,6 @@ import type {
   StoryboardDocument,
   ChunkPlaybackBridge,
 } from "@oa-sdk/chunk-stream-ui";
-import {
-  storyboardToChunkStream,
-  createStoryboardChunkPlaybackBridge,
-} from "@oa-sdk/chunk-stream-ui";
 
 export interface ChunkStreamToolsOptions {
   readonly getDocument?: (() => StoryboardDocument | Promise<StoryboardDocument>) | undefined;
@@ -30,6 +26,7 @@ export function createChunkStreamTools(options: ChunkStreamToolsOptions): ToolDe
     }
     if (options.getDocument) {
       const doc = await options.getDocument();
+      const { storyboardToChunkStream } = await import("@oa-sdk/chunk-stream-ui");
       return storyboardToChunkStream(doc, { fps: fps ?? options.defaultFps ?? 30 });
     }
     throw new Error("E_NO_STREAM_SOURCE: Either streamPackage or getDocument must be provided.");
@@ -74,6 +71,7 @@ export function createChunkStreamTools(options: ChunkStreamToolsOptions): ToolDe
       }
       if (options.getDocument) {
         const doc = await options.getDocument();
+        const { createStoryboardChunkPlaybackBridge } = await import("@oa-sdk/chunk-stream-ui");
         const { bridge } = createStoryboardChunkPlaybackBridge(doc, { fps: input.fps ?? options.defaultFps ?? 30 });
         const res = await bridge.seek(frameNum);
         bridge.close();

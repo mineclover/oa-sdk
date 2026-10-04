@@ -7,6 +7,8 @@ import {
   executeTool,
   normalizeJsonSchema,
   validateToolInput,
+  adaptInputFirstHandler,
+  invokeToolHandler,
 } from '../src/index.js'
 
 describe('@oa-sdk/tools — Universal Tool Engine', () => {
@@ -72,6 +74,19 @@ describe('@oa-sdk/tools — Universal Tool Engine', () => {
   })
 
   describe('2. Tool Definition & Execution', () => {
+    it('uses the same context-first contract regardless of parameter names or binding', async () => {
+      const context = createToolContext({ requestId: 'request-42' })
+      const handler = async (context: typeof context, input: { value: string }) => ({ requestId: context.requestId, value: input.value })
+      const renamed = async (a: typeof context, b: { value: string }) => handler(a, b)
+      for (const execute of [handler, renamed, handler.bind(null)]) {
+        const tool = defineTool({ name: 'contract', description: 'contract', inputSchema: z.object({ value: z.string() }), execute })
+        expect(await executeTool(tool, { value: 'ok' }, context)).toEqual({ requestId: 'request-42', value: 'ok' })
+        expect(await invokeToolHandler(execute, { value: 'ok' }, context)).toEqual({ requestId: 'request-42', value: 'ok' })
+      }
+      const legacy = adaptInputFirstHandler(async (input: { value: string }, ctx) => ({ requestId: ctx.requestId, value: input.value }))
+      expect(await invokeToolHandler(legacy, { value: 'ok' }, context)).toEqual({ requestId: 'request-42', value: 'ok' })
+    })
+
     it('executes tool with (ctx, input) signature', async () => {
       const tool = defineTool({
         name: 'test_calc',

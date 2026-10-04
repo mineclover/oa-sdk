@@ -2,7 +2,7 @@ import { createServer, type Server } from 'node:http'
 import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { WebMcpPeerBridgeClient, createWebMcpPeerApp } from '../src/index.js'
 
 describe('@oa-sdk/tools — WebMCP Peer Bridge', () => {
@@ -44,6 +44,8 @@ describe('@oa-sdk/tools — WebMCP Peer Bridge', () => {
       await new Promise<void>((resolve) => mockServer.close(() => resolve()))
     }
     await rm(tempDir, { recursive: true, force: true }).catch(() => {})
+    vi.unstubAllGlobals()
+    vi.restoreAllMocks()
   })
 
   it('resolves peer record from peer store file', async () => {
@@ -60,15 +62,17 @@ describe('@oa-sdk/tools — WebMCP Peer Bridge', () => {
 
   it('buffers and retries during simulated browser refresh (503 -> 200)', async () => {
     let callAttempts = 0
+    let authorization: string | undefined
 
     mockServer = createServer((req, res) => {
       const url = new URL(req.url ?? '/', `http://127.0.0.1:${serverPort}`)
       if (url.pathname === '/call' && req.method === 'POST') {
         callAttempts++
+        authorization = req.headers.authorization
         if (callAttempts === 1) {
           // Simulate browser F5 refreshing (not ready yet)
           res.writeHead(503, { 'Content-Type': 'application/json' })
-          res.end(JSON.stringify({ error: 'PEER_REFRESHING', message: 'Browser tab reconnecting...' }))
+          res.end(JSON.stringify({ error: 'PEER_UNAVAILABLE: reconnecting', message: 'Browser tab reconnecting...' }))
           return
         }
         // Second attempt: browser reconnected!
@@ -94,11 +98,69 @@ describe('@oa-sdk/tools — WebMCP Peer Bridge', () => {
       alias: 'wireframe-test',
       storePath,
       refreshRetryMs: 2000,
+      authToken: 'bridge-secret',
     })
 
     const result = await client.callTool('storyboard_context_get')
     expect(callAttempts).toBe(2)
+    expect(authorization).toBe('Bearer bridge-secret')
     expect(result).toEqual({ frameCount: 3 })
+  })
+
+  it('does not retry a 404 response', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ error: 'Not found' }), { status: 404 }))
+    vi.stubGlobal('fetch', fetchMock)
+    const client = new WebMcpPeerBridgeClient({
+      serverUrl: 'http://127.0.0.1:8787',
+      alias: 'wireframe-test',
+      refreshRetryMs: 100,
+    })
+
+    await expect(client.callTool('storyboard_context_get')).rejects.toThrow('Not found')
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not retry an unrelated 503 response', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ error: 'PEER_REFRESHING', message: 'Browser tab reconnecting...' }), { status: 503 }),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+    const client = new WebMcpPeerBridgeClient({
+      serverUrl: 'http://127.0.0.1:8787',
+      alias: 'wireframe-test',
+      refreshRetryMs: 100,
+    })
+
+    await expect(client.callTool('storyboard_context_get')).rejects.toThrow('PEER_REFRESHING')
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not retry a network error', async () => {
+    const fetchMock = vi.fn().mockRejectedValue(new TypeError('fetch failed'))
+    vi.stubGlobal('fetch', fetchMock)
+    const client = new WebMcpPeerBridgeClient({
+      serverUrl: 'http://127.0.0.1:8787',
+      alias: 'wireframe-test',
+      refreshRetryMs: 100,
+    })
+
+    await expect(client.callTool('storyboard_context_get')).rejects.toThrow('fetch failed')
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not retry a request timeout', async () => {
+    const timeoutError = Object.assign(new Error('timed out'), { name: 'TimeoutError' })
+    const fetchMock = vi.fn().mockRejectedValue(timeoutError)
+    vi.stubGlobal('fetch', fetchMock)
+    const client = new WebMcpPeerBridgeClient({
+      serverUrl: 'http://127.0.0.1:8787',
+      alias: 'wireframe-test',
+      timeoutMs: 25,
+      refreshRetryMs: 100,
+    })
+
+    await expect(client.callTool('storyboard_context_get')).rejects.toThrow('Tool call timeout after 25ms')
+    expect(fetchMock).toHaveBeenCalledTimes(1)
   })
 
   it('creates ToolApp with meta-tools and registered peer tools', async () => {
