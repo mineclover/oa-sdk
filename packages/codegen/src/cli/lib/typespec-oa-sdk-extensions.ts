@@ -1,4 +1,4 @@
-import type { OasDocument, OasOperation } from '@oa-sdk/parser'
+import { escapeJsonPointerToken, formatJsonPointer, type OasDocument, type OasOperation } from '@oa-sdk/parser'
 import type {
   TypeSpecOpenApiExtensionSchemaVersion,
 } from './typespec-extension-schema-version.js'
@@ -96,7 +96,7 @@ function collectInfoEntry(document: OasDocument): TypeSpecCompatibilitySidecarEn
     : document.info.version
   return {
     kind: 'root-info',
-    pointer: `#/${escapeJsonPointer(INFO_EXTENSION)}`,
+    pointer: `#/${escapeJsonPointerToken(INFO_EXTENSION)}`,
     target: {
       pointer: '#/info',
     },
@@ -126,7 +126,7 @@ function collectNamedComponentEntries(
   for (const { name, value: componentValue, pointerPart } of readNamedComponentItems(value)) {
     entries.push({
       kind,
-      pointer: `#/${escapeJsonPointer(COMPONENTS_EXTENSION)}/${section}/${pointerPart}`,
+      pointer: `#/${escapeJsonPointerToken(COMPONENTS_EXTENSION)}/${section}/${pointerPart}`,
       target: { name },
       value: denormalizeOpenApiExtensionValue(componentValue),
     } as TypeSpecCompatibilitySidecarEntry)
@@ -151,7 +151,7 @@ function readNamedComponentItems(value: unknown): Array<{ name: string; value: u
     return [{
       name,
       value: item,
-      pointerPart: escapeJsonPointer(name),
+      pointerPart: escapeJsonPointerToken(name),
     }]
   })
 }
@@ -161,7 +161,7 @@ function collectSecuritySchemeEntries(document: OasDocument): TypeSpecCompatibil
   if (!isRecord(extension)) return []
   return Object.entries(extension).map(([name, value]) => ({
     kind: 'security-scheme',
-    pointer: `#/${escapeJsonPointer(SECURITY_SCHEMES_EXTENSION)}/${escapeJsonPointer(name)}`,
+    pointer: `#/${escapeJsonPointerToken(SECURITY_SCHEMES_EXTENSION)}/${escapeJsonPointerToken(name)}`,
     target: { name },
     value: normalizeSecurityScheme(value),
   }))
@@ -180,7 +180,7 @@ function collectOperationSecurityEntries(document: OasDocument): TypeSpecCompati
       if (!value) continue
       entries.push({
         kind: 'operation-security',
-        pointer: `#/paths/${escapeJsonPointer(path)}/${method}/${escapeJsonPointer(OPERATION_SECURITY_EXTENSION)}`,
+        pointer: `#/paths/${escapeJsonPointerToken(path)}/${method}/${escapeJsonPointerToken(OPERATION_SECURITY_EXTENSION)}`,
         target: {
           path,
           method,
@@ -247,7 +247,7 @@ function collectOperationParameterRefEntries(
     if (!item.ref.startsWith('#/components/parameters/')) continue
     entries.push({
       kind: 'operation-parameter-ref',
-      pointer: `#/paths/${escapeJsonPointer(path)}/${method}/${escapeJsonPointer(OPERATION_COMPONENT_REFS_EXTENSION)}/parameters/${index}`,
+      pointer: `#/paths/${escapeJsonPointerToken(path)}/${method}/${escapeJsonPointerToken(OPERATION_COMPONENT_REFS_EXTENSION)}/parameters/${index}`,
       target: {
         path,
         method,
@@ -273,7 +273,7 @@ function collectOperationResponseRefEntries(
     if (!item.ref.startsWith('#/components/responses/')) continue
     entries.push({
       kind: 'operation-response-ref',
-      pointer: `#/paths/${escapeJsonPointer(path)}/${method}/${escapeJsonPointer(OPERATION_COMPONENT_REFS_EXTENSION)}/responses/${index}`,
+      pointer: `#/paths/${escapeJsonPointerToken(path)}/${method}/${escapeJsonPointerToken(OPERATION_COMPONENT_REFS_EXTENSION)}/responses/${index}`,
       target: {
         path,
         method,
@@ -308,7 +308,7 @@ function collectParameterExampleEntries(value: unknown, path: string, method: Ht
     if (!examples) continue
     entries.push({
       kind: 'parameter-examples',
-      pointer: `#/paths/${escapeJsonPointer(path)}/${method}/${escapeJsonPointer(OPERATION_EXAMPLES_EXTENSION)}/parameters/${escapeJsonPointer(fallbackName)}`,
+      pointer: `#/paths/${escapeJsonPointerToken(path)}/${method}/${escapeJsonPointerToken(OPERATION_EXAMPLES_EXTENSION)}/parameters/${escapeJsonPointerToken(fallbackName)}`,
       target: {
         path,
         method,
@@ -387,10 +387,7 @@ function visitRecords(value: unknown, visitor: (record: Record<string, unknown>,
 }
 
 function operationExamplesPointer(path: string, method: HttpMethod, section: string, pointerParts: string[]): string {
-  const suffix = pointerParts.length > 0
-    ? `/${pointerParts.map(escapeJsonPointer).join('/')}`
-    : ''
-  return `#/paths/${escapeJsonPointer(path)}/${method}/${escapeJsonPointer(OPERATION_EXAMPLES_EXTENSION)}/${section}${suffix}`
+  return `#/paths/${escapeJsonPointerToken(path)}/${method}/${escapeJsonPointerToken(OPERATION_EXAMPLES_EXTENSION)}/${section}${formatJsonPointer(pointerParts)}`
 }
 
 function normalizeSecurityScheme(value: unknown): unknown {
@@ -458,8 +455,4 @@ function cloneJson<T>(value: T): T {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
-}
-
-function escapeJsonPointer(value: string): string {
-  return value.replace(/~/g, '~0').replace(/\//g, '~1')
 }

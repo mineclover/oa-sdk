@@ -1,5 +1,5 @@
 import { toTypeScriptIdentifier } from '@oa-sdk/core/browser'
-import type { OasSchema } from '@oa-sdk/parser/browser'
+import { escapeJsonPointerToken, unescapeJsonPointerToken, type OasSchema } from '@oa-sdk/parser/browser'
 import { compareTypegenKeys } from './stable-order.js'
 
 const TYPESCRIPT_KEYWORDS = new Set([
@@ -49,7 +49,7 @@ export function createComponentTypeNameMap(componentNames: Iterable<string>): Co
     const typeName = uniqueTypeName(baseName, typeNames)
     byComponentName.set(componentName, typeName)
     typeNames.add(typeName)
-    const pointerSegment = encodeJsonPointerSegment(componentName)
+    const pointerSegment = escapeJsonPointerToken(componentName)
     refNameOverrides[`#/components/schemas/${pointerSegment}`] = typeName
     // RFC 3986 fragment encoding is also accepted by OpenAPI tooling. Keep it
     // as an alias so a space/non-ASCII component key resolves identically.
@@ -99,7 +99,7 @@ export function createLocalNestedSchemaAliasMap(
 export function typeNameFromRef(ref: string): string {
   const rawName = ref.split('/').at(-1)
   if (!rawName) return 'unknown'
-  return toTypeScriptIdentifier(decodeJsonPointerSegment(decodeUriSegment(rawName)))
+  return toTypeScriptIdentifier(unescapeJsonPointerToken(decodeUriSegment(rawName)))
 }
 
 function isSafeTypeScriptIdentifier(value: string): boolean {
@@ -158,21 +158,7 @@ function nestedAliasBase(ref: string, componentTypeNames: ComponentTypeNameMap):
 
 function localPointerSegments(ref: string): string[] {
   if (!ref.startsWith('#/')) return []
-  return ref.slice(2).split('/').map(segment => {
-    try {
-      return decodeJsonPointerSegment(decodeURIComponent(segment))
-    } catch {
-      return decodeJsonPointerSegment(segment)
-    }
-  })
-}
-
-function encodeJsonPointerSegment(value: string): string {
-  return value.replace(/~/g, '~0').replace(/\//g, '~1')
-}
-
-function decodeJsonPointerSegment(value: string): string {
-  return value.replace(/~1/g, '/').replace(/~0/g, '~')
+  return ref.slice(2).split('/').map(segment => unescapeJsonPointerToken(decodeUriSegment(segment)))
 }
 
 function decodeUriSegment(value: string): string {

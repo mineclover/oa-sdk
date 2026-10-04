@@ -1,3 +1,5 @@
+import { unescapeJsonPointerToken } from '@oa-sdk/parser'
+
 export type HttpMethod = 'get' | 'post' | 'put' | 'patch' | 'delete' | 'head' | 'options' | 'trace'
 
 const HTTP_METHODS: HttpMethod[] = ['get', 'post', 'put', 'patch', 'delete', 'head', 'options', 'trace']
@@ -821,7 +823,7 @@ function resolveRef(ref: string, document: Record<string, unknown>): unknown {
 function resolveJsonPointer(document: unknown, pointer: string): unknown {
   let current = document
   for (const rawPart of pointer.replace(/^\//, '').split('/')) {
-    const part = rawPart.replace(/~1/g, '/').replace(/~0/g, '~')
+    const part = unescapeJsonPointerToken(rawPart)
     if (!isRecord(current)) return undefined
     current = current[part]
   }

@@ -1,6 +1,7 @@
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { stringify as stringifyYaml } from 'yaml'
+import { escapeJsonPointerToken } from '@oa-sdk/parser'
 
 export type OpenApiCollectProfile = 'generic' | 'nestjs-swagger' | 'fastapi'
 
@@ -156,7 +157,7 @@ function upgradeRecordOfCallbacks(
     if (!isRecord(callback) || isReference(callback)) continue
     for (const [expression, pathItem] of Object.entries(callback)) {
       if (!isRecord(pathItem) || isReference(pathItem)) continue
-      upgradePathItem(pathItem, `${pointer}/${escapeJsonPointer(name)}/${escapeJsonPointer(expression)}`, warnings, conversions)
+      upgradePathItem(pathItem, `${pointer}/${escapeJsonPointerToken(name)}/${escapeJsonPointerToken(expression)}`, warnings, conversions)
     }
   }
 }
@@ -171,7 +172,7 @@ function upgradeRecordOfSchemas(
   const map = readRecord(parent[key])
   for (const [name, schema] of Object.entries(map)) {
     if (!isRecord(schema)) continue
-    map[name] = upgradeSchemaObject(schema, `${pointer}/${escapeJsonPointer(name)}`, warnings, conversions)
+    map[name] = upgradeSchemaObject(schema, `${pointer}/${escapeJsonPointerToken(name)}`, warnings, conversions)
   }
   if (Object.keys(map).length > 0) parent[key] = map
 }
@@ -186,7 +187,7 @@ function upgradeRecordOfHeaders(
   const map = readRecord(parent[key])
   for (const [name, header] of Object.entries(map)) {
     if (!isRecord(header) || isReference(header)) continue
-    upgradeParameterLike(header, `${pointer}/${escapeJsonPointer(name)}`, warnings, conversions)
+    upgradeParameterLike(header, `${pointer}/${escapeJsonPointerToken(name)}`, warnings, conversions)
   }
 }
 
@@ -200,7 +201,7 @@ function upgradeRecordOfParameters(
   const map = readRecord(parent[key])
   for (const [name, parameter] of Object.entries(map)) {
     if (!isRecord(parameter) || isReference(parameter)) continue
-    upgradeParameterLike(parameter, `${pointer}/${escapeJsonPointer(name)}`, warnings, conversions)
+    upgradeParameterLike(parameter, `${pointer}/${escapeJsonPointerToken(name)}`, warnings, conversions)
   }
 }
 
@@ -214,7 +215,7 @@ function upgradeRecordOfRequestBodies(
   const map = readRecord(parent[key])
   for (const [name, requestBody] of Object.entries(map)) {
     if (!isRecord(requestBody) || isReference(requestBody)) continue
-    upgradeRequestBody(requestBody, `${pointer}/${escapeJsonPointer(name)}`, warnings, conversions)
+    upgradeRequestBody(requestBody, `${pointer}/${escapeJsonPointerToken(name)}`, warnings, conversions)
   }
 }
 
@@ -228,7 +229,7 @@ function upgradeRecordOfResponses(
   const map = readRecord(parent[key])
   for (const [name, response] of Object.entries(map)) {
     if (!isRecord(response) || isReference(response)) continue
-    upgradeResponse(response, `${pointer}/${escapeJsonPointer(name)}`, warnings, conversions)
+    upgradeResponse(response, `${pointer}/${escapeJsonPointerToken(name)}`, warnings, conversions)
   }
 }
 
@@ -242,7 +243,7 @@ function upgradeRecordOfPathItems(
   const map = readRecord(parent[key])
   for (const [name, item] of Object.entries(map)) {
     if (!isRecord(item) || isReference(item)) continue
-    upgradePathItem(item, `${pointer}/${escapeJsonPointer(name)}`, warnings, conversions)
+    upgradePathItem(item, `${pointer}/${escapeJsonPointerToken(name)}`, warnings, conversions)
   }
 }
 
@@ -274,7 +275,7 @@ function upgradeOperation(
   const responses = readRecord(operation.responses)
   for (const [code, response] of Object.entries(responses)) {
     if (!isRecord(response) || isReference(response)) continue
-    upgradeResponse(response, `${pointer}/responses/${escapeJsonPointer(code)}`, warnings, conversions)
+    upgradeResponse(response, `${pointer}/responses/${escapeJsonPointerToken(code)}`, warnings, conversions)
   }
   upgradeRecordOfCallbacks(operation, 'callbacks', `${pointer}/callbacks`, warnings, conversions)
 }
@@ -323,7 +324,7 @@ function upgradeResponse(
   const headers = readRecord(response.headers)
   for (const [name, header] of Object.entries(headers)) {
     if (!isRecord(header) || isReference(header)) continue
-    upgradeParameterLike(header, `${pointer}/headers/${escapeJsonPointer(name)}`, warnings, conversions)
+    upgradeParameterLike(header, `${pointer}/headers/${escapeJsonPointerToken(name)}`, warnings, conversions)
   }
 }
 
@@ -347,7 +348,7 @@ function upgradeContentSlot(
   const content = readRecord(parent.content)
   for (const [mediaType, value] of Object.entries(content)) {
     if (!isRecord(value)) continue
-    upgradeSchemaSlot(value, `${parentPointer}/content/${escapeJsonPointer(mediaType)}`, warnings, conversions)
+    upgradeSchemaSlot(value, `${parentPointer}/content/${escapeJsonPointerToken(mediaType)}`, warnings, conversions)
   }
 }
 
@@ -364,7 +365,7 @@ function upgradeSchemaObject(
   const output: Record<string, unknown> = {}
   for (const [key, value] of Object.entries(schema)) {
     if (key === 'nullable') continue
-    output[key] = upgradeNestedSchemaValue(value, `${pointer}/${escapeJsonPointer(key)}`, warnings, conversions)
+    output[key] = upgradeNestedSchemaValue(value, `${pointer}/${escapeJsonPointerToken(key)}`, warnings, conversions)
   }
 
   if (schema.nullable === true) {
@@ -441,7 +442,7 @@ function removeCollectionNoise(
 
   const output: Record<string, unknown> = {}
   for (const [key, child] of Object.entries(value)) {
-    const childPointer = `${pointer}/${escapeJsonPointer(key)}`
+    const childPointer = `${pointer}/${escapeJsonPointerToken(key)}`
     const next = removeCollectionNoise(child, profile, childPointer, seen)
     if (shouldDropNoise(key, next, profile, childPointer)) continue
     output[key] = next
@@ -488,7 +489,7 @@ function sortOpenApiObject(
   keys.sort((left, right) => compareOpenApiKeys(pointer, left, right))
   const output: Record<string, unknown> = {}
   for (const key of keys) {
-    output[key] = sortOpenApiObject(value[key], `${pointer}/${escapeJsonPointer(key)}`, seen)
+    output[key] = sortOpenApiObject(value[key], `${pointer}/${escapeJsonPointerToken(key)}`, seen)
   }
   return output
 }
@@ -554,8 +555,4 @@ function writeText(outputPath: string, content: string): void {
   const resolved = resolve(process.cwd(), outputPath)
   mkdirSync(dirname(resolved), { recursive: true })
   writeFileSync(resolved, content, 'utf8')
-}
-
-function escapeJsonPointer(value: string): string {
-  return value.replace(/~/g, '~0').replace(/\//g, '~1')
 }

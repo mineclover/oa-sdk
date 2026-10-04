@@ -3,7 +3,7 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { dirname, relative, resolve } from 'node:path'
 import { parse, SyntaxKind } from '@typespec/compiler/ast'
-import { resolveRefGraph, type OasDocument } from '@oa-sdk/parser'
+import { escapeJsonPointerToken, resolveRefGraph, unescapeJsonPointerToken, type OasDocument } from '@oa-sdk/parser'
 import type { TypeSpecCompatibilitySidecar, TypeSpecCompatibilitySidecarEntry } from './typespec-sidecar.js'
 
 const HTTP_METHODS = new Set(['get', 'put', 'post', 'delete', 'options', 'head', 'patch', 'trace', 'query'])
@@ -117,14 +117,14 @@ export function buildTypeSpecRefProvenance(input: {
 
   const models = declarations.filter((declaration): declaration is SourceDeclaration & { kind: 'model' } => declaration.kind === 'model')
   for (const model of models) {
-    const pointer = `#/components/schemas/${escapePointer(model.symbol)}`
+    const pointer = `#/components/schemas/${escapeJsonPointerToken(model.symbol)}`
     if (!hasPointer(input.restoredDocument, pointer)) continue
     addEdge(edges, { kind: 'emits', declarationId: model.id, outputPointer: pointer })
     pointerOwners.set(pointer, model.id)
   }
   for (const model of models) {
     if (!nativeSecuritySchemeDeclarationIds.has(model.id)) continue
-    const pointer = `#/components/securitySchemes/${escapePointer(model.symbol)}`
+    const pointer = `#/components/securitySchemes/${escapeJsonPointerToken(model.symbol)}`
     if (!hasPointer(input.restoredDocument, pointer)) continue
     addEdge(edges, { kind: 'emits', declarationId: model.id, outputPointer: pointer })
     pointerOwners.set(pointer, model.id)
@@ -397,7 +397,7 @@ function findRestoreDeclarations(
   if (!extensionName) return []
   const pathMatch = /^#\/paths\/([^/]+)\/([^/]+)/.exec(entry.pointer)
   if (pathMatch) {
-    const path = unescapePointer(pathMatch[1]!)
+    const path = unescapeJsonPointerToken(pathMatch[1]!)
     const method = pathMatch[2]!
     const output = outputOperations.find(item => item.path === path && item.method === method)
     const operation = output ? operations.find(item => (item.operationId ?? item.symbol) === output.operationId) : undefined
@@ -426,7 +426,7 @@ function listOutputOperations(document: OasDocument): OutputOperation[] {
         operationId: operation.operationId,
         path,
         method,
-        pointer: `#/paths/${escapePointer(path)}/${method}`,
+        pointer: `#/paths/${escapeJsonPointerToken(path)}/${method}`,
       })
     }
   }
@@ -439,7 +439,7 @@ function listPublicPointers(document: OasDocument): string[] {
   const components = isRecord(documentRecord.components) ? documentRecord.components : {}
   for (const section of ['schemas', 'parameters', 'responses', 'securitySchemes']) {
     const entries = isRecord(components[section]) ? components[section] : {}
-    for (const name of Object.keys(entries)) pointers.push(`#/components/${section}/${escapePointer(name)}`)
+    for (const name of Object.keys(entries)) pointers.push(`#/components/${section}/${escapeJsonPointerToken(name)}`)
   }
   return pointers.sort()
 }
@@ -447,16 +447,16 @@ function listPublicPointers(document: OasDocument): string[] {
 function sidecarTargetPointer(entry: TypeSpecCompatibilitySidecarEntry): string {
   const target = entry.target as Record<string, unknown>
   if (entry.kind === 'root-info') return '#/info'
-  if (entry.kind === 'component-parameter') return `#/components/parameters/${escapePointer(String(target.name))}`
-  if (entry.kind === 'component-response') return `#/components/responses/${escapePointer(String(target.name))}`
-  if (entry.kind === 'security-scheme') return `#/components/securitySchemes/${escapePointer(String(target.name))}`
+  if (entry.kind === 'component-parameter') return `#/components/parameters/${escapeJsonPointerToken(String(target.name))}`
+  if (entry.kind === 'component-response') return `#/components/responses/${escapeJsonPointerToken(String(target.name))}`
+  if (entry.kind === 'security-scheme') return `#/components/securitySchemes/${escapeJsonPointerToken(String(target.name))}`
   const path = typeof target.path === 'string' ? target.path : ''
   const method = typeof target.method === 'string' ? target.method : undefined
-  const operationPointer = `#/paths/${escapePointer(path)}${method ? `/${method}` : ''}`
+  const operationPointer = `#/paths/${escapeJsonPointerToken(path)}${method ? `/${method}` : ''}`
   if (entry.kind === 'operation-parameter-ref') return `${operationPointer}/parameters/${String(target.index)}`
-  if (entry.kind === 'operation-response-ref') return `${operationPointer}/responses/${escapePointer(String(target.statusCode))}`
+  if (entry.kind === 'operation-response-ref') return `${operationPointer}/responses/${escapeJsonPointerToken(String(target.statusCode))}`
   if (entry.kind === 'operation-security') return `${operationPointer}/security`
-  if (entry.kind === 'request-media-examples') return `${operationPointer}/requestBody/content/${escapePointer(String(target.mediaType))}`
+  if (entry.kind === 'request-media-examples') return `${operationPointer}/requestBody/content/${escapeJsonPointerToken(String(target.mediaType))}`
   if (entry.kind === 'response-media-examples' || entry.kind === 'parameter-examples') return operationPointer
   return operationPointer
 }
@@ -477,7 +477,7 @@ function hasPointer(document: unknown, pointer: string): boolean {
   if (normalized === '') return true
   let current: unknown = document
   for (const encodedSegment of normalized.split('/')) {
-    const segment = unescapePointer(encodedSegment)
+    const segment = unescapeJsonPointerToken(encodedSegment)
     if (Array.isArray(current)) {
       const index = Number(segment)
       if (!Number.isInteger(index) || index < 0 || index >= current.length) return false
@@ -584,14 +584,6 @@ function resolvePackageVersion(packageName: string): string {
     if (parent === directory) throw new Error(`could not resolve ${packageName} package version`)
     directory = parent
   }
-}
-
-function escapePointer(value: string): string {
-  return value.replaceAll('~', '~0').replaceAll('/', '~1')
-}
-
-function unescapePointer(value: string): string {
-  return value.replaceAll('~1', '/').replaceAll('~0', '~')
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

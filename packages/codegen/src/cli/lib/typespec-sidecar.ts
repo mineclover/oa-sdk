@@ -11,6 +11,7 @@ import type {
   OasSecurityScheme,
   Referenceable,
 } from '@oa-sdk/parser'
+import { escapeJsonPointerToken, unescapeJsonPointerToken } from '@oa-sdk/parser'
 
 type RecordValue = Record<string, unknown>
 type HttpMethod = 'get' | 'put' | 'post' | 'delete' | 'options' | 'head' | 'patch' | 'trace' | 'query'
@@ -374,7 +375,7 @@ function collectSecuritySchemeEntries(document: OasDocument): TypeSpecCompatibil
     if (isReference(value)) {
       entries.push({
         kind: 'security-scheme',
-        pointer: `#/components/securitySchemes/${escapeJsonPointer(name)}`,
+        pointer: `#/components/securitySchemes/${escapeJsonPointerToken(name)}`,
         target: { name },
         value: cloneJson(value),
       })
@@ -383,7 +384,7 @@ function collectSecuritySchemeEntries(document: OasDocument): TypeSpecCompatibil
     if (isTypeSpecEmittedSecurityScheme(name, value)) continue
     entries.push({
       kind: 'security-scheme',
-      pointer: `#/components/securitySchemes/${escapeJsonPointer(name)}`,
+      pointer: `#/components/securitySchemes/${escapeJsonPointerToken(name)}`,
       target: { name },
       value: cloneJson(value),
     })
@@ -410,7 +411,7 @@ function collectComponentParameterEntries(document: OasDocument): TypeSpecCompat
     if (isReference(value)) continue
     entries.push({
       kind: 'component-parameter',
-      pointer: `#/components/parameters/${escapeJsonPointer(name)}`,
+      pointer: `#/components/parameters/${escapeJsonPointerToken(name)}`,
       target: { name },
       value: cloneJson(value),
     })
@@ -425,7 +426,7 @@ function collectComponentResponseEntries(document: OasDocument): TypeSpecCompati
     if (isReference(value)) continue
     entries.push({
       kind: 'component-response',
-      pointer: `#/components/responses/${escapeJsonPointer(name)}`,
+      pointer: `#/components/responses/${escapeJsonPointerToken(name)}`,
       target: { name },
       value: cloneJson(value),
     })
@@ -436,7 +437,7 @@ function collectComponentResponseEntries(document: OasDocument): TypeSpecCompati
 function collectPathEntries(document: OasDocument): TypeSpecCompatibilitySidecarEntry[] {
   const entries: TypeSpecCompatibilitySidecarEntry[] = []
   for (const [path, pathItemValue] of Object.entries(document.paths ?? {})) {
-    const pathPointer = `#/paths/${escapeJsonPointer(path)}`
+    const pathPointer = `#/paths/${escapeJsonPointerToken(path)}`
     const pathItem = resolveReference<OasPathItem>(document, pathItemValue, pathPointer)
     if (!pathItem) continue
 
@@ -550,7 +551,7 @@ function collectRequestExamplesEntries(
   if (!requestBody) return []
   const entries: TypeSpecCompatibilitySidecarEntry[] = []
   for (const [mediaType, mediaValue] of Object.entries(requestBody.value.content ?? {})) {
-    const mediaPointer = `${requestPointer}/content/${escapeJsonPointer(mediaType)}`
+    const mediaPointer = `${requestPointer}/content/${escapeJsonPointerToken(mediaType)}`
     const media = resolveReference<OasMediaType>(document, mediaValue, mediaPointer)
     if (!media) continue
     const value = exampleValue(media.value)
@@ -581,7 +582,7 @@ function collectResponseRefEntries(
     if (!isReference(responseValue) || !responseValue.$ref.startsWith('#/components/responses/')) continue
     entries.push({
       kind: 'operation-response-ref',
-      pointer: `${operationPointer}/responses/${escapeJsonPointer(statusCode)}`,
+      pointer: `${operationPointer}/responses/${escapeJsonPointerToken(statusCode)}`,
       target: {
         path,
         method,
@@ -604,11 +605,11 @@ function collectResponseExamplesEntries(
 ): TypeSpecCompatibilitySidecarEntry[] {
   const entries: TypeSpecCompatibilitySidecarEntry[] = []
   for (const [statusCode, responseValue] of Object.entries(operation.responses ?? {})) {
-    const responsePointer = `${operationPointer}/responses/${escapeJsonPointer(statusCode)}`
+    const responsePointer = `${operationPointer}/responses/${escapeJsonPointerToken(statusCode)}`
     const response = resolveReference<OasResponse>(document, responseValue, responsePointer)
     if (!response) continue
     for (const [mediaType, mediaValue] of Object.entries(response.value.content ?? {})) {
-      const mediaPointer = `${responsePointer}/content/${escapeJsonPointer(mediaType)}`
+      const mediaPointer = `${responsePointer}/content/${escapeJsonPointerToken(mediaType)}`
       const media = resolveReference<OasMediaType>(document, mediaValue, mediaPointer)
       if (!media) continue
       const value = exampleValue(media.value)
@@ -833,7 +834,7 @@ function resolveMutableReference<T>(document: OasDocument, value: Referenceable<
 
 function resolveLocalRef(document: OasDocument, ref: string): unknown {
   if (!ref.startsWith('#/')) return undefined
-  const parts = ref.slice(2).split('/').map(unescapeJsonPointer)
+  const parts = ref.slice(2).split('/').map(unescapeJsonPointerToken)
   let current: unknown = document
   for (const part of parts) {
     if (!isRecord(current)) return undefined
@@ -1345,12 +1346,4 @@ function hasOwn(record: RecordValue, key: string): boolean {
 
 function cloneJson<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T
-}
-
-function escapeJsonPointer(value: string): string {
-  return value.replace(/~/g, '~0').replace(/\//g, '~1')
-}
-
-function unescapeJsonPointer(value: string): string {
-  return value.replace(/~1/g, '/').replace(/~0/g, '~')
 }

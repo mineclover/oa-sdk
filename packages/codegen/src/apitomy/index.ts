@@ -8,7 +8,7 @@ import type {
   ValidateDocumentOptions,
   ValidationResult,
 } from '@oa-sdk/parser'
-import { parseDocument, validateDocument } from '@oa-sdk/parser'
+import { escapeJsonPointerToken, parseDocument, validateDocument } from '@oa-sdk/parser'
 
 export const APITOMY_DATA_MODELS_PACKAGE = '@apitomy/data-models' as const
 export const APITOMY_REFERENCE_ADAPTER_VERSION = 'oa-sdk.apitomy-reference.v1' as const
@@ -586,7 +586,7 @@ function resolveDiagnosticPath(
       const path = `/${segments.map(segment => {
         if (!segment || typeof segment !== 'object') return String(segment)
         const value = (segment as { value?: unknown }).value
-        return encodeJsonPointerToken(String(value ?? ''))
+        return escapeJsonPointerToken(String(value ?? ''))
       }).join('/')}`
       return appendProperty(path, problem.property)
     }
@@ -613,12 +613,8 @@ function normalizeSeverity(value: unknown): LintSeverity {
 
 function appendProperty(path: string, property: unknown): string {
   if (typeof property !== 'string' || property.length === 0 || path === '/') return path
-  const token = encodeJsonPointerToken(property)
+  const token = escapeJsonPointerToken(property)
   return path.endsWith(`/${token}`) ? path : `${path}/${token}`
-}
-
-function encodeJsonPointerToken(value: string): string {
-  return value.replace(/~/g, '~0').replace(/\//g, '~1')
 }
 
 function unwrapModule(value: unknown): unknown {

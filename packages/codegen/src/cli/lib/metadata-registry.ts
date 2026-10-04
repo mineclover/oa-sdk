@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs'
 import { createHash } from 'node:crypto'
 import { resolve } from 'node:path'
 import {
+  escapeJsonPointerToken,
   parseDefinitionId,
   type CanonicalDefinitionId,
   type DefinitionRegistryNode,
@@ -399,7 +400,7 @@ function addPathMetadataEntries(
 
   const pathMetadata = readMetadata(node.metadata)
   const pathReplacementIds = readReplacementIds(pathMetadata)
-  const pathPointer = `#/paths/${encodePointerToken(openApiPath)}`
+  const pathPointer = `#/paths/${escapeJsonPointerToken(openApiPath)}`
   addMetadataEntry(entries, createMetadataEntry({
     pointer: pathPointer,
     node,
@@ -442,7 +443,7 @@ function addComponentMetadataEntry(
 ): void {
   const componentSection = COMPONENT_SECTION_BY_KIND[node.kind]
   const outputName = selection.outputNameAllocation.outputNames.get(node.id) ?? node.localName
-  const pointer = `#/components/${componentSection}/${encodePointerToken(outputName)}`
+  const pointer = `#/components/${componentSection}/${escapeJsonPointerToken(outputName)}`
 
   addMetadataEntry(entries, createMetadataEntry({
     pointer,
@@ -750,7 +751,7 @@ function collectExamples(
   if (!isRecord(value)) return
 
   for (const [key, child] of Object.entries(value)) {
-    const childPointer = `${pointer}/${encodePointerToken(key)}`
+    const childPointer = `${pointer}/${escapeJsonPointerToken(key)}`
     if (key === 'example') {
       examples.push({ sourcePointer: childPointer })
       continue
@@ -759,7 +760,7 @@ function collectExamples(
     if (key === 'examples') {
       if (isRecord(child)) {
         for (const name of Object.keys(child).sort((left, right) => left.localeCompare(right))) {
-          examples.push({ sourcePointer: `${childPointer}/${encodePointerToken(name)}` })
+          examples.push({ sourcePointer: `${childPointer}/${escapeJsonPointerToken(name)}` })
         }
       } else {
         examples.push({ sourcePointer: childPointer })
@@ -927,10 +928,6 @@ function isComponentLikeNode(
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
-}
-
-function encodePointerToken(value: string): string {
-  return value.replace(/~/g, '~0').replace(/\//g, '~1')
 }
 
 function stableStringify(value: unknown): string {

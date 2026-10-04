@@ -1,4 +1,4 @@
-import type { OasSchema } from '@oa-sdk/parser/browser'
+import { appendJsonPointer, type OasSchema } from '@oa-sdk/parser/browser'
 import { schemaToTs, type SchemaToTsOptions } from './schema-to-ts.js'
 
 /** TypeScript 정적 타입이 JSON Schema 의미를 보존하는 정도. */
@@ -154,7 +154,7 @@ function visitSchema(
       code: 'typegen/one-of-exclusivity-widened',
       fidelity: 'safe-widening',
       keyword: 'oneOf',
-      pointer: childPointer(pointer, 'oneOf'),
+      pointer: appendJsonPointer(pointer, 'oneOf'),
       message: 'TypeScript union은 JSON Schema oneOf의 단일 브랜치 일치 조건을 표현하지 않습니다.',
     }))
   }
@@ -167,7 +167,7 @@ function visitSchema(
       code: hasBothBranches ? 'typegen/conditional-widened' : 'typegen/conditional-narrowed',
       fidelity: hasBothBranches ? 'safe-widening' : 'unsafe-narrowing',
       keyword: 'if',
-      pointer: childPointer(pointer, 'if'),
+      pointer: appendJsonPointer(pointer, 'if'),
       message: hasBothBranches
         ? 'TypeScript union은 if 조건과 then/else 브랜치의 상관관계를 보존하지 않습니다.'
         : '단일 conditional 브랜치 투영은 조건을 만족하지 않는 유효한 값을 제외할 수 있습니다.',
@@ -196,7 +196,7 @@ function visitSchema(
       code: 'typegen/index-signature-widened',
       fidelity: 'safe-widening',
       keyword: additionalKeyword,
-      pointer: childPointer(pointer, additionalKeyword),
+      pointer: appendJsonPointer(pointer, additionalKeyword),
       message: 'TypeScript index signature 호환성을 위해 고정 속성 타입이 추가 속성 타입에 합쳐졌습니다.',
     }))
   }
@@ -206,7 +206,7 @@ function visitSchema(
       code: 'typegen/prefix-items-narrowed',
       fidelity: 'unsafe-narrowing',
       keyword: 'prefixItems',
-      pointer: childPointer(pointer, 'prefixItems'),
+      pointer: appendJsonPointer(pointer, 'prefixItems'),
       message: 'items가 생략된 prefixItems는 추가 원소를 허용하지만 현재 TypeScript 투영은 고정 tuple입니다.',
     }))
   }
@@ -218,7 +218,7 @@ function visitSchema(
         code: 'typegen/ref-siblings-widened',
         fidelity: 'safe-widening',
         keyword: '$ref',
-        pointer: childPointer(pointer, '$ref'),
+        pointer: appendJsonPointer(pointer, '$ref'),
         message: `\$ref와 함께 선언된 제약(${semanticSiblings.sort().join(', ')})은 TypeScript 참조 이름에 반영되지 않습니다.`,
       }))
     }
@@ -231,7 +231,7 @@ function visitSchema(
         code: 'typegen/runtime-constraint',
         fidelity: 'runtime-only',
         keyword,
-        pointer: childPointer(pointer, keyword),
+        pointer: appendJsonPointer(pointer, keyword),
         message: `JSON Schema ${keyword} 제약은 생성된 TypeScript 타입이 아닌 런타임 검증에서 적용됩니다.`,
       }))
     } else if (UNSUPPORTED_KEYWORDS.has(keyword)) {
@@ -239,7 +239,7 @@ function visitSchema(
         code: 'typegen/unsupported-keyword',
         fidelity: 'unsupported',
         keyword,
-        pointer: childPointer(pointer, keyword),
+        pointer: appendJsonPointer(pointer, keyword),
         message: `JSON Schema ${keyword} 키워드는 현재 TypeScript 투영에서 지원되지 않습니다.`,
       }))
     }
@@ -257,33 +257,33 @@ function visitSchema(
       fidelity: 'unsupported',
       keyword: 'type',
       pointer: Array.isArray(schema.type)
-        ? childPointer(childPointer(pointer, 'type'), index)
-        : childPointer(pointer, 'type'),
+        ? appendJsonPointer(appendJsonPointer(pointer, 'type'), index)
+        : appendJsonPointer(pointer, 'type'),
       message: `JSON Schema type ${JSON.stringify(schemaType)}은 현재 TypeScript algebra에서 지원되지 않습니다.`,
     }))
   }
 
-  visitSchemaMap(schema.properties, childPointer(pointer, 'properties'), diagnostics, seen)
-  visitSchemaMap(schema.patternProperties, childPointer(pointer, 'patternProperties'), diagnostics, seen)
-  visitSchemaMap(schema.dependentSchemas, childPointer(pointer, 'dependentSchemas'), diagnostics, seen)
-  visitSchemaArray(schema.prefixItems, childPointer(pointer, 'prefixItems'), diagnostics, seen)
-  visitSchemaArray(schema.allOf, childPointer(pointer, 'allOf'), diagnostics, seen)
-  visitSchemaArray(schema.oneOf, childPointer(pointer, 'oneOf'), diagnostics, seen)
-  visitSchemaArray(schema.anyOf, childPointer(pointer, 'anyOf'), diagnostics, seen)
+  visitSchemaMap(schema.properties, appendJsonPointer(pointer, 'properties'), diagnostics, seen)
+  visitSchemaMap(schema.patternProperties, appendJsonPointer(pointer, 'patternProperties'), diagnostics, seen)
+  visitSchemaMap(schema.dependentSchemas, appendJsonPointer(pointer, 'dependentSchemas'), diagnostics, seen)
+  visitSchemaArray(schema.prefixItems, appendJsonPointer(pointer, 'prefixItems'), diagnostics, seen)
+  visitSchemaArray(schema.allOf, appendJsonPointer(pointer, 'allOf'), diagnostics, seen)
+  visitSchemaArray(schema.oneOf, appendJsonPointer(pointer, 'oneOf'), diagnostics, seen)
+  visitSchemaArray(schema.anyOf, appendJsonPointer(pointer, 'anyOf'), diagnostics, seen)
 
-  visitChildSchema(schema.items, childPointer(pointer, 'items'), diagnostics, seen)
-  visitChildSchema(schema.contains, childPointer(pointer, 'contains'), diagnostics, seen)
-  visitChildSchema(schema.contentSchema, childPointer(pointer, 'contentSchema'), diagnostics, seen)
-  visitChildSchema(schema.propertyNames, childPointer(pointer, 'propertyNames'), diagnostics, seen)
-  visitChildSchema(schema.not, childPointer(pointer, 'not'), diagnostics, seen)
-  visitChildSchema(schema.if, childPointer(pointer, 'if'), diagnostics, seen)
-  visitChildSchema(schema.then, childPointer(pointer, 'then'), diagnostics, seen)
-  visitChildSchema(schema.else, childPointer(pointer, 'else'), diagnostics, seen)
+  visitChildSchema(schema.items, appendJsonPointer(pointer, 'items'), diagnostics, seen)
+  visitChildSchema(schema.contains, appendJsonPointer(pointer, 'contains'), diagnostics, seen)
+  visitChildSchema(schema.contentSchema, appendJsonPointer(pointer, 'contentSchema'), diagnostics, seen)
+  visitChildSchema(schema.propertyNames, appendJsonPointer(pointer, 'propertyNames'), diagnostics, seen)
+  visitChildSchema(schema.not, appendJsonPointer(pointer, 'not'), diagnostics, seen)
+  visitChildSchema(schema.if, appendJsonPointer(pointer, 'if'), diagnostics, seen)
+  visitChildSchema(schema.then, appendJsonPointer(pointer, 'then'), diagnostics, seen)
+  visitChildSchema(schema.else, appendJsonPointer(pointer, 'else'), diagnostics, seen)
   if (additionalSchema && typeof additionalSchema === 'object') {
-    visitSchema(additionalSchema, childPointer(pointer, additionalKeyword!), diagnostics, seen)
+    visitSchema(additionalSchema, appendJsonPointer(pointer, additionalKeyword!), diagnostics, seen)
   }
   if (schema.unevaluatedItems && typeof schema.unevaluatedItems === 'object') {
-    visitSchema(schema.unevaluatedItems, childPointer(pointer, 'unevaluatedItems'), diagnostics, seen)
+    visitSchema(schema.unevaluatedItems, appendJsonPointer(pointer, 'unevaluatedItems'), diagnostics, seen)
   }
 
   seen.delete(schema)
@@ -296,7 +296,7 @@ function visitSchemaMap(
   seen: WeakSet<object>,
 ): void {
   for (const [name, schema] of Object.entries(schemas ?? {}).sort(([left], [right]) => compareText(left, right))) {
-    visitSchema(schema, childPointer(pointer, name), diagnostics, seen)
+    visitSchema(schema, appendJsonPointer(pointer, name), diagnostics, seen)
   }
 }
 
@@ -306,7 +306,7 @@ function visitSchemaArray(
   diagnostics: TypegenFidelityDiagnostic[],
   seen: WeakSet<object>,
 ): void {
-  schemas?.forEach((schema, index) => visitSchema(schema, childPointer(pointer, index), diagnostics, seen))
+  schemas?.forEach((schema, index) => visitSchema(schema, appendJsonPointer(pointer, index), diagnostics, seen))
 }
 
 function visitChildSchema(
@@ -339,11 +339,6 @@ function compareDiagnostics(left: TypegenFidelityDiagnostic, right: TypegenFidel
 
 function compareText(left: string, right: string): number {
   return left < right ? -1 : left > right ? 1 : 0
-}
-
-function childPointer(pointer: string, segment: string | number): string {
-  const escaped = String(segment).replace(/~/g, '~0').replace(/\//g, '~1')
-  return `${pointer}/${escaped}`
 }
 
 function isNeverSchema(schema: OasSchema): boolean {

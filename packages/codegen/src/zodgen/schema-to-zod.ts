@@ -19,7 +19,7 @@
  *       .describe(), .default()
  */
 
-import { foldSchema, type SchemaAlgebra, type OasSchema } from '@oa-sdk/parser'
+import { foldSchema, unescapeJsonPointerToken, type SchemaAlgebra, type OasSchema } from '@oa-sdk/parser'
 import { escapeKey, quoteTypeScriptString, toTypeScriptIdentifier, pascalCase } from '@oa-sdk/core'
 
 export interface Zod4AlgebraOptions {
@@ -535,7 +535,7 @@ function isNeverSchema(schema: unknown): boolean {
 function schemaNameFromRef(ref: string, schemaSuffix = 'Schema'): string {
   const parts = ref.split('/')
   const raw = parts[parts.length - 1] ?? 'Unknown'
-  const decoded = decodeURIComponent(raw).replace(/~1/g, '/').replace(/~0/g, '~')
+  const decoded = unescapeJsonPointerToken(decodeURIComponent(raw))
   const ident = toTypeScriptIdentifier(pascalCase(decoded))
   return `${ident}${schemaSuffix}`
 }

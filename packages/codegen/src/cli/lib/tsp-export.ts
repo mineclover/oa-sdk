@@ -10,6 +10,7 @@ import type {
   OasSchema,
   Referenceable,
 } from '@oa-sdk/parser'
+import { escapeJsonPointerToken, unescapeJsonPointerToken } from '@oa-sdk/parser'
 
 type RecordValue = Record<string, unknown>
 type HttpMethod = 'get' | 'put' | 'post' | 'delete' | 'options' | 'head' | 'patch' | 'trace' | 'query'
@@ -116,7 +117,7 @@ class TypeSpecExporter {
     const securityDeclarations = this.emitSecurityModels()
     const componentDeclarations = schemaEntries.flatMap(([schemaName, schema]) => {
       const typeName = this.componentNameBySchemaName.get(schemaName) ?? this.reserveTypeName(schemaName)
-      return this.emitNamedSchema(typeName, schema as OasSchema, `#/components/schemas/${escapeJsonPointer(schemaName)}`)
+      return this.emitNamedSchema(typeName, schema as OasSchema, `#/components/schemas/${escapeJsonPointerToken(schemaName)}`)
     })
 
     const operations = this.emitOperations()
@@ -200,7 +201,7 @@ class TypeSpecExporter {
     const lines: string[] = []
     const schemes = this.document.components?.securitySchemes ?? {}
     for (const [schemeName, scheme] of Object.entries(schemes)) {
-      const pointer = `#/components/securitySchemes/${escapeJsonPointer(schemeName)}`
+      const pointer = `#/components/securitySchemes/${escapeJsonPointerToken(schemeName)}`
       if (isReference(scheme)) {
         this.addDiagnostic('components/security-scheme-dropped', pointer, `Referenced security scheme ${schemeName} is not emitted by the current TypeSpec auth mapping.`)
         continue
@@ -279,7 +280,7 @@ class TypeSpecExporter {
     const required = new Set(Array.isArray(schema.required) ? schema.required : [])
     const properties = schema.properties ?? {}
     for (const [propertyName, propertySchema] of Object.entries(properties)) {
-      const propertyPointer = `${pointer}/properties/${escapeJsonPointer(propertyName)}`
+      const propertyPointer = `${pointer}/properties/${escapeJsonPointerToken(propertyName)}`
       const rendered = this.renderSchema(propertySchema, `${typeName}${toTypeName(propertyName)}`, propertyPointer)
       const optional = required.has(propertyName) ? '' : '?'
       const defaultValue = rendered.defaultValue ? ` = ${rendered.defaultValue}` : ''
@@ -304,14 +305,14 @@ class TypeSpecExporter {
     const paths = this.document.paths ?? {}
     for (const [path, pathItemValue] of Object.entries(paths)) {
       if (!isRecord(pathItemValue) || isReference(pathItemValue)) {
-        this.addDiagnostic('path/ref-skipped', `#/paths/${escapeJsonPointer(path)}`, 'Path item references are not expanded by tsp-export.')
+        this.addDiagnostic('path/ref-skipped', `#/paths/${escapeJsonPointerToken(path)}`, 'Path item references are not expanded by tsp-export.')
         continue
       }
       const pathItem = pathItemValue as OasPathItem
       for (const method of HTTP_METHODS) {
         const operation = pathItem[method]
         if (!operation) continue
-        const emitted = this.emitOperation(path, method, pathItem, operation, `#/paths/${escapeJsonPointer(path)}/${method}`)
+        const emitted = this.emitOperation(path, method, pathItem, operation, `#/paths/${escapeJsonPointerToken(path)}/${method}`)
         this.responseModels.push(...emitted.responseModels)
         lines.push(...emitted.lines)
       }
@@ -450,19 +451,19 @@ class TypeSpecExporter {
       return null
     }
     if (mediaType !== 'application/json') {
-      this.addDiagnostic('request-body/media-type-dropped', `${pointer}/content/${escapeJsonPointer(mediaType)}`, `Only the schema is emitted; media type ${mediaType} is not preserved.`)
+      this.addDiagnostic('request-body/media-type-dropped', `${pointer}/content/${escapeJsonPointerToken(mediaType)}`, `Only the schema is emitted; media type ${mediaType} is not preserved.`)
     }
-    const mediaTypeObject = this.resolveReference<OasMediaType>(content[mediaType], `${pointer}/content/${escapeJsonPointer(mediaType)}`)
+    const mediaTypeObject = this.resolveReference<OasMediaType>(content[mediaType], `${pointer}/content/${escapeJsonPointerToken(mediaType)}`)
     if (!mediaTypeObject) return null
     if (mediaTypeObject.example !== undefined || mediaTypeObject.examples !== undefined) {
-      this.addDiagnostic('request-body/examples-dropped', `${pointer}/content/${escapeJsonPointer(mediaType)}`, 'Request body examples are not emitted to TypeSpec.')
+      this.addDiagnostic('request-body/examples-dropped', `${pointer}/content/${escapeJsonPointerToken(mediaType)}`, 'Request body examples are not emitted to TypeSpec.')
     }
     const schema = mediaTypeObject.schema
     if (!schema) {
-      this.addDiagnostic('request-body/schema-missing', `${pointer}/content/${escapeJsonPointer(mediaType)}`, 'Request body media type has no schema.')
+      this.addDiagnostic('request-body/schema-missing', `${pointer}/content/${escapeJsonPointerToken(mediaType)}`, 'Request body media type has no schema.')
       return null
     }
-    const rendered = this.renderSchema(schema as OasSchema, `${toTypeName(operationId)}RequestBody`, `${pointer}/content/${escapeJsonPointer(mediaType)}/schema`, { includeMetadata: false })
+    const rendered = this.renderSchema(schema as OasSchema, `${toTypeName(operationId)}RequestBody`, `${pointer}/content/${escapeJsonPointerToken(mediaType)}/schema`, { includeMetadata: false })
     const decorators = [
       ...this.emitDecoratorsForDescription(undefined, requestBody.description),
       '@body',
@@ -477,7 +478,7 @@ class TypeSpecExporter {
     const responses = operation.responses ?? {}
     const models: ResponseModel[] = []
     for (const [statusCode, responseValue] of Object.entries(responses)) {
-      const responsePointer = `${pointer}/responses/${escapeJsonPointer(statusCode)}`
+      const responsePointer = `${pointer}/responses/${escapeJsonPointerToken(statusCode)}`
       if (!/^[1-5][0-9][0-9]$/.test(statusCode)) {
         this.addDiagnostic('response/status-unsupported', responsePointer, `Response status ${statusCode} is not emitted as a TypeSpec response model.`)
         continue
@@ -517,7 +518,7 @@ class TypeSpecExporter {
   ): string[] {
     const lines: string[] = []
     for (const [headerName, headerValue] of Object.entries(headers)) {
-      const headerPointer = `${pointer}/${escapeJsonPointer(headerName)}`
+      const headerPointer = `${pointer}/${escapeJsonPointerToken(headerName)}`
       const header = this.resolveReference<OasHeader>(headerValue, headerPointer)
       if (!header) continue
       if (header.content) {
@@ -545,7 +546,7 @@ class TypeSpecExporter {
     const content = response.content ?? {}
     const mediaType = content['application/json'] ? 'application/json' : Object.keys(content)[0]
     if (!mediaType) return null
-    const mediaTypePointer = `${pointer}/content/${escapeJsonPointer(mediaType)}`
+    const mediaTypePointer = `${pointer}/content/${escapeJsonPointerToken(mediaType)}`
     const mediaTypeObject = this.resolveReference<OasMediaType>(content[mediaType], mediaTypePointer)
     if (!mediaTypeObject) return null
     if (mediaType === 'text/event-stream' && Object.keys(content).length === 1) {
@@ -844,7 +845,7 @@ class TypeSpecExporter {
         if (!IDENTIFIER_RE.test(key)) return undefined
         const propertySchema = schema.properties?.[key]
         const literalValue = propertySchema
-          ? this.typeSpecValueLiteralForSchema(entry, propertySchema, `${pointer}/properties/${escapeJsonPointer(key)}`, seenRefs)
+          ? this.typeSpecValueLiteralForSchema(entry, propertySchema, `${pointer}/properties/${escapeJsonPointerToken(key)}`, seenRefs)
           : typeSpecValueLiteral(entry)
         return literalValue === undefined ? undefined : `${key}: ${literalValue}`
       })
@@ -888,7 +889,7 @@ class TypeSpecExporter {
 
   private resolveLocalRef(ref: string): unknown {
     if (!ref.startsWith('#/')) return undefined
-    const parts = ref.slice(2).split('/').map(unescapeJsonPointer)
+    const parts = ref.slice(2).split('/').map(unescapeJsonPointerToken)
     let current: unknown = this.document
     for (const part of parts) {
       if (!isRecord(current)) return undefined
@@ -903,7 +904,7 @@ class TypeSpecExporter {
       this.addDiagnostic('schema/ref-nonlocal', pointer, `Only local component schema refs are emitted precisely. Got ${ref}.`)
       return undefined
     }
-    const schemaName = unescapeJsonPointer(ref.slice(prefix.length))
+    const schemaName = unescapeJsonPointerToken(ref.slice(prefix.length))
     const mapped = this.componentNameBySchemaName.get(schemaName)
     if (!mapped) {
       this.addDiagnostic('schema/ref-missing', pointer, `Component schema ref not found: ${ref}.`)
@@ -1125,12 +1126,4 @@ function toValueName(raw: string): string {
 
 function formatPropertyName(name: string): string {
   return IDENTIFIER_RE.test(name) ? name : quote(name)
-}
-
-function escapeJsonPointer(value: string): string {
-  return value.replace(/~/g, '~0').replace(/\//g, '~1')
-}
-
-function unescapeJsonPointer(value: string): string {
-  return value.replace(/~1/g, '/').replace(/~0/g, '~')
 }

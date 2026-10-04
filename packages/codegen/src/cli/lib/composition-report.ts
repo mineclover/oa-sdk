@@ -9,6 +9,7 @@ import type {
   DefinitionTargetConfig,
   DefinitionTargetSelectionResult,
 } from '@oa-sdk/parser'
+import { escapeJsonPointerToken } from '@oa-sdk/parser'
 
 const COMPONENT_SECTION_BY_KIND = {
   schema: 'schemas',
@@ -213,7 +214,7 @@ function toOutputComponent(
     kind: node.kind,
     section,
     outputName,
-    outputPointer: `#/components/${section}/${encodePointerToken(outputName)}`,
+    outputPointer: `#/components/${section}/${escapeJsonPointerToken(outputName)}`,
     direct: directDefinitionIds.has(node.id),
     sourcePath: node.sourcePath,
     sourcePointer: node.sourcePointer,
@@ -257,8 +258,4 @@ function countBy<T>(items: readonly T[], getKey: (item: T) => string): Record<st
     counts.set(key, (counts.get(key) ?? 0) + 1)
   }
   return Object.fromEntries([...counts.entries()].sort(([left], [right]) => left.localeCompare(right)))
-}
-
-function encodePointerToken(value: string): string {
-  return value.replace(/~/g, '~0').replace(/\//g, '~1')
 }

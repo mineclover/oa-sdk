@@ -9,9 +9,11 @@
  */
 
 import {
+  escapeJsonPointerToken,
   parseDocument,
   foldSchema,
   lintDocument,
+  unescapeJsonPointerToken,
   type OasDocument,
   type OasSchema,
   type LintResult,
@@ -189,7 +191,7 @@ function findObjectCycles(root: unknown): ObjectCycle[] {
       }
     } else {
       for (const [k, v] of Object.entries(node as Record<string, unknown>)) {
-        const escaped = k.replace(/~/g, '~0').replace(/\//g, '~1')
+        const escaped = escapeJsonPointerToken(k)
         walk(v, `${pointer}/${escaped}`, node as Record<string, unknown>, k)
       }
     }
@@ -217,9 +219,9 @@ export function parseRefTarget(ref: unknown): string | null {
   }
   if (!raw || raw.length === 0) return null
   try {
-    return decodeURIComponent(raw).replace(/~1/g, '/').replace(/~0/g, '~')
+    return unescapeJsonPointerToken(decodeURIComponent(raw))
   } catch {
-    return raw.replace(/~1/g, '/').replace(/~0/g, '~')
+    return unescapeJsonPointerToken(raw)
   }
 }
 
@@ -476,7 +478,7 @@ export function generateZodFromSpec(doc: OasDocument, options: GenerateZodOption
                 for (const [name, s] of Object.entries(comps['schemas'] as Record<string, unknown>)) {
                   const isValidSchema = typeof s === 'boolean' || (typeof s === 'object' && s !== null && !Array.isArray(s))
                   if (!isValidSchema) {
-                    const escapedName = name.replace(/~/g, '~0').replace(/\//g, '~1')
+                    const escapedName = escapeJsonPointerToken(name)
                     allDiagnostics.push(createDiagnostic(
                       `/components/schemas/${escapedName}`,
                       'error',
@@ -562,7 +564,7 @@ export function generateZodFromSpec(doc: OasDocument, options: GenerateZodOption
     if (encoded !== name) {
       refNameOverrides[`#/components/schemas/${encoded}`] = `z.lazy(() => ${schemaConstName})`
     }
-    const jsonPointerToken = name.replace(/~/g, '~0').replace(/\//g, '~1')
+    const jsonPointerToken = escapeJsonPointerToken(name)
     if (jsonPointerToken !== name) {
       refNameOverrides[`#/components/schemas/${jsonPointerToken}`] = `z.lazy(() => ${schemaConstName})`
       const encToken = encodeURIComponent(jsonPointerToken)

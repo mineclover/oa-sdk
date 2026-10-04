@@ -16,7 +16,14 @@ import type {
   RefGraphDiagnosticCode,
   RefGraphNode,
 } from '@oa-sdk/parser'
-import { getQuerystringParameter, isRelativeRef, parseDocument, resolveRefGraph } from '@oa-sdk/parser'
+import {
+  escapeJsonPointerToken,
+  getQuerystringParameter,
+  isRelativeRef,
+  parseDocument,
+  resolveRefGraph,
+  unescapeJsonPointerToken,
+} from '@oa-sdk/parser'
 import { schemaToTs, type SchemaToTsOptions } from './schema-to-ts.js'
 import { compareTypegenKeys } from './stable-order.js'
 import { createComponentTypeNameMap, createLocalNestedSchemaAliasMap } from './type-names.js'
@@ -615,7 +622,7 @@ function isSchemaRefSourcePointer(sourcePointer: string): boolean {
   const segments = schemaPointer
     .slice(2)
     .split('/')
-    .map(segment => segment.replace(/~1/g, '/').replace(/~0/g, '~'))
+    .map(unescapeJsonPointerToken)
 
   return segments.some(segment => SCHEMA_REF_CONTEXT_SEGMENTS.has(segment))
 }
@@ -746,11 +753,7 @@ function pointerSegments(ref: string | undefined): string[] {
   const pointerStart = ref.indexOf('#/')
   const pointer = pointerStart >= 0 ? ref.slice(pointerStart + 2) : ref.startsWith('/') ? ref.slice(1) : ''
   if (!pointer) return []
-  return pointer.split('/').map(decodePointerSegment)
-}
-
-function decodePointerSegment(segment: string): string {
-  return segment.replace(/~1/g, '/').replace(/~0/g, '~')
+  return pointer.split('/').map(unescapeJsonPointerToken)
 }
 
 function normalizeTypeName(segment: string): string | undefined {
@@ -879,7 +882,7 @@ function rewriteRefsAt(
 
   const result: Record<string, unknown> = {}
   for (const [key, child] of Object.entries(value)) {
-    const childPointer = `${currentPointer}/${escapePointerSegment(key)}`
+    const childPointer = `${currentPointer}/${escapeJsonPointerToken(key)}`
     if (key === '$ref' && typeof child === 'string') {
       const identity = refIdentityBySource.get(sourceRefKey(sourceFilePath, childPointer))
       result[key] = identity && resolvedNamesByIdentity.has(identity) ? identity : child
@@ -898,10 +901,6 @@ function rewriteRefsAt(
 
 function sourceRefKey(sourceFilePath: string | undefined, sourcePointer: string): string {
   return `${sourceFilePath ?? '<entry>'}|${sourcePointer}`
-}
-
-function escapePointerSegment(segment: string): string {
-  return segment.replace(/~/g, '~0').replace(/\//g, '~1')
 }
 
 function groupRefsBySchemaName(refs: Array<{ ref: string; filePath?: string; pointer?: string }>): Map<string, string[]> {

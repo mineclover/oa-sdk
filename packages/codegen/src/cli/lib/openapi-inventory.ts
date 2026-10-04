@@ -4,6 +4,7 @@ import {
   OPENAPI_PROJECTION_SOURCES_EXTENSION,
   OPENAPI_PROJECTION_VERSION_HASH_EXTENSION,
 } from '@oa-sdk/openapi-projection-contract'
+import { escapeJsonPointerToken, unescapeJsonPointerToken } from '@oa-sdk/parser'
 
 const OPERATION_METHODS = [
   'get',
@@ -559,7 +560,7 @@ function domainForPath(path: string): string {
 
 function componentKeyFromLocalRef(ref: string): string | undefined {
   if (!ref.startsWith('#/components/')) return undefined
-  const tokens = ref.slice(2).split('/').map(decodePointerToken)
+  const tokens = ref.slice(2).split('/').map(unescapeJsonPointerToken)
   const section = tokens[1]
   const name = tokens.slice(2).join('/')
   if (!isComponentSection(section) || name.length === 0) return undefined
@@ -571,7 +572,7 @@ function componentKey(section: ComponentSection, name: string): string {
 }
 
 function componentPointer(section: ComponentSection, name: string): string {
-  return `#/components/${section}/${encodePointerToken(name)}`
+  return `#/components/${section}/${escapeJsonPointerToken(name)}`
 }
 
 function isComponentSection(value: unknown): value is ComponentSection {
@@ -609,14 +610,6 @@ function increment(map: Map<string, number>, key: string): void {
 
 function sortedNumberRecord(map: ReadonlyMap<string, number>): Record<string, number> {
   return Object.fromEntries([...map.entries()].sort(([left], [right]) => left.localeCompare(right)))
-}
-
-function encodePointerToken(value: string): string {
-  return value.replace(/~/g, '~0').replace(/\//g, '~1')
-}
-
-function decodePointerToken(value: string): string {
-  return value.replace(/~1/g, '/').replace(/~0/g, '~')
 }
 
 function formatGroupTable(groups: readonly OpenApiInventoryGroup[]): string {

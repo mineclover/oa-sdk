@@ -5,6 +5,7 @@ import {
   OPENAPI_PROJECTION_SOURCES_EXTENSION,
   OPENAPI_PROJECTION_VERSION_HASH_EXTENSION,
 } from '@oa-sdk/openapi-projection-contract'
+import { appendJsonPointer } from '@oa-sdk/parser'
 import type { ExtractedTable } from '../../drizzle/extractor.js'
 import {
   convertTables,
@@ -153,7 +154,7 @@ export function adaptZodSchemas(
       .map(([name, schema]) => createOpenApiSourceFragment({
         kind: 'schema',
         ...(options.sourcePath !== undefined ? { sourcePath: options.sourcePath } : {}),
-        sourcePointer: pointerChild(pointerBase, name),
+        sourcePointer: appendJsonPointer(pointerBase, name),
         content: zodToSchema(schema, context),
         metadata: mergeMetadata(options.metadata, {
           sourceAdapter: 'zod',
@@ -179,7 +180,7 @@ export async function adaptDrizzleTables(
       .map(schema => createOpenApiSourceFragment({
         kind: 'schema',
         ...(options.sourcePath !== undefined ? { sourcePath: options.sourcePath } : {}),
-        sourcePointer: pointerChild(pointerChild(pointerChild(pointerBase, schema.sourceTable), 'schemas'), schema.schemaType),
+        sourcePointer: appendJsonPointer(appendJsonPointer(appendJsonPointer(pointerBase, schema.sourceTable), 'schemas'), schema.schemaType),
         content: schema.schema,
         metadata: mergeMetadata(options.metadata, {
           sourceAdapter: 'drizzle',
@@ -210,7 +211,7 @@ export function adaptOpenApiProjectionEnvelope(
   }
 
   const projection = envelope.projection
-  const projectionPointer = pointerChild(pointerBase, 'projection')
+  const projectionPointer = appendJsonPointer(pointerBase, 'projection')
   if (!isRecord(projection)) {
     diagnostics.push(openApiProjectionEnvelopeDiagnostic(
       sourcePath,
@@ -258,7 +259,7 @@ export function adaptPythonContractSpecSnapshot(
 
   const snapshotMetadata = readPythonSnapshotMetadata(snapshotOrContract)
   const contractPointer = snapshotMetadata.snapshotFormat === 'oa-contract-snapshot'
-    ? pointerChild(pointerBase, 'contract')
+    ? appendJsonPointer(pointerBase, 'contract')
     : pointerBase
   const contract = snapshotMetadata.snapshotFormat === 'oa-contract-snapshot'
     ? snapshotOrContract.contract
@@ -280,11 +281,11 @@ export function adaptPythonContractSpecSnapshot(
   })
   const fragments: OpenApiSourceFragment[] = []
 
-  collectPythonContractSchemas(contract.schemas, pointerChild(contractPointer, 'schemas'), options, metadata, fragments, diagnostics)
-  collectPythonContractEndpoints(contract.endpoints, pointerChild(contractPointer, 'endpoints'), options, metadata, fragments, diagnostics)
+  collectPythonContractSchemas(contract.schemas, appendJsonPointer(contractPointer, 'schemas'), options, metadata, fragments, diagnostics)
+  collectPythonContractEndpoints(contract.endpoints, appendJsonPointer(contractPointer, 'endpoints'), options, metadata, fragments, diagnostics)
   collectPythonContractRecord(
     contract.security_schemes,
-    pointerChild(contractPointer, 'security_schemes'),
+    appendJsonPointer(contractPointer, 'security_schemes'),
     'securityScheme',
     'securitySchemeName',
     options,
@@ -294,7 +295,7 @@ export function adaptPythonContractSpecSnapshot(
   )
   collectPythonContractRecord(
     contract.standard_error_responses,
-    pointerChild(contractPointer, 'standard_error_responses'),
+    appendJsonPointer(contractPointer, 'standard_error_responses'),
     'response',
     'responseName',
     options,
@@ -304,7 +305,7 @@ export function adaptPythonContractSpecSnapshot(
   )
   collectPythonContractRecord(
     contract.examples,
-    pointerChild(contractPointer, 'examples'),
+    appendJsonPointer(contractPointer, 'examples'),
     'example',
     'exampleName',
     options,
@@ -312,7 +313,7 @@ export function adaptPythonContractSpecSnapshot(
     fragments,
     diagnostics,
   )
-  collectPythonContractTargets(contract.targets, pointerChild(contractPointer, 'targets'), options, metadata, fragments, diagnostics)
+  collectPythonContractTargets(contract.targets, appendJsonPointer(contractPointer, 'targets'), options, metadata, fragments, diagnostics)
 
   return {
     fragments: fragments.sort(compareFragments),
@@ -342,7 +343,7 @@ function collectPythonContractSchemas(
     fragments.push(createOpenApiSourceFragment({
       kind: 'schema',
       ...(options.sourcePath !== undefined ? { sourcePath: options.sourcePath } : {}),
-      sourcePointer: pointerChild(pointer, name),
+      sourcePointer: appendJsonPointer(pointer, name),
       content: schema,
       metadata: mergeMetadata(metadata, { schemaName: name }),
     }))
@@ -368,7 +369,7 @@ function collectPythonContractEndpoints(
   }
 
   endpoints.forEach((endpoint, index) => {
-    const endpointPointer = pointerChild(pointer, String(index))
+    const endpointPointer = appendJsonPointer(pointer, index)
     if (!isRecord(endpoint)) {
       diagnostics.push(pythonContractSpecDiagnostic(
         diagnosticSourcePath(options.sourcePath, 'python-contract-spec'),
@@ -393,7 +394,7 @@ function collectPythonContractEndpoints(
 
     const successResponses = endpoint.success_responses
     if (successResponses === undefined) return
-    const responsesPointer = pointerChild(endpointPointer, 'success_responses')
+    const responsesPointer = appendJsonPointer(endpointPointer, 'success_responses')
     if (!Array.isArray(successResponses)) {
       diagnostics.push(pythonContractSpecDiagnostic(
         diagnosticSourcePath(options.sourcePath, 'python-contract-spec'),
@@ -406,7 +407,7 @@ function collectPythonContractEndpoints(
       fragments.push(createOpenApiSourceFragment({
         kind: 'response',
         ...(options.sourcePath !== undefined ? { sourcePath: options.sourcePath } : {}),
-        sourcePointer: pointerChild(responsesPointer, String(responseIndex)),
+        sourcePointer: appendJsonPointer(responsesPointer, responseIndex),
         content: response,
         metadata: mergeMetadata(endpointMetadata, {
           ...(isRecord(response) && typeof response.status_code === 'string'
@@ -442,7 +443,7 @@ function collectPythonContractRecord(
     fragments.push(createOpenApiSourceFragment({
       kind,
       ...(options.sourcePath !== undefined ? { sourcePath: options.sourcePath } : {}),
-      sourcePointer: pointerChild(pointer, name),
+      sourcePointer: appendJsonPointer(pointer, name),
       content,
       metadata: mergeMetadata(metadata, { [nameMetadataKey]: name }),
     }))
@@ -471,7 +472,7 @@ function collectPythonContractTargets(
     fragments.push(createOpenApiSourceFragment({
       kind: 'target',
       ...(options.sourcePath !== undefined ? { sourcePath: options.sourcePath } : {}),
-      sourcePointer: pointerChild(pointer, String(index)),
+      sourcePointer: appendJsonPointer(pointer, index),
       content: target,
       metadata: mergeMetadata(metadata, {
         ...(isRecord(target) && typeof target.name === 'string' ? { targetName: target.name } : {}),
@@ -574,16 +575,6 @@ function compareFragments(left: OpenApiSourceFragment, right: OpenApiSourceFragm
 
 function sortedEntries(record: JsonRecord): Array<[string, unknown]> {
   return Object.entries(record).sort(([left], [right]) => left.localeCompare(right))
-}
-
-function pointerChild(pointer: string, token: string): string {
-  return pointer === '#'
-    ? `#/${encodePointerToken(token)}`
-    : `${pointer}/${encodePointerToken(token)}`
-}
-
-function encodePointerToken(value: string): string {
-  return value.replace(/~/g, '~0').replace(/\//g, '~1')
 }
 
 function mergeMetadata(

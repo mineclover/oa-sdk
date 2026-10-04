@@ -1,4 +1,4 @@
-import type { OasDocument } from '@oa-sdk/parser'
+import { unescapeJsonPointerToken, type OasDocument } from '@oa-sdk/parser'
 import type { TspExportDiagnostic } from './tsp-export.js'
 
 const HTTP_METHODS = ['get', 'put', 'post', 'delete', 'options', 'head', 'patch', 'trace', 'query'] as const
@@ -102,7 +102,7 @@ export function findUnacceptedTspExportDiagnostics(
 function securitySchemeNameFromPointer(pointer: string): string | null {
   const prefix = '#/components/securitySchemes/'
   if (!pointer.startsWith(prefix)) return null
-  return unescapeJsonPointer(pointer.slice(prefix.length))
+  return unescapeJsonPointerToken(pointer.slice(prefix.length))
 }
 
 function isSecuritySchemeReferenced(document: OasDocument, schemeName: string): boolean {
@@ -125,8 +125,4 @@ function securityRequirementsUseScheme(value: unknown, schemeName: string): bool
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
-}
-
-function unescapeJsonPointer(value: string): string {
-  return value.replace(/~1/g, '/').replace(/~0/g, '~')
 }

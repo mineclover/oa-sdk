@@ -5,6 +5,7 @@ import type {
   DefinitionRegistryNode,
   DefinitionTargetSelectionResult,
 } from '@oa-sdk/parser'
+import { escapeJsonPointerToken } from '@oa-sdk/parser'
 
 const OPERATION_METHODS = [
   'get',
@@ -157,7 +158,7 @@ function addPathProvenance(
   const openApiPath = readPathMetadata(node)
   if (openApiPath === undefined) return
 
-  const pathPointer = `#/paths/${encodePointerToken(openApiPath)}`
+  const pathPointer = `#/paths/${escapeJsonPointerToken(openApiPath)}`
   provenance[pathPointer] = toProvenanceEntry(node, node.sourcePointer)
 
   const content = isRecord(node.content) ? node.content : undefined
@@ -178,7 +179,7 @@ function addComponentProvenance(
 ): void {
   const section = COMPONENT_SECTION_BY_KIND[node.kind]
   const outputName = selection.outputNameAllocation.outputNames.get(node.id) ?? node.localName
-  provenance[`#/components/${section}/${encodePointerToken(outputName)}`] =
+  provenance[`#/components/${section}/${escapeJsonPointerToken(outputName)}`] =
     toProvenanceEntry(node, node.sourcePointer)
 }
 
@@ -222,10 +223,6 @@ function isComponentLikeNode(
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
-}
-
-function encodePointerToken(value: string): string {
-  return value.replace(/~/g, '~0').replace(/\//g, '~1')
 }
 
 function stableStringify(value: unknown): string {

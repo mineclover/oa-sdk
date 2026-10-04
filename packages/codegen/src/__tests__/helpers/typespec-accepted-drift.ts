@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto'
 import { readFileSync } from 'node:fs'
+import { unescapeJsonPointerToken } from '@oa-sdk/parser'
 import {
   diffOpenApiDocuments,
   stableOpenApiStringify,
@@ -81,7 +82,7 @@ function readJsonPointer(document: Record<string, unknown>, pointer: string): un
   if (pointer === '#') return document
   if (!pointer.startsWith('#/')) throw new Error(`unsupported JSON pointer: ${pointer}`)
   let value: unknown = document
-  for (const segment of pointer.slice(2).split('/').map(decodeJsonPointerSegment)) {
+  for (const segment of pointer.slice(2).split('/').map(unescapeJsonPointerToken)) {
     if (Array.isArray(value)) {
       value = value[Number(segment)]
       continue
@@ -93,10 +94,6 @@ function readJsonPointer(document: Record<string, unknown>, pointer: string): un
     return undefined
   }
   return value
-}
-
-function decodeJsonPointerSegment(segment: string): string {
-  return segment.replace(/~1/g, '/').replace(/~0/g, '~')
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

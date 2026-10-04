@@ -20,6 +20,7 @@ import {
   type SchemaRefEdge,
   type SchemaSourceCoordinate,
 } from '@oa-sdk/openapi-projection-contract'
+import { appendJsonPointer } from '@oa-sdk/parser'
 import type { ProfileTargetConfig, GuardTargetConfig } from './config.js'
 import { loadModule } from './cli/lib/config-loader.js'
 import { zodToSchema } from './zod-to-schema.js'
@@ -161,7 +162,7 @@ export function extractRefsFromDocument(doc: unknown, defaultSourcePath = ''): S
       return
     }
     for (const [key, value] of Object.entries(node as Record<string, unknown>)) {
-      const currentPointer = `${pointer}/${key.replace(/~/g, '~0').replace(/\//g, '~1')}`
+      const currentPointer = appendJsonPointer(pointer, key)
       if (key === '$ref' && typeof value === 'string') {
         const to = value.startsWith('#/') ? value : undefined
         refs.push({

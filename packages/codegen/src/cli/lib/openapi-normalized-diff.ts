@@ -1,3 +1,5 @@
+import { escapeJsonPointerToken } from '@oa-sdk/parser'
+
 export type OpenApiDiffCategory =
   | 'root'
   | 'server'
@@ -87,7 +89,7 @@ export function normalizeOpenApiValue(value: unknown, pointer = '#'): unknown {
   for (const key of Object.keys(value).sort()) {
     const child = value[key]
     if (child === undefined) continue
-    output[key] = normalizeOpenApiValue(child, `${pointer}/${escapeJsonPointer(key)}`)
+    output[key] = normalizeOpenApiValue(child, `${pointer}/${escapeJsonPointerToken(key)}`)
   }
   return output
 }
@@ -102,7 +104,7 @@ function compareRoot(
   entries: OpenApiNormalizedDiffEntry[],
 ): void {
   for (const key of ['openapi', 'info', 'tags', 'jsonSchemaDialect']) {
-    const pointer = `#/${escapeJsonPointer(key)}`
+    const pointer = `#/${escapeJsonPointerToken(key)}`
     if (equalOpenApiValues(baseSpec[key], headSpec[key], pointer)) continue
     entries.push({
       category: 'root',
@@ -157,13 +159,13 @@ function comparePaths(
     entries.push({
       category: 'path',
       kind: 'removed',
-      pointer: `#/paths/${escapeJsonPointer(path)}`,
+      pointer: `#/paths/${escapeJsonPointerToken(path)}`,
       message: `Path removed: ${path}.`,
     })
   }
 
   for (const path of [...headKeys].sort()) {
-    const pointer = `#/paths/${escapeJsonPointer(path)}`
+    const pointer = `#/paths/${escapeJsonPointerToken(path)}`
     if (!baseKeys.has(path)) {
       entries.push({
         category: 'path',
@@ -267,7 +269,7 @@ function collectSecurityRequirements(spec: Record<string, unknown>): Map<string,
   const paths = readRecord(spec.paths)
   for (const [path, pathItem] of Object.entries(paths)) {
     if (!isRecord(pathItem)) continue
-    const pathPointer = `#/paths/${escapeJsonPointer(path)}`
+    const pathPointer = `#/paths/${escapeJsonPointerToken(path)}`
     if (Object.prototype.hasOwnProperty.call(pathItem, 'security')) {
       requirements.set(`${pathPointer}/security`, pathItem.security)
     }
@@ -301,7 +303,7 @@ function componentPointerMap(
 ): Map<string, unknown> {
   const output = new Map<string, unknown>()
   for (const [name, value] of Object.entries(components ?? {})) {
-    output.set(`#/components/${escapeJsonPointer(section)}/${escapeJsonPointer(name)}`, value)
+    output.set(`#/components/${escapeJsonPointerToken(section)}/${escapeJsonPointerToken(name)}`, value)
   }
   return output
 }
@@ -343,10 +345,6 @@ function readRecord(value: unknown): Record<string, unknown> {
 
 function stableStringifyNormalized(value: unknown): string {
   return JSON.stringify(value) ?? 'undefined'
-}
-
-function escapeJsonPointer(value: string): string {
-  return value.replaceAll('~', '~0').replaceAll('/', '~1')
 }
 
 function titleCase(value: string): string {
