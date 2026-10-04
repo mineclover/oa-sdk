@@ -24,6 +24,11 @@ to consume only complete parser IR.
 - The browser parser synchronously resolves in-memory internal references.
 - Missing internal refs, cycles, and external refs without a loader produce a
   partial document with the ref and source pointer in diagnostics.
+  Amended by Goal 69 (2026-10-05): a cycle whose path descends into the
+  instance (`properties`, `items`, `additionalProperties`, ...) is a valid
+  recursive schema and does not make the document partial. Only cycles that
+  re-evaluate the same instance (aliases, `allOf`/`anyOf`/`oneOf`/`not`/
+  `if`/`then`/`else`/`dependentSchemas`) remain `ref-cycle` diagnostics.
 - Browser code does not fetch external refs implicitly. A caller-owned asynchronous
   loader remains a separate future contract.
 

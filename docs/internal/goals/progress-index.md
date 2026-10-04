@@ -1,6 +1,6 @@
 # Goal Progress Index
 
-Last updated: 2026-07-16
+Last updated: 2026-10-05
 
 이 파일은 goal 진행 현황만 관리한다. 설계, 범위, 수용 기준은 각 goal 문서를 따르며,
 DPM phase 순서와 gap 정렬은 [DPM Master Roadmap](./dpm-master-roadmap.md)을 따른다.
@@ -8,6 +8,8 @@ DPM phase 순서와 gap 정렬은 [DPM Master Roadmap](./dpm-master-roadmap.md)�
 ## Current
 
 - Goal 68 is active with private owner acceptance recorded. DPM-86 through DPM-90 are complete; DPM-90 is backed by the private `mineclover/data-governance` repository, owner workflow `29427810791`, external runtime/declaration/rollback/workflow/pack rehearsal, owner `check:docs`, T1 release-gate verification, and [Goal 68.4 Issue #1](https://github.com/mineclover/data-governance/issues/1). The external owner is canonical for the extraction contract; public registry publication and breaking removal remain separately gated.
+- Goal 69 is active: 69.1-69.4 and 69.6 are done (shared `$ref` expansion memo, linear completeness scan, DAG-safe client serializer, `bench:parser` gate, single parse per target in `oa-gen generate`). 69.5a is done: recursive schemas whose cycle descends into the instance are allowed, with one rule shared by parse and lint. 69.5b (`resolveRefGraph` single visit) and 69.7 (ref-preserving graph projection) are planned.
+- Goal 70 (Sirius Web studio integration) is a scope-gated candidate that depends on Goal 69.7.
 
 ## Recently Completed
 
