@@ -27,15 +27,16 @@ describe('E2E Tier 4: Real-World Application Scenarios (8 Tests)', () => {
   // T4-01: Full Browser Studio Spec & Guard Governance Pipeline
   // =========================================================================
   it.skipIf(!fsSync.existsSync(browserStudioRoot))('T4-01: Full Browser Studio Spec & Guard Governance Pipeline', async () => {
-    // 1. Validate all 5 profiles declared in browser-studio/oa.config.ts
+    // 1. Validate all 6 profiles declared in browser-studio/oa.config.ts
     const valResult = runOaCli(['validate'], { cwd: browserStudioRoot })
     expect(valResult.status).toBe(0)
-    expect(valResult.stdout).toContain('Summary: 5 total targets, 5 passed, 0 failed')
+    expect(valResult.stdout).toContain('Summary: 6 total targets, 6 passed, 0 failed')
     expect(valResult.stdout).toContain('devlink-contracts')
     expect(valResult.stdout).toContain('devlink-mcp')
     expect(valResult.stdout).toContain('surface-engine')
     expect(valResult.stdout).toContain('visual-ir')
     expect(valResult.stdout).toContain('inspector-controls')
+    expect(valResult.stdout).toContain('browser-mapper')
 
     // 2. CSP audit on guards bundle (262+ standalone guards)
     const auditResult = runOaCli(['audit:csp', '--bundle', 'dist/guards'], { cwd: browserStudioRoot })
@@ -50,6 +51,7 @@ describe('E2E Tier 4: Real-World Application Scenarios (8 Tests)', () => {
       'surface-engine',
       'visual-ir',
       'inspector-controls',
+      'browser-mapper',
     ]
 
     for (const id of targetSpecs) {
@@ -86,7 +88,7 @@ describe('E2E Tier 4: Real-World Application Scenarios (8 Tests)', () => {
     // Run oa-gen validate with no args from submodule directory
     const valResult = runOaCli(['validate'], { cwd: deepSubmoduleDir })
     expect(valResult.status).toBe(0)
-    expect(valResult.stdout).toContain('Summary: 5 total targets, 5 passed, 0 failed')
+    expect(valResult.stdout).toContain('Summary: 6 total targets, 6 passed, 0 failed')
 
     // Run oa-gen audit:csp with no --root flag from submodule directory
     const auditResult = runOaCli(['audit:csp', '--bundle', 'dist/guards'], { cwd: deepSubmoduleDir })
@@ -402,12 +404,16 @@ export const StockItem = z.object({
     const bsPkgPath = path.join(browserStudioRoot, 'package.json')
     const bsPkg = JSON.parse(await fs.readFile(bsPkgPath, 'utf8'))
 
-    // Verify package.json declares correct relative link to @oa-sdk/codegen
-    expect(bsPkg.devDependencies['@oa-sdk/codegen']).toBe('link:../oa-sdk/packages/codegen')
-    expect(bsPkg.devDependencies['@oa-sdk/openapi-projection-contract']).toBe(
-      'link:../oa-sdk/packages/openapi-projection-contract'
+    // Verify package.json declares correct relative link or published dependency to @oa-sdk/codegen
+    expect(bsPkg.devDependencies['@oa-sdk/codegen']).toMatch(
+      /^(?:link:\.\.\/oa-sdk\/packages\/codegen|\^?0\.8\.)/
     )
-    expect(bsPkg.devDependencies['@oa-sdk/parser']).toBe('link:../oa-sdk/packages/parser')
+    expect(bsPkg.devDependencies['@oa-sdk/openapi-projection-contract']).toMatch(
+      /^(?:link:\.\.\/oa-sdk\/packages\/openapi-projection-contract|\^?0\.2\.)/
+    )
+    expect(bsPkg.devDependencies['@oa-sdk/parser']).toMatch(
+      /^(?:link:\.\.\/oa-sdk\/packages\/parser|\^?0\.3\.)/
+    )
 
     // Verify defineConfig can be dynamically imported from @oa-sdk/codegen
     const codegen = await import('@oa-sdk/codegen')

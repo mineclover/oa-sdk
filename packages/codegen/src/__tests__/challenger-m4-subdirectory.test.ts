@@ -112,7 +112,7 @@ describe.skipIf(!fs.existsSync(browserStudioRoot))('Adversarial Challenger M4: S
           cwd: target.path,
           encoding: 'utf8',
         })
-        expect(stdout).toContain('Summary: 5 total targets, 5 passed, 0 failed')
+        expect(stdout).toContain('Summary: 6 total targets, 6 passed, 0 failed')
         expect(stdout).toContain('Project Root: /Users/junwoobang/workflow/browser-studio')
       })
 
@@ -197,7 +197,7 @@ describe.skipIf(!fs.existsSync(browserStudioRoot))('Adversarial Challenger M4: S
           cwd: target.path,
           encoding: 'utf8',
         })
-        expect(stdout).toContain('Summary: 5 total targets, 5 passed, 0 failed')
+        expect(stdout).toContain('Summary: 6 total targets, 6 passed, 0 failed')
       })
 
       it(`[${target.name}] executes oa-gen audit:csp --bundle dist/guards`, () => {

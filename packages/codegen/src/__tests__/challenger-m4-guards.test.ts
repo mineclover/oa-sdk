@@ -4,7 +4,7 @@
  * EMPIRICAL ADVERSARIAL CHALLENGER TEST SUITE (Milestone 4 - Challenger 1)
  *
  * Comprehensive empirical verification and stress testing of:
- * 1. 5 Domain Profiles Validation & Schema Parsing (devlink-contracts, devlink-mcp, surface-engine, visual-ir, inspector-controls)
+ * 1. 6 Domain Profiles Validation & Schema Parsing (devlink-contracts, devlink-mcp, surface-engine, visual-ir, inspector-controls, browser-mapper)
  *    - Full config-driven oa-gen validate (no args)
  *    - Explicit --spec and --profile validation for each domain target
  *    - Adversarial corrupt JSON, profile mismatch, and schema corruption
@@ -41,7 +41,7 @@ const distCli = path.resolve(__dirname, '../../dist/cli/index.js')
 const srcCli = path.resolve(__dirname, '../cli/index.ts')
 const cliExecutable = fs.existsSync(distCli) ? `node "${distCli}"` : `npx tsx "${srcCli}"`
 
-// 5 canonical domain profile targets in browser-studio
+// 6 canonical domain profile targets in browser-studio
 const DOMAIN_PROFILES = [
   {
     id: 'devlink-contracts',
@@ -49,6 +49,7 @@ const DOMAIN_PROFILES = [
     schemaEntry: 'packages/devlink-contracts/src/schema/index.ts',
     artifact: 'artifacts/specs/devlink-contracts.openapi.json',
     expectedTitle: 'DevLink Native RPC Operation Contract',
+    expectedVersion: '1.0.0',
   },
   {
     id: 'devlink-mcp',
@@ -56,6 +57,7 @@ const DOMAIN_PROFILES = [
     schemaEntry: 'packages/devlink-contracts/src/schema/mcp.ts',
     artifact: 'artifacts/specs/devlink-mcp.openapi.json',
     expectedTitle: 'DevLink MCP Stdio Operation Contract',
+    expectedVersion: '1.0.0',
   },
   {
     id: 'surface-engine',
@@ -63,6 +65,7 @@ const DOMAIN_PROFILES = [
     schemaEntry: 'packages/surface-engine/src/types/schemas.ts',
     artifact: 'artifacts/specs/surface-engine.openapi.json',
     expectedTitle: 'Surface Engine Component Bundle',
+    expectedVersion: '1.0.0',
   },
   {
     id: 'visual-ir',
@@ -70,6 +73,7 @@ const DOMAIN_PROFILES = [
     schemaEntry: 'packages/visual-ir/src/schema/index.ts',
     artifact: 'artifacts/specs/visual-ir.openapi.json',
     expectedTitle: 'Universal Visual IR Component Bundle',
+    expectedVersion: '1.0.0',
   },
   {
     id: 'inspector-controls',
@@ -77,6 +81,15 @@ const DOMAIN_PROFILES = [
     schemaEntry: 'packages/inspector-controls/src/index.ts',
     artifact: 'artifacts/specs/inspector-controls.openapi.json',
     expectedTitle: 'Inspector Controls Component Bundle',
+    expectedVersion: '1.0.0',
+  },
+  {
+    id: 'browser-mapper',
+    profile: 'component-bundle',
+    schemaEntry: 'packages/browser-mapper/packages/browser-mapper/src/model/schema.ts',
+    artifact: 'artifacts/specs/browser-mapper.openapi.json',
+    expectedTitle: 'Browser Mapper Domain Models Bundle',
+    expectedVersion: '0.1.6',
   },
 ]
 
@@ -130,20 +143,21 @@ describe('Empirical Adversarial Challenger M4: Domain Profiles, Standalone Guard
   })
 
   // ===========================================================================
-  // Section 1: Empirical Verification of 5 Domain Profiles via oa-gen validate
+  // Section 1: Empirical Verification of 6 Domain Profiles via oa-gen validate
   // ===========================================================================
-  describe.skipIf(!fs.existsSync(browserStudioRoot))('1. 5 Domain Profiles Validation & Parsing via oa-gen validate', () => {
-    it('executes oa-gen validate with 0 arguments from browser-studio root (5 passed, 0 failed)', () => {
+  describe.skipIf(!fs.existsSync(browserStudioRoot))('1. 6 Domain Profiles Validation & Parsing via oa-gen validate', () => {
+    it('executes oa-gen validate with 0 arguments from browser-studio root (6 passed, 0 failed)', () => {
       const stdout = execSync(`${cliExecutable} validate`, {
         cwd: browserStudioRoot,
         encoding: 'utf8',
       })
-      expect(stdout).toContain('Summary: 5 total targets, 5 passed, 0 failed')
+      expect(stdout).toContain('Summary: 6 total targets, 6 passed, 0 failed')
       expect(stdout).toContain('devlink-contracts')
       expect(stdout).toContain('devlink-mcp')
       expect(stdout).toContain('surface-engine')
       expect(stdout).toContain('visual-ir')
       expect(stdout).toContain('inspector-controls')
+      expect(stdout).toContain('browser-mapper')
     })
 
     for (const target of DOMAIN_PROFILES) {
@@ -156,7 +170,7 @@ describe('Empirical Adversarial Challenger M4: Domain Profiles, Standalone Guard
 
         // Title and version check
         expect(doc.info?.title).toBe(target.expectedTitle)
-        expect(doc.info?.version).toBe('1.0.0')
+        expect(doc.info?.version).toBe(target.expectedVersion)
 
         // Parser validation
         const parserResult = validateDocument(doc, {

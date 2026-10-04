@@ -394,7 +394,7 @@ export const CustomModel = z.object({
     // Execute validate from submodule subdirectory
     const result = runOaCli(['validate'], { cwd: submoduleDeepDir })
     expect(result.status).toBe(0)
-    expect(result.stdout).toContain('Summary: 5 total targets, 5 passed, 0 failed')
+    expect(result.stdout).toContain('Summary: 6 total targets, 6 passed, 0 failed')
   })
 
   // =========================================================================

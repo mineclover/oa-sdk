@@ -42,7 +42,7 @@ describe.skipIf(!fs.existsSync(browserStudioRoot))('Milestone 4: Deep Subdirecto
           cwd: target.path,
           encoding: 'utf8',
         })
-        expect(stdout).toContain('Summary: 5 total targets, 5 passed, 0 failed')
+        expect(stdout).toContain('Summary: 6 total targets, 6 passed, 0 failed')
       })
 
       it(`executes oa-gen audit:csp --bundle dist/guards from ${target.name}`, () => {

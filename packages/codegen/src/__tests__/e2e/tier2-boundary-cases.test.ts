@@ -685,10 +685,10 @@ describe('E2E Tier 2: Boundary & Corner Cases (F01 - F16)', () => {
   })
 
   // =========================================================================
-  // Feature 14 Boundaries: 5 Domain Profiles (F14)
+  // Feature 14 Boundaries: 6 Domain Profiles (F14)
   // =========================================================================
   const browserStudioSpecs = '/Users/junwoobang/workflow/browser-studio/artifacts/specs'
-  describe.skipIf(!fsSync.existsSync(browserStudioSpecs))('F14 Boundaries: 5 Domain Profiles', () => {
+  describe.skipIf(!fsSync.existsSync(browserStudioSpecs))('F14 Boundaries: 6 Domain Profiles', () => {
 
     it('T2-F14-1: surface-engine: validates non-AST character range patch operation schemas', () => {
       const specPath = path.join(browserStudioSpecs, 'surface-engine.openapi.json')
@@ -724,6 +724,14 @@ describe('E2E Tier 2: Boundary & Corner Cases (F01 - F16)', () => {
 
     it('T2-F14-5: devlink-mcp: validates JSON-RPC schema structures and tool call signatures', () => {
       const specPath = path.join(browserStudioSpecs, 'devlink-mcp.openapi.json')
+      if (fsSync.existsSync(specPath)) {
+        const content = fsSync.readFileSync(specPath, 'utf8')
+        expect(content).toContain('schemas')
+      }
+    })
+
+    it('T2-F14-6: browser-mapper: validates domain model schema structures', () => {
+      const specPath = path.join(browserStudioSpecs, 'browser-mapper.openapi.json')
       if (fsSync.existsSync(specPath)) {
         const content = fsSync.readFileSync(specPath, 'utf8')
         expect(content).toContain('schemas')

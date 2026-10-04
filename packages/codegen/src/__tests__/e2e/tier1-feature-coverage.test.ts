@@ -652,7 +652,7 @@ describe('E2E Tier 1: Feature Coverage (F01 - F16)', () => {
       expect(fsSync.existsSync(browserStudioRoot)).toBe(true)
     })
 
-    it('T1-F12-2: Declares all 5 domain profile targets or specs exist in artifacts', () => {
+    it('T1-F12-2: Declares all 6 domain profile targets or specs exist in artifacts', () => {
       const specsDir = path.join(browserStudioRoot, 'artifacts/specs')
       expect(fsSync.existsSync(specsDir)).toBe(true)
       const expectedSpecs = [
@@ -661,6 +661,7 @@ describe('E2E Tier 1: Feature Coverage (F01 - F16)', () => {
         'surface-engine.openapi.json',
         'visual-ir.openapi.json',
         'inspector-controls.openapi.json',
+        'browser-mapper.openapi.json',
       ]
       for (const spec of expectedSpecs) {
         expect(fsSync.existsSync(path.join(specsDir, spec))).toBe(true)
@@ -725,10 +726,10 @@ describe('E2E Tier 1: Feature Coverage (F01 - F16)', () => {
   })
 
   // =========================================================================
-  // Feature 14: 5 Domain Profiles Generation & Validation (F14)
+  // Feature 14: 6 Domain Profiles Generation & Validation (F14)
   // =========================================================================
   const browserStudioSpecs = '/Users/junwoobang/workflow/browser-studio/artifacts/specs'
-  describe.skipIf(!fsSync.existsSync(browserStudioSpecs))('F14: 5 Domain Profiles Generation & Validation', () => {
+  describe.skipIf(!fsSync.existsSync(browserStudioSpecs))('F14: 6 Domain Profiles Generation & Validation', () => {
 
     it('T1-F14-1: validates devlink-contracts profile artifact', () => {
       const specPath = path.join(browserStudioSpecs, 'devlink-contracts.openapi.json')
@@ -764,6 +765,14 @@ describe('E2E Tier 1: Feature Coverage (F01 - F16)', () => {
 
     it('T1-F14-5: validates inspector-controls profile artifact', () => {
       const specPath = path.join(browserStudioSpecs, 'inspector-controls.openapi.json')
+      if (fsSync.existsSync(specPath)) {
+        const result = runOaCli(['validate', '--spec', specPath, '--profile', 'component-bundle'])
+        expect(result.status).toBe(0)
+      }
+    })
+
+    it('T1-F14-6: validates browser-mapper profile artifact', () => {
+      const specPath = path.join(browserStudioSpecs, 'browser-mapper.openapi.json')
       if (fsSync.existsSync(specPath)) {
         const result = runOaCli(['validate', '--spec', specPath, '--profile', 'component-bundle'])
         expect(result.status).toBe(0)
