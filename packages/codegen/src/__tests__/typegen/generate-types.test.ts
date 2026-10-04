@@ -1401,6 +1401,9 @@ describe('generateTypesFromSpec — referenced operation components', () => {
         requestBodies: {
           PetBody: { required: true, content: json(petRef) },
         },
+        responses: {
+          PetCreated: { description: 'Created', content: json(petRef) },
+        },
         pathItems: {
           PetById: {
             parameters: [{ name: 'petId', in: 'path', required: true, schema: { type: 'string' } }],
@@ -1428,7 +1431,7 @@ describe('generateTypesFromSpec — referenced operation components', () => {
           post: {
             operationId: 'createPet',
             requestBody: { $ref: '#/components/requestBodies/PetBody' },
-            responses: { '201': { description: 'Created', content: json(petRef) } },
+            responses: { '201': { $ref: '#/components/responses/PetCreated' } },
           },
         },
         '/pets/{petId}': { $ref: '#/components/pathItems/PetById' },
@@ -1457,6 +1460,12 @@ describe('generateTypesFromSpec — referenced operation components', () => {
     const op = objectDeclaration(ts, 'CreatePetOp')
     expect(op).toContain('body: CreatePetBody')
     expect(op).toContain('response: CreatePetResponse')
+  })
+
+  it('a $ref response yields <Op>Response from the referenced response', () => {
+    const ts = generateTypesFromSpec(referencedComponentsSpec())
+
+    expect(ts).toContain('export type CreatePetResponse = Pet\n')
   })
 
   it('a Path Item $ref under paths yields the operation types of the referenced item', () => {
@@ -1488,7 +1497,11 @@ describe('generateTypesFromSpec — referenced operation components', () => {
     expect(params).not.toContain('Component limit description')
   })
 
-  it('declares every operation type the generated client imports from types.ts', () => {
+  // Scope: Reference Objects at operation level only (Path Item, parameter,
+  // requestBody, response). References nested inside those objects, such as a
+  // response header or OAS 3.2 media-type `$ref`, are a known typegen gap
+  // (docs/internal/spec.md, "typegen operation refs") and are not covered here.
+  it('declares the operation types the generated client imports for operation-level $refs', () => {
     const spec = referencedComponentsSpec()
     const ts = generateTypesFromSpec(structuredClone(spec))
     const client = generateClient(structuredClone(spec), { typesImport: './types.js' })
@@ -1496,7 +1509,7 @@ describe('generateTypesFromSpec — referenced operation components', () => {
     const importLine = client.match(/^import type \{ ([^}]+) \} from '\.\/types\.js'$/m)
     expect(importLine, 'client imports operation types').not.toBeNull()
     const imported = importLine![1]!.split(',').map(name => name.trim())
-    expect(imported).toEqual(expect.arrayContaining(['CreatePetBody', 'GetPetPathParams', 'GetPetResponse']))
+    expect(imported).toEqual(expect.arrayContaining(['CreatePetBody', 'CreatePetResponse', 'GetPetPathParams', 'GetPetResponse']))
 
     const exported = exportedTypeNames(ts)
     expect(imported.filter(name => !exported.has(name))).toEqual([])

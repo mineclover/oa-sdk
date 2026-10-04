@@ -12,4 +12,4 @@
 - Operations behind a Path Item `$ref` in `paths` or `webhooks` now get operation types.
 - A `description` beside a parameter `$ref` now overrides the referenced description.
 
-With local references, the generated `types.ts` now declares every operation type that the generated client imports.
+For local references at operation level (a Path Item under `paths` or `webhooks`, and an operation's parameters, requestBody and responses), the generated `types.ts` now declares the operation types that the generated client imports for them. Typegen still does not resolve references nested inside those objects, such as a response header `$ref` or an OAS 3.2 media-type `$ref` under `content`, nor operation-level references into other files. For those specs the client can still import a type, such as `<Op>ResponseHeaders`, `<Op>Body` or `<Op>Response`, that `types.ts` does not declare.
