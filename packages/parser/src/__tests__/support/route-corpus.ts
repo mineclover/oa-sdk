@@ -170,6 +170,85 @@ export function generateRequestPaths(random: Random, index: RouteIndex, count: n
   return paths
 }
 
+// ─── In-place index changes (cache invalidation) ────────────────────────────
+
+export type RouteIndexChange = {
+  kind: 'add' | 'remove' | 'replace' | 're-add' | 'methods' | 'refill'
+  /** True when the index has as many paths afterwards as before. */
+  sameSize: boolean
+  /** Paths removed, added, or moved by the change, for targeting requests. */
+  patterns: string[]
+}
+
+function createMethodMap(random: Random, pattern: string): Map<HttpMethod, OperationEntry> {
+  return new Map(generateMethods(random).map(method => [method, createOperationEntry(pattern, method)]))
+}
+
+function shuffle<T>(random: Random, items: T[]): T[] {
+  for (let i = items.length - 1; i > 0; i -= 1) {
+    const j = random.int(i + 1)
+    ;[items[i], items[j]] = [items[j]!, items[i]!]
+  }
+  return items
+}
+
+/**
+ * Applies one random in-place change to `index`, the way a caller holding a
+ * mutable RouteIndex could: add or remove a path, replace one path with another,
+ * delete and re-add a path (which moves it to the end of declaration order),
+ * swap a path's method map, or clear and refill the index. New paths come from
+ * `sparePatterns`. Most kinds keep the index size, since a size change alone is
+ * the easy case for a cache to notice.
+ */
+export function changeRouteIndexInPlace(
+  random: Random,
+  index: RouteIndex,
+  sparePatterns: readonly string[],
+): RouteIndexChange {
+  const patterns = [...index.keys()]
+  const absent = sparePatterns.filter(pattern => !index.has(pattern))
+  const sizeBefore = index.size
+  const change = (kind: RouteIndexChange['kind'], involved: string[]): RouteIndexChange =>
+    ({ kind, sameSize: index.size === sizeBefore, patterns: involved })
+  const roll = random.next()
+
+  if (patterns.length === 0 || (roll < 0.15 && absent.length > 0)) {
+    if (absent.length === 0) return change('add', [])
+    const added = random.pick(absent)
+    index.set(added, createMethodMap(random, added))
+    return change('add', [added])
+  }
+  if (roll < 0.25) {
+    const removed = random.pick(patterns)
+    index.delete(removed)
+    return change('remove', [removed])
+  }
+  if (roll < 0.55 && absent.length > 0) {
+    const removed = random.pick(patterns)
+    const added = random.pick(absent)
+    index.delete(removed)
+    index.set(added, createMethodMap(random, added))
+    return change('replace', [removed, added])
+  }
+  if (roll < 0.75) {
+    const moved = random.pick(patterns)
+    const methodMap = index.get(moved)!
+    index.delete(moved)
+    index.set(moved, methodMap)
+    return change('re-add', [moved])
+  }
+  if (roll < 0.85) {
+    const changed = random.pick(patterns)
+    index.set(changed, createMethodMap(random, changed))
+    return change('methods', [changed])
+  }
+  const refill = shuffle(random, [...new Set([...patterns, ...sparePatterns])]).slice(0, patterns.length)
+  const involved = [...new Set([...patterns, ...refill])]
+  index.clear()
+  for (const pattern of refill) index.set(pattern, createMethodMap(random, pattern))
+  return change('refill', involved)
+}
+
 // ─── API-shaped corpus (benchmarks) ─────────────────────────────────────────
 
 export type ApiRouteSet = {

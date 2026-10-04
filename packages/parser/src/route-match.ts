@@ -33,6 +33,14 @@ export const HTTP_METHODS: HttpMethod[] = ['get', 'post', 'put', 'patch', 'delet
  * several expressions, keep a per-segment regex. Every route gets a precomputed
  * rank from the specificity order above, so choosing the winner is an integer
  * comparison and trie branches that cannot beat the current winner are pruned.
+ *
+ * RouteIndex is a mutable Map, and the linear matcher this replaced re-read it
+ * on every call, so changes made in place must keep taking effect. The compiled
+ * matcher records the paths it was built from, in order, and each call compares
+ * them with the live keys before using it. That is one string comparison per
+ * path with no regex work; any difference, including a path deleted and re-added
+ * (which moves it last in declaration order), rebuilds the matcher. Method maps
+ * are not compiled at all: they are always read from the index.
  */
 
 type RouteSpecificity = {
@@ -80,8 +88,8 @@ type CompositeEdge = {
 }
 
 type RouteMatcher = {
-  /** RouteIndex size when the matcher was built; a change triggers a rebuild. */
-  indexSize: number
+  /** RouteIndex keys in iteration (declaration) order when the matcher was built. */
+  patterns: readonly string[]
   exact: Map<string, CompiledRoute>
   root: SegmentNode
 }
@@ -101,24 +109,31 @@ const TEMPLATE_EXPRESSION = /\{([^{}]+)\}/g
 const CONTAINS_TEMPLATE_EXPRESSION = /\{[^{}]+\}/
 const EMPTY_VALUES: readonly string[] = Object.freeze([])
 
-/**
- * Compiled matchers keyed by RouteIndex identity. RouteIndex is parser output and
- * is treated as immutable; as a safety net a size change, or a winning path that
- * is no longer in the index, rebuilds the matcher from the live key set.
- */
+/** Compiled matchers keyed by RouteIndex identity, revalidated on every call. */
 const matcherCache = new WeakMap<RouteIndex, RouteMatcher>()
 
+/**
+ * Finds the operation that handles `method` on `urlPath` in a RouteIndex.
+ *
+ * `urlPath` is matched as given, so callers strip any server base path and query
+ * string first; trailing slashes are significant and parameters are returned
+ * without percent-decoding. When several paths match, the most specific one wins
+ * (concrete paths beat templated ones), and the method is checked on that path
+ * only, so `method_not_allowed` lists the winning path's methods.
+ *
+ * The index is compiled into a lookup structure on first use and cached per
+ * RouteIndex object. The index may still be changed in place: each call checks
+ * that it holds the same paths in the same order (one string comparison per
+ * path) and recompiles it if not, and method maps are read live.
+ */
 export function matchRoute(
   index: RouteIndex,
   method: HttpMethod,
   urlPath: string,
 ): MatchResult {
-  let hit = findRoute(getRouteMatcher(index), urlPath)
-  let methodMap = hit && index.get(hit.route.pattern)
-  if (hit && !methodMap) {
-    hit = findRoute(rebuildRouteMatcher(index), urlPath)
-    methodMap = hit && index.get(hit.route.pattern)
-  }
+  const hit = findRoute(getRouteMatcher(index), urlPath)
+  // The matcher's paths equal the live keys, so the winner's method map exists.
+  const methodMap = hit && index.get(hit.route.pattern)
   if (!hit || !methodMap) return { type: 'not_found' }
 
   const entry = methodMap.get(method)
@@ -128,19 +143,32 @@ export function matchRoute(
 
 function getRouteMatcher(index: RouteIndex): RouteMatcher {
   const cached = matcherCache.get(index)
-  if (cached && cached.indexSize === index.size) return cached
-  return rebuildRouteMatcher(index)
-}
-
-function rebuildRouteMatcher(index: RouteIndex): RouteMatcher {
+  if (cached && hasSamePatterns(index, cached.patterns)) return cached
   const matcher = buildRouteMatcher(index)
   matcherCache.set(index, matcher)
   return matcher
 }
 
+/**
+ * True when the index's keys are exactly `patterns`, in the same order. Order
+ * matters because declaration order breaks specificity ties. A Map exposes no
+ * version, so a same-size change (one path swapped for another, or a path
+ * deleted and re-added) is only visible by comparing every key.
+ */
+function hasSamePatterns(index: RouteIndex, patterns: readonly string[]): boolean {
+  if (index.size !== patterns.length) return false
+  let position = 0
+  for (const pattern of index.keys()) {
+    if (pattern !== patterns[position]) return false
+    position += 1
+  }
+  return true
+}
+
 function buildRouteMatcher(index: RouteIndex): RouteMatcher {
+  const patterns = [...index.keys()]
   // Rank = position in the specificity order, declaration order breaking ties.
-  const ranked = [...index.keys()]
+  const ranked = patterns
     .map((pattern, order) => ({ pattern, order, template: parseTemplate(pattern) }))
     .sort((left, right) =>
       compareRouteSpecificity(right.template.specificity, left.template.specificity) || left.order - right.order)
@@ -152,7 +180,7 @@ function buildRouteMatcher(index: RouteIndex): RouteMatcher {
     if (template.paramNames.length === 0) exact.set(pattern, route)
     else trie.insert(template.segments, route)
   })
-  return { indexSize: index.size, exact, root: trie.finish() }
+  return { patterns, exact, root: trie.finish() }
 }
 
 function parseTemplate(pattern: string): ParsedTemplate {

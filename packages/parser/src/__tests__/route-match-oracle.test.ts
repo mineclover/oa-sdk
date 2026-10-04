@@ -3,10 +3,12 @@ import { HTTP_METHODS, matchRoute } from '../route-match.js'
 import type { HttpMethod, MatchResult, RouteIndex } from '../types.js'
 import { linearMatchRoute, listMatchingPatterns } from './support/linear-route-match.js'
 import {
+  changeRouteIndexInPlace,
   createRandom,
   generateAdversarialRouteIndex,
   generateApiRouteSet,
   generateRequestPaths,
+  instantiatePattern,
 } from './support/route-corpus.js'
 
 /** Plain-data view of a match result; pathParams keeps key order and own keys only. */
@@ -47,6 +49,21 @@ function compareWithOracle(
   const actualView = describeResult(actual)
   if (sameEntry && JSON.stringify(expectedView) === JSON.stringify(actualView)) return { expected, mismatch: undefined }
   return { expected, mismatch: { routes: [...index.keys()], method, urlPath, expected: expectedView, actual: actualView } }
+}
+
+function haveSameKeyOrder(left: RouteIndex, right: RouteIndex): boolean {
+  const rightKeys = [...right.keys()]
+  return left.size === right.size && [...left.keys()].every((key, position) => key === rightKeys[position])
+}
+
+/** The path that wins for `urlPath` whatever the method, per the linear reference. */
+function winningPattern(index: RouteIndex, urlPath: string): string | undefined {
+  const probe = linearMatchRoute(index, 'get', urlPath)
+  if (probe.type === 'found') return probe.entry.openApiPath
+  if (probe.type === 'not_found') return undefined
+  const method = probe.allowed[0]
+  const retry = method && linearMatchRoute(index, method, urlPath)
+  return retry && retry.type === 'found' ? retry.entry.openApiPath : '(a path without methods)'
 }
 
 // The reference matcher is linear in the number of routes, so these corpora take
@@ -113,6 +130,68 @@ describe('matchRoute oracle equivalence with the linear regex matcher', () => {
     expect(coverage.winnerNotFirstCandidate).toBeGreaterThan(200)
     expect(coverage.compositeWinner).toBeGreaterThan(200)
     expect(coverage.emptySegmentRoutes).toBeGreaterThan(100)
+  }, ORACLE_TIMEOUT_MS)
+
+  it('agrees while the route index is changed in place between requests', () => {
+    const random = createRandom(0x2c2_ca5e)
+    const mismatches: Mismatch[] = []
+    const coverage = { requests: 0, found: 0, sameSizeKeyChanges: 0 }
+    const changeKinds = new Map<string, number>()
+    const staleSensitiveByKind = new Map<string, number>()
+    const increment = (counts: Map<string, number>, kind: string): void => {
+      counts.set(kind, (counts.get(kind) ?? 0) + 1)
+    }
+
+    /**
+     * Compares one request with the oracle. `before` is set after a same-size
+     * change of the keys: a request whose winning path differs from the one in
+     * the index before that change is one that a matcher still serving the old
+     * key set would answer wrongly, so counting them shows the corpus can catch
+     * a stale cache.
+     */
+    const request = (index: RouteIndex, urlPath: string, before?: { index: RouteIndex; kind: string }): void => {
+      const method = random.chance(0.8) ? 'get' : random.pick(HTTP_METHODS)
+      coverage.requests += 1
+      const { expected, mismatch } = compareWithOracle(index, method, urlPath)
+      if (mismatch) mismatches.push(mismatch)
+      if (expected.type === 'found') coverage.found += 1
+      if (before && winningPattern(before.index, urlPath) !== winningPattern(index, urlPath)) {
+        increment(staleSensitiveByKind, before.kind)
+      }
+    }
+
+    for (let run = 0; run < 150; run += 1) {
+      const index = generateAdversarialRouteIndex(random)
+      const sparePatterns = [...generateAdversarialRouteIndex(random).keys()]
+      for (let step = 0; step < 25; step += 1) {
+        // Warm the matcher's cache on the current key set before every change.
+        for (const urlPath of generateRequestPaths(random, index, 2)) request(index, urlPath)
+
+        const previous = new Map(index)
+        const change = changeRouteIndexInPlace(random, index, sparePatterns)
+        increment(changeKinds, change.kind)
+        const sameSizeKeyChange = change.sameSize && !haveSameKeyOrder(previous, index)
+        if (sameSizeKeyChange) coverage.sameSizeKeyChanges += 1
+        // Requests for the paths the change touched, in either order, then others.
+        const targeted = change.patterns.map(pattern => instantiatePattern(random, pattern))
+        if (random.chance(0.5)) targeted.reverse()
+        for (const urlPath of [...targeted, ...generateRequestPaths(random, index, 2)]) {
+          request(index, urlPath, sameSizeKeyChange ? { index: previous, kind: change.kind } : undefined)
+        }
+      }
+    }
+
+    expect(mismatches.slice(0, 5)).toEqual([])
+    expect(coverage.found).toBeGreaterThan(5_000)
+    expect(coverage.sameSizeKeyChanges).toBeGreaterThan(1_500)
+    for (const kind of ['add', 'remove', 'replace', 're-add', 'methods', 'refill']) {
+      expect(changeKinds.get(kind) ?? 0, kind).toBeGreaterThan(100)
+    }
+    // Requests a stale key set would get wrong. Tie-break reorderings (re-add)
+    // are rare in a random corpus; route-match.test.ts pins one explicitly.
+    expect(staleSensitiveByKind.get('replace') ?? 0).toBeGreaterThan(500)
+    expect(staleSensitiveByKind.get('refill') ?? 0).toBeGreaterThan(500)
+    expect(staleSensitiveByKind.get('re-add') ?? 0).toBeGreaterThan(0)
   }, ORACLE_TIMEOUT_MS)
 
   it('agrees on API-shaped route sets for hits and misses across sizes', () => {

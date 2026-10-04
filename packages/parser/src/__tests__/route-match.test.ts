@@ -175,6 +175,11 @@ describe.each(MATCHERS)('%s', (_, matchRoute) => {
   })
 
   describe('route index changes after the first match', () => {
+    function winnerIn(index: RouteIndex, urlPath: string): string | undefined {
+      const result = matchRoute(index, 'get', urlPath)
+      return result.type === 'found' ? result.entry.openApiPath : undefined
+    }
+
     it('sees routes added after the first match', () => {
       const index = createRouteIndex([['/users/{id}', ['get']]])
       expect(matchRoute(index, 'get', '/teams/1').type).toBe('not_found')
@@ -190,14 +195,61 @@ describe.each(MATCHERS)('%s', (_, matchRoute) => {
       expect(result.type === 'found' && result.entry.openApiPath).toBe('/users/{id}')
     })
 
-    it('rebuilds when the winning path was replaced by another at the same size', () => {
+    // Same-size changes defeat a size-based staleness check. In these cases the
+    // first request after the change is not a hit on a removed path (the first
+    // case runs in both orders), so noticing a removed winner is not enough.
+    function replaceRoute(index: RouteIndex, removed: string, added: string): void {
+      index.delete(removed)
+      index.set(added, new Map([['get', createOperationEntry(added, 'get')]]))
+    }
+
+    it.each([
+      ['removed winner first', ['/users/me', '/users/1/posts']],
+      ['added path first', ['/users/1/posts', '/users/me']],
+    ])('sees a path replaced by another at the same size (%s)', (_, requests) => {
       const index = createRouteIndex([['/users/me', ['get']], ['/users/{id}', ['get']]])
-      expect(matchRoute(index, 'get', '/users/me').type).toBe('found')
-      index.delete('/users/me')
-      index.set('/users/{id}/posts', new Map([['get', createOperationEntry('/users/{id}/posts', 'get')]]))
-      const result = matchRoute(index, 'get', '/users/me')
-      expect(result.type === 'found' && result.entry.openApiPath).toBe('/users/{id}')
-      expect(matchRoute(index, 'get', '/users/1/posts').type).toBe('found')
+      expect(winnerIn(index, '/users/me')).toBe('/users/me')
+      replaceRoute(index, '/users/me', '/users/{id}/posts')
+      const expected: Record<string, string> = { '/users/me': '/users/{id}', '/users/1/posts': '/users/{id}/posts' }
+      for (const urlPath of requests) expect(winnerIn(index, urlPath)).toBe(expected[urlPath])
+    })
+
+    it('sees a new path that replaced one the requests never matched', () => {
+      const index = createRouteIndex([['/users/{id}', ['get']], ['/old', ['get']]])
+      expect(winnerIn(index, '/users/1')).toBe('/users/{id}')
+      replaceRoute(index, '/old', '/teams/{id}')
+      expect(winnerIn(index, '/teams/1')).toBe('/teams/{id}')
+      expect(winnerIn(index, '/old')).toBeUndefined()
+    })
+
+    it('sees a more specific path that replaced an unrelated one while the old winner stays', () => {
+      const index = createRouteIndex([['/users/{id}', ['get']], ['/old', ['get']]])
+      expect(winnerIn(index, '/users/me')).toBe('/users/{id}')
+      replaceRoute(index, '/old', '/users/me')
+      expect(winnerIn(index, '/users/me')).toBe('/users/me')
+      expect(winnerIn(index, '/users/1')).toBe('/users/{id}')
+    })
+
+    it('treats a deleted and re-added path as declared last for tie-breaking', () => {
+      const index = createRouteIndex([['/items/{id}', ['get']], ['/items/{key}', ['get']]])
+      expect(params(matchRoute(index, 'get', '/items/1'))).toEqual([['id', '1']])
+      const methodMap = index.get('/items/{id}')!
+      index.delete('/items/{id}')
+      index.set('/items/{id}', methodMap)
+      expect(params(matchRoute(index, 'get', '/items/1'))).toEqual([['key', '1']])
+    })
+
+    it('sees an index cleared and refilled with the same number of paths', () => {
+      const index = createRouteIndex([['/a/{x}', ['get']], ['/b', ['get']]])
+      expect(winnerIn(index, '/a/1')).toBe('/a/{x}')
+      index.clear()
+      for (const pattern of ['/c/{y}', '/a/1']) {
+        index.set(pattern, new Map([['get', createOperationEntry(pattern, 'get')]]))
+      }
+      expect(winnerIn(index, '/c/2')).toBe('/c/{y}')
+      expect(winnerIn(index, '/a/1')).toBe('/a/1')
+      expect(winnerIn(index, '/a/2')).toBeUndefined()
+      expect(winnerIn(index, '/b')).toBeUndefined()
     })
 
     it('reads method maps live, so replaced or extended method maps take effect', () => {
