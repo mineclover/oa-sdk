@@ -58,6 +58,14 @@ const codePointHex = (text: string) => text.codePointAt(0)!.toString(16)
 const unicodeEscapeFirst = (text: string) => `\\u${codePointHex(text).padStart(4, '0')}${text.slice(1)}`
 const codePointEscapeFirst = (text: string) => `\\u{${codePointHex(text)}}${text.slice(1)}`
 const hexEscapeFirst = (text: string) => `\\x${codePointHex(text).padStart(2, '0')}${text.slice(1)}`
+/**
+ * 레거시 8진수 이스케이프(`\000`-`\377`)는 첫 글자가 U+00FF 이하일 때만 쓸 수 있다. 세 자리로 채워 뒤따르는
+ * 숫자가 이스케이프에 붙지 않게 한다.
+ */
+const octalEscapeFirst = (text: string) => `\\${text.codePointAt(0)!.toString(8).padStart(3, '0')}${text.slice(1)}`
+
+/** 문자열 안에서 `\` 뒤에 오면 줄 연속이 되는 줄 종결자. */
+const LINE_TERMINATORS = ['\n', '\r\n', ' ', ' '] as const
 
 /** 토큰 사이에 끼울 수 있는 공백/주석. */
 const GAPS = [' ', '/* gap */', '\n// gap\n'] as const
@@ -116,10 +124,14 @@ const RULE_SAMPLES = {
     'require("\\x61jv")',
     'require("\\a\\jv")',
     'require("aj\\\nv")',
+    'require("aj\\\r\nv")',
+    'require("aj\\ v")',
     'import("\\u0061jv")',
     '\\u0072equire("zod")',
     'import/* gap */Ajv/* gap */from/* gap */"ajv"',
     '`${require("zod")}`',
+    // 지정자 앞의 무관한 이스케이프(`\"`, 정규식 `\/`)가 이스케이프 해석의 정렬을 흐트러뜨리지 않는다.
+    'const m = { "from": "a\\"b" }; const p = s.replace(/\\//g, "~1"); export * from "@oa\\-sdk/core"',
   ],
 } satisfies Record<CspRuleId, NonEmpty<string>>
 
@@ -298,7 +310,9 @@ const SPECIFIER_LITERALS: ReadonlyArray<(specifier: string) => string> = [
   specifier => `"${hexEscapeFirst(specifier)}"`,
   specifier => `"${unicodeEscapeFirst(specifier)}"`,
   specifier => `'${codePointEscapeFirst(specifier)}'`,
-  specifier => `"${specifier.slice(0, 1)}\\\n${specifier.slice(1)}"`,
+  ...LINE_TERMINATORS.map(
+    terminator => (specifier: string) => `"${specifier.slice(0, 1)}\\${terminator}${specifier.slice(1)}"`,
+  ),
 ]
 
 function disallowedSpecifiers(root: CspModuleRoot): string[] {
@@ -371,8 +385,38 @@ describe.each(MODULE_REFERENCES)('audit:csp module reference %s', (_form, refere
     expect(mismatches).toEqual([])
   })
 
+  /*
+   * 레거시 8진수 이스케이프는 strict 모드가 아닌 스크립트에서 올바른 JavaScript지만 TypeScript는 오류로 보고하므로
+   * (파서는 복구해 같은 값을 만든다) 아래 문법 검증 사례에서 제외하고 여기서 따로 확인한다.
+   */
+  it('is kept by the prefilter and reported by the AST for legacy octal escapes in sloppy-mode scripts', () => {
+    const mismatches: unknown[] = []
+    for (const root of MODULE_ROOTS) {
+      for (const specifier of disallowedSpecifiers(root)) {
+        const expected = [{ rule: CSP_RULE_TABLE.modules.rule, message: `${reference.message}: "${specifier}"` }]
+        for (const source of referenceSources(reference, `"${octalEscapeFirst(specifier)}"`, [' '])) {
+          const prefilter = mayContainCspViolation(source)
+          const actual = reported(source)
+          if (!prefilter || JSON.stringify(actual) !== JSON.stringify(expected)) {
+            mismatches.push({ source, prefilter, actual })
+          }
+        }
+      }
+    }
+    expect(mismatches).toEqual([])
+  })
+
   it('lets the prefilter skip escape-free sources without a disallowed root', () => {
     const sources = referenceSources(reference, '"./local.js"', [' '])
+    expect(sources.filter(source => mayContainCspViolation(source))).toEqual([])
+  })
+
+  it('lets the prefilter skip escaped specifiers that decode to no disallowed root', () => {
+    // `\u`는 식별자 이스케이프일 수도 있어 사전 검사가 항상 통과시키므로 제외한다.
+    const literals = [...SPECIFIER_LITERALS.map(literal => literal('./local.js')), `"${octalEscapeFirst('./local.js')}"`]
+      .filter(literal => literal.includes('\\') && !literal.includes('\\u'))
+    expect(literals.length).toBeGreaterThan(0)
+    const sources = literals.flatMap(literal => referenceSources(reference, literal, [' ']))
     expect(sources.filter(source => mayContainCspViolation(source))).toEqual([])
   })
 })
@@ -555,10 +599,18 @@ describe('audit:csp lexical prefilter', () => {
     ['evaluated identifiers', 'let evaluated0 = true; const evaluationRecord = { evaluatedAt: 1 }'],
     ['property access from/require', 'const xs = Array.from(ys); obj.require(1); const p = /a\\d+/'],
     ['typeof function', 'if (typeof cb === "function") cb()'],
+    // 생성된 guard 번들의 형태: "from" 키와 JSON 포인터 이스케이프용 정규식이 함께 있다.
+    [
+      'module keyword text with unrelated escapes',
+      'const s = { "from": { "type": "string" }, "pattern": "^\\\\d+$" }; p.replace(/~/g, "~0").replace(/\\//g, "~1")',
+    ],
+    ['escaped backslash before hex digits', 'const p = require("\\\\x7aod")'],
   ]
 
   it.each(benign)('skips AST analysis for %s', (_name, source) => {
     expect(mayContainCspViolation(source)).toBe(false)
+    // 사전 검사를 거치지 않은 AST 규칙의 판정도 위반 없음이어야 한다.
+    expect(reported(source)).toEqual([])
   })
 
   it('reports the same location and snippet when parent pointers are not built', async () => {

@@ -232,8 +232,8 @@ function isDisallowedModuleSpecifier(specifier: string): boolean {
  * - MODULE_REFERENCE_READERS의 token은 노드를 식별하는 토큰, 즉 선언 키워드나 식별자/키워드 그 자체인
  *   호출 대상의 텍스트를 돌려준다. 이 토큰은 멤버 이름이 아니므로 `.from`/`.require` 같은 멤버 이름은
  *   제외한다(`...require()` 전개는 포함). 식별자인 호출 대상은 위와 같이 `\u`로만 숨길 수 있다.
- * - 모듈 지정자는 문자열 리터럴 값으로만 읽는다. 금지 루트 이름이 원문에 나타나거나, 문자열 이스케이프로
- *   숨겨질 수 있을 때(`\`)만 위험하다.
+ * - 모듈 지정자는 문자열 리터럴의 해석값(cooked)으로만 읽는다. 따라서 원문 또는 이스케이프를 해석한 원문
+ *   (`cookStringEscapes`)에 표의 금지 루트 이름이 나타날 때만 위험하다.
  * - 주석, 문자열, 템플릿 리터럴 안의 단어도 그대로 매칭된다. 사전 검사가 덜 걸러낼 뿐 위반은 누락되지 않는다.
  * - 필요조건은 문법적으로 올바른 JavaScript에 대해 성립한다. 숫자 리터럴 바로 뒤에 붙은 식별자
  *   (`0neval()`, `1e5eval()`)는 SyntaxError라 브라우저가 번들을 실행하지 않지만, TS 파서는 오류를 복구해
@@ -266,7 +266,42 @@ export function mayContainCspViolation(content: string): boolean {
   if (content.includes('\\u')) return true
   if (CALL_TARGET_WORD.test(content)) return true
   if (!MODULE_REFERENCE_WORD.test(content)) return false
-  return DISALLOWED_MODULE_ROOT_TEXT.test(content) || content.includes('\\')
+  if (DISALLOWED_MODULE_ROOT_TEXT.test(content)) return true
+  return content.includes('\\') && DISALLOWED_MODULE_ROOT_TEXT.test(cookStringEscapes(content))
+}
+
+/**
+ * 문자열 리터럴 이스케이프 시퀀스: `\u{…}`, `\uXXXX`, `\xXX`, 레거시 8진수(최대 `\377`),
+ * 줄 연속(`\` + 줄바꿈), 그 밖의 단일 문자 이스케이프.
+ */
+const STRING_ESCAPE =
+  /\\(?:u\{([0-9a-fA-F]+)\}|u([0-9a-fA-F]{4})|x([0-9a-fA-F]{2})|([0-3][0-7]{0,2}|[4-7][0-7]?)|(\r\n|[\n\r\u{2028}\u{2029}])|([\s\S]))/gu
+const SINGLE_CHAR_ESCAPES: Readonly<Record<string, string>> = { b: '\b', f: '\f', n: '\n', r: '\r', t: '\t', v: '\v' }
+
+/**
+ * 원문 전체를 하나의 문자열 리터럴 본문처럼 보고 이스케이프를 JS 규칙대로 해석한다.
+ *
+ * 이스케이프 시퀀스는 따옴표를 바로 뒤의 한 글자(`\"`, `\'`)로만 소비하므로, 각 문자열 리터럴의
+ * 여는 따옴표 다음 위치에서 해석이 항상 정렬된다. 따라서 모든 문자열 리터럴의 해석값은 이 함수
+ * 결과의 부분 문자열이고, 결과에 금지 패키지 이름이 없으면 어떤 모듈 지정자도 금지 패턴과 일치할 수 없다.
+ * 범위를 벗어난 코드 포인트처럼 잘못된 이스케이프는 TypeScript처럼 원문을 남긴다(백슬래시만 제거).
+ */
+function cookStringEscapes(text: string): string {
+  return text.replace(
+    STRING_ESCAPE,
+    (match, codePoint?: string, hex4?: string, hex2?: string, octal?: string, lineContinuation?: string, other?: string) => {
+      if (codePoint !== undefined) {
+        const value = Number.parseInt(codePoint, 16)
+        return value <= 0x10ffff ? String.fromCodePoint(value) : match.slice(1)
+      }
+      if (hex4 !== undefined) return String.fromCharCode(Number.parseInt(hex4, 16))
+      if (hex2 !== undefined) return String.fromCharCode(Number.parseInt(hex2, 16))
+      if (octal !== undefined) return String.fromCharCode(Number.parseInt(octal, 8))
+      if (lineContinuation !== undefined) return ''
+      const char = other ?? ''
+      return SINGLE_CHAR_ESCAPES[char] ?? char
+    },
+  )
 }
 
 function unwrapExpression(ts: typeof tsType, node: tsType.Node): tsType.Node {
