@@ -378,12 +378,13 @@ describe('preserve-ref cuts in the output document', () => {
       const options = nodeOptions(scenario, 'preserve-ref')
       const parsed = parseDocument(document(scenario.entry), options)
       const { recursiveRefs } = derefSpecWithDiagnostics(document(scenario.entry), options)
-      const cutRefs = collectRefs([subject(parsed), parsed.schemas])
-      if (parsed.resolution?.status !== 'complete') return
 
-      for (const ref of cutRefs) {
-        expect(recursiveRefs, ref).toContain(ref)
+      for (const ref of recursiveRefs) {
         expect(resolveFromFile(entryPath, ref), `${ref} from ${ENTRY_FILE}`).toBeDefined()
+      }
+      // A complete output keeps no `$ref` other than those recursion cuts.
+      if (parsed.resolution?.status === 'complete') {
+        for (const ref of collectRefs([subject(parsed), parsed.schemas])) expect(recursiveRefs, ref).toContain(ref)
       }
     },
   )
