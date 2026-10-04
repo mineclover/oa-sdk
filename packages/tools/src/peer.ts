@@ -36,6 +36,8 @@ export interface WebMcpPeerRecord {
 export interface WebMcpPeerConfig {
   /** Local signaling/bridge server URL (default: http://127.0.0.1:8787) */
   serverUrl?: string
+  /** Optional bearer token for an authenticated bridge server. */
+  authToken?: string
   /** Target peer alias (default: wireframe-local) */
   alias?: string
   /** Path to ~/.webmcp/peers.json registry */
@@ -46,25 +48,50 @@ export interface WebMcpPeerConfig {
   refreshRetryMs?: number
 }
 
+interface SharedBridgeClient {
+  resolvePeer: (alias?: string) => Promise<WebMcpPeerRecord | null>
+  getStatus: () => Promise<Record<string, any>>
+  listTools: (alias?: string) => Promise<Array<{ name: string; description: string; inputSchema: Record<string, unknown> }>>
+  callTool: (payload: { tool: string; args?: Record<string, unknown>; peer?: string }) => Promise<{
+    result?: unknown
+    error?: string
+    isError?: boolean
+    status?: string
+  }>
+}
+
 export class WebMcpPeerBridgeClient {
   readonly serverUrl: string
   readonly alias: string
   readonly storePath: string
   readonly timeoutMs: number
   readonly refreshRetryMs: number
+  readonly authToken: string | undefined
 
-  constructor(config: WebMcpPeerConfig = {}) {
+  private readonly sharedClient: SharedBridgeClient | undefined
+
+  constructor(config: WebMcpPeerConfig = {}, sharedClient?: SharedBridgeClient) {
     this.serverUrl = (config.serverUrl ?? 'http://127.0.0.1:8787').replace(/\/+$/, '')
     this.alias = config.alias ?? 'wireframe-local'
     this.storePath = config.storePath ?? join(homedir(), '.webmcp', 'peers.json')
     this.timeoutMs = config.timeoutMs ?? 30000
     this.refreshRetryMs = config.refreshRetryMs ?? 5000
+    if (config.authToken !== undefined && (!config.authToken || config.authToken.length > 4096 || /[\r\n]/.test(config.authToken))) {
+      throw new TypeError('authToken is invalid')
+    }
+    this.authToken = config.authToken
+    this.sharedClient = sharedClient
+  }
+
+  private headers(extra: Record<string, string> = {}): Record<string, string> {
+    return this.authToken ? { ...extra, Authorization: `Bearer ${this.authToken}` } : extra
   }
 
   /**
    * Resolve a peer record by alias from local peer store
    */
   async resolvePeer(alias = this.alias): Promise<WebMcpPeerRecord | null> {
+    if (this.sharedClient) return this.sharedClient.resolvePeer(alias)
     if (!existsSync(this.storePath)) return null
     try {
       const text = await readFile(this.storePath, 'utf-8')
@@ -86,8 +113,10 @@ export class WebMcpPeerBridgeClient {
     toolsCount?: number
     peers?: WebMcpPeerRecord[]
   }> {
+    if (this.sharedClient) return (await this.sharedClient.getStatus()) as any
     try {
       const res = await fetch(`${this.serverUrl}/status`, {
+        headers: this.headers(),
         signal: AbortSignal.timeout(5000),
       })
       if (res.ok) {
@@ -115,9 +144,11 @@ export class WebMcpPeerBridgeClient {
     description: string
     inputSchema: Record<string, unknown>
   }>> {
+    if (this.sharedClient) return this.sharedClient.listTools(alias)
     // 1. Try server /tools endpoint
     try {
       const res = await fetch(`${this.serverUrl}/tools?peer=${encodeURIComponent(alias)}`, {
+        headers: this.headers(),
         signal: AbortSignal.timeout(5000),
       })
       if (res.ok) {
@@ -147,6 +178,11 @@ export class WebMcpPeerBridgeClient {
     args: Record<string, unknown> = {},
     alias = this.alias,
   ): Promise<any> {
+    if (this.sharedClient) {
+      const result = await this.sharedClient.callTool({ tool, args, peer: alias })
+      if (result.isError) throw new Error(result.error ?? 'Tool call failed')
+      return result.result
+    }
     const deadline = Date.now() + this.refreshRetryMs
     let delay = 100
     let lastError: Error | null = null
@@ -155,27 +191,39 @@ export class WebMcpPeerBridgeClient {
       try {
         const res = await fetch(`${this.serverUrl}/call`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: this.headers({ 'Content-Type': 'application/json' }),
           body: JSON.stringify({ tool, args, peer: alias }),
           signal: AbortSignal.timeout(this.timeoutMs),
         })
 
-        if (res.status === 503 || res.status === 404) {
-          // Tab is refreshing or reconnecting, wait and retry
-          const body = (await res.json().catch(() => ({}))) as Record<string, any>
-          lastError = new Error(body.message || `Peer '${alias}' temporarily unavailable (${res.status})`)
+        let body: Record<string, any>
+        try {
+          body = (await res.json()) as Record<string, any>
+        } catch {
+          // Preserve the fallback's tolerant handling for error responses,
+          // while treating an invalid successful response as terminal.
+          if (res.ok) throw new Error('Bridge returned invalid JSON')
+          body = {}
+        }
+        const errorText = typeof body.error === 'string' ? body.error : undefined
+
+        // Only the bridge's explicit PEER_UNAVAILABLE signal is transient. A
+        // 404, another 503, or any other HTTP error is a terminal tool error;
+        // retrying those can duplicate calls and mask contract failures.
+        if (res.status === 503 && errorText?.startsWith('PEER_UNAVAILABLE')) {
+          lastError = new Error(errorText)
         } else if (!res.ok) {
-          const body = (await res.json().catch(() => ({}))) as Record<string, any>
-          throw new Error(body.error || body.message || `Tool call failed with HTTP ${res.status}`)
+          throw new Error(errorText || body.message || `Tool call failed with HTTP ${res.status}`)
         } else {
-          const body = (await res.json()) as Record<string, any>
           return body.result ?? body
         }
       } catch (err: any) {
-        if (err.name === 'AbortError') {
+        if (err.name === 'AbortError' || err.name === 'TimeoutError') {
           throw new Error(`Tool call timeout after ${this.timeoutMs}ms`)
         }
-        lastError = err
+        // Network errors and malformed responses are terminal. The retry
+        // window is reserved for explicit PEER_UNAVAILABLE responses above.
+        throw err instanceof Error ? err : new Error(String(err))
       }
 
       // Backoff sleep before next retry
@@ -199,7 +247,14 @@ export interface WebMcpPeerAppOptions extends WebMcpPeerConfig {
  * Creates an @oa-sdk/tools ToolApp that exposes peered browser tools to MCP and CLI.
  */
 export async function createWebMcpPeerApp(options: WebMcpPeerAppOptions = {}): Promise<ToolApp> {
-  const client = new WebMcpPeerBridgeClient(options)
+  let sharedClient: SharedBridgeClient | undefined
+  try {
+    const transport = await import('@oa-sdk/peer-transport')
+    sharedClient = new transport.WebMcpBridgeClient(options) as unknown as SharedBridgeClient
+  } catch {
+    // Keep the local implementation available when the optional transport peer is absent.
+  }
+  const client = new WebMcpPeerBridgeClient(options, sharedClient)
   const app = createToolApp({
     name: options.name ?? 'webmcp-peer-app',
     version: options.version ?? '0.2.0',
