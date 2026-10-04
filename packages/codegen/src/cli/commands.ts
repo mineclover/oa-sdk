@@ -33,6 +33,7 @@ import { generateTanstackCommand } from './commands/generate-tanstack.js'
 import { generateClientCommand, packClientCommand } from './commands/generate-client.js'
 import { generateGuardsCommand } from './commands/generate-guards.js'
 import { generateDrizzleCommand } from './commands/generate-drizzle.js'
+import { surface } from './commands/surface.js'
 
 export const commands: Command[] = [
   init,
@@ -41,6 +42,7 @@ export const commands: Command[] = [
   generateZod,
   generateGuardsCommand,
   generateDrizzleCommand,
+  surface,
   generate,
   typegen,
   buildSpecCommand,
@@ -84,5 +86,6 @@ export {
   packClientCommand,
   generateGuardsCommand,
   generateDrizzleCommand,
+  surface,
   driftLive,
 }

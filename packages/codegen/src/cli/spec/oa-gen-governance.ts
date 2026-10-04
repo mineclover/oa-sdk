@@ -70,6 +70,57 @@ export const oaGenGovernanceManifest = {
       },
     },
     {
+      id: 'surface',
+      kind: 'command',
+      name: 'surface',
+      summary: 'TypeSpec/OpenAPI artifact에서 target surface IR과 Forge projection/Overlay 생성',
+      components: {
+        options: [
+          {
+            name: 'spec',
+            type: 'string',
+            short: 's',
+            required: true,
+            description: 'OpenAPI YAML/JSON 또는 TypeSpec .tsp 경로',
+          },
+          {
+            name: 'target',
+            type: 'string',
+            description: 'surface target (현재 forge)',
+          },
+          {
+            name: 'out-dir',
+            type: 'string',
+            short: 'o',
+            description: 'surface-ir.json, Forge projection, Overlay, manifest 출력 디렉토리',
+          },
+          {
+            name: 'mapping',
+            type: 'string',
+            description: 'operation group/method/lifecycle/CLI override JSON 또는 YAML 경로',
+          },
+          {
+            name: 'fail-on-warning',
+            type: 'boolean',
+            description: 'warning diagnostic이 있으면 실패',
+          },
+        ],
+        inputs: [
+          { name: 'spec', kind: 'openapi-document', required: true, option: 'spec' },
+        ],
+        checks: [],
+        reports: [
+          { formats: ['human'], schema: 'oa-gen.surface.human.v1' },
+          { formats: ['json'], schema: 'oa-sdk.surface-ir.v1' },
+          { formats: ['json'], schema: 'oa-sdk.surface-manifest.v1' },
+        ],
+        exitPolicy: {
+          success: ['APPROVE', 'COMMENT'],
+          failure: ['REQUEST_CHANGES'],
+        },
+      },
+    },
+    {
       id: 'generate-tanstack',
       kind: 'command',
       name: 'generate:tanstack',

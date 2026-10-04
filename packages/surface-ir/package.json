@@ -1,0 +1,42 @@
+{
+  "name": "@oa-sdk/surface-ir",
+  "version": "0.1.0",
+  "description": "Target-neutral API surface IR and Forge projection adapter",
+  "private": false,
+  "type": "module",
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsup src/index.ts --format esm --dts",
+    "test": "pnpm build && vitest run",
+    "test:ci": "pnpm build && vitest run --maxWorkers 1 --no-file-parallelism",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@oa-sdk/parser": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsup": "^8.0.0",
+    "typescript": "5.9.3",
+    "vitest": "^4.1.4",
+    "yaml": "^2.8.3"
+  }
+}

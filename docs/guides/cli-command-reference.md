@@ -25,6 +25,7 @@ node packages/codegen/dist/cli/index.js --help
 | OpenAPI 3.1/3.2 스펙에서 타입 안전 fetch 클라이언트 SDK 생성 | `oa-gen generate:client` | [Quick Start](./quick-start.md) |
 | OpenAPI 3.2 스펙에서 Zod 4 스키마 및 타입 생성 | `oa-gen generate:zod` | [Quick Start](./quick-start.md) |
 | OpenAPI 3.1/3.2 스펙에서 TanStack Query v5 3계층 옵션/키 생성 | `oa-gen generate:tanstack` | [온보딩 플레이북](./onboarding-playbook.md) |
+| OpenAPI artifact를 Forge SDK/CLI surface로 투영 | `oa-gen surface --target forge` | [Cloudflare Forge 지원](./forge-support.md) |
 | TypeSpec 또는 OpenAPI 기반 제로 빌드 Mock HTTP 서버 구동 | `oa-gen mock` | [Quick Start](./quick-start.md) |
 | TypeSpec AST 시맨틱 차이점 및 Breaking Change 검출 | `oa-gen tsp diff` | [TypeSpec 규칙](./typespec-authoring-conventions.md) |
 | 외부 NestJS/FastAPI OpenAPI를 관리 | `oa-gen scaffold-governance`, `collect`, `review-bundle` | [OpenAPI Governance Workflow](./use-cases/openapi-governance-workflow.md) |
@@ -48,6 +49,7 @@ node packages/codegen/dist/cli/index.js --help
 | `oa-gen generate:client` | OpenAPI 3.1/3.2 또는 TypeSpec(.tsp) 스펙에서 타입 안전 fetch 클라이언트 SDK를 생성할 때 | `--spec <openapi\|typespec>` | fetch 클라이언트 SDK 산출물; `--spec` (`-s`), `--output <path>` (`-o`), `--types-import <path>`, `--banner` 지원 (`oa-gen client` alias 지원) |
 | `oa-gen generate:zod` | OpenAPI 3.2 또는 TypeSpec(.tsp) 스펙에서 Zod 4 스키마 및 TypeScript 타입을 생성할 때 | `--spec <openapi\|typespec>` | Zod 4 스키마 정의 및 TypeScript 타입 생성; `--spec`, `--output <path>`로 파일/디렉터리 지정, `--runtime-adapter`로 런타임 검증기 연동, `--style <schema\|both>` 지원 |
 | `oa-gen generate:tanstack` | OpenAPI 3.1/3.2 또는 TypeSpec(.tsp) 스펙에서 TanStack Query v5 3계층(Query Key Factory, Options Factory, Hooks) 코드를 생성할 때 | `--spec <openapi\|typespec>` | TanStack Query v5 산출물 (keys, options, hooks); `--spec` (`-s`), `--output <dir>` (`-o`), `--config <path>` (`-c`), `--tier <all\|keys\|options\|hooks>`, `--framework <react\|vue\|svelte>`, `--client-import <path>`, `--types-import <path>`, `--split` 지원 |
+| `oa-gen surface` | OpenAPI 또는 TypeSpec artifact를 target-neutral Surface IR과 Forge projection/Overlay로 변환할 때 | `--spec <openapi\|typespec>` | `surface-ir.json`, `forge-projection.json`, command별 Overlay, `surface-manifest.json`; `--target forge`, `--out-dir`, `--mapping`, `--fail-on-warning` 지원 |
 | `oa-gen generate:guards` | OpenAPI 3.1/3.2 또는 TypeSpec(.tsp)으로부터 독립형 무런타임 타입 가드를 생성할 때 | `--input <file>` | 독립형 무런타임 타입 가드(Standalone Type Guards) 산출물; `--input` (`-i`), `--out-dir` (`-o`), `--type-import`, `--module-format`, `--split`, `--schemas` 지원 |
 | `oa-gen generate:drizzle` | Drizzle ORM 스키마 파일로부터 OpenAPI 3.2 스키마 컴포넌트를 생성할 때 | `--drizzle-schema <path>` | Drizzle ORM 스키마 기반 OpenAPI 3.2 컴포넌트 산출물; `--drizzle-schema` (`-d`), `--output` (`-o`), `--merge-into`, `--schemas` 지원 |
 | `oa-gen mock` | TypeSpec, OpenAPI 또는 TypeScript 소스에서 제로 빌드 즉각 목 서버를 구동할 때 | `--tsp <file>` 또는 `--spec <path>` | 인메모리 OpenAPI 3.2 Mock HTTP 서버 구동 (기본 포트 4010); `--tsp` (`-t`), `--spec` (`-s`), `--port <port>` (`-p`), `--host <host>`, `--watch` (`-w`)로 100ms 디바운스, 에러 쉴딩, 원자적 인메모리 라우트 핫스왑 지원 |
@@ -164,6 +166,31 @@ oa-gen generate:client --spec ./openapi.yaml --types-import ./types.js --output 
 # 단독 패키지 빌드 (Model B: 0-런타임 의존성 dist/ 패키지)
 oa-gen generate:client --spec ./openapi.yaml --pack --output ./packages/api-client --name @my-org/api-client
 ```
+
+## surface 옵션 및 인수 명세
+
+`oa-gen surface`는 OpenAPI 또는 TypeSpec artifact를 ParsedDocument IR과 Surface IR로
+변환한 뒤, 현재 지원하는 Forge target의 operation projection, command catalog, command별
+OpenAPI Overlay, machine-readable manifest를 생성합니다.
+
+| 옵션 | 단축 | 타입 | 기본값 | 설명 |
+| --- | --- | --- | --- | --- |
+| `--spec <path>` | `-s` | `string` | **(필수)** | OpenAPI YAML/JSON 또는 TypeSpec `.tsp` 입력 경로 |
+| `--target <target>` | | `string` | `forge` | 현재 지원 target: `forge` |
+| `--out-dir <dir>` | `-o` | `string` | `artifacts/surface/forge` | IR, projection, Overlay, manifest 출력 디렉터리 |
+| `--mapping <path>` | | `string` | `undefined` | operation group/method/lifecycle/CLI override JSON/YAML |
+| `--fail-on-warning` | | `boolean` | `false` | warning diagnostic도 실패로 처리 |
+
+```bash
+oa-gen surface \
+  --spec packages/schemas/dist/openapi.json \
+  --target forge \
+  --out-dir artifacts/surface/forge
+```
+
+생성되는 `surface-manifest.json`은 입력 artifact hash, IR version hash, operation/command
+수, diagnostic 수, Overlay 경로를 기록합니다. Forge 전체 TypeScript SDK 생성은 생성된
+Overlay를 Forge/Fern transformer에 전달하는 별도 downstream 단계입니다.
 
 ## generate:tanstack 옵션 및 인수 명세
 
