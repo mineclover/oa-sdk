@@ -2,8 +2,15 @@
   "name": "@oa-sdk/client",
   "version": "0.2.1",
   "description": "OAS 3.2 spec → typed fetch client SDK",
-  "private": true,
+  "private": false,
   "type": "module",
+  "files": [
+    "dist"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
   "exports": {
     ".": {
       "import": "./dist/index.js",

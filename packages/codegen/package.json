@@ -64,6 +64,7 @@
     "@oa-sdk/core": "workspace:*",
     "@oa-sdk/openapi-projection-contract": "workspace:*",
     "@oa-sdk/parser": "workspace:*",
+    "@oa-sdk/surface-ir": "workspace:*",
     "@oa-sdk/typespec-decorators": "workspace:*",
     "@typespec/compiler": "^1.16.0",
     "@typespec/events": "^0.86.0",
