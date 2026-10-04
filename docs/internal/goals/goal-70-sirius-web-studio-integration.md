@@ -1,7 +1,6 @@
-# Goal 70 - Sirius Web Studio Integration (candidate)
+# Goal 70 - Sirius Web Studio Integration
 
-**Status: scope-gated candidate (opened 2026-10-05). Goal 69.7 is done; a scope
-decision is required before implementation.**
+**Status: Phase A B1·B2 approved (2026-10-05); B3 waits for the B4 comparison.**
 
 ## Purpose
 
@@ -47,6 +46,27 @@ oa-sdk contract model.
 Start with spec-lens `SpecGraph` because it is populated from the production
 contract. Logical ERD has richer semantics (cardinality, keys, TypeSpec spans)
 but production `.tsp` files do not use the `typespec-erd` decorators yet.
+
+## Scope Decision (2026-10-05)
+
+The user approved only the oa-sdk side of Phase A (orchestration decision D1).
+B3 (Sirius importer) waits for the B4 comparison.
+
+| Decision item | Recorded decision |
+|---|---|
+| User problem | Review the contract model as a graph without losing `$ref` structure, keyed by identifiers that stay stable across regeneration. |
+| Core relation | B1 and B2 stay inside Core packages (`parser`, `codegen`, `spec-lens`, `spec-lens-contract`): a versioned export of `projectRefGraph` and a shared node-to-`canonicalId` mapping. No new workspace is added. |
+| Owner | OA SDK maintainers own the exchange artifact schema and its compatibility. The Sirius-side Java repository has no owner yet; naming one is a precondition for B3. |
+| Release/CI | The export command and its schema are covered by codegen tests and `check:cli-spec`; no new release track. |
+| Location | This monorepo for B1/B2. Sirius Web code never enters it. |
+| Exit condition | B1/B2: the artifact is versioned, schema-validated, and deterministic, and every node carries a stable `canonicalId` (or an explicit reason it has none). Goal 70 continues past Phase A only if B4 shows model-level editing or multi-notation views are required. |
+
+| Unit | Content | Status |
+|---|---|---|
+| B1 | `oa-gen` command exporting `projectRefGraph` as a versioned artifact (`oa-sdk.ref-projection.v1`) with a schema contract and tests | approved |
+| B2 | Map projection node ids to provenance `canonicalId`; promote spec-lens `nearestCanonicalId` to a shared function | approved |
+| B3 | Sirius Web importer (separate Java repository) | waits for B4 |
+| B4 | Decision gate: compare with extending `apps/spec-lens` | not started |
 
 ## Non-goals
 

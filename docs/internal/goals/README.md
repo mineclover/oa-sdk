@@ -33,7 +33,7 @@ policy를 적용한다.
 |---|---|---|
 | [Goal 68 — DPM Logical Data Definition and Extraction Boundary](./goal-68-dpm-logical-data-definition-boundary.md) | 진행 중 — 68.0~68.4 private owner acceptance 완료, external owner가 extraction contract의 정본, public release와 breaking removal은 별도 gate | dpm / data-governance |
 | [Goal 69 — Parser Ref Expansion Performance and Ref-Preserving Graph](./goal-69-parser-ref-expansion-performance.md) | 진행 중 — Core Platform, downstream 성능 항목은 scope-reactivation decision 필요 | parser, codegen |
-| [Goal 70 — Sirius Web Studio Integration](./goal-70-sirius-web-studio-integration.md) | scope-gated 후보 — Goal 69.7 선행, TypeSpec SSOT 유지, studio는 별도 저장소 | spec-lens-contract, ast-sync, tools |
+| [Goal 70 — Sirius Web Studio Integration](./goal-70-sirius-web-studio-integration.md) | Phase A B1·B2 승인(2026-10-05), B3는 B4 비교 후 결정 — TypeSpec SSOT 유지, studio는 별도 저장소 | spec-lens-contract, ast-sync, tools |
 
 ## 완료 목표 이력
 
