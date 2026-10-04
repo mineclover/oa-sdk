@@ -49,6 +49,33 @@ inliner.
 depth 16/18/24 at 50 ms and ring 100/200 at 150/600 ms. HEAD fails the diamond
 budgets by more than an order of magnitude.
 
+### Ref graph and projection (69.5b, 69.7)
+
+| Input | Before | After |
+|---|---|---|
+| `approved.openapi.yaml` `resolveRefGraph` | 7.7 ms, 722 nodes (165 distinct) | 2.5 ms, 165 nodes |
+| Diamond depth 16 `resolveRefGraph` | 1.74 s, 393,179 nodes | 0.2 ms, 33 nodes |
+| Ring 400 `projectRefGraph` | n/a | 400 nodes, 400 edges |
+
+`resolveRefGraph` used to re-walk a shared target once per path, so lint and
+the TypeSpec provenance check reported the same diagnostic once per path. Each
+occurrence now appears once. `resolved` means the target exists; cycle problems
+are only `ref-cycle` diagnostics. Descent counts are non-negative, so an
+unguarded cycle exists exactly when the zero-descent edges contain a cycle;
+every occurrence on such a cycle is diagnosed, including cycles that sit beside
+a guarded path between the same targets.
+
+`projectRefGraph` is the ref-preserving view: entry-document declarations
+(`components.*`, `paths`, `webhooks`) and external targets are nodes, and each
+`$ref` occurrence is an edge from its nearest enclosing declaration to the
+target's. Self-references are kept and edges on cycles carry `recursion:
+'guarded' | 'unguarded'`. Output size is linear in occurrences, which removes
+the O(n^2) ring floor for consumers that need structure rather than inlined
+schemas. spec-lens `GetGraphHandler` maps projection edges to provenance
+`canonicalId`s. This also fixes two bugs in its previous walker: path keys were
+not pointer-escaped, so path-level edges were missing, and refs were matched as
+raw strings, so dangling refs produced edges. spec-lens still hides self-edges.
+
 ## Contract
 
 - Expanding a `$ref` target produces the same value, the same diagnostics, and
@@ -71,9 +98,9 @@ budgets by more than an order of magnitude.
 | 69.3 DAG-safe consumers: client `serializeValidationSchema` switched from a global seen-set to an ancestor-path guard. Typegen `analyzeSchemaFidelity` already used one | done | client |
 | 69.4 Diamond and ring fixtures in `scripts/bench` with regression thresholds (`bench:parser`) | done | parser bench |
 | 69.5a Recursive schema rule shared by parse and lint (`recursion-guard.ts`) | done | parser |
-| 69.5b `resolveRefGraph` visits each target once per stack-independent context; typegen dedupes with a `Map` | planned | parser, codegen |
+| 69.5b `resolveRefGraph` records one node per `$ref` occurrence and visits each target once; unguarded cycles come from SCCs of zero-descent edges; typegen dedupes with a `Map` | done | parser, codegen |
 | 69.6 `oa-gen generate` parses each projected spec once (lazily) and passes the `ParsedDocument` to every generator. Typegen's two non-deref parses stay: after 69.2 they are linear | done | codegen |
-| 69.7 Ref-preserving graph projection (components as nodes, `$ref` as edges, `canonicalId` aligned with spec-lens `SpecGraph`) | planned | parser, spec-lens-contract |
+| 69.7 Ref-preserving graph projection `projectRefGraph` (declarations as nodes, one edge per `$ref` occurrence with `guarded`/`unguarded` recursion); spec-lens graph edges use it | done | parser, spec-lens |
 
 ## Decisions
 

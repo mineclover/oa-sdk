@@ -1,7 +1,7 @@
 # Goal 70 - Sirius Web Studio Integration (candidate)
 
-**Status: scope-gated candidate (opened 2026-10-05). Requires Goal 69.7 and a
-scope decision before implementation.**
+**Status: scope-gated candidate (opened 2026-10-05). Goal 69.7 is done; a scope
+decision is required before implementation.**
 
 ## Purpose
 
@@ -38,7 +38,7 @@ oa-sdk contract model.
 
 | Phase | Content | Exit criterion |
 |---|---|---|
-| A. Read-only projection | Export the Goal 69.7 ref-preserving graph as a versioned JSON artifact; a Sirius importer maps it to an EMF model with oa-sdk identifiers as object ids | Diagram and table views of the real `schemas` contract; layout survives re-import |
+| A. Read-only projection | Export the Goal 69.7 ref-preserving graph (`projectRefGraph` in `@oa-sdk/parser`, available) as a versioned JSON artifact; a Sirius importer maps it to an EMF model with oa-sdk identifiers as object ids | Diagram and table views of the real `schemas` contract; layout survives re-import |
 | Decision gate | Compare against extending `apps/spec-lens` (React + d3) for the same use cases | Continue only if model-level editing or multi-notation views are required |
 | B. Edit proposals | TypeSpec adapter that turns structured edits (`addField`, `addRelationship`, `rename`) into span-targeted `TextEdit`s; edit API via `defineTool`; result lands as a git branch and is re-verified by `schema:typespec-check`, provenance check, and `tsp diff` | A Sirius edit produces a reviewable TypeSpec diff that passes existing gates |
 
