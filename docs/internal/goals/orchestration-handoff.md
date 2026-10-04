@@ -136,15 +136,16 @@
 | C3 | 생성된 client가 호출마다 `JSON.parse("…")`로 스키마를 다시 만들고(`generate-client-renderer.ts:126`), 검사마다 `new RegExp`를 만든다(`runtime-schema.ts:82`). 스키마를 모듈 상수로 빼고 정규식을 캐시해야 한다. | client | decision |
 | C4 | codegen이 `@oa-sdk/client`, `router`, `mock-server`를 devDependencies로 두고(`codegen/package.json:86-88`) `oa-gen generate`에서 동적 import한다. 그래서 배포된 패키지에서는 경고만 남기고 산출물을 건너뛴다. optional peer dependency 또는 플러그인 인터페이스로 바꿔야 한다. | codegen(Core) 배포 버그 | **ready**. `codegen/package.json`이 미커밋 변경과 충돌 |
 
-### WS-D — CI·빌드 파이프라인 · `decision` (인프라 비용·정책)
+### WS-D — CI·빌드 파이프라인 · D1 `done`, D2 `ready`
 
-- CI가 `.turbo` 캐시를 유지하지 않는다.
-- `build:core`가 job마다 반복된다: `ci`, `public-release-runtime` ×3, `typescript-7-current`.
-- 모든 테스트가 `--concurrency=1`, `--maxWorkers 1 --no-file-parallelism`으로 돈다.
-- mock-server `test:cli-smoke`가 다시 빌드한다.
-- `turbo.json` `build.inputs`에 `tsup.config.ts`가 빠져 있고, `test.inputs`에는 `package.json`이 빠져 있다.
-- **결정 사항**: 원격 캐시(`TURBO_TOKEN`) 사용 여부, 병렬화 허용 범위.
-- `ci.yml`이 미커밋 변경과 충돌한다.
+결정 D4 범위(로컬 캐시 + artifact 공유 + inputs + `bench:parser` 게이트)만 다룬다. 원격 캐시와 테스트 병렬화는 하지 않는다.
+
+| 단위 | 내용 | 상태 |
+|---|---|---|
+| D1 (+E6) | `ci` job이 `.turbo/cache`를 복원·저장하고, 한 번 빌드한 dist를 `workspace-build-outputs` artifact로 `public-release-runtime` ×3, `typescript-7-current`, `governance-references`에 넘긴다. turbo inputs는 `$TURBO_DEFAULT$`로 바꿔 `tsup.config.ts`, `package.json` 등을 키에 포함한다. mock-server CI smoke는 turbo가 만든 빌드를 재사용한다. `bench:parser`는 needs가 없는 별도 `parser-bench` job에서 CPU 시간·고정 seed 셔플·round별 비율 median으로 판정한다(부하 21-40에서 8/8 통과, 이전 스크립트는 4/8 실패). | **done** (`a58fb935`..`16684c41`) |
+| D2 | 리뷰 잔여(low): (1) `build.inputs`의 `$TURBO_DEFAULT$`가 tsup 패키지의 테스트 파일까지 빌드 키에 넣어 테스트만 고쳐도 빌드 캐시가 깨진다(codegen 355개 입력 중 174개가 테스트). tsc로 테스트까지 emit하는 5개 workspace만 전체 입력을 유지한다. (2) `test:ci`를 turbo 밖에서 직접 돌리면 mock-server smoke가 오래된 dist로 통과할 수 있다. | ready |
+
+- **남은 위험**: GitHub runner에서 아직 한 번도 돌리지 않았다. cache·artifact 동작, `BENCH_PARSER_BUDGET_SCALE=2` 가정, hosted runner의 CPU 시간 정확도는 첫 CI 실행에서 확인한다.
 
 ### WS-E — Core 정리 · `ready`
 
@@ -157,14 +158,16 @@
 | E5 | `DerefFolder`가 `includeInternalFilePath: false`로 동작해서, 외부 문서 안의 내부 ref가 진입 문서와 같은 `<root>` 키 공간을 쓴다. 그래서 순환 판정이 잘못될 수 있다. 메모는 외부 전개를 저장하지 않으므로 메모 정합성은 안전하다. | Goal 69 Decisions | 없음 |
 | E6 | `bench:parser`를 CI에 연결한다. 예산 초과 시 실패하게 한다. | — | `ci.yml` 충돌 → WS-D와 함께 처리 |
 
-### WS-F — 패키지 위생 · `decision`
+### WS-F — 패키지 위생 · 결정 입력 문서 `done`, 최종 결정은 사용자
 
-- **의존하는 workspace가 없는 패키지**:
-  - public: `chunk-stream-react`, `chunk-stream-timeseries`, `mcp-mesh`
-  - private: `spec-lens`(Core tier, 약 6k lines), `typespec-erd`, `typespec-tooling`, `typia-mock`
-- `ttsc-compile-fixture`는 어떤 build/test tier에도 속하지 않는다.
-- **결정 사항**: 각 패키지를 유지할지, 추출할지, 제거할지.
-- 코드 작업은 결정 후에 한다.
+- [`../package-hygiene-decisions.md`](../package-hygiene-decisions.md)에 무의존 workspace별 목적, 크기, tier, 실제 소비자(외부 저장소 포함), CI 비용, 선택지와 권장안을 정리했다(`7995a3d7`..`4701eaad`). 코드·manifest·정책은 바꾸지 않았다.
+- 어떤 제거·추출도 WS-H(type-registry 게이트 복구)가 먼저 끝나야 한다. 후보를 모두 빼도 boundary 예산 초과가 남기 때문이다.
+
+### WS-H — type-registry 게이트 복구 · `ready` (2026-10-05 발견)
+
+- **문제**: main에서 `pnpm type-registry:check`(CI `ci` job의 gate)가 실패한다. boundary 예산 3종이 초과됐다: `any` 223/183, double-assertion 47/38, unvalidated-deserialize 142/121. baseline 대비 drift는 added 352, removed 2다.
+- **원인**: 2026-10-05에 주제별로 커밋한 기존 작업(peer 패키지 4종, surface-ir, tools 보안 강화, chunk-stream 계열)이 baseline에 없던 선언과 boundary를 들여왔다. baseline에 없던 10개 패키지가 added 269건, 기존 패키지(parser 38, tools 34, codegen 10, spec-lens 1)가 83건이다.
+- **방침**: 예산을 올려 통과시키지 않는다. source에서 `any`를 좁은 타입이나 `unknown`+검증으로, double assertion을 검증으로, 역직렬화를 이름 있는 스키마 검증으로 바꿔 예산 안으로 되돌린다. 그다음 drift를 검토하고 baseline을 쓴다(`--write`는 검토 승인 후에만).
 
 ### WS-G — Goal 68 DPM · 관제 대상 아님
 
