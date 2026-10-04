@@ -37,11 +37,15 @@
 2. **프론트엔드 SDK & TanStack Query**: [프론트엔드 SDK 및 쿼리 소비 가이드](./guides/client-and-query-consumption.md), [클라이언트 SDK 배포 가이드](./guides/client-sdk-distribution.md), [Quick Start](./guides/quick-start.md)
 3. **백엔드 서비스 & 핸들러 계약**: [백엔드 핸들러 계약 구현 가이드](./guides/backend-handler-contracts.md), [온보딩 플레이북](./guides/onboarding-playbook.md), [코드젠 워크플로](./guides/use-cases/codegen-workflow.md)
 4. **Mock 기반 병렬 개발 & 테스트**: [Mock 서버 사용법](./guides/mock-server-usage.md), [Mock 테스팅 유스케이스](./guides/use-cases/mock-testing.md)
+5. **WebMCP 피어링·P2P 전송·폴더 동시 편집 & 멀티 MCP 메시**: [WebMCP 피어링 및 동시 편집 아키텍처](./concepts/webmcp-peering-mesh-and-collab.md)
+6. **Cloudflare Forge SDK/CLI projection**: [Cloudflare Forge 지원](./guides/forge-support.md)
 
 ### ⚙️ 3. CLI 및 빌드 자동화 엔지니어 경로
 1. [CLI 명령 레퍼런스](./guides/cli-command-reference.md): `oa-gen`의 모든 명령어 옵션, 전역 플래그(`--root`), 프로파일 필터링, 독립형 가드 분할(`--split`).
 2. [CLI 거버넌스 및 스펙 검증 모델](./concepts/cli-governance.md): 언어 중립 CLI 매니페스트, 결정론적 SHA-256 해싱, `drift:check` 및 브레이킹 체인지(`diff --fail-on-breaking`) 차단 게이트.
 3. [선언적 스펙 설정 (oa.config.ts)](./guides/declarative-spec-configuration.md): 모노레포 루트 자동 탐색(`findProjectRoot()`) 및 6계층 해석 우선순위.
+4. [WebMCP & 멀티 MCP CLI 통합](./concepts/webmcp-peering-mesh-and-collab.md): `oa-mesh` / `oa-tools`를 통한 피어 관리, 스킬 하이드레이션, 폴더 CRDT 동시 편집, AI 1등 편집자.
+5. [WebMCP 보안 감사 및 경계 계약](./security/webmcp-hardening.md): 인증, 입력 크기, RPC/packet replay, CRDT ingress, MCP/HTTP 검증과 잔여 운영 가정.
 
 ### 🛡️ 4. 테스트 및 품질 보증 (QA) 경로
 1. [TEST_INFRA.md](../TEST_INFRA.md): E2E 테스트 빠른 검증 명령어 및 단일 진실 공급원 안내.
@@ -61,7 +65,9 @@
 | 백엔드에서 덮어쓰기 위험 없이 비즈니스 핸들러 구현 | [백엔드 핸들러 계약 구현 가이드](./guides/backend-handler-contracts.md) |
 | 공개 OpenAPI 문서를 검증하고 TypeScript 타입을 생성 | [Quick Start](./guides/quick-start.md) |
 | 상태 유지 Mock 서버 구동 및 프론트엔드 병렬 개발 | [Mock 서버 사용법](./guides/mock-server-usage.md) |
+| OpenAPI artifact를 Cloudflare Forge SDK/CLI 표면으로 투영 | [Cloudflare Forge 지원](./guides/forge-support.md) |
 | 선언적 다중 프로파일 스펙 및 거버넌스를 설정 | [선언적 스펙 설정 (oa.config.ts)](./guides/declarative-spec-configuration.md) → [스키마 아키텍처 및 작성 규칙](./guides/schema-architecture-and-conventions.md) |
+| 브라우저(WebMCP) 피어링, 작업 폴더 P2P 동시 편집, AI 1등 편집자 연동 | [WebMCP 피어링 및 동시 편집 아키텍처](./concepts/webmcp-peering-mesh-and-collab.md) |
 | OA SDK production contract를 작성·승인 | [기본 스펙 사용 기준](./guides/basic-spec-usage.md) → [TypeSpec Authoring Conventions](./guides/typespec-authoring-conventions.md) |
 | 4계층 E2E 테스트 모델 및 드리프트 거버넌스를 확인 | [테스트 인프라](./concepts/test-infrastructure.md) → [CLI 거버넌스 및 스펙 검증 모델](./concepts/cli-governance.md) |
 | 런타임 검증 엔진별 성능(ops/sec, 지연시간) 및 번들/CSP 비교 리포트 확인 | [검증 엔진 성능 벤치마크](./benchmarks/validation-engines.md) |

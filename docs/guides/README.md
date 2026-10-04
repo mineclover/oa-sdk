@@ -31,7 +31,9 @@
     • duplicate-review.md / path-fragment-conventions.md
                                                                                4. Mock 기반 병렬 개발 & 테스트
                                                                                   • mock-server-usage.md
-                                                                                  • use-cases/mock-testing.md
+                                                                                 • use-cases/mock-testing.md
+                                                                               5. Cloudflare Forge SDK/CLI projection
+                                                                                  • forge-support.md
 ```
 
 | 개발자 역할 | 주요 목적 | 추천 읽기 경로 |
@@ -41,6 +43,7 @@
 | **프론트엔드 엔지니어** | 타입 안전한 API 호출, TanStack Query 훅, Mocking | [프론트엔드 SDK 및 쿼리 소비 가이드](./client-and-query-consumption.md) $\rightarrow$ [Mock 서버 활용 가이드](./mock-server-usage.md) $\rightarrow$ [SDK 배포 가이드](./client-sdk-distribution.md) |
 | **백엔드 엔지니어** | 비즈니스 로직 작성, 프레임워크 라우터 바인딩, 멀티 에러 반환 | [백엔드 핸들러 계약 가이드](./backend-handler-contracts.md) $\rightarrow$ [온보딩 플레이북](./onboarding-playbook.md) $\rightarrow$ [코드젠 워크플로](./use-cases/codegen-workflow.md) |
 | **품질 / DevOps 엔지니어** | CI 파괴적 변경 감지, 제로-eval CSP 보안 감사, 빌드 자동화 | [CLI 명령 레퍼런스](./cli-command-reference.md) $\rightarrow$ [선언적 스펙 설정](./declarative-spec-configuration.md) $\rightarrow$ [검증 엔진 성능 벤치마크](../benchmarks/validation-engines.md) |
+| **SDK target/integration 엔지니어** | OpenAPI artifact를 Forge SDK/CLI 표면으로 투영하고 target별 runtime 제한을 검증 | [Cloudflare Forge 지원](./forge-support.md) $\rightarrow$ [기본 스펙 사용 기준](./basic-spec-usage.md) |
 
 ---
 
@@ -131,6 +134,12 @@ HTTP 전송 계층 없이 브라우저 확장프로그램(MV3), Worker IPC, WebS
   - 플러그인 기반 상태 유지 Mocking: REST 컬렉션 자동 CRUD 및 seed/reset 지원 (`--stateful`).
 - **[Mock 테스팅 유스케이스](./use-cases/mock-testing.md)**:
   - 백엔드 개발 완료를 기다리지 않고 프론트엔드/QA 팀이 독립적으로 테스트를 수행하는 패턴.
+
+### 2.5 Cloudflare Forge SDK/CLI projection
+- **[Cloudflare Forge 지원](./forge-support.md)**:
+  - OpenAPI 3.1 bundle을 Surface IR로 변환하고 Forge SDK group/method와 command catalog를 생성.
+  - `x-fern-*`/`x-forge-*` operation projection 및 command별 OpenAPI Overlay 생성.
+  - pagination, SSE `itemSchema`, direct/envelope response runtime의 target별 제한 진단.
 
 ---
 

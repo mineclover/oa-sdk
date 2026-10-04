@@ -18,6 +18,7 @@ oa-sdk의 핵심 임무는 `@oa-sdk/core`를 기반으로 schema와 OpenAPI spec
 ├─ @oa-sdk/typespec-decorators           production TypeSpec decorator와 provenance helper
 ├─ @oa-sdk/schemas                      TypeSpec/OpenAPI schema SSOT와 artifact
 ├─ @oa-sdk/parser                       OpenAPI 의미 해석, IR, 검증
+├─ @oa-sdk/surface-ir                   target-neutral API surface IR와 Forge projection
 ├─ @oa-sdk/codegen                      build, 변환, governance CLI
 ├─ @oa-sdk/spec-lens                    revision, diff, provenance 관측
 ├─ @oa-sdk/spec-lens-contract           spec-lens browser-safe wire contract
@@ -25,7 +26,7 @@ oa-sdk의 핵심 임무는 `@oa-sdk/core`를 기반으로 schema와 OpenAPI spec
 └─ @oa-sdk/tools                        TypeSpec JSON Schema 기반 MCP 도구 및 Interactive CLI 브릿지 엔진
 ```
 
-Core Platform은 다음 열 패키지다.
+Core Platform은 다음 11개 패키지다.
 
 | Package | Core responsibility |
 | --- | --- |
@@ -34,6 +35,7 @@ Core Platform은 다음 열 패키지다.
 | `@oa-sdk/typespec-decorators` | production TypeSpec source가 사용하는 versioned decorator와 provenance helper |
 | `@oa-sdk/schemas` | TypeSpec source, OpenAPI artifact, compatibility/rollback source |
 | `@oa-sdk/parser` | OpenAPI 3.2 parse, IR, ref resolution, lint, validate, query |
+| `@oa-sdk/surface-ir` | ParsedDocument 위의 target-neutral API surface IR, Forge SDK/CLI projection, command별 OpenAPI Overlay |
 | `@oa-sdk/codegen` | schema/spec build, normalize, diff/review, type generation과 governance CLI |
 | `@oa-sdk/spec-lens` | spec revision, diff, timeline, provenance와 source observation |
 | `@oa-sdk/spec-lens-contract` | spec-lens HTTP response와 schema version의 browser-safe contract |
@@ -53,6 +55,18 @@ oa-sdk는 실행 가능한 API 계약과 그 계약의 생성·검증·변경 �
 | 조직 architecture standards와 계층 정책 | archi-adr |
 | 연계 | OpenAPI/SQL/provenance artifact + CI gate |
 
+## Forge Target Support
+
+Cloudflare Forge는 Core Mission의 외부 target projection으로 지원한다. TypeSpec source나
+canonical OpenAPI artifact를 Forge metadata로 직접 수정하지 않고, `@oa-sdk/parser`의
+`ParsedDocument`와 `@oa-sdk/surface-ir`의 target-neutral surface를 통해 Forge operation
+projection과 command별 OpenAPI Overlay를 생성한다. 지원 범위와 제한은
+[Forge 지원 가이드](../guides/forge-support.md)에 기록한다.
+
+현재 production artifact에 대해 Surface IR은 34개 operation을 5개 Forge command와 34개
+method로 투영한다. Forge core 초기화 parity는 검증되며, Docker/Fern 기반 전체 TypeScript
+SDK 생성과 SSE/envelope runtime은 별도 downstream 검증 범위다.
+
 `archi-adr`는 oa-sdk의 생성 artifact를 source artifact로 소비할 수 있지만, oa-sdk가
 `archi-adr`의 YAML 모델을 workspace dependency로 가져오거나 archi-adr의 BFF/UI/ADR
 그래프를 재구현하는 것을 기본 경로로 삼지 않는다. 두 저장소를 함께 사용할 때 권장 흐름은
@@ -65,10 +79,10 @@ archi-adr validate/render`다.
 
 | Tier | Workspaces | Policy |
 | --- | --- | --- |
-| Core Platform | `core`, `openapi-projection-contract`, `typespec-decorators`, `schemas`, `parser`, `codegen`, `spec-lens`, `spec-lens-contract`, `ast-sync`, `tools` | 제품 방향과 신규 기능 투자의 기본 범위 |
-| Downstream Integration | `router`, `client`, `mock-server` | Core 계약을 소비하고 end-to-end로 증명하는 release-tracked integration surface |
-| Maintenance-only | `dpm`, `personas`, `typia-mock`, `logical-erd-contract`, `typespec-erd`, `typespec-tooling`, `ttsc-compile-fixture` | security, compatibility, migration 작업만 허용하는 분리 후보 또는 승인된 독립 prototype. `@oa-sdk/typia-mock`은 Core Platform에서 TS 컴파일러 변환기 복잡도를 격리하면서 Samchon ILlmApplication 통합점을 유지하는 유지보수 경계다. |
-| Apps and references | `nestjs-ref`, `playground`, `preview`, `spec-lens-ui` | 배포 라이브러리가 아닌 검증, reference, UI workspace |
+| Core Platform | `core`, `openapi-projection-contract`, `typespec-decorators`, `schemas`, `parser`, `surface-ir`, `codegen`, `spec-lens`, `spec-lens-contract`, `ast-sync`, `tools` (11개) | 제품 방향과 신규 기능 투자의 기본 범위 (Downstream은 `devDependencies`로만 참조 가능) |
+| Downstream Integration | `router`, `client`, `mock-server`, `chunk-stream`, `chunk-stream-crdt`, `chunk-stream-ui`, `chunk-stream-timeseries`, `chunk-stream-react`, `peer-transport`, `peer-server`, `collab-workspace`, `mcp-mesh` (12개) | Core 계약을 소비하고 end-to-end로 증명하는 release-tracked integration surface (`distributionCandidates` 승격 완료) |
+| Maintenance-only | `dpm`, `personas`, `typia-mock`, `logical-erd-contract`, `typespec-erd`, `typespec-tooling`, `ttsc-compile-fixture` (7개) | security, compatibility, migration 작업만 허용하는 분리 후보 또는 승인된 독립 prototype. `@oa-sdk/typia-mock`은 Core Platform에서 TS 컴파일러 변환기 복잡도를 격리하면서 Samchon ILlmApplication 통합점을 유지하는 유지보수 경계다. |
+| Apps and references | `nestjs-ref`, `playground`, `preview`, `spec-lens-ui` (4개) | 배포 라이브러리가 아닌 검증, reference, UI workspace |
 
 Downstream Integration은 Core Platform 자체가 아니다. 이 계층의 API와 테스트는 Core 계약의
 소비 가능성을 증명하지만 schema/spec 관리 방향을 결정하지 않는다. 앱도 동일하게 core
@@ -87,7 +101,7 @@ Application/reference workspace도 Core Platform 우선순위를 사용해 자�
 
 ## Scope Reactivation Decision
 
-Core Platform 여덟 패키지 밖에서 신규 feature goal을 만들려면 구현 전에 명시적인
+Core Platform 11개 패키지 밖에서 신규 feature goal을 만들려면 구현 전에 명시적인
 scope-reactivation decision을 남겨야 한다. 최소한 다음 내용을 기록한다.
 
 1. 다시 활성화할 package/workspace와 사용자 문제
@@ -97,6 +111,22 @@ scope-reactivation decision을 남겨야 한다. 최소한 다음 내용을 기�
 
 결정이 없으면 non-core feature request는 착수하지 않고 backlog에도 active goal로 올리지
 않는다. 버그 수정처럼 보이는 요청도 실제로 새 capability를 추가하면 feature로 분류한다.
+
+### WebMCP libraries hardening — 2026-09-22
+
+사용자가 명시적으로 요청한 통신·인증·데이터 처리 최적화, 취약점 수정, 라이브러리화,
+필수 테스트 보강을 기존 `peer-transport`, `peer-server`, `collab-workspace`, `mcp-mesh`
+구현에 적용한다. 네 패키지는 Downstream Integration에서 버전과 검증을 관리한다.
+
+| Decision item | Recorded decision |
+| --- | --- |
+| User problem | 도구 호출·피어 레지스트리·동시 편집 데이터가 검증 없이 처리되고 기존 테스트가 실패 경계를 검증하지 못한다. |
+| Core relation | `@oa-sdk/tools`의 스키마 기반 도구 계약을 재사용 가능한 전송·세션·협업 라이브러리로 소비한다. |
+| Owner | OA SDK maintainers가 보안 경계, API 호환성, downstream 테스트와 문서의 유지 책임을 가진다. |
+| Release/CI | 기존 public manifest에 맞춰 artifact distribution candidate로 등록하고 downstream build/test/typecheck에 포함한다. 실제 publish는 활성화하지 않는다. |
+| Location | 현재 네 패키지를 모노레포에 유지하고 중복 peer bridge 구현은 transport 라이브러리에 위임한다. |
+| Exit condition | 공유 프로토콜과 필수 회귀 테스트가 downstream gate를 통과한다. 별도 WebRTC signaling 또는 편집 제품으로 확대할 때 별도 소유권 결정을 기록한다. |
+| Boundary | 이번 범위는 현재 HTTP/인메모리 구현의 강화이다. 완성된 WebSocket signaling, WebRTC 연결, 파일 watcher, 멀티 사용자 OAuth 서비스를 제공한다고 주장하지 않는다. |
 
 ### DPM temporary reactivation — 2026-07-14
 
@@ -165,8 +195,8 @@ infra/orchestrator/UI와 운영 문서를 소유한다. `gitlab-agent-ops`는 `m
 
 | Command | Scope |
 | --- | --- |
-| `pnpm build`, `pnpm test`, `pnpm typecheck` | Core Platform 여덟 package |
-| `pnpm build:downstream`, `pnpm test:downstream`, `pnpm typecheck:downstream` | Downstream Integration 세 package |
+| `pnpm build`, `pnpm test`, `pnpm typecheck` | Core Platform 11개 package |
+| `pnpm build:downstream`, `pnpm test:downstream`, `pnpm typecheck:downstream` | Downstream Integration 열두 package |
 | `pnpm build:maintenance`, `pnpm test:maintenance`, `pnpm typecheck:maintenance` | Maintenance-only compatibility proof |
 | `pnpm build:internal`, `pnpm test:internal`, `pnpm typecheck:internal` | App/reference workspace |
 | `pnpm build:all`, `pnpm test:all`, `pnpm typecheck:all` | 전체 monorepo 회귀 |

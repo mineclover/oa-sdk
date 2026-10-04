@@ -19,11 +19,22 @@ Core Platform
   codegen                     build, 변환, governance CLI와 typegen
   spec-lens                   revision, diff, timeline, provenance 관측
   spec-lens-contract          spec-lens browser-safe HTTP wire contract
+  ast-sync                    TypeScript AST 양방향 동기화와 독립형 타입 가드
+  tools                       TypeSpec JSON Schema 기반 MCP/CLI 도구 브릿지
 
 Downstream Integration
   router                      Hono/Express typed stub
   client                      typed fetch SDK와 SSE
   mock-server                 AJV mock engine, adapter, test helper
+  chunk-stream                bounded chunk stream primitives
+  chunk-stream-crdt           CRDT chunk merge and state helpers
+  chunk-stream-ui             UI playback and action bridges
+  chunk-stream-timeseries     time-series chunk adapters
+  chunk-stream-react          React hooks and playback synchronization
+  peer-transport              authenticated packet transport and bridge client
+  peer-server                 peer registry, signaling, and RPC dispatch
+  collab-workspace             bounded Tree-Lattice workspace and intent locks
+  mcp-mesh                    validated domain/session tool mesh and CLI
 
 Maintenance-only
   dpm, personas, typia-mock, logical-erd-contract, typespec-erd, ttsc-compile-fixture
@@ -52,7 +63,7 @@ baseline과 맞춘다.
 machine-readable SSOT다. 사람이 읽는 요약은
 [`feature-test-matrix.md`](./feature-test-matrix.md)에 둔다.
 
-현재 매핑은 50개 기능 그룹과 CLI spec drift guard를 포함한 테스트 경로 패턴을 관리한다.
+현재 매핑은 51개 기능 그룹과 CLI spec drift guard를 포함한 테스트 경로 패턴을 관리한다.
 
 ```bash
 pnpm check:feature-tests

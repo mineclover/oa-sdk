@@ -15,6 +15,7 @@ oa-sdk는 하나의 runtime SDK가 아니라 OpenAPI 계약을 작성·검증·�
 | `@oa-sdk/typespec-tooling` | TypeSpec IDE 설정 템플릿, 생산성 스니펫, 커스텀 linter 규칙 모음 | package root, `./snippets`, `./linter` | [TypeSpec IDE 설정](./typespec-ide-setup.md) |
 | `@oa-sdk/logical-erd-contract` | private logical ERD artifact·validation·semantic diff contract | package root | [논리 ERD authoring](./typespec-logical-erd-authoring.md) |
 | `@oa-sdk/parser` | OpenAPI 3.2 → ParsedDocument IR | package root, `./browser` | [Quick Start](./quick-start.md) |
+| `@oa-sdk/surface-ir` | private target-neutral API surface IR와 Forge SDK/CLI projection·Overlay 생성 | package root | [Cloudflare Forge 지원](./forge-support.md) |
 | `@oa-sdk/codegen` | typegen, Zod 4 코드 생성, Drizzle/Zod 변환, `oa-gen` governance CLI | package root, `./drizzle`, `./typegen`, `./typegen/browser`, `./zodgen`, `./spec-lens`, `./apitomy` | [CLI 명령 레퍼런스](./cli-command-reference.md) |
 | `@oa-sdk/core` | package 공통 utility | package root, `./browser` | [API index](../internal/api-index.md) |
 | `@oa-sdk/ast-sync` | V3 AST 무손실 양방향 동기화 엔진 및 Standalone Guard generator | package root, `./guards` | [API index](../internal/api-index.md) |
@@ -43,6 +44,10 @@ oa-sdk는 하나의 runtime SDK가 아니라 OpenAPI 계약을 작성·검증·�
 | `@oa-sdk/dpm` | relationship-first DPM manifest, catalog, logical-data binding | package root, `./catalog`, `./data`, `./profile`, `./relationship`, `./gateway`, `./storage`, `./publishing`, `./execution` | [DPM roadmap](../internal/goals/dpm-master-roadmap.md) |
 | `@oa-sdk/personas` | persona registry와 domain matrix validation | package root, registry/trait/domain subpaths | [API index](../internal/api-index.md) |
 | `@oa-sdk/tools` | TypeSpec JSON Schema 기반 MCP 도구 및 Interactive CLI 브릿지 엔진 | package root | [TypeSpec 토폴로지 가이드](./typespec/06-generation-topologies-and-rules.md) |
+| `@oa-sdk/peer-transport` | 검증된 MCP/CRDT/presence packet transport, bounded reconnect queue, authenticated bridge client | package root | [WebMCP peering mesh](../concepts/webmcp-peering-mesh-and-collab.md) |
+| `@oa-sdk/peer-server` | local peer registry와 authenticated signaling/RPC dispatch | package root | [WebMCP peering mesh](../concepts/webmcp-peering-mesh-and-collab.md) |
+| `@oa-sdk/collab-workspace` | path/line 검증을 포함한 in-memory Tree-Lattice와 scoped intent locks | package root | [WebMCP peering mesh](../concepts/webmcp-peering-mesh-and-collab.md) |
+| `@oa-sdk/mcp-mesh` | canonical domain skill, runtime session, validated namespaced routing 및 CLI | package root, `./cli` | [WebMCP peering mesh](../concepts/webmcp-peering-mesh-and-collab.md) |
 
 ## 내부 전용 fixture
 
