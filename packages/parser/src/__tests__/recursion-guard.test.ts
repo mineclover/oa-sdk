@@ -60,6 +60,10 @@ describe('recursion guard agreement between parse and lint', () => {
     ['self through allOf', { Loop: { allOf: [{ $ref: '#/components/schemas/Loop' }] } }, false],
     ['alias pair', { A: { $ref: '#/components/schemas/B' }, B: { $ref: '#/components/schemas/A' } }, false],
     ['conditional loop', { C: { if: { type: 'object' }, then: { $ref: '#/components/schemas/C' } } }, false],
+    ['unguarded cycle beside a guarded path', {
+      V: { properties: { p: { $ref: '#/components/schemas/U' } }, allOf: [{ $ref: '#/components/schemas/U' }] },
+      U: { allOf: [{ $ref: '#/components/schemas/V' }] },
+    }, false],
   ] as const
 
   it.each(cases)('%s', (_name, schemas, valid) => {

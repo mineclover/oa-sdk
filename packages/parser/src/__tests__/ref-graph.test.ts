@@ -206,6 +206,45 @@ describe('resolveRefGraph', () => {
     expect(graph.nodes.some(n => n.ref === '#/components/schemas/Child')).toBe(true)
   })
 
+  it('records each $ref occurrence once even when targets are shared', () => {
+    const schemas: Record<string, unknown> = { D3: { type: 'object', properties: { missing: { $ref: '#/components/schemas/Missing' } } } }
+    for (let level = 2; level >= 0; level--) {
+      const next = `#/components/schemas/D${level + 1}`
+      schemas[`D${level}`] = { type: 'object', properties: { left: { $ref: next }, right: { $ref: next } } }
+    }
+    const graph = resolveRefGraph(doc({ components: { schemas } }))
+
+    // 2 refs in each of D0..D2 plus the missing ref in D3.
+    expect(graph.nodes).toHaveLength(7)
+    expect(new Set(graph.nodes.map(node => node.sourcePointer)).size).toBe(7)
+    expect(graph.diagnostics).toEqual([
+      expect.objectContaining({ code: 'ref-not-found', sourcePointer: '#/components/schemas/D3/properties/missing/$ref' }),
+    ])
+  })
+
+  it('diagnoses every occurrence on an unguarded cycle, even beside a guarded path', () => {
+    // V reaches U through properties (guarded) and through allOf (unguarded);
+    // U -> V is unguarded, so V -allOf-> U -allOf-> V never descends.
+    const graph = resolveRefGraph(doc({
+      components: {
+        schemas: {
+          V: {
+            properties: { viaProperty: { $ref: '#/components/schemas/U' } },
+            allOf: [{ $ref: '#/components/schemas/U' }],
+          },
+          U: { allOf: [{ $ref: '#/components/schemas/V' }] },
+        },
+      },
+    }))
+
+    const cycles = graph.diagnostics.filter(diagnostic => diagnostic.code === 'ref-cycle')
+    expect(cycles.map(diagnostic => diagnostic.sourcePointer).sort()).toEqual([
+      '#/components/schemas/U/allOf/0/$ref',
+      '#/components/schemas/V/allOf/0/$ref',
+    ])
+    expect(graph.nodes.every(node => node.resolved)).toBe(true)
+  })
+
   it('root pointer #를 해소한다', () => {
     const graph = resolveRefGraph({ $ref: '#', title: 'Root' } as any)
     expect(graph.nodes.some(n => n.ref === '#' && n.resolved)).toBe(true)

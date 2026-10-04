@@ -476,10 +476,14 @@ function propertyNameToTs(name: string): string {
 
 export function analyzeExternalSchemaRefs(spec: OasDocument, basePath: string): ExternalSchemaRefAnalysis {
   const graph = resolveRefGraph(spec, { basePath })
-  const schemaNodes = graph.nodes
-    .filter(node => isSchemaRefNode(node))
-    .filter((node, index, nodes) => nodes.findIndex(n => refIdentity(n) === refIdentity(node)) === index)
-    .sort((a, b) => compareTypegenKeys(refIdentity(a), refIdentity(b))) as RefGraphNodeWithSource[]
+  const firstNodeByIdentity = new Map<string, RefGraphNodeWithSource>()
+  for (const node of graph.nodes as RefGraphNodeWithSource[]) {
+    if (!isSchemaRefNode(node)) continue
+    const identity = refIdentity(node)
+    if (!firstNodeByIdentity.has(identity)) firstNodeByIdentity.set(identity, node)
+  }
+  const schemaNodes = [...firstNodeByIdentity.values()]
+    .sort((a, b) => compareTypegenKeys(refIdentity(a), refIdentity(b)))
   const diagnostics: ExternalSchemaRefDiagnostic[] = []
   const schemas: Record<string, OasSchema> = {}
   const refNameOverrides: Record<string, string> = {}
