@@ -237,6 +237,79 @@ describe('RefreshTimelineHandler', () => {
     expect(usersEntry?.lastChangedRevisionId).toBe('r1')
   })
 
+  it('maps escaped path-item diff pointers back to the spec path that changed in an older revision', async () => {
+    // r1 (newest) → r2 → r3 (oldest). Nothing changed in r2→r1, so the
+    // latest-revision fallback (r1) must not hide the r3→r2 change.
+    const r1 = makeRevision('r1', 3000)
+    const r2 = makeRevision('r2', 2000)
+    const r3 = makeRevision('r3', 1000)
+    const revisions = [r1, r2, r3]
+
+    const ok = { get: { responses: { '200': { description: 'ok' } } } }
+    const spec = {
+      openapi: '3.1.0',
+      info: { title: 'test', version: '1' },
+      paths: { '/users': ok, '/a~b/{id}': ok, '/users/parameters': ok },
+    }
+    const provenanceEntry = (canonicalId: string) => ({ canonicalId, kind: 'path', sourcePath: 'f.yaml', sourcePointer: '#', contentHash: 'h' })
+    const prov = {
+      status: 'available' as const,
+      kind: 'definition-builder' as const,
+      entries: {
+        '#/paths/~1users': provenanceEntry('path:public/users/Users'),
+        '#/paths/~1a~0b~1{id}': provenanceEntry('path:public/users/Tilde'),
+        '#/paths/~1users~1parameters': provenanceEntry('path:public/users/UserParameters'),
+      },
+    } as never
+    const storedMap: Record<string, SpecSnapshotStored> = {
+      r1: { ...makeStored('r1', spec), revision: r1, provenance: prov },
+      r2: { ...makeStored('r2', spec), revision: r2, provenance: prov },
+      r3: { ...makeStored('r3', spec), revision: r3, provenance: prov },
+    }
+
+    const diff_r2_r1 = makeDiff({}, [])
+    const diff_r3_r2 = makeDiff({}, [
+      { category: 'path', kind: 'changed', pointer: '#/paths/~1users', message: 'changed' },
+      { category: 'path', kind: 'changed', pointer: '#/paths/~1a~0b~1{id}', message: 'changed' },
+      // A pointer below a path item is not the path item `/users/parameters`.
+      { category: 'path', kind: 'changed', pointer: '#/paths/~1users/parameters', message: 'changed' },
+    ])
+
+    const source: SpecSourcePort = {
+      listRevisions: vi.fn().mockResolvedValue(revisions),
+      getFileEntries: vi.fn().mockResolvedValue([]),
+    } as unknown as SpecSourcePort
+    const builder: SnapshotBuilderPort = {
+      build: vi.fn().mockResolvedValue(makeStored('x')),
+      diff: vi.fn().mockReturnValue(makeDiff()),
+    } as unknown as SnapshotBuilderPort
+    const replacePathEntries = vi.fn().mockResolvedValue(undefined)
+    const cache: CachePort = {
+      getSnapshotByRevision: vi.fn().mockImplementation((id: string) =>
+        Promise.resolve(storedMap[id] ?? null)),
+      saveSnapshot: vi.fn().mockResolvedValue(undefined),
+      saveDiff: vi.fn().mockResolvedValue(undefined),
+      getDiff: vi.fn().mockImplementation((baseId: string, headId: string) => {
+        if (baseId === 'r2' && headId === 'r1') return Promise.resolve(diff_r2_r1)
+        if (baseId === 'r3' && headId === 'r2') return Promise.resolve(diff_r3_r2)
+        return Promise.resolve(null)
+      }),
+      upsertTimelineEntry: vi.fn().mockResolvedValue(undefined),
+      replacePathEntries,
+      reconcileReachableRevisions: vi.fn().mockResolvedValue(undefined),
+    } as unknown as CachePort
+
+    await new RefreshTimelineHandler(source, builder, cache).handle(OPTIONS)
+
+    const pathEntries = replacePathEntries.mock.calls[0]?.[1] as Array<{ path: string; lastChangedRevisionId: string }>
+    const lastChangedByPath = Object.fromEntries(pathEntries.map(entry => [entry.path, entry.lastChangedRevisionId]))
+    expect(lastChangedByPath).toEqual({
+      '/users': 'r2',
+      '/a~b/{id}': 'r2',
+      '/users/parameters': 'r1',
+    })
+  })
+
   it('treats getSnapshotByRevision rejection as cache miss and builds the revision', async () => {
     const revisions = [makeRevision('r1')]
 

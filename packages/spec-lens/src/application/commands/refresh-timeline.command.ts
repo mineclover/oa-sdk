@@ -345,9 +345,11 @@ function decodeJsonPointerPath(pointer: string): string | null {
   const prefix = '#/paths/'
   if (!pointer.startsWith(prefix)) return null
   const encoded = pointer.slice(prefix.length)
-  // Ignore operation pointers like #/paths/~1users/get
-  if (/\/(get|post|put|patch|delete|head|options|trace)$/.test(pointer)) return null
-  return '/' + unescapeJsonPointerToken(encoded)
+  // The path template is one escaped token. A further `/` means the pointer
+  // addresses something inside a path item (e.g. #/paths/~1users/get), not
+  // the path item itself.
+  if (encoded.includes('/')) return null
+  return unescapeJsonPointerToken(encoded)
 }
 
 async function withConcurrency<T>(tasks: Array<() => Promise<T>>, limit: number): Promise<T[]> {
