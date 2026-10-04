@@ -159,7 +159,8 @@ export {
   ZodTypeAdapter,
 } from './ast-sync/index.js'
 export { generateStandaloneGuards } from './standalone-guards/index.js'
-export { auditShapeCommand, auditShapeFiles } from './cli/commands/audit-shape.js'
+export { auditShapeCommand } from './cli/commands/audit-shape.js'
+export { auditShapeFiles } from './cli/lib/audit-shape-files.js'
 
 export type { OasSchema } from './zod-to-schema.js'
 export type {

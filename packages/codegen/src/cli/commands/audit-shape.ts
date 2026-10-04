@@ -1,83 +1,6 @@
-import * as fs from 'node:fs';
-import * as path from 'node:path';
 import type { Command } from '../lib/types.js';
 import { optStr, bool } from '../lib/args.js';
 import { CliExitError } from '../lib/errors.js';
-import {
-  auditTypeShapesInSource,
-  type ShapeAuditResult,
-  type ShapeDiagnostic,
-} from '@oa-sdk/ast-sync';
-
-/**
- * Find all TypeScript source files recursively under a path,
- * excluding declarations (.d.ts), node_modules, and build outputs.
- */
-export function findTypeScriptFiles(targetPath: string): string[] {
-  if (!fs.existsSync(targetPath)) {
-    throw new Error(`Target path does not exist: ${targetPath}`);
-  }
-
-  const stat = fs.statSync(targetPath);
-  if (!stat.isDirectory()) {
-    return [targetPath];
-  }
-
-  const results: string[] = [];
-  const entries = fs.readdirSync(targetPath, { withFileTypes: true });
-
-  for (const entry of entries) {
-    const fullPath = path.join(targetPath, entry.name);
-    if (entry.isDirectory()) {
-      if (entry.name === 'node_modules' || entry.name === '.git' || entry.name === 'dist') {
-        continue;
-      }
-      results.push(...findTypeScriptFiles(fullPath));
-    } else if (
-      entry.isFile() &&
-      (entry.name.endsWith('.ts') || entry.name.endsWith('.tsx')) &&
-      !entry.name.endsWith('.d.ts')
-    ) {
-      results.push(fullPath);
-    }
-  }
-
-  return results.sort();
-}
-
-/**
- * Audit all TypeScript files in a directory or single file for type shape feasibility.
- */
-export function auditShapeFiles(targetPath: string): ShapeAuditResult {
-  const files = findTypeScriptFiles(targetPath);
-  const allDiagnostics: ShapeDiagnostic[] = [];
-  let totalDeclarations = 0;
-
-  for (const file of files) {
-    const content = fs.readFileSync(file, 'utf8');
-    const result = auditTypeShapesInSource(content, file);
-    totalDeclarations += result.scannedDeclarations;
-    allDiagnostics.push(...result.diagnostics);
-  }
-
-  const errors = allDiagnostics.filter((d) => d.severity === 'error');
-  const warnings = allDiagnostics.filter((d) => d.severity === 'warning');
-  const valid = errors.length === 0;
-
-  const summary = valid
-    ? warnings.length === 0
-      ? `✅ 0 shape issues found across ${totalDeclarations} declaration(s) in ${files.length} file(s). Fully direct TypeSpec/OpenAPI projection.`
-      : `⚠️ 0 unsupported shapes, ${warnings.length} policy-required shape(s) found across ${totalDeclarations} declaration(s) in ${files.length} file(s).`
-    : `❌ ${errors.length} unsupported shape(s), ${warnings.length} policy-required shape(s) found across ${totalDeclarations} declaration(s) in ${files.length} file(s).`;
-
-  return {
-    valid,
-    scannedDeclarations: totalDeclarations,
-    scannedFiles: files.length,
-    diagnostics: allDiagnostics,
-    summary,
-  };
-}
 
 export const auditShapeCommand: Command = {
   name: 'audit:shape',
@@ -116,6 +39,8 @@ export const auditShapeCommand: Command = {
     const noFail = bool(args, 'no-fail-on-unsupported');
     const failOnUnsupported = !noFail && args['fail-on-unsupported'] !== false && args['failOnUnsupported'] !== false;
 
+    // TypeScript 컴파일러를 끌어오는 스캔 로직은 이 커맨드를 실행할 때만 불러온다.
+    const { auditShapeFiles } = await import('../lib/audit-shape-files.js');
     const result = auditShapeFiles(targetPath);
 
     if (isJson) {

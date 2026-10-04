@@ -1,13 +1,6 @@
 import type { Command, CommandContext } from '../lib/types.js'
 import { bool, optStr, str } from '../lib/args.js'
 import { CliExitError } from '../lib/errors.js'
-import { resolveTypeSpecProgramRef } from '../lib/typespec-ref-resolver.js'
-import {
-  diffTypeSpecPrograms,
-  formatTypeSpecDiffMarkdown,
-  formatTypeSpecDiffJson,
-  hasBreakingChanges,
-} from '../lib/typespec-ast-diff.js'
 
 export const tspDiff: Command = {
   name: 'tsp diff',
@@ -38,6 +31,18 @@ export const tspDiff: Command = {
     const headRef = str(args, 'head')
     const failOnBreaking = bool(args, 'fail-on-breaking')
     const format = optStr(args, 'format') ?? 'markdown'
+
+    // TypeSpec 컴파일러(@typespec/*)는 이 커맨드에서만 쓰므로 실행할 때 불러온다.
+    // 정적 import로 두면 oa-gen의 모든 커맨드 기동에 그 모듈 그래프 로드 비용이 붙는다.
+    const [{ resolveTypeSpecProgramRef }, {
+      diffTypeSpecPrograms,
+      formatTypeSpecDiffMarkdown,
+      formatTypeSpecDiffJson,
+      hasBreakingChanges,
+    }] = await Promise.all([
+      import('../lib/typespec-ref-resolver.js'),
+      import('../lib/typespec-ast-diff.js'),
+    ])
 
     // If headRef is a local path, pass it as fallbackPath to baseRef resolution (and vice versa)
     const baseProgram = await resolveTypeSpecProgramRef(baseRef, rootDir, headRef)

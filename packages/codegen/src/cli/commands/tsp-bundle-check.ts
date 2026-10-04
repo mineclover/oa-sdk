@@ -1,12 +1,6 @@
 import type { Command } from '../lib/types.js'
 import { bool, optStr } from '../lib/args.js'
-import {
-  checkTypeSpecBundle,
-  formatTypeSpecBundleCheckFailure,
-  printTypeSpecBundleCheckSummary,
-  shouldFailTypeSpecBundleCheck,
-  type TypeSpecBundleCheckArgs,
-} from '../lib/typespec-bundle-check.js'
+import type { TypeSpecBundleCheckArgs } from '../lib/typespec-bundle-check.js'
 
 export const tspBundleCheck: Command = {
   name: 'tsp-bundle-check',
@@ -38,6 +32,13 @@ export const tspBundleCheck: Command = {
       keep: bool(args, 'keep'),
       failOnBreaking: bool(args, 'fail-on-breaking'),
     }
+    // TypeSpec 컴파일러(@typespec/*)는 이 커맨드에서만 쓰므로 실행할 때 불러온다(oa-gen 전체 기동 비용 절감).
+    const {
+      checkTypeSpecBundle,
+      formatTypeSpecBundleCheckFailure,
+      printTypeSpecBundleCheckSummary,
+      shouldFailTypeSpecBundleCheck,
+    } = await import('../lib/typespec-bundle-check.js')
     const result = await checkTypeSpecBundle(checkArgs)
     printTypeSpecBundleCheckSummary(result)
     if (shouldFailTypeSpecBundleCheck(result.report, checkArgs)) {

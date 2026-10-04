@@ -3,7 +3,7 @@ import type { OasDocument } from '@oa-sdk/parser'
 import type { Command, CommandArgValue, CommandContext } from '../lib/types.js'
 import { optStr, bool, resolveArgPath } from '../lib/args.js'
 import { CliExitError } from '../lib/errors.js'
-import { compileTypeSpecInMemory, watchTypeSpec, type TypeSpecWatcher } from '../lib/typespec-mock-compiler.js'
+import type { TypeSpecCompilationResult, TypeSpecWatcher } from '../lib/typespec-mock-compiler.js'
 import { parseSpecDocument, watchSpec, type SpecWatcher } from '../lib/spec-watcher.js'
 
 export interface MockCommandContext extends CommandContext {
@@ -62,7 +62,9 @@ export const mock: Command = {
     if (tspPath) {
       const resolvedTsp = resolveArgPath(args, 'tsp', context?.projectRoot)
       console.log(`[oa-gen mock] Compiling TypeSpec in-memory: ${resolvedTsp}...`)
-      let initial: Awaited<ReturnType<typeof compileTypeSpecInMemory>>
+      // TypeSpec 컴파일러(@typespec/*)는 --tsp 경로에서만 쓰므로 실행할 때 불러온다(oa-gen 전체 기동 비용 절감).
+      const { compileTypeSpecInMemory, watchTypeSpec } = await import('../lib/typespec-mock-compiler.js')
+      let initial: TypeSpecCompilationResult
       try {
         initial = await compileTypeSpecInMemory(resolvedTsp)
       } catch (err: any) {

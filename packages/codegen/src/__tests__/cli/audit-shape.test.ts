@@ -2,11 +2,8 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import * as fs from 'node:fs';
-import {
-  auditShapeCommand,
-  auditShapeFiles,
-  findTypeScriptFiles,
-} from '../../cli/commands/audit-shape.js';
+import { auditShapeCommand } from '../../cli/commands/audit-shape.js';
+import { auditShapeFiles, findTypeScriptFiles } from '../../cli/lib/audit-shape-files.js';
 import { CliExitError } from '../../cli/lib/errors.js';
 
 describe('CLI: oa-gen audit:shape', () => {
