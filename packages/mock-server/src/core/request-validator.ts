@@ -8,6 +8,7 @@ import type {
   OasSecurityRequirement,
   RouteIndex,
 } from '@oa-sdk/parser'
+import { escapeJsonPointerToken } from '@oa-sdk/parser/browser'
 import {
   redactValidationDetail,
   redactValidationDetails,
@@ -156,12 +157,12 @@ export function validateRequestSchemas(index: RouteIndex): MockValidationResult 
 
   for (const [openApiPath, methodMap] of index) {
     for (const [method, entry] of methodMap) {
-      const operationPath = `/routes/${escapePointer(openApiPath)}/${method}`
+      const operationPath = `/routes/${escapeJsonPointerToken(openApiPath)}/${method}`
 
       entry.parameters.forEach((param, index) => {
         if (param.in === 'querystring') {
           for (const [contentType, rawMediaType] of Object.entries(param.content ?? {})) {
-            const contentPath = `${operationPath}/parameters/${index}/content/${escapePointer(contentType)}`
+            const contentPath = `${operationPath}/parameters/${index}/content/${escapeJsonPointerToken(contentType)}`
             if ('$ref' in rawMediaType) {
               errors.push(schemaCompileError(contentPath, `미해결 Media Type $ref: ${rawMediaType.$ref}`))
               continue
@@ -183,7 +184,7 @@ export function validateRequestSchemas(index: RouteIndex): MockValidationResult 
       for (const [contentType, rawMediaType] of Object.entries(entry.requestBody.content ?? {})) {
         if ('$ref' in rawMediaType) {
           errors.push(schemaCompileError(
-            `${operationPath}/requestBody/content/${escapePointer(contentType)}`,
+            `${operationPath}/requestBody/content/${escapeJsonPointerToken(contentType)}`,
             `미해결 Media Type $ref: ${rawMediaType.$ref}`,
           ))
           continue
@@ -192,11 +193,11 @@ export function validateRequestSchemas(index: RouteIndex): MockValidationResult 
         const mediaType = rawMediaType as { schema?: OasSchema }
         if (!mediaType.schema) continue
         if (isXmlMediaType(contentType)) {
-          errors.push(...xmlScopeErrors(mediaType.schema, `${operationPath}/requestBody/content/${escapePointer(contentType)}/schema`))
+          errors.push(...xmlScopeErrors(mediaType.schema, `${operationPath}/requestBody/content/${escapeJsonPointerToken(contentType)}/schema`))
         }
         const compiled = compileSchema(
           mediaType.schema,
-          `${operationPath}/requestBody/content/${escapePointer(contentType)}/schema`,
+          `${operationPath}/requestBody/content/${escapeJsonPointerToken(contentType)}/schema`,
         )
         if (!compiled.ok) errors.push(compiled.error)
       }
@@ -279,7 +280,7 @@ function validateQuerystringParameter(
   param: OasParameter,
   raw: string | undefined,
 ): MockErrorDetailInput[] {
-  const path = `/querystring/${escapePointer(param.name)}`
+  const path = `/querystring/${escapeJsonPointerToken(param.name)}`
   if (raw === undefined) {
     return param.required
       ? [{ path, code: 'MISSING_REQUIRED_FIELD', message: `필수 querystring 파라미터 누락: '${param.name}'`, stage: 'validate' }]
@@ -573,7 +574,7 @@ function applyMultipartFieldEncoding(
   const parts = partsByName.get(fieldName)
   if (!parts || parts.length === 0) return
 
-  const path = `/body/${escapePointer(fieldName)}`
+  const path = `/body/${escapeJsonPointerToken(fieldName)}`
   if (hasExplicitStyleEncoding(encoding)) {
     const styled = deserializeMultipartStyle(fieldName, fieldSchema, encoding, parts, path, errors)
     if (styled.ok) body[fieldName] = styled.value
@@ -912,8 +913,4 @@ function multipartEncodingError(
     received,
     stage: 'parse',
   }
-}
-
-function escapePointer(segment: string): string {
-  return segment.replace(/~/g, '~0').replace(/\//g, '~1')
 }

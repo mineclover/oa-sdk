@@ -9,6 +9,7 @@ import type {
   OasParameter,
   Referenceable,
 } from '@oa-sdk/parser'
+import { unescapeJsonPointerToken } from '@oa-sdk/parser/browser'
 import type { RequestParts } from './request-validator.js'
 import type { PickedResponse } from './response-picker.js'
 import { pickFirstMediaType, resolveMediaTypeBody } from './media-body.js'
@@ -262,7 +263,7 @@ function readJsonPointer(
   if (!pointer.startsWith('/')) return { ok: false, error: 'unsupported' }
 
   let current = value
-  for (const token of pointer.slice(1).split('/').map(unescapePointerToken)) {
+  for (const token of pointer.slice(1).split('/').map(unescapeJsonPointerToken)) {
     if (Array.isArray(current)) {
       if (!/^(0|[1-9]\d*)$/.test(token)) return { ok: false, error: 'unresolved' }
       current = current[Number(token)]
@@ -278,10 +279,6 @@ function readJsonPointer(
   }
 
   return { ok: true, value: current }
-}
-
-function unescapePointerToken(token: string): string {
-  return token.replace(/~1/g, '/').replace(/~0/g, '~')
 }
 
 function unsupported(expression: string): EvaluationResult {

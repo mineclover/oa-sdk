@@ -1,4 +1,5 @@
 import type { OasSchema } from '@oa-sdk/parser'
+import { escapeJsonPointerToken } from '@oa-sdk/parser/browser'
 
 export const XML_SUPPORTED_SCOPE =
   'application/xml element-only scope: object child elements, repeated elements for arrays, primitive text values, and xml.name element renaming. Attributes, namespaces/prefixes, CDATA/text node modeling, nodeType values other than element, and wrapped-array XML Object semantics are not supported.'
@@ -119,10 +120,10 @@ export function collectUnsupportedXmlFeatures(
     features.push(...collectUnsupportedXmlFeatures(item, `${basePath}/prefixItems/${index}`, seen))
   })
   for (const [name, property] of Object.entries(schema.properties ?? {})) {
-    features.push(...collectUnsupportedXmlFeatures(property, `${basePath}/properties/${escapePointer(name)}`, seen))
+    features.push(...collectUnsupportedXmlFeatures(property, `${basePath}/properties/${escapeJsonPointerToken(name)}`, seen))
   }
   for (const [name, property] of Object.entries(schema.patternProperties ?? {})) {
-    features.push(...collectUnsupportedXmlFeatures(property, `${basePath}/patternProperties/${escapePointer(name)}`, seen))
+    features.push(...collectUnsupportedXmlFeatures(property, `${basePath}/patternProperties/${escapeJsonPointerToken(name)}`, seen))
   }
   if (schema.additionalProperties && typeof schema.additionalProperties === 'object') {
     features.push(...collectUnsupportedXmlFeatures(schema.additionalProperties, `${basePath}/additionalProperties`, seen))
@@ -390,8 +391,4 @@ function escapeXmlText(value: string): string {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&apos;')
-}
-
-function escapePointer(segment: string): string {
-  return segment.replace(/~/g, '~0').replace(/\//g, '~1')
 }
