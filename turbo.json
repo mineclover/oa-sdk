@@ -4,7 +4,7 @@
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
-      "inputs": ["src/**", "tsconfig.json", "package.json"],
+      "inputs": ["$TURBO_DEFAULT$"],
       "outputs": ["dist/**"]
     },
     "validate": {
@@ -18,13 +18,12 @@
     },
     "test": {
       "dependsOn": ["^build"],
-      "inputs": ["src/**", "test/**", "tests/**", "vitest.config.*", "vite.config.*", "tsconfig*.json"],
+      "inputs": ["$TURBO_DEFAULT$"],
       "outputs": []
     },
     "test:ci": {
       "dependsOn": ["^build"],
-      "inputs": ["src/**", "test/**", "tests/**", "vitest.config.*", "vite.config.*", "tsconfig*.json"],
-      "outputs": []
+      "cache": false
     },
     "dev": {
       "persistent": true,
@@ -32,7 +31,7 @@
     },
     "typecheck": {
       "dependsOn": ["^build"],
-      "inputs": ["src/**/*.ts", "tsconfig.json"]
+      "inputs": ["$TURBO_DEFAULT$"]
     },
     "clean": {
       "cache": false

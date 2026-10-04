@@ -40,7 +40,7 @@ parser의 algebra는 optional `const_` hook을 example/default/type보다 우선
 
 TypeSpec bundle check는 emitted, restored, expected OpenAPI 각각을 validation하고, TypeSpec AST provenance가 적용되는 경우 raw provenance도 확인한다. approval은 이 gate가 모두 유효할 때만 snapshot을 원자적으로 바꾼다. sidecar-authored bundle처럼 AST provenance가 적용되지 않는 입력은 별도 stability gate를 유지하되, snapshot promotion의 검증을 느슨하게 만들지는 않는다.
 
-root schema scripts는 codegen의 curated `schema-governance` facade만 사용한다. schemas package가 codegen internals를 deep import하면 Turbo cache input이 실제 의존성을 반영하지 못하고, package dependency를 추가하면 반대 방향 edge와 cycle이 생길 수 있다. facade와 명시적 Turbo input은 이 두 위험을 함께 줄인다.
+root schema scripts는 codegen의 curated `schema-governance` facade만 사용한다. schemas package가 codegen internals를 deep import하면 경계가 흐려지고, package dependency를 추가하면 반대 방향 edge와 cycle이 생길 수 있다. 그래서 package dependency 대신 `packages/schemas/turbo.json`의 build task가 `@oa-sdk/codegen#build`에 Turbo task 의존성을 둔다. facade가 실제로 끌어오는 codegen source는 `cli/lib` 밖(`config.ts`, `schema-pipeline/` 등)에도 있고, codegen이 import하는 core·ast-sync·openapi-projection-contract dist도 읽는다. task 의존성은 이 전체가 바뀌면 schemas build cache key를 바꾸고, 그 build가 끝나기 전에 schemas build를 시작하지 않는다. 명시적 Turbo input에는 codegen 밖의 root script(`scripts/schema-typespec-check.ts`, `scripts/lib/typespec-snapshot-promotion.ts`)와 root `package.json`만 남는다. CI가 Turbo cache를 run 사이에 보존하므로, 이 key가 빠뜨린 파일은 생성 파일 freshness check를 오래된 cache 결과로 통과시킬 수 있다.
 
 ## 변경 검토가 따라야 할 경계
 

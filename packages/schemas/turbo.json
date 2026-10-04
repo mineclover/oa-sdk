@@ -3,7 +3,7 @@
   "extends": ["//"],
   "tasks": {
     "build": {
-      "dependsOn": ["^build"],
+      "dependsOn": ["^build", "@oa-sdk/codegen#build"],
       "inputs": [
         "src/**",
         "!src/.builder/**",
@@ -15,9 +15,7 @@
         "package.json",
         "$TURBO_ROOT$/package.json",
         "$TURBO_ROOT$/scripts/schema-typespec-check.ts",
-        "$TURBO_ROOT$/scripts/lib/typespec-snapshot-promotion.ts",
-        "$TURBO_ROOT$/packages/codegen/src/schema-governance.ts",
-        "$TURBO_ROOT$/packages/codegen/src/cli/lib/**"
+        "$TURBO_ROOT$/scripts/lib/typespec-snapshot-promotion.ts"
       ],
       "outputs": [
         "dist/**",
