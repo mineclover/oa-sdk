@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { parseDocument, type OasDocument } from '@oa-sdk/parser'
+import { generateClient } from '@oa-sdk/client'
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
@@ -1371,6 +1372,134 @@ describe('generateTypes — webhooks', () => {
     expect(ts).toContain("method: 'post'")
     expect(ts).toContain("path: '/webhooks/orderCreated'")
     expect(ts).toContain('body: OrderCreatedWebhookBody')
+  })
+})
+
+/**
+ * `generateTypesFromSpec` parses without the deref pass so schema `$ref`s stay
+ * name references. Reference Objects at operation positions (Path Item,
+ * parameter, requestBody) are still resolved by the parser's route indexer, so
+ * the operation types match what the deref-based client generator imports.
+ */
+describe('generateTypesFromSpec — referenced operation components', () => {
+  const json = (schema: unknown) => ({ 'application/json': { schema } })
+  const petRef = { $ref: '#/components/schemas/Pet' }
+
+  function referencedComponentsSpec(): OasDocument {
+    return doc({
+      components: {
+        schemas: {
+          Pet: {
+            type: 'object',
+            required: ['id', 'name'],
+            properties: { id: { type: 'string' }, name: { type: 'string' } },
+          },
+        },
+        parameters: {
+          Limit: { name: 'limit', in: 'query', description: 'Component limit description', schema: { type: 'integer' } },
+        },
+        requestBodies: {
+          PetBody: { required: true, content: json(petRef) },
+        },
+        pathItems: {
+          PetById: {
+            parameters: [{ name: 'petId', in: 'path', required: true, schema: { type: 'string' } }],
+            get: {
+              operationId: 'getPet',
+              responses: { '200': { description: 'OK', content: json(petRef) } },
+            },
+          },
+          PetAdded: {
+            post: {
+              operationId: 'petAddedWebhook',
+              requestBody: { $ref: '#/components/requestBodies/PetBody' },
+              responses: { '204': { description: 'Acknowledged' } },
+            },
+          },
+        },
+      },
+      paths: {
+        '/pets': {
+          get: {
+            operationId: 'listPets',
+            parameters: [{ $ref: '#/components/parameters/Limit', description: 'Page size for this listing' }],
+            responses: { '200': { description: 'OK', content: json({ type: 'array', items: petRef }) } },
+          },
+          post: {
+            operationId: 'createPet',
+            requestBody: { $ref: '#/components/requestBodies/PetBody' },
+            responses: { '201': { description: 'Created', content: json(petRef) } },
+          },
+        },
+        '/pets/{petId}': { $ref: '#/components/pathItems/PetById' },
+      },
+      webhooks: {
+        petAdded: { $ref: '#/components/pathItems/PetAdded' },
+      },
+    } as Partial<OasDocument>)
+  }
+
+  /** The body of `export type <name> = { ... }` up to its closing brace. */
+  function objectDeclaration(ts: string, name: string): string {
+    const start = ts.indexOf(`export type ${name} = {`)
+    expect(start, `${name} is declared`).toBeGreaterThanOrEqual(0)
+    return ts.slice(start, ts.indexOf('\n}', start) + 2)
+  }
+
+  function exportedTypeNames(ts: string): Set<string> {
+    return new Set([...ts.matchAll(/^export (?:type|interface) ([A-Za-z_$][\w$]*)/gm)].map(match => match[1]!))
+  }
+
+  it('a $ref requestBody yields <Op>Body that keeps the schema name and a body field on <Op>Op', () => {
+    const ts = generateTypesFromSpec(referencedComponentsSpec())
+
+    expect(ts).toContain('export type CreatePetBody = Pet\n')
+    const op = objectDeclaration(ts, 'CreatePetOp')
+    expect(op).toContain('body: CreatePetBody')
+    expect(op).toContain('response: CreatePetResponse')
+  })
+
+  it('a Path Item $ref under paths yields the operation types of the referenced item', () => {
+    const ts = generateTypesFromSpec(referencedComponentsSpec())
+
+    expect(objectDeclaration(ts, 'GetPetPathParams')).toContain('petId: string')
+    expect(ts).toContain('export type GetPetResponse = Pet\n')
+    const op = objectDeclaration(ts, 'GetPetOp')
+    expect(op).toContain("path: '/pets/{petId}'")
+    expect(op).toContain('params: GetPetPathParams')
+    expect(op).toContain('response: GetPetResponse')
+  })
+
+  it('a Path Item $ref under webhooks yields the webhook operation types', () => {
+    const ts = generateTypesFromSpec(referencedComponentsSpec())
+
+    expect(ts).toContain('export type PetAddedWebhookBody = Pet\n')
+    const op = objectDeclaration(ts, 'PetAddedWebhookOp')
+    expect(op).toContain("path: '/webhooks/petAdded'")
+    expect(op).toContain('body: PetAddedWebhookBody')
+  })
+
+  it('a description beside a parameter $ref overrides the referenced description', () => {
+    const ts = generateTypesFromSpec(referencedComponentsSpec())
+
+    const params = objectDeclaration(ts, 'ListPetsQueryParams')
+    expect(params).toContain('/** Page size for this listing */')
+    expect(params).toContain('limit?: number')
+    expect(params).not.toContain('Component limit description')
+  })
+
+  it('declares every operation type the generated client imports from types.ts', () => {
+    const spec = referencedComponentsSpec()
+    const ts = generateTypesFromSpec(structuredClone(spec))
+    const client = generateClient(structuredClone(spec), { typesImport: './types.js' })
+
+    const importLine = client.match(/^import type \{ ([^}]+) \} from '\.\/types\.js'$/m)
+    expect(importLine, 'client imports operation types').not.toBeNull()
+    const imported = importLine![1]!.split(',').map(name => name.trim())
+    expect(imported).toEqual(expect.arrayContaining(['CreatePetBody', 'GetPetPathParams', 'GetPetResponse']))
+
+    const exported = exportedTypeNames(ts)
+    expect(imported.filter(name => !exported.has(name))).toEqual([])
   })
 })
 
