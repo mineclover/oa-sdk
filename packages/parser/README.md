@@ -16,7 +16,9 @@ Node.js **22 이상** (`>=22.0.0`)이 필요합니다.
 
 - `@oa-sdk/parser`는 Node용 root entry point입니다. Full parser, pipeline,
   definition API를 제공하며 `parseDocument()`에 Node-side `basePath`를 주면 external
-  `$ref`를 해석할 수 있습니다.
+  `$ref`를 해석할 수 있습니다. 순환 `$ref` 판정은 (문서, JSON Pointer) 단위입니다.
+  외부 파일 안의 `#/...`는 그 파일의 대상이고, 외부 파일이 `basePath` 파일을 다시
+  참조하면 진입 문서로 돌아온 순환으로 봅니다.
 - `@oa-sdk/parser/browser`는 browser에서 이미 로드된 document를 파싱합니다. In-memory/
   internal reference만 해석하며 external reference는 unresolved 상태로 남고 반환된
   document의 resolution metadata에 보고됩니다.
